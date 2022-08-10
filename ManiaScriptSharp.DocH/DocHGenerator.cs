@@ -85,64 +85,85 @@ public class DocHGenerator : ISourceGenerator
             return;
         }
 
-        var sourceCodeBuilder = BuildSourceCode(docHFile);
-
-        context.AddSource("DocH.g.cs", sourceCodeBuilder.ToString());
+        foreach (var sourceFile in BuildSourceCodeFiles(docHFile))
+        {
+            context.AddSource(sourceFile.FileName, sourceFile.SourceCode.ToString());
+        }
     }
 
-    private StringBuilder BuildSourceCode(string? docHFile)
+    private IEnumerable<SourceCodeFile> BuildSourceCodeFiles(string? docHFile)
     {
         using var reader = File.OpenText(docHFile);
-        
-        var sourceCodeBuilder = new StringBuilder();
-        sourceCodeBuilder.AppendLine("using System.Collections.Generic;");
-        sourceCodeBuilder.AppendLine();
-        sourceCodeBuilder.AppendLine("namespace ManiaScriptSharp;");
-        sourceCodeBuilder.AppendLine();
 
         while (!reader.EndOfStream)
         {
-            var line = reader.ReadLine().Trim();
+            var sourceCodeBuilder = new StringBuilder();
+            sourceCodeBuilder.AppendLine("using System.Collections.Generic;");
+            sourceCodeBuilder.AppendLine();
+            sourceCodeBuilder.AppendLine("namespace ManiaScriptSharp;");
+            sourceCodeBuilder.AppendLine();
 
-            if (string.IsNullOrWhiteSpace(line))
+            var hintName = default(string);
+
+            while (!reader.EndOfStream)
             {
-                continue;
+                var line = reader.ReadLine().Trim();
+
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                if (TryComment(line, reader, sourceCodeBuilder, depth: 0))
+                {
+                    continue;
+                }
+
+                if (TryReadClassOrStruct(line, reader, sourceCodeBuilder, out hintName))
+                {
+                    break;
+                }
+
+                if (TryReadNamespace(line, reader, sourceCodeBuilder, out hintName))
+                {
+                    break;
+                }
             }
 
-            if (TryComment(line, reader, sourceCodeBuilder, depth: 0))
+            sourceCodeBuilder.Replace("Array<", "IList<");
+
+            if (hintName is null)
             {
-                continue;
+                if (reader.EndOfStream)
+                {
+                    break;
+                }
+                else
+                {
+                    throw new Exception("Hint name is missing.");
+                }
             }
 
-            if (TryReadClassOrStruct(line, reader, sourceCodeBuilder))
-            {
-                continue;
-            }
-
-            if (TryReadNamespace(line, reader, sourceCodeBuilder))
-            {
-                continue;
-            }
+            yield return new SourceCodeFile($"{hintName}.g.cs", sourceCodeBuilder);
         }
-
-        sourceCodeBuilder.Replace("Array<", "IList<");
-
-        return sourceCodeBuilder;
     }
 
-    private bool TryReadNamespace(string line, StreamReader reader, StringBuilder builder)
+    private bool TryReadNamespace(string line, StreamReader reader, StringBuilder builder, out string? namespaceName)
     {
         var match = Regex.Match(line, @"namespace\s+(\w+?)\s*{");
 
         if (!match.Success)
         {
+            namespaceName = null;
             return false;
         }
 
         var nameGroup = match.Groups[1];
-        
+
+        namespaceName = nameGroup.Value;
+
         builder.Append("public static class ");
-        builder.Append(nameGroup.Value);
+        builder.Append(namespaceName);
         builder.AppendLine();
         builder.AppendLine("{");
 
@@ -188,12 +209,13 @@ public class DocHGenerator : ISourceGenerator
         return true;
     }
 
-    private bool TryReadClassOrStruct(string line, StreamReader reader, StringBuilder builder)
+    private bool TryReadClassOrStruct(string line, StreamReader reader, StringBuilder builder, out string? classOrStructName)
     {
         var match = Regex.Match(line, @"(class|struct)\s(\w+?)\s*?(:\s*?public\s(\w+?)\s*?)?{");
 
         if (!match.Success)
         {
+            classOrStructName = null;
             return false;
         }
         
@@ -201,11 +223,14 @@ public class DocHGenerator : ISourceGenerator
 
         if (!nameGroup.Success || ignoredClasses.Contains(nameGroup.Value))
         {
+            classOrStructName = null;
             return false;
         }
 
+        classOrStructName = nameGroup.Value;
+
         builder.Append("public class ");
-        builder.Append(nameGroup.Value);
+        builder.Append(classOrStructName);
 
         var inheritsNameGroup = match.Groups[4];
 
