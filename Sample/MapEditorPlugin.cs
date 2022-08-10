@@ -2,10 +2,10 @@
 
 namespace Sample;
 
-public class MapEditorPlugin : CMapEditorPlugin
+public class MapEditorPlugin : CMapEditorPlugin, IContext
 {
-    public void Init()
+    public void Execute()
     {
-        
+        throw new NotImplementedException();
     }
 }
