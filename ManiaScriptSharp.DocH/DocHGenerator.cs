@@ -118,11 +118,74 @@ public class DocHGenerator : ISourceGenerator
             {
                 continue;
             }
+
+            if (TryReadNamespace(line, reader, sourceCodeBuilder))
+            {
+                continue;
+            }
         }
 
         sourceCodeBuilder.Replace("Array<", "List<");
 
         return sourceCodeBuilder;
+    }
+
+    private bool TryReadNamespace(string line, StreamReader reader, StringBuilder builder)
+    {
+        var match = Regex.Match(line, @"namespace\s+(\w+?)\s*{");
+
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        var nameGroup = match.Groups[1];
+        
+        builder.Append("public static class ");
+        builder.Append(nameGroup.Value);
+        builder.AppendLine();
+        builder.AppendLine("{");
+
+        while (!reader.EndOfStream && !line.EndsWith("};"))
+        {
+            line = reader.ReadLine().Trim();
+
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            if (TryComment(line, reader, builder, depth: 1))
+            {
+                continue;
+            }
+
+            if (line.EndsWith("};"))
+            {
+                break;
+            }
+
+            if (TryReadEnum(line, reader, builder))
+            {
+                continue;
+            }
+
+            if (TryReadMethod(line, builder, isStatic: true))
+            {
+                continue;
+            }
+
+            if (TryReadProperty(line, builder))
+            {
+                continue;
+            }
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("}");
+        builder.AppendLine();
+
+        return true;
     }
 
     private bool TryReadClassOrStruct(string line, StreamReader reader, StringBuilder builder)
@@ -153,46 +216,43 @@ public class DocHGenerator : ISourceGenerator
         }
 
         builder.AppendLine();
-        builder.Append('{');
-        builder.AppendLine();
+        builder.AppendLine("{");
 
-        var memberLine = line;
-
-        while (!reader.EndOfStream && !memberLine.EndsWith("};"))
+        while (!reader.EndOfStream && !line.EndsWith("};"))
         {
-            memberLine = reader.ReadLine().Trim();
+            line = reader.ReadLine().Trim();
 
-            if (string.IsNullOrWhiteSpace(memberLine))
+            if (string.IsNullOrWhiteSpace(line))
             {
                 continue;
             }
 
-            if (TryComment(memberLine, reader, builder, depth: 1))
+            if (TryComment(line, reader, builder, depth: 1))
             {
                 continue;
             }
 
-            if (memberLine.EndsWith("};"))
+            if (line.EndsWith("};"))
             {
                 break;
             }
 
-            if (TryReadEnum(memberLine, reader, builder))
+            if (TryReadEnum(line, reader, builder))
             {
                 continue;
             }
 
-            if (TryReadIndexer(memberLine, builder))
+            if (TryReadIndexer(line, builder))
             {
                 continue;
             }
 
-            if (TryReadMethod(memberLine, builder))
+            if (TryReadMethod(line, builder, isStatic: false))
             {
                 continue;
             }
 
-            if (TryReadProperty(memberLine, builder))
+            if (TryReadProperty(line, builder))
             {
                 continue;
             }
@@ -281,18 +341,19 @@ public class DocHGenerator : ISourceGenerator
         return true;
     }
 
-    private bool TryReadMethod(string line, StringBuilder builder)
+    private bool TryReadMethod(string line, StringBuilder builder, bool isStatic)
     {
-        var match = Regex.Match(line, @"(\w+)\s+(\w+)\s*\((.*)\)\s*;");
+        var match = Regex.Match(line, @"((\w+)::)?(\w+)\s+(\w+)\s*\((.*)\)\s*;");
 
         if (!match.Success)
         {
             return false;
         }
 
-        var returnType = GetTypeBindOrDefault(match.Groups[1].Value);
-        var name = GetTypeBindOrDefault(match.Groups[2].Value);
-        var parameters = match.Groups[3].Value;
+        var typeOwnerGroup = match.Groups[2];
+        var returnType = GetTypeBindOrDefault(match.Groups[3].Value);
+        var name = GetTypeBindOrDefault(match.Groups[4].Value);
+        var parameters = match.Groups[5].Value;
 
         // Weird stuff at Nadeo side
         if (returnType == "void" && (name == "ItemList_Begin" || name == "ActionList_Begin"))
@@ -301,6 +362,18 @@ public class DocHGenerator : ISourceGenerator
         }
 
         builder.Append("\tpublic ");
+
+        if (isStatic)
+        {
+            builder.Append("static ");
+        }
+
+        if (typeOwnerGroup.Success)
+        {
+            builder.Append(typeOwnerGroup.Value);
+            builder.Append('.');
+        }
+
         builder.Append(returnType);
         builder.Append(' ');
         builder.Append(name);
