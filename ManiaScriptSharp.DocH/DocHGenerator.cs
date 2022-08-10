@@ -85,8 +85,15 @@ public class DocHGenerator : ISourceGenerator
             return;
         }
 
-        using var reader = File.OpenText(docHFile);
+        var sourceCodeBuilder = BuildSourceCode(docHFile);
 
+        context.AddSource("DocH.g.cs", sourceCodeBuilder.ToString());
+    }
+
+    private StringBuilder BuildSourceCode(string? docHFile)
+    {
+        using var reader = File.OpenText(docHFile);
+        
         var sourceCodeBuilder = new StringBuilder();
         sourceCodeBuilder.AppendLine("using System.Collections.Generic;");
         sourceCodeBuilder.AppendLine();
@@ -115,7 +122,7 @@ public class DocHGenerator : ISourceGenerator
 
         sourceCodeBuilder.Replace("Array<", "List<");
 
-        context.AddSource("DocH.g.cs", sourceCodeBuilder.ToString());
+        return sourceCodeBuilder;
     }
 
     private bool TryReadClassOrStruct(string line, StreamReader reader, StringBuilder builder)
@@ -286,6 +293,12 @@ public class DocHGenerator : ISourceGenerator
         var returnType = GetTypeBindOrDefault(match.Groups[1].Value);
         var name = GetTypeBindOrDefault(match.Groups[2].Value);
         var parameters = match.Groups[3].Value;
+
+        // Weird stuff at Nadeo side
+        if (returnType == "void" && (name == "ItemList_Begin" || name == "ActionList_Begin"))
+        {
+            builder.Append("// ");
+        }
 
         builder.Append("\tpublic ");
         builder.Append(returnType);
