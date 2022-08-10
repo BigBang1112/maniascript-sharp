@@ -125,7 +125,7 @@ public class DocHGenerator : ISourceGenerator
             }
         }
 
-        sourceCodeBuilder.Replace("Array<", "List<");
+        sourceCodeBuilder.Replace("Array<", "IList<");
 
         return sourceCodeBuilder;
     }
