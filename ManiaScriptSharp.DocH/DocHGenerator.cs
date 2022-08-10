@@ -36,9 +36,29 @@ public class DocHGenerator : ISourceGenerator
         '(', ')'
     };
 
-    private string GetTypeBindOrDefault(string type)
+    private string GetTypeBindOrDefault(string type, bool hasOwner = false)
     {
-        return typeBindDictionary.TryGetValue(type, out string typeBind) ? typeBind : type;
+        if (typeBindDictionary.TryGetValue(type, out string typeBind))
+        {
+            return typeBind;
+        }
+
+        if (hasOwner)
+        {
+            return type;
+        }
+
+        if (type.StartsWith("Array<"))
+        {
+            return "Array<" + GetTypeBindOrDefault(type.Substring(6, type.Length - 7), false) + ">";
+        }
+        
+        /*if (type.StartsWith("AssociativeArray<"))
+        {
+            return "Dictionary<" + GetTypeBindOrDefault(type.Substring(18, type.Length - 19), true) + ", " + GetTypeBindOrDefault(type.Substring(18, type.Length - 19), true) + ">";
+        }*/
+
+        return type.Replace("::", "."); // Hack
     }
 
     public void Initialize(GeneratorInitializationContext context)
@@ -67,7 +87,11 @@ public class DocHGenerator : ISourceGenerator
 
         using var reader = File.OpenText(docHFile);
 
-        var sourceCodeBuilder = new StringBuilder("namespace ManiaScriptSharp;\n\n");
+        var sourceCodeBuilder = new StringBuilder();
+        sourceCodeBuilder.AppendLine("using System.Collections.Generic;");
+        sourceCodeBuilder.AppendLine();
+        sourceCodeBuilder.AppendLine("namespace ManiaScriptSharp;");
+        sourceCodeBuilder.AppendLine();
 
         while (!reader.EndOfStream)
         {
@@ -78,11 +102,18 @@ public class DocHGenerator : ISourceGenerator
                 continue;
             }
 
+            if (TryComment(line, reader, sourceCodeBuilder, depth: 0))
+            {
+                continue;
+            }
+
             if (TryReadClassOrStruct(line, reader, sourceCodeBuilder))
             {
                 continue;
             }
         }
+
+        sourceCodeBuilder.Replace("Array<", "List<");
 
         context.AddSource($"DocH.g.cs", sourceCodeBuilder.ToString());
     }
@@ -120,11 +151,16 @@ public class DocHGenerator : ISourceGenerator
 
         var memberLine = line;
 
-        while (!reader.EndOfStream && memberLine.EndsWith("};") == false)
+        while (!reader.EndOfStream && !memberLine.EndsWith("};"))
         {
             memberLine = reader.ReadLine().Trim();
 
             if (string.IsNullOrWhiteSpace(memberLine))
+            {
+                continue;
+            }
+
+            if (TryComment(memberLine, reader, builder, depth: 1))
             {
                 continue;
             }
@@ -164,7 +200,7 @@ public class DocHGenerator : ISourceGenerator
 
     private bool TryReadProperty(string line, StringBuilder builder)
     {        
-        var match = Regex.Match(line, @"(const\s+)?((\w+)::)?(\w+)\s+(\w+);");
+        var match = Regex.Match(line, @"(const\s+)?((\w+)::)?([\w|<|>|:]+)\s+(\w+);");
 
         if (!match.Success)
         {
@@ -173,7 +209,7 @@ public class DocHGenerator : ISourceGenerator
         
         var isReadOnly = match.Groups[1].Success;
         var typeOwnerGroup = match.Groups[3];
-        var type = GetTypeBindOrDefault(match.Groups[4].Value);
+        var type = GetTypeBindOrDefault(match.Groups[4].Value, hasOwner: typeOwnerGroup.Success);
         var name = match.Groups[5].Value;
         
         builder.Append($"\tpublic ");
@@ -245,12 +281,23 @@ public class DocHGenerator : ISourceGenerator
 
         var paramMatches = Regex.Matches(parameters, @"((\w+)::)?(\w+?)\s+(\w+),?");
 
+        var alreadyUsedNames = new List<string>();
+
         for (var i = 0; i < paramMatches.Count; i++)
         {
             var paramMatch = paramMatches[i];
             var paramTypeOwnerGroup = paramMatch.Groups[2];
             var paramType = GetTypeBindOrDefault(paramMatch.Groups[3].Value);
             var paramName = paramMatch.Groups[4].Value;
+
+            var alreadyUsed = alreadyUsedNames.Contains(paramName);
+
+            if (alreadyUsed)
+            {
+                builder.Append("[ActualName(\"");
+                builder.Append(paramName);
+                builder.Append("\")] ");
+            }
 
             if (paramTypeOwnerGroup.Success)
             {
@@ -261,6 +308,15 @@ public class DocHGenerator : ISourceGenerator
             builder.Append(paramType);
             builder.Append(' ');
             builder.Append(paramName);
+
+            if (alreadyUsed)
+            {
+                builder.Append(i + 1);
+            }
+            else
+            {
+                alreadyUsedNames.Add(paramName);
+            }
 
             if (i < paramMatches.Count - 1)
             {
@@ -288,18 +344,16 @@ public class DocHGenerator : ISourceGenerator
         builder.AppendLine(enumName);
         builder.AppendLine("\t{");
 
-        var valueLine = line;
-
-        while (!reader.EndOfStream && valueLine.Trim().EndsWith("};") == false)
+        while (!reader.EndOfStream && !line.EndsWith("};"))
         {
-            valueLine = reader.ReadLine().Trim();
+            line = reader.ReadLine().Trim();
 
-            if (string.IsNullOrWhiteSpace(valueLine))
+            if (string.IsNullOrWhiteSpace(line))
             {
                 continue;
             }
 
-            if (valueLine.EndsWith("};"))
+            if (line.EndsWith("};"))
             {
                 break;
             }
@@ -308,31 +362,103 @@ public class DocHGenerator : ISourceGenerator
 
             var validValueLineCharArray = default(char[]);
 
-            for (var i = 0; i < valueLine.Length; i++)
+            for (var i = 0; i < line.Length; i++)
             {
-                var c = valueLine[i];
+                var c = line[i];
                 
                 if (enumForbiddenChars.Contains(c))
                 {
-                    validValueLineCharArray ??= valueLine.ToCharArray();
+                    validValueLineCharArray ??= line.ToCharArray();
                     validValueLineCharArray[i] = '_';
                 }
             }
 
             if (validValueLineCharArray is null)
             {
-                builder.AppendLine(valueLine);
+                builder.AppendLine(line);
                 continue;
             }
             
             builder.Append("[ActualName(\"");
-            builder.Append(valueLine.Replace(",", ""));
+            builder.Append(line.Replace(",", ""));
             builder.Append("\")] ");
             builder.AppendLine(new string(validValueLineCharArray));
         }
         
         builder.AppendLine("\t}");
         builder.AppendLine();
+
+        return true;
+    }
+
+    private bool TryComment(string line, StreamReader reader, StringBuilder builder, int depth)
+    {
+        if (!line.StartsWith("/*!"))
+        {
+            return false;
+        }
+
+        var comments = new List<string>();
+
+        while (!reader.EndOfStream && !line.EndsWith("*/"))
+        {
+            line = reader.ReadLine().Trim();
+            
+            if (line.EndsWith("*/"))
+            {
+                break;
+            }
+
+            if (line == "*")
+            {
+                comments.Add("");
+                continue;
+            }
+
+            if (line.StartsWith("* \\brief"))
+            {
+                line = line.Substring(8);
+            }
+            else if (line.StartsWith("*"))
+            {
+                line = line.Substring(2);
+            }
+
+            line = line.TrimStart();
+
+            if (comments.Count > 0 || line != "")
+            {
+                comments.Add(line);
+            }
+        }
+
+        if (comments.Count > 0)
+        {
+            for (var i = 0; i < depth; i++)
+            {
+                builder.Append("\t");
+            }
+
+            builder.AppendLine("/// <summary>");
+
+            foreach (var comment in comments)
+            {
+                for (var i = 0; i < depth; i++)
+                {
+                    builder.Append("\t");
+                }
+                
+                builder.Append("/// ");
+                builder.AppendLine(comment);
+            }
+
+            for (var i = 0; i < depth; i++)
+            {
+                builder.Append("\t");
+            }
+            
+            builder.AppendLine("/// </summary>");
+        }
 
         return true;
     }
