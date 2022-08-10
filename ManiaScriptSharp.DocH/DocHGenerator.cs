@@ -30,7 +30,7 @@ public class DocHGenerator : ISourceGenerator
         { "Boolean", "bool" },
         { "Text", "string" },
     };
-    
+
     private readonly char[] enumForbiddenChars = new[]
     {
         '(', ')'
@@ -115,7 +115,7 @@ public class DocHGenerator : ISourceGenerator
 
         sourceCodeBuilder.Replace("Array<", "List<");
 
-        context.AddSource($"DocH.g.cs", sourceCodeBuilder.ToString());
+        context.AddSource("DocH.g.cs", sourceCodeBuilder.ToString());
     }
 
     private bool TryReadClassOrStruct(string line, StreamReader reader, StringBuilder builder)
@@ -134,14 +134,14 @@ public class DocHGenerator : ISourceGenerator
             return false;
         }
 
-        builder.Append($"public class ");
+        builder.Append("public class ");
         builder.Append(nameGroup.Value);
 
         var inheritsNameGroup = match.Groups[4];
 
         if (inheritsNameGroup.Success)
         {
-            builder.Append($" : ");
+            builder.Append(" : ");
             builder.Append(inheritsNameGroup.Value);
         }
 
@@ -211,8 +211,17 @@ public class DocHGenerator : ISourceGenerator
         var typeOwnerGroup = match.Groups[3];
         var type = GetTypeBindOrDefault(match.Groups[4].Value, hasOwner: typeOwnerGroup.Success);
         var name = match.Groups[5].Value;
+
+        builder.Append('\t');
+
+        if (string.Equals(type, name))
+        {
+            builder.Append("[ActualName(\"");
+            builder.Append(name);
+            builder.Append("\")] ");
+        }
         
-        builder.Append($"\tpublic ");
+        builder.Append("public ");
 
         if (typeOwnerGroup.Success)
         {
@@ -223,6 +232,12 @@ public class DocHGenerator : ISourceGenerator
         builder.Append(type);
         builder.Append(' ');
         builder.Append(name);
+
+        if (string.Equals(type, name))
+        {
+            builder.Append('E');
+        }
+        
         builder.Append(" { get; ");
 
         if (!isReadOnly)
@@ -248,7 +263,7 @@ public class DocHGenerator : ISourceGenerator
         var paramType = GetTypeBindOrDefault(match.Groups[2].Value);
         var paramName = match.Groups[3].Value;
 
-        builder.Append($"\tpublic ");
+        builder.Append("\tpublic ");
         builder.Append(returnType);
         builder.Append(" this[");
         builder.Append(paramType);
@@ -272,7 +287,7 @@ public class DocHGenerator : ISourceGenerator
         var name = GetTypeBindOrDefault(match.Groups[2].Value);
         var parameters = match.Groups[3].Value;
 
-        builder.Append($"\tpublic ");
+        builder.Append("\tpublic ");
         builder.Append(returnType);
         builder.Append(' ');
         builder.Append(name);
