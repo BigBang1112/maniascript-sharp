@@ -31,10 +31,10 @@ public class DocHGenerator : ISourceGenerator
         { "Text", "string" },
     };
 
-    private readonly char[] enumForbiddenChars = new[]
+    private readonly HashSet<char> enumForbiddenChars = new(new[]
     {
-        '(', ')'
-    };
+        '(', ')', ' ', '*'
+    });
 
     private string GetTypeBindOrDefault(string type, bool hasOwner = false)
     {
@@ -352,7 +352,14 @@ public class DocHGenerator : ISourceGenerator
             }
         }
         
-        builder.AppendLine(") { }");
+        builder.Append(") { ");
+
+        if (returnType != "void")
+        {
+            builder.Append("return default; ");
+        }
+
+        builder.AppendLine("}");
 
         return true;
     }
