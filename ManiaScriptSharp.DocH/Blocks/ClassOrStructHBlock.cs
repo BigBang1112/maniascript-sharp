@@ -1,4 +1,5 @@
 ﻿using ManiaScriptSharp.DocH.Inlines;
+using System.Collections.Immutable;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -9,6 +10,13 @@ public class ClassOrStructHBlock : MajorHBlock
     // cached, in .NET 7 pls generate this via source generation
     private static readonly Regex regex = new(@"(class|struct)\s(\w+?)\s*?(:\s*?public\s(\w+?)\s*?)?{", RegexOptions.Compiled);
 
+    private static readonly ImmutableArray<Func<HGeneral>> hGenerals = ImmutableArray.Create<Func<HGeneral>>(
+        () => new EnumHBlock(),
+        () => new IndexerHInline(),
+        () => new MethodHInline(isStatic: false),
+        () => new PropertyHInline()
+    );
+    
     private static readonly HashSet<string> ignoredClasses = new(new[]
     {
         "Void",
@@ -21,6 +29,7 @@ public class ClassOrStructHBlock : MajorHBlock
     });
 
     protected override Regex? IdentifierRegex => regex;
+    protected override ImmutableArray<Func<HGeneral>> HGenerals => hGenerals;
 
     protected override bool BeforeRead(string line, Match? match, StringBuilder builder)
     {
@@ -52,28 +61,5 @@ public class ClassOrStructHBlock : MajorHBlock
         builder.AppendLine("{");
 
         return true;
-    }
-
-    protected override void ReadLine(string line, StreamReader reader, StringBuilder builder)
-    {
-        if (new EnumHBlock().TryRead(line, reader, builder))
-        {
-            return;
-        }
-
-        if (new IndexerHInline().TryRead(line, builder))
-        {
-            return;
-        }
-
-        if (new MethodHInline(isStatic: false).TryRead(line, builder))
-        {
-            return;
-        }
-
-        if (new PropertyHInline().TryRead(line, builder))
-        {
-            return;
-        }
     }
 }

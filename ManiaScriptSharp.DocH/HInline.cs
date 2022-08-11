@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace ManiaScriptSharp.DocH;
 
-public abstract class HInline
+public abstract class HInline : HGeneral
 {
     private static readonly Dictionary<string, string> typeBindDictionary = new()
     {

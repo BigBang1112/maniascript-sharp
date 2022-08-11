@@ -1,4 +1,5 @@
 ﻿using ManiaScriptSharp.DocH.Inlines;
+using System.Collections.Immutable;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -8,8 +9,15 @@ public class NamespaceHBlock : MajorHBlock
 {
     // cached, in .NET 7 pls generate this via source generation
     private static readonly Regex regex = new(@"namespace\s+(\w+?)\s*{", RegexOptions.Compiled);
+    
+    private static readonly ImmutableArray<Func<HGeneral>> hGenerals = ImmutableArray.Create<Func<HGeneral>>(
+        () => new EnumHBlock(),
+        () => new MethodHInline(isStatic: true),
+        () => new PropertyHInline() // should be ConstHInline
+    );
 
     protected override Regex? IdentifierRegex => regex;
+    protected override ImmutableArray<Func<HGeneral>> HGenerals => hGenerals;
 
     protected override bool BeforeRead(string line, Match? match, StringBuilder builder)
     {
@@ -28,24 +36,5 @@ public class NamespaceHBlock : MajorHBlock
         builder.AppendLine("{");
 
         return true;
-    }
-
-    protected override void ReadLine(string line, StreamReader reader, StringBuilder builder)
-    {
-        if (new EnumHBlock().TryRead(line, reader, builder))
-        {
-            return;
-        }
-
-        if (new MethodHInline(isStatic: true).TryRead(line, builder))
-        {
-            return;
-        }
-
-        // should be ConstHInline here
-        if (new PropertyHInline().TryRead(line, builder))
-        {
-            return;
-        }
     }
 }

@@ -1,10 +1,9 @@
 ﻿using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
 
 namespace ManiaScriptSharp.DocH;
 
-public abstract class HBlock
+public abstract class HBlock : HGeneral
 {
     protected virtual Regex? IdentifierRegex { get; } = null;
     protected virtual string? Start { get; } = null;

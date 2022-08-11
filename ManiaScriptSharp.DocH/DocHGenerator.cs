@@ -11,6 +11,13 @@ namespace ManiaScriptSharp.DocH;
 [Generator]
 public class DocHGenerator : ISourceGenerator
 {
+    private readonly Func<HBlock>[] hBlocks = new Func<HBlock>[]
+    {
+        () => new CommentHBlock(depth: 0),
+        () => new ClassOrStructHBlock(),
+        () => new NamespaceHBlock()
+    };
+
     public void Initialize(GeneratorInitializationContext context)
     {
 #if DEBUG
@@ -74,25 +81,26 @@ public class DocHGenerator : ISourceGenerator
             {
                 continue;
             }
-            
-            if (new CommentHBlock(depth: 0).TryRead(line, reader, sourceCodeBuilder))
-            {
-                continue;
-            }
 
-            var classOrStructHBlock = new ClassOrStructHBlock();
-
-            if (classOrStructHBlock.TryRead(line, reader, sourceCodeBuilder))
+            foreach (var func in hBlocks)
             {
-                hintName = classOrStructHBlock.Name;
+                var block = func();
+
+                if (!block.TryRead(line, reader, sourceCodeBuilder))
+                {
+                    continue;
+                }
+                
+                if (block is MajorHBlock majorBlock)
+                {
+                    hintName = majorBlock.Name;
+                }
+
                 break;
             }
 
-            var namespaceHBlock = new NamespaceHBlock();
-
-            if (namespaceHBlock.TryRead(line, reader, sourceCodeBuilder))
+            if (hintName is not null)
             {
-                hintName = namespaceHBlock.Name;
                 break;
             }
         }

@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Collections.Immutable;
+using System.Text;
 
 namespace ManiaScriptSharp.DocH.Blocks;
 
@@ -8,11 +9,26 @@ public abstract class MajorHBlock : HBlock
 
     protected override string End => "};";
 
+    protected abstract ImmutableArray<Func<HGeneral>> HGenerals { get; }
+
     protected override void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
     {
-        if (new CommentHBlock(depth: 1).TryRead(line, reader, builder))
+        _ = new CommentHBlock(depth: 1).TryRead(line, reader, builder);
+    }
+
+    protected override void ReadLine(string line, StreamReader reader, StringBuilder builder)
+    {
+        foreach (var func in HGenerals)
         {
-            return;
+            switch (func())
+            {
+                case HBlock block:
+                    block.TryRead(line, reader, builder);
+                    break;
+                case HInline inline:
+                    inline.TryRead(line, builder);
+                    break;
+            }
         }
     }
 
