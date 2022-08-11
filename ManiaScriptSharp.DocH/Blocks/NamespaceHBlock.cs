@@ -62,7 +62,6 @@ public class NamespaceHBlock : HBlock
 
     protected override void AfterRead(StringBuilder builder)
     {
-        builder.AppendLine();
         builder.AppendLine("}");
         builder.AppendLine();
     }
