@@ -24,13 +24,15 @@ internal class MethodHInline : HInline
         var name = GetTypeBindOrDefault(match.Groups[4].Value);
         var parameters = match.Groups[5].Value;
 
+        builder.Append('\t');
+
         // Weird stuff at Nadeo side
         if (returnType == "void" && (name == "ItemList_Begin" || name == "ActionList_Begin"))
         {
             builder.Append("// ");
         }
 
-        builder.Append("\tpublic ");
+        builder.Append("public ");
 
         if (isStatic)
         {
