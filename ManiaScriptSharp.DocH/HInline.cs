@@ -32,7 +32,7 @@ public abstract class HInline : HGeneral
 
     protected internal abstract void Read(Match match, StringBuilder builder);
 
-    protected internal string GetTypeBindOrDefault(string type, bool hasOwner = false)
+    protected static internal string GetTypeBindOrDefault(string type, bool hasOwner = false)
     {
         if (typeBindDictionary.TryGetValue(type, out string typeBind))
         {
