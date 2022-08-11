@@ -13,7 +13,7 @@ public class NamespaceHBlock : MajorHBlock
     private static readonly ImmutableArray<Func<HGeneral>> hGenerals = ImmutableArray.Create<Func<HGeneral>>(
         () => new EnumHBlock(),
         () => new MethodHInline(isStatic: true),
-        () => new PropertyHInline() // should be ConstHInline
+        () => new ConstHInline()
     );
 
     protected override Regex? IdentifierRegex => regex;
