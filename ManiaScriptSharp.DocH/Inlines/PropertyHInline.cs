@@ -10,7 +10,7 @@ public class PropertyHInline : HInline
 
     public override Regex IdentifierRegex => regex;
 
-    protected override void Read(Match match, StringBuilder builder)
+    protected internal override void Read(Match match, StringBuilder builder)
     {
         var isReadOnly = match.Groups[1].Success;
         var typeOwnerGroup = match.Groups[3];

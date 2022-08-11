@@ -7,16 +7,16 @@ public abstract class MajorHBlock : HBlock
 {
     public string? Name { get; protected set; }
 
-    protected override string End => "};";
+    protected internal override string End => "};";
 
-    protected abstract ImmutableArray<Func<HGeneral>> HGenerals { get; }
+    protected internal abstract ImmutableArray<Func<HGeneral>> HGenerals { get; }
 
-    protected override void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
+    protected internal override void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
     {
         _ = new CommentHBlock(depth: 1).TryRead(line, reader, builder);
     }
 
-    protected override void ReadLine(string line, StreamReader reader, StringBuilder builder)
+    protected internal override void ReadLine(string line, StreamReader reader, StringBuilder builder)
     {
         foreach (var func in HGenerals)
         {
@@ -32,7 +32,7 @@ public abstract class MajorHBlock : HBlock
         }
     }
 
-    protected override void AfterRead(StringBuilder builder)
+    protected internal override void AfterRead(StringBuilder builder)
     {
         builder.AppendLine("}");
         builder.AppendLine();

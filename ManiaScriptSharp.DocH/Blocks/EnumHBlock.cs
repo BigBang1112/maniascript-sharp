@@ -13,10 +13,10 @@ public class EnumHBlock : HBlock
         '(', ')', ' ', '*'
     });
 
-    protected override Regex? IdentifierRegex => regex;
-    protected override string End => "};";
+    protected internal override Regex? IdentifierRegex => regex;
+    protected internal override string End => "};";
 
-    protected override bool BeforeRead(string line, Match? match, StringBuilder builder)
+    protected internal override bool BeforeRead(string line, Match? match, StringBuilder builder)
     {
         if (match is null)
         {
@@ -32,7 +32,7 @@ public class EnumHBlock : HBlock
         return true;
     }
 
-    protected override void ReadLine(string line, StreamReader reader, StringBuilder builder)
+    protected internal override void ReadLine(string line, StreamReader reader, StringBuilder builder)
     {
         builder.Append("\t\t");
 
@@ -61,7 +61,7 @@ public class EnumHBlock : HBlock
         builder.AppendLine(new string(validValueLineCharArray));
     }
 
-    protected override void AfterRead(StringBuilder builder)
+    protected internal override void AfterRead(StringBuilder builder)
     {
         builder.AppendLine("\t}");
         builder.AppendLine();

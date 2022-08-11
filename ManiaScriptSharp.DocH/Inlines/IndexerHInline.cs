@@ -10,7 +10,7 @@ public class IndexerHInline : HInline
 
     public override Regex IdentifierRegex => regex;
 
-    protected override void Read(Match match, StringBuilder builder)
+    protected internal override void Read(Match match, StringBuilder builder)
     {
         var returnType = GetTypeBindOrDefault(match.Groups[1].Value);
         var paramType = GetTypeBindOrDefault(match.Groups[2].Value);

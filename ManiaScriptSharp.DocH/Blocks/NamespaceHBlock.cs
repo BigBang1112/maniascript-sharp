@@ -16,10 +16,10 @@ public class NamespaceHBlock : MajorHBlock
         () => new ConstHInline()
     );
 
-    protected override Regex? IdentifierRegex => regex;
-    protected override ImmutableArray<Func<HGeneral>> HGenerals => hGenerals;
+    protected internal override Regex? IdentifierRegex => regex;
+    protected internal override ImmutableArray<Func<HGeneral>> HGenerals => hGenerals;
 
-    protected override bool BeforeRead(string line, Match? match, StringBuilder builder)
+    protected internal override bool BeforeRead(string line, Match? match, StringBuilder builder)
     {
         if (match is null)
         {

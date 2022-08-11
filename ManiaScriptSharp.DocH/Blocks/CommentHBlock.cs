@@ -7,16 +7,16 @@ public class CommentHBlock : HBlock
     private readonly List<string> comments = new();
     private readonly int depth;
 
-    protected override string? Start => "/*!";
-    protected override string End => "*/";
-    protected override bool UseEmptyLines => true;
+    protected internal override string? Start => "/*!";
+    protected internal override string End => "*/";
+    protected internal override bool UseEmptyLines => true;
 
     public CommentHBlock(int depth)
     {
         this.depth = depth;
     }
 
-    protected override void ReadLine(string line, StreamReader reader, StringBuilder builder)
+    protected internal override void ReadLine(string line, StreamReader reader, StringBuilder builder)
     {
         if (line == "*")
         {
@@ -41,7 +41,7 @@ public class CommentHBlock : HBlock
         }
     }
 
-    protected override void AfterRead(StringBuilder builder)
+    protected internal override void AfterRead(StringBuilder builder)
     {
         if (comments.Count <= 0)
         {

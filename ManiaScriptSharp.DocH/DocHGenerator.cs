@@ -48,7 +48,7 @@ public class DocHGenerator : ISourceGenerator
         }
     }
 
-    private IEnumerable<SourceCodeFile> BuildSourceCodeFiles(string? docHFile)
+    internal IEnumerable<SourceCodeFile> BuildSourceCodeFiles(string? docHFile)
     {
         using var reader = File.OpenText(docHFile);
 
@@ -63,7 +63,7 @@ public class DocHGenerator : ISourceGenerator
         }
     }
 
-    private SourceCodeFile? BuildSourceCodeFile(StreamReader reader)
+    internal SourceCodeFile? BuildSourceCodeFile(StreamReader reader)
     {
         var sourceCodeBuilder = new StringBuilder();
         sourceCodeBuilder.AppendLine("using System.Collections.Generic;");

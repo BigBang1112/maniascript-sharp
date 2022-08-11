@@ -5,10 +5,10 @@ namespace ManiaScriptSharp.DocH;
 
 public abstract class HBlock : HGeneral
 {
-    protected virtual Regex? IdentifierRegex { get; } = null;
-    protected virtual string? Start { get; } = null;
-    protected abstract string End { get; }
-    protected virtual bool UseEmptyLines { get; }
+    protected internal virtual Regex? IdentifierRegex { get; } = null;
+    protected internal virtual string? Start { get; } = null;
+    protected internal abstract string End { get; }
+    protected internal virtual bool UseEmptyLines { get; }
 
     public bool TryRead(string line, StreamReader reader, StringBuilder builder)
     {
@@ -36,12 +36,12 @@ public abstract class HBlock : HGeneral
         return true;
     }
 
-    protected virtual bool BeforeRead(string line, Match? match, StringBuilder builder)
+    protected internal virtual bool BeforeRead(string line, Match? match, StringBuilder builder)
     {
         return true;
     }
 
-    protected virtual void Read(string line, StreamReader reader, StringBuilder builder)
+    protected internal virtual void Read(string line, StreamReader reader, StringBuilder builder)
     {
         if (line.EndsWith(End))
         {
@@ -68,14 +68,14 @@ public abstract class HBlock : HGeneral
         }
     }
 
-    protected virtual void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
+    protected internal virtual void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
     {
 
     }
 
-    protected abstract void ReadLine(string line, StreamReader reader, StringBuilder builder);
+    protected internal abstract void ReadLine(string line, StreamReader reader, StringBuilder builder);
 
-    protected virtual void AfterRead(StringBuilder builder)
+    protected internal virtual void AfterRead(StringBuilder builder)
     {
 
     }

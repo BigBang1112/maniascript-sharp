@@ -10,7 +10,7 @@ public class ConstHInline : HInline
 
     public override Regex IdentifierRegex => regex;
 
-    protected override void Read(Match match, StringBuilder builder)
+    protected internal override void Read(Match match, StringBuilder builder)
     {
         var type = GetTypeBindOrDefault(match.Groups[1].Value);
         var name = match.Groups[2].Value;
@@ -42,7 +42,7 @@ public class ConstHInline : HInline
         builder.AppendLine(";");
     }
 
-    private static void AppendValueAsCorrectCSharpString(StringBuilder builder, string type, string value)
+    internal static void AppendValueAsCorrectCSharpString(StringBuilder builder, string type, string value)
     {
         if (type == "float")
         {

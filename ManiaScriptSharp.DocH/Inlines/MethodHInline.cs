@@ -17,7 +17,7 @@ internal class MethodHInline : HInline
         this.isStatic = isStatic;
     }
 
-    protected override void Read(Match match, StringBuilder builder)
+    protected internal override void Read(Match match, StringBuilder builder)
     {
         var typeOwnerGroup = match.Groups[2];
         var returnType = GetTypeBindOrDefault(match.Groups[3].Value);

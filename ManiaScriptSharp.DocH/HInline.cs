@@ -30,9 +30,9 @@ public abstract class HInline : HGeneral
         return true;
     }
 
-    protected abstract void Read(Match match, StringBuilder builder);
+    protected internal abstract void Read(Match match, StringBuilder builder);
 
-    protected string GetTypeBindOrDefault(string type, bool hasOwner = false)
+    protected internal string GetTypeBindOrDefault(string type, bool hasOwner = false)
     {
         if (typeBindDictionary.TryGetValue(type, out string typeBind))
         {
