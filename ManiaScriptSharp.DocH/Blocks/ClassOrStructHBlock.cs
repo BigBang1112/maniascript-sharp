@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace ManiaScriptSharp.DocH.Blocks;
 
-public class ClassOrStructHBlock : HBlock
+public class ClassOrStructHBlock : MajorHBlock
 {
     // cached, in .NET 7 pls generate this via source generation
     private static readonly Regex regex = new(@"(class|struct)\s(\w+?)\s*?(:\s*?public\s(\w+?)\s*?)?{", RegexOptions.Compiled);
@@ -20,10 +20,7 @@ public class ClassOrStructHBlock : HBlock
         "AssociativeArray"
     });
 
-    public string? ClassOrStructName { get; private set; }
-
     protected override Regex? IdentifierRegex => regex;
-    protected override string End => "};";
 
     protected override bool BeforeRead(string line, Match? match, StringBuilder builder)
     {
@@ -33,15 +30,15 @@ public class ClassOrStructHBlock : HBlock
         }
 
         var nameGroup = match.Groups[2];
-        ClassOrStructName = nameGroup.Value;
+        Name = nameGroup.Value;
 
-        if (ignoredClasses.Contains(ClassOrStructName))
+        if (ignoredClasses.Contains(Name))
         {
             return false;
         }
 
         builder.Append("public class ");
-        builder.Append(ClassOrStructName);
+        builder.Append(Name);
 
         var inheritsNameGroup = match.Groups[4];
 
@@ -55,14 +52,6 @@ public class ClassOrStructHBlock : HBlock
         builder.AppendLine("{");
 
         return true;
-    }
-
-    protected override void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
-    {
-        if (new CommentHBlock(depth: 1).TryRead(line, reader, builder))
-        {
-            return;
-        }
     }
 
     protected override void ReadLine(string line, StreamReader reader, StringBuilder builder)
@@ -86,11 +75,5 @@ public class ClassOrStructHBlock : HBlock
         {
             return;
         }
-    }
-
-    protected override void AfterRead(StringBuilder builder)
-    {
-        builder.AppendLine("}");
-        builder.AppendLine();
     }
 }

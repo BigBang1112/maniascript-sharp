@@ -4,15 +4,12 @@ using System.Text.RegularExpressions;
 
 namespace ManiaScriptSharp.DocH.Blocks;
 
-public class NamespaceHBlock : HBlock
+public class NamespaceHBlock : MajorHBlock
 {
     // cached, in .NET 7 pls generate this via source generation
     private static readonly Regex regex = new(@"namespace\s+(\w+?)\s*{", RegexOptions.Compiled);
 
-    public string? NamespaceName { get; private set; }
-
     protected override Regex? IdentifierRegex => regex;
-    protected override string End => "};";
 
     protected override bool BeforeRead(string line, Match? match, StringBuilder builder)
     {
@@ -23,22 +20,14 @@ public class NamespaceHBlock : HBlock
 
         var nameGroup = match.Groups[1];
 
-        NamespaceName = nameGroup.Value;
+        Name = nameGroup.Value;
 
         builder.Append("public static class ");
-        builder.Append(NamespaceName);
+        builder.Append(Name);
         builder.AppendLine();
         builder.AppendLine("{");
 
         return true;
-    }
-
-    protected override void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
-    {
-        if (new CommentHBlock(depth: 1).TryRead(line, reader, builder))
-        {
-            return;
-        }
     }
 
     protected override void ReadLine(string line, StreamReader reader, StringBuilder builder)
@@ -58,11 +47,5 @@ public class NamespaceHBlock : HBlock
         {
             return;
         }
-    }
-
-    protected override void AfterRead(StringBuilder builder)
-    {
-        builder.AppendLine("}");
-        builder.AppendLine();
     }
 }

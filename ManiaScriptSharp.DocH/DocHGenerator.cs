@@ -84,7 +84,7 @@ public class DocHGenerator : ISourceGenerator
 
             if (classOrStructHBlock.TryRead(line, reader, sourceCodeBuilder))
             {
-                hintName = classOrStructHBlock.ClassOrStructName;
+                hintName = classOrStructHBlock.Name;
                 break;
             }
 
@@ -92,7 +92,7 @@ public class DocHGenerator : ISourceGenerator
 
             if (namespaceHBlock.TryRead(line, reader, sourceCodeBuilder))
             {
-                hintName = namespaceHBlock.NamespaceName;
+                hintName = namespaceHBlock.Name;
                 break;
             }
         }
