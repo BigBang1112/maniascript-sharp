@@ -32,7 +32,7 @@ public class ConstHInline : HInline
 
         if (string.Equals(type, name))
         {
-            builder.Append('E');
+            builder.Append('C');
         }
 
         builder.Append(" = ");
