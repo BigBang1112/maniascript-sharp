@@ -6,7 +6,7 @@ namespace ManiaScriptSharp.DocH.Inlines;
 public class PropertyHInline : HInline
 {
     // cached, in .NET 7 pls generate this via source generation
-    private static readonly Regex regex = new(@"(const\s+)?((\w+)::)?([\w|<|>|:]+)\s+(\w+);", RegexOptions.Compiled);
+    private static readonly Regex regex = new(@"(const\s+)?((\w+)::)?([\w|<|>|:]+)(\[\])?\s+(\w+);", RegexOptions.Compiled);
 
     public override Regex IdentifierRegex => regex;
 
@@ -15,7 +15,8 @@ public class PropertyHInline : HInline
         var isReadOnly = match.Groups[1].Success;
         var typeOwnerGroup = match.Groups[3];
         var type = GetTypeBindOrDefault(match.Groups[4].Value, hasOwner: typeOwnerGroup.Success);
-        var name = match.Groups[5].Value;
+        var isArray = match.Groups[5].Success;
+        var name = match.Groups[6].Value;
 
         builder.Append('\t');
 
@@ -28,6 +29,11 @@ public class PropertyHInline : HInline
 
         builder.Append("public ");
 
+        if (isArray)
+        {
+            builder.Append("IList<");
+        }
+
         if (typeOwnerGroup.Success)
         {
             builder.Append(typeOwnerGroup.Value);
@@ -35,7 +41,16 @@ public class PropertyHInline : HInline
         }
 
         builder.Append(type);
-        builder.Append(' ');
+
+        if (isArray)
+        {
+            builder.Append("> ");
+        }
+        else
+        {
+            builder.Append(' ');
+        }
+        
         builder.Append(name);
 
         if (string.Equals(type, name))
