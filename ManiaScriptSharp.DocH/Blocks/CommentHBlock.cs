@@ -4,8 +4,9 @@ namespace ManiaScriptSharp.DocH.Blocks;
 
 public class CommentHBlock : HBlock
 {
-    private readonly List<string> comments = new();
     private readonly int depth;
+    
+    internal List<string> Comments { get; } = new();
 
     protected internal override string? Start => "/*!";
     protected internal override string End => "*/";
@@ -20,7 +21,7 @@ public class CommentHBlock : HBlock
     {
         if (line == "*")
         {
-            comments.Add("");
+            Comments.Add("");
             return;
         }
 
@@ -35,15 +36,15 @@ public class CommentHBlock : HBlock
 
         line = line.TrimStart();
 
-        if (comments.Count > 0 || line != "")
+        if (Comments.Count > 0 || line != "")
         {
-            comments.Add(line);
+            Comments.Add(line);
         }
     }
 
     protected internal override void AfterRead(StringBuilder builder)
     {
-        if (comments.Count <= 0)
+        if (Comments.Count <= 0)
         {
             return;
         }
@@ -55,7 +56,7 @@ public class CommentHBlock : HBlock
 
         builder.AppendLine("/// <summary>");
 
-        foreach (var comment in comments)
+        foreach (var comment in Comments)
         {
             for (var i = 0; i < depth; i++)
             {
