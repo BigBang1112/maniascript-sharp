@@ -23,7 +23,7 @@ public class DocHGenerator : ISourceGenerator
 #if DEBUG
         if (!Debugger.IsAttached)
         {
-            Debugger.Launch();
+            //Debugger.Launch();
         }
 #endif
     }
@@ -42,9 +42,17 @@ public class DocHGenerator : ISourceGenerator
             return;
         }
 
+        var hashset = new HashSet<string>();
+
         foreach (var sourceFile in BuildSourceCodeFiles(docHFile))
         {
+            if (hashset.Contains(sourceFile.FileName))
+            {
+                continue;
+            }
+            
             context.AddSource(sourceFile.FileName, sourceFile.SourceCode.ToString());
+            hashset.Add(sourceFile.FileName);
         }
     }
 
