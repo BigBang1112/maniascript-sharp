@@ -57,7 +57,14 @@ public class ClassOrStructHBlock : MajorHBlock
             ManualSymbol = (INamedTypeSymbol)symbol;
         }
 
-        builder.Append("public class ");
+        builder.Append("public ");
+
+        if (ManualSymbol is not null)
+        {
+            builder.Append("partial ");
+        }
+        
+        builder.Append("class ");
         builder.Append(Name);
 
         var inheritsNameGroup = match.Groups[4];
