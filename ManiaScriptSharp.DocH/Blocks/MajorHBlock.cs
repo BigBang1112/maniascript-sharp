@@ -1,4 +1,5 @@
-﻿using System.Collections.Immutable;
+﻿using Microsoft.CodeAnalysis;
+using System.Collections.Immutable;
 using System.Text;
 
 namespace ManiaScriptSharp.DocH.Blocks;
@@ -10,6 +11,14 @@ public abstract class MajorHBlock : HBlock
     protected internal override string End => "};";
 
     protected internal abstract ImmutableArray<Func<HGeneral>> HGenerals { get; }
+
+    protected internal CodeContext? Context { get; }
+    protected internal INamedTypeSymbol? ManualTypeSymbol { get; protected set; }
+
+    public MajorHBlock(CodeContext? context = null)
+    {
+        Context = context;
+    }
 
     protected internal override void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
     {

@@ -1,4 +1,5 @@
 ﻿using ManiaScriptSharp.DocH.Inlines;
+using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -31,6 +32,11 @@ public class ClassOrStructHBlock : MajorHBlock
     protected internal override Regex? IdentifierRegex => regex;
     protected internal override ImmutableArray<Func<HGeneral>> HGenerals => hGenerals;
 
+    public ClassOrStructHBlock(CodeContext? context = null) : base(context)
+    {
+        
+    }
+
     protected internal override bool BeforeRead(string line, Match? match, StringBuilder builder)
     {
         if (match is null)
@@ -44,6 +50,11 @@ public class ClassOrStructHBlock : MajorHBlock
         if (ignoredClasses.Contains(Name))
         {
             return false;
+        }
+
+        if (Context?.Types.TryGetValue(Name, out INamedTypeSymbol typeSymbol) == true)
+        {
+            ManualTypeSymbol = typeSymbol;
         }
 
         builder.Append("public class ");

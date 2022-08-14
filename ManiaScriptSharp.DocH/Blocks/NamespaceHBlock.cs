@@ -1,4 +1,5 @@
 ﻿using ManiaScriptSharp.DocH.Inlines;
+using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -19,6 +20,11 @@ public class NamespaceHBlock : MajorHBlock
     protected internal override Regex? IdentifierRegex => regex;
     protected internal override ImmutableArray<Func<HGeneral>> HGenerals => hGenerals;
 
+    public NamespaceHBlock(CodeContext? context = null) : base(context)
+    {
+        
+    }
+
     protected internal override bool BeforeRead(string line, Match? match, StringBuilder builder)
     {
         if (match is null)
@@ -26,9 +32,23 @@ public class NamespaceHBlock : MajorHBlock
             throw new Exception("Match is null in namespace but it shouldn't be.");
         }
 
-        var nameGroup = match.Groups[1];
+        Name = match.Groups[1].Value;
+        
+        if (Context?.Types.TryGetValue(Name, out INamedTypeSymbol typeSymbol) == true)
+        {
+            ManualTypeSymbol = typeSymbol;
 
-        Name = nameGroup.Value;
+            var atts = typeSymbol.GetAttributes();
+
+            foreach (var att in atts)
+            {
+                switch (att.AttributeClass?.Name)
+                {
+                    case "IgnoreGeneratedAttribute":
+                        return false;
+                }
+            }
+        }
 
         builder.Append("public static class ");
         builder.Append(Name);
