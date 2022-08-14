@@ -36,7 +36,7 @@ public class CommentHBlock : HBlock
 
         line = line.TrimStart();
 
-        if (Comments.Count > 0 || line != "")
+        if (Comments.Count > 0 || (line != "" && line != "(undocumented)"))
         {
             Comments.Add(line);
         }
