@@ -53,8 +53,17 @@ public class ClassOrStructHBlock : MajorHBlock
 
         if (inheritsNameGroup.Success)
         {
-            builder.Append(" : ");
-            builder.Append(inheritsNameGroup.Value);
+            var inheritsName = inheritsNameGroup.Value;
+
+            if (string.Equals(Name, inheritsName))
+            {
+                // show warning
+            }
+            else
+            {
+                builder.Append(" : ");
+                builder.Append(inheritsNameGroup.Value);
+            }
         }
 
         builder.AppendLine();
