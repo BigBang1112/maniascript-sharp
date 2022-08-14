@@ -10,26 +10,36 @@ public abstract class MajorHBlock : HBlock
 
     protected internal override string End => "};";
 
-    protected internal abstract ImmutableArray<Func<HGeneral>> HGenerals { get; }
+    protected internal abstract ImmutableArray<Func<SymbolContext?, HGeneral>> HGenerals { get; }
 
-    protected internal CodeContext? Context { get; }
-    protected internal INamedTypeSymbol? ManualTypeSymbol { get; protected set; }
-
-    public MajorHBlock(CodeContext? context = null)
+    protected internal new INamedTypeSymbol? ManualSymbol
     {
-        Context = context;
+        get => base.ManualSymbol as INamedTypeSymbol;
+        set => base.ManualSymbol = value;
+    }
+
+    public MajorHBlock(SymbolContext? context = null) : base(context)
+    {
+
     }
 
     protected internal override void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
     {
-        _ = new CommentHBlock(depth: 1).TryRead(line, reader, builder);
+        _ = new CommentHBlock(Context, depth: 1).TryRead(line, reader, builder);
     }
 
     protected internal override void ReadLine(string line, StreamReader reader, StringBuilder builder)
     {
+        var context = default(SymbolContext);
+
+        if (ManualSymbol is not null)
+        {
+            context = new(ManualSymbol.GetMembers().ToDictionary(x => x.Name));
+        }
+
         foreach (var func in HGenerals)
         {
-            switch (func())
+            switch (func(context))
             {
                 case HBlock block:
                     block.TryRead(line, reader, builder);

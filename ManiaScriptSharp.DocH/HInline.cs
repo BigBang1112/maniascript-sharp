@@ -16,6 +16,11 @@ public abstract class HInline : HGeneral
 
     public abstract Regex IdentifierRegex { get; }
 
+    public HInline(SymbolContext? context) : base(context)
+    {
+
+    }
+
     public virtual bool TryRead(string line, StringBuilder builder)
     {
         var match = IdentifierRegex.Match(line);

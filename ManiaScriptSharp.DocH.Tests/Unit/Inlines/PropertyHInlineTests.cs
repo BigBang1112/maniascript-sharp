@@ -68,4 +68,20 @@ public class PropertyHInlineTests
         // Assert
         Assert.Equal(expected, actual: builder.ToString());
     }
+
+    [Fact]
+    public void Read_ReadsProperty_Set_Array()
+    {
+        // Arrange
+        var hInline = new PropertyHInline();
+        var builder = new StringBuilder();
+        var match = hInline.IdentifierRegex.Match("\tInteger[] SlotsAvailable;");
+        var expected = $"\tpublic IList<int> SlotsAvailable {{ get; set; }}{Environment.NewLine}";
+
+        // Act
+        hInline.Read(match, builder);
+
+        // Assert
+        Assert.Equal(expected, actual: builder.ToString());
+    }
 }

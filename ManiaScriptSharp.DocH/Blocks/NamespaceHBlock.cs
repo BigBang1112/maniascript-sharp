@@ -11,16 +11,16 @@ public class NamespaceHBlock : MajorHBlock
     // cached, in .NET 7 pls generate this via source generation
     private static readonly Regex regex = new(@"namespace\s+(\w+?)\s*{", RegexOptions.Compiled);
     
-    private static readonly ImmutableArray<Func<HGeneral>> hGenerals = ImmutableArray.Create<Func<HGeneral>>(
-        () => new EnumHBlock(),
-        () => new MethodHInline(isStatic: true),
-        () => new ConstHInline()
+    private static readonly ImmutableArray<Func<SymbolContext?, HGeneral>> hGenerals = ImmutableArray.Create<Func<SymbolContext?, HGeneral>>(
+        context => new EnumHBlock(context),
+        context => new MethodHInline(context, isStatic: true),
+        context => new ConstHInline(context)
     );
 
     protected internal override Regex? IdentifierRegex => regex;
-    protected internal override ImmutableArray<Func<HGeneral>> HGenerals => hGenerals;
-
-    public NamespaceHBlock(CodeContext? context = null) : base(context)
+    protected internal override ImmutableArray<Func<SymbolContext?, HGeneral>> HGenerals => hGenerals;
+    
+    public NamespaceHBlock(SymbolContext? context = null) : base(context)
     {
         
     }
@@ -34,11 +34,11 @@ public class NamespaceHBlock : MajorHBlock
 
         Name = match.Groups[1].Value;
         
-        if (Context?.Types.TryGetValue(Name, out INamedTypeSymbol typeSymbol) == true)
+        if (Context?.Symbols.TryGetValue(Name, out ISymbol symbol) == true && symbol.IsStatic)
         {
-            ManualTypeSymbol = typeSymbol;
+            ManualSymbol = (INamedTypeSymbol)symbol;
 
-            var atts = typeSymbol.GetAttributes();
+            var atts = symbol.GetAttributes();
 
             foreach (var att in atts)
             {
@@ -50,7 +50,14 @@ public class NamespaceHBlock : MajorHBlock
             }
         }
 
-        builder.Append("public static class ");
+        builder.Append("public static ");
+
+        if (ManualSymbol is not null)
+        {
+            builder.Append("partial ");
+        }
+
+        builder.Append("class ");
         builder.Append(Name);
         builder.AppendLine();
         builder.AppendLine("{");

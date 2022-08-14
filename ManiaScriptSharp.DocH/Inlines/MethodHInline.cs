@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using Microsoft.CodeAnalysis;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace ManiaScriptSharp.DocH.Inlines;
@@ -12,7 +13,7 @@ internal class MethodHInline : HInline
 
     public override Regex IdentifierRegex => regex;
 
-    public MethodHInline(bool isStatic)
+    public MethodHInline(SymbolContext? context = null, bool isStatic = false) : base(context)
     {
         this.isStatic = isStatic;
     }
@@ -23,6 +24,16 @@ internal class MethodHInline : HInline
         var returnType = GetTypeBindOrDefault(match.Groups[3].Value);
         var name = GetTypeBindOrDefault(match.Groups[4].Value);
         var parameters = match.Groups[5].Value;
+
+        if (Context?.Symbols.TryGetValue(name, out ISymbol typeSymbol) == true)
+        {
+            if (typeSymbol is not IMethodSymbol methodSymbol)
+            {
+                throw new Exception($"Manual symbol '{typeSymbol.Name}' is not a method.");
+            }
+
+            ManualSymbol = methodSymbol;
+        }
 
         builder.Append('\t');
 
@@ -37,6 +48,11 @@ internal class MethodHInline : HInline
         if (isStatic)
         {
             builder.Append("static ");
+        }
+
+        if (ManualSymbol is not null)
+        {
+            builder.Append("partial ");
         }
 
         if (typeOwnerGroup.Success)
@@ -96,13 +112,20 @@ internal class MethodHInline : HInline
             }
         }
 
-        builder.Append(") { ");
-
-        if (returnType != "void")
+        if (ManualSymbol is null)
         {
-            builder.Append("return default; ");
-        }
+            builder.Append(") { ");
 
-        builder.AppendLine("}");
+            if (returnType != "void")
+            {
+                builder.Append("return default; ");
+            }
+
+            builder.AppendLine("}");
+        }
+        else
+        {
+            builder.AppendLine(");");
+        }
     }
 }

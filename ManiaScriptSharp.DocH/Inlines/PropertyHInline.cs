@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using Microsoft.CodeAnalysis;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace ManiaScriptSharp.DocH.Inlines;
@@ -10,6 +11,11 @@ public class PropertyHInline : HInline
 
     public override Regex IdentifierRegex => regex;
 
+    public PropertyHInline(SymbolContext? context = null) : base(context)
+    {
+
+    }
+
     protected internal override void Read(Match match, StringBuilder builder)
     {
         var isReadOnly = match.Groups[1].Success;
@@ -17,6 +23,11 @@ public class PropertyHInline : HInline
         var type = GetTypeBindOrDefault(match.Groups[4].Value, hasOwner: typeOwnerGroup.Success);
         var isArray = match.Groups[5].Success;
         var name = match.Groups[6].Value;
+
+        if (Context?.Symbols.TryGetValue(name, out ISymbol typeSymbol) == true)
+        {
+            ManualSymbol = typeSymbol;
+        }
 
         builder.Append('\t');
 

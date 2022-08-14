@@ -11,11 +11,11 @@ public class ClassOrStructHBlock : MajorHBlock
     // cached, in .NET 7 pls generate this via source generation
     private static readonly Regex regex = new(@"(class|struct)\s(\w+?)\s*?(:\s*?public\s(\w+?)\s*?)?{", RegexOptions.Compiled);
 
-    private static readonly ImmutableArray<Func<HGeneral>> hGenerals = ImmutableArray.Create<Func<HGeneral>>(
-        () => new EnumHBlock(),
-        () => new IndexerHInline(),
-        () => new MethodHInline(isStatic: false),
-        () => new PropertyHInline()
+    private static readonly ImmutableArray<Func<SymbolContext?, HGeneral>> hGenerals = ImmutableArray.Create<Func<SymbolContext?, HGeneral>>(
+        context => new EnumHBlock(context),
+        context => new IndexerHInline(context),
+        context => new MethodHInline(context, isStatic: false),
+        context => new PropertyHInline(context)
     );
     
     private static readonly HashSet<string> ignoredClasses = new(new[]
@@ -30,11 +30,11 @@ public class ClassOrStructHBlock : MajorHBlock
     });
 
     protected internal override Regex? IdentifierRegex => regex;
-    protected internal override ImmutableArray<Func<HGeneral>> HGenerals => hGenerals;
+    protected internal override ImmutableArray<Func<SymbolContext?, HGeneral>> HGenerals => hGenerals;
 
-    public ClassOrStructHBlock(CodeContext? context = null) : base(context)
+    public ClassOrStructHBlock(SymbolContext? context = null) : base(context)
     {
-        
+
     }
 
     protected internal override bool BeforeRead(string line, Match? match, StringBuilder builder)
@@ -52,9 +52,9 @@ public class ClassOrStructHBlock : MajorHBlock
             return false;
         }
 
-        if (Context?.Types.TryGetValue(Name, out INamedTypeSymbol typeSymbol) == true)
+        if (Context?.Symbols.TryGetValue(Name, out ISymbol symbol) == true)
         {
-            ManualTypeSymbol = typeSymbol;
+            ManualSymbol = (INamedTypeSymbol)symbol;
         }
 
         builder.Append("public class ");

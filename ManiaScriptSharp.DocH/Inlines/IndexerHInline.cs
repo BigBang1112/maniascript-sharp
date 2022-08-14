@@ -1,5 +1,7 @@
-﻿using System.Text;
+﻿using Microsoft.CodeAnalysis;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace ManiaScriptSharp.DocH.Inlines;
 
@@ -9,6 +11,11 @@ public class IndexerHInline : HInline
     private static readonly Regex regex = new(@"(\w+?)\soperator\s*?\[\s*?\]\s*?\(\s*(\w+?)\s(\w+?)\s*\);", RegexOptions.Compiled);
 
     public override Regex IdentifierRegex => regex;
+
+    public IndexerHInline(SymbolContext? context = null) : base(context)
+    {
+        
+    }
 
     protected internal override void Read(Match match, StringBuilder builder)
     {

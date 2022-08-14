@@ -12,7 +12,7 @@ public class CommentHBlock : HBlock
     protected internal override string End => "*/";
     protected internal override bool UseEmptyLines => true;
 
-    public CommentHBlock(int depth)
+    public CommentHBlock(SymbolContext? context = null, int depth = 0) : base(context)
     {
         this.depth = depth;
     }

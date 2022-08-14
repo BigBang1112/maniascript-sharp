@@ -26,7 +26,7 @@ public class MajorHBlockTests
     public void ReadLine_CanProcessBlock()
     {
         // Arrange
-        var hBlock = new MockMajorHBlock(ImmutableArray.Create<Func<HGeneral>>(() => new EnumHBlock()));
+        var hBlock = new MockMajorHBlock(ImmutableArray.Create<Func<SymbolContext?, HGeneral>>(context => new EnumHBlock(context)));
 
         var expected = $"\tpublic enum TestEnum{Environment.NewLine}" +
             $"\t{{{Environment.NewLine}" +
@@ -55,7 +55,7 @@ public class MajorHBlockTests
     public void ReadLine_CanProcessInline()
     {
         // Arrange
-        var hBlock = new MockMajorHBlock(ImmutableArray.Create<Func<HGeneral>>(() => new PropertyHInline()));
+        var hBlock = new MockMajorHBlock(ImmutableArray.Create<Func<SymbolContext?, HGeneral>>(context => new PropertyHInline(context)));
 
         var expected = $"\tpublic bool IsPartUnderground {{ get; }}{Environment.NewLine}";
 

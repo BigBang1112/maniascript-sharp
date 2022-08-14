@@ -5,14 +5,14 @@ namespace ManiaScriptSharp.DocH.Tests.Mocks;
 
 public class MockMajorHBlock : MajorHBlock
 {
-    protected internal override ImmutableArray<Func<HGeneral>> HGenerals { get; }
+    protected internal override ImmutableArray<Func<SymbolContext?, HGeneral>> HGenerals { get; }
 
-	public MockMajorHBlock(ImmutableArray<Func<HGeneral>> hGenerals)
+	public MockMajorHBlock(ImmutableArray<Func<SymbolContext?, HGeneral>> hGenerals)
 	{
 		HGenerals = hGenerals;
     }
 
-    public MockMajorHBlock() : this(ImmutableArray.Create<Func<HGeneral>>())
+    public MockMajorHBlock() : this(ImmutableArray.Create<Func<SymbolContext?, HGeneral>>())
     {
         
     }

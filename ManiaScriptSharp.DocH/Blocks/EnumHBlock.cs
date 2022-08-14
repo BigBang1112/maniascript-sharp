@@ -1,5 +1,7 @@
-﻿using System.Text;
+﻿using Microsoft.CodeAnalysis;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace ManiaScriptSharp.DocH.Blocks;
 
@@ -16,14 +18,24 @@ public class EnumHBlock : HBlock
     protected internal override Regex? IdentifierRegex => regex;
     protected internal override string End => "};";
 
+    public EnumHBlock(SymbolContext? context = null) : base(context)
+    {
+        
+    }
+
     protected internal override bool BeforeRead(string line, Match? match, StringBuilder builder)
     {
         if (match is null)
         {
             throw new Exception("Match is null in enum but it shouldn't be.");
         }
-
+        
         var enumName = match.Groups[1].Value;
+
+        if (Context?.Symbols.TryGetValue(enumName, out ISymbol symbol) == true)
+        {
+            ManualSymbol = symbol;
+        }
 
         builder.Append("\tpublic enum ");
         builder.AppendLine(enumName);

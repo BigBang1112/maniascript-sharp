@@ -10,6 +10,11 @@ public abstract class HBlock : HGeneral
     protected internal abstract string End { get; }
     protected internal virtual bool UseEmptyLines { get; }
 
+    public HBlock(SymbolContext? context) : base(context)
+    {
+
+    }
+
     public bool TryRead(string line, StreamReader reader, StringBuilder builder)
     {
         if (Start is not null && !line.StartsWith(Start))
