@@ -86,6 +86,10 @@ public class ClassOrStructHBlock : MajorHBlock
 
         builder.AppendLine();
         builder.AppendLine("{");
+        builder.Append("\tprotected internal ");
+        builder.Append(Name);
+        builder.AppendLine("() { }");
+        builder.AppendLine();
 
         return true;
     }

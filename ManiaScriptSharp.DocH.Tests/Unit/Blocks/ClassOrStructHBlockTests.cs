@@ -65,7 +65,7 @@ Save a matchsettings file.
         // Arrange
         var hBlock = new ClassOrStructHBlock();
         var builder = new StringBuilder();
-        var expected = $"public class CUIConfigMarker : CNod{Environment.NewLine}{{{Environment.NewLine}";
+        var expected = $"public class CUIConfigMarker : CNod{Environment.NewLine}{{{Environment.NewLine}\tprotected internal CUIConfigMarker() {{ }}{Environment.NewLine}{Environment.NewLine}";
         var exampleString = "class CUIConfigMarker : public CNod {";
         var match = hBlock.IdentifierRegex!.Match(exampleString);
 
