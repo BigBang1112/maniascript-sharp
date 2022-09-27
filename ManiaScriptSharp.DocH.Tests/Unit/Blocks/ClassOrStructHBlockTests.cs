@@ -58,4 +58,49 @@ Save a matchsettings file.
         // Assert
         Assert.Equal("};", actual);
     }
+
+    [Fact]
+    public void BeforeRead_StartsCode()
+    {
+        // Arrange
+        var hBlock = new ClassOrStructHBlock();
+        var builder = new StringBuilder();
+        var expected = $"public class CUIConfigMarker : CNod{Environment.NewLine}{{{Environment.NewLine}";
+        var exampleString = "class CUIConfigMarker : public CNod {";
+        var match = hBlock.IdentifierRegex!.Match(exampleString);
+
+        // Act
+        var result = hBlock.BeforeRead(exampleString, match, builder);
+
+        // Assert
+        Assert.True(result);
+        Assert.Equal(expected, actual: builder.ToString());
+    }
+
+    [Fact]
+    public void BeforeRead_MatchNull_Throws()
+    {
+        // Arrange
+        var hBlock = new ClassOrStructHBlock();
+        var builder = new StringBuilder();
+
+        // Act & Assert
+        Assert.Throws<Exception>(() => hBlock.BeforeRead("class CUIConfigMarker : public CNod {", match: null, builder));
+    }
+
+    [Fact]
+    public void BeforeRead_IsIgnoredClass()
+    {
+        // Arrange
+        var hBlock = new ClassOrStructHBlock();
+        var builder = new StringBuilder();
+        var exampleString = "struct Void {};";
+        var match = hBlock.IdentifierRegex!.Match(exampleString);
+
+        // Act
+        var result = hBlock.BeforeRead(exampleString, match, builder);
+
+        // Assert
+        Assert.False(result);
+    }
 }

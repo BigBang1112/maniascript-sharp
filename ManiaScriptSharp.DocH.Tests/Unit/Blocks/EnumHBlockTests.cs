@@ -43,9 +43,10 @@ public class EnumHBlockTests
         var match = hBlock.IdentifierRegex!.Match(exampleString);
 
         // Act
-        hBlock.BeforeRead(exampleString, match, builder);
+        var result = hBlock.BeforeRead(exampleString, match, builder);
 
         // Assert
+        Assert.True(result);
         Assert.Equal(expected, actual: builder.ToString());
     }
 

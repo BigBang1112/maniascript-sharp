@@ -56,4 +56,33 @@ Save a matchsettings file.
         // Assert
         Assert.Equal("};", actual);
     }
+
+    [Fact]
+    public void BeforeRead_StartsCode()
+    {
+        // Arrange
+        var hBlock = new NamespaceHBlock();
+        var builder = new StringBuilder();
+        var expected = $"public static class TextLib{Environment.NewLine}{{{Environment.NewLine}";
+        var exampleString = "namespace TextLib {";
+        var match = hBlock.IdentifierRegex!.Match(exampleString);
+
+        // Act
+        var result = hBlock.BeforeRead(exampleString, match, builder);
+
+        // Assert
+        Assert.True(result);
+        Assert.Equal(expected, actual: builder.ToString());
+    }
+
+    [Fact]
+    public void BeforeRead_MatchNull_Throws()
+    {
+        // Arrange
+        var hBlock = new NamespaceHBlock();
+        var builder = new StringBuilder();
+
+        // Act & Assert
+        Assert.Throws<Exception>(() => hBlock.BeforeRead("namespace TextLib {", match: null, builder));
+    }
 }
