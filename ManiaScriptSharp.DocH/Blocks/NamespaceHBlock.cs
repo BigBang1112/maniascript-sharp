@@ -58,8 +58,7 @@ public class NamespaceHBlock : MajorHBlock
         }
 
         builder.Append("class ");
-        builder.Append(Name);
-        builder.AppendLine();
+        builder.AppendLine(Name);
         builder.AppendLine("{");
 
         return true;

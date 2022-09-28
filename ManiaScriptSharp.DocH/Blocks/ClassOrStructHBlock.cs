@@ -86,11 +86,16 @@ public class ClassOrStructHBlock : MajorHBlock
 
         builder.AppendLine();
         builder.AppendLine("{");
+
+        return true;
+    }
+
+    protected internal override void AfterRead(StringBuilder builder)
+    {
+        builder.AppendLine();
         builder.Append("\tprotected internal ");
         builder.Append(Name);
         builder.AppendLine("() { }");
-        builder.AppendLine();
-
-        return true;
+        base.AfterRead(builder);
     }
 }

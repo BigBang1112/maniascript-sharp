@@ -19,7 +19,7 @@ public class ClassOrStructHBlockTests
         hBlock.AfterRead(builder);
 
         // Assert
-        Assert.Equal($"}}{Environment.NewLine}{Environment.NewLine}", builder.ToString());
+        Assert.Equal($"{Environment.NewLine}\tprotected internal {hBlock.Name}() {{ }}{Environment.NewLine}}}{Environment.NewLine}{Environment.NewLine}", builder.ToString());
     }
 
     [Fact]
@@ -65,7 +65,7 @@ Save a matchsettings file.
         // Arrange
         var hBlock = new ClassOrStructHBlock();
         var builder = new StringBuilder();
-        var expected = $"public class CUIConfigMarker : CNod{Environment.NewLine}{{{Environment.NewLine}\tprotected internal CUIConfigMarker() {{ }}{Environment.NewLine}{Environment.NewLine}";
+        var expected = $"public class CUIConfigMarker : CNod{Environment.NewLine}{{{Environment.NewLine}";
         var exampleString = "class CUIConfigMarker : public CNod {";
         var match = hBlock.IdentifierRegex!.Match(exampleString);
 
