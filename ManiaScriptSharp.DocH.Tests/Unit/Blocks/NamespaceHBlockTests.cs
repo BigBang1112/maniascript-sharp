@@ -1,5 +1,7 @@
 ﻿using ManiaScriptSharp.DocH.Blocks;
 using ManiaScriptSharp.DocH.Tests.Mocks;
+using Microsoft.CodeAnalysis;
+using System.Collections.Immutable;
 using System.Text;
 
 namespace ManiaScriptSharp.DocH.Tests.Unit.Blocks;
@@ -84,5 +86,66 @@ Save a matchsettings file.
 
         // Act & Assert
         Assert.Throws<Exception>(() => hBlock.BeforeRead("namespace TextLib {", match: null, builder));
+    }
+
+    [Fact]
+    public void BeforeRead_SymbolExists_NoAttributes()
+    {
+        // Arrange
+        var symbolMock = new Mock<INamedTypeSymbol>();
+        symbolMock.SetupGet(x => x.Name).Returns("TextLib");
+        symbolMock.SetupGet(x => x.IsStatic).Returns(true);
+        symbolMock.Setup(x => x.GetAttributes()).Returns(ImmutableArray.Create<AttributeData>());
+
+        var dict = new Dictionary<string, ISymbol>
+        {
+            { "TextLib", symbolMock.Object }
+        };
+
+        var context = new SymbolContext(dict);
+        var hBlock = new NamespaceHBlock(context);
+        var builder = new StringBuilder();
+        var expected = $"public static partial class TextLib{Environment.NewLine}{{{Environment.NewLine}";
+        var exampleString = "namespace TextLib {";
+        var match = hBlock.IdentifierRegex!.Match(exampleString);
+
+        // Act
+        var result = hBlock.BeforeRead(exampleString, match, builder);
+
+        // Assert
+        Assert.True(result);
+        Assert.Equal(expected, actual: builder.ToString());
+    }
+
+    [Fact]
+    public void BeforeRead_SymbolExists_HasIgnoreGeneratedAttribute()
+    {
+        // Arrange
+        var ignoreGeneratedSymbolMock = new Mock<INamedTypeSymbol>();
+        ignoreGeneratedSymbolMock.SetupGet(x => x.Name).Returns("IgnoreGeneratedAttribute");
+
+        var ignoreGeneratedMock = new MockAttributeData(ignoreGeneratedSymbolMock.Object);
+
+        var symbolMock = new Mock<INamedTypeSymbol>();
+        symbolMock.SetupGet(x => x.Name).Returns("TextLib");
+        symbolMock.SetupGet(x => x.IsStatic).Returns(true);
+        symbolMock.Setup(x => x.GetAttributes()).Returns(ImmutableArray.Create<AttributeData>(ignoreGeneratedMock));
+
+        var dict = new Dictionary<string, ISymbol>
+        {
+            { "TextLib", symbolMock.Object }
+        };
+
+        var context = new SymbolContext(dict);
+        var hBlock = new NamespaceHBlock(context);
+        var builder = new StringBuilder();
+        var exampleString = "namespace TextLib {";
+        var match = hBlock.IdentifierRegex!.Match(exampleString);
+
+        // Act
+        var result = hBlock.BeforeRead(exampleString, match, builder);
+
+        // Assert
+        Assert.False(result);
     }
 }

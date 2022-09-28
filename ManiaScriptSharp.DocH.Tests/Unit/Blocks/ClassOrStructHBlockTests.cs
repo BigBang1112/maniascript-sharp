@@ -1,6 +1,7 @@
 ﻿using ManiaScriptSharp.DocH.Blocks;
 using ManiaScriptSharp.DocH.Inlines;
 using ManiaScriptSharp.DocH.Tests.Mocks;
+using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 using System.Text;
 
@@ -102,5 +103,32 @@ Save a matchsettings file.
 
         // Assert
         Assert.False(result);
+    }
+    
+    [Fact]
+    public void BeforeRead_SymbolExists()
+    {
+        // Arrange
+        var namedTypeSymbol = new Mock<INamedTypeSymbol>();
+        namedTypeSymbol.SetupGet(x => x.Name).Returns("CUIConfigMarker");
+
+        var dict = new Dictionary<string, ISymbol>
+        {
+            { "CUIConfigMarker", namedTypeSymbol.Object }
+        };
+        
+        var context = new SymbolContext(dict);
+        var hBlock = new ClassOrStructHBlock(context);
+        var builder = new StringBuilder();
+        var expected = $"public partial class CUIConfigMarker : CNod{Environment.NewLine}{{{Environment.NewLine}";
+        var exampleString = "class CUIConfigMarker : public CNod {";
+        var match = hBlock.IdentifierRegex!.Match(exampleString);
+
+        // Act
+        var result = hBlock.BeforeRead(exampleString, match, builder);
+
+        // Assert
+        Assert.True(result);
+        Assert.Equal(expected, actual: builder.ToString());
     }
 }
