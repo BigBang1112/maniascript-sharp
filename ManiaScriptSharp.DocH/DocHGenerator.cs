@@ -96,7 +96,7 @@ public class DocHGenerator : ISourceGenerator
 
         while (!reader.EndOfStream)
         {
-            var line = reader.ReadLine().Trim();
+            var line = reader.ReadLine().TrimEnd();
 
             if (string.IsNullOrWhiteSpace(line))
             {
