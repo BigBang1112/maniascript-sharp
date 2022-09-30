@@ -1,6 +1,7 @@
 ﻿using ManiaScriptSharp.DocH.Blocks;
 using ManiaScriptSharp.DocH.Inlines;
 using ManiaScriptSharp.DocH.Tests.Mocks;
+using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 using System.Text;
 
@@ -56,6 +57,35 @@ public class MajorHBlockTests
     {
         // Arrange
         var hBlock = new MockMajorHBlock(ImmutableArray.Create<Func<SymbolContext?, HGeneral>>(context => new PropertyHInline(context)));
+
+        var expected = $"\tpublic bool IsPartUnderground {{ get; }}{Environment.NewLine}";
+
+        var exampleString = @"	const	Boolean IsPartUnderground;";
+        using var exampleStream = new MemoryStream(Encoding.UTF8.GetBytes(exampleString));
+        using var reader = new StreamReader(exampleStream);
+        var builder = new StringBuilder();
+
+        // Act
+        hBlock.ReadLine(reader.ReadLine()!, reader, builder);
+
+        // Assert
+        Assert.Equal(expected, actual: builder.ToString());
+    }
+
+    [Fact]
+    public void ReadLine_SymbolIncludesMembersInHContext()
+    {
+        // Arrange
+        var memberSymbolMock = new Mock<IPropertySymbol>();
+        memberSymbolMock.SetupGet(x => x.Name).Returns("IsPartUnderground");
+
+        var manualSymbolMock = new Mock<INamedTypeSymbol>();
+        manualSymbolMock.Setup(x => x.GetMembers()).Returns(ImmutableArray.Create<ISymbol>(memberSymbolMock.Object));
+
+        var hBlock = new MockMajorHBlock(ImmutableArray.Create<Func<SymbolContext?, HGeneral>>(context => new PropertyHInline(context)))
+        {
+            ManualSymbol = manualSymbolMock.Object
+        };
 
         var expected = $"\tpublic bool IsPartUnderground {{ get; }}{Environment.NewLine}";
 

@@ -87,7 +87,7 @@ public class ClassOrStructHBlock : MajorHBlock
         builder.AppendLine();
         builder.AppendLine("{");
 
-        return true;
+        return base.BeforeRead(line, match, builder);
     }
 
     protected internal override void AfterRead(StringBuilder builder)

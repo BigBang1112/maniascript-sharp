@@ -111,6 +111,7 @@ Save a matchsettings file.
         // Arrange
         var namedTypeSymbol = new Mock<INamedTypeSymbol>();
         namedTypeSymbol.SetupGet(x => x.Name).Returns("CUIConfigMarker");
+        namedTypeSymbol.Setup(x => x.GetMembers()).Returns(ImmutableArray<ISymbol>.Empty);
 
         var dict = new Dictionary<string, ISymbol>
         {

@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ManiaScriptSharp.DocH.Blocks;
 
@@ -11,6 +12,8 @@ public abstract class MajorHBlock : HBlock
     protected internal override string End => "};";
 
     protected internal abstract ImmutableArray<Func<SymbolContext?, HGeneral>> HGenerals { get; }
+    
+    protected internal SymbolContext? InnerContext { get; private set; }
 
     protected internal new INamedTypeSymbol? ManualSymbol
     {
@@ -20,7 +23,7 @@ public abstract class MajorHBlock : HBlock
 
     public MajorHBlock(SymbolContext? context = null) : base(context)
     {
-
+        
     }
 
     protected internal override void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
@@ -28,18 +31,21 @@ public abstract class MajorHBlock : HBlock
         _ = new CommentHBlock(Context, depth: 1).TryRead(line, reader, builder);
     }
 
-    protected internal override void ReadLine(string line, StreamReader reader, StringBuilder builder)
+    protected internal override bool BeforeRead(string line, Match? match, StringBuilder builder)
     {
-        var context = default(SymbolContext);
-
         if (ManualSymbol is not null)
         {
-            context = new(ManualSymbol.GetMembers().ToDictionary(x => x.Name));
+            InnerContext = new(ManualSymbol.GetMembers().ToDictionary(x => x.Name));
         }
 
+        return true;
+    }
+
+    protected internal override void ReadLine(string line, StreamReader reader, StringBuilder builder)
+    {
         foreach (var func in HGenerals)
         {
-            switch (func(context))
+            switch (func(InnerContext))
             {
                 case HBlock block:
                     block.TryRead(line, reader, builder);

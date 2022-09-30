@@ -61,6 +61,6 @@ public class NamespaceHBlock : MajorHBlock
         builder.AppendLine(Name);
         builder.AppendLine("{");
 
-        return true;
+        return base.BeforeRead(line, match, builder);
     }
 }

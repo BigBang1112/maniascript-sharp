@@ -95,7 +95,8 @@ Save a matchsettings file.
         var symbolMock = new Mock<INamedTypeSymbol>();
         symbolMock.SetupGet(x => x.Name).Returns("TextLib");
         symbolMock.SetupGet(x => x.IsStatic).Returns(true);
-        symbolMock.Setup(x => x.GetAttributes()).Returns(ImmutableArray.Create<AttributeData>());
+        symbolMock.Setup(x => x.GetMembers()).Returns(ImmutableArray<ISymbol>.Empty);
+        symbolMock.Setup(x => x.GetAttributes()).Returns(ImmutableArray<AttributeData>.Empty);
 
         var dict = new Dictionary<string, ISymbol>
         {
