@@ -89,7 +89,7 @@ Save a matchsettings file.
     }
 
     [Fact]
-    public void BeforeRead_SymbolExists_NoAttributes()
+    public void BeforeRead_SpecificSymbolExists_NoAttributes()
     {
         // Arrange
         var symbolMock = new Mock<INamedTypeSymbol>();
@@ -98,12 +98,10 @@ Save a matchsettings file.
         symbolMock.Setup(x => x.GetMembers()).Returns(ImmutableArray<ISymbol>.Empty);
         symbolMock.Setup(x => x.GetAttributes()).Returns(ImmutableArray<AttributeData>.Empty);
 
-        var dict = new Dictionary<string, ISymbol>
-        {
-            { "TextLib", symbolMock.Object }
-        };
+        var dict = ImmutableDictionary.CreateBuilder<string, ISymbol>();
+        dict.Add("TextLib", symbolMock.Object);
 
-        var context = new SymbolContext(dict);
+        var context = new SymbolContext(ImmutableDictionary<string, ISymbol>.Empty, dict.ToImmutable());
         var hBlock = new NamespaceHBlock(context);
         var builder = new StringBuilder();
         var expected = $"public static partial class TextLib{Environment.NewLine}{{{Environment.NewLine}";
@@ -119,7 +117,7 @@ Save a matchsettings file.
     }
 
     [Fact]
-    public void BeforeRead_SymbolExists_HasIgnoreGeneratedAttribute()
+    public void BeforeRead_SpecificSymbolExists_HasIgnoreGeneratedAttribute()
     {
         // Arrange
         var ignoreGeneratedSymbolMock = new Mock<INamedTypeSymbol>();
@@ -132,12 +130,10 @@ Save a matchsettings file.
         symbolMock.SetupGet(x => x.IsStatic).Returns(true);
         symbolMock.Setup(x => x.GetAttributes()).Returns(ImmutableArray.Create<AttributeData>(ignoreGeneratedMock));
 
-        var dict = new Dictionary<string, ISymbol>
-        {
-            { "TextLib", symbolMock.Object }
-        };
+        var dict = ImmutableDictionary.CreateBuilder<string, ISymbol>();
+        dict.Add("TextLib", symbolMock.Object);
 
-        var context = new SymbolContext(dict);
+        var context = new SymbolContext(ImmutableDictionary<string, ISymbol>.Empty, dict.ToImmutable());
         var hBlock = new NamespaceHBlock(context);
         var builder = new StringBuilder();
         var exampleString = "namespace TextLib {";

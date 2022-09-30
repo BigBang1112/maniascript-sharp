@@ -106,19 +106,18 @@ Save a matchsettings file.
     }
     
     [Fact]
-    public void BeforeRead_SymbolExists()
+    public void BeforeRead_SpecificSymbolExists()
     {
         // Arrange
         var namedTypeSymbol = new Mock<INamedTypeSymbol>();
         namedTypeSymbol.SetupGet(x => x.Name).Returns("CUIConfigMarker");
         namedTypeSymbol.Setup(x => x.GetMembers()).Returns(ImmutableArray<ISymbol>.Empty);
+        namedTypeSymbol.Setup(x => x.GetAttributes()).Returns(ImmutableArray<AttributeData>.Empty);
 
-        var dict = new Dictionary<string, ISymbol>
-        {
-            { "CUIConfigMarker", namedTypeSymbol.Object }
-        };
+        var dict = ImmutableDictionary.CreateBuilder<string, ISymbol>();
+        dict.Add("CUIConfigMarker", namedTypeSymbol.Object);
         
-        var context = new SymbolContext(dict);
+        var context = new SymbolContext(ImmutableDictionary<string, ISymbol>.Empty, dict.ToImmutable());
         var hBlock = new ClassOrStructHBlock(context);
         var builder = new StringBuilder();
         var expected = $"public partial class CUIConfigMarker : CNod{Environment.NewLine}{{{Environment.NewLine}";

@@ -24,9 +24,10 @@ public class PropertyHInline : HInline
         var isArray = match.Groups[5].Success;
         var name = match.Groups[6].Value;
 
-        if (Context?.Symbols.TryGetValue(name, out ISymbol typeSymbol) == true)
+        if (Context?.SpecificSymbols.TryGetValue(name, out ISymbol? typeSymbol) == true)
         {
             ManualSymbol = typeSymbol;
+            return;
         }
 
         builder.Append('\t');

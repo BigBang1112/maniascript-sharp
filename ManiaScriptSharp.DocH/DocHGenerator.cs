@@ -1,5 +1,6 @@
 ﻿using ManiaScriptSharp.DocH.Blocks;
 using Microsoft.CodeAnalysis;
+using System.Collections.Immutable;
 using System.Text;
 
 #if DEBUG
@@ -42,16 +43,29 @@ public class DocHGenerator : ISourceGenerator
             return;
         }
 
+        var maniaScriptSharpAssemblySymbol = context.Compilation
+            .SourceModule
+            .ReferencedAssemblySymbols
+            .First(x => x.Name == "ManiaScriptSharp");
+
+        var maniaScriptSharpSharedNamespace = maniaScriptSharpAssemblySymbol.GlobalNamespace
+            .GetNamespaceMembers()
+            .FirstOrDefault(x => x.Name == "ManiaScriptSharp");
+
+        var maniaScriptSharpSharedSymbols = maniaScriptSharpSharedNamespace.GetTypeMembers()
+            .Where(x => SymbolEqualityComparer.Default.Equals(x.ContainingAssembly, maniaScriptSharpAssemblySymbol))
+            .ToImmutableDictionary(x => x.Name, x => (ISymbol)x);
+
         var maniaScriptSharpNamespace = context.Compilation
             .GlobalNamespace
             .GetNamespaceMembers()
             .FirstOrDefault(x => x.Name == "ManiaScriptSharp");
-        
-        var maniaScriptSharpGameTypes = maniaScriptSharpNamespace.GetTypeMembers()
-            .Where(x => SymbolEqualityComparer.Default.Equals(x.ContainingAssembly, context.Compilation.Assembly))
-            .ToDictionary(x => x.Name, x => (ISymbol)x);
 
-        var symbolContext = new SymbolContext(maniaScriptSharpGameTypes);
+        var maniaScriptSharpSpecificSymbols = maniaScriptSharpNamespace.GetTypeMembers()
+            .Where(x => SymbolEqualityComparer.Default.Equals(x.ContainingAssembly, context.Compilation.Assembly))
+            .ToImmutableDictionary(x => x.Name, x => (ISymbol)x);
+
+        var symbolContext = new SymbolContext(maniaScriptSharpSharedSymbols, maniaScriptSharpSpecificSymbols);
 
         var hashset = new HashSet<string>();
 

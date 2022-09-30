@@ -22,7 +22,7 @@ public class ConstHInline : HInline
         var name = match.Groups[2].Value;
         var value = match.Groups[3].Value;
 
-        if (Context?.Symbols.TryGetValue(name, out ISymbol typeSymbol) == true)
+        if (Context?.SpecificSymbols.TryGetValue(name, out ISymbol? typeSymbol) == true)
         {
             ManualSymbol = typeSymbol;
         }
@@ -55,13 +55,12 @@ public class ConstHInline : HInline
 
     internal static void AppendValueAsCorrectCSharpString(StringBuilder builder, string type, string value)
     {
-        if (type == "float")
+        if (type != "float")
         {
-            builder.Append(value);
-            builder.Append('f');
-            return;
+            throw new Exception($"{type} not supported for const");
         }
-        
-        throw new Exception($"{type} not supported for const");
+
+        builder.Append(value);
+        builder.Append('f');
     }
 }

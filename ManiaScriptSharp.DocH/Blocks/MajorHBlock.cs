@@ -35,7 +35,7 @@ public abstract class MajorHBlock : HBlock
     {
         if (ManualSymbol is not null)
         {
-            InnerContext = new(ManualSymbol.GetMembers().ToDictionary(x => x.Name));
+            InnerContext = new(ImmutableDictionary<string, ISymbol>.Empty, ManualSymbol.GetMembers().ToImmutableDictionary(x => x.Name));
         }
 
         return true;

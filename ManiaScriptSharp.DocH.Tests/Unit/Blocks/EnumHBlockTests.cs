@@ -52,18 +52,16 @@ public class EnumHBlockTests
     }
     
     [Fact]
-    public void BeforeRead_SkipsGenWhenSymbolAvailable()
+    public void BeforeRead_SkipsGenWhenSpecificSymbolAvailable()
     {
         // Arrange
         var symbolMock = new Mock<INamedTypeSymbol>();
         symbolMock.SetupGet(x => x.Name).Returns("TestEnum");
 
-        var dict = new Dictionary<string, ISymbol>
-        {
-            { "TestEnum", symbolMock.Object }
-        };
+        var dict = ImmutableDictionary.CreateBuilder<string, ISymbol>();
+        dict.Add("TestEnum", symbolMock.Object);
 
-        var context = new SymbolContext(dict);
+        var context = new SymbolContext(ImmutableDictionary<string, ISymbol>.Empty, dict.ToImmutable());
         var hBlock = new EnumHBlock(context);
 
         var builder = new StringBuilder();

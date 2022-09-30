@@ -34,7 +34,7 @@ public class NamespaceHBlock : MajorHBlock
 
         Name = match.Groups[1].Value;
         
-        if (Context?.Symbols.TryGetValue(Name, out ISymbol symbol) == true && symbol.IsStatic)
+        if (Context?.SpecificSymbols.TryGetValue(Name, out ISymbol? symbol) == true && symbol.IsStatic)
         {
             ManualSymbol = (INamedTypeSymbol)symbol;
 

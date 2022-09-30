@@ -52,9 +52,25 @@ public class ClassOrStructHBlock : MajorHBlock
             return false;
         }
 
-        if (Context?.Symbols.TryGetValue(Name, out ISymbol symbol) == true)
+        if (Context?.SharedSymbols.TryGetValue(Name, out ISymbol? symbol) == true)
+        {
+            return false;
+        }
+
+        if (Context?.SpecificSymbols.TryGetValue(Name, out symbol) == true)
         {
             ManualSymbol = (INamedTypeSymbol)symbol;
+
+            var atts = symbol.GetAttributes();
+
+            foreach (var att in atts)
+            {
+                switch (att.AttributeClass?.Name)
+                {
+                    case "IgnoreGeneratedAttribute":
+                        return false;
+                }
+            }
         }
 
         builder.Append("public ");
@@ -92,10 +108,14 @@ public class ClassOrStructHBlock : MajorHBlock
 
     protected internal override void AfterRead(StringBuilder builder)
     {
-        builder.AppendLine();
-        builder.Append("\tprotected internal ");
-        builder.Append(Name);
-        builder.AppendLine("() { }");
+        if (ManualSymbol is null || ManualSymbol.Constructors.Length == 0 || ManualSymbol.Constructors[0].Parameters.Length > 0)
+        {
+            builder.AppendLine();
+            builder.Append("\tprotected internal ");
+            builder.Append(Name);
+            builder.AppendLine("() { }");
+        }
+        
         base.AfterRead(builder);
     }
 }

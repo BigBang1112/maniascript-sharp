@@ -32,7 +32,7 @@ public class EnumHBlock : HBlock
         
         var enumName = match.Groups[1].Value;
 
-        if (Context?.Symbols.TryGetValue(enumName, out ISymbol symbol) == true)
+        if (Context?.SpecificSymbols.TryGetValue(enumName, out ISymbol? symbol) == true)
         {
             ManualSymbol = symbol;
             return false;

@@ -1,13 +1,16 @@
 ﻿using Microsoft.CodeAnalysis;
+using System.Collections.Immutable;
 
 namespace ManiaScriptSharp.DocH;
 
 public class SymbolContext
 {
-    public Dictionary<string, ISymbol> Symbols { get; }
+    public ImmutableDictionary<string, ISymbol> SharedSymbols { get; }
+    public ImmutableDictionary<string, ISymbol> SpecificSymbols { get; }
 
-    public SymbolContext(Dictionary<string, ISymbol> symbols)
+    public SymbolContext(ImmutableDictionary<string, ISymbol> sharedSymbols, ImmutableDictionary<string, ISymbol> specificSymbols)
     {
-        Symbols = symbols;
+        SharedSymbols = sharedSymbols;
+        SpecificSymbols = specificSymbols;
     }
 }

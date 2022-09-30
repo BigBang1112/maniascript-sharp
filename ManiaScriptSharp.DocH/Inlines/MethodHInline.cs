@@ -25,7 +25,7 @@ internal class MethodHInline : HInline
         var name = GetTypeBindOrDefault(match.Groups[4].Value);
         var parameters = match.Groups[5].Value;
 
-        if (Context?.Symbols.TryGetValue(name, out ISymbol typeSymbol) == true)
+        if (Context?.SpecificSymbols.TryGetValue(name, out ISymbol? typeSymbol) == true)
         {
             if (typeSymbol is not IMethodSymbol methodSymbol)
             {
