@@ -35,6 +35,7 @@ public class EnumHBlock : HBlock
         if (Context?.Symbols.TryGetValue(enumName, out ISymbol symbol) == true)
         {
             ManualSymbol = symbol;
+            return false;
         }
 
         builder.Append("\tpublic enum ");
@@ -49,7 +50,7 @@ public class EnumHBlock : HBlock
         builder.Append("\t\t");
 
         var validValueLineCharArray = default(char[]);
-
+        
         for (var i = 0; i < line.Length; i++)
         {
             var c = line[i];
