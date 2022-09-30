@@ -24,9 +24,14 @@ public class PropertyHInline : HInline
         var isArray = match.Groups[5].Success;
         var name = match.Groups[6].Value;
 
-        if (Context?.SpecificSymbols.TryGetValue(name, out ISymbol? typeSymbol) == true)
+        if (Context?.SpecificSymbols.TryGetValue(name, out ISymbol? symbol) == true)
         {
-            ManualSymbol = typeSymbol;
+            if (symbol is not IPropertySymbol)
+            {
+                throw new Exception($"Manual symbol '{symbol.Name}' is not a property.");
+            }
+
+            ManualSymbol = symbol;
             return;
         }
 

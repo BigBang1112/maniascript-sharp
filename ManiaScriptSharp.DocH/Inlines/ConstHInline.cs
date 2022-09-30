@@ -25,6 +25,7 @@ public class ConstHInline : HInline
         if (Context?.SpecificSymbols.TryGetValue(name, out ISymbol? typeSymbol) == true)
         {
             ManualSymbol = typeSymbol;
+            return;
         }
 
         builder.Append('\t');

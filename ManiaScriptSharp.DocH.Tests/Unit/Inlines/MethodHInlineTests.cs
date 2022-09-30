@@ -1,4 +1,6 @@
 ﻿using ManiaScriptSharp.DocH.Inlines;
+using Microsoft.CodeAnalysis;
+using System.Collections.Immutable;
 using System.Text;
 
 namespace ManiaScriptSharp.DocH.Tests.Unit.Inlines;
@@ -117,5 +119,47 @@ public class MethodHInlineTests
 
         // Assert
         Assert.Equal(expected, actual: builder.ToString());
+    }
+    
+    [Fact]
+    public void Read_ReadsMethod_PartialMethod()
+    {
+        // Arrange
+        var symbolMock = new Mock<IMethodSymbol>();
+        symbolMock.SetupGet(x => x.Name).Returns("EnableMenuNavigation");
+
+        var dict = ImmutableDictionary.CreateBuilder<string, ISymbol>();
+        dict.Add("EnableMenuNavigation", symbolMock.Object);
+
+        var context = new SymbolContext(ImmutableDictionary<string, ISymbol>.Empty, dict.ToImmutable());
+        var hInline = new MethodHInline(context, isStatic: false);
+        var builder = new StringBuilder();
+        var match = hInline.IdentifierRegex.Match("    Void EnableMenuNavigation(Boolean EnableInputs,Boolean WithAutoFocus,Boolean WithManualScroll,CMlControl AutoBackControl,Integer InputPriority);");
+        var expected = $"\tpublic partial void EnableMenuNavigation(bool EnableInputs, bool WithAutoFocus, bool WithManualScroll, CMlControl AutoBackControl, int InputPriority);{Environment.NewLine}";
+
+        // Act
+        hInline.Read(match, builder);
+
+        // Assert
+        Assert.Equal(expected, actual: builder.ToString());
+    }
+
+    [Fact]
+    public void Read_ReadsMethod_NameCollision()
+    {
+        // Arrange
+        var symbolMock = new Mock<IPropertySymbol>();
+        symbolMock.SetupGet(x => x.Name).Returns("EnableMenuNavigation");
+
+        var dict = ImmutableDictionary.CreateBuilder<string, ISymbol>();
+        dict.Add("EnableMenuNavigation", symbolMock.Object);
+
+        var context = new SymbolContext(ImmutableDictionary<string, ISymbol>.Empty, dict.ToImmutable());
+        var hInline = new MethodHInline(context, isStatic: false);
+        var builder = new StringBuilder();
+        var match = hInline.IdentifierRegex.Match("    Void EnableMenuNavigation(Boolean EnableInputs,Boolean WithAutoFocus,Boolean WithManualScroll,CMlControl AutoBackControl,Integer InputPriority);");
+
+        // Act & Assert
+        Assert.Throws<Exception>(() => hInline.Read(match, builder));
     }
 }

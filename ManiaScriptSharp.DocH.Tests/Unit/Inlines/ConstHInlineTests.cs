@@ -1,4 +1,6 @@
 ﻿using ManiaScriptSharp.DocH.Inlines;
+using Microsoft.CodeAnalysis;
+using System.Collections.Immutable;
 using System.Text;
 
 namespace ManiaScriptSharp.DocH.Tests.Unit.Inlines;
@@ -58,5 +60,28 @@ public class ConstHInlineTests
 
         // Assert
         Assert.Equal(expected, actual: builder.ToString());
+    }
+
+    [Fact]
+    public void Read_ReadsProperty_NameCollision()
+    {
+        // Arrange
+        var symbolMock = new Mock<ISymbol>();
+        symbolMock.SetupGet(x => x.Name).Returns("Tau");
+
+        var dict = ImmutableDictionary.CreateBuilder<string, ISymbol>();
+        dict.Add("Tau", symbolMock.Object);
+
+        var context = new SymbolContext(ImmutableDictionary<string, ISymbol>.Empty, dict.ToImmutable());
+        var hInline = new ConstHInline(context);
+        var builder = new StringBuilder();
+        var match = hInline.IdentifierRegex.Match("\tconst Real Tau = 6.28319;");
+        var expected = $"\tpublic const float Tau = 6.28319f;{Environment.NewLine}";
+
+        // Act
+        hInline.Read(match, builder);
+
+        // Assert
+        Assert.Equal(expected: 0, actual: builder.Length);
     }
 }

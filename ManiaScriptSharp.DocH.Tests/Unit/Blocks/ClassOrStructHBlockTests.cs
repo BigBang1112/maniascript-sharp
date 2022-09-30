@@ -104,9 +104,34 @@ Save a matchsettings file.
         // Assert
         Assert.False(result);
     }
-    
+
     [Fact]
-    public void BeforeRead_SpecificSymbolExists()
+    public void BeforeRead_SharedSymbolExists()
+    {
+        // Arrange
+        var namedTypeSymbol = new Mock<INamedTypeSymbol>();
+        namedTypeSymbol.SetupGet(x => x.Name).Returns("CUIConfigMarker");
+        namedTypeSymbol.Setup(x => x.GetMembers()).Returns(ImmutableArray<ISymbol>.Empty);
+        namedTypeSymbol.Setup(x => x.GetAttributes()).Returns(ImmutableArray<AttributeData>.Empty);
+
+        var dict = ImmutableDictionary.CreateBuilder<string, ISymbol>();
+        dict.Add("CUIConfigMarker", namedTypeSymbol.Object);
+
+        var context = new SymbolContext(dict.ToImmutable(), ImmutableDictionary<string, ISymbol>.Empty);
+        var hBlock = new ClassOrStructHBlock(context);
+        var builder = new StringBuilder();
+        var exampleString = "class CUIConfigMarker : public CNod {";
+        var match = hBlock.IdentifierRegex!.Match(exampleString);
+
+        // Act
+        var result = hBlock.BeforeRead(exampleString, match, builder);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void BeforeRead_SpecificSymbolExists_NoAttributes()
     {
         // Arrange
         var namedTypeSymbol = new Mock<INamedTypeSymbol>();
@@ -130,6 +155,36 @@ Save a matchsettings file.
         // Assert
         Assert.True(result);
         Assert.Equal(expected, actual: builder.ToString());
+    }
+
+    [Fact]
+    public void BeforeRead_SpecificSymbolExists_HasIgnoreGeneratedAttribute()
+    {
+        // Arrange
+        var ignoreGeneratedSymbolMock = new Mock<INamedTypeSymbol>();
+        ignoreGeneratedSymbolMock.SetupGet(x => x.Name).Returns("IgnoreGeneratedAttribute");
+
+        var ignoreGeneratedMock = new MockAttributeData(ignoreGeneratedSymbolMock.Object);
+
+        var symbolMock = new Mock<INamedTypeSymbol>();
+        symbolMock.SetupGet(x => x.Name).Returns("CUIConfigMarker");
+        symbolMock.Setup(x => x.GetMembers()).Returns(ImmutableArray<ISymbol>.Empty);
+        symbolMock.Setup(x => x.GetAttributes()).Returns(ImmutableArray.Create<AttributeData>(ignoreGeneratedMock));
+
+        var dict = ImmutableDictionary.CreateBuilder<string, ISymbol>();
+        dict.Add("CUIConfigMarker", symbolMock.Object);
+
+        var context = new SymbolContext(ImmutableDictionary<string, ISymbol>.Empty, dict.ToImmutable());
+        var hBlock = new ClassOrStructHBlock(context);
+        var builder = new StringBuilder();
+        var exampleString = "class CUIConfigMarker : public CNod {";
+        var match = hBlock.IdentifierRegex!.Match(exampleString);
+
+        // Act
+        var result = hBlock.BeforeRead(exampleString, match, builder);
+
+        // Assert
+        Assert.False(result);
     }
 
     [Fact]

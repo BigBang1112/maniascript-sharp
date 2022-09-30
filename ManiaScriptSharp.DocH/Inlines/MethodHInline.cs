@@ -25,11 +25,11 @@ internal class MethodHInline : HInline
         var name = GetTypeBindOrDefault(match.Groups[4].Value);
         var parameters = match.Groups[5].Value;
 
-        if (Context?.SpecificSymbols.TryGetValue(name, out ISymbol? typeSymbol) == true)
+        if (Context?.SpecificSymbols.TryGetValue(name, out ISymbol? symbol) == true)
         {
-            if (typeSymbol is not IMethodSymbol methodSymbol)
+            if (symbol is not IMethodSymbol methodSymbol)
             {
-                throw new Exception($"Manual symbol '{typeSymbol.Name}' is not a method.");
+                throw new Exception($"Manual symbol '{symbol.Name}' is not a method.");
             }
 
             ManualSymbol = methodSymbol;
