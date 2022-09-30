@@ -46,9 +46,10 @@ public class MajorHBlockTests
         var builder = new StringBuilder();
 
         // Act
-        hBlock.ReadLine(reader.ReadLine()!, reader, builder);
+        var result = hBlock.ReadLine(reader.ReadLine()!, reader, builder);
 
         // Assert
+        Assert.True(result);
         Assert.Equal(expected, actual: builder.ToString());
     }
 
@@ -66,9 +67,10 @@ public class MajorHBlockTests
         var builder = new StringBuilder();
 
         // Act
-        hBlock.ReadLine(reader.ReadLine()!, reader, builder);
+        var result = hBlock.ReadLine(reader.ReadLine()!, reader, builder);
 
         // Assert
+        Assert.True(result);
         Assert.Equal(expected, actual: builder.ToString());
     }
 
@@ -95,9 +97,10 @@ public class MajorHBlockTests
         var builder = new StringBuilder();
 
         // Act
-        hBlock.ReadLine(reader.ReadLine()!, reader, builder);
+        var result = hBlock.ReadLine(reader.ReadLine()!, reader, builder);
 
         // Assert
+        Assert.True(result);
         Assert.Equal(expected, actual: builder.ToString());
     }
 

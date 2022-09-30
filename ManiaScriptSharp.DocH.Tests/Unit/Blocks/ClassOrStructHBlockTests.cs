@@ -132,4 +132,21 @@ Save a matchsettings file.
         Assert.True(result);
         Assert.Equal(expected, actual: builder.ToString());
     }
+
+    [Fact]
+    public void ReadLine_ReadsFromHGenerals_FindsNothing()
+    {
+        // Arrange
+        var exampleString = "";
+        using var exampleStream = new MemoryStream(Encoding.UTF8.GetBytes(exampleString));
+        using var reader = new StreamReader(exampleStream);
+        var hBlock = new ClassOrStructHBlock();
+        var builder = new StringBuilder();
+
+        // Act
+        var result = hBlock.ReadLine(exampleString, reader, builder);
+
+        // Assert
+        Assert.False(result);
+    }
 }

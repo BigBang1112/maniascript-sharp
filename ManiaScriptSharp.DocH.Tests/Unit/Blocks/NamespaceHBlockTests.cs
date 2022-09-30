@@ -149,4 +149,21 @@ Save a matchsettings file.
         // Assert
         Assert.False(result);
     }
+
+    [Fact]
+    public void ReadLine_ReadsFromHGenerals_FindsNothing()
+    {
+        // Arrange
+        var exampleString = "";
+        using var exampleStream = new MemoryStream(Encoding.UTF8.GetBytes(exampleString));
+        using var reader = new StreamReader(exampleStream);
+        var hBlock = new NamespaceHBlock();
+        var builder = new StringBuilder();
+
+        // Act
+        var result = hBlock.ReadLine(exampleString, reader, builder);
+
+        // Assert
+        Assert.False(result);
+    }
 }

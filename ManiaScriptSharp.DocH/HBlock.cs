@@ -69,7 +69,7 @@ public abstract class HBlock : HGeneral
                 break;
             }
 
-            ReadLine(line, reader, builder);
+            _ = ReadLine(line, reader, builder);
         }
     }
 
@@ -78,7 +78,7 @@ public abstract class HBlock : HGeneral
 
     }
 
-    protected internal abstract void ReadLine(string line, StreamReader reader, StringBuilder builder);
+    protected internal abstract bool ReadLine(string line, StreamReader reader, StringBuilder builder);
 
     protected internal virtual void AfterRead(StringBuilder builder)
     {

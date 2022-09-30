@@ -17,12 +17,12 @@ public class CommentHBlock : HBlock
         this.depth = depth;
     }
 
-    protected internal override void ReadLine(string line, StreamReader reader, StringBuilder builder)
+    protected internal override bool ReadLine(string line, StreamReader reader, StringBuilder builder)
     {
         if (line == "*")
         {
             Comments.Add("");
-            return;
+            return true;
         }
 
         if (line.StartsWith("* \\brief"))
@@ -40,6 +40,8 @@ public class CommentHBlock : HBlock
         {
             Comments.Add(line);
         }
+        
+        return true;
     }
 
     protected internal override void AfterRead(StringBuilder builder)

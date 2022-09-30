@@ -41,20 +41,22 @@ public abstract class MajorHBlock : HBlock
         return true;
     }
 
-    protected internal override void ReadLine(string line, StreamReader reader, StringBuilder builder)
+    protected internal override bool ReadLine(string line, StreamReader reader, StringBuilder builder)
     {
         foreach (var func in HGenerals)
         {
             switch (func(InnerContext))
             {
                 case HBlock block:
-                    block.TryRead(line, reader, builder);
+                    if (block.TryRead(line, reader, builder)) return true;
                     break;
                 case HInline inline:
-                    inline.TryRead(line, builder);
+                    if (inline.TryRead(line, builder)) return true;
                     break;
             }
         }
+
+        return false;
     }
 
     protected internal override void AfterRead(StringBuilder builder)

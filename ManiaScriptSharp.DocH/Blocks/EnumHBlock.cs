@@ -45,7 +45,7 @@ public class EnumHBlock : HBlock
         return true;
     }
 
-    protected internal override void ReadLine(string line, StreamReader reader, StringBuilder builder)
+    protected internal override bool ReadLine(string line, StreamReader reader, StringBuilder builder)
     {
         builder.Append("\t\t");
 
@@ -65,13 +65,15 @@ public class EnumHBlock : HBlock
         if (validValueLineCharArray is null)
         {
             builder.AppendLine(line);
-            return;
+            return true;
         }
 
         builder.Append("[ActualName(\"");
         builder.Append(line.Replace(",", ""));
         builder.Append("\")] ");
         builder.AppendLine(new string(validValueLineCharArray));
+        
+        return true;
     }
 
     protected internal override void AfterRead(StringBuilder builder)
