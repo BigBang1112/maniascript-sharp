@@ -45,7 +45,7 @@ public class EnumHBlock : HBlock
         return true;
     }
 
-    protected internal override bool ReadLine(string line, StreamReader reader, StringBuilder builder)
+    protected internal override bool ReadLine(string line, TextReader reader, StringBuilder builder)
     {
         builder.Append("\t\t");
 

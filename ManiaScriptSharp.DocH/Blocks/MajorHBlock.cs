@@ -26,7 +26,7 @@ public abstract class MajorHBlock : HBlock
         
     }
 
-    protected internal override void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
+    protected internal override void BeforeAttemptToEnd(string line, TextReader reader, StringBuilder builder)
     {
         _ = new CommentHBlock(Context, depth: 1).TryRead(line, reader, builder);
     }
@@ -41,7 +41,7 @@ public abstract class MajorHBlock : HBlock
         return true;
     }
 
-    protected internal override bool ReadLine(string line, StreamReader reader, StringBuilder builder)
+    protected internal override bool ReadLine(string line, TextReader reader, StringBuilder builder)
     {
         foreach (var func in HGenerals)
         {

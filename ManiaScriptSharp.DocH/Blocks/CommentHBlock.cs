@@ -17,7 +17,7 @@ public class CommentHBlock : HBlock
         this.depth = depth;
     }
 
-    protected internal override bool ReadLine(string line, StreamReader reader, StringBuilder builder)
+    protected internal override bool ReadLine(string line, TextReader reader, StringBuilder builder)
     {
         if (line == "*")
         {

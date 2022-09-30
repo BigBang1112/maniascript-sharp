@@ -15,7 +15,7 @@ public abstract class HBlock : HGeneral
 
     }
 
-    public bool TryRead(string line, StreamReader reader, StringBuilder builder)
+    public bool TryRead(string line, TextReader reader, StringBuilder builder)
     {
         if (Start is not null && !line.StartsWith(Start))
         {
@@ -46,16 +46,23 @@ public abstract class HBlock : HGeneral
         return true;
     }
 
-    protected internal virtual void Read(string line, StreamReader reader, StringBuilder builder)
+    protected internal virtual void Read(string line, TextReader reader, StringBuilder builder)
     {
         if (line.EndsWith(End))
         {
             return;
         }
         
-        while (!reader.EndOfStream)
+        while (true)
         {
-            line = reader.ReadLine().Trim();
+            var lineRead = reader.ReadLine();
+
+            if (lineRead is null)
+            {
+                return;
+            }
+
+            line = lineRead.Trim();
 
             if (!UseEmptyLines && string.IsNullOrWhiteSpace(line))
             {
@@ -73,12 +80,12 @@ public abstract class HBlock : HGeneral
         }
     }
 
-    protected internal virtual void BeforeAttemptToEnd(string line, StreamReader reader, StringBuilder builder)
+    protected internal virtual void BeforeAttemptToEnd(string line, TextReader reader, StringBuilder builder)
     {
 
     }
 
-    protected internal abstract bool ReadLine(string line, StreamReader reader, StringBuilder builder);
+    protected internal abstract bool ReadLine(string line, TextReader reader, StringBuilder builder);
 
     protected internal virtual void AfterRead(StringBuilder builder)
     {
