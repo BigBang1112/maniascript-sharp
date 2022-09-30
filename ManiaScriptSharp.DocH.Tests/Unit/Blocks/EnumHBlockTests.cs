@@ -1,6 +1,7 @@
 ﻿using ManiaScriptSharp.DocH.Blocks;
 using ManiaScriptSharp.DocH.Inlines;
 using ManiaScriptSharp.DocH.Tests.Mocks;
+using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 using System.Text;
 
@@ -48,6 +49,32 @@ public class EnumHBlockTests
         // Assert
         Assert.True(result);
         Assert.Equal(expected, actual: builder.ToString());
+    }
+    
+    [Fact]
+    public void BeforeRead_SkipsGenWhenSymbolAvailable()
+    {
+        // Arrange
+        var symbolMock = new Mock<INamedTypeSymbol>();
+        symbolMock.SetupGet(x => x.Name).Returns("TestEnum");
+
+        var dict = new Dictionary<string, ISymbol>
+        {
+            { "TestEnum", symbolMock.Object }
+        };
+
+        var context = new SymbolContext(dict);
+        var hBlock = new EnumHBlock(context);
+
+        var builder = new StringBuilder();
+        var exampleString = "enum TestEnum {";
+        var match = hBlock.IdentifierRegex!.Match(exampleString);
+
+        // Act
+        var result = hBlock.BeforeRead(exampleString, match, builder);
+
+        // Assert
+        Assert.False(result);
     }
 
     [Fact]
