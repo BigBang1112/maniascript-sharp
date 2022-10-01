@@ -2,5 +2,5 @@
 
 public interface IContext
 {
-    void Execute();
+    void Main();
 }

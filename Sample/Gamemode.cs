@@ -11,8 +11,16 @@ public class Gamemode : CTmMode, IContext
     [Setting(As = "Chat time")]
     public const int ChatTime = 50;
 
-    public void Execute()
+    public void Main()
     {
         Log("bro");
+    }
+
+    public void SpawnAllWaitingPlayers(int team, int raceStartTime)
+    {
+        foreach (var player in PlayersWaiting)
+        {
+            SpawnPlayer(player, team, raceStartTime);
+        }
     }
 }

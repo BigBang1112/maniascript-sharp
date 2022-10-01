@@ -4,7 +4,7 @@ namespace Sample;
 
 public class MapEditorPlugin : CMapEditorPlugin, IContext
 {
-    public void Execute()
+    public void Main()
     {
         throw new NotImplementedException();
     }
