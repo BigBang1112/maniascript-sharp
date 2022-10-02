@@ -68,7 +68,8 @@ public class ClassOrStructHBlock : MajorHBlock
                 switch (att.AttributeClass?.Name)
                 {
                     case "IgnoreGeneratedAttribute":
-                        return false;
+                        if (att.ConstructorArguments.IsEmpty) return false;
+                        break;
                 }
             }
         }
