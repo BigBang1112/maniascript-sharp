@@ -21,12 +21,10 @@ public class DocHGenerator : ISourceGenerator
 
     public void Initialize(GeneratorInitializationContext context)
     {
-#if DEBUG
-        if (!Debugger.IsAttached)
+        if (false)
         {
             Debugger.Launch();
         }
-#endif
     }
 
     public void Execute(GeneratorExecutionContext context)
