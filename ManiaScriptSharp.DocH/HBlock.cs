@@ -5,8 +5,8 @@ namespace ManiaScriptSharp.DocH;
 
 public abstract class HBlock : HGeneral
 {
-    protected internal virtual Regex? IdentifierRegex { get; } = null;
-    protected internal virtual string? Start { get; } = null;
+    protected internal virtual Regex? IdentifierRegex => null;
+    protected internal virtual string? Start => null;
     protected internal abstract string End { get; }
     protected internal virtual bool UseEmptyLines { get; }
 
