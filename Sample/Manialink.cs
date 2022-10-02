@@ -2,6 +2,17 @@
 
 public class Manialink : CMlScript, IContext
 {
+    [ManialinkControl("background")]
+    public CMlQuad QuadBackground { get; set; }
+    
+    public Manialink()
+    {
+        Http.RequestComplete += delegate(CHttpRequest request)
+        {
+            Log("Request complete: " + request.Url);
+        };
+    }
+    
     public void Main()
     {
         
@@ -11,7 +22,7 @@ public class Manialink : CMlScript, IContext
     {
 
     }
-    
+
     protected override void OnMouseClick(CMlControl control, string controlId)
     {
         if (control is CMlLabel label)
