@@ -47,7 +47,7 @@ public class ManialinkFile : IGeneratedFile
         {
             var scriptCData = doc.CreateCDataSection(scriptWriter.ToString());
 
-            var scriptElement = doc.CreateElement("script");
+            var scriptElement = doc.CreateElement("script", "manialink");
             scriptElement.AppendChild(scriptCData);
             
             doc.DocumentElement.AppendChild(scriptElement);
