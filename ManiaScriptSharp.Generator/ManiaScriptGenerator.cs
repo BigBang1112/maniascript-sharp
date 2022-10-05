@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.Editing;
 using System.Diagnostics;
 using System.IO.Abstractions;
 using System.Text;
+using System.Xml.Schema;
 
 namespace ManiaScriptSharp.Generator;
 
@@ -29,6 +30,15 @@ public class ManiaScriptGenerator : ISourceGenerator
 
         var fileSystem = new FileSystem();
         fileSystem.Directory.CreateDirectory(outputDir);
+        
+        var xmlSchemaXsd = context.AdditionalFiles.FirstOrDefault(x => x.Path.EndsWith(".xsd"))?.GetText()?.ToString();
+        
+        var xmlSchema = xmlSchemaXsd is null ? null : XmlSchema.Read(new StringReader(xmlSchemaXsd), (sender, args) =>
+        {
+            // HANDLE VALIDATION FAILED
+        });
+
+        var settings = new GeneratorSettings(context, fileSystem, projectDir, outputDir, xmlSchema);
 
         var scriptSymbols = context.Compilation
             .GlobalNamespace
@@ -38,27 +48,26 @@ public class ManiaScriptGenerator : ISourceGenerator
         
         foreach (var scriptSymbol in scriptSymbols)
         {
-            var generatedFile = GenerateScriptFile(scriptSymbol, fileSystem, projectDir, outputDir);
+            var generatedFile = GenerateScriptFile(scriptSymbol, settings);
         }
     }
 
-    private static IGeneratedFile GenerateScriptFile(INamedTypeSymbol scriptSymbol, IFileSystem fileSystem, string projectDir, string outputDir)
+    private static IGeneratedFile GenerateScriptFile(INamedTypeSymbol scriptSymbol, GeneratorSettings settings)
     {
         var isEmbeddedScript = scriptSymbol.IsSubclassOf(x => x.Name == "CMlScript");
-        var outputFilePath = Path.Combine(outputDir, scriptSymbol.Name);
+        var outputFilePath = Path.Combine(settings.OutputDir, scriptSymbol.Name);
 
         outputFilePath += isEmbeddedScript ? ".xml" : ".Script.txt";
 
-        using var writer = fileSystem.File.CreateText(outputFilePath);
+        using var writer = settings.FileSystem.File.CreateText(outputFilePath);
 
-        return GenerateScriptFile(scriptSymbol, fileSystem, projectDir, writer, isEmbeddedScript);
+        return GenerateScriptFile(scriptSymbol, writer, isEmbeddedScript, settings);
     }
 
     private static IGeneratedFile GenerateScriptFile(INamedTypeSymbol scriptSymbol,
-                                                     IFileSystem fileSystem,
-                                                     string projectDir,
                                                      TextWriter writer,
-                                                     bool isEmbeddedScript)
+                                                     bool isEmbeddedScript,
+                                                     GeneratorSettings settings)
     {
         
 
@@ -70,22 +79,22 @@ public class ManiaScriptGenerator : ISourceGenerator
         
         // Manialink work goes here (.xml)
 
-        _ = projectDir ?? throw new InvalidOperationException("ProjectDirectory must be set for manialink builds.");
+        _ = settings.ProjectDir ?? throw new InvalidOperationException("ProjectDirectory must be set for manialink builds.");
 
-        var xml = ReadManialinkXml(scriptSymbol, fileSystem, projectDir);
+        var xml = ReadManialinkXml(scriptSymbol, settings);
 
-        return ManialinkFile.Generate(xml, scriptSymbol, writer);
+        return ManialinkFile.Generate(xml, scriptSymbol, writer, settings);
     }
 
-    private static string ReadManialinkXml(INamedTypeSymbol scriptSymbol, IFileSystem fileSystem, string projectDir)
+    private static string ReadManialinkXml(ISymbol scriptSymbol, GeneratorSettings settings)
     {
-        var xmlPath = Path.Combine(projectDir, scriptSymbol.Name + ".xml");
+        var xmlPath = Path.Combine(settings.ProjectDir, scriptSymbol.Name + ".xml");
 
         if (!File.Exists(xmlPath))
         {
             throw new Exception("XML is missing for " + scriptSymbol.Name);
         }
 
-        return fileSystem.File.ReadAllText(xmlPath);
+        return settings.FileSystem.File.ReadAllText(xmlPath);
     }
 }
