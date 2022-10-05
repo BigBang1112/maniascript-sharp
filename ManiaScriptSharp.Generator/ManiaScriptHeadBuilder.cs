@@ -50,10 +50,34 @@ public class ManiaScriptHeadBuilder
 
     private ImmutableArray<INamedTypeSymbol> BuildStructs()
     {
-        var nestedTypeSymbols = ScriptSymbol.GetTypeMembers()
+        var structSymbols = ScriptSymbol.GetTypeMembers()
             .Where(x => x.IsValueType)
             .ToImmutableArray();
-        
-        return nestedTypeSymbols;
+
+        foreach (var structSymbol in structSymbols)
+        {
+            Writer.Write("#Struct ");
+            Writer.Write(Standardizer.StandardizeStructName(structSymbol.Name));
+            Writer.WriteLine(" {");
+
+            foreach (var memberSymbol in structSymbol.GetMembers())
+            {
+                if (memberSymbol is not IFieldSymbol fieldSymbol)
+                {
+                    continue;
+                }
+
+                Writer.Write('\t');
+                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.ToDisplayString()));
+                Writer.Write(' ');
+                Writer.Write(fieldSymbol.Name);
+                Writer.WriteLine(";");
+            }
+
+            Writer.WriteLine("}");
+            Writer.WriteLine();
+        }
+
+        return structSymbols;
     }
 }
