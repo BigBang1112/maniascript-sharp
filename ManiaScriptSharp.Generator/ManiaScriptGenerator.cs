@@ -48,7 +48,14 @@ public class ManiaScriptGenerator : ISourceGenerator
         
         foreach (var scriptSymbol in scriptSymbols)
         {
-            var generatedFile = GenerateScriptFile(scriptSymbol, settings);
+            try
+            {
+                var generatedFile = GenerateScriptFile(scriptSymbol, settings);
+            }
+            catch (Exception e)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor("MSSG003", "File generation failed", $"{e.GetType().Name} ({scriptSymbol.Name}): {e.Message}", "ManiaScriptSharp", DiagnosticSeverity.Error, true), Location.None));
+            }
         }
     }
 
@@ -60,7 +67,7 @@ public class ManiaScriptGenerator : ISourceGenerator
         outputFilePath += isEmbeddedScript ? ".xml" : ".Script.txt";
 
         using var writer = settings.FileSystem.File.CreateText(outputFilePath);
-
+        
         return GenerateScriptFile(scriptSymbol, writer, isEmbeddedScript, settings);
     }
 
@@ -82,7 +89,7 @@ public class ManiaScriptGenerator : ISourceGenerator
         _ = settings.ProjectDir ?? throw new InvalidOperationException("ProjectDirectory must be set for manialink builds.");
 
         var xml = ReadManialinkXml(scriptSymbol, settings);
-
+        
         return ManialinkFile.Generate(xml, scriptSymbol, writer, settings);
     }
 
