@@ -34,8 +34,7 @@ public class ManiaScriptGenerator : ISourceGenerator
             .GlobalNamespace
             .GetNamespaceMembers()
             .SelectMany(x => x.GetTypeMembers()
-                .Where(y => y.Interfaces.Any(z => z.Name == "IContext")))
-            .ToList();
+                .Where(y => y.Interfaces.Any(z => z.Name == "IContext")));
         
         foreach (var scriptSymbol in scriptSymbols)
         {
