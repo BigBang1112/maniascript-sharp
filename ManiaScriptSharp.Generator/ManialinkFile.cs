@@ -8,26 +8,18 @@ namespace ManiaScriptSharp.Generator;
 
 public class ManialinkFile : IGeneratedFile
 {
-    private const string manialinkXsd = "https://raw.githubusercontent.com/reaby/manialink-xsd/main/manialink_v3.xsd";
-    
-    public static ManialinkFile Generate(string xml, INamedTypeSymbol scriptSymbol, TextWriter writer, GeneratorSettings settings)
+    public static ManialinkFile Generate(Stream xmlStream, INamedTypeSymbol scriptSymbol, TextWriter writer, GeneratorSettings settings)
     {
+        _ = ValidateManialinkXml(xmlStream, scriptSymbol, settings);
+
+        xmlStream.Position = 0;
+        
         var doc = new XmlDocument();
-        doc.LoadXml(xml);
+        doc.Load(xmlStream);
 
         if (doc.DocumentElement is null)
         {
             throw new Exception("Invalid manialink XML: No root element.");
-        }
-
-        if (settings.XmlSchema is not null)
-        {
-            doc.Schemas.Add(settings.XmlSchema);
-
-            //var xmlModel = doc.CreateProcessingInstruction("xml-model", $"href=\"{manialinkXsd}\"");
-            //doc.InsertBefore(xmlModel, doc.FirstChild);
-
-            ValidateManialinkXml(xml, scriptSymbol, settings);
         }
 
         doc.PrependChild(doc.CreateComment("This manialink was generated with ManiaScriptSharp by BigBang1112"));
@@ -55,53 +47,67 @@ public class ManialinkFile : IGeneratedFile
             doc.DocumentElement.AppendChild(scriptElement);
         }
 
-        using var xmlWriter = new XmlTextWriter(writer);
-        xmlWriter.Formatting = Formatting.Indented;
-        xmlWriter.Indentation = 4;
+        using var xmlWriter = new XmlTextWriter(writer)
+        {
+            Formatting = Formatting.Indented,
+            Indentation = 4
+        };
+        
         doc.Save(xmlWriter);
 
         return new ManialinkFile();
     }
 
-    private static void ValidateManialinkXml(string xml, ISymbol scriptSymbol, GeneratorSettings settings)
+    private static bool ValidateManialinkXml(Stream xmlStream, ISymbol scriptSymbol, GeneratorSettings settings)
     {
-        var rs = new XmlReaderSettings();
+        if (settings.XmlSchema is null)
+        {
+            return false;
+        }
+        
+        using var xmlReader = new StreamReader(xmlStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
+        
+        var rs = new XmlReaderSettings
+        {
+            ValidationType = ValidationType.Schema
+        };
+        
         rs.Schemas.Add(settings.XmlSchema!);
-        rs.ValidationType = ValidationType.Schema;
+        
         rs.ValidationEventHandler += (sender, e) =>
         {
-            switch (e.Severity)
-            {
-                case XmlSeverityType.Error:
-                    var descriptorError = new DiagnosticDescriptor("MSSG001", "Manialink XML validation error",
-                        e.Message, "Manialink", DiagnosticSeverity.Error, true);
-                    
-                    var linePositionStart = new LinePosition(e.Exception.LineNumber - 1, e.Exception.LinePosition - 1);
-                    var linePositionEnd = new LinePosition(e.Exception.LineNumber - 1, e.Exception.LinePosition - 1 + 3);
+            var diagnostic = CreateXmlValidationDiagnostic(scriptSymbol, e);
+            
+            settings.Context.ReportDiagnostic(diagnostic);
 
-                    var location = Location.Create($"{scriptSymbol.Name}.xml", TextSpan.FromBounds(0, xml.Length),
-                        new LinePositionSpan(linePositionStart, linePositionEnd));
-
-                    var diagnosticError = Diagnostic.Create(descriptorError, location);
-
-                    settings.Context.ReportDiagnostic(diagnosticError);
-                    break;
-                case XmlSeverityType.Warning:
-                    var descriptorWarning = new DiagnosticDescriptor("MSSG002", "Manialink XML validation warning",
-                        e.Message, "Manialink", DiagnosticSeverity.Warning, true);
-
-                    var diagnosticWarning = Diagnostic.Create(descriptorWarning, Location.None);
-
-                    settings.Context.ReportDiagnostic(diagnosticWarning);
-                    break;
-            }
+            throw e.Exception;
         };
 
-        using var strReader = new StringReader(xml);
-        using var reader = XmlReader.Create(strReader, rs);
+        using var reader = XmlReader.Create(xmlReader, rs);
         
         while (reader.Read())
         {
         }
+        
+        return true;
+    }
+
+    private static Diagnostic CreateXmlValidationDiagnostic(ISymbol scriptSymbol, ValidationEventArgs e)
+    {
+        var severity = e.Severity switch
+        {
+            XmlSeverityType.Error => DiagnosticSeverity.Error,
+            XmlSeverityType.Warning => DiagnosticSeverity.Warning,
+            _ => DiagnosticSeverity.Info
+        };
+        
+        var descriptorError = new DiagnosticDescriptor("MSSG001", "Manialink XML validation",
+            e.Message, "Manialink",  severity, true);
+
+        var linePosition = new LinePosition(e.Exception.LineNumber - 1, e.Exception.LinePosition - 1);
+
+        var location = Location.Create($"{scriptSymbol.Name}.xml", new(), new(linePosition, linePosition));
+
+        return Diagnostic.Create(descriptorError, location);
     }
 }
