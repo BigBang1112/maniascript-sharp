@@ -62,15 +62,35 @@ public class ManiaScriptHeadBuilder
 
             foreach (var memberSymbol in structSymbol.GetMembers())
             {
-                if (memberSymbol is not IFieldSymbol fieldSymbol)
+                if (memberSymbol.DeclaredAccessibility != Accessibility.Public)
                 {
                     continue;
                 }
+                
+                var type = default(string);
+                var name = default(string);
 
+                switch (memberSymbol)
+                {
+                    case IFieldSymbol fieldSymbol:
+                        type = Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.ToDisplayString());
+                        name = fieldSymbol.Name;
+                        break;
+                    case IPropertySymbol propertySymbol:
+                        
+                        // be more flexible about getters and setters when they are not auto properties
+
+                        type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type.ToDisplayString());
+                        name = propertySymbol.Name;
+                        break;
+                    default:
+                        continue;
+                }
+                
                 Writer.Write('\t');
-                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.ToDisplayString()));
+                Writer.Write(type);
                 Writer.Write(' ');
-                Writer.Write(fieldSymbol.Name);
+                Writer.Write(name);
                 Writer.WriteLine(";");
             }
 
