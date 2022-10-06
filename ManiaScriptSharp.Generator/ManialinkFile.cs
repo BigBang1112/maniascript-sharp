@@ -30,6 +30,8 @@ public class ManialinkFile : IGeneratedFile
             ValidateManialinkXml(xml, scriptSymbol, settings);
         }
 
+        doc.PrependChild(doc.CreateComment("This manialink was generated with ManiaScriptSharp by BigBang1112"));
+
         using var scriptWriter = new StringWriter();
 
         var newLineCount = 2;
