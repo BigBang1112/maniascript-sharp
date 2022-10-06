@@ -19,7 +19,10 @@ public class ManiaScriptHeadBuilder
     public ManiaScriptHead AnalyzeAndBuild() => new()
     {
         Context = BuildContext(),
-        Structs = BuildStructs()
+        Structs = BuildStructs(),
+        Includes = BuildIncludes(),
+        Consts = BuildConsts(),
+        Settings = BuildSettings()
     };
 
     private INamedTypeSymbol BuildContext()
@@ -60,15 +63,10 @@ public class ManiaScriptHeadBuilder
             Writer.Write(Standardizer.StandardizeStructName(structSymbol.Name));
             Writer.WriteLine(" {");
 
-            foreach (var memberSymbol in structSymbol.GetMembers())
+            foreach (var memberSymbol in structSymbol.GetMembers().Where(x => x.DeclaredAccessibility == Accessibility.Public))
             {
-                if (memberSymbol.DeclaredAccessibility != Accessibility.Public)
-                {
-                    continue;
-                }
-                
-                var type = default(string);
-                var name = default(string);
+                string type;
+                string name;
 
                 switch (memberSymbol)
                 {
@@ -78,7 +76,7 @@ public class ManiaScriptHeadBuilder
                         break;
                     case IPropertySymbol propertySymbol:
                         
-                        // be more flexible about getters and setters when they are not auto properties
+                        // TODO: be more flexible about getters and setters when they are not auto properties
 
                         type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type.ToDisplayString());
                         name = propertySymbol.Name;
@@ -99,5 +97,123 @@ public class ManiaScriptHeadBuilder
         }
 
         return structSymbols;
+    }
+
+    private ImmutableArray<INamedTypeSymbol> BuildIncludes()
+    {
+        // TODO: scan through all the syntax trees and find referenced types that are part of the same namespace
+        return ImmutableArray<INamedTypeSymbol>.Empty;
+    }
+
+    private ImmutableArray<IFieldSymbol> BuildConsts()
+    {
+        var consts = ScriptSymbol.GetMembers().OfType<IFieldSymbol>().Where(x => x.IsConst).ToImmutableArray();
+        
+        foreach (var constSymbol in consts.Where(x => !x.GetAttributes().Any(y => y.AttributeClass?.Name == "SettingAttribute")))
+        {
+            Writer.Write("#Const ");
+            Writer.Write(Standardizer.StandardizeConstName(constSymbol.Name));
+            Writer.Write(' ');
+            
+            var isStr = constSymbol.ConstantValue is string;
+
+            if (isStr)
+            {
+                Writer.Write('"');
+            }
+
+            Writer.Write(constSymbol.ConstantValue);
+
+            if (isStr)
+            {
+                Writer.Write('"');
+            }
+            
+            Writer.WriteLine();
+        }
+
+        if (consts.Length > 0)
+        {
+            Writer.WriteLine();
+        }
+
+        return consts;
+    }
+
+    private ImmutableArray<IFieldSymbol> BuildSettings()
+    {
+        var consts = ScriptSymbol.GetMembers().OfType<IFieldSymbol>().Where(x => x.IsConst).ToImmutableArray();
+        
+        foreach (var constSymbol in consts)
+        {
+            var settingAttribute = constSymbol.GetAttributes().FirstOrDefault(x => x.AttributeClass?.Name == "SettingAttribute");
+            
+            if (settingAttribute is null)
+            {
+                continue;
+            }
+            
+            Writer.Write("#Setting ");
+            Writer.Write(Standardizer.StandardizeSettingName(constSymbol.Name));
+            Writer.Write(' ');
+            
+            var isStr = constSymbol.ConstantValue is string;
+
+            if (isStr)
+            {
+                Writer.Write('"');
+            }
+
+            Writer.Write(constSymbol.ConstantValue);
+
+            if (isStr)
+            {
+                Writer.Write('"');
+            }
+
+            var asValue = default(string);
+            var translated = true;
+
+            foreach (var namedArg in settingAttribute.NamedArguments)
+            {
+                switch (namedArg.Key)
+                {
+                    case "As":
+                        asValue = namedArg.Value.Value?.ToString();
+                        break;
+                    case "Translated":
+                        translated = (bool)namedArg.Value.Value!;
+                        break;
+                }
+            }
+
+            if (asValue is not null)
+            {
+                Writer.Write(" as ");
+
+                if (translated)
+                {
+                    Writer.Write("_(");
+                }
+
+                Writer.Write('"');
+                Writer.Write(asValue);
+                Writer.Write('"');
+
+                if (translated)
+                {
+                    Writer.Write(")");
+                }
+            }
+
+            Writer.WriteLine();
+        }
+
+        if (consts.Length > 0)
+        {
+            Writer.WriteLine();
+        }
+
+        return consts;
     }
 }
