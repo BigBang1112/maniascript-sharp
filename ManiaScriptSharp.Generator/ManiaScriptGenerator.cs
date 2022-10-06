@@ -78,15 +78,29 @@ public class ManiaScriptGenerator : ISourceGenerator
 
         outputFilePath += isEmbeddedScript ? ".xml" : ".Script.txt";
 
+        var content = isEmbeddedScript ? "<!-- This generated file is being processed -->" : "// This generated file is being processed";
+
+        using var writer = new Utf8StringWriter();
+        
         try
         {
-            using var writer = settings.FileSystem.File.CreateText(outputFilePath);
-            return GenerateScriptFile(scriptSymbol, writer, isEmbeddedScript, settings);
+            try
+            {
+                return GenerateScriptFile(scriptSymbol, writer, isEmbeddedScript, settings);
+            }
+            finally
+            {
+                content = writer.ToString();
+            }
         }
         catch
         {
-            settings.FileSystem.File.Delete(outputFilePath);
+            content = isEmbeddedScript ? "<!-- ERROR -->" : "// ERROR";
             throw;
+        }
+        finally
+        {
+            settings.FileSystem.File.WriteAllText(outputFilePath, content);
         }
     }
 
