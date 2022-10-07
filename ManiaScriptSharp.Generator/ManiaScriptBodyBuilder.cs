@@ -55,15 +55,13 @@ public class ManiaScriptBodyBuilder
 
         if (customFunctions.Count == 0)
         {
-            WriteMain();
-            WriteLoop();
+            WriteMain(ident: 0);
         }
         else
         {
             Writer.WriteLine("main() {");
 
-            WriteMain();
-            WriteLoop();
+            WriteMain(ident: 1);
 
             Writer.WriteLine();
             Writer.WriteLine("}");
@@ -72,7 +70,7 @@ public class ManiaScriptBodyBuilder
         return new();
     }
 
-    private void WriteMain()
+    private void WriteMain(int ident)
     {
         foreach (var binding in Head.Bindings)
         {
@@ -86,8 +84,13 @@ public class ManiaScriptBodyBuilder
                     .Value?
                     .ToString();
 
-            if (controlId is null) continue;
+            if (controlId is null)
+            {
+                continue;
+            }
 
+            Writer.WriteIdent(ident);
+            
             Writer.Write(binding.Name);
             Writer.Write(" = (Page.GetFirstChild(\"");
             Writer.Write(controlId);
@@ -97,12 +100,17 @@ public class ManiaScriptBodyBuilder
         }
         
         Writer.WriteLine();
+        
+        WriteLoop(ident);
     }
     
-    private void WriteLoop()
+    private void WriteLoop(int ident)
     {
+        Writer.WriteIdent(ident);
         Writer.WriteLine("while (true) {");
-        Writer.WriteLine("    yield;");
+        Writer.WriteIdent(ident + 1);
+        Writer.WriteLine("yield;");
+        Writer.WriteIdent(ident);
         Writer.WriteLine("}");
     }
 }
