@@ -15,7 +15,7 @@ public class ManiaScriptGenerator : ISourceGenerator
     
     public void Initialize(GeneratorInitializationContext context)
     {
-        if (Debug)
+        if (Debug && !Debugger.IsAttached)
         {
             Debugger.Launch();
         }
@@ -112,7 +112,7 @@ public class ManiaScriptGenerator : ISourceGenerator
         if (!isEmbeddedScript)
         {
             // All regular scripts go here (.Script.txt)
-            return ManiaScriptFile.Generate(scriptSymbol, writer);
+            return ManiaScriptFile.Generate(scriptSymbol, writer, settings);
         }
         
         // Manialink work goes here (.xml)
