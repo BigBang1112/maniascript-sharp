@@ -76,11 +76,15 @@ public class ManiaScriptBodyBuilder
     {
         foreach (var binding in Head.Bindings)
         {
-            var controlId = binding.GetAttributes()
-                .First(x => x.AttributeClass?.Name == "ManialinkControlAttribute")
-                .ConstructorArguments[0]
-                .Value?
-                .ToString();
+            var manialinkControlAtt = binding.GetAttributes()
+                .First(x => x.AttributeClass?.Name == "ManialinkControlAttribute");
+            
+            var controlId = manialinkControlAtt.ConstructorArguments.Length == 0
+                ? binding.Name
+                : manialinkControlAtt
+                    .ConstructorArguments[0]
+                    .Value?
+                    .ToString();
 
             if (controlId is null) continue;
 

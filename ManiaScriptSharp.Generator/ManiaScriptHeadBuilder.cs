@@ -237,14 +237,17 @@ public class ManiaScriptHeadBuilder
 
         foreach (var binding in bindings)
         {
+            var bindingAttribute = binding.GetAttributes()
+                .First(x => x.AttributeClass?.Name == "ManialinkControlAttribute");
+            
             Writer.Write("declare ");
             Writer.Write(binding.Type.Name);
             Writer.Write(' ');
             Writer.Write(binding.Name);
             Writer.Write("; // Bound to \"");
-            Writer.Write(binding.GetAttributes()
-                .First(x => x.AttributeClass?.Name == "ManialinkControlAttribute")
-                .ConstructorArguments[0].Value);
+            Writer.Write(bindingAttribute.ConstructorArguments.Length == 0
+                ? binding.Name
+                : bindingAttribute.ConstructorArguments[0].Value);
             Writer.WriteLine('"');
         }
         
