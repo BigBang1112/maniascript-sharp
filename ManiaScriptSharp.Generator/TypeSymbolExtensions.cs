@@ -4,7 +4,7 @@ namespace ManiaScriptSharp.Generator;
 
 public static class NamedTypeSymbolExtensions
 {
-    public static bool IsSubclassOf(this INamedTypeSymbol typeSymbol, Func<INamedTypeSymbol, bool> predicate)
+    public static bool IsSubclassOf(this ITypeSymbol typeSymbol, Func<INamedTypeSymbol, bool> predicate)
     {
         while (typeSymbol.BaseType is not null)
         {

@@ -9,22 +9,10 @@ public class ManiaScriptFile : IGeneratedFile
     public static ManiaScriptFile Generate(INamedTypeSymbol scriptSymbol, TextWriter writer)
     {
         var headBuilder = new ManiaScriptHeadBuilder(scriptSymbol, writer);
+        var head = headBuilder.AnalyzeAndBuild();
         
-        headBuilder.AnalyzeAndBuild();
-
-        var methods = scriptSymbol.GetMembers().OfType<IMethodSymbol>();
-
-        foreach (var method in methods)
-        {
-            switch (method.Name)
-            {
-                case "Main":
-                    var methodSyntax = method.DeclaringSyntaxReferences[0].GetSyntax() is MethodDeclarationSyntax mSyntax
-                        ? mSyntax
-                        : throw new Exception("Main method not found");
-                    break;
-            }
-        }
+        var bodyBuilder = new ManiaScriptBodyBuilder(scriptSymbol, writer, head);
+        var body = bodyBuilder.AnalyzeAndBuild();
 
         return new ManiaScriptFile();
     }

@@ -45,10 +45,10 @@ public static class Standardizer
     public static string CSharpTypeToManiaScriptType(string csharpType) => csharpType switch
     {
         "void" => "Void",
-        "int" => "Integer",
-        "float" => "Real",
-        "bool" => "Boolean",
-        "string" => "Text",
-        _ => "X"
+        nameof(Int32) => "Integer",
+        nameof(Single) => "Real",
+        nameof(Boolean) => "Boolean",
+        nameof(String) => "Text",
+        _ => csharpType
     };
 }

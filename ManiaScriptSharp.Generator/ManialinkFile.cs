@@ -35,6 +35,9 @@ public class ManialinkFile : IGeneratedFile
 
         var headBuilder = new ManiaScriptHeadBuilder(scriptSymbol, scriptWriter, isEmbeddedInManialink: true);
         var head = headBuilder.AnalyzeAndBuild();
+        
+        var bodyBuilder = new ManiaScriptBodyBuilder(scriptSymbol, scriptWriter, head);
+        var body = bodyBuilder.AnalyzeAndBuild();
 
         // Trick to check if the script is empty, compatible with any kind of new line, will change in the future
         if (scriptWriter.GetStringBuilder().Length > scriptWriter.NewLine.Length * 2)

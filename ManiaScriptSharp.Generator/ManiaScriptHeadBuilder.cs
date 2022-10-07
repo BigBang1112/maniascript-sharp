@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Xml.Schema;
 using Microsoft.CodeAnalysis;
 
 namespace ManiaScriptSharp.Generator;
@@ -22,7 +23,9 @@ public class ManiaScriptHeadBuilder
         Structs = BuildStructs(),
         Includes = BuildIncludes(),
         Consts = BuildConsts(),
-        Settings = BuildSettings()
+        Settings = BuildSettings(),
+        Bindings = BuildBindings(),
+        Globals = BuildGlobals()
     };
 
     private INamedTypeSymbol BuildContext()
@@ -71,14 +74,14 @@ public class ManiaScriptHeadBuilder
                 switch (memberSymbol)
                 {
                     case IFieldSymbol fieldSymbol:
-                        type = Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.ToDisplayString());
+                        type = Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.Name);
                         name = fieldSymbol.Name;
                         break;
                     case IPropertySymbol propertySymbol:
                         
                         // TODO: be more flexible about getters and setters when they are not auto properties
 
-                        type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type.ToDisplayString());
+                        type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type.Name);
                         name = propertySymbol.Name;
                         break;
                     default:
@@ -107,7 +110,10 @@ public class ManiaScriptHeadBuilder
 
     private ImmutableArray<IFieldSymbol> BuildConsts()
     {
-        var consts = ScriptSymbol.GetMembers().OfType<IFieldSymbol>().Where(x => x.IsConst).ToImmutableArray();
+        var consts = ScriptSymbol.GetMembers()
+            .OfType<IFieldSymbol>()
+            .Where(x => x.IsConst)
+            .ToImmutableArray();
         
         foreach (var constSymbol in consts.Where(x => !x.GetAttributes().Any(y => y.AttributeClass?.Name == "SettingAttribute")))
         {
@@ -142,11 +148,15 @@ public class ManiaScriptHeadBuilder
 
     private ImmutableArray<IFieldSymbol> BuildSettings()
     {
-        var consts = ScriptSymbol.GetMembers().OfType<IFieldSymbol>().Where(x => x.IsConst).ToImmutableArray();
+        var consts = ScriptSymbol.GetMembers()
+            .OfType<IFieldSymbol>()
+            .Where(x => x.IsConst)
+            .ToImmutableArray();
         
         foreach (var constSymbol in consts)
         {
-            var settingAttribute = constSymbol.GetAttributes().FirstOrDefault(x => x.AttributeClass?.Name == "SettingAttribute");
+            var settingAttribute = constSymbol.GetAttributes()
+                .FirstOrDefault(x => x.AttributeClass?.Name == "SettingAttribute");
             
             if (settingAttribute is null)
             {
@@ -215,5 +225,85 @@ public class ManiaScriptHeadBuilder
         }
 
         return consts;
+    }
+
+    private ImmutableArray<IPropertySymbol> BuildBindings()
+    {
+        var bindings = ScriptSymbol.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(x => x.Type.IsSubclassOf(y => y.Name == "CMlControl") && x.GetAttributes()
+                .Any(y => y.AttributeClass?.Name == "ManialinkControlAttribute")
+            ).ToImmutableArray();
+
+        foreach (var binding in bindings)
+        {
+            Writer.Write("declare ");
+            Writer.Write(binding.Type.Name);
+            Writer.Write(' ');
+            Writer.Write(binding.Name);
+            Writer.Write("; // Bound to \"");
+            Writer.Write(binding.GetAttributes()
+                .First(x => x.AttributeClass?.Name == "ManialinkControlAttribute")
+                .ConstructorArguments[0].Value);
+            Writer.WriteLine('"');
+        }
+        
+        if (bindings.Length > 0)
+        {
+            Writer.WriteLine();
+        }
+        
+        return bindings;
+    }
+
+    private ImmutableArray<ISymbol> BuildGlobals()
+    {
+        var globals = WriteGlobals().ToImmutableArray();
+        
+        IEnumerable<ISymbol> WriteGlobals()
+        {
+            foreach (var memberSymbol in ScriptSymbol.GetMembers().Where(x => x.DeclaredAccessibility == Accessibility.Public))
+            {
+                string type;
+                string name;
+
+                switch (memberSymbol)
+                {
+                    case IFieldSymbol fieldSymbol:
+                        type = Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.Name);
+                        name = fieldSymbol.Name;
+                        break;
+                    case IPropertySymbol propertySymbol:
+
+                        // TODO: be more flexible about getters and setters when they are not auto properties
+
+                        type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type.Name);
+                        name = propertySymbol.Name;
+                        break;
+                    default:
+                        continue;
+                }
+
+                if (memberSymbol.GetAttributes().Any(x => x.AttributeClass?.Name is "ManialinkControlAttribute"))
+                {
+                    continue;
+                }
+
+                Writer.Write("declare ");
+                Writer.Write(type);
+                Writer.Write(' ');
+                Writer.Write(name);
+                Writer.WriteLine(";");
+
+                yield return memberSymbol;
+            }
+        }
+        
+        if (globals.Length > 0)
+        {
+            Writer.WriteLine();
+        }
+        
+        return globals;
     }
 }
