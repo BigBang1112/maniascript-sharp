@@ -89,13 +89,20 @@ public class ManiaScriptBodyBuilder
                 continue;
             }
 
+            var type = binding switch
+            {
+                IPropertySymbol prop => prop.Type.Name,
+                IFieldSymbol field => field.Type.Name,
+                _ => throw new Exception("This should never happen")
+            };
+
             Writer.WriteIdent(ident);
             
             Writer.Write(binding.Name);
             Writer.Write(" = (Page.GetFirstChild(\"");
             Writer.Write(controlId);
             Writer.Write("\") as ");
-            Writer.Write(binding.Type.Name);
+            Writer.Write(type);
             Writer.WriteLine(");");
         }
         

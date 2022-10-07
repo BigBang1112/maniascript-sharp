@@ -33,7 +33,7 @@ public class ManialinkFile : IGeneratedFile
             scriptWriter.WriteLine();
         }
 
-        var headBuilder = new ManiaScriptHeadBuilder(scriptSymbol, scriptWriter, isEmbeddedInManialink: true);
+        var headBuilder = new ManiaScriptHeadBuilder(scriptSymbol, scriptWriter, settings, doc);
         var head = headBuilder.AnalyzeAndBuild();
         
         var bodyBuilder = new ManiaScriptBodyBuilder(scriptSymbol, scriptWriter, head);

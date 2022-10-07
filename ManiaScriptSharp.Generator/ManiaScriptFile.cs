@@ -6,9 +6,9 @@ namespace ManiaScriptSharp.Generator;
 
 public class ManiaScriptFile : IGeneratedFile
 {
-    public static ManiaScriptFile Generate(INamedTypeSymbol scriptSymbol, TextWriter writer)
+    public static ManiaScriptFile Generate(INamedTypeSymbol scriptSymbol, TextWriter writer, GeneratorSettings settings)
     {
-        var headBuilder = new ManiaScriptHeadBuilder(scriptSymbol, writer);
+        var headBuilder = new ManiaScriptHeadBuilder(scriptSymbol, writer, settings);
         var head = headBuilder.AnalyzeAndBuild();
         
         var bodyBuilder = new ManiaScriptBodyBuilder(scriptSymbol, writer, head);

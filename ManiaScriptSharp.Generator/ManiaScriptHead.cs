@@ -13,6 +13,6 @@ public class ManiaScriptHead
     public ImmutableArray<INamedTypeSymbol> Includes { get; init; }
     public ImmutableArray<IFieldSymbol> Consts { get; init; }
     public ImmutableArray<IFieldSymbol> Settings { get; init; }
-    public ImmutableArray<IPropertySymbol> Bindings { get; init; }
+    public ImmutableArray<ISymbol> Bindings { get; init; }
     public ImmutableArray<ISymbol> Globals { get; init; }
 }

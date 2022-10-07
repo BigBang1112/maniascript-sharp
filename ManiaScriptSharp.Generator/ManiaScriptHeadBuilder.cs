@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
-using System.Xml.Schema;
+using System.Xml;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Text;
 
 namespace ManiaScriptSharp.Generator;
 
@@ -8,13 +9,15 @@ public class ManiaScriptHeadBuilder
 {
     public INamedTypeSymbol ScriptSymbol { get; }
     public TextWriter Writer { get; }
-    public bool IsEmbeddedInManialink { get; }
+    public GeneratorSettings Settings { get; }
+    public XmlDocument? ManialinkXml { get; }
 
-    public ManiaScriptHeadBuilder(INamedTypeSymbol scriptSymbol, TextWriter writer, bool isEmbeddedInManialink = false)
+    public ManiaScriptHeadBuilder(INamedTypeSymbol scriptSymbol, TextWriter writer, GeneratorSettings settings, XmlDocument? manialinkXml = null)
     {
         ScriptSymbol = scriptSymbol;
         Writer = writer;
-        IsEmbeddedInManialink = isEmbeddedInManialink;
+        Settings = settings;
+        ManialinkXml = manialinkXml;
     }
 
     public ManiaScriptHead AnalyzeAndBuild() => new()
@@ -35,7 +38,7 @@ public class ManiaScriptHeadBuilder
             throw new Exception("Context script requires a specific class context.");
         }
         
-        if (IsEmbeddedInManialink)
+        if (ManialinkXml is not null)
         {
             return ScriptSymbol.BaseType;
         }
@@ -244,27 +247,61 @@ public class ManiaScriptHeadBuilder
         }
     }
 
-    private ImmutableArray<IPropertySymbol> BuildBindings()
+    private ImmutableArray<ISymbol> BuildBindings()
     {
+        if (ManialinkXml is null) // Bindings are only supported for manialink scripts currently
+        {
+            return ImmutableArray<ISymbol>.Empty;
+        }
+        
         var bindings = ScriptSymbol.GetMembers()
-            .OfType<IPropertySymbol>()
-            .Where(x => x.Type.IsSubclassOf(y => y.Name == "CMlControl") && x.GetAttributes()
-                .Any(y => y.AttributeClass?.Name == "ManialinkControlAttribute")
+            .Where(x => (
+                (x is IPropertySymbol prop && prop.Type.IsSubclassOf(y => y.Name == "CMlControl")) ||
+                (x is IFieldSymbol field && field.Type.IsSubclassOf(y => y.Name == "CMlControl")))
+                && x.GetAttributes().Any(y => y.AttributeClass?.Name == "ManialinkControlAttribute")
             ).ToImmutableArray();
 
         foreach (var binding in bindings)
         {
             var bindingAttribute = binding.GetAttributes()
                 .First(x => x.AttributeClass?.Name == "ManialinkControlAttribute");
-            
+
+            var boundIdName = bindingAttribute.ConstructorArguments.Length == 0
+                ? binding.Name
+                : bindingAttribute.ConstructorArguments[0].Value?.ToString() ?? binding.Name;
+
+            var pageFirstChild = ManialinkXml.SelectSingleNode($"descendant::node()[@id='{boundIdName}']");
+
+            if (pageFirstChild is null)
+            {
+                var descriptorError = new DiagnosticDescriptor(
+                    "MSSG003", 
+                    "Manialink XML Page.GetFirstChild() validation",
+                    $"Could not find control with ID '{boundIdName}'", 
+                    "Manialink",  
+                    DiagnosticSeverity.Error,
+                    true);
+
+                var linePosition = new LinePosition();
+
+                var location = Location.Create($"{ScriptSymbol.Name}.xml", new(), new(linePosition, linePosition));
+
+                Settings.Context.ReportDiagnostic(Diagnostic.Create(descriptorError, location));
+            }
+
+            var type = binding switch
+            {
+                IPropertySymbol prop => prop.Type.Name,
+                IFieldSymbol field => field.Type.Name,
+                _ => throw new Exception("This should never happen")
+            };
+
             Writer.Write("declare ");
-            Writer.Write(binding.Type.Name);
+            Writer.Write(type);
             Writer.Write(' ');
             Writer.Write(binding.Name);
             Writer.Write("; // Bound to \"");
-            Writer.Write(bindingAttribute.ConstructorArguments.Length == 0
-                ? binding.Name
-                : bindingAttribute.ConstructorArguments[0].Value);
+            Writer.Write(boundIdName);
             Writer.WriteLine('"');
         }
         
