@@ -32,6 +32,23 @@ public static class Standardizer
         return prefix + "_" + name;
     }
     
+    public static string StandardizeUnderscoreName(string name)
+    {
+        if (name.Length == 0)
+        {
+            throw new Exception("Name is empty.");
+        }
+        
+        if (name[0] == '_' && name.Length >= 2)
+        {
+            return char.IsLower(name[1])
+                ? "_" + char.ToUpper(name[1]) + name.Substring(2)
+                : name;
+        }
+        
+        return "_" + char.ToUpper(name[0]) + name.Substring(1);
+    }
+    
     public static string StandardizeConstName(string name)
     {
         return StandardizeUnderscorePrefixName(name, 'C');

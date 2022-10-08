@@ -10,8 +10,11 @@ public partial class CMlScript
     public delegate void MouseOverEventHandler(CMlControl control, string controlId);
     public delegate void MouseOutEventHandler(CMlControl control, string controlId);
     public delegate void EntrySubmitEventHandler(CMlControl control, string controlId);
-    public delegate void MenuNavigationEventHandler(CMlScriptEvent.EMenuNavAction action);
-    public delegate void PluginCustomEventEventHandler(string type, ImmutableArray<string> data);
+    public delegate void MenuNavigationEventHandler(
+        [ActualName(nameof(CMlScriptEvent.MenuNavAction))] CMlScriptEvent.EMenuNavAction action);
+    public delegate void PluginCustomEventEventHandler(
+        [ActualName(nameof(CMlScriptEvent.CustomEventType))] string type,
+        [ActualName(nameof(CMlScriptEvent.CustomEventData))] ImmutableArray<string> data);
     
     [ManiaScriptEventList(nameof(PendingEventHandler))]
     public IList<CMlScriptEvent> PendingEvents { get; }
