@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -19,8 +20,7 @@ public class ManiaScriptBodyBuilder
     public ManiaScriptBody AnalyzeAndBuild()
     {
         var methods = ScriptSymbol.GetMembers()
-            .OfType<IMethodSymbol>()
-            .Where(m => m.DeclaredAccessibility == Accessibility.Public);
+            .OfType<IMethodSymbol>();
         
         var customFunctions = new List<IMethodSymbol>();
         
@@ -49,7 +49,32 @@ public class ManiaScriptBodyBuilder
 
         foreach (var customFunctionSymbol in customFunctions)
         {
-            Writer.WriteLine("Void Something() { }");
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(customFunctionSymbol.ReturnType.Name));
+            Writer.Write(' ');
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(customFunctionSymbol.Name));
+            Writer.Write('(');
+
+            var isFirst = true;
+            
+            foreach (var parameter in customFunctionSymbol.Parameters)
+            {
+                if (isFirst)
+                {
+                    isFirst = false;
+                }
+                else
+                {
+                    Writer.Write(", ");
+                }
+
+                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(parameter.Type.Name));
+                Writer.Write(' ');
+                Writer.Write(parameter.Name);
+            }
+            
+            Writer.WriteLine(") {");
+            //Writer.Write(((MethodDeclarationSyntax)customFunctionSymbol.DeclaringSyntaxReferences[0].GetSyntax()).Body);
+            Writer.WriteLine("}");
             Writer.WriteLine();
         }
 
@@ -63,7 +88,6 @@ public class ManiaScriptBodyBuilder
 
             WriteMain(ident: 1);
 
-            Writer.WriteLine();
             Writer.WriteLine("}");
         }
 
@@ -113,11 +137,132 @@ public class ManiaScriptBodyBuilder
     
     private void WriteLoop(int ident)
     {
-        Writer.WriteIdent(ident);
-        Writer.WriteLine("while (true) {");
-        Writer.WriteIdent(ident + 1);
-        Writer.WriteLine("yield;");
-        Writer.WriteIdent(ident);
-        Writer.WriteLine("}");
+        Writer.WriteLine(ident, "while (true) {");
+        WriteLoopContent(ident + 1);
+        Writer.WriteLine(ident, "}");
+    }
+
+    private void WriteLoopContent(int ident)
+    {
+        Writer.WriteLine(ident, "yield;");
+
+        var possiblyImplementedEventMethods = ScriptSymbol.GetMembers()
+            .OfType<IMethodSymbol>()
+            .Where(x => x.IsOverride && x.Name.StartsWith("On"))
+            .ToImmutableDictionary(x => x.Name);
+            
+        var currentSymbol = ScriptSymbol;
+        
+        while (currentSymbol is not null)
+        {
+            foreach (var member in currentSymbol.GetMembers().OfType<IPropertySymbol>())
+            {
+                var eventListAtt = member.GetAttributes()
+                    .FirstOrDefault(x => x.AttributeClass?.Name == "ManiaScriptEventListAttribute");
+                
+                if (eventListAtt is null)
+                {
+                    continue;
+                }
+                
+                var eventHandlerName = (string)eventListAtt.ConstructorArguments[0].Value!;
+
+                var delegates = currentSymbol.GetMembers()
+                    .OfType<INamedTypeSymbol>()
+                    .Where(x => x.DelegateInvokeMethod is not null)
+                    .ToImmutableArray();
+                
+                var eventTypeSymbol = GetEventTypeSymbol(delegates, eventHandlerName);
+                var eventEnumName = GetEventEnumName(eventTypeSymbol);
+
+                Writer.Write(ident, "foreach (Event in ");
+                Writer.Write(member.Name);
+                Writer.WriteLine(") {");
+                
+                WriteEventSwitch(ident + 1, delegates, eventTypeSymbol, eventEnumName, eventHandlerName, possiblyImplementedEventMethods);
+                
+                Writer.WriteLine(ident, "}");
+            }
+
+            currentSymbol = currentSymbol.BaseType;
+        }
+    }
+
+    private static string GetEventEnumName(ITypeSymbol eventTypeSymbol)
+    {
+        foreach (var propSymbol in eventTypeSymbol.GetMembers().OfType<IPropertySymbol>())
+        {
+            if (propSymbol.Name == "Type")
+            {
+                return propSymbol.Type.Name;
+            }
+
+            var actualNameAtt = propSymbol.GetAttributes()
+                .FirstOrDefault(x => x.AttributeClass?.Name == "ActualNameAttribute");
+
+            if (actualNameAtt is not null && (string)actualNameAtt.ConstructorArguments[0].Value! == "Type")
+            {
+                return propSymbol.Type.Name;
+            }
+        }
+
+        throw new Exception();
+    }
+
+    private static ITypeSymbol GetEventTypeSymbol(ImmutableArray<INamedTypeSymbol> delegates, string eventHandlerName)
+    {
+        var delegateGeneralEventSymbol = delegates.FirstOrDefault(x => x.Name == eventHandlerName);
+
+        if (delegateGeneralEventSymbol is null)
+        {
+            throw new Exception();
+        }
+
+        var method = delegateGeneralEventSymbol.DelegateInvokeMethod!;
+        var isGeneralEvent = method.Parameters.Length == 1 && method.Parameters[0].Name == "e";
+
+        if (!isGeneralEvent)
+        {
+            throw new Exception();
+        }
+
+        return method.Parameters[0].Type;
+    }
+
+    private void WriteEventSwitch(int ident, IEnumerable<INamedTypeSymbol> delegates, ITypeSymbol eventTypeSymbol,
+        string eventEnumName, string eventHandlerName,
+        ImmutableDictionary<string, IMethodSymbol> possiblyImplementedEventMethods)
+    {
+        Writer.WriteLine(ident, "switch (Event.Type) {");
+
+        foreach (var delegateSymbol in delegates)
+        {
+            if (delegateSymbol.Name == eventHandlerName)
+            {
+                continue;
+            }
+            
+            var method = delegateSymbol.DelegateInvokeMethod!;
+            var isGeneralEvent = method.Parameters.Length == 1 && method.Parameters[0].Name == "e";
+            var eventName = delegateSymbol.Name.Substring(0, delegateSymbol.Name.Length - 12 + (isGeneralEvent ? 5 : 0));
+
+            if (possiblyImplementedEventMethods.TryGetValue("On" + eventName, out var eventMethod))
+            {
+                Writer.Write(ident + 1, "case ");
+                Writer.Write(eventTypeSymbol.Name);
+                Writer.Write("::");
+                Writer.Write(eventEnumName);
+                Writer.Write("::");
+                Writer.Write(eventName);
+                Writer.WriteLine(": {");
+                
+                Writer.WriteIdent(ident + 2);
+                Writer.WriteLine();
+                
+                Writer.WriteLine(ident + 1, "}");
+            }
+        }
+
+        Writer.WriteLine(ident, "}");
     }
 }

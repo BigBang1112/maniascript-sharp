@@ -28,7 +28,8 @@ public class EventHandlerGenerator : ISourceGenerator
             foreach (var delegateSymbol in typeSymbol.GetTypeMembers().Where(x => x.DelegateInvokeMethod is not null))
             {
                 var method = delegateSymbol.DelegateInvokeMethod!;
-                var eventName = delegateSymbol.Name.Substring(0, delegateSymbol.Name.Length - 12);
+                var isGeneralEvent = method.Parameters.Length == 1 && method.Parameters[0].Name == "e";
+                var eventName = delegateSymbol.Name.Substring(0, delegateSymbol.Name.Length - 12 + (isGeneralEvent ? 5 : 0));
                 
                 var builder = new StringBuilder();
                 
@@ -44,55 +45,68 @@ public class EventHandlerGenerator : ISourceGenerator
                 builder.Append("? ");
                 builder.Append(eventName);
                 builder.AppendLine(";");
-                builder.AppendLine();
-                builder.Append("    protected virtual void On");
-                builder.Append(eventName);
-                builder.Append('(');
 
-                var isFirstParam = true;
+                var eventSymbol = typeSymbol.GetMembers("On" + eventName).FirstOrDefault(x =>
+                    x is IMethodSymbol m && m.Parameters.Length == method.Parameters.Length);
                 
-                foreach (var param in method.Parameters)
+                // if typeSymbol does not contain the method already
+                if (eventSymbol is null)
                 {
-                    if (isFirstParam)
+                    builder.AppendLine();
+                    builder.Append("    protected virtual void On");
+                    builder.Append(eventName);
+                    builder.Append('(');
+
+                    var isFirstParam = true;
+
+                    foreach (var param in method.Parameters)
                     {
-                        isFirstParam = false;
+                        if (isFirstParam)
+                        {
+                            isFirstParam = false;
+                        }
+                        else
+                        {
+                            builder.Append(", ");
+                        }
+
+                        builder.Append(param.Type.ToDisplayString());
+                        builder.Append(' ');
+                        builder.Append(param.Name);
                     }
-                    else
+
+                    builder.AppendLine(")");
+                    builder.AppendLine("    {");
+                    builder.Append("        ");
+                    builder.Append(eventName);
+                    builder.Append("?.Invoke(");
+
+                    isFirstParam = true;
+
+                    foreach (var param in method.Parameters)
                     {
-                        builder.Append(", ");
+                        if (isFirstParam)
+                        {
+                            isFirstParam = false;
+                        }
+                        else
+                        {
+                            builder.Append(", ");
+                        }
+
+                        builder.Append(param.Name);
                     }
+
+                    builder.AppendLine(");");
+                    builder.AppendLine("    }");
+                }
+                else
+                {
                     
-                    builder.Append(param.Type.ToDisplayString());
-                    builder.Append(' ');
-                    builder.Append(param.Name);
                 }
-                
-                builder.AppendLine(")");
-                builder.AppendLine("    {");
-                builder.Append("        ");
-                builder.Append(eventName);
-                builder.Append("?.Invoke(");
-                
-                isFirstParam = true;
-                
-                foreach (var param in method.Parameters)
-                {
-                    if (isFirstParam)
-                    {
-                        isFirstParam = false;
-                    }
-                    else
-                    {
-                        builder.Append(", ");
-                    }
 
-                    builder.Append(param.Name);
-                }
-                
-                builder.AppendLine(");");
-                builder.AppendLine("    }");
                 builder.AppendLine("}");
-                
+
                 context.AddSource($"{typeSymbol.Name}.{delegateSymbol.Name}.cs", builder.ToString());
             }
         }

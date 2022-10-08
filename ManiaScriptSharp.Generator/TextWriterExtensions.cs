@@ -9,4 +9,22 @@ public static class TextWriterExtensions
             writer.Write('\t');
         }
     }
+    
+    public static void WriteLine(this TextWriter writer, int ident, string value)
+    {
+        writer.WriteIdent(ident);
+        writer.WriteLine(value);
+    }
+    
+    public static void Write(this TextWriter writer, int ident, char value)
+    {
+        writer.WriteIdent(ident);
+        writer.Write(value);
+    }
+    
+    public static void Write(this TextWriter writer, int ident, string value)
+    {
+        writer.WriteIdent(ident);
+        writer.Write(value);
+    }
 }
