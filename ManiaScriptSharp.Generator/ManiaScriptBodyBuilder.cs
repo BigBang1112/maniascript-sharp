@@ -73,7 +73,7 @@ public class ManiaScriptBodyBuilder
             }
             
             Writer.WriteLine(") {");
-            //Writer.Write(((MethodDeclarationSyntax)customFunctionSymbol.DeclaringSyntaxReferences[0].GetSyntax()).Body);
+            WriteFunctionBody(ident: 1, customFunctionSymbol);
             Writer.WriteLine("}");
             Writer.WriteLine();
         }
