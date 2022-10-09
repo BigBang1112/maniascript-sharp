@@ -181,7 +181,7 @@ public class ManiaScriptHeadBuilder
         foreach (var constSymbol in consts)
         {
             var settingAttribute = constSymbol.GetAttributes()
-                .FirstOrDefault(x => x.AttributeClass?.Name == "SettingAttribute");
+                .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.SettingAttribute);
 
             if (settingAttribute is null)
             {
@@ -256,15 +256,15 @@ public class ManiaScriptHeadBuilder
         
         var bindings = ScriptSymbol.GetMembers()
             .Where(x => (
-                (x is IPropertySymbol prop && prop.Type.IsSubclassOf(y => y.Name == "CMlControl")) ||
-                (x is IFieldSymbol field && field.Type.IsSubclassOf(y => y.Name == "CMlControl")))
-                && x.GetAttributes().Any(y => y.AttributeClass?.Name == "ManialinkControlAttribute")
+                (x is IPropertySymbol prop && prop.Type.IsSubclassOf(y => y.Name == NameConsts.CMlControl)) ||
+                (x is IFieldSymbol field && field.Type.IsSubclassOf(y => y.Name == NameConsts.CMlControl)))
+                && x.GetAttributes().Any(y => y.AttributeClass?.Name == NameConsts.ManialinkControlAttribute)
             ).ToImmutableArray();
 
         foreach (var binding in bindings)
         {
             var bindingAttribute = binding.GetAttributes()
-                .First(x => x.AttributeClass?.Name == "ManialinkControlAttribute");
+                .First(x => x.AttributeClass?.Name == NameConsts.ManialinkControlAttribute);
 
             var boundIdName = bindingAttribute.ConstructorArguments.Length == 0
                 ? binding.Name
@@ -350,7 +350,7 @@ public class ManiaScriptHeadBuilder
                     continue;
             }
 
-            if (memberSymbol.GetAttributes().Any(x => x.AttributeClass?.Name is "ManialinkControlAttribute"))
+            if (memberSymbol.GetAttributes().Any(x => x.AttributeClass?.Name is NameConsts.ManialinkControlAttribute))
             {
                 continue;
             }

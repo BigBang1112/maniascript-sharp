@@ -29,7 +29,7 @@ public class EventForeachBuilder
             foreach (var member in currentSymbol.GetMembers().OfType<IPropertySymbol>())
             {
                 var eventListAtt = member.GetAttributes()
-                    .FirstOrDefault(x => x.AttributeClass?.Name == "ManiaScriptEventListAttribute");
+                    .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ManiaScriptEventListAttribute);
 
                 if (eventListAtt is null)
                 {
@@ -63,6 +63,11 @@ public class EventForeachBuilder
                 if (defaultEventMethod.HasValue)
                 {
                     var (delegateSymbol, methodSymbol) = defaultEventMethod.Value;
+                    
+                    Writer.Write(ident + 1, methodSymbol.Name);
+                    Writer.Write('(');
+                    Writer.Write("Event");
+                    Writer.WriteLine(");");
                     
                     BodyBuilder.WriteFunctionBody(ident + 1, methodSymbol);
                 }
@@ -122,7 +127,7 @@ public class EventForeachBuilder
             }
 
             var actualNameAtt = propSymbol.GetAttributes()
-                .FirstOrDefault(x => x.AttributeClass?.Name == "ActualNameAttribute");
+                .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualNameAttribute);
 
             if (actualNameAtt is not null && (string)actualNameAtt.ConstructorArguments[0].Value! == "Type")
             {
@@ -161,7 +166,7 @@ public class EventForeachBuilder
         foreach (var (delegateSymbol, methodSymbol) in eventMethods)
         {
             var actualEventName = delegateSymbol.ReceiverType?.GetAttributes()
-                .FirstOrDefault(x => x.AttributeClass?.Name == "ActualEventNameAttribute")?
+                .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualEventNameAttribute)?
                 .ConstructorArguments[0].Value as string;
                 
             var eventName = actualEventName ?? methodSymbol.Name.Substring(2);
@@ -174,17 +179,31 @@ public class EventForeachBuilder
             Writer.Write(eventName);
             Writer.WriteLine(": {");
 
+            Writer.Write(ident + 2, methodSymbol.Name);
+            Writer.Write('(');
+            
+            var isFirst = true;
+            
             foreach (var p in delegateSymbol.Parameters)
             {
+                if (isFirst)
+                {
+                    isFirst = false;
+                }
+                else
+                {
+                    Writer.Write(", ");
+                }
+                
                 var nameOfEventClassMember = p.GetAttributes()
-                    .FirstOrDefault(x => x.AttributeClass?.Name == "ActualNameAttribute")?
+                    .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualNameAttribute)?
                     .ConstructorArguments[0].Value?.ToString() ?? char.ToUpper(p.Name[0]) + p.Name.Substring(1);
                     
-                Writer.WriteLine(ident + 2, "// Event." + nameOfEventClassMember);
+                Writer.Write("Event.");
+                Writer.Write(nameOfEventClassMember);
             }
                 
-            BodyBuilder.WriteFunctionBody(ident + 2, methodSymbol);
-                    
+            Writer.WriteLine(");");
             Writer.WriteLine(ident + 1, "}");
         }
 

@@ -39,7 +39,7 @@ public class ManiaScriptBodyBuilder
                     break;
                 default:
                     if (method.MethodKind != MethodKind.Constructor && method.MethodKind != MethodKind.PropertyGet &&
-                        method.MethodKind != MethodKind.PropertySet && !method.IsOverride) customFunctions.Add(method);
+                        method.MethodKind != MethodKind.PropertySet) customFunctions.Add(method);
                     break;
             }
         }

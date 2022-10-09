@@ -2,6 +2,10 @@ namespace ManiaScriptSharp;
 
 public partial class CTmMode
 {
+    /// <summary>
+    /// Any pending event handler.
+    /// </summary>
+    /// <param name="e">Event.</param>
     public delegate void PendingEventHandler(CTmModeEvent e);
     public delegate void StartLineEventHandler(CTmPlayer player);
     public delegate void GiveUpEventHandler(CTmPlayer player);

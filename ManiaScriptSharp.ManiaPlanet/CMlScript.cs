@@ -4,7 +4,18 @@ namespace ManiaScriptSharp;
 
 public partial class CMlScript
 {
+    /// <summary>
+    /// Any pending event handler.
+    /// </summary>
+    /// <param name="e">Event.</param>
     public delegate void PendingEventHandler(CMlScriptEvent e);
+    
+    /// <summary>
+    /// Handles key presses.
+    /// </summary>
+    /// <param name="keyCode"></param>
+    /// <param name="keyName"></param>
+    /// <param name="charPressed"></param>
     public delegate void KeyPressEventHandler(int keyCode, string keyName, string charPressed);
     public delegate void MouseClickEventHandler(CMlControl control, string controlId);
     public delegate void MouseOverEventHandler(CMlControl control, string controlId);
