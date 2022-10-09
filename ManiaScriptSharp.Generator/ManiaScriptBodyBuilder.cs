@@ -23,7 +23,7 @@ public class ManiaScriptBodyBuilder
         var methods = ScriptSymbol.GetMembers()
             .OfType<IMethodSymbol>();
         
-        var customFunctions = new List<IMethodSymbol>();
+        var functions = new List<IMethodSymbol>();
         
         var mainMethodSymbol = default(IMethodSymbol);
         var loopMethodSymbol = default(IMethodSymbol);
@@ -40,7 +40,7 @@ public class ManiaScriptBodyBuilder
                     break;
                 default:
                     if (method.MethodKind != MethodKind.Constructor && method.MethodKind != MethodKind.PropertyGet &&
-                        method.MethodKind != MethodKind.PropertySet) customFunctions.Add(method);
+                        method.MethodKind != MethodKind.PropertySet) functions.Add(method);
                     break;
             }
         }
@@ -48,19 +48,19 @@ public class ManiaScriptBodyBuilder
         _ = mainMethodSymbol ?? throw new Exception("Main method not found");
         _ = loopMethodSymbol ?? throw new Exception("Loop method not found");
 
-        foreach (var customFunctionSymbol in customFunctions)
+        foreach (var functionSymbol in functions)
         {
             var docBuilder = new DocumentationBuilder(this);
-            docBuilder.WriteDocumentation(ident: 0, customFunctionSymbol);
+            docBuilder.WriteDocumentation(ident: 0, functionSymbol);
 
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(customFunctionSymbol.ReturnType.Name));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.ReturnType.Name));
             Writer.Write(' ');
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(customFunctionSymbol.Name));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.Name));
             Writer.Write('(');
 
             var isFirst = true;
             
-            foreach (var parameter in customFunctionSymbol.Parameters)
+            foreach (var parameter in functionSymbol.Parameters)
             {
                 if (isFirst)
                 {
@@ -71,18 +71,18 @@ public class ManiaScriptBodyBuilder
                     Writer.Write(", ");
                 }
 
-                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(parameter.Type.Name));
+                Writer.Write(Standardizer.CSharpTypeToManiaScriptType((INamedTypeSymbol)parameter.Type));
                 Writer.Write(' ');
                 Writer.Write(Standardizer.StandardizeUnderscoreName(parameter.Name));
             }
             
             Writer.WriteLine(") {");
-            WriteFunctionBody(ident: 1, customFunctionSymbol);
+            WriteFunctionBody(ident: 1, functionSymbol);
             Writer.WriteLine("}");
             Writer.WriteLine();
         }
 
-        var ident = customFunctions.Count == 0 ? 0 : 1;
+        var ident = functions.Count == 0 ? 0 : 1;
         
         var mainDocBuilder = new DocumentationBuilder(this);
         mainDocBuilder.WriteDocumentation(0, mainMethodSymbol);

@@ -1,4 +1,6 @@
-﻿namespace ManiaScriptSharp.Generator;
+﻿using Microsoft.CodeAnalysis;
+
+namespace ManiaScriptSharp.Generator;
 
 public static class Standardizer
 {
@@ -68,4 +70,23 @@ public static class Standardizer
         nameof(String) => "Text",
         _ => csharpType
     };
+    
+
+    public static string CSharpTypeToManiaScriptType(INamedTypeSymbol csharpType)
+    {
+        switch (csharpType.Name)
+        {
+            case "ImmutableArray":
+                return csharpType.TypeArguments[0].Name switch
+                {
+                    "Int32" => "Integer[]",
+                    "Single" => "Real[]",
+                    "Boolean" => "Boolean[]",
+                    "String" => "Text[]",
+                    _ => csharpType.TypeArguments[0].Name + "[]"
+                };
+            default:
+                return CSharpTypeToManiaScriptType(csharpType.Name);
+        }
+    }
 }
