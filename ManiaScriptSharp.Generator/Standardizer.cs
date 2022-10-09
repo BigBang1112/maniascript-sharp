@@ -19,21 +19,6 @@ public static class Standardizer
         return name;
     }
     
-    public static string StandardizeUnderscorePrefixName(string name, char prefix)
-    {
-        if (name.Length == 0)
-        {
-            return "";
-        }
-        
-        if (name.Length >= 2 && name[0] == prefix && name[1] == '_')
-        {
-            return name;
-        }
-        
-        return prefix + "_" + name;
-    }
-    
     public static string StandardizeUnderscoreName(string name)
     {
         if (name.Length == 0)
@@ -51,6 +36,21 @@ public static class Standardizer
         return "_" + char.ToUpper(name[0]) + name.Substring(1);
     }
     
+    public static string StandardizeUnderscorePrefixName(string name, char prefix)
+    {
+        if (name.Length == 0)
+        {
+            return "";
+        }
+        
+        if (name.Length >= 2 && name[0] == prefix && name[1] == '_')
+        {
+            return name;
+        }
+        
+        return prefix + "_" + char.ToUpper(name[0]) + name.Substring(1);
+    }
+    
     public static string StandardizeConstName(string name)
     {
         return StandardizeUnderscorePrefixName(name, 'C');
@@ -59,6 +59,11 @@ public static class Standardizer
     public static string StandardizeSettingName(string name)
     {
         return StandardizeUnderscorePrefixName(name, 'S');
+    }
+    
+    public static string StandardizeGlobalName(string name)
+    {
+        return StandardizeUnderscorePrefixName(name, 'G');
     }
 
     public static string CSharpTypeToManiaScriptType(string csharpType) => csharpType switch

@@ -27,8 +27,8 @@ public class ManiaScriptHeadBuilder
         Includes = BuildIncludes(),
         Consts = BuildConsts(),
         Settings = BuildSettings(),
-        Bindings = BuildBindings(),
-        Globals = BuildGlobals()
+        Globals = BuildGlobals(),
+        Bindings = BuildBindings()
     };
 
     private INamedTypeSymbol BuildContext()
@@ -247,6 +247,58 @@ public class ManiaScriptHeadBuilder
         }
     }
 
+    private ImmutableArray<ISymbol> BuildGlobals()
+    {
+        var globals = WriteGlobals().ToImmutableArray();
+        
+        if (globals.Length > 0)
+        {
+            Writer.WriteLine();
+        }
+        
+        return globals;
+    }
+    
+    private IEnumerable<ISymbol> WriteGlobals()
+    {
+        foreach (var memberSymbol in ScriptSymbol.GetMembers().Where(x => x.DeclaredAccessibility == Accessibility.Public))
+        {
+            string type;
+            string name;
+
+            switch (memberSymbol)
+            {
+                case IFieldSymbol fieldSymbol:
+                    if (fieldSymbol.IsConst) continue;
+                    type = Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.Name);
+                    name = fieldSymbol.Name;
+                    break;
+                case IPropertySymbol propertySymbol:
+
+                    // TODO: be more flexible about getters and setters when they are not auto properties
+
+                    type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type.Name);
+                    name = propertySymbol.Name;
+                    break;
+                default:
+                    continue;
+            }
+
+            if (memberSymbol.GetAttributes().Any(x => x.AttributeClass?.Name is NameConsts.ManialinkControlAttribute))
+            {
+                continue;
+            }
+
+            Writer.Write("declare ");
+            Writer.Write(type);
+            Writer.Write(' ');
+            Writer.Write(Standardizer.StandardizeGlobalName(name));
+            Writer.WriteLine(";");
+
+            yield return memberSymbol;
+        }
+    }
+
     private ImmutableArray<ISymbol> BuildBindings()
     {
         if (ManialinkXml is null) // Bindings are only supported for manialink scripts currently
@@ -311,57 +363,5 @@ public class ManiaScriptHeadBuilder
         }
         
         return bindings;
-    }
-
-    private ImmutableArray<ISymbol> BuildGlobals()
-    {
-        var globals = WriteGlobals().ToImmutableArray();
-        
-        if (globals.Length > 0)
-        {
-            Writer.WriteLine();
-        }
-        
-        return globals;
-    }
-    
-    private IEnumerable<ISymbol> WriteGlobals()
-    {
-        foreach (var memberSymbol in ScriptSymbol.GetMembers().Where(x => x.DeclaredAccessibility == Accessibility.Public))
-        {
-            string type;
-            string name;
-
-            switch (memberSymbol)
-            {
-                case IFieldSymbol fieldSymbol:
-                    if (fieldSymbol.IsConst) continue;
-                    type = Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.Name);
-                    name = fieldSymbol.Name;
-                    break;
-                case IPropertySymbol propertySymbol:
-
-                    // TODO: be more flexible about getters and setters when they are not auto properties
-
-                    type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type.Name);
-                    name = propertySymbol.Name;
-                    break;
-                default:
-                    continue;
-            }
-
-            if (memberSymbol.GetAttributes().Any(x => x.AttributeClass?.Name is NameConsts.ManialinkControlAttribute))
-            {
-                continue;
-            }
-
-            Writer.Write("declare ");
-            Writer.Write(type);
-            Writer.Write(' ');
-            Writer.Write(name);
-            Writer.WriteLine(";");
-
-            yield return memberSymbol;
-        }
     }
 }

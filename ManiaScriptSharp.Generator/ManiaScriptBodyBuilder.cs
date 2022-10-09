@@ -103,42 +103,70 @@ public class ManiaScriptBodyBuilder
     
     private void WriteMain(int ident)
     {
-        foreach (var binding in Head.Bindings)
+        if (Head.Globals.Length > 0)
         {
-            var manialinkControlAtt = binding.GetAttributes()
-                .First(x => x.AttributeClass?.Name == "ManialinkControlAttribute");
-            
-            var controlId = manialinkControlAtt.ConstructorArguments.Length == 0
-                ? binding.Name
-                : manialinkControlAtt
-                    .ConstructorArguments[0]
-                    .Value?
-                    .ToString();
-
-            if (controlId is null)
+            foreach (var global in Head.Globals)
             {
-                continue;
+                if (global.DeclaringSyntaxReferences[0].GetSyntax() is not VariableDeclaratorSyntax
+                    variableDeclaratorSyntax)
+                {
+                    throw new Exception("This should never happen");
+                }
+
+                if (variableDeclaratorSyntax.Initializer is null)
+                {
+                    continue;
+                }
+
+                Writer.WriteIdent(ident);
+                Writer.Write(Standardizer.StandardizeGlobalName(global.Name));
+                Writer.Write(" = ");
+                Writer.Write(variableDeclaratorSyntax.Initializer.Value);
+                Writer.WriteLine(";");
             }
 
-            var type = binding switch
-            {
-                IPropertySymbol prop => prop.Type,
-                IFieldSymbol field => field.Type,
-                _ => throw new Exception("This should never happen")
-            };
-
-            Writer.WriteIdent(ident);
-            
-            Writer.Write(binding.Name);
-            Writer.Write(" = (Page.GetFirstChild(\"");
-            Writer.Write(controlId);
-            Writer.Write("\") as ");
-            Writer.Write(type.Name);
-            Writer.WriteLine(");");
+            Writer.WriteLine();
         }
         
-        Writer.WriteLine();
-        
+        if (Head.Bindings.Length > 0)
+        {
+            foreach (var binding in Head.Bindings)
+            {
+                var manialinkControlAtt = binding.GetAttributes()
+                    .First(x => x.AttributeClass?.Name == NameConsts.ManialinkControlAttribute);
+
+                var controlId = manialinkControlAtt.ConstructorArguments.Length == 0
+                    ? binding.Name
+                    : manialinkControlAtt
+                        .ConstructorArguments[0]
+                        .Value?
+                        .ToString();
+
+                if (controlId is null)
+                {
+                    continue;
+                }
+
+                var type = binding switch
+                {
+                    IPropertySymbol prop => prop.Type,
+                    IFieldSymbol field => field.Type,
+                    _ => throw new Exception("This should never happen")
+                };
+
+                Writer.WriteIdent(ident);
+
+                Writer.Write(binding.Name);
+                Writer.Write(" = (Page.GetFirstChild(\"");
+                Writer.Write(controlId);
+                Writer.Write("\") as ");
+                Writer.Write(type.Name);
+                Writer.WriteLine(");");
+            }
+
+            Writer.WriteLine();
+        }
+
         var mainMethodSyntax = ScriptSymbol.GetMembers()
             .OfType<IMethodSymbol>()
             .First(x => x.Name == "Main")
