@@ -9,14 +9,14 @@ public class ManiaScriptHeadBuilder
 {
     public INamedTypeSymbol ScriptSymbol { get; }
     public TextWriter Writer { get; }
-    public GeneratorSettings Settings { get; }
+    public GeneratorHelper Helper { get; }
     public XmlDocument? ManialinkXml { get; }
 
-    public ManiaScriptHeadBuilder(INamedTypeSymbol scriptSymbol, TextWriter writer, GeneratorSettings settings, XmlDocument? manialinkXml = null)
+    public ManiaScriptHeadBuilder(INamedTypeSymbol scriptSymbol, TextWriter writer, GeneratorHelper helper, XmlDocument? manialinkXml = null)
     {
         ScriptSymbol = scriptSymbol;
         Writer = writer;
-        Settings = settings;
+        Helper = helper;
         ManialinkXml = manialinkXml;
     }
 
@@ -286,7 +286,7 @@ public class ManiaScriptHeadBuilder
 
                 var location = Location.Create($"{ScriptSymbol.Name}.xml", new(), new(linePosition, linePosition));
 
-                Settings.Context.ReportDiagnostic(Diagnostic.Create(descriptorError, location));
+                Helper.Context.ReportDiagnostic(Diagnostic.Create(descriptorError, location));
             }
 
             var type = binding switch

@@ -8,9 +8,9 @@ namespace ManiaScriptSharp.Generator;
 
 public class ManialinkFile : IGeneratedFile
 {
-    public static ManialinkFile Generate(Stream xmlStream, INamedTypeSymbol scriptSymbol, TextWriter writer, GeneratorSettings settings)
+    public static ManialinkFile Generate(Stream xmlStream, INamedTypeSymbol scriptSymbol, TextWriter writer, GeneratorHelper helper)
     {
-        _ = ValidateManialinkXml(xmlStream, scriptSymbol, settings);
+        _ = ValidateManialinkXml(xmlStream, scriptSymbol, helper);
 
         xmlStream.Position = 0;
         
@@ -33,7 +33,7 @@ public class ManialinkFile : IGeneratedFile
             scriptWriter.WriteLine();
         }
 
-        var headBuilder = new ManiaScriptHeadBuilder(scriptSymbol, scriptWriter, settings, doc);
+        var headBuilder = new ManiaScriptHeadBuilder(scriptSymbol, scriptWriter, helper, doc);
         var head = headBuilder.AnalyzeAndBuild();
         
         var bodyBuilder = new ManiaScriptBodyBuilder(scriptSymbol, scriptWriter, head);
@@ -61,9 +61,9 @@ public class ManialinkFile : IGeneratedFile
         return new ManialinkFile();
     }
 
-    private static bool ValidateManialinkXml(Stream xmlStream, ISymbol scriptSymbol, GeneratorSettings settings)
+    private static bool ValidateManialinkXml(Stream xmlStream, ISymbol scriptSymbol, GeneratorHelper helper)
     {
-        if (settings.XmlSchema is null)
+        if (helper.XmlSchema is null)
         {
             return false;
         }
@@ -75,13 +75,13 @@ public class ManialinkFile : IGeneratedFile
             ValidationType = ValidationType.Schema
         };
         
-        rs.Schemas.Add(settings.XmlSchema!);
+        rs.Schemas.Add(helper.XmlSchema!);
         
         rs.ValidationEventHandler += (sender, e) =>
         {
             var diagnostic = CreateXmlValidationDiagnostic(scriptSymbol, e);
             
-            settings.Context.ReportDiagnostic(diagnostic);
+            helper.Context.ReportDiagnostic(diagnostic);
 
             throw e.Exception;
         };

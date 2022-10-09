@@ -4,5 +4,5 @@ using Microsoft.CodeAnalysis;
 
 namespace ManiaScriptSharp.Generator;
 
-public record GeneratorSettings(GeneratorExecutionContext Context, IFileSystem FileSystem,
+public record GeneratorHelper(GeneratorExecutionContext Context, IFileSystem FileSystem,
     string ProjectDir, string OutputDir, XmlSchema? XmlSchema);
