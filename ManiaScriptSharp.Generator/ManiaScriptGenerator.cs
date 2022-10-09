@@ -19,6 +19,8 @@ public class ManiaScriptGenerator : ISourceGenerator
         {
             Debugger.Launch();
         }
+        
+        context.RegisterForSyntaxNotifications(() => new SyntaxReceiver());
     }
 
     public void Execute(GeneratorExecutionContext context)
@@ -31,10 +33,13 @@ public class ManiaScriptGenerator : ISourceGenerator
         var outputDir = Path.Combine(projectDir, "out");
 
         var fileSystem = new FileSystem();
-        fileSystem.Directory.Delete(outputDir, true);
+        //fileSystem.Directory.Delete(outputDir, true);
         fileSystem.Directory.CreateDirectory(outputDir);
         
-        var xmlSchemaXsd = context.AdditionalFiles.FirstOrDefault(x => x.Path.EndsWith(".xsd"))?.GetText()?.ToString();
+        var xmlSchemaXsd = context.AdditionalFiles
+            .FirstOrDefault(x => x.Path.EndsWith(".xsd"))?
+            .GetText()?
+            .ToString();
         
         var xmlSchema = xmlSchemaXsd is null ? null : XmlSchema.Read(new StringReader(xmlSchemaXsd), (sender, args) =>
         {
@@ -42,31 +47,57 @@ public class ManiaScriptGenerator : ISourceGenerator
         });
 
         var helper = new GeneratorHelper(context, fileSystem, projectDir, outputDir, xmlSchema);
-
-        var scriptSymbols = context.Compilation
-            .GlobalNamespace
-            .GetNamespaceMembers()
-            .SelectMany(x => x.GetTypeMembers()
-                .Where(y => y.Interfaces.Any(z => z.Name == "IContext")));
         
-        foreach (var scriptSymbol in scriptSymbols)
-        {
-            try
-            {
-                var generatedFile = GenerateScriptFile(scriptSymbol, helper);
-            }
-            catch (XmlSchemaException)
-            {
-                
-            }
-            catch (Exception e)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor("MSSG003", "File generation failed", $"{e.GetType().Name} ({scriptSymbol.Name}): {e.Message}", "ManiaScriptSharp", DiagnosticSeverity.Error, true), Location.None));
+        var receiver = (SyntaxReceiver)context.SyntaxReceiver!;
 
-                if (Debug)
+        if (receiver.ClassName is null)
+        {
+            var scriptSymbols = context.Compilation
+                .GlobalNamespace
+                .GetNamespaceMembers()
+                .SelectMany(x => x.GetTypeMembers()
+                    .Where(y => y.Interfaces.Any(z => z.Name == "IContext")));
+
+            foreach (var scriptSymbol in scriptSymbols)
+            {
+                ProcessScriptSymbol(context, scriptSymbol, helper);
+            }
+        }
+        else
+        {
+            foreach (var namespaceSymbol in context.Compilation.GlobalNamespace.GetNamespaceMembers())
+            {
+                foreach (var typeSymbol in namespaceSymbol.GetTypeMembers())
                 {
-                    throw;
+                    if (typeSymbol.Name == receiver.ClassName)
+                    {
+                        ProcessScriptSymbol(context, typeSymbol, helper);
+                    }
                 }
+            }
+        }
+    }
+
+    private static void ProcessScriptSymbol(GeneratorExecutionContext context, INamedTypeSymbol scriptSymbol,
+        GeneratorHelper helper)
+    {
+        try
+        {
+            var generatedFile = GenerateScriptFile(scriptSymbol, helper);
+        }
+        catch (XmlSchemaException)
+        {
+        }
+        catch (Exception e)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                new DiagnosticDescriptor("MSSG003", "File generation failed",
+                    $"{e.GetType().Name} ({scriptSymbol.Name}): {e.Message}", "ManiaScriptSharp", DiagnosticSeverity.Error,
+                    true), Location.None));
+
+            if (Debug)
+            {
+                throw;
             }
         }
     }
@@ -93,9 +124,22 @@ public class ManiaScriptGenerator : ISourceGenerator
                 content = writer.ToString();
             }
         }
-        catch
+        catch (Exception ex)
         {
-            content = isEmbeddedScript ? "<!-- ERROR -->" : "// ERROR";
+            if (isEmbeddedScript)
+            {
+                content = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                          "<!--\n" +
+                          ex + "\n" +
+                          "-->";
+            }
+            else
+            {
+                content = "/*\n" +
+                          "\t" + ex + "\n" +
+                          "*/";
+            }
+            
             throw;
         }
         finally
