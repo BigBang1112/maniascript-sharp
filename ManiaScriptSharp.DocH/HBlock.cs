@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using System.Text.RegularExpressions;
+using ManiaScriptSharp.DocH.Blocks;
 
 namespace ManiaScriptSharp.DocH;
 
@@ -31,6 +32,19 @@ public abstract class HBlock : HGeneral
 
         if (!BeforeRead(line, match, builder))
         {
+            if (this is not EnumHBlock)
+            {
+                return false;
+            }
+
+            while (reader.ReadLine()?.Trim() is string nextLine)
+            {
+                if (nextLine.StartsWith("};"))
+                {
+                    break;
+                }
+            }
+
             return false;
         }
 
