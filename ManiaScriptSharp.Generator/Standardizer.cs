@@ -6,7 +6,7 @@ public static class Standardizer
     {
         if (name.Length == 0)
         {
-            throw new Exception("Name is empty.");
+            return "";
         }
         
         if (name[0] != 'S' || name.Length < 2 || char.IsLower(name[1]))
@@ -21,7 +21,7 @@ public static class Standardizer
     {
         if (name.Length == 0)
         {
-            throw new Exception("Name is empty.");
+            return "";
         }
         
         if (name.Length >= 2 && name[0] == prefix && name[1] == '_')
@@ -36,7 +36,7 @@ public static class Standardizer
     {
         if (name.Length == 0)
         {
-            throw new Exception("Name is empty.");
+            return "";
         }
         
         if (name[0] == '_' && name.Length >= 2)
