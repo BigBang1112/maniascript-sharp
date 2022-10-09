@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -24,18 +25,18 @@ public class ManiaScriptBodyBuilder
         
         var customFunctions = new List<IMethodSymbol>();
         
-        var mainMethodSyntax = default(MethodDeclarationSyntax);
-        var loopMethodSyntax = default(MethodDeclarationSyntax);
+        var mainMethodSymbol = default(IMethodSymbol);
+        var loopMethodSymbol = default(IMethodSymbol);
 
         foreach (var method in methods)
         {
             switch (method.Name)
             {
                 case "Main":
-                    mainMethodSyntax = method.DeclaringSyntaxReferences[0].GetSyntax() as MethodDeclarationSyntax;
+                    mainMethodSymbol = method;
                     break;
                 case "Loop":
-                    loopMethodSyntax = method.DeclaringSyntaxReferences[0].GetSyntax() as MethodDeclarationSyntax;
+                    loopMethodSymbol = method;
                     break;
                 default:
                     if (method.MethodKind != MethodKind.Constructor && method.MethodKind != MethodKind.PropertyGet &&
@@ -44,11 +45,14 @@ public class ManiaScriptBodyBuilder
             }
         }
 
-        _ = mainMethodSyntax ?? throw new Exception("Main method not found");
-        _ = loopMethodSyntax ?? throw new Exception("Loop method not found");
+        _ = mainMethodSymbol ?? throw new Exception("Main method not found");
+        _ = loopMethodSymbol ?? throw new Exception("Loop method not found");
 
         foreach (var customFunctionSymbol in customFunctions)
         {
+            var docBuilder = new DocumentationBuilder(this);
+            docBuilder.WriteDocumentation(ident: 0, customFunctionSymbol);
+
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(customFunctionSymbol.ReturnType.Name));
             Writer.Write(' ');
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(customFunctionSymbol.Name));
@@ -78,22 +82,25 @@ public class ManiaScriptBodyBuilder
             Writer.WriteLine();
         }
 
-        if (customFunctions.Count == 0)
-        {
-            WriteMain(ident: 0);
-        }
-        else
-        {
-            Writer.WriteLine("main() {");
+        var ident = customFunctions.Count == 0 ? 0 : 1;
+        
+        var mainDocBuilder = new DocumentationBuilder(this);
+        mainDocBuilder.WriteDocumentation(0, mainMethodSymbol);
+        
+        Writer.WriteLine("main() {");
 
-            WriteMain(ident: 1);
-
-            Writer.WriteLine("}");
-        }
+        WriteMain(ident);
+        
+        var loopDocBuilder = new DocumentationBuilder(this);
+        loopDocBuilder.WriteDocumentation(1, loopMethodSymbol);
+        
+        WriteLoop(ident);
+        
+        Writer.WriteLine("}");
 
         return new();
     }
-
+    
     private void WriteMain(int ident)
     {
         foreach (var binding in Head.Bindings)
@@ -115,8 +122,8 @@ public class ManiaScriptBodyBuilder
 
             var type = binding switch
             {
-                IPropertySymbol prop => prop.Type.Name,
-                IFieldSymbol field => field.Type.Name,
+                IPropertySymbol prop => prop.Type,
+                IFieldSymbol field => field.Type,
                 _ => throw new Exception("This should never happen")
             };
 
@@ -126,13 +133,17 @@ public class ManiaScriptBodyBuilder
             Writer.Write(" = (Page.GetFirstChild(\"");
             Writer.Write(controlId);
             Writer.Write("\") as ");
-            Writer.Write(type);
+            Writer.Write(type.Name);
             Writer.WriteLine(");");
         }
         
         Writer.WriteLine();
         
-        WriteLoop(ident);
+        var mainMethodSyntax = ScriptSymbol.GetMembers()
+            .OfType<IMethodSymbol>()
+            .First(x => x.Name == "Main")
+            .DeclaringSyntaxReferences[0]
+            .GetSyntax() as MethodDeclarationSyntax;
     }
     
     private void WriteLoop(int ident)
