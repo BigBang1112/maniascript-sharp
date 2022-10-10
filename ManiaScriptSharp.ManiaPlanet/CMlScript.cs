@@ -8,6 +8,7 @@ public partial class CMlScript
     /// Any pending event handler.
     /// </summary>
     /// <param name="e">Event.</param>
+    [ManiaScriptEvent(nameof(PendingEvents))]
     public delegate void PendingEventHandler(CMlScriptEvent e);
     
     /// <summary>
@@ -16,13 +17,26 @@ public partial class CMlScript
     /// <param name="keyCode"></param>
     /// <param name="keyName"></param>
     /// <param name="charPressed"></param>
+    [ManiaScriptEvent(nameof(PendingEvents))]
     public delegate void KeyPressEventHandler(int keyCode, string keyName, string charPressed);
+    
+    [ManiaScriptEvent(nameof(PendingEvents))]
     public delegate void MouseClickEventHandler(CMlControl control, string controlId);
+    
+    [ManiaScriptEvent(nameof(PendingEvents))]
     public delegate void MouseOverEventHandler(CMlControl control, string controlId);
+    
+    [ManiaScriptEvent(nameof(PendingEvents))]
     public delegate void MouseOutEventHandler(CMlControl control, string controlId);
+    
+    [ManiaScriptEvent(nameof(PendingEvents))]
     public delegate void EntrySubmitEventHandler(CMlControl control, string controlId);
+    
+    [ManiaScriptEvent(nameof(PendingEvents))]
     public delegate void MenuNavigationEventHandler(
         [ActualName(nameof(CMlScriptEvent.MenuNavAction))] CMlScriptEvent.EMenuNavAction action);
+    
+    [ManiaScriptEvent(nameof(PendingEvents))]
     public delegate void PluginCustomEventEventHandler(
         [ActualName(nameof(CMlScriptEvent.CustomEventType))] string type,
         [ActualName(nameof(CMlScriptEvent.CustomEventData))] ImmutableArray<string> data);
