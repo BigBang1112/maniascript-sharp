@@ -81,15 +81,24 @@ public class ManiaScriptBodyBuilder
                     var identifierSyntax = assignmentExpressionSyntax.Left as IdentifierNameSyntax;
                     var memberAccessSyntax = assignmentExpressionSyntax.Left as MemberAccessExpressionSyntax;
 
+                    var hasThis = false;
+                    
                     while (memberAccessSyntax is not null)
                     {
                         if (memberAccessSyntax.Expression is not MemberAccessExpressionSyntax syntax)
                         {
-                            if (memberAccessSyntax.Expression is IdentifierNameSyntax identifierNameSyntax)
+                            switch (memberAccessSyntax.Expression)
                             {
-                                identifierSyntax = identifierNameSyntax;
+                                case IdentifierNameSyntax identifierNameSyntax:
+                                    identifierSyntax = identifierNameSyntax;
+                                    break;
+                                case ThisExpressionSyntax:
+                                    identifierSyntax = memberAccessSyntax.Name as IdentifierNameSyntax;
+                                    memberAccessSyntax = null;
+                                    hasThis = true;
+                                    break;
                             }
-                            
+
                             break;
                         }
 
@@ -102,7 +111,7 @@ public class ManiaScriptBodyBuilder
                     }
 
                     var scriptSymbol = ScriptSymbol.BaseType; // In this case the base types are important
-                    var parent = identifierSyntax.Parent;
+                    var parent = hasThis ? identifierSyntax.Parent?.Parent : identifierSyntax.Parent;
                     var name = identifierSyntax.Identifier.Text;
                     var member = default(ISymbol);
                     var eventSymbol = default(IEventSymbol);
