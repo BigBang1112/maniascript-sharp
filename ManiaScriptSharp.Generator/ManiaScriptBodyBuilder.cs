@@ -1,8 +1,3 @@
-using System.Collections.Immutable;
-using System.Diagnostics;
-using System.Runtime.InteropServices.ComTypes;
-using System.Text;
-using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -15,7 +10,8 @@ public class ManiaScriptBodyBuilder
     public TextWriter Writer { get; }
     public ManiaScriptHead Head { get; }
     
-    private Dictionary<string, Dictionary<IMethodSymbol, BlockSyntax>> eventBlocks = new();
+    private Dictionary<string, Dictionary<IMethodSymbol, (ParameterListSyntax?, BlockSyntax)>> eventBlocks = new();
+    private Dictionary<string, Dictionary<IMethodSymbol, IMethodSymbol>> eventFunctions = new();
 
     public ManiaScriptBodyBuilder(INamedTypeSymbol scriptSymbol, TextWriter writer, ManiaScriptHead head)
     {
@@ -183,26 +179,63 @@ public class ManiaScriptBodyBuilder
                     
                     var eventName = memberAccessSyntax is null ? name : memberAccessSyntax.Name.Identifier.Text;
 
-                    var block = assignmentExpressionSyntax.Right switch
+                    (ParameterListSyntax?, BlockSyntax)? block = assignmentExpressionSyntax.Right switch
                     {
-                        AnonymousMethodExpressionSyntax anonymousMethodSyntax => anonymousMethodSyntax.Block,
-                        _ => throw new NotSupportedException("Body syntax not supported")
+                        // AnonymousFunctionExpressionSyntax is weird
+                        AnonymousMethodExpressionSyntax a => (a.ParameterList, a.Block),
+                        ParenthesizedLambdaExpressionSyntax l => (l.ParameterList, l.Block ?? SyntaxFactory.Block(SyntaxFactory.ExpressionStatement(l.ExpressionBody ?? throw new NotSupportedException("Lambda body not supported")))),
+                        IdentifierNameSyntax => null,
+                        _ => throw new NotSupportedException($"{assignmentExpressionSyntax.Right.GetType().Name} not supported")
                     };
 
+                    var functionCall = default(IMethodSymbol);
+
+                    if (assignmentExpressionSyntax.Right is IdentifierNameSyntax i)
+                    {
+                        functionCall = ScriptSymbol.GetMembers(i.Identifier.Text)
+                            .OfType<IMethodSymbol>()
+                            .FirstOrDefault();
+                    }
+
                     var eventDelegateInvoke = (eventSymbol.Type as INamedTypeSymbol)?.DelegateInvokeMethod ?? throw new Exception("This should not happen");
-                    
+
+                    if (block is null)
+                    {
+                        if (functionCall is null)
+                        {
+                            continue;
+                        }
+
+                        if (eventFunctions.TryGetValue(eventListName, out var eventFunctionList))
+                        {
+                            if (!eventFunctionList.ContainsKey(eventDelegateInvoke))
+                            {
+                                eventFunctionList.Add(eventDelegateInvoke, functionCall);
+                            }
+                        }
+                        else
+                        {
+                            eventFunctions.Add(eventListName, new(SymbolEqualityComparer.Default)
+                            {
+                                {eventDelegateInvoke, functionCall}
+                            });
+                        }
+
+                        continue;
+                    }
+
                     if (eventBlocks.TryGetValue(eventListName, out var eventList))
                     {
                         if (!eventList.ContainsKey(eventDelegateInvoke))
                         {
-                            eventList.Add(eventDelegateInvoke, block);
+                            eventList.Add(eventDelegateInvoke, block.Value);
                         }
                     }
                     else
                     {
                         eventBlocks.Add(eventListName, new(SymbolEqualityComparer.Default)
                         {
-                            {eventDelegateInvoke, block}
+                            {eventDelegateInvoke, block.Value}
                         });
                     }
                 }
@@ -362,7 +395,7 @@ public class ManiaScriptBodyBuilder
         Writer.WriteLine(ident, "yield;");
 
         var eventForeachBuilder = new EventForeachBuilder(this);
-        eventForeachBuilder.WriteEventForeach(ident, eventBlocks);
+        eventForeachBuilder.WriteEventForeach(ident, eventBlocks, eventFunctions);
     }
 
     public void WriteFunctionBody(int ident, IMethodSymbol methodSymbol)
