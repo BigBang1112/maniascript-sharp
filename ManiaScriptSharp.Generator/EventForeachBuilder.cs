@@ -72,7 +72,7 @@ public class EventForeachBuilder
                 var hasEventDelegates = eventBlocks.TryGetValue(member.Name, out var eventDelegateBlockList);
                 var hasGeneralEventDelegate = false;
                 
-                if (hasEventDelegates && eventDelegateBlockList.TryGetValue(delegateGeneralEventSymbol.DelegateInvokeMethod!, out var defaultEventB))
+                if (hasEventDelegates && eventDelegateBlockList!.TryGetValue(delegateGeneralEventSymbol.DelegateInvokeMethod!, out var defaultEventB))
                 {
                     defaultEventBlock = defaultEventB;
                     hasGeneralEventDelegate = true;
@@ -80,11 +80,10 @@ public class EventForeachBuilder
                     Writer.WriteLine(ident + 1, "// DELEGATED CALL //");
                 }
 
-                var defaultEventFunction = default(IMethodSymbol?);
                 var hasEventFunctions = eventFunctions.TryGetValue(member.Name, out var eventFunctionList);
                 var hasGeneralEventFunction = false;
                 
-                if (hasEventFunctions && eventFunctionList.TryGetValue(delegateGeneralEventSymbol.DelegateInvokeMethod!, out defaultEventFunction))
+                if (hasEventFunctions && eventFunctionList!.TryGetValue(delegateGeneralEventSymbol.DelegateInvokeMethod!, out var defaultEventFunction))
                 {
                     hasGeneralEventFunction = true;
 
@@ -103,8 +102,8 @@ public class EventForeachBuilder
                 }
 
                 var hasSpecificEvents = eventMethods.Length > 0
-                    || (hasEventDelegates && (eventDelegateBlockList.Count > 1 || !hasGeneralEventDelegate))
-                    || (hasEventFunctions && (eventFunctionList.Count > 1 || !hasGeneralEventFunction));
+                    || (hasEventDelegates && (eventDelegateBlockList!.Count > 1 || !hasGeneralEventDelegate))
+                    || (hasEventFunctions && (eventFunctionList!.Count > 1 || !hasGeneralEventFunction));
 
                 if (hasSpecificEvents)
                 {
@@ -115,6 +114,29 @@ public class EventForeachBuilder
             }
 
             currentSymbol = currentSymbol.BaseType;
+        }
+
+        foreach (var externalEventHandler in eventBlocks.Where(x => x.Key.Contains('.')))
+        {
+            var externalEventsName = externalEventHandler.Key;
+            var externalEvents = externalEventHandler.Value;
+            
+            Writer.Write(ident, "foreach (Event in ");
+            Writer.Write(externalEventsName);
+            Writer.WriteLine(") {");
+            Writer.WriteLine(ident + 1, "// DELEGATED CALL //");
+            Writer.WriteLine(ident, "}");
+        }
+        
+        foreach (var externalEventFunction in eventFunctions.Where(x => x.Key.Contains('.')))
+        {
+            var externalEventsName = externalEventFunction.Key;
+            var externalEvents = externalEventFunction.Value;
+            
+            Writer.Write(ident, "foreach (Event in ");
+            Writer.Write(externalEventsName);
+            Writer.WriteLine(") {");
+            Writer.WriteLine(ident, "}");
         }
     }
 
@@ -223,7 +245,6 @@ public class EventForeachBuilder
             {
                 eventFunctionUsedDict.Add(delegateSymbol, eventFunction);
                 WriteEventFunctionCall(ident, delegateSymbol, eventFunction);
-                Writer.WriteLine(ident + 2, "// FUNCTION CALL //");
             }
 
             WriteEventFunctionCall(ident, delegateSymbol, methodSymbol);
