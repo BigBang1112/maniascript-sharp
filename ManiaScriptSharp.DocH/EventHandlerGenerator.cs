@@ -49,33 +49,45 @@ public class EventHandlerGenerator : ISourceGenerator
                 var eventSymbol = typeSymbol.GetMembers("On" + eventName).FirstOrDefault(x =>
                     x is IMethodSymbol m && m.Parameters.Length == method.Parameters.Length);
                 
+                builder.AppendLine();
+                builder.Append("    [ManiaScriptEventMethod(nameof(");
+                builder.Append(delegateSymbol.Name);
+                builder.AppendLine("))]");
+                builder.Append("    protected virtual ");
+
+                if (eventSymbol is not null)
+                {
+                    builder.Append("partial ");
+                }
+                
+                builder.Append("void On");
+                builder.Append(eventName);
+                builder.Append('(');
+
+                var isFirstParam = true;
+
+                foreach (var param in method.Parameters)
+                {
+                    if (isFirstParam)
+                    {
+                        isFirstParam = false;
+                    }
+                    else
+                    {
+                        builder.Append(", ");
+                    }
+
+                    builder.Append(param.Type.ToDisplayString());
+                    builder.Append(' ');
+                    builder.Append(param.Name);
+                }
+
+                builder.Append(")");
+                
                 // if typeSymbol does not contain the method already
                 if (eventSymbol is null)
                 {
                     builder.AppendLine();
-                    builder.Append("    protected virtual void On");
-                    builder.Append(eventName);
-                    builder.Append('(');
-
-                    var isFirstParam = true;
-
-                    foreach (var param in method.Parameters)
-                    {
-                        if (isFirstParam)
-                        {
-                            isFirstParam = false;
-                        }
-                        else
-                        {
-                            builder.Append(", ");
-                        }
-
-                        builder.Append(param.Type.ToDisplayString());
-                        builder.Append(' ');
-                        builder.Append(param.Name);
-                    }
-
-                    builder.AppendLine(")");
                     builder.AppendLine("    {");
                     builder.Append("        ");
                     builder.Append(eventName);
@@ -102,7 +114,7 @@ public class EventHandlerGenerator : ISourceGenerator
                 }
                 else
                 {
-                    
+                    builder.AppendLine(";");
                 }
 
                 builder.AppendLine("}");

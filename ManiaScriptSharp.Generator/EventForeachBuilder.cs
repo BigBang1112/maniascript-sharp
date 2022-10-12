@@ -17,18 +17,171 @@ public class EventForeachBuilder
         BodyBuilder = bodyBuilder;
     }
         
-    public void WriteEventForeach(int ident,
-        Dictionary<string, Dictionary<IMethodSymbol, (ParameterListSyntax?, BlockSyntax)>> eventBlocks,
-        Dictionary<string, Dictionary<IMethodSymbol, IMethodSymbol>> eventFunctions)
+    public void WriteEventForeach(int ident, ImmutableArray<IMethodSymbol> functions,
+        ConstructorAnalysis constructorAnalysis)
     {
-        var possiblyImplementedEventMethods = ScriptSymbol.GetMembers()
-            .OfType<IMethodSymbol>()
-            .Where(x => x.IsOverride && x.Name.StartsWith("On"))
-            .ToImmutableDictionary(x => x.Name);
+        var overridenEventFunctions = GetOverridenEventFunctions(functions).ToImmutableArray();
 
-        var currentSymbol = ScriptSymbol;
+        if (overridenEventFunctions.IsEmpty && constructorAnalysis.EventFunctions.IsEmpty)
+        {
+            return;
+        }
+        
+        var delegateDict = GetAllDelegates(ScriptSymbol).ToImmutableDictionary(x => x.Name);
+        var eventListSymbolDict = new Dictionary<string, IPropertySymbol>();
+        var eventListDelegates = new HashSet<(string, INamedTypeSymbol)>();
+        var delegateEventFunctions = new List<(INamedTypeSymbol, EventFunction)>();
+        
+        foreach (var eventFunction in constructorAnalysis.EventFunctions)
+        {
+            var identifier = eventFunction.Key;
+            var function = eventFunction.Value;
 
-        while (currentSymbol is not null)
+            var eventPreMembers = "";
+            
+            if (identifier.Parent is MemberAccessExpressionSyntax memberAccessSyntax)
+            {
+                while (memberAccessSyntax.Expression is MemberAccessExpressionSyntax memberAccessSyntax2)
+                {
+                    memberAccessSyntax = memberAccessSyntax2;
+                    
+                    eventPreMembers = memberAccessSyntax.Name.Identifier + "." + eventPreMembers;
+                }
+                
+                if (memberAccessSyntax.Expression is IdentifierNameSyntax identifierNameSyntax)
+                {
+                    eventPreMembers = identifierNameSyntax.Identifier + "." + eventPreMembers;
+                }
+            }
+
+            if (BodyBuilder.SemanticModel.GetSymbolInfo(identifier).Symbol is not IEventSymbol eventSymbol)
+            {
+                continue;
+            }
+            
+            var externalEventAtt = eventSymbol.GetAttributes()
+                .FirstOrDefault(x => x.AttributeClass?.Name == "ManiaScriptExternalEventAttribute");
+
+            if (externalEventAtt is null)
+            {
+                if (eventSymbol.Type is not INamedTypeSymbol delegateSymbol)
+                {
+                    continue;
+                }
+                
+                var eventAtt = delegateSymbol.GetAttributes()
+                    .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ManiaScriptEventAttribute);
+
+                var eventListName = eventAtt?.ConstructorArguments[0].Value?.ToString();
+
+                if (eventListName is null)
+                {
+                    continue;
+                }
+
+                eventListDelegates.Add((eventPreMembers + eventListName, delegateSymbol));
+                delegateEventFunctions.Add((delegateSymbol, function));
+            }
+            else
+            {
+                // external event
+            }
+        }
+        
+        foreach (var (eventFunction, delegateName) in overridenEventFunctions)
+        {
+            var delegateSymbol = delegateDict[delegateName];
+            
+            var eventAtt = delegateSymbol.GetAttributes()
+                .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ManiaScriptEventAttribute);
+
+            var eventListName = eventAtt?.ConstructorArguments[0].Value?.ToString();
+
+            if (eventListName is null)
+            {
+                continue;
+            }
+            
+            eventListDelegates.Add((eventListName, delegateSymbol));
+            delegateEventFunctions.Add((delegateSymbol, new EventIdentifier(eventFunction)));
+            
+            if (eventListSymbolDict.ContainsKey(eventListName))
+            {
+                continue;
+            }
+
+            var eventListSymbol = (delegateSymbol.ContainingSymbol as ITypeSymbol)?.GetMembers(eventListName)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault();
+                
+            if (eventListSymbol is null)
+            {
+                continue;
+            }
+                
+            eventListSymbolDict.Add(eventListName, eventListSymbol);
+        }
+
+        var delegateLookup = eventListDelegates.ToLookup(x => x.Item1, x => x.Item2);
+        var eventFunctionLookup = delegateEventFunctions.ToLookup(x => x.Item1, x => x.Item2, SymbolEqualityComparer.Default);
+        
+        foreach (var pair in eventListSymbolDict)
+        {
+            var usedEventListName = pair.Key;
+            var usedEventListSymbol = pair.Value;
+            var usedEventTypeSymbol = (usedEventListSymbol.Type as INamedTypeSymbol)?.TypeArguments[0];
+            
+            if (usedEventTypeSymbol is null)
+            {
+                continue;
+            }
+            
+            var eventEnumName = GetEventEnumName(usedEventTypeSymbol);
+            
+            Writer.Write(ident, "foreach (Event in ");
+            Writer.Write(usedEventListName);
+            Writer.WriteLine(") {");
+
+            if (delegateLookup[usedEventListName].Any(x => !IsGeneralEvent(x)))
+            {
+                Writer.WriteLine(ident + 1, "switch (Event.Type) {");
+
+                foreach (var delegateSymbol in delegateLookup[usedEventListName])
+                {
+                    if (IsGeneralEvent(delegateSymbol))
+                    {
+                        continue;
+                    }
+                    
+                    var eventName = delegateSymbol.Name
+                        .Substring(0, delegateSymbol.Name.Length - 12);
+                    
+                    Writer.Write(ident + 2, "case ");
+                    Writer.Write(usedEventTypeSymbol.Name);
+                    Writer.Write("::");
+                    Writer.Write(eventEnumName);
+                    Writer.Write("::");
+                    Writer.Write(eventName);
+                    Writer.WriteLine(": {");
+                    
+                    foreach (var eventFunction in eventFunctionLookup[delegateSymbol])
+                    {
+                        
+                    }
+                    
+                    Writer.WriteLine(ident + 2, "}");
+                }
+                
+                Writer.WriteLine(ident + 1, "}");
+            }
+            
+            Writer.WriteLine(ident, "}");
+        }
+        
+
+        //var currentSymbol = ScriptSymbol;
+
+        /*while (currentSymbol is not null)
         {
             foreach (var member in currentSymbol.GetMembers().OfType<IPropertySymbol>())
             {
@@ -137,6 +290,50 @@ public class EventForeachBuilder
             Writer.Write(externalEventsName);
             Writer.WriteLine(") {");
             Writer.WriteLine(ident, "}");
+        }*/
+    }
+
+    private static bool IsGeneralEvent(INamedTypeSymbol delegateSymbol)
+    {
+        var delegateMethod = delegateSymbol.DelegateInvokeMethod!;
+        var isGeneralEvent = delegateMethod.Parameters.Length == 1 &&
+                             delegateMethod.Parameters[0].Name == "e";
+        return isGeneralEvent;
+    }
+
+    private IEnumerable<INamedTypeSymbol> GetAllDelegates(ITypeSymbol? symbol)
+    {
+        while (symbol is not null)
+        {
+            foreach (var member in symbol.GetTypeMembers().Where(member => member.DelegateInvokeMethod is not null))
+            {
+                yield return member;
+            }
+
+            symbol = symbol.BaseType;
+        }
+    }
+
+    private static IEnumerable<(IMethodSymbol, string)> GetOverridenEventFunctions(ImmutableArray<IMethodSymbol> functions)
+    {
+        foreach (var f in functions)
+        {
+            if (!f.IsOverride || f.OverriddenMethod is null)
+            {
+                continue;
+            }
+
+            var eventMethodAttribute = f.OverriddenMethod.GetAttributes().FirstOrDefault(x =>
+                x.AttributeClass?.Name == NameConsts.ManiaScriptEventMethodAttribute);
+
+            var eventHandlerName = eventMethodAttribute?.ConstructorArguments[0].Value?.ToString();
+
+            if (eventHandlerName is null)
+            {
+                continue;
+            }
+
+            yield return (f, eventHandlerName);
         }
     }
 

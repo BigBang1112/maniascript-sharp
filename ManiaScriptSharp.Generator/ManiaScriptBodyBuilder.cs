@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+using System.Reflection.PortableExecutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -6,26 +8,34 @@ namespace ManiaScriptSharp.Generator;
 
 public class ManiaScriptBodyBuilder
 {
+    private readonly GeneratorHelper _helper;
+    
     public INamedTypeSymbol ScriptSymbol { get; }
+    public SemanticModel SemanticModel { get; }
     public TextWriter Writer { get; }
     public ManiaScriptHead Head { get; }
-    
-    private Dictionary<string, Dictionary<IMethodSymbol, (ParameterListSyntax?, BlockSyntax)>> eventBlocks = new();
-    private Dictionary<string, Dictionary<IMethodSymbol, IMethodSymbol>> eventFunctions = new();
 
-    public ManiaScriptBodyBuilder(INamedTypeSymbol scriptSymbol, TextWriter writer, ManiaScriptHead head)
+    public ManiaScriptBodyBuilder(
+        INamedTypeSymbol scriptSymbol,
+        SemanticModel semanticModel,
+        TextWriter writer,
+        ManiaScriptHead head,
+        GeneratorHelper helper)
     {
         ScriptSymbol = scriptSymbol;
+        SemanticModel = semanticModel;
         Writer = writer;
         Head = head;
+        
+        _helper = helper;
     }
 
     public ManiaScriptBody AnalyzeAndBuild()
     {
         var methods = ScriptSymbol.GetMembers()
             .OfType<IMethodSymbol>();
-        
-        var functions = new List<IMethodSymbol>();
+
+        var functionsBuilder = ImmutableArray.CreateBuilder<IMethodSymbol>();
         
         var mainMethodSymbol = default(IMethodSymbol);
         var loopMethodSymbol = default(IMethodSymbol);
@@ -50,206 +60,20 @@ public class ManiaScriptBodyBuilder
                     else if(method.MethodKind != MethodKind.PropertyGet &&
                             method.MethodKind != MethodKind.PropertySet)
                     {
-                        functions.Add(method);
+                        functionsBuilder.Add(method);
                     }
                     
                     break;
             }
         }
 
+        var functions = functionsBuilder.ToImmutable();
+
         _ = mainMethodSymbol ?? throw new Exception("Main method not found");
         _ = loopMethodSymbol ?? throw new Exception("Loop method not found");
         _ = constructorSymbol ?? throw new Exception("Constructor not found");
 
-        if (constructorSymbol.DeclaringSyntaxReferences.Length > 0)
-        {
-            var constructorSyntax = (ConstructorDeclarationSyntax)constructorSymbol.DeclaringSyntaxReferences[0].GetSyntax();
-
-            // Can be null if expression statement
-            if (constructorSyntax.Body is not null)
-            {
-                foreach (var statement in constructorSyntax.Body.Statements)
-                {
-                    if (statement is not ExpressionStatementSyntax
-                        {
-                            Expression: AssignmentExpressionSyntax {OperatorToken.Text: "+="} assignmentExpressionSyntax
-                        })
-                    {
-                        continue;
-                    }
-                    
-                    var identifierSyntax = assignmentExpressionSyntax.Left as IdentifierNameSyntax;
-                    var memberAccessSyntax = assignmentExpressionSyntax.Left as MemberAccessExpressionSyntax;
-
-                    var hasThis = false;
-                    
-                    while (memberAccessSyntax is not null)
-                    {
-                        if (memberAccessSyntax.Expression is not MemberAccessExpressionSyntax syntax)
-                        {
-                            switch (memberAccessSyntax.Expression)
-                            {
-                                case IdentifierNameSyntax identifierNameSyntax:
-                                    identifierSyntax = identifierNameSyntax;
-                                    break;
-                                case ThisExpressionSyntax:
-                                    identifierSyntax = memberAccessSyntax.Name as IdentifierNameSyntax;
-                                    memberAccessSyntax = null;
-                                    hasThis = true;
-                                    break;
-                            }
-
-                            break;
-                        }
-
-                        memberAccessSyntax = syntax;
-                    }
-
-                    if (identifierSyntax is null)
-                    {
-                        continue;
-                    }
-
-                    var scriptSymbol = ScriptSymbol.BaseType; // In this case the base types are important
-                    var parent = hasThis ? identifierSyntax.Parent?.Parent : identifierSyntax.Parent;
-                    var name = identifierSyntax.Identifier.Text;
-                    var member = default(ISymbol);
-                    var eventSymbol = default(IEventSymbol);
-                    
-                    while (scriptSymbol is not null)
-                    {
-                        member = scriptSymbol.GetMembers(name).FirstOrDefault();
-                        eventSymbol = member as IEventSymbol;
-                        
-                        if (member is not null)
-                        {
-                            break;
-                        }
-                        
-                        scriptSymbol = scriptSymbol.BaseType;
-                    }
-
-                    if (member is null)
-                    {
-                        continue;
-                    }
-
-                    var eventListName = "";
-                    
-                    while (parent is MemberAccessExpressionSyntax parentSyntax && member is IPropertySymbol propertyMember)
-                    {
-                        if (parentSyntax.Name is not IdentifierNameSyntax nameSyntax)
-                        {
-                            throw new Exception("Parent syntax name is not IdentifierNameSyntax");
-                        }
-                        
-                        eventListName += name + ".";
-                        
-                        name = nameSyntax.Identifier.Text;
-
-                        var typeSymbol = propertyMember.Type;
-                        
-                        while (typeSymbol is not null)
-                        {
-                            member = typeSymbol.GetMembers(name).FirstOrDefault();
-                            eventSymbol = member as IEventSymbol;
-                            
-                            if (eventSymbol is not null)
-                            {
-                                break;
-                            }
-                        
-                            typeSymbol = typeSymbol.BaseType;
-                        }
-
-                        if (member is null)
-                        {
-                            break;
-                        }
-                        
-                        parent = parentSyntax.Parent;
-                    }
-                    
-                    if (eventSymbol is null)
-                    {
-                        continue;
-                    }
-
-                    var eventAtt = eventSymbol.Type
-                        .GetAttributes()
-                        .FirstOrDefault(x => x.AttributeClass?.Name == "ManiaScriptEventAttribute");
-
-                    if (eventAtt is null)
-                    {
-                        continue;
-                    }
-                    
-                    eventListName += (string)eventAtt.ConstructorArguments[0].Value!;
-                    
-                    var eventName = memberAccessSyntax is null ? name : memberAccessSyntax.Name.Identifier.Text;
-
-                    (ParameterListSyntax?, BlockSyntax)? block = assignmentExpressionSyntax.Right switch
-                    {
-                        // AnonymousFunctionExpressionSyntax is weird
-                        AnonymousMethodExpressionSyntax a => (a.ParameterList, a.Block),
-                        ParenthesizedLambdaExpressionSyntax l => (l.ParameterList, l.Block ?? SyntaxFactory.Block(SyntaxFactory.ExpressionStatement(l.ExpressionBody ?? throw new NotSupportedException("Lambda body not supported")))),
-                        IdentifierNameSyntax => null,
-                        _ => throw new NotSupportedException($"{assignmentExpressionSyntax.Right.GetType().Name} not supported")
-                    };
-
-                    var functionCall = default(IMethodSymbol);
-
-                    if (assignmentExpressionSyntax.Right is IdentifierNameSyntax i)
-                    {
-                        functionCall = ScriptSymbol.GetMembers(i.Identifier.Text)
-                            .OfType<IMethodSymbol>()
-                            .FirstOrDefault();
-                    }
-
-                    var eventDelegateInvoke = (eventSymbol.Type as INamedTypeSymbol)?.DelegateInvokeMethod ?? throw new Exception("This should not happen");
-
-                    if (block is null)
-                    {
-                        if (functionCall is null)
-                        {
-                            continue;
-                        }
-
-                        if (eventFunctions.TryGetValue(eventListName, out var eventFunctionList))
-                        {
-                            if (!eventFunctionList.ContainsKey(eventDelegateInvoke))
-                            {
-                                eventFunctionList.Add(eventDelegateInvoke, functionCall);
-                            }
-                        }
-                        else
-                        {
-                            eventFunctions.Add(eventListName, new(SymbolEqualityComparer.Default)
-                            {
-                                {eventDelegateInvoke, functionCall}
-                            });
-                        }
-
-                        continue;
-                    }
-
-                    if (eventBlocks.TryGetValue(eventListName, out var eventList))
-                    {
-                        if (!eventList.ContainsKey(eventDelegateInvoke))
-                        {
-                            eventList.Add(eventDelegateInvoke, block.Value);
-                        }
-                    }
-                    else
-                    {
-                        eventBlocks.Add(eventListName, new(SymbolEqualityComparer.Default)
-                        {
-                            {eventDelegateInvoke, block.Value}
-                        });
-                    }
-                }
-            }
-        }
+        var constructorAnalysis = ConstructorAnalysis.Analyze(constructorSymbol, SemanticModel, _helper);
         
         foreach (var functionSymbol in functions)
         {
@@ -285,26 +109,26 @@ public class ManiaScriptBodyBuilder
             Writer.WriteLine();
         }
 
-        var ident = functions.Count == 0 ? 0 : 1;
+        var ident = functions.Length == 0 ? 0 : 1;
         
         var mainDocBuilder = new DocumentationBuilder(this);
         mainDocBuilder.WriteDocumentation(0, mainMethodSymbol);
 
-        if (functions.Count > 0)
+        if (functions.Length > 0)
         {
             Writer.WriteLine("main() {");
         }
 
-        WriteMain(ident);
+        WriteMainContents(ident);
         
         var loopDocBuilder = new DocumentationBuilder(this);
         loopDocBuilder.WriteDocumentation(ident, loopMethodSymbol);
         
         Writer.WriteLine(ident, "while (true) {");
-        WriteLoop(ident + 1);
+        WriteLoopContents(ident + 1, functions, constructorAnalysis);
         Writer.WriteLine(ident, "}");
 
-        if (functions.Count > 0)
+        if (functions.Length > 0)
         {
             Writer.WriteLine("}");
         }
@@ -312,7 +136,7 @@ public class ManiaScriptBodyBuilder
         return new();
     }
     
-    private void WriteMain(int ident)
+    private void WriteMainContents(int ident)
     {
         WriteGlobalInitializers(ident);
         WriteBindingInitializers(ident);
@@ -399,12 +223,13 @@ public class ManiaScriptBodyBuilder
         Writer.WriteLine();
     }
 
-    private void WriteLoop(int ident)
+    private void WriteLoopContents(int ident, ImmutableArray<IMethodSymbol> functions,
+        ConstructorAnalysis constructorAnalysis)
     {
         Writer.WriteLine(ident, "yield;");
 
         var eventForeachBuilder = new EventForeachBuilder(this);
-        eventForeachBuilder.WriteEventForeach(ident, eventBlocks, eventFunctions);
+        eventForeachBuilder.WriteEventForeach(ident, functions, constructorAnalysis);
     }
 
     public void WriteFunctionBody(int ident, IMethodSymbol methodSymbol)

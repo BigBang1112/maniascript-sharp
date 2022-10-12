@@ -153,10 +153,19 @@ public class ManiaScriptGenerator : ISourceGenerator
                                                      bool isEmbeddedScript,
                                                      GeneratorHelper helper)
     {
+        if (scriptSymbol.DeclaringSyntaxReferences.Length == 0)
+        {
+            throw new Exception("No syntax references found");
+        }
+        
+        var semanticModel = helper.Context
+            .Compilation
+            .GetSemanticModel(scriptSymbol.DeclaringSyntaxReferences[0].SyntaxTree);
+        
         if (!isEmbeddedScript)
         {
             // All regular scripts go here (.Script.txt)
-            return ManiaScriptFile.Generate(scriptSymbol, writer, helper);
+            return ManiaScriptFile.Generate(scriptSymbol, semanticModel, writer, helper);
         }
         
         // Manialink work goes here (.xml)
@@ -165,7 +174,7 @@ public class ManiaScriptGenerator : ISourceGenerator
 
         using var xmlStream = OpenManialinkXmlStream(scriptSymbol, helper);
         
-        return ManialinkFile.Generate(xmlStream, scriptSymbol, writer, helper);
+        return ManialinkFile.Generate(xmlStream, scriptSymbol, semanticModel, writer, helper);
     }
 
     private static Stream OpenManialinkXmlStream(ISymbol scriptSymbol, GeneratorHelper helper)

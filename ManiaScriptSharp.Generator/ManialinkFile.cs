@@ -8,7 +8,8 @@ namespace ManiaScriptSharp.Generator;
 
 public class ManialinkFile : IGeneratedFile
 {
-    public static ManialinkFile Generate(Stream xmlStream, INamedTypeSymbol scriptSymbol, TextWriter writer, GeneratorHelper helper)
+    public static ManialinkFile Generate(Stream xmlStream, INamedTypeSymbol scriptSymbol, SemanticModel semanticModel,
+        TextWriter writer, GeneratorHelper helper)
     {
         _ = ValidateManialinkXml(xmlStream, scriptSymbol, helper);
 
@@ -33,10 +34,10 @@ public class ManialinkFile : IGeneratedFile
             scriptWriter.WriteLine();
         }
 
-        var headBuilder = new ManiaScriptHeadBuilder(scriptSymbol, scriptWriter, helper, doc);
+        var headBuilder = new ManiaScriptHeadBuilder(scriptSymbol, semanticModel, scriptWriter, helper, doc);
         var head = headBuilder.AnalyzeAndBuild();
         
-        var bodyBuilder = new ManiaScriptBodyBuilder(scriptSymbol, scriptWriter, head);
+        var bodyBuilder = new ManiaScriptBodyBuilder(scriptSymbol, semanticModel, scriptWriter, head, helper);
         var body = bodyBuilder.AnalyzeAndBuild();
 
         // Trick to check if the script is empty, compatible with any kind of new line, will change in the future

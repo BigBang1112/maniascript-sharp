@@ -44,7 +44,7 @@ public partial class CMlScript
     [ManiaScriptEventList(nameof(PendingEventHandler))]
     public IList<CMlScriptEvent> PendingEvents { get; }
     
-    protected virtual void OnPendingEvent(CMlScriptEvent e)
+    protected virtual partial void OnPendingEvent(CMlScriptEvent e)
     {
         PendingEvent?.Invoke(e);
 

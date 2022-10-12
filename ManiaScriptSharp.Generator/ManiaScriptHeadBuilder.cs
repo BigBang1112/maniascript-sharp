@@ -8,13 +8,16 @@ namespace ManiaScriptSharp.Generator;
 public class ManiaScriptHeadBuilder
 {
     public INamedTypeSymbol ScriptSymbol { get; }
+    public SemanticModel SemanticModel { get; }
     public TextWriter Writer { get; }
     public GeneratorHelper Helper { get; }
     public XmlDocument? ManialinkXml { get; }
 
-    public ManiaScriptHeadBuilder(INamedTypeSymbol scriptSymbol, TextWriter writer, GeneratorHelper helper, XmlDocument? manialinkXml = null)
+    public ManiaScriptHeadBuilder(INamedTypeSymbol scriptSymbol, SemanticModel semanticModel, TextWriter writer,
+        GeneratorHelper helper, XmlDocument? manialinkXml = null)
     {
         ScriptSymbol = scriptSymbol;
+        SemanticModel = semanticModel;
         Writer = writer;
         Helper = helper;
         ManialinkXml = manialinkXml;
