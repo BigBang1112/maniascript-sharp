@@ -124,7 +124,7 @@ public class ManiaScriptBodyBuilder
         var loopDocBuilder = new DocumentationBuilder(this);
         loopDocBuilder.WriteDocumentation(ident, loopMethodSymbol);
         
-        Writer.WriteLine(ident, "while (true) {");
+        Writer.WriteLine(ident, "while (True) {");
         WriteLoopContents(ident + 1, functions, constructorAnalysis);
         Writer.WriteLine(ident, "}");
 

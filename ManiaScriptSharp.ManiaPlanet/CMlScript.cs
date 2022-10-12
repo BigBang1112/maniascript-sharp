@@ -39,7 +39,21 @@ public partial class CMlScript
     [ManiaScriptEvent(nameof(PendingEvents))]
     public delegate void PluginCustomEventEventHandler(
         [ActualName(nameof(CMlScriptEvent.CustomEventType))] string type,
-        [ActualName(nameof(CMlScriptEvent.CustomEventData))] ImmutableArray<string> data);
+        [ActualName(nameof(CMlScriptEvent.CustomEventData))]
+        [Transformation(nameof(TransformDataArray), IgnoreInAnonymous = true)]
+        ImmutableArray<string> data);
+    
+    /*
+     * declare Text[] __generated_CustomEventData;
+     * foreach (__generated_Element in Event.CustomEventData) {
+     *     __generated_CustomEventData.add(__generated_Element);
+     * }
+     * OnPluginCustomEvent(Event.CustomEventType, __generated_CustomEventData);
+     */
+    public static ImmutableArray<string> TransformDataArray(ImmutableArray<string> data)
+    {
+        return data.ToImmutableArray();
+    }
     
     [ManiaScriptEventList(nameof(PendingEventHandler))]
     public IList<CMlScriptEvent> PendingEvents { get; }

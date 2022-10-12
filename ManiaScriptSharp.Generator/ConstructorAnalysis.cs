@@ -6,9 +6,9 @@ namespace ManiaScriptSharp.Generator;
 
 public class ConstructorAnalysis
 {
-    public ImmutableDictionary<IdentifierNameSyntax, EventFunction> EventFunctions { get; init; }
+    public ImmutableArray<(IdentifierNameSyntax, EventFunction)> EventFunctions { get; init; }
     
-    public ConstructorAnalysis(ImmutableDictionary<IdentifierNameSyntax, EventFunction> eventFunctions)
+    public ConstructorAnalysis(ImmutableArray<(IdentifierNameSyntax, EventFunction)> eventFunctions)
     {
         EventFunctions = eventFunctions;
     }
@@ -16,7 +16,7 @@ public class ConstructorAnalysis
     public static ConstructorAnalysis Analyze(IMethodSymbol constructorSymbol, SemanticModel semanticModel,
         GeneratorHelper helper)
     {
-        var eventMethodDictBuilder = ImmutableDictionary.CreateBuilder<IdentifierNameSyntax, EventFunction>();
+        var eventMethodDictBuilder = ImmutableArray.CreateBuilder<(IdentifierNameSyntax, EventFunction)>();
 
         foreach (var eventSubscriptionSyntax in GetSubscribedEvents(constructorSymbol))
         {
@@ -59,16 +59,15 @@ public class ConstructorAnalysis
                     continue;
                 }
                 
-                eventMethodDictBuilder.Add(leftIdentifierSyntax, new EventIdentifier(methodSymbol));
+                eventMethodDictBuilder.Add((leftIdentifierSyntax, new EventIdentifier(methodSymbol)));
             }
             else if (EventAnonymous.TryParse(eventSubscriptionSyntax.Right, out var eventAnonymous))
             {
-                eventMethodDictBuilder.Add(leftIdentifierSyntax, eventAnonymous);
+                eventMethodDictBuilder.Add((leftIdentifierSyntax, eventAnonymous));
             }
         }
 
-        return new(
-            eventMethodDictBuilder.ToImmutable());
+        return new(eventMethodDictBuilder.ToImmutable());
     }
     
     private static IEnumerable<AssignmentExpressionSyntax> GetSubscribedEvents(IMethodSymbol constructorSymbol)
