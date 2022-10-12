@@ -142,13 +142,38 @@ public class EventForeachBuilder
             Writer.Write(usedEventListName);
             Writer.WriteLine(") {");
 
+            var generalEventDelegate = default(INamedTypeSymbol);
+            var hasSpecificEventDelegate = false;
+
+            foreach (var eventDelegate in delegateLookup[usedEventListName])
+            {
+                if (IsGeneralEvent(eventDelegate))
+                {
+                    generalEventDelegate = eventDelegate;
+                }
+                else
+                {
+                    hasSpecificEventDelegate = true;
+                }
+
+                if (generalEventDelegate is not null && hasSpecificEventDelegate)
+                {
+                    break;
+                }
+            }
+            
+            if (generalEventDelegate is not null)
+            {
+                WriteEventContents(ident + 1, eventFunctionLookup!, generalEventDelegate);
+            }
+
             if (delegateLookup[usedEventListName].Any(x => !IsGeneralEvent(x)))
             {
                 Writer.WriteLine(ident + 1, "switch (Event.Type) {");
 
                 foreach (var delegateSymbol in delegateLookup[usedEventListName])
                 {
-                    if (IsGeneralEvent(delegateSymbol))
+                    if (delegateSymbol.Equals(generalEventDelegate, SymbolEqualityComparer.Default))
                     {
                         continue;
                     }
@@ -163,11 +188,8 @@ public class EventForeachBuilder
                     Writer.Write("::");
                     Writer.Write(eventName);
                     Writer.WriteLine(": {");
-                    
-                    foreach (var eventFunction in eventFunctionLookup[delegateSymbol])
-                    {
-                        
-                    }
+
+                    WriteEventContents(ident + 3, eventFunctionLookup!, delegateSymbol);
                     
                     Writer.WriteLine(ident + 2, "}");
                 }
@@ -291,6 +313,22 @@ public class EventForeachBuilder
             Writer.WriteLine(") {");
             Writer.WriteLine(ident, "}");
         }*/
+    }
+
+    private void WriteEventContents(int ident, ILookup<ISymbol, EventFunction> eventFunctionLookup, INamedTypeSymbol eventDelegate)
+    {
+        foreach (var eventFunction in eventFunctionLookup[eventDelegate])
+        {
+            switch (eventFunction)
+            {
+                case EventIdentifier eventIdentifier:
+                    Writer.WriteLine(ident, "// function call");
+                    break;
+                case EventAnonymous eventAnonymous:
+                    Writer.WriteLine(ident, "// anonymous contents");
+                    break;
+            }
+        }
     }
 
     private static bool IsGeneralEvent(INamedTypeSymbol delegateSymbol)
