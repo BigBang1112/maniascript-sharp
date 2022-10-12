@@ -55,9 +55,6 @@ public partial class CMlScript
         return data.ToImmutableArray();
     }
     
-    [ManiaScriptEventList(nameof(PendingEventHandler))]
-    public IList<CMlScriptEvent> PendingEvents { get; }
-    
     protected virtual partial void OnPendingEvent(CMlScriptEvent e)
     {
         PendingEvent?.Invoke(e);

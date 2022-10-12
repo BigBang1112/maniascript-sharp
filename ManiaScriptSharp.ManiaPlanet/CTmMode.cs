@@ -33,7 +33,4 @@ public partial class CTmMode
     
     [ManiaScriptEvent(nameof(PendingEvents)), ActualEventName("OnPlayerRemoved")]
     public delegate void PlayerRemovedEventHandler(CTmPlayer player);
-    
-    [ManiaScriptEventList(nameof(PendingEventHandler))]
-    public IList<CTmModeEvent> PendingEvents { get; }
 }

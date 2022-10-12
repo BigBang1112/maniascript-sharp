@@ -57,7 +57,7 @@ public class EventForeachBuilder
             }
             
             var externalEventAtt = eventSymbol.GetAttributes()
-                .FirstOrDefault(x => x.AttributeClass?.Name == "ManiaScriptExternalEventAttribute");
+                .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ManiaScriptExternalEventAttribute);
 
             if (externalEventAtt is null)
             {
@@ -193,7 +193,12 @@ public class EventForeachBuilder
                         continue;
                     }
                     
-                    var eventName = delegateSymbol.Name
+                    // make it into dictionary above
+                    var actualEventName = delegateSymbol.GetAttributes()
+                        .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualEventNameAttribute)?
+                        .ConstructorArguments[0].Value as string;
+                    
+                    var eventName = actualEventName ?? delegateSymbol.Name
                         .Substring(0, delegateSymbol.Name.Length - 12);
                     
                     Writer.Write(ident + 2, "case ");
@@ -290,7 +295,7 @@ public class EventForeachBuilder
         return isGeneralEvent;
     }
 
-    private IEnumerable<INamedTypeSymbol> GetAllDelegates(ITypeSymbol? symbol)
+    private static IEnumerable<INamedTypeSymbol> GetAllDelegates(ITypeSymbol? symbol)
     {
         while (symbol is not null)
         {
@@ -326,39 +331,6 @@ public class EventForeachBuilder
         }
     }
 
-    private static ImmutableArray<(IMethodSymbol, IMethodSymbol)> GetEventDelegateMethodArray(ImmutableArray<INamedTypeSymbol> delegates, string eventHandlerName,
-        ImmutableDictionary<string, IMethodSymbol> possiblyImplementedEventMethods, out (IMethodSymbol, IMethodSymbol)? defaultEventMethod)
-    {
-        defaultEventMethod = null;
-        
-        var builder = ImmutableArray.CreateBuilder<(IMethodSymbol, IMethodSymbol)>();
-            
-        foreach (var delegateSymbol in delegates)
-        {
-            var delegateMethod = delegateSymbol.DelegateInvokeMethod!;
-            var isGeneralEvent = delegateMethod.Parameters.Length == 1 &&
-                                 delegateMethod.Parameters[0].Name == "e";
-            var eventName = delegateSymbol.Name
-                .Substring(0, delegateSymbol.Name.Length - 12 + (isGeneralEvent ? 5 : 0));
-
-            if (!possiblyImplementedEventMethods.TryGetValue("On" + eventName, out var eventMethod))
-            {
-                continue;
-            }
-
-            if (delegateSymbol.Name == eventHandlerName)
-            {
-                defaultEventMethod = (delegateMethod, eventMethod);
-            }
-            else
-            {
-                builder.Add((delegateMethod, eventMethod));
-            }
-        }
-            
-        return builder.ToImmutable();
-    }
-
     private static string GetEventEnumName(ITypeSymbol eventTypeSymbol)
     {
         foreach (var propSymbol in eventTypeSymbol.GetMembers().OfType<IPropertySymbol>())
@@ -378,172 +350,5 @@ public class EventForeachBuilder
         }
 
         throw new Exception();
-    }
-
-    private static ITypeSymbol GetEventTypeSymbol(INamedTypeSymbol delegateGeneralEventSymbol, string eventHandlerName)
-    {
-        var method = delegateGeneralEventSymbol.DelegateInvokeMethod!;
-        var isGeneralEvent = method.Parameters.Length == 1 && method.Parameters[0].Name == "e";
-
-        if (!isGeneralEvent)
-        {
-            throw new Exception();
-        }
-
-        return method.Parameters[0].Type;
-    }
-
-    private void WriteEventSwitch(int ident, ImmutableArray<(IMethodSymbol, IMethodSymbol)> eventMethods,
-        ITypeSymbol eventTypeSymbol, string eventEnumName,
-        IReadOnlyDictionary<IMethodSymbol, (ParameterListSyntax?, BlockSyntax)>? eventDelegateBlockList,
-        IReadOnlyDictionary<IMethodSymbol, IMethodSymbol>? eventFunctionList)
-    {
-        var eventDelegateUsedDict = new Dictionary<IMethodSymbol, (ParameterListSyntax?, BlockSyntax)>(SymbolEqualityComparer.Default);
-        var eventFunctionUsedDict = new Dictionary<IMethodSymbol, IMethodSymbol>(SymbolEqualityComparer.Default);
-
-        Writer.WriteLine(ident, "switch (Event.Type) {");
-
-        foreach (var (delegateSymbol, methodSymbol) in eventMethods)
-        {
-            var actualEventName = delegateSymbol.ReceiverType?.GetAttributes()
-                .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualEventNameAttribute)?
-                .ConstructorArguments[0].Value as string;
-
-            var eventName = actualEventName ?? methodSymbol.Name.Substring(2);
-
-            Writer.Write(ident + 1, "case ");
-            Writer.Write(eventTypeSymbol.Name);
-            Writer.Write("::");
-            Writer.Write(eventEnumName);
-            Writer.Write("::");
-            Writer.Write(eventName);
-            Writer.WriteLine(": {");
-
-            if (eventDelegateBlockList?.TryGetValue(delegateSymbol, out var eventDelegateBlock) == true)
-            {
-                eventDelegateUsedDict.Add(delegateSymbol, eventDelegateBlock);
-                // method is overriden and event delegate is used
-                // write event delegate block or call its function
-                Writer.WriteLine(ident + 2, "// DELEGATED CALL //");
-            }
-
-            if (eventFunctionList?.TryGetValue(delegateSymbol, out var eventFunction) == true)
-            {
-                eventFunctionUsedDict.Add(delegateSymbol, eventFunction);
-                WriteEventFunctionCall(ident, delegateSymbol, eventFunction);
-            }
-
-            WriteEventFunctionCall(ident, delegateSymbol, methodSymbol);
-            Writer.WriteLine(ident + 1, "}");
-        }
-
-        if (eventDelegateBlockList is not null)
-        {
-            foreach (var pair in eventDelegateBlockList)
-            {
-                var delegateSymbol = pair.Key;
-                var (paramList, block) = pair.Value;
-
-                if (eventDelegateUsedDict.ContainsKey(delegateSymbol))
-                {
-                    continue;
-                }
-
-                if (!WriteEventSwitchCaseBegin(ident, delegateSymbol, eventTypeSymbol, eventEnumName))
-                {
-                    continue;
-                }
-                
-                // method is not overriden and event delegate is used
-                // write event delegate block or call its function
-                Writer.WriteLine(ident + 2, "// DELEGATED CALL //");
-
-                Writer.WriteLine(ident + 1, "}");
-            }
-        }
-
-        if (eventFunctionList is not null)
-        {
-            foreach (var pair in eventFunctionList)
-            {
-                var delegateSymbol = pair.Key;
-                var methodSymbol = pair.Value;
-
-                if (eventFunctionUsedDict.ContainsKey(delegateSymbol))
-                {
-                    continue;
-                }
-
-                if (!WriteEventSwitchCaseBegin(ident, delegateSymbol, eventTypeSymbol, eventEnumName))
-                {
-                    continue;
-                }
-
-                WriteEventFunctionCall(ident, delegateSymbol, methodSymbol);
-
-                Writer.WriteLine(ident + 1, "}");
-            }
-        }
-
-        Writer.WriteLine(ident, "}");
-    }
-
-    private void WriteEventFunctionCall(int ident, IMethodSymbol delegateSymbol, IMethodSymbol methodSymbol)
-    {
-        Writer.Write(ident + 2, methodSymbol.Name);
-        Writer.Write('(');
-
-        var isFirst = true;
-
-        foreach (var p in delegateSymbol.Parameters)
-        {
-            if (isFirst)
-            {
-                isFirst = false;
-            }
-            else
-            {
-                Writer.Write(", ");
-            }
-
-            var nameOfEventClassMember = p.GetAttributes()
-                .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualNameAttribute)?
-                .ConstructorArguments[0].Value?.ToString() ?? char.ToUpper(p.Name[0]) + p.Name.Substring(1);
-
-            Writer.Write("Event.");
-            Writer.Write(nameOfEventClassMember);
-        }
-
-        Writer.WriteLine(");");
-    }
-
-    private bool WriteEventSwitchCaseBegin(int ident, IMethodSymbol delegateSymbol, ITypeSymbol eventTypeSymbol, string eventEnumName)
-    {
-        var delegateType = (INamedTypeSymbol)delegateSymbol.ReceiverType!;
-        var delegateMethod = delegateType.DelegateInvokeMethod!;
-        var isGeneralEvent = delegateMethod.Parameters.Length == 1 &&
-                             delegateMethod.Parameters[0].Name == "e";
-
-        if (isGeneralEvent)
-        {
-            return false;
-        }
-
-        var actualEventName = delegateSymbol.ReceiverType?.GetAttributes()
-            .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualEventNameAttribute)?
-            .ConstructorArguments[0].Value as string;
-
-        var eventName = actualEventName ?? delegateType.Name
-                .Substring(0, delegateType.Name.Length - 12 + (isGeneralEvent ? 5 : 0));
-
-        Writer.Write(ident + 1, "case ");
-        Writer.Write(eventTypeSymbol.Name);
-        Writer.Write("::");
-        Writer.Write(eventEnumName);
-        Writer.Write("::");
-        Writer.Write(eventName);
-        Writer.WriteLine(": {");
-
-        return true;
     }
 }

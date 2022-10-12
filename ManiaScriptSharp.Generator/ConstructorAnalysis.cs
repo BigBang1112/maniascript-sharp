@@ -32,7 +32,7 @@ public class ConstructorAnalysis
             if (eventAtt is null)
             {
                 var externalEventAtt = eventSymbol.GetAttributes()
-                    .FirstOrDefault(x => x.AttributeClass?.Name == "ManiaScriptExternalEventAttribute");
+                    .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ManiaScriptExternalEventAttribute);
 
                 if (externalEventAtt is null)
                 {
