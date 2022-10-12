@@ -76,8 +76,26 @@ public class EventForeachBuilder
                     continue;
                 }
 
-                eventListDelegates.Add((eventPreMembers + eventListName, delegateSymbol));
+                var fullEventList = eventPreMembers + eventListName;
+
+                eventListDelegates.Add((fullEventList, delegateSymbol));
                 delegateEventFunctions.Add((delegateSymbol, function));
+                
+                if (eventListSymbolDict.ContainsKey(fullEventList))
+                {
+                    continue;
+                }
+
+                var eventListSymbol = (delegateSymbol.ContainingSymbol as ITypeSymbol)?.GetMembers(eventListName)
+                    .OfType<IPropertySymbol>()
+                    .FirstOrDefault();
+                
+                if (eventListSymbol is null)
+                {
+                    continue;
+                }
+                
+                eventListSymbolDict.Add(fullEventList, eventListSymbol);
             }
             else
             {
