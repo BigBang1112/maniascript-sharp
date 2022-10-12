@@ -2,6 +2,8 @@
 
 public class Gamemode : CTmMode, IContext
 {
+    public bool LoopCondition => !ServerShutdownRequested;
+    
     public struct Player
     {
         public string Text;
