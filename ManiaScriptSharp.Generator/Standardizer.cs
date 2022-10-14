@@ -77,21 +77,34 @@ public static class Standardizer
     };
     
 
-    public static string CSharpTypeToManiaScriptType(INamedTypeSymbol csharpType)
+    public static string CSharpTypeToManiaScriptType(INamedTypeSymbol csharpType) => csharpType.Name switch
     {
-        switch (csharpType.Name)
+        "ImmutableArray" => csharpType.TypeArguments[0].Name switch
         {
-            case "ImmutableArray":
-                return csharpType.TypeArguments[0].Name switch
-                {
-                    "Int32" => "Integer[]",
-                    "Single" => "Real[]",
-                    "Boolean" => "Boolean[]",
-                    "String" => "Text[]",
-                    _ => csharpType.TypeArguments[0].Name + "[]"
-                };
-            default:
-                return CSharpTypeToManiaScriptType(csharpType.Name);
+            "Int32" => "Integer[]",
+            "Single" => "Real[]",
+            "Boolean" => "Boolean[]",
+            "String" => "Text[]",
+            _ => csharpType.TypeArguments[0].Name + "[]"
+        },
+        _ => CSharpTypeToManiaScriptType(csharpType.Name)
+    };
+
+    public static string StandardizeName(string name)
+    {
+        if (name.Length == 0)
+        {
+            return "";
         }
+
+        if (char.IsUpper(name[0]))
+        {
+            return name;
+        }
+
+        var charArray = name.ToCharArray();
+        charArray[0] = char.ToUpper(charArray[0]);
+        return new string(charArray);
+
     }
 }
