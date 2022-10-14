@@ -2,7 +2,7 @@
 
 public static class ManiaScript
 {
-    public static void Log(string message)
+    public static void Log(object? message)
     {
         
     }
