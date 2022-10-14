@@ -6,9 +6,9 @@ namespace ManiaScriptSharp.Generator;
 
 public class ConstructorAnalysis
 {
-    public ImmutableArray<(IdentifierNameSyntax, EventFunction)> EventFunctions { get; init; }
+    public ImmutableArray<(IdentifierNameSyntax, Function)> EventFunctions { get; init; }
     
-    public ConstructorAnalysis(ImmutableArray<(IdentifierNameSyntax, EventFunction)> eventFunctions)
+    public ConstructorAnalysis(ImmutableArray<(IdentifierNameSyntax, Function)> eventFunctions)
     {
         EventFunctions = eventFunctions;
     }
@@ -16,7 +16,7 @@ public class ConstructorAnalysis
     public static ConstructorAnalysis Analyze(IMethodSymbol constructorSymbol, SemanticModel semanticModel,
         GeneratorHelper helper)
     {
-        var eventMethodDictBuilder = ImmutableArray.CreateBuilder<(IdentifierNameSyntax, EventFunction)>();
+        var eventMethodDictBuilder = ImmutableArray.CreateBuilder<(IdentifierNameSyntax, Function)>();
 
         foreach (var eventSubscriptionSyntax in GetSubscribedEvents(constructorSymbol))
         {
@@ -59,9 +59,9 @@ public class ConstructorAnalysis
                     continue;
                 }
                 
-                eventMethodDictBuilder.Add((leftIdentifierSyntax, new EventIdentifier(methodSymbol)));
+                eventMethodDictBuilder.Add((leftIdentifierSyntax, new FunctionIdentifier(methodSymbol)));
             }
-            else if (EventAnonymous.TryParse(eventSubscriptionSyntax.Right, out var eventAnonymous))
+            else if (FunctionAnonymous.TryParse(eventSubscriptionSyntax.Right, out var eventAnonymous))
             {
                 eventMethodDictBuilder.Add((leftIdentifierSyntax, eventAnonymous));
             }

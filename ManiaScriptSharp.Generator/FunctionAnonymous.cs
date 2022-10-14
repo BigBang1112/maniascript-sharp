@@ -4,26 +4,27 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator;
 
-public class EventAnonymous : EventFunction
+public class FunctionAnonymous : Function
 {
-    public ImmutableArray<ParameterSyntax> Parameters { get; init; }
+    public ImmutableDictionary<string, ParameterSyntax> Parameters { get; init; }
     public BlockSyntax Block { get; init; }
 
-    public EventAnonymous(ImmutableArray<ParameterSyntax> parameters, BlockSyntax block)
+    public FunctionAnonymous(ImmutableDictionary<string, ParameterSyntax> parameters, BlockSyntax block)
     {
         Parameters = parameters;
         Block = block;
     }
 
-    public static bool TryParse(ExpressionSyntax expressionSyntax, out EventAnonymous value)
+    public static bool TryParse(ExpressionSyntax expressionSyntax, out FunctionAnonymous value)
     {
         // AnonymousFunctionExpressionSyntax doesn't have ParameterList, that's why it's not used here
         
         switch (expressionSyntax)
         {
             case AnonymousMethodExpressionSyntax anonymousSyntax:
-                value = new EventAnonymous(anonymousSyntax.ParameterList?.Parameters.ToImmutableArray()
-                                           ?? ImmutableArray<ParameterSyntax>.Empty, anonymousSyntax.Block);
+                value = new FunctionAnonymous(anonymousSyntax.ParameterList?.Parameters
+                    .ToImmutableDictionary(x => x.Identifier.Text)
+                                              ?? ImmutableDictionary<string, ParameterSyntax>.Empty, anonymousSyntax.Block);
                 break;
             case ParenthesizedLambdaExpressionSyntax lambdaSyntax:
                 
@@ -43,7 +44,8 @@ public class EventAnonymous : EventFunction
                     return false;
                 }
                 
-                value = new EventAnonymous(lambdaSyntax.ParameterList.Parameters.ToImmutableArray(), block);
+                value = new FunctionAnonymous(lambdaSyntax.ParameterList.Parameters
+                    .ToImmutableDictionary(x => x.Identifier.Text), block);
                 
                 break;
             default:

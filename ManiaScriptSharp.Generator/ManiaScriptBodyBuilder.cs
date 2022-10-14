@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Reflection.PortableExecutable;
+using ManiaScriptSharp.Generator.Statements;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -104,7 +105,7 @@ public class ManiaScriptBodyBuilder
             }
             
             Writer.WriteLine(") {");
-            WriteFunctionBody(ident: 1, functionSymbol);
+            WriteFunctionBody(ident: 1, new FunctionIdentifier(functionSymbol));
             Writer.WriteLine("}");
             Writer.WriteLine();
         }
@@ -125,7 +126,7 @@ public class ManiaScriptBodyBuilder
         loopDocBuilder.WriteDocumentation(ident, loopMethodSymbol);
         
         Writer.WriteLine(ident, "while (True) {");
-        WriteLoopContents(ident + 1, functions, constructorAnalysis);
+        WriteLoopContents(ident + 1, functions, constructorAnalysis, loopMethodSymbol);
         Writer.WriteLine(ident, "}");
 
         if (functions.Length > 0)
@@ -224,37 +225,59 @@ public class ManiaScriptBodyBuilder
     }
 
     private void WriteLoopContents(int ident, ImmutableArray<IMethodSymbol> functions,
-        ConstructorAnalysis constructorAnalysis)
+        ConstructorAnalysis constructorAnalysis, IMethodSymbol loopMethodSymbol)
     {
         Writer.WriteLine(ident, "yield;");
 
         var eventForeachBuilder = new EventForeachBuilder(this);
-        eventForeachBuilder.WriteEventForeach(ident, functions, constructorAnalysis);
+        eventForeachBuilder.Write(ident, functions, constructorAnalysis);
+        
+        WriteFunctionBody(ident, new FunctionIdentifier(loopMethodSymbol));
     }
 
-    public void WriteFunctionBody(int ident, IMethodSymbol methodSymbol)
+    public void WriteFunctionBody(int ident, Function function)
     {
-        if (methodSymbol.DeclaringSyntaxReferences.Length <= 0 ||
-            methodSymbol.DeclaringSyntaxReferences[0].GetSyntax() is not MethodDeclarationSyntax methodSyntax)
-        {
-            return;
-        }
-
-        var body = methodSyntax.Body;
-
-        if (body is null)
-        {
-            return;
-        }
+        BlockSyntax block;
+        ImmutableDictionary<string, ParameterSyntax> parameters;
         
-        var statements = body.Statements;
-
-        /*if (statements is not null)
+        switch (function)
         {
-            foreach (var statement in statements)
+            case FunctionIdentifier functionIdentifier:
             {
-                Writer.Write(ident + 2, statement.ToFullString());
+                if (functionIdentifier.Method.DeclaringSyntaxReferences.Length <= 0 ||
+                    functionIdentifier.Method.DeclaringSyntaxReferences[0].GetSyntax() is not MethodDeclarationSyntax methodSyntax)
+                {
+                    return;
+                }
+            
+                // get block from methodSyntax.ExpressionBody
+                if (methodSyntax.Body is not null)
+                {
+                    block = methodSyntax.Body;
+                }
+                else if (methodSyntax.ExpressionBody is not null)
+                {
+                    block = SyntaxFactory.Block(SyntaxFactory.ExpressionStatement(methodSyntax.ExpressionBody.Expression));
+                }
+                else
+                {
+                    return;
+                }
+                
+                parameters = methodSyntax.ParameterList.Parameters.ToImmutableDictionary(x => x.Identifier.Text);
+                break;
             }
-        }*/
+            case FunctionAnonymous functionAnonymous:
+                block = functionAnonymous.Block;
+                parameters = functionAnonymous.Parameters;
+                break;
+            default:
+                throw new NotSupportedException("Unknown function type");
+        }
+
+        foreach (var statement in block.Statements)
+        {
+            StatementBuilder.WriteSyntax(ident, statement, parameters, this);
+        }
     }
 }

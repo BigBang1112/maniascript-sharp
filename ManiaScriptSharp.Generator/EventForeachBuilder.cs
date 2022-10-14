@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -7,17 +6,17 @@ namespace ManiaScriptSharp.Generator;
 
 public class EventForeachBuilder
 {
-    private ManiaScriptBodyBuilder BodyBuilder { get; }
+    private readonly ManiaScriptBodyBuilder _bodyBuilder;
 
-    private ITypeSymbol ScriptSymbol => BodyBuilder.ScriptSymbol;
-    private TextWriter Writer => BodyBuilder.Writer;
+    private ITypeSymbol ScriptSymbol => _bodyBuilder.ScriptSymbol;
+    private TextWriter Writer => _bodyBuilder.Writer;
 
     public EventForeachBuilder(ManiaScriptBodyBuilder bodyBuilder)
     {
-        BodyBuilder = bodyBuilder;
+        _bodyBuilder = bodyBuilder;
     }
 
-    public void WriteEventForeach(int ident, ImmutableArray<IMethodSymbol> functions,
+    public void Write(int ident, ImmutableArray<IMethodSymbol> functions,
         ConstructorAnalysis constructorAnalysis)
     {
         var overridenEventFunctions = GetOverridenEventFunctions(functions).ToImmutableArray();
@@ -30,9 +29,9 @@ public class EventForeachBuilder
         var delegateDict = GetAllDelegates(ScriptSymbol).ToImmutableDictionary(x => x.Name);
         var eventListSymbolDict = new Dictionary<string, IPropertySymbol>();
         var eventListDelegates = new HashSet<(string, INamedTypeSymbol)>();
-        var delegateEventFunctions = new List<(INamedTypeSymbol, EventFunction)>();
+        var delegateEventFunctions = new List<(INamedTypeSymbol, Function)>();
         var externalEvents = new List<(INamedTypeSymbol, string, string)>();
-        var externalDelegateEventFunctions = new List<(string, EventFunction)>();
+        var externalDelegateEventFunctions = new List<(string, Function)>();
 
         foreach (var (identifier, function) in constructorAnalysis.EventFunctions)
         {
@@ -53,7 +52,7 @@ public class EventForeachBuilder
                 }
             }
 
-            if (BodyBuilder.SemanticModel.GetSymbolInfo(identifier).Symbol is not IEventSymbol eventSymbol)
+            if (_bodyBuilder.SemanticModel.GetSymbolInfo(identifier).Symbol is not IEventSymbol eventSymbol)
             {
                 continue;
             }
@@ -178,7 +177,7 @@ public class EventForeachBuilder
             }
 
             eventListDelegates.Add((eventListName, delegateSymbol));
-            delegateEventFunctions.Add((delegateSymbol, new EventIdentifier(eventFunction)));
+            delegateEventFunctions.Add((delegateSymbol, new FunctionIdentifier(eventFunction)));
 
             if (eventListSymbolDict.ContainsKey(eventListName))
             {
@@ -273,35 +272,7 @@ public class EventForeachBuilder
                     Writer.Write(eventName);
                     Writer.WriteLine(": {");
 
-                    // external event handle
-                    if (externalEventLookup.Contains(delegateSymbol))
-                    {
-                        var externalEvent = externalEventLookup[delegateSymbol];
-                        
-                        foreach (var objectIdentifiers in externalEventLookup[delegateSymbol].ToLookup(x => x.Item1, x => x.Item2))
-                        {
-                            Writer.Write(ident + 3, "switch (Event.");
-                            Writer.Write(objectIdentifiers.Key);
-                            Writer.WriteLine(") {");
-                            
-                            foreach (var objectIdentifierName in objectIdentifiers.Distinct())
-                            {
-                                Writer.Write(ident + 4, "case ");
-                                Writer.Write(objectIdentifierName);
-                                Writer.WriteLine(": {");
-
-                                foreach (var eventFunction in externalEventFunctionLookup[objectIdentifierName])
-                                {
-                                    WriteEventContents(ident + 5, eventFunction,
-                                        ImmutableArray<IParameterSymbol>.Empty, isGeneralEvent: false);
-                                }
-                                
-                                Writer.WriteLine(ident + 4, "}");
-                            }
-                            
-                            Writer.WriteLine(ident + 3, "}");
-                        }
-                    }
+                    WriteExternalEvent(ident + 3, externalEventLookup, delegateSymbol, externalEventFunctionLookup);
                     
                     WriteEventContents(ident + 3, eventFunctionLookup!, delegateSymbol, isGeneralEvent: false);
 
@@ -315,7 +286,40 @@ public class EventForeachBuilder
         }
     }
 
-    private void WriteEventContents(int ident, ILookup<ISymbol, EventFunction> eventFunctionLookup,
+    private void WriteExternalEvent(int ident, ILookup<ISymbol?, (string, string)> externalEventLookup, INamedTypeSymbol delegateSymbol,
+        ILookup<string, Function> externalEventFunctionLookup)
+    {
+        if (!externalEventLookup.Contains(delegateSymbol))
+        {
+            return;
+        }
+
+        foreach (var objectIdentifiers in externalEventLookup[delegateSymbol].ToLookup(x => x.Item1, x => x.Item2))
+        {
+            Writer.Write(ident, "switch (Event.");
+            Writer.Write(objectIdentifiers.Key);
+            Writer.WriteLine(") {");
+
+            foreach (var objectIdentifierName in objectIdentifiers.Distinct())
+            {
+                Writer.Write(ident + 1, "case ");
+                Writer.Write(objectIdentifierName);
+                Writer.WriteLine(": {");
+
+                foreach (var eventFunction in externalEventFunctionLookup[objectIdentifierName])
+                {
+                    WriteEventContents(ident + 2, eventFunction,
+                        ImmutableArray<IParameterSymbol>.Empty, isGeneralEvent: false);
+                }
+
+                Writer.WriteLine(ident + 1, "}");
+            }
+
+            Writer.WriteLine(ident, "}");
+        }
+    }
+
+    private void WriteEventContents(int ident, ILookup<ISymbol, Function> eventFunctionLookup,
         INamedTypeSymbol eventDelegate,
         bool isGeneralEvent)
     {
@@ -327,12 +331,12 @@ public class EventForeachBuilder
         }
     }
 
-    private void WriteEventContents(int ident, EventFunction eventFunction, ImmutableArray<IParameterSymbol> parameters,
+    private void WriteEventContents(int ident, Function eventFunction, ImmutableArray<IParameterSymbol> parameters,
         bool isGeneralEvent)
     {
         switch (eventFunction)
         {
-            case EventIdentifier eventIdentifier:
+            case FunctionIdentifier eventIdentifier:
                 Writer.Write(ident, eventIdentifier.Method.Name);
 
                 if (isGeneralEvent)
@@ -382,8 +386,10 @@ public class EventForeachBuilder
 
                 Writer.WriteLine(");");
                 break;
-            case EventAnonymous eventAnonymous:
-                Writer.WriteLine(ident, "// anonymous contents");
+            case FunctionAnonymous eventAnonymous:
+                Writer.WriteLine(ident, "// Start of anonymous function");
+                _bodyBuilder.WriteFunctionBody(ident, eventAnonymous);
+                Writer.WriteLine(ident, "// End of anonymous function");
                 break;
         }
     }

@@ -1,6 +1,6 @@
 namespace ManiaScriptSharp.Generator;
 
-public abstract class EventFunction
+public abstract class Function
 {
     
 }
