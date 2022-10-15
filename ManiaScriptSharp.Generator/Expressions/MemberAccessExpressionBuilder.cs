@@ -62,13 +62,13 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
             {
                 case IdentifierNameSyntax identName:
                     WriteSyntax(ident, identName, parameters, bodyBuilder);
+                    Writer.Write(oper);
                     break;
                 case MemberAccessExpressionSyntax memAccess:
                     WriteSyntax(ident, memAccess.Name, parameters, bodyBuilder);
+                    Writer.Write(oper);
                     break;
             }
-            
-            Writer.Write(oper);
 
             exp = exp?.Parent as MemberAccessExpressionSyntax;
         }
