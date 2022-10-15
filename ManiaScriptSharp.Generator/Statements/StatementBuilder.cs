@@ -15,6 +15,8 @@ public abstract class StatementBuilder
             ForEachStatementSyntax => new ForeachStatementBuilder(),
             BlockSyntax => new BlockBuilder(),
             ExpressionStatementSyntax => new ExpressionStatementBuilder(),
+            ThrowStatementSyntax => new ThrowStatementBuilder(),
+            IfStatementSyntax => new IfStatementBuilder(),
             _ => null
         };
 

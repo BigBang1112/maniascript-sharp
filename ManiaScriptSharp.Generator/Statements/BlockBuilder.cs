@@ -10,6 +10,12 @@ public class BlockBuilder : StatementBuilder<BlockSyntax>
     {
         Writer.WriteLine("{");
         
+        while (bodyBuilder.BlockLineQueue.Count > 0)
+        {
+            var line = bodyBuilder.BlockLineQueue.Dequeue();
+            Writer.WriteLine(ident + 1, line);
+        }
+        
         foreach (var statementSyntax in statement.Statements)
         {
             WriteSyntax(ident + 1, statementSyntax, parameters, bodyBuilder);

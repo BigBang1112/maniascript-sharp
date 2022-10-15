@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.CodeAnalysis;
 using System.Text;
 using System.Xml;
@@ -27,7 +28,7 @@ public class ManialinkFile : IGeneratedFile
 
         doc.DocumentElement.PrependChild(descriptionComment);
 
-        using var scriptWriter = new StringWriter();
+        using var scriptWriter = new StringWriter(CultureInfo.InvariantCulture);
 
         var newLineCount = 2;
 

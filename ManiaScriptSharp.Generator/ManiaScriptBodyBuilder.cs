@@ -9,12 +9,13 @@ namespace ManiaScriptSharp.Generator;
 
 public class ManiaScriptBodyBuilder
 {
-    private readonly GeneratorHelper _helper;
-    
     public INamedTypeSymbol ScriptSymbol { get; }
     public SemanticModel SemanticModel { get; }
     public TextWriter Writer { get; }
     public ManiaScriptHead Head { get; }
+    public GeneratorHelper Helper { get; }
+
+    public Queue<string> BlockLineQueue { get; } = new();
 
     public ManiaScriptBodyBuilder(
         INamedTypeSymbol scriptSymbol,
@@ -27,8 +28,7 @@ public class ManiaScriptBodyBuilder
         SemanticModel = semanticModel;
         Writer = writer;
         Head = head;
-        
-        _helper = helper;
+        Helper = helper;
     }
 
     public ManiaScriptBody AnalyzeAndBuild()
@@ -74,7 +74,7 @@ public class ManiaScriptBodyBuilder
         _ = loopMethodSymbol ?? throw new Exception("Loop method not found");
         _ = constructorSymbol ?? throw new Exception("Constructor not found");
 
-        var constructorAnalysis = ConstructorAnalysis.Analyze(constructorSymbol, SemanticModel, _helper);
+        var constructorAnalysis = ConstructorAnalysis.Analyze(constructorSymbol, SemanticModel, Helper);
         
         foreach (var functionSymbol in functions)
         {
@@ -120,7 +120,7 @@ public class ManiaScriptBodyBuilder
             Writer.WriteLine("main() {");
         }
 
-        WriteMainContents(ident);
+        WriteMainContents(ident, mainMethodSymbol);
         
         var loopDocBuilder = new DocumentationBuilder(this);
         loopDocBuilder.WriteDocumentation(ident, loopMethodSymbol);
@@ -137,16 +137,12 @@ public class ManiaScriptBodyBuilder
         return new();
     }
     
-    private void WriteMainContents(int ident)
+    private void WriteMainContents(int ident, IMethodSymbol mainMethodSymbol)
     {
         WriteGlobalInitializers(ident);
         WriteBindingInitializers(ident);
-
-        var mainMethodSyntax = ScriptSymbol.GetMembers()
-            .OfType<IMethodSymbol>()
-            .First(x => x.Name == "Main")
-            .DeclaringSyntaxReferences[0]
-            .GetSyntax() as MethodDeclarationSyntax;
+        
+        WriteFunctionBody(ident, new FunctionIdentifier(mainMethodSymbol));
     }
 
     private void WriteGlobalInitializers(int ident)

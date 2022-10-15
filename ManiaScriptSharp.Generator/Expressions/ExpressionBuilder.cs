@@ -17,6 +17,8 @@ public abstract class ExpressionBuilder
             MemberAccessExpressionSyntax => new MemberAccessExpressionBuilder(),
             LiteralExpressionSyntax => new LiteralExpressionBuilder(),
             AssignmentExpressionSyntax => new AssignmentExpressionBuilder(),
+            IsPatternExpressionSyntax => new IsPatternExpressionBuilder(),
+            BinaryExpressionSyntax => new BinaryExpressionBuilder(),
             _ => null
         };
 
