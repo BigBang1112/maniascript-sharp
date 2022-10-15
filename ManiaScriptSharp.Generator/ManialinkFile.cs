@@ -24,6 +24,11 @@ public class ManialinkFile : IGeneratedFile
             throw new Exception("Invalid manialink XML: No root element.");
         }
 
+        if (!doc.DocumentElement.HasAttribute("name"))
+        {
+            doc.DocumentElement.SetAttribute("name", scriptSymbol.Name);
+        }
+
         var descriptionComment = doc.CreateComment("This manialink was generated with ManiaScriptSharp by BigBang1112");
 
         doc.DocumentElement.PrependChild(descriptionComment);
