@@ -9,15 +9,23 @@ public class ThrowStatementBuilder : StatementBuilder<ThrowStatementSyntax>
     public override void Write(int ident, ThrowStatementSyntax statement, ImmutableDictionary<string, ParameterSyntax> parameters,
         ManiaScriptBodyBuilder bodyBuilder)
     {
-        Writer.WriteLine("// Throwing exceptions is not supported");
-        
-        /*Writer.Write(ident, "error(\"");
+        Writer.Write(ident, "assert(False, \"Exception was thrown: ");
         
         if (statement.Expression is ObjectCreationExpressionSyntax objectCreationExpressionSyntax)
         {
             ExpressionBuilder.WriteSyntax(ident, objectCreationExpressionSyntax.Type, parameters, bodyBuilder);
         }
-        
-        Writer.WriteLine("\");");*/
+
+        Writer.Write(" in ");
+
+        var loc = statement.GetLocation();
+        var line = loc.GetLineSpan();
+        var fileName = Path.GetFileName(line.Path);
+        Writer.Write(fileName);
+        Writer.Write(" [");
+        Writer.Write(line.StartLinePosition.Line + 1);
+        Writer.Write(',');
+        Writer.Write(line.StartLinePosition.Character + 1);
+        Writer.WriteLine("]\");");
     }
 }
