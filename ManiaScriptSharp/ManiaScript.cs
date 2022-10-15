@@ -6,4 +6,25 @@ public static class ManiaScript
     {
         
     }
+    
+    // Short overload exists because it says "Assertion failed" and it cannot be replicated with additional parameter
+    public static void Assert(bool condition)
+    {
+        
+    }
+    
+    public static void Assert(bool condition, object? message)
+    {
+        
+    }
+    
+    public static void Sleep(int milliseconds)
+    {
+        
+    }
+    
+    public static void Wait(Func<bool> condition)
+    {
+        
+    }
 }
