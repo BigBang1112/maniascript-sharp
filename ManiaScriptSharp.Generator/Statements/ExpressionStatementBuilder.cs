@@ -15,12 +15,16 @@ public class ExpressionStatementBuilder : StatementBuilder<ExpressionStatementSy
         {
             if (ExpressionBuilder.WriteSyntax(ident, statement.Expression, parameters, bodyBuilder))
             {
-                Writer.WriteLine(";");
+                Writer.Write(';');
             }
         }
         catch (ExpressionStatementException ex)
         {
-            Writer.WriteLine("// " + ex.Message);
+            Writer.Write("// " + ex.Message);
         }
+        
+        Writer.Write(' ');
+        WriteLocationComment(statement);
+        Writer.WriteLine();
     }
 }

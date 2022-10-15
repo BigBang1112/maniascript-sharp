@@ -14,4 +14,17 @@ public abstract class StatementBuilder<T> : StatementBuilder where T : Statement
         base.Write(ident, statement, parameters, bodyBuilder);
         Write(ident, (T) statement, parameters, bodyBuilder);
     }
+
+    protected void WriteLocationComment(T statement)
+    {
+        Writer.Write("/* ");
+        
+        var loc = statement.GetLocation();
+        var line = loc.GetLineSpan();
+        Writer.Write('[');
+        Writer.Write(line.StartLinePosition.Line + 1);
+        Writer.Write(',');
+        Writer.Write(line.StartLinePosition.Character + 1);
+        Writer.Write("] */");
+    }
 }

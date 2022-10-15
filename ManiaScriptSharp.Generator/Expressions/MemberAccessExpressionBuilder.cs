@@ -22,7 +22,7 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
                 throw new ExpressionStatementException("NOTE: Symbol does not exist.");
             }
 
-            if (symbol is ITypeSymbol {TypeKind: TypeKind.Enum})
+            if (symbol is ITypeSymbol typeSymbol && (typeSymbol.TypeKind == TypeKind.Enum || typeSymbol.IsStatic))
             {
                 oper = "::";
             }
@@ -43,7 +43,7 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
                 throw new ExpressionStatementException("NOTE: Symbol does not exist.");
             case ITypeSymbol typeSymbol:
             {
-                if (typeSymbol.Name == "ManiaScript")
+                if (typeSymbol.IsStatic && typeSymbol.Name == "ManiaScript")
                 {
                     topMostExpression = topMostExpression.Parent as ExpressionSyntax;
                 }

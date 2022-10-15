@@ -19,6 +19,8 @@ public abstract class ExpressionBuilder
             AssignmentExpressionSyntax => new AssignmentExpressionBuilder(),
             IsPatternExpressionSyntax => new IsPatternExpressionBuilder(),
             BinaryExpressionSyntax => new BinaryExpressionBuilder(),
+            ParenthesizedExpressionSyntax => new ParenthesizedExpressionBuilder(),
+            PrefixUnaryExpressionSyntax => new PrefixUnaryExpressionBuilder(),
             _ => null
         };
 

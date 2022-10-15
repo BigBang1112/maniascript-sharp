@@ -9,7 +9,9 @@ public class BinaryExpressionBuilder : ExpressionBuilder<BinaryExpressionSyntax>
         ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         WriteSyntax(ident, expression.Left, parameters, bodyBuilder);
-        Writer.Write(" is ");
+        Writer.Write(' ');
+        Writer.Write(expression.OperatorToken.Text);
+        Writer.Write(' ');
         WriteSyntax(ident, expression.Right, parameters, bodyBuilder);
     }
 }

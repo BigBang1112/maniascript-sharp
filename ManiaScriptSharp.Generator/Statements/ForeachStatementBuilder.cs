@@ -13,6 +13,8 @@ public class ForeachStatementBuilder : StatementBuilder<ForEachStatementSyntax>
         Writer.Write(" in ");
         Writer.Write(Standardizer.StandardizeName(statement.Expression.ToString()));
         Writer.Write(") ");
+        WriteLocationComment(statement);
+        Writer.Write(' ');
         WriteSyntax(ident, statement.Statement, parameters, bodyBuilder); // Statement
     }
 }
