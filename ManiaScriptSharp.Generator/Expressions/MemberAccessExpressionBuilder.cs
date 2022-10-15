@@ -35,6 +35,23 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
             }
         }
         
+        var topMostSymbol = bodyBuilder.SemanticModel.GetSymbolInfo(topMostExpression).Symbol;
+        
+        switch (topMostSymbol)
+        {
+            case null:
+                throw new ExpressionStatementException("NOTE: Symbol does not exist.");
+            case ITypeSymbol typeSymbol:
+            {
+                if (typeSymbol.Name == "ManiaScript")
+                {
+                    topMostExpression = topMostExpression.Parent as ExpressionSyntax;
+                }
+
+                break;
+            }
+        }
+        
         // Write the member access
 
         var exp = topMostExpression;
@@ -45,13 +62,13 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
             {
                 case IdentifierNameSyntax identName:
                     WriteSyntax(ident, identName, parameters, bodyBuilder);
-                    Writer.Write(oper);
                     break;
                 case MemberAccessExpressionSyntax memAccess:
                     WriteSyntax(ident, memAccess.Name, parameters, bodyBuilder);
-                    Writer.Write(oper);
                     break;
             }
+            
+            Writer.Write(oper);
 
             exp = exp?.Parent as MemberAccessExpressionSyntax;
         }
