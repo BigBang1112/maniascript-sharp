@@ -37,42 +37,49 @@ public class IsPatternExpressionBuilder : ExpressionBuilder<IsPatternExpressionS
                         {
                             var subpattern = recursivePatternSyntax.PropertyPatternClause.Subpatterns[i];
 
-                            if (subpattern.Pattern is RecursivePatternSyntax {PropertyPatternClause.Subpatterns.Count: 0})
+                            var hasFurtherSubpatterns = subpattern.Pattern is not RecursivePatternSyntax
                             {
-                                if (subpattern.NameColon is null)
-                                {
-                                    Writer.Write("/* NameColon is null */");
-                                }
-                                else
-                                {
-                                    WritePattern(subpattern.Pattern,
-                                        subpattern.NameColon.Expression,
-                                        expressions.Append(subpattern.NameColon.Expression).ToArray(),
-                                        types);
-                                }
+                                PropertyPatternClause.Subpatterns.Count: 0
+                            };
 
-                                continue;
-                            }
-                            
-                            if (recursivePatternSyntax.Type is not null || i != 0)
+                            if (hasFurtherSubpatterns)
                             {
-                                Writer.Write(" && ");
+                                if (recursivePatternSyntax.Type is not null || i != 0)
+                                {
+                                    Writer.Write(" && ");
+                                }
                             }
-                            
+
                             if (subpattern.NameColon is null)
                             {
-                                Writer.Write("/* NameColon is null */");
+                                if (subpattern.ExpressionColon is null)
+                                {
+                                    Writer.Write("/* NameColon and ExpressionColon are null */");
+                                    continue;
+                                }
+                                
+                                WritePattern(subpattern.Pattern,
+                                    subpattern.ExpressionColon.Expression,
+                                    expressions.Append(subpattern.ExpressionColon.Expression).ToArray(),
+                                    types);
+                                
                                 continue;
                             }
 
-                            Writer.Write('(');
+                            if (hasFurtherSubpatterns)
+                            {
+                                Writer.Write('(');
+                            }
 
                             WritePattern(subpattern.Pattern,
                                 subpattern.NameColon.Expression,
                                 expressions.Append(subpattern.NameColon.Expression).ToArray(),
                                 types);
 
-                            Writer.Write(')');
+                            if (hasFurtherSubpatterns)
+                            {
+                                Writer.Write(')');
+                            }
                         }
                     }
             
