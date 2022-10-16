@@ -9,7 +9,7 @@ public class IfStatementBuilder : StatementBuilder<IfStatementSyntax>
 {
     public override void Write(int ident, IfStatementSyntax statement, ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
-        Writer.Write(ident, "if (");
+        Writer.Write(statement.Parent is ElseClauseSyntax ? 0 : ident, "if (");
         ExpressionBuilder.WriteSyntax(ident, statement.Condition, parameters, bodyBuilder);
         Writer.Write(") ");
         WriteLocationComment(statement);
@@ -19,7 +19,7 @@ public class IfStatementBuilder : StatementBuilder<IfStatementSyntax>
         
         if (statement.Else is not null)
         {
-            Writer.Write(ident, "else");
+            Writer.Write(ident, "else ");
             WriteSyntax(ident, statement.Else.Statement, parameters, bodyBuilder);
         }
     }
