@@ -6,9 +6,14 @@ namespace ManiaScriptSharp.Generator.Expressions;
 
 public class IdentifierNameExpressionBuilder : ExpressionBuilder<IdentifierNameSyntax>
 {
-    public override void Write(int ident, IdentifierNameSyntax expression, ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+    public override void Write(int ident, IdentifierNameSyntax expression, ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         var symbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression).Symbol;
+
+        if (symbol is null)
+        {
+            throw new Exception("Symbol is null");
+        }
         
         var text = expression.Identifier.Text;
 
@@ -17,9 +22,14 @@ public class IdentifierNameExpressionBuilder : ExpressionBuilder<IdentifierNameS
             Writer.Write(char.ToLower(text[0]) + text.Substring(1));
             return;
         }
-        
-        Writer.Write(parameters.ContainsKey(text)
-            ? Standardizer.StandardizeUnderscoreName(text)
-            : Standardizer.StandardizeName(text));
+
+        if (bodyBuilder.IsBuildingEventHandling || !parameters.Any(x => x.Identifier.Text == text))
+        {
+            Writer.Write(Standardizer.StandardizeName(text));
+        }
+        else
+        {
+            Writer.Write(Standardizer.StandardizeUnderscoreName(text));
+        }
     }
 }
