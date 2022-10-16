@@ -19,6 +19,7 @@ public abstract class StatementBuilder
             IfStatementSyntax => new IfStatementBuilder(),
             LocalDeclarationStatementSyntax => new LocalDeclarationStatementBuilder(),
             ForStatementSyntax => new ForStatementBuilder(),
+            WhileStatementSyntax => new WhileStatementBuilder(),
             _ => null
         };
 
