@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.Editing;
 using System.Diagnostics;
 using System.IO.Abstractions;
 using System.Text;
+using System.Xml;
 using System.Xml.Schema;
 
 namespace ManiaScriptSharp.Generator;
@@ -128,10 +129,24 @@ public class ManiaScriptGenerator : ISourceGenerator
         {
             if (isEmbeddedScript)
             {
-                content = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
-                          "<!--\n" +
-                          ex + "\n" +
-                          "-->";
+                var failedDoc = new XmlDocument();
+
+                var mainElement = failedDoc.CreateElement("manialink");
+                mainElement.SetAttribute("version", "3");
+                failedDoc.AppendChild(mainElement);
+                
+                var comment = failedDoc.CreateComment($"This generated file failed to be processed: {ex}");
+                mainElement.AppendChild(comment);
+                
+                using var stringWriter = new Utf8StringWriter();
+                using var xmlWriter = new XmlTextWriter(stringWriter)
+                {
+                    Formatting = Formatting.Indented,
+                    Indentation = 4
+                };
+        
+                failedDoc.Save(xmlWriter);
+                content = stringWriter.ToString();
             }
             else
             {
