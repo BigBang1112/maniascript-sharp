@@ -21,6 +21,7 @@ public abstract class ExpressionBuilder
             BinaryExpressionSyntax => new BinaryExpressionBuilder(),
             ParenthesizedExpressionSyntax => new ParenthesizedExpressionBuilder(),
             PrefixUnaryExpressionSyntax => new PrefixUnaryExpressionBuilder(),
+            TypeSyntax => new TypeExpressionBuilder(),
             _ => null
         };
 

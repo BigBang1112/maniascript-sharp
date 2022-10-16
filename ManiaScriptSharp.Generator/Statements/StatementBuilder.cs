@@ -17,6 +17,8 @@ public abstract class StatementBuilder
             ExpressionStatementSyntax => new ExpressionStatementBuilder(),
             ThrowStatementSyntax => new ThrowStatementBuilder(),
             IfStatementSyntax => new IfStatementBuilder(),
+            LocalDeclarationStatementSyntax => new LocalDeclarationStatementBuilder(),
+            ForStatementSyntax => new ForStatementBuilder(),
             _ => null
         };
 
