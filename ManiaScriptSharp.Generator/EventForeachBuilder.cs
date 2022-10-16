@@ -337,6 +337,35 @@ public class EventForeachBuilder
         switch (eventFunction)
         {
             case FunctionIdentifier eventIdentifier:
+                
+                var actualNameDict = new Dictionary<IParameterSymbol, string>(SymbolEqualityComparer.Default);
+                var arrayParamSet = new Dictionary<IParameterSymbol, string>(SymbolEqualityComparer.Default);
+                
+                // if array, copy the data over
+                foreach (var parameter in parameters)
+                {
+                    var actualName = GetActualNameFromParameter(parameter);
+                    
+                    if (string.IsNullOrWhiteSpace(actualName))
+                    {
+                        continue;
+                    }
+                    
+                    actualNameDict.Add(parameter, actualName);
+
+                    var standardizedType = Standardizer.CSharpTypeToManiaScriptType((INamedTypeSymbol)parameter.Type);
+                    
+                    if (!standardizedType.EndsWith("[]"))
+                    {
+                        continue;
+                    }
+
+                    var standName = Standardizer.StandardizeName(parameter.Name);
+                    arrayParamSet.Add(parameter, standName);
+                    
+                    WriteApiArrayTranslation(ident, standardizedType, standName, actualName);
+                }
+                
                 Writer.Write(ident, eventIdentifier.Method.Name);
 
                 if (isGeneralEvent)
@@ -356,31 +385,18 @@ public class EventForeachBuilder
                         Writer.Write(", ");
                     }
 
-                    Writer.Write("Event.");
-
-                    var actualNameAtt = parameter.GetAttributes()
-                        .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualNameAttribute);
-
-                    if (actualNameAtt is not null)
+                    if (arrayParamSet.TryGetValue(parameter, out var paramName))
                     {
-                        Writer.Write(actualNameAtt.ConstructorArguments[0].Value);
-                        continue;
-                    }
-
-                    if (parameter.Name.Length <= 0)
-                    {
-                        continue;
-                    }
-
-                    if (char.IsLower(parameter.Name[0]))
-                    {
-                        var charArray = parameter.Name.ToCharArray();
-                        charArray[0] = char.ToUpper(charArray[0]);
-                        Writer.Write(new string(charArray));
+                        Writer.Write(paramName);
                     }
                     else
                     {
-                        Writer.Write(parameter.Name);
+                        Writer.Write("Event.");
+
+                        if (actualNameDict.TryGetValue(parameter, out var actualName))
+                        {
+                            Writer.Write(actualName);
+                        }
                     }
                 }
 
@@ -395,20 +411,72 @@ public class EventForeachBuilder
                 {
                     var originalParam = originalParams[i];
                     var parameter = eventAnonymous.Parameters[i];
-                    var actualName = originalParam.GetAttributes()
+                    var actualNameAtt = originalParam.GetAttributes()
                         .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualNameAttribute);
+                    var actualName = actualNameAtt?.ConstructorArguments[0].Value?.ToString() ??
+                                     Standardizer.StandardizeName(originalParam.Name);
+                    var standName = Standardizer.StandardizeName(parameter.Identifier.Text);
+                    
+                    var standardizedType = Standardizer.CSharpTypeToManiaScriptType((INamedTypeSymbol)originalParam.Type);
+                    
+                    if (standardizedType.EndsWith("[]"))
+                    {
+                        WriteApiArrayTranslation(ident, standardizedType, standName, actualName);
+                        continue;
+                    }
 
                     Writer.Write(ident, "declare ");
-                    Writer.Write(Standardizer.StandardizeName(parameter.Identifier.Text));
+                    Writer.Write(standName);
                     Writer.Write(" = Event.");
-                    Writer.Write(actualName?.ConstructorArguments[0].Value ??
-                                 Standardizer.StandardizeName(originalParam.Name));
+                    Writer.Write(actualName);
                     Writer.WriteLine(";");
                 }
 
                 _bodyBuilder.WriteFunctionBody(ident, eventAnonymous);
                 Writer.WriteLine(ident, "// End of anonymous function");
                 break;
+        }
+    }
+
+    private void WriteApiArrayTranslation(int ident, string standardizedType, string standName, string actualName)
+    {
+        Writer.Write(ident, "declare ");
+        Writer.Write(standardizedType);
+        Writer.Write(' ');
+        Writer.Write(standName);
+        Writer.WriteLine(";");
+        Writer.Write(ident, "foreach (Element in Event.");
+        Writer.Write(actualName);
+        Writer.WriteLine(") {");
+        Writer.Write(ident + 1, standName);
+        Writer.WriteLine(".add(Element);");
+        Writer.WriteLine(ident, "}");
+    }
+
+    private static string GetActualNameFromParameter(IParameterSymbol parameter)
+    {
+        var actualNameAtt = parameter.GetAttributes()
+            .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualNameAttribute);
+
+        if (actualNameAtt is not null)
+        {
+            return actualNameAtt.ConstructorArguments[0].Value?.ToString() ?? "";
+        }
+
+        if (parameter.Name.Length <= 0)
+        {
+            return "";
+        }
+
+        if (char.IsLower(parameter.Name[0]))
+        {
+            var charArray = parameter.Name.ToCharArray();
+            charArray[0] = char.ToUpper(charArray[0]);
+            return new string(charArray);
+        }
+        else
+        {
+            return parameter.Name;
         }
     }
 
