@@ -116,6 +116,14 @@ public class ManiaScriptHeadBuilder
 
     private ImmutableArray<IFieldSymbol> BuildConsts()
     {
+        if (ScriptSymbol.Interfaces.Any(x => x.Name == "IMode"))
+        {
+            Writer.Write("#Const ScriptName \"");
+            Writer.Write(ScriptSymbol.Name);
+            Writer.WriteLine(".Script.txt\"");
+            Writer.WriteLine();
+        }
+        
         var consts = ScriptSymbol.GetMembers()
             .OfType<IFieldSymbol>()
             .Where(x => x.IsConst);
