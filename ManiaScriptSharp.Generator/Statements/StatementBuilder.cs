@@ -8,7 +8,7 @@ public abstract class StatementBuilder
     protected TextWriter Writer { get; private set; } = default!;
     
     public static void WriteSyntax(int ident, StatementSyntax statement,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         StatementBuilder? builder = statement switch
         {
@@ -35,7 +35,7 @@ public abstract class StatementBuilder
     }
 
     public virtual void Write(int ident, StatementSyntax statement,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         Writer = bodyBuilder.Writer;
     }

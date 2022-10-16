@@ -7,7 +7,7 @@ namespace ManiaScriptSharp.Generator.Statements;
 
 public class IfStatementBuilder : StatementBuilder<IfStatementSyntax>
 {
-    public override void Write(int ident, IfStatementSyntax statement, ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+    public override void Write(int ident, IfStatementSyntax statement, ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         Writer.Write(statement.Parent is ElseClauseSyntax ? 0 : ident, "if (");
         ExpressionBuilder.WriteSyntax(ident, statement.Condition, parameters, bodyBuilder);

@@ -7,7 +7,7 @@ namespace ManiaScriptSharp.Generator.Expressions;
 public class TypeExpressionBuilder : ExpressionBuilder<TypeSyntax>
 {
     public override void Write(int ident, TypeSyntax expression,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         var symbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression).Symbol;
 

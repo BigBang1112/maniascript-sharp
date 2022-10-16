@@ -7,7 +7,7 @@ namespace ManiaScriptSharp.Generator.Expressions;
 public class LiteralExpressionBuilder : ExpressionBuilder<LiteralExpressionSyntax>
 {
     public override void Write(int ident, LiteralExpressionSyntax expression,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         switch (expression.Token.Value)
         {

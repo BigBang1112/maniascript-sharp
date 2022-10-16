@@ -7,7 +7,7 @@ namespace ManiaScriptSharp.Generator.Statements;
 public class ForStatementBuilder : StatementBuilder<ForStatementSyntax>
 {
     public override void Write(int ident, ForStatementSyntax statement,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         Writer.Write(ident, "for (");
 

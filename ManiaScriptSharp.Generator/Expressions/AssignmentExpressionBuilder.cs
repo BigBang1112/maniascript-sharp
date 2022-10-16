@@ -6,7 +6,7 @@ namespace ManiaScriptSharp.Generator.Expressions;
 public class AssignmentExpressionBuilder : ExpressionBuilder<AssignmentExpressionSyntax>
 {
     public override void Write(int ident, AssignmentExpressionSyntax expression,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         WriteSyntax(ident, expression.Left, parameters, bodyBuilder);
         Writer.Write(" = ");

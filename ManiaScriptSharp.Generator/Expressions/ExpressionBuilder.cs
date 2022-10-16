@@ -8,7 +8,7 @@ public abstract class ExpressionBuilder
     protected TextWriter Writer { get; private set; } = default!;
     
     public static bool WriteSyntax(int ident, ExpressionSyntax expression,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         ExpressionBuilder? builder = expression switch
         {
@@ -41,7 +41,7 @@ public abstract class ExpressionBuilder
     }
 
     public virtual void Write(int ident, ExpressionSyntax expression,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         Writer = bodyBuilder.Writer;
     }

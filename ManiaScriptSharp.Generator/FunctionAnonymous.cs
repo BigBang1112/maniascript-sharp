@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -6,25 +7,27 @@ namespace ManiaScriptSharp.Generator;
 
 public class FunctionAnonymous : Function
 {
-    public ImmutableDictionary<string, ParameterSyntax> Parameters { get; init; }
+    public ImmutableArray<ParameterSyntax> Parameters { get; init; }
     public BlockSyntax Block { get; init; }
+    public IMethodSymbol DelegateInvokeSymbol { get; init; }
 
-    public FunctionAnonymous(ImmutableDictionary<string, ParameterSyntax> parameters, BlockSyntax block)
+    public FunctionAnonymous(ImmutableArray<ParameterSyntax> parameters, BlockSyntax block,
+        IMethodSymbol delegateInvokeSymbol)
     {
         Parameters = parameters;
         Block = block;
+        DelegateInvokeSymbol = delegateInvokeSymbol;
     }
 
-    public static bool TryParse(ExpressionSyntax expressionSyntax, out FunctionAnonymous value)
+    public static bool TryParse(ExpressionSyntax expressionSyntax, INamedTypeSymbol eventType, out FunctionAnonymous value)
     {
         // AnonymousFunctionExpressionSyntax doesn't have ParameterList, that's why it's not used here
         
         switch (expressionSyntax)
         {
             case AnonymousMethodExpressionSyntax anonymousSyntax:
-                value = new FunctionAnonymous(anonymousSyntax.ParameterList?.Parameters
-                    .ToImmutableDictionary(x => x.Identifier.Text)
-                                              ?? ImmutableDictionary<string, ParameterSyntax>.Empty, anonymousSyntax.Block);
+                value = new FunctionAnonymous(anonymousSyntax.ParameterList?.Parameters.ToImmutableArray()
+                    ?? ImmutableArray<ParameterSyntax>.Empty, anonymousSyntax.Block, eventType.DelegateInvokeMethod!);
                 break;
             case ParenthesizedLambdaExpressionSyntax lambdaSyntax:
                 
@@ -44,8 +47,8 @@ public class FunctionAnonymous : Function
                     return false;
                 }
                 
-                value = new FunctionAnonymous(lambdaSyntax.ParameterList.Parameters
-                    .ToImmutableDictionary(x => x.Identifier.Text), block);
+                value = new FunctionAnonymous(lambdaSyntax.ParameterList.Parameters.ToImmutableArray(),
+                    block, eventType.DelegateInvokeMethod!);
                 
                 break;
             default:

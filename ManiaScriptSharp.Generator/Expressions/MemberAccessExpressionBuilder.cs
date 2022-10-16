@@ -7,7 +7,7 @@ namespace ManiaScriptSharp.Generator.Expressions;
 public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpressionSyntax>
 {
     public override void Write(int ident, MemberAccessExpressionSyntax expression,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         var oper = ".";
         var topMostExpression = expression as ExpressionSyntax;

@@ -15,6 +15,7 @@ public class ManiaScriptBodyBuilder
     public ManiaScriptHead Head { get; }
     public GeneratorHelper Helper { get; }
 
+    public bool IsBuildingEventHandling { get; private set; }
     public Queue<string> BlockLineQueue { get; } = new();
 
     public ManiaScriptBodyBuilder(
@@ -225,8 +226,10 @@ public class ManiaScriptBodyBuilder
     {
         Writer.WriteLine(ident, "yield;");
 
+        IsBuildingEventHandling = true;
         var eventForeachBuilder = new EventForeachBuilder(this);
         eventForeachBuilder.Write(ident, functions, constructorAnalysis);
+        IsBuildingEventHandling = false;
         
         WriteFunctionBody(ident, new FunctionIdentifier(loopMethodSymbol));
     }
@@ -234,7 +237,7 @@ public class ManiaScriptBodyBuilder
     public void WriteFunctionBody(int ident, Function function)
     {
         BlockSyntax block;
-        ImmutableDictionary<string, ParameterSyntax> parameters;
+        ImmutableArray<ParameterSyntax> parameters;
         
         switch (function)
         {
@@ -260,7 +263,7 @@ public class ManiaScriptBodyBuilder
                     return;
                 }
                 
-                parameters = methodSyntax.ParameterList.Parameters.ToImmutableDictionary(x => x.Identifier.Text);
+                parameters = methodSyntax.ParameterList.Parameters.ToImmutableArray();
                 break;
             }
             case FunctionAnonymous functionAnonymous:

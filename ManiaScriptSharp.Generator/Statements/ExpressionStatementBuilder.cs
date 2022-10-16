@@ -7,7 +7,7 @@ namespace ManiaScriptSharp.Generator.Statements;
 public class ExpressionStatementBuilder : StatementBuilder<ExpressionStatementSyntax>
 {
     public override void Write(int ident, ExpressionStatementSyntax statement,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         Writer.WriteIdent(ident);
         

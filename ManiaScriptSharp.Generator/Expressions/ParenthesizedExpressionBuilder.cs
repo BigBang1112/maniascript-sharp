@@ -5,7 +5,7 @@ namespace ManiaScriptSharp.Generator.Expressions;
 
 public class ParenthesizedExpressionBuilder : ExpressionBuilder<ParenthesizedExpressionSyntax>
 {
-    public override void Write(int ident, ParenthesizedExpressionSyntax expression, ImmutableDictionary<string, ParameterSyntax> parameters,
+    public override void Write(int ident, ParenthesizedExpressionSyntax expression, ImmutableArray<ParameterSyntax> parameters,
         ManiaScriptBodyBuilder bodyBuilder)
     {
         Writer.Write(expression.OpenParenToken.Text);

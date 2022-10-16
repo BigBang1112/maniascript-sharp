@@ -8,7 +8,7 @@ namespace ManiaScriptSharp.Generator.Expressions;
 public class IsPatternExpressionBuilder : ExpressionBuilder<IsPatternExpressionSyntax>
 {
     public override void Write(int ident, IsPatternExpressionSyntax expression,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         WritePattern(expression.Pattern,
             expression.Expression,
@@ -170,7 +170,7 @@ public class IsPatternExpressionBuilder : ExpressionBuilder<IsPatternExpressionS
         }
     }
 
-    private void WriteExpression(int ident, ImmutableDictionary<string, ParameterSyntax> parameters,
+    private void WriteExpression(int ident, ImmutableArray<ParameterSyntax> parameters,
         ManiaScriptBodyBuilder bodyBuilder, IReadOnlyList<ExpressionSyntax> expressions,
         IReadOnlyDictionary<ExpressionSyntax, TypeSyntax> types)
     {

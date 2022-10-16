@@ -7,7 +7,7 @@ namespace ManiaScriptSharp.Generator.Statements;
 public class LocalDeclarationStatementBuilder : StatementBuilder<LocalDeclarationStatementSyntax>
 {
     public override void Write(int ident, LocalDeclarationStatementSyntax statement,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         foreach (var variable in statement.Declaration.Variables)
         {

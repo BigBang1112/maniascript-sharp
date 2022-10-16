@@ -61,7 +61,7 @@ public class ConstructorAnalysis
                 
                 eventMethodDictBuilder.Add((leftIdentifierSyntax, new FunctionIdentifier(methodSymbol)));
             }
-            else if (FunctionAnonymous.TryParse(eventSubscriptionSyntax.Right, out var eventAnonymous))
+            else if (FunctionAnonymous.TryParse(eventSubscriptionSyntax.Right, (INamedTypeSymbol)eventSymbol.Type, out var eventAnonymous))
             {
                 eventMethodDictBuilder.Add((leftIdentifierSyntax, eventAnonymous));
             }

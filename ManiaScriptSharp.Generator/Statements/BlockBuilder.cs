@@ -6,7 +6,7 @@ namespace ManiaScriptSharp.Generator.Statements;
 public class BlockBuilder : StatementBuilder<BlockSyntax>
 {
     public override void Write(int ident, BlockSyntax statement,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         Writer.WriteLine("{");
         

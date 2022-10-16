@@ -388,6 +388,24 @@ public class EventForeachBuilder
                 break;
             case FunctionAnonymous eventAnonymous:
                 Writer.WriteLine(ident, "// Start of anonymous function");
+
+                var originalParams = eventAnonymous.DelegateInvokeSymbol.Parameters;
+
+                for (var i = 0; i < originalParams.Length; i++)
+                {
+                    var originalParam = originalParams[i];
+                    var parameter = eventAnonymous.Parameters[i];
+                    var actualName = originalParam.GetAttributes()
+                        .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualNameAttribute);
+
+                    Writer.Write(ident, "declare ");
+                    Writer.Write(Standardizer.StandardizeName(parameter.Identifier.Text));
+                    Writer.Write(" = Event.");
+                    Writer.Write(actualName?.ConstructorArguments[0].Value ??
+                                 Standardizer.StandardizeName(originalParam.Name));
+                    Writer.WriteLine(";");
+                }
+
                 _bodyBuilder.WriteFunctionBody(ident, eventAnonymous);
                 Writer.WriteLine(ident, "// End of anonymous function");
                 break;

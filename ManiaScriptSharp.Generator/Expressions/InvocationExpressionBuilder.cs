@@ -6,7 +6,7 @@ namespace ManiaScriptSharp.Generator.Expressions;
 public class InvocationExpressionBuilder : ExpressionBuilder<InvocationExpressionSyntax>
 {
     public override void Write(int ident, InvocationExpressionSyntax expression,
-        ImmutableDictionary<string, ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
         

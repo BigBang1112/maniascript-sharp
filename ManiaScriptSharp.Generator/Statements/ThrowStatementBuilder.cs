@@ -6,7 +6,7 @@ namespace ManiaScriptSharp.Generator.Statements;
 
 public class ThrowStatementBuilder : StatementBuilder<ThrowStatementSyntax>
 {
-    public override void Write(int ident, ThrowStatementSyntax statement, ImmutableDictionary<string, ParameterSyntax> parameters,
+    public override void Write(int ident, ThrowStatementSyntax statement, ImmutableArray<ParameterSyntax> parameters,
         ManiaScriptBodyBuilder bodyBuilder)
     {
         Writer.Write(ident, "assert(False, \"Exception was thrown: ");
