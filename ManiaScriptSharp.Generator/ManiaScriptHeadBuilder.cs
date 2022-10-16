@@ -273,14 +273,18 @@ public class ManiaScriptHeadBuilder
             {
                 case IFieldSymbol fieldSymbol:
                     if (fieldSymbol.IsConst) continue;
-                    type = Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.Name);
+                    type = fieldSymbol.Type is INamedTypeSymbol fieldNamedTypeSymbol
+                        ? Standardizer.CSharpTypeToManiaScriptType(fieldNamedTypeSymbol)
+                        : Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.Name);
                     name = fieldSymbol.Name;
                     break;
                 case IPropertySymbol propertySymbol:
 
                     // TODO: be more flexible about getters and setters when they are not auto properties
 
-                    type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type.Name);
+                    type = propertySymbol.Type is INamedTypeSymbol propNamedTypeSymbol
+                        ? Standardizer.CSharpTypeToManiaScriptType(propNamedTypeSymbol)
+                        : Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type.Name);
                     name = propertySymbol.Name;
                     break;
                 default:
