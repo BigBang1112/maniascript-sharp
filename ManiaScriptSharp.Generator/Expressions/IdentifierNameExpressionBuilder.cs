@@ -12,7 +12,7 @@ public class IdentifierNameExpressionBuilder : ExpressionBuilder<IdentifierNameS
 
         if (symbol is null)
         {
-            throw new Exception("Symbol is null");
+            // TODO: Add some form of warning here
         }
         
         var text = expression.Identifier.Text;
