@@ -9,6 +9,12 @@ public class InvocationExpressionBuilder : ExpressionBuilder<InvocationExpressio
         ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
+
+        // TODO: abstract this better in the future
+        if (expression.Expression is IdentifierNameSyntax {Identifier.Text: "Yield"})
+        {
+            return;
+        }
         
         Writer.Write('(');
 

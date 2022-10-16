@@ -27,4 +27,9 @@ public static class ManiaScript
     {
         
     }
+
+    public static void Yield()
+    {
+        
+    }
 }
