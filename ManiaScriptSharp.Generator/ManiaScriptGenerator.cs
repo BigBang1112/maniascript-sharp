@@ -56,6 +56,7 @@ public class ManiaScriptGenerator : ISourceGenerator
             var scriptSymbols = context.Compilation
                 .GlobalNamespace
                 .GetNamespaceMembers()
+                .Flatten(x => x.GetNamespaceMembers())
                 .SelectMany(x => x.GetTypeMembers()
                     .Where(y => y.Interfaces.Any(z => z.Name == "IContext")));
 
@@ -66,14 +67,17 @@ public class ManiaScriptGenerator : ISourceGenerator
         }
         else
         {
-            foreach (var namespaceSymbol in context.Compilation.GlobalNamespace.GetNamespaceMembers())
+            var allTypeSymbols = context.Compilation
+                .GlobalNamespace
+                .GetNamespaceMembers()
+                .Flatten(x => x.GetNamespaceMembers())
+                .SelectMany(x => x.GetTypeMembers());
+            
+            foreach (var typeSymbol in allTypeSymbols)
             {
-                foreach (var typeSymbol in namespaceSymbol.GetTypeMembers())
+                if (typeSymbol.Name == receiver.ClassName)
                 {
-                    if (typeSymbol.Name == receiver.ClassName)
-                    {
-                        ProcessScriptSymbol(context, typeSymbol, helper);
-                    }
+                    ProcessScriptSymbol(context, typeSymbol, helper);
                 }
             }
         }
@@ -106,9 +110,6 @@ public class ManiaScriptGenerator : ISourceGenerator
     private static IGeneratedFile GenerateScriptFile(INamedTypeSymbol scriptSymbol, GeneratorHelper helper)
     {
         var isEmbeddedScript = scriptSymbol.IsSubclassOf(x => x.Name == "CMlScript");
-        var outputFilePath = Path.Combine(helper.OutputDir, scriptSymbol.Name);
-
-        outputFilePath += isEmbeddedScript ? ".xml" : ".Script.txt";
 
         var content = isEmbeddedScript ? "<!-- This generated file is being processed -->" : "// This generated file is being processed";
 
@@ -159,8 +160,29 @@ public class ManiaScriptGenerator : ISourceGenerator
         }
         finally
         {
-            helper.FileSystem.File.WriteAllText(outputFilePath, content);
+            var pathList = CreateFilePathFromScriptSymbol(helper.OutputDir, scriptSymbol, isEmbeddedScript).ToArray();
+            var path = Path.Combine(pathList);
+            var dirPath = Path.GetDirectoryName(path)!;
+            
+            helper.FileSystem.Directory.CreateDirectory(dirPath);
+            helper.FileSystem.File.WriteAllText(path, content);
         }
+    }
+
+    private static IEnumerable<string> CreateFilePathFromScriptSymbol(string outputDir, ISymbol scriptSymbol, bool isEmbeddedScript)
+    {
+        yield return outputDir;
+        
+        var namespaces = GenericExtensions.Flatten(scriptSymbol.ContainingNamespace, symbol => symbol.ContainingNamespace);
+
+        foreach (var namespaceSymbol in namespaces.Where(x => !x.IsGlobalNamespace).Reverse())
+        {
+            yield return namespaceSymbol.Name;
+        }
+        
+        yield return scriptSymbol.ContainingNamespace.Name;
+        
+        yield return scriptSymbol.Name + (isEmbeddedScript ? ".xml" : ".Script.txt");
     }
 
     private static IGeneratedFile GenerateScriptFile(INamedTypeSymbol scriptSymbol,
