@@ -3,7 +3,6 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using System.Diagnostics;
 using System.IO.Abstractions;
-using System.Text;
 using System.Xml;
 using System.Xml.Schema;
 
@@ -31,23 +30,42 @@ public class ManiaScriptGenerator : ISourceGenerator
             throw new Exception("build_property.projectdir not found");
         }
         
-        var outputDir = Path.Combine(projectDir, "out");
+        var xmlSchemaXsd = default(string);
+        var buildSettings = default(BuildSettings);
+
+        foreach (var additionalFile in context.AdditionalFiles)
+        {
+            if (additionalFile.Path.EndsWith(".xsd"))
+            {
+                xmlSchemaXsd = additionalFile.GetText()?.ToString();
+            }
+
+            if (additionalFile.Path.EndsWith("buildsettings.yml"))
+            {
+                var contents = additionalFile.GetText()?.ToString();
+
+                if (contents is null)
+                {
+                    continue;
+                }
+
+                var deserializer = new YamlDotNet.Serialization.Deserializer();
+                buildSettings = deserializer.Deserialize<BuildSettings>(contents);
+            }
+        }
+        
+        var outputDir = buildSettings?.OutputDir ?? Path.Combine(projectDir, "out");
 
         var fileSystem = new FileSystem();
         //fileSystem.Directory.Delete(outputDir, true);
         fileSystem.Directory.CreateDirectory(outputDir);
-        
-        var xmlSchemaXsd = context.AdditionalFiles
-            .FirstOrDefault(x => x.Path.EndsWith(".xsd"))?
-            .GetText()?
-            .ToString();
         
         var xmlSchema = xmlSchemaXsd is null ? null : XmlSchema.Read(new StringReader(xmlSchemaXsd), (sender, args) =>
         {
             // HANDLE VALIDATION FAILED
         });
 
-        var helper = new GeneratorHelper(context, fileSystem, projectDir, outputDir, xmlSchema);
+        var helper = new GeneratorHelper(context, fileSystem, projectDir, outputDir, xmlSchema, buildSettings);
         
         var receiver = (SyntaxReceiver)context.SyntaxReceiver!;
 
@@ -160,7 +178,7 @@ public class ManiaScriptGenerator : ISourceGenerator
         }
         finally
         {
-            var pathList = CreateFilePathFromScriptSymbol(helper.OutputDir, scriptSymbol, isEmbeddedScript).ToArray();
+            var pathList = CreateFilePathFromScriptSymbol(scriptSymbol, isEmbeddedScript, helper).ToArray();
             var path = Path.Combine(pathList);
             var dirPath = Path.GetDirectoryName(path)!;
             
@@ -169,18 +187,29 @@ public class ManiaScriptGenerator : ISourceGenerator
         }
     }
 
-    private static IEnumerable<string> CreateFilePathFromScriptSymbol(string outputDir, ISymbol scriptSymbol, bool isEmbeddedScript)
+    private static IEnumerable<string> CreateFilePathFromScriptSymbol(ISymbol scriptSymbol, bool isEmbeddedScript, GeneratorHelper helper)
     {
-        yield return outputDir;
+        yield return helper.OutputDir;
+        
+        var adjustedRoot = helper.BuildSettings?.Root?.Split('.');
+        var adjustedRootPos = 0;
         
         var namespaces = GenericExtensions.Flatten(scriptSymbol.ContainingNamespace, symbol => symbol.ContainingNamespace);
-
-        foreach (var namespaceSymbol in namespaces.Where(x => !x.IsGlobalNamespace).Reverse())
-        {
-            yield return namespaceSymbol.Name;
-        }
+        var namespaceFolderSymbols = namespaces.Where(x => !x.IsGlobalNamespace)
+            .Reverse()
+            .Append(scriptSymbol.ContainingNamespace);
         
-        yield return scriptSymbol.ContainingNamespace.Name;
+        foreach (var namespaceSymbol in namespaceFolderSymbols)
+        {
+            if (adjustedRoot?.Length > adjustedRootPos && adjustedRoot[adjustedRootPos] == namespaceSymbol.Name)
+            {
+                adjustedRootPos++;
+            }
+            else
+            {
+                yield return namespaceSymbol.Name;
+            }
+        }
         
         yield return scriptSymbol.Name + (isEmbeddedScript ? ".xml" : ".Script.txt");
     }
