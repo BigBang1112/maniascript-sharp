@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Expressions;
@@ -8,10 +9,16 @@ public class InvocationExpressionBuilder : ExpressionBuilder<InvocationExpressio
     public override void Write(int ident, InvocationExpressionSyntax expression,
         ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
-        WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
+        var symbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression.Expression).Symbol;
 
-        // TODO: abstract this better in the future
-        if (expression.Expression is IdentifierNameSyntax {Identifier.Text: "Yield"})
+        if (symbol is null)
+        {
+            throw new Exception("Symbol does not exist");
+        }
+        
+        WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
+        
+        if (symbol.Name == "Yield" && symbol.ContainingType.Name == "ManiaScript")
         {
             return;
         }
