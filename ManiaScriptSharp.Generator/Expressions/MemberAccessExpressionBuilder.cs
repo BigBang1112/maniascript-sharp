@@ -9,70 +9,51 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
     public override void Write(int ident, MemberAccessExpressionSyntax expression,
         ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
-        var oper = ".";
-        var topMostExpression = expression as ExpressionSyntax;
-        
-        // Validation of the member access
-        while (topMostExpression is MemberAccessExpressionSyntax memberAccessExpression)
+        if (expression.Expression is BaseExpressionSyntax)
         {
-            var symbol = bodyBuilder.SemanticModel.GetSymbolInfo(topMostExpression).Symbol;
-
-            if (symbol is null)
-            {
-                throw new ExpressionStatementException("NOTE: Symbol does not exist.");
-            }
-
-            if (symbol is ITypeSymbol typeSymbol && (typeSymbol.TypeKind == TypeKind.Enum || typeSymbol.IsStatic))
-            {
-                oper = "::";
-            }
-            
-            topMostExpression = memberAccessExpression.Expression;
-            
-            if (topMostExpression is BaseExpressionSyntax)
-            {
-                throw new ExpressionStatementException("NOTE: Base expressions are ignored as they are not supported. They can be removed from code.");
-            }
+            throw new ExpressionStatementException("NOTE: Base expressions are ignored as they are not supported. They can be removed from code.");
         }
-        
-        var topMostSymbol = bodyBuilder.SemanticModel.GetSymbolInfo(topMostExpression).Symbol;
-        
-        switch (topMostSymbol)
+
+        WriteParentExpression(ident, expression, parameters, bodyBuilder);
+
+        WriteSyntax(ident, expression.Name, parameters, bodyBuilder);
+    }
+
+    private void WriteParentExpression(int ident, MemberAccessExpressionSyntax expression, ImmutableArray<ParameterSyntax> parameters,
+        ManiaScriptBodyBuilder bodyBuilder)
+    {
+        if (expression.Expression is ThisExpressionSyntax)
+        {
+            return;
+        }
+
+        var expressionSymbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression.Expression).Symbol;
+
+        switch (expressionSymbol)
         {
             case null:
                 throw new ExpressionStatementException("NOTE: Symbol does not exist.");
-            case ITypeSymbol typeSymbol:
-            {
-                if (typeSymbol.IsStatic && typeSymbol.Name == "ManiaScript")
-                {
-                    topMostExpression = topMostExpression.Parent as ExpressionSyntax;
-                }
-
-                break;
-            }
+            case INamespaceSymbol:
+                return;
         }
         
-        // Write the member access
-
-        var exp = topMostExpression;
-
-        while (exp is not null && exp != expression)
+        if (expressionSymbol.Name == "ManiaScript")
         {
-            switch (exp)
-            {
-                case IdentifierNameSyntax identName:
-                    WriteSyntax(ident, identName, parameters, bodyBuilder);
-                    Writer.Write(oper);
-                    break;
-                case MemberAccessExpressionSyntax memAccess:
-                    WriteSyntax(ident, memAccess.Name, parameters, bodyBuilder);
-                    Writer.Write(oper);
-                    break;
-            }
-
-            exp = exp?.Parent as MemberAccessExpressionSyntax;
+            return;
         }
+
+        WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
         
-        WriteSyntax(ident, expression.Name, parameters, bodyBuilder);
+        var nameSymbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression.Name).Symbol;
+
+        if (expressionSymbol.IsStatic || expressionSymbol is ITypeSymbol {TypeKind: TypeKind.Enum}
+            || nameSymbol is ITypeSymbol {TypeKind: TypeKind.Enum})
+        {
+            Writer.Write("::");
+        }
+        else
+        {
+            Writer.Write('.');
+        }
     }
 }
