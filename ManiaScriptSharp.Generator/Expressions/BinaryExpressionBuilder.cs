@@ -10,7 +10,25 @@ public class BinaryExpressionBuilder : ExpressionBuilder<BinaryExpressionSyntax>
     {
         WriteSyntax(ident, expression.Left, parameters, bodyBuilder);
         Writer.Write(' ');
-        Writer.Write(expression.OperatorToken.Text);
+
+        if (expression.OperatorToken.Text == "+")
+        {
+            // if left literal expression is string
+            if (expression.Left is LiteralExpressionSyntax {Token.Value: string}
+                || expression.Right is LiteralExpressionSyntax {Token.Value: string})
+            {
+                Writer.Write('^');
+            }
+            else
+            {
+                Writer.Write('+');
+            }
+        }
+        else
+        {
+            Writer.Write(expression.OperatorToken.Text);
+        }
+        
         Writer.Write(' ');
         WriteSyntax(ident, expression.Right, parameters, bodyBuilder);
     }
