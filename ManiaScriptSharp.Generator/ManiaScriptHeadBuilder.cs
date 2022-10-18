@@ -116,11 +116,19 @@ public class ManiaScriptHeadBuilder
 
     private ImmutableArray<IFieldSymbol> BuildConsts()
     {
-        if (ScriptSymbol.Interfaces.Any(x => x.Name == "IMode"))
+        var modeInterface = ScriptSymbol.Interfaces.FirstOrDefault(x => x.Name == "IMode");
+
+        if (modeInterface is not null)
         {
             Writer.Write("#Const ScriptName \"");
             Writer.Write(ScriptSymbol.Name);
             Writer.WriteLine(".Script.txt\"");
+
+            foreach (var interfaceMember in modeInterface.GetMembers().OfType<IPropertySymbol>())
+            {
+                ScriptSymbol.GetMembers(interfaceMember.Name).OfType<IPropertySymbol>().FirstOrDefault();
+            }
+
             Writer.WriteLine();
         }
         
