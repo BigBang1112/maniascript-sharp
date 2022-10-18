@@ -20,6 +20,7 @@ public abstract class StatementBuilder
             LocalDeclarationStatementSyntax => new LocalDeclarationStatementBuilder(),
             ForStatementSyntax => new ForStatementBuilder(),
             WhileStatementSyntax => new WhileStatementBuilder(),
+            ReturnStatementSyntax => new ReturnStatementBuilder(),
             _ => null
         };
 
