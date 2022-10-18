@@ -176,7 +176,9 @@ public class ManiaScriptGenerator : ISourceGenerator
         }
         finally
         {
-            var pathList = CreateFilePathFromScriptSymbol(scriptSymbol, isEmbeddedScript, helper).ToArray();
+            var pathList = CreateFilePathFromScriptSymbol(scriptSymbol, isEmbeddedScript, helper)
+                .Prepend(helper.OutputDir)
+                .ToArray();
             var path = Path.Combine(pathList);
             var dirPath = Path.GetDirectoryName(path)!;
             
@@ -187,8 +189,6 @@ public class ManiaScriptGenerator : ISourceGenerator
 
     private static IEnumerable<string> CreateFilePathFromScriptSymbol(ISymbol scriptSymbol, bool isEmbeddedScript, GeneratorHelper helper)
     {
-        yield return helper.OutputDir;
-        
         var adjustedRoot = helper.BuildSettings?.Root?.Split('.');
         var adjustedRootPos = 0;
         
@@ -243,7 +243,10 @@ public class ManiaScriptGenerator : ISourceGenerator
 
     private static Stream OpenManialinkXmlStream(ISymbol scriptSymbol, GeneratorHelper helper)
     {
-        var xmlPath = Path.Combine(helper.ProjectDir, scriptSymbol.Name + ".xml");
+        var pathList = CreateFilePathFromScriptSymbol(scriptSymbol, isEmbeddedScript: true, helper)
+            .Prepend(helper.ProjectDir)
+            .ToArray();
+        var xmlPath = Path.Combine(pathList);
 
         if (!File.Exists(xmlPath))
         {
