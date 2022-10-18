@@ -6,24 +6,26 @@ namespace ManiaScriptSharp.Generator.Expressions;
 public abstract class ExpressionBuilder
 {
     protected TextWriter Writer { get; private set; } = default!;
-    
+
+    private static ExpressionBuilder? GetExpressionWriterFromSyntax(ExpressionSyntax expression) => expression switch
+    {
+        InvocationExpressionSyntax => new InvocationExpressionBuilder(),
+        IdentifierNameSyntax => new IdentifierNameExpressionBuilder(),
+        MemberAccessExpressionSyntax => new MemberAccessExpressionBuilder(),
+        LiteralExpressionSyntax => new LiteralExpressionBuilder(),
+        AssignmentExpressionSyntax => new AssignmentExpressionBuilder(),
+        IsPatternExpressionSyntax => new IsPatternExpressionBuilder(),
+        BinaryExpressionSyntax => new BinaryExpressionBuilder(),
+        ParenthesizedExpressionSyntax => new ParenthesizedExpressionBuilder(),
+        PrefixUnaryExpressionSyntax => new PrefixUnaryExpressionBuilder(),
+        TypeSyntax => new TypeExpressionBuilder(),
+        _ => null
+    };
+
     public static bool WriteSyntax(int ident, ExpressionSyntax expression,
         ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
-        ExpressionBuilder? builder = expression switch
-        {
-            InvocationExpressionSyntax => new InvocationExpressionBuilder(),
-            IdentifierNameSyntax => new IdentifierNameExpressionBuilder(),
-            MemberAccessExpressionSyntax => new MemberAccessExpressionBuilder(),
-            LiteralExpressionSyntax => new LiteralExpressionBuilder(),
-            AssignmentExpressionSyntax => new AssignmentExpressionBuilder(),
-            IsPatternExpressionSyntax => new IsPatternExpressionBuilder(),
-            BinaryExpressionSyntax => new BinaryExpressionBuilder(),
-            ParenthesizedExpressionSyntax => new ParenthesizedExpressionBuilder(),
-            PrefixUnaryExpressionSyntax => new PrefixUnaryExpressionBuilder(),
-            TypeSyntax => new TypeExpressionBuilder(),
-            _ => null
-        };
+        var builder = GetExpressionWriterFromSyntax(expression);
 
         if (builder is not null)
         {

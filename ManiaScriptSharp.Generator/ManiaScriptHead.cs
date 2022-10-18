@@ -9,6 +9,7 @@ public class ManiaScriptHead
     /// Behaves as #RequireContext for official classes and as #Extends for custom classes. Not used for libraries and manialink scripts.
     /// </summary>
     public INamedTypeSymbol? Context { get; init; }
+    public ImmutableArray<IPropertySymbol> AdditionalConsts { get; init; }
     public ImmutableArray<INamedTypeSymbol> Structs { get; init; }
     public ImmutableArray<INamedTypeSymbol> Includes { get; init; }
     public ImmutableArray<IFieldSymbol> Consts { get; init; }

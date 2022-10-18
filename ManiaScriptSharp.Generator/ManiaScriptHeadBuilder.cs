@@ -1,12 +1,16 @@
 using System.Collections.Immutable;
 using System.Xml;
+using ManiaScriptSharp.Generator.Expressions;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
 namespace ManiaScriptSharp.Generator;
 
 public class ManiaScriptHeadBuilder
 {
+    private ImmutableArray<IPropertySymbol> additionalConsts;
+    
     public INamedTypeSymbol ScriptSymbol { get; }
     public SemanticModel SemanticModel { get; }
     public TextWriter Writer { get; }
@@ -26,6 +30,7 @@ public class ManiaScriptHeadBuilder
     public ManiaScriptHead AnalyzeAndBuild() => new()
     {
         Context = BuildContext(),
+        AdditionalConsts = BuildAdditionalConsts(),
         Structs = BuildStructs(),
         Includes = BuildIncludes(),
         Consts = BuildConsts(),
@@ -58,6 +63,123 @@ public class ManiaScriptHeadBuilder
         Writer.WriteLine();
         
         return ScriptSymbol.BaseType;
+    }
+
+    private ImmutableArray<IPropertySymbol> BuildAdditionalConsts()
+    {
+        if (ManialinkXml is not null) // Additional consts currently apply only for regular scripts
+        {
+            return ImmutableArray<IPropertySymbol>.Empty;
+        }
+        
+        var modeInterface = ScriptSymbol.Interfaces.FirstOrDefault(x => x.Name == "IMode");
+
+        if (modeInterface is null)
+        {
+            return ImmutableArray<IPropertySymbol>.Empty;
+        }
+
+        Writer.Write("#Const ScriptName \"");
+        Writer.Write(ScriptSymbol.Name);
+        Writer.WriteLine(".Script.txt\"");
+
+        additionalConsts = WriteAdditionalConsts(modeInterface).ToImmutableArray();
+
+        Writer.WriteLine();
+        
+        return additionalConsts;
+    }
+
+    private IEnumerable<IPropertySymbol> WriteAdditionalConsts(INamedTypeSymbol modeInterface)
+    {
+        foreach (var interfaceMember in modeInterface.GetMembers().OfType<IPropertySymbol>())
+        {
+            var member = ScriptSymbol.GetMembers(interfaceMember.Name)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault();
+
+            if (member?.DeclaringSyntaxReferences[0].GetSyntax() is not PropertyDeclarationSyntax syntax)
+            {
+                continue;
+            }
+
+            var expression = default(ExpressionSyntax);
+
+            if (syntax.Initializer is not null)
+            {
+                expression = syntax.Initializer.Value;
+            }
+            else if (syntax.ExpressionBody is not null)
+            {
+                expression = syntax.ExpressionBody.Expression;
+            }
+
+            if (expression is null)
+            {
+                continue;
+            }
+
+            Writer.Write("#Const ");
+            Writer.Write(interfaceMember.Name);
+            Writer.Write(' ');
+
+            if (expression is LiteralExpressionSyntax literal)
+            {
+                switch (literal.Token.Value)
+                {
+                    case null:
+                        Writer.Write("Null");
+                        break;
+                    case string str:
+                        Writer.Write($"\"{str}\"");
+                        break;
+                    default:
+                        Writer.Write(literal.Token.Value);
+                        break;
+                }
+            }
+            else if (expression is InvocationExpressionSyntax invocation)
+            {
+                var symbol = SemanticModel.GetSymbolInfo(invocation).Symbol;
+                
+                if (symbol is not IMethodSymbol method)
+                {
+                    continue;
+                }
+                
+                if (method.Name == "Create" && method.ContainingType.Name == "ImmutableArray")
+                {
+                    Writer.Write('[');
+                    
+                    foreach (var arg in invocation.ArgumentList.Arguments)
+                    {
+                        if (arg.Expression is not LiteralExpressionSyntax l)
+                        {
+                            continue;
+                        }
+
+                        switch (l.Token.Value)
+                        {
+                            case null:
+                                Writer.Write("Null");
+                                break;
+                            case string str:
+                                Writer.Write($"\"{str}\"");
+                                break;
+                            default:
+                                Writer.Write(l.Token.Value);
+                                break;
+                        }
+                    }
+                    
+                    Writer.Write(']');
+                }
+            }
+
+            Writer.WriteLine();
+
+            yield return member;
+        }
     }
 
     private ImmutableArray<INamedTypeSymbol> BuildStructs()
@@ -116,22 +238,6 @@ public class ManiaScriptHeadBuilder
 
     private ImmutableArray<IFieldSymbol> BuildConsts()
     {
-        var modeInterface = ScriptSymbol.Interfaces.FirstOrDefault(x => x.Name == "IMode");
-
-        if (modeInterface is not null)
-        {
-            Writer.Write("#Const ScriptName \"");
-            Writer.Write(ScriptSymbol.Name);
-            Writer.WriteLine(".Script.txt\"");
-
-            foreach (var interfaceMember in modeInterface.GetMembers().OfType<IPropertySymbol>())
-            {
-                ScriptSymbol.GetMembers(interfaceMember.Name).OfType<IPropertySymbol>().FirstOrDefault();
-            }
-
-            Writer.WriteLine();
-        }
-        
         var consts = ScriptSymbol.GetMembers()
             .OfType<IFieldSymbol>()
             .Where(x => x.IsConst);
@@ -280,7 +386,10 @@ public class ManiaScriptHeadBuilder
     
     private IEnumerable<ISymbol> WriteGlobals()
     {
-        foreach (var memberSymbol in ScriptSymbol.GetMembers().Where(x => x.DeclaredAccessibility == Accessibility.Public))
+        var globals = ScriptSymbol.GetMembers()
+            .Where(x => x.DeclaredAccessibility == Accessibility.Public && !additionalConsts.Contains(x, SymbolEqualityComparer.Default));
+        
+        foreach (var memberSymbol in globals)
         {
             string type;
             string name;
