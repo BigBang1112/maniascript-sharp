@@ -150,12 +150,19 @@ public class ManiaScriptHeadBuilder
                 if (method.Name == "Create" && method.ContainingType.Name == "ImmutableArray")
                 {
                     Writer.Write('[');
-                    
-                    foreach (var arg in invocation.ArgumentList.Arguments)
+
+                    for (var i = 0; i < invocation.ArgumentList.Arguments.Count; i++)
                     {
+                        var arg = invocation.ArgumentList.Arguments[i];
+                        
                         if (arg.Expression is not LiteralExpressionSyntax l)
                         {
                             continue;
+                        }
+                        
+                        if (i != 0)
+                        {
+                            Writer.Write(", ");
                         }
 
                         switch (l.Token.Value)
@@ -171,7 +178,7 @@ public class ManiaScriptHeadBuilder
                                 break;
                         }
                     }
-                    
+
                     Writer.Write(']');
                 }
             }
