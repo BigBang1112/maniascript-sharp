@@ -37,7 +37,7 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
                 return;
         }
         
-        if (expressionSymbol.Name == "ManiaScript")
+        if (expressionSymbol.IsStatic && expressionSymbol.Name == "ManiaScript")
         {
             return;
         }
