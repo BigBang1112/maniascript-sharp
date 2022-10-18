@@ -9,22 +9,12 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
     public override void Write(int ident, MemberAccessExpressionSyntax expression,
         ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
-        if (expression.Expression is BaseExpressionSyntax)
+        switch (expression.Expression)
         {
-            throw new ExpressionStatementException("NOTE: Base expressions are ignored as they are not supported. They can be removed from code.");
-        }
-
-        WriteParentExpression(ident, expression, parameters, bodyBuilder);
-
-        WriteSyntax(ident, expression.Name, parameters, bodyBuilder);
-    }
-
-    private void WriteParentExpression(int ident, MemberAccessExpressionSyntax expression, ImmutableArray<ParameterSyntax> parameters,
-        ManiaScriptBodyBuilder bodyBuilder)
-    {
-        if (expression.Expression is ThisExpressionSyntax)
-        {
-            return;
+            case BaseExpressionSyntax:
+                throw new ExpressionStatementException("NOTE: Base expressions are ignored as they are not supported. They can be removed from code.");
+            case ThisExpressionSyntax:
+                return;
         }
 
         var expressionSymbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression.Expression).Symbol;
@@ -41,13 +31,19 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
         {
             return;
         }
-
-        WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
         
         var nameSymbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression.Name).Symbol;
 
+        if (expressionSymbol is ITypeSymbol {TypeKind: TypeKind.Enum} && expression.Expression is IdentifierNameSyntax)
+        {
+            Writer.Write(expressionSymbol.ContainingType.Name);
+            Writer.Write("::");
+        }
+
+        WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
+
         if (expressionSymbol.IsStatic || expressionSymbol is ITypeSymbol {TypeKind: TypeKind.Enum}
-            || nameSymbol is ITypeSymbol {TypeKind: TypeKind.Enum})
+                                      || nameSymbol is ITypeSymbol {TypeKind: TypeKind.Enum})
         {
             Writer.Write("::");
         }
@@ -55,5 +51,7 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
         {
             Writer.Write('.');
         }
+
+        WriteSyntax(ident, expression.Name, parameters, bodyBuilder);
     }
 }
