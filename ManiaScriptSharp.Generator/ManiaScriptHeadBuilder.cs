@@ -387,7 +387,8 @@ public class ManiaScriptHeadBuilder
     private IEnumerable<ISymbol> WriteGlobals()
     {
         var globals = ScriptSymbol.GetMembers()
-            .Where(x => x.DeclaredAccessibility == Accessibility.Public && !additionalConsts.Contains(x, SymbolEqualityComparer.Default));
+            .Where(x => x.DeclaredAccessibility == Accessibility.Public
+                        && (additionalConsts.IsDefaultOrEmpty || !additionalConsts.Contains(x, SymbolEqualityComparer.Default)));
         
         foreach (var memberSymbol in globals)
         {
