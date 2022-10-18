@@ -19,6 +19,7 @@ public abstract class ExpressionBuilder
         ParenthesizedExpressionSyntax => new ParenthesizedExpressionBuilder(),
         PrefixUnaryExpressionSyntax => new PrefixUnaryExpressionBuilder(),
         TypeSyntax => new TypeExpressionBuilder(),
+        ParenthesizedLambdaExpressionSyntax => new ParenthesizedLambdaExpressionBuilder(),
         _ => null
     };
 
