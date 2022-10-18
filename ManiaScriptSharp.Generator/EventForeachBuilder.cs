@@ -20,8 +20,9 @@ public class EventForeachBuilder
         ConstructorAnalysis constructorAnalysis)
     {
         var overridenEventFunctions = GetOverridenEventFunctions(functions).ToImmutableArray();
-
-        if (overridenEventFunctions.IsEmpty && constructorAnalysis.EventFunctions.IsEmpty)
+        var pluginCustomEventFunctions = GetPluginCustomEventFunctions(functions).ToImmutableArray();
+        
+        if (overridenEventFunctions.IsEmpty && constructorAnalysis.EventFunctions.IsEmpty && pluginCustomEventFunctions.IsEmpty)
         {
             return;
         }
@@ -196,6 +197,41 @@ public class EventForeachBuilder
             eventListSymbolDict.Add(eventListName, eventListSymbol);
         }
 
+        foreach (var _ in pluginCustomEventFunctions)
+        {
+            if (eventListSymbolDict.ContainsKey("PendingEvents"))
+            {
+                continue;
+            }
+            
+            var eventListSymbol = GenericExtensions.Flatten(ScriptSymbol, x => x.BaseType)
+                    .Select(x => x.GetMembers("PendingEvents").OfType<IPropertySymbol>().FirstOrDefault())
+                    .FirstOrDefault(x => x is not null);
+
+            if (eventListSymbol is null)
+            {
+                continue;
+            }
+
+            var contextSymbol = eventListSymbol.ContainingType;
+            
+            if (contextSymbol.Name != "CMlScript")
+            {
+                throw new NotSupportedException("PluginCustomEvent attribute is not supported for non-CMlScript types.");
+            }
+            
+            var pluginCustomEventHandlerSymbol = contextSymbol.GetTypeMembers("PluginCustomEventEventHandler")
+                .FirstOrDefault();
+
+            if (pluginCustomEventHandlerSymbol is null)
+            {
+                continue;
+            }
+            
+            eventListDelegates.Add(("PendingEvents", pluginCustomEventHandlerSymbol));
+            eventListSymbolDict.Add("PendingEvents", eventListSymbol);
+        }
+
         var delegateLookup = eventListDelegates.ToLookup(x => x.Item1, x => x.Item2);
         var eventFunctionLookup =
             delegateEventFunctions.ToLookup(x => x.Item1, x => x.Item2, SymbolEqualityComparer.Default);
@@ -274,6 +310,8 @@ public class EventForeachBuilder
 
                     WriteExternalEvent(ident + 3, externalEventLookup, delegateSymbol, externalEventFunctionLookup);
                     
+                    WritePluginCustomEvents(ident + 3, pluginCustomEventFunctions);
+                    
                     WriteEventContents(ident + 3, eventFunctionLookup!, delegateSymbol, isGeneralEvent: false);
 
                     Writer.WriteLine(ident + 2, "}");
@@ -284,6 +322,46 @@ public class EventForeachBuilder
 
             Writer.WriteLine(ident, "}");
         }
+    }
+
+    private void WritePluginCustomEvents(int ident, ImmutableArray<(IMethodSymbol, string)> pluginCustomEventFunctions)
+    {
+        if (pluginCustomEventFunctions.IsDefaultOrEmpty)
+        {
+            return;
+        }
+        
+        Writer.WriteLine(ident, "switch (Event.CustomEventType) {");
+        
+        foreach (var (methodSymbol, eventName) in pluginCustomEventFunctions)
+        {
+            Writer.Write(ident + 1, "case \"");
+            Writer.Write(eventName);
+            Writer.WriteLine("\": {");
+            
+            Writer.Write(ident + 2, methodSymbol.Name);
+            Writer.Write('(');
+
+            for (var i = 0; i < methodSymbol.Parameters.Length; i++)
+            {
+                var parameter = methodSymbol.Parameters[i]; // TODO: Add conversion based on type
+                
+                if (parameter.Type.SpecialType != SpecialType.System_String)
+                {
+                    throw new NotSupportedException("Unsupported parameter type for PluginCustomEvent attribute.");
+                }
+                
+                Writer.Write("Event.CustomEventData[");
+                Writer.Write(i);
+                Writer.Write(']');
+            }
+
+            Writer.WriteLine(");");
+            
+            Writer.WriteLine(ident + 1, "}");
+        }
+        
+        Writer.WriteLine(ident, "}");
     }
 
     private void WriteExternalEvent(int ident, ILookup<ISymbol?, (string, string)> externalEventLookup, INamedTypeSymbol delegateSymbol,
@@ -522,6 +600,29 @@ public class EventForeachBuilder
             }
 
             yield return (f, eventHandlerName);
+        }
+    }
+
+    private static IEnumerable<(IMethodSymbol, string)> GetPluginCustomEventFunctions(ImmutableArray<IMethodSymbol> functions)
+    {
+        foreach (var f in functions)
+        {
+            if (f.IsVirtual)
+            {
+                continue;
+            }
+
+            var pluginCustomEventAttribute = f.GetAttributes().FirstOrDefault(x =>
+                x.AttributeClass?.Name == "PluginCustomEventAttribute");
+
+            var type = pluginCustomEventAttribute?.ConstructorArguments[0].Value?.ToString();
+
+            if (type is null)
+            {
+                continue;
+            }
+
+            yield return (f, type);
         }
     }
 
