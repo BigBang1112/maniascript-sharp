@@ -1,5 +1,6 @@
 namespace ManiaScriptSharp;
 
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
 public class ManialinkControlAttribute : Attribute
 {
     public string? Id { get; }
