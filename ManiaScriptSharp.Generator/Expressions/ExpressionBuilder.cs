@@ -21,6 +21,7 @@ public abstract class ExpressionBuilder
         TypeSyntax => new TypeExpressionBuilder(),
         ParenthesizedLambdaExpressionSyntax => new ParenthesizedLambdaExpressionBuilder(),
         InterpolatedStringExpressionSyntax => new InterpolatedStringExpressionBuilder(),
+        ElementAccessExpressionSyntax => new ElementAccessExpressionBuilder(),
         _ => null
     };
 
