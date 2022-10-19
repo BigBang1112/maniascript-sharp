@@ -8,23 +8,42 @@ public class InterpolatedStringExpressionBuilder : ExpressionBuilder<Interpolate
     public override void Write(int ident, InterpolatedStringExpressionSyntax expression,
         ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
-        Writer.Write('"');
-        
+        var stringBefore = false;
+        var interpolationBefore = false;
+
         foreach (var content in expression.Contents)
         {
             switch (content)
             {
                 case InterpolatedStringTextSyntax text:
+                    
+                    if (interpolationBefore)
+                    {
+                        Writer.Write(" ^ ");
+                        interpolationBefore = false;
+                    }
+                    
+                    Writer.Write('"');
                     Writer.Write(text.TextToken.Text);
+                    Writer.Write('"');
+                    
+                    stringBefore = true;
+                    
                     break;
                 case InterpolationSyntax interpolation:
-                    Writer.Write("\" ^ ");
+                    
+                    if (stringBefore)
+                    {
+                        Writer.Write(" ^ ");
+                        stringBefore = false;
+                    }
+                    
                     WriteSyntax(ident, interpolation.Expression, parameters, bodyBuilder);
-                    Writer.Write(" ^ \"");
+
+                    interpolationBefore = true;
+
                     break;
             }
         }
-
-        Writer.Write('"');
     }
 }
