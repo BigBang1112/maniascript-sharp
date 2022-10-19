@@ -1,14 +1,28 @@
 ﻿namespace ManiaScriptSharp;
 
-public static class Netread<T>
+/// <summary>
+/// Declaration mode for a variable that lives through the network inside an object (read access).
+/// </summary>
+/// <typeparam name="T">Type of the variable.</typeparam>
+[DeclarationMode("netread")]
+public class Netread<T>
 {
-    public static T? For(CTeam team)
+    private readonly T value;
+    private readonly object @object;
+
+    private Netread(T value, object @object)
     {
-        return default;
+        this.value = value;
+        this.@object = @object;
     }
 
-    public static T? Global()
+    public T Get()
     {
-        return default;
+        return value;
+    }
+
+    public static Netread<T> For(CTeam team)
+    {
+        return new Netread<T>(default!, team);
     }
 }

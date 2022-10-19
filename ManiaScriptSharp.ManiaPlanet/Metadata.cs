@@ -1,14 +1,38 @@
 ﻿namespace ManiaScriptSharp;
 
-public static class Metadata<T>
+/// <summary>
+/// Declaration mode for a variable that lives inside a Gbx file as a contextual attribute.
+/// </summary>
+/// <typeparam name="T">Type of the variable.</typeparam>
+[DeclarationMode("metadata")]
+public class Metadata<T>
 {
-    public static T? For(CMap map)
+    private T value;
+    private readonly object @object;
+
+    private Metadata(T value, object @object)
     {
-        return default;
+        this.value = value;
+        this.@object = @object;
+    }
+
+    public T Get()
+    {
+        return value;
+    }
+
+    public void Set(T value)
+    {
+        this.value = value;
+    }
+
+    public static Metadata<T> For(CMap map)
+    {
+        return new Metadata<T>(default!, map);
     }
     
-    public static T? For(CMacroblockInstance macroblock)
+    public static Metadata<T> For(CMacroblockModel macroblock)
     {
-        return default;
+        return new Metadata<T>(default!, macroblock);
     }
 }

@@ -1,14 +1,26 @@
 ﻿namespace ManiaScriptSharp;
 
-public static class Netwrite<T>
+/// <summary>
+/// Declaration mode for a variable that lives through the network inside an object (write access).
+/// </summary>
+/// <typeparam name="T">Type of the variable.</typeparam>
+[DeclarationMode("netwrite")]
+public class Netwrite<T>
 {
-    public static T? For(CTeam team)
+    private readonly object @object;
+
+    private Netwrite(object @object)
     {
-        return default;
+        this.@object = @object;
     }
-    
-    public static T? Global()
+
+    public void Set(T value)
     {
-        return default;
+        
+    }
+
+    public static Netwrite<T> For(CTeam team)
+    {
+        return new Netwrite<T>(team);
     }
 }
