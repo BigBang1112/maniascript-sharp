@@ -12,12 +12,7 @@ public class InvocationExpressionBuilder : ExpressionBuilder<InvocationExpressio
     {
         var symbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression.Expression).Symbol;
 
-        if (symbol is not IMethodSymbol methodSymbol)
-        {
-            throw new Exception("Symbol does not exist");
-        }
-
-        if (symbol.Name is "Get" or "Set" && CachedData.DeclarationModes.Contains(symbol.ContainingType.Name)
+        if (symbol?.Name is "Get" or "Set" && CachedData.DeclarationModes.Contains(symbol.ContainingType.Name)
                                           && expression.Expression is MemberAccessExpressionSyntax memberAccessExpressionSyntax)
         {
             WriteSyntax(ident, memberAccessExpressionSyntax.Expression, parameters, bodyBuilder);
@@ -35,7 +30,7 @@ public class InvocationExpressionBuilder : ExpressionBuilder<InvocationExpressio
         
         WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
         
-        if (symbol.Name == "Yield" && symbol.ContainingType.Name == "ManiaScript")
+        if (symbol?.Name == "Yield" && symbol.ContainingType.Name == "ManiaScript")
         {
             return;
         }

@@ -21,17 +21,11 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
 
         switch (expressionSymbol)
         {
-            case null:
-                throw new ExpressionStatementException("NOTE: Symbol does not exist.");
             case INamespaceSymbol:
+            case {IsStatic: true, Name: "ManiaScript"}:
                 return;
         }
-        
-        if (expressionSymbol.IsStatic && expressionSymbol.Name == "ManiaScript")
-        {
-            return;
-        }
-        
+
         var nameSymbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression.Name).Symbol;
 
         if (expressionSymbol is ITypeSymbol {TypeKind: TypeKind.Enum} && expression.Expression is IdentifierNameSyntax)
@@ -42,8 +36,8 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
 
         WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
 
-        if (expressionSymbol.IsStatic || expressionSymbol is ITypeSymbol {TypeKind: TypeKind.Enum}
-                                      || nameSymbol is ITypeSymbol {TypeKind: TypeKind.Enum})
+        if (expressionSymbol?.IsStatic == true || expressionSymbol is ITypeSymbol {TypeKind: TypeKind.Enum}
+                                               || nameSymbol is ITypeSymbol {TypeKind: TypeKind.Enum})
         {
             Writer.Write("::");
         }
