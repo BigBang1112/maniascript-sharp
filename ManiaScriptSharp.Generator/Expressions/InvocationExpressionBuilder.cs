@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -11,9 +12,25 @@ public class InvocationExpressionBuilder : ExpressionBuilder<InvocationExpressio
     {
         var symbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression.Expression).Symbol;
 
-        if (symbol is null)
+        if (symbol is not IMethodSymbol methodSymbol)
         {
             throw new Exception("Symbol does not exist");
+        }
+
+        if (symbol.Name is "Get" or "Set" && CachedData.DeclarationModes.Contains(symbol.ContainingType.Name)
+                                          && expression.Expression is MemberAccessExpressionSyntax memberAccessExpressionSyntax)
+        {
+            WriteSyntax(ident, memberAccessExpressionSyntax.Expression, parameters, bodyBuilder);
+
+            if (symbol.Name is not "Set")
+            {
+                return;
+            }
+
+            Writer.Write(" = ");
+            WriteSyntax(ident, expression.ArgumentList.Arguments[0].Expression, parameters, bodyBuilder);
+
+            return;
         }
         
         WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
