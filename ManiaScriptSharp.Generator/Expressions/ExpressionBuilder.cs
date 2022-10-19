@@ -20,6 +20,7 @@ public abstract class ExpressionBuilder
         PrefixUnaryExpressionSyntax => new PrefixUnaryExpressionBuilder(),
         TypeSyntax => new TypeExpressionBuilder(),
         ParenthesizedLambdaExpressionSyntax => new ParenthesizedLambdaExpressionBuilder(),
+        InterpolatedStringExpressionSyntax => new InterpolatedStringExpressionBuilder(),
         _ => null
     };
 
