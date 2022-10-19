@@ -16,6 +16,8 @@ public class ReturnStatementBuilder : StatementBuilder<ReturnStatementSyntax>
             ExpressionBuilder.WriteSyntax(ident, statement.Expression, parameters, bodyBuilder);
         }
         
-        Writer.WriteLine(";");
+        Writer.Write("; ");
+        WriteLocationComment(statement);
+        Writer.WriteLine();
     }
 }

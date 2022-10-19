@@ -12,6 +12,8 @@ public class WhileStatementBuilder : StatementBuilder<WhileStatementSyntax>
         Writer.Write(ident, "while (");
         ExpressionBuilder.WriteSyntax(ident, statement.Condition, parameters, bodyBuilder);
         Writer.Write(") ");
+        WriteLocationComment(statement);
+        Writer.Write(' ');
         WriteSyntax(ident, statement.Statement, parameters, bodyBuilder);
     }
 }
