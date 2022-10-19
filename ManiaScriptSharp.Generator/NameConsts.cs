@@ -10,4 +10,5 @@ public static class NameConsts
     public const string ManialinkControlAttribute = "ManialinkControlAttribute";
     public const string SettingAttribute = "SettingAttribute";
     public const string CMlControl = "CMlControl";
+    public const string PendingEvents = "PendingEvents";
 }

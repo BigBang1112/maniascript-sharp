@@ -21,8 +21,12 @@ public class EventForeachBuilder
     {
         var overridenEventFunctions = GetOverridenEventFunctions(functions).ToImmutableArray();
         var pluginCustomEventFunctions = GetPluginCustomEventFunctions(functions).ToImmutableArray();
-        
-        if (overridenEventFunctions.IsEmpty && constructorAnalysis.EventFunctions.IsEmpty && pluginCustomEventFunctions.IsEmpty)
+        var xmlRpcEventFunctions = GetXmlRpcEventFunctions(functions).ToImmutableArray();
+
+        if (overridenEventFunctions.IsEmpty
+            && constructorAnalysis.EventFunctions.IsEmpty
+            && pluginCustomEventFunctions.IsEmpty
+            && xmlRpcEventFunctions.IsEmpty)
         {
             return;
         }
@@ -33,6 +37,7 @@ public class EventForeachBuilder
         var delegateEventFunctions = new List<(INamedTypeSymbol, Function)>();
         var externalEvents = new List<(INamedTypeSymbol, string, string)>();
         var externalDelegateEventFunctions = new List<(string, Function)>();
+        var xmlRpcEvents = new List<(INamedTypeSymbol, string, IMethodSymbol)>();
 
         foreach (var (identifier, function) in constructorAnalysis.EventFunctions)
         {
@@ -199,13 +204,13 @@ public class EventForeachBuilder
 
         foreach (var _ in pluginCustomEventFunctions)
         {
-            if (eventListSymbolDict.ContainsKey("PendingEvents"))
+            if (eventListSymbolDict.ContainsKey(NameConsts.PendingEvents))
             {
                 continue;
             }
             
             var eventListSymbol = GenericExtensions.Flatten(ScriptSymbol, x => x.BaseType)
-                    .Select(x => x.GetMembers("PendingEvents").OfType<IPropertySymbol>().FirstOrDefault())
+                    .Select(x => x.GetMembers(NameConsts.PendingEvents).OfType<IPropertySymbol>().FirstOrDefault())
                     .FirstOrDefault(x => x is not null);
 
             if (eventListSymbol is null)
@@ -228,8 +233,44 @@ public class EventForeachBuilder
                 continue;
             }
             
-            eventListDelegates.Add(("PendingEvents", pluginCustomEventHandlerSymbol));
-            eventListSymbolDict.Add("PendingEvents", eventListSymbol);
+            eventListDelegates.Add((NameConsts.PendingEvents, pluginCustomEventHandlerSymbol));
+            eventListSymbolDict.Add(NameConsts.PendingEvents, eventListSymbol);
+        }
+
+        foreach (var (methodSymbol, xmlRpcMethod) in xmlRpcEventFunctions)
+        {
+            var eventContextSymbol = GenericExtensions.Flatten(ScriptSymbol, x => x.BaseType)
+                .Select(x => x.GetMembers("XmlRpc").OfType<IPropertySymbol>().FirstOrDefault())
+                .FirstOrDefault(x => x is not null);
+
+            if (eventContextSymbol is null)
+            {
+                continue;
+            }
+            
+            var eventListSymbol = eventContextSymbol.Type.GetMembers(NameConsts.PendingEvents)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault();
+
+            var isArray = methodSymbol.Parameters.Length > 1;
+            
+            var xmlRpcEventHandlerSymbol = eventContextSymbol.Type.GetTypeMembers(isArray
+                ? "CallbackArrayEventHandler" : "CallbackEventHandler").FirstOrDefault();
+
+            if (xmlRpcEventHandlerSymbol is null)
+            {
+                continue;
+            }
+            
+            eventListDelegates.Add(("XmlRpc.PendingEvents", xmlRpcEventHandlerSymbol));
+            xmlRpcEvents.Add((xmlRpcEventHandlerSymbol, xmlRpcMethod, methodSymbol));
+            
+            if (eventListSymbolDict.ContainsKey("XmlRpc.PendingEvents"))
+            {
+                continue;
+            }
+            
+            eventListSymbolDict.Add("XmlRpc.PendingEvents", eventListSymbol);
         }
 
         var delegateLookup = eventListDelegates.ToLookup(x => x.Item1, x => x.Item2);
@@ -238,6 +279,7 @@ public class EventForeachBuilder
         var externalEventFunctionLookup =
             externalDelegateEventFunctions.ToLookup(x => x.Item1, x => x.Item2);
         var externalEventLookup = externalEvents.ToLookup(x => x.Item1, x => (x.Item2, x.Item3), SymbolEqualityComparer.Default);
+        var xmlRpcEventLookup = xmlRpcEvents.ToLookup(x => x.Item1, x => (x.Item2, x.Item3), SymbolEqualityComparer.Default);
         
         foreach (var pair in eventListSymbolDict)
         {
@@ -311,7 +353,13 @@ public class EventForeachBuilder
                     WriteExternalEvent(ident + 3, externalEventLookup, delegateSymbol, externalEventFunctionLookup);
                     
                     WritePluginCustomEvents(ident + 3, pluginCustomEventFunctions);
-                    
+
+                    if (xmlRpcEventLookup.Contains(delegateSymbol))
+                    {
+                        var isArray = delegateSymbol.Name == "CallbackArrayEventHandler";
+                        WriteXmlRpcEvents(ident + 3, xmlRpcEventLookup[delegateSymbol], isArray);
+                    }
+
                     WriteEventContents(ident + 3, eventFunctionLookup!, delegateSymbol, isGeneralEvent: false);
 
                     Writer.WriteLine(ident + 2, "}");
@@ -322,6 +370,55 @@ public class EventForeachBuilder
 
             Writer.WriteLine(ident, "}");
         }
+    }
+
+    private void WriteXmlRpcEvents(int ident, IEnumerable<(string, IMethodSymbol)> xmlRpcEvents, bool isArray)
+    {
+        Writer.Write(ident, "switch (Event.");
+        Writer.Write(isArray ? "ParamArray1" : "Param1");
+        Writer.WriteLine(") {");
+        
+        foreach (var (xmlRpcMethod, methodSymbol) in xmlRpcEvents)
+        {
+            Writer.Write(ident + 1, "case \"");
+            Writer.Write(xmlRpcMethod);
+            Writer.WriteLine("\": {");
+            
+            Writer.Write(ident + 2, methodSymbol.Name);
+            Writer.Write('(');
+
+            for (var i = 0; i < methodSymbol.Parameters.Length; i++)
+            {
+                var parameter = methodSymbol.Parameters[i]; // TODO: Add conversion based on type
+                
+                if (parameter.Type.SpecialType != SpecialType.System_String)
+                {
+                    throw new NotSupportedException("Unsupported parameter type for XmlRpcCallback attribute.");
+                }
+                
+                if (isArray)
+                {
+                    if (i != 0)
+                    {
+                        Writer.Write(", ");
+                    }
+
+                    Writer.Write("Event.ParamArray2[");
+                    Writer.Write(i);
+                    Writer.Write(']');
+                }
+                else
+                {
+                    Writer.Write("Event.Param2");
+                }
+            }
+
+            Writer.WriteLine(");");
+            
+            Writer.WriteLine(ident + 1, "}");
+        }
+        
+        Writer.WriteLine(ident, "}");
     }
 
     private void WritePluginCustomEvents(int ident, ImmutableArray<(IMethodSymbol, string)> pluginCustomEventFunctions)
@@ -349,6 +446,11 @@ public class EventForeachBuilder
                 if (parameter.Type.SpecialType != SpecialType.System_String)
                 {
                     throw new NotSupportedException("Unsupported parameter type for PluginCustomEvent attribute.");
+                }
+                
+                if (i != 0)
+                {
+                    Writer.Write(", ");
                 }
                 
                 Writer.Write("Event.CustomEventData[");
@@ -623,6 +725,29 @@ public class EventForeachBuilder
             }
 
             yield return (f, type);
+        }
+    }
+
+    private static IEnumerable<(IMethodSymbol, string)> GetXmlRpcEventFunctions(ImmutableArray<IMethodSymbol> functions)
+    {
+        foreach (var f in functions)
+        {
+            if (f.IsVirtual)
+            {
+                continue;
+            }
+
+            var xmlRpcEventAttribute = f.GetAttributes().FirstOrDefault(x =>
+                x.AttributeClass?.Name == "XmlRpcCallbackAttribute");
+
+            var method = xmlRpcEventAttribute?.ConstructorArguments[0].Value?.ToString();
+
+            if (method is null)
+            {
+                continue;
+            }
+
+            yield return (f, method);
         }
     }
 
