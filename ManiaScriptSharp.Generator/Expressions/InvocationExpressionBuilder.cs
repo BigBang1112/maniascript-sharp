@@ -28,6 +28,11 @@ public class InvocationExpressionBuilder : ExpressionBuilder<InvocationExpressio
             return;
         }
         
+        if (symbol?.DeclaredAccessibility is Accessibility.Private)
+        {
+            Writer.Write("Private_");
+        }
+        
         WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
         
         if (symbol?.Name == "Yield" && symbol.ContainingType.Name == "ManiaScript")

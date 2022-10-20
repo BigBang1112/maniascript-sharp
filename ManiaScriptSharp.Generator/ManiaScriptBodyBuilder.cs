@@ -77,39 +77,7 @@ public class ManiaScriptBodyBuilder
 
         var constructorAnalysis = ConstructorAnalysis.Analyze(constructorSymbol, SemanticModel, Helper);
         
-        foreach (var functionSymbol in functions)
-        {
-            var docBuilder = new DocumentationBuilder(this);
-            docBuilder.WriteDocumentation(ident: 0, functionSymbol);
-
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.ReturnType.Name));
-            Writer.Write(' ');
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.Name));
-            Writer.Write('(');
-
-            var isFirst = true;
-            
-            foreach (var parameter in functionSymbol.Parameters)
-            {
-                if (isFirst)
-                {
-                    isFirst = false;
-                }
-                else
-                {
-                    Writer.Write(", ");
-                }
-
-                Writer.Write(Standardizer.CSharpTypeToManiaScriptType((INamedTypeSymbol)parameter.Type));
-                Writer.Write(' ');
-                Writer.Write(Standardizer.StandardizeUnderscoreName(parameter.Name));
-            }
-            
-            Writer.WriteLine(") {");
-            WriteFunctionBody(ident: 1, new FunctionIdentifier(functionSymbol));
-            Writer.WriteLine("}");
-            Writer.WriteLine();
-        }
+        WriteFunctions(functions);
 
         var ident = functions.Length == 0 ? 0 : 1;
         
@@ -137,7 +105,50 @@ public class ManiaScriptBodyBuilder
 
         return new();
     }
-    
+
+    private void WriteFunctions(ImmutableArray<IMethodSymbol> functions)
+    {
+        foreach (var functionSymbol in functions)
+        {
+            var docBuilder = new DocumentationBuilder(this);
+            docBuilder.WriteDocumentation(ident: 0, functionSymbol);
+            
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.ReturnType.Name));
+            Writer.Write(' ');
+
+            if (functionSymbol.DeclaredAccessibility == Accessibility.Private)
+            {
+                Writer.Write("Private_");
+            }
+            
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.Name));
+            Writer.Write('(');
+
+            var isFirst = true;
+
+            foreach (var parameter in functionSymbol.Parameters)
+            {
+                if (isFirst)
+                {
+                    isFirst = false;
+                }
+                else
+                {
+                    Writer.Write(", ");
+                }
+
+                Writer.Write(Standardizer.CSharpTypeToManiaScriptType((INamedTypeSymbol) parameter.Type));
+                Writer.Write(' ');
+                Writer.Write(Standardizer.StandardizeUnderscoreName(parameter.Name));
+            }
+
+            Writer.WriteLine(") {");
+            WriteFunctionBody(ident: 1, new FunctionIdentifier(functionSymbol));
+            Writer.WriteLine("}");
+            Writer.WriteLine();
+        }
+    }
+
     private void WriteMainContents(int ident, IMethodSymbol mainMethodSymbol)
     {
         WriteGlobalInitializers(ident);
