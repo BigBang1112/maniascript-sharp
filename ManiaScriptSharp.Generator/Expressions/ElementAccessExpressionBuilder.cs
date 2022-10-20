@@ -9,8 +9,12 @@ public class ElementAccessExpressionBuilder : ExpressionBuilder<ElementAccessExp
         ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
     {
         Writer.Write(expression.Expression);
-        Writer.Write('[');
-        WriteSyntax(ident, expression.ArgumentList.Arguments[0].Expression, parameters, bodyBuilder);
-        Writer.Write(']');
+
+        foreach (var argument in expression.ArgumentList.Arguments)
+        {
+            Writer.Write('[');
+            WriteSyntax(ident, argument.Expression, parameters, bodyBuilder);
+            Writer.Write(']');
+        }
     }
 }
