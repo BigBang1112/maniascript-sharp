@@ -14,8 +14,25 @@ public class IdentifierNameExpressionBuilder : ExpressionBuilder<IdentifierNameS
         {
             // TODO: Add some form of warning here
         }
-        
+
         var text = expression.Identifier.Text;
+        
+        if (symbol is not null && !symbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+        {
+            // May be slow
+            if (bodyBuilder.Head.Consts.Contains(symbol, SymbolEqualityComparer.Default))
+            {
+                text = Standardizer.StandardizeConstName(symbol.Name);
+            }
+            else if (bodyBuilder.Head.Settings.Contains(symbol, SymbolEqualityComparer.Default))
+            {
+                text = Standardizer.StandardizeSettingName(symbol.Name);
+            }
+            else if (bodyBuilder.Head.Globals.Contains(symbol, SymbolEqualityComparer.Default))
+            {
+                text = Standardizer.StandardizeGlobalName(symbol.Name);
+            }
+        }
 
         if (symbol is IMethodSymbol {ReceiverType.Name: "ManiaScript"})
         {
