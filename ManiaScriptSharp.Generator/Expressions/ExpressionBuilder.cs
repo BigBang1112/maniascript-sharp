@@ -32,7 +32,15 @@ public abstract class ExpressionBuilder
 
         if (builder is not null)
         {
-            builder?.Write(ident, expression, parameters, bodyBuilder);
+            try
+            {
+                builder?.Write(ident, expression, parameters, bodyBuilder);
+            }
+            catch (ExpressionException ex)
+            {
+                bodyBuilder.Writer.Write(ex.Message);
+            }
+            
             return true;
         }
 
