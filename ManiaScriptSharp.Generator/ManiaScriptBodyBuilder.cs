@@ -287,7 +287,7 @@ public class ManiaScriptBodyBuilder
 
         foreach (var statement in block.Statements)
         {
-            StatementBuilder.WriteSyntax(ident, statement, parameters, this);
+            StatementWriter.WriteSyntax(new(ident, statement, parameters, this));
         }
     }
 }

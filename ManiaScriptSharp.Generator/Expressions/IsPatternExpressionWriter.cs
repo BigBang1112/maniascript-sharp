@@ -1,14 +1,10 @@
-using System.Collections.Immutable;
-using System.Text;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Operations;
 
 namespace ManiaScriptSharp.Generator.Expressions;
 
-public class IsPatternExpressionBuilder : ExpressionBuilder<IsPatternExpressionSyntax>
+public class IsPatternExpressionWriter : ExpressionWriter<IsPatternExpressionSyntax>
 {
-    public override void Write(int ident, IsPatternExpressionSyntax expression,
-        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+    public override void Write(IsPatternExpressionSyntax expression)
     {
         WritePattern(expression.Pattern,
             expression.Expression,
@@ -24,9 +20,9 @@ public class IsPatternExpressionBuilder : ExpressionBuilder<IsPatternExpressionS
                     
                     if (recursivePatternSyntax.Type is not null)
                     {
-                        WriteExpression(ident, parameters, bodyBuilder, expressions, types);
+                        WriteExpression(BodyBuilder, expressions, types);
                         Writer.Write(" is ");
-                        WriteSyntax(ident, recursivePatternSyntax.Type, parameters, bodyBuilder);
+                        WriteSyntax(recursivePatternSyntax.Type);
                         
                         types[currentExpression] = recursivePatternSyntax.Type;
                     }
@@ -89,23 +85,23 @@ public class IsPatternExpressionBuilder : ExpressionBuilder<IsPatternExpressionS
                     }
                     break;
                 case DeclarationPatternSyntax declarationPatternSyntax:
-                    WriteExpression(ident, parameters, bodyBuilder, expressions, types);
+                    WriteExpression(BodyBuilder, expressions, types);
                     Writer.Write(" is ");
-                    WriteSyntax(ident, declarationPatternSyntax.Type, parameters, bodyBuilder);
+                    WriteSyntax(declarationPatternSyntax.Type);
                     types[currentExpression] = declarationPatternSyntax.Type;
                     WriteDesignation(declarationPatternSyntax.Designation, expressions, types);
                     break;
                 case ConstantPatternSyntax constantPatternSyntax:
-                    WriteExpression(ident, parameters, bodyBuilder, expressions, types);
+                    WriteExpression(BodyBuilder, expressions, types);
                     Writer.Write(" == ");
-                    WriteSyntax(ident, constantPatternSyntax.Expression, parameters, bodyBuilder);
+                    WriteSyntax(constantPatternSyntax.Expression);
                     break;
                 case RelationalPatternSyntax relationalPatternSyntax:
-                    WriteExpression(ident, parameters, bodyBuilder, expressions, types);
+                    WriteExpression(BodyBuilder, expressions, types);
                     Writer.Write(' ');
                     Writer.Write(relationalPatternSyntax.OperatorToken.Text);
                     Writer.Write(' ');
-                    WriteSyntax(ident, relationalPatternSyntax.Expression, parameters, bodyBuilder);
+                    WriteSyntax(relationalPatternSyntax.Expression);
                     break;
                 case BinaryPatternSyntax binaryPatternSyntax:
                     WritePattern(binaryPatternSyntax.Left, currentExpression, expressions, types);
@@ -152,13 +148,13 @@ public class IsPatternExpressionBuilder : ExpressionBuilder<IsPatternExpressionS
 
                     lineBuilder.Write(" = ");
                     
-                    WriteExpression(ident, parameters,
-                        new ManiaScriptBodyBuilder(bodyBuilder.ScriptSymbol, bodyBuilder.SemanticModel, lineBuilder,
-                            bodyBuilder.Head, bodyBuilder.Helper), expressionSyntaxes, typeSyntaxes);
+                    WriteExpression(
+                        new ManiaScriptBodyBuilder(BodyBuilder.ScriptSymbol, BodyBuilder.SemanticModel, lineBuilder,
+                            BodyBuilder.Head, BodyBuilder.Helper), expressionSyntaxes, typeSyntaxes);
                     
                     lineBuilder.Write(';');
                     
-                    bodyBuilder.BlockLineQueue.Enqueue(lineBuilder.ToString());
+                    BodyBuilder.BlockLineQueue.Enqueue(lineBuilder.ToString());
                 }
                 else
                 {
@@ -170,8 +166,7 @@ public class IsPatternExpressionBuilder : ExpressionBuilder<IsPatternExpressionS
         }
     }
 
-    private void WriteExpression(int ident, ImmutableArray<ParameterSyntax> parameters,
-        ManiaScriptBodyBuilder bodyBuilder, IReadOnlyList<ExpressionSyntax> expressions,
+    private void WriteExpression(ManiaScriptBodyBuilder bodyBuilder, IReadOnlyList<ExpressionSyntax> expressions,
         IReadOnlyDictionary<ExpressionSyntax, TypeSyntax> types)
     {
         foreach (var expression in expressions)
@@ -186,12 +181,12 @@ public class IsPatternExpressionBuilder : ExpressionBuilder<IsPatternExpressionS
         {
             var expressionSyntax = expressions[i];
                     
-            WriteSyntax(ident, expressionSyntax, parameters, bodyBuilder);
+            WriteSyntax(expressionSyntax);
 
             if (types.TryGetValue(expressionSyntax, out var typeSyntax))
             {
                 bodyBuilder.Writer.Write(" as ");
-                WriteSyntax(ident, typeSyntax, parameters, bodyBuilder);
+                WriteSyntax(typeSyntax);
                 bodyBuilder.Writer.Write(')');
             }
 

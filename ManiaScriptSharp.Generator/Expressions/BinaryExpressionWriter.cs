@@ -1,14 +1,12 @@
-using System.Collections.Immutable;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Expressions;
 
-public class BinaryExpressionBuilder : ExpressionBuilder<BinaryExpressionSyntax>
+public class BinaryExpressionWriter : ExpressionWriter<BinaryExpressionSyntax>
 {
-    public override void Write(int ident, BinaryExpressionSyntax expression,
-        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+    public override void Write(BinaryExpressionSyntax expression)
     {
-        WriteSyntax(ident, expression.Left, parameters, bodyBuilder);
+        WriteSyntax(expression.Left);
         Writer.Write(' ');
 
         if (expression.OperatorToken.Text == "+")
@@ -30,6 +28,6 @@ public class BinaryExpressionBuilder : ExpressionBuilder<BinaryExpressionSyntax>
         }
         
         Writer.Write(' ');
-        WriteSyntax(ident, expression.Right, parameters, bodyBuilder);
+        WriteSyntax(expression.Right);
     }
 }

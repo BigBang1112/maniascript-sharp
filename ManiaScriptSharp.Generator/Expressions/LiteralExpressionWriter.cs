@@ -1,13 +1,10 @@
-using System.Collections.Immutable;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Expressions;
 
-public class LiteralExpressionBuilder : ExpressionBuilder<LiteralExpressionSyntax>
+public class LiteralExpressionWriter : ExpressionWriter<LiteralExpressionSyntax>
 {
-    public override void Write(int ident, LiteralExpressionSyntax expression,
-        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+    public override void Write(LiteralExpressionSyntax expression)
     {
         switch (expression.Token.Value)
         {

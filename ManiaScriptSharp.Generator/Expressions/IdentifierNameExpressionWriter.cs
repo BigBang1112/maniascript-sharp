@@ -1,14 +1,13 @@
-using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Expressions;
 
-public class IdentifierNameExpressionBuilder : ExpressionBuilder<IdentifierNameSyntax>
+public class IdentifierNameExpressionWriter : ExpressionWriter<IdentifierNameSyntax>
 {
-    public override void Write(int ident, IdentifierNameSyntax expression, ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+    public override void Write(IdentifierNameSyntax expression)
     {
-        var symbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression).Symbol;
+        var symbol = GetSymbol();
 
         if (symbol is null)
         {
@@ -20,15 +19,15 @@ public class IdentifierNameExpressionBuilder : ExpressionBuilder<IdentifierNameS
         if (symbol is not null && !symbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
         {
             // May be slow
-            if (bodyBuilder.Head.Consts.Contains(symbol, SymbolEqualityComparer.Default))
+            if (BodyBuilder.Head.Consts.Contains(symbol, SymbolEqualityComparer.Default))
             {
                 text = Standardizer.StandardizeConstName(symbol.Name);
             }
-            else if (bodyBuilder.Head.Settings.Contains(symbol, SymbolEqualityComparer.Default))
+            else if (BodyBuilder.Head.Settings.Contains(symbol, SymbolEqualityComparer.Default))
             {
                 text = Standardizer.StandardizeSettingName(symbol.Name);
             }
-            else if (bodyBuilder.Head.Globals.Contains(symbol, SymbolEqualityComparer.Default))
+            else if (BodyBuilder.Head.Globals.Contains(symbol, SymbolEqualityComparer.Default))
             {
                 text = Standardizer.StandardizeGlobalName(symbol.Name);
             }
@@ -40,7 +39,7 @@ public class IdentifierNameExpressionBuilder : ExpressionBuilder<IdentifierNameS
             return;
         }
 
-        if (bodyBuilder.IsBuildingEventHandling || !parameters.Any(x => x.Identifier.Text == text))
+        if (BodyBuilder.IsBuildingEventHandling || !Parameters.Any(x => x.Identifier.Text == text))
         {
             Writer.Write(Standardizer.StandardizeName(text));
         }

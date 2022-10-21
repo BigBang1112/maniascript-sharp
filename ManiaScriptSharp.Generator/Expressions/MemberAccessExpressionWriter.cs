@@ -1,13 +1,11 @@
-using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Expressions;
 
-public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpressionSyntax>
+public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpressionSyntax>
 {
-    public override void Write(int ident, MemberAccessExpressionSyntax expression,
-        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+    public override void Write(MemberAccessExpressionSyntax expression)
     {
         switch (expression.Expression)
         {
@@ -17,7 +15,7 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
                 return;
         }
 
-        var expressionSymbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression.Expression).Symbol;
+        var expressionSymbol = GetSymbol(expression.Expression);
 
         switch (expressionSymbol)
         {
@@ -26,7 +24,7 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
                 return;
         }
 
-        var nameSymbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression.Name).Symbol;
+        var nameSymbol = GetSymbol(expression.Name);
 
         if (expressionSymbol is ITypeSymbol {TypeKind: TypeKind.Enum} && expression.Expression is IdentifierNameSyntax)
         {
@@ -34,7 +32,7 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
             Writer.Write("::");
         }
 
-        WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
+        WriteSyntax(expression.Expression);
 
         if (expressionSymbol?.IsStatic == true || expressionSymbol is ITypeSymbol {TypeKind: TypeKind.Enum}
                                                || nameSymbol is ITypeSymbol {TypeKind: TypeKind.Enum})
@@ -46,6 +44,6 @@ public class MemberAccessExpressionBuilder : ExpressionBuilder<MemberAccessExpre
             Writer.Write('.');
         }
 
-        WriteSyntax(ident, expression.Name, parameters, bodyBuilder);
+        WriteSyntax(expression.Name);
     }
 }

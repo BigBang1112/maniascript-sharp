@@ -1,15 +1,12 @@
-using System.Collections.Immutable;
-using ManiaScriptSharp.Generator.Expressions;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Statements;
 
-public class ForStatementBuilder : StatementBuilder<ForStatementSyntax>
+public class ForStatementWriter : StatementWriter<ForStatementSyntax>
 {
-    public override void Write(int ident, ForStatementSyntax statement,
-        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+    public override void Write(ForStatementSyntax statement)
     {
-        Writer.Write(ident, "for (");
+        Writer.Write(Ident, "for (");
 
         var variableDeclaratorSyntax = statement.Declaration?.Variables.FirstOrDefault();
 
@@ -21,7 +18,7 @@ public class ForStatementBuilder : StatementBuilder<ForStatementSyntax>
         {
             Writer.Write(Standardizer.StandardizeName(variableDeclaratorSyntax.Identifier.Text));
             Writer.Write(", ");
-            ExpressionBuilder.WriteSyntax(ident, variableDeclaratorSyntax.Initializer.Value, parameters, bodyBuilder);
+            WriteSyntax(variableDeclaratorSyntax.Initializer.Value);
             Writer.Write(", ");
 
             if (statement.Condition is BinaryExpressionSyntax binaryExpressionSyntax)
@@ -29,10 +26,10 @@ public class ForStatementBuilder : StatementBuilder<ForStatementSyntax>
                 switch (binaryExpressionSyntax.OperatorToken.Text)
                 {
                     case "<=":
-                        ExpressionBuilder.WriteSyntax(ident, binaryExpressionSyntax.Right, parameters, bodyBuilder);
+                        WriteSyntax(binaryExpressionSyntax.Right);
                         break;
                     case "<":
-                        ExpressionBuilder.WriteSyntax(ident, binaryExpressionSyntax.Right, parameters, bodyBuilder);
+                        WriteSyntax(binaryExpressionSyntax.Right);
                         Writer.Write(" - 1");
                         break;
                     default:
@@ -44,8 +41,8 @@ public class ForStatementBuilder : StatementBuilder<ForStatementSyntax>
         
         //
         Writer.Write(") ");
-        WriteLocationComment(statement);
+        WriteLocationComment();
         Writer.Write(' ');
-        WriteSyntax(ident, statement.Statement, parameters, bodyBuilder);
+        WriteSyntax(statement.Statement);
     }
 }

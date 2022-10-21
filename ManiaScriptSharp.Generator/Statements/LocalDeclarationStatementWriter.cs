@@ -1,27 +1,24 @@
-using System.Collections.Immutable;
-using ManiaScriptSharp.Generator.Expressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Statements;
 
-public class LocalDeclarationStatementBuilder : StatementBuilder<LocalDeclarationStatementSyntax>
+public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationStatementSyntax>
 {
-    public override void Write(int ident, LocalDeclarationStatementSyntax statement,
-        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+    public override void Write(LocalDeclarationStatementSyntax statement)
     {
-        if (WriteDifferentDeclarationMode(ident, statement, parameters, bodyBuilder))
+        if (WriteDifferentDeclarationMode(statement))
         {
             return;
         }
 
         foreach (var variable in statement.Declaration.Variables)
         {
-            Writer.Write(ident, "declare ");
+            Writer.Write(Ident, "declare ");
 
             if (!statement.Declaration.Type.IsVar)
             {
-                ExpressionBuilder.WriteSyntax(ident, statement.Declaration.Type, parameters, bodyBuilder);
+                WriteSyntax(statement.Declaration.Type);
                 Writer.Write(' ');
             }
 
@@ -30,17 +27,16 @@ public class LocalDeclarationStatementBuilder : StatementBuilder<LocalDeclaratio
             if (variable.Initializer is not null)
             {
                 Writer.Write(" = ");
-                ExpressionBuilder.WriteSyntax(ident, variable.Initializer.Value, parameters, bodyBuilder);
+                WriteSyntax(variable.Initializer.Value);
             }
 
             Writer.Write("; ");
-            WriteLocationComment(statement);
+            WriteLocationComment();
             Writer.WriteLine();
         }
     }
 
-    private bool WriteDifferentDeclarationMode(int ident, LocalDeclarationStatementSyntax statement,
-        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+    private bool WriteDifferentDeclarationMode(LocalDeclarationStatementSyntax statement)
     {
         if (statement.Declaration.Variables.Count != 1)
         {
@@ -54,7 +50,7 @@ public class LocalDeclarationStatementBuilder : StatementBuilder<LocalDeclaratio
             return false;
         }
 
-        if (bodyBuilder.SemanticModel.GetSymbolInfo(expression).Symbol is not IMethodSymbol symbol
+        if (GetSymbol(expression) is not IMethodSymbol symbol
             || !CachedData.DeclarationModes.Contains(symbol.ContainingType.Name))
         {
             return false;
@@ -70,7 +66,7 @@ public class LocalDeclarationStatementBuilder : StatementBuilder<LocalDeclaratio
             return false;
         }
         
-        Writer.Write(ident, "declare ");
+        Writer.Write(Ident, "declare ");
         
         if (declarationModeKeyword.Length > 0)
         {
@@ -83,10 +79,10 @@ public class LocalDeclarationStatementBuilder : StatementBuilder<LocalDeclaratio
         Writer.Write(Standardizer.StandardizeName(variable.Identifier.Text));
         Writer.Write(" for ");
         
-        ExpressionBuilder.WriteSyntax(ident, expression.ArgumentList.Arguments[0].Expression, parameters, bodyBuilder); 
+        WriteSyntax(expression.ArgumentList.Arguments[0].Expression); 
         
         Writer.Write("; ");
-        WriteLocationComment(statement);
+        WriteLocationComment();
         Writer.WriteLine();
 
         return true;

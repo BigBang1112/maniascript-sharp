@@ -1,19 +1,16 @@
-using System.Collections.Immutable;
-using ManiaScriptSharp.Generator.Expressions;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Statements;
 
-public class ThrowStatementBuilder : StatementBuilder<ThrowStatementSyntax>
+public class ThrowStatementWriter : StatementWriter<ThrowStatementSyntax>
 {
-    public override void Write(int ident, ThrowStatementSyntax statement, ImmutableArray<ParameterSyntax> parameters,
-        ManiaScriptBodyBuilder bodyBuilder)
+    public override void Write(ThrowStatementSyntax statement)
     {
-        Writer.Write(ident, "assert(False, \"Exception was thrown: ");
+        Writer.Write(Ident, "assert(False, \"Exception was thrown: ");
         
         if (statement.Expression is ObjectCreationExpressionSyntax objectCreationExpressionSyntax)
         {
-            ExpressionBuilder.WriteSyntax(ident, objectCreationExpressionSyntax.Type, parameters, bodyBuilder);
+            WriteSyntax(objectCreationExpressionSyntax.Type);
         }
 
         Writer.Write(" in ");

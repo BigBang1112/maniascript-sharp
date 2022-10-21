@@ -1,21 +1,18 @@
-using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Expressions;
 
-public class InvocationExpressionBuilder : ExpressionBuilder<InvocationExpressionSyntax>
+public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionSyntax>
 {
-    public override void Write(int ident, InvocationExpressionSyntax expression,
-        ImmutableArray<ParameterSyntax> parameters, ManiaScriptBodyBuilder bodyBuilder)
+    public override void Write(InvocationExpressionSyntax expression)
     {
-        var symbol = bodyBuilder.SemanticModel.GetSymbolInfo(expression.Expression).Symbol;
+        var symbol = GetSymbol(expression.Expression);
 
         if (symbol?.Name is "Get" or "Set" && CachedData.DeclarationModes.Contains(symbol.ContainingType.Name)
                                           && expression.Expression is MemberAccessExpressionSyntax memberAccessExpressionSyntax)
         {
-            WriteSyntax(ident, memberAccessExpressionSyntax.Expression, parameters, bodyBuilder);
+            WriteSyntax(memberAccessExpressionSyntax.Expression);
 
             if (symbol.Name is not "Set")
             {
@@ -23,7 +20,7 @@ public class InvocationExpressionBuilder : ExpressionBuilder<InvocationExpressio
             }
 
             Writer.Write(" = ");
-            WriteSyntax(ident, expression.ArgumentList.Arguments[0].Expression, parameters, bodyBuilder);
+            WriteSyntax(expression.ArgumentList.Arguments[0].Expression);
 
             return;
         }
@@ -33,7 +30,7 @@ public class InvocationExpressionBuilder : ExpressionBuilder<InvocationExpressio
             Writer.Write("Private_");
         }
         
-        WriteSyntax(ident, expression.Expression, parameters, bodyBuilder);
+        WriteSyntax(expression.Expression);
         
         if (symbol?.Name == "Yield" && symbol.ContainingType.Name == "ManiaScript")
         {
@@ -51,7 +48,7 @@ public class InvocationExpressionBuilder : ExpressionBuilder<InvocationExpressio
             
             var argument = expression.ArgumentList.Arguments[i];
             
-            WriteSyntax(ident, argument.Expression, parameters, bodyBuilder);
+            WriteSyntax(argument.Expression);
         }
 
         Writer.Write(')');
