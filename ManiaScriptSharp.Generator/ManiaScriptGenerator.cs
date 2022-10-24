@@ -244,7 +244,7 @@ public class ManiaScriptGenerator : ISourceGenerator
     private static Stream OpenManialinkXmlStream(ISymbol scriptSymbol, GeneratorHelper helper)
     {
         var pathList = CreateFilePathFromScriptSymbol(scriptSymbol, isEmbeddedScript: true, helper)
-            .Prepend(helper.ProjectDir)
+            .Prepend(Path.Combine(helper.ProjectDir, "..")) // weird way to fix the namespace default root
             .ToArray();
         var xmlPath = Path.Combine(pathList);
 
