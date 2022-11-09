@@ -3,5 +3,5 @@
 public class BuildSettings
 {
     public string? OutputDir { get; set; }
-    public string? Root { get; set; }
+    public bool Packed { get; set; }
 }

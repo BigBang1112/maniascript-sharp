@@ -5,4 +5,4 @@ using Microsoft.CodeAnalysis;
 namespace ManiaScriptSharp.Generator;
 
 public record GeneratorHelper(GeneratorExecutionContext Context, IFileSystem FileSystem,
-    string ProjectDir, string OutputDir, XmlSchema? XmlSchema, BuildSettings? BuildSettings);
+    string ProjectDir, string OutputDir, string RootNamespace, XmlSchema? XmlSchema, BuildSettings? BuildSettings);

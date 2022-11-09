@@ -28,6 +28,13 @@ public class ManiaScriptGenerator : ISourceGenerator
             throw new Exception("build_property.projectdir not found");
         }
         
+        if (!context.AnalyzerConfigOptions.GlobalOptions.TryGetValue("build_property.rootnamespace", out string? rootNamespace))
+        {
+            throw new Exception("build_property.rootNamespace not found");
+        }
+        
+        var wat = context.Compilation.GetCompilationNamespace(context.Compilation.GlobalNamespace);
+        
         var xmlSchemaXsd = default(string);
         var buildSettings = default(BuildSettings);
 
@@ -47,7 +54,9 @@ public class ManiaScriptGenerator : ISourceGenerator
                     continue;
                 }
 
-                var deserializer = new YamlDotNet.Serialization.Deserializer();
+                var deserializer = new YamlDotNet.Serialization.DeserializerBuilder()
+                    .IgnoreUnmatchedProperties()
+                    .Build();
                 buildSettings = deserializer.Deserialize<BuildSettings>(contents);
             }
         }
@@ -63,7 +72,7 @@ public class ManiaScriptGenerator : ISourceGenerator
             // HANDLE VALIDATION FAILED
         });
 
-        var helper = new GeneratorHelper(context, fileSystem, projectDir, outputDir, xmlSchema, buildSettings);
+        var helper = new GeneratorHelper(context, fileSystem, projectDir, outputDir, rootNamespace, xmlSchema, buildSettings);
         
         var receiver = (SyntaxReceiver)context.SyntaxReceiver!;
 
@@ -176,10 +185,14 @@ public class ManiaScriptGenerator : ISourceGenerator
         }
         finally
         {
-            var pathList = CreateFilePathFromScriptSymbol(scriptSymbol, isEmbeddedScript, helper)
-                .Prepend(helper.OutputDir)
-                .ToArray();
-            var path = Path.Combine(pathList);
+            var pathList = CreateFilePathFromScriptSymbolInReverse(scriptSymbol, isEmbeddedScript, helper);
+
+            if (helper.BuildSettings?.Packed == true)
+            {
+                pathList = pathList.Append(helper.RootNamespace);
+            }
+            
+            var path = Path.Combine(pathList.Append(helper.OutputDir).Reverse().ToArray());
             var dirPath = Path.GetDirectoryName(path)!;
             
             helper.FileSystem.Directory.CreateDirectory(dirPath);
@@ -187,29 +200,23 @@ public class ManiaScriptGenerator : ISourceGenerator
         }
     }
 
-    private static IEnumerable<string> CreateFilePathFromScriptSymbol(ISymbol scriptSymbol, bool isEmbeddedScript, GeneratorHelper helper)
+    private static IEnumerable<string> CreateFilePathFromScriptSymbolInReverse(ISymbol scriptSymbol, bool isEmbeddedScript, GeneratorHelper helper)
     {
-        var adjustedRoot = helper.BuildSettings?.Root?.Split('.');
-        var adjustedRootPos = 0;
-        
         var namespaces = GenericExtensions.Flatten(scriptSymbol.ContainingNamespace, symbol => symbol.ContainingNamespace);
         var namespaceFolderSymbols = namespaces.Where(x => !x.IsGlobalNamespace)
-            .Reverse()
-            .Append(scriptSymbol.ContainingNamespace);
+            .Prepend(scriptSymbol.ContainingNamespace);
+
+        yield return scriptSymbol.Name + (isEmbeddedScript ? ".xml" : ".Script.txt");
         
         foreach (var namespaceSymbol in namespaceFolderSymbols)
         {
-            if (adjustedRoot?.Length > adjustedRootPos && adjustedRoot[adjustedRootPos] == namespaceSymbol.Name)
+            if (namespaceSymbol.ToDisplayString() == helper.RootNamespace)
             {
-                adjustedRootPos++;
+                yield break;
             }
-            else
-            {
-                yield return namespaceSymbol.Name;
-            }
+            
+            yield return namespaceSymbol.Name;
         }
-        
-        yield return scriptSymbol.Name + (isEmbeddedScript ? ".xml" : ".Script.txt");
     }
 
     private static IGeneratedFile GenerateScriptFile(INamedTypeSymbol scriptSymbol,
@@ -243,8 +250,9 @@ public class ManiaScriptGenerator : ISourceGenerator
 
     private static Stream OpenManialinkXmlStream(ISymbol scriptSymbol, GeneratorHelper helper)
     {
-        var pathList = CreateFilePathFromScriptSymbol(scriptSymbol, isEmbeddedScript: true, helper)
-            .Prepend(Path.Combine(helper.ProjectDir, "..")) // weird way to fix the namespace default root
+        var pathList = CreateFilePathFromScriptSymbolInReverse(scriptSymbol, isEmbeddedScript: true, helper)
+            .Append(helper.ProjectDir)
+            .Reverse()
             .ToArray();
         var xmlPath = Path.Combine(pathList);
 
