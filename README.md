@@ -33,5 +33,5 @@
 
 ```yaml
 OutputDir: C:/MyManiaPlanetServer/UserData # Build root (default is the relative folder 'out')
-Root: MyProject.SomeNamespace # The folders are created through namespaces, this setting will shift the root
+Packed: false # If the output will be packed into a folder with the name of the project
 ```
