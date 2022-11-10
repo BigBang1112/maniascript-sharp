@@ -14,7 +14,7 @@ public class DocumentationBuilder
         BodyBuilder = bodyBuilder;
     }
     
-    public void WriteDocumentation(int ident, ISymbol symbol)
+    public void WriteDocumentation(int indent, ISymbol symbol)
     {
         var docXml = symbol.GetDocumentationCommentXml();
 
@@ -32,7 +32,7 @@ public class DocumentationBuilder
 
         var summary = doc.Root.Element("summary")?.Value;
 
-        Writer.Write(ident, "/** ");
+        Writer.Write(indent, "/** ");
         Writer.Write(summary?.Trim());
 
         var isFirst = true;
@@ -44,14 +44,14 @@ public class DocumentationBuilder
             if (isFirst)
             {
                 Writer.WriteLine();
-                Writer.WriteLine(ident, " *");
+                Writer.WriteLine(indent, " *");
                 isFirst = false;
             }
 
             var name = parameter.Attribute("name")?.Value;
             var description = parameter.Value;
 
-            Writer.Write(ident, " *\t@param\t\t");
+            Writer.Write(indent, " *\t@param\t\t");
 
             Writer.Write(name is null ? "[!missing name!]" : Standardizer.StandardizeUnderscoreName(name));
 
@@ -69,12 +69,12 @@ public class DocumentationBuilder
                 isFirst = false;
             }
             
-            Writer.WriteLine(ident, " *");
+            Writer.WriteLine(indent, " *");
 
-            Writer.Write(ident, " *\t@return\t\t");
+            Writer.Write(indent, " *\t@return\t\t");
             Writer.WriteLine(returns?.Trim());
         }
 
-        Writer.WriteLine(isFirst ? 0 : ident, " */");
+        Writer.WriteLine(isFirst ? 0 : indent, " */");
     }
 }

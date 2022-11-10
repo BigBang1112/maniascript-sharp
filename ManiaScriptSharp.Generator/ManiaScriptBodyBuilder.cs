@@ -79,7 +79,7 @@ public class ManiaScriptBodyBuilder
         
         WriteFunctions(functions);
 
-        var ident = functions.Length == 0 ? 0 : 1;
+        var indent = functions.Length == 0 ? 0 : 1;
         
         var mainDocBuilder = new DocumentationBuilder(this);
         mainDocBuilder.WriteDocumentation(0, mainMethodSymbol);
@@ -89,14 +89,14 @@ public class ManiaScriptBodyBuilder
             Writer.WriteLine("main() {");
         }
 
-        WriteMainContents(ident, mainMethodSymbol);
+        WriteMainContents(indent, mainMethodSymbol);
         
         var loopDocBuilder = new DocumentationBuilder(this);
-        loopDocBuilder.WriteDocumentation(ident, loopMethodSymbol);
+        loopDocBuilder.WriteDocumentation(indent, loopMethodSymbol);
         
-        Writer.WriteLine(ident, "while (True) {");
-        WriteLoopContents(ident + 1, functions, constructorAnalysis, loopMethodSymbol);
-        Writer.WriteLine(ident, "}");
+        Writer.WriteLine(indent, "while (True) {");
+        WriteLoopContents(indent + 1, functions, constructorAnalysis, loopMethodSymbol);
+        Writer.WriteLine(indent, "}");
 
         if (functions.Length > 0)
         {
@@ -111,7 +111,7 @@ public class ManiaScriptBodyBuilder
         foreach (var functionSymbol in functions)
         {
             var docBuilder = new DocumentationBuilder(this);
-            docBuilder.WriteDocumentation(ident: 0, functionSymbol);
+            docBuilder.WriteDocumentation(indent: 0, functionSymbol);
             
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.ReturnType.Name));
             Writer.Write(' ');
@@ -143,21 +143,21 @@ public class ManiaScriptBodyBuilder
             }
 
             Writer.WriteLine(") {");
-            WriteFunctionBody(ident: 1, new FunctionIdentifier(functionSymbol));
+            WriteFunctionBody(indent: 1, new FunctionIdentifier(functionSymbol));
             Writer.WriteLine("}");
             Writer.WriteLine();
         }
     }
 
-    private void WriteMainContents(int ident, IMethodSymbol mainMethodSymbol)
+    private void WriteMainContents(int indent, IMethodSymbol mainMethodSymbol)
     {
-        WriteGlobalInitializers(ident);
-        WriteBindingInitializers(ident);
+        WriteGlobalInitializers(indent);
+        WriteBindingInitializers(indent);
         
-        WriteFunctionBody(ident, new FunctionIdentifier(mainMethodSymbol));
+        WriteFunctionBody(indent, new FunctionIdentifier(mainMethodSymbol));
     }
 
-    private void WriteGlobalInitializers(int ident)
+    private void WriteGlobalInitializers(int indent)
     {
         if (Head.Globals.Length <= 0)
         {
@@ -178,7 +178,7 @@ public class ManiaScriptBodyBuilder
                 continue;
             }
 
-            Writer.WriteIdent(ident);
+            Writer.WriteIndent(indent);
             Writer.Write(Standardizer.StandardizeGlobalName(global.Name));
             Writer.Write(" = ");
             Writer.Write(equalsSyntax.Value);
@@ -188,7 +188,7 @@ public class ManiaScriptBodyBuilder
         Writer.WriteLine();
     }
 
-    private void WriteBindingInitializers(int ident)
+    private void WriteBindingInitializers(int indent)
     {
         if (Head.Bindings.Length <= 0)
         {
@@ -219,7 +219,7 @@ public class ManiaScriptBodyBuilder
                 _ => throw new Exception("This should never happen")
             };
 
-            Writer.WriteIdent(ident);
+            Writer.WriteIndent(indent);
 
             Writer.Write(binding.Name);
             Writer.Write(" = (Page.GetFirstChild(\"");
@@ -232,20 +232,20 @@ public class ManiaScriptBodyBuilder
         Writer.WriteLine();
     }
 
-    private void WriteLoopContents(int ident, ImmutableArray<IMethodSymbol> functions,
+    private void WriteLoopContents(int indent, ImmutableArray<IMethodSymbol> functions,
         ConstructorAnalysis constructorAnalysis, IMethodSymbol loopMethodSymbol)
     {
-        Writer.WriteLine(ident, "yield;");
+        Writer.WriteLine(indent, "yield;");
 
         IsBuildingEventHandling = true;
         var eventForeachBuilder = new EventForeachBuilder(this);
-        eventForeachBuilder.Write(ident, functions, constructorAnalysis);
+        eventForeachBuilder.Write(indent, functions, constructorAnalysis);
         IsBuildingEventHandling = false;
         
-        WriteFunctionBody(ident, new FunctionIdentifier(loopMethodSymbol));
+        WriteFunctionBody(indent, new FunctionIdentifier(loopMethodSymbol));
     }
 
-    public void WriteFunctionBody(int ident, Function function)
+    public void WriteFunctionBody(int indent, Function function)
     {
         BlockSyntax block;
         ImmutableArray<ParameterSyntax> parameters;
@@ -287,7 +287,7 @@ public class ManiaScriptBodyBuilder
 
         foreach (var statement in block.Statements)
         {
-            StatementWriter.WriteSyntax(new(ident, statement, parameters, this));
+            StatementWriter.WriteSyntax(new(indent, statement, parameters, this));
         }
     }
 }

@@ -6,7 +6,7 @@ public class WhileStatementWriter : StatementWriter<WhileStatementSyntax>
 {
     public override void Write(WhileStatementSyntax statement)
     {
-        Writer.Write(Ident, "while (");
+        Writer.Write(Indent, "while (");
         WriteSyntax(statement.Condition);
         Writer.Write(") ");
         WriteLocationComment();

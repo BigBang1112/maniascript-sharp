@@ -9,7 +9,7 @@ public abstract class ExpressionWriter : SyntaxWriter
 {
     protected ExpressionWriterUtils? Utils { get; private set; }
 
-    protected int Ident => Utils?.Ident ?? throw new InvalidOperationException();
+    protected int Indent => Utils?.Indent ?? throw new InvalidOperationException();
     protected TextWriter Writer => Utils?.Writer ?? throw new InvalidOperationException();
     protected ImmutableArray<ParameterSyntax> Parameters => Utils?.Parameters ?? throw new InvalidOperationException();
     protected override ManiaScriptBodyBuilder BodyBuilder => Utils?.BodyBuilder ?? throw new InvalidOperationException();
@@ -46,12 +46,12 @@ public abstract class ExpressionWriter : SyntaxWriter
 
     protected void WriteSyntax(ExpressionSyntax expression)
     {
-        WriteSyntax(new ExpressionWriterUtils(Ident, expression, Parameters, BodyBuilder));
+        WriteSyntax(new ExpressionWriterUtils(Indent, expression, Parameters, BodyBuilder));
     }
 
     protected void WriteSyntax(StatementSyntax statement)
     {
-        StatementWriter.WriteSyntax(new StatementWriterUtils(Ident, statement, Parameters, BodyBuilder));
+        StatementWriter.WriteSyntax(new StatementWriterUtils(Indent, statement, Parameters, BodyBuilder));
     }
 
     protected ISymbol? GetSymbol()

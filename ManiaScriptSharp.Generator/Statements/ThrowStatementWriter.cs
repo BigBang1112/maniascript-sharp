@@ -6,7 +6,7 @@ public class ThrowStatementWriter : StatementWriter<ThrowStatementSyntax>
 {
     public override void Write(ThrowStatementSyntax statement)
     {
-        Writer.Write(Ident, "assert(False, \"Exception was thrown: ");
+        Writer.Write(Indent, "assert(False, \"Exception was thrown: ");
         
         if (statement.Expression is ObjectCreationExpressionSyntax objectCreationExpressionSyntax)
         {

@@ -9,7 +9,7 @@ public abstract class StatementWriter : SyntaxWriter
 {
     protected StatementWriterUtils? Utils { get; private set; }
 
-    protected int Ident => Utils?.Ident ?? throw new InvalidOperationException();
+    protected int Indent => Utils?.Indent ?? throw new InvalidOperationException();
     protected TextWriter Writer => Utils?.Writer ?? throw new InvalidOperationException();
     protected ImmutableArray<ParameterSyntax> Parameters => Utils?.Parameters ?? throw new InvalidOperationException();
     protected override ManiaScriptBodyBuilder BodyBuilder => Utils?.BodyBuilder ?? throw new InvalidOperationException();
@@ -21,7 +21,7 @@ public abstract class StatementWriter : SyntaxWriter
 
         if (statementWriter is null)
         {
-            w.Write(utils.Ident, "/* ");
+            w.Write(utils.Indent, "/* ");
             w.Write(utils.Statement.GetType().Name);
             w.WriteLine(" */");
         }
@@ -32,14 +32,14 @@ public abstract class StatementWriter : SyntaxWriter
         }
     }
 
-    protected void WriteSyntax(StatementSyntax statement, int identOffset = 0)
+    protected void WriteSyntax(StatementSyntax statement, int indentOffset = 0)
     {
-        WriteSyntax(new StatementWriterUtils(Ident + identOffset, statement, Parameters, BodyBuilder));
+        WriteSyntax(new StatementWriterUtils(Indent + indentOffset, statement, Parameters, BodyBuilder));
     }
 
     protected bool WriteSyntax(ExpressionSyntax expression)
     {
-        return ExpressionWriter.WriteSyntax(new ExpressionWriterUtils(Ident, expression, Parameters, BodyBuilder));
+        return ExpressionWriter.WriteSyntax(new ExpressionWriterUtils(Indent, expression, Parameters, BodyBuilder));
     }
 
     protected void WriteLocationComment()

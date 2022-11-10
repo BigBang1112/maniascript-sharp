@@ -14,7 +14,7 @@ public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationS
 
         foreach (var variable in statement.Declaration.Variables)
         {
-            Writer.Write(Ident, "declare ");
+            Writer.Write(Indent, "declare ");
 
             if (!statement.Declaration.Type.IsVar)
             {
@@ -66,7 +66,7 @@ public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationS
             return false;
         }
         
-        Writer.Write(Ident, "declare ");
+        Writer.Write(Indent, "declare ");
         
         if (declarationModeKeyword.Length > 0)
         {

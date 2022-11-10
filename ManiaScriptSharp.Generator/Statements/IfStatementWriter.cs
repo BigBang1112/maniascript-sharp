@@ -6,7 +6,7 @@ public class IfStatementWriter : StatementWriter<IfStatementSyntax>
 {
     public override void Write(IfStatementSyntax statement)
     {
-        Writer.Write(statement.Parent is ElseClauseSyntax ? 0 : Ident, "if (");
+        Writer.Write(statement.Parent is ElseClauseSyntax ? 0 : Indent, "if (");
         WriteSyntax(statement.Condition);
         Writer.Write(") ");
         WriteLocationComment();
@@ -16,7 +16,7 @@ public class IfStatementWriter : StatementWriter<IfStatementSyntax>
         
         if (statement.Else is not null)
         {
-            Writer.Write(Ident, "else ");
+            Writer.Write(Indent, "else ");
             WriteSyntax(statement.Else.Statement);
         }
     }

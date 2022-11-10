@@ -3,4 +3,4 @@ using System.Collections.Immutable;
 
 namespace ManiaScriptSharp.Generator;
 
-public record WriterUtils(int Ident, ImmutableArray<ParameterSyntax> Parameters, ManiaScriptBodyBuilder BodyBuilder);
+public record WriterUtils(int Indent, ImmutableArray<ParameterSyntax> Parameters, ManiaScriptBodyBuilder BodyBuilder);

@@ -2,29 +2,29 @@ namespace ManiaScriptSharp.Generator;
 
 public static class TextWriterExtensions
 {
-    public static void WriteIdent(this TextWriter writer, int ident = 1)
+    public static void WriteIndent(this TextWriter writer, int indent = 1)
     {
-        for (var i = 0; i < ident; i++)
+        for (var i = 0; i < indent; i++)
         {
             writer.Write('\t');
         }
     }
     
-    public static void WriteLine(this TextWriter writer, int ident, string value)
+    public static void WriteLine(this TextWriter writer, int indent, string value)
     {
-        writer.WriteIdent(ident);
+        writer.WriteIndent(indent);
         writer.WriteLine(value);
     }
     
-    public static void Write(this TextWriter writer, int ident, char value)
+    public static void Write(this TextWriter writer, int indent, char value)
     {
-        writer.WriteIdent(ident);
+        writer.WriteIndent(indent);
         writer.Write(value);
     }
     
-    public static void Write(this TextWriter writer, int ident, string value)
+    public static void Write(this TextWriter writer, int indent, string value)
     {
-        writer.WriteIdent(ident);
+        writer.WriteIndent(indent);
         writer.Write(value);
     }
 }

@@ -6,7 +6,7 @@ public class ForStatementWriter : StatementWriter<ForStatementSyntax>
 {
     public override void Write(ForStatementSyntax statement)
     {
-        Writer.Write(Ident, "for (");
+        Writer.Write(Indent, "for (");
 
         var variableDeclaratorSyntax = statement.Declaration?.Variables.FirstOrDefault();
 

@@ -6,7 +6,7 @@ public class ExpressionStatementWriter : StatementWriter<ExpressionStatementSynt
 {
     public override void Write(ExpressionStatementSyntax statement)
     {
-        Writer.WriteIdent(Ident);
+        Writer.WriteIndent(Indent);
         
         try
         {

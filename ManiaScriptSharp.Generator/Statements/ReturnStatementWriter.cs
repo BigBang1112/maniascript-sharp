@@ -6,7 +6,7 @@ public class ReturnStatementWriter : StatementWriter<ReturnStatementSyntax>
 {
     public override void Write(ReturnStatementSyntax statement)
     {
-        Writer.Write(Ident, "return");
+        Writer.Write(Indent, "return");
         
         if (statement.Expression is not null)
         {

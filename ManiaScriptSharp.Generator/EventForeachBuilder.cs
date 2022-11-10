@@ -16,7 +16,7 @@ public class EventForeachBuilder
         _bodyBuilder = bodyBuilder;
     }
 
-    public void Write(int ident, ImmutableArray<IMethodSymbol> functions,
+    public void Write(int indent, ImmutableArray<IMethodSymbol> functions,
         ConstructorAnalysis constructorAnalysis)
     {
         var overridenEventFunctions = GetOverridenEventFunctions(functions).ToImmutableArray();
@@ -294,7 +294,7 @@ public class EventForeachBuilder
 
             var eventEnumName = GetEventEnumName(usedEventTypeSymbol);
 
-            Writer.Write(ident, "foreach (Event in ");
+            Writer.Write(indent, "foreach (Event in ");
             Writer.Write(usedEventListName);
             Writer.WriteLine(") {");
 
@@ -320,12 +320,12 @@ public class EventForeachBuilder
 
             if (generalEventDelegate is not null)
             {
-                WriteEventContents(ident + 1, eventFunctionLookup!, generalEventDelegate, isGeneralEvent: true);
+                WriteEventContents(indent + 1, eventFunctionLookup!, generalEventDelegate, isGeneralEvent: true);
             }
 
             if (delegateLookup[usedEventListName].Any(x => !IsGeneralEvent(x)))
             {
-                Writer.WriteLine(ident + 1, "switch (Event.Type) {");
+                Writer.WriteLine(indent + 1, "switch (Event.Type) {");
 
                 foreach (var delegateSymbol in delegateLookup[usedEventListName])
                 {
@@ -342,7 +342,7 @@ public class EventForeachBuilder
                     var eventName = actualEventName ?? delegateSymbol.Name
                         .Substring(0, delegateSymbol.Name.Length - 12);
 
-                    Writer.Write(ident + 2, "case ");
+                    Writer.Write(indent + 2, "case ");
                     Writer.Write(usedEventTypeSymbol.Name);
                     Writer.Write("::");
                     Writer.Write(eventEnumName);
@@ -350,41 +350,41 @@ public class EventForeachBuilder
                     Writer.Write(eventName);
                     Writer.WriteLine(": {");
 
-                    WriteExternalEvent(ident + 3, externalEventLookup, delegateSymbol, externalEventFunctionLookup);
+                    WriteExternalEvent(indent + 3, externalEventLookup, delegateSymbol, externalEventFunctionLookup);
                     
-                    WritePluginCustomEvents(ident + 3, pluginCustomEventFunctions);
+                    WritePluginCustomEvents(indent + 3, pluginCustomEventFunctions);
 
                     if (xmlRpcEventLookup.Contains(delegateSymbol))
                     {
                         var isArray = delegateSymbol.Name == "CallbackArrayEventHandler";
-                        WriteXmlRpcEvents(ident + 3, xmlRpcEventLookup[delegateSymbol], isArray);
+                        WriteXmlRpcEvents(indent + 3, xmlRpcEventLookup[delegateSymbol], isArray);
                     }
 
-                    WriteEventContents(ident + 3, eventFunctionLookup!, delegateSymbol, isGeneralEvent: false);
+                    WriteEventContents(indent + 3, eventFunctionLookup!, delegateSymbol, isGeneralEvent: false);
 
-                    Writer.WriteLine(ident + 2, "}");
+                    Writer.WriteLine(indent + 2, "}");
                 }
 
-                Writer.WriteLine(ident + 1, "}");
+                Writer.WriteLine(indent + 1, "}");
             }
 
-            Writer.WriteLine(ident, "}");
+            Writer.WriteLine(indent, "}");
         }
     }
 
-    private void WriteXmlRpcEvents(int ident, IEnumerable<(string, IMethodSymbol)> xmlRpcEvents, bool isArray)
+    private void WriteXmlRpcEvents(int indent, IEnumerable<(string, IMethodSymbol)> xmlRpcEvents, bool isArray)
     {
-        Writer.Write(ident, "switch (Event.");
+        Writer.Write(indent, "switch (Event.");
         Writer.Write(isArray ? "ParamArray1" : "Param1");
         Writer.WriteLine(") {");
         
         foreach (var (xmlRpcMethod, methodSymbol) in xmlRpcEvents)
         {
-            Writer.Write(ident + 1, "case \"");
+            Writer.Write(indent + 1, "case \"");
             Writer.Write(xmlRpcMethod);
             Writer.WriteLine("\": {");
             
-            Writer.Write(ident + 2, methodSymbol.Name);
+            Writer.Write(indent + 2, methodSymbol.Name);
             Writer.Write('(');
 
             for (var i = 0; i < methodSymbol.Parameters.Length; i++)
@@ -415,28 +415,28 @@ public class EventForeachBuilder
 
             Writer.WriteLine(");");
             
-            Writer.WriteLine(ident + 1, "}");
+            Writer.WriteLine(indent + 1, "}");
         }
         
-        Writer.WriteLine(ident, "}");
+        Writer.WriteLine(indent, "}");
     }
 
-    private void WritePluginCustomEvents(int ident, ImmutableArray<(IMethodSymbol, string)> pluginCustomEventFunctions)
+    private void WritePluginCustomEvents(int indent, ImmutableArray<(IMethodSymbol, string)> pluginCustomEventFunctions)
     {
         if (pluginCustomEventFunctions.IsDefaultOrEmpty)
         {
             return;
         }
         
-        Writer.WriteLine(ident, "switch (Event.CustomEventType) {");
+        Writer.WriteLine(indent, "switch (Event.CustomEventType) {");
         
         foreach (var (methodSymbol, eventName) in pluginCustomEventFunctions)
         {
-            Writer.Write(ident + 1, "case \"");
+            Writer.Write(indent + 1, "case \"");
             Writer.Write(eventName);
             Writer.WriteLine("\": {");
             
-            Writer.Write(ident + 2, methodSymbol.Name);
+            Writer.Write(indent + 2, methodSymbol.Name);
             Writer.Write('(');
 
             for (var i = 0; i < methodSymbol.Parameters.Length; i++)
@@ -460,13 +460,13 @@ public class EventForeachBuilder
 
             Writer.WriteLine(");");
             
-            Writer.WriteLine(ident + 1, "}");
+            Writer.WriteLine(indent + 1, "}");
         }
         
-        Writer.WriteLine(ident, "}");
+        Writer.WriteLine(indent, "}");
     }
 
-    private void WriteExternalEvent(int ident, ILookup<ISymbol?, (string, string)> externalEventLookup, INamedTypeSymbol delegateSymbol,
+    private void WriteExternalEvent(int indent, ILookup<ISymbol?, (string, string)> externalEventLookup, INamedTypeSymbol delegateSymbol,
         ILookup<string, Function> externalEventFunctionLookup)
     {
         if (!externalEventLookup.Contains(delegateSymbol))
@@ -476,30 +476,30 @@ public class EventForeachBuilder
 
         foreach (var objectIdentifiers in externalEventLookup[delegateSymbol].ToLookup(x => x.Item1, x => x.Item2))
         {
-            Writer.Write(ident, "switch (Event.");
+            Writer.Write(indent, "switch (Event.");
             Writer.Write(objectIdentifiers.Key);
             Writer.WriteLine(") {");
 
             foreach (var objectIdentifierName in objectIdentifiers.Distinct())
             {
-                Writer.Write(ident + 1, "case ");
+                Writer.Write(indent + 1, "case ");
                 Writer.Write(objectIdentifierName);
                 Writer.WriteLine(": {");
 
                 foreach (var eventFunction in externalEventFunctionLookup[objectIdentifierName])
                 {
-                    WriteEventContents(ident + 2, eventFunction,
+                    WriteEventContents(indent + 2, eventFunction,
                         ImmutableArray<IParameterSymbol>.Empty, isGeneralEvent: false);
                 }
 
-                Writer.WriteLine(ident + 1, "}");
+                Writer.WriteLine(indent + 1, "}");
             }
 
-            Writer.WriteLine(ident, "}");
+            Writer.WriteLine(indent, "}");
         }
     }
 
-    private void WriteEventContents(int ident, ILookup<ISymbol, Function> eventFunctionLookup,
+    private void WriteEventContents(int indent, ILookup<ISymbol, Function> eventFunctionLookup,
         INamedTypeSymbol eventDelegate,
         bool isGeneralEvent)
     {
@@ -507,11 +507,11 @@ public class EventForeachBuilder
 
         foreach (var eventFunction in eventFunctionLookup[eventDelegate])
         {
-            WriteEventContents(ident, eventFunction, delegateMethod.Parameters, isGeneralEvent);
+            WriteEventContents(indent, eventFunction, delegateMethod.Parameters, isGeneralEvent);
         }
     }
 
-    private void WriteEventContents(int ident, Function eventFunction, ImmutableArray<IParameterSymbol> parameters,
+    private void WriteEventContents(int indent, Function eventFunction, ImmutableArray<IParameterSymbol> parameters,
         bool isGeneralEvent)
     {
         switch (eventFunction)
@@ -543,10 +543,10 @@ public class EventForeachBuilder
                     var standName = Standardizer.StandardizeName(parameter.Name);
                     arrayParamSet.Add(parameter, standName);
                     
-                    WriteApiArrayTranslation(ident, standardizedType, standName, actualName);
+                    WriteApiArrayTranslation(indent, standardizedType, standName, actualName);
                 }
                 
-                Writer.Write(ident, eventIdentifier.Method.Name);
+                Writer.Write(indent, eventIdentifier.Method.Name);
 
                 if (isGeneralEvent)
                 {
@@ -583,7 +583,7 @@ public class EventForeachBuilder
                 Writer.WriteLine(");");
                 break;
             case FunctionAnonymous eventAnonymous:
-                Writer.WriteLine(ident, "// Start of anonymous function");
+                Writer.WriteLine(indent, "// Start of anonymous function");
 
                 var originalParams = eventAnonymous.DelegateInvokeSymbol.Parameters;
 
@@ -601,36 +601,36 @@ public class EventForeachBuilder
                     
                     if (standardizedType.EndsWith("[]"))
                     {
-                        WriteApiArrayTranslation(ident, standardizedType, standName, actualName);
+                        WriteApiArrayTranslation(indent, standardizedType, standName, actualName);
                         continue;
                     }
 
-                    Writer.Write(ident, "declare ");
+                    Writer.Write(indent, "declare ");
                     Writer.Write(standName);
                     Writer.Write(" = Event.");
                     Writer.Write(actualName);
                     Writer.WriteLine(";");
                 }
 
-                _bodyBuilder.WriteFunctionBody(ident, eventAnonymous);
-                Writer.WriteLine(ident, "// End of anonymous function");
+                _bodyBuilder.WriteFunctionBody(indent, eventAnonymous);
+                Writer.WriteLine(indent, "// End of anonymous function");
                 break;
         }
     }
 
-    private void WriteApiArrayTranslation(int ident, string standardizedType, string standName, string actualName)
+    private void WriteApiArrayTranslation(int indent, string standardizedType, string standName, string actualName)
     {
-        Writer.Write(ident, "declare ");
+        Writer.Write(indent, "declare ");
         Writer.Write(standardizedType);
         Writer.Write(' ');
         Writer.Write(standName);
         Writer.WriteLine(";");
-        Writer.Write(ident, "foreach (Element in Event.");
+        Writer.Write(indent, "foreach (Element in Event.");
         Writer.Write(actualName);
         Writer.WriteLine(") {");
-        Writer.Write(ident + 1, standName);
+        Writer.Write(indent + 1, standName);
         Writer.WriteLine(".add(Element);");
-        Writer.WriteLine(ident, "}");
+        Writer.WriteLine(indent, "}");
     }
 
     private static string GetActualNameFromParameter(IParameterSymbol parameter)

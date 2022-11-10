@@ -4,8 +4,8 @@ using System.Collections.Immutable;
 
 namespace ManiaScriptSharp.Generator;
 
-public record ExpressionWriterUtils(int Ident, ExpressionSyntax Expression, ImmutableArray<ParameterSyntax> Parameters, ManiaScriptBodyBuilder BodyBuilder)
-    : WriterUtils(Ident, Parameters, BodyBuilder)
+public record ExpressionWriterUtils(int Indent, ExpressionSyntax Expression, ImmutableArray<ParameterSyntax> Parameters, ManiaScriptBodyBuilder BodyBuilder)
+    : WriterUtils(Indent, Parameters, BodyBuilder)
 {
     public TextWriter Writer => BodyBuilder.Writer;
 
