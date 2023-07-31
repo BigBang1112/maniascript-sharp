@@ -206,7 +206,7 @@ public class ManiaScriptGenerator : ISourceGenerator
         var namespaceFolderSymbols = namespaces.Where(x => !x.IsGlobalNamespace)
             .Prepend(scriptSymbol.ContainingNamespace);
 
-        yield return scriptSymbol.Name + (isEmbeddedScript ? ".xml" : ".Script.txt");
+        yield return scriptSymbol.Name.TrimStart('_') + (isEmbeddedScript ? ".xml" : ".Script.txt");
         
         foreach (var namespaceSymbol in namespaceFolderSymbols)
         {

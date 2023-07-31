@@ -26,7 +26,7 @@ public class ManialinkFile : IGeneratedFile
 
         if (!doc.DocumentElement.HasAttribute("name"))
         {
-            doc.DocumentElement.SetAttribute("name", scriptSymbol.Name);
+            doc.DocumentElement.SetAttribute("name", scriptSymbol.Name.TrimStart('_'));
         }
 
         var descriptionComment = doc.CreateComment("This manialink was generated with ManiaScriptSharp by BigBang1112");
