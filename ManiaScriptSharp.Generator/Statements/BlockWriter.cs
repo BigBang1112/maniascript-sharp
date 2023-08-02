@@ -16,7 +16,7 @@ public class BlockWriter : StatementWriter<BlockSyntax>
         
         foreach (var statementSyntax in statement.Statements)
         {
-            WriteSyntax(statementSyntax, Indent + 1);
+            WriteSyntax(statementSyntax, indentOffset: 1);
         }
         
         Writer.WriteLine(Indent, "}");
