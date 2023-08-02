@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Reflection.PortableExecutable;
 using ManiaScriptSharp.Generator.Statements;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -37,6 +36,8 @@ public class ManiaScriptBodyBuilder
         var methods = ScriptSymbol.GetMembers()
             .OfType<IMethodSymbol>();
 
+        var hasContextSymbol = ScriptSymbol.AllInterfaces.Any(i => i.Name == "IContext");
+
         var functionsBuilder = ImmutableArray.CreateBuilder<IMethodSymbol>();
         
         var mainMethodSymbol = default(IMethodSymbol);
@@ -45,34 +46,31 @@ public class ManiaScriptBodyBuilder
 
         foreach (var method in methods)
         {
-            switch (method.Name)
+            if (hasContextSymbol)
             {
-                case "Main":
-                    mainMethodSymbol = method;
-                    break;
-                case "Loop":
-                    loopMethodSymbol = method;
-                    break;
-                default:
-                    
-                    if (method.MethodKind == MethodKind.Constructor)
-                    {
-                        constructorSymbol = method;
-                    }
-                    else if(method.MethodKind != MethodKind.PropertyGet &&
-                            method.MethodKind != MethodKind.PropertySet)
-                    {
-                        functionsBuilder.Add(method);
-                    }
-                    
-                    break;
+                switch (method.Name)
+                {
+                    case "Main":
+                        mainMethodSymbol = method;
+                        break;
+                    case "Loop":
+                        loopMethodSymbol = method;
+                        break;
+                }
+            }
+
+            if (method.MethodKind == MethodKind.Constructor)
+            {
+                constructorSymbol = method;
+            }
+            else if (method.MethodKind is not MethodKind.PropertyGet and not MethodKind.PropertySet)
+            {
+                functionsBuilder.Add(method);
             }
         }
 
         var functions = functionsBuilder.ToImmutable();
 
-        _ = mainMethodSymbol ?? throw new Exception("Main method not found");
-        _ = loopMethodSymbol ?? throw new Exception("Loop method not found");
         _ = constructorSymbol ?? throw new Exception("Constructor not found");
 
         var constructorAnalysis = ConstructorAnalysis.Analyze(constructorSymbol, SemanticModel, Helper);
@@ -80,27 +78,39 @@ public class ManiaScriptBodyBuilder
         WriteFunctions(functions);
 
         var indent = functions.Length == 0 ? 0 : 1;
-        
-        var mainDocBuilder = new DocumentationBuilder(this);
-        mainDocBuilder.WriteDocumentation(0, mainMethodSymbol);
 
-        if (functions.Length > 0)
+        if (hasContextSymbol)
         {
-            Writer.WriteLine("main() {");
-        }
+            _ = mainMethodSymbol ?? throw new Exception("Main method not found");
+            _ = loopMethodSymbol ?? throw new Exception("Loop method not found");
 
-        WriteMainContents(indent, mainMethodSymbol);
-        
-        var loopDocBuilder = new DocumentationBuilder(this);
-        loopDocBuilder.WriteDocumentation(indent, loopMethodSymbol);
-        
-        Writer.WriteLine(indent, "while (True) {");
-        WriteLoopContents(indent + 1, functions, constructorAnalysis, loopMethodSymbol);
-        Writer.WriteLine(indent, "}");
+            var mainDocBuilder = new DocumentationBuilder(this);
+            mainDocBuilder.WriteDocumentation(0, mainMethodSymbol);
 
-        if (functions.Length > 0)
-        {
-            Writer.WriteLine("}");
+            if (functions.Length > 0)
+            {
+                Writer.WriteLine("main() {");
+            }
+
+            WriteGlobalInitializers(indent);
+            WriteBindingInitializers(indent);
+
+            if (functions.Length > 0)
+            {
+                Writer.WriteLine(indent, "Main();");
+            }
+
+            var loopDocBuilder = new DocumentationBuilder(this);
+            loopDocBuilder.WriteDocumentation(indent, loopMethodSymbol);
+
+            Writer.WriteLine(indent, "while (True) {");
+            WriteLoopContents(indent + 1, functions, constructorAnalysis);
+            Writer.WriteLine(indent, "}");
+
+            if (mainMethodSymbol is not null && functions.Length > 0)
+            {
+                Writer.WriteLine("}");
+            }
         }
 
         return new();
@@ -147,14 +157,6 @@ public class ManiaScriptBodyBuilder
             Writer.WriteLine("}");
             Writer.WriteLine();
         }
-    }
-
-    private void WriteMainContents(int indent, IMethodSymbol mainMethodSymbol)
-    {
-        WriteGlobalInitializers(indent);
-        WriteBindingInitializers(indent);
-        
-        WriteFunctionBody(indent, new FunctionIdentifier(mainMethodSymbol));
     }
 
     private void WriteGlobalInitializers(int indent)
@@ -233,7 +235,7 @@ public class ManiaScriptBodyBuilder
     }
 
     private void WriteLoopContents(int indent, ImmutableArray<IMethodSymbol> functions,
-        ConstructorAnalysis constructorAnalysis, IMethodSymbol loopMethodSymbol)
+        ConstructorAnalysis constructorAnalysis)
     {
         Writer.WriteLine(indent, "yield;");
 
@@ -242,7 +244,7 @@ public class ManiaScriptBodyBuilder
         eventForeachBuilder.Write(indent, functions, constructorAnalysis);
         IsBuildingEventHandling = false;
         
-        WriteFunctionBody(indent, new FunctionIdentifier(loopMethodSymbol));
+        Writer.WriteLine(indent, "Loop();");
     }
 
     public void WriteFunctionBody(int indent, Function function)
