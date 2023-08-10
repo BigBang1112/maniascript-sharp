@@ -71,12 +71,7 @@ public class DocHGenerator : ISourceGenerator
 
     internal IEnumerable<SourceCodeFile> BuildSourceCodeFiles(AdditionalText docHFile, SymbolContext context)
     {
-        var text = docHFile.GetText();
-
-        if (text is null)
-        {
-            throw new Exception("Text is null");
-        }
+        var text = docHFile.GetText() ?? throw new Exception("Text is null");
 
         var reader = new StringReader(text.ToString());
 

@@ -7,7 +7,9 @@ public class AssignmentExpressionWriter : ExpressionWriter<AssignmentExpressionS
     public override void Write(AssignmentExpressionSyntax expression)
     {
         WriteSyntax(expression.Left);
-        Writer.Write(" = ");
+        Writer.Write(' ');
+        Writer.Write(expression.OperatorToken.Text);
+        Writer.Write(' ');
         WriteSyntax(expression.Right);
     }
 }
