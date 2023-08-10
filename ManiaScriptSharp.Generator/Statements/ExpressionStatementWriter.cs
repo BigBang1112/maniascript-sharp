@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Statements;
@@ -12,7 +13,10 @@ public class ExpressionStatementWriter : StatementWriter<ExpressionStatementSynt
         {
             if (WriteSyntax(statement.Expression))
             {
-                Writer.Write(';');
+                if (statement.Expression is not InvocationExpressionSyntax invocationExpressionSyntax || GetSymbol(invocationExpressionSyntax) is not IMethodSymbol { IsVirtual: true })
+                {
+                    Writer.Write(';');
+                }
             }
         }
         catch (ExpressionStatementException ex)
