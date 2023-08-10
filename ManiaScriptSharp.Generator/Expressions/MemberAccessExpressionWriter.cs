@@ -21,6 +21,7 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
         {
             case INamespaceSymbol:
             case {IsStatic: true, Name: "ManiaScript"}:
+                WriteSyntax(expression.Name);
                 return;
         }
 
