@@ -9,10 +9,10 @@ public abstract class StatementWriter : SyntaxWriter
 {
     protected StatementWriterUtils? Utils { get; private set; }
 
-    protected int Indent => Utils?.Indent ?? throw new InvalidOperationException();
-    protected TextWriter Writer => Utils?.Writer ?? throw new InvalidOperationException();
+    public int Indent => Utils?.Indent ?? throw new InvalidOperationException();
+    public TextWriter Writer => Utils?.Writer ?? throw new InvalidOperationException();
     protected ImmutableArray<ParameterSyntax> Parameters => Utils?.Parameters ?? throw new InvalidOperationException();
-    protected override ManiaScriptBodyBuilder BodyBuilder => Utils?.BodyBuilder ?? throw new InvalidOperationException();
+    public override ManiaScriptBodyBuilder BodyBuilder => Utils?.BodyBuilder ?? throw new InvalidOperationException();
 
     public static void WriteSyntax(StatementWriterUtils utils)
     {        
@@ -32,12 +32,12 @@ public abstract class StatementWriter : SyntaxWriter
         }
     }
 
-    protected void WriteSyntax(StatementSyntax statement, int indentOffset = 0)
+    public void WriteSyntax(StatementSyntax statement, int indentOffset = 0)
     {
         WriteSyntax(new StatementWriterUtils(Indent + indentOffset, statement, Parameters, BodyBuilder));
     }
 
-    protected bool WriteSyntax(ExpressionSyntax expression)
+    public bool WriteSyntax(ExpressionSyntax expression)
     {
         return ExpressionWriter.WriteSyntax(new ExpressionWriterUtils(Indent, expression, Parameters, BodyBuilder));
     }

@@ -4,7 +4,7 @@ namespace ManiaScriptSharp.Generator;
 
 public abstract class SyntaxWriter
 {
-    protected abstract ManiaScriptBodyBuilder BodyBuilder { get; }
+    public abstract ManiaScriptBodyBuilder BodyBuilder { get; }
     
     public abstract void Write();
 

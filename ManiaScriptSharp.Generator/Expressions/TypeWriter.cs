@@ -6,13 +6,8 @@ public class TypeWriter : ExpressionWriter<TypeSyntax>
 {
     public override void Write(TypeSyntax expression)
     {
-        var symbol = GetSymbol();
+        var symbol = GetSymbol() ?? throw new ExpressionException("Symbol not found");
 
-        if (symbol is null)
-        {
-            throw new ExpressionException("Symbol not found");
-        }
-        
         Writer.Write(Standardizer.CSharpTypeToManiaScriptType(symbol.Name));
     }
 }

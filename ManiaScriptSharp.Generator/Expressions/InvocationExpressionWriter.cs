@@ -9,9 +9,11 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
     {
         var symbol = GetSymbol(expression.Expression);
 
+        var identifierNameSyntax = expression.Expression as IdentifierNameSyntax;
+
         if (symbol is null)
         {
-            if (expression.Expression is IdentifierNameSyntax identifierNameSyntax)
+            if (identifierNameSyntax is not null)
             {
                 if (identifierNameSyntax.Identifier.Text == "nameof")
                 {

@@ -1,4 +1,5 @@
-﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
+﻿using ManiaScriptSharp.Generator.Linq;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Statements;
 
@@ -6,12 +7,20 @@ public class ReturnStatementWriter : StatementWriter<ReturnStatementSyntax>
 {
     public override void Write(ReturnStatementSyntax statement)
     {
-        Writer.Write(Indent, "return");
-        
-        if (statement.Expression is not null)
+        if (LinqChecker.GenerateSupportedLinqMethod(this, statement.Expression, out var replacementCode))
         {
-            Writer.Write(' ');
-            WriteSyntax(statement.Expression);
+            Writer.Write(Indent, "return ");
+            Writer.Write(replacementCode);
+        }
+        else
+        {
+            Writer.Write(Indent, "return");
+
+            if (statement.Expression is not null)
+            {
+                Writer.Write(' ');
+                WriteSyntax(statement.Expression);
+            }
         }
         
         Writer.Write("; ");

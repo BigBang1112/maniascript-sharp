@@ -12,7 +12,7 @@ public abstract class ExpressionWriter : SyntaxWriter
     protected int Indent => Utils?.Indent ?? throw new InvalidOperationException();
     protected TextWriter Writer => Utils?.Writer ?? throw new InvalidOperationException();
     protected ImmutableArray<ParameterSyntax> Parameters => Utils?.Parameters ?? throw new InvalidOperationException();
-    protected override ManiaScriptBodyBuilder BodyBuilder => Utils?.BodyBuilder ?? throw new InvalidOperationException();
+    public override ManiaScriptBodyBuilder BodyBuilder => Utils?.BodyBuilder ?? throw new InvalidOperationException();
 
     public static bool WriteSyntax(ExpressionWriterUtils utils)
     {
