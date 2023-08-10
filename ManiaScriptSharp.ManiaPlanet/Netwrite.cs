@@ -23,4 +23,14 @@ public class Netwrite<T>
     {
         return new Netwrite<T>(team);
     }
+
+    public static implicit operator T(Netwrite<T> netwrite)
+    {
+        return default!;
+    }
+
+    public static Netwrite<T> operator -(Netwrite<T> netwrite, T value)
+    {
+        return default!;
+    }
 }
