@@ -79,7 +79,7 @@ public static class Standardizer
 
     public static string CSharpTypeToManiaScriptType(INamedTypeSymbol csharpType) => csharpType.Name switch
     {
-        "ImmutableArray" => csharpType.TypeArguments[0].Name switch
+        "ImmutableArray" or "IList" => csharpType.TypeArguments[0].Name switch
         {
             "Int32" => "Integer[]",
             "Single" => "Real[]",
