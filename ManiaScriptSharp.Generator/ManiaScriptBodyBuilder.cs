@@ -116,9 +116,16 @@ public class ManiaScriptBodyBuilder
         {
             var docBuilder = new DocumentationBuilder(this);
             docBuilder.WriteDocumentation(indent: 0, functionSymbol);
-            
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.ReturnType.Name));
-            Writer.Write(' ');
+
+            if (functionSymbol.IsVirtual)
+            {
+                Writer.Write("***");
+            }
+            else
+            {
+                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.ReturnType.Name));
+                Writer.Write(' ');
+            }
 
             if (functionSymbol.DeclaredAccessibility == Accessibility.Private)
             {
@@ -126,6 +133,17 @@ public class ManiaScriptBodyBuilder
             }
             
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.Name));
+
+            if (functionSymbol.IsVirtual)
+            {
+                Writer.WriteLine("***");
+                Writer.WriteLine("***");
+                WriteFunctionBody(indent: 0, new FunctionIdentifier(functionSymbol));
+                Writer.WriteLine("***");
+                Writer.WriteLine();
+                continue;
+            }
+
             Writer.Write('(');
 
             var isFirst = true;
