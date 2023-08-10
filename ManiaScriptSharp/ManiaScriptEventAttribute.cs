@@ -1,5 +1,6 @@
 namespace ManiaScriptSharp;
 
+[AttributeUsage(AttributeTargets.Delegate)]
 public class ManiaScriptEventAttribute : Attribute
 {
     public string EventList { get; }

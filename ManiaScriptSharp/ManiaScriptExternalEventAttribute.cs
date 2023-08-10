@@ -1,5 +1,6 @@
 namespace ManiaScriptSharp;
 
+[AttributeUsage(AttributeTargets.Event)]
 public class ManiaScriptExternalEventAttribute : Attribute
 {
     /// <summary>
