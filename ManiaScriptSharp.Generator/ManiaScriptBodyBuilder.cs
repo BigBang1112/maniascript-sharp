@@ -114,6 +114,20 @@ public class ManiaScriptBodyBuilder
     {
         foreach (var functionSymbol in functions)
         {
+            if (functionSymbol.IsVirtual)
+            {
+                if (functionSymbol.DeclaringSyntaxReferences.Length <= 0 ||
+                    functionSymbol.DeclaringSyntaxReferences[0].GetSyntax() is not MethodDeclarationSyntax methodSyntax)
+                {
+                    continue;
+                }
+
+                if (methodSyntax.Body?.Statements.Count == 0 || methodSyntax.ExpressionBody is not null)
+                {
+                    continue;
+                }
+            }
+
             var docBuilder = new DocumentationBuilder(this);
             docBuilder.WriteDocumentation(indent: 0, functionSymbol);
 
