@@ -55,7 +55,7 @@ public class ManiaScriptHeadBuilder
 
         if (!isOfficialSymbol)
         {
-            throw new NotSupportedException();
+            throw new NotSupportedException("Currently only official classes are supported for context");
         }
         
         Writer.Write("#RequireContext ");
@@ -292,11 +292,10 @@ public class ManiaScriptHeadBuilder
 
     private ImmutableArray<IFieldSymbol> BuildSettings()
     {
-        var consts = ScriptSymbol.GetMembers()
-            .OfType<IFieldSymbol>()
-            .Where(x => x.IsConst);
+        var fields = ScriptSymbol.GetMembers()
+            .OfType<IFieldSymbol>();
         
-        var settings = WriteSettings(consts).ToImmutableArray();
+        var settings = WriteSettings(fields).ToImmutableArray();
 
         if (settings.Length == 0)
         {
@@ -308,9 +307,9 @@ public class ManiaScriptHeadBuilder
         return settings;
     }
 
-    private IEnumerable<IFieldSymbol> WriteSettings(IEnumerable<IFieldSymbol> consts)
+    private IEnumerable<IFieldSymbol> WriteSettings(IEnumerable<IFieldSymbol> fields)
     {
-        foreach (var constSymbol in consts)
+        foreach (var constSymbol in fields)
         {
             var settingAttribute = constSymbol.GetAttributes()
                 .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.SettingAttribute);
@@ -424,7 +423,7 @@ public class ManiaScriptHeadBuilder
                     continue;
             }
 
-            if (memberSymbol.GetAttributes().Any(x => x.AttributeClass?.Name is NameConsts.ManialinkControlAttribute))
+            if (memberSymbol.GetAttributes().Any(x => x.AttributeClass?.Name is NameConsts.ManialinkControlAttribute or NameConsts.SettingAttribute))
             {
                 continue;
             }
