@@ -45,7 +45,7 @@ public class ManiaScriptGenerator : ISourceGenerator
                 xmlSchemaXsd = additionalFile.GetText()?.ToString();
             }
 
-            if (additionalFile.Path.EndsWith("buildsettings.yml"))
+            if (additionalFile.Path.EndsWith("buildsettings.yml") || additionalFile.Path.EndsWith("buildsettings.yaml"))
             {
                 var contents = additionalFile.GetText()?.ToString();
 
