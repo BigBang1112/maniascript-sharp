@@ -209,7 +209,7 @@ public class ManiaScriptBodyBuilder
             Writer.WriteIndent(indent);
             Writer.Write(Standardizer.StandardizeGlobalName(global.Name));
             Writer.Write(" = ");
-            Writer.Write(equalsSyntax.Value);
+            Writer.Write(Standardizer.StandardizeName(equalsSyntax.Value.ToString()));
             Writer.WriteLine(";");
         }
 
