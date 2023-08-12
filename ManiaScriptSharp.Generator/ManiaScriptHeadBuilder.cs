@@ -309,9 +309,9 @@ public class ManiaScriptHeadBuilder
 
     private IEnumerable<IFieldSymbol> WriteSettings(IEnumerable<IFieldSymbol> fields)
     {
-        foreach (var constSymbol in fields)
+        foreach (var fieldSymbol in fields)
         {
-            var settingAttribute = constSymbol.GetAttributes()
+            var settingAttribute = fieldSymbol.GetAttributes()
                 .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.SettingAttribute);
 
             if (settingAttribute is null)
@@ -320,19 +320,23 @@ public class ManiaScriptHeadBuilder
             }
 
             Writer.Write("#Setting ");
-            Writer.Write(Standardizer.StandardizeSettingName(constSymbol.Name));
+            Writer.Write(Standardizer.StandardizeSettingName(fieldSymbol.Name));
             Writer.Write(' ');
 
-            var isStr = constSymbol.ConstantValue is string;
+            var value = fieldSymbol.IsConst
+                ? fieldSymbol.ConstantValue
+                : (fieldSymbol.DeclaringSyntaxReferences[0].GetSyntax() as VariableDeclaratorSyntax)?.Initializer?.Value.ToString();
 
-            if (isStr)
+            var isStr = value is string;
+
+            if (fieldSymbol.IsConst && isStr)
             {
                 Writer.Write('"');
             }
 
-            Writer.Write(constSymbol.ConstantValue);
+            Writer.Write(Standardizer.StandardizeName(value?.ToString() ?? ""));
 
-            if (isStr)
+            if (fieldSymbol.IsConst && isStr)
             {
                 Writer.Write('"');
             }
@@ -374,7 +378,7 @@ public class ManiaScriptHeadBuilder
 
             Writer.WriteLine();
             
-            yield return constSymbol;
+            yield return fieldSymbol;
         }
     }
 
