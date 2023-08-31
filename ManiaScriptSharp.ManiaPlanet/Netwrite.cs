@@ -7,6 +7,7 @@
 [DeclarationMode("netwrite")]
 public class Netwrite<T>
 {
+    private T value;
     private readonly object @object;
 
     private Netwrite(object @object)
@@ -16,7 +17,12 @@ public class Netwrite<T>
 
     public void Set(T value)
     {
-        
+        this.value = value;
+    }
+
+    public T Get()
+    {
+        return value;
     }
 
     public static Netwrite<T> For(CTeam team)

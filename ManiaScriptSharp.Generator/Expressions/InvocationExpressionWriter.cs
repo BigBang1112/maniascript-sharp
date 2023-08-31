@@ -23,12 +23,9 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
                     return;
                 }
             }
-
-            Writer.Write("/* InvocationExpressionWriter: unknown symbol */");
-            return;
         }
 
-        if (symbol.Name is "Get" or "Set" && CachedData.DeclarationModes.Contains(symbol.ContainingType.Name)
+        if (symbol?.Name is "Get" or "Set" && CachedData.DeclarationModes.Contains(symbol.ContainingType.Name)
                                           && expression.Expression is MemberAccessExpressionSyntax memberAccessExpressionSyntax)
         {
             WriteSyntax(memberAccessExpressionSyntax.Expression);
@@ -44,25 +41,25 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
             return;
         }
 
-        if (symbol.IsVirtual)
+        if (symbol?.IsVirtual == true)
         {
             Writer.Write("+++");
         }
         
-        if (symbol.DeclaredAccessibility is Accessibility.Private)
+        if (symbol?.DeclaredAccessibility is Accessibility.Private)
         {
             Writer.Write("Private_");
         }
         
         WriteSyntax(expression.Expression);
 
-        if (symbol.IsVirtual)
+        if (symbol?.IsVirtual == true)
         {
             Writer.Write("+++");
             return;
         }
 
-        if (symbol.Name == "Yield" && symbol.ContainingType.Name == "ManiaScript")
+        if (symbol?.Name == "Yield" && symbol.ContainingType.Name == "ManiaScript")
         {
             return;
         }

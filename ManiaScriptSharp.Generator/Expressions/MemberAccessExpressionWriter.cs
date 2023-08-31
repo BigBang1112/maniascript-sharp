@@ -10,7 +10,11 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
         switch (expression.Expression)
         {
             case BaseExpressionSyntax:
-                throw new ExpressionStatementException("NOTE: Base expressions are ignored as they are not supported. They can be removed from code.");
+                if (GetSymbol(expression.Name) is IPropertySymbol)
+                {
+                    WriteSyntax(expression.Name);
+                }
+                return;
             case ThisExpressionSyntax:
                 return;
         }
@@ -33,18 +37,73 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
             Writer.Write("::");
         }
 
-        WriteSyntax(expression.Expression);
+        var isDeclareFor = (expressionSymbol?.GetAttributes()
+            .Any(x => x.AttributeClass?.Name is NameConsts.NetwriteAttribute) ?? false)
+            && nameSymbol?.Name is "Clear";
+
+        if (!isDeclareFor)
+        {
+            WriteSyntax(expression.Expression);
+        }
 
         if (expressionSymbol?.IsStatic == true || expressionSymbol is ITypeSymbol {TypeKind: TypeKind.Enum}
                                                || nameSymbol is ITypeSymbol {TypeKind: TypeKind.Enum})
         {
             Writer.Write("::");
         }
-        else
+        else if (!isDeclareFor)
         {
             Writer.Write('.');
         }
 
+        if (TryRemap(nameSymbol, expressionSymbol?.Name, isDeclareFor))
+        {
+            return;
+        }
+
         WriteSyntax(expression.Name);
+    }
+
+    private static readonly HashSet<string> specialTypes = new()
+    {
+        "Dictionary",
+        "IList",
+        "ICollection",
+        "ImmutableArray",
+        "ObjectExtensions"
+    };
+
+    private bool TryRemap(ISymbol? nameSymbol, string? expressionName, bool isDeclareFor)
+    {
+        if (nameSymbol is null || !specialTypes.Contains(nameSymbol.ContainingType.Name))
+        {
+            return false;
+        }
+
+        if (nameSymbol.Name == "Clear")
+        {
+            Writer.Write(isDeclareFor && expressionName is not null ? "Clear" + expressionName : "clear");
+            return true;
+        }
+
+        if (nameSymbol.Name == "FromJson")
+        {
+            Writer.Write("fromjson");
+            return true;
+        }
+
+        if (nameSymbol.Name == "ContainsKey")
+        {
+            Writer.Write("existskey");
+            return true;
+        }
+
+        if (nameSymbol.Name == "Add")
+        {
+            Writer.Write("add");
+            return true;
+        }
+
+        return false;
     }
 }

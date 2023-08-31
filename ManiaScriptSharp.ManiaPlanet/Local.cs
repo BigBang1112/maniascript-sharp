@@ -26,13 +26,8 @@ public class Local<T>
         this.value = value;
     }
 
-    public static Local<T> For(CUser user)
+    public static Local<T> For(CNod nod)
     {
-        return new Local<T>(default!, user);
-    }
-
-    public static Local<T> For(CTeam team)
-    {
-        return new Local<T>(default!, team);
+        return new Local<T>(default!, nod);
     }
 }

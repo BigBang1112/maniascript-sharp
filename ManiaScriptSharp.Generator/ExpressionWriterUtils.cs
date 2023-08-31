@@ -24,6 +24,11 @@ public record ExpressionWriterUtils(int Indent, ExpressionSyntax Expression, Imm
         ParenthesizedLambdaExpressionSyntax => new ParenthesizedLambdaExpressionWriter(),
         InterpolatedStringExpressionSyntax => new InterpolatedStringExpressionWriter(),
         ElementAccessExpressionSyntax => new ElementAccessExpressionWriter(),
+        ObjectCreationExpressionSyntax => new ObjectCreationExpressionWriter(),
+        ImplicitArrayCreationExpressionSyntax => new ImplicitArrayCreationExpressionWriter(),
+        ThisExpressionSyntax => new ThisExpressionWriter(),
+        ImplicitObjectCreationExpressionSyntax => new ImplicitObjectCreationExpressionWriter(),
+        ImplicitElementAccessSyntax => new ImplicitElementAccessExpressionWriter(),
         _ => null
     };
 }

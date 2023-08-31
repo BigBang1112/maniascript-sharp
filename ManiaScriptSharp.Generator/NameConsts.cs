@@ -11,4 +11,7 @@ public static class NameConsts
     public const string SettingAttribute = "SettingAttribute";
     public const string CMlControl = "CMlControl";
     public const string PendingEvents = "PendingEvents";
+    public const string NetwriteAttribute = "NetwriteAttribute";
+    public const string NetreadAttribute = "NetreadAttribute";
+    public const string LocalAttribute = "LocalAttribute";
 }

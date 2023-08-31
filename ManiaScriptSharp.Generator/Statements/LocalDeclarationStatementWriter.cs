@@ -16,7 +16,15 @@ public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationS
         {
             Writer.Write(Indent, "declare ");
 
-            if (!statement.Declaration.Type.IsVar)
+            if (statement.Declaration.Type.IsVar)
+            {
+                if (GetSymbol(statement.Declaration.Type) is ITypeSymbol typeSymbol)
+                {
+                    Writer.Write(Standardizer.CSharpTypeToManiaScriptType(typeSymbol));
+                    Writer.Write(' ');
+                }
+            }
+            else
             {
                 WriteSyntax(statement.Declaration.Type);
                 Writer.Write(' ');
@@ -50,6 +58,11 @@ public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationS
             return false;
         }
 
+        if (expression.Expression is MemberAccessExpressionSyntax memberAccessExpressionSyntax && memberAccessExpressionSyntax.Name.Identifier.Text != "For")
+        {
+            return false;
+        }
+
         if (GetSymbol(expression) is not IMethodSymbol symbol
             || !CachedData.DeclarationModes.Contains(symbol.ContainingType.Name))
         {
@@ -73,8 +86,16 @@ public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationS
             Writer.Write(declarationModeKeyword);
             Writer.Write(' ');
         }
-        
-        Writer.Write(Standardizer.CSharpTypeToManiaScriptType(symbol.ContainingType.TypeArguments[0].Name));
+
+        if (symbol.ContainingType.TypeArguments[0] is INamedTypeSymbol namedTypeSymbol)
+        {
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(namedTypeSymbol));
+        }
+        else
+        {
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(symbol.ContainingType.TypeArguments[0].Name));
+        }
+
         Writer.Write(' ');
         Writer.Write(Standardizer.StandardizeName(variable.Identifier.Text));
         Writer.Write(" for ");

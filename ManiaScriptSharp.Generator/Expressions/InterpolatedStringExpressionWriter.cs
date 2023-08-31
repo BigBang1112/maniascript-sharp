@@ -15,7 +15,7 @@ public class InterpolatedStringExpressionWriter : ExpressionWriter<InterpolatedS
             {
                 case InterpolatedStringTextSyntax text:
                     
-                    if (interpolationBefore)
+                    if (stringBefore || interpolationBefore)
                     {
                         Writer.Write(" ^ ");
                         interpolationBefore = false;
@@ -30,7 +30,7 @@ public class InterpolatedStringExpressionWriter : ExpressionWriter<InterpolatedS
                     break;
                 case InterpolationSyntax interpolation:
                     
-                    if (stringBefore)
+                    if (stringBefore || interpolationBefore)
                     {
                         Writer.Write(" ^ ");
                         stringBefore = false;

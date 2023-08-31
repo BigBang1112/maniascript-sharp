@@ -77,18 +77,42 @@ public static class Standardizer
     };
     
 
-    public static string CSharpTypeToManiaScriptType(INamedTypeSymbol csharpType) => csharpType.Name switch
+    public static string CSharpTypeToManiaScriptType(ITypeSymbol csharpType)
     {
-        "ImmutableArray" or "IList" => csharpType.TypeArguments[0].Name switch
+        if (csharpType is not INamedTypeSymbol namedTypeSymbol)
         {
-            "Int32" => "Integer[]",
-            "Single" => "Real[]",
-            "Boolean" => "Boolean[]",
-            "String" => "Text[]",
-            _ => csharpType.TypeArguments[0].Name + "[]"
-        },
-        _ => CSharpTypeToManiaScriptType(csharpType.Name)
-    };
+            return CSharpTypeToManiaScriptType(csharpType.Name);
+        }
+
+        if (csharpType.Name == "Dictionary")
+        {
+            var keySymbol = namedTypeSymbol.TypeArguments[0];
+            var valSymbol = namedTypeSymbol.TypeArguments[1];
+            
+            var val = valSymbol is INamedTypeSymbol namedTypeSymbolVal
+                ? CSharpTypeToManiaScriptType(namedTypeSymbolVal)
+                : CSharpTypeToManiaScriptType(valSymbol.Name);
+            
+            var key = keySymbol is INamedTypeSymbol namedTypeSymbolKey
+                ? CSharpTypeToManiaScriptType(namedTypeSymbolKey)
+                : CSharpTypeToManiaScriptType(valSymbol.Name);
+
+            return $"{val}[{key}]";
+        }
+        
+        return csharpType.Name switch
+        {
+            "ImmutableArray" or "IList" => namedTypeSymbol.TypeArguments[0].Name switch
+            {
+                "Int32" => "Integer[]",
+                "Single" => "Real[]",
+                "Boolean" => "Boolean[]",
+                "String" => "Text[]",
+                _ => namedTypeSymbol.TypeArguments[0].Name + "[]"
+            },
+            _ => CSharpTypeToManiaScriptType(csharpType.Name)
+        };
+    }
 
     public static string StandardizeName(string name)
     {

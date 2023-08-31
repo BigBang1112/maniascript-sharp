@@ -31,6 +31,13 @@ public class IdentifierNameExpressionWriter : ExpressionWriter<IdentifierNameSyn
             {
                 text = Standardizer.StandardizeGlobalName(symbol.Name);
             }
+            else if (BodyBuilder.Head.Netwrites.Contains(symbol, SymbolEqualityComparer.Default) || BodyBuilder.Head.Netreads.Contains(symbol, SymbolEqualityComparer.Default) || BodyBuilder.Head.Locals.Contains(symbol, SymbolEqualityComparer.Default))
+            {
+                Writer.Write("Get");
+                Writer.Write(symbol.Name);
+                Writer.Write("()");
+                return;
+            }
         }
 
         if (symbol is IMethodSymbol {ReceiverType.Name: "ManiaScript"})

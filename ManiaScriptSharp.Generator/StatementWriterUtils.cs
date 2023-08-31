@@ -20,6 +20,7 @@ public record StatementWriterUtils(int Indent, StatementSyntax Statement, Immuta
         ForStatementSyntax => new ForStatementWriter(),
         WhileStatementSyntax => new WhileStatementWriter(),
         ReturnStatementSyntax => new ReturnStatementWriter(),
+        ForEachVariableStatementSyntax => new ForEachVariableStatementWriter(),
         _ => null
     };
 }

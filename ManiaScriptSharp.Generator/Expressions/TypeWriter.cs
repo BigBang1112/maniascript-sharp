@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Expressions;
@@ -8,6 +9,9 @@ public class TypeWriter : ExpressionWriter<TypeSyntax>
     {
         var symbol = GetSymbol() ?? throw new ExpressionException("Symbol not found");
 
-        Writer.Write(Standardizer.CSharpTypeToManiaScriptType(symbol.Name));
+        if (symbol is ITypeSymbol typeSymbol)
+        {
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(typeSymbol));
+        }
     }
 }

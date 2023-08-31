@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
+using System.Linq;
 using System.Xml;
-using ManiaScriptSharp.Generator.Expressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
@@ -36,6 +36,9 @@ public class ManiaScriptHeadBuilder
         Consts = BuildConsts(),
         Settings = BuildSettings(),
         Globals = BuildGlobals(),
+        Netwrites = BuildNetwrites(),
+        Netreads = BuildNetreads(),
+        Locals = BuildLocals(),
         Bindings = BuildBindings()
     };
 
@@ -53,13 +56,20 @@ public class ManiaScriptHeadBuilder
         
         var isOfficialSymbol = ScriptSymbol.BaseType.ContainingNamespace.ToDisplayString() == "ManiaScriptSharp";
 
-        if (!isOfficialSymbol)
+        if (isOfficialSymbol)
         {
-            throw new NotSupportedException("Currently only official classes are supported for context");
+            Writer.Write("#RequireContext ");
+            Writer.WriteLine(ScriptSymbol.BaseType.Name);
         }
-        
-        Writer.Write("#RequireContext ");
-        Writer.WriteLine(ScriptSymbol.BaseType.Name);
+        else
+        {
+            var filePath = string.Join("/", ManiaScriptGenerator.CreateFilePathFromScriptSymbolInReverse(ScriptSymbol.BaseType, isEmbeddedScript: false, Helper.RootNamespace).Reverse().Skip(1));
+
+            Writer.Write("#Extends \"");
+            Writer.Write(filePath);
+            Writer.WriteLine("\"");
+        }
+
         Writer.WriteLine();
         
         return ScriptSymbol.BaseType;
@@ -239,7 +249,16 @@ public class ManiaScriptHeadBuilder
 
     private ImmutableArray<INamedTypeSymbol> BuildIncludes()
     {
-        // TODO: scan through all the syntax trees and find referenced types that are part of the same namespace
+        foreach (var libName in new[] {"AnimLib", "ColorLib", "MapUnits", "MathLib", "TextLib", "TimeLib" })
+        {
+            Writer.Write("#Include \"");
+            Writer.Write(libName);
+            Writer.Write("\" as ");
+            Writer.WriteLine(libName);
+        }
+
+        Writer.WriteLine();
+
         return ImmutableArray<INamedTypeSymbol>.Empty;
     }
 
@@ -427,7 +446,12 @@ public class ManiaScriptHeadBuilder
                     continue;
             }
 
-            if (memberSymbol.GetAttributes().Any(x => x.AttributeClass?.Name is NameConsts.ManialinkControlAttribute or NameConsts.SettingAttribute))
+            if (memberSymbol.GetAttributes().Any(x => x.AttributeClass?.Name
+                is NameConsts.ManialinkControlAttribute
+                or NameConsts.SettingAttribute
+                or NameConsts.NetwriteAttribute
+                or NameConsts.NetreadAttribute
+                or NameConsts.LocalAttribute))
             {
                 continue;
             }
@@ -440,6 +464,188 @@ public class ManiaScriptHeadBuilder
 
             yield return memberSymbol;
         }
+    }
+
+    private Dictionary<string, bool> GetNetOverwrites(ImmutableArray<IPropertySymbol> netVariables)
+    {
+        var typeToScan = ScriptSymbol.BaseType;
+        var names = netVariables.Select(x => x.Name).ToImmutableHashSet();
+        var netOverwrites = new Dictionary<string, bool>();
+
+        while (typeToScan is not null)
+        {
+            if (typeToScan.ContainingNamespace?.Name == "ManiaScriptSharp")
+            {
+                foreach (var prop in typeToScan.GetMembers()
+                    .OfType<IPropertySymbol>()
+                    .Where(x => names.Contains(x.Name)))
+                {
+                    netOverwrites[prop.Name] = prop.IsReadOnly;
+                }
+            }
+
+            typeToScan = typeToScan.BaseType;
+        }
+
+        return netOverwrites;
+    }
+
+    private ImmutableArray<IPropertySymbol> BuildNetwrites()
+    {
+        var netwrites = ScriptSymbol.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(x => x.GetAttributes().Any(y => y.AttributeClass?.Name == NameConsts.NetwriteAttribute))
+            .ToImmutableArray();
+
+        var netOverwrites = GetNetOverwrites(netwrites);
+
+        foreach (var netwrite in netwrites)
+        {
+            var isNetOverwrite = netOverwrites.TryGetValue(netwrite.Name, out var isReadOnly);
+
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
+            Writer.Write(" Get");
+            Writer.Write(Standardizer.StandardizeName(netwrite.Name));
+            Writer.WriteLine("() {");
+            DeclareNetwrite(indent: 1, netwrite);
+
+            if (isNetOverwrite)
+            {
+                Writer.Write(indent: 1, "Net_");
+                Writer.Write(netwrite.Name);
+                Writer.Write(" = ");
+                Writer.Write(netwrite.Name);
+                Writer.WriteLine(';');
+            }
+
+            Writer.Write(indent: 1, "return Net_");
+            Writer.Write(Standardizer.StandardizeName(netwrite.Name));
+            Writer.WriteLine(";");
+            Writer.WriteLine("}");
+            Writer.WriteLine();
+
+            Writer.Write("Void Set");
+            Writer.Write(Standardizer.StandardizeName(netwrite.Name));
+            Writer.Write('(');
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
+            Writer.WriteLine(" _Value) {");
+            DeclareNetwrite(indent: 1, netwrite);
+
+            if (isNetOverwrite && !isReadOnly)
+            {
+                Writer.Write(indent: 1, netwrite.Name);
+                Writer.WriteLine(" = _Value;");
+            }
+
+            Writer.Write(indent: 1, "Net_");
+            Writer.Write(Standardizer.StandardizeName(netwrite.Name));
+            Writer.WriteLine(" = _Value;");
+            Writer.WriteLine("}");
+            Writer.WriteLine();
+
+            if (netwrite.Type.Name is "Dictionary" or "IList" or "ImmutableArray" or "ICollection")
+            {
+                Writer.Write("Void Clear");
+                Writer.Write(Standardizer.StandardizeName(netwrite.Name));
+                Writer.WriteLine("() {");
+                DeclareNetwrite(indent: 1, netwrite);
+                Writer.Write(indent: 1, "Net_");
+                Writer.Write(Standardizer.StandardizeName(netwrite.Name));
+                Writer.WriteLine(".clear();");
+                Writer.WriteLine("}");
+                Writer.WriteLine();
+            }
+        }
+
+        return netwrites;
+
+        void DeclareNetwrite(int indent, IPropertySymbol netwrite)
+        {
+            Writer.Write(indent, "declare netwrite ");
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
+            Writer.Write(" Net_");
+            Writer.Write(Standardizer.StandardizeName(netwrite.Name));
+            Writer.WriteLine(" for Teams[0];");
+        }
+    }
+
+    private ImmutableArray<IPropertySymbol> BuildNetreads()
+    {
+        var netreads = ScriptSymbol.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(x => x.GetAttributes().Any(y => y.AttributeClass?.Name == NameConsts.NetreadAttribute))
+            .ToImmutableArray();
+
+        foreach (var netread in netreads)
+        {
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netread.Type));
+            Writer.Write(" Get");
+            Writer.Write(Standardizer.StandardizeName(netread.Name));
+            Writer.WriteLine("() {");
+            DeclareNetread(indent: 1, netread);
+            Writer.Write(indent: 1, "return Net_");
+            Writer.Write(Standardizer.StandardizeName(netread.Name));
+            Writer.WriteLine(";");
+            Writer.WriteLine("}");
+            Writer.WriteLine();
+        }
+
+        return netreads;
+
+        void DeclareNetread(int indent, IPropertySymbol netwrite)
+        {
+            Writer.Write(indent, "declare netread ");
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
+            Writer.Write(" Net_");
+            Writer.Write(Standardizer.StandardizeName(netwrite.Name));
+            Writer.WriteLine(" for Teams[0];");
+        }
+    }
+
+    private ImmutableArray<IPropertySymbol> BuildLocals()
+    {
+        var locals = ScriptSymbol.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(x => x.GetAttributes().Any(y => y.AttributeClass?.Name == NameConsts.LocalAttribute))
+            .ToImmutableArray();
+
+        foreach (var local in locals)
+        {
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type));
+            Writer.Write(" Get");
+            Writer.Write(Standardizer.StandardizeName(local.Name));
+            Writer.WriteLine("() {");
+            DeclareLocal(indent: 1, local);
+
+            Writer.Write(indent: 1, "return ");
+            Writer.Write(Standardizer.StandardizeName(local.Name));
+            Writer.WriteLine(";");
+            Writer.WriteLine("}");
+            Writer.WriteLine();
+
+            Writer.Write("Void Set");
+            Writer.Write(Standardizer.StandardizeName(local.Name));
+            Writer.Write('(');
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type));
+            Writer.WriteLine(" _Value) {");
+            DeclareLocal(indent: 1, local);
+
+            Writer.Write(indent: 1, Standardizer.StandardizeName(local.Name));
+            Writer.WriteLine(" = _Value;");
+            Writer.WriteLine("}");
+            Writer.WriteLine();
+        }
+
+        void DeclareLocal(int indent, IPropertySymbol local)
+        {
+            Writer.Write(indent, "declare ");
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type));
+            Writer.Write(' ');
+            Writer.Write(Standardizer.StandardizeName(local.Name));
+            Writer.WriteLine(" for This;");
+        }
+
+        return locals;
     }
 
     private ImmutableArray<ISymbol> BuildBindings()

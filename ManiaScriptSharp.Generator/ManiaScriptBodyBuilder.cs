@@ -36,7 +36,7 @@ public class ManiaScriptBodyBuilder
         var methods = ScriptSymbol.GetMembers()
             .OfType<IMethodSymbol>();
 
-        var hasContextSymbol = ScriptSymbol.AllInterfaces.Any(i => i.Name == "IContext");
+        var hasContextSymbol = ScriptSymbol.Interfaces.Any(i => i.Name == "IContext");
 
         var functionsBuilder = ImmutableArray.CreateBuilder<IMethodSymbol>();
         
@@ -52,10 +52,10 @@ public class ManiaScriptBodyBuilder
                 {
                     case "Main":
                         mainMethodSymbol = method;
-                        break;
+                        continue;
                     case "Loop":
                         loopMethodSymbol = method;
-                        break;
+                        continue;
                 }
             }
 
@@ -92,13 +92,13 @@ public class ManiaScriptBodyBuilder
             WriteGlobalInitializers(indent);
             WriteBindingInitializers(indent);
 
-            Writer.WriteLine(indent, "Main();");
+            WriteFunctionBody(indent, new FunctionIdentifier(mainMethodSymbol));
 
             var loopDocBuilder = new DocumentationBuilder(this);
             loopDocBuilder.WriteDocumentation(indent, loopMethodSymbol);
 
             Writer.WriteLine(indent, "while (True) {");
-            WriteLoopContents(indent + 1, functions, constructorAnalysis);
+            WriteLoopContents(indent + 1, functions, constructorAnalysis, loopMethodSymbol);
             Writer.WriteLine(indent, "}");
 
             if (mainMethodSymbol is not null)
@@ -114,7 +114,7 @@ public class ManiaScriptBodyBuilder
     {
         foreach (var functionSymbol in functions)
         {
-            if (functionSymbol.IsVirtual)
+            if (functionSymbol.IsVirtual || functionSymbol.IsOverride)
             {
                 if (functionSymbol.DeclaringSyntaxReferences.Length <= 0 ||
                     functionSymbol.DeclaringSyntaxReferences[0].GetSyntax() is not MethodDeclarationSyntax methodSyntax)
@@ -131,13 +131,13 @@ public class ManiaScriptBodyBuilder
             var docBuilder = new DocumentationBuilder(this);
             docBuilder.WriteDocumentation(indent: 0, functionSymbol);
 
-            if (functionSymbol.IsVirtual)
+            if (functionSymbol.IsVirtual || functionSymbol.IsOverride)
             {
                 Writer.Write("***");
             }
             else
             {
-                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.ReturnType.Name));
+                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.ReturnType));
                 Writer.Write(' ');
             }
 
@@ -148,7 +148,7 @@ public class ManiaScriptBodyBuilder
             
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.Name));
 
-            if (functionSymbol.IsVirtual)
+            if (functionSymbol.IsVirtual || functionSymbol.IsOverride)
             {
                 Writer.WriteLine("***");
                 Writer.WriteLine("***");
@@ -261,7 +261,7 @@ public class ManiaScriptBodyBuilder
     }
 
     private void WriteLoopContents(int indent, ImmutableArray<IMethodSymbol> functions,
-        ConstructorAnalysis constructorAnalysis)
+        ConstructorAnalysis constructorAnalysis, IMethodSymbol loopMethodSymbol)
     {
         Writer.WriteLine(indent, "yield;");
 
@@ -269,8 +269,8 @@ public class ManiaScriptBodyBuilder
         var eventForeachBuilder = new EventForeachBuilder(this);
         eventForeachBuilder.Write(indent, functions, constructorAnalysis);
         IsBuildingEventHandling = false;
-        
-        Writer.WriteLine(indent, "Loop();");
+
+        WriteFunctionBody(indent, new FunctionIdentifier(loopMethodSymbol));
     }
 
     public void WriteFunctionBody(int indent, Function function)

@@ -33,8 +33,6 @@ public class ManiaScriptGenerator : ISourceGenerator
             throw new Exception("build_property.rootNamespace not found");
         }
         
-        var wat = context.Compilation.GetCompilationNamespace(context.Compilation.GlobalNamespace);
-        
         var xmlSchemaXsd = default(string);
         var buildSettings = default(BuildSettings);
 
@@ -83,7 +81,7 @@ public class ManiaScriptGenerator : ISourceGenerator
                 .GetNamespaceMembers()
                 .Flatten(x => x.GetNamespaceMembers())
                 .SelectMany(x => x.GetTypeMembers()
-                    .Where(y => y.Interfaces.Any(z => z.Name == "IContext")));
+                    .Where(y => y.AllInterfaces.Any(z => z.Name == "IContext")));
 
             foreach (var scriptSymbol in scriptSymbols)
             {
@@ -185,7 +183,7 @@ public class ManiaScriptGenerator : ISourceGenerator
         }
         finally
         {
-            var pathList = CreateFilePathFromScriptSymbolInReverse(scriptSymbol, isEmbeddedScript, helper);
+            var pathList = CreateFilePathFromScriptSymbolInReverse(scriptSymbol, isEmbeddedScript, helper.RootNamespace);
 
             if (helper.BuildSettings?.Packed == true)
             {
@@ -200,7 +198,7 @@ public class ManiaScriptGenerator : ISourceGenerator
         }
     }
 
-    private static IEnumerable<string> CreateFilePathFromScriptSymbolInReverse(ISymbol scriptSymbol, bool isEmbeddedScript, GeneratorHelper helper)
+    public static IEnumerable<string> CreateFilePathFromScriptSymbolInReverse(ISymbol scriptSymbol, bool isEmbeddedScript, string rootNamespace)
     {
         var namespaces = GenericExtensions.Flatten(scriptSymbol.ContainingNamespace, symbol => symbol.ContainingNamespace);
         var namespaceFolderSymbols = namespaces.Where(x => !x.IsGlobalNamespace)
@@ -210,7 +208,7 @@ public class ManiaScriptGenerator : ISourceGenerator
         
         foreach (var namespaceSymbol in namespaceFolderSymbols)
         {
-            if (namespaceSymbol.ToDisplayString() == helper.RootNamespace)
+            if (namespaceSymbol.ToDisplayString() == rootNamespace)
             {
                 yield break;
             }
@@ -250,7 +248,7 @@ public class ManiaScriptGenerator : ISourceGenerator
 
     private static Stream OpenManialinkXmlStream(ISymbol scriptSymbol, GeneratorHelper helper)
     {
-        var pathList = CreateFilePathFromScriptSymbolInReverse(scriptSymbol, isEmbeddedScript: true, helper)
+        var pathList = CreateFilePathFromScriptSymbolInReverse(scriptSymbol, isEmbeddedScript: true, helper.RootNamespace)
             .Append(helper.ProjectDir)
             .Reverse()
             .ToArray();

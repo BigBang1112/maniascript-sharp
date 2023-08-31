@@ -15,5 +15,8 @@ public class ManiaScriptHead
     public ImmutableArray<IFieldSymbol> Consts { get; init; }
     public ImmutableArray<IFieldSymbol> Settings { get; init; }
     public ImmutableArray<ISymbol> Globals { get; init; }
+    public ImmutableArray<IPropertySymbol> Netwrites { get; init; }
+    public ImmutableArray<IPropertySymbol> Netreads { get; init; }
+    public ImmutableArray<IPropertySymbol> Locals { get; init; }
     public ImmutableArray<ISymbol> Bindings { get; init; }
 }
