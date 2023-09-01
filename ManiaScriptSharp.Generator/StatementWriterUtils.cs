@@ -21,6 +21,7 @@ public record StatementWriterUtils(int Indent, StatementSyntax Statement, Immuta
         WhileStatementSyntax => new WhileStatementWriter(),
         ReturnStatementSyntax => new ReturnStatementWriter(),
         ForEachVariableStatementSyntax => new ForEachVariableStatementWriter(),
+        SwitchStatementSyntax => new SwitchStatementWriter(),
         _ => null
     };
 }

@@ -205,10 +205,12 @@ public class ManiaScriptHeadBuilder
             .Where(x => x.IsValueType)
             .ToImmutableArray();
 
+        var knownStructNames = new HashSet<string>();
+
         foreach (var structSymbol in structSymbols)
         {
             Writer.Write("#Struct ");
-            Writer.Write(Standardizer.StandardizeStructName(structSymbol.Name));
+            Writer.Write(structSymbol.Name);
             Writer.WriteLine(" {");
 
             foreach (var memberSymbol in structSymbol.GetMembers().Where(x => x.DeclaredAccessibility == Accessibility.Public))
@@ -219,14 +221,14 @@ public class ManiaScriptHeadBuilder
                 switch (memberSymbol)
                 {
                     case IFieldSymbol fieldSymbol:
-                        type = Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.Name);
+                        type = Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type, knownStructNames);
                         name = fieldSymbol.Name;
                         break;
                     case IPropertySymbol propertySymbol:
                         
                         // TODO: be more flexible about getters and setters when they are not auto properties
 
-                        type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type.Name);
+                        type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type, knownStructNames);
                         name = propertySymbol.Name;
                         break;
                     default:
@@ -242,6 +244,8 @@ public class ManiaScriptHeadBuilder
 
             Writer.WriteLine("}");
             Writer.WriteLine();
+
+            knownStructNames.Add(structSymbol.Name);
         }
 
         return structSymbols;

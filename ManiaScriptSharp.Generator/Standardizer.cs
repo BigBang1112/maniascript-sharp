@@ -4,6 +4,7 @@ namespace ManiaScriptSharp.Generator;
 
 public static class Standardizer
 {
+    [Obsolete]
     public static string StandardizeStructName(string name)
     {
         if (name.Length == 0)
@@ -77,7 +78,7 @@ public static class Standardizer
     };
     
 
-    public static string CSharpTypeToManiaScriptType(ITypeSymbol csharpType)
+    public static string CSharpTypeToManiaScriptType(ITypeSymbol csharpType, HashSet<string>? knownStructNames = null)
     {
         if (csharpType is not INamedTypeSymbol namedTypeSymbol)
         {
@@ -90,28 +91,22 @@ public static class Standardizer
             var valSymbol = namedTypeSymbol.TypeArguments[1];
             
             var val = valSymbol is INamedTypeSymbol namedTypeSymbolVal
-                ? CSharpTypeToManiaScriptType(namedTypeSymbolVal)
+                ? CSharpTypeToManiaScriptType(namedTypeSymbolVal, knownStructNames)
                 : CSharpTypeToManiaScriptType(valSymbol.Name);
             
             var key = keySymbol is INamedTypeSymbol namedTypeSymbolKey
-                ? CSharpTypeToManiaScriptType(namedTypeSymbolKey)
+                ? CSharpTypeToManiaScriptType(namedTypeSymbolKey, knownStructNames)
                 : CSharpTypeToManiaScriptType(valSymbol.Name);
 
             return $"{val}[{key}]";
         }
-        
-        return csharpType.Name switch
+
+        if (csharpType.Name is "ImmutableArray" or "IList")
         {
-            "ImmutableArray" or "IList" => namedTypeSymbol.TypeArguments[0].Name switch
-            {
-                "Int32" => "Integer[]",
-                "Single" => "Real[]",
-                "Boolean" => "Boolean[]",
-                "String" => "Text[]",
-                _ => namedTypeSymbol.TypeArguments[0].Name + "[]"
-            },
-            _ => CSharpTypeToManiaScriptType(csharpType.Name)
-        };
+            return CSharpTypeToManiaScriptType(namedTypeSymbol.TypeArguments[0], knownStructNames) + "[]";
+        }
+        
+        return CSharpTypeToManiaScriptType(csharpType.Name);
     }
 
     public static string StandardizeName(string name)

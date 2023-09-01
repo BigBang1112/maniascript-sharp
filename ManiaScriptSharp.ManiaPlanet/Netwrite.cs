@@ -30,6 +30,11 @@ public class Netwrite<T>
         return new Netwrite<T>(team);
     }
 
+    public static Netwrite<T> For(CScore score)
+    {
+        return new Netwrite<T>(score);
+    }
+
     public static implicit operator T(Netwrite<T> netwrite)
     {
         return default!;
