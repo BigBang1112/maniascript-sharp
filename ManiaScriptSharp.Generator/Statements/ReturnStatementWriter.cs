@@ -14,7 +14,14 @@ public class ReturnStatementWriter : StatementWriter<ReturnStatementSyntax>
         }
         else
         {
-            Writer.Write(Indent, "return");
+            if (BodyBuilder.IsBuildingLoop)
+            {
+                Writer.Write(Indent, "continue");
+            }
+            else
+            {
+                Writer.Write(Indent, "return");
+            }
 
             if (statement.Expression is not null)
             {

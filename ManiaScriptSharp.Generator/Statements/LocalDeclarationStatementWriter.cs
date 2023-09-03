@@ -16,9 +16,11 @@ public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationS
         {
             Writer.Write(Indent, "declare ");
 
+            var typeSymbol = GetSymbol(statement.Declaration.Type) as ITypeSymbol;
+
             if (statement.Declaration.Type.IsVar)
             {
-                if (GetSymbol(statement.Declaration.Type) is ITypeSymbol typeSymbol)
+                if (typeSymbol is not null)
                 {
                     Writer.Write(Standardizer.CSharpTypeToManiaScriptType(typeSymbol));
                     Writer.Write(' ');
@@ -30,11 +32,17 @@ public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationS
                 Writer.Write(' ');
             }
 
+            var isDefault = typeSymbol is not null && BodyBuilder.Head.Structs.Contains(typeSymbol, SymbolEqualityComparer.Default);
+
             Writer.Write(Standardizer.StandardizeName(variable.Identifier.Text));
 
             if (variable.Initializer is not null)
             {
-                Writer.Write(" = ");
+                if (!isDefault || variable.Initializer.Value is not ImplicitObjectCreationExpressionSyntax)
+                {
+                    Writer.Write(" = ");
+                }
+
                 WriteSyntax(variable.Initializer.Value);
             }
 
@@ -97,7 +105,14 @@ public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationS
         }
 
         Writer.Write(' ');
+
+        if (declarationModeKeyword is "netwrite" or "netread")
+        {
+            Writer.Write("Net_");
+        }
+
         Writer.Write(Standardizer.StandardizeName(variable.Identifier.Text));
+
         Writer.Write(" for ");
         
         WriteSyntax(expression.ArgumentList.Arguments[0].Expression); 

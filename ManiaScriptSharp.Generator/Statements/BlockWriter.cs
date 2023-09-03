@@ -20,5 +20,11 @@ public class BlockWriter : StatementWriter<BlockSyntax>
         }
         
         Writer.WriteLine(Indent, "}");
+
+        while (BodyBuilder.AfterBlockLineQueue.Count > 0)
+        {
+            var line = BodyBuilder.AfterBlockLineQueue.Dequeue();
+            Writer.WriteLine(Indent, line);
+        }
     }
 }

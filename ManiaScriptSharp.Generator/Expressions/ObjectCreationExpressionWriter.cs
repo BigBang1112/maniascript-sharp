@@ -8,7 +8,7 @@ public class ObjectCreationExpressionWriter : ExpressionWriter<ObjectCreationExp
     {
         var symbol = GetSymbol(expression.Type);
 
-        if (symbol?.Name == "Vec2" && symbol.ContainingNamespace?.Name == "ManiaScriptSharp")
+        if (symbol?.Name is "Vec2" or "Vec3" && symbol.ContainingNamespace?.Name == "ManiaScriptSharp")
         {
             Writer.Write('<');
 

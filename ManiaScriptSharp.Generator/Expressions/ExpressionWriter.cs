@@ -46,7 +46,12 @@ public abstract class ExpressionWriter : SyntaxWriter
 
     protected void WriteSyntax(ExpressionSyntax expression)
     {
-        WriteSyntax(new ExpressionWriterUtils(Indent, expression, Parameters, BodyBuilder));
+        WriteSyntax(expression, BodyBuilder);
+    }
+
+    protected void WriteSyntax(ExpressionSyntax expression, ManiaScriptBodyBuilder bodyBuilder)
+    {
+        WriteSyntax(new ExpressionWriterUtils(Indent, expression, Parameters, bodyBuilder));
     }
 
     protected void WriteSyntax(StatementSyntax statement)

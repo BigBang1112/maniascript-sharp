@@ -28,6 +28,11 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
         if (symbol?.Name is "Get" or "Set" && CachedData.DeclarationModes.Contains(symbol.ContainingType.Name)
                                           && expression.Expression is MemberAccessExpressionSyntax memberAccessExpressionSyntax)
         {
+            if (symbol.ContainingType.Name is "Netwrite" or "Netread")
+            {
+                Writer.Write("Net_");
+            }
+
             WriteSyntax(memberAccessExpressionSyntax.Expression);
 
             if (symbol.Name is not "Set")
@@ -36,6 +41,7 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
             }
 
             Writer.Write(" = ");
+
             WriteSyntax(expression.ArgumentList.Arguments[0].Expression);
 
             return;
@@ -50,7 +56,14 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
         {
             Writer.Write("Private_");
         }
-        
+
+        if (symbol?.Name == "ToString" && expression.Expression is MemberAccessExpressionSyntax memberSyntax)
+        {
+            WriteSyntax(memberSyntax.Expression);
+            Writer.Write(" ^ \"\"");
+            return;
+        }
+
         WriteSyntax(expression.Expression);
 
         if (symbol?.IsVirtual == true)
@@ -63,7 +76,7 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
         {
             return;
         }
-        
+
         Writer.Write('(');
 
         for (var i = 0; i < expression.ArgumentList.Arguments.Count; i++)
@@ -76,6 +89,14 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
             var argument = expression.ArgumentList.Arguments[i];
             
             WriteSyntax(argument.Expression);
+
+            if (symbol is IMethodSymbol methodSymbol
+                && argument.Expression is LiteralExpressionSyntax { Token.Value: int }
+                or PrefixUnaryExpressionSyntax { Operand: LiteralExpressionSyntax { Token.Value: int } }
+                && methodSymbol.Parameters[i].Type.Name is "Single" or "Double")
+            {
+                Writer.Write(".0");
+            }
         }
 
         Writer.Write(')');

@@ -15,7 +15,9 @@ public class ManiaScriptBodyBuilder
     public GeneratorHelper Helper { get; }
 
     public bool IsBuildingEventHandling { get; private set; }
+    public bool IsBuildingLoop { get; private set; }
     public Queue<string> BlockLineQueue { get; } = new();
+    public Queue<string> AfterBlockLineQueue { get; } = new();
 
     public ManiaScriptBodyBuilder(
         INamedTypeSymbol scriptSymbol,
@@ -270,7 +272,9 @@ public class ManiaScriptBodyBuilder
         eventForeachBuilder.Write(indent, functions, constructorAnalysis);
         IsBuildingEventHandling = false;
 
+        IsBuildingLoop = true;
         WriteFunctionBody(indent, new FunctionIdentifier(loopMethodSymbol));
+        IsBuildingLoop = false;
     }
 
     public void WriteFunctionBody(int indent, Function function)

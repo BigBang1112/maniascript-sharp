@@ -39,7 +39,7 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
 
         var isDeclareFor = (expressionSymbol?.GetAttributes()
             .Any(x => x.AttributeClass?.Name is NameConsts.NetwriteAttribute) ?? false)
-            && nameSymbol?.Name is "Clear";
+            && nameSymbol?.Name is "Clear" or "Add";
 
         if (!isDeclareFor)
         {
@@ -70,7 +70,8 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
         "IList",
         "ICollection",
         "ImmutableArray",
-        "ObjectExtensions"
+        "ObjectExtensions",
+        "object"
     };
 
     private bool TryRemap(ISymbol? nameSymbol, string? expressionName, bool isDeclareFor)
@@ -98,9 +99,15 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
             return true;
         }
 
+        if (nameSymbol.Name == "Count")
+        {
+            Writer.Write("count");
+            return true;
+        }
+
         if (nameSymbol.Name == "Add")
         {
-            Writer.Write("add");
+            Writer.Write(isDeclareFor && expressionName is not null ? "AddTo" + expressionName : "add");
             return true;
         }
 

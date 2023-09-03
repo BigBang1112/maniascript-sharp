@@ -432,18 +432,14 @@ public class ManiaScriptHeadBuilder
             {
                 case IFieldSymbol fieldSymbol:
                     if (fieldSymbol.IsConst) continue;
-                    type = fieldSymbol.Type is INamedTypeSymbol fieldNamedTypeSymbol
-                        ? Standardizer.CSharpTypeToManiaScriptType(fieldNamedTypeSymbol)
-                        : Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type.Name);
+                    type = Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type);
                     name = fieldSymbol.Name;
                     break;
                 case IPropertySymbol propertySymbol:
 
                     // TODO: be more flexible about getters and setters when they are not auto properties
 
-                    type = propertySymbol.Type is INamedTypeSymbol propNamedTypeSymbol
-                        ? Standardizer.CSharpTypeToManiaScriptType(propNamedTypeSymbol)
-                        : Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type.Name);
+                    type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type);
                     name = propertySymbol.Name;
                     break;
                 default:
@@ -556,6 +552,21 @@ public class ManiaScriptHeadBuilder
                 Writer.Write(indent: 1, "Net_");
                 Writer.Write(Standardizer.StandardizeName(netwrite.Name));
                 Writer.WriteLine(".clear();");
+                Writer.WriteLine("}");
+                Writer.WriteLine();
+            }
+
+            if (netwrite.Type.Name is "IList" or "ImmutableArray" or "ICollection")
+            {
+                Writer.Write("Void AddTo");
+                Writer.Write(Standardizer.StandardizeName(netwrite.Name));
+                Writer.Write("(");
+                Writer.Write(Standardizer.CSharpTypeToManiaScriptType((netwrite.Type as INamedTypeSymbol)?.TypeArguments[0] ?? throw new Exception()));
+                Writer.WriteLine(" _Value) {");
+                DeclareNetwrite(indent: 1, netwrite);
+                Writer.Write(indent: 1, "Net_");
+                Writer.Write(Standardizer.StandardizeName(netwrite.Name));
+                Writer.WriteLine(".add(_Value);");
                 Writer.WriteLine("}");
                 Writer.WriteLine();
             }

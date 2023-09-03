@@ -9,10 +9,10 @@ public class IsPatternExpressionWriter : ExpressionWriter<IsPatternExpressionSyn
         WritePattern(expression.Pattern,
             expression.Expression,
             new[] {expression.Expression},
-            new Dictionary<ExpressionSyntax, TypeSyntax>());
+            new Dictionary<ExpressionSyntax, TypeSyntax>(), unary: false);
 
         void WritePattern(PatternSyntax pattern, ExpressionSyntax currentExpression, ExpressionSyntax[] expressions,
-            Dictionary<ExpressionSyntax, TypeSyntax> types)
+            Dictionary<ExpressionSyntax, TypeSyntax> types, bool unary)
         {
             switch (pattern)
             {
@@ -57,7 +57,7 @@ public class IsPatternExpressionWriter : ExpressionWriter<IsPatternExpressionSyn
                                 WritePattern(subpattern.Pattern,
                                     subpattern.ExpressionColon.Expression,
                                     expressions.Append(subpattern.ExpressionColon.Expression).ToArray(),
-                                    types);
+                                    types, unary);
                                 
                                 continue;
                             }
@@ -70,7 +70,7 @@ public class IsPatternExpressionWriter : ExpressionWriter<IsPatternExpressionSyn
                             WritePattern(subpattern.Pattern,
                                 subpattern.NameColon.Expression,
                                 expressions.Append(subpattern.NameColon.Expression).ToArray(),
-                                types);
+                                types, unary);
 
                             if (hasFurtherSubpatterns)
                             {
@@ -81,7 +81,7 @@ public class IsPatternExpressionWriter : ExpressionWriter<IsPatternExpressionSyn
             
                     if (recursivePatternSyntax.Designation is not null)
                     {
-                        WriteDesignation(recursivePatternSyntax.Designation, expressions, types);
+                        WriteDesignation(recursivePatternSyntax.Designation, expressions, types, unary);
                     }
                     break;
                 case DeclarationPatternSyntax declarationPatternSyntax:
@@ -89,7 +89,7 @@ public class IsPatternExpressionWriter : ExpressionWriter<IsPatternExpressionSyn
                     Writer.Write(" is ");
                     WriteSyntax(declarationPatternSyntax.Type);
                     types[currentExpression] = declarationPatternSyntax.Type;
-                    WriteDesignation(declarationPatternSyntax.Designation, expressions, types);
+                    WriteDesignation(declarationPatternSyntax.Designation, expressions, types, unary);
                     break;
                 case ConstantPatternSyntax constantPatternSyntax:
                     WriteExpression(BodyBuilder, expressions, types);
@@ -104,7 +104,7 @@ public class IsPatternExpressionWriter : ExpressionWriter<IsPatternExpressionSyn
                     WriteSyntax(relationalPatternSyntax.Expression);
                     break;
                 case BinaryPatternSyntax binaryPatternSyntax:
-                    WritePattern(binaryPatternSyntax.Left, currentExpression, expressions, types);
+                    WritePattern(binaryPatternSyntax.Left, currentExpression, expressions, types, unary);
                     
                     switch (binaryPatternSyntax.OperatorToken.Text)
                     {
@@ -116,17 +116,17 @@ public class IsPatternExpressionWriter : ExpressionWriter<IsPatternExpressionSyn
                             break;
                     }
                     
-                    WritePattern(binaryPatternSyntax.Right, currentExpression, expressions, types);
+                    WritePattern(binaryPatternSyntax.Right, currentExpression, expressions, types, unary);
                     
                     break;
                 case ParenthesizedPatternSyntax parenthesizedPatternSyntax:
                     Writer.Write('(');
-                    WritePattern(parenthesizedPatternSyntax.Pattern, currentExpression, expressions, types);
+                    WritePattern(parenthesizedPatternSyntax.Pattern, currentExpression, expressions, types, unary);
                     Writer.Write(')');
                     break;
                 case UnaryPatternSyntax unaryPatternSyntax:
                     Writer.Write("!(");
-                    WritePattern(unaryPatternSyntax.Pattern, currentExpression, expressions, types);
+                    WritePattern(unaryPatternSyntax.Pattern, currentExpression, expressions, types, !unary);
                     Writer.Write(')');
                     break;
                 default:
@@ -138,7 +138,7 @@ public class IsPatternExpressionWriter : ExpressionWriter<IsPatternExpressionSyn
 
             void WriteDesignation(VariableDesignationSyntax designation,
                 IReadOnlyList<ExpressionSyntax> expressionSyntaxes,
-                IReadOnlyDictionary<ExpressionSyntax, TypeSyntax> typeSyntaxes)
+                IReadOnlyDictionary<ExpressionSyntax, TypeSyntax> typeSyntaxes, bool unary)
             {
                 if (designation is SingleVariableDesignationSyntax singleVariableSyntax)
                 {
@@ -153,8 +153,15 @@ public class IsPatternExpressionWriter : ExpressionWriter<IsPatternExpressionSyn
                             BodyBuilder.Head, BodyBuilder.Helper), expressionSyntaxes, typeSyntaxes);
                     
                     lineBuilder.Write(';');
-                    
-                    BodyBuilder.BlockLineQueue.Enqueue(lineBuilder.ToString());
+
+                    if (unary)
+                    {
+                        BodyBuilder.AfterBlockLineQueue.Enqueue(lineBuilder.ToString());
+                    }
+                    else
+                    {
+                        BodyBuilder.BlockLineQueue.Enqueue(lineBuilder.ToString());
+                    }
                 }
                 else
                 {
@@ -181,12 +188,12 @@ public class IsPatternExpressionWriter : ExpressionWriter<IsPatternExpressionSyn
         {
             var expressionSyntax = expressions[i];
                     
-            WriteSyntax(expressionSyntax);
+            WriteSyntax(expressionSyntax, bodyBuilder);
 
             if (types.TryGetValue(expressionSyntax, out var typeSyntax))
             {
                 bodyBuilder.Writer.Write(" as ");
-                WriteSyntax(typeSyntax);
+                WriteSyntax(typeSyntax, bodyBuilder);
                 bodyBuilder.Writer.Write(')');
             }
 

@@ -26,16 +26,23 @@ public class ImplicitObjectCreationExpressionWriter : ExpressionWriter<ImplicitO
             foreach (var e in expression.Initializer.Expressions)
             {
                 Writer.WriteLine(';');
-
-                if (expression.Parent is not AssignmentExpressionSyntax assignment)
-                {
-                    Writer.Write("// expression parent not supported");
-                    continue;
-                }
-
                 Writer.WriteIndent(Indent);
-                WriteSyntax(assignment.Left);
-                WriteSyntax(e);
+
+                if (expression.Parent is AssignmentExpressionSyntax assignment)
+                {
+                    WriteSyntax(assignment.Left);
+                    WriteSyntax(e);
+                }
+                else if (expression.Parent is EqualsValueClauseSyntax equals && equals.Parent is VariableDeclaratorSyntax declarator)
+                {
+                    Writer.Write(Standardizer.StandardizeName(declarator.Identifier.Text));
+                    Writer.Write('.');
+                    WriteSyntax(e);
+                }
+                else
+                {
+                    Writer.Write($"// expression parent {expression.Parent?.GetType().Name ?? "unknown"}");
+                }
             }
         }
     }

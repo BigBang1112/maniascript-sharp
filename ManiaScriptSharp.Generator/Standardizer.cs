@@ -85,6 +85,20 @@ public static class Standardizer
             return CSharpTypeToManiaScriptType(csharpType.Name);
         }
 
+        if (csharpType.TypeKind is TypeKind.Enum)
+        {
+            var name = namedTypeSymbol.Name;
+            var containType = namedTypeSymbol.ContainingType;
+
+            while (containType is not null)
+            {
+                name = $"{containType.Name}::{name}";
+                containType = containType.ContainingType;
+            }
+
+            return name;
+        }
+
         if (csharpType.Name == "Dictionary")
         {
             var keySymbol = namedTypeSymbol.TypeArguments[0];
@@ -124,6 +138,5 @@ public static class Standardizer
         var charArray = name.ToCharArray();
         charArray[0] = char.ToUpper(charArray[0]);
         return new string(charArray);
-
     }
 }

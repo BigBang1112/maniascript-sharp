@@ -607,8 +607,17 @@ public class EventForeachBuilder
 
                     Writer.Write(indent, "declare ");
                     Writer.Write(standName);
-                    Writer.Write(" = Event.");
-                    Writer.Write(actualName);
+
+                    if (isGeneralEvent)
+                    {
+                        Writer.Write(" <=> Event");
+                    }
+                    else
+                    {
+                        Writer.Write(" = Event.");
+                        Writer.Write(actualName);
+                    }
+
                     Writer.WriteLine(";");
                 }
 
