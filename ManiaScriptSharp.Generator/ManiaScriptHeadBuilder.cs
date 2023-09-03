@@ -36,10 +36,10 @@ public class ManiaScriptHeadBuilder
         Consts = BuildConsts(),
         Settings = BuildSettings(),
         Globals = BuildGlobals(),
+        Bindings = BuildBindings(),
         Netwrites = BuildNetwrites(),
         Netreads = BuildNetreads(),
-        Locals = BuildLocals(),
-        Bindings = BuildBindings()
+        Locals = BuildLocals()
     };
 
     private INamedTypeSymbol BuildContext()
@@ -501,13 +501,17 @@ public class ManiaScriptHeadBuilder
 
         foreach (var netwrite in netwrites)
         {
+            var forType = netwrite.GetAttributes()
+                .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.NetwriteAttribute)?
+                .ConstructorArguments.FirstOrDefault().Value;
+
             var isNetOverwrite = netOverwrites.TryGetValue(netwrite.Name, out var isReadOnly);
 
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
             Writer.Write(" Get");
             Writer.Write(Standardizer.StandardizeName(netwrite.Name));
             Writer.WriteLine("() {");
-            DeclareNetwrite(indent: 1, netwrite);
+            DeclareNetwrite(indent: 1, netwrite, forType);
 
             if (isNetOverwrite)
             {
@@ -529,7 +533,7 @@ public class ManiaScriptHeadBuilder
             Writer.Write('(');
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
             Writer.WriteLine(" _Value) {");
-            DeclareNetwrite(indent: 1, netwrite);
+            DeclareNetwrite(indent: 1, netwrite, forType);
 
             if (isNetOverwrite && !isReadOnly)
             {
@@ -548,7 +552,7 @@ public class ManiaScriptHeadBuilder
                 Writer.Write("Void Clear");
                 Writer.Write(Standardizer.StandardizeName(netwrite.Name));
                 Writer.WriteLine("() {");
-                DeclareNetwrite(indent: 1, netwrite);
+                DeclareNetwrite(indent: 1, netwrite, forType);
                 Writer.Write(indent: 1, "Net_");
                 Writer.Write(Standardizer.StandardizeName(netwrite.Name));
                 Writer.WriteLine(".clear();");
@@ -563,7 +567,7 @@ public class ManiaScriptHeadBuilder
                 Writer.Write("(");
                 Writer.Write(Standardizer.CSharpTypeToManiaScriptType((netwrite.Type as INamedTypeSymbol)?.TypeArguments[0] ?? throw new Exception()));
                 Writer.WriteLine(" _Value) {");
-                DeclareNetwrite(indent: 1, netwrite);
+                DeclareNetwrite(indent: 1, netwrite, forType);
                 Writer.Write(indent: 1, "Net_");
                 Writer.Write(Standardizer.StandardizeName(netwrite.Name));
                 Writer.WriteLine(".add(_Value);");
@@ -574,13 +578,25 @@ public class ManiaScriptHeadBuilder
 
         return netwrites;
 
-        void DeclareNetwrite(int indent, IPropertySymbol netwrite)
+        void DeclareNetwrite(int indent, IPropertySymbol netwrite, object? forType)
         {
             Writer.Write(indent, "declare netwrite ");
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
             Writer.Write(" Net_");
             Writer.Write(Standardizer.StandardizeName(netwrite.Name));
-            Writer.WriteLine(" for Teams[0];");
+            Writer.Write(" for ");
+
+            switch (forType)
+            {
+                case 0:
+                    Writer.Write("Teams[0]");
+                    break;
+                case 1:
+                    Writer.Write("UI");
+                    break;
+            }
+
+            Writer.WriteLine(";");
         }
     }
 
@@ -593,11 +609,15 @@ public class ManiaScriptHeadBuilder
 
         foreach (var netread in netreads)
         {
+            var forType = netread.GetAttributes()
+                .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.NetreadAttribute)?
+                .ConstructorArguments.FirstOrDefault().Value;
+
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netread.Type));
             Writer.Write(" Get");
             Writer.Write(Standardizer.StandardizeName(netread.Name));
             Writer.WriteLine("() {");
-            DeclareNetread(indent: 1, netread);
+            DeclareNetread(indent: 1, netread, forType);
             Writer.Write(indent: 1, "return Net_");
             Writer.Write(Standardizer.StandardizeName(netread.Name));
             Writer.WriteLine(";");
@@ -607,13 +627,25 @@ public class ManiaScriptHeadBuilder
 
         return netreads;
 
-        void DeclareNetread(int indent, IPropertySymbol netwrite)
+        void DeclareNetread(int indent, IPropertySymbol netwrite, object? forType)
         {
             Writer.Write(indent, "declare netread ");
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
             Writer.Write(" Net_");
             Writer.Write(Standardizer.StandardizeName(netwrite.Name));
-            Writer.WriteLine(" for Teams[0];");
+            Writer.Write(" for ");
+            
+            switch(forType)
+            {
+                case 0:
+                    Writer.Write("Teams[0]");
+                    break;
+                case 1:
+                    Writer.Write("UI");
+                    break;
+            }
+
+            Writer.WriteLine(";");
         }
     }
 

@@ -2,5 +2,6 @@
 
 public enum NetFor
 {
-    Teams0
+    Teams0,
+    UI
 }

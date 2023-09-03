@@ -79,7 +79,9 @@ public class ManiaScriptBodyBuilder
         
         WriteFunctions(functions);
 
-        var indent = functions.Length == 0 ? 0 : 1;
+        var addMain = functions.Length > 0 || Head.Netreads.Length > 0 || Head.Netwrites.Length > 0 || Head.Locals.Length > 0;
+
+        var indent = addMain ? 1 : 0;
 
         if (hasContextSymbol)
         {
@@ -89,7 +91,10 @@ public class ManiaScriptBodyBuilder
             var mainDocBuilder = new DocumentationBuilder(this);
             mainDocBuilder.WriteDocumentation(0, mainMethodSymbol);
 
-            Writer.WriteLine("main() {");
+            if (addMain)
+            {
+                Writer.WriteLine("main() {");
+            }
 
             WriteGlobalInitializers(indent);
             WriteBindingInitializers(indent);
@@ -103,7 +108,7 @@ public class ManiaScriptBodyBuilder
             WriteLoopContents(indent + 1, functions, constructorAnalysis, loopMethodSymbol);
             Writer.WriteLine(indent, "}");
 
-            if (mainMethodSymbol is not null)
+            if (addMain)
             {
                 Writer.WriteLine("}");
             }
