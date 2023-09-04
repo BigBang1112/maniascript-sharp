@@ -35,6 +35,16 @@ public class Netwrite<T>
         return new Netwrite<T>(score);
     }
 
+    public static Netwrite<T> For(CUIConfig ui)
+    {
+        return new Netwrite<T>(ui);
+    }
+
+    public static Netwrite<T> For(CTmPlayer player)
+    {
+        return new Netwrite<T>(player);
+    }
+
     public static implicit operator T(Netwrite<T> netwrite)
     {
         return default!;

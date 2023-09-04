@@ -72,10 +72,6 @@ public class ManiaScriptBodyBuilder
         }
 
         var functions = functionsBuilder.ToImmutable();
-
-        _ = constructorSymbol ?? throw new Exception("Constructor not found");
-
-        var constructorAnalysis = ConstructorAnalysis.Analyze(constructorSymbol, SemanticModel, Helper);
         
         WriteFunctions(functions);
 
@@ -87,6 +83,9 @@ public class ManiaScriptBodyBuilder
         {
             _ = mainMethodSymbol ?? throw new Exception("Main method not found");
             _ = loopMethodSymbol ?? throw new Exception("Loop method not found");
+            _ = constructorSymbol ?? throw new Exception("Constructor not found");
+
+            var constructorAnalysis = ConstructorAnalysis.Analyze(constructorSymbol, SemanticModel, Helper);
 
             var mainDocBuilder = new DocumentationBuilder(this);
             mainDocBuilder.WriteDocumentation(0, mainMethodSymbol);
@@ -180,7 +179,7 @@ public class ManiaScriptBodyBuilder
                     Writer.Write(", ");
                 }
 
-                Writer.Write(Standardizer.CSharpTypeToManiaScriptType((INamedTypeSymbol) parameter.Type));
+                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(parameter.Type));
                 Writer.Write(' ');
                 Writer.Write(Standardizer.StandardizeUnderscoreName(parameter.Name));
             }

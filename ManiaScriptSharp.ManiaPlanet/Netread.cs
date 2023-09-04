@@ -25,4 +25,19 @@ public class Netread<T>
     {
         return new Netread<T>(default!, team);
     }
+
+    public static Netread<T> For(CScore score)
+    {
+        return new Netread<T>(default!, score);
+    }
+
+    public static Netread<T> For(CUIConfig ui)
+    {
+        return new Netread<T>(default!, ui);
+    }
+
+    public static Netread<T> For(CTmPlayer player)
+    {
+        return new Netread<T>(default!, player);
+    }
 }

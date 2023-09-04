@@ -80,8 +80,7 @@ public class ManiaScriptGenerator : ISourceGenerator
                 .GlobalNamespace
                 .GetNamespaceMembers()
                 .Flatten(x => x.GetNamespaceMembers())
-                .SelectMany(x => x.GetTypeMembers()
-                    .Where(y => y.AllInterfaces.Any(z => z.Name == "IContext")));
+                .SelectMany(x => x.GetTypeMembers());
 
             foreach (var scriptSymbol in scriptSymbols)
             {

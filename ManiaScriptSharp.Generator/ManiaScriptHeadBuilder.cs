@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Linq;
 using System.Xml;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -201,13 +200,13 @@ public class ManiaScriptHeadBuilder
 
     private ImmutableArray<INamedTypeSymbol> BuildStructs()
     {
-        var structSymbols = ScriptSymbol.GetTypeMembers()
+        var structSymbolsList = ScriptSymbol.GetTypeMembers()
             .Where(x => x.IsValueType)
-            .ToImmutableArray();
+            .ToList();
 
         var knownStructNames = new HashSet<string>();
 
-        foreach (var structSymbol in structSymbols)
+        foreach (var structSymbol in structSymbolsList)
         {
             Writer.Write("#Struct ");
             Writer.Write(structSymbol.Name);
@@ -248,7 +247,19 @@ public class ManiaScriptHeadBuilder
             knownStructNames.Add(structSymbol.Name);
         }
 
-        return structSymbols;
+        var baseType = ScriptSymbol.BaseType;
+
+        while (baseType is not null)
+        {
+            foreach (var structSymbol in baseType.GetTypeMembers().Where(x => x.IsValueType))
+            {
+                structSymbolsList.Add(structSymbol);
+            }
+
+            baseType = baseType.BaseType;
+        }
+
+        return structSymbolsList.ToImmutableArray();
     }
 
     private ImmutableArray<INamedTypeSymbol> BuildIncludes()
