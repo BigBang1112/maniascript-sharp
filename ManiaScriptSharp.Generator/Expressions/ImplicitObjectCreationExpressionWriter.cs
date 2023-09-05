@@ -13,9 +13,30 @@ public class ImplicitObjectCreationExpressionWriter : ExpressionWriter<ImplicitO
             case "Dictionary":
             case "IList":
             case "List":
-            case "ImmutableArray":
                 Writer.Write("[]");
                 break;
+            case "ImmutableArray":
+                Writer.Write('[');
+                if (expression.Initializer is not null)
+                {
+                    var first = true;
+
+                    foreach (var e in expression.Initializer.Expressions)
+                    {
+                        if (first)
+                        {
+                            first = false;
+                        }
+                        else
+                        {
+                            Writer.Write(", ");
+                        }
+
+                        WriteSyntax(e);
+                    }
+                }
+                Writer.Write("]");
+                return;
             case null:
                 // May leave empty assignments
                 return;
