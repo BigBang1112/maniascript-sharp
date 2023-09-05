@@ -16,6 +16,8 @@ public class ManiaScriptHeadBuilder
     public GeneratorHelper Helper { get; }
     public XmlDocument? ManialinkXml { get; }
 
+    private readonly HashSet<string> knownStructNames = new();
+
     public ManiaScriptHeadBuilder(INamedTypeSymbol scriptSymbol, SemanticModel semanticModel, TextWriter writer,
         GeneratorHelper helper, XmlDocument? manialinkXml = null)
     {
@@ -41,11 +43,11 @@ public class ManiaScriptHeadBuilder
         Locals = BuildLocals()
     };
 
-    private INamedTypeSymbol BuildContext()
+    private INamedTypeSymbol? BuildContext()
     {
-        if (ScriptSymbol.BaseType is null)
+        if (ScriptSymbol.BaseType is null or { Name: "Object" })
         {
-            throw new Exception("Context script requires a specific class context.");
+            return null;
         }
         
         if (ManialinkXml is not null)
@@ -204,8 +206,6 @@ public class ManiaScriptHeadBuilder
             .Where(x => x.IsValueType)
             .ToList();
 
-        var knownStructNames = new HashSet<string>();
-
         foreach (var structSymbol in structSymbolsList)
         {
             Writer.Write("#Struct ");
@@ -274,6 +274,23 @@ public class ManiaScriptHeadBuilder
 
         Writer.WriteLine();
 
+        foreach (var att in ScriptSymbol.GetAttributes().Where(x => x.AttributeClass?.Name is "IncludeAttribute"))
+        {
+            if (att.ConstructorArguments.FirstOrDefault().Value is not ITypeSymbol typeSymbol)
+            {
+                continue;
+            }
+
+            var filePath = string.Join("/", ManiaScriptGenerator.CreateFilePathFromScriptSymbolInReverse(typeSymbol, isEmbeddedScript: false, Helper.RootNamespace).Reverse().Skip(1));
+
+            Writer.Write("#Include \"");
+            Writer.Write(filePath);
+            Writer.Write("\" as ");
+            Writer.WriteLine((att.ConstructorArguments.FirstOrDefault().Value as ITypeSymbol)?.Name);
+        }
+
+        Writer.WriteLine();
+
         return ImmutableArray<INamedTypeSymbol>.Empty;
     }
 
@@ -329,16 +346,30 @@ public class ManiaScriptHeadBuilder
         var fields = ScriptSymbol.GetMembers()
             .OfType<IFieldSymbol>();
         
-        var settings = WriteSettings(fields).ToImmutableArray();
+        var settings = WriteSettings(fields).ToList();
 
-        if (settings.Length == 0)
+        if (settings.Count == 0)
         {
             Writer.WriteLine("// No settings");
         }
         
         Writer.WriteLine();
 
-        return settings;
+        var baseType = ScriptSymbol.BaseType;
+
+        while (baseType is not null)
+        {
+            foreach (var symbol in baseType.GetMembers()
+                .OfType<IFieldSymbol>()
+                .Where(x => x.GetAttributes().Any(y => y.AttributeClass?.Name == NameConsts.SettingAttribute)))
+            {
+                settings.Add(symbol);
+            }
+
+            baseType = baseType.BaseType;
+        }
+
+        return settings.ToImmutableArray();
     }
 
     private IEnumerable<IFieldSymbol> WriteSettings(IEnumerable<IFieldSymbol> fields)
@@ -418,39 +449,53 @@ public class ManiaScriptHeadBuilder
 
     private ImmutableArray<ISymbol> BuildGlobals()
     {
-        var globals = WriteGlobals().ToImmutableArray();
+        var globalsList = WriteGlobals(ScriptSymbol);
         
-        if (globals.Length > 0)
+        if (globalsList.Count > 0)
         {
             Writer.WriteLine();
         }
+
+        var baseType = ScriptSymbol.BaseType;
+
+        while (baseType is not null && baseType.ContainingNamespace.Name != "ManiaScriptSharp")
+        {
+            foreach (var memberSymbol in GetGlobals(baseType))
+            {
+                globalsList.Add(memberSymbol);
+            }
+
+            baseType = baseType.BaseType;
+        }
         
-        return globals;
+        return globalsList.ToImmutableArray();
     }
-    
-    private IEnumerable<ISymbol> WriteGlobals()
+
+    private IList<ISymbol> GetGlobals(INamedTypeSymbol namedTypeSymbol)
     {
-        var globals = ScriptSymbol.GetMembers()
-            .Where(x => x.DeclaredAccessibility == Accessibility.Public
-                        && (additionalConsts.IsDefaultOrEmpty || !additionalConsts.Contains(x, SymbolEqualityComparer.Default)));
-        
+        var globalsList = new List<ISymbol>();
+
+        var globals = namedTypeSymbol.GetMembers()
+            .Where(symbol => symbol.DeclaredAccessibility == Accessibility.Public
+                && (additionalConsts.IsDefaultOrEmpty || !additionalConsts.Contains(symbol, SymbolEqualityComparer.Default)));
+
         foreach (var memberSymbol in globals)
         {
-            string type;
+            ITypeSymbol type;
             string name;
 
             switch (memberSymbol)
             {
                 case IFieldSymbol fieldSymbol:
                     if (fieldSymbol.IsConst) continue;
-                    type = Standardizer.CSharpTypeToManiaScriptType(fieldSymbol.Type);
+                    type = fieldSymbol.Type;
                     name = fieldSymbol.Name;
                     break;
                 case IPropertySymbol propertySymbol:
 
                     // TODO: be more flexible about getters and setters when they are not auto properties
 
-                    type = Standardizer.CSharpTypeToManiaScriptType(propertySymbol.Type);
+                    type = propertySymbol.Type;
                     name = propertySymbol.Name;
                     break;
                 default:
@@ -467,17 +512,31 @@ public class ManiaScriptHeadBuilder
                 continue;
             }
 
-            Writer.Write("declare ");
-            Writer.Write(type);
-            Writer.Write(' ');
-            Writer.Write(Standardizer.StandardizeGlobalName(name));
-            Writer.WriteLine(";");
-
-            yield return memberSymbol;
+            globalsList.Add(memberSymbol);
         }
+
+        return globalsList;
     }
 
-    private Dictionary<string, bool> GetNetOverwrites(ImmutableArray<IPropertySymbol> netVariables)
+    public IList<ISymbol> WriteGlobals(INamedTypeSymbol namedTypeSymbol)
+    {
+        var globals = GetGlobals(namedTypeSymbol);
+
+        foreach (var symbol in globals)
+        {
+            var type = (symbol is IFieldSymbol field ? field.Type : (symbol as IPropertySymbol)?.Type) ?? throw new Exception("Invalid global symbol");
+            
+            Writer.Write("declare ");
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(type, knownStructNames));
+            Writer.Write(' ');
+            Writer.Write(Standardizer.StandardizeGlobalName(symbol.Name));
+            Writer.WriteLine(";");
+        }
+
+        return globals;
+    }
+
+    private Dictionary<string, bool> GetNetOverwrites(IEnumerable<IPropertySymbol> netVariables)
     {
         var typeToScan = ScriptSymbol.BaseType;
         var names = netVariables.Select(x => x.Name).ToImmutableHashSet();
@@ -506,7 +565,7 @@ public class ManiaScriptHeadBuilder
         var netwrites = ScriptSymbol.GetMembers()
             .OfType<IPropertySymbol>()
             .Where(x => x.GetAttributes().Any(y => y.AttributeClass?.Name == NameConsts.NetwriteAttribute))
-            .ToImmutableArray();
+            .ToList();
 
         var netOverwrites = GetNetOverwrites(netwrites);
 
@@ -518,7 +577,7 @@ public class ManiaScriptHeadBuilder
 
             var isNetOverwrite = netOverwrites.TryGetValue(netwrite.Name, out var isReadOnly);
 
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type, knownStructNames));
             Writer.Write(" Get");
             Writer.Write(Standardizer.StandardizeName(netwrite.Name));
             Writer.WriteLine("() {");
@@ -542,7 +601,7 @@ public class ManiaScriptHeadBuilder
             Writer.Write("Void Set");
             Writer.Write(Standardizer.StandardizeName(netwrite.Name));
             Writer.Write('(');
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type, knownStructNames));
             Writer.WriteLine(" _Value) {");
             DeclareNetwrite(indent: 1, netwrite, forType);
 
@@ -576,7 +635,7 @@ public class ManiaScriptHeadBuilder
                 Writer.Write("Void AddTo");
                 Writer.Write(Standardizer.StandardizeName(netwrite.Name));
                 Writer.Write("(");
-                Writer.Write(Standardizer.CSharpTypeToManiaScriptType((netwrite.Type as INamedTypeSymbol)?.TypeArguments[0] ?? throw new Exception()));
+                Writer.Write(Standardizer.CSharpTypeToManiaScriptType((netwrite.Type as INamedTypeSymbol)?.TypeArguments[0] ?? throw new Exception(), knownStructNames));
                 Writer.WriteLine(" _Value) {");
                 DeclareNetwrite(indent: 1, netwrite, forType);
                 Writer.Write(indent: 1, "Net_");
@@ -587,12 +646,26 @@ public class ManiaScriptHeadBuilder
             }
         }
 
-        return netwrites;
+        var baseType = ScriptSymbol.BaseType;
+
+        while (baseType is not null)
+        {
+            foreach (var symbol in baseType.GetMembers()
+                .OfType<IPropertySymbol>()
+                .Where(x => x.GetAttributes().Any(y => y.AttributeClass?.Name == NameConsts.NetwriteAttribute)))
+            {
+                netwrites.Add(symbol);
+            }
+
+            baseType = baseType.BaseType;
+        }
+
+        return netwrites.ToImmutableArray();
 
         void DeclareNetwrite(int indent, IPropertySymbol netwrite, object? forType)
         {
             Writer.Write(indent, "declare netwrite ");
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type, knownStructNames));
             Writer.Write(" Net_");
             Writer.Write(Standardizer.StandardizeName(netwrite.Name));
             Writer.Write(" for ");
@@ -616,7 +689,7 @@ public class ManiaScriptHeadBuilder
         var netreads = ScriptSymbol.GetMembers()
             .OfType<IPropertySymbol>()
             .Where(x => x.GetAttributes().Any(y => y.AttributeClass?.Name == NameConsts.NetreadAttribute))
-            .ToImmutableArray();
+            .ToList();
 
         foreach (var netread in netreads)
         {
@@ -624,7 +697,7 @@ public class ManiaScriptHeadBuilder
                 .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.NetreadAttribute)?
                 .ConstructorArguments.FirstOrDefault().Value;
 
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netread.Type));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netread.Type, knownStructNames));
             Writer.Write(" Get");
             Writer.Write(Standardizer.StandardizeName(netread.Name));
             Writer.WriteLine("() {");
@@ -636,12 +709,26 @@ public class ManiaScriptHeadBuilder
             Writer.WriteLine();
         }
 
-        return netreads;
+        var baseType = ScriptSymbol.BaseType;
+
+        while (baseType is not null)
+        {
+            foreach (var symbol in baseType.GetMembers()
+                .OfType<IPropertySymbol>()
+                .Where(x => x.GetAttributes().Any(y => y.AttributeClass?.Name == NameConsts.NetreadAttribute)))
+            {
+                netreads.Add(symbol);
+            }
+
+            baseType = baseType.BaseType;
+        }
+
+        return netreads.ToImmutableArray();
 
         void DeclareNetread(int indent, IPropertySymbol netwrite, object? forType)
         {
             Writer.Write(indent, "declare netread ");
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(netwrite.Type, knownStructNames));
             Writer.Write(" Net_");
             Writer.Write(Standardizer.StandardizeName(netwrite.Name));
             Writer.Write(" for ");
@@ -669,7 +756,7 @@ public class ManiaScriptHeadBuilder
 
         foreach (var local in locals)
         {
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type, knownStructNames));
             Writer.Write(" Get");
             Writer.Write(Standardizer.StandardizeName(local.Name));
             Writer.WriteLine("() {");
@@ -684,7 +771,7 @@ public class ManiaScriptHeadBuilder
             Writer.Write("Void Set");
             Writer.Write(Standardizer.StandardizeName(local.Name));
             Writer.Write('(');
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type, knownStructNames));
             Writer.WriteLine(" _Value) {");
             DeclareLocal(indent: 1, local);
 
@@ -697,7 +784,7 @@ public class ManiaScriptHeadBuilder
         void DeclareLocal(int indent, IPropertySymbol local)
         {
             Writer.Write(indent, "declare ");
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type, knownStructNames));
             Writer.Write(' ');
             Writer.Write(Standardizer.StandardizeName(local.Name));
             Writer.WriteLine(" for This;");

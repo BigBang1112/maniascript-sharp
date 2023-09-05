@@ -22,7 +22,7 @@ public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationS
             {
                 if (typeSymbol is not null)
                 {
-                    Writer.Write(Standardizer.CSharpTypeToManiaScriptType(typeSymbol));
+                    Writer.Write(Standardizer.CSharpTypeToManiaScriptType(typeSymbol, new HashSet<string>(BodyBuilder.Head.Structs.Select(x => x.Name))));
                     Writer.Write(' ');
                 }
             }
@@ -32,13 +32,16 @@ public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationS
                 Writer.Write(' ');
             }
 
-            var isDefault = typeSymbol is not null && BodyBuilder.Head.Structs.Contains(typeSymbol, SymbolEqualityComparer.Default);
+            var isDefault = variable.Initializer?.Value is ImplicitObjectCreationExpressionSyntax
+                && typeSymbol?.Name != "Dictionary"
+                && typeSymbol?.Name != "IList"
+                && typeSymbol?.Name != "ImmutableArray";
 
             Writer.Write(Standardizer.StandardizeName(variable.Identifier.Text));
 
             if (variable.Initializer is not null)
             {
-                if (!isDefault || variable.Initializer.Value is not ImplicitObjectCreationExpressionSyntax)
+                if (!isDefault)
                 {
                     Writer.Write(" = ");
                 }
@@ -97,7 +100,7 @@ public class LocalDeclarationStatementWriter : StatementWriter<LocalDeclarationS
 
         if (symbol.ContainingType.TypeArguments[0] is INamedTypeSymbol namedTypeSymbol)
         {
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(namedTypeSymbol));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(namedTypeSymbol, new(BodyBuilder.Head.Structs.Select(x => x.Name))));
         }
         else
         {

@@ -74,28 +74,23 @@ public class ManiaScriptGenerator : ISourceGenerator
         
         var receiver = (SyntaxReceiver)context.SyntaxReceiver!;
 
+        var scriptSymbols = context.Compilation
+            .GlobalNamespace
+            .GetNamespaceMembers()
+            .Where(x => x.Name == rootNamespace)
+            .Flatten(x => x.GetNamespaceMembers())
+            .SelectMany(x => x.GetTypeMembers());
+
         if (receiver.ClassName is null)
         {
-            var scriptSymbols = context.Compilation
-                .GlobalNamespace
-                .GetNamespaceMembers()
-                .Flatten(x => x.GetNamespaceMembers())
-                .SelectMany(x => x.GetTypeMembers());
-
             foreach (var scriptSymbol in scriptSymbols)
             {
                 ProcessScriptSymbol(context, scriptSymbol, helper);
             }
         }
         else
-        {
-            var allTypeSymbols = context.Compilation
-                .GlobalNamespace
-                .GetNamespaceMembers()
-                .Flatten(x => x.GetNamespaceMembers())
-                .SelectMany(x => x.GetTypeMembers());
-            
-            foreach (var typeSymbol in allTypeSymbols)
+        {            
+            foreach (var typeSymbol in scriptSymbols)
             {
                 if (typeSymbol.Name == receiver.ClassName)
                 {

@@ -11,7 +11,7 @@ public class TypeWriter : ExpressionWriter<TypeSyntax>
 
         if (symbol is ITypeSymbol typeSymbol)
         {
-            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(typeSymbol));
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(typeSymbol, new HashSet<string>(BodyBuilder.Head.Structs.Select(x => x.Name))));
         }
     }
 }

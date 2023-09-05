@@ -36,5 +36,6 @@ public class AssignmentExpressionWriter : ExpressionWriter<AssignmentExpressionS
 
     private bool IsReal(ISymbol? symbol) => symbol
         is IPropertySymbol { Type.Name: "Single" or "Double" }
-        or IFieldSymbol { Type.Name: "Single" or "Double" };
+        or IFieldSymbol { Type.Name: "Single" or "Double" }
+        or ILocalSymbol { Type.Name: "Single" or "Double" };
 }

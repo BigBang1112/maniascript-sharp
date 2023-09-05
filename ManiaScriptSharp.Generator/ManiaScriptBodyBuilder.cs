@@ -137,13 +137,15 @@ public class ManiaScriptBodyBuilder
             var docBuilder = new DocumentationBuilder(this);
             docBuilder.WriteDocumentation(indent: 0, functionSymbol);
 
+            var knownStructNames = new HashSet<string>(Head.Structs.Select(x => x.Name));
+
             if (functionSymbol.IsVirtual || functionSymbol.IsOverride)
             {
                 Writer.Write("***");
             }
             else
             {
-                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.ReturnType));
+                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(functionSymbol.ReturnType, knownStructNames));
                 Writer.Write(' ');
             }
 
@@ -179,7 +181,7 @@ public class ManiaScriptBodyBuilder
                     Writer.Write(", ");
                 }
 
-                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(parameter.Type));
+                Writer.Write(Standardizer.CSharpTypeToManiaScriptType(parameter.Type, knownStructNames));
                 Writer.Write(' ');
                 Writer.Write(Standardizer.StandardizeUnderscoreName(parameter.Name));
             }
@@ -198,7 +200,7 @@ public class ManiaScriptBodyBuilder
             return;
         }
 
-        foreach (var global in Head.Globals)
+        foreach (var global in Head.Globals.Where(x => x.ContainingType.Equals(ScriptSymbol, SymbolEqualityComparer.Default)))
         {
             var equalsSyntax = global.DeclaringSyntaxReferences[0].GetSyntax() switch
             {

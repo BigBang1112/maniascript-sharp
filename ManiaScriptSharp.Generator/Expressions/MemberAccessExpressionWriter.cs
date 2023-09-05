@@ -67,6 +67,7 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
     private static readonly HashSet<string> specialTypes = new()
     {
         "Dictionary",
+        "DictionaryExtensions",
         "IList",
         "ICollection",
         "ImmutableArray",
@@ -93,15 +94,39 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
             return true;
         }
 
+        if (nameSymbol.Name is "Contains" or "ContainsValue")
+        {
+            Writer.Write("exists");
+            return true;
+        }
+
         if (nameSymbol.Name == "ContainsKey")
         {
             Writer.Write("existskey");
             return true;
         }
 
-        if (nameSymbol.Name == "Count")
+        if (nameSymbol.Name is "Count" or "Length")
         {
             Writer.Write("count");
+            return true;
+        }
+
+        if (nameSymbol.Name is "IndexOf" or "KeyOf")
+        {
+            Writer.Write("keyof");
+            return true;
+        }
+
+        if (nameSymbol.Name == "Sort")
+        {
+            Writer.Write("sort");
+            return true;
+        }
+
+        if (nameSymbol.Name == "Remove")
+        {
+            Writer.Write("remove");
             return true;
         }
 

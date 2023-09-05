@@ -533,7 +533,7 @@ public class EventForeachBuilder
                     
                     actualNameDict.Add(parameter, actualName);
 
-                    var standardizedType = Standardizer.CSharpTypeToManiaScriptType((INamedTypeSymbol)parameter.Type);
+                    var standardizedType = Standardizer.CSharpTypeToManiaScriptType((INamedTypeSymbol)parameter.Type, knownStructNames: null);
                     
                     if (!standardizedType.EndsWith("[]"))
                     {
@@ -597,7 +597,7 @@ public class EventForeachBuilder
                                      Standardizer.StandardizeName(originalParam.Name);
                     var standName = Standardizer.StandardizeName(parameter.Identifier.Text);
                     
-                    var standardizedType = Standardizer.CSharpTypeToManiaScriptType((INamedTypeSymbol)originalParam.Type);
+                    var standardizedType = Standardizer.CSharpTypeToManiaScriptType((INamedTypeSymbol)originalParam.Type, knownStructNames: null);
                     
                     if (standardizedType.EndsWith("[]"))
                     {

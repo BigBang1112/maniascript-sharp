@@ -78,7 +78,7 @@ public static class Standardizer
     };
     
 
-    public static string CSharpTypeToManiaScriptType(ITypeSymbol csharpType, HashSet<string>? knownStructNames = null)
+    public static string CSharpTypeToManiaScriptType(ITypeSymbol csharpType, HashSet<string>? knownStructNames)
     {
         if (csharpType is not INamedTypeSymbol namedTypeSymbol)
         {
@@ -119,7 +119,12 @@ public static class Standardizer
         {
             return CSharpTypeToManiaScriptType(namedTypeSymbol.TypeArguments[0], knownStructNames) + "[]";
         }
-        
+
+        if (csharpType.ContainingType?.IsStatic == true && knownStructNames?.Contains(csharpType.Name) == false)
+        {
+            return csharpType.ContainingType.Name + "::" + CSharpTypeToManiaScriptType(csharpType.Name);
+        }
+
         return CSharpTypeToManiaScriptType(csharpType.Name);
     }
 
