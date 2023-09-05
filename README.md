@@ -2,14 +2,14 @@
 
 ManiaScriptSharp is a way to type ManiaScript with C# features. C# code is compiled into both .NET library and a set of ManiaScript files.
 
-This project **does not guarantee anything**. It was written while practicing source generators as a beginner, and the code is **admittedly low-effort, hacky, and not maintainable.** It can take hundreds of hours to rewrite it into something cleaner, but this **should be preferred** if this project hooks wider interest. Let me know if you're interested in doing something like this, I can offer a variety of help or even collaborate.
-
 ### 4 reasons why ManiaScriptSharp exists
 
 1. Easier syntax
 2. Accurate auto-complete
 3. Flexible accessibility
 4. Unit-testability
+
+This project **does not guarantee anything**. It was written while practicing source generators as a beginner, and the code is **admittedly low-effort, hacky, and not maintainable.** It can take hundreds of hours to rewrite it into something cleaner, but this **should be preferred** if this project hooks wider interest. Let me know if you're interested in doing something like this, I can offer a variety of help or even collaborate.
 
 ## Techniques
 
