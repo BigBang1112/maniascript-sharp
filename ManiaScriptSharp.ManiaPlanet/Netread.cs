@@ -40,4 +40,9 @@ public class Netread<T>
     {
         return new Netread<T>(default!, player);
     }
+
+    public static Netread<T> For(CTmMlPlayer player)
+    {
+        return new Netread<T>(default!, player);
+    }
 }

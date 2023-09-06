@@ -29,6 +29,7 @@ public record ExpressionWriterUtils(int Indent, ExpressionSyntax Expression, Imm
         ThisExpressionSyntax => new ThisExpressionWriter(),
         ImplicitObjectCreationExpressionSyntax => new ImplicitObjectCreationExpressionWriter(),
         ImplicitElementAccessSyntax => new ImplicitElementAccessExpressionWriter(),
+        PostfixUnaryExpressionSyntax => new PostfixUnaryExpressionWriter(),
         _ => null
     };
 }
