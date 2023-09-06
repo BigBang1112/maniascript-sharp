@@ -47,7 +47,9 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
             return;
         }
 
-        if (symbol?.IsVirtual == true)
+        var isVirtual = symbol?.IsVirtual == true && symbol.Name != "ToString";
+
+        if (isVirtual == true)
         {
             Writer.Write("+++");
         }
@@ -66,7 +68,7 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
 
         WriteSyntax(expression.Expression);
 
-        if (symbol?.IsVirtual == true)
+        if (isVirtual == true)
         {
             Writer.Write("+++");
             return;
@@ -87,7 +89,15 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
             }
             
             var argument = expression.ArgumentList.Arguments[i];
-            
+
+            if (symbol is IMethodSymbol methodSym
+                && methodSym.Parameters[i].Type.Name is "Ident"
+                && argument.Expression is LiteralExpressionSyntax literal && literal.Token.Value is null)
+            {
+                Writer.Write("NullId");
+                continue;
+            }
+
             WriteSyntax(argument.Expression);
 
             if (symbol is IMethodSymbol methodSymbol
@@ -97,6 +107,7 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
             {
                 Writer.Write(".0");
             }
+
         }
 
         Writer.Write(')');
