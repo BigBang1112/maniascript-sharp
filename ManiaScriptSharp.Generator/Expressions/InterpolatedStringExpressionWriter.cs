@@ -22,7 +22,7 @@ public class InterpolatedStringExpressionWriter : ExpressionWriter<InterpolatedS
                     }
                     
                     Writer.Write('"');
-                    Writer.Write(text.TextToken.Text);
+                    Writer.Write(text.TextToken.Text.Replace("{{", "{").Replace("}}", "}"));
                     Writer.Write('"');
                     
                     stringBefore = true;
