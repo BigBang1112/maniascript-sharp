@@ -6,4 +6,9 @@ public static class ObjectExtensions
     {
         return false;
     }
+
+    public static string ToJson(this object obj)
+    {
+        return "";
+    }
 }

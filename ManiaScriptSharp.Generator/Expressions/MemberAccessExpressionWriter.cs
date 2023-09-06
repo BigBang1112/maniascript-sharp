@@ -94,6 +94,12 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
             return true;
         }
 
+        if (nameSymbol.Name == "ToJson")
+        {
+            Writer.Write("tojson");
+            return true;
+        }
+
         if (nameSymbol.Name is "Contains" or "ContainsValue")
         {
             Writer.Write("exists");
