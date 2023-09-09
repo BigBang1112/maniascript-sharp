@@ -54,6 +54,11 @@ public abstract class HInline : HGeneral
             return "Array<" + GetTypeBindOrDefault(type.Substring(6, type.Length - 7), false) + ">";
         }
 
+        if (type.EndsWith("]"))
+        {
+            return GetTypeBindOrDefault(type.Substring(0, type.IndexOf('[')), false) + "[]";
+        }
+
         /*if (type.StartsWith("AssociativeArray<"))
         {
             return "Dictionary<" + GetTypeBindOrDefault(type.Substring(18, type.Length - 19), true) + ", " + GetTypeBindOrDefault(type.Substring(18, type.Length - 19), true) + ">";
