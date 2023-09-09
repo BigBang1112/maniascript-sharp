@@ -816,23 +816,28 @@ public class ManiaScriptHeadBuilder
                 ? binding.Name
                 : bindingAttribute.ConstructorArguments[0].Value?.ToString() ?? binding.Name;
 
-            var pageFirstChild = ManialinkXml.SelectSingleNode($"descendant::node()[@id='{boundIdName}']");
+            var ignoreValidation = (bool)(bindingAttribute.NamedArguments.FirstOrDefault(x => x.Key == "IgnoreValidation").Value.Value ?? false);
 
-            if (pageFirstChild is null)
+            if (!ignoreValidation)
             {
-                var descriptorError = new DiagnosticDescriptor(
-                    "MSSG003", 
-                    "Manialink XML Page.GetFirstChild() validation",
-                    $"Could not find control with ID '{boundIdName}'", 
-                    "Manialink",  
-                    DiagnosticSeverity.Error,
-                    true);
+                var pageFirstChild = ManialinkXml.SelectSingleNode($"descendant::node()[@id='{boundIdName}']");
 
-                var linePosition = new LinePosition();
+                if (pageFirstChild is null)
+                {
+                    var descriptorError = new DiagnosticDescriptor(
+                        "MSSG003",
+                        "Manialink XML Page.GetFirstChild() validation",
+                        $"Could not find control with ID '{boundIdName}'",
+                        "Manialink",
+                        DiagnosticSeverity.Error,
+                        true);
 
-                var location = Location.Create($"{ScriptSymbol.Name}.xml", new(), new(linePosition, linePosition));
+                    var linePosition = new LinePosition();
 
-                Helper.Context.ReportDiagnostic(Diagnostic.Create(descriptorError, location));
+                    var location = Location.Create($"{ScriptSymbol.Name}.xml", new(), new(linePosition, linePosition));
+
+                    Helper.Context.ReportDiagnostic(Diagnostic.Create(descriptorError, location));
+                }
             }
 
             var type = binding switch

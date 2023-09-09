@@ -4,7 +4,8 @@ namespace ManiaScriptSharp;
 public class ManialinkControlAttribute : Attribute
 {
     public string? Id { get; }
-    
+    public bool IgnoreValidation { get; set; }
+
     public ManialinkControlAttribute()
     {
         
