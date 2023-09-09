@@ -13,7 +13,7 @@ public class LiteralExpressionWriter : ExpressionWriter<LiteralExpressionSyntax>
                 Writer.Write("Null");
                 break;
             case string str:
-                Writer.Write($"\"{str.Replace("\"", "\\\"").Replace("\n", "\\n")}\"");
+                Writer.Write($"\"{str.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n")}\"");
                 break;
             case float f:
                 var fStr = f.ToString(CultureInfo.InvariantCulture);
