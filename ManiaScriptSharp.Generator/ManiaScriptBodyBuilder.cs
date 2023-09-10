@@ -35,6 +35,8 @@ public class ManiaScriptBodyBuilder
 
     public ManiaScriptBody AnalyzeAndBuild()
     {
+        WriteSettingsChangeDetectors(Head.Settings);
+
         var methods = ScriptSymbol.GetMembers()
             .OfType<IMethodSymbol>();
 
@@ -114,6 +116,134 @@ public class ManiaScriptBodyBuilder
         }
 
         return new();
+    }
+
+    private void WriteSettingsChangeDetectors(ImmutableArray<IFieldSymbol> settings)
+    {
+        if (!ScriptSymbol.GetAttributes().Any(x => x.AttributeClass?.Name is "SettingsChangeDetectorsAttribute"))
+        {
+            return;
+        }
+
+        Writer.WriteLine("***Settings***");
+        Writer.WriteLine("***");
+
+        foreach (var setting in settings)
+        {
+            Writer.Write("declare ");
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(setting.Type, null));
+            Writer.Write(" Previous");
+            Writer.Write(Standardizer.StandardizeName(setting.Name));
+            Writer.Write(" = ");
+            Writer.Write(Standardizer.StandardizeSettingName(setting.Name));
+            Writer.WriteLine(";");
+        }
+
+        Writer.WriteLine();
+
+        foreach (var setting in settings)
+        {
+            Writer.Write("log(\"");
+            Writer.Write(Standardizer.StandardizeSettingName(setting.Name));
+            Writer.Write(": \" ^ ");
+            Writer.Write(Standardizer.StandardizeSettingName(setting.Name));
+            Writer.WriteLine(");");
+        }
+
+        Writer.WriteLine();
+
+        foreach (var setting in settings)
+        {
+            Writer.Write("declare netwrite ");
+            Writer.Write(Standardizer.CSharpTypeToManiaScriptType(setting.Type, null));
+            Writer.Write(" Net_");
+            Writer.Write(Standardizer.StandardizeName(setting.Name));
+            Writer.WriteLine(" for Teams[0];");
+            Writer.Write("Net_");
+            Writer.Write(Standardizer.StandardizeName(setting.Name));
+            Writer.Write(" = ");
+            Writer.Write(Standardizer.StandardizeSettingName(setting.Name));
+            Writer.WriteLine(";");
+        }
+
+        Writer.WriteLine("***");
+        Writer.WriteLine();
+        Writer.WriteLine("***UpdateSettings***");
+        Writer.WriteLine("***");
+
+        foreach (var setting in settings)
+        {
+            var att = setting.GetAttributes()
+                .First(x => x.AttributeClass?.Name == NameConsts.SettingAttribute);
+
+            var reloadOnChange = att.NamedArguments.FirstOrDefault(x => x.Key == "ReloadOnChange").Value.Value as bool? ?? false;
+            var callOnChange = att.NamedArguments.FirstOrDefault(x => x.Key == "CallOnChange").Value.Value as string;
+
+            Writer.Write("if (");
+            Writer.Write(Standardizer.StandardizeSettingName(setting.Name));
+            Writer.Write(" != Previous");
+            Writer.Write(Standardizer.StandardizeName(setting.Name));
+            Writer.WriteLine(") {");
+            Writer.Write("    Previous");
+            Writer.Write(Standardizer.StandardizeName(setting.Name));
+            Writer.Write(" = ");
+            Writer.Write(Standardizer.StandardizeSettingName(setting.Name));
+            Writer.WriteLine(";");
+            Writer.Write("    Net_");
+            Writer.Write(Standardizer.StandardizeName(setting.Name));
+            Writer.Write(" = ");
+            Writer.Write(Standardizer.StandardizeSettingName(setting.Name));
+            Writer.WriteLine(";");
+
+            if (reloadOnChange)
+            {
+                Writer.WriteLine("    G_Reload = True;");
+            }
+
+            if (callOnChange is not null)
+            {
+                var methodSymbol = ScriptSymbol.GetMembers(callOnChange)
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault();
+
+                if (methodSymbol is null)
+                {
+                    Helper.Context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(
+                        "MSSG008", "Method not found", "Method {0} not found", "ManiaScriptSharp",
+                        DiagnosticSeverity.Error, true), setting.Locations.FirstOrDefault()));
+                }
+
+                Writer.Write("    ");
+
+                if (methodSymbol is not null)
+                {
+                    if (methodSymbol.DeclaredAccessibility == Accessibility.Private)
+                    {
+                        Writer.Write("Private_");
+                    }
+                }
+
+                Writer.Write(callOnChange);
+                Writer.WriteLine("();");
+            }
+
+            Writer.Write("    log(\"");
+            Writer.Write(Standardizer.StandardizeSettingName(setting.Name));
+            Writer.Write(": \" ^ ");
+            Writer.Write(Standardizer.StandardizeSettingName(setting.Name));
+            Writer.WriteLine(");");
+            Writer.WriteLine("}");
+        }
+
+        /*
+        if(S_UseLadder != PreviousUseLadder) {
+	        PreviousUseLadder = S_UseLadder;
+	        Net_S_UseLadder = S_UseLadder;
+	        Log("Envimix", "S_UseLadder: " ^ S_UseLadder);
+        }
+         */
+        Writer.WriteLine("***");
+        Writer.WriteLine();
     }
 
     private void WriteFunctions(ImmutableArray<IMethodSymbol> functions)
