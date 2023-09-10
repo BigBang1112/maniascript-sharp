@@ -36,7 +36,7 @@ public class EventForeachBuilder
         var eventListDelegates = new HashSet<(string, INamedTypeSymbol)>();
         var delegateEventFunctions = new List<(INamedTypeSymbol, Function)>();
         var externalEvents = new List<(INamedTypeSymbol, string, string)>();
-        var externalDelegateEventFunctions = new List<(string, Function)>();
+        var externalDelegateEventFunctions = new List<((string, string), Function)>();
         var xmlRpcEvents = new List<(INamedTypeSymbol, string, IMethodSymbol)>();
 
         foreach (var (identifier, function) in constructorAnalysis.EventFunctions)
@@ -162,7 +162,7 @@ public class EventForeachBuilder
                 }
 
                 eventListDelegates.Add((eventList, delegateSymbol));
-                externalDelegateEventFunctions.Add((objectIdentifierName, function));
+                externalDelegateEventFunctions.Add(((objectIdentifierName, delegateSymbol.Name), function));
 
                 externalEvents.Add((delegateSymbol, identifierInEvent, objectIdentifierName));
             }
@@ -467,7 +467,7 @@ public class EventForeachBuilder
     }
 
     private void WriteExternalEvent(int indent, ILookup<ISymbol?, (string, string)> externalEventLookup, INamedTypeSymbol delegateSymbol,
-        ILookup<string, Function> externalEventFunctionLookup)
+        ILookup<(string, string), Function> externalEventFunctionLookup)
     {
         if (!externalEventLookup.Contains(delegateSymbol))
         {
@@ -486,7 +486,7 @@ public class EventForeachBuilder
                 Writer.Write(objectIdentifierName);
                 Writer.WriteLine(": {");
 
-                foreach (var eventFunction in externalEventFunctionLookup[objectIdentifierName])
+                foreach (var eventFunction in externalEventFunctionLookup[(objectIdentifierName, delegateSymbol.Name)])
                 {
                     WriteEventContents(indent + 2, eventFunction,
                         ImmutableArray<IParameterSymbol>.Empty, isGeneralEvent: false);
@@ -545,8 +545,15 @@ public class EventForeachBuilder
                     
                     WriteApiArrayTranslation(indent, standardizedType, standName, actualName);
                 }
-                
-                Writer.Write(indent, eventIdentifier.Method.Name);
+
+                Writer.WriteIndent(indent);
+
+                if (eventIdentifier.Method.DeclaredAccessibility == Accessibility.Private)
+                {
+                    Writer.Write("Private_");
+                }
+
+                Writer.Write(eventIdentifier.Method.Name);
 
                 if (isGeneralEvent)
                 {
