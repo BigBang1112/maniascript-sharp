@@ -1,4 +1,5 @@
-﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
+﻿using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Expressions;
 
@@ -11,6 +12,40 @@ public class ImplicitObjectCreationExpressionWriter : ExpressionWriter<ImplicitO
         switch (symbol?.ContainingType.Name)
         {
             case "Dictionary":
+                {
+                    if (expression.Initializer?.Kind() is not SyntaxKind.CollectionInitializerExpression)
+                    {
+                        Writer.Write("[]");
+                        break;
+                    }
+
+                    Writer.Write('[');
+
+                    var first = true;
+
+                    foreach (var e in expression.Initializer.Expressions)
+                    {
+                        if (first)
+                        {
+                            first = false;
+                        }
+                        else
+                        {
+                            Writer.Write(", ");
+                        }
+
+                        if (e is not InitializerExpressionSyntax initializerExpression || initializerExpression.Expressions.Count != 2)
+                        {
+                            throw new Exception("Dictionary initializer expression must have 2 expressions");
+                        }
+
+                        WriteSyntax(initializerExpression.Expressions[0]);
+                        Writer.Write(" => ");
+                        WriteSyntax(initializerExpression.Expressions[1]);
+                    }
+                    Writer.Write("]");
+                    return;
+                }
             case "IList":
             case "List":
                 Writer.Write("[]");
