@@ -130,6 +130,12 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
             return true;
         }
 
+        if (nameSymbol.Name == "SortReverse")
+        {
+            Writer.Write("sortreverse");
+            return true;
+        }
+
         if (nameSymbol.Name == "Remove")
         {
             Writer.Write("remove");

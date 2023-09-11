@@ -14,4 +14,14 @@ public static class DictionaryExtensions
 
         throw new Exception("Value not found in dictionary");
     }
+
+    public static Dictionary<TKey, TValue> Sort<TKey, TValue>(this Dictionary<TKey, TValue> dict) where TKey : notnull
+    {
+        return dict;
+    }
+
+    public static Dictionary<TKey, TValue> SortReverse<TKey, TValue>(this Dictionary<TKey, TValue> dict) where TKey : notnull
+    {
+        return dict;
+    }
 }
