@@ -32,8 +32,8 @@ public class ManiaScriptHeadBuilder
     {
         Context = BuildContext(),
         AdditionalConsts = BuildAdditionalConsts(),
-        Structs = BuildStructs(),
         Includes = BuildIncludes(),
+        Structs = BuildStructs(),
         Consts = BuildConsts(),
         Settings = BuildSettings(),
         Globals = BuildGlobals(),
