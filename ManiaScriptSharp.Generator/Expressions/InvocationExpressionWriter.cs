@@ -66,6 +66,12 @@ public class InvocationExpressionWriter : ExpressionWriter<InvocationExpressionS
             return;
         }
 
+        if (symbol?.Name == "ToArray" && expression.Expression is MemberAccessExpressionSyntax mm)
+        {
+            WriteSyntax(mm.Expression);
+            return;
+        }
+
         WriteSyntax(expression.Expression);
 
         if (isVirtual == true)

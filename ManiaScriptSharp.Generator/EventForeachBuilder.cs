@@ -769,20 +769,27 @@ public class EventForeachBuilder
 
     private static string GetEventEnumName(ITypeSymbol eventTypeSymbol)
     {
-        foreach (var propSymbol in eventTypeSymbol.GetMembers().OfType<IPropertySymbol>())
+        var type = eventTypeSymbol;
+
+        while (type is not null)
         {
-            if (propSymbol.Name == "Type")
+            foreach (var propSymbol in type.GetMembers().OfType<IPropertySymbol>())
             {
-                return propSymbol.Type.Name;
+                if (propSymbol.Name == "Type")
+                {
+                    return propSymbol.Type.Name;
+                }
+
+                var actualNameAtt = propSymbol.GetAttributes()
+                    .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualNameAttribute);
+
+                if (actualNameAtt is not null && (string)actualNameAtt.ConstructorArguments[0].Value! == "Type")
+                {
+                    return propSymbol.Type.Name;
+                }
             }
 
-            var actualNameAtt = propSymbol.GetAttributes()
-                .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.ActualNameAttribute);
-
-            if (actualNameAtt is not null && (string) actualNameAtt.ConstructorArguments[0].Value! == "Type")
-            {
-                return propSymbol.Type.Name;
-            }
+            type = type.BaseType;
         }
 
         throw new Exception();
