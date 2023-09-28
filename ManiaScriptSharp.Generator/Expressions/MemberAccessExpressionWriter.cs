@@ -139,6 +139,12 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
         if (nameSymbol.Name == "Remove")
         {
             Writer.Write("remove");
+
+            if (nameSymbol.ContainingType.Name == "Dictionary")
+            {
+                Writer.Write("key");
+            }
+
             return true;
         }
 
