@@ -148,6 +148,13 @@ public class MemberAccessExpressionWriter : ExpressionWriter<MemberAccessExpress
             return true;
         }
 
+        if (nameSymbol.Name == "RemoveAt")
+        {
+            Writer.Write("removekey");
+
+            return true;
+        }
+
         if (nameSymbol.Name == "Add")
         {
             Writer.Write(isDeclareFor && expressionName is not null ? "AddTo" + expressionName : "add");
