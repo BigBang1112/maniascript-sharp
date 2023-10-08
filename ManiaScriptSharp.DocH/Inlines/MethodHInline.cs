@@ -7,7 +7,7 @@ namespace ManiaScriptSharp.DocH.Inlines;
 internal class MethodHInline : HInline
 {
     // cached, in .NET 7 pls generate this via source generation
-    private static readonly Regex regex = new(@"((\w+)::)?(\w+)\s+(\w+)\s*\((.*)\)\s*;", RegexOptions.Compiled);
+    private static readonly Regex regex = new(@"((\w+)::)?([\w|\[|\]]+)\s+(\w+)\s*\((.*)\)\s*;", RegexOptions.Compiled);
 
     private readonly bool isStatic;
 
