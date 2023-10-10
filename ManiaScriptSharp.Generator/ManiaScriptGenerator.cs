@@ -13,11 +13,13 @@ public class ManiaScriptGenerator : ISourceGenerator
     
     public void Initialize(GeneratorInitializationContext context)
     {
+#if DEBUG
         if (Debug && !Debugger.IsAttached)
         {
             Debugger.Launch();
         }
-        
+#endif
+
         context.RegisterForSyntaxNotifications(() => new SyntaxReceiver());
     }
 
