@@ -15,7 +15,7 @@ public class IdentifierNameExpressionWriter : ExpressionWriter<IdentifierNameSyn
         }
 
         var text = expression.Identifier.Text;
-        
+
         if (symbol is not null && !symbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
         {
             // May be slow
@@ -37,6 +37,16 @@ public class IdentifierNameExpressionWriter : ExpressionWriter<IdentifierNameSyn
                 Writer.Write(symbol.Name);
                 Writer.Write("()");
                 return;
+            }
+        }
+
+        if (symbol is IPropertySymbol propertySymbol && symbol.Name.EndsWith("E"))
+        {
+            var att = symbol.GetAttributes().FirstOrDefault(x => x.AttributeClass?.Name == "ActualNameAttribute");
+
+            if (att is not null)
+            {
+                text = att.ConstructorArguments[0].Value?.ToString() ?? text;
             }
         }
 
