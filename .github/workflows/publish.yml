@@ -1,0 +1,63 @@
+name: Publish
+
+on:
+  release:
+    types: [ published ]
+
+permissions:
+  contents: write # important for release description edit and asset upload
+  packages: write
+
+jobs:
+  build:
+    name: Build
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 7.0.x
+   
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build -c Release --no-restore
+      
+    - name: Test
+      run: dotnet test -c Release --no-build --verbosity normal
+      
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v3.1.0
+      with:
+        name: build
+        path: ManiaScriptSharp.*/bin/Release/*.nupkg
+  
+  publish:
+    name: Publish ManiaScriptSharp.${{ matrix.lib }}
+    needs: build
+    
+    strategy:
+      matrix:
+        lib: ['', .DocH, .Generator, .ManiaPlanet, .TrackmaniaAPI, .TrackmaniaIO]
+        
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download a Build Artifact
+      uses: actions/download-artifact@v3.0.0
+      with:
+        name: build
+    
+    - name: Publish the ManiaScriptSharp${{ matrix.lib }} package to nuget.org
+      run: dotnet nuget push ManiaScriptSharp${{ matrix.lib }}/bin/Release/*.nupkg -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
+    
+    - name: Publish the ManiaScriptSharp${{ matrix.lib }} package to github.com
+      run: dotnet nuget push ManiaScriptSharp${{ matrix.lib }}/bin/Release/*.nupkg -k ${{ secrets.GITHUB_TOKEN }} -s https://nuget.pkg.github.com/bigbang1112/index.json --skip-duplicate
+    
+    - name: Upload the package to this release
+      run: gh release upload ${{ github.ref_name }} ManiaScriptSharp${{ matrix.lib }}/bin/Release/*.nupkg
