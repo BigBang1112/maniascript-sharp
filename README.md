@@ -183,7 +183,7 @@ For example, this manialink has `LabelCountdown`:
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <manialink version="3" xmlns="manialink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="manialink https://raw.githubusercontent.com/reaby/manialink-xsd/main/manialink_v3_ns.xsd">
-	<label pos="1 10" z-index="0" size="100 25" text="3" halign="center" valign="center2" textsize="25" textfont="RajdhaniMono" textprefix="$o$i" textemboss="1" id="LabelCountdown"/>
+    <label pos="1 10" z-index="0" size="100 25" text="3" halign="center" valign="center2" textsize="25" textfont="RajdhaniMono" textprefix="$o$i" textemboss="1" id="LabelCountdown"/>
 </manialink>
 ```
 
@@ -209,7 +209,7 @@ This will generate:
 declare CMlLabel LabelCountdown; // Bound to "LabelCountdown"
 
 main() {
-	LabelCountdown = (Page.GetFirstChild("LabelCountdown") as CMlLabel);
+  LabelCountdown = (Page.GetFirstChild("LabelCountdown") as CMlLabel);
 }
 ```
 
@@ -235,7 +235,7 @@ static string TimeToTextWithMilli(int time)
 ManiaScript:
 ```
 Text Private_TimeToTextWithMilli(Integer _Time) {
-	return TextLib::TimeToText(_Time, True) ^ MathLib::Abs(_Time % 10);
+  return TextLib::TimeToText(_Time, True) ^ MathLib::Abs(_Time % 10);
 }
 ```
 
