@@ -81,9 +81,13 @@ Packed: false # If the output will be packed into a folder with the name of the 
 
 ### Library inclusions
 
-Standard library inclusions are hardcoded.
+Standard library inclusions are hardcoded (may change in the future).
 
 Custom library inclusions are defined with the `IncludeAttribute`.
+
+### Types
+
+The mappings are as following:
 
 ### Constants
 
@@ -97,6 +101,47 @@ ManiaScript:
 ```
 
 ### Settings
+
+Settings are decorated using the `SettingAttribute`. They can be either constants or read-only fields, as you should not change them throughout the script.
+
+Read-only fields are allowed to support types that are not allowed to be a C# constant, like an array for example.
+
+Translation of setting names is attempted automatically by default. You can turn this off by setting `Translated = false` on the `SettingAttribute`.
+
+C#:
+```csharp
+[Setting]
+const string AdminLogin = "bigbang1112";
+
+[Setting(As = "Chat time")]
+const int ChatTime = 50;
+```
+ManiaScript:
+```
+#Setting AdminLogin "bigbang1112"
+#Setting ChatTime 50 as _("Chat time")
+```
+
+### Change detection
+
+There's a special built in feature on settings that you can use to detect when a setting has changed. This was made for a possiblity to avoid repeating patterns in the C# code, but it also generates netwrites that you can use to read in client manialinks. It is a bit clunky to implement though so just be aware of it.
+
+You can turn this on by adding `SettingsChangeDetectorsAttribute` on your class that has the settings you wanna work with (may be changed to interface in the future).
+
+This will generate two new labels `Settings` and `UpdateSettings` (currently not caring if you can call them or not), so you have to add these methods manually:
+
+```cs
+public virtual void Settings() { }
+public virtual void UpdateSettings() { }
+```
+
+`Settings` will initialize the detectors, and `UpdateSettings` should be called in a loop, preferably in every loop.
+
+`SettingAttribute` has 2 additional settings:
+- `ReloadOnChange` - when a change is detected, set `Reload` to true. This requires you to have a field boolean `Reload` in the C# code for it to translate correctly.
+- `CallOnChange` - name of the method to call when the change is detected. Best practice is to use `nameof()`
+
+
 
 ### Globals
 
@@ -123,3 +168,7 @@ ManiaScriptSharp provides a powerful set of snippet generators for the pattern m
 ### Switch statement
 
 #### Manialink XML
+
+### Accessors
+
+It is not required to use `public` accessors for the generator to recognize the classes. Use ones you need to better show what you mean to expose.
