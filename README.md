@@ -297,6 +297,8 @@ Just referencing the method will call it instead of putting the contents directl
 
 The closest C# feature to labels is virtual methods.
 
+`base` is unused. ManiaScript will always run the inherited mode first.
+
 C# (1):
 ```cs
 public class MyMode : CTmMode, IContext
