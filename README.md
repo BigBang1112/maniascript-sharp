@@ -44,7 +44,7 @@ This project **does not guarantee anything**. It was written while practicing so
 3. Pick one of the context classes like you would in ManiaScript (`CMapEditorPlugin`, `CTmMode`, `CTmMlScriptIngame`, ...)
 4. Create directories based on where these scripts should lay (`CTmMode` would lay in `Scripts/Modes/TrackMania` for example)
 5. Create a C# class there and start with this skeleton:
-```csharp
+```cs
 namespace MyProject;
 
 public class MyGamemode : CTmMode, IContext
@@ -106,7 +106,7 @@ The mappings are as following:
 ### Constants
 
 C#:
-```csharp
+```cs
 const int Constant = 5;
 ```
 ManiaScript:
@@ -123,7 +123,7 @@ Read-only fields are allowed to support types that are not allowed to be a C# co
 Translation of setting names is attempted automatically by default. You can turn this off by setting `Translated = false` on the `SettingAttribute`.
 
 C#:
-```csharp
+```cs
 [Setting]
 const string AdminLogin = "bigbang1112";
 
@@ -162,7 +162,7 @@ Fields that are public and not decorated with `SettingAttribute` become globals.
 Some types do support inline set (it will initialize in the `main()` entry point), but on complicated types, preferably avoid it. For library scripts, inline set of field is not supported at all.
 
 C#:
-```csharp
+```cs
 public int PreviousTime = -1;
 ```
 ManiaScript:
@@ -235,7 +235,7 @@ static string TimeToTextWithMilli(int time)
 ManiaScript:
 ```
 Text Private_TimeToTextWithMilli(Integer _Time) {
-	return TextLib::TimeToText(_Time, True) ^ MathLib::Abs(_Time % 10); /* [103,9] */
+	return TextLib::TimeToText(_Time, True) ^ MathLib::Abs(_Time % 10);
 }
 ```
 
@@ -268,23 +268,23 @@ Which will generate this monstrosity:
 declare CMlQuad QuadMapName; // Bound to "QuadMapName"
 
 main() {
-	QuadMapName = (Page.GetFirstChild("QuadMapName") as CMlQuad);
+  QuadMapName = (Page.GetFirstChild("QuadMapName") as CMlQuad);
 
-	while (True) {
-		yield;
-		foreach (Event in PendingEvents) {
-			switch (Event.Type) {
-				case CMlScriptEvent::Type::MouseClick: {
-					switch (Event.Control) {
-						case QuadMapName: {
-							// Start of anonymous function
-							ShowCurChallengeCard(); /* [32,13] */
-							// End of anonymous function
-						}
-					}
-				}
-			}
-		}
+  while (True) {
+    yield;
+    foreach (Event in PendingEvents) {
+      switch (Event.Type) {
+        case CMlScriptEvent::Type::MouseClick: {
+          switch (Event.Control) {
+            case QuadMapName: {
+              // Start of anonymous function
+              ShowCurChallengeCard();
+              // End of anonymous function
+            }
+          }
+        }
+      }
+    }
   }
 }
 ```
@@ -297,9 +297,61 @@ Just referencing the method will call it instead of putting the contents directl
 
 The closest C# feature to labels is virtual methods.
 
+C# (1):
+```cs
+public class MyMode : CTmMode, IContext
+{
+    public virtual void OnMapIntroEnd()
+    {
+        UIManager.UIAll.UISequence = CUIConfig.EUISequence.Playing;
+    }
+
+    public void Main()
+    {
+        OnMapIntroEnd();
+    }
+
+    public void Loop()
+    {
+    }
+}
+```
+C# (2):
+```cs
+public class MyNextMode : MyMode
+{
+    public override void OnMapIntroEnd()
+    {
+	Log("I do something");
+    }
+}
+```
+ManiaScript (1):
+```
+#RequireContext CTmMode
+
+***OnMapIntroEnd***
+***
+UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+***
+```
+ManiaScript (2):
+```
+#Extends "Modes/TrackMania/MyMode.Script.txt"
+
+***OnMapIntroEnd***
+***
+log("I do something");
+***
+```
+
 ### Netwrites
 
+TODO
+
 ### Netreads
+
+TODO
 
 ### Locals
 
@@ -309,10 +361,20 @@ TODO
 
 ManiaScriptSharp provides a powerful set of snippet generators for the pattern matching with the C#'s `is` keyword.
 
+TODO examples
+
 ### Switch statement
 
-#### Manialink XML
+TODO
+
+### Manialink XML
+
+TODO
 
 ### Accessors
 
 It is not required to use `public` accessors for the generator to recognize the classes (except globals which are an exception). Use ones you need to better show what you mean to expose.
+
+## Conclusion
+
+This project does not replace ManiaScript, nor text editor extensions that support ManiaScript. This is just an alternative way to be more productive in ManiaScript by using a language that you prefer more, which some may not agree with, and that is understandable. For code generation and unit testing though, this may not be the worst project. Just note that unit testing is just a theory that wasn't yet implemented.
