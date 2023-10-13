@@ -83,11 +83,25 @@ Packed: false # If the output will be packed into a folder with the name of the 
 
 Standard library inclusions are hardcoded (may change in the future).
 
-Custom library inclusions are defined with the `IncludeAttribute`.
+Custom library inclusions are defined with the `IncludeAttribute` (also may change in the future).
 
 ### Types
 
 The mappings are as following:
+
+| C# | ManiaScript |
+|---|---|
+| `void` | `Void` |
+| `int` | `Integer` |
+| `float` | `Real` |
+| `double` | `Real` |
+| `bool` | `Boolean` |
+| `string` | `Text` |
+| `IList<int>` | `Integer[]` |
+| `ImmutableArray<int>` | `Integer[]` |
+| `Dictionary<string, int>` | `Integer[Text]` |
+
+`ImmutableArray` is currently misused and will change in the future.
 
 ### Constants
 
@@ -97,7 +111,7 @@ const int Constant = 5;
 ```
 ManiaScript:
 ```
-#Const Constant 5
+#Const C_Constant 5
 ```
 
 ### Settings
@@ -118,11 +132,11 @@ const int ChatTime = 50;
 ```
 ManiaScript:
 ```
-#Setting AdminLogin "bigbang1112"
-#Setting ChatTime 50 as _("Chat time")
+#Setting S_AdminLogin "bigbang1112"
+#Setting S_ChatTime 50 as _("Chat time")
 ```
 
-### Change detection
+#### Change detection
 
 There's a special built in feature on settings that you can use to detect when a setting has changed. This was made for a possiblity to avoid repeating patterns in the C# code, but it also generates netwrites that you can use to read in client manialinks. It is a bit clunky to implement though so just be aware of it.
 
@@ -139,17 +153,145 @@ public virtual void UpdateSettings() { }
 
 `SettingAttribute` has 2 additional settings:
 - `ReloadOnChange` - when a change is detected, set `Reload` to true. This requires you to have a field boolean `Reload` in the C# code for it to translate correctly.
-- `CallOnChange` - name of the method to call when the change is detected. Best practice is to use `nameof()`
-
-
+- `CallOnChange` - name of the method to call when the change is detected. Best practice is to use `nameof()` on the method.
 
 ### Globals
 
+Fields that are public and not decorated with `SettingAttribute` become globals. Globals are prefixed with `G_`.
+
+Some types do support inline set (it will initialize in the `main()` entry point), but on complicated types, preferably avoid it. For library scripts, inline set of field is not supported at all.
+
+C#:
+```csharp
+public int PreviousTime = -1;
+```
+ManiaScript:
+```
+declare Integer G_PreviousTime;
+
+main() {
+  G_PreviousTime = -1
+}
+```
+
 ### Bindings
+
+Binding means retrieving manialink element by ID in a validated and strongly-typed way. It can significantly reduce code for simple UI logic.
+
+For example, this manialink has `LabelCountdown`:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<manialink version="3" xmlns="manialink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="manialink https://raw.githubusercontent.com/reaby/manialink-xsd/main/manialink_v3_ns.xsd">
+	<label pos="1 10" z-index="0" size="100 25" text="3" halign="center" valign="center2" textsize="25" textfont="RajdhaniMono" textprefix="$o$i" textemboss="1" id="LabelCountdown"/>
+</manialink>
+```
+
+Instead of using `Page.GetFirstChild`, you declare it as a field with an attribute:
+
+```cs
+public class MyManialink : CTmMlScriptIngame, IContext
+{
+    [ManialinkControl]
+    public required CMlLabel LabelCountdown;
+
+    // ...
+}
+```
+
+> Accessors are not considered, use anything C# allows.
+
+If the control ID is not provided on the `ManialinkControlAttribute`, you need to name the field exactly like in the XML `id` attribute.
+
+This will generate:
+
+```
+declare CMlLabel LabelCountdown; // Bound to "LabelCountdown"
+
+main() {
+	LabelCountdown = (Page.GetFirstChild("LabelCountdown") as CMlLabel);
+}
+```
+
+The attribute by default also tells the translator to validate the XML `id` if it correctly matches. Sometimes though, you wanna build the manialink dynamically, so for that, you can set `IgnoreValidation` to `true`.
 
 ### Functions
 
+Use methods to represent functions.
+
+- You should use regular C# conventions for formatting.
+- Private accessor will add the `Private_` prefix.
+- Parameters are automatically PascalCased and prefixed with underscore.
+- `static` keyword does not affect anything in ManiaScript. You can use it to unit test easier.
+- `virtual` keyword will turn the method into a label.
+
+C#:
+```cs
+static string TimeToTextWithMilli(int time)
+{
+    return $"{TextLib.TimeToText(time, true)}{MathLib.Abs(time % 10)}";
+}
+```
+ManiaScript:
+```
+Text Private_TimeToTextWithMilli(Integer _Time) {
+	return TextLib::TimeToText(_Time, True) ^ MathLib::Abs(_Time % 10); /* [103,9] */
+}
+```
+
 ### Event handling (optional feature)
+
+Use C# event handlers to deal with ManiaScript events and only work with parameters that are actually used - this is probably the most powerful feature of ManiaScriptSharp.
+
+Right now, the only place where you can declare subscribed events is in the class constructor, but this will change in the future.
+
+For example, to open a map dialog by clicking on a button:
+
+```cs
+public class MyManialink : CTmMlScriptIngame, IContext
+{
+    [ManialinkControl] public required CMlQuad QuadMapName;
+
+    public Map()
+    {
+        QuadMapName.MouseClick += () =>
+        {
+            ShowCurChallengeCard();
+        };
+    }
+}
+```
+
+Which will generate this monstrosity:
+
+```
+declare CMlQuad QuadMapName; // Bound to "QuadMapName"
+
+main() {
+	QuadMapName = (Page.GetFirstChild("QuadMapName") as CMlQuad);
+
+	while (True) {
+		yield;
+		foreach (Event in PendingEvents) {
+			switch (Event.Type) {
+				case CMlScriptEvent::Type::MouseClick: {
+					switch (Event.Control) {
+						case QuadMapName: {
+							// Start of anonymous function
+							ShowCurChallengeCard(); /* [32,13] */
+							// End of anonymous function
+						}
+					}
+				}
+			}
+		}
+  }
+}
+```
+
+Delegates, lambdas, and other sorts of method references should be supported.
+
+Just referencing the method will call it instead of putting the contents directly into the event handling. This is recommended to not cause unexpected name collisions.
 
 ### Labels (`***` and `+++`)
 
@@ -161,6 +303,8 @@ The closest C# feature to labels is virtual methods.
 
 ### Locals
 
+TODO
+
 ### Pattern matching
 
 ManiaScriptSharp provides a powerful set of snippet generators for the pattern matching with the C#'s `is` keyword.
@@ -171,4 +315,4 @@ ManiaScriptSharp provides a powerful set of snippet generators for the pattern m
 
 ### Accessors
 
-It is not required to use `public` accessors for the generator to recognize the classes. Use ones you need to better show what you mean to expose.
+It is not required to use `public` accessors for the generator to recognize the classes (except globals which are an exception). Use ones you need to better show what you mean to expose.
