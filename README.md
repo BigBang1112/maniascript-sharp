@@ -45,8 +45,6 @@ This project **does not guarantee anything**. It was written while practicing so
 4. Create directories based on where these scripts should lay (`CTmMode` would lay in `Scripts/Modes/TrackMania` for example)
 5. Create a C# class there and start with this skeleton:
 ```cs
-namespace MyProject;
-
 public class MyGamemode : CTmMode, IContext
 {
     public void Main()
