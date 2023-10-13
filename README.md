@@ -252,7 +252,7 @@ public class MyManialink : CTmMlScriptIngame, IContext
 {
     [ManialinkControl] public required CMlQuad QuadMapName;
 
-    public Map()
+    public MyManialink()
     {
         QuadMapName.MouseClick += () =>
         {
