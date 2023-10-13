@@ -11,6 +11,62 @@ ManiaScriptSharp is a way to type ManiaScript with C# features. C# code is compi
 
 This project **does not guarantee anything**. It was written while practicing source generators as a beginner, and the code is **admittedly low-effort, hacky, and not maintainable.** It can take hundreds of hours to rewrite it into something cleaner, but this **should be preferred** if this project hooks wider interest. Let me know if you're interested in doing something like this, I can offer a variety of help or even collaborate.
 
+## Usage
+
+1. Create a C# library project (any other project type is not supported)
+2. Update the project settings (`.csproj`) with:
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ManiaScriptSharp" Version="0.2.0" /> <!-- attributes, markers, ... -->
+    <PackageReference Include="ManiaScriptSharp.Generator" Version="0.2.0" /> <!-- generator of ManiaScript -->
+    <PackageReference Include="ManiaScriptSharp.ManiaPlanet" Version="0.2.0" /> <!-- use ManiaPlanet (TM2/SM) scripting API -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="ManiaScriptSharp" /> <!-- to implicitly import all classes -->
+    <Using Static="true" Include="ManiaScriptSharp.ManiaScript" /> <!-- to easily use log(), assert(), etc. -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- <AdditionalFiles Include="buildsettings.yml" /> --> <!-- optional settings for building (will change in the future) -->
+    <!-- <AdditionalFiles Include="manialink_v3_ns.xsd" /> --> <!-- optional manialink XML validator: https://github.com/reaby/manialink-xsd/blob/main/manialink_v3_ns.xsd -->
+  </ItemGroup>
+</Project>
+```
+3. Pick one of the context classes like you would in ManiaScript (`CMapEditorPlugin`, `CTmMode`, `CTmMlScriptIngame`, ...)
+4. Create directories based on where these scripts should lay (`CTmMode` would lay in `Scripts/Modes/TrackMania` for example)
+5. Create a C# class there and start with this skeleton:
+```csharp
+namespace MyProject;
+
+public class MyGamemode : CTmMode, IContext
+{
+    public void Main()
+    {
+        
+    }
+
+    public void Loop()
+    {
+        
+    }
+}
+```
+6. After running Build, ManiaScript will generate into the `out` folder next to the source code, following the directory path.
+7. To redirect the output, create `buildsettings.yml` in the root project folder, and write this content:
+```yaml
+OutputDir: C:/MyManiaPlanetServer/UserData # Build root (default is the relative folder 'out')
+Packed: false # If the output will be packed into a folder with the name of the project
+```
+
 ## Techniques
 
 ### Contexts
@@ -67,39 +123,3 @@ ManiaScriptSharp provides a powerful set of snippet generators for the pattern m
 ### Switch statement
 
 #### Manialink XML
-
-## `.csproj` example
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <Using Include="ManiaScriptSharp" />
-    <Using Static="true" Include="ManiaScriptSharp.ManiaScript" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="ManiaScriptSharp.Generator\ManiaScriptSharp.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="ManiaScriptSharp.ManiaPlanet\ManiaScriptSharp.ManiaPlanet.csproj" />
-  </ItemGroup>
-	
-  <ItemGroup>
-    <AdditionalFiles Include="buildsettings.yml" /> <!-- Optional build settings tweaking -->
-    <AdditionalFiles Include="manialink_v3_ns.xsd" /> <!-- Optional Manialink XML validation -->
-  </ItemGroup>
-
-</Project>
-```
-
-## `buildsettings.yml` example
-
-```yaml
-OutputDir: C:/MyManiaPlanetServer/UserData # Build root (default is the relative folder 'out')
-Packed: false # If the output will be packed into a folder with the name of the project
-```
