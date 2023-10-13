@@ -60,7 +60,7 @@ public class MyGamemode : CTmMode, IContext
     }
 }
 ```
-6. After running Build, ManiaScript will generate into the `out` folder next to the source code, following the directory path.
+6. After running Build, ManiaScript will generate into the `out` folder next to the source code, following the directory path. If it does not happen or you get weird warnings, restart your IDE or try different build options.
 7. To redirect the output, create `buildsettings.yml` in the root project folder, and write this content:
 ```yaml
 OutputDir: C:/MyManiaPlanetServer/UserData # Build root (default is the relative folder 'out')
