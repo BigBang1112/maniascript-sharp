@@ -334,6 +334,10 @@ ManiaScript (1):
 ***
 UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
 ***
+
+main() {
+  +++OnMapIntroEnd+++
+}
 ```
 ManiaScript (2):
 ```
@@ -344,6 +348,8 @@ ManiaScript (2):
 log("I do something");
 ***
 ```
+
+Note that labels do keep the scope of the function it was called in, so there can be unexpected name collisions after the translation. This could be solved by generating random prefixes to fake the scope, but that wasn't implemented yet.
 
 ### Netwrites
 
