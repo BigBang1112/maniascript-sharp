@@ -1,6 +1,4 @@
-﻿using System.Collections.Immutable;
-
-namespace ManiaScriptSharp;
+﻿namespace ManiaScriptSharp;
 
 public partial class CTmMlScriptIngame
 {
