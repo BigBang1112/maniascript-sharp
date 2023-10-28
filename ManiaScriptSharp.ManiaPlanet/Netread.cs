@@ -36,12 +36,7 @@ public class Netread<T>
         return new Netread<T>(default!, ui);
     }
 
-    public static Netread<T> For(CTmPlayer player)
-    {
-        return new Netread<T>(default!, player);
-    }
-
-    public static Netread<T> For(CTmMlPlayer player)
+    public static Netread<T> For(CPlayer player)
     {
         return new Netread<T>(default!, player);
     }
