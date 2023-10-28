@@ -67,7 +67,7 @@ internal class MethodHInline : HInline
 
         builder.Append('(');
 
-        var paramMatches = Regex.Matches(parameters, @"((\w+)::)?([\w\[\]]+?)\s+(\w+),?");
+        var paramMatches = Regex.Matches(parameters, @"((\w+)::)?([\w\[\]<>]+?)\s+(\w+),?");
 
         var alreadyUsedNames = new List<string>();
 
