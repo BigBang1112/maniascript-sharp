@@ -26,7 +26,7 @@ This project **does not guarantee anything**. It was written while practicing so
 
   <ItemGroup>
     <PackageReference Include="ManiaScriptSharp" Version="0.2.0" /> <!-- attributes, markers, ... -->
-    <PackageReference Include="ManiaScriptSharp.Generator" Version="0.2.4" /> <!-- generator of ManiaScript -->
+    <PackageReference Include="ManiaScriptSharp.Generator" Version="0.2.5" /> <!-- generator of ManiaScript -->
     <PackageReference Include="ManiaScriptSharp.ManiaPlanet" Version="0.2.0" /> <!-- use ManiaPlanet (TM2/SM) scripting API -->
   </ItemGroup>
 
