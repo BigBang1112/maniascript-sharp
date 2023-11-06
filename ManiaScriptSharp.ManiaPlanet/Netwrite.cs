@@ -40,7 +40,7 @@ public class Netwrite<T>
         return new Netwrite<T>(ui);
     }
 
-    public static Netwrite<T> For(CTmPlayer player)
+    public static Netwrite<T> For(CPlayer player)
     {
         return new Netwrite<T>(player);
     }
