@@ -756,11 +756,15 @@ public class ManiaScriptHeadBuilder
 
         foreach (var local in locals)
         {
+            var forType = local.GetAttributes()
+                .FirstOrDefault(x => x.AttributeClass?.Name == NameConsts.LocalAttribute)?
+                .ConstructorArguments.FirstOrDefault().Value;
+
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type, knownStructNames));
             Writer.Write(" Get");
             Writer.Write(Standardizer.StandardizeName(local.Name));
             Writer.WriteLine("() {");
-            DeclareLocal(indent: 1, local);
+            DeclareLocal(indent: 1, local, forType);
 
             Writer.Write(indent: 1, "return ");
             Writer.Write(Standardizer.StandardizeName(local.Name));
@@ -773,7 +777,7 @@ public class ManiaScriptHeadBuilder
             Writer.Write('(');
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type, knownStructNames));
             Writer.WriteLine(" _Value) {");
-            DeclareLocal(indent: 1, local);
+            DeclareLocal(indent: 1, local, forType);
 
             Writer.Write(indent: 1, Standardizer.StandardizeName(local.Name));
             Writer.WriteLine(" = _Value;");
@@ -781,13 +785,28 @@ public class ManiaScriptHeadBuilder
             Writer.WriteLine();
         }
 
-        void DeclareLocal(int indent, IPropertySymbol local)
+        void DeclareLocal(int indent, IPropertySymbol local, object? forType)
         {
             Writer.Write(indent, "declare ");
             Writer.Write(Standardizer.CSharpTypeToManiaScriptType(local.Type, knownStructNames));
             Writer.Write(' ');
             Writer.Write(Standardizer.StandardizeName(local.Name));
-            Writer.WriteLine(" for This;");
+            Writer.Write(" for ");
+
+            switch (forType)
+            {
+                case 0:
+                    Writer.Write("This");
+                    break;
+                case 1:
+                    Writer.Write("LocalUser");
+                    break;
+                case 2:
+                    Writer.Write("Users[0]");
+                    break;
+            }
+
+            Writer.WriteLine(";");
         }
 
         return locals;
