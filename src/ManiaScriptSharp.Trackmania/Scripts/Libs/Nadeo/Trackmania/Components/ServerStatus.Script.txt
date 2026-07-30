@@ -1,0 +1,132 @@
+/**
+ *	Component: ServerStatus
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Components/ServerStatus.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-serverstatus" //< Component name
+#Const P "ComponentServerStatus_" //< Prefix used to differentiate functions/variables in the script
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	return MV::Component(
+		C_Name,
+		"""
+		""",
+		"""
+#Const {{{P}}}C_EventType_ServerReady 0
+#Const {{{P}}}C_EventType_RequestCancelled 1
+
+#Const {{{P}}}C_TimerRetry_MaxCount 10
+#Const {{{P}}}C_TimerRetry_Cooldown 2000
+
+#Struct {{{P}}}K_PendingEvent {
+	Integer Type;
+	Boolean IsSuccess;
+	Text ServerLogin;
+}
+
+#Struct {{{P}}}K_ServerStatusRequest {
+	Boolean IsInitialized;
+	Text ServerLogin;
+	Integer Timer;
+	Integer RetryMaxCount;
+	Integer RetryCount;
+	Integer RetryCooldown;
+}
+		""",
+		"""
+declare {{{P}}}K_PendingEvent[] {{{P}}}PendingEvents;
+declare {{{P}}}K_ServerStatusRequest {{{P}}}G_ServerStatusRequest;
+
+Void {{{P}}}GetServerStatus(Text _ServerLogin, Integer _RetryMaxCount, Integer _TimerRetryCooldown) {
+	if (_ServerLogin != "") {
+		{{{P}}}G_ServerStatusRequest = {{{P}}}K_ServerStatusRequest {
+			IsInitialized = True,
+			ServerLogin = _ServerLogin,
+			Timer = -1,
+			RetryMaxCount = _RetryMaxCount,
+			RetryCount = 0,
+			RetryCooldown = _TimerRetryCooldown
+		};
+	}
+}
+Void {{{P}}}GetServerStatus(Text _ServerLogin) {
+	{{{P}}}GetServerStatus(_ServerLogin, {{{P}}}C_TimerRetry_MaxCount, {{{P}}}C_TimerRetry_Cooldown);
+}
+
+Void {{{P}}}CancelRequest() {
+	{{{P}}}PendingEvents.add({{{P}}}K_PendingEvent {
+		Type = {{{P}}}C_EventType_RequestCancelled,
+		IsSuccess = False,
+		ServerLogin = {{{P}}}G_ServerStatusRequest.ServerLogin
+	});
+	{{{P}}}G_ServerStatusRequest = {{{P}}}K_ServerStatusRequest {};
+}
+
+***MainInit***
+***
+{{{P}}}PendingEvents = [];
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	{{{P}}}PendingEvents = [];
+
+	if (
+		{{{P}}}G_ServerStatusRequest.IsInitialized &&
+		TitleControl.IsReady
+	) {
+		if ({{{P}}}G_ServerStatusRequest.Timer > 0) {
+			if (TitleControl.LatestResult == CTitleControl::EResult::Success) {
+				{{{P}}}PendingEvents.add({{{P}}}K_PendingEvent {
+					Type = {{{P}}}C_EventType_ServerReady,
+					IsSuccess = True,
+					ServerLogin = {{{P}}}G_ServerStatusRequest.ServerLogin
+				});
+				{{{P}}}G_ServerStatusRequest = {{{P}}}K_ServerStatusRequest {};
+			} else {
+				if ({{{P}}}G_ServerStatusRequest.RetryCount >= {{{P}}}G_ServerStatusRequest.RetryMaxCount) {
+					{{{P}}}PendingEvents.add({{{P}}}K_PendingEvent {
+						Type = {{{P}}}C_EventType_ServerReady,
+						IsSuccess = False,
+						ServerLogin = {{{P}}}G_ServerStatusRequest.ServerLogin
+					});
+					{{{P}}}G_ServerStatusRequest = {{{P}}}K_ServerStatusRequest {};
+				} else if ({{{P}}}G_ServerStatusRequest.Timer < Now) {
+					{{{P}}}G_ServerStatusRequest.Timer = Now + {{{P}}}G_ServerStatusRequest.RetryCooldown;
+					TitleControl.GetServerInfo({{{P}}}G_ServerStatusRequest.ServerLogin);
+					{{{P}}}G_ServerStatusRequest.RetryCount += 1;
+				}
+			}
+		} else {
+			TitleControl.GetServerInfo({{{P}}}G_ServerStatusRequest.ServerLogin);
+			{{{P}}}G_ServerStatusRequest.Timer = Now + {{{P}}}G_ServerStatusRequest.RetryCooldown;
+		}
+	}
+}
+***
+""",
+[],
+[]
+	);
+}

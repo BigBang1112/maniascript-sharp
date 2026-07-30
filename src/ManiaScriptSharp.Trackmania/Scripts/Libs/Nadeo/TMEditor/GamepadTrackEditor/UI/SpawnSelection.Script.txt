@@ -1,0 +1,484 @@
+/**
+ * Spawn selection UI
+ */
+
+#Const Version		"1.0.0"
+#Const ScriptName	"SpawnSelection.Script.txt"
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/Manialink3.Script.txt" as Manialink
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Legacy/Buttons.Script.txt" as Buttons2
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Layers.Script.txt" as Layers
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Sound.Script.txt" as Sound
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/UI/Stylesheet.Script.txt" as Styles
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Legacy/MLEffects.Script.txt" as MLE
+
+// Constants
+#Const C_SpawnsNb		12
+/// Events
+#Const C_Event_SpawnHover	"LibSpawnSelection_SpawnHover"
+#Const C_Event_SpawnClick	"LibSpawnSelection_SpawnClick"
+#Const C_Event_SpawnNext	"LibSpawnSelection_SpawnNext"
+#Const C_Event_SpawnPrev	"LibSpawnSelection_SpawnPrev"
+
+#Const C_Default_HeaderSize <154., 6.38>
+
+// Globales
+declare Ident[] G_SpawnMacroblockInstances;			///< List of spawns
+declare Ident[] G_SpawnMacroblockModels;			///< List of spawn models
+declare Integer G_SpawnsStart;		///< Starting index for the UI list
+declare Integer G_SpawnUpdate;		///< Last spawn update time
+declare Ident G_Spawn;			///< Selected spawn
+
+Text Private_GetSpawnSelectionML() {
+	declare Spawns = "";
+	declare SpawnsSizeX = Styles::GetHeaderSize2();
+	declare SpawnSize = <SpawnsSizeX / C_SpawnsNb, 4.>;
+	declare ButtonSize = 2.;
+	declare FullHeaderSizeX = SpawnsSizeX + (2 * ButtonSize);
+	for (I, 0, C_SpawnsNb+1) {
+		declare PosX = (I-1) * Styles::GetSize2(SpawnSize, Styles::CircleSize_Bottom()).X;
+		Spawns ^= """<frameinstance pos="{{{PosX}}} 0" modelid="Framemodel_Spawn" id="Frame_Spawn_{{{I}}}"/>""";
+	}
+
+	declare NextSpawn = Buttons2::Editor_NextSpawn();
+	declare PrevSpawn = Buttons2::Editor_PrevSpawn();
+
+	return """
+<manialink version="3" name="MapEditor:Spawn-selection">
+<stylesheet>
+	{{{Styles::Get()}}}
+</stylesheet>
+<framemodel id="Framemodel_Spawn">
+	{{{Styles::BuildQuad(<0., 0., 0.>, <SpawnSize.X, SpawnSize.Y>, Styles::CircleSize_Bottom(), Styles::Align_LeftTop(), ["bgcolor" => Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "scriptevents" => "1", "id" => "Quad_Select", "opacity" => "0."])}}}
+	{{{Styles::BuildQuad(<SpawnSize.X*0.5, -SpawnSize.Y*0.5, 1.>, <SpawnSize.X-0.5, SpawnSize.Y-0.5>, Styles::CircleSize_Bottom(), Styles::Align_CenterCenter(), ["id" => "Quad_Spawn"])}}}
+	{{{Styles::BuildLabel(<SpawnSize.X, -SpawnSize.Y, 5.>, <SpawnSize.X, SpawnSize.Y>, Styles::CircleSize_Bottom(), Styles::Align_RightBottom(), ["class" => "turbo2-text-legend", "id" => "Label_Spawn"])}}}
+	{{{Styles::BuildQuad(<0., -SpawnSize.Y, 2.>, <SpawnSize.X, SpawnSize.Y>, Styles::CircleSize_Bottom(), Styles::Align_LeftBottom(), ["class" => "tm2020-background-text", "id" => "Quad_LegendBackground"])}}}
+</framemodel>
+<frame z-index="0" id="Frame_Global">
+	{{{Styles::BuildLabel(<0., 100., 0.>, <SpawnSize.X, SpawnSize.Y>, Styles::CircleSize_Bottom(), Styles::Align_RightBottom(), ["class" => "tm2020-text-legend", "id" => "Label_LinesNumber"])}}}
+	<frame pos="0 -92" hidden="1" id="Frame_SpawnSelection">
+		{{{Styles::BuildQuad(<0., -SpawnSize.Y/2.-1., 0.>, <Styles::GetHeaderSize2(), SpawnSize.Y>, Styles::CircleSize_Bottom(), Styles::Align_CenterCenter(), ["bgcolor" => Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "opacity" => "0.6"])}}}
+		//L16N [MapEditor] Select the location where to start the test race
+		{{{Styles::BuildSmartQuad(<0., -(C_Default_HeaderSize.Y * 0.5), 0.>, C_Default_HeaderSize.Y, -0.6, _("Select where you want to start"), Styles::C_Img_TitleLeft, Styles::C_Img_TitleRight, "", False, "tm2020-text-header", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Header")}}}
+		<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<-FullHeaderSizeX*0.5, 0., 1.>, Styles::CircleSize_Bottom()))}}}>
+			<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<ButtonSize, -1., 3.>, Styles::CircleSize_Bottom()))}}} {{{Styles::BuildSize2(Styles::GetSize2(<SpawnsSizeX, SpawnSize.Y>, Styles::CircleSize_Bottom()))}}}>
+				<frame z-index="0" id="Frame_Spawns">
+					{{{Spawns}}}
+
+					<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<ButtonSize, 0., -1.>, Styles::CircleSize_Bottom()))}}} id="Frame_Selector2">
+						{{{Styles::BuildQuad(<SpawnSize.X*0.02, -SpawnSize.Y*0.02, 0.>, <SpawnSize.X*0.96, SpawnSize.Y*0.96>, Styles::CircleSize_Bottom(), Styles::Align_LeftTop(), ["bgcolor" => Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)])}}}
+					</frame>
+				</frame>
+				<frame id="Frame_Selector" z-index="15">
+					{{{Styles::BuildQuad(<SpawnSize.X*0.49, -SpawnSize.Y*0.5, 1.>, SpawnSize, Styles::CircleSize_Bottom(), Styles::Align_CenterCenter(), ["class" => "tm2020-selector", "colorize" => Stylesheet::GetColorHex6(Stylesheet::C_Color_BGLight)])}}}
+				</frame>
+			</frame>
+			<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<0., -1., 4.>, Styles::CircleSize_Bottom()))}}}>
+				{{{Styles::BuildQuad(<0., 0., 0.>, <ButtonSize, SpawnSize.Y>, Styles::CircleSize_Bottom(), Styles::Align_LeftTop(), ["bgcolor" => Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "opacity" => "0.8", MLE::Data_Effects() => """A1:{{{MLE::Effect_QuadHover()}}}""", MLE::Data_Triggers() => "A1", "class" => MLE::ML_Class(), "scriptevents" => "1", "id" => "Button_PrevSpawn"])}}}
+				{{{Styles::BuildButton(PrevSpawn, <ButtonSize*0.5, -SpawnSize.Y*0.5, 1.>, <ButtonSize-0.5, ButtonSize-0.5>, Styles::CircleSize_Bottom(), Styles::Align_CenterCenter(), [])}}}
+			</frame>
+			<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<ButtonSize+SpawnsSizeX, -1., 5.>, Styles::CircleSize_Bottom()))}}}>
+				{{{Styles::BuildQuad(<0., 0., 0.>, <ButtonSize, SpawnSize.Y>, Styles::CircleSize_Bottom(), Styles::Align_LeftTop(), ["bgcolor" => Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "opacity" => "0.8", MLE::Data_Effects() => """A2:{{{MLE::Effect_QuadHover()}}}""", MLE::Data_Triggers() => "A2", "class" => MLE::ML_Class(), "scriptevents" => "1", "id" => "Button_NextSpawn"])}}}
+				{{{Styles::BuildButton(NextSpawn, <ButtonSize*0.5, -SpawnSize.Y*0.5, 1.>, <ButtonSize-0.5, ButtonSize-0.5>, Styles::CircleSize_Bottom(), Styles::Align_CenterCenter(), [])}}}
+			</frame>
+		</frame>
+	</frame>
+</frame>
+<script><!--
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/UI/Stylesheet.Script.txt" as Styles
+{{{Manialink::DefaultIncludes()}}}
+{{{MLE::ML_Includes()}}}
+
+#Const C_ClickTick	100
+#Const C_InitTick	500
+declare Integer[Text] G_LinesNumber;
+
+{{{Manialink::Animations(["EaseOutQuad"])}}}
+{{{Buttons2::ML_Functions()}}}
+{{{MLE::ML_Functions()}}}
+
+Integer GetLinesNumber(Text _Value) { // copied from MacroblockSelection... which is pretty much the same page anyways tbh...
+	if (G_LinesNumber.existskey(_Value)) return G_LinesNumber[_Value];
+
+	declare Label_LinesNumber <=> (Page.GetFirstChild("Label_LinesNumber") as CMlLabel);
+	declare TranslatedValueSplit = TL::Split("|", TL::GetTranslatedText(_Value));
+	declare ValueWithoutLegend = TranslatedValueSplit[TranslatedValueSplit.count-1];
+	Label_LinesNumber.Value = ValueWithoutLegend;
+	G_LinesNumber[_Value] = Label_LinesNumber.ValueLineCount;
+
+	return Label_LinesNumber.ValueLineCount;
+}
+
+
+Void SetVisibility(Boolean _Visible) {
+	if (_Visible) {
+		declare L_PositionY for Page = 0.;
+		LibManialink_Anim("<frame pos=\"0 "^L_PositionY^"\" hidden=\"0\" id=\"Frame_SpawnSelection\" />", 250, "EaseOutQuad");
+	} else {
+		LibManialink_Anim({{{Manialink::Inject("""<frame pos="0 -92" hidden="1" id="Frame_SpawnSelection" />""")}}}, 250, "EaseOutQuad");
+	}
+}
+
+Void SetSpawns(Ident[] _SpawnMacroblockModelIdents, Integer _SpawnKey, Integer _Shift) {
+	declare L_SpawnsNames for Page = Text[Integer];
+	declare Frame_Spawns <=> (Page.GetFirstChild("Frame_Spawns") as CMlFrame);
+
+	foreach (Key => Control in Frame_Spawns.Controls) {
+		declare Frame_Spawn <=> (Control as CMlFrame);
+
+		if (_SpawnMacroblockModelIdents.existskey(Key)) {
+			declare MacroblockModelIdent = _SpawnMacroblockModelIdents[Key];
+			declare Quad_Select <=> (Frame_Spawn.GetFirstChild("Quad_Select") as CMlQuad);
+			declare Quad_LegendBackground <=> (Frame_Spawn.GetFirstChild("Quad_LegendBackground") as CMlQuad);
+			declare SpawnSelectKey for Quad_Select = -1;
+			SpawnSelectKey = Key;
+
+			if (Editor.MacroblockModels.existskey(MacroblockModelIdent)) {
+				declare CMacroblockModel MacroblockModel <=> Editor.MacroblockModels[MacroblockModelIdent];
+				declare Quad_Spawn <=> (Frame_Spawn.GetFirstChild("Quad_Spawn") as CMlQuad);
+				declare Label_Spawn <=> (Frame_Spawn.GetFirstChild("Label_Spawn") as CMlLabel);
+				Quad_Spawn.Image = MacroblockModel.Icon;
+
+				if (L_SpawnsNames.existskey(Key - 1)) {
+					Label_Spawn.Value = L_SpawnsNames[Key - 1];
+
+					if (Label_Spawn.Value != "") {
+						declare LinesNb = GetLinesNumber(Label_Spawn.Value);
+						if (LinesNb > 1) {
+							Quad_LegendBackground.Size.Y = (LinesNb * 3.3) + 1.;
+							Quad_LegendBackground.Visible = True;
+						} else {
+							Quad_LegendBackground.Visible = False;
+						}
+					} else {
+						Quad_LegendBackground.Visible = False;
+					}
+				}
+				Frame_Spawn.Visible = True;
+			} else {
+				Frame_Spawn.Visible = False;
+				Quad_LegendBackground.Visible = False;
+			}
+		} else {
+			Frame_Spawn.Visible = False;
+		}
+	}
+
+	declare Frame_Selector <=> (Page.GetFirstChild("Frame_Selector") as CMlFrame);
+	declare Frame_Selector2 <=> (Page.GetFirstChild("Frame_Selector2") as CMlFrame);
+	if (_SpawnKey >= 0) {
+		declare CursorPosX = _SpawnKey * {{{Styles::GetSize2(SpawnSize, Styles::CircleSize_Bottom()).X}}};
+		Frame_Selector.Visible = True;
+		Frame_Selector2.Visible = True;
+		LibManialink_Anim(Frame_Selector, "<frame pos=\""^CursorPosX^" 0\" />", 250, "EaseOutQuad");
+		LibManialink_Anim(Frame_Selector2, "<frame pos=\""^CursorPosX^" 0\" />", 250, "EaseOutQuad");
+	} else {
+		Frame_Selector.Visible = False;
+		Frame_Selector2.Visible = False;
+	}
+
+	if (_Shift < 0) {
+		Frame_Spawns.RelativePosition_V3.X = {{{-Styles::GetSize2(SpawnSize, Styles::CircleSize_Bottom()).X}}};
+		LibManialink_Anim({{{Manialink::Inject("""<frame pos="0 0" id="Frame_Spawns" />""")}}}, 250, "EaseOutQuad");
+	} else if (_Shift > 0) {
+		Frame_Spawns.RelativePosition_V3.X = {{{Styles::GetSize2(SpawnSize, Styles::CircleSize_Bottom()).X}}};
+		LibManialink_Anim({{{Manialink::Inject("""<frame pos="0 0" id="Frame_Spawns" />""")}}}, 250, "EaseOutQuad");
+	}
+
+	declare SmartQuad_Header <=> (Page.GetFirstChild("SmartQuad_Header") as CMlFrame);
+	Styles::SetupSmartQuad(SmartQuad_Header, CMlControl::AlignHorizontal::HCenter, 0., 220.);
+}
+
+main() {
+	declare L_Visibility for Page = False;
+	declare L_SpawnsUpdate for Page = -1;
+	declare L_SpawnKey for Page = -1;
+	declare L_SpawnMacroblockModelIdents for Page = Ident[];
+	declare L_SpawnsShift for Page = 0;
+	declare L_PositionY for Page = 0.;
+
+	declare ClickPage = 0;
+	declare NextClickUpdate = -1;
+
+	declare PrevVisibility = False;
+	declare PrevSpawnsUpdate = -1;
+	declare PrevPositionY = -1.;
+
+	LibButtons_Init();
+	LibMLEffects_Init();
+
+	while (True) {
+		yield;
+
+		LibManialink_AnimLoop();
+		LibButtons_Loop();
+		LibMLEffects_Loop();
+
+		if (PrevVisibility != L_Visibility) {
+			PrevVisibility = L_Visibility;
+			SetVisibility(L_Visibility);
+		}
+
+		if (PrevPositionY != L_PositionY) {
+			PrevPositionY = L_PositionY;
+			SetVisibility(L_Visibility);
+		}
+
+		if (PrevSpawnsUpdate != L_SpawnsUpdate) {
+			PrevSpawnsUpdate = L_SpawnsUpdate;
+			SetSpawns(L_SpawnMacroblockModelIdents, L_SpawnKey, L_SpawnsShift);
+		}
+
+		if (ClickPage != 0) {
+			if (!MouseLeftButton) {
+				ClickPage = 0;
+				NextClickUpdate = -1;
+			}
+
+			if (NextClickUpdate > 0 && Now >= NextClickUpdate) {
+				if (ClickPage > 0) {
+					SendCustomEvent("{{{C_Event_SpawnNext}}}", Text[]);
+					NextClickUpdate = Now + C_ClickTick;
+				} else if (ClickPage < 0) {
+					SendCustomEvent("{{{C_Event_SpawnPrev}}}", Text[]);
+					NextClickUpdate = Now + C_ClickTick;
+				}
+			}
+		}
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MouseOver) {
+				if (Event.Control != Null && Event.ControlId == "Quad_Select") {
+					declare SpawnSelectKey for Event.Control = -1;
+					SendCustomEvent("{{{C_Event_SpawnHover}}}", [TL::ToText(SpawnSelectKey)]);
+				}
+			} else if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+				if (Event.Control != Null && Event.ControlId == "Quad_Select") {
+					declare SpawnSelectKey for Event.Control = -1;
+					SendCustomEvent("{{{C_Event_SpawnClick}}}", [TL::ToText(SpawnSelectKey)]);
+				} else if (Event.ControlId == "Button_PrevSpawn") {
+					SendCustomEvent("{{{C_Event_SpawnPrev}}}", Text[]);
+					ClickPage = -1;
+					NextClickUpdate = Now + C_InitTick;
+				} else if (Event.ControlId == "Button_NextSpawn") {
+					SendCustomEvent("{{{C_Event_SpawnNext}}}", Text[]);
+					ClickPage = 1;
+					NextClickUpdate = Now + C_InitTick;
+				}
+			}
+		}
+	}
+}
+--></script>
+</manialink>
+""";
+}
+
+Text GetScriptVersion() { return Version; }
+Text GetScriptName() {	return ScriptName; }
+
+/// Get the events constants
+Text Event_SpawnHover() { return C_Event_SpawnHover; }
+Text Event_SpawnClick() { return C_Event_SpawnClick; }
+Text Event_SpawnNext() { return C_Event_SpawnNext; }
+Text Event_SpawnPrev() { return C_Event_SpawnPrev; }
+
+Void SelectSpawn(Ident _Spawn, Integer _Shift, Boolean _PlaySound) {
+	declare Page <=> Layers::GetPage("SpawnSelection");
+	declare L_SpawnsUpdate for Page = -1;
+	declare Ident[] L_SpawnMacroblockModelIdents for Page;
+	declare L_SpawnsShift for Page = 0;
+	declare L_SpawnKey for Page = -1;
+	L_SpawnMacroblockModelIdents.clear();
+	L_SpawnsShift = 0;
+	L_SpawnKey = 0;
+	G_Spawn = NullId;
+
+	declare SelectedSpawn = _Spawn;
+	if (G_SpawnMacroblockInstances.count > 0 && !G_SpawnMacroblockInstances.exists(_Spawn)) SelectedSpawn = G_SpawnMacroblockInstances[0];
+
+	declare SelectedSpawnKey = 0;
+	foreach (SpawnKey => Spawn in G_SpawnMacroblockInstances) {
+		if (Spawn == SelectedSpawn) {
+			SelectedSpawnKey = SpawnKey;
+			G_Spawn = Spawn;
+			break;
+		}
+	}
+
+	if (SelectedSpawnKey > G_SpawnsStart + C_SpawnsNb - 1) {
+		G_SpawnsStart = SelectedSpawnKey - C_SpawnsNb + 1;
+		L_SpawnsShift = 1;
+	} else if (SelectedSpawnKey < G_SpawnsStart) {
+		G_SpawnsStart = SelectedSpawnKey;
+		L_SpawnsShift = -1;
+	}
+
+	if (G_SpawnsStart < 0) G_SpawnsStart = 0;
+
+	L_SpawnKey = SelectedSpawnKey - G_SpawnsStart;
+
+	declare Min = G_SpawnsStart - 1;
+	declare Max = G_SpawnsStart + C_SpawnsNb;
+
+	for (I, Min, Max) {
+		if (G_SpawnMacroblockModels.existskey(I)) {
+			L_SpawnMacroblockModelIdents.add(G_SpawnMacroblockModels[I]);
+		} else {
+			L_SpawnMacroblockModelIdents.add(NullId);
+		}
+	}
+
+	G_SpawnUpdate = Now;
+	L_SpawnsUpdate = Now;
+
+	if (_PlaySound) Sound::Play("EditorMenuMove");
+}
+// ---------------------------------- //
+/// Overload SelectSpawn()
+Void SelectSpawn(Ident _Spawn, Integer _Shift) {
+	SelectSpawn(_Spawn, _Shift, False);
+}
+// ---------------------------------- //
+/// Overload SelectSpawn()
+Void SelectSpawn(Ident _Spawn, Boolean _PlaySound) {
+	SelectSpawn(_Spawn, 0, _PlaySound);
+}
+
+Void SelectSpawn(Ident _Spawn) {
+	SelectSpawn(_Spawn, 0);
+}
+
+
+Void SelectSpawnInteger(Integer _Spawn) {
+	SelectSpawn(G_SpawnMacroblockInstances[_Spawn-1], 0);
+}
+
+/// Select the next spawn
+Void NextSpawn() {
+	declare Key = G_SpawnMacroblockInstances.keyof(G_Spawn);
+	if (Key >= 0) {
+		Key += 1;
+		if (Key > G_SpawnMacroblockInstances.count - 1) Key = 0;
+		SelectSpawn(G_SpawnMacroblockInstances[Key], 1);
+	} else {
+		SelectSpawn(NullId);
+	}
+	Sound::Play("EditorMenuMove");
+}
+
+/// Select the previous spawn
+Void PrevSpawn() {
+	declare Key = G_SpawnMacroblockInstances.keyof(G_Spawn);
+	if (Key >= 0) {
+		Key -= 1;
+		if (Key < 0) Key = G_SpawnMacroblockInstances.count - 1;
+		SelectSpawn(G_SpawnMacroblockInstances[Key], -1);
+	} else {
+		SelectSpawn(NullId);
+	}
+	Sound::Play("EditorMenuMove");
+}
+
+// Get the spawn last update time
+Integer GetSpawnUpdate() {
+	return G_SpawnUpdate;
+}
+
+// Get the currently selected spawn
+CMacroblockInstance GetSpawn() {
+	if (MacroblockInstances.existskey(G_Spawn)) return MacroblockInstances[G_Spawn];
+	return Null;
+}
+
+// Set the spawns to display
+Void SetSpawns(Ident[] _SpawnMacroblockInstanceIdents) {
+	declare Page <=> Layers::GetPage("SpawnSelection");
+	declare Text[Integer] L_SpawnsNames for Page;
+	L_SpawnsNames.clear();
+	G_SpawnMacroblockInstances.clear();
+	G_SpawnMacroblockModels.clear();
+
+	declare StartsCount = 0;
+	declare CheckpointsCount = 0;
+	foreach (SpawnKey => SpawnInstanceId in _SpawnMacroblockInstanceIdents) {
+		if (!MacroblockInstances.existskey(SpawnInstanceId)) continue;
+
+		declare CMacroblockModel MacroblockModel = MacroblockInstances[SpawnInstanceId].MacroblockModel;
+
+		if (MacroblockModel == Null) continue;
+		if (MacroblockModel.HasStart || MacroblockModel.HasMultilap) {
+			StartsCount += 1;
+			//L16N [MapEditor] A starting line block
+			L_SpawnsNames[SpawnKey] = _("|BlockInfo|Start");
+		} else if (MacroblockModel.HasCheckpoint) {
+			CheckpointsCount += 1;
+			//L16N [MapEditor] A checkpoint block
+			L_SpawnsNames[SpawnKey] = TL::Compose("%1 #%2", _("|BlockInfo|Checkpoint"), TL::ToText(CheckpointsCount));
+		}
+
+		G_SpawnMacroblockInstances.add(SpawnInstanceId);
+		G_SpawnMacroblockModels.add(MacroblockModel.Id);
+	}
+
+	SelectSpawn(G_Spawn);
+}
+
+// Set the position of the UI
+Void SetPositionY(Real _PositionY) {
+	declare Page <=> Layers::Get("SpawnSelection").LocalPage;
+	declare L_PositionY for Page = 0.;
+	L_PositionY = _PositionY;
+}
+
+// Set the spawn selection visibility
+Void SetVisibility(Boolean _Visible) {
+	declare Page <=> Layers::GetPage("SpawnSelection");
+	declare L_Visibility for Page = False;
+	L_Visibility = _Visible;
+}
+
+Void Show() {
+	SetVisibility(True);
+}
+
+Void Hide() {
+	SetVisibility(False);
+}
+
+/// Unload the library
+Void Unload() {
+	Layers::Destroy("SpawnSelection");
+}
+
+Void Load() {
+	Unload();
+
+	declare LayerSpawnSelection <=> Layers::Create("SpawnSelection");
+	LayerSpawnSelection.ManialinkPage = Private_GetSpawnSelectionML();
+
+	G_SpawnMacroblockInstances.clear();
+	G_SpawnMacroblockModels.clear();
+	G_SpawnsStart = 0;
+	G_SpawnUpdate = -1;
+	G_Spawn = NullId;
+
+	declare Page <=> LayerSpawnSelection.LocalPage;
+	declare L_SpawnsUpdate for Page = -1;
+	declare L_SpawnKey for Page = -1;
+	declare Ident[] L_SpawnMacroblockModelIdents for Page;
+	declare Text[Integer] L_SpawnsNames for Page;
+	declare L_SpawnsShift for Page = 0;
+	declare L_Visibility for Page = False;
+	declare L_PositionY for Page = 0.;
+	L_SpawnsUpdate = -1;
+	L_SpawnKey = -1;
+	L_SpawnMacroblockModelIdents.clear();
+	L_SpawnsNames.clear();
+	L_SpawnsShift = 0;
+	L_Visibility = False;
+	L_PositionY = Styles::GetSize2(<0., 9.>, Styles::CircleSize_Bottom()).Y - 90.;
+}

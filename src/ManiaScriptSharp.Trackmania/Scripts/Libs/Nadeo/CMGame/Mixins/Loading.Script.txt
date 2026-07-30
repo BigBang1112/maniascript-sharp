@@ -1,0 +1,178 @@
+/**
+ * Loading mixin
+ * =============
+ *
+ * Various loading effect
+ *
+ * Props
+ * -----
+ *
+ * - `loading-enabled` (`Boolean`): enable or disable the loading effect
+ * - `loading-effect` (`Text`): the loading effect to apply
+ * - `loading-cycle` (`Integer`): duration of one cycle of the effect in milliseconds
+ * - `loading-pulse-alpha` (`Vec2`): the minimum and maximum alpha of the pulse effect
+ */
+#Const Version "0.1.0"
+#Const ScriptName "Libs/Nadeo/CMGame/Mixins/Loading.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView@3.Script.txt" as MV
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Private_Instance {
+	CMlControl Control;
+	Text Effect;
+	Integer Cycle;
+	Integer EndTime;
+	Vec2 PulseAlpha;
+}
+#Struct K_Private_State {
+	K_Private_Instance[Ident] EnabledInstanceList;
+}
+#Struct K_Private_Result {
+	K_Private_Instance Instance;
+	K_Private_State State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MixinName "CMGameLoading"
+#Const C_MixinClass "cmgame-mixins-loading"
+
+#Const C_Prop_Enabled "loading-enabled"
+#Const C_Prop_Effect "loading-effect"
+#Const C_Prop_Cycle "loading-cycle"
+#Const C_Prop_PulseAlpha "loading-pulse-alpha"
+
+#Const C_Effect_Null ""
+#Const C_Effect_Pulse "pulse"
+
+#Const C_Private_Instance_Null K_Private_Instance {
+	Control = Null,
+	Effect = "",
+	Cycle = 1000,
+	EndTime = 0,
+	PulseAlpha = <0., 1.>
+}
+#Const C_Private_State_Null K_Private_State {
+	EnabledInstanceList = []
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply the control effect
+K_Private_Instance Private_ApplyControlEffect(CMlScript _Context, K_Private_Instance _Instance) {
+	declare K_Private_Instance Instance = _Instance;
+
+	declare Integer EffectStartTime = Now;
+	declare Integer EffectEndTime = Now;
+	if (Instance.Cycle > 0) {
+		EffectStartTime = Now - (Now % Instance.Cycle);
+		EffectEndTime = EffectStartTime + Instance.Cycle;
+	}
+
+	_Context.AnimMgr.Flush(Instance.Control);
+
+	switch (Instance.Effect) {
+		case C_Effect_Pulse: {
+			_Context.AnimMgr.Add(Instance.Control, """<anim opacity="{{{Instance.PulseAlpha.Y}}}" />""", EffectStartTime, Instance.Cycle / 2, CAnimManager::EAnimManagerEasing::QuadIn);
+			_Context.AnimMgr.Add(Instance.Control, """<anim opacity="{{{Instance.PulseAlpha.X}}}" />""", EffectStartTime + (Instance.Cycle / 2), Instance.Cycle / 2, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	}
+
+	Instance.EndTime = EffectEndTime;
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the control loading effect
+K_Private_State Private_SetControlEffectEnabled(K_Private_State _State, K_Private_Instance _Instance, Boolean _Enabled) {
+	declare K_Private_State State = _State;
+
+	if (_Enabled && _Instance.Effect != C_Effect_Null) {
+		State.EnabledInstanceList[_Instance.Control.Id] = _Instance;
+		_Instance.Control.Visible = True;
+	} else {
+		State.EnabledInstanceList.removekey(_Instance.Control.Id);
+		_Instance.Control.Visible = False;
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Page initialization
+Void Private_Hook_PageMainInit(CMlScript _Context) {
+	declare K_Private_State CMGame_MixinsLoading_State for _Context.Page = C_Private_State_Null;
+	CMGame_MixinsLoading_State = C_Private_State_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Mixin initialization
+Void Private_Hook_MixinInit(CMlScript _Context, CMlControl _Control) {
+	declare K_Private_Instance CMGame_MixinsLoading_Instance as Instance for _Control = C_Private_Instance_Null;
+	Instance = C_Private_Instance_Null;
+
+	Instance.Control = _Control;
+	Instance.Effect = MV::GetMixinProp_Text(_Control, C_Prop_Effect, Instance.Effect);
+	Instance.Cycle = MV::GetMixinProp_Integer(_Control, C_Prop_Cycle, Instance.Cycle);
+	Instance.PulseAlpha = MV::GetMixinProp_Vec2(_Control, C_Prop_PulseAlpha, Instance.PulseAlpha);
+
+	declare K_Private_State CMGame_MixinsLoading_State as State for _Context.Page = C_Private_State_Null;
+	State = Private_SetControlEffectEnabled(State, Instance, MV::GetMixinProp_Boolean(_Control, C_Prop_Enabled, False));
+	Instance = Private_ApplyControlEffect(_Context, Instance);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Page update
+Void Private_Hook_PageAfterYield(CMlScript _Context) {
+	declare K_Private_State CMGame_MixinsLoading_State for _Context.Page = C_Private_State_Null;
+	for (ControlId => Instance in CMGame_MixinsLoading_State.EnabledInstanceList) {
+		if (Now > Instance.EndTime) {
+			CMGame_MixinsLoading_State.EnabledInstanceList[ControlId] = Private_ApplyControlEffect(_Context, Instance);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// /// Enable or disable the control loading effect
+Void SetControlEffectEnabled(CMlScript _Context, CMlControl _Control, Boolean _Enabled) {
+	declare K_Private_Instance CMGame_MixinsLoading_Instance as Instance for _Control = C_Private_Instance_Null;
+	if (Instance.Control == Null) return;
+	declare K_Private_State CMGame_MixinsLoading_State as State for _Context.Page = C_Private_State_Null;
+
+	State = Private_SetControlEffectEnabled(State, Instance, _Enabled);
+	Instance = Private_ApplyControlEffect(_Context, Instance);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the mixin
+MV::K_Mixin Mixin() {
+	return MV::K_Mixin {
+		Name = C_MixinName,
+		Path = ScriptName,
+		Class = C_MixinClass,
+		Hooks = [
+			MV::C_Hook_PageMainInit => """{{{C_MixinName}}}::Private_Hook_PageMainInit""",
+			MV::C_Hook_MixinInit => """{{{C_MixinName}}}::Private_Hook_MixinInit""",
+			MV::C_Hook_PageAfterYield => """{{{C_MixinName}}}::Private_Hook_PageAfterYield"""
+		],
+		DefineProps = [
+			C_Prop_Enabled,
+			C_Prop_Effect,
+			C_Prop_Cycle,
+			C_Prop_PulseAlpha
+		]
+	};
+}

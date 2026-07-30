@@ -1,0 +1,322 @@
+/**
+ * State manager for the TrackMania World Tour - Matchmaking mode
+ */
+#Const Version "1.3.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/StateManager.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Server.Script.txt" as UIModules
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Server.Script.txt" as UIModules_DisplayMessage_Default
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/RespawnHelper_Server.Script.txt" as UIModules_RespawnHelper_Default
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Server.Script.txt" as UIModules_TimeGap_Default
+#Include "Libs/Nadeo/TMGame/Modes/AFK_Server.Script.txt" as UIModules_AFK
+#Include "Libs/Nadeo/Trackmania/Modes/Rounds/UIModules/SmallScoresTable_Server.Script.txt" as UIModules_SmallScoresTable_Default
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/EndMatch_Teams_Server.Script.txt" as UIModules_MatchResult
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/NetShare_Teams_Server.Script.txt" as NetShare_Teams
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/EventMessage_Server.Script.txt" as UIModules_EventMessage
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/LiveRanking_Server.Script.txt" as UIModules_LiveRanking
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/CanChat_Server.Script.txt" as UIModules_CanChat
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/Header_Server.Script.txt" as UIModules_Header
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/Markers_Server.Script.txt" as UIModules_Markers
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/MatchIntro_Server.Script.txt" as UIModules_MatchIntro
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/MVP_Server.Script.txt" as UIModules_MVP
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/RankingProgress_Server.Script.txt" as UIModules_RankingProgress
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/*	Enabling this setting will have
+ *	a big impact on the script performances
+ *	in crowded server. The library
+ *	will do a check on every player
+ *	of the server on every frame.
+ *	If the script respect the convention
+ *	to always use MB_Yield() instead of yield;
+ *	then it should not have to enforce
+ *	the state at each frame. Any new
+ *	player will be initialized when
+ *	they join the server
+ */
+#Const C_ForceStatesEveryFrame False
+
+#Const C_State_Waiting 0
+#Const C_State_Playing 1
+#Const C_State_EndRound 2
+#Const C_State_MatchIntro 3
+#Const C_State_RankingProgress 4
+#Const C_State_MatchResult 5
+
+#Const C_DefaultStates []
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer[] G_ForcedStates;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Apply the given states to the given player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_States										The states to apply
+ */
+Void Private_Apply(CPlayer _Player, Integer[] _States) {
+	if (_Player == Null) return;
+
+	UIModules_EventMessage::SetVisibility(_Player, True);
+
+	UIModules_Header::SetVisibility(_Player, False);
+	UIModules_MatchIntro::SetVisibility(_Player, False);
+	UIModules_MVP::SetVisibility(_Player, False);
+	UIModules_LiveRanking::SetVisibility(_Player, False);
+	UIModules_Markers::SetVisibility(_Player, False);
+	UIModules_MatchResult::SetVisibility(_Player, False);
+	UIModules_RankingProgress::SetVisibility(_Player, False);
+
+	foreach (State in _States) {
+		switch (State) {
+			case C_State_Playing: {
+				UIModules_Header::SetVisibility(_Player, True);
+				UIModules_MVP::SetVisibility(_Player, True);
+				UIModules_LiveRanking::SetVisibility(_Player, True);
+				UIModules_Markers::SetVisibility(_Player, True);
+			}
+			case C_State_EndRound: {
+				UIModules_Header::SetVisibility(_Player, True);
+				UIModules_MVP::SetVisibility(_Player, True);
+				UIModules_LiveRanking::SetVisibility(_Player, True);
+			}
+			case C_State_MatchIntro: {
+				UIModules_MatchIntro::SetVisibility(_Player, True);
+				UIModules_EventMessage::SetVisibility(_Player, False);
+			}
+			case C_State_RankingProgress: {
+				UIModules_RankingProgress::SetVisibility(_Player, True);
+			}
+			case C_State_MatchResult: {
+				UIModules_MatchResult::SetVisibility(_Player, True);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a state to a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to add
+ */
+Void Add(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player = C_DefaultStates;
+	if (!LibStateMgr_States.exists(_State)) {
+		LibStateMgr_States.add(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove a state from a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to remove
+ */
+Void Remove(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player = C_DefaultStates;
+	if (LibStateMgr_States.exists(_State)) {
+		LibStateMgr_States.remove(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove all state from a player
+ *
+ *	@param	_Player										The player to reset
+ */
+Void Reset(CPlayer _Player) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player = C_DefaultStates;
+	LibStateMgr_States = C_DefaultStates;
+	if (G_ForcedStates.count <= 0) {
+		Private_Apply(_Player, LibStateMgr_States);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player has the given state
+ *
+ *	@param	_Player										The player to check
+ *	@param	_State										The state to find
+ *
+ *	@return														True if the player has the state
+ *																		False otherwise
+ */
+Boolean HasState(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return False;
+
+	declare Integer[] LibStateMgr_States for _Player = C_DefaultStates;
+	return LibStateMgr_States.exists(_State) || G_ForcedStates.exists(_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the players have the given state as forced
+ *
+ *	@param	_State										The state to find
+ *
+ *	@return														True if the players has the state
+ *																		False otherwise
+ */
+Boolean HasForcedState(Integer _State) {
+	return G_ForcedStates.exists(_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Force the states applied to all players
+ *	To disable the forced states use an empty array
+ *
+ *	@param	_States									The states to force
+ */
+Void ForcePlayersStates(Integer[] _States) {
+	G_ForcedStates = _States;
+
+	foreach (Player in AllPlayers) {
+		declare Boolean LibStateMgr_IsForcedStates for Player = False;
+		// Enable
+		if (G_ForcedStates.count > 0) {
+			LibStateMgr_IsForcedStates = True;
+			Private_Apply(Player, G_ForcedStates);
+		}
+		// Disable
+		else {
+			LibStateMgr_IsForcedStates = False;
+			declare Integer[] LibStateMgr_States for Player = C_DefaultStates;
+			Private_Apply(Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (C_ForceStatesEveryFrame && G_ForcedStates.count > 0) {
+		foreach (Player in AllPlayers) {
+			declare Boolean LibStateMgr_IsForcedStates for Player = False;
+			if (!LibStateMgr_IsForcedStates) {
+				LibStateMgr_IsForcedStates = True;
+				Private_Apply(Player, G_ForcedStates);
+			}
+		}
+	}
+
+	UIModules_AFK::Yield();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	UIModules_CanChat::InitializePlayer(_Player);
+	UIModules_Header::InitializePlayer(_Player);
+	UIModules_MatchIntro::InitializePlayer(_Player);
+	UIModules_MVP::InitializePlayer(_Player);
+	UIModules_LiveRanking::InitializePlayer(_Player);
+	UIModules_EventMessage::InitializePlayer(_Player);
+	UIModules_Markers::InitializePlayer(_Player);
+	UIModules_MatchResult::InitializePlayer(_Player);
+	UIModules_RankingProgress::InitializePlayer(_Player);
+	UIModules_AFK::InitializePlayer(_Player);
+
+	Reset(_Player);
+
+	if (G_ForcedStates.count > 0) {
+		declare Boolean LibStateMgr_IsForcedStates for _Player = False;
+		LibStateMgr_IsForcedStates = True;
+		Private_Apply(_Player, G_ForcedStates);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	ForcePlayersStates([]);
+
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+
+	NetShare_Teams::Unload();
+	UIModules_AFK::Unload();
+	UIModules_MatchResult::Unload();
+	UIModules_RankingProgress::Unload();
+	UIModules_Markers::Unload();
+	UIModules_EventMessage::Unload();
+	UIModules_LiveRanking::Unload();
+	UIModules_MVP::Unload();
+	UIModules_MatchIntro::Unload();
+	UIModules_Header::Unload();
+	UIModules_CanChat::Unload();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	UIModules_CanChat::Load();
+	UIModules_Header::Load();
+	UIModules_MatchIntro::Load();
+	UIModules_MVP::Load();
+	UIModules_LiveRanking::Load();
+	UIModules_EventMessage::Load();
+	UIModules_Markers::Load();
+	UIModules_RankingProgress::Load();
+	UIModules_MatchResult::Load();
+	UIModules_AFK::Load();
+	NetShare_Teams::Load();
+
+	UIModules::InitializeCustomizableModule(UIModules_CanChat::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Header::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_MatchIntro::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_MVP::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_LiveRanking::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_EventMessage::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Markers::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_RankingProgress::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_MatchResult::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_AFK::GetConfig());
+
+	UIModules::LoadModules([
+		UIModules_CanChat::GetId(),
+		UIModules_Header::GetId(),
+		UIModules_MatchIntro::GetId(),
+		UIModules_MVP::GetId(),
+		UIModules_LiveRanking::GetId(),
+		UIModules_EventMessage::GetId(),
+		UIModules_Markers::GetId(),
+		UIModules_MatchResult::GetId(),
+		UIModules_RankingProgress::GetId(),
+		UIModules_AFK::GetId()
+	]);
+
+	// Unload some default modules
+	UIModules::UnloadModules([
+		UIModules_DisplayMessage_Default::GetId(),
+		UIModules_RespawnHelper_Default::GetId(),
+		UIModules_SmallScoresTable_Default::GetId(),
+		UIModules_TimeGap_Default::GetId()
+	]);
+}

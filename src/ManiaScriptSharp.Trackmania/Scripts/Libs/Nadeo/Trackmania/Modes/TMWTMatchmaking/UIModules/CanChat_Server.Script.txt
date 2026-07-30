@@ -1,0 +1,262 @@
+/**
+ * UI module: CanChat server side
+ */
+#Const Version "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/CanChat_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Common.Script.txt" as UIModules_Common
+#Include "Libs/Nadeo/CMGame/Utils/CommunicationRestriction.Script.txt" as CommunicationRestriction
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/CanChat_Common.Script.txt" as UIModules_CanChat_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_UpdateInterval 5000
+#Const C_IncludeOurselves True
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer G_NextUpdateTime;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_CanChat_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the configuration of the UI module
+UIModules_Common::K_ModuleConfig GetConfig() {
+	return UIModules_CanChat_Common::C_UIModuleConfig;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Send a message to all teams about players
+ *	with starter access that cannot chat
+ */
+Void SendGroupedCannotChatMessages() {
+	declare CUser[][Integer] ClansCannotChatUsers;
+	declare CUser[][Integer] ClansRestrictedChatUsers;
+	foreach (Player in AllPlayers) {
+		if (Player.CurrentClan > 0 && Player.User != Null && !Player.User.IsFakeUser) {
+			declare CUIConfig PlayerUI <=> UIManager.GetUI(Player);
+			if (PlayerUI != Null) {
+				declare netread Boolean Net_TMWTMatchmaking_CanChat_CanChat for PlayerUI;
+				if (!Net_TMWTMatchmaking_CanChat_CanChat) {
+					if (ClansCannotChatUsers.existskey(Player.CurrentClan)) {
+						ClansCannotChatUsers[Player.CurrentClan].add(Player.User);
+					} else {
+						ClansCannotChatUsers[Player.CurrentClan] = [Player.User];
+					}
+				}
+
+				declare netread Integer Net_TMWTMatchmaking_CanChat_CommunicationRestrictionLevel for PlayerUI;
+				if (CommunicationRestriction::ChatIsRestricted(Net_TMWTMatchmaking_CanChat_CommunicationRestrictionLevel)) {
+					if (ClansRestrictedChatUsers.existskey(Player.CurrentClan)) {
+						ClansRestrictedChatUsers[Player.CurrentClan].add(Player.User);
+					} else {
+						ClansRestrictedChatUsers[Player.CurrentClan] = [Player.User];
+					}
+				}
+			}
+		}
+	}
+
+	foreach (Player in AllPlayers) {
+		if (
+			Player.CurrentClan > 0 &&
+			Player.User != Null &&
+			!Player.User.IsFakeUser && (
+				ClansCannotChatUsers.existskey(Player.CurrentClan) ||
+				ClansRestrictedChatUsers.existskey(Player.CurrentClan)
+			)
+		) {
+			declare CUIConfig PlayerUI <=> UIManager.GetUI(Player);
+			if (PlayerUI != Null) {
+				declare netwrite Integer Net_TMWTMatchmaking_CanChat_PlayersAccountIdsUpdate for PlayerUI = 0;
+				declare netwrite Text[] Net_TMWTMatchmaking_CanChat_StarterAccessPlayersAccountIds for PlayerUI;
+				declare netwrite Text[] Net_TMWTMatchmaking_CanChat_RestrictedChatPlayersAccountIds for PlayerUI;
+				declare Boolean TMWTMatchmaking_CanChat_CanDisplayMessage for Player.User = True;
+
+				TMWTMatchmaking_CanChat_CanDisplayMessage = False;
+				Net_TMWTMatchmaking_CanChat_PlayersAccountIdsUpdate += 1;
+				Net_TMWTMatchmaking_CanChat_StarterAccessPlayersAccountIds.clear();
+				if (ClansCannotChatUsers.existskey(Player.CurrentClan)) {
+					foreach (ChatUser in ClansCannotChatUsers[Player.CurrentClan]) {
+						if (ChatUser.WebServicesUserId != Player.User.WebServicesUserId || C_IncludeOurselves) {
+							Net_TMWTMatchmaking_CanChat_StarterAccessPlayersAccountIds.add(ChatUser.WebServicesUserId);
+						}
+					}
+				}
+				Net_TMWTMatchmaking_CanChat_RestrictedChatPlayersAccountIds.clear();
+				if (ClansRestrictedChatUsers.existskey(Player.CurrentClan)) {
+					foreach (ChatUser in ClansRestrictedChatUsers[Player.CurrentClan]) {
+						if (ChatUser.WebServicesUserId != Player.User.WebServicesUserId || C_IncludeOurselves) {
+							Net_TMWTMatchmaking_CanChat_RestrictedChatPlayersAccountIds.add(ChatUser.WebServicesUserId);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Send a message to the player's team
+ *	that they cannot chat
+ */
+Void SendCannotChatMessage(CSmPlayer _CannotChatPlayer) {
+	if (_CannotChatPlayer == Null || _CannotChatPlayer.CurrentClan <= 0) return;
+
+	foreach (Player in AllPlayers) {
+		if (Player.CurrentClan == _CannotChatPlayer.CurrentClan && Player.Id != _CannotChatPlayer.Id) {
+			declare CUIConfig PlayerUI <=> UIManager.GetUI(Player);
+			if (PlayerUI != Null) {
+				declare netwrite Integer Net_TMWTMatchmaking_CanChat_PlayersAccountIdsUpdate for PlayerUI = 0;
+				declare netwrite Text[] Net_TMWTMatchmaking_CanChat_StarterAccessPlayersAccountIds for PlayerUI;
+				Net_TMWTMatchmaking_CanChat_StarterAccessPlayersAccountIds.clear();
+				Net_TMWTMatchmaking_CanChat_StarterAccessPlayersAccountIds.add(_CannotChatPlayer.User.WebServicesUserId);
+				Net_TMWTMatchmaking_CanChat_PlayersAccountIdsUpdate += 1;
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send a message to the team that some teammates chats are restricted
+Void SendRestrictedChatMessage(Integer _Clan, CSmPlayer[] _NewPlayers) {
+	if (_Clan <= 0) return;
+
+	declare Text[] AllRestrictedChatAccountIds;
+	foreach (Player in AllPlayers) {
+		if (Player.CurrentClan == _Clan && Player.User != Null && !Player.User.IsFakeUser) {
+			declare CUIConfig PlayerUI <=> UIManager.GetUI(Player);
+			if (PlayerUI != Null) {
+				declare netread Integer Net_TMWTMatchmaking_CanChat_CommunicationRestrictionLevel for PlayerUI;
+				if (CommunicationRestriction::ChatIsRestricted(Net_TMWTMatchmaking_CanChat_CommunicationRestrictionLevel)) {
+					AllRestrictedChatAccountIds.add(Player.User.WebServicesUserId);
+				}
+			}
+		}
+	}
+
+	declare Text[] NewRestrictedChatAccountIds;
+	for (Player in _NewPlayers) {
+		if (Player != Null && Player.User != Null) {
+			NewRestrictedChatAccountIds.add(Player.User.WebServicesUserId);
+		}
+	}
+
+	foreach (Player in AllPlayers) {
+		if (Player.CurrentClan == _Clan) {
+			declare CUIConfig PlayerUI <=> UIManager.GetUI(Player);
+			if (PlayerUI != Null) {
+				declare netwrite Integer Net_TMWTMatchmaking_CanChat_PlayersAccountIdsUpdate for PlayerUI = 0;
+				declare netwrite Text[] Net_TMWTMatchmaking_CanChat_RestrictedChatPlayersAccountIds for PlayerUI;
+				if (_NewPlayers.exists(Player)) {
+					Net_TMWTMatchmaking_CanChat_RestrictedChatPlayersAccountIds = AllRestrictedChatAccountIds;
+				} else {
+					Net_TMWTMatchmaking_CanChat_RestrictedChatPlayersAccountIds = NewRestrictedChatAccountIds;
+				}
+				Net_TMWTMatchmaking_CanChat_PlayersAccountIdsUpdate += 1;
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check who cannot chat
+Void CheckCannotChat() {
+	declare CSmPlayer[][Integer] RetrictedChatClansPlayers;
+	foreach (Player in AllPlayers) {
+		if (Player.CurrentClan > 0 && Player.User != Null && !Player.User.IsFakeUser) {
+			declare Boolean TMWTMatchmaking_CanChat_CanDisplayMessage for Player.User = True;
+			if (TMWTMatchmaking_CanChat_CanDisplayMessage) {
+				declare CUIConfig PlayerUI <=> UIManager.GetUI(Player);
+				if (PlayerUI != Null) {
+					declare netread Integer Net_TMWTMatchmaking_CanChat_StatusUpdate for PlayerUI;
+					declare Integer TMWTMatchmaking_CanChat_StatusUpdate for Player.User;
+					if (TMWTMatchmaking_CanChat_StatusUpdate != Net_TMWTMatchmaking_CanChat_StatusUpdate) {
+						TMWTMatchmaking_CanChat_StatusUpdate = Net_TMWTMatchmaking_CanChat_StatusUpdate;
+
+						declare netread Boolean Net_TMWTMatchmaking_CanChat_CanChat for PlayerUI;
+						if (!Net_TMWTMatchmaking_CanChat_CanChat) {
+							TMWTMatchmaking_CanChat_CanDisplayMessage = False;
+							SendCannotChatMessage(Player);
+						}
+
+						declare netread Integer Net_TMWTMatchmaking_CanChat_CommunicationRestrictionLevel for PlayerUI;
+						if (CommunicationRestriction::ChatIsRestricted(Net_TMWTMatchmaking_CanChat_CommunicationRestrictionLevel)) {
+							TMWTMatchmaking_CanChat_CanDisplayMessage = False;
+							if (RetrictedChatClansPlayers.existskey(Player.CurrentClan)) {
+								RetrictedChatClansPlayers[Player.CurrentClan].add(Player);
+							} else {
+								RetrictedChatClansPlayers[Player.CurrentClan] = [Player];
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for (Clan => NewPlayers in RetrictedChatClansPlayers) {
+		SendRestrictedChatMessage(Clan, NewPlayers);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (G_NextUpdateTime >= 0 && Now >= G_NextUpdateTime) {
+		G_NextUpdateTime = Now + C_UpdateInterval;
+		CheckCannotChat();
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	G_NextUpdateTime = -1;
+
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+
+	foreach (User in Users) {
+		// The CSmPlayer objects can be destroyed and recreated between maps
+		// This will trigger the `OnPlayerAdded` event and `InitializePlayer()` function
+		// We do not want to display the "cannot chat" message at the beginning of each map
+		// So we must initialize `declare for` variables one time only here
+		declare Boolean TMWTMatchmaking_CanChat_CanDisplayMessage for User;
+		declare Integer TMWTMatchmaking_CanChat_StatusUpdate for User;
+		TMWTMatchmaking_CanChat_CanDisplayMessage = True;
+		TMWTMatchmaking_CanChat_StatusUpdate = -1;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	G_NextUpdateTime = Now;
+}

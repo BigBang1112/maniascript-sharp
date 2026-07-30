@@ -1,0 +1,177 @@
+/**
+ *  UI module: Countdown client side
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/Countdown_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConsts
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_Champion_Countdown"
+#Const C_Type CUILayer::EUILayerType::Normal
+
+#Const C_Target_Everyone 0
+#Const C_Target_Players 1
+#Const C_Target_Spectators 2
+
+#Const C_RedCountdownTime 30000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	declare Pos_Countdown = <153.,-35.,0.>;
+
+	declare Color_Red = "b02326";
+	declare Color_White = "eeeeee";
+	declare Color_Blue = "03252a";
+	declare Color_Orange = "ff7800";
+
+	return MV::Create(
+C_Id, 3,
+"""
+<stylesheet>
+	<style class="text-number" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_IngameTime)}}}" textcolor="ffffff" textsize="3" />
+</stylesheet>
+<frame z-index="-2" hidden="1" id="frame-global">
+	<frame id="frame-intro">
+		<frame pos="{{{Pos_Countdown.X}}} {{{Pos_Countdown.Y}}}" z-index="{{{Pos_Countdown.Z}}}" id="frame-countdown">
+			<label pos="4 -4.2" z-index="1" size="25 6" halign="right" textsize="5" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_WarmUp)}}}" class="text-number" id="label-countdown" />
+			<quad pos="7 -3" size="20 8.5" halign="right" colorize="{{{Color_Blue}}}" image="{{{MenuConsts::C_ImageUrl_Champion_Spec_Background_Center}}}" opacity="0.7" id="quad-countdown" />
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+""",
+"""
+Void HideDuringIntro(CMlFrame _Frame) {
+	if (_Frame == Null) return;
+
+	declare IsIntro = (
+		UI.UISequence == CUIConfig::EUISequence::Intro ||
+		UI.UISequence == CUIConfig::EUISequence::RollingBackgroundIntro ||
+		UI.UISequence == CUIConfig::EUISequence::Outro
+	);
+
+	if (_Frame.Visible && IsIntro) {
+		_Frame.Visible = False;
+	} else if (!_Frame.Visible && !IsIntro) {
+		_Frame.Visible = True;
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_Intro;
+declare CMlFrame Frame_Countdown;
+declare CMlLabel Label_Countdown;
+declare CMlQuad Quad_Countdown;
+
+declare netread Text[Text] Net_LibUI_Settings for Teams[0];
+declare netread Integer Net_Champion_Countdown_VisibilityTarget for Teams[0];
+declare netread Boolean Net_ShareChampion_WarmUpIsActive for Teams[0];
+declare netread Integer Net_Champion_Countdown_CutOffTimeLimit for Teams[0];
+
+declare Boolean DisplayModule;
+declare Integer CutOffTimeLimit;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_Intro  <=> (Frame_Global.GetFirstChild("frame-intro") as CMlFrame);
+Frame_Countdown  <=> (Frame_Intro.GetFirstChild("frame-countdown") as CMlFrame);
+Label_Countdown <=> (Frame_Countdown.GetFirstChild("label-countdown") as CMlLabel);
+Quad_Countdown <=> (Frame_Countdown.GetFirstChild("quad-countdown") as CMlQuad);
+
+DisplayModule = Frame_Global.Visible;
+CutOffTimeLimit = -1;
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_Champion_Countdown_IsVisible for Owner;
+		if (DisplayModule != Net_Champion_Countdown_IsVisible) {
+			DisplayModule = Net_Champion_Countdown_IsVisible;
+			Frame_Global.Visible = Net_Champion_Countdown_IsVisible;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (CutOffTimeLimit != Net_Champion_Countdown_CutOffTimeLimit) {
+		CutOffTimeLimit = Net_Champion_Countdown_CutOffTimeLimit;
+	}
+
+	HideDuringIntro(Frame_Intro);
+
+	if (Frame_Global.Visible && Owner != Null) {
+		if (
+			CutOffTimeLimit > 0 && (
+				Net_Champion_Countdown_VisibilityTarget == {{{C_Target_Everyone}}} ||
+				(Net_Champion_Countdown_VisibilityTarget == {{{C_Target_Players}}} && InputPlayer != Null && InputPlayer.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned) ||
+				(Net_Champion_Countdown_VisibilityTarget == {{{C_Target_Spectators}}} && InputPlayer != Null && InputPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)
+			)
+		) {
+			if (!Frame_Countdown.Visible) {
+				Frame_Countdown.Visible = True;
+			}
+		} else if (Frame_Countdown.Visible) {
+			Frame_Countdown.Visible = False;
+		}
+
+		if (Frame_Countdown.Visible) {
+			if (CutOffTimeLimit >= GameTime) {
+				Label_Countdown.Value = TL::TimeToText(CutOffTimeLimit - GameTime + 1);
+			} else {
+				Label_Countdown.Value = TL::TimeToText(0);
+			}
+
+			if (Net_ShareChampion_WarmUpIsActive) {
+				Label_Countdown.TextColor = CL::Hex6ToRgb("{{{Color_White}}}");
+				Quad_Countdown.Colorize = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_WarmUp))}}};
+			} else if (CutOffTimeLimit - GameTime > {{{C_RedCountdownTime}}}) {
+				Label_Countdown.TextColor = CL::Hex6ToRgb("{{{Color_White}}}");
+				Quad_Countdown.Colorize = CL::Hex6ToRgb("{{{Color_Blue}}}");
+			} else {
+				Label_Countdown.TextColor = CL::Hex6ToRgb("{{{Color_White}}}");
+				Quad_Countdown.Colorize = CL::Hex6ToRgb("{{{Color_Red}}}");
+			}
+
+			Quad_Countdown.Size.X = ML::Min(Label_Countdown.Size.X, Label_Countdown.ComputeWidth(Label_Countdown.Value)) + 6.;
+		}
+	}
+}
+***
+""",
+[],
+[]
+	);
+}

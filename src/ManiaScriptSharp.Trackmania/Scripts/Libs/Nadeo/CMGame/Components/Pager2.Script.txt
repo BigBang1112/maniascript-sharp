@@ -1,0 +1,277 @@
+/**
+ *	Pager component for ManiaView
+ *
+ *	- page-size -> number of elements in one page
+ *	- trigger-size -> number of elements to retrieve after the page before triggering an update
+ *	- margin-size -> number of elements to retrieve after the trigger
+ *															margin <-- trigger <-- page  --> trigger --> margin
+ *															2      <-- 5       <-- 10-19 -->      24 -->     27
+ *	- is-looping -> (boolean) False by default. If True will loop between the beginning and the end of the pager
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/Pager2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_PagerConfig {
+	Integer ThrottleDuration;
+	Integer PageSize;
+	Integer TriggerSize;
+	Integer MarginSize;
+	Boolean IsLooping;
+}
+#Struct K_PagerRange {
+	Integer Offset;
+	Integer Length;
+}
+#Struct K_PagerPage {
+	Integer Current;
+	Integer Max;
+}
+#Struct K_Pager {
+	K_PagerConfig Config;
+	Integer ThrottleEndTime;
+	Integer CooldownEndTime;
+	Int2 Limits;
+	Integer Index;
+	Integer Total;
+	Boolean RangeUpdated;
+	K_PagerRange Range;
+	Boolean PageUpdated;
+	K_PagerPage Page;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_PagerRange Private_UpdateRange(K_Pager _Pager) {
+	return K_PagerRange {
+		Offset = ML::Max(0, _Pager.Index - _Pager.Config.TriggerSize - _Pager.Config.MarginSize),
+		Length = ML::Max(1, _Pager.Config.PageSize + (2 * _Pager.Config.TriggerSize) + (2 * _Pager.Config.MarginSize))
+	};
+}
+
+K_PagerPage Private_UpdatePage(K_Pager _Pager) {
+	if (_Pager.Config.PageSize == 0) {
+		return K_PagerPage {
+			Current = 1,
+			Max = 1
+		};
+	}
+
+	return K_PagerPage {
+		Current = ML::Max(1, (_Pager.Index / _Pager.Config.PageSize) + 1),
+		Max = ML::Max(1, ((_Pager.Total - 1) / _Pager.Config.PageSize) + 1)
+	};
+}
+
+Boolean RangesAreEqual(K_PagerRange _RangeA, K_PagerRange _RangeB) {
+	return (
+		_RangeA.Offset == _RangeB.Offset &&
+		_RangeA.Length == _RangeB.Length
+	);
+}
+
+Boolean PagesAreEqual(K_PagerPage _PageA, K_PagerPage _PageB) {
+	return (
+		_PageA.Current == _PageB.Current &&
+		_PageA.Max == _PageB.Max
+	);
+}
+
+K_Pager Create(Integer _PageSize, Integer _TriggerSize, Integer _MarginSize, Integer _ThrottleDuration, Boolean _IsLooping) {
+	assert(_PageSize > 0, "Page size must be greater than 0");
+
+	declare Integer TriggerSize = _TriggerSize;
+	if (TriggerSize < 0) TriggerSize = _PageSize;
+	declare Integer MarginSize = _MarginSize;
+	if (MarginSize < 0) MarginSize = ML::Max(1, _PageSize / 2);
+
+	declare K_Pager Pager = K_Pager {
+		Config = K_PagerConfig {
+			ThrottleDuration = ML::Max(0, _ThrottleDuration),
+			PageSize = _PageSize,
+			TriggerSize = TriggerSize,
+			MarginSize = MarginSize,
+			IsLooping = _IsLooping
+		},
+		ThrottleEndTime = -1,
+		CooldownEndTime = -1,
+		Limits = <0, 0>,
+		Index = 0,
+		Total = 0
+	};
+
+	Pager.Range = Private_UpdateRange(Pager);
+	Pager.RangeUpdated = True;
+	Pager.Page = Private_UpdatePage(Pager);
+	Pager.PageUpdated = True;
+
+	return Pager;
+}
+K_Pager Create(Integer _PageSize, Integer _ThrottleDuration) {
+	return Create(_PageSize, -1, -1, _ThrottleDuration, False);
+}
+K_Pager Create(Integer _ThrottleDuration) {
+	return Create(1, -1, -1, _ThrottleDuration, False);
+}
+
+K_Pager SetIndex(K_Pager _Pager, Integer _Index) {
+	if (_Pager.Index == _Index) return _Pager;
+
+	declare K_Pager Pager = _Pager;
+
+	Pager.Index = ML::Clamp(_Index, 0, ML::Max(0, Pager.Total - 1));
+
+	Pager.Page = Private_UpdatePage(Pager);
+	Pager.PageUpdated = !PagesAreEqual(Pager.Page, _Pager.Page);
+
+	if (
+		Pager.ThrottleEndTime >= 0 ||
+		Pager.Index <= Pager.Limits.X ||
+		Pager.Index >= Pager.Limits.Y
+	) {
+		if (
+			Pager.ThrottleEndTime >= 0 ||
+			(Pager.CooldownEndTime >= 0 && Now < Pager.CooldownEndTime)
+		) {
+			Pager.ThrottleEndTime = Now + Pager.Config.ThrottleDuration;
+		} else {
+			Pager.ThrottleEndTime = Now;
+		}
+	}
+
+	return Pager;
+}
+
+Integer GetIndex(K_Pager _Pager) {
+	return _Pager.Index;
+}
+
+K_Pager SetPage(K_Pager _Pager, Integer _Page) {
+	return SetIndex(_Pager, (ML::Clamp(_Page, 1, _Pager.Page.Max) - 1) * _Pager.Config.PageSize);
+}
+K_Pager GoToNextPage(K_Pager _Pager, Integer _PagesNb) {
+	declare Integer NextPage = _Pager.Page.Current + _PagesNb;
+	if (_Pager.Config.IsLooping && NextPage > _Pager.Page.Max) NextPage = 1;
+	return SetPage(_Pager, NextPage);
+}
+K_Pager GoToNextPage(K_Pager _Pager) {
+	return GoToNextPage(_Pager, 1);
+}
+K_Pager GoToPreviousPage(K_Pager _Pager, Integer _PagesNb) {
+	declare Integer PreviousPage = _Pager.Page.Current - _PagesNb;
+	if (_Pager.Config.IsLooping && PreviousPage < 1) PreviousPage = _Pager.Page.Max;
+	return SetPage(_Pager, PreviousPage);
+}
+K_Pager GoToPreviousPage(K_Pager _Pager) {
+	return GoToPreviousPage(_Pager, 1);
+}
+
+Integer GetPageCurrent(K_Pager _Pager) {
+	return _Pager.Page.Current;
+}
+Integer GetPageMax(K_Pager _Pager) {
+	return _Pager.Page.Max;
+}
+
+K_Pager SetTotal(K_Pager _Pager, Integer _Total) {
+	if (_Pager.Total == _Total) return _Pager;
+
+	declare K_Pager Pager = _Pager;
+
+	Pager.Total = ML::Max(0, _Total);
+
+	if (Pager.Index > ML::Max(0, Pager.Total - 1)) {
+		Pager = SetIndex(Pager, Pager.Total - 1);
+	} else {
+		Pager.Page = Private_UpdatePage(Pager);
+		Pager.PageUpdated = !PagesAreEqual(Pager.Page, _Pager.Page);
+	}
+
+	return Pager;
+}
+
+Integer GetTotal(K_Pager _Pager) {
+	return _Pager.Total;
+}
+
+Boolean IsAtFirstIndex(K_Pager _Pager) {
+	return (_Pager.Total <= 0 || _Pager.Index <= 0);
+}
+
+Boolean IsAtLastIndex(K_Pager _Pager) {
+	return (_Pager.Total <= 0 || _Pager.Index >= _Pager.Total - 1);
+}
+
+Boolean IsAtFirstPage(K_Pager _Pager) {
+	return (_Pager.Total <= 0 || _Pager.Page.Current <= 1);
+}
+
+Boolean IsAtLastPage(K_Pager _Pager) {
+	return (_Pager.Total <= 0 || _Pager.Page.Current >= _Pager.Page.Max);
+}
+
+K_Pager Update(K_Pager _Pager) {
+	if (_Pager.ThrottleEndTime < 0 || Now < _Pager.ThrottleEndTime) return _Pager;
+
+	declare K_Pager Pager = _Pager;
+	Pager.ThrottleEndTime = -1;
+	Pager.CooldownEndTime = Now + Pager.Config.ThrottleDuration;
+	Pager.Limits = <
+		Pager.Index - Pager.Config.TriggerSize,
+		Pager.Index + Pager.Config.TriggerSize
+	>;
+	Pager.Range = Private_UpdateRange(Pager);
+	Pager.RangeUpdated = !RangesAreEqual(Pager.Range, _Pager.Range);
+
+	return Pager;
+}
+
+K_Pager ForceRangeUpdate(K_Pager _Pager) {
+	declare K_Pager Pager = _Pager;
+	Pager.RangeUpdated = True;
+	return Pager;
+}
+
+K_Pager ProcessRangeUpdate(K_Pager _Pager) {
+	declare K_Pager Pager = _Pager;
+	Pager.RangeUpdated = False;
+	return Pager;
+}
+
+Boolean RangeUpdated(K_Pager _Pager) {
+	return _Pager.RangeUpdated;
+}
+
+K_Pager ForcePageUpdate(K_Pager _Pager) {
+	declare K_Pager Pager = _Pager;
+	Pager.PageUpdated = True;
+	return Pager;
+}
+
+K_Pager ProcessPageUpdate(K_Pager _Pager) {
+	declare K_Pager Pager = _Pager;
+	Pager.PageUpdated = False;
+	return Pager;
+}
+
+Boolean PageUpdated(K_Pager _Pager) {
+	return _Pager.PageUpdated;
+}
+
+K_PagerRange GetRange(K_Pager _Pager) {
+	return _Pager.Range;
+}
+Integer GetRangeOffset(K_Pager _Pager) {
+	return _Pager.Range.Offset;
+}
+Integer GetRangeLength(K_Pager _Pager) {
+	return _Pager.Range.Length;
+}

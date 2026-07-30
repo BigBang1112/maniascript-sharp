@@ -1,0 +1,158 @@
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Settings/SettingsStructs.Script.txt" as Structs
+
+#Const C_LibSoundAPI_AvailableSettings """
+<settings>
+	<setting type="Bool" id="SoundEnable"					name="Enable audio" />
+	<setting type="Enum" id="SoundDevice"					name="Audio device" />
+	<setting type="Real" id="SoundVolumeMusic" 		name="Music volume" min="-40" max="0" step="0.5" />
+	<setting type="Real" id="SoundVolumeEffects" 	name="Effects volume" min="-40" max="0" step="0.5" />
+	<setting type="Bool" id="SoundMuteUnfocused"	name="Mute the game when not focused" />
+</settings>
+"""
+
+declare Structs::SSettingModel[] G_LibSoundAPI_AvailableSettings;
+declare Boolean G_LibSoundAPI_PendingSettingsUpdate;
+declare Integer G_LibSoundAPI_PrevDirtyCounter;
+declare Boolean	G_LibSoundAPI_PendingDialog;
+
+declare Real G_LibSoundAPI_PrevMasterSoundVolume;
+declare Real G_LibSoundAPI_PrevMasterMusicVolume;
+
+Structs::SSettingModel[] Private_GetSettingsList() {
+	if (G_LibSoundAPI_AvailableSettings.count > 0) {
+		return G_LibSoundAPI_AvailableSettings;
+	}
+
+	declare Document 		<=> Xml.Parse_Xml(C_LibSoundAPI_AvailableSettings);
+	declare AudioSettings 	<=> ManiaPlanet.AudioSettings;
+	
+	foreach (Node in Document.Root.Children) {
+		declare Structs::SSettingModel Setting;
+
+		Setting.Id				= Node.GetAttributeText("id", "");
+		Setting.Type			= Node.GetAttributeText("type", "");
+		Setting.Name			= Node.GetAttributeText("name", "");
+		Setting.ValueRangeMin	= Node.GetAttributeReal("min", 0.);
+		Setting.ValueRangeMax	= Node.GetAttributeReal("max", 1.);
+		Setting.ValueStep		= Node.GetAttributeReal("step", .01);
+		Setting.Info			= Node.GetAttributeText("info", "");
+
+		switch (Setting.Id) {		
+			case "SoundDevice" : {
+				foreach (I => Device in AudioSettings.Devices) {
+					Setting.AvailableOptions.add(Device);
+					Setting.OptionsLabels[Device] = Device;
+				}
+			}
+		}
+		
+		G_LibSoundAPI_AvailableSettings.add(Setting);
+	}
+
+	Xml.Parse_Destroy(Document);
+	return G_LibSoundAPI_AvailableSettings;
+}
+
+Structs::SSettingModel[] GetSettingsList() {
+	declare AudioSettings 		<=> ManiaPlanet.AudioSettings;
+	declare Structs::SSettingModel[] SettingsList;
+
+	foreach (SettingModel in Private_GetSettingsList()) {
+		declare Setting = SettingModel;
+
+		switch (Setting.Id) {
+			case "SoundDevice" 				: Setting.CurrentValueText 		= AudioSettings.Device_NextApply;
+			case "SoundEnable"				: Setting.CurrentValueBoolean	= ManiaPlanet.AudioSettings_EnableAudio;
+			case "SoundVolumeEffects"	: Setting.CurrentValueReal		= ManiaPlanet.AudioSettings_MasterSoundVolume;
+			case "SoundVolumeMusic"		: Setting.CurrentValueReal		= ManiaPlanet.AudioSettings_MasterMusicVolume;
+			case "SoundMuteUnfocused"	: Setting.CurrentValueBoolean	= ManiaPlanet.AudioSettings_MuteWhenAppUnfocused;
+		}
+		
+		// Availability
+		switch (Setting.Id) {
+			case "SoundEnable"				: Setting.IsDisabled = G_LibSoundAPI_PendingDialog;
+			case "SoundVolumeEffects"	: Setting.IsDisabled = G_LibSoundAPI_PendingDialog;
+			case "SoundVolumeMusic"		: Setting.IsDisabled = G_LibSoundAPI_PendingDialog;
+			case "SoundMuteUnfocused"	: Setting.IsDisabled = G_LibSoundAPI_PendingDialog;
+		}
+
+		SettingsList.add(Setting);
+	}
+
+	return SettingsList;
+}
+
+Structs::SSettingModel GetSetting(Text _SettingId) {
+	declare Structs::SSettingModel TargetSetting;
+
+	foreach (Setting in GetSettingsList()) {
+		if (Setting.Id == _SettingId) {
+			TargetSetting = Setting;
+			break;
+		}
+	}
+
+	return TargetSetting;
+}
+
+Void SetSoundsVolume(Real _VolumedB) {
+	declare ClampedVolume = ML::Clamp(_VolumedB, -40., 0.);
+
+	ManiaPlanet.AudioSettings_MasterSoundVolume = ClampedVolume;
+
+	G_LibSoundAPI_PendingSettingsUpdate = True;
+}
+
+Void SetMusicVolume(Real _VolumedB) {
+	declare ClampedVolume = ML::Clamp(_VolumedB, -40., 0.);
+
+	ManiaPlanet.AudioSettings_MasterMusicVolume = ClampedVolume;
+
+	G_LibSoundAPI_PendingSettingsUpdate = True;
+}
+
+Void SetSoundMuteUnfocused(Boolean _MuteUnfocused) {
+	ManiaPlanet.AudioSettings_MuteWhenAppUnfocused = _MuteUnfocused;
+	G_LibSoundAPI_PendingSettingsUpdate = True;
+}
+
+Void SetIsAudioEnabled(Boolean _IsEnabled) {
+	ManiaPlanet.AudioSettings_EnableAudio = _IsEnabled;
+	G_LibSoundAPI_PendingSettingsUpdate = True;
+}
+
+Void Loop() {
+	if (ManiaPlanet.AudioSettings == Null) return;
+
+	if (G_LibSoundAPI_PrevMasterSoundVolume != ManiaPlanet.AudioSettings_MasterSoundVolume) {
+		G_LibSoundAPI_PrevMasterSoundVolume = ManiaPlanet.AudioSettings_MasterSoundVolume;
+		G_LibSoundAPI_PendingSettingsUpdate = True;
+	}
+
+	if (G_LibSoundAPI_PrevMasterMusicVolume != ManiaPlanet.AudioSettings_MasterMusicVolume) {
+		G_LibSoundAPI_PrevMasterMusicVolume = ManiaPlanet.AudioSettings_MasterMusicVolume;
+		G_LibSoundAPI_PendingSettingsUpdate = True;
+	}
+	
+	if (G_LibSoundAPI_PrevDirtyCounter  != ManiaPlanet.AudioSettings.DirtyCounter) {
+		G_LibSoundAPI_PrevDirtyCounter 	= ManiaPlanet.AudioSettings.DirtyCounter;
+		G_LibSoundAPI_PendingSettingsUpdate = True;
+	}
+}
+
+Boolean PendingUpdate() {
+	declare IsUpdate = G_LibSoundAPI_PendingSettingsUpdate;
+	G_LibSoundAPI_PendingSettingsUpdate = False;
+	return IsUpdate;
+}
+
+Boolean GetIsPendingDialog() {
+	return G_LibSoundAPI_PendingDialog;
+}
+
+Void SetIsPendingDialog(Boolean _IsDialog) {
+	G_LibSoundAPI_PendingDialog = _IsDialog;
+}

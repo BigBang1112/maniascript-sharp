@@ -1,0 +1,674 @@
+/**
+ * WarmUp library
+ */
+#Const Version "1.2.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/WarmUp.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Server.Script.txt" as Clans
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/XmlRpc2.Script.txt" as XmlRpc
+#Include "Libs/Nadeo/CMGame/Utils/Semver.Script.txt" as Semver
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmUp_Server.Script.txt" as UIModules_WarmUp
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmupHelpers_Server.Script.txt" as WarmupHelpers
+#Include "Libs/Nadeo/TMGame/Modes/Events.Script.txt" as Events
+#Include "Libs/Nadeo/TMGame/Modes/Race.Script.txt" as Race
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constant
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_LibRaceWarmUp_LayerPosition <0., 0., 0.>
+#Const C_LibRaceWarmUp_DossardColor <0.7, 0.3, 0.>
+// XmlRpc
+#Const C_Callback_WarmUpStart "Trackmania.WarmUp.Start"
+#Const C_Callback_WarmUpStartRound "Trackmania.WarmUp.StartRound"
+#Const C_Callback_WarmUpEnd "Trackmania.WarmUp.End"
+#Const C_Callback_WarmUpEndRound "Trackmania.WarmUp.EndRound"
+#Const C_Callback_WarmUpStatus "Trackmania.WarmUp.Status"
+#Const C_Method_WarmUpStop "Trackmania.WarmUp.ForceStop"
+#Const C_Method_WarmUpStopRound "Trackmania.WarmUp.ForceStopRound"
+#Const C_Method_WarmUpExtend "Trackmania.WarmUp.Extend"
+#Const C_Method_WarmUpGetStatus "Trackmania.WarmUp.GetStatus"
+
+#Const UIModules_WarmUp::C_VisibleFor_Everyone as C_VisibleFor_Everyone
+#Const UIModules_WarmUp::C_VisibleFor_PlayersOnly as C_VisibleFor_PlayersOnly
+#Const UIModules_WarmUp::C_VisibleFor_SpectatorsOnly as C_VisibleFor_SpectatorsOnly
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer G_LibRaceWarmUp_MessageEndTime;
+declare Integer G_LibRaceWarmUp_RoundStartTime;
+declare Boolean G_LibRaceWarmUp_WarmUpFinished;
+declare Boolean G_LibRaceWarmUp_WarmUpRoundFinished;
+declare CUIConfig::EUIStatus G_LibRaceWarmUp_PrevUIStatus;
+declare Boolean G_LibRaceWarmUp_PrevIsUsingAutomaticDossardColor;
+declare Integer G_LibRaceWarmUp_PrevRespawnBehaviour;
+declare Boolean G_LibRaceWarmUp_PrevRespawnAfter;
+declare Boolean G_LibRaceWarmUp_TimeLimited;
+declare Boolean G_LibRaceWarmUp_IsAvailable;
+declare Boolean G_LibRaceWarmUp_IsActive;
+declare Integer G_LibRaceWarmUp_FinishTimeout;
+declare Boolean G_LibRaceWarmUp_SpawnInRequestedClan;
+declare Text G_LibRaceWarmUp_StartRoundMessage;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the time left to the players to finish the round after the first player
+ *
+ *	@param	_FinishTimeout						The timeout passed as a setting
+ *
+ *	@return 													The time left in ms
+ */
+Integer Private_GetFinishTimeout(Integer _FinishTimeout) {
+	declare Integer FinishTimeout = _FinishTimeout;
+
+	if (FinishTimeout < 0) {
+		FinishTimeout = 5000;
+		if (Map.TMObjective_IsLapRace && Race::GetLapsNb() > 0 && Map.TMObjective_NbLaps > 0) {
+			FinishTimeout += ((Map.TMObjective_AuthorTime / Map.TMObjective_NbLaps) * Race::GetLapsNb()) / 6;
+		} else {
+			FinishTimeout += Map.TMObjective_AuthorTime / 6;
+		}
+	}
+
+	return Now + FinishTimeout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send a callback at the beginning of the warm  up
+Void Private_XmlRpc_SendStart() {
+	XmlRpc::SendCallback(C_Callback_WarmUpStart, ["{}"]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Send a callback at the beginning of the warm up round
+ *
+ *	@param	_RoundsPlayed							The number of warm up rounds played
+ *	@param	_RoundsToPlay							The number of warm up rounds to play
+ */
+Void Private_XmlRpc_SendStartRound(Integer _RoundsPlayed, Integer  _RoundsToPlay) {
+	declare JSON = """{
+	"current": {{{dump(_RoundsPlayed)}}},
+	"total": {{{dump(_RoundsToPlay)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_WarmUpStartRound, [JSON]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Send a callback at the end of the warm up round
+ *
+ *	@param	_RoundsPlayed							The number of warm up rounds played
+ *	@param	_RoundsToPlay							The number of warm up rounds to play
+ */
+Void Private_XmlRpc_SendEndRound(Integer _RoundsPlayed, Integer  _RoundsToPlay) {
+	declare JSON = """{
+	"current": {{{dump(_RoundsPlayed)}}},
+	"total": {{{dump(_RoundsToPlay)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_WarmUpEndRound, [JSON]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send a callback at the end of the warm  up
+Void Private_XmlRpc_SendEnd() {
+	XmlRpc::SendCallback(C_Callback_WarmUpEnd, ["{}"]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the visibility of the layer on the screen
+ *
+ *	@param	_Visibility								The new visibility
+ */
+Void SetUIVisibility(Boolean _Visibility) {
+	declare netwrite Boolean Net_LibRaceWarmUp_LayerVisibility for Teams[0];
+	Net_LibRaceWarmUp_LayerVisibility = _Visibility;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the visibility of the layer on the screen
+ *
+ *	@return														The visibility of the layer
+ */
+Boolean GetUIVisibility() {
+	declare netwrite Boolean Net_LibRaceWarmUp_LayerVisibility for Teams[0];
+	return Net_LibRaceWarmUp_LayerVisibility;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the position of the layer on the screen
+ *
+ *	@param	_Pos											The new position
+ */
+Void SetUIPosition(Vec3 _Pos) {
+	declare netwrite Integer Net_LibRaceWarmUp_LayerPositionUpdate for Teams[0];
+	declare netwrite Vec3 Net_LibRaceWarmUp_LayerPosition for Teams[0];
+	Net_LibRaceWarmUp_LayerPosition = _Pos;
+	Net_LibRaceWarmUp_LayerPositionUpdate = Now;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the position of the layer on the screen
+ *
+ *	@return														The position of the layer
+ */
+Vec3 GetUIPosition() {
+	declare netwrite Integer Net_LibRaceWarmUp_LayerPositionUpdate for Teams[0];
+	declare netwrite Vec3 Net_LibRaceWarmUp_LayerPosition for Teams[0];
+	return Net_LibRaceWarmUp_LayerPosition;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set who can see the warm up UI (players/spectators/everyone)
+Void SetVisibleFor(Integer _VisibleFor) {
+	UIModules_WarmUp::SetVisibleFor(_VisibleFor);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the message that will be displayed at the beginning of the round
+Void SetStartRoundMessage(Text _Message) {
+	G_LibRaceWarmUp_StartRoundMessage = _Message;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Decide if a player can play during
+ *	the warm up or not
+ *
+ *	@param	_Score										The player's score
+ *	@param	_CanPlay									True if the player can play
+ *																		False otherwise
+ */
+Void CanPlay(CSmScore _Score, Boolean _CanPlay) {
+	if (_Score == Null) return;
+
+	declare LibRaceWarmUp_CanPlay for _Score = True;
+	LibRaceWarmUp_CanPlay = _CanPlay;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a player can play during
+ *	the warm up
+ *
+ *	@param	_Score										The player's score
+ *
+ *	@return														True if the player can play
+ *																		False otherwise
+ */
+Boolean CanPlay(CSmScore _Score) {
+	if (_Score == Null) return False;
+
+	declare LibRaceWarmUp_CanPlay for _Score = True;
+	return LibRaceWarmUp_CanPlay;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the warm up sequence
+Void Start() {
+	Private_XmlRpc_SendStart();
+	G_LibRaceWarmUp_WarmUpFinished = False;
+	G_LibRaceWarmUp_IsActive = True;
+	G_LibRaceWarmUp_PrevIsUsingAutomaticDossardColor = Race::IsUsingAutomaticDossardColor();
+	G_LibRaceWarmUp_PrevRespawnBehaviour = Race::GetRespawnBehaviour();
+	G_LibRaceWarmUp_PrevRespawnAfter = GiveUpBehaviour_RespawnAfter;
+	Race::UseAutomaticDossardColor(False);
+	Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_Normal);
+	WarmupHelpers::SetWarmupActive(G_LibRaceWarmUp_IsActive);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Return if the warm up is finished or not
+ *
+ *	@return		True if the warm up is finished, false otherwise
+ */
+Boolean Finished() {
+	return G_LibRaceWarmUp_WarmUpFinished;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize the warm up round
+ *
+ *	@param	_RoundsPlayed							The number of warm up rounds played
+ *	@param	_RoundsToPlay							The number of warm up rounds to play
+ *	@param	_TimeLimit								Time limit of the round in milliseconds
+ *	@param	_FinishTimeOut						The timeout in milliseconds when the first player crosses the finish line
+ */
+Void StartRound(Integer _RoundsPlayed, Integer  _RoundsToPlay, Integer _TimeLimit, Integer _FinishTimeout) {
+	Private_XmlRpc_SendStartRound(_RoundsPlayed, _RoundsToPlay);
+
+	G_LibRaceWarmUp_PrevUIStatus = UIManager.UIAll.UIStatus;
+	UIManager.UIAll.UIStatus = CUIConfig::EUIStatus::Warning;
+
+	G_LibRaceWarmUp_MessageEndTime = Now + 3000;
+	//L16N This message is displayed at the beginning of each warmup. %1 is the number of the current warmup and %2 is the total number of warmup to do.
+	UIManager.UIAll.BigMessageSound = CUIConfig::EUISound::PhaseChange;
+	UIManager.UIAll.BigMessageSoundVariant = 0;
+	UIManager.UIAll.BigMessage = TL::Compose(G_LibRaceWarmUp_StartRoundMessage, TL::ToText(_RoundsPlayed), TL::ToText(_RoundsToPlay));
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;
+
+	G_LibRaceWarmUp_RoundStartTime = G_LibRaceWarmUp_MessageEndTime + Race::C_SpawnDuration;
+	G_LibRaceWarmUp_WarmUpRoundFinished = False;
+	if (_TimeLimit >= 0) {
+		EndTime = G_LibRaceWarmUp_RoundStartTime + _TimeLimit + 1000;
+		WarmupHelpers::SetCurrentWarmupEndTime(EndTime);
+		WarmupHelpers::SetWarmUpMode(WarmupHelpers::C_Mode_TimeAttack);
+		G_LibRaceWarmUp_TimeLimited = True;
+	} else {
+		EndTime = -1;
+		WarmupHelpers::SetCurrentWarmupEndTime(EndTime);
+		WarmupHelpers::SetWarmUpMode(WarmupHelpers::C_Mode_Rounds);
+		G_LibRaceWarmUp_TimeLimited = False;
+	}
+	G_LibRaceWarmUp_FinishTimeout = _FinishTimeout;
+	GiveUpBehaviour_RespawnAfter = G_LibRaceWarmUp_TimeLimited;
+
+	StartTime = G_LibRaceWarmUp_RoundStartTime;
+
+	// Update UI
+	declare netwrite Integer Net_LibRaceWarmUp_WarmUpPlayedNb for Teams[0];
+	declare netwrite Integer Net_LibRaceWarmUp_WarmUpDuration for Teams[0];
+	Net_LibRaceWarmUp_WarmUpPlayedNb = _RoundsPlayed;
+	Net_LibRaceWarmUp_WarmUpDuration = _RoundsToPlay;
+	WarmupHelpers::SetWarmUpProgression(Net_LibRaceWarmUp_WarmUpPlayedNb, Net_LibRaceWarmUp_WarmUpDuration);
+
+	// Initialize scores
+	foreach (Score in Scores) {
+		declare LibRaceWarmUp_CanSpawn for Score = True;
+		LibRaceWarmUp_CanSpawn = True;
+	}
+
+	// Spawn players for the race
+	foreach (Player in Players) {
+		if (Player.Score == Null) continue;
+
+		declare LibRaceWarmUp_CanPlay for Player.Score = True;
+		if (LibRaceWarmUp_CanPlay && Race::IsReadyToStart(Player)) {
+			if (G_LibRaceWarmUp_TimeLimited) {
+				Player.Dossard_Color = C_LibRaceWarmUp_DossardColor;
+				if (Clans::ClansAreEnabled() && G_LibRaceWarmUp_SpawnInRequestedClan) SetPlayerClan(Player, Player.RequestedClan);
+				Race::Start(Player, G_LibRaceWarmUp_RoundStartTime);
+			} else {
+				declare LibRaceWarmUp_CanSpawn for Player.Score = True;
+				if (LibRaceWarmUp_CanSpawn) {
+					Player.Dossard_Color = C_LibRaceWarmUp_DossardColor;
+					if (Clans::ClansAreEnabled() && G_LibRaceWarmUp_SpawnInRequestedClan) SetPlayerClan(Player, Player.RequestedClan);
+					Race::Start(Player, G_LibRaceWarmUp_RoundStartTime);
+					LibRaceWarmUp_CanSpawn = False;
+				} else {
+					Race::StopSkipOutro(Player);
+				}
+			}
+		}
+	}
+}
+Void StartRound(Integer _RoundsPlayed, Integer  _RoundsToPlay, Integer _TimeLimit) {
+	StartRound(_RoundsPlayed, _RoundsToPlay, _TimeLimit, -1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Return if the warm up round is finished or not
+ *
+ *	@return		True if the warm up round is finished, false otherwise
+ */
+Boolean RoundFinished() {
+	return G_LibRaceWarmUp_WarmUpRoundFinished;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Warm up yield;
+Void Yield() {
+	// Hide message
+	if (Now >= G_LibRaceWarmUp_MessageEndTime) {
+		UIManager.UIAll.BigMessage = "";
+		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+	}
+
+	// Spawn players joining during the warm up
+	foreach (Player in Players) {
+		if (Player.Score == Null) continue;
+
+		declare LibRaceWarmUp_CanPlay for Player.Score = True;
+		if (LibRaceWarmUp_CanPlay && Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned) {
+			if (G_LibRaceWarmUp_TimeLimited) {
+				if (Race::IsReadyToStart(Player)) {
+					Player.Dossard_Color = C_LibRaceWarmUp_DossardColor;
+					if (Clans::ClansAreEnabled() && G_LibRaceWarmUp_SpawnInRequestedClan) SetPlayerClan(Player, Player.RequestedClan);
+					Race::Start(Player);
+				}
+			} else {
+				declare LibRaceWarmUp_CanSpawn for Player.Score = True;
+				if (LibRaceWarmUp_CanSpawn && Race::IsReadyToStart(Player)) {
+					Player.Dossard_Color = C_LibRaceWarmUp_DossardColor;
+					if (Clans::ClansAreEnabled() && G_LibRaceWarmUp_SpawnInRequestedClan) SetPlayerClan(Player, Player.RequestedClan);
+					Race::Start(Player, G_LibRaceWarmUp_RoundStartTime);
+					LibRaceWarmUp_CanSpawn = False;
+				}
+			}
+		}
+	}
+
+	// Manage race events
+	declare RacePendingEvents = Race::GetPendingEvents();
+	foreach (Event in RacePendingEvents) {
+		switch (Event.Type) {
+			case Events::C_Type_Waypoint: {
+				if (Event.IsEndRace) {
+					// Start the countdown if it's the first player to finish
+					if (EndTime <= 0) {
+						EndTime = Private_GetFinishTimeout(G_LibRaceWarmUp_FinishTimeout);
+						WarmupHelpers::SetCurrentWarmupEndTime(EndTime);
+					}
+					// We do not need to see the scores table when finishing a warm up run
+					if (Event.Player != Null) Race::StopSkipScoresTable(Event.Player);
+				}
+			}
+		}
+	}
+
+	// Manage XmlRpc events
+	foreach (Event in XmlRpc.PendingEvents) {
+		if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+			switch (Event.ParamArray1) {
+				case C_Method_WarmUpStop: {
+					G_LibRaceWarmUp_WarmUpFinished = True;
+				}
+				case C_Method_WarmUpStopRound: {
+					G_LibRaceWarmUp_WarmUpRoundFinished = True;
+				}
+				case C_Method_WarmUpExtend: {
+					if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "3.0.0")) {
+						if (EndTime >= 0 && Event.ParamArray2.existskey(0)) {
+							EndTime += TL::ToInteger(Event.ParamArray2[0]);
+							WarmupHelpers::SetCurrentWarmupEndTime(EndTime);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// End the round
+	// If All players finished
+	if (!G_LibRaceWarmUp_TimeLimited && Players.count > 0 && PlayersNbAlive <= 0) G_LibRaceWarmUp_WarmUpRoundFinished = True;
+	// If time limit is reached
+	if (EndTime > 0 && Now >= EndTime) G_LibRaceWarmUp_WarmUpRoundFinished = True;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Clean after the warm up round
+Void EndRound() {
+	foreach (Player in AllPlayers) {
+		Race::StopSkipOutro(Player);
+	}
+	UIManager.UIAll.UIStatus = G_LibRaceWarmUp_PrevUIStatus;
+	G_LibRaceWarmUp_MessageEndTime = -1;
+	G_LibRaceWarmUp_RoundStartTime = -1;
+	G_LibRaceWarmUp_WarmUpRoundFinished = False;
+	G_LibRaceWarmUp_FinishTimeout = -1;
+	StartTime = -1;
+	EndTime = -1;
+	WarmupHelpers::SetCurrentWarmupEndTime(EndTime);
+
+	declare netwrite Integer Net_LibRaceWarmUp_WarmUpPlayedNb for Teams[0];
+	declare netwrite Integer Net_LibRaceWarmUp_WarmUpDuration for Teams[0];
+	Private_XmlRpc_SendEndRound(Net_LibRaceWarmUp_WarmUpPlayedNb, Net_LibRaceWarmUp_WarmUpDuration);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// End the warm up sequence
+Void End() {
+	Private_XmlRpc_SendEnd();
+	G_LibRaceWarmUp_IsActive = False;
+	foreach (Player in AllPlayers) {
+		Player.Dossard_Color = Race::C_DossardColor_Default;
+	}
+	Race::UseAutomaticDossardColor(G_LibRaceWarmUp_PrevIsUsingAutomaticDossardColor);
+	Race::SetRespawnBehaviour(G_LibRaceWarmUp_PrevRespawnBehaviour);
+	GiveUpBehaviour_RespawnAfter = G_LibRaceWarmUp_PrevRespawnAfter;
+	WarmupHelpers::SetWarmupActive(G_LibRaceWarmUp_IsActive);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Send a callback with the warm up status
+ *
+ *	@param	_ResponseId								The responseid of the callback
+ *	@param	_IsLoaded									Is the warm up available or not
+ *	@param	_IsActive									Is there an ongoing warm up or not
+ */
+Void SendStatusCallback(Text _ResponseId, Boolean _IsLoaded, Boolean _IsActive) {
+	XmlRpc::SendCallback(C_Callback_WarmUpStatus, ["""{
+	"responseid": {{{XmlRpc::JsonGetText(_ResponseId)}}},
+	"available": {{{XmlRpc::JsonGetBoolean(_IsLoaded)}}},
+	"active": {{{XmlRpc::JsonGetBoolean(_IsActive)}}}
+}"""]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the availabality of the warmup
+ *	in the game mode
+ *
+ *	@param	_IsAvailable							True if the warmup is available
+ *																		False otherwise
+ */
+Void SetAvailability(Boolean _IsAvailable) {
+	G_LibRaceWarmUp_IsAvailable = _IsAvailable;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the warmup is available
+ *
+ *	@return														True if the warmup is available
+ *																		False otherwise
+ */
+Boolean IsAvailable() {
+	return G_LibRaceWarmUp_IsAvailable;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if there is an active pause
+ *
+ *	@return														True if the pause is active
+ *																		False otherwise
+ */
+Boolean IsActive() {
+	return G_LibRaceWarmUp_IsActive;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Allow or not the warm up to spawn the players
+ *	in their requested clan
+ */
+Void SetSpawnInRequestedClan(Boolean _SpawnInRequestedClan) {
+	G_LibRaceWarmUp_SpawnInRequestedClan = _SpawnInRequestedClan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Catch XmlRpc methods call
+Void Yield_XmlRpc() {
+	foreach (Event in XmlRpc.PendingEvents) {
+		if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+			switch (Event.ParamArray1) {
+				case C_Method_WarmUpGetStatus: {
+					declare ResponseId = "";
+					if (Event.ParamArray2.existskey(0)) ResponseId = Event.ParamArray2[0];
+					SendStatusCallback(ResponseId, G_LibRaceWarmUp_IsAvailable, G_LibRaceWarmUp_IsActive);
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	declare netwrite Integer Net_LibRaceWarmUp_WarmUpPlayedNb for Teams[0];
+	declare netwrite Integer Net_LibRaceWarmUp_WarmUpDuration for Teams[0];
+	Net_LibRaceWarmUp_WarmUpPlayedNb = 0;
+	Net_LibRaceWarmUp_WarmUpDuration = 0;
+	WarmupHelpers::SetWarmUpProgression(Net_LibRaceWarmUp_WarmUpPlayedNb, Net_LibRaceWarmUp_WarmUpDuration);
+
+	G_LibRaceWarmUp_IsAvailable = False;
+	G_LibRaceWarmUp_IsActive = False;
+	SetSpawnInRequestedClan(True);
+	SetStartRoundMessage(_("Warmup: %1/%2"));
+	WarmupHelpers::SetWarmupActive(G_LibRaceWarmUp_IsActive);
+
+	foreach (Score in Scores) {
+		CanPlay(Score, True);
+	}
+
+	// Unregister callbacks
+	XmlRpc::UnregisterCallback(C_Callback_WarmUpStart);
+	XmlRpc::UnregisterCallback(C_Callback_WarmUpStartRound);
+	XmlRpc::UnregisterCallback(C_Callback_WarmUpEnd);
+	XmlRpc::UnregisterCallback(C_Callback_WarmUpEndRound);
+	XmlRpc::UnregisterCallback(C_Callback_WarmUpStatus);
+	// Unregister methods
+	XmlRpc::UnregisterMethod(C_Method_WarmUpExtend);
+	XmlRpc::UnregisterMethod(C_Method_WarmUpStop);
+	XmlRpc::UnregisterMethod(C_Method_WarmUpStopRound);
+	XmlRpc::UnregisterMethod(C_Method_WarmUpGetStatus);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	G_LibRaceWarmUp_MessageEndTime = -1;
+	G_LibRaceWarmUp_RoundStartTime = -1;
+	G_LibRaceWarmUp_WarmUpFinished = False;
+	G_LibRaceWarmUp_WarmUpRoundFinished = False;
+	G_LibRaceWarmUp_PrevUIStatus = UIManager.UIAll.UIStatus;
+	G_LibRaceWarmUp_FinishTimeout = -1;
+
+	SetUIVisibility(True);
+	SetUIPosition(C_LibRaceWarmUp_LayerPosition);
+
+	// Register callbacks
+	XmlRpc::RegisterCallback(C_Callback_WarmUpStart, """
+* Name: {{{C_Callback_WarmUpStart}}}
+* Type: CallbackArray
+* Description: Callback sent when the warm up sequence start.
+* Data:
+	- Version >=2.5.0:
+	```
+	[
+		"{}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_WarmUpStartRound, """
+* Name: {{{C_Callback_WarmUpStartRound}}}
+* Type: CallbackArray
+* Description: Callback sent when a warm up round start.
+* Data:
+	- Version >=2.5.0:
+	```
+	[
+		"{
+			"current": 2,	//< The number of the current round
+			"total": 3 //< The total number of warm up rounds
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_WarmUpEndRound, """
+* Name: {{{C_Callback_WarmUpEndRound}}}
+* Type: CallbackArray
+* Description: Callback sent when a warm up round end.
+* Data:
+	- Version >=2.5.0:
+	```
+	[
+		"{
+			"current": 2,	//< The number of the current round
+			"total": 3 //< The total number of warm up rounds
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_WarmUpEnd, """
+* Name: {{{C_Callback_WarmUpEnd}}}
+* Type: CallbackArray
+* Description: Callback sent when the warm up sequence end.
+* Data:
+	- Version >=2.5.0:
+	```
+	[
+		"{}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_WarmUpStatus, """
+* Name: {{{C_Callback_WarmUpStatus}}}
+* Type: CallbackArray
+* Description: The status of Trackmania's the warmup.
+* Data:
+	- Version >=2.5.0:
+	```
+	[
+		"{
+			"responseid": "xyz", //< Facultative id passed by a script event
+			"available": true, //< true if a warmup is available in the game mode, false otherwise
+			"active": true //< true if a warmup is ongoing, false otherwise
+		}"
+	]
+	```
+""");
+
+	// Register methods
+	XmlRpc::RegisterMethod(C_Method_WarmUpStop, """
+* Name: {{{C_Method_WarmUpStop}}}
+* Type: TriggerModeScriptEventArray
+* Description: Stop the whole warm up sequence.
+* Data:
+	- Version >=2.5.0:
+	```
+	[]
+	```
+	""");
+	XmlRpc::RegisterMethod(C_Method_WarmUpStopRound, """
+* Name: {{{C_Method_WarmUpStopRound}}}
+* Type: TriggerModeScriptEventArray
+* Description: Stop the current warm up round.
+* Data:
+	- Version >=2.5.0:
+	```
+	[]
+	```
+	""");
+	XmlRpc::RegisterMethod(C_Method_WarmUpExtend, """
+* Name: {{{C_Method_WarmUpExtend}}}
+* Type: TriggerModeScriptEventArray
+* Description: If the warm up has a time limit, increase it.
+* Data:
+	- Version >=3.0.0:
+	```
+	[
+		12345 //< Time in milliseconds to add to the warm up
+	]
+	```
+	""");
+	XmlRpc::RegisterMethod(C_Method_WarmUpGetStatus, """
+* Name: {{{C_Method_WarmUpGetStatus}}}
+* Type: TriggerModeScriptEventArray
+* Description: Get the status of the Trackmania's warmup.
+* Data:
+	- Version >=2.5.0:
+	```
+	[
+		"responseid" //< Facultative id that will be passed to the "{{{C_Callback_WarmUpStatus}}}" callback.
+	]
+	```
+""");
+}

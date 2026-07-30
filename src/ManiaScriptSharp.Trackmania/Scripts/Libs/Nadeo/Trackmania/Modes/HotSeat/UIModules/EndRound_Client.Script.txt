@@ -1,0 +1,226 @@
+/**
+ *  UI module: EndRound client side
+ */
+#Const Version    "1.1.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/EndRound_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/Consts.Script.txt" as Consts
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/Components/NetShare_Client.Script.txt" as NetShare
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModules_HotSeat_EndRound"
+#Const C_NavGroupName "navgroup-hotseat-endround"
+#Const C_Type CUILayer::EUILayerType::Normal
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	declare Text Nav_Background = Navigation::Inject(["select"=>"_","cancel"=>"_"], C_NavGroupName, "", False);
+
+	return MV::Create(
+C_Id, 3,
+"""
+<frame hidden="1" id="frame-global">
+	<quad id="quad-background" z-index="-1" pos="0 0" size="320 180" fullscreen="1" valign="center" halign="center" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0." scriptevents="1" data-nav="{{{Nav_Background}}}" class="{{{Navigation::C_Class}}}"/>
+	<quad id="quad-notification-bg" scale="0" pos="0 -1" size="125 12" z-index="1" halign="center" valign="center" />
+	<label id="label-notification" scale="0" pos="0 0" z-index="2" size="125 10" halign="center" valign="center" textsize="8" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" />
+	<quad id="quad-logo" scale="0" pos="0 22" size="35 35" z-index="2" halign="center" valign="center" keepratio="fit" />
+</frame>
+""",
+"""
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Client.Script.txt" as Clans
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/Consts.Script.txt" as Consts
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/Structs.Script.txt" as Structs
+
+#Const C_Notification_AnimDuration 1000
+#Const C_Notification_PostAnimDuration 2000
+""",
+"""
+Integer StartAnimation(
+	CMlQuad _Quad_Background,
+	CMlQuad _Quad_NotifBg,
+	CMlLabel _Label_Notification,
+	CMlQuad _Quad_Logo,
+	Text _Message,
+	Integer _PlayerClan,
+	Text _LogoUrl
+	) {
+	_Label_Notification.Show();
+	_Label_Notification.SetText(_Message);
+	_Label_Notification.TextColor = Clans::GetClanForegroundColor(_PlayerClan);
+	_Quad_NotifBg.BgColor = Clans::GetClanColor(_PlayerClan);
+	_Quad_NotifBg.Size.X = ML::Min(_Label_Notification.ComputeWidth(_Label_Notification.Value, True), _Label_Notification.Size.X) + 5.;
+	_Quad_Logo.ImageUrl = _LogoUrl;
+	AnimMgr.Flush(_Quad_Background);
+	AnimMgr.Flush(_Quad_NotifBg);
+	AnimMgr.Flush(_Label_Notification);
+	AnimMgr.Flush(_Quad_Logo);
+	AnimMgr.Add(_Quad_Background, "<anim opacity=\"0.8\"/>", C_Notification_AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(_Quad_NotifBg, "<anim scale=\"1.\"/>", C_Notification_AnimDuration, CAnimManager::EAnimManagerEasing::BackOut);
+	AnimMgr.Add(_Label_Notification, "<anim scale=\"1.\"/>", C_Notification_AnimDuration, CAnimManager::EAnimManagerEasing::BackOut);
+	AnimMgr.Add(_Quad_Logo, "<anim scale=\"1.\"/>", C_Notification_AnimDuration, CAnimManager::EAnimManagerEasing::BackOut);
+	EnableMenuNavigation(True, False, Null, Consts::C_DefaultInputsPriority);
+	return Now + C_Notification_AnimDuration + C_Notification_PostAnimDuration;
+}
+
+
+Void StopAnimation(
+	CMlQuad _Quad_Background,
+	CMlQuad _Quad_NotifBg,
+	CMlLabel _Label_Notification,
+	CMlQuad _Quad_Logo,
+	Text _EventName
+	) {
+	_Label_Notification.Hide();
+	AnimMgr.Flush(_Quad_Background);
+	AnimMgr.Flush(_Quad_NotifBg);
+	AnimMgr.Flush(_Label_Notification);
+	AnimMgr.Flush(_Quad_Logo);
+	_Quad_Background.Opacity = 0.;
+	_Quad_NotifBg.RelativeScale = 0.;
+	_Label_Notification.RelativeScale = 0.;
+	_Quad_Logo.RelativeScale = 0.;
+	if (_EventName != "") SendCustomEvent(_EventName, []);
+	EnableMenuNavigation(False, False, Null, Consts::C_DefaultInputsPriority);
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlLabel Label_Notification;
+declare CMlQuad Quad_NotifBg;
+declare CMlQuad Quad_Background;
+declare CMlQuad Quad_Logo;
+
+declare Boolean DisplayModule;
+declare Boolean AnimationPlaying;
+declare Boolean SkipAnimation;
+declare Integer AnimationEndTime;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Label_Notification <=> (Frame_Global.GetFirstChild("label-notification") as CMlLabel);
+Quad_Background <=> (Frame_Global.GetFirstChild("quad-background") as CMlQuad);
+Quad_NotifBg <=> (Frame_Global.GetFirstChild("quad-notification-bg") as CMlQuad);
+Quad_Logo <=> (Frame_Global.GetFirstChild("quad-logo") as CMlQuad);
+
+declare netread Boolean Net_HotSeat_EndRound_AnimationPlaying for Teams[0];
+declare netread Structs::K_HotSeatPlayer Net_HotSeat_EndRound_CurrentPlayer for Teams[0];
+declare netread Integer Net_HotSeat_EndRound_CurrentPlayerRank for Teams[0];
+
+DisplayModule = Frame_Global.Visible;
+AnimationEndTime = -1;
+
+{{{Navigation::P}}}UseLocalEvents(This, True);
+{{{Navigation::P}}}Focus(This, Frame_Global.GetFirstChild("quad-background"));
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_HotSeat_EndRound_IsVisible for Owner;
+		if (DisplayModule != Net_HotSeat_EndRound_IsVisible) {
+			DisplayModule = Net_HotSeat_EndRound_IsVisible;
+			Frame_Global.Visible = DisplayModule;
+		}
+
+		if (Frame_Global.Visible) {
+			//Start animation (from server) => Here to only start when frame-global is visible
+			if (Net_HotSeat_EndRound_AnimationPlaying && !AnimationPlaying) {
+				AnimationPlaying = True;
+				SkipAnimation = False;
+				declare CurrentPlayer = {{{NetShare::P}}}GetHotSeatPlayers().get({{{NetShare::P}}}GetCurrentPlayerID(), Structs::K_HotSeatPlayer {});
+				AnimationEndTime = StartAnimation(
+					Quad_Background,
+					Quad_NotifBg,
+					Label_Notification,
+					Quad_Logo,
+					//L16N %1 will be replaced by the player name, %2 by its position and %3 by a rank suffix (st, nd...) ex: "raoul_nadeo is now 1st!"
+					TL::Compose(_("$<%1$> is now %2%3!"),
+						CurrentPlayer.PlayerName,
+						""^CurrentPlayer.Rank+1,
+						MV_Utils::GetRankSuffix(CurrentPlayer.Rank+1)
+					),
+					CurrentPlayer.Clan,
+					CurrentPlayer.PlayerLogo
+				);
+			}
+
+			//Manage inputs (used to skip animation)
+			if (Label_Notification.Visible) {
+				foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+					if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}") &&
+							(Event.Type == {{{Navigation::P}}}C_EventType_NavigateInput ||
+								(Event.Type == {{{Navigation::P}}}C_EventType_NavigateMouse &&
+									Event.Mouse == CMlScriptEvent::Type::MouseClick))) {
+						SkipAnimation = True;
+					}
+				}
+			}
+
+			//Stop animation (when finished or skipped)
+			if (AnimationEndTime >= 0 && (Now >= AnimationEndTime || SkipAnimation)) {
+				StopAnimation(Quad_Background, Quad_NotifBg, Label_Notification, Quad_Logo, Consts::C_EndRound_Finished);
+				AnimationEndTime = -1;
+			}
+		}
+	} else	if (DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	//Stop animation (from server) => Here to be sure to always detect the stop request
+	if (!Net_HotSeat_EndRound_AnimationPlaying && AnimationPlaying) {
+		AnimationPlaying = False;
+		StopAnimation(Quad_Background, Quad_NotifBg, Label_Notification, Quad_Logo, "");
+		AnimationEndTime = -1;
+	}
+}
+***
+""",
+[
+	Navigation::ComponentV2(),
+	NetShare::Component()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update library
+Void Yield() {
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			declare ModeEvents = Consts::C_EndRoundEvents;
+			if (ModeEvents.exists(Event.CustomEventType)) {
+				declare Text[] EventData;
+				foreach (Value in Event.CustomEventData) EventData.add(Value);
+				SendCustomEvent(Event.CustomEventType, EventData);
+			}
+		}
+	}
+}

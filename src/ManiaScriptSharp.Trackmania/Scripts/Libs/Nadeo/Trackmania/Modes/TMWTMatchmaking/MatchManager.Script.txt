@@ -1,0 +1,521 @@
+/**
+ * Manage a matchmaking match
+ */
+#Const Version "1.1.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/MatchManager.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Server.Script.txt" as Clans
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/Trackmania/API/MatchmakingAPI.Script.txt" as MatchmakingAPI
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/NetShare_Teams_Server.Script.txt" as NetShare_Teams
+#Include "Libs/Nadeo/Trackmania/Modes/ServerAuth.Script.txt" as ServerAuth
+#Include "Libs/Nadeo/Trackmania/Structures/MatchmakingStruct.Script.txt" as MatchmakingStruct
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/RankingProgress_Server.Script.txt" as UIModules_RankingProgress
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Debug_MatchmakingApiUrl "http://localhost:3000"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Match {
+	Text Id;
+	Text QueueId;
+	Text ActivityId;
+	Integer ClansNb;
+	Boolean UseLocalAPI;
+	Integer Status;
+	Integer[Text] Players;
+	Integer[Text] Bots;
+	MatchmakingStruct::LibStructuresMatchmaking_K_MatchParticipants Participants;
+	MatchmakingStruct::LibStructuresMatchmaking_K_PlayerLeaderboard[] Leaderboard;
+	MatchmakingStruct::LibStructuresMatchmaking_K_Division[Text] Divisions;
+	UIModules_RankingProgress::K_RankingProgress[Text] RankingProgressList;
+	Http::K_Request Request_GetMatchParticipants_Start;
+	Http::K_Request Request_GetMatchParticipants_Complete;
+	Http::K_Request Request_GetMatchmakingLeaderboard;
+	Http::K_Request Request_GetMatchmakingDivisionRules;
+}
+#Struct K_MatchResult {
+	Integer Rank;
+	Integer Score;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Match_NullId ""
+#Const C_Queue_NullId ""
+#Const C_Activity_NullId ""
+#Const C_Clan_Null 0
+
+#Const C_Status_Null 0
+#Const C_Status_Initialization 1
+#Const C_Status_Play 2
+#Const C_Status_Stop 3
+#Const C_Status_Complete 4
+
+#Const C_Private_GetMatchParticipants_RetryNb 15
+#Const C_Private_GetMatchParticipants_RetryInterval 2000
+#Const C_Private_GetMatchmakingLeaderboard_RetryNb 15
+#Const C_Private_GetMatchmakingLeaderboard_RetryInterval 2000
+#Const C_Private_GetMatchmakingDivisionRules_RetryNb 20
+#Const C_Private_GetMatchmakingDivisionRules_RetryInterval 15000
+
+#Const C_Match_Null K_Match {
+	Id = "",
+	QueueId = "",
+	ActivityId = "",
+	ClansNb = 0,
+	Status = 0,
+	Players = [],
+	Bots = [],
+	Participants = MatchmakingStruct::LibStructuresMatchmaking_K_MatchParticipants {},
+	Leaderboard = [],
+	Divisions = [],
+	RankingProgressList = [],
+	Request_GetMatchParticipants_Start = Http::K_Request {},
+	Request_GetMatchParticipants_Complete = Http::K_Request {},
+	Request_GetMatchmakingLeaderboard = Http::K_Request {},
+	Request_GetMatchmakingDivisionRules = Http::K_Request {}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the match id
+K_Match Private_SetMatchId(K_Match _Match, Text _MatchId) {
+	declare K_Match Match = _Match;
+	Match.Id = _MatchId;
+	NetShare_Teams::SetMatchId(Match.Id);
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the match participants
+K_Match Private_SetParticipants(K_Match _Match, MatchmakingStruct::LibStructuresMatchmaking_K_MatchParticipants _Participants) {
+	declare K_Match Match = _Match;
+	Match.Participants = _Participants;
+	NetShare_Teams::SetMatchParticipants(Match.Participants);
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the matchmaking leaderboard
+K_Match Private_SetLeaderboard(K_Match _Match, MatchmakingStruct::LibStructuresMatchmaking_K_PlayerLeaderboard[] _Leaderboard) {
+	declare K_Match Match = _Match;
+	Match.Leaderboard = _Leaderboard;
+	NetShare_Teams::SetTop10(Match.Leaderboard);
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the matchmaking queue division
+K_Match Private_SetDivisions(K_Match _Match, MatchmakingStruct::LibStructuresMatchmaking_K_Division[Text] _Divisions) {
+	declare K_Match Match = _Match;
+	Match.Divisions = _Divisions;
+	NetShare_Teams::SetDivisions(Match.Divisions);
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the players ranking progress
+K_Match Private_ComputeRankingProgress(K_Match _Match, MatchmakingStruct::LibStructuresMatchmaking_K_MatchParticipants _Complete) {
+	declare K_Match Match = _Match;
+
+	Match.RankingProgressList = [];
+
+	for (AccountId => Participant in _Complete.Participants) {
+		if (Match.Participants.Participants.existskey(AccountId)) {
+			declare MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression PlayerProgression = Match.Participants.Participants[AccountId];
+			Match.RankingProgressList[AccountId] = UIModules_RankingProgress::K_RankingProgress {
+				HasProgression = True,
+				CurrentDivision = PlayerProgression.CurrentDivision,
+				CurrentProgression = PlayerProgression.CurrentProgression,
+				NewProgression = Participant.CurrentProgression
+			};
+		} else {
+			Match.RankingProgressList[AccountId] = UIModules_RankingProgress::K_RankingProgress {
+				HasProgression = True,
+				CurrentDivision = Participant.CurrentDivision,
+				CurrentProgression = Participant.CurrentProgression,
+				NewProgression = Participant.CurrentProgression
+			};
+		}
+	}
+
+	for (AccountId => Participant in Match.Participants.Participants) {
+		if (!Match.RankingProgressList.existskey(AccountId)) {
+			Match.RankingProgressList[AccountId] = UIModules_RankingProgress::K_RankingProgress {
+				HasProgression = False,
+				CurrentDivision = Participant.CurrentDivision,
+				CurrentProgression = Participant.CurrentProgression,
+				NewProgression = Participant.CurrentProgression
+			};
+		}
+	}
+
+	UIModules_RankingProgress::SetRankingProgressList(Match.RankingProgressList);
+
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start activity on first party consoles
+Void Private_StartActivity(K_Match _Match) {
+	declare Text[Integer] ClanNames;
+	for (Clan, 1, _Match.ClansNb) {
+		ClanNames[Clan] = Clans::GetClanName(Clan, False);
+	}
+	for (Clan in _Match.Players) {
+		if (!ClanNames.existskey(Clan))	{
+			ClanNames[Clan] = Clans::GetClanName(Clan, False);
+		}
+	}
+
+	Activity_Match_Create_Begin(_Match.ActivityId);
+	for (ClanName in ClanNames) {
+		Activity_Match_Create_AddTeam(ClanName);
+	}
+	for (AccountId => Clan in _Match.Players) {
+		Activity_Match_Create_AddPlayer(AccountId, ClanNames[Clan]);
+	}
+	Activity_Match_Create_End();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop activity on first party consoles
+Void Private_StopActivity(K_Match _Match, K_MatchResult[Integer] _ClanResults, K_MatchResult[Text] _PlayerResults) {
+	// Find highest clan and player ranks so we can add missing result at the last place of the ranking
+	declare Integer HighestClanRank = 0;
+	for (ClanResult in _ClanResults) {
+		if (HighestClanRank < ClanResult.Rank) {
+			HighestClanRank = ClanResult.Rank;
+		}
+	}
+	declare Integer HighestPlayerRank = 0;
+	for (PlayerResult in _PlayerResults) {
+		if (HighestPlayerRank < PlayerResult.Rank) {
+			HighestPlayerRank = PlayerResult.Rank;
+		}
+	}
+
+	declare K_MatchResult[Integer] ClanResults;
+	for (Clan, 1, _Match.ClansNb) {
+		ClanResults[Clan] = _ClanResults.get(Clan, K_MatchResult { Rank = HighestClanRank + 1, Score = 0 });
+	}
+	declare K_MatchResult[Text] PlayerResults;
+	for (AccountId => Clan in _Match.Players) {
+		ClanResults[Clan] = _ClanResults.get(Clan, K_MatchResult { Rank = HighestClanRank + 1, Score = 0 });
+		PlayerResults[AccountId] = _PlayerResults.get(AccountId, K_MatchResult { Rank = HighestPlayerRank + 1, Score = 0 });
+	}
+
+	Activity_Match_ReportResult_Begin();
+	foreach (Clan => ClanResult in ClanResults) {
+		Activity_Match_ReportResult_SetTeamResult(Clans::GetClanName(Clan, False), ClanResult.Rank, ClanResult.Score);
+	}
+	foreach (AccountId => PlayerResult in PlayerResults) {
+		Activity_Match_ReportResult_SetPlayerResult(AccountId, PlayerResult.Rank, PlayerResult.Score);
+	}
+	Activity_Match_ReportResult_End();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if we can start a new match
+Boolean CanStartNewMatch(K_Match _Match, Text _QueueId, Text _MatchId) {
+	return (
+		_Match.Status == C_Status_Null ||
+		_Match.Status == C_Status_Complete ||
+		_Match.Status == C_Status_Stop ||
+		_Match.QueueId != _QueueId ||
+		_Match.Id != _MatchId
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if we need to wait for a match
+Boolean IsWaitingMatch(K_Match _Match) {
+	return (
+		_Match.Status == C_Status_Null ||
+		_Match.Status == C_Status_Initialization ||
+		_Match.Status == C_Status_Complete ||
+		_Match.Status == C_Status_Stop
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Continue previous match or start a new one
+K_Match InitializeMatch(K_Match _PreviousMatch, Text _QueueId, Text _MatchId, Text _ActivityId, Integer _ClansNb, Boolean _UseLocalAPI) {
+	assert(ServerAuth::IsServiceActive(ServerAuth::C_Services_Live), "You must initialize `ServerAuth::C_Services_Live` in the `ServerAuth` library to be able to make requests to the matchmaking API from a server.");
+
+	if (!CanStartNewMatch(_PreviousMatch, _QueueId, _MatchId)) {
+		NetShare_Teams::SetMatchId(_PreviousMatch.Id);
+		NetShare_Teams::SetMatchParticipants(_PreviousMatch.Participants);
+		NetShare_Teams::SetTop10(_PreviousMatch.Leaderboard);
+		NetShare_Teams::SetDivisions(_PreviousMatch.Divisions);
+		UIModules_RankingProgress::SetRankingProgressList(_PreviousMatch.RankingProgressList);
+		return _PreviousMatch;
+	}
+
+	Http::Destroy(_PreviousMatch.Request_GetMatchParticipants_Start);
+	Http::Destroy(_PreviousMatch.Request_GetMatchParticipants_Complete);
+	Http::Destroy(_PreviousMatch.Request_GetMatchmakingLeaderboard);
+	Http::Destroy(_PreviousMatch.Request_GetMatchmakingDivisionRules);
+
+	declare K_Match Match = C_Match_Null;
+	Match = Private_SetMatchId(Match, _MatchId);
+	Match.QueueId = _QueueId;
+	Match.ActivityId = _ActivityId;
+	Match.ClansNb = _ClansNb;
+	Match.UseLocalAPI = _UseLocalAPI;
+	Match.Status = C_Status_Initialization;
+	Match.Players = [];
+	Match.Bots = [];
+	Match = Private_SetParticipants(Match, MatchmakingStruct::C_MatchParticipants_Null);
+	Match = Private_ComputeRankingProgress(Match, MatchmakingStruct::C_MatchParticipants_Null);
+	Match = Private_SetLeaderboard(Match, []);
+	Match = Private_SetDivisions(Match, []);
+	Match.Request_GetMatchParticipants_Start = Http::GetEmptyRequest();
+	Match.Request_GetMatchParticipants_Complete = Http::GetEmptyRequest();
+	Match.Request_GetMatchmakingLeaderboard = Http::GetEmptyRequest();
+	Match.Request_GetMatchmakingDivisionRules = Http::GetEmptyRequest();
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update a match
+K_Match UpdateMatch(K_Match _Match) {
+	declare K_Match Match = _Match;
+
+	if (Http::IsInitialized(Match.Request_GetMatchParticipants_Start)) {
+		Match.Request_GetMatchParticipants_Start = Http::Update(Match.Request_GetMatchParticipants_Start);
+		if (!Http::IsRunning(Match.Request_GetMatchParticipants_Start)) {
+			if (Http::IsSuccess(Match.Request_GetMatchParticipants_Start)) {
+				Match = Private_SetParticipants(Match, MatchmakingAPI::GetResponseFromGetMatchParticipants(Match.Request_GetMatchParticipants_Start));
+				Match = Private_ComputeRankingProgress(Match, MatchmakingStruct::C_MatchParticipants_Null);
+				Match.Request_GetMatchmakingLeaderboard = Http::Destroy(Match.Request_GetMatchmakingLeaderboard);
+				if (Match.UseLocalAPI) {
+					Match.Request_GetMatchmakingLeaderboard = MatchmakingAPI::Server_GetMatchmakingLeaderboard(C_Debug_MatchmakingApiUrl, Match.QueueId);
+				} else {
+					Match.Request_GetMatchmakingLeaderboard = MatchmakingAPI::Server_GetMatchmakingLeaderboard(Match.QueueId);
+				}
+			}
+			Match.Request_GetMatchParticipants_Start = Http::Destroy(Match.Request_GetMatchParticipants_Start);
+		}
+	}
+
+	if (Http::IsInitialized(Match.Request_GetMatchParticipants_Complete)) {
+		Match.Request_GetMatchParticipants_Complete = Http::Update(Match.Request_GetMatchParticipants_Complete);
+		if (!Http::IsRunning(Match.Request_GetMatchParticipants_Complete)) {
+			if (Http::IsSuccess(Match.Request_GetMatchParticipants_Complete)) {
+				declare MatchmakingStruct::LibStructuresMatchmaking_K_MatchParticipants Participants = MatchmakingAPI::GetResponseFromGetMatchParticipants(Match.Request_GetMatchParticipants_Complete);
+				if (Participants.IsCompleted) {
+					declare MatchParticipants =  MatchmakingAPI::GetResponseFromGetMatchParticipants(Match.Request_GetMatchParticipants_Complete);
+					Match = Private_ComputeRankingProgress(Match, MatchParticipants); //< Call Before updating the participants
+					Match = Private_SetParticipants(Match, MatchParticipants);
+					Match.Request_GetMatchmakingLeaderboard = Http::Destroy(Match.Request_GetMatchmakingLeaderboard);
+					if (Match.UseLocalAPI) {
+						Match.Request_GetMatchmakingLeaderboard = MatchmakingAPI::Server_GetMatchmakingLeaderboard(C_Debug_MatchmakingApiUrl, Match.QueueId);
+					} else {
+						Match.Request_GetMatchmakingLeaderboard = MatchmakingAPI::Server_GetMatchmakingLeaderboard(Match.QueueId);
+					}
+					Match.Request_GetMatchParticipants_Complete = Http::Destroy(Match.Request_GetMatchParticipants_Complete);
+				} else {
+					Match.Request_GetMatchParticipants_Complete = Http::RetryWithDelay(Match.Request_GetMatchParticipants_Complete, Now + C_Private_GetMatchParticipants_RetryInterval);
+				}
+			} else {
+				Match.Request_GetMatchParticipants_Complete = Http::Destroy(Match.Request_GetMatchParticipants_Complete);
+			}
+		}
+	}
+
+	if (Http::IsInitialized(Match.Request_GetMatchmakingLeaderboard)) {
+		Match.Request_GetMatchmakingLeaderboard = Http::Update(Match.Request_GetMatchmakingLeaderboard);
+		if (!Http::IsRunning(Match.Request_GetMatchmakingLeaderboard)) {
+			if (Http::IsSuccess(Match.Request_GetMatchmakingLeaderboard)) {
+				Match = Private_SetLeaderboard(Match, MatchmakingAPI::GetResponseFromGetMatchmakingLeaderboard(Match.Request_GetMatchmakingLeaderboard));
+			}
+			Match.Request_GetMatchmakingLeaderboard = Http::Destroy(Match.Request_GetMatchmakingLeaderboard);
+		}
+	}
+
+	if (Http::IsInitialized(Match.Request_GetMatchmakingDivisionRules)) {
+		Match.Request_GetMatchmakingDivisionRules = Http::Update(Match.Request_GetMatchmakingDivisionRules);
+		if (!Http::IsRunning(Match.Request_GetMatchmakingDivisionRules)) {
+			if (Http::IsSuccess(Match.Request_GetMatchmakingDivisionRules)) {
+				Match = Private_SetDivisions(Match, MatchmakingAPI::GetResponseFromGetMatchmakingDivisionRules(Match.Request_GetMatchmakingDivisionRules));
+			}
+			Match.Request_GetMatchmakingDivisionRules = Http::Destroy(Match.Request_GetMatchmakingDivisionRules);
+		}
+	}
+
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the match
+K_Match StartMatch(K_Match _Match) {
+	declare K_Match Match = _Match;
+
+	Match.Status = C_Status_Play;
+	Match.Request_GetMatchParticipants_Start = Http::Destroy(Match.Request_GetMatchParticipants_Start);
+	Match.Request_GetMatchmakingDivisionRules = Http::Destroy(Match.Request_GetMatchmakingDivisionRules);
+
+	if (Match.UseLocalAPI) {
+		Match.Request_GetMatchParticipants_Start = MatchmakingAPI::Server_GetMatchParticipants(C_Debug_MatchmakingApiUrl, Match.Id, C_Private_GetMatchParticipants_RetryNb, C_Private_GetMatchParticipants_RetryInterval);
+		Match.Request_GetMatchmakingDivisionRules = MatchmakingAPI::Server_GetMatchmakingDivisionRules(C_Debug_MatchmakingApiUrl, Match.QueueId, C_Private_GetMatchmakingDivisionRules_RetryNb, C_Private_GetMatchmakingDivisionRules_RetryInterval);
+	} else {
+		Match.Request_GetMatchParticipants_Start = MatchmakingAPI::Server_GetMatchParticipants(Match.Id, C_Private_GetMatchParticipants_RetryNb, C_Private_GetMatchParticipants_RetryInterval);
+		Match.Request_GetMatchmakingDivisionRules = MatchmakingAPI::Server_GetMatchmakingDivisionRules(Match.QueueId, C_Private_GetMatchmakingDivisionRules_RetryNb, C_Private_GetMatchmakingDivisionRules_RetryInterval);
+	}
+
+	Private_StartActivity(Match);
+
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the clan and player match results
+K_Match StopMatch(K_Match _Match, K_MatchResult[Integer] _ClanResults, K_MatchResult[Text] _PlayerResults) {
+	declare K_Match Match = _Match;
+
+	Match.Status = C_Status_Complete;
+
+	Private_StopActivity(Match, _ClanResults, _PlayerResults);
+
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Complete the match
+K_Match CompleteMatch(K_Match _Match) {
+	declare K_Match Match = _Match;
+
+	Match.Status = C_Status_Complete;
+
+	Match.Request_GetMatchParticipants_Complete = Http::Destroy(Match.Request_GetMatchParticipants_Complete);
+
+	if (Match.UseLocalAPI) {
+		Match.Request_GetMatchParticipants_Complete = MatchmakingAPI::Server_GetMatchParticipants(C_Debug_MatchmakingApiUrl, Match.Id, C_Private_GetMatchParticipants_RetryNb, C_Private_GetMatchParticipants_RetryInterval);
+	} else {
+		Match.Request_GetMatchParticipants_Complete = MatchmakingAPI::Server_GetMatchParticipants(Match.Id, C_Private_GetMatchParticipants_RetryNb, C_Private_GetMatchParticipants_RetryInterval);
+	}
+
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new match result
+K_MatchResult NewMatchResult(Integer _Rank, Integer _Score) {
+	return K_MatchResult { Rank = _Rank, Score = _Score };
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add a player to the match
+K_Match AddPlayer(K_Match _Match, Text _AccountId, Integer _Clan) {
+	declare K_Match Match = _Match;
+	Match.Players[_AccountId] = _Clan;
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove a player from the match
+K_Match RemovePlayer(K_Match _Match, Text _AccountId) {
+	declare K_Match Match = _Match;
+	Match.Players.removekey(_AccountId);
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add a bot to the match
+K_Match AddBot(K_Match _Match, Text _AccountId, Integer _Clan) {
+	declare K_Match Match = _Match;
+	Match.Bots[_AccountId] = _Clan;
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove all bots from the match
+K_Match RemoveAllBots(K_Match _Match) {
+	declare K_Match Match = _Match;
+	Match.Bots = [];
+	return Match;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the match player account ids
+Text[] GetPlayerAccountIds(K_Match _Match) {
+	declare Text[] AccountIds;
+	for (AccountId => Clan in _Match.Players) {
+		AccountIds.add(AccountId);
+	}
+	return AccountIds;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the clan of a user
+Integer GetClan(K_Match _Match, CUser _User) {
+	if (_User == Null) return C_Clan_Null;
+	if (_User.IsFakeUser) return _Match.Bots.get(_User.WebServicesUserId, C_Clan_Null);
+	return _Match.Players.get(_User.WebServicesUserId, C_Clan_Null);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the clan of the player/bot
+Integer GetClan(K_Match _Match, CSmPlayer _Player) {
+	if (_Player == Null ) return C_Clan_Null;
+	return GetClan(_Match, _Player.User);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the clan of the score
+Integer GetClan(K_Match _Match, CSmScore _Score) {
+	if (_Score == Null) return C_Clan_Null;
+	return GetClan(_Match, _Score.User);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the player/bot is in the correct clan
+Boolean IsInCorrectClan(K_Match _Match, CSmPlayer _Player) {
+	if (_Player == Null) return True;
+	return _Player.CurrentClan == GetClan(_Match, _Player);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the user can play the match
+Boolean CanPlay(K_Match _Match, CUser _User) {
+	return GetClan(_Match, _User) != C_Clan_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the player/bot can play the match
+Boolean CanPlay(K_Match _Match, CSmPlayer _Player) {
+	return GetClan(_Match, _Player) != C_Clan_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the owner of the given score can play the match
+Boolean CanPlay(K_Match _Match, CSmScore _Score) {
+	return GetClan(_Match, _Score) != C_Clan_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Force valid players in player mode and everyone else in spectator mode
+Void ApplySpectatorModeRestriction(CServerAdmin _ServerAdmin, K_Match _Match, CUser _User) {
+	if (_ServerAdmin == Null || _User == Null || _User.IsFakeUser) return;
+
+	if (CanPlay(_Match, _User)) {
+		_ServerAdmin.ForceSpectator(_User, CServerAdmin::ESpecMode::PlayerForced);
+	} else {
+		_ServerAdmin.ForceSpectator(_User, CServerAdmin::ESpecMode::SpectatorForced);
+	}
+}

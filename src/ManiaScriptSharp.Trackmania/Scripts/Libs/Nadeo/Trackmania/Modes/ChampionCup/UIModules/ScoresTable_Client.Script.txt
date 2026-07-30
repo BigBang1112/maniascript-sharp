@@ -1,0 +1,864 @@
+/**
+ *	UI module: ScoresTable client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionCup/UIModules/ScoresTable_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/ColorPalette.Script.txt" as ChampionColorPalette
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/TMGLAPI_Client.Script.txt" as TMGLAPI
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCup/UIModules/ScoresTable_Common.Script.txt" as UIModules_ScoresTable_Common
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/Shared_Client.Script.txt" as Shared
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/ZIndex.Script.txt" as ZIndex
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Visibility_Component.Script.txt" as ScoresTableVisibility
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Client.Script.txt" as PauseMenu_Online
+#Include "Libs/Nadeo/CMGame/Components/MenuButtonList.Script.txt" as MenuButtonList
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ImgPath "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion"
+#Const C_TeamLogoPath "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/TeamsLogo"
+#Const C_PlayersPerColumn 8
+#Const C_ColumnsNb 2
+#Const C_DisplayNamesUpdateInterval 1000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_ScoresTable_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_ScoresTable_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	//L16N [TMGL] Ranking of the current step in the league
+	declare Text Text_StepRanking = _("Step ranking");
+	//L16N [TMGL] Ranking of the league
+	declare Text Text_LeagueRanking = _("League ranking");
+	//L16N [TMGL] Followed by info about the player who scored the best lap time.
+	declare Text Text_BestLap = _("Best lap");
+	//L16N [TMGL] Will be displayed between "Best lap" and the player name. eg BEST LAP 01:08.123 by Player1
+	declare Text Text_By = _("by");
+	//L16N [TMGL] The match is currently paused
+	declare Text Text_MatchPaused = _("Match paused");
+	//L16N [Champion] Description of the basic rules. %1 is the current track number, %2 total tracks.
+	declare Text Text_RulesBasic = _("Track %1/%2 - Win points by finishing the race.");
+	//L16N [Champion] Description of the basic rules. %1 is the current track number, %2 total tracks.
+	declare Text Text_RulesWithBestLap = _("Track %1/%2 - Win points by finishing the race or by scoring the best lap time.");
+	//L16N [Champion] Description of the rules for warmup. %1 is the current track number, %2 total tracks.
+	declare Text Text_RulesWarmUp = _("Track %1/%2 - Warm up");
+
+	declare Text Img_PlayerBg = C_ImgPath^"/hud_champion_scoretable_namelist.dds";
+	declare Text Img_ScoreBg = C_ImgPath^"/hud_champion_scoretable_score.dds";
+	declare Text Img_BestLapTimeBg = C_ImgPath^"/hud_champion_scoretable_bestlap_score.dds";
+	declare Text Img_BestLap = MenuConst::C_ImageUrl_Champion_Icon_BestLap;
+	declare Text Img_TabSelect = MenuConst::C_ImageUrl_Menu_Focus_Tabs;
+	declare Text Img_BackgroundBody = C_ImgPath^"/hud_champion_scoretable_body.dds";
+	declare Text Img_BackgroundHeader = C_ImgPath^"/hud_champion_scoretable_header.dds";
+	declare Text Img_Hearts = C_ImgPath^"/Hearts/TMGL2020_Hearts";
+
+	declare Real SizeY_Line = 9.333;
+	declare Vec2 Size_ButtonPlayer = <SizeY_Line * 864. / 112., SizeY_Line>;
+	declare Vec2 Size_PointsBg = <SizeY_Line * 168. / 112., SizeY_Line>;
+	declare Vec2 Size_Flag = <6.75 * 320. / 224., 6.75>;
+	declare Vec2 Size_Hearts = <4.5 * 408. / 192., 4.5>;
+	declare Vec2 Size_ScoresTableBg = <272., 272. * 2112. / 3264.>;
+	declare Vec2 Size_PlayerMargin = <118.66, 8.66>;
+
+	declare Text ML_Players = "";
+	declare Integer PlayersNb = C_PlayersPerColumn * C_ColumnsNb;
+	for (I, 0, PlayersNb - 1) {
+		declare Vec2 Pos = <
+			((I / C_PlayersPerColumn) * Size_PlayerMargin.X) - (0.1763 * (I % C_PlayersPerColumn) * Size_PlayerMargin.Y),
+			(I % C_PlayersPerColumn) * Size_PlayerMargin.Y * -1.
+		>;
+		ML_Players ^= """<frameinstance {{{MLHelpers::Pos(Pos)}}} modelid="framemodel-player" />""";
+	}
+
+	declare Text ModuleId = GetId();
+	return MV::Create(
+ModuleId, 3,
+"""
+<stylesheet>
+	<style class="text-bold" valign="center2" textsize="3" textcolor="{{{ChampionColorPalette::C_White}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$t$i" />
+	<style class="text-tab" halign="center" valign="center2" textsize="7" textcolor="{{{ChampionColorPalette::C_White}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$t$i" focusareacolor1="00000000" focusareacolor2="00000000" />
+</stylesheet>
+<framemodel id="framemodel-player">
+	<quad id="button-player" pos="27.25 -0.33" z-index="0" {{{MLHelpers::Size(Size_ButtonPlayer)}}} opacity="0.3" image="{{{Img_PlayerBg}}}" scriptevents="1" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" />
+	<quad id="quad-points" pos="97.95 -0.33" z-index="0" {{{MLHelpers::Size(Size_PointsBg)}}} opacity="0.5" image="{{{Img_ScoreBg}}}" colorize="000000" />
+	<frame z-index="1" pos="0 -5.25">
+		<label id="label-rank-diff" pos="3 0" size="6 6" halign="center" textsize="5" class="text-bold" />
+		<label id="label-rank" pos="8.12 0" size="8 5" halign="center" class="text-bold" textsize="4" />
+		<quad id="quad-flag" pos="20 0" {{{MLHelpers::Size(Size_Flag)}}} valign="center" pincorners="<-0.75,1.>:<1.,1.>:<0.75,-1.>:<-1.,-1.>" />
+		<quad id="quad-logo" pos="17.5 0" size="7.5 7.5" valign="center" />
+		<label id="label-name" pos="32. 0.25" size="50 5" class="text-bold" />
+		<quad id="quad-hearts" pos="95 0" {{{MLHelpers::Size(Size_Hearts)}}} halign="right" valign="center" hidden="1" colorize="ffffff" />
+		<label id="label-round-points" opacity="0.9" pos="97.25 0.25" size="9 5" halign="right" class="text-bold" textsize="3" />
+		<label id="label-points" pos="104.75 0.25" size="9 5" halign="center" class="text-bold" />
+	</frame>
+</framemodel>
+<frame z-index="{{{ZIndex::C_ZIndex_ScoresTable}}}" id="frame-scorestable-layer" hidden="1">
+	<frame id="frame-global" hidden="1">
+		<quad id="quad-black-bg" bgcolor="000" size="320 180" fullscreen="1" halign="center" valign="center" z-index="-3" opacity=".6"/>
+		<frameinstance modelid="{{{MenuButtonList::C_Name}}}" id="frame-button-list-scorestable-champion-cup" z-index="1" />
+		<frame {{{UIModules::CustomizableUIModule(UIModules_ScoresTable_Common::C_UIModuleConfig)}}}>
+			<frame pos="-100.5 0">
+				<quad pos="-34 14.33" {{{MLHelpers::Size(Size_ScoresTableBg)}}} image="{{{Img_BackgroundBody}}}" opacity="0.9" />
+				<quad pos="-34 14.33" {{{MLHelpers::Size(Size_ScoresTableBg)}}} image="{{{Img_BackgroundHeader}}}" opacity="0.9" />
+				<frame z-index="1">
+					<frame pos="100.5 -6.25" id="frame-tabs">
+						<label id="button-step-ranking" pos="-32 0" size="80 13" text="{{{Text_StepRanking}}}" scriptevents="1" class="text-tab" />
+						<label id="button-league-ranking" pos="63 0" size="80 13" textsize="6" text="{{{Text_LeagueRanking}}}" scriptevents="1" class="text-tab" />
+						<quad id="quad-selected-tab" pos="-27.5 -7.5" z-index="1" size="50 2" halign="center" valign="bottom" image="{{{Img_TabSelect}}}" />
+					</frame>
+					<frame z-index="2" pos="-15 -60" id="frame-players">
+						{{{ML_Players}}}
+					</frame>
+					<frame z-index="2" pos="107.88 -38" id="frame-best-lap">
+						<label pos="-67 -5.25" size="29 13" text="{{{Text_BestLap}}}" class="text-bold" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" />
+						<label pos="-5 -5.25" size="10 13" text="{{{Text_By}}}" class="text-bold" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" />
+						<label id="label-best-lap-time" pos="-21.75 -5.25" size="25 13" halign="center" class="text-bold" z-index="1" />
+						<quad pos="-37 -5.25" size="30 9" valign="center" image="{{{Img_BestLapTimeBg}}}" opacity="0.5" z-index="-1" colorize="000000" />
+						<quad pos="-80 0.25" image="{{{Img_BestLap}}}" size="10.5 10.5" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" />
+						<frameinstance pos="0 0" modelid="framemodel-player" id="frame-player" />
+					</frame>
+					<frame pos="100.5 0" id="frame-footer">
+						<label pos="10 -21" size="190 5" halign="center" class="text-bold" id="label-server-name" textsize="3.5" />
+						<label pos="-10 -139" size="210 5" halign="center" class="text-bold" id="label-info" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" />
+					</frame>
+				</frame>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmupHelpers_Client.Script.txt" as WarmupHelpers
+
+#Struct K_RankingEntry {
+	Text Name;
+	Text Login;
+	Text WebServicesUserId;
+	Integer Rank;
+	Integer Points;
+	Integer RoundPoints;
+	Integer RankDiff;
+	Boolean IsBestLapPlayer;
+	Boolean IsBestLapDisplay;
+	Integer Hearts;
+	Text Zone;
+}
+
+#Struct K_Controls {
+	CMlFrame Frame_Players;
+	CMlFrame Frame_BestLap;
+	CMlLabel Button_StepRanking;
+	CMlLabel Button_LeagueRanking;
+	CMlQuad Quad_SelectedTab;
+}
+
+#Struct K_State {
+	K_Controls Controls;
+	Text[] PendingDisplayNames;
+	Text[] RetrievingDisplayNames;
+	Text[] FailedDisplayNames;
+	Integer CurrentTab;
+	Boolean NeedStepRankingUpdate;
+	Boolean NeedLeagueRankingUpdate;
+}
+
+#Const C_Tab_StepRanking {{{dump(UIModules_ScoresTable_Common::C_Tab_StepRanking)}}}
+#Const C_Tab_LeagueRanking {{{dump(UIModules_ScoresTable_Common::C_Tab_LeagueRanking)}}}
+
+#Const C_Sequence_Null {{{dump(UIModules_ScoresTable_Common::C_Sequence_Null)}}}
+#Const C_Sequence_Race {{{dump(UIModules_ScoresTable_Common::C_Sequence_Race)}}}
+#Const C_Sequence_PlayerFinishedRace {{{dump(UIModules_ScoresTable_Common::C_Sequence_PlayerFinishedRace)}}}
+#Const C_Sequence_BeforeResult {{{dump(UIModules_ScoresTable_Common::C_Sequence_BeforeResult)}}}
+#Const C_Sequence_AfterResult {{{dump(UIModules_ScoresTable_Common::C_Sequence_AfterResult)}}}
+
+#Const C_Color_RankUp {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}}
+#Const C_Color_RankDown {{{dump(CL::Hex6ToRgb(ChampionColorPalette::C_Loss))}}}
+#Const C_Color_PositivePoints {{{dump(CL::Hex6ToRgb(ChampionColorPalette::C_White))}}}
+#Const C_Color_NegativePoints {{{dump(CL::Hex6ToRgb(ChampionColorPalette::C_Loss))}}}
+
+#Const C_Img_Hearts {{{dump(Img_Hearts)}}}
+#Const C_TeamLogoPath {{{dump(C_TeamLogoPath)}}}
+#Const C_DisplayNamesUpdateInterval {{{dump(C_DisplayNamesUpdateInterval)}}}
+#Const C_Id {{{dump(ModuleId)}}}
+""",
+"""
+Void SetRankDiff(CMlLabel _Label_RankDiff, Integer _RankDiff) {
+	if (_RankDiff != 0) {
+		if (_RankDiff > 0) {
+			_Label_RankDiff.Value = "⏶";
+			_Label_RankDiff.TextColor = C_Color_RankUp;
+		} else {
+			_Label_RankDiff.Value = "⏷";
+			_Label_RankDiff.TextColor = C_Color_RankDown;
+		}
+	} else {
+		_Label_RankDiff.Value = "";
+	}
+}
+
+Void SetHearts(CMlQuad _Quad_Hearts, Integer _Hearts) {
+	if (_Hearts <= 0) {
+		_Quad_Hearts.ImageUrl = "";
+	} else if (_Hearts <= {{{TMGLAPI::P}}}C_MaxHearts) {
+		_Quad_Hearts.ImageUrl = C_Img_Hearts^_Hearts^"_inc.dds";
+	} else {
+		_Quad_Hearts.ImageUrl = C_Img_Hearts^{{{TMGLAPI::P}}}C_MaxHearts^"_inc.dds";
+	}
+	_Quad_Hearts.Visible = (_Quad_Hearts.ImageUrl != "");
+}
+
+Void SetRoundPoints(CMlLabel _Label_RoundPoints, Integer _RoundPoints) {
+	if (_RoundPoints > 0) {
+		_Label_RoundPoints.Value = "+"^_RoundPoints;
+		_Label_RoundPoints.TextColor = C_Color_PositivePoints;
+	} else if (_RoundPoints < 0) {
+		_Label_RoundPoints.Value = ""^_RoundPoints;
+		_Label_RoundPoints.TextColor = C_Color_NegativePoints;
+	} else {
+		_Label_RoundPoints.Value = "";
+	}
+}
+
+Void UpdateRankingLine(CMlFrame _Frame_Player, K_RankingEntry _RankingEntry, Integer _Sequence, Integer _BestLapBonus, Boolean _IsWarmUp, Boolean _IsFinal) {
+	declare CMlQuad Button_Player <=> (_Frame_Player.GetFirstChild("button-player") as CMlQuad);
+	declare CMlLabel Label_RankDiff <=> (_Frame_Player.GetFirstChild("label-rank-diff") as CMlLabel);
+	declare CMlLabel Label_Rank <=> (_Frame_Player.GetFirstChild("label-rank") as CMlLabel);
+	declare CMlQuad Quad_Flag <=> (_Frame_Player.GetFirstChild("quad-flag") as CMlQuad);
+	declare CMlQuad Quad_Logo <=> (_Frame_Player.GetFirstChild("quad-logo") as CMlQuad);
+	declare CMlQuad Quad_Hearts <=> (_Frame_Player.GetFirstChild("quad-hearts") as CMlQuad);
+	declare CMlLabel Label_Name <=> (_Frame_Player.GetFirstChild("label-name") as CMlLabel);
+	declare CMlLabel Label_RoundPoints <=> (_Frame_Player.GetFirstChild("label-round-points") as CMlLabel);
+	declare CMlLabel Label_Points <=> (_Frame_Player.GetFirstChild("label-points") as CMlLabel);
+	declare CMlQuad Quad_Points <=> (_Frame_Player.GetFirstChild("quad-points") as CMlQuad);
+
+	declare Text ChampionCup_ScoresTable_Login for Button_Player = "";
+
+	if (_RankingEntry.Rank > 0) Label_Rank.Value = ""^_RankingEntry.Rank;
+	else Label_Rank.Value = "";
+
+	if (_RankingEntry.WebServicesUserId != "") {
+		ChampionCup_ScoresTable_Login = _RankingEntry.Login;
+		declare {{{PlayerProfiles::P}}}K_PlayerProfile PlayerProfile = {{{PlayerProfiles::P}}}GetPlayerProfiles().get(_RankingEntry.WebServicesUserId, {{{PlayerProfiles::P}}}K_PlayerProfile {});
+
+		if (_Sequence == C_Sequence_AfterResult) {
+			SetRankDiff(Label_RankDiff, _RankingEntry.RankDiff);
+		} else {
+			SetRankDiff(Label_RankDiff, 0);
+		}
+
+		if (PlayerProfile.WebServicesUserId != "" && PlayerProfile.TeamLogo != "") {
+			Quad_Logo.ImageUrl = C_TeamLogoPath^"/"^PlayerProfile.TeamLogo;
+			Quad_Logo.Visible = True;
+			Quad_Flag.Visible = False;
+		} else if (_RankingEntry.Zone != "") {
+			Quad_Flag.ChangeImageUrl("file://ZoneFlags/Path/" ^ Tools::GetCountryPath(_RankingEntry.Zone, Config::Get().DefaultMasterZone));
+			Quad_Logo.Visible = False;
+			Quad_Flag.Visible = True;
+		} else if (_RankingEntry.Login != "") {
+			Quad_Flag.ChangeImageUrl("file://ZoneFlags/Login/" ^ _RankingEntry.Login ^ "/country");
+			Quad_Logo.Visible = False;
+			Quad_Flag.Visible = True;
+		} else {
+			Quad_Logo.Visible = False;
+			Quad_Flag.Visible = False;
+		}
+
+		if (PlayerProfile.WebServicesUserId != "") {
+			Label_Name.Value = PlayerProfile.Nickname;
+		} else {
+			Label_Name.Value = _RankingEntry.Name;
+		}
+
+		if (_IsWarmUp || _Sequence == C_Sequence_Race) {
+			SetHearts(Quad_Hearts, _RankingEntry.Hearts);
+		} else {
+			SetHearts(Quad_Hearts, 0);
+		}
+		if (_RankingEntry.IsBestLapDisplay) {
+			if (_BestLapBonus > 0 && _Sequence != C_Sequence_AfterResult && !_IsFinal) {
+				Label_RoundPoints.Value = "+"^_BestLapBonus;
+				Label_RoundPoints.TextColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+			} else {
+				Label_RoundPoints.Value = "";
+			}
+		} else {
+			SetRoundPoints(Label_RoundPoints, _RankingEntry.RoundPoints);
+			if (_RankingEntry.IsBestLapPlayer && _Sequence != C_Sequence_AfterResult) {
+				Label_RoundPoints.TextColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+			} else {
+				Label_RoundPoints.TextColor = <1.,1.,1.>;
+			}
+		}
+
+		Label_Points.Value = ""^_RankingEntry.Points;
+	} else {
+		ChampionCup_ScoresTable_Login = "";
+		Label_RankDiff.Value = "";
+		Quad_Flag.Visible = False;
+		Quad_Logo.Visible = False;
+		Quad_Hearts.Visible = False;
+		Label_Name.Value = "";
+		Label_RoundPoints.Value = "";
+		Label_Points.Value = "";
+		SetHearts(Quad_Hearts, 0);
+	}
+
+	if (_RankingEntry.IsBestLapDisplay) {
+		Label_Points.Value = "";
+		Quad_Points.Visible = False;
+		Label_RankDiff.Value = "";
+		Label_Rank.Value = "";
+	}
+}
+
+Void UpdateBestLap(CMlFrame _Frame_BestLap, Integer _Sequence, Text _BestLapPlayerAccountId, Integer _BestLapTime, Integer _BestLapBonus, Boolean _IsWarmUp, Boolean _IsFinal) {
+	declare CMlFrame Frame_Player <=> (_Frame_BestLap.GetFirstChild("frame-player") as CMlFrame);
+	declare CMlLabel Label_BestLapTime <=> (_Frame_BestLap.GetFirstChild("label-best-lap-time") as CMlLabel);
+	declare Integer BestLapTimeKey = -123;
+	declare CSmScore BestLapScore;
+	foreach (Key => Score in Scores) {
+		if (Score != Null && Score.User != Null && Score.User.WebServicesUserId == _BestLapPlayerAccountId) {
+			BestLapTimeKey = Key;
+			BestLapScore <=> Score;
+			break;
+		}
+	}
+	declare BestLapEntry = K_RankingEntry {
+		IsBestLapDisplay = True
+	};
+	if (BestLapScore != Null && _BestLapTime > 0) {
+		BestLapEntry.Name = BestLapScore.User.Name;
+		BestLapEntry.Login = BestLapScore.User.Login;
+		BestLapEntry.WebServicesUserId = BestLapScore.User.WebServicesUserId;
+		BestLapEntry.Rank = BestLapTimeKey + 1;
+		BestLapEntry.IsBestLapPlayer = True;
+		Label_BestLapTime.Value = TL::TimeToText(_BestLapTime, True, True);
+		UpdateRankingLine(Frame_Player, BestLapEntry, _Sequence, _BestLapBonus, _IsWarmUp, _IsFinal);
+	} else {
+		Label_BestLapTime.Value = "--:--.---";
+		UpdateRankingLine(Frame_Player, BestLapEntry, _Sequence, _BestLapBonus, _IsWarmUp, _IsFinal);
+	}
+}
+
+Void UpdateStepRanking(K_State _State, Text[] _ForceStepRanking, Integer _Sequence, Integer[Text] _RankDiff, Integer[Text] _Hearts, Text _BestLapPlayerAccountId, Integer _BestLapTime, Integer _BestLapBonus, Boolean _IsWarmUp, Boolean _IsFinal) {
+	UpdateBestLap(_State.Controls.Frame_BestLap, _Sequence, _BestLapPlayerAccountId, _BestLapTime, _BestLapBonus, _IsWarmUp, _IsFinal);
+
+	// Filter scores
+	declare CSmScore[] FilteredScores;
+	declare Integer[CSmScore] ForcedRankingScores;
+	foreach (Player in Players) {
+		if (Player.Score != Null) {
+			declare Integer ChampionCup_ScoresTable_IsSpecNow for Player.Score = -1;
+			declare Integer ChampionCup_ScoresTable_IsPlayerNow for Player.Score = -1;
+			if (Player.RequestsSpectate) ChampionCup_ScoresTable_IsSpecNow = Now;
+			else ChampionCup_ScoresTable_IsPlayerNow = Now;
+		}
+	}
+	foreach (Score in Scores) {
+		declare Integer ChampionCup_ScoresTable_IsSpecNow for Score = -1;
+		declare Integer ChampionCup_ScoresTable_IsPlayerNow for Score = -1;
+		if (
+			ChampionCup_ScoresTable_IsSpecNow != Now && //< Is not a spectator
+			(ChampionCup_ScoresTable_IsPlayerNow == Now || Score.Points > 0) //< Is a connected player or have some points
+		) {
+			if (_ForceStepRanking.count > 0) {
+				declare Integer Rank = _ForceStepRanking.count;
+				if (Score.User != Null && _ForceStepRanking.exists(Score.User.WebServicesUserId)) {
+					Rank = _ForceStepRanking.keyof(Score.User.WebServicesUserId);
+				}
+				ForcedRankingScores[Score] = Rank;
+			} else {
+				FilteredScores.add(Score);
+			}
+		}
+	}
+
+	if (_ForceStepRanking.count > 0) {
+		ForcedRankingScores = ForcedRankingScores.sort();
+		foreach (Score => Rank in ForcedRankingScores) {
+			FilteredScores.add(Score);
+		}
+	}
+
+	foreach (Key => Control in _State.Controls.Frame_Players.Controls) {
+		declare K_RankingEntry RankingEntry = K_RankingEntry {};
+		RankingEntry.Rank = Key + 1;
+		if (
+			FilteredScores.existskey(Key) &&
+			FilteredScores[Key] != Null
+		) {
+			declare CSmScore Score <=> FilteredScores[Key];
+			RankingEntry.Name = Score.User.Name;
+			RankingEntry.Login = Score.User.Login;
+			RankingEntry.WebServicesUserId = Score.User.WebServicesUserId;
+			RankingEntry.Points = Score.Points;
+			RankingEntry.RoundPoints = Score.RoundPoints;
+			RankingEntry.RankDiff = _RankDiff.get(Score.User.WebServicesUserId, 0);
+			RankingEntry.Hearts = _Hearts.get(Score.User.WebServicesUserId, 0);
+			RankingEntry.IsBestLapPlayer = (_BestLapPlayerAccountId == Score.User.WebServicesUserId);
+		}
+
+		UpdateRankingLine((Control as CMlFrame), RankingEntry, _Sequence, _BestLapBonus, _IsWarmUp, _IsFinal);
+	}
+}
+
+K_State UpdateLeagueRanking(K_State _State, Integer _Sequence, {{{TMGLAPI::P}}}K_LeaderboardPlayer[] _LeagueRanking, Integer[Text] _Hearts, Text _BestLapPlayerAccountId, Integer _BestLapTime, Integer _BestLapBonus, Boolean _IsWarmUp, Boolean _IsFinal) {
+	declare K_State State = _State;
+
+	UpdateBestLap(State.Controls.Frame_BestLap, _Sequence, _BestLapPlayerAccountId, _BestLapTime, _BestLapBonus, _IsWarmUp,_IsFinal);
+
+	declare CSmScore[Text] AccountIdToScore;
+	foreach (Score in Scores) {
+		if (Score.User != Null) {
+			AccountIdToScore[Score.User.WebServicesUserId] <=> Score;
+		}
+	}
+
+	foreach (Key => Control in State.Controls.Frame_Players.Controls) {
+		declare CMlFrame Frame_Player <=> (Control as CMlFrame);
+
+		declare {{{TMGLAPI::P}}}K_LeaderboardPlayer Player;
+		if (_LeagueRanking.existskey(Key)) {
+			Player = _LeagueRanking[Key];
+		}
+
+		declare K_RankingEntry RankingEntry = K_RankingEntry {};
+		RankingEntry.Rank = Key + 1;
+		if (Player.AccountId != "") {
+			RankingEntry.Rank = Player.Rank;
+			RankingEntry.WebServicesUserId = Player.AccountId;
+			RankingEntry.Points = Player.Score;
+			RankingEntry.RankDiff = Player.RankDiff;
+			declare Text NameFromUser;
+			if (AccountIdToScore.existskey(Player.AccountId)) {
+				declare CSmScore Score <=> AccountIdToScore[Player.AccountId];
+				RankingEntry.RoundPoints = Score.RoundPoints;
+				RankingEntry.Login = Score.User.Login;
+				NameFromUser = Score.User.Name;
+			} else {
+				// Use the zone from the league ranking to display the flag
+				// of players that are not present on the server
+				RankingEntry.Zone = Player.Zone;
+			}
+			declare Text DisplayName = UserMgr.FindDisplayName(Player.AccountId);
+			if (DisplayName != "") {
+				RankingEntry.Name = DisplayName;
+			} else if (
+				!State.PendingDisplayNames.exists(Player.AccountId) &&
+				!State.RetrievingDisplayNames.exists(Player.AccountId) &&
+				!State.FailedDisplayNames.exists(Player.AccountId)
+			) {
+				State.PendingDisplayNames.add(Player.AccountId);
+			} else {
+				RankingEntry.Name = NameFromUser;
+			}
+			RankingEntry.Hearts = _Hearts.get(Player.AccountId, 0);
+			RankingEntry.IsBestLapPlayer = (_BestLapPlayerAccountId == Player.AccountId);
+		}
+
+		UpdateRankingLine(Frame_Player, RankingEntry, _Sequence, _BestLapBonus, _IsWarmUp, _IsFinal);
+	}
+
+	return State;
+}
+
+K_State SelectTab(K_State _State, Integer _Tab, Boolean _LeagueRankingEnabled) {
+	declare K_State State = _State;
+
+	if (_LeagueRankingEnabled || _Tab != C_Tab_LeagueRanking) {
+		State.CurrentTab = _Tab;
+	}
+
+	State.Controls.Button_StepRanking.Opacity = 0.5;
+	State.Controls.Button_LeagueRanking.Opacity = 0.5;
+
+	switch (State.CurrentTab) {
+		case C_Tab_LeagueRanking: {
+			AnimMgr.Flush(State.Controls.Quad_SelectedTab);
+			AnimMgr.Add(
+				State.Controls.Quad_SelectedTab,
+				"<quad pos=\""^State.Controls.Button_LeagueRanking.RelativePosition_V3.X^" "^State.Controls.Quad_SelectedTab.RelativePosition_V3.Y^"\" />",
+				250,
+				CAnimManager::EAnimManagerEasing::QuadOut
+			);
+			State.Controls.Button_LeagueRanking.Opacity = 1.;
+			State.NeedLeagueRankingUpdate = True;
+		}
+		// Default is C_Tab_StepRanking
+		default: {
+			AnimMgr.Flush(State.Controls.Quad_SelectedTab);
+			AnimMgr.Add(
+				State.Controls.Quad_SelectedTab,
+				"<quad pos=\""^State.Controls.Button_StepRanking.RelativePosition_V3.X^" "^State.Controls.Quad_SelectedTab.RelativePosition_V3.Y^"\" />",
+				250,
+				CAnimManager::EAnimManagerEasing::QuadOut
+			);
+			State.Controls.Button_StepRanking.Opacity = 1.;
+			State.NeedStepRankingUpdate = True;
+		}
+	}
+
+	return State;
+}
+
+K_State DisplayLeagueRanking(K_State _State, Boolean _LeagueRankingEnabled) {
+	declare K_State State = _State;
+
+	State.Controls.Button_LeagueRanking.Visible = _LeagueRankingEnabled;
+
+	if (_LeagueRankingEnabled) {
+		State.Controls.Button_StepRanking.RelativePosition_V3.X = -32.;
+		State = SelectTab(State, State.CurrentTab, _LeagueRankingEnabled);
+	} else {
+		State.Controls.Button_StepRanking.RelativePosition_V3.X = 15.5;
+		if (State.CurrentTab == C_Tab_LeagueRanking) {
+			State = SelectTab(State, C_Tab_StepRanking, _LeagueRankingEnabled);
+		} else {
+			State = SelectTab(State, State.CurrentTab, _LeagueRankingEnabled);
+		}
+	}
+
+	return State;
+}
+
+Text GetScoresTableFooterText(Boolean _IsPause, Boolean _IsWarmUp, Boolean _IsFinal, Int2 _MapsProgression, Integer _BestLapBonus) {
+	if (_IsPause) {
+		return "{{{Text_MatchPaused}}}";
+	} else if (_MapsProgression.X > 0 && _MapsProgression.Y > 0) {
+		declare Text FooterInfo;
+		if (_IsWarmUp) {
+			FooterInfo = "{{{Text_RulesWarmUp}}}";
+		} else if (_BestLapBonus > 0 && !_IsFinal) {
+			FooterInfo = "{{{Text_RulesWithBestLap}}}";
+		} else {
+			FooterInfo = "{{{Text_RulesBasic}}}";
+		}
+		return TL::Compose(FooterInfo, ""^_MapsProgression.X, ""^_MapsProgression.Y);
+	}
+
+	return "";
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_ScoresTable_Visibility;
+declare CMlFrame Frame_Global;
+declare CMlQuad Quad_BlackBg;
+declare CMlLabel Label_ServerName;
+declare CMlLabel Label_FooterInfo;
+declare CMlFrame Frame_ButtonList;
+
+declare netread Boolean Net_ChampionCup_ScoresTable_IsVisible for UI;
+declare netread Text Net_ChampionCup_ScoresTable_BestLapPlayer for Teams[0];
+declare netread Integer Net_ChampionCup_ScoresTable_BestLapTime for Teams[0];
+declare netread Integer Net_ChampionCup_ScoresTable_BestLapBonus for Teams[0];
+declare netread Integer Net_ChampionCup_ScoresTable_Sequence for Teams[0];
+declare netread Integer[Text] Net_ChampionCup_ScoresTable_RankDiff for Teams[0];
+declare netread Integer Net_ChampionCup_ScoresTable_RankDiffUpdate for Teams[0];
+declare netread Boolean Net_ChampionCup_ScoresTable_LeagueRankingEnabled for Teams[0];
+declare netread Integer Net_ChampionCup_ScoresTable_Tab for Teams[0];
+declare netread Integer Net_ChampionCup_ScoresTable_TabUpdate for Teams[0];
+declare netread Text[] Net_ChampionCup_ScoresTable_ForceStepRanking for Teams[0];
+declare netread Integer Net_ChampionCup_ScoresTable_ForceStepRankingUpdate for Teams[0];
+
+declare K_State State;
+declare Boolean DisplayModule;
+declare Boolean InterfaceVisible;
+declare Boolean IsPause;
+declare Boolean IsWarmUp;
+declare Boolean IsFinal;
+declare Int2 MapsProgression;
+declare Text BestLapPlayer;
+declare Integer BestLapTime;
+declare Integer BestLapBonus;
+declare Integer Sequence;
+declare Integer RankDiffUpdate;
+declare Integer HeartsUpdate;
+declare Boolean LeagueRankingEnabled;
+declare Integer LeagueRankingUpdate;
+declare Integer TabUpdate;
+declare Integer ForceStepRankingUpdate;
+declare Boolean NeedButtonOpacityReset;
+declare Task::K_Task Task_RetrieveDisplayName;
+declare {{{ScoresTableVisibility::P}}}K_ScoresTableIsVisible ScoresTableIsVisible;
+***
+
+***MainStart***
+***
+Frame_ScoresTable_Visibility <=> (Page.GetFirstChild("frame-scorestable-layer") as CMlFrame);
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Quad_BlackBg <=> (Frame_Global.GetFirstChild("quad-black-bg") as CMlQuad);
+State.Controls.Frame_Players <=> (Frame_Global.GetFirstChild("frame-players") as CMlFrame);
+State.Controls.Frame_BestLap <=> (Frame_Global.GetFirstChild("frame-best-lap") as CMlFrame);
+State.Controls.Button_StepRanking <=> (Frame_Global.GetFirstChild("button-step-ranking") as CMlLabel);
+State.Controls.Button_LeagueRanking <=> (Frame_Global.GetFirstChild("button-league-ranking") as CMlLabel);
+State.Controls.Quad_SelectedTab <=> (Frame_Global.GetFirstChild("quad-selected-tab") as CMlQuad);
+Label_ServerName <=> (Frame_Global.GetFirstChild("label-server-name") as CMlLabel);
+Label_FooterInfo <=> (Frame_Global.GetFirstChild("label-info") as CMlLabel);
+Frame_ButtonList <=> (Frame_Global.GetFirstChild("frame-button-list-scorestable-champion") as CMlFrame);
+
+State.NeedStepRankingUpdate = True;
+State.NeedLeagueRankingUpdate = True;
+DisplayModule = Frame_Global.Visible;
+InterfaceVisible = PageIsVisible;
+Task_RetrieveDisplayName = Task::GetEmptyTask();
+
+State = SelectTab(State, C_Tab_StepRanking, LeagueRankingEnabled);
+State = DisplayLeagueRanking(State, LeagueRankingEnabled);
+Label_FooterInfo.Value = GetScoresTableFooterText(IsPause, IsWarmUp, IsFinal, MapsProgression, BestLapBonus);
+ScoresTableIsVisible = {{{ScoresTableVisibility::P}}}SetScoresTableVisibility(
+	Frame_ScoresTable_Visibility,
+	Quad_BlackBg,
+	{{{ScoresTableVisibility::P}}}LayerIsVisible(),
+	{{{ScoresTableVisibility::P}}}EnabledFromMenu()
+);
+***
+
+***MainLoop***
+***
+if (InterfaceVisible != PageIsVisible) {
+	InterfaceVisible = PageIsVisible;
+	{{{PauseMenu_Online::P}}}SetScoresTableButtonLocked(!InterfaceVisible, C_Id);
+}
+if (
+	ScoresTableIsVisible.FromLayer != {{{ScoresTableVisibility::P}}}LayerIsVisible() ||
+	ScoresTableIsVisible.FromMenu != {{{ScoresTableVisibility::P}}}EnabledFromMenu()
+) {
+	ScoresTableIsVisible = {{{ScoresTableVisibility::P}}}SetScoresTableVisibility(
+		Frame_ScoresTable_Visibility,
+		Quad_BlackBg,
+		{{{ScoresTableVisibility::P}}}LayerIsVisible(),
+		{{{ScoresTableVisibility::P}}}EnabledFromMenu()
+	);
+	if (ScoresTableIsVisible.FromMenu) {
+		{{{MenuButtonList::P}}}SetButtons(Frame_ButtonList, ["B" => _("Back")]);
+	} else {
+		{{{MenuButtonList::P}}}SetButtons(Frame_ButtonList, []);
+	}
+}
+if (PageIsVisible && Frame_ScoresTable_Visibility.Visible) {
+	if (DisplayModule != Net_ChampionCup_ScoresTable_IsVisible) {
+		DisplayModule = Net_ChampionCup_ScoresTable_IsVisible;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (Label_ServerName.Value != CurrentServerName) {
+			Label_ServerName.Value = CurrentServerName;
+		}
+
+		if (LeagueRankingEnabled != Net_ChampionCup_ScoresTable_LeagueRankingEnabled) {
+			LeagueRankingEnabled = Net_ChampionCup_ScoresTable_LeagueRankingEnabled;
+			State = DisplayLeagueRanking(State, LeagueRankingEnabled);
+		}
+
+		if (TabUpdate != Net_ChampionCup_ScoresTable_TabUpdate) {
+			TabUpdate = Net_ChampionCup_ScoresTable_TabUpdate;
+			if (State.CurrentTab != Net_ChampionCup_ScoresTable_Tab) {
+				State = SelectTab(State, Net_ChampionCup_ScoresTable_Tab, LeagueRankingEnabled);
+			}
+		}
+
+		if (ForceStepRankingUpdate != Net_ChampionCup_ScoresTable_ForceStepRankingUpdate) {
+			ForceStepRankingUpdate = Net_ChampionCup_ScoresTable_ForceStepRankingUpdate;
+			State.NeedStepRankingUpdate = True;
+		}
+
+		if (
+			IsPause != {{{Shared::P}}}IsPause() ||
+			IsWarmUp != WarmupHelpers::IsWarmupActive(Teams[0]) ||
+			IsFinal != {{{Shared::P}}}IsFinal() ||
+			MapsProgression != {{{Shared::P}}}GetMapsProgression() ||
+			BestLapBonus != Net_ChampionCup_ScoresTable_BestLapBonus
+		) {
+			IsPause = {{{Shared::P}}}IsPause();
+			IsWarmUp = WarmupHelpers::IsWarmupActive(Teams[0]);
+			IsFinal = {{{Shared::P}}}IsFinal();
+			MapsProgression = {{{Shared::P}}}GetMapsProgression();
+			BestLapBonus = Net_ChampionCup_ScoresTable_BestLapBonus;
+
+			Label_FooterInfo.Value = GetScoresTableFooterText(IsPause, IsWarmUp, IsFinal, MapsProgression, BestLapBonus);
+			State.NeedStepRankingUpdate = True;
+			State.NeedLeagueRankingUpdate = True;
+		}
+
+		foreach (Key => Score in Scores) {
+			declare Integer ChampionCup_ScoresTable_Rank for Score = -123;
+			if (ChampionCup_ScoresTable_Rank != Key) {
+				ChampionCup_ScoresTable_Rank = Key;
+				State.NeedStepRankingUpdate = True;
+				State.NeedLeagueRankingUpdate = True;
+			}
+			declare Integer ChampionCup_ScoresTable_Points for Score = -123;
+			if (ChampionCup_ScoresTable_Points != Score.Points) {
+				ChampionCup_ScoresTable_Points = Score.Points;
+				State.NeedStepRankingUpdate = True;
+				State.NeedLeagueRankingUpdate = True;
+			}
+			declare Integer ChampionCup_ScoresTable_RoundPoints for Score = -123;
+			if (ChampionCup_ScoresTable_RoundPoints != Score.RoundPoints) {
+				ChampionCup_ScoresTable_RoundPoints = Score.RoundPoints;
+				State.NeedStepRankingUpdate = True;
+				State.NeedLeagueRankingUpdate = True;
+			}
+		}
+
+		if (Sequence != Net_ChampionCup_ScoresTable_Sequence) {
+			Sequence = Net_ChampionCup_ScoresTable_Sequence;
+			State.NeedStepRankingUpdate = True;
+			State.NeedLeagueRankingUpdate = True;
+		}
+		if (BestLapPlayer != Net_ChampionCup_ScoresTable_BestLapPlayer) {
+			BestLapPlayer = Net_ChampionCup_ScoresTable_BestLapPlayer;
+			State.NeedStepRankingUpdate = True;
+			State.NeedLeagueRankingUpdate = True;
+		}
+		if (BestLapTime != Net_ChampionCup_ScoresTable_BestLapTime) {
+			BestLapTime = Net_ChampionCup_ScoresTable_BestLapTime;
+			State.NeedStepRankingUpdate = True;
+			State.NeedLeagueRankingUpdate = True;
+		}
+		if (RankDiffUpdate != Net_ChampionCup_ScoresTable_RankDiffUpdate) {
+			RankDiffUpdate = Net_ChampionCup_ScoresTable_RankDiffUpdate;
+			State.NeedStepRankingUpdate = True;
+		}
+		if (HeartsUpdate != {{{TMGLAPI::P}}}GetHeartsUpdate()) {
+			HeartsUpdate = {{{TMGLAPI::P}}}GetHeartsUpdate();
+			State.NeedStepRankingUpdate = True;
+			State.NeedLeagueRankingUpdate = True;
+		}
+		if (LeagueRankingUpdate != {{{TMGLAPI::P}}}GetLeagueRankingUpdate()) {
+			LeagueRankingUpdate = {{{TMGLAPI::P}}}GetLeagueRankingUpdate();
+			State.NeedLeagueRankingUpdate = True;
+		}
+
+		foreach (Event in PendingEvents) {
+			switch (Event.Type) {
+				case CMlScriptEvent::Type::MouseClick: {
+					if (Event.ControlId == "button-player") {
+						declare Text ChampionCup_ScoresTable_Login for Event.Control = "";
+						if (ChampionCup_ScoresTable_Login != "") {
+							{{{Shared::P}}}SpectateLogin(ChampionCup_ScoresTable_Login);
+						}
+					} else if (Event.ControlId == "button-step-ranking") {
+						if (State.CurrentTab != C_Tab_StepRanking) {
+							State = SelectTab(State, C_Tab_StepRanking, LeagueRankingEnabled);
+						}
+					} else if (Event.ControlId == "button-league-ranking") {
+						if (State.CurrentTab != C_Tab_LeagueRanking) {
+							State = SelectTab(State, C_Tab_LeagueRanking, LeagueRankingEnabled);
+						}
+
+					}
+				}
+				case CMlScriptEvent::Type::MouseOver: {
+					if (Event.ControlId == "button-step-ranking") {
+						(Event.Control as CMlLabel).Opacity = 1.;
+						NeedButtonOpacityReset = True;
+					} else if (Event.ControlId == "button-league-ranking") {
+						(Event.Control as CMlLabel).Opacity = 1.;
+						NeedButtonOpacityReset = True;
+					}
+				}
+				case CMlScriptEvent::Type::MouseOut: {
+					if (Event.ControlId == "button-step-ranking") {
+						if (State.CurrentTab != C_Tab_StepRanking) (Event.Control as CMlLabel).Opacity = 0.5;
+						NeedButtonOpacityReset = False;
+					} else if (Event.ControlId == "button-league-ranking") {
+						if (State.CurrentTab != C_Tab_LeagueRanking) (Event.Control as CMlLabel).Opacity = 0.5;
+						NeedButtonOpacityReset = False;
+					}
+				}
+				case CMlScriptEvent::Type::MenuNavigation: {
+					if (Event.MenuNavAction == CMlScriptEvent::EMenuNavAction::Cancel) {
+						{{{ScoresTableVisibility::P}}}SetEnabledFromMenu(False);
+					}
+				}
+			}
+		}
+
+		// Process ongoing task
+		if (Task::IsInitialized(Task_RetrieveDisplayName)) {
+			Task_RetrieveDisplayName = Task::Update(Task_RetrieveDisplayName);
+			if (!Task::IsRunning(Task_RetrieveDisplayName)) {
+				if (Task::IsSuccess(Task_RetrieveDisplayName)) {
+					State.NeedLeagueRankingUpdate = True;
+				}
+				Task_RetrieveDisplayName = Task::Destroy(Task_RetrieveDisplayName);
+				foreach (AccountId in State.RetrievingDisplayNames) {
+					if (UserMgr.FindDisplayName(AccountId) == "" && !State.FailedDisplayNames.exists(AccountId)) {
+						State.FailedDisplayNames.add(AccountId);
+					}
+				}
+				State.RetrievingDisplayNames = [];
+			}
+		}
+		// Create new task if there are names to retrieve
+		else if (State.PendingDisplayNames.count > 0) {
+			Task_RetrieveDisplayName = Task::DestroyAndCreate(Task_RetrieveDisplayName, UserMgr, UserMgr.RetrieveDisplayName(MainUser::GetMainUserId(), State.PendingDisplayNames));
+			State.RetrievingDisplayNames = State.PendingDisplayNames;
+			State.PendingDisplayNames = [];
+		}
+
+		if (State.NeedStepRankingUpdate && State.CurrentTab == C_Tab_StepRanking) {
+			State.NeedStepRankingUpdate = False;
+			UpdateStepRanking(State, Net_ChampionCup_ScoresTable_ForceStepRanking, Sequence, Net_ChampionCup_ScoresTable_RankDiff, {{{TMGLAPI::P}}}GetHearts(), BestLapPlayer, BestLapTime, BestLapBonus, IsWarmUp, IsFinal);
+		} else if (State.NeedLeagueRankingUpdate && State.CurrentTab == C_Tab_LeagueRanking) {
+			State.NeedLeagueRankingUpdate = False;
+			State = UpdateLeagueRanking(State, Sequence, {{{TMGLAPI::P}}}GetLeagueRanking(), {{{TMGLAPI::P}}}GetHearts(), BestLapPlayer, BestLapTime, BestLapBonus, IsWarmUp, IsFinal);
+		}
+	}
+} else if (NeedButtonOpacityReset) {
+	NeedButtonOpacityReset = False;
+	if (State.CurrentTab != C_Tab_StepRanking) State.Controls.Button_StepRanking.Opacity = 0.5;
+	if (State.CurrentTab != C_Tab_LeagueRanking) State.Controls.Button_LeagueRanking.Opacity = 0.5;
+}
+***
+""",
+[
+	UIModules::Component(),
+	PlayerProfiles::Component(),
+	Shared::Component(),
+	TMGLAPI::Component(),
+	ScoresTableVisibility::Component(),
+	PauseMenu_Online::Component(),
+	MenuButtonList::Component()
+],
+[]
+	);
+}

@@ -1,0 +1,438 @@
+/**
+ *	State manager for the Royal mode
+ */
+#Const Version		"1.16.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/RoyalStars/StateManager.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Server.Script.txt" as UIModules
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/RespawnHelper_Server.Script.txt" as UIModules_RespawnHelper_Default
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Server.Script.txt" as UIModules_TimeGap_Default
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Chrono_Server.Script.txt" as UIModules_Chrono_Default
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/LapsCounter_Server.Script.txt" as UIModules_LapsCounter_Default
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable_Default
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Countdown_Server.Script.txt" as UIModules_Countdown_Default
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/RoundEliminations_Server.Script.txt" as UIModules_RoundEliminations
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/WaitingScreen_Server.Script.txt" as UIModules_WaitingScreen
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/TeamScore_Server.Script.txt" as UIModules_TeamScore
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/PreLoadingScreen_Server.Script.txt" as UIModules_PreLoadingScreen
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/MatchResult_Server.Script.txt" as UIModules_MatchResult
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/RoundBestTeams_Server.Script.txt" as UIModules_RoundBestTeams
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/WinScreen_Server.Script.txt" as UIModules_WinScreen
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/CanChat_Server.Script.txt" as UIModules_CanChat
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/Transition_Server.Script.txt" as UIModules_Transition
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/RespawnHelper_Server.Script.txt" as UIModules_RespawnHelper
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/BonusTime_Server.Script.txt" as UIModules_BonusTime
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/SuperRoyal_Server.Script.txt" as UIModules_NetShare_Royal
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/Chrono_Server.Script.txt" as UIModules_Chrono
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/Countdown_Server.Script.txt" as UIModules_Countdown
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/FinishFeed_Server.Script.txt" as UIModules_FinishFeed
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/LiveRanking_Server.Script.txt" as UIModules_LiveRanking
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/RaceComplete_Server.Script.txt" as UIModules_RaceComplete
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/SegmentComplete_Server.Script.txt" as UIModules_SegmentComplete
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/SegmentProgression_Server.Script.txt" as UIModules_SegmentProgression
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/SegmentRecord_Server.Script.txt" as UIModules_SegmentRecord
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/SegmentsLeaders_Server.Script.txt" as UIModules_SegmentsLeaders
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/SpectatorInfo_Server.Script.txt" as UIModules_SpectatorInfo
+#Include "Libs/Nadeo/Trackmania/Modes/UIModules/EliminationWarning_Server.Script.txt" as UIModules_EliminationWarning
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/*	Enabling this setting will have
+ *	a big impact on the script performances
+ *	in crowded server. The library
+ *	will do a check on every player
+ *	of the server on every frame.
+ *	If the script respect the convention
+ *	to always use MB_Yield() instead of yield;
+ *	then it should not have to enforce
+ *	the state at each frame. Any new
+ *	player will be initialized when
+ *	they join the server
+ */
+#Const C_ForceStatesEveryFrame False
+
+#Const C_State_Waiting 0
+#Const C_State_Playing 1
+#Const C_State_RoundEliminations 2
+#Const C_State_RoundBestTeams 3
+#Const C_State_WaitingScreen 4
+#Const C_State_NoScoresTable 5
+#Const C_State_PreLoadingScreen 6
+#Const C_State_Podium 7
+#Const C_State_WinScreen 8
+#Const C_State_BonusTime 9
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer[] G_ForcedStates;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Apply the given states to the given player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_States										The states to apply
+ */
+Void Private_Apply(CPlayer _Player, Integer[] _States) {
+	if (_Player == Null) return;
+
+	UIModules_RoundEliminations::SetVisibility(_Player, False);
+	UIModules_WaitingScreen::SetVisibility(_Player, False);
+	UIModules_ScoresTable::SetVisibility(_Player, True);
+	UIModules_TeamScore::SetVisibility(_Player, False);
+	UIModules_PreLoadingScreen::SetVisibility(_Player, False);
+	UIModules_MatchResult::SetVisibility(_Player, False);
+	UIModules_Countdown::SetVisibility(_Player, False);
+	UIModules_SpectatorInfo::SetVisibility(_Player, False);
+	UIModules_LiveRanking::SetVisibility(_Player, False);
+	UIModules_RoundBestTeams::SetVisibility(_Player, False);
+	UIModules_WinScreen::SetVisibility(_Player, False);
+	UIModules_Transition::SetVisibility(_Player, True);
+	UIModules_RespawnHelper::SetVisibility(_Player, False);
+	UIModules_FinishFeed::SetVisibility(_Player, False);
+	UIModules_EliminationWarning::SetVisibility(_Player, False);
+	UIModules_BonusTime::SetVisibility(_Player, False);
+	UIModules_SegmentProgression::SetVisibility(_Player, False);
+	UIModules_SegmentComplete::SetVisibility(_Player, False);
+	UIModules_SegmentRecord::SetVisibility(_Player, False);
+	UIModules_SegmentsLeaders::SetVisibility(_Player, False);
+	UIModules_RaceComplete::SetVisibility(_Player, False);
+	UIModules_Chrono::SetVisibility(_Player, False);
+
+	foreach (State in _States) {
+		switch (State) {
+			case C_State_Playing: {
+				UIModules_TeamScore::SetVisibility(_Player, True);
+				UIModules_MatchResult::SetVisibility(_Player, True);
+				UIModules_Countdown::SetVisibility(_Player, True);
+				UIModules_SpectatorInfo::SetVisibility(_Player, True);
+				UIModules_LiveRanking::SetVisibility(_Player, True);
+				UIModules_EliminationWarning::SetVisibility(_Player, True);
+				UIModules_RespawnHelper::SetVisibility(_Player, True);
+				UIModules_FinishFeed::SetVisibility(_Player, True);
+				UIModules_SegmentProgression::SetVisibility(_Player, True);
+				UIModules_SegmentComplete::SetVisibility(_Player, True);
+				UIModules_SegmentRecord::SetVisibility(_Player, True);
+				UIModules_SegmentsLeaders::SetVisibility(_Player, True);
+				UIModules_RaceComplete::SetVisibility(_Player, True);
+				UIModules_Chrono::SetVisibility(_Player, True);
+			}
+			case C_State_RoundEliminations: {
+				UIModules_RoundEliminations::SetVisibility(_Player, True);
+			}
+			case C_State_RoundBestTeams: {
+				UIModules_RoundBestTeams::SetVisibility(_Player, True);
+			}
+			case C_State_WaitingScreen: {
+				UIModules_WaitingScreen::SetVisibility(_Player, True);
+			}
+			case C_State_NoScoresTable: {
+				UIModules_ScoresTable::SetVisibility(_Player, False);
+			}
+			case C_State_PreLoadingScreen: {
+				UIModules_PreLoadingScreen::SetVisibility(_Player, True);
+			}
+			case C_State_Podium: {
+				UIModules_MatchResult::SetVisibility(_Player, True);
+			}
+			case C_State_WinScreen: {
+				UIModules_WinScreen::SetVisibility(_Player, True);
+			}
+			case C_State_BonusTime: {
+				UIModules_BonusTime::SetVisibility(_Player, True);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a state to a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to add
+ */
+Void Add(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	if (!LibStateMgr_States.exists(_State)) {
+		LibStateMgr_States.add(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove a state from a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to remove
+ */
+Void Remove(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	if (LibStateMgr_States.exists(_State)) {
+		declare Removed = LibStateMgr_States.remove(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove all state from a player
+ *
+ *	@param	_Player										The player to reset
+ */
+Void Reset(CPlayer _Player) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	LibStateMgr_States = [];
+	if (G_ForcedStates.count <= 0) {
+		Private_Apply(_Player, LibStateMgr_States);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player has the given state
+ *
+ *	@param	_Player										The player to check
+ *	@param	_State										The state to find
+ *
+ *	@return														True if the player has the state
+ *																		False otherwise
+ */
+Boolean HasState(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return False;
+
+	declare Integer[] LibStateMgr_States for _Player;
+	return LibStateMgr_States.exists(_State) || G_ForcedStates.exists(_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the players have the given state as forced
+ *
+ *	@param	_State										The state to find
+ *
+ *	@return														True if the players has the state
+ *																		False otherwise
+ */
+Boolean HasForcedState(Integer _State) {
+	return G_ForcedStates.exists(_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Force the states applied to all players
+ *	To disable the forced states use an empty array
+ *
+ *	@param	_States									The states to force
+ */
+Void ForcePlayersStates(Integer[] _States) {
+	G_ForcedStates = _States;
+
+	foreach (Player in AllPlayers) {
+		declare Boolean LibStateMgr_IsForcedStates for Player = False;
+		// Enable
+		if (G_ForcedStates.count > 0) {
+			LibStateMgr_IsForcedStates = True;
+			Private_Apply(Player, G_ForcedStates);
+		}
+		// Disable
+		else {
+			LibStateMgr_IsForcedStates = False;
+			declare Integer[] LibStateMgr_States for Player;
+			Private_Apply(Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (C_ForceStatesEveryFrame && G_ForcedStates.count > 0) {
+		foreach (Player in AllPlayers) {
+			declare Boolean LibStateMgr_IsForcedStates for Player = False;
+			if (!LibStateMgr_IsForcedStates) {
+				LibStateMgr_IsForcedStates = True;
+				Private_Apply(Player, G_ForcedStates);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	UIModules_RoundEliminations::InitializePlayer(_Player);
+	UIModules_WaitingScreen::InitializePlayer(_Player);
+	UIModules_ScoresTable::InitializePlayer(_Player);
+	UIModules_TeamScore::InitializePlayer(_Player);
+	UIModules_PreLoadingScreen::InitializePlayer(_Player);
+	UIModules_MatchResult::InitializePlayer(_Player);
+	UIModules_Countdown::InitializePlayer(_Player);
+	UIModules_SpectatorInfo::InitializePlayer(_Player);
+	UIModules_LiveRanking::InitializePlayer(_Player);
+	UIModules_RoundBestTeams::InitializePlayer(_Player);
+	UIModules_WinScreen::InitializePlayer(_Player);
+	UIModules_EliminationWarning::InitializePlayer(_Player);
+	UIModules_Transition::InitializePlayer(_Player);
+	UIModules_RespawnHelper::InitializePlayer(_Player);
+	UIModules_FinishFeed::InitializePlayer(_Player);
+	UIModules_BonusTime::InitializePlayer(_Player);
+	UIModules_CanChat::InitializePlayer(_Player);
+	UIModules_SegmentProgression::InitializePlayer(_Player);
+	UIModules_SegmentComplete::InitializePlayer(_Player);
+	UIModules_SegmentRecord::InitializePlayer(_Player);
+	UIModules_SegmentsLeaders::InitializePlayer(_Player);
+	UIModules_RaceComplete::InitializePlayer(_Player);
+	UIModules_Chrono::InitializePlayer(_Player);
+
+	Reset(_Player);
+
+	if (G_ForcedStates.count > 0) {
+		declare Boolean LibStateMgr_IsForcedStates for _Player = False;
+		LibStateMgr_IsForcedStates = True;
+		Private_Apply(_Player, G_ForcedStates);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	ForcePlayersStates([]);
+
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+
+	UIModules_Chrono::Unload();
+	UIModules_RaceComplete::Unload();
+	UIModules_SegmentRecord::Unload();
+	UIModules_SegmentsLeaders::Unload();
+	UIModules_SegmentComplete::Unload();
+	UIModules_SegmentProgression::Unload();
+	UIModules_CanChat::Unload();
+	UIModules_BonusTime::Unload();
+	UIModules_FinishFeed::Unload();
+	UIModules_RespawnHelper::Unload();
+	UIModules_Transition::Unload();
+	UIModules_RoundBestTeams::Unload();
+	UIModules_WinScreen::Unload();
+	UIModules_LiveRanking::Unload();
+	UIModules_SpectatorInfo::Unload();
+	UIModules_Countdown::Unload();
+	UIModules_MatchResult::Unload();
+	UIModules_PreLoadingScreen::Unload();
+	UIModules_TeamScore::Unload();
+	UIModules_ScoresTable::Unload();
+	UIModules_WaitingScreen::Unload();
+	UIModules_RoundEliminations::Unload();
+	UIModules_EliminationWarning::Unload();
+	UIModules_NetShare_Royal::Unload();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	UIModules_RoundEliminations::Load();
+	UIModules_WaitingScreen::Load();
+	UIModules_ScoresTable::Load();
+	UIModules_TeamScore::Load();
+	UIModules_PreLoadingScreen::Load();
+	UIModules_MatchResult::Load();
+	UIModules_Countdown::Load();
+	UIModules_SpectatorInfo::Load();
+	UIModules_LiveRanking::Load();
+	UIModules_RoundBestTeams::Load();
+	UIModules_WinScreen::Load();
+	UIModules_EliminationWarning::Load();
+	UIModules_Transition::Load();
+	UIModules_RespawnHelper::Load();
+	UIModules_FinishFeed::Load();
+	UIModules_NetShare_Royal::Load();
+	UIModules_BonusTime::Load();
+	UIModules_CanChat::Load();
+	UIModules_SegmentProgression::Load();
+	UIModules_SegmentComplete::Load();
+	UIModules_SegmentRecord::Load();
+	UIModules_SegmentsLeaders::Load();
+	UIModules_RaceComplete::Load();
+	UIModules_Chrono::Load();
+
+	UIModules::InitializeCustomizableModule(UIModules_RoundEliminations::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_WaitingScreen::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_ScoresTable::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_TeamScore::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_PreLoadingScreen::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_MatchResult::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Countdown::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_SpectatorInfo::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_LiveRanking::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_RoundBestTeams::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_WinScreen::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_EliminationWarning::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Transition::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_RespawnHelper::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_FinishFeed::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_BonusTime::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_CanChat::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_SegmentProgression::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_SegmentComplete::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_SegmentRecord::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_SegmentsLeaders::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_RaceComplete::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Chrono::GetConfig());
+
+	UIModules::LoadModules([
+		UIModules_RoundEliminations::GetId(),
+		UIModules_WaitingScreen::GetId(),
+		UIModules_ScoresTable::GetId(),
+		UIModules_TeamScore::GetId(),
+		UIModules_PreLoadingScreen::GetId(),
+		UIModules_MatchResult::GetId(),
+		UIModules_Countdown::GetId(),
+		UIModules_SpectatorInfo::GetId(),
+		UIModules_LiveRanking::GetId(),
+		UIModules_RoundBestTeams::GetId(),
+		UIModules_WinScreen::GetId(),
+		UIModules_EliminationWarning::GetId(),
+		UIModules_Transition::GetId(),
+		UIModules_RespawnHelper::GetId(),
+		UIModules_FinishFeed::GetId(),
+		UIModules_BonusTime::GetId(),
+		UIModules_CanChat::GetId(),
+		UIModules_SegmentProgression::GetId(),
+		UIModules_SegmentComplete::GetId(),
+		UIModules_SegmentRecord::GetId(),
+		UIModules_SegmentsLeaders::GetId(),
+		UIModules_RaceComplete::GetId(),
+		UIModules_Chrono::GetId()
+	]);
+
+	// Unload some default modules
+	UIModules::UnloadModules([
+		UIModules_RespawnHelper_Default::GetId(),
+		UIModules_TimeGap_Default::GetId(),
+		UIModules_Chrono_Default::GetId(),
+		UIModules_LapsCounter_Default::GetId(),
+		UIModules_ScoresTable_Default::GetId(),
+		UIModules_Countdown_Default::GetId()
+	]);
+
+	UIModules_EliminationWarning::SetGameMode(UIModules_EliminationWarning::C_GameMode_Royal);
+}

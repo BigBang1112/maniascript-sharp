@@ -1,0 +1,259 @@
+/**
+ * Redirect the user to different page of the game menu
+ */
+#Const Version "1.3.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/MainMenu/Redirect.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "Libs/Nadeo/CMGame/Structures/SplashscreenStruct.Script.txt" as SplashscreenStruct
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Privileges.Script.txt" as Privileges
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/Trackmania/API/ClubAPI.Script.txt" as ClubAPI
+#Include "Libs/Nadeo/Trackmania/ClubEdition.Script.txt" as ClubEdition
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_ML.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "Libs/Nadeo/Trackmania/Structures/MatchmakingStruct.Script.txt" as MatchmakingStruct
+#Include "Libs/Nadeo/Trackmania/RBAC.Script.txt" as RBAC
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Redirect {
+	Boolean IsSuccess;
+	ClubStruct::LibStructuresClub_K_Activity ClubActivity;
+	Http::K_Request Request_GetClubDetail;
+	Task::K_Task Task_ShowPrimaryStore;
+	Task::K_Task Task_OpenNewsLink;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+//L16N [Redirect] Error message displayed when the redirection fails.
+#Const C_Text_RedirectionFailed _("An error has occurred during the redirection.")
+
+#Const C_Redirect_Null K_Redirect {
+	IsSuccess = False,
+	ClubActivity = ClubStruct::LibStructuresClub_K_Activity {},
+	Request_GetClubDetail = Http::K_Request {},
+	Task_ShowPrimaryStore = Task::K_Task {},
+	Task_OpenNewsLink = Task::K_Task {}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a redirection
+K_Redirect Create(CMlScript _Context, Text _ActionType, Text _ActionIdentifier) {
+	declare K_Redirect Redirect = C_Redirect_Null;
+
+	switch (_ActionType) {
+		case SplashscreenStruct::C_Action_ArcadeServer: {
+			Redirect.IsSuccess = True;
+			Router::SetParentPath(_Context, RoutePaths::C_Path_ArcadeChannel, RoutePaths::C_Path_Live);
+			Router::Push(_Context, RoutePaths::C_Path_ArcadeChannel);
+		}
+		case SplashscreenStruct::C_Action_Garage: {
+			Redirect.IsSuccess = True;
+			Router::SetParentPath(_Context, RoutePaths::C_Path_Garage, RoutePaths::C_Path_Create);
+			Router::Push(_Context, RoutePaths::C_Path_Garage);
+		}
+		case SplashscreenStruct::C_Action_Hotseat: {
+			Redirect.IsSuccess = True;
+			Router::SetParentPath(_Context, RoutePaths::C_Path_LocalMultiSettings, RoutePaths::C_Path_Local);
+			Router::Push(_Context, RoutePaths::C_Path_LocalMultiSettings, [RoutePaths::C_Query_LocalMultiType => ""^Const::C_LocalMultiType_HotSeat]);
+		}
+		case SplashscreenStruct::C_Action_Splitscreen: {
+			Redirect.IsSuccess = True;
+			Router::SetParentPath(_Context, RoutePaths::C_Path_LocalMultiSettings, RoutePaths::C_Path_Local);
+			Router::Push(_Context, RoutePaths::C_Path_LocalMultiSettings, [RoutePaths::C_Query_LocalMultiType => ""^Const::C_LocalMultiType_SplitScreen]);
+		}
+		case SplashscreenStruct::C_Action_Store: {
+			Redirect.Task_ShowPrimaryStore = Task::DestroyAndCreate(Redirect.Task_ShowPrimaryStore, UserMgr, UserMgr.Commerce_ShowPrimaryStore(MainUser::GetMainUserId()));
+		}
+		case SplashscreenStruct::C_Action_NewMap: {
+			Redirect.IsSuccess = True;
+			Router::SetParentPath(_Context, RoutePaths::C_Path_MapEditorSettings, RoutePaths::C_Path_Create);
+			Router::Push(_Context, RoutePaths::C_Path_MapEditorSettings, [RoutePaths::C_Query_DirectLinkNewMap => "1"]);
+		}
+		case SplashscreenStruct::C_Action_TrackOfTheDay: {
+			Redirect.IsSuccess = True;
+			Router::SetParentPath(_Context, RoutePaths::C_Path_MonthlyCampaignDisplay, RoutePaths::C_Path_Solo);
+			Router::Push(_Context, RoutePaths::C_Path_MonthlyCampaignDisplay);
+		}
+		case SplashscreenStruct::C_Action_TrackOfTheDayRoom: {
+			Redirect.IsSuccess = True;
+			Router::SetParentPath(_Context, RoutePaths::C_Path_TOTDChannelDisplay, RoutePaths::C_Path_Live);
+			Router::Push(_Context, RoutePaths::C_Path_TOTDChannelDisplay);
+		}
+		case SplashscreenStruct::C_Action_CupOfTheWeekRoom: {
+			Redirect.IsSuccess = True;
+			Router::SetParentPath(_Context, RoutePaths::C_Path_COTWChannelDisplay, RoutePaths::C_Path_Live);
+			Router::Push(_Context, RoutePaths::C_Path_COTWChannelDisplay);
+		}
+		case SplashscreenStruct::C_Action_OfficialCampaign: {
+			declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = CampaignStore::GetLiveQuarterlyCampaign();
+			if (Campaign.Id != CampaignStruct::C_Campaign_NullId) {
+				Redirect.IsSuccess = True;
+				Router::SetParentPath(_Context, RoutePaths::C_Path_CampaignDisplay, RoutePaths::C_Path_Solo);
+				Router::Push(_Context, RoutePaths::C_Path_CampaignDisplay, [
+					RoutePaths::C_Query_Campaign => ""^Campaign.tojson(),
+					Router::C_Query_DisablePrivilege => Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::UseUserCreatedContentRequired])
+				], True);
+			}
+		}
+		case SplashscreenStruct::C_Action_OfficialCampaignRoom: {
+			Redirect.IsSuccess = True;
+			Router::SetParentPath(_Context, RoutePaths::C_Path_RoomCampaignDisplay, RoutePaths::C_Path_Live);
+			Router::Push(_Context, RoutePaths::C_Path_RoomCampaignDisplay, [
+				Router::C_Query_DisablePrivilege => Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::PlayMultiplayerModeWithUGC]),
+				Router::C_Query_EnablePrivilege => Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::PlayMultiplayerMode])
+			], True);
+		}
+		case SplashscreenStruct::C_Action_WeeklyShorts: {
+			declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = CampaignStore::GetLiveWeeklyShortsCampaign();
+			if (Campaign.Id != CampaignStruct::C_Campaign_NullId) {
+				Redirect.IsSuccess = True;
+				Router::SetParentPath(_Context, RoutePaths::C_Path_CampaignDisplay, RoutePaths::C_Path_SoloWeeklyTracks);
+				Router::Push(_Context, RoutePaths::C_Path_CampaignDisplay, [
+					RoutePaths::C_Query_Campaign => ""^Campaign.tojson(),
+					Router::C_Query_DisablePrivilege => Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::UseUserCreatedContentRequired])
+				], True);
+			}
+		}
+		case SplashscreenStruct::C_Action_WeeklyGrands: {
+			declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = CampaignStore::GetLiveWeeklyGrandsCampaign();
+			if (Campaign.Id != CampaignStruct::C_Campaign_NullId) {
+				Redirect.IsSuccess = True;
+				Router::SetParentPath(_Context, RoutePaths::C_Path_CampaignDisplay, RoutePaths::C_Path_SoloWeeklyTracks);
+				Router::Push(_Context, RoutePaths::C_Path_CampaignDisplay, [
+					RoutePaths::C_Query_Campaign => ""^Campaign.tojson(),
+					Router::C_Query_DisablePrivilege => Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::UseUserCreatedContentRequired])
+				], True);
+			}
+		}
+		case SplashscreenStruct::C_Action_Ranked: {
+			if (UserStore::HasGamePermission(PrivilegeMgr, RBAC::C_GamePermission_PlayMatchmaking)) {
+				Redirect.IsSuccess = True;
+				Router::SetParentPath(_Context, RoutePaths::C_Path_MatchmakingMainPage, RoutePaths::C_Path_Live);
+				Router::Push(_Context, RoutePaths::C_Path_MatchmakingMainPage, [
+					RoutePaths::C_Query_ForceMode => MatchmakingStruct::GetActiveRankedMode(),
+					Router::C_Query_DisablePrivilege => Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::PlayMultiplayerModeWithUGC]),
+					Router::C_Query_EnablePrivilege => Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::PlayMultiplayerMode])
+				]);
+			} else {
+				Redirect.IsSuccess = True;
+				ClubEdition::GoToPage(_Context, RoutePaths::C_Path_Home, RBAC::GetGamePermissionMessage(RBAC::C_GamePermissionMessage_PlayMatchmaking));
+			}
+		}
+		case SplashscreenStruct::C_Action_Club: {
+			if (!UserStore::HasGamePermission(PrivilegeMgr, RBAC::C_GamePermission_ViewClub)) {
+				Redirect.IsSuccess = True;
+				ClubEdition::GoToPage(_Context, RoutePaths::C_Path_Clubs, RBAC::GetGamePermissionMessage(RBAC::C_GamePermissionMessage_ViewClub));
+			} else if (_ActionIdentifier != "") {
+				Redirect.Request_GetClubDetail = Http::DestroyAndCreate(Redirect.Request_GetClubDetail, ClubAPI::GetClub(TL::ToInteger(_ActionIdentifier)));
+			}
+		}
+		case SplashscreenStruct::C_Action_Activity: {
+			if (!UserStore::HasGamePermission(PrivilegeMgr, RBAC::C_GamePermission_ViewClub)) {
+				Redirect.IsSuccess = True;
+				ClubEdition::GoToPage(_Context, RoutePaths::C_Path_Clubs, RBAC::GetGamePermissionMessage(RBAC::C_GamePermissionMessage_ViewClub));
+			} else if (_ActionIdentifier != "") {
+				declare Text[] ActionIdentifiers = TL::Split(":", _ActionIdentifier);
+				if (ActionIdentifiers.count >= 3) {
+					Redirect.ClubActivity = ClubStruct::LibStructuresClub_K_Activity {
+						Id = TL::ToInteger(ActionIdentifiers[2]),
+						ClubId = TL::ToInteger(ActionIdentifiers[1]),
+						Type = ActionIdentifiers[0],
+						Public = True
+					};
+					Redirect.Request_GetClubDetail = Http::DestroyAndCreate(Redirect.Request_GetClubDetail, ClubAPI::GetClub(Redirect.ClubActivity.ClubId));
+				}
+			}
+		}
+		case SplashscreenStruct::C_Action_Web: {
+			Redirect.Task_OpenNewsLink = Task::DestroyAndCreate(Redirect.Task_OpenNewsLink, UserMgr, UserMgr.News_OpenLink(MainUser::GetMainUserId(), "weblink", _ActionIdentifier));
+		}
+	}
+
+	return Redirect;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy a redirection
+K_Redirect Destroy(CMlScript _Context, K_Redirect _Redirect) {
+	declare K_Redirect Redirect = _Redirect;
+
+	Redirect.ClubActivity = ClubStruct::LibStructuresClub_K_Activity {};
+	Redirect.Request_GetClubDetail = Http::DestroyIfInitialized(_Context.Http, Redirect.Request_GetClubDetail);
+	Redirect.Task_ShowPrimaryStore = Task::DestroyIfInitialized(Redirect.Task_ShowPrimaryStore);
+	Redirect.Task_OpenNewsLink = Task::DestroyIfInitialized(Redirect.Task_OpenNewsLink);
+
+	return Redirect;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the redirection
+K_Redirect Update(CMlScript _Context, K_Redirect _Redirect) {
+	declare K_Redirect Redirect = _Redirect;
+
+	// Get club details
+	if (Http::IsInitialized(Redirect.Request_GetClubDetail)) {
+		Redirect.Request_GetClubDetail = Http::Update(_Context.Http, Redirect.Request_GetClubDetail);
+		if (!Http::IsRunning(Redirect.Request_GetClubDetail)) {
+			if (Http::IsSuccess(Redirect.Request_GetClubDetail)) {
+				declare Text[Text] Query = [RoutePaths::C_Query_Club => ClubAPI::GetResponseFromGetClub(Redirect.Request_GetClubDetail).tojson()];
+				if (Redirect.ClubActivity.Id != ClubStruct::C_ActivityNullId) {
+					Query[RoutePaths::C_Query_Activity] = Redirect.ClubActivity.tojson();
+				}
+
+				Redirect.IsSuccess = True;
+				Router::SetParentPath(_Context, RoutePaths::C_Path_ClubDetails, RoutePaths::C_Path_Clubs);
+				Router::Push(_Context, RoutePaths::C_Path_ClubDetails, Query);
+			}
+			Redirect.Request_GetClubDetail = Http::Destroy(_Context.Http, Redirect.Request_GetClubDetail);
+			Redirect.ClubActivity = ClubStruct::LibStructuresClub_K_Activity {};
+		}
+	}
+
+	// Task to open the primary store
+	if (Task::IsInitialized(Redirect.Task_ShowPrimaryStore)) {
+		Redirect.Task_ShowPrimaryStore = Task::Update(Redirect.Task_ShowPrimaryStore);
+		if (!Task::IsRunning(Redirect.Task_ShowPrimaryStore)) {
+			Redirect.IsSuccess = Task::IsSuccess(Redirect.Task_ShowPrimaryStore);
+			Redirect.Task_ShowPrimaryStore = Task::Destroy(Redirect.Task_ShowPrimaryStore);
+		}
+	}
+
+	// Task to open a link
+	if (Task::IsInitialized(Redirect.Task_OpenNewsLink)) {
+		Redirect.Task_OpenNewsLink = Task::Update(Redirect.Task_OpenNewsLink);
+		if (!Task::IsRunning(Redirect.Task_OpenNewsLink)) {
+			Redirect.IsSuccess = Task::IsSuccess(Redirect.Task_OpenNewsLink);
+			Redirect.Task_OpenNewsLink = Task::Destroy(Redirect.Task_OpenNewsLink);
+		}
+	}
+
+	return Redirect;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the redirect is running
+Boolean IsRunning(K_Redirect _Redirect) {
+	return (
+		Http::IsInitialized(_Redirect.Request_GetClubDetail) ||
+		Task::IsInitialized(_Redirect.Task_ShowPrimaryStore) ||
+		Task::IsInitialized(_Redirect.Task_OpenNewsLink)
+	);
+}

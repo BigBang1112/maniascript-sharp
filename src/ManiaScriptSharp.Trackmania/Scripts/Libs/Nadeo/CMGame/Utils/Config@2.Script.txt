@@ -1,0 +1,117 @@
+/**
+ * Configuration management
+ *
+ * The configuration is composed of several layers that are flattened to give the final configuration
+ * The layers are merged on top of each other in this order (latter override former):
+ * - Base
+ * - Title
+ * - Online
+ */
+#Const Version "2.0.1"
+#Const ScriptName "Libs/Nadeo/CMGame/Utils/Config@2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Key_ConfigName "ConfigName"
+#Const C_Key_CoreApiUrl "CoreApiUrl"
+
+#Const C_Private_Config_Empty []
+#Const C_Private_Config_Base [
+	"ConfigName" => "base",
+	"CoreApiUrl" => ""
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the finale configuration array
+Void Private_ComputeConfig() {
+	declare Text[Text] CMGame_UtilsConfig2_Config for System = C_Private_Config_Base;
+	CMGame_UtilsConfig2_Config = C_Private_Config_Base;
+
+	declare Text[Text] CMGame_UtilsConfig2_TitleConfig for System = C_Private_Config_Empty;
+	for (Key => Value in CMGame_UtilsConfig2_TitleConfig) {
+		CMGame_UtilsConfig2_Config[Key] = Value;
+	}
+
+	declare Text[Text] CMGame_UtilsConfig2_OnlineConfig for System = C_Private_Config_Empty;
+	for (Key => Value in CMGame_UtilsConfig2_OnlineConfig) {
+		CMGame_UtilsConfig2_Config[Key] = Value;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the title configuration
+ * @param _FilePath - Path to the title configuration file
+ */
+Void SetTitleConfig(CHttpManager _Http, Text _FilePath) {
+	assert(_Http != Null, """[Config@2] HTTP manager is Null""");
+	assert(TL::StartsWith("file://", _FilePath), """[Config@2] `{{{_FilePath}}}` is not a path to a local file""");
+	assert(_Http.IsValidUrl(_FilePath), """[Config@2] `{{{_FilePath}}}` is not a valid path""");
+
+	declare Text[Text] CMGame_UtilsConfig2_TitleConfig for System = C_Private_Config_Empty;
+	declare CHttpRequest Request = _Http.CreateGet(_FilePath, False);
+	assert(Request.IsCompleted, """[Config@2] Requests to the file system should be completed instantly""");
+	if (Request.StatusCode >= 200 && Request.StatusCode < 300) {
+		if (Request.Result == "") {
+			log("""WARNING [Config@2] Config file `{{{_FilePath}}}` is empty""");
+		}
+		declare Boolean Success = CMGame_UtilsConfig2_TitleConfig.fromjson(Request.Result);
+		if (!Success) {
+			log("""WARNING [Config@2] Failed to parse config file `{{{_FilePath}}}`""");
+			log(Request.Result);
+		}
+
+		Private_ComputeConfig();
+	} else {
+		log("""WARNING [Config@2] Failed to load config file `{{{_FilePath}}}` with error {{{Request.StatusCode}}}""");
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the online configuration
+ * @param _OnlineConfigJson - A json encoded `Text[Text]` configuration array
+ */
+Void SetOnlineConfig(Text _OnlineConfigJson) {
+	declare Text[Text] CMGame_UtilsConfig2_OnlineConfig for System = C_Private_Config_Empty;
+	declare Boolean Success = CMGame_UtilsConfig2_OnlineConfig.fromjson(_OnlineConfigJson);
+	if (!Success) {
+		log("""WARNING [Config@2] Failed to parse online config""");
+		log(_OnlineConfigJson);
+	}
+
+	Private_ComputeConfig();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the config has the requested key
+Boolean HasKey(Text _Key) {
+	declare Text[Text] CMGame_UtilsConfig2_Config for System = C_Private_Config_Base;
+	return CMGame_UtilsConfig2_Config.existskey(_Key);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the value of a key in the config
+Text GetKey(Text _Key) {
+	declare Text[Text] CMGame_UtilsConfig2_Config for System = C_Private_Config_Base;
+	return CMGame_UtilsConfig2_Config.get(_Key, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the config name
+Text GetConfigName() {
+	return GetKey(C_Key_ConfigName);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the Core API URL
+Text GetCoreApiUrl() {
+	return GetKey(C_Key_CoreApiUrl);
+}

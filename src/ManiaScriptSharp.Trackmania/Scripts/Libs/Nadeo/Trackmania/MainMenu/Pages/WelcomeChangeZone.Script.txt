@@ -1,0 +1,1082 @@
+/**
+ * Page: WelcomeChangeZone
+ */
+#Const Version "1.3.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/MainMenu/Pages/WelcomeChangeZone.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Translations.Script.txt" as Translations
+#Include "Libs/Nadeo/CMGame/Components/ButtonIcon2.Script.txt" as ButtonIcon
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Scroll.Script.txt" as Scroll
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as Button
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "MathLib" as ML
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Page_WelcomeChangeZone"
+#Const C_NavGroupName "navgroup-page-welcomechangezone"
+#Const C_Class_ContinentButton "class-page-welcomechangezone-continent-button"
+#Const C_Class_PilotTypeButton "class-page-welcomechangezone-pilot-type-button"
+
+#Const C_ContinentNumber 7
+
+#Const C_ZoneLevel_Continent 0
+#Const C_ZoneLevel_Country 1
+#Const C_ZoneLevel_Region 2
+#Const C_ZoneLevel_County 3
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the page manialink
+ *
+ *	@return														The page manialink
+ */
+Text GetManialink() {
+	//L16N [WelcomeChangeZone] Title of the page when the player is launching the game for the first time
+	declare Text Text_Welcome = _("Welcome to Trackmania");
+	//L16N [WelcomeChangeZone] Title of the page when the player is changing the region
+	declare Text Text_ChangeRegion = _("Change region");
+	//L16N [WelcomeChangeZone] Text of the confirmation button
+	declare Text Text_Confirm = _("Confirm");
+	//L16N [WelcomeChangeZone] Subtitle of the confirmation page
+	declare Text Text_ConfirmSubTitle = _("Confirm your choice");
+	//L16N [WelcomeChangeZone] Subtitle of the pilot options page
+	declare Text Text_PilotSubTitle = _("Select your pilot");
+	//L16N [WelcomeChangeZone] Button to go the next page
+	declare Text Text_Next = _("Next");
+	//L16N [WelcomeChangeZone] Message displayed to warn the player that they can change their zone later on the game.
+	declare Text Text_ChangeItLater = _("You will be able to change it later");
+	//L16N [WelcomeChangeZone] Button to skip the selection of the ranking zone
+	declare Text Text_Skip = _("Skip");
+	//L16N [WelcomeChangeZone] Indicates the player that they can select a region. %1 will be a type of region (continent, country etc.)
+	declare Text Text_SelectZone = _("Please select your %1");
+	//L16N [WelcomeChangeZone] Error message displayed when an error occurred while setting the area. %1 goes for the type of error
+	declare Text Text_SetZoneError = _("An error occurred while setting your area, please try again. (Error: %1)");
+	//L16N [WelcomeChangeZone] Error message displayed when the list of area cannot be retrieved. %1 goes for the type of error
+	declare Text Text_RetrieveAreaError = _("Area cannot be set at the moment, please try again later. (Error: %1)");
+
+	/* Profile preview */
+	declare Vec2 Size_ProfileBg = MLHelpers::KeepRatioFromY(1092., 140., 12.5);
+	declare Vec2 Size_Flag = MLHelpers::KeepRatioFromY(232., 140., Size_ProfileBg.Y);
+	declare Real PosX_ProfileLabels = -Size_ProfileBg.X/2 + Size_Flag.X + 2.;
+
+	/* Continent list */
+	declare Real Margin = 1.8;
+	declare Vec2 Size_ContinentButton = <79.5, 14.>;
+	declare Text ML_Continents = "";
+	for (Index, 0, C_ContinentNumber-1) {
+		declare Text UpTarget = "button-continent-"^ML::Clamp(Index-1, 0, C_ContinentNumber-1);
+		declare Text DownTarget = "button-continent-"^ML::Clamp(Index+1, 0, C_ContinentNumber-1);
+		declare Text Styles = ""^ExpendableButton::C_Style_Stack;
+		if (Index == 0) Styles ^= " "^ExpendableButton::C_Style_StackTop;
+		if (Index == C_ContinentNumber-1) {
+			Styles ^= " "^ExpendableButton::C_Style_StackBottom;
+			DownTarget = "button-back";
+		}
+		ML_Continents ^= """
+			<frameinstance
+				id="button-continent-{{{Index}}}" z-index="1"
+				pos="{{{MLHelpers::Skew(0., - Index * (Size_ContinentButton.Y + Margin), 10.)}}}"
+				modelid="{{{ExpendableButton::C_Name}}}"
+				class="{{{Navigation::C_Class}}} {{{C_Class_ContinentButton}}}"
+				data-text-textsize="6."
+				data-width="{{{Size_ContinentButton.X}}}" data-height="{{{Size_ContinentButton.Y}}}"
+				data-styles="{{{ExpendableButton::C_Style_AlignCenter}}} {{{Styles}}} {{{ExpendableButton::C_Style_Tabs}}} "
+				data-nav-inputs="select;cancel;left;up;down"
+				data-nav-targets="_;_;button-back;{{{UpTarget}}};{{{DownTarget}}}"
+				data-nav-group="{{{C_NavGroupName}}}"
+				data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+			/>
+		""";
+	}
+
+	/* Scroll zone */
+	declare Integer ColumnsNb = 6;
+	declare Integer RowsNb = 3;
+	declare Integer ZonesPerPage = ColumnsNb * RowsNb;
+	declare Vec2 Size_ZonesScrollWindow = <231., 105.>;
+	declare Vec2 Size_ZoneMargin = <1.5, 5.>;
+	declare Vec2 Size_Zone = Scroll::GetElementSize(Size_ZonesScrollWindow, Size_ZoneMargin, ColumnsNb, RowsNb);
+	declare Integer ElementsNb = Scroll::GetRequiredElementsNb(Size_ZonesScrollWindow, Size_Zone, Size_ZoneMargin, ColumnsNb);
+
+	declare Vec2 Size_AdjustedZone = <Size_Zone.X - MLHelpers::SkewX(Size_Zone.Y, 10.),	Size_Zone.Y>;
+	declare Vec2 Size_ZoneFlag = MLHelpers::KeepRatioFromY(412., 252., Size_Zone.Y*0.68);
+	declare Vec2 Pos_ZoneName = MLHelpers::SkewX(<Size_Zone.X*0.55, -Size_Zone.Y*0.74>, 10.);
+
+	declare Text ML_Zones = "";
+	for (I, 1, ElementsNb) {
+		ML_Zones ^= """
+			<frameinstance
+				modelid="framemodel-zone"
+				class="{{{Scroll::C_Class_Element}}}"
+			/>
+		""";
+	}
+
+	return MV::Create(
+C_Name, 3,
+"""
+<stylesheet>
+	<style class="text-semibold" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textprefix="$i$t" textcolor="FFFFFF"/>
+	<style class="text-extrabold" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$i$t" textcolor="FFFFFF"/>
+</stylesheet>
+
+<!-- Frame models -->
+<framemodel id="framemodel-zone">
+	<quad id="quad-background" pos="{{{Size_Zone.X*0.5}}} 0." size="{{{Size_ZoneFlag.X}}} {{{Size_ZoneFlag.Y}}}" image="{{{Const::C_ImageUrl_Common_Flag}}}" halign="center" valign="top" colorize="FFFFFF" opacity="0.4" hidden="1" z-index="0"/>
+	<quad id="quad-flag" pos="{{{Size_Zone.X*0.5}}} 0." size="{{{Size_ZoneFlag.X}}} {{{Size_ZoneFlag.Y}}}" halign="center" valign="top" keepratio="clip" z-index="1"/>
+	<quad id="quad-contour" pos="{{{Size_Zone.X*0.5}}} 0." size="{{{Size_ZoneFlag.X}}} {{{Size_ZoneFlag.Y}}}" image="{{{Const::C_ImageUrl_Common_Flag_Contour}}}" colorize="FFFFFF" halign="center" valign="top" opacity="0." z-index="2"/>
+	<label id="label-name" pos="{{{Pos_ZoneName.X}}} {{{Pos_ZoneName.Y}}}" size="{{{Size_Zone.X*0.9}}} 10" class="text-semibold" valign="top" textsize="2.5" autonewline="1" maxline="2" opacity="0.6" z-index="2"/>
+	<frame size="{{{Size_Zone.X}}} {{{Size_Zone.Y}}}" pos="{{{Size_ZoneFlag.X/2}}} {{{-Size_Zone.Y/2}}}" halign="center" valign="center" z-index="5">
+		<quad id="quad-hitbox-club" size="{{{Size_AdjustedZone.X}}} {{{Size_AdjustedZone.Y*1.5}}}" scriptevents="1" class="{{{Scroll::C_Class_ActivationZone}}}" halign="center" valign="center" rot="10"/>
+	</frame>
+</framemodel>
+
+<!-- Frame global -->
+<frame id="frame-global">
+	<label id="label-title" size="200 20" pos="0 72.5" class="text-extrabold" text="{{{Text_Welcome}}}" textsize="14" z-index="5"/>
+	<label id="label-subtitle" size="200 20" pos="0 62" class="text-semibold" textsize="4" z-index="5"/>
+
+	<!-- Continent selection -->
+	<frame id="frame-select-continent" pos="{{{MLHelpers::Skew(0., 42.5, 10.)}}}" hidden="1">
+		{{{ML_Continents}}}
+	</frame>
+
+	<!-- Country, region and county selection -->
+	<frame id="frame-select-zone" hidden="1">
+		<frameinstance modelid="{{{Scroll::C_Name}}}" data-scroll-parent="frame-scroll-zones" z-index="1" />
+		<frame
+			id="frame-scroll-zones" pos="{{{Size_ZonesScrollWindow.X * -0.5}}} 44.5"
+			class="{{{Scroll::C_Class_Window}}} {{{Navigation::C_Class}}}"
+			data-elements-per-line="{{{ColumnsNb}}}"
+			data-elements-per-page="{{{ZonesPerPage}}}"
+			data-element-size="{{{Size_Zone.X}}} {{{Size_Zone.Y}}}"
+			data-margin-size="{{{Size_ZoneMargin.X}}} {{{Size_ZoneMargin.Y}}}"
+			data-window-size="{{{Size_ZonesScrollWindow.X}}} {{{Size_ZonesScrollWindow.Y}}}"
+			data-scroll-indicator-x-offset="-12."
+			data-scroll-indicator-y-offset="-11."
+			data-scroll-indicator-image="{{{Icons::C_Icon_128x128_Arrow_Bottom_Oblique}}}"
+			data-scroll-indicator-colorize="FFFFFF"
+			data-scroll-indicator-size="12"
+			data-scrollbar-xoffset="14."
+			data-scrollpadding="13.5"
+			data-skew="-10."
+			data-skew-valign="{{{Scroll::C_SkewVAlign_Center}}}"
+			data-nav-group="{{{C_NavGroupName}}}"
+		>
+			<quad z-index="-1" scriptevents="1" class="{{{Scroll::C_Class_ScrollEvent}}}" />
+			{{{ML_Zones}}}
+		</frame>
+	</frame>
+
+	<!-- Confirmation page -->
+	<frame id="frame-confirm-zone" hidden="1">
+		<camera id="camera-vehicle" size="320 180" halign="center" valign="center" fullscreen="1" z-index="0"/>
+		<frameinstance id="frame-loading-spinner" modelid="{{{LoadingSpinner::C_Name}}}" pos="0 -73" scale="0.8"/>
+		<quad id="quad-lights" pos="0 35" size="{{{MLHelpers::MLKeepRatioFromY(1200., 1080., 200.)}}}" image="{{{Const::C_ImageUrl_Common_Spotlight}}}" colorize="FFF" halign="center" valign="center" z-index="1"/>
+		<label id="label-info" pos="0. -77." size="120 10" class="text-semibold" text="{{{Text_ChangeItLater}}}" textsize="2"/>
+
+		<frame id="frame-profile-preview" pos="0 25" z-index="2">
+			<quad id="quad-profile-bg" size="{{{Size_ProfileBg.X}}} {{{Size_ProfileBg.Y}}}" image="{{{Const::C_ImageUrl_Overlay_Widget_BG}}}" halign="center" valign="center"/>
+			<quad id="quad-zone-flag" pos="{{{-Size_ProfileBg.X * 0.51}}} 0" size="{{{Size_Flag.X}}} {{{Size_Flag.Y}}}" keepratio="Clip" image="file://ZoneFlags/Path/World" alphamask="{{{Const::C_ImageUrl_Overlay_Profile_Flag_Mask}}}" halign="left" valign="center" />
+			<label id="label-player-name" pos="{{{MLHelpers::Skew(PosX_ProfileLabels, Size_ProfileBg.Y * 0.16, 10.)}}}" size="68 10" class="text-extrabold" textsize="3" halign="left" />
+			<label id="label-zone-name" pos="{{{MLHelpers::Skew(PosX_ProfileLabels, -Size_ProfileBg.Y * 0.34, 10.)}}}" size="68 10" class="text-semibold" textsize="1" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" halign="left" />
+		</frame>
+
+		<frameinstance
+			id="button-skip" pos="{{{MLHelpers::Skew(164., -58., 10.)}}}" z-index="2"
+			modelid="{{{ExpendableButton::C_Name}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-text="{{{Text_Skip}}}"
+			data-max-width="70."
+			data-styles="{{{ExpendableButton::C_Style_ButtonSecondary}}} {{{ExpendableButton::C_Style_SizeExpendable}}}"
+			data-halign="right" data-valign="center"
+			data-nav-inputs="select;cancel;appmenu;down;left"
+			data-nav-targets="_;_;_;button-confirm;button-back"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+			data-nav-locked="1"
+			hidden="1"
+		/>
+		<frameinstance id="button-icon-confirm" modelid="{{{ButtonIcon::C_Name}}}" pos="{{{MLHelpers::Skew(164., -73., 10.)}}}" data-halign="left" data-size="8 8" data-bind="appmenu" data-hideformouse="1" />
+		<frameinstance
+			id="button-confirm" pos="{{{MLHelpers::Skew(164., -73., 10.)}}}" z-index="2"
+			modelid="{{{ExpendableButton::C_Name}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-text="{{{Text_Confirm}}}"
+			data-max-width="70."
+			data-styles="{{{ExpendableButton::C_Style_ButtonSecondary}}} {{{ExpendableButton::C_Style_SizeExpendable}}}"
+			data-halign="right" data-valign="center"
+			data-nav-inputs="select;cancel;appmenu;up;left"
+			data-nav-targets="_;_;_;button-skip;button-back"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+		/>
+	</frame>
+
+	<!-- Pilot page -->
+	<frame id="frame-pilot-options" hidden="1">
+		<camera id="camera-pilots" size="320 180" halign="center" valign="center" fullscreen="1" z-index="0"/>
+		<quad id="quad-lights-left" pos="-50 35" size="{{{MLHelpers::MLKeepRatioFromY(1200., 1080., 200.)}}}" image="{{{Const::C_ImageUrl_Common_Spotlight}}}" colorize="FFF" halign="center" valign="center" z-index="1"/>
+		<quad id="quad-lights-right" pos="50 35" size="{{{MLHelpers::MLKeepRatioFromY(1200., 1080., 200.)}}}" image="{{{Const::C_ImageUrl_Common_Spotlight}}}" colorize="FFF" halign="center" valign="center" z-index="1"/>
+
+		<frameinstance
+			id="button-pilot-1" pos="{{{MLHelpers::Skew(-40., -63., 10.)}}}" z-index="2"
+			modelid="{{{ExpendableButton::C_Name}}}"
+			class="{{{Navigation::C_Class}}} {{{C_Class_PilotTypeButton}}}"
+			data-pilot-type="0"
+			data-text="{{{Translations::C_Text_ActionSelect}}}"
+			data-max-width="50."
+			data-styles="{{{ExpendableButton::C_Style_Tabs}}} {{{ExpendableButton::C_Style_SizeExpendable}}}"
+			data-icon-colormode="{{{ExpendableButton::C_ColorMode_Colorize}}}"
+			data-icon-align="{{{ExpendableButton::C_IconAlign_Center}}}"
+			data-icon-color-focused="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+			data-icon-color-unfocused="FFF"
+			data-icon-opacity-unfocused="0.6"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;cancel;left;right;down"
+			data-nav-targets="_;_;button-back;button-pilot-2;button-back"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+		/>
+
+		<frameinstance
+			id="button-pilot-2" pos="{{{MLHelpers::Skew(60., -63., 10.)}}}" z-index="2"
+			modelid="{{{ExpendableButton::C_Name}}}"
+			class="{{{Navigation::C_Class}}} {{{C_Class_PilotTypeButton}}}"
+			data-pilot-type="1"
+			data-text="{{{Translations::C_Text_ActionSelect}}}"
+			data-max-width="50."
+			data-styles="{{{ExpendableButton::C_Style_Tabs}}} {{{ExpendableButton::C_Style_SizeExpendable}}}"
+			data-icon-colormode="{{{ExpendableButton::C_ColorMode_Colorize}}}"
+			data-icon-align="{{{ExpendableButton::C_IconAlign_Center}}}"
+			data-icon-color-focused="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+			data-icon-color-unfocused="FFF"
+			data-icon-opacity-unfocused="0.6"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;cancel;left;right;down"
+			data-nav-targets="_;_;button-pilot-1;button-next;button-next"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+		/>
+
+		<frameinstance
+			id="button-next" pos="{{{MLHelpers::Skew(164., -73., 10.)}}}" z-index="2"
+			modelid="{{{ExpendableButton::C_Name}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-text="{{{Text_Next}}}"
+			data-max-width="70."
+			data-styles="{{{ExpendableButton::C_Style_ButtonSecondary}}} {{{ExpendableButton::C_Style_SizeExpendable}}}"
+			data-halign="right" data-valign="center"
+			data-nav-inputs="select;cancel;left;up"
+			data-nav-targets="_;_;button-pilot-2;button-pilot-2"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+		/>
+	</frame>
+
+	<!-- Footer -->
+	<label id="label-error" pos="0. -85." size="300 10" class="text-semibold" textsize="2.5" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextError)}}}"/>
+	<frameinstance id="button-icon-back" modelid="{{{ButtonIcon::C_Name}}}" pos="-151.5 -73" data-halign="right" data-size="8 8" data-bind="B" data-hideformouse="1" />
+	<frameinstance
+		id="button-back" pos="-151.5 -73" z-index="2"
+		modelid="{{{ExpendableButton::C_Name}}}"
+		class="{{{Navigation::C_Class}}}"
+		data-max-width="70."
+		data-styles="{{{ExpendableButton::C_Style_ButtonSecondary}}} {{{ExpendableButton::C_Style_AlignCenter}}} {{{ExpendableButton::C_Style_SizeExpendable}}} {{{ExpendableButton::C_Style_PageBack}}}"
+		data-nav-inputs="select;cancel;appmenu;up;right"
+		data-nav-targets="_;_;_;button-continent-{{{C_ContinentNumber-1}}};_"
+		data-nav-group="{{{C_NavGroupName}}}"
+		data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+	/>
+</frame>
+""",
+"""
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "TimeLib" as TiL
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/MenuSceneManager.Script.txt" as MenuSceneManager
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ControllerInfo_ML.Script.txt" as ControllerInfo
+
+#Const C_World "World"
+#Const C_Zone_Translations {{{dump(Const::C_Zone_Translations)}}}
+#Const C_ZoneLabel_Override _("|RankingZone|Region")
+#Const C_ZoneLevel_Continent {{{dump(C_ZoneLevel_Continent)}}}
+#Const C_ZoneLevel_Country {{{dump(C_ZoneLevel_Country)}}}
+#Const C_ZoneLevel_Region {{{dump(C_ZoneLevel_Region)}}}
+#Const C_ZoneLevel_County {{{dump(C_ZoneLevel_County)}}}
+#Const C_ZoneLevel_Labels [
+	{{{dump(C_ZoneLevel_Continent)}}} => _("|RankingZone|Continent"),
+	//L16N [WelcomeChangeZone] Please keep the difference between "Country" and "Territory"
+	{{{dump(C_ZoneLevel_Country)}}} => _("|RankingZone|Country or Territory"),
+	{{{dump(C_ZoneLevel_Region)}}} => _("|RankingZone|Region"),
+	{{{dump(C_ZoneLevel_County)}}} => _("|RankingZone|District")
+]
+
+// /!\ DO NOT MODIFY THESE VALUES they are used in C++
+#Const C_Option_MorphologyTypes [
+	0 => "Gender=Male",
+	1 => "Gender=Female"
+]
+
+#Struct K_Zone {
+	Text Name;
+	Text Path;
+	Text FullPath;
+	Text FlagUrl;
+	Text CarSkinName;
+	Text CarSkinUrl;
+	Text PilotSkinName;
+	Text PilotSkinUrl;
+}
+
+#Struct K_Scene {
+	Ident SceneId;
+	Ident CurrentItemId;
+	Ident CurrentExtraItemId;
+}
+
+#Struct K_Controls {
+	CMlFrame ButtonIcon_Back;
+	CMlFrame Button_Back;
+	CMlFrame Button_Confirm;
+	CMlFrame Button_Skip;
+	CMlFrame Button_Next;
+	CMlFrame Button_Pilot1;
+	CMlFrame Button_Pilot2;
+	CMlFrame Frame_ConfirmZone;
+	CMlFrame Frame_PilotOptions;
+	CMlFrame Frame_LoadingSpinner;
+	CMlFrame Frame_ProfilePreview;
+	CMlFrame Frame_ScrollZones;
+	CMlFrame Frame_SelectContinent;
+	CMlFrame Frame_SelectZone;
+	CMlLabel Label_Error;
+	CMlLabel Label_Subtitle;
+	CMlLabel Label_Title;
+	CMlQuad Quad_LightsLeft;
+	CMlQuad Quad_LightsRight;
+}
+
+#Struct K_State {
+	Boolean IsEditMode;
+	Integer[Integer] PastSelectedElement;
+	Integer MorphologyCurrentIndex;
+	K_Controls Controls;
+	K_Scene Scene;
+	K_Zone[] CurrentZoneList;
+	K_Zone[] ScrollZoneList;
+	Task::K_Task TaskSetZone;
+	Task::K_Task TaskZoneList;
+}
+""",
+"""
+Text GetMasterZone() {
+	declare Text DefaultMasterZone = Config::Get().DefaultMasterZone;
+	if (DefaultMasterZone == "") return C_World;
+	return DefaultMasterZone;
+}
+
+Void ShowZone(K_State _State, CMlFrame _Frame_Zone, K_Zone _Zone) {
+	declare CMlLabel Label_Name <=> (_Frame_Zone.GetFirstChild("label-name") as CMlLabel);
+	declare CMlQuad Quad_Background <=> (_Frame_Zone.GetFirstChild("quad-background") as CMlQuad);
+	declare CMlQuad Quad_Contour <=> (_Frame_Zone.GetFirstChild("quad-contour") as CMlQuad);
+	declare CMlQuad Quad_Flag <=> (_Frame_Zone.GetFirstChild("quad-flag") as CMlQuad);
+	declare CMlQuad Quad_Hitbox <=> (_Frame_Zone.GetFirstChild("quad-hitbox-club") as CMlQuad);
+
+	// Update zone label
+	Label_Name.Value = _Zone.Name;
+	Tools::FitLabelValue(Label_Name, 2.5, 0.5, 0.25);
+
+	// Update flag and hitbox
+	Quad_Flag.ChangeImageUrl(_Zone.FlagUrl);
+	Quad_Background.Visible = _State.CurrentZoneList.count != C_ZoneLevel_Country;
+	Quad_Contour.Visible = _State.CurrentZoneList.count == C_ZoneLevel_Country;
+	if (_State.CurrentZoneList.count == C_ZoneLevel_Country) {
+		Quad_Flag.KeepRatio = CMlQuad::EKeepRatioMode::Clip;
+		Quad_Flag.VerticalAlign = CMlControl::AlignVertical::Top;
+		Quad_Flag.AlphaMaskUrl = "{{{Const::C_ImageUrl_Common_Flag_Mask}}}";
+		Quad_Flag.RelativePosition_V3 = <{{{Size_Zone.X*0.5}}}, 0.>;
+		Quad_Flag.Size = {{{Size_ZoneFlag}}};
+		Quad_Flag.Opacity = 1.;
+		Quad_Hitbox.RelativeRotation = 10.;
+	} else {
+		Quad_Flag.KeepRatio = CMlQuad::EKeepRatioMode::Fit;
+		Quad_Flag.VerticalAlign = CMlControl::AlignVertical::VCenter;
+		Quad_Flag.AlphaMaskUrl = "";
+		Quad_Flag.RelativePosition_V3 = <{{{Size_Zone.X*0.5}}}, -{{{Size_ZoneFlag.Y*0.5}}}>;
+		Quad_Flag.Size = <{{{Size_ZoneFlag.X*0.7}}}, {{{Size_ZoneFlag.Y*0.8}}}>;
+		Quad_Flag.Opacity = 0.6;
+		Quad_Hitbox.RelativeRotation = 0.;
+	}
+
+	// Show the frame
+	_Frame_Zone.Show();
+}
+
+Void HideZone(CMlFrame _Frame_Zone) {
+	_Frame_Zone.Hide();
+}
+
+Void FocusZone(CMlFrame _Frame_Zone, Integer _ZoneLevel, Boolean _IsFocused, Boolean _IsAnimated) {
+	declare CMlLabel Label_Name <=> (_Frame_Zone.GetFirstChild("label-name") as CMlLabel);
+	declare CMlQuad Quad_Background <=> (_Frame_Zone.GetFirstChild("quad-background") as CMlQuad);
+	declare CMlQuad Quad_Contour <=> (_Frame_Zone.GetFirstChild("quad-contour") as CMlQuad);
+	declare CMlQuad Quad_Flag <=> (_Frame_Zone.GetFirstChild("quad-flag") as CMlQuad);
+
+	AnimMgr.Flush(Label_Name);
+	AnimMgr.Flush(Quad_Background);
+	AnimMgr.Flush(Quad_Contour);
+	AnimMgr.Flush(Quad_Flag);
+	if (_IsFocused) {
+		if (_IsAnimated) {
+			AnimMgr.Add(Label_Name, "<anim opacity=\"1.\" textcolor=\"{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			AnimMgr.Add(Quad_Contour, "<anim opacity=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			Label_Name.Opacity = 1.;
+			Label_Name.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}};
+			Quad_Contour.Opacity = 1.;
+		}
+		if (_ZoneLevel != C_ZoneLevel_Country) {
+			if (_IsAnimated) {
+				AnimMgr.Add(Quad_Flag, "<anim opacity=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+				AnimMgr.Add(Quad_Background, "<anim opacity=\".6\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			} else {
+				Quad_Flag.Opacity = 1.;
+				Quad_Background.Opacity = 0.6;
+			}
+		}
+	} else {
+		if (_IsAnimated) {
+			AnimMgr.Add(Label_Name, "<anim opacity=\"0.6\" textcolor=\"FFFFFF\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			AnimMgr.Add(Quad_Contour, "<anim opacity=\"0.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			Label_Name.Opacity = 0.6;
+			Label_Name.TextColor = <1., 1., 1.>;
+			Quad_Contour.Opacity = 0.;
+		}
+		if (_ZoneLevel != C_ZoneLevel_Country) {
+			if (_IsAnimated) {
+				AnimMgr.Add(Quad_Flag, "<anim opacity=\"0.6\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+				AnimMgr.Add(Quad_Background, "<anim opacity=\"0.4\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			} else {
+				Quad_Flag.Opacity = 0.6;
+				Quad_Background.Opacity = 0.4;
+			}
+		}
+	}
+
+	// Text to speech
+	if (_IsFocused) Label_Name.TTS_Focus();
+	else Label_Name.TTS_Unfocus();
+}
+
+Void SetButtonIsSelected(CMlFrame _Frame_Button, Boolean _IsSelected) {
+	if (_IsSelected) {
+		{{{ExpendableButton::P}}}SetIconImageUrl(This, _Frame_Button, "{{{Icons::C_Icon_256x256_Validation_Oblique}}}", False);
+		{{{ExpendableButton::P}}}SetText(This, _Frame_Button, "", False);
+	} else {
+		{{{ExpendableButton::P}}}SetIconImageUrl(This, _Frame_Button, "", False);
+		{{{ExpendableButton::P}}}SetText(This, _Frame_Button, "{{{Translations::C_Text_ActionSelect}}}", False);
+	}
+	{{{ExpendableButton::P}}}RedrawButton(This, _Frame_Button);
+}
+
+// Select the pilot morphology type
+// /!\ Type must be 0 or 1
+K_State SelectPilotType(K_State _State, Integer _Type) {
+	declare K_State State = _State;
+
+	State.MorphologyCurrentIndex = ML::Clamp(_Type, 0, 1);
+	declare Real LeftLightsOpacity = 0.;
+	declare Real RightLightsOpacity = 0.;
+	if (State.MorphologyCurrentIndex == 0) {
+		LeftLightsOpacity = 1.;
+		SetButtonIsSelected(State.Controls.Button_Pilot1, True);
+		SetButtonIsSelected(State.Controls.Button_Pilot2, False);
+		MenuSceneMgr.ItemTriggerPlayerGesture(State.Scene.SceneId, State.Scene.CurrentItemId);
+	} else if (State.MorphologyCurrentIndex == 1) {
+		RightLightsOpacity = 1.;
+		SetButtonIsSelected(State.Controls.Button_Pilot1, False);
+		SetButtonIsSelected(State.Controls.Button_Pilot2, True);
+		MenuSceneMgr.ItemTriggerPlayerGesture(State.Scene.SceneId, State.Scene.CurrentExtraItemId);
+	}
+	AnimMgr.Add(State.Controls.Quad_LightsLeft, "<anim opacity=\""^LeftLightsOpacity^"\" />", 500, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(State.Controls.Quad_LightsRight, "<anim opacity=\""^RightLightsOpacity^"\" />", 500, CAnimManager::EAnimManagerEasing::QuadOut);
+
+	UserMgr.MainUserProfile.User_CharacterSkinOptions = C_Option_MorphologyTypes.get(State.MorphologyCurrentIndex, "");
+
+	return State;
+}
+
+Void Focus(CMlControl _From, CMlControl _To) {
+	if ({{{Transition::P}}}IsInTransition(This)) return;
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{Button::P}}}IsButton(_From)) {
+			{{{Button::P}}}Unfocus(This, (_From as CMlFrame));
+		} else if ({{{Scroll::P}}}IsScroll(_From)) {
+			{{{Scroll::P}}}Unfocus(This, (_From as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_From)) {
+			{{{ExpendableButton::P}}}Unfocus(This, (_From as CMlFrame));
+			if (_From.HasClass("{{{C_Class_ContinentButton}}}") && _To != Null && _To.ControlId == "button-back") {
+				{{{Navigation::P}}}ChangeControlTarget(This, _To, "right", _From.ControlId);
+			}
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{Button::P}}}IsButton(_To)) {
+			{{{Button::P}}}Focus(This, (_To as CMlFrame));
+		} else if ({{{Scroll::P}}}IsScroll(_To)) {
+			{{{Scroll::P}}}Focus(This, (_To as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_To)) {
+			{{{ExpendableButton::P}}}Focus(This, (_To as CMlFrame));
+		}
+	}
+}
+
+// Display and create the 3D vehicle scene or destroy it
+K_State Display3DScene(K_State _State, Boolean _IsVisible, Boolean _DisplayConfirmPage) {
+	declare K_State State = _State;
+
+	if (_IsVisible) {
+		if (State.Scene.SceneId == NullId) State.Scene.SceneId = MenuSceneMgr.SceneCreate("Empty");
+		MenuSceneManager::PageSynchronizeScene(Page, LocalUser);
+		if (State.Scene.SceneId != NullId) {
+			MenuSceneMgr.PlaneReflectEnable(State.Scene.SceneId, 0.63, Null, Null, Null, Null, -2.1);
+
+			if (State.Scene.CurrentItemId != NullId) {
+				MenuSceneMgr.ItemDestroy(State.Scene.SceneId, State.Scene.CurrentItemId);
+				State.Scene.CurrentItemId = NullId;
+			}
+			if (State.Scene.CurrentExtraItemId != NullId) {
+				MenuSceneMgr.ItemDestroy(State.Scene.SceneId, State.Scene.CurrentExtraItemId);
+				State.Scene.CurrentExtraItemId = NullId;
+			}
+
+			if (_DisplayConfirmPage) {
+				MenuSceneMgr.CameraSetLocation(State.Scene.SceneId, <-1.5, 3.5, -12.5>, 11., 30.);
+
+				// Create the car item
+				declare Text CarSkinUrl = "";
+				declare Text CarSkinName = "{{{Const::C_CarDefaultSkinName}}}";
+				if (LocalUser.Model_CarSport_SkinUrl != "") {
+					CarSkinName = LocalUser.Model_CarSport_SkinName;
+					CarSkinUrl = LocalUser.Model_CarSport_SkinUrl;
+				} else if (State.CurrentZoneList.existskey(C_ZoneLevel_Country) && State.CurrentZoneList[C_ZoneLevel_Country].CarSkinName != "") {
+					CarSkinName = State.CurrentZoneList[C_ZoneLevel_Country].CarSkinName;
+					CarSkinUrl = State.CurrentZoneList[C_ZoneLevel_Country].CarSkinUrl;
+				}
+				State.Scene.CurrentItemId = MenuSceneMgr.ItemCreate(
+					State.Scene.SceneId,
+					"{{{Const::C_CameraSkinModel}}}",
+					CarSkinName,
+					CarSkinUrl,
+					LocalUser.Prestige_SkinOptions
+				);
+
+				if (State.Scene.CurrentItemId != NullId) {
+					MenuSceneMgr.ItemSetPlayerState(State.Scene.SceneId, State.Scene.CurrentItemId, LocalUser);
+					MenuSceneMgr.ItemSetLocation(State.Scene.SceneId, State.Scene.CurrentItemId, <-1.7, 0., -0.5>, -218., False);
+
+					declare Text PilotSkinName = "{{{Const::C_PilotDefaultSkinName}}}";
+					declare Text PilotSkinUrl = "";
+					if (LocalUser.Model_CharacterPilot_SkinUrl != "") {
+						PilotSkinName = LocalUser.Model_CharacterPilot_SkinName;
+						PilotSkinUrl = LocalUser.Model_CharacterPilot_SkinUrl;
+					} else if (State.CurrentZoneList.existskey(C_ZoneLevel_Country) && State.CurrentZoneList[C_ZoneLevel_Country].PilotSkinName != "") {
+						PilotSkinName = State.CurrentZoneList[C_ZoneLevel_Country].PilotSkinName;
+						PilotSkinUrl = State.CurrentZoneList[C_ZoneLevel_Country].PilotSkinUrl;
+					}
+
+					// Create the pilot item
+					State.Scene.CurrentExtraItemId = MenuSceneMgr.ItemCreate(
+						State.Scene.SceneId,
+						"{{{Const::C_CameraPilotModel}}}",
+						PilotSkinName,
+						PilotSkinUrl,
+						UserMgr.MainUserProfile.User_CharacterSkinOptions
+					);
+					if (State.Scene.CurrentExtraItemId != NullId) {
+						MenuSceneMgr.ItemSetPlayerState(State.Scene.SceneId, State.Scene.CurrentExtraItemId, LocalUser);
+						MenuSceneMgr.ItemSetLocation(State.Scene.SceneId, State.Scene.CurrentExtraItemId, <-2.7, 0., -1.8>, -218., False);
+					}
+				}
+			} else {
+				MenuSceneMgr.CameraSetLocation(State.Scene.SceneId, <0., 2.5, -10.>, 9., 20.);
+
+				declare Text PilotSkinName = "{{{Const::C_PilotDefaultSkinName}}}";
+				declare Text PilotSkinUrl = "";
+				if (LocalUser.Model_CharacterPilot_SkinUrl != "") {
+					PilotSkinName = LocalUser.Model_CharacterPilot_SkinName;
+					PilotSkinUrl = LocalUser.Model_CharacterPilot_SkinUrl;
+				} else if (State.CurrentZoneList.existskey(C_ZoneLevel_Country) && State.CurrentZoneList[C_ZoneLevel_Country].PilotSkinName != "") {
+					PilotSkinName = State.CurrentZoneList[C_ZoneLevel_Country].PilotSkinName;
+					PilotSkinUrl = State.CurrentZoneList[C_ZoneLevel_Country].PilotSkinUrl;
+				}
+
+				// Create the first pilot item
+				State.Scene.CurrentItemId = MenuSceneMgr.ItemCreate(
+					State.Scene.SceneId,
+					"{{{Const::C_CameraPilotModel}}}",
+					PilotSkinName,
+					PilotSkinUrl,
+					C_Option_MorphologyTypes.get(0, "")
+				);
+
+				// Create the second pilot item
+				State.Scene.CurrentExtraItemId = MenuSceneMgr.ItemCreate(
+					State.Scene.SceneId,
+					"{{{Const::C_CameraPilotModel}}}",
+					PilotSkinName,
+					PilotSkinUrl,
+					C_Option_MorphologyTypes.get(1, "")
+				);
+
+				if (State.Scene.CurrentItemId != NullId) {
+					MenuSceneMgr.ItemSetPlayerState(State.Scene.SceneId, State.Scene.CurrentItemId, LocalUser);
+					MenuSceneMgr.ItemSetLocation(State.Scene.SceneId, State.Scene.CurrentItemId, <1., 0., 0.>, 180., False);
+					if (State.MorphologyCurrentIndex == 0) MenuSceneMgr.ItemTriggerPlayerGesture(State.Scene.SceneId, State.Scene.CurrentItemId);
+				}
+				if (State.Scene.CurrentExtraItemId != NullId) {
+					MenuSceneMgr.ItemSetPlayerState(State.Scene.SceneId, State.Scene.CurrentExtraItemId, LocalUser);
+					MenuSceneMgr.ItemSetLocation(State.Scene.SceneId, State.Scene.CurrentExtraItemId, <-1., 0., 0.>, 180., False);
+					if (State.MorphologyCurrentIndex == 1) MenuSceneMgr.ItemTriggerPlayerGesture(State.Scene.SceneId, State.Scene.CurrentExtraItemId);
+				}
+			}
+		}
+	} else {
+		if (State.Scene.SceneId != NullId) {
+			if (State.Scene.CurrentItemId != NullId) {
+				MenuSceneMgr.ItemDestroy(State.Scene.SceneId, State.Scene.CurrentItemId);
+				State.Scene.CurrentItemId = NullId;
+			}
+			if (State.Scene.CurrentExtraItemId != NullId) {
+				MenuSceneMgr.ItemDestroy(State.Scene.SceneId, State.Scene.CurrentExtraItemId);
+				State.Scene.CurrentExtraItemId = NullId;
+			}
+			MenuSceneMgr.SceneDestroy(State.Scene.SceneId);
+			State.Scene.SceneId = NullId;
+		}
+	}
+
+	return State;
+}
+
+// Update the page according to the selected area
+K_State SwitchUI(K_State _State, Boolean _IsPilotOptionsDisplayed, Boolean _IsConfirmationPageDisplayed) {
+	declare K_State State = _State;
+	declare Text RegionLabel = C_ZoneLevel_Labels.get(State.CurrentZoneList.count, C_ZoneLevel_Labels[C_ZoneLevel_Labels.count-1]);
+
+	// Update frames visibility
+	State.Controls.Frame_SelectContinent.Visible = !_IsConfirmationPageDisplayed && !_IsPilotOptionsDisplayed && State.CurrentZoneList.count == C_ZoneLevel_Continent;
+	State.Controls.Frame_SelectZone.Visible = !_IsConfirmationPageDisplayed && !_IsPilotOptionsDisplayed && !State.Controls.Frame_SelectContinent.Visible;
+	State.Controls.Frame_PilotOptions.Visible = _IsPilotOptionsDisplayed;
+	State.Controls.Frame_ConfirmZone.Visible = _IsConfirmationPageDisplayed;
+
+
+	// Update subtitle
+	if (GetMasterZone() != C_World) RegionLabel = C_ZoneLabel_Override;
+	State.Controls.Label_Subtitle.SetText(TL::Compose("{{{Text_SelectZone}}}", RegionLabel));
+
+	// Update continent selection frame
+	if (State.Controls.Frame_SelectContinent.Visible) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), State.Controls.Frame_SelectContinent.Controls[0]);
+		{{{Navigation::P}}}ChangeControlTarget(This, State.Controls.Button_Back, "up", "button-continent-{{{C_ContinentNumber-1}}}");
+		{{{Navigation::P}}}ChangeControlTarget(This, State.Controls.Button_Back, "right", State.Controls.Frame_SelectContinent.Controls[0].ControlId);
+		foreach (Index => Control in State.Controls.Frame_SelectContinent.Controls) {
+			if (State.ScrollZoneList.existskey(Index)) {
+				{{{ExpendableButton::P}}}SetText(This, Control as CMlFrame, State.ScrollZoneList[Index].Name);
+			}
+		}
+		{{{Scroll::P}}}SetElementsTotal(This, State.Controls.Frame_ScrollZones, 0);
+	}
+
+	// Update zone selection frame
+	if (State.Controls.Frame_SelectZone.Visible) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), State.Controls.Frame_ScrollZones);
+		{{{Navigation::P}}}ChangeControlTarget(This, State.Controls.Button_Back, "up", State.Controls.Frame_ScrollZones.ControlId);
+		{{{Navigation::P}}}ChangeControlTarget(This, State.Controls.Button_Back, "right", State.Controls.Frame_ScrollZones.ControlId);
+		{{{Scroll::P}}}SetElementsTotal(This, State.Controls.Frame_ScrollZones, State.ScrollZoneList.count);
+		{{{Scroll::P}}}SetFocusedElementKey(This, State.Controls.Frame_ScrollZones, 0, False, True);
+		{{{Scroll::P}}}ScrollToHeader(This, State.Controls.Frame_ScrollZones);
+	}
+
+	// Update pilot selection frame
+	if (State.Controls.Frame_PilotOptions.Visible) {
+		State.Controls.Label_Subtitle.SetText("{{{Text_PilotSubTitle}}}");
+
+		declare Real LeftLightsOpacity = 0.;
+		declare Real RightLightsOpacity = 0.;
+		declare CMlFrame DefaultControl;
+		if (State.MorphologyCurrentIndex == 0) {
+			LeftLightsOpacity = 1.;
+			DefaultControl <=> State.Controls.Button_Pilot1;
+			SetButtonIsSelected(State.Controls.Button_Pilot1, True);
+			SetButtonIsSelected(State.Controls.Button_Pilot2, False);
+		} else if (State.MorphologyCurrentIndex == 1) {
+			RightLightsOpacity = 1.;
+			DefaultControl <=> State.Controls.Button_Pilot2;
+			SetButtonIsSelected(State.Controls.Button_Pilot1, False);
+			SetButtonIsSelected(State.Controls.Button_Pilot2, True);
+		}
+		State.Controls.Quad_LightsLeft.Opacity = LeftLightsOpacity;
+		State.Controls.Quad_LightsRight.Opacity = RightLightsOpacity;
+
+		if (DefaultControl != Null)	Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), DefaultControl);
+		{{{Navigation::P}}}ChangeControlTargets(This, State.Controls.Button_Back, ["up", "right"], [State.Controls.Button_Pilot1.ControlId, State.Controls.Button_Pilot1.ControlId]);
+	}
+
+	// Update confirm zone frame
+	if (State.Controls.Frame_ConfirmZone.Visible) {
+		declare CMlLabel Label_PlayerName <=> (State.Controls.Frame_ProfilePreview.GetFirstChild("label-player-name") as CMlLabel);
+		declare CMlLabel Label_ZoneName <=> (State.Controls.Frame_ProfilePreview.GetFirstChild("label-zone-name") as CMlLabel);
+		declare CMlQuad Quad_ZoneFlag <=> (State.Controls.Frame_ProfilePreview.GetFirstChild("quad-zone-flag") as CMlQuad);
+
+		State.Controls.Label_Subtitle.SetText("{{{Text_ConfirmSubTitle}}}");
+		Label_PlayerName.SetText({{{UserStore::P}}}GetPlayerName(LocalUser, True));
+		Tools::FitLabelValue(Label_PlayerName, 3., 1., 0.25);
+		Tools::FirstPartyLogoMatchLuminance(Label_PlayerName);
+		if (State.CurrentZoneList.count > 0) {
+			Label_ZoneName.SetText(State.CurrentZoneList[State.CurrentZoneList.count-1].Name);
+			Quad_ZoneFlag.ChangeImageUrl(State.CurrentZoneList[C_ZoneLevel_Country].FlagUrl);
+		} else if (LocalUser != Null && LocalUser.ZonePath != "" && LocalUser.CountryFlagUrl != "") {
+			Label_ZoneName.SetText(LocalUser.ZonePath);
+			Quad_ZoneFlag.ChangeImageUrl(LocalUser.CountryFlagUrl);
+		} else {
+			Label_ZoneName.SetText(GetMasterZone());
+			Quad_ZoneFlag.ChangeImageUrl("file://ZoneFlags/Path/World");
+		}
+
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), State.Controls.Button_Confirm);
+		{{{Navigation::P}}}ChangeControlTargets(This, State.Controls.Button_Back, ["up", "right"], ["_", State.Controls.Button_Confirm.ControlId]);
+		{{{ExpendableButton::P}}}SetVisibilityAndNavigation(State.Controls.Button_Skip, False);
+		{{{LoadingSpinner::P}}}StopAnimWithFade(This, State.Controls.Frame_LoadingSpinner);
+	}
+
+	// Update back button visibility
+	{{{ExpendableButton::P}}}SetVisibilityAndNavigation(State.Controls.Button_Back, !(!State.IsEditMode && (State.Controls.Frame_SelectContinent.Visible || (State.CurrentZoneList.count <= 0 && State.Controls.Frame_PilotOptions.Visible))));
+	State.Controls.ButtonIcon_Back.Visible = State.Controls.Button_Back.Visible;
+
+	return Display3DScene(State, (State.Controls.Frame_PilotOptions.Visible || State.Controls.Frame_ConfirmZone.Visible), State.Controls.Frame_ConfirmZone.Visible);
+}
+
+K_State Cancel(K_State _State) {
+	declare K_State State = _State;
+
+	if (Task::IsInitialized(State.TaskSetZone)) {
+		State.TaskSetZone = Task::Destroy(State.TaskSetZone);
+	}
+
+	if (!Task::IsInitialized(State.TaskZoneList)) {
+		if (State.Controls.Frame_ConfirmZone.Visible) {
+			State = SwitchUI(State, True, False);
+		} else {
+			declare Boolean Remove = State.CurrentZoneList.removekey(State.CurrentZoneList.count-1);
+			if (Remove) {
+				if (State.CurrentZoneList.count == 0) {
+					State.TaskZoneList = Task::DestroyAndCreate(State.TaskZoneList, ZoneMgr, ZoneMgr.GetChildZoneList(GetMasterZone()));
+				} else {
+					State.TaskZoneList = Task::DestroyAndCreate(State.TaskZoneList, ZoneMgr, ZoneMgr.GetChildZoneList(State.CurrentZoneList[State.CurrentZoneList.count-1].FullPath));
+				}
+			} else if (State.IsEditMode) {
+				{{{Router::P}}}PushParent(This);
+			}
+		}
+	}
+
+	return State;
+}
+
+K_State Select(K_State _State, CMlControl _Control) {
+	if (_Control == Null || {{{Transition::P}}}IsInTransition(This)) return _State;
+	declare K_State State = _State;
+
+	State.Controls.Label_Error.SetText("");
+	switch (_Control.ControlId) {
+		case "button-back": State = Cancel(State);
+		case "button-next": State = SwitchUI(State, False, True);
+		case "button-skip": {{{Router::P}}}PushParent(This);
+		case "button-confirm": {
+			if (!Task::IsInitialized(State.TaskSetZone) && State.CurrentZoneList.count > 0) {
+				State.Controls.Frame_LoadingSpinner.RelativePosition_V3.X = State.Controls.Button_Confirm.RelativePosition_V3.X - {{{ExpendableButton::P}}}GetWidth(State.Controls.Button_Confirm) - 8.;
+				State.TaskSetZone = Task::DestroyAndCreate(State.TaskSetZone, ZoneMgr, ZoneMgr.SetUserZone(MainUser::GetMainUserId(), State.CurrentZoneList[State.CurrentZoneList.count-1].FullPath));
+				{{{LoadingSpinner::P}}}StartAnimWithFade(This, _State.Controls.Frame_LoadingSpinner);
+			} else if (State.CurrentZoneList.count <= 0) {
+				{{{Router::P}}}PushParent(This);
+			}
+		}
+		default: {
+			if (_Control.HasClass("{{{C_Class_ContinentButton}}}")) {
+				declare Integer ControlKey = State.Controls.Frame_SelectContinent.Controls.keyof(_Control);
+				if (State.ScrollZoneList.existskey(ControlKey)) {
+					State.PastSelectedElement[State.CurrentZoneList.count] = ControlKey; //< Done before changing zone level
+					State.CurrentZoneList.add(State.ScrollZoneList[ControlKey]);
+					State.TaskZoneList = Task::DestroyAndCreate(State.TaskZoneList, ZoneMgr, ZoneMgr.GetChildZoneList(State.CurrentZoneList[State.CurrentZoneList.count-1].FullPath));
+				}
+			} else if (_Control.HasClass("{{{C_Class_PilotTypeButton}}}")) {
+				State = SelectPilotType(State, TL::ToInteger((_Control as CMlFrame).DataAttributeGet("pilot-type")));
+			}
+		}
+	}
+
+	return State;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+
+declare K_State State;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+
+State = K_State {
+	TaskZoneList = Task::GetEmptyTask(),
+	TaskSetZone = Task::GetEmptyTask(),
+	CurrentZoneList = [],
+	ScrollZoneList = [],
+	PastSelectedElement = [],
+	IsEditMode = False,
+	Controls = K_Controls {
+		ButtonIcon_Back = (Frame_Global.GetFirstChild("button-icon-back") as CMlFrame),
+		Button_Back = (Frame_Global.GetFirstChild("button-back") as CMlFrame),
+		Button_Confirm = (Frame_Global.GetFirstChild("button-confirm") as CMlFrame),
+		Button_Skip = (Frame_Global.GetFirstChild("button-skip") as CMlFrame),
+		Button_Next = (Frame_Global.GetFirstChild("button-next") as CMlFrame),
+		Button_Pilot1 = (Frame_Global.GetFirstChild("button-pilot-1") as CMlFrame),
+		Button_Pilot2 = (Frame_Global.GetFirstChild("button-pilot-2") as CMlFrame),
+		Frame_ConfirmZone = (Frame_Global.GetFirstChild("frame-confirm-zone") as CMlFrame),
+		Frame_PilotOptions = (Frame_Global.GetFirstChild("frame-pilot-options") as CMlFrame),
+		Frame_LoadingSpinner = (Frame_Global.GetFirstChild("frame-loading-spinner") as CMlFrame),
+		Frame_ProfilePreview = (Frame_Global.GetFirstChild("frame-profile-preview") as CMlFrame),
+		Frame_ScrollZones = (Frame_Global.GetFirstChild("frame-scroll-zones") as CMlFrame),
+		Frame_SelectContinent = (Frame_Global.GetFirstChild("frame-select-continent") as CMlFrame),
+		Frame_SelectZone = (Frame_Global.GetFirstChild("frame-select-zone") as CMlFrame),
+		Label_Error = (Frame_Global.GetFirstChild("label-error") as CMlLabel),
+		Label_Subtitle = (Frame_Global.GetFirstChild("label-subtitle") as CMlLabel),
+		Label_Title = (Frame_Global.GetFirstChild("label-title") as CMlLabel),
+		Quad_LightsLeft = (Frame_Global.GetFirstChild("quad-lights-left") as CMlQuad),
+		Quad_LightsRight = (Frame_Global.GetFirstChild("quad-lights-right") as CMlQuad)
+	}
+};
+***
+
+***MainLoop***
+***
+if ({{{Router::P}}}PageIsRunning(This, "{{{RoutePaths::C_Path_WelcomeChangeZone}}}")) {
+	if (
+		State.Scene.SceneId != NullId &&
+		MenuSceneManager::PageNeedToRecreateScene(Page, LocalUser)
+	) {
+		State = Display3DScene(State, False, False);
+		State = Display3DScene(State, True, State.Controls.Frame_ConfirmZone.Visible);
+	}
+
+	foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case "{{{Router::C_Event_EnteringRoute}}}": {
+				State.IsEditMode = ({{{Router::P}}}GetCurrentRouteQuery(This).get("{{{RoutePaths::C_Query_EditMode}}}", "") == "1");
+				State.TaskZoneList = Task::DestroyAndCreate(State.TaskZoneList, ZoneMgr, ZoneMgr.GetChildZoneList(GetMasterZone()));
+
+				// Update the title of the page
+				if (State.IsEditMode) {
+					State.Controls.Label_Title.SetText("{{{Text_ChangeRegion}}}");
+				} else {
+					State.Controls.Label_Title.SetText("{{{Text_Welcome}}}");
+					// Assign a random morphology when player launch the game for the first time
+					declare Integer RandomMorphologyIndex = ML::Rand(0, 1);
+					UserMgr.MainUserProfile.User_CharacterSkinOptions = C_Option_MorphologyTypes.get(RandomMorphologyIndex, "");
+				}
+
+				// Init the pilot morphology type
+				if (C_Option_MorphologyTypes.exists(UserMgr.MainUserProfile.User_CharacterSkinOptions)) {
+					State.MorphologyCurrentIndex = C_Option_MorphologyTypes.keyof(UserMgr.MainUserProfile.User_CharacterSkinOptions);
+				} else {
+					State.MorphologyCurrentIndex = 0;
+				}
+
+				State = SwitchUI(State, False, False);
+				ControllerInfo::SetButtons(["A" => _("Select")]);
+			}
+		}
+	}
+
+	/* Navigation events */
+	foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Navigation::P}}}C_EventType_NavigateInput: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+					switch (Event.Input) {
+						case CMlScriptEvent::EMenuNavAction::Select: State = Select(State, Event.To);
+						case CMlScriptEvent::EMenuNavAction::Cancel: State = Cancel(State);
+						case CMlScriptEvent::EMenuNavAction::AppMenu: {
+							if (State.Controls.Frame_ConfirmZone.Visible) {
+								State = Select(State, State.Controls.Button_Confirm);
+							}
+						}
+						default: Focus(Event.From, Event.To);
+					}
+				}
+			}
+			case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+					switch (Event.Mouse) {
+						case CMlScriptEvent::Type::MouseClick: State = Select(State, Event.To);
+						case CMlScriptEvent::Type::MouseOver: Focus(Event.From, Event.To);
+					}
+				}
+			}
+		}
+	}
+
+	/* Scroll events */
+	foreach (Event in {{{Scroll::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Scroll::P}}}C_EventType_Cancel: State = Cancel(State);
+			case {{{Scroll::P}}}C_EventType_Select: {
+				if (State.ScrollZoneList.existskey(Event.ToKey)) {
+					State.PastSelectedElement[State.CurrentZoneList.count] = Event.ToKey; //< Done before changing zone level
+					State.CurrentZoneList.add(State.ScrollZoneList[Event.ToKey]);
+					State.TaskZoneList = Task::DestroyAndCreate(State.TaskZoneList, ZoneMgr, ZoneMgr.GetChildZoneList(State.CurrentZoneList[State.CurrentZoneList.count-1].FullPath));
+				}
+			}
+			case {{{Scroll::P}}}C_EventType_Update: {
+				foreach (Key => Frame_Element in Event.ElementsVisible) {
+					if (State.ScrollZoneList.existskey(Key)) {
+						ShowZone(State, Frame_Element, State.ScrollZoneList[Key]);
+					} else {
+						HideZone(Frame_Element);
+					}
+				}
+				foreach (Key => Frame_Element in Event.ElementsHidden) {
+					HideZone(Frame_Element);
+				}
+			}
+			case {{{Scroll::P}}}C_EventType_Focus: {
+				if (Event.From != Null) FocusZone(Event.From, State.CurrentZoneList.count, False, Event.PlayFocusAnimation);
+				if (Event.To != Null && {{{Scroll::P}}}IsFocused(Event.Scroll)) FocusZone(Event.To, State.CurrentZoneList.count, True, Event.PlayFocusAnimation);
+				if (Event.IsMouse && Event.To != Null && !{{{Scroll::P}}}IsFocused(Event.Scroll)) {
+					Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), State.Controls.Frame_ScrollZones);
+				}
+			}
+			case {{{Scroll::P}}}C_EventType_ReachLimit: {
+				if (Event.NavAction == CMlScriptEvent::EMenuNavAction::Down || Event.NavAction == CMlScriptEvent::EMenuNavAction::Left) {
+					if (!{{{Navigation::P}}}IsLocked(State.Controls.Button_Back)) {
+						Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), State.Controls.Button_Back);
+						{{{MenuSounds::P}}}PlayFocusSound(This, State.Controls.Button_Back);
+					}
+				}
+			}
+		}
+	}
+
+	/* Retrieve zone list task */
+	if (Task::IsInitialized(State.TaskZoneList)) {
+		State.TaskZoneList = Task::Update(State.TaskZoneList);
+		if (!Task::IsRunning(State.TaskZoneList)) {
+			declare CTaskResult_ZoneList SourceTask = Task::GetSourceTask_ZoneList(State.TaskZoneList);
+			if (Task::IsSuccess(State.TaskZoneList) && SourceTask != Null) {
+				if (SourceTask.Zones.count != 0) {
+					State.ScrollZoneList = [];
+					foreach (Zone in SourceTask.Zones) {
+						State.ScrollZoneList.add(K_Zone {
+							Name = C_Zone_Translations.get(Zone.Name, TL::GetTranslatedText(Zone.Name)),
+							Path = Zone.Path,
+							FullPath = Zone.FullPath,
+							FlagUrl = Zone.FlagUrl,
+							CarSkinName = Zone.Model_CarSport_SkinName,
+							CarSkinUrl = Zone.Model_CarSport_SkinUrl,
+							PilotSkinName = Zone.Model_CharacterPilot_SkinName,
+							PilotSkinUrl = Zone.Model_CharacterPilot_SkinUrl
+						});
+					}
+				}
+				State = SwitchUI(State, SourceTask.Zones.count == 0, False);
+			} else {
+				State.CurrentZoneList.clear();
+				State = SwitchUI(State, True, False);
+				if (State.IsEditMode) State.Controls.Label_Error.SetText(TL::Compose("{{{Text_RetrieveAreaError}}}", Task::GetSourceTaskError(State.TaskZoneList).Code));
+			}
+			State.TaskZoneList = Task::Destroy(State.TaskZoneList);
+		}
+	}
+
+	/* Set zone task */
+	if (Task::IsInitialized(State.TaskSetZone)) {
+		State.TaskSetZone = Task::Update(State.TaskSetZone);
+		if (!Task::IsRunning(State.TaskSetZone)) {
+			if (Task::IsSuccess(State.TaskSetZone)) {
+				if (State.Controls.Frame_ConfirmZone.Visible) {{{Router::P}}}PushParent(This);
+			} else {
+				State.Controls.Label_Error.SetText(TL::Compose("{{{Text_SetZoneError}}}", Task::GetSourceTaskError(State.TaskSetZone).Code));
+				{{{ExpendableButton::P}}}SetVisibilityAndNavigation(State.Controls.Button_Skip, True);
+			}
+			{{{LoadingSpinner::P}}}StopAnimWithFade(This, State.Controls.Frame_LoadingSpinner);
+			State.TaskSetZone = Task::Destroy(State.TaskSetZone);
+		}
+	}
+} else {
+	foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case "{{{Router::C_Event_LeavingRoute}}}": {
+				State = Display3DScene(State, False, False);
+				State = K_State {
+					Controls = State.Controls
+				};
+			}
+		}
+	}
+}
+***
+""",
+[
+	Button::ComponentV2(),
+	ButtonIcon::ComponentV2(),
+	ExpendableButton::ComponentV2(),
+	LoadingSpinner::ComponentV2(),
+	MenuSounds::ComponentV2(),
+	Navigation::ComponentV2(),
+	Router::ComponentV2(),
+	Scroll::ComponentV2(),
+	Transition::ComponentV2(),
+	UserStore::ComponentV2()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update from the ManiaApp
+Void Yield() {
+
+}

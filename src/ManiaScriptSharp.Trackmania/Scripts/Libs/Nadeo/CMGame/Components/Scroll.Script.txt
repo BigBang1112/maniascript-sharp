@@ -1,0 +1,2171 @@
+/**
+ *	Component: Scroll
+ *
+ *	Available parameters:
+ *	- data-config -> (all in one json configuration)
+ *	- data-elements-total -> the total number of elements in the scrolling list
+ *	- data-elements-per-line -> the number of elements per line
+ *	- data-elements-per-page -> the number of elements on one page (helper for paging system)
+ *	- data-element-size -> the size of one element
+ *	- data-margin-size -> the size of the margins between elements
+ *	- data-window-size -> the size of the frame clip housing the scrolling list
+ *	- data-header-height -> the height of the header displayed before the elements
+ *	- data-footer-height -> the height of the footer displayed after the elements
+ *	- data-scroll-indicator -> display or not a blinking scroll indicator
+ *	- data-scroll-indicator-y-offset -> add an offset on the Y position of the scroll indicator
+ *	- data-scroll-indicator-x-offset -> add an offset on the X position of the scroll indicator
+ *	- data-enable-anim -> enable or not the scrolling animation
+ *	- data-enable-prescroll -> enable or not the prescroll function (display one line above and below the current focus)
+ *	- data-prescroll-before -> the number of lines to display before the current focus when navigating upward
+ *	- data-prescroll-after -> the number of lines to display after the current focus when navigating downward
+ *	- data-scroll-grid-size -> the size of the scroll grid
+ *	- data-scrollbar-visibility -> select when the scrollbar is visible : always, never or during scroll
+ *	- data-scrollpadding -> the size of the padding around the scroll window
+ *	- data-skew -> the angle of the skew in degrees
+ *	- data-skew-header -> enable or disable the skew for the header part of the scroll
+ *	- data-skew-footer -> enable or disable the skew for the footer part of the scroll
+ *	- data-skew-valign -> the origin of the skew deformation (C_SkewVAlign_Top [default], C_SkewVAlign_Center, C_SkewVAlign_Bottom)
+ *	- data-scroll-indicator-image -> image for the scroll indicator
+ *	- data-scroll-indicator-colorize -> colorize for the scroll indicator
+ *	- data-scroll-indicator-size -> size for the scroll indicator
+ *	- data-scroll-locked -> lock or not the scroll
+ *	- data-scrollbar-xoffset -> offset for scrollbar
+ *	- data-pager-page-size -> number of elements in one page
+ *	- data-pager-trigger-size -> number of elements to retrieve after the page before triggering an update
+ *	- data-pager-margin-size -> number of elements to retrieve after the trigger
+ *															margin <-- trigger <-- page  --> trigger --> margin
+ *															2      <-- 5       <-- 10-19 -->      24 -->     27
+ *	Available classes:
+ *	- C_Class_Window -> The window of the scroll
+ *	- C_Class_Element -> An element of the scroll
+ *	- C_Class_Header -> The header of the scroll
+ *	- C_Class_Footer -> The footer of the scroll
+ *	- C_Class_ScrollEvent -> Quad used to generate the mousewheel scroll events
+ *	- C_Class_ActivationZone -> Activation zone for the mouse navigation of a scroll element
+ *	- C_Class_ClampedControl -> Allow controls to be clamped in the top and/or bottom edge of the scroll
+ *	- C_Class_StickControl -> Allow controls to stick to the scroll and follow the skew
+ *
+ *	Available only on clamped controls (C_Class_ClampedControl)
+ *	- data-clamped-control-type -> select how the clamped control will behave (C_ClampedControlType_Top, C_ClampedControlType_Bottom, C_ClampedControlType_Both [default])
+ *	- data-clamped-control-valign -> vertical alignment of the clamped control (C_ClampedControlVAlign_Top [default], C_ClampedControlVAlign_Center, C_ClampedControlVAlign_Bottom)
+ *	- data-clamped-control-height -> height of the clamped control
+ *
+ *	Generate events:
+ *	- C_EventType_Update -> the elements frame have been updated
+ *	- C_EventType_DisplayStart -> the scroll window display the first elements
+ *	- C_EventType_DisplayEnd -> the scroll window display the last elements
+ *	- C_EventType_Focus -> the user focused an element
+ *	- C_EventType_Select -> the user selected an element
+ *	- C_EventType_ReachLimit -> the user tried to select an element above or below the limit
+ *	- C_EventType_Cancel -> the user pressed the cancel button on an element
+ *	- C_EventType_NavAction -> the user navigated in the elements
+ *	- C_EventType_ClampUpdate -> a clamped element has been updated
+ *	- C_EventType_PagerUpdate -> a new page is displayed
+ */
+#Const Version		"1.1.0"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/Scroll.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "AnimLib" as AL
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Menus/ShareMenuNavigation_ML.Script.txt" as ShareMenuNavigation
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Config {
+	Integer DefaultElementsTotal;
+	Integer ElementsPerLine;
+	Integer ElementsPerPage;
+	Vec2 ElementSize;
+	Vec2 MarginSize;
+	Vec2 WindowSize;
+	Real HeaderHeight;
+	Real FooterHeight;
+	Boolean ScrollIndicator;
+	Real ScrollIndicatorYOffset;
+	Real ScrollIndicatorXOffset;
+	Boolean AnimEnabled;
+	Boolean PreScrollEnabled;
+	Integer PreScrollBefore;
+	Integer PreScrollAfter;
+	Real PreScrollRatioBefore;
+	Real PreScrollRatioAfter;
+	Vec2 ScrollGrid;
+	Integer ScrollBarVisibility;
+	Real ScrollPadding;
+	Real Skew;
+	Boolean SkewHeader;
+	Boolean SkewFooter;
+	Integer SkewVAlign;
+	Text ScrollIndicatorImage;
+	Vec3 ScrollIndicatorColorize;
+	Real ScrollIndicatorSize;
+	Real ScrollBarXOffset;
+	Integer PagerPageSize;
+	Integer PagerTriggerSize;
+	Integer PagerMarginSize;
+}
+
+#Struct K_ScrollAnimation {
+	Integer StartTime;
+	Real ScrollStart;
+	Real ScrollDelta;
+	Integer Duration;
+}
+
+#Struct K_ClampedControl {
+	CMlControl Control;
+	Integer Type;
+	Vec2 Limit;
+	Real Origin;
+	Boolean ClampedTop;
+	Boolean ClampedBottom;
+}
+
+#Struct K_Pager {
+	Integer ThrottleEndTime;
+	Integer CooldownEndTime;
+	Int2 Limits;
+}
+
+#Struct K_Scroll {
+	K_Config Config;
+	K_ScrollAnimation Animation;
+	Integer ElementsTotal;
+	CMlFrame[] Elements;
+	CMlFrame Header;
+	CMlFrame Footer;
+	Boolean IsFocused;
+	Integer FocusedElementKey;
+	CMlFrame FocusedElement;
+	CMlControl ScrollIndicator;
+	Vec2 ScrollIndicatorBaseOffset;
+	Boolean CanPreScroll;
+	Boolean IsDisplayingStart;
+	Boolean IsDisplayingEnd;
+	Boolean IsLoadingSpinnerDisplayed;
+	CMlQuad EventGenerator;
+	Vec2 ScrollOffset;
+	CMlFrame ScrollBar;
+	Boolean IsInitialized;
+	Real ScrollBarWidth;
+	Integer ScrollBarHideTime;
+	K_ClampedControl[] ClampedControls;
+	CMlControl[] StickControls;
+	Boolean ScrollLocked;
+	Vec2 ScrollLockPosition;
+	K_Pager Pager;
+	Text[][] EventCustomData;
+	Integer[] LockedElements;
+	CMlFrame Frame_LoadingSpinner;
+}
+
+#Struct K_ScrollBar {
+	CMlFrame Scroll;
+	Real AbsoluteTop;
+	Real AbsoluteBottom;
+	Real ClickShift;
+	Real Height;
+}
+
+#Struct K_ScrollPosition {
+	Integer Row;
+	Integer StartKey;
+	Integer EndKey;
+}
+
+#Struct K_Event {
+	Integer Type;
+	CMlFrame Scroll;
+	CMlFrame[Integer] ElementsVisible;
+	CMlFrame[Integer] ElementsHidden;
+	K_ScrollPosition ScrollPosition;
+	Integer Page;
+	Boolean DelayedElementsUpdate;
+	CMlFrame From;
+	Integer FromKey;
+	CMlFrame To;
+	Integer ToKey;
+	CMlScriptEvent::EMenuNavAction NavAction;
+	Boolean IsMouse;
+	K_ClampedControl ClampedControl;
+	Integer PagerOffset;
+	Integer PagerCount;
+	Text[][] CustomData;
+	Boolean PlayFocusAnimation;
+	Boolean IsActionAutoRepeat;
+}
+
+#Struct K_ActivationZone {
+	CMlFrame Scroll;
+	Integer ElementRelativeKey;
+	CMlFrame Element;
+}
+
+#Struct K_State {
+	CMlFrame Frame_ActiveScrollBar;
+	K_Event[] DelayedPendingEvents;
+	K_Event[] PendingEvents;
+	Boolean UseLocalEvents;
+	CMlFrame[] Frames_Scroll;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constant
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Scroll_Null K_Scroll {
+	Config = K_Config {},
+	Animation = K_ScrollAnimation {},
+	ElementsTotal = 0,
+	Elements = [],
+	IsFocused = False,
+	FocusedElementKey = 0,
+	ScrollIndicatorBaseOffset = <0., 0.>,
+	CanPreScroll = False,
+	IsDisplayingStart = False,
+	IsDisplayingEnd = False,
+	IsLoadingSpinnerDisplayed = False,
+	ScrollOffset = <0., 0.>,
+	IsInitialized = False,
+	ScrollBarWidth = 0.,
+	ScrollBarHideTime = 0,
+	ClampedControls = [],
+	StickControls = [],
+	ScrollLocked = False,
+	ScrollLockPosition = <0., 0.>,
+	Pager = K_Pager {},
+	EventCustomData = [],
+	LockedElements = []
+}
+#Const C_ScrollBar_Null K_ScrollBar {
+	AbsoluteTop = 0.,
+	AbsoluteBottom = 0.,
+	ClickShift = 0.,
+	Height = 0.
+}
+#Const C_ActivationZone_Null K_ActivationZone {
+	ElementRelativeKey = 0
+}
+#Const C_State_Null K_State {
+	DelayedPendingEvents = [],
+	PendingEvents = [],
+	UseLocalEvents = False,
+	Frames_Scroll = []
+}
+
+#Const C_Name "menu-libs-scroll" //< Component name
+#Const P "CMGame_Scroll::" //< Prefix use to differentiate functions/variables in the script
+#Const Q "CMGame_Scroll"
+#Const C_Path_Image "file://Media/Manialinks/Nadeo/CMGame/Components/Scroll/"
+
+#Const C_Class_Window "menu-libs-scroll-window"
+#Const C_Class_Element "menu-libs-scroll-element"
+#Const C_Class_Header "menu-libs-scroll-header"
+#Const C_Class_Footer "menu-libs-scroll-footer"
+#Const C_Class_ScrollEvent "menu-libs-scroll-event"
+#Const C_Class_ActivationZone "menu-libs-scroll-activation-zone"
+#Const C_Class_ClampedControl "menu-libs-scroll-clamped-control"
+#Const C_Class_StickControl "menu-libs-scroll-stick-control"
+
+#Const C_ScrollingAnimDuration 250
+#Const C_ScrollBarVisibilityDuration 2500
+
+#Const C_ScrollBarVisibility_Never 0
+#Const C_ScrollBarVisibility_Always 1
+#Const C_ScrollBarVisibility_DuringScroll 2
+
+#Const C_SkewVAlign_Top 0
+#Const C_SkewVAlign_Center 1
+#Const C_SkewVAlign_Bottom 2
+
+#Const C_ClampedControlType_Top 0
+#Const C_ClampedControlType_Bottom 1
+#Const C_ClampedControlType_Both 2
+
+#Const C_ClampedControlVAlign_Top 0
+#Const C_ClampedControlVAlign_Center 1
+#Const C_ClampedControlVAlign_Bottom 2
+
+#Const C_EventType_Update 0
+#Const C_EventType_DisplayStart 1
+#Const C_EventType_DisplayEnd 2
+#Const C_EventType_Focus 3
+#Const C_EventType_Select 4
+#Const C_EventType_ReachLimit 5
+#Const C_EventType_Cancel 6
+#Const C_EventType_NavAction 7
+#Const C_EventType_ClampUpdate 8
+#Const C_EventType_PagerUpdate 9
+
+#Const C_Action_Click 0
+#Const C_Action_Unclick 1
+#Const C_Action_Over 2
+#Const C_Action_Out 3
+
+#Const C_Direction_Null 0
+#Const C_Direction_Up 1
+#Const C_Direction_Right 2
+#Const C_Direction_Down 3
+#Const C_Direction_Left 4
+
+#Const C_PagerThrottleDuration 1000
+
+#Const C_SizeX_ScrollBar 2.
+#Const C_SizeX_ScrollBarMargin 1.
+#Const C_Color_ScrollBarBg "ffffff"
+#Const C_Color_ScrollBarFg "ffffff"
+#Const C_Color_ScrollBarFg_Over "777777"
+#Const C_Color_ScrollBarFg_Click "555555"
+#Const C_Opacity_ScrollBarBg 0.3
+#Const C_Opacity_ScrollBarFg 0.8
+
+#Const C_Class_ScrollWidgets "menu-libs-scroll_scroll-widgets"
+#Const C_Class_ScrollbarBg "menu-libs-scroll_scrollbar-bg"
+#Const C_Class_ScrollbarFg "menu-libs-scroll_scrollbar-fg"
+#Const C_Id_FrameLoadingSpinner "menu-libs-scroll_frame-loading-spinner"
+#Const C_Id_LabelScrollIndicator "menu-libs-scroll_label-scroll-indicator"
+#Const C_Id_QuadScrollIndicator "menu-libs-scroll_quad-scroll-indicator"
+#Const C_Id_FrameScrollbar "menu-libs-scroll_frame-scrollbar"
+#Const C_Id_FrameScrollbarDuringScroll "menu-libs-scroll_frame-scrollbar-during-scroll"
+#Const C_Id_FrameScrollbarBg "menu-libs-scroll_frame-scrollbar-bg"
+#Const C_Id_FrameScrollbarFg "menu-libs-scroll_frame-scrollbar-fg"
+#Const C_Id_QuadTop "menu-libs-scroll_quad-top"
+#Const C_Id_QuadCenter "menu-libs-scroll_quad-center"
+#Const C_Id_QuadBottom "menu-libs-scroll_quad-bottom"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Compute the size of one element with
+ *	the given properties
+ */
+Vec2 GetElementSize(
+	Vec2 _WindowSize,
+	Vec2 _MarginSize,
+	Integer _ElementsXNb,
+	Integer _ElementsYNb,
+	Vec2 _OverflowSize
+) {
+	assert(
+		_WindowSize.X > 0. && _WindowSize.Y > 0. &&
+		_MarginSize.X >= 0. && _MarginSize.Y >= 0. &&
+		_ElementsXNb > 0 && _ElementsYNb > 0 &&
+		_OverflowSize.X >= 0. && _OverflowSize.Y >= 0.,
+		"Invalid size"
+	);
+	return <
+		(_WindowSize.X + _OverflowSize.X - ((_ElementsXNb - 1) * _MarginSize.X)) / _ElementsXNb,
+		(_WindowSize.Y + _OverflowSize.Y - ((_ElementsYNb - 1) * _MarginSize.Y)) / _ElementsYNb
+	>;
+}
+Vec2 GetElementSize(Vec2 _WindowSize, Vec2 _MarginSize, Integer _ElementsXNb, Integer _ElementsYNb) {
+	return GetElementSize(_WindowSize, _MarginSize, _ElementsXNb, _ElementsYNb, <0., 0.>);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the size of the scroll adapted to the size of an element
+Vec2 GetWindowSize(
+	Vec2 _ElementSize,
+	Vec2 _ElementMarginsSize,
+	Int2 _ElementsNb,
+	Vec2 _OverflowSize
+) {
+	assert(
+		_ElementSize.X > 0. && _ElementSize.Y > 0. &&
+		_ElementMarginsSize.X >= 0. && _ElementMarginsSize.Y >= 0. &&
+		_ElementsNb.X > 0 && _ElementsNb.Y > 0 &&
+		_OverflowSize.X >= 0. && _OverflowSize.Y >= 0.,
+		"Invalid size"
+	);
+	return <
+		(_ElementSize.X * _ElementsNb.X) + (_ElementMarginsSize.X * (_ElementsNb.X - 1)) - _OverflowSize.X,
+		(_ElementSize.Y * _ElementsNb.Y) + (_ElementMarginsSize.Y * (_ElementsNb.Y - 1)) - _OverflowSize.Y
+	>;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the number of scrolling element frames
+ *	that must be included in the manialink
+ */
+Integer GetRequiredElementsNb(Vec2 _WindowSize, Vec2 _ElementSize, Vec2 _MarginSize, Integer _ElementsPerLine) {
+	return (ML::CeilingInteger(_WindowSize.Y / (_ElementSize.Y + _MarginSize.Y)) + 1) * _ElementsPerLine;
+}
+
+Text GetManialink() {
+	return """
+<frame class="{{{C_Class_ScrollWidgets}}}">
+	<frameinstance id="{{{C_Id_FrameLoadingSpinner}}}" modelid="{{{LoadingSpinner::C_Name}}}" z-index="3"/>
+	<label id="{{{C_Id_LabelScrollIndicator}}}" halign="center" valign="bottom" textsize="8" text="" hidden="1" scriptevents="1" />
+	<quad id="{{{C_Id_QuadScrollIndicator}}}" halign="center" valign="bottom" size="8 8" hidden="1" scriptevents="1" />
+	<frame id="{{{C_Id_FrameScrollbar}}}" hidden="1">
+		<frame id="{{{C_Id_FrameScrollbarDuringScroll}}}">
+			<frame id="{{{C_Id_FrameScrollbarBg}}}" z-index="0">
+				<quad id="{{{C_Id_QuadTop}}}" class="{{{C_Class_ScrollbarBg}}}" halign="center" rot="180" opacity="{{{C_Opacity_ScrollBarBg}}}" colorize="{{{C_Color_ScrollBarBg}}}" image="{{{C_Path_Image}}}/ScrollBar_TopBottom.dds" scriptevents="1" />
+				<quad id="{{{C_Id_QuadCenter}}}" class="{{{C_Class_ScrollbarBg}}}" halign="center" opacity="{{{C_Opacity_ScrollBarBg}}}" colorize="{{{C_Color_ScrollBarBg}}}" image="{{{C_Path_Image}}}/ScrollBar_Center.dds" scriptevents="1" />
+				<quad id="{{{C_Id_QuadBottom}}}" class="{{{C_Class_ScrollbarBg}}}" halign="center" opacity="{{{C_Opacity_ScrollBarBg}}}" colorize="{{{C_Color_ScrollBarBg}}}" image="{{{C_Path_Image}}}/ScrollBar_TopBottom.dds" scriptevents="1" />
+			</frame>
+			<frame id="{{{C_Id_FrameScrollbarFg}}}" z-index="1">
+				<quad id="{{{C_Id_QuadTop}}}" class="{{{C_Class_ScrollbarFg}}}" halign="center" rot="180" opacity="{{{C_Opacity_ScrollBarFg}}}" colorize="{{{C_Color_ScrollBarFg}}}" image="{{{C_Path_Image}}}/ScrollBar_TopBottom.dds" scriptevents="1" />
+				<quad id="{{{C_Id_QuadCenter}}}" class="{{{C_Class_ScrollbarFg}}}" halign="center" opacity="{{{C_Opacity_ScrollBarFg}}}" colorize="{{{C_Color_ScrollBarFg}}}" image="{{{C_Path_Image}}}/ScrollBar_Center.dds" scriptevents="1" />
+				<quad id="{{{C_Id_QuadBottom}}}" class="{{{C_Class_ScrollbarFg}}}" halign="center" opacity="{{{C_Opacity_ScrollBarFg}}}" colorize="{{{C_Color_ScrollBarFg}}}" image="{{{C_Path_Image}}}/ScrollBar_TopBottom.dds" scriptevents="1" />
+			</frame>
+		</frame>
+	</frame>
+</frame>
+	""";
+}
+
+Void Private_SetScrollBarSize(CMlFrame _Frame_ScrollBarQuads, Vec2 _Size) {
+	declare CMlQuad Quad_Top <=> (_Frame_ScrollBarQuads.GetFirstChild(C_Id_QuadTop) as CMlQuad);
+	declare CMlQuad Quad_Center <=> (_Frame_ScrollBarQuads.GetFirstChild(C_Id_QuadCenter) as CMlQuad);
+	declare CMlQuad Quad_Bottom <=> (_Frame_ScrollBarQuads.GetFirstChild(C_Id_QuadBottom) as CMlQuad);
+	Quad_Top.Size = <_Size.X, _Size.X * 0.5>;
+	Quad_Bottom.Size = <_Size.X, _Size.X * 0.5>;
+	Quad_Center.Size = <_Size.X, ML::Max(0., _Size.Y - Quad_Top.Size.Y - Quad_Bottom.Size.Y)>;
+	_Frame_ScrollBarQuads.RelativePosition_V3.X = (_Size.X * 0.5) + C_SizeX_ScrollBarMargin;
+	Quad_Top.RelativePosition_V3.Y = -Quad_Top.Size.Y;
+	Quad_Center.RelativePosition_V3.Y = Quad_Top.RelativePosition_V3.Y;
+	Quad_Bottom.RelativePosition_V3.Y = Quad_Center.RelativePosition_V3.Y - Quad_Center.Size.Y;
+	declare K_ScrollBar CMGame_Scroll_ScrollBar for _Frame_ScrollBarQuads = C_ScrollBar_Null;
+	CMGame_Scroll_ScrollBar.Height = _Size.Y;
+}
+
+Void Private_DisplayScrollBar(CMlScript _This, CMlFrame _Frame_ScrollBar, Boolean _Visible) {
+	declare CMlFrame Frame_ScrollBarDuringScroll <=> (_Frame_ScrollBar.GetFirstChild(C_Id_FrameScrollbarDuringScroll) as CMlFrame);
+	declare CMlFrame Frame_ScrollBarFg <=> (Frame_ScrollBarDuringScroll.GetFirstChild(C_Id_FrameScrollbarFg) as CMlFrame);
+	declare CMlFrame Frame_ScrollBarBg <=> (Frame_ScrollBarDuringScroll.GetFirstChild(C_Id_FrameScrollbarBg) as CMlFrame);
+
+	declare Real OpacityBg = 0.;
+	declare Real OpacityFg = 0.;
+	declare Boolean PlayAnimation = True;
+	if (_Visible) {
+		OpacityFg = C_Opacity_ScrollBarFg;
+		OpacityBg = C_Opacity_ScrollBarBg;
+		PlayAnimation = !Frame_ScrollBarDuringScroll.Visible;
+		Frame_ScrollBarDuringScroll.Visible = True;
+	} else {
+		_This.AnimMgr.Add(Frame_ScrollBarDuringScroll, "<a hidden=\"1\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	if (PlayAnimation) {
+		foreach (Control in Frame_ScrollBarFg.Controls) {
+			_This.AnimMgr.Add(Control, "<a opacity=\""^OpacityFg^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+		foreach (Control in Frame_ScrollBarBg.Controls) {
+			_This.AnimMgr.Add(Control, "<a opacity=\""^OpacityBg^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	}
+}
+
+K_ScrollPosition Private_GetScrollPosition(K_Scroll _Scroll) {
+	declare Integer Row = ML::Max(0, ML::FloorInteger((_Scroll.ScrollOffset.Y - _Scroll.Config.HeaderHeight) / (_Scroll.Config.ElementSize.Y + _Scroll.Config.MarginSize.Y)));
+	declare Integer StartKey = Row * _Scroll.Config.ElementsPerLine;
+	declare Integer EndKey = StartKey + _Scroll.Elements.count - 1;
+	return K_ScrollPosition {
+		Row = Row,
+		StartKey = StartKey,
+		EndKey = EndKey
+	};
+}
+K_ScrollPosition Private_GetScrollPosition(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	return Private_GetScrollPosition(CMGame_Scroll_Scroll);
+}
+
+Void Private_SetFocusedElementKey(CMlScript _This, CMlFrame _Frame_Scroll, Integer _StartElementKey, Integer _FocusedElementKey, Boolean _IsMouse, Boolean _SendFocusEvent, Boolean _PlayFocusAnimation) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+
+	// Prevent focus on locked element
+	declare Integer FocusedElementKey = _FocusedElementKey;
+	declare Boolean NewFocusedElementIsLocked = (CMGame_Scroll_Scroll.LockedElements.count > 0 && CMGame_Scroll_Scroll.LockedElements.exists(FocusedElementKey));
+	declare Boolean FoundElementKey = !NewFocusedElementIsLocked;
+	declare CMlScriptEvent::EMenuNavAction ReachLimitNavAction = CMlScriptEvent::EMenuNavAction::Down;
+
+	// Search for an alternative element to focus only when using the keyboard or gamepad
+	// When using the mouse, the focus should stay on the last unlocked element focused
+	if (NewFocusedElementIsLocked && !_IsMouse) {
+		declare Integer Direction = C_Direction_Null;
+		declare Boolean IsOnSameLine = False;
+		declare Integer LineStartKey = CMGame_Scroll_Scroll.FocusedElementKey;
+		if (CMGame_Scroll_Scroll.Config.ElementsPerLine > 1) {
+			LineStartKey = CMGame_Scroll_Scroll.FocusedElementKey - (CMGame_Scroll_Scroll.FocusedElementKey % CMGame_Scroll_Scroll.Config.ElementsPerLine);
+			IsOnSameLine = (FocusedElementKey >= LineStartKey && FocusedElementKey < LineStartKey + CMGame_Scroll_Scroll.Config.ElementsPerLine);
+		}
+		if (FocusedElementKey > CMGame_Scroll_Scroll.FocusedElementKey) {
+			if (IsOnSameLine) {
+				Direction = C_Direction_Right;
+				ReachLimitNavAction = CMlScriptEvent::EMenuNavAction::Right;
+			} else {
+				Direction = C_Direction_Down;
+				ReachLimitNavAction = CMlScriptEvent::EMenuNavAction::Down;
+			}
+		} else if (FocusedElementKey < CMGame_Scroll_Scroll.FocusedElementKey) {
+			if (IsOnSameLine) {
+				Direction = C_Direction_Left;
+				ReachLimitNavAction = CMlScriptEvent::EMenuNavAction::Left;
+			} else {
+				Direction = C_Direction_Up;
+				ReachLimitNavAction = CMlScriptEvent::EMenuNavAction::Up;
+			}
+		}
+
+		// When moving up or down, we don't want to skip to the next unlocked element vertically
+		// It could make some elements inaccessible
+		// eg : 00 01 xx 03 04
+		//			xx xx 07 xx xx
+		//			xx xx 12 xx xx
+		//      15 16 xx 18 19
+		// Elements 7 and 12 cannot be accessed from the other elements if we skip vertically
+		// Instead if the element above or below is locked we try to access other elements on the same line
+		// eg : pressing down while focusing 01 should focus 07 and not 16
+		FocusedElementKey = CMGame_Scroll_Scroll.FocusedElementKey;
+		if (Direction == C_Direction_Up) {
+			if (CMGame_Scroll_Scroll.Config.ElementsPerLine > 1) {
+				for (LineElementKey, 0, FocusedElementKey - CMGame_Scroll_Scroll.Config.ElementsPerLine, -CMGame_Scroll_Scroll.Config.ElementsPerLine) {
+					declare Integer LocalLineStartKey = LineElementKey - (LineElementKey % CMGame_Scroll_Scroll.Config.ElementsPerLine);
+					for (ColumnShift, 0, CMGame_Scroll_Scroll.Config.ElementsPerLine - 1) {
+						if (
+							LineElementKey + ColumnShift > LocalLineStartKey + CMGame_Scroll_Scroll.Config.ElementsPerLine - 1 &&
+							LineElementKey - ColumnShift < LocalLineStartKey
+						) {
+							break;
+						} else if (
+							LineElementKey + ColumnShift <= LocalLineStartKey + CMGame_Scroll_Scroll.Config.ElementsPerLine - 1 &&
+							!CMGame_Scroll_Scroll.LockedElements.exists(LineElementKey + ColumnShift)
+						) {
+							FocusedElementKey = LineElementKey + ColumnShift;
+							FoundElementKey = True;
+						} else if (
+							LineElementKey - ColumnShift >= LocalLineStartKey &&
+							!CMGame_Scroll_Scroll.LockedElements.exists(LineElementKey - ColumnShift)
+						) {
+							FocusedElementKey = LineElementKey - ColumnShift;
+							FoundElementKey = True;
+						}
+						if (FoundElementKey) break;
+					}
+					if (FoundElementKey) break;
+				}
+			} else {
+				for (ElementKey, 0, FocusedElementKey - CMGame_Scroll_Scroll.Config.ElementsPerLine, -CMGame_Scroll_Scroll.Config.ElementsPerLine) {
+					if (!CMGame_Scroll_Scroll.LockedElements.exists(ElementKey)) {
+						FocusedElementKey = ElementKey;
+						FoundElementKey = True;
+						break;
+					}
+				}
+			}
+		} else if (Direction == C_Direction_Down) {
+			if (CMGame_Scroll_Scroll.Config.ElementsPerLine > 1) {
+				for (LineElementKey, FocusedElementKey + CMGame_Scroll_Scroll.Config.ElementsPerLine, CMGame_Scroll_Scroll.ElementsTotal - 1, CMGame_Scroll_Scroll.Config.ElementsPerLine) {
+					declare Integer LocalLineStartKey = LineElementKey - (LineElementKey % CMGame_Scroll_Scroll.Config.ElementsPerLine);
+					for (ColumnShift, 0, CMGame_Scroll_Scroll.Config.ElementsPerLine - 1) {
+						if (
+							LineElementKey - ColumnShift < LocalLineStartKey &&
+							LineElementKey + ColumnShift > LocalLineStartKey + CMGame_Scroll_Scroll.Config.ElementsPerLine - 1
+						) {
+							break;
+						} else if (
+							LineElementKey - ColumnShift >= LocalLineStartKey &&
+							!CMGame_Scroll_Scroll.LockedElements.exists(LineElementKey - ColumnShift)
+						) {
+							FocusedElementKey = LineElementKey - ColumnShift;
+							FoundElementKey = True;
+						} else if (
+							LineElementKey + ColumnShift <= LocalLineStartKey + CMGame_Scroll_Scroll.Config.ElementsPerLine - 1 &&
+							LineElementKey + ColumnShift <= CMGame_Scroll_Scroll.ElementsTotal - 1 &&
+							!CMGame_Scroll_Scroll.LockedElements.exists(LineElementKey + ColumnShift)
+						) {
+							FocusedElementKey = LineElementKey + ColumnShift;
+							FoundElementKey = True;
+						}
+						if (FoundElementKey) break;
+					}
+					if (FoundElementKey) break;
+				}
+			} else {
+				for (ElementKey, FocusedElementKey + CMGame_Scroll_Scroll.Config.ElementsPerLine, CMGame_Scroll_Scroll.ElementsTotal - 1, CMGame_Scroll_Scroll.Config.ElementsPerLine) {
+					if (!CMGame_Scroll_Scroll.LockedElements.exists(ElementKey)) {
+						FocusedElementKey = ElementKey;
+						FoundElementKey = True;
+						break;
+					}
+				}
+			}
+		} else if (Direction == C_Direction_Left) {
+			for (ElementKey, LineStartKey, FocusedElementKey - 2, -1) {
+				if (!CMGame_Scroll_Scroll.LockedElements.exists(ElementKey)) {
+					FocusedElementKey = ElementKey;
+					FoundElementKey = True;
+					break;
+				}
+			}
+		} else if (Direction == C_Direction_Right) {
+			for (ElementKey, FocusedElementKey + 2, LineStartKey + CMGame_Scroll_Scroll.Config.ElementsPerLine - 1) {
+				if (!CMGame_Scroll_Scroll.LockedElements.exists(ElementKey)) {
+					FocusedElementKey = ElementKey;
+					FoundElementKey = True;
+					break;
+				}
+			}
+		} else {
+			// Try to focus an element after
+			for (ElementKey, FocusedElementKey + 1, CMGame_Scroll_Scroll.ElementsTotal - 1) {
+				if (!CMGame_Scroll_Scroll.LockedElements.exists(ElementKey)) {
+					FocusedElementKey = ElementKey;
+					FoundElementKey = True;
+					break;
+				}
+			}
+			// Try to focus an element before
+			if (!FoundElementKey) {
+				for (ElementKey, 0, FocusedElementKey - 1, -1) {
+					if (!CMGame_Scroll_Scroll.LockedElements.exists(ElementKey)) {
+						FocusedElementKey = ElementKey;
+						FoundElementKey = True;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	declare K_Event FocusEvent = K_Event {
+		Type = C_EventType_Focus,
+		Scroll = _Frame_Scroll,
+		From = CMGame_Scroll_Scroll.FocusedElement,
+		FromKey = CMGame_Scroll_Scroll.FocusedElementKey,
+		To = Null,
+		ToKey = FocusedElementKey,
+		IsMouse = _IsMouse,
+		PlayFocusAnimation = _PlayFocusAnimation
+	};
+	declare Integer ElementKey = FocusedElementKey - _StartElementKey;
+	if (CMGame_Scroll_Scroll.Elements.existskey(ElementKey)) {
+		FocusEvent.To = CMGame_Scroll_Scroll.Elements[ElementKey];
+	}
+
+	// If the new focused element is not locked or if we found an alternative one
+	declare K_State CMGame_Scroll_State for _This.Page = C_State_Null;
+	if (!NewFocusedElementIsLocked || FoundElementKey) {
+		CMGame_Scroll_Scroll.FocusedElement = FocusEvent.To;
+		CMGame_Scroll_Scroll.FocusedElementKey = FocusEvent.ToKey;
+		if (_SendFocusEvent) {
+			CMGame_Scroll_State.DelayedPendingEvents.add(FocusEvent);
+		}
+	}
+	// If the new focused element is locked and we did not found an alternative one and we are not using the mouse
+	else if (!_IsMouse) {
+		CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+			Type = C_EventType_ReachLimit,
+			Scroll = _Frame_Scroll,
+			From = FocusEvent.From,
+			FromKey = FocusEvent.FromKey,
+			NavAction = ReachLimitNavAction
+		});
+	}
+}
+Void Private_SetFocusedElementKey(CMlScript _This, CMlFrame _Frame_Scroll, Integer _StartElementKey, Integer _FocusedElementKey, Boolean _IsMouse, Boolean _SendFocusEvent) {
+	Private_SetFocusedElementKey(_This, _Frame_Scroll, _StartElementKey, _FocusedElementKey, _IsMouse, _SendFocusEvent, True);
+}
+Void Private_SetFocusedElementKey(CMlScript _This, CMlFrame _Frame_Scroll, Integer _StartElementKey, Integer _FocusedElementKey, Boolean _IsMouse) {
+	Private_SetFocusedElementKey(_This, _Frame_Scroll, _StartElementKey, _FocusedElementKey, _IsMouse, True);
+}
+Void Private_SetFocusedElementKey(CMlScript _This, CMlFrame _Frame_Scroll, Integer _StartElementKey, Integer _FocusedElementKey) {
+	Private_SetFocusedElementKey(_This, _Frame_Scroll, _StartElementKey, _FocusedElementKey, False, True);
+}
+Void SetFocusedElementKey(CMlScript _This, CMlFrame _Frame_Scroll, Integer _ElementKey, Boolean _IsMouse, Boolean _SendFocusEvent) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	Private_SetFocusedElementKey(_This, _Frame_Scroll, Private_GetScrollPosition(CMGame_Scroll_Scroll).StartKey, _ElementKey, _IsMouse, _SendFocusEvent);
+}
+
+Void Private_ApplySkewToControl(K_Scroll _Scroll, Real _Offset, CMlControl _Control) {
+	declare Real OffsetFromWindowTop = (-_Control.RelativePosition_V3.Y - _Scroll.Config.HeaderHeight - _Offset);
+	if (_Scroll.Config.SkewVAlign == C_SkewVAlign_Center) {
+		OffsetFromWindowTop -= ((_Scroll.Config.WindowSize.Y - _Scroll.Config.ElementSize.Y) * 0.5);
+	} else if (_Scroll.Config.SkewVAlign == C_SkewVAlign_Bottom) {
+		OffsetFromWindowTop -= (_Scroll.Config.WindowSize.Y - _Scroll.Config.ElementSize.Y);
+	}
+	declare Real CMGame_Scroll_BasePosX for _Control = 0.;
+	_Control.RelativePosition_V3.X = CMGame_Scroll_BasePosX + (OffsetFromWindowTop * ML::Tan(ML::DegToRad(_Scroll.Config.Skew)));
+}
+
+Void Private_ApplySkew(K_Scroll _Scroll) {
+	if (_Scroll.Config.Skew > -0.1 && _Scroll.Config.Skew < 0.1) return;
+
+	declare Real Offset = 0.;
+	if (_Scroll.Config.SkewHeader) {
+		Offset = _Scroll.ScrollOffset.Y;
+	} else if (_Scroll.ScrollOffset.Y > _Scroll.Config.HeaderHeight) {
+		Offset = _Scroll.ScrollOffset.Y - _Scroll.Config.HeaderHeight;
+	}
+
+	foreach (Frame_Element in _Scroll.Elements) {
+		Private_ApplySkewToControl(_Scroll, Offset, Frame_Element);
+	}
+
+	foreach (StickControl in _Scroll.StickControls) {
+		Private_ApplySkewToControl(_Scroll, Offset, StickControl);
+	}
+
+	if (_Scroll.Config.SkewHeader) {
+		Private_ApplySkewToControl(_Scroll, _Scroll.ScrollOffset.Y, _Scroll.Header);
+	}
+
+	if (_Scroll.Config.SkewFooter) {
+		Private_ApplySkewToControl(_Scroll, _Scroll.ScrollOffset.Y, _Scroll.Footer);
+	}
+}
+
+Void Private_UpdateElementsPosition(K_Scroll _Scroll, K_ScrollPosition _ScrollPosition) {
+	foreach (Key => Frame_Element in _Scroll.Elements) {
+		declare Integer Row = _ScrollPosition.Row + (Key / _Scroll.Config.ElementsPerLine);
+		declare Integer Column = Key % _Scroll.Config.ElementsPerLine;
+		Frame_Element.RelativePosition_V3.Y = -_Scroll.Config.HeaderHeight - (Row * (_Scroll.Config.ElementSize.Y + _Scroll.Config.MarginSize.Y));
+		Frame_Element.RelativePosition_V3.X = _Scroll.Config.ScrollPadding + (Column * (_Scroll.Config.ElementSize.X + _Scroll.Config.MarginSize.X));
+
+		declare Real CMGame_Scroll_BasePosX for Frame_Element = 0.;
+		CMGame_Scroll_BasePosX = Frame_Element.RelativePosition_V3.X;
+	}
+
+	Private_ApplySkew(_Scroll);
+}
+
+Boolean CanScroll(CMlFrame _Frame_Scroll) {
+	return (_Frame_Scroll.ScrollMax.Y > ML::Pow(10., -3.)); //< Avoid precision error
+}
+
+Void Private_DisplayScrollIndicator(K_Scroll _Scroll, CMlFrame _Frame_Scroll) {
+	if (_Scroll.ScrollIndicator != Null) {
+		_Scroll.ScrollIndicator.Visible = (
+			_Frame_Scroll.Visible &&
+			!_Scroll.IsLoadingSpinnerDisplayed &&
+			_Scroll.ScrollOffset.Y < _Frame_Scroll.ScrollMax.Y - 0.1 &&
+			CanScroll(_Frame_Scroll)
+		);
+	}
+}
+
+Void Private_Scroll(CMlScript _This, CMlFrame _Frame_Scroll, Real _ScrollDelta, Boolean _ForceUpdate, Boolean _IsAnim, Boolean _SendFocusEvent) {
+	declare K_State CMGame_Scroll_State for _This.Page = C_State_Null;
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+
+	if (!_IsAnim && CMGame_Scroll_Scroll.Animation.StartTime >= 0) {
+		CMGame_Scroll_Scroll.Animation = K_ScrollAnimation {
+			StartTime = -1,
+			ScrollStart = 0.,
+			ScrollDelta = 0.,
+			Duration = 0
+		};
+	}
+
+	declare K_ScrollPosition OldScrollPosition = Private_GetScrollPosition(CMGame_Scroll_Scroll);
+	if (_ScrollDelta != 0.) {
+		_Frame_Scroll.Scroll(<0., _ScrollDelta>);
+
+		if (
+			CMGame_Scroll_Scroll.Config.ScrollBarVisibility == C_ScrollBarVisibility_DuringScroll &&
+			CMGame_Scroll_Scroll.ScrollBar != Null &&
+			CMGame_Scroll_Scroll.ScrollBar.Visible
+		) {
+			CMGame_Scroll_Scroll.ScrollBarHideTime = Now + C_ScrollBarVisibilityDuration;
+			Private_DisplayScrollBar(_This, CMGame_Scroll_Scroll.ScrollBar, True);
+		}
+	}
+	CMGame_Scroll_Scroll.ScrollOffset = _Frame_Scroll.ScrollOffset;
+	declare K_ScrollPosition NewScrollPosition = Private_GetScrollPosition(CMGame_Scroll_Scroll);
+
+	if (_ForceUpdate || OldScrollPosition.StartKey != NewScrollPosition.StartKey) {
+		// Update pager throttle
+		if (
+			CMGame_Scroll_Scroll.Config.PagerPageSize > 0 && (
+				CMGame_Scroll_Scroll.Pager.ThrottleEndTime >= 0 ||
+				NewScrollPosition.StartKey <= CMGame_Scroll_Scroll.Pager.Limits.X ||
+				NewScrollPosition.StartKey >= CMGame_Scroll_Scroll.Pager.Limits.Y
+			)
+		) {
+			if (
+				CMGame_Scroll_Scroll.Pager.ThrottleEndTime >= 0 ||
+				(CMGame_Scroll_Scroll.Pager.CooldownEndTime >= 0 && Now < CMGame_Scroll_Scroll.Pager.CooldownEndTime)
+			) {
+				CMGame_Scroll_Scroll.Pager.ThrottleEndTime = Now + C_PagerThrottleDuration;
+			} else {
+				CMGame_Scroll_Scroll.Pager.ThrottleEndTime = Now;
+			}
+		}
+
+		declare K_Event Event = K_Event {
+			Type = C_EventType_Update,
+			Scroll = _Frame_Scroll,
+			ElementsVisible = [],
+			ElementsHidden = [],
+			ScrollPosition = NewScrollPosition,
+			Page = -1,
+			DelayedElementsUpdate = !_ForceUpdate
+		};
+		if (CMGame_Scroll_Scroll.Config.ElementsPerPage > 0) {
+			Event.Page = (Event.ScrollPosition.StartKey / CMGame_Scroll_Scroll.Config.ElementsPerPage) + 1;
+		}
+		foreach (Key => Frame_Element in CMGame_Scroll_Scroll.Elements) {
+			declare Integer ElementKey = NewScrollPosition.StartKey + Key;
+			if (ElementKey >= 0) {
+				if (ElementKey <= CMGame_Scroll_Scroll.ElementsTotal - 1) {
+					Event.ElementsVisible[ElementKey] = Frame_Element;
+				} else {
+					Event.ElementsHidden[ElementKey] = Frame_Element;
+				}
+			}
+		}
+		CMGame_Scroll_State.DelayedPendingEvents.add(Event);
+
+		if (!Event.DelayedElementsUpdate) {
+			// Update elements position now and cancel any pending update
+			// to avoid moving the elements back to a previous position next frame
+			Private_UpdateElementsPosition(CMGame_Scroll_Scroll, Event.ScrollPosition);
+			foreach (Key => Event in CMGame_Scroll_State.DelayedPendingEvents) {
+				if (Event.Type == C_EventType_Update && Event.DelayedElementsUpdate) {
+					CMGame_Scroll_State.DelayedPendingEvents[Key].DelayedElementsUpdate = False;
+				}
+			}
+		}
+		Private_SetFocusedElementKey(_This, _Frame_Scroll, NewScrollPosition.StartKey, CMGame_Scroll_Scroll.FocusedElementKey, False, _SendFocusEvent, False);
+	}
+
+	Private_ApplySkew(CMGame_Scroll_Scroll);
+
+	if (NewScrollPosition.EndKey >= CMGame_Scroll_Scroll.ElementsTotal - 1) {
+		if (!CMGame_Scroll_Scroll.IsDisplayingEnd) {
+			CMGame_Scroll_Scroll.IsDisplayingEnd = True;
+			CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+				Type = C_EventType_DisplayEnd,
+				Scroll = _Frame_Scroll
+			});
+		}
+	} else {
+		CMGame_Scroll_Scroll.IsDisplayingEnd = False;
+	}
+	if (NewScrollPosition.StartKey <= 0) {
+		if (!CMGame_Scroll_Scroll.IsDisplayingStart) {
+			CMGame_Scroll_Scroll.IsDisplayingStart = True;
+			CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+				Type = C_EventType_DisplayStart,
+				Scroll = _Frame_Scroll
+			});
+		}
+	} else {
+		CMGame_Scroll_Scroll.IsDisplayingStart = False;
+	}
+
+	if (CMGame_Scroll_Scroll.EventGenerator != Null) {
+		CMGame_Scroll_Scroll.EventGenerator.RelativePosition_V3.Y = -CMGame_Scroll_Scroll.ScrollOffset.Y;
+	}
+
+	Private_DisplayScrollIndicator(CMGame_Scroll_Scroll, _Frame_Scroll);
+
+	if (CMGame_Scroll_Scroll.ScrollBar != Null && CMGame_Scroll_Scroll.ScrollBar.Visible) {
+		declare CMlFrame Frame_ScrollBarFg <=> (CMGame_Scroll_Scroll.ScrollBar.GetFirstChild(C_Id_FrameScrollbarFg) as CMlFrame);
+		declare K_ScrollBar CMGame_Scroll_ScrollBar for Frame_ScrollBarFg = C_ScrollBar_Null;
+		Frame_ScrollBarFg.RelativePosition_V3.Y = (_Frame_Scroll.Size.Y - CMGame_Scroll_ScrollBar.Height) * -(CMGame_Scroll_Scroll.ScrollOffset.Y / _Frame_Scroll.ScrollMax.Y);
+	}
+
+	if (CMGame_Scroll_Scroll.ClampedControls.count > 0) {
+		declare K_ClampedControl[] TmpClampedControls = CMGame_Scroll_Scroll.ClampedControls;
+		foreach (Key => ClampedControl in TmpClampedControls) {
+			declare Boolean ClampUpdate = False;
+			if (ClampedControl.Type == C_ClampedControlType_Both || ClampedControl.Type == C_ClampedControlType_Top) {
+				if (ClampedControl.Control.AbsolutePosition_V3.Y + ClampedControl.Origin > ClampedControl.Limit.X + ClampedControl.Control.RelativePosition_V3.Y) {
+					ClampedControl.Control.RelativePosition_V3.Y += ClampedControl.Limit.X - ClampedControl.Control.AbsolutePosition_V3.Y;
+					if (!ClampedControl.ClampedTop) {
+						CMGame_Scroll_Scroll.ClampedControls[Key].ClampedTop = True;
+						ClampUpdate = True;
+					}
+				} else if (ClampedControl.ClampedTop) {
+					ClampedControl.Control.RelativePosition_V3.Y = ClampedControl.Origin;
+					CMGame_Scroll_Scroll.ClampedControls[Key].ClampedTop = False;
+					ClampUpdate = True;
+				}
+			}
+			if (ClampedControl.Type == C_ClampedControlType_Both || ClampedControl.Type == C_ClampedControlType_Bottom) {
+				if (ClampedControl.Control.AbsolutePosition_V3.Y + ClampedControl.Origin < ClampedControl.Limit.Y + ClampedControl.Control.RelativePosition_V3.Y) {
+					ClampedControl.Control.RelativePosition_V3.Y += ClampedControl.Limit.Y - ClampedControl.Control.AbsolutePosition_V3.Y;
+					if (!ClampedControl.ClampedBottom) {
+						CMGame_Scroll_Scroll.ClampedControls[Key].ClampedBottom = True;
+						ClampUpdate = True;
+					}
+				} else if (ClampedControl.ClampedBottom) {
+					ClampedControl.Control.RelativePosition_V3.Y = ClampedControl.Origin;
+					CMGame_Scroll_Scroll.ClampedControls[Key].ClampedBottom = False;
+					ClampUpdate = True;
+				}
+			}
+			if (CMGame_Scroll_Scroll.Config.SkewHeader) {
+				Private_ApplySkewToControl(CMGame_Scroll_Scroll, ClampedControl.Origin, ClampedControl.Control);
+			}
+			if (ClampUpdate) {
+				CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+					Type = C_EventType_ClampUpdate,
+					Scroll = _Frame_Scroll,
+					ClampedControl = CMGame_Scroll_Scroll.ClampedControls[Key]
+				});
+			}
+		}
+	}
+
+	// Update the loading spinner position in the middle of the area containing currently visible elements
+	// It won't be in the header or footer or outside the scroll bounds
+	declare Real LoadingSpinnerTopLimit = ML::Min(_Frame_Scroll.AbsolutePosition_V3.Y - CMGame_Scroll_Scroll.Config.HeaderHeight + _Frame_Scroll.ScrollOffset.Y, _Frame_Scroll.AbsolutePosition_V3.Y);
+	declare Real LoadingSpinnerBottomLimit = _Frame_Scroll.AbsolutePosition_V3.Y - _Frame_Scroll.Size.Y;
+	CMGame_Scroll_Scroll.Frame_LoadingSpinner.RelativePosition_V3.Y = (LoadingSpinnerTopLimit + LoadingSpinnerBottomLimit) * 0.5; //< Center the loading spinner
+	Private_ApplySkewToControl(CMGame_Scroll_Scroll, - CMGame_Scroll_Scroll.Config.HeaderHeight, CMGame_Scroll_Scroll.Frame_LoadingSpinner);
+}
+
+Void Scroll(CMlScript _This, CMlFrame _Frame_Scroll, Real _ScrollDelta) {
+	Private_Scroll(_This, _Frame_Scroll, _ScrollDelta, False, False, True);
+}
+
+Void ScrollDelta(CMlScript _This, CMlFrame _Frame_Scroll, Real _ScrollDelta, Integer _AnimDuration) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (_AnimDuration > 0 && CMGame_Scroll_Scroll.Config.AnimEnabled) {
+		CMGame_Scroll_Scroll.Animation = K_ScrollAnimation {
+			StartTime = Now,
+			ScrollStart = CMGame_Scroll_Scroll.ScrollOffset.Y,
+			ScrollDelta = _ScrollDelta,
+			Duration = _AnimDuration
+		};
+	} else {
+		Private_Scroll(_This, _Frame_Scroll, _ScrollDelta / _Frame_Scroll.ScrollGrid.Y, False, False, True);
+	}
+}
+
+Void ScrollToPosition(CMlScript _This, CMlFrame _Frame_Scroll, Real _ScrollTarget, Boolean _AllowAnimation) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (_AllowAnimation && CMGame_Scroll_Scroll.Config.AnimEnabled) {
+		CMGame_Scroll_Scroll.Animation = K_ScrollAnimation {
+			StartTime = Now,
+			ScrollStart = CMGame_Scroll_Scroll.ScrollOffset.Y,
+			ScrollDelta = _ScrollTarget - CMGame_Scroll_Scroll.ScrollOffset.Y,
+			Duration = C_ScrollingAnimDuration
+		};
+	} else {
+		Private_Scroll(_This, _Frame_Scroll, (_ScrollTarget - CMGame_Scroll_Scroll.ScrollOffset.Y) / _Frame_Scroll.ScrollGrid.Y, False, False, True);
+	}
+}
+Void ScrollToPosition(CMlScript _This, CMlFrame _Frame_Scroll, Real _ScrollTarget) {
+	ScrollToPosition(_This, _Frame_Scroll, _ScrollTarget, True);
+}
+
+Void ScrollToHeader(CMlScript _This, CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (CMGame_Scroll_Scroll.ScrollOffset.Y > _Frame_Scroll.ScrollMin.Y) {
+		ScrollToPosition(_This, _Frame_Scroll, _Frame_Scroll.ScrollMin.Y);
+	}
+}
+
+Void ScrollToFooter(CMlScript _This, CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (CMGame_Scroll_Scroll.ScrollOffset.Y < _Frame_Scroll.ScrollMax.Y) {
+		ScrollToPosition(_This, _Frame_Scroll, _Frame_Scroll.ScrollMax.Y);
+	}
+}
+
+Void ScrollToElement(CMlScript _This, CMlFrame _Frame_Scroll, Integer _ElementKey, Boolean _FocusElement) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (CMGame_Scroll_Scroll.ElementsTotal <= 0) {
+		ScrollToHeader(_This, _Frame_Scroll);
+	} else {
+		declare Integer ElementKey = ML::Clamp(_ElementKey, 0, CMGame_Scroll_Scroll.ElementsTotal - 1);
+
+		if (_FocusElement) {
+			Private_SetFocusedElementKey(_This, _Frame_Scroll, Private_GetScrollPosition(CMGame_Scroll_Scroll).StartKey, _ElementKey);
+			ElementKey = CMGame_Scroll_Scroll.FocusedElementKey;
+		}
+
+		declare Integer LineNb = ElementKey / CMGame_Scroll_Scroll.Config.ElementsPerLine;
+		declare Real StartY = CMGame_Scroll_Scroll.Config.HeaderHeight + (LineNb * (CMGame_Scroll_Scroll.Config.ElementSize.Y + CMGame_Scroll_Scroll.Config.MarginSize.Y));
+		declare Real EndY = StartY + CMGame_Scroll_Scroll.Config.ElementSize.Y;
+
+		// Try to display one line above and below the current focus
+		if (CMGame_Scroll_Scroll.Config.PreScrollEnabled && CMGame_Scroll_Scroll.CanPreScroll) {
+			if (CMGame_Scroll_Scroll.Header != Null || ElementKey - CMGame_Scroll_Scroll.Config.ElementsPerLine >= 0) {
+				StartY -= (CMGame_Scroll_Scroll.Config.PreScrollBefore + CMGame_Scroll_Scroll.Config.PreScrollRatioBefore) * (CMGame_Scroll_Scroll.Config.ElementSize.Y + CMGame_Scroll_Scroll.Config.MarginSize.Y);
+			}
+			if (CMGame_Scroll_Scroll.Footer != Null || ElementKey - (ElementKey % CMGame_Scroll_Scroll.Config.ElementsPerLine) + CMGame_Scroll_Scroll.Config.ElementsPerLine <= CMGame_Scroll_Scroll.ElementsTotal - 1 ) {
+				EndY += (CMGame_Scroll_Scroll.Config.PreScrollAfter + CMGame_Scroll_Scroll.Config.PreScrollRatioAfter) * (CMGame_Scroll_Scroll.Config.ElementSize.Y + CMGame_Scroll_Scroll.Config.MarginSize.Y);
+			}
+		}
+
+		// Use NearestInteger to avoid precision error (100. > 100. can be true and false)
+		if (ML::NearestInteger(CMGame_Scroll_Scroll.ScrollOffset.Y) > ML::NearestInteger(StartY)) {
+			ScrollToPosition(_This, _Frame_Scroll, StartY);
+		} else if (ML::NearestInteger(CMGame_Scroll_Scroll.ScrollOffset.Y + CMGame_Scroll_Scroll.Config.WindowSize.Y) < ML::NearestInteger(EndY)) {
+			ScrollToPosition(_This, _Frame_Scroll, EndY - CMGame_Scroll_Scroll.Config.WindowSize.Y);
+		}
+	}
+}
+Void ScrollToElement(CMlScript _This, CMlFrame _Frame_Scroll, Integer _ElementKey) {
+	ScrollToElement(_This, _Frame_Scroll, _ElementKey, False);
+}
+
+Void Private_ApplyInput(CMlScript _This, CMlFrame _Frame_Scroll, CMlScriptEvent::EMenuNavAction _NavAction, Boolean _IsActionAutoRepeat) {
+	declare K_State CMGame_Scroll_State for _This.Page = C_State_Null;
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (!CMGame_Scroll_Scroll.IsFocused) return;
+
+	CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+		Type = C_EventType_NavAction,
+		Scroll = _Frame_Scroll,
+		To = CMGame_Scroll_Scroll.FocusedElement,
+		ToKey = CMGame_Scroll_Scroll.FocusedElementKey,
+		NavAction = _NavAction,
+		IsActionAutoRepeat = _IsActionAutoRepeat
+	});
+	switch (_NavAction) {
+		case CMlScriptEvent::EMenuNavAction::Left: {
+			if (CMGame_Scroll_Scroll.FocusedElementKey % CMGame_Scroll_Scroll.Config.ElementsPerLine == 0) {
+				CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+					Type = C_EventType_ReachLimit,
+					Scroll = _Frame_Scroll,
+					From = CMGame_Scroll_Scroll.FocusedElement,
+					FromKey = CMGame_Scroll_Scroll.FocusedElementKey,
+					NavAction = _NavAction
+				});
+			} else {
+				Private_SetFocusedElementKey(_This, _Frame_Scroll, Private_GetScrollPosition(CMGame_Scroll_Scroll).StartKey, CMGame_Scroll_Scroll.FocusedElementKey - 1);
+				ScrollToElement(_This, _Frame_Scroll, CMGame_Scroll_Scroll.FocusedElementKey);
+			}
+		}
+		case CMlScriptEvent::EMenuNavAction::Right: {
+			if (
+				CMGame_Scroll_Scroll.FocusedElementKey % CMGame_Scroll_Scroll.Config.ElementsPerLine != CMGame_Scroll_Scroll.Config.ElementsPerLine - 1 &&
+				CMGame_Scroll_Scroll.FocusedElementKey < CMGame_Scroll_Scroll.ElementsTotal - 1
+			) {
+				Private_SetFocusedElementKey(_This, _Frame_Scroll, Private_GetScrollPosition(CMGame_Scroll_Scroll).StartKey, CMGame_Scroll_Scroll.FocusedElementKey + 1);
+				ScrollToElement(_This, _Frame_Scroll, CMGame_Scroll_Scroll.FocusedElementKey);
+			} else {
+				CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+					Type = C_EventType_ReachLimit,
+					Scroll = _Frame_Scroll,
+					From = CMGame_Scroll_Scroll.FocusedElement,
+					FromKey = CMGame_Scroll_Scroll.FocusedElementKey,
+					NavAction = _NavAction
+				});
+			}
+		}
+		case CMlScriptEvent::EMenuNavAction::Up: {
+			if (CMGame_Scroll_Scroll.FocusedElementKey > CMGame_Scroll_Scroll.Config.ElementsPerLine - 1) {
+				Private_SetFocusedElementKey(_This, _Frame_Scroll, Private_GetScrollPosition(CMGame_Scroll_Scroll).StartKey, CMGame_Scroll_Scroll.FocusedElementKey - CMGame_Scroll_Scroll.Config.ElementsPerLine);
+				ScrollToElement(_This, _Frame_Scroll, CMGame_Scroll_Scroll.FocusedElementKey);
+			} else {
+				if (CMGame_Scroll_Scroll.Header != Null) {
+					ScrollToHeader(_This, _Frame_Scroll);
+				}
+				CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+					Type = C_EventType_ReachLimit,
+					Scroll = _Frame_Scroll,
+					From = CMGame_Scroll_Scroll.FocusedElement,
+					FromKey = CMGame_Scroll_Scroll.FocusedElementKey,
+					NavAction = _NavAction
+				});
+			}
+		}
+		case CMlScriptEvent::EMenuNavAction::Down: {
+			if (CMGame_Scroll_Scroll.FocusedElementKey + CMGame_Scroll_Scroll.Config.ElementsPerLine < CMGame_Scroll_Scroll.ElementsTotal) {
+				Private_SetFocusedElementKey(_This, _Frame_Scroll, Private_GetScrollPosition(CMGame_Scroll_Scroll).StartKey, CMGame_Scroll_Scroll.FocusedElementKey + CMGame_Scroll_Scroll.Config.ElementsPerLine);
+				ScrollToElement(_This, _Frame_Scroll, CMGame_Scroll_Scroll.FocusedElementKey);
+			} else if (
+				CMGame_Scroll_Scroll.FocusedElementKey < CMGame_Scroll_Scroll.ElementsTotal - 1 &&
+				CMGame_Scroll_Scroll.FocusedElementKey / CMGame_Scroll_Scroll.Config.ElementsPerLine != (CMGame_Scroll_Scroll.ElementsTotal - 1) / CMGame_Scroll_Scroll.Config.ElementsPerLine
+			) {
+				Private_SetFocusedElementKey(_This, _Frame_Scroll, Private_GetScrollPosition(CMGame_Scroll_Scroll).StartKey, CMGame_Scroll_Scroll.ElementsTotal - 1);
+				ScrollToElement(_This, _Frame_Scroll, CMGame_Scroll_Scroll.FocusedElementKey);
+			} else {
+				if (CMGame_Scroll_Scroll.Footer != Null){
+					ScrollToFooter(_This, _Frame_Scroll);
+				}
+				CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+					Type = C_EventType_ReachLimit,
+					Scroll = _Frame_Scroll,
+					From = CMGame_Scroll_Scroll.FocusedElement,
+					FromKey = CMGame_Scroll_Scroll.FocusedElementKey,
+					NavAction = _NavAction
+				});
+			}
+		}
+		case CMlScriptEvent::EMenuNavAction::Select: {
+			CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+				Type = C_EventType_Select,
+				Scroll = _Frame_Scroll,
+				To = CMGame_Scroll_Scroll.FocusedElement,
+				ToKey = CMGame_Scroll_Scroll.FocusedElementKey
+			});
+		}
+		case CMlScriptEvent::EMenuNavAction::Cancel: {
+			CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+				Type = C_EventType_Cancel,
+				Scroll = _Frame_Scroll,
+				To = CMGame_Scroll_Scroll.FocusedElement,
+				ToKey = CMGame_Scroll_Scroll.FocusedElementKey
+			});
+		}
+	}
+}
+
+Boolean IsScroll(CMlControl _Control_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Control_Scroll = C_Scroll_Null;
+	return CMGame_Scroll_Scroll.IsInitialized;
+}
+
+Boolean IsControlClamped(CMlControl _Frame_Scroll, CMlControl _Control) {
+	if (_Control == Null || !IsScroll(_Frame_Scroll)) return False;
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+
+	foreach (ClampedControl in CMGame_Scroll_Scroll.ClampedControls) {
+		if (ClampedControl.Control.Id == _Control.Id) {
+			return (ClampedControl.ClampedTop || ClampedControl.ClampedBottom);
+		}
+	}
+
+	return False;
+}
+
+Void Focus(CMlScript _This, CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	CMGame_Scroll_Scroll.IsFocused = True;
+
+	declare Integer ElementKeyMax = CMGame_Scroll_Scroll.ElementsTotal - 1;
+	if (CMGame_Scroll_Scroll.FocusedElementKey < 0) {
+		Private_SetFocusedElementKey(_This, _Frame_Scroll, 0, 0);
+		ScrollToElement(_This, _Frame_Scroll, CMGame_Scroll_Scroll.FocusedElementKey);
+	} else if (CMGame_Scroll_Scroll.FocusedElementKey > ElementKeyMax && ElementKeyMax >= 0) {
+		Private_SetFocusedElementKey(_This, _Frame_Scroll, ElementKeyMax - (ElementKeyMax % CMGame_Scroll_Scroll.Config.ElementsPerLine), ElementKeyMax);
+		ScrollToElement(_This, _Frame_Scroll, CMGame_Scroll_Scroll.FocusedElementKey);
+	} else {
+		Private_SetFocusedElementKey(_This, _Frame_Scroll, Private_GetScrollPosition(CMGame_Scroll_Scroll).StartKey, CMGame_Scroll_Scroll.FocusedElementKey);
+	}
+}
+
+Void Unfocus(CMlScript _This, CMlFrame _Frame_Scroll) {
+	declare K_State CMGame_Scroll_State for _This.Page = C_State_Null;
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	CMGame_Scroll_Scroll.IsFocused = False;
+
+	// Send a focus event but do not update Scroll.FocusedElement
+	// This way we can go back to the previously
+	// focused element the next time the scroll is focused
+	CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+		Type = C_EventType_Focus,
+		Scroll = _Frame_Scroll,
+		From = CMGame_Scroll_Scroll.FocusedElement,
+		FromKey = CMGame_Scroll_Scroll.FocusedElementKey,
+		To = Null,
+		ToKey = -1,
+		PlayFocusAnimation = True
+	});
+}
+
+CMlFrame GetFocusedElement(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	return CMGame_Scroll_Scroll.FocusedElement;
+}
+
+Integer GetFocusedElementKey(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	return CMGame_Scroll_Scroll.FocusedElementKey;
+}
+
+Boolean IsFocused(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	return CMGame_Scroll_Scroll.IsFocused;
+}
+
+/**	Use the local menu navigation events
+ *	instead of the events shared by the
+ *	ShareMenuNavigation component
+ */
+Void UseLocalEvents(CMlScript _This, Boolean _Enable) {
+	declare K_State CMGame_Scroll_State for _This.Page = C_State_Null;
+	CMGame_Scroll_State.UseLocalEvents = _Enable;
+}
+
+Void LockNavigation(CMlFrame _Frame_Scroll, Boolean _Locked) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	declare Boolean IsLocked = _Locked || CMGame_Scroll_Scroll.IsLoadingSpinnerDisplayed;
+
+	// Update lock position only if the scroll was not already locked
+	if (IsLocked && CMGame_Scroll_Scroll.ScrollLocked != IsLocked) {
+		CMGame_Scroll_Scroll.ScrollLockPosition = CMGame_Scroll_Scroll.ScrollOffset;
+	}
+	CMGame_Scroll_Scroll.ScrollLocked = IsLocked;
+}
+
+Void LockNavigation(CMlScript _This, Boolean _Locked) {
+	declare K_State CMGame_Scroll_State for _This.Page = C_State_Null;
+	foreach (Frame_Scroll in CMGame_Scroll_State.Frames_Scroll) {
+		LockNavigation(Frame_Scroll, _Locked);
+	}
+}
+
+Boolean NavigationIsLocked(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	return CMGame_Scroll_Scroll.ScrollLocked;
+}
+
+Void Private_UpdateScrollBar(CMlFrame _Frame_ScrollBarFg, Integer _Action) {
+	declare Boolean CMGame_Scroll_Clicked for _Frame_ScrollBarFg = False;
+	declare Boolean CMGame_Scroll_Overed for _Frame_ScrollBarFg = False;
+
+	switch (_Action) {
+		case C_Action_Click: {
+			CMGame_Scroll_Clicked = True;
+		}
+		case C_Action_Unclick: {
+			CMGame_Scroll_Clicked = False;
+		}
+		case C_Action_Over: {
+			CMGame_Scroll_Overed = True;
+		}
+		case C_Action_Out: {
+			CMGame_Scroll_Overed = False;
+		}
+	}
+
+	foreach (Control in _Frame_ScrollBarFg.Controls) {
+		declare CMlQuad Quad_ScrollBarFg = (Control as CMlQuad);
+		if (CMGame_Scroll_Clicked) {
+			Quad_ScrollBarFg.Colorize = CL::Hex6ToRgb(C_Color_ScrollBarFg_Click);
+		} else if (CMGame_Scroll_Overed) {
+			Quad_ScrollBarFg.Colorize = CL::Hex6ToRgb(C_Color_ScrollBarFg_Over);
+		} else {
+			Quad_ScrollBarFg.Colorize = CL::Hex6ToRgb(C_Color_ScrollBarFg);
+		}
+	}
+}
+
+// Prevent the user from focusing some elements in the scroll
+Void LockElements(CMlScript _This, CMlFrame _Frame_Scroll, Integer[] _ElementKeys) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (!CMGame_Scroll_Scroll.IsInitialized) return;
+
+	foreach (ElementKey in _ElementKeys) {
+		if (!CMGame_Scroll_Scroll.LockedElements.exists(ElementKey)) {
+			CMGame_Scroll_Scroll.LockedElements.add(ElementKey);
+		}
+	}
+
+	if (CMGame_Scroll_Scroll.LockedElements.exists(CMGame_Scroll_Scroll.FocusedElementKey)) {
+		Private_SetFocusedElementKey(_This, _Frame_Scroll, Private_GetScrollPosition(CMGame_Scroll_Scroll).StartKey, CMGame_Scroll_Scroll.FocusedElementKey);
+	}
+}
+Void LockElement(CMlScript _This, CMlFrame _Frame_Scroll, Integer _ElementKey) {
+	LockElements(_This, _Frame_Scroll, [_ElementKey]);
+}
+
+Void UnlockElements(CMlFrame _Frame_Scroll, Integer[] _ElementKeys) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (!CMGame_Scroll_Scroll.IsInitialized) return;
+
+	foreach (ElementKey in _ElementKeys) {
+		CMGame_Scroll_Scroll.LockedElements.remove(ElementKey);
+	}
+}
+Void UnlockElement(CMlFrame _Frame_Scroll, Integer _ElementKey) {
+	UnlockElements(_Frame_Scroll, [_ElementKey]);
+}
+
+Void UnlockAllElements(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (!CMGame_Scroll_Scroll.IsInitialized) return;
+	CMGame_Scroll_Scroll.LockedElements = [];
+}
+
+Integer[] GetLockedElements(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (!CMGame_Scroll_Scroll.IsInitialized) return [];
+	return CMGame_Scroll_Scroll.LockedElements;
+}
+
+Boolean ElementIsLocked(CMlFrame _Frame_Scroll, Integer _ElementKey) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	return (CMGame_Scroll_Scroll.IsInitialized && CMGame_Scroll_Scroll.LockedElements.exists(_ElementKey));
+}
+
+Integer GetElementsTotal(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	return CMGame_Scroll_Scroll.ElementsTotal;
+}
+
+Void SetElementsTotal(CMlScript _This, CMlFrame _Frame_Scroll, Integer _ElementsTotal, Boolean _SendFocusEvent) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (!CMGame_Scroll_Scroll.IsInitialized) return;
+
+	CMGame_Scroll_Scroll.ElementsTotal = _ElementsTotal;
+	CMGame_Scroll_Scroll.IsDisplayingStart = False;
+	CMGame_Scroll_Scroll.IsDisplayingEnd = False;
+
+	declare Integer LinesNb = CMGame_Scroll_Scroll.ElementsTotal / CMGame_Scroll_Scroll.Config.ElementsPerLine;
+	if (CMGame_Scroll_Scroll.ElementsTotal % CMGame_Scroll_Scroll.Config.ElementsPerLine > 0) LinesNb += 1;
+	_Frame_Scroll.ScrollMax = <0., ML::Max(0., CMGame_Scroll_Scroll.Config.HeaderHeight + (LinesNb * (CMGame_Scroll_Scroll.Config.ElementSize.Y + CMGame_Scroll_Scroll.Config.MarginSize.Y)) - CMGame_Scroll_Scroll.Config.MarginSize.Y + CMGame_Scroll_Scroll.Config.FooterHeight - _Frame_Scroll.Size.Y)>;
+
+	if (CMGame_Scroll_Scroll.Footer != Null) {
+		CMGame_Scroll_Scroll.Footer.RelativePosition_V3.Y = -CMGame_Scroll_Scroll.Config.HeaderHeight - (LinesNb * (CMGame_Scroll_Scroll.Config.ElementSize.Y + CMGame_Scroll_Scroll.Config.MarginSize.Y)) + CMGame_Scroll_Scroll.Config.MarginSize.Y;
+	}
+
+	if (CMGame_Scroll_Scroll.ScrollBar != Null) {
+		CMGame_Scroll_Scroll.ScrollBar.Visible = CanScroll(_Frame_Scroll);
+		Private_SetScrollBarSize((CMGame_Scroll_Scroll.ScrollBar.GetFirstChild(C_Id_FrameScrollbarFg) as CMlFrame), <
+			CMGame_Scroll_Scroll.ScrollBarWidth,
+			ML::Max(ML::Min(10., _Frame_Scroll.Size.Y), (_Frame_Scroll.Size.Y / (_Frame_Scroll.Size.Y + _Frame_Scroll.ScrollMax.Y)) * _Frame_Scroll.Size.Y)
+		>);
+	}
+
+	declare Integer ElementKeyMax = CMGame_Scroll_Scroll.ElementsTotal - 1;
+	if (CMGame_Scroll_Scroll.FocusedElementKey > ElementKeyMax) {
+		Private_SetFocusedElementKey(_This, _Frame_Scroll, ElementKeyMax - (ElementKeyMax % CMGame_Scroll_Scroll.Config.ElementsPerLine), ElementKeyMax, False, _SendFocusEvent);
+		ScrollToElement(_This, _Frame_Scroll, CMGame_Scroll_Scroll.FocusedElementKey);
+	}
+
+	// If an animation is ongoing check that it is
+	// still inside the new bounds
+	if (CMGame_Scroll_Scroll.Animation.StartTime >= 0) {
+		declare Real ScrollTarget = CMGame_Scroll_Scroll.Animation.ScrollStart + CMGame_Scroll_Scroll.Animation.ScrollDelta;
+		if (ScrollTarget >= 0. && ScrollTarget <= _Frame_Scroll.ScrollMax.Y) {
+			Private_Scroll(_This, _Frame_Scroll, 0., True, True, _SendFocusEvent);
+		} else {
+			// Scroll to new bound
+			ScrollTarget = ML::Clamp(ScrollTarget, 0., _Frame_Scroll.ScrollMax.Y);
+			Private_Scroll(_This, _Frame_Scroll, (ScrollTarget - CMGame_Scroll_Scroll.ScrollOffset.Y) / _Frame_Scroll.ScrollGrid.Y, True, False, _SendFocusEvent);
+		}
+	} else {
+		Private_Scroll(_This, _Frame_Scroll, 0., True, False, _SendFocusEvent);
+	}
+}
+Void SetElementsTotal(CMlScript _This, CMlFrame _Frame_Scroll, Integer _ElementsTotal) {
+	SetElementsTotal(_This, _Frame_Scroll, _ElementsTotal, True);
+}
+
+Void TriggerPagerUpdate(CMlFrame _Frame_Scroll, Text[] _EventCustomData) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	if (!CMGame_Scroll_Scroll.IsInitialized) return;
+	CMGame_Scroll_Scroll.Pager.ThrottleEndTime = Now;
+	CMGame_Scroll_Scroll.EventCustomData.add(_EventCustomData);
+}
+Void TriggerPagerUpdate(CMlFrame _Frame_Scroll) {
+	TriggerPagerUpdate(_Frame_Scroll, []);
+}
+
+Void ClearAllCustomData(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	CMGame_Scroll_Scroll.EventCustomData = [];
+}
+
+CMlFrame[Integer] GetElementsVisible(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	declare K_ScrollPosition ScrollPosition = Private_GetScrollPosition(CMGame_Scroll_Scroll);
+	declare CMlFrame[Integer] ElementsVisible;
+
+	foreach (Key => Frame_Element in CMGame_Scroll_Scroll.Elements) {
+		declare Integer ElementKey = ScrollPosition.StartKey + Key;
+		if (ElementKey >= 0 && ElementKey <= CMGame_Scroll_Scroll.ElementsTotal - 1) {
+			ElementsVisible[ElementKey] = Frame_Element;
+		}
+	}
+
+	return ElementsVisible;
+}
+
+CMlFrame GetElementVisible(CMlFrame _Frame_Scroll, Integer _ElementKey) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	declare K_ScrollPosition ScrollPosition = Private_GetScrollPosition(CMGame_Scroll_Scroll);
+	if (
+		_ElementKey >= ScrollPosition.StartKey &&
+		_ElementKey <= CMGame_Scroll_Scroll.ElementsTotal - 1 &&
+		CMGame_Scroll_Scroll.Elements.existskey(_ElementKey - ScrollPosition.StartKey)
+	) {
+		return CMGame_Scroll_Scroll.Elements[_ElementKey - ScrollPosition.StartKey];
+	}
+	return Null;
+}
+
+Integer GetElementsPerLine(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	return CMGame_Scroll_Scroll.Config.ElementsPerLine;
+}
+
+Void SetHeaderHeight(CMlScript _This, CMlFrame _Frame_Scroll, Real _Height) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	CMGame_Scroll_Scroll.Config.HeaderHeight = _Height;
+	SetElementsTotal(_This, _Frame_Scroll, CMGame_Scroll_Scroll.ElementsTotal, False);
+}
+
+Void SetFooterHeight(CMlScript _This, CMlFrame _Frame_Scroll, Real _Height) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	CMGame_Scroll_Scroll.Config.FooterHeight = _Height;
+	SetElementsTotal(_This, _Frame_Scroll, CMGame_Scroll_Scroll.ElementsTotal, False);
+}
+
+Void SetScrollIndicatorOffset(CMlFrame _Frame_Scroll, Vec2 _Offset) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	CMGame_Scroll_Scroll.Config.ScrollIndicatorXOffset = _Offset.X;
+	CMGame_Scroll_Scroll.Config.ScrollIndicatorYOffset = _Offset.Y;
+	if (CMGame_Scroll_Scroll.ScrollIndicator != Null) {
+		CMGame_Scroll_Scroll.ScrollIndicator.RelativePosition_V3 = CMGame_Scroll_Scroll.ScrollIndicatorBaseOffset + <_Frame_Scroll.Size.X * 0.5 + CMGame_Scroll_Scroll.Config.ScrollIndicatorXOffset, -_Frame_Scroll.Size.Y + CMGame_Scroll_Scroll.Config.ScrollIndicatorYOffset>;
+	}
+}
+
+Void Display(CMlScript _This, CMlFrame _Frame_Scroll, Boolean _Display) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	_Frame_Scroll.Visible = _Display;
+	if (CMGame_Scroll_Scroll.ScrollBar != Null) {
+		CMGame_Scroll_Scroll.ScrollBar.Visible = _Frame_Scroll.Visible;
+	}
+	Private_DisplayScrollIndicator(CMGame_Scroll_Scroll, _Frame_Scroll);
+	if (_Display) {
+		SetElementsTotal(_This, _Frame_Scroll, CMGame_Scroll_Scroll.ElementsTotal, False);
+	}
+}
+Void Show(CMlScript _This, CMlFrame _Frame_Scroll) {
+	Display(_This, _Frame_Scroll, True);
+}
+Void Hide(CMlScript _This, CMlFrame _Frame_Scroll) {
+	Display(_This, _Frame_Scroll, False);
+}
+
+// Display a loading spinner instead of scroll elements
+Boolean IsLoadingSpinnerDisplayed(CMlFrame _Frame_Scroll) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	return CMGame_Scroll_Scroll.IsLoadingSpinnerDisplayed;
+}
+
+// Display a loading spinner instead of scroll elements
+Void DisplayLoadingSpinner(CMlScript _This, CMlFrame _Frame_Scroll, Text _LoadingText, Boolean _IsLoading) {
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+
+	CMGame_Scroll_Scroll.IsLoadingSpinnerDisplayed = _IsLoading;
+	LoadingSpinner::SetLabel(CMGame_Scroll_Scroll.Frame_LoadingSpinner, _LoadingText);
+	LoadingSpinner::SetIsLoading(_This, CMGame_Scroll_Scroll.Frame_LoadingSpinner, _IsLoading);
+	Private_DisplayScrollIndicator(CMGame_Scroll_Scroll, _Frame_Scroll);
+	LockNavigation(_Frame_Scroll, _IsLoading);
+	foreach (Element in GetElementsVisible(_Frame_Scroll)) {
+		Element.Visible = !_IsLoading;
+	}
+}
+Void DisplayLoadingSpinner(CMlScript _This, CMlFrame _Frame_Scroll, Boolean _IsLoading) {
+	DisplayLoadingSpinner(_This, _Frame_Scroll, "", _IsLoading);
+}
+
+K_Config Private_GetConfigFromDataAttributes(CMlFrame _Frame_Scroll) {
+	declare K_Config Config = K_Config {
+		DefaultElementsTotal = 0,
+		ElementsPerLine = 0,
+		ElementsPerPage = -1,
+		ElementSize = <0., 0.>,
+		MarginSize = <0., 0.>,
+		WindowSize = <0., 0.>,
+		HeaderHeight = 0.,
+		FooterHeight = 0.,
+		ScrollIndicator = True,
+		ScrollIndicatorYOffset = 0.,
+		ScrollIndicatorXOffset = 0.,
+		AnimEnabled = True,
+		PreScrollEnabled = True,
+		PreScrollBefore = 1,
+		PreScrollAfter = 1,
+		PreScrollRatioBefore = 0.,
+		PreScrollRatioAfter = 0.,
+		ScrollGrid = <8., 8.>,
+		ScrollBarVisibility = C_ScrollBarVisibility_DuringScroll,
+		ScrollPadding = 0.,
+		Skew = 0.,
+		SkewHeader = False,
+		SkewFooter = False,
+		SkewVAlign = C_SkewVAlign_Top,
+		ScrollIndicatorColorize = <-1., -1., -1.>,
+		PagerPageSize = 0,
+		PagerTriggerSize = 0,
+		PagerMarginSize = 0
+	};
+	if (_Frame_Scroll.DataAttributeExists("config")) {
+		Config.fromjson(_Frame_Scroll.DataAttributeGet("config"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("elements-total")) {
+		Config.DefaultElementsTotal = TL::ToInteger(_Frame_Scroll.DataAttributeGet("elements-total"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("elements-per-line")) {
+		Config.ElementsPerLine = TL::ToInteger(_Frame_Scroll.DataAttributeGet("elements-per-line"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("elements-per-page")) {
+		Config.ElementsPerPage = TL::ToInteger(_Frame_Scroll.DataAttributeGet("elements-per-page"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("element-size")) {
+		Config.ElementSize = Tools::TextToVec2(_Frame_Scroll.DataAttributeGet("element-size"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("margin-size")) {
+		Config.MarginSize = Tools::TextToVec2(_Frame_Scroll.DataAttributeGet("margin-size"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("window-size")) {
+		Config.WindowSize = Tools::TextToVec2(_Frame_Scroll.DataAttributeGet("window-size"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("header-height")) {
+		Config.HeaderHeight = TL::ToReal(_Frame_Scroll.DataAttributeGet("header-height"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("footer-height")) {
+		Config.FooterHeight = TL::ToReal(_Frame_Scroll.DataAttributeGet("footer-height"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("scroll-indicator")) {
+		Config.ScrollIndicator = Tools::TextToBoolean(_Frame_Scroll.DataAttributeGet("scroll-indicator"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("scroll-indicator-y-offset")) {
+		Config.ScrollIndicatorYOffset = TL::ToReal(_Frame_Scroll.DataAttributeGet("scroll-indicator-y-offset"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("scroll-indicator-x-offset")) {
+		Config.ScrollIndicatorXOffset = TL::ToReal(_Frame_Scroll.DataAttributeGet("scroll-indicator-x-offset"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("enable-anim")) {
+		Config.AnimEnabled = Tools::TextToBoolean(_Frame_Scroll.DataAttributeGet("enable-anim"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("enable-prescroll")) {
+		Config.PreScrollEnabled = Tools::TextToBoolean(_Frame_Scroll.DataAttributeGet("enable-prescroll"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("prescroll-before")) {
+		Config.PreScrollBefore = TL::ToInteger(_Frame_Scroll.DataAttributeGet("prescroll-before"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("prescroll-after")) {
+		Config.PreScrollAfter = TL::ToInteger(_Frame_Scroll.DataAttributeGet("prescroll-after"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("prescroll-ratio-before")) {
+		Config.PreScrollRatioBefore = TL::ToReal(_Frame_Scroll.DataAttributeGet("prescroll-ratio-before"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("prescroll-ratio-after")) {
+		Config.PreScrollRatioAfter = TL::ToReal(_Frame_Scroll.DataAttributeGet("prescroll-ratio-after"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("scroll-grid-size")) {
+		Config.ScrollGrid = Tools::TextToVec2(_Frame_Scroll.DataAttributeGet("scroll-grid-size"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("scrollbar-visibility")) {
+		Config.ScrollBarVisibility = TL::ToInteger(_Frame_Scroll.DataAttributeGet("scrollbar-visibility"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("scrollpadding")) {
+		Config.ScrollPadding = TL::ToReal(_Frame_Scroll.DataAttributeGet("scrollpadding"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("skew")) {
+		Config.Skew = TL::ToReal(_Frame_Scroll.DataAttributeGet("skew"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("skew-header")) {
+		Config.SkewHeader = Tools::TextToBoolean(_Frame_Scroll.DataAttributeGet("skew-header"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("skew-footer")) {
+		Config.SkewFooter = Tools::TextToBoolean(_Frame_Scroll.DataAttributeGet("skew-footer"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("skew-valign")) {
+		Config.SkewVAlign = TL::ToInteger(_Frame_Scroll.DataAttributeGet("skew-valign"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("scroll-indicator-image")) {
+		Config.ScrollIndicatorImage = _Frame_Scroll.DataAttributeGet("scroll-indicator-image");
+	}
+	if (_Frame_Scroll.DataAttributeExists("scroll-indicator-colorize")) {
+		Config.ScrollIndicatorColorize = CL::HexToRgb(_Frame_Scroll.DataAttributeGet("scroll-indicator-colorize"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("scroll-indicator-size")) {
+		Config.ScrollIndicatorSize = TL::ToReal(_Frame_Scroll.DataAttributeGet("scroll-indicator-size"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("scrollbar-xoffset")) {
+		Config.ScrollBarXOffset = TL::ToReal(_Frame_Scroll.DataAttributeGet("scrollbar-xoffset"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("pager-page-size")) {
+		Config.PagerPageSize = TL::ToInteger(_Frame_Scroll.DataAttributeGet("pager-page-size"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("pager-trigger-size")) {
+		Config.PagerTriggerSize = TL::ToInteger(_Frame_Scroll.DataAttributeGet("pager-trigger-size"));
+	}
+	if (_Frame_Scroll.DataAttributeExists("pager-margin-size")) {
+		Config.PagerMarginSize = TL::ToInteger(_Frame_Scroll.DataAttributeGet("pager-margin-size"));
+	}
+
+	return Config;
+}
+
+K_Scroll Private_InitializeScrollIndicator(
+	K_Scroll _Scroll,
+	CMlFrame _Frame_Scroll,
+	CMlLabel _Label_ScrollIndicator,
+	CMlQuad _Quad_ScrollIndicator
+) {
+	assert(_Label_ScrollIndicator != Null, "You must add a 'Scroll::C_Name' frameinstance next to the scroll window frame to enable the scroll indicator");
+	assert(_Quad_ScrollIndicator != Null, "You must add a 'Scroll::C_Name' frameinstance next to the scroll window frame to enable the scroll indicator");
+
+	declare K_Scroll Scroll = _Scroll;
+
+	declare Vec2 LabelBaseOffset = _Frame_Scroll.AbsolutePosition_V3 - _Label_ScrollIndicator.AbsolutePosition_V3;
+	declare Vec2 QuadBaseOffset = _Frame_Scroll.AbsolutePosition_V3 - _Quad_ScrollIndicator.AbsolutePosition_V3;
+	_Label_ScrollIndicator.RelativePosition_V3 = LabelBaseOffset + <_Frame_Scroll.Size.X * 0.5 + Scroll.Config.ScrollIndicatorXOffset, -_Frame_Scroll.Size.Y + Scroll.Config.ScrollIndicatorYOffset>;
+	_Quad_ScrollIndicator.RelativePosition_V3 = QuadBaseOffset + <_Frame_Scroll.Size.X * 0.5 + Scroll.Config.ScrollIndicatorXOffset, -_Frame_Scroll.Size.Y + Scroll.Config.ScrollIndicatorYOffset>;
+	if (Scroll.Config.ScrollIndicatorSize > 0.) {
+		_Label_ScrollIndicator.TextSizeReal = Scroll.Config.ScrollIndicatorSize;
+		_Quad_ScrollIndicator.Size = <Scroll.Config.ScrollIndicatorSize, Scroll.Config.ScrollIndicatorSize>;
+	}
+
+	if (Scroll.Config.ScrollIndicatorImage == "") {
+		Scroll.ScrollIndicator = _Label_ScrollIndicator;
+		Scroll.ScrollIndicatorBaseOffset = LabelBaseOffset;
+		if (Scroll.Config.ScrollIndicatorColorize != <-1., -1., -1.>) {
+			_Label_ScrollIndicator.TextColor = Scroll.Config.ScrollIndicatorColorize;
+		}
+	} else {
+		_Quad_ScrollIndicator.ChangeImageUrl(Scroll.Config.ScrollIndicatorImage);
+		Scroll.ScrollIndicator = _Quad_ScrollIndicator;
+		Scroll.ScrollIndicatorBaseOffset = QuadBaseOffset;
+		_Quad_ScrollIndicator.Colorize = Scroll.Config.ScrollIndicatorColorize;
+	}
+
+	return Scroll;
+}
+
+K_Scroll Private_InitializeScrollBar(CMlScript _This, K_Scroll _Scroll, CMlFrame _Frame_Scroll, CMlFrame _Frame_ScrollBar) {
+	assert(_Frame_ScrollBar != Null, "You must add a 'Scroll::C_Name' frameinstance next to the scroll window frame to enable the scrollbar");
+
+	declare K_Scroll Scroll = _Scroll;
+
+	declare CMlFrame Frame_ScrollBarBg <=> (_Frame_ScrollBar.GetFirstChild(C_Id_FrameScrollbarBg) as CMlFrame);
+	declare CMlFrame Frame_ScrollBarFg <=> (_Frame_ScrollBar.GetFirstChild(C_Id_FrameScrollbarFg) as CMlFrame);
+	Scroll.ScrollBar = _Frame_ScrollBar;
+	declare Vec2 Size = <Scroll.ScrollBarWidth, _Frame_Scroll.Size.Y>;
+	declare Vec2 ScrollSize = <_Frame_Scroll.Size.X, 0.>;
+	if (Scroll.Config.Skew < 0.) ScrollSize.X -= Scroll.Config.ScrollPadding;
+	ScrollSize.X += Scroll.Config.ScrollBarXOffset;
+	_Frame_ScrollBar.RelativePosition_V3 = (_Frame_Scroll.AbsolutePosition_V3 - _Frame_ScrollBar.AbsolutePosition_V3) + _Frame_ScrollBar.RelativePosition_V3 + ScrollSize;
+	Private_SetScrollBarSize(Frame_ScrollBarBg, Size);
+	Private_SetScrollBarSize(Frame_ScrollBarFg, Size);
+	declare K_ScrollBar CMGame_Scroll_ScrollBar for Frame_ScrollBarFg = C_ScrollBar_Null;
+	CMGame_Scroll_ScrollBar.Scroll = _Frame_Scroll;
+	Private_DisplayScrollBar(_This, Scroll.ScrollBar, (Scroll.Config.ScrollBarVisibility != C_ScrollBarVisibility_DuringScroll));
+
+	return Scroll;
+}
+
+/// Initialize clamped controls
+K_Scroll Private_InitializeClampControls(CMlScript _This, K_Scroll _Scroll, CMlFrame _Frame_Scroll) {
+	declare K_Scroll Scroll = _Scroll;
+
+	_This.Page.GetClassChildren(C_Class_ClampedControl, _Frame_Scroll, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlControl ClampedControl = Control;  //< Point to the frame instead of the array key
+		declare Integer Type = C_ClampedControlType_Both;
+		if (ClampedControl.DataAttributeExists("clamped-control-type")) {
+			Type = TL::ToInteger(ClampedControl.DataAttributeGet("clamped-control-type"));
+		}
+		declare Integer VAlign = C_ClampedControlVAlign_Top;
+		if (ClampedControl.DataAttributeExists("clamped-control-valign")) {
+			VAlign = TL::ToInteger(ClampedControl.DataAttributeGet("clamped-control-valign"));
+		}
+		declare Real Height = 0.;
+		if (ClampedControl.DataAttributeExists("clamped-control-height")) {
+			Height = TL::ToReal(ClampedControl.DataAttributeGet("clamped-control-height"));
+		}
+
+		declare Real OffsetTop = 0.;
+		if (VAlign == C_ClampedControlVAlign_Center) {
+			OffsetTop = Height * 0.5;
+		} else if (VAlign == C_ClampedControlVAlign_Bottom) {
+			OffsetTop = Height;
+		}
+		declare Real OffsetBottom = 0.;
+		if (VAlign == C_ClampedControlVAlign_Center) {
+			OffsetBottom = Height * 0.5;
+		} else if (VAlign == C_ClampedControlVAlign_Top) {
+			OffsetBottom = Height;
+		}
+
+		declare Real LimitTop = _Frame_Scroll.AbsolutePosition_V3.Y - OffsetTop;
+		declare Real LimitBottom = _Frame_Scroll.AbsolutePosition_V3.Y - _Frame_Scroll.Size.Y + OffsetBottom;
+
+		Scroll.ClampedControls.add(K_ClampedControl {
+			Control = ClampedControl,
+			Type = Type,
+			Limit = <LimitTop, LimitBottom>,
+			Origin = ClampedControl.RelativePosition_V3.Y,
+			ClampedTop = False,
+			ClampedBottom = False
+		});
+	}
+
+	return Scroll;
+}
+
+/// Initialize stick controls
+K_Scroll Private_InitializeStickControls(CMlScript _This, K_Scroll _Scroll, CMlFrame _Frame_Scroll) {
+	declare K_Scroll Scroll = _Scroll;
+
+	_This.Page.GetClassChildren(C_Class_StickControl, _Frame_Scroll, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlControl StickControl = Control;  //< Point to the frame instead of the array key
+		declare Real CMGame_Scroll_BasePosX for StickControl = 0.;
+		CMGame_Scroll_BasePosX = StickControl.RelativePosition_V3.X;
+		Scroll.StickControls.add(StickControl);
+	}
+
+	return Scroll;
+}
+
+/// Initialize pager
+K_Scroll Private_InitializePager(K_Scroll _Scroll) {
+	declare K_Scroll Scroll = _Scroll;
+
+	Scroll.Pager = K_Pager {
+		ThrottleEndTime = -1,
+		CooldownEndTime = -1,
+		Limits = <0, 0>
+	};
+	if (Scroll.Config.PagerPageSize > 0) {
+		if (Scroll.Config.PagerTriggerSize <= 0) {
+			Scroll.Config.PagerTriggerSize = Scroll.Config.PagerPageSize;
+		}
+		if (Scroll.Config.PagerMarginSize <= 0) {
+			Scroll.Config.PagerMarginSize = ML::Max(1, Scroll.Config.PagerPageSize / 2);
+		}
+	}
+
+	return Scroll;
+}
+
+Void Private_Init(CMlScript _This, CMlFrame _Frame_Scroll) {
+	declare K_Config Config = Private_GetConfigFromDataAttributes(_Frame_Scroll);
+
+	assert(Config.DefaultElementsTotal >= 0, "Incorrect 'elements-total' value: "^Config.DefaultElementsTotal);
+	assert(Config.ElementsPerLine > 0, "Incorrect 'elements-per-line' value: "^Config.ElementsPerLine);
+	assert(Config.ElementSize.X > 0. && Config.ElementSize.Y > 0., "Incorrect 'element-size' value: "^Config.ElementSize);
+	assert(Config.MarginSize.X >= 0. && Config.MarginSize.Y >= 0., "Incorrect 'margin-size' value: "^Config.MarginSize);
+	assert(Config.WindowSize.X > 0. && Config.WindowSize.Y > 0., "Incorrect 'window-size' value: "^Config.WindowSize);
+	assert(Config.HeaderHeight >= 0., "Incorrect 'header-height' value: "^Config.HeaderHeight);
+	assert(Config.FooterHeight >= 0., "Incorrect 'footer-height' value: "^Config.FooterHeight);
+	assert(Config.ScrollGrid.X >= 0. && Config.ScrollGrid.Y >= 0., "Incorrect 'scroll-grid-size' value: "^Config.ScrollGrid);
+
+	declare K_Scroll CMGame_Scroll_Scroll for _Frame_Scroll = C_Scroll_Null;
+	CMGame_Scroll_Scroll = K_Scroll {
+		Config = Config,
+		Animation = K_ScrollAnimation {
+			StartTime = -1,
+			ScrollStart = 0.,
+			ScrollDelta = 0.,
+			Duration = 0
+		},
+		ElementsTotal = Config.DefaultElementsTotal,
+		Elements = [],
+		Header = Null,
+		Footer = Null,
+		IsFocused = False,
+		FocusedElementKey = -1,
+		FocusedElement = Null,
+		ScrollIndicator = Null,
+		CanPreScroll = False,
+		IsDisplayingStart = False,
+		IsDisplayingEnd = False,
+		IsLoadingSpinnerDisplayed = False,
+		ScrollOffset = <0., 0.>,
+		IsInitialized = True,
+		ScrollBarWidth = C_SizeX_ScrollBar,
+		ScrollBarHideTime = -1,
+		ScrollLocked = False,
+		ScrollLockPosition = <0., 0.>,
+		LockedElements = [],
+		Frame_LoadingSpinner = Null
+	};
+
+	_Frame_Scroll.ScrollActive = True;
+	_Frame_Scroll.ScrollOffset = <0., 0.>;
+	_Frame_Scroll.ScrollGrid = CMGame_Scroll_Scroll.Config.ScrollGrid;
+	_Frame_Scroll.ScrollMin = <0., 0.>;
+	_Frame_Scroll.Size = CMGame_Scroll_Scroll.Config.WindowSize;
+	_Frame_Scroll.Size.X += CMGame_Scroll_Scroll.Config.ScrollPadding * 2.;
+	_Frame_Scroll.RelativePosition_V3.X -= CMGame_Scroll_Scroll.Config.ScrollPadding;
+
+	// Get scroll locked state
+	if (_Frame_Scroll.DataAttributeExists("scroll-locked")) {
+		CMGame_Scroll_Scroll.ScrollLocked = Tools::TextToBoolean(_Frame_Scroll.DataAttributeGet("scroll-locked"));
+	}
+
+	// Get scroll elements
+	declare Integer VisibleLinesNb = ML::CeilingInteger(CMGame_Scroll_Scroll.Config.WindowSize.Y / (CMGame_Scroll_Scroll.Config.ElementSize.Y + CMGame_Scroll_Scroll.Config.MarginSize.Y)) + 1;
+	CMGame_Scroll_Scroll.CanPreScroll = VisibleLinesNb > 3;
+	declare Integer RequiredElementsNb = CMGame_Scroll_Scroll.Config.ElementsPerLine * VisibleLinesNb;
+	_This.Page.GetClassChildren(C_Class_Element, _Frame_Scroll, False);
+	declare CMlFrame[] Frames_Element;
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		assert((Control is CMlFrame), "The 'Scroll::C_Class_Element' controls must be CMlFrame");
+		declare CMlFrame Frame_Element = (Control as CMlFrame); //< Point to the frame instead of the array key
+		Frames_Element.add(Frame_Element);
+	}
+	assert(Frames_Element.count == RequiredElementsNb, "You must add "^RequiredElementsNb^" frames with a class of 'Scroll::C_Class_Element' as direct child of the scroll frame '"^_Frame_Scroll.ControlId^"'. Found "^Frames_Element.count);
+	CMGame_Scroll_Scroll.Elements = Frames_Element;
+
+	// Get scroll header
+	_This.Page.GetClassChildren(C_Class_Header, _Frame_Scroll, False);
+	declare CMlFrame Frame_Header;
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		assert((Control is CMlFrame), "The 'Scroll::C_Class_Header' control must be CMlFrame");
+		Frame_Header = (Control as CMlFrame); //< Point to the frame instead of the array key
+	}
+	CMGame_Scroll_Scroll.Header = Frame_Header;
+	if (CMGame_Scroll_Scroll.Header != Null) {
+		declare Real CMGame_Scroll_BasePosX for CMGame_Scroll_Scroll.Header = 0.;
+		CMGame_Scroll_Scroll.Header.RelativePosition_V3.X += CMGame_Scroll_Scroll.Config.ScrollPadding;
+		CMGame_Scroll_BasePosX = CMGame_Scroll_Scroll.Header.RelativePosition_V3.X;
+	}
+
+	// Get scroll footer
+	_This.Page.GetClassChildren(C_Class_Footer, _Frame_Scroll, False);
+	declare CMlFrame Frame_Footer;
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		assert((Control is CMlFrame), "The 'Scroll::C_Class_Footer' control must be CMlFrame");
+		Frame_Footer = (Control as CMlFrame); //< Point to the frame instead of the array key
+	}
+	CMGame_Scroll_Scroll.Footer = Frame_Footer;
+	if (CMGame_Scroll_Scroll.Footer != Null) {
+		declare Real CMGame_Scroll_BasePosX for CMGame_Scroll_Scroll.Footer = 0.;
+		CMGame_Scroll_Scroll.Footer.RelativePosition_V3.X += CMGame_Scroll_Scroll.Config.ScrollPadding;
+		CMGame_Scroll_BasePosX = CMGame_Scroll_Scroll.Footer.RelativePosition_V3.X;
+	}
+
+	// Find elements activation zones
+	foreach (RelativeKey => Element in CMGame_Scroll_Scroll.Elements) {
+		_This.Page.GetClassChildren(C_Class_ActivationZone, Element, True);
+		foreach (Control in _This.Page.GetClassChildren_Result) {
+			declare K_ActivationZone CMGame_Scroll_ActivationZone for Control = C_ActivationZone_Null;
+			CMGame_Scroll_ActivationZone = K_ActivationZone {
+				Scroll = _Frame_Scroll,
+				ElementRelativeKey = RelativeKey,
+				Element = Element
+			};
+		}
+	}
+
+	// Find event generator
+	_This.Page.GetClassChildren(C_Class_ScrollEvent, _Frame_Scroll, False);
+	declare CMlQuad Quad_EventGenerator;
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		assert((Control is CMlQuad), "The 'Scroll::C_Class_ScrollEvent' control must be CMlQuad");
+		Quad_EventGenerator = (Control as CMlQuad); //< Point to the frame instead of the array key
+	}
+	if (Quad_EventGenerator != Null) {
+		Quad_EventGenerator.RelativePosition_V3 = <0., 0.>;
+		Quad_EventGenerator.Size = _Frame_Scroll.Size;
+		Quad_EventGenerator.Opacity = 0.;
+	}
+	CMGame_Scroll_Scroll.EventGenerator = Quad_EventGenerator;
+
+	// Find the scroll frameinstance associated to this scroll window
+	declare CMlLabel Label_ScrollIndicator;
+	declare CMlQuad Quad_ScrollIndicator;
+	declare CMlFrame Frame_ScrollBar;
+	_This.Page.GetClassChildren(C_Class_ScrollWidgets, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		if (Control.Parent.DataAttributeExists("scroll-parent")) {
+			if (Control.Parent.DataAttributeGet("scroll-parent") == _Frame_Scroll.ControlId) {
+				declare CMlFrame Frame_ScrollWidgets = (Control as CMlFrame);
+				CMGame_Scroll_Scroll.Frame_LoadingSpinner <=> (Frame_ScrollWidgets.GetFirstChild(C_Id_FrameLoadingSpinner) as CMlFrame);
+				Label_ScrollIndicator <=> (Frame_ScrollWidgets.GetFirstChild(C_Id_LabelScrollIndicator) as CMlLabel);
+				Quad_ScrollIndicator <=> (Frame_ScrollWidgets.GetFirstChild(C_Id_QuadScrollIndicator) as CMlQuad);
+				Frame_ScrollBar <=> (Frame_ScrollWidgets.GetFirstChild(C_Id_FrameScrollbar) as CMlFrame);
+				declare CMlFrame CMGame_Scroll_ScrollParent as ScrollForLabel for Label_ScrollIndicator = Null;
+				declare CMlFrame CMGame_Scroll_ScrollParent as ScrollForQuad for Quad_ScrollIndicator = Null;
+				ScrollForLabel = _Frame_Scroll;
+				ScrollForQuad = _Frame_Scroll;
+				break;
+			}
+		}
+	}
+
+	// Initialize scroll indicator
+	if (CMGame_Scroll_Scroll.Config.ScrollIndicator) {
+		CMGame_Scroll_Scroll = Private_InitializeScrollIndicator(
+			CMGame_Scroll_Scroll,
+			_Frame_Scroll,
+			Label_ScrollIndicator,
+			Quad_ScrollIndicator
+		);
+	}
+
+	// Initialize scrollbar
+	if (
+		CMGame_Scroll_Scroll.Config.ScrollBarVisibility == C_ScrollBarVisibility_Always ||
+		CMGame_Scroll_Scroll.Config.ScrollBarVisibility == C_ScrollBarVisibility_DuringScroll
+	) {
+		CMGame_Scroll_Scroll = Private_InitializeScrollBar(
+			_This,
+			CMGame_Scroll_Scroll,
+			_Frame_Scroll,
+			Frame_ScrollBar
+		);
+	}
+
+	CMGame_Scroll_Scroll = Private_InitializeClampControls(_This, CMGame_Scroll_Scroll, _Frame_Scroll);
+	CMGame_Scroll_Scroll = Private_InitializeStickControls(_This, CMGame_Scroll_Scroll, _Frame_Scroll);
+	CMGame_Scroll_Scroll = Private_InitializePager(CMGame_Scroll_Scroll);
+
+	SetElementsTotal(_This, _Frame_Scroll, CMGame_Scroll_Scroll.ElementsTotal);
+}
+
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State CMGame_Scroll_State for _This.Page = C_State_Null;
+	return CMGame_Scroll_State.PendingEvents;
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State CMGame_Scroll_State for _This.Page = C_State_Null;
+	CMGame_Scroll_State = C_State_Null;
+
+	_This.Page.GetClassChildren(C_Class_Window, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_Scroll = (Control as CMlFrame); //< Point to the frame instead of the array key
+		CMGame_Scroll_State.Frames_Scroll.add(Frame_Scroll);
+	}
+	foreach (Frame_Scroll in CMGame_Scroll_State.Frames_Scroll) {
+		Private_Init(_This, Frame_Scroll);
+	}
+}
+
+Void MainStart(CMlScript _This) {
+	declare K_State CMGame_Scroll_State for _This.Page = C_State_Null;
+	CMGame_Scroll_State.Frame_ActiveScrollBar = Null;
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State CMGame_Scroll_State for _This.Page = C_State_Null;
+
+	CMGame_Scroll_State.PendingEvents = CMGame_Scroll_State.DelayedPendingEvents;
+	CMGame_Scroll_State.DelayedPendingEvents = [];
+
+	foreach (Event in CMGame_Scroll_State.PendingEvents) {
+		if (Event.Type == C_EventType_Update && Event.DelayedElementsUpdate) {
+			// Delay the elements placement until the component
+			// user receive the event
+			// This way we avoid a small flickering between
+			// the two operations (elements placement => 1 frame => user receive event and update elements)
+			// if the placement was done directly in the Private_Scroll function
+			declare K_Scroll CMGame_Scroll_Scroll for Event.Scroll = C_Scroll_Null;
+			Private_UpdateElementsPosition(CMGame_Scroll_Scroll, Event.ScrollPosition);
+		}
+	}
+
+	if (_This.PageIsVisible) {
+		foreach (Event in _This.PendingEvents) {
+			switch (Event.Type) {
+				case CMlScriptEvent::Type::MouseClick: {
+					if (Event.Control.HasClass(C_Class_ActivationZone)) {
+						declare K_ActivationZone CMGame_Scroll_ActivationZone for Event.Control = C_ActivationZone_Null;
+						if (!NavigationIsLocked(CMGame_Scroll_ActivationZone.Scroll)) {
+							declare K_ScrollPosition ScrollPosition = Private_GetScrollPosition(CMGame_Scroll_ActivationZone.Scroll);
+							CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+								Type = C_EventType_Select,
+								Scroll = CMGame_Scroll_ActivationZone.Scroll,
+								To = CMGame_Scroll_ActivationZone.Element,
+								ToKey = ScrollPosition.StartKey + CMGame_Scroll_ActivationZone.ElementRelativeKey,
+								IsMouse = True
+							});
+						}
+					} else if (Event.Control != Null && Event.Control.HasClass(C_Class_ScrollbarFg)) {
+						declare CMlFrame Frame_ScrollBar = Event.Control.Parent;
+						CMGame_Scroll_State.Frame_ActiveScrollBar = Frame_ScrollBar;
+						declare K_ScrollBar CMGame_Scroll_ScrollBar for CMGame_Scroll_State.Frame_ActiveScrollBar = C_ScrollBar_Null;
+						if (!NavigationIsLocked(CMGame_Scroll_ScrollBar.Scroll)) {
+							Private_UpdateScrollBar(Frame_ScrollBar, C_Action_Click);
+							CMGame_Scroll_ScrollBar.AbsoluteTop = CMGame_Scroll_ScrollBar.Scroll.AbsolutePosition_V3.Y;
+							CMGame_Scroll_ScrollBar.AbsoluteBottom = CMGame_Scroll_ScrollBar.AbsoluteTop - CMGame_Scroll_ScrollBar.Scroll.Size.Y + CMGame_Scroll_ScrollBar.Height;
+							CMGame_Scroll_ScrollBar.ClickShift = _This.MouseY - CMGame_Scroll_State.Frame_ActiveScrollBar.AbsolutePosition_V3.Y;
+						}
+					} else if (
+						Event.Control != Null && (
+							Event.Control.ControlId == C_Id_LabelScrollIndicator ||
+							Event.Control.ControlId == C_Id_QuadScrollIndicator
+						)
+					) {
+						declare CMlFrame CMGame_Scroll_ScrollParent for Event.Control = Null;
+						if (CMGame_Scroll_ScrollParent != Null && !NavigationIsLocked(CMGame_Scroll_ScrollParent)) {
+							declare K_Scroll CMGame_Scroll_Scroll for CMGame_Scroll_ScrollParent = C_Scroll_Null;
+							if (CMGame_Scroll_Scroll.FocusedElementKey + CMGame_Scroll_Scroll.Config.ElementsPerLine < CMGame_Scroll_Scroll.ElementsTotal) {
+								ScrollToElement(_This, CMGame_Scroll_ScrollParent, CMGame_Scroll_Scroll.FocusedElementKey + CMGame_Scroll_Scroll.Config.ElementsPerLine, True);
+							} else if (
+								CMGame_Scroll_Scroll.FocusedElementKey < CMGame_Scroll_Scroll.ElementsTotal - 1 &&
+								(CMGame_Scroll_Scroll.FocusedElementKey / CMGame_Scroll_Scroll.Config.ElementsPerLine) != ((CMGame_Scroll_Scroll.ElementsTotal - 1) / CMGame_Scroll_Scroll.Config.ElementsPerLine)
+							) {
+								ScrollToElement(_This, CMGame_Scroll_ScrollParent, CMGame_Scroll_Scroll.ElementsTotal - 1, True);
+							}
+						}
+					}
+				}
+				case CMlScriptEvent::Type::MouseOver: {
+					if (Event.Control.HasClass(C_Class_ActivationZone)) {
+						if (!Navigation::MouseIsSleeping(_This)) {
+							declare K_ActivationZone CMGame_Scroll_ActivationZone for Event.Control = C_ActivationZone_Null;
+							if (!NavigationIsLocked(CMGame_Scroll_ActivationZone.Scroll)) {
+								declare K_ScrollPosition ScrollPosition = Private_GetScrollPosition(CMGame_Scroll_ActivationZone.Scroll);
+								Private_SetFocusedElementKey(_This, CMGame_Scroll_ActivationZone.Scroll, ScrollPosition.StartKey, ScrollPosition.StartKey + CMGame_Scroll_ActivationZone.ElementRelativeKey, True);
+							}
+						}
+					} else if (Event.Control != Null && Event.Control.HasClass(C_Class_ScrollbarFg)) {
+						if (!Navigation::MouseIsSleeping(_This)) {
+							declare CMlFrame Frame_ScrollBar = Event.Control.Parent;
+							declare K_ScrollBar CMGame_Scroll_ScrollBar for Frame_ScrollBar = C_ScrollBar_Null;
+							if (!NavigationIsLocked(CMGame_Scroll_ScrollBar.Scroll)) {
+								Private_UpdateScrollBar(Frame_ScrollBar, C_Action_Over);
+							}
+						}
+					}
+				}
+				case CMlScriptEvent::Type::MouseOut: {
+					if (Event.Control != Null && Event.Control.HasClass(C_Class_ScrollbarFg)) {
+						declare CMlFrame Frame_ScrollBar = Event.Control.Parent;
+						declare K_ScrollBar CMGame_Scroll_ScrollBar for Frame_ScrollBar = C_ScrollBar_Null;
+						if (!NavigationIsLocked(CMGame_Scroll_ScrollBar.Scroll)) {
+							Private_UpdateScrollBar(Frame_ScrollBar, C_Action_Out);
+						}
+					}
+				}
+			}
+		}
+
+		if (CMGame_Scroll_State.UseLocalEvents) {
+			foreach (Event in _This.PendingEvents) {
+				if (Event.Type == CMlScriptEvent::Type::MenuNavigation) {
+					foreach (Frame_Scroll in CMGame_Scroll_State.Frames_Scroll) {
+						if (!NavigationIsLocked(Frame_Scroll)) {
+							Private_ApplyInput(_This, Frame_Scroll, Event.MenuNavAction, Event.IsActionAutoRepeat);
+						}
+					}
+				}
+			}
+		} else if (Navigation::GetGlobalSoloGroups(_This).count <= 0) {
+			foreach (Event in ShareMenuNavigation::GetPendingEvents(_This)) {
+				foreach (Frame_Scroll in CMGame_Scroll_State.Frames_Scroll) {
+					if (!NavigationIsLocked(Frame_Scroll)) {
+						Private_ApplyInput(_This, Frame_Scroll, Event.MenuNavAction, Event.IsActionAutoRepeat);
+					}
+				}
+			}
+		}
+
+		if (CMGame_Scroll_State.Frame_ActiveScrollBar != Null) {
+			declare K_ScrollBar CMGame_Scroll_ScrollBar for CMGame_Scroll_State.Frame_ActiveScrollBar = C_ScrollBar_Null;
+			if (_This.MouseLeftButton && !NavigationIsLocked(CMGame_Scroll_ScrollBar.Scroll)) {
+				declare Real AbsolutePosY = ML::Clamp(
+					_This.MouseY - CMGame_Scroll_ScrollBar.ClickShift,
+					CMGame_Scroll_ScrollBar.AbsoluteBottom,
+					CMGame_Scroll_ScrollBar.AbsoluteTop
+				);
+				declare Real ScrollRatio = (CMGame_Scroll_ScrollBar.AbsoluteTop - AbsolutePosY) / (CMGame_Scroll_ScrollBar.AbsoluteTop - CMGame_Scroll_ScrollBar.AbsoluteBottom);
+				ScrollToPosition(_This, CMGame_Scroll_ScrollBar.Scroll, CMGame_Scroll_ScrollBar.Scroll.ScrollMax.Y * ScrollRatio, False);
+			} else {
+				Private_UpdateScrollBar(CMGame_Scroll_State.Frame_ActiveScrollBar, C_Action_Unclick);
+				CMGame_Scroll_State.Frame_ActiveScrollBar = Null;
+			}
+		}
+
+		foreach (Frame_Scroll in CMGame_Scroll_State.Frames_Scroll) {
+			declare K_Scroll CMGame_Scroll_Scroll for Frame_Scroll = C_Scroll_Null;
+			if (NavigationIsLocked(Frame_Scroll) && Frame_Scroll.ScrollOffset != CMGame_Scroll_Scroll.ScrollLockPosition) {
+				Frame_Scroll.ScrollOffset = <
+					ML::Clamp(CMGame_Scroll_Scroll.ScrollLockPosition.X, Frame_Scroll.ScrollMin.X, Frame_Scroll.ScrollMax.X),
+					ML::Clamp(CMGame_Scroll_Scroll.ScrollLockPosition.Y, Frame_Scroll.ScrollMin.Y, Frame_Scroll.ScrollMax.Y)
+				>;
+				CMGame_Scroll_Scroll.ScrollLockPosition = Frame_Scroll.ScrollOffset;
+			}
+			if (CMGame_Scroll_Scroll.ScrollIndicator != Null && CMGame_Scroll_Scroll.ScrollIndicator.Visible) {
+				switchtype(CMGame_Scroll_Scroll.ScrollIndicator) {
+					case CMlQuad: (CMGame_Scroll_Scroll.ScrollIndicator as CMlQuad).Opacity = (ML::Cos(Now * 0.005) * 0.5) + 0.5;
+					case CMlLabel: (CMGame_Scroll_Scroll.ScrollIndicator as CMlLabel).Opacity = (ML::Cos(Now * 0.005) * 0.5) + 0.5;
+				}
+			}
+			if (
+				CMGame_Scroll_Scroll.Config.ScrollBarVisibility == C_ScrollBarVisibility_DuringScroll &&
+				CMGame_Scroll_Scroll.ScrollBar != Null &&
+				CMGame_Scroll_Scroll.ScrollBar.Visible &&
+				CMGame_Scroll_Scroll.ScrollBarHideTime >= 0 &&
+				Now >= CMGame_Scroll_Scroll.ScrollBarHideTime
+			) {
+				Private_DisplayScrollBar(_This, CMGame_Scroll_Scroll.ScrollBar, False);
+				CMGame_Scroll_Scroll.ScrollBarHideTime = -1;
+			}
+			if (CMGame_Scroll_Scroll.Animation.StartTime >= 0) {
+				if (Now >= CMGame_Scroll_Scroll.Animation.StartTime + CMGame_Scroll_Scroll.Animation.Duration) {
+					CMGame_Scroll_Scroll.Animation.StartTime = -1;
+					declare Real FinalOffsetY = CMGame_Scroll_Scroll.Animation.ScrollStart + CMGame_Scroll_Scroll.Animation.ScrollDelta;
+					Private_Scroll(_This, Frame_Scroll, (FinalOffsetY - CMGame_Scroll_Scroll.ScrollOffset.Y) / Frame_Scroll.ScrollGrid.Y, False, True, True);
+				} else {
+					declare Real NewOffsetY = AL::EaseOutQuad(
+						Now - CMGame_Scroll_Scroll.Animation.StartTime,
+						CMGame_Scroll_Scroll.Animation.ScrollStart,
+						CMGame_Scroll_Scroll.Animation.ScrollDelta,
+						CMGame_Scroll_Scroll.Animation.Duration
+					);
+					Private_Scroll(_This, Frame_Scroll, (NewOffsetY - CMGame_Scroll_Scroll.ScrollOffset.Y) / Frame_Scroll.ScrollGrid.Y, False, True, True);
+				}
+			}
+			if (CMGame_Scroll_Scroll.ScrollOffset != Frame_Scroll.ScrollOffset) {
+				ScrollToPosition(_This, Frame_Scroll, Frame_Scroll.ScrollOffset.Y, False);
+			}
+			if (CMGame_Scroll_Scroll.Pager.ThrottleEndTime >= 0 && Now >= CMGame_Scroll_Scroll.Pager.ThrottleEndTime) {
+				CMGame_Scroll_Scroll.Pager.ThrottleEndTime = -1;
+				CMGame_Scroll_Scroll.Pager.CooldownEndTime = Now + C_PagerThrottleDuration;
+				declare K_ScrollPosition ScrollPosition = Private_GetScrollPosition(Frame_Scroll);
+				CMGame_Scroll_Scroll.Pager.Limits = <
+					ScrollPosition.StartKey - CMGame_Scroll_Scroll.Config.PagerTriggerSize,
+					ScrollPosition.StartKey + CMGame_Scroll_Scroll.Config.PagerTriggerSize
+				>;
+				CMGame_Scroll_State.DelayedPendingEvents.add(K_Event {
+					Type = C_EventType_PagerUpdate,
+					Scroll = Frame_Scroll,
+					PagerOffset = ML::Max(0, ScrollPosition.StartKey - CMGame_Scroll_Scroll.Config.PagerTriggerSize - CMGame_Scroll_Scroll.Config.PagerMarginSize),
+					PagerCount = ML::Max(1, CMGame_Scroll_Scroll.Config.PagerPageSize + (2 * CMGame_Scroll_Scroll.Config.PagerTriggerSize) + (2 * CMGame_Scroll_Scroll.Config.PagerMarginSize)),
+					CustomData = CMGame_Scroll_Scroll.EventCustomData
+				});
+				ClearAllCustomData(Frame_Scroll);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/Scroll.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[
+			LoadingSpinner::ComponentV2(),
+			Navigation::ComponentV2(),
+			ShareMenuNavigation::ComponentV2()
+		],
+		[]
+	);
+}

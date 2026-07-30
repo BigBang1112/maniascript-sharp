@@ -1,0 +1,305 @@
+/**
+ *	Component: ButtonsList
+ *
+ *	Valid data attributes:
+ *	- data-buttons
+ *	- data-halign
+ *	- data-valign
+ *	- data-color
+ *	- data-buttonmaxwidth
+ *	- data-textprefix
+ *	- data-textfont
+ *	- data-buttons-spacing
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/ButtonsList2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/ButtonIcon2.Script.txt" as ButtonIcon
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-buttonslist2" //< Component name
+#Const P "ComponentButtonsList2_" //< Prefix used to differentiate functions/variables in the script
+
+#Const C_ButtonsNb 20
+#Const C_ButtonSize 8.
+#Const C_ButtonMaxWidth 100.
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a buttons structure
+ *	than can be passed to the
+ *	data-settings attribute
+ *
+ *	@param	_ButtonActions						The buttons and their actions
+ *																		["ButtonName" => "ButtonAction"]
+ */
+Text InjectButtons(Text[Text] _ButtonActions) {
+	return TL::MLEncode(_ButtonActions.tojson());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	declare Text ML_Buttons = "";
+	for (I, 0, C_ButtonsNb - 1) {
+		ML_Buttons ^= """<frameinstance modelid="{{{P}}}framemodel-button" />""";
+	}
+
+	return MV::Component(
+		C_Name,
+		"""
+<framemodel id="{{{P}}}framemodel-button">
+	<frameinstance modelid="{{{ButtonIcon::C_Name}}}" id="{{{P}}}button-icon-bind" data-size="{{{C_ButtonSize}}} {{{C_ButtonSize}}}" />
+	<label id="{{{P}}}label-action" pos="{{{(C_ButtonSize*0.5)+1.}}} -0.5" size="{{{C_ButtonSize}}} {{{C_ButtonSize}}}" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textemboss="1"/>
+</framemodel>
+<frame class="{{{P}}}container">
+	<frame id="{{{P}}}frame-align">
+		{{{ML_Buttons}}}
+	</frame>
+</frame>
+		""",
+		"""
+#Include "TextLib" as {{{P}}}TL
+#Include "MathLib" as {{{P}}}ML
+#Include "ColorLib" as {{{P}}}CL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as {{{P}}}Tools
+
+#Struct {{{P}}}K_Data {
+	CMlFrame Frame_Align;
+	CMlFrame[] Frames_Button;
+	Text[] Binds;
+	Text[] Actions;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Vec3 Color;
+	Real ButtonMaxWidth;
+	Real Width;
+	Text TextPrefix;
+	Text TextFont;
+	Real ButtonsSpacing;
+	Integer[] DirtyProperties;
+}
+
+#Const {{{P}}}C_Property_Buttons 0
+#Const {{{P}}}C_Property_HAlign 1
+#Const {{{P}}}C_Property_VAlign 2
+#Const {{{P}}}C_Property_Color 3
+#Const {{{P}}}C_Property_ButtonMaxWidth 4
+#Const {{{P}}}C_Property_TextPrefix 5
+#Const {{{P}}}C_Property_TextFont 6
+#Const {{{P}}}C_Property_ButtonsSpacing 7
+		""",
+		"""
+Void {{{P}}}Private_ApplyProperties(CMlFrame _Frame_ButtonsList) {
+	declare {{{P}}}K_Data {{{P}}}Data for _Frame_ButtonsList;
+
+	// Order in which properties are applied is important !
+
+	if (
+		{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_Buttons) ||
+		{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_ButtonMaxWidth) ||
+		{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_ButtonsSpacing)
+	) {
+		{{{P}}}Data.Width = 0.;
+		foreach (ControlKey => Frame_Button in {{{P}}}Data.Frames_Button) {
+			if ({{{P}}}Data.Binds.existskey(ControlKey) && {{{P}}}Data.Actions.existskey(ControlKey)) {
+				declare Text Bind = {{{P}}}Data.Binds[ControlKey];
+				declare Text Action = {{{P}}}Data.Actions[ControlKey];
+
+				declare CMlFrame ButtonIcon_Bind <=> (Frame_Button.GetFirstChild("{{{P}}}button-icon-bind") as CMlFrame);
+				declare CMlLabel Label_Action <=> (Frame_Button.GetFirstChild("{{{P}}}label-action") as CMlLabel);
+
+				declare Text PreviousAction = "";
+				if ({{{P}}}Data.Actions.existskey(ControlKey - 1)) PreviousAction = {{{P}}}Data.Actions[ControlKey-1];
+				if ({{{P}}}Data.Width > 0. && PreviousAction != "") {{{P}}}Data.Width += {{{P}}}Data.ButtonsSpacing;
+
+				{{{ButtonIcon::P}}}SetBind(This, ButtonIcon_Bind, Bind);
+				Label_Action.Value = Action;
+				Frame_Button.Visible = True;
+				Frame_Button.RelativePosition_V3.X = {{{P}}}Data.Width;
+
+				declare Real ActionMaxWidth = {{{P}}}ML::Max(0., {{{P}}}Data.ButtonMaxWidth - {{{C_ButtonSize}}} - 1.);
+				declare Real ActionWidth = Label_Action.ComputeWidth(Label_Action.Value, True);
+				Label_Action.Size.X = {{{P}}}ML::Min(ActionMaxWidth, ActionWidth);
+
+				{{{P}}}Data.Width += {{{C_ButtonSize + 1.}}} + Label_Action.Size.X;
+				{{{P}}}Tools::FitLabelValue(Label_Action, 3., 2., 0.25);
+			} else {
+				Frame_Button.Visible = False;
+			}
+		}
+	}
+
+	if (
+		{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_Buttons) ||
+		{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_HAlign) ||
+		{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_VAlign) ||
+		{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_ButtonMaxWidth)
+	) {
+		{{{P}}}Tools::AlignFrame({{{P}}}Data.Frame_Align, <{{{P}}}Data.Width, {{{C_ButtonSize}}}>, {{{P}}}Data.HAlign, {{{P}}}Data.VAlign);
+	}
+
+	if ({{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_Color)) {
+		foreach (ControlKey => Frame_Button in {{{P}}}Data.Frames_Button) {
+			if (Frame_Button.Visible) {
+				declare CMlFrame ButtonIcon_Bind <=> (Frame_Button.GetFirstChild("{{{P}}}button-icon-bind") as CMlFrame);
+				declare CMlLabel Label_Action <=> (Frame_Button.GetFirstChild("{{{P}}}label-action") as CMlLabel);
+
+				{{{ButtonIcon::P}}}SetColor(This, ButtonIcon_Bind, {{{P}}}Data.Color);
+				Label_Action.TextColor = {{{P}}}Data.Color;
+			}
+		}
+	}
+
+	if ({{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_TextPrefix)) {
+		foreach (ControlKey => Frame_Button in {{{P}}}Data.Frames_Button) {
+			declare CMlLabel Label_Action <=> (Frame_Button.GetFirstChild("{{{P}}}label-action") as CMlLabel);
+			Label_Action.TextPrefix = {{{P}}}Data.TextPrefix;
+			{{{P}}}Tools::FitLabelValue(Label_Action, 3., 2., 0.25);
+		}
+	}
+
+	if ({{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_TextFont)) {
+		foreach (ControlKey => Frame_Button in {{{P}}}Data.Frames_Button) {
+			declare CMlLabel Label_Action <=> (Frame_Button.GetFirstChild("{{{P}}}label-action") as CMlLabel);
+			Label_Action.TextFont = {{{P}}}Data.TextFont;
+			{{{P}}}Tools::FitLabelValue(Label_Action, 3., 2., 0.25);
+		}
+	}
+
+	{{{P}}}Data.DirtyProperties = [];
+}
+
+Void {{{P}}}SetButtons(CMlFrame _Frame_ButtonsList, Text[Text] _Buttons) {
+	declare {{{P}}}K_Data {{{P}}}Data for _Frame_ButtonsList;
+
+	{{{P}}}Data.Binds = [];
+	{{{P}}}Data.Actions = [];
+	foreach (Bind => Action in _Buttons) {
+		{{{P}}}Data.Binds.add(Bind);
+		{{{P}}}Data.Actions.add(Action);
+	}
+	if (!{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_Buttons)) {
+		{{{P}}}Data.DirtyProperties.add({{{P}}}C_Property_Buttons);
+	}
+
+	{{{P}}}Private_ApplyProperties(_Frame_ButtonsList);
+}
+
+Void {{{P}}}Private_Init(CMlFrame _Frame_ButtonsList) {
+	declare {{{P}}}K_Data {{{P}}}Data for _Frame_ButtonsList;
+	{{{P}}}Data = {{{P}}}K_Data {
+		Frame_Align = Null,
+		Frames_Button = [],
+		Binds = [],
+		Actions = [],
+		HAlign = CMlControl::AlignHorizontal::Left,
+		VAlign = CMlControl::AlignVertical::Top,
+		Color = <1., 1., 1.>,
+		ButtonMaxWidth = {{{C_ButtonMaxWidth}}},
+		Width = 0.,
+		TextPrefix = "",
+		TextFont = "",
+		ButtonsSpacing = 1.,
+		DirtyProperties = []
+	};
+
+	{{{P}}}Data.Frame_Align <=> (_Frame_ButtonsList.GetFirstChild("{{{P}}}frame-align") as CMlFrame);
+	foreach (Control in {{{P}}}Data.Frame_Align.Controls) {
+		{{{P}}}Data.Frames_Button.add((Control as CMlFrame));
+	}
+
+	if (_Frame_ButtonsList.DataAttributeExists("buttons")) {
+		declare Text[Text] Buttons;
+		Buttons.fromjson(_Frame_ButtonsList.DataAttributeGet("buttons"));
+		foreach (Bind => Action in Buttons) {
+			{{{P}}}Data.Binds.add(Bind);
+			{{{P}}}Data.Actions.add(Action);
+		}
+		if (!{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_Buttons)) {
+			{{{P}}}Data.DirtyProperties.add({{{P}}}C_Property_Buttons);
+		}
+	}
+
+	if (_Frame_ButtonsList.DataAttributeExists("halign")) {
+		{{{P}}}Data.HAlign = {{{P}}}Tools::TextToHAlign(_Frame_ButtonsList.DataAttributeGet("halign"));
+		if (!{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_HAlign)) {
+			{{{P}}}Data.DirtyProperties.add({{{P}}}C_Property_HAlign);
+		}
+	}
+
+	if (_Frame_ButtonsList.DataAttributeExists("valign")) {
+		{{{P}}}Data.VAlign = {{{P}}}Tools::TextToVAlign(_Frame_ButtonsList.DataAttributeGet("valign"));
+		if (!{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_VAlign)) {
+			{{{P}}}Data.DirtyProperties.add({{{P}}}C_Property_VAlign);
+		}
+	}
+
+	if (_Frame_ButtonsList.DataAttributeExists("color")) {
+		{{{P}}}Data.Color = {{{P}}}CL::HexToRgb(_Frame_ButtonsList.DataAttributeGet("color"));
+		if (!{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_Color)) {
+			{{{P}}}Data.DirtyProperties.add({{{P}}}C_Property_Color);
+		}
+	}
+
+	if (_Frame_ButtonsList.DataAttributeExists("buttonmaxwidth")) {
+		{{{P}}}Data.ButtonMaxWidth = {{{P}}}TL::ToReal(_Frame_ButtonsList.DataAttributeGet("buttonmaxwidth"));
+		if (!{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_ButtonMaxWidth)) {
+			{{{P}}}Data.DirtyProperties.add({{{P}}}C_Property_ButtonMaxWidth);
+		}
+	}
+
+	if (_Frame_ButtonsList.DataAttributeExists("textprefix")) {
+		{{{P}}}Data.TextPrefix = _Frame_ButtonsList.DataAttributeGet("textprefix");
+		if (!{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_TextPrefix)) {
+			{{{P}}}Data.DirtyProperties.add({{{P}}}C_Property_TextPrefix);
+		}
+	}
+
+	if (_Frame_ButtonsList.DataAttributeExists("textfont")) {
+		{{{P}}}Data.TextFont = _Frame_ButtonsList.DataAttributeGet("textfont");
+		if (!{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_TextFont)) {
+			{{{P}}}Data.DirtyProperties.add({{{P}}}C_Property_TextFont);
+		}
+	}
+
+	if (_Frame_ButtonsList.DataAttributeExists("buttons-spacing")) {
+		{{{P}}}Data.ButtonsSpacing = {{{P}}}TL::ToReal(_Frame_ButtonsList.DataAttributeGet("buttons-spacing"));
+		if (!{{{P}}}Data.DirtyProperties.exists({{{P}}}C_Property_ButtonsSpacing)) {
+			{{{P}}}Data.DirtyProperties.add({{{P}}}C_Property_ButtonsSpacing);
+		}
+	}
+
+	{{{P}}}Private_ApplyProperties(_Frame_ButtonsList);
+}
+
+***MainInit***
+***
+Page.GetClassChildren("{{{P}}}container", Page.MainFrame, True);
+foreach (Control in Page.GetClassChildren_Result) {
+	{{{P}}}Private_Init(Control.Parent);
+}
+***
+		""",
+		[
+			ButtonIcon::ComponentV2()
+		],
+		[]
+	);
+}

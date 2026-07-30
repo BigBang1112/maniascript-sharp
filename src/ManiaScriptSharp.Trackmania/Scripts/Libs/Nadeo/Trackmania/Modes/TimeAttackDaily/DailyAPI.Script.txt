@@ -1,0 +1,181 @@
+/**
+ *	Communication with the Cup of the Day API
+ */
+#Const Version		"2.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/DailyAPI.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/DailyStructs.Script.txt" as DailyStructs
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/Logs.Script.txt" as DailyLogs
+
+#Struct K_JoinLink {
+	Text joinLink;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Headers [
+	"Accept" => "application/json",
+	"Content-Type" => "application/json"
+]
+
+#Const C_QueryParameter_Offset "offset"
+#Const C_QueryParameter_Length "length"
+#Const C_QueryParameter_Partition "partition"
+
+// Competition
+#Const C_Route_GetRanks "/api/challenges/:challenge/records/maps/:uid/players"
+#Const C_Route_GetLeaderboard "/api/challenges/:challenge/records/maps/:uid"
+#Const C_Route_PostResults "/api/challenges/:challenge/records/maps/:uid"
+#Const C_Route_MatchStatus "/api/cup-of-the-day/current"
+#Const C_Route_PostRegisteredPlayers "/api/competitions/:competition/participants"
+#Const C_Route_GetRegisteredPlayers "/api/competitions/:competition/participants/list"
+
+// Club
+#Const C_Route_NextMatch "/api/join/players"
+
+// Channel
+#Const C_API_Channel "/api/token/channel"
+#Const C_Route_PostJoinLink "/:ChannelUid/join"
+#Const C_RouteParameter_ChannelUid "ChannelUid"
+
+#Const C_RouteParam_ChallengeId "challenge"
+#Const C_RouteParam_CompetitionId "competition"
+#Const C_RouteParam_MapUid "uid"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Text G_BasicAuthHeader;
+declare Text G_MasterServerToken;
+declare Text G_CompetitionAPIUrl;
+declare Text G_ClubAPIUrl;
+
+Void Init(Text _BasicAuthHeader) {
+	G_BasicAuthHeader = _BasicAuthHeader;
+	G_CompetitionAPIUrl = Config::Get().APIMeetUrl;
+	G_ClubAPIUrl = Config::Get().APIMeetUrl;
+}
+
+Http::K_Request CreateGet(Text _Url, Text[Text] _Headers) {
+	DailyLogs::LogInfo("[Daily] create GET request "^_Url);
+	return Http::CreateGet(_Url, _Headers);
+}
+
+Http::K_Request CreatePost(Text _Url, Text _Ressource, Text[Text] _Headers) {
+	DailyLogs::LogInfo("[Daily] create Post request "^_Url^" with ressource: "^_Ressource);
+	return Http::CreatePost(_Url, _Ressource, _Headers);
+}
+
+Void UpdateMasterServerToken(Text _Token) {
+	G_MasterServerToken = _Token;
+}
+
+Boolean HasMasterServerToken() {
+	return G_MasterServerToken != "";
+}
+
+Text[Text] GetBasicAuthHeaders() {
+	declare Text[Text] Headers = C_Headers;
+	Headers["Authorization"] = G_BasicAuthHeader;
+	return Headers;
+}
+
+Text[Text] GetMasterServerAuthHeaders() {
+	declare Text[Text] Headers = C_Headers;
+	Headers["Authorization"] = "nadeo_v1 t="^G_MasterServerToken;
+	return Headers;
+}
+
+Http::K_Request GetRanksUpdate(Text[] _AccountIds, Text _ChallengeId, Text _MapUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetRanks, [C_RouteParam_ChallengeId => _ChallengeId, C_RouteParam_MapUid => _MapUid]);
+
+	declare Text Query = Http::CreateQueryString([], ["players" => _AccountIds]);
+
+	if (_AccountIds.count == 0) log("WARNING: Try to request ranks update for empty AccountId list");
+	return CreateGet(G_CompetitionAPIUrl^Route^Query, GetBasicAuthHeaders());
+}
+
+Http::K_Request GetLeaderboard(Text _ChallengeId, Text _MapUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetLeaderboard, [C_RouteParam_ChallengeId => _ChallengeId, C_RouteParam_MapUid => _MapUid]);
+
+	declare Text Query = Http::CreateQueryString(["length" => "10", "offset" => "0"], []);
+
+	return CreateGet(G_CompetitionAPIUrl^Route^Query, GetBasicAuthHeaders());
+}
+
+Http::K_Request PostResultsUpdate(DailyStructs::K_PostResults _Results, Text _ChallengeId, Text _MapUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_PostResults, [C_RouteParam_ChallengeId => _ChallengeId, C_RouteParam_MapUid => _MapUid]);
+
+	declare Text Ressource = _Results.tojson();
+
+	return CreatePost(G_CompetitionAPIUrl^Route, Ressource, GetBasicAuthHeaders());
+}
+
+Http::K_Request GetMatchStatus(Text _Partition) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_MatchStatus, []);
+
+	declare Text Query = "";
+	if (_Partition != "") {
+		Query = Http::CreateQueryString([C_QueryParameter_Partition => _Partition]);
+	}
+
+	return CreateGet(G_CompetitionAPIUrl^Route^Query, GetBasicAuthHeaders());
+}
+
+Http::K_Request PostRegisteredPlayers(DailyStructs::K_PostRegisteredPlayers _RegisteredPlayer, Text _CompetitionId) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_PostRegisteredPlayers, [C_RouteParam_CompetitionId => _CompetitionId]);
+
+	declare Text Ressource = _RegisteredPlayer.tojson();
+
+	return CreatePost(G_CompetitionAPIUrl^Route, Ressource, GetBasicAuthHeaders());
+}
+
+Http::K_Request GetRegisteredPlayers(Text[] _AccountIds, Text _CompetitionId) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetRegisteredPlayers, [C_RouteParam_CompetitionId => _CompetitionId]);
+
+	declare Text Query = Http::CreateQueryString([], ["participants" => _AccountIds]);
+
+	return CreateGet(G_CompetitionAPIUrl^Route^Query, GetBasicAuthHeaders());
+}
+
+Http::K_Request GetPlayerMatches(Text[] _AccountIds, Text _GroupId) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_NextMatch, []);
+
+	declare Query = Http::CreateQueryString(["group" => _GroupId], ["players" => _AccountIds]);
+
+	return CreateGet(G_ClubAPIUrl^Route^Query, GetMasterServerAuthHeaders());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get a join link of a channel
+ *
+ *	@param	_ChannelUid								The Uid of the channel
+ *
+ *	@return														The request
+ */
+Http::K_Request GetJoinLink(Text _ChannelUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_PostJoinLink, [C_RouteParameter_ChannelUid => _ChannelUid]);
+	return Http::CreatePost(Config::Get().APIBaseUrl^C_API_Channel^Route, "", C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetResponseFromGetJoinLink(Http::K_Request _Request) {
+	declare K_JoinLink JoinLinkResponse;
+	JoinLinkResponse.fromjson(Http::GetResult(_Request));
+	return JoinLinkResponse.joinLink;
+}
+
+/* @Changelog
+
+Version 2.0.0
+-------------
+
+- Removed `APICompetitionUrl` and `APIMatchmakingUrl` from `K_Config` to use only `APIMeetUrl` (replacing `APIBordeauxClubUrl`) with the new API
+
+ */

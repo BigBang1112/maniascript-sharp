@@ -1,0 +1,552 @@
+/**
+ * Time Attack mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Race,TM_Race"
+#Const Version "1.2.0+2025-06-11"
+#Const ScriptName "Modes/TrackMania/TM_TimeAttack_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/Utils.Script.txt" as CommonUtils
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttack/StateManager.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/TrophyRanking.Script.txt" as TrophyRanking
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConsts
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+// UI from Race
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Server.Script.txt" as UIModules_TimeGap
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttack/UIModules/EndMatchTrophy_Server.Script.txt" as UIModules_EndMatchTrophy
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_TimeLimit 300 as _("Time limit") ///< Time limit before going to the next map
+#Setting S_WarmUpNb 0 as _("Number of warm up")
+#Setting S_WarmUpDuration 0 as _("Duration of one warm up")
+#Setting S_WarmUpTimeout -1 as _("Warm up timeout")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "Time Attack"
+//L16N [Time Attack] Description of the mode rules
+#Const Description _("$zIn $<$t$6F9Time Attack$> mode, the goal is to set the $<$t$6F9best time$>.\n\nYou have as many tries as you want, and you can $<$t$6F9retry$> when you want by pressing the respawn button.\n\nWhen the time is up, the $<$t$6F9winner$> is the player with the $<$t$6F9best time$>.")
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/TimeAttack.Script.txt" //< Url of the mania app
+#Const C_FakeUsersNb 0
+
+#Const C_UploadRecord True
+#Const C_DisplayRecordGhost True
+#Const C_DisplayRecordMedal True
+#Const C_CelebrateRecordGhost True
+#Const C_CelebrateRecordMedal True
+#Const C_DisplayWorldTop True
+
+#Const C_TrophyTaskTimeout 5000
+#Const C_TrophyAnimationDuration 4000
+#Const C_TrophyDisplayDuration 7000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultTimer = False;
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultPodiumSequence = False;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage(_("TYPE: Free for all\nOBJECTIVE: Set the best time on the track."));
+***
+
+***Match_AfterLoadHud***
+***
+UIManager.UIAll.ScoreTableOnlyManialink = True;
+UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_BestRace);
+ClientManiaAppUrl = C_ManiaAppUrl;
+UIModules_TimeGap::SetTimeGapMode(UIModules_TimeGap::C_TimeGapMode_BestRace);
+UIModules_PauseMenu_Online::SetHelp(Description);
+UIModules_Sign16x9Small::SetScoreMode(UIModules_Sign16x9Small::C_ScoreMode_BestRaceTime);
+UIManager.UIAll.OverlayHideCountdown = True;
+UIManager.UIAll.OverlayHideSpectatorInfos = True;
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+			CarRank::InitializePlayer(Event.Player);
+			if (Event.Player != Null) {
+				declare Boolean Match_CanForceTrophyRankUpdate for This;
+				TrophyRanking::InitializeUser(Event.Player.User, Match_CanForceTrophyRankUpdate);
+			}
+		}
+	}
+}
+StateMgr::Yield();
+TrophyRanking::Yield();
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+Clans::SetClansNb(0);
+GiveUpBehaviour_RespawnAfter = True;
+CrudeExtrapolation_AllowDelay = True;
+Race::SortScores(Race::C_Sort_TotalPoints);
+Scores::SaveInScore(Scores::C_Points_Match);
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(True);
+Race::SetupRecord(
+	MenuConsts::C_ScopeType_Season,
+	MenuConsts::C_ScopeType_PersonalBest,
+	MenuConsts::C_GameMode_TimeAttack,
+	"",
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal,
+	C_DisplayWorldTop
+);
+CarRank::Reset();
+***
+
+***Match_InitMatch***
+***
+declare Task::K_Task Match_TrophyTask;
+declare Integer Match_TrophyTaskEndTime;
+declare Integer Match_MatchDuration;
+declare Boolean Match_CanForceTrophyRankUpdate for This = False;
+***
+
+***Match_AfterLoadMap***
+***
+Match_CanForceTrophyRankUpdate = True;
+***
+
+***Match_InitMap***
+***
+declare Integer Map_TimeLimit;
+declare Integer Map_MapStartTime;
+***
+
+***Match_StartMap***
+***
+// Add bot when necessary
+Users_SetNbFakeUsers(C_FakeUsersNb, 0);
+
+// Warm up
+UIModules_ScoresTable::SetFooterInfo(_("Warmup"));
+GiveUpBehaviour_RespawnAfter = False;
+MB_WarmUp(S_WarmUpNb, S_WarmUpDuration * 1000, S_WarmUpTimeout * 1000);
+GiveUpBehaviour_RespawnAfter = True;
+
+// Initialize race
+SetScoresTableScoreMode(Race::IsIndependentLaps(), False);
+StartTime = Now + Race::C_SpawnDuration;
+Map_TimeLimit = S_TimeLimit;
+Map_MapStartTime = StartTime;
+SetTimeLimit(StartTime, S_TimeLimit);
+
+// Initialize scores
+for (Score in Scores) {
+	declare Integer BestTimeTimestamp for Score = -1;
+	BestTimeTimestamp = -1;
+}
+SortScores();
+
+// Spawn players for the race
+foreach (Player in Players) {
+	Race::Start(Player, StartTime);
+}
+
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+CarRank::Update(CarRank::C_SortCriteria_TotalPoints);
+Race::EnableIntroDuringMatch(True);
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	Race::ValidEvent(Event);
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		if (Event.Player != Null) {
+			declare Better = False;
+			declare OldRank = 0;
+			if (Event.IsEndRace) {
+				// Computes old rank before changing Score
+				foreach (Index => Score in Scores) {
+					if (Score.Id == Event.Player.Score.Id) {
+						if (Score.BestRaceTimes.count != 0) {
+							OldRank = Index + 1;
+						} else {
+							OldRank = -123;
+						}
+						break;
+					}
+				}
+				// Change Score
+				Better = Scores::UpdatePlayerBestRaceIfBetter(Event.Player);
+				Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				Scores::UpdatePlayerPrevRace(Event.Player);
+				if (Better && Event.Player.Score != Null) {
+					declare Integer BestTimeTimestamp for Event.Player.Score = -1;
+					BestTimeTimestamp = Now;
+				}
+				SortScores();
+			} else if (Event.IsEndLap) {
+				declare BetterLap = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				if (Race::IsIndependentLaps()) {
+					// Computes old rank before changing Score
+					foreach (Index => Score in Scores) {
+						if (Score.Id == Event.Player.Score.Id) {
+							if (Score.BestLapTimes.count != 0) {
+								OldRank = Index + 1;
+							} else {
+								OldRank = -123;
+							}
+							break;
+						}
+					}
+					// Change Score
+					Better = BetterLap;
+					if (Better) Scores::UpdatePlayerBestRace(Event.Player);
+					Scores::UpdatePlayerPrevLap(Event.Player);
+					if (Better && Event.Player.Score != Null) {
+						declare Integer BestTimeTimestamp for Event.Player.Score = -1;
+						BestTimeTimestamp = Now;
+					}
+				}
+				SortScores();
+			}
+			if (Better) {
+				declare NewRank = 0;
+				foreach (Index => Score in Scores) {
+					if (Score.Id == Event.Player.Score.Id) {
+						NewRank = Index + 1;
+						break;
+					}
+				}
+				if (OldRank != NewRank) {
+					if (0 < NewRank && NewRank < 4) {
+						foreach (Player in AllPlayers) {
+							UIModules_DisplayMessage::SendLiveMessage_RankUpdate(Player, Event.Player.User, NewRank);
+						}
+					} else if (0 < NewRank) {
+						UIModules_DisplayMessage::SendLiveMessage_RankUpdate(Event.Player, Event.Player.User, NewRank);
+					}
+				}
+
+				CarRank::ThrottleUpdate(CarRank::C_SortCriteria_TotalPoints);
+			}
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Spawn players
+if (PlayersNbDead > 0) { //< Check for unspawned players only if at least one player is unspawned
+	foreach (Player in Players) {
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned && Race::IsReadyToStart(Player)) {
+			Race::Start(Player);
+		}
+	}
+}
+
+// Update the map duration setting
+if (Map_TimeLimit != S_TimeLimit) {
+	Map_TimeLimit = S_TimeLimit;
+	SetTimeLimit(StartTime, S_TimeLimit);
+}
+
+// End the map when time limit is reached
+if (EndTime > 0 && Now >= EndTime) {
+	MB_StopMatch();
+}
+***
+
+***Match_EndMap***
+***
+// Ensure that we stop the match (after a vote for the next map, ...)
+MB_StopMatch();
+
+EndTime = -1;
+Match_MatchDuration = ML::Max(0, Now - Map_MapStartTime);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+Race::EnableIntroDuringMatch(False);
+
+SortScores();
+TrophyRanking::UpdateUsersRank();
+CarRank::Update(CarRank::C_SortCriteria_TotalPoints);
+declare CSmScore Winner <=> Scores::GetBestPlayer(Scores::C_Sort_MatchPoints);
+Scores::SetPlayerWinner(Winner);
+Race::StopSkipOutroAll();
+
+// Compute ranking for tracking
+foreach (Key => Score in Scores) {
+	Tracking::SendPlayerMatchResult(
+		UIManager,
+		Score.User,
+		GetScoreRank(Score),
+		Winner == Score && Scores.count > 1 && Scores::GetPlayerBestRaceTime(Score) > 0
+	);
+}
+***
+
+***Match_BeforePodiumSequence***
+***
+ModeUtils::PlaySound(CUIConfig::EUISound::EndRound, 0);
+
+declare CSmScore WinnerScore <=> Scores::GetPlayerWinner();
+if (WinnerScore != Null) {
+	if (!MB_MatchIsRunning()) {
+		UIModules_BigMessage::SetMessage(_("$<%1$> wins the match!"), WinnerScore.User.WebServicesUserId);
+	} else {
+		UIModules_BigMessage::SetMessage(_("$<%1$> wins the track!"), WinnerScore.User.WebServicesUserId);
+	}
+} else {
+	UIModules_BigMessage::SetMessage(_("|Match|Draw"));
+}
+
+// Compute match trophies
+Trophy_LiveTimeAttackAchievement_ClearResultList();
+SortScores();
+foreach (Key => Score in Scores) {
+	if (Score.BestRaceTimes.count > 0 && Score.BestRaceTimes[Score.BestRaceTimes.count - 1] >= 0) {
+		declare Integer UserTrophyRank = TrophyRanking::C_DefaultRank;
+		if (TrophyRanking::UserIsRanked(Score.User)) {
+			UserTrophyRank = TrophyRanking::GetUserRank(Score.User);
+		}
+		Trophy_LiveTimeAttackAchievement_AddResult(Score.User.WebServicesUserId, Key + 1, UserTrophyRank);
+	}
+}
+Match_TrophyTask = Task::Create(This, Trophy_LiveTimeAttackAchievement_SendResultList(Match_MatchDuration / 1000));
+Match_TrophyTaskEndTime = Now + C_TrophyTaskTimeout;
+UIModules_ScoresTable::ResetTrophies();
+UIModules_EndMatchTrophy::ResetTrophyAnimation();
+***
+
+***Match_PodiumSequence***
+***
+declare CUIConfig::EUISequence PrevUISequence = UIManager.UIAll.UISequence;
+UIManager.UIAll.UISequence = CUIConfig::EUISequence::Podium;
+MB_Private_Sleep((S_ChatTime*1000)/2);
+
+// Wait until the trophy task is complete
+Match_TrophyTask = Task::Update(Match_TrophyTask);
+while (Task::IsInitialized(Match_TrophyTask) && Task::IsRunning(Match_TrophyTask) && Now < Match_TrophyTaskEndTime) {
+	MB_Yield();
+	Match_TrophyTask = Task::Update(Match_TrophyTask);
+}
+if (Task::IsInitialized(Match_TrophyTask)) {
+	Match_TrophyTask = Task::Update(Match_TrophyTask);
+	declare Integer[Integer][Text] AccountsTrophies;
+	if (!Task::IsRunning(Match_TrophyTask)) {
+		declare CTaskResult_AccountTrophyGainList SourceTask = Task::GetSourceTask_AccountTrophyGainList(Match_TrophyTask);
+		if (Task::IsSuccess(Match_TrophyTask) && SourceTask != Null) {
+			foreach (AccountTrophyGain in SourceTask.AccountTrophyGainList) {
+				declare Integer[Integer] AccountTrophies = UIModules_ScoresTable::ConvertAccountTrophyGain(AccountTrophyGain);
+				if (AccountTrophies.count > 0) {
+					AccountsTrophies[AccountTrophyGain.WebServicesUserId] = AccountTrophies;
+				}
+			}
+		}
+	}
+	if (AccountsTrophies.count > 0) {
+		foreach (Player in AllPlayers) {
+			if (Player.User != Null) {
+				declare Integer[Integer] Trophies = AccountsTrophies.get(Player.User.WebServicesUserId, []);
+				if (Trophies.count > 0) {
+					Tracking::SendPlayerTrophiesEarned(UIManager, Player, Trophies);
+				}
+			}
+		}
+	}
+	Match_TrophyTask = Task::Destroy(Match_TrophyTask);
+	UIModules_ScoresTable::SetTrophies(AccountsTrophies);
+	UIModules_EndMatchTrophy::PlayTrophyAnimation(AccountsTrophies);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_TrophyAnimation]);
+	MB_Private_Sleep(C_TrophyAnimationDuration);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+}
+
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
+MB_Private_Sleep((S_ChatTime*1000)/2);
+SetScoresTableScoreMode(Race::IsIndependentLaps(), True);
+MB_Private_Sleep(C_TrophyDisplayDuration);
+SetScoresTableScoreMode(Race::IsIndependentLaps(), False);
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+UIManager.UIAll.UISequence = PrevUISequence;
+***
+
+***Match_AfterPodiumSequence***
+***
+UIModules_BigMessage::SetMessage("");
+UIModules_ScoresTable::ResetTrophies();
+***
+
+
+***Match_BeforeUnloadMap***
+***
+Match_CanForceTrophyRankUpdate = False;
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Select the scores table score mode
+Void SetScoresTableScoreMode(Boolean _IsIndependentLaps, Boolean _DisplayTrophies) {
+	if (_DisplayTrophies) UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Trophy);
+	else if (_IsIndependentLaps) UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_LapTime);
+	else UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_BestTime);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the time limit
+ *
+ *	@param	_StartTime								The starting time of the map
+ *	@param	_NewTimeLimit							The time limit before going to the next map
+ */
+Void SetTimeLimit(Integer _StartTime, Integer _NewTimeLimit) {
+	if (_NewTimeLimit <= 0) {
+		EndTime = -1;
+		UIModules_ScoresTable::SetFooterInfo(TL::Compose("%1 -", _("Time Limit")));
+	} else {
+		EndTime = _StartTime + (_NewTimeLimit * 1000);
+		UIModules_ScoresTable::SetFooterInfo(TL::Compose("%1 "^TL::TimeToText(_NewTimeLimit*1000), _("Time Limit")));
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the right sort criteria for
+ *	the ladder
+ *
+ *	@return														The sort criteria
+ */
+Integer GetLadderSortCriteria() {
+	if (Race::IsIndependentLaps()) return Scores::C_Sort_BestLapTime;
+	return Scores::C_Sort_BestRaceTime;
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Sort the scores and update their rank
+ *
+ * The scores are sorted by:
+ * 1. fastest best race/lap time
+ * 2. earliest best race/lap timestamp
+ * 3. fastest best race/lap waypoint times
+ */
+Void SortScores() {
+	declare Ident[][] Ranking;
+
+	// Sort by best race/lap time
+	declare Integer[Ident] UnsortedBestTimeList;
+	for (Score in Scores) {
+		// Reset match points and rank
+		Scores::SetPlayerMatchPoints(Score, 0);
+		declare Integer Rank for Score = -1;
+		Rank = -1;
+
+		if (Race::IsIndependentLaps()) {
+			UnsortedBestTimeList[Score.Id] = Scores::GetPlayerBestLapTime(Score);
+		} else {
+			UnsortedBestTimeList[Score.Id] = Scores::GetPlayerBestRaceTime(Score);
+		}
+	}
+	declare Ident[][] SortedBestTimeList = Scores::SortIdsByPoints(UnsortedBestTimeList, Scores::C_Order_Ascending, -1);
+
+	for (BestTimeScoreIdList in SortedBestTimeList) {
+		if (BestTimeScoreIdList.count == 1) {
+			Ranking.add(BestTimeScoreIdList);
+		} else {
+			// Sort by timestamp
+			declare Integer[Ident] UnsortedTimestampList;
+			for (BestTimeScoreId in BestTimeScoreIdList) {
+				declare Integer BestTimeTimestamp for Scores[BestTimeScoreId] = -1;
+				UnsortedTimestampList[BestTimeScoreId] = BestTimeTimestamp;
+			}
+			declare Ident[][] SortedTimestampList = Scores::SortIdsByPoints(UnsortedTimestampList, Scores::C_Order_Ascending, -1);
+
+			for (TimestampScoreIdList in SortedTimestampList) {
+				if (TimestampScoreIdList.count == 1) {
+					Ranking.add(TimestampScoreIdList);
+				} else {
+					// Sort by waypoint time
+					declare Integer[][Ident] UnsortedWaypointTimeList;
+					for (TimestampScoreId in TimestampScoreIdList) {
+						if (Race::IsIndependentLaps()) {
+							UnsortedWaypointTimeList[TimestampScoreId] = CommonUtils::ToScriptArray(Scores[TimestampScoreId].BestLapTimes);
+						} else {
+							UnsortedWaypointTimeList[TimestampScoreId] = CommonUtils::ToScriptArray(Scores[TimestampScoreId].BestRaceTimes);
+						}
+					}
+					declare Ident[][Integer] SortedWaypointTimeList = Scores::SortIdsByWaypointTimes(UnsortedWaypointTimeList);
+
+					for (WaypointTimeScoreIdList in SortedWaypointTimeList) {
+						Ranking.add(WaypointTimeScoreIdList);
+					}
+				}
+			}
+		}
+	}
+
+	for (ScoreIdListKey => ScoreIdList in Ranking) {
+		for (ScoreId in ScoreIdList) {
+			declare Integer Rank for Scores[ScoreId] = -1;
+			Rank = ScoreIdListKey + 1;
+			Scores::SetPlayerMatchPoints(Scores[ScoreId], Ranking.count - ScoreIdListKey);
+		}
+	}
+	Race::SortScores(Race::C_Sort_TotalPoints);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the rank of a score in the ranking. Valid only after calling `SortScores()`.
+Integer GetScoreRank(CSmScore _Score) {
+	declare Integer Rank for _Score = -1;
+	if (Rank < 0) return Scores.count;
+	return Rank;
+}

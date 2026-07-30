@@ -1,0 +1,411 @@
+/**
+ * Common trophy management
+ */
+#Const Version "1.1.1"
+#Const ScriptName "Libs/Nadeo/Trackmania/Trophy.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_MA.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Trophy_T1 1
+#Const C_Trophy_T2 2
+#Const C_Trophy_T3 3
+#Const C_Trophy_T4 4
+#Const C_Trophy_T5 5
+#Const C_Trophy_T6 6
+#Const C_Trophy_T7 7
+#Const C_Trophy_T8 8
+#Const C_Trophy_T9 9
+
+// Achievement categories on the nadeoservices
+#Const C_AchievementCategory_Null ""
+#Const C_AchievementCategory_SoloWhite "SoloWhite"
+#Const C_AchievementCategory_SoloGreen "SoloGreen"
+#Const C_AchievementCategory_SoloBlue "SoloBlue"
+#Const C_AchievementCategory_SoloRed "SoloRed"
+#Const C_AchievementCategory_SoloBlack "SoloBlack"
+#Const C_AchievementCategory_SoloAll "SoloAll"
+#Const C_AchievementCategory_TrackOfTheDay "TrackOfTheDay"
+#Const C_AchievementCategory_ClubUnofficial "ClubUnofficial"
+#Const C_AchievementCategory_ClubOfficial "ClubOfficial"
+#Const C_AchievementCategories [
+	"SoloWhite",
+	"SoloGreen",
+	"SoloBlue",
+	"SoloRed",
+	"SoloBlack",
+	"SoloAll",
+	"TrackOfTheDay",
+	"ClubUnofficial",
+	"ClubOfficial"
+]
+
+#Const C_CampaignCategory_All -1
+#Const C_CampaignCategory_White 0
+#Const C_CampaignCategory_Green 1
+#Const C_CampaignCategory_Blue 2
+#Const C_CampaignCategory_Red 3
+#Const C_CampaignCategory_Black 4
+
+#Const C_UnofficialClubCampaignMedalRequirement [
+	2 => 10,
+	3 => 10,
+	4 => 10
+]
+#Const C_OfficialClubCampaignMedalRequirement [
+	1 => 10,
+	2 => 10,
+	3 => 10,
+	4 => 10
+]
+#Const C_MonthlyCampaignMedalRequirement [
+	3 => 7,
+	4 => 7
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert the nadeoservices answer
+Integer[Integer] Private_ConvertToTrophyAmount(CTrophySoloMedalAchievementLevelSettings _LevelSettings) {
+	if (_LevelSettings == Null) return [];
+	declare Integer[Integer] TrophyAmount;
+	if (_LevelSettings.T1Count > 0) TrophyAmount[C_Trophy_T1] = _LevelSettings.T1Count;
+	if (_LevelSettings.T2Count > 0) TrophyAmount[C_Trophy_T2] = _LevelSettings.T2Count;
+	if (_LevelSettings.T3Count > 0) TrophyAmount[C_Trophy_T3] = _LevelSettings.T3Count;
+	if (_LevelSettings.T4Count > 0) TrophyAmount[C_Trophy_T4] = _LevelSettings.T4Count;
+	if (_LevelSettings.T5Count > 0) TrophyAmount[C_Trophy_T5] = _LevelSettings.T5Count;
+	if (_LevelSettings.T6Count > 0) TrophyAmount[C_Trophy_T6] = _LevelSettings.T6Count;
+	if (_LevelSettings.T7Count > 0) TrophyAmount[C_Trophy_T7] = _LevelSettings.T7Count;
+	if (_LevelSettings.T8Count > 0) TrophyAmount[C_Trophy_T8] = _LevelSettings.T8Count;
+	if (_LevelSettings.T9Count > 0) TrophyAmount[C_Trophy_T9] = _LevelSettings.T9Count;
+	return TrophyAmount;
+}
+Integer[Integer][Integer] Private_ConvertToCategoryTrophyRewards(CTrophySoloMedalAchievementSettings _Settings) {
+	if (_Settings == Null) return [];
+
+	declare Integer[Integer] BronzeLevel = Private_ConvertToTrophyAmount(_Settings.AllBronzeLevelSettings);
+	declare Integer[Integer] SilverLevel = Private_ConvertToTrophyAmount(_Settings.AllSilverLevelSettings);
+	declare Integer[Integer] GoldLevel = Private_ConvertToTrophyAmount(_Settings.AllGoldLevelSettings);
+	declare Integer[Integer] AuthorLevel = Private_ConvertToTrophyAmount(_Settings.AllAuthorLevelSettings);
+
+	declare Integer[Integer][Integer] CategoryTrophyRewards;
+	if (BronzeLevel.count > 0) CategoryTrophyRewards[Medals::C_ScoreMgrMedal_Bronze] = BronzeLevel;
+	if (SilverLevel.count > 0) CategoryTrophyRewards[Medals::C_ScoreMgrMedal_Silver] = SilverLevel;
+	if (GoldLevel.count > 0) CategoryTrophyRewards[Medals::C_ScoreMgrMedal_Gold] = GoldLevel;
+	if (AuthorLevel.count > 0) CategoryTrophyRewards[Medals::C_ScoreMgrMedal_Author] = AuthorLevel;
+
+	return CategoryTrophyRewards;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Save the trophy rewards
+Void Private_SetCategoryTrophyRewards(Text _AchievementCategory, CTrophySoloMedalAchievementSettings _TrophyReward) {
+	declare Integer[Integer][Integer][Text] Trackmania_Trophy_TrophyRewards for System = [];
+	Trackmania_Trophy_TrophyRewards[_AchievementCategory] = Private_ConvertToCategoryTrophyRewards(_TrophyReward);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start loading the trophy rewards
+Ident[Text] StartLoadTrophyRewards(CScoreMgr _ScoreMgr, Ident _MainUserId) {
+	declare Ident[Text] TaskIds;
+	foreach (AchievementCategory in C_AchievementCategories) {
+		declare CTaskResult_TrophySoloMedalAchievementSettings Task = _ScoreMgr.Trophy_GetSoloMedalAchievementSettings(_MainUserId, AchievementCategory);
+		if (Task != Null) {
+			TaskIds[AchievementCategory] = Task.Id;
+		}
+	}
+	return TaskIds;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the trophy rewards are loading
+Boolean IsLoadingTrophyRewards(CScoreMgr _ScoreMgr, Ident[Text] _TaskIds) {
+	foreach (TaskId in _TaskIds) {
+		if (
+			_ScoreMgr.TaskResults.existskey(TaskId) &&
+			_ScoreMgr.TaskResults[TaskId].IsProcessing
+		) {
+			return True;
+		}
+	}
+
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Clean up after loading the trophy rewards
+Void StopLoadTrophyRewards(CScoreMgr _ScoreMgr, Ident[Text] _TaskIds) {
+	foreach (AchievementCategory => TaskId in _TaskIds) {
+		if (_ScoreMgr.TaskResults.existskey(TaskId)) {
+			Private_SetCategoryTrophyRewards(
+				AchievementCategory,
+				(_ScoreMgr.TaskResults[TaskId] as CTaskResult_TrophySoloMedalAchievementSettings).Settings
+			);
+			_ScoreMgr.TaskResult_Release(TaskId);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Count the number of medals
+Integer[Integer] Private_CountMedal(Integer[Integer] _CurrentCount, Integer _NewMedal) {
+	if (_NewMedal < Medals::C_ScoreMgrMedal_Bronze) return _CurrentCount;
+	declare Integer[Integer] NewCount = _CurrentCount;
+
+	for (Medal, Medals::C_ScoreMgrMedal_Bronze, _NewMedal) {
+		if (_NewMedal >= Medal) {
+			if (!NewCount.existskey(Medal)) NewCount[Medal] = 0;
+			NewCount[Medal] += 1;
+		}
+	}
+
+	return NewCount;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the achievement category for completing a campaign category
+Text Private_CampaignCategoryToAchievementCategory(Integer _CampaignCategory) {
+	switch (_CampaignCategory) {
+		case C_CampaignCategory_All: return C_AchievementCategory_SoloAll;
+		case C_CampaignCategory_White: return C_AchievementCategory_SoloWhite;
+		case C_CampaignCategory_Green: return C_AchievementCategory_SoloGreen;
+		case C_CampaignCategory_Blue: return C_AchievementCategory_SoloBlue;
+		case C_CampaignCategory_Red: return C_AchievementCategory_SoloRed;
+		case C_CampaignCategory_Black: return C_AchievementCategory_SoloBlack;
+	}
+	return C_AchievementCategory_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the number of trophies awarded
+ *	for a given achievement and medal
+ */
+Integer[Integer] Private_GetMedalTrophies(Text _AchievementCategory, Integer _Medal) {
+	declare Integer[Integer][Integer][Text] Trackmania_Trophy_TrophyRewards for System = [];
+	if (
+		!Trackmania_Trophy_TrophyRewards.existskey(_AchievementCategory) ||
+		!Trackmania_Trophy_TrophyRewards[_AchievementCategory].existskey(_Medal)
+	) return [];
+
+	return Trackmania_Trophy_TrophyRewards[_AchievementCategory][_Medal];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Get the number of trophies that will
+ *	be awarded to the player if they
+ *	get a medal
+ *	return format: TrophyNumber[TrophyLevel][Medal]
+ *	eg: [2 => [4 => 2], 3 => [5 => 1, 7 => 1]]
+ *	2 T4 for silver + 1 T5 and 1 T7 for gold
+ */
+Integer[Integer][Integer] GetTrophiesForCampaignMedals(
+	Ident _MainUserId,
+	Integer _CampaignId,
+	Integer _CampaignType,
+	Boolean _CampaignIsLive,
+	Boolean _ClubCampaignIsOfficial,
+	Boolean _ClubCampaignTrophiesAreEnabled,
+	Text _MapUid,
+	Integer _CurrentMedal
+) {
+	// Already got the author medal on the map, cant get another medal
+	if (_CurrentMedal >= Medals::C_ScoreMgrMedal_Author) return [];
+
+	// Only quarterly, monthly and club campaigns can award trophies
+	if (
+		_CampaignType != CampaignStruct::C_CampaignType_Quarterly &&
+		_CampaignType != CampaignStruct::C_CampaignType_Monthly &&
+		_CampaignType != CampaignStruct::C_CampaignType_Club
+	) return [];
+
+	// Quarterly and monthly campaigns must be live to award trophies
+	if (
+		(
+			_CampaignType == CampaignStruct::C_CampaignType_Quarterly ||
+			_CampaignType == CampaignStruct::C_CampaignType_Monthly
+		) &&
+		!_CampaignIsLive
+	) return [];
+
+	// Club campaign must have trophies enabled
+	if (_CampaignType == CampaignStruct::C_CampaignType_Club && !_ClubCampaignTrophiesAreEnabled) return [];
+
+	// Compute the number of trophies that could be awarded to the player
+	declare Integer[Integer][Integer] TrophiesAwarded;
+	switch (_CampaignType) {
+		case CampaignStruct::C_CampaignType_Quarterly: {
+			// Count medals unlocked in the campaigns
+			declare Integer[] MapCategories;
+			declare Integer[Integer][Integer] CategoriesUnlockedMedals = [C_CampaignCategory_All => []];
+			declare Integer[Integer] CategoriesMaxMedals = [C_CampaignCategory_All => 0];
+			declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = CampaignStore::GetCampaignFromId(_CampaignId);
+
+			foreach (Map in Campaign.Playlist) {
+				declare Integer CategoryKey = CampaignStruct::GetCategoryFromMapPosition(Map.Position);
+				declare Integer MapMedal = ScoreMgr.Map_GetMedal(_MainUserId, Map.Uid, Const::C_ScopeType_PersonalBest, "", Const::C_GameMode_TimeAttack, "");
+				if (Map.Uid == _MapUid && !MapCategories.exists(CategoryKey)) MapCategories.add(CategoryKey);
+				if (!CategoriesMaxMedals.existskey(CategoryKey)) CategoriesMaxMedals[CategoryKey] = 0;
+				CategoriesUnlockedMedals[C_CampaignCategory_All] = Private_CountMedal(CategoriesUnlockedMedals.get(C_CampaignCategory_All, []), MapMedal);
+				CategoriesUnlockedMedals[CategoryKey] = Private_CountMedal(CategoriesUnlockedMedals.get(CategoryKey, []), MapMedal);
+				CategoriesMaxMedals[C_CampaignCategory_All] += 1;
+				CategoriesMaxMedals[CategoryKey] += 1;
+			}
+
+			// Map not found in the campaign, we cannot award trophies
+			if (MapCategories.count <= 0) {
+				return [];
+			}
+
+			// Compute potential trophies awarded for each medal
+			MapCategories.add(C_CampaignCategory_All);
+			foreach (Category in MapCategories) {
+				declare Integer[Integer] CategoryUnlockedMedals = [];
+				declare Integer CategoryMaxMedals = 0;
+				if (CategoriesUnlockedMedals.existskey(Category)) {
+					CategoryUnlockedMedals = CategoriesUnlockedMedals[Category];
+					CategoryMaxMedals = CategoriesMaxMedals[Category];
+				}
+				// Check for each medal that the player can get on the map
+				for (Medal, _CurrentMedal + 1, Medals::C_ScoreMgrMedal_Author) {
+					declare Integer MedalsCount = 0;
+					if (CategoryUnlockedMedals.existskey(Medal)) {
+						MedalsCount = CategoryUnlockedMedals[Medal];
+					}
+					// If winning the medal make us reach the target give trophies
+					if (MedalsCount + 1 == CategoryMaxMedals) {
+						declare Integer[Integer] TrophiesAwardedForMedal = Private_GetMedalTrophies(
+							Private_CampaignCategoryToAchievementCategory(Category),
+							Medal
+						);
+						if (TrophiesAwardedForMedal.count > 0) {
+							if (!TrophiesAwarded.existskey(Medal)) {
+								TrophiesAwarded[Medal] = [];
+							}
+							foreach (Trophy => Amount in TrophiesAwardedForMedal) {
+								if (!TrophiesAwarded[Medal].existskey(Trophy)) {
+									TrophiesAwarded[Medal][Trophy] = 0;
+								}
+								TrophiesAwarded[Medal][Trophy] += Amount;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		case CampaignStruct::C_CampaignType_Monthly: {
+			// Count medals unlocked in the campaigns
+			declare Boolean MapFound = False;
+			declare Integer[Integer] UnlockedMedals = [];
+			declare CampaignStruct::LibCampaignStruct_K_MonthlyCampaign Campaign = CampaignStore::GetMonthlyCampaignFromId(_CampaignId);
+			foreach (DailyMap in Campaign.DailyMaps) {
+				if (DailyMap.Map.Uid == _MapUid) {
+					MapFound = True;
+				}
+				declare Integer MapMedal = ScoreMgr.Map_GetMedal(
+					_MainUserId, DailyMap.Map.Uid, Const::C_ScopeType_PersonalBest, "", Const::C_GameMode_TimeAttack, ""
+				);
+				UnlockedMedals = Private_CountMedal(UnlockedMedals, MapMedal);
+			}
+
+			// Map not found in the campaign, we cannot award trophies
+			if (!MapFound) {
+				return [];
+			}
+
+			// Check for each medal that the player can get on the map
+			for (Medal, _CurrentMedal + 1, Medals::C_ScoreMgrMedal_Author) {
+				if (C_MonthlyCampaignMedalRequirement.existskey(Medal)) {
+					declare Integer MedalsTarget = C_MonthlyCampaignMedalRequirement[Medal];
+					declare Integer MedalsCount = 0;
+					if (UnlockedMedals.existskey(Medal)) {
+						MedalsCount = UnlockedMedals[Medal];
+					}
+					// If winning the medal make us reach the target give trophies
+					if (MedalsCount + 1 == MedalsTarget) {
+						declare Integer[Integer] TrophiesAwardedForMedal = Private_GetMedalTrophies(C_AchievementCategory_TrackOfTheDay, Medal);
+						if (TrophiesAwardedForMedal.count > 0) {
+							if (!TrophiesAwarded.existskey(Medal)) {
+								TrophiesAwarded[Medal] = [];
+							}
+							foreach (Trophy => Amount in TrophiesAwardedForMedal) {
+								if (!TrophiesAwarded[Medal].existskey(Trophy)) {
+									TrophiesAwarded[Medal][Trophy] = 0;
+								}
+								TrophiesAwarded[Medal][Trophy] += Amount;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		case CampaignStruct::C_CampaignType_Club: {
+			// Count medals unlocked in the campaigns
+			declare Boolean MapFound = False;
+			declare Integer[Integer] UnlockedMedals = [];
+			declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = CampaignStore::GetCampaignFromId(_CampaignId);
+			foreach (Map in Campaign.Playlist) {
+				if (Map.Uid == _MapUid) {
+					MapFound = True;
+				}
+				declare Integer MapMedal = ScoreMgr.Map_GetMedal(
+					_MainUserId, Map.Uid, Const::C_ScopeType_PersonalBest, "", Const::C_GameMode_TimeAttack, ""
+				);
+				UnlockedMedals = Private_CountMedal(UnlockedMedals, MapMedal);
+			}
+
+			// Map not found in the campaign, we cannot award trophies
+			if (!MapFound) {
+				return [];
+			}
+
+			// Check for each medal that the player can get on the map
+			declare Integer[Integer] MedalsTargets = C_UnofficialClubCampaignMedalRequirement;
+			if (_ClubCampaignIsOfficial) {
+				MedalsTargets = C_OfficialClubCampaignMedalRequirement;
+			}
+			for (Medal, _CurrentMedal + 1, Medals::C_ScoreMgrMedal_Author) {
+				if (MedalsTargets.existskey(Medal)) {
+					declare Integer MedalsTarget = MedalsTargets[Medal];
+					declare Integer MedalsCount = 0;
+					if (UnlockedMedals.existskey(Medal)) {
+						MedalsCount = UnlockedMedals[Medal];
+					}
+					// If winning the medal make us reach the target give trophies
+					if (MedalsCount + 1 == MedalsTarget) {
+						declare Integer[Integer] TrophiesAwardedForMedal;
+						if (_ClubCampaignIsOfficial) {
+							TrophiesAwardedForMedal = Private_GetMedalTrophies(C_AchievementCategory_ClubOfficial, Medal);
+						} else {
+							TrophiesAwardedForMedal = Private_GetMedalTrophies(C_AchievementCategory_ClubUnofficial, Medal);
+						}
+						if (TrophiesAwardedForMedal.count > 0) {
+							if (!TrophiesAwarded.existskey(Medal)) {
+								TrophiesAwarded[Medal] = [];
+							}
+							foreach (Trophy => Amount in TrophiesAwardedForMedal) {
+								if (!TrophiesAwarded[Medal].existskey(Trophy)) {
+									TrophiesAwarded[Medal][Trophy] = 0;
+								}
+								TrophiesAwarded[Medal][Trophy] += Amount;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return TrophiesAwarded;
+}

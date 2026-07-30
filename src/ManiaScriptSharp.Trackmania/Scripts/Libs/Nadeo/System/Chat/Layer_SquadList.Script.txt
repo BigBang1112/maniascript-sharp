@@ -1,0 +1,209 @@
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Styles/CommonStyles.Script.txt" as Styles
+
+#Const C_ImgBase "file://Media/Manialinks/Common/Chat/"
+#Const C_LayerSquadList_NbPlayersInList	8
+
+declare CUILayer G_ManialinkLayerSquadList;
+
+Text Private_CreateManialink() {
+	declare PlayerCards = "";
+
+	for (I, 0, C_LayerSquadList_NbPlayersInList - 1) {
+		declare X = -3. + I * -6.;
+		PlayerCards ^= "<frameinstance modelid='FrameModel_SquadPlayer' id='Frame_SquadPlayer#"^I^"' pos='"^X^"' hidden='1' />";
+	}
+
+	return """
+<manialink version="3" name="Chat:SquadList">
+<stylesheet>
+	{{{Styles::Get()}}}
+</stylesheet>
+
+<frame id="Frame_SquadPlayerList" pos="109 90">
+	<framemodel id="FrameModel_SquadPlayer">
+		<quad id="Quad_PlayerActionCard" class="Focus" pos="0 0" halign="center" size="5.5 5.5" bgcolorfocus="FFF4" ScriptEvents="1" />
+		<quad id="Quad_PlayerAvatar" pos="0 0" halign="center" size="5.5 5.5" />
+
+		<frame pos="0 -5.75">
+			<quad id="Quad_PlayerPresence" halign="center" valign="center" size="5.5 .5" bgcolor="4AF" />
+			<quad id="Quad_PlayerPresence2" halign="center" valign="center" size="10 5" style="Bgs1InRace" substyle="BgButtonGlow" colorize="4AF" />
+		</frame>
+	</framemodel>
+
+	<frame id="Frame_InviteToSquad" pos="0 -3" hidden="1">
+		<label pos="0 .2" halign="center" valign="center" textsize="2" textcolor="FFF" text="" />
+		<quad id="Quad_InviteToSquad" class="Focus" halign="center" valign="center" size="5 5" bgcolor="0000" bgcolorfocus="FFF4" ScriptEvents="1" />
+	</frame>
+
+	{{{PlayerCards}}}
+</frame>
+
+<script><!--
+
+#Include "MathLib" as ML
+
+#Const C_DefaultPresenceColors [
+	-1 => <.75, .75, .75>,	///< Connecting
+	0 => <.5, .5, .5>,		///< Offline
+	1 => <.25, .75, 1.>,	///< Online
+	2 => <1., .75, .25>,	///< Away
+	3 => <1., .25, .25>,	///< Busy
+	4 => <1., .75, .25>,	///< Away 2
+	5 => <.25, 1., .75>		///< Want to chat
+]
+
+declare Vec3[Integer] G_PresenceColors;
+
+Void FormatPlayerFrame(CMlFrame _Frame, Text _Login) {
+	if (_Frame == Null || _Login == "") return;
+
+	declare ContactLogin = _Login;
+	declare ContactPresence = 1;
+	declare Contact <=> ManiaPlanet.ChatManager.GetContactFromLogin(ContactLogin);
+
+	declare Quad_PlayerActionCard	<=> (_Frame.GetFirstChild("Quad_PlayerActionCard")	as CMlQuad);
+	declare Quad_PlayerAvatar		<=> (_Frame.GetFirstChild("Quad_PlayerAvatar")		as CMlQuad);
+	declare Quad_PlayerPresence		<=> (_Frame.GetFirstChild("Quad_PlayerPresence")	as CMlQuad);
+	declare Quad_PlayerPresence2	<=> (_Frame.GetFirstChild("Quad_PlayerPresence2")	as CMlQuad);
+
+	if (ContactLogin == LocalUser.Login) {
+		declare Integer	LayerSquadList_LocalPresence for Page;
+
+		Quad_PlayerAvatar.ImageUrl = LocalUser.AvatarUrl;
+		ContactPresence = LayerSquadList_LocalPresence;
+	}
+
+	else if (Contact != Null) {
+		Quad_PlayerAvatar.ImageUrl = Contact.AvatarUrl;
+
+		switch (Contact.PresenceShow) {
+			case CChatContact::EPresenceShow::Available		: ContactPresence = 1;
+			case CChatContact::EPresenceShow::Away			: ContactPresence = 2;
+			case CChatContact::EPresenceShow::ExtendedAway	: ContactPresence = 2;
+			case CChatContact::EPresenceShow::DoNotDisturb	: ContactPresence = 3;
+			case CChatContact::EPresenceShow::WantToChat	: ContactPresence = 1;
+			default											: ContactPresence = 0;
+		}
+	}
+
+	Quad_PlayerPresence.BgColor = G_PresenceColors[ContactPresence];
+	Quad_PlayerPresence2.Colorize = Quad_PlayerPresence.BgColor;
+	Quad_PlayerPresence2.Visible = ContactPresence != 0;
+
+	declare Text PlayerLogin for Quad_PlayerActionCard;
+	PlayerLogin = ContactLogin;
+}
+
+main() {
+	declare Frame_InviteToSquad <=> (Page.GetFirstChild("Frame_InviteToSquad") as CMlFrame);
+
+	declare CMlFrame[] Frame_SquadPlayers;
+	for (I, 0, {{{C_LayerSquadList_NbPlayersInList - 1}}}) {
+		Frame_SquadPlayers.add((Page.GetFirstChild("Frame_SquadPlayer#"^I) as CMlFrame));
+	}
+
+	declare Text[]	LayerSquadList_SquadPlayers		for Page;
+	declare Integer	LayerSquadList_ListUpdate		for Page;
+	declare Integer	LayerSquadList_LocalPresence	for Page;
+
+	declare UpdatePlayersList = True;
+
+	declare PrevListUpdate = -1;
+	declare PrevPresence = -2;
+
+	G_PresenceColors = C_DefaultPresenceColors;
+
+	while (True) {
+		yield;
+
+		{{{Styles::Sounds()}}}
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+				if (Event.ControlId == "Quad_PlayerActionCard") {
+					declare Text PlayerLogin for Event.Control;
+
+					if (PlayerLogin == LocalUser.Login) {
+						SendCustomEvent("OpenProfileSettings", []);
+					} else {
+						SendCustomEvent("SetConversation", [PlayerLogin]);
+					}
+				}
+
+				else if (Event.ControlId == "Quad_InviteToSquad") {
+					SendCustomEvent("ToggleSquadInviting", []);
+				}
+			}
+		}
+
+		if (PrevPresence != LayerSquadList_LocalPresence) {
+			PrevPresence = LayerSquadList_LocalPresence;
+			UpdatePlayersList = True;
+		}
+
+		if (PrevListUpdate != LayerSquadList_ListUpdate) {
+			PrevListUpdate = LayerSquadList_ListUpdate;
+			UpdatePlayersList = True;
+		}
+
+		if (UpdatePlayersList) {
+			UpdatePlayersList = False;
+
+			Frame_InviteToSquad.Visible = LayerSquadList_SquadPlayers.count < Frame_SquadPlayers.count;
+			Frame_InviteToSquad.RelativePosition_V3.X = -3. + ML::Min(LayerSquadList_SquadPlayers.count, Frame_SquadPlayers.count) * -6.;
+
+			foreach (I => Frame in Frame_SquadPlayers) {
+				Frame.Visible = LayerSquadList_SquadPlayers.existskey(I);
+				if (!Frame.Visible) continue;
+				FormatPlayerFrame(Frame, LayerSquadList_SquadPlayers[I]);
+
+			}
+		}
+	}
+}
+
+--></script>
+</manialink>
+	""";
+}
+
+Void Build() {
+	G_ManialinkLayerSquadList = UILayerCreate();
+	G_ManialinkLayerSquadList.Type = CUILayer::EUILayerType::ManiaplanetPlugin;
+	G_ManialinkLayerSquadList.ManialinkPage = Private_CreateManialink();
+}
+
+Void SetColor(Vec3 _Color) {
+	if (G_ManialinkLayerSquadList == Null) return;
+	LayerCustomEvent(G_ManialinkLayerSquadList, "SetColor", [_Color.X^" "^_Color.Y^" "^_Color.Z]);
+}
+
+Void SetSquadPlayers(Text[] _Logins) {
+	declare Text[]	LayerSquadList_SquadPlayers for G_ManialinkLayerSquadList.LocalPage;
+	declare Integer	LayerSquadList_ListUpdate for G_ManialinkLayerSquadList.LocalPage;
+	LayerSquadList_SquadPlayers = _Logins;
+	LayerSquadList_ListUpdate = Now;
+}
+
+Void SetLocalPresence(Integer _ConnectionStatus, CChatManager::EPresenceShow _Presence) {
+	if (G_ManialinkLayerSquadList == Null) return;
+	declare Integer	LayerSquadList_LocalPresence for G_ManialinkLayerSquadList.LocalPage;
+
+	if (_ConnectionStatus != 1) {
+		switch (_ConnectionStatus) {
+			case 0 : LayerSquadList_LocalPresence = 0;
+			case 2 : LayerSquadList_LocalPresence = -1;
+		}
+	}
+
+	else switch (_Presence) {
+		case CChatManager::EPresenceShow::Available		: LayerSquadList_LocalPresence = 1;
+		case CChatManager::EPresenceShow::Away			: LayerSquadList_LocalPresence = 2;
+		case CChatManager::EPresenceShow::ExtendedAway	: LayerSquadList_LocalPresence = 2;
+		case CChatManager::EPresenceShow::DoNotDisturb	: LayerSquadList_LocalPresence = 3;
+		case CChatManager::EPresenceShow::WantToChat	: LayerSquadList_LocalPresence = 1;
+		default											: LayerSquadList_LocalPresence = 0;
+	}
+}

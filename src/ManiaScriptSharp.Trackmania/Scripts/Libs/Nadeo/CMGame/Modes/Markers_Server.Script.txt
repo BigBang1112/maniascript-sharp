@@ -1,0 +1,310 @@
+/**
+ *	Markers management (server side)
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/CMGame/Modes/Markers_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/Markers_Common.Script.txt" as Markers
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Struct
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_MarkerProperties {
+	Vec3 Box;
+	CUIConfigMarker::EHudVisibility HudVisibility;
+	CUIConfigMarker::EMiniMapVisibility MiniMapVisibility;
+	Boolean HideOnSelf;
+	Real DistMin;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MarkersRefreshInterval 1000
+#Const C_UseUIAll True
+#Const C_DefaultMarkerProperties K_MarkerProperties {
+	Box = <1., 0.5, 1.>,
+	HudVisibility = CUIConfigMarker::EHudVisibility::WhenVisible,
+	MiniMapVisibility = CUIConfigMarker::EMiniMapVisibility::Never,
+	HideOnSelf = True,
+	DistMin = 8.
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer G_MarkersRefreshTime;
+declare Boolean G_MarkersMustBeUpdated;
+declare K_MarkerProperties G_DefaultMarkerProperties;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the frame id of the visible markers to the client
+Void Private_SetMarkerFrameId(CUIConfig _UI, Integer _MarkerFrameId, Text _AccountId) {
+	if (_UI == UIManager.UIAll) {
+		declare netwrite Text[Integer] Net_LibModeMarkers_MarkerFrameIds for Teams[0] = [];
+		declare netwrite Integer Net_LibModeMarkers_MarkerFrameIdsUpdate for Teams[0] = 0;
+		Net_LibModeMarkers_MarkerFrameIds[_MarkerFrameId] = _AccountId;
+		Net_LibModeMarkers_MarkerFrameIdsUpdate += 1;
+	} else {
+		declare netwrite Text[Integer] Net_LibModeMarkers_MarkerFrameIds for _UI = [];
+		declare netwrite Integer Net_LibModeMarkers_MarkerFrameIdsUpdate for _UI = 0;
+		Net_LibModeMarkers_MarkerFrameIds[_MarkerFrameId] = _AccountId;
+		Net_LibModeMarkers_MarkerFrameIdsUpdate += 1;
+	}
+}
+Void Private_RemoveMarkerFrameId(CUIConfig _UI, Integer _MarkerFrameId) {
+	if (_UI == UIManager.UIAll) {
+		declare netwrite Text[Integer] Net_LibModeMarkers_MarkerFrameIds for Teams[0] = [];
+		declare netwrite Integer Net_LibModeMarkers_MarkerFrameIdsUpdate for Teams[0] = 0;
+		Net_LibModeMarkers_MarkerFrameIds.removekey(_MarkerFrameId);
+		Net_LibModeMarkers_MarkerFrameIdsUpdate += 1;
+	} else {
+		declare netwrite Text[Integer] Net_LibModeMarkers_MarkerFrameIds for _UI = [];
+		declare netwrite Integer Net_LibModeMarkers_MarkerFrameIdsUpdate for _UI = 0;
+		Net_LibModeMarkers_MarkerFrameIds.removekey(_MarkerFrameId);
+		Net_LibModeMarkers_MarkerFrameIdsUpdate += 1;
+	}
+}
+Void Private_ResetMarkerFrameIds(CUIConfig _UI) {
+	if (_UI == UIManager.UIAll) {
+		declare netwrite Text[Integer] Net_LibModeMarkers_MarkerFrameIds for Teams[0] = [];
+		declare netwrite Integer Net_LibModeMarkers_MarkerFrameIdsUpdate for Teams[0] = 0;
+		Net_LibModeMarkers_MarkerFrameIds = [];
+		Net_LibModeMarkers_MarkerFrameIdsUpdate += 1;
+	} else {
+		declare netwrite Text[Integer] Net_LibModeMarkers_MarkerFrameIds for _UI = [];
+		declare netwrite Integer Net_LibModeMarkers_MarkerFrameIdsUpdate for _UI = 0;
+		Net_LibModeMarkers_MarkerFrameIds = [];
+		Net_LibModeMarkers_MarkerFrameIdsUpdate += 1;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Find a valid marker frame id
+Integer Private_GetMarkerFrameId(Integer[Ident] _MarkerFrameIds) {
+	declare Integer[Ident] SortedMarkerFrameIds = _MarkerFrameIds.sort();
+	declare Integer NewFrameId = 0;
+	foreach (FrameId in SortedMarkerFrameIds) {
+		if (NewFrameId != FrameId) {
+			return NewFrameId;
+		}
+		NewFrameId += 1;
+	}
+	return SortedMarkerFrameIds.count;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a marker on a player
+CUIConfigMarker Private_CreatePlayerMarker(CUIConfig _UI, CSmPlayer _MarkedPlayer) {
+	declare CUIConfigMarker Marker = _UI.AddMarker(_MarkedPlayer);
+	if (Marker != Null) {
+		Marker.Box = G_DefaultMarkerProperties.Box;
+		Marker.HudVisibility = G_DefaultMarkerProperties.HudVisibility;
+		Marker.MiniMapVisibility = G_DefaultMarkerProperties.MiniMapVisibility;
+		Marker.HideOnSelf = G_DefaultMarkerProperties.HideOnSelf;
+		Marker.DistMin = G_DefaultMarkerProperties.DistMin;
+	}
+	return Marker;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy a marker on a player
+Void Private_DestroyPlayerMarker(CUIConfig _UI, Ident _MarkerId) {
+	if (_UI.Markers.existskey(_MarkerId)) {
+		_UI.RemoveMarker(_UI.Markers[_MarkerId]);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the markers on the UI
+ *
+ *	@param	_UI												The UI to update
+ *	@param	_MarkersPlayers						The player with a marker to attach
+ *	@param	_ReceivingPlayerId				The id of the player receiving the marker
+ *																		when the marker is added on the player's UI
+ *																		instead of UIAll
+ */
+Void Private_UpdateMarkers(CUIConfig _UI, CSmPlayer[Ident] _MarkedPlayers, Ident _ReceivingPlayerId) {
+	declare Ident[Ident] LibModeMarkers_MarkedPlayerIds for _UI = [];
+	declare Integer[Ident] LibModeMarkers_MarkerFrameIds for _UI = [];
+
+	// Remove markers
+	declare Ident[Ident] ToRemove;
+	foreach (MarkedPlayerId => MarkerId in LibModeMarkers_MarkedPlayerIds) {
+		if (!_MarkedPlayers.existskey(MarkedPlayerId)) {
+			ToRemove[MarkedPlayerId] = MarkerId;
+		}
+	}
+	foreach (MarkedPlayerId => MarkerId in ToRemove) {
+		Private_DestroyPlayerMarker(_UI, MarkerId);
+		LibModeMarkers_MarkedPlayerIds.removekey(MarkedPlayerId);
+		if (LibModeMarkers_MarkerFrameIds.existskey(MarkerId)) {
+			Private_RemoveMarkerFrameId(_UI, LibModeMarkers_MarkerFrameIds[MarkerId]);
+			LibModeMarkers_MarkerFrameIds.removekey(MarkerId);
+		}
+	}
+
+	// Add markers
+	foreach (MarkedPlayer in _MarkedPlayers) {
+		if (
+			(_ReceivingPlayerId == NullId || _ReceivingPlayerId != MarkedPlayer.Id) &&
+			!LibModeMarkers_MarkedPlayerIds.existskey(MarkedPlayer.Id)
+		) {
+			declare CUIConfigMarker Marker = Private_CreatePlayerMarker(_UI, MarkedPlayer);
+			if (Marker != Null) {
+				LibModeMarkers_MarkedPlayerIds[MarkedPlayer.Id] = Marker.Id;
+
+				// Get a frame id for the marker
+				declare Integer MarkerFrameId = Private_GetMarkerFrameId(LibModeMarkers_MarkerFrameIds);
+				LibModeMarkers_MarkerFrameIds[Marker.Id] = MarkerFrameId;
+				Marker.ManialinkFrameId = Markers::GetManialinkFrameId(MarkerFrameId);
+				Private_SetMarkerFrameId(_UI, MarkerFrameId, MarkedPlayer.User.WebServicesUserId);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove all markers created on the UI
+Void Private_RemoveAllMarkers(CUIConfig _UI) {
+	declare Ident[Ident] LibModeMarkers_MarkedPlayerIds for _UI = [];
+	declare Integer[Ident] LibModeMarkers_MarkerFrameIds for _UI = [];
+	foreach (MarkerId in LibModeMarkers_MarkedPlayerIds) {
+		Private_DestroyPlayerMarker(_UI, MarkerId);
+	}
+	LibModeMarkers_MarkedPlayerIds = [];
+	Private_ResetMarkerFrameIds(_UI);
+	LibModeMarkers_MarkerFrameIds = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Enable or disable the markers above the players
+Void EnablePlayersMarkers(Boolean _Enabled) {
+	if (_Enabled) {
+		G_MarkersRefreshTime = Now;
+		G_MarkersMustBeUpdated = True;
+	} else {
+		G_MarkersRefreshTime = -1;
+		G_MarkersMustBeUpdated = False;
+
+		// Reinitialize players
+		foreach (Player in AllPlayers) {
+			declare Boolean LibModeMarkers_NewPlayer for Player = True;
+			declare CSmPlayer::ESpawnStatus LibModeMarkers_SpawnStatus for Player = CSmPlayer::ESpawnStatus::NotSpawned;
+			LibModeMarkers_NewPlayer = True;
+			LibModeMarkers_SpawnStatus = CSmPlayer::ESpawnStatus::NotSpawned;
+		}
+
+		// Remove all markers
+		if (C_UseUIAll) {
+			Private_RemoveAllMarkers(UIManager.UIAll);
+		} else {
+			foreach (Player in AllPlayers) {
+				declare CUIConfig UI <=> UIManager.GetUI(Player);
+				if (UI != Null) {
+					Private_RemoveAllMarkers(UI);
+				}
+			}
+		}
+	}
+}
+Void EnablePlayersMarkers() {
+	EnablePlayersMarkers(True);
+}
+Void DisablePlayersMarkers() {
+	EnablePlayersMarkers(False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Setup default marker properties
+Void SetDefaultMarker_Box(Vec3 _Box) {
+	G_DefaultMarkerProperties.Box = _Box;
+}
+Void SetDefaultMarker_HudVisibility(CUIConfigMarker::EHudVisibility _HudVisibility) {
+	G_DefaultMarkerProperties.HudVisibility = _HudVisibility;
+}
+Void SetDefaultMarker_MiniMapVisibility(CUIConfigMarker::EMiniMapVisibility _MiniMapVisibility) {
+	G_DefaultMarkerProperties.MiniMapVisibility = _MiniMapVisibility;
+}
+Void SetDefaultMarker_HideOnSelf(Boolean _HideOnSelf) {
+	G_DefaultMarkerProperties.HideOnSelf = _HideOnSelf;
+}
+Void SetDefaultMarker_DistMin(Real _DistMin) {
+	G_DefaultMarkerProperties.DistMin = _DistMin;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (G_MarkersRefreshTime >= 0) {
+		foreach (Event in PendingEvents) {
+			if (
+				Event.Type == CSmModeEvent::EType::OnPlayerAdded ||
+				Event.Type == CSmModeEvent::EType::OnPlayerRemoved
+			) {
+				G_MarkersMustBeUpdated = True;
+			}
+		}
+
+		if (Now >= G_MarkersRefreshTime) {
+			G_MarkersRefreshTime = Now + C_MarkersRefreshInterval;
+
+			// Check if a player joined or spawned/unspawned
+			if (!G_MarkersMustBeUpdated) {
+				foreach (Player in AllPlayers) {
+					declare Boolean LibModeMarkers_NewPlayer for Player = True;
+					declare CSmPlayer::ESpawnStatus LibModeMarkers_SpawnStatus for Player = CSmPlayer::ESpawnStatus::NotSpawned;
+					if (LibModeMarkers_NewPlayer || LibModeMarkers_SpawnStatus != Player.SpawnStatus) {
+						LibModeMarkers_NewPlayer = False;
+						LibModeMarkers_SpawnStatus = Player.SpawnStatus;
+						G_MarkersMustBeUpdated = True;
+					}
+				}
+			}
+
+			if (G_MarkersMustBeUpdated) {
+				G_MarkersMustBeUpdated = False;
+
+				// Find all players that must have a marker above them
+				declare CSmPlayer[Ident] MarkedPlayers;
+				foreach (Player in Players) {
+					if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned) {
+						MarkedPlayers[Player.Id] = Player;
+					}
+				}
+
+				// Update markers
+				if (C_UseUIAll) {
+					Private_UpdateMarkers(UIManager.UIAll, MarkedPlayers, NullId);
+				} else {
+					foreach (Player in AllPlayers) {
+						declare CUIConfig UI <=> UIManager.GetUI(Player);
+						if (UI != Null) {
+							Private_UpdateMarkers(UI, MarkedPlayers, Player.Id);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	DisablePlayersMarkers();
+
+	G_DefaultMarkerProperties = C_DefaultMarkerProperties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

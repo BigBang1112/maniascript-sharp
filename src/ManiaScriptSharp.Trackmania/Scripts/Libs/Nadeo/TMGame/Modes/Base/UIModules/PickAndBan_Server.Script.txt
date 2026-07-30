@@ -1,0 +1,736 @@
+/**
+ *	UI module: PickAndBan server side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/TMGame/Modes/Base/UIModules/PickAndBan_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Semver.Script.txt" as Semver
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Common.Script.txt" as UIModules_Common
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/XmlRpc2.Script.txt" as XmlRpc
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PickAndBan_Common.Script.txt" as UIModules_PickAndBan_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structure
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_PickAndBan {
+	Boolean IsInitialized;
+	Boolean IsRunning;
+	UIModules_PickAndBan_Common::K_Step[] Steps;
+	Integer StepDuration;
+	Integer CurrentStepKey;
+	Integer CurrentStepEndTime;
+	Integer ResultDuration;
+	Integer ResultEndTime;
+	Ident ActiveUserId;
+	Ident[] NextUserIds;
+	Ident[Integer] LastUserIds;
+	Text ActiveUserAccountId;
+	CUIConfig::EUISequence InitialUISequence;
+	Text PreSelectedTrackUid;
+}
+// If you modify these structures don't forget to update them here too :
+// https://gitlab.nadeo.org/club/tmnext/maniascript/-/blob/master/Scripts/server-plugins/Club/MatchManagement/PickBanGamepad.Script.txt
+#Struct K_ConfigStep {
+	Integer team;
+	Text action;
+}
+#Struct K_Config {
+	K_ConfigStep[] steps;
+	Integer stepDuration;
+	Integer resultDuration;
+}
+#Struct K_PlaylistItem {
+	Text uid;
+	Integer team;
+}
+#Struct K_Playlist {
+	K_PlaylistItem[] playlist;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_DefaultVisibility False
+
+#Const C_Method_StartPickAndBan "PickBan.Start"
+#Const C_Callback_PickAndBanComplete "PickBan.Complete"
+
+#Const C_PickAndBan_Null K_PickAndBan {
+	IsInitialized = False,
+	IsRunning = False,
+	StepDuration = 0,
+	Steps = [],
+	CurrentStepKey = 0,
+	CurrentStepEndTime = -1,
+	ResultDuration = 0,
+	ResultEndTime = -1,
+	ActiveUserId = NullId,
+	NextUserIds = [],
+	LastUserIds = [],
+	ActiveUserAccountId = "",
+	InitialUISequence = CUIConfig::EUISequence::None,
+	PreSelectedTrackUid = ""
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_PickAndBan G_InternalPickAndBan;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_PickAndBan_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the configuration of the UI module
+UIModules_Common::K_ModuleConfig GetConfig() {
+	return UIModules_PickAndBan_Common::C_UIModuleConfig;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the url of the image to use as background
+Void SetBackground(Text _BackgroundUrl) {
+	declare netwrite Text Net_TMGame_PickAndBan_BackgroundUrl for Teams[0] = "";
+	Net_TMGame_PickAndBan_BackgroundUrl = _BackgroundUrl;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the url of the image to use for the top left logo
+Void SetTopLeftLogo(Text _TopLeftLogoUrl) {
+	declare netwrite Text Net_TMGame_PickAndBan_TopLeftLogoUrl for Teams[0] = "";
+	Net_TMGame_PickAndBan_TopLeftLogoUrl = _TopLeftLogoUrl;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the url of the image to use for the top right logo
+Void SetTopRightLogo(Text _TopRightLogoUrl) {
+	declare netwrite Text Net_TMGame_PickAndBan_TopRightLogoUrl for Teams[0] = "";
+	Net_TMGame_PickAndBan_TopRightLogoUrl = _TopRightLogoUrl;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the url of the image to use for the bottom logo
+Void SetBottomLogo(Text _BottomLogoUrl) {
+	declare netwrite Text Net_TMGame_PickAndBan_BottomLogoUrl for Teams[0] = "";
+	Net_TMGame_PickAndBan_BottomLogoUrl = _BottomLogoUrl;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Set style of the pick and ban screen
+ *
+ *	@param _Style											A json string with the following format:
+ *																		{
+ *																			"Background": "https://example.com/background.dds",
+ *																			"TopLeftLogo": "https://example.com/Logo1.dds",
+ *																			"TopRightLogo": "https://example.com/Logo2.dds",
+ *																			"BottomLogo": "https://example.com/Logo3.dds"
+ *																		}
+ *																		Each value is optional
+ */
+Void SetStyle(Text _Style) {
+	declare Text[Text] Style;
+	Style.fromjson(_Style);
+	foreach (Key => Value in Style) {
+		switch (Key) {
+			case UIModules_PickAndBan_Common::C_Style_Background: {
+				SetBackground(Value);
+			}
+			case UIModules_PickAndBan_Common::C_Style_TopLeftLogo: {
+				SetTopLeftLogo(Value);
+			}
+			case UIModules_PickAndBan_Common::C_Style_TopRightLogo: {
+				SetTopRightLogo(Value);
+			}
+			case UIModules_PickAndBan_Common::C_Style_BottomLogo: {
+				SetBottomLogo(Value);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the match info message
+Void SetMatchInfo(Text _MatchInfo) {
+	declare netwrite Text Net_TMGame_PickAndBan_MatchInfo for Teams[0] = "";
+	Net_TMGame_PickAndBan_MatchInfo = _MatchInfo;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Show or hide the UI
+ *
+ *	@param	_Player										The player to update
+ *	@param	_Display									True to show
+ *																		False to hide
+ */
+Void SetVisibility(CPlayer _Player, Boolean _Display) {
+	if (_Player == Null) return;
+	declare CUIConfig UI <=> UIManager.GetUI(_Player);
+	if (UI == Null) return;
+
+	declare netwrite Boolean Net_TMGame_PickAndBan_DisplayModule for UI = C_DefaultVisibility;
+	Net_TMGame_PickAndBan_DisplayModule = _Display;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	SetVisibility(_Player, C_DefaultVisibility);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the pick and ban progress to the clients
+Void Private_SendPickAndBanProgress(K_PickAndBan _PickAndBan) {
+	declare netwrite Boolean Net_TMGame_PickAndBan_IsRunning for Teams[0] = False;
+	declare netwrite Integer Net_TMGame_PickAndBan_CurrentStepKey for Teams[0] = 0;
+	declare netwrite Integer Net_TMGame_PickAndBan_CurrentStepEndTime for Teams[0] = -1;
+	declare netwrite Text Net_TMGame_PickAndBan_ActiveUserAccountId for Teams[0] = "";
+	declare netwrite Text Net_TMGame_PickAndBan_PickAndBanOrder for Teams[0] = "";
+	Net_TMGame_PickAndBan_IsRunning = _PickAndBan.IsRunning;
+	Net_TMGame_PickAndBan_CurrentStepKey = _PickAndBan.CurrentStepKey;
+	Net_TMGame_PickAndBan_CurrentStepEndTime = _PickAndBan.CurrentStepEndTime;
+	Net_TMGame_PickAndBan_ActiveUserAccountId = _PickAndBan.ActiveUserAccountId;
+	Net_TMGame_PickAndBan_PickAndBanOrder = _PickAndBan.Steps.tojson();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the next user that can take an action
+K_PickAndBan Private_GetNextActiveUser(K_PickAndBan _PickAndBan) {
+	declare K_PickAndBan PickAndBan = _PickAndBan;
+
+	PickAndBan.ActiveUserId = NullId;
+	PickAndBan.ActiveUserAccountId = "";
+
+	if (PickAndBan.Steps.existskey(PickAndBan.CurrentStepKey)) {
+		declare UIModules_PickAndBan_Common::K_Step Step = PickAndBan.Steps[PickAndBan.CurrentStepKey];
+		if (
+			(
+				Step.Action == UIModules_PickAndBan_Common::C_Action_Pick ||
+				Step.Action == UIModules_PickAndBan_Common::C_Action_Ban
+			) &&
+			Step.Team > 0 &&
+			Teams.existskey(Step.Team - 1)
+		) {
+			foreach (Player in AllPlayers) {
+				if (
+					Player.User != Null &&
+					!Tools::IsFakeUser(Player.User) &&
+					!PickAndBan.NextUserIds.exists(Player.User.Id)
+				) {
+					PickAndBan.NextUserIds.add(Player.User.Id);
+				}
+			}
+			if (PickAndBan.NextUserIds.count > 0) {
+				declare Ident LastUserId = PickAndBan.LastUserIds.get(Step.Team, NullId);
+				// Be careful, `.keyof()` does not truly return `-1` if the value is not in the array.
+				// It returns a special value that is equal to `-1` (`value == -1` return `True`).
+				// Doing `value + 1` won't return `0`, but `-9223372032559808512` instead.
+				// see: /trackmania-next/tmnext/-/issues/5539
+				declare Integer Shift = 0;
+				if (PickAndBan.NextUserIds.exists(LastUserId)) {
+					Shift = PickAndBan.NextUserIds.keyof(LastUserId) + 1;
+				}
+				// A user who changes clan during the pick and ban can lose a turn
+				// Too bad for them but it should not be common
+				for (Key, 0, PickAndBan.NextUserIds.count - 1) {
+					if (PickAndBan.ActiveUserId != NullId) break;
+					declare Integer NextUserKey = (Key + Shift) % PickAndBan.NextUserIds.count;
+					declare Ident NextUserId = PickAndBan.NextUserIds[NextUserKey];
+					if (Users.existskey(NextUserId)) {
+						declare CSmPlayer Player = GetPlayer(Users[NextUserId].Login);
+						if (
+							Player != Null &&
+							Player.CurrentClan == Step.Team &&
+							!Player.RequestsSpectate &&
+							Player.User != Null
+						) {
+							PickAndBan.ActiveUserId = Player.User.Id;
+							PickAndBan.ActiveUserAccountId = Player.User.WebServicesUserId;
+							PickAndBan.LastUserIds[Player.CurrentClan] = Player.User.Id;
+						}
+					}
+				}
+				// Remove users that are not here anymore
+				declare Integer Key = 0;
+				while (Key < PickAndBan.NextUserIds.count) {
+					declare Ident UserId = PickAndBan.NextUserIds[Key];
+					if (
+						!PickAndBan.LastUserIds.exists(UserId) &&
+						!Users.existskey(UserId)
+					) {
+						PickAndBan.NextUserIds.removekey(Key);
+					} else {
+						Key += 1;
+					}
+				}
+			}
+		}
+	}
+
+	return PickAndBan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the track selected for the current step
+K_PickAndBan Private_SetCurrentStepTrack(K_PickAndBan _PickAndBan, Text _MapUid) {
+	if (!_PickAndBan.Steps.existskey(_PickAndBan.CurrentStepKey)) return _PickAndBan;
+
+	declare K_PickAndBan PickAndBan = _PickAndBan;
+
+	PickAndBan.Steps[PickAndBan.CurrentStepKey].MapUid = _MapUid;
+
+	return PickAndBan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Pre-select a track for the current step
+ *	If no tracks are selected before the end of the step
+ *	the pre-selected track will be used for the step
+ *	instead of picking a random track
+ */
+K_PickAndBan Private_SetPreSelectedTrack(K_PickAndBan _PickAndBan, Text _PreSelectedTrackUid) {
+	declare K_PickAndBan PickAndBan = _PickAndBan;
+	PickAndBan.PreSelectedTrackUid = _PreSelectedTrackUid;
+	return PickAndBan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the uid of the tracks that can still be selected
+Text[] Private_GetAvailableTracks(K_PickAndBan _PickAndBan) {
+	declare Text[] SelectedTrackUids;
+	foreach (Step in _PickAndBan.Steps) {
+		SelectedTrackUids.add(Step.MapUid);
+	}
+	declare Text[] AvailableTrackUids;
+	foreach (MapInfo in MapList) {
+		if (!SelectedTrackUids.exists(MapInfo.MapUid)) {
+			AvailableTrackUids.add(MapInfo.MapUid);
+		}
+	}
+	return AvailableTrackUids;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a random track uid that was not selected yet
+Text Private_GetRandomTrack(K_PickAndBan _PickAndBan) {
+	declare Text[] RandomTrackUids = Private_GetAvailableTracks(_PickAndBan);
+	if (RandomTrackUids.count > 0) {
+		return RandomTrackUids[ML::Rand(0, RandomTrackUids.count - 1)];
+	}
+	return "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the display of the result
+K_PickAndBan Private_StartDisplayingResult(K_PickAndBan _PickAndBan) {
+	declare K_PickAndBan PickAndBan = _PickAndBan;
+
+	PickAndBan.CurrentStepKey = PickAndBan.Steps.count;
+	PickAndBan.CurrentStepEndTime = -1;
+	PickAndBan.ActiveUserId = NullId;
+	PickAndBan.ActiveUserAccountId = "";
+	PickAndBan.ResultEndTime = Now + PickAndBan.ResultDuration;
+
+	return PickAndBan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop the display of the result
+K_PickAndBan Private_StopDisplayingResult(K_PickAndBan _PickAndBan) {
+	declare K_PickAndBan PickAndBan = _PickAndBan;
+	PickAndBan.IsRunning = False;
+	return PickAndBan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the playlist of tracks picked during the pick and ban sequence
+Void Private_SendCompleteCallback(K_PickAndBan _PickAndBan) {
+	if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "3.8.0")) {
+		declare K_Playlist Playlist;
+		foreach (Step in _PickAndBan.Steps) {
+			if (
+				Step.MapUid != "" && (
+					Step.Action == UIModules_PickAndBan_Common::C_Action_Pick ||
+					Step.Action == UIModules_PickAndBan_Common::C_Action_RandomPick
+				)
+			) {
+				Playlist.playlist.add(K_PlaylistItem {
+					uid = Step.MapUid,
+					team = Step.Team
+				});
+			}
+		}
+		XmlRpc::SendCallback(C_Callback_PickAndBanComplete, [Playlist.tojson()]);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the track selected for the current step
+K_PickAndBan Private_GoToNextStep(K_PickAndBan _PickAndBan) {
+	declare K_PickAndBan PickAndBan = _PickAndBan;
+
+	// Before going to the next step
+	// select a random track if none was selected for the current step
+	if (
+		PickAndBan.Steps.existskey(PickAndBan.CurrentStepKey) &&
+		PickAndBan.Steps[PickAndBan.CurrentStepKey].MapUid == ""
+	) {
+		if (
+			PickAndBan.PreSelectedTrackUid == "" ||
+			PickAndBan.Steps[PickAndBan.CurrentStepKey].Action == UIModules_PickAndBan_Common::C_Action_RandomPick
+		) {
+			PickAndBan = Private_SetCurrentStepTrack(PickAndBan, Private_GetRandomTrack(PickAndBan));
+		} else {
+			PickAndBan = Private_SetCurrentStepTrack(PickAndBan, PickAndBan.PreSelectedTrackUid);
+		}
+	}
+	PickAndBan = Private_SetPreSelectedTrack(PickAndBan, "");
+
+	// Stop the pick and ban if it was the last step
+	// or if there are no tracks left
+	// otherwise go to the next step
+	if (
+		PickAndBan.CurrentStepKey >= PickAndBan.Steps.count - 1 ||
+		Private_GetAvailableTracks(PickAndBan).count <= 0
+	) {
+		if (PickAndBan.ResultDuration > 0) {
+			PickAndBan = Private_StartDisplayingResult(PickAndBan);
+		} else {
+			PickAndBan.CurrentStepEndTime = -1;
+			PickAndBan.IsRunning = False;
+		}
+		Private_SendCompleteCallback(PickAndBan);
+	} else {
+		PickAndBan.CurrentStepKey += 1;
+		PickAndBan.CurrentStepEndTime = Now + PickAndBan.StepDuration;
+		PickAndBan = Private_GetNextActiveUser(PickAndBan);
+	}
+
+	Private_SendPickAndBanProgress(PickAndBan);
+
+	return PickAndBan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the current step action is to pick a random track
+Boolean Private_CurrentStepActionIsRandomPick(K_PickAndBan _PickAndBan) {
+	return (
+		_PickAndBan.Steps.existskey(_PickAndBan.CurrentStepKey) &&
+		_PickAndBan.Steps[_PickAndBan.CurrentStepKey].Action == UIModules_PickAndBan_Common::C_Action_RandomPick
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Go to the first manual step available, including the current one
+K_PickAndBan Private_GoToManualStep(K_PickAndBan _PickAndBan) {
+	declare K_PickAndBan PickAndBan = _PickAndBan;
+
+	while (
+		PickAndBan.IsRunning &&
+		PickAndBan.CurrentStepKey < PickAndBan.Steps.count && (
+			PickAndBan.ActiveUserId == NullId ||
+			Private_CurrentStepActionIsRandomPick(PickAndBan)
+		)
+	) {
+		PickAndBan = Private_GoToNextStep(PickAndBan);
+	}
+
+	return PickAndBan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Go to the next manual step
+K_PickAndBan Private_GoToNextManualStep(K_PickAndBan _PickAndBan) {
+	declare K_PickAndBan PickAndBan = _PickAndBan;
+	PickAndBan = Private_GoToNextStep(PickAndBan);
+	PickAndBan = Private_GoToManualStep(PickAndBan);
+	return PickAndBan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check that the selected track is valid
+Boolean Private_TrackSelected_TrackIsValid(K_PickAndBan _PickAndBan, Text _MapUid) {
+	declare Text ValidMapUid = "";
+	// The map exists in the map list
+	foreach (MapInfo in MapList) {
+		if (MapInfo.MapUid == _MapUid) {
+			ValidMapUid = MapInfo.MapUid;
+			break;
+		}
+	}
+	// The map was already selected (picked or banned)
+	if (ValidMapUid != "") {
+		for (StepKey, 0, _PickAndBan.CurrentStepKey) {
+			if (
+				_PickAndBan.Steps.existskey(StepKey) &&
+				_PickAndBan.Steps[StepKey].MapUid == ValidMapUid
+			) {
+				return False;
+			}
+		}
+	}
+	return ValidMapUid != "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check that the user that took the action is the active one
+Boolean Private_TrackSelected_UserIsActive(K_PickAndBan _PickAndBan, CUIConfig _UI) {
+	if (_UI != Null) {
+		declare CSmPlayer Player <=> GetPlayer(_UI);
+		if (Player != Null && Player.User != Null && Player.User.WebServicesUserId == _PickAndBan.ActiveUserAccountId) {
+			return True;
+		}
+	}
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Start the pick and ban sequence
+ *
+ *	@param	_Steps										The steps of the pick and ban sequence
+ *	@param	_StepDuration							The duration of one pick or ban step
+ *	@param	_ResultDuration						The duration of the result display at the end of the pick and ban sequence
+ */
+K_PickAndBan Start(K_ConfigStep[] _Steps, Integer _StepDuration, Integer _ResultDuration) {
+	declare K_PickAndBan PickAndBan = C_PickAndBan_Null;
+
+	// Initialize the pick and ban order
+	if (_Steps.count > 0) {
+		PickAndBan.Steps = [];
+
+		// Convert K_ConfigStep to K_Step
+		foreach (Step in _Steps) {
+			PickAndBan.Steps.add(UIModules_PickAndBan_Common::K_Step {
+				Action = UIModules_PickAndBan_Common::FormatAction(Step.action),
+				Team = Step.team
+			});
+		}
+
+		// Check if there are errors in the configuration
+		foreach (Step in PickAndBan.Steps) {
+			if (Step.Team < 0) {
+				log("WARNING [PickAndBan] Invalid team '"^Step.Team^"' in pick and ban order.");
+			}
+			if (!UIModules_PickAndBan_Common::IsValidAction(Step.Action)) {
+				log("WARNING [PickAndBan] Invalid action '"^Step.Action^"' in pick and ban order.");
+			}
+		}
+		if (PickAndBan.Steps.count > MapList.count) {
+			log("WARNING [PickAndBan] There are "^PickAndBan.Steps.count^" steps in the pick and ban but only "^MapList.count^" tracks on the server.");
+		}
+	}
+
+	PickAndBan.StepDuration = ML::Max(0, _StepDuration);
+	PickAndBan.CurrentStepKey = 0;
+	PickAndBan.CurrentStepEndTime = Now + PickAndBan.StepDuration;
+	PickAndBan.ResultDuration = ML::Max(0, _ResultDuration);
+	PickAndBan.ResultEndTime = -1;
+	PickAndBan.IsInitialized = True;
+	PickAndBan.IsRunning = PickAndBan.Steps.count > 0;
+
+	PickAndBan.InitialUISequence = UIManager.UIAll.UISequence;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::UIInteraction;
+
+	PickAndBan = Private_GetNextActiveUser(PickAndBan);
+	PickAndBan = Private_GoToManualStep(PickAndBan);
+	Private_SendPickAndBanProgress(PickAndBan);
+
+	return PickAndBan;
+}
+K_PickAndBan Start(K_Config _Config) {
+	return Start(_Config.steps, _Config.stepDuration, _Config.resultDuration);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the pick and ban sequence is ongoing
+Boolean IsRunning(K_PickAndBan _PickAndBan) {
+	return _PickAndBan.IsRunning;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the pick and ban sequence is initialized
+Boolean IsInitialized(K_PickAndBan _PickAndBan) {
+	return _PickAndBan.IsInitialized;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the pick and ban sequence
+K_PickAndBan Update(K_PickAndBan _PickAndBan) {
+	if (!_PickAndBan.IsRunning) return _PickAndBan;
+
+	declare K_PickAndBan PickAndBan = _PickAndBan;
+
+	// The active user selected a track
+	foreach (Event in UIManager.PendingEvents) {
+		if (
+			Event.Type == CUIConfigEvent::EType::OnLayerCustomEvent && (
+				Event.CustomEventType == UIModules_PickAndBan_Common::C_Event_TrackPreSelected ||
+				Event.CustomEventType == UIModules_PickAndBan_Common::C_Event_TrackSelected
+			) &&
+			Event.CustomEventData.count >= 1 &&
+			Private_TrackSelected_TrackIsValid(PickAndBan, Event.CustomEventData[0]) &&
+			Private_TrackSelected_UserIsActive(PickAndBan, Event.UI)
+		) {
+			if (Event.CustomEventType == UIModules_PickAndBan_Common::C_Event_TrackSelected) {
+				PickAndBan = Private_SetCurrentStepTrack(PickAndBan, Event.CustomEventData[0]);
+				PickAndBan = Private_GoToNextManualStep(PickAndBan);
+			} else if (Event.CustomEventType == UIModules_PickAndBan_Common::C_Event_TrackPreSelected) {
+				PickAndBan = Private_SetPreSelectedTrack(PickAndBan, Event.CustomEventData[0]);
+			}
+		}
+	}
+
+	// The current step countdown reached 0
+	if (PickAndBan.CurrentStepEndTime >= 0 && Now >= PickAndBan.CurrentStepEndTime) {
+		PickAndBan = Private_GoToNextManualStep(PickAndBan);
+	}
+
+	// The result display is finished
+	if (PickAndBan.ResultEndTime >= 0 && Now >= PickAndBan.ResultEndTime) {
+		PickAndBan = Private_StopDisplayingResult(PickAndBan);
+	}
+
+	return PickAndBan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop the pick and ban sequence
+K_PickAndBan Stop(K_PickAndBan _PickAndBan) {
+	declare K_PickAndBan PickAndBan = _PickAndBan;
+
+	PickAndBan.IsRunning = False;
+
+	if (PickAndBan.IsInitialized) {
+		PickAndBan.IsInitialized = False;
+		UIManager.UIAll.UISequence = PickAndBan.InitialUISequence;
+	}
+
+	Private_SendPickAndBanProgress(PickAndBan);
+
+	return PickAndBan;
+}
+
+Void Yield() {
+	// Manage the XmlRpc events
+	foreach (Event in XmlRpc.PendingEvents) {
+		if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+			switch (Event.ParamArray1) {
+				case C_Method_StartPickAndBan: {
+					if (
+						Semver::Compare(XmlRpc::GetApiVersion(), ">=", "3.8.0") &&
+						Event.ParamArray2.count >= 1
+					) {
+						declare K_Config Config;
+						Config.fromjson(Event.ParamArray2[0]);
+						if (IsInitialized(G_InternalPickAndBan)) {
+							G_InternalPickAndBan = Stop(G_InternalPickAndBan);
+						}
+						G_InternalPickAndBan = Start(Config);
+					}
+				}
+			}
+		}
+	}
+
+	// Manage pick and ban
+	if (IsRunning(G_InternalPickAndBan)) {
+		G_InternalPickAndBan = Update(G_InternalPickAndBan);
+		if (!IsRunning(G_InternalPickAndBan)) {
+			G_InternalPickAndBan = Stop(G_InternalPickAndBan);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	SetBackground("");
+	SetTopLeftLogo("");
+	SetTopRightLogo("");
+	SetBottomLogo("");
+	SetMatchInfo("");
+
+	if (IsInitialized(G_InternalPickAndBan)) {
+		G_InternalPickAndBan = Stop(G_InternalPickAndBan);
+	} else {
+		Private_SendPickAndBanProgress(G_InternalPickAndBan);
+	}
+
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+
+	// Unregister xmlrpc callbacks and methods
+	XmlRpc::UnregisterCallback(C_Callback_PickAndBanComplete);
+	XmlRpc::UnregisterMethod(C_Method_StartPickAndBan);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	// Register xmlrpc callbacks and methods
+	XmlRpc::RegisterCallback(C_Callback_PickAndBanComplete, """
+* Name: {{{C_Callback_PickAndBanComplete}}}
+* Type: CallbackArray
+* Description: This callback is sent when a pick and ban sequence is completed. It contains the picked tracks uids and teams that picked them.
+* Data:
+	- Version >=3.8.0:
+	```
+	[
+		"{
+			"playlist": [
+				{
+					uid = "abcdefghijklmnopqrstuvwxyz", //< The uid of the track
+					team = 1 //< 1 based number of the team that picked the track
+				}, {
+					uid = "zyxwvutsrqponmlkjihgfedcba",
+					team = 2
+				},
+				...
+			]
+		}"
+	]
+	```
+""");
+	XmlRpc::RegisterMethod(C_Method_StartPickAndBan, """
+* Name: {{{C_Method_StartPickAndBan}}}
+* Type: TriggerModeScriptEventArray
+* Description: Start the pick and ban sequence
+* Data:
+	- Version >=3.8.0:
+	```
+	[
+		"{
+			"steps": [
+				{
+					"team": 1, //< 1 based number of the team taking the action
+					"action": "pick" //< The action to take, can be "{{{UIModules_PickAndBan_Common::C_Action_Pick}}}", "{{{UIModules_PickAndBan_Common::C_Action_RandomPick}}}" or "{{{UIModules_PickAndBan_Common::C_Action_Ban}}}"
+				}, {
+					"team": 2,
+					"action": "ban"
+				},
+				...
+			],
+			"stepDuration": 60000, //< The duration of one pick or ban step
+			"resultDuration": 10000 //< The duration of the result display at the end of the pick and ban sequence
+		}"
+	]
+	```
+""");
+}

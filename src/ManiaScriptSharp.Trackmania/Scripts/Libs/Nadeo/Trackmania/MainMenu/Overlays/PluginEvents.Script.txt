@@ -1,0 +1,129 @@
+/**
+ *	Overlay: PluginEvents
+ *	Handles events from the maniaplanet plugin
+ *	C_PluginEventType_PushRoute => Push the route path taken from RoutePaths.Script.txt that is stored in the Data of the event
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/MainMenu/Overlays/PluginEvents.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Menus/Router_MA.Script.txt" as Router
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Overlay_PluginEvents"
+
+#Const C_Event_MenuLoadFinished "PluginEvent_Event_MenuLoadFinished"
+#Const C_Event_DisplaySettings "PluginEvent_Event_DisplaySettings"
+
+// These constants must have the same values than the ones in
+// maniaplanet-live-scripts/Scripts/Libs/Nadeo/System/Settings/SettingsStructs.Script.txt
+#Const C_PluginEventType_PushRoute 0
+#Const C_PluginEventType_MenuLoadFinished 1
+#Const C_PluginEventType_HideSystemLoadingScreen 2 //< Deprecated but do not reuse this value: /trackmania-next/tmnext/-/issues/4154
+#Const C_PluginEventType_DisplaySettings 3
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_PluginEvent {
+	Integer Type;
+	Text Data;
+	Boolean SetCurrentPathAsParent;
+}
+
+#Struct K_PluginEvents {
+	K_PluginEvent[Integer] Events;
+	Integer Count;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the overlay manialink
+ *
+ *	@return														The overlay manialink
+ */
+Text GetManialink() {
+	return "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void SendPluginEvent(Integer _EventType, Text _Data) {
+	declare K_PluginEvents PluginEvents for System;
+	PluginEvents.Events[PluginEvents.Count] = K_PluginEvent {
+		Type = _EventType,
+		Data = _Data
+	};
+	PluginEvents.Count += 1;
+}
+Void SendPluginEvent(Integer _EventType) {
+	SendPluginEvent(_EventType, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process event
+Void ProcessEvent(CManiaAppEvent _Event) {
+	switch (_Event.Type) {
+		case CManiaAppEvent::EType::LayerCustomEvent: {
+			switch (_Event.CustomEventType) {
+				case C_Event_MenuLoadFinished: {
+					SendPluginEvent(C_PluginEventType_MenuLoadFinished);
+				}
+				case C_Event_DisplaySettings: {
+					SendPluginEvent(C_PluginEventType_DisplaySettings, "1");
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process events
+Void ProcessEvents(CNod _Context) {
+	if (_Context is CManiaAppTitle) {
+		declare ManiaAppTitle = (_Context as CManiaAppTitle);
+		foreach (Event in ManiaAppTitle.PendingEvents) {
+			ProcessEvent(Event);
+		}
+	} else if (_Context is CManiaAppPlayground) {
+		declare ManiaAppPlayground = (_Context as CManiaAppPlayground);
+		foreach (Event in ManiaAppPlayground.PendingEvents) {
+			ProcessEvent(Event);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update from the ManiaApp
+Void Yield() {
+	if (Router::IsOverlayDisplayed(RoutePaths::C_Path_OverlayName_PluginEvents)) {
+		declare K_PluginEvents PluginEvents for System;
+		declare TmpPluginEvents = PluginEvents.Events;
+		foreach (Index => PluginEvent in TmpPluginEvents) {
+			switch (PluginEvent.Type) {
+				case C_PluginEventType_PushRoute: {
+					if (Router::GetCurrentRoutePath() != PluginEvent.Data) {
+						if (PluginEvent.SetCurrentPathAsParent) {
+							Router::SetParentPath(PluginEvent.Data, Router::GetCurrentRoutePath());
+						}
+						declare Text[Text] Query;
+						if (PluginEvent.Data == RoutePaths::C_Path_WelcomeChangeZone) {
+							Query[RoutePaths::C_Query_EditMode] = "1";
+						}
+						Router::Push(PluginEvent.Data, Query);
+					}
+					SendPluginEvent(C_PluginEventType_DisplaySettings, "0");
+					PluginEvents.Events.removekey(Index);
+				}
+			}
+		}
+	}
+
+	ProcessEvents(This);
+}

@@ -1,0 +1,99 @@
+/**
+ * Store values for leaderboards
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Stores/LeaderboardStore.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/Trackmania/API/LeaderboardAPI.Script.txt" as LeaderboardAPI
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_State {
+	CampaignStruct::LibCampaignStruct_K_PlayerCloseToMedal[Integer][Text] PlayersCloseToMedals;
+	Http::K_Request Request_GetPlayersCloseToMedals;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_State_Null K_State {
+	PlayersCloseToMedals = []
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Yield for the GetPlayersCloseToMedals request
+Void Private_Yield_RequestGetPlayersCloseToMedals(CManiaApp _This) {
+	declare K_State Trackmania_LeaderboardStore_State for _This = C_State_Null;
+
+	if (Http::IsInitialized(Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals)) {
+		Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals = Http::Update(_This.Http, Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals);
+		if (!Http::IsRunning(Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals)) {
+			if (Http::IsSuccess(Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals)) {
+				declare Response = LeaderboardAPI::GetResponseFromGetPlayersCloseToMedals(Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals);
+				if (!Trackmania_LeaderboardStore_State.PlayersCloseToMedals.existskey(Response.MapUid)) Trackmania_LeaderboardStore_State.PlayersCloseToMedals[Response.MapUid] = [];
+				foreach (Ghost in Response.Medals) Trackmania_LeaderboardStore_State.PlayersCloseToMedals[Response.MapUid][Medals::TextToInteger(Ghost.Medal)] = Ghost;
+				Trackmania_LeaderboardStore_State.PlayersCloseToMedals[Response.MapUid] = Trackmania_LeaderboardStore_State.PlayersCloseToMedals[Response.MapUid].sortkey();
+			}
+			Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals = Http::Destroy(_This.Http, Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check to see if the players closest to medals are currently being retrieved.
+Boolean IsRetrievingPlayersCloseToMedals(CManiaApp _This) {
+	declare K_State Trackmania_LeaderboardStore_State for _This = C_State_Null;
+	return Http::IsInitialized(Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Trigger the request to retrieve the players closest to medals
+Void Action_GetPlayersCloseToMedals(CManiaApp _This, Text _MapUid) {
+	declare K_State Trackmania_LeaderboardStore_State for _This = C_State_Null;
+
+	if (!Trackmania_LeaderboardStore_State.PlayersCloseToMedals.existskey(_MapUid)) {
+		Trackmania_LeaderboardStore_State.PlayersCloseToMedals[_MapUid] = [];
+		Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals = Http::DestroyAndCreate(
+			_This.Http,
+			Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals,
+			// Always use personal best for medal ghosts
+			LeaderboardAPI::GetPlayersCloseToMedals(_This.Http, LeaderboardAPI::C_GroupUid_PersonalBest, _MapUid)
+		);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the players closest to medals
+CampaignStruct::LibCampaignStruct_K_PlayerCloseToMedal[Integer] GetPlayersCloseToMedals(CManiaApp _This, Text _MapUid) {
+	declare K_State Trackmania_LeaderboardStore_State for _This = C_State_Null;
+	return Trackmania_LeaderboardStore_State.PlayersCloseToMedals.get(_MapUid, []);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the Leaderboard store
+Void Initialize(CManiaApp _This) {
+	declare K_State Trackmania_LeaderboardStore_State for _This = C_State_Null;
+
+	// Destroy existing requests
+	Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals = Http::DestroyIfInitialized(_This.Http, Trackmania_LeaderboardStore_State.Request_GetPlayersCloseToMedals);
+
+	// Reset data
+	Trackmania_LeaderboardStore_State = C_State_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the Leaderboard store
+Void Yield(CManiaApp _This) {
+	Private_Yield_RequestGetPlayersCloseToMedals(_This);
+}

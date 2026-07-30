@@ -1,0 +1,399 @@
+/**
+ *	Component: RankingSelection
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Components/RankingSelection.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as Button
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Stores/ClubStore_ML.Script.txt" as ClubStore
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "Libs/Nadeo/Trackmania/Components/ZoneSelection.Script.txt" as ZoneSelection
+#Include "Libs/Nadeo/Trackmania/RBAC.Script.txt" as RBAC
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Event {
+	Integer Type;
+	Integer DisplayType;
+}
+#Struct K_Controls {
+	CMlControl MapDisplayButtonToFocus;
+	CMlFrame Frame_ZoneDisplay;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Integer DisplayType;
+	K_Event[] PendingEvents;
+	Integer CurrentDisplayType;
+	Integer CurrentZone;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_State_Null K_State {
+	Controls = K_Controls {},
+	DisplayType = 0,
+	PendingEvents = [],
+	CurrentDisplayType = 0,
+	CurrentZone = 0
+}
+
+#Const C_Name "component-rankingselection" //< Component name
+#Const P "Trackmania_RankingSelection::" //< Prefix used to differentiate functions/variables in the script
+#Const Q "Trackmania_RankingSelection"
+#Const C_NavGroupName "navgroup-ranki ng-selection"
+#Const C_Class "class-ranking-selection"
+#Const C_Class_RankingButton "class-ranking-selection-button"
+
+#Const C_Navigation_Target "component-ranking-selection-button-map-display-2"
+
+// LINKED KEYS
+#Const C_Display_Null -1
+#Const C_Display_Medals 0
+#Const C_Display_ZoneRankings 1
+#Const C_Display_ClubRankings 2
+#Const C_Text_Display [
+	//L16N Sort the rankings by player's medals
+	0 => _("Medals"),
+	//L16N Sort the rankings by player's region
+	1 => _("|RankingZone|Zone"),
+	//L16N Sort the rankings by player's club
+	2 => _("Club")
+]
+
+#Const C_UI_MapDisplayButtonSize <60., 5.>
+#Const C_UI_Margin_MapDisplay 20.
+
+#Const C_Display_Previous -1
+#Const C_Display_Next 1
+
+#Const C_Event_RankingUpdate 0
+#Const C_Event_Cancel 1
+
+#Const C_Id_FrameRankingSelection "trackmania-ranking-selection_frame-ranking-selection"
+#Const C_Id_QuadFocusTab "trackmania-ranking-selection_quad-focus-tab"
+#Const C_Id_ButtonMapDisplay "trackmania-ranking-selection_button-map-display-"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetManialink() {
+	declare Text ML_MapDisplayButtons = "";
+	declare Real MapDisplayButtons_PosX;
+	foreach (DisplayType => DisplayText in C_Text_Display) {
+		declare Text ButtonId = C_Id_ButtonMapDisplay^DisplayType;
+		declare Integer LeftTargetIndex = (DisplayType+1)%(C_Text_Display.count);
+		declare Integer RightTargetIndex = DisplayType-1;
+		if (RightTargetIndex < 0) RightTargetIndex = C_Text_Display.count-1;
+
+		declare Text LeftTarget = C_Id_ButtonMapDisplay^LeftTargetIndex;
+		declare Text RightTarget = C_Id_ButtonMapDisplay^RightTargetIndex;
+
+		declare Text DataNavZoneButtons = Navigation::Inject(
+			["select"=>"_", "cancel"=>"_", "pageup"=>"_", "pagedown"=>"_", "right"=>RightTarget, "left"=>LeftTarget],
+			C_NavGroupName,
+			Button::C_NavZone,
+			False
+		);
+
+		declare Real SizeChoiceX = C_UI_MapDisplayButtonSize.X*C_Text_Display.count-1 + C_UI_Margin_MapDisplay/2.*C_Text_Display.count-2;
+		MapDisplayButtons_PosX = -SizeChoiceX/2. + (C_UI_MapDisplayButtonSize.X * DisplayType+0.5) + C_UI_Margin_MapDisplay * DisplayType;
+
+		ML_MapDisplayButtons ^= """
+		<frameinstance modelid="{{{Button::C_Name}}}" id="{{{ButtonId}}}"
+			data-text="{{{C_Text_Display[DisplayType]}}}"
+			data-size="{{{C_UI_MapDisplayButtonSize.X}}} {{{C_UI_MapDisplayButtonSize.Y}}}"
+			data-sizehitbox="{{{C_UI_MapDisplayButtonSize.X}}} {{{C_UI_MapDisplayButtonSize.Y+3.}}}"
+			data-bgempty="1"
+			data-textcolor="FFF" data-textfocuscolor="FFF"
+			data-textsize="4.5"
+			data-textypos="-0.58"
+			data-opacityunfocus=".6"
+			data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+			data-iconxpos="0.1"
+			data-iconypos="-0.44"
+			data-iconsize="7.5 7.5"
+			pos="{{{MapDisplayButtons_PosX}}} 0"
+			data-textitalicslope=".2"
+			data-halign="center" data-valign="center"
+			class="{{{Navigation::C_Class}}} {{{C_Class_RankingButton}}} {{{MenuSounds::C_Class}}}"
+			data-nav="{{{DataNavZoneButtons}}}"
+			data-displaytype="{{{DisplayType}}}"
+			data-menusounds-selectsound="MainTabSelect"
+		/>
+		""";
+	}
+
+	return """
+<frame id="{{{C_Id_FrameRankingSelection}}}" class="{{{C_Class}}}">
+	<quad id="{{{C_Id_QuadFocusTab}}}" pos="{{{MapDisplayButtons_PosX}}} 0" z-index="1" image="{{{Const::C_ImageUrl_Menu_Focus_Tabs}}}" size="60 1" halign="center" valign="center"/>
+	{{{ML_MapDisplayButtons}}}
+</frame>
+	""";
+}
+
+Integer GetDisplayType(CMlScript _This) {
+	declare K_State Trackmania_RankingSelection_State for _This.Page = C_State_Null;
+	return Trackmania_RankingSelection_State.DisplayType;
+}
+
+Void FocusMapDisplay(CMlScript _This, CMlControl _Control) {
+	if (_Control == Null || _Control.Parent == Null) return;
+	if (_Control.DataAttributeExists("displaytype")) {
+		declare CMlQuad Quad_FocusTab = (_Control.Parent.GetFirstChild(C_Id_QuadFocusTab) as CMlQuad);
+		_This.AnimMgr.Flush(Quad_FocusTab);
+		_This.AnimMgr.Add(Quad_FocusTab, "<anim pos=\""^_Control.RelativePosition_V3.X^" "^_Control.RelativePosition_V3.Y-6.^"\" />", 100, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+Void Unfocus(CMlScript _This, CMlControl _From) {
+	declare K_State Trackmania_RankingSelection_State for _This.Page = C_State_Null;
+	if (Transition::IsInTransition(_This)) return;
+
+	if (_From != Null && Navigation::GetControlGroupName(_From) == C_NavGroupName) {
+		Navigation::Unfocus(_This, _From);
+		if (Button::IsButton(_From) && _From.HasClass(C_Class_RankingButton)) {
+			Button::Unfocus(_This, (_From as CMlFrame));
+			Trackmania_RankingSelection_State.Controls.MapDisplayButtonToFocus = _From;
+		}
+	}
+}
+
+Void Focus(CMlScript _This, CMlControl _From, CMlControl _To, Boolean _IsMouse) {
+	declare K_State Trackmania_RankingSelection_State for _This.Page = C_State_Null;
+	if (Transition::IsInTransition(_This)) return;
+
+	if (_To != Null && Navigation::GetControlGroupName(_To) == C_NavGroupName) {
+		declare CMlControl TrueTarget = _To;
+		if (
+			!_IsMouse && _To != Null && _To.HasClass(C_Class_RankingButton) &&
+			_From != Null && !_From.HasClass(C_Class_RankingButton)
+		) {
+			if (Trackmania_RankingSelection_State.Controls.MapDisplayButtonToFocus != Null) TrueTarget = Trackmania_RankingSelection_State.Controls.MapDisplayButtonToFocus;
+		}
+
+		Navigation::Focus(_This, TrueTarget);
+		if (Button::IsButton(TrueTarget)) {
+			Button::Focus(_This, (TrueTarget as CMlFrame));
+		}
+	}
+}
+
+Void Select(CMlScript _This, CMlControl _Control) {
+	declare K_State Trackmania_RankingSelection_State for _This.Page = C_State_Null;
+	if (_Control == Null || Transition::IsInTransition(_This)) return;
+
+	if (_Control.HasClass(C_Class_RankingButton) && _Control.DataAttributeExists("displaytype")) {
+		Trackmania_RankingSelection_State.DisplayType = TL::ToInteger(_Control.DataAttributeGet("displaytype"));
+	}
+}
+
+Integer ChangeDisplayType(CMlScript _This, Integer _ShiftDisplayType) {
+	declare K_State Trackmania_RankingSelection_State for _This.Page = C_State_Null;
+	if (!UserStore::HasGamePermission(PrivilegeMgr, RBAC::C_GamePermission_JoinClub) || ClubStore::GetUserPinnedClub().Id == ClubStruct::C_ClubNullId) {
+		Trackmania_RankingSelection_State.DisplayType = ML::Clamp(Trackmania_RankingSelection_State.DisplayType + _ShiftDisplayType, C_Display_Medals, C_Display_ZoneRankings);
+	} else {
+		Trackmania_RankingSelection_State.DisplayType = ML::Clamp(Trackmania_RankingSelection_State.DisplayType + _ShiftDisplayType, C_Display_Medals, C_Display_ClubRankings);
+	}
+
+	return Trackmania_RankingSelection_State.DisplayType;
+}
+Integer PreviousDisplayType(CMlScript _This) {
+	return ChangeDisplayType(_This, C_Display_Previous);
+}
+Integer NextDisplayType(CMlScript _This) {
+	return ChangeDisplayType(_This, C_Display_Next);
+}
+
+Void ForceDisplayType(CMlScript _This, Integer _DisplayType) {
+	declare K_State Trackmania_RankingSelection_State for _This.Page = C_State_Null;
+	Trackmania_RankingSelection_State.DisplayType = _DisplayType;
+}
+
+Void UpdateClubButton(CMlScript _This, CMlFrame _Frame_Container, Text _ClubName) {
+	declare CMlFrame Frame_ClubButton <=> (_Frame_Container.GetFirstChild(C_Id_ButtonMapDisplay^C_Display_ClubRankings) as CMlFrame);
+	if (_ClubName == "") {
+		Button::SetValue(_This, Frame_ClubButton, C_Text_Display[C_Display_ClubRankings]);
+	} else {
+		Button::SetValue(_This, Frame_ClubButton, _ClubName);
+	}
+}
+
+Void InitRankingButtons(CMlScript _This, CMlFrame _Frame_Container) {
+	declare CMlFrame Frame_ZoneButton <=> (_Frame_Container.GetFirstChild(C_Id_ButtonMapDisplay^C_Display_ZoneRankings) as CMlFrame);
+	declare CMlFrame Frame_ClubButton <=> (_Frame_Container.GetFirstChild(C_Id_ButtonMapDisplay^C_Display_ClubRankings) as CMlFrame);
+	Navigation::Lock(Frame_ClubButton, !UserStore::HasGamePermission(PrivilegeMgr, RBAC::C_GamePermission_JoinClub) || ClubStore::GetUserPinnedClub().Id == ClubStruct::C_ClubNullId);
+	Navigation::Lock(Frame_ZoneButton, False);
+
+	if (Navigation::IsLocked(Frame_ClubButton)) {
+		Button::SetIcon(_This, Frame_ClubButton, Icons::C_Icon_256x256_Lock_1_Oblique);
+		Button::SetIconColor(_This, Frame_ClubButton, Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentThree));
+		Button::SetTextColor(_This, Frame_ClubButton, Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentThree));
+	} else {
+		Button::SetIcon(_This, Frame_ClubButton, "");
+		Button::SetTextColor(_This, Frame_ClubButton, <1., 1., 1.>);
+	}
+	if (Navigation::IsLocked(Frame_ZoneButton)) {
+		Button::SetIcon(_This, Frame_ZoneButton, Icons::C_Icon_256x256_Lock_1_Oblique);
+		Button::SetIconColor(_This, Frame_ZoneButton, Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentThree));
+		Button::SetTextColor(_This, Frame_ZoneButton, Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentThree));
+	} else {
+		Button::SetIcon(_This, Frame_ZoneButton, "");
+		Button::SetTextColor(_This, Frame_ZoneButton, <1., 1., 1.>);
+	}
+	Button::SetValue(_This, Frame_ZoneButton, TL::GetTranslatedText(ZoneSelection::GetCurrentZoneLevel(_This)));
+}
+
+Void UpdateNavTargets(CMlScript _This, CMlControl _UpTarget, CMlControl _DownTarget) {
+	_This.Page.GetClassChildren(C_Class, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		if (!(Control is CMlFrame)) continue;
+		declare CMlFrame Frame_Container <=> Control.Parent;
+		declare CMlFrame Frame_MedalDisplay <=> (Frame_Container.GetFirstChild(C_Navigation_Target) as CMlFrame);
+		declare CMlFrame Frame_ZoneDisplay <=> (Frame_Container.GetFirstChild(C_Id_ButtonMapDisplay^C_Display_ZoneRankings) as CMlFrame);
+		declare CMlFrame Frame_ClubDisplay <=> (Frame_Container.GetFirstChild(C_Id_ButtonMapDisplay^C_Display_ClubRankings) as CMlFrame);
+		if (_UpTarget != Null) {
+			Navigation::ChangeControlTarget(_This, Frame_MedalDisplay, "up", _UpTarget.ControlId);
+			Navigation::ChangeControlTarget(_This, Frame_ZoneDisplay, "up", _UpTarget.ControlId);
+			Navigation::ChangeControlTarget(_This, Frame_ClubDisplay, "up", _UpTarget.ControlId);
+		}
+		if (_DownTarget != Null) {
+			Navigation::ChangeControlTarget(_This, Frame_MedalDisplay, "down", _DownTarget.ControlId);
+			Navigation::ChangeControlTarget(_This, Frame_ZoneDisplay, "down", _DownTarget.ControlId);
+			Navigation::ChangeControlTarget(_This, Frame_ClubDisplay, "down", _DownTarget.ControlId);
+		}
+	}
+}
+
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State Trackmania_RankingSelection_State for _This.Page = C_State_Null;
+	return Trackmania_RankingSelection_State.PendingEvents;
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State Trackmania_RankingSelection_State for _This.Page = C_State_Null;
+	Trackmania_RankingSelection_State = C_State_Null;
+	Trackmania_RankingSelection_State.DisplayType = C_Display_Medals;
+}
+
+Void MainStart(CMlScript _This) {
+	declare K_State Trackmania_RankingSelection_State for _This.Page = C_State_Null;
+	declare CMlFrame Frame_MedalDisplay;
+
+	_This.Page.GetClassChildren(C_Class, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		if (!(Control is CMlFrame)) continue;
+		declare CMlFrame Frame_Container <=> Control.Parent;
+		Frame_MedalDisplay <=> (Frame_Container.GetFirstChild(C_Navigation_Target) as CMlFrame);
+		Trackmania_RankingSelection_State.Controls.Frame_ZoneDisplay <=> (Frame_Container.GetFirstChild(C_Id_ButtonMapDisplay^C_Display_ZoneRankings) as CMlFrame);
+		declare CMlFrame Frame_ClubDisplay <=> (Frame_Container.GetFirstChild(C_Id_ButtonMapDisplay^C_Display_ClubRankings) as CMlFrame);
+		if (Frame_Container.DataAttributeExists("parent-navgroup")) {
+			Navigation::SetGroupParent(_This, C_NavGroupName, Frame_Container.DataAttributeGet("parent-navgroup"));
+		}
+		if (Frame_Container.DataAttributeExists("target-up")) {
+			Navigation::ChangeControlTarget(_This, Frame_MedalDisplay, "up", Frame_Container.DataAttributeGet("target-up"));
+			Navigation::ChangeControlTarget(_This, Trackmania_RankingSelection_State.Controls.Frame_ZoneDisplay, "up", Frame_Container.DataAttributeGet("target-up"));
+			Navigation::ChangeControlTarget(_This, Frame_ClubDisplay, "up", Frame_Container.DataAttributeGet("target-up"));
+		}
+		if (Frame_Container.DataAttributeExists("target-down")) {
+			Navigation::ChangeControlTarget(_This, Frame_MedalDisplay, "down", Frame_Container.DataAttributeGet("target-down"));
+			Navigation::ChangeControlTarget(_This, Trackmania_RankingSelection_State.Controls.Frame_ZoneDisplay, "down", Frame_Container.DataAttributeGet("target-down"));
+			Navigation::ChangeControlTarget(_This, Frame_ClubDisplay, "down", Frame_Container.DataAttributeGet("target-down"));
+		}
+		InitRankingButtons(_This, Frame_Container);
+	}
+	Trackmania_RankingSelection_State.CurrentDisplayType = C_Display_Null;
+	Trackmania_RankingSelection_State.Controls.MapDisplayButtonToFocus = Frame_MedalDisplay;
+	FocusMapDisplay(_This, Trackmania_RankingSelection_State.Controls.MapDisplayButtonToFocus);
+	Trackmania_RankingSelection_State.CurrentZone = ZoneSelection::C_ZoneLevel_Null;
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State Trackmania_RankingSelection_State for _This.Page = C_State_Null;
+	Trackmania_RankingSelection_State.PendingEvents = [];
+
+	if (_This.PageIsVisible) {
+		if (Trackmania_RankingSelection_State.CurrentZone != ZoneSelection::GetCurrentZone(_This)) {
+			if (Trackmania_RankingSelection_State.Controls.Frame_ZoneDisplay != Null) Button::SetValue(_This, Trackmania_RankingSelection_State.Controls.Frame_ZoneDisplay, TL::GetTranslatedText(ZoneSelection::GetCurrentZoneLevel(_This)));
+			Trackmania_RankingSelection_State.CurrentZone = ZoneSelection::GetCurrentZone(_This);
+		}
+
+		if (Trackmania_RankingSelection_State.CurrentDisplayType != Trackmania_RankingSelection_State.DisplayType) {
+			_This.Page.GetClassChildren(C_Class, _This.Page.MainFrame, True);
+			foreach (Control in _This.Page.GetClassChildren_Result) {
+				if (!(Control is CMlFrame)) continue;
+
+				declare CMlFrame Frame_OldButtonMapDisplay <=> (Control.Parent.GetFirstChild(C_Id_ButtonMapDisplay^Trackmania_RankingSelection_State.CurrentDisplayType) as CMlFrame);
+				if (Frame_OldButtonMapDisplay != Null && Frame_OldButtonMapDisplay.HasClass(C_Class_RankingButton)) {
+					Button::Unfocus(_This, Frame_OldButtonMapDisplay);
+				}
+				declare CMlFrame Frame_NewButtonMapDisplay <=> (Control.Parent.GetFirstChild(C_Id_ButtonMapDisplay^Trackmania_RankingSelection_State.DisplayType) as CMlFrame);
+				if (Frame_NewButtonMapDisplay != Null && Frame_NewButtonMapDisplay.HasClass(C_Class_RankingButton)) {
+					FocusMapDisplay(_This, Frame_NewButtonMapDisplay);
+				}
+			}
+			Trackmania_RankingSelection_State.CurrentDisplayType = Trackmania_RankingSelection_State.DisplayType;
+			Trackmania_RankingSelection_State.PendingEvents.add(K_Event {
+				Type = C_Event_RankingUpdate,
+				DisplayType = Trackmania_RankingSelection_State.CurrentDisplayType
+			});
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/Trackmania/Components/RankingSelection.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[
+			Navigation::ComponentV2(),
+			Button::ComponentV2(),
+			Transition::ComponentV2(),
+			UserStore::ComponentV2(),
+			ClubStore::ComponentV2(),
+			ClubStruct::Component(),
+			ZoneSelection::ComponentV2(),
+			MenuSounds::ComponentV2()
+		],
+		[]
+	);
+}

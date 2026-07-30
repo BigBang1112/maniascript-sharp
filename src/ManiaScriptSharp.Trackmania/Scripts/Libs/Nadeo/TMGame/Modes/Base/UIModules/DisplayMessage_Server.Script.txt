@@ -1,0 +1,141 @@
+/**
+ *  UI module: DisplayMessage server side
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Common.Script.txt" as UIModules_Common
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Common.Script.txt" as UIModules_DisplayMessage_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer G_LastUniqueIdSent;
+declare Boolean G_IsListening;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_DisplayMessage_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the configuration of the UI module
+UIModules_Common::K_ModuleConfig GetConfig() {
+	return UIModules_DisplayMessage_Common::C_UIModuleConfig;
+}
+
+Integer GetUniqueId() {
+	G_LastUniqueIdSent += 1;
+	return G_LastUniqueIdSent;
+}
+
+Void IsListening(Boolean _IsListening) {
+	G_IsListening = _IsListening;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Send Live message to display (see functions below)
+ *
+ *	@param	_PlayerToUpdate				The player that will have their UI updated
+ *	@param	_Type									The type of the message to display
+ *	@param	_UserInMessage				The User displayed in the message
+ *	@param	_Rank									The new rank of the player (if relevant)
+ */
+Void Private_SendLiveMessage(CPlayer _PlayerToUpdate, Integer _Type, CUser _UserInMessage, Integer _Rank) {
+	if (!G_IsListening || _PlayerToUpdate == Null) return;
+	declare PlayerUI = UIManager.GetUI(_PlayerToUpdate);
+	if (PlayerUI == Null) return;
+
+	declare Text PlayerAccountId = "";
+	declare Text PlayerName = "";
+	declare Text PlayerClubTag = "";
+	declare Text PlayerImage = "";
+	if (_UserInMessage != Null) {
+		PlayerAccountId = _UserInMessage.WebServicesUserId;
+		PlayerName = _UserInMessage.Name;
+		PlayerClubTag = _UserInMessage.ClubTag;
+		PlayerImage = _UserInMessage.CountryFlagUrl;
+	}
+
+	declare netwrite Integer Net_TimeAttack_DisplayMessage_MessageUpdate for PlayerUI;
+	declare netwrite UIModules_DisplayMessage_Common::K_DisplayMessage[Integer] Net_TimeAttack_DisplayMessage_Message_V3 for PlayerUI;
+	declare netread Integer[] Net_TimeAttack_DisplayMessage_ReadMessages for PlayerUI;
+
+	foreach (Key in Net_TimeAttack_DisplayMessage_ReadMessages) {
+		Net_TimeAttack_DisplayMessage_Message_V3.removekey(Key);
+	}
+
+	declare NewMessage = UIModules_DisplayMessage_Common::K_DisplayMessage {
+		Type = _Type,
+		PlayerAccountId = PlayerAccountId,
+		PlayerName = PlayerName,
+		PlayerClubTag = PlayerClubTag,
+		PlayerImage = PlayerImage,
+		PlayerRank = _Rank
+	};
+
+	Net_TimeAttack_DisplayMessage_Message_V3[GetUniqueId()] = NewMessage;
+	Net_TimeAttack_DisplayMessage_MessageUpdate = Now;
+}
+
+Void SendLiveMessage_PlayerRemoved(CPlayer _PlayerToUpdate, CUser _UserInMessage) {
+	Private_SendLiveMessage(_PlayerToUpdate, UIModules_DisplayMessage_Common::C_Message_PlayerRemoved, _UserInMessage, 0);
+}
+
+Void SendLiveMessage_PlayerAdded(CPlayer _PlayerToUpdate, CUser _UserInMessage) {
+	Private_SendLiveMessage(_PlayerToUpdate, UIModules_DisplayMessage_Common::C_Message_PlayerAdded, _UserInMessage, 0);
+}
+
+Void SendLiveMessage_RankUpdate(CPlayer _PlayerToUpdate, CUser _UserInMessage, Integer _Rank) {
+	Private_SendLiveMessage(_PlayerToUpdate, UIModules_DisplayMessage_Common::C_Message_RankUpdate, _UserInMessage, _Rank);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Show or hide the UI
+ *
+ *	@param	_Player										The player to update
+ *	@param	_Display									True to show
+ *																		False to hide
+ */
+Void SetVisibility(CPlayer _Player, Boolean _Display) {
+	if (_Player == Null) return;
+
+	declare netwrite Boolean Net_TimeAttack_DisplayMessage_IsVisible for _Player;
+	Net_TimeAttack_DisplayMessage_IsVisible = _Display;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	SetVisibility(_Player, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+		Private_SendLiveMessage(Player, UIModules_DisplayMessage_Common::C_Message_Null, Null, 0);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

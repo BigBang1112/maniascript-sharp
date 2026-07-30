@@ -1,0 +1,190 @@
+/**
+ * Knockout mode for Cup of the Day
+ */
+#Extends "Modes/TrackMania/TM_Knockout_Online.Script.txt"
+
+#Const C_KnockoutDaily_Version "1.1.0+2025-12-15"
+#Const C_KnockoutDaily_ScriptName "Modes/TrackMania/TM_KnockoutDaily_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/Trackmania/Modes/KnockoutDaily/StateManager.Script.txt" as KnockoutDaily_StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/KnockoutDaily/UIModules/WelcomePopUp_Server.Script.txt" as UIModules_WelcomePopUp
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_CompetitionName ""
+#Setting S_Division "1"
+#Setting S_ChatTime 120
+#Setting S_RankedCompetitionType "" as "<hidden>" //< Is it the main COTD or a rerun
+#Setting S_CompetitionTitle "" as "<hidden>"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_KnockoutDaily_ModeName "Knockout Daily"
+#Const C_KnockoutDaily_Description _("Knockout mode")
+#Const C_KnockoutDaily_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/KnockoutDaily.Script.txt" //< Url of the mania app
+
+#Const C_TrophyTaskTimeout 5000
+#Const C_CompetitionStage "1"
+
+#Const C_ImageUrl_CheckpointImage "file://Media/Manialinks/Nadeo/Trackmania/Modes/KnockoutDaily"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(C_KnockoutDaily_ScriptName, C_KnockoutDaily_Version);
+Log::RegisterScript(KnockoutDaily_StateMgr::ScriptName, KnockoutDaily_StateMgr::Version);
+***
+
+***Match_LoadLibraries***
+***
+KnockoutDaily_StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+KnockoutDaily_StateMgr::Unload();
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_KnockoutDaily_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(C_KnockoutDaily_Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_KnockoutDaily_ManiaAppUrl;
+UIModules_KnockoutInfo::SetServerNumber(S_MatchPosition);
+***
+
+***Match_InitMatch***
+***
+declare Task::K_Task Match_TrophyTask;
+declare Integer Match_TrophyTaskEndTime;
+declare Integer[Integer][Text] Match_PlayerTrophies; // [AccountId => [Trophy => TrophyCount]]
+UIModules_WelcomePopUp::SetDivision(S_Division);
+UIModules_WelcomePopUp::SetCompetitionType(S_RankedCompetitionType);
+UIModules_WelcomePopUp::SetCompetitionName(S_CompetitionTitle);
+UIModules_KnockoutReward::SetCompetitionName(S_CompetitionTitle);
+***
+
+***Match_StartMatch***
+***
+Match_PlayerTrophies = [];
+***
+
+***Match_BeforeLoadMap***
+***
+switch (S_Division) {
+	case "1": SetClubLogoUrl(C_ImageUrl_CheckpointImage^"/Decal_COTD_Gold.dds");
+	case "2": SetClubLogoUrl(C_ImageUrl_CheckpointImage^"/Decal_COTD_Silver.dds");
+	case "3": SetClubLogoUrl(C_ImageUrl_CheckpointImage^"/Decal_COTD_Bronze.dds");
+	case "4": SetClubLogoUrl(C_ImageUrl_CheckpointImage^"/Decal_COTD_Bronze.dds");
+	case "5": SetClubLogoUrl(C_ImageUrl_CheckpointImage^"/Decal_COTD_Bronze.dds");
+	default: SetClubLogoUrl("");
+}
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	if (Event.Type == CSmModeEvent::EType::OnPlayerAdded) {
+		KnockoutDaily_StateMgr::InitializePlayer(Event.Player);
+	}
+}
+
+// Apply Knockout_StateMgr states to KnockoutDaily_StateMgr
+if (
+	StateMgr::GetForcedStates().count != KnockoutDaily_StateMgr::GetForcedStates().count ||
+	!StateMgr::GetForcedStates().containsonly(KnockoutDaily_StateMgr::GetForcedStates()) ||
+	!KnockoutDaily_StateMgr::GetForcedStates().containsonly(StateMgr::GetForcedStates())
+) {
+	KnockoutDaily_StateMgr::ForcePlayersStates(StateMgr::GetForcedStates());
+}
+KnockoutDaily_StateMgr::Yield();
+***
+
+***Match_EndRound_AfterComputeScores***
+***
+// Send match results to trophies API
+Trophy_CompetitionMatch_ClearResultList();
+declare KnockoutDaily_PlayerRanks = GetPlayerRanks(Round_EliminatedPlayers);
+foreach (Index => AccountId in Round_EliminatedPlayers) {
+	if (
+		AccountId != "" &&
+		KnockoutDaily_PlayerRanks.existskey(Index)
+	) {
+		Trophy_CompetitionMatch_AddResult(AccountId, KnockoutDaily_PlayerRanks[Index], 0); // 3rd argument is player's world trophy ranking rank (not used for now). See trophyranking lib if needed.
+	}
+}
+declare KnockoutDaily_LeaderRanks = GetPlayerRanks(Match_WinnersAccountIds);
+foreach (Index => AccountId in Match_WinnersAccountIds) {
+	if (
+		AccountId != "" &&
+		KnockoutDaily_LeaderRanks.existskey(Index)
+	) {
+		Trophy_CompetitionMatch_AddResult(AccountId, KnockoutDaily_LeaderRanks[Index], 0);
+	}
+}
+Match_TrophyTask = Task::DestroyAndCreate(Match_TrophyTask, This, Trophy_CompetitionMatch_SendResultList(S_CompetitionName, C_CompetitionStage, S_Division, ""));
+Match_TrophyTaskEndTime = Now + C_TrophyTaskTimeout;
+***
+
+***Match_EndRound*** // Executed after regular Knockout EndRound
+***
+// Wait until the trophy task is complete
+Match_TrophyTask = Task::Update(Match_TrophyTask);
+declare Boolean TaskComplete = Task::IsInitialized(Match_TrophyTask) && !Task::IsRunning(Match_TrophyTask);
+while (Task::IsInitialized(Match_TrophyTask) && !TaskComplete && Now < Match_TrophyTaskEndTime) {
+	MB_Yield();
+	Match_TrophyTask = Task::Update(Match_TrophyTask);
+	TaskComplete = Task::IsRunning(Match_TrophyTask);
+}
+if (Task::IsInitialized(Match_TrophyTask)) {
+	if (!Task::IsRunning(Match_TrophyTask)) {
+		declare CTaskResult_AccountTrophyGainList SourceTask = Task::GetSourceTask_AccountTrophyGainList(Match_TrophyTask);
+		if (Task::IsSuccess(Match_TrophyTask) && SourceTask != Null) {
+			foreach (AccountTrophyGain in SourceTask.AccountTrophyGainList) {
+				Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId] = [];
+				if (AccountTrophyGain.T1Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][1] = AccountTrophyGain.T1Count;
+				if (AccountTrophyGain.T2Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][2] = AccountTrophyGain.T2Count;
+				if (AccountTrophyGain.T3Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][3] = AccountTrophyGain.T3Count;
+				if (AccountTrophyGain.T4Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][4] = AccountTrophyGain.T4Count;
+				if (AccountTrophyGain.T5Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][5] = AccountTrophyGain.T5Count;
+				if (AccountTrophyGain.T6Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][6] = AccountTrophyGain.T6Count;
+				if (AccountTrophyGain.T7Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][7] = AccountTrophyGain.T7Count;
+				if (AccountTrophyGain.T8Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][8] = AccountTrophyGain.T8Count;
+				if (AccountTrophyGain.T9Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][9] = AccountTrophyGain.T9Count;
+			}
+		}
+	}
+	Match_TrophyTask = Task::Destroy(Match_TrophyTask);
+}
+
+foreach (Score in Scores) {
+	declare Integer[Integer] Trophies;
+	if (
+		Score != Null &&
+		Match_PlayerTrophies.existskey(Score.User.WebServicesUserId)
+	) {
+		Trophies = Match_PlayerTrophies[Score.User.WebServicesUserId];
+	}
+	UIModules_KnockoutReward::SaveTrophies(Score, Trophies);
+	if (Trophies.count > 0) {
+		Tracking::SendPlayerTrophiesEarned(UIManager, Score.User, Trophies);
+	}
+}
+foreach (Player in AllPlayers) {
+	UIModules_KnockoutReward::SendResult(Player);
+}
+***

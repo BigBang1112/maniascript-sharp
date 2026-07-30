@@ -1,0 +1,273 @@
+/**
+ *	UI module: MapInfo client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/MapInfo_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/MapInfo_Common.Script.txt" as UIModules_MapInfo_Common
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/Shared_Client.Script.txt" as Shared
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/ZIndex.Script.txt" as ZIndex
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_MapInfo_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_MapInfo_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	declare Text Text_WarmUp = _("Warm up");
+	//L16N [TMGL] The match is currently paused
+	declare Text Text_Pause = _("Match paused");
+	//L16N [Champion] Text written just before the name of the track creator
+	declare Text Text_By = _("|Author|By");
+	//L16N [ChampionCup] %1 will be replaced by the number of the track or the track progress. eg: "Track 2" or "Track 2/6"
+	declare Text Text_Map = _("|League|Track %1");
+	//L16N [ChampionCup] Name of the first stage of the match
+	declare Text Text_OpeningStage = _("|Champion|Opening stage");
+	//L16N [ChampionCup] Name of the last stage of the match
+	declare Text Text_FinalStage = _("|Champion|Final stage");
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-bold" halign="center" valign="center2" textsize="3" textprefix="$t$i" textcolor="ffffff" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+</stylesheet>
+<frame id="frame-global" z-index="{{{ZIndex::C_ZIndex_MapInfo}}}" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_MapInfo_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-spectator">
+			<quad pos="-51.5 0" z-index="-1" size="62.6 15" halign="center" valign="center2" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_WarmUp)}}}" image="{{{MenuConst::C_ImageUrl_Champion_Spec_WarmUp_Left}}}" opacity="0.9" />
+			<quad pos="19 0" z-index="-1" size="80 15" halign="center" valign="center2" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" image="{{{MenuConst::C_ImageUrl_Champion_Spec_WarmUp_Center}}}" opacity="0.7" />
+			<quad pos="70.4 0" z-index="-1" size="24.6 15" halign="center" valign="center2" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_WarmUp)}}}" image="{{{MenuConst::C_ImageUrl_Champion_Spec_WarmUp_Right}}}" opacity="0.9" />
+			<frame z-index="1">
+				<label id="label-warm-up" pos="-51 2.5" size="60 5" textsize="5" text="{{{Text_WarmUp}}}" class="text-bold" />
+				<label id="label-stage-name" pos="-51 -3.5" size="60 5" textsize="4" class="text-bold" />
+				<label id="label-map-name" pos="-17 2" size="52 5" halign="left" class="text-bold" />
+				<label id="label-map-author" pos="-17 -3" size="52 5" halign="left" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textsize="2.5" class="text-bold" />
+				<label id="label-map-count" pos="56.5 2" size="20 5" halign="right" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" textsize="2.5" class="text-bold" />
+				<label id="label-timer" pos="71 -0.5" size="23 5" textsize="4.5" class="text-bold" />
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Client.Script.txt" as RaceHelpers
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmupHelpers_Client.Script.txt" as WarmupHelpers
+
+#Struct K_Controls {
+	CMlLabel Label_MapName;
+	CMlLabel Label_MapAuthor;
+	CMlLabel Label_MapCount;
+	CMlLabel Label_StageName;
+	CMlLabel Label_WarmUp;
+}
+
+#Struct K_State {
+	K_Controls Controls;
+	Text MapUid;
+	Int2 MapsProgression;
+	Boolean IsFinal;
+	Boolean IsPause;
+}
+""",
+"""
+K_State UpdateMapInfo(K_State _State, CMap _Map) {
+	declare K_State State = _State;
+
+	if (_Map != Null) {
+		State.MapUid = _Map.MapInfo.MapUid;
+		State.Controls.Label_MapName.Value = _Map.MapName;
+		State.Controls.Label_MapAuthor.Value = TL::Compose("%1 %2", TL::ToLowerCase("{{{Text_By}}}"), _Map.AuthorNickName);
+		State.Controls.Label_MapName.Visible = True;
+		State.Controls.Label_MapAuthor.Visible = True;
+		Tools::FitLabelValue(State.Controls.Label_MapName, 3., 1.5, 0.25);
+		Tools::FitLabelValue(State.Controls.Label_MapAuthor, 2.5, 1.5, 0.25);
+	} else {
+		State.MapUid = "";
+		State.Controls.Label_MapName.Visible = False;
+		State.Controls.Label_MapAuthor.Visible = False;
+	}
+
+	return State;
+}
+
+K_State UpdateMapsProgression(K_State _State, Int2 _MapsProgression) {
+	declare K_State State = _State;
+	State.MapsProgression = _MapsProgression;
+
+	if (State.MapsProgression.Y > 0) {
+		State.Controls.Label_MapCount.Value = TL::ToLowerCase(TL::Compose("{{{Text_Map}}}", State.MapsProgression.X^"/"^State.MapsProgression.Y));
+		Tools::FitLabelValue(State.Controls.Label_MapCount, 2.5, 1.5, 0.25);
+	} else {
+		State.Controls.Label_MapCount.Value = "";
+	}
+
+	return State;
+}
+
+K_State UpdateStage(K_State _State, Boolean _IsFinal, Integer _DisplayMode) {
+	declare K_State State = _State;
+	State.IsFinal = _IsFinal;
+
+	if (_DisplayMode == {{{Shared::P}}}C_DisplayMode_ChampionCup) {
+		if (State.IsFinal) {
+			State.Controls.Label_StageName.Value = "{{{Text_FinalStage}}}";
+		} else {
+			State.Controls.Label_StageName.Value = "{{{Text_OpeningStage}}}";
+		}
+		State.Controls.Label_WarmUp.RelativePosition_V3.Y = 2.5;
+		State.Controls.Label_StageName.Visible = True;
+	} else {
+		State.Controls.Label_WarmUp.RelativePosition_V3.Y = -0.5;
+		State.Controls.Label_StageName.Visible = False;
+	}
+	Tools::FitLabelValue(State.Controls.Label_StageName, 4., 1.5, 0.5);
+
+	return State;
+}
+
+K_State UpdatePause(K_State _State, Boolean _IsPause) {
+	declare K_State State = _State;
+	State.IsPause = _IsPause;
+
+	if (State.IsPause) {
+		State.Controls.Label_WarmUp.Value = "{{{Text_Pause}}}";
+	} else {
+		State.Controls.Label_WarmUp.Value = "{{{Text_WarmUp}}}";
+	}
+	Tools::FitLabelValue(State.Controls.Label_WarmUp, 4., 1.5, 0.5);
+
+	return State;
+}
+
+Boolean IsVisible(CSmPlayer _Player, Boolean _IsPreMatch, Boolean _IsPause) {
+	return (
+		!_IsPreMatch && (
+			(InputPlayer != Null && InputPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned) ||
+			_IsPause
+		)
+	);
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_Spectator;
+declare CMlLabel Label_Timer;
+
+declare netread Boolean Net_ChampionCup_MapInfo_IsVisible for UI;
+
+declare K_State State;
+declare Boolean DisplayModule;
+declare Integer DisplayMode;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_Spectator <=> (Frame_Global.GetFirstChild("frame-spectator") as CMlFrame);
+Label_Timer <=> (Frame_Spectator.GetFirstChild("label-timer") as CMlLabel);
+State.Controls.Label_WarmUp <=> (Frame_Spectator.GetFirstChild("label-warm-up") as CMlLabel);
+State.Controls.Label_MapName <=> (Frame_Spectator.GetFirstChild("label-map-name") as CMlLabel);
+State.Controls.Label_MapAuthor <=> (Frame_Spectator.GetFirstChild("label-map-author") as CMlLabel);
+State.Controls.Label_MapCount <=> (Frame_Spectator.GetFirstChild("label-map-count") as CMlLabel);
+State.Controls.Label_StageName <=> (Frame_Spectator.GetFirstChild("label-stage-name") as CMlLabel);
+
+DisplayModule = Frame_Global.Visible;
+DisplayMode = {{{Shared::P}}}GetDisplayMode();
+
+State = UpdateMapInfo(State, Map);
+State = UpdateMapsProgression(State, {{{Shared::P}}}GetMapsProgression());
+State = UpdateStage(State, {{{Shared::P}}}IsFinal(), DisplayMode);
+State = UpdatePause(State, {{{Shared::P}}}IsPause());
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (DisplayModule != Net_ChampionCup_MapInfo_IsVisible) {
+		DisplayModule = Net_ChampionCup_MapInfo_IsVisible;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (Frame_Spectator.Visible != IsVisible(InputPlayer, {{{Shared::P}}}IsPreMatch(), {{{Shared::P}}}IsPause())) {
+			Frame_Spectator.Visible = IsVisible(InputPlayer, {{{Shared::P}}}IsPreMatch(), {{{Shared::P}}}IsPause());
+		}
+
+		if (Frame_Spectator.Visible) {
+			if (
+				(Map == Null && State.MapUid != "") ||
+				(Map != Null && State.MapUid != Map.MapInfo.MapUid)
+			) {
+				State = UpdateMapInfo(State, Map);
+			}
+
+			if (State.MapsProgression != {{{Shared::P}}}GetMapsProgression()) {
+				State = UpdateMapsProgression(State, {{{Shared::P}}}GetMapsProgression());
+			}
+
+			if (State.IsFinal != {{{Shared::P}}}IsFinal()) {
+				State = UpdateStage(State, {{{Shared::P}}}IsFinal(), DisplayMode);
+			}
+
+			if (State.IsPause != {{{Shared::P}}}IsPause()) {
+				State = UpdatePause(State, {{{Shared::P}}}IsPause());
+			}
+
+			if (DisplayMode != {{{Shared::P}}}GetDisplayMode()) {
+				DisplayMode = {{{Shared::P}}}GetDisplayMode();
+				State = UpdateStage(State, State.IsFinal, DisplayMode);
+			}
+
+			if (WarmupHelpers::IsWarmupActive(Teams[0]) && WarmupHelpers::CurrentWarmupEndTime(Teams[0]) >= 0) {
+				Label_Timer.Value = TL::TimeToText(ML::Max(0, WarmupHelpers::CurrentWarmupEndTime(Teams[0]) - GameTime + 1000));
+			} else if (RaceHelpers::GetTimeLimit(Teams[0]) >= 0) {
+				Label_Timer.Value = TL::TimeToText(ML::Max(0, RaceHelpers::GetTimeLimit(Teams[0]) - GameTime + 1000));
+			} else {
+				Label_Timer.Value = "--:--";
+			}
+
+			declare Real Opacity = 0.5 + (0.5 * ML::Abs(ML::Cos(Now * 0.15 * (ML::PI() / 180.))));
+			State.Controls.Label_WarmUp.Opacity = Opacity;
+			State.Controls.Label_StageName.Opacity = Opacity;
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	Shared::Component()
+],
+[]
+	);
+}

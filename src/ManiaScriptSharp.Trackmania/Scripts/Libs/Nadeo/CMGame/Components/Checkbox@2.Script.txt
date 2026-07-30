@@ -1,0 +1,1344 @@
+/**
+ * Component: Checkbox
+ * ===========================
+ *
+ * The `Checkbox` component was designed to be used with the `Navigation` class.
+ * With this component, the player will for example be able to check or uncheck a property or a parameter.
+ * The mouse detection zone for the navigation will automatically adapt depending on :
+ * - the size of the label (`text-size`),
+ * - the size of the icon (`icon-size`),
+ * - their respective position inside the component (`text-pos` and `icon-pos`)
+ *
+ * Events
+ * ----------
+ * - C_Event_Toggle                the event that is sent when the checkbox is toggled
+ *
+ * Parameters
+ * ----------
+ * - `halign` (`CMlControl::AlignHorizontal`): horizontal alignment of the checkbox
+ *      Manialink parameters: `left`, `center` or `right`
+ * - `valign` (`CMlControl::AlignVertical`): vertical alignment of the checkbox
+ *      Manialink parameters: `top`, `center`, `center2` or `bottom`
+ * - `size` (`Vec2`): size of the checkbox
+ * - `opacity-focused` (`Real`): opacity of images and texts when the component is focused
+ * - `opacity-unfocused` (`Real`): opacity of images and texts when the component is not focused
+ * - `text` (`Text`): text displayed in the checkbox
+ * - `text-mirror` (`Text`): mirrored text displayed in the checkbox (for switch-like checkbox)
+ * - `text-prefix` (`Text`): prefix of the texts displayed in the checkbox
+ * - `text-font` (`Text`): font of the texts displayed in the checkbox
+ * - `text-color-unfocused` (`Vec3`): color of the texts when the component if not focused
+ * - `text-color-focused` (`Vec3`): color of the texts when the component if focused
+ * - `text-pos` (`Vec2`): position of the text in the component <[0;1], [0;1]> (centered in <0.5, 0.5>)
+ * - `text-halign` (`CMlControl::AlignHorizontal`): horizontal alignment of the text displayed in the checkbox
+ *      Manialink parameters: `left`, `center` or `right`
+ * - `text-valign` (`CMlControl::AlignVertical`): vertical alignment of the text displayed in the checkbox
+ *      Manialink parameters: `top`, `center`, `center2` or `bottom`
+ * - `text-italicslope` (`Real`): italic slope of the texts displayed in the checkbox
+ * - `text-fitlabel-enabled` (`Real`): fit the texts in the checkbox when it exceeds its width
+ * - `text-size` (`Real`): size of the texts displayed in the checkbox
+ * - `text-autonewline-enabled` (`Boolean`): enable text with multiple lines and better handle text containing '\n' characters
+ * - `text-maxlines` (`Integer`): sets the maximum line of text in the checkbox
+ * - `text-adaptablesize-enabled` (`Boolean`): enable an automatic resize of the texts displayed in the checkbox
+ * - `icon-size` (`Vec2`): size of the icon displayed in the checkbox
+ * - `icon-color-unfocused` (`Vec3`): color of the icon when the component is not focused
+ * - `icon-color-focused` (`Vec3`): color of the icon when the component is focused
+ * - `icon-pos` (`Vec2`): position of the icon diplayed in the checkbox <[0;1], [0;1]> (centered in <0.5, 0.5>)
+ * - `icon-image-checked` (`Text`): url to the image used when the checkbox is checked
+ * - `icon-image-unchecked` (`Text`): url to the image used when the checkbox is unchecked
+ */
+#Const Version		"0.2.0"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/Checkbox@2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Mixins/Navigation@2.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView@3.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet@2.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "ColorLib" as CL
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Controls {
+	CMlFrame Frame_Align;
+	CMlLabel Label_Checkbox;
+	CMlLabel Label_MirrorCheckbox;
+	CMlQuad Quad_Icon;
+	CMlQuad Quad_NavigationZone;
+}
+
+#Struct K_Properties {
+	Integer[] Enabled;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Real OpacityFocused;
+	Real OpacityUnfocused;
+	Text TextValue;
+	Text TextMirrorValue;
+	Vec2 Size;
+	Text TextPrefix;
+	Text TextFont;
+	Vec3 TextColorUnfocused;
+	Vec3 TextColorFocused;
+	Vec2 TextPos;
+	CMlControl::AlignHorizontal TextHAlign;
+	CMlControl::AlignVertical TextVAlign;
+	Real TextItalicSlope;
+	Boolean TextFitLabelEnabled;
+	Real TextSize;
+	Boolean TextAutoNewLineEnabled;
+	Integer TextMaxLines;
+	Boolean TextAdaptableSizeEnabled;
+	Vec2 IconSize;
+	Vec3 IconColorUnfocused;
+	Vec3 IconColorFocused;
+	Vec2 IconPos;
+	Text IconImageChecked;
+	Text IconImageUnchecked;
+}
+
+#Struct K_Checkbox {
+	Boolean IsChecked;
+	Boolean IsFocused;
+	Boolean IsLocked;
+	Boolean IsTTSFocusedOnCheck;
+	Boolean IsCheckbox;
+	K_Controls Controls;
+	K_Properties CustomizedProperties;
+	K_Properties MergedProperties;
+}
+
+#Struct K_State {
+	K_Properties DefaultProperties;
+}
+
+#Struct K_Event_Toggle {
+	CMlFrame Component;
+	Boolean IsChecked;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ComponentName "CMGameCheckbox2"
+#Const C_ComponentClass "cmgame-components-checkbox-2"
+#Const C_ComponentNavZone "cmgame-components-checkbox-2-quad-nav-zone" //< Id of the quad used to trigger mouse event for the navigation
+
+// Events
+#Const C_Event_Toggle "checkbox-toggle"
+
+// Text
+//L16N [Checkbox] Text pronounced when focusing a checked box
+#Const C_TTS_SwitchButton _("|Checkbox|Switch button")
+//L16N [Checkbox] Text pronounced when focusing a checked box
+#Const C_TTS_Checked _("|Checkbox|Checkbox activated")
+//L16N [Checkbox] Text pronounced when focusing an unchecked box
+#Const C_TTS_Unchecked _("|Checkbox|Checkbox deactivated")
+
+// Control ids
+#Const C_Id_FrameAlign "cmgame-checkbox-2_frame-align"
+#Const C_Id_FrameNavigationContainer "cmgame-checkbox-2_frame-navigationcontainer"
+#Const C_Id_LabelCheckbox "cmgame-checkbox-2_label-checkbox"
+#Const C_Id_LabelMirrorCheckbox "cmgame-checkbox-2_label-mirror-checkbox"
+#Const C_Id_QuadIcon "cmgame-checkbox-2_quad-icon"
+
+// The properties indexing must be a continuous sequence starting from 0
+// 0,1,2,3,... not 0,1,3,... for example
+#Const C_Property_HAlign 0
+#Const C_Property_VAlign 1
+#Const C_Property_Size 2
+#Const C_Property_OpacityFocused 3
+#Const C_Property_OpacityUnfocused 4
+#Const C_Property_TextValue 5
+#Const C_Property_TextMirrorValue 6
+#Const C_Property_TextPrefix 7
+#Const C_Property_TextFont 8
+#Const C_Property_TextColorUnfocused 9
+#Const C_Property_TextColorFocused 10
+#Const C_Property_TextPos 11
+#Const C_Property_TextHAlign 12
+#Const C_Property_TextVAlign 13
+#Const C_Property_TextItalicSlope 14
+#Const C_Property_TextFitLabelEnabled 15
+#Const C_Property_TextSize 16
+#Const C_Property_TextAutoNewLineEnabled 17
+#Const C_Property_TextMaxLines 18
+#Const C_Property_TextAdaptableSizeEnabled 19
+#Const C_Property_IconSize 20
+#Const C_Property_IconColorUnfocused 21
+#Const C_Property_IconColorFocused 22
+#Const C_Property_IconPos 23
+#Const C_Property_IconImageChecked 24
+#Const C_Property_IconImageUnchecked 25
+
+#Const C_Prop_HAlign "halign"
+#Const C_Prop_VAlign "valign"
+#Const C_Prop_Size "size"
+#Const C_Prop_OpacityFocused "opacity-focused"
+#Const C_Prop_OpacityUnfocused "opacity-unfocused"
+#Const C_Prop_TextValue "text"
+#Const C_Prop_TextMirrorValue "text-mirror"
+#Const C_Prop_TextPrefix "text-prefix"
+#Const C_Prop_TextFont "text-font"
+#Const C_Prop_TextColorUnfocused "text-color-unfocused"
+#Const C_Prop_TextColorFocused "text-color-focused"
+#Const C_Prop_TextPos "text-pos"
+#Const C_Prop_TextHAlign "text-halign"
+#Const C_Prop_TextVAlign "text-valign"
+#Const C_Prop_TextItalicSlope "text-italicslope"
+#Const C_Prop_TextFitLabelEnabled "text-fitlabel-enabled"
+#Const C_Prop_TextSize "text-size"
+#Const C_Prop_TextAutoNewLineEnabled "text-autonewline-enabled"
+#Const C_Prop_TextMaxLines "text-maxlines"
+#Const C_Prop_TextAdaptableSizeEnabled "text-adaptablesize-enabled"
+#Const C_Prop_IconSize "icon-size"
+#Const C_Prop_IconColorUnfocused "icon-color-unfocused"
+#Const C_Prop_IconColorFocused "icon-color-focused"
+#Const C_Prop_IconPos "icon-pos"
+#Const C_Prop_IconImageChecked "icon-image-checked"
+#Const C_Prop_IconImageUnchecked "icon-image-unchecked"
+
+// Default values
+#Const C_FocusAnimDuration 250
+#Const C_DefaultTextPrefix "$t$i"
+#Const C_Checkbox_Null K_Checkbox {
+	IsCheckbox = False
+}
+#Const C_State_Null K_State {
+	DefaultProperties = K_Properties {}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the template of the component
+Text Private_GetTeamplate() {
+	return """
+<frame id="{{{C_Id_FrameNavigationContainer}}}" class="{{{Navigation::C_Class_Container}}}" z-index="1">
+	<frame id="{{{C_Id_FrameAlign}}}">
+		<quad id="{{{C_Id_QuadIcon}}}" halign="center" valign="center"/>
+		<label id="{{{C_Id_LabelCheckbox}}}" halign="center" valign="center2" textprefix="$z"/>
+		<label id="{{{C_Id_LabelMirrorCheckbox}}}" halign="center" valign="center2" textprefix="$z"/>
+		<quad id="{{{C_ComponentNavZone}}}" class="{{{Navigation::C_Class_ActivationZone}}}" halign="center" valign="center" bgcolor="FF0000" opacity="0" scriptevents="1" z-index="1"/>
+	</frame>
+</frame>
+	""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check that the given control is an instance of this component
+Void Private_AssertValidComponent(CMlControl _Frame_Checkbox) {
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+	assert(CMGame_Checkbox2_Checkbox.IsCheckbox, "The control '"^_Frame_Checkbox.ControlId^"' is not a valid Checkbox component.");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the colors and opacities of the component
+Void Private_ApplyOpacityAndColor(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsAnimated) {
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+
+	_This.AnimMgr.Flush(CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox);
+	_This.AnimMgr.Flush(CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox);
+	_This.AnimMgr.Flush(CMGame_Checkbox2_Checkbox.Controls.Quad_Icon);
+
+	if (CMGame_Checkbox2_Checkbox.IsLocked) {
+		if (_IsAnimated) {
+			_This.AnimMgr.Add(CMGame_Checkbox2_Checkbox.Controls.Quad_Icon, """<anim colorize="{{{CL::RgbToHex6(CMGame_Checkbox2_Checkbox.MergedProperties.IconColorUnfocused)}}}" opacity="0.5"/>""", C_FocusAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+			_This.AnimMgr.Add(CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox, """<anim textcolor="{{{CL::RgbToHex6(CMGame_Checkbox2_Checkbox.MergedProperties.TextColorUnfocused)}}}" opacity="0.5"/>""", C_FocusAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+			if (CMGame_Checkbox2_Checkbox.MergedProperties.TextMirrorValue != "") {
+				_This.AnimMgr.Add(CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox, """<anim textcolor="{{{CL::RgbToHex6(CMGame_Checkbox2_Checkbox.MergedProperties.TextColorUnfocused)}}}" opacity="0.5"/>""", C_FocusAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+			}
+		} else {
+			CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Colorize = CMGame_Checkbox2_Checkbox.MergedProperties.IconColorUnfocused;
+			CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Opacity = 0.5;
+			CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TextColor = CMGame_Checkbox2_Checkbox.MergedProperties.TextColorUnfocused;
+			CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Opacity = 0.5;
+			if (CMGame_Checkbox2_Checkbox.MergedProperties.TextMirrorValue != "") {
+				CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.TextColor = CMGame_Checkbox2_Checkbox.MergedProperties.TextColorUnfocused;
+				CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Opacity = 0.5;
+			}
+		}
+	} else if (CMGame_Checkbox2_Checkbox.IsFocused) {
+		if (_IsAnimated) {
+			_This.AnimMgr.Add(CMGame_Checkbox2_Checkbox.Controls.Quad_Icon, """<anim colorize="{{{CL::RgbToHex6(CMGame_Checkbox2_Checkbox.MergedProperties.IconColorFocused)}}}" opacity="{{{CMGame_Checkbox2_Checkbox.MergedProperties.OpacityFocused}}}"/>""", C_FocusAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+			_This.AnimMgr.Add(CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox, """<anim textcolor="{{{CL::RgbToHex6(CMGame_Checkbox2_Checkbox.MergedProperties.TextColorFocused)}}}" opacity="{{{CMGame_Checkbox2_Checkbox.MergedProperties.OpacityFocused}}}"/>""", C_FocusAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+			if (CMGame_Checkbox2_Checkbox.MergedProperties.TextMirrorValue != "") {
+				_This.AnimMgr.Add(CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox, """<anim textcolor="{{{CL::RgbToHex6(CMGame_Checkbox2_Checkbox.MergedProperties.TextColorFocused)}}}" opacity="{{{CMGame_Checkbox2_Checkbox.MergedProperties.OpacityFocused}}}"/>""", C_FocusAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+			}
+		} else {
+			CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Colorize = CMGame_Checkbox2_Checkbox.MergedProperties.IconColorFocused;
+			CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Opacity = CMGame_Checkbox2_Checkbox.MergedProperties.OpacityFocused;
+			CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TextColor = CMGame_Checkbox2_Checkbox.MergedProperties.TextColorFocused;
+			CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Opacity = CMGame_Checkbox2_Checkbox.MergedProperties.OpacityFocused;
+			if (CMGame_Checkbox2_Checkbox.MergedProperties.TextMirrorValue != "") {
+				CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.TextColor = CMGame_Checkbox2_Checkbox.MergedProperties.TextColorFocused;
+				CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Opacity = CMGame_Checkbox2_Checkbox.MergedProperties.OpacityFocused;
+			}
+		}
+	} else if (_IsAnimated) {
+		_This.AnimMgr.Add(CMGame_Checkbox2_Checkbox.Controls.Quad_Icon, """<anim colorize="{{{CL::RgbToHex6(CMGame_Checkbox2_Checkbox.MergedProperties.IconColorUnfocused)}}}" opacity="{{{CMGame_Checkbox2_Checkbox.MergedProperties.OpacityUnfocused}}}"/>""", C_FocusAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox, """<anim textcolor="{{{CL::RgbToHex6(CMGame_Checkbox2_Checkbox.MergedProperties.TextColorUnfocused)}}}" opacity="{{{CMGame_Checkbox2_Checkbox.MergedProperties.OpacityUnfocused}}}"/>""", C_FocusAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		if (CMGame_Checkbox2_Checkbox.MergedProperties.TextMirrorValue != "") {
+			_This.AnimMgr.Add(CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox, """<anim textcolor="{{{CL::RgbToHex6(CMGame_Checkbox2_Checkbox.MergedProperties.TextColorUnfocused)}}}" opacity="{{{CMGame_Checkbox2_Checkbox.MergedProperties.OpacityUnfocused}}}"/>""", C_FocusAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	} else {
+		CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Colorize = CMGame_Checkbox2_Checkbox.MergedProperties.IconColorUnfocused;
+		CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Opacity = CMGame_Checkbox2_Checkbox.MergedProperties.OpacityUnfocused;
+		CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TextColor = CMGame_Checkbox2_Checkbox.MergedProperties.TextColorUnfocused;
+		CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Opacity = CMGame_Checkbox2_Checkbox.MergedProperties.OpacityUnfocused;
+		if (CMGame_Checkbox2_Checkbox.MergedProperties.TextMirrorValue != "") {
+			CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.TextColor = CMGame_Checkbox2_Checkbox.MergedProperties.TextColorUnfocused;
+			CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Opacity = CMGame_Checkbox2_Checkbox.MergedProperties.OpacityUnfocused;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// The component is focused by the Navigation component
+Void Private_Focus(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsTTSFocused, Boolean _IsAnimated) {
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+	if (CMGame_Checkbox2_Checkbox.IsLocked) return;
+
+	CMGame_Checkbox2_Checkbox.IsFocused = True;
+	Private_ApplyOpacityAndColor(_This, _Frame_Checkbox, _IsAnimated);
+	if (_IsTTSFocused) CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TTS_Focus();
+	else CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TTS_Unfocus();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// The component is unfocused by the Navigation component
+Void Private_Unfocus(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsAnimated) {
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+	if (CMGame_Checkbox2_Checkbox.IsLocked) return;
+
+	CMGame_Checkbox2_Checkbox.IsFocused = False;
+	Private_ApplyOpacityAndColor(_This, _Frame_Checkbox, _IsAnimated);
+	CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TTS_Unfocus();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable a properties from the `Enabled` array
+Integer[] Private_EnableProperty(Integer[] _EnabledProperties, Integer _Property, Boolean _Enabled) {
+	declare Integer[] EnabledProperties = _EnabledProperties;
+
+	if (_Enabled) {
+		if (!EnabledProperties.exists(_Property)) {
+			EnabledProperties.add(_Property);
+		}
+	} else {
+		EnabledProperties.remove(_Property);
+	}
+
+	return EnabledProperties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set and enable a property
+K_Properties Private_SetProperty(K_Properties _TargetProperties, Integer _PropertyId, K_Properties _SourceProperties) {
+	declare K_Properties Properties = _TargetProperties;
+
+	Properties.Enabled = Private_EnableProperty(Properties.Enabled, _PropertyId, True);
+
+	switch (_PropertyId) {
+		case C_Property_HAlign: Properties.HAlign = _SourceProperties.HAlign;
+		case C_Property_VAlign: Properties.VAlign = _SourceProperties.VAlign;
+		case C_Property_Size: Properties.Size = _SourceProperties.Size;
+		case C_Property_OpacityFocused: Properties.OpacityFocused = _SourceProperties.OpacityFocused;
+		case C_Property_OpacityUnfocused: Properties.OpacityUnfocused = _SourceProperties.OpacityUnfocused;
+		case C_Property_TextValue: Properties.TextValue = _SourceProperties.TextValue;
+		case C_Property_TextMirrorValue: Properties.TextMirrorValue = _SourceProperties.TextMirrorValue;
+		case C_Property_TextPrefix: Properties.TextPrefix = _SourceProperties.TextPrefix;
+		case C_Property_TextFont: Properties.TextFont = _SourceProperties.TextFont;
+		case C_Property_TextColorUnfocused: Properties.TextColorUnfocused = _SourceProperties.TextColorUnfocused;
+		case C_Property_TextColorFocused: Properties.TextColorFocused = _SourceProperties.TextColorFocused;
+		case C_Property_TextPos: Properties.TextPos = _SourceProperties.TextPos;
+		case C_Property_TextHAlign: Properties.TextHAlign = _SourceProperties.TextHAlign;
+		case C_Property_TextVAlign: Properties.TextVAlign = _SourceProperties.TextVAlign;
+		case C_Property_TextItalicSlope: Properties.TextItalicSlope = _SourceProperties.TextItalicSlope;
+		case C_Property_TextFitLabelEnabled: Properties.TextFitLabelEnabled = _SourceProperties.TextFitLabelEnabled;
+		case C_Property_TextSize: Properties.TextSize = _SourceProperties.TextSize;
+		case C_Property_TextAutoNewLineEnabled: Properties.TextAutoNewLineEnabled = _SourceProperties.TextAutoNewLineEnabled;
+		case C_Property_TextMaxLines: Properties.TextMaxLines = _SourceProperties.TextMaxLines;
+		case C_Property_TextAdaptableSizeEnabled: Properties.TextAdaptableSizeEnabled = _SourceProperties.TextAdaptableSizeEnabled;
+		case C_Property_IconSize: Properties.IconSize = _SourceProperties.IconSize;
+		case C_Property_IconColorUnfocused: Properties.IconColorUnfocused = _SourceProperties.IconColorUnfocused;
+		case C_Property_IconColorFocused: Properties.IconColorFocused = _SourceProperties.IconColorFocused;
+		case C_Property_IconPos: Properties.IconPos = _SourceProperties.IconPos;
+		case C_Property_IconImageChecked: Properties.IconImageChecked = _SourceProperties.IconImageChecked;
+		case C_Property_IconImageUnchecked: Properties.IconImageUnchecked = _SourceProperties.IconImageUnchecked;
+	}
+
+	return Properties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Merge a base properties with other enabled properties
+K_Properties Private_MergeProperties(K_Properties _Base, K_Properties[] _PropertiesToMerge) {
+	declare K_Properties MergedProperties = _Base;
+
+	foreach (Properties in _PropertiesToMerge) {
+		foreach (PropertyId in Properties.Enabled) {
+			MergedProperties = Private_SetProperty(MergedProperties, PropertyId, Properties);
+		}
+	}
+
+	return MergedProperties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw the component (apply size, color...)
+Void Private_Redraw(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	declare K_State CMGame_Checkbox2_State for _This.Page = C_State_Null;
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+
+	// Merge properties
+	CMGame_Checkbox2_Checkbox.MergedProperties = Private_MergeProperties(
+		CMGame_Checkbox2_State.DefaultProperties,
+		[CMGame_Checkbox2_Checkbox.CustomizedProperties]
+	);
+
+	// Checkbox labels
+	CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Value = CMGame_Checkbox2_Checkbox.MergedProperties.TextValue;
+	CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TextSizeReal = CMGame_Checkbox2_Checkbox.MergedProperties.TextSize;
+	CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TextPrefix = CMGame_Checkbox2_Checkbox.MergedProperties.TextPrefix;
+	CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TextFont = CMGame_Checkbox2_Checkbox.MergedProperties.TextFont;
+	CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.HorizontalAlign = CMGame_Checkbox2_Checkbox.MergedProperties.TextHAlign;
+	CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.VerticalAlign = CMGame_Checkbox2_Checkbox.MergedProperties.TextVAlign;
+	CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.ItalicSlope = CMGame_Checkbox2_Checkbox.MergedProperties.TextItalicSlope;
+	CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.AutoNewLine = CMGame_Checkbox2_Checkbox.MergedProperties.TextAutoNewLineEnabled;
+	CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.MaxLine = CMGame_Checkbox2_Checkbox.MergedProperties.TextMaxLines;
+	if (CMGame_Checkbox2_Checkbox.MergedProperties.TextAdaptableSizeEnabled) {
+		CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size = <
+			ML::Min(CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.ComputeWidth(TL::GetTranslatedText(CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Value), False), CMGame_Checkbox2_Checkbox.MergedProperties.Size.X),
+			CMGame_Checkbox2_Checkbox.MergedProperties.Size.Y
+		>;
+	} else {
+		CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size = CMGame_Checkbox2_Checkbox.MergedProperties.Size;
+	}
+
+	if (CMGame_Checkbox2_Checkbox.MergedProperties.TextMirrorValue == "") {
+		CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Value = "";
+		CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Size = <0., 0.>;
+	} else {
+		CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Value = CMGame_Checkbox2_Checkbox.MergedProperties.TextMirrorValue;
+		CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.TextSizeReal = CMGame_Checkbox2_Checkbox.MergedProperties.TextSize;
+		CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.TextPrefix = CMGame_Checkbox2_Checkbox.MergedProperties.TextPrefix;
+		CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.TextFont = CMGame_Checkbox2_Checkbox.MergedProperties.TextFont;
+		CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.HorizontalAlign = Tools::MirrorHAlign(CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.HorizontalAlign);
+		CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.VerticalAlign = Tools::MirrorVAlign(CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.VerticalAlign);
+		CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.ItalicSlope = CMGame_Checkbox2_Checkbox.MergedProperties.TextItalicSlope;
+		if (CMGame_Checkbox2_Checkbox.MergedProperties.TextAdaptableSizeEnabled) {
+			CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Size = <
+				ML::Min(CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.ComputeWidth(TL::GetTranslatedText(CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Value), False), CMGame_Checkbox2_Checkbox.MergedProperties.Size.X),
+				CMGame_Checkbox2_Checkbox.MergedProperties.Size.Y
+			>;
+		} else {
+			CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Size = CMGame_Checkbox2_Checkbox.MergedProperties.Size;
+		}
+	}
+
+	// Text to speech
+	if (CMGame_Checkbox2_Checkbox.IsChecked) {
+		if (CMGame_Checkbox2_Checkbox.MergedProperties.TextMirrorValue != "") { //< switch button
+			CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TTS_AltText = TL::Compose("%1 %2", C_TTS_SwitchButton, CMGame_Checkbox2_Checkbox.MergedProperties.TextValue);
+		} else {
+			CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TTS_AltText = TL::Compose("%1 %2", CMGame_Checkbox2_Checkbox.MergedProperties.TextValue, C_TTS_Checked);
+		}
+	} else {
+		if (CMGame_Checkbox2_Checkbox.MergedProperties.TextMirrorValue != "") { //< switch button
+			CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TTS_AltText = TL::Compose("%1 %2", C_TTS_SwitchButton, CMGame_Checkbox2_Checkbox.MergedProperties.TextMirrorValue);
+		} else {
+			CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TTS_AltText = TL::Compose("%1 %2", CMGame_Checkbox2_Checkbox.MergedProperties.TextValue, C_TTS_Unchecked);
+		}
+	}
+
+	// Checkbox icon
+	CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size = CMGame_Checkbox2_Checkbox.MergedProperties.IconSize;
+	if (CMGame_Checkbox2_Checkbox.IsChecked && CMGame_Checkbox2_Checkbox.MergedProperties.IconImageChecked != "") {
+		CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.ChangeImageUrl(CMGame_Checkbox2_Checkbox.MergedProperties.IconImageChecked);
+		CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Visible = True;
+	} else if (!CMGame_Checkbox2_Checkbox.IsChecked && CMGame_Checkbox2_Checkbox.MergedProperties.IconImageUnchecked != "") {
+		CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.ChangeImageUrl(CMGame_Checkbox2_Checkbox.MergedProperties.IconImageUnchecked);
+		CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Visible = True;
+	} else {
+		CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Visible = False;
+	}
+
+	// Position
+	declare Vec2 SizeOfReference = <
+		ML::Max(CMGame_Checkbox2_Checkbox.MergedProperties.Size.X, CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.X),
+		ML::Max(CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.Y, CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.Y)
+	>;
+	CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3 = <
+		SizeOfReference.X * (CMGame_Checkbox2_Checkbox.MergedProperties.IconPos.X-0.5),
+		SizeOfReference.Y * (CMGame_Checkbox2_Checkbox.MergedProperties.IconPos.Y-0.5)
+	>;
+	CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.RelativePosition_V3 = <
+		SizeOfReference.X * (CMGame_Checkbox2_Checkbox.MergedProperties.TextPos.X-0.5),
+		SizeOfReference.Y * (CMGame_Checkbox2_Checkbox.MergedProperties.TextPos.Y-0.5)
+	>;
+	if (CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Value != "") {
+		CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.RelativePosition_V3 = <
+			SizeOfReference.X * (1-CMGame_Checkbox2_Checkbox.MergedProperties.TextPos.X-0.5),
+			SizeOfReference.Y * (1-CMGame_Checkbox2_Checkbox.MergedProperties.TextPos.Y-0.5)
+		>;
+	}
+
+	// Get the center pos of the label depending on its alignment
+	declare Vec2 Pos_LabelCenter = CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.RelativePosition_V3;
+	switch (CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.HorizontalAlign) {
+		case CMlControl::AlignHorizontal::Left: Pos_LabelCenter.X += CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.X/2;
+		case CMlControl::AlignHorizontal::Right: Pos_LabelCenter.X -= CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.X/2;
+	}
+	switch (CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.VerticalAlign) {
+		case CMlControl::AlignVertical::Top: Pos_LabelCenter.Y -= CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.Y/2;
+		case CMlControl::AlignVertical::Bottom: Pos_LabelCenter.Y += CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.Y/2;
+	}
+
+	// Activation zone
+	if (CMGame_Checkbox2_Checkbox.MergedProperties.TextAdaptableSizeEnabled) SizeOfReference = <ML::Max(CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.X, CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.X), ML::Max(CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.Y, CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.Y)>;
+	if (CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Value == "") {
+		CMGame_Checkbox2_Checkbox.Controls.Quad_NavigationZone.Size = <
+			ML::Max(SizeOfReference.X, CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.X/2 + ML::Abs(CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3.X - Pos_LabelCenter.X) + CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.X/2),
+			ML::Max(SizeOfReference.Y, CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.Y/2 + ML::Abs(CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3.Y - Pos_LabelCenter.Y) + CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.Y/2)
+		>;
+		CMGame_Checkbox2_Checkbox.Controls.Quad_NavigationZone.RelativePosition_V3 = CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3;
+		if (CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3.X < Pos_LabelCenter.X) {
+			CMGame_Checkbox2_Checkbox.Controls.Quad_NavigationZone.RelativePosition_V3.X = ((CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3.X - CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.X*0.5) + (Pos_LabelCenter.X + CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.X*0.5))*0.5;
+		} else if (CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3.X > Pos_LabelCenter.X) {
+			CMGame_Checkbox2_Checkbox.Controls.Quad_NavigationZone.RelativePosition_V3.X = ((Pos_LabelCenter.X - CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.X*0.5) + (CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3.X + CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.X*0.5))*0.5;
+		}
+		if (CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3.Y < Pos_LabelCenter.Y) {
+			CMGame_Checkbox2_Checkbox.Controls.Quad_NavigationZone.RelativePosition_V3.Y = ((CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3.Y - CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.Y*0.5) + (Pos_LabelCenter.Y + CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.Y*0.5))*0.5;
+		} else if (CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3.Y > Pos_LabelCenter.Y) {
+			CMGame_Checkbox2_Checkbox.Controls.Quad_NavigationZone.RelativePosition_V3.Y = ((Pos_LabelCenter.Y - CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.Y*0.5) + (CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3.Y + CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.Y*0.5))*0.5;
+		}
+	} else {
+		declare Real Margin = ML::Abs(CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3.X - Pos_LabelCenter.X) - CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.X/2 - CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.X/2;
+		CMGame_Checkbox2_Checkbox.Controls.Quad_NavigationZone.Size.X = ML::Max(SizeOfReference.X * 2, CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.Size.X + (2 * Margin) + (2 * CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.Size.X));
+		CMGame_Checkbox2_Checkbox.Controls.Quad_NavigationZone.Size.Y = SizeOfReference.Y;
+		CMGame_Checkbox2_Checkbox.Controls.Quad_NavigationZone.RelativePosition_V3 = CMGame_Checkbox2_Checkbox.Controls.Quad_Icon.RelativePosition_V3;
+	}
+
+	// Align
+	Tools::Align(CMGame_Checkbox2_Checkbox.Controls.Frame_Align, CMGame_Checkbox2_Checkbox.Controls.Quad_NavigationZone.Size, CMGame_Checkbox2_Checkbox.MergedProperties.HAlign, CMGame_Checkbox2_Checkbox.MergedProperties.VAlign);
+	CMGame_Checkbox2_Checkbox.Controls.Frame_Align.RelativePosition_V3 -= CMGame_Checkbox2_Checkbox.Controls.Quad_NavigationZone.RelativePosition_V3; //< Adjust the offset created by the label
+
+	// Fit - Apply after every other label properties, especially its size
+	if (CMGame_Checkbox2_Checkbox.MergedProperties.TextFitLabelEnabled) {
+		Tools::FitLabelValue(
+			CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox,
+			CMGame_Checkbox2_Checkbox.MergedProperties.TextSize,
+			CMGame_Checkbox2_Checkbox.MergedProperties.TextSize / Tools::C_FitLabelMaxSteps,
+			CMGame_Checkbox2_Checkbox.MergedProperties.TextSize / Tools::C_FitLabelMaxSteps
+		);
+		if (CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox.Value != "") {
+			Tools::FitLabelValue(
+				CMGame_Checkbox2_Checkbox.Controls.Label_MirrorCheckbox,
+				CMGame_Checkbox2_Checkbox.MergedProperties.TextSize,
+				CMGame_Checkbox2_Checkbox.MergedProperties.TextSize / Tools::C_FitLabelMaxSteps,
+				CMGame_Checkbox2_Checkbox.MergedProperties.TextSize / Tools::C_FitLabelMaxSteps
+			);
+		}
+	}
+
+	// Update focus state
+	Private_ApplyOpacityAndColor(_This, _Frame_Checkbox, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Customize a property
+Void Private_SetCustomizedProperty(CMlScript _This, CMlFrame _Frame_Checkbox, Integer _PropertyId, K_Properties _Properties, Boolean _IsRedrawRequired) {
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+	CMGame_Checkbox2_Checkbox.CustomizedProperties = Private_SetProperty(CMGame_Checkbox2_Checkbox.CustomizedProperties, _PropertyId, _Properties);
+	if (_IsRedrawRequired) Private_Redraw(_This, _Frame_Checkbox);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset a customized property
+Void Private_ResetCustomizedProperty(CMlScript _This, CMlFrame _Frame_Checkbox, Integer _PropertyId, Boolean _IsRedrawRequired) {
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+	CMGame_Checkbox2_Checkbox.CustomizedProperties.Enabled = Private_EnableProperty(CMGame_Checkbox2_Checkbox.CustomizedProperties.Enabled, _PropertyId, False);
+	if (_IsRedrawRequired) Private_Redraw(_This, _Frame_Checkbox);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Component initialisation hook
+Void Private_Hook_ComponentInit(CMlScript _This, CMlFrame _Frame_Checkbox)	{
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+	declare K_State CMGame_Checkbox2_State for _This.Page = C_State_Null;
+
+	// Set default values
+	CMGame_Checkbox2_Checkbox = K_Checkbox {
+		IsCheckbox = True,
+		IsChecked = False,
+		IsLocked = False,
+		IsFocused = False,
+		IsTTSFocusedOnCheck = True,
+		Controls = K_Controls {
+			Frame_Align = (_Frame_Checkbox.GetFirstChild(C_Id_FrameAlign) as CMlFrame),
+			Label_Checkbox = (_Frame_Checkbox.GetFirstChild(C_Id_LabelCheckbox) as CMlLabel),
+			Label_MirrorCheckbox = (_Frame_Checkbox.GetFirstChild(C_Id_LabelMirrorCheckbox) as CMlLabel),
+			Quad_Icon = (_Frame_Checkbox.GetFirstChild(C_Id_QuadIcon) as CMlQuad),
+			Quad_NavigationZone = (_Frame_Checkbox.GetFirstChild(C_ComponentNavZone) as CMlQuad)
+		}
+	};
+
+	// Get props if they exists
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_HAlign)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_HAlign, K_Properties { HAlign = MV::GetProp_HAlign(_Frame_Checkbox, C_Prop_HAlign, CMGame_Checkbox2_State.DefaultProperties.HAlign) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_VAlign)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_VAlign, K_Properties { VAlign = MV::GetProp_VAlign(_Frame_Checkbox, C_Prop_VAlign, CMGame_Checkbox2_State.DefaultProperties.VAlign) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_Size)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_Size, K_Properties { Size = MV::GetProp_Vec2(_Frame_Checkbox, C_Prop_Size, CMGame_Checkbox2_State.DefaultProperties.Size) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_OpacityFocused)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_OpacityFocused, K_Properties { OpacityFocused = MV::GetProp_Real(_Frame_Checkbox, C_Prop_OpacityFocused, CMGame_Checkbox2_State.DefaultProperties.OpacityFocused) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_OpacityUnfocused)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_OpacityUnfocused, K_Properties { OpacityUnfocused = MV::GetProp_Real(_Frame_Checkbox, C_Prop_OpacityUnfocused, CMGame_Checkbox2_State.DefaultProperties.OpacityUnfocused) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextValue)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextValue, K_Properties { TextValue = MV::GetProp_Text(_Frame_Checkbox, C_Prop_TextValue, CMGame_Checkbox2_State.DefaultProperties.TextValue) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextMirrorValue)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextMirrorValue, K_Properties { TextMirrorValue = MV::GetProp_Text(_Frame_Checkbox, C_Prop_TextMirrorValue, CMGame_Checkbox2_State.DefaultProperties.TextMirrorValue) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextPrefix)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextPrefix, K_Properties { TextPrefix = MV::GetProp_Text(_Frame_Checkbox, C_Prop_TextPrefix, CMGame_Checkbox2_State.DefaultProperties.TextPrefix) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextFont)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextFont, K_Properties { TextFont = MV::GetProp_Text(_Frame_Checkbox, C_Prop_TextFont, CMGame_Checkbox2_State.DefaultProperties.TextFont) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextColorUnfocused)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextColorUnfocused, K_Properties { TextColorUnfocused = MV::GetProp_Color(_Frame_Checkbox, C_Prop_TextColorUnfocused, CMGame_Checkbox2_State.DefaultProperties.TextColorUnfocused) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextColorFocused)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextColorFocused, K_Properties { TextColorFocused = MV::GetProp_Color(_Frame_Checkbox, C_Prop_TextColorFocused, CMGame_Checkbox2_State.DefaultProperties.TextColorFocused) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextPos)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextPos, K_Properties { TextPos = MV::GetProp_Vec2(_Frame_Checkbox, C_Prop_TextPos, CMGame_Checkbox2_State.DefaultProperties.TextPos) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextHAlign)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextHAlign, K_Properties { TextHAlign = MV::GetProp_HAlign(_Frame_Checkbox, C_Prop_TextHAlign, CMGame_Checkbox2_State.DefaultProperties.TextHAlign) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextVAlign)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextVAlign, K_Properties { TextVAlign = MV::GetProp_VAlign(_Frame_Checkbox, C_Prop_TextVAlign, CMGame_Checkbox2_State.DefaultProperties.TextVAlign) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextItalicSlope)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextItalicSlope, K_Properties { TextItalicSlope = MV::GetProp_Real(_Frame_Checkbox, C_Prop_TextItalicSlope, CMGame_Checkbox2_State.DefaultProperties.TextItalicSlope) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextFitLabelEnabled)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextFitLabelEnabled, K_Properties { TextFitLabelEnabled = MV::GetProp_Boolean(_Frame_Checkbox, C_Prop_TextFitLabelEnabled, CMGame_Checkbox2_State.DefaultProperties.TextFitLabelEnabled) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextSize)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextSize, K_Properties { TextSize = MV::GetProp_Real(_Frame_Checkbox, C_Prop_TextSize, CMGame_Checkbox2_State.DefaultProperties.TextSize) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextAutoNewLineEnabled)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextAutoNewLineEnabled, K_Properties { TextAutoNewLineEnabled = MV::GetProp_Boolean(_Frame_Checkbox, C_Prop_TextAutoNewLineEnabled, CMGame_Checkbox2_State.DefaultProperties.TextAutoNewLineEnabled) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextMaxLines)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextMaxLines, K_Properties { TextMaxLines = MV::GetProp_Integer(_Frame_Checkbox, C_Prop_TextMaxLines, CMGame_Checkbox2_State.DefaultProperties.TextMaxLines) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_TextAdaptableSizeEnabled)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextAdaptableSizeEnabled, K_Properties { TextAdaptableSizeEnabled = MV::GetProp_Boolean(_Frame_Checkbox, C_Prop_TextAdaptableSizeEnabled, CMGame_Checkbox2_State.DefaultProperties.TextAdaptableSizeEnabled) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_IconSize)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconSize, K_Properties { IconSize = MV::GetProp_Vec2(_Frame_Checkbox, C_Prop_IconSize, CMGame_Checkbox2_State.DefaultProperties.IconSize) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_IconColorUnfocused)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconColorUnfocused, K_Properties { IconColorUnfocused = MV::GetProp_Color(_Frame_Checkbox, C_Prop_IconColorUnfocused, CMGame_Checkbox2_State.DefaultProperties.IconColorUnfocused) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_IconColorFocused)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconColorFocused, K_Properties { IconColorFocused = MV::GetProp_Color(_Frame_Checkbox, C_Prop_IconColorFocused, CMGame_Checkbox2_State.DefaultProperties.IconColorFocused) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_IconPos)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconPos, K_Properties { IconPos = MV::GetProp_Vec2(_Frame_Checkbox, C_Prop_IconPos, CMGame_Checkbox2_State.DefaultProperties.IconPos) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_IconImageChecked)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconImageChecked, K_Properties { IconImageChecked = MV::GetProp_Text(_Frame_Checkbox, C_Prop_IconImageChecked, CMGame_Checkbox2_State.DefaultProperties.IconImageChecked) }, False);
+	}
+	if (MV::HasProp(_Frame_Checkbox, C_Prop_IconImageUnchecked)) {
+		Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconImageUnchecked, K_Properties { IconImageUnchecked = MV::GetProp_Text(_Frame_Checkbox, C_Prop_IconImageUnchecked, CMGame_Checkbox2_State.DefaultProperties.IconImageUnchecked) }, False);
+	}
+
+	// Redraw after setting custom properties
+	Private_Redraw(_This, _Frame_Checkbox);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Manialink page initialisation hook
+Void Private_Hook_PageMainInit(CMlScript _This) {
+	declare K_State CMGame_Checkbox2_State for _This.Page = C_State_Null;
+	CMGame_Checkbox2_State = C_State_Null;
+
+	// Set default properties
+	CMGame_Checkbox2_State.DefaultProperties = K_Properties {
+		OpacityFocused = 1.,
+		OpacityUnfocused = 0.6,
+		HAlign = CMlControl::AlignHorizontal::HCenter,
+		VAlign = CMlControl::AlignVertical::VCenter2,
+		TextValue = "",
+		TextMirrorValue = "",
+		TextSize = 3.,
+		TextPrefix = C_DefaultTextPrefix,
+		TextFont = Stylesheet::GetFont(Stylesheet::C_Font_SemiBold),
+		TextColorUnfocused = <1., 1., 1.>,
+		TextColorFocused = <1., 1., 1.>,
+		TextPos = <0.5, 0.5>,
+		TextHAlign = CMlControl::AlignHorizontal::HCenter,
+		TextVAlign = CMlControl::AlignVertical::VCenter2,
+		TextItalicSlope = 0.,
+		TextFitLabelEnabled = False,
+		Size = <0., 0.>,
+		TextAutoNewLineEnabled = False,
+		TextMaxLines = -1,
+		TextAdaptableSizeEnabled = False,
+		IconSize = <5., 5.>,
+		IconColorUnfocused = <1., 1., 1.>,
+		IconColorFocused = <1., 1., 1.>,
+		IconPos = <0.5, 0.5>,
+		IconImageChecked = Icons::C_Icon_128x128_Radio_Button_On,
+		IconImageUnchecked = Icons::C_Icon_128x128_Radio_Button_Off
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Manialink page yield hook
+Void Private_Hook_PageAfterYield(CMlScript _This) {
+	// Manage navigation events
+	foreach (Event in Navigation::GetPendingEvents(_This)) {
+		switch (Event.Type) {
+			case Navigation::C_EventType_Navigate: {
+				switch (Event.Input) {
+					case Navigation::C_InputType_Select, Navigation::C_InputType_MouseClick: {
+						declare K_Checkbox CMGame_Checkbox2_Checkbox for Event.To = C_Checkbox_Null;
+						if (CMGame_Checkbox2_Checkbox.IsCheckbox && !CMGame_Checkbox2_Checkbox.IsLocked && !Event.IsActionAutoRepeat) {
+							CMGame_Checkbox2_Checkbox.IsChecked = !CMGame_Checkbox2_Checkbox.IsChecked;
+							Private_Redraw(_This, Event.To as CMlFrame);
+
+							// Trigger TTS focus after component update
+							if (CMGame_Checkbox2_Checkbox.IsChecked && CMGame_Checkbox2_Checkbox.IsTTSFocusedOnCheck) {
+								CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TTS_Focus();
+							}
+
+							// Send an event when the check state is updated
+							declare K_Event_Toggle[] CMGame_Checkbox_Events_Toggle for _This.Page = [];
+							CMGame_Checkbox_Events_Toggle.add(K_Event_Toggle {
+								Component = Event.To as CMlFrame,
+								IsChecked = CMGame_Checkbox2_Checkbox.IsChecked
+							});
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the `C_EventType_Toggle` events
+K_Event_Toggle[] Private_GetEvents_Toggle(CMlScript _This) {
+	declare K_Event_Toggle[] CMGame_Checkbox_Events_Toggle for _This.Page = [];
+	return CMGame_Checkbox_Events_Toggle;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the `C_EventType_Toggle` events
+Void Private_ResetEvents_Toggle(CMlScript _This) {
+	declare K_Event_Toggle[] CMGame_Checkbox_Events_Toggle for _This.Page = [];
+	CMGame_Checkbox_Events_Toggle = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the checkbox component
+MV::K_Component Component() {
+	return MV::K_Component {
+		Name = C_ComponentName,
+		Path = ScriptName,
+		Class = C_ComponentClass,
+		Template = Private_GetTeamplate(),
+		Hooks = [
+			MV::C_Hook_ComponentInit => """{{{C_ComponentName}}}::Private_Hook_ComponentInit""",
+			MV::C_Hook_PageMainInit => """{{{C_ComponentName}}}::Private_Hook_PageMainInit""",
+			MV::C_Hook_PageAfterYield => """{{{C_ComponentName}}}::Private_Hook_PageAfterYield"""
+		],
+		Mixins = [
+			Navigation::Mixin()
+		],
+		DefineEvents = [
+			C_Event_Toggle => MV::K_EventDefinition {
+				Get = """{{{C_ComponentName}}}::Private_GetEvents_Toggle""",
+				Reset = """{{{C_ComponentName}}}::Private_ResetEvents_Toggle"""
+			}
+		],
+		DefineProps = [
+			C_Prop_HAlign,
+			C_Prop_VAlign,
+			C_Prop_Size,
+			C_Prop_OpacityFocused,
+			C_Prop_OpacityUnfocused,
+			C_Prop_TextValue,
+			C_Prop_TextMirrorValue,
+			C_Prop_TextPrefix,
+			C_Prop_TextFont,
+			C_Prop_TextColorUnfocused,
+			C_Prop_TextColorFocused,
+			C_Prop_TextPos,
+			C_Prop_TextHAlign,
+			C_Prop_TextVAlign,
+			C_Prop_TextItalicSlope,
+			C_Prop_TextFitLabelEnabled,
+			C_Prop_TextSize,
+			C_Prop_TextAutoNewLineEnabled,
+			C_Prop_TextMaxLines,
+			C_Prop_TextAdaptableSizeEnabled,
+			C_Prop_IconSize,
+			C_Prop_IconColorUnfocused,
+			C_Prop_IconColorFocused,
+			C_Prop_IconPos,
+			C_Prop_IconImageChecked,
+			C_Prop_IconImageUnchecked
+		]
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check that the given control is an instance of this component
+Boolean IsCheckbox(CMlControl _Frame_Checkbox) {
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+	return CMGame_Checkbox2_Checkbox.IsCheckbox;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check the check state of the checkbox
+Boolean IsChecked(CMlControl _Frame_Checkbox) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+	return CMGame_Checkbox2_Checkbox.IsChecked;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check or uncheck the checkbox
+Boolean Check(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsChecked, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+	if (CMGame_Checkbox2_Checkbox.IsLocked) return CMGame_Checkbox2_Checkbox.IsChecked;
+	declare Boolean IsTTSFocused = CMGame_Checkbox2_Checkbox.IsChecked != _IsChecked && CMGame_Checkbox2_Checkbox.IsTTSFocusedOnCheck;
+
+	// Send an event when the check state is updated
+	if (CMGame_Checkbox2_Checkbox.IsChecked != _IsChecked) {
+		declare K_Event_Toggle[] CMGame_Checkbox_Events_Toggle for _This.Page = [];
+		CMGame_Checkbox_Events_Toggle.add(K_Event_Toggle {
+			Component = _Frame_Checkbox,
+			IsChecked = _IsChecked
+		});
+	}
+
+	// Update the component
+	CMGame_Checkbox2_Checkbox.IsChecked = _IsChecked;
+	if (_IsRedrawRequired) Private_Redraw(_This, _Frame_Checkbox);
+
+	// Trigger TTS focus after component update
+	if (IsTTSFocused) {
+		CMGame_Checkbox2_Checkbox.Controls.Label_Checkbox.TTS_Focus();
+	}
+
+	return CMGame_Checkbox2_Checkbox.IsChecked;
+}
+Boolean Check(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsChecked) {
+	return Check(_This, _Frame_Checkbox, _IsChecked, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Invert the check state of the checkbox
+Boolean Toggle(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+	return Check(_This, _Frame_Checkbox, !CMGame_Checkbox2_Checkbox.IsChecked, _IsRedrawRequired);
+}
+Boolean Toggle(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	return Toggle(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Visibility of the component
+Void ShowAndUnlock(CMlFrame _Frame_Checkbox) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Navigation::Lock(_Frame_Checkbox, False);
+	_Frame_Checkbox.Show();
+}
+Void HideAndLock(CMlFrame _Frame_Checkbox) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Navigation::Lock(_Frame_Checkbox, True);
+	_Frame_Checkbox.Hide();
+}
+Void SetVisibilityAndNavigation(CMlFrame _Frame_Checkbox, Boolean _IsVisible) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Navigation::Lock(_Frame_Checkbox, !_IsVisible);
+	_Frame_Checkbox.Visible = _IsVisible;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply a locked or unlocked appearance to the component (will not lock/unlock the navigation)
+Void Lock(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsLocked) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	declare K_Checkbox CMGame_Checkbox2_Checkbox for _Frame_Checkbox = C_Checkbox_Null;
+	CMGame_Checkbox2_Checkbox.IsLocked = _IsLocked;
+	Private_ApplyOpacityAndColor(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// The component is focused by the Navigation component
+Void Focus(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsTTSFocused, Boolean _IsAnimated) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_Focus(_This, _Frame_Checkbox, _IsTTSFocused, _IsAnimated);
+}
+Void Focus(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsAnimated) {
+	Focus(_This, _Frame_Checkbox, True, _IsAnimated);
+}
+Void Focus(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	Focus(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// The component is unfocused by the Navigation component
+Void Unfocus(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsAnimated) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_Unfocus(_This, _Frame_Checkbox, _IsAnimated);
+}
+Void Unfocus(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	Unfocus(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw the checkbox (apply style, width, ...)
+Void Redraw(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_Redraw(_This, _Frame_Checkbox);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the horizontal alignment of the checkbox
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_Checkbox, CMlControl::AlignHorizontal _HAlign, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_HAlign, K_Properties { HAlign = _HAlign }, _IsRedrawRequired);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_Checkbox, CMlControl::AlignHorizontal _HAlign) {
+	SetHAlign(_This, _Frame_Checkbox, _HAlign, True);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_HAlign, _IsRedrawRequired);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetHAlign(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the vertical alignment of the checkbox
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_Checkbox, CMlControl::AlignVertical _VAlign, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_VAlign, K_Properties { VAlign = _VAlign }, _IsRedrawRequired);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_Checkbox, CMlControl::AlignVertical _VAlign) {
+	SetVAlign(_This, _Frame_Checkbox, _VAlign, True);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_VAlign, _IsRedrawRequired);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetVAlign(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the size of the checkbox
+Void SetSize(CMlScript _This, CMlFrame _Frame_Checkbox, Vec2 _Size, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_Size, K_Properties { Size = _Size }, _IsRedrawRequired);
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_Checkbox, Vec2 _Size) {
+	SetSize(_This, _Frame_Checkbox, _Size, True);
+}
+Void ResetSize(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_Size, _IsRedrawRequired);
+}
+Void ResetSize(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetSize(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the opacity when the checkbox is focused
+Void SetOpacityFocused(CMlScript _This, CMlFrame _Frame_Checkbox, Real _OpacityFocused, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_OpacityFocused, K_Properties { OpacityFocused = _OpacityFocused }, _IsRedrawRequired);
+}
+Void SetOpacityFocused(CMlScript _This, CMlFrame _Frame_Checkbox, Real _OpacityFocused) {
+	SetOpacityFocused(_This, _Frame_Checkbox, _OpacityFocused, True);
+}
+Void ResetOpacityFocused(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_OpacityFocused, _IsRedrawRequired);
+}
+Void ResetOpacityFocused(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetOpacityFocused(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the opacity when the checkbox is not focused
+Void SetOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox, Real _OpacityUnfocused, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_OpacityUnfocused, K_Properties { OpacityUnfocused = _OpacityUnfocused }, _IsRedrawRequired);
+}
+Void SetOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox, Real _OpacityUnfocused) {
+	SetOpacityUnfocused(_This, _Frame_Checkbox, _OpacityUnfocused, True);
+}
+Void ResetOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_OpacityUnfocused, _IsRedrawRequired);
+}
+Void ResetOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetOpacityUnfocused(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the text displayed in the checkbox
+Void SetTextValue(CMlScript _This, CMlFrame _Frame_Checkbox, Text _TextValue, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextValue, K_Properties { TextValue = _TextValue }, _IsRedrawRequired);
+}
+Void SetTextValue(CMlScript _This, CMlFrame _Frame_Checkbox, Text _TextValue) {
+	SetTextValue(_This, _Frame_Checkbox, _TextValue, True);
+}
+Void ResetTextValue(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextValue, _IsRedrawRequired);
+}
+Void ResetTextValue(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextValue(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the mirrored text displayed in the checkbox (for switch-like checkbox)
+Void SetTextMirrorValue(CMlScript _This, CMlFrame _Frame_Checkbox, Text _TextMirrorValue, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextMirrorValue, K_Properties { TextMirrorValue = _TextMirrorValue }, _IsRedrawRequired);
+}
+Void SetTextMirrorValue(CMlScript _This, CMlFrame _Frame_Checkbox, Text _TextMirrorValue) {
+	SetTextMirrorValue(_This, _Frame_Checkbox, _TextMirrorValue, True);
+}
+Void ResetTextMirrorValue(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextMirrorValue, _IsRedrawRequired);
+}
+Void ResetTextMirrorValue(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextMirrorValue(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the prefix of the texts displayed in the checkbox
+Void SetTextPrefix(CMlScript _This, CMlFrame _Frame_Checkbox, Text _TextPrefix, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextPrefix, K_Properties { TextPrefix = _TextPrefix }, _IsRedrawRequired);
+}
+Void SetTextPrefix(CMlScript _This, CMlFrame _Frame_Checkbox, Text _TextPrefix) {
+	SetTextPrefix(_This, _Frame_Checkbox, _TextPrefix, True);
+}
+Void ResetTextPrefix(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextPrefix, _IsRedrawRequired);
+}
+Void ResetTextPrefix(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextPrefix(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///  Update the font of the texts displayed in the checkbox
+Void SetTextFont(CMlScript _This, CMlFrame _Frame_Checkbox, Text _TextFont, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextFont, K_Properties { TextFont = _TextFont }, _IsRedrawRequired);
+}
+Void SetTextFont(CMlScript _This, CMlFrame _Frame_Checkbox, Text _TextFont) {
+	SetTextFont(_This, _Frame_Checkbox, _TextFont, True);
+}
+Void ResetTextFont(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextFont, _IsRedrawRequired);
+}
+Void ResetTextFont(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextFont(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the color of the texts when the checkbox is not focused
+Void SetTextColorUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox, Vec3 _TextColorUnfocused, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextColorUnfocused, K_Properties { TextColorUnfocused = _TextColorUnfocused }, _IsRedrawRequired);
+}
+Void SetTextColorUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox, Vec3 _TextColorUnfocused) {
+	SetTextColorUnfocused(_This, _Frame_Checkbox, _TextColorUnfocused, True);
+}
+Void ResetTextColorUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextColorUnfocused, _IsRedrawRequired);
+}
+Void ResetTextColorUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextColorUnfocused(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the color of the texts when the checkbox is focused
+Void SetTextColorFocused(CMlScript _This, CMlFrame _Frame_Checkbox, Vec3 _TextColorFocused, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextColorFocused, K_Properties { TextColorFocused = _TextColorFocused }, _IsRedrawRequired);
+}
+Void SetTextColorFocused(CMlScript _This, CMlFrame _Frame_Checkbox, Vec3 _TextColorFocused) {
+	SetTextColorFocused(_This, _Frame_Checkbox, _TextColorFocused, True);
+}
+Void ResetTextColorFocused(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextColorFocused, _IsRedrawRequired);
+}
+Void ResetTextColorFocused(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextColorFocused(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the position of the texts displayed in the checkbox
+Void SetTextPos(CMlScript _This, CMlFrame _Frame_Checkbox, Vec2 _TextPos, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextPos, K_Properties { TextPos = _TextPos }, _IsRedrawRequired);
+}
+Void SetTextPos(CMlScript _This, CMlFrame _Frame_Checkbox, Vec2 _TextPos) {
+	SetTextPos(_This, _Frame_Checkbox, _TextPos, True);
+}
+Void ResetTextPos(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextPos, _IsRedrawRequired);
+}
+Void ResetTextPos(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextPos(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the horizontal alignment of the texts displayed in the checkbox
+Void SetTextHAlign(CMlScript _This, CMlFrame _Frame_Checkbox, CMlControl::AlignHorizontal _TextHAlign, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextHAlign, K_Properties { TextHAlign = _TextHAlign }, _IsRedrawRequired);
+}
+Void SetTextHAlign(CMlScript _This, CMlFrame _Frame_Checkbox, CMlControl::AlignHorizontal _TextHAlign) {
+	SetTextHAlign(_This, _Frame_Checkbox, _TextHAlign, True);
+}
+Void ResetTextHAlign(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextHAlign, _IsRedrawRequired);
+}
+Void ResetTextHAlign(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextHAlign(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the vertical alignment of the texts displayed in the checkbox
+Void SetTextVAlign(CMlScript _This, CMlFrame _Frame_Checkbox, CMlControl::AlignVertical _TextVAlign, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextVAlign, K_Properties { TextVAlign = _TextVAlign }, _IsRedrawRequired);
+}
+Void SetTextVAlign(CMlScript _This, CMlFrame _Frame_Checkbox, CMlControl::AlignVertical _TextVAlign) {
+	SetTextVAlign(_This, _Frame_Checkbox, _TextVAlign, True);
+}
+Void ResetTextVAlign(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextVAlign, _IsRedrawRequired);
+}
+Void ResetTextVAlign(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextVAlign(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the italic slope of the texts displayed in the checkbox
+Void SetTextItalicSlope(CMlScript _This, CMlFrame _Frame_Checkbox, Real _TextItalicSlope, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextItalicSlope, K_Properties { TextItalicSlope = _TextItalicSlope }, _IsRedrawRequired);
+}
+Void SetTextItalicSlope(CMlScript _This, CMlFrame _Frame_Checkbox, Real _TextItalicSlope) {
+	SetTextItalicSlope(_This, _Frame_Checkbox, _TextItalicSlope, True);
+}
+Void ResetTextItalicSlope(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextItalicSlope, _IsRedrawRequired);
+}
+Void ResetTextItalicSlope(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextItalicSlope(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the automatic fit of the texts in the checkbox
+Void SetTextFitLabelEnabled(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _TextFitLabelEnabled, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextFitLabelEnabled, K_Properties { TextFitLabelEnabled = _TextFitLabelEnabled }, _IsRedrawRequired);
+}
+Void SetTextFitLabelEnabled(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _TextFitLabelEnabled) {
+	SetTextFitLabelEnabled(_This, _Frame_Checkbox, _TextFitLabelEnabled, True);
+}
+Void ResetTextFitLabelEnabled(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextFitLabelEnabled, _IsRedrawRequired);
+}
+Void ResetTextFitLabelEnabled(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextFitLabelEnabled(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the size of the texts displayed in the checkbox
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_Checkbox, Real _TextSize, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextSize, K_Properties { TextSize = _TextSize }, _IsRedrawRequired);
+}
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_Checkbox, Real _TextSize) {
+	SetTextSize(_This, _Frame_Checkbox, _TextSize, True);
+}
+Void ResetTextSize(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextSize, _IsRedrawRequired);
+}
+Void ResetTextSize(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextSize(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the automatic chariage return of the texts displayed in the checkbox
+Void SetTextAutoNewLineEnabled(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _TextAutoNewLineEnabled, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextAutoNewLineEnabled, K_Properties { TextAutoNewLineEnabled = _TextAutoNewLineEnabled }, _IsRedrawRequired);
+}
+Void SetTextAutoNewLineEnabled(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _TextAutoNewLineEnabled) {
+	SetTextAutoNewLineEnabled(_This, _Frame_Checkbox, _TextAutoNewLineEnabled, True);
+}
+Void ResetTextAutoNewLineEnabled(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextAutoNewLineEnabled, _IsRedrawRequired);
+}
+Void ResetTextAutoNewLineEnabled(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextAutoNewLineEnabled(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the maximum lines of the texts displayed in the checkbox
+Void SetTextMaxLines(CMlScript _This, CMlFrame _Frame_Checkbox, Integer _TextMaxLines, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextMaxLines, K_Properties { TextMaxLines = _TextMaxLines }, _IsRedrawRequired);
+}
+Void SetTextMaxLines(CMlScript _This, CMlFrame _Frame_Checkbox, Integer _TextMaxLines) {
+	SetTextMaxLines(_This, _Frame_Checkbox, _TextMaxLines, True);
+}
+Void ResetTextMaxLines(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextMaxLines, _IsRedrawRequired);
+}
+Void ResetTextMaxLines(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextMaxLines(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the automatic resize of the texts displayed in the checkbox
+Void SetTextAdaptableSizeEnabled(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _TextAdaptableSizeEnabled, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextAdaptableSizeEnabled, K_Properties { TextAdaptableSizeEnabled = _TextAdaptableSizeEnabled }, _IsRedrawRequired);
+}
+Void SetTextAdaptableSizeEnabled(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _TextAdaptableSizeEnabled) {
+	SetTextAdaptableSizeEnabled(_This, _Frame_Checkbox, _TextAdaptableSizeEnabled, True);
+}
+Void ResetTextAdaptableSizeEnabled(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_TextAdaptableSizeEnabled, _IsRedrawRequired);
+}
+Void ResetTextAdaptableSizeEnabled(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetTextAdaptableSizeEnabled(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the size of the icon in the checkbox
+Void SetIconSize(CMlScript _This, CMlFrame _Frame_Checkbox, Vec2 _IconSize, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconSize, K_Properties { IconSize = _IconSize }, _IsRedrawRequired);
+}
+Void SetIconSize(CMlScript _This, CMlFrame _Frame_Checkbox, Vec2 _IconSize) {
+	SetIconSize(_This, _Frame_Checkbox, _IconSize, True);
+}
+Void ResetIconSize(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconSize, _IsRedrawRequired);
+}
+Void ResetIconSize(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetIconSize(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the color of the icon when the checkbox is not focused
+Void SetIconColorUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox, Vec3 _IconColorUnfocused, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconColorUnfocused, K_Properties { IconColorUnfocused = _IconColorUnfocused }, _IsRedrawRequired);
+}
+Void SetIconColorUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox, Vec3 _IconColorUnfocused) {
+	SetIconColorUnfocused(_This, _Frame_Checkbox, _IconColorUnfocused, True);
+}
+Void ResetIconColorUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconColorUnfocused, _IsRedrawRequired);
+}
+Void ResetIconColorUnfocused(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetIconColorUnfocused(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the color of the icon when the checkbox is focused
+Void SetIconColorFocused(CMlScript _This, CMlFrame _Frame_Checkbox, Vec3 _IconColorFocused, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconColorFocused, K_Properties { IconColorFocused = _IconColorFocused }, _IsRedrawRequired);
+}
+Void SetIconColorFocused(CMlScript _This, CMlFrame _Frame_Checkbox, Vec3 _IconColorFocused) {
+	SetIconColorFocused(_This, _Frame_Checkbox, _IconColorFocused, True);
+}
+Void ResetIconColorFocused(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconColorFocused, _IsRedrawRequired);
+}
+Void ResetIconColorFocused(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetIconColorFocused(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the position of the icon in the checkbox
+Void SetIconPos(CMlScript _This, CMlFrame _Frame_Checkbox, Vec2 _IconPos, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconPos, K_Properties { IconPos = _IconPos }, _IsRedrawRequired);
+}
+Void SetIconPos(CMlScript _This, CMlFrame _Frame_Checkbox, Vec2 _IconPos) {
+	SetIconPos(_This, _Frame_Checkbox, _IconPos, True);
+}
+Void ResetIconPos(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconPos, _IsRedrawRequired);
+}
+Void ResetIconPos(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetIconPos(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the url of the icon displayed when the checkbox is checked
+Void SetIconImageChecked(CMlScript _This, CMlFrame _Frame_Checkbox, Text _IconImageChecked, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconImageChecked, K_Properties { IconImageChecked = _IconImageChecked }, _IsRedrawRequired);
+}
+Void SetIconImageChecked(CMlScript _This, CMlFrame _Frame_Checkbox, Text _IconImageChecked) {
+	SetIconImageChecked(_This, _Frame_Checkbox, _IconImageChecked, True);
+}
+Void ResetIconImageChecked(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconImageChecked, _IsRedrawRequired);
+}
+Void ResetIconImageChecked(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetIconImageChecked(_This, _Frame_Checkbox, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the url of the icon displayed when the checkbox is unchecked
+Void SetIconImageUnchecked(CMlScript _This, CMlFrame _Frame_Checkbox, Text _IconImageUnchecked, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_Checkbox);
+	Private_SetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconImageUnchecked, K_Properties { IconImageUnchecked = _IconImageUnchecked }, _IsRedrawRequired);
+}
+Void SetIconImageUnchecked(CMlScript _This, CMlFrame _Frame_Checkbox, Text _IconImageUnchecked) {
+	SetIconImageUnchecked(_This, _Frame_Checkbox, _IconImageUnchecked, True);
+}
+Void ResetIconImageUnchecked(CMlScript _This, CMlFrame _Frame_Checkbox, Boolean _IsRedrawRequired) {
+	Private_ResetCustomizedProperty(_This, _Frame_Checkbox, C_Property_IconImageUnchecked, _IsRedrawRequired);
+}
+Void ResetIconImageUnchecked(CMlScript _This, CMlFrame _Frame_Checkbox) {
+	ResetIconImageUnchecked(_This, _Frame_Checkbox, True);
+}

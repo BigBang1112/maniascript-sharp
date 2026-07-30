@@ -1,0 +1,339 @@
+/**
+ *	Map for race mode
+ */
+#Const Version		"1.1.0"
+#Const ScriptName	"Libs/Nadeo/TMGame/Modes/Map.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/TMGame/Modes/Landmark.Script.txt" as Landmark
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_LibRace_MapInfo {
+	CMapLandmark[] Starts;
+	CMapLandmark[] Multilaps;
+	CMapLandmark[] Checkpoints;
+	CMapLandmark[][Integer] LinkedCheckpoints;
+	CMapLandmark[] Finishes;
+	CMapLandmark[] FinishesAndMultilaps;
+	CMapLandmark DefaultStart;
+	Boolean DefaultStartIsMultilap;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_LibRace_MapInfo G_MapInfo;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get an empty map info struct
+ *
+ *	@return														An empty map info struct
+ */
+K_LibRace_MapInfo Private_GetEmptyMapInfo() {
+	return K_LibRace_MapInfo {
+		Starts = [],
+		Multilaps = [],
+		Checkpoints = [],
+		LinkedCheckpoints = [],
+		Finishes = [],
+		FinishesAndMultilaps = [],
+		DefaultStart = Null,
+		DefaultStartIsMultilap = False
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the landmark where the players should start by default
+Void SetDefaultStart(CMapLandmark _MapLandmark) {
+	G_MapInfo.DefaultStart = _MapLandmark;
+	G_MapInfo.DefaultStartIsMultilap = (_MapLandmark.Tag == Landmark::C_Type_Multilap);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the map info
+Void LoadMap() {
+	// Reset map info
+	G_MapInfo = Private_GetEmptyMapInfo();
+
+	// Initialize landmarks
+	foreach (Landmark in MapLandmarks) {
+		switch (Landmark.Tag) {
+			case Landmark::C_Type_Start: {
+				if (Landmark.PlayerSpawn != Null) {
+					G_MapInfo.Starts.add(Landmark);
+					// If a map has a multilap and standard start bloc, the default start must be the standard one
+					if (G_MapInfo.DefaultStart == Null || G_MapInfo.DefaultStartIsMultilap) {
+						SetDefaultStart(Landmark);
+					}
+					declare Boolean LibRaceMap_IsStart for Landmark;
+					LibRaceMap_IsStart = True;
+				}
+			}
+			case Landmark::C_Type_Multilap: {
+				if (Landmark.PlayerSpawn != Null && Landmark.Waypoint != Null && Landmark.Waypoint.IsMultiLap) {
+					G_MapInfo.Multilaps.add(Landmark);
+					G_MapInfo.FinishesAndMultilaps.add(Landmark);
+					if (G_MapInfo.DefaultStart == Null) {
+						SetDefaultStart(Landmark);
+					}
+					declare Boolean LibRaceMap_IsMultilap for Landmark;
+					LibRaceMap_IsMultilap = True;
+				}
+			}
+			case Landmark::C_Type_Checkpoint: {
+				if (Landmark.Waypoint != Null && !Landmark.Waypoint.IsMultiLap && !Landmark.Waypoint.IsFinish) {
+					G_MapInfo.Checkpoints.add(Landmark);
+					declare Boolean LibRaceMap_IsCheckpoint for Landmark;
+					LibRaceMap_IsCheckpoint = True;
+				}
+			}
+			case Landmark::C_Type_LinkedCheckpoint: {
+				if (Landmark.Waypoint != Null && !Landmark.Waypoint.IsMultiLap && !Landmark.Waypoint.IsFinish) {
+					if (!G_MapInfo.LinkedCheckpoints.existskey(Landmark.Order)) {
+						G_MapInfo.LinkedCheckpoints[Landmark.Order] = [];
+					}
+					G_MapInfo.LinkedCheckpoints[Landmark.Order].add(Landmark);
+					declare Boolean LibRaceMap_IsCheckpoint for Landmark;
+					declare Boolean LibRaceMap_IsLinkedCheckpoint for Landmark;
+					LibRaceMap_IsCheckpoint = True;
+					LibRaceMap_IsLinkedCheckpoint = True;
+				}
+			}
+			case Landmark::C_Type_Finish: {
+				if (Landmark.Waypoint != Null && Landmark.Waypoint.IsFinish) {
+					G_MapInfo.Finishes.add(Landmark);
+					G_MapInfo.FinishesAndMultilaps.add(Landmark);
+					declare Boolean LibRaceMap_IsFinish for Landmark;
+					LibRaceMap_IsFinish = True;
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Clean-up the map info
+Void UnloadMap() {
+	G_MapInfo = Private_GetEmptyMapInfo();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the default start of the map
+ *
+ *	@return														The default start of the map
+ */
+CMapLandmark GetStart() {
+	if (G_MapInfo.DefaultStart != Null) {
+		return G_MapInfo.DefaultStart;
+	} else if (G_MapInfo.Starts.count > 0) {
+		return G_MapInfo.Starts[0];
+	} else if (G_MapInfo.Multilaps.count > 0) {
+		return G_MapInfo.Multilaps[0];
+	}
+	return Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get all starts of the map
+ *
+ *	@return														All starts of the map
+ */
+CMapLandmark[] GetStarts() {
+	declare CMapLandmark[] Starts;
+	foreach (Start in G_MapInfo.Starts) {
+		Starts.add(Start);
+	}
+	foreach (Multilap in G_MapInfo.Multilaps) {
+		Starts.add(Multilap);
+	}
+	return Starts;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the number of starts in the map
+Integer GetStartsCount() {
+	return G_MapInfo.Starts.count + G_MapInfo.Multilaps.count;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the number of checkpoints in the map
+Integer GetCheckpointsCount() {
+	return G_MapInfo.Checkpoints.count + G_MapInfo.LinkedCheckpoints.count;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the finishes and multilaps
+ *	landmarks
+ *
+ *	@return														The landmarks
+ */
+CMapLandmark[] GetFinishesAndMultilaps() {
+	return G_MapInfo.FinishesAndMultilaps;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the finishes landmarks
+ *
+ *	@return														The landmarks
+ */
+CMapLandmark[] GetFinishes() {
+	return G_MapInfo.Finishes;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a landmark is a finish
+ *
+ *	@param	_Landmark									The landmark to check
+ *
+ *	@return														True if the landmark is a finish
+ *																		False otherwise
+ */
+Boolean IsFinish(CMapLandmark _Landmark) {
+	if (_Landmark == Null) return False;
+	declare Boolean LibRaceMap_IsFinish for _Landmark;
+	return LibRaceMap_IsFinish;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a landmark is a checkpoint
+ *
+ *	@param	_Landmark									The landmark to check
+ *
+ *	@return														True if the landmark is a checkpoint
+ *																		False otherwise
+ */
+Boolean IsCheckpoint(CMapLandmark _Landmark) {
+	if (_Landmark == Null) return False;
+	declare Boolean LibRaceMap_IsCheckpoint for _Landmark;
+	return LibRaceMap_IsCheckpoint;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a landmark is a linked checkpoint
+ *
+ *	@param	_Landmark									The landmark to check
+ *
+ *	@return														True if the landmark is a linked checkpoint
+ *																		False otherwise
+ */
+Boolean IsLinkedCheckpoint(CMapLandmark _Landmark) {
+	if (_Landmark == Null) return False;
+	declare Boolean LibRaceMap_IsLinkedCheckpoint for _Landmark;
+	return LibRaceMap_IsLinkedCheckpoint;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the checkpoints linked to the given checkpoint
+ *
+ *	@param	_MapLandmark							The source checkpoint
+ *
+ *	@return														The linked checkpoints including the source checkpoint
+ */
+CMapLandmark[] GetLinkedCheckpoints(CMapLandmark _Landmark) {
+	if (_Landmark == Null) return [];
+	declare Boolean LibRaceMap_IsLinkedCheckpoint for _Landmark;
+	if (!LibRaceMap_IsLinkedCheckpoint) return [];
+	if (!G_MapInfo.LinkedCheckpoints.existskey(_Landmark.Order)) return [];
+	return G_MapInfo.LinkedCheckpoints[_Landmark.Order];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get an array of waypoints to be used
+ *	in the Scores::UseWaypointTimesAsBestRace()
+ *	function
+ */
+CSmMapLandmark[] GetWaypointsForBestRace() {
+	declare CSmMapLandmark[] Waypoints;
+
+	foreach (Chekpoint in G_MapInfo.Checkpoints) {
+		Waypoints.add((Chekpoint as CSmMapLandmark));
+	}
+	foreach (Chekpoints in G_MapInfo.LinkedCheckpoints) {
+		Waypoints.add((Chekpoints[0] as CSmMapLandmark));
+	}
+
+	if (G_MapInfo.FinishesAndMultilaps.count > 0) {
+		Waypoints.add((G_MapInfo.FinishesAndMultilaps[0] as CSmMapLandmark));
+	}
+
+	return Waypoints;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a landmark is a multilap
+ *
+ *	@param	_Landmark									The landmark to check
+ *
+ *	@return														True if the landmark is a multilap
+ *																		False otherwise
+ */
+Boolean IsMultilap(CMapLandmark _Landmark) {
+	if (_Landmark == Null) return False;
+	declare Boolean LibRaceMap_IsMultilap for _Landmark;
+	return LibRaceMap_IsMultilap;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a player can respawn from
+ *	the given landmark
+ *
+ *	@param	_Landmark									The landmark to test
+ *
+ *	@return														True if the landmark is respawnable
+ *																		False otherwise
+ */
+Boolean IsRespawnable(CMapLandmark _Landmark) {
+	return (_Landmark != Null && (_Landmark.Waypoint != Null || _Landmark.PlayerSpawn != Null));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if we are on a multilaps map
+ *
+ *	@return														True if we are on a multilaps map
+ *																		False otherwise
+ */
+Boolean IsLapRace() {
+	return (
+		G_MapInfo.Multilaps.count > 0 &&
+		Map.TMObjective_IsLapRace
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the number of laps to do on the
+ *	map to finish the race
+ *
+ *	@return														The number of laps
+ */
+Integer GetLapsNb() {
+	return Map.TMObjective_NbLaps;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the player model used by default
+ *	on the map
+ *
+ *	@return														The default player model
+ */
+Text GetDefaultPlayerModel() {
+	return MapPlayerModelName;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	UnloadMap();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

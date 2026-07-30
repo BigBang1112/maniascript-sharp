@@ -1,0 +1,713 @@
+/**
+ * Page: Cup of the Week channel popup
+ */
+#Const Version "1.1.1"
+#Const ScriptName "Libs/Nadeo/Trackmania/MainMenu/Pages/COTWChannelDisplay.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "TimeLib" as TiL
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButtonBase.Script.txt" as ExpendableButtonBase
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "Libs/Nadeo/CMGame/Utils/Cast.Script.txt" as Cast
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Privileges.Script.txt" as Privileges
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Translations.Script.txt" as Translations
+#Include "Libs/Nadeo/Trackmania/API/CampaignAPI.Script.txt" as CampaignAPI
+#Include "Libs/Nadeo/Trackmania/API/ChannelAPI.Script.txt" as ChannelAPI
+#Include "Libs/Nadeo/Trackmania/Components/MapRankings.Script.txt" as MapRankings
+#Include "Libs/Nadeo/Trackmania/Components/PopUpBackground2.Script.txt" as PopUpBackground
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ControllerInfo_ML.Script.txt" as ControllerInfo
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MainMenuConst
+#Include "Libs/Nadeo/Trackmania/MainMenu/TitleControl.Script.txt" as TitleControl
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_ML.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Stores/LoadingScreen.Script.txt" as LoadingScreenStore
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "Libs/Nadeo/Trackmania/ClubEdition.Script.txt" as ClubEdition
+#Include "Libs/Nadeo/Trackmania/RBAC.Script.txt" as RBAC
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Private_Controls {
+	CMlFrame PopUpBackground_Main;
+	CMlLabel Label_COTWDay;
+	CMlLabel Label_COTWStatus;
+	CMlFrame LoadingSpinner_Info;
+	CMlLabel Label_Info;
+	CMlLabel Label_COTWTakePlace;
+	CMlLabel Label_COTWDate;
+	CMlLabel Label_COTWExplanation;
+	CMlFrame MapRankings_Main;
+	CMlFrame Button_Join;
+}
+#Struct K_Private_Instance {
+	K_Private_Controls Controls;
+	Privileges::K_PrivilegeCheck PlayPrivilegeCheck;
+	Http::K_Request JoinLinkRequest;
+	Integer JoinLinkWaitingTime = 0;
+	Boolean IsJoiningServer = False;
+	Text InfoMessage = "";
+	Integer InfoType = 0;
+	Boolean IsPageActive = False;
+	Integer CampaignId = 0; //< CampaignStruct::C_Campaign_NullId
+	CampaignStruct::LibCampaignStruct_K_Map Map;
+	Integer CountdownTimestamp = 0;
+	Integer QualificationStartTimestamp = 0;
+	Integer QualificationEndTimestamp = 0;
+	Integer CampaignEndTimestamp = 0;
+	Integer StatusUpdateTime = -1;
+	Integer Status = 0; //< C_Private_Status_WaitingCup
+	Boolean CanLoadNextCupOfTheWeekCampaign = False;
+	Integer NextCupOfTheWeekCampaignUpdateTime = -1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Page_COTWChannelDisplay"
+
+// `PlayMultiplayerMode` also check `PlayMultiplayerAsync` at the same time
+// No need to check for `PlayMultiplayerAsync` before displaying the leaderboards
+// Use `PlayMultiplayerMode` instead of `PlayMultiplayerModeWithUGC` because Cup of the Week are played on campaign tracks
+#Const C_Privileges [
+	CPrivilegeMgr::EPrivilege::PlayMultiplayerMode
+]
+
+#Const C_Private_JoinlinkRetryInterval 5000 //< Request a joinlink every 5 seconds until a valid joinlink is received
+#Const C_Private_JoinlinkWaitingTimeMax 30000 //< Try to join the server for a maximum of 30 seconds before aborting
+#Const C_Private_CountdownDuration 3600 //< Start a countdown 60 minutes before the start of the qualifications
+#Const C_Private_QualificationDuration 600 //< Only players who join the server within the first ten minutes of the qualifying period can set a time and play in the cup
+
+#Const C_Private_Status_NoCup 0
+#Const C_Private_Status_WaitingCup 1
+#Const C_Private_Status_QualificationCountdown 2
+#Const C_Private_Status_QualificationOngoing 3
+#Const C_Private_Status_QualificationEnded 4
+#Const C_Private_Status_NextCup 5
+
+#Const C_Private_NavGroup_Global "navgroup-page-cotw-channel-display-global"
+#Const C_Private_NavGroup_Main "navgroup-page-cotw-channel-display-main"
+
+#Const C_Private_Color_COTWWarning "FFC600"
+#Const C_Private_Color_COTWDay "1B4F67"
+
+#Const C_Private_TextSize_COTWTakePlace <4., 2.>
+#Const C_Private_TextSize_COTWDate <6., 4.>
+#Const C_Private_TextSize_COTWExplanation <4., 2.>
+
+//L16N [Cup of the Week channel] Text displayed above the pop-up title to signal that the server is online
+#Const C_Private_Text_Live _("|Room|Live")
+//L16N [Cup of the Week channel] The 'Cup of the Week' is a weekly competition played on the seasonal campaign tracks.
+#Const C_Private_Text_COTW _("Cup of the Week")
+//L16N  [Cup of the Week channel] This text is displayed above another text that gives the date and time of the next Cup of the Week: eg: "The Cup of the Week will take place on (below) Saturday, 13 December at 4 pm"
+#Const C_Private_Text_COTWTakePlace _("The Cup of the Week will take place on")
+//L16N  [Cup of the Week channel] This text tells the player the date and time at which the Cup of the Week will start. %1 will be replaced by a date. %2 will be replaced by a time. eg: "Saturday, 13 December at 4 pm"
+#Const C_Private_Text_COTWDate _("|CupOfTheWeekDateTime|%1 at %2")
+//L16N  [Cup of the Week channel] Text explaining to the player how the Cup of the Week works
+#Const C_Private_Text_COTWExplanation _("""Join the server at the specified time to take part in the qualifiers. You will then compete in a match against similarly skilled players and earn trophies based on your performance.
+In the meantime, you can join the server and practice on the track that will be played during the cup.""")
+//L16N  [Cup of the Week channel] This message is displayed when the qualification period for participating in the Cup of the Week starts soon. %1 will be replaced by a countdown. eg: "The qualifiers start in 01:23"
+#Const C_Private_Text_QualificationStartsIn _("The qualifiers start in %1")
+//L16N  [Cup of the Week channel] This message is displayed when the qualification period for participating in the Cup of the Week is ongoing. %1 will be replaced by a countdown. eg: "The qualifiers end in 01:23"
+#Const C_Private_Text_QualificationEndsIn _("The qualifiers end in %1")
+//L16N  [Cup of the Week channel] This message is displayed when the qualification period for participating in the Cup of the Week has ended
+#Const C_Private_Text_QualificationEnded _("The qualifiers have now finished")
+//L16N  [Cup of the Week channel] This message is displayed when the current Cup of the Week ends and before the next one begins
+#Const C_Private_Text_CupEnded _("The Cup of the Week is over. Come back soon to play the next one!")
+//L16N [Cup of the Week channel] Text of the Loading spinner informing the player that they are currently joining the Cup of the Week server.
+#Const C_Private_Text_Joining _("Joining server...")
+//L16N [Cup of the Week channel] Text of the button to join the online room as a player.
+#Const C_Private_Text_JoinRoom _("Join room")
+//L16N [Online] Message displayed when there is no joinlink to join a server.
+#Const C_Private_Text_ServersOffline _("Servers are offline or in maintenance, please try again later.")
+//L16N [Online] Message displayed when the player couldn't connect to the server. %1 goes for the type of error.
+#Const C_Private_Text_JoinError _("An error occurred while joining, please try again. (Error code: %1)")
+
+#Const C_Private_Class_TextSemibold "page-cotw-channel-display-text-semibold"
+#Const C_Private_Class_TextExtrabold "page-cotw-channel-display-text-extrabold"
+#Const C_Private_Id_Frame_Global "page-cotw-channel-display-frame-global"
+#Const C_Private_Id_PopUpBackground_Main "page-cotw-channel-display-popup-background-main"
+#Const C_Private_Id_Frame_LiveIndicator "page-cotw-channel-display-frame-live-indicator"
+#Const C_Private_Id_Label_Title "page-cotw-channel-display-label-title"
+#Const C_Private_Id_Label_COTWDay "page-cotw-channel-display-label-cotw-day"
+#Const C_Private_Id_Label_COTWStatus "page-cotw-channel-display-label-cotw-status"
+#Const C_Private_Id_LoadingSpinner_Info "page-cotw-channel-display-loading-spinner-info"
+#Const C_Private_Id_Label_Info "page-cotw-channel-display-label-info"
+#Const C_Private_Id_Label_COTWTakePlace "page-cotw-channel-display-label-cotw-take-place"
+#Const C_Private_Id_Label_COTWDate "page-cotw-channel-display-label-cotw-date"
+#Const C_Private_Id_Label_COTWExplanation "page-cotw-channel-display-label-cotw-explanation"
+#Const C_Private_Id_MapRankings_Main "page-cotw-channel-display-map-rankings-main"
+#Const C_Private_Id_Button_Join "page-cotw-channel-display-button-join"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the page manialink
+ *
+ *	@return														The page manialink
+ */
+Text Private_GetManialink() {
+	return
+"""
+<stylesheet>
+	<style class="{{{C_Private_Class_TextSemibold}}}" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textprefix="$i$t" textcolor="{{{Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight)}}}" />
+	<style class="{{{C_Private_Class_TextExtrabold}}}" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$i$t" textcolor="{{{Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight)}}}" />
+</stylesheet>
+
+<!-- Frame global -->
+<frame
+	id="{{{C_Private_Id_Frame_Global}}}"
+	class="{{{Navigation::C_Class}}}"
+	z-index="{{{MainMenuConst::C_ZIndex_PopUpDisplay}}}"
+	data-nav-inputs="cancel"
+	data-nav-targets="_"
+	data-nav-group="{{{C_Private_NavGroup_Global}}}"
+>
+	<frameinstance modelid="{{{PopUpBackground::C_Name}}}" id="{{{C_Private_Id_PopUpBackground_Main}}}" z-index="1" />
+
+	<!-- Header -->
+	<frame id="{{{C_Private_Id_Frame_LiveIndicator}}}" pos="{{{MLHelpers::Skew(-124.5, 72., 10.)}}}" z-index="2">
+		<quad pos="0 0.5" z-index="1" size="3 3" valign="center" image="{{{Icons::C_Icon_128x128_Radio_Button_On}}}" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" />
+		<label class="{{{C_Private_Class_TextExtrabold}}}" pos="4 0" z-index="2" size="180 5" text="{{{C_Private_Text_Live}}}" textsize="3.5" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" />
+	</frame>
+	<label id="{{{C_Private_Id_Label_Title}}}" class="{{{C_Private_Class_TextExtrabold}}}" pos="{{{MLHelpers::Skew(-126.5, 61.5, 10.)}}}" z-index="3" size="180 20" text="{{{C_Private_Text_COTW}}}" textsize="13" />
+	<label id="{{{C_Private_Id_Label_COTWStatus}}}" class="{{{C_Private_Class_TextSemibold}}}" pos="{{{MLHelpers::Skew(-125., 53., 10.)}}}" z-index="4" size="180 10" textcolor="{{{C_Private_Color_COTWWarning}}}" textsize="2.5" />
+	<label id="{{{C_Private_Id_Label_COTWDay}}}" class="{{{C_Private_Class_TextExtrabold}}}" pos="{{{MLHelpers::Skew(104., 51.2, 10.)}}}" z-index="5" size="12 10" halign="center" textsize="7" textcolor="{{{C_Private_Color_COTWDay}}}" />
+
+	<!-- Body -->
+	<frame z-index="6">
+		<frameinstance modelid="{{{LoadingSpinner::C_Name}}}" id="{{{C_Private_Id_LoadingSpinner_Info}}}" pos="{{{MLHelpers::Skew(-121., 20., 10.)}}}" z-index="1" scale="0.7" data-label-side="{{{LoadingSpinner::C_LabelSide_Right}}}" data-size="10 10" />
+		<label id="{{{C_Private_Id_Label_Info}}}" class="{{{C_Private_Class_TextSemibold}}}" pos="{{{MLHelpers::Skew(-125., 19., 10.)}}}" z-index="2" size="250 10" textsize="2.5" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextError)}}}" />
+		<label id="{{{C_Private_Id_Label_COTWTakePlace}}}" class="{{{C_Private_Class_TextSemibold}}}" pos="{{{MLHelpers::Skew(-35., 5., 10.)}}}" z-index="3" size="190 15" halign="center" textsize="{{{C_Private_TextSize_COTWTakePlace.X}}}" autonewline="1" maxline="3" textprefix="$i" text="{{{C_Private_Text_COTWTakePlace}}}" />
+		<label id="{{{C_Private_Id_Label_COTWDate}}}" class="{{{C_Private_Class_TextSemibold}}}" pos="{{{MLHelpers::Skew(-35., -10., 10.)}}}" z-index="4" size="190 15" halign="center" textsize="{{{C_Private_TextSize_COTWDate.X}}}" autonewline="1" maxline="2" textprefix="$i" />
+		<label id="{{{C_Private_Id_Label_COTWExplanation}}}" class="{{{C_Private_Class_TextSemibold}}}" pos="{{{MLHelpers::Skew(-35., -22., 10.)}}}" z-index="5" size="190 36" halign="center" valign="top" textsize="{{{C_Private_TextSize_COTWExplanation.X}}}" autonewline="1" maxline="8" textprefix="$i" text="{{{C_Private_Text_COTWExplanation}}}" />
+		<frameinstance id="{{{C_Private_Id_MapRankings_Main}}}" pos="105 -25" z-index="6" modelid="{{{MapRankings::C_Name}}}" />
+	</frame>
+
+	<!-- Bottom buttons -->
+	<frameinstance
+		modelid="{{{ExpendableButton::C_Name}}}"
+		id="{{{C_Private_Id_Button_Join}}}"
+		class="{{{Navigation::C_Class}}}"
+		pos="{{{MLHelpers::Skew(-125.5, -67., 10.)}}}"
+		z-index="7"
+		data-text="{{{C_Private_Text_JoinRoom}}}"
+		data-styles="{{{ExpendableButton::C_Style_SizeExpendable}}} {{{ExpendableButton::C_Style_ButtonSecondary}}} {{{ExpendableButton::C_Style_PageNextAnimated}}}"
+		data-halign="left"
+		data-valign="center"
+		data-nav-inputs="select"
+		data-nav-targets="_"
+		data-nav-group="{{{C_Private_NavGroup_Main}}}"
+		data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+	/>
+</frame>
+"""
+	;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the info display
+Void Private_UpdateInfoDisplay(CManiaAppTitleLayer _Context, K_Private_Instance _Instance) {
+	if (_Instance.IsJoiningServer) {
+		LoadingSpinner::StartAnimWithFade(_Context, _Instance.Controls.LoadingSpinner_Info, C_Private_Text_Joining);
+		ExpendableButtonBase::RemoveStyle(_Context, _Instance.Controls.Button_Join, ExpendableButton::Style_PageNextAnimated(), False);
+		ExpendableButtonBase::AddStyle(_Context, _Instance.Controls.Button_Join, ExpendableButton::Style_ButtonLoading());
+	} else {
+		LoadingSpinner::StopAnimWithFade(_Context, _Instance.Controls.LoadingSpinner_Info);
+		ExpendableButtonBase::RemoveStyle(_Context, _Instance.Controls.Button_Join, ExpendableButton::Style_ButtonLoading(), False);
+		ExpendableButtonBase::AddStyle(_Context, _Instance.Controls.Button_Join, ExpendableButton::Style_PageNextAnimated());
+	}
+
+	declare Vec2 Pos_Hidden = MLHelpers::SkewX(<-126., 20.>, 10.);
+	declare Vec2 Pos_Visible = MLHelpers::SkewX(<-125., 20.>, 10.);
+	_Context.AnimMgr.Flush(_Instance.Controls.Label_Info);
+	if (!_Instance.IsJoiningServer && _Instance.InfoMessage != "") {
+		_Instance.Controls.Label_Info.Opacity = 0.;
+		_Instance.Controls.Label_Info.RelativePosition_V3 = Pos_Hidden;
+		_Instance.Controls.Label_Info.Value = _Instance.InfoMessage;
+		if (_Instance.InfoType == MainMenuConst::C_InfoType_Error) {
+			_Instance.Controls.Label_Info.TextColor = Stylesheet::GetColorRGB(Stylesheet::C_Color_TextError);
+		} else {
+			_Instance.Controls.Label_Info.TextColor = Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight);
+		}
+		_Context.AnimMgr.Add(_Instance.Controls.Label_Info, """<anim pos="{{{Pos_Visible.X}}} {{{Pos_Visible.Y}}}" opacity="1" hidden="0" />""", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		_Context.AnimMgr.Add(_Instance.Controls.Label_Info, """<anim pos="{{{Pos_Hidden.X}}} {{{Pos_Hidden.Y}}}" opacity="0" hidden="1" />""", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the joining state
+K_Private_Instance Private_SetIsJoiningServer(CManiaAppTitleLayer _Context, K_Private_Instance _Instance, Boolean _IsInit) {
+	declare Boolean IsJoiningServer = (
+		!Privileges::Check_IsComplete(_Instance.PlayPrivilegeCheck) ||
+		Http::IsRunning(_Instance.JoinLinkRequest)
+	);
+
+	if (!_IsInit && _Instance.IsJoiningServer == IsJoiningServer) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.IsJoiningServer = IsJoiningServer;
+	Private_UpdateInfoDisplay(_Context, Instance);
+
+	return Instance;
+}
+K_Private_Instance Private_SetIsJoiningServer(CManiaAppTitleLayer _Context, K_Private_Instance _Instance) {
+	return Private_SetIsJoiningServer(_Context, _Instance, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the info message
+K_Private_Instance Private_SetInfoMessage(CManiaAppTitleLayer _Context, K_Private_Instance _Instance, Text _InfoMessage, Integer _InfoType, Boolean _IsInit) {
+	if (!_IsInit && _Instance.InfoMessage == _InfoMessage && _Instance.InfoType == _InfoType) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.InfoMessage = _InfoMessage;
+	Instance.InfoType = _InfoType;
+	Private_UpdateInfoDisplay(_Context, Instance);
+
+	return Instance;
+}
+K_Private_Instance Private_SetInfoMessage(CManiaAppTitleLayer _Context, K_Private_Instance _Instance, Text _InfoMessage, Integer _InfoType) {
+	return Private_SetInfoMessage(_Context, _Instance, _InfoMessage, _InfoType, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update map rankings
+Void Private_UpdateMapRankings(CManiaAppTitleLayer _Context, K_Private_Instance _Instance) {
+	MapRankings::UpdateMapRanking(
+		_Context,
+		_Instance.Controls.MapRankings_Main,
+		ClubStruct::C_ClubNullId,
+		CampaignStruct::C_Campaign_NullId,
+		CampaignStruct::C_Season_NullId,
+		_Instance.Map,
+		0,
+		MapRankings::C_Display_Medals,
+		False,
+		False
+	);
+	MapRankings::ShowRankingAndMedals(_Instance.Controls.MapRankings_Main, False, False);
+	MapRankings::ShowAuthorDisplayName(_Instance.Controls.MapRankings_Main, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the Cup of the Week status
+K_Private_Instance Private_SetStatus(CManiaAppTitleLayer _Context, K_Private_Instance _Instance) {
+	declare K_Private_Instance Instance = _Instance;
+
+	declare Integer CountdownDelta = TiL::GetDelta(""^Instance.CountdownTimestamp, TiL::GetCurrent());
+	declare Integer QualificationStartDelta = TiL::GetDelta(""^Instance.QualificationStartTimestamp, TiL::GetCurrent());
+	declare Integer QualificationEndDelta = TiL::GetDelta(""^Instance.QualificationEndTimestamp, TiL::GetCurrent());
+	declare Integer CampaignEndDelta = TiL::GetDelta(""^Instance.CampaignEndTimestamp, TiL::GetCurrent());
+
+	if (Instance.CampaignId == CampaignStruct::C_Campaign_NullId) {
+		Instance.Status = C_Private_Status_NoCup;
+		Instance.StatusUpdateTime = -1;
+		Instance.Controls.Label_COTWStatus.Value = "";
+	} else if (CountdownDelta > 0) {
+		Instance.Status = C_Private_Status_WaitingCup;
+		Instance.StatusUpdateTime = Now + (CountdownDelta * 1000);
+		Instance.Controls.Label_COTWStatus.Value = "";
+	} else if (QualificationStartDelta > 0) {
+		Instance.Status = C_Private_Status_QualificationCountdown;
+		Instance.StatusUpdateTime = Now + (QualificationStartDelta * 1000);
+		// Update `Label_COTWStatus` in the main loop
+	} else if (QualificationEndDelta > 0) {
+		Instance.Status = C_Private_Status_QualificationOngoing;
+		Instance.StatusUpdateTime = Now + (QualificationEndDelta * 1000);
+		// Update `Label_COTWStatus` in the main loop
+	} else if (CampaignEndDelta > 0) {
+		Instance.Status = C_Private_Status_QualificationEnded;
+		Instance.StatusUpdateTime = Now + (CampaignEndDelta * 1000);
+		Instance.Controls.Label_COTWStatus.Value = C_Private_Text_QualificationEnded;
+	} else {
+		Instance.Status = C_Private_Status_NextCup;
+		Instance.StatusUpdateTime = -1;
+		Instance.Controls.Label_COTWStatus.Value = C_Private_Text_CupEnded;
+	}
+
+	// Update popup header image
+	if (
+		Instance.Status == C_Private_Status_QualificationCountdown ||
+		Instance.Status == C_Private_Status_QualificationOngoing
+	) {
+		PopUpBackground::SetHeaderImageUrl(_Context, Instance.Controls.PopUpBackground_Main, MainMenuConst::C_ImageUrl_PopUp_TOTD_Header_COTD);
+	} else {
+		PopUpBackground::SetHeaderImageUrl(_Context, Instance.Controls.PopUpBackground_Main, MainMenuConst::C_ImageUrl_PopUp_TOTD_Header);
+	}
+
+	// If there is a cup but it has not started yet, enable loading of the next cup
+	// /!\ Be careful when editing this, we purposefully set the value to `True` but we do not set it to `False`
+	if (
+		Instance.Status != C_Private_Status_NoCup &&
+		Instance.Status != C_Private_Status_NextCup
+	) {
+		Instance.CanLoadNextCupOfTheWeekCampaign = True;
+	}
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the current Cup of the Week campaign
+K_Private_Instance Private_SetCupOfTheWeekCampaign(
+	CManiaAppTitleLayer _Context,
+	K_Private_Instance _Instance,
+	CampaignStruct::LibCampaignStruct_K_Campaign _CupOfTheWeekCampaign,
+	Integer _CupOfTheWeekCampaignUpdateTime
+) {
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.CampaignId = _CupOfTheWeekCampaign.Id;
+	if (_CupOfTheWeekCampaign.Playlist.count > 0) {
+		Instance.Map = CampaignStore::GetMap(_CupOfTheWeekCampaign.Id, _CupOfTheWeekCampaign.Playlist[0].Uid);
+	} else {
+		Instance.Map = CampaignStruct::LibCampaignStruct_K_Map {};
+	}
+
+	Instance.CampaignEndTimestamp = _CupOfTheWeekCampaign.EndTimestamp;
+	Instance.QualificationStartTimestamp = Instance.CampaignEndTimestamp + CampaignStore::C_CupOfTheWeekStartTimeOffset;
+	Instance.CountdownTimestamp = Instance.QualificationStartTimestamp - C_Private_CountdownDuration;
+	Instance.QualificationEndTimestamp = Instance.QualificationStartTimestamp + C_Private_QualificationDuration;
+	Instance.NextCupOfTheWeekCampaignUpdateTime = _CupOfTheWeekCampaignUpdateTime;
+
+	Instance.Controls.Label_COTWDate.Value = TL::Compose(C_Private_Text_COTWDate, TiL::FormatDate(""^Instance.QualificationStartTimestamp, TiL::EDateFormats::Date), TiL::FormatDate(""^Instance.QualificationStartTimestamp, TiL::EDateFormats::TimeShort));
+	Instance.Controls.Label_COTWDay.Value = ""^CampaignStore::GetDayCOTW();
+
+	MLHelpers::FitLabelValue(Instance.Controls.Label_COTWTakePlace, C_Private_TextSize_COTWTakePlace);
+	MLHelpers::FitLabelValue(Instance.Controls.Label_COTWDate, C_Private_TextSize_COTWDate);
+	MLHelpers::FitLabelValue(Instance.Controls.Label_COTWExplanation, C_Private_TextSize_COTWExplanation);
+
+	Instance = Private_SetStatus(_Context, Instance);
+
+	Private_UpdateMapRankings(_Context, Instance);
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Toggle the navigation in the page
+Void Private_UpdateNavigation(CManiaAppTitleLayer _Context, K_Private_Instance _Instance) {
+	declare Boolean IsEnabled = _Instance.IsPageActive;
+	Navigation::EnableGroup(_Context, C_Private_NavGroup_Global, IsEnabled);
+	Navigation::EnableGroup(_Context, C_Private_NavGroup_Main, IsEnabled);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the page active status
+K_Private_Instance Private_SetIsPageActive(CManiaAppTitleLayer _Context, K_Private_Instance _Instance, Boolean _IsPageActive, Boolean _IsInit) {
+	if (!_IsInit && _Instance.IsPageActive == _IsPageActive) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.IsPageActive = _IsPageActive;
+	if (Instance.IsPageActive) {
+		ControllerInfo::SetButtons(["A" => Translations::C_Text_ActionSelect, "B" => Translations::C_Text_ActionBack]);
+	}
+	Private_UpdateNavigation(_Context, Instance);
+
+	return Instance;
+}
+K_Private_Instance Private_SetIsPageActive(CManiaAppTitleLayer _Context, K_Private_Instance _Instance, Boolean _IsActive) {
+	return Private_SetIsPageActive(_Context, _Instance, _IsActive, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus an element of the page
+Void Private_Focus(CManiaAppTitleLayer _Context, CMlControl _From, CMlControl _To) {
+	if (Transition::IsInTransition(_Context)) return;
+
+	if (_From != Null) {
+		Navigation::Unfocus(_Context, _From);
+
+		if (ExpendableButtonBase::IsButton(_From)) {
+			ExpendableButtonBase::Unfocus(_Context, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		Navigation::Focus(_Context, _To);
+
+		if (ExpendableButtonBase::IsButton(_To)) {
+			ExpendableButtonBase::Focus(_Context, (_To as CMlFrame));
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Select an element of the page
+K_Private_Instance Private_Select(CManiaAppTitleLayer _Context, K_Private_Instance _Instance, CMlControl _Control) {
+	if (_Control == Null || Transition::IsInTransition(_Context)) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	switch (_Control.ControlId) {
+		case C_Private_Id_Button_Join: {
+			if (!UserStore::HasGamePermission(_Context.PrivilegeMgr, RBAC::C_GamePermission_PlayCOTWChannel)) {
+				ClubEdition::GoToPage(_Context, Router::GetCurrentRoutePath(_Context), RBAC::GetGamePermissionMessage(RBAC::C_GamePermissionMessage_PlayCOTWChannel));
+			} else if (
+				_Context.TitleControl.IsReady &&
+				Privileges::Check_IsComplete(Instance.PlayPrivilegeCheck) &&
+				!Http::IsInitialized(Instance.JoinLinkRequest)
+			) {
+				Instance.PlayPrivilegeCheck = Privileges::Check_DestroyAndCreate(
+					Instance.PlayPrivilegeCheck,
+					_Context.PrivilegeMgr,
+					MainUser::GetMainUserId(),
+					CPrivilegeMgr::EPrivilege::PlayMultiplayerSession
+				);
+				Instance = Private_SetInfoMessage(_Context, Instance, "", MainMenuConst::C_InfoType_None);
+				Instance = Private_SetIsJoiningServer(_Context, Instance);
+			}
+		}
+	}
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// The page main start section
+Void Private_MainStart(CManiaAppTitleLayer _Context) {
+	declare K_Private_Instance Trackmania_MainMenuPagesCOTWChannelDisplay_Instance as Instance for _Context.Page = K_Private_Instance {};
+	Instance = K_Private_Instance {};
+	Instance.JoinLinkRequest = Http::GetEmptyRequest();
+
+	declare CMlFrame Frame_Global <=> (_Context.Page.GetFirstChild(C_Private_Id_Frame_Global) as CMlFrame);
+	Instance.Controls.PopUpBackground_Main <=> (Frame_Global.GetFirstChild(C_Private_Id_PopUpBackground_Main) as CMlFrame);
+	Instance.Controls.Label_COTWDay <=> (Frame_Global.GetFirstChild(C_Private_Id_Label_COTWDay) as CMlLabel);
+	Instance.Controls.Label_COTWStatus <=> (Frame_Global.GetFirstChild(C_Private_Id_Label_COTWStatus) as CMlLabel);
+	Instance.Controls.LoadingSpinner_Info <=> (Frame_Global.GetFirstChild(C_Private_Id_LoadingSpinner_Info) as CMlFrame);
+	Instance.Controls.Label_Info <=> (Frame_Global.GetFirstChild(C_Private_Id_Label_Info) as CMlLabel);
+	Instance.Controls.Label_COTWTakePlace <=> (Frame_Global.GetFirstChild(C_Private_Id_Label_COTWTakePlace) as CMlLabel);
+	Instance.Controls.Label_COTWDate <=> (Frame_Global.GetFirstChild(C_Private_Id_Label_COTWDate) as CMlLabel);
+	Instance.Controls.Label_COTWExplanation <=> (Frame_Global.GetFirstChild(C_Private_Id_Label_COTWExplanation) as CMlLabel);
+	Instance.Controls.MapRankings_Main <=> (Frame_Global.GetFirstChild(C_Private_Id_MapRankings_Main) as CMlFrame);
+	Instance.Controls.Button_Join <=> (Frame_Global.GetFirstChild(C_Private_Id_Button_Join) as CMlFrame);
+
+	Instance = Private_SetIsJoiningServer(_Context, Instance, True);
+	Instance = Private_SetInfoMessage(_Context, Instance, "", MainMenuConst::C_InfoType_None, True);
+	Instance = Private_SetIsPageActive(_Context, Instance, False, True);
+	Instance = Private_SetCupOfTheWeekCampaign(_Context, Instance, CampaignStore::GetLiveCupOfTheWeekCampaign(), CampaignStore::GetLiveCupOfTheWeekCampaignsUpdateTime());
+
+	Private_Focus(_Context, Navigation::GetFocusedControl(_Context, C_Private_NavGroup_Global), Frame_Global);
+	Private_Focus(_Context, Navigation::GetFocusedControl(_Context, C_Private_NavGroup_Main), Instance.Controls.Button_Join);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// The page main loop section
+Void Private_MainLoop(CManiaAppTitleLayer _Context) {
+	declare K_Private_Instance Trackmania_MainMenuPagesCOTWChannelDisplay_Instance as Instance for _Context.Page = K_Private_Instance {};
+
+	if (Router::PageIsRunning(_Context, RoutePaths::C_Path_COTWChannelDisplay)) {
+		foreach (Event in Router::GetPendingEvents(_Context)) {
+			switch (Event.Type) {
+				case Router::C_Event_EnteringRoute: {
+					Instance = Private_SetIsPageActive(_Context, Instance, True);
+					Instance = Private_SetCupOfTheWeekCampaign(_Context, Instance, CampaignStore::GetLiveCupOfTheWeekCampaign(), CampaignStore::GetLiveCupOfTheWeekCampaignsUpdateTime());
+
+					CampaignStore::Action_LoadLiveCupOfTheWeekCampaign(_Context, CampaignAPI::C_CachePreload_CampaignCupOfTheWeek);
+				}
+			}
+		}
+
+		if (Instance.StatusUpdateTime > 0 && Instance.StatusUpdateTime <= Now) {
+			Instance = Private_SetStatus(_Context, Instance);
+		}
+		if (
+			Instance.Status == C_Private_Status_NextCup &&
+			Instance.CanLoadNextCupOfTheWeekCampaign &&
+			Instance.NextCupOfTheWeekCampaignUpdateTime >= 0 &&
+			Instance.NextCupOfTheWeekCampaignUpdateTime <= Now
+		) {
+			CampaignStore::Action_LoadLiveCupOfTheWeekCampaign(_Context, CampaignAPI::C_CachePreload_CampaignCupOfTheWeek);
+			Instance.CanLoadNextCupOfTheWeekCampaign = False;
+		}
+		if (Instance.Status == C_Private_Status_QualificationCountdown) {
+			Instance.Controls.Label_COTWStatus.Value = TL::Compose(C_Private_Text_QualificationStartsIn, TL::TimeToText(Instance.StatusUpdateTime - Now, False, False));
+		} else if (Instance.Status == C_Private_Status_QualificationOngoing) {
+			Instance.Controls.Label_COTWStatus.Value = TL::Compose(C_Private_Text_QualificationEndsIn, TL::TimeToText(Instance.StatusUpdateTime - Now, False, False));
+		}
+
+		// Navigation events
+		foreach (Event in Navigation::GetPendingEvents(_Context)) {
+			switch (Event.Type) {
+				case Navigation::C_EventType_NavigateInput: {
+					if (Navigation::IsEventFromGroup(_Context, Event, C_Private_NavGroup_Global)) {
+						switch (Event.Input) {
+							case CMlScriptEvent::EMenuNavAction::Cancel: Router::PushParent(_Context);
+						}
+					} else if (Navigation::IsEventFromGroup(_Context, Event, C_Private_NavGroup_Main)) {
+						switch (Event.Input) {
+							case CMlScriptEvent::EMenuNavAction::Select: Instance = Private_Select(_Context, Instance, Event.To);
+							default: Private_Focus(_Context, Event.From, Event.To);
+						}
+					}
+				}
+				case Navigation::C_EventType_NavigateMouse: {
+					if (Navigation::IsEventFromGroup(_Context, Event, C_Private_NavGroup_Main)) {
+						switch (Event.Mouse) {
+							case CMlScriptEvent::Type::MouseClick: Instance = Private_Select(_Context, Instance, Event.To);
+							case CMlScriptEvent::Type::MouseOver: Private_Focus(_Context, Event.From, Event.To);
+						}
+					}
+				}
+			}
+		}
+
+		// Campaign store events
+		foreach (Event in _Context.PendingEvents) {
+			switch (Event.Type) {
+				case CMlScriptEvent::Type::PluginCustomEvent: {
+					switch (Event.CustomEventType) {
+						case CampaignStore::C_Event_LiveCupOfTheWeekCampaignUpdated: {
+							if (CampaignStore::GetLiveCupOfTheWeekCampaignStatus() == CampaignStore::C_LiveCampaignStatus_Loaded) {
+								declare CampaignStruct::LibCampaignStruct_K_Campaign LiveCupOfTheWeekCampaign = CampaignStore::GetLiveCupOfTheWeekCampaign();
+
+								Instance = Private_SetCupOfTheWeekCampaign(_Context, Instance, LiveCupOfTheWeekCampaign, CampaignStore::GetLiveCupOfTheWeekCampaignsUpdateTime());
+
+								if (LiveCupOfTheWeekCampaign.Id != CampaignStruct::C_Campaign_NullId) {
+									declare CampaignStruct::LibCampaignStruct_K_Campaign LoadedCupOfTheWeekCampaign = CampaignStore::GetCampaignFromId(LiveCupOfTheWeekCampaign.Id);
+									if (!LoadedCupOfTheWeekCampaign.IsLoaded || LoadedCupOfTheWeekCampaign.FailedToGetMapUrl) {
+										CampaignStore::Action_LoadCampaign(_Context, LiveCupOfTheWeekCampaign.Id);
+									}
+								}
+							}
+						}
+						case CampaignStore::C_Event_CampaignLoadComplete, CampaignStore::C_Event_CampaignUpdateFailed: {
+							switch (Cast::ToInteger(Event.CustomEventData.get(0, ""))) {
+								case CampaignStore::GetLiveCupOfTheWeekCampaignId(): {
+									Instance = Private_SetCupOfTheWeekCampaign(_Context, Instance, CampaignStore::GetLiveCupOfTheWeekCampaign(), CampaignStore::GetLiveCupOfTheWeekCampaignsUpdateTime());
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Popup background events
+		foreach (Event in PopUpBackground::GetPendingEvents(_Context)) {
+			if (Event.PopUpBackground != Null && Event.PopUpBackground.Id == Instance.Controls.PopUpBackground_Main.Id) {
+				switch (Event.Type) {
+					case PopUpBackground::C_EventType_Close: Router::PushParent(_Context);
+				}
+			}
+		}
+
+		// Check multiplayer privilege
+		if (!Privileges::Check_IsComplete(Instance.PlayPrivilegeCheck)) {
+			Instance.PlayPrivilegeCheck = Privileges::Check_Update(Instance.PlayPrivilegeCheck);
+			if (Privileges::Check_IsComplete(Instance.PlayPrivilegeCheck)) {
+				if (Privileges::Check_HasPrivilege(Instance.PlayPrivilegeCheck)) {
+					Instance.JoinLinkWaitingTime = 0;
+					Instance.JoinLinkRequest = Http::DestroyAndCreate(
+						Instance.JoinLinkRequest,
+						ChannelAPI::GetJoinLink(MainMenuConst::C_ChannelUid_CupOfTheWeek)
+					);
+				}
+				Instance.PlayPrivilegeCheck = Privileges::Check_Destroy(Instance.PlayPrivilegeCheck);
+				Instance = Private_SetIsJoiningServer(_Context, Instance);
+			}
+		}
+
+		// JoinLink request
+		if (Http::IsInitialized(Instance.JoinLinkRequest)) {
+			Instance.JoinLinkRequest = Http::Update(Instance.JoinLinkRequest);
+			if (!Http::IsRunning(Instance.JoinLinkRequest)) {
+				if (Http::IsSuccess(Instance.JoinLinkRequest)) {
+					declare Text JoinLink = ChannelAPI::GetResponseFromGetJoinLink(Instance.JoinLinkRequest);
+					if (JoinLink != "") {
+						LoadingScreenStore::UpdateTitleMenuLoadingScreen_Random(_Context, C_Private_Text_COTW);
+						LoadingScreenStore::StartTrackingLoadingScreen(_Context, LoadingScreenStore::GetCurrentTitleMenuLoadingScreen(_Context));
+						TitleControl::OpenLinkAndWait(_Context, _Context.TitleControl, JoinLink, CMlScript::LinkType::ManialinkBrowser);
+						CampaignStore::Action_LoadLiveCupOfTheWeekCampaign(_Context, CampaignAPI::C_CachePreload_CampaignCupOfTheWeek);
+					} else if (Instance.JoinLinkWaitingTime < C_Private_JoinlinkWaitingTimeMax) {
+						Instance.JoinLinkRequest = Http::RetryWithDelay(Instance.JoinLinkRequest, Now + C_Private_JoinlinkRetryInterval);
+						Instance.JoinLinkWaitingTime += C_Private_JoinlinkRetryInterval;
+					} else {
+						Instance = Private_SetInfoMessage(_Context, Instance, C_Private_Text_ServersOffline, MainMenuConst::C_InfoType_Error);
+					}
+				} else {
+					Instance = Private_SetInfoMessage(_Context, Instance, TL::Compose(C_Private_Text_JoinError, ""^Http::GetStatusCode(Instance.JoinLinkRequest)), MainMenuConst::C_InfoType_Error);
+				}
+				if (!Http::IsWaitingRetry(Instance.JoinLinkRequest)) {
+					Instance.JoinLinkRequest = Http::Destroy(Instance.JoinLinkRequest);
+				}
+				Instance = Private_SetIsJoiningServer(_Context, Instance);
+			}
+		}
+	} else {
+		foreach (Event in Router::GetPendingEvents(_Context)) {
+			switch (Event.Type) {
+				case Router::C_Event_LeavingRoute: {
+					Instance.PlayPrivilegeCheck = Privileges::Check_Destroy(Instance.PlayPrivilegeCheck);
+					Instance.JoinLinkRequest = Http::Destroy(Instance.JoinLinkRequest);
+					Instance = Private_SetInfoMessage(_Context, Instance, "", MainMenuConst::C_InfoType_None);
+					Instance = Private_SetIsJoiningServer(_Context, Instance);
+					Instance = Private_SetIsPageActive(_Context, Instance, False);
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the page manialink
+ *
+ *	@return														The page manialink
+ */
+Text GetManialink() {
+	return MV::Create(
+C_Name, 3,
+Private_GetManialink(),
+"""
+#Include "Libs/Nadeo/Trackmania/MainMenu/Pages/COTWChannelDisplay.Script.txt" as COTWChannelDisplay
+""",
+"""
+***MainStart***
+***
+COTWChannelDisplay::Private_MainStart(This);
+***
+
+***MainLoop***
+***
+COTWChannelDisplay::Private_MainLoop(This);
+***
+""",
+[
+	CampaignStore::ComponentV2(),
+	CampaignStruct::Component(),
+	ClubStruct::Component(),
+	ExpendableButton::ComponentV2(),
+	LoadingSpinner::ComponentV2(),
+	MapRankings::ComponentV2(),
+	MenuSounds::ComponentV2(),
+	Navigation::ComponentV2(),
+	PopUpBackground::ComponentV2(),
+	Router::ComponentV2(),
+	Transition::ComponentV2(),
+	UserStore::ComponentV2()
+],
+[]
+	);
+}

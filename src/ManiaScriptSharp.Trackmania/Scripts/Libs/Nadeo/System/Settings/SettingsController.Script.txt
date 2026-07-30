@@ -1,0 +1,300 @@
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Settings/Profile/ProfileController.Script.txt"		as Profile
+#Include "Libs/Nadeo/System/Settings/Graphics/GraphicsController.Script.txt"	as Graphics
+#Include "Libs/Nadeo/System/Settings/Sound/SoundController.Script.txt"			as Sound
+#Include "Libs/Nadeo/System/Settings/Inputs/InputsController.Script.txt"		as Inputs
+#Include "Libs/Nadeo/System/Settings/Stereo3D/Stereo3DController.Script.txt"	as Stereo3D
+#Include "Libs/Nadeo/System/Settings/Interface/InterfaceController.Script.txt"	as Interface
+#Include "Libs/Nadeo/System/Settings/System/SystemController.Script.txt"		as System
+#Include "Libs/Nadeo/System/Settings/Layer_Widget.Script.txt"					as LayerWidget
+#Include "Libs/Nadeo/System/Settings/Layer_SettingsTabs.Script.txt"				as LayerSettingsTabs
+#Include "Libs/Nadeo/System/Settings/SettingsStructs.Script.txt"				as SettingsStructs
+
+#Include "Libs/Nadeo/System/InternalEvents/Events_Consumer.Script.txt"	as EventsConsumer
+#Include "Libs/Nadeo/System/Styles/ColorScheme.Script.txt"				as ColorScheme
+
+declare Boolean	G_LibSettingsController_SettingsMenuIsVisible;
+declare Text	G_LibSettingsController_CurrentActiveTab;
+declare Ident	G_LibSettingsController_PrevLoadedTitleId;
+declare Boolean	G_LibSettingsController_PrevHasGraphicsChanges;
+declare Boolean	G_LibSettingsController_PrevHasAudioChanges;
+declare Boolean	G_LibSettingsController_PrevHasSystemChanges;
+declare Boolean	G_LibSettingsController_PrevIsProfileLoaded;
+declare Integer	G_LibEvents_PreviousChangeCount;
+declare Integer	G_ColorScheme_PreviousChangeCount;
+
+Void UpdateApplyButton() {
+	LayerSettingsTabs::SetApplyButtonVisibility(Sound::HasPendingChanges() || Graphics::HasPendingChanges() || System::HasPendingChanges());
+}
+
+Void ApplyGraphicsSettings() {
+	ManiaPlanet.DisplaySettings_Apply();
+	Graphics::MarkNoPendingChanges();
+	UpdateApplyButton();
+}
+
+Void ApplySoundSettings() {
+	ManiaPlanet.AudioSettings_Apply();
+	Sound::MarkNoPendingChanges();
+	UpdateApplyButton();
+}
+
+Void ApplySystemSettings() {
+	ManiaPlanet.Language_Apply();
+	System::MarkNoPendingChanges();
+	UpdateApplyButton();
+}
+
+Void SetVisibility(Boolean _Visible) {
+	LayerSettingsTabs::SetVisibility(_Visible);
+	Profile::SetVisibility(_Visible);
+	Graphics::SetVisibility(_Visible);
+	Sound::SetVisibility(_Visible);
+	Inputs::SetVisibility(_Visible);
+	Stereo3D::SetVisibility(_Visible);
+	Interface::SetVisibility(_Visible);
+	System::SetVisibility(_Visible);
+
+	if (G_LibSettingsController_SettingsMenuIsVisible != _Visible) {
+		if (_Visible) {
+			Audio.PlaySoundEvent(CAudioManager::ELibSound::ShowDialog, 0, 0.);
+		} else {
+			Audio.PlaySoundEvent(CAudioManager::ELibSound::HideDialog, 0, 0.);
+
+			if (Profile::HasUnsavedChanges() || Interface::HasUnsavedChanges()) {
+				ManiaPlanet.Dialog_CommitProfileChanges();
+			}
+		}
+	}
+
+	UpdateApplyButton();
+
+	G_LibSettingsController_SettingsMenuIsVisible = _Visible;
+}
+
+Void SetActiveTab(Text _TabId) {
+	if (_TabId == G_LibSettingsController_CurrentActiveTab) return;
+
+	declare TabsList = LayerSettingsTabs::GetTabsList();
+	if (!TabsList.exists(_TabId)) return;
+
+	declare CurrentKey	= TabsList.keyof(_TabId);
+	declare PreviousKey	= TabsList.keyof(G_LibSettingsController_CurrentActiveTab);
+	declare Direction	= 0;
+
+	if (PreviousKey >= 0) Direction = ML::Clamp(CurrentKey - PreviousKey, -1, 1);
+
+	// Hides the previous tab
+	switch (G_LibSettingsController_CurrentActiveTab) {
+		case Profile::GetTabId()	: Profile::Hide(Direction);
+		case Graphics::GetTabId()	: Graphics::Hide(Direction);
+		case Sound::GetTabId()		: Sound::Hide(Direction);
+		case Inputs::GetTabId()		: Inputs::Hide(Direction);
+		case Stereo3D::GetTabId()	: Stereo3D::Hide(Direction);
+		case Interface::GetTabId()	: Interface::Hide(Direction);
+		case System::GetTabId()		: System::Hide(Direction);
+	}
+
+	G_LibSettingsController_CurrentActiveTab = _TabId;
+
+	// Shows the current tab
+	switch (G_LibSettingsController_CurrentActiveTab) {
+		case Profile::GetTabId()	: Profile::Show(Direction);
+		case Graphics::GetTabId()	: Graphics::Show(Direction);
+		case Sound::GetTabId()		: Sound::Show(Direction);
+		case Inputs::GetTabId()		: Inputs::Show(Direction);
+		case Stereo3D::GetTabId()	: Stereo3D::Show(Direction);
+		case Interface::GetTabId()	: Interface::Show(Direction);
+		case System::GetTabId()		: System::Show(Direction);
+	}
+
+	if (G_LibSettingsController_CurrentActiveTab != Profile::GetTabId() && Profile::HasUnsavedChanges()) {
+		ManiaPlanet.Dialog_CommitProfileChanges();
+	}
+
+	UpdateApplyButton();
+
+	LayerSettingsTabs::SetActiveTab(_TabId);
+}
+
+Void UpdateTabsVisibility() {
+	declare IsNonEmptyTitle = ManiaPlanet.LoadedTitle != Null && ManiaPlanet.LoadedTitle.BaseTitleId != "";
+	declare HasProfileLoaded = (ManiaPlanet.UserMgr.MainUserProfile != Null) && ManiaPlanet.PersistentIsReady;
+
+	LayerSettingsTabs::SetTabVisibility(Profile::GetTabId()		, HasProfileLoaded);
+	LayerSettingsTabs::SetTabVisibility(Inputs::GetTabId()		, IsNonEmptyTitle);
+	LayerSettingsTabs::SetTabVisibility(Stereo3D::GetTabId()	, False); 	// Currently unavailable
+	LayerSettingsTabs::SetTabVisibility(Interface::GetTabId()	, IsNonEmptyTitle && HasProfileLoaded);
+
+	if (!G_LibSettingsController_PrevIsProfileLoaded && HasProfileLoaded) {
+		G_LibSettingsController_PrevIsProfileLoaded = True;
+		SetActiveTab(Graphics::GetTabId());	// default to ProfileTab if available
+	}
+	if (!LayerSettingsTabs::GetTabVisibility(G_LibSettingsController_CurrentActiveTab)) {
+		SetActiveTab(Graphics::GetTabId());
+	}
+}
+
+Void Load() {
+	Profile::Load();
+	Graphics::Load();
+	Sound::Load();
+	Inputs::Load();
+	Stereo3D::Load();
+	Interface::Load();
+	System::Load();
+
+	LayerWidget::Build();
+	LayerSettingsTabs::Build();
+
+	yield;
+
+	SetVisibility(False);
+	SetActiveTab(Graphics::GetTabId());
+	UpdateTabsVisibility();
+
+	ToolBarPlanetsVisible = False;
+	ToolBarSettingsVisible = False;
+}
+
+Void Loop() {
+	declare ColorScheme_LatestChangeCount = ColorScheme::GetLatestChangeCount();
+	declare LibEvents_LatestChangeCount = EventsConsumer::GetLatestChangeCount();
+
+	// Handle PluginEvents from TitlePack
+	declare SettingsStructs::K_PluginEvents PluginEvents for System;
+	declare TmpPluginEvents = PluginEvents.Events;
+	foreach (Index => PluginEvent in TmpPluginEvents) {
+		switch (PluginEvent.Type) {
+			case SettingsStructs::C_PluginEventType_DisplaySettings: {
+				declare Boolean Visibility;
+				if (PluginEvent.Data == "1" || TL::ToLowerCase(PluginEvent.Data) == "true") Visibility = True;
+				SetVisibility(Visibility);
+				PluginEvents.Events.removekey(Index);
+			}
+		}
+	}
+
+	if(	PendingEvents.count == 0 &&
+			!G_LibSettingsController_SettingsMenuIsVisible && 
+			G_LibEvents_PreviousChangeCount == LibEvents_LatestChangeCount && 
+			G_ColorScheme_PreviousChangeCount == ColorScheme_LatestChangeCount )
+			return;
+			
+	Profile::Loop();
+	Graphics::Loop();
+	Sound::Loop();
+	Inputs::Loop();
+	Stereo3D::Loop();
+	Interface::Loop();
+	System::Loop();
+
+	// ---------------------------------- //
+	// Color scheme change
+	if (G_ColorScheme_PreviousChangeCount != ColorScheme_LatestChangeCount) {
+		declare PrimaryColor	= ColorScheme::GetPrimaryColor();
+		declare SecondaryColor	= ColorScheme::GetSecondaryColor();
+		
+		LayerWidget::SetColor(PrimaryColor);
+		LayerSettingsTabs::SetColors(PrimaryColor, SecondaryColor);
+		Profile::SetLayerColor(PrimaryColor);
+		Graphics::SetLayerColor(PrimaryColor);
+		Sound::SetLayerColor(PrimaryColor);
+		Inputs::SetLayerColor(PrimaryColor);
+		Stereo3D::SetLayerColor(PrimaryColor);
+		Interface::SetLayerColor(PrimaryColor);
+		System::SetLayerColor(PrimaryColor);
+		G_ColorScheme_PreviousChangeCount = ColorScheme_LatestChangeCount;
+	}
+
+	// ---------------------------------- //
+	// Pending internal events
+	if (G_LibEvents_PreviousChangeCount != LibEvents_LatestChangeCount) {
+		foreach (Event in EventsConsumer::PendingEvents()) {
+			// ---------------------------------- //
+			// Open chat
+			switch (Event.Action) {
+				case "OpenSettingsMenu" : {
+					SetVisibility(True);
+					SetActiveTab(Event.Param);
+					EventsConsumer::PassOn(Event);
+				}
+			}
+		}
+
+		EventsConsumer::DestroyPassedEvents();
+		G_LibEvents_PreviousChangeCount = LibEvents_LatestChangeCount;
+	}
+
+	if (G_LibSettingsController_PrevHasGraphicsChanges 	!= Graphics::HasPendingChanges() 	|| 
+		G_LibSettingsController_PrevHasSystemChanges 	!= System::HasPendingChanges() 		||
+		G_LibSettingsController_PrevHasAudioChanges		!= Sound::HasPendingChanges()		)
+	{
+		G_LibSettingsController_PrevHasGraphicsChanges 	= Graphics::HasPendingChanges();
+		G_LibSettingsController_PrevHasSystemChanges 	= System::HasPendingChanges();
+		G_LibSettingsController_PrevHasAudioChanges		= Sound::HasPendingChanges();
+		UpdateApplyButton();
+	}
+
+	if (ManiaPlanet.LoadedTitle != Null) {
+		if (G_LibSettingsController_PrevLoadedTitleId != ManiaPlanet.LoadedTitle.Id) {
+			G_LibSettingsController_PrevLoadedTitleId = ManiaPlanet.LoadedTitle.Id;
+
+			Interface::Private_UpdateInterfaceSettings();
+			Inputs::Private_UpdateInputsSettings();
+			UpdateTabsVisibility();
+		}
+	}
+
+	else if (G_LibSettingsController_PrevLoadedTitleId != NullId) {
+		G_LibSettingsController_PrevLoadedTitleId = NullId;
+
+		Interface::Private_UpdateInterfaceSettings();
+		Inputs::Private_UpdateInputsSettings();
+		UpdateTabsVisibility();
+	}
+
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			switch (Event.CustomEventType) {
+				case "ToggleSettingsMenu" : {
+					SetVisibility(!G_LibSettingsController_SettingsMenuIsVisible);
+				}
+
+				case "CloseSettingsMenu" : {
+					SetVisibility(False);
+				}
+
+				case "ApplySettingsChanges" : {
+					if (G_LibSettingsController_CurrentActiveTab == Graphics::GetTabId()) {
+						ApplyGraphicsSettings();
+					} else if (G_LibSettingsController_CurrentActiveTab == System::GetTabId()) {
+						ApplySystemSettings();
+					} else if (G_LibSettingsController_CurrentActiveTab == Sound::GetTabId()) {
+						ApplySoundSettings();
+					}
+				}
+
+				case "SetActiveTab" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					SetActiveTab(Event.CustomEventData[0]);
+				}
+			}
+		}
+	}
+
+	if (G_LibSettingsController_SettingsMenuIsVisible) {
+		foreach (Event in Input.PendingEvents) {
+			if (Event.Type == CInputEvent::EType::PadButtonPress) {
+				LayerSettingsTabs::ShowGamepadButtons(Event.Pad.Type);
+			}
+		}
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CManiaAppEvent::EType::KeyPress) {
+				LayerSettingsTabs::ShowGamepadButtons(CInputPad::EPadType::Keyboard);
+			}
+		}
+	}
+}

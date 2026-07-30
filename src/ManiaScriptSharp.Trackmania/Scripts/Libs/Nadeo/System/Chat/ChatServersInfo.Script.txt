@@ -1,0 +1,95 @@
+
+#Struct SServerInfo {
+	Text	Login;
+	Text	Name;
+	Text	JoinLink;
+	Text	GameMode;
+	Text	ModeStatus;
+	Text[]	Contacts;
+	Integer	NbPlayers;
+	Integer	NbPlayersMax;
+	Boolean	IsLobby;
+	Boolean	Private;
+}
+
+declare SServerInfo[Text] G_LibCharServersInfo_ServersInfo;
+declare Boolean G_LibCharServersInfo_DataUpdate;
+
+Void Private_UpdateServersList() {
+	G_LibCharServersInfo_ServersInfo.clear();
+
+	declare SServerInfo[Text] Temp;
+	declare Integer[Text] NbPlayers;
+
+	foreach (Contact in ManiaPlanet.ChatManager.OnlineBuddies) {
+		declare ServerLogin = Contact.CurrentServerLogin;
+		if (ServerLogin == "") continue;
+
+		if (!Temp.existskey(ServerLogin)) {
+			declare SServerInfo ServerInfo;
+
+			ServerInfo.Login		= ServerLogin;
+			ServerInfo.Name			= Contact.CurrentServerName;
+			ServerInfo.JoinLink		= Contact.CurrentServerJoinLink;
+			ServerInfo.GameMode		= Contact.CurrentServerModeName;
+			ServerInfo.ModeStatus	= Contact.CurrentServerModeStatus;
+			ServerInfo.NbPlayers	= Contact.CurrentServerPlayerCount - 1; ///< Remove server account, THX GUGLI xd
+			ServerInfo.NbPlayersMax	= Contact.CurrentServerPlayerCountMax;
+			ServerInfo.IsLobby		= Contact.CurrentServer_IsLobby;
+			ServerInfo.Private		= Contact.CurrentServer_IsPrivate || Contact.CurrentServer_IsPrivateSpec;
+
+			Temp[ServerInfo.Login] = ServerInfo;
+		}
+
+		// Lists the contact as server player
+		Temp[ServerLogin].Contacts.add(Contact.Login);
+		NbPlayers[ServerLogin] = -Temp[ServerLogin].NbPlayers;
+	}
+
+	// Sort servers by number of friends on them
+	NbPlayers = NbPlayers.sort();
+
+	foreach (ServerLogin => NbPlayersOnServer in NbPlayers) {
+		G_LibCharServersInfo_ServersInfo[ServerLogin] = Temp[ServerLogin];
+	}
+
+	G_LibCharServersInfo_DataUpdate = True;
+}
+
+Void Load() {
+	Private_UpdateServersList();
+}
+
+Void Loop() {
+	foreach (Event in ManiaPlanet.ChatManager.PendingEvents) {
+		switch (Event.Type) {
+			case CChatEvent::EType::BuddyChange : {
+				Private_UpdateServersList();
+			}
+			case CChatEvent::EType::ContactListChange : {
+				Private_UpdateServersList();
+			}
+		}
+	}
+}
+
+SServerInfo[] GetServersList() {
+	declare SServerInfo[] ServersInfo;
+	foreach (ServerInfo in G_LibCharServersInfo_ServersInfo) ServersInfo.add(ServerInfo);
+	return ServersInfo;
+}
+
+SServerInfo GetServerInfo(Text _Login) {
+	if (G_LibCharServersInfo_ServersInfo.existskey(_Login)) {
+		return G_LibCharServersInfo_ServersInfo[_Login];
+	}
+
+	declare SServerInfo ServerInfo;
+	return ServerInfo;
+}
+
+Boolean DataUpdate() {
+	declare IsUpdate = G_LibCharServersInfo_DataUpdate;
+	G_LibCharServersInfo_DataUpdate = False;
+	return IsUpdate;
+}

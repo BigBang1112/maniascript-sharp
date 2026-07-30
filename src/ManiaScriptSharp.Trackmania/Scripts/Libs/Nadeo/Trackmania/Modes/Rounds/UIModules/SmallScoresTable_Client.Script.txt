@@ -1,0 +1,263 @@
+/**
+ *  UI module: SmallScoresTable client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/Rounds/UIModules/SmallScoresTable_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/Rounds/UIModules/SmallScoresTable_Common.Script.txt" as UIModules_SmallScoresTable_Common
+#Include "Libs/Nadeo/CMGame/Components/PlayerName.Script.txt" as PlayerName
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MaxPlayersInRanking 8
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_SmallScoresTable_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_SmallScoresTable_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	declare Text Text_RoundRanking =  TL::ToUpperCase(_("Race ranking"));
+
+	declare Text Ml_Players = "";
+	declare Real PosY = 0.;
+	for (PlayerIndex, 0, C_MaxPlayersInRanking-1) {
+		PosY = -4.5 * PlayerIndex;
+		Ml_Players ^= """
+			<frameinstance pos="0 {{{PosY}}}" modelid="framemodel-player" />
+		""";
+	}
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-default" textsize="3" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}"/>
+</stylesheet>
+<framemodel id="framemodel-player">
+	<label id="label-rank" pos="1 0" size="3.5 4" valign="center2" halign="center" textsize="1" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"/>
+	<frameinstance id="playername-name" z-index="2" modelid="{{{PlayerName::C_Name}}}" pos="3 0" data-size="24 5" data-valign="center" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-textsize="1." />
+	<label id="label-roundpoints" pos="27 0" size="6 4" valign="center2" textsize="1" textprefix="$i" class="text-default"/>
+	<label id="label-time" pos="47 0" size="13 4" halign="right" valign="center2" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" textsize="1" textprefix="$i" class="text-default"/>
+</framemodel>
+<frame hidden="1" id="frame-global">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_SmallScoresTable_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-small-scores-table">
+			<label pos="23.5 -6.5" z-index="2" size="46 5" halign="center" valign="center2" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" text="{{{Text_RoundRanking}}}" textsize="2"/>
+			<quad pos="-2 -2" z-index="1" size="50 46" opacity="0.4" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}"/>
+			<frame pos="0 -12" z-index="2" id="frame-players-list">
+				{{{Ml_Players}}}
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+""",
+"""
+declare CMlFrame[] G_Frames_Player;
+
+Void UpdateSlot(Integer _SlotNb, CSmScore _Score, Integer _Time, Text _CustomResult) {
+	if (!G_Frames_Player.existskey(_SlotNb)) return;
+	declare Frame_Player <=> G_Frames_Player[_SlotNb];
+	declare Label_Time <=> (Frame_Player.GetFirstChild("label-time") as CMlLabel);
+	declare Label_RoundPoints <=> (Frame_Player.GetFirstChild("label-roundpoints") as CMlLabel);
+	declare PlayerName_Name <=> (Frame_Player.GetFirstChild("playername-name") as CMlFrame);
+	declare Label_Rank <=> (Frame_Player.GetFirstChild("label-rank") as CMlLabel);
+
+	if (_Score != Null) {
+		if (!Frame_Player.Visible) Frame_Player.Visible = True;
+		Label_Rank.Value = ""^(_SlotNb+1);
+		{{{PlayerName::P}}}SetUser(This, PlayerName_Name, _Score.User, False);
+
+		if (_Score.RoundPoints > 0) Label_RoundPoints.Value = "+"^_Score.RoundPoints;
+		else if (_Score.RoundPoints == 0) Label_RoundPoints.Value = "";
+		else Label_RoundPoints.Value = TL::ToText(_Score.RoundPoints);
+
+		if (_CustomResult != "") Label_Time.Value = _CustomResult;
+		else Label_Time.Value = TL::TimeToText(_Time, True, True);
+
+		declare Owner <=> MV_Utils::GetOwner(This);
+		if (Owner != Null && Owner.Score != Null && Owner.Score == _Score) {
+			Label_Time.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_TextOwnTime))}}};
+			Label_RoundPoints.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_TextOwnTime))}}};
+		} else {
+			Label_Time.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}};
+			Label_RoundPoints.TextColor = CL::HexToRgb("{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}");
+		}
+	} else {
+			if (Frame_Player.Visible) Frame_Player.Visible = False;
+	}
+}
+
+Void UpdateSmallScoresTable(Integer[Text] _CustomTimes, Text[Text] _CustomResults) {
+	declare Integer[CSmScore] FinishSort;
+	foreach (Score in Scores) {
+		// Use custom times to sort the scores if we have any
+		if (_CustomTimes.count > 0) {
+			if (Score.User != Null && _CustomTimes.existskey(Score.User.WebServicesUserId)) {
+				FinishSort[Score] = _CustomTimes[Score.User.WebServicesUserId];
+			}
+		} else if (Score.PrevRaceTimes.count > 0 && Score.PrevRaceTimes[Score.PrevRaceTimes.count -1] >= 0) {
+			FinishSort[Score] = Score.PrevRaceTimes[Score.PrevRaceTimes.count - 1];
+		}
+	}
+	FinishSort = FinishSort.sort();
+
+	declare I = 0;
+	foreach (Score => Time in FinishSort) {
+		declare Text CustomResult = "";
+		if (Score.User != Null) CustomResult = _CustomResults.get(Score.User.WebServicesUserId, "");
+		UpdateSlot(I, Score, Time, CustomResult);
+		I += 1;
+		if (I > G_Frames_Player.count - 1) break;
+	}
+	for (J, I, G_Frames_Player.count - 1) {
+		UpdateSlot(J, Null, -1, "");
+	}
+}
+
+***MainInit***
+***
+declare netread Integer[Text] Net_Rounds_SmallScoresTable_CustomTimes for Teams[0];
+declare netread Text[Text] Net_Rounds_SmallScoresTable_CustomResults for Teams[0];
+declare netread Integer Net_Rounds_SmallScoresTable_CustomValuesUpdate for Teams[0];
+
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_SmallScoresTable;
+declare CMlFrame Frame_PlayersList;
+
+// Need to do this to work in splitcreen
+declare Integer SmallScoresTable_Update for Teams[0];
+declare Integer Update;
+declare Integer CustomValuesUpdate;
+
+declare Boolean DisplayModule;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_SmallScoresTable <=> (Page.GetFirstChild("frame-small-scores-table") as CMlFrame);
+Frame_PlayersList <=> (Page.GetFirstChild("frame-players-list") as CMlFrame);
+foreach (Control in Frame_PlayersList.Controls) {
+	G_Frames_Player.add((Control as CMlFrame));
+}
+
+DisplayModule = Frame_Global.Visible;
+SmallScoresTable_Update = 0;
+Update = 0;
+CustomValuesUpdate = 0;
+
+if (SplitScreenCount > 1) MV_Utils::AutoScaleSplitScreen(Frame_Global, 0.5, 1.);
+// Must move this UI to respect safe area on Playstation (see /trackmania-next/tmnext/-/issues/5400)
+if (Platform::IsSony(System)) {
+	if (SplitScreenCount > 1) {
+		Frame_SmallScoresTable.RelativePosition_V3.X = Frame_SmallScoresTable.RelativePosition_V3.X + 28.;
+	} else {
+		Frame_SmallScoresTable.RelativePosition_V3.X = Frame_SmallScoresTable.RelativePosition_V3.X + 12.;
+	}
+}
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	sleep(250);
+
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_Rounds_SmallScoresTable_IsVisible for Owner;
+		if (DisplayModule != Net_Rounds_SmallScoresTable_IsVisible) {
+			DisplayModule = Net_Rounds_SmallScoresTable_IsVisible;
+			Frame_Global.Visible = Net_Rounds_SmallScoresTable_IsVisible;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Owner != Null) {
+		declare OneFinish = False;
+
+		foreach (Player in Players) {
+			if (Player.Score == Null) continue;
+
+			declare SmallScoresTable_PrevRaceTime for Player = -1;
+			declare SmallScoresTable_RoundPoints for Player = -1;
+			declare SmallScoresTable_PrevTeamNum for Player = -1;
+
+			if (Player.Score.PrevRaceTimes.count > 0 && SmallScoresTable_PrevRaceTime != Player.Score.PrevRaceTimes[Player.Score.PrevRaceTimes.count -1]) {
+				SmallScoresTable_PrevRaceTime = Player.Score.PrevRaceTimes[Player.Score.PrevRaceTimes.count -1];
+				SmallScoresTable_Update += 1;
+			}
+
+			if (SmallScoresTable_RoundPoints != Player.Score.RoundPoints) {
+				SmallScoresTable_RoundPoints = Player.Score.RoundPoints;
+				SmallScoresTable_Update += 1;
+			}
+
+			if (SmallScoresTable_PrevTeamNum != Player.Score.TeamNum){
+				SmallScoresTable_PrevTeamNum = Player.Score.TeamNum;
+				SmallScoresTable_Update += 1;
+			}
+
+			if (Player.Score.PrevRaceTimes.count > 0 && Player.Score.PrevRaceTimes[Player.Score.PrevRaceTimes.count -1] >= 0) OneFinish = True;
+		}
+
+		if (
+			Update != SmallScoresTable_Update ||
+			CustomValuesUpdate != Net_Rounds_SmallScoresTable_CustomValuesUpdate
+		) {
+			Update = SmallScoresTable_Update;
+			CustomValuesUpdate = Net_Rounds_SmallScoresTable_CustomValuesUpdate;
+			UpdateSmallScoresTable(Net_Rounds_SmallScoresTable_CustomTimes, Net_Rounds_SmallScoresTable_CustomResults);
+		}
+
+		if (OneFinish && !Frame_SmallScoresTable.Visible) Frame_SmallScoresTable.Visible = True;
+		else if	(!OneFinish && Frame_SmallScoresTable.Visible) Frame_SmallScoresTable.Visible = False;
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	PlayerName::ComponentV2()
+],
+[]
+	);
+}

@@ -1,0 +1,867 @@
+/**
+ * UI module: Ranking client side
+ */
+#Const Version "1.1.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/COTDQualifications/UIModules/Ranking_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as Grid
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Components/ButtonIcon2.Script.txt" as ButtonIcon
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as Button
+#Include "Libs/Nadeo/Trackmania/Components/PopUpMultiChoice.Script.txt" as PopUpMultiChoice
+#Include "Libs/Nadeo/Trackmania/Components/ProfilePlayerInfo.Script.txt" as ProfilePlayerInfo
+#Include "Libs/Nadeo/Trackmania/Modes/COTDQualifications/Constants.Script.txt" as COTDConst
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Modes/COTDQualifications/UIModules/Ranking_Common.Script.txt" as UIModules_Ranking_Common
+#Include "Libs/Nadeo/CMGame/Components/PlayerName.Script.txt" as PlayerName
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_NavGroup_General "navgroup-cotd-ranking"
+#Const C_NavGroup_MouseOnly "navgroup-cotd-ranking-mouse-only"
+#Const C_Class_Score "class-cotd-ranking-score"
+#Const P "COTDQualifications_Ranking_"
+
+#Const C_PlayerSlots_Nb 10
+#Const C_EnableHideButton False
+#Const C_EnableNewRankAnimation True
+#Const C_NewRankDisplayDuration 5000
+
+#Const C_Col_Rank 0
+#Const C_Col_Name 1
+#Const C_Col_Time 2
+
+#Const C_Row_Cancel 0
+#Const C_ControllerInfos [
+	//L16N [Record] Text displayed to inform the player how to go back to the race when navigating through the cup of the day scores UI with a controller.
+	0 => ["cancel", _("Back to race")]
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_Ranking_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Ranking_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the record component
+Text Component() {
+	return MV::Component(
+		GetId()^"_Component",
+		"",
+		"",
+		"""
+Boolean {{{P}}}IsModuleAvailable() {
+	declare netread Integer[Text] Net_COTDQualifications_Ranking_Leaderboard for Teams[0];
+	declare Boolean COTDQualifications_Ranking_IsContentDisplayed for ClientUI = False;
+	return COTDQualifications_Ranking_IsContentDisplayed && Net_COTDQualifications_Ranking_Leaderboard.count > 0;
+}
+
+Boolean {{{P}}}IsControllerNavigationEnabled() {
+	declare Boolean COTDQualifications_Ranking_IsControllerNavigationEnabled for ClientUI;
+	return COTDQualifications_Ranking_IsControllerNavigationEnabled;
+}
+
+Boolean {{{P}}}UpdateControllerNavigationState(Boolean _NewState) {
+	declare Boolean COTDQualifications_Ranking_IsControllerNavigationEnabled for ClientUI;
+	COTDQualifications_Ranking_IsControllerNavigationEnabled = _NewState;
+	return _NewState;
+}
+Boolean {{{P}}}EnableControllerNavigation() {
+	return {{{P}}}UpdateControllerNavigationState(True);
+}
+Boolean {{{P}}}DisableControllerNavigation() {
+	return {{{P}}}UpdateControllerNavigationState(False);
+}
+		""",
+		[],
+		[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	/* Variables */
+	declare Vec2 Size_ScoreRow = <54., 5.>;
+	declare Vec2 Size_Header = <Size_ScoreRow.X, 8.>;
+	declare Vec2 Size_RulesButton = <Size_Header.Y, Size_Header.Y>;
+	declare Vec2 Size_Background = <Size_ScoreRow.X, Size_Header.Y + Size_ScoreRow.Y * (C_PlayerSlots_Nb + 1)>;
+	declare Vec2 Size_Title = <Size_Background.X - Size_RulesButton.X - 4., Size_Header.Y>;
+	declare Vec2 Pos_Scores = <0., Size_Background.Y*0.5 - Size_Header.Y>;
+	declare Real TextSize_ScoreLabels = 1.;
+
+	/* Scores list */
+	declare Grid::K_GridConfig GridConfig_Scores = Grid::Create(Size_ScoreRow.X, 1., 1., Grid::C_Direction_Right);
+	GridConfig_Scores = Grid::AddColumn(GridConfig_Scores, C_Col_Rank, 0.1, Grid::C_Align_Right);
+	GridConfig_Scores = Grid::AddColumn(GridConfig_Scores, C_Col_Name, 0.6, Grid::C_Align_Left);
+	GridConfig_Scores = Grid::AddColumn(GridConfig_Scores, C_Col_Time, 0.3, Grid::C_Align_Right);
+	declare Grid::K_Grid Grid_Scores = Grid::Compile(GridConfig_Scores);
+
+	declare Text ML_Scores ="";
+	for (Index, 0, C_PlayerSlots_Nb - 1) {
+		declare Text UpTarget = "button-score-"^ML::Clamp(Index-1, 0, C_PlayerSlots_Nb - 1);
+		declare Text DownTarget = "button-score-"^ML::Clamp(Index+1, 0, C_PlayerSlots_Nb - 1);
+		ML_Scores ^= """
+			<frameinstance
+				id="button-score-{{{Index}}}" pos="{{{-Size_ScoreRow.X*0.5}}} {{{-Index * Size_ScoreRow.Y}}}"
+				modelid="framemodel-score-row"
+				class="{{{Navigation::C_Class}}} {{{C_Class_Score}}}"
+				data-nav-inputs="select;cancel;action1;action2;up;down"
+				data-nav-targets="_;_;_;_;{{{UpTarget}}};{{{DownTarget}}}"
+				data-nav-group="{{{C_NavGroup_General}}}"
+				data-nav-zone="quad-activation"
+			/>
+		""";
+	}
+
+	// Controller infos (same as Record_Client.Script.txt)
+	declare Text ML_ControllerInfos = "";
+	declare Real SizeY_ControllerInfo = 5.;
+	declare Grid::K_GridConfig GridConfig_ControllerInfos = Grid::Create(C_ControllerInfos.count * SizeY_ControllerInfo, 0., 0., Grid::C_Direction_Bottom);
+	GridConfig_ControllerInfos = Grid::AddRow(GridConfig_ControllerInfos, C_Row_Cancel, SizeY_ControllerInfo, Grid::C_Align_Center);
+	declare Grid::K_Grid Grid = Grid::Compile(GridConfig_ControllerInfos);
+	foreach (Action => ActionInfos in C_ControllerInfos) {
+		ML_ControllerInfos ^= """
+			<frame id="frame-info-{{{Action}}}" class="{{{Grid::C_Class_Element}}}" pos="{{{-Size_ScoreRow.X*0.5}}} {{{Grid.Pos[Action]}}}" data-grid-row="{{{Action}}}">
+				<frameinstance id="buttonicon-info" modelid="{{{ButtonIcon::C_Name}}}" data-size="6 6" data-halign="center" data-valign="center" data-bind="{{{ActionInfos[0]}}}"/>
+				<label id="label-info" text="{{{ActionInfos[1]}}}" pos="5 0" class="text-semibold" halign="left" valign="center2" size="{{{Size_ScoreRow.X*0.9}}} 10" textsize="2"/>
+			</frame>
+		""";
+	}
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-semibold" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textprefix="$i$t" textcolor="FFFFFF"/>
+	<style class="text-extrabold" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$i$t" textcolor="FFFFFF"/>
+</stylesheet>
+
+<!-- Frame models -->
+<framemodel id="framemodel-score-row">
+	<quad id="quad-activation" size="{{{Size_ScoreRow.X}}} {{{Size_ScoreRow.Y}}}" class="{{{Navigation::C_Class_ActivationZone}}}" opacity="0" scriptevents="1" z-index="10"/>
+	<quad id="quad-bg" size="{{{Size_ScoreRow.X}}} {{{Size_ScoreRow.Y}}}" bgcolor="FFFFFF" opacity="0." z-index="0"/>
+	<label id="label-rank" class="text-semibold" pos="{{{Grid_Scores.Pos[C_Col_Rank]}}} {{{-Size_ScoreRow.Y * 0.55}}}" size="{{{Grid_Scores.Size[C_Col_Rank]}}} {{{Size_ScoreRow.Y - 2}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textsize="{{{TextSize_ScoreLabels}}}" halign="right" z-index="5" />
+	<frameinstance id="playername-name" z-index="5" modelid="{{{PlayerName::C_Name}}}" pos="{{{Grid_Scores.Pos[C_Col_Name]}}} {{{-Size_ScoreRow.Y * 0.55}}}" data-size="{{{Grid_Scores.Size[C_Col_Name]}}} {{{Size_ScoreRow.Y - 2}}}" data-halign="left" data-valign="center" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-textsize="{{{TextSize_ScoreLabels}}}" />
+	<label id="label-time" class="text-semibold" pos="{{{Grid_Scores.Pos[C_Col_Time]}}} {{{-Size_ScoreRow.Y * 0.55}}}" size="{{{Grid_Scores.Size[C_Col_Time]}}} {{{Size_ScoreRow.Y - 2}}}" textprefix="$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textsize="{{{TextSize_ScoreLabels}}}" halign="right" z-index="5" />
+	<frameinstance id="loading-spinner-rank" modelid="{{{LoadingSpinner::C_Name}}}" pos="{{{Grid_Scores.Pos[C_Col_Rank]-2}}} {{{-Size_ScoreRow.Y * 0.5}}}" scale="0.25" z-index="5" />
+</framemodel>
+
+<!-- Pop-ups -->
+<frame id="frame-profile" z-index="11" hidden="1">
+	<frameinstance modelid="{{{ProfilePlayerInfo::C_Name}}}" data-enable-players-pager="0" data-enable-zone-selection="0" data-enable-my-access-info="0" data-enable-garage="0"/>
+</frame>
+<frameinstance
+	id="popupmultichoice-rules" z-index="10"
+	modelid="{{{PopUpMultiChoice::C_Name}}}"
+	hidden="1"
+/>
+
+<!-- Frame global -->
+<frame id="frame-global" size="320 180" halign="center" valign="center" z-index="-2" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Ranking_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-content">
+			<frameinstance
+				id="button-hide" pos="{{{-Size_Background.X*0.5}}} {{{Size_Background.Y*0.5 + 1.}}}" z-index="3"
+				modelid="{{{Button::C_Name}}}"
+				class="{{{Navigation::C_Class}}}"
+				data-size="8 8"
+				data-iconsize="8 8"
+				data-bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}"
+				data-focuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}"
+				data-iconcolortype="{{{Button::C_ColorType_Colorize}}}"
+				data-iconcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_IconLight)}}}"
+				data-iconfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_IconLight)}}}"
+				data-icon="{{{Icons::C_Icon_128x128_Arrow_Left}}}"
+				data-iconfocus="{{{Icons::C_Icon_128x128_Arrow_Left}}}"
+				data-opacityunfocus=".6"
+				data-iconopacityunfocus=".3"
+				data-halign="left" data-valign="bottom"
+				data-nav-inputs="select;cancel"
+				data-nav-targets="_;_"
+				data-nav-group="{{{C_NavGroup_MouseOnly}}}"
+				data-nav-zone="{{{Button::C_NavZone}}}"
+				hidden="{{{!C_EnableHideButton}}}"
+			/>
+
+			<!-- Hide the content of this frame with the 'button-hide' -->
+			<frame id="frame-hideable-content">
+				<quad id="quad_bg" size="{{{Size_Background.X}}} {{{Size_Background.Y}}}" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" halign="center" valign="center" opacity="0.6" z-index="0"/>
+				<label id="label-title" pos="{{{-Size_RulesButton.X*0.5}}} {{{Size_Background.Y*0.47}}}" size="{{{Size_Title.X}}} {{{Size_Title.Y}}}" class="text-extrabold" text="{{{COTDConst::C_Text_Title}}}" textsize="3.5" valign="top" z-index="3"/>
+				<frame id="frame-clip-new-rank" pos="{{{Pos_Scores.X}}} {{{Pos_Scores.Y*0.965}}}" size="{{{Size_Background.X}}} {{{Size_Background.Y}}}" halign="center" valign="center" z-index="3">
+					<label id="label-new-rank" size="{{{Size_ScoreRow.X*0.9}}} {{{Size_ScoreRow.Y}}}" class="text-semibold" textsize="1.75" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" valign="top" hidden="1"/>
+				</frame>
+				<frameinstance id="buttonicon-rules" modelid="{{{ButtonIcon::C_Name}}}" pos="{{{Size_Background.X*0.52}}} {{{Size_Background.Y*0.44}}}" data-size="6 6" data-halign="left" data-valign="center" data-bind="action2" hidden="1" z-index="4"/>
+				<frameinstance
+					id="button-rules" pos="{{{Size_Background.X*0.5}}} {{{Size_Background.Y*0.5}}}" z-index="4"
+					modelid="{{{Button::C_Name}}}"
+					class="{{{Navigation::C_Class}}}"
+					data-opacityunfocus="0.6"
+					data-size="{{{Size_RulesButton.X}}} {{{Size_RulesButton.Y}}}"
+					data-labelsize="{{{Size_RulesButton.X}}} {{{Size_RulesButton.Y}}}"
+					data-bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}"
+					data-focuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentTwo)}}}"
+					data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+					data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}"
+					data-textopacityunfocus="0.6"
+					data-textitalicslope="0.1"
+					data-textypos="-0.57"
+					data-textsize="5"
+					data-text="?"
+					data-halign="right" data-valign="top"
+					data-nav-inputs="select;cancel"
+					data-nav-targets="_;_"
+					data-nav-group="{{{C_NavGroup_MouseOnly}}}"
+					data-nav-zone="{{{Button::C_NavZone}}}"
+				/>
+				<frame id="frame-clip-scores" pos="{{{Pos_Scores.X}}} {{{Pos_Scores.Y}}}" size="{{{Size_Background.X}}} {{{Size_ScoreRow.Y*C_PlayerSlots_Nb}}}" halign="center" valign="top" z-index="3">
+					<frame id="frame-scores">
+						{{{ML_Scores}}}
+					</frame>
+				</frame>
+				<frameinstance id="frame-score-owner" modelid="framemodel-score-row" pos="{{{-Size_ScoreRow.X*0.5}}} {{{-Size_Background.Y*0.5 + Size_ScoreRow.Y}}}" z-index="3"/>
+				<frame id="frame-controller-info" pos="4 {{{-Size_Background.Y*0.53}}}" class="{{{Grid::C_Class_Container}}}" z-index="5" hidden="1">
+					{{{ML_ControllerInfos}}}
+				</frame>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/Modes/COTDQualifications/Constants.Script.txt" as COTDConst
+#Include "Libs/Nadeo/Trackmania/Modes/COTDQualifications/NetShare.Script.txt" as NetShare
+#Include "Libs/Nadeo/Trackmania/Structures/ReportStruct.Script.txt" as ReportStruct
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+
+#Struct K_Controls {
+	CMlFrame Frame_Global;
+	CMlFrame ButtonIcon_Rules;
+	CMlFrame Button_Hide;
+	CMlFrame Button_Rules;
+	CMlFrame Frame_Content;
+	CMlFrame Frame_ControllerInfo;
+	CMlFrame Frame_HideableContent;
+	CMlFrame Frame_Profile;
+	CMlFrame Frame_ScoreOwner;
+	CMlLabel Label_OwnerRank;
+	CMlFrame PlayerName_OwnerName;
+	CMlLabel Label_OwnerTime;
+	CMlFrame LoadingSpinner_OwnerRank;
+	CMlFrame Frame_Scores;
+	CMlFrame PopUpMultiChoice_Rules;
+	CMlLabel Label_NewRank;
+	CMlLabel Label_Title;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Boolean DisplayModule;
+	Text CompetitionName;
+}
+#Struct K_RankingEntry {
+	Text AccountId;
+	Integer Time;
+}
+
+#Const C_State_Null K_State {
+	Controls = K_Controls {},
+	DisplayModule = False,
+	CompetitionName = ""
+}
+
+#Const C_InputPriority_Scores 10
+#Const C_ScoresScale 1.05
+#Const C_EnableNewRankAnimation {{{dump(C_EnableNewRankAnimation)}}}
+#Const C_NewRankDisplayDuration {{{dump(C_NewRankDisplayDuration)}}}
+
+#Const C_Status_Pending 0
+#Const C_Status_Requesting 1
+#Const C_Status_Complete 2
+""",
+"""
+K_State SetVisibility(K_State _State, Boolean _DisplayModule) {
+	declare K_State State = _State;
+
+	State.DisplayModule = _DisplayModule;
+
+	State.Controls.Frame_Global.Visible = State.DisplayModule;
+
+	return State;
+}
+
+K_State SetCompetitionName(K_State _State, Text _CompetitionName) {
+	declare K_State State = _State;
+
+	State.CompetitionName = _CompetitionName;
+
+	declare Text PanelTitle;
+	declare Text RulesTitle;
+	declare Text RulesContent;
+
+	if (State.CompetitionName == "") {
+		PanelTitle = COTDConst::C_Text_Title;
+		RulesTitle = COTDConst::C_Text_Rules_TitleCOTD;
+		RulesContent = COTDConst::C_Text_Rules_ContentCOTD;
+	} else {
+		PanelTitle = TL::GetTranslatedText(State.CompetitionName);
+		RulesTitle = PanelTitle;
+		RulesContent = COTDConst::C_Text_Rules_ContentGeneric;
+	}
+
+	{{{PopUpMultiChoice::P}}}SetTitle(This, State.Controls.PopUpMultiChoice_Rules, RulesTitle, False);
+	{{{PopUpMultiChoice::P}}}SetDescription(This, State.Controls.PopUpMultiChoice_Rules, [
+		{{{PopUpMultiChoice::P}}}CreateDescriptionPart(RulesContent, <130., 30.>, 2.5, "{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}", "$i", <1., 1., 1.>, True)
+	], False);
+	{{{PopUpMultiChoice::P}}}RedrawPopUpMultiChoice(This, State.Controls.PopUpMultiChoice_Rules);
+
+	State.Controls.Label_Title.Value = PanelTitle;
+
+	return State;
+}
+
+// Display the player's profile associated to the given account id
+Void DisplayProfile(CMlFrame _Frame_Profile, Text _AccountId, Text _RecordDetail, Text _RecordId, Boolean _Display) {
+	_Frame_Profile.Visible = _Display && _AccountId != "";
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroup_General}}}", !_Frame_Profile.Visible);
+	{{{ProfilePlayerInfo::P}}}Enable(_Frame_Profile.Visible);
+	if (_Frame_Profile.Visible) {
+		{{{ProfilePlayerInfo::P}}}SetUserAccountId(_AccountId);
+		{{{ProfilePlayerInfo::P}}}SetUserRecord(_RecordDetail, _RecordId);
+	}
+}
+
+Void DisplayProfile(CMlFrame _Frame_Profile, Boolean _Display) {
+	DisplayProfile(_Frame_Profile, "", "", "", _Display);
+}
+
+Boolean IsWaitingForNewRank(Integer _LocalRaceTime, Integer _APIRaceTime) {
+	return (_LocalRaceTime > 0 && _LocalRaceTime < _APIRaceTime);
+}
+
+Void UpdateRanking(
+	K_State _State,
+	Integer[Text] _Leaderboard,
+	CSmPlayer _InputPlayer,
+	Integer _PlayerRank,
+	Integer _PlayerAPIRaceTime,
+	Integer _PlayerLocalRaceTime
+) {
+	// Update our own time
+	if (_InputPlayer != Null && _InputPlayer.User != Null) {
+		{{{PlayerName::P}}}SetUser(This, _State.Controls.PlayerName_OwnerName, InputPlayer.User, True);
+	}
+	if (IsWaitingForNewRank(_PlayerLocalRaceTime, _PlayerAPIRaceTime)) {
+		_State.Controls.Label_OwnerRank.Value = "";
+		{{{LoadingSpinner::P}}}StartAnimation(This, _State.Controls.LoadingSpinner_OwnerRank);
+	} else if (_PlayerRank > 0) {
+		_State.Controls.Label_OwnerRank.Value = ""^_PlayerRank;
+		{{{LoadingSpinner::P}}}StopAnimation(This, _State.Controls.LoadingSpinner_OwnerRank);
+	} else {
+		_State.Controls.Label_OwnerRank.Value = "-";
+		{{{LoadingSpinner::P}}}StopAnimation(This, _State.Controls.LoadingSpinner_OwnerRank);
+	}
+	if (_PlayerAPIRaceTime > 0) {
+		_State.Controls.Label_OwnerTime.Value = TL::TimeToText(_PlayerAPIRaceTime, True, True);
+	} else {
+		_State.Controls.Label_OwnerTime.Value = "--:--.---";
+	}
+	Tools::FitLabelValue(_State.Controls.Label_OwnerRank, {{{TextSize_ScoreLabels}}}, 0.1, 0.1);
+	Tools::FitLabelValue(_State.Controls.Label_OwnerTime, {{{TextSize_ScoreLabels}}}, 0.1, 0.1);
+
+	// Update top 10 leaderboard
+	declare K_RankingEntry[] Ranking;
+	foreach (AccountId => Time in _Leaderboard) {
+		Ranking.add(K_RankingEntry {
+			AccountId = AccountId,
+			Time = Time
+		});
+	}
+	foreach (Key => Control in _State.Controls.Frame_Scores.Controls) {
+		declare CMlFrame Frame_Score <=> (Control as CMlFrame);
+		declare Text COTDQualifications_Ranking_PlayerAccountId for Frame_Score;
+		declare Text COTDQualifications_Ranking_PlayerRecordDetail for Frame_Score = "";
+		declare Text COTDQualifications_Ranking_PlayerRecordId for Frame_Score = "";
+
+		Frame_Score.Visible = Key < Ranking.count;
+		{{{Navigation::P}}}Lock(Frame_Score, !Frame_Score.Visible);
+
+		if (Frame_Score.Visible) {
+			declare CMlLabel Label_Rank <=> (Frame_Score.GetFirstChild("label-rank") as CMlLabel);
+			declare CMlFrame PlayerName_Name <=> (Frame_Score.GetFirstChild("playername-name") as CMlFrame);
+			declare CMlLabel Label_Time <=> (Frame_Score.GetFirstChild("label-time") as CMlLabel);
+			declare CMlFrame LoadingSpinner_Rank <=> (Frame_Score.GetFirstChild("loading-spinner-rank") as CMlFrame);
+
+			declare K_RankingEntry RankingEntry = Ranking[Key];
+			COTDQualifications_Ranking_PlayerAccountId = RankingEntry.AccountId;
+
+			declare Integer Rank = Key + 1;
+			if (
+				_InputPlayer != Null &&
+				_InputPlayer.User != Null && (
+					(
+						_InputPlayer.User.WebServicesUserId == RankingEntry.AccountId && (
+							IsWaitingForNewRank(_PlayerLocalRaceTime, _PlayerAPIRaceTime) ||
+							_PlayerAPIRaceTime != RankingEntry.Time ||
+							_PlayerRank != Rank
+						)
+					) || (
+						_PlayerRank == Rank &&
+						_InputPlayer.User.WebServicesUserId != RankingEntry.AccountId
+					)
+				)
+			) {
+				Label_Rank.Value = "";
+				{{{LoadingSpinner::P}}}StartAnimation(This, LoadingSpinner_Rank);
+			} else {
+				Label_Rank.Value = ""^Rank;
+				{{{LoadingSpinner::P}}}StopAnimation(This, LoadingSpinner_Rank);
+			}
+
+			{{{PlayerName::P}}}SetAccountId(This, PlayerName_Name, RankingEntry.AccountId, True);
+
+			if (RankingEntry.Time > 0) {
+				Label_Time.Value = TL::TimeToText(RankingEntry.Time, True, True);
+			} else {
+				Label_Time.Value = "--:--.---";
+			}
+
+			Tools::FitLabelValue(Label_Rank, {{{TextSize_ScoreLabels}}}, 0.1, 0.1);
+			Tools::FitLabelValue(Label_Time, {{{TextSize_ScoreLabels}}}, 0.1, 0.1);
+
+			// Save player record for report system in Profile
+			COTDQualifications_Ranking_PlayerRecordDetail = ReportStruct::FormatRecordDetail({{{PlayerName::P}}}GetName(This, PlayerName_Name), RankingEntry.Time);
+			declare Text MapUid = "";
+			if (Map != Null && Map.MapInfo != Null)	{
+				MapUid = Map.MapInfo.MapUid;
+			}
+			COTDQualifications_Ranking_PlayerRecordId = ReportStruct::FormatRecordId(RankingEntry.AccountId, "", MapUid);
+		} else {
+			COTDQualifications_Ranking_PlayerAccountId = "";
+			COTDQualifications_Ranking_PlayerRecordDetail = "";
+			COTDQualifications_Ranking_PlayerRecordId = "";
+		}
+	}
+}
+
+Void DisplayNewRankAlert(K_Controls _Controls, Integer _NewRank, Boolean _PlayAnimation) {
+	if (_NewRank <= 0) return;
+
+	// Display rank
+	//L16N [COTD qualifications] New current player rank in the leaderboard. It has just been updated when this message appears. %1 is the rank e.g. "New rank: 2nd"
+	_Controls.Label_NewRank.Value = TL::Compose(_("New rank: %1"), TL::FormatRank(_NewRank, False));
+
+	// Animation
+	if (_PlayAnimation) {
+		declare Real HidePosLeft = -50.;
+		declare Real HidePosRight = 50.;
+		declare Real VisiblePosX = 0.;
+
+		declare Integer InDuration = 1250;
+		declare Integer OutDuration = 1250;
+
+		AnimMgr.Flush(_Controls.Label_NewRank);
+		AnimMgr.Flush(_Controls.Frame_Scores);
+		_Controls.Label_NewRank.RelativePosition_V3.X = HidePosLeft;
+		AnimMgr.Add(_Controls.Label_NewRank, "<frame pos=\""^VisiblePosX^" "^_Controls.Label_NewRank.RelativePosition_V3.Y^"\" hidden=\"0\" />", InDuration, CAnimManager::EAnimManagerEasing::ElasticOut);
+		AnimMgr.Add(_Controls.Label_NewRank, "<frame pos=\""^HidePosRight^" "^_Controls.Label_NewRank.RelativePosition_V3.Y^"\" hidden=\"1\" />", Now + InDuration + C_NewRankDisplayDuration, OutDuration, CAnimManager::EAnimManagerEasing::ElasticIn);
+		AnimMgr.Add(_Controls.Frame_Scores, "<frame pos=\"0 "^{{{-Size_ScoreRow.Y}}}^"\" />", InDuration, CAnimManager::EAnimManagerEasing::ElasticOut);
+		AnimMgr.Add(_Controls.Frame_Scores, "<frame pos=\"0 0\" />", Now + InDuration + C_NewRankDisplayDuration, OutDuration, CAnimManager::EAnimManagerEasing::ElasticIn);
+	}
+}
+
+Boolean ShouldDisplayContent(Integer _QualificationsProgress, Integer _APIRaceTime) {
+	return (
+		_QualificationsProgress == COTDConst::C_Progress_PlayQualifications &&
+		_APIRaceTime > 0
+	);
+}
+
+Void StartHideAnimation(K_Controls _Controls) {
+	if (_Controls.Frame_HideableContent != Null) {
+		declare Real HiddenPosX = -60.;
+		declare Real VisiblePosX = 0.;
+		declare Vec2 StartPos = _Controls.Frame_HideableContent.RelativePosition_V3;
+		declare Real EndPosX = VisiblePosX;
+
+		if (StartPos.X == HiddenPosX) {
+			EndPosX = VisiblePosX;
+			{{{Button::P}}}SetIcon(This, _Controls.Button_Hide, "{{{Icons::C_Icon_128x128_Arrow_Left}}}");
+			{{{Button::P}}}SetIconFocus(This, _Controls.Button_Hide, "{{{Icons::C_Icon_128x128_Arrow_Left}}}");
+		} else {
+			EndPosX = HiddenPosX;
+			{{{Button::P}}}SetIcon(This, _Controls.Button_Hide, "{{{Icons::C_Icon_128x128_Arrow_Right}}}");
+			{{{Button::P}}}SetIconFocus(This, _Controls.Button_Hide, "{{{Icons::C_Icon_128x128_Arrow_Right}}}");
+		}
+
+		AnimMgr.Flush(_Controls.Frame_HideableContent);
+		AnimMgr.Add(_Controls.Frame_HideableContent, "<anim pos=\"" ^EndPosX^" "^StartPos.Y^ "\" />", 250, CAnimManager::EAnimManagerEasing::Linear);
+	}
+}
+
+Void FocusRecord(CMlFrame _Frame_Record, Boolean _IsFocused) {
+	if (_Frame_Record == Null) return;
+	declare Text COTDQualifications_Ranking_PlayerAccountId for _Frame_Record = "";
+	if (COTDQualifications_Ranking_PlayerAccountId == "") return;
+
+	declare CMlFrame PlayerName_Name <=> (_Frame_Record.GetFirstChild("playername-name") as CMlFrame);
+	declare CMlLabel Label_Rank = (_Frame_Record.GetFirstChild("label-rank") as CMlLabel);
+	declare CMlLabel Label_Time = (_Frame_Record.GetFirstChild("label-time") as CMlLabel);
+	declare CMlQuad Quad_Bg = (_Frame_Record.GetFirstChild("quad-bg") as CMlQuad);
+
+	if (_IsFocused) {
+		{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, <0., 0., 0.>);
+		Label_Rank.TextColor = <0., 0., 0.>;
+		Label_Time.TextColor = <0., 0., 0.>;
+	} else {
+		{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, <1., 1., 1.>);
+		Label_Rank.TextColor = <1., 1., 1.>;
+		Label_Time.TextColor = <1., 1., 1.>;
+	}
+
+	AnimMgr.Flush(Quad_Bg);
+	if (!_IsFocused) {
+		AnimMgr.Add(Quad_Bg, "<anim opacity=\"0.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		AnimMgr.Add(Quad_Bg, "<anim opacity=\"0.8\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+Void Focus(CMlControl _From, CMlControl _To) {
+	if (_From == _To) return;
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{Button::P}}}IsButton((_From as CMlFrame))) {
+			{{{Button::P}}}Unfocus(This, (_From as CMlFrame));
+		} else if (_From.HasClass("{{{C_Class_Score}}}")) {
+			FocusRecord(_From as CMlFrame, False);
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{Button::P}}}IsButton((_To as CMlFrame))) {
+			{{{Button::P}}}Focus(This, (_To as CMlFrame));
+		} else if (_To.HasClass("{{{C_Class_Score}}}")) {
+			FocusRecord(_To as CMlFrame, True);
+		}
+	}
+}
+
+Void FocusRules(CMlFrame _Button_Rules, Boolean _IsFocused) {
+	if (_IsFocused) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_MouseOnly}}}"), _Button_Rules);
+	} else {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_MouseOnly}}}"), Null);
+	}
+}
+
+Void Select(K_Controls _Controls, CMlControl _SelectedControl) {
+	if (_SelectedControl == Null) return;
+
+	switch (_SelectedControl.ControlId) {
+		case "button-hide": StartHideAnimation(_Controls);
+		case "button-rules": {{{PopUpMultiChoice::P}}}Open(This, _Controls.PopUpMultiChoice_Rules);
+		default: {
+			if (_SelectedControl.HasClass("{{{C_Class_Score}}}")) {
+				declare Text COTDQualifications_Ranking_PlayerAccountId for _SelectedControl;
+				declare Text COTDQualifications_Ranking_PlayerRecordDetail for _SelectedControl = "";
+				declare Text COTDQualifications_Ranking_PlayerRecordId for _SelectedControl = "";
+				DisplayProfile(_Controls.Frame_Profile, COTDQualifications_Ranking_PlayerAccountId, COTDQualifications_Ranking_PlayerRecordDetail, COTDQualifications_Ranking_PlayerRecordId, True);
+			}
+		}
+	}
+}
+
+Void Initialize(K_Controls _Controls) {
+	declare CMlQuad Quad_OwnerBackground <=> (_Controls.Frame_ScoreOwner.GetFirstChild("quad-bg") as CMlQuad);
+
+	{{{Navigation::P}}}UseLocalEvents(This, True);
+	DisplayProfile(_Controls.Frame_Profile, False);
+	Quad_OwnerBackground.BgColor = <0., 0., 0.>;
+	Quad_OwnerBackground.Opacity = 0.6;
+}
+
+***MainInit***
+***
+declare netread Boolean Net_COTDQualifications_Ranking_IsVisible for UI = False;
+declare netread Integer[Text] Net_COTDQualifications_Ranking_Leaderboard for Teams[0] = [];
+declare netread Integer Net_COTDQualifications_Ranking_LeaderboardUpdate for Teams[0] = 0;
+declare netread Text Net_COTDQualifications_Ranking_CompetitionName for Teams[0] = "";
+declare Boolean COTDQualifications_Ranking_IsControllerNavigationEnabled for ClientUI = False;
+declare Boolean COTDQualifications_Ranking_IsContentDisplayed for ClientUI = False;
+
+declare K_State State = C_State_Null;
+declare Integer LeaderboardUpdate;
+declare Integer CurrentRank;
+declare Integer APIRaceTime;
+declare Integer LocalRaceTime;
+declare Boolean IsControllerNavigationEnabled;
+declare Boolean IsMouse;
+declare Boolean NeedRankingUpdate;
+declare Ident InputPlayerId;
+***
+
+***MainStart***
+***
+State.Controls.Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+State.Controls.Frame_Content <=> (State.Controls.Frame_Global.GetFirstChild("frame-content") as CMlFrame);
+State.Controls.Frame_ControllerInfo <=> (State.Controls.Frame_Global.GetFirstChild("frame-controller-info") as CMlFrame);
+State.Controls.Frame_HideableContent <=> (State.Controls.Frame_Global.GetFirstChild("frame-hideable-content") as CMlFrame);
+State.Controls.Frame_Profile <=> (Page.GetFirstChild("frame-profile") as CMlFrame);
+State.Controls.Frame_ScoreOwner <=> (State.Controls.Frame_Global.GetFirstChild("frame-score-owner") as CMlFrame);
+State.Controls.Label_OwnerRank <=> (State.Controls.Frame_ScoreOwner.GetFirstChild("label-rank") as CMlLabel);
+State.Controls.PlayerName_OwnerName <=> (State.Controls.Frame_ScoreOwner.GetFirstChild("playername-name") as CMlFrame);
+State.Controls.Label_OwnerTime <=> (State.Controls.Frame_ScoreOwner.GetFirstChild("label-time") as CMlLabel);
+State.Controls.LoadingSpinner_OwnerRank = (State.Controls.Frame_ScoreOwner.GetFirstChild("loading-spinner-rank") as CMlFrame);
+State.Controls.Frame_Scores <=> (State.Controls.Frame_Global.GetFirstChild("frame-scores") as CMlFrame);
+State.Controls.ButtonIcon_Rules <=> (State.Controls.Frame_Global.GetFirstChild("buttonicon-rules") as CMlFrame);
+State.Controls.Button_Hide <=> (State.Controls.Frame_Global.GetFirstChild("button-hide") as CMlFrame);
+State.Controls.Button_Rules <=> (State.Controls.Frame_Global.GetFirstChild("button-rules") as CMlFrame);
+State.Controls.Label_NewRank <=> (State.Controls.Frame_Global.GetFirstChild("label-new-rank") as CMlLabel);
+State.Controls.Label_Title <=> (State.Controls.Frame_Global.GetFirstChild("label-title") as CMlLabel);
+State.Controls.PopUpMultiChoice_Rules <=> (Page.GetFirstChild("popupmultichoice-rules") as CMlFrame);
+
+COTDQualifications_Ranking_IsContentDisplayed = State.Controls.Frame_Content.Visible;
+LeaderboardUpdate = 0;
+CurrentRank = 0;
+APIRaceTime = 0;
+LocalRaceTime = 0;
+NeedRankingUpdate = True;
+InputPlayerId = NullId;
+
+Initialize(State.Controls);
+State = SetVisibility(State, State.Controls.Frame_Global.Visible);
+State = SetCompetitionName(State, Net_COTDQualifications_Ranking_CompetitionName);
+
+// Must move this UI to respect safe area on Playstation (see /trackmania-next/tmnext/-/issues/5400)
+if (Platform::IsSony(System)) {
+	State.Controls.Frame_Content.RelativePosition_V3.X = State.Controls.Frame_Content.RelativePosition_V3.X + 9.;
+}
+***
+
+***MainLoop***
+***
+if (
+	!EnableMenuNavigationInputs &&
+	State.Controls.Frame_Global.Visible &&
+	State.Controls.Frame_Content.Visible &&
+	(IsControllerNavigationEnabled || State.Controls.Frame_Profile.Visible) &&
+	!IsInGameMenuDisplayed
+) {
+	EnableMenuNavigation(True, False, False, Null, C_InputPriority_Scores);
+} else if (
+	EnableMenuNavigationInputs && (
+		!State.Controls.Frame_Global.Visible ||
+		!State.Controls.Frame_Content.Visible ||
+		(!IsControllerNavigationEnabled && !State.Controls.Frame_Profile.Visible) ||
+		IsInGameMenuDisplayed
+	)
+) {
+	EnableMenuNavigation(False, False, False, Null, C_InputPriority_Scores);
+}
+
+if (PageIsVisible) {
+	if (State.DisplayModule != Net_COTDQualifications_Ranking_IsVisible) {
+		State = SetVisibility(State, Net_COTDQualifications_Ranking_IsVisible);
+	}
+
+	if (State.CompetitionName != Net_COTDQualifications_Ranking_CompetitionName) {
+		State = SetCompetitionName(State, Net_COTDQualifications_Ranking_CompetitionName);
+	}
+
+	if (IsControllerNavigationEnabled != COTDQualifications_Ranking_IsControllerNavigationEnabled) {
+		IsControllerNavigationEnabled = COTDQualifications_Ranking_IsControllerNavigationEnabled;
+		State.Controls.Frame_ControllerInfo.Visible = COTDQualifications_Ranking_IsControllerNavigationEnabled;
+		State.Controls.ButtonIcon_Rules.Visible = COTDQualifications_Ranking_IsControllerNavigationEnabled;
+		FocusRules(State.Controls.Button_Rules, !IsMouse && COTDQualifications_Ranking_IsControllerNavigationEnabled);
+
+		AnimMgr.Flush(State.Controls.Frame_Content);
+		if (COTDQualifications_Ranking_IsControllerNavigationEnabled) {
+			if (Platform::IsSony(System)) {
+				AnimMgr.Add(State.Controls.Frame_Content, "<anim scale=\""^C_ScoresScale^"\" pos=\"10.2 0\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			} else {
+				AnimMgr.Add(State.Controls.Frame_Content, "<anim scale=\""^C_ScoresScale^"\" pos=\"1.2 0\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			}
+			Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_General}}}"), State.Controls.Frame_Scores.Controls[0]);
+		} else {
+			if (Platform::IsSony(System)) {
+				AnimMgr.Add(State.Controls.Frame_Content, "<anim scale=\"1.\" pos=\"9 0\"/>" , 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			} else {
+				AnimMgr.Add(State.Controls.Frame_Content, "<anim scale=\"1.\" pos=\"0 0\"/>" , 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			}
+			Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_General}}}"), Null);
+		}
+	}
+
+	if (COTDQualifications_Ranking_IsContentDisplayed != ShouldDisplayContent(NetShare::GetQualificationsProgress(Teams[0]), APIRaceTime)) {
+		COTDQualifications_Ranking_IsContentDisplayed = ShouldDisplayContent(NetShare::GetQualificationsProgress(Teams[0]), APIRaceTime);
+		State.Controls.Frame_Content.Visible = COTDQualifications_Ranking_IsContentDisplayed;
+		if (!State.Controls.Frame_Content.Visible) {
+			{{{PopUpMultiChoice::P}}}Close(This, State.Controls.PopUpMultiChoice_Rules);
+			DisplayProfile(State.Controls.Frame_Profile, False);
+		}
+	}
+
+	if (LeaderboardUpdate != Net_COTDQualifications_Ranking_LeaderboardUpdate) {
+		LeaderboardUpdate = Net_COTDQualifications_Ranking_LeaderboardUpdate;
+		NeedRankingUpdate = True;
+	}
+
+	if (
+		CurrentRank != NetShare::GetMyRank(UI) ||
+		APIRaceTime != NetShare::GetMyAPIRaceTime(UI) ||
+		LocalRaceTime != NetShare::GetMyLocalRaceTime(UI)
+	) {
+		declare Integer NewRank = NetShare::GetMyRank(UI);
+		if (
+			C_EnableNewRankAnimation &&
+			COTDQualifications_Ranking_IsContentDisplayed &&
+			NewRank > 0 &&
+			CurrentRank != NewRank
+		) {
+			DisplayNewRankAlert(
+				State.Controls,
+				NewRank,
+				(CurrentRank == 0 || NewRank < CurrentRank)
+			);
+		}
+		CurrentRank = NewRank;
+		APIRaceTime = NetShare::GetMyAPIRaceTime(UI);
+		LocalRaceTime = NetShare::GetMyLocalRaceTime(UI);
+		NeedRankingUpdate = True;
+	}
+
+	if (
+		State.DisplayModule &&
+		COTDQualifications_Ranking_IsContentDisplayed
+	) {
+		if (
+			(InputPlayer == Null && InputPlayerId != NullId) ||
+			(InputPlayer != Null && InputPlayerId != InputPlayer.Id)
+		) {
+			if (InputPlayer == Null) {
+				InputPlayerId = NullId;
+			} else {
+				InputPlayerId = InputPlayer.Id;
+			}
+			NeedRankingUpdate = True;
+		}
+
+		if (NeedRankingUpdate) {
+			NeedRankingUpdate = False;
+			UpdateRanking(
+				State,
+				Net_COTDQualifications_Ranking_Leaderboard,
+				InputPlayer,
+				CurrentRank,
+				APIRaceTime,
+				LocalRaceTime
+			);
+		}
+	}
+
+	/* Navigation events*/
+	foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Navigation::P}}}C_EventType_NavigateInput: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_General}}}")) {
+					switch (Event.Input) {
+						case CMlScriptEvent::EMenuNavAction::Cancel: COTDQualifications_Ranking_IsControllerNavigationEnabled = False;
+						case CMlScriptEvent::EMenuNavAction::Select: Select(State.Controls, Event.To);
+						case CMlScriptEvent::EMenuNavAction::Action2: {{{PopUpMultiChoice::P}}}Open(This, State.Controls.PopUpMultiChoice_Rules);
+						default: Focus(Event.From, Event.To);
+					}
+				}
+			}
+			case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_General}}}")) {
+					switch (Event.Mouse) {
+						case CMlScriptEvent::Type::MouseClick: Select(State.Controls, Event.To);
+						case CMlScriptEvent::Type::MouseOver: Focus(Event.From, Event.To);
+						case CMlScriptEvent::Type::MouseOut: {
+							if (!COTDQualifications_Ranking_IsControllerNavigationEnabled) {
+								Focus(Event.From, Event.To);
+							}
+						}
+					}
+				} else if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_MouseOnly}}}")) {
+					switch (Event.Mouse) {
+						case CMlScriptEvent::Type::MouseClick: Select(State.Controls, Event.To);
+						case CMlScriptEvent::Type::MouseOut: Focus(Event.From, Event.To);
+						case CMlScriptEvent::Type::MouseOver: Focus(Event.From, Event.To);
+					}
+				}
+			}
+		}
+	}
+
+	/* PopUpMultiChoice events */
+	foreach (Event in {{{PopUpMultiChoice::P}}}GetPendingEvents(This)) {
+		if (Event.PopUpMultiChoice != Null && Event.PopUpMultiChoice.Id == State.Controls.PopUpMultiChoice_Rules.Id) {
+			switch (Event.Type) {
+				case {{{PopUpMultiChoice::P}}}C_EventType_Display: {
+					{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroup_General}}}", !Event.PopUpMultiChoice.Visible);
+				}
+			}
+		}
+	}
+
+	/* Profile player info events */
+	foreach (Event in {{{ProfilePlayerInfo::P}}}PendingEvents) {
+		switch (Event.Type) {
+			case {{{ProfilePlayerInfo::P}}}C_EventType_Close: {
+				DisplayProfile(State.Controls.Frame_Profile, False);
+			}
+		}
+	}
+
+	/* Behaviors depending on the current controller */
+	if (IsMouse != Tools::IsUsingMouse(Input)) {
+		IsMouse = Tools::IsUsingMouse(Input);
+		FocusRules(State.Controls.Button_Rules, !IsMouse && COTDQualifications_Ranking_IsControllerNavigationEnabled);
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	Button::ComponentV2(),
+	ButtonIcon::ComponentV2(),
+	LoadingSpinner::ComponentV2(),
+	Navigation::ComponentV2(),
+	PopUpMultiChoice::ComponentV2(),
+	ProfilePlayerInfo::Component(),
+	UserStore::ComponentV2(),
+	PlayerName::ComponentV2()
+],
+[]
+	);
+}

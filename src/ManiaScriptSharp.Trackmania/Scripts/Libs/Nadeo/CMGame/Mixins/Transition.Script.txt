@@ -1,0 +1,393 @@
+/**
+ * Handle transition animations when a fragment is added/removed by the router
+ *
+ * Props
+ * -----
+ *
+ * - transition-in-duration (Integer): duration of the transition in
+ * - transition-out-duration (Integer): duration of the transition out
+ * - transition-filter-request-id (Text): only start the transition in/out if the associated request id is equal to the one provided here, several ids can be provided separated by a space
+ *
+ * Events
+ * ------
+ *
+ * - transition-in-start: sent at the start of the transition in
+ * - transition-in-stop: sent at the stop of the transition in
+ * - transition-out-start: sent at the start of the transition out
+ * - transition-out-stop: sent at the stop of the transition out
+ */
+#Const Version "0.1.4"
+#Const ScriptName "Libs/Nadeo/CMGame/Mixins/Transition.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView@3.Script.txt" as MV
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Transition {
+	CMlControl Control;
+	Integer InDuration;
+	Integer OutDuration;
+	Text[] FilterRequestId;
+}
+
+#Struct K_ActiveTransition {
+	CMlControl Control;
+	Text RequestId;
+	Integer Direction;
+	Integer Duration;
+	Integer EndTime;
+}
+
+#Struct K_State {
+	K_Transition[Ident] Transitions;
+	K_ActiveTransition[Ident] ActiveTransitions;
+	Integer TransitionInDurationMax;
+	Integer TransitionOutDurationMax;
+}
+
+#Struct K_Event_Transition {
+	CMlControl Control;
+	Text RequestId;
+	Integer Duration;
+	Integer EndTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MixinName "CMGameTransition"
+#Const C_MixinClass "cmgame-mixins-transition"
+
+#Const C_Prop_InDuration "transition-in-duration"
+#Const C_Prop_OutDuration "transition-out-duration"
+#Const C_Prop_FilterRequestId "transition-filter-request-id"
+
+#Const C_Event_TransitionInStart "transition-in-start"
+#Const C_Event_TransitionInStop "transition-in-stop"
+#Const C_Event_TransitionOutStart "transition-out-start"
+#Const C_Event_TransitionOutStop "transition-out-stop"
+
+#Const C_TransitionDirection_Null 0
+#Const C_TransitionDirection_In 1
+#Const C_TransitionDirection_Out 2
+
+#Const C_State_Null K_State {
+	Transitions = [],
+	ActiveTransitions = [],
+	TransitionInDurationMax = 0,
+	TransitionOutDurationMax = 0
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the duration of the transition in for the given page
+Integer GetTransitionInDuration(CMlPage _Page) {
+	declare K_State CMGame_MixinsTransition_State for _Page = C_State_Null;
+	return CMGame_MixinsTransition_State.TransitionInDurationMax;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the duration of the transition out for the given page
+Integer GetTransitionOutDuration(CMlPage _Page) {
+	declare K_State CMGame_MixinsTransition_State for _Page = C_State_Null;
+	return CMGame_MixinsTransition_State.TransitionOutDurationMax;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the duration of the transitions for the given page
+Int2 GetTransitionsDuration(CMlPage _Page) {
+	declare K_State CMGame_MixinsTransition_State for _Page = C_State_Null;
+	return <
+		CMGame_MixinsTransition_State.TransitionInDurationMax,
+		CMGame_MixinsTransition_State.TransitionOutDurationMax
+	>;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the transition animation for the given control
+Void Private_StartControlTransition(
+	CMlPage _Page,
+	Ident _ControlId,
+	Integer _Direction,
+	K_Transition _Transition,
+	Text _RequestId
+) {
+	declare K_State CMGame_MixinsTransition_State for _Page = C_State_Null;
+
+	declare Integer Duration = 0;
+	if (_Transition.FilterRequestId.count == 0 || _Transition.FilterRequestId.exists(_RequestId)) {
+		switch (_Direction) {
+			case C_TransitionDirection_In: Duration = _Transition.InDuration;
+			case C_TransitionDirection_Out: Duration = _Transition.OutDuration;
+		}
+	}
+
+	declare K_Event_Transition Event = K_Event_Transition {
+		Control = _Transition.Control,
+		RequestId = _RequestId,
+		Duration = Duration,
+		EndTime = Now + Duration
+	};
+
+	switch (_Direction) {
+		case C_TransitionDirection_In: {
+			declare K_Event_Transition[] CMGame_MixinsTransition_TransitionInStart for _Page = [];
+			CMGame_MixinsTransition_TransitionInStart.add(Event);
+		}
+		case C_TransitionDirection_Out: {
+			declare K_Event_Transition[] CMGame_MixinsTransition_TransitionOutStart for _Page = [];
+			CMGame_MixinsTransition_TransitionOutStart.add(Event);
+		}
+	}
+
+	CMGame_MixinsTransition_State.ActiveTransitions[_ControlId] = K_ActiveTransition {
+		Control = _Transition.Control,
+		RequestId = _RequestId,
+		Direction = _Direction,
+		Duration = Duration,
+		EndTime = Now + Duration
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the transition in animation for the given control
+Void StartControlTransitionIn(CMlPage _Page, CMlControl _Control, Text _RequestId) {
+	declare K_State CMGame_MixinsTransition_State for _Page = C_State_Null;
+	assert(
+		CMGame_MixinsTransition_State.Transitions.existskey(_Control.Id),
+		"""[Transition] The control `#{{{_Control.ControlId}}}` is not a transition control"""
+	);
+	Private_StartControlTransition(
+		_Page,
+		_Control.Id,
+		C_TransitionDirection_In,
+		CMGame_MixinsTransition_State.Transitions[_Control.Id],
+		_RequestId
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the transition in animation for all controls in the page
+Void StartAllTransitionIn(CMlPage _Page, Text _RequestId) {
+	declare K_State CMGame_MixinsTransition_State for _Page = C_State_Null;
+	for (ControlId => Transition in CMGame_MixinsTransition_State.Transitions) {
+		Private_StartControlTransition(
+			_Page,
+			ControlId,
+			C_TransitionDirection_In,
+			Transition,
+			_RequestId
+		);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the transition out animation for the given control
+Void StartControlTransitionOut(CMlPage _Page, CMlControl _Control, Text _RequestId) {
+	declare K_State CMGame_MixinsTransition_State for _Page = C_State_Null;
+	assert(
+		CMGame_MixinsTransition_State.Transitions.existskey(_Control.Id),
+		"""[Transition] The control `#{{{_Control.ControlId}}}` is not a transition control"""
+	);
+	Private_StartControlTransition(
+		_Page,
+		_Control.Id,
+		C_TransitionDirection_Out,
+		CMGame_MixinsTransition_State.Transitions[_Control.Id],
+		_RequestId
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the transition out animation for all controls in the page
+Void StartAllTransitionOut(CMlPage _Page, Text _RequestId) {
+	declare K_State CMGame_MixinsTransition_State for _Page = C_State_Null;
+	for (ControlId => Transition in CMGame_MixinsTransition_State.Transitions) {
+		Private_StartControlTransition(
+			_Page,
+			ControlId,
+			C_TransitionDirection_Out,
+			Transition,
+			_RequestId
+		);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the `C_Event_TransitionInStart` events
+K_Event_Transition[] GetEvents_TransitionInStart(CMlScript _This) {
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionInStart for _This.Page = [];
+	return CMGame_MixinsTransition_TransitionInStart;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the `C_Event_TransitionInStart` events
+Void ResetEvents_TransitionInStart(CMlScript _This) {
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionInStart for _This.Page = [];
+	CMGame_MixinsTransition_TransitionInStart = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the `C_Event_TransitionInStop` events
+K_Event_Transition[] GetEvents_TransitionInStop(CMlScript _This) {
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionInStop for _This.Page = [];
+	return CMGame_MixinsTransition_TransitionInStop;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the `C_Event_TransitionInStop` events
+Void ResetEvents_TransitionInStop(CMlScript _This) {
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionInStop for _This.Page = [];
+	CMGame_MixinsTransition_TransitionInStop = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the `C_Event_TransitionOutStart` events
+K_Event_Transition[] GetEvents_TransitionOutStart(CMlScript _This) {
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionOutStart for _This.Page = [];
+	return CMGame_MixinsTransition_TransitionOutStart;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the `C_Event_TransitionOutStart` events
+Void ResetEvents_TransitionOutStart(CMlScript _This) {
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionOutStart for _This.Page = [];
+	CMGame_MixinsTransition_TransitionOutStart = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the `C_Event_TransitionOutStop` events
+K_Event_Transition[] GetEvents_TransitionOutStop(CMlScript _This) {
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionOutStop for _This.Page = [];
+	return CMGame_MixinsTransition_TransitionOutStop;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the `C_Event_TransitionOutStop` events
+Void ResetEvents_TransitionOutStop(CMlScript _This) {
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionOutStop for _This.Page = [];
+	CMGame_MixinsTransition_TransitionOutStop = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Page main initiliazation
+Void Private_Hook_PageMainInit(CMlScript _This) {
+	declare K_State CMGame_MixinsTransition_State for _This.Page = C_State_Null;
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionInStart for _This.Page = [];
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionOutStart for _This.Page = [];
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionInStop for _This.Page = [];
+	declare K_Event_Transition[] CMGame_MixinsTransition_TransitionOutStop for _This.Page = [];
+	CMGame_MixinsTransition_State = C_State_Null;
+	CMGame_MixinsTransition_TransitionInStart = [];
+	CMGame_MixinsTransition_TransitionOutStart = [];
+	CMGame_MixinsTransition_TransitionInStop = [];
+	CMGame_MixinsTransition_TransitionOutStop = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Mixin initialization
+Void Private_Hook_MixinInit(CMlScript _This, CMlControl _Control) {
+	declare K_State CMGame_MixinsTransition_State for _This.Page = C_State_Null;
+
+	declare K_Transition Transition = K_Transition {
+		Control = _Control,
+		InDuration = MV::GetMixinProp_Integer(_Control, C_Prop_InDuration, 0),
+		OutDuration = MV::GetMixinProp_Integer(_Control, C_Prop_OutDuration, 0),
+		FilterRequestId = TL::Split(" ", MV::GetMixinProp_Text(_Control, C_Prop_FilterRequestId, ""))
+	};
+
+	CMGame_MixinsTransition_State.TransitionInDurationMax = ML::Max(
+		CMGame_MixinsTransition_State.TransitionInDurationMax,
+		Transition.InDuration
+	);
+	CMGame_MixinsTransition_State.TransitionOutDurationMax = ML::Max(
+		CMGame_MixinsTransition_State.TransitionOutDurationMax,
+		Transition.OutDuration
+	);
+
+	CMGame_MixinsTransition_State.Transitions[_Control.Id] = Transition;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Page yield
+Void Private_Hook_PageAfterYield(CMlScript _This) {
+	declare K_State CMGame_MixinsTransition_State for _This.Page = C_State_Null;
+	if (CMGame_MixinsTransition_State.ActiveTransitions.count > 0) {
+		declare Ident[] CompleteTransitions;
+		for (ControlId => Transition in CMGame_MixinsTransition_State.ActiveTransitions) {
+			if (Transition.EndTime <= Now) {
+				CompleteTransitions.add(ControlId);
+
+				switch (Transition.Direction) {
+					case C_TransitionDirection_In: {
+						declare K_Event_Transition[] CMGame_MixinsTransition_TransitionInStop for _This.Page = [];
+						CMGame_MixinsTransition_TransitionInStop.add(K_Event_Transition {
+							Control = Transition.Control,
+							RequestId = Transition.RequestId,
+							Duration = Transition.Duration,
+							EndTime = Transition.EndTime
+						});
+					}
+					case C_TransitionDirection_Out: {
+						declare K_Event_Transition[] CMGame_MixinsTransition_TransitionOutStop for _This.Page = [];
+						CMGame_MixinsTransition_TransitionOutStop.add(K_Event_Transition {
+							Control = Transition.Control,
+							RequestId = Transition.RequestId,
+							Duration = Transition.Duration,
+							EndTime = Transition.EndTime
+						});
+					}
+				}
+			}
+		}
+		for (ControlId in CompleteTransitions) {
+			CMGame_MixinsTransition_State.ActiveTransitions.removekey(ControlId);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the mixin
+MV::K_Mixin Mixin() {
+	return MV::K_Mixin {
+		Name = C_MixinName,
+		Path = ScriptName,
+		Class = C_MixinClass,
+		Hooks = [
+			MV::C_Hook_PageMainInit => """{{{C_MixinName}}}::Private_Hook_PageMainInit""",
+			MV::C_Hook_MixinInit => """{{{C_MixinName}}}::Private_Hook_MixinInit""",
+			MV::C_Hook_PageAfterYield => """{{{C_MixinName}}}::Private_Hook_PageAfterYield"""
+		],
+		DefineProps = [
+			C_Prop_InDuration,
+			C_Prop_OutDuration,
+			C_Prop_FilterRequestId
+		],
+		DefineEvents = [
+			C_Event_TransitionInStart => MV::K_EventDefinition {
+				Get = """{{{C_MixinName}}}::GetEvents_TransitionInStart""",
+				Reset = """{{{C_MixinName}}}::ResetEvents_TransitionInStart"""
+			},
+			C_Event_TransitionInStop => MV::K_EventDefinition {
+				Get = """{{{C_MixinName}}}::GetEvents_TransitionInStop""",
+				Reset = """{{{C_MixinName}}}::ResetEvents_TransitionInStop"""
+			},
+			C_Event_TransitionOutStart => MV::K_EventDefinition {
+				Get = """{{{C_MixinName}}}::GetEvents_TransitionOutStart""",
+				Reset = """{{{C_MixinName}}}::ResetEvents_TransitionOutStart"""
+			},
+			C_Event_TransitionOutStop => MV::K_EventDefinition {
+				Get = """{{{C_MixinName}}}::GetEvents_TransitionOutStop""",
+				Reset = """{{{C_MixinName}}}::ResetEvents_TransitionOutStop"""
+			}
+		]
+	};
+}

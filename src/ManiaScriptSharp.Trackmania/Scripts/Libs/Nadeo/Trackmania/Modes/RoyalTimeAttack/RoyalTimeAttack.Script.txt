@@ -1,0 +1,207 @@
+/**
+ * Royal Time Attack mode helper library
+ */
+#Const Version "1.3.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/RoyalTimeAttack/RoyalTimeAttack.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/TMGame/Modes/CarRank.Script.txt" as CarRank
+#Include "Libs/Nadeo/TMGame/Modes/Race.Script.txt" as Race
+#Include "Libs/Nadeo/TMGame/Modes/Scores.Script.txt" as Scores
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Chrono_Server.Script.txt" as UIModules_Chrono
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_RankingUpdate {
+	Integer UpdateTime;
+	Integer CooldownTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_NullRankingUpdate K_RankingUpdate {
+	UpdateTime = -1,
+	CooldownTime = -1
+}
+
+#Const C_RankingUpdateCooldown 1000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_RankingUpdate G_RankingUpdate;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Complete a segment with a player
+Void CompleteSegment(CSmPlayer _Player, Integer _RaceTime, Integer _SegmentStartTime, Integer _MapStartTime, Integer _StartsNb) {
+	if (_Player == Null || _Player.Score == Null) return;
+	declare Integer[] RoyalTimeAttack_SegmentRaceTimes for _Player.Score = [];
+	declare Integer[] RoyalTimeAttack_SegmentTimes for _Player.Score = [];
+	declare Integer SegmentTime = _SegmentStartTime + _RaceTime - _MapStartTime;
+	RoyalTimeAttack_SegmentRaceTimes.add(_RaceTime);
+	RoyalTimeAttack_SegmentTimes.add(SegmentTime);
+	UIModules_ScoresTable::SetRaceProgression(
+		_Player.Score,
+		RoyalTimeAttack_SegmentTimes.count,
+		SegmentTime
+	);
+	if (_StartsNb > 0 && RoyalTimeAttack_SegmentTimes.count > 0) {
+		Tracking::SendPlayerRoyalSegment(UIManager, _Player, ((RoyalTimeAttack_SegmentTimes.count - 1) % _StartsNb) + 1);
+	}
+}
+Void CompleteSegment(CSmPlayer _Player, Integer _RaceTime, Integer _MapStartTime, Integer _StartsNb) {
+	CompleteSegment(_Player, _RaceTime, _Player.StartTime, _MapStartTime, _StartsNb);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the segment race times of a score
+Integer[] GetSegmentRaceTimes(CSmScore _Score) {
+	if (_Score == Null) return [];
+	declare Integer[] RoyalTimeAttack_SegmentRaceTimes for _Score = [];
+	return RoyalTimeAttack_SegmentRaceTimes;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the segment times of a score
+Integer[] GetSegmentTimes(CSmScore _Score) {
+	if (_Score == Null) return [];
+	declare Integer[] RoyalTimeAttack_SegmentTimes for _Score = [];
+	return RoyalTimeAttack_SegmentTimes;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the number of segments completed on a score
+Integer GetCompletedSegmentsNb(CSmScore _Score) {
+	if (_Score == Null) return 0;
+	declare Integer[] RoyalTimeAttack_SegmentTimes for _Score = [];
+	return RoyalTimeAttack_SegmentTimes.count;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the segment times on a score
+Void ResetSegmentTimes(CSmScore _Score) {
+	if (_Score == Null) return;
+	declare Integer[] RoyalTimeAttack_SegmentRaceTimes for _Score = [];
+	declare Integer[] RoyalTimeAttack_SegmentTimes for _Score = [];
+	RoyalTimeAttack_SegmentRaceTimes = [];
+	RoyalTimeAttack_SegmentTimes = [];
+	UIModules_ScoresTable::SetRaceProgression(_Score, 0, -1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Spawn a player at the right start block
+Void Start(CMapLandmark[] _Starts, CSmPlayer _Player, Integer _PlayerStartTime, Integer _MapStartTime, Boolean _IsRoundedStartTime) {
+	if (_Starts.count <= 0 || _Player == Null) return;
+	declare CMapLandmark Start = _Starts[GetCompletedSegmentsNb(_Player.Score) % _Starts.count];
+
+	_Player.LandmarkOrderSelector_Race = Start.Order;
+	Race::Start(_Player, Start, _PlayerStartTime);
+
+	if (_IsRoundedStartTime) {
+		// Use `Player.StartTime` here and not `_PlayerStartTime`
+		// `Player.StartTime` is always rounded to the next tenth of a second
+		// eg: _PlayerStartTime = 9627 -> Player.StartTime = 9700
+		UIModules_Chrono::SetTimeOffset(_Player, _Player.StartTime - _MapStartTime);
+	} else {
+		UIModules_Chrono::SetTimeOffset(_Player, _PlayerStartTime - _MapStartTime);
+	}
+}
+Void Start(CMapLandmark[] _Starts, CSmPlayer _Player, Integer _PlayerStartTime, Integer _MapStartTime) {
+	Start(_Starts, _Player, _PlayerStartTime, _MapStartTime, True);
+}
+Void Start(CMapLandmark[] _Starts, CSmPlayer _Player, Integer _MapStartTime, Boolean _IsRoundedStartTime) {
+	Start(_Starts, _Player, Now + Race::C_SpawnDuration, _MapStartTime, _IsRoundedStartTime);
+}
+Void Start(CMapLandmark[] _Starts, CSmPlayer _Player, Integer _MapStartTime) {
+	Start(_Starts, _Player, Now + Race::C_SpawnDuration, _MapStartTime, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the players ranking
+Void UpdateRanking() {
+	// Sort players by number of segments completed
+	declare Integer[Ident] ScoresToSortBySegmentsCompleted;
+	foreach (Score in Scores) {
+		ScoresToSortBySegmentsCompleted[Score.Id] = GetCompletedSegmentsNb(Score);
+	}
+	declare Ident[][] ScoresSortedBySegmentsCompleted = Scores::SortIdsByPoints(ScoresToSortBySegmentsCompleted, Scores::C_Order_Descending, 0);
+
+	declare Integer Points = Scores.count;
+	foreach (ScoreIds in ScoresSortedBySegmentsCompleted) {
+		// Sort players by time
+		declare Ident[][Integer] ScoresSortedByTime;
+		if (ScoreIds.count > 1) {
+			declare Integer[][Ident] ScoresToSortByTime;
+			foreach (ScoreId in ScoreIds) {
+				ScoresToSortByTime[ScoreId] = GetSegmentTimes(Scores[ScoreId]);
+			}
+			ScoresSortedByTime = Scores::SortIdsByWaypointTimes(ScoresToSortByTime);
+		} else {
+			ScoresSortedByTime = [0 => [ScoreIds[0]]];
+		}
+
+		// Compute the ranking
+		foreach (ScoreIds in ScoresSortedByTime) {
+			foreach (ScoreId in ScoreIds) {
+				declare CSmScore Score <=> Scores[ScoreId];
+				Scores::SetPlayerMapPoints(Score, Points);
+				Scores::SetPlayerMatchPoints(Score, Points);
+				Points -= 1;
+			}
+		}
+	}
+
+	CarRank::Update(CarRank::C_SortCriteria_TotalPoints);
+
+	G_RankingUpdate.UpdateTime = -1;
+	G_RankingUpdate.CooldownTime = Now + C_RankingUpdateCooldown;
+}
+Void ThrottleUpdateRanking() {
+	G_RankingUpdate.UpdateTime = ML::Max(Now, G_RankingUpdate.CooldownTime);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize a new player
+Void InitializePlayer(CSmPlayer _Player) {
+	if (_Player == Null || _Player.Score == Null) return;
+
+	declare Integer[] RoyalTimeAttack_SegmentTimes for _Player.Score = [];
+	declare Integer SegmentTime = -1;
+	if (RoyalTimeAttack_SegmentTimes.count > 0) SegmentTime = RoyalTimeAttack_SegmentTimes[RoyalTimeAttack_SegmentTimes.count - 1];
+	UIModules_ScoresTable::SetRaceProgression(
+		_Player.Score,
+		RoyalTimeAttack_SegmentTimes.count,
+		SegmentTime
+	);
+	CarRank::InitializePlayer(_Player);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (G_RankingUpdate.UpdateTime >= 0 && G_RankingUpdate.UpdateTime <= Now) {
+		UpdateRanking();
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	G_RankingUpdate = C_NullRankingUpdate;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

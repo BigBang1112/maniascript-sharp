@@ -1,0 +1,132 @@
+/**
+ * UI module: CanChat client side
+ */
+#Const Version "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/CanChat_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/CanChat_Common.Script.txt" as UIModules_CanChat_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_CanChat_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_CanChat_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return MV::Create(
+GetId(), 3,
+"""
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/CommunicationRestriction.Script.txt" as CommunicationRestriction
+#Include "Libs/Nadeo/Trackmania/RBAC.Script.txt" as RBAC
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+""",
+"""
+***MainInit***
+***
+declare netwrite Integer Net_TMWTMatchmaking_CanChat_StatusUpdate for UI;
+declare netwrite Boolean Net_TMWTMatchmaking_CanChat_CanChat for UI;
+declare netwrite Integer Net_TMWTMatchmaking_CanChat_CommunicationRestrictionLevel for UI;
+declare netread Text[] Net_TMWTMatchmaking_CanChat_StarterAccessPlayersAccountIds for UI;
+declare netread Text[] Net_TMWTMatchmaking_CanChat_RestrictedChatPlayersAccountIds for UI;
+declare netread Integer Net_TMWTMatchmaking_CanChat_PlayersAccountIdsUpdate for UI = 0;
+
+declare Text[] StarterAccessPlayersAccountIds;
+declare Text[] RestrictedChatPlayersAccountIds;
+declare Integer PlayersAccountIdsUpdate;
+***
+
+***MainStart***
+***
+// Send the player's communication restriction to the server
+Net_TMWTMatchmaking_CanChat_CanChat = {{{UserStore::P}}}HasGamePermission(PrivilegeMgr, RBAC::C_GamePermission_InGameChat);
+Net_TMWTMatchmaking_CanChat_CommunicationRestrictionLevel = CommunicationRestriction::C_CommunicationRestrictionLevel_Unknown;
+if (PrivilegeMgr != Null && UserMgr != Null && UserMgr.MainUser != Null) {
+	Net_TMWTMatchmaking_CanChat_CommunicationRestrictionLevel = CommunicationRestriction::CommunicationRestrictionLevelToInteger(PrivilegeMgr.Communication_GetRestrictionLevel(UserMgr.MainUser.Id));
+}
+Net_TMWTMatchmaking_CanChat_StatusUpdate += 1;
+***
+
+***MainLoop***
+***
+if (PlayersAccountIdsUpdate != Net_TMWTMatchmaking_CanChat_PlayersAccountIdsUpdate) {
+	PlayersAccountIdsUpdate = Net_TMWTMatchmaking_CanChat_PlayersAccountIdsUpdate;
+
+	if (StarterAccessPlayersAccountIds != Net_TMWTMatchmaking_CanChat_StarterAccessPlayersAccountIds) {
+		StarterAccessPlayersAccountIds = Net_TMWTMatchmaking_CanChat_StarterAccessPlayersAccountIds;
+
+		declare Text[] PlayersNotAllowedToChatNameList;
+		foreach (Player in Players) {
+			if (Player.User != Null && StarterAccessPlayersAccountIds.exists(Player.User.WebServicesUserId)) {
+				PlayersNotAllowedToChatNameList.add(UserStore::GetPlayerName(Player.User, False));
+			}
+		}
+
+		declare Text PlayersNotAllowedToChat;
+		foreach (Index => Name in PlayersNotAllowedToChatNameList) {
+			if (Index == 0) PlayersNotAllowedToChat = "$<"^Name^"$>";
+			else if (Index == PlayersNotAllowedToChatNameList.count - 1) PlayersNotAllowedToChat ^= " & " ^ "$<"^Name^"$>";
+			else PlayersNotAllowedToChat ^= ", " ^ "$<"^Name^"$>";
+		}
+
+		if (ClientUI != Null && PlayersNotAllowedToChat != "") {
+			if (PlayersNotAllowedToChatNameList.count == 1) {
+				//L16N [TMWTMatchmakingCanChat] Message to explain that a player is not allowed to write in the ingame chat because they don't have the Standard or Club Access. %1 will be replaced by the name of one player. e.g. "Alex has the Starter Access and cannot write in the chat."
+				ClientUI.SendChat(TL::Compose(_("%1 has the Starter Access and cannot write in the chat."), PlayersNotAllowedToChat));
+			}	else {
+				//L16N [TMWTMatchmakingCanChat] Message to explain that some players are not allowed to write in the ingame chat because they don't have the Standard or Club Access. %1 will be replaced by the name of several players. e.g. "Alex, Morgan & Noel have the Starter Access and cannot write in the chat."
+				ClientUI.SendChat(TL::Compose(_("%1 have the Starter Access and cannot write in the chat."), PlayersNotAllowedToChat));
+			}
+		}
+	}
+
+	if (RestrictedChatPlayersAccountIds != Net_TMWTMatchmaking_CanChat_RestrictedChatPlayersAccountIds) {
+		RestrictedChatPlayersAccountIds = Net_TMWTMatchmaking_CanChat_RestrictedChatPlayersAccountIds;
+
+		if (ClientUI != Null) {
+			for (Player in Players) {
+				if (
+					Player.User != Null &&
+					Player.User != LocalUser &&
+					RestrictedChatPlayersAccountIds.exists(Player.User.WebServicesUserId)
+				) {
+					ClientUI.SendChat(CommunicationRestriction::GetTeammateChatRestrictedMessage(UserStore::GetPlayerName(Player.User, False)));
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	UserStore::ComponentV2()
+],
+[]
+	);
+}

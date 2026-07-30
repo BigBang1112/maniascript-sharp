@@ -1,0 +1,1484 @@
+/**
+ * UI module: EndRaceMenu client side
+ */
+#Const Version "1.11.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/EndRaceMenu_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as Button
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Components/MenuButtonList.Script.txt" as MenuButtonList
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as Grid
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMGame/Utils/Images.Script.txt" as Images
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConsts
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/Constants.Script.txt" as Consts
+#Include "Libs/Nadeo/Trackmania/Modes/UIModules/RaceMapInfos.Script.txt" as RaceMapInfos
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_ML.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_Campaign_EndRaceMenu"
+#Const C_Type CUILayer::EUILayerType::Normal
+#Const C_NavGroup_Default "navgroup-endracemenu-default"
+
+#Const C_DelayBeforeAutoHide 9000
+
+// Variables for Sound design.
+#Const C_SoundFadeTime_AutoHide 1000
+#Const C_SoundFadeTime_EnterMenu 1500
+#Const C_SoundFadeTime_ForceEnterMenu 100 // Used if player manually stops race outro
+
+// Time after menu shows before anim starts. NB End of outro is at 3000
+#Const C_Animation_MedalGain_Delay 800
+// Duration of the background introduction
+#Const C_Animation_MedalGain_BackgroundIntroDuration 150
+// Wait duration between BG intro end and Medal animation start
+#Const C_Animation_MedalGain_TransitionDuration 250
+// Duration of the medal animation
+#Const C_Animation_MedalGain_MedalAnimDuration 125
+// Wait duration between medals animation
+#Const C_Animation_MedalGain_DelayBetweenMedals 650
+// Wait duration between the gold and the author medal animation, just to tease the player
+#Const C_Animation_MedalGain_GoldToAuthorTeaser 1200
+// Wait duration between animation and shift to menu
+#Const C_Animation_MedalGain_Transition2Duration 1200
+// Travel time to shift to menu
+#Const C_Animation_MedalGain_Transition2TravelTime 125
+// Wait duration before the glowing loop behind the new medal
+#Const C_Animation_MedalGain_DelayBeforeGlowLoop 1000
+
+// Delay to adjust sound for medal anim. Can be less than 0 but not less than C_Animation_MedalGain_Delay
+#Const C_Sound_MedalAnim_Delay 0
+
+#Const C_Sound_MaxCountPerFrame 5
+#Const C_Sound_MedalIntro "SoloMedalIntro"
+#Const C_Sound_MedalGainBronze "SoloMedalGainBronze"
+#Const C_Sound_MedalGainSilver "SoloMedalGainSilver"
+#Const C_Sound_MedalGainGold "SoloMedalGainGold"
+#Const C_Sound_MedalGainAuthor "SoloMedalGainAuthor"
+#Const C_Sound_MedalOutro "SoloMedalOutro"
+
+#Const C_Sound_TrophyBronze "SoloTrophyGainBronze"
+#Const C_Sound_TrophySilver "SoloTrophyGainSilver"
+#Const C_Sound_TrophyGold "SoloTrophyGainGold"
+
+#Const C_Row_Improve 0
+#Const C_Row_Challenge 1
+#Const C_Row_Opponents 2
+#Const C_Row_Replay 3
+#Const C_Row_Margin 4
+#Const C_Row_Footer 5
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the module manialink
+Text GetML() {
+	//L16N [EndRace] Button to exit the race
+	declare Text Text_Exit = _("Exit");
+	//L16N [EndRace] Text displayed when the UI is hidden and the player must do an input to show the UI again
+	declare Text Text_PressKey = _("Press a button");
+	//L16N [EndRace] Improve previous time
+	declare Text Text_Improve = _("Improve");
+	//L16N [EndRace] Add or remove opponents for the next attempts
+	declare Text Text_ChangeOpponents = _("Change opponents");
+	//L16N [EndRace] Go to the next track
+	declare Text Text_NextMap =_("Next");
+	//L16N [EndRace] Press a button to hide the UI and display the race replay in fullscreen
+	declare Text Text_ViewReplay = _("View replay");
+	//L16N [EndRace] Button to challenge the next medal. %1 will be replaced by the next medal to beat, e.g. "Challenge Silver"
+	declare Text Text_Challenge = _("Challenge %1");
+	//L16N [EndRace] Button to save the replay of the race.
+	declare Text Text_SaveReplay = _("Save replay");
+	//L16N [EndRace] Text of the save replay button when the replay of the race has been saved.
+	declare Text Text_ReplaySaved = _("Replay saved!");
+
+	declare Real Margin = 1.;
+	declare Vec2 RaceMenuSize = Consts::C_RaceMenu_Size;
+	declare Vec2 Size_NewMedalBanner = MLHelpers::KeepRatioFromY(348., 656., 110.);
+	declare Vec2 Size_NewMedalBannerSmall = MLHelpers::KeepRatioFromY(340., 612., 100.);
+	declare Vec2 Size_ListButton = <RaceMenuSize.X-3., (RaceMenuSize.X-3.)*64/748>;
+	declare Real SizeY_AdjustedListButton = Size_ListButton.Y - (4*Size_ListButton.Y/64); //< Remove the outer pixel of the asset
+	declare Vec2 Size_FooterButton = <0.5*(Size_ListButton.X + MLHelpers::SkewX(2*14.5 - SizeY_AdjustedListButton, 10.) - Margin), 14.5>;
+	declare Vec2 Size_VoteButton = <0.13*Size_ListButton.X, Size_FooterButton.Y>;
+	declare Vec2 Size_SmallerFooterButton = <Size_FooterButton.X - Size_VoteButton.X - Margin + MLHelpers::SkewX(Size_FooterButton.Y, 10.), Size_FooterButton.Y>;
+	declare Vec2 Pos_ExitButton = <-0.5*(Size_ListButton.X + MLHelpers::SkewX(Size_FooterButton.Y - SizeY_AdjustedListButton, 10.)), 0.>;
+	declare Vec2 Pos_VoteDislikeButton = <Pos_ExitButton.X + Size_SmallerFooterButton.X - MLHelpers::SkewX(Size_FooterButton.Y, 10.) + Margin, 0.>;
+	declare Vec2 Pos_VoteLikeButton = <Pos_VoteDislikeButton.X + Size_VoteButton.X - MLHelpers::SkewX(Size_VoteButton.Y, 10.) + Margin, 0.>;
+	declare Vec2 Pos_NextMapButton = <Pos_VoteLikeButton.X + Size_VoteButton.X - MLHelpers::SkewX(Size_VoteButton.Y, 10.) + Margin, 0.>;
+	declare Real PosX_MenuHidden = -115. - RaceMenuSize.X - 10.;
+	declare Real PosX_MenuVisible = 0.;
+	declare Real PosX_PressKeyHidden = 253.;
+	declare Real PosX_PressKeyVisible = 153.;
+	declare Real PosX_NewMedalBanner = -85.;
+	declare Real PosX_NewTrophyBanner = 90.;
+	declare Real PosY_Banners = 0.;
+
+	// Automatic rearranging list of button depending on buttons visibility
+	// To add a new button, simply add a new row in the grid and its frameinstance in the ML
+	// After buttons visibility update, the grid needs to be updated !
+	declare GridConfig = Grid::Create(0., 0., 0., Grid::C_Direction_Bottom);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Improve, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Challenge, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Opponents, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Replay, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Margin, Margin, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Footer, Size_FooterButton.Y, Grid::C_Align_Center);
+	GridConfig = Grid::SetSize(GridConfig, SizeY_AdjustedListButton * (GridConfig.Columns.count-2) + Margin + Size_FooterButton.Y);
+	declare Grid = Grid::Compile(GridConfig);
+	declare Text GridConfigJson = GridConfig.tojson();
+
+	declare Boolean PlaformIsFromFirstParty = Platform::IsFromFirstParty(System);
+
+	return MV::Create(
+C_Id, 3,
+"""
+<stylesheet>
+	<style class="text-default" halign="center" valign="center2" textsize="4" textprefix="$t" textcolor="FFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" />
+	<style class="quad-default" halign="center" valign="center" />
+</stylesheet>
+
+<!-- Frame global -->
+<frame id="frame-global" z-index="{{{Consts::C_ZIndex_EndRaceMenu}}}" hidden="1">
+	<quad id="quad-background" bgcolor="000" size="320 180" fullscreen="1" halign="center" valign="center" z-index="-3" opacity="0."/>
+	<label pos="{{{PosX_PressKeyHidden}}} -81" hidden="1" size="100 10" halign="right" textsize="6" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" text="{{{Text_PressKey}}}" class="text-default" id="label-press-key" />
+
+	<frame pos="{{{PosX_MenuHidden}}} 0" hidden="1" id="frame-auto-hide">
+		<frame id="frame-new-medal" pos="{{{PosX_NewMedalBanner}}} {{{PosY_Banners}}}" hidden="1">
+				<quad id="quad-medal-banner" z-index="0" image="{{{Images::C_ImageUrl_ModeMenu_Banner_Medals}}}" size="{{{Size_NewMedalBanner.X}}} {{{Size_NewMedalBanner.Y}}}" class="quad-default" keepratio="Fit"/>
+				<quad id="quad-medal-banner-glow" z-index="1" image="{{{Images::C_ImageUrl_ModeMenu_Banner_MedalsGlow}}}" size="{{{Size_NewMedalBanner.X}}} {{{Size_NewMedalBanner.Y}}}" class="quad-default" keepratio="Fit" hidden="1"/>
+				<quad id="quad-medal" size="43 43" class="quad-default" autoscale="0" z-index="2"/>
+				<quad id="quad-medal-anim" size="43 43" class="quad-default" autoscale="0" z-index="3"/>
+		</frame>
+		<frame id="frame-new-trophy" pos="{{{PosX_NewTrophyBanner}}} {{{PosY_Banners}}}" hidden="1">
+				<quad id="quad-trophy-banner" z-index="0" image="{{{Images::C_ImageUrl_ModeMenu_Banner_Medals}}}" size="{{{Size_NewMedalBanner.X}}} {{{Size_NewMedalBanner.Y}}}" class="quad-default" keepratio="Fit"/>
+				<quad id="quad-trophy-banner-glow" z-index="1" image="{{{Images::C_ImageUrl_ModeMenu_Banner_MedalsGlow}}}" size="{{{Size_NewMedalBanner.X}}} {{{Size_NewMedalBanner.Y}}}" class="quad-default" keepratio="Fit" hidden="1"/>
+				<quad id="quad-trophy" size="55 55" class="quad-default" autoscale="0" z-index="2"/>
+		</frame>
+
+		<frame id="frame-menu-content">
+			<frameinstance id="frame-race-map-infos" modelid="{{{RaceMapInfos::C_Name}}}" z-index="-2"/>
+			<frameinstance id="frame-button-list-end-race-campaign" modelid="{{{MenuButtonList::C_Name}}}" z-index="1" />
+
+			<frame id="frame-timediff" hidden="1">
+				<quad id="quad-timediff" pos="0 0.5" image="{{{Images::C_ImageUrl_ModeMenu_Background_TimeDiff}}}" z-index="-1" halign="right" size="{{{7.*216/40}}} 7." class="quad-default" opacity=".4"/>
+				<label id="label-timediff" halign="right" pos="-2 0" size="{{{RaceMenuSize.X/4}}} 10" textsize="4" class="text-default" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$t$i" italicslope="0.2"/>
+			</frame>
+
+			<frame id="frame-buttons-container" class="{{{Grid::C_Class_Container}}}">
+				<frameinstance
+					modelid="{{{Button::C_Name}}}" id="button-improve"
+					class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}} {{{Grid::C_Class_Element}}}"
+					data-grid-row="{{{C_Row_Improve}}}"
+					data-text="{{{Text_Improve}}}"
+					data-textitalicslope=".2"
+					data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+					data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+					data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+					data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}"
+					data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}"
+					data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+					data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+					data-opacityunfocus=".9"
+					data-textsize="4"
+					data-textopacityunfocus=".4"
+					data-halign="center" data-valign="center"
+					data-nav-inputs="select;cancel;action2;up;down;pageup;pagedown"
+					data-nav-targets="_;_;_;button-next-map;button-challenge;_;_"
+					data-nav-group="{{{C_NavGroup_Default}}}"
+					data-nav-zone="{{{Button::C_NavZone}}}"
+					data-menusounds-selectsound="IngameSelectStartRace"
+				/>
+				<frameinstance
+					modelid="{{{Button::C_Name}}}" id="button-challenge"
+					class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}} {{{Grid::C_Class_Element}}}"
+					data-grid-row="{{{C_Row_Challenge}}}"
+					data-opacityunfocus=".9"
+					data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+					data-labelsize="{{{Size_ListButton.X-35.}}} {{{Size_ListButton.Y}}}"
+					data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+					data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}"
+					data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}"
+					data-icon="{{{MenuConsts::C_ImageUrl_Medal_Silver}}}"
+					data-iconfocus="{{{MenuConsts::C_ImageUrl_Medal_Silver}}}"
+					data-iconsize="{{{Size_ListButton.Y - 3.}}} {{{Size_ListButton.Y - 3.}}}"
+					data-iconcolortype="{{{Button::C_ColorType_None}}}"
+					data-iconxpos=".9" data-iconypos="-.49"
+					data-text="{{{Text_Challenge}}}"
+					data-textopacityunfocus=".4"
+					data-textsize="4"
+					data-fitlabel="2."
+					data-textitalicslope=".2"
+					data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+					data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+					data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+					data-halign="center" data-valign="center"
+					data-nav-inputs="select;cancel;action2;up;down;pageup;pagedown"
+					data-nav-targets="_;_;_;button-improve;button-opponents;_;_"
+					data-nav-group="{{{C_NavGroup_Default}}}"
+					data-nav-zone="{{{Button::C_NavZone}}}"
+					data-menusounds-selectsound="IngameSelectStartRace"
+					hidden="1"
+				/>
+				<frameinstance
+					modelid="{{{Button::C_Name}}}" id="button-opponents" z-index="1"
+					class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}} {{{Grid::C_Class_Element}}}"
+					data-grid-row="{{{C_Row_Opponents}}}"
+					data-text="{{{Text_ChangeOpponents}}}"
+					data-textitalicslope=".2"
+					data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+					data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+					data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+					data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}"
+					data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}"
+					data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+					data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+					data-opacityunfocus=".9"
+					data-textsize="4"
+					data-textopacityunfocus=".4"
+					data-halign="center" data-valign="center"
+					data-nav-inputs="select;cancel;action2;up;down;pageup;pagedown"
+					data-nav-targets="_;_;_;button-challenge;button-replay;_;_"
+					data-nav-group="{{{C_NavGroup_Default}}}"
+					data-nav-zone="{{{Button::C_NavZone}}}"
+					data-menusounds-selectsound="IngameSelectChangeOpponent"
+				/>
+				<frameinstance
+					modelid="{{{Button::C_Name}}}" id="button-replay" z-index="2"
+					class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}} {{{Grid::C_Class_Element}}}"
+					data-grid-row="{{{C_Row_Replay}}}"
+					data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+					data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+					data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+					data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}"
+					data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}"
+					data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+					data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+					data-opacityunfocus=".9"
+					data-textitalicslope=".2"
+					data-textsize="4"
+					data-textopacityunfocus=".4"
+					data-halign="center" data-valign="center"
+					data-nav-inputs="select;cancel;action2;up;down;pageup;pagedown"
+					data-nav-targets="_;_;_;button-opponents;button-exit;_;_"
+					data-nav-group="{{{C_NavGroup_Default}}}"
+					data-nav-zone="{{{Button::C_NavZone}}}"
+					data-menusounds-selectsound="IngameSelectSaveReplay"
+					data-nav-locked="{{{PlaformIsFromFirstParty}}}"
+					hidden="{{{PlaformIsFromFirstParty}}}"
+				/>
+
+				<frame id="frame-footer" class="{{{Grid::C_Class_Element}}}" data-grid-row="{{{C_Row_Footer}}}">
+					<frameinstance
+						id="button-exit" pos="{{{Pos_ExitButton.X}}} {{{Pos_ExitButton.Y}}}" z-index="1"
+						modelid="{{{ExpendableButton::C_Name}}}"
+						class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}}"
+						data-text="{{{Text_Exit}}}"
+						data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_PagePrevious}}} {{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"
+						data-width="{{{Size_SmallerFooterButton.X}}}" data-height="{{{Size_SmallerFooterButton.Y}}}"
+						data-icon-size="10 10" data-icon-offset="-5 0"
+						data-icon-align="{{{ExpendableButton::C_IconAlign_Left}}}"
+						data-text-size="{{{0.7*Size_SmallerFooterButton.X}}} {{{Size_SmallerFooterButton.Y}}}"
+						data-text-offset="-7 -0.4"
+						data-halign="left" data-valign="center"
+						data-nav-inputs="select;cancel;action2;up;down;right;pageup;pagedown"
+						data-nav-targets="_;_;_;button-replay;button-improve;button-vote-dislike;_;_"
+						data-nav-group="{{{C_NavGroup_Default}}}"
+						data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+						data-menusounds-selectsound="IngameSelectQuit"
+					/>
+					<frameinstance
+						id="button-vote-dislike" pos="{{{Pos_VoteDislikeButton.X}}} {{{Pos_VoteDislikeButton.Y}}}" z-index="1"
+						modelid="{{{ExpendableButton::C_Name}}}"
+						class="{{{Navigation::C_Class}}}"
+						data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"
+						data-width="{{{Size_VoteButton.X}}}" data-height="{{{Size_VoteButton.Y}}}"
+						data-text-size="{{{Size_VoteButton.X}}} {{{Size_VoteButton.Y}}}"
+						data-text-textsize="7"
+						data-text-offset="-7 -1"
+						data-halign="left" data-valign="center"
+						data-nav-inputs="select;cancel;action2;up;down;left;right;pageup;pagedown"
+						data-nav-targets="_;_;_;button-replay;button-improve;button-exit;button-vote-like;_;_"
+						data-nav-group="{{{C_NavGroup_Default}}}"
+						data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+					/>
+					<frameinstance
+						id="button-vote-like" pos="{{{Pos_VoteLikeButton.X}}} {{{Pos_VoteLikeButton.Y}}}" z-index="1"
+						modelid="{{{ExpendableButton::C_Name}}}"
+						class="{{{Navigation::C_Class}}}"
+						data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"
+						data-width="{{{Size_VoteButton.X}}}" data-height="{{{Size_VoteButton.Y}}}"
+						data-text-size="{{{Size_VoteButton.X}}} {{{Size_VoteButton.Y}}}"
+						data-text-offset="-7 -1"
+						data-text-textsize="7"
+						data-halign="left" data-valign="center"
+						data-nav-inputs="select;cancel;action2;up;down;left;right;pageup;pagedown"
+						data-nav-targets="_;_;_;button-replay;button-improve;button-vote-dislike;button-next-map;_;_"
+						data-nav-group="{{{C_NavGroup_Default}}}"
+						data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+					/>
+					<frameinstance
+						id="button-next-map" pos="{{{Pos_NextMapButton.X}}} {{{Pos_NextMapButton.Y}}}" z-index="1" hidden="1"
+						modelid="{{{ExpendableButton::C_Name}}}"
+						class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}}"
+						data-text="{{{Text_NextMap}}}"
+						data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_StackBottom}}} {{{ExpendableButton::C_Style_PageNext}}} {{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"
+						data-width="{{{Size_SmallerFooterButton.X}}}" data-height="{{{Size_SmallerFooterButton.Y}}}"
+						data-icon-size="10 10" data-icon-offset="-4.5 0"
+						data-icon-align="{{{ExpendableButton::C_IconAlign_Right}}}"
+						data-text-size="{{{0.7*Size_SmallerFooterButton.X}}} {{{Size_SmallerFooterButton.Y}}}"
+						data-text-offset="-4.5 -0.4"
+						data-halign="left" data-valign="center"
+						data-nav-inputs="select;cancel;action2;up;left;down;pageup;pagedown"
+						data-nav-targets="_;_;_;button-replay;button-vote-like;button-improve;_;_"
+						data-nav-group="{{{C_NavGroup_Default}}}"
+						data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+						data-nav-locked="1"
+						data-menusounds-selectsound="IngameSelectNextMap"
+					/>
+				</frame>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/CMGame/Utils/AudioManager_ML.Script.txt" as AudioManager
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as Grid
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PrestigeEarned_Common.Script.txt" as UIModules_PrestigeEarned_Common
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/TMGame/Modes/TrackVote.Script.txt" as TrackVote
+#Include "Libs/Nadeo/Trackmania/MainMenu/TitleControl.Script.txt" as TitleControl
+#Include "Libs/Nadeo/Trackmania/Modes/UIModules/NetShare_Client.Script.txt" as NetShare
+#Include "Libs/Nadeo/Trackmania/Stores/LeaderboardStore.Script.txt" as LeaderboardStore
+#Include "ColorLib" as CL
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+#Const C_DelayBeforeAutoHide {{{dump(C_DelayBeforeAutoHide)}}}
+#Const C_NewTrophy_Timeout 6000
+
+#Const C_Sound_MedalAnim_Delay {{{C_Sound_MedalAnim_Delay}}}
+#Const C_Sound_MaxCountPerFrame {{{C_Sound_MaxCountPerFrame}}}
+#Const C_Animation_MedalGain_Delay {{{C_Animation_MedalGain_Delay}}}
+#Const C_Animation_MedalGain_BackgroundIntroDuration {{{C_Animation_MedalGain_BackgroundIntroDuration}}}
+#Const C_Animation_MedalGain_TransitionDuration {{{C_Animation_MedalGain_TransitionDuration}}}
+#Const C_Animation_MedalGain_MedalAnimDuration {{{C_Animation_MedalGain_MedalAnimDuration}}}
+#Const C_Animation_MedalGain_DelayBetweenMedals {{{C_Animation_MedalGain_DelayBetweenMedals}}}
+#Const C_Animation_MedalGain_GoldToAuthorTeaser {{{C_Animation_MedalGain_GoldToAuthorTeaser}}}
+#Const C_Animation_MedalGain_Transition2Duration {{{C_Animation_MedalGain_Transition2Duration}}}
+#Const C_Animation_MedalGain_Transition2TravelTime {{{C_Animation_MedalGain_Transition2TravelTime}}}
+#Const C_Animation_MedalGain_DelayBeforeGlowLoop {{{C_Animation_MedalGain_DelayBeforeGlowLoop}}}
+#Const C_Animation_ShakeFrequency 60
+#Const C_Animation_ShakeDelay -50
+
+#Struct K_SoundToPlay {
+	Text Name;
+	Integer PlayTime;
+}
+
+#Struct K_Animation {
+	Boolean IsAnimationFinished;
+	Integer LightOnTime;
+	Integer StartTime;
+	Text[Integer] GainSounds;
+	Text[Integer] Images;
+}
+
+#Struct K_Controls {
+	CMlFrame Button_Challenge;
+	CMlFrame Button_Exit;
+	CMlFrame Button_Improve;
+	CMlFrame Button_NextMap;
+	CMlFrame Button_Opponents;
+	CMlFrame Button_Replay;
+	CMlFrame Button_VoteDislike;
+	CMlFrame Button_VoteLike;
+	CMlFrame Frame_AutoHide;
+	CMlFrame Frame_ButtonList;
+	CMlFrame Frame_ButtonsContainer;
+	CMlFrame Frame_Global;
+	CMlFrame Frame_MenuContent;
+	CMlFrame Frame_NewMedal;
+	CMlFrame Frame_NewTrophy;
+	CMlFrame Frame_RaceMapInfos;
+	CMlFrame Frame_TimeDiff;
+	CMlLabel Label_PressKey;
+	CMlLabel Label_TimeDiff;
+	CMlQuad Quad_Background;
+	CMlQuad Quad_BannerGlow2;
+	CMlQuad Quad_BannerGlow;
+	CMlQuad Quad_Medal;
+	CMlQuad Quad_Medal_Anim;
+	CMlQuad Quad_TimeDiff;
+	CMlQuad Quad_Trophy;
+}
+
+#Struct K_State {
+	Boolean CanChallengeOpponents;
+	Boolean CanViewReplay;
+	Boolean IsCloneMode;
+	Boolean IsSaveReplayDisabled;
+	Boolean MedalghostVisibility;
+	Boolean MenuIsVisible;
+	Integer CurrentMedal;
+	Integer DisplayMenuTime;
+	Vec2 MousePos;
+	K_Controls Controls;
+	K_SoundToPlay[] SoundsToPlay;
+	K_Animation MedalsAnimation;
+	K_Animation TrophyAnimation;
+	K_Animation BannerSlideAnimation;
+	{{{CampaignStruct::P}}}K_PlayerCloseToMedal PlayerCloseToMedal;
+}
+""",
+"""
+Boolean AreAllAnimationsFinished(K_State _State) {
+	return (
+		_State.MedalsAnimation.IsAnimationFinished &&
+		_State.TrophyAnimation.IsAnimationFinished &&
+		_State.BannerSlideAnimation.IsAnimationFinished
+	);
+}
+
+Void SetButtonsList(K_State _State) {
+	if (_State.CanViewReplay) {
+		{{{MenuButtonList::P}}}SetButtons(_State.Controls.Frame_ButtonList, ["A" => _("Select"), "B" => "{{{Text_Improve}}}", "PageUp" => TrackVote::C_Text_DislikeTrack, "PageDown" => TrackVote::C_Text_LikeTrack, "Y" => "{{{Text_ViewReplay}}}"]);
+	} else {
+		{{{MenuButtonList::P}}}SetButtons(_State.Controls.Frame_ButtonList, ["A" => _("Select"), "B" => "{{{Text_Improve}}}", "PageUp" => TrackVote::C_Text_DislikeTrack, "PageDown" => TrackVote::C_Text_LikeTrack]);
+	}
+}
+
+Text GetMedalImage(Integer _Medal) {
+	switch (_Medal) {
+		case Medals::C_ScoreMgrMedal_Bronze: return {{{dump(MenuConsts::C_ImageUrl_Medal_Bronze)}}};
+		case Medals::C_ScoreMgrMedal_Silver: return {{{dump(MenuConsts::C_ImageUrl_Medal_Silver)}}};
+		case Medals::C_ScoreMgrMedal_Gold: return {{{dump(MenuConsts::C_ImageUrl_Medal_Gold)}}};
+		case Medals::C_ScoreMgrMedal_Author: return {{{dump(MenuConsts::C_ImageUrl_Medal_Nadeo)}}};
+	}
+	return "";
+}
+
+Text GetMedalGainSound(Integer _Medal) {
+	switch (_Medal) {
+		case Medals::C_ScoreMgrMedal_Bronze: return "{{{C_Sound_MedalGainBronze}}}";
+		case Medals::C_ScoreMgrMedal_Silver: return "{{{C_Sound_MedalGainSilver}}}";
+		case Medals::C_ScoreMgrMedal_Gold: return "{{{C_Sound_MedalGainGold}}}";
+		case Medals::C_ScoreMgrMedal_Author: return "{{{C_Sound_MedalGainAuthor}}}";
+	}
+	return "";
+}
+
+K_State AddSound(K_State _State, Text _SoundName, Integer _PlayTime) {
+	if (_PlayTime < Now) return _State;
+	declare K_State State = _State;
+	declare K_SoundToPlay[] NewWaitList;
+	declare NewSoundInserted = False;
+	declare NewSound = K_SoundToPlay {
+		Name = _SoundName,
+		PlayTime = _PlayTime
+	};
+	for (Index, 0, State.SoundsToPlay.count-1) {
+		if (!NewSoundInserted && _PlayTime < State.SoundsToPlay[Index].PlayTime) {
+			NewWaitList.add(NewSound);
+			NewSoundInserted = True;
+		}
+		NewWaitList.add(State.SoundsToPlay[Index]);
+	}
+	if (!NewSoundInserted) NewWaitList.add(NewSound);
+	State.SoundsToPlay = NewWaitList;
+
+	return State;
+}
+
+K_State RemoveSounds(K_State _State, Text[] _SoundNames) {
+	declare K_State State = _State;
+	declare K_SoundToPlay[] NewWaitList;
+	foreach (Sound in State.SoundsToPlay) {
+		if (!_SoundNames.exists(Sound.Name)) {
+			NewWaitList.add(Sound);
+		}
+	}
+	foreach (SoundName in _SoundNames) {
+		AudioManager::StopSound(This, SoundName);
+	}
+	State.SoundsToPlay = NewWaitList;
+
+	return State;
+}
+
+K_State SkipAnimation(K_State _State, Boolean _DisplayTrophy, Boolean _ApplySoundBalance) {
+	declare K_State State = _State;
+	declare CMlQuad Quad_Medal <=> (State.Controls.Frame_NewMedal.GetFirstChild("quad-medal") as CMlQuad);
+	declare CMlQuad Quad_Medal_Anim <=> (State.Controls.Frame_NewMedal.GetFirstChild("quad-medal-anim") as CMlQuad);
+	declare CMlQuad Quad_Trophy <=> (State.Controls.Frame_NewTrophy.GetFirstChild("quad-trophy") as CMlQuad);
+	declare CMlQuad Quad_BannerGlow <=> (State.Controls.Frame_NewMedal.GetFirstChild("quad-medal-banner-glow") as CMlQuad);
+	declare CMlQuad Quad_BannerGlow2 <=> (State.Controls.Frame_NewTrophy.GetFirstChild("quad-trophy-banner-glow") as CMlQuad);
+
+	State.DisplayMenuTime = Now;
+	State.MedalsAnimation = K_Animation {
+		IsAnimationFinished = True,
+		LightOnTime = Now
+	};
+	State.TrophyAnimation = K_Animation {
+		IsAnimationFinished = True,
+		LightOnTime = Now
+	};
+	State.BannerSlideAnimation = K_Animation {
+		IsAnimationFinished = True
+	};
+
+	AnimMgr.Flush(Quad_Medal);
+	AnimMgr.Flush(Quad_Medal_Anim);
+	AnimMgr.Flush(State.Controls.Frame_NewMedal);
+	AnimMgr.Flush(Quad_Trophy);
+	AnimMgr.Flush(State.Controls.Frame_NewTrophy);
+	AnimMgr.Flush(Quad_BannerGlow);
+	AnimMgr.Flush(Quad_BannerGlow2);
+	Quad_Medal.Show();
+	Quad_Medal.ChangeImageUrl(GetMedalImage(State.CurrentMedal));
+	Quad_Medal.RelativeRotation = 0.;
+	Quad_Medal.RelativePosition_V3 = <0.,0.>;
+	Quad_Medal.RelativeScale = 1.;
+	Quad_Medal.ModulateColor = <1.,1.,1.>;
+	Quad_Medal_Anim.Hide();
+	Quad_Trophy.Show();
+	Quad_Trophy.RelativeRotation = 0.;
+	Quad_Trophy.RelativePosition_V3 = <0.,0.>;
+	Quad_Trophy.RelativeScale = 1.;
+	Quad_Trophy.ModulateColor = <1.,1.,1.>;
+	Quad_BannerGlow.Opacity = 1.;
+	Quad_BannerGlow2.Opacity = 1.;
+	Quad_BannerGlow.Visible = State.Controls.Frame_NewMedal.Visible;
+	Quad_BannerGlow2.Visible = State.Controls.Frame_NewTrophy.Visible;
+	State.Controls.Frame_NewMedal.RelativePosition_V3 = <{{{PosX_NewMedalBanner}}}, {{{PosY_Banners}}}>;
+	State.Controls.Frame_NewTrophy.RelativePosition_V3 = <{{{PosX_NewTrophyBanner}}}, {{{PosY_Banners}}}>;
+	State.Controls.Frame_NewTrophy.Visible = _DisplayTrophy;
+	State = RemoveSounds(State, ["{{{C_Sound_MedalGainBronze}}}", "{{{C_Sound_MedalGainSilver}}}", "{{{C_Sound_MedalGainGold}}}", "{{{C_Sound_MedalGainAuthor}}}", "{{{C_Sound_TrophyBronze}}}", "{{{C_Sound_TrophySilver}}}", "{{{C_Sound_TrophyGold}}}"]);
+
+	if (_ApplySoundBalance) {
+		{{{MenuSounds::P}}}SetSoundBalanceState(This, {{{MenuSounds::P}}}C_InMenu_State, {{{C_SoundFadeTime_ForceEnterMenu}}});
+	}
+
+	return State;
+}
+
+K_State SetNewMedal(K_State _State, Integer _NewMedal) {
+	declare K_State State = _State;
+	declare Quad_Medal <=> (State.Controls.Frame_NewMedal.GetFirstChild("quad-medal") as CMlQuad);
+	declare Quad_Medal_Anim <=> (State.Controls.Frame_NewMedal.GetFirstChild("quad-medal-anim") as CMlQuad);
+	declare Quad_Banner <=> (State.Controls.Frame_NewMedal.GetFirstChild("quad-medal-banner") as CMlQuad);
+	declare Quad_BannerGlow <=> (State.Controls.Frame_NewMedal.GetFirstChild("quad-medal-banner-glow") as CMlQuad);
+	declare Integer TransitionDuration = C_Animation_MedalGain_TransitionDuration; //< 250 if no current medal
+	if (State.CurrentMedal > 0) TransitionDuration = C_Animation_MedalGain_TransitionDuration * 2; //< 500 otherwise
+	State.BannerSlideAnimation = K_Animation { IsAnimationFinished = True };
+	State.MedalsAnimation = K_Animation {
+		Images = [],
+		GainSounds = [],
+		StartTime = Now + C_Animation_MedalGain_Delay + C_Animation_MedalGain_BackgroundIntroDuration + TransitionDuration,
+		IsAnimationFinished = False,
+		LightOnTime = -1
+	};
+
+	// Prepare banners and medals
+	if (!State.CanChallengeOpponents) {
+		Quad_Banner.ChangeImageUrl("{{{Images::C_ImageUrl_ModeMenu_Banner_MedalsShort}}}");
+		Quad_Banner.Size = {{{Size_NewMedalBannerSmall}}};
+		Quad_BannerGlow.ChangeImageUrl("{{{Images::C_ImageUrl_ModeMenu_Banner_MedalsShortGlow}}}");
+		Quad_BannerGlow.Size = {{{Size_NewMedalBannerSmall}}};
+	} else {
+		Quad_Banner.ChangeImageUrl("{{{Images::C_ImageUrl_ModeMenu_Banner_Medals}}}");
+		Quad_Banner.Size = {{{Size_NewMedalBanner}}};
+		Quad_BannerGlow.ChangeImageUrl("{{{Images::C_ImageUrl_ModeMenu_Banner_MedalsGlow}}}");
+		Quad_BannerGlow.Size = {{{Size_NewMedalBanner}}};
+	}
+	Quad_Medal_Anim.ChangeImageUrl("");
+	Quad_Medal.ChangeImageUrl("");
+	Quad_Medal.Visible = State.CurrentMedal > 0;
+	Quad_BannerGlow.Visible = State.CurrentMedal > 0;
+	if (Quad_BannerGlow.Visible) Quad_BannerGlow.Opacity = 1.;
+	else Quad_BannerGlow.Opacity = 0.;
+
+	// Initialize medal list
+	for (Medal, State.CurrentMedal, _NewMedal) {
+		if (Medal == 0) continue;
+		if (State.CurrentMedal > 0 && Medal == State.CurrentMedal) {
+			Quad_Medal.ChangeImageUrl(GetMedalImage(Medal));
+			Quad_Medal_Anim.ChangeImageUrl(GetMedalImage(Medal));
+		} else {
+			State.MedalsAnimation.Images[Medal] = GetMedalImage(Medal);
+			State.MedalsAnimation.GainSounds[Medal] = GetMedalGainSound(Medal);
+		}
+	}
+
+	// Display the medal frame for the upcoming medal animations
+	State.Controls.Frame_NewMedal.Hide();
+	State.Controls.Frame_NewMedal.RelativePosition_V3 = MLHelpers::SkewX(<0., {{{PosY_Banners}}}-200.>, 10.);
+	AnimMgr.Flush(State.Controls.Frame_NewMedal);
+	AnimMgr.Add(State.Controls.Frame_NewMedal, "<anim hidden=\"0\" pos=\"0. "^{{{PosY_Banners}}}^"\"/>", Now + C_Animation_MedalGain_Delay, C_Animation_MedalGain_BackgroundIntroDuration, CAnimManager::EAnimManagerEasing::Linear);
+	State = AddSound(State, "{{{C_Sound_MedalIntro}}}", Now + C_Animation_MedalGain_Delay);
+
+	// Update current medal
+	State.CurrentMedal = _NewMedal;
+
+	return State;
+}
+
+K_State SetNewTrophy(K_State _State, Integer[Integer] _NewTrophies) {
+	declare K_State State = _State;
+	declare Quad_Trophy <=> (State.Controls.Frame_NewTrophy.GetFirstChild("quad-trophy") as CMlQuad);
+	declare Quad_Banner <=> (State.Controls.Frame_NewTrophy.GetFirstChild("quad-trophy-banner") as CMlQuad);
+	declare Quad_BannerGlow <=> (State.Controls.Frame_NewTrophy.GetFirstChild("quad-trophy-banner-glow") as CMlQuad);
+	State.BannerSlideAnimation = K_Animation { IsAnimationFinished = True };
+	State.TrophyAnimation = K_Animation {
+		IsAnimationFinished = False,
+		LightOnTime = -1
+	};
+
+	if (!State.CanChallengeOpponents) {
+		Quad_Banner.ChangeImageUrl("{{{Images::C_ImageUrl_ModeMenu_Banner_MedalsShort}}}");
+		Quad_BannerGlow.ChangeImageUrl("{{{Images::C_ImageUrl_ModeMenu_Banner_MedalsShortGlow}}}");
+		Quad_Banner.RelativePosition_V3 = <0., 5.>;
+		Quad_BannerGlow.RelativePosition_V3 = <0., 5.>;
+		Quad_Banner.Size = {{{Size_NewMedalBannerSmall}}};
+		Quad_BannerGlow.Size = {{{Size_NewMedalBannerSmall}}};
+	} else {
+		Quad_Banner.ChangeImageUrl("{{{Images::C_ImageUrl_ModeMenu_Banner_Medals}}}");
+		Quad_BannerGlow.ChangeImageUrl("{{{Images::C_ImageUrl_ModeMenu_Banner_MedalsGlow}}}");
+		Quad_Banner.RelativePosition_V3 = <0., 0.>;
+		Quad_BannerGlow.RelativePosition_V3 = <0., 0.>;
+		Quad_Banner.Size = {{{Size_NewMedalBanner}}};
+		Quad_BannerGlow.Size = {{{Size_NewMedalBanner}}};
+	}
+
+	if (_NewTrophies.existskey(9)) {
+		Quad_Trophy.ChangeImageUrl({{{dump(MenuConsts::C_ImageUrl_Trophy_512_Gold3)}}});
+		State.TrophyAnimation.GainSounds[0] = {{{dump(C_Sound_TrophyGold)}}};
+	} else if (_NewTrophies.existskey(8)) {
+		Quad_Trophy.ChangeImageUrl({{{dump(MenuConsts::C_ImageUrl_Trophy_512_Gold2)}}});
+		State.TrophyAnimation.GainSounds[0] = {{{dump(C_Sound_TrophyGold)}}};
+	} else if (_NewTrophies.existskey(7)) {
+		Quad_Trophy.ChangeImageUrl({{{dump(MenuConsts::C_ImageUrl_Trophy_512_Gold1)}}});
+		State.TrophyAnimation.GainSounds[0] = {{{dump(C_Sound_TrophyGold)}}};
+	} else if (_NewTrophies.existskey(6)) {
+		Quad_Trophy.ChangeImageUrl({{{dump(MenuConsts::C_ImageUrl_Trophy_512_Silver3)}}});
+		State.TrophyAnimation.GainSounds[0] = {{{dump(C_Sound_TrophyGold)}}};
+	} else if (_NewTrophies.existskey(5)) {
+		Quad_Trophy.ChangeImageUrl({{{dump(MenuConsts::C_ImageUrl_Trophy_512_Silver2)}}});
+		State.TrophyAnimation.GainSounds[0] = {{{dump(C_Sound_TrophySilver)}}};
+	} else if (_NewTrophies.existskey(4)) {
+		Quad_Trophy.ChangeImageUrl({{{dump(MenuConsts::C_ImageUrl_Trophy_512_Silver1)}}});
+		State.TrophyAnimation.GainSounds[0] = {{{dump(C_Sound_TrophySilver)}}};
+	} else if (_NewTrophies.existskey(3)) {
+		Quad_Trophy.ChangeImageUrl({{{dump(MenuConsts::C_ImageUrl_Trophy_512_Bronze3)}}});
+		State.TrophyAnimation.GainSounds[0] = {{{dump(C_Sound_TrophySilver)}}};
+	} else if (_NewTrophies.existskey(2)) {
+		Quad_Trophy.ChangeImageUrl({{{dump(MenuConsts::C_ImageUrl_Trophy_512_Bronze2)}}});
+		State.TrophyAnimation.GainSounds[0] = {{{dump(C_Sound_TrophyBronze)}}};
+	} else if (_NewTrophies.existskey(1)) {
+		Quad_Trophy.ChangeImageUrl({{{dump(MenuConsts::C_ImageUrl_Trophy_512_Bronze1)}}});
+		State.TrophyAnimation.GainSounds[0] = {{{dump(C_Sound_TrophyBronze)}}};
+	} else {
+		Quad_Trophy.ChangeImageUrl({{{dump(MenuConsts::C_ImageUrl_Trophy_512_None)}}});
+		State.TrophyAnimation.GainSounds[0] = {{{dump(C_Sound_TrophyBronze)}}};
+	}
+
+	// Prepare trophy animation
+	State.Controls.Frame_NewTrophy.RelativePosition_V3 = MLHelpers::SkewX(<27., {{{PosY_Banners}}}+200.>, 10.);
+	Quad_BannerGlow.Hide();
+	Quad_BannerGlow.Opacity = 0.;
+	Quad_Trophy.RelativeRotation = ML::Rand(-2., 0.)*6.;
+	Quad_Trophy.RelativePosition_V3 = <20., 10.>;
+	Quad_Trophy.ModulateColor = <0.35, 0.35, 0.35>;
+	Quad_Trophy.RelativeScale = 1.5;
+	Quad_Trophy.Hide();
+
+	return State;
+}
+
+Void Focus(K_State _State, CMlControl _From, CMlControl _To) {
+	if ({{{Transition::P}}}IsInTransition(This)) return;
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{Button::P}}}IsButton(_From)) {
+			{{{Button::P}}}Unfocus(This, (_From as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_From)) {
+			{{{ExpendableButton::P}}}Unfocus(This, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{Button::P}}}IsButton(_To)) {
+			{{{Button::P}}}Focus(This, (_To as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_To)) {
+			{{{ExpendableButton::P}}}Focus(This, (_To as CMlFrame));
+			if (_To.Parent != Null && _To.Parent.DataAttributeExists("grid-row") && _To.Parent.DataAttributeGet("grid-row") == "{{{C_Row_Footer}}}") {
+				{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_Replay, "down", _To.ControlId);
+				{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_Improve, "up", _To.ControlId);
+			}
+		}
+	}
+}
+
+Void Select(K_State _State, CMlControl _Control, {{{CampaignStruct::P}}}K_PlayerCloseToMedal PlayerCloseToMedal) {
+	if (_Control == Null) return;
+
+	switch (_Control.ControlId) {
+		case "button-improve": SendCustomEvent("{{{Consts::C_EndRaceMenuEvent_Improve}}}", []);
+		case "button-challenge": SendCustomEvent("{{{Consts::C_EndRaceMenuEvent_Challenge}}}", [PlayerCloseToMedal.AccountId, PlayerCloseToMedal.Medal]);
+		case "button-opponents": SendCustomEvent("{{{Consts::C_RaceMenuEvent_ChangeOpponents}}}", []);
+		case "button-next-map": SendCustomEvent("{{{Consts::C_RaceMenuEvent_NextMap}}}", []);
+		case "button-exit": SendCustomEvent("{{{Consts::C_RaceMenuEvent_Exit}}}", []);
+		case "button-vote-like": TrackVote::LikeTrack(This, Map, _State.Controls.Button_VoteLike, _State.Controls.Button_VoteDislike);
+		case "button-vote-dislike": TrackVote::DislikeTrack(This, Map, _State.Controls.Button_VoteLike, _State.Controls.Button_VoteDislike);
+		case "button-replay": {
+			if ({{{Button::P}}}GetValue(_State.Controls.Button_Replay) == "{{{Text_SaveReplay}}}") {
+				SendCustomEvent("{{{Consts::C_EndRaceMenuEvent_SaveReplay}}}", []);
+			}
+		}
+	}
+}
+
+// Center the menu in the screen
+Void UpdateMenuPosition(K_State _State) {
+	declare Real Trackmania_RaceMapInfos_SizeY for UI;
+	declare Real SizeY_ButtonsContainer;
+
+	foreach (Control in _State.Controls.Frame_ButtonsContainer.Controls) {
+		if (Control.DataAttributeExists("grid-row") && Control.Visible) {
+			if (Control.DataAttributeGet("grid-row") == "{{{C_Row_Footer}}}") {
+				SizeY_ButtonsContainer += {{{Size_FooterButton.Y + Margin}}};
+			} else {
+				SizeY_ButtonsContainer += {{{SizeY_AdjustedListButton}}};
+			}
+		}
+	}
+
+	_State.Controls.Frame_RaceMapInfos.RelativePosition_V3 = MLHelpers::SkewX(<0., 0.5 * SizeY_ButtonsContainer>, 10.);
+	_State.Controls.Frame_ButtonsContainer.RelativePosition_V3 = MLHelpers::SkewX(<0.3, -0.5*Trackmania_RaceMapInfos_SizeY + 0.5*SizeY_ButtonsContainer>, 10.);
+	_State.Controls.Frame_TimeDiff.RelativePosition_V3 = MLHelpers::SkewX(<{{{RaceMenuSize.X/2 - 5.}}}, _State.Controls.Frame_RaceMapInfos.RelativePosition_V3.Y - 11.>, 10.);
+}
+
+K_State DisplayMenu(K_State _State, Boolean _Visible, Vec2 _MousePos, Boolean _ApplySoundBalance) {
+	declare K_State State = _State;
+
+	State.MenuIsVisible = _Visible;
+	State.MousePos = _MousePos;
+
+	// Center the menu in the screen
+	UpdateMenuPosition(State);
+
+	// Update like and dislike buttons from API
+	TrackVote::UpdateLikeAndDislikeButtonsWithLastestVote(This, Map, State.Controls.Button_VoteLike, State.Controls.Button_VoteDislike);
+
+	if (State.MenuIsVisible) {
+		AnimMgr.Add(State.Controls.Frame_AutoHide, "<a pos=\"{{{PosX_MenuVisible}}} "^State.Controls.Frame_AutoHide.RelativePosition_V3.Y^"\" hidden=\"0\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Label_PressKey, "<a pos=\"{{{PosX_PressKeyHidden}}} "^State.Controls.Label_PressKey.RelativePosition_V3.Y^"\" hidden=\"1\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Quad_Background, "<a opacity=\"0.3\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		if (_ApplySoundBalance) {{{MenuSounds::P}}}SetSoundBalanceState(This, {{{MenuSounds::P}}}C_InMenu_State, {{{C_SoundFadeTime_AutoHide}}});
+	} else {
+		AnimMgr.Add(State.Controls.Frame_AutoHide, "<a pos=\"{{{PosX_MenuHidden}}} "^State.Controls.Frame_AutoHide.RelativePosition_V3.Y^"\" hidden=\"1\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Label_PressKey, "<a pos=\"{{{PosX_PressKeyVisible}}} "^State.Controls.Label_PressKey.RelativePosition_V3.Y^"\" hidden=\"0\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Quad_Background, "<a opacity=\"0.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		if (_ApplySoundBalance) {{{MenuSounds::P}}}SetSoundBalanceState(This, {{{MenuSounds::P}}}C_Playing_State, {{{C_SoundFadeTime_AutoHide}}});
+	}
+
+	return State;
+}
+
+Void RefocusFocusedButton() {
+	declare FocusedControl = {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}");
+	if ((FocusedControl is CMlFrame) && {{{Button::P}}}IsButton(FocusedControl as CMlFrame)) {
+		{{{Button::P}}}Focus(This, FocusedControl as CMlFrame);
+	}
+}
+
+Void UpdateButtonsContainer(K_State _State, Grid::K_GridConfig _GridConfig) {
+	{{{Button::P}}}SetVisibilityAndNavigation(_State.Controls.Button_NextMap, NetShare::GetHasNextMap(Teams[0]));
+	{{{Button::P}}}SetVisibilityAndNavigation(_State.Controls.Button_Opponents, _State.CanChallengeOpponents && !_State.IsCloneMode);
+	{{{Button::P}}}SetVisibilityAndNavigation(_State.Controls.Button_Improve, !_State.MedalghostVisibility || _State.IsCloneMode);
+	{{{Button::P}}}SetVisibilityAndNavigation(_State.Controls.Button_Challenge, _State.MedalghostVisibility && !_State.IsCloneMode);
+	{{{Button::P}}}SetVisibilityAndNavigation(_State.Controls.Button_Replay, !_State.IsSaveReplayDisabled && !Platform::IsFromFirstParty(System));
+
+	foreach (Control in _State.Controls.Frame_ButtonsContainer.Controls) {
+		if (Control.Visible && {{{Button::P}}}IsButton(Control as CMlFrame)) {
+			{{{Button::P}}}SetImage(This, Control as CMlFrame, "{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}");
+			{{{Button::P}}}SetImageFocus(This, Control as CMlFrame, "{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}");
+		}
+	}
+
+	if (_State.Controls.Button_NextMap.Visible) {
+		{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_Replay, "down", _State.Controls.Button_NextMap.ControlId);
+		{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_Improve, "up", _State.Controls.Button_NextMap.ControlId);
+		{{{ExpendableButton::P}}}SetStyles(This, _State.Controls.Button_VoteLike, ["{{{ExpendableButton::C_Style_Stack}}}", "{{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"]);
+		{{{ExpendableButton::P}}}SetWidth(This, _State.Controls.Button_Exit, {{{Size_SmallerFooterButton.X}}}, False);
+		{{{ExpendableButton::P}}}SetTextSize(This, _State.Controls.Button_Exit, {{{0.7*Size_SmallerFooterButton}}});
+		{{{ExpendableButton::P}}}SetStyles(This, _State.Controls.Button_VoteLike, ["{{{ExpendableButton::C_Style_Stack}}}", "{{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"]);
+		_State.Controls.Button_VoteDislike.RelativePosition_V3 = {{{Pos_VoteDislikeButton}}};
+		_State.Controls.Button_VoteLike.RelativePosition_V3 = {{{Pos_VoteLikeButton}}};
+		_State.Controls.Button_NextMap.RelativePosition_V3 = {{{Pos_NextMapButton}}};
+	} else {
+		{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_Replay, "down", _State.Controls.Button_Exit.ControlId);
+		{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_Improve, "up", _State.Controls.Button_Exit.ControlId);
+		{{{ExpendableButton::P}}}SetWidth(This, _State.Controls.Button_Exit, {{{Size_FooterButton.X}}}, False);
+		{{{ExpendableButton::P}}}SetTextSize(This, _State.Controls.Button_Exit, {{{0.7*Size_FooterButton}}});
+		{{{ExpendableButton::P}}}SetStyles(This, _State.Controls.Button_VoteLike, ["{{{ExpendableButton::C_Style_Stack}}}", "{{{ExpendableButton::C_Style_StackBottom}}}", "{{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"]);
+		_State.Controls.Button_VoteDislike.RelativePosition_V3.X = {{{Pos_ExitButton.X + Size_FooterButton.X - MLHelpers::SkewX(Size_FooterButton.Y, 10.) + Margin}}};
+		_State.Controls.Button_VoteLike.RelativePosition_V3.X = _State.Controls.Button_VoteDislike.RelativePosition_V3.X + {{{Size_VoteButton.X - MLHelpers::SkewX(Size_VoteButton.Y, 10.) + Margin}}};
+		for (Control in reverse _State.Controls.Frame_ButtonsContainer.Controls) {
+			if (Control.Visible && {{{Button::P}}}IsButton(Control as CMlFrame)) {
+				{{{Button::P}}}SetImage(This, Control as CMlFrame, "{{{Images::C_ImageUrl_ModeMenu_Button_Round_Corner}}}");
+				{{{Button::P}}}SetImageFocus(This, Control as CMlFrame, "{{{Images::C_ImageUrl_ModeMenu_Button_Round_Corner_Focus}}}");
+				break;
+			}
+		}
+	}
+
+	{{{Button::P}}}Unfocus(This, _State.Controls.Button_VoteLike);
+	{{{Button::P}}}Unfocus(This, _State.Controls.Button_Replay);
+	RefocusFocusedButton();
+
+	Grid::Update(_GridConfig, AnimMgr, _State.Controls.Frame_ButtonsContainer, 10., False, True);
+	UpdateMenuPosition(_State);
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+
+declare netread Integer Net_Campaign_EndRaceMenu_ReplaySaved for Teams[0];
+declare netread Boolean Net_Campaign_EndRaceMenu_IsNewMedal for Teams[0];
+declare netread Boolean Net_Campaign_EndRaceMenu_CanViewReplay for Teams[0];
+declare netread Boolean Net_Campaign_EndRaceMenu_IsCloneMode for Teams[0];
+declare netread Integer Net_Campaign_EndRaceMenu_MapChangeTime for Teams[0];
+declare netread Integer Net_Campaign_EndRaceMenu_RoundChangeTime for Teams[0];
+declare netread Boolean Net_Campaign_EndRaceMenu_EarlyMedalDisplay for Teams[0];
+declare netread Integer Net_Campaign_EndRaceMenu_StopSound for Teams[0];
+declare netread Integer Net_Campaign_EndRaceMenu_ShowMedalWithoutAnim for Teams[0];
+declare netread Boolean Net_Campaign_EndRaceMenu_IsPlayerDrivingAlone for Teams[0];
+declare netread Integer[Integer] Net_Campaign_EndRaceMenu_Trophies for Teams[0];
+declare netread Integer Net_Campaign_EndRaceMenu_TrophiesUpdate for Teams[0];
+declare netread Boolean Net_Campaign_EndRaceMenu_IsSaveReplayDisabled for Teams[0];
+
+declare Boolean DisplayModule;
+declare Integer PrevBestRaceTime;
+declare Integer PrevRaceTime;
+declare Integer PrevRacePoints;
+declare Integer ReplaySaved;
+declare {{{CampaignStruct::P}}}K_Campaign CurrentCampaign;
+declare {{{CampaignStruct::P}}}K_Map CurrentMap;
+declare Integer ForceUpdate;
+declare Integer ActivityTimeShift;
+declare Boolean UpdateNewMedal;
+declare K_State State;
+declare Integer UpdateRoundChangeTime;
+declare Integer UpdateMapChangeTime;
+declare Boolean UpdateEarlyMedalDisplay;
+declare Boolean DisplayMenuContent;
+declare Integer UpdateStopSound;
+declare Integer UpdateShowMedalWithoutAnim;
+declare Integer TrophiesUpdate;
+declare Integer TrophiesUpdateTime;
+declare Boolean PageWasHidden;
+declare Boolean ForceRefreshAfterPageWasHidden;
+declare Grid::K_GridConfig GridConfig;
+declare Integer UnblockPrestigeTimestamp;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+
+State = K_State {
+	SoundsToPlay = [],
+	MenuIsVisible = False,
+	CanViewReplay = False,
+	IsCloneMode = False,
+	MousePos = Input.MousePos,
+	Controls = K_Controls {
+		Frame_Global = Frame_Global,
+		Frame_AutoHide = (Frame_Global.GetFirstChild("frame-auto-hide") as CMlFrame),
+		Frame_ButtonList = (Frame_Global.GetFirstChild("frame-button-list-end-race-campaign") as CMlFrame),
+		Frame_ButtonsContainer = (Frame_Global.GetFirstChild("frame-buttons-container") as CMlFrame),
+		Frame_MenuContent = (Frame_Global.GetFirstChild("frame-menu-content") as CMlFrame),
+		Frame_NewMedal = (Frame_Global.GetFirstChild("frame-new-medal") as CMlFrame),
+		Frame_NewTrophy = (Frame_Global.GetFirstChild("frame-new-trophy") as CMlFrame),
+		Frame_RaceMapInfos = (Frame_Global.GetFirstChild("frame-race-map-infos") as CMlFrame),
+		Frame_TimeDiff = (Frame_Global.GetFirstChild("frame-timediff") as CMlFrame),
+		Button_Challenge = (Frame_Global.GetFirstChild("button-challenge") as CMlFrame),
+		Button_Exit = (Frame_Global.GetFirstChild("button-exit") as CMlFrame),
+		Button_Improve = (Frame_Global.GetFirstChild("button-improve") as CMlFrame),
+		Button_NextMap = (Frame_Global.GetFirstChild("button-next-map") as CMlFrame),
+		Button_Opponents = (Frame_Global.GetFirstChild("button-opponents") as CMlFrame),
+		Button_Replay = (Frame_Global.GetFirstChild("button-replay") as CMlFrame),
+		Button_VoteDislike = (Frame_Global.GetFirstChild("button-vote-dislike") as CMlFrame),
+		Button_VoteLike = (Frame_Global.GetFirstChild("button-vote-like") as CMlFrame),
+		Label_PressKey = (Frame_Global.GetFirstChild("label-press-key") as CMlLabel),
+		Label_TimeDiff = (Frame_Global.GetFirstChild("label-timediff") as CMlLabel),
+		Quad_Background = (Frame_Global.GetFirstChild("quad-background") as CMlQuad),
+		Quad_BannerGlow = (Frame_Global.GetFirstChild("quad-medal-banner-glow") as CMlQuad),
+		Quad_BannerGlow2 = (Frame_Global.GetFirstChild("quad-trophy-banner-glow") as CMlQuad),
+		Quad_Medal = (Frame_Global.GetFirstChild("quad-medal") as CMlQuad),
+		Quad_Medal_Anim = (Frame_Global.GetFirstChild("quad-medal-anim") as CMlQuad),
+		Quad_TimeDiff = (Frame_Global.GetFirstChild("quad-timediff") as CMlQuad),
+		Quad_Trophy = (Frame_Global.GetFirstChild("quad-trophy") as CMlQuad)
+	}
+};
+
+DisplayModule = Frame_Global.Visible;
+PrevBestRaceTime = -123;
+PrevRaceTime = -123;
+PrevRacePoints = -1;
+ReplaySaved = 0;
+CurrentCampaign.Id = {{{CampaignStruct::P}}}C_Campaign_NullId;
+ActivityTimeShift = Input.TimeSinceLatestActivity;
+State = DisplayMenu(State, True, Input.MousePos, DisplayModule);
+UpdateMapChangeTime = -123;
+UpdateRoundChangeTime = -123;
+UpdateEarlyMedalDisplay = False;
+DisplayMenuContent = True;
+UpdateStopSound = -123;
+UpdateShowMedalWithoutAnim = Net_Campaign_EndRaceMenu_ShowMedalWithoutAnim;
+TrophiesUpdate = -123;
+TrophiesUpdateTime = -123;
+PageWasHidden = !PageIsVisible;
+
+SetButtonsList(State);
+{{{Navigation::P}}}UseLocalEvents(This, True);
+{{{RaceMapInfos::P}}}SetIgnoreForcedUpdate(True);
+{{{RaceMapInfos::P}}}SetDisplayed(Frame_Global.Visible && State.Controls.Frame_MenuContent.Visible);
+
+GridConfig.fromjson({{{"\"\"\""^GridConfigJson^"\"\"\""}}});
+UpdateButtonsContainer(State, GridConfig);
+***
+
+***MainLoop***
+***
+// Skip the medal animation if the player manage to open the pause menu during outro
+if (IsInGameMenuDisplayed && !DisplayMenuContent && DisplayModule) {
+	CloseInGameMenu(CMlScriptIngame::EInGameMenuResult::Resume);
+	State = SkipAnimation(State, (Now - TrophiesUpdateTime) < C_NewTrophy_Timeout && Net_Campaign_EndRaceMenu_Trophies.count > 0, DisplayModule);
+	{{{RaceMapInfos::P}}}RequestManualUpdate(True);
+	State.Controls.Frame_MenuContent.Show();
+	State.Controls.Quad_Background.Show();
+	DisplayMenuContent = True;
+	SendCustomEvent("{{{Consts::C_EndRaceMenuEvent_SkipOutro}}}", []);
+	TrackVote::UpdateLikeAndDislikeButtonsWithLastestVote(This, Map, State.Controls.Button_VoteLike, State.Controls.Button_VoteDislike);
+	{{{RaceMapInfos::P}}}SetDisplayed(Frame_Global.Visible && State.Controls.Frame_MenuContent.Visible);
+}
+
+if (DisplayModule && !EnableMenuNavigationInputs && DisplayMenuContent) {
+	EnableMenuNavigation(True, False, False, Null, {{{Consts::C_InputPriority_EndRaceMenu}}});
+} else if ((!DisplayModule || !DisplayMenuContent) && EnableMenuNavigationInputs) {
+	EnableMenuNavigation(False, False, False, Null, {{{Consts::C_InputPriority_EndRaceMenu}}});
+}
+
+if (!PageIsVisible && !PageWasHidden) {
+	PageWasHidden = True;
+} else if (PageIsVisible) {
+	if (PageWasHidden) {
+		PageWasHidden = False;
+		ForceRefreshAfterPageWasHidden = True;
+	}
+
+	declare Owner <=> MV_Utils::GetOwner(This);
+	declare Boolean IgnoreInput = False;
+
+	if (Owner != Null) {
+		if (UpdateEarlyMedalDisplay != Net_Campaign_EndRaceMenu_EarlyMedalDisplay) {
+			UpdateEarlyMedalDisplay = Net_Campaign_EndRaceMenu_EarlyMedalDisplay;
+			if (!UpdateEarlyMedalDisplay && !DisplayMenuContent) {{{RaceMapInfos::P}}}RequestManualUpdate(True);
+			DisplayMenuContent = !UpdateEarlyMedalDisplay && AreAllAnimationsFinished(State) && State.DisplayMenuTime <= Now;
+			if (!DisplayMenuContent) {{{RaceMapInfos::P}}}HideZoneRanking();
+			State.Controls.Frame_MenuContent.Visible = DisplayMenuContent;
+			State.Controls.Quad_Background.Visible = DisplayMenuContent;
+			TrackVote::UpdateLikeAndDislikeButtonsWithLastestVote(This, Map, State.Controls.Button_VoteLike, State.Controls.Button_VoteDislike);
+			{{{RaceMapInfos::P}}}SetDisplayed(Frame_Global.Visible && State.Controls.Frame_MenuContent.Visible);
+		}
+
+		if (UpdateMapChangeTime != Net_Campaign_EndRaceMenu_MapChangeTime && Owner.Score != Null) {
+			UpdateMapChangeTime = Net_Campaign_EndRaceMenu_MapChangeTime;
+			State.CurrentMedal = -1;
+			State.MedalsAnimation = K_Animation {
+				IsAnimationFinished = True,
+				LightOnTime = -1
+			};
+			State.TrophyAnimation = K_Animation {
+				IsAnimationFinished = True,
+				LightOnTime = -1
+			};
+			State.BannerSlideAnimation = K_Animation {
+				IsAnimationFinished = True
+			};
+			if (Owner.Score.BestRaceTimes.count > 0) {
+				PrevRaceTime = Owner.Score.BestRaceTimes[Owner.Score.BestRaceTimes.count-1];
+				PrevBestRaceTime = Owner.Score.BestRaceTimes[Owner.Score.BestRaceTimes.count-1];
+			} else {
+				PrevRaceTime = -123;
+				PrevBestRaceTime = -123;
+			}
+		}
+
+		declare netread Boolean Net_Campaign_EndRaceMenu_IsVisible for Owner;
+		if (DisplayModule != Net_Campaign_EndRaceMenu_IsVisible) {
+			DisplayModule = Net_Campaign_EndRaceMenu_IsVisible;
+			Frame_Global.Visible = Net_Campaign_EndRaceMenu_IsVisible;
+			if (DisplayModule) {
+				Focus(State, {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), State.Controls.Button_Improve);
+				{{{Button::P}}}SetValue(This, State.Controls.Button_Replay, "{{{Text_SaveReplay}}}");
+				{{{Button::P}}}Unfocus(This, State.Controls.Button_Replay);
+				RefocusFocusedButton();
+
+				if (CurrentCampaign.SeasonUid != "") {
+					declare Integer[Text] CurrentScores;
+					if (Map != Null && !TitleControl::IsStuntMapType(Map.MapType) && InputPlayer != Null && InputPlayer.Score != Null && InputPlayer.Score.BestRaceTimes.count > 0) {
+						CurrentScores = [Map.MapInfo.MapUid => InputPlayer.Score.BestRaceTimes[InputPlayer.Score.BestRaceTimes.count-1]];
+					} else if (Map != Null && TitleControl::IsStuntMapType(Map.MapType) && CurrentMap.Points >= 0) {
+						CurrentScores = [Map.MapInfo.MapUid => CurrentMap.Points];
+						{{{RaceMapInfos::P}}}RequestManualUpdate(True);
+					}
+					{{{CampaignStore::P}}}Action_LoadMapPlayerGlobalRankings(This, CurrentCampaign.SeasonUid, CurrentScores);
+				}
+				State = DisplayMenu(State, True, Input.MousePos, False);
+				{{{MenuSounds::P}}}SetSoundBalanceState(This, {{{MenuSounds::P}}}C_InMenu_State, {{{C_SoundFadeTime_EnterMenu}}});
+				ActivityTimeShift = Input.TimeSinceLatestActivity;
+			}
+			{{{RaceMapInfos::P}}}SetDisplayed(Frame_Global.Visible && State.Controls.Frame_MenuContent.Visible);
+		}
+		if (State.Controls.Button_NextMap.Visible != NetShare::GetHasNextMap(Teams[0])) {
+			UpdateButtonsContainer(State, GridConfig);
+		}
+		if (ReplaySaved != Net_Campaign_EndRaceMenu_ReplaySaved) {
+			ReplaySaved = Net_Campaign_EndRaceMenu_ReplaySaved;
+			if (State.Controls.Button_Replay.Visible) {
+				{{{Button::P}}}SetValue(This, State.Controls.Button_Replay, "{{{Text_ReplaySaved}}}");
+				declare CMlControl FocusedControl = {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}");
+				if (FocusedControl != Null && FocusedControl.ControlId == State.Controls.Button_Replay.ControlId) {
+					{{{Button::P}}}Focus(This, State.Controls.Button_Replay);
+				}
+			}
+		}
+
+		switch(CurrentMap.Type) {
+			case "{{{MenuConsts::C_MapType_Stunt}}}": {
+				if (
+					Owner.Score != Null &&
+					Owner.Score.Points >= 0 &&
+					Owner.Score.Points != PrevRacePoints
+				) {
+					PrevRacePoints = Owner.Score.Points;
+					State.Controls.Frame_TimeDiff.Visible = PrevRacePoints >= 0 && CurrentMap.Points >= 0;
+					if (State.Controls.Frame_TimeDiff.Visible) {
+						declare Integer PointsDiff = PrevRacePoints - CurrentMap.Points;
+						declare Text PointsDiffText = TL::GetTranslatedText(TL::Compose("{{{MenuConsts::C_Text_RecordPoints}}}", TL::FormatInteger(PointsDiff, 1, True)));
+						if (PointsDiff >= 0) {
+							PointsDiffText = "+" ^ TL::GetTranslatedText(TL::Compose("{{{MenuConsts::C_Text_RecordPoints}}}", TL::FormatInteger(PointsDiff, 1, True)));
+							State.Controls.Quad_TimeDiff.Colorize = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}};
+						} else {
+							State.Controls.Quad_TimeDiff.Colorize = CL::Hex3ToRgb("F00");
+						}
+						State.Controls.Label_TimeDiff.SetText(PointsDiffText);
+						Tools::FitLabelValue(State.Controls.Label_TimeDiff, 4., 2., 0.25);
+					}
+				}
+			}
+			default: {
+				if (
+					Owner.Score != Null &&
+					Owner.Score.PrevRaceTimes.count > 0 &&
+					Owner.Score.BestRaceTimes.count > 0 &&
+					(PrevRaceTime != Owner.Score.PrevRaceTimes[Owner.Score.PrevRaceTimes.count-1] ||
+					UpdateRoundChangeTime != Net_Campaign_EndRaceMenu_RoundChangeTime)
+				) {
+					UpdateRoundChangeTime = Net_Campaign_EndRaceMenu_RoundChangeTime;
+					declare Integer BestRaceTime = Owner.Score.BestRaceTimes[Owner.Score.BestRaceTimes.count-1];
+					State.Controls.Frame_TimeDiff.Visible = PrevRaceTime > 0;
+					if (State.Controls.Frame_TimeDiff.Visible) {
+						declare Integer TimeDiff;
+						if (PrevBestRaceTime > BestRaceTime) {
+							TimeDiff = BestRaceTime - PrevBestRaceTime;
+						} else {
+							PrevRaceTime = Owner.Score.PrevRaceTimes[Owner.Score.PrevRaceTimes.count-1];
+							TimeDiff = PrevRaceTime - BestRaceTime;
+						}
+
+						declare Text TimeDiffText = TL::TimeToText(TimeDiff, True, True);
+						if (TimeDiff >= 0) {
+							TimeDiffText = "+"^TimeDiffText;
+							State.Controls.Quad_TimeDiff.Colorize = CL::Hex3ToRgb("F00");
+						} else {
+							State.Controls.Quad_TimeDiff.Colorize = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}};
+						}
+						State.Controls.Label_TimeDiff.SetText(TimeDiffText);
+					}
+					PrevBestRaceTime = BestRaceTime;
+					PrevRaceTime = Owner.Score.PrevRaceTimes[Owner.Score.PrevRaceTimes.count-1];
+				}
+			}
+		}
+	} else if (DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+		{{{RaceMapInfos::P}}}SetDisplayed(Frame_Global.Visible && State.Controls.Frame_MenuContent.Visible);
+	}
+
+	if (ForceUpdate != NetShare::GetForceUpdate(Teams[0])) {
+		ForceUpdate = NetShare::GetForceUpdate(Teams[0]);
+		CurrentMap = NetShare::GetMap(Teams[0]);
+		CurrentCampaign = NetShare::GetCampaign(Teams[0]);
+		if (State.CurrentMedal == -1) State.CurrentMedal = CurrentMap.Medal;
+
+		// Show Challenge or Improve button depending on medal obtention
+		State.MedalghostVisibility = False;
+		if (CurrentMap.Medal == Medals::C_ScoreMgrMedal_Bronze || CurrentMap.Medal == Medals::C_ScoreMgrMedal_Silver) {
+			foreach (MedalScore => Ghost in LeaderboardStore::GetPlayersCloseToMedals(ParentApp, Map.MapInfo.MapUid)) {
+				State.MedalghostVisibility = !Net_Campaign_EndRaceMenu_IsPlayerDrivingAlone && Net_Campaign_EndRaceMenu_IsNewMedal && CurrentMap.Medal < MedalScore;
+				if (State.MedalghostVisibility) {
+					{{{Button::P}}}SetValue(This, State.Controls.Button_Challenge, TL::Compose("{{{Text_Challenge}}}", Medals::GetScoreMgrMedalName(MedalScore)));
+					{{{Button::P}}}SetIcon(This, State.Controls.Button_Challenge, GetMedalImage(MedalScore));
+					{{{Button::P}}}SetIconFocus(This, State.Controls.Button_Challenge, GetMedalImage(MedalScore));
+					State.PlayerCloseToMedal = Ghost;
+					break;
+				}
+			}
+		}
+		State.CanChallengeOpponents = (TitleControl::IsRaceMapType(CurrentMap.Type) && CurrentCampaign.SeasonUid != "");
+
+		// Update buttons container
+		UpdateButtonsContainer(State, GridConfig);
+		if (State.Controls.Button_Challenge.Visible) {
+			Focus(State, {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), State.Controls.Button_Challenge);
+		}
+	}
+
+	if (Frame_Global.Visible) {
+		declare Integer[Integer] NewTrophies = [];
+		if (TrophiesUpdate != Net_Campaign_EndRaceMenu_TrophiesUpdate || ForceRefreshAfterPageWasHidden) {
+			TrophiesUpdate = Net_Campaign_EndRaceMenu_TrophiesUpdate;
+			TrophiesUpdateTime = Now;
+			State.Controls.Frame_NewTrophy.Visible = Net_Campaign_EndRaceMenu_Trophies.count > 0;
+			if (State.Controls.Frame_NewTrophy.Visible) {
+				NewTrophies = Net_Campaign_EndRaceMenu_Trophies;
+				State = SetNewTrophy(State, Net_Campaign_EndRaceMenu_Trophies);
+			}
+		}
+
+		if (UpdateNewMedal != Net_Campaign_EndRaceMenu_IsNewMedal || ForceRefreshAfterPageWasHidden) {
+			State.Controls.Frame_NewMedal.Visible = Net_Campaign_EndRaceMenu_IsNewMedal;
+			if (State.Controls.Frame_NewMedal.Visible) {
+				State = SetNewMedal(State, CurrentMap.Medal);
+			}
+		}
+
+		if (State.IsSaveReplayDisabled != Net_Campaign_EndRaceMenu_IsSaveReplayDisabled) {
+			State.IsSaveReplayDisabled = Net_Campaign_EndRaceMenu_IsSaveReplayDisabled;
+			UpdateButtonsContainer(State, GridConfig);
+		}
+
+		if (State.CanViewReplay != Net_Campaign_EndRaceMenu_CanViewReplay) {
+			State.CanViewReplay = Net_Campaign_EndRaceMenu_CanViewReplay;
+			SetButtonsList(State);
+		}
+
+		if (State.IsCloneMode != Net_Campaign_EndRaceMenu_IsCloneMode) {
+			State.IsCloneMode = Net_Campaign_EndRaceMenu_IsCloneMode;
+			UpdateButtonsContainer(State, GridConfig);
+		}
+
+		if (State.MenuIsVisible && Input.TimeSinceLatestActivity - ActivityTimeShift > C_DelayBeforeAutoHide) {
+			State = DisplayMenu(State, False, Input.MousePos, DisplayModule);
+			ActivityTimeShift = 0;
+		}
+
+		if (!State.MenuIsVisible) {
+			State.Controls.Label_PressKey.Opacity = (ML::Cos(Now / 300.) * 0.4) + 0.6;
+
+			if (Tools::ControllerWasUsed(This, Input, State.MousePos)) {
+				State = DisplayMenu(State, True, Input.MousePos, DisplayModule);
+				ActivityTimeShift = Input.TimeSinceLatestActivity;
+				IgnoreInput = True;
+			}
+		}
+
+		if (State.MenuIsVisible && !IgnoreInput) {
+			foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+				switch (Event.Type) {
+					case {{{Navigation::P}}}C_EventType_NavigateInput: {
+						if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_Default}}}")) {
+							switch (Event.Input) {
+								case CMlScriptEvent::EMenuNavAction::Select: Select(State, Event.To, State.PlayerCloseToMedal);
+								case CMlScriptEvent::EMenuNavAction::PageUp: if (!Event.IsActionAutoRepeat) Select(State, State.Controls.Button_VoteDislike, State.PlayerCloseToMedal);
+								case CMlScriptEvent::EMenuNavAction::PageDown: if (!Event.IsActionAutoRepeat) Select(State, State.Controls.Button_VoteLike, State.PlayerCloseToMedal);
+								case CMlScriptEvent::EMenuNavAction::Action2: {
+									if (State.CanViewReplay) {
+										State = DisplayMenu(State, False, Input.MousePos, DisplayModule);
+										ActivityTimeShift = 0;
+									}
+								}
+								case CMlScriptEvent::EMenuNavAction::Cancel: {
+									if (!Net_Campaign_EndRaceMenu_EarlyMedalDisplay) {
+										SendCustomEvent("{{{Consts::C_EndRaceMenuEvent_Improve}}}", []);
+									}
+								}
+								default: Focus(State, Event.From, Event.To);
+							}
+						}
+					}
+					case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+						if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_Default}}}")) {
+							switch (Event.Mouse) {
+								case CMlScriptEvent::Type::MouseClick: Select(State, Event.To, State.PlayerCloseToMedal);
+								case CMlScriptEvent::Type::MouseOver: Focus(State, Event.From, Event.To);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Medal animation
+		if (!State.MedalsAnimation.IsAnimationFinished && Now >= State.MedalsAnimation.StartTime) {
+			if (State.MedalsAnimation.Images.count > 0) {
+				declare Text MedalImage;
+				declare Text MedalGainSound;
+				declare Integer CurrentMedal;
+
+				for (Medal, 0, State.CurrentMedal) {
+					if (State.MedalsAnimation.Images.existskey(Medal)) {
+						MedalImage = State.MedalsAnimation.Images.get(Medal);
+						MedalGainSound = State.MedalsAnimation.GainSounds.get(Medal);
+						CurrentMedal = Medal;
+						break;
+					}
+				}
+
+				State.Controls.Quad_Medal.Show();
+				State.Controls.Quad_Medal_Anim.Hide();
+				State.Controls.Quad_Medal.ChangeImageUrl(State.Controls.Quad_Medal_Anim.ImageUrl);
+				State.Controls.Quad_Medal_Anim.ChangeImageUrl(MedalImage);
+				State.Controls.Quad_Medal_Anim.RelativeRotation = ML::Rand(-2., 0.)*6.;
+				State.Controls.Quad_Medal_Anim.RelativePosition_V3 = <-20., 10.>;
+				State.Controls.Quad_Medal_Anim.RelativeScale = 1.5;
+				State.Controls.Quad_Medal_Anim.ModulateColor = <0.35, 0.35, 0.35>;
+
+				AnimMgr.Flush(State.Controls.Quad_Medal_Anim);
+				AnimMgr.Flush(State.Controls.Quad_BannerGlow);
+				AnimMgr.Flush(State.Controls.Frame_NewMedal);
+				AnimMgr.Add(State.Controls.Quad_Medal_Anim, "<anim scale=\"1.\" modulatecolor=\"FFFFFF\" pos=\""^State.Controls.Quad_Medal.RelativePosition_V3.X^" "^State.Controls.Quad_Medal.RelativePosition_V3.Y^"\" hidden=\"0\" rot=\"0\"/>", C_Animation_MedalGain_MedalAnimDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				if (State.Controls.Quad_BannerGlow.Visible) AnimMgr.Add(State.Controls.Quad_BannerGlow, "<anim hidden=\"0\" opacity=\"0.3\"/>", C_Animation_MedalGain_MedalAnimDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(State.Controls.Quad_BannerGlow, "<anim hidden=\"0\" opacity=\"1.\"/>", Now+C_Animation_MedalGain_MedalAnimDuration, 100, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(State.Controls.Frame_NewMedal, "<anim scale=\"1.\" hidden=\"0\" rot=\""^ML::Rand(-2.5, -1.5)^"\"/>", Now+C_Animation_MedalGain_MedalAnimDuration, C_Animation_ShakeFrequency + C_Animation_ShakeDelay, CAnimManager::EAnimManagerEasing::SineInOut);
+				AnimMgr.AddChain(State.Controls.Frame_NewMedal, "<anim scale=\"1.\" hidden=\"0\" rot=\""^ML::Rand(1.5, 2.5)^"\"/>", C_Animation_ShakeFrequency, CAnimManager::EAnimManagerEasing::SineInOut);
+				AnimMgr.AddChain(State.Controls.Frame_NewMedal, "<anim scale=\"1.\" hidden=\"0\" rot=\"0\"/>", C_Animation_ShakeFrequency, CAnimManager::EAnimManagerEasing::SineInOut);
+				State = AddSound(State, MedalGainSound, Now);
+
+				State.MedalsAnimation.Images.removekey(CurrentMedal);
+				State.MedalsAnimation.GainSounds.removekey(CurrentMedal);
+				State.MedalsAnimation.StartTime = Now + C_Animation_MedalGain_MedalAnimDuration + C_Animation_MedalGain_DelayBetweenMedals;
+				if (CurrentMedal == Medals::C_ScoreMgrMedal_Gold) {
+					State.MedalsAnimation.StartTime += C_Animation_MedalGain_GoldToAuthorTeaser;
+				}
+			} else if (!State.MedalsAnimation.IsAnimationFinished && State.Controls.Frame_NewMedal.Visible) {
+				if (State.Controls.Frame_NewTrophy.Visible) {
+					AnimMgr.Flush(State.Controls.Frame_NewTrophy);
+					State = AddSound(State, State.TrophyAnimation.GainSounds[0], Now);
+					AnimMgr.Add(State.Controls.Frame_NewMedal, "<anim pos=\"-27. "^{{{PosY_Banners}}}^"\"/>", C_Animation_MedalGain_BackgroundIntroDuration, CAnimManager::EAnimManagerEasing::Linear);
+					AnimMgr.Add(State.Controls.Frame_NewTrophy, "<anim pos=\"27. "^{{{PosY_Banners}}}^"\"/>", C_Animation_MedalGain_BackgroundIntroDuration, CAnimManager::EAnimManagerEasing::Linear);
+					State.TrophyAnimation.StartTime = Now + C_Animation_MedalGain_DelayBetweenMedals;
+				} else {
+					UnblockPrestigeTimestamp = Now + ML::NearestInteger(C_Animation_MedalGain_Transition2Duration * 0.8); //< Unlock the prestige celebration shortly before the banner animation
+					State.BannerSlideAnimation = K_Animation {
+						StartTime = Now + C_Animation_MedalGain_Transition2Duration,
+						IsAnimationFinished = False
+					};
+				}
+				State.MedalsAnimation.IsAnimationFinished = True;
+				State.Controls.Quad_Medal.Hide();
+			}
+		}
+
+		// Trophy animation
+		if (State.MedalsAnimation.IsAnimationFinished && !State.TrophyAnimation.IsAnimationFinished && Now >= State.TrophyAnimation.StartTime) {
+			if (!State.Controls.Quad_Trophy.Visible) {
+				AnimMgr.Flush(State.Controls.Quad_BannerGlow2);
+				AnimMgr.Flush(State.Controls.Quad_Trophy);
+				AnimMgr.Add(State.Controls.Quad_Trophy, "<anim scale=\"1.\" modulatecolor=\"FFFFFF\" pos=\""^State.Controls.Quad_BannerGlow2.RelativePosition_V3.X^" "^State.Controls.Quad_BannerGlow2.RelativePosition_V3.Y^"\" hidden=\"0\" rot=\"0\"/>", C_Animation_MedalGain_MedalAnimDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(State.Controls.Quad_BannerGlow2, "<anim hidden=\"0\" opacity=\"1.\"/>", Now+C_Animation_MedalGain_MedalAnimDuration, 100, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(State.Controls.Frame_NewTrophy, "<anim scale=\"1.\" hidden=\"0\" rot=\""^ML::Rand(-2.5, -1.5)^"\"/>", Now+C_Animation_MedalGain_MedalAnimDuration, C_Animation_ShakeFrequency + C_Animation_ShakeDelay, CAnimManager::EAnimManagerEasing::SineInOut);
+				AnimMgr.AddChain(State.Controls.Frame_NewTrophy, "<anim scale=\"1.\" hidden=\"0\" rot=\""^ML::Rand(1.5, 2.5)^"\"/>", C_Animation_ShakeFrequency, CAnimManager::EAnimManagerEasing::SineInOut);
+				AnimMgr.AddChain(State.Controls.Frame_NewTrophy, "<anim scale=\"1.\" hidden=\"0\" rot=\"0\"/>", C_Animation_ShakeFrequency, CAnimManager::EAnimManagerEasing::SineInOut);
+				State.MedalsAnimation.StartTime = Now + C_Animation_MedalGain_MedalAnimDuration + C_Animation_MedalGain_DelayBetweenMedals;
+			} else if (!State.TrophyAnimation.IsAnimationFinished) {
+				State.TrophyAnimation.IsAnimationFinished = True;
+				UnblockPrestigeTimestamp = Now + ML::NearestInteger(C_Animation_MedalGain_Transition2Duration * 0.8); //< Unlock the prestige celebration shortly before the banner animation
+				State.BannerSlideAnimation = K_Animation {
+					StartTime = Now + C_Animation_MedalGain_Transition2Duration,
+					IsAnimationFinished = False
+				};
+			}
+		}
+
+		// Slide banners to the sides to free up space for the end menu (the prestige skin celebration will be displayed before this animation)
+		if (!State.BannerSlideAnimation.IsAnimationFinished) {
+			if (UIModules_PrestigeEarned_Common::IsPrestigeCelebrationActivated(UI)) { //< Delay the banner slide while the prestige celebration is active
+				State.BannerSlideAnimation.StartTime = Now + C_Animation_MedalGain_Transition2Duration/2;
+			} else if (Now >= State.BannerSlideAnimation.StartTime && !UIModules_PrestigeEarned_Common::IsBlockingPrestigeCelebration(UI, "{{{C_Id}}}")) {
+				State.DisplayMenuTime = Now + C_Animation_MedalGain_Transition2TravelTime;
+				State = AddSound(State, "{{{C_Sound_MedalOutro}}}", Now);
+				State.BannerSlideAnimation.IsAnimationFinished = True;
+				if (State.Controls.Frame_NewMedal.Visible) {
+					AnimMgr.Add(State.Controls.Frame_NewMedal, "<anim pos=\""^{{{PosX_NewMedalBanner}}}^" "^{{{PosY_Banners}}}^"\"/>", C_Animation_MedalGain_Transition2TravelTime, CAnimManager::EAnimManagerEasing::QuadOut);
+					State.MedalsAnimation.LightOnTime = Now + C_Animation_MedalGain_DelayBeforeGlowLoop;
+				}
+				if (State.Controls.Frame_NewTrophy.Visible) {
+					AnimMgr.Add(State.Controls.Frame_NewTrophy, "<anim pos=\""^{{{PosX_NewTrophyBanner}}}^" "^{{{PosY_Banners}}}^"\"/>", C_Animation_MedalGain_Transition2TravelTime, CAnimManager::EAnimManagerEasing::QuadOut);
+					State.TrophyAnimation.LightOnTime = Now + C_Animation_MedalGain_DelayBeforeGlowLoop;
+				}
+			}
+		}
+
+		// Medal banner animation once the medal animations are finished
+		if (!UIModules_PrestigeEarned_Common::IsPrestigeCelebrationActivated(UI) && State.Controls.Quad_BannerGlow.Visible && State.MedalsAnimation.LightOnTime > 0 && Now > State.MedalsAnimation.LightOnTime) {
+			declare Integer FlashPeriod = 3000;
+			State.MedalsAnimation.LightOnTime = Now + FlashPeriod;
+
+			AnimMgr.Flush(State.Controls.Quad_BannerGlow);
+			AnimMgr.Add(State.Controls.Quad_BannerGlow, "<anim hidden=\"0\" opacity=\"0.4\"/>", FlashPeriod/2, CAnimManager::EAnimManagerEasing::QuadIn);
+			AnimMgr.AddChain(State.Controls.Quad_BannerGlow, "<anim hidden=\"0\" opacity=\"1.\"/>", FlashPeriod/4, CAnimManager::EAnimManagerEasing::QuadIn);
+		}
+
+		// Trophy banner animation once the trophy animation is finished
+		if (!UIModules_PrestigeEarned_Common::IsPrestigeCelebrationActivated(UI) && State.Controls.Quad_BannerGlow2.Visible && State.TrophyAnimation.LightOnTime > 0 && Now > State.TrophyAnimation.LightOnTime) {
+			declare Integer FlashPeriod = 3000;
+			State.TrophyAnimation.LightOnTime = Now + FlashPeriod;
+
+			AnimMgr.Flush(State.Controls.Quad_BannerGlow2);
+			AnimMgr.Add(State.Controls.Quad_BannerGlow2, "<anim hidden=\"0\" opacity=\"0.4\"/>", FlashPeriod/2, CAnimManager::EAnimManagerEasing::QuadIn);
+			AnimMgr.AddChain(State.Controls.Quad_BannerGlow2, "<anim hidden=\"0\" opacity=\"1.\"/>", FlashPeriod/4, CAnimManager::EAnimManagerEasing::QuadIn);
+		}
+
+		// Notify other layers that the medal and trophy celebrations have ended
+		if (!State.TrophyAnimation.IsAnimationFinished || !State.MedalsAnimation.IsAnimationFinished) {
+			UIModules_PrestigeEarned_Common::BlockPrestigeCelebration(UI, "{{{C_Id}}}");
+		} else if (UIModules_PrestigeEarned_Common::IsBlockingPrestigeCelebration(UI, "{{{C_Id}}}") && Now >= UnblockPrestigeTimestamp) {
+			UIModules_PrestigeEarned_Common::UnblockPrestigeCelebration(UI, "{{{C_Id}}}");
+		}
+	}
+
+	if (UpdateShowMedalWithoutAnim != Net_Campaign_EndRaceMenu_ShowMedalWithoutAnim || ForceRefreshAfterPageWasHidden) {
+		UpdateShowMedalWithoutAnim = Net_Campaign_EndRaceMenu_ShowMedalWithoutAnim;
+		State = SkipAnimation(State, (Now - TrophiesUpdateTime) < C_NewTrophy_Timeout && Net_Campaign_EndRaceMenu_Trophies.count > 0, DisplayModule);
+		{{{RaceMapInfos::P}}}RequestManualUpdate(True);
+		State.Controls.Frame_MenuContent.Show();
+		State.Controls.Quad_Background.Show();
+		DisplayMenuContent = True;
+		TrackVote::UpdateLikeAndDislikeButtonsWithLastestVote(This, Map, State.Controls.Button_VoteLike, State.Controls.Button_VoteDislike);
+		{{{RaceMapInfos::P}}}SetDisplayed(Frame_Global.Visible && State.Controls.Frame_MenuContent.Visible);
+	}
+
+	if (ForceRefreshAfterPageWasHidden) {
+		ForceRefreshAfterPageWasHidden = False;
+	}
+}
+
+if (UpdateNewMedal != Net_Campaign_EndRaceMenu_IsNewMedal || State.Controls.Frame_NewMedal.Visible != Net_Campaign_EndRaceMenu_IsNewMedal) {
+	UpdateNewMedal = Net_Campaign_EndRaceMenu_IsNewMedal;
+	State.Controls.Frame_NewMedal.Visible = Net_Campaign_EndRaceMenu_IsNewMedal;
+}
+
+if (State.DisplayMenuTime > 0 && State.DisplayMenuTime < Now) {
+	State.DisplayMenuTime = -123;
+	State.Controls.Frame_MenuContent.Show();
+	State.Controls.Quad_Background.Show();
+	if (!DisplayMenuContent) {
+		{{{RaceMapInfos::P}}}RequestManualUpdate(True);
+	}
+	DisplayMenuContent = True;
+	TrackVote::UpdateLikeAndDislikeButtonsWithLastestVote(This, Map, State.Controls.Button_VoteLike, State.Controls.Button_VoteDislike);
+	{{{RaceMapInfos::P}}}SetDisplayed(Frame_Global.Visible && State.Controls.Frame_MenuContent.Visible);
+}
+
+if (UpdateStopSound != Net_Campaign_EndRaceMenu_StopSound) {
+	UpdateStopSound = Net_Campaign_EndRaceMenu_StopSound;
+	State = RemoveSounds(State, ["{{{C_Sound_MedalGainBronze}}}", "{{{C_Sound_MedalGainSilver}}}", "{{{C_Sound_MedalGainGold}}}", "{{{C_Sound_MedalGainAuthor}}}", "{{{C_Sound_TrophyBronze}}}", "{{{C_Sound_TrophySilver}}}", "{{{C_Sound_TrophyGold}}}"]);
+	{{{RaceMapInfos::P}}}RequestStopSounds();
+}
+
+declare SoundsMaxCount = C_Sound_MaxCountPerFrame;
+while (
+	SoundsMaxCount > 0 &&
+	State.SoundsToPlay.count > 0 &&
+	State.SoundsToPlay[0].PlayTime < Now
+) {
+	AudioManager::StopSound(This, State.SoundsToPlay[0].Name);
+	AudioManager::PlaySound(This, State.SoundsToPlay[0].Name);
+	State.SoundsToPlay.removekey(0);
+	SoundsMaxCount -= 1;
+}
+
+foreach (Event in PendingEvents) {
+	if (Event.Type == CMlScriptEvent::Type::PluginCustomEvent) {
+		switch (Event.CustomEventType) {
+			case {{{CampaignStore::P}}}C_Event_MapRecordsUpdated: {
+				SendCustomEvent("{{{Consts::C_RaceMenuEvent_MapRecordsUpdated}}}", []);
+			}
+		}
+	}
+}
+***
+""",
+[
+	Button::ComponentV2(),
+	CampaignStore::ComponentV2(),
+	CampaignStruct::Component(),
+	ExpendableButton::ComponentV2(),
+	MenuButtonList::Component(),
+	MenuSounds::ComponentV2(),
+	Navigation::ComponentV2(),
+	RaceMapInfos::Component(),
+	Transition::ComponentV2()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	foreach (Event in PendingEvents) {
+		switch (Event.PlaygroundType) {
+			case CManiaAppPlaygroundEvent::Type::LayerCustomEvent: {
+				declare Text[] EventData = Event.CustomEventData;
+				switch (Event.CustomEventType) { //< Filters and passes UI events to the mode
+					case Consts::C_EndRaceMenuEvent_Improve: SendCustomEvent(Event.CustomEventType, EventData);
+					case Consts::C_EndRaceMenuEvent_Challenge: SendCustomEvent(Event.CustomEventType, EventData);
+					case Consts::C_RaceMenuEvent_ChangeOpponents: SendCustomEvent(Event.CustomEventType, EventData);
+					case Consts::C_RaceMenuEvent_NextMap: SendCustomEvent(Event.CustomEventType, EventData);
+					case Consts::C_RaceMenuEvent_Exit: SendCustomEvent(Event.CustomEventType, EventData);
+					case Consts::C_EndRaceMenuEvent_SaveReplay: SendCustomEvent(Event.CustomEventType, EventData);
+					case Consts::C_EndRaceMenuEvent_SkipOutro: SendCustomEvent(Event.CustomEventType, EventData);
+					case Consts::C_RaceMenuEvent_MapRecordsUpdated: SendCustomEvent(Event.CustomEventType, EventData);
+				}
+			}
+		}
+	}
+}

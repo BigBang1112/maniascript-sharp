@@ -1,0 +1,461 @@
+/**
+ * Overlay: MenuBackground
+ */
+#Const Version "1.3.1"
+#Const ScriptName "Libs/Nadeo/Trackmania/MainMenu/Overlays/MenuBackground_MA.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Components/HomeBackground@2.Script.txt" as HomeBackground
+#Include "Libs/Nadeo/Trackmania/Components/Settings.Script.txt" as Settings
+#Include "Libs/Nadeo/Trackmania/Components/ProfilePlayerInfo.Script.txt" as Profile
+#Include "Libs/Nadeo/Trackmania/MainMenu/Pages/Garage.Script.txt" as Garage
+#Include "Libs/Nadeo/Trackmania/MainMenu/Pages/ClubEditionInfo.Script.txt" as ClubEdition
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Overlay_MenuBackground"
+
+#Const C_DisplayMode_Null 0
+#Const C_DisplayMode_MainBackground 1
+#Const C_DisplayMode_HomeBackground 2
+#Const C_DisplayMode_SettingsBackground 3
+#Const C_DisplayMode_ProfileBackground 4
+#Const C_DisplayMode_GarageBackground 5
+#Const C_DisplayMode_ClubEditionBackground 6
+#Const C_DisplayMode_BlackBackground 7
+
+#Const C_DimmerOpacity_Default 0.
+#Const C_BackgroundRotationTime 240000 //< The time it takes for a background tile to travel the full width of the screen.
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the overlay manialink page
+Text GetManialink() {
+	return MV::Create(
+		C_Name, 3,
+"""
+<stylesheet>
+	<style class="background" size="320 180" halign="center" valign="center" opacity="0" hidden="1" />
+</stylesheet>
+<frame id="frame-global" z-index="{{{Const::C_ZIndex_MenuBackground}}}">
+	<frameinstance id="frame-home-background" modelid="{{{HomeBackground::C_Name}}}" z-index="0" />
+	<quad id="quad-main-background" class="background" z-index="1" fullscreen="1" bgcolor="000000" />
+	<frame id="frame-main-background-animated" z-index="2">
+		<quad class="background" pos="-640 0" image="{{{Const::C_ImageUrl_MainBackground_Menu}}}" />
+		<quad class="background" pos="-320 0" image="{{{Const::C_ImageUrl_MainBackground_Menu}}}" />
+		<quad class="background" image="{{{Const::C_ImageUrl_MainBackground_Menu}}}" />
+		<quad class="background" pos="320 0" image="{{{Const::C_ImageUrl_MainBackground_Menu}}}" />
+		<quad class="background" pos="640 0" image="{{{Const::C_ImageUrl_MainBackground_Menu}}}" />
+	</frame>
+	<quad id="quad-settings-background" class="background" z-index="3" fullscreen="1" image="{{{Settings::C_BackgroundImageUrl}}}" />
+	<quad id="quad-profile-background" class="background" z-index="4" fullscreen="1" image="{{{Profile::C_BackgroundImageUrl}}}" />
+	<quad id="quad-garage-background" class="background" z-index="4" fullscreen="1" image="{{{Garage::C_BackgroundImageUrl}}}" />
+	<quad id="quad-club-edition-background" class="background" z-index="4" fullscreen="1" image="{{{ClubEdition::C_BackgroundImageUrl}}}" />
+	<quad id="quad-black-background" class="background" z-index="4" fullscreen="1" bgcolor="000000" />
+	<quad id="quad-dimmer" class="background" z-index="5" fullscreen="1" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="{{{C_DimmerOpacity_Default}}}"/>
+</frame>
+""",
+"""
+#Include "AnimLib" as AL
+
+#Struct K_Controls {
+	CMlFrame Frame_HomeBackground;
+	CMlQuad Quad_MainBackground;
+	CMlFrame Frame_MainBackgroundAnimated;
+	CMlQuad[] Quad_MainBackgroundAnimatedList;
+	CMlQuad Quad_SettingsBackground;
+	CMlQuad Quad_ProfileBackground;
+	CMlQuad Quad_GarageBackground;
+	CMlQuad Quad_ClubEditionBackground;
+	CMlQuad Quad_BlackBackground;
+	CMlQuad Quad_Dimmer;
+}
+#Struct K_MenuBackground {
+	K_Controls Controls;
+	Integer ActiveDisplayMode;
+	Integer OldDisplayMode;
+	Real ActiveDimmerOpacity;
+	Real OldDimmerOpacity;
+	Integer TransitionEndTime;
+}
+
+#Const C_DisplayMode_Null {{{dump(C_DisplayMode_Null)}}}
+#Const C_DisplayMode_MainBackground {{{dump(C_DisplayMode_MainBackground)}}}
+#Const C_DisplayMode_HomeBackground {{{dump(C_DisplayMode_HomeBackground)}}}
+#Const C_DisplayMode_SettingsBackground {{{dump(C_DisplayMode_SettingsBackground)}}}
+#Const C_DisplayMode_ProfileBackground {{{dump(C_DisplayMode_ProfileBackground)}}}
+#Const C_DisplayMode_GarageBackground {{{dump(C_DisplayMode_GarageBackground)}}}
+#Const C_DisplayMode_ClubEditionBackground {{{dump(C_DisplayMode_ClubEditionBackground)}}}
+#Const C_DisplayMode_BlackBackground {{{dump(C_DisplayMode_BlackBackground)}}}
+
+#Const C_DimmerOpacity_Default {{{dump(C_DimmerOpacity_Default)}}}
+#Const C_BackgroundRotationTime {{{dump(C_BackgroundRotationTime)}}}
+
+#Const C_BackgroundTransitionDuration 250
+""",
+"""
+Void Private_RedrawQuadVisibility(CMlQuad _Quad, Boolean _Visible, Integer _TransitionDuration) {
+	AnimMgr.Flush(_Quad);
+
+	declare Real Opacity = 0.;
+	if (_Visible) {
+		Opacity = 1.;
+	}
+
+	if (_TransitionDuration > 0) {
+		AnimMgr.Add(_Quad, "<a opacity=\""^Opacity^"\" hidden=\""^!_Visible^"\" />", _TransitionDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+	} else {
+		_Quad.Opacity = Opacity;
+		_Quad.Visible = _Visible;
+	}
+}
+
+Real Private_GetBackgroundZIndex(Integer _Background, Integer _OldDisplayMode, Integer _NewDisplayMode) {
+	if (_Background == C_DisplayMode_HomeBackground) return 1.;
+	else if (_Background == _NewDisplayMode) return 2.;
+	else if (_Background == _OldDisplayMode) return 3.;
+	return 0.;
+}
+
+K_MenuBackground Private_TransitionEnd(K_MenuBackground _MenuBackground) {
+	if (_MenuBackground.TransitionEndTime < 0) return _MenuBackground;
+
+	declare K_MenuBackground MenuBackground = _MenuBackground;
+
+	MenuBackground.TransitionEndTime = -1;
+
+	switch (_MenuBackground.OldDisplayMode) {
+		case C_DisplayMode_MainBackground: {
+			Private_RedrawQuadVisibility(_MenuBackground.Controls.Quad_MainBackground, False, 0);
+			for (Quad_MainBackgroundAnimated in _MenuBackground.Controls.Quad_MainBackgroundAnimatedList) {
+				Private_RedrawQuadVisibility(Quad_MainBackgroundAnimated, False, 0);
+			}
+		}
+		case C_DisplayMode_HomeBackground: {
+			{{{HomeBackground::P}}}SetIsEnabled(This, _MenuBackground.Controls.Frame_HomeBackground, False);
+		}
+		case C_DisplayMode_SettingsBackground: {
+			Private_RedrawQuadVisibility(_MenuBackground.Controls.Quad_SettingsBackground, False, 0);
+		}
+		case C_DisplayMode_ProfileBackground: {
+			Private_RedrawQuadVisibility(_MenuBackground.Controls.Quad_ProfileBackground, False, 0);
+		}
+		case C_DisplayMode_GarageBackground: {
+			Private_RedrawQuadVisibility(_MenuBackground.Controls.Quad_GarageBackground, False, 0);
+		}
+		case C_DisplayMode_ClubEditionBackground: {
+			Private_RedrawQuadVisibility(_MenuBackground.Controls.Quad_ClubEditionBackground, False, 0);
+		}
+		case C_DisplayMode_BlackBackground: {
+			Private_RedrawQuadVisibility(_MenuBackground.Controls.Quad_BlackBackground, False, 0);
+		}
+	}
+
+	return MenuBackground;
+}
+
+Void Private_TransitionStart_HomeBackground(K_MenuBackground _MenuBackground) {
+	if (_MenuBackground.ActiveDisplayMode == C_DisplayMode_HomeBackground || _MenuBackground.OldDisplayMode == C_DisplayMode_HomeBackground) {
+		{{{HomeBackground::P}}}SetIsEnabled(This, _MenuBackground.Controls.Frame_HomeBackground, True);
+	} else {
+		{{{HomeBackground::P}}}SetIsEnabled(This, _MenuBackground.Controls.Frame_HomeBackground, False);
+	}
+}
+
+Void Private_TransitionStart_Quad(K_MenuBackground _MenuBackground, CMlQuad _Quad, Integer _DisplayMode, Integer _TransitionDuration) {
+	if (_MenuBackground.ActiveDisplayMode == _DisplayMode || _MenuBackground.OldDisplayMode == _DisplayMode) {
+		if (_MenuBackground.OldDisplayMode == C_DisplayMode_HomeBackground) {
+			Private_RedrawQuadVisibility(_Quad, False, 0);
+			Private_RedrawQuadVisibility(_Quad, True, _TransitionDuration);
+		} else {
+			Private_RedrawQuadVisibility(_Quad, True, 0);
+			if (_MenuBackground.OldDisplayMode == _DisplayMode && _MenuBackground.ActiveDisplayMode != _DisplayMode) {
+				Private_RedrawQuadVisibility(_Quad, False, _TransitionDuration);
+			}
+		}
+	} else {
+		Private_RedrawQuadVisibility(_Quad, False, 0);
+	}
+}
+
+
+Void Private_TransitionStart_MainBackground(K_MenuBackground _MenuBackground, Integer _TransitionDuration) {
+	Private_TransitionStart_Quad(_MenuBackground, _MenuBackground.Controls.Quad_MainBackground, C_DisplayMode_MainBackground, _TransitionDuration);
+	for (Quad_MainBackgroundAnimated in _MenuBackground.Controls.Quad_MainBackgroundAnimatedList) {
+		Private_TransitionStart_Quad(_MenuBackground, Quad_MainBackgroundAnimated, C_DisplayMode_MainBackground, _TransitionDuration);
+	}
+}
+
+Void Private_TransitionStart_SettingsBackground(K_MenuBackground _MenuBackground, Integer _TransitionDuration) {
+	Private_TransitionStart_Quad(_MenuBackground, _MenuBackground.Controls.Quad_SettingsBackground, C_DisplayMode_SettingsBackground, _TransitionDuration);
+}
+
+Void Private_TransitionStart_ProfileBackground(K_MenuBackground _MenuBackground, Integer _TransitionDuration) {
+	Private_TransitionStart_Quad(_MenuBackground, _MenuBackground.Controls.Quad_ProfileBackground, C_DisplayMode_ProfileBackground, _TransitionDuration);
+}
+
+Void Private_TransitionStart_GarageBackground(K_MenuBackground _MenuBackground, Integer _TransitionDuration) {
+	Private_TransitionStart_Quad(_MenuBackground, _MenuBackground.Controls.Quad_GarageBackground, C_DisplayMode_GarageBackground, _TransitionDuration);
+}
+
+Void Private_TransitionStart_ClubEditionBackground(K_MenuBackground _MenuBackground, Integer _TransitionDuration) {
+	Private_TransitionStart_Quad(_MenuBackground, _MenuBackground.Controls.Quad_ClubEditionBackground, C_DisplayMode_ClubEditionBackground, _TransitionDuration);
+}
+
+Void Private_TransitionStart_BlackBackground(K_MenuBackground _MenuBackground, Integer _TransitionDuration) {
+	Private_TransitionStart_Quad(_MenuBackground, _MenuBackground.Controls.Quad_BlackBackground, C_DisplayMode_BlackBackground, _TransitionDuration);
+}
+
+Void Private_TransitionStart_Dimmer(K_MenuBackground _MenuBackground, Real _Opacity, Integer _TransitionDuration) {
+	AnimMgr.Flush(_MenuBackground.Controls.Quad_Dimmer);
+	if (_TransitionDuration > 0) {
+		AnimMgr.Add(_MenuBackground.Controls.Quad_Dimmer, "<a opacity=\""^_Opacity^"\" />", _TransitionDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+	} else {
+		_MenuBackground.Controls.Quad_Dimmer.Opacity = _Opacity;
+	}
+}
+
+K_MenuBackground Private_TransitionStart(K_MenuBackground _MenuBackground, Integer _TransitionDuration) {
+	declare K_MenuBackground MenuBackground = _MenuBackground;
+
+	MenuBackground.TransitionEndTime = Now + _TransitionDuration;
+
+	_MenuBackground.Controls.Frame_HomeBackground.ZIndex = Private_GetBackgroundZIndex(C_DisplayMode_HomeBackground, _MenuBackground.OldDisplayMode, _MenuBackground.ActiveDisplayMode);
+	_MenuBackground.Controls.Quad_MainBackground.ZIndex = Private_GetBackgroundZIndex(C_DisplayMode_MainBackground, _MenuBackground.OldDisplayMode, _MenuBackground.ActiveDisplayMode);
+	_MenuBackground.Controls.Frame_MainBackgroundAnimated.ZIndex = Private_GetBackgroundZIndex(C_DisplayMode_MainBackground, _MenuBackground.OldDisplayMode, _MenuBackground.ActiveDisplayMode) + 1;
+	_MenuBackground.Controls.Quad_SettingsBackground.ZIndex = Private_GetBackgroundZIndex(C_DisplayMode_SettingsBackground, _MenuBackground.OldDisplayMode, _MenuBackground.ActiveDisplayMode);
+	_MenuBackground.Controls.Quad_ProfileBackground.ZIndex = Private_GetBackgroundZIndex(C_DisplayMode_ProfileBackground, _MenuBackground.OldDisplayMode, _MenuBackground.ActiveDisplayMode);
+	_MenuBackground.Controls.Quad_GarageBackground.ZIndex = Private_GetBackgroundZIndex(C_DisplayMode_GarageBackground, _MenuBackground.OldDisplayMode, _MenuBackground.ActiveDisplayMode);
+	_MenuBackground.Controls.Quad_ClubEditionBackground.ZIndex = Private_GetBackgroundZIndex(C_DisplayMode_ClubEditionBackground, _MenuBackground.OldDisplayMode, _MenuBackground.ActiveDisplayMode);
+	_MenuBackground.Controls.Quad_BlackBackground.ZIndex = Private_GetBackgroundZIndex(C_DisplayMode_BlackBackground, _MenuBackground.OldDisplayMode, _MenuBackground.ActiveDisplayMode);
+
+	Private_TransitionStart_HomeBackground(MenuBackground);
+	Private_TransitionStart_MainBackground(MenuBackground, _TransitionDuration);
+	Private_TransitionStart_SettingsBackground(MenuBackground, _TransitionDuration);
+	Private_TransitionStart_ProfileBackground(MenuBackground, _TransitionDuration);
+	Private_TransitionStart_GarageBackground(MenuBackground, _TransitionDuration);
+	Private_TransitionStart_ClubEditionBackground(MenuBackground, _TransitionDuration);
+	Private_TransitionStart_BlackBackground(MenuBackground, _TransitionDuration);
+
+	return MenuBackground;
+}
+
+K_MenuBackground Private_UpdateDisplayMode(K_MenuBackground _MenuBackground, Integer _NewDisplayMode, Boolean _IsInit) {
+	if (!_IsInit && _MenuBackground.ActiveDisplayMode == _NewDisplayMode) return _MenuBackground;
+
+	declare K_MenuBackground MenuBackground = _MenuBackground;
+	MenuBackground = Private_TransitionEnd(MenuBackground);
+	MenuBackground.OldDisplayMode = MenuBackground.ActiveDisplayMode;
+	MenuBackground.ActiveDisplayMode = _NewDisplayMode;
+	MenuBackground = Private_TransitionStart(MenuBackground, C_BackgroundTransitionDuration);
+
+	{{{HomeBackground::P}}}SetIsInputEnabled(_MenuBackground.Controls.Frame_HomeBackground, MenuBackground.ActiveDisplayMode == C_DisplayMode_HomeBackground);
+
+	return MenuBackground;
+}
+
+K_MenuBackground Private_UpdateDimmerOpacity(K_MenuBackground _MenuBackground, Real _NewDimmerOpacity, Boolean _IsInit) {
+	if (!_IsInit && _MenuBackground.ActiveDimmerOpacity == _NewDimmerOpacity) return _MenuBackground;
+
+	declare K_MenuBackground MenuBackground = _MenuBackground;
+	MenuBackground.OldDimmerOpacity = MenuBackground.ActiveDimmerOpacity;
+	MenuBackground.ActiveDimmerOpacity = _NewDimmerOpacity;
+	Private_TransitionStart_Dimmer(MenuBackground, _NewDimmerOpacity, C_BackgroundTransitionDuration);
+
+	return MenuBackground;
+}
+
+K_MenuBackground Private_ApplyRouteDisplayMode(K_MenuBackground _MenuBackground, Integer[Text] _RoutesDisplayModes, Text _Route, Boolean _IsInit) {
+	return Private_UpdateDisplayMode(
+		_MenuBackground,
+		_RoutesDisplayModes.get(_Route, C_DisplayMode_MainBackground),
+		_IsInit
+	);
+}
+
+K_MenuBackground Private_ApplyRouteDimmerOpacity(K_MenuBackground _MenuBackground, Real[Text] _RoutesDimmerOpacities, Text _Route, Boolean _IsInit) {
+	return Private_UpdateDimmerOpacity(
+		_MenuBackground,
+		_RoutesDimmerOpacities.get(_Route, C_DimmerOpacity_Default),
+		_IsInit
+	);
+}
+
+***MainInit***
+***
+declare Integer[Text] OverlayMenuBackground_RoutesDisplayModes for LocalUser = [];
+declare Real[Text] OverlayMenuBackground_RoutesDimmerOpacities for LocalUser = [];
+declare Integer OverlayMenuBackground_RoutesDisplayModesUpdate for LocalUser = 0;
+declare Integer OverlayMenuBackground_RoutesDimmerOpacitiesUpdate for LocalUser = 0;
+
+declare K_MenuBackground MenuBackground;
+declare Text CurrentRoutePath;
+declare Integer RoutesDisplayModesUpdate;
+declare Integer RoutesDimmerOpacitiesUpdate;
+declare Text SkinOptions;
+declare Text SkinName;
+declare Text SkinUrl;
+declare Vec3 SkinColor;
+declare Text PilotOptions;
+declare Text PilotName;
+declare Text PilotUrl;
+declare Vec3 PilotColor;
+***
+
+***MainStart***
+***
+MenuBackground = K_MenuBackground {
+	Controls = K_Controls {
+		Frame_HomeBackground = (Page.GetFirstChild("frame-home-background") as CMlFrame),
+		Quad_MainBackground = (Page.GetFirstChild("quad-main-background") as CMlQuad),
+		Frame_MainBackgroundAnimated = (Page.GetFirstChild("frame-main-background-animated") as CMlFrame),
+		Quad_MainBackgroundAnimatedList = [],
+		Quad_SettingsBackground = (Page.GetFirstChild("quad-settings-background") as CMlQuad),
+		Quad_ProfileBackground = (Page.GetFirstChild("quad-profile-background") as CMlQuad),
+		Quad_GarageBackground = (Page.GetFirstChild("quad-garage-background") as CMlQuad),
+		Quad_ClubEditionBackground = (Page.GetFirstChild("quad-club-edition-background") as CMlQuad),
+		Quad_BlackBackground = (Page.GetFirstChild("quad-black-background") as CMlQuad),
+		Quad_Dimmer = (Page.GetFirstChild("quad-dimmer") as CMlQuad)
+	},
+	ActiveDisplayMode = C_DisplayMode_Null,
+	OldDisplayMode = C_DisplayMode_Null,
+	ActiveDimmerOpacity = C_DimmerOpacity_Default,
+	OldDimmerOpacity = C_DimmerOpacity_Default,
+	TransitionEndTime = -1
+};
+for (Control in MenuBackground.Controls.Frame_MainBackgroundAnimated.Controls) {
+	MenuBackground.Controls.Quad_MainBackgroundAnimatedList.add(Control as CMlQuad);
+}
+
+CurrentRoutePath = {{{Router::P}}}GetCurrentRoutePath(This);
+RoutesDisplayModesUpdate = OverlayMenuBackground_RoutesDisplayModesUpdate;
+RoutesDimmerOpacitiesUpdate = OverlayMenuBackground_RoutesDimmerOpacitiesUpdate;
+SkinOptions = LocalUser.Prestige_SkinOptions;
+SkinName = LocalUser.Model_CarSport_SkinName;
+SkinUrl = LocalUser.Model_CarSport_SkinUrl;
+SkinColor = LocalUser.Color;
+PilotOptions = LocalUser.Character_SkinOptions;
+PilotName = LocalUser.Model_CharacterPilot_SkinName;
+PilotUrl = LocalUser.Model_CharacterPilot_SkinUrl;
+PilotColor = LocalUser.Color;
+
+MenuBackground = Private_ApplyRouteDisplayMode(MenuBackground, OverlayMenuBackground_RoutesDisplayModes, CurrentRoutePath, True);
+MenuBackground = Private_ApplyRouteDimmerOpacity(MenuBackground, OverlayMenuBackground_RoutesDimmerOpacities, CurrentRoutePath, True);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (MenuBackground.Controls.Quad_MainBackground.Opacity > 0.) {
+		MenuBackground.Controls.Frame_MainBackgroundAnimated.RelativePosition_V3.X = AL::EaseLinear(Now % C_BackgroundRotationTime, 0., 320., C_BackgroundRotationTime);
+	}
+	if (MenuBackground.TransitionEndTime >= 0 && Now >= MenuBackground.TransitionEndTime) {
+		MenuBackground = Private_TransitionEnd(MenuBackground);
+	}
+	if (CurrentRoutePath != {{{Router::P}}}GetCurrentRoutePath(This) ||
+		RoutesDisplayModesUpdate != OverlayMenuBackground_RoutesDisplayModesUpdate ||
+		RoutesDimmerOpacitiesUpdate != OverlayMenuBackground_RoutesDimmerOpacitiesUpdate
+	) {
+		CurrentRoutePath = {{{Router::P}}}GetCurrentRoutePath(This);
+		RoutesDisplayModesUpdate = OverlayMenuBackground_RoutesDisplayModesUpdate;
+		RoutesDimmerOpacitiesUpdate = OverlayMenuBackground_RoutesDimmerOpacitiesUpdate;
+		MenuBackground = Private_ApplyRouteDisplayMode(MenuBackground, OverlayMenuBackground_RoutesDisplayModes, CurrentRoutePath, False);
+		MenuBackground = Private_ApplyRouteDimmerOpacity(MenuBackground, OverlayMenuBackground_RoutesDimmerOpacities, CurrentRoutePath, False);
+
+		if (
+			SkinOptions != LocalUser.Prestige_SkinOptions ||
+			SkinName != LocalUser.Model_CarSport_SkinName ||
+			SkinUrl != LocalUser.Model_CarSport_SkinUrl ||
+			SkinColor != LocalUser.Color
+		) {
+			SkinOptions = LocalUser.Prestige_SkinOptions;
+			SkinName = LocalUser.Model_CarSport_SkinName;
+			SkinUrl = LocalUser.Model_CarSport_SkinUrl;
+			SkinColor = LocalUser.Color;
+			{{{HomeBackground::P}}}UpdateCar(This, MenuBackground.Controls.Frame_HomeBackground);
+		}
+
+		if (
+			PilotOptions != LocalUser.Character_SkinOptions ||
+			PilotName != LocalUser.Model_CharacterPilot_SkinName ||
+			PilotUrl != LocalUser.Model_CharacterPilot_SkinUrl ||
+			PilotColor != LocalUser.Color
+		) {
+			PilotOptions = LocalUser.Character_SkinOptions;
+			PilotName = LocalUser.Model_CharacterPilot_SkinName;
+			PilotUrl = LocalUser.Model_CharacterPilot_SkinUrl;
+			PilotColor = LocalUser.Color;
+			{{{HomeBackground::P}}}UpdatePilot(This, MenuBackground.Controls.Frame_HomeBackground);
+		}
+	}
+}
+***
+""",
+		[
+			HomeBackground::ComponentV2(),
+			Router::ComponentV2()
+		],
+		[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Select which display mode to use on which routes (by default use `C_DisplayMode_MainBackground`)
+Void SetRoutesDisplayModes(Integer[Text] _RoutesDisplayModes) {
+	declare Integer[Text] OverlayMenuBackground_RoutesDisplayModes for LocalUser = [];
+	declare Integer OverlayMenuBackground_RoutesDisplayModesUpdate for LocalUser = 0;
+
+	foreach (Route => DisplayMode in _RoutesDisplayModes) {
+		if (DisplayMode == C_DisplayMode_Null) {
+			OverlayMenuBackground_RoutesDisplayModes.removekey(Route);
+		} else {
+			OverlayMenuBackground_RoutesDisplayModes[Route] = DisplayMode;
+		}
+	}
+
+	OverlayMenuBackground_RoutesDisplayModesUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset all routes display modes
+Void ResetRoutesDisplayModes() {
+	declare Integer[Text] OverlayMenuBackground_RoutesDisplayModes for LocalUser = [];
+	declare Integer OverlayMenuBackground_RoutesDisplayModesUpdate for LocalUser = 0;
+	OverlayMenuBackground_RoutesDisplayModes = [];
+	OverlayMenuBackground_RoutesDisplayModesUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the opacity to use for the dimmer on which routes
+Void SetRoutesDimmerOpacities(Real[Text] _RoutesDimmerOpacities) {
+	declare Real[Text] OverlayMenuBackground_RoutesDimmerOpacities for LocalUser = [];
+	declare Integer OverlayMenuBackground_RoutesDimmerOpacitiesUpdate for LocalUser = 0;
+
+	foreach (Route => DimmerOpacity in _RoutesDimmerOpacities) {
+		if (DimmerOpacity <= C_DimmerOpacity_Default) {
+			OverlayMenuBackground_RoutesDimmerOpacities.removekey(Route);
+		} else {
+			OverlayMenuBackground_RoutesDimmerOpacities[Route] = DimmerOpacity;
+		}
+	}
+
+	OverlayMenuBackground_RoutesDimmerOpacitiesUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset all routes dimmer opacities
+Void ResetRoutesDimmerOpacities() {
+	declare Real[Text] OverlayMenuBackground_RoutesDimmerOpacities for LocalUser = [];
+	declare Integer OverlayMenuBackground_RoutesDimmerOpacitiesUpdate for LocalUser = 0;
+	OverlayMenuBackground_RoutesDimmerOpacities = [];
+	OverlayMenuBackground_RoutesDimmerOpacitiesUpdate += 1;
+}

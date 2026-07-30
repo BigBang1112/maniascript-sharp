@@ -1,0 +1,313 @@
+/**
+ *	UI module: RaceComplete client side
+ */
+#Const Version		"1.4.1"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/RaceComplete_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/ZIndex.Script.txt" as ZIndex
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/RaceComplete_Common.Script.txt" as UIModules_RaceComplete_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// L16N [RoyalStars] Text displayed when the player sets a new record for the current segment.
+#Const C_Text_NewRecord _("New record")
+// L16N [RoyalStars] Text displayed when the player reaches a finish in the current segment. %1 will be replaced with a medal name (Gold|Silver|Bronze). e.g. "Gold time"
+#Const C_Text_MedalTime _("%1 time")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_RaceComplete_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_RaceComplete_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the module manialink
+Text GetML() {
+	declare Vec2 Size_Star = <20., 20.>;
+	declare Text ML_Stars;
+	for (Index, 0, Const::C_MaximumStars-1) {
+		ML_Stars ^= """
+			<quad id="quad-star-{{{Index}}}" size="{{{Size_Star.X}}} {{{Size_Star.Y}}}" image="{{{Const::C_ImageUrl_StarFull}}}" halign="center" valign="center" opacity="0" z-index="0"/>
+		""";
+	}
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-base" halign="center" valign="center2" textprefix="$i$t" textcolor="FFFFFF" />
+</stylesheet>
+
+<frame id="frame-global" z-index="{{{ZIndex::C_ZIndex_RaceComplete}}}" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_RaceComplete_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-overlay" hidden="1">
+			<quad id="quad-overlay-bg" size="320 180" halign="center" valign="center" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0" fullscreen="1" z-index="0"/>
+			<frame id="frame-result" z-index="1">
+				<frame id="frame-stars" pos="0 {{{Size_Star.Y}}}">
+					{{{ML_Stars}}}
+				</frame>
+				<label id="label-race-info" size="150 0" class="text-base" text="{{{C_Text_NewRecord}}}" textsize="13.5" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"/>
+				<label id="label-race-time" pos="0. -11.5" size="150 0" class="text-base" textsize="7.5" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}"/>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/PlayerData.Script.txt" as PlayerData
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/RaceData.Script.txt" as RaceData
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/RaceComplete_Common.Script.txt" as UIModules_RaceComplete_Common
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+#Struct K_Controls {
+	CMlFrame Frame_Global;
+	CMlFrame Frame_Overlay;
+	CMlFrame Frame_Result;
+	CMlFrame Frame_Stars;
+	CMlLabel Label_RaceInfo;
+	CMlLabel Label_RaceTime;
+	CMlQuad Quad_OverlayBg;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Boolean IsVisible;
+	Boolean PageIsVisible;
+	Boolean DisplayModule;
+	Ident TargetId;
+	Integer SynchronizationPoint;
+	Integer RaceFinishEventUpdate;
+}
+
+#Const C_SegmentProgression_Margin_Star {{{dump(Const::C_SegmentProgression_Margin_Star)}}}
+#Const C_SegmentProgression_Size_Star {{{dump(Const::C_SegmentProgression_Size_Star)}}}
+#Const C_MaximumStars {{{dump(Const::C_MaximumStars)}}}
+
+#Const C_AnimDuration_ShowHide 250
+#Const C_AnimDuration_StarOut 300
+#Const C_AnimDuration_HideOverlay 3000
+
+#Const C_State_Null K_State {
+	Controls = K_Controls {},
+	IsVisible = False,
+	PageIsVisible = False,
+	DisplayModule = False,
+	TargetId = NullId,
+	SynchronizationPoint = 0,
+	RaceFinishEventUpdate = 0
+}
+""",
+"""
+// Update the race finish display
+Void UpdateRaceFinishDisplay(K_State _State, PlayerData::K_RaceFinishEvent _RaceFinishEvent) {
+	if (_RaceFinishEvent.EarnedStars.count <= 0) return;
+
+	declare Integer NbStarsTopRow = 0;
+	declare Integer NbStarsBottomRow = _RaceFinishEvent.EarnedStars.count;
+	if (_RaceFinishEvent.EarnedStars.count > 2) {
+		NbStarsTopRow = _RaceFinishEvent.EarnedStars.count / 2;
+		NbStarsBottomRow = _RaceFinishEvent.EarnedStars.count - NbStarsTopRow;
+	}
+
+	// Update stars layout
+	foreach (Index => Control in _State.Controls.Frame_Stars.Controls) {
+		declare CMlQuad Quad_Star = Control as CMlQuad;
+
+		AnimMgr.Flush(Quad_Star);
+		Quad_Star.Visible = Index < _RaceFinishEvent.EarnedStars.count;
+		if (Quad_Star.Visible) {
+			declare Integer CurrentRowIndex = Tools::Ternary(Index < NbStarsTopRow, Index, Index - NbStarsTopRow);
+			declare Integer NbStarsCurrentRow = Tools::Ternary(Index < NbStarsTopRow, NbStarsTopRow, NbStarsBottomRow);
+
+			Quad_Star.Opacity = 0.;
+			Quad_Star.RelativeScale = 1.;
+			Quad_Star.RelativeRotation = 0.;
+			Quad_Star.RelativePosition_V3.X = {{{Size_Star.X+4}}}*(-0.5*NbStarsCurrentRow + CurrentRowIndex + 0.5);
+			Quad_Star.RelativePosition_V3.Y = 0.85*{{{Size_Star.Y}}}*Tools::Ternary(Index < NbStarsTopRow, 1, 0);
+			switch (_RaceFinishEvent.EarnedStars[Index]) {
+				case PlayerData::C_StarLevel_Gold: Quad_Star.Colorize = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_MedalGold)}}};
+				case PlayerData::C_StarLevel_Silver: Quad_Star.Colorize = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_MedalSilver)}}};
+				case PlayerData::C_StarLevel_Bronze: Quad_Star.Colorize = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_MedalBronze)}}};
+				default: Quad_Star.Colorize = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_MedalAuthorLight)}}};
+			}
+		}
+
+	}
+
+	// Update labels
+	_State.Controls.Label_RaceTime.SetText(TL::TimeToText(_RaceFinishEvent.Time, True, True));
+	switch (_RaceFinishEvent.EarnedStars[0]) {
+		case PlayerData::C_StarLevel_Gold: _State.Controls.Label_RaceInfo.SetText(TL::Compose("{{{C_Text_MedalTime}}}", Medals::GetMedalName(CMode::EMedal::Gold)));
+		case PlayerData::C_StarLevel_Silver: _State.Controls.Label_RaceInfo.SetText(TL::Compose("{{{C_Text_MedalTime}}}", Medals::GetMedalName(CMode::EMedal::Silver)));
+		case PlayerData::C_StarLevel_Bronze: _State.Controls.Label_RaceInfo.SetText(TL::Compose("{{{C_Text_MedalTime}}}", Medals::GetMedalName(CMode::EMedal::Bronze)));
+		default: _State.Controls.Label_RaceInfo.SetText(TL::Compose("%1 %2", "{{{C_Text_NewRecord}}}", "+"^RaceData::GetSegmentRecordPoints(Teams[0])));
+	}
+
+	// Reset controls for the upcoming animations
+	_State.Controls.Frame_Result.RelativePosition_V3 = <0., -15.>;
+	_State.Controls.Quad_OverlayBg.Opacity = 0.;
+	_State.Controls.Label_RaceTime.Opacity = 0.;
+	_State.Controls.Label_RaceInfo.Opacity = 0.;
+	_State.Controls.Frame_Overlay.Show();
+
+	// Flush animations
+	AnimMgr.Flush(_State.Controls.Frame_Overlay);
+	AnimMgr.Flush(_State.Controls.Frame_Result);
+	AnimMgr.Flush(_State.Controls.Label_RaceInfo);
+	AnimMgr.Flush(_State.Controls.Label_RaceTime);
+	AnimMgr.Flush(_State.Controls.Quad_OverlayBg);
+
+	// Animations IN
+	AnimMgr.Add(_State.Controls.Frame_Result, "<anim pos=\"0 0\"/>", Now, C_AnimDuration_ShowHide, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(_State.Controls.Label_RaceInfo, "<anim opacity=\"1.\"/>", Now, C_AnimDuration_ShowHide, CAnimManager::EAnimManagerEasing::QuartIn);
+	AnimMgr.Add(_State.Controls.Label_RaceTime, "<anim opacity=\"1.\"/>", Now, C_AnimDuration_ShowHide, CAnimManager::EAnimManagerEasing::QuartIn);
+	AnimMgr.Add(_State.Controls.Quad_OverlayBg, "<anim opacity=\"0.4\"/>", Now, C_AnimDuration_ShowHide, CAnimManager::EAnimManagerEasing::QuadOut);
+	foreach (Index => Control in _State.Controls.Frame_Stars.Controls) {
+		if (Control.Visible) AnimMgr.Add(Control as CMlQuad, "<anim opacity=\"1\"/>", Now, C_AnimDuration_ShowHide, CAnimManager::EAnimManagerEasing::QuartIn);
+	}
+
+	// Animation OUT
+	declare Integer AnimOutStartTime = Now + PlayerData::C_AnimDuration_ShowStars - C_AnimDuration_ShowHide;
+	AnimMgr.Add(_State.Controls.Label_RaceInfo, "<anim opacity=\"0.\"/>", AnimOutStartTime, C_AnimDuration_ShowHide, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(_State.Controls.Label_RaceTime, "<anim opacity=\"0.\"/>", AnimOutStartTime, C_AnimDuration_ShowHide, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(_State.Controls.Quad_OverlayBg, "<anim opacity=\"0.\"/>", AnimOutStartTime, C_AnimDuration_ShowHide, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(_State.Controls.Frame_Overlay, "<anim hidden=\"1\"/>", AnimOutStartTime, C_AnimDuration_HideOverlay, CAnimManager::EAnimManagerEasing::QuadOut);
+	foreach (Index => Control in _State.Controls.Frame_Stars.Controls) {
+		declare CMlQuad Quad_Star = Control as CMlQuad;
+		declare Integer EndPosIndex = Index + _RaceFinishEvent.OldStars.count;
+		if (EndPosIndex < C_MaximumStars) {
+			declare Vec2 EndPos = <-50.2 + EndPosIndex * (C_SegmentProgression_Size_Star.X + C_SegmentProgression_Margin_Star), 54.5>; //< <-50.2, 54.5> is the position of the first star on the left in the SegmentProgression UI
+			AnimMgr.Add(Quad_Star, "<anim pos=\""^EndPos.X^" "^EndPos.Y^"\" rot=\"360\" scale=\""^C_SegmentProgression_Size_Star.X/{{{Size_Star.X}}}^"\"/>", AnimOutStartTime + Index*100, C_AnimDuration_StarOut, CAnimManager::EAnimManagerEasing::QuadIn);
+			AnimMgr.AddChain(Quad_Star, "<anim opacity=\"1.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			AnimMgr.AddChain(Quad_Star, "<anim opacity=\"0.\"/>", 0, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			AnimMgr.Add(Quad_Star, "<anim opacity=\"0.\"/>", AnimOutStartTime, C_AnimDuration_StarOut, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	}
+}
+
+// Update the visibility of the whole manialink UI
+K_State SetVisibility(K_State _State, Boolean _PageIsVisible, Boolean _DisplayModule) {
+	declare K_State State = _State;
+	State.PageIsVisible = _PageIsVisible;
+	State.DisplayModule = _DisplayModule;
+	State.IsVisible = State.PageIsVisible && State.DisplayModule;
+	State.Controls.Frame_Global.Visible = State.IsVisible;
+	return State;
+}
+
+// Synchronize player data with the server
+// Prevent triggering an old race finish event when initializing the UI
+K_State SynchronizePlayer(K_State _State, CSmPlayer _Target) {
+	if (_Target == Null) return _State;
+
+	declare K_State State = _State;
+
+	State.SynchronizationPoint = PlayerData::GetPlayerSynchronizationPoint(_Target);
+	State.RaceFinishEventUpdate = PlayerData::GetPlayerRaceFinishEventUpdate(_Target);
+
+	return State;
+}
+
+// Trigger a race finish event
+K_State TriggerRaceFinishEvent(K_State _State, CSmPlayer _Target) {
+	if (_Target == Null) return _State;
+
+	declare K_State State = _State;
+
+	State.RaceFinishEventUpdate = PlayerData::GetPlayerRaceFinishEventUpdate(_Target);
+	UpdateRaceFinishDisplay(State, PlayerData::GetPlayerRaceFinishEvent(_Target));
+
+	return State;
+}
+
+// Update the targeted player
+K_State SetTarget(K_State _State, CSmPlayer _Target) {
+	declare K_State State = _State;
+
+	if (_Target == Null) {
+		State.TargetId = NullId;
+	} else {
+		State.TargetId = _Target.Id;
+		State = SynchronizePlayer(State, _Target);
+	}
+
+	return State;
+}
+
+***MainInit***
+***
+declare netread Boolean Net_RoyalStars_RaceComplete_DisplayModule for UI = UIModules_RaceComplete_Common::C_Default_Visibility;
+
+declare K_State State = C_State_Null;
+***
+
+***MainStart***
+***
+State.Controls.Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+State.Controls.Frame_Overlay <=> (State.Controls.Frame_Global.GetFirstChild("frame-overlay") as CMlFrame);
+State.Controls.Frame_Result <=> (State.Controls.Frame_Overlay.GetFirstChild("frame-result") as CMlFrame);
+State.Controls.Frame_Stars <=> (State.Controls.Frame_Overlay.GetFirstChild("frame-stars") as CMlFrame);
+State.Controls.Label_RaceInfo <=> (State.Controls.Frame_Overlay.GetFirstChild("label-race-info") as CMlLabel);
+State.Controls.Label_RaceTime <=> (State.Controls.Frame_Overlay.GetFirstChild("label-race-time") as CMlLabel);
+State.Controls.Quad_OverlayBg <=> (State.Controls.Frame_Overlay.GetFirstChild("quad-overlay-bg") as CMlQuad);
+
+State = SetVisibility(State, PageIsVisible, Net_RoyalStars_RaceComplete_DisplayModule);
+State = SetTarget(State, GUIPlayer);
+***
+
+***MainLoop***
+***
+if (State.PageIsVisible != PageIsVisible) {
+	State = SetVisibility(State, PageIsVisible, State.DisplayModule);
+}
+if (State.PageIsVisible) {
+	if (State.DisplayModule != Net_RoyalStars_RaceComplete_DisplayModule) {
+		State = SetVisibility(State, PageIsVisible, Net_RoyalStars_RaceComplete_DisplayModule);
+	}
+	if (State.DisplayModule) {
+		if (
+			(GUIPlayer == Null && State.TargetId != NullId) ||
+			(GUIPlayer != Null && State.TargetId != GUIPlayer.Id)
+		) {
+			State = SetTarget(State, GUIPlayer);
+		}
+		if (State.IsVisible) {
+			if (GUIPlayer != Null) {
+				if (State.SynchronizationPoint != PlayerData::GetPlayerSynchronizationPoint(GUIPlayer)) {
+					State = SynchronizePlayer(State, GUIPlayer);
+				}
+				if (State.RaceFinishEventUpdate != PlayerData::GetPlayerRaceFinishEventUpdate(GUIPlayer)) {
+					State = TriggerRaceFinishEvent(State, GUIPlayer);
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

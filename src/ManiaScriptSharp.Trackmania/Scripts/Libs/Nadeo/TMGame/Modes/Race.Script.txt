@@ -1,0 +1,1956 @@
+/**
+ *	API for the Race mode
+ */
+#Const Version		"1.1.1"
+#Const ScriptName	"Libs/Nadeo/TMGame/Modes/Race.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/Ladder.Script.txt" as Ladder
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Server.Script.txt" as Clans
+#Include "Libs/Nadeo/CMGame/Utils/Utils.Script.txt" as CommonUtils
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Server.Script.txt" as UIModules_DisplayMessage
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Server.Script.txt" as UIModules_Helpers
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Record_Server.Script.txt" as UIModules_Record
+#Include "Libs/Nadeo/TMGame/Modes/Events.Script.txt" as Events
+#Include "Libs/Nadeo/TMGame/Modes/Ghost.Script.txt" as Ghost
+#Include "Libs/Nadeo/TMGame/Modes/Map.Script.txt" as Map
+#Include "Libs/Nadeo/TMGame/Modes/Scores.Script.txt" as Scores
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_GhostConfig {
+	Text ScopeSeason;
+	Text ScopeNotSeason;
+	Text ModeName;
+	Text CustomData_Leaderboard;
+	Text CustomData_GhostDriver;
+	Boolean UploadGhost;
+	Boolean DisplayPBGhost;
+	Boolean DisplayMedal;
+	Boolean CelebratePB;
+	Boolean CelebrateMedal;
+	Text MapUid;
+	Boolean DisplayWorldTop;
+	Boolean EnableGhostDriver;
+}
+
+#Struct K_StartLineEvent {
+	Ident PlayerId;
+	Integer StartTime;
+}
+
+#Struct K_Outro {
+	Ident PlayerId;
+	Integer ScoresTableStartTime;
+	Integer OutroEndTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_SpawnDuration 1500
+#Const C_OutroDuration 8000
+#Const C_OutroWithoutScoresTableDuration 3000
+#Const C_OutroScoresTableTime 3000
+#Const C_PlayerBaseArmor 50000
+
+#Const C_RespawnBehaviour_None 0
+#Const C_RespawnBehaviour_Normal 1
+#Const C_RespawnBehaviour_DoNothing 2
+#Const C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint 3
+#Const C_RespawnBehaviour_AlwaysGiveUp 4
+#Const C_RespawnBehaviour_NeverGiveUp 5
+#Const C_RespawnBehaviour_Custom 6
+
+#Const C_Sort_TotalPoints 0
+#Const C_Sort_RoundPoints 1
+#Const C_Sort_BestRaceTime 2
+#Const C_Sort_BestRaceCheckpointsProgress 3
+#Const C_Sort_PrevRaceTime 4
+#Const C_Sort_Respawns 5
+#Const C_Sort_Name 6
+#Const C_Sort_LadderRankSortValue 7
+#Const C_Sort_BestLapTime 8
+
+#Const C_RaceState_Waiting 0
+#Const C_RaceState_Racing 1
+#Const C_RaceState_Outro 2
+#Const C_RaceState_Intro 3
+
+#Const C_DossardColor_Default <1., 1., 1.>
+#Const C_DossardColor_MaxHsvValue 0.7
+
+#Const C_EnableJoinLeaveNotificationForFakeUser False
+#Const C_EnableAutomaticGiveUpAfterElimination False
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Events::K_RaceEvent[] G_PendingEvents; //< Pending events filtered for the race mode
+declare Integer G_RespawnBehaviour; //< What happens when a player respawn
+declare Integer G_RespawnBehaviourSetting; //< What happens when a player respawn
+declare Integer G_LapsNb; //< The number of laps to finish the map
+declare Boolean G_IsInfiniteLaps; //< Never trigger end race event on multilaps
+declare Boolean G_IsIndependentLaps; //< Use the lap instead of the race as a reference
+declare Boolean G_IsLocalMode; //< True for local modes, false for online modes
+declare Boolean G_IsSplitscreen; //< True when in splitscreen, false otherwise
+declare CUIConfig::EUISequence G_UISequenceAfterOutro; //< UI sequence to apply to the player after the race outro
+declare K_GhostConfig G_GhostConfig; //< Automatic ghost managemant configuration
+declare Text G_CurrentMapUid; //< Uid of the current map
+declare Boolean G_TrustClientSimulation; //< Server can trust the client suimulation
+declare Boolean G_UseCrudeExtrapolation; //< The car position of other players is extrapolated less precisely (big impact on performances)
+declare K_StartLineEvent[Ident] G_StartLineEvents; //< Players that must generate a start line event StartLineEvent[UserId]
+declare K_Outro[Ident] G_Outros; //< Players watching outro OutroProperties[UserId]
+declare Text G_PreviousMapUid; //< Uid of the previous map
+declare Boolean G_UseCppRaceProgression; //< Let the C++ handle the race progression
+declare Boolean G_CanViewIntroDuringMatch; //< A player that joins during a match will view the map intro first
+declare Ident[Ident] G_Intros; //< Players watching intro PlayerId[UserId]
+declare Integer G_ScoresSortOrder; //< Criteria used to sort the scores
+declare Boolean G_AutomaticDossardColor; //< Automatically apply a color to the players' dossard
+declare Boolean G_JoinLeaveNotificationEnabled; //< Enable or disable the notification when a player joins or leaves the server
+declare Boolean G_JoinLeaveNotificationForFakeUserEnabled; //< Enable or disable the notification when a fake user joins or leaves the server
+declare Boolean G_AutomaticGiveUpAfterElimination; //< Automatically unspawn the player's car when they are eliminated by an obstacle
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the content of the pending events array
+ *
+ *	@return 													The events
+ */
+Events::K_RaceEvent[] GetPendingEvents() {
+	return G_PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Turn on/off the automatic players' dossard color selection
+Void UseAutomaticDossardColor(Boolean _Enable) {
+	G_AutomaticDossardColor = _Enable;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the automatic players' dossard color selection is turned on/off
+Boolean IsUsingAutomaticDossardColor() {
+	return G_AutomaticDossardColor;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply network mode to a player
+Void ApplyNetworkMode(CSmPlayer _Player) {
+	_Player.TrustClientSimu = G_TrustClientSimulation;
+	_Player.UseCrudeExtrapolation = G_UseCrudeExtrapolation;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the network mode to use
+Void SetNetworkMode(Boolean _TrustClientSimulation, Boolean _UseCrudeExtrapolation) {
+	G_TrustClientSimulation = _TrustClientSimulation;
+	G_UseCrudeExtrapolation = _UseCrudeExtrapolation;
+	foreach (Player in AllPlayers) {
+		ApplyNetworkMode(Player);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the C++ checkpoint behaviour
+Void Private_SetCppCheckpointBehaviour(Boolean _IsInfiniteLaps) {
+	if (_IsInfiniteLaps) {
+		CheckpointBehaviour = CSmMode::ECheckpointBehaviour::InfiniteLaps;
+	} else {
+		CheckpointBehaviour = CSmMode::ECheckpointBehaviour::Default;
+	}
+}
+Void Private_UpdateCppCheckpointBehaviour(Boolean _UseCppRaceProgression, Boolean _IsInfiniteLaps) {
+	if (_UseCppRaceProgression) {
+		Private_SetCppCheckpointBehaviour(_IsInfiniteLaps);
+	} else {
+		CheckpointBehaviour = CSmMode::ECheckpointBehaviour::Custom;
+	}
+	UIModules_Checkpoint::SetAutoUISequenceFinish(_UseCppRaceProgression);
+	UIModules_Checkpoint::SetUseWaypointEvent(_UseCppRaceProgression);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if infinite laps are enabled
+ *
+ *	@return														True if infinite laps are enabled
+ *																		False otherwise
+ */
+Boolean IsInfiniteLaps() {
+	return G_IsInfiniteLaps;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if independent laps are enabled
+ *
+ *	@return														True if independent laps are enabled
+ *																		False otherwise
+ */
+Boolean IsIndependentLaps() {
+	return G_IsIndependentLaps;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Enable or disable infinite laps
+ *
+ *	@param	_IsInfiniteLaps						Never ends a laps race
+ *	@param	_IsIndependentLaps				Independent laps (use best lap instead of best race)
+ *
+ */
+Void SetInfiniteLaps(Boolean _IsInfiniteLaps, Boolean _IsIndependentLaps) {
+	if (_IsIndependentLaps) {
+		assert(_IsInfiniteLaps, "Independent laps can only be enabled if infinite laps is enabled too.");
+	}
+	G_IsInfiniteLaps = _IsInfiniteLaps;
+	G_IsIndependentLaps = _IsIndependentLaps;
+	Private_UpdateCppCheckpointBehaviour(G_UseCppRaceProgression, G_IsInfiniteLaps);
+	UIModules_Helpers::SetIndependentLaps(G_IsIndependentLaps);
+}
+Void SetInfiniteLaps(Boolean _IsInfiniteLaps) {
+	SetInfiniteLaps(_IsInfiniteLaps, G_IsIndependentLaps);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the C++ respawn behaviour
+Void Private_SetCppRespawnBehaviour(Integer _Respawnbehaviour) {
+	switch (_Respawnbehaviour) {
+		case C_RespawnBehaviour_Normal: {
+			RespawnBehaviour = CSmMode::ERespawnBehaviour::AlwaysRespawn;
+			GiveUpBehaviour = CSmMode::EGiveUpBehaviour::GiveUp;
+		}
+		case C_RespawnBehaviour_DoNothing: {
+			RespawnBehaviour = CSmMode::ERespawnBehaviour::DoNothing;
+			GiveUpBehaviour = CSmMode::EGiveUpBehaviour::DoNothing;
+		}
+		case C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint: {
+			RespawnBehaviour = CSmMode::ERespawnBehaviour::GiveUpBeforeFirstCheckpoint;
+			GiveUpBehaviour = CSmMode::EGiveUpBehaviour::GiveUp;
+		}
+		case C_RespawnBehaviour_AlwaysGiveUp: {
+			RespawnBehaviour = CSmMode::ERespawnBehaviour::AlwaysGiveUp;
+			GiveUpBehaviour = CSmMode::EGiveUpBehaviour::GiveUp;
+		}
+		case C_RespawnBehaviour_NeverGiveUp: {
+			RespawnBehaviour = CSmMode::ERespawnBehaviour::AlwaysRespawn;
+			GiveUpBehaviour = CSmMode::EGiveUpBehaviour::DoNothing;
+		}
+		case C_RespawnBehaviour_Custom: {
+			RespawnBehaviour = CSmMode::ERespawnBehaviour::Custom;
+			GiveUpBehaviour = CSmMode::EGiveUpBehaviour::Custom;
+		}
+	}
+}
+Void Private_UpdateCppRespawnBehaviour(Boolean _UseCppRaceProgression, Integer _RespawnBehaviour) {
+	if (_UseCppRaceProgression) {
+		Private_SetCppRespawnBehaviour(_RespawnBehaviour);
+	} else {
+		RespawnBehaviour = CSmMode::ERespawnBehaviour::Custom;
+		GiveUpBehaviour = CSmMode::EGiveUpBehaviour::Custom;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Manage the respawn behaviour
+Integer GetRespawnBehaviour() {
+	if (G_RespawnBehaviourSetting != C_RespawnBehaviour_None) {
+		return G_RespawnBehaviourSetting;
+	}
+	return G_RespawnBehaviour;
+}
+Void SetRespawnBehaviour(Integer _Respawnbehaviour) {
+	G_RespawnBehaviour = _Respawnbehaviour;
+	Private_UpdateCppRespawnBehaviour(G_UseCppRaceProgression, GetRespawnBehaviour());
+}
+Integer Private_GetRespawnBehaviourSetting() {
+	return G_RespawnBehaviourSetting;
+}
+Void Private_SetRespawnBehaviourSetting(Integer _Respawnbehaviour) {
+	G_RespawnBehaviourSetting = _Respawnbehaviour;
+	Private_UpdateCppRespawnBehaviour(G_UseCppRaceProgression, GetRespawnBehaviour());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Toggle the race progression management by the C++
+Void UseCppRaceProgression(Boolean _Enabled) {
+	// Warn users that changing the value while players are spawned
+	// has some side effects (e.g. finish does not trigger anymore, ...)
+	// GitLab : /trackmania-next/tmnext/-/issues/2645
+	declare Boolean PlayerSpawned = False;
+	foreach (Player in Players) {
+		if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned) {
+			PlayerSpawned = True;
+			break;
+		}
+	}
+	if (PlayerSpawned) {
+		log("WARNING: You should not call UseCppRaceProgression() while players are spawned.");
+	}
+
+	G_UseCppRaceProgression = _Enabled;
+
+	Private_UpdateCppRespawnBehaviour(G_UseCppRaceProgression, GetRespawnBehaviour());
+	Private_UpdateCppCheckpointBehaviour(G_UseCppRaceProgression, IsInfiniteLaps());
+	SetNetworkMode(G_TrustClientSimulation, G_UseCrudeExtrapolation);
+}
+Boolean IsUsingCppRaceProgression() {
+	return G_UseCppRaceProgression;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the UI sequence to apply to the player after the race outro
+Void SetUISequenceAfterOutro(CUIConfig::EUISequence _UISequence) {
+	G_UISequenceAfterOutro = _UISequence;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the lap number of the player
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@return														The lap number
+ */
+Integer GetPlayerLap(CSmPlayer _Player) {
+	if (G_UseCppRaceProgression) {
+		return _Player.CurrentLapNumber;
+	}
+
+	declare Integer Race_Lap for _Player;
+	return Race_Lap;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the lap number of the player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_Lap											The lap number
+ */
+Void Private_SetPlayerLap(CSmPlayer _Player, Integer _Lap) {
+	declare Integer Race_Lap for _Player;
+	Race_Lap = _Lap;
+	UIModules_Helpers::SetPlayerLap(_Player, _Lap);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the current lap start time of the player
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@return														The current lap start time
+ */
+Integer GetPlayerLapStartTime(CSmPlayer _Player) {
+	assert(!G_UseCppRaceProgression, "Race progression handled by the C++");
+	declare Integer Race_LapStartTime for _Player;
+	return Race_LapStartTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the current lap start time of the player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_LapStartTime							The lap start time
+ */
+Void Private_SetPlayerLapStartTime(CSmPlayer _Player, Integer _LapStartTime) {
+	assert(!G_UseCppRaceProgression, "Race progression handled by the C++");
+	declare Integer Race_LapStartTime for _Player;
+	Race_LapStartTime = _LapStartTime;
+	UIModules_Helpers::SetPlayerLapStartTime(_Player, _LapStartTime);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a player activated all the
+ *	checkpoint of the lap
+ *
+ *	@param	_Player										The player to check
+ *	@param	_Lap											The number of the lap to check
+ *
+ *	@return														True if the player activated all checkpoints
+ *																		False otherwise
+ */
+Boolean PlayerLapIsComplete(CSmPlayer _Player, Integer _Lap) {
+	assert(!G_UseCppRaceProgression, "Race progression handled by the C++");
+	declare Integer[Ident][Integer] Race_Waypoints for _Player;
+	declare Integer CheckpointsNb = Map::GetCheckpointsCount();
+	if (CheckpointsNb <= 0) return True;
+	if (!Race_Waypoints.existskey(_Lap)) return False;
+	return (CheckpointsNb <= Race_Waypoints[_Lap].count);
+}
+Boolean PlayerLapIsComplete(CSmPlayer _Player) {
+	return PlayerLapIsComplete(_Player, GetPlayerLap(_Player));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a waypoint was already
+ *	activated by a player during its
+ *	current lap
+ *
+ *	@param	_Player										The player to check
+ *	@param	_Lap											The lap number
+ *	@param	_Landmark									The waypoint landmark to find
+ *
+ *	@return														True if the player already activated the waypoint
+ *																		False otherwise
+ */
+Boolean PlayerWaypointIsActivated(CSmPlayer _Player, Integer _Lap, CSmMapLandmark _Landmark) {
+	assert(!G_UseCppRaceProgression, "Race progression handled by the C++");
+	declare Integer[Ident][Integer] Race_Waypoints for _Player;
+	if (!Race_Waypoints.existskey(_Lap)) return False;
+	if (Race_Waypoints[_Lap].existskey(_Landmark.Id)) return True;
+	if (Map::IsLinkedCheckpoint(_Landmark)) {
+		declare CMapLandmark[] LinkedCheckpoints = Map::GetLinkedCheckpoints(_Landmark);
+		foreach (Landmark in LinkedCheckpoints) {
+			if (
+				Landmark.Id != _Landmark.Id && //< Alread checked this landmark
+				Race_Waypoints[_Lap].existskey(Landmark.Id)
+			) {
+				return True;
+			}
+		}
+	}
+	return False;
+}
+Boolean PlayerWaypointIsActivated(CSmPlayer _Player, CSmMapLandmark _Landmark) {
+	return PlayerWaypointIsActivated(_Player, GetPlayerLap(_Player), _Landmark);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Save the time a player did at a
+ *	waypoint
+ *
+ *	@param	_Player										The player who did the time
+ *	@param	_Landmark									The waypoint landmark the player activated
+ *	@param	_Time											The player's time at the waypoint
+ *	@param	_IsEndRace								Is this the last waypoint of the race
+ *	@param	_IsEndLap									Is this the last waypoint of the lap
+ */
+Void AddPlayerWaypoint(CSmPlayer _Player, CSmMapLandmark _Landmark, Integer _Time, Boolean _IsEndRace, Boolean _IsEndLap) {
+	assert(!G_UseCppRaceProgression, "Race progression handled by the C++");
+	declare Integer Race_Lap for _Player;
+	declare Integer[Ident][Integer] Race_Waypoints for _Player;
+	declare Ident Race_LastWaypointId for _Player;
+	declare Ident Race_RegressWaypointId for _Player;
+
+	if (!Race_Waypoints.existskey(Race_Lap)) {
+		Race_Waypoints[Race_Lap] = [];
+		Player_ClearLapWaypointTimes(_Player);
+
+		// The rest of the code assume that the laps are sorted
+		// DO NOT REMOVE the following line !
+		Race_Waypoints = Race_Waypoints.sortkey();
+	}
+
+	assert(!Race_Waypoints[Race_Lap].existskey(_Landmark.Id), """The player "{{{_Player.User.Login}}}" already activated the checkpoint {{{_Landmark.Id}}} for the lap {{{Race_Lap}}} | Race_Waypoints : {{{Race_Waypoints}}}""");
+
+	Race_Waypoints[Race_Lap][_Landmark.Id] = _Time;
+	if (_IsEndRace) {
+		Player_SetFinishTime(_Player, _Time, _Landmark);
+	} else {
+		Player_AddWaypointTime(_Player, _Time, _Landmark);
+	}
+
+	if (Map::IsRespawnable(_Landmark)) {
+		Race_RegressWaypointId = Race_LastWaypointId;
+		Race_LastWaypointId = _Landmark.Id;
+	}
+
+	if (_IsEndLap && !_IsEndRace) {
+		Private_SetPlayerLap(_Player, Race_Lap + 1);
+		Private_SetPlayerLapStartTime(_Player, _Time);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove the last checkpoint that the player
+ *	crossed from its race (used with the launched checkpoint)
+ *
+ *	@param	_Player										The player losing a checkpoint
+ */
+Void RemovePlayerLastWaypoint(CSmPlayer _Player) {
+	assert(!G_UseCppRaceProgression, "Race progression handled by the C++");
+	declare Integer Race_Lap for _Player;
+	declare Integer[Ident][Integer] Race_Waypoints for _Player;
+	declare Ident Race_LastWaypointId for _Player;
+	declare Ident Race_RegressWaypointId for _Player;
+
+	// Remove lap
+	if (!Race_Waypoints.existskey(Race_Lap) && Race_Waypoints.existskey(Race_Lap - 1)) {
+		if (Race_Lap > 1) {
+			Private_SetPlayerLap(_Player, Race_Lap - 1);
+		} else {
+			Private_SetPlayerLap(_Player, 1);
+		}
+		declare Integer LapStartTime = 0;
+		if (Race_Waypoints.existskey(Race_Lap - 1)) {
+			foreach (Time in Race_Waypoints[Race_Lap - 1]) {
+				LapStartTime = Time;
+			}
+		}
+		Private_SetPlayerLapStartTime(_Player, LapStartTime);
+	}
+
+	// Remove CP
+	if (Race_Waypoints.existskey(Race_Lap)) {
+		Player_RemoveLastWaypointTime(_Player);
+
+		if (Race_Waypoints[Race_Lap].count <= 1) {
+			Race_Waypoints.removekey(Race_Lap);
+		} else {
+			declare Ident LastWaypointId;
+			foreach (WaypointId => Waypoint in Race_Waypoints[Race_Lap]) {
+				LastWaypointId = WaypointId;
+			}
+			Race_Waypoints[Race_Lap].removekey(LastWaypointId);
+		}
+	}
+
+	// Find last and regress waypoints
+	Race_LastWaypointId = NullId;
+	Race_RegressWaypointId = NullId;
+	declare Integer SearchLap = Race_Lap;
+	if (!Race_Waypoints.existskey(Race_Lap)) SearchLap = Race_Lap - 1;
+	if (Race_Waypoints.existskey(SearchLap)) {
+		if (Race_Waypoints[SearchLap].count >= 2) {
+			foreach (WaypointId => WaypointTime in Race_Waypoints[SearchLap]) {
+				Race_RegressWaypointId = Race_LastWaypointId;
+				Race_LastWaypointId = WaypointId;
+			}
+		} else {
+			foreach (WaypointId => WaypointTime in Race_Waypoints[SearchLap]) {
+				Race_LastWaypointId = WaypointId;
+			}
+			if (Race_Waypoints.existskey(SearchLap - 1)) {
+				foreach (WaypointId => WaypointTime in Race_Waypoints[SearchLap - 1]) {
+					Race_RegressWaypointId = WaypointId;
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Reset the waypoint times of a player
+ *
+ *	@param	_Player										The player to reset
+ */
+Void ClearPlayerWaypoints(CSmPlayer _Player) {
+	if (G_UseCppRaceProgression) {
+		Player_ClearLapWaypointTimes(_Player);
+		Player_ClearRaceWaypointTimes(_Player);
+	} else {
+		declare Integer[Ident][Integer] Race_Waypoints for _Player;
+		declare Ident Race_LastWaypointId for _Player;
+		declare Ident Race_RegressWaypointId for _Player;
+		Private_SetPlayerLap(_Player, 1);
+		Private_SetPlayerLapStartTime(_Player, 0);
+		Race_Waypoints = [];
+		Race_LastWaypointId = NullId;
+		Race_RegressWaypointId = NullId;
+		Player_ClearRaceWaypointTimes(_Player);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the last waypoint a player activated
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@return														The last waypoint a player activated
+ */
+CSmMapLandmark GetPlayerLastWaypoint(CSmPlayer _Player) {
+	assert(!G_UseCppRaceProgression, "Race progression handled by the C++");
+	declare Ident Race_LastWaypointId for _Player;
+	if (Race_LastWaypointId == NullId || !MapLandmarks.existskey(Race_LastWaypointId)) return Null;
+	return MapLandmarks[Race_LastWaypointId];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the player's regress waypoint
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@return														The player's regress waypoint
+ */
+CSmMapLandmark GetPlayerRegressWaypoint(CSmPlayer _Player) {
+	assert(!G_UseCppRaceProgression, "Race progression handled by the C++");
+	declare Ident Race_RegressWaypointId for _Player;
+	if (Race_RegressWaypointId == NullId || !MapLandmarks.existskey(Race_RegressWaypointId)) return Null;
+	return MapLandmarks[Race_RegressWaypointId];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the last start block a player used
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@return														The last start block a player used
+ */
+CSmMapLandmark GetPlayerLastSpawn(CSmPlayer _Player) {
+	declare Ident Race_LastSpawnId for _Player;
+	if (Race_LastSpawnId == NullId || !MapLandmarks.existskey(Race_LastSpawnId)) return Null;
+	return MapLandmarks[Race_LastSpawnId];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the landmark that will be used as
+ *	spawn point for the player when calling
+ *	the `Start()` function without a spawn
+ */
+Void SetPlayerDefaultStart(CSmPlayer _Player, CMapLandmark _MapLandmark) {
+	assert(_MapLandmark == Null || _MapLandmark.PlayerSpawn != Null, "This landmark is not a valid spawn");
+	declare Ident Race_DefaultStartId for _Player = NullId;
+	if (_MapLandmark == Null) {
+		Race_DefaultStartId = NullId;
+	} else {
+		Race_DefaultStartId = _MapLandmark.Id;
+	}
+}
+Void ResetPlayerDefaultStart(CSmPlayer _Player) {
+	SetPlayerDefaultStart(_Player, Null);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the landmark where the player should spawn by default
+CMapLandmark GetPlayerDefaultStart(CSmPlayer _Player) {
+	declare Ident Race_DefaultStartId for _Player = NullId;
+	if (Race_DefaultStartId != NullId && MapLandmarks.existskey(Race_DefaultStartId)) {
+		return MapLandmarks[Race_DefaultStartId];
+	}
+	return Map::GetStart();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop any ongoing intro or outro for the player
+Void Private_StopIntroOutro(CSmPlayer _Player) {
+	declare Integer Race_RaceState for _Player = C_RaceState_Waiting;
+	if (Race_RaceState == C_RaceState_Intro) {
+		Race_RaceState = C_RaceState_Waiting;
+		UIModules_Helpers::SetPlayerRaceState(_Player, UIModules_Helpers::C_RaceState_Waiting);
+
+		declare CUIConfig UI <=> UIManager.GetUI(_Player);
+		if (UI != Null) {
+			UI.UISequence = CUIConfig::EUISequence::None;
+		}
+		if (_Player.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned) {
+			UnspawnPlayer(_Player);
+		}
+		G_Intros.removekey(_Player.User.Id);
+	} else {
+		declare Integer Race_OutroEndTime for _Player = -1;
+		declare Integer Race_OutroScoresTableTime for _Player = -1;
+		Race_OutroEndTime = -1;
+		Race_OutroScoresTableTime = -1;
+
+		declare UI <=> UIManager.GetUI(_Player);
+		if (UI != Null) {
+			UI.ScoreTableVisibility = CUIConfig::EVisibility::None;
+			UI.UISequence = G_UISequenceAfterOutro;
+		}
+
+		G_Outros.removekey(_Player.User.Id);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Spawn a player in the race
+ *
+ *	@param	_Player										The player to spawn
+ *	@param	_Spawn										The landmark where to spawn the
+ *	@param	_Clan											The clan in which the player will spawn
+ *	@param	_SpawnTime								The time at which the player will spawn
+ */
+Void Start(CSmPlayer _Player, CMapLandmark _Spawn, Integer _Clan, Integer _SpawnTime) {
+	if (_Player == Null || _Spawn == Null || _Spawn.PlayerSpawn == Null) return;
+
+	Private_StopIntroOutro(_Player);
+
+	declare Integer Race_RaceState for _Player = C_RaceState_Waiting;
+	Race_RaceState = C_RaceState_Racing;
+	UIModules_Helpers::SetPlayerRaceState(_Player, UIModules_Helpers::C_RaceState_Racing);
+
+	if (_Player.Score != Null) {
+		_Player.Score.NbRespawnsRequested = 0;
+	}
+
+	if (G_AutomaticDossardColor) {
+		if (_Clan > 0 && Teams.existskey(_Clan - 1)) {
+			declare Vec3 TeamColor = CL::RgbToHsv(Teams[_Clan - 1].ColorPrimary);
+			TeamColor.Z = ML::Clamp(TeamColor.Z, 0., C_DossardColor_MaxHsvValue); // Decrease the brightness of the color
+			_Player.Dossard_Color = CL::HsvToRgb(TeamColor);
+		} else {
+			_Player.Dossard_Color = C_DossardColor_Default;
+		}
+	}
+
+	// Apply clan skin
+	if (Clans::ClanSkinsAreEnabled()) {
+		_Player.ForceModelId = Clans::GetClanModelId(_Clan);
+	}
+
+	ApplyNetworkMode(_Player);
+	ClearPlayerWaypoints(_Player);
+	_Player.ArmorMax = C_PlayerBaseArmor; // < This is in case we shoot too many times the driver
+	SpawnPlayer(_Player, _Clan, C_PlayerBaseArmor, _Spawn.PlayerSpawn, _SpawnTime);
+	if (_Player.Score != Null) {
+		Ladder::AddPlayer(_Player.Score);
+	}
+
+	G_StartLineEvents[_Player.User.Id] = K_StartLineEvent {
+		PlayerId = _Player.Id,
+		StartTime = _Player.StartTime
+	};
+
+	declare Ident Race_LastSpawnId for _Player;
+	Race_LastSpawnId = _Spawn.Id;
+}
+Void Start(CSmPlayer _Player, CMapLandmark _Spawn, Integer _SpawnTime) {
+	if (Clans::ClansAreEnabled()) Start(_Player, _Spawn, _Player.CurrentClan, _SpawnTime);
+	else Start(_Player, _Spawn, 0, _SpawnTime);
+}
+Void Start(CSmPlayer _Player, Integer _SpawnTime) {
+	if (Clans::ClansAreEnabled()) Start(_Player, GetPlayerDefaultStart(_Player), _Player.CurrentClan, _SpawnTime);
+	else Start(_Player, GetPlayerDefaultStart(_Player), 0, _SpawnTime);
+}
+Void Start(CSmPlayer _Player) {
+	if (Clans::ClansAreEnabled()) Start(_Player, GetPlayerDefaultStart(_Player), _Player.CurrentClan, Now + C_SpawnDuration);
+	else Start(_Player, GetPlayerDefaultStart(_Player), 0, Now + C_SpawnDuration);
+}
+Void StartInClan(CSmPlayer _Player, CMapLandmark _Spawn, Integer _Clan, Integer _SpawnTime) {
+	Start(_Player, _Spawn, _Clan, _SpawnTime);
+}
+Void StartInClan(CSmPlayer _Player, CMapLandmark _Spawn, Integer _Clan) {
+	Start(_Player, _Spawn, _Clan, Now + C_SpawnDuration);
+}
+Void StartInClan(CSmPlayer _Player, Integer _Clan, Integer _SpawnTime) {
+	Start(_Player, GetPlayerDefaultStart(_Player), _Clan, _SpawnTime);
+}
+Void StartInClan(CSmPlayer _Player, Integer _Clan) {
+	Start(_Player, GetPlayerDefaultStart(_Player), _Clan, Now + C_SpawnDuration);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Unspawn the player from the race
+ *
+ *	@param	_Player										The player to unspawn
+ *	@param	_UnspawnPlayer						Manually unspawn the player
+ *																		Sometimes the C++ already handle the unspawn
+ *																		Do not do it here a second time
+ */
+Void Wait(CSmPlayer _Player, Boolean _UnspawnPlayer) {
+	Private_StopIntroOutro(_Player);
+
+	declare Integer Race_RaceState for _Player = C_RaceState_Waiting;
+	Race_RaceState = C_RaceState_Waiting;
+	UIModules_Helpers::SetPlayerRaceState(_Player, UIModules_Helpers::C_RaceState_Waiting);
+	declare UI <=> UIManager.GetUI(_Player);
+	declare Boolean PlayerUIIsNone = (UI == Null || UI.UISequence == CUIConfig::EUISequence::None);
+	declare Boolean PlayerUIIsPlaying = (UI != Null && UI.UISequence == CUIConfig::EUISequence::Playing);
+	if (
+		_UnspawnPlayer && (
+			_Player.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned ||
+			(PlayerUIIsNone && UIManager.UIAll.UISequence != CUIConfig::EUISequence::Playing) ||
+			!PlayerUIIsPlaying
+		)
+	) {
+		UnspawnPlayer(_Player);
+	}
+
+	G_StartLineEvents.removekey(_Player.User.Id);
+}
+Void Wait(CSmPlayer _Player) {
+	Wait(_Player, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Stop the race of a player
+ *
+ *	@param	_Player										The player to stop
+ *	@param	_OutroDuration						Duration of the outro sequence (-1 to disable)
+ *	@param	_ScoresTableTime					Delay before the display of the scores table
+ *																		during the outro sequence
+ */
+Void Stop(CSmPlayer _Player, Integer _OutroDuration, Integer _ScoresTableTime) {
+	if (_OutroDuration < 0) {
+		Wait(_Player);
+	} else {
+		declare Integer Race_RaceState for _Player = C_RaceState_Waiting;
+		declare Integer Race_OutroEndTime for _Player = -1;
+		declare Integer Race_OutroScoresTableTime for _Player = -1;
+
+		Race_RaceState = C_RaceState_Outro;
+		UIModules_Helpers::SetPlayerRaceState(_Player, UIModules_Helpers::C_RaceState_RaceOutro);
+		Race_OutroEndTime = Now + _OutroDuration;
+
+		if (_ScoresTableTime >= 0 && _ScoresTableTime < _OutroDuration) {
+			Race_OutroScoresTableTime = Now + _ScoresTableTime;
+		} else {
+			Race_OutroScoresTableTime = -1;
+		}
+
+		declare UI <=> UIManager.GetUI(_Player);
+		if (UI != Null) {
+			UI.ScoreTableVisibility = CUIConfig::EVisibility::None;
+			UI.UISequence = CUIConfig::EUISequence::Finish;
+		}
+
+		G_Outros[_Player.User.Id] = K_Outro {
+			PlayerId = _Player.Id,
+			ScoresTableStartTime = Race_OutroScoresTableTime,
+			OutroEndTime = Race_OutroEndTime
+		};
+	}
+}
+Void Stop(CSmPlayer _Player) {
+	Stop(_Player, C_OutroDuration, C_OutroScoresTableTime);
+}
+Void StopSkipScoresTable(CSmPlayer _Player) {
+	Stop(_Player, C_OutroWithoutScoresTableDuration, -1);
+}
+Void StopSkipOutro(CSmPlayer _Player) {
+	Stop(_Player, -1, -1);
+}
+Void StopSkipOutroAll() {
+	foreach (Player in AllPlayers) {
+		StopSkipOutro(Player);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unspawn players who lost the game
+Void StopLosers() {
+	if (Clans::ClansAreEnabled()) {
+		foreach (Player in Players) {
+			if (Player.CurrentClan != Scores::GetClanWinner()) {
+				StopSkipOutro(Player);
+			}
+		}
+	} else {
+		foreach (Player in Players) {
+			if (Player.Score == Null || Player.Score.Id != Scores::GetPlayerWinnerId()) {
+				StopSkipOutro(Player);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unspawn players who won the game
+Void StopWinners() {
+	if (Clans::ClansAreEnabled()) {
+		foreach (Player in Players) {
+			if (Player.CurrentClan == Scores::GetClanWinner()) {
+				StopSkipOutro(Player);
+			}
+		}
+	} else {
+		foreach (Player in Players) {
+			if (Player.Score == Null || Player.Score.Id == Scores::GetPlayerWinnerId()) {
+				StopSkipOutro(Player);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start watching the map intro
+Void BeginIntro(CSmPlayer _Player) {
+	Wait(_Player);
+
+	declare Integer Race_RaceState for _Player = C_RaceState_Waiting;
+	Race_RaceState = C_RaceState_Intro;
+	UIModules_Helpers::SetPlayerRaceState(_Player, UIModules_Helpers::C_RaceState_MapIntro);
+
+	declare CUIConfig UI <=> UIManager.GetUI(_Player);
+	if (UI != Null) {
+		UI.UISequence = CUIConfig::EUISequence::Intro;
+	}
+
+	if (
+		_Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned &&
+		!_Player.RequestsSpectate &&
+		!Spectators.existskey(_Player.Id)
+	) {
+		_Player.ArmorMax = C_PlayerBaseArmor;
+		ApplyNetworkMode(_Player);
+		SpawnPlayer(_Player, 0, C_PlayerBaseArmor, GetPlayerDefaultStart(_Player).PlayerSpawn, -1);
+	}
+
+	G_Intros[_Player.User.Id] = _Player.Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop watching the map intro
+Void EndIntro(CSmPlayer _Player) {
+	Private_StopIntroOutro(_Player);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the race state of the player
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@eturn														The current race state of the player
+ */
+Integer GetRaceState(CSmPlayer _Player) {
+	declare Integer Race_RaceState for _Player = C_RaceState_Waiting;
+	return Race_RaceState;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player is in the race intro
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@eturn														True if the player is in the intro
+ *																		False otherwise
+ */
+Boolean IsWatchingIntro(CSmPlayer _Player) {
+	declare Integer Race_RaceState for _Player = C_RaceState_Intro;
+	return (Race_RaceState == C_RaceState_Intro);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player is in the race outro
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@eturn														True if the player is in the outro
+ *																		False otherwise
+ */
+Boolean IsWatchingOutro(CSmPlayer _Player) {
+	// Check for spawn status first and return if the player is unspawned.
+	// This way we avoid a costly declare for.
+	if (_Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned) return False;
+	declare Integer Race_RaceState for _Player = C_RaceState_Waiting;
+	return (Race_RaceState == C_RaceState_Outro);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player is ready to spawn or not
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@return														True if the player is ready to spawn
+ *																		False otherwise
+ */
+Boolean IsReadyToStart(CSmPlayer _Player) {
+	// Check for spawn status first and return if the player is spawned
+	// (which is the case most of the time. This way we avoid a costly declare for.
+	if (
+		_Player.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned ||
+		_Player.RequestsSpectate ||
+		(Spectators.count > 0 && Spectators.existskey(_Player.Id))
+	) {
+		return False;
+	}
+	declare Integer Race_RaceState for _Player = C_RaceState_Waiting;
+	return (Race_RaceState == C_RaceState_Waiting);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player is spawned
+ *	and not watching the outro
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@return														True if the player is spawned
+ *																		False otherwise
+ */
+Boolean IsRacing(CSmPlayer _Player) {
+	// Check for spawn status first and return if the player is unspawned.
+	// This way we avoid a costly declare for.
+	if (_Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned) return False;
+	declare Integer Race_RaceState for _Player = C_RaceState_Waiting;
+	return Race_RaceState == C_RaceState_Racing;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Setup the game mode
+Void SetupGameModeNameCustomDataAndMedalScope(
+	Text _ModeName,
+	Text _CustomData_Leaderboard,
+	Text _CustomData_GhostDriver,
+	Text _ScopeMedal
+) {
+	SetGameModeNameAndCustomData(_ModeName, _CustomData_Leaderboard, _CustomData_GhostDriver);
+	Tracking::SendGameModeNCS(Teams[0], _ModeName, _CustomData_Leaderboard, _ScopeMedal);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Setup how the records are going to be managed
+ *
+ *	@param	_ScopeSeason							Scope of the ghost on the nadeoservices when playing on a season map
+ *	@param	_ScopeNotSeason						Scope of the ghost on the nadeoservices when playing on a map outside of a season
+ *	@param	_ModeName									The name of the mode on the nadeoservices
+ *	@param	_CustomData_Leaderboard		Mode's custom data for the leaderboards on the nadeoservices
+ *	@param	_CustomData_GhostDriver		Mode's custom data for the `GhostDriver` features on the nadeoservices
+ *	@param	_UploadGhost							Upload the player's ghost to the nadeoservices at the end of each race
+ *	@param	_DisplayPBGhost						Display the player's PB ghost on the client
+ *	@param	_DisplayMedal							Display the best medal unlocked by the player
+ *	@param	_CelebratePB							Celebrate the a new PB
+ *	@param	_CelebrateMedal						Celebrate a new medal
+ *	@param	_DisplayWorldTop					Display the world best times on the map
+ *	@param	_EnableGhostDriver				Enable `GhostDriver` features (upload and download of ghosts for bots)
+ */
+Void SetupRecord(
+	Text _ScopeSeason,
+	Text _ScopeNotSeason,
+	Text _ModeName,
+	Text _CustomData_Leaderboard,
+	Text _CustomData_GhostDriver,
+	Boolean _UploadGhost,
+	Boolean _DisplayPBGhost,
+	Boolean _DisplayMedal,
+	Boolean _CelebratePB,
+	Boolean _CelebrateMedal,
+	Boolean _DisplayWorldTop,
+	Boolean _EnableGhostDriver
+) {
+	G_GhostConfig.ScopeSeason = _ScopeSeason;
+	G_GhostConfig.ScopeNotSeason = _ScopeNotSeason;
+	G_GhostConfig.ModeName = _ModeName;
+	G_GhostConfig.CustomData_Leaderboard = _CustomData_Leaderboard;
+	G_GhostConfig.CustomData_GhostDriver = _CustomData_GhostDriver;
+	G_GhostConfig.UploadGhost = _UploadGhost;
+	G_GhostConfig.DisplayPBGhost = _DisplayPBGhost;
+	G_GhostConfig.DisplayMedal = _DisplayMedal;
+	G_GhostConfig.CelebratePB = _CelebratePB;
+	G_GhostConfig.CelebrateMedal = _CelebrateMedal;
+	G_GhostConfig.DisplayWorldTop = _DisplayWorldTop;
+	G_GhostConfig.EnableGhostDriver = _EnableGhostDriver;
+
+	// Enable PB ghost only if the map uses the correct number of laps and we are not in splitscreen
+	if (!G_IsSplitscreen && Map != Null && (!Map::IsLapRace() || G_LapsNb == Map::GetLapsNb())) {
+		if (G_GhostConfig.UploadGhost || G_GhostConfig.EnableGhostDriver) {
+			SetupGameModeNameCustomDataAndMedalScope(G_GhostConfig.ModeName, G_GhostConfig.CustomData_Leaderboard, G_GhostConfig.CustomData_GhostDriver, G_GhostConfig.ScopeNotSeason);
+		} else {
+			SetupGameModeNameCustomDataAndMedalScope("", "", "", "");
+		}
+		UIModules_Record::Setup(
+			Map.MapInfo.MapUid,
+			G_GhostConfig.ScopeSeason,
+			G_GhostConfig.ScopeNotSeason,
+			G_GhostConfig.ModeName,
+			G_GhostConfig.CustomData_Leaderboard,
+			G_GhostConfig.DisplayPBGhost,
+			G_GhostConfig.DisplayMedal,
+			G_GhostConfig.CelebratePB,
+			G_GhostConfig.CelebrateMedal,
+			G_GhostConfig.DisplayWorldTop,
+			G_GhostConfig.UploadGhost
+		);
+		UIModules_PauseMenu_Online::SetupMedals(
+			G_GhostConfig.ScopeNotSeason,
+			"",
+			G_GhostConfig.ModeName,
+			G_GhostConfig.CustomData_Leaderboard
+		);
+	} else {
+		SetupGameModeNameCustomDataAndMedalScope("", "", "", "");
+		UIModules_Record::Reset();
+	}
+}
+Void SetupRecord(K_GhostConfig _Config) {
+	SetupRecord(_Config.ScopeSeason, _Config.ScopeNotSeason, _Config.ModeName, _Config.CustomData_Leaderboard, _Config.CustomData_GhostDriver, _Config.UploadGhost, _Config.DisplayPBGhost, _Config.DisplayMedal, _Config.CelebratePB, _Config.CelebrateMedal, _Config.DisplayWorldTop, _Config.EnableGhostDriver);
+}
+Void SetupRecord(Text _ScopeSeason, Text _ScopeNotSeason, Text _ModeName, Text _CustomData_Leaderboard, Boolean _UploadGhost, Boolean _DisplayPBGhost, Boolean _DisplayMedal, Boolean _CelebratePB, Boolean _CelebrateMedal, Boolean _DisplayWorldTop) {
+	SetupRecord(_ScopeSeason, _ScopeNotSeason, _ModeName, _CustomData_Leaderboard, "", _UploadGhost, _DisplayPBGhost, _DisplayMedal, _CelebratePB, _CelebrateMedal, _DisplayWorldTop, False);
+}
+Void SetupRecord(Text _ScopeSeason, Text _ScopeNotSeason, Text _ModeName, Text _CustomData_Leaderboard, Boolean _UploadGhost, Boolean _DisplayPBGhost, Boolean _DisplayMedal, Boolean _CelebratePB, Boolean _CelebrateMedal) {
+	SetupRecord(_ScopeSeason, _ScopeNotSeason, _ModeName, _CustomData_Leaderboard, _UploadGhost, _DisplayPBGhost, _DisplayMedal, _CelebratePB, _CelebrateMedal, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the current record settings
+K_GhostConfig GetRecordSettings() {
+	return G_GhostConfig;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the number of laps to play
+ *	on the map
+ *
+ *	@param	_LapsNb										The number of laps
+ *																		Setting it to 0 or less create
+ *																		an infinite lap race
+ */
+Void SetLapsNb(Integer _LapsNb) {
+	G_LapsNb = _LapsNb;
+	LapCountOverride = _LapsNb;
+	UIModules_Helpers::SetLapsNb(G_LapsNb);
+	SetupRecord(G_GhostConfig);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the number of laps to play
+ *	on the map
+ *
+ *	@return														The number of laps
+ */
+Integer GetLapsNb() {
+	return G_LapsNb;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Setup the laps number and infinite laps
+ *	mode from the settings values
+ */
+Void SetLapsSettings(Boolean _InfiniteLaps, Integer _ForceLapsNb) {
+	if (Map::IsLapRace()) {
+		if (_InfiniteLaps || _ForceLapsNb == 0) {
+			SetLapsNb(0);
+			SetInfiniteLaps(True, _ForceLapsNb == 0);
+		} else {
+			if (_ForceLapsNb > 0) {
+				SetLapsNb(_ForceLapsNb);
+			} else {
+				SetLapsNb(Map::GetLapsNb());
+			}
+			SetInfiniteLaps(False, False);
+		}
+	} else {
+		SetInfiniteLaps(False, False);
+		SetLapsNb(-1);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Enable or disable local mode
+ *
+ *	@param	_IsLocalMode							True to enable local mode
+ *																		False to disable
+ */
+Void SetLocalMode(Boolean _IsLocalMode) {
+	G_IsLocalMode = _IsLocalMode;
+	UIModules_Helpers::SetLocalMode(_IsLocalMode);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Enable or disable splitscreen mode
+ *
+ *	@param	_IsSplitScreen						True to enable splitscreen mode
+ *																		False to disable
+ */
+Void SetSplitScreen(Boolean _IsSplitScreen) {
+	G_IsSplitscreen = _IsSplitScreen;
+	SetupRecord(G_GhostConfig);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset a solo race
+Void ResetSolo() {
+	GameScene_ResetAll();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Reset all player's states
+ *
+ *	@param	_Player										The player to reset
+ */
+Void ResetPlayer(CSmPlayer _Player) {
+	declare Integer Race_Lap for _Player;
+	declare Integer Race_LapStartTime for _Player;
+	declare Integer[Ident][Integer] Race_Waypoints for _Player;
+	declare Ident Race_LastWaypointId for _Player;
+	declare Ident Race_RegressWaypointId for _Player;
+	declare Ident Race_LastSpawnId for _Player;
+	declare Integer Race_RaceState for _Player = C_RaceState_Waiting;
+	declare Integer Race_OutroEndTime for _Player = -1;
+	declare Integer Race_OutroScoresTableTime for _Player = -1;
+	Race_Lap = 0;
+	Race_LapStartTime = -1;
+	Race_Waypoints = [];
+	Race_LastWaypointId = NullId;
+	Race_RegressWaypointId = NullId;
+	Race_LastSpawnId = NullId;
+	Race_RaceState = C_RaceState_Waiting;
+	UIModules_Helpers::SetPlayerRaceState(_Player, UIModules_Helpers::C_RaceState_Waiting);
+	Race_OutroEndTime = -1;
+	Race_OutroScoresTableTime = -1;
+
+	G_StartLineEvents.removekey(_Player.User.Id);
+	G_Outros.removekey(_Player.User.Id);
+	G_Intros.removekey(_Player.User.Id);
+
+	declare UI <=> UIManager.GetUI(_Player);
+	if (UI != Null) {
+		UI.ScoreTableVisibility = CUIConfig::EVisibility::None;
+		UI.UISequence = CUIConfig::EUISequence::None;
+	}
+
+	UIModules_Helpers::SetPlayerLap(_Player, Race_Lap);
+	UIModules_Helpers::SetPlayerLapStartTime(_Player, Race_LapStartTime);
+}
+Void ResetAllPlayers() {
+	foreach (Player in AllPlayers) {
+		ResetPlayer(Player);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// A player joined the server
+Void PlayerAdded(CSmPlayer _Player) {
+	if (_Player != Null) {
+		ResetPlayer(_Player);
+		ApplyNetworkMode(_Player);
+		// Start intro for player but not spectator
+		// Check Players and Spectators array to be sure
+		if (
+			G_CanViewIntroDuringMatch &&
+			!_Player.RequestsSpectate &&
+			Players.existskey(_Player.Id) &&
+			!Spectators.existskey(_Player.Id)
+		) {
+			BeginIntro(_Player);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// A player left the server
+Void PlayerRemoved(CUser _User) {
+	if (_User != Null) {
+		G_StartLineEvents.removekey(_User.Id);
+		G_Outros.removekey(_User.Id);
+		G_Intros.removekey(_User.Id);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Allow the players to see the intro
+ *	when they join during a match instead
+ *	of only at map start
+ */
+Void EnableIntroDuringMatch(Boolean _Enabled) {
+	if (G_CanViewIntroDuringMatch && !_Enabled) {
+		foreach (Player in AllPlayers) {
+			EndIntro(Player);
+		}
+	}
+	G_CanViewIntroDuringMatch = _Enabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Select upon which criteria the scores
+ *	will be sorted
+ *
+ *	@param	_SortOrder								The sorting criteria
+ */
+Void SortScores(Integer _SortOrder) {
+	G_ScoresSortOrder = _SortOrder;
+
+	declare CSmMode::ESmScoreSortOrder ModeSortOrder;
+	switch (_SortOrder) {
+		case C_Sort_TotalPoints: {
+			ModeSortOrder = CSmMode::ESmScoreSortOrder::TotalPoints;
+		}
+		case C_Sort_RoundPoints: {
+			ModeSortOrder = CSmMode::ESmScoreSortOrder::RoundPoints;
+		}
+		case C_Sort_BestRaceTime: {
+			ModeSortOrder = CSmMode::ESmScoreSortOrder::BestRace;
+		}
+		case C_Sort_BestLapTime: {
+			ModeSortOrder = CSmMode::ESmScoreSortOrder::BestLap;
+		}
+		case C_Sort_BestRaceCheckpointsProgress: {
+			ModeSortOrder = CSmMode::ESmScoreSortOrder::BestRace;
+		}
+		case C_Sort_PrevRaceTime: {
+			ModeSortOrder = CSmMode::ESmScoreSortOrder::PrevRace;
+		}
+		case C_Sort_Respawns: {
+			ModeSortOrder = CSmMode::ESmScoreSortOrder::Respawns;
+		}
+		case C_Sort_Name: {
+			ModeSortOrder = CSmMode::ESmScoreSortOrder::Name;
+		}
+		case C_Sort_LadderRankSortValue: {
+			ModeSortOrder = CSmMode::ESmScoreSortOrder::LadderRank;
+		}
+		default: {
+			ModeSortOrder = CSmMode::ESmScoreSortOrder::BestRace;
+		}
+	}
+	Scores_SetSortCriteria(ModeSortOrder);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get upon which criteria the scores are sorted
+ *
+ *	@return														The sorting criteria
+ */
+Integer GetScoresSortOrder() {
+	return G_ScoresSortOrder;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the previous race ranking sorted by race times then previous checkpoint times then match points then name
+CSmScore[] GetPrevRaceRanking() {
+	declare Integer[][Ident] ScoreIdsToSortByWaypointTimes;
+	foreach (Score in Scores) {
+		ScoreIdsToSortByWaypointTimes[Score.Id] = CommonUtils::ToScriptArray(Score.PrevRaceTimes);
+	}
+
+	declare Ident[][Integer] ScoreIdsSortedByWaypointTimes = Scores::SortIdsByWaypointTimes(ScoreIdsToSortByWaypointTimes);
+	declare CSmScore[] SortedScores;
+	foreach (WaypointTimesScoreIds in ScoreIdsSortedByWaypointTimes) {
+		declare Ident[][] ScoreIdsSortedByPoints;
+		if (WaypointTimesScoreIds.count <= 1) {
+			ScoreIdsSortedByPoints = [WaypointTimesScoreIds];
+		} else {
+			declare Integer[Ident] ScoreIdsToSortByPoints;
+			foreach (ScoreId in WaypointTimesScoreIds) {
+				ScoreIdsToSortByPoints[ScoreId] = Scores::GetPlayerMatchPoints(Scores[ScoreId]);
+			}
+			ScoreIdsSortedByPoints = Scores::SortIdsByPoints(ScoreIdsToSortByPoints, Scores::C_Order_Descending, 0);
+		}
+		foreach (PointsScoreIds in ScoreIdsSortedByPoints) {
+			declare Ident[][] ScoreIdsSortedByName;
+			if (PointsScoreIds.count <= 1) {
+				ScoreIdsSortedByName = [PointsScoreIds];
+			} else {
+				declare Text[Ident] ScoreIdsToSortByName;
+				foreach (ScoreId in PointsScoreIds) {
+					if (Scores[ScoreId].User == Null) {
+						ScoreIdsToSortByName[ScoreId] = "";
+					} else {
+						ScoreIdsToSortByName[ScoreId] = Scores[ScoreId].User.Name;
+					}
+				}
+				ScoreIdsSortedByName = Scores::SortIdsByName(ScoreIdsToSortByName, Scores::C_Order_Ascending, "");
+			}
+			foreach (NameScoreIds in ScoreIdsSortedByName) {
+				foreach (ScoreId in NameScoreIds) {
+					SortedScores.add(Scores[ScoreId]);
+				}
+			}
+		}
+	}
+
+	return SortedScores;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the time left to the players to finish the round after the first player
+ *
+ *	@param	_ForcedFinishTimeout			Forced finish timeout duration (in seconds)
+ *	@param	_CurrentLapsNb						The current number of laps to do complete the race
+ *	@param	_Map											The map being played
+ *
+ *	@return														The time left in ms
+ */
+Integer GetFinishTimeout(Integer _ForcedFinishTimeout, Integer _CurrentLapsNb, CMap _Map) {
+	declare Integer FinishTimeout = 0;
+
+	if (_ForcedFinishTimeout >= 0) {
+		FinishTimeout = _ForcedFinishTimeout * 1000;
+	} else {
+		FinishTimeout = 5000;
+		if (_Map != Null && _Map.TMObjective_IsLapRace && _CurrentLapsNb > 0 && _Map.TMObjective_NbLaps > 0) {
+			FinishTimeout += ((_Map.TMObjective_AuthorTime / _Map.TMObjective_NbLaps) * _CurrentLapsNb) / 6;
+		} else if (_Map != Null) {
+			FinishTimeout += _Map.TMObjective_AuthorTime / 6;
+		}
+	}
+
+	return Now + FinishTimeout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the default visibility for UI elements
+Void SetupDefaultUI(Boolean _IsSplitScreen) {
+	// Setup markers
+	if(_IsSplitScreen) {
+		UIManager.UIAll.AlliesLabelsMaxCount = 2;
+		UIManager.UIAll.AlliesLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+		UIManager.UIAll.AlliesLabelsShowNames = CUIConfig::EVisibility::ForcedHidden;
+
+		UIManager.UIAll.TeamLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+		UIManager.UIAll.TeamLabelsShowNames = CUIConfig::EVisibility::ForcedHidden;
+
+		UIManager.UIAll.OpposingTeamLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+		UIManager.UIAll.OpposingTeamLabelsShowNames = CUIConfig::EVisibility::ForcedHidden;
+	} else {
+		UIManager.UIAll.AlliesLabelsMaxCount = 2;
+		UIManager.UIAll.AlliesLabelsVisibility = CUIConfig::ELabelsVisibility::Always;
+		UIManager.UIAll.AlliesLabelsShowNames = CUIConfig::EVisibility::Normal;
+
+		UIManager.UIAll.TeamLabelsVisibility = CUIConfig::ELabelsVisibility::WhenVisible;
+		UIManager.UIAll.TeamLabelsShowNames = CUIConfig::EVisibility::ForcedVisible;
+
+		UIManager.UIAll.OpposingTeamLabelsVisibility = CUIConfig::ELabelsVisibility::WhenVisible;
+		UIManager.UIAll.OpposingTeamLabelsShowNames = CUIConfig::EVisibility::ForcedVisible;
+	}
+	UIManager.UIAll.AlliesLabelsShowGauges = CUIConfig::EVisibility::ForcedHidden;
+	UIManager.UIAll.TeamLabelsShowGauges = CUIConfig::EVisibility::ForcedHidden;
+	UIManager.UIAll.OpposingTeamLabelsShowGauges = CUIConfig::EVisibility::ForcedHidden;
+	UIManager.UIAll.LabelsVisibility_SkipMarkersOnly = True;
+
+	// Setup miscellaneous elements
+	UIManager.UIAll.OverlayHideGauges = True;
+	UIManager.UIAll.UISequence_CutSceneStyle = CUIConfig::ECutSceneStyle::TM;
+	UIManager.UIAll.OverlayHideNotices = True;
+	UIManager.UIAll.OverlayHideCountdown = True;
+	UIManager.UIAll.AltMenuNoDefaultScores = True;
+	UIManager.UIAll.ScoreTableOnlyManialink = True;
+	UIManager.UIAll.OverlayHideEndMapLadderRecap = True;
+	UIManager.UIAll.OverlayHideCrosshair = True;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the visibility of UI elements for a local mode
+Void SetupLocalModeUI() {
+	UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedHidden;
+	UIManager.UIAll.AltMenuNoDefaultScores = True;
+	UIManager.UIAll.AltMenuNoCustomScores = True;
+	UIManager.UIAll.OverlayHideChat = True;
+	UIManager.UIAll.OverlayHideSpectatorInfos = True;
+	UIManager.UIAll.OverlayChatOffset =  <-500., 0.>;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Manage map change
+Void AfterLoadMap(CMap _Map) {
+	if (_Map == Null && G_PreviousMapUid != "") {
+		G_PreviousMapUid = "";
+	} else if (_Map != Null) {
+		// We loaded a map, but it's the same than
+		// the previous one. The client does not know that
+		// the map was restarted in this case.
+		// So we force an update from the server.
+		if (_Map.MapInfo.MapUid == G_PreviousMapUid) {
+			UIModules_Record::ForceMapUpdate();
+		}
+		G_PreviousMapUid = _Map.MapInfo.MapUid;
+	}
+	ResetAllPlayers();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the notification when a player joins or leaves the server
+Void EnableJoinLeaveNotification(Boolean _Enabled) {
+	G_JoinLeaveNotificationEnabled = _Enabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the notification when a player joins or leaves the server
+Void EnableJoinLeaveNotificationForFakeUser(Boolean _Enabled) {
+	G_JoinLeaveNotificationForFakeUserEnabled = _Enabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable automatic unspawn of the player's car after being eliminated by an obstacle
+Void EnableAutomaticGiveUpAfterElimination(Boolean _Enabled) {
+	G_AutomaticGiveUpAfterElimination = _Enabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Valid a race event
+ *
+ *	@param	_Event										The event to valid
+ */
+Void ValidEvent(Events::K_RaceEvent _Event) {
+	// Race progression handled by the C++
+	if (_Event.UseCppRaceProgression) {
+		/* For the respawn, give up and skip outro events,
+		 * unlike when the events are handled by the script,
+		 * the C++ already unspawned the player at this point.
+		 */
+		switch (_Event.Type) {
+			case Events::C_Type_Waypoint: {
+				if (_Event.IsEndRace) {
+					if (_Event.Player != Null) {
+						Stop(_Event.Player);
+						Ghost::EndRace(_Event.Player);
+					}
+				}
+				Events::Valid(_Event, Events::C_SourceEventAction_Invalid);
+			}
+			case Events::C_Type_Respawn: {
+				Events::Valid(_Event, Events::C_SourceEventAction_Invalid);
+			}
+			case Events::C_Type_GiveUp: {
+				if (_Event.Player != Null) {
+					Wait(_Event.Player, False);
+				}
+				Events::Valid(_Event, Events::C_SourceEventAction_Invalid);
+			}
+			case Events::C_Type_SkipOutro: {
+				if (_Event.Player != Null) {
+					Wait(_Event.Player, !_Event.IsGiveUp || GiveUpBehaviour == CSmMode::EGiveUpBehaviour::DoNothing);
+				}
+				Events::Valid(_Event, Events::C_SourceEventAction_Invalid);
+			}
+			case Events::C_Type_Eliminated: {
+				if (_Event.Player != Null && G_AutomaticGiveUpAfterElimination) {
+					StopSkipScoresTable(_Event.Player);
+				}
+				Events::Valid(_Event, Events::C_SourceEventAction_Invalid);
+			}
+			default: {
+				Events::Valid(_Event, Events::C_SourceEventAction_Valid);
+			}
+		}
+	}
+	// Race progression handled by the script
+	else {
+		switch (_Event.Type) {
+			case Events::C_Type_Waypoint: {
+				if (_Event.Player != Null) {
+					AddPlayerWaypoint(_Event.Player, _Event.Landmark, _Event.RaceTime, _Event.IsEndRace, _Event.IsEndLap);
+					if (_Event.IsEndRace) {
+						Stop(_Event.Player);
+						Ghost::EndRace(_Event.Player);
+					}
+				}
+				Events::Valid(_Event, Events::C_SourceEventAction_Valid);
+			}
+			case Events::C_Type_Respawn: {
+				if (_Event.Player != Null) {
+					if (_Event.RemoveCheckpoint) {
+						RemovePlayerLastWaypoint(_Event.Player);
+					}
+					if (_Event.Landmark.Waypoint != Null) {
+						RespawnPlayer(_Event.Player, _Event.Landmark.Waypoint);
+					} else {
+						RespawnPlayer(_Event.Player, _Event.Landmark.PlayerSpawn);
+					}
+					if (_Event.Player.Score != Null) {
+						_Event.Player.Score.NbRespawnsRequested += 1;
+					}
+				}
+				// Discard source event to avoid automatic processing (respawn, restart, ...)
+				// from the C++ at the next yield that could potentially break
+				// the internal state of the Race library
+				Events::Valid(_Event, Events::C_SourceEventAction_Invalid);
+			}
+			case Events::C_Type_GiveUp: {
+				if (_Event.Player != Null) {
+					StopSkipOutro(_Event.Player);
+				}
+				// Discard source event to avoid automatic processing (respawn, restart, ...)
+				// from the C++ at the next yield that could potentially break
+				// the internal state of the Race library
+				Events::Valid(_Event, Events::C_SourceEventAction_Invalid);
+			}
+			case Events::C_Type_SkipOutro: {
+				if (_Event.Player != Null) {
+					StopSkipOutro(_Event.Player);
+				}
+				// Discard source event to avoid automatic processing (respawn, restart, ...)
+				// from the C++ at the next yield that could potentially break
+				// the internal state of the Race library
+				Events::Valid(_Event, Events::C_SourceEventAction_Invalid);
+			}
+			default: {
+				Events::Valid(_Event, Events::C_SourceEventAction_Valid);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Invalid a race event
+ *
+ *	@param	_Event										The event to invalid
+ */
+Void InvalidEvent(Events::K_RaceEvent _Event) {
+	Events::Invalid(_Event.SourceEvent);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process OnPlayerRequestRespawn event when using CPP race progression
+Events::K_RaceEvent Private_Cpp_OnPlayerRequestRespawn(CSmModeEvent _Event, Events::K_RaceEvent _RaceEvent) {
+	declare Events::K_RaceEvent RaceEvent = _RaceEvent;
+
+	declare CSmPlayer EventPlayer;
+	if (_Event.Player != Null && AllPlayers.existskey(_Event.Player.Id)) {
+		EventPlayer = AllPlayers[_Event.Player.Id];
+	}
+
+	// The C++ already unspawned the player at this point
+	// We must check the raw race state to know if
+	// the player is watching the outro because
+	// SpawnStatus is NotSpawned.
+	if (EventPlayer != Null && GetRaceState(EventPlayer) == C_RaceState_Outro) {
+		RaceEvent.Type = Events::C_Type_SkipOutro;
+		RaceEvent.Player = EventPlayer;
+	} else {
+		if (_Event.GiveUp) {
+			if (GiveUpBehaviour != CSmMode::EGiveUpBehaviour::DoNothing) {
+				RaceEvent.Type = Events::C_Type_GiveUp;
+				RaceEvent.Player = EventPlayer;
+			}
+		} else {
+			RaceEvent.Type = Events::C_Type_Respawn;
+			RaceEvent.Player = EventPlayer;
+			RaceEvent.RemoveCheckpoint = _Event.RegressRespawn;
+		}
+	}
+	RaceEvent.IsGiveUp = _Event.GiveUp;
+
+	return RaceEvent;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process OnPlayerTriggersWaypoint event when using CPP race progression
+Events::K_RaceEvent Private_Cpp_OnPlayerTriggersWaypoint(CSmModeEvent _Event, Events::K_RaceEvent _RaceEvent) {
+	declare Events::K_RaceEvent RaceEvent = _RaceEvent;
+
+	declare CSmPlayer EventPlayer;
+	if (_Event.Player != Null && AllPlayers.existskey(_Event.Player.Id)) {
+		EventPlayer = AllPlayers[_Event.Player.Id];
+	}
+
+	RaceEvent.Type = Events::C_Type_Waypoint;
+	RaceEvent.Player = EventPlayer;
+	RaceEvent.RaceTime = _Event.WaypointTime;
+	RaceEvent.LapTime = _Event.WaypointLapTime;
+	RaceEvent.Landmark <=> MapLandmarks[_Event.Landmark.Id]; //< Use the MapLandmarks array and not the Event.Landmark "pointer"
+	RaceEvent.IsEndLap = _Event.IsNewLap || _Event.IsFinish;
+	RaceEvent.IsEndRace = _Event.IsFinish;
+
+	return RaceEvent;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process OnArmorEmpty event when using CPP race progression
+Events::K_RaceEvent Private_Cpp_OnArmorEmpty(CSmModeEvent _Event, Events::K_RaceEvent _RaceEvent) {
+	declare Events::K_RaceEvent RaceEvent = _RaceEvent;
+
+	declare CSmPlayer EventPlayer;
+	if (_Event.VictimEntity != Null && (_Event.VictimEntity is CSmPlayer) && AllPlayers.existskey(_Event.VictimEntity.Id)) {
+		EventPlayer = AllPlayers[_Event.VictimEntity.Id];
+	}
+
+	RaceEvent.Type = Events::C_Type_Eliminated;
+	RaceEvent.Player = EventPlayer;
+
+	return RaceEvent;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process OnPlayerRequestRespawn event when using script race progression
+Events::K_RaceEvent Private_Script_OnPlayerRequestRespawn(CSmModeEvent _Event, Events::K_RaceEvent _RaceEvent) {
+	declare Events::K_RaceEvent RaceEvent = _RaceEvent;
+
+	if (_Event.Player != Null) {
+		if (IsRacing(_Event.Player)) {
+			if (_Event.Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned) {
+				declare Integer RaceRespawnBehaviour = GetRespawnBehaviour();
+				if (
+					(_Event.GiveUp && RaceRespawnBehaviour != C_RespawnBehaviour_NeverGiveUp) ||
+					RaceRespawnBehaviour == C_RespawnBehaviour_AlwaysGiveUp
+				) {
+					RaceEvent.Type = Events::C_Type_GiveUp;
+					RaceEvent.Player = _Event.Player;
+				} else {
+					if (
+						RaceRespawnBehaviour == C_RespawnBehaviour_Normal ||
+						RaceRespawnBehaviour == C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint
+					) {
+						declare CSmMapLandmark Waypoint;
+						if (_Event.RegressRespawn) {
+							Waypoint <=> GetPlayerRegressWaypoint(_Event.Player);
+						} else {
+							Waypoint <=> GetPlayerLastWaypoint(_Event.Player);
+							if (Waypoint == Null && RaceRespawnBehaviour != C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint) {
+								Waypoint <=> GetPlayerLastSpawn(_Event.Player);
+							}
+						}
+						if (Map::IsRespawnable(Waypoint)) {
+							RaceEvent.Type = Events::C_Type_Respawn;
+							RaceEvent.Player = _Event.Player;
+							RaceEvent.Landmark <=> Waypoint;
+							RaceEvent.RemoveCheckpoint = _Event.RegressRespawn;
+						} else if (_Event.RegressRespawn) {
+							InvalidEvent(RaceEvent);
+						} else {
+							RaceEvent.Type = Events::C_Type_GiveUp;
+							RaceEvent.Player = _Event.Player;
+						}
+					} else if (RaceRespawnBehaviour == C_RespawnBehaviour_DoNothing) {
+						InvalidEvent(RaceEvent);
+					} else if (RaceRespawnBehaviour == C_RespawnBehaviour_NeverGiveUp) {
+						declare CSmMapLandmark Waypoint;
+						if (_Event.RegressRespawn) {
+							Waypoint <=> GetPlayerRegressWaypoint(_Event.Player);
+						} else {
+							Waypoint <=> GetPlayerLastWaypoint(_Event.Player);
+							if (Waypoint == Null) {
+								Waypoint <=> GetPlayerLastSpawn(_Event.Player);
+							}
+						}
+						if (Map::IsRespawnable(Waypoint)) {
+							RaceEvent.Type = Events::C_Type_Respawn;
+							RaceEvent.Player = _Event.Player;
+							RaceEvent.Landmark <=> Waypoint;
+							RaceEvent.RemoveCheckpoint = _Event.RegressRespawn;
+						} else {
+							InvalidEvent(RaceEvent);
+						}
+					}
+				}
+			}
+		} else if (IsWatchingOutro(_Event.Player)) {
+			RaceEvent.Type = Events::C_Type_SkipOutro;
+			RaceEvent.Player = _Event.Player;
+		}
+	}
+
+	return RaceEvent;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process OnPlayerTriggersWaypoint event when using script race progression
+Events::K_RaceEvent Private_Script_OnPlayerTriggersWaypoint(CSmModeEvent _Event, Events::K_RaceEvent _RaceEvent) {
+	declare Events::K_RaceEvent RaceEvent = _RaceEvent;
+
+	if (
+		_Event.Player != Null &&
+		IsRacing(_Event.Player) &&
+		_Event.Landmark != Null &&
+		!PlayerWaypointIsActivated(_Event.Player, _Event.Landmark)
+	) {
+		declare IsValidFinish = False;
+		declare IsValidMultilap = False;
+		if (Map::IsLapRace()) {
+			if (IsIndependentLaps()) {
+				if (Map::IsFinish(_Event.Landmark) || Map::IsMultilap(_Event.Landmark)) {
+					IsValidFinish = Map::IsFinish(_Event.Landmark) && PlayerLapIsComplete(_Event.Player);
+					IsValidMultilap = PlayerLapIsComplete(_Event.Player);
+				}
+			} else if (GetLapsNb() > 0 && GetPlayerLap(_Event.Player) >= GetLapsNb()) {
+				if (Map::IsFinish(_Event.Landmark) || Map::IsMultilap(_Event.Landmark)) {
+					IsValidFinish = PlayerLapIsComplete(_Event.Player);
+					IsValidMultilap = IsValidFinish;
+				}
+			} else {
+				if (Map::IsMultilap(_Event.Landmark)) {
+					IsValidMultilap = PlayerLapIsComplete(_Event.Player);
+				}
+			}
+		} else {
+			if (Map::IsFinish(_Event.Landmark)) {
+				IsValidFinish = PlayerLapIsComplete(_Event.Player);
+			}
+		}
+
+		if (Map::IsCheckpoint(_Event.Landmark) || IsValidFinish || IsValidMultilap) {
+			RaceEvent.Type = Events::C_Type_Waypoint;
+			RaceEvent.Player = AllPlayers[_Event.Player.Id];
+			RaceEvent.RaceTime = _Event.WaypointTime;
+			RaceEvent.LapTime = RaceEvent.RaceTime - GetPlayerLapStartTime(_Event.Player);
+			RaceEvent.Landmark <=> MapLandmarks[_Event.Landmark.Id]; //< Use the MapLandmarks array and not the Event.Landmark "pointer"
+			RaceEvent.IsEndLap = IsValidMultilap;
+			RaceEvent.IsEndRace = IsValidFinish;
+		}
+	}
+
+	return RaceEvent;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	// Manage race events
+	G_PendingEvents = [];
+	foreach (Event in PendingEvents) {
+		if (
+			Event.Type == CSmModeEvent::EType::OnPlayerRequestRespawn ||
+			Event.Type == CSmModeEvent::EType::OnPlayerTriggersWaypoint ||
+			Event.Type == CSmModeEvent::EType::OnArmorEmpty
+		) {
+			declare Events::K_RaceEvent RaceEvent = Events::GetEmptyRaceEvent(Event);
+
+			// Race progression handled by the C++
+			if (G_UseCppRaceProgression) {
+				RaceEvent.UseCppRaceProgression = True;
+
+				switch (Event.Type) {
+					case CSmModeEvent::EType::OnPlayerRequestRespawn: {
+						RaceEvent = Private_Cpp_OnPlayerRequestRespawn(Event, RaceEvent);
+					}
+					case CSmModeEvent::EType::OnPlayerTriggersWaypoint: {
+						RaceEvent = Private_Cpp_OnPlayerTriggersWaypoint(Event, RaceEvent);
+					}
+					case CSmModeEvent::EType::OnArmorEmpty: {
+						RaceEvent = Private_Cpp_OnArmorEmpty(Event, RaceEvent);
+					}
+				}
+			}
+			// Race progression handled by the script
+			else {
+				switch (Event.Type) {
+					case CSmModeEvent::EType::OnPlayerRequestRespawn: {
+						RaceEvent = Private_Script_OnPlayerRequestRespawn(Event, RaceEvent);
+					}
+					case CSmModeEvent::EType::OnPlayerTriggersWaypoint: {
+						RaceEvent = Private_Script_OnPlayerTriggersWaypoint(Event, RaceEvent);
+					}
+				}
+			}
+
+			if (RaceEvent.Type != Events::C_Type_Unknown) {
+				RaceEvent.IsInfiniteLaps = IsInfiniteLaps();
+				RaceEvent.IsIndependentLaps = IsIndependentLaps();
+				G_PendingEvents.add(RaceEvent);
+			}
+		}
+
+		if (G_JoinLeaveNotificationEnabled) {
+			if (Event.Type == CSmModeEvent::EType::OnPlayerAdded && !G_IsLocalMode) {
+				if (
+					Event.Player != Null &&
+					Event.Player.User != Null && (
+						!Event.Player.User.IsFakeUser ||
+						G_JoinLeaveNotificationForFakeUserEnabled
+					)
+				) {
+					foreach (Player in AllPlayers) UIModules_DisplayMessage::SendLiveMessage_PlayerAdded(Player, Event.Player.User);
+				}
+			} else if (
+				Event.Type == CSmModeEvent::EType::OnPlayerRemoved &&
+				!G_IsLocalMode &&
+				Event.PlayerWasDisconnected &&
+				Event.User != Null && (
+					!Event.User.IsFakeUser ||
+					G_JoinLeaveNotificationForFakeUserEnabled
+				)
+			) {
+				foreach (Player in AllPlayers) UIModules_DisplayMessage::SendLiveMessage_PlayerRemoved(Player, Event.User);
+			}
+		}
+	}
+
+	// Outro progress
+	if (G_Outros.count > 0) {
+		declare Ident[Ident] ToRemove;
+		foreach (UserId => Outro in G_Outros) {
+			if (Outro.OutroEndTime >= 0 && Now >= Outro.OutroEndTime) {
+				ToRemove[UserId] = Outro.PlayerId;
+			} else if (Outro.ScoresTableStartTime >= 0 && Now >= Outro.ScoresTableStartTime) {
+				G_Outros[UserId].ScoresTableStartTime = -1;
+				if (Players.existskey(Outro.PlayerId)) {
+					declare UI <=> UIManager.GetUI(Players[Outro.PlayerId]);
+					if (UI != Null) {
+						UI.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
+					}
+				}
+			}
+		}
+		foreach (UserId => PlayerId in ToRemove) {
+			if (Players.existskey(PlayerId)) {
+				StopSkipOutro(Players[PlayerId]);
+			}
+			G_Outros.removekey(UserId);
+		}
+	}
+
+	// Generate custom start line event
+	if (G_StartLineEvents.count > 0) {
+		declare Ident[] ToRemove;
+		foreach (UserId => StartLineEvent in G_StartLineEvents) {
+			if (Now >= StartLineEvent.StartTime) {
+				ToRemove.add(UserId);
+				if (Players.existskey(StartLineEvent.PlayerId)) {
+					declare CSmPlayer Player <=> Players[StartLineEvent.PlayerId];
+					// Check that the player start time is still valid
+					if (Now >= Player.StartTime) {
+						declare RaceEvent = Events::GetEmptyRaceEvent(Null);
+						RaceEvent.Type = Events::C_Type_StartLine;
+						RaceEvent.Player = Player;
+						RaceEvent.RaceTime = 0;
+						RaceEvent.LapTime = 0;
+						G_PendingEvents.add(RaceEvent);
+					}
+				}
+			}
+		}
+		foreach (UserId in ToRemove) {
+			G_StartLineEvents.removekey(UserId);
+		}
+	}
+
+	// Intro progress
+	if (G_Intros.count > 0) {
+		declare Ident[Ident] ToRemove;
+		foreach (UserId => PlayerId in G_Intros) {
+			if (AllPlayers.existskey(PlayerId)) {
+				declare CSmPlayer Player <=> AllPlayers[PlayerId];
+				if (
+					Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned &&
+					!Player.RequestsSpectate &&
+					!Spectators.existskey(Player.Id)
+				) {
+					Player.ArmorMax = C_PlayerBaseArmor;
+					ApplyNetworkMode(Player);
+					SpawnPlayer(Player, 0, C_PlayerBaseArmor, GetPlayerDefaultStart(Player).PlayerSpawn, -1);
+				}
+				declare CUIConfig UI <=> UIManager.GetUI(Player);
+				if (UI != Null) {
+					if (UI.UISequenceIsCompleted) {
+						ToRemove[UserId] = PlayerId;
+					} else if (UI.UISequence != CUIConfig::EUISequence::Intro) {
+						UI.UISequence = CUIConfig::EUISequence::Intro;
+					}
+				}
+			} else {
+				ToRemove[UserId] = PlayerId;
+			}
+		}
+		foreach (UserId => PlayerId in ToRemove) {
+			if (AllPlayers.existskey(PlayerId)) {
+				EndIntro(AllPlayers[PlayerId]);
+			}
+			G_Intros.removekey(UserId);
+		}
+	}
+
+	foreach (Spectator in Spectators) {
+		if (GetRaceState(Spectator) != C_RaceState_Waiting) {
+			StopSkipOutro(Spectator);
+		}
+	}
+
+	if (Map == Null && G_CurrentMapUid != "") {
+		G_CurrentMapUid = "";
+		SetupRecord(G_GhostConfig);
+	} else if (Map != Null && G_CurrentMapUid != Map.MapInfo.MapUid) {
+		G_CurrentMapUid = Map.MapInfo.MapUid;
+		SetupRecord(G_GhostConfig);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	G_AutomaticDossardColor = True;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load(
+	Boolean _UseCppRaceProgression,
+	Boolean _TrustClientSimu,
+	Boolean _UseCrudeExtrapolation,
+	Boolean _CanViewIntroDuringMatch,
+	Boolean _EnableJoinLeaveNotification
+) {
+	Unload();
+
+	SetNetworkMode(_TrustClientSimu, _UseCrudeExtrapolation);
+	UseCppRaceProgression(_UseCppRaceProgression);
+	EnableIntroDuringMatch(_CanViewIntroDuringMatch);
+	EnableJoinLeaveNotification(_EnableJoinLeaveNotification);
+	EnableJoinLeaveNotificationForFakeUser(C_EnableJoinLeaveNotificationForFakeUser);
+	EnableAutomaticGiveUpAfterElimination(C_EnableAutomaticGiveUpAfterElimination);
+}

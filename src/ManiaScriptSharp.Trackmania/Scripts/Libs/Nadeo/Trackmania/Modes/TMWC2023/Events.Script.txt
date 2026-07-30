@@ -1,0 +1,160 @@
+/**
+ *	Event manager for the TrackMania World Championship 2023
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TMWC2023/Events.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/Shared.Script.txt" as Shared
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/Structs.Script.txt" as Structs
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ClearUpdateFrequency 500
+#Const C_DurationOfTheEvent 10000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer G_ClearUpdate;
+declare Integer G_EventSerial;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Clear the Event Queue
+Void ClearEvents() {
+	declare netwrite Structs::K_Event[Integer] Net_TMWC2023_EventList_Queue for Teams[0] = [];
+	declare netwrite Integer Net_TMWC2023_EventList_QueueUpdate for Teams[0] = 0;
+
+	Net_TMWC2023_EventList_Queue = [];
+	Net_TMWC2023_EventList_QueueUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Increment and return a new serial value
+ *
+ *	@return												The Time of the player race
+ */
+Integer GetNewSerial() {
+	G_EventSerial += 1;
+	return G_EventSerial;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Send an event to the client
+ *
+ *	@param _Event									The event to send
+ */
+Void Private_SendEvent(Structs::K_Event _Event) {
+	declare netwrite Structs::K_Event[Integer] Net_TMWC2023_EventList_Queue for Teams[0] = [];
+	declare netwrite Integer Net_TMWC2023_EventList_QueueUpdate for Teams[0] = 0;
+
+	declare Structs::K_Event Event = _Event;
+	Event.Serial = GetNewSerial();
+	Event.Time = Now + C_DurationOfTheEvent;
+
+	Net_TMWC2023_EventList_Queue[Event.Serial] = Event;
+	Net_TMWC2023_EventList_QueueUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Send a Respawn event
+ *
+ *	@param	_Player								The Player who respawed
+ */
+Void SendRespawnEvent(CSmPlayer _Player) {
+	Private_SendEvent(Structs::K_Event {
+		Type = Structs::C_EventType_Respawn,
+		ClanId = _Player.CurrentClan,
+		WebServicesUserId = _Player.User.WebServicesUserId
+	});
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Send Personal Best improved event
+ *
+ *	@param	_Player								The Player who beat their Personal Best
+ *	@param	_Delta								Delta with their previous Personal Best
+ */
+Void SendPersonalBestEvent(CSmPlayer _Player, Integer _Delta) {
+	Private_SendEvent(Structs::K_Event {
+		Type = Structs::C_EventType_PersonalBest,
+		ClanId = _Player.CurrentClan,
+		WebServicesUserId = _Player.User.WebServicesUserId,
+		Value = Shared::GetShortTime(_Delta, False)
+	});
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Send the World Record beat event
+ *
+ *	@param	_Player								The Player who beat the World Record
+ *	@param	_Delta								Delta with the previous World Record
+ */
+Void SendWorldRecordEvent(CSmPlayer _Player, Integer _Delta) {
+	Private_SendEvent(Structs::K_Event {
+		Type = Structs::C_EventType_WorldRecord,
+		ClanId = _Player.CurrentClan,
+		WebServicesUserId = _Player.User.WebServicesUserId,
+		Value = Shared::GetShortTime(_Delta, False)
+	});
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Send the clans track points to the UI
+ *
+ *	@param	_RoundPoints						Array of the Points with the Clan Id as Key
+ */
+Void SendPointsEvent(Integer[Integer] _RoundPoints) {
+	ClearEvents();
+
+	declare Integer[Integer] SortedPoints = _RoundPoints.sort();
+	foreach (ClanId => Points in SortedPoints) {
+		if (Points == 0) continue;
+		Private_SendEvent(Structs::K_Event {
+			Type = Structs::C_EventType_Points,
+			ClanId = ClanId,
+			Value = TL::ToText(Points)
+		});
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (G_ClearUpdate <= Now) {
+		G_ClearUpdate = Now + C_ClearUpdateFrequency;
+
+		declare netwrite Structs::K_Event[Integer] Net_TMWC2023_EventList_Queue for Teams[0] = [];
+
+		declare Boolean NeedToUpdate;
+		foreach (Serial => Event in Net_TMWC2023_EventList_Queue) {
+			if (Event.Time <= Now) {
+				Net_TMWC2023_EventList_Queue.removekey(Serial);
+				NeedToUpdate = True;
+			}
+		}
+		if (NeedToUpdate) {
+			declare netwrite Integer Net_TMWC2023_EventList_QueueUpdate for Teams[0] = 0;
+			Net_TMWC2023_EventList_QueueUpdate += 1;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	ClearEvents();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

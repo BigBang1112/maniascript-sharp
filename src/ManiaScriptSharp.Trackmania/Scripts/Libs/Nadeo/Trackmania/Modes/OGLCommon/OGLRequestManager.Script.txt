@@ -1,0 +1,254 @@
+/**
+ *  OGL request manager
+ */
+#Const Version    "1.0.1"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/OGLCommon/OGLRequestManager.Script.txt"
+
+#Include "Libs/Nadeo/Trackmania/API/CompetitionAPI.Script.txt" as CompetitionAPI
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/Trackmania/Modes/LapsOGL/Structs.Script.txt" as Structs
+#Include "Libs/Nadeo/Trackmania/Modes/ServerAuth.Script.txt" as ServerAuth
+
+#Include "Libs/Nadeo/Trackmania/Modes/LapsOGL/UIModules/EndMatchPopUp_Server.Script.txt" as EndMatchPopUp
+
+#Const C_Request_RetryCooldown 30000
+#Const C_Request_ChallengeRefreshCooldown 20000
+#Const C_Request_ResultsWaitBeforeFirstRequest 3000
+
+declare Text G_AuthToken;
+
+declare Http::K_Request G_Request_PlayersJoinLinks;
+declare Integer G_RequestTime_PlayersJoinLinks;
+declare Http::K_Request G_Request_ChallengeResults;
+declare Integer G_RequestTime_ChallengeResults;
+declare Http::K_Request G_Request_MapResults;
+declare Integer G_RequestTime_MapResults;
+declare Integer[Text] G_Request_MapNames;
+declare Http::K_Request G_Request_Challenge;
+declare Integer G_RequestTime_Challenge;
+
+declare Text G_ChallengeId;
+declare Text G_CompetitionId;
+declare Text[] G_PlayersJoinLinks_AccountIds;
+declare Text[] G_ChallengeResults_AccountIds;
+declare Text[] G_MapResults_AccountIds;
+
+declare Boolean G_ChallengeCompleted;
+
+Void RequestPlayersJoinLinks(Text[] _AccountIds, Integer _RequestTimer) { // RequestTimer in ms
+	if (_AccountIds.count == 0) return;
+	foreach (AccountId in _AccountIds) {
+		if (!G_PlayersJoinLinks_AccountIds.exists(AccountId)) G_PlayersJoinLinks_AccountIds.add(AccountId);
+	}
+	if (G_RequestTime_PlayersJoinLinks <= 0) G_RequestTime_PlayersJoinLinks = Now + _RequestTimer;
+}
+
+Void RequestChallengeResults(Text[] _AccountIds, Integer _RequestTimer) { // RequestTimer in ms
+	if (_AccountIds.count == 0) return;
+	foreach (AccountId in _AccountIds) {
+		if (!G_ChallengeResults_AccountIds.exists(AccountId)) G_ChallengeResults_AccountIds.add(AccountId);
+	}
+	if (G_RequestTime_ChallengeResults <= 0) G_RequestTime_ChallengeResults = Now + _RequestTimer;
+}
+
+Void RequestMapResults(Text[] _AccountIds, Integer _RequestTimer) { // RequestTimer in ms
+	if (_AccountIds.count == 0) return;
+	foreach (AccountId in _AccountIds) {
+		if (!G_MapResults_AccountIds.exists(AccountId)) G_MapResults_AccountIds.add(AccountId);
+	}
+	if (G_RequestTime_MapResults <= 0) G_RequestTime_MapResults = Now + _RequestTimer;
+}
+
+Void Init(Text _ChallengeId, Text _CompetitionId) {
+	G_ChallengeId = _ChallengeId;
+	G_CompetitionId = _CompetitionId;
+	G_ChallengeCompleted = False;
+
+	G_Request_PlayersJoinLinks = Http::GetEmptyRequest();
+	G_RequestTime_PlayersJoinLinks = -1;
+	G_Request_ChallengeResults = Http::GetEmptyRequest();
+	G_RequestTime_ChallengeResults = -1;
+	G_Request_MapResults = Http::GetEmptyRequest();
+	G_RequestTime_MapResults = -1;
+	G_Request_MapNames = [];
+	G_Request_Challenge = Http::GetEmptyRequest();
+	G_RequestTime_Challenge = -1;
+
+	G_AuthToken = "";
+	ServerAuth::Init(ServerAuth::C_Services_Live);
+
+	EndMatchPopUp::SetPlayerJoinLinks([]);
+	EndMatchPopUp::SetChallengeStatus("");
+}
+
+Text[] GetAllPlayersAccountIds() {
+	declare Text[] AccountIds;
+	foreach(User in Users) {
+		AccountIds.add(User.WebServicesUserId);
+	}
+	return AccountIds;
+}
+
+Void RequestResults(Text[] _AccountIds) {
+	if (!G_ChallengeCompleted) return;
+
+	RequestMapResults(_AccountIds, C_Request_ResultsWaitBeforeFirstRequest);
+	RequestChallengeResults(_AccountIds, C_Request_ResultsWaitBeforeFirstRequest);
+	RequestPlayersJoinLinks(_AccountIds, C_Request_ResultsWaitBeforeFirstRequest);
+}
+
+Void RequestResults() {
+	if (!G_ChallengeCompleted) return;
+
+	RequestResults(GetAllPlayersAccountIds());
+}
+
+Void ListenToChallengeStatus() { // appelé par lapsOGL quand l'event Challenge.Completed est reçu
+	G_RequestTime_Challenge = Now;
+}
+
+Void Yield() {
+	if (ServerAuth::HasToken(ServerAuth::C_Services_Live)) {
+		// Challenge
+		if (G_RequestTime_Challenge > 0 && G_RequestTime_Challenge <= Now) {
+			G_Request_Challenge = Http::Destroy(G_Request_Challenge);
+			G_Request_Challenge = CompetitionAPI::Server_GetChallenge(G_ChallengeId);
+			if (Http::IsInitialized(G_Request_Challenge)) {
+				G_RequestTime_Challenge = -1;
+				log("Request Challenge status"); // Do not remove please
+			} else {
+				G_Request_Challenge = Http::Destroy(G_Request_Challenge);
+				G_RequestTime_Challenge = Now + C_Request_ChallengeRefreshCooldown;
+				log("Failed to request Challenge status"); // Do not remove please
+			}
+		}
+		if (Http::IsInitialized(G_Request_Challenge)) {
+			G_Request_Challenge = Http::Update(G_Request_Challenge);
+			if (Http::IsSuccess(G_Request_Challenge)) {
+				declare CompetitionAPI::K_Challenge Result;
+				Result.fromjson(Http::GetResult(G_Request_Challenge));
+				log("Challenge status received: "^Result.status); // Do not remove please
+				if (Result.status == "COMPLETED") {
+					G_ChallengeCompleted = True;
+					RequestResults();
+				} else {
+					G_RequestTime_Challenge = Now + C_Request_ChallengeRefreshCooldown;
+				}
+				EndMatchPopUp::SetChallengeStatus(Result.status);
+				G_Request_Challenge = Http::Destroy(G_Request_Challenge);
+			} else if (!Http::IsProcessing(G_Request_Challenge)) {
+				log("Challenge status request error "^G_Request_Challenge.StatusCode^": "^G_Request_Challenge.Result); // Do not remove please
+				G_Request_Challenge = Http::Destroy(G_Request_Challenge);
+				// Try again after cooldown
+				G_RequestTime_Challenge = Now + C_Request_ChallengeRefreshCooldown;
+			}
+		}
+
+		// Next match
+		if (G_RequestTime_PlayersJoinLinks > 0 && G_RequestTime_PlayersJoinLinks <= Now) {
+			G_Request_PlayersJoinLinks = Http::Destroy(G_Request_PlayersJoinLinks);
+			G_Request_PlayersJoinLinks = CompetitionAPI::Server_GetPlayersJoinLinks(G_PlayersJoinLinks_AccountIds, G_CompetitionId);
+			if (Http::IsInitialized(G_Request_PlayersJoinLinks)) {
+				G_PlayersJoinLinks_AccountIds = [];
+				G_RequestTime_PlayersJoinLinks = -1;
+				log("Request player join links"); // Do not remove please
+			} else {
+				G_Request_PlayersJoinLinks = Http::Destroy(G_Request_PlayersJoinLinks);
+				G_RequestTime_PlayersJoinLinks = Now + C_Request_RetryCooldown;
+				log("Failed to request player join links"); // Do not remove please
+			}
+		}
+		if (Http::IsInitialized(G_Request_PlayersJoinLinks)) {
+			G_Request_PlayersJoinLinks = Http::Update(G_Request_PlayersJoinLinks);
+			if (Http::IsSuccess(G_Request_PlayersJoinLinks)) {
+				log("Join Links request success: "^G_Request_PlayersJoinLinks.Result); // Do not remove please
+				declare Text[Text] Result = CompetitionAPI::GetResponseFromGetPlayersJoinLinks(G_Request_PlayersJoinLinks);
+				RequestPlayersJoinLinks(EndMatchPopUp::SetPlayerJoinLinks(Result), C_Request_RetryCooldown);
+				G_Request_PlayersJoinLinks = Http::Destroy(G_Request_PlayersJoinLinks);
+			} else if (!Http::IsProcessing(G_Request_PlayersJoinLinks)) {
+				log("Join Links request error "^G_Request_PlayersJoinLinks.StatusCode^": "^G_Request_PlayersJoinLinks.Result); // Do not remove please
+				G_Request_PlayersJoinLinks = Http::Destroy(G_Request_PlayersJoinLinks);
+				// Try again after cooldown
+				G_RequestTime_PlayersJoinLinks = Now + C_Request_RetryCooldown;
+			}
+		}
+
+		// Challenge Results
+		if (G_RequestTime_ChallengeResults > 0 && G_RequestTime_ChallengeResults <= Now) {
+			G_Request_ChallengeResults = Http::Destroy(G_Request_ChallengeResults);
+			G_Request_ChallengeResults = CompetitionAPI::Server_GetChallengePlayersResults(G_ChallengeId, G_ChallengeResults_AccountIds);
+			if (Http::IsInitialized(G_Request_ChallengeResults)) {
+				G_ChallengeResults_AccountIds = [];
+				G_RequestTime_ChallengeResults = -1;
+				log("Request Challenge Results"); // Do not remove please
+			} else {
+				G_Request_ChallengeResults = Http::Destroy(G_Request_ChallengeResults);
+				G_RequestTime_ChallengeResults = Now + C_Request_RetryCooldown;
+				log("Failed to request Challenge Results"); // Do not remove please
+			}
+		}
+		if (Http::IsInitialized(G_Request_ChallengeResults)) {
+			G_Request_ChallengeResults = Http::Update(G_Request_ChallengeResults);
+			if (Http::IsSuccess(G_Request_ChallengeResults)) {
+				log("Challenge results request success: "^G_Request_ChallengeResults.Result); // Do not remove please
+				declare CompetitionAPI::K_ChallengeResults Result = CompetitionAPI::GetResponseFromGetChallengePlayersResults(G_Request_ChallengeResults);
+				declare Structs::K_ChallengeResult[Text] ChallengeResults;
+				foreach (Entry in Result.results) {
+					ChallengeResults[Entry.player] = Structs::K_ChallengeResult {
+						Points = Entry.score,
+						Rank = Entry.rank
+					};
+				}
+				RequestChallengeResults(EndMatchPopUp::SetChallengeResults(ChallengeResults), C_Request_RetryCooldown);
+				G_Request_ChallengeResults = Http::Destroy(G_Request_ChallengeResults);
+			} else if (!Http::IsProcessing(G_Request_ChallengeResults)) {
+				log("Challenge results request error "^G_Request_ChallengeResults.StatusCode^": "^G_Request_ChallengeResults.Result); // Do not remove please
+				G_Request_ChallengeResults = Http::Destroy(G_Request_ChallengeResults);
+				// Try again after cooldown
+				G_RequestTime_ChallengeResults = Now + C_Request_RetryCooldown;
+			}
+		}
+
+		// Map records
+		if (G_RequestTime_MapResults > 0 && G_RequestTime_MapResults <= Now) {
+			G_Request_MapResults = Http::Destroy(G_Request_MapResults);
+			G_Request_MapResults = CompetitionAPI::Server_GetChallengeMapPlayersResults(G_ChallengeId, G_MapResults_AccountIds);
+			if (Http::IsInitialized(G_Request_MapResults)) {
+				G_MapResults_AccountIds = [];
+				G_RequestTime_MapResults = -1;
+				log("Request Map records"); // Do not remove please
+			} else {
+				G_Request_MapResults = Http::Destroy(G_Request_MapResults);
+				G_RequestTime_MapResults = Now + C_Request_RetryCooldown;
+				log("Failed to request Map records"); // Do not remove please
+			}
+		}
+		if (Http::IsInitialized(G_Request_MapResults)) {
+			G_Request_MapResults = Http::Update(G_Request_MapResults);
+			if (Http::IsSuccess(G_Request_MapResults)) {
+				log("Map results request success: "^G_Request_MapResults.Result); // Do not remove please
+				declare CompetitionAPI::K_PlayerChallengeMapResult[] Result = CompetitionAPI::GetResponseFromGetChallengePlayersMapsResults(G_Request_MapResults);
+				declare Structs::K_ChallengeResult[Text][Text] PlayersResults;
+				foreach (PlayerEntry in Result) {
+					declare Structs::K_ChallengeResult[Text] MapsResults;
+					foreach (MapEntry in PlayerEntry.records) {
+						MapsResults[MapEntry.uid] = Structs::K_ChallengeResult {
+							Points = MapEntry.score,
+							Rank = MapEntry.rank
+						};
+					}
+					PlayersResults[PlayerEntry.player] = MapsResults;
+				}
+				RequestMapResults(EndMatchPopUp::UpdateMapResults(PlayersResults), C_Request_RetryCooldown);
+				G_Request_MapResults = Http::Destroy(G_Request_MapResults);
+			} else if (!Http::IsProcessing(G_Request_MapResults)) {
+				log("Map results request error "^G_Request_MapResults.StatusCode^": "^G_Request_MapResults.Result); // Do not remove please
+				G_Request_MapResults = Http::Destroy(G_Request_MapResults);
+				// Try again after cooldown
+				G_RequestTime_MapResults = Now + C_Request_RetryCooldown;
+			}
+		}
+	}
+
+	ServerAuth::Yield();
+}

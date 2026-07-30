@@ -1,0 +1,816 @@
+/**
+ * Page: CreateNews
+ */
+#Const Version "1.2.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/MainMenu/Pages/CreateNews.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/ButtonIcon2.Script.txt" as ButtonIcon
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/Trackmania/API/BrowserAPI.Script.txt" as BrowserAPI
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as Button
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/Trackmania/Components/PopUpBackground2.Script.txt" as PopUpBackground
+#Include "Libs/Nadeo/Trackmania/Components/PopUpClubThemes.Script.txt" as PopUpClubThemes
+#Include "Libs/Nadeo/Trackmania/Components/PopUpMultiChoice.Script.txt" as PopUpMultiChoice
+#Include "Libs/Nadeo/CMGame/Components/TextField.Script.txt" as TextField
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+#Include "Libs/Nadeo/Trackmania/Stores/ClubStore_ML.Script.txt" as ClubStore
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "TextLib" as TL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Page_CreateNews"
+#Const C_NavGroup_Default "navgroup-page-create-news-default"
+#Const C_NavGroup_MouseOnly "navgroup-page-create-news-mouse-only"
+#Const C_NavGroup_Global "navgroup-page-create-news-global"
+#Const C_Class_ButtonMedia "class-page-create-news-button-media"
+
+#Const C_Privileges [
+	CPrivilegeMgr::EPrivilege::UseUserCreatedContentRequired
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the page manialink
+ *
+ *	@return														The page manialink
+ */
+Text GetManialink() {
+	//L16N [CreateNewsActivity] Title of the page to create a news activity.
+	declare Text Text_CreateNews = _("Create news");
+	//L16N [CreateNewsActivity] Title of the page to edit a news activity.
+	declare Text Text_EditNews = _("Edit news");
+	//L16N [CreateNewsActivity] Default placeholder for the news nametext field.
+	declare Text Text_Name = _("News name");
+	//L16N [CreateNewsActivity] Default placeholder for the news headline text field.
+	declare Text Text_Headline = _("News headline");
+	//L16N [CreateNewsActivity] Default placeholder for the news body text field.
+	declare Text Text_Body = _("News body");
+	//L16N [CreateNewsActivity] Button to create an activity.
+	declare Text Text_Create = _("Create");
+	//L16N [CreateNewsActivity] Button to edit an activity.
+	declare Text Text_Save = _("Save");
+	//L16N [CreateNewsActivity] Text displayed while creating an activity.
+	declare Text Text_Creating = _("Creating activity...");
+	//L16N [CreateNewsActivity] Text displayed while editing an activity.
+	declare Text Text_Editing = _("Editing activity...");
+	//L16N [CreateNewsActivity] Text displayed while retrieving an activity.
+	declare Text Text_RetrievingActivity = _("Retrieving news");
+	//L16N [CreateNewsActivity] Error message displayed when the player tries to create an activity without the requirements.
+	declare Text Text_NoName = _("Activities must have a name.");
+	//L16N [CreateNewsActivity] Error message displayed when the player tries to create an activity without the requirements.
+	declare Text Text_NoHeadline = _("News must have a headline.");
+	//L16N [CreateNewsActivity] Error message displayed when the player tries to create an activity without the requirements.
+	declare Text Text_NoBody = _("News must have either a body or an image.");
+	//L16N [CreateNewsActivity] Indicates to the player that they can remove the media.
+	declare Text Text_RemoveMedia = _("Remove media");
+	//L16N [CreateNewsActivity] Text pronounced when the player is focusing the button to choose a logo for the room.
+	declare Text TTS_ChooseLogo = _("Choose a logo for your activity");
+	// Description of the upload error pop-up
+	declare PopUpMultiChoice::K_DescriptionPart[] Description_UploadError = [
+		PopUpMultiChoice::CreateDescriptionPart(Const::C_UploadOnPlatformPopUp_Description, <120., 30.>, 3., Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold), "$t$i", <1., 1., 1.>, False)
+	];
+
+	return MV::Create(
+C_Name, 3,
+"""
+<stylesheet>
+	<style class="text-semibold" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textprefix="$i$t" textcolor="FFFFFF"/>
+	<style class="text-extrabold" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$i$t" textcolor="FFFFFF"/>
+</stylesheet>
+
+<!-- Page -->
+<frameinstance modelid="{{{BrowserAPI::C_Name}}}" id="frame-browser" z-index="{{{Const::C_ZIndex_BrowserAPI}}}" hidden="1"/>
+<frameinstance id="loadingspinner-create-or-edit-news" modelid="{{{LoadingSpinner::C_Name}}}" data-dimmer="true" data-opacity="0." z-index="{{{Const::C_ZIndex_Loading}}}"/>
+
+<!-- Frame global -->
+<frame id="frame-global" class="{{{Navigation::C_Class}}}" data-nav-inputs="cancel;appmenu" data-nav-targets="_;_" data-nav-group="{{{C_NavGroup_Global}}}" z-index="{{{Const::C_ZIndex_PopUpDisplay}}}">
+	<frameinstance id="frame-background" modelid="{{{PopUpBackground::C_Name}}}" z-index="-1"/>
+	<frameinstance id="popupclubthemes-icon" modelid="{{{PopUpClubThemes::C_Name}}}" z-index="3"/>
+	<frameinstance id="popupmultichoice-upload-error" modelid="{{{PopUpMultiChoice::C_Name}}}" data-title="{{{Const::C_UploadOnPlatformPopUp_Title}}}" data-description="{{{TL::MLEncode(Description_UploadError.tojson())}}}" z-index="3" hidden="1"/>
+	<frameinstance id="loadingspinner-retrieve-info" modelid="{{{LoadingSpinner::C_Name}}}" pos="{{{MLHelpers::Skew(-120., 20., 10.)}}}" data-label="{{{Text_RetrievingActivity}}}" data-label-side="{{{LoadingSpinner::C_LabelSide_Right}}}" data-opacity="0." data-size="10 10" scale="0.7" z-index="2"/>
+	<label id="label-title" pos="{{{MLHelpers::Skew(-127.7, 69.2, 10.)}}}" size="250 35" class="text-extrabold" textsize="13" halign="left" valign="top" z-index="1"/>
+	<label id="label-info" pos="{{{MLHelpers::Skew(-125., 19., 10.)}}}" size="250 10" class="text-semibold" textsize="2.5" halign="left"/>
+
+	<frameinstance
+		id="button-activity-media" pos="{{{MLHelpers::Skew(-103., 41.2, 10.)}}}"
+		modelid="{{{Button::C_Name}}}"
+		class="{{{Navigation::C_Class}}}"
+		data-size="{{{MLHelpers::MLKeepRatioFromY(608., 272., 21.)}}}"
+		data-opacityunfocus=".6"
+		data-tts-text="{{{TTS_ChooseLogo}}}"
+		data-alphamask="{{{Const::C_ImageUrl_ClubActivity_Mask}}}"
+		data-bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+		data-focuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+		data-iconcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+		data-iconfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_IconLight)}}}"
+		data-iconsize="13 13"
+		data-bgkeepratio="clip"
+		data-contouropacityunfocus=".0"
+		data-contourimagecolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_ComponentButtonOutlineFocus)}}}"
+		data-contourimage="{{{Const::C_ImageUrl_ClubActivity_Contour}}}"
+		data-halign="center" data-valign="center"
+		data-nav-inputs="select;down;left;right"
+		data-nav-targets="_;button-media;button-back;textfield-name"
+		data-nav-group="{{{C_NavGroup_Default}}}"
+		data-nav-zone="{{{Button::C_NavZone}}}"
+	/>
+	<frameinstance
+		id="textfield-name" pos="{{{MLHelpers::Skew(-80., 47., 10.)}}}"
+		modelid="{{{TextField::C_Name}}}"
+		class="{{{Navigation::C_Class}}}"
+		data-size="73.5 9"
+		data-placeholder="{{{Text_Name}}}"
+		data-bgopacityunfocus="0.4"
+		data-bgcolorfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+		data-bgcolorunfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+		data-contourcolorfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+		data-contouropacityunfocus=".0"
+		data-contouropacityfocus="1."
+		data-textsize="3."
+		data-textcolorunfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+		data-halign="left" data-valign="center"
+		data-nav-inputs="select;left;right;down"
+		data-nav-targets="_;button-activity-media;button-create;textfield-headline"
+		data-nav-group="{{{C_NavGroup_Default}}}"
+		data-nav-zone="{{{TextField::C_NavZone}}}"
+	/>
+
+	<frameinstance
+		id="textfield-headline" pos="{{{MLHelpers::Skew(-80., 35.4, 10.)}}}"
+		modelid="{{{TextField::C_Name}}}"
+		class="{{{Navigation::C_Class}}}"
+		data-size="73.5 9"
+		data-placeholder="{{{Text_Headline}}}"
+		data-bgopacityunfocus="0.4"
+		data-bgcolorfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+		data-bgcolorunfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+		data-contourcolorfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+		data-contouropacityunfocus=".0"
+		data-contouropacityfocus="1."
+		data-textsize="3."
+		data-textcolorunfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+		data-halign="left" data-valign="center"
+		data-nav-inputs="select;left;right;up;down"
+		data-nav-targets="_;button-activity-media;button-create;textfield-name;textfield-body"
+		data-nav-group="{{{C_NavGroup_Default}}}"
+		data-nav-zone="{{{TextField::C_NavZone}}}"
+	/>
+
+	<frame id="frame-media" pos="{{{MLHelpers::Skew(-96.5, -21., 10.)}}}">
+		<frameinstance
+			id="button-media" z-index="0"
+			modelid="{{{Button::C_Name}}}"
+			class="{{{Navigation::C_Class}}} {{{C_Class_ButtonMedia}}}"
+			data-size="{{{MLHelpers::MLKeepRatioFromY(1176., 1136., 70.)}}}"
+			data-opacityunfocus=".6"
+			data-tts-text="{{{TTS_ChooseLogo}}}"
+			data-alphamask="{{{Const::C_ImageUrl_PopUp_Activity_Img_Mask}}}"
+			data-bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-focuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-iconcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+			data-iconfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_IconLight)}}}"
+			data-icon="{{{Icons::C_Icon_128x128_Plus_Oblique}}}"
+			data-iconfocus="{{{Icons::C_Icon_128x128_Plus_Oblique}}}"
+			data-image="{{{Const::C_ImageUrl_PopUp_Activity_Img}}}"
+			data-imagefocus="{{{Const::C_ImageUrl_PopUp_Activity_Img}}}"
+			data-iconsize="13 13"
+			data-bgkeepratio="clip"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;up;down;left;right;action2"
+			data-nav-targets="_;button-activity-media;button-back;button-back;textfield-body;_"
+			data-nav-group="{{{C_NavGroup_Default}}}"
+			data-nav-zone="{{{Button::C_NavZone}}}"
+		/>
+		<quad id="quad-gradient-media" size="{{{MLHelpers::MLKeepRatioFromY(1176., 1136., 70.)}}}" image="{{{Const::C_ImageUrl_Common_Track_Gradient_Top}}}" alphamask="{{{Const::C_ImageUrl_PopUp_Activity_Img_Mask}}}" modulatecolor="000" halign="center" valign="center" hidden="1" z-index="1"/>
+		<frameinstance
+			id="button-remove-media" pos="28 28" z-index="2"
+			modelid="{{{ExpendableButton::C_Name}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-styles="{{{ExpendableButton::C_Style_NoBackground}}}"
+			data-icon-image="{{{Icons::C_Icon_128x128_Bin_Inc}}}"
+			data-icon-colormode="{{{ExpendableButton::C_ColorMode_Colorize}}}"
+			data-icon-color-unfocused="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_IconLight)}}}"
+			data-icon-opacity-focused="1."
+			data-icon-opacity-unfocused="0."
+			data-halign="center" data-valign="center"
+			data-nav-group="{{{C_NavGroup_MouseOnly}}}"
+			data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+		/>
+	</frame>
+
+	<frameinstance
+		id="textfield-body" pos="{{{MLHelpers::Skew(0., -21., 10.)}}}"
+		modelid="{{{TextField::C_Name}}}"
+		class="{{{Navigation::C_Class}}}"
+		data-skew="0."
+		data-textsize="3."
+		data-size="{{{MLHelpers::MLKeepRatioFromY(1600., 900., 65.)}}}"
+		data-placeholder="{{{Text_Body}}}"
+		data-bgopacityunfocus="0.4"
+		data-bgcolorfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+		data-bgcolorunfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+		data-contourimage="{{{Const::C_ImageUrl_PopUp_Activity_Contour}}}"
+		data-contourcolorfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+		data-contouropacityunfocus=".0"
+		data-contouropacityfocus="1."
+		data-autonewline="1" data-maxline="4"
+		data-textfieldtype="{{{TextField::C_TextFieldType_TextEdit}}}"
+		data-textcolorunfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+		data-halign="center" data-valign="center"
+		data-nav-inputs="select;up;down;left;right"
+		data-nav-targets="_;textfield-headline;button-create;button-media;button-create"
+		data-nav-group="{{{C_NavGroup_Default}}}"
+		data-nav-zone="{{{TextField::C_NavZone}}}"
+	/>
+
+	<!-- Bottom buttons -->
+	<frameinstance id="button-icon-back" modelid="{{{ButtonIcon::C_Name}}}" pos="{{{MLHelpers::Skew(-125.5, -67., 10.)}}}" data-halign="right" data-size="8 8" data-bind="B" data-hideformouse="1" />
+	<frameinstance
+		id="button-back" pos="{{{MLHelpers::Skew(-125.5, -67., 10.)}}}" z-index="2"
+		modelid="{{{ExpendableButton::C_Name}}}"
+		class="{{{Navigation::C_Class}}}"
+		data-max-width="60."
+		data-styles="{{{ExpendableButton::C_Style_SizeExpendable}}} {{{ExpendableButton::C_Style_AlignCenter}}} {{{ExpendableButton::C_Style_ButtonSecondary}}} {{{ExpendableButton::C_Style_PageBack}}}"
+		data-nav-inputs="select;up;right"
+		data-nav-targets="_;button-media;button-create"
+		data-nav-group="{{{C_NavGroup_Default}}}"
+		data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+	/>
+	<frameinstance id="button-icon-create" modelid="{{{ButtonIcon::C_Name}}}" pos="{{{MLHelpers::Skew(127., -67., 10.)}}}" data-halign="left" data-size="8 8" data-bind="appmenu" data-hideformouse="1" />
+	<frameinstance
+		id="button-create" pos="{{{MLHelpers::Skew(127., -67., 10.)}}}" z-index="2"
+		modelid="{{{ExpendableButton::C_Name}}}"
+		class="{{{Navigation::C_Class}}}"
+		data-text="{{{Text_Create}}}"
+		data-max-width="70."
+		data-styles="{{{ExpendableButton::C_Style_SizeExpendable}}} {{{ExpendableButton::C_Style_AlignCenter}}} {{{ExpendableButton::C_Style_ButtonSecondary}}}"
+		data-halign="right"
+		data-nav-inputs="select;up;left"
+		data-nav-targets="_;textfield-body;button-back"
+		data-nav-group="{{{C_NavGroup_Default}}}"
+		data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+	/>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/Trackmania/API/ClubAPI.Script.txt" as ClubAPI
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ControllerInfo_ML.Script.txt" as ControllerInfo
+#Include "TextLib" as TL
+
+#Const C_Name_MaxChar 20
+#Const C_Headline_MaxChar 40
+#Const C_Body_MaxChar 2000
+
+#Struct K_Controls {
+	CMlFrame Button_ActivityMedia;
+	CMlFrame Button_Create;
+	CMlFrame Button_Media;
+	CMlFrame Button_RemoveMedia;
+	CMlFrame Frame_Browser;
+	CMlFrame LoadingSpinner_CreateOrEditNews;
+	CMlFrame LoadingSpinner_RetrieveInfo;
+	CMlFrame PopUpClubThemes_Icon;
+	CMlFrame PopUpMultiChoice_UploadError;
+	CMlFrame TextField_Body;
+	CMlFrame TextField_Headline;
+	CMlFrame TextField_Name;
+	CMlLabel Label_Info;
+	CMlLabel Label_Title;
+	CMlQuad Quad_MediaGradient;
+}
+
+#Struct K_State {
+	Boolean IsEditing;
+	K_Controls Controls;
+	Http::K_Request GetNewsActivityRequest;
+	{{{ClubStruct::P}}}K_News News;
+	{{{ClubStruct::P}}}K_Activity Activity;
+	Integer FolderId;
+}
+""",
+"""
+// Enable or disable navigation groups
+Void EnableNavigationGroups(Boolean _IsEnabled) {
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroup_Default}}}", _IsEnabled);
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroup_Global}}}", _IsEnabled);
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroup_MouseOnly}}}", _IsEnabled);
+}
+
+// Update controller hints at the bottom of the screen
+Void UpdateControllerInfo(K_State _State) {
+	declare Text[Text] ControllerInfos = ["A" => _("Select")];
+	declare CMlControl FocusedControl = {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}");
+
+	if (FocusedControl != Null && FocusedControl.HasClass("{{{C_Class_ButtonMedia}}}")) {
+		if (_State.News.MediaUrl != "") {
+			ControllerInfos["Y"] = "{{{Text_RemoveMedia}}}";
+		}
+	}
+
+	ControllerInfo::SetButtons(ControllerInfos);
+}
+
+Void DisplayInfo(CMlLabel _Label_Info, Text _Text, Boolean _IsError) {
+	declare Vec2 Pos_Hidden = MLHelpers::SkewX(<-126., 20.>, 10.);
+	declare Vec2 Pos_Visible = MLHelpers::SkewX(<-125., 20.>, 10.);
+	AnimMgr.Flush(_Label_Info);
+
+	if (_Text != "") {
+		_Label_Info.SetText(_Text);
+		_Label_Info.Opacity = 0.;
+		_Label_Info.RelativePosition_V3 = Pos_Hidden;
+		if (_IsError) {
+			_Label_Info.TextColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_TextError)}}};
+		} else {
+			_Label_Info.TextColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight)}}};
+		}
+		AnimMgr.Add(_Label_Info, "<anim pos=\""^Pos_Visible.X^" "^Pos_Visible.Y^"\" opacity=\"1.\" hidden=\"0\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		AnimMgr.Add(_Label_Info, "<anim pos=\""^Pos_Hidden.X^" "^Pos_Hidden.Y^"\" opacity=\"0.\" hidden=\"1\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+Void Focus(K_State _State, CMlControl _From, CMlControl _To) {
+	if ({{{Transition::P}}}IsInTransition(This)) return;
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{TextField::P}}}IsTextField(_From)) {
+			{{{TextField::P}}}Unfocus(This, _From as CMlFrame);
+		} else if ({{{ExpendableButton::P}}}IsButton(_From)) {
+			{{{ExpendableButton::P}}}Unfocus(This, _From as CMlFrame);
+		} else if ({{{Button::P}}}IsButton(_From)) {
+			{{{Button::P}}}Unfocus(This, _From as CMlFrame);
+			if (_From.HasClass("{{{C_Class_ButtonMedia}}}")) {
+				AnimMgr.Flush(_State.Controls.Quad_MediaGradient);
+				AnimMgr.Add(_State.Controls.Quad_MediaGradient, "<anim opacity=\"0.\" hidden=\"1\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+				{{{ExpendableButton::P}}}SetIconOpacityUnfocused(This, _State.Controls.Button_RemoveMedia, 0.);
+			}
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{TextField::P}}}IsTextField(_To)) {
+			{{{TextField::P}}}Focus(This, _To as CMlFrame);
+		} else if ({{{ExpendableButton::P}}}IsButton(_To)) {
+			{{{ExpendableButton::P}}}Focus(This, _To as CMlFrame);
+		} else if ({{{Button::P}}}IsButton(_To)) {
+			{{{Button::P}}}Focus(This, _To as CMlFrame);
+			if (_To.HasClass("{{{C_Class_ButtonMedia}}}") && _State.News.MediaUrl != "") {
+				AnimMgr.Flush(_State.Controls.Quad_MediaGradient);
+				AnimMgr.Add(_State.Controls.Quad_MediaGradient, "<anim opacity=\"0.4\" hidden=\"0\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+				{{{ExpendableButton::P}}}SetIconOpacityUnfocused(This, _State.Controls.Button_RemoveMedia, 0.7);
+			}
+		}
+	}
+
+	UpdateControllerInfo(_State);
+}
+
+Void DisplayBrowser(K_State _State, Boolean _IsVisible) {
+	_State.Controls.Frame_Browser.Visible = _IsVisible;
+	EnableNavigationGroups(!_IsVisible);
+	{{{BrowserAPI::P}}}FocusBrowser(This, _IsVisible);
+	if (_IsVisible) {
+		declare BrowserSettings = {{{BrowserAPI::P}}}GetDefaultSettings();
+		BrowserSettings.FilterByExtension = ["png", "jpg", "jpeg", "dds"];
+		if ({{{Navigation::P}}}IsFocused(This, _State.Controls.Button_ActivityMedia, "{{{C_NavGroup_Default}}}")) {
+			BrowserSettings.FilterClubThemeByMediaType = ["{{{ClubStruct::C_MediaType_Icon}}}"];
+		}
+		BrowserSettings.DisplayFileNameTooltip = True;
+		{{{BrowserAPI::P}}}SetCurrentBrowser(This,
+			{{{BrowserAPI::C_BrowserType_PathNavigation}}},
+			"{{{BrowserAPI::C_BrowserName_Image}}}",
+			[{{{BrowserAPI::C_DataType_Image}}}],
+			"",
+			BrowserSettings
+		);
+		{{{BrowserAPI::P}}}RefreshBrowserData(This);
+	} else {
+		UpdateControllerInfo(_State);
+	}
+}
+
+
+Void SetLogoButtonWithImage(CMlFrame _Button, Text _ImageUrl) {
+	{{{Button::P}}}SetBgColorType(This, _Button, {{{Button::C_ColorType_None}}});
+	{{{Button::P}}}SetOpacityUnfocus(This, _Button, 0.75);
+	if (Http.IsValidUrl(_ImageUrl)) {
+		{{{Button::P}}}SetImage(This, _Button, _ImageUrl);
+		{{{Button::P}}}SetImageFocus(This, _Button, _ImageUrl);
+		{{{Button::P}}}SetIcon(This, _Button, "");
+		{{{Button::P}}}SetIconFocus(This, _Button, "");
+	}
+}
+
+Void ResetButton(CMlFrame _Button, Text _ImageUrl) {
+	{{{Button::P}}}SetBgColorType(This, _Button, {{{Button::C_ColorType_Colorize}}});
+	{{{Button::P}}}SetOpacityUnfocus(This, _Button, 0.5);
+	{{{Button::P}}}SetImage(This, _Button, _ImageUrl);
+	{{{Button::P}}}SetImageFocus(This, _Button, _ImageUrl);
+	{{{Button::P}}}SetIcon(This, _Button, "{{{Icons::C_Icon_128x128_Plus_Oblique}}}");
+	{{{Button::P}}}SetIconFocus(This, _Button, "{{{Icons::C_Icon_128x128_Plus_Oblique}}}");
+}
+
+Void UpdateNews(K_State _State) {
+	{{{TextField::P}}}SetValue(This, _State.Controls.TextField_Name, _State.News.Name);
+	{{{TextField::P}}}SetValue(This, _State.Controls.TextField_Headline, _State.News.Headline);
+	{{{TextField::P}}}SetValue(This, _State.Controls.TextField_Body, _State.News.Body);
+
+	/* Update activity image */
+	if (_State.Activity.MediaUrl != "") {
+		if ({{{ClubStruct::P}}}IsClubThemeName(_State.Activity.MediaUrl)) {
+			SetLogoButtonWithImage(_State.Controls.Button_ActivityMedia, {{{ClubStruct::P}}}GetClubThemeUrl(_State.Activity.MediaUrl, "{{{ClubStruct::C_MediaType_Icon}}}"));
+		} else if (Http.IsValidUrl(_State.Activity.MediaUrl) || {{{ClubStruct::P}}}IsClubThemeUrl(_State.Activity.MediaUrl)) {
+			SetLogoButtonWithImage(_State.Controls.Button_ActivityMedia, _State.Activity.MediaUrl);
+		} else {
+			SetLogoButtonWithImage(_State.Controls.Button_ActivityMedia, {{{BrowserAPI::P}}}C_BasePath^_State.Activity.MediaUrl);
+		}
+	} else {
+		ResetButton(_State.Controls.Button_ActivityMedia, "{{{Const::C_ImageUrl_ClubActivity}}}");
+	}
+
+	/* Update news image */
+	if (_State.News.MediaUrl != "") {
+		_State.Controls.Button_RemoveMedia.Show();
+		if (Http.IsValidUrl(_State.News.MediaUrl)) {
+			SetLogoButtonWithImage(_State.Controls.Button_Media, _State.News.MediaUrl);
+		} else {
+			SetLogoButtonWithImage(_State.Controls.Button_Media, {{{BrowserAPI::P}}}C_BasePath^_State.News.MediaUrl);
+		}
+		if ({{{Navigation::P}}}IsFocused(This, _State.Controls.Button_Media, "{{{C_NavGroup_Default}}}")) {
+			Focus(_State, Null, _State.Controls.Button_Media); //< Refresh the focus
+		}
+	} else {
+		ResetButton(_State.Controls.Button_Media, "{{{Const::C_ImageUrl_PopUp_Activity_Img}}}");
+		_State.Controls.Button_RemoveMedia.Hide();
+	}
+}
+
+K_State Select(K_State _State, CMlControl _Control) {
+	if (_Control == Null || {{{Transition::P}}}IsInTransition(This)) return _State;
+	declare K_State State = _State;
+
+	DisplayInfo(State.Controls.Label_Info, "", False);
+	switch (_Control.ControlId) {
+		case "button-back": {{{Router::P}}}PushParent(This);
+		case "button-activity-media": {
+			if (Platform::IsFromFirstParty(System)) {
+				{{{PopUpClubThemes::P}}}Open(This);
+			} else {
+				DisplayBrowser(State, True);
+			}
+		}
+		case "button-media": {
+			if (Platform::IsFromFirstParty(System)) {
+				{{{PopUpMultiChoice::P}}}Open(This, _State.Controls.PopUpMultiChoice_UploadError);
+			} else {
+				DisplayBrowser(State, True);
+			}
+		}
+		case "button-remove-media": {
+			State.News.MediaUrl = "";
+			UpdateNews(State);
+		}
+		case "button-create": {
+			if (TL::StripFormatting(State.News.Name) == "") {
+				DisplayInfo(State.Controls.Label_Info, "{{{Text_NoName}}}", False);
+			} else if (TL::StripFormatting(State.News.Headline) == "") {
+				DisplayInfo(State.Controls.Label_Info, "{{{Text_NoHeadline}}}", False);
+			} else if (TL::StripFormatting(State.News.Body) == "") {
+				DisplayInfo(State.Controls.Label_Info, "{{{Text_NoBody}}}", False);
+			} else {
+				EnableNavigationGroups(False);
+				{{{ClubStore::P}}}Action_CreateOrEditNewsActivity(This, State.News, State.Activity.MediaUrl, State.FolderId, State.IsEditing);
+				if (State.IsEditing) {
+					{{{LoadingSpinner::P}}}StartAnimWithFade(This, _State.Controls.LoadingSpinner_CreateOrEditNews, "{{{Text_Editing}}}");
+				} else {
+					{{{LoadingSpinner::P}}}StartAnimWithFade(This, _State.Controls.LoadingSpinner_CreateOrEditNews, "{{{Text_Creating}}}");
+				}
+			}
+		}
+	}
+
+	return State;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+
+declare K_State State;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+
+State = K_State {
+	GetNewsActivityRequest = Http::GetEmptyRequest(),
+	Controls = K_Controls {
+		Frame_Browser = (Page.GetFirstChild("frame-browser") as CMlFrame),
+		Button_ActivityMedia = (Frame_Global.GetFirstChild("button-activity-media") as CMlFrame),
+		Button_Create = (Frame_Global.GetFirstChild("button-create") as CMlFrame),
+		Button_Media = (Frame_Global.GetFirstChild("button-media") as CMlFrame),
+		Button_RemoveMedia = (Frame_Global.GetFirstChild("button-remove-media") as CMlFrame),
+		Label_Info = (Frame_Global.GetFirstChild("label-info") as CMlLabel),
+		Label_Title = (Frame_Global.GetFirstChild("label-title") as CMlLabel),
+		LoadingSpinner_CreateOrEditNews = (Page.GetFirstChild("loadingspinner-create-or-edit-news") as CMlFrame),
+		LoadingSpinner_RetrieveInfo = (Frame_Global.GetFirstChild("loadingspinner-retrieve-info") as CMlFrame),
+		PopUpClubThemes_Icon = (Frame_Global.GetFirstChild("popupclubthemes-icon") as CMlFrame),
+		PopUpMultiChoice_UploadError = (Page.GetFirstChild("popupmultichoice-upload-error") as CMlFrame),
+		Quad_MediaGradient = (Frame_Global.GetFirstChild("quad-gradient-media") as CMlQuad),
+		TextField_Body = (Frame_Global.GetFirstChild("textfield-body") as CMlFrame),
+		TextField_Headline = (Frame_Global.GetFirstChild("textfield-headline") as CMlFrame),
+		TextField_Name = (Frame_Global.GetFirstChild("textfield-name") as CMlFrame)
+	},
+	FolderId = ClubStruct::C_FolderNullId
+};
+***
+
+***MainLoop***
+***
+if ({{{Router::P}}}PageIsRunning(This, "{{{RoutePaths::C_Path_CreateNews}}}")) {
+	foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case "{{{Router::C_Event_EnteringRoute}}}": {
+				declare Text[Text] Query = {{{Router::P}}}GetCurrentRouteQuery(This);
+
+				State.FolderId = ClubStruct::C_FolderNullId;
+				if (Query.existskey("{{{RoutePaths::C_Query_FolderId}}}") && Query["{{{RoutePaths::C_Query_FolderId}}}"] != "") {
+					State.FolderId = TL::ToInteger(Query["{{{RoutePaths::C_Query_FolderId}}}"]);
+				}
+
+				State.IsEditing = Query.existskey("{{{RoutePaths::C_Query_Activity}}}");
+				if (State.IsEditing) {
+					State.Activity.fromjson(Query["{{{RoutePaths::C_Query_Activity}}}"]);
+					State.News = {{{ClubStruct::P}}}K_News {
+						Id = State.Activity.Id,
+						Name = State.Activity.Name,
+						ClubId = {{{ClubStore::P}}}GetUserCurrentClub().Id
+					};
+					State.Controls.Label_Title.SetText("{{{Text_EditNews}}}");
+					State.GetNewsActivityRequest = ClubAPI::GetNewsActivity(State.News.ClubId, State.News.Id);
+					{{{ExpendableButton::P}}}SetText(This, State.Controls.Button_Create, "{{{Text_Save}}}");
+					{{{LoadingSpinner::P}}}StartAnimWithFade(This, State.Controls.LoadingSpinner_RetrieveInfo);
+					if ({{{ClubStruct::P}}}IsClubThemeUrl(State.Activity.MediaUrl)) {{{PopUpClubThemes::P}}}SelectClubTheme(This, State.Activity.MediaUrl);
+					else {{{PopUpClubThemes::P}}}SelectClubTheme(This, {{{PopUpClubThemes::P}}}C_Choice_None);
+				} else {
+					State.News = {{{ClubStruct::P}}}K_News { ClubId = {{{ClubStore::P}}}GetUserCurrentClub().Id };
+					State.Controls.Label_Title.SetText("{{{Text_CreateNews}}}");
+					{{{PopUpClubThemes::P}}}SelectClubTheme(This, {{{PopUpClubThemes::P}}}C_Choice_None);
+					{{{ExpendableButton::P}}}SetText(This, State.Controls.Button_Create, "{{{Text_Create}}}");
+				}
+
+				UpdateNews(State);
+				DisplayBrowser(State, False);
+				Focus(State, {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), State.Controls.Button_ActivityMedia);
+			}
+		}
+	}
+
+	/* TextField events */
+	foreach (Event in {{{TextField::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{TextField::P}}}C_EventType_Update: {
+				if (Event.Control != Null) {
+					switch (Event.Control.ControlId) {
+						case State.Controls.TextField_Name.ControlId: {
+							if (Event.Value != State.News.Name) {
+								declare Text NewName = Tools::FormatValue(Event.Value);
+								declare Integer Length = TL::Length(TL::StripFormatting(NewName));
+								if (Length > C_Name_MaxChar) {
+									//L16N [CreateNewsActivity] Error displayed when the name of the news activity is too long. %1 will be replaced by a number, e.g. "The name has a maximum of 20 characters".
+									DisplayInfo(State.Controls.Label_Info, TL::Compose(_("The name has a maximum of %1 characters"), ""^C_Name_MaxChar), False);
+									NewName = TL::SubText(NewName, 0, C_Name_MaxChar);
+								} else {
+									DisplayInfo(State.Controls.Label_Info, "", False);
+								}
+								State.News.Name = NewName;
+								{{{TextField::P}}}SetValue(This, State.Controls.TextField_Name, State.News.Name);
+							}
+						}
+						case State.Controls.TextField_Headline.ControlId: {
+							if (Event.Value != State.News.Headline) {
+								declare Text NewHeadline = Tools::FormatValue(Event.Value);
+								declare Integer Length = TL::Length(TL::StripFormatting(NewHeadline));
+								if (Length > C_Headline_MaxChar) {
+									//L16N [CreateNewsActivity] Error displayed when the headline of the news activity is too long. %1 will be replaced by a number, e.g. "The headline tag has a maximum of 40 characters".
+									DisplayInfo(State.Controls.Label_Info, TL::Compose(_("The headline has a maximum of %1 characters"), ""^C_Headline_MaxChar), False);
+									NewHeadline = TL::SubText(NewHeadline, 0, C_Headline_MaxChar);
+								} else {
+									DisplayInfo(State.Controls.Label_Info, "", False);
+								}
+								State.News.Headline = NewHeadline;
+								{{{TextField::P}}}SetValue(This, State.Controls.TextField_Headline, State.News.Headline);
+							}
+						}
+						case State.Controls.TextField_Body.ControlId: {
+							if (Event.Value != State.News.Body) {
+								declare Text NewBody = Event.Value;
+								declare Integer Length = TL::Length(TL::StripFormatting(NewBody));
+								if (Length > C_Body_MaxChar) {
+									//L16N [CreateNewsActivity] Error displayed when the body of the news activity is too long. %1 will be replaced by a number, e.g. "The body tag has a maximum of 2000 characters".
+									DisplayInfo(State.Controls.Label_Info, TL::Compose(_("The body has a maximum of %1 characters"), ""^C_Body_MaxChar), False);
+									NewBody = TL::SubText(NewBody, 0, C_Body_MaxChar);
+								} else {
+									DisplayInfo(State.Controls.Label_Info, "", False);
+								}
+								State.News.Body = NewBody;
+								{{{TextField::P}}}SetValue(This, State.Controls.TextField_Body, State.News.Body);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/* Navigation events */
+	foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Navigation::P}}}C_EventType_NavigateInput: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_Global}}}")) {
+					switch (Event.Input) {
+						case CMlScriptEvent::EMenuNavAction::AppMenu: State = Select(State, State.Controls.Button_Create);
+						case CMlScriptEvent::EMenuNavAction::Cancel: {{{Router::P}}}PushParent(This);
+					}
+				}
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_Default}}}")) {
+					switch (Event.Input) {
+						case CMlScriptEvent::EMenuNavAction::Select: State = Select(State, Event.To);
+						case CMlScriptEvent::EMenuNavAction::Action2: State = Select(State, State.Controls.Button_RemoveMedia);
+						default: Focus(State, Event.From, Event.To);
+					}
+				}
+			}
+			case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_Default}}}")) {
+					switch (Event.Mouse) {
+						case CMlScriptEvent::Type::MouseClick: State = Select(State, Event.To);
+						case CMlScriptEvent::Type::MouseOver: Focus(State, Event.From, Event.To);
+					}
+				}
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_MouseOnly}}}")) {
+					switch (Event.Mouse) {
+						case CMlScriptEvent::Type::MouseClick: State = Select(State, Event.To);
+						case CMlScriptEvent::Type::MouseOver: Focus(State, Event.From, Event.To);
+						case CMlScriptEvent::Type::MouseOut: Focus(State, Event.From, Event.To);
+					}
+				}
+			}
+		}
+	}
+
+	/* ClubStore events */
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CMlScriptEvent::Type::PluginCustomEvent) {
+			switch (Event.CustomEventType) {
+				case {{{ClubStore::P}}}C_Event_NewsActivityCreatedOrEdited: {{{Router::P}}}PushParent(This);
+				case {{{ClubStore::P}}}C_Event_NewsActivityCreationOrEditionFailed: {
+					{{{LoadingSpinner::P}}}StopAnimWithFade(This, State.Controls.LoadingSpinner_CreateOrEditNews);
+					EnableNavigationGroups(True);
+					if (Event.CustomEventData.count > 0) {
+						DisplayInfo(State.Controls.Label_Info, Event.CustomEventData[0], True);
+					}
+				}
+			}
+		}
+	}
+
+	/* Browser events */
+	foreach (Event in {{{BrowserAPI::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{BrowserAPI::P}}}C_EventType_Cancel: DisplayBrowser(State, False);
+			case {{{BrowserAPI::P}}}C_EventType_Select: {
+				if (Event.DataType == {{{BrowserAPI::P}}}C_DataType_Image) {
+					declare Text MediaUrl = {{{BrowserAPI::P}}}C_BasePath_Media^Event.Data;
+					declare Text FullMediaUrl = {{{BrowserAPI::P}}}C_BasePath^MediaUrl;
+
+					if ({{{Navigation::P}}}IsFocused(This, State.Controls.Button_Media, "{{{C_NavGroup_Default}}}")) {
+						State.News.MediaUrl = MediaUrl;
+					} else if ({{{ClubStruct::P}}}IsClubThemeUrl(FullMediaUrl)) {
+						State.Activity.MediaUrl = {{{ClubStruct::P}}}GetClubThemeName(FullMediaUrl);
+					} else {
+						State.Activity.MediaUrl = MediaUrl;
+					}
+
+					UpdateNews(State);
+				}
+				DisplayBrowser(State, False);
+			}
+		}
+	}
+
+	/* Activity image events */
+	foreach (Event in {{{PopUpClubThemes::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{PopUpClubThemes::P}}}C_EventType_Display: EnableNavigationGroups(!Event.PopUpClubThemes.Visible);
+			case {{{PopUpClubThemes::P}}}C_EventType_Confirm: {
+				if (Event.PopUpClubThemes != Null && Event.PopUpClubThemes.Id == State.Controls.PopUpClubThemes_Icon.Id) {
+					if (Event.MediaUrl != "") State.Activity.MediaUrl = Event.ThemeName;
+					else State.Activity.MediaUrl = Event.MediaUrl;
+					UpdateControllerInfo(State);
+					UpdateNews(State);
+				}
+			}
+		}
+	}
+
+	/* PopUpBackground events */
+	foreach (Event in {{{PopUpBackground::P}}}GetPendingEvents(This)) {
+		if (Event.PopUpBackground != Null && Event.PopUpBackground.ControlId == "frame-background" && {{{Navigation::P}}}GroupIsEnabled(This, "{{{C_NavGroup_Default}}}")) {
+			switch (Event.Type) {
+				case {{{PopUpBackground::P}}}C_EventType_Close: {{{Router::P}}}PushParent(This);
+			}
+		}
+	}
+
+	/* PopUpMultiChoice events */
+	foreach (Event in {{{PopUpMultiChoice::P}}}GetPendingEvents(This)) {
+		if (Event.PopUpMultiChoice != Null && Event.PopUpMultiChoice.Id == State.Controls.PopUpMultiChoice_UploadError.Id) {
+			switch (Event.Type) {
+				case {{{PopUpMultiChoice::P}}}C_EventType_Display: EnableNavigationGroups(!Event.PopUpMultiChoice.Visible);
+			}
+		}
+	}
+
+	/* Get news activity request */
+	if (Http::IsInitialized(State.GetNewsActivityRequest)) {
+		State.GetNewsActivityRequest = Http::Update(State.GetNewsActivityRequest);
+		if (!Http::IsRunning(State.GetNewsActivityRequest)) {
+			if (Http::IsSuccess(State.GetNewsActivityRequest)) {
+				State.News = ClubAPI::GetResponseFromGetNewsActivity(State.GetNewsActivityRequest);
+				UpdateNews(State);
+			} else {
+				//L16N [CreateNewsActivity] Error displayed when fetching news activity failed. %1 will be replaced by an error, e.g. "(Error code: 500)".
+				DisplayInfo(State.Controls.Label_Info, TL::Compose(_("Error while fetching the activity info, please try again. (Error code: %1)"), ""^Http::GetStatusCode(State.GetNewsActivityRequest)), True);
+			}
+			{{{LoadingSpinner::P}}}StopAnimWithFade(This, State.Controls.LoadingSpinner_RetrieveInfo);
+			State.GetNewsActivityRequest = Http::Destroy(State.GetNewsActivityRequest);
+		}
+	}
+} else {
+	foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case "{{{Router::C_Event_LeavingRoute}}}": {
+				State = K_State { Controls = State.Controls };
+				{{{LoadingSpinner::P}}}StopAnimWithFade(This, State.Controls.LoadingSpinner_CreateOrEditNews);
+				{{{LoadingSpinner::P}}}StopAnimWithFade(This, State.Controls.LoadingSpinner_RetrieveInfo);
+				DisplayInfo(State.Controls.Label_Info, "", False);
+				EnableNavigationGroups(True);
+			}
+		}
+	}
+}
+***
+""",
+[
+	BrowserAPI::ComponentV2(),
+	Button::ComponentV2(),
+	ButtonIcon::ComponentV2(),
+	ClubStore::ComponentV2(),
+	ClubStruct::Component(),
+	ExpendableButton::ComponentV2(),
+	LoadingSpinner::ComponentV2(),
+	MenuSounds::ComponentV2(),
+	Navigation::ComponentV2(),
+	PopUpBackground::ComponentV2(),
+	PopUpClubThemes::ComponentV2(),
+	PopUpMultiChoice::ComponentV2(),
+	Router::ComponentV2(),
+	TextField::ComponentV2(),
+	Transition::ComponentV2()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update from the ManiaApp
+Void Yield() {
+
+}

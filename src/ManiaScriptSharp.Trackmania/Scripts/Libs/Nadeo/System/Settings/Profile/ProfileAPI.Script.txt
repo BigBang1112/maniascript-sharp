@@ -1,0 +1,306 @@
+
+#Include "ColorLib" as CL
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Settings/SettingsStructs.Script.txt" as Structs
+
+#Const C_GamePermission_RemoveAds "ads_Remove" //< User can remove ads
+
+#Const C_LibProfileAPI_AvailableSettings """
+<settings>
+	<setting type="Text" id="EditProfileNickname" name="Nickname" />
+	<setting type="Text" id="EditProfileTrigram" name="Trigram" />
+	<setting type="Color" id="EditProfileColor" name="Trails color" min="0" max="1" step="0.041666" />
+
+	<setting type="Action" id="OpenPlayerPage" name="Manage account on the Player Page" />
+	<setting type="Action" id="EditProfileZone" name="Change location" />
+	<setting type="Text" id="EditProfileEmail" name="E-mail address" />
+	<setting type="Bool" id="EditProfileReceiveMails" name="Receive mail about Trackmania" />
+	<setting type="Action" id="CopyAccountId" name="Copy account id" />
+
+	<setting type="Bool" id="ParentalLockTitle" name="Lock currently loaded title" />
+	<setting type="Text" id="ParentalLockPassword" name="Password" alt="1" />
+	<setting type="Bool" id="ParentalLockOnce" name="Unlock only once" />
+	<setting type="Action" id="ParentalLockToggle" name="" />
+
+	<setting type="Bool" id="SteamLinksOverlay" name="Open links in Steam overlay" />
+	<setting type="Bool" id="SteamSyncWorkshop" name="Synchronize Steam Workshop files" />
+
+	<setting type="Bool" id="PrivacyAdsEnabled" name="Display adverts"
+		info="You need standard or club access to remove adverts."
+	/>
+	<setting type="Bool" id="PrivacyAdsShareData" name="Enable personalised adverts"
+		info="I accept that my data will be shared with third parties to enable personalised adverts to be displayed in the game world, depending on my country and my interests. If this option is deactivated, you'll still see advertisements in the game, but they won't match your areas of interest as well."
+	/>
+	<setting type="Enum" id="PrivacyEnableSkins" name="Custom vehicle/character models" />
+
+	<setting type="Bool" id="TitleSaveAllReplays" name="Automatically save all replays" />
+	<setting type="Bool" id="TitleSeparateRounds" name="Save each round replay separately" />
+	<setting type="Bool" id="TitleAdvancedEditor" name="Choose between simple and advanced map editor" />
+	<setting type="Bool" id="PrivacyEnableHorns" name="Allow unlimited horns" />
+</settings>
+"""
+
+declare Structs::SSettingModel[] G_LibProfileAPI_AvailableSettings;
+declare Boolean G_LibProfileAPI_IsDialogEditingProfile;
+declare Boolean G_LibProfileAPI_PendingSettingsUpdate;
+declare Integer G_LibProfileAPI_PrevCustomizationLevel;
+declare Text G_LibProfileAPI_ParentalLockPassword;
+declare Boolean G_LibProfileAPI_ParentalLockOnce;
+declare Boolean G_LibProfileAPI_HasPermissionToRemoveAds;
+declare Boolean G_LibProfileAPI_Adverts_Enabled;
+declare Boolean G_LibProfileAPI_Adverts_UsePersonnalData;
+
+declare Text G_LibProfileAPI_PrevHornFileName;
+declare Text G_LibProfileAPI_PrevAvatarFileName;
+
+Structs::SSettingModel[] Private_GetSettingsList() {
+	if (G_LibProfileAPI_AvailableSettings.count > 0) {
+		return G_LibProfileAPI_AvailableSettings;
+	}
+
+	declare Document <=> Xml.Parse_Xml(C_LibProfileAPI_AvailableSettings);
+	
+	foreach (Node in Document.Root.Children) {
+		declare Structs::SSettingModel Setting;
+
+		Setting.Id					= Node.GetAttributeText("id", "");
+		Setting.Type				= Node.GetAttributeText("type", "");
+		Setting.Name				= Node.GetAttributeText("name", "");
+		Setting.ValueRangeMin		= Node.GetAttributeReal("min", 0.);
+		Setting.ValueRangeMax		= Node.GetAttributeReal("max", 1.);
+		Setting.ValueStep			= Node.GetAttributeReal("step", .01);
+		Setting.AlternativeDisplay	= Node.GetAttributeBoolean("alt", False);
+		Setting.Info				= Node.GetAttributeText("info", "");
+
+		if (Setting.Id == "PrivacyEnableSkins") {
+			Setting.AvailableOptions = ["Off", "2D", "On"];
+			Setting.OptionsLabels = ["Off" => _("|CustomModels|Disabled"), "2D" => _("2D skins only"), "On" => _("3D models + 2D skins")];
+		}
+
+		G_LibProfileAPI_AvailableSettings.add(Setting);
+	}
+
+	Xml.Parse_Destroy(Document);
+	return G_LibProfileAPI_AvailableSettings;
+}
+
+Structs::SSettingModel[] GetSettingsList() {
+	declare UserSettings <=> ManiaPlanet.UserMgr.MainUserProfile;
+	declare Structs::SSettingModel[] SettingsList;
+
+	declare ZoneName = _("|Zone|Unknown");
+	declare SplitZone = TL::Split("|", LocalUser.ZonePath);
+	if (SplitZone.count > 0) ZoneName = SplitZone[SplitZone.count - 1];
+
+	declare CanEditProfile			= ManiaPlanet.ActiveContext_IsProfileEditable;
+	declare IsSteamPlatform			= ManiaPlanet.System.Platform == CSystemPlatform::ESystemPlatform::Steam;
+	declare IsShootManiaTitle		= ManiaPlanet.LoadedTitle != Null && ManiaPlanet.LoadedTitle.BaseTitleId == "SMStorm";
+	declare IsTrackmaniaStandalone 	= ManiaPlanet.LoadedTitle != Null && ManiaPlanet.LoadedTitle.TitleId == "Trackmania";
+	declare IsTitleLoaded			= ManiaPlanet.LoadedTitle != Null;
+
+	foreach (I => SettingModel in Private_GetSettingsList()) {
+		declare Setting = SettingModel;
+
+		Setting.IsDisabled = !CanEditProfile;
+
+		// Values
+		switch (Setting.Id) {
+			case "EditProfileNickname"	: Setting.CurrentValueText		= UserSettings.Account_Name;
+			case "EditProfileTrigram"		: Setting.CurrentValueText		= UserSettings.User_Trigram;
+			case "EditProfileColor"			: Setting.CurrentValueReal		= UserSettings.User_LightTrailHue;
+			case "EditProfileAvatar"		: Setting.CurrentValueText		= LocalUser.AvatarDisplayName;
+			case "EditProfileHorn"			: Setting.CurrentValueText		= LocalUser.HornDisplayName;
+			case "EditProfileClublink"		: Setting.CurrentValueText		= UserSettings.User_ClubLinkUrl;
+			case "ProfileAutoConnect"		: Setting.CurrentValueBoolean	= UserSettings.Account_EnableAutoConnect;
+			case "EditProfilePassword"		: Setting.CurrentValueText		= "********";
+			case "EditProfileZone"			: Setting.CurrentValueText		= ZoneName;
+			case "EditProfileEmail"			: Setting.CurrentValueText		= UserSettings.Account_EMail;
+			case "EditProfileReceiveMails"	: Setting.CurrentValueBoolean	= UserSettings.Account_AcceptNews;
+			case "CopyAccountId"			: Setting.CurrentValueText		= LocalUser.WebServicesUserId;
+			case "ParentalLockTitle"		: Setting.CurrentValueBoolean	= UserSettings.Title_IsForbiddenWithParentalLock;
+			case "ParentalLockPassword"		: Setting.CurrentValueText		= G_LibProfileAPI_ParentalLockPassword;
+			case "ParentalLockOnce"			: Setting.CurrentValueBoolean	= G_LibProfileAPI_ParentalLockOnce;
+			case "SteamLinksOverlay"		: Setting.CurrentValueBoolean	= UserSettings.Steam_OpenLinksInSteam;
+			case "SteamSyncWorkshop"		: Setting.CurrentValueBoolean	= UserSettings.Steam_SynchonizeWorkshopFiles;
+			case "PrivacyEnableChat"		: Setting.CurrentValueBoolean	= UserSettings.Custom_EnableChat;
+			case "PrivacyEnableAvatars"		: Setting.CurrentValueBoolean	= UserSettings.Custom_EnableAvatars;
+			case "PrivacyEnableHorns"		: Setting.CurrentValueBoolean	= UserSettings.Custom_EnableUnlimitedHorns;
+			case "TitleSaveAllReplays"		: Setting.CurrentValueBoolean	= UserSettings.Online_AutoSaveReplay;
+			case "TitleSeparateRounds"		: Setting.CurrentValueBoolean	= UserSettings.Online_SaveRoundReplaysSeparately;
+			case "TitleAdvancedEditor"		: Setting.CurrentValueBoolean	= UserSettings.Editors_MapEditorMode == CUserV2Profile::EMapEditorMode::Ask;
+			case "PrivacyAdsEnabled"		: Setting.CurrentValueBoolean	= UserSettings.Adverts_Enabled;
+			case "PrivacyAdsShareData"		: Setting.CurrentValueBoolean	= UserSettings.Adverts_UsePersonnalData;
+
+			case "PrivacyEnableSkins"		: {
+				switch (UserSettings.Custom_PlayerModels) {
+					case CUserV2Profile::ECustomPlayerModels::All 			: Setting.CurrentValueText = "On";
+					case CUserV2Profile::ECustomPlayerModels::OnlyTextures 	: Setting.CurrentValueText = "2D";
+					case CUserV2Profile::ECustomPlayerModels::None 			: Setting.CurrentValueText = "Off";
+				}
+			}
+
+			case "ParentalLockToggle" : {
+				if (!ManiaPlanet.ParentalLock_IsLocked) {
+					Setting.Name = _("Lock");
+				} else {
+					Setting.Name = _("Unlock");
+				}
+			}
+		}
+
+		// Availability
+		switch (Setting.Id) {
+			case "EditProfileNickname"						: Setting.IsDisabled = !CanEditProfile || !UserSettings.CanChangeNickName;
+			case "EditProfileAvatar"						: Setting.IsDisabled = !CanEditProfile || !UserSettings.CanChangeAvatar;
+			case "EditProfileSkin"							: Setting.IsDisabled = !CanEditProfile || !UserSettings.CanChangeSkin || !IsTitleLoaded || True; // Not implemented yet
+			case "EditProfileHorn"							: Setting.IsDisabled = !CanEditProfile || !UserSettings.CanChangeAvatar;
+			case "EditProfilePoseVictory"					: Setting.IsDisabled = !CanEditProfile || !UserSettings.CanChangeAvatar || !IsShootManiaTitle || True; // Not implemented yet
+			case "EditProfilePoseDefeat"					: Setting.IsDisabled = !CanEditProfile || !UserSettings.CanChangeAvatar || !IsShootManiaTitle || True; // Not implemented yet
+			case "OpenPlayerPage"							: Setting.IsDisabled = False;
+			case "EditProfilePassword"						: Setting.IsDisabled = !CanEditProfile || !UserSettings.CanChangePassword;
+			case "EditProfileZone"							: Setting.IsDisabled = !CanEditProfile || !UserSettings.CanChangeZone;
+			case "ParentalLockTitle"						: Setting.IsDisabled = !CanEditProfile || !IsTitleLoaded || ManiaPlanet.ParentalLock_IsLocked;
+			case "ParentalLockOnce"							: Setting.IsDisabled = !CanEditProfile || G_LibProfileAPI_ParentalLockPassword == "" || !ManiaPlanet.ParentalLock_IsLocked;
+			case "ParentalLockToggle"						: Setting.IsDisabled = !CanEditProfile || G_LibProfileAPI_ParentalLockPassword == "";
+			case "SteamLinksOverlay"						: Setting.IsDisabled = !CanEditProfile || !IsSteamPlatform;
+			case "SteamSyncWorkshop"						: Setting.IsDisabled = !CanEditProfile || !IsSteamPlatform;
+			case "PrivacyEnableSkins"						: Setting.IsDisabled = !CanEditProfile;
+			case "PrivacyEnableHorns"						: Setting.IsDisabled = !CanEditProfile;
+			case "PrivacyAdsEnabled"						: Setting.IsDisabled = PrivilegeMgr == Null || UserMgr.MainUser == Null || !PrivilegeMgr.IsPermissionEnabled(UserMgr.MainUser.Id, C_GamePermission_RemoveAds);
+			case "PrivacyAdsShareData"						: Setting.IsDisabled = False;
+			case "TitleSaveAllReplays"						: Setting.IsDisabled = !CanEditProfile;
+			case "TitleSeparateRounds"						: Setting.IsDisabled = !CanEditProfile;
+			case "TitleAdvancedEditor"						: Setting.IsDisabled = !CanEditProfile;
+			case "CopyAccountId"							: Setting.IsDisabled = False;
+
+			// Not implemented yet
+			case "ProfileDisconnect" : Setting.IsDisabled = True;
+		}
+
+		SettingsList.add(Setting);
+	}
+
+	return SettingsList;
+}
+
+Structs::SSettingModel GetSetting(Text _SettingId) {
+	declare Structs::SSettingModel TargetSetting;
+
+	foreach (Setting in GetSettingsList()) {
+		if (Setting.Id == _SettingId) {
+			TargetSetting = Setting;
+			break;
+		}
+	}
+
+	return TargetSetting;
+}
+
+Void StoreParentalLockPassword(Text _Password) {
+	G_LibProfileAPI_ParentalLockPassword = _Password;
+	G_LibProfileAPI_PendingSettingsUpdate = True;
+}
+
+Void ParentalLockUnlockOnce(Boolean _UnlockOnce) {
+	G_LibProfileAPI_ParentalLockOnce = _UnlockOnce;
+	G_LibProfileAPI_PendingSettingsUpdate = True;
+}
+
+Void ToggleParentalLock() {
+	if (G_LibProfileAPI_ParentalLockPassword == "") return;
+
+	if (ManiaPlanet.ParentalLock_IsLocked) {
+		declare Unocked = ManiaPlanet.ParentalLock_Unlock(G_LibProfileAPI_ParentalLockPassword, G_LibProfileAPI_ParentalLockOnce);
+	} else {
+		declare Locked = ManiaPlanet.ParentalLock_Lock(G_LibProfileAPI_ParentalLockPassword);
+	}
+
+	G_LibProfileAPI_ParentalLockPassword = "";
+	G_LibProfileAPI_ParentalLockOnce = False;
+	G_LibProfileAPI_PendingSettingsUpdate = True;
+}
+
+Integer CustomizationLevel() {
+	if (!ManiaPlanet.ActiveContext_IsProfileEditable) return 0;
+	if (!ManiaPlanet.UserMgr.MainUserProfile.CanChangeAvatar || !ManiaPlanet.UserMgr.MainUserProfile.CanChangeNickName) return 1;
+	return 2;
+}
+
+Boolean IsDialogActive() {
+	return G_LibProfileAPI_IsDialogEditingProfile;
+}
+
+Void EditAvatar() {
+	if (IsDialogActive()) return;
+	ManiaPlanet.Dialog_ChangeAvatar();
+	G_LibProfileAPI_IsDialogEditingProfile = True;
+}
+
+Void EditHorn() {
+	if (IsDialogActive()) return;
+	ManiaPlanet.Dialog_ChangeHorn();
+	G_LibProfileAPI_IsDialogEditingProfile = True;
+}
+
+Void EditZone() {
+	if (IsDialogActive()) return;
+	ManiaPlanet.Dialog_ChangeZone();
+	G_LibProfileAPI_IsDialogEditingProfile = True;
+}
+
+Void EditPassword() {
+	if (IsDialogActive()) return;
+	ManiaPlanet.Dialog_ChangePassword();
+	G_LibProfileAPI_IsDialogEditingProfile = True;
+}
+
+Void Loop() {
+	if (
+		PrivilegeMgr != Null &&
+		UserMgr.MainUser != Null &&
+		G_LibProfileAPI_HasPermissionToRemoveAds != PrivilegeMgr.IsPermissionEnabled(UserMgr.MainUser.Id, C_GamePermission_RemoveAds)
+	) {
+		G_LibProfileAPI_HasPermissionToRemoveAds = PrivilegeMgr.IsPermissionEnabled(UserMgr.MainUser.Id, C_GamePermission_RemoveAds);
+		G_LibProfileAPI_PendingSettingsUpdate = True;
+	}
+
+	declare UserSettings <=> ManiaPlanet.UserMgr.MainUserProfile;
+	if (G_LibProfileAPI_Adverts_Enabled != UserSettings.Adverts_Enabled) {
+		G_LibProfileAPI_Adverts_Enabled = UserSettings.Adverts_Enabled;
+		G_LibProfileAPI_PendingSettingsUpdate = True;
+	}
+	if (G_LibProfileAPI_Adverts_UsePersonnalData != UserSettings.Adverts_UsePersonnalData) {
+		G_LibProfileAPI_Adverts_UsePersonnalData = UserSettings.Adverts_UsePersonnalData;
+		G_LibProfileAPI_PendingSettingsUpdate = True;
+	}
+
+	if (ManiaPlanet.Dialog_IsFinished && IsDialogActive()) {
+		G_LibProfileAPI_IsDialogEditingProfile = False;
+		G_LibProfileAPI_PendingSettingsUpdate = True;
+
+		if (ManiaPlanet.Dialog_Success) {
+			ManiaPlanet.Dialog_CommitProfileChanges();
+		}
+	}
+
+	if (G_LibProfileAPI_PrevCustomizationLevel != CustomizationLevel()) {
+		G_LibProfileAPI_PrevCustomizationLevel = CustomizationLevel();
+		G_LibProfileAPI_PendingSettingsUpdate = True;
+	}
+
+	if (G_LibProfileAPI_PrevHornFileName != LocalUser.HornDisplayName) {
+		G_LibProfileAPI_PrevHornFileName = LocalUser.HornDisplayName;
+		G_LibProfileAPI_PendingSettingsUpdate = True;
+	}
+
+	if (G_LibProfileAPI_PrevAvatarFileName != LocalUser.AvatarDisplayName) {
+		G_LibProfileAPI_PrevAvatarFileName = LocalUser.AvatarDisplayName;
+		G_LibProfileAPI_PendingSettingsUpdate = True;
+	}
+}
+
+Boolean PendingUpdate() {
+	declare IsUpdate = G_LibProfileAPI_PendingSettingsUpdate;
+	G_LibProfileAPI_PendingSettingsUpdate = False;
+	return IsUpdate;
+}

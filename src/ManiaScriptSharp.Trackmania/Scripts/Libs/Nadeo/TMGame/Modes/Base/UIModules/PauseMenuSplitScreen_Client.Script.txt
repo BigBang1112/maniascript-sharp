@@ -1,0 +1,974 @@
+/**
+ *	UI module: PauseMenu SplitScreen client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuSplitScreen_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as Button
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as Grid
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Client.Script.txt" as PauseMenu
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Record_Client.Script.txt" as RecordsModule
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Visibility_Component.Script.txt" as ScoresTableVisibility
+#Include "Libs/Nadeo/TMGame/Utils/Images.Script.txt" as Images
+#Include "Libs/Nadeo/Trackmania/Components/Credits.Script.txt" as Credits
+#Include "Libs/Nadeo/Trackmania/Components/FavoriteMapsTools.Script.txt" as FavoriteMapsTools
+#Include "Libs/Nadeo/Trackmania/Components/PopUpReportSystem.Script.txt" as PopUpReportSystem
+#Include "Libs/Nadeo/Trackmania/Components/ProfilePlayerInfo.Script.txt" as ProfilePlayerInfo
+#Include "Libs/Nadeo/Trackmania/Components/Settings.Script.txt" as Settings
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConsts
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/Constants.Script.txt" as CampaignConsts
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Stores/MapStore_ML.Script.txt" as MapStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_SplitScreen_PauseMenu"
+#Const C_Type CUILayer::EUILayerType::InGameMenu
+#Const C_NavGroupName "navgroup-splitscreen-pausemenu"
+
+#Const C_Row_Resume 0
+#Const C_Row_Restart 1
+#Const C_Row_FavoriteMap 2
+#Const C_Row_ScoresTable 3
+#Const C_Row_Records 4
+#Const C_Row_Settings 5
+#Const C_Row_Report 6
+#Const C_Row_UbiConnect 7
+#Const C_Row_Margin 8
+#Const C_Row_Footer 9
+
+#Const C_SoundFadeTime_EnterMenu 150
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *	@return												The module manialink
+ */
+Text GetML() {
+	//L16N [PauseMenu SplitScreen] Title of the pause menu pop up
+	declare Text Text_SplitScreen = _("SplitScreen");
+	//L16N [PauseMenu SplitScreen] Game mode currently playing
+	declare Text Text_GameMode = _("Game mode");
+	//L16N [PauseMenu SplitScreen] Resume the race
+	declare Text Text_Resume = _("Resume");
+	//L16N [PauseMenu SplitScreen] Cancel the current run and start a new one
+	declare Text Text_Restart =_("Restart");
+	//L16N [PauseMenu SplitScreen] Button to access the Settings menu.
+	declare Text Text_Settings = _("Settings");
+	//L16N [PauseMenu SplitScreen] Button to open the report system
+	declare Text Text_Report = _("Report");
+	// Do not translate "Ubisoft Connect"
+	declare Text Text_UbiConnect = "Ubisoft Connect";
+	//L16N [PauseMenu SplitScreen] Exit the race
+	declare Text Text_Exit = _("Exit");
+	//L16N [PauseMenu SplitScreen] %1 will be replaced by the name of the author of the track, e.g. "by Darrek"
+	declare Text By_Text = _("by %1");
+	//L16N [PauseMenu SplitScreen] Display the scores table from a pause menu button
+	declare Text Test_ScoresTable = _("Consult scores table");
+	//L16N [PauseMenu SplitScreen] Access the records interface.
+	declare Text Text_AccessRecords = _("Access records");
+
+	declare Vec2 RaceMenuSize = CampaignConsts::C_RaceMenu_Size;
+	declare Vec2 Size_ListButton = <RaceMenuSize.X-3., (RaceMenuSize.X-3.)*64/748>;
+	declare Vec2 Size_FooterButton = <Size_ListButton.X/2 + 1.5, (Size_ListButton.X/2 + 1.5)*88/388>;
+	declare Vec2 Size_Background = <RaceMenuSize.X + 2.5, (RaceMenuSize.X + 2.5)*244/780>;
+	declare Vec2 Size_Header = <RaceMenuSize.X, RaceMenuSize.X*136/760>;
+	declare Real SizeY_AdjustedListButton = Size_ListButton.Y - (4*Size_ListButton.Y/64); //< Remove the outer pixel of the asset
+	declare Real SizeY_AdjustedBackground = Size_Background.Y - (2*Size_Background.Y/244); //< Remove the outer pixel of the asset
+	declare Real Padding = 8.; //< The space between the border and the text inside
+	declare Real Margin = 1.;
+
+	// Automatic rearranging list of button depending on buttons visibility
+	// To add a new button, simply add a new row in the grid and its frameinstance in the ML
+	// After buttons visibility update, the grid needs to be updated !
+	declare GridConfig = Grid::Create(0., 0., 0., Grid::C_Direction_Bottom);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Resume, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Restart, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_FavoriteMap, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_ScoresTable, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Records, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Settings, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Report, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_UbiConnect, SizeY_AdjustedListButton, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Margin, Margin, Grid::C_Align_Center);
+	GridConfig = Grid::AddRow(GridConfig, C_Row_Footer, Size_FooterButton.Y, Grid::C_Align_Center);
+	GridConfig = Grid::SetSize(GridConfig, SizeY_AdjustedListButton * (GridConfig.Columns.count-2) + Margin + Size_FooterButton.Y);
+	declare Grid = Grid::Compile(GridConfig);
+	declare Text GridConfigJson = GridConfig.tojson();
+
+	return MV::Create(
+C_Id, 3,
+"""
+<stylesheet>
+	<style class="text-default" halign="center" valign="center2" textsize="4" textprefix="$t$i" textcolor="FFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+	<style class="quad-default" halign="center" valign="center" />
+</stylesheet>
+
+<frame id="frame-global" z-index="75" hidden="1">
+	<quad id="quad-background" bgcolor="000" size="320 180" fullscreen="1" halign="center" valign="center" z-index="-3" opacity=".3"/>
+
+	<frame id="frame-report-system" z-index="1" hidden="1">
+		<frameinstance id="frame-report-system-pause-menu-campaign" modelid="{{{PopUpReportSystem::C_Name}}}" />
+	</frame>
+
+	<frame id="frame-settings" z-index="2" hidden="1">
+		<frameinstance modelid="{{{Settings::C_Name}}}" />
+	</frame>
+
+	<frame id="frame-credits" z-index="3" hidden="1">
+		<frameinstance modelid="{{{Credits::C_Name}}}" />
+	</frame>
+
+	<frame id="frame-profile" z-index="4" hidden="1">
+		<frameinstance
+			modelid="{{{ProfilePlayerInfo::C_Name}}}"
+			data-enable-players-pager="0"
+			data-enable-zone-selection="0"
+			data-enable-my-access-info="0"
+			data-enable-garage="0"
+		/>
+	</frame>
+
+	<frame id="frame-header" pos="{{{MLHelpers::Skew(0., (SizeY_AdjustedBackground + Size_Header.Y + Margin)/2 + 10, 10.)}}}" z-index="-2">
+		<frame id="frame-map-infos" pos="{{{MLHelpers::Skew(-0.5, SizeY_AdjustedBackground/2 + Margin/2, 10.)}}}">
+			<quad id="quad-mapinfos-background" z-index="-1" size="{{{Size_Header.X}}} {{{Size_Header.Y}}}" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFive)}}}" image="{{{Images::C_ImageUrl_ModeMenu_Header}}}" class="quad-default"/>
+			<label id="label-map-name" pos="{{{MLHelpers::Skew(-Size_Header.X/2 + Padding, 6., 10.)}}}" z-index="1" size="{{{RaceMenuSize.X/2.}}} 10" halign="left" class="text-default" textsize="5" textprefix="$t$i" italicslope="0.2" filter-profanities="Always"/>
+			<label id="label-map-author" pos="{{{MLHelpers::Skew(-Size_Header.X/2 + Padding, 0., 10.)}}}" z-index="1" size="{{{RaceMenuSize.X/2.}}} 10" halign="left" class="text-default" textsize="3.5" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textprefix="$t$i" italicslope="0.2"/>
+			<label id="label-players-nb" pos="{{{MLHelpers::Skew(-Size_Header.X/2 + Padding, -7., 10.)}}}" z-index="1" size="{{{RaceMenuSize.X/2.}}} 10" halign="left" class="text-default" textsize="5" textprefix="$t$i" italicslope="0.2" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"/>
+			<label id="label-splitscreen" pos="{{{MLHelpers::Skew(Size_Header.X/2 - Padding/2, -7., 10.)}}}" z-index="1" size="{{{RaceMenuSize.X/2.}}} 10" text="{{{Text_SplitScreen}}}" halign="right" class="text-default" textsize="7" textprefix="$t$i" italicslope="0.2" />
+		</frame>
+		<frame id="frame-mode-infos" pos="{{{MLHelpers::Skew(0., -Size_Header.Y/2 - Margin/2, 10.)}}}">
+			<quad id="quad-header-background" image="{{{Images::C_ImageUrl_ModeMenu_Background}}}" size="{{{Size_Background.X}}} {{{Size_Background.Y}}}" class="quad-default" z-index="-1" opacity=".9"/>
+			<label id="label-game-mode" pos="{{{MLHelpers::Skew(-Size_Background.X/2 + Padding, Size_Background.Y/2. - Padding, 10.)}}}" text="{{{Text_GameMode}}}" size="{{{RaceMenuSize.X/2.-15.}}} {{{RaceMenuSize.Y}}}" halign="left" textsize="4" class="text-default" italicslope=".2"/>
+			<label id="label-mode-name" pos="{{{MLHelpers::Skew(Size_Background.X/2 - Padding, Size_Background.Y/2. - Padding, 10.)}}}" halign="right" size="{{{RaceMenuSize.X/2.}}} {{{RaceMenuSize.Y}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textsize="6" class="text-default" italicslope=".2"/>
+			<label id="label-mode-infos" pos="{{{MLHelpers::Skew(Size_Background.X/2 - Padding, -Size_Background.Y/2 * 0.25, 10.)}}}" halign="right" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" size="{{{RaceMenuSize.X *0.8}}} {{{RaceMenuSize.Y}}}" autonewline="1" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textsize="4" class="text-default" italicslope=".2"/>
+		</frame>
+	</frame>
+
+	<frame id="frame-buttons-container" class="{{{Grid::C_Class_Container}}}" pos="{{{MLHelpers::Skew(0., 10., 10.)}}}">
+		<frameinstance
+			modelid="{{{Button::C_Name}}}" id="button-resume"
+			class="{{{Navigation::C_Class}}} {{{Grid::C_Class_Element}}}"
+			data-grid-row="{{{C_Row_Resume}}}"
+			data-text="{{{Text_Resume}}}"
+			data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+			data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+			data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}"
+			data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}"
+			data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+			data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+			data-opacityunfocus=".9"
+			data-textitalicslope=".2"
+			data-textsize="4"
+			data-textopacityunfocus=".4"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;cancel;appmenu;up;down"
+			data-nav-targets="_;_;_;button-exit;button-restart"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{Button::C_NavZone}}}"
+		/>
+		<frameinstance
+			modelid="{{{Button::C_Name}}}" id="button-restart"
+			class="{{{Navigation::C_Class}}} {{{Grid::C_Class_Element}}}"
+			data-grid-row="{{{C_Row_Restart}}}"
+			data-text="{{{Text_Restart}}}"
+			data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+			data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+			data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}"
+			data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}"
+			data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+			data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+			data-opacityunfocus=".9"
+			data-textsize="4"
+			data-textopacityunfocus=".4"
+			data-textitalicslope=".2"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;cancel;appmenu;up;down"
+			data-nav-targets="_;_;_;button-resume;button-favorite-map"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{Button::C_NavZone}}}"
+			z-index="2"
+		/>
+		<frame id="frame-favorite-map" class="{{{Grid::C_Class_Element}}}" data-grid-row="{{{C_Row_FavoriteMap}}}">
+			<frameinstance
+				modelid="{{{Button::C_Name}}}" id="button-favorite-map"
+				class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}}"
+				data-text="{{{MenuConsts::C_AddFavoriteMap}}}"
+				data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+				data-labelsize="{{{Size_ListButton.X-25.}}} {{{Size_ListButton.Y}}}"
+				data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+				data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+				data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}"
+				data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}"
+				data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+				data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+				data-opacityunfocus=".9"
+				data-textsize="4"
+				data-textopacityunfocus=".4"
+				data-textitalicslope=".2"
+				data-halign="center" data-valign="center"
+				data-nav-inputs="select;cancel;appmenu;up;down"
+				data-nav-targets="_;_;_;button-restart;button-scorestable"
+				data-nav-group="{{{C_NavGroupName}}}"
+				data-nav-zone="{{{Button::C_NavZone}}}"
+				z-index="2"
+				data-menusounds-selectsound="IngameSelectStartRace"
+			/>
+			<frameinstance id="frame-loading-spinner" z-index="3" scale="0.5" pos="55 0" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}" modelid="{{{LoadingSpinner::C_Name}}}"/>
+		</frame>
+		<frameinstance
+			modelid="{{{Button::C_Name}}}" id="button-scorestable"
+			class="{{{Navigation::C_Class}}} {{{Grid::C_Class_Element}}}"
+			data-grid-row="{{{C_Row_ScoresTable}}}"
+			data-text="{{{Test_ScoresTable}}}"
+			data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+			data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+			data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}"
+			data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}"
+			data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+			data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+			data-opacityunfocus=".9"
+			data-textsize="4"
+			data-textopacityunfocus=".4"
+			data-textitalicslope=".2"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;cancel;appmenu;up;down"
+			data-nav-targets="_;_;_;button-favorite-map;button-records"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{Button::C_NavZone}}}"
+			z-index="2"
+		/>
+		<frameinstance
+			modelid="{{{Button::C_Name}}}" id="button-records"
+			class="{{{Navigation::C_Class}}} {{{Grid::C_Class_Element}}}"
+			data-grid-row="{{{C_Row_Records}}}"
+			data-text="{{{Text_AccessRecords}}}"
+			data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+			data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+			data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}"
+			data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}"
+			data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+			data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+			data-opacityunfocus=".9"
+			data-textsize="4"
+			data-textopacityunfocus=".4"
+			data-textitalicslope=".2"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;cancel;appmenu;up;down"
+			data-nav-targets="_;_;_;button-scorestable;button-settings"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{Button::C_NavZone}}}"
+			z-index="2"
+		/>
+		<frameinstance
+			modelid="{{{Button::C_Name}}}" id="button-settings"
+			class="{{{Navigation::C_Class}}} {{{Grid::C_Class_Element}}}"
+			data-grid-row="{{{C_Row_Settings}}}"
+			data-text="{{{Text_Settings}}}"
+			data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+			data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+			data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}"
+			data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}"
+			data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+			data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+			data-opacityunfocus=".9"
+			data-textsize="4"
+			data-textopacityunfocus=".4"
+			data-textitalicslope=".2"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;cancel;appmenu;up;down"
+			data-nav-targets="_;_;_;button-records;button-report"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{Button::C_NavZone}}}"
+			z-index="2"
+		/>
+		<frameinstance
+			modelid="{{{Button::C_Name}}}" id="button-report"
+			class="{{{Navigation::C_Class}}} {{{Grid::C_Class_Element}}}"
+			data-grid-row="{{{C_Row_Report}}}"
+			data-text="{{{Text_Report}}}"
+			data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+			data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+			data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}"
+			data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}"
+			data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+			data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+			data-opacityunfocus=".9"
+			data-textsize="4"
+			data-textopacityunfocus=".4"
+			data-textitalicslope=".2"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;cancel;appmenu;up;down"
+			data-nav-targets="_;_;_;button-settings;button-ubi-connect"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{Button::C_NavZone}}}"
+			z-index="2"
+		/>
+		<frameinstance
+			modelid="{{{Button::C_Name}}}" id="button-ubi-connect"
+			class="{{{Navigation::C_Class}}} {{{Grid::C_Class_Element}}}"
+			data-grid-row="{{{C_Row_UbiConnect}}}"
+			data-text="{{{Text_UbiConnect}}}"
+			data-size="{{{Size_ListButton.X}}} {{{Size_ListButton.Y}}}"
+			data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+			data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Round_Corner}}}"
+			data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Round_Corner_Focus}}}"
+			data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+			data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+			data-opacityunfocus=".9"
+			data-textsize="4"
+			data-textopacityunfocus=".4"
+			data-textitalicslope=".2"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;cancel;appmenu;up;down"
+			data-nav-targets="_;_;_;button-report;button-exit"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{Button::C_NavZone}}}"
+			z-index="2"
+		/>
+		<frame id="frame-footer" class="{{{Grid::C_Class_Element}}}" data-grid-row="{{{C_Row_Footer}}}">
+			<frameinstance
+				modelid="{{{Button::C_Name}}}" id="button-exit"
+				pos="{{{-Size_FooterButton.X/2 + 1.}}} 0."
+				class="{{{Navigation::C_Class}}}"
+				data-text="{{{Text_Exit}}}"
+				data-size="{{{Size_FooterButton.X}}} {{{Size_FooterButton.Y}}}"
+				data-labelsize="{{{Size_FooterButton.X-25.}}} {{{Size_FooterButton.Y}}}"
+				data-textxpos="0.55"
+				data-opacityunfocus=".9"
+				data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Exit_Round}}}"
+				data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Exit_Round}}}"
+				data-bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFive)}}}"
+				data-focuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFive)}}}"
+				data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+				data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+				data-iconcolortype="{{{Button::C_ColorType_Colorize}}}"
+				data-iconcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+				data-iconfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+				data-icon="{{{Icons::C_Icon_128x128_Arrow_Left_Oblique}}}"
+				data-iconfocus="{{{Icons::C_Icon_128x128_Arrow_Left_Oblique}}}"
+				data-iconxpos=".2"
+				data-iconypos="-.49"
+				data-textsize="4"
+				data-textopacityunfocus=".25"
+				data-iconopacityunfocus=".25"
+				data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+				data-textitalicslope=".2"
+				data-halign="center" data-valign="center"
+				data-nav-inputs="select;cancel;appmenu;up;down"
+				data-nav-targets="_;_;_;button-ubi-connect;button-resume"
+				data-nav-group="{{{C_NavGroupName}}}"
+				data-nav-zone="{{{Button::C_NavZone}}}"
+			/>
+
+			<frame id="frame-error-message" pos="-3 -14">
+				<frameinstance id="frame-bg-error" modelid="{{{ExpendableAsset::C_Name}}}" data-width="{{{Size_ListButton.X * 0.95}}}" data-height="{{{Size_ListButton.Y * 0.7}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextError)}}}" data-opacity="0." data-halign="center" data-valign="center2" z-index="-1"/>
+				<label id="label-error" size="{{{Size_ListButton.X * 0.9}}} {{{Size_ListButton.Y}}}" halign="center" valign="center2" textprefix="$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textsize="3" textcolor="FFF"/>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as Grid
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/Structures/ReportStruct.Script.txt" as ReportStruct
+
+#Struct K_Controls {
+	CMlFrame Frame_Global;
+	CMlFrame Button_FavoriteMap;
+	CMlFrame Button_ScoresTable;
+	CMlFrame Frame_BgError;
+	CMlLabel Label_Error;
+	CMlFrame Frame_LoadingSpinner;
+	CMlFrame Frame_Settings;
+	CMlFrame Frame_Credits;
+	CMlFrame Frame_Profile;
+	CMlFrame Frame_Report;
+	CMlFrame Frame_ReportPopUp;
+}
+
+#Struct K_State {
+	K_Controls Controls;
+	Boolean RecordModuleAvailable;
+	Boolean ScoresTableDisplayed;
+	Boolean SettingsAreDisplayed;
+	Boolean CreditsAreDisplayed;
+	Boolean ProfileIsDisplayed;
+	Boolean ReportIsDisplayed;
+	Task::K_Task Task_ShowUbisoftConnect;
+}
+
+#Const C_ModeNames_ScriptNames {{{dump(MenuConsts::C_ModeNames_ScriptNames)}}}
+#Const C_BaseScriptName {{{dump(MenuConsts::C_BaseScriptName)}}}
+#Const C_BaseScriptName_ToReplace {{{dump(MenuConsts::C_BaseScriptName_ToReplace)}}}
+
+#Const C_Component_Report {{{dump(PopUpReportSystem::C_Name)}}}
+#Const C_Component_Settings {{{dump(Settings::C_Name)}}}
+#Const C_Component_Credits {{{dump(Credits::C_Name)}}}
+#Const C_Component_Profile {{{dump(ProfilePlayerInfo::C_Name)}}}
+""",
+"""
+Void LockButton(CMlFrame _Frame, Boolean _Lock) {
+	{{{Navigation::P}}}Lock(_Frame, _Lock);
+	if (_Lock) {{{Button::P}}}SetTextColor(This, _Frame, {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentFour))}}});
+	else {{{Button::P}}}SetTextColor(This, _Frame, {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}});
+}
+
+Boolean LockScoresTableButton(CMlFrame _Button_ScoresTable, Boolean _Lock) {
+	LockButton(_Button_ScoresTable, _Lock);
+	if (_Lock) {{{ScoresTableVisibility::P}}}SetEnabledFromMenu(False);
+	return _Lock;
+}
+
+Void Focus(CMlControl _From, CMlControl _To) {
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{Button::P}}}IsButton(_From)) {
+			{{{Button::P}}}Unfocus(This, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{Button::P}}}IsButton(_To)) {
+			{{{Button::P}}}Focus(This, (_To as CMlFrame));
+		}
+	}
+}
+
+Boolean GroupShouldBeEnabled(K_State _State) {
+	return !_State.SettingsAreDisplayed && !_State.CreditsAreDisplayed && !_State.ProfileIsDisplayed && !_State.ReportIsDisplayed;
+}
+
+K_State Private_DisplaySettings(K_State _State, Boolean _Display, Boolean _ResetSettingsCategory) {
+	declare K_State State = _State;
+	State.SettingsAreDisplayed = _Display;
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupName}}}", GroupShouldBeEnabled(State));
+	{{{Settings::P}}}Enable(State.SettingsAreDisplayed, _ResetSettingsCategory);
+	State.Controls.Frame_Settings.Visible = State.SettingsAreDisplayed;
+	return State;
+}
+
+K_State Private_DisplayCredits(K_State _State, Boolean _Display) {
+	declare K_State State = _State;
+	State.CreditsAreDisplayed = _Display;
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupName}}}", GroupShouldBeEnabled(State));
+	{{{Credits::P}}}Enable(State.CreditsAreDisplayed);
+	State.Controls.Frame_Credits.Visible = State.CreditsAreDisplayed;
+	return State;
+}
+
+K_State Private_DisplayProfile(K_State _State, Boolean _Display) {
+	declare K_State State = _State;
+	State.ProfileIsDisplayed = _Display;
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupName}}}", GroupShouldBeEnabled(State));
+	{{{ProfilePlayerInfo::P}}}Enable(State.ProfileIsDisplayed);
+	if (State.ProfileIsDisplayed) {
+		{{{ProfilePlayerInfo::P}}}SetUser(LocalUser);
+	}
+	State.Controls.Frame_Profile.Visible = State.ProfileIsDisplayed;
+	return State;
+}
+
+K_State Private_DisplayReportSystem(K_State _State, Boolean _Display) {
+	declare K_State State = _State;
+
+	State.ReportIsDisplayed = _Display && Map != Null && Map.MapInfo != Null;
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupName}}}", GroupShouldBeEnabled(State));
+
+	if (State.ReportIsDisplayed) {
+		// Report current map
+		declare ReportStruct::LibStructuresReport_K_ReportData[Integer] Data =
+		[
+			ReportStruct::C_ReportTarget_Track => ReportStruct::LibStructuresReport_K_ReportData {
+				Details = [Map.MapInfo.Name],
+				Ids = [Map.MapInfo.MapUid],
+				Contexts = [["From" => "InGame SplitScreen"]]
+			}
+		];
+
+		{{{PopUpReportSystem::P}}}SetReportTargetsData(This, State.Controls.Frame_ReportPopUp, Data);
+		{{{PopUpReportSystem::P}}}Display(This, State.Controls.Frame_ReportPopUp, True);
+	}
+
+	State.Controls.Frame_Report.Visible = State.ReportIsDisplayed;
+
+	return State;
+}
+
+K_State DisplayComponent(K_State _State, Text _ComponentName, Boolean _Display, Boolean _ResetSettingsCategory) {
+	declare K_State State = _State;
+
+	switch (_ComponentName) {
+		case C_Component_Settings: {
+			if (_Display) {
+				State = Private_DisplayCredits(State, False);
+				State = Private_DisplayProfile(State, False);
+			}
+			State = Private_DisplaySettings(State, _Display, _ResetSettingsCategory);
+		}
+		case C_Component_Credits: {
+			if (_Display) {
+				State = Private_DisplaySettings(State, False, True);
+				State = Private_DisplayProfile(State, False);
+			}
+			State = Private_DisplayCredits(State, _Display);
+		}
+		case C_Component_Profile: {
+			if (_Display) {
+				State = Private_DisplaySettings(State, False, True);
+				State = Private_DisplayCredits(State, False);
+			}
+			State = Private_DisplayProfile(State, _Display);
+		}
+		case C_Component_Report: {
+			State = Private_DisplayReportSystem(State, _Display);
+		}
+	}
+
+	return State;
+}
+K_State DisplayComponent(K_State _State, Text _ComponentName, Boolean _Display) {
+	return DisplayComponent(_State, _ComponentName, _Display, True);
+}
+
+K_State Select(K_State _State, CMlControl _Control) {
+	if (_Control == Null) return _State;
+	declare K_State State = _State;
+
+	switch (_Control.ControlId) {
+		case "button-resume": CloseInGameMenu(CMlScriptIngame::EInGameMenuResult::Resume);
+		case "button-favorite-map": {{{FavoriteMapsTools::P}}}SelectFavoriteButton(Map);
+		case "button-scorestable": State.ScoresTableDisplayed = {{{ScoresTableVisibility::P}}}DisplayScoresTableFromMenu(True, {{{ScoresTableVisibility::P}}}C_ScoresTable_PauseMenu_Splitscreen, State.Controls.Frame_Global);
+		case "button-records": {
+			{{{RecordsModule::P}}}EnableControllerNavigation();
+			CloseInGameMenu(CMlScriptIngame::EInGameMenuResult::Resume);
+		}
+		case "button-restart": {
+			Playground.RequestRestartMap();
+			CloseInGameMenu(CMlScriptIngame::EInGameMenuResult::Resume);
+		}
+		case "button-settings": {
+			State = DisplayComponent(State, C_Component_Settings, True);
+		}
+		case "button-report": {
+			State = DisplayComponent(State, C_Component_Report, True);
+		}
+		case "button-ubi-connect": State.Task_ShowUbisoftConnect = Task::DestroyAndCreate(State.Task_ShowUbisoftConnect, UserMgr, UserMgr.UbisoftConnect_Show(MainUser::GetMainUserId()));
+		case "button-exit": CloseInGameMenu(CMlScriptIngame::EInGameMenuResult::Quit);
+	}
+	return State;
+}
+
+Void SetErrorMessage(CMlLabel _Label, CMlFrame _Frame_BgError, Text _Message) {
+	_Label.Value = _Message;
+	AnimMgr.Flush(_Label);
+	AnimMgr.Add(_Label, "<a opacity=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(_Label, "<a opacity=\"0.\" />", Now + 4000, 500, CAnimManager::EAnimManagerEasing::QuadOut);
+	{{{ExpendableAsset::P}}}FlushAnimations(This, _Frame_BgError);
+	{{{ExpendableAsset::P}}}AddOpacityAnimation(This, _Frame_BgError, 1., 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	{{{ExpendableAsset::P}}}AddOpacityAnimation(This, _Frame_BgError, 0., Now + 4000, 500, CAnimManager::EAnimManagerEasing::QuadOut);
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_ButtonsContainer;
+declare CMlFrame Button_Records;
+declare CMlFrame Button_Resume;
+declare CMlLabel Label_MapName;
+declare CMlLabel Label_MapAuthor;
+declare CMlLabel Label_PlayersNb;
+declare CMlLabel Label_ModeName;
+declare CMlLabel Label_ModeInfos;
+
+declare netread Boolean Net_SplitScreen_PauseMenu_IsVisible for Teams[0];
+declare netread Text Net_TMGame_ScoresTable_FooterInfo for Teams[0];
+
+declare Boolean DisplayModule;
+declare Boolean PageWasHidden;
+declare Integer PlayersNb;
+declare Text ServerModeName;
+declare Text AuthorName;
+declare Text MapUid;
+declare Boolean NeedAuthorDisplayNameUpdate;
+declare Text AuthorId;
+declare Task::K_Task TaskResult_DisplayName;
+declare K_State State;
+declare Grid::K_GridConfig GridConfig;
+declare Boolean GoBackToSettings;
+declare Boolean ScoresTableButtonIsLocked;
+***
+
+***MainStart***
+***
+Frame_Global = (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_ButtonsContainer <=> (Frame_Global.GetFirstChild("frame-buttons-container") as CMlFrame);
+Button_Records <=> (Frame_Global.GetFirstChild("button-records") as CMlFrame);
+Button_Resume <=> (Frame_Global.GetFirstChild("button-resume") as CMlFrame);
+Label_MapName <=> (Frame_Global.GetFirstChild("label-map-name") as CMlLabel);
+Label_MapAuthor <=> (Frame_Global.GetFirstChild("label-map-author") as CMlLabel);
+Label_PlayersNb <=> (Frame_Global.GetFirstChild("label-players-nb") as CMlLabel);
+Label_ModeName <=> (Frame_Global.GetFirstChild("label-mode-name") as CMlLabel);
+Label_ModeInfos <=> (Frame_Global.GetFirstChild("label-mode-infos") as CMlLabel);
+
+State = K_State {
+	RecordModuleAvailable = {{{RecordsModule::P}}}IsRecordsModuleAvailable(),
+	ScoresTableDisplayed = {{{ScoresTableVisibility::P}}}DisplayScoresTableFromMenu(False, {{{ScoresTableVisibility::P}}}C_ScoresTable_PauseMenu_None, Null),
+	Task_ShowUbisoftConnect = Task::GetEmptyTask(),
+	Controls = K_Controls {
+		Frame_Global = Frame_Global,
+		Button_FavoriteMap = (Frame_Global.GetFirstChild("button-favorite-map") as CMlFrame),
+		Button_ScoresTable = (Frame_Global.GetFirstChild("button-scorestable") as CMlFrame),
+		Frame_BgError = (Frame_Global.GetFirstChild("frame-bg-error") as CMlFrame),
+		Label_Error = (Frame_Global.GetFirstChild("label-error") as CMlLabel),
+		Frame_LoadingSpinner = (Frame_Global.GetFirstChild("frame-loading-spinner") as CMlFrame),
+		Frame_Settings = (Frame_Global.GetFirstChild("frame-settings") as CMlFrame),
+		Frame_Credits = (Frame_Global.GetFirstChild("frame-credits") as CMlFrame),
+		Frame_Profile = (Frame_Global.GetFirstChild("frame-profile") as CMlFrame),
+		Frame_Report = (Frame_Global.GetFirstChild("frame-report-system") as CMlFrame),
+		Frame_ReportPopUp = (Frame_Global.GetFirstChild("frame-report-system-pause-menu-campaign") as CMlFrame)
+	}
+};
+
+DisplayModule = State.Controls.Frame_Global.Visible;
+PageWasHidden = !PageIsVisible;
+PlayersNb = -123;
+ServerModeName = "";
+AuthorName = "";
+MapUid = "";
+NeedAuthorDisplayNameUpdate = False;
+AuthorId = "";
+GridConfig.fromjson({{{"\"\"\""^GridConfigJson^"\"\"\""}}});
+GoBackToSettings = False;
+
+ScoresTableButtonIsLocked = LockScoresTableButton(
+	State.Controls.Button_ScoresTable,
+	{{{PauseMenu::P}}}IsScoresTableButtonLocked()
+);
+
+{{{Navigation::P}}}UseLocalEvents(This, True);
+{{{Settings::P}}}UseLocalEvents(True);
+{{{Settings::P}}}EnableCredits(True);
+{{{Settings::P}}}EnableProfile(True);
+{{{Credits::P}}}UseLocalEvents(True);
+{{{ProfilePlayerInfo::P}}}UseLocalEvents(True);
+{{{Button::P}}}SetVisibilityAndNavigation(Button_Records, State.RecordModuleAvailable);
+Grid::Update(GridConfig, AnimMgr, Frame_ButtonsContainer, 10., False, True);
+{{{RecordsModule::P}}}DisableControllerNavigation();
+***
+
+***MainLoop***
+***
+if (IsInGameMenuDisplayed && !EnableMenuNavigationInputs) {
+	EnableMenuNavigation(True, False, False, Null, {{{CampaignConsts::C_InputPriority_PauseMenu}}});
+	Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), Button_Resume);
+	{{{MenuSounds::P}}}SetSoundBalanceState(This, {{{MenuSounds::P}}}C_PauseMenu_State, {{{C_SoundFadeTime_EnterMenu}}});
+} else if (!IsInGameMenuDisplayed && EnableMenuNavigationInputs) {
+	EnableMenuNavigation(False, False, False, Null, {{{CampaignConsts::C_InputPriority_PauseMenu}}});
+	{{{MenuSounds::P}}}SetSoundBalanceState(This, {{{MenuSounds::P}}}C_Playing_State, {{{C_SoundFadeTime_EnterMenu}}});
+}
+if (PageIsVisible) {
+	if (PageWasHidden) {
+		PageWasHidden = False;
+
+		// Check if the favorite attribute of current map updated while the menu was hidden
+		{{{FavoriteMapsTools::P}}}UdpateFavoriteButton(
+			State.Controls.Button_FavoriteMap,
+			State.Controls.Frame_LoadingSpinner,
+			State.Controls.Frame_BgError,
+			State.Controls.Label_Error,
+			MapUid
+		);
+	}
+
+	if (DisplayModule != Net_SplitScreen_PauseMenu_IsVisible) {
+		DisplayModule = Net_SplitScreen_PauseMenu_IsVisible;
+		State.Controls.Frame_Global.Visible = Net_SplitScreen_PauseMenu_IsVisible;
+	}
+
+	if (ScoresTableButtonIsLocked != {{{PauseMenu::P}}}IsScoresTableButtonLocked()) {
+		ScoresTableButtonIsLocked = LockScoresTableButton(
+			State.Controls.Button_ScoresTable,
+			{{{PauseMenu::P}}}IsScoresTableButtonLocked()
+		);
+	}
+
+	if ({{{ScoresTableVisibility::P}}}GetSourceMenu() == {{{ScoresTableVisibility::P}}}C_ScoresTable_PauseMenu_Splitscreen && State.ScoresTableDisplayed != {{{ScoresTableVisibility::P}}}EnabledFromMenu()) {
+		State.ScoresTableDisplayed = {{{ScoresTableVisibility::P}}}DisplayScoresTableFromMenu({{{ScoresTableVisibility::P}}}EnabledFromMenu(), {{{ScoresTableVisibility::P}}}C_ScoresTable_PauseMenu_Splitscreen, State.Controls.Frame_Global);
+	}
+
+	if (State.RecordModuleAvailable != {{{RecordsModule::P}}}IsRecordsModuleAvailable()) {
+		State.RecordModuleAvailable = {{{RecordsModule::P}}}IsRecordsModuleAvailable();
+		{{{Button::P}}}SetVisibilityAndNavigation(Button_Records, State.RecordModuleAvailable);
+		Grid::Update(GridConfig, AnimMgr, Frame_ButtonsContainer, 10., False, True);
+	}
+
+	// Open Ubisoft Connect Overlay task
+	if (Task::IsInitialized(State.Task_ShowUbisoftConnect)) {
+		State.Task_ShowUbisoftConnect = Task::Update(State.Task_ShowUbisoftConnect);
+		if (!Task::IsRunning(State.Task_ShowUbisoftConnect)) {
+			if (!Task::IsSuccess(State.Task_ShowUbisoftConnect)) {
+				SetErrorMessage(
+					State.Controls.Label_Error,
+					State.Controls.Frame_BgError,
+					TL::Compose(
+						"%1 (%2)",
+						//L16N Error while opening Ubisoft Connect overlay.
+						_("Error while opening Ubisoft Connect"),
+						Task::GetCustomError(State.Task_ShowUbisoftConnect).Code
+					)
+				);
+			}
+			State.Task_ShowUbisoftConnect = Task::Destroy(State.Task_ShowUbisoftConnect);
+		}
+	}
+
+	if (State.Controls.Frame_Global.Visible) {
+		if (!Task::IsInitialized(TaskResult_DisplayName) && NeedAuthorDisplayNameUpdate) {
+			NeedAuthorDisplayNameUpdate = False;
+			if (UserMgr.FindDisplayName(AuthorId) == "") {
+				TaskResult_DisplayName = Task::Create(UserMgr, UserMgr.RetrieveDisplayName(MainUser::GetMainUserId(), [AuthorId]));
+			}
+		}
+
+		// Check if map has changed
+		if (Map != Null && Map.MapInfo != Null) {
+			if (MapUid != Map.MapInfo.MapUid) {
+				MapUid = Map.MapInfo.MapUid;
+				Label_MapName.Value = Tools::TranslateOfficialMapName(Map.MapName, Map.AuthorLogin);
+				NeedAuthorDisplayNameUpdate = True;
+				AuthorId = Map.AuthorLogin;
+				if (Map.AuthorNickName != "") {
+					//L16N [PauseMenu SplitScreen] %1 will be replaced by the name of the author of the track, e.g. "by Darrek"
+					Label_MapAuthor.Value = TL::Compose("{{{By_Text}}}", Map.AuthorNickName);
+					Tools::FitLabelValue(Label_MapAuthor, 3.5, 1., 0.5);
+					Tools::FirstPartyLogoMatchLuminance(Label_MapAuthor);
+				}	else {
+					Label_MapAuthor.Value = "";
+				}
+				NeedAuthorDisplayNameUpdate = True;
+
+				// Check if current map is player's favorite
+				declare {{{MapStore::P}}}K_CurrentMap CurrentMap = {{{MapStore::P}}}GetCurrentMap();
+				if (CurrentMap.Uid != MapUid) {
+					{{{FavoriteMapsTools::P}}}UdpateFavoriteButton(
+						State.Controls.Button_FavoriteMap,
+						State.Controls.Frame_LoadingSpinner,
+						State.Controls.Frame_BgError,
+						State.Controls.Label_Error,
+						MapUid
+					);
+					if (!{{{UserStore::P}}}IsOfflineMode()) {{{MapStore::P}}}Action_GetMap(This, MapUid);
+				}
+			}
+		}
+
+		if (PlayersNb != Scores.count) {
+			switch (Scores.count) {
+				case 0: {
+					PlayersNb = 0;
+					//L16N [PauseMenu SplitScreen] Displayed in the pause menu ingame. This is the number of players;
+					Label_PlayersNb.Value = _("No player");
+				}
+				case 1: {
+					PlayersNb = 1;
+					//L16N [PauseMenu SplitScreen] Displayed in the pause menu ingame. This is the number of players;
+					Label_PlayersNb.Value = _("1 player");
+				}
+				default: {
+					PlayersNb = Scores.count;
+					//L16N [PauseMenu SplitScreen] Displayed in the pause menu ingame. %1 is the number of players;
+					Label_PlayersNb.Value = TL::Compose(_("%1 players"), ""^Scores.count);
+				}
+			}
+		}
+
+		if (ServerModeName != CurrentServerModeName) {
+			ServerModeName = CurrentServerModeName;
+			declare Text ScriptName = TL::Replace(C_BaseScriptName, C_BaseScriptName_ToReplace, CurrentServerModeName);
+			if (C_ModeNames_ScriptNames.exists(ScriptName)) {
+				Label_ModeName.Value = C_ModeNames_ScriptNames.keyof(ScriptName);
+			} else {
+				Label_ModeName.Value = ScriptName;
+			}
+		}
+
+		if (Label_ModeInfos.Value != Net_TMGame_ScoresTable_FooterInfo) {
+			Label_ModeInfos.Value = Net_TMGame_ScoresTable_FooterInfo;
+		}
+
+		foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+			switch (Event.Type) {
+				case {{{Navigation::P}}}C_EventType_NavigateInput: {
+					if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+						if (Event.Input == CMlScriptEvent::EMenuNavAction::Select) {
+							State = Select(State, Event.To);
+						} else if (
+							Event.Input == CMlScriptEvent::EMenuNavAction::Cancel ||
+							Event.Input == CMlScriptEvent::EMenuNavAction::AppMenu
+						) {
+							CloseInGameMenu(CMlScriptIngame::EInGameMenuResult::Resume);
+						} else {
+							Focus(Event.From, Event.To);
+						}
+					}
+				}
+				case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+					if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+						if (Event.Mouse == CMlScriptEvent::Type::MouseClick) {
+							State = Select(State, Event.To);
+						} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+							Focus(Event.From, Event.To);
+						}
+					}
+				}
+			}
+		}
+
+		foreach (Event in {{{Settings::P}}}PendingEvents) {
+			switch (Event.Type) {
+				case {{{Settings::P}}}C_EventType_Back: {
+					State = DisplayComponent(State, C_Component_Settings, False);
+				}
+				case {{{Settings::P}}}C_EventType_OpenCredits: {
+					GoBackToSettings = True;
+					State = DisplayComponent(State, C_Component_Credits, True);
+				}
+				case {{{Settings::P}}}C_EventType_OpenProfile: {
+					GoBackToSettings = True;
+					State = DisplayComponent(State, C_Component_Profile, True);
+				}
+			}
+		}
+
+		foreach (Event in {{{Credits::P}}}PendingEvents) {
+			switch (Event.Type) {
+				case {{{Credits::P}}}C_EventType_CloseCredits: {
+					if (GoBackToSettings) {
+						GoBackToSettings = False;
+						State = DisplayComponent(State, C_Component_Settings, True, False);
+					} else {
+						State = DisplayComponent(State, C_Component_Credits, False);
+					}
+				}
+			}
+		}
+
+		foreach (Event in {{{ProfilePlayerInfo::P}}}PendingEvents) {
+			switch (Event.Type) {
+				case {{{ProfilePlayerInfo::P}}}C_EventType_Close: {
+					if (GoBackToSettings) {
+						GoBackToSettings = False;
+						State = DisplayComponent(State, C_Component_Settings, True, False);
+					} else {
+						State = DisplayComponent(State, C_Component_Profile, False);
+					}
+				}
+			}
+		}
+
+		foreach (Event in {{{PopUpReportSystem::P}}}GetPendingEvents(This)) {
+			switch (Event.Type) {
+				case {{{PopUpReportSystem::P}}}C_EventType_Close: {
+					State = DisplayComponent(State, C_Component_Report, False);
+				}
+			}
+		}
+	}
+
+
+	/* Favorite map events */
+	foreach (Event in PendingEvents) {
+		switch (Event.Type) {
+			case CMlScriptEvent::Type::PluginCustomEvent: {
+				if (Event.CustomEventType == {{{MapStore::P}}}C_Event_CurrentMapUpdated) {
+					{{{FavoriteMapsTools::P}}}UdpateFavoriteButton(
+						State.Controls.Button_FavoriteMap,
+						State.Controls.Frame_LoadingSpinner,
+						State.Controls.Frame_BgError,
+						State.Controls.Label_Error,
+						MapUid
+					);
+				}
+			}
+		}
+	}
+
+	if (Task::IsInitialized(TaskResult_DisplayName)) {
+		TaskResult_DisplayName = Task::Update(TaskResult_DisplayName);
+		if (!Task::IsRunning(TaskResult_DisplayName)) {
+			if (Task::IsSuccess(TaskResult_DisplayName)) {
+				declare Text DisplayName = {{{UserStore::P}}}GetUserMgrPlayerName(AuthorId);
+				if (DisplayName != "") {
+					//L16N [PauseMenu Online] %1 will be replaced by the name of the author of the track, e.g. "by Darrek"
+					Label_MapAuthor.Value = TL::Compose("{{{By_Text}}}", DisplayName);
+					Tools::FitLabelValue(Label_MapAuthor, 3.5, 1., 0.5);
+					Tools::FirstPartyLogoMatchLuminance(Label_MapAuthor);
+				}
+			}
+			TaskResult_DisplayName = Task::Destroy(TaskResult_DisplayName);
+		}
+	}
+} else {
+	if (!PageWasHidden) PageWasHidden = True;
+}
+
+// The pause menu is opened and capturing inputs but not visible
+// Close it to avoid being stuck
+// This can happen if the `PauseMenu` UI module is hidden
+// but the player is allowed to open the pause menu anymay
+if (IsInGameMenuDisplayed && EnableMenuNavigationInputs && PageIsVisible && !State.Controls.Frame_Global.Visible && !State.ScoresTableDisplayed) {
+	CloseInGameMenu(CMlScriptIngame::EInGameMenuResult::Resume);
+}
+***
+""",
+[
+	Navigation::ComponentV2(),
+	Button::ComponentV2(),
+	MapStore::ComponentV2(),
+	FavoriteMapsTools::Component(),
+	LoadingSpinner::ComponentV2(),
+	UserStore::ComponentV2(),
+	MenuSounds::ComponentV2(),
+	ScoresTableVisibility::Component(),
+	RecordsModule::Component(),
+	Settings::Component(),
+	Credits::Component(),
+	ProfilePlayerInfo::Component(),
+	PopUpReportSystem::ComponentV2(),
+	PauseMenu::Component()
+],
+[]
+	);
+}

@@ -1,0 +1,130 @@
+/**
+ *	Pause library for Trackmania Race mode
+ */
+#Const	Version		"1.0.0"
+#Const	ScriptName	"Libs/Nadeo/TMGame/Modes/Pause.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/TMGame/Modes/Events.Script.txt" as Events
+#Include "Libs/Nadeo/TMGame/Modes/Race.Script.txt" as Race
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_PauseEndDuration 3000 //< Duration of the pause end sequence
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Boolean G_IsActive; //< Is the pause active
+declare Integer G_PauseEndTime; //< End time of the pause
+declare Text G_PrevBigMessage; //< Big message when the pause started
+declare CUIConfig::EUIStatus G_PrevUIStatus; //< UI status when the pause started
+declare CUIConfig::EUISequence G_PrevUISequence; //< UI sequence when the pause started
+declare Text G_PauseMessage; //< The message displayed during the pause
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the message to display during the pause
+Void SetPauseMessage(Text _Message) {
+	G_PauseMessage = _Message;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Run the pause
+ *
+ *	@param	_IsActive									True to enable the pause
+ *																		False to disable it
+ *
+ *	@return														True if the pause can continue
+ *																		False if the pause must stop
+ */
+Boolean Loop(Boolean _IsActive) {
+	// Pause status update
+	if (G_IsActive != _IsActive) {
+		G_IsActive = _IsActive;
+
+		// Start pause
+		if (G_IsActive) {
+			if (G_PauseEndTime < 0) {
+				G_PrevBigMessage = UIManager.UIAll.BigMessage;
+				G_PrevUIStatus = UIManager.UIAll.UIStatus;
+				G_PrevUISequence = UIManager.UIAll.UISequence;
+			}
+			UIManager.UIAll.BigMessage = G_PauseMessage;
+			UIManager.UIAll.UIStatus = CUIConfig::EUIStatus::Warning;
+			UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+
+			foreach (Player in Players) {
+				Race::StopSkipOutro(Player);
+			}
+
+			G_PauseEndTime = -1;
+		}
+		// Plan pause end
+		else {
+			foreach (Player in Players) {
+				Race::StopSkipOutro(Player);
+			}
+
+			//L16N [Pause] Message displayed at the end of the pause
+			UIManager.UIAll.BigMessage = _("Resuming match");
+			UIManager.UIAll.UIStatus = G_PrevUIStatus;
+			UIManager.UIAll.UISequence = G_PrevUISequence;
+			G_PauseEndTime = Now + C_PauseEndDuration;
+		}
+	}
+
+	if (G_PauseEndTime >= 0 && Now >= G_PauseEndTime) {
+		UIManager.UIAll.BigMessage = G_PrevBigMessage;
+		G_PauseEndTime = -1;
+		return False;
+	}
+
+	if (G_IsActive) {
+		// Manage race events
+		declare RacePendingEvents = Race::GetPendingEvents();
+		foreach (Event in RacePendingEvents) {
+			Race::ValidEvent(Event);
+		}
+
+		// Manage mode events
+		foreach (Event in PendingEvents) {
+			if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+			Events::Invalid(Event);
+		}
+
+		// Spawn players
+		foreach (Player in Players) {
+			if (Race::IsReadyToStart(Player)) {
+				Race::Start(Player);
+			}
+		}
+	}
+
+	return True;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	G_IsActive = False;
+	G_PauseEndTime = -1;
+	G_PrevBigMessage = "";
+	G_PrevUIStatus = CUIConfig::EUIStatus::None;
+	//L16N [Pause] Message displayed during the pause
+	SetPauseMessage(_("Pause"));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

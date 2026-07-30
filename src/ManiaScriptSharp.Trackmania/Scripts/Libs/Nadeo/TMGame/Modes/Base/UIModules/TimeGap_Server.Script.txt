@@ -1,0 +1,178 @@
+/**
+ *  UI module: TimeGap server side
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Common.Script.txt" as UIModules_Common
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Common.Script.txt" as UIModules_TimeGap_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// This is copy pasted in client side do not forget to update both
+#Const C_TimeGapMode_BestRace 0
+#Const C_TimeGapMode_Hidden 1
+#Const C_TimeGapMode_CurRace 2
+#Const C_TimeGapMode_Solo 3
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_GhostData {
+	Text Nickname;
+	Text AccountId;
+	Integer Time;
+	Integer[] Checkpoints;
+	Boolean IsPersonalBest;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_TimeGap_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the configuration of the UI module
+UIModules_Common::K_ModuleConfig GetConfig() {
+	return UIModules_TimeGap_Common::C_UIModuleConfig;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Hide this UI for unspawned players
+ *
+ *	@param	_IsHidden
+ */
+Void HideForSpectators(Boolean _IsHidden) {
+	declare netwrite Boolean Net_TimeGap_HideForSpectators for Teams[0];
+	Net_TimeGap_HideForSpectators = _IsHidden;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set time gap mode
+ *
+ *	@param	_Mode											C_TimeGapMode_BestRace, C_TimeGapMode_Hidden, C_TimeGapMode_CurRace or C_TimeGapMode_Solo.
+ *																		Anything else is considered C_TimeGapMode_BestRace.
+ */
+Void SetTimeGapMode(Integer _Mode) {
+	declare netwrite Integer Net_TimeGap_Mode for Teams[0];
+	Net_TimeGap_Mode = _Mode;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get time gap mode
+ *
+ *	return														The current time gap mode
+ */
+Integer GetTimeGapMode() {
+	declare netwrite Integer Net_TimeGap_Mode for Teams[0];
+	return Net_TimeGap_Mode;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set custom teams color
+ *
+ *	@param	_TeamBlueColor						The custom primary color of the Blue team (in Hex6)
+ *	@param	_TeamRedColor							The custom primary color of the Red team (in Hex6)
+ */
+Void SetCustomTeamColors(Text _TeamBlueColor, Text _TeamRedColor) {
+	declare netwrite Text Net_TimeGap_TeamBlueColor for Teams[0] = "";
+	declare netwrite Text Net_TimeGap_TeamRedColor for Teams[0] = "";
+	Net_TimeGap_TeamBlueColor = _TeamBlueColor;
+	Net_TimeGap_TeamRedColor = _TeamRedColor;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set Ghosts for the race
+ *
+ *	@param	Ghosts
+ */
+Void SetGhostsForRanking(
+	CPlayer _Player,
+	CGhost[] _Ghosts,
+	Text[Ident] _GhostsAccountIds,
+	Text _MedalGhostAccountId,
+	Boolean _IsMedalGhost,
+	Ident _PBGhostId
+) {
+	declare netwrite K_GhostData[] Net_TimeGap_GhostIdentList_V2 for _Player;
+	Net_TimeGap_GhostIdentList_V2 = [];
+	foreach (Ghost in _Ghosts) {
+		if (Ghost == Null) continue;
+		declare Integer[] CPTimes = Ghost.Result.Checkpoints;
+		declare Text AccountId;
+		if (_IsMedalGhost) {
+			AccountId = _MedalGhostAccountId;
+		} else {
+			AccountId = _GhostsAccountIds.get(Ghost.Id, "");
+		}
+		Net_TimeGap_GhostIdentList_V2.add(K_GhostData {
+			Nickname = Ghost.Nickname,
+			AccountId = AccountId,
+			Time = Ghost.Result.Time,
+			Checkpoints = CPTimes,
+			IsPersonalBest = (Ghost.Id != NullId && Ghost.Id == _PBGhostId)
+		});
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Display only the players in my team or everyone
+Void SetDisplayOnlyMyTeam(Boolean _DisplayOnlyMyTeam) {
+	declare netwrite Boolean Net_TimeGap_DisplayOnlyMyTeam for Teams[0] = False;
+	Net_TimeGap_DisplayOnlyMyTeam = _DisplayOnlyMyTeam;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Show or hide the UI
+ *
+ *	@param	_Player										The player to update
+ *	@param	_Display									True to show
+ *																		False to hide
+ */
+Void SetVisibility(CPlayer _Player, Boolean _Display) {
+	if (_Player == Null) return;
+
+	declare netwrite Boolean Net_Race_TimeGap_IsVisible for _Player;
+	Net_Race_TimeGap_IsVisible = _Display;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	SetVisibility(_Player, False);
+	SetGhostsForRanking(_Player, [], [], "", False, NullId);
+	SetDisplayOnlyMyTeam(False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	SetTimeGapMode(C_TimeGapMode_BestRace);
+	HideForSpectators(False);
+	SetCustomTeamColors("", "");
+	Unload();
+}

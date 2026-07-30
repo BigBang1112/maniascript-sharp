@@ -1,0 +1,345 @@
+/**
+ *	Log library
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/CMGame/Utils/Log.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Env.Script.txt" as Env
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_CustomLogMessagesMax 47
+#Const C_ZIndex 1000
+#Const C_DisplayCustomLogTooltip False
+#Const C_Level_Message 0
+#Const C_Level_Warning 1
+#Const C_Level_Error 2
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Text[] G_ScriptsNames; ///< Array containing the registered scripts names
+declare Text[] G_ScriptsVersions; ///< Array containing the registered scripts versions
+declare Boolean G_LogWarning; ///< Was the log warning displayed?
+declare Ident G_CustomLogLayerId_CManiaApp;
+declare Ident G_CustomLogLayerId_CUIConfigMgr;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the `System` of a nod if it exists
+CSystemPlatform GetSystem(CNod _Nod) {
+	switchtype (_Nod) {
+		case CMlScript: return (_Nod as CMlScript).System;
+		case CManiaApp: return (_Nod as CManiaApp).System;
+		case CServerPlugin: return (_Nod as CServerPlugin).System;
+		case CMode: return (_Nod as CMode).System;
+	}
+	return Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the custom log UI
+Void EnableCustomLogUI(CSystemPlatform _LogCarrier, CNod _LayerGenerator, Boolean _Enabled) {
+	declare CUILayer CustomLogLayer;
+	if (_LayerGenerator is CManiaApp) {
+		declare CManiaApp LayerGenerator = (_LayerGenerator as CManiaApp);
+		if (_Enabled) {
+			if (G_CustomLogLayerId_CManiaApp == NullId || !LayerGenerator.UILayers.existskey(G_CustomLogLayerId_CManiaApp)) {
+				CustomLogLayer <=> LayerGenerator.UILayerCreate();
+				if (CustomLogLayer != Null) {
+					G_CustomLogLayerId_CManiaApp = CustomLogLayer.Id;
+				} else {
+					G_CustomLogLayerId_CManiaApp = NullId;
+				}
+			}
+		} else {
+			if (G_CustomLogLayerId_CManiaApp != NullId && LayerGenerator.UILayers.existskey(G_CustomLogLayerId_CManiaApp)) {
+				LayerGenerator.UILayerDestroy(LayerGenerator.UILayers[G_CustomLogLayerId_CManiaApp]);
+			}
+			G_CustomLogLayerId_CManiaApp = NullId;
+		}
+	} else if (_LayerGenerator is CUIConfigMgr) {
+		declare CUIConfigMgr LayerGenerator <=> (_LayerGenerator as CUIConfigMgr);
+		if (_Enabled) {
+			if (G_CustomLogLayerId_CUIConfigMgr == NullId || !LayerGenerator.UILayers.existskey(G_CustomLogLayerId_CUIConfigMgr)) {
+				CustomLogLayer <=> LayerGenerator.UILayerCreate();
+				if (CustomLogLayer != Null) {
+					G_CustomLogLayerId_CUIConfigMgr = CustomLogLayer.Id;
+					LayerGenerator.UIAll.UILayers.add(CustomLogLayer);
+				} else {
+					G_CustomLogLayerId_CUIConfigMgr = NullId;
+				}
+			}
+		} else {
+			if (G_CustomLogLayerId_CUIConfigMgr != NullId && LayerGenerator.UILayers.existskey(G_CustomLogLayerId_CUIConfigMgr)) {
+				LayerGenerator.UIAll.UILayers.remove(LayerGenerator.UILayers[G_CustomLogLayerId_CUIConfigMgr]);
+				LayerGenerator.UILayerDestroy(LayerGenerator.UILayers[G_CustomLogLayerId_CUIConfigMgr]);
+			}
+			G_CustomLogLayerId_CUIConfigMgr = NullId;
+		}
+	} else {
+		assert(False, "The layer generator must be a `CManiaApp` or `CUIConfigMgr` instance");
+	}
+
+	if (_LogCarrier != Null) {
+		declare Boolean CMGame_Log_CustomLogIsEnabled for _LogCarrier = False;
+		CMGame_Log_CustomLogIsEnabled = _Enabled && (G_CustomLogLayerId_CManiaApp != NullId || G_CustomLogLayerId_CUIConfigMgr != NullId);
+	}
+
+	if (_Enabled && CustomLogLayer != Null) {
+		CustomLogLayer.ManialinkPage = """
+<manialink name="CMGame::Log::CustomLog" version="3">
+	<frame id="frame-debug" pos="-155 85" z-index="{{{C_ZIndex}}}" hidden="1">
+		<quad pos="-1 1" z-index="0" size="312 172" bgcolor="000000" opacity="0.7" />
+		<label id="label-debug" z-index="1" size="310 170" maxline="{{{C_CustomLogMessagesMax}}}" textcolor="ffffff" style="StyleTextScriptEditor" />
+		<quad pos="-1 1" z-index="2" size="312 4" valign="bottom" bgcolor="000000" opacity="0.7" />
+		<label pos="0 1" z-index="3" valign="bottom" textsize="1" text="Press ++ / ++ / C+F1 to close this window" />
+	</frame>
+	<frame pos="-155 85" z-index="{{{C_ZIndex-1}}}">
+		<!-- if the textcolor of the label is not set, the opacity animation do not work -->
+		<label id="label-tooltip" pos="0 1" valign="bottom" opacity="0" textcolor="ffffff" textsize="1" text="Press ++ / ++ / C+F1 to open the log window" />
+	</frame>
+	<script><!--
+#Include "TextLib" as TL
+
+Integer UpdateDebug(CMlLabel _Label_Debug, Integer _DebugUpdate, Text[] _Debug) {
+	_Label_Debug.Value = TL::Join("\n", _Debug);
+	return _DebugUpdate;
+}
+
+Boolean UpdateVisibility(CMlFrame _Frame_Debug, CMlLabel _Label_Tooltip, Boolean _IsVisible, Boolean _DisplayTooltip) {
+	_Frame_Debug.Visible = _IsVisible;
+	AnimMgr.Flush(_Label_Tooltip);
+	if (!_Frame_Debug.Visible && _DisplayTooltip) {
+		AnimMgr.Add(_Label_Tooltip, "<anim opacity=\"1\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(_Label_Tooltip, "<anim opacity=\"0\" />", Now + 10000, 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		AnimMgr.Add(_Label_Tooltip, "<anim opacity=\"0\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+	return _Frame_Debug.Visible;
+}
+
+main() {
+	declare Text[] CMGame_Log_DebugMessages for System;
+	declare Integer CMGame_Log_DebugMessagesUpdate for System;
+	declare Boolean CMGame_Log_IsVisible for System = False;
+
+	declare Integer DebugUpdate;
+
+	declare CMlFrame Frame_Debug;
+	declare CMlLabel Label_Debug;
+	declare CMlLabel Label_Tooltip;
+
+	Frame_Debug <=> (Page.GetFirstChild("frame-debug") as CMlFrame);
+	Label_Debug <=> (Frame_Debug.GetFirstChild("label-debug") as CMlLabel);
+	Label_Tooltip <=> (Page.GetFirstChild("label-tooltip") as CMlLabel);
+
+	CMGame_Log_IsVisible = UpdateVisibility(Frame_Debug, Label_Tooltip, CMGame_Log_IsVisible, {{{C_DisplayCustomLogTooltip}}});
+	DebugUpdate = UpdateDebug(Label_Debug, CMGame_Log_DebugMessagesUpdate, CMGame_Log_DebugMessages);
+
+	while (True) {
+		yield;
+
+		if (PageIsVisible && Frame_Debug.Visible && DebugUpdate != CMGame_Log_DebugMessagesUpdate) {
+			DebugUpdate = UpdateDebug(Label_Debug, CMGame_Log_DebugMessagesUpdate, CMGame_Log_DebugMessages);
+		}
+
+		foreach (Event in Input.PendingEvents) {
+			if (Event.Type == CInputEvent::EType::PadButtonPress) {
+				if (Event.Button == CInputEvent::EButton::RightStick && Event.Pad != Null && Event.Pad.R1 > 0 && Event.Pad.L1 > 0) {
+					CMGame_Log_IsVisible = UpdateVisibility(Frame_Debug, Label_Tooltip, !CMGame_Log_IsVisible, False);
+				}
+			}
+		}
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::KeyPress) {
+				// F1 and C (keycode 22) are pressed
+				if (Event.KeyName == "F1" && Input != Null && Input.IsKeyPressed(22)) {
+					CMGame_Log_IsVisible = UpdateVisibility(Frame_Debug, Label_Tooltip, !CMGame_Log_IsVisible, False);
+				}
+			}
+		}
+	}
+}
+	--></script>
+</manialink>
+		""";
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send a log message to the custom log UI
+Void SendCustomLog(CSystemPlatform _LogCarrier, Text _Message, Integer _Level, Text _Prefix, Boolean _SendToDefaultLog) {
+	if (_LogCarrier == Null) return;
+
+	declare Boolean CMGame_Log_CustomLogIsEnabled for _LogCarrier = False;
+	if (!CMGame_Log_CustomLogIsEnabled) return;
+
+	declare Text Message = _Prefix^_Message;
+	if (_SendToDefaultLog) log(Message);
+
+	declare Text[] CMGame_Log_DebugMessages for _LogCarrier = [];
+	declare Integer CMGame_Log_DebugMessagesUpdate for _LogCarrier = 0;
+
+	declare Text[] Lines = TL::Split("\n", Message);
+	foreach (Key => Line in Lines) {
+		declare Text StyledLine = Line;
+		if (_Level == C_Level_Warning) {
+			StyledLine = "$ee0"^StyledLine^"$fff";
+		} else if (_Level == C_Level_Error) {
+			StyledLine = "$e00"^StyledLine^"$fff";
+		}
+		if (Key == 0 || _Prefix == "") {
+			CMGame_Log_DebugMessages.add(StyledLine);
+		} else {
+			declare Text Spaces;
+			for (I, 1, TL::Length(_Prefix)) Spaces ^= " ";
+			CMGame_Log_DebugMessages.add(Spaces^StyledLine);
+		}
+	}
+
+	while (CMGame_Log_DebugMessages.count > C_CustomLogMessagesMax) CMGame_Log_DebugMessages.removekey(0);
+	CMGame_Log_DebugMessagesUpdate += 1;
+}
+Void SendCustomLog(CSystemPlatform _LogCarrier, Text _Message, Integer _Level, Text _Prefix) {
+	SendCustomLog(_LogCarrier, _Message, _Level, _Prefix, True);
+}
+Void SendCustomLog(CSystemPlatform _LogCarrier, Text _Message, Integer _Level) {
+	SendCustomLog(_LogCarrier, _Message, _Level, Now^"> ");
+}
+Void SendCustomLog(CSystemPlatform _LogCarrier, Text _Message) {
+	SendCustomLog(_LogCarrier, _Message, C_Level_Message);
+}
+Void SendCustomLog(Text _Message, Integer _Level, Text _Prefix, Boolean _SendToDefaultLog) {
+	SendCustomLog(GetSystem(This), _Message, _Level, _Prefix, _SendToDefaultLog);
+}
+Void SendCustomLog(Text _Message, Integer _Level, Text _Prefix) {
+	SendCustomLog(GetSystem(This), _Message, _Level, _Prefix);
+}
+Void SendCustomLog(Text _Message, Integer _Level) {
+	SendCustomLog(GetSystem(This), _Message, _Level);
+}
+Void SendCustomLog(Text _Message) {
+	SendCustomLog(GetSystem(This), _Message);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if log can be sent
+Boolean CanLog() {
+	return (Env::Get() == Env::C_Env_Development || Env::Get() == Env::C_Env_Test);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Display a log in the debug console
+ *	Behavior change depending on
+ *	the script environment :
+ *	- production -> do nothing
+ *	- others -> send a log
+ *
+ *	@param	_Text											The text to display
+ */
+Void Log(Text _Text) {
+	if (CanLog()) {
+		log("[LOG]"^Now^"> "^_Text);
+	} else if (!G_LogWarning) {
+		G_LogWarning = True;
+		log("""[LOG]{{{Now}}}> [Log] Logs are disabled in the "{{{Env::Get()}}}" environment.""");
+	}
+}
+Void Message(Text _Text) {
+	Log(_Text);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Display an error
+ *	Behavior change depending on
+ *	the script environment :
+ *	- development -> send an assert
+ *	- test -> send a log
+ *	- others -> do nothing
+ */
+Void Error(Text _Text) {
+	declare Text Error = "[ERROR]"^Now^"> "^_Text;
+	switch (Env::Get()) {
+		case Env::C_Env_Development: {
+			assert(False, Error);
+		}
+		case Env::C_Env_Test: {
+			log(Error);
+		}
+		default: {
+			if (!G_LogWarning) {
+				G_LogWarning = True;
+				log("""[ERROR]{{{Now}}}> [Log] Errors are disabled in the "{{{Env::Get()}}}" environment.""");
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Dump the "declare for" variable of an instance
+ *
+ *	@param	_Instance									The instance to check
+ *	@param	_StatsOnly								Only dump the stats
+ */
+Void DumpDeclareFor(CNod _Nod, Boolean _StatsOnly) {
+	if (Env::Get() == Env::C_Env_Development || Env::Get() == Env::C_Env_Test) {
+		log("[DUMP]"^Now^"> "^_Nod^" :\n"^Dbg_DumpDeclareForVariables(_Nod, _StatsOnly));
+	} else if (!G_LogWarning) {
+		G_LogWarning = True;
+		log("""[DUMP]{{{Now}}}> [Log] Dumps are disabled in the "{{{Env::Get()}}}" environment.""");
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Overload DumpDeclareFor()
+Void DumpDeclareFor(CNod _Nod) {
+	DumpDeclareFor(_Nod, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Register a script
+ *
+ *	@param	_ScriptName								The name of the script
+ *	@param	_ScriptVersion						The version of the script
+ */
+Void RegisterScript(Text _ScriptName, Text _ScriptVersion) {
+	G_ScriptsNames.add(_ScriptName);
+	G_ScriptsVersions.add(_ScriptVersion);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Display the version and name of the registered scripts
+Void DisplayScripts() {
+	if (G_ScriptsNames.count <= 0) return;
+
+	declare Integer End = G_ScriptsNames.count - 1;
+	for (I, 0, End) {
+		Log("#Include > Script : "^G_ScriptsNames[I]^" | Version : "^G_ScriptsVersions[I]);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	G_ScriptsNames.clear();
+	G_ScriptsVersions.clear();
+	G_LogWarning = False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

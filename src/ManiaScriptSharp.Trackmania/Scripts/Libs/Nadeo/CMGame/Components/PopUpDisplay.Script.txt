@@ -1,0 +1,285 @@
+/**
+ *	Component: PopUpDisplay
+ *	@ADV Amélioration possible : faire un {{{P}}}PendingEvents pour mieux gérer les popups dans les pages
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/PopUpDisplay.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Translations.Script.txt" as Translations
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-pop-up-display" //< Component name
+#Const P "ComponentPopUpDisplay_" //< Prefix use to differentiate functions/variables in the script
+#Const C_Quad_ActivationZone "ComponentPopUpDisplay_ActivationZone"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component(Text _BGImageUrl, Text _BGButtonUrl, Text _HexColorUnfocus, Text _HexColorFocus) {
+	return MV::Component(
+		C_Name,
+		"""
+<stylesheet>
+	<style class="{{{P}}}button-bg" size="20 10" bgcolor="666" image="{{{_BGButtonUrl}}}" colorize="{{{_HexColorUnfocus}}}" halign="center" valign="center" />
+</stylesheet>
+
+<frame id="{{{P}}}frame-global" pos="0 0" z-index="10" hidden="1" >
+	<quad pos="0 6" size="120 80" bgcolor="111" image="{{{_BGImageUrl}}}" halign="center" valign="center" z-index="0" />
+	<label id="label-pop-up-message" size="110 50" textcolor="FFF" pos="0 35" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" halign="center" valign="top" textsize="8" autonewline="1" maxline="4" z-index="1" />
+
+	<frame pos="0 -22" z-index="1">
+		<frame id="{{{P}}}frame-choice-1" hidden="1">
+			<frame id="{{{P}}}button-accept-1"
+				data-nav-inputs="select"
+				data-nav-targets="_"
+				data-nav-zone="quad-bg"
+				data-nav-group="{{{P}}}group"
+				class="{{{Navigation::C_Class}}}"
+			>
+				<quad id="quad-bg" z-index="-1" scriptevents="1" class="{{{Navigation::C_Class_ActivationZone}}} {{{P}}}button-bg" />
+				<label size="20 10" textcolor="FFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" text="{{{_("Accept")}}}" halign="center" valign="center2" />
+			</frame>
+		</frame>
+
+		<frame id="{{{P}}}frame-choice-2" hidden="1">
+			<frame
+				id="{{{P}}}button-accept-2"
+				pos="-20 0"
+				data-nav-inputs="right;left;select"
+				data-nav-targets="{{{P}}}button-cancel-2;{{{P}}}button-cancel-2;_"
+				data-nav-zone="quad-bg"
+				data-nav-group="{{{P}}}group"
+				class="{{{Navigation::C_Class}}}"
+			>
+				<quad id="quad-bg" z-index="-1" scriptevents="1" class="{{{Navigation::C_Class_ActivationZone}}} {{{P}}}button-bg" />
+				<label size="20 10" textcolor="FFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" text="{{{_("Accept")}}}" halign="center" valign="center2" />
+			</frame>
+			<frame
+				id="{{{P}}}button-cancel-2"
+				pos="20 0"
+				data-nav-inputs="right;left;select"
+				data-nav-targets="{{{P}}}button-accept-2;{{{P}}}button-accept-2;_"
+				data-nav-zone="quad-bg"
+				data-nav-group="{{{P}}}group"
+				class="{{{Navigation::C_Class}}}"
+			>
+				<quad id="quad-bg" z-index="-1" scriptevents="1" class="{{{Navigation::C_Class_ActivationZone}}} {{{P}}}button-bg" />
+				<label size="20 10" textcolor="FFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" text="{{{Translations::C_Text_ButtonCancel}}}" halign="center" valign="center2" />
+			</frame>
+		</frame>
+
+		<frameinstance id="{{{P}}}frame-loading-spinner" modelid="{{{LoadingSpinner::C_Name}}}" />
+	</frame>
+</frame>
+		""",
+		"""
+#Include "TextLib" as {{{P}}}TL
+#Include "ColorLib" as {{{P}}}CL
+
+#Const {{{P}}}C_PopUp_None -1
+#Const {{{P}}}C_PopUp_Information 0
+#Const {{{P}}}C_PopUp_One_Choice 1
+#Const {{{P}}}C_PopUp_Two_Choices 2
+#Const {{{P}}}C_PopUp_Total 3
+
+#Const {{{P}}}C_User_Validate 0
+#Const {{{P}}}C_User_Cancel 1
+
+// This time out makes the C_PopUp_Information pop-up turn into a C_PopUp_One_Choice
+// This is to avoid being stuck on a pop-up
+// If needed we could change it from a page but 15s should be enough
+#Const {{{P}}}C_TimeOut_InformationPopUp 15000
+#Const {{{P}}}C_TimeOut_None -123
+		""",
+		"""
+declare CMlFrame {{{P}}}G_FrameGlobal;
+declare CMlFrame {{{P}}}G_Frame_ButtonsOneChoice;
+declare CMlFrame {{{P}}}G_Frame_ButtonsTwoChoices;
+
+declare Integer {{{P}}}G_Current_PopUp_Type;
+declare Integer {{{P}}}G_UserChoice;
+
+declare Integer {{{P}}}G_TimePopUpInfo;
+
+declare Text[] {{{P}}}G_SoloGroupsToRestore;
+
+Void {{{P}}}Focus(CMlControl _From, CMlControl _To) {
+	if (_From != Null && (_From is CMlFrame)) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ("{{{_HexColorUnfocus}}}" == "") {
+			AnimMgr.Add(_From, "<anim scale=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			declare CMlQuad Quad_Bg = ((_From as CMlFrame).GetFirstChild("quad-bg") as CMlQuad);
+			if (Quad_Bg != Null) Quad_Bg.Colorize = {{{P}}}CL::Hex6ToRgb("{{{_HexColorUnfocus}}}");
+		}
+	}
+
+	if (_To != Null && (_To is CMlFrame)) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ("{{{_HexColorFocus}}}" == "") {
+			AnimMgr.Add(_To, "<anim scale=\"1.3\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			declare CMlQuad Quad_Bg = ((_To as CMlFrame).GetFirstChild("quad-bg") as CMlQuad);
+			if (Quad_Bg != Null) Quad_Bg.Colorize = {{{P}}}CL::Hex6ToRgb("{{{_HexColorFocus}}}");
+		}
+	}
+}
+
+Void {{{P}}}SetType(Integer _Type) {
+	{{{P}}}G_Current_PopUp_Type = _Type;
+	for (iType, 1, {{{P}}}C_PopUp_Total - 1) {
+		declare CMlFrame FrameChoice <=> ({{{P}}}G_FrameGlobal.GetFirstChild("{{{P}}}frame-choice-"^iType) as CMlFrame);
+		if (FrameChoice == Null) continue;
+		FrameChoice.Visible = _Type == iType;
+		{{{Navigation::P}}}Lock(FrameChoice.GetFirstChild("{{{P}}}button-accept-"^iType), _Type != iType);
+		{{{Navigation::P}}}Lock(FrameChoice.GetFirstChild("{{{P}}}button-cancel-"^iType), _Type != iType);
+	}
+
+	if (_Type != {{{P}}}C_PopUp_None && _Type != {{{P}}}C_PopUp_Information) {
+		{{{P}}}Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{P}}}group"), {{{P}}}G_FrameGlobal.GetFirstChild("{{{P}}}button-accept-"^_Type));
+		{{{LoadingSpinner::P}}}StopAnimation(This, {{{P}}}G_FrameGlobal.GetFirstChild("{{{P}}}frame-loading-spinner"));
+	} else if (_Type == {{{P}}}C_PopUp_Information) {
+		{{{LoadingSpinner::P}}}StartAnimation(This, {{{P}}}G_FrameGlobal.GetFirstChild("{{{P}}}frame-loading-spinner"));
+	}
+
+	if (_Type == {{{P}}}C_PopUp_Information) {
+		{{{P}}}G_TimePopUpInfo = Now;
+	} else {
+		{{{P}}}G_TimePopUpInfo = {{{P}}}C_TimeOut_None;
+	}
+}
+
+Void {{{P}}}SetMessage(Text _Message) {
+	declare CMlLabel LabelMessage <=> ({{{P}}}G_FrameGlobal.GetFirstChild("label-pop-up-message") as CMlLabel);
+	LabelMessage.SetText(_Message);
+}
+
+Boolean {{{P}}}IsDisplayed() {
+	return {{{P}}}G_FrameGlobal.Visible;
+}
+
+Boolean {{{P}}}UserHasValidated() {
+	return {{{P}}}G_UserChoice == {{{P}}}C_User_Validate;
+}
+
+Boolean {{{P}}}UserHasCanceled() {
+	return {{{P}}}G_UserChoice == {{{P}}}C_User_Cancel;
+}
+
+Void {{{P}}}Show(Integer _Type, Text _Message, Text[] _SoloGroups) {
+	if (_Type != {{{P}}}C_PopUp_None) {{{P}}}SetType(_Type);
+	if (_Message != "") {{{P}}}SetMessage(_Message);
+
+	{{{P}}}G_FrameGlobal.Show();
+	declare Controls = {{{Navigation::P}}}EnableGroup(This, "{{{P}}}group", True);
+	{{{Navigation::P}}}SetGlobalSoloGroups(This, ["{{{P}}}group"]);
+	{{{P}}}G_SoloGroupsToRestore = _SoloGroups;
+}
+
+Void {{{P}}}Show(Integer _Type, Text _Message) {
+	{{{P}}}Show(_Type, _Message, []);
+}
+
+Void {{{P}}}Show(Text[] _SoloGroups) {
+	{{{P}}}Show({{{P}}}C_PopUp_None, "", _SoloGroups);
+}
+
+Void {{{P}}}Show() {
+	{{{P}}}Show({{{P}}}C_PopUp_None, "", []);
+}
+
+Void {{{P}}}Hide() {
+	if (!{{{P}}}IsDisplayed()) return;
+
+	{{{P}}}G_FrameGlobal.Hide();
+	declare Controls = {{{Navigation::P}}}EnableGroup(This, "{{{P}}}group", False);
+	{{{Navigation::P}}}SetGlobalSoloGroups(This, {{{P}}}G_SoloGroupsToRestore);
+}
+
+Void {{{P}}}Private_UserChoose(Integer _PlayerChoice) {
+	{{{P}}}G_UserChoice = _PlayerChoice;
+	{{{P}}}Hide();
+}
+
+Void {{{P}}}Select(CMlControl _Control) {
+	if (_Control == Null) return;
+
+	if ({{{P}}}TL::StartsWith("{{{P}}}button-accept", _Control.ControlId)) {
+		{{{P}}}Private_UserChoose({{{P}}}C_User_Validate);
+	} else if ({{{P}}}TL::StartsWith("{{{P}}}button-cancel", _Control.ControlId)) {
+		{{{P}}}Private_UserChoose({{{P}}}C_User_Cancel);
+	}
+}
+
+***MainStart***
+***
+{{{P}}}G_FrameGlobal = (Page.GetFirstChild("{{{P}}}frame-global") as CMlFrame);
+
+{{{Navigation::P}}}EnableGroup(This, "{{{P}}}group", False);
+
+{{{P}}}G_TimePopUpInfo = {{{P}}}C_TimeOut_None;
+{{{P}}}SetType({{{P}}}C_PopUp_None);
+{{{P}}}G_SoloGroupsToRestore = [];
+***
+
+***MainLoop***
+***
+if ({{{P}}}IsDisplayed()) {
+	if (!PageIsVisible) {{{P}}}Hide();
+
+	if ({{{P}}}G_TimePopUpInfo != {{{P}}}C_TimeOut_None && Now > {{{P}}}G_TimePopUpInfo + {{{P}}}C_TimeOut_InformationPopUp) {
+		{{{P}}}G_TimePopUpInfo = {{{P}}}C_TimeOut_None;
+		{{{P}}}SetType({{{P}}}C_PopUp_One_Choice);
+	}
+
+	foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Navigation::P}}}C_EventType_NavigateInput: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{P}}}group") && {{{P}}}G_Current_PopUp_Type != {{{P}}}C_PopUp_Information) {
+					if (Event.Input == CMlScriptEvent::EMenuNavAction::Select) {
+						{{{P}}}Select(Event.To);
+					} else {
+						{{{P}}}Focus(Event.From, Event.To);
+					}
+				}
+			}
+			case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{P}}}group")) {
+					if (Event.Mouse == CMlScriptEvent::Type::MouseClick) {
+						{{{P}}}Select(Event.To);
+					} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+						{{{P}}}Focus(Event.From, Event.To);
+					}
+				}
+			}
+		}
+	}
+}
+***
+		""",
+[Navigation::ComponentV2(), LoadingSpinner::ComponentV2()],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text Component() {
+	return Component("", "", "", "");
+}

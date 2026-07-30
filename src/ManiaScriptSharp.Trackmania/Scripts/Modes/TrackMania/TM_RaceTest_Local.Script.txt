@@ -1,0 +1,292 @@
+/**
+ *	RaceTest mode
+ */
+#Const Version		"1.0.2+2023-09-01"
+#Const ScriptName	"Modes/TrackMania/TM_RaceTest_Local.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/RaceTest.Script.txt" //< Url of the mania app
+#Const C_GhostUpdateInterval 1000
+#Const C_UnspawnAnimDuration 0
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Ghost {
+	Ident Id;
+	Ident InstanceId;
+	Boolean WaitingInstantiation;
+	Integer Duration;
+	Integer NextUpdateTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove the ghost of the player
+K_Ghost RemoveGhost(K_Ghost _Ghost) {
+	declare K_Ghost Ghost = _Ghost;
+
+	if (Ghost.InstanceId != NullId) {
+		Mode.GhostMgr.Ghost_Remove(Ghost.InstanceId);
+		Ghost.InstanceId = NullId;
+	}
+	if (Ghost.Id != NullId) {
+		if (Mode.DataFileMgr.Ghosts.existskey(Ghost.Id)) {
+			Mode.DataFileMgr.Ghost_Release(Ghost.Id);
+		}
+		Ghost.Id = NullId;
+	}
+
+	Ghost.WaitingInstantiation = False;
+
+	return Ghost;
+}
+Void RemoveGhost() {
+	declare K_Ghost RaceTest_Ghost for Mode;
+	RaceTest_Ghost = RemoveGhost(RaceTest_Ghost);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Save the ghost of the player last run
+K_Ghost UpdateGhost(K_Ghost _Ghost, CSmPlayer _Player, Integer _RaceDuration, Boolean _CanRetrieveGhost) {
+	declare K_Ghost Ghost = _Ghost;
+
+	Ghost.NextUpdateTime = Mode.Now + C_GhostUpdateInterval;
+
+	if (_RaceDuration > 0) {
+		declare Boolean NewGhostIsBetter = False;
+		if (Ghost.Id != NullId && Mode.DataFileMgr.Ghosts.existskey(Ghost.Id)) {
+			declare CGhost OldGhost = Mode.DataFileMgr.Ghosts[Ghost.Id];
+			// @Todo
+			// Check: /trackmania-next/tmnext/-/issues/1937
+			// _Player.RaceWaypointTimes stays empty even if the player
+			// crossed a checkpoint. As a temporary fix we retrieve the
+			// player's ghost to get the checkpoint time. But because it
+			// is expansive to do so, it must be done only when the
+			// player crosses a checkpoint.
+			declare Integer[] RaceWaypointTimes = _Player.RaceWaypointTimes;
+			if (_CanRetrieveGhost) {
+				declare CGhost Ghost = Mode.Ghost_RetrieveFromPlayer(_Player);
+				if (Ghost != Null) {
+					RaceWaypointTimes = [];
+					foreach (CheckpointTime in Ghost.Result.Checkpoints) {
+						RaceWaypointTimes.add(CheckpointTime);
+					}
+					DataFileMgr.Ghost_Release(Ghost.Id);
+				}
+			}
+			if (_CanRetrieveGhost && RaceWaypointTimes.count > OldGhost.Result.Checkpoints.count) {
+				NewGhostIsBetter = True;
+			} else if (_CanRetrieveGhost && RaceWaypointTimes.count < OldGhost.Result.Checkpoints.count) {
+				NewGhostIsBetter = False;
+			} else if (_CanRetrieveGhost && RaceWaypointTimes.count > 0) {
+				// Use <= to keep recording ghost when improving race with more CP
+				NewGhostIsBetter = RaceWaypointTimes[RaceWaypointTimes.count - 1] <= OldGhost.Result.Checkpoints[RaceWaypointTimes.count - 1];
+			} else {
+				NewGhostIsBetter = (_RaceDuration >= 0 && (Ghost.Duration < 0 || _RaceDuration > Ghost.Duration));
+			}
+		} else {
+			NewGhostIsBetter = True;
+		}
+
+		if (NewGhostIsBetter) {
+			declare CGhost NewGhost = Mode.Ghost_RetrieveFromPlayer(_Player);
+			if (NewGhost != Null) {
+				Ghost = RemoveGhost(Ghost);
+				Ghost.Id = NewGhost.Id;
+				// Do not instanciate (Ghost_Add()) here because it makes the ghost
+				// and its marker pop in for a few frames. Wait for a respawn.
+				Ghost.WaitingInstantiation = True;
+				Ghost.Duration = _RaceDuration;
+			}
+		} else {
+			// If the ghost has already crossed at least one checkpoint
+			// it is not necessary to keep updating every second
+			// if the previous update was not better. We can wait
+			// until the player crosses its next checkpoint.
+			if (
+				Ghost.Id != NullId &&
+				Mode.DataFileMgr.Ghosts.existskey(Ghost.Id) &&
+				Mode.DataFileMgr.Ghosts[Ghost.Id].Result.Checkpoints.count > 0
+			) {
+				Ghost.NextUpdateTime = -1;
+			}
+		}
+	}
+	return Ghost;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Hide the ghost of the player last run
+K_Ghost HideGhost(K_Ghost _Ghost) {
+	declare K_Ghost Ghost = _Ghost;
+
+	if (Ghost.InstanceId != NullId) {
+		Mode.GhostMgr.Ghost_Remove(Ghost.InstanceId);
+		Ghost.InstanceId = NullId;
+	}
+
+	Ghost.WaitingInstantiation = False;
+
+	return Ghost;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Display the ghost of the player last run
+K_Ghost ShowGhost(K_Ghost _Ghost) {
+	declare K_Ghost Ghost = HideGhost(_Ghost);
+
+	if (Ghost.Id != NullId && Mode.DataFileMgr.Ghosts.existskey(Ghost.Id)) {
+		Ghost.InstanceId = Mode.GhostMgr.Ghost_Add(Mode.DataFileMgr.Ghosts[Ghost.Id], True);
+	}
+
+	Ghost.WaitingInstantiation = False;
+
+	return Ghost;
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the test mode
+Void StartServer() {
+	// Setup mode
+	Mode.UnspawnAnimDuration = C_UnspawnAnimDuration;
+	Mode.SpawnDelayDuration = 0;
+	Mode.UIManager.UIAll.DisableZoomTransitions = True;
+	Mode.UsePvPWeapons = False;
+	Mode.UsePvPCollisions = False;
+	Mode.UsePvECollisions = False;
+	Mode.CheckpointBehaviour = CSmMode::ECheckpointBehaviour::Default;
+	Mode.RespawnBehaviour = CSmMode::ERespawnBehaviour::AlwaysRespawn;
+	Mode.GiveUpBehaviour = CSmMode::EGiveUpBehaviour::GiveUp;
+	Mode.GiveUpBehaviour_RespawnAfter = True;
+
+	// Setup UI
+	Mode.UIManager.UIAll.ClearMarkers();
+	Mode.UIManager.UIAll.UISequence_CutSceneStyle = CUIConfig::ECutSceneStyle::TM;
+	Mode.UIManager.UIAll.OverlayHideCountdown = True;
+	Mode.UIManager.UIAll.AltMenuNoDefaultScores = True;
+	Mode.UIManager.UIAll.ScoreTableOnlyManialink = True;
+	Mode.UIManager.UIAll.OverlayHideEndMapLadderRecap = True;
+	Mode.UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedHidden;
+	Mode.UIManager.UIAll.AltMenuNoDefaultScores = True;
+	Mode.UIManager.UIAll.AltMenuNoCustomScores = True;
+	Mode.UIManager.UIAll.OverlayHideChat = True;
+	Mode.UIManager.UIAll.OverlayHideSpectatorInfos = True;
+	Mode.UIManager.UIAll.OverlayChatOffset =  <-500., 0.>;
+	Mode.UIManager.UIAll.OverlayHide321Go = True;
+	Mode.UIManager.UIAll.OverlayHideMapInfo = True;
+	Mode.UIManager.UIAll.LabelsVisibility_SkipMarkersOnly = True;
+
+	// Setup ManiaApp and UIModules
+	Mode.ClientManiaAppUrl = C_ManiaAppUrl;
+	declare netwrite Text[] Net_LibUI3_Modules for Mode.Teams[0];
+	declare netwrite Net_LibUI3_ModulesUpdate for Mode.Teams[0] = -1;
+	Net_LibUI3_Modules = [
+		"UIModule_Race_Chrono",
+		"UIModule_Race_Checkpoint",
+		"UIModule_Race_BlockHelper"
+	];
+	Net_LibUI3_ModulesUpdate = Mode.Now;
+
+	declare netwrite Boolean Net_Race_Checkpoint_UseWaypointEvent for Mode.Teams[0];
+	Net_Race_Checkpoint_UseWaypointEvent = False;
+
+	// Setup players
+	foreach (Player in Mode.AllPlayers) {
+		Player.UseCrudeExtrapolation = False;
+		Player.TrustClientSimu = False;
+	}
+}
+Void StartMap() {
+	declare K_Ghost RaceTest_Ghost for Mode;
+	RaceTest_Ghost = ShowGhost(RaceTest_Ghost);
+	RaceTest_Ghost.NextUpdateTime = Mode.Now + C_GhostUpdateInterval;
+
+	// Setup players
+	foreach (Player in Mode.AllPlayers) {
+		Player.UseCrudeExtrapolation = False;
+		Player.TrustClientSimu = False;
+
+		// Display UIModules
+		declare netwrite Boolean Net_Race_Chrono_IsVisible for Player;
+		declare netwrite Boolean Net_Race_Checkpoint_IsVisible for Player;
+		declare netwrite Boolean Net_Campaign_BlockHelper_IsVisible for Player;
+		Net_Race_Chrono_IsVisible = True;
+		Net_Race_Checkpoint_IsVisible = True;
+		Net_Campaign_BlockHelper_IsVisible = True;
+
+		// Save start time
+		declare Integer RaceTest_PlayerStartTime for Player;
+		RaceTest_PlayerStartTime = Player.StartTime;
+
+		// Wait at least `C_GhostUpdateInterval` ms after the player spawn
+		// before saving the ghost.
+		if (Player.StartTime + C_GhostUpdateInterval > RaceTest_Ghost.NextUpdateTime) {
+			RaceTest_Ghost.NextUpdateTime = Player.StartTime + C_GhostUpdateInterval;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the test mode
+Void PlayLoop() {
+	declare K_Ghost RaceTest_Ghost for Mode;
+
+	foreach (Event in Mode.PendingEvents) {
+		// It is not necessary to PassOn or Discard the events.
+		// In the context of the MapType the events have already
+		// been processed by the C++ during the physic step
+		// while the MapType is only updated during the
+		// UI step.
+		switch (Event.Type) {
+			case CSmModeEvent::EType::OnPlayerTriggersWaypoint: {
+				if (Event.Player != Null && Event.WaypointTime >= 0) {
+					RaceTest_Ghost = UpdateGhost(RaceTest_Ghost, Event.Player, Mode.Now - Event.Player.StartTime, True);
+				}
+			}
+		}
+	}
+
+	// When the player press the give up button
+	// we do not receive any event.
+	// Instead it looks like the mode is restarted
+	// from scratch. The only way to detect that
+	// is to check if the player start time changed.
+	// Because the mode restarted we cannot retrieve
+	// the player's ghost at this point.
+	foreach (Player in Mode.Players) {
+		declare Integer RaceTest_PlayerStartTime for Player;
+		if (RaceTest_PlayerStartTime != Player.StartTime) {
+			RaceTest_PlayerStartTime = Player.StartTime;
+			if (RaceTest_Ghost.WaitingInstantiation) {
+				RaceTest_Ghost = ShowGhost(RaceTest_Ghost);
+			}
+		}
+	}
+
+	// Because we cannot wait after a player give up
+	// to check if its race is better, we do a check every second
+	if (
+		Mode.Players.count > 0 &&
+		RaceTest_Ghost.NextUpdateTime >= 0 &&
+		Mode.Now >= RaceTest_Ghost.NextUpdateTime
+	) {
+		RaceTest_Ghost.NextUpdateTime = Mode.Now + C_GhostUpdateInterval;
+		RaceTest_Ghost = UpdateGhost(RaceTest_Ghost, Mode.Players[0], Mode.Now - Mode.Players[0].StartTime, False);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop the test mode
+Void EndMap() {
+	declare K_Ghost RaceTest_Ghost for Mode;
+	RaceTest_Ghost = HideGhost(RaceTest_Ghost);
+}
+Void EndServer() {
+
+}

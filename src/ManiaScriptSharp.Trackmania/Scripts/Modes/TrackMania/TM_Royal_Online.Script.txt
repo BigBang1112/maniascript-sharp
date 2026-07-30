@@ -1,0 +1,1179 @@
+/**
+ * Royal mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Royal,TM_Royal"
+#Const Version "1.2.2+2024-12-05"
+#Const ScriptName "Modes/TrackMania/TM_Royal_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/Trackmania/Modes/Matchmaking.Script.txt" as Matchmaking
+#Include "Libs/Nadeo/CMGame/Modes/Bot.Script.txt" as Bot
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/Royal.Script.txt" as Royal
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/StateManager.Script.txt" as StateMgr
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/SpectatorBase_Server.Script.txt" as UIModules_SpectatorBase
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/RoundEliminations_Server.Script.txt" as UIModules_RoundEliminations
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/RoundBestTeams_Server.Script.txt" as UIModules_RoundBestTeams
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable_Royal
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/TeamScore_Server.Script.txt" as UIModules_TeamScore
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/WaitingScreen_Server.Script.txt" as UIModules_WaitingScreen
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/PreLoadingScreen_Common.Script.txt" as PreLoadingScreen_Common
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/MatchResult_Server.Script.txt" as UIModules_MatchResult
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/SegmentProgression_Server.Script.txt" as UIModules_SegmentProgression
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/LiveRanking_Server.Script.txt" as UIModules_LiveRanking
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/WinScreen_Common.Script.txt" as WinScreen_Common
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/Transition_Server.Script.txt" as UIModules_Transition
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/CanChat_Server.Script.txt" as UIModules_CanChat
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/SuperRoyal_Server.Script.txt" as UIModules_NetShare_Royal
+#Include "Libs/Nadeo/Trackmania/Structures/PrestigeStruct.Script.txt" as PrestigeStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_TimeLimit 150 as _("Time limit") //< Time limit before going to the next map
+#Setting S_SegmentUnlockInterval 30 as _("Time interval between segment unlock")
+#Setting S_SegmentBonusTime 1 as _("Bonus time for completing a segment")
+#Setting S_MatchWaitingScreenDuration 20 as _("Match waiting screen duration") //< Maximum time spent waiting for players at the beginning of the match
+#Setting S_RoundWaitingScreenDuration 20 as _("Round waiting screen duration") //< Maximum time spent waiting for players at the beginning of each round
+#Setting S_ChatTime 120 //< Wait more time before launching the next match
+#Setting S_EnableJoinLeaveNotifications False
+#Setting S_IsMatchmaking True as "<hidden>" //< Enable matchmaking features
+#Setting S_MatchId "" as "<hidden>" //< Id of the matchmaking match
+#Setting S_ClanStyle 0 as "<hidden>" //< Manually define the clan style
+#Setting S_AddBotsUntil 20 as "<hidden>" //< Add bots to the match until there is the required number of teams
+#Setting S_MaxBotsTeams 10 as "<hidden>" //< Maximum number of bot teams
+#Setting S_MinBotLevel 0 as "<hidden>" //< Minimum number of sections that the bots teams must complete
+#Setting S_MaxBotLevel 0 as "<hidden>" //< Maximum number of sections that the bots teams can complete
+#Setting S_EnableGhostsUpload False as "<hidden>" //< Upload the ghosts of the players to create bots
+#Setting S_GhostDBId 0 as "<hidden>" //< Id of the ghost database. Used to create several DB for the same settings.
+#Setting S_IsSuperRoyal False as "<hidden>" //< Super Royal mode activation
+#Setting S_SuperRoyalRoundNumber 0 as "<hidden>" //< Super Royal round number
+#Setting S_IsSuperRoyalFinale False as "<hidden>" //< To tell if the current Super Royal round is the finale
+#Setting S_Division "" as "<hidden>" //< To tell the current Super Royal division
+#Setting S_AlwaysDisplayUnlockTimer False as "<hidden>" //< Always display when the next segment will be unlocked or only if the team reached it already
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// The `CustomData` variable on the nadeo services is limited to 50 characters.
+// So we use shorter names for the json fields.
+#Struct K_GhostDriverCustomData {
+	Integer A; //< Version;
+	Integer B; //< TimeLimit;
+	Integer C; //< SegmentUnlockInterval;
+	Integer D; //< SegmentBonusTime;
+	Integer E; //< GhostDBId
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "Royal"
+//L16N [Royal] Description of the mode rules
+#Const Description _("""Several teams compete for the win. The game is played in several rounds. Each round, the first teams to finish the race are qualified for the next round while the last ones are eliminated. After some rounds, only a few teams will remain. The team that wins the last race wins the match.""")
+
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/Royal.Script.txt" //< Url of the mania app
+#Const C_NumberOfRoundsToPlay 5
+#Const C_MatchGetReadyDuration 3000 //< Warn the player that the match is starting
+#Const C_BotsPerTeam 3
+#Const C_GhostUploadMinPlayersPerTeam 1 //< Minimum number of players in the team for its ghosts to be uploaded
+#Const C_DownloadGhostsTaskTimeout 60000
+#Const C_UploadGhostsTaskTimeout 60000
+#Const C_SpawnDelayAfterWaitingScreen 1500
+#Const C_DisableSkipOutro True //< Prevent the players from pressing respawn/give up to cut the finish outro and respawn faster
+#Const C_ImageUrl_CheckpointImage "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal"
+#Const C_EnableAutomaticGiveUpAfterElimination True
+
+// Array of account id to add into fake teams
+// ["AcountId1" => 3, "AccountId2" => 3, "AccountId3" => 17, "AcountIdN" => ClanN]
+#Const C_FakeTeamsMembers ["" => -1]
+#Const C_FakeTeamsNb 0
+#Const C_FakeTeamsPlayersNb 3
+#Const C_EnableFakeTeams False
+
+// `C_GhostDriverCustomDataVersion` must be changed every time there is a gameplay change in the mode
+// Otherwise the events saved in the ghosts won't match the new rules and they won't be replayed properly
+#Const C_GhostDriverModeName "Royal" //< Can be anything on UAT, only "TimeAttack" or "Royal" on Production
+#Const C_GhostDriverCustomDataVersion 3
+
+#Const C_UploadRecord False
+#Const C_DisplayRecordGhost False
+#Const C_DisplayRecordMedal False
+#Const C_CelebrateRecordGhost False
+#Const C_CelebrateRecordMedal False
+#Const C_DisplayWorldTop False
+#Const C_EnableGhostDriver True
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(Matchmaking::ScriptName, Matchmaking::Version);
+Log::RegisterScript(ModeUtils::ScriptName, ModeUtils::Version);
+Log::RegisterScript(Bot::ScriptName, Bot::Version);
+Log::RegisterScript(Royal::ScriptName, Royal::Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(UIModules_PauseMenu_Online::ScriptName, UIModules_PauseMenu_Online::Version);
+Log::RegisterScript(UIModules_Checkpoint::ScriptName, UIModules_Checkpoint::Version);
+Log::RegisterScript(UIModules_SpectatorBase::ScriptName, UIModules_SpectatorBase::Version);
+Log::RegisterScript(UIModules_RoundEliminations::ScriptName, UIModules_RoundEliminations::Version);
+Log::RegisterScript(UIModules_RoundBestTeams::ScriptName, UIModules_RoundBestTeams::Version);
+Log::RegisterScript(UIModules_ScoresTable_Royal::ScriptName, UIModules_ScoresTable_Royal::Version);
+Log::RegisterScript(UIModules_TeamScore::ScriptName, UIModules_TeamScore::Version);
+Log::RegisterScript(UIModules_WaitingScreen::ScriptName, UIModules_WaitingScreen::Version);
+Log::RegisterScript(PreLoadingScreen_Common::ScriptName, PreLoadingScreen_Common::Version);
+Log::RegisterScript(UIModules_MatchResult::ScriptName, UIModules_MatchResult::Version);
+Log::RegisterScript(UIModules_SegmentProgression::ScriptName, UIModules_SegmentProgression::Version);
+Log::RegisterScript(UIModules_LiveRanking::ScriptName, UIModules_LiveRanking::Version);
+Log::RegisterScript(WinScreen_Common::ScriptName, WinScreen_Common::Version);
+Log::RegisterScript(UIModules_Transition::ScriptName, UIModules_Transition::Version);
+***
+
+***Match_LoadLibraries***
+***
+Matchmaking::Load();
+Royal::Load();
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+Royal::Unload();
+Matchmaking::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultTimer = False;
+MB_Settings_UseDefaultPodiumSequence = False;
+MB_Settings_UseDefaultIntroSequence = False;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_MultiTeams);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+UIModules_PauseMenu_Online::SetHelp(Description);
+UIModules_PauseMenu_Online::SetInviteFriendsButtonHiddenAndLocked(True);
+UIModules_Checkpoint::SetVisibleFor(UIModules_Checkpoint::C_Target_None);
+UIModules_SpectatorBase::HidePlayerName(True);
+UIModules_Sign16x9Small::SetDisplayMode(UIModules_Sign16x9Small::C_DisplayMode_Royal);
+UpdateScoresTableHeader(S_TimeLimit, 1, C_NumberOfRoundsToPlay);
+Race::EnableAutomaticGiveUpAfterElimination(C_EnableAutomaticGiveUpAfterElimination);
+Race::SortScores(Race::C_Sort_TotalPoints);
+UIManager.HoldLoadingScreen = True;
+
+Markers::EnablePlayersMarkers();
+Markers::SetDefaultMarker_HudVisibility(CUIConfigMarker::EHudVisibility::WhenInFrustum);
+UIManager.UIAll.AlliesLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+UIManager.UIAll.TeamLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+UIManager.UIAll.OpposingTeamLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+UIManager.UIAll.PlayerDisableFreeCam = True;
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+
+			// Apply spectator mode restriction
+			declare Boolean Match_SpectatorRestrictionActive for This = False;
+			Royal::ApplySpectatorModeRestriction(Event.Player, Match_SpectatorRestrictionActive);
+		}
+		case CSmModeEvent::EType::OnPlayerRemoved: {
+			if (Event.User != Null) Royal::UnlinkPlayerFromTeamMember(Event.User.WebServicesUserId);
+		}
+	}
+}
+
+foreach (Event in XmlRpc.PendingEvents) {
+	if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+		switch (Event.ParamArray1) {
+			case Matchmaking::C_Method_AddPlayer: {
+				declare Matchmaking::K_Method_AddPlayer EventInfo = Matchmaking::GetEventInfo_Method_AddPlayer(Event);
+				if (EventInfo.AccountId != "" && EventInfo.Clan > 0) {
+					// `Match_PlayedRoundsNb > 0` marks the teams created after the first round
+					// and the first elimination as eliminated themselves.
+					declare Integer Match_PlayedRoundsNb for This = 0;
+					Royal::AddTeamMember(EventInfo.AccountId, EventInfo.Clan, Match_PlayedRoundsNb > 0);
+					Royal::ThrottleUpdateRanking();
+					// Unspawn player to spawn them in the right team
+					declare CSmPlayer Player = ModeUtils::GetPlayerFromAccountId(EventInfo.AccountId);
+					if (Player != Null && Race::IsRacing(Player)) {
+						Race::StopSkipOutro(Player);
+					}
+				}
+			}
+			case Matchmaking::C_Method_RemovePlayer: {
+				declare Text AccountId = Matchmaking::GetEventInfo_Method_RemovePlayer(Event);
+				if (AccountId != "") {
+					Royal::RemoveTeamMember(AccountId);
+					Royal::ThrottleUpdateRanking();
+					// Unspawn player if they are not in a team anymore
+					declare CSmPlayer Player = ModeUtils::GetPlayerFromAccountId(AccountId);
+					if (Player != Null && Race::IsRacing(Player)) {
+						Race::StopSkipOutro(Player);
+					}
+				}
+			}
+		}
+	}
+}
+
+StateMgr::Yield();
+Royal::Yield();
+***
+
+***Match_InitServer***
+***
+// The clans styles must be set in `InitServer`
+// because `LoadItems` is executed before `StartServer`
+Clans::SetClansNb(Clans::C_MultiClansMax);
+Clans::EnableClanSkins(True);
+if (S_ClanStyle == Clans::C_ClanStyle_Default) {
+	Clans::SetClanStyle(PrestigeStruct::GetCurrentYearClanStyle());
+} else {
+	Clans::SetClanStyle(S_ClanStyle);
+}
+for (Clan, 1, Clans::C_MultiClansMax) {
+	declare Vec3 ClanColor = Clans::GetClanColor(Clan);
+	Teams[Clan - 1].ColorPrimary = ClanColor;
+	Teams[Clan - 1].ColorUI = ClanColor;
+}
+***
+
+***Match_LoadItems***
+***
+Clans::LoadClanStyleSkins();
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_AlwaysGiveUp);
+Race::UseAutomaticDossardColor(False);
+WarmUp::SetAvailability(False);
+UsePvECollisions = True; //< Synchronize obstacles between all players
+DisableDefaultSkinPreload = True;
+
+UIModules_NetShare_Royal::SetSuperRoyalEnabled(S_IsSuperRoyal);
+UIModules_NetShare_Royal::SetSuperRoyalRoundNumber(S_SuperRoyalRoundNumber+2); //S_SuperRoyalRoundNumber starts at -1 on API side but we need to start a 1 in UI
+UIModules_NetShare_Royal::SetSuperRoyalFinale(S_IsSuperRoyalFinale);
+UIModules_NetShare_Royal::SetSuperRoyalDivision(S_Division);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting, StateMgr::C_State_NoScoresTable]);
+UIModules_PauseMenu_Online::SetScoresTableButtonLocked(True);
+***
+
+***Match_InitMatch***
+***
+declare Boolean Match_MapIsValid = False;
+declare Integer Match_PlayedRoundsNb for This = 0;
+declare Boolean Match_StartNewMatch = True;
+declare Boolean Match_SpectatorRestrictionActive for This = False;
+declare Integer[] Match_BotTeamIds;
+***
+
+***Match_StartMatch***
+***
+// Initialize match
+Match_PlayedRoundsNb = 0;
+Match_StartNewMatch = True;
+Match_SpectatorRestrictionActive = False;
+Match_BotTeamIds = [];
+Royal::InitializeMatch();
+if (C_EnableFakeTeams) {
+	Royal::CreateFakeTeams(C_FakeTeamsNb, C_FakeTeamsPlayersNb, C_FakeTeamsMembers);
+}
+UIModules_MatchResult::ResetTeamsRank();
+UIModules_MatchResult::ResetClickedOnStay();
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting, StateMgr::C_State_NoScoresTable]);
+***
+
+***Match_BeforeLoadMap***
+***
+if (Match_StartNewMatch) {
+	// Fake users must be destroyed before loading the map or they won't be cleaned up properly
+	Users_DestroyAllFakes();
+}
+if (S_IsSuperRoyal) {
+	switch (S_Division) {
+		case UIModules_NetShare_Royal::C_Division_Bronze: DecoImage::SetDecoImage_Checkpoint(C_ImageUrl_CheckpointImage^"/SuperRoyal/Logo_Super_Royal_Bronze.dds");
+		case UIModules_NetShare_Royal::C_Division_Silver: DecoImage::SetDecoImage_Checkpoint(C_ImageUrl_CheckpointImage^"/SuperRoyal/Logo_Super_Royal_Silver.dds");
+		case UIModules_NetShare_Royal::C_Division_Gold: DecoImage::SetDecoImage_Checkpoint(C_ImageUrl_CheckpointImage^"/SuperRoyal/Logo_Super_Royal_Gold.dds");
+		case UIModules_NetShare_Royal::C_Division_Master: DecoImage::SetDecoImage_Checkpoint(C_ImageUrl_CheckpointImage^"/SuperRoyal/Logo_Super_Royal_Master.dds");
+		default: DecoImage::SetDecoImage_Checkpoint(C_ImageUrl_CheckpointImage^"/SuperRoyal/Logo_Super_Royal_Qualifications.dds");
+	}
+} else {
+	DecoImage::SetDecoImage_Checkpoint(C_ImageUrl_CheckpointImage^"/Decal_Royal.dds");
+}
+
+// Toggling the ghost recording must be done before
+// loading a map while no one is spawned
+EnableGhostRecording = S_EnableGhostsUpload;
+***
+
+***Match_InitMap***
+***
+declare Integer Map_NextSegmentUnlockTime;
+declare Task::K_Task Map_DownloadGhostsTask;
+declare Task::K_Task[] Map_UploadGhostsTask;
+declare Integer Map_GhostsTaskTimeout;
+declare Boolean Map_CanUploadReplays;
+declare Boolean Map_UseSpawnDelay;
+declare Boolean Map_BonusTimeIsActive;
+declare Integer[Integer] Map_TeamsBotLevel;
+// The ghosts are still there after a script restart
+// Use `declare for This` to be able to release them
+declare Ident[] Map_DownloadedGhostIds for This;
+declare Integer Map_TimeLimit;
+declare Integer Map_SegmentUnlockInterval;
+declare Integer Map_SegmentBonusTime;
+
+Match_MapIsValid = Royal::InitializeMap();
+Match_SpectatorRestrictionActive = False;
+Map_DownloadGhostsTask = Task::GetEmptyTask();
+Map_UploadGhostsTask = [];
+Map_GhostsTaskTimeout = -1;
+Map_CanUploadReplays = False;
+Map_UseSpawnDelay = False;
+Map_BonusTimeIsActive = False;
+Map_TeamsBotLevel = [];
+Map_TimeLimit = S_TimeLimit;
+Map_SegmentUnlockInterval = S_SegmentUnlockInterval;
+Map_SegmentBonusTime = S_SegmentBonusTime;
+
+Log::Log("[Royal][Bots] InitMap > Before releasing ghosts > Ghosts : "^Ghosts^" | Map_DownloadedGhostIds : "^Map_DownloadedGhostIds);
+ReleaseGhosts(Map_DownloadedGhostIds);
+Map_DownloadedGhostIds = [];
+Log::Log("[Royal][Bots] InitMap > After releasing ghosts > Ghosts : "^Ghosts);
+
+// Setup GhostDriver
+declare Text CustomData = GetGhostDriverCustomData(C_GhostDriverCustomDataVersion, Map_TimeLimit, Map_SegmentUnlockInterval, Map_SegmentBonusTime, S_GhostDBId);
+Race::SetupRecord(
+	"",
+	"",
+	C_GhostDriverModeName,
+	"",
+	CustomData,
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal,
+	C_DisplayWorldTop,
+	C_EnableGhostDriver
+);
+Log::Log("[Royal][Bots] ModeName : "^C_GhostDriverModeName^" | CustomData : "^CustomData);
+
+// Reset spectator mode restriction
+foreach (Player in AllPlayers) {
+	Royal::ApplySpectatorModeRestriction(Player, Match_SpectatorRestrictionActive);
+}
+
+if (S_MatchId != "") {
+	//L16N %1 will be replaced by the matchmaking match id (useful to debug), e.g. "Match Id:LID-MTCH-mrsmf2buapizcux"
+	UIModules_ScoresTable_Royal::SetClipboardMessage(TL::Compose(_("Match Id: %1"), S_MatchId), S_MatchId);
+} else {
+	UIModules_ScoresTable_Royal::ResetClipboardMessage();
+}
+UpdateScoresTableHeader(Map_TimeLimit, Match_PlayedRoundsNb + 1, C_NumberOfRoundsToPlay);
+
+// When playing in matchmaking, wait until we have
+// at least one team before starting the match
+if (S_IsMatchmaking && Match_StartNewMatch) {
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting, StateMgr::C_State_NoScoresTable]);
+	ModeUtils::PushAndApplyUISequence(UIManager.UIAll, CUIConfig::EUISequence::RollingBackgroundIntro);
+	declare Text PrevBigMessage = UIManager.UIAll.BigMessage;
+	//L16N [Royal] The matchmaking system is being initialized
+	UIManager.UIAll.BigMessage = _("Matchmaking initialization");
+	UIManager.HoldLoadingScreen = False;
+
+	while (MB_MapIsRunning() && Royal::GetTeamsNb() <= 0) {
+		MB_Yield();
+	}
+
+	UIManager.HoldLoadingScreen = True;
+	UIManager.UIAll.BigMessage = PrevBigMessage;
+	ModeUtils::PopAndApplyUISequence(UIManager.UIAll);
+
+	// Complete match with bot teams if necessary
+	declare Integer TotalPlayersNb = AllPlayers.count;
+	declare Integer AddBotsUntil = ML::Min(S_AddBotsUntil, Clans::C_MultiClansMax);
+	Match_BotTeamIds = [];
+	if (Royal::GetTeamsNb() < AddBotsUntil && TotalPlayersNb < ServerAdmin.ServerInfo.MaxPlayerCount && S_MaxBotsTeams > 0) {
+		// Create the bot teams and fake users
+		declare Integer BotTeamsCreatedNb = 0;
+		for (TeamId, 1, AddBotsUntil) {
+			if (!Royal::TeamExists(TeamId)) {
+				declare Integer TeamMembersNb = 0;
+
+				for (I, 1, C_BotsPerTeam) {
+					declare CUser FakeUser <=> Users_CreateFake(Bot::GetUniqueName(), TeamId);
+					if (FakeUser != Null) {
+						Royal::AddTeamMember(FakeUser.WebServicesUserId, TeamId, False);
+						TeamMembersNb += 1;
+						TotalPlayersNb += 1;
+						if (TotalPlayersNb >= ServerAdmin.ServerInfo.MaxPlayerCount) break;
+					}
+				}
+
+				if (TeamMembersNb > 0) {
+					BotTeamsCreatedNb += 1;
+					if (!Match_BotTeamIds.exists(TeamId)) {
+						Match_BotTeamIds.add(TeamId);
+					}
+				}
+
+				if (
+					TotalPlayersNb >= ServerAdmin.ServerInfo.MaxPlayerCount ||
+					Royal::GetTeamsNb() >= AddBotsUntil ||
+					BotTeamsCreatedNb >= S_MaxBotsTeams
+				) break;
+			}
+		}
+
+		Log::Log("""[Royal][Bots] Created {{{BotTeamsCreatedNb}}} bots teams | Match_BotTeamIds : {{{Match_BotTeamIds}}}""");
+	}
+}
+
+// Download ghosts for the bots
+if (Match_BotTeamIds.count > 0) {
+	declare Integer[Integer] BotLevelCount;
+	declare Integer MinBotLevel = ML::Max(0, S_MinBotLevel);
+	declare Integer MaxBotLevel = ML::Max(MinBotLevel, S_MaxBotLevel);
+	Map_TeamsBotLevel = [];
+
+	foreach (TeamId in Match_BotTeamIds) {
+		declare Royal::K_Team Team = Royal::GetTeam(TeamId);
+		if (!Royal::TeamIsNull(Team) && !Team.Eliminated && Team.Members.count >= C_BotsPerTeam) {
+			declare Integer BotLevel = Royal::GetTeamBotLevel(TeamId, <MinBotLevel, MaxBotLevel>, <-1, 1>);
+			Map_TeamsBotLevel[TeamId] = BotLevel;
+			if (BotLevelCount.existskey(BotLevel)) {
+				BotLevelCount[BotLevel] += 1;
+			} else {
+				BotLevelCount[BotLevel] = 1;
+			}
+		}
+	}
+
+	if (BotLevelCount.count > 0) {
+		GhostDriver_Download_Begin();
+		foreach (BotLevel => TeamsNb in BotLevelCount) {
+			GhostDriver_Download_AddRange(BotLevel, BotLevel, TeamsNb);
+		}
+		Map_DownloadGhostsTask = Task::DestroyAndCreate(Map_DownloadGhostsTask, This, GhostDriver_Download_End());
+		Map_GhostsTaskTimeout = Now + C_DownloadGhostsTaskTimeout;
+	}
+
+	Log::Log("""[Royal][Bots] Loaded {{{Map_TeamsBotLevel.count}}}/{{{Match_BotTeamIds.count}}} bots teams with levels {{{Map_TeamsBotLevel}}} | Bot levels count : {{{BotLevelCount}}}""");
+}
+
+declare Boolean IsLastRound = (Match_PlayedRoundsNb + 1) == (ML::Min(C_NumberOfRoundsToPlay, Royal::GetTeamsNb() - 1));
+UIModules_MatchResult::SetLastRound(IsLastRound);
+
+// We use `>= 0` and not `> 0` here because the waiting screen
+// has two steps. First waiting for the presence of at least one player.
+// Then waiting the desired amount of time. With `>= 0` we can have
+// the first step without the second.
+declare Integer WaitingScreenDuration = S_RoundWaitingScreenDuration;
+if (Match_StartNewMatch) WaitingScreenDuration = S_MatchWaitingScreenDuration;
+if (WaitingScreenDuration >= 0) {
+	UIModules_WaitingScreen::SetMapsProgression(Match_PlayedRoundsNb + 1, ML::Min(C_NumberOfRoundsToPlay, Royal::GetTeamsNb() - 1));
+	UIModules_WaitingScreen::SetConnectedPlayersNb(0, 0);
+	UIModules_WaitingScreen::SetEliminationsNb(Royal::GetNotEliminatedTeamsNb(), Royal::GetEliminationsNb(C_NumberOfRoundsToPlay, Match_PlayedRoundsNb + 1));
+	UIModules_WaitingScreen::SetMatchStarting(False);
+	UIModules_WaitingScreen::SetWaitEndTime(-1);
+
+	// Once the waiting and preloading screens are ready to transition
+	// We can hide the loading screen
+	MB_Sleep(1000);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_WaitingScreen, StateMgr::C_State_NoScoresTable]);
+	UIManager.HoldLoadingScreen = False;
+	ModeUtils::PushAndApplyUISequence(UIManager.UIAll, CUIConfig::EUISequence::RollingBackgroundIntro);
+
+	// Wait for the connection of the first valid player to start the countdown
+	declare Boolean HasValidPlayer = False;
+	while (MB_MapIsRunning() && (AllPlayers.count <= 0 || !HasValidPlayer)) {
+		MB_Sleep(1000);
+		HasValidPlayer = False;
+		foreach (Player in AllPlayers) {
+			if (Player.User != Null && Royal::GetTeamId(Player) != Royal::C_TeamNullId) {
+				HasValidPlayer = True;
+				break;
+			}
+		}
+	}
+
+	// If all players are connected and ghosts downloaded before the end of the countdown, start immediatly
+	declare Integer PlayersWaitEndTime = Now + (WaitingScreenDuration * 1000);
+	declare Boolean AllPlayersConnected = False;
+	declare Boolean IsDownloadingGhosts = False;
+	if (Task::IsInitialized(Map_DownloadGhostsTask)) {
+		IsDownloadingGhosts = True;
+		Map_DownloadGhostsTask = Task::Update(Map_DownloadGhostsTask);
+	}
+	// We display the longest timer but they remain distinct.
+	// The race can start if a player is missing after the ghost
+	// download is complete and `PlayersWaitEndTime` expired even
+	// if the timer is still ticking.
+	UIModules_WaitingScreen::SetWaitEndTime(ML::Max(PlayersWaitEndTime, Map_GhostsTaskTimeout));
+	while (
+		MB_MapIsRunning() && (
+			(Now < PlayersWaitEndTime && !AllPlayersConnected) ||
+			(IsDownloadingGhosts && Task::IsRunning(Map_DownloadGhostsTask) && Now < Map_GhostsTaskTimeout)
+		)
+	) {
+		MB_Sleep(1000);
+		declare Int2 ConnectedPlayersNb = Royal::GetConnectedPlayersNb();
+		AllPlayersConnected = ConnectedPlayersNb.Y > 0 && ConnectedPlayersNb.X >= ConnectedPlayersNb.Y;
+		UIModules_WaitingScreen::SetConnectedPlayersNb(ConnectedPlayersNb.X, ConnectedPlayersNb.Y);
+
+		// Assign players to their clan so they can see their teammates in the waiting screen
+		foreach (Player in Players) {
+			declare Integer PlayerClan = Royal::GetTeamId(Player);
+			if (PlayerClan >= 0 && Player.CurrentClan != PlayerClan) {
+				SetPlayerClan(Player, PlayerClan);
+			}
+		}
+
+		Map_DownloadGhostsTask = Task::Update(Map_DownloadGhostsTask);
+	}
+
+	// Assign players to their clan if we did not have the time to do it in the loop above
+	foreach (Player in Players) {
+		declare Integer PlayerClan = Royal::GetTeamId(Player);
+		if (PlayerClan >= 0 && Player.CurrentClan != PlayerClan) {
+			SetPlayerClan(Player, PlayerClan);
+		}
+	}
+
+	// Warn players that some of their teammates cannot chat because they have only a starter access
+	if (Match_StartNewMatch) {
+		UIModules_CanChat::SendGroupedCannotChatMessages();
+	}
+
+	// Warn the players that the match is starting
+	UIModules_WaitingScreen::SetMatchStarting(True);
+	MB_Sleep(C_MatchGetReadyDuration);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting, StateMgr::C_State_NoScoresTable]);
+	UIModules_Transition::SetTransition(Now, -1);
+	MB_Sleep(UIModules_Transition::C_TransitionDuration + 500); //< Hide the Waiting screen before ending the map intro
+	ModeUtils::PopAndApplyUISequence(UIManager.UIAll);
+	Map_UseSpawnDelay = True;
+}
+
+// Apply ghosts to the fake users
+if (Task::IsInitialized(Map_DownloadGhostsTask)) {
+	Map_DownloadGhostsTask = Task::Update(Map_DownloadGhostsTask);
+	while (MB_MapIsRunning() && Task::IsRunning(Map_DownloadGhostsTask) && Now < Map_GhostsTaskTimeout) {
+		MB_Yield();
+		Map_DownloadGhostsTask = Task::Update(Map_DownloadGhostsTask);
+	}
+	if (!Task::IsRunning(Map_DownloadGhostsTask) && Task::IsSuccess(Map_DownloadGhostsTask)) {
+		declare CWebServicesTaskResult_GhostDriver_Download SourceTask = Task::GetSourceTask_GhostDriver_Download(Map_DownloadGhostsTask);
+		if (SourceTask != Null) {
+			declare CGhost[][][][Integer] TeamsGhosts;
+			foreach (Team in SourceTask.Teams) {
+				declare CGhost[][] TeamGhosts;
+				foreach (Member in Team.Members) {
+					if (Member.Ghosts.count > 0) {
+						declare CGhost[] TmpGhosts;
+						Log::Log("""[Royal][Bots] ~~~~~~~~~~~~""");
+						foreach (MemberGhost in Member.Ghosts) {
+							Log::Log("""[Royal][Bots] Id: {{{MemberGhost.Ghost.Id}}} | Nickname: {{{MemberGhost.Ghost.Nickname}}} | Time: {{{MemberGhost.Ghost.Result.Time}}} | Checkpoints: {{{MemberGhost.Ghost.Result.Checkpoints}}}""");
+							Map_DownloadedGhostIds.add(MemberGhost.Ghost.Id);
+							TmpGhosts.add(MemberGhost.Ghost);
+						}
+						TeamGhosts.add(TmpGhosts);
+					}
+				}
+				if (TeamGhosts.count > 0) {
+					if (TeamsGhosts.existskey(Team.TeamLevel)) {
+						TeamsGhosts[Team.TeamLevel].add(TeamGhosts);
+					} else {
+						TeamsGhosts[Team.TeamLevel] = [TeamGhosts];
+					}
+				}
+			}
+			Log::Log("""[Royal][Bots] Ghosts downloaded by the task > TeamsGhosts : {{{TeamsGhosts}}}""");
+
+			declare Integer[][Integer] TeamIdToTeamsGhostsKey;
+			foreach (Player in AllPlayers) {
+				if (Player.User != Null && Player.User.IsFakeUser) {
+					declare Integer TeamId = Royal::GetTeamId(Player);
+					if (TeamId != Royal::C_TeamNullId && Map_TeamsBotLevel.existskey(TeamId)) {
+						declare Integer TeamBotLevel = Map_TeamsBotLevel[TeamId];
+						if (TeamsGhosts.existskey(TeamBotLevel)) {
+							if (!TeamIdToTeamsGhostsKey.existskey(TeamBotLevel)) {
+								TeamIdToTeamsGhostsKey[TeamBotLevel] = [];
+							}
+							if (!TeamIdToTeamsGhostsKey[TeamBotLevel].exists(TeamId)) {
+								TeamIdToTeamsGhostsKey[TeamBotLevel].add(TeamId);
+							}
+							declare Integer Key = TeamIdToTeamsGhostsKey[TeamBotLevel].keyof(TeamId);
+							if (TeamsGhosts[TeamBotLevel].existskey(Key) && TeamsGhosts[TeamBotLevel][Key].count > 0) {
+								Royal::SetGhostDriverPlaylist(Player, TeamsGhosts[TeamBotLevel][Key][0]);
+								TeamsGhosts[TeamBotLevel][Key].removekey(0);
+								// Do not remove the team from the `TeamsGhosts` array when there are no ghosts left inside
+								// It would break the the relation created in the `TeamIdToTeamsGhostsKey` array
+								// because the indexes in the `TeamsGhosts` array would change
+							}
+						}
+					}
+				}
+			}
+			Log::Log("""[Royal][Bots] Ghosts not associated to a player > TeamsGhosts : {{{TeamsGhosts}}}""");
+		}
+	}
+	declare Task::K_SourceTaskError SourceTaskError = Task::GetSourceTaskError(Map_DownloadGhostsTask);
+	Log::Log("""[Royal][Bots] Result of the download task > Timeout : {{{Map_GhostsTaskTimeout}}} | IsInitialized : {{{Map_DownloadGhostsTask.IsInitialized}}} | IsProcessing : {{{Map_DownloadGhostsTask.IsProcessing}}} | IsSuccess : {{{Map_DownloadGhostsTask.IsSuccess}}} | Error type : {{{SourceTaskError.Type}}} | Error code : {{{SourceTaskError.Code}}} | Error description : {{{SourceTaskError.Description}}} | Map_DownloadedGhostIds : {{{Map_DownloadedGhostIds}}}""");
+	Map_DownloadGhostsTask = Task::Destroy(Map_DownloadGhostsTask);
+	Map_GhostsTaskTimeout = -1;
+}
+
+Match_StartNewMatch = False;
+UIManager.HoldLoadingScreen = False;
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting, StateMgr::C_State_NoScoresTable]);
+***
+
+***Match_BeforeIntroSequence***
+***
+// Place the players in their clan so they have the right skin during the intro
+foreach (Player in AllPlayers) {
+	if (Player.User != Null) {
+		declare Integer Clan = Royal::GetTeamId(Player);
+		if (Clan > 0) {
+			SetPlayerClan(Player, Clan);
+		}
+	}
+}
+***
+
+***Match_StartMap***
+***
+// Reset any ongoing recording
+if (EnableGhostRecording) {
+	ResetGhostsRecording();
+}
+
+if (Match_MapIsValid) {
+	// Initialize race
+	StartTime = Now + Race::C_SpawnDuration;
+	if (Map_UseSpawnDelay) {
+		StartTime += C_SpawnDelayAfterWaitingScreen;
+		UIModules_Transition::SetTransition(Now, Now + 500);
+	}
+	EndTime = StartTime + ML::Max(0, Map_TimeLimit * 1000);
+	Royal::SetMapStartTime(StartTime);
+
+	// Prevent players that are not eliminated yet to switch to spectator mode
+	Match_SpectatorRestrictionActive = True;
+	foreach (Player in AllPlayers) {
+		Royal::ApplySpectatorModeRestriction(Player, Match_SpectatorRestrictionActive);
+	}
+
+	// Spawn players for the race and start ghost recording for the bots
+	foreach (Player in Players) {
+		if (CanSpawn(Player, Map_BonusTimeIsActive)) {
+			if (EnableGhostRecording && Player.User != Null && !Player.User.IsFakeUser) {
+				GhostRecorder_SetEnabled(Player, True);
+				Log::Log("""[Royal][Bots] Enable ghost recording for {{{Player.User.WebServicesUserId}}} ({{{Player.User.Login}}})""");
+			}
+			Royal::Start(Player, StartTime);
+		}
+	}
+
+	// Setup segment unlock
+	if (Map_SegmentUnlockInterval <= 0) {
+		Royal::UnlockAllSegments();
+		Map_NextSegmentUnlockTime = -1;
+	} else {
+		Map_NextSegmentUnlockTime = StartTime + (Map_SegmentUnlockInterval * 1000);
+	}
+	UIModules_SegmentProgression::SetNextSegmentUnlockTime(Map_NextSegmentUnlockTime);
+	UIModules_SegmentProgression::AlwaysDisplayUnlockTimer(S_AlwaysDisplayUnlockTimer);
+
+	declare Integer EliminationRank = Royal::GetNotEliminatedTeamsNb() - Royal::GetEliminationsNb(C_NumberOfRoundsToPlay, Match_PlayedRoundsNb + 1) + 1;
+	Royal::SetEliminationRank(EliminationRank);
+	Royal::UpdateRanking();
+	UpdateScoresTableHeader(Map_TimeLimit, Match_PlayedRoundsNb + 1, C_NumberOfRoundsToPlay);
+	UIModules_TeamScore::SetEliminationRank(EliminationRank);
+	UIModules_TeamScore::SetNotEliminatedTeamsNb(Royal::GetNotEliminatedTeamsNb());
+	UIModules_LiveRanking::SetEliminationRank(EliminationRank);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+	UIModules_PauseMenu_Online::SetScoresTableButtonLocked(False);
+} else {
+	StartTime = -1;
+	EndTime = -1;
+	Royal::UpdateRanking();
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+
+	//L16N [Royal] The current track is not valid, it will be skipped.
+	UIManager.UIAll.QueueMessage(3000, 1, CUIConfig::EMessageDisplay::Big, _("This track is not valid"));
+	MB_Sleep(3000);
+	MB_StopMap();
+}
+
+***
+
+***Match_StartPlayLoop***
+***
+XmlRpc_OverrideScoresTeamNum();
+
+// Override the season prestige mode set by the ModeBase
+UIModules_PrestigeEarned::EnablePrestigeMode(UIModules_PrestigeEarned::C_PrestigeMode_Royal);
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	if (Event.Type == Events::C_Type_SkipOutro && C_DisableSkipOutro) {
+		Race::InvalidEvent(Event);
+	} else {
+		Race::ValidEvent(Event);
+
+		// Waypoint
+		if (Event.Type == Events::C_Type_Waypoint) {
+			if (Event.Player != Null) {
+				if (Event.IsEndRace) {
+					Royal::CompleteSegment(Event.Player, Event.RaceTime, Map_BonusTimeIsActive, Map_SegmentBonusTime);
+					Royal::ThrottleUpdateRanking();
+					Royal::StopSkipScoresTable(Event.Player);
+				}
+			}
+		}
+		// Respawn and give up
+		else if (Event.Type == Events::C_Type_Respawn || Event.Type == Events::C_Type_GiveUp) {
+			if (Event.Player != Null) {
+				Royal::RespawnWithTeam(Event.Player);
+			}
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Spawn players
+if (PlayersNbDead > 0) { //< Check for unspawned players only if at least one player is unspawned
+	foreach (Player in Players) {
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned && CanSpawn(Player, Map_BonusTimeIsActive)) {
+			Royal::Start(Player);
+		}
+	}
+}
+
+// Unlock segment
+if (Map_NextSegmentUnlockTime >= 0 && Now >= Map_NextSegmentUnlockTime) {
+	if (Map_SegmentUnlockInterval <= 0) {
+		Royal::UnlockAllSegments();
+		Map_NextSegmentUnlockTime = -1;
+	} else {
+		declare Integer NextUnlockTime = Now + (Map_SegmentUnlockInterval * 1000);
+		declare Boolean AllSegmentsUnlocked = Royal::UnlockNextSegment();
+		if (AllSegmentsUnlocked) {
+			Map_NextSegmentUnlockTime = -1;
+		} else {
+			Map_NextSegmentUnlockTime = NextUnlockTime;
+		}
+	}
+	UIModules_SegmentProgression::SetNextSegmentUnlockTime(Map_NextSegmentUnlockTime);
+}
+
+// If a player joins during the match, warn their teammates
+// if they cannot chat. Do it only during the playloop.
+UIModules_CanChat::Yield();
+
+// Start bonus time if time limit is reached
+if (!Map_BonusTimeIsActive && EndTime > 0 && Now >= EndTime) {
+	Map_CanUploadReplays = True;
+	declare Boolean PlayBonusTime = Royal::StartBonusTime();
+	if (PlayBonusTime) {
+		Map_BonusTimeIsActive = True;
+		StateMgr::ForcePlayersStates([StateMgr::C_State_Playing, StateMgr::C_State_BonusTime]);
+	} else {
+		MB_StopMap();
+	}
+}
+
+// Unspawn teams once their bonus time expired
+if (Map_BonusTimeIsActive) {
+	declare Boolean AllTeamsRanOutOfBonusTime = Royal::UnspawnTeamsOutOfBonusTime();
+	if (AllTeamsRanOutOfBonusTime) {
+		MB_StopMap();
+	}
+}
+***
+
+***Match_EndPlayLoop***
+***
+XmlRpc_OverrideScoresTeamNum();
+***
+
+***Match_EndMap***
+***
+if (Match_MapIsValid) {
+	// Wait a little so the teams understand what is happening
+	EndTime = -1;
+	declare Integer WaitEndTime = Now + 1500;
+	while (Now < WaitEndTime) {
+		MB_Yield();
+		declare RacePendingEvents = Race::GetPendingEvents();
+		foreach (Event in RacePendingEvents) {
+			Race::InvalidEvent(Event);
+		}
+		foreach (Event in PendingEvents) {
+			if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+			Events::Invalid(Event);
+		}
+	}
+
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+	Race::StopSkipOutroAll();
+
+	// Upload the real players ghosts to create bots later
+	Log::Log("""[Royal][Bots] Can we upload the ghosts ? EnableGhostRecording : {{{EnableGhostRecording}}} | Map_CanUploadReplays : {{{Map_CanUploadReplays}}}""");
+	if (EnableGhostRecording && Map_CanUploadReplays) {
+		// Find players with ghosts and sort them by team
+		declare Ident[][Integer] TeamsPlayerIds;
+		foreach (Player in Players) {
+			if (Player.User != Null && !Player.User.IsFakeUser) {
+				declare Integer TeamId = Royal::GetTeamId(Player);
+				if (TeamId != Royal::C_TeamNullId) {
+					GhostRecorder_SetEnabled(Player, False);
+					GhostRecorder_Ghosts_Select(Player);
+					// Each time a player finishes a section or respawns
+					// a new ghost is created. A player with only 1 ghost
+					// was probably AFK so it's better to not upload their ghost.
+					if (GhostRecorder_Ghosts.count > 1) {
+						if (TeamsPlayerIds.existskey(TeamId)) {
+							TeamsPlayerIds[TeamId].add(Player.Id);
+						} else {
+							TeamsPlayerIds[TeamId] = [Player.Id];
+						}
+					}
+					Log::Log("""[Royal][Bots] Stop ghost recording for {{{Player.User.WebServicesUserId}}} ({{{Player.User.Login}}})[{{{Player.Id}}}] in team {{{TeamId}}}, recorded {{{GhostRecorder_Ghosts.count}}} ghosts.""");
+				}
+			}
+		}
+		Log::Log("""[Royal][Bots] Teams and players with ghost > TeamsPlayerIds : {{{TeamsPlayerIds}}}""");
+		// Create the upload requests for teams with enough players
+		foreach (TeamId => PlayerIds in TeamsPlayerIds) {
+			if (PlayerIds.count >= C_GhostUploadMinPlayersPerTeam) {
+				declare Royal::K_Team Team = Royal::GetTeam(TeamId);
+				Log::Log("""[Royal][Bots] Upload ghosts for team #{{{TeamId}}} with level {{{Team.SegmentTimes.count}}}""");
+				GhostDriver_Upload_Begin(Team.SegmentTimes.count);
+				foreach (PlayerId in PlayerIds) {
+					declare CSmPlayer Player <=> Players[PlayerId];
+					GhostRecorder_Ghosts_Select(Player);
+					GhostDriver_Upload_TeamMember_Begin();
+					foreach (Ghost in GhostRecorder_Ghosts) {
+						GhostDriver_Upload_AddGhost(Ghost);
+					}
+					GhostDriver_Upload_TeamMember_End();
+				}
+				Map_UploadGhostsTask.add(
+					Task::Create(This, GhostDriver_Upload_End())
+				);
+			} else {
+				Log::Log("""[Royal][Bots] Not enough players in team #{{{TeamId}}}. Need {{{C_GhostUploadMinPlayersPerTeam}}} but got {{{PlayerIds.count}}}.""");
+			}
+		}
+		Map_GhostsTaskTimeout = Now + C_UploadGhostsTaskTimeout;
+	}
+
+	// Cancel spectator mode restriction
+	Match_SpectatorRestrictionActive = False;
+	foreach (Player in AllPlayers) {
+		Royal::ApplySpectatorModeRestriction(Player, Match_SpectatorRestrictionActive);
+	}
+
+	// Eliminate the last teams
+	Match_PlayedRoundsNb += 1;
+	declare Royal::K_Team[] EliminatedTeams = Royal::EliminateLastTeams(C_NumberOfRoundsToPlay, Match_PlayedRoundsNb);
+
+	// Update teams scores
+	Royal::UpdatePoints();
+	declare Royal::K_Team[Integer] AllTeams = Royal::GetTeams();
+	foreach (TeamId => Team in AllTeams) {
+		Scores::SetClanMatchPoints(TeamId, Team.Points);
+	}
+
+	// Display eliminations
+	declare Integer[Integer] EliminatedTeamsRanks;
+	declare Integer[] EliminatedTeamIds;
+	foreach (Team in EliminatedTeams) {
+		EliminatedTeamsRanks[Team.Id] = Team.Rank;
+		EliminatedTeamIds.add(Team.Id);
+		UIModules_MatchResult::SetTeamRank(Team.Id, Team.Rank);
+		Royal::SendTeamMatchResult(Team, False, S_IsSuperRoyalFinale, S_Division);
+	}
+	Matchmaking::SendEliminatedTeams(EliminatedTeamIds);
+	declare Integer AnimationDuration = UIModules_RoundEliminations::SendEliminatedTeams(EliminatedTeamsRanks);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_RoundEliminations]);
+	UIModules_PrestigeEarned::EnablePrestigeMode(UIModules_PrestigeEarned::C_PrestigeMode_Royal);
+	MB_Sleep(AnimationDuration);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+
+	// If only one team remains, stop the match
+	if (Royal::GetNotEliminatedTeamsNb() <= 1) {
+		MB_StopMatch();
+
+		// Find the winning team
+		declare Royal::K_Team[Integer] AllTeams = Royal::GetTeams();
+		foreach (TeamId => Team in AllTeams) {
+			if (!Team.Eliminated) {
+				Scores::SetClanWinner(TeamId);
+				Royal::SendTeamMatchResult(Team, True, S_IsSuperRoyalFinale, S_Division);
+				break;
+			}
+		}
+	} else {
+		declare Royal::K_Team[] TeamsRanking = Royal::UpdateRanking();
+		declare Integer BestTeamsNb = UIModules_RoundBestTeams::GetSlotsNb();
+		foreach (Key => TeamRank in TeamsRanking) {
+			if (TeamRank.Eliminated) BestTeamsNb -= 1;
+			if (Key + 1 >= UIModules_RoundBestTeams::GetSlotsNb()) break;
+		}
+
+		declare Integer AnimationDuration = UIModules_RoundBestTeams::SendBestTeamsNb(BestTeamsNb);
+		StateMgr::ForcePlayersStates([StateMgr::C_State_RoundBestTeams]);
+		MB_Sleep(AnimationDuration);
+		MB_SkipPodiumSequence();
+	}
+} else {
+	MB_SkipPodiumSequence();
+}
+***
+
+***Match_PodiumSequence***
+***
+declare Royal::K_Team[Integer] AllTeams = Royal::GetTeams();
+foreach (TeamId => Team in AllTeams) {
+	UIModules_MatchResult::SetTeamRank(Team.Id, Team.Rank);
+}
+UIModules_MatchResult::ResetClickedOnStay();
+
+StateMgr::ForcePlayersStates([StateMgr::C_State_WinScreen]);
+MB_Sleep(WinScreen_Common::C_WinScreenDuration + 500);
+
+UIManager.UIAll.UISequence_PodiumPlayersWin = "";
+declare Integer WinningTeamId = Scores::GetClanWinner();
+UIModules_Sign16x9Small::SetWinningClan(WinningTeamId);
+if (WinningTeamId != Royal::C_TeamNullId) {
+	declare Integer[CSmScore] PodiumScores;
+	foreach (Score in Scores) {
+		if (Score.User != Null) {
+			if (Royal::GetTeamId(Score.User.WebServicesUserId) == WinningTeamId) {
+				PodiumScores[Score] = Scores::GetPlayerMapPoints(Score);
+			}
+		}
+	}
+	PodiumScores = PodiumScores.sortreverse();
+	foreach (Score => Points in PodiumScores) {
+		if (UIManager.UIAll.UISequence_PodiumPlayersWin == "") {
+			UIManager.UIAll.UISequence_PodiumPlayersWin ^= Score.User.Login;
+		} else {
+			UIManager.UIAll.UISequence_PodiumPlayersWin ^= ","^Score.User.Login;
+		}
+	}
+}
+
+StateMgr::ForcePlayersStates([StateMgr::C_State_Podium]);
+ModeUtils::PushAndApplyUISequence(UIManager.UIAll, CUIConfig::EUISequence::Podium);
+declare Integer ChatTimeSetting = S_ChatTime;
+declare Integer ChatStartTime = Now;
+declare Integer ChatEndTime = ChatStartTime + ML::Max(0, ChatTimeSetting * 1000);
+declare Integer WarnTime = GetWarnTime(Now, ChatEndTime);
+while (Now < ChatEndTime) {
+	MB_Yield();
+	if (ChatTimeSetting != S_ChatTime) {
+		ChatTimeSetting = S_ChatTime;
+		ChatEndTime = ChatStartTime + ML::Max(0, ChatTimeSetting * 1000);
+	}
+	if (S_IsMatchmaking && WarnTime <= Now) {
+		WarnTime = GetWarnTime(Now, ChatEndTime);
+		declare Integer RemainingTime = ChatEndTime - Now;
+		if (RemainingTime >= 1000) {
+			//L16N [Royal] Message warning the players that the server will close soon. %1 will be replaced by the time until the server is closed. eg: "Server shutdown in 0:30".
+			UIManager.UIAll.SendChat(TL::Compose(_("Server shutdown in %1"), TL::TimeToText(ChatEndTime - Now)));
+		} else {
+			//L16N [Royal] Message warning the players that the server is closing.
+			UIManager.UIAll.SendChat(_("Shutting down the server"));
+		}
+	}
+}
+UIManager.UIAll.UISequence_PodiumPlayersWin = "";
+ModeUtils::PopAndApplyUISequence(UIManager.UIAll);
+
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+***
+
+***Match_AfterPodiumSequence***
+***
+// Fade in the loading screen
+StateMgr::ForcePlayersStates([StateMgr::C_State_PreLoadingScreen]);
+MB_Sleep(PreLoadingScreen_Common::C_FadeInDuration + 500);
+
+// Kick players from the server at the end of the match
+if (S_IsMatchmaking && !MB_MatchIsRunning() && ServerAdmin != Null) {
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null) {
+			//L16N [Royal] Message displayed to the player when they are kicked from the server shutting down at the end of matchmaking match.
+			ServerAdmin.Kick(Player.User, _("The match is over. Server shutting down."));
+		}
+	}
+}
+***
+
+***Match_BeforeUnloadMap***
+***
+UIManager.HoldLoadingScreen = True;
+
+// End ghosts upload
+Log::Log("""[Royal][Bots] Ghosts upload tasks ongoing > Map_GhostsTaskTimeout : {{{Map_GhostsTaskTimeout}}} | Map_UploadGhostsTask : {{{Map_UploadGhostsTask}}}""");
+while (Map_UploadGhostsTask.count > 0) {
+	MB_Yield();
+	declare Task::K_Task Task = Task::Update(Map_UploadGhostsTask[0]);
+	if (!Task::IsRunning(Task) || Now >= Map_GhostsTaskTimeout) {
+		declare Task::K_SourceTaskError SourceTaskError = Task::GetSourceTaskError(Task);
+		Log::Log("""[Royal][Bots] Ghosts upload task result > IsTimeout : {{{Now >= Map_GhostsTaskTimeout}}} | IsInitialized : {{{Task.IsInitialized}}} | IsProcessing : {{{Task.IsProcessing}}} | IsSuccess : {{{Task.IsSuccess}}} | Error type : {{{SourceTaskError.Type}}} | Error code : {{{SourceTaskError.Code}}} | Error description : {{{SourceTaskError.Description}}}""");
+		Task::Destroy(Task);
+		Map_UploadGhostsTask.removekey(0);
+	} else {
+		Map_UploadGhostsTask[0] = Task;
+	}
+}
+Log::Log("""[Royal][Bots] Ghosts upload tasks complete > Map_UploadGhostsTask : {{{Map_UploadGhostsTask}}}""");
+
+ReleaseGhosts(Map_DownloadedGhostIds);
+Map_DownloadedGhostIds = [];
+
+// Stop ghost recording
+if (EnableGhostRecording) {
+	ResetGhostsRecording();
+}
+
+Map_GhostsTaskTimeout = -1;
+Log::Log("""[Royal][Bots] Ghosts array before unloading map > Ghosts : {{{Ghosts}}}""");
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a player can spawn
+Boolean CanSpawn(CSmPlayer _Player, Boolean _BonusTimeIsActive) {
+	return Royal::CanSpawn(_Player, _BonusTimeIsActive) && Race::IsReadyToStart(_Player);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the info in the scores table header
+Void UpdateScoresTableHeader(Integer _TimeLimit, Integer _NumberOfRoundsPlayed, Integer _NumberOfRoundsToPlay) {
+	if (_TimeLimit > 0) {
+		//L16N [Royal] The duration of one round. %1 will be replaced by a duration in minutes and seconds. eg: "Time limit 2:30".
+		UIModules_ScoresTable_Royal::SetHeaderMessage(TL::Compose(_("Time limit %1"), TL::TimeToText(_TimeLimit * 1000)));
+	} else {
+		UIModules_ScoresTable_Royal::SetHeaderMessage("");
+	}
+	UIModules_ScoresTable_Royal::SetMapsProgression(_NumberOfRoundsPlayed, ML::Min(_NumberOfRoundsToPlay, Royal::GetTeamsNb() - 1));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the next time a warning message must be displayed
+Integer GetWarnTime(Integer _Now, Integer _EndTime) {
+	declare Integer RemainingTime = ML::Max(0, _EndTime - Now);
+	declare Integer WarnInterval = 30000;
+	if (RemainingTime <= 5000) WarnInterval = 1000;
+	else if (RemainingTime <= 10000) WarnInterval = 5000;
+	else if (RemainingTime <= 30000) WarnInterval = 10000;
+	declare Integer NextWarnIn = RemainingTime % WarnInterval;
+	if (NextWarnIn == 0) NextWarnIn = WarnInterval;
+	return Now + NextWarnIn;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Place the players in the right clan in the xmlrpc callbacks
+Void XmlRpc_OverrideScoresTeamNum() {
+	foreach (Player in AllPlayers) {
+		if (Player.Score != Null) {
+			declare Integer TeamId = Royal::GetTeamId(Player);
+			if (TeamId != Royal::C_TeamNullId) {
+				Scores::XmlRpc_OverrideScoreTeamNum(Player.Score, TeamId);
+			} else {
+				Scores::XmlRpc_OverrideScoreTeamNum(Player.Score, 0);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the ghost recording of all players
+Void ResetGhostsRecording() {
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null && !Player.User.IsFakeUser) {
+			GhostRecorder_SetEnabled(Player, False);
+			GhostRecorder_Clear(Player);
+			Log::Log("""[Royal][Bots] Reset ghost recording for {{{Player.User.WebServicesUserId}}} ({{{Player.User.Login}}})[{{{Player.Id}}}]""");
+			// The ghosts from the GhostRecorder are independent
+			// from the ghosts of the mode (`Ghosts` array from `CMode`).
+			// The C++ takes care of releasing the GhostRecorder ghosts
+			// without having to call `Ghost_Release()` manually.
+			// eg: calling `GhostRecorder_Clear(Player)` will release all the ghost of the player.
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Release the ghosts generated by the mode
+Void ReleaseGhosts(Ident[] _DownloadedGhostIds) {
+	// Release downloaded ghosts
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null && Player.User.IsFakeUser) {
+			Royal::ResetGhostDriverPlaylist(Player);
+		}
+	}
+	foreach (GhostId in _DownloadedGhostIds) {
+		Ghost_Release(GhostId);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create the `CustomData` to use for the `GhostDriver`
+Text GetGhostDriverCustomData(Integer _Version, Integer _TimeLimit, Integer _SegmentUnlockInterval, Integer _SegmentBonusTime, Integer _GhostDBId) {
+	declare K_GhostDriverCustomData CustomData = K_GhostDriverCustomData {
+		A = _Version,
+		B = _TimeLimit,
+		C = _SegmentUnlockInterval,
+		D = _SegmentBonusTime,
+		E = _GhostDBId
+	};
+	return CustomData.tojson();
+}

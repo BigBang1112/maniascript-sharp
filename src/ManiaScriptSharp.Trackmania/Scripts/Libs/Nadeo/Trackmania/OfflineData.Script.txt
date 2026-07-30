@@ -1,0 +1,94 @@
+/**
+ * Lib to load offline data
+ */
+#Const Version "1.2.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/OfflineData.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "Libs/Nadeo/Trackmania/Structures/HttpStruct.Script.txt" as HttpStruct
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ComponentName "trackmania-offline-data"
+#Const P "Trackmania_OfflineData_"
+
+#Const C_OfflineCampaignFolderPath "file://Media/Config/Nadeo/Trackmania/OfflineData/"
+#Const C_OfflineNadeoCampaignId "Trackmania"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare CampaignStruct::LibCampaignStruct_K_Campaign G_OfflineCampaign;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the offline data from a file
+CHttpRequest StartLoadFile() {
+	return Http.CreateGet(C_OfflineCampaignFolderPath^Config::Get().OfflineCampaignJsonName, False);
+}
+Boolean IsLoadingFile(CHttpRequest _Request) {
+	if (_Request == Null) return False;
+
+	if (_Request.IsCompleted && _Request.Result != "") {
+		declare HttpStruct::LibHttpStruct_K_HttpCampaign OfflineHttpCampaign;
+		OfflineHttpCampaign.fromjson(_Request.Result);
+		G_OfflineCampaign = CampaignStruct::GetCampaignFromHttpCampaign(OfflineHttpCampaign);
+
+		declare CCampaign OfflineNadeoCampaign = DataFileMgr.Campaign_Get(C_OfflineNadeoCampaignId);
+		declare CMapInfo[Text] MapInfosFromUid;
+		if (OfflineNadeoCampaign != Null) {
+			foreach (MapGroup in OfflineNadeoCampaign.MapGroups) {
+				foreach (MapInfo in MapGroup.MapInfos) {
+					MapInfosFromUid[MapInfo.MapUid] <=> MapInfo;
+				}
+			}
+		}
+
+		declare Integer TrackPosition;
+		declare CampaignStruct::LibCampaignStruct_K_Map[] Playlist;
+		foreach (Map in G_OfflineCampaign.Playlist) {
+			if (MapInfosFromUid.existskey(Map.Uid)) {
+				declare CMapInfo MapInfo <=> MapInfosFromUid[Map.Uid];
+				Playlist.add(CampaignStruct::LibCampaignStruct_K_Map {
+					Position = TrackPosition,
+					Uid = MapInfo.MapUid,
+					Name = MapInfo.Name,
+					Type = Const::C_MapType_Race_NoConcat,
+					AuthorLogin = MapInfo.AuthorLogin,
+					AuthorTime = MapInfo.TMObjective_AuthorTime,
+					GoldTime = MapInfo.TMObjective_GoldTime,
+					SilverTime = MapInfo.TMObjective_SilverTime,
+					BronzeTime = MapInfo.TMObjective_BronzeTime,
+					NbLaps = MapInfo.TMObjective_NbLaps,
+					LocalFileName = TL::Replace(MapInfo.FileName, "\\", "/"),
+					ThumbnailUrl = "file://Thumbnails/MapUid/"^TL::Replace(MapInfo.MapUid, "\\", "/"),
+					IsPlayable = MapInfo.IsPlayable
+				});
+				TrackPosition += 1;
+			}
+		}
+		G_OfflineCampaign.Playlist = Playlist;
+		G_OfflineCampaign.IsSeasonLive = True; //< Only one campaign
+		G_OfflineCampaign.IsFetched = True;
+		G_OfflineCampaign.IsLoaded = True;
+	}
+	return !_Request.IsCompleted;
+}
+Void StopLoadFile(CHttpRequest _Request) {
+	Http.Destroy(_Request);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the offline campaign
+CampaignStruct::LibCampaignStruct_K_Campaign GetOfflineCampaign() {
+	return G_OfflineCampaign;
+}

@@ -1,0 +1,139 @@
+/**
+ *	UI module: Sign64x10 client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign64x10_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign64x10_Common.Script.txt" as UIModules_Sign64x10_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const UIModules_Sign64x10_Common::C_AttachIds as C_AttachIds
+#Const C_ImgPath "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Sign64x10"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId(Text _AttachId) {
+	return UIModules_Sign64x10_Common::GetId(_AttachId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Sign64x10_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML(Text _AttachId) {
+	return MV::Create(
+GetId(_AttachId), 3,
+"""
+<frame id="frame-global" z-index="-2" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Sign64x10_Common::C_UIModuleConfig)}}}>
+		<quad id="quad-sign" size="320 50" z-index="0" halign="center" valign="center" bgcolor="000000" />
+		<quad id="quad-crossfade" size="320 50" z-index="1" halign="center" valign="center" bgcolor="000000" opacity="0" />
+	</frame>
+</frame>
+""",
+"""
+#Const C_ImgPath {{{dump(C_ImgPath)}}}
+""",
+"""
+Void UpdateSign(CMlQuad _Quad_Sign, CMlQuad _Quad_Crossfade, CSmPlayer _TargetPlayer) {
+	declare Text NewImageUrl = _Quad_Sign.ImageUrl;
+
+	if (_TargetPlayer != Null && _TargetPlayer.User != Null) {
+		declare Text Sign = {{{PlayerProfiles::P}}}GetPlayerProfiles().get(_TargetPlayer.User.WebServicesUserId, {{{PlayerProfiles::P}}}K_PlayerProfile {}).Sign64x10;
+		if (Sign != "") {
+			NewImageUrl = C_ImgPath^"/"^Sign;
+		} else {
+			NewImageUrl = C_ImgPath^"/TMGL.dds";
+		}
+	}
+
+	if (_Quad_Sign.ImageUrl != NewImageUrl) {
+		_Quad_Crossfade.ImageUrl = _Quad_Sign.ImageUrl;
+		_Quad_Crossfade.Opacity = 1.;
+		_Quad_Sign.ImageUrl = NewImageUrl;
+
+		// If the game is not focused when the opacity animation should be played,
+		// the opacity might change only once the sign is updated by the
+		// C++ to display the ads again. It is normal, do not worry if the
+		// animation is not played properly while testing with several game instances.
+		AnimMgr.Flush(_Quad_Crossfade);
+		AnimMgr.Add(_Quad_Crossfade, "<anim opacity=\"0\" />", 500, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+Ident UpdateTargetPlayer(CMlQuad _Quad_Sign, CMlQuad _Quad_Crossfade, CSmPlayer _TargetPlayer) {
+	UpdateSign(_Quad_Sign, _Quad_Crossfade, _TargetPlayer);
+	if (_TargetPlayer == Null) return NullId;
+	return _TargetPlayer.Id;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlQuad Quad_Sign;
+declare CMlQuad Quad_Crossfade;
+
+declare netread Boolean Net_ChampionCup_Sign64x10_IsVisible for UI;
+
+declare Boolean DisplayModule;
+declare Ident TargetPlayerId;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Quad_Sign <=> (Frame_Global.GetFirstChild("quad-sign") as CMlQuad);
+Quad_Crossfade <=> (Frame_Global.GetFirstChild("quad-crossfade") as CMlQuad);
+
+DisplayModule = Frame_Global.Visible;
+
+TargetPlayerId = UpdateTargetPlayer(Quad_Sign, Quad_Crossfade, GUIPlayer);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (DisplayModule != Net_ChampionCup_Sign64x10_IsVisible) {
+		DisplayModule = Net_ChampionCup_Sign64x10_IsVisible;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (
+			(GUIPlayer == Null && TargetPlayerId != NullId) ||
+			(GUIPlayer != Null && TargetPlayerId != GUIPlayer.Id)
+		) {
+			TargetPlayerId = UpdateTargetPlayer(Quad_Sign, Quad_Crossfade, GUIPlayer);
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	PlayerProfiles::Component()
+],
+[]
+	);
+}

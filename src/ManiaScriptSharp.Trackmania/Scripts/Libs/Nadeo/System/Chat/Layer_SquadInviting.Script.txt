@@ -1,0 +1,474 @@
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Chat/ChatAPI.Script.txt" as ChatAPI
+#Include "Libs/Nadeo/System/Styles/CommonStyles.Script.txt" as Styles
+
+#Const C_NbContactsDisplayedInList	6
+
+#Const C_ImgBase "file://Media/Manialinks/Common/Chat/"
+
+declare CUILayer G_ManialinkLayerSquadInviting;
+
+Text Private_CreateManialink() {
+	declare Text ContactCards;
+
+	for (I, 0, C_NbContactsDisplayedInList) {
+		ContactCards ^= "<frameinstance modelid='FrameModel_ContactCard' id='Frame_ContactCard#"^I^"' pos='0 "^(I * -8)^"' />";
+	}
+
+	return """
+<manialink version="3" name="Chat:SquadInviting">
+<stylesheet>
+	{{{Styles::Get()}}}
+	<style class="Separator" valign="center" size="96 .25" bgcolor="FFF" opacity=".125" />
+</stylesheet>
+
+<frame id="Frame_WindowClip" pos="56 90" size="104 150">
+<frame id="Frame_SquadInvitingWindow" pos="2 100">
+	<quad size="100 1" class="ColorFg2" />
+	<quad class="ColorFg" pos="-4.5 4.5" size="54.5 5" scale="2" style="Bgs1InRace" substyle="BgButtonGlow" />
+	<label id="Label_TopArrow" pos="60 2" halign="center" textsize="3" text="" />
+
+	<label class="Text" pos="50 -5" halign="center" textsize=".75" textprefix="$t" text="Invite friends to your squad" translate="1" />
+
+	<frame pos="0 -8">
+		<quad id="Quad_ContactsListScrollBar" class="Focus" pos="99.5" size=".5 0" bgcolor="FFF" ScriptEvents="1" />
+
+		<frame id="Frame_ContactsListContainer" size="100 48" scroll="1" scrollgrid="0 8">
+			<framemodel id="FrameModel_ContactCard">
+				<quad id="Quad_ContactAvatar" pos="6 -4" class="Center" size="6 6" keepratio="Fit" />
+
+				<frame id="Frame_ContactPresence" pos="11.25 -4">
+					<quad id="Quad_ContactPresence" class="Center" size=".5 6" opacity="1" hidden="1" />
+					<quad id="Quad_ContactPresence2" class="Center" size="5 10.5" style="Bgs1InRace" substyle="BgButtonGlow" hidden="1" />
+					<quad id="Quad_ContactPresence3" class="Center" size=".5 6" bgcolor="FFF" opacity=".125" />
+				</frame>
+
+				<frame id="Frame_ContactTextLines" pos="13.5 -4.125">
+					<label id="Label_ContactNickname" class="Text" pos="0 1.5" size="38" />
+					<label id="Label_ContactStatus" class="Text" pos="0 -1.5" size="42" textsize=".5" />
+				</frame>
+
+				<frame id="Frame_ContactButtonInvite" pos="57 -4" hidden="1">
+					<label class="Bold" halign="center" pos="20 -.25" size="26" textsize="1.25" textprefix="$t" text="{{{TL::Compose(" %1", _("Invite"))}}}" />
+					<quad id="Quad_ContactButtonInvite" class="Focus" valign="center" size="40 5" bgcolor="FFF2" bgcolorfocus="FFF4" ScriptEvents="1" />
+				</frame>
+
+				<frame id="Frame_ContactButtonDisabled" pos="57 -4" hidden="1">
+					<label class="Bold" halign="center" pos="20 -.25" size="26" textsize="1.25" textprefix="$t" text="{{{TL::Compose(" %1", _("Invite sent"))}}}" />
+					<quad valign="center" size="40 5" bgcolor="0002" />
+				</frame>
+			</framemodel>
+
+			{{{ContactCards}}}
+
+			<quad id="Quad_ContactsListHoverBox" size="100 48" ScriptEvents="1" />
+		</frame>
+	</frame>
+
+	<quad id="Quad_Separator1" class="Separator" pos="2 -58" />
+
+	<frame id="Frame_SquadDescriptionContainer" pos="0 -61">
+		<quad id="Quad_SquadDescriptionIcon" pos="3" size="10 10" valign="center" image="{{{C_ImgBase}}}squad.dds" />
+		<label id="Label_SquadDescriptionTitle" class="Bold" pos="15" size="83" valign="top" textprefix="$t" text="{{{_("What is a Squad?")}}}" />
+		<label id="Label_SquadDescriptionText" class="Text" pos="15" size="83" valign="top" autonewline="1" textsize="1" text="{{{TL::Compose(_("Squads let players team up to play together on multiplayer servers easily. Once in a squad, all members are be moved to the same server. Squad can ge a group of maximum %1 players."), TL::ToText(8))}}}" translate="1" />
+	</frame>
+	
+	<quad id="Quad_WindowFooterMetalBar" size="100.125 1" style="Bgs1InRace" substyle="BgMetalBar" />
+	<quad id="Quad_WindowBackgroundColor" class="ColorBg" pos="0 -1" size="100" image="{{{C_ImgBase}}}background.dds" opacity=".95" ScriptEvents="1" />
+	<quad id="Quad_WindowBackgroundBlur" size="100" style="Bgs1" substyle="BgDialogBlur" opacity="0" />
+	<quad id="Quad_WindowBackgroundShadow" pos="-2.5 1.5" size="210 1" scale=".5" style="Bgs1InRace" substyle="BgButtonShadow" opacity=".5" />
+</frame>
+</frame>
+
+<script><!--
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+#Const C_DefaultPresenceColors [
+	-1 => <.75, .75, .75>,	///< Connecting
+	0 => <.5, .5, .5>,		///< Offline
+	1 => <.25, .75, 1.>,	///< Online
+	2 => <1., .75, .25>,	///< Away
+	3 => <1., .25, .25>,	///< Busy
+	4 => <1., .75, .25>,	///< Away 2
+	5 => <.25, 1., .75>		///< Want to chat
+]
+
+declare Vec3[Integer] G_PresenceColors;
+declare Text[] G_SentInvitesTemp;
+
+Void FormatContactItem(CMlFrame _Frame, Text _Login) {
+	if (_Frame == Null) return;
+
+	declare Quad_ContactPresence	<=> (_Frame.GetFirstChild("Quad_ContactPresence")	as CMlQuad);
+	declare Quad_ContactPresence2	<=> (_Frame.GetFirstChild("Quad_ContactPresence2")	as CMlQuad);
+	declare Quad_ContactAvatar		<=> (_Frame.GetFirstChild("Quad_ContactAvatar")		as CMlQuad);
+	declare Label_ContactNickname	<=> (_Frame.GetFirstChild("Label_ContactNickname")	as CMlLabel);
+	declare Label_ContactStatus		<=> (_Frame.GetFirstChild("Label_ContactStatus")	as CMlLabel);
+
+	declare Frame_ContactButtonInvite	<=> (_Frame.GetFirstChild("Frame_ContactButtonInvite")		as CMlFrame);
+	declare Frame_ContactButtonDisabled	<=> (_Frame.GetFirstChild("Frame_ContactButtonDisabled")	as CMlFrame);
+	declare Quad_ContactButtonInvite	<=> (_Frame.GetFirstChild("Quad_ContactButtonInvite")		as CMlQuad);
+
+	Frame_ContactButtonInvite.Visible = !G_SentInvitesTemp.exists(_Login);
+	Frame_ContactButtonDisabled.Visible = !Frame_ContactButtonInvite.Visible;
+
+	declare Text PlayerInviteLogin for Quad_ContactButtonInvite;
+	PlayerInviteLogin = _Login;
+
+	declare Contact				<=> ManiaPlanet.ChatManager.GetContactFromLogin(_Login);
+	declare ContactLogin		= _Login;
+	declare ContactNickname		= "";
+	declare ContactAvatarURL	= "{{{C_ImgBase}}}default-avatar.dds";
+	declare ContactPresence		= 0;
+	declare ContactStatusText	= "";
+	declare ContactServerLogin	= "";
+	declare ContactServerName	= "";
+
+	// Grab the data from the server
+	foreach (User in ManiaPlanet.CurrentServerPlayers) {
+		if (User.Login != _Login) continue;
+
+		ContactLogin		= User.Login;
+		ContactNickname		= User.Name;
+		ContactAvatarURL	= User.AvatarUrl;
+		ContactStatusText	= _("On this server");
+		ContactServerLogin	= ManiaPlanet.ChatManager.CurrentServerLogin;
+		ContactServerName	= ManiaPlanet.ChatManager.CurrentServerName;
+		ContactPresence		= 1;
+	}
+
+	// That's us!
+	if (_Login == LocalUser.Login) {
+		declare Integer LayerContacts_LocalUserPresence for Page;
+
+		ContactLogin		= LocalUser.Login;
+		ContactNickname		= LocalUser.Name;
+		ContactAvatarURL	= LocalUser.AvatarUrl;
+		ContactStatusText	= ManiaPlanet.ChatManager.Presence_Status;
+		ContactServerLogin	= ManiaPlanet.ChatManager.CurrentServerLogin;
+		ContactServerName	= ManiaPlanet.ChatManager.CurrentServerName;
+		ContactPresence		= LayerContacts_LocalUserPresence;
+	}
+
+	// Chat contact exists
+	else if (Contact != Null) {
+		ContactLogin		= Contact.Login;
+		ContactNickname		= Contact.Name;
+		ContactAvatarURL	= Contact.AvatarUrl;
+		ContactStatusText	= Contact.PresenceStatus;
+		ContactServerLogin	= Contact.CurrentServerLogin;
+		ContactServerName	= Contact.CurrentServerName;
+
+		switch (Contact.PresenceShow) {
+			case CChatContact::EPresenceShow::Available		: ContactPresence = 1;
+			case CChatContact::EPresenceShow::Away			: ContactPresence = 2;
+			case CChatContact::EPresenceShow::ExtendedAway	: ContactPresence = 2;
+			case CChatContact::EPresenceShow::DoNotDisturb	: ContactPresence = 3;
+			case CChatContact::EPresenceShow::WantToChat	: ContactPresence = 1;
+			default											: ContactPresence = 0;
+		}
+	}
+
+	Label_ContactNickname.Value = ContactNickname;
+
+	if (Quad_ContactAvatar.Image == Null) {
+		Quad_ContactAvatar.ImageUrl = ContactAvatarURL;
+	}
+
+	// Status text visibility
+	Label_ContactStatus.Visible = ContactServerLogin != "" || ContactStatusText != "" || (ContactPresence != 0 && ContactPresence != 1);
+	if (Label_ContactStatus.Visible) Label_ContactNickname.RelativePosition_V3.Y = 1.5;
+	else Label_ContactNickname.RelativePosition_V3.Y = 0.;
+
+	// Contact on a server
+	if (ContactServerLogin != "") {
+		Label_ContactStatus.Value = ContactServerName;
+		Label_ContactStatus.TextColor = <1., 1., 1.>;
+	}
+
+	// Contact status text
+	else {
+		if (ContactStatusText != "") {
+			Label_ContactStatus.Value = ContactStatusText;
+		}
+
+		else switch (ContactPresence) {
+			case -1 : Label_ContactStatus.Value = _("|Broadcasting|Connecting...");
+			case 1 : Label_ContactStatus.Value = _("Online");
+			case 2 : Label_ContactStatus.Value = _("Away");
+			case 3 : Label_ContactStatus.Value = _("Busy");
+			default : Label_ContactStatus.Value = _("Offline");
+		}
+
+		Label_ContactStatus.TextColor = G_PresenceColors[ContactPresence];
+	}
+
+	// Contact presence color
+	Quad_ContactPresence.Visible = ContactPresence != 0;
+	Quad_ContactPresence.BgColor = G_PresenceColors[ContactPresence];
+	Quad_ContactPresence2.Visible = Quad_ContactPresence.Visible;
+	Quad_ContactPresence2.Colorize = Quad_ContactPresence.BgColor;
+}
+
+main() {
+	declare Frame_WindowClip			<=> (Page.GetFirstChild("Frame_WindowClip")				as CMlFrame);
+	declare Frame_SquadInvitingWindow	<=> (Page.GetFirstChild("Frame_SquadInvitingWindow")	as CMlFrame);
+	declare Label_TopArrow				<=> (Page.GetFirstChild("Label_TopArrow")				as CMlLabel);
+	declare Quad_Separator1				<=> (Page.GetFirstChild("Quad_Separator1")				as CMlQuad);
+
+	declare Frame_ContactsListContainer	<=> (Page.GetFirstChild("Frame_ContactsListContainer")	as CMlFrame);
+	declare Quad_ContactsListHoverBox	<=> (Page.GetFirstChild("Quad_ContactsListHoverBox")	as CMlQuad);
+	declare Quad_ContactsListScrollBar	<=> (Page.GetFirstChild("Quad_ContactsListScrollBar")	as CMlQuad);
+
+	declare Label_SquadDescriptionTitle	<=> (Page.GetFirstChild("Label_SquadDescriptionTitle")	as CMlLabel);
+	declare Label_SquadDescriptionText	<=> (Page.GetFirstChild("Label_SquadDescriptionText")	as CMlLabel);
+	declare Quad_SquadDescriptionIcon	<=> (Page.GetFirstChild("Quad_SquadDescriptionIcon")	as CMlQuad);
+
+	declare Quad_WindowBackgroundColor	<=> (Page.GetFirstChild("Quad_WindowBackgroundColor")	as CMlQuad);
+	declare Quad_WindowBackgroundBlur	<=> (Page.GetFirstChild("Quad_WindowBackgroundBlur")	as CMlQuad);
+	declare Quad_WindowBackgroundShadow	<=> (Page.GetFirstChild("Quad_WindowBackgroundShadow")	as CMlQuad);
+	declare Quad_WindowFooterMetalBar	<=> (Page.GetFirstChild("Quad_WindowFooterMetalBar")	as CMlQuad);
+
+	declare CMlFrame[] Frame_ContactCards;
+
+	for (I, 0, {{{C_NbContactsDisplayedInList}}}) {
+		Frame_ContactCards.add((Page.GetFirstChild("Frame_ContactCard#"^I) as CMlFrame));
+	}
+
+	declare Boolean	LayerSquadInviting_IsVisible			for Page;
+	declare Vec3	LayerSquadInviting_BackgroundColor		for Page;
+	declare Vec3	LayerSquadInviting_HighlightsColor		for Page;
+	declare Integer	LayerSquadInviting_ColorLatestChange	for Page;
+	declare Text[]	LayerSquadInviting_ContactsList			for Page;
+	declare Integer	LayerSquadInviting_SquadNbPlayers		for Page;
+
+	declare UpdateContactsList = True;
+	declare HideLayerAfter = -1;
+
+	declare PrevLayerIsVisible = False;
+	declare PrevColorChange = -1;
+	declare PrevScrollOffsetY = -1.;
+
+	declare WindowTotalHeight = -Quad_Separator1.RelativePosition_V3.Y;
+	declare FrameTotalHeight = 0.;
+
+	Label_SquadDescriptionTitle.RelativePosition_V3.Y = -FrameTotalHeight;
+	FrameTotalHeight += 3.5;
+	Label_SquadDescriptionText.RelativePosition_V3.Y = -FrameTotalHeight;
+	FrameTotalHeight += Label_SquadDescriptionText.ComputeHeight(Label_SquadDescriptionText.Value) - .5;
+	Quad_SquadDescriptionIcon.RelativePosition_V3.Y = FrameTotalHeight / -2.;
+	WindowTotalHeight += FrameTotalHeight + 6.;
+
+	Quad_WindowBackgroundColor.Size.Y = WindowTotalHeight + Quad_WindowBackgroundColor.RelativePosition_V3.Y;
+	Quad_WindowBackgroundBlur.Size.Y = Quad_WindowBackgroundColor.Size.Y;
+	Quad_WindowBackgroundShadow.Size.Y = WindowTotalHeight * 2. + 10.;
+	Quad_WindowFooterMetalBar.RelativePosition_V3.Y = -WindowTotalHeight;
+
+	while (True) {
+		yield;
+
+		{{{Styles::Sounds()}}}
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::PluginCustomEvent) {
+				if (Event.CustomEventType == "UpdateContactsList") {
+					UpdateContactsList = True;
+				}
+			}
+
+			else if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+				if (Event.ControlId == "Quad_ContactButtonInvite") {
+					declare Text PlayerInviteLogin for Event.Control;
+					SendCustomEvent("FriendInviteToSquad", [PlayerInviteLogin]);
+
+					G_SentInvitesTemp.add(PlayerInviteLogin);
+					UpdateContactsList = True;
+				}
+			}
+		}
+
+		if (PrevLayerIsVisible != LayerSquadInviting_IsVisible) {
+			PrevLayerIsVisible = LayerSquadInviting_IsVisible;
+
+			AnimMgr.Flush(Frame_SquadInvitingWindow);
+
+			declare Pos = <Frame_SquadInvitingWindow.RelativePosition_V3.X, -8.>;
+			declare Easing = CAnimManager::EAnimManagerEasing::SineOut;
+
+			if (!LayerSquadInviting_IsVisible) {
+				Pos.Y += 100.;
+				Easing = CAnimManager::EAnimManagerEasing::SineIn;
+				HideLayerAfter = Now + 200;
+				G_SentInvitesTemp.clear();
+			} else {
+				HideLayerAfter = -1;
+			}
+
+			AnimMgr.Add(Frame_SquadInvitingWindow, "<frame pos='"^Pos.X^" "^Pos.Y^"' />", 200, Easing);
+		}
+
+		if (HideLayerAfter > 0 && Now >= HideLayerAfter) {
+			HideLayerAfter = -1;
+			SendCustomEvent("HideLayerSquadInviting", []);
+		}
+
+		if (!LayerSquadInviting_IsVisible) continue;
+
+		if (PrevColorChange != LayerSquadInviting_ColorLatestChange) {
+			PrevColorChange = LayerSquadInviting_ColorLatestChange;
+
+			UpdateContactsList = True;
+
+			G_PresenceColors = C_DefaultPresenceColors;
+			G_PresenceColors[1] = LayerSquadInviting_HighlightsColor;
+			Label_TopArrow.TextColor = LayerSquadInviting_HighlightsColor;
+
+			Page.GetClassChildren("ColorBg", Page.MainFrame, True);
+
+			foreach (Control in Page.GetClassChildren_Result) {
+				if (Control is CMlQuad) {
+					(Control as CMlQuad).Colorize = LayerSquadInviting_BackgroundColor;
+				}
+			}
+
+			Page.GetClassChildren("ColorFg", Page.MainFrame, True);
+
+			foreach (Control in Page.GetClassChildren_Result) {
+				if (Control is CMlQuad) {
+					(Control as CMlQuad).Colorize = LayerSquadInviting_HighlightsColor;
+				}
+			}
+
+			Page.GetClassChildren("ColorFg2", Page.MainFrame, True);
+
+			foreach (Control in Page.GetClassChildren_Result) {
+				if (Control is CMlQuad) {
+					(Control as CMlQuad).BgColor = LayerSquadInviting_HighlightsColor;
+				}
+			}
+		}
+
+		if (PrevScrollOffsetY != Frame_ContactsListContainer.ScrollOffset.Y) {
+			PrevScrollOffsetY = Frame_ContactsListContainer.ScrollOffset.Y;
+			UpdateContactsList = True;
+		}
+
+		if (UpdateContactsList) {
+			UpdateContactsList = False;
+
+			declare TargetArrowPosition = 50. - LayerSquadInviting_SquadNbPlayers * 6.;
+			Label_TopArrow.RelativePosition_V3.X = TargetArrowPosition - Frame_SquadInvitingWindow.RelativePosition_V3.X;
+			
+			declare TotalHeight = LayerSquadInviting_ContactsList.count * 8.;
+			Frame_ContactsListContainer.ScrollMax.Y = ML::Max(0., TotalHeight - Frame_ContactsListContainer.Size.Y);
+			declare Offset = ML::FloorInteger(Frame_ContactsListContainer.ScrollOffset.Y / 8.);
+
+			Quad_ContactsListHoverBox.RelativePosition_V3.Y = -Frame_ContactsListContainer.ScrollOffset.Y;
+
+			Quad_ContactsListScrollBar.Visible = Frame_ContactsListContainer.ScrollMax.Y > 0;
+
+			if (Quad_ContactsListScrollBar.Visible) {
+				Quad_ContactsListScrollBar.Size.Y = Frame_ContactsListContainer.Size.Y * (Frame_ContactsListContainer.Size.Y / TotalHeight);
+				Quad_ContactsListScrollBar.RelativePosition_V3.Y = -(Frame_ContactsListContainer.ScrollOffset.Y / Frame_ContactsListContainer.ScrollMax.Y) * (Frame_ContactsListContainer.Size.Y - Quad_ContactsListScrollBar.Size.Y);
+			}
+
+			foreach (I => Frame in Frame_ContactCards) {
+				declare Key = I + Offset;
+				Frame.Visible = LayerSquadInviting_ContactsList.existskey(Key);
+				if (!Frame.Visible) continue;
+
+				declare ContactLogin = LayerSquadInviting_ContactsList[Key];
+				FormatContactItem(Frame, ContactLogin);
+				Frame.RelativePosition_V3.Y = Key * -8.;
+			}
+		}
+	}
+}
+
+--></script>
+</manialink>
+	""";
+}
+
+Void Private_TriggerLayerUpdate() {
+	LayerCustomEvent(G_ManialinkLayerSquadInviting, "UpdateContactsList", []);
+}
+
+Void Build() {
+	G_ManialinkLayerSquadInviting = UILayerCreate();
+	G_ManialinkLayerSquadInviting.Type = CUILayer::EUILayerType::Normal;
+	G_ManialinkLayerSquadInviting.ManialinkPage = Private_CreateManialink();
+	G_ManialinkLayerSquadInviting.IsVisible = False;
+}
+
+Void SetVisibility(Boolean _IsVisible) {
+	declare Boolean LayerSquadInviting_IsVisible for G_ManialinkLayerSquadInviting.LocalPage;
+	LayerSquadInviting_IsVisible = _IsVisible;
+
+	if (_IsVisible) {
+		G_ManialinkLayerSquadInviting.IsVisible = True;
+	}
+}
+
+Void HideLayer() {
+	G_ManialinkLayerSquadInviting.IsVisible = False;
+}
+
+Void SetWindowOffset(Real _Offset) {
+	declare Real LayerSquadInviting_PositionOffset for G_ManialinkLayerSquadInviting.LocalPage;
+	LayerSquadInviting_PositionOffset = _Offset;
+}
+
+Void SetColorScheme(Vec3 _Background, Vec3 _Highlights) {
+	if (G_ManialinkLayerSquadInviting == Null) return;
+	declare Vec3 LayerSquadInviting_BackgroundColor for G_ManialinkLayerSquadInviting.LocalPage;
+	declare Vec3 LayerSquadInviting_HighlightsColor for G_ManialinkLayerSquadInviting.LocalPage;
+	declare Integer LayerSquadInviting_ColorLatestChange for G_ManialinkLayerSquadInviting.LocalPage;
+	LayerSquadInviting_BackgroundColor = _Background;
+	LayerSquadInviting_HighlightsColor = _Highlights;
+	LayerSquadInviting_ColorLatestChange += 1;
+}
+
+Void SetContactsList(Text[] _Contacts) {
+	declare Text[] LayerSquadInviting_ContactsList for G_ManialinkLayerSquadInviting.LocalPage;
+	LayerSquadInviting_ContactsList = _Contacts;
+	Private_TriggerLayerUpdate();
+}
+
+Void SetActiveConversation(Text _Login) {
+	declare Text LayerSquadInviting_ActiveConversation for G_ManialinkLayerSquadInviting.LocalPage;
+	LayerSquadInviting_ActiveConversation = _Login;
+	Private_TriggerLayerUpdate();
+}
+
+Void SetLocalPresence(Integer _ConnectionStatus, CChatManager::EPresenceShow _Presence) {
+	if (G_ManialinkLayerSquadInviting == Null) return;
+	declare Integer	LayerSquadInviting_LocalPresence for G_ManialinkLayerSquadInviting.LocalPage;
+
+	if (_ConnectionStatus != 1) {
+		switch (_ConnectionStatus) {
+			case 0 : LayerSquadInviting_LocalPresence = 0;
+			case 2 : LayerSquadInviting_LocalPresence = -1;
+		}
+	}
+
+	else switch (_Presence) {
+		case CChatManager::EPresenceShow::Available		: LayerSquadInviting_LocalPresence = 1;
+		case CChatManager::EPresenceShow::Away			: LayerSquadInviting_LocalPresence = 2;
+		case CChatManager::EPresenceShow::ExtendedAway	: LayerSquadInviting_LocalPresence = 2;
+		case CChatManager::EPresenceShow::DoNotDisturb	: LayerSquadInviting_LocalPresence = 3;
+		case CChatManager::EPresenceShow::WantToChat	: LayerSquadInviting_LocalPresence = 1;
+		default											: LayerSquadInviting_LocalPresence = 0;
+	}
+
+	Private_TriggerLayerUpdate();
+}
+
+Void SetArrowPosition(Integer _NbPlayers) {
+	declare Integer	LayerSquadInviting_SquadNbPlayers for G_ManialinkLayerSquadInviting.LocalPage;
+	LayerSquadInviting_SquadNbPlayers = _NbPlayers;
+	Private_TriggerLayerUpdate();
+}

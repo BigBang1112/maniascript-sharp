@@ -1,0 +1,1127 @@
+/**
+ *	Form select component for ManiaView
+ *
+ *	Available parameters in manialink
+ *	data-size (Vec2): setup the size of the select widget
+ *	data-scale-options (Boolean): scale the options trailer to the size of the select body
+ *	data-hide-selection (Boolean): hide the selection in order to use an external toggle and selection display
+ *	data-color-focus (Hexa): color of the focus
+ *	data-color-background (Hexa): color of the background
+ *	data-color-text (Hexa): color of the text
+ *	data-fontname (Text): name of the font name
+ *	data-text-center (Boolean): center the text
+ *	data-custom-navigation (Boolean): let the user handle the navigation to and from the component
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/FormSelect.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Menus/ShareMenuNavigation_ML.Script.txt" as ShareMenuNavigation
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_FormSelect {
+	Vec2 Size;
+	Real OptionSizeY;
+}
+#Struct K_Event {
+	Ident Id;
+	Integer Type;
+	CMlFrame Select;
+	Integer SelectedIndex;
+	Boolean DisplayingOptions;
+}
+#Struct K_State {
+	Ident CurrentFocus;
+	CMlControl IsScrolling;
+	Real MouseScrollingOffset;
+	Boolean PrevMouseLeftButton;
+	Boolean CanSendReachEndEvent;
+	CMlFrame[Ident] Selects;
+	CMlFrame SelectActiveNavigation;
+	Text[Integer][Ident] Options;
+	Integer[Ident] Selected;
+	Integer[Ident] PreSelected;
+	Vec2[][] ActiveZones;
+	Integer TimerClickDetection;
+	CMlFrame[] Frames_Select;
+	CMlFrame[] Frames_Scroll;
+	K_Event[] PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constant
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_FormSelect_Null K_FormSelect {
+	Size = <0., 0.>,
+	OptionSizeY = 0.
+}
+#Const C_State_Null K_State {
+	CurrentFocus = NullId,
+	MouseScrollingOffset = 0.,
+	PrevMouseLeftButton = False,
+	CanSendReachEndEvent = True,
+	Selects = [],
+	Options = [],
+	Selected = [],
+	PreSelected = [],
+	ActiveZones = [],
+	TimerClickDetection = -1,
+	Frames_Select = [],
+	Frames_Scroll = [],
+	PendingEvents = []
+}
+
+#Const C_Name "component-form-select"
+#Const P "CMGame_FormSelect::" //< Prefix use to differentiate functions/variables in the script
+#Const Q "CMGame_FormSelect"
+#Const C_Class_Toggle "component-form-select-toggle" //< Prefix use to differentiate functions/variables in the script
+#Const C_NavZone "ComponentFormSelect_quad-toggle"
+#Const C_OptionsNb 5 //< Number of options visible simultaneously
+
+#Const C_DurationBeforeDetection 200
+
+#Const C_EventType_Select 0
+#Const C_EventType_ReachEnd 1
+#Const C_EventType_DisplayOptions 2
+#Const C_EventType_HideOptions 3
+#Const C_EventType_RequestToggle 4
+
+#Const C_Class_Container "menu-libs-form-select_container"
+#Const C_ModelId_Option "menu-libs-form-select_option"
+#Const C_Id_ButtonOption "menu-libs-form-select_button-option"
+#Const C_Id_LabelOption "menu-libs-form-select_label-option"
+#Const C_Id_ContainerOption "menu-libs-form-select_container-options"
+#Const C_Id_Selection "menu-libs-form-select_selection"
+#Const C_Id_ToggleBg2 "menu-libs-form-select_toggle-bg2"
+#Const C_Id_ToggleBg "menu-libs-form-select_toggle-bg"
+#Const C_Id_ToggleFg "menu-libs-form-select_toggle-fg"
+#Const C_Id_Selected "menu-libs-form-select_selected"
+#Const C_Id_OptionsBg "menu-libs-form-select_options-bg"
+#Const C_Id_ClipOptions "menu-libs-form-select_clip-options"
+#Const C_Id_Options "menu-libs-form-select_options"
+#Const C_Id_Scrollbar "menu-libs-form-select_scrollbar"
+#Const C_Id_ScrollbarBg "menu-libs-form-select_scrollbar-bg"
+#Const C_Id_ScrollbarFg "menu-libs-form-select_scrollbar-fg"
+#Const C_Id_OptionsBorder "menu-libs-form-select_options-border"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetManialink() {
+	declare Real OptionSizeY = 9.;
+	declare Text OptionsML = "";
+	for (I, 0, C_OptionsNb+1) {
+		OptionsML ^= """<frameinstance pos="0 {{{I * -OptionSizeY}}}" modelid="{{{C_ModelId_Option}}}" />""";
+	}
+
+	return """
+<framemodel id="{{{C_ModelId_Option}}}">
+	<quad id="{{{C_Id_ButtonOption}}}" pos="0.25 0" z-index="0" size="99.5 {{{OptionSizeY}}}" valign="center" opacity="0.4" scriptevents="1" />
+	<label id="{{{C_Id_LabelOption}}}" pos="3 0" z-index="1" size="88 {{{OptionSizeY-1.}}}" valign="center2" opacity="0.4" textprefix="$t$i" textsize="3" />
+</framemodel>
+<frame class="{{{C_Class_Container}}}" data-option-size-y="{{{OptionSizeY}}}">
+	<frame id="{{{C_Id_Selection}}}" z-index="0">
+		<quad id="{{{C_Id_ToggleBg2}}}" pos="0.25 0" z-index="0" size="99.5 9.5" valign="center" opacity="0.4" />
+		<quad id="{{{C_Id_ToggleBg}}}" pos="92 0" z-index="1" size="7.5 9.5" valign="center" opacity="0.4" />
+		<label id="{{{C_Id_ToggleFg}}}" pos="96 0" z-index="2" size="7.5 9.5" halign="center" valign="center2" textprefix="$t$i" textsize="3" text="⏷" />
+		<quad id="{{{C_NavZone}}}" z-index="3" size="100 10" valign="center" scriptevents="1" class="{{{Navigation::C_Class_ActivationZone}}}" />
+		<label id="{{{C_Id_Selected}}}" pos="3 0" z-index="4" size="88 8" valign="center2" textprefix="$t$i" textsize="3" opacity="0.4" />
+	</frame>
+	<frame id="{{{C_Id_ContainerOption}}}" pos="0 -4.5" z-index="1">
+		<quad id="{{{C_Id_OptionsBg}}}" pos="0.25 -0.25" z-index="0" size="99.5 49.5" opacity="0.9" bgcolor="" scriptevents="1" />
+		<frame id="{{{C_Id_ClipOptions}}}" z-index="2">
+			<frame id="{{{C_Id_Options}}}" pos="0 -5" z-index="2">
+				{{{OptionsML}}}
+			</frame>
+		</frame>
+		<frame id="{{{C_Id_Scrollbar}}}" pos="99.75 -0.25" z-index="3">
+			<quad id="{{{C_Id_ScrollbarBg}}}" size="2 30" z-index="0" halign="right" bgcolor="000" opacity="0." scriptevents="1" />
+			<quad id="{{{C_Id_ScrollbarFg}}}" size="2 10" z-index="1" halign="right" bgcolor="FFF" bgcolorfocus="FFF" opacity="0.7" scriptevents="1" />
+		</frame>
+		<quad id="{{{C_Id_OptionsBorder}}}" z-index="4" size="100 50" />
+	</frame>
+</frame>
+	""";
+}
+
+Void SetCustomizeAssets(
+	CMlScript _This,
+	Vec3 _TextColor,
+	Text _TextFont,
+	Vec3 _BackGroundColor,
+	Boolean _TextCentered,
+	Ident _Id
+) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id), "Trying to set the size of select component with id \""^_Id^"\", but it does not exist.");
+
+	declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[_Id];
+
+	declare CMlFrame Frame_ContainerOptions <=> (Frame_Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+	declare CMlFrame Frame_Selection <=> (Frame_Select.GetFirstChild(C_Id_Selection) as CMlFrame);
+	declare CMlQuad Quad_ToggleBg <=> (Frame_Selection.GetFirstChild(C_Id_ToggleBg) as CMlQuad);
+	declare CMlQuad Quad_ToggleBg2 <=> (Frame_Selection.GetFirstChild(C_Id_ToggleBg2) as CMlQuad);
+	declare CMlQuad Quad_OptionsBg <=> (Frame_ContainerOptions.GetFirstChild(C_Id_OptionsBg) as CMlQuad);
+	declare CMlFrame Frame_Options <=> (Frame_ContainerOptions.GetFirstChild(C_Id_Options) as CMlFrame);
+	declare CMlLabel Label_ToggleFg <=> (Frame_Selection.GetFirstChild(C_Id_ToggleFg) as CMlLabel);
+	declare CMlLabel Label_Selected <=> (Frame_Selection.GetFirstChild(C_Id_Selected) as CMlLabel);
+	declare CMlFrame Frame_Scrollbar <=> (Frame_ContainerOptions.GetFirstChild(C_Id_Scrollbar) as CMlFrame);
+	declare CMlQuad Quad_ScrollbarBg <=> (Frame_Scrollbar.GetFirstChild(C_Id_ScrollbarBg) as CMlQuad);
+	declare CMlQuad Quad_ScrollbarFg <=> (Frame_Scrollbar.GetFirstChild(C_Id_ScrollbarFg) as CMlQuad);
+
+	Quad_ToggleBg.BgColor			= _BackGroundColor;
+	Quad_ToggleBg2.BgColor		= _BackGroundColor;
+	Quad_OptionsBg.BgColor		= _BackGroundColor;
+	Quad_ScrollbarBg.BgColor	= _BackGroundColor;
+	Quad_ScrollbarFg.BgColor	= _TextColor;
+	Quad_ScrollbarFg.BgColorFocus	= _TextColor;
+	Label_ToggleFg.TextColor	= _TextColor;
+	Label_Selected.TextFont 	= _TextFont;
+	Label_Selected.TextColor	= _TextColor;
+	if (_TextCentered) {
+		Label_Selected.HorizontalAlign = CMlControl::AlignHorizontal::HCenter;
+		Label_Selected.RelativePosition_V3.X += Label_Selected.Size.X * 0.5;
+	}
+
+	foreach (Control in Frame_Options.Controls) {
+		declare CMlFrame Frame_Option <=> (Control as CMlFrame);
+		declare CMlLabel Label_Option <=> (Frame_Option.GetFirstChild(C_Id_LabelOption) as CMlLabel);
+		Label_Option.TextFont	= _TextFont;
+		Label_Option.TextColor	= _TextColor;
+		if (_TextCentered) {
+			Label_Option.HorizontalAlign = CMlControl::AlignHorizontal::HCenter;
+			Label_Option.RelativePosition_V3.X += Label_Selected.Size.X * 0.5;
+		}
+	}
+}
+
+Void SetSize(CMlScript _This, Ident _Id, Vec2 _Size, Boolean _ScaleOptions) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id), "Trying to set the size of select component with id \""^_Id^"\", but it does not exist.");
+
+	declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[_Id];
+	declare K_FormSelect CMGame_FormSelect_FormSelect for Frame_Select = C_FormSelect_Null;
+
+	CMGame_FormSelect_FormSelect.Size = _Size;
+	declare Real RatioX = _Size.X / 100.;
+	declare Real RatioY = _Size.Y / 10.;
+	declare Real BorderSize = 0.25;
+	CMGame_FormSelect_FormSelect.OptionSizeY = TL::ToReal(Frame_Select.DataAttributeGet("option-size-y"));
+	if (_ScaleOptions) CMGame_FormSelect_FormSelect.OptionSizeY *= RatioY;
+
+	declare CMlFrame Frame_Selection <=> (Frame_Select.GetFirstChild(C_Id_Selection) as CMlFrame);
+	declare CMlQuad Quad_ToggleBg2 <=> (Frame_Selection.GetFirstChild(C_Id_ToggleBg2) as CMlQuad);
+	declare CMlQuad Quad_ToggleBg <=> (Frame_Selection.GetFirstChild(C_Id_ToggleBg) as CMlQuad);
+	declare CMlLabel Label_ToggleFg <=> (Frame_Selection.GetFirstChild(C_Id_ToggleFg) as CMlLabel);
+	declare CMlQuad Quad_Toggle <=> (Frame_Selection.GetFirstChild(C_NavZone) as CMlQuad);
+	declare CMlLabel Label_Selected <=> (Frame_Selection.GetFirstChild(C_Id_Selected) as CMlLabel);
+
+	Quad_ToggleBg2.Size = <_Size.X - (BorderSize * 2.), _Size.Y - (BorderSize * 2.)>;
+	Quad_ToggleBg2.RelativePosition_V3.X = BorderSize;
+	Quad_ToggleBg.Size = <7.5 * RatioX, _Size.Y - (BorderSize * 2.)>;
+	Quad_ToggleBg.RelativePosition_V3.X = _Size.X - BorderSize - Quad_ToggleBg.Size.X;
+	Label_ToggleFg.Size = Quad_ToggleBg.Size;
+	Label_ToggleFg.RelativePosition_V3.X = Quad_ToggleBg.RelativePosition_V3.X + (Label_ToggleFg.Size.X * 0.5);
+	Label_ToggleFg.TextSizeReal = 3. * RatioY;
+	Quad_Toggle.Size = _Size;
+	Label_Selected.RelativePosition_V3.X = BorderSize + 2.;
+	Label_Selected.Size = <Quad_ToggleBg.RelativePosition_V3.X - Label_Selected.RelativePosition_V3.X - 1., _Size.Y - (BorderSize * 2.)>;
+	Label_Selected.TextSizeReal = 3. * RatioY;
+
+	declare CMlFrame Frame_ContainerOptions <=> (Frame_Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+	declare CMlQuad Quad_OptionsBg <=> (Frame_ContainerOptions.GetFirstChild(C_Id_OptionsBg) as CMlQuad);
+	declare CMlFrame Frame_Scrollbar <=> (Frame_ContainerOptions.GetFirstChild(C_Id_Scrollbar) as CMlFrame);
+	declare CMlQuad Quad_ScrollbarBg <=> (Frame_Scrollbar.GetFirstChild(C_Id_ScrollbarBg) as CMlQuad);
+	declare CMlQuad Quad_ScrollbarFg <=> (Frame_Scrollbar.GetFirstChild(C_Id_ScrollbarFg) as CMlQuad);
+	declare CMlFrame Frame_Options <=> (Frame_ContainerOptions.GetFirstChild(C_Id_Options) as CMlFrame);
+	declare CMlQuad Quad_OptionsBorder <=> (Frame_ContainerOptions.GetFirstChild(C_Id_OptionsBorder) as CMlQuad);
+	Quad_OptionsBg.Size.X = Quad_ToggleBg2.Size.X;
+	Quad_OptionsBg.RelativePosition_V3 = <BorderSize, -BorderSize>;
+	Frame_Scrollbar.RelativePosition_V3 = <_Size.X - BorderSize, -BorderSize>;
+	Frame_Options.RelativePosition_V3.Y = -(CMGame_FormSelect_FormSelect.OptionSizeY * 0.5) - (BorderSize * 2.);
+	Quad_ScrollbarBg.Size.X = Quad_ToggleBg.Size.X;
+	Quad_ScrollbarFg.Size.X = Quad_ToggleBg.Size.X;
+	foreach (Control in Frame_Options.Controls) {
+		declare CMlFrame Frame_Option <=> (Control as CMlFrame);
+		declare CMlLabel Label_Option <=> (Frame_Option.GetFirstChild(C_Id_LabelOption) as CMlLabel);
+		declare CMlQuad Button_Option <=> (Frame_Option.GetFirstChild(C_Id_ButtonOption) as CMlQuad);
+		Label_Option.RelativePosition_V3.X = Label_Selected.RelativePosition_V3.X;
+		Label_Option.Size = <Quad_OptionsBg.Size.X - Quad_ScrollbarBg.Size.X - Label_Option.RelativePosition_V3.X - 1., CMGame_FormSelect_FormSelect.OptionSizeY>;
+		if (_ScaleOptions) Label_Option.TextSizeReal = 3. * RatioY;
+		Button_Option.RelativePosition_V3.X = BorderSize;
+		Button_Option.Size = <Quad_OptionsBg.Size.X, CMGame_FormSelect_FormSelect.OptionSizeY>;
+	}
+	Quad_OptionsBorder.Size.X = _Size.X;
+}
+Void SetSize(CMlScript _This, Vec2 _Size, Boolean _ScaleOptions, Ident _Id) {
+	SetSize(_This, _Id, _Size, _ScaleOptions);
+}
+
+Real Private_GetOptionsContainerHeight(CMlScript _This, Ident _Id) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id), "Select component with id \""^_Id^"\" does not exist.");
+	declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[_Id];
+	declare K_FormSelect CMGame_FormSelect_FormSelect for Frame_Select = C_FormSelect_Null;
+
+	declare CMlFrame Frame_ContainerOptions <=> (Frame_Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+	declare CMlFrame Frame_Options <=> (Frame_ContainerOptions.GetFirstChild(C_Id_Options) as CMlFrame);
+
+	return (ML::Min(Frame_Options.Controls.count - 2, CMGame_FormSelect_State.Options[_Id].count) * CMGame_FormSelect_FormSelect.OptionSizeY) + 1.;
+}
+
+Void Focus(CMlScript _This, Ident _Id, Boolean _Focused) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id), "Trying to focus a select component with id \""^_Id^"\", but it does not exist.");
+	declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[_Id];
+
+	declare CMlFrame Frame_Selection <=> (Frame_Select.GetFirstChild(C_Id_Selection) as CMlFrame);
+	declare CMlQuad Quad_ToggleBg <=> (Frame_Selection.GetFirstChild(C_Id_ToggleBg) as CMlQuad);
+	declare CMlLabel Label_Selected <=> (Frame_Selection.GetFirstChild(C_Id_Selected) as CMlLabel);
+
+	if (_Focused) {
+		Quad_ToggleBg.Opacity = 0.7;
+		Label_Selected.Opacity = 1.;
+	} else {
+		Quad_ToggleBg.Opacity = 0.4;
+		Label_Selected.Opacity = 0.4;
+	}
+}
+Void Focus(CMlScript _This, Boolean _Focused, Ident _Id) {
+	Focus(_This, _Id, _Focused);
+}
+
+Void Focus(CMlScript _This, Ident _Id) {
+	Focus(_This, _Id, True);
+}
+
+Void Unfocus(CMlScript _This, Ident _Id) {
+	Focus(_This, _Id, False);
+}
+
+Void PreSelect(CMlScript _This, Ident _Id, Integer _Index) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id), "Trying to preselect an option on select component with id \""^_Id^"\", but it does not exist.");
+	declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[_Id];
+
+	declare Text[Integer] Options = CMGame_FormSelect_State.Options[_Id];
+	if (!Options.existskey(_Index)) return;
+
+	CMGame_FormSelect_State.PreSelected[_Id] = _Index;
+
+	declare CMlFrame Frame_ContainerOptions <=> (Frame_Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+	declare CMlFrame Frame_Options <=> (Frame_ContainerOptions.GetFirstChild(C_Id_Options) as CMlFrame);
+
+	foreach (Control in Frame_Options.Controls) {
+		declare CMlFrame Frame_Option <=> (Control as CMlFrame);
+		declare CMlQuad Button_Option <=> (Frame_Option.GetFirstChild(C_Id_ButtonOption) as CMlQuad);
+		declare CMlLabel Label_Option <=> (Frame_Option.GetFirstChild(C_Id_LabelOption) as CMlLabel);
+		declare Integer CMGame_FormSelect_OptionsIndex for Button_Option = -1;
+		if (CMGame_FormSelect_OptionsIndex == _Index) {
+			Label_Option.Opacity = 1.;
+			Label_Option.TTS_Focus();
+		} else {
+			Label_Option.Opacity = 0.4;
+			Label_Option.TTS_Unfocus();
+		}
+	}
+}
+Void PreSelect(CMlScript _This, Integer _Index, Ident _Id) {
+	PreSelect(_This, _Id, _Index);
+}
+
+Void SetScrollRatio(CMlScript _This, Ident _Id, Real _Ratio) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id), "Trying to set options on select component with id \""^_Id^"\", but it does not exist.");
+	declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[_Id];
+	declare K_FormSelect CMGame_FormSelect_FormSelect for Frame_Select = C_FormSelect_Null;
+
+	declare CMlFrame Frame_ContainerOptions <=> (Frame_Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+	declare CMlFrame Frame_Options <=> (Frame_ContainerOptions.GetFirstChild(C_Id_Options) as CMlFrame);
+	declare CMlFrame Frame_ClipOptions <=> (Frame_ContainerOptions.GetFirstChild(C_Id_ClipOptions) as CMlFrame);
+
+	declare Real CanvasHeight = Frame_Options.Controls.count * CMGame_FormSelect_FormSelect.OptionSizeY;
+	declare Real ScrollHeight = (CMGame_FormSelect_State.Options[_Id].count - Frame_Options.Controls.count + 2) * CMGame_FormSelect_FormSelect.OptionSizeY * _Ratio;
+	declare Integer LoopsNb = 0;
+	if (CanvasHeight != 0) {
+		LoopsNb = ML::FloorInteger(ML::Abs(ScrollHeight / CanvasHeight));
+	}
+	declare Integer IndexShift = ML::FloorInteger(ML::Abs(ScrollHeight / CMGame_FormSelect_FormSelect.OptionSizeY));
+
+	declare Text[Integer] Options = CMGame_FormSelect_State.Options[_Id];
+	declare Integer[] OptionKeys;
+	foreach (OptionKey => OptionValue in Options) {
+		OptionKeys.add(OptionKey);
+	}
+
+	declare Real CMGame_FormSelect_ScrollOffsetY for Frame_ClipOptions = 0.;
+	Frame_ClipOptions.ScrollOffset.Y = Frame_ClipOptions.ScrollMax.Y * _Ratio;
+	CMGame_FormSelect_ScrollOffsetY = Frame_ClipOptions.ScrollOffset.Y;
+
+	foreach (Index => Control in Frame_Options.Controls) {
+		declare CMlFrame Frame_Option <=> (Control as CMlFrame);
+		declare CMlLabel Label_Option <=> (Frame_Option.GetFirstChild(C_Id_LabelOption) as CMlLabel);
+
+		Frame_Option.RelativePosition_V3.Y = -ML::Mod(-ScrollHeight + (Index * CMGame_FormSelect_FormSelect.OptionSizeY), 0., CanvasHeight) + CMGame_FormSelect_FormSelect.OptionSizeY - Frame_ClipOptions.ScrollOffset.Y;
+
+		declare Integer NewOptionIndex = Index + (LoopsNb * Frame_Options.Controls.count);
+		if (Index  < IndexShift % Frame_Options.Controls.count) NewOptionIndex += Frame_Options.Controls.count;
+		NewOptionIndex -= 1;
+
+		declare CMlQuad Button_Option <=> (Frame_Option.GetFirstChild(C_Id_ButtonOption) as CMlQuad);
+		declare Integer CMGame_FormSelect_OptionsIndex for Button_Option = -1;
+		if (OptionKeys.existskey(NewOptionIndex)) {
+			declare Integer OptionKey = OptionKeys[NewOptionIndex];
+			Label_Option.Value = CMGame_FormSelect_State.Options[_Id][OptionKey];
+			Button_Option.Visible = True;
+			CMGame_FormSelect_OptionsIndex = OptionKey;
+		} else {
+			Label_Option.Value = "";
+			Button_Option.Visible = False;
+			CMGame_FormSelect_OptionsIndex = -1;
+		}
+	}
+
+	PreSelect(_This, CMGame_FormSelect_State.PreSelected[_Id], _Id);
+}
+Void SetScrollRatio(CMlScript _This, Real _Ratio, Ident _Id) {
+	SetScrollRatio(_This, _Id, _Ratio);
+}
+
+Void ScrollToOption(CMlScript _This, Ident _Id, Integer _OptionIndex) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id) && CMGame_FormSelect_State.Options.existskey(_Id), "Trying to scroll on select component with id \""^_Id^"\", but it does not exist.");
+	assert(CMGame_FormSelect_State.Options[_Id].existskey(_OptionIndex), "Trying to scroll to option index '"^_OptionIndex^"', but it does not exist.");
+	declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[_Id];
+	declare K_FormSelect CMGame_FormSelect_FormSelect for Frame_Select = C_FormSelect_Null;
+	declare CMlFrame Frame_ClipOptions <=> (Frame_Select.GetFirstChild(C_Id_ClipOptions) as CMlFrame);
+
+	if (Frame_ClipOptions.ScrollMax.Y > 0.) {
+		declare Text[Integer] Options = CMGame_FormSelect_State.Options[_Id];
+		declare Real ScrollStartY = Frame_ClipOptions.ScrollOffset.Y;
+		declare Real ScrollStopY = ScrollStartY + Frame_ClipOptions.Size.Y;
+		declare Integer Count = 0;
+		foreach (Index => Option in Options) {
+			if (Index == _OptionIndex) {
+				declare Real OptionStartY = Count * CMGame_FormSelect_FormSelect.OptionSizeY;
+				declare Real OptionStopY = OptionStartY + CMGame_FormSelect_FormSelect.OptionSizeY;
+				if (OptionStartY < ScrollStartY) {
+					SetScrollRatio(_This, _Id, OptionStartY / Frame_ClipOptions.ScrollMax.Y);
+				} else if (OptionStopY > ScrollStopY) {
+					SetScrollRatio(_This, _Id, (OptionStopY - Frame_ClipOptions.Size.Y) / Frame_ClipOptions.ScrollMax.Y);
+				}
+
+				break;
+			}
+			Count += 1;
+		}
+
+		declare CMlControl Control_ScrollBar <=> Frame_Select.GetFirstChild(C_Id_ScrollbarFg);
+		declare Real CMGame_FormSelect_YMax for Control_ScrollBar = 0.;
+		Control_ScrollBar.RelativePosition_V3.Y = (Frame_ClipOptions.ScrollOffset.Y / Frame_ClipOptions.ScrollMax.Y) * CMGame_FormSelect_YMax;
+	}
+}
+
+Vec2[] Private_GetQuadOccupation(CMlQuad _Quad) {
+	if (_Quad == Null) return [];
+
+	declare Vec2 PositionStart = _Quad.AbsolutePosition_V3;
+	if (_Quad.HorizontalAlign == CMlControl::AlignHorizontal::HCenter) {
+		PositionStart.X -= _Quad.Size.X * 0.5;
+	} else if (_Quad.HorizontalAlign == CMlControl::AlignHorizontal::Right) {
+		PositionStart.X -= _Quad.Size.X;
+	}
+	if (_Quad.VerticalAlign == CMlControl::AlignVertical::VCenter) {
+		PositionStart.Y += _Quad.Size.Y * 0.5;
+	} else if (_Quad.VerticalAlign == CMlControl::AlignVertical::Bottom) {
+		PositionStart.Y += _Quad.Size.Y;
+	}
+
+	declare Vec2 PositionEnd = PositionStart + <_Quad.Size.X, -_Quad.Size.Y>;
+
+	return [PositionStart, PositionEnd];
+}
+
+Void DisplayOptions(CMlScript _This, Ident _Id, Boolean _Displayed) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id), "Trying to display options of a select component with id \""^_Id^"\", but it does not exist.");
+	declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[_Id];
+	declare K_FormSelect CMGame_FormSelect_FormSelect for Frame_Select = C_FormSelect_Null;
+
+	// Hide all previously shown options
+	if (_Displayed) {
+		foreach (Select in CMGame_FormSelect_State.Selects) {
+			declare Real CMGame_FormSelect_DefaultZIndex for Select = Select.Parent.ZIndex;
+			Select.Parent.ZIndex = CMGame_FormSelect_DefaultZIndex;
+			declare CMlFrame Frame_ContainerOptions <=> (Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+			Frame_ContainerOptions.Visible = False;
+		}
+
+		declare CMlFrame Frame_Selection <=> (Frame_Select.GetFirstChild(C_Id_Selection) as CMlFrame);
+		declare CMlQuad Quad_Toggle <=> (Frame_Selection.GetFirstChild(C_NavZone) as CMlQuad);
+		declare CMlFrame Frame_ContainerOptions <=> (Frame_Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+		declare CMlQuad Quad_OptionsBg <=> (Frame_ContainerOptions.GetFirstChild(C_Id_OptionsBg) as CMlQuad);
+		CMGame_FormSelect_State.ActiveZones = [
+			Private_GetQuadOccupation(Quad_Toggle),
+			Private_GetQuadOccupation(Quad_OptionsBg)
+		];
+	} else {
+		CMGame_FormSelect_State.ActiveZones = [];
+	}
+
+	declare CMlFrame Frame_ContainerOptions <=> (Frame_Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+	Frame_ContainerOptions.Visible = _Displayed;
+
+	if (_Displayed) {
+		// We only use the timer for an external toggle because it does not use CMGame_FormSelect_State.ActiveZones
+		declare Text CMGame_FormSelect_ExternalToggleControlId for Frame_Select = "";
+		if (CMGame_FormSelect_ExternalToggleControlId != "") CMGame_FormSelect_State.TimerClickDetection = Now + C_DurationBeforeDetection;
+
+		Frame_Select.Parent.ZIndex = 1000.;
+		if (CMGame_FormSelect_State.Options[_Id].count > 0) {
+			PreSelect(_This, CMGame_FormSelect_State.Selected[_Id], _Id);
+			ScrollToOption(_This, _Id, CMGame_FormSelect_State.Selected[_Id]);
+
+			// Display the options above or below the select
+			declare Real OptionsHeight = Private_GetOptionsContainerHeight(_This, _Id);
+			if (Frame_Select.AbsolutePosition_V3.Y - OptionsHeight < -90.) {
+				Frame_ContainerOptions.RelativePosition_V3.Y = OptionsHeight + (CMGame_FormSelect_FormSelect.Size.Y * 0.5) - 0.5;
+			} else {
+				Frame_ContainerOptions.RelativePosition_V3.Y = -(CMGame_FormSelect_FormSelect.Size.Y * 0.5) + 0.5;
+			}
+		}
+
+		CMGame_FormSelect_State.SelectActiveNavigation = Frame_Select;
+
+		CMGame_FormSelect_State.PendingEvents.add(K_Event {
+			Id = _Id,
+			Type = C_EventType_DisplayOptions
+		});
+	} else {
+		CMGame_FormSelect_State.TimerClickDetection = -1;
+		CMGame_FormSelect_State.SelectActiveNavigation = Null;
+
+		CMGame_FormSelect_State.PendingEvents.add(K_Event {
+			Id = _Id,
+			Type = C_EventType_HideOptions
+		});
+	}
+}
+Void DisplayOptions(CMlScript _This, Boolean _Displayed, Ident _Id) {
+	DisplayOptions(_This, _Id, _Displayed);
+}
+
+Void Toggle(CMlScript _This, Ident _Id) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id), "Trying to toggle a select component with id \""^_Id^"\", but it does not exist.");
+	declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[_Id];
+
+	declare CMlFrame Frame_ContainerOptions <=> (Frame_Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+	DisplayOptions(_This, !Frame_ContainerOptions.Visible, _Id);
+}
+
+Void Select(CMlScript _This, Ident _Id, Integer _Index, Boolean _TriggerEvent) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id), "Trying to select an option on select component with id \""^_Id^"\", but it does not exist.");
+	declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[_Id];
+
+	declare Text[Integer] Options = CMGame_FormSelect_State.Options[_Id];
+	if (!Options.existskey(_Index)) return;
+
+	CMGame_FormSelect_State.Selected[_Id] = _Index;
+
+	declare CMlFrame Frame_Selection <=> (Frame_Select.GetFirstChild(C_Id_Selection) as CMlFrame);
+	declare CMlLabel Label_Selected <=> (Frame_Selection.GetFirstChild(C_Id_Selected) as CMlLabel);
+	Label_Selected.Value = Options[_Index];
+
+	PreSelect(_This, _Index, _Id);
+	DisplayOptions(_This, False, _Id);
+
+	if (_TriggerEvent) {
+		declare K_Event SelectEvent;
+		SelectEvent.Id = _Id;
+		SelectEvent.Type = C_EventType_Select;
+		SelectEvent.Select = Frame_Select.Parent;
+		SelectEvent.SelectedIndex = _Index;
+		CMGame_FormSelect_State.PendingEvents.add(SelectEvent);
+	}
+}
+Void Select(CMlScript _This, Ident _Id, Integer _Index) {
+	Select(_This, _Id, _Index, False);
+}
+Void Select(CMlScript _This, Integer _Index, Boolean _TriggerEvent, Ident _Id) {
+	Select(_This, _Id, _Index, _TriggerEvent);
+}
+Void Select(CMlScript _This, Integer _Index, Ident _Id) {
+	Select(_This, _Id, _Index, False);
+}
+
+Void SetOptions(CMlScript _This, Ident _Id, Text[Integer] _Options) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id), "Trying to set options on select component with id \""^_Id^"\", but it does not exist.");
+	declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[_Id];
+	declare K_FormSelect CMGame_FormSelect_FormSelect for Frame_Select = C_FormSelect_Null;
+
+	CMGame_FormSelect_State.Options[_Id] = _Options;
+	declare CMlFrame Frame_ContainerOptions <=> (Frame_Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+	declare CMlFrame Frame_Options <=> (Frame_ContainerOptions.GetFirstChild(C_Id_Options) as CMlFrame);
+	declare CMlQuad Quad_OptionsBorder <=> (Frame_ContainerOptions.GetFirstChild(C_Id_OptionsBorder) as CMlQuad);
+	declare CMlQuad Quad_OptionsBg <=> (Frame_ContainerOptions.GetFirstChild(C_Id_OptionsBg) as CMlQuad);
+	declare Real OptionsHeight = Private_GetOptionsContainerHeight(_This, _Id);
+	Quad_OptionsBorder.Size.Y = OptionsHeight;
+	Quad_OptionsBg.Size.Y = Quad_OptionsBorder.Size.Y - 0.5;
+
+	declare CMlFrame Frame_ClipOptions <=> (Frame_ContainerOptions.GetFirstChild(C_Id_ClipOptions) as CMlFrame);
+	Frame_ClipOptions.Size = Quad_OptionsBg.Size;
+	Frame_ClipOptions.RelativePosition_V3.Y = -0.25;
+	Frame_ClipOptions.ScrollMax = <0., ML::Max(0., (CMGame_FormSelect_State.Options[_Id].count - Frame_Options.Controls.count + 2) * CMGame_FormSelect_FormSelect.OptionSizeY)>;
+	Frame_ClipOptions.ScrollActive = True;
+
+	declare Real ScrollRatio = 0.;
+	if (Frame_ClipOptions.ScrollMax.Y != 0.) {
+		ScrollRatio = Frame_ClipOptions.ScrollOffset.Y / Frame_ClipOptions.ScrollMax.Y;
+	}
+
+	declare Integer FirstKey = 0;
+	foreach (Key => Option in _Options) {
+		FirstKey = Key;
+		break;
+	}
+
+	CMGame_FormSelect_State.Selected[_Id] = FirstKey;
+	CMGame_FormSelect_State.PreSelected[_Id] = FirstKey;
+	declare CMlFrame Frame_Selection <=> (Frame_Select.GetFirstChild(C_Id_Selection) as CMlFrame);
+	declare CMlLabel Label_Selected <=> (Frame_Selection.GetFirstChild(C_Id_Selected) as CMlLabel);
+	if (_Options.existskey(FirstKey)) {
+		Label_Selected.Value = _Options[FirstKey];
+	} else {
+		Label_Selected.Value = "";
+	}
+
+	// Calculate new ActiveZones
+	declare CMlQuad Quad_Toggle <=> (Frame_Selection.GetFirstChild(C_NavZone) as CMlQuad);
+	CMGame_FormSelect_State.ActiveZones = [
+		Private_GetQuadOccupation(Quad_Toggle),
+		Private_GetQuadOccupation(Quad_OptionsBg)
+	];
+
+	declare CMlFrame Frame_Scrollbar <=> (Frame_ContainerOptions.GetFirstChild(C_Id_Scrollbar) as CMlFrame);
+	declare CMlQuad Quad_ScrollbarBg <=> (Frame_Scrollbar.GetFirstChild(C_Id_ScrollbarBg) as CMlQuad);
+	declare CMlQuad Quad_ScrollbarFg <=> (Frame_Scrollbar.GetFirstChild(C_Id_ScrollbarFg) as CMlQuad);
+	if (_Options.count > Frame_Options.Controls.count - 2) {
+		Quad_ScrollbarBg.Size.Y = OptionsHeight - 0.5;
+		Quad_ScrollbarFg.Size.Y = (Frame_Options.Controls.count - 2) / (_Options.count * 1.) * Quad_ScrollbarBg.Size.Y;
+		declare Real CMGame_FormSelect_YMax for Quad_ScrollbarFg = 0.;
+		CMGame_FormSelect_YMax = -(Quad_ScrollbarBg.Size.Y - Quad_ScrollbarFg.Size.Y);
+		Quad_ScrollbarFg.RelativePosition_V3.Y = ScrollRatio * CMGame_FormSelect_YMax;
+		Frame_Scrollbar.Visible = True;
+	} else {
+		Frame_Scrollbar.Visible = False;
+	}
+
+	SetScrollRatio(_This, ScrollRatio, _Id);
+}
+Void SetOptions(CMlScript _This, Text[Integer] _Options, Ident _Id) {
+	SetOptions(_This, _Id, _Options);
+}
+Void SetOptions(CMlScript _This, Ident _Id, Text[] _Options) {
+	declare Text[Integer] Options;
+	foreach (Key => Option in _Options) {
+		Options[Key] = Option;
+	}
+	SetOptions(_This, _Id, Options);
+}
+Void SetOptions(CMlScript _This, Text[] _Options, Ident _Id) {
+	SetOptions(_This, _Id, _Options);
+}
+
+Text[Integer] GetOptions(CMlScript _This, Ident _Id) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selects.existskey(_Id), "Trying to get options on select component with id \""^_Id^"\", but it does not exist.");
+
+	return CMGame_FormSelect_State.Options[_Id];
+}
+
+Void Private_Init(CMlScript _This, CMlFrame _Frame_Select) {
+	if (_Frame_Select == Null) return;
+
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	declare Ident SelectId = _Frame_Select.Parent.Id;
+	assert(!CMGame_FormSelect_State.Selects.existskey(SelectId), "A select component with the id \""^SelectId^"\" already exists.");
+	CMGame_FormSelect_State.Selects[SelectId] = _Frame_Select;
+
+	declare Real CMGame_FormSelect_DefaultZIndex for _Frame_Select = _Frame_Select.Parent.ZIndex;
+	CMGame_FormSelect_DefaultZIndex = _Frame_Select.Parent.ZIndex;
+
+	if (_Frame_Select.Parent.DataAttributeExists("size")) {
+		declare Text[] SizeText = TL::Split(" ", _Frame_Select.Parent.DataAttributeGet("size"));
+		if (SizeText.count >= 2) {
+			declare Boolean ScaleOptions = False;
+			if (_Frame_Select.Parent.DataAttributeExists("scale-options")) {
+				declare Text ScaleOptionsText = _Frame_Select.Parent.DataAttributeGet("scale-options");
+				if (ScaleOptionsText != "0" && TL::ToLowerCase(ScaleOptionsText) != "false") {
+					ScaleOptions = True;
+				}
+			}
+			SetSize(_This, <TL::ToReal(SizeText[0]), TL::ToReal(SizeText[1])>, ScaleOptions, SelectId);
+		}
+	} else {
+		SetSize(_This, <100., 10.>, False, SelectId);
+	}
+
+	declare Vec3 BackgroundColor = <0.067, 0.067, 0.067>;
+	declare Text TextFont = "";
+	declare Vec3 TextColor = <0.933, 0.933, 0.933>;
+	declare Boolean TextCentered = False;
+	if (_Frame_Select.Parent.DataAttributeExists("color-background")) {
+		BackgroundColor = TL::ToColor(_Frame_Select.Parent.DataAttributeGet("color-background"));
+	}
+	if (_Frame_Select.Parent.DataAttributeExists("fontname")) {
+		TextFont = _Frame_Select.Parent.DataAttributeGet("fontname");
+	}
+	if (_Frame_Select.Parent.DataAttributeExists("color-text")) {
+		TextColor = TL::ToColor(_Frame_Select.Parent.DataAttributeGet("color-text"));
+	}
+	if (_Frame_Select.Parent.DataAttributeExists("text-center")) {
+		TextCentered = Tools::GetBooleanAttribute(_Frame_Select.Parent, "text-center");
+	}
+
+	SetCustomizeAssets(_This, TextColor, TextFont, BackgroundColor, TextCentered, SelectId);
+
+	CMGame_FormSelect_State.Options[SelectId] = [];
+	CMGame_FormSelect_State.Selected[SelectId] = 0;
+	CMGame_FormSelect_State.PreSelected[SelectId] = 0;
+
+	declare CMlFrame Frame_Selection <=> (_Frame_Select.GetFirstChild(C_Id_Selection) as CMlFrame);
+	declare CMlQuad Button_Toggle <=> (Frame_Selection.GetFirstChild(C_NavZone) as CMlQuad);
+	{
+		declare Ident CMGame_FormSelect_SelectId for Button_Toggle = NullId;
+		CMGame_FormSelect_SelectId = SelectId;
+	}
+	Frame_Selection.Visible = !Tools::GetBooleanAttribute(_Frame_Select.Parent, "hide-selection");
+
+	if (_Frame_Select.Parent.DataAttributeExists("external-toggle-id")) {
+		declare Text ExternalToggleControlId = _Frame_Select.Parent.DataAttributeGet("external-toggle-id");
+		declare CMlControl Control_Toggle;
+		_This.Page.GetClassChildren(C_Class_Toggle, _This.Page.MainFrame, True);
+		foreach (Control in _This.Page.GetClassChildren_Result) {
+			if (Control.ControlId == ExternalToggleControlId) {
+				Control_Toggle = Control;
+			}
+		}
+
+		if (Control_Toggle != Null) {
+			declare Ident CMGame_FormSelect_SelectId for Control_Toggle = NullId;
+			CMGame_FormSelect_SelectId = SelectId;
+			declare Text CMGame_FormSelect_ExternalToggleControlId for _Frame_Select = "";
+			CMGame_FormSelect_ExternalToggleControlId = ExternalToggleControlId;
+		}
+	}
+
+	declare Boolean CMGame_FormSelect_CustomNavigationEnabled for _Frame_Select = False;
+	if (_Frame_Select.Parent.DataAttributeExists("custom-navigation")) {
+		CMGame_FormSelect_CustomNavigationEnabled = Tools::GetBooleanAttribute(_Frame_Select.Parent, "custom-navigation");
+	}
+
+	declare CMlFrame Frame_ContainerOptions <=> (_Frame_Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+	Frame_ContainerOptions.Visible = False;
+
+	declare CMlFrame Frame_Options <=> (Frame_ContainerOptions.GetFirstChild(C_Id_Options) as CMlFrame);
+	foreach (Control in Frame_Options.Controls) {
+		declare CMlFrame Frame_Option <=> (Control as CMlFrame);
+		declare CMlQuad Button_Option <=> (Frame_Option.GetFirstChild(C_Id_ButtonOption) as CMlQuad);
+
+		declare Integer CMGame_FormSelect_OptionsIndex for Button_Option = -1;
+		CMGame_FormSelect_OptionsIndex = -1;
+		declare Ident CMGame_FormSelect_SelectId for Button_Option = NullId;
+		CMGame_FormSelect_SelectId = SelectId;
+	}
+
+	declare CMlFrame Frame_Scrollbar <=> (Frame_ContainerOptions.GetFirstChild(C_Id_Scrollbar) as CMlFrame);
+	declare CMlQuad Quad_ScrollbarFg <=> (Frame_Scrollbar.GetFirstChild(C_Id_ScrollbarFg) as CMlQuad);
+	{
+		declare Ident CMGame_FormSelect_SelectId for Quad_ScrollbarFg = NullId;
+		CMGame_FormSelect_SelectId = SelectId;
+	}
+
+	SetOptions(_This, [], SelectId);
+}
+
+Integer GetSelectedIndex(CMlScript _This, Ident _Id) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	assert(CMGame_FormSelect_State.Selected.existskey(_Id), "Trying to get selected index on select component with id \""^_Id^"\", but it does not exist.");
+	return CMGame_FormSelect_State.Selected[_Id];
+}
+
+Boolean IsFormSelect(CMlScript _This, Ident _Id) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	return CMGame_FormSelect_State.Selects.existskey(_Id);
+}
+Boolean IsFormSelect(CMlScript _This, CMlControl _Frame_Select) {
+	return IsFormSelect(_This, _Frame_Select.Id);
+}
+
+Void ProcessEvents(CMlScript _This) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	foreach (Event in _This.PendingEvents) {
+		if (
+			Event.Type == CMlScriptEvent::Type::MouseOver ||
+			Event.Type == CMlScriptEvent::Type::MouseOut ||
+			Event.Type == CMlScriptEvent::Type::MouseClick
+		) {
+			declare Ident CMGame_FormSelect_SelectId for Event.Control = NullId;
+			if (CMGame_FormSelect_SelectId != NullId && CMGame_FormSelect_State.Selects.existskey(CMGame_FormSelect_SelectId)) {
+				declare CMlFrame Frame_Select = CMGame_FormSelect_State.Selects[CMGame_FormSelect_SelectId];
+				declare Text CMGame_FormSelect_ExternalToggleControlId for Frame_Select = "";
+				switch (Event.Type) {
+					case CMlScriptEvent::Type::MouseOver: {
+						if (Event.ControlId == C_NavZone || Event.ControlId == CMGame_FormSelect_ExternalToggleControlId) {
+							declare Boolean CMGame_FormSelect_CustomNavigationEnabled for Frame_Select = False;
+							if (!CMGame_FormSelect_CustomNavigationEnabled) {
+								if (CMGame_FormSelect_State.CurrentFocus != NullId) Focus(_This, False, CMGame_FormSelect_State.CurrentFocus);
+								CMGame_FormSelect_State.CurrentFocus = CMGame_FormSelect_SelectId;
+								Focus(_This, True, CMGame_FormSelect_State.CurrentFocus);
+							}
+						} else if (Event.ControlId == C_Id_ButtonOption) {
+							declare Integer CMGame_FormSelect_OptionsIndex for Event.Control = -1;
+							PreSelect(_This, CMGame_FormSelect_OptionsIndex, CMGame_FormSelect_SelectId);
+						}
+					}
+					case CMlScriptEvent::Type::MouseOut: {
+						if (Event.ControlId == C_NavZone || Event.ControlId == CMGame_FormSelect_ExternalToggleControlId) {
+							declare Boolean CMGame_FormSelect_CustomNavigationEnabled for Frame_Select = False;
+							if (!CMGame_FormSelect_CustomNavigationEnabled) {
+								Focus(_This, False, CMGame_FormSelect_State.CurrentFocus);
+								CMGame_FormSelect_State.CurrentFocus = NullId;
+							}
+						}
+					}
+					case CMlScriptEvent::Type::MouseClick: {
+						if (Event.ControlId == C_NavZone || Event.ControlId == CMGame_FormSelect_ExternalToggleControlId) {
+							declare Boolean CMGame_FormSelect_CustomNavigationEnabled for Frame_Select = False;
+							if (CMGame_FormSelect_CustomNavigationEnabled) {
+								declare CMlFrame Frame_ContainerOptions <=> (Frame_Select.GetFirstChild(C_Id_ContainerOption) as CMlFrame);
+								CMGame_FormSelect_State.PendingEvents.add(K_Event {
+									Id = CMGame_FormSelect_SelectId,
+									Type = C_EventType_RequestToggle,
+									DisplayingOptions = Frame_ContainerOptions.Visible
+								});
+							} else {
+								Toggle(_This, CMGame_FormSelect_SelectId);
+							}
+						} else if (Event.ControlId == C_Id_ButtonOption) {
+							declare Integer CMGame_FormSelect_OptionsIndex for Event.Control = -1;
+							Select(_This, CMGame_FormSelect_OptionsIndex, True, CMGame_FormSelect_SelectId);
+						} else if (Event.ControlId == C_Id_ScrollbarFg) {
+							CMGame_FormSelect_State.IsScrolling = Event.Control;
+							CMGame_FormSelect_State.MouseScrollingOffset = Event.Control.RelativePosition_V3.Y - _This.MouseY;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+Void ProcessShareMenuNavigationEvents(CMlScript _This) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	// @HACK to enable in game navigation (cf https://gitlab.nadeo.org/trackmania-next/tmnext/-/issues/4940#note_252698)
+	if (_This is CMlScriptIngame) {
+		foreach (Event in _This.PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MenuNavigation) {
+				switch (Event.MenuNavAction) {
+					case CMlScriptEvent::EMenuNavAction::Up: {
+						declare Ident SelectId = CMGame_FormSelect_State.SelectActiveNavigation.Parent.Id;
+						if (CMGame_FormSelect_State.Options.existskey(SelectId)) {
+							declare Text[Integer] Options = CMGame_FormSelect_State.Options[SelectId];
+							if (Options.count > 0 && CMGame_FormSelect_State.PreSelected.existskey(SelectId)) {
+								declare Integer PreSelectedIndex = CMGame_FormSelect_State.PreSelected[SelectId];
+								declare Integer PreviousIndex;
+								declare Boolean IsFirstIndex = True;
+								declare Boolean FoundIndex = False;
+								foreach (Index => Option in Options) {
+									if (Index == PreSelectedIndex && !IsFirstIndex) {
+										PreSelect(_This, SelectId, PreviousIndex);
+										ScrollToOption(_This, SelectId, PreviousIndex);
+										FoundIndex = True;
+										break;
+									}
+									IsFirstIndex = False;
+									PreviousIndex = Index;
+								}
+								if (!FoundIndex) {
+									PreSelect(_This, SelectId, PreviousIndex);
+									ScrollToOption(_This, SelectId, PreviousIndex);
+								}
+							}
+						}
+					}
+					case CMlScriptEvent::EMenuNavAction::Down: {
+						declare Ident SelectId = CMGame_FormSelect_State.SelectActiveNavigation.Parent.Id;
+						if (CMGame_FormSelect_State.Options.existskey(SelectId)) {
+							declare Text[Integer] Options = CMGame_FormSelect_State.Options[SelectId];
+							if (Options.count > 0 && CMGame_FormSelect_State.PreSelected.existskey(SelectId)) {
+								declare Integer PreSelectedIndex = CMGame_FormSelect_State.PreSelected[SelectId];
+								declare Integer FirstIndex;
+								declare Boolean IsFirstIndex = True;
+								declare Boolean FoundIndex = False;
+								declare Boolean PreSelectNextIndex = False;
+								foreach (Index => Option in Options) {
+									if (PreSelectNextIndex) {
+										PreSelect(_This, SelectId, Index);
+										ScrollToOption(_This, SelectId, Index);
+										FoundIndex = True;
+										break;
+									} else if (Index == PreSelectedIndex) {
+										PreSelectNextIndex = True;
+									}
+									if (IsFirstIndex) {
+										FirstIndex = Index;
+										IsFirstIndex = False;
+									}
+								}
+								if (!FoundIndex) {
+									PreSelect(_This, SelectId, FirstIndex);
+									ScrollToOption(_This, SelectId, FirstIndex);
+								}
+							}
+						}
+					}
+					case CMlScriptEvent::EMenuNavAction::Select: {
+						declare Ident SelectId = CMGame_FormSelect_State.SelectActiveNavigation.Parent.Id;
+						if (CMGame_FormSelect_State.PreSelected.existskey(SelectId)) {
+							Select(_This, CMGame_FormSelect_State.PreSelected[SelectId], True, SelectId);
+						}
+					}
+					case CMlScriptEvent::EMenuNavAction::Cancel: {
+						DisplayOptions(_This, False, CMGame_FormSelect_State.SelectActiveNavigation.Parent.Id);
+					}
+				}
+			}
+		}
+	} else {
+		foreach (Event in ShareMenuNavigation::GetPendingEvents(_This)) {
+			switch (Event.MenuNavAction) {
+				case CMlScriptEvent::EMenuNavAction::Up: {
+					declare Ident SelectId = CMGame_FormSelect_State.SelectActiveNavigation.Parent.Id;
+					if (CMGame_FormSelect_State.Options.existskey(SelectId)) {
+						declare Text[Integer] Options = CMGame_FormSelect_State.Options[SelectId];
+						if (Options.count > 0 && CMGame_FormSelect_State.PreSelected.existskey(SelectId)) {
+							declare Integer PreSelectedIndex = CMGame_FormSelect_State.PreSelected[SelectId];
+							declare Integer PreviousIndex;
+							declare Boolean IsFirstIndex = True;
+							declare Boolean FoundIndex = False;
+							foreach (Index => Option in Options) {
+								if (Index == PreSelectedIndex && !IsFirstIndex) {
+									PreSelect(_This, SelectId, PreviousIndex);
+									ScrollToOption(_This, SelectId, PreviousIndex);
+									FoundIndex = True;
+									break;
+								}
+								IsFirstIndex = False;
+								PreviousIndex = Index;
+							}
+							if (!FoundIndex) {
+								PreSelect(_This, SelectId, PreviousIndex);
+								ScrollToOption(_This, SelectId, PreviousIndex);
+							}
+						}
+					}
+				}
+				case CMlScriptEvent::EMenuNavAction::Down: {
+					declare Ident SelectId = CMGame_FormSelect_State.SelectActiveNavigation.Parent.Id;
+					if (CMGame_FormSelect_State.Options.existskey(SelectId)) {
+						declare Text[Integer] Options = CMGame_FormSelect_State.Options[SelectId];
+						if (Options.count > 0 && CMGame_FormSelect_State.PreSelected.existskey(SelectId)) {
+							declare Integer PreSelectedIndex = CMGame_FormSelect_State.PreSelected[SelectId];
+							declare Integer FirstIndex;
+							declare Boolean IsFirstIndex = True;
+							declare Boolean FoundIndex = False;
+							declare Boolean PreSelectNextIndex = False;
+							foreach (Index => Option in Options) {
+								if (PreSelectNextIndex) {
+									PreSelect(_This, SelectId, Index);
+									ScrollToOption(_This, SelectId, Index);
+									FoundIndex = True;
+									break;
+								} else if (Index == PreSelectedIndex) {
+									PreSelectNextIndex = True;
+								}
+								if (IsFirstIndex) {
+									FirstIndex = Index;
+									IsFirstIndex = False;
+								}
+							}
+							if (!FoundIndex) {
+								PreSelect(_This, SelectId, FirstIndex);
+								ScrollToOption(_This, SelectId, FirstIndex);
+							}
+						}
+					}
+				}
+				case CMlScriptEvent::EMenuNavAction::Select: {
+					declare Ident SelectId = CMGame_FormSelect_State.SelectActiveNavigation.Parent.Id;
+					if (CMGame_FormSelect_State.PreSelected.existskey(SelectId)) {
+						Select(_This, CMGame_FormSelect_State.PreSelected[SelectId], True, SelectId);
+					}
+				}
+				case CMlScriptEvent::EMenuNavAction::Cancel: {
+					DisplayOptions(_This, False, CMGame_FormSelect_State.SelectActiveNavigation.Parent.Id);
+				}
+			}
+		}
+	}
+}
+
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	return CMGame_FormSelect_State.PendingEvents;
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	CMGame_FormSelect_State = C_State_Null;
+}
+
+Void MainStart(CMlScript _This) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+
+	CMGame_FormSelect_State.Selects = [];
+	CMGame_FormSelect_State.SelectActiveNavigation = Null;
+	CMGame_FormSelect_State.Options = [];
+	CMGame_FormSelect_State.Selected = [];
+	CMGame_FormSelect_State.PreSelected = [];
+	CMGame_FormSelect_State.ActiveZones = [];
+	CMGame_FormSelect_State.TimerClickDetection = -1;
+
+	_This.Page.GetClassChildren(C_Class_Container, _This.Page.MainFrame, True);
+	CMGame_FormSelect_State.Frames_Select = [];
+	CMGame_FormSelect_State.Frames_Scroll = [];
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_Select = (Control as CMlFrame); //< Point to the frame instead of the array key
+		declare CMlFrame Frame_Scroll = (Frame_Select.GetFirstChild(C_Id_ClipOptions) as CMlFrame);
+		CMGame_FormSelect_State.Frames_Select.add(Frame_Select);
+		CMGame_FormSelect_State.Frames_Scroll.add(Frame_Scroll);
+	}
+	foreach (Frame_Select in CMGame_FormSelect_State.Frames_Select) {
+		Private_Init(_This, Frame_Select);
+	}
+
+	CMGame_FormSelect_State.CurrentFocus = NullId;
+	CMGame_FormSelect_State.IsScrolling = Null;
+	CMGame_FormSelect_State.MouseScrollingOffset = 0.;
+	CMGame_FormSelect_State.PrevMouseLeftButton = False;
+	CMGame_FormSelect_State.CanSendReachEndEvent = True;
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State CMGame_FormSelect_State for _This.Page = C_State_Null;
+	CMGame_FormSelect_State.PendingEvents = [];
+
+	ProcessEvents(_This);
+
+	if (CMGame_FormSelect_State.IsScrolling != Null) {
+		if (_This.MouseLeftButton) {
+			declare Real CMGame_FormSelect_YMax for CMGame_FormSelect_State.IsScrolling = 0.;
+			CMGame_FormSelect_State.IsScrolling.RelativePosition_V3.Y = _This.MouseY + CMGame_FormSelect_State.MouseScrollingOffset;
+			if (CMGame_FormSelect_State.IsScrolling.RelativePosition_V3.Y > 0.) CMGame_FormSelect_State.IsScrolling.RelativePosition_V3.Y = 0.;
+			else if (CMGame_FormSelect_State.IsScrolling.RelativePosition_V3.Y < CMGame_FormSelect_YMax) CMGame_FormSelect_State.IsScrolling.RelativePosition_V3.Y = CMGame_FormSelect_YMax;
+
+			if (CMGame_FormSelect_State.CanSendReachEndEvent && CMGame_FormSelect_State.IsScrolling.RelativePosition_V3.Y == CMGame_FormSelect_YMax) {
+				declare Ident CMGame_FormSelect_SelectId for CMGame_FormSelect_State.IsScrolling = NullId;
+				CMGame_FormSelect_State.PendingEvents.add(K_Event {
+					Id = CMGame_FormSelect_SelectId,
+					Type = C_EventType_ReachEnd
+				});
+				CMGame_FormSelect_State.CanSendReachEndEvent = False;
+			} else if (!CMGame_FormSelect_State.CanSendReachEndEvent && CMGame_FormSelect_State.IsScrolling.RelativePosition_V3.Y != CMGame_FormSelect_YMax) {
+				CMGame_FormSelect_State.CanSendReachEndEvent = True;
+			}
+
+			if (CMGame_FormSelect_YMax != 0.) {
+				declare Ident CMGame_FormSelect_SelectId for CMGame_FormSelect_State.IsScrolling = NullId;
+				SetScrollRatio(_This, CMGame_FormSelect_State.IsScrolling.RelativePosition_V3.Y / CMGame_FormSelect_YMax, CMGame_FormSelect_SelectId);
+			}
+		} else {
+			CMGame_FormSelect_State.IsScrolling <=> Null;
+		}
+	}
+
+	if (CMGame_FormSelect_State.PrevMouseLeftButton != _This.MouseLeftButton) {
+		CMGame_FormSelect_State.PrevMouseLeftButton = _This.MouseLeftButton;
+		if (_This.MouseLeftButton && CMGame_FormSelect_State.ActiveZones.count > 0 && CMGame_FormSelect_State.Selects.count > 0) {
+			declare Boolean[] IsInside;
+			foreach (Zone in CMGame_FormSelect_State.ActiveZones) {
+				declare Vec2 ZoneA = Zone[0];
+				declare Vec2 ZoneB = Zone[1];
+				IsInside.add(_This.MouseX >= ZoneA.X && _This.MouseX <= ZoneB.X && _This.MouseY <= ZoneA.Y && _This.MouseY >= ZoneB.Y);
+			}
+			if (!IsInside.exists(True) && CMGame_FormSelect_State.TimerClickDetection < 0) {
+				foreach (SelectId => Select in CMGame_FormSelect_State.Selects) {
+					DisplayOptions(_This, False, SelectId);
+				}
+			}
+		}
+	}
+
+	if (CMGame_FormSelect_State.TimerClickDetection > 0 && CMGame_FormSelect_State.TimerClickDetection < Now) {
+		CMGame_FormSelect_State.TimerClickDetection = -1;
+	}
+
+	if (_This.PageIsVisible) {
+		foreach (Key => Frame_Scroll in CMGame_FormSelect_State.Frames_Scroll) {
+			declare Real CMGame_FormSelect_ScrollOffsetY for Frame_Scroll = 0.;
+			if (CMGame_FormSelect_ScrollOffsetY != Frame_Scroll.ScrollOffset.Y) {
+				declare CMlControl Control_ScrollBar <=> CMGame_FormSelect_State.Frames_Select[Key].GetFirstChild(C_Id_ScrollbarFg);
+				declare Real CMGame_FormSelect_YMax for Control_ScrollBar = 0.;
+				Control_ScrollBar.RelativePosition_V3.Y = (Frame_Scroll.ScrollOffset.Y / Frame_Scroll.ScrollMax.Y) * CMGame_FormSelect_YMax;
+				SetScrollRatio(_This, Frame_Scroll.ScrollOffset.Y / Frame_Scroll.ScrollMax.Y, CMGame_FormSelect_State.Frames_Select[Key].Parent.Id);
+			}
+		}
+
+		if (CMGame_FormSelect_State.SelectActiveNavigation != Null) {
+			declare Boolean CMGame_FormSelect_CustomNavigationEnabled for CMGame_FormSelect_State.SelectActiveNavigation = False;
+			if (CMGame_FormSelect_CustomNavigationEnabled) {
+				ProcessShareMenuNavigationEvents(_This);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/FormSelect.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[ShareMenuNavigation::ComponentV2()],
+		[]
+	);
+}

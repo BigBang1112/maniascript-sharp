@@ -1,0 +1,306 @@
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Styles/CommonStyles.Script.txt" as Styles
+
+#Const C_ImgBase "file://Media/Manialinks/Common/Keys/"
+#Const C_ButtonsPath "file://Media/Manialinks/Common/PadButtons/"
+
+#Const C_Color_DarkBlue "000514"
+
+#Const C_Step_EnterKey 		0		//you can enter a key, the check button appears when a key is entered
+#Const C_Step_ActivateKey	1		//your key is valid, the "activate" button appears
+#Const C_Step_KeyActivated	2		//your key has been successfully activated
+#Const C_Step_None			3
+
+declare CUILayer		G_ManialinkLayerRegisterKey;
+
+Text Private_CreateManialink() {
+	return """
+<manialink version="3" name="RegisterKey:Popup">
+	<stylesheet>
+		{{{Styles::Get()}}}
+		<style class="quad-base" halign="center" valign="center"/>
+	</stylesheet>
+
+	<frame id="Frame_GlobalPageContainer" hidden="1">
+	
+		<label	id="label-title" class="Title"	pos="0 33" halign="center" valign="center2" textsize="8" textprefix="$t$i"/>
+		
+		<frame id="frame-enter-key">
+			<label 	id="label-reminder" pos="-60 17" 	size="120 30" class="Text" textsize="2" autonewline="1" maxline="5" />
+			
+			<entry	id="entry-key" pos="0 -5" size="120 15" selecttext="1" class="Bold" textprefix="$t" textsize="6" textcolor="000" halign="center" valign="center2" />
+			
+			<label	id="label-keytype"	pos="0 -20"		size="120 30" class="Text" textsize="2" valign="center2" halign="center" />
+			<label	id="label-error"	pos="0 -30"		size="120 30" class="Text" textsize="2" valign="center2" halign="center" />
+		</frame>
+		
+		<frame	id="frame-activation-success">
+			<label	id="label-activationsuccess" 	pos="0 0" size="120 30" class="Text"  valign="center2" halign="center" textsize="4" />
+			<label	id="label-activationsuccess2" 	pos="0 -20" size="120 30" class="Text" valign="center2" halign="center" textsize="6" textprefix="$t" />
+		</frame>
+		
+		<label	id="button-step"				pos="50 -40" size="30" style="CardButtonSmall" textprefix="$t" halign="center" valign="center2" textsize="4" textcolor="000" scriptevents="1" />
+		<quad	id="button-step-highlighting"	pos="50 -40" size="37 7.8" style="UICommon64_1" substyle="BgFrame1" halign="center" valign="center" />
+		<quad	id="button-close"				pos="80 38" size="6 6" halign="center" valign="center" z-index="0" style="UICommon64_1" substyle="Cross_light" scriptevents="1" />
+		
+		<quad	id="quad-bg"		z-index="-1" image="{{{C_ImgBase}}}Background_LightGreen.dds"	size="200 200"	class="quad-base" />
+		<quad	id="quad-bg-blur"	z-index="-2" class="Fullscreen"  bgcolor="{{{C_Color_DarkBlue}}}" style="Bgs1" substyle="BgDialogBlur" ScriptEvents="1" />
+	</frame>
+	
+	<frame id="frame-splash" hidden="1"><!--
+		<label	class="Title"	pos="0 40" halign="center" valign="center2" textsize="12" textprefix="$s" text="..."/>
+		<label	class="Bold"	pos="0 -40" halign="center" valign="center2" textsize="4" textprefix="$s" text="..."/>
+
+		<label	id="label-days" class="Title"	pos="-2 -1" halign="center" valign="center2" textsize="22" text="..."/>
+		<label	class="Title"	pos="15 -4.5" halign="center" valign="center2" textsize="5"  text="..."/>
+
+		<quad	id="quad-clock"	class="quad-base"  image="https://..." opacity="0.85" size="45 45" />
+
+		<quad	id="button-close"				pos="140 80" size="10 10" halign="center" valign="center" z-index="0" style="UICommon64_1" substyle="Cross_light" scriptevents="1" />
+
+		<quad	z-index="-1" class="Fullscreen"  bgcolor="181D3A" opacity="0.86" />
+		<quad	z-index="-2" class="Fullscreen" image="https://..."	ScriptEvents="1"/>
+	--></frame>
+	
+	<script><!--
+		#Include "TextLib" as TL
+		#Include "MathLib" as ML
+	
+		declare Integer G_CurrentStep;
+	
+		Void SetActivationStep_EnterKey(Boolean ResetEntry) {
+			declare CMlLabel 	Button_Step 			<=>	(Page.GetFirstChild("button-step")					as CMlLabel);
+			declare CMlLabel 	Label_Reminder 			<=> (Page.GetFirstChild("label-reminder") 				as CMlLabel);
+			declare CMlLabel 	Label_KeyType	 		<=> (Page.GetFirstChild("label-keytype") 				as CMlLabel);
+			declare CMlLabel 	Label_Error	 			<=> (Page.GetFirstChild("label-error") 					as CMlLabel);
+			
+			declare CMlFrame 	Frame_EnterKey			<=> (Page.GetFirstChild("frame-enter-key") 				as CMlFrame);
+			declare CMlFrame 	Frame_ActivationSuccess	<=> (Page.GetFirstChild("frame-activation-success") 	as CMlFrame);
+			
+			Frame_EnterKey.Show();
+			Frame_ActivationSuccess.Hide();
+			
+			Button_Step.Value = 
+				//L16N [KeyActivation] Check whether a key is valid or not
+				_("|KeyActivation|Check");
+			Button_Step.Hide();
+					
+			Label_Reminder.Value	= TL::Compose(
+				//L16N [KeyActivation] A reminder. %1 is an account login. 
+				_("Reminder: The key will be registered to this account: %1.\nThis cannot be changed once the activation is complete, so please make sure you're signed in to the correct account.")
+				, "\n\t\t"^UserMgr.FindDisplayName(LocalUser.WebServicesUserId)^"$z");
+
+			Label_KeyType.Value		= "";
+			Label_Error.Value		= "";
+			
+			if (ResetEntry) {
+				declare Entry_Key 			<=> (Page.GetFirstChild("entry-key") 			as CMlEntry);
+				Entry_Key.Value = "";
+			}
+			
+			G_CurrentStep = {{{C_Step_EnterKey}}};
+		}
+			
+		Void SetActivationStep_ActivateKey(Text KeyType) {
+			declare CMlLabel Button_Step 				<=>	(Page.GetFirstChild("button-step")					as CMlLabel);
+			Button_Step.Value = 
+				//L16N [KeyActivation] Activate a key
+				_("|KeyActivation|Activate");
+			Button_Step.Show();
+			
+			declare CMlLabel Label_Error	 			<=> (Page.GetFirstChild("label-error") 					as CMlLabel);
+			declare CMlLabel Label_KeyType	 			<=> (Page.GetFirstChild("label-keytype") 				as CMlLabel);
+			Label_Error.Value	= "";
+			Label_KeyType.Value = TL::Compose(
+				//L16N [KeyActivation] Key type description. %1 is the type of content given by the key.
+				_("This key gives you access to: %1"), "$o"^KeyType);
+			
+			G_CurrentStep = {{{C_Step_ActivateKey}}};
+		}
+		
+		Void SetActivationStep_KeyActivated() {
+			declare CMlLabel Button_Step 				<=>	(Page.GetFirstChild("button-step")					as CMlLabel);
+			declare CMlFrame Frame_EnterKey				<=> (Page.GetFirstChild("frame-enter-key") 				as CMlFrame);
+			declare CMlFrame Frame_ActivationSuccess	<=> (Page.GetFirstChild("frame-activation-success") 	as CMlFrame);
+			
+			Button_Step.Value = _("OK");
+			Button_Step.Show();
+			
+			Frame_EnterKey.Hide();
+			Frame_ActivationSuccess.Show();
+			
+			G_CurrentStep = {{{C_Step_KeyActivated}}};
+		}
+		
+		Void OnButtonStep() {
+			declare CMlLabel	Button_Step <=>	(Page.GetFirstChild("button-step")	as CMlLabel);
+			declare CMlLabel 	Label_Error	<=> (Page.GetFirstChild("label-error") 	as CMlLabel);
+			declare CMlEntry	Entry_Key 	<=> (Page.GetFirstChild("entry-key") 	as CMlEntry);
+			
+			if (!Button_Step.Visible)
+				return;
+			
+			switch (G_CurrentStep) {
+				case {{{C_Step_EnterKey}}} : {
+					declare Match = TL::RegexMatch("....-....-....-....-....", Entry_Key.Value, "");
+					if (Match.count > 0 && TL::Length(Match[0]) == TL::Length(Entry_Key.Value)) {
+						Button_Step.Hide();
+						Label_Error.Value = "";
+						SendCustomEvent("CheckKey", [Entry_Key.Value]);
+					}
+				}
+				case {{{C_Step_ActivateKey}}} : {
+					Button_Step.Hide();
+					Label_Error.Value = "";
+					SendCustomEvent("ActivateKey", [Entry_Key.Value]);
+				}
+				case {{{C_Step_KeyActivated}}} : {
+					Button_Step.Hide();
+					SendCustomEvent("CloseActivateKeyPopup", []);
+				}
+			}
+		}
+		
+		Void OnButtonClose() {
+			SendCustomEvent("CloseActivateKeyPopup", []);
+		}
+		
+		Void UpdateButtonStepHighlighting() {
+			declare CMlLabel	Button_Step 				<=>	(Page.GetFirstChild("button-step")				as CMlLabel);
+			declare CMlQuad		Button_Step_Highlighting	<=>	(Page.GetFirstChild("button-step-highlighting")	as CMlQuad);
+		
+			if (!Button_Step.Visible || (G_CurrentStep != {{{C_Step_EnterKey}}} && G_CurrentStep != {{{C_Step_ActivateKey}}})) {
+				Button_Step_Highlighting.Hide();
+				return;
+			}
+			
+			Button_Step_Highlighting.Show();
+			Button_Step_Highlighting.Opacity = 0.2 + ML::Abs(1. - ML::ToReal(Now % 1500) / 750.) * 0.8;
+		}
+		
+		main() {
+			G_CurrentStep = {{{C_Step_None}}};
+			declare CMlFrame 	Frame_GlobalPageContainer	<=> (Page.GetFirstChild("Frame_GlobalPageContainer") as CMlFrame);
+			
+			declare CMlLabel 	Label_Title 				<=> (Page.GetFirstChild("label-title") 				as CMlLabel);
+			declare CMlLabel 	Label_ActivationSuccess 	<=> (Page.GetFirstChild("label-activationsuccess") 	as CMlLabel);
+			declare CMlLabel 	Label_ActivationSuccess2 	<=> (Page.GetFirstChild("label-activationsuccess2") as CMlLabel);
+			declare CMlLabel 	Label_Error	 				<=> (Page.GetFirstChild("label-error") 				as CMlLabel);
+			
+			declare CMlEntry	Entry_Key 		<=> (Page.GetFirstChild("entry-key") 	as CMlEntry);
+			declare CMlLabel	Button_Step 	<=>	(Page.GetFirstChild("button-step")	as CMlLabel);
+			
+			Label_Title.Value 				= _("Activate a key");
+			Label_ActivationSuccess.Value	= _("The Key or Activation Code has been successfully activated.");
+			Label_ActivationSuccess2.Value	= _("Have fun!");
+
+			declare CMlFrame 	Frame_Splash	<=> (Page.GetFirstChild("frame-splash") as CMlFrame);
+			declare CMlLabel 	Label_SplashDays		<=> (Frame_Splash.GetFirstChild("label-days") 				as CMlLabel);
+			
+			declare Boolean IsVisible = False;
+			declare Boolean SelectInputEatenByEntry;
+			
+			while (True) {
+				SelectInputEatenByEntry = False;
+				
+				foreach (Event in PendingEvents) {
+					if (Event.Type == CMlScriptEvent::Type::PluginCustomEvent) {
+						if (Event.CustomEventType == "SetActivationStep") {
+							declare Integer ActivationStep = TL::ToInteger(Event.CustomEventData[0]);
+							switch (ActivationStep) {
+								case {{{C_Step_EnterKey}}} : {
+									//declare Boolean IsError = Event.CustomEventData.count > 1;
+									SetActivationStep_EnterKey(True);
+								}
+								case {{{C_Step_ActivateKey}}} : {
+									SetActivationStep_ActivateKey(Event.CustomEventData[1]);
+								}
+								case {{{C_Step_KeyActivated}}} : {
+									SetActivationStep_KeyActivated();
+								}
+							}
+						} else if (Event.CustomEventType == "Error") {
+							Button_Step.Show();
+							if (Event.CustomEventData[0] == "InvalidKey") {
+								Label_Error.Value = 
+									//L16N [KeyActivation] The key check failed because the key was not valid.
+									_("This Key or Activation Code is not valid. Please try again.");
+							} else if (Event.CustomEventData[0] == "AlreadyActivated") {
+								Label_Error.Value = 
+									//L16N [KeyActivation] The key check failed because the key has already been activated.
+									_("This Key or Activation Code has already been activated. Please try another Key or Activation Code.");
+							} else {
+								Label_Error.Value = TL::Compose(_("Key activation failed. Please try again. (Error %1)"), Event.CustomEventData[0]);
+							}
+						} else if (Event.CustomEventType == "SetVisible") {
+							IsVisible = (Event.CustomEventData[0] == "True");
+							EnableMenuNavigation(IsVisible, False, Null, 1);
+							Frame_GlobalPageContainer.Visible = IsVisible;
+							Frame_Splash.Visible = False;
+						} else if (Event.CustomEventType == "ShowSplash") {
+							Label_SplashDays.Value = Event.CustomEventData[0];
+							EnableMenuNavigation(True, False, Null, 1);
+							Frame_GlobalPageContainer.Visible = False;
+							Frame_Splash.Visible = True;
+						}
+					} else if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+						if (Event.ControlId == "button-step") {
+							OnButtonStep();
+						} else if (Event.ControlId == "button-close") {
+							OnButtonClose();
+						}
+					} else if (Event.Type == CMlScriptEvent::Type::EntrySubmit) {
+						SelectInputEatenByEntry = True;
+						SetActivationStep_EnterKey(False);
+						Label_Error.Value = "";
+						 declare Match = TL::RegexMatch("....-....-....-....-....", Entry_Key.Value, "");
+						 if (Match.count > 0 && TL::Length(Match[0]) == TL::Length(Entry_Key.Value)) {
+							Button_Step.Show();
+						 } else {
+							Button_Step.Hide();
+						 }
+					}
+				}
+				
+				if (IsVisible) {
+					foreach (Event in Input.PendingEvents) {
+						if (Event.Type == CInputEvent::EType::PadButtonPress) {
+							if (Event.Button == CInputEvent::EButton::A) {
+								if (!SelectInputEatenByEntry)
+									OnButtonStep();
+							} else if (Event.Button == CInputEvent::EButton::B) {
+								OnButtonClose();
+							}
+						}
+					}
+				}
+				
+				UpdateButtonStepHighlighting();
+				
+				yield;
+			}
+		}
+	
+	--></script>
+</manialink>
+	""";
+}
+
+Void Build() {
+	G_ManialinkLayerRegisterKey = UILayerCreate();
+	G_ManialinkLayerRegisterKey.Type = CUILayer::EUILayerType::Normal;
+	G_ManialinkLayerRegisterKey.ManialinkPage = Private_CreateManialink();
+}
+
+Void SetVisibility(Boolean _IsVisible) {
+	LayerCustomEvent(G_ManialinkLayerRegisterKey, "SetVisible", [TL::ToText(_IsVisible)]);
+}
+
+Void ShowSplash(Text _DaysLeft) {
+	LayerCustomEvent(G_ManialinkLayerRegisterKey, "ShowSplash", [_DaysLeft]);
+}
+
+CUILayer GetLayer() {
+	return G_ManialinkLayerRegisterKey;
+}

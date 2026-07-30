@@ -1,0 +1,293 @@
+/**
+ * UI module: ParkCombo client side
+ */
+#Const Version "1.1.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/ParkCombo_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/ParkCombo_Common.Script.txt" as UIModules_ParkCombo_Common
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModulesData.Script.txt" as UIModulesData
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_ParkCombo_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_ParkCombo_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the module manialink
+Text GetML() {
+	declare Vec2 Size_ComboTimer = <80., 1.5>;
+	declare Vec2 Size_MessageBg = <141., 14.>;
+	declare Vec2 Size_FrameCombo = <160., 100.>;
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-default" halign="center" valign="center2" textprefix="$t$i" textcolor="FFFFFF"/>
+</stylesheet>
+
+<!-- Frame global -->
+<frame id="frame-global" z-index="{{{UIModulesData::C_ZIndex_ParkCombo}}}" hidden="1">
+	<quad id="quad-screen-gradient" pos="0 -90" size="{{{MLHelpers::MLKeepRatioFromX(3840., 624., 320.)}}}" halign="center" valign="bottom" image="{{{Const::C_ImageUrl_ParkScreenGradient}}}" colorize="{{{Stylesheet::C_ColorHex6_White}}}" opacity="0." z-index="0" fullscreen="1" hidden="1"/>
+	<frame {{{UIModules::CustomizableUIModule(UIModules_ParkCombo_Common::C_UIModuleConfig)}}} z-index="1">
+		<frame id="frame-combo" size="0 {{{Size_FrameCombo.Y}}}" halign="center" valign="center" hidden="1">
+			<frame id="frame-timer">
+				<quad id="quad-combo-timer-bg" size="{{{Size_ComboTimer.X + 1.}}} {{{Size_ComboTimer.Y + 0.8}}}" halign="center" valign="center" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.6" z-index="0"/>
+				<quad id="quad-combo-timer" size="{{{Size_ComboTimer.X}}} {{{Size_ComboTimer.Y}}}" halign="center" valign="center" bgcolor="{{{Stylesheet::C_ColorHex6_Pumpkin}}}" z-index="1"/>
+			</frame>
+			<frame id="frame-score" pos="0 -8">
+				<quad id="quad-combo-score-bg" size="{{{Size_ComboTimer.X}}} 10" halign="center" valign="center" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.6" z-index="2" hidden="1"/>
+				<label id="label-combo-score" pos="0 -0.5" size="{{{Size_ComboTimer.X}}} 10" class="text-default" halign="center" textsize="6" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" z-index="3"/>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/PlayerData.Script.txt" as PlayerData
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModulesData.Script.txt" as UIModulesData
+#Include "AnimLib" as AL
+#Include "ColorLib" as CL
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+
+#Struct K_Controls {
+	CMlFrame Frame_Combo;
+	CMlFrame Frame_Global;
+	CMlLabel Label_ComboScore;
+	CMlQuad Quad_ComboScoreBg;
+	CMlQuad Quad_ComboTimer;
+	CMlQuad Quad_ScreenGradient;
+}
+#Struct K_State {
+	Boolean IsModuleDisplayed;
+	Boolean IsPageVisible;
+	Boolean IsVisible;
+	Ident TargetId;
+	Integer ParkComboEventUpdate;
+	K_Controls Controls;
+	PlayerData::K_ParkComboEvent LastParkComboEvent;
+	UIModulesData::K_ScoreAnim ScoreAnim;
+}
+
+#Const Const::C_ColorBg_Parks as C_ColorBg_Parks
+#Const Const::C_Colors_FiguresLanding as C_Colors_FiguresLanding
+""",
+"""
+/// Get the remaining time in the given combo
+Integer GetRemainingTime(PlayerData::K_ParkComboEvent _ParkComboEvent) {
+	return _ParkComboEvent.EndTime - ML::Max(0, _ParkComboEvent.StartTime - GameTime) - GameTime;
+}
+
+/// Update the combo timer
+K_State UpdateComboTimer(K_State _State, PlayerData::K_ParkComboEvent _ParkComboEvent, Boolean _IsFasterScoreAnim) {
+	declare K_State State = _State;
+	declare Integer RemainingTime = GetRemainingTime(_ParkComboEvent);
+
+	// Trigger score animation
+	State.ScoreAnim = UIModulesData::K_ScoreAnim {
+		CurrentScore = Tools::Ternary(State.ScoreAnim.CurrentScore <= _ParkComboEvent.Score, State.ScoreAnim.CurrentScore, 0),
+		OldScore = Tools::Ternary(State.ScoreAnim.CurrentScore <= _ParkComboEvent.Score, State.ScoreAnim.CurrentScore, 0),
+		NewScore = _ParkComboEvent.Score,
+		Duration = Tools::Ternary(_IsFasterScoreAnim, Const::C_AnimDuration_FasterScoreIncrease, Const::C_AnimDuration_ScoreIncrease),
+		StartTime = Now
+	};
+
+	// Prepare controls for the upcoming animations
+	if (RemainingTime > 0 && _ParkComboEvent.Duration > 0) {
+		State.Controls.Quad_ComboScoreBg.Visible = _ParkComboEvent.Score > 0;
+		State.Controls.Quad_ComboTimer.BgColor = CL::Hex6ToRgb(C_ColorBg_Parks.get(_ParkComboEvent.ParkId, "FFFFFF"));
+		State.Controls.Quad_ComboTimer.Size.X = ML::Max(0., {{{Size_ComboTimer.X}}} * (ML::ToReal(RemainingTime) / ML::ToReal(_ParkComboEvent.Duration)));
+		State.Controls.Label_ComboScore.TextColor = CL::Hex6ToRgb(C_ColorBg_Parks.get(_ParkComboEvent.ParkId, "FFFFFF"));
+		if (!State.Controls.Quad_ScreenGradient.Visible) State.Controls.Quad_ScreenGradient.Colorize = CL::Hex6ToRgb(C_ColorBg_Parks.get(_ParkComboEvent.ParkId, "FFFFFF"));
+		if (_ParkComboEvent.Score <= 0) State.Controls.Label_ComboScore.SetText("");
+	}
+
+	// Update the frame visibility
+	AnimMgr.Flush(_State.Controls.Frame_Combo);
+	if (RemainingTime > 0) {
+		AnimMgr.Add(_State.Controls.Frame_Combo, "<anim size=\""^{{{Size_FrameCombo.X}}}^" "^{{{Size_FrameCombo.Y}}}^"\" hidden=\"0\"/>", 500, CAnimManager::EAnimManagerEasing::QuadIn);
+	} else {
+		AnimMgr.Add(_State.Controls.Frame_Combo, "<anim size=\"0 "^{{{Size_FrameCombo.Y}}}^"\" hidden=\"1\"/>", 500, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	// Gradient animations
+	if (RemainingTime > 0) {
+		AnimMgr.Add(State.Controls.Quad_ScreenGradient, "<anim opacity=\"1.\" colorize=\""^C_ColorBg_Parks.get(_ParkComboEvent.ParkId, "FFFFFF")^"\" hidden=\"0\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		AnimMgr.Add(State.Controls.Quad_ScreenGradient, "<anim opacity=\"0.\" hidden=\"1\"/>", 500, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	// Timer opacity animation
+	if (RemainingTime > 0 && !_ParkComboEvent.IsPaused) {
+		AnimMgr.Add(State.Controls.Quad_ComboTimer, "<anim opacity=\"1.\" />", 200, CAnimManager::EAnimManagerEasing::Linear);
+	}	else {
+		AnimMgr.Add(State.Controls.Quad_ComboTimer, "<anim opacity=\"0.6\" />", 200, CAnimManager::EAnimManagerEasing::Linear);
+	}
+
+	return State;
+}
+
+/// Reset the module
+K_State ResetModule(K_State _State) {
+	declare K_State State = _State;
+
+	State.ScoreAnim = UIModulesData::K_ScoreAnim {};
+	State.LastParkComboEvent = PlayerData::C_Default_PlayerParkComboEvent;
+	State = UpdateComboTimer(State, PlayerData::C_Default_PlayerParkComboEvent, False);
+
+	return State;
+}
+
+/// Trigger a combo event
+K_State TriggerParkComboEvent(K_State _State, CSmPlayer _Player) {
+	if (_Player == Null) return _State;
+	declare K_State State = _State;
+	declare Boolean IsSpectatingAnotherTarget = IsSpectatorClient && State.ParkComboEventUpdate < 0; //< Faster animations when switching target as a spectator
+
+	State.ParkComboEventUpdate = PlayerData::GetPlayerParkComboEventUpdate(_Player);
+	State.LastParkComboEvent = PlayerData::GetPlayerParkComboEvent(_Player);
+	if (State.LastParkComboEvent.IsEndingActiveCombo || !(State.LastParkComboEvent.EndTime < 0 && State.ScoreAnim.CurrentScore < State.ScoreAnim.NewScore)) {
+		State = UpdateComboTimer(State, State.LastParkComboEvent, IsSpectatingAnotherTarget);
+	}
+
+	return State;
+}
+
+/// Update the visibility of the whole manialink UI
+K_State UpdateVisibility(K_State _State, Boolean _IsPageVisible, Boolean _IsModuleDisplayed) {
+	declare K_State State = _State;
+
+	State.IsPageVisible = _IsPageVisible;
+	State.IsModuleDisplayed = _IsModuleDisplayed;
+	State.IsVisible = State.IsPageVisible && State.IsModuleDisplayed && State.TargetId != NullId;
+	State.Controls.Frame_Global.Visible = State.IsVisible;
+
+	// Reset module if hidden
+	if (!State.Controls.Frame_Global.Visible) {
+		State = ResetModule(State);
+	}
+
+	return State;
+}
+
+/// Check if the current target has changed
+Boolean IsTargetUpdateRequired(K_State _State, CSmPlayer _Player) {
+	return (
+		(_Player != Null && _State.TargetId != _Player.Id) ||
+		(_Player == Null && _State.TargetId != NullId)
+	);
+}
+
+/// Set the player currently followed by the camera
+K_State SetTarget(K_State _State, CSmPlayer _Player) {
+	declare K_State State = _State;
+
+	// Update target data
+	if (_Player == Null) {
+		State.TargetId = NullId;
+	} else {
+		State.ParkComboEventUpdate = -1;
+		State.TargetId = _Player.Id;
+	}
+
+	// Refresh UI
+	State = UpdateVisibility(State, State.IsPageVisible, State.IsModuleDisplayed);
+	State = ResetModule(State);
+
+	return State;
+}
+
+***MainInit***
+***
+declare netread Boolean Net_Stunt_ParkCombo_IsVisible for UI;
+
+declare K_State State;
+***
+
+***MainStart***
+***
+State = K_State {
+	Controls = K_Controls {
+		Frame_Combo = (Page.GetFirstChild("frame-combo") as CMlFrame),
+		Frame_Global = (Page.GetFirstChild("frame-global") as CMlFrame),
+		Label_ComboScore = (Page.GetFirstChild("label-combo-score") as CMlLabel),
+		Quad_ComboScoreBg = (Page.GetFirstChild("quad-combo-score-bg") as CMlQuad),
+		Quad_ComboTimer = (Page.GetFirstChild("quad-combo-timer") as CMlQuad),
+		Quad_ScreenGradient = (Page.GetFirstChild("quad-screen-gradient") as CMlQuad)
+	}
+};
+
+State = UpdateVisibility(State, PageIsVisible, Net_Stunt_ParkCombo_IsVisible);
+State = SetTarget(State, Null);
+***
+
+***MainLoop***
+***
+if (State.IsPageVisible != PageIsVisible) {
+	State = UpdateVisibility(State, PageIsVisible, State.IsModuleDisplayed);
+}
+
+if (State.IsPageVisible) {
+	if (State.IsModuleDisplayed != Net_Stunt_ParkCombo_IsVisible) {
+		State = UpdateVisibility(State, PageIsVisible, Net_Stunt_ParkCombo_IsVisible);
+	}
+
+	if (State.IsModuleDisplayed) {
+		if (IsTargetUpdateRequired(State, GUIPlayer)) {
+			State = SetTarget(State, GUIPlayer);
+		}
+
+		if (State.IsVisible && State.TargetId != NullId) {
+			if (State.ParkComboEventUpdate != PlayerData::GetPlayerParkComboEventUpdate(GUIPlayer)) {
+				State = TriggerParkComboEvent(State, GUIPlayer);
+			}
+
+			// Timer size animation
+			// The 'GameTime' variable is used to pause the timer animation while the pause menu is open
+			if (State.LastParkComboEvent.Duration > 0 && State.LastParkComboEvent.EndTime >= GameTime && !State.LastParkComboEvent.IsPaused) {
+				State.Controls.Quad_ComboTimer.Size.X = ML::Clamp({{{Size_ComboTimer.X}}} * ML::Max(0, GetRemainingTime(State.LastParkComboEvent)) / ML::ToReal(State.LastParkComboEvent.Duration), 0., {{{Size_ComboTimer.X}}});
+			}
+
+			// Combo score animation
+			if (State.ScoreAnim.CurrentScore < State.ScoreAnim.NewScore) {
+				State.ScoreAnim.CurrentScore = ML::Clamp(ML::FloorInteger(AL::EaseOutQuad(Now - State.ScoreAnim.StartTime, ML::ToReal(State.ScoreAnim.OldScore), ML::ToReal(State.ScoreAnim.NewScore - State.ScoreAnim.OldScore), State.ScoreAnim.Duration)), 0, State.ScoreAnim.NewScore);
+				State.Controls.Label_ComboScore.SetText(TL::Compose(MenuConst::C_Text_RecordPoints, TL::FormatInteger(State.ScoreAnim.CurrentScore, 1, True)));
+				State.Controls.Quad_ComboScoreBg.Size.X = State.Controls.Label_ComboScore.ComputeWidth(State.Controls.Label_ComboScore.Value) + 14.;
+				State.Controls.Quad_ComboScoreBg.Visible = State.ScoreAnim.CurrentScore > 0;
+				if (State.ScoreAnim.CurrentScore >= State.ScoreAnim.NewScore && PlayerData::GetPlayerParkComboEvent(GUIPlayer).EndTime < 0) {
+					State = UpdateComboTimer(State, PlayerData::GetPlayerParkComboEvent(GUIPlayer), True);
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

@@ -1,0 +1,1074 @@
+
+#Include "ColorLib" as CL
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "TimeLib" as Time
+#Include "Libs/Nadeo/System/Chat/ChatAPI.Script.txt"				as ChatAPI
+#Include "Libs/Nadeo/System/Chat/ChatEmbeds.Script.txt"				as ChatEmbeds
+#Include "Libs/Nadeo/System/Chat/ChatSettings.Script.txt"			as ChatSettings
+#Include "Libs/Nadeo/System/Chat/ChatServersInfo.Script.txt"		as ChatServersInfo
+#Include "Libs/Nadeo/System/Chat/Layer_Contacts.Script.txt"			as LayerContacts
+#Include "Libs/Nadeo/System/Chat/Layer_Messages.Script.txt"			as LayerMessages
+#Include "Libs/Nadeo/System/Chat/Layer_Modals.Script.txt"			as LayerModals
+#Include "Libs/Nadeo/System/Chat/Layer_ServerInfo.Script.txt"		as LayerServerInfo
+#Include "Libs/Nadeo/System/Chat/Layer_ServersList.Script.txt"		as LayerServersList
+#Include "Libs/Nadeo/System/Chat/Layer_SquadInviting.Script.txt"	as LayerSquadInviting
+#Include "Libs/Nadeo/System/Chat/Layer_SquadList.Script.txt"		as LayerSquadList
+#Include "Libs/Nadeo/System/Chat/Layer_Widget.Script.txt"			as LayerWidget
+
+#Include "Libs/Nadeo/System/InternalEvents/Events_Consumer.Script.txt"	as EventsConsumer
+#Include "Libs/Nadeo/System/InternalEvents/Events_Producer.Script.txt"	as EventsProducer
+#Include "Libs/Nadeo/System/Notifications/Sender_Internal.Script.txt"	as Notifications
+#Include "Libs/Nadeo/System/Styles/ColorScheme.Script.txt"				as ColorScheme
+
+// ---------------------------------- //
+// Constants
+// ---------------------------------- //
+#Const C_LibChatController_ApplicationName					_("Chat")	///< Application name in notifications.
+#Const C_LibChatController_AutoAwayPresenceIdleTime			300000		///< Time before automatic Away status applies.
+#Const C_LibChatController_IgnoreJoinNotificationsDuration	5000		///< "Friend online" notifications are ignored after connecting.
+#Const C_LibChatController_DefaultNotificationDuration		6000		///< Duration of the chat notifications.
+
+// ---------------------------------- //
+// Global variables
+// ---------------------------------- //
+declare Boolean G_IsChatWindowVisible;	///< Chat widget visibility
+declare Boolean G_IsSquadInvitingVisible;
+
+declare Integer G_ContactsListMode;		///< 0 -> Contacts, 1 -> Invites, 2 -> Search, 3 -> Group
+declare Integer G_MessagesListMode;		///< 0 -> Messages, 1 -> Servers, 2 -> Settings
+declare Text G_ContactsSearchPhrase;	///< Phrase used to filter friends in search.
+declare Text G_ActiveConversationLogin;	///< Login of currently active conversation.
+
+declare CChatManager::EPresenceShow	G_TargetPresenceShow;
+declare Integer	G_UserIdleStartTime;			///< User idle timer.
+declare Text	G_ContextActivityName;			///< Current activity for "rich presence" status.
+declare Integer	G_IgnoreNotificationsEndTime;	///< Ignore "friend online" notifications until this time.
+declare Ident[]	G_PendingTaskResults;
+
+/// Update
+declare CChatManager::EPresenceShow	G_PrevActualPresenceShow;
+declare CManiaPlanet::EContext		G_PrevActiveContext;
+declare Boolean	G_PrevIsGameFocused;
+declare Boolean	G_PrevIsAutoAway;
+declare Text	G_PrevActualStatusText;
+declare Vec2	G_PrevMousePosition;
+declare Integer	G_PrevConnectionStatus;
+declare Ident	G_PrevChatSquadId;
+declare Text	G_LastSquadRoomId;
+declare Integer	G_PrevNbSquadInvites;
+
+declare Integer	G_LibEvents_PreviousChangeCount;
+declare Integer	G_ColorScheme_PreviousChangeCount;
+
+// ---------------------------------- //
+/// Update expandable windows horizontal visibility.
+Void UpdateExtendedWindows() {
+	LayerContacts::SetMessagesListMode(G_MessagesListMode);
+	LayerMessages::SetIsExtended(G_MessagesListMode == 0 && G_ActiveConversationLogin != "");
+	LayerServersList::SetIsExtended(G_MessagesListMode == 1);
+}
+
+// ---------------------------------- //
+/** Automatic away status.
+ *
+ *	@return		True, if the user gave no input for 5 minutes.
+ */
+Boolean IsAutoAway() {
+	return Now - G_UserIdleStartTime >= C_LibChatController_AutoAwayPresenceIdleTime;
+}
+
+// ---------------------------------- //
+/// Update the user's presence.
+Void UpdatePresence() {
+	declare CChatManager::EPresenceShow TargetPresenceShow;
+
+	// Auto Away
+	if (IsAutoAway()) TargetPresenceShow = CChatManager::EPresenceShow::Away;
+	
+	// User preference
+	else TargetPresenceShow = G_TargetPresenceShow;
+	
+	ChatAPI::SetPresence(TargetPresenceShow);
+	LayerSquadInviting::SetLocalPresence(ChatAPI::GetConnectionStatus(), TargetPresenceShow);
+	LayerSquadList::SetLocalPresence(ChatAPI::GetConnectionStatus(), TargetPresenceShow);
+
+	switch (ChatAPI::GetConnectionStatus()) {
+		case 0 : LayerContacts::SetPresence(0);
+		case 2 : LayerContacts::SetPresence(-1);
+		case 1 : {
+			switch (TargetPresenceShow) {
+				case CChatManager::EPresenceShow::Available		: LayerContacts::SetPresence(1);
+				case CChatManager::EPresenceShow::WantToChat	: LayerContacts::SetPresence(1);
+				case CChatManager::EPresenceShow::Away			: LayerContacts::SetPresence(2);
+				case CChatManager::EPresenceShow::ExtendedAway	: LayerContacts::SetPresence(2);
+				case CChatManager::EPresenceShow::DoNotDisturb	: LayerContacts::SetPresence(3);
+			}
+		}
+	}
+
+	LayerWidget::SetIsConnected(ChatAPI::GetConnectionStatus());
+}
+
+// ---------------------------------- //
+/// Update the user's status text.
+Void UpdateStatusText() {
+	declare Text TargetStatusText;
+
+	// User preference
+	if (ChatSettings::CustomStatusText() != "") {
+		TargetStatusText = ChatSettings::CustomStatusText();
+	}
+
+	// Automatic "rich presence" status
+	else if (ChatSettings::UseRichPresenceStatus() && G_ContextActivityName != "") {
+		TargetStatusText = G_ContextActivityName;
+	}
+
+	ChatAPI::SetStatusText(TargetStatusText);
+	UpdatePresence();
+}
+
+Void UpdateWindowPosition() {
+	declare PositionOffset = 27.;
+	declare IconPosition = -20.;
+
+	if (ChatSettings::ChatWindowLeftSide()) {
+		PositionOffset -= 133.;
+		IconPosition = -158.;
+	}
+
+	LayerContacts::SetWindowOffset(PositionOffset - 27.);
+	LayerMessages::SetWindowOffset(PositionOffset);
+	LayerServersList::SetWindowOffset(PositionOffset);
+	LayerWidget::SetIconPosition(IconPosition);
+}
+
+// ---------------------------------- //
+/** Set the widget color scheme.
+ *
+ *	@param	_Background		Background quad color.
+ *	@param	_Highlights		Leading active color for Online status, links and details.
+ */
+Void SetWindowColors(Vec3 _Background, Vec3 _Highlights) {
+	LayerContacts::SetColorScheme(_Background, _Highlights);
+	LayerModals::SetColorScheme(_Background, _Highlights);
+	LayerMessages::SetColorScheme(_Background, _Highlights);
+	LayerServerInfo::SetColorScheme(_Background, _Highlights);
+	LayerServersList::SetColorScheme(_Background, _Highlights);
+	LayerSquadInviting::SetColorScheme(_Background, _Highlights);
+	LayerSquadList::SetColor(_Highlights);
+	LayerWidget::SetColor(_Highlights);
+}
+
+// ---------------------------------- //
+/// Update the chat colors.
+Void UpdateSelectedColors() {
+	SetWindowColors(ColorScheme::GetSecondaryColor(), ColorScheme::GetPrimaryColor());
+}
+
+Void UpdateSquadLists() {
+	return;	// WIP
+	
+	declare SquadMembers = ChatAPI::GetSquadMembers();
+
+	LayerSquadList::SetSquadPlayers(SquadMembers);
+	LayerSquadInviting::SetContactsList(ChatAPI::GetOnlineContactsNotInSquad());
+	LayerSquadInviting::SetArrowPosition(SquadMembers.count);
+}
+
+// ---------------------------------- //
+/// Trigger an update of the contacts list window.
+Void UpdateContactsList() {
+	declare Text[] ContactsList;
+	declare ChatAPI::SListGroup[] ContactsGroups;
+
+	switch (G_ContactsListMode) {
+		case 0 : {
+			ContactsList = ChatAPI::GetContactsList();
+			ContactsGroups = ChatAPI::GetContactsGroups();
+		}
+		case 1 : {
+			ContactsList = ChatAPI::GetInvitesList();
+			ContactsGroups = ChatAPI::GetInvitesGroups();
+		}
+		case 2 : {
+			ContactsList = ChatAPI::SearchContacts(G_ContactsSearchPhrase);
+
+			if (ContactsList.count > 0) ContactsGroups.add(ChatAPI::SListGroup{
+				Name = _("Search results"),
+				Size = ContactsList.count
+			});
+		}
+		case 3 : {
+			ContactsList = ChatAPI::GetRoomContacts(G_ActiveConversationLogin);
+
+			if (ContactsList.count > 0) ContactsGroups.add(ChatAPI::SListGroup{
+				Name = _("Room members"),
+				Size = ContactsList.count
+			});
+		}
+	}
+
+	
+
+	LayerContacts::SetContactsList(ContactsList);
+	LayerContacts::SetContactsGroups(ContactsGroups);
+	LayerContacts::SetContactsListMode(G_ContactsListMode);
+	LayerContacts::SetNbInvites(ChatAPI::GetNbIncomingInvites());
+
+	LayerWidget::SetNbActiveChats(ChatAPI::GetNbChatsOnline());
+	LayerWidget::SetNbInvites(ChatAPI::GetNbIncomingInvites());
+
+	UpdateSquadLists();
+}
+
+// ---------------------------------- //
+/** Set the search phrase and switch list display mode.
+ *
+ *	@param	_SearchPhrase	Phrase used to filter the contacts.
+ */
+Void SetContactsSearch(Text _SearchPhrase) {
+	G_ContactsSearchPhrase = _SearchPhrase;
+
+	if (G_ContactsSearchPhrase != "") {
+		G_ContactsListMode = 2;
+	} else {
+		G_ContactsListMode = 0;
+	}
+
+	UpdateContactsList();
+}
+
+// ---------------------------------- //
+/// Update the number of unread messages.
+Void UpdateUnreadsCount() {
+	declare UnreadsArray = ChatAPI::GetUnreadsArray();
+	LayerContacts::SetUnreadsArray(UnreadsArray);
+	LayerWidget::SetNbUnreads(ChatAPI::GetNbUnreads());
+	UpdateContactsList();
+}
+
+// ---------------------------------- //
+/// Trugger an update of the conversation window.
+Void UpdateMessageList() {
+	if (G_ActiveConversationLogin == "") return;
+
+	LayerMessages::SetChatHistoryId(G_ActiveConversationLogin, ChatAPI::GetConversationHistoryId(G_ActiveConversationLogin));
+
+	// Display settings
+	LayerMessages::SetDisplayEmbeds(ChatSettings::DisplayEmbedsInMessages());
+	LayerMessages::SetSentMessagesLeft(ChatSettings::OutgoingMessagesLeftSide());
+	LayerMessages::SetDisplayImages(ChatSettings::DisplayEmbedImages());
+}
+
+// ---------------------------------- //
+/** Check if conversation window is active with given contact.
+ *
+ *	@param	_Login	The login of the conversation.
+ *
+ *	@return		True, if the conversation is open.
+ */
+Boolean IsActiveMessagesWindow(Text _Login) {
+	return ChatAPI::IsGameFocused() && G_IsChatWindowVisible && G_ActiveConversationLogin == _Login;
+}
+
+// ---------------------------------- //
+/// Reset unread messages counter with selected contact.
+Void ClearConversationUnreads() {
+	if (!IsActiveMessagesWindow(G_ActiveConversationLogin) || LayerMessages::GetScrollingOffset() > 0) return;
+	
+	ChatAPI::MarkAsRead(G_ActiveConversationLogin);
+	UpdateContactsList();
+	UpdateUnreadsCount();
+}
+
+// ---------------------------------- //
+/** Set the currently open conversation.
+ *
+ *	@param	_Login	Login of the conversation.
+ */
+Void SetActiveConversation(Text _Login) {
+	// Close when same login is given
+	if (_Login == G_ActiveConversationLogin) {
+		G_ActiveConversationLogin = "";
+		G_ContactsListMode = 0;
+	}
+
+	else {
+		G_ActiveConversationLogin = _Login;
+
+		// View selected room members
+		if (ChatAPI::GetRoomFromLogin(_Login) != Null) {
+			G_ContactsListMode = 3;
+		} else {
+			G_ContactsListMode = 0;
+		}
+	}
+
+	G_MessagesListMode = 0;
+
+	UpdateExtendedWindows();
+	ClearConversationUnreads();
+	UpdateContactsList();
+	UpdateMessageList();
+
+	LayerContacts::SetActiveConversation(G_ActiveConversationLogin);
+	LayerMessages::UpdateContactCard(G_ActiveConversationLogin);
+	LayerMessages::SetIsContactMuted(ChatAPI::IsMuted(G_ActiveConversationLogin));
+}
+
+// ---------------------------------- //
+/** Set the chat widget vertical visibility.
+ *	Scrolls up/down all layers.
+ *
+ *	@param	_Visible	Whether the chat should be visible or not.
+ */
+Void SetVisibility(Boolean _Visible) {
+	G_IsChatWindowVisible	= _Visible;
+	ToolBarForceShow		= _Visible;
+
+	LayerContacts::SetVisibility(_Visible);
+	LayerMessages::SetVisibility(_Visible);
+	LayerServersList::SetVisibility(_Visible);
+
+	if (_Visible) ClearConversationUnreads();
+}
+
+// ---------------------------------- //
+/** Finds and parses links in a message.
+ *	Use only for outgoing messages.
+ *	Example: "URL" -> "$<$l[URL]URL$>"
+ *	Messages window manually colorizes the links later.
+ *
+ *	@param	_Message	The message to parse links.
+ *
+ *	@return		Parsed message.
+ */
+Text ParseLinks(Text _Message) {
+	declare SplitMessage = TL::Split(" ", _Message);
+	declare Text[] OutputSegments;
+
+	foreach (Segment in SplitMessage) {
+		declare Raw = TL::Replace(TL::StripFormatting(Segment), "$", "$$");
+
+		if (TL::SubString(Raw, 0, 1) == "#" || TL::SubString(Raw, 0, 14) == "maniaplanet://") {
+			OutputSegments.add("$<$6BF$h[" ^ Raw ^ "]" ^ Raw ^ "$>");
+		}
+
+		else if (TL::SubString(Raw, 0, 4) == "www." || Http.IsValidUrl(Raw)) {
+			OutputSegments.add("$<$l[" ^ Raw ^ "]" ^ Raw ^ "$>");
+		}
+
+		else {
+			OutputSegments.add(Segment);
+		}
+	}
+
+	return TL::Join(" ", OutputSegments);
+}
+
+// ---------------------------------- //
+/// Load the library.
+Void Load() {
+	LayerContacts::Build();
+	LayerModals::Build();
+	LayerMessages::Build();
+	LayerServerInfo::Build();
+	LayerServersList::Build();
+//WIP	LayerSquadInviting::Build();
+//WIP	LayerSquadList::Build();
+	LayerWidget::Build();
+
+	yield; ///< Manialink synchro
+
+	ChatServersInfo::Load();
+
+	// Reset stuff to defaults
+	G_ContactsListMode		= 0;
+	G_TargetPresenceShow	= CChatManager::EPresenceShow::Available;
+	G_ContextActivityName	= "";
+	G_UserIdleStartTime		= Now;
+
+	SetVisibility(False);
+
+	// Connect only if not "Silent"
+	ChatAPI::SetConnected(!ManiaPlanet.IsPrivateSession);
+
+	// Init
+	UpdatePresence();
+	UpdateStatusText();
+	UpdateWindowPosition();
+	UpdateContactsList();
+	UpdateSquadLists();
+	UpdateUnreadsCount();
+	UpdateSelectedColors();
+}
+
+// ---------------------------------- //
+/// Library main loop.
+Void Loop() {
+	ChatEmbeds::Loop();
+	ChatServersInfo::Loop();
+
+	// ---------------------------------- //
+	// Context change: Update the "rich presence" status
+	if (G_PrevActiveContext != ManiaPlanet.ActiveContext) {
+		G_PrevActiveContext = ManiaPlanet.ActiveContext;
+
+		declare LoadedTitleName = _("|Title|Unknown");
+
+		if (ManiaPlanet.LoadedTitle != Null) {
+			LoadedTitleName = ManiaPlanet.LoadedTitle.Name;
+		}
+
+		switch (ManiaPlanet.ActiveContext) {
+			case CManiaPlanet::EContext::EditorPainter		: G_ContextActivityName = TL::Compose(_("Painting a car in $<%1$>"), LoadedTitleName);
+			case CManiaPlanet::EContext::EditorMediaTracker	: G_ContextActivityName = TL::Compose(_("Editing a replay in $<%1$>"), LoadedTitleName);
+			case CManiaPlanet::EContext::EditorTrack		: G_ContextActivityName = TL::Compose(_("Editing a map in $<%1$>"), LoadedTitleName);
+			case CManiaPlanet::EContext::Solo				: G_ContextActivityName = TL::Compose(_("Playing solo: $<%1$>"), LoadedTitleName);
+			case CManiaPlanet::EContext::Multi				: G_ContextActivityName = TL::Compose(_("Playing online: $<%1$>"), LoadedTitleName);
+			default											: G_ContextActivityName = "";
+		}
+
+		UpdateStatusText();
+	}
+
+	// ---------------------------------- //
+	// Self status changed
+	if (G_PrevActualStatusText != ChatAPI::GetStatusText()) {
+		G_PrevActualStatusText = ChatAPI::GetStatusText();
+		UpdateContactsList();
+	}
+
+	// ---------------------------------- //
+	// Self connection status changed
+	if (G_PrevConnectionStatus != ChatAPI::GetConnectionStatus()) {
+		G_PrevConnectionStatus = ChatAPI::GetConnectionStatus();
+
+		if (G_PrevConnectionStatus == 1) {
+			G_IgnoreNotificationsEndTime = Now + C_LibChatController_IgnoreJoinNotificationsDuration;
+		}
+
+		UpdatePresence();
+	}
+
+	// Mouse has been moved: reset idle timer
+	if (ML::Distance(G_PrevMousePosition, Input.MousePos) > 10.) {
+		G_PrevMousePosition = Input.MousePos;
+		G_UserIdleStartTime = Now;
+	}
+
+	// Gamepad button pressed: reset idle timer
+	foreach (Event in Input.PendingEvents) {
+		if (Event.Type == CInputEvent::EType::PadButtonPress) {
+			G_UserIdleStartTime = Now;
+		}
+	}
+
+	// Automatic away presence change
+	if (G_PrevIsAutoAway != IsAutoAway()) {
+		G_PrevIsAutoAway = IsAutoAway();
+		UpdatePresence();
+	}
+
+	// Game focus change
+	if (G_PrevIsGameFocused != ChatAPI::IsGameFocused()) {
+		G_PrevIsGameFocused = ChatAPI::IsGameFocused();
+		ClearConversationUnreads();
+	}
+
+	// ---------------------------------- //
+	// On squad change
+	if (ManiaPlanet.ChatManager.Squad != Null) {
+		if (G_PrevChatSquadId != ManiaPlanet.ChatManager.Squad.Id) {
+			G_PrevChatSquadId = ManiaPlanet.ChatManager.Squad.Id;
+			G_LastSquadRoomId = ManiaPlanet.ChatManager.Squad.RoomId;
+
+			UpdateContactsList();
+			UpdateSquadLists();
+		}
+	}
+
+	else if (G_PrevChatSquadId != NullId) {
+		G_PrevChatSquadId = NullId;
+
+		if (G_ActiveConversationLogin == G_LastSquadRoomId) {
+			SetActiveConversation("");
+		}
+
+		UpdateContactsList();
+		UpdateSquadLists();
+	}
+
+	// ---------------------------------- //
+	// Squad invites count change
+	if (G_PrevNbSquadInvites != ManiaPlanet.ChatManager.Squad_Invitations.count) {
+		G_PrevNbSquadInvites = ManiaPlanet.ChatManager.Squad_Invitations.count;
+
+		UpdateContactsList();
+	}
+
+	// ---------------------------------- //
+	// Pending internal events
+	declare LibEvents_LatestChangeCount = EventsConsumer::GetLatestChangeCount();
+	if (G_LibEvents_PreviousChangeCount != LibEvents_LatestChangeCount) {
+		foreach (Event in EventsConsumer::PendingEvents()) {
+			// ---------------------------------- //
+			// Open chat
+			switch (Event.Action) {
+				case "ChatOpenConversation" : {
+					if (!Event.Params.existskey(0) || G_ActiveConversationLogin == Event.Params[0]) continue;
+
+					SetVisibility(True);
+					SetActiveConversation(Event.Params[0]);
+					EventsConsumer::PassOn(Event);
+				}
+			}
+		}
+
+		EventsConsumer::DestroyPassedEvents();
+        G_LibEvents_PreviousChangeCount = LibEvents_LatestChangeCount;
+	}
+
+	// ---------------------------------- //
+	// Manage events
+	foreach (Event in PendingEvents) {
+		// ---------------------------------- //
+		// Key press
+		if (Event.Type == CManiaAppEvent::EType::KeyPress) {
+			// Toggle chat visibility
+			if (Event.KeyName == "F7" && !Input.IsKeyPressed(65)) {	//65 = LControl
+				SetVisibility(!G_IsChatWindowVisible);
+			}
+
+			// Reset idle timer
+			G_UserIdleStartTime = Now;
+		}
+
+		// ---------------------------------- //
+		// Layer custom event
+		else if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			switch (Event.CustomEventType) {
+				case "CloseChatWindow" : {
+					SetVisibility(False);
+				}
+ 
+				case "ToggleVisibility" : {
+					SetVisibility(!G_IsChatWindowVisible);
+				}
+ 
+				case "ToggleSquadInviting" : {
+					G_IsSquadInvitingVisible = !G_IsSquadInvitingVisible;
+					LayerSquadInviting::SetVisibility(G_IsSquadInvitingVisible);
+				}
+
+				case "HideLayerContacts" : {
+					LayerContacts::HideLayer();
+				}
+
+				case "HideLayerMessages" : {
+					LayerMessages::HideLayer();
+				}
+
+				case "HideLayerServersList" : {
+					LayerServersList::HideLayer();
+				}
+
+				case "HideLayerSquadInviting" : {
+					LayerSquadInviting::HideLayer();
+				}
+
+				case "SetChatMode" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare TabOrder = TL::ToInteger(Event.CustomEventData[0]);
+
+					switch (TabOrder) {
+						case 1 : {
+							G_ContactsListMode = 0;
+							G_MessagesListMode = 0;
+						}
+						case 2 : {
+							G_ContactsListMode = 1;
+							G_MessagesListMode = 0;
+						}
+						case 3 : {
+							if (G_MessagesListMode == 1) {
+								G_MessagesListMode = 0;
+							} else {
+								G_MessagesListMode = 1;
+							}
+						}
+						case 4 : {
+							EventsProducer::SendInternalEvent("OpenSettingsMenu", "System");
+							SetVisibility(False);
+						}
+					}
+
+					UpdateContactsList();
+					UpdateExtendedWindows();
+				}
+
+				case "SetPresence" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare PresenceId = TL::ToInteger(Event.CustomEventData[0]);
+
+					switch (PresenceId) {
+						case 1 : G_TargetPresenceShow = CChatManager::EPresenceShow::Available;
+						case 2 : G_TargetPresenceShow = CChatManager::EPresenceShow::Away;
+						case 3 : G_TargetPresenceShow = CChatManager::EPresenceShow::DoNotDisturb;
+					}
+
+					ChatAPI::SetConnected(PresenceId != 0);
+
+					// Hide chat when set to Offline
+					if (PresenceId == 0) {
+						SetVisibility(False);
+						LayerMessages::SetIsExtended(False);
+						LayerServersList::SetIsExtended(False);
+					}
+
+					UpdatePresence();
+					UpdateContactsList();
+				}
+
+				case "OpenProfileSettings" : {
+					EventsProducer::SendInternalEvent("OpenSettingsMenu", "Profile");
+					SetVisibility(False);
+				}
+
+				case "SetConversation" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					SetActiveConversation(Event.CustomEventData[0]);
+				}
+
+				case "SearchContacts" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					SetContactsSearch(Event.CustomEventData[0]);
+				}
+
+				case "AddNewContact" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					ChatAPI::AddNewContact(Event.CustomEventData[0]);
+				}
+
+				case "AcceptInvite" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					ChatAPI::AcceptInvite(Event.CustomEventData[0]);
+				}
+
+				case "RemoveContact" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					ChatAPI::RemoveContact(Event.CustomEventData[0]);
+				}
+
+				case "SendMessage" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+
+					declare SplitMessage		= TL::Split(" ", Event.CustomEventData[0]);
+					declare MessageBody			= ParseLinks(TL::Join(" ", SplitMessage));
+					declare CanProcessEmbeds	= ChatSettings::DisplayEmbedsInMessages() && ChatSettings::DetectOutgoingEmbeds() && ChatAPI::GetContactFromLogin(G_ActiveConversationLogin) != Null;
+					declare HasEmbedsToProcess	= False;
+
+					// Only private messages and when enabled
+					if (CanProcessEmbeds) {
+						HasEmbedsToProcess = ChatEmbeds::ProcessMessage(G_ActiveConversationLogin, MessageBody);
+					}
+
+					// No URLs detected - send straight away
+					if (!HasEmbedsToProcess) {
+						ChatAPI::SendMessage(G_ActiveConversationLogin, MessageBody);
+						LayerMessages::SetNextUpdateIsAnim();
+						UpdateMessageList();
+					}
+				}
+
+				case "MessagesScrollingOffsetChange" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare MessagesOffset = TL::ToInteger(Event.CustomEventData[0]);
+					if (MessagesOffset > 0) continue;
+
+					ClearConversationUnreads();
+				}
+
+				case "DeleteMessage" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					//if (!ChatAPI::DeleteMessage(TL::ToInteger(Event.CustomEventData[0]))) continue;
+					UpdateMessageList();
+				}
+
+				case "ShowServerInfo" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare ServerLogin = Event.CustomEventData[0];
+					declare SplitPosition = TL::Split(" ", Event.CustomEventData[1]);
+					if (!SplitPosition.existskey(1)) continue;
+					declare Position = <TL::ToReal(SplitPosition[0]), TL::ToReal(SplitPosition[1])>;
+
+					declare ServerInfo = ChatServersInfo::GetServerInfo(ServerLogin);
+					LayerServerInfo::ShowServerInfo(ServerInfo, Position);
+				}
+
+				case "HideServerInfo" : {
+					LayerServerInfo::HideServerInfo();
+				}
+
+				case "FriendJoinServer_Info", "FriendJoinServer", "FriendSpectateServer" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare Contact = ChatAPI::GetContactFromLogin(Event.CustomEventData[0]);
+					if (Contact == Null || Contact.CurrentServerLogin == "") continue;
+
+					switch (Event.CustomEventType) {
+						case "FriendJoinServer_Info"	: OpenLink(Contact.CurrentServerJoinLink, CManiaApp::ELinkType::ManialinkBrowser);
+						case "FriendJoinServer"			: OpenLink(TL::Replace(Contact.CurrentServerJoinLink, "#join=", "#qjoin="), CManiaApp::ELinkType::ManialinkBrowser);
+						case "FriendSpectateServer"		: OpenLink(TL::Replace(Contact.CurrentServerJoinLink, "#join=", "#qspectate="), CManiaApp::ELinkType::ManialinkBrowser);
+					}
+
+					SetVisibility(False);
+				}
+
+				case "FriendCopyLogin" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare Login = Event.CustomEventData[0];
+
+					ManiaPlanet.ClipboardSet(Login);
+				}
+
+				case "FriendInviteToSquad" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare Login = Event.CustomEventData[0];
+
+					ChatAPI::InviteToSquad(Login);
+				}
+
+				case "FriendSendPlanets" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare Contact = ChatAPI::GetContactFromLogin(Event.CustomEventData[0]);
+					if (Contact == Null) continue;
+
+					LayerModals::ShowModal(
+						_("Transfer Planets"),
+						TL::Compose(_("Set the amount of Planets you want to send to $<%1$>."), Contact.Name),
+						ChatAPI::GetAvatarURL(Contact),
+						True,
+						["ConfirmPlanetsTransfer", "CancelModal"]
+					);
+				}
+
+				case "FriendSendMail" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare Login = Event.CustomEventData[0];
+
+					OpenLink("#mailto=" ^ Login, CManiaApp::ELinkType::ManialinkBrowser);
+				}
+
+				case "FriendMuteTurnOn" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare Login = Event.CustomEventData[0];
+					declare IsMuted = True;
+
+					ChatAPI::SetContactMuted(Login, IsMuted);
+					LayerMessages::UpdateContactCard(Login);
+					LayerMessages::SetIsContactMuted(IsMuted);
+				}
+
+				case "FriendMuteTurnOff" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare Login = Event.CustomEventData[0];
+					declare IsMuted = False;
+
+					ChatAPI::SetContactMuted(Login, IsMuted);
+					LayerMessages::UpdateContactCard(Login);
+					LayerMessages::SetIsContactMuted(IsMuted);
+				}
+
+				case "FriendDeleteHistory" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare Contact = ChatAPI::GetContactFromLogin(Event.CustomEventData[0]);
+					if (Contact == Null) continue;
+
+					LayerModals::ShowModal(
+						_("Delete chat history?"),
+						TL::Compose(_("Do you really want to remove the chat history with $<%1$>?\nNote: Chat history is removed only on your side."), Contact.Name),
+						ChatAPI::GetAvatarURL(Contact),
+						False,
+						["ConfirmDeleteHistory", "CancelModal"]
+					);
+				}
+
+				case "FriendRemove" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare Contact = ChatAPI::GetContactFromLogin(Event.CustomEventData[0]);
+					if (Contact == Null) continue;
+
+					LayerModals::ShowModal(
+						_("Remove friend?"),
+						TL::Compose(_("Do you really want to remove $<%1$> from your friends?"), Contact.Name),
+						ChatAPI::GetAvatarURL(Contact),
+						False,
+						["ConfirmRemoveFriend", "CancelModal"]
+					);
+				}
+
+				case "ChatRoomLeave" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare ChatRoomLogin = Event.CustomEventData[0];
+
+					if (ManiaPlanet.ChatManager.Squad != Null && ChatRoomLogin == ManiaPlanet.ChatManager.Squad.RoomId) {
+						ChatAPI::LeaveSquad();
+					}
+
+
+				}
+
+				case "ConfirmRemoveFriend" : {
+					ChatAPI::RemoveContact(G_ActiveConversationLogin);
+					LayerMessages::SetIsExtended(False);
+				}
+
+				case "ConfirmPlanetsTransfer" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare TransferPlanets = ML::Clamp(TL::ToInteger(Event.CustomEventData[0]), 0, ManiaPlanet.AccountPlanets);
+					declare TransferTitle = Event.CustomEventData[1];
+
+					if (TransferPlanets <= 0 || TransferTitle == "") continue;
+
+					G_PendingTaskResults.add(ManiaPlanet.PlanetsTransaction_GivePlanets(G_ActiveConversationLogin, TransferPlanets, TransferTitle).Id);
+				}
+			}
+		}
+	}
+
+	// ---------------------------------- //
+	// Messages ready to be sent
+	foreach (PendingMessage in ChatEmbeds::MessagesReadyForDelivery()) {
+		ChatAPI::SendMessage(PendingMessage.RecipientLogin, PendingMessage.MessageBody, "", PendingMessage.EmbedsJSON);
+
+		if (PendingMessage.RecipientLogin == G_ActiveConversationLogin) {
+			LayerMessages::SetNextUpdateIsAnim();
+			UpdateMessageList();
+		}
+	}
+
+	// ---------------------------------- //
+	// Color scheme change
+    
+	declare ColorScheme_LatestChangeCount = ColorScheme::GetLatestChangeCount();
+	if (G_ColorScheme_PreviousChangeCount != ColorScheme_LatestChangeCount) {
+		UpdateSelectedColors();
+        G_ColorScheme_PreviousChangeCount = ColorScheme_LatestChangeCount;
+	}
+
+	// ---------------------------------- //
+	// Server data update
+	if (ChatServersInfo::DataUpdate()) {
+		LayerServerInfo::UpdateServerData(ChatServersInfo::GetServerInfo(LayerServerInfo::GetCurrentServerLogin()));
+		LayerServersList::UpdateServersList(ChatServersInfo::GetServersList());
+	}
+
+	// ---------------------------------- //
+	// Chat manager events
+	foreach (Event in ManiaPlanet.ChatManager.PendingEvents) {
+		switch (Event.Type) {
+			// ---------------------------------- //
+			// New private message
+			case CChatEvent::EType::Message, CChatEvent::EType::ChatRoomMessage : {
+				declare IsChatRoomMessage		= Event.Type == CChatEvent::EType::ChatRoomMessage;
+				declare NotificationsEnabled	= ChatSettings::NotifyOnFriendMessage();
+				declare EventConversationLogin	= Event.Sender.Login;
+				declare EventConversationName	= Event.Sender.Name;
+				declare EventConversationImage	= Event.Sender.AvatarUrl;
+
+				if (IsChatRoomMessage) {
+					if (Event.ChatRoom == ManiaPlanet.ChatManager.Squad) {
+						NotificationsEnabled = ChatSettings::NotifyOnSquadMessage();
+					} else {
+						NotificationsEnabled = ChatSettings::NotifyOnAnyMessage();
+					}
+
+					EventConversationLogin	= Event.ChatRoom.RoomId;
+					EventConversationName	= ChatAPI::GetRoomName(EventConversationLogin);
+					EventConversationImage	= ChatAPI::GetRoomIcon(EventConversationLogin);
+				}
+
+				// Update conversation window if currently opened
+				if (G_ActiveConversationLogin == EventConversationLogin) {
+					UpdateMessageList();
+					LayerMessages::SetNextUpdateIsAnim();
+				}
+
+				// Check if notification is needed
+				declare IsNewMessageNotification =
+					NotificationsEnabled &&
+					!ChatAPI::IsMuted(Event.Sender.Login) &&
+					(
+						!ChatAPI::IsGameFocused() ||
+						!G_IsChatWindowVisible ||
+						G_ActiveConversationLogin != EventConversationLogin ||
+						LayerMessages::GetScrollingOffset() > 0 ||
+						G_MessagesListMode != 0
+					);
+
+				if (IsNewMessageNotification) {
+					// Increment unreads counter
+					ChatAPI::AddUnread(Event.Sender);
+					UpdateUnreadsCount();
+
+					// Notify about the message
+					if (ChatAPI::GetPresence() != CChatManager::EPresenceShow::DoNotDisturb) {
+						declare NotificationBody = TL::Replace(TL::StripFormatting(Event.MessageBody), "\n", " ");
+
+						if (IsChatRoomMessage) {
+							NotificationBody = "$<" ^ Event.Sender.Name ^ "$>: " ^ NotificationBody;
+						}
+
+						Notifications::SendNotification(
+							C_LibChatController_ApplicationName,
+							EventConversationName,
+							NotificationBody,
+							Vec3, C_LibChatController_DefaultNotificationDuration,
+							Notifications::CreateImage1x1(EventConversationImage),
+							Notifications::CreateAction("ChatOpenConversation", [EventConversationLogin])
+						);
+
+						Audio.PlaySoundEvent(CAudioManager::ELibSound::Alert, 1, 0.);
+						ManiaPlanet.FlashWindow();
+					}
+				}
+			}
+
+			// ---------------------------------- //
+			// Friend info update
+			case CChatEvent::EType::PresenceChange : {
+				UpdateContactsList();
+
+				if (Event.Buddy.Login == G_ActiveConversationLogin) {
+					LayerMessages::UpdateContactCard(G_ActiveConversationLogin);
+					UpdateMessageList();
+				}
+
+				if (Now < G_IgnoreNotificationsEndTime) continue;
+
+				if (!ChatAPI::IsMuted(Event.Buddy.Login) && ChatSettings::NotificationOnFriendOnline() && !Event.PreviousIsOnline) {
+					Notifications::SendNotification(
+						C_LibChatController_ApplicationName,
+						_("Friend connected"),
+						TL::Compose(_("$<%1$> is now online."), Event.Buddy.Name),
+						Vec3, C_LibChatController_DefaultNotificationDuration,
+						Notifications::CreateImage1x1(Event.Buddy.AvatarUrl),
+						Notifications::CreateAction("ChatOpenConversation", [Event.Buddy.Login])
+					);
+				}
+
+				if (!ChatAPI::IsMuted(Event.Buddy.Login) && ChatSettings::NotificationOnServerJoin() && Event.PreviousServerLogin != Event.Buddy.CurrentServerLogin && Event.Buddy.CurrentServerLogin != "") {
+					//Hack for TrackNStream
+					declare Text[] Split_Text = TL::Split("@", Event.Buddy.CurrentServerJoinLink);
+					declare Boolean Send_Notification = True;
+					if (Split_Text.count > 1) {
+						if (Split_Text[Split_Text.count - 2] == "TrackNStream" && Split_Text[Split_Text.count - 1] == "nadeolabs") {
+							Send_Notification = False;
+						}
+					}
+					//End Hack for TrackNStream
+					if (Send_Notification) {
+						Notifications::SendNotification(
+							C_LibChatController_ApplicationName,
+							Event.Buddy.Name,
+							TL::Compose(_("Now playing on $<%1$>."), Event.Buddy.CurrentServerName),
+							Vec3, C_LibChatController_DefaultNotificationDuration,
+							Notifications::CreateImage1x1(Event.Buddy.AvatarUrl),
+							Notifications::CreateAction("ChatOpenConversation", [Event.Buddy.Login])
+						);
+					}
+				}
+			}
+
+			case CChatEvent::EType::BuddyChange : {
+				UpdateContactsList();
+				LayerMessages::UpdateContactCard(G_ActiveConversationLogin);
+			}
+			case CChatEvent::EType::ContactListChange : {
+				UpdateContactsList();
+				LayerMessages::UpdateContactCard(G_ActiveConversationLogin);
+			}
+
+
+			case CChatEvent::EType::JoinRoomResult : {
+				UpdateContactsList();
+			}
+			case CChatEvent::EType::AddBuddyResult : {
+				UpdateContactsList();
+
+				if (!Event.Success) {
+					Notifications::SendNotification(
+						C_LibChatController_ApplicationName,
+						_("Friend not added"), TL::GetTranslatedText(Event.ErrorMessage),
+						Vec3, C_LibChatController_DefaultNotificationDuration
+					);
+				}
+			}
+		}
+	}
+
+	// ---------------------------------- //
+	// Chat settings change
+	if (ChatSettings::PendingUpdate()) {
+		UpdateWindowPosition();
+		UpdateStatusText();
+		UpdateContactsList();
+		UpdateMessageList();
+	}
+
+	// ---------------------------------- //
+	// Pending task results
+	if (G_PendingTaskResults.count > 0) {
+		declare Ident[] TasksToRemove;
+
+		foreach (TaskResultId in G_PendingTaskResults) {
+			if (!ManiaPlanet.MasterServer_MSTaskResults.existskey(TaskResultId)) {
+				TasksToRemove.add(TaskResultId);
+				continue;
+			}
+
+			// Wait until it's processed
+			declare TaskResult <=> ManiaPlanet.MasterServer_MSTaskResults[TaskResultId];
+			if (TaskResult.IsProcessing) continue;
+
+			// ---------------------------------- //
+			// Planets transfer
+			if (TaskResult is CTaskResult_PlanetsTransationBill) {
+				if (TaskResult.HasSucceeded) {
+					declare Transaction = (TaskResult as CTaskResult_PlanetsTransationBill);
+					declare EmbedJSON = ChatEmbeds::CreatePlanetsTransactionEmbed(Transaction);	
+
+					ChatAPI::SendMessage(Transaction.LoginPayee, "", "", EmbedJSON);
+
+					if (Transaction.LoginPayee == G_ActiveConversationLogin) {
+						LayerMessages::SetNextUpdateIsAnim();
+						UpdateMessageList();
+					}
+				}
+
+				// Failed
+				else {
+					Notifications::SendNotification(
+						C_LibChatController_ApplicationName,
+						_("Transaction failed"),
+						TL::Compose("[%1] %2: %3", TaskResult.ErrorType, TaskResult.ErrorCode, TaskResult.ErrorDescription),
+						Vec3, C_LibChatController_DefaultNotificationDuration
+					);
+				}
+			}
+
+			TasksToRemove.add(TaskResultId);
+		}
+
+		while (TasksToRemove.existskey(0)) {
+			declare Boolean Removed;
+
+			Removed = G_PendingTaskResults.remove(TasksToRemove[0]);
+			Removed = TasksToRemove.removekey(0);
+		}
+	}
+}

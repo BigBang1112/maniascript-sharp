@@ -1,0 +1,203 @@
+/**
+ *	UI module: Sponsors client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/Sponsors_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Client.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/Sponsors_Common.Script.txt" as UIModules_Sponsors_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_Sponsors_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Sponsors_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	declare Vec2 Size_Sponsor = <60., 15.>;
+
+	return MV::Create(
+GetId(), 3,
+"""
+<frame id="frame-global" z-index="-2" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Sponsors_Common::C_UIModuleConfig)}}}>
+		<frame {{{MLHelpers::Size(Size_Sponsor)}}} halign="right" valign="center">
+			<frame id="frame-spectator">
+				<quad z-index="0" {{{MLHelpers::Size(Size_Sponsor)}}} halign="right" valign="center" opacity="0.7" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" />
+				<quad id="quad-sponsor-before" pos="{{{Size_Sponsor.X * -0.5}}} 0" z-index="1" {{{MLHelpers::Size(Size_Sponsor)}}} halign="center" valign="center" keepratio="fit" />
+				<quad id="quad-sponsor-after" pos="{{{Size_Sponsor.X * -0.5}}} 0" z-index="2" {{{MLHelpers::Size(Size_Sponsor)}}} halign="center" valign="center" keepratio="fit" />
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Struct K_Controls {
+	CMlFrame Frame_Spectator;
+	CMlQuad Quad_SponsorBefore;
+	CMlQuad Quad_SponsorAfter;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Boolean IsVisible;
+	Boolean IsSpectating;
+	Text[] SponsorsURL;
+	Integer NextSponsorKey;
+	Integer NextSponsorTime;
+}
+
+#Const C_SponsorUpdateInterval 30000
+#Const C_SponsorSize {{{dump(Size_Sponsor)}}}
+""",
+"""
+K_State UpdateVisibility(K_State _State, Boolean _IsSpectating, Text[] _SponsorsURL) {
+	declare K_State State = _State;
+
+	State.IsSpectating = _IsSpectating;
+	State.IsVisible = State.IsSpectating && _SponsorsURL.count > 0;
+
+	AnimMgr.Flush(State.Controls.Frame_Spectator);
+	if (State.IsVisible) {
+		AnimMgr.Add(State.Controls.Frame_Spectator, "<a pos=\"0 0\" hidden=\"0\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		AnimMgr.Add(State.Controls.Frame_Spectator, "<a pos=\""^C_SponsorSize.X^" 0\" hidden=\"1\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	return State;
+}
+
+K_State UpdateSponsors(K_State _State, Text[] _SponsorsURL) {
+	declare K_State State = _State;
+
+	State.SponsorsURL = _SponsorsURL;
+	State.NextSponsorKey = 0;
+	State.NextSponsorTime = Now;
+
+	State = UpdateVisibility(State, State.IsSpectating, State.SponsorsURL);
+
+	return State;
+}
+
+K_State CycleSponsors(K_State _State) {
+	if (_State.SponsorsURL.count <= 0) return _State;
+
+	declare K_State State = _State;
+
+	if (State.NextSponsorKey < 0 || State.NextSponsorKey > State.SponsorsURL.count - 1) {
+		State.NextSponsorKey = 0;
+	}
+
+	if (State.Controls.Quad_SponsorAfter.ImageUrl != State.SponsorsURL[State.NextSponsorKey]) {
+		State.Controls.Quad_SponsorBefore.ImageUrl = State.Controls.Quad_SponsorAfter.ImageUrl;
+		State.Controls.Quad_SponsorAfter.ImageUrl = State.SponsorsURL[State.NextSponsorKey];
+		State.Controls.Quad_SponsorBefore.RelativePosition_V3.Y = 0.;
+		State.Controls.Quad_SponsorAfter.RelativePosition_V3.Y = -C_SponsorSize.Y;
+		State.Controls.Quad_SponsorBefore.Visible = True;
+		State.Controls.Quad_SponsorAfter.Visible = False;
+		AnimMgr.Flush(State.Controls.Quad_SponsorBefore);
+		AnimMgr.Flush(State.Controls.Quad_SponsorAfter);
+		AnimMgr.Add(State.Controls.Quad_SponsorBefore, "<a pos=\""^State.Controls.Quad_SponsorBefore.RelativePosition_V3.X^" "^C_SponsorSize.Y^"\" hidden=\"1\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Quad_SponsorAfter, "<a pos=\""^State.Controls.Quad_SponsorBefore.RelativePosition_V3.X^" 0\" hidden=\"0\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	State.NextSponsorKey += 1;
+	State.NextSponsorTime = Now + C_SponsorUpdateInterval;
+
+	return State;
+}
+
+Boolean IsSpectating() {
+	return (
+		(
+			IsSpectatorClient ||
+			(InputPlayer != Null && InputPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)
+		) &&
+		!{{{UIModules_ScoresTable::P}}}IsDisplayed()
+	);
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+
+declare netread Boolean Net_ChampionSpring2022_Sponsors_IsVisible for UI;
+declare netread Text[] Net_ChampionSpring2022_Sponsors_SponsorsURL for Teams[0];
+declare netread Integer Net_ChampionSpring2022_Sponsors_SponsorsURLUpdate for Teams[0];
+
+declare K_State State;
+declare Boolean DisplayModule;
+declare Integer SponsorsURLUpdate;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+State.Controls.Frame_Spectator <=> (Frame_Global.GetFirstChild("frame-spectator") as CMlFrame);
+State.Controls.Quad_SponsorBefore <=> (State.Controls.Frame_Spectator.GetFirstChild("quad-sponsor-before") as CMlQuad);
+State.Controls.Quad_SponsorAfter <=> (State.Controls.Frame_Spectator.GetFirstChild("quad-sponsor-after") as CMlQuad);
+
+DisplayModule = Frame_Global.Visible;
+SponsorsURLUpdate = Net_ChampionSpring2022_Sponsors_SponsorsURLUpdate;
+
+State = UpdateVisibility(State, IsSpectating(), State.SponsorsURL);
+State = UpdateSponsors(State, Net_ChampionSpring2022_Sponsors_SponsorsURL);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (DisplayModule != Net_ChampionSpring2022_Sponsors_IsVisible) {
+		DisplayModule = Net_ChampionSpring2022_Sponsors_IsVisible;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (State.IsSpectating != IsSpectating()) {
+			State = UpdateVisibility(State, IsSpectating(), State.SponsorsURL);
+		}
+
+		if (SponsorsURLUpdate != Net_ChampionSpring2022_Sponsors_SponsorsURLUpdate) {
+			SponsorsURLUpdate = Net_ChampionSpring2022_Sponsors_SponsorsURLUpdate;
+			State = UpdateSponsors(State, Net_ChampionSpring2022_Sponsors_SponsorsURL);
+		}
+
+		if (State.IsVisible) {
+			if (Now >= State.NextSponsorTime && State.SponsorsURL.count > 0) {
+				State = CycleSponsors(State);
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	UIModules_ScoresTable::Component()
+],
+[]
+	);
+}

@@ -1,0 +1,101 @@
+/**
+ *	Send all menu navigation events from the mania app
+ *	to the layers
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/CMGame/Menus/ShareMenuNavigation_MA.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Menus/ShareMenuNavigation_ML.Script.txt" as ShareMenuNavigation
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constant
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_EButton_To_EMenuNavAction [
+	CInputEvent::EButton::LeftStick_Left => CManiaAppEvent::EMenuNavAction::Left,
+	CInputEvent::EButton::LeftStick_Right => CManiaAppEvent::EMenuNavAction::Right,
+	CInputEvent::EButton::LeftStick_Up => CManiaAppEvent::EMenuNavAction::Up,
+	CInputEvent::EButton::LeftStick_Down => CManiaAppEvent::EMenuNavAction::Down,
+	CInputEvent::EButton::Left => CManiaAppEvent::EMenuNavAction::Left,
+	CInputEvent::EButton::Right => CManiaAppEvent::EMenuNavAction::Right,
+	CInputEvent::EButton::Up => CManiaAppEvent::EMenuNavAction::Up,
+	CInputEvent::EButton::Down => CManiaAppEvent::EMenuNavAction::Down,
+	CInputEvent::EButton::A => CManiaAppEvent::EMenuNavAction::Select,
+	CInputEvent::EButton::B => CManiaAppEvent::EMenuNavAction::Cancel,
+	CInputEvent::EButton::X => CManiaAppEvent::EMenuNavAction::Action1,
+	CInputEvent::EButton::Y => CManiaAppEvent::EMenuNavAction::Action2,
+	CInputEvent::EButton::L2 => CManiaAppEvent::EMenuNavAction::Action3,
+	CInputEvent::EButton::R2 => CManiaAppEvent::EMenuNavAction::Action4,
+	CInputEvent::EButton::L1 => CManiaAppEvent::EMenuNavAction::PageUp,
+	CInputEvent::EButton::R1 => CManiaAppEvent::EMenuNavAction::PageDown,
+	CInputEvent::EButton::RightStick_Up => CManiaAppEvent::EMenuNavAction::ScrollUp,
+	CInputEvent::EButton::RightStick_Down => CManiaAppEvent::EMenuNavAction::ScrollDown,
+	CInputEvent::EButton::Menu => CManiaAppEvent::EMenuNavAction::AppMenu
+]
+// Keep this constant for backwark compatibility
+// It was used by the `PadsManager` library that does no exist anymore
+#Const C_MainUserIndex 0
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void SendNavigationEventToLayers(CManiaAppEvent::EMenuNavAction _MenuNavAction, Boolean _IsAutoRepeat, Integer _UserIndex, Boolean _IsFromMouse) {
+	foreach(Layer in UILayers) {
+		LayerCustomEvent(Layer, ShareMenuNavigation::C_Event_MenuNavigation, [""^_MenuNavAction, TL::ToText(_IsAutoRepeat), TL::ToText(_UserIndex), TL::ToText(_IsFromMouse)]);
+	}
+}
+Void SendNavigationEventToLayers(CManiaAppEvent::EMenuNavAction _MenuNavAction, Boolean _IsAutoRepeat, Boolean _IsFromMouse) {
+	SendNavigationEventToLayers(_MenuNavAction, _IsAutoRepeat, C_MainUserIndex, _IsFromMouse);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the menu navigation
+Void Enable(Boolean _Enabled) {
+	EnableMenuNavigationInputs = _Enabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield(CNod _Context) {
+	if (_Context is CManiaAppTitle) {
+		declare CManiaAppTitle Context = (_Context as CManiaAppTitle);
+		foreach (Event in Context.PendingEvents) {
+			switch (Event.Type) {
+				case CManiaAppEvent::EType::MenuNavigation: {
+					// The mouse scrollwheel creates the same event than the L2:R2/LT:RT buttons on the gamepad
+					// We want to be able to distinguish them
+					declare Boolean IsFromMouse = (Context.Input != Null && Context.Input.TimeSinceLatestActivity == Context.Input.TimeSinceLatestMouseActivity);
+					SendNavigationEventToLayers(Event.MenuNavAction, Event.IsActionAutoRepeat, IsFromMouse);
+				}
+			}
+		}
+	} else if (_Context is CMapEditorPlugin) {
+		declare CManiaApp Context = (_Context as CManiaApp);
+		foreach (Event in Context.Input.PendingEvents) {
+			if (Event.Type == CInputEvent::EType::PadButtonPress && C_EButton_To_EMenuNavAction.existskey(Event.Button)) {
+				declare Boolean IsFromMouse = (Event.Pad != Null && Event.Pad.Type == CInputPad::EPadType::Mouse);
+				SendNavigationEventToLayers(C_EButton_To_EMenuNavAction[Event.Button], Event.IsAutoRepeat, IsFromMouse);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	Enable(False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	Enable(True);
+}

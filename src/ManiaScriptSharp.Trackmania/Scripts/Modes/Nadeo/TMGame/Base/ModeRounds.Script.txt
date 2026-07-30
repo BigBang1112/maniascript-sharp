@@ -1,0 +1,368 @@
+/**
+ *  Base for a standard Trackmania race game mode in rounds
+ */
+#Extends "Modes/Nadeo/TMGame/Base/ModeTrackmania.Script.txt"
+
+#Const C_MR_Version "2.1.0"
+#Const C_MR_ScriptName "Modes/Nadeo/TMGame/Base/ModeRounds.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/SpectatorBase_Server.Script.txt" as UIModules_SpectatorBase
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Server.Script.txt" as UIModules_TimeGap
+#Include "Libs/Nadeo/TMGame/Modes/Pause.Script.txt" as RacePause
+#Include "Libs/Nadeo/TMGame/Modes/PointsRepartition.Script.txt" as PointsRepartition
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_PointsRepartition "" as _("Custom points distribution") //< comma separated points distribution. eg: "10,6,4,3,2,1"
+#Setting S_SynchronizePlayersAtRoundStart True as "<hidden>" ///< Synchronize all players at the beginning of each round
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_PointsRepartition [10, 6, 4, 3, 2, 1]	///< Default points repartition in rounds based modes. Can be overrided by S_PointsRepartition.
+#Const C_Method_ForceEndRound "Trackmania.ForceEndRound"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Boolean Rounds_Settings_UseDefaultSpawnManagement;
+declare Boolean Rounds_Settings_CanSpawnDefault;
+declare Integer Rounds_Settings_SpectatorCamModeAfterGiveUp;
+declare Boolean Rounds_Settings_UseDefaultRoundScores;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(C_MR_ScriptName, C_MR_Version);
+Log::RegisterScript(PointsRepartition::ScriptName, PointsRepartition::Version);
+Log::RegisterScript(RacePause::ScriptName, RacePause::Version);
+***
+
+***Match_LoadLibraries***
+***
+XmlRpc::RegisterMethod(C_Method_ForceEndRound, """
+* Name: {{{C_Method_ForceEndRound}}}
+* Type: TriggerModeScriptEventArray
+* Description: Stop the current round. Only available in Cup, Rounds and Team modes.
+* Data:
+	- Version >=2.0.0:
+	```
+	[]
+	```
+""");
+
+PointsRepartition::Load();
+RacePause::Load();
+***
+
+***Match_UnloadLibraries***
+***
+RacePause::Unload();
+PointsRepartition::Unload();
+
+XmlRpc::UnregisterMethod(C_Method_ForceEndRound);
+***
+
+***Match_Settings***
+***
+Rounds_Settings_UseDefaultSpawnManagement = True;
+Rounds_Settings_CanSpawnDefault = True;
+Rounds_Settings_SpectatorCamModeAfterGiveUp = UIModules_SpectatorBase::C_CamModes_Follow;
+Rounds_Settings_UseDefaultRoundScores = True;
+MB_Settings_UseDefaultTimer = False;
+Race_Settings_ResetPlayerRaceBetweenRounds = True;
+***
+
+***Match_AfterLoadHud***
+***
+UIModules_TimeGap::SetTimeGapMode(UIModules_TimeGap::C_TimeGapMode_CurRace);
+UIModules_PauseMenuOnline::SetAllowPrevReplay(True);
+***
+
+***Match_Yield***
+***
+foreach (Event in XmlRpc.PendingEvents) {
+	if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+		switch (Event.ParamArray1) {
+			case PointsRepartition::C_Method_SetPointsRepartition: {
+				declare Integer[] Rounds_PointsRepartitionBackUp for This;
+				Rounds_PointsRepartitionBackUp = PointsRepartition::GetPointsRepartition();
+			}
+		}
+	}
+}
+
+declare Rounds_PointsRepartitionSetting for This = S_PointsRepartition;
+if (Rounds_PointsRepartitionSetting != S_PointsRepartition) {
+	Rounds_PointsRepartitionSetting = S_PointsRepartition;
+
+	declare PointsRepartition = C_PointsRepartition;
+	if (S_PointsRepartition != "") {
+		declare NewPointsRepartition = PointsRepartition::ConvertPointsRepartition(S_PointsRepartition);
+		if (NewPointsRepartition.count > 0) {
+			PointsRepartition = NewPointsRepartition;
+		}
+	}
+	PointsRepartition::SetPointsRepartition(PointsRepartition);
+	declare Integer[] Rounds_PointsRepartitionBackUp for This;
+	Rounds_PointsRepartitionBackUp = PointsRepartition::GetPointsRepartition();
+}
+
+PointsRepartition::Yield();
+***
+
+***Match_StartServer***
+***
+declare Integer[] Rounds_PointsRepartitionBackUp for This;
+// Reload XmlRpc or load default values
+if (Rounds_PointsRepartitionBackUp.count > 0) {
+	PointsRepartition::SetPointsRepartition(Rounds_PointsRepartitionBackUp);
+} else {
+	declare PointsRepartition = C_PointsRepartition;
+	if (S_PointsRepartition != "") {
+		declare NewPointsRepartition = PointsRepartition::ConvertPointsRepartition(S_PointsRepartition);
+		if (NewPointsRepartition.count > 0) {
+			PointsRepartition = NewPointsRepartition;
+		}
+	}
+	PointsRepartition::SetPointsRepartition(PointsRepartition);
+	Rounds_PointsRepartitionBackUp = PointsRepartition::GetPointsRepartition();
+}
+
+// Enable the pause system
+Pause::SetAvailability(True);
+***
+
+***Rounds_CanSpawn***
+***
+foreach (Score in Scores) {
+	if (MM_IsMatchServer()) {
+		declare Player <=> GetPlayer(Score.User.Login);
+		Rounds_SetCanSpawn(Score, MM_PlayerIsAllowedToPlay(Player));
+	} else {
+		Rounds_SetCanSpawn(Score, True);
+	}
+}
+***
+
+***Rounds_SpawnPlayer***
+***
+if (Clans::ClansAreEnabled()) SetPlayerClan(Player, MM_GetRequestedClan(Player));
+Race::Start(Player, StartTime);
+***
+
+***Match_InitRound***
+***
+declare Boolean Round_ForceEndRound = False;
+declare Boolean Round_SkipPauseRound = False; //< Skip the current round after the pause
+declare Boolean Round_Skipped = True; //< Round skipped for another reason
+***
+
+***Match_StartRound***
+***
+// Initialize round
+StartTime = Now + Race::C_SpawnDuration;
+EndTime = -1;
+Round_ForceEndRound = False;
+Round_SkipPauseRound = False;
+
+// Initialize scores
+if (Rounds_Settings_UseDefaultRoundScores) {
+	foreach (Score in Scores) {
+		if (Score.PrevRaceTimes.count > 0) {
+			Score_ClearPrevRace(Score);
+		}
+		Scores::SetPlayerRoundPoints(Score, 0);
+	}
+}
+
+// Setup pause
+if (Pause::IsActive()) {
+	StartTime = Now;
+	+++Rounds_StartPause+++
+	while (RacePause::Loop(Pause::IsActive())) {
+		MB_Yield();
+		+++Rounds_PauseLoop+++
+	}
+	StartTime = -1;
+	+++Rounds_EndPause+++
+
+	Round_SkipPauseRound = True;
+	MB_StopRound();
+}
+
++++Rounds_WaitForPlayers+++
+
+if (S_SynchronizePlayersAtRoundStart) {
+	declare Integer Round_SynchroBarrierId = Synchro_AddBarrier();
+	while (!Synchro_BarrierReached(Round_SynchroBarrierId)) {
+		MB_Yield();
+	}
+}
+
+MB_Yield(); //< Yield to wait for everyone to be ready
+StartTime = Now + Race::C_SpawnDuration;
+
++++Rounds_BeforeSpawningPlayers+++
+
+if (Rounds_Settings_UseDefaultSpawnManagement) {
+	// Set the players who can spawn
+	---Rounds_CanSpawn---
+
+	// Spawn players for the race
+	foreach (Player in Players) {
+		if (Player.Score == Null) continue;
+
+		if (Rounds_CanSpawn(Player)) {
+			---Rounds_SpawnPlayer---
+			Rounds_SetCanSpawn(Player.Score, False);
+			+++Rounds_PlayerSpawned+++
+		} else {
+			Race::StopSkipOutro(Player);
+		}
+	}
+}
+
++++Rounds_AfterSpawningPlayers+++
+***
+
+***Rounds_PlayLoopSpawnPlayers***
+***
+// Spawn allowed players
+if (PlayersNbDead > 0) { //< Check for unspawned players only if at least one player is unspawned
+	foreach (Player in Players) {
+		if (Player.Score == Null) continue;
+
+		if (
+			Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned &&
+			MB_RoundIsRunning() &&
+			Rounds_CanSpawn(Player)
+		) {
+			if (MM_IsMatchServer()) {
+				if (MM_PlayerIsAllowedToPlay(Player)) {
+					---Rounds_SpawnPlayer---
+					Rounds_SetCanSpawn(Player.Score, False);
+					+++Rounds_PlayerSpawned+++
+				}
+			} else {
+				---Rounds_SpawnPlayer---
+				Rounds_SetCanSpawn(Player.Score, False);
+				+++Rounds_PlayerSpawned+++
+			}
+		}
+	}
+}
+***
+
+***Rounds_CheckStopRound***
+***
+// End the round
+// If All players finished
+if (Players.count > 0 && PlayersNbAlive <= 0) {
+	MB_StopRound();
+	Round_Skipped = False;
+}
+// If time limit is reached
+if (EndTime > 0 && Now >= EndTime) {
+	MB_StopRound();
+	Round_Skipped = False;
+}
+// If forced end round or round skipped after pause
+if (Round_ForceEndRound || Round_SkipPauseRound) {
+	MB_StopRound();
+	Round_Skipped = False;
+}
+***
+
+***Match_PlayLoop***
+***
+if (Rounds_Settings_UseDefaultSpawnManagement) {
+	// Spawn players joining during the round
+	---Rounds_PlayLoopSpawnPlayers---
+}
+
+// Manage XmlRpc events
+foreach (Event in XmlRpc.PendingEvents) {
+	if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+		switch (Event.ParamArray1) {
+			case C_Method_ForceEndRound: {
+				Round_ForceEndRound = True;
+			}
+		}
+	}
+}
+
+// Manage race events
+declare ModeRounds_RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in ModeRounds_RacePendingEvents) {
+	if (Event.Type == Events::C_Type_GiveUp) {
+		if (Event.Player != Null) UIModules_SpectatorBase::SetCamModeAndFocus(Event.Player, Rounds_Settings_SpectatorCamModeAfterGiveUp);
+	}
+}
+
+// Pause activation
+if (Pause::IsActive()) {
+	Round_ForceEndRound = True;
+}
+
+---Rounds_CheckStopRound---
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Display a message if the round was skipped
+Void ForcedEndRoundSequence() {
+	declare PrevUISequence = UIManager.UIAll.UISequence;
+	declare PrevBigMessage = UIManager.UIAll.BigMessage;
+	declare PrevBigMessageSound = UIManager.UIAll.BigMessageSound;
+	declare PrevBigMessageSoundVariant = UIManager.UIAll.BigMessageSoundVariant;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;
+	UIManager.UIAll.BigMessage = _("Round skipped");
+	UIManager.UIAll.BigMessageSound = CUIConfig::EUISound::EndRound;
+	UIManager.UIAll.BigMessageSoundVariant = 0;
+	MB_Sleep(3000);
+	UIManager.UIAll.BigMessageSoundVariant = PrevBigMessageSoundVariant;
+	UIManager.UIAll.BigMessageSound = PrevBigMessageSound;
+	UIManager.UIAll.BigMessage = PrevBigMessage;
+	UIManager.UIAll.UISequence = PrevUISequence;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set if a player is allowed to spawn or not this round
+Void Rounds_SetCanSpawn(CSmScore _Score, Boolean _CanSpawn) {
+	declare Boolean ModeRounds_CanSpawn for _Score = Rounds_Settings_CanSpawnDefault;
+	ModeRounds_CanSpawn = _CanSpawn;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Check if a player is allowed spawn or not this round
+Boolean Rounds_GetCanSpawn(CSmScore _Score) {
+	declare Boolean ModeRounds_CanSpawn for _Score = Rounds_Settings_CanSpawnDefault;
+	return ModeRounds_CanSpawn;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Check if a player can spawn
+Boolean Rounds_CanSpawn(CSmPlayer _Player) {
+	if (_Player == Null || _Player.Score == Null) return False;
+	if (!Rounds_GetCanSpawn(_Player.Score) || !Race::IsReadyToStart(_Player)) return False;
+	+++Rounds_CheckCanSpawn+++
+	return True;
+}
+
+/* @Changelog
+
+Version 2.0.0
+-------------
+
+- Moved from script `Modes/TrackMania/Nadeo/TMGame/Base/ModeRounds.Script.txt` to `Modes/Nadeo/TMGame/Base/ModeRounds.Script.txt`
+
+ */

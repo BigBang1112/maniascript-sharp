@@ -1,0 +1,671 @@
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Channels/Structs.Script.txt" as Structs
+
+#Const C_LibWebServicesAPI_RequestBaseURL	"https://prod.live.maniaplanet.com/"
+#Const C_LibWebServicesAPI_RequestHeaders	"User-Agent: ManiaPlanet 4.1\nContent-Type: application/json\nAccept: application/xml\n"
+#Const C_LibWebServicesAPI_RequestTimeout	8000
+
+#Const C_LibWebServicesAPI_RequestType_ChannelsLive		0
+#Const C_LibWebServicesAPI_RequestType_ChannelGrid		1
+#Const C_LibWebServicesAPI_RequestType_TitlesList		2
+#Const C_LibWebServicesAPI_RequestType_TitleInfo		3
+#Const C_LibWebServicesAPI_RequestType_ProgramInfo		4
+
+declare Boolean G_LibWebServicesAPI_PendingUpdate;
+
+declare Integer G_LibWebServicesAPI_NbPlayersOnline;
+declare Integer G_LibWebServicesAPI_NbPlayersLast24;
+
+declare Structs::SChannelLiveInfo G_LibWebServicesAPI_ChannelTrackMania;
+declare Structs::SChannelLiveInfo G_LibWebServicesAPI_ChannelShootMania;
+
+declare Text G_LibWebServicesAPI_CurGridChannelUID;
+declare Structs::SGridEpisode[] G_LibWebServicesAPI_TrackManiaGridEpisodes;
+declare Structs::SGridEpisode[] G_LibWebServicesAPI_ShootManiaGridEpisodes;
+
+declare Structs::STitleOnlineInfo[] G_LibWebServicesAPI_CurrentStorePage;
+declare Structs::STitleOnlineInfo[Text] G_LibWebServicesAPI_CachedTitleInfo;
+declare Structs::SProgramInfo[Integer] G_LibWebServicesAPI_CachedProgramInfo;
+
+declare Integer	G_LibWebServicesAPI_LastStoreOffset;
+declare Text	G_LibWebServicesAPI_LastStoreOrder;
+declare Text[]	G_LibWebServicesAPI_LastStoreFilters;
+
+declare Ident G_LibWebServicesAPI_PendingChannelsLiveRequestId;
+declare Ident G_LibWebServicesAPI_PendingChannelGridRequestId;
+declare Ident G_LibWebServicesAPI_PendingTitlesListRequestId;
+declare Ident G_LibWebServicesAPI_PendingTitleInfoRequestId;
+declare Ident G_LibWebServicesAPI_PendingProgramInfoRequestId;
+
+declare Integer G_LibWebServicesAPI_ChannelsLiveRequestStatusCode;
+declare Integer G_LibWebServicesAPI_ChannelGridRequestStatusCode;
+declare Integer G_LibWebServicesAPI_TitlesListRequestStatusCode;
+declare Integer G_LibWebServicesAPI_TitleInfoRequestStatusCode;
+declare Integer G_LibWebServicesAPI_ProgramInfoRequestStatusCode;
+
+Structs::SChannelLiveInfo Private_ParseChannelNode(CXmlNode _Node) {
+	declare Structs::SChannelLiveInfo ChannelInfo;
+
+	if (_Node == Null) return ChannelInfo;
+
+	foreach (Node in _Node.Children) {
+		switch (Node.Name) {
+			case "channel_uid"					: ChannelInfo.UID				= Node.TextContents;
+			case "channel_name"					: ChannelInfo.Name				= Node.TextContents;
+			case "channel_online_players"		: ChannelInfo.OnlinePlayers		= TL::ToInteger(Node.TextContents);
+			case "channel_join_manialink"		: ChannelInfo.JoinLink			= Node.TextContents;
+			case "channel_players_last_7_days"	: ChannelInfo.PlayersLastWeek	= TL::ToInteger(Node.TextContents);
+			case "channel_playtime_last_7_days"	: ChannelInfo.PlaytimeLastWeek	= TL::ToInteger(Node.TextContents);
+		}
+	}
+
+	return ChannelInfo;
+}
+
+Structs::SEpisode Private_ParseEpisode(CXmlNode _Node) {
+	declare Structs::SEpisode Episode;
+
+	if (_Node == Null) return Episode;
+
+	foreach (Node in _Node.Children) {
+		switch (Node.Name) {
+			case "time_slot_start_timestamp"	: Episode.TimeSlot_StartTimestamp	= TL::ToInteger(Node.TextContents);
+			case "time_slot_end_timestamp"		: Episode.TimeSlot_EndTimestamp		= TL::ToInteger(Node.TextContents);
+			case "time_slot_duration"			: Episode.TimeSlot_Duration			= TL::ToInteger(Node.TextContents);
+			case "time_slot_start_index"		: Episode.TimeSlot_StartIndex		= TL::ToInteger(Node.TextContents);
+			case "time_slot_day"				: Episode.TimeSlot_Day				= TL::ToInteger(Node.TextContents);
+			case "time_slot_id"					: Episode.TimeSlot_Id				= TL::ToInteger(Node.TextContents);
+			case "episode_instance_id"			: Episode.Episode_InstanceId		= TL::ToInteger(Node.TextContents);
+			case "program_id"					: Episode.Program_Id				= TL::ToInteger(Node.TextContents);
+			case "program_name"					: Episode.Program_Name				= Node.TextContents;
+			case "program_author_nickname"		: Episode.Program_AuthorNickname	= Node.TextContents;
+			case "program_card_image_url"		: Episode.Program_CardImageURL		= Node.TextContents;
+			case "program_grid_image_url"		: Episode.Program_GridImageURL		= Node.TextContents;
+			case "program_score"				: Episode.Program_Score				= TL::ToInteger(Node.TextContents);
+			case "program_rank"					: Episode.Program_Rank				= TL::ToInteger(Node.TextContents);
+			case "program_previous_rank"		: Episode.Program_PrevRank			= TL::ToInteger(Node.TextContents);
+			case "program_author_login"			: Episode.Program_AuthorLogin		= Node.TextContents;
+			case "program_channel_uid"			: Episode.Program_ChannelUID		= Node.TextContents;
+			case "program_players_last_7_days"	: Episode.Program_PlayersLastWeek	= TL::ToInteger(Node.TextContents);
+			case "program_playtime_last_7_days"	: Episode.Program_PlaytimeLastWeek	= TL::ToInteger(Node.TextContents);
+			case "program_feedback_url"			: Episode.Program_FeedbackURL		= Node.TextContents;
+			case "episode_id"					: Episode.Episode_Id				= TL::ToInteger(Node.TextContents);
+			case "episode_and_season_number"	: Episode.Episode_SENumber			= Node.TextContents;
+			case "episode_season_number"		: Episode.Episode_Season			= TL::ToInteger(Node.TextContents);
+			case "episode_number"				: Episode.Episode_Number			= TL::ToInteger(Node.TextContents);
+			case "episode_description"			: Episode.Episode_Description		= Node.TextContents;
+			case "episode_title_uid_0"			: Episode.Episode_TitleUID			= Node.TextContents;
+			case "episode_title_download_url_0"	: Episode.Episode_TitleDownloadURL	= Node.TextContents;
+			case "episode_type"					: Episode.Episode_Type				= Node.TextContents;
+		}
+	}
+
+	return Episode;
+}
+
+Structs::SEpisode[] Private_ParseEpisodes(CXmlNode _Node) {
+	declare Structs::SEpisode[] Episodes;
+
+	if (_Node == Null) return Episodes;
+
+	foreach (NodeEpisode in _Node.Children) {
+		Episodes.add(Private_ParseEpisode(NodeEpisode));
+	}
+
+	return Episodes;
+}
+
+Void Private_HandleChannelsLiveResponse(CXmlDocument _Document) {
+	if (_Document == Null || _Document.Root == Null || _Document.Root.Name != "response") return;
+
+	foreach (Node in _Document.Root.Children) {
+		switch (Node.Name) {
+			case "maniaplanet_online_players" : {
+				G_LibWebServicesAPI_NbPlayersOnline = TL::ToInteger(Node.TextContents);
+			}
+			case "maniaplanet_players_last_24h" : {
+				G_LibWebServicesAPI_NbPlayersLast24 = TL::ToInteger(Node.TextContents);
+			}
+			case "channels" : {
+				foreach (Channel in Node.Children) {
+					declare ChannelInfo = Private_ParseChannelNode(Channel);
+
+					switch (Channel.Name) {
+						case "trackmania" : G_LibWebServicesAPI_ChannelTrackMania = ChannelInfo;
+						case "shootmania" : G_LibWebServicesAPI_ChannelShootMania = ChannelInfo;
+					}
+				}
+			}
+			case "time_slots" : {
+				foreach (Channel in Node.Children) {
+					declare Episodes = Private_ParseEpisodes(Channel);
+
+					switch (Channel.Name) {
+						case "trackmania" : G_LibWebServicesAPI_ChannelTrackMania.Episodes = Episodes;
+						case "shootmania" : G_LibWebServicesAPI_ChannelShootMania.Episodes = Episodes;
+					}
+				}
+			}
+		}
+	}
+}
+
+Void Private_HandleChannelLiveResponse(CXmlDocument _Document, Text _ChannelUID) {
+	if (_Document == Null || _Document.Root == Null || _Document.Root.Name != "response") return;
+
+	declare Structs::SGridEpisode[] Episodes;
+
+	foreach (NodeEpisode in _Document.Root.Children) {
+		declare Structs::SGridEpisode Episode;
+
+		foreach (Node in NodeEpisode.Children) {
+			switch (Node.Name) {
+				case "day"							: Episode.Day				= TL::ToInteger(Node.TextContents);
+				case "start"						: Episode.Start				= TL::ToInteger(Node.TextContents);
+				case "length"						: Episode.Length			= TL::ToInteger(Node.TextContents);
+				case "program_name"					: Episode.ProgramName		= Node.TextContents;
+				case "program_grid_url"				: Episode.ProgramGridURL	= Node.TextContents;
+				case "episode_id"					: Episode.EpisodeId			= TL::ToInteger(Node.TextContents);
+				case "season_and_episode_number"	: Episode.SeasonEpisodeNb	= Node.TextContents;
+			}
+		}
+
+		Episodes.add(Episode);
+	}
+
+	switch (_ChannelUID) {
+		case "trackmania" : G_LibWebServicesAPI_TrackManiaGridEpisodes = Episodes;
+		case "shootmania" : G_LibWebServicesAPI_ShootManiaGridEpisodes = Episodes;
+	}
+}
+
+Structs::STitleOnlineInfo Private_ParseTitleNode(CXmlNode _Node) {
+	declare Structs::STitleOnlineInfo TitleInfo;
+
+	if (_Node == Null) return TitleInfo;
+
+	foreach (Node in _Node.Children) {
+		switch (Node.Name) {
+			case "uid"				: TitleInfo.UID					= Node.TextContents;
+			case "name"				: TitleInfo.Name				= Node.TextContents;
+			case "description"		: TitleInfo.Description			= Node.TextContents;
+			case "punchline"		: TitleInfo.Punchline			= Node.TextContents;
+			case "author_login"		: TitleInfo.AuthorLogin			= Node.TextContents;
+			case "author_nickname"	: TitleInfo.AuthorNickName		= Node.TextContents;
+			case "download_url"		: TitleInfo.DownloadURL			= Node.TextContents;
+			case "creation_date"	: TitleInfo.CreatedAt			= TL::ToInteger(Node.TextContents);
+			case "last_update"		: TitleInfo.UpdatedAt			= TL::ToInteger(Node.TextContents);
+			case "cost"				: TitleInfo.PlanetsCost			= TL::ToInteger(Node.TextContents);
+			case "registrations"	: TitleInfo.PlayersNbRegistered	= TL::ToInteger(Node.TextContents);
+			case "players_last24h"	: TitleInfo.PlayersNbLast24h	= TL::ToInteger(Node.TextContents);
+			case "online_players"	: TitleInfo.PlayersNbOnline		= TL::ToInteger(Node.TextContents);
+			case "facebook_url"		: if (Node.TextContents != "")	TitleInfo.ExternalURLs.add(Node.TextContents);
+			case "twitter_url"		: if (Node.TextContents != "")	TitleInfo.ExternalURLs.add(Node.TextContents);
+			case "youtube_url"		: if (Node.TextContents != "")	TitleInfo.ExternalURLs.add(Node.TextContents);
+			case "forum_url"		: if (Node.TextContents != "")	TitleInfo.ExternalURLs.add(Node.TextContents);
+			case "website_url"		: if (Node.TextContents != "")	TitleInfo.ExternalURLs.add(Node.TextContents);
+			case "card_url"			: TitleInfo.CardURL				= Node.TextContents;
+			case "background_url"	: TitleInfo.BackgroundURL		= Node.TextContents;
+			case "logo_url"			: TitleInfo.LogoURL				= Node.TextContents;
+			case "is_solo"			: TitleInfo.IsSolo				= Node.TextContents == "1";
+			case "is_multiplayer"	: TitleInfo.IsMultiplayer		= Node.TextContents == "1";
+			case "is_environment"	: TitleInfo.IsEnvironment		= Node.TextContents == "1";
+			case "is_trackmania"	: TitleInfo.IsTrackMania		= Node.TextContents == "1";
+			case "is_shootmania"	: TitleInfo.IsShootMania		= Node.TextContents == "1";
+			case "is_matchmaking"	: TitleInfo.IsMatchmaking		= Node.TextContents == "1";
+			case "primary_color"	: TitleInfo.ColorPrimary		= TL::ToColor(Node.TextContents);
+			case "title_maker_uid"	: TitleInfo.TitleMakerUID		= Node.TextContents;
+			case "title_maker_name"	: TitleInfo.TitleMakerName		= Node.TextContents;
+			case "title_page_url"	: TitleInfo.TitlePageURL		= Node.TextContents;
+		}
+
+		if (TL::StartsWith("screenshot_url_", Node.Name) && Node.TextContents != "") {
+			TitleInfo.ScreenshotsURLs.add(Node.TextContents);
+		}
+
+		if (TL::StartsWith("youtube_url_", Node.Name) && Node.TextContents != "") {
+			TitleInfo.YouTubeURLs.add(Node.TextContents);
+		}
+	}
+
+	G_LibWebServicesAPI_CachedTitleInfo[TitleInfo.UID] = TitleInfo;
+
+	return TitleInfo;
+}
+
+Void Private_ParseTitlesListResult(CXmlDocument _Document) {
+	if (_Document == Null || _Document.Root == Null || _Document.Root.Name != "response") return;
+
+	G_LibWebServicesAPI_CurrentStorePage.clear();
+
+	foreach (Item in _Document.Root.Children) {
+		G_LibWebServicesAPI_CurrentStorePage.add(Private_ParseTitleNode(Item));
+	}
+}
+
+Void Private_ParseTitleInfoResult(CXmlDocument _Document) {
+	if (_Document == Null || _Document.Root == Null || _Document.Root.Name != "response") return;
+
+	Private_ParseTitleNode(_Document.Root);
+}
+
+Void Private_ParseProgramInfoResult(CXmlDocument _Document) {
+	if (_Document == Null || _Document.Root == Null || _Document.Root.Name != "response") return;
+
+	declare Structs::SProgramInfo ProgramInfo;
+
+	foreach (Node in _Document.Root.Children) {
+		switch (Node.Name) {
+			case "program" : {
+				foreach (Attrib in Node.Children) {
+					switch (Attrib.Name) {
+						case "program_id"					: ProgramInfo.Program_Id				= TL::ToInteger(Attrib.TextContents);
+						case "program_name"					: ProgramInfo.Program_Name				= Attrib.TextContents;
+						case "program_author_login"			: ProgramInfo.Program_AuthorLogin		= Attrib.TextContents;
+						case "program_author_nickname"		: ProgramInfo.Program_AuthorName		= Attrib.TextContents;
+						case "program_card_image_url"		: ProgramInfo.Program_CardImageURL		= Attrib.TextContents;
+						case "program_grid_image_url"		: ProgramInfo.Program_GridImageURL		= Attrib.TextContents;
+						case "program_score"				: ProgramInfo.Program_Score				= TL::ToInteger(Attrib.TextContents);
+						case "program_rank"					: ProgramInfo.Program_Rank				= TL::ToInteger(Attrib.TextContents);
+						case "program_previous_rank"		: ProgramInfo.Program_PrevRank			= TL::ToInteger(Attrib.TextContents);
+						case "program_channel_uid"			: ProgramInfo.Program_ChannelUID		= Attrib.TextContents;
+						case "program_players_last_7_days"	: ProgramInfo.Program_PlayersLast7Days	= TL::ToInteger(Attrib.TextContents);
+						case "program_playtime_last_7_days"	: ProgramInfo.Program_PlaytimeLast7Days	= TL::ToInteger(Attrib.TextContents);
+						case "program_feedback_url"			: ProgramInfo.Program_FeedbackURL		= Attrib.TextContents;
+					}
+				}
+
+			}
+
+			case "time_slots" : {
+				foreach (Item in Node.Children) {
+					foreach (Episode in Item.Children) {
+						ProgramInfo.Episodes.add(Private_ParseEpisode(Episode));
+					}
+				}
+			}
+		}
+	}
+
+	G_LibWebServicesAPI_CachedProgramInfo[ProgramInfo.Program_Id] = ProgramInfo;
+}
+
+Void Private_HandleResponse(CHttpRequest _Request) {
+	if (_Request == Null) return;
+
+	declare XMLDocument = Xml.Parse_Xml(_Request.Result);
+	if (XMLDocument == Null || XMLDocument.Root == Null) return;
+
+	declare Integer LibWebServicesAPI_RequestType for _Request;
+
+	switch (LibWebServicesAPI_RequestType) {
+		case C_LibWebServicesAPI_RequestType_ChannelsLive : {
+			Private_HandleChannelsLiveResponse(XMLDocument);
+
+			G_LibWebServicesAPI_PendingChannelsLiveRequestId = NullId;
+			G_LibWebServicesAPI_ChannelsLiveRequestStatusCode = _Request.StatusCode;
+		}
+
+		case C_LibWebServicesAPI_RequestType_ChannelGrid : {
+			declare Text LibWebServicesAPI_ChannelUID for _Request;
+
+			Private_HandleChannelLiveResponse(XMLDocument, LibWebServicesAPI_ChannelUID);
+
+			G_LibWebServicesAPI_PendingChannelGridRequestId = NullId;
+			G_LibWebServicesAPI_ChannelGridRequestStatusCode = _Request.StatusCode;
+		}
+
+		case C_LibWebServicesAPI_RequestType_TitlesList : {
+			Private_ParseTitlesListResult(XMLDocument);
+
+			declare Integer	LibWebServicesAPI_StoreOffset	for _Request;
+			declare Text	LibWebServicesAPI_StoreOrder	for _Request;
+			declare Text[]	LibWebServicesAPI_StoreFilters	for _Request;
+
+			G_LibWebServicesAPI_LastStoreOffset		= LibWebServicesAPI_StoreOffset;
+			G_LibWebServicesAPI_LastStoreOrder		= LibWebServicesAPI_StoreOrder;
+			G_LibWebServicesAPI_LastStoreFilters	= LibWebServicesAPI_StoreFilters;
+
+			G_LibWebServicesAPI_PendingTitlesListRequestId = NullId;
+			G_LibWebServicesAPI_TitlesListRequestStatusCode = _Request.StatusCode;
+		}
+
+		case C_LibWebServicesAPI_RequestType_TitleInfo : {
+			Private_ParseTitleInfoResult(XMLDocument);
+
+			G_LibWebServicesAPI_PendingTitleInfoRequestId = NullId;
+			G_LibWebServicesAPI_TitleInfoRequestStatusCode = _Request.StatusCode;
+		}
+
+		case C_LibWebServicesAPI_RequestType_ProgramInfo : {
+			Private_ParseProgramInfoResult(XMLDocument);
+
+			G_LibWebServicesAPI_PendingProgramInfoRequestId = NullId;
+			G_LibWebServicesAPI_ProgramInfoRequestStatusCode = _Request.StatusCode;
+		}
+	}
+
+	Xml.Parse_Destroy(XMLDocument);
+}
+
+Text Private_GetAuthHeaders() {
+	declare Text Auth_HttpHeader for ManiaPlanet;
+	return Auth_HttpHeader;
+}
+
+Boolean PendingAuthentication() {
+	declare Boolean Auth_Success				for ManiaPlanet;
+	declare Integer Auth_TokenExpirationTime	for ManiaPlanet;
+
+	return !Auth_Success || Now >= Auth_TokenExpirationTime;
+}
+
+Void GetLiveChannels() {
+	if (G_LibWebServicesAPI_PendingChannelsLiveRequestId != NullId) {
+		if (Http.Requests.existskey(G_LibWebServicesAPI_PendingChannelsLiveRequestId)) {
+			Http.Destroy(Http.Requests[G_LibWebServicesAPI_PendingChannelsLiveRequestId]);
+		}
+		G_LibWebServicesAPI_PendingChannelsLiveRequestId = NullId;
+	}
+
+	if (Http.SlotsAvailable <= 0) return;
+
+	Http.AutomaticHeaders_Timezone = True;
+
+	declare URL = C_LibWebServicesAPI_RequestBaseURL ^ "ingame/public/channels?uid[]=trackmania&uid[]=shootmania";
+	declare Request <=> Http.CreateGet(URL, False, C_LibWebServicesAPI_RequestHeaders);
+
+	G_LibWebServicesAPI_PendingChannelsLiveRequestId = Request.Id;
+	G_LibWebServicesAPI_ChannelsLiveRequestStatusCode = 0;
+
+	declare Integer LibWebServicesAPI_RequestType		for Request;
+	declare Integer	LibWebServicesAPI_RequestTimeout	for Request;
+
+	LibWebServicesAPI_RequestType		= C_LibWebServicesAPI_RequestType_ChannelsLive;
+	LibWebServicesAPI_RequestTimeout	= Now + C_LibWebServicesAPI_RequestTimeout;
+}
+
+Boolean PendingChannelsLiveRequest() {
+	return G_LibWebServicesAPI_PendingChannelsLiveRequestId != NullId;
+}
+
+Integer ChannelsLiveRequestStatus() {
+	return G_LibWebServicesAPI_ChannelsLiveRequestStatusCode;
+}
+
+Void GetLiveChannel(Text _ChannelUID) {
+	if (G_LibWebServicesAPI_PendingChannelGridRequestId != NullId) {
+		if (Http.Requests.existskey(G_LibWebServicesAPI_PendingChannelGridRequestId)) {
+			Http.Destroy(Http.Requests[G_LibWebServicesAPI_PendingChannelGridRequestId]);
+		}
+		G_LibWebServicesAPI_PendingChannelGridRequestId = NullId;
+	}
+
+	if (Http.SlotsAvailable <= 0) return;
+
+	Http.AutomaticHeaders_Timezone = True;
+
+	declare URL = C_LibWebServicesAPI_RequestBaseURL ^ "ingame/public/channels/schedule2?uid[]=" ^ _ChannelUID;
+	declare Request <=> Http.CreateGet(URL, False, C_LibWebServicesAPI_RequestHeaders);
+
+	G_LibWebServicesAPI_PendingChannelGridRequestId = Request.Id;
+	G_LibWebServicesAPI_ChannelGridRequestStatusCode = 0;
+	
+	declare Integer	LibWebServicesAPI_RequestType		for Request;
+	declare Integer	LibWebServicesAPI_RequestTimeout	for Request;
+	declare Text	LibWebServicesAPI_ChannelUID		for Request;
+
+	LibWebServicesAPI_RequestType		= C_LibWebServicesAPI_RequestType_ChannelGrid;
+	LibWebServicesAPI_RequestTimeout	= Now + C_LibWebServicesAPI_RequestTimeout;
+	LibWebServicesAPI_ChannelUID		= _ChannelUID;
+}
+
+Boolean PendingChannelGridRequest() {
+	return G_LibWebServicesAPI_PendingChannelGridRequestId != NullId;
+}
+
+Integer ChannelGridRequestStatus() {
+	return G_LibWebServicesAPI_ChannelGridRequestStatusCode;
+}
+
+Void GetTitlesList(Integer _Offset, Integer _Length, Text _Order, Text[] _Filters) {
+	if (G_LibWebServicesAPI_PendingTitlesListRequestId != NullId) {
+		if (Http.Requests.existskey(G_LibWebServicesAPI_PendingTitlesListRequestId)) {
+			Http.Destroy(Http.Requests[G_LibWebServicesAPI_PendingTitlesListRequestId]);
+		}
+		G_LibWebServicesAPI_PendingTitlesListRequestId = NullId;
+	}
+
+	if (Http.SlotsAvailable <= 0) return;
+
+	declare Query = "?length="^_Length^"&offset="^_Offset^"&orderBy="^_Order;
+	foreach (Filter in _Filters) Query ^= "&filters[]=" ^ Filter;
+
+	Http.AutomaticHeaders_Timezone = True;
+
+	declare URL = C_LibWebServicesAPI_RequestBaseURL ^ "ingame/public/titles?" ^ Query;
+	declare Request <=> Http.CreateGet(URL, False, C_LibWebServicesAPI_RequestHeaders);
+
+	G_LibWebServicesAPI_PendingTitlesListRequestId = Request.Id;
+	G_LibWebServicesAPI_TitlesListRequestStatusCode = 0;
+
+	declare Integer	LibWebServicesAPI_RequestType		for Request;
+	declare Integer	LibWebServicesAPI_RequestTimeout	for Request;
+	declare Integer	LibWebServicesAPI_StoreOffset		for Request;
+	declare Text	LibWebServicesAPI_StoreOrder		for Request;
+	declare Text[]	LibWebServicesAPI_StoreFilters		for Request;
+
+	LibWebServicesAPI_RequestType		= C_LibWebServicesAPI_RequestType_TitlesList;
+	LibWebServicesAPI_RequestTimeout	= Now + C_LibWebServicesAPI_RequestTimeout;
+	LibWebServicesAPI_StoreOffset		= _Offset;
+	LibWebServicesAPI_StoreOrder		= _Order;
+	LibWebServicesAPI_StoreFilters		= _Filters;
+}
+
+Boolean PendingStoreListRequest() {
+	return G_LibWebServicesAPI_PendingTitlesListRequestId != NullId;
+}
+
+Integer TitlesListRequestStatus() {
+	return G_LibWebServicesAPI_TitlesListRequestStatusCode;
+}
+
+Void NewTitleInfoRequest(Text _TitleUID) {
+	if (G_LibWebServicesAPI_PendingTitleInfoRequestId != NullId) {
+		if (Http.Requests.existskey(G_LibWebServicesAPI_PendingTitleInfoRequestId)) {
+			Http.Destroy(Http.Requests[G_LibWebServicesAPI_PendingTitleInfoRequestId]);
+		}
+		G_LibWebServicesAPI_PendingTitleInfoRequestId = NullId;
+	}
+
+	if (Http.SlotsAvailable <= 0) return;
+
+	Http.AutomaticHeaders_Timezone = True;
+
+	declare URL = C_LibWebServicesAPI_RequestBaseURL ^ "ingame/public/titles/" ^ _TitleUID;
+	declare Request <=> Http.CreateGet(URL, False, C_LibWebServicesAPI_RequestHeaders);
+
+	G_LibWebServicesAPI_PendingTitleInfoRequestId = Request.Id;
+	G_LibWebServicesAPI_TitleInfoRequestStatusCode = 0;
+
+	declare Integer	LibWebServicesAPI_RequestType		for Request;
+	declare Integer	LibWebServicesAPI_RequestTimeout	for Request;
+	declare Text	LibWebServicesAPI_TitleInfoUID		for Request;
+
+	LibWebServicesAPI_RequestType		= C_LibWebServicesAPI_RequestType_TitleInfo;
+	LibWebServicesAPI_RequestTimeout	= Now + C_LibWebServicesAPI_RequestTimeout;
+	LibWebServicesAPI_TitleInfoUID		= _TitleUID;
+}
+
+Boolean PendingTitleInfoRequest() {
+	return G_LibWebServicesAPI_PendingTitleInfoRequestId != NullId;
+}
+
+Integer TitleInfoRequestStatus() {
+	return G_LibWebServicesAPI_TitleInfoRequestStatusCode;
+}
+
+Structs::STitleOnlineInfo GetTitleInfo(Text _TitleUID) {
+	if (G_LibWebServicesAPI_CachedTitleInfo.existskey(_TitleUID)) {
+		return G_LibWebServicesAPI_CachedTitleInfo[_TitleUID];
+	}
+	
+	return Structs::STitleOnlineInfo{};
+}
+
+Structs::SChannelLiveInfo ChannelTrackMania() {
+	return G_LibWebServicesAPI_ChannelTrackMania;
+}
+
+Structs::SChannelLiveInfo ChannelShootMania() {
+	return G_LibWebServicesAPI_ChannelShootMania;
+}
+
+Structs::SGridEpisode[] TrackManiaGridEpisodes() {
+	return G_LibWebServicesAPI_TrackManiaGridEpisodes;
+}
+
+Structs::SGridEpisode[] ShootManiaGridEpisodes() {
+	return G_LibWebServicesAPI_ShootManiaGridEpisodes;
+}
+
+Integer NbPlayersOnline() {
+	return G_LibWebServicesAPI_NbPlayersOnline;
+}
+
+Integer NbPlayersLast24() {
+	return G_LibWebServicesAPI_NbPlayersLast24;
+}
+
+Structs::STitleOnlineInfo[] CurrentStorePage() {
+	return G_LibWebServicesAPI_CurrentStorePage;
+}
+
+Integer LastStoreOffset() {
+	return G_LibWebServicesAPI_LastStoreOffset;
+}
+
+Text LastStoreSortingOrder() {
+	return G_LibWebServicesAPI_LastStoreOrder;
+}
+
+Text[] LastStoreActiveFilters() {
+	return G_LibWebServicesAPI_LastStoreFilters;
+}
+
+Void NewProgramInfoRequest(Integer _ProgramId) {
+	if (G_LibWebServicesAPI_PendingProgramInfoRequestId != NullId) {
+		if (Http.Requests.existskey(G_LibWebServicesAPI_PendingProgramInfoRequestId)) {
+			Http.Destroy(Http.Requests[G_LibWebServicesAPI_PendingProgramInfoRequestId]);
+		}
+		G_LibWebServicesAPI_PendingProgramInfoRequestId = NullId;
+	}
+
+	if (Http.SlotsAvailable <= 0) return;
+
+	Http.AutomaticHeaders_Timezone = True;
+
+	declare URL = C_LibWebServicesAPI_RequestBaseURL ^ "ingame/public/programs/" ^ _ProgramId;
+	declare Request <=> Http.CreateGet(URL, False, C_LibWebServicesAPI_RequestHeaders);
+
+	G_LibWebServicesAPI_PendingProgramInfoRequestId = Request.Id;
+	G_LibWebServicesAPI_ProgramInfoRequestStatusCode = 0;
+
+	declare Integer LibWebServicesAPI_RequestType		for Request;
+	declare Integer LibWebServicesAPI_RequestTimeout	for Request;
+	declare Integer LibWebServicesAPI_ProgramInfoId		for Request;
+
+	LibWebServicesAPI_RequestType		= C_LibWebServicesAPI_RequestType_ProgramInfo;
+	LibWebServicesAPI_RequestTimeout	= Now + C_LibWebServicesAPI_RequestTimeout;
+	LibWebServicesAPI_ProgramInfoId		= _ProgramId;
+}
+
+Boolean PendingProgramInfoRequest() {
+	return G_LibWebServicesAPI_PendingProgramInfoRequestId != NullId;
+}
+
+Integer ProgramInfoRequestStatus() {
+	return G_LibWebServicesAPI_ProgramInfoRequestStatusCode;
+}
+
+Structs::SProgramInfo GetProgramInfo(Integer _ProgramId) {
+	if (G_LibWebServicesAPI_CachedProgramInfo.existskey(_ProgramId)) {
+		return G_LibWebServicesAPI_CachedProgramInfo[_ProgramId];
+	}
+
+	return Structs::SProgramInfo{};
+}
+
+Void Loop() {
+	declare Ident[] PendingRequests;
+	declare Ident[] RequestsToDestroy;
+
+	if (G_LibWebServicesAPI_PendingChannelsLiveRequestId != NullId) {
+		PendingRequests.add(G_LibWebServicesAPI_PendingChannelsLiveRequestId);
+	}
+
+	if (G_LibWebServicesAPI_PendingChannelGridRequestId != NullId) {
+		PendingRequests.add(G_LibWebServicesAPI_PendingChannelGridRequestId);
+	}
+
+	if (G_LibWebServicesAPI_PendingTitlesListRequestId != NullId) {
+		PendingRequests.add(G_LibWebServicesAPI_PendingTitlesListRequestId);
+	}
+
+	if (G_LibWebServicesAPI_PendingTitleInfoRequestId != NullId) {
+		PendingRequests.add(G_LibWebServicesAPI_PendingTitleInfoRequestId);
+	}
+
+	if (G_LibWebServicesAPI_PendingProgramInfoRequestId != NullId) {
+		PendingRequests.add(G_LibWebServicesAPI_PendingProgramInfoRequestId);
+	}
+
+	foreach (RequestId in PendingRequests) {
+		if (!Http.Requests.existskey(RequestId)) {
+			RequestsToDestroy.add(RequestId);
+			continue;
+		}
+
+		declare Request <=> Http.Requests[RequestId];
+		declare Integer LibWebServicesAPI_RequestTimeout for Request;
+		
+		if (Now >= LibWebServicesAPI_RequestTimeout) {
+			declare Integer LibWebServicesAPI_RequestType for Request;
+
+			switch (LibWebServicesAPI_RequestType) {
+				case C_LibWebServicesAPI_RequestType_ChannelsLive	: G_LibWebServicesAPI_ChannelsLiveRequestStatusCode	= 408;
+				case C_LibWebServicesAPI_RequestType_ChannelGrid	: G_LibWebServicesAPI_ChannelGridRequestStatusCode	= 408;
+				case C_LibWebServicesAPI_RequestType_TitlesList		: G_LibWebServicesAPI_TitlesListRequestStatusCode	= 408;
+				case C_LibWebServicesAPI_RequestType_TitleInfo		: G_LibWebServicesAPI_TitleInfoRequestStatusCode	= 408;
+				case C_LibWebServicesAPI_RequestType_ProgramInfo	: G_LibWebServicesAPI_ProgramInfoRequestStatusCode	= 408;
+			}
+
+			G_LibWebServicesAPI_PendingUpdate = True;
+			RequestsToDestroy.add(RequestId);
+			continue;
+		}
+
+		if (Request.StatusCode / 100 != 2) continue;
+
+		G_LibWebServicesAPI_PendingUpdate = True;
+		Private_HandleResponse(Request);
+		RequestsToDestroy.add(RequestId);
+	}
+
+	while (RequestsToDestroy.existskey(0)) {
+		declare RequestId = RequestsToDestroy[0];
+
+		if (Http.Requests.existskey(RequestId)) {
+			Http.Destroy(Http.Requests[RequestId]);
+		}
+
+		declare Removed = RequestsToDestroy.removekey(0);
+	}
+}
+
+Boolean PendingUpdate() {
+	declare Update = G_LibWebServicesAPI_PendingUpdate;
+	G_LibWebServicesAPI_PendingUpdate = False;
+	return Update;
+}

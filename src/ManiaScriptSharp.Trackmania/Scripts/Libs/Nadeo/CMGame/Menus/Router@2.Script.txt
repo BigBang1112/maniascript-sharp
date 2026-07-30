@@ -1,0 +1,1479 @@
+/**
+ * Router for the menus
+ *
+ * Each mania app have their own instance of routers
+ *
+ * Documentation: https://confluence.ubisoft.com/pages/viewpage.action?pageId=2277364787
+ */
+#Const Version "0.2.16"
+#Const ScriptName "Libs/Nadeo/CMGame/Menus/Router@2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Mixins/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Utils/Context.Script.txt" as Context
+#Include "Libs/Nadeo/CMGame/Utils/Privileges.Script.txt" as Privileges
+#Include "Libs/Nadeo/CMGame/Utils/TextToSpeech.Script.txt" as TextToSpeech
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structure
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Event {
+	Integer Type;
+	Integer PushMode;
+	Text FromLeafRouteId;
+	Text[] FromRouteIds;
+	Text ToLeafRouteId;
+	Text[] ToRouteIds;
+	Text[] AddFragmentIds;
+	Text[] EnableFragmentIds;
+	Text[] RemoveFragmentIds;
+	Text[] DisableFragmentIds;
+	Text[Text] Data;
+	Text ForceMenuSection;
+}
+#Struct K_PushOptions {
+	CPrivilegeMgr::EPrivilege[] AddPrivileges;
+	CPrivilegeMgr::EPrivilege[] RemovePrivileges;
+	Integer PushMode;
+	Text ForceMenuSection;
+	Text[Text] Data;
+	Text[] FallbackRouteIds;
+}
+
+#Struct K_Private_Fragment {
+	Text Id;
+	Text ManialinkPage;
+	CUILayer::EUILayerType LayerType;
+}
+#Struct K_Private_Route {
+	Text Id;
+	Text[] FragmentIds;
+	CPrivilegeMgr::EPrivilege[] Privileges;
+}
+#Struct K_Private_PendingTransition {
+	Text[] ToRouteIds;
+	CPrivilegeMgr::EPrivilege[] AddPrivileges;
+	CPrivilegeMgr::EPrivilege[] RemovePrivileges;
+	Integer PushMode;
+	Text ForceMenuSection;
+	Text[Text] Data;
+}
+#Struct K_Private_ActiveTransition {
+	Text FromLeafRouteId;
+	Text[] FromRouteIds;
+	Text ToLeafRouteId;
+	Text[] ToRouteIds;
+	Text[] RemoveRouteIds;
+	Text[] RemoveFragmentIds;
+	Text[] DisableFragmentIds;
+	Text[] AddRouteIds;
+	Text[] AddFragmentIds;
+	Text[] EnableFragmentIds;
+	Integer PushMode;
+	Text ForceMenuSection;
+	Text[Text] Data;
+	Integer Progress;
+	Boolean NeedPrivilegesCheck;
+	Integer NextStepTime;
+	Integer HidingEndTime;
+	Integer ShowingEndTime;
+	Integer[Ident] LayerIdHidingTimes;
+}
+#Struct K_Private_Router {
+	K_Private_Fragment[Text] Fragments;
+	Text[][Text] FragmentGroups;
+	K_Private_Route[Text] Routes;
+	Text[] CurrentRouteIds;
+	Text[Text] CurrentRouteData;
+	Text[] CurrentFragmentIds;
+	Text[] CurrentLeafFragmentIds;
+	Ident[Text] FragmentLayerIds;
+	Privileges::K_PrivilegesCheck PrivilegesCheck;
+	Ident TTSContextId;
+	K_Event[] PendingEvents;
+	K_Private_PendingTransition PendingTransition;
+	K_Private_ActiveTransition ActiveTransition;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_TransitionRequestId "cmgame-router-transition"
+#Const C_RouterId_Default "cmgame-router-default"
+
+#Const C_EventType_Null 0
+#Const C_EventType_ConfirmNavigation 1
+#Const C_EventType_LeaveRoute 2
+#Const C_EventType_EnterRoute 3
+#Const C_EventType_MissPrivileges 4
+
+#Const C_PushMode_Default 0
+#Const C_PushMode_ShowPopOver 1
+#Const C_PushMode_HidePopOver 2
+
+#Const C_PushOptions_Null K_PushOptions {
+	AddPrivileges = [],
+	RemovePrivileges = [],
+	PushMode = 0,
+	ForceMenuSection = "",
+	Data = [],
+	FallbackRouteIds = []
+}
+
+#Const C_Private_DefaultPendingEventsEnabled False
+
+#Const C_Private_TransitionProgress_Null 0
+#Const C_Private_TransitionProgress_Confirming 1
+#Const C_Private_TransitionProgress_CheckingPrivileges 2
+#Const C_Private_TransitionProgress_StartInitializing 3
+#Const C_Private_TransitionProgress_StartHiding 4
+#Const C_Private_TransitionProgress_StartShowing 5
+#Const C_Private_TransitionProgress_Animation 6
+#Const C_Private_TransitionProgress_Complete 7
+#Const C_Private_TransitionProgress_Canceled 8
+#Const C_Private_TransitionProgress_Failed 9
+
+#Const C_Private_Router_Null K_Private_Router {
+	Fragments = [],
+	FragmentGroups = [],
+	Routes = [],
+	CurrentRouteIds = [],
+	CurrentRouteData = [],
+	CurrentFragmentIds = [],
+	CurrentLeafFragmentIds = [],
+	FragmentLayerIds = [],
+	PrivilegesCheck = Privileges::K_PrivilegesCheck {},
+	TTSContextId = NullId,
+	PendingEvents = [],
+	PendingTransition = K_Private_PendingTransition {
+		ToRouteIds = [],
+		AddPrivileges = [],
+		RemovePrivileges = [],
+		PushMode = 0,
+		ForceMenuSection = "",
+		Data = []
+	},
+	ActiveTransition = K_Private_ActiveTransition {
+		FromLeafRouteId = "",
+		FromRouteIds = [],
+		ToLeafRouteId = "",
+		ToRouteIds = [],
+		RemoveRouteIds = [],
+		RemoveFragmentIds = [],
+		DisableFragmentIds = [],
+		AddRouteIds = [],
+		AddFragmentIds = [],
+		EnableFragmentIds = [],
+		PushMode = 0,
+		ForceMenuSection = "",
+		Data = [],
+		Progress = 0,
+		NeedPrivilegesCheck = False,
+		NextStepTime = 0,
+		HidingEndTime = 0,
+		ShowingEndTime = 0,
+		LayerIdHidingTimes = []
+	}
+}
+#Const C_Private_PendingTransition_Null K_Private_PendingTransition {
+	ToRouteIds = [],
+	AddPrivileges = [],
+	RemovePrivileges = [],
+	PushMode = 0,
+	ForceMenuSection = "",
+	Data = []
+}
+#Const C_Private_Route_Null K_Private_Route {
+	Id = "",
+	FragmentIds = [],
+	Privileges = []
+}
+#Const C_Private_Fragment_Null K_Private_Fragment {
+	Id = "",
+	ManialinkPage = "",
+	LayerType = CUILayer::EUILayerType::Normal
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy a router instance
+Void Private_Destroy(CManiaApp _This, K_Private_Router _Router) {
+	Privileges::Check_Destroy(_Router.PrivilegesCheck);
+	if (_Router.TTSContextId != NullId) {
+		_This.TTS_Context_Leave(_Router.TTSContextId);
+	}
+	for (LayerId in _Router.FragmentLayerIds) {
+		if (_This.UILayers.existskey(LayerId)) {
+			_This.UILayerDestroy(_This.UILayers[LayerId]);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy an old router instance and creare a new one
+K_Private_Router Private_DestroyAndCreate(CManiaApp _This, K_Private_Router _OldRouter) {
+	Private_Destroy(_This, _OldRouter);
+
+	declare K_Private_Router NewRouter;
+	NewRouter = C_Private_Router_Null;
+	NewRouter.TTSContextId = _This.TTS_Context_Enter(TextToSpeech::C_ContextLevel_Router);
+	NewRouter.PendingTransition = C_Private_PendingTransition_Null;
+
+	return NewRouter;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a fragment
+K_Private_Router Private_CreateFragment(
+	K_Private_Router _Router,
+	Text _FragmentId,
+	Text _ManialinkPage,
+	CUILayer::EUILayerType _LayerType
+) {
+	assert(
+		_FragmentId != "",
+		"""[Router@2] You cannot create a fragment with an empty id"""
+	);
+	assert(
+		!_Router.Fragments.existskey(_FragmentId),
+		"""[Router@2] A fragment with the id `{{{_FragmentId}}}` already exists"""
+	);
+
+	declare K_Private_Router Router = _Router;
+	Router.Fragments[_FragmentId] = K_Private_Fragment {
+		Id = _FragmentId,
+		ManialinkPage = _ManialinkPage,
+		LayerType = _LayerType
+	};
+	return Router;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a fragment group
+K_Private_Router Private_CreateFragmentGroup(K_Private_Router _Router, Text _FragmentGroupId, Text[] _FragmentIds) {
+	assert(
+		_FragmentGroupId != "",
+		"""[Router@2] You cannot create a fragment group with an empty id"""
+	);
+	assert(
+		!_Router.FragmentGroups.existskey(_FragmentGroupId),
+		"""[Router@2] A fragment group with the id `{{{_FragmentGroupId}}}` already exists"""
+	);
+	assert(
+		!_Router.Fragments.existskey(_FragmentGroupId),
+		"""[Router@2] A fragment with the id `{{{_FragmentGroupId}}}` already exists, you cannot use it as a fragment group id"""
+	);
+
+	declare K_Private_Router Router = _Router;
+	declare Text[] FragmentIds;
+	for (FragmentId in _FragmentIds) {
+		assert(
+			Router.Fragments.existskey(FragmentId),
+			"""[Router@2] The fragment `{{{FragmentId}}}` does not exist"""
+		);
+		assert(
+			!FragmentIds.exists(FragmentId),
+			"""[Router@2] The fragment `{{{FragmentId}}}` is already in this group"""
+		);
+		FragmentIds.add(FragmentId);
+	}
+
+	Router.FragmentGroups[_FragmentGroupId] = _FragmentIds;
+
+	return Router;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a fragment layer
+K_Private_Router Private_CreateFragmentLayer(CManiaApp _This, K_Private_Router _Router, Text _FragmentId) {
+	// The fragment layer already exists
+	if (
+		_Router.FragmentLayerIds.existskey(_FragmentId) &&
+		_This.UILayers.existskey(_Router.FragmentLayerIds[_FragmentId])
+	) {
+		return _Router;
+	}
+
+	declare K_Private_Router Router = _Router;
+
+	declare CUILayer Layer <=> _This.UILayerCreate();
+	if (Layer != Null) {
+		declare K_Private_Fragment Fragment = Router.Fragments.get(_FragmentId, C_Private_Fragment_Null);
+		Layer.ManialinkPage = Fragment.ManialinkPage;
+		Layer.Type = Fragment.LayerType;
+		Layer.IsVisible = False;
+		Router.FragmentLayerIds[_FragmentId] = Layer.Id;
+
+		declare Boolean CMGameMenusRouter_PendingEventsEnabled for Layer.LocalPage = C_Private_DefaultPendingEventsEnabled;
+		CMGameMenusRouter_PendingEventsEnabled = False;
+	}
+
+	return Router;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Preload a fragment
+ * Initializing a fragment can be time-consuming, resulting in a visible freeze when it is first displayed
+ * Preloading the fragment creates it immediately, causing the freeze to occur at that moment instead of when it's first displayed
+ */
+K_Private_Router Private_PreloadFragment(CManiaApp _This, K_Private_Router _Router, Text _FragmentId) {
+	assert(
+		_Router.Fragments.existskey(_FragmentId),
+		"""[Router@2] Fragment with id `{{{_FragmentId}}}` does not exist"""
+	);
+	return Private_CreateFragmentLayer(_This, _Router, _FragmentId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a route
+K_Private_Router Private_CreateRoute(
+	K_Private_Router _Router,
+	Text _RouteId,
+	Text[] _FragmentAndFragmentGroupIds,
+	CPrivilegeMgr::EPrivilege[] _Privileges
+) {
+	assert(
+		_RouteId != "",
+		"""[Router@2] You cannot create a route with an empty id"""
+	);
+	assert(
+		!_Router.Routes.existskey(_RouteId),
+		"""[Router@2] A route with the id `{{{_RouteId}}}` already exists"""
+	);
+
+	declare Text[] FragmentIds;
+	for (FragmentOrFragmentGroupId in _FragmentAndFragmentGroupIds) {
+		if (_Router.Fragments.existskey(FragmentOrFragmentGroupId)) {
+			assert(
+				!FragmentIds.exists(FragmentOrFragmentGroupId),
+				"""[Router@2] Fragment id `{{{FragmentOrFragmentGroupId}}}` already loaded on this route"""
+			);
+			FragmentIds.add(FragmentOrFragmentGroupId);
+		} else if (_Router.FragmentGroups.existskey(FragmentOrFragmentGroupId)) {
+			for (FragmentId in _Router.FragmentGroups[FragmentOrFragmentGroupId]) {
+				assert(
+					!FragmentIds.exists(FragmentId),
+					"""[Router@2] Fragment id `{{{FragmentId}}}` from fragment group `{{{FragmentOrFragmentGroupId}}}` already loaded on this route"""
+				);
+				FragmentIds.add(FragmentId);
+			}
+		} else {
+			assert(
+				False,
+				"""[Router@2] No fragment or fragment group with id `{{{FragmentOrFragmentGroupId}}}` found in route `{{{_RouteId}}}`"""
+			);
+		}
+	}
+
+	declare K_Private_Router Router = _Router;
+	Router.Routes[_RouteId] = K_Private_Route {
+		Id = _RouteId,
+		FragmentIds = FragmentIds,
+		Privileges = _Privileges
+	};
+	return Router;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the rightmost values of the arrays are equal
+Boolean Private_LeafRouteIdsAreEqual(Text[] _RouteIdsA, Text[] _RouteIdsB) {
+	for (I, 1, ML::Min(_RouteIdsA.count, _RouteIdsB.count)) {
+		if (_RouteIdsA[-I] != _RouteIdsB[-I]) return False;
+	}
+	return True;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the routes to display
+K_Private_Router Private_Push(K_Private_Router _Router, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	if (_RouteIds.count == 0) return _Router;
+
+	for (RouteId in _RouteIds) {
+		assert(
+			_Router.Routes.existskey(RouteId),
+			"""[Router@2] Unknown route id `{{{RouteId}}}`"""
+		);
+	}
+
+	// Compute new route
+	declare Text[] ToRouteIds = _Router.CurrentRouteIds;
+	switch (_PushOptions.PushMode) {
+		case C_PushMode_ShowPopOver: {
+			for (RouteId in _RouteIds) {
+				ToRouteIds.add(RouteId);
+			}
+		}
+		case C_PushMode_HidePopOver: {
+			while (
+				ToRouteIds.count > 0 &&
+				!Private_LeafRouteIdsAreEqual(ToRouteIds, _RouteIds)
+			) {
+				ToRouteIds.removekey(ToRouteIds.count - 1);
+			}
+			if (ToRouteIds.count <= 0) {
+				ToRouteIds = _RouteIds;
+			}
+		}
+		default: {
+			ToRouteIds = _RouteIds;
+		}
+	}
+
+	if (ToRouteIds == _Router.CurrentRouteIds) return _Router;
+
+	declare K_Private_Router Router = _Router;
+	Router.PendingTransition = K_Private_PendingTransition {
+		ToRouteIds = ToRouteIds,
+		AddPrivileges = _PushOptions.AddPrivileges,
+		RemovePrivileges = _PushOptions.RemovePrivileges,
+		PushMode = _PushOptions.PushMode,
+		ForceMenuSection = _PushOptions.ForceMenuSection,
+		Data = _PushOptions.Data
+	};
+	return Router;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**
+ * Add some routes to the already displayed routes
+ * but only if `_OverRouteId` is the current leaf route
+ * Otherwise push the `_FallbackRouteIds` routes if provided
+ */
+K_Private_Router Private_ShowPopOver(K_Private_Router _Router, Text _OverRouteId, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	if (_Router.CurrentRouteIds.get(-1, "") == _OverRouteId) {
+		declare K_PushOptions PushOptions = _PushOptions;
+		PushOptions.PushMode = C_PushMode_ShowPopOver;
+		return Private_Push(_Router, _RouteIds, PushOptions);
+	} else if (_PushOptions.FallbackRouteIds.count > 0) {
+		declare K_PushOptions PushOptions = _PushOptions;
+		PushOptions.PushMode = C_PushMode_Default;
+		return Private_Push(_Router, PushOptions.FallbackRouteIds, PushOptions);
+	}
+
+	return _Router;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove routes from the current routes until none of `_RouteIds` are present
+K_Private_Router Private_HidePopOver(K_Private_Router _Router, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	declare Text[] RouteIds = _Router.CurrentRouteIds;
+	while (
+		RouteIds.count > 0 &&
+		RouteIds.containsoneof(_RouteIds)
+	) {
+		RouteIds.removekey(RouteIds.count - 1);
+	}
+
+	if (RouteIds.count > 0) {
+		declare K_PushOptions PushOptions = _PushOptions;
+		PushOptions.PushMode = C_PushMode_HidePopOver;
+		return Private_Push(_Router, RouteIds, PushOptions);
+	} else if (_PushOptions.FallbackRouteIds.count > 0) {
+		declare K_PushOptions PushOptions = _PushOptions;
+		PushOptions.PushMode = C_PushMode_Default;
+		return Private_Push(_Router, PushOptions.FallbackRouteIds, PushOptions);
+	}
+
+	return _Router;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Cancel a transition to a new route
+K_Private_Router Private_Cancel(K_Private_Router _Router) {
+	if (_Router.ActiveTransition.Progress != C_Private_TransitionProgress_Confirming) return _Router;
+
+	declare K_Private_Router Router = _Router;
+	Router.ActiveTransition.Progress = C_Private_TransitionProgress_Canceled;
+	Router.ActiveTransition.NextStepTime = 0;
+	Router.PrivilegesCheck = Privileges::Check_Destroy(Router.PrivilegesCheck);
+	return Router;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given route is in the current routes
+Boolean Private_IsActiveRoute(K_Private_Router _Router, Text _RouteId, Boolean _CheckLeafOnly) {
+	return (
+		(
+			_CheckLeafOnly &&
+			_Router.CurrentRouteIds.get(-1, "") == _RouteId
+		) || (
+			!_CheckLeafOnly &&
+			_Router.CurrentRouteIds.exists(_RouteId)
+		)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the root route
+Text Private_GetRootRoute(K_Private_Router _Router) {
+	return _Router.CurrentRouteIds.get(0, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the whole route
+Text[] Private_GetRoute(K_Private_Router _Router) {
+	return _Router.CurrentRouteIds;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the route data
+Text[Text] Private_GetRouteData(K_Private_Router _Router) {
+	return _Router.CurrentRouteData;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given fragment is displayed by the current routes
+Boolean Private_IsActiveFragment(K_Private_Router _Router, Text _FragmentId, Boolean _CheckLeafOnly) {
+	return (
+		(
+			_CheckLeafOnly &&
+			_Router.CurrentLeafFragmentIds.exists(_FragmentId)
+		) || (
+			!_CheckLeafOnly &&
+			_Router.CurrentFragmentIds.exists(_FragmentId)
+		)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the events generated by the router
+K_Event[] Private_GetPendingEvents(K_Private_Router _Router) {
+	return _Router.PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize a new transition
+K_Private_ActiveTransition Private_InitializeActiveTransition(
+	Text[] _CurrentRouteIds,
+	K_Private_Route[Text] _Routes,
+	K_Private_PendingTransition _PendingTransition
+) {
+	declare K_Private_ActiveTransition ActiveTransition = K_Private_ActiveTransition {
+		FromLeafRouteId = _CurrentRouteIds.get(-1, ""),
+		FromRouteIds = _CurrentRouteIds,
+		ToLeafRouteId = _PendingTransition.ToRouteIds.get(-1, ""),
+		ToRouteIds = _PendingTransition.ToRouteIds,
+		RemoveRouteIds = [],
+		RemoveFragmentIds = [],
+		DisableFragmentIds = [],
+		AddRouteIds = [],
+		AddFragmentIds = [],
+		EnableFragmentIds = [],
+		PushMode = _PendingTransition.PushMode,
+		ForceMenuSection = _PendingTransition.ForceMenuSection,
+		Data = _PendingTransition.Data,
+		Progress = C_Private_TransitionProgress_Confirming,
+		NeedPrivilegesCheck = False,
+		NextStepTime = Now + 1,
+		HidingEndTime = 0,
+		ShowingEndTime = 0,
+		LayerIdHidingTimes = []
+	};
+
+	declare Text[] FromFragmentIds;
+	declare Text[] FromLeafFragmentIds;
+	for (FromRouteId in ActiveTransition.FromRouteIds) {
+		if (!ActiveTransition.ToRouteIds.exists(FromRouteId)) {
+			ActiveTransition.RemoveRouteIds.add(FromRouteId);
+		}
+		for (FragmentId in _Routes.get(FromRouteId, C_Private_Route_Null).FragmentIds) {
+			FromFragmentIds.add(FragmentId);
+			if (FromRouteId == ActiveTransition.FromLeafRouteId) {
+				FromLeafFragmentIds.add(FragmentId);
+			}
+		}
+	}
+
+	declare Text[] ToFragmentIds;
+	declare Text[] ToLeafFragmentIds;
+	for (ToRouteId in ActiveTransition.ToRouteIds) {
+		if (!ActiveTransition.FromRouteIds.exists(ToRouteId)) {
+			ActiveTransition.AddRouteIds.add(ToRouteId);
+		}
+		for (FragmentId in _Routes.get(ToRouteId, C_Private_Route_Null).FragmentIds) {
+			ToFragmentIds.add(FragmentId);
+			if (ToRouteId == ActiveTransition.ToLeafRouteId) {
+				ToLeafFragmentIds.add(FragmentId);
+			}
+		}
+	}
+
+	for (FromFragmentId in FromFragmentIds) {
+		if (!ToFragmentIds.exists(FromFragmentId)) {
+			ActiveTransition.RemoveFragmentIds.add(FromFragmentId);
+		}
+	}
+	for (ToFragmentId in ToFragmentIds) {
+		if (!FromFragmentIds.exists(ToFragmentId)) {
+			ActiveTransition.AddFragmentIds.add(ToFragmentId);
+		}
+	}
+
+	for (FromLeafFragmentId in FromLeafFragmentIds) {
+		if (!ToLeafFragmentIds.exists(FromLeafFragmentId)) {
+			ActiveTransition.DisableFragmentIds.add(FromLeafFragmentId);
+		}
+	}
+	for (ToLeafFragmentId in ToLeafFragmentIds) {
+		if (!FromLeafFragmentIds.exists(ToLeafFragmentId)) {
+			ActiveTransition.EnableFragmentIds.add(ToLeafFragmentId);
+		}
+	}
+
+	return ActiveTransition;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Complete an active transition
+K_Private_ActiveTransition Private_CompleteActiveTransition(
+	CManiaApp _This,
+	Ident[Text] _FragmentLayerIds,
+	K_Private_ActiveTransition _ActiveTransition
+) {
+	assert(
+		_ActiveTransition.Progress == C_Private_TransitionProgress_Animation,
+		"""[Router@2] Can only complete active transition with the `C_Private_TransitionProgress_Animation` progress status"""
+	);
+
+	declare K_Private_ActiveTransition ActiveTransition = _ActiveTransition;
+
+	// Hide the fragments from the previous route that are not visible on the new route
+	for (FragmentId in _ActiveTransition.RemoveFragmentIds) {
+		declare Ident LayerId = _FragmentLayerIds.get(FragmentId, NullId);
+		if (LayerId != NullId && _This.UILayers.existskey(LayerId)) {
+			_This.UILayers[LayerId].IsVisible = False;
+		}
+	}
+
+	ActiveTransition.Progress = C_Private_TransitionProgress_Complete;
+	ActiveTransition.NextStepTime = 0;
+
+	return ActiveTransition;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new event
+K_Event Private_CreateEvent(Integer _EventType, K_Private_ActiveTransition _ActiveTransition) {
+	return K_Event {
+		Type = _EventType,
+		PushMode = _ActiveTransition.PushMode,
+		FromLeafRouteId = _ActiveTransition.FromLeafRouteId,
+		FromRouteIds = _ActiveTransition.FromRouteIds,
+		ToLeafRouteId = _ActiveTransition.ToLeafRouteId,
+		ToRouteIds = _ActiveTransition.ToRouteIds,
+		AddFragmentIds = _ActiveTransition.AddFragmentIds,
+		EnableFragmentIds = _ActiveTransition.EnableFragmentIds,
+		RemoveFragmentIds = _ActiveTransition.RemoveFragmentIds,
+		DisableFragmentIds = _ActiveTransition.DisableFragmentIds,
+		Data = _ActiveTransition.Data,
+		ForceMenuSection = _ActiveTransition.ForceMenuSection
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the transition out animation
+K_Private_ActiveTransition Private_StartTransitionOut(
+	CManiaApp _This,
+	Ident[Text] _FragmentLayerIds,
+	K_Private_ActiveTransition _ActiveTransition
+) {
+	declare K_Private_ActiveTransition ActiveTransition = _ActiveTransition;
+
+	declare Integer TransitionOutDuration = 0;
+	ActiveTransition.LayerIdHidingTimes = [];
+
+	for (FragmentId in _ActiveTransition.RemoveFragmentIds) {
+		declare Ident LayerId = _FragmentLayerIds.get(FragmentId, NullId);
+		if (LayerId != NullId && _This.UILayers.existskey(LayerId)) {
+			declare CMlPage TargetPage <=> _This.UILayers[LayerId].LocalPage;
+			declare Integer PageTransitionOutDuration = Transition::GetTransitionOutDuration(TargetPage);
+			ActiveTransition.LayerIdHidingTimes[LayerId] = Now + PageTransitionOutDuration;
+			TransitionOutDuration = ML::Max(TransitionOutDuration, PageTransitionOutDuration);
+			Transition::StartAllTransitionOut(TargetPage, C_TransitionRequestId);
+		}
+	}
+
+	ActiveTransition.HidingEndTime = ML::Max(
+		Now + 1,
+		Now + TransitionOutDuration
+	);
+
+	return ActiveTransition;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the transition in animation
+K_Private_ActiveTransition Private_StartTransitionIn(
+	CManiaApp _This,
+	Ident[Text] _FragmentLayerIds,
+	K_Private_ActiveTransition _ActiveTransition
+) {
+	declare K_Private_ActiveTransition ActiveTransition = _ActiveTransition;
+
+	declare Integer TransitionInDuration = 0;
+	for (FragmentId in _ActiveTransition.AddFragmentIds) {
+		declare Ident LayerId = _FragmentLayerIds.get(FragmentId, NullId);
+		if (LayerId != NullId && _This.UILayers.existskey(LayerId)) {
+			declare CMlPage TargetPage <=> _This.UILayers[LayerId].LocalPage;
+			TransitionInDuration = ML::Max(TransitionInDuration, Transition::GetTransitionInDuration(TargetPage));
+			Transition::StartAllTransitionIn(TargetPage, C_TransitionRequestId);
+		}
+	}
+
+	ActiveTransition.ShowingEndTime = ML::Max(
+		Now + 1,
+		Now + TransitionInDuration
+	);
+
+	return ActiveTransition;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Hide the layer of the fragments that have completed their transition out
+K_Private_ActiveTransition Private_HideTransitionOutFragments(CManiaApp _This, K_Private_ActiveTransition _ActiveTransition) {
+	if (_ActiveTransition.LayerIdHidingTimes.count <= 0) return _ActiveTransition;
+
+	declare K_Private_ActiveTransition ActiveTransition = _ActiveTransition;
+
+	declare Ident[] LayerIdsToHide;
+	for (LayerId => HidingTime in ActiveTransition.LayerIdHidingTimes) {
+		if (HidingTime <= Now) {
+			LayerIdsToHide.add(LayerId);
+		}
+	}
+	for (LayerId in LayerIdsToHide) {
+		ActiveTransition.LayerIdHidingTimes.removekey(LayerId);
+		if (_This.UILayers.existskey(LayerId)) {
+			_This.UILayers[LayerId].IsVisible = False;
+		}
+	}
+
+	return ActiveTransition;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update a router for the frame
+K_Private_Router Private_UpdateRouter(CManiaApp _This, K_Private_Router _Router) {
+	declare K_Private_Router Router = _Router;
+
+	Router.PendingEvents = [];
+
+	// Start a new transition
+	if (
+		Router.PendingTransition.ToRouteIds.count > 0 && (
+			Router.ActiveTransition.Progress == C_Private_TransitionProgress_Null ||
+			Router.ActiveTransition.Progress == C_Private_TransitionProgress_Complete ||
+			Router.ActiveTransition.Progress == C_Private_TransitionProgress_Canceled ||
+			Router.ActiveTransition.Progress == C_Private_TransitionProgress_Failed ||
+			Router.ActiveTransition.Progress == C_Private_TransitionProgress_Animation
+		)
+	) {
+		// Complete the previous transition progression before starting the new transition
+		if (Router.ActiveTransition.Progress == C_Private_TransitionProgress_Animation) {
+			Router.ActiveTransition = Private_CompleteActiveTransition(
+				_This,
+				Router.FragmentLayerIds,
+				Router.ActiveTransition
+			);
+		}
+
+		// Setup transition
+		Router.ActiveTransition = Private_InitializeActiveTransition(
+			Router.CurrentRouteIds,
+			Router.Routes,
+			Router.PendingTransition
+		);
+
+		// Start privileges check
+		Router.PrivilegesCheck = Privileges::Check_Destroy(Router.PrivilegesCheck);
+		if (
+			_This.PrivilegeMgr != Null &&
+			_This.UserMgr != Null &&
+			_This.UserMgr.MainUser != Null
+		) {
+			declare CPrivilegeMgr::EPrivilege[] PrivilegesToCheck = Router.PendingTransition.AddPrivileges;
+			for (RouteId in Router.ActiveTransition.AddRouteIds) {
+				for (Privilege in Router.Routes.get(RouteId, C_Private_Route_Null).Privileges) {
+					if (!PrivilegesToCheck.exists(Privilege)) {
+						PrivilegesToCheck.add(Privilege);
+					}
+				}
+			}
+			for (Privilege in Router.PendingTransition.RemovePrivileges) {
+				PrivilegesToCheck.remove(Privilege);
+			}
+			if (PrivilegesToCheck.count > 0) {
+				declare Privileges::K_PrivilegeCheck[] PrivilegeChecks;
+				for (Privilege in PrivilegesToCheck) {
+					PrivilegeChecks.add(
+						Privileges::Check_Create(_This.PrivilegeMgr, _This.UserMgr.MainUser.Id, Privilege)
+					);
+				}
+				Router.PrivilegesCheck = Privileges::Check_Group(PrivilegeChecks);
+				Router.ActiveTransition.NeedPrivilegesCheck = True;
+			}
+		}
+
+		Router.PendingEvents.add(Private_CreateEvent(C_EventType_ConfirmNavigation, Router.ActiveTransition));
+
+		Router.PendingTransition = C_Private_PendingTransition_Null;
+	}
+
+	// Transition confirmed, go to next step
+	if (
+		Router.ActiveTransition.Progress == C_Private_TransitionProgress_Confirming &&
+		Router.ActiveTransition.NextStepTime <= Now
+	) {
+		if (Router.ActiveTransition.NeedPrivilegesCheck) {
+			Router.ActiveTransition.Progress = C_Private_TransitionProgress_CheckingPrivileges;
+		} else {
+			Router.ActiveTransition.Progress = C_Private_TransitionProgress_StartInitializing;
+		}
+		Router.ActiveTransition.NextStepTime = Now;
+	}
+
+	// Process privileges check
+	if (Router.ActiveTransition.Progress == C_Private_TransitionProgress_CheckingPrivileges) {
+		Router.PrivilegesCheck = Privileges::Check_Update(Router.PrivilegesCheck);
+		if (Privileges::Check_IsComplete(Router.PrivilegesCheck)) {
+			if (Privileges::Check_HasPrivilege(Router.PrivilegesCheck)) {
+				Router.ActiveTransition.Progress = C_Private_TransitionProgress_StartInitializing;
+				Router.ActiveTransition.NextStepTime = Now;
+			} else {
+				Router.ActiveTransition.Progress = C_Private_TransitionProgress_Failed;
+				Router.ActiveTransition.NextStepTime = 0;
+				Router.PendingEvents.add(Private_CreateEvent(C_EventType_MissPrivileges, Router.ActiveTransition));
+			}
+			Router.PrivilegesCheck = Privileges::Check_Destroy(Router.PrivilegesCheck);
+		}
+	}
+
+	// Can execute transition
+	if (
+		Router.ActiveTransition.Progress == C_Private_TransitionProgress_StartInitializing &&
+		Router.ActiveTransition.NextStepTime <= Now
+	) {
+		Router.ActiveTransition.Progress = C_Private_TransitionProgress_StartHiding;
+		Router.ActiveTransition.NextStepTime = Now;
+
+		// Create layers for the unloaded fragments of the new route
+		for (FragmentId in Router.ActiveTransition.AddFragmentIds) {
+			Router = Private_CreateFragmentLayer(_This, Router, FragmentId);
+		}
+	}
+
+	// Start hiding transition
+	if (
+		Router.ActiveTransition.Progress == C_Private_TransitionProgress_StartHiding &&
+		Router.ActiveTransition.NextStepTime <= Now
+	) {
+		Router.ActiveTransition.Progress = C_Private_TransitionProgress_StartShowing;
+		Router.ActiveTransition = Private_StartTransitionOut(
+			_This,
+			Router.FragmentLayerIds,
+			Router.ActiveTransition
+		);
+		Router.ActiveTransition.NextStepTime = Now + 1;
+
+		// Move to the new route
+		Router.CurrentRouteIds = Router.ActiveTransition.ToRouteIds;
+		Router.CurrentFragmentIds = [];
+		Router.CurrentLeafFragmentIds = [];
+		Router.CurrentRouteData = Router.ActiveTransition.Data;
+		for (CurrentRouteId in Router.CurrentRouteIds) {
+			declare Boolean IsLeafRoute = (Router.CurrentRouteIds.get(-1, "") == CurrentRouteId);
+			for (FragmentId in Router.Routes.get(CurrentRouteId, C_Private_Route_Null).FragmentIds) {
+				if (!Router.CurrentFragmentIds.exists(FragmentId)) {
+					Router.CurrentFragmentIds.add(FragmentId);
+				}
+				if (IsLeafRoute && !Router.CurrentLeafFragmentIds.exists(FragmentId)) {
+					Router.CurrentLeafFragmentIds.add(FragmentId);
+				}
+			}
+		}
+		_This.TTS_Context_Change(
+			Router.TTSContextId,
+			Router.CurrentRouteIds.get(-1, ""),
+			False
+		);
+
+		Router.PendingEvents.add(Private_CreateEvent(C_EventType_LeaveRoute, Router.ActiveTransition));
+	}
+
+	// Start showing transition
+	if (
+		Router.ActiveTransition.Progress == C_Private_TransitionProgress_StartShowing &&
+		Router.ActiveTransition.NextStepTime <= Now
+	) {
+		Router.ActiveTransition.Progress = C_Private_TransitionProgress_Animation;
+		Router.ActiveTransition = Private_StartTransitionIn(
+			_This,
+			Router.FragmentLayerIds,
+			Router.ActiveTransition
+		);
+		Router.ActiveTransition.NextStepTime = ML::Max(
+			Now + 1,
+			ML::Max(
+				Router.ActiveTransition.HidingEndTime,
+				Router.ActiveTransition.ShowingEndTime
+			)
+		);
+
+		// Disable events on the old leaf route fragments
+		for (FragmentId in Router.ActiveTransition.DisableFragmentIds) {
+			declare Ident LayerId = Router.FragmentLayerIds.get(FragmentId, NullId);
+			if (LayerId != NullId && _This.UILayers.existskey(LayerId)) {
+				declare Boolean CMGameMenusRouter_PendingEventsEnabled for _This.UILayers[LayerId].LocalPage = C_Private_DefaultPendingEventsEnabled;
+				CMGameMenusRouter_PendingEventsEnabled = False;
+			}
+		}
+
+		// Enable events on the new leaf route fragments
+		for (FragmentId in Router.ActiveTransition.EnableFragmentIds) {
+			declare Ident LayerId = Router.FragmentLayerIds.get(FragmentId, NullId);
+			if (LayerId != NullId && _This.UILayers.existskey(LayerId)) {
+				declare Boolean CMGameMenusRouter_PendingEventsEnabled for _This.UILayers[LayerId].LocalPage = C_Private_DefaultPendingEventsEnabled;
+				CMGameMenusRouter_PendingEventsEnabled = True;
+			}
+		}
+
+		// Show the fragments of the new route
+		for (FragmentId in Router.ActiveTransition.AddFragmentIds) {
+			declare Ident LayerId = Router.FragmentLayerIds.get(FragmentId, NullId);
+			if (LayerId != NullId && _This.UILayers.existskey(LayerId)) {
+				_This.UILayers[LayerId].IsVisible = True;
+			}
+		}
+
+		Router.PendingEvents.add(Private_CreateEvent(C_EventType_EnterRoute, Router.ActiveTransition));
+	}
+
+	// Transition in progress
+	// Waiting for hiding and showing transitions to end
+	if (Router.ActiveTransition.Progress == C_Private_TransitionProgress_Animation) {
+		Router.ActiveTransition = Private_HideTransitionOutFragments(_This, Router.ActiveTransition);
+	}
+
+	// Complete transition
+	if (
+		Router.ActiveTransition.Progress == C_Private_TransitionProgress_Animation &&
+		Router.ActiveTransition.NextStepTime <= Now
+	) {
+		Router.ActiveTransition = Private_CompleteActiveTransition(
+			_This,
+			Router.FragmentLayerIds,
+			Router.ActiveTransition
+		);
+	}
+
+	return Router;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize a router
+Void Initialize(CManiaApp _This, Text _RouterId) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	CMGameMenusRouter_Routers[_RouterId] = Private_DestroyAndCreate(_This, CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null));
+}
+Void Initialize(CManiaApp _This) {
+	Initialize(_This, C_RouterId_Default);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy a router
+Void Destroy(CManiaApp _This, Text _RouterId) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	Private_Destroy(_This, CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null));
+	CMGameMenusRouter_Routers.removekey(_RouterId);
+}
+Void Destroy(CManiaApp _This) {
+	Destroy(_This, C_RouterId_Default);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a fragment
+Void CreateFragment(CManiaApp _This, Text _RouterId, Text _FragmentId, Text _ManialinkPage, CUILayer::EUILayerType _LayerType) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	CMGameMenusRouter_Routers[_RouterId] = Private_CreateFragment(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null), _FragmentId, _ManialinkPage, _LayerType);
+}
+Void CreateFragment(CManiaApp _This, Text _RouterId, Text _FragmentId, Text _ManialinkPage) {
+	CreateFragment(_This, _RouterId, _FragmentId, _ManialinkPage, CUILayer::EUILayerType::Normal);
+}
+
+Void CreateFragment(CManiaApp _This, Text _FragmentId, Text _ManialinkPage, CUILayer::EUILayerType _LayerType) {
+	CreateFragment(_This, C_RouterId_Default, _FragmentId, _ManialinkPage, _LayerType);
+}
+Void CreateFragment(CManiaApp _This, Text _FragmentId, Text _ManialinkPage) {
+	CreateFragment(_This, C_RouterId_Default, _FragmentId, _ManialinkPage);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Preload a fragment
+ * Initializing a fragment can be time-consuming, resulting in a visible freeze when it is first displayed
+ * Preloading the fragment creates it immediately, causing the freeze to occur at that moment instead of when it's first displayed
+ */
+Void PreloadFragment(CManiaApp _This, Text _RouterId, Text _FragmentId) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	CMGameMenusRouter_Routers[_RouterId] = Private_PreloadFragment(_This, CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null), _FragmentId);
+}
+Void PreloadFragment(CManiaApp _This, Text _FragmentId) {
+	PreloadFragment(_This, C_RouterId_Default, _FragmentId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a fragment group
+Void CreateFragmentGroup(CManiaApp _This, Text _RouterId, Text _FragmentGroupId, Text[] _FragmentIds) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	CMGameMenusRouter_Routers[_RouterId] = Private_CreateFragmentGroup(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null), _FragmentGroupId, _FragmentIds);
+}
+Void CreateFragmentGroup(CManiaApp _This, Text _FragmentGroupId, Text[] _FragmentIds) {
+	CreateFragmentGroup(_This, C_RouterId_Default, _FragmentGroupId, _FragmentIds);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a route
+Void CreateRoute(CManiaApp _This, Text _RouterId, Text _RouteId, Text[] _FragmentAndFragmentGroupIds, CPrivilegeMgr::EPrivilege[] _Privileges) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	CMGameMenusRouter_Routers[_RouterId] = Private_CreateRoute(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null), _RouteId, _FragmentAndFragmentGroupIds, _Privileges);
+}
+Void CreateRoute(CManiaApp _This, Text _RouterId, Text _RouteId, Text[] _FragmentAndFragmentGroupIds) {
+	CreateRoute(_This, _RouterId, _RouteId, _FragmentAndFragmentGroupIds, []);
+}
+
+Void CreateRoute(CManiaApp _This, Text _RouteId, Text[] _FragmentAndFragmentGroupIds, CPrivilegeMgr::EPrivilege[] _Privileges) {
+	CreateRoute(_This, C_RouterId_Default, _RouteId, _FragmentAndFragmentGroupIds, _Privileges);
+}
+Void CreateRoute(CManiaApp _This, Text _RouteId, Text[] _FragmentAndFragmentGroupIds) {
+	CreateRoute(_This, C_RouterId_Default, _RouteId, _FragmentAndFragmentGroupIds);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the routes to display
+Void Push(CManiaApp _This, Text _RouterId, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	CMGameMenusRouter_Routers[_RouterId] = Private_Push(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null), _RouteIds, _PushOptions);
+}
+Void Push(CManiaApp _This, Text _RouterId, Text _RouteId, K_PushOptions _PushOptions) {
+	Push(_This, _RouterId, [_RouteId], _PushOptions);
+}
+Void Push(CManiaApp _This, Text _RouterId, Text[] _RouteIds) {
+	Push(_This, _RouterId, _RouteIds, C_PushOptions_Null);
+}
+Void Push(CManiaApp _This, Text _RouterId, Text _RouteId) {
+	Push(_This, _RouterId, _RouteId, C_PushOptions_Null);
+}
+
+Void Push(CManiaApp _This, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	Push(_This, C_RouterId_Default, _RouteIds, _PushOptions);
+}
+Void Push(CManiaApp _This, Text _RouteId, K_PushOptions _PushOptions) {
+	Push(_This, C_RouterId_Default, _RouteId, _PushOptions);
+}
+Void Push(CManiaApp _This, Text[] _RouteIds) {
+	Push(_This, C_RouterId_Default, _RouteIds);
+}
+Void Push(CManiaApp _This, Text _RouteId) {
+	Push(_This, C_RouterId_Default, _RouteId);
+}
+
+Void Push(CMlScript _This, Text _RouterId, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) Push(ManiaApp, _RouterId, _RouteIds, _PushOptions);
+}
+Void Push(CMlScript _This, Text _RouterId, Text _RouteId, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) Push(ManiaApp, _RouterId, _RouteId, _PushOptions);
+}
+Void Push(CMlScript _This, Text _RouterId, Text[] _RouteIds) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) Push(ManiaApp, _RouterId, _RouteIds);
+}
+Void Push(CMlScript _This, Text _RouterId, Text _RouteId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) Push(ManiaApp, _RouterId, _RouteId);
+}
+
+Void Push(CMlScript _This, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) Push(ManiaApp, _RouteIds, _PushOptions);
+}
+Void Push(CMlScript _This, Text _RouteId, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) Push(ManiaApp, _RouteId, _PushOptions);
+}
+Void Push(CMlScript _This, Text[] _RouteIds) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) Push(ManiaApp, _RouteIds);
+}
+Void Push(CMlScript _This, Text _RouteId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) Push(ManiaApp, _RouteId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**
+ * Add some routes to the already displayed routes
+ * but only if `_OverRouteId` is the current leaf route
+ * Otherwise push the `_FallbackRouteIds` routes if provided
+ */
+Void ShowPopOver(CManiaApp _This, Text _RouterId, Text _OverRouteId, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	CMGameMenusRouter_Routers[_RouterId] = Private_ShowPopOver(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null), _OverRouteId, _RouteIds, _PushOptions);
+}
+Void ShowPopOver(CManiaApp _This, Text _RouterId, Text _OverRouteId, Text _RouteId, K_PushOptions _PushOptions) {
+	ShowPopOver(_This, _RouterId, _OverRouteId, [_RouteId], _PushOptions);
+}
+Void ShowPopOver(CManiaApp _This, Text _RouterId, Text _OverRouteId, Text[] _RouteIds) {
+	ShowPopOver(_This, _RouterId, _OverRouteId, _RouteIds, C_PushOptions_Null);
+}
+Void ShowPopOver(CManiaApp _This, Text _RouterId, Text _OverRouteId, Text _RouteId) {
+	ShowPopOver(_This, _RouterId, _OverRouteId, [_RouteId]);
+}
+
+Void ShowPopOver(CManiaApp _This, Text _OverRouteId, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	ShowPopOver(_This, C_RouterId_Default, _OverRouteId, _RouteIds, _PushOptions);
+}
+Void ShowPopOver(CManiaApp _This, Text _OverRouteId, Text _RouteId, K_PushOptions _PushOptions) {
+	ShowPopOver(_This, C_RouterId_Default, _OverRouteId, [_RouteId], _PushOptions);
+}
+Void ShowPopOver(CManiaApp _This, Text _OverRouteId, Text[] _RouteIds) {
+	ShowPopOver(_This, C_RouterId_Default, _OverRouteId, _RouteIds, C_PushOptions_Null);
+}
+Void ShowPopOver(CManiaApp _This, Text _OverRouteId, Text _RouteId) {
+	ShowPopOver(_This, C_RouterId_Default, _OverRouteId, [_RouteId]);
+}
+
+Void ShowPopOver(CMlScript _This, Text _RouterId, Text _OverRouteId, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) ShowPopOver(ManiaApp, _RouterId, _OverRouteId, _RouteIds, _PushOptions);
+}
+Void ShowPopOver(CMlScript _This, Text _RouterId, Text _OverRouteId, Text _RouteId, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) ShowPopOver(ManiaApp, _RouterId, _OverRouteId, _RouteId, _PushOptions);
+}
+Void ShowPopOver(CMlScript _This, Text _RouterId, Text _OverRouteId, Text[] _RouteIds) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) ShowPopOver(ManiaApp, _RouterId, _OverRouteId, _RouteIds);
+}
+Void ShowPopOver(CMlScript _This, Text _RouterId, Text _OverRouteId, Text _RouteId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) ShowPopOver(ManiaApp, _RouterId, _OverRouteId, _RouteId);
+}
+
+Void ShowPopOver(CMlScript _This, Text _OverRouteId, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) ShowPopOver(ManiaApp, _OverRouteId, _RouteIds, _PushOptions);
+}
+Void ShowPopOver(CMlScript _This, Text _OverRouteId, Text _RouteId, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) ShowPopOver(ManiaApp, _OverRouteId, _RouteId, _PushOptions);
+}
+Void ShowPopOver(CMlScript _This, Text _OverRouteId, Text[] _RouteIds) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) ShowPopOver(ManiaApp, _OverRouteId, _RouteIds);
+}
+Void ShowPopOver(CMlScript _This, Text _OverRouteId, Text _RouteId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) ShowPopOver(ManiaApp, _OverRouteId, _RouteId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove routes from the current routes until none of `_RouteIds` are present
+Void HidePopOver(CManiaApp _This, Text _RouterId, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	CMGameMenusRouter_Routers[_RouterId] = Private_HidePopOver(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null), _RouteIds, _PushOptions);
+}
+Void HidePopOver(CManiaApp _This, Text _RouterId, Text _RouteId, K_PushOptions _PushOptions) {
+	HidePopOver(_This, _RouterId, [_RouteId], _PushOptions);
+}
+Void HidePopOver(CManiaApp _This, Text _RouterId, Text[] _RouteIds) {
+	HidePopOver(_This, _RouterId, _RouteIds, C_PushOptions_Null);
+}
+Void HidePopOver(CManiaApp _This, Text _RouterId, Text _RouteId) {
+	HidePopOver(_This, _RouterId, [_RouteId]);
+}
+
+Void HidePopOver(CManiaApp _This, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	HidePopOver(_This, C_RouterId_Default, _RouteIds, _PushOptions);
+}
+Void HidePopOver(CManiaApp _This, Text _RouteId, K_PushOptions _PushOptions) {
+	HidePopOver(_This, C_RouterId_Default, [_RouteId], _PushOptions);
+}
+Void HidePopOver(CManiaApp _This, Text[] _RouteIds) {
+	HidePopOver(_This, C_RouterId_Default, _RouteIds, C_PushOptions_Null);
+}
+Void HidePopOver(CManiaApp _This, Text _RouteId) {
+	HidePopOver(_This, C_RouterId_Default, [_RouteId]);
+}
+
+Void HidePopOver(CMlScript _This, Text _RouterId, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) HidePopOver(ManiaApp, _RouterId, _RouteIds, _PushOptions);
+}
+Void HidePopOver(CMlScript _This, Text _RouterId, Text _RouteId, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) HidePopOver(ManiaApp, _RouterId, _RouteId, _PushOptions);
+}
+Void HidePopOver(CMlScript _This, Text _RouterId, Text[] _RouteIds) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) HidePopOver(ManiaApp, _RouterId, _RouteIds);
+}
+Void HidePopOver(CMlScript _This, Text _RouterId, Text _RouteId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) HidePopOver(ManiaApp, _RouterId, _RouteId);
+}
+
+Void HidePopOver(CMlScript _This, Text[] _RouteIds, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) HidePopOver(ManiaApp, _RouteIds, _PushOptions);
+}
+Void HidePopOver(CMlScript _This, Text _RouteId, K_PushOptions _PushOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) HidePopOver(ManiaApp, _RouteId, _PushOptions);
+}
+Void HidePopOver(CMlScript _This, Text[] _RouteIds) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) HidePopOver(ManiaApp, _RouteIds);
+}
+Void HidePopOver(CMlScript _This, Text _RouteId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) HidePopOver(ManiaApp, _RouteId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Cancel a transition to a new route
+Void Cancel(CManiaApp _This, Text _RouterId) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	CMGameMenusRouter_Routers[_RouterId] = Private_Cancel(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null));
+}
+Void Cancel(CManiaApp _This) {
+	Cancel(_This, C_RouterId_Default);
+}
+
+Void Cancel(CMlScript _This, Text _RouterId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) Cancel(ManiaApp, _RouterId);
+}
+Void Cancel(CMlScript _This) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp != Null) Cancel(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given route is in the current routes
+Boolean IsActiveRoute(CManiaApp _This, Text _RouterId, Text _RouteId, Boolean _CheckLeafOnly) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	return Private_IsActiveRoute(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null), _RouteId, _CheckLeafOnly);
+}
+Boolean IsActiveRoute(CManiaApp _This, Text _RouteId, Boolean _CheckLeafOnly) {
+	return IsActiveRoute(_This, C_RouterId_Default, _RouteId, _CheckLeafOnly);
+}
+
+Boolean IsActiveRoute(CMlScript _This, Text _RouterId, Text _RouteId, Boolean _CheckLeafOnly) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return False;
+	return IsActiveRoute(ManiaApp, _RouterId, _RouteId, _CheckLeafOnly);
+}
+Boolean IsActiveRoute(CMlScript _This, Text _RouteId, Boolean _CheckLeafOnly) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return False;
+	return IsActiveRoute(ManiaApp, _RouteId, _CheckLeafOnly);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the root route
+Text GetRootRoute(CManiaApp _This, Text _RouterId) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	return Private_GetRootRoute(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null));
+}
+Text GetRootRoute(CManiaApp _This) {
+	return GetRootRoute(_This, C_RouterId_Default);
+}
+
+Text GetRootRoute(CMlScript _This, Text _RouterId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return "";
+	return GetRootRoute(ManiaApp, _RouterId);
+}
+Text GetRootRoute(CMlScript _This) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return "";
+	return GetRootRoute(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the whole route
+Text[] GetRoute(CManiaApp _This, Text _RouterId) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	return Private_GetRoute(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null));
+}
+Text[] GetRoute(CManiaApp _This) {
+	return GetRoute(_This, C_RouterId_Default);
+}
+
+Text[] GetRoute(CMlScript _This, Text _RouterId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return [];
+	return GetRoute(ManiaApp, _RouterId);
+}
+Text[] GetRoute(CMlScript _This) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return [];
+	return GetRoute(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the route data
+Text[Text] GetRouteData(CManiaApp _This, Text _RouterId) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	return Private_GetRouteData(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null));
+}
+Text[Text] GetRouteData(CManiaApp _This) {
+	return GetRouteData(_This, C_RouterId_Default);
+}
+
+Text[Text] GetRouteData(CMlScript _This, Text _RouterId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return [];
+	return GetRouteData(ManiaApp, _RouterId);
+}
+Text[Text] GetRouteData(CMlScript _This) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return [];
+	return GetRouteData(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given fragment is displayed by the current routes
+Boolean IsActiveFragment(CManiaApp _This, Text _RouterId, Text _FragmentId, Boolean _CheckLeafOnly) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	return Private_IsActiveFragment(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null), _FragmentId, _CheckLeafOnly);
+}
+Boolean IsActiveFragment(CManiaApp _This, Text _FragmentId, Boolean _CheckLeafOnly) {
+	return IsActiveFragment(_This, C_RouterId_Default, _FragmentId, _CheckLeafOnly);
+}
+
+Boolean IsActiveFragment(CMlScript _This, Text _RouterId, Text _FragmentId, Boolean _CheckLeafOnly) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return False;
+	return IsActiveFragment(ManiaApp, _RouterId, _FragmentId, _CheckLeafOnly);
+}
+Boolean IsActiveFragment(CMlScript _This, Text _FragmentId, Boolean _CheckLeafOnly) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return False;
+	return IsActiveFragment(ManiaApp, _FragmentId, _CheckLeafOnly);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the events generated by the router
+K_Event[] GetPendingEvents(CManiaApp _This, Text _RouterId) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+	return Private_GetPendingEvents(CMGameMenusRouter_Routers.get(_RouterId, C_Private_Router_Null));
+}
+K_Event[] GetPendingEvents(CManiaApp _This) {
+	return GetPendingEvents(_This, C_RouterId_Default);
+}
+
+K_Event[] GetPendingEvents(CMlScript _This, Text _RouterId) {
+	declare Boolean CMGameMenusRouter_PendingEventsEnabled for _This.Page = C_Private_DefaultPendingEventsEnabled;
+	if (!CMGameMenusRouter_PendingEventsEnabled) return [];
+
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return [];
+
+	return GetPendingEvents(ManiaApp, _RouterId);
+}
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare Boolean CMGameMenusRouter_PendingEventsEnabled for _This.Page = C_Private_DefaultPendingEventsEnabled;
+	if (!CMGameMenusRouter_PendingEventsEnabled) return [];
+
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_This);
+	if (ManiaApp == Null) return [];
+
+	return GetPendingEvents(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if we are leaving the given route in the event
+Boolean IsLeavingRoute(K_Event _Event, Text _RouteId, Boolean _CheckLeafOnly) {
+	return (
+		(
+			_CheckLeafOnly &&
+			_Event.FromLeafRouteId == _RouteId &&
+			_Event.ToLeafRouteId != _RouteId
+		) || (
+			!_CheckLeafOnly &&
+			_Event.FromRouteIds.exists(_RouteId) &&
+			!_Event.ToRouteIds.exists(_RouteId)
+		)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if we are entering the given route in the event
+Boolean IsEnteringRoute(K_Event _Event, Text _RouteId, Boolean _CheckLeafOnly) {
+	return (
+		(
+			_CheckLeafOnly &&
+			_Event.ToLeafRouteId == _RouteId &&
+			_Event.FromLeafRouteId != _RouteId
+		) || (
+			!_CheckLeafOnly &&
+			_Event.ToRouteIds.exists(_RouteId) &&
+			!_Event.FromRouteIds.exists(_RouteId)
+		)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given fragment is added in the event
+Boolean IsAddingFragment(K_Event _Event, Text _FragmentId) {
+	return _Event.AddFragmentIds.exists(_FragmentId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given fragment is removed in the event
+Boolean IsRemovingFragment(K_Event _Event, Text _FragmentId) {
+	return _Event.RemoveFragmentIds.exists(_FragmentId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given fragment is enabled in the event
+Boolean IsEnablingFragment(K_Event _Event, Text _FragmentId) {
+	return _Event.EnableFragmentIds.exists(_FragmentId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given fragment is disabled in the event
+Boolean IsDisablingFragment(K_Event _Event, Text _FragmentId) {
+	return _Event.DisableFragmentIds.exists(_FragmentId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given fragment is modified in the event
+Boolean IsModifyingFragment(K_Event _Event, Text _FragmentId) {
+	return (
+		_Event.AddFragmentIds.exists(_FragmentId) ||
+		_Event.RemoveFragmentIds.exists(_FragmentId) ||
+		_Event.EnableFragmentIds.exists(_FragmentId) ||
+		_Event.DisableFragmentIds.exists(_FragmentId)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update all routers
+Void AfterYield(CManiaApp _This) {
+	declare K_Private_Router[Text] CMGameMenusRouter_Routers for _This = [];
+
+	for (RouterId => Router in CMGameMenusRouter_Routers) {
+		CMGameMenusRouter_Routers[RouterId] = Private_UpdateRouter(_This, Router);
+	}
+}

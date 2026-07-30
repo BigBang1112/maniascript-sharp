@@ -1,0 +1,175 @@
+/**
+ *	Points distribution for Race mode
+ */
+#Const	Version			"1.0.0"
+#Const	ScriptName	"Libs/Nadeo/TMGame/Modes/PointsRepartition.Script.txt"
+
+// ---------------------------------- //
+// Libraries
+// ---------------------------------- //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/XmlRpc2.Script.txt" as XmlRpc
+
+// ---------------------------------- //
+// Constants
+// ---------------------------------- //
+///XmlRpc
+#Const C_Callback_PointsRepartition "Trackmania.PointsRepartition"
+#Const C_Method_GetPointsRepartition "Trackmania.GetPointsRepartition"
+#Const C_Method_SetPointsRepartition "Trackmania.SetPointsRepartition"
+
+// ---------------------------------- //
+// Globales
+// ---------------------------------- //
+declare Integer[] G_PointsRepartition; ///< Points awarded to the players at the end of the round
+
+// ---------------------------------- //
+// Functions
+// ---------------------------------- //
+// ---------------------------------- //
+// Public
+// ---------------------------------- //
+// ---------------------------------- //
+/** Setup how the points will be distributed
+ *	at the end of the round
+ *
+ *	@param	_Points										The points repartition
+ *																		[10, 6, 4, 3, 2, 1] =>
+ *																		1st will get 10 points, 2nd 6 points,
+ *																		3rd 4 points, etc ...
+ */
+Void SetPointsRepartition(Integer[] _Points) {
+	G_PointsRepartition = _Points;
+}
+
+// ---------------------------------- //
+/** Get the current points repartition
+ *
+ *	@return														The points repartition
+ */
+Integer[] GetPointsRepartition() {
+	return G_PointsRepartition;
+}
+
+// ---------------------------------- //
+/** Convert the points repartition Text
+ *	to an Integer array
+ *
+ *	@param	_PointsRepartition				The Text points repartition
+ *
+ *	@return														The Integer[] points repartition
+ */
+Integer[] ConvertPointsRepartition(Text _PointsRepartition) {
+	declare Integer[] PointsRepartition;
+	declare Points = TL::Split(",", _PointsRepartition);
+	foreach (Point in Points) {
+		declare PointInt = TL::ToInteger(Point);
+		if (PointInt >= 0) PointsRepartition.add(PointInt);
+		else PointsRepartition.add(0);
+	}
+	return PointsRepartition;
+}
+
+// ---------------------------------- //
+/** Send teams and players scores
+ *
+ *	@param	_ResponseId								Id to insert in the response callback
+ */
+Void XmlRpc_SendPointsRepartition(Text _ResponseId) {
+	declare Response = """{
+	"responseid": {{{dump(_ResponseId)}}},
+	"pointsrepartition": {{{dump(GetPointsRepartition())}}}
+}""";
+
+	XmlRpc::SendCallback(C_Callback_PointsRepartition, [Response]);
+}
+
+// ---------------------------------- //
+/** Function to call at each yield
+ *	to update the library
+ */
+Void Yield() {
+	foreach (Event in XmlRpc.PendingEvents) {
+		if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+			switch (Event.ParamArray1) {
+				case C_Method_SetPointsRepartition: {
+					if (Event.ParamArray2.count > 0) {
+						declare Integer[] PointsRepartition;
+						foreach (Point in Event.ParamArray2) {
+							PointsRepartition.add(TL::ToInteger(Point));
+						}
+						if (PointsRepartition.count >= 1) {
+							SetPointsRepartition(PointsRepartition);
+						}
+					}
+				}
+				case C_Method_GetPointsRepartition: {
+					declare ResponseId = "";
+					if (Event.ParamArray2.existskey(0)) ResponseId = Event.ParamArray2[0];
+					XmlRpc_SendPointsRepartition(ResponseId);
+				}
+			}
+		}
+	}
+}
+
+// ---------------------------------- //
+/// Unload the library
+Void Unload() {
+	G_PointsRepartition = [];
+
+	// Unregister callbacks
+	XmlRpc::UnregisterCallback(C_Callback_PointsRepartition);
+	// Unregister methods
+	XmlRpc::UnregisterMethod(C_Method_SetPointsRepartition);
+	XmlRpc::UnregisterMethod(C_Method_GetPointsRepartition);
+}
+
+// ---------------------------------- //
+/// Load the library
+Void Load() {
+	Unload();
+
+	// Register callbacks
+	XmlRpc::RegisterCallback(C_Callback_PointsRepartition, """
+* Name: {{{C_Callback_PointsRepartition}}}
+* Type: CallbackArray
+* Description: Points repartition in rounds based modes.
+* Data:
+	- Version >=2.5.0:
+	```
+	[
+		"{
+			"responseid": "xyz", //< Facultative id passed by a script event
+			"pointsrepartition": [10, 6, 4, 3, 2, 1]	//< The points repartition
+		}"
+	]
+	```
+	""");
+
+	// Register methods
+	XmlRpc::RegisterMethod(C_Method_GetPointsRepartition, """
+* Name: {{{C_Method_GetPointsRepartition}}}
+* Type: TriggerModeScriptEventArray
+* Description: Request the current points repartition. This method will trigger the "{{{C_Callback_PointsRepartition}}}" callback.
+* Data:
+	- Version >=2.5.0:
+	```
+	[
+		"responseid" //< Facultative id that will be passed to the "{{{C_Callback_PointsRepartition}}}" callback.
+	]
+	```
+	""");
+XmlRpc::RegisterMethod(C_Method_SetPointsRepartition, """
+* Name: {{{C_Method_SetPointsRepartition}}}
+* Type: TriggerModeScriptEventArray
+* Description: Update the points repartition.
+* Data:
+	- Version >=2.5.0:
+	```
+	[
+		"10", "9", "8", "7", "6", "5" //< An array of points
+	]
+	```
+	""");
+}

@@ -1,0 +1,326 @@
+/**
+ * Base for game modes of all Nadeo projects
+ */
+#Const C_CMGame_Version "3.7.0"
+#Const C_CMGame_ScriptName "Modes/Nadeo/CMGame/Base/ModeBase@3.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules.Script.txt" as CMGame_UIModules
+#Include "Libs/Nadeo/CMGame/Modes/Utils.Script.txt" as CMGame_ModeUtils
+#Include "Libs/Nadeo/CMGame/Utils/Config@2.Script.txt" as CMGame_Config
+#Include "Libs/Nadeo/CMGame/Utils/Error.Script.txt" as CMGame_Error
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_CMGame_State {
+	Integer CurrentNow;
+	Integer ActiveSection;
+	Boolean AutomaticMapIntroIsEnabled;
+	Integer UnprocessedModeEventHandling;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_CMGame_State_Null K_CMGame_State {
+	CurrentNow = 0,
+	ActiveSection = 0,
+	AutomaticMapIntroIsEnabled = True,
+	UnprocessedModeEventHandling = 1
+}
+
+#Const C_CMGame_Section_None 0
+#Const C_CMGame_Section_Mode 1
+#Const C_CMGame_Section_Match 2
+#Const C_CMGame_Section_Map 3
+#Const C_CMGame_Section_Round 4
+
+#Const C_CMGame_UnprocessedModeEventHandling_None 0
+#Const C_CMGame_UnprocessedModeEventHandling_Discard 1
+#Const C_CMGame_UnprocessedModeEventHandling_PassOn 2
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_CMGame_State CMGame_G_State;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***CMGame_ErrorInit***
+***
+CMGame_Error::SetGlobalErrorNickmane(CMGame_Error::C_ErrorNickname);
+***
+
+***CMGame_ConfigInit***
+***
+declare Text CMGame_ConfigFilePath = "";
++++CMGame_ConfigSetPath+++
+if (CMGame_ConfigFilePath != "") {
+	CMGame_Config::SetTitleConfig(Http, CMGame_ConfigFilePath);
+}
+***
+
+***CMGame_ModeStart***
+***
+CMGame_UIModules::OnModeStart(This);
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** `yield` the game mode script initialization
+ * We don't want to execute the `CMGame_Yield()` function
+ * before the complete initialization of the game mode
+ */
+Void Private_InitializationYield() {
+	+++CMGame_BeforeInitializationYield+++
+	if (CMGame_G_State.CurrentNow > 0 && Now > CMGame_G_State.CurrentNow) {
+		log("WARNING: [Mode] A frame was skipped with `yield`, `sleep()` or `wait()` ("^CMGame_G_State.CurrentNow^" > "^Now^"). This is considered bad practice. Always use `Private_InitializationYield()` to advance to the next frame.");
+	}
+	yield;
+	CMGame_G_State.CurrentNow = Now;
+	+++CMGame_AfterInitializationYield+++
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** `yield` the game mode script
+ * It should be the only place that directly calls the `yield` instruction
+ * Everywhere else this `CMGame_Yield()` function must be called instead
+ */
+Void CMGame_Yield() {
+	+++CMGame_BeforeYield+++
+	if (CMGame_G_State.CurrentNow > 0 && Now > CMGame_G_State.CurrentNow) {
+		log("WARNING: [Mode] A frame was skipped with `yield`, `sleep()` or `wait()` ("^CMGame_G_State.CurrentNow^" > "^Now^"). This is considered bad practice. Always use `CMGame_Yield()` to advance to the next frame.");
+	}
+	// Handle unprocessed events before returning control to C++
+	if (CMGame_G_State.UnprocessedModeEventHandling != C_CMGame_UnprocessedModeEventHandling_None) {
+		for (Event in PendingEvents) {
+			if (
+				!Event.HasBeenDiscarded && //< Discard()
+				!Event.HasBeenPassed && //< PassOn()
+				!Event.HasBeenProcessed //< A script manually handled the event and set this flag (see script documentation of `CBaseConstEvent`)
+			) {
+				switch (CMGame_G_State.UnprocessedModeEventHandling) {
+					case C_CMGame_UnprocessedModeEventHandling_Discard: Discard(Event);
+					case C_CMGame_UnprocessedModeEventHandling_PassOn: PassOn(Event);
+				}
+			}
+		}
+	}
+	yield;
+	CMGame_G_State.CurrentNow = Now;
+	+++CMGame_AfterYield+++
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the requested section of the code should continue to run
+Boolean CMGame_IsRunningMode() {
+	return (
+		CMGame_G_State.ActiveSection >= C_CMGame_Section_Mode &&
+		!ServerShutdownRequested
+	);
+}
+Boolean CMGame_IsRunningMatch() {
+	return (
+		CMGame_G_State.ActiveSection >= C_CMGame_Section_Match &&
+		!ServerShutdownRequested
+	);
+}
+Boolean CMGame_IsRunningMap() {
+	return (
+		CMGame_G_State.ActiveSection >= C_CMGame_Section_Map &&
+		!ServerShutdownRequested &&
+		!MatchEndRequested
+	);
+}
+Boolean CMGame_IsRunningRound() {
+	return (
+		CMGame_G_State.ActiveSection >= C_CMGame_Section_Round &&
+		!ServerShutdownRequested &&
+		!MatchEndRequested
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop the requested section of the code
+Void CMGame_StopMode() {
+	CMGame_G_State.ActiveSection = C_CMGame_Section_None;
+}
+Void CMGame_StopMatch() {
+	CMGame_G_State.ActiveSection = C_CMGame_Section_Mode;
+}
+Void CMGame_StopMap() {
+	CMGame_G_State.ActiveSection = C_CMGame_Section_Match;
+}
+Void CMGame_StopRound() {
+	CMGame_G_State.ActiveSection = C_CMGame_Section_Map;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the next map in the playlist if no map is loaded at the moment
+Void CMGame_LoadMap() {
+	+++CMGame_BeforeMapLoad+++
+	if (!MapLoaded) RequestLoadMap();
+	while (!MapLoaded) CMGame_Yield();
+	+++CMGame_AfterMapLoad+++
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the currently loaded map
+Void CMGame_UnloadMap() {
+	+++CMGame_BeforeMapUnload+++
+	if (MapLoaded) RequestUnloadMap();
+	while (MapLoaded) CMGame_Yield();
+	+++CMGame_AfterMapUnload+++
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the current map and go to the next one in the playlist
+Void CMGame_NextMap() {
+	CMGame_UnloadMap();
+	CMGame_LoadMap();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the current map and reload it
+Void CMGame_ReloadMap() {
+	if (Map != Null && Map.MapInfo != Null && MapList.exists(Map.MapInfo)) {
+		NextMapIndex = MapList.keyof(Map.MapInfo);
+	}
+	CMGame_UnloadMap();
+	CMGame_LoadMap();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Wait for all players to be synchronized
+Void CMGame_WaitPlayersSynchro() {
+	declare Integer Barrier = Synchro_AddBarrier();
+	while (!Synchro_BarrierReached(Barrier) && CMGame_IsRunningMode()) {
+		CMGame_Yield();
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Turn on or off the automatic map intro sequence
+Void CMGame_EnableAutomaticMapIntro(Boolean _AutomaticMapIntroEnabled) {
+	CMGame_G_State.AutomaticMapIntroIsEnabled = _AutomaticMapIntroEnabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set how unprocessed events should be processed by the game mode before going to the next frame
+Void CMGame_SetUnprocessedModeEventHandling(Integer _UnprocessedModeEventHandling) {
+	CMGame_G_State.UnprocessedModeEventHandling = _UnprocessedModeEventHandling;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Play the map intro sequence
+Void CMGame_PlayMapIntro(Boolean _IsAutomaticMapIntro) {
+	CMGame_ModeUtils::PushAndApplyUISequence(UIManager.UIAll, CUIConfig::EUISequence::Intro);
+
+	+++CMGame_BeforeMapIntro+++
+
+	while (
+		CMGame_IsRunningMap() &&
+		!UIManager.UIAll.UISequenceIsCompleted &&
+		(!_IsAutomaticMapIntro || CMGame_G_State.AutomaticMapIntroIsEnabled)
+	) {
+		CMGame_Yield();
+		+++CMGame_MapIntroYield+++
+	}
+
+	+++CMGame_AfterMapIntro+++
+
+	CMGame_ModeUtils::PopAndApplyUISequence(UIManager.UIAll);
+}
+Void CMGame_PlayMapIntro() {
+	CMGame_PlayMapIntro(False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Main
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+main() {
+	CMGame_G_State = C_CMGame_State_Null;
+	CMGame_G_State.CurrentNow = Now;
+	CMGame_G_State.ActiveSection = C_CMGame_Section_Mode;
+
+	---CMGame_ErrorInit---
+	---CMGame_ConfigInit---
+
+	+++CMGame_LibrariesLoad_BeforeMapInit+++
+
+	ItemList_Begin();
+	+++CMGame_ModeItemList+++
+	ItemList_End();
+
+	+++CMGame_ModeStart_BeforeMapInit+++
+
+	// As long as no map is loaded, the players are not initialized
+	// This means that the `Players` array will be empty
+	// To avoid this, we load a map as soon as possible
+	CMGame_LoadMap();
+
+	+++CMGame_LibrariesLoad_AfterMapInit+++
+	+++CMGame_LibrariesLoad+++
+
+	+++CMGame_ModeStart_AfterMapInit+++
+	+++CMGame_ModeStart+++
+
+	while (CMGame_IsRunningMode()) {
+		CMGame_G_State.ActiveSection = C_CMGame_Section_Match;
+
+		+++CMGame_MatchStart+++
+
+		while (CMGame_IsRunningMatch()) {
+			MatchEndRequested = False; //< This variable is set to `True` by the C++ when a vote for next map is validated and need to be reset manually
+			CMGame_G_State.ActiveSection = C_CMGame_Section_Map;
+
+			+++CMGame_MapStart_BeforeMapIntro+++
+
+			if (CMGame_G_State.AutomaticMapIntroIsEnabled) {
+				CMGame_PlayMapIntro(True);
+			}
+
+			+++CMGame_MapStart_AfterMapIntro+++
+			+++CMGame_MapStart+++
+
+			while (CMGame_IsRunningMap()) {
+				CMGame_G_State.ActiveSection = C_CMGame_Section_Round;
+
+				+++CMGame_RoundStart+++
+
+				while (CMGame_IsRunningRound()) {
+					CMGame_Yield();
+					+++CMGame_ModeLoop+++
+				}
+
+				+++CMGame_RoundEnd+++
+			}
+
+			+++CMGame_MapEnd+++
+
+			// Change the map now if the match is continuing on the next map
+			// Otherwise let the `CMGame_MatchEnd` section handle the map change if the match is finished
+			if (CMGame_IsRunningMatch()) {
+				CMGame_NextMap();
+			}
+		}
+
+		+++CMGame_MatchEnd+++
+
+		// Go to the next map before starting the new match
+		CMGame_NextMap();
+	}
+
+	+++CMGame_ModeEnd+++
+
+	+++CMGame_LibrariesUnload+++
+
+	// yield one last time to allow any remaining log to be sent
+	CMGame_Yield();
+}

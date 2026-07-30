@@ -1,0 +1,78 @@
+/**
+ * Check if a ghost is currently being uploaded
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/Campaign/GhostUpload_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Ident[] G_WaitingGhostIds;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if we must wait for a ghost upload to be complete
+Boolean IsUploading() {
+	declare Boolean LibGhostUpload_IsUploading for System;
+	return LibGhostUpload_IsUploading;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	foreach (Event in PendingEvents) {
+		if (Event.PlaygroundType == CManiaAppPlaygroundEvent::Type::GhostAdded) {
+			if (Event.Ghost != Null && !G_WaitingGhostIds.exists(Event.Ghost.Id)) {
+				G_WaitingGhostIds.add(Event.Ghost.Id);
+			}
+		} else if (Event.PlaygroundType == CManiaAppPlaygroundEvent::Type::RecordUpdated) {
+			if (Event.Ghost != Null) {
+				G_WaitingGhostIds.remove(Event.Ghost.Id);
+				if (DataFileMgr.Ghosts.existskey(Event.Ghost.Id)) {
+					DataFileMgr.Ghost_Release(Event.Ghost.Id);
+				}
+			}
+			declare Boolean LibGhostUpload_IsUploading for System;
+			LibGhostUpload_IsUploading = G_WaitingGhostIds.count > 0;
+			declare Integer LibGhostUpload_UploadTimeout for System;
+			if (!LibGhostUpload_IsUploading) {
+				LibGhostUpload_UploadTimeout = -1;
+			}
+		}
+	}
+
+	if (IsUploading()) {
+		declare Integer LibGhostUpload_UploadTimeout for System;
+		if (LibGhostUpload_UploadTimeout >= 0 && Playground.GameTime >= LibGhostUpload_UploadTimeout) {
+			declare Ident[] TmpGhostIds = G_WaitingGhostIds;
+			foreach (GhostId in TmpGhostIds) {
+				G_WaitingGhostIds.remove(GhostId);
+				if (DataFileMgr.Ghosts.existskey(GhostId)) {
+					DataFileMgr.Ghost_Release(GhostId);
+				}
+			}
+			declare Boolean LibGhostUpload_IsUploading for System;
+			LibGhostUpload_IsUploading = False;
+			LibGhostUpload_UploadTimeout = -1;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	declare Boolean LibGhostUpload_IsUploading for System;
+	declare Integer LibGhostUpload_UploadTimeout for System;
+	LibGhostUpload_IsUploading = False;
+	LibGhostUpload_UploadTimeout = -1;
+
+	G_WaitingGhostIds = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

@@ -1,0 +1,234 @@
+/**
+ *	UI module: Countdown client side
+ */
+#Const Version		"1.1.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/Countdown_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/Countdown_Common.Script.txt" as UIModules_Countdown_Common
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/ZIndex.Script.txt" as ZIndex
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_UpdateInterval 1000 //< Time interval between two updates check
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_Countdown_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Countdown_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	declare Vec2 Size_Countdown = <80., 7.>;
+	declare Vec2 Size_Clip = <Size_Countdown.X + 1., Size_Countdown.Y + 1.>;
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-bold" textcolor="ffffff" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$t" />
+</stylesheet>
+<frame id="frame-global" z-index="{{{ZIndex::C_ZIndex_Countdown}}}" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Countdown_Common::C_UIModuleConfig)}}}>
+		<frame {{{MLHelpers::Size(Size_Clip)}}} halign="center" valign="center">
+			<frame id="frame-countdown" pos="0 {{{-Size_Clip.Y}}}" hidden="1">
+				<label id="label-countdown" z-index="1" {{{MLHelpers::Size(Size_Countdown)}}} halign="center" valign="center2" textsize="6" class="text-bold" textemboss="1" />
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Client.Script.txt" as RaceHelpers
+
+#Struct K_Controls {
+	CMlFrame Frame_Global;
+	CMlFrame Frame_Countdown;
+	CMlLabel Label_Countdown;
+}
+
+#Struct K_State {
+	K_Controls Controls;
+	Boolean IsDisplayed_HasTimeLimit;
+	Boolean IsDisplayed_DisplayModule;
+	Boolean IsDisplayed;
+	Integer TimeLimit;
+	Integer DisplayAnimEndTime;
+	Ident TargetPlayerId;
+	Integer TargetPlayerClan;
+	Integer BonusTimeEndTimesUpdate;
+	Integer BonusTimeEndTime;
+}
+
+#Const C_UpdateInterval {{{dump(C_UpdateInterval)}}}
+#Const C_DisplayAnimDuration 125
+#Const C_TimerBlinkingDuration 10000
+""",
+"""
+K_State Update(K_State _State, Boolean _DisplayModule, Integer _TimeLimit, Integer _BonusTimeEndTimesUpdate, Integer[Integer] _BonusTimeEndTimes, CSmPlayer _TargetPlayer) {
+	declare K_State State = _State;
+	declare Boolean HasTimeLimit = _TimeLimit >= 0;
+	State.TimeLimit = _TimeLimit;
+	State.BonusTimeEndTimesUpdate = _BonusTimeEndTimesUpdate;
+
+	if (_TargetPlayer == Null) {
+		State.TargetPlayerId = NullId;
+		State.TargetPlayerClan = -1;
+		State.BonusTimeEndTime = -1;
+		// When targeting no one (follow all/free camera), display the highest bonus time
+		foreach (BonusTimeEndTime in _BonusTimeEndTimes) {
+			if (BonusTimeEndTime > State.BonusTimeEndTime) State.BonusTimeEndTime = BonusTimeEndTime;
+		}
+	} else {
+		State.TargetPlayerId = _TargetPlayer.Id;
+		State.TargetPlayerClan = _TargetPlayer.CurrentClan;
+		State.BonusTimeEndTime = _BonusTimeEndTimes.get(State.TargetPlayerClan, -1);
+	}
+
+	if (
+		State.IsDisplayed_DisplayModule != _DisplayModule ||
+		State.IsDisplayed_HasTimeLimit != HasTimeLimit
+	) {
+		State.IsDisplayed_DisplayModule = _DisplayModule;
+		State.IsDisplayed_HasTimeLimit = HasTimeLimit;
+		State.IsDisplayed = (State.IsDisplayed_DisplayModule && State.IsDisplayed_HasTimeLimit);
+
+		AnimMgr.Flush(State.Controls.Frame_Countdown);
+		if (State.IsDisplayed) {
+			State.Controls.Frame_Global.Visible = True;
+			State.Controls.Frame_Countdown.Visible = True;
+			AnimMgr.Add(State.Controls.Frame_Countdown, "<a pos=\"0 0\" hidden=\"0\" />", C_DisplayAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			AnimMgr.Add(State.Controls.Frame_Countdown, "<a pos=\"0 {{{-Size_Clip.Y}}}\" hidden=\"1\" />", C_DisplayAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+		State.DisplayAnimEndTime = Now + C_DisplayAnimDuration;
+	}
+
+	return State;
+}
+
+***MainInit***
+***
+declare netread Integer[Integer] Net_RoyalStars_Countdown_BonusTimeEndTimes for Teams[0];
+declare netread Integer Net_RoyalStars_Countdown_BonusTimeEndTimesUpdate for Teams[0];
+
+declare K_State State;
+declare Integer NextUpdateTime;
+***
+
+***MainStart***
+***
+State = K_State {
+	Controls = K_Controls {},
+	IsDisplayed_HasTimeLimit = False,
+	IsDisplayed_DisplayModule = False,
+	IsDisplayed = False,
+	TimeLimit = -1,
+	DisplayAnimEndTime = -1,
+	TargetPlayerId = NullId,
+	TargetPlayerClan = -1,
+	BonusTimeEndTimesUpdate = -1,
+	BonusTimeEndTime = -1
+};
+
+State.Controls.Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+State.Controls.Frame_Countdown <=> (State.Controls.Frame_Global.GetFirstChild("frame-countdown") as CMlFrame);
+State.Controls.Label_Countdown <=> (State.Controls.Frame_Countdown.GetFirstChild("label-countdown") as CMlLabel);
+
+NextUpdateTime = Now;
+State = Update(State, State.Controls.Frame_Global.Visible, -1, Net_RoyalStars_Countdown_BonusTimeEndTimesUpdate, Net_RoyalStars_Countdown_BonusTimeEndTimes, GUIPlayer);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_RoyalStars_Countdown_IsVisible for Owner;
+		if (State.IsDisplayed_DisplayModule != Net_RoyalStars_Countdown_IsVisible) {
+			State = Update(State, Net_RoyalStars_Countdown_IsVisible, State.TimeLimit, Net_RoyalStars_Countdown_BonusTimeEndTimesUpdate, Net_RoyalStars_Countdown_BonusTimeEndTimes, GUIPlayer);
+		}
+	}
+
+	if (Owner == Null && State.IsDisplayed_DisplayModule) {
+		State = Update(State, False, State.TimeLimit, Net_RoyalStars_Countdown_BonusTimeEndTimesUpdate, Net_RoyalStars_Countdown_BonusTimeEndTimes, GUIPlayer);
+	}
+
+	if (State.IsDisplayed_DisplayModule) {
+		if (Now >= NextUpdateTime) {
+			NextUpdateTime = Now + C_UpdateInterval;
+
+			if (
+				State.TimeLimit != RaceHelpers::GetTimeLimit(Teams[0]) ||
+				State.BonusTimeEndTimesUpdate != Net_RoyalStars_Countdown_BonusTimeEndTimesUpdate ||
+				(GUIPlayer != Null && (State.TargetPlayerId != GUIPlayer.Id || State.TargetPlayerClan != GUIPlayer.CurrentClan)) ||
+				(GUIPlayer == Null && (State.TargetPlayerId != NullId || State.TargetPlayerClan != -1))
+			) {
+				State = Update(State, State.IsDisplayed_DisplayModule, RaceHelpers::GetTimeLimit(Teams[0]), Net_RoyalStars_Countdown_BonusTimeEndTimesUpdate, Net_RoyalStars_Countdown_BonusTimeEndTimes, GUIPlayer);
+			}
+		}
+	}
+
+	if (State.IsDisplayed) {
+		declare Integer TimeLimit = State.TimeLimit;
+		declare Boolean IsBonusTime = False;
+		if (GameTime > State.TimeLimit && State.BonusTimeEndTime >= 0) {
+			TimeLimit = State.BonusTimeEndTime;
+			IsBonusTime = True;
+		}
+		declare Integer RemaningTime = ML::Max(0, TimeLimit - GameTime + 1000);
+		if (IsBonusTime) {
+			State.Controls.Label_Countdown.Value = TL::FormatReal(ML::Max(0, RemaningTime - 1000) / 1000., 3, False, False);
+		} else {
+			State.Controls.Label_Countdown.Value = TL::TimeToText(RemaningTime);
+		}
+		if (IsBonusTime) {
+			State.Controls.Label_Countdown.TextColor = <1., 0., 0.>;
+		} else if (RemaningTime <= C_TimerBlinkingDuration + 1000) {
+			State.Controls.Label_Countdown.TextColor = Tools::GetBlinkingColor(State.TimeLimit, 1000, 4, <1., 1., 1.>, <1., 0., 0.>);
+		} else if (State.Controls.Label_Countdown.TextColor != <1., 1., 1.>) {
+			State.Controls.Label_Countdown.TextColor = <1., 1., 1.>;
+		}
+	}
+
+	if (State.DisplayAnimEndTime >= 0 && State.DisplayAnimEndTime <= Now) {
+		State.DisplayAnimEndTime = -1;
+		State.Controls.Frame_Global.Visible = State.IsDisplayed;
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

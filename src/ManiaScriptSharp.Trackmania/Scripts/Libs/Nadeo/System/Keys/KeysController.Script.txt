@@ -1,0 +1,279 @@
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Keys/Layer_Widget.Script.txt"				as LayerWidget
+#Include "Libs/Nadeo/System/Keys/Layer_RegisterKey.Script.txt"			as LayerRegisterKey
+
+#Include "Libs/Nadeo/System/Auth/Auth.Script.txt" as Auth
+#Include "Libs/Nadeo/System/InternalEvents/Events_Consumer.Script.txt"	as EventsConsumer
+#Include "Libs/Nadeo/System/Styles/ColorScheme.Script.txt"				as ColorScheme
+#Include "Libs/Nadeo/System/Settings/SettingsStructs.Script.txt"		as SettingsStructs
+
+#Const C_RequestType_CheckKey		0
+#Const C_RequestType_ActivateKey	1
+#Const C_RequestType_None			2
+
+#Const C_LiveAPI_RequestBaseURL	"/api/key/"
+#Const C_LiveAPI_RequestHeaders "\nContent-Type: application/json\nAccept: application/json\n"
+#Const C_LiveAPI_RequestTimeout	8000
+
+#Const C_RedirectionCode_Clubs		0
+#Const C_RedirectionCode_None		-1
+
+#Const C_MenuAccessPermissionName "client_OpenMainMenu"
+
+#Struct SKeyRequest {
+	Text key;
+}
+
+#Struct SKeyCheckResult {
+	Text message;
+	Text status;
+}
+
+#Struct SKeyActivateResult {
+	Text redirectionCode;
+}
+declare Boolean	G_RegisterKeyMenuIsVisible;
+
+declare Integer	G_LibEvents_PreviousChangeCount;
+declare Integer	G_ColorScheme_PreviousChangeCount;
+
+declare Integer G_CurrentStep;
+
+declare Integer 			G_PendingRequestType;
+declare CHttpRequest 	G_PendingRequest;
+declare CTaskResult		G_PendingTask;
+declare Integer				G_PendingRequestTimeout;
+
+declare Boolean	G_MenuAccessIsUnlocked;
+declare Boolean	G_MenuLoadFinished;
+
+Void SetStep_EnterKey() {
+	declare LayerRegisterKey = LayerRegisterKey::GetLayer();
+	LayerCustomEvent(LayerRegisterKey, "SetActivationStep", [TL::ToText(LayerRegisterKey::C_Step_EnterKey)]);
+}
+
+Void SetStep_ActivateKey(Text KeyType) {
+	declare LayerRegisterKey = LayerRegisterKey::GetLayer();
+	LayerCustomEvent(LayerRegisterKey, "SetActivationStep", [TL::ToText(LayerRegisterKey::C_Step_ActivateKey), KeyType]);
+}
+
+Void SetStep_KeyActivated(Integer Redirection) {
+	declare LayerRegisterKey = LayerRegisterKey::GetLayer();
+	LayerCustomEvent(LayerRegisterKey, "SetActivationStep", [TL::ToText(LayerRegisterKey::C_Step_KeyActivated)]);
+	
+	//menu redirection
+	if (Redirection != C_RedirectionCode_None) {
+		declare Text RedirectionRoute = "";
+		switch (Redirection) {
+			case C_RedirectionCode_Clubs: RedirectionRoute = "/clubs";
+			default: assert(False);
+		}
+		declare RedirectionEvent = SettingsStructs::K_PluginEvent {
+			Type = SettingsStructs::C_PluginEventType_PushRoute,
+			Data = RedirectionRoute
+		};
+		
+		declare SettingsStructs::K_PluginEvents PluginEvents for System;
+		PluginEvents.Events[PluginEvents.Count] = RedirectionEvent;
+		PluginEvents.Count += 1;
+	}
+}
+
+Void SetVisibility(Boolean _IsVisible) {
+	G_RegisterKeyMenuIsVisible = _IsVisible;
+	
+	LayerRegisterKey::SetVisibility(_IsVisible);
+	
+	SetStep_EnterKey();
+	
+	if (_IsVisible) {
+		declare CManiaplanetPluginInterface IReport = Plugins.GetInterface("Report");
+		if (IReport != Null) {
+			IReport.CustomEvent("Hide", []);
+		}
+	}
+}
+
+Void ShowSplash(Integer _EndDate_LocalUnixTimestamp) {
+	declare DaysLeft  = "0";
+	if (System.CurrentLocalDate < _EndDate_LocalUnixTimestamp) 
+		DaysLeft = ""^((_EndDate_LocalUnixTimestamp-System.CurrentLocalDate) + (3600*24-1)) / (3600*24);
+	
+	G_RegisterKeyMenuIsVisible = True;
+	LayerRegisterKey::ShowSplash(DaysLeft);
+}
+
+Void Load() {
+	LayerWidget::Build();
+	LayerRegisterKey::Build();
+
+	yield;
+	SetVisibility(False);
+}
+
+Void CheckKey(Text _Key) {
+	assert(G_PendingRequest == Null);
+	declare HttpCheckKey = SKeyRequest {
+		key = _Key
+	};
+	
+	G_PendingRequestType 	= C_RequestType_CheckKey;
+	G_PendingRequest 		= Http.CreatePost(SettingsStructs::GetConfig().APIMeetUrl^C_LiveAPI_RequestBaseURL^"check", HttpCheckKey.tojson(), Auth::GetHttpHeaderLive()^C_LiveAPI_RequestHeaders);
+	G_PendingRequestTimeout	= Now + C_LiveAPI_RequestTimeout;
+}
+
+Void ActivateKey(Text _Key) {
+	assert(G_PendingRequest == Null);
+	declare HttpActivateKey = SKeyRequest {
+		key = _Key
+	};
+	
+	G_PendingRequestType 	= C_RequestType_ActivateKey;
+	G_PendingRequest		= Http.CreatePost(SettingsStructs::GetConfig().APIMeetUrl^C_LiveAPI_RequestBaseURL^"activate", HttpActivateKey.tojson(), Auth::GetHttpHeaderLive()^C_LiveAPI_RequestHeaders);
+	G_PendingRequestTimeout	= Now + C_LiveAPI_RequestTimeout;
+}
+
+Void UpdatePendingRequest() {
+	if (G_PendingRequest == Null)
+		return;
+	
+	if (!G_PendingRequest.IsCompleted && Now >= G_PendingRequestTimeout) {
+		Http.Destroy(G_PendingRequest);
+		G_PendingRequest 		= Null;
+		G_PendingRequestTimeout = -1;
+		G_PendingRequestType	= C_RequestType_None;
+		LayerCustomEvent(LayerRegisterKey::GetLayer(), "Error", []);
+		return;
+	}
+	
+	if (!G_PendingRequest.IsCompleted)
+		return;
+	
+	if (G_PendingRequest.StatusCode / 100 == 2) { //success
+		if (G_PendingRequestType == C_RequestType_CheckKey) {
+			declare SKeyCheckResult Result; Result.fromjson(G_PendingRequest.Result);
+			if (Result.status == "already_activated")
+				LayerCustomEvent(LayerRegisterKey::GetLayer(), "Error", ["AlreadyActivated"]);
+			else 				
+				SetStep_ActivateKey(Result.message);
+		} else if (G_PendingRequestType == C_RequestType_ActivateKey) {
+			
+			{
+				// delay the application G_PendingRequest result, to wait for the permissions update
+				if (G_PendingTask == Null)
+					G_PendingTask = PrivilegeMgr.RefreshPermissions(UserMgr.MainUser.Id);
+				if (G_PendingTask.IsProcessing)
+					return;	// dont clear G_PendingRequest  just yet
+					
+				// nb: not much can be done in case of error. the key is activated now, so it's a success anyway.
+				PrivilegeMgr.ReleaseTaskResult(G_PendingTask.Id);
+				G_PendingTask = Null;
+				
+				if (PrivilegeMgr.IsPermissionEnabled(UserMgr.MainUser.Id, C_MenuAccessPermissionName))
+					G_MenuAccessIsUnlocked = True;
+			}
+			
+			declare SKeyActivateResult Result; Result.fromjson(G_PendingRequest.Result);
+			declare Integer RedirectionCode = C_RedirectionCode_None;
+			switch(Result.redirectionCode) {
+				case "club_create" : RedirectionCode = C_RedirectionCode_Clubs;
+			}
+			SetStep_KeyActivated(RedirectionCode);
+		}
+	} else {
+		declare Error = "";
+		if (G_PendingRequestType == C_RequestType_CheckKey && G_PendingRequest.StatusCode == 404)
+			Error = "InvalidKey";
+		else
+			Error = "Unknown";
+		LayerCustomEvent(LayerRegisterKey::GetLayer(), "Error", [Error]);
+	}
+	
+	Http.Destroy(G_PendingRequest);
+	G_PendingRequest 		= Null;	
+	G_PendingRequestTimeout = -1;
+	G_PendingRequestType	= C_RequestType_None;
+}
+
+Void RegisterKeyToUnlockMenuIfNeeded()
+{
+		if (UserMgr.MainUser == Null || PrivilegeMgr == Null)
+			return;
+		
+		if (PrivilegeMgr.IsPermissionEnabled(UserMgr.MainUser.Id, C_MenuAccessPermissionName)) {
+			G_MenuAccessIsUnlocked = True;
+			return;
+		}
+
+		SetVisibility(True);
+}
+
+Void Loop() {
+	declare SettingsStructs::K_PluginEvents PluginEvents for System;
+
+	UpdatePendingRequest();
+
+	{	// C_PluginEventType_MenuLoadFinished -> G_MenuLoadFinished
+		declare TmpPluginEvents = PluginEvents.Events;
+		foreach (Index => PluginEvent in TmpPluginEvents) {
+			switch (PluginEvent.Type) {
+				case SettingsStructs::C_PluginEventType_MenuLoadFinished: {
+					G_MenuLoadFinished = True;
+					PluginEvents.Events.removekey(Index);
+				}
+			}
+		}
+	}
+	
+	if (!G_MenuAccessIsUnlocked && G_MenuLoadFinished && !G_RegisterKeyMenuIsVisible)
+		RegisterKeyToUnlockMenuIfNeeded();
+
+	declare ColorScheme_LatestChangeCount = ColorScheme::GetLatestChangeCount();
+	declare LibEvents_LatestChangeCount = EventsConsumer::GetLatestChangeCount();
+	
+	if(	PendingEvents.count == 0 &&
+			!G_RegisterKeyMenuIsVisible &&
+			G_LibEvents_PreviousChangeCount == LibEvents_LatestChangeCount && 
+			G_ColorScheme_PreviousChangeCount == ColorScheme_LatestChangeCount )
+			return;
+
+	// ---------------------------------- //
+	// Color scheme change
+	if (G_ColorScheme_PreviousChangeCount != ColorScheme_LatestChangeCount) {
+		declare PrimaryColor	= ColorScheme::GetPrimaryColor();
+		declare SecondaryColor	= ColorScheme::GetSecondaryColor();
+		
+		LayerWidget::SetColor(PrimaryColor);
+		G_ColorScheme_PreviousChangeCount = ColorScheme_LatestChangeCount;
+	}
+
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CManiaAppEvent::EType::ExternalCustomEvent) {
+			if (Event.ExternalEventType == "Hide") {
+				SetVisibility(False);
+			}
+		}
+
+		if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			switch (Event.CustomEventType) {
+				case "ToggleKeyRegisterMenu" : {
+					SetVisibility(!G_RegisterKeyMenuIsVisible);
+				}
+				case "CheckKey" : {
+					declare Text Key = Event.CustomEventData[0];
+					CheckKey(Key);
+				}
+				case "ActivateKey" : {
+					declare Text Key = Event.CustomEventData[0];
+					ActivateKey(Key);
+				}
+				case "CloseActivateKeyPopup" : {
+					if (!PrivilegeMgr.IsPermissionEnabled(UserMgr.MainUser.Id, C_MenuAccessPermissionName))
+						ManiaPlanet.Dialog_QuitGame();
+					else
+						SetVisibility(False);
+				}
+			}
+		}
+	}
+}

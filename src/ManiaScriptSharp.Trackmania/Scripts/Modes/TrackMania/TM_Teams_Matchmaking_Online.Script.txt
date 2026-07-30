@@ -1,0 +1,1235 @@
+/**
+ * TM_Teams_Matchmaking_Online mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaRoundsBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Race,TM_Race"
+#Const Version "1.0.3+2025-04-30"
+#Const ScriptName "Modes/TrackMania/TM_Teams_Matchmaking_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Semver.Script.txt" as Semver
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/Trackmania/Modes/Matchmaking.Script.txt" as Matchmaking
+#Include "Libs/Nadeo/CMGame/Modes/Bot.Script.txt" as Bot
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/StateManager.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConsts
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/NetShare_Teams_Server.Script.txt" as UIModules_NetShare_Teams
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/EndMatch_Teams_Server.Script.txt" as UIModules_EndMatch
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/StartMatch_Teams_Server.Script.txt" as UIModules_StartMatch
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/ScoreAndMapInfos_Teams_Server.Script.txt" as UIModules_ScoresMapInfos
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/LiveRanking_Server.Script.txt" as UIModules_LiveRanking
+#Include "Libs/Nadeo/TMGame/Modes/Teams/TeamsCommon.Script.txt" as TeamsCommonLib
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/Teams_Matchmaking_RequestManager.Script.txt" as RequestManager
+#Include "Libs/Nadeo/Trackmania/Structures/MatchmakingStruct.Script.txt" as MatchmakingStruct
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/Constants.Script.txt" as MM_Const
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_PointsLimit 5 as _("Points limit")
+#Setting S_FinishTimeout -1 as _("Finish timeout")
+#Setting S_FinishTimeoutDivider 3 as _("Finish timeout divider") ///< The integer that will divide the MapAuthorTime to compute the Finish Timeout
+#Setting S_MaxPointsPerRound 6 as _("Max points :") ///< The maxium number of points attributed to the first player to cross the finish line
+#Setting S_PointsGap 1 as _("Points gap :") ///< The number of points lead a team must have to win the map
+#Setting S_UseCustomPointsRepartition True as _("Use a custom points repartition :") ///< Use a custom points repartition. Default [10, 6, 4, 3, 2, 1]
+#Setting S_PointsRepartition "6, 5, 4, 3, 2, 1"
+#Setting S_PointsRepartition2VS "4, 3, 2, 1" as _("Custom points distribution with two players")
+#Setting S_PointsRepartition1VS "2, 1" as _("Custom points distribution with one player")
+#Setting S_CumulatePoints False as _("Cumulate team points :") ///< At the end of the round both teams win their players points
+#Setting S_RoundsPerMap -1 as _("Number of rounds per track :") ///< Number of round to play on one map before going to the next one
+#Setting S_MapsPerMatch -1 as _("Number of tracks per match :") ///< Number of maps to play before finishing the match
+#Setting S_UseTieBreak True as _("Use tie-break :") ///< Continue to play the map until the tie is broken
+#Setting S_WarmUpNb 0 as _("Number of warm up :")
+#Setting S_WarmUpDuration 0 as _("Duration of one warm up :")
+#Setting S_WarmUpTimeout -1 as _("Warm up timeout")
+#Setting S_UseAlternateRules False as _("Use alternate rules :")
+#Setting S_ChatTime 6
+#Setting S_NoRoundTie True as _("No round tie") ///< If the round scores result in a tie, winning team is declared by the first player who cross the finish line
+#Setting S_BalanceScore True as _("Balance score") ///< 	If the teams are not balanced, consider balanced players number in score compute (ex only 2 players of each team if we have a 2vs3)
+#Setting S_MatchmakingId "" as "<hidden>" ///< 	Id of the Matchmaking send by CLUB API
+#Setting S_MatchId "" as "<hidden>" ///< 	Id of the Match send by CLUB API
+#Setting S_EarlyEndMatchCallback True as "<hidden>"
+#Setting S_Bots_EnablePlaying False as "<hidden>" ///< Download and play ghosts in the bots
+#Setting S_Bots_Clan 2 as "<hidden>" ///< Clan in which the bots will be spawned
+#Setting S_Bots_GhostsPerBot 10 as "<hidden>" ///< The number of ghosts to download and use for each bot
+#Setting S_Bots_EnableRecording False as "<hidden>" ///< Record and upload the ghosts of the players to create bots
+#Setting S_Bots_GhostDBId 0 as "<hidden>" ///< Id of the ghost database. Used to create several DB for the same settings.
+#Setting S_Bots_PBMultiplier 1.1 as "<hidden>" ///< Multiplier applied to the players PB time before computing the PB level
+#Setting S_Bots_LevelShift 2 as "<hidden>" ///< Number of levels to add to the PB level before trying to get a bot with an equivalent level
+#Setting S_Bots_LevelRange 10 as "<hidden>" ///< Range of levels to get for the bots
+#Setting S_DecoImageUrl_Checkpoint "file://Media/Manialinks/Nadeo/Trackmania/Modes/Matchmaking/Decal_Matchmaking.dds" ///< Url of the image displayed on the checkpoints ground
+#Setting S_ScriptEnvironment "development" ///< "development", "test", "production"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// The `CustomData` variable on the nadeo services is limited to 50 characters.
+// So we use shorter names for the json fields.
+#Struct K_GhostDriverCustomData {
+	Integer A; //< Version;
+	Integer B; //< GhostDBId
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "Teams Matchmaking"
+//L16N [TM_Teams_Matchmaking_Online] Description of the mode rules
+#Const Description _("The team mode consists of $<$t$6F9a series of races$>.\nThe goal for your team is to win a maximum number of $<$t$6F9points$>.\n\nWhen you finish a race with a good $<$t$6F9position$>, you give $<$t$6F9points$> to your team.\nThe $<$t$6F9winning team$> is the first team whose total reaches the $<$t$6F9point limit$> (5 for example).")
+
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/Teams_Matchmaking.Script.txt" //< Url of the mania app
+
+#Const C_UploadRecord True
+#Const C_DisplayRecordGhost False
+#Const C_DisplayRecordMedal False
+#Const C_CelebrateRecordGhost True
+#Const C_CelebrateRecordMedal True
+#Const C_DisplayWorldTop False
+#Const C_EnableGhostDriver True
+// `C_GhostDriverCustomDataVersion` must be changed every time there is a gameplay change in the mode
+// Otherwise the events saved in the ghosts won't match the new rules and they won't be replayed properly
+#Const C_GhostDriverCustomDataVersion 5
+
+#Const C_StartMatchDisplayDuration 15000
+#Const C_EndRoundDelayForUI 5000
+#Const C_RankingDisplayDuration 15000
+#Const C_EndMatchDisplayDuration 61000
+
+#Const C_NoClan -1
+#Const C_BotsPerTeam 3
+#Const C_GhostUploadsLimit 9
+#Const C_InvalidRaceLevel -1
+#Const C_NoTime -1
+#Const C_ActivityId "Activity_Ranked"
+#Const C_TeamsNb 2
+#Const C_BotCanSpawn False
+
+#Const C_EnableDebugTeams False
+#Const C_DebugTeams [ //< ["account id" => team number]
+	"e6e4ab93-5fcd-44e2-b980-cc76d7e16ac9" => 1,
+	"9defb3a8-9f5a-44cf-88c6-e72c190f6d7c" => 1,
+	"ead9841a-9dc6-4e0a-95be-b00bd0c3e41e" => 1,
+	"062cbe1b-234f-420a-85b2-d94b4bec880d" => 2,
+	"00b24233-c60c-4991-ac66-a90dc4cff959" => 2,
+	"7d57f85f-edc6-4e59-9943-b19776f6e294" => 2
+]
+#Const C_DebugSkipIntro False
+#Const C_DebugUseLocalAPI False
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(Semver::ScriptName, Semver::Version);
+Log::RegisterScript(ModeUtils::ScriptName, ModeUtils::Version);
+Log::RegisterScript(Matchmaking::ScriptName, Matchmaking::Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+***
+
+***Match_LoadLibraries***
+***
+Matchmaking::Load();
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+Matchmaking::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultPodiumSequence = False;
+Rounds_Settings_CanSpawnDefault = False;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+Race::SortScores(Race::C_Sort_PrevRaceTime);
+UIModules_Checkpoint::SetVisibilityTimeDiff(False);
+UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_CurrentRace);
+UIModules_PauseMenu_Online::SetHelp(Description);
+UIModules_PauseMenu_Online::SetMatchmaking(True);
+UIModules_PauseMenu_Online::SetInviteFriendsButtonHiddenAndLocked(True);
+UIModules_ScoresTable::SetHideSpectators(True);
+UIModules_ScoresTable::SetVoiceChatEnabled(True);
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+UIModules_TimeGap::SetCustomTeamColors(MM_Const::C_Color_Team_Blue_Bg, MM_Const::C_Color_Team_Red_Bg);
+UIModules_Sign16x9Small::SetDisplayMode(UIModules_Sign16x9Small::C_DisplayMode_Ranked);
+UIModules_Sign16x9Small::SetScoreMode(UIModules_Sign16x9Small::C_ScoreMode_Points);
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			if (Event.Player != Null) {
+				StateMgr::InitializePlayer(Event.Player);
+				CarRank::InitializePlayer(Event.Player);
+
+				// Don't do anything with the bots
+				if (
+					Event.Player.User != Null &&
+					!Event.Player.User.IsFakeUser
+				) {
+					declare Boolean TeamsMM_MatchStarted for This = False;
+					declare Boolean TeamsMM_WarmUpIsDone for This = False;
+					if (TeamsMM_MatchStarted) {
+						if (TeamsMM_WarmUpIsDone) {
+							TeamsCommonLib::ForceSpecNewPlayer(Event.Player);
+						}	else if (Event.Player.User != Null && TeamsCommonLib::GetClan(Event.Player.User.WebServicesUserId) != -1) {
+							SetPlayerClan(Event.Player, TeamsCommonLib::GetClan(Event.Player.User.WebServicesUserId));
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+foreach (Event in XmlRpc.PendingEvents) {
+	if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+		if (Event.ParamArray1 == Matchmaking::C_Method_AddPlayer) {
+			declare Matchmaking::K_Method_AddPlayer EventInfo = Matchmaking::GetEventInfo_Method_AddPlayer(Event);
+			Log::Log("Received "^Matchmaking::C_Method_AddPlayer^" : " ^ EventInfo.AccountId ^ " -> team " ^ EventInfo.Clan); // Do not remove please
+			if (EventInfo.AccountId != "" && EventInfo.Clan > 0) TeamsCommonLib::AddClanMember(EventInfo.AccountId, EventInfo.Clan);
+		} else if (Event.ParamArray1 == Matchmaking::C_Method_MatchStarted) {
+			Log::Log("Received "^Matchmaking::C_Method_MatchStarted^". "); // Do not remove please
+			declare Boolean TeamsMM_MatchStarted for This = False;
+			TeamsMM_MatchStarted = True;
+			declare Integer[Text] AccountIdsToClans = TeamsCommonLib::GetAccountIdsToClans();
+			RequestManager::RequestPlayersMatchParticipants(RequestManager::C_Request_WaitBeforeFirstRequest, False);
+			RequestManager::RequestGetMatchmakingDivisions(RequestManager::C_Request_WaitBeforeFirstRequest);
+			if (S_Bots_EnablePlaying) {
+				RequestManager::RequestPlayersPB(Map, TeamsCommonLib::GetClansMembers(), MenuConsts::C_ScopeType_PersonalBest, "", MenuConsts::C_GameMode_TimeAttack, "");
+			}
+			RequestManager::StartActivity(C_ActivityId, C_TeamsNb, AccountIdsToClans);
+			UIModules_NetShare_Teams::SetAccountIdsToClans(AccountIdsToClans);
+		} else if (Event.ParamArray1 == Matchmaking::C_Method_MatchCompleted) {
+			Log::Log("Received "^Matchmaking::C_Method_MatchCompleted^". "); // Do not remove please
+			RequestManager::RequestPlayersMatchParticipants(RequestManager::C_Request_WaitBeforeFirstRequest, True);
+		}
+	}
+}
+
+declare Task::K_Task[] Server_UploadGhostsTasks for This = [];
+if (Server_UploadGhostsTasks.count > 0) {
+	declare Integer TaskKey = 0;
+	while (TaskKey < Server_UploadGhostsTasks.count) {
+		declare Task::K_Task UpdatedTask = Task::Update(Server_UploadGhostsTasks[TaskKey]);
+		if (Task::IsRunning(UpdatedTask)) {
+			Server_UploadGhostsTasks[TaskKey] = UpdatedTask;
+			TaskKey += 1;
+		} else {
+			if (Log::CanLog()) {
+				declare Task::K_SourceTaskError SourceTaskError = Task::GetSourceTaskError(UpdatedTask);
+				Log::Log("""[Ranked][Bots] Ghosts upload task result > IsInitialized : {{{UpdatedTask.IsInitialized}}} | IsProcessing : {{{UpdatedTask.IsProcessing}}} | IsSuccess : {{{UpdatedTask.IsSuccess}}} | Error type : {{{SourceTaskError.Type}}} | Error code : {{{SourceTaskError.Code}}} | Error description : {{{SourceTaskError.Description}}}""");
+			}
+			UpdatedTask = Task::Destroy(UpdatedTask);
+			Server_UploadGhostsTasks.removekey(TaskKey);
+		}
+	}
+}
+
+StateMgr::Yield();
+RequestManager::Yield();
+***
+
+***Match_InitServer***
+***
+declare Integer Server_PointsLimit;
+declare Integer Server_PointsGap;
+declare Integer Server_RoundsPerMap;
+declare Integer Server_MapsPerMatch;
+declare Task::K_Task[] Server_UploadGhostsTasks for This = [];
+declare Boolean Server_InitializeDebug;
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+TeamsCommonLib::ResetClans();
+Clans::SetClansNb(2);
+Clans::SetUseForcedClans(True);
+Scores::SaveInScore(Scores::C_Points_Match);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(True);
+WarmUp::SetSpawnInRequestedClan(False);
+RequestManager::Init(S_MatchId, S_MatchmakingId, C_DebugUseLocalAPI);
+
+declare Text CustomData = GetGhostDriverCustomData(C_GhostDriverCustomDataVersion, S_Bots_GhostDBId);
+Race::SetupRecord(
+	MenuConsts::C_ScopeType_Season,
+	MenuConsts::C_ScopeType_PersonalBest,
+	MenuConsts::C_GameMode_TimeAttack,
+	"",
+	CustomData,
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal,
+	C_DisplayWorldTop,
+	C_EnableGhostDriver
+);
+Log::Log("[Ranked][Bots] ModeName : "^MenuConsts::C_GameMode_TimeAttack^" | CustomData : "^CustomData);
+
+Server_PointsLimit = S_PointsLimit - 1;
+Server_PointsGap = S_PointsGap - 1;
+Server_RoundsPerMap = S_RoundsPerMap - 1;
+Server_MapsPerMatch = S_MapsPerMatch - 1;
+Server_InitializeDebug = True;
+
+foreach (Task in Server_UploadGhostsTasks) {
+	Task::Destroy(Task);
+}
+Server_UploadGhostsTasks = [];
+***
+
+***Match_InitMatch***
+***
+declare Boolean Match_NewMatch = True;
+***
+
+***Match_StartMatch***
+***
+UIModules_LiveRanking::UpdateMvp("");
+***
+
+***Match_InitMap***
+***
+declare Integer Map_ValidRoundsNb;
+declare Boolean Map_CanEnablePlayerGhostRecorder;
+// The ghosts are still there after a script restart
+// Use `declare for This` to be able to release them
+declare Ident[] Map_DownloadedGhostIds for This = [];
+declare Ident[][Ident] Map_BotToGhostIds;
+declare Task::K_Task Map_DownloadGhostsTask;
+declare Int2[Int2] Map_RaceLevels;
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_PrevTime);
+UIModules_ScoresTable::DisplayRoundPoints(True);
+UIModules_ScoresMapInfos::SetRoundNumber(Map_ValidRoundsNb+1);
+***
+
+***Match_BeforeLoadMap***
+***
+// Fake users must be destroyed before loading the map or they won't be cleaned up properly
+Users_DestroyAllFakes();
+
+// Toggling the ghost recording must be done before loading a map while no one is spawned
+EnableGhostRecording = S_Bots_EnableRecording;
+***
+
+***Match_StartMap***
+***
+// Reset any ongoing ghost recording
+Map_CanEnablePlayerGhostRecorder = False;
+if (EnableGhostRecording) {
+	ResetGhostsRecording();
+}
+
+// Release previous ghosts
+Log::Log("[Ranked][Bots] StartMap > Before releasing ghosts > Ghosts : "^Ghosts^" | Map_DownloadedGhostIds : "^Map_DownloadedGhostIds);
+ReleaseGhosts(Map_DownloadedGhostIds);
+Map_DownloadedGhostIds = [];
+Log::Log("[Ranked][Bots] StartMap > After releasing ghosts > Ghosts : "^Ghosts^" | Map_DownloadedGhostIds : "^Map_DownloadedGhostIds);
+
+Map_BotToGhostIds = [];
+Map_DownloadGhostsTask = Task::GetEmptyTask();
+Map_RaceLevels = GetMapRaceLevels(Map);
+
+declare Boolean TeamsMM_MatchStarted for This = False;
+declare Boolean HasValidPlayer = False;
+
+if (Server_InitializeDebug && C_EnableDebugTeams && C_DebugTeams.count > 0) {
+	Server_InitializeDebug = False;
+	TeamsMM_MatchStarted = True;
+	foreach (AccountId => TeamId in C_DebugTeams) {
+		if (!S_Bots_EnablePlaying || TeamId != S_Bots_Clan) {
+			TeamsCommonLib::AddClanMember(AccountId, TeamId);
+		}
+	}
+	declare Integer[Text] AccountIdsToClans = TeamsCommonLib::GetAccountIdsToClans();
+	if (S_Bots_EnablePlaying) {
+		RequestManager::RequestPlayersPB(Map, TeamsCommonLib::GetClansMembers(), MenuConsts::C_ScopeType_PersonalBest, "", MenuConsts::C_GameMode_TimeAttack, "");
+	}
+	RequestManager::StartActivity(C_ActivityId, C_TeamsNb, AccountIdsToClans);
+	UIModules_NetShare_Teams::SetAccountIdsToClans(AccountIdsToClans);
+}
+
+while (MB_MapIsRunning() && (!TeamsMM_MatchStarted || !HasValidPlayer)) {
+	MB_Yield();
+	HasValidPlayer = False;
+	foreach (Player in Players) {
+		if (GetClan(Player, S_Bots_Clan) != -1) {
+			HasValidPlayer = True;
+			break;
+		}
+	}
+}
+
+// Create bots
+Map_BotToGhostIds = [];
+if (S_Bots_EnablePlaying && (S_Bots_Clan == 1 || S_Bots_Clan == 2)) {
+	ModeUtils::PushAndApplyBigMessageSound(UIManager.UIAll, CUIConfig::EUISound::Silence, 0);
+	//L16N [Ranked] Waiting for the opposing team to join the server
+	UIManager.UIAll.BigMessage = _("Waiting for opponents");
+
+	declare Ident[] WaitForBotsCreation;
+	for (I, 1, C_BotsPerTeam) {
+		declare CUser FakeUser <=> Users_CreateFake(Bot::GetUniqueName(), S_Bots_Clan);
+		if (FakeUser != Null) {
+			Map_BotToGhostIds[FakeUser.Id] = [];
+			if (!WaitForBotsCreation.exists(FakeUser.Id)) {
+				WaitForBotsCreation.add(FakeUser.Id);
+			}
+			Log::Log("""[Ranked][Bots] Create bot {{{FakeUser.Id}}} ({{{FakeUser.Name}}})""");
+		}
+	}
+
+	// We have to wait for the bots to be properly added to the game
+	while (MB_MapIsRunning() && WaitForBotsCreation.count > 0) {
+		MB_Yield();
+		foreach (Player in AllPlayers) {
+			if (Player.User != Null && WaitForBotsCreation.exists(Player.User.Id)) {
+				WaitForBotsCreation.remove(Player.User.Id);
+			}
+		}
+	}
+
+	ModeUtils::PopAndApplyBigMessageSound(UIManager.UIAll);
+	UIManager.UIAll.BigMessage = "";
+}
+
+CarRank::Reset();
+// Set player clans with info sent by CLUB
+foreach (Player in AllPlayers) {
+	if (GetClan(Player, S_Bots_Clan) != -1) {
+		SetPlayerClan(Player, GetClan(Player, S_Bots_Clan));
+	}
+}
+
+// Warm up
+declare Boolean TeamsMM_WarmUpIsDone for This = False;
+TeamsMM_WarmUpIsDone = False;
+if (Match_NewMatch && TeamsMM_MatchStarted) {
+	UIModules_NetShare_Teams::SetMatchId(S_MatchId);
+	//L16N %1 will be replaced by the matchmaking match id (useful to debug), e.g. "Match Id:LID-MTCH-mrsmf2buapizcux"
+	UIModules_ScoresTable::SetInfoMessage(TL::Compose(_("Match Id: %1"), S_MatchId), S_MatchId);
+	UIModules_ScoresTable::SetMatchmakingId(S_MatchmakingId);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_WarmUp]);
+	if (S_Bots_EnablePlaying && !RequestManager::HasRequestedPlayersPB()) {
+		RequestManager::RequestPlayersPB(Map, TeamsCommonLib::GetClansMembers(), MenuConsts::C_ScopeType_PersonalBest, "", MenuConsts::C_GameMode_TimeAttack, "");
+	}
+}
+UIModules_LiveRanking::WarmupIsActive(True);
+UIModules_ScoresTable::SetFooterInfo(_("Warm up"));
+MB_WarmUp(S_WarmUpNb, S_WarmUpDuration * 1000, S_WarmUpTimeout * 1000);
+TeamsCommonLib::UpdateScoresTableFooter(S_PointsLimit, S_PointsGap, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb, MB_GetMapCount());
+TeamsMM_WarmUpIsDone = True;
+UIModules_LiveRanking::WarmupIsActive(False);
+UIModules_LiveRanking::SetPointsRepartition(PointsRepartition::ConvertPointsRepartition(S_PointsRepartition));
+
+// Restore match points
+Scores::SetClanMapPoints(1, Scores::GetClanMatchPoints(1));
+Scores::SetClanMapPoints(2, Scores::GetClanMatchPoints(2));
+
+// Wait players PB
+Log::Log("""[Ranked][Bots] Waiting players PB : {{{RequestManager::IsGettingPlayersPB()}}}""");
+declare Integer PlayersPBTimeout = Now + 10000;
+while (
+	MB_MapIsRunning() &&
+	RequestManager::IsGettingPlayersPB() &&
+	PlayersPBTimeout > Now &&
+	TeamsMM_MatchStarted &&
+	Map_BotToGhostIds.count > 0
+) {
+	MB_Yield();
+}
+
+// Start downloading ghosts for the bots
+declare Int2[Ident] BotTeamLevels;
+declare Integer GhostsPerBot = ML::Max(0, S_Bots_GhostsPerBot);
+if (TeamsMM_MatchStarted && Map_BotToGhostIds.count > 0 && GhostsPerBot > 0) {
+	declare Int2 RaceLevelMinMax = GetRaceLevelMinMax(Map_RaceLevels);
+	declare Integer[Text] PlayersPB = RequestManager::GetPlayersPB();
+	declare Integer[] PBTimes;
+	foreach (AccountId => Time in PlayersPB) {
+		PBTimes.add(Time);
+	}
+
+	Log::Log("""[Ranked][Bots] Map race levels : {{{Map_RaceLevels}}}""");
+	Log::Log("""[Ranked][Bots] Players PB : {{{PlayersPB}}}""");
+	Log::Log("""[Ranked][Bots] S_Bots_PBMultiplier : {{{S_Bots_PBMultiplier}}} | S_Bots_LevelShift : {{{S_Bots_LevelShift}}} | S_Bots_LevelRange : {{{S_Bots_LevelRange}}} | RaceLevelMinMax : {{{RaceLevelMinMax}}}""");
+	Log::Log("""[Ranked][Bots] Requesting {{{GhostsPerBot}}} ghosts per bot for {{{Map_BotToGhostIds.count}}} bots.""");
+
+	GhostDriver_Download_Begin();
+	foreach (BotId => GhostIds in Map_BotToGhostIds) {
+		declare Integer PBTime = 0;
+		declare Integer BaseLevel = RaceLevelMinMax.Y;
+		if (PBTimes.count > 0) {
+			declare Integer Key = ML::Rand(0, PBTimes.count - 1);
+			PBTime = ML::Max(0, PBTimes[Key]);
+			PBTimes.removekey(Key);
+		}
+		if (PBTime > 0) {
+			BaseLevel = ML::Clamp(
+				GetRaceLevel(Map_RaceLevels, ML::NearestInteger(PBTime * S_Bots_PBMultiplier)) + S_Bots_LevelShift,
+				RaceLevelMinMax.X,
+				RaceLevelMinMax.Y
+			);
+		}
+		declare Int2 TeamLevelRange = <BaseLevel, ML::Clamp(BaseLevel + S_Bots_LevelRange, BaseLevel, RaceLevelMinMax.Y)>;
+		BotTeamLevels[BotId] = TeamLevelRange;
+		GhostDriver_Download_AddRange(TeamLevelRange.X, TeamLevelRange.Y, GhostsPerBot);
+		Log::Log("""[Ranked][Bots] Bot {{{BotId}}} level range from {{{TeamLevelRange.X}}} to {{{TeamLevelRange.Y}}} for a PB time of {{{TL::TimeToText(PBTime, True, True)}}}.""");
+	}
+	Map_DownloadGhostsTask = Task::DestroyAndCreate(Map_DownloadGhostsTask, This, GhostDriver_Download_End());
+	BotTeamLevels = BotTeamLevels.sort();
+}
+
+if (Match_NewMatch && TeamsMM_MatchStarted) {
+	if (!C_DebugSkipIntro) {
+		UIModules_StartMatch::SetDisplayDuration(C_StartMatchDisplayDuration);
+		StateMgr::ForcePlayersStates([StateMgr::C_State_StartMatch]);
+		UIModules_StartMatch::DisplayChatNotAllowedPlayers();
+		MB_Private_Sleep(C_StartMatchDisplayDuration);
+		StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+	}
+	UIModules_ScoresMapInfos::SetPointsLimit(S_PointsLimit);
+	UIModules_ScoresMapInfos::SetEndRoundAnimDuration(C_EndRoundDelayForUI);
+	Match_NewMatch = False;
+} else {
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+}
+
+// Assign the downloaded ghosts to the bots
+if (Task::IsInitialized(Map_DownloadGhostsTask)) {
+	Map_DownloadGhostsTask = Task::Update(Map_DownloadGhostsTask);
+	while (MB_MapIsRunning() && Task::IsRunning(Map_DownloadGhostsTask)) {
+		MB_Yield();
+		Map_DownloadGhostsTask = Task::Update(Map_DownloadGhostsTask);
+	}
+	declare Task::K_SourceTaskError SourceTaskError = Task::GetSourceTaskError(Map_DownloadGhostsTask);
+	Log::Log("""[Ranked][Bots] Result of the download task > IsInitialized : {{{Map_DownloadGhostsTask.IsInitialized}}} | IsProcessing : {{{Map_DownloadGhostsTask.IsProcessing}}} | IsSuccess : {{{Map_DownloadGhostsTask.IsSuccess}}} | Error type : {{{SourceTaskError.Type}}} | Error code : {{{SourceTaskError.Code}}} | Error description : {{{SourceTaskError.Description}}}""");
+	if (!Task::IsRunning(Map_DownloadGhostsTask) && Task::IsSuccess(Map_DownloadGhostsTask)) {
+		declare CWebServicesTaskResult_GhostDriver_Download SourceTask = Task::GetSourceTask_GhostDriver_Download(Map_DownloadGhostsTask);
+		if (SourceTask != Null) {
+			declare Integer[Ident] GhostIdLevels;
+			foreach (Team in SourceTask.Teams) {
+				foreach (Member in Team.Members) {
+					foreach (MemberGhost in Member.Ghosts) {
+						GhostIdLevels[MemberGhost.Ghost.Id] = Team.TeamLevel;
+						Log::Log("""[Ranked][Bots] Id: {{{MemberGhost.Ghost.Id}}} | Nickname: {{{MemberGhost.Ghost.Nickname}}} | Time: {{{MemberGhost.Ghost.Result.Time}}} | Checkpoints: {{{MemberGhost.Ghost.Result.Checkpoints}}} | TeamLevel : {{{Team.TeamLevel}}}""");
+						Map_DownloadedGhostIds.add(MemberGhost.Ghost.Id);
+					}
+				}
+			}
+			GhostIdLevels = GhostIdLevels.sort();
+			foreach (BotId => TeamLevelRange in BotTeamLevels) {
+				declare Integer[Ident] TmpGhostIdLevels = GhostIdLevels;
+				foreach (GhostId => Time in TmpGhostIdLevels) {
+					if (Time > TeamLevelRange.Y) {
+						break;
+					} else if (Time >= TeamLevelRange.X) {
+						Map_BotToGhostIds[BotId].add(GhostId);
+						GhostIdLevels.removekey(GhostId);
+						if (Map_BotToGhostIds[BotId].count >= GhostsPerBot) {
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+	Log::Log("""[Ranked][Bots] Ghosts for each bots: {{{Map_BotToGhostIds}}}""");
+	Map_DownloadGhostsTask = Task::Destroy(Map_DownloadGhostsTask);
+}
+***
+
+***Match_InitRound***
+***
+declare Text[] Round_PlayerFinishedRace; //< List of players who finished race
+***
+
+***Rounds_BeforeSpawningPlayers***
+***
+// Reset any ongoing recording
+if (EnableGhostRecording) {
+	ResetGhostsRecording();
+	Map_CanEnablePlayerGhostRecorder = True;
+}
+
+// Select the ghost the bots will use for the round
+foreach (Score in Scores) {
+	if (Score.User != Null && Score.User.IsFakeUser) {
+		declare Boolean TeamsMM_BotCanSpawn for Score.User = C_BotCanSpawn;
+		TeamsMM_BotCanSpawn = C_BotCanSpawn;
+	}
+}
+foreach (Player in Players) {
+	if (Player.User != Null && Player.User.IsFakeUser) {
+		declare Ident[] GhostIds = Map_BotToGhostIds.get(Player.User.Id, []);
+		SetGhostDriverPlaylist(Player, GhostIds);
+		declare Boolean TeamsMM_BotCanSpawn for Player.User = C_BotCanSpawn;
+		TeamsMM_BotCanSpawn = GhostIds.count > 0;
+	}
+}
+***
+
+***Rounds_AfterSpawningPlayers***
+***
+Map_CanEnablePlayerGhostRecorder = False;
+***
+
+***Rounds_CanSpawn***
+***
+foreach (Score in Scores) {
+	declare Boolean CanSpawn = GetClan(Score, S_Bots_Clan) > 0;
+	if (CanSpawn && Score.User != Null && Score.User.IsFakeUser) {
+		declare Boolean TeamsMM_BotCanSpawn for Score.User = C_BotCanSpawn;
+		CanSpawn = TeamsMM_BotCanSpawn;
+	}
+	Rounds_SetCanSpawn(Score, CanSpawn);
+}
+***
+
+***Rounds_SpawnPlayer***
+***
+if (
+	Map_CanEnablePlayerGhostRecorder &&
+	EnableGhostRecording &&
+	Player.User != Null &&
+	!Player.User.IsFakeUser
+) {
+	GhostRecorder_SetEnabled(Player, True);
+	Log::Log("""[Ranked][Bots] Enable ghost recording for {{{Player.User.WebServicesUserId}}} ({{{Player.User.Login}}})""");
+}
+declare Integer PlayerClan = GetClan(Player, S_Bots_Clan);
+if (PlayerClan > 0) Race::StartInClan(Player, PlayerClan, StartTime);
+***
+
+***Rounds_PlayerSpawned***
+***
+CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRace);
+***
+
+***Match_StartRound***
+***
+UIModules_LiveRanking::StartNewRace();
+UIModules_ScoresMapInfos::SetRoundWinningClan(-1);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+Round_PlayerFinishedRace = [];
+UIModules_LiveRanking::SetPlayerFinishedRace(Round_PlayerFinishedRace);
+// Check the number of players in each team at the beginning of the race
+TeamsCommonLib::UnforceSpecNewPlayers();
+declare Integer NbPlayersTeam1 = 0;
+declare Integer NbPlayersTeam2 = 0;
+declare Integer BalancedNbPlayers for This;
+declare Boolean TeamBalancedIn3v3 for This = False;
+foreach (Player in AllPlayers) {
+	declare Integer PlayerClan = GetClan(Player, S_Bots_Clan);
+	if (PlayerClan == 1) NbPlayersTeam1 += 1;
+	else if (PlayerClan == 2) NbPlayersTeam2 += 1;
+	Log::Log("StartRound > Login : "^Player.User.WebServicesUserId^" | CurrentClan : "^Player.CurrentClan^" | RequestedClan : "^Player.RequestedClan^" | PlayerClan : "^PlayerClan);
+}
+Log::Log("StartRound > NbPlayersTeam1 : "^NbPlayersTeam1^" | NbPlayersTeam2 : "^NbPlayersTeam2);
+BalancedNbPlayers = -1;
+if (NbPlayersTeam1 != NbPlayersTeam2) BalancedNbPlayers = ML::Min(NbPlayersTeam1, NbPlayersTeam2);
+TeamBalancedIn3v3 = (NbPlayersTeam1 == 3) && (NbPlayersTeam2 == 3);
+
+// Adapt points repartition depending on players nb
+declare Text PointsRepartition;
+if (NbPlayersTeam1 == 0 || NbPlayersTeam2 == 0) {
+	declare Integer WinningTeam = -1;
+	if (NbPlayersTeam1 == 0 && NbPlayersTeam2 > 0) WinningTeam = 2;
+	else if (NbPlayersTeam2 == 0 && NbPlayersTeam1 > 0) WinningTeam = 1;
+	if (WinningTeam != -1) {
+		Scores::SetClanMatchPoints(WinningTeam, S_PointsLimit); // give the max points to the remaining team to assure their victory
+		MB_StopMap();
+	}
+} else if (NbPlayersTeam1 == 1 || NbPlayersTeam2 == 1) {
+	PointsRepartition = S_PointsRepartition1VS;
+} else if (NbPlayersTeam1 == 2 || NbPlayersTeam2 == 2) {
+	PointsRepartition = S_PointsRepartition2VS;
+} else if (TeamBalancedIn3v3) {
+	PointsRepartition = S_PointsRepartition;
+}
+if (PointsRepartition != "") {
+	declare Integer[] Rounds_PointsRepartitionBackUp for This;
+	declare NewPointsRepartition = PointsRepartition::ConvertPointsRepartition(PointsRepartition);
+	if ((Rounds_PointsRepartitionBackUp.count != NewPointsRepartition.count) && NewPointsRepartition.count > 0) {
+		PointsRepartition::SetPointsRepartition(NewPointsRepartition);
+		UIModules_LiveRanking::SetPointsRepartition(NewPointsRepartition);
+		Rounds_PointsRepartitionBackUp = PointsRepartition::GetPointsRepartition();
+	}
+}
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	Race::ValidEvent(Event);
+
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRace);
+		if (Event.Player != Null) {
+			if (Event.IsEndRace) {
+				Race::StopSkipScoresTable(Event.Player);
+				declare BetterRace = Scores::UpdatePlayerBestRaceIfBetter(Event.Player);
+				declare BetterLap = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				Scores::UpdatePlayerPrevRace(Event.Player);
+				declare Integer BalancedNbPlayers for This = -1;
+				declare Boolean TeamBalancedIn3v3 for This = False;
+				TeamsCommonLib::ComputeLatestRaceScores(S_UseCustomPointsRepartition, S_CumulatePoints, S_UseAlternateRules, S_MaxPointsPerRound, S_NoRoundTie, S_BalanceScore, BalancedNbPlayers, TeamBalancedIn3v3);
+				Race::SortScores(Race::C_Sort_PrevRaceTime);
+				if (Event.Player.Score != Null) {
+					Round_PlayerFinishedRace.add(Event.Player.Score.User.Login);
+					UIModules_LiveRanking::SetPlayerFinishedRace(Round_PlayerFinishedRace);
+				}
+
+				// Start the countdown if it's the first player to finish
+				if (EndTime <= 0) {
+					EndTime = TeamsCommonLib::GetFinishTimeout(S_FinishTimeout, S_FinishTimeoutDivider);
+				}
+			}
+			if (Event.IsEndLap) {
+				declare Better = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+			}
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Server info change
+if (
+	Server_PointsLimit != S_PointsLimit ||
+	Server_PointsGap != S_PointsGap ||
+	Server_RoundsPerMap != S_RoundsPerMap ||
+	Server_MapsPerMatch != S_MapsPerMatch
+) {
+	Server_PointsLimit = S_PointsLimit;
+	Server_PointsGap = S_PointsGap;
+	Server_RoundsPerMap = S_RoundsPerMap;
+	Server_MapsPerMatch = S_MapsPerMatch;
+
+	TeamsCommonLib::UpdateScoresTableFooter(S_PointsLimit, S_PointsGap, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb, MB_GetMapCount());
+	UIModules_ScoresMapInfos::SetPointsLimit(S_PointsLimit);
+}
+***
+
+***Match_EndRound***
+***
+Race::StopSkipOutroAll();
+EndTime = -1;
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+CarRank::Update(CarRank::C_SortCriteria_CurrentRace);
+
+if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "2.1.1")) {
+	Scores::XmlRpc_SendScores(Scores::C_Section_PreEndRound, "");
+}
+
+if (Round_ForceEndRound || Round_SkipPauseRound || Round_Skipped) {
+	// Cancel points
+	foreach (Score in Scores) {
+		Scores::SetPlayerRoundPoints(Score, 0);
+	}
+	foreach (TeamIndex => Team in Teams) {
+		declare PrevRaceDeltaPoints for Team = 0;
+		PrevRaceDeltaPoints = 0;
+	}
+	// Do not launch the forced end round sequence after a pause
+	if (!Round_SkipPauseRound) {
+		ForcedEndRoundSequence();
+	}
+	MB_SetValidRound(False);
+} else {
+	declare Boolean TeamsMM_MatchStarted for This = False;
+	Map_ValidRoundsNb += 1;
+
+	// Upload the real players ghosts to create bots later
+	Log::Log("""[Ranked][Bots] Can we upload the ghosts ? EnableGhostRecording : {{{EnableGhostRecording}}} | Upload limit : {{{Server_UploadGhostsTasks.count}}}/{{{C_GhostUploadsLimit}}}""");
+	if (EnableGhostRecording) {
+		foreach (Player in Players) {
+			if (Player.User != Null && !Player.User.IsFakeUser) {
+				GhostRecorder_SetEnabled(Player, False);
+				Log::Log("""[Ranked][Bots] Stop ghost recording for {{{Player.User.WebServicesUserId}}} ({{{Player.User.Login}}})[{{{Player.Id}}}]""");
+				if (Server_UploadGhostsTasks.count < C_GhostUploadsLimit) {
+					// The player must have finished the race
+					if (Player.Score != Null && CanUploadGhost(Map, Scores::GetPlayerPrevRaceTime(Player.Score))) {
+						declare Integer RaceLevel = GetRaceLevel(Map_RaceLevels, Scores::GetPlayerPrevRaceTime(Player.Score));
+						if (RaceLevel != C_InvalidRaceLevel) {
+							GhostRecorder_Ghosts_Select(Player);
+							Log::Log("""	Upload {{{GhostRecorder_Ghosts.count}}} ghost(s) with level {{{RaceLevel}}} for a time of {{{TL::TimeToText(Scores::GetPlayerPrevRaceTime(Player.Score), True, True)}}}""");
+							GhostDriver_Upload_Begin(RaceLevel);
+							GhostDriver_Upload_TeamMember_Begin();
+							foreach (Ghost in GhostRecorder_Ghosts) {
+								GhostDriver_Upload_AddGhost(Ghost);
+							}
+							GhostDriver_Upload_TeamMember_End();
+							Server_UploadGhostsTasks.add(
+								Task::Create(This, GhostDriver_Upload_End())
+							);
+						} else {
+							Log::Log("""	Could not set a level to the player race.""");
+						}
+					} else {
+						Log::Log("""	Did not finished the race or is too long: {{{TL::TimeToText(Scores::GetPlayerPrevRaceTime(Player.Score), True, True)}}}""");
+					}
+				} else {
+					Log::Log("""	Upload limit reached.""");
+				}
+			}
+		}
+	}
+
+	// Get the last round points
+	declare Integer BalancedNbPlayers for This = -1;
+	declare Boolean TeamBalancedIn3v3 for This = False;
+	TeamsCommonLib::ComputeLatestRaceScores(S_UseCustomPointsRepartition, S_CumulatePoints, S_UseAlternateRules, S_MaxPointsPerRound, S_NoRoundTie, S_BalanceScore, BalancedNbPlayers, TeamBalancedIn3v3);
+	Race::SortScores(Race::C_Sort_PrevRaceTime);
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;
+
+	// Add them to the total scores
+	declare Integer RoundWinningTeamId = TeamsCommonLib::ComputeScores(False, False);
+	Race::SortScores(Race::C_Sort_PrevRaceTime);
+	TeamsCommonLib::UpdateScoresTableFooter(S_PointsLimit, S_PointsGap, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb, MB_GetMapCount());
+	MB_Private_Sleep(2000);
+
+	declare CSmScore MVP_Score <=> Scores::GetBestPlayer(Scores::C_Sort_MatchPointsOrBestTime);
+	if (MVP_Score != Null && MVP_Score.User != Null) UIModules_LiveRanking::UpdateMvp(MVP_Score.User.WebServicesUserId);
+	if (TeamsMM_MatchStarted) {
+		UIModules_ScoresMapInfos::SetRoundWinningClan(RoundWinningTeamId+1);
+		MB_Private_Sleep(C_EndRoundDelayForUI);
+		UIModules_ScoresMapInfos::SetRoundNumber(Map_ValidRoundsNb+1);
+	}
+	// Reset players round points after EndRoundDelayForUI
+	foreach (Score in Scores) {
+		Scores::SetPlayerRoundPoints(Score, 0);
+	}
+
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+
+	if (TeamsCommonLib::MapIsOver(Map_ValidRoundsNb, S_PointsGap, S_UseTieBreak, S_PointsLimit, S_RoundsPerMap)) {
+		MB_StopMap();
+	}
+}
+
+// Stop ghost recording
+if (EnableGhostRecording) {
+	ResetGhostsRecording();
+}
+***
+
+***Match_EndMap***
+***
+if (TeamsCommonLib::MatchIsOver(S_PointsGap, S_UseTieBreak, S_PointsLimit, S_MapsPerMatch, MB_GetMapCount(), S_RoundsPerMap)) MB_StopMatch();
+
+// Stock players infos for UIs modules
+declare Integer[MatchmakingStruct::LibStructuresMatchmaking_K_TeamMember] TeamBlueMembers = [];
+declare Integer[MatchmakingStruct::LibStructuresMatchmaking_K_TeamMember] TeamRedMembers = [];
+// Use Scores array instead of Players in case some players have left the match early, we still want to show them in the last scorestable UI
+foreach (Score in Scores) {
+	if (Score.User != Null) {
+		declare Integer BestTime = -1;
+		if (Score.BestRaceTimes.count > 0) BestTime = Score.BestRaceTimes[Score.BestRaceTimes.count - 1];
+		declare MatchmakingStruct::LibStructuresMatchmaking_K_TeamMember NewMember = MatchmakingStruct::LibStructuresMatchmaking_K_TeamMember {
+			AccountId = Score.User.WebServicesUserId,
+			Name = Score.User.Name,
+			ClubTag = Score.User.ClubTag,
+			FlagUrl = Score.User.CountryFlagUrl,
+			Score = Score.Points,
+			BestTime = BestTime,
+			IsFakeUser = Score.User.IsFakeUser
+		};
+		declare Integer PlayerClan = GetClan(Score, S_Bots_Clan);
+		if (PlayerClan == 1) TeamBlueMembers[NewMember] = NewMember.Score;
+		else if (PlayerClan == 2) TeamRedMembers[NewMember] = NewMember.Score;
+	}
+}
+// To have the players sorted in an array with index from 0 to 2 (for UIs needs)
+declare MatchmakingStruct::LibStructuresMatchmaking_K_TeamMember[Integer] SortedTeamBlueMembers = SortPlayersForUI(TeamBlueMembers);
+declare MatchmakingStruct::LibStructuresMatchmaking_K_TeamMember[Integer] SortedTeamRedMembers = SortPlayersForUI(TeamRedMembers);
+UIModules_NetShare_Teams::SetTeamMembers(SortedTeamBlueMembers, SortedTeamRedMembers);
+
+// Ranking
+declare WinningTeam = -1;
+if (Scores::GetClanMatchPoints(1) > Scores::GetClanMatchPoints(2)) {
+	WinningTeam = 1;
+} else if (Scores::GetClanMatchPoints(2) > Scores::GetClanMatchPoints(1)) {
+	WinningTeam = 2;
+}
+Scores::SetClanWinner(WinningTeam);
+UIModules_NetShare_Teams::SetWinningTeamId(WinningTeam - 1);
+UIModules_Sign16x9Small::SetWinningClan(WinningTeam);
+
+declare CSmScore MVP_Score <=> Scores::GetBestPlayer(Scores::C_Sort_MatchPointsOrBestTime);
+if (MVP_Score != Null) {
+	if (MVP_Score.User != Null) {
+		UIModules_NetShare_Teams::SetMVPAccountId(MVP_Score.User.WebServicesUserId);
+		UIModules_Sign16x9Small::SetMVPAccountId(MVP_Score.User.WebServicesUserId);
+	} else {
+		UIModules_NetShare_Teams::SetMVPAccountId("");
+		UIModules_Sign16x9Small::SetMVPAccountId("");
+	}
+	Scores::SetMatchBestPlayer(MVP_Score);
+} else {
+	UIModules_NetShare_Teams::SetMVPAccountId("");
+	UIModules_Sign16x9Small::SetMVPAccountId("");
+}
+Scores::XmlRpc_SendMatchBestPlayer(); // send "Trackmania.MatchBestPlayer"
+
+if (!MB_MatchIsRunning()) {
+	foreach (Player in Players) {
+		if (Player.User != Null) {
+			declare Integer PlayerClan = GetClan(Player, S_Bots_Clan);
+			if (PlayerClan == 1 || PlayerClan == 2) {
+				if (PlayerClan == WinningTeam) {
+					Tracking::SendPlayerMatchResult(UIManager, Player, 1, True);
+				} else {
+					Tracking::SendPlayerMatchResult(UIManager, Player, 2, False);
+				}
+			}
+		}
+	}
+
+	// Prepare the closing of the ranked activity
+	declare Integer[Integer] TeamScores;
+	declare RequestManager::K_PlayerResult[Text] PlayerResults;
+	declare Integer[Text] AccountIdsToClans = TeamsCommonLib::GetAccountIdsToClans();
+	for (Clan, 1, C_TeamsNb) {
+		TeamScores[Clan] = Scores::GetClanMatchPoints(Clan);
+	}
+	foreach (Clan in AccountIdsToClans) {
+		if (!TeamScores.existskey(Clan)) {
+			TeamScores[Clan] = Scores::GetClanMatchPoints(Clan);
+		}
+	}
+	foreach (Rank => Member in SortedTeamBlueMembers) {
+		if (AccountIdsToClans.existskey(Member.AccountId)) {
+			PlayerResults[Member.AccountId] = RequestManager::K_PlayerResult {
+				Rank = Rank + 1,
+				Score = 0
+			};
+		}
+	}
+	foreach (Rank => Member in SortedTeamRedMembers) {
+		if (AccountIdsToClans.existskey(Member.AccountId)) {
+			PlayerResults[Member.AccountId] = RequestManager::K_PlayerResult {
+				Rank = Rank + 1,
+				Score = 0
+			};
+		}
+	}
+	foreach (Score in Scores) {
+		if (Score.User != Null && AccountIdsToClans.existskey(Score.User.WebServicesUserId)) {
+			if (PlayerResults.existskey(Score.User.WebServicesUserId)) {
+				PlayerResults[Score.User.WebServicesUserId].Score = Scores::GetPlayerMatchPoints(Score);
+			} else {
+				PlayerResults[Score.User.WebServicesUserId] = RequestManager::K_PlayerResult {
+					Rank = AccountIdsToClans.count,
+					Score = Scores::GetPlayerMatchPoints(Score)
+				};
+			}
+		}
+	}
+	foreach (AccountId => Clan in AccountIdsToClans) {
+		if (!PlayerResults.existskey(AccountId)) {
+			PlayerResults[AccountId] = RequestManager::K_PlayerResult {
+				Rank = AccountIdsToClans.count,
+				Score = 0
+			};
+		}
+	}
+	RequestManager::StopActivity(TeamScores, PlayerResults);
+}
+
+if (!MB_MapIsRunning() && MB_MatchIsRunning()) MB_SkipPodiumSequence();
+***
+
+***Match_BeforePodiumSequence***
+***
+TeamsCommonLib::BeforePodiumSequence(Scores::GetClanWinner());
+***
+
+***Match_PodiumSequence***
+***
+if (!MB_Private_SkipPodiumSequence) {
+	UIModules_PauseMenu_Online::SetMatchmaking(False);
+	UIModules_ScoresTable::SetHideSpectators(False);
+	ModeUtils::PlaySound(CUIConfig::EUISound::EndRound, 0);
+	UIModules_PrestigeEarned::EnablePrestigeMode(UIModules_PrestigeEarned::C_PrestigeMode_Ranked);
+
+	// Send the EndMatch callback sooner to speed up the Matchmaking API update
+	if (S_EarlyEndMatchCallback) {
+		Scores::EndMatch();
+		Scores::XmlRpc_SendScores(Scores::C_Section_EndMatch, ""); // send "Trackmania.Scores"
+	}
+
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::Podium;
+	declare Boolean TeamsMM_MatchStarted for This = False;
+	if (TeamsMM_MatchStarted) {
+		StateMgr::ForcePlayersStates([StateMgr::C_State_Ranking]);
+		MB_Private_Sleep(C_RankingDisplayDuration);
+		UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedHidden;
+		StateMgr::ForcePlayersStates([StateMgr::C_State_EndMatch]);
+		UIModules_EndMatch::SetDisplayEndTime(Now + C_EndMatchDisplayDuration);
+		MB_Private_Sleep(C_EndMatchDisplayDuration);
+		StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+	} else {
+		StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+	}
+}
+***
+
+***Match_AfterPodiumSequence***
+***
+TeamsCommonLib::AfterPodiumSequence();
+***
+
+***Match_BeforeUnloadMap***
+***
+ReleaseGhosts(Map_DownloadedGhostIds);
+Map_DownloadedGhostIds = [];
+Map_BotToGhostIds = [];
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Sort the players by biggest score in an array with index from 0 to 2 (for UIs needs)
+// Check if there is a score tie in the teams and untie with BestTime if needed
+MatchmakingStruct::LibStructuresMatchmaking_K_TeamMember[Integer] SortPlayersForUI(Integer[MatchmakingStruct::LibStructuresMatchmaking_K_TeamMember] _TeamMembers) {
+	declare MatchmakingStruct::LibStructuresMatchmaking_K_TeamMember[Integer] SortedTeamMembers;
+	if (_TeamMembers.count == 0) return SortedTeamMembers;
+	// Sort by biggest score
+	declare Integer[MatchmakingStruct::LibStructuresMatchmaking_K_TeamMember] TeamMembers = _TeamMembers.sortreverse();
+	// Store the players in a array with index from 0 to 2 and check if there is a score tie
+	declare Integer J = 0;
+	declare Integer[] MembersScores = [];
+	declare Boolean NeedToSortByBestTime = False;
+	foreach (MemberIndex=>MemberScore in TeamMembers) {
+		SortedTeamMembers[J] = MemberIndex;
+		if (MembersScores.exists(MemberScore)) {
+			NeedToSortByBestTime = True;
+		} else {
+			MembersScores.add(MemberScore);
+		}
+		J+=1;
+	}
+	// Sort array by best time only if there is a score tie between players
+	if (NeedToSortByBestTime) {
+		declare Integer K;
+		for (I, 1, SortedTeamMembers.count - 1) {
+			declare MatchmakingStruct::LibStructuresMatchmaking_K_TeamMember TmpMember = SortedTeamMembers[I];
+			K = I;
+			while (
+				K > 0 &&
+				((SortedTeamMembers[K-1].Score < TmpMember.Score) ||
+				(SortedTeamMembers[K-1].Score == TmpMember.Score && TmpMember.BestTime != -1 && SortedTeamMembers[K-1].BestTime != -1 && SortedTeamMembers[K-1].BestTime >= TmpMember.BestTime))
+			) {
+				SortedTeamMembers[K] = SortedTeamMembers[K - 1];
+				K -= 1;
+			}
+			SortedTeamMembers[K] = TmpMember;
+		}
+	}
+	return SortedTeamMembers;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the clan in which a player should play
+Integer GetClan(CUser _User, Integer _BotClan) {
+	if (_User == Null) return C_NoClan;
+	if (_User.IsFakeUser) return _BotClan;
+	return TeamsCommonLib::GetClan(_User.WebServicesUserId);
+}
+Integer GetClan(CSmScore _Score, Integer _BotClan) {
+	if (_Score == Null) return C_NoClan;
+	return GetClan(_Score.User, _BotClan);
+}
+Integer GetClan(CSmPlayer _Player, Integer _BotClan) {
+	if (_Player == Null) return C_NoClan;
+	return GetClan(_Player.User, _BotClan);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the ghost recording of all players
+Void ResetGhostsRecording() {
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null && !Player.User.IsFakeUser) {
+			GhostRecorder_SetEnabled(Player, False);
+			GhostRecorder_Clear(Player);
+			Log::Log("""[Ranked][Bots] Reset ghost recording for {{{Player.User.WebServicesUserId}}} ({{{Player.User.Login}}})[{{{Player.Id}}}]""");
+			// The ghosts from the GhostRecorder are independent
+			// from the ghosts of the mode (`Ghosts` array from `CMode`).
+			// The C++ takes care of releasing the GhostRecorder ghosts
+			// without having to call `Ghost_Release()` manually.
+			// eg: calling `GhostRecorder_Clear(Player)` will release all the ghost of the player.
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Release the ghosts generated by the mode
+Void ReleaseGhosts(Ident[] _DownloadedGhostIds) {
+	// Release downloaded ghosts
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null && Player.User.IsFakeUser) {
+			GhostDriver_Playlist_Clear(Player);
+		}
+	}
+	foreach (GhostId in _DownloadedGhostIds) {
+		Ghost_Release(GhostId);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the ghosts that the player will play
+Void SetGhostDriverPlaylist(CSmPlayer _Player, Ident[] _GhostIds) {
+	if (_Player == Null || _Player.User == Null || !_Player.User.IsFakeUser) return;
+
+	declare Ident[] TeamsMM_GhostIds for _Player = [];
+	if (TeamsMM_GhostIds.count <= 0) {
+		TeamsMM_GhostIds = _GhostIds;
+	}
+
+	declare Boolean GhostFound = False;
+	GhostDriver_Playlist_Clear(_Player);
+	while (TeamsMM_GhostIds.count > 0 && !GhostFound) {
+		declare Ident GhostId = TeamsMM_GhostIds[ML::Rand(0, TeamsMM_GhostIds.count - 1)];
+		TeamsMM_GhostIds.remove(GhostId);
+		if (Ghosts.existskey(GhostId)) {
+			GhostFound = True;
+			GhostDriver_Playlist_Add(_Player, Ghosts[GhostId]);
+			Log::Log("""[Ranked][Bots] Add ghost {{{GhostId}}} to bot {{{_Player.User.Id}}} playlist""");
+		}
+	}
+	if (!GhostFound) {
+		Log::Log("""[Ranked][Bots] No ghost found for bot {{{_Player.User.Id}}} playlist""");
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create the `CustomData` to use for the `GhostDriver`
+Text GetGhostDriverCustomData(Integer _Version, Integer _GhostDBId) {
+	declare K_GhostDriverCustomData CustomData = K_GhostDriverCustomData {
+		A = _Version,
+		B = _GhostDBId
+	};
+	return CustomData.tojson();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the ghost can be uploaded
+Boolean CanUploadGhost(CMap _Map, Integer _Time) {
+	return (
+		_Map != Null &&
+		_Time > 0 &&
+		_Time <= ML::CeilingInteger(ML::Max(0., _Map.TMObjective_BronzeTime * 3.))
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the race levels for the times on the given map
+Int2[Int2] GetMapRaceLevels(CMap _Map) {
+	if (_Map == Null) return [];
+
+	declare Integer UnderAuthorTime = ML::FloorInteger(ML::Max(0., _Map.TMObjective_AuthorTime * 0.9));
+	declare Integer OverBronzeTime = ML::CeilingInteger(ML::Max(0., _Map.TMObjective_BronzeTime * 1.1));
+
+	return [
+		<C_NoTime, UnderAuthorTime> => <0, 0>,
+		<UnderAuthorTime, _Map.TMObjective_AuthorTime> => <1, 10>,
+		<_Map.TMObjective_AuthorTime, _Map.TMObjective_GoldTime> => <11, 30>,
+		<_Map.TMObjective_GoldTime, _Map.TMObjective_SilverTime> => <31, 50>,
+		<_Map.TMObjective_SilverTime, _Map.TMObjective_BronzeTime> => <51, 70>,
+		<_Map.TMObjective_BronzeTime, OverBronzeTime> => <71, 100>,
+		<OverBronzeTime, C_NoTime> => <101, 101>
+	];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the minimum and maximum race level
+Int2 GetRaceLevelMinMax(Int2[Int2] _MapRaceLevels) {
+	declare Boolean Init = True;
+	declare Int2 LevelMinMax = <0, 0>;
+	foreach (LevelRange in _MapRaceLevels) {
+		if (Init) {
+			Init = False;
+			LevelMinMax = LevelRange;
+		} else {
+			if (LevelRange.X < LevelMinMax.X) LevelMinMax.X = LevelRange.X;
+			if (LevelRange.Y > LevelMinMax.Y) LevelMinMax.Y = LevelRange.Y;
+		}
+	}
+	return LevelMinMax;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the level of a player's last race
+Integer GetRaceLevel(Int2[Int2] _MapRaceLevels, Integer _RaceTime) {
+	if (_RaceTime <= 0) return C_InvalidRaceLevel;
+
+	foreach (TimeRange => LevelRange in _MapRaceLevels) {
+		if (
+			TimeRange.X == C_NoTime &&
+			TimeRange.Y != C_NoTime &&
+			_RaceTime <= TimeRange.Y
+		) {
+			return LevelRange.X;
+		} else if (
+			TimeRange.X != C_NoTime &&
+			TimeRange.Y != C_NoTime &&
+			_RaceTime > TimeRange.X &&
+			_RaceTime <= TimeRange.Y
+		) {
+			if (TimeRange.X == TimeRange.Y) {
+				return LevelRange.X;
+			} else {
+				return LevelRange.Y - ML::NearestInteger(((TimeRange.Y * 1.) - _RaceTime) / (TimeRange.Y - TimeRange.X) * (LevelRange.Y - LevelRange.X));
+			}
+		} else if (
+			TimeRange.X != C_NoTime &&
+			TimeRange.Y == C_NoTime &&
+			_RaceTime > TimeRange.X
+		) {
+			return LevelRange.X;
+		}
+	}
+
+	return C_InvalidRaceLevel;
+}

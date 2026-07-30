@@ -1,0 +1,544 @@
+/**
+ *  UI module: TimeGap client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/PlayerName.Script.txt" as PlayerName
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Common.Script.txt" as UIModules_TimeGap_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Time_MaxPlayers 5
+
+// This is copy pasted in server side do not forget to update both
+#Const C_TimeGapMode_BestRace 0
+#Const C_TimeGapMode_Hidden 1
+#Const C_TimeGapMode_CurRace 2
+#Const C_TimeGapMode_Solo 3
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_TimeGap_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_TimeGap_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	// /!\ Careful all this positions must respect the Sony safe area (see /trackmania-next/tmnext/-/issues/5447)
+	declare Vec2 Pos_TimeGap_Solo  = <-150., 80.>;
+	declare Vec2 Pos_TimeGap_TwoScreens = <18., -62.>;
+	declare Vec2 Pos_TimeGap_SonySafeArea = <44., -48.>;
+
+	declare Text Ml_Backgrounds = "";
+	declare Text Ml_Players = "";
+	declare Real PosY = 0.;
+	for (PlayerIndex, 0, C_Time_MaxPlayers-1) {
+		PosY = -5.5 * PlayerIndex;
+		Ml_Backgrounds ^= """
+			<frameinstance pos="0 {{{PosY}}}" modelid="framemodel-background"/>
+		""";
+		Ml_Players ^= """
+			<frameinstance pos="0 {{{PosY}}}" modelid="framemodel-player"/>
+		""";
+	}
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-default" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="ffffff" textsize="3"/>
+	<style class="text-number" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_IngameTime)}}}" textcolor="ffffff" textsize="3"/>
+</stylesheet>
+<framemodel id="framemodel-player">
+	<label id="label-localrank" pos="-1 0" size="3.5 4" valign="center2" textsize="1.5" class="text-default" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"/>
+	<label id="label-name" pos="4 0" size="30 3.5" valign="center2" textsize="2" class="text-default" textprefix="$i$t"/>
+	<frameinstance id="playername-name" modelid="{{{PlayerName::C_Name}}}" pos="4 0" data-size="30 3.5" data-valign="center" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-textsize="2" hidden="1" />
+	<label id="label-time" pos="51 0" size="15 4" halign="right" valign="center2" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" textsize="2" class="text-number"/>
+</framemodel>
+<framemodel id="framemodel-background">
+	<frame size="55 5">
+		<quad size="80 80" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.6" id="quad-background" />
+	</frame>
+</framemodel>
+<frame z-index="-2" hidden="1" id="frame-global">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_TimeGap_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-hide-for-spectators">
+			<frame id="frame-is-playing">
+				<frame id="frame-time-gap" hidden="1">
+					<frame pos="6.5 -5.5" z-index="1" id="frame-backgrounds">
+						{{{Ml_Backgrounds}}}
+					</frame>
+					<frame pos="9 -8" z-index="2" id="frame-players-list">
+						{{{Ml_Players}}}
+					</frame>
+				</frame>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Client.Script.txt" as Clans
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Client.Script.txt" as Helpers
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+
+#Struct K_GhostData {
+	Text Nickname;
+	Text AccountId;
+	Integer Time;
+	Integer[] Checkpoints;
+	Boolean IsPersonalBest;
+}
+
+#Const C_Ghost_Null K_GhostData {
+	Nickname = "",
+	AccountId = "",
+	Time = -1,
+	Checkpoints = [],
+	IsPersonalBest = False
+}
+
+#Const C_Owner_IndexForArrays 0
+
+#Const C_TimeGapMode_Hidden {{{dump(C_TimeGapMode_Hidden)}}}
+#Const C_TimeGapMode_CurRace {{{dump(C_TimeGapMode_CurRace)}}}
+#Const C_TimeGapMode_BestRace {{{dump(C_TimeGapMode_BestRace)}}}
+#Const C_TimeGapMode_Solo {{{dump(C_TimeGapMode_Solo)}}}
+""",
+"""
+declare CMlFrame[] Frames_Player;
+declare CMlFrame[] Frames_Background;
+
+Void UpdateSlotUI(
+	Integer _SlotNb,
+	Integer _Time,
+	Integer _Rank,
+	CUser _User,
+	K_GhostData _Ghost,
+	Boolean _IsOwner,
+	Integer _TeamNum,
+	Text _CustomTeamBlueColor,
+	Text _CustomTeamRedColor
+) {
+	if (!Frames_Player.existskey(_SlotNb) || !Frames_Background.existskey(_SlotNb)) return;
+	declare Frame_Player <=> Frames_Player[_SlotNb];
+	declare Label_Time <=> (Frame_Player.GetFirstChild("label-time") as CMlLabel);
+	declare Label_LocalRank <=> (Frame_Player.GetFirstChild("label-localrank") as CMlLabel);
+	declare Label_Name <=> (Frame_Player.GetFirstChild("label-name") as CMlLabel);
+	declare PlayerName_Name <=> (Frame_Player.GetFirstChild("playername-name") as CMlFrame);
+	declare Frame_Background <=> Frames_Background[_SlotNb];
+	declare Quad_Background <=> (Frame_Background.GetFirstChild("quad-background") as CMlQuad);
+
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null && _Time != -1) {
+		if (!Frame_Player.Visible) Frame_Player.Visible = True;
+		if (!Frame_Background.Visible) Frame_Background.Visible = True;
+
+		if ((UseClans || Clans::UseMultiClans()) && _TeamNum > 0 && (_TeamNum == 1 || _TeamNum == 2 || Teams.existskey(_TeamNum - 1))) {
+			if (_TeamNum == 1) {
+				if (_CustomTeamBlueColor != "") Quad_Background.BgColor = CL::HexToRgb(_CustomTeamBlueColor);
+				else Quad_Background.BgColor = Teams[0].ColorPrimary;
+			} else if (_TeamNum == 2) {
+				if (_CustomTeamRedColor != "") Quad_Background.BgColor = CL::HexToRgb(_CustomTeamRedColor);
+				else Quad_Background.BgColor = Teams[1].ColorPrimary;
+			} else {
+				Quad_Background.BgColor = Teams[_TeamNum - 1].ColorPrimary;
+			}
+		} else {
+			Quad_Background.BgColor = CL::HexToRgb("{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}");
+		}
+
+		Label_LocalRank.Value = ""^_Rank;
+
+		if (_User == Null) {
+			if (_Ghost.IsPersonalBest || _Ghost.AccountId == "") {
+				PlayerName_Name.Visible = False;
+				Label_Name.Visible = True;
+				Label_Name.Value = _Ghost.Nickname;
+				Tools::FitLabelValue(Label_Name, 2., 0.5, 0.25);
+				Tools::FirstPartyLogoMatchLuminance(Label_Name);
+			} else {
+				Label_Name.Visible = False;
+				PlayerName_Name.Visible = True;
+				{{{PlayerName::P}}}SetAccountId(This, PlayerName_Name, _Ghost.AccountId, True);
+			}
+		} else {
+			Label_Name.Visible = False;
+			PlayerName_Name.Visible = True;
+			{{{PlayerName::P}}}SetUser(This, PlayerName_Name, _User, True);
+		}
+
+		if (_IsOwner) {
+			Label_Time.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_TextOwnTime))}}};
+		} else {
+			Label_Time.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}};
+		}
+
+		declare Race_TimeGap_CheckpointLeadTime for Owner = 0;
+		if (_SlotNb == 0 && _Time == Race_TimeGap_CheckpointLeadTime) {
+			Label_Time.Value = TL::TimeToText(_Time, True, True);
+		} else {
+			Label_Time.Value = "+"^TL::TimeToText(_Time, True, True);
+		}
+
+	} else {
+		if (Frame_Player.Visible) Frame_Player.Visible = False;
+		if (Frame_Background.Visible) Frame_Background.Visible = False;
+
+		Quad_Background.BgColor = CL::HexToRgb("{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}");
+	}
+}
+
+
+Void UpdateSlot(Boolean _IsIndependentLaps, Integer _SlotNb, CSmScore _Score, Text _CustomTeamBlueColor, Text _CustomTeamRedColor) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (_Score != Null && Scores.count > 0 && Owner != Null) {
+		declare Time = -1;
+		declare TeamNum = -1;
+		declare IsOwner = False;
+
+		declare CheckpointTime = 0;
+		declare netread Integer Net_TimeGap_Mode for Teams[0];
+
+		IsOwner = Owner.Score != Null && _Score.Id == Owner.Score.Id;
+		TeamNum = _Score.TeamNum;
+
+		if (Net_TimeGap_Mode == C_TimeGapMode_CurRace) {
+			declare CSmPlayer ScorePlayer;
+			foreach (Player in Players) {
+				if (Player.Score == _Score) {
+					ScorePlayer <=> Player;
+					break;
+				}
+			}
+
+			if (ScorePlayer != Null && ScorePlayer.RaceWaypointTimes.count > 0) {
+				Time = ScorePlayer.RaceWaypointTimes[Owner.RaceWaypointTimes.count - 1];
+			}
+		} else { // C_TimeGapMode_BestRace
+			if (_IsIndependentLaps) {
+				if (Owner.LapWaypointTimes.count <= 0) {
+					if (IsOwner && _Score.PrevLapTimes.count > 0) Time = _Score.PrevLapTimes[_Score.PrevLapTimes.count - 1];
+					else if (_Score.BestLapTimes.count > 0) Time = _Score.BestLapTimes[_Score.BestLapTimes.count - 1];
+				} else {
+					if (IsOwner) Time = Owner.LapWaypointTimes[Owner.LapWaypointTimes.count - 1];
+					else if (_Score.BestLapTimes.existskey(Owner.LapWaypointTimes.count - 1)) Time = _Score.BestLapTimes[Owner.LapWaypointTimes.count - 1];
+				}
+			} else {
+				if (IsOwner && Owner.RaceWaypointTimes.count > 0) Time = Owner.RaceWaypointTimes[Owner.RaceWaypointTimes.count - 1];
+				else if (_Score.BestRaceTimes.existskey(Owner.RaceWaypointTimes.count - 1)) Time = _Score.BestRaceTimes[Owner.RaceWaypointTimes.count - 1];
+			}
+		}
+
+		declare Race_TimeGap_CheckpointLeadTime for Owner = 0;
+		if (_SlotNb != 0 || Time != Race_TimeGap_CheckpointLeadTime) {
+			Time = Time - Race_TimeGap_CheckpointLeadTime;
+		}
+
+		declare Race_TimeGap_Rank for _Score = 1;
+		UpdateSlotUI(_SlotNb, Time, Race_TimeGap_Rank, _Score.User, C_Ghost_Null, IsOwner, _Score.TeamNum, _CustomTeamBlueColor, _CustomTeamRedColor);
+	} else {
+		UpdateSlotUI(_SlotNb, -1, -1, Null, C_Ghost_Null, False, -1, "", "");
+	}
+}
+
+Void UpdateTimeGap(Boolean _IsIndependentLaps, Boolean _DisplayOnlyMyTeam, Text _CustomTeamBlueColor, Text _CustomTeamRedColor) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner == Null || Owner.Score == Null) return;
+
+	if (Owner.RaceWaypointTimes.count <= 0) return;
+
+	declare Integer[Integer] CheckpointsSort;
+	declare CSmScore[Integer] ScoreList;
+	declare K_GhostData[Integer] GhostList;
+	declare netread Integer Net_TimeGap_Mode for Teams[0];
+	if (Net_TimeGap_Mode == C_TimeGapMode_CurRace) {
+		foreach (PlayerIndex => Player in Players) {
+			if (Player.RaceWaypointTimes.count < Owner.RaceWaypointTimes.count) continue;
+			if (_DisplayOnlyMyTeam && Player.CurrentClan != Owner.CurrentClan) continue;
+			if (Player.Score == Null) continue;
+			if (Player.Score.Id == Owner.Score.Id) {
+				ScoreList[C_Owner_IndexForArrays] <=> Player.Score;
+				CheckpointsSort[C_Owner_IndexForArrays] = Player.RaceWaypointTimes[Owner.RaceWaypointTimes.count-1];
+			} else {
+				ScoreList[PlayerIndex + 1] <=> Player.Score;
+				CheckpointsSort[PlayerIndex + 1] = Player.RaceWaypointTimes[Owner.RaceWaypointTimes.count-1];
+			}
+		}
+	} else if (Net_TimeGap_Mode == C_TimeGapMode_Solo || Net_TimeGap_Mode == C_TimeGapMode_BestRace) {
+		if (_IsIndependentLaps && Owner.LapWaypointTimes.count <= 0 && Owner.Score.PrevLapTimes.count <= 0) return;
+
+		declare CheckpointsCount = 0;
+
+		if (_IsIndependentLaps) {
+			if (Owner.LapWaypointTimes.count <= 0) {
+				CheckpointsSort[C_Owner_IndexForArrays] = Owner.Score.PrevLapTimes[Owner.Score.PrevLapTimes.count - 1];
+				CheckpointsCount = Owner.Score.PrevLapTimes.count;
+			} else {
+				CheckpointsSort[C_Owner_IndexForArrays] = Owner.LapWaypointTimes[Owner.LapWaypointTimes.count-1];
+				CheckpointsCount = Owner.LapWaypointTimes.count;
+			}
+		} else {
+			CheckpointsSort[C_Owner_IndexForArrays] = Owner.RaceWaypointTimes[Owner.RaceWaypointTimes.count-1];
+			CheckpointsCount = Owner.RaceWaypointTimes.count;
+		}
+
+		if (Net_TimeGap_Mode == C_TimeGapMode_Solo) {
+			declare netread K_GhostData[] Net_TimeGap_GhostIdentList_V2 for Owner;
+			foreach (GhostIndex => GhostData in Net_TimeGap_GhostIdentList_V2) {
+				if (GhostData.Checkpoints.count < CheckpointsCount) continue;
+				GhostList[GhostIndex + 1] = GhostData;
+				CheckpointsSort[GhostIndex + 1] = GhostData.Checkpoints[CheckpointsCount-1];
+			}
+		} else if (Net_TimeGap_Mode == C_TimeGapMode_BestRace) {
+			ScoreList[C_Owner_IndexForArrays] <=> Owner.Score;
+			foreach (ScoreIndex => Score in Scores) {
+				if (Score.Id == ScoreList[C_Owner_IndexForArrays].Id) continue;
+				if (_DisplayOnlyMyTeam && Score.TeamNum != Owner.CurrentClan) continue;
+				if (_IsIndependentLaps) {
+					if (Score.BestLapTimes.count >= CheckpointsCount) {
+						ScoreList[ScoreIndex + 1] <=> Score;
+						CheckpointsSort[ScoreIndex + 1] = Score.BestLapTimes[CheckpointsCount-1];
+					}
+				} else {
+					if (Score.BestRaceTimes.count >= CheckpointsCount) {
+						ScoreList[ScoreIndex + 1] <=> Score;
+						CheckpointsSort[ScoreIndex + 1] = Score.BestRaceTimes[CheckpointsCount-1];
+					}
+				}
+			}
+		}
+	}
+
+	CheckpointsSort = CheckpointsSort.sort();
+
+	declare Start = 0;
+	declare End = 0;
+	declare SlotsCount = Frames_Player.count - 1; //< First slot is reserved for the leader
+	foreach (Index => CheckpointTime in CheckpointsSort) {
+		if (Index == C_Owner_IndexForArrays) break;
+		End +=1;
+	}
+	if (End + 1 <= CheckpointsSort.count - 1) End += 1; //< Display the time diff with the player following me
+	Start = End - SlotsCount + 1;
+	if (Start < 0) Start = 0;
+	if (End < SlotsCount - 1 + 1) End = SlotsCount - 1 + 1; //< +1 because the first slot is reserved for the leader
+
+	declare Race_TimeGap_CheckpointLeadTime for Owner = 0;
+	declare SlotNb = 0;
+	declare Rank = 0;
+	foreach (Index => CheckpointTime in CheckpointsSort) {
+		if (Rank == 0) Race_TimeGap_CheckpointLeadTime = CheckpointTime;
+		if (Rank == 0 || (Rank >= Start && Rank <= End)) {
+			switch(Net_TimeGap_Mode){
+				case C_TimeGapMode_Solo: {
+					declare K_GhostData Ghost;
+					declare CUser User;
+					if (GhostList.existskey(Index)) {
+						Ghost = GhostList[Index];
+					}	else if (Index == C_Owner_IndexForArrays) {
+						User <=> Owner.User;
+					}
+					if (Rank == 0) UpdateSlotUI(SlotNb, CheckpointTime, Rank + 1, User, Ghost, Index == C_Owner_IndexForArrays, -1, _CustomTeamBlueColor, _CustomTeamRedColor);
+					else UpdateSlotUI(SlotNb, CheckpointTime - Race_TimeGap_CheckpointLeadTime, Rank + 1, User, Ghost, Index == C_Owner_IndexForArrays, -1, _CustomTeamBlueColor, _CustomTeamRedColor);
+				}
+				default:{
+					if (ScoreList.existskey(Index)) {
+						declare Race_TimeGap_Rank for ScoreList[Index] = 1;
+						Race_TimeGap_Rank = Rank + 1;
+						UpdateSlot(_IsIndependentLaps, SlotNb, ScoreList[Index], _CustomTeamBlueColor, _CustomTeamRedColor);
+					}
+				}
+			}
+			SlotNb += 1;
+		}
+		Rank += 1;
+	}
+	for (J, SlotNb, Frames_Player.count) {
+		UpdateSlot(_IsIndependentLaps, J, Null, _CustomTeamBlueColor, _CustomTeamRedColor);
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_HideForSpectators;
+declare CMlFrame Frame_IsPlaying;
+declare CMlFrame Frame_TimeGap;
+declare CMlFrame Frame_PlayersList;
+declare CMlFrame Frame_Backgrounds;
+
+declare netread Integer Net_TimeGap_Mode for Teams[0];
+declare netread Boolean Net_TimeGap_HideForSpectators for Teams[0] = False;
+declare netread Boolean Net_TimeGap_DisplayOnlyMyTeam for Teams[0] = False;
+declare netread Text Net_TimeGap_TeamBlueColor for Teams[0];
+declare netread Text Net_TimeGap_TeamRedColor for Teams[0];
+
+declare Boolean DisplayModule;
+declare Boolean OwnerIsUnspawned;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_HideForSpectators <=> (Frame_Global.GetFirstChild("frame-hide-for-spectators") as CMlFrame);
+Frame_IsPlaying <=> (Frame_Global.GetFirstChild("frame-is-playing") as CMlFrame);
+Frame_TimeGap <=> (Page.GetFirstChild("frame-time-gap") as CMlFrame);
+Frame_PlayersList <=> (Page.GetFirstChild("frame-players-list") as CMlFrame);
+foreach (Control in Frame_PlayersList.Controls) {
+	Frames_Player.add((Control as CMlFrame));
+}
+Frame_Backgrounds <=> (Page.GetFirstChild("frame-backgrounds") as CMlFrame);
+foreach (Control in Frame_Backgrounds.Controls) {
+	Frames_Background.add((Control as CMlFrame));
+}
+
+DisplayModule = Frame_Global.Visible;
+OwnerIsUnspawned = !Frame_IsPlaying.Visible;
+
+declare Boolean PositionUpdated = False;
+switch(Net_TimeGap_Mode) {
+	case C_TimeGapMode_Solo:{
+		Frame_Global.GetFirstChild("{{{UIModules::GetCustomizableUIModuleFrameId(UIModules_TimeGap_Common::C_UIModuleConfig)}}}").RelativePosition_V3 = {{{dump(Pos_TimeGap_Solo)}}};
+		PositionUpdated = True;
+	}
+}
+if (SplitScreenCount > 1) {
+	MV_Utils::AutoScaleSplitScreen(Frame_Global, 0.8, 0.5);
+	if (SplitScreenCount == 2) {
+		Frame_Global.GetFirstChild("{{{UIModules::GetCustomizableUIModuleFrameId(UIModules_TimeGap_Common::C_UIModuleConfig)}}}").RelativePosition_V3 = {{{dump(Pos_TimeGap_TwoScreens)}}};
+		PositionUpdated = True;
+	}
+}
+// Must move this UI to respect safe area on Playstation (see /trackmania-next/tmnext/-/issues/5447)
+if (!PositionUpdated && Platform::IsSony(System)) {
+	Frame_Global.GetFirstChild("{{{UIModules::GetCustomizableUIModuleFrameId(UIModules_TimeGap_Common::C_UIModuleConfig)}}}").RelativePosition_V3 = {{{dump(Pos_TimeGap_SonySafeArea)}}};
+}
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	sleep(250);
+
+	declare PlayerIsSpectator = (InputPlayer != Null && InputPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned);
+	if (
+		Frame_HideForSpectators.Visible != (
+			!PlayerIsSpectator ||
+			!Net_TimeGap_HideForSpectators
+		)
+	) {
+		Frame_HideForSpectators.Visible = (
+			!PlayerIsSpectator ||
+			!Net_TimeGap_HideForSpectators
+		);
+	}
+
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_Race_TimeGap_IsVisible for Owner;
+		if (DisplayModule != (Net_Race_TimeGap_IsVisible && Net_TimeGap_Mode != C_TimeGapMode_Hidden)) {
+			DisplayModule = (Net_Race_TimeGap_IsVisible && Net_TimeGap_Mode != C_TimeGapMode_Hidden);
+			Frame_Global.Visible = DisplayModule;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Owner != Null && OwnerIsUnspawned != (Owner.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)) {
+		OwnerIsUnspawned = (Owner.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned);
+		Frame_IsPlaying.Visible = !OwnerIsUnspawned;
+	}
+
+	if (Owner != Null) {
+		declare NeedUpdate = False;
+
+		if (Owner.RaceWaypointTimes.count <= 0 && Frame_TimeGap.Visible) {
+			Frame_TimeGap.Visible = False;
+		} else if (Owner.RaceWaypointTimes.count > 0 && !Frame_TimeGap.Visible) {
+			Frame_TimeGap.Visible = True;
+			NeedUpdate = True;
+		}
+
+		if (Net_TimeGap_Mode == C_TimeGapMode_CurRace) {
+			foreach (Player in Players) {
+				declare Race_TimeGap_PrevCheckpointsCount for Player = -1;
+				if (Race_TimeGap_PrevCheckpointsCount != Player.RaceWaypointTimes.count) {
+					Race_TimeGap_PrevCheckpointsCount = Player.RaceWaypointTimes.count;
+					if (Player.RaceWaypointTimes.count == Owner.RaceWaypointTimes.count) {
+						NeedUpdate = True;
+					}
+				}
+			}
+		} else if (Net_TimeGap_Mode == C_TimeGapMode_Solo || Net_TimeGap_Mode == C_TimeGapMode_BestRace) {
+			declare Race_TimeGap_PrevCheckpointsCount for Owner = -1;
+			declare Race_TimeGap_PrevRaceTime for Owner = -1;
+
+			if (Race_TimeGap_PrevCheckpointsCount != Owner.RaceWaypointTimes.count) {
+				Race_TimeGap_PrevCheckpointsCount = Owner.RaceWaypointTimes.count;
+				NeedUpdate = True;
+			}
+			if (
+				Owner.Score != Null &&
+				Owner.Score.PrevRaceTimes.count > 0 &&
+				Race_TimeGap_PrevRaceTime != Owner.Score.PrevRaceTimes[Owner.Score.PrevRaceTimes.count - 1]
+			) {
+				Race_TimeGap_PrevRaceTime = Owner.Score.PrevRaceTimes[Owner.Score.PrevRaceTimes.count - 1];
+				NeedUpdate = True;
+			}
+
+			if (Net_TimeGap_Mode == C_TimeGapMode_BestRace) {
+				foreach (Score in Scores) {
+					declare Race_TimeGap_PrevBestRaceTime for Score = -1;
+					if (Score.BestRaceTimes.count > 0 && Race_TimeGap_PrevBestRaceTime != Score.BestRaceTimes[Score.BestRaceTimes.count - 1]) {
+						Race_TimeGap_PrevBestRaceTime = Score.BestRaceTimes[Score.BestRaceTimes.count - 1];
+						NeedUpdate = True;
+					}
+				}
+			}
+		}
+
+		if (NeedUpdate) UpdateTimeGap(Helpers::IsIndependentLaps(Teams[0]), Net_TimeGap_DisplayOnlyMyTeam, Net_TimeGap_TeamBlueColor, Net_TimeGap_TeamRedColor);
+	}
+}
+***
+""",
+		[
+			UIModules::Component(),
+			PlayerName::ComponentV2()
+		],
+		[]
+	);
+}

@@ -1,0 +1,159 @@
+/**
+ *	UI module: Chrono client side
+ */
+#Const Version		"1.1.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/Chrono_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/Chrono_Common.Script.txt" as UIModules_Chrono_Common
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/ZIndex.Script.txt" as ZIndex
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Size_DisplayClip <45., 8.>
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_Chrono_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Chrono_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return MV::Create(
+GetId(), 3,
+"""
+<frame id="frame-global" z-index="{{{ZIndex::C_ZIndex_Chrono}}}" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Chrono_Common::C_UIModuleConfig)}}}>
+		<frame {{{MLHelpers::Size(C_Size_DisplayClip)}}} halign="center" valign="center">
+			<label
+				id="label-chrono"
+				pos="0 {{{-C_Size_DisplayClip.Y}}}"
+				{{{MLHelpers::Size(C_Size_DisplayClip)}}}
+				halign="center" valign="center2"
+				textsize="6"
+				textemboss="1"
+				textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_IngameTime)}}}"
+				textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}"
+				hidden="1"
+			/>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Client.Script.txt" as RaceHelpers
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/Chrono_Common.Script.txt" as UIModules_Chrono_Common
+
+#Struct K_Controls {
+	CMlFrame Frame_Global;
+	CMlLabel Label_Chrono;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Boolean IsVisible;
+	Boolean PageIsVisible;
+	Boolean DisplayModule;
+	Boolean CanSeeChrono;
+}
+
+#Const C_Size_DisplayClip {{{dump(C_Size_DisplayClip)}}}
+#Const C_AnimDuration_ShowHideModule 250
+
+#Const C_State_Null K_State {
+	Controls = K_Controls {},
+	IsVisible = False,
+	PageIsVisible = False,
+	DisplayModule = False,
+	CanSeeChrono = False
+}
+""",
+"""
+// Check if the user can see the chrono
+Boolean CanSeeChrono(CSmPlayer _TargetPlayer) {
+	return (
+		_TargetPlayer != Null &&
+		_TargetPlayer.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned
+	);
+}
+
+// Update the visibility of the whole manialink UI
+K_State SetVisibility(K_State _State, Boolean _PageIsVisible, Boolean _DisplayModule, Boolean _CanSeeChrono) {
+	declare K_State State = _State;
+	State.PageIsVisible = _PageIsVisible;
+	State.DisplayModule = _DisplayModule;
+	State.CanSeeChrono = _CanSeeChrono;
+	State.IsVisible = State.PageIsVisible && State.DisplayModule && State.CanSeeChrono;
+
+	AnimMgr.Flush(State.Controls.Frame_Global);
+	AnimMgr.Flush(State.Controls.Label_Chrono);
+	if (State.IsVisible) {
+		State.Controls.Frame_Global.Visible = True;
+		AnimMgr.Add(State.Controls.Label_Chrono, "<a pos=\"0 0\" hidden=\"0\" />", C_AnimDuration_ShowHideModule, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		AnimMgr.Add(State.Controls.Frame_Global, "<a hidden=\"1\" />", C_AnimDuration_ShowHideModule, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Label_Chrono, "<a pos=\"0 "^-C_Size_DisplayClip.Y^"\" hidden=\"1\" />", C_AnimDuration_ShowHideModule, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	return State;
+}
+
+***MainInit***
+***
+declare netread Boolean Net_RoyalStars_Chrono_DisplayModule for UI = UIModules_Chrono_Common::C_Default_Visibility;
+
+declare K_State State = C_State_Null;
+***
+
+***MainStart***
+***
+State.Controls.Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+State.Controls.Label_Chrono <=> (State.Controls.Frame_Global.GetFirstChild("label-chrono") as CMlLabel);
+
+State = SetVisibility(State, PageIsVisible, Net_RoyalStars_Chrono_DisplayModule, CanSeeChrono(GUIPlayer));
+***
+
+***MainLoop***
+***
+if (State.PageIsVisible != PageIsVisible) {
+	State = SetVisibility(State, PageIsVisible, State.DisplayModule, State.CanSeeChrono);
+}
+if (State.PageIsVisible) {
+	if (
+		State.DisplayModule != Net_RoyalStars_Chrono_DisplayModule ||
+		State.CanSeeChrono != CanSeeChrono(GUIPlayer)
+	) {
+		State = SetVisibility(State, PageIsVisible, Net_RoyalStars_Chrono_DisplayModule, CanSeeChrono(GUIPlayer));
+	}
+	if (State.IsVisible && GUIPlayer != Null) {
+		RaceHelpers::UpdatePlayerChronoLabel(Teams[0], State.Controls.Label_Chrono, GUIPlayer);
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

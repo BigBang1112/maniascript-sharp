@@ -1,0 +1,1677 @@
+/**
+ *	Component: PopUpMultiChoice
+ *	===========================
+ *
+ *	Confluence : https://confluence.ubisoft.com/display/Nadeo/PopUpMultiChoice
+ *	GitLab : https://gitlab.nadeo.org/utils/script-documentation/-/wikis/PopUpMultiChoice
+ *
+ *	Info
+ *	----
+ *
+ *	Create a pop-up with multiple choices.
+ *	The layout depends on the number of choices in the `data-choices` parameter :
+ *	- Single choice: a single centered button at the botom of the pop-up
+ *	- Two choices: a left and right buttons at the botom of the pop-up
+ *	- Multiple choices: a list of choices in a scroll view
+ *
+ *	Events
+ *	----------
+ *
+ *	- `C_EventType_Display`: event sent when the pop-up display state is modified
+ *	- `C_EventType_Select`: event sent when a choice is selected in the pop-up
+ *	- `C_EventType_Abort`: event sent when the pop-up is closed with no choice selection
+ *
+ *	Parameters
+ *	----------
+ *
+ *	- `data-width` (`Real`): width of the pop-up
+ *	- `data-halign` (`Text`): horizontal alignment of the pop-up
+ *			Can be `left`, `center` or `right`.
+ *	- `data-valign` (`Text`): horizontal alignment of the pop-up
+ *			Can be `top`, `center` or `bottom`.
+ *	- `data-choices` (`Text`): text for the different possible choices. It must be a Text[Integer] associative array converted into a json.
+ *	- `data-title` (`Text`): title of the pop-up
+ *	- `data-title-fitlabel-enabled` (`Boolean`): fit the text in the pop-up when it exceeds its width
+ *	- `data-title-textfont` (`Text`): font of the pop-up's title
+ *	- `data-title-textsize` (`Real`): font size of the pop-up's title
+ *	- `data-title-textprefix` (`Text`): prefix of the pop-up's title
+ *	- `data-description` (`Text`): text for the description. It must be a K_DescriptionPart[] array converted into a json.
+ *	- `data-description-debug` (`Boolean`): display the label's fingerprint on the screen with red quads
+ *	- `data-styles-firstchoice` (`Text`): styles to apply to the single choice button and to the left choice button
+ *	- `data-styles-secondchoice` (`Text`): styles to apply to the right choice button
+ *	- `data-styles-scrollchoice` (`Text`): styles to apply to the choice buttons inside the scroll
+ *	- `data-force-scrollview` (`Boolean`): force the choices to be in a scroll view (even if we have less than 3 choices)
+ *	- `data-scroll-focused-choice-key` (`Integer`): which choice line to focus in the scroll at pop up opening (scroll keys start at 0)
+ *	- `data-nav-inputs` (`Text`): navigation inputs for the choice buttons. `select`, `cancel`, `left` and `right` cannot be replaced.
+ *	- `data-nav-targets` (`Text`): navigation targets for the given navigation inputs
+ *	- `data-selection-required` (`Boolean`): the pop-up requires a selection of one of the given choices and cannot be closed
+ *	- `data-close-after-selection` (`Boolean`): close the pop-up after a selection (default), `false` to leave it open
+ *	- `data-custom-content-frame` (`Text`): the id of the frame that contains custom contents to add to the pop-up
+ *	- `data-focus-when-displayed` (`Text`): the id of the control to focus when opening the pop-up. If not defined, the last control focused before leaving he pop-up remains focused.
+ *  - `data-default-focus-second-button` (`Boolean`): focus the second choice button when opening the pop-up. False by default (and focus the first choice button)
+ *	- `data-styles` (`Text`): styles to apply to the pop-up with multiple choices, new styles can be created with the `CreateStyle()` function
+ *			When several styles are applied to a pop-up with multiple choices, the styles are merged together with the properties
+ *			of the latest style overriding the properties of the earlier ones.
+ *			For example if "style-a" is `{ A = 1, B = 2, C = 3 }`, "style-b" is `{ A = 11 , C = 33}` and
+ *			"style-c" is `{ A = 111 }` and we set the pop-up with multiple choices style to `"style-a style-b style-c"`
+ *			then the applied properties will be `{ A = 111, B = 2, C = 33 }`.
+ */
+#Const Version "1.1.2"
+#Const ScriptName "Libs/Nadeo/Trackmania/Components/PopUpMultiChoice.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Context.Script.txt" as Context
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as Grid
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/RequestRedraw.Script.txt" as RequestRedraw
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/TextToSpeech.Script.txt" as TextToSpeech
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Selector.Script.txt" as Selector
+#Include "Libs/Nadeo/CMGame/Components/Scroll.Script.txt" as Scroll
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButtonBase.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton_Trackmania
+#Include "Libs/Nadeo/CMGame/Components/Checkbox.Script.txt" as Checkbox
+#Include "Libs/Nadeo/Trackmania/Components/PopUpBackground2.Script.txt" as PopUpBackground
+#Include "Libs/Nadeo/CMGame/Components/TextField.Script.txt" as TextField
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_DescriptionPart {
+	Boolean TextFitLabelEnabled;
+	Real TextFontSize;
+	Text TextFont;
+	Text TextPrefix;
+	Text TextValue;
+	Vec2 TextSize;
+	Vec3 TextColor;
+}
+#Struct K_Controls {
+	CMlFrame Button_FirstChoice;
+	CMlFrame Button_SecondChoice;
+	CMlFrame Frame_Background;
+	CMlFrame Frame_CustomContent;
+	CMlFrame Frame_DescriptionContainer;
+	CMlFrame Frame_NavigationContainer;
+	CMlFrame Frame_DescriptionDebug;
+	CMlFrame Frame_ScrollChoices;
+	CMlLabel Label_Title;
+}
+
+#Struct K_Properties {
+	Boolean IsDescriptionDebugEnabled;
+	Boolean TitleFitLabelEnabled;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Integer[] Enabled;
+	Real TitleFontSize;
+	Real Width;
+	Text TitleFont;
+	Text TitlePrefix;
+	Text TitleValue;
+	Text[Integer] Choices;
+	Text[] NavigationInputs;
+	Text[] NavigationTargets;
+	Text[] StylesFirstChoice;
+	Text[] StylesScrollChoice;
+	Text[] StylesSecondChoice;
+	K_DescriptionPart[] Description;
+	Boolean ForceScrollView;
+	Boolean ForceHideChoices;
+	Integer ScrollFocusedChoiceKey;
+	CMlControl FocusWhenDisplayed;
+	Boolean DefaultFocusSecondButton;
+}
+#Struct K_PopUpMultiChoice {
+	Boolean IsClosedAfterSelection;
+	Boolean IsPopUpMultiChoice;
+	Boolean IsSelectionRequired;
+	CMlControl LastFocusedControl;
+	CMlControl[] CustomContentControls;
+	Text[] Styles;
+	K_Controls Controls;
+	K_Properties CustomizedProperties;
+	K_Properties MergedProperties;
+}
+#Struct K_Event {
+	CMlControl SelectedControl;
+	CMlFrame PopUpMultiChoice;
+	Integer SelectedIndex;
+	Integer Type;
+	Text SelectedChoice;
+}
+#Struct K_State {
+	Integer RedrawRequested;
+	K_Properties[Text] Styles;
+	K_Properties DefaultProperties;
+	K_Event[] DelayedPendingEvents;
+	K_Event[] PendingEvents;
+	Ident[] TTSContextIdentList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_PopUpMultiChoice_Null K_PopUpMultiChoice {
+	IsPopUpMultiChoice = False
+}
+#Const C_State_Null K_State {
+	RedrawRequested = 0,
+	Styles = [],
+	DefaultProperties = K_Properties {
+		Enabled = []
+	},
+	DelayedPendingEvents = [],
+	PendingEvents = [],
+	TTSContextIdentList = []
+}
+
+#Const C_Name "component-popupmultichoice" //< Component name
+#Const C_NavGroup "navgroup-component-popupmultichoice"
+#Const P "Trackmania_PopUpMultiChoice::" //< Prefix used to differentiate functions/variables in the script
+#Const Q "Trackmania_PopUpMultiChoice"
+
+#Const PopUpBackground::C_Style_SecondaryPopUp_WithHeader as C_Style_SecondaryPopUp_WithHeader
+#Const PopUpBackground::C_Style_TertiaryPopUp_WithHeader as C_Style_TertiaryPopUp_WithHeader
+
+// The properties indexing must be a continuous sequence starting from 0
+// 0,1,2,3,... not 0,1,3,... for example
+#Const C_Property_Width 0
+#Const C_Property_HAlign 1
+#Const C_Property_VAlign 2
+#Const C_Property_Choices 3
+#Const C_Property_TitleValue 4
+#Const C_Property_TitleFitLabelEnabled 5
+#Const C_Property_TitleFont 6
+#Const C_Property_TitleFontSize 7
+#Const C_Property_TitlePrefix 8
+#Const C_Property_Description 9
+#Const C_Property_DescriptionDebug 10
+#Const C_Property_StylesFirstChoice 11
+#Const C_Property_StylesSecondChoice 12
+#Const C_Property_StylesScrollChoice 13
+#Const C_Property_ForceScrollView 14
+#Const C_Property_NavigationInputs 15
+#Const C_Property_NavigationTargets 16
+#Const C_Property_ForceHideChoices 17
+#Const C_Property_ScrollFocusedChoiceKey 18
+#Const C_Property_FocusWhenDisplayed 19
+#Const C_Property_DefaultFocusSecondButton 20
+
+#Const C_EventType_Display 0
+#Const C_EventType_Select 1
+#Const C_EventType_Abort 2
+
+#Const C_Choice_Default 0
+
+#Const C_ChoiceStyle_Default "choice-style-button-default"
+#Const C_ChoiceStyle_Scroll "choice-style-button-scroll"
+
+#Const C_Class_PopUpMultiChoice "trackmania-pop-up-multi-choice_popupmultichoice" //< Component class
+#Const C_Class_Navigation "trackmania-pop-up-multi-choice_navigation"
+#Const C_NavContainer "trackmania-pop-up-multi-choice_navcontainer"
+#Const C_Id_ButtonChoice "trackmania-pop-up-multi-choice_button-choice"
+#Const C_Id_QuadActivation "trackmania-pop-up-multi-choice_quad-activation"
+#Const C_Id_QuadDescriptionDebugIndex "trackmania-pop-up-multi-choice_quad-description-debug-"
+#Const C_Id_LabelDescriptionLineIndex "trackmania-pop-up-multi-choice_label-description-line-"
+#Const C_Id_FrameBackground "trackmania-pop-up-multi-choice_frame-background"
+#Const C_Id_LabelTitle "trackmania-pop-up-multi-choice_label-title"
+#Const C_Id_FrameDescriptionContainer "trackmania-pop-up-multi-choice_frame-description-container"
+#Const C_Id_FrameDescriptionDebug "trackmania-pop-up-multi-choice_frame-description-debug"
+#Const C_Id_FrameScrollView "trackmania-pop-up-multi-choice_frame-scroll-view"
+#Const C_Id_FrameScrollChoices "trackmania-pop-up-multi-choice_frame-scroll-choices"
+#Const C_FirstChoice "trackmania-pop-up-multi-choice_button-first-choice"
+#Const C_SecondChoice "trackmania-pop-up-multi-choice_button-second-choice"
+
+//L16N [PopUpMultiChoice] Text of the default button.
+#Const C_Text_Default _("Ok")
+
+#Const C_RowsNb 5
+#Const C_ColumnsNb 1
+#Const C_Margin 5.
+#Const C_ScrollPadding 17.5
+#Const C_Pos_ChoicesScrollWindow <-72., 19.>
+#Const C_Size_ChoicesScrollWindow <100., 50.>
+#Const C_Size_ChoiceMargin <0., 0.>
+#Const C_Size_Footer <0., 0.>
+#Const C_Size_Header <0., 0.>
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a description line with custom properties
+K_DescriptionPart CreateDescriptionPart(
+	Text _TextValue,
+	Vec2 _TextSize,
+	Real _TextFontSize,
+	Text _TextFont,
+	Text _TextPrefix,
+	Vec3 _TextColor,
+	Boolean _TextFitLabelEnabled
+) {
+	return K_DescriptionPart {
+		TextValue = _TextValue,
+		TextSize = _TextSize,
+		TextFontSize = _TextFontSize,
+		TextFont = _TextFont,
+		TextPrefix = _TextPrefix,
+		TextColor = _TextColor,
+		TextFitLabelEnabled = _TextFitLabelEnabled
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create an empty line with a custom height
+K_DescriptionPart EmptyLine(Real _VerticalSize) {
+	return CreateDescriptionPart("", <0., _VerticalSize>, 0., "", "", <0., 0., 0.>, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the manialink of the component
+Text GetManialink() {
+	declare Integer ChoicesPerPage = C_ColumnsNb * C_RowsNb;
+	declare Vec2 Size_Choice = Scroll::GetElementSize(C_Size_ChoicesScrollWindow, C_Size_ChoiceMargin, C_ColumnsNb, C_RowsNb);
+	declare Integer ElementsNb = Scroll::GetRequiredElementsNb(C_Size_ChoicesScrollWindow, Size_Choice, C_Size_ChoiceMargin, C_ColumnsNb);
+
+	declare Text ML_Choices = "";
+	for (I, 1, ElementsNb) {
+		ML_Choices ^= """
+			<frame class="{{{Scroll::C_Class_Element}}}" hidden="1">
+				<frameinstance id="{{{C_Id_ButtonChoice}}}" modelid="{{{ExpendableButton_Trackmania::C_Name}}}" pos="{{{C_Size_ChoicesScrollWindow.X*0.5}}} 0" z-index="0"/>
+				<quad	id="{{{C_Id_QuadActivation}}}" pos="{{{C_Size_ChoicesScrollWindow.X*0.5}}} 0" size="{{{C_Size_ChoicesScrollWindow.X}}} 9." class="{{{Scroll::C_Class_ActivationZone}}}" opacity="0" halign="center" scriptevents="1" z-index="1"/>
+			</frame>
+		""";
+	}
+
+	/* Description Grid */
+	declare Text ML_DescriptionLines = "";
+	declare Text ML_DescriptionDebug = "";
+	for (Index, 0, 3) {
+		/*
+		We MUST initialize the label with a textprefix value.
+		Otherwise the `TextPrefix` property initialization in the
+		script will be bugged. The latest `TextPrefix` applied
+		will also be applied to all other labels that had their
+		`TextPrefix` updated.
+		*/
+		ML_DescriptionLines ^= """
+			<label id="{{{C_Id_LabelDescriptionLineIndex}}}{{{Index}}}" class="{{{Grid::C_Class_Element}}}" data-grid-row="{{{Index}}}" textprefix="$z" halign="center" valign="center2" autonewline="1" z-index="1" hidden="1"/>
+		""";
+		ML_DescriptionDebug ^= """
+			<quad id="{{{C_Id_QuadDescriptionDebugIndex}}}{{{Index}}}" bgcolor="FF0000" halign="center" valign="center" opacity="0.3" hidden="1"/>
+		""";
+	}
+
+	return """
+<frame class="{{{C_Class_PopUpMultiChoice}}}">
+	<frame z-index="1" id="{{{C_NavContainer}}}" class="{{{Navigation::C_Class_Container}}}">
+		<frameinstance id="{{{C_Id_FrameBackground}}}" modelid="{{{PopUpBackground::C_Name}}}" data-styles="{{{C_Style_SecondaryPopUp_WithHeader}}}" z-index="0"/>
+		<label id="{{{C_Id_LabelTitle}}}" halign="center" valign="center2" textcolor="FFFFFF" z-index="1"/>
+		<frame id="{{{C_Id_FrameDescriptionContainer}}}" class="{{{Grid::C_Class_Container}}}" z-index="1">
+			{{{ML_DescriptionLines}}}
+		</frame>
+		<frame id="{{{C_Id_FrameDescriptionDebug}}}" z-index="2" hidden="1">
+			{{{ML_DescriptionDebug}}}
+		</frame>
+
+		<frame id="{{{C_Id_FrameScrollView}}}" z-index="2">
+			<frameinstance modelid="{{{Scroll::C_Name}}}" data-scroll-parent="{{{C_Id_FrameScrollChoices}}}" z-index="1" />
+			<frame
+				id="{{{C_Id_FrameScrollChoices}}}"
+				pos="{{{MLHelpers::Skew(C_Pos_ChoicesScrollWindow.X + C_ScrollPadding, C_Pos_ChoicesScrollWindow.Y, PopUpBackground::C_SkewAngle)}}}"
+				class="{{{Scroll::C_Class_Window}}} {{{Navigation::C_Class}}} {{{C_Class_Navigation}}}"
+				data-pager-page-size="{{{ChoicesPerPage*2}}}"
+				data-elements-per-line="{{{C_ColumnsNb}}}"
+				data-element-size="{{{Size_Choice.X}}} {{{Size_Choice.Y}}}"
+				data-margin-size="{{{C_Size_ChoiceMargin.X}}} {{{C_Size_ChoiceMargin.Y}}}"
+				data-window-size="{{{C_Size_ChoicesScrollWindow.X}}} {{{C_Size_ChoicesScrollWindow.Y}}}"
+				data-header-height="{{{C_Size_Header.Y}}}"
+				data-footer-height="{{{C_Size_Footer.Y}}}"
+				data-scroll-indicator-x-offset="-5."
+				data-scroll-indicator-y-offset="-9."
+				data-scroll-indicator-image="{{{Icons::C_Icon_128x128_Arrow_Bottom_Oblique}}}"
+				data-scroll-indicator-colorize="FFFFFF"
+				data-scroll-indicator-size="10"
+				data-scrollbar-xoffset="10."
+				data-scrollpadding="{{{C_ScrollPadding}}}"
+				data-scroll-locked="1"
+				data-skew="-10."
+				data-skew-valign="{{{Scroll::C_SkewVAlign_Center}}}"
+				data-nav-group="{{{C_NavGroup}}}"
+			>
+				<quad z-index="-1" scriptevents="1" class="{{{Scroll::C_Class_ScrollEvent}}}" />
+				{{{ML_Choices}}}
+			</frame>
+		</frame>
+
+		<frameinstance
+			id="{{{C_FirstChoice}}}" z-index="2"
+			modelid="{{{ExpendableButton_Trackmania::C_Name}}}"
+			class="{{{Navigation::C_Class}}} {{{C_Class_Navigation}}}"
+			data-nav-inputs="select;cancel;right"
+			data-nav-targets="_;_;{{{C_SecondChoice}}}"
+			data-nav-group="{{{C_NavGroup}}}"
+			data-nav-zone="{{{ExpendableButton_Trackmania::C_NavZone}}}"
+		/>
+		<frameinstance
+			id="{{{C_SecondChoice}}}" z-index="2"
+			modelid="{{{ExpendableButton_Trackmania::C_Name}}}"
+			class="{{{Navigation::C_Class}}} {{{C_Class_Navigation}}}"
+			data-nav-inputs="select;cancel;left"
+			data-nav-targets="_;_;{{{C_FirstChoice}}}"
+			data-nav-group="{{{C_NavGroup}}}"
+			data-nav-zone="{{{ExpendableButton_Trackmania::C_NavZone}}}"
+		/>
+	</frame>
+</frame>
+	""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the frame instance of this component from an inside control
+CMlFrame Private_GetPopUpMultiChoiceFrame(CMlControl _Control) {
+	if (_Control == Null) return Null;
+	if (_Control.HasClass(C_Class_PopUpMultiChoice)) return _Control.Parent;
+
+	declare CMlFrame Frame_ParentPopUpMultiChoice for _Control = Null;
+	if (Frame_ParentPopUpMultiChoice != Null) return Frame_ParentPopUpMultiChoice;
+
+	return Private_GetPopUpMultiChoiceFrame(_Control.Parent);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Handle the focus inside the pop-up
+Void Private_Focus(CMlScript _This, CMlControl _From, CMlControl _To, Boolean _IsAnimated) {
+	if (!_To.HasClass(C_Class_Navigation)) return;
+
+	if (_From != Null) {
+		Navigation::Unfocus(_This, _From);
+		if (ExpendableButton::IsButton(_From)) {
+			ExpendableButton::Focus(_This, _From as CMlFrame, False, _IsAnimated);
+		} else if (Scroll::IsScroll(_From)) {
+			Scroll::Unfocus(_This, (_From as CMlFrame));
+		} else if (Checkbox::IsCheckbox(_From)) {
+			Checkbox::Unfocus(_This, _From as CMlFrame);
+		} else if (TextField::IsTextField(_From)) {
+			TextField::Unfocus(_This, _From as CMlFrame);
+		} else if (Selector::IsSelector(_From)) {
+			Selector::Unfocus(_This, _From as CMlFrame);
+		}
+	}
+
+	if (_To != Null) {
+		Navigation::Focus(_This, _To);
+		if (ExpendableButton::IsButton(_To)) {
+			ExpendableButton::Focus(_This, _To as CMlFrame, True, _IsAnimated);
+		} else if (Scroll::IsScroll(_To)) {
+			Scroll::Focus(_This, (_To as CMlFrame));
+		} else if (Checkbox::IsCheckbox(_To)) {
+			Checkbox::Focus(_This, _To as CMlFrame);
+		} else if (TextField::IsTextField(_To)) {
+			TextField::Focus(_This, _To as CMlFrame);
+		} else if (Selector::IsSelector(_To)) {
+			Selector::Focus(_This, _To as CMlFrame);
+		}
+
+		declare CMlFrame Frame_PopUpMultiChoice = Private_GetPopUpMultiChoiceFrame(_To);
+		if (Frame_PopUpMultiChoice != Null) {
+			declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+			Trackmania_PopUpMultiChoice_PopUpMultiChoice.LastFocusedControl = _To;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Lock/Unlock the pop up navigation
+Void Private_LockPopUp(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Lock, Boolean _LockPopUpBackground) {
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+	assert(Trackmania_PopUpMultiChoice_PopUpMultiChoice.IsPopUpMultiChoice, _Frame_PopUpMultiChoice.ControlId^" is not an instance of the PopUpMultiChoice component.");
+
+	if (_LockPopUpBackground) {
+		PopUpBackground::SetDimmerSendCloseEvent(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background, !_Lock, False);
+		PopUpBackground::SetButtonLeaveEnable(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background, !_Lock, True);
+	}
+	Navigation::EnableGroup(_This, C_NavGroup, !_Lock);
+	Navigation::EnableContainer(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_NavigationContainer, !_Lock);
+	Navigation::Lock(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices, !Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices.Visible || _Lock);
+	Scroll::LockNavigation(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices, !Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices.Visible || _Lock);
+	if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_CustomContent != Null) {
+		Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_CustomContent.Visible = !_Lock && !Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices.Visible;
+		foreach (Control in Trackmania_PopUpMultiChoice_PopUpMultiChoice.CustomContentControls) {
+			Navigation::Lock(Control, !Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_CustomContent.Visible);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Display or hide the pop-up with multiple choices
+/// An event is sent only if the visibility of the pop-up changes
+Void Private_Display(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _IsDisplayed, Boolean _SendEvent, Boolean _IsAnimated) {
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+	assert(Trackmania_PopUpMultiChoice_PopUpMultiChoice.IsPopUpMultiChoice, _Frame_PopUpMultiChoice.ControlId^" is not an instance of the PopUpMultiChoice component.");
+	declare K_State Trackmania_PopUpMultiChoice_State for _This.Page = C_State_Null;
+	declare Boolean IsEventSend = _SendEvent && _Frame_PopUpMultiChoice.Visible != _IsDisplayed;
+
+	_Frame_PopUpMultiChoice.Visible = _IsDisplayed;
+	Private_LockPopUp(_This, _Frame_PopUpMultiChoice, !_IsDisplayed, False);
+
+	// Text to speech context
+	if (_IsDisplayed && Trackmania_PopUpMultiChoice_State.TTSContextIdentList.count <= 0) {
+		// Add title
+		declare Ident TitleContextId = Context::GetParentApp(_This).TTS_Context_Enter(TextToSpeech::C_ContextLevel_Component);
+		Trackmania_PopUpMultiChoice_State.TTSContextIdentList.add(TitleContextId);
+		Context::GetParentApp(_This).TTS_Context_Change(TitleContextId, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title);
+
+		// Add description if visible
+		if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionContainer.Visible) {
+			foreach (Index => Control in Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionContainer.Controls) {
+				if (Control.HasClass(Grid::C_Class_Element)) {
+					declare CMlLabel Label_Line = Control as CMlLabel;
+					if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Description.existskey(Index)) {
+						declare Ident ContextId = Context::GetParentApp(_This).TTS_Context_Enter(TextToSpeech::C_ContextLevel_Component);
+						Trackmania_PopUpMultiChoice_State.TTSContextIdentList.add(ContextId);
+						Context::GetParentApp(_This).TTS_Context_Change(ContextId, Label_Line);
+					}
+				}
+			}
+		}
+
+		// Read context
+		Context::GetParentApp(_This).TTS_Context_Read(TextToSpeech::C_ContextLevel_Component);
+	} else {
+		while (Trackmania_PopUpMultiChoice_State.TTSContextIdentList.count > 0) {
+			Context::GetParentApp(_This).TTS_Context_Leave(Trackmania_PopUpMultiChoice_State.TTSContextIdentList[0]);
+			Trackmania_PopUpMultiChoice_State.TTSContextIdentList.removekey(0);
+		}
+	}
+
+	// Update focus
+	if (_IsDisplayed) {
+		if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.FocusWhenDisplayed != Null && !Navigation::IsLocked(Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.FocusWhenDisplayed)) {
+			Private_Focus(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.LastFocusedControl, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.FocusWhenDisplayed, _IsAnimated);
+		} else if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.DefaultFocusSecondButton && !Navigation::IsLocked(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice)) {
+			Private_Focus(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.LastFocusedControl, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice, _IsAnimated);
+		} else if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.LastFocusedControl == Null || Navigation::IsLocked(Trackmania_PopUpMultiChoice_PopUpMultiChoice.LastFocusedControl)) {
+			if (!Navigation::IsLocked(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice)) {
+				Private_Focus(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.LastFocusedControl, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, _IsAnimated);
+			} else if (!Navigation::IsLocked(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice)) {
+				Private_Focus(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.LastFocusedControl, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice, _IsAnimated);
+			} else if (!Scroll::NavigationIsLocked(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices)) {
+				Private_Focus(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.LastFocusedControl, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices, _IsAnimated);
+			}
+		} else {
+			Private_Focus(_This, Null, Trackmania_PopUpMultiChoice_PopUpMultiChoice.LastFocusedControl, _IsAnimated);
+		}
+	}
+
+	// Send an event if the visibility of the pop-up has changed
+	if (IsEventSend) {
+		Trackmania_PopUpMultiChoice_State.DelayedPendingEvents.add(K_Event {
+			Type = C_EventType_Display,
+			PopUpMultiChoice = _Frame_PopUpMultiChoice
+		});
+	}
+}
+Void Private_Close(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+	assert(Trackmania_PopUpMultiChoice_PopUpMultiChoice.IsPopUpMultiChoice, _Frame_PopUpMultiChoice.ControlId^" is not an instance of the PopUpMultiChoice component.");
+	declare K_State Trackmania_PopUpMultiChoice_State for _This.Page = C_State_Null;
+	if (!Trackmania_PopUpMultiChoice_PopUpMultiChoice.IsSelectionRequired) {
+		Private_Display(_This, _Frame_PopUpMultiChoice, False, True, False);
+		Trackmania_PopUpMultiChoice_State.DelayedPendingEvents.add(K_Event {
+			Type = C_EventType_Abort,
+			PopUpMultiChoice = _Frame_PopUpMultiChoice
+		});
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Handle the selection inside the pop-up
+Void Private_Select(CMlScript _This, CMlControl _Control) {
+	declare CMlFrame Frame_PopUpMultiChoice = Private_GetPopUpMultiChoiceFrame(_Control);
+
+	if (Frame_PopUpMultiChoice != Null) {
+		declare K_State Trackmania_PopUpMultiChoice_State for _This.Page = C_State_Null;
+		declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+		declare Integer ChoiceKey for _Control = 0;
+
+		if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.IsClosedAfterSelection) {
+			Private_Display(_This, Frame_PopUpMultiChoice, False, True, False);
+		}
+
+		Trackmania_PopUpMultiChoice_State.DelayedPendingEvents.add(K_Event {
+			Type = C_EventType_Select,
+			SelectedControl = _Control,
+			SelectedIndex = ChoiceKey,
+			SelectedChoice = Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices.get(ChoiceKey, ""),
+			PopUpMultiChoice = Frame_PopUpMultiChoice
+		});
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable a properties from the `Enabled` array
+Integer[] Private_EnableProperty(Integer[] _EnabledProperties, Integer _Property, Boolean _Enabled) {
+	declare Integer[] EnabledProperties = _EnabledProperties;
+
+	if (_Enabled) {
+		if (!EnabledProperties.exists(_Property)) {
+			EnabledProperties.add(_Property);
+		}
+	} else {
+		EnabledProperties.remove(_Property);
+	}
+
+	return EnabledProperties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set and enable a property
+K_Properties Private_SetProperty(K_Properties _TargetProperties, Integer _PropertyId, K_Properties _SourceProperties) {
+	declare K_Properties Properties = _TargetProperties;
+
+	Properties.Enabled = Private_EnableProperty(Properties.Enabled, _PropertyId, True);
+
+	switch (_PropertyId) {
+		case C_Property_Width: Properties.Width = _SourceProperties.Width;
+		case C_Property_HAlign: Properties.HAlign = _SourceProperties.HAlign;
+		case C_Property_VAlign: Properties.VAlign = _SourceProperties.VAlign;
+		case C_Property_Choices: Properties.Choices = _SourceProperties.Choices;
+		case C_Property_TitleValue: Properties.TitleValue = _SourceProperties.TitleValue;
+		case C_Property_TitleFitLabelEnabled: Properties.TitleFitLabelEnabled = _SourceProperties.TitleFitLabelEnabled;
+		case C_Property_TitleFont: Properties.TitleFont = _SourceProperties.TitleFont;
+		case C_Property_TitleFontSize: Properties.TitleFontSize = _SourceProperties.TitleFontSize;
+		case C_Property_TitlePrefix: Properties.TitlePrefix = _SourceProperties.TitlePrefix;
+		case C_Property_Description: Properties.Description = _SourceProperties.Description;
+		case C_Property_DescriptionDebug: Properties.IsDescriptionDebugEnabled = _SourceProperties.IsDescriptionDebugEnabled;
+		case C_Property_StylesFirstChoice: Properties.StylesFirstChoice = _SourceProperties.StylesFirstChoice;
+		case C_Property_StylesSecondChoice: Properties.StylesSecondChoice = _SourceProperties.StylesSecondChoice;
+		case C_Property_StylesScrollChoice: Properties.StylesScrollChoice = _SourceProperties.StylesScrollChoice;
+		case C_Property_ForceScrollView: Properties.ForceScrollView = _SourceProperties.ForceScrollView;
+		case C_Property_NavigationInputs: Properties.NavigationInputs = _SourceProperties.NavigationInputs;
+		case C_Property_NavigationTargets: Properties.NavigationTargets = _SourceProperties.NavigationTargets;
+		case C_Property_ForceHideChoices: Properties.ForceHideChoices = _SourceProperties.ForceHideChoices;
+		case C_Property_ScrollFocusedChoiceKey: Properties.ScrollFocusedChoiceKey = _SourceProperties.ScrollFocusedChoiceKey;
+		case C_Property_FocusWhenDisplayed: Properties.FocusWhenDisplayed = _SourceProperties.FocusWhenDisplayed;
+		case C_Property_DefaultFocusSecondButton: Properties.DefaultFocusSecondButton = _SourceProperties.DefaultFocusSecondButton;
+	}
+
+	return Properties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Merge a base properties with other enabled properties
+K_Properties Private_MergeProperties(K_Properties _Base, K_Properties[] _PropertiesToMerge) {
+	declare K_Properties MergedProperties = _Base;
+
+	foreach (Properties in _PropertiesToMerge) {
+		foreach (PropertyId in Properties.Enabled) {
+			MergedProperties = Private_SetProperty(MergedProperties, PropertyId, Properties);
+		}
+	}
+
+	return MergedProperties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw the pop-up with multiple choices (apply style, width, ...)
+Void Private_RedrawPopUpMultiChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _IsAnimated) {
+	declare K_State Trackmania_PopUpMultiChoice_State for _This.Page = C_State_Null;
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+
+	declare K_Properties[] PropertiesToMerge = [Trackmania_PopUpMultiChoice_State.DefaultProperties];
+	foreach (Style in Trackmania_PopUpMultiChoice_PopUpMultiChoice.Styles) {
+		PropertiesToMerge.add(Trackmania_PopUpMultiChoice_State.Styles.get(Style, K_Properties {}));
+	}
+	PropertiesToMerge.add(Trackmania_PopUpMultiChoice_PopUpMultiChoice.CustomizedProperties);
+
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties = Private_MergeProperties(
+		K_Properties {
+			Width = 166.,
+			HAlign = CMlControl::AlignHorizontal::HCenter,
+			VAlign = CMlControl::AlignVertical::VCenter,
+			Choices = [0 => C_Text_Default],
+			TitleValue = "",
+			TitleFitLabelEnabled = True,
+			TitleFont = Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold),
+			TitleFontSize = 8.,
+			TitlePrefix = "$t$i",
+			Description = [],
+			IsDescriptionDebugEnabled = False,
+			StylesFirstChoice = [C_ChoiceStyle_Default],
+			StylesSecondChoice = [C_ChoiceStyle_Default],
+			StylesScrollChoice = [C_ChoiceStyle_Scroll],
+			NavigationInputs = [],
+			NavigationTargets = [],
+			ForceScrollView = False,
+			ForceHideChoices = False,
+			ScrollFocusedChoiceKey = 0,
+			FocusWhenDisplayed = Null,
+			DefaultFocusSecondButton = False
+		},
+		PropertiesToMerge
+	);
+
+	// Update the pop-up background
+	PopUpBackground::SetWidth(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Width, False);
+	PopUpBackground::SetHAlign(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.HAlign, False);
+	PopUpBackground::SetVAlign(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.VAlign, False);
+	if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.Styles.exists(C_Style_TertiaryPopUp_WithHeader)) {
+		PopUpBackground::SetStyles(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background, [C_Style_TertiaryPopUp_WithHeader], False);
+	} else {
+		PopUpBackground::SetStyles(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background, [C_Style_SecondaryPopUp_WithHeader], False);
+	}
+	PopUpBackground::RedrawPopUpBackground(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background);
+
+	// Get pop-up background infos
+	declare Vec2 Size_HeaderArea = PopUpBackground::GetHeaderAreaSize(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background);
+	declare Vec2 Size_ContentArea = PopUpBackground::GetContentAreaSize(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background);
+	declare Vec2 Pos_HeaderArea = PopUpBackground::GetHeaderAreaPosition(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background);
+	declare Vec2 Pos_ContentArea = PopUpBackground::GetContentAreaPosition(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background);
+
+	// Update pop-up title
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.Value = Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.TitleValue;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.TextFont = Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.TitleFont;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.TextSizeReal = Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.TitleFontSize;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.TextPrefix = Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.TitlePrefix;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.Size = <Size_HeaderArea.X - 8*MLHelpers::SkewX(Size_HeaderArea.Y, PopUpBackground::C_SkewAngle), Size_HeaderArea.Y>;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.RelativePosition_V3 = MLHelpers::SkewX(<0., Pos_HeaderArea.Y - Size_HeaderArea.Y*0.55>, PopUpBackground::C_SkewAngle);
+	if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.TitleFitLabelEnabled) {
+		Tools::FitLabelValue(
+			Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title,
+			Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.TextSizeReal,
+			Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.TextSizeReal / 10.,
+			Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.TextSizeReal / 10.
+		);
+	}
+
+	// Define choices layout
+	declare Boolean IsDescriptionVisible = Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Description.count > 0 && Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices.count < 4;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices.Visible = (Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices.count > 2 || Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.ForceScrollView) && !Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.ForceHideChoices;
+	ExpendableButton::SetVisibilityAndNavigation(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, !Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.ForceScrollView && Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices.count < 3 && !Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.ForceHideChoices);
+	ExpendableButton::SetVisibilityAndNavigation(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice, !Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.ForceScrollView && Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices.count == 2 && !Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.ForceHideChoices);
+	if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice.Visible && !Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice.Visible) {
+		ExpendableButton::SetStyles(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.StylesFirstChoice, False);
+		ExpendableButton::SetHAlign(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, CMlControl::AlignHorizontal::HCenter, False);
+		ExpendableButton::SetText(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices[0], False);
+		ExpendableButton::SetMaxWidth(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.Size.X, False);
+		ExpendableButton::RedrawButton(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, _IsAnimated);
+		Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice.RelativePosition_V3 = MLHelpers::SkewX(<0., Pos_ContentArea.Y - Size_ContentArea.Y + ExpendableButton::GetHeight(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice)/2 + C_Margin>, PopUpBackground::C_SkewAngle);
+		Scroll::SetElementsTotal(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices, 0);
+	} else if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice.Visible && Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice.Visible) {
+		ExpendableButton::SetStyles(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.StylesFirstChoice, False);
+		ExpendableButton::SetStyles(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.StylesSecondChoice, False);
+		ExpendableButton::SetText(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices[0], False);
+		ExpendableButton::SetText(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices[1], False);
+		ExpendableButton::SetHAlign(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, CMlControl::AlignHorizontal::Left, False);
+		ExpendableButton::SetHAlign(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice, CMlControl::AlignHorizontal::Right, False);
+		ExpendableButton::SetMaxWidth(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.Size.X*0.5 - 2., False);
+		ExpendableButton::SetMaxWidth(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.Size.X*0.5 - 2., False);
+		ExpendableButton::RedrawButton(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, _IsAnimated);
+		ExpendableButton::RedrawButton(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice, _IsAnimated);
+		Scroll::SetElementsTotal(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices, 0);
+
+		declare Real SizeX_Spacing = Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.Size.X - ExpendableButton::GetWidth(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice) - ExpendableButton::GetWidth(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice);
+		Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice.RelativePosition_V3 = MLHelpers::SkewX(<-Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.Size.X*0.5 + SizeX_Spacing/3., Pos_ContentArea.Y - Size_ContentArea.Y + ExpendableButton::GetHeight(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice)/2 + C_Margin>, PopUpBackground::C_SkewAngle);
+		Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice.RelativePosition_V3 = MLHelpers::SkewX(<Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Label_Title.Size.X*0.5 - SizeX_Spacing/3., Pos_ContentArea.Y - Size_ContentArea.Y + ExpendableButton::GetHeight(Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice)/2 + C_Margin>, PopUpBackground::C_SkewAngle);
+	} else if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices.Visible) {
+		Scroll::SetElementsTotal(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices.count);
+		if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.ScrollFocusedChoiceKey >= 0 && Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.ScrollFocusedChoiceKey < Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices.count) {
+			Scroll::SetFocusedElementKey(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.ScrollFocusedChoiceKey, False, True);
+		} else {
+			Scroll::SetFocusedElementKey(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices, 0, False, True);
+		}
+
+		declare Vec2 Size_Choice = Scroll::GetElementSize(C_Size_ChoicesScrollWindow, C_Size_ChoiceMargin, C_ColumnsNb, C_RowsNb);
+		Scroll::ScrollToHeader(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices);
+		if (IsDescriptionVisible) {
+			Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices.RelativePosition_V3 = MLHelpers::SkewX(<C_Pos_ChoicesScrollWindow.X, Pos_ContentArea.Y - Size_ContentArea.Y + Size_Choice.Y * Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices.count + C_Margin>, PopUpBackground::C_SkewAngle);
+		} else {
+			Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_ScrollChoices.RelativePosition_V3 = MLHelpers::SkewX(<C_Pos_ChoicesScrollWindow.X, Pos_ContentArea.Y - C_Margin - 0.5 * (Size_Choice.Y * (C_RowsNb - ML::Min(Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices.count, C_RowsNb)))>, PopUpBackground::C_SkewAngle);
+		}
+	}
+
+	// Update description grid
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionContainer.Visible = IsDescriptionVisible;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionDebug.Visible = Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionContainer.Visible && Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.IsDescriptionDebugEnabled;
+	if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionContainer.Visible) {
+		declare Grid::K_GridConfig GridConfig = Grid::Create(0., 0., 0., Grid::C_Direction_Bottom);
+		foreach (Index => Control in Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionContainer.Controls) {
+			if (Control.HasClass(Grid::C_Class_Element)) {
+				declare CMlLabel Label_Line = Control as CMlLabel;
+				if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Description.existskey(Index)) {
+					declare K_DescriptionPart DescriptionPart = Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Description[Index];
+					GridConfig = Grid::AddRow(GridConfig, Index, DescriptionPart.TextSize.Y, Grid::C_Align_Center);
+					GridConfig = Grid::SetSize(GridConfig, GridConfig.Size + DescriptionPart.TextSize.Y);
+					Label_Line.TextSizeReal = DescriptionPart.TextFontSize;
+					Label_Line.TextPrefix = DescriptionPart.TextPrefix;
+					Label_Line.TextColor = DescriptionPart.TextColor;
+					Label_Line.TextFont = DescriptionPart.TextFont;
+					Label_Line.Value = DescriptionPart.TextValue;
+					Label_Line.Size = DescriptionPart.TextSize;
+					if (DescriptionPart.TextFitLabelEnabled) {
+						Tools::FitLabelValue(Label_Line, Label_Line.TextSizeReal, Label_Line.TextSizeReal / Tools::C_FitLabelMaxSteps, Label_Line.TextSizeReal / Tools::C_FitLabelMaxSteps);
+					}
+					Label_Line.Show();
+				} else {
+					Label_Line.Hide();
+				}
+
+				if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionDebug.Visible && Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionDebug.Controls.existskey(Index)) {
+					declare CMlQuad Quad_Debug = Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionDebug.Controls[Index] as CMlQuad;
+					Quad_Debug.Visible = Label_Line.Visible;
+					Quad_Debug.RelativePosition_V3 = Label_Line.RelativePosition_V3;
+					Quad_Debug.HorizontalAlign = Label_Line.HorizontalAlign;
+					Quad_Debug.VerticalAlign = Label_Line.VerticalAlign;
+					Quad_Debug.ZIndex = Label_Line.ZIndex;
+					Quad_Debug.Size = Label_Line.Size;
+				}
+			}
+
+		}
+		Grid::Update(Grid::Compile(GridConfig).Config, _This.AnimMgr, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionContainer, 10., False, False);
+
+		// The description is aligned top in some cases, otherwise it is centered
+		if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices.count > 2 || Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_CustomContent != Null) {
+			Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionContainer.RelativePosition_V3 = MLHelpers::SkewX(<0., Pos_ContentArea.Y - C_Margin>, PopUpBackground::C_SkewAngle);
+		} else {
+			declare Real AvailableHeight = -Size_ContentArea.Y + 2*(Pos_ContentArea.Y - Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice.RelativePosition_V3.Y) - C_Margin;
+			Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionContainer.RelativePosition_V3 = MLHelpers::SkewX(<0., Pos_ContentArea.Y - (AvailableHeight - GridConfig.Size)/2. - C_Margin>, PopUpBackground::C_SkewAngle);
+		}
+		if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionDebug.Visible) {
+			Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionDebug.RelativePosition_V3 = Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_DescriptionContainer.RelativePosition_V3;
+		}
+	}
+
+	// Update navigation
+	Navigation::ChangeControlTargets(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_NavigationContainer, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_FirstChoice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.NavigationInputs, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.NavigationTargets);
+	Navigation::ChangeControlTargets(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_NavigationContainer, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Button_SecondChoice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.NavigationInputs, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.NavigationTargets);
+	Private_Display(_This, _Frame_PopUpMultiChoice, _Frame_PopUpMultiChoice.Visible, True, _IsAnimated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Customize a property
+Void Private_SetCustomizedProperty(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Integer _PropertyId, K_Properties _Properties, Boolean _Redraw) {
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.CustomizedProperties = Private_SetProperty(Trackmania_PopUpMultiChoice_PopUpMultiChoice.CustomizedProperties, _PropertyId, _Properties);
+	if (_Redraw) Private_RedrawPopUpMultiChoice(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset a customized property
+Void Private_ResetCustomizedProperty(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Integer _PropertyId, Boolean _Redraw) {
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.CustomizedProperties.Enabled = Private_EnableProperty(Trackmania_PopUpMultiChoice_PopUpMultiChoice.CustomizedProperties.Enabled, _PropertyId, False);
+	if (_Redraw) Private_RedrawPopUpMultiChoice(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the pop-up is displayed
+Boolean IsDisplayed(CMlFrame _Frame_PopUpMultiChoice) {
+	return _Frame_PopUpMultiChoice.Visible;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the control is a pop-up with multiple choices
+Boolean IsPopUpMultiChoice(CMlControl _Control) {
+	if (_Control == Null) return False;
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Control = C_PopUpMultiChoice_Null;
+	return Trackmania_PopUpMultiChoice_PopUpMultiChoice.IsPopUpMultiChoice;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw the pop-up with multiple choices (apply style, width, ...)
+Void RedrawPopUpMultiChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _IsAnimated) {
+	Private_RedrawPopUpMultiChoice(_This, _Frame_PopUpMultiChoice, _IsAnimated);
+}
+Void RedrawPopUpMultiChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	RedrawPopUpMultiChoice(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw all pop-up with multiple choices
+Void RedrawPopUpMultiChoices(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_PopUpMultiChoice, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_PopUpMultiChoice = (Control as CMlFrame).Parent;
+		if (IsPopUpMultiChoice(Frame_PopUpMultiChoice)) {
+			RedrawPopUpMultiChoice(_This, Frame_PopUpMultiChoice, False);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the width of the pop-up with multiple choices
+Void SetWidth(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Real _Width, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_Width, K_Properties { Width = _Width }, _Redraw);
+}
+Void SetWidth(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Real _Width) {
+	SetWidth(_This, _Frame_PopUpMultiChoice, _Width, True);
+}
+Void ResetWidth(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_Width, _Redraw);
+}
+Void ResetWidth(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetWidth(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the horizontal alignment of the pop-up with multiple choices
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_HAlign, K_Properties { HAlign = _HAlign }, _Redraw);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, CMlControl::AlignHorizontal _HAlign) {
+	SetHAlign(_This, _Frame_PopUpMultiChoice, _HAlign, True);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_HAlign, _Redraw);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetHAlign(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the vertical alignment of the pop-up with multiple choices
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_VAlign, K_Properties { VAlign = _VAlign }, _Redraw);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, CMlControl::AlignVertical _VAlign) {
+	SetVAlign(_This, _Frame_PopUpMultiChoice, _VAlign, True);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_VAlign, _Redraw);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetVAlign(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the possibles choices of the pop-up with multiple choices
+Void SetChoices(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[Integer] _Choices, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_Choices, K_Properties { Choices = _Choices }, _Redraw);
+}
+Void SetChoices(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[Integer] _Choices) {
+	SetChoices(_This, _Frame_PopUpMultiChoice, _Choices, True);
+}
+Void ResetChoices(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_Choices, _Redraw);
+}
+Void ResetChoices(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetChoices(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the title of the pop-up with multiple choices
+Void SetTitle(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text _Title, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_TitleValue, K_Properties { TitleValue = _Title }, _Redraw);
+}
+Void SetTitle(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text _Title) {
+	SetTitle(_This, _Frame_PopUpMultiChoice, _Title, True);
+}
+Void ResetTitle(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_TitleValue, _Redraw);
+}
+Void ResetTitle(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetTitle(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the fit label on the button text
+Void SetTitleFitLabelEnabled(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Enabled, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_TitleFitLabelEnabled, K_Properties { TitleFitLabelEnabled = _Enabled }, _Redraw);
+}
+Void SetTitleFitLabelEnabled(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Enabled) {
+	SetTitleFitLabelEnabled(_This, _Frame_PopUpMultiChoice, _Enabled, True);
+}
+Void ResetTitleFitLabelEnabled(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_TitleFitLabelEnabled, _Redraw);
+}
+Void ResetTitleFitLabelEnabled(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetTitleFitLabelEnabled(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the font of the text displayed in the button
+Void SetTitleFont(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text _Font, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_TitleFont, K_Properties { TitleFont = _Font }, _Redraw);
+}
+Void SetTitleFont(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text _Font) {
+	SetTitleFont(_This, _Frame_PopUpMultiChoice, _Font, True);
+}
+Void ResetTitleFont(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_TitleFont, _Redraw);
+}
+Void ResetTitleFont(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetTitleFont(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the size of the text displayed in the button
+Void SetTitleFontSize(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Real _Size, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_TitleFontSize, K_Properties { TitleFontSize = _Size }, _Redraw);
+}
+Void SetTitleFontSize(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Real _Size) {
+	SetTitleFontSize(_This, _Frame_PopUpMultiChoice, _Size, True);
+}
+Void ResetTitleFontSize(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_TitleFontSize, _Redraw);
+}
+Void ResetTitleFontSize(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetTitleFontSize(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the prefix of the text displayed in the button
+Void SetTitlePrefix(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text _Prefix, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_TitlePrefix, K_Properties { TitlePrefix = _Prefix }, _Redraw);
+}
+Void SetTitlePrefix(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text _Prefix) {
+	SetTitlePrefix(_This, _Frame_PopUpMultiChoice, _Prefix, True);
+}
+Void ResetTitlePrefix(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_TitlePrefix, _Redraw);
+}
+Void ResetTitlePrefix(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetTitlePrefix(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the possibles choices of the pop-up with multiple choices
+Void SetDescription(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, K_DescriptionPart[] _Description, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_Description, K_Properties { Description = _Description }, _Redraw);
+}
+Void SetDescription(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, K_DescriptionPart[] _Description) {
+	SetDescription(_This, _Frame_PopUpMultiChoice, _Description, True);
+}
+Void ResetDescription(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_Description, _Redraw);
+}
+Void ResetDescription(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetDescription(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the debug feature for the description
+Void SetDescriptionDebug(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _IsDescriptionDebugEnabled, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_DescriptionDebug, K_Properties { IsDescriptionDebugEnabled = _IsDescriptionDebugEnabled }, _Redraw);
+}
+Void SetDescriptionDebug(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _IsDescriptionDebugEnabled) {
+	SetDescriptionDebug(_This, _Frame_PopUpMultiChoice, _IsDescriptionDebugEnabled, True);
+}
+Void ResetDescriptionDebug(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_DescriptionDebug, _Redraw);
+}
+Void ResetDescriptionDebug(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetDescriptionDebug(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the styles of the first choice button
+Void SetStylesFirstChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _StylesFirstChoice, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_StylesFirstChoice, K_Properties { StylesFirstChoice = _StylesFirstChoice }, _Redraw);
+}
+Void SetStylesFirstChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _StylesFirstChoice) {
+	SetStylesFirstChoice(_This, _Frame_PopUpMultiChoice, _StylesFirstChoice, True);
+}
+Void ResetStylesFirstChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_StylesFirstChoice, _Redraw);
+}
+Void ResetStylesFirstChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetStylesFirstChoice(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the styles of the second choice button
+Void SetStylesSecondChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _StylesSecondChoice, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_StylesSecondChoice, K_Properties { StylesSecondChoice = _StylesSecondChoice }, _Redraw);
+}
+Void SetStylesSecondChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _StylesSecondChoice) {
+	SetStylesSecondChoice(_This, _Frame_PopUpMultiChoice, _StylesSecondChoice, True);
+}
+Void ResetStylesSecondChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_StylesSecondChoice, _Redraw);
+}
+Void ResetStylesSecondChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetStylesSecondChoice(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the styles of the choice buttons inside the scroll
+Void SetStylesScrollChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _StylesScrollChoice, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_StylesScrollChoice, K_Properties { StylesScrollChoice = _StylesScrollChoice }, _Redraw);
+}
+Void SetStylesScrollChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _StylesScrollChoice) {
+	SetStylesScrollChoice(_This, _Frame_PopUpMultiChoice, _StylesScrollChoice, True);
+}
+Void ResetStylesScrollChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_StylesScrollChoice, _Redraw);
+}
+Void ResetStylesScrollChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetStylesScrollChoice(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the styles of the choice buttons inside the scroll
+Void SetForceScrollView(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _ForceScrollView, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_ForceScrollView, K_Properties { ForceScrollView = _ForceScrollView }, _Redraw);
+}
+Void SetForceScrollView(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _ForceScrollView) {
+	SetForceScrollView(_This, _Frame_PopUpMultiChoice, _ForceScrollView, True);
+}
+Void ResetForceScrollView(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_ForceScrollView, _Redraw);
+}
+Void ResetForceScrollView(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetForceScrollView(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the focused element key inside the scroll (at pop up opening)
+Void SetScrollFocusedChoiceKey(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Integer _ScrollFocusedChoiceKey, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_ScrollFocusedChoiceKey, K_Properties { ScrollFocusedChoiceKey = _ScrollFocusedChoiceKey }, _Redraw);
+}
+Void SetScrollFocusedChoiceKey(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Integer _ScrollFocusedChoiceKey) {
+	SetScrollFocusedChoiceKey(_This, _Frame_PopUpMultiChoice, _ScrollFocusedChoiceKey, True);
+}
+Void ResetScrollFocusedChoiceKey(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_ScrollFocusedChoiceKey, _Redraw);
+}
+Void ResetScrollFocusedChoiceKey(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetScrollFocusedChoiceKey(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the navigation inputs of the buttons
+Void SetNavigationInputs(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _NavigationInputs, Boolean _Redraw) {
+	assert(!_NavigationInputs.exists("select") && !_NavigationInputs.exists("cancel") && !_NavigationInputs.exists("left") && !_NavigationInputs.exists("right"), "`select`, `cancel`, `right` and `left` cannot be replaced.");
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_NavigationInputs, K_Properties { NavigationInputs = _NavigationInputs }, _Redraw);
+}
+Void SetNavigationInputs(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _NavigationInputs) {
+	SetNavigationInputs(_This, _Frame_PopUpMultiChoice, _NavigationInputs, True);
+}
+Void ResetNavigationInputs(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_NavigationInputs, _Redraw);
+}
+Void ResetNavigationInputs(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetNavigationInputs(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the navigation targets of the buttons
+Void SetNavigationTargets(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _NavigationTargets, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_NavigationTargets, K_Properties { NavigationTargets = _NavigationTargets }, _Redraw);
+}
+Void SetNavigationTargets(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _NavigationTargets) {
+	SetNavigationTargets(_This, _Frame_PopUpMultiChoice, _NavigationTargets, True);
+}
+Void ResetNavigationTargets(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_NavigationTargets, _Redraw);
+}
+Void ResetNavigationTargets(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetNavigationTargets(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the ForceHideChoices property of the pop-up with multiple choices
+Void SetForceHideChoices(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Hide, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_ForceHideChoices, K_Properties { ForceHideChoices = _Hide }, _Redraw);
+}
+Void SetForceHideChoices(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Hide) {
+	SetForceHideChoices(_This, _Frame_PopUpMultiChoice, _Hide, True);
+}
+Void ResetForceHideChoices(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_ForceHideChoices, _Redraw);
+}
+Void ResetForceHideChoices(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetForceHideChoices(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the FocusWhenDisplayed property of the pop-up with multiple choices
+Void SetFocusWhenDisplayed(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, CMlControl _Control, Boolean _Redraw) {
+	assert(_Control.HasClass(C_Class_Navigation), "'"^_Control.ControlId^"' has no class PopUpMultiChoice::C_Class_Navigation.");
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_FocusWhenDisplayed, K_Properties { FocusWhenDisplayed = _Control }, _Redraw);
+}
+Void SetFocusWhenDisplayed(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, CMlControl _Control) {
+	SetFocusWhenDisplayed(_This, _Frame_PopUpMultiChoice, _Control, True);
+}
+Void ResetFocusWhenDisplayed(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_FocusWhenDisplayed, _Redraw);
+}
+Void ResetFocusWhenDisplayed(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetFocusWhenDisplayed(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the DefaultFocusSecondButton property of the pop-up with multiple choices
+Void SetDefaultFocusSecondButton(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _DefaultFocusSecondButton, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_DefaultFocusSecondButton, K_Properties { DefaultFocusSecondButton = _DefaultFocusSecondButton }, _Redraw);
+}
+Void SetDefaultFocusSecondButton(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _DefaultFocusSecondButton) {
+	SetDefaultFocusSecondButton(_This, _Frame_PopUpMultiChoice, _DefaultFocusSecondButton, True);
+}
+Void ResetDefaultFocusSecondButton(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpMultiChoice, C_Property_DefaultFocusSecondButton, _Redraw);
+}
+Void ResetDefaultFocusSecondButton(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	ResetDefaultFocusSecondButton(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Define the property that requires a selection
+Void SetSelectionIsRequired(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _IsSelectionRequired) {
+	assert(IsPopUpMultiChoice(_Frame_PopUpMultiChoice), _Frame_PopUpMultiChoice.ControlId^" is not an instance of the PopUpMultiChoice component.");
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.IsSelectionRequired = _IsSelectionRequired;
+	PopUpBackground::SetButtonLeaveEnable(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_Background, !_IsSelectionRequired);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the property to automatically close the pop up after a selection
+Void SetClosedAfterSelection(CMlFrame _Frame_PopUpMultiChoice, Boolean _IsClosedAfterSelection) {
+	assert(IsPopUpMultiChoice(_Frame_PopUpMultiChoice), _Frame_PopUpMultiChoice.ControlId^" is not an instance of the PopUpMultiChoice component.");
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.IsClosedAfterSelection = _IsClosedAfterSelection;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the styles of the pop-up with multiple choices
+Void SetStyles(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _StyleIds, Boolean _Redraw) {
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.Styles = _StyleIds;
+	if (_Redraw) RedrawPopUpMultiChoice(_This, _Frame_PopUpMultiChoice);
+}
+Void SetStyles(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text[] _StyleIds) {
+	SetStyles(_This, _Frame_PopUpMultiChoice, _StyleIds, True);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Redraw) {
+	SetStyles(_This, _Frame_PopUpMultiChoice, [], _Redraw);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	SetStyles(_This, _Frame_PopUpMultiChoice, []);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text _StyleId, Boolean _Redraw) {
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+	if (!Trackmania_PopUpMultiChoice_PopUpMultiChoice.Styles.exists(_StyleId)) {
+		Trackmania_PopUpMultiChoice_PopUpMultiChoice.Styles.add(_StyleId);
+	}
+	if (_Redraw) RedrawPopUpMultiChoice(_This, _Frame_PopUpMultiChoice);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text _StyleId) {
+	AddStyle(_This, _Frame_PopUpMultiChoice, _StyleId, True);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text _StyleId, Boolean _Redraw) {
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice.Styles.remove(_StyleId);
+	if (_Redraw) RedrawPopUpMultiChoice(_This, _Frame_PopUpMultiChoice);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Text _StyleId) {
+	RemoveStyle(_This, _Frame_PopUpMultiChoice, _StyleId, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the default properties of all pop-up with multiple choices
+Void SetPopUpMultiChoicesDefaultProperties(CMlScript _This, K_Properties _DefaultProperties, Boolean _Redraw) {
+	declare K_State Trackmania_PopUpMultiChoice_State for _This.Page = C_State_Null;
+	Trackmania_PopUpMultiChoice_State.DefaultProperties = _DefaultProperties;
+	if (_Redraw) RedrawPopUpMultiChoices(_This);
+}
+Void SetPopUpMultiChoicesDefaultProperties(CMlScript _This, K_Properties _DefaultProperties) {
+	SetPopUpMultiChoicesDefaultProperties(_This, _DefaultProperties, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new pop-up with multiple choices style
+Void CreateStyle(CMlScript _This, Text _StyleId, K_Properties _Style) {
+	declare K_State Trackmania_PopUpMultiChoice_State for _This.Page = C_State_Null;
+	Trackmania_PopUpMultiChoice_State.Styles[_StyleId] = _Style;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Lock/Unlock the pop up navigation
+Void LockPopUp(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _Lock, Boolean _LockPopUpBackground) {
+	Private_LockPopUp(_This, _Frame_PopUpMultiChoice, _Lock, _LockPopUpBackground);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Display or hide the pop-up with multiple choices
+/// An event is sent only if the visibility of the pop-up changes
+Void Display(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _IsDisplayed, Boolean _SendEvent, Boolean _IsAnimated) {
+	assert(IsPopUpMultiChoice(_Frame_PopUpMultiChoice), "'"^_Frame_PopUpMultiChoice.ControlId^"' is not an instance of the PopUpMultiChoice component.");
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+
+	// Force a redraw before displaying the pop-up if a fit label is required for the description
+	if (_IsDisplayed) {
+		foreach (DescriptionPart in Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Description) {
+			if (DescriptionPart.TextFitLabelEnabled) {
+				RedrawPopUpMultiChoice(_This, _Frame_PopUpMultiChoice, False);
+				break;
+			}
+		}
+	}
+
+	Private_Display(_This, _Frame_PopUpMultiChoice, _IsDisplayed, _SendEvent, _IsAnimated);
+}
+Void Display(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _IsDisplayed, Boolean _SendEvent) {
+	Display(_This, _Frame_PopUpMultiChoice, _IsDisplayed, _SendEvent, False);
+}
+Void Open(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _SendEvent) {
+	Display(_This, _Frame_PopUpMultiChoice, True, _SendEvent);
+}
+Void Open(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	Open(_This, _Frame_PopUpMultiChoice, True);
+}
+Void Close(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _SendEvent) {
+	Display(_This, _Frame_PopUpMultiChoice, False, _SendEvent);
+}
+Void Close(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	Close(_This, _Frame_PopUpMultiChoice, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus the first choice button
+Void FocusFirstChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _IsAnimated) {
+	assert(IsPopUpMultiChoice(_Frame_PopUpMultiChoice), "'"^_Frame_PopUpMultiChoice.ControlId^"' is not an instance of the PopUpMultiChoice component.");
+	declare CMlControl Button_FirstChoice <=> _Frame_PopUpMultiChoice.GetFirstChild(C_FirstChoice);
+	if (!Navigation::IsLocked(Button_FirstChoice)) {
+		Private_Focus(
+			_This,
+			Navigation::GetFocusedControl(_This, C_NavGroup),
+			Button_FirstChoice,
+			_IsAnimated
+		);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus the second choice button
+Void FocusSecondChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, Boolean _IsAnimated) {
+	assert(IsPopUpMultiChoice(_Frame_PopUpMultiChoice), "'"^_Frame_PopUpMultiChoice.ControlId^"' is not an instance of the PopUpMultiChoice component.");
+	declare CMlControl Button_SecondChoice <=> _Frame_PopUpMultiChoice.GetFirstChild(C_SecondChoice);
+	if (!Navigation::IsLocked(Button_SecondChoice)) {
+		Private_Focus(
+			_This,
+			Navigation::GetFocusedControl(_This, C_NavGroup),
+			Button_SecondChoice,
+			_IsAnimated
+		);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus the custom choice button
+Void FocusCustomChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice, CMlFrame _Frame_CustomChoice, Boolean _IsAnimated) {
+	assert(IsPopUpMultiChoice(_Frame_PopUpMultiChoice), "'"^_Frame_PopUpMultiChoice.ControlId^"' is not an instance of the PopUpMultiChoice component.");
+	assert(_Frame_CustomChoice.HasClass(C_Class_Navigation), "'"^_Frame_CustomChoice.ControlId^"' has no class PopUpMultiChoice::C_Class_Navigation.");
+	if (!Navigation::IsLocked(_Frame_CustomChoice)) {
+		Private_Focus(
+			_This,
+			Navigation::GetFocusedControl(_This, C_NavGroup),
+			_Frame_CustomChoice,
+			_IsAnimated
+		);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get component pending events
+/// /!\ WARNING /!\
+///
+/// Check the control id of the pop up who send the event ! It might causes bugs acting on pop up events from another component
+/// Example :
+/// foreach (Event in PopUpMultiChoice::GetPendingEvents(_This)) {
+/// 	if (Event.PopUpMultiChoice != Null && Event.PopUpMultiChoice.Id == Frame_SortPopUp.Id) {
+///   ... TODO manage events ...
+///   }
+/// }
+///
+/// /!\ WARNING /!\
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State Trackmania_PopUpMultiChoice_State for _This.Page = C_State_Null;
+	return Trackmania_PopUpMultiChoice_State.PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Use navigation events from the manialink
+Void UseLocalEvents(CMlScript _This, Boolean _UseLocalEvents) {
+	Navigation::UseLocalEvents(_This, _UseLocalEvents);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize a pop-up with multiple choices
+Void InitializePopUpMultiChoice(CMlScript _This, CMlFrame _Frame_PopUpMultiChoice) {
+	declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for _Frame_PopUpMultiChoice = C_PopUpMultiChoice_Null;
+	declare CMlFrame Button_FirstChoice <=> (_Frame_PopUpMultiChoice.GetFirstChild(C_FirstChoice) as CMlFrame);
+	declare CMlFrame Button_SecondChoice <=> (_Frame_PopUpMultiChoice.GetFirstChild(C_SecondChoice) as CMlFrame);
+	declare Integer ChoiceKey as FirstChoiceKey for Button_FirstChoice = 0;
+	FirstChoiceKey = 0;
+	declare Integer ChoiceKey as SecondChoiceKey for Button_SecondChoice = 0;
+	SecondChoiceKey = 1;
+
+	// Initialize the PopUpMultiChoice structure
+	Trackmania_PopUpMultiChoice_PopUpMultiChoice = K_PopUpMultiChoice {
+		Styles = [],
+		IsSelectionRequired = False,
+		IsClosedAfterSelection = True,
+		IsPopUpMultiChoice = True,
+		CustomContentControls = [],
+		CustomizedProperties = K_Properties {},
+		MergedProperties = K_Properties {},
+		Controls = K_Controls {
+			Button_FirstChoice = Button_FirstChoice,
+			Button_SecondChoice = Button_SecondChoice,
+			Frame_Background = (_Frame_PopUpMultiChoice.GetFirstChild(C_Id_FrameBackground) as CMlFrame),
+			Frame_DescriptionContainer = (_Frame_PopUpMultiChoice.GetFirstChild(C_Id_FrameDescriptionContainer) as CMlFrame),
+			Frame_NavigationContainer = (_Frame_PopUpMultiChoice.GetFirstChild(C_NavContainer) as CMlFrame),
+			Frame_DescriptionDebug = (_Frame_PopUpMultiChoice.GetFirstChild(C_Id_FrameDescriptionDebug) as CMlFrame),
+			Frame_ScrollChoices = (_Frame_PopUpMultiChoice.GetFirstChild(C_Id_FrameScrollChoices) as CMlFrame),
+			Label_Title = (_Frame_PopUpMultiChoice.GetFirstChild(C_Id_LabelTitle) as CMlLabel)
+		},
+		LastFocusedControl = Null
+	};
+
+	// Get data attributes if they exists
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("selection-required")) {
+		SetSelectionIsRequired(_This, _Frame_PopUpMultiChoice, Tools::TextToBoolean(_Frame_PopUpMultiChoice.DataAttributeGet("selection-required")));
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("close-after-selection")) {
+		Trackmania_PopUpMultiChoice_PopUpMultiChoice.IsClosedAfterSelection = Tools::TextToBoolean(_Frame_PopUpMultiChoice.DataAttributeGet("close-after-selection"));
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("width")) {
+		SetWidth(_This, _Frame_PopUpMultiChoice, TL::ToReal(_Frame_PopUpMultiChoice.DataAttributeGet("width")), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("halign")) {
+		SetHAlign(_This, _Frame_PopUpMultiChoice, Tools::TextToHAlign2(_Frame_PopUpMultiChoice.DataAttributeGet("halign")), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("valign")) {
+		SetVAlign(_This, _Frame_PopUpMultiChoice, Tools::TextToVAlign2(_Frame_PopUpMultiChoice.DataAttributeGet("valign")), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("choices")) {
+		declare Text[Integer] Choices;
+		Choices.fromjson(_Frame_PopUpMultiChoice.DataAttributeGet("choices"));
+		SetChoices(_This, _Frame_PopUpMultiChoice, Choices, False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("title")) {
+		SetTitle(_This, _Frame_PopUpMultiChoice, _Frame_PopUpMultiChoice.DataAttributeGet("title"), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("title-fitlabel-enabled")) {
+		SetTitleFitLabelEnabled(_This, _Frame_PopUpMultiChoice, Tools::TextToBoolean(_Frame_PopUpMultiChoice.DataAttributeGet("title-fitlabel-enabled")), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("title-textfont")) {
+		SetTitleFont(_This, _Frame_PopUpMultiChoice, _Frame_PopUpMultiChoice.DataAttributeGet("title-textfont"), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("title-textsize")) {
+		SetTitleFontSize(_This, _Frame_PopUpMultiChoice, TL::ToReal(_Frame_PopUpMultiChoice.DataAttributeGet("title-textsize")), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("title-textprefix")) {
+		SetTitlePrefix(_This, _Frame_PopUpMultiChoice, _Frame_PopUpMultiChoice.DataAttributeGet("title-textprefix"), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("description")) {
+		declare K_DescriptionPart[] Description;
+		Description.fromjson(_Frame_PopUpMultiChoice.DataAttributeGet("description"));
+		SetDescription(_This, _Frame_PopUpMultiChoice, Description, False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("description-debug")) {
+		SetDescriptionDebug(_This, _Frame_PopUpMultiChoice, Tools::TextToBoolean(_Frame_PopUpMultiChoice.DataAttributeGet("description-debug")), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("styles-firstchoice")) {
+		SetStylesFirstChoice(_This, _Frame_PopUpMultiChoice, TL::Split(" ", TL::Trim(_Frame_PopUpMultiChoice.DataAttributeGet("styles-firstchoice"))), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("styles-secondchoice")) {
+		SetStylesSecondChoice(_This, _Frame_PopUpMultiChoice, TL::Split(" ", TL::Trim(_Frame_PopUpMultiChoice.DataAttributeGet("styles-secondchoice"))), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("styles-scrollchoice")) {
+		SetStylesScrollChoice(_This, _Frame_PopUpMultiChoice, TL::Split(" ", TL::Trim(_Frame_PopUpMultiChoice.DataAttributeGet("styles-scrollchoice"))), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("force-scrollview")) {
+		SetForceScrollView(_This, _Frame_PopUpMultiChoice, Tools::TextToBoolean(_Frame_PopUpMultiChoice.DataAttributeGet("force-scrollview")), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("scroll-focused-choice-key")) {
+		SetScrollFocusedChoiceKey(_This, _Frame_PopUpMultiChoice, TL::ToInteger(_Frame_PopUpMultiChoice.DataAttributeGet("scroll-focused-choice-key")), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("nav-inputs")) {
+		SetNavigationInputs(_This, _Frame_PopUpMultiChoice, TL::Split(";", TL::Trim(_Frame_PopUpMultiChoice.DataAttributeGet("nav-inputs"))), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("nav-targets")) {
+		SetNavigationTargets(_This, _Frame_PopUpMultiChoice, TL::Split(";", TL::Trim(_Frame_PopUpMultiChoice.DataAttributeGet("nav-targets"))), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("custom-content-frame")) {
+		Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_CustomContent <=> (_This.Page.GetFirstChild(_Frame_PopUpMultiChoice.DataAttributeGet("custom-content-frame")) as CMlFrame);
+		if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_CustomContent != Null) {
+			_This.Page.GetClassChildren(C_Class_Navigation, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_CustomContent, True);
+			foreach (Control in _This.Page.GetClassChildren_Result) {
+				declare CMlControl CustomControl = Control;
+				declare CMlFrame Frame_ParentPopUpMultiChoice for CustomControl = Null;
+				declare Integer ChoiceKey for CustomControl = 0;
+				Trackmania_PopUpMultiChoice_PopUpMultiChoice.CustomContentControls.add(CustomControl);
+				Frame_ParentPopUpMultiChoice = _Frame_PopUpMultiChoice;
+				ChoiceKey = -1;
+			}
+		}
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("focus-when-displayed")) {
+		SetFocusWhenDisplayed(_This, _Frame_PopUpMultiChoice, _This.Page.GetFirstChild(_Frame_PopUpMultiChoice.DataAttributeGet("focus-when-displayed")), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("default-focus-second-button")) {
+		SetDefaultFocusSecondButton(_This, _Frame_PopUpMultiChoice, Tools::TextToBoolean(_Frame_PopUpMultiChoice.DataAttributeGet("default-focus-second-button")), False);
+	}
+	if (_Frame_PopUpMultiChoice.DataAttributeExists("styles")) {
+		SetStyles(_This, _Frame_PopUpMultiChoice, TL::Split(" ", TL::Trim(_Frame_PopUpMultiChoice.DataAttributeGet("styles"))), False);
+	}
+
+	// Update containers of custom controls
+	Navigation::ChangeNavigationContainers(_This, Trackmania_PopUpMultiChoice_PopUpMultiChoice.CustomContentControls, Trackmania_PopUpMultiChoice_PopUpMultiChoice.Controls.Frame_NavigationContainer.Id);
+
+	// Redraw the pop-up after initialization is complete
+	RedrawPopUpMultiChoice(_This, _Frame_PopUpMultiChoice, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize all pop-up with multiple choices in the manialink
+Void InitializePopUpMultiChoices(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_PopUpMultiChoice, _This.Page.MainFrame, True);
+	declare CMlControl[] PageClassChildrenControls = _This.Page.GetClassChildren_Result;
+	foreach (Control in PageClassChildrenControls) {
+		InitializePopUpMultiChoice(_This, (Control as CMlFrame).Parent);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the component script
+Void MainInit(CMlScript _This) {
+	declare K_State Trackmania_PopUpMultiChoice_State for _This.Page = C_State_Null;
+	Trackmania_PopUpMultiChoice_State = C_State_Null;
+}
+
+/// Start of the component
+Void MainStart(CMlScript _This) {
+	// Basic style for buttons
+	ExpendableButton::CreateStyle(_This, C_ChoiceStyle_Default, [
+		ExpendableButton_Trackmania::C_Style_SizeExpendable,
+		ExpendableButton_Trackmania::C_Style_AlignCenter,
+		ExpendableButton_Trackmania::C_Style_ButtonSecondary
+	]);
+
+	// Basic style for the choice scroll
+	ExpendableButton::CreateStyle(_This, C_ChoiceStyle_Scroll, ExpendableButton::K_Properties {
+		Enabled = [
+			ExpendableButton::C_Property_Width,
+			ExpendableButton::C_Property_Height,
+			ExpendableButton::C_Property_HAlign,
+			ExpendableButton::C_Property_VAlign,
+			ExpendableButton::C_Property_TextFontSize,
+			ExpendableButton::C_Property_TextOpacityUnfocused,
+			ExpendableButton::C_Property_BackgroundImages,
+			ExpendableButton::C_Property_FocusImages
+		],
+		Width = C_Size_ChoicesScrollWindow.X,
+		Height = 9.,
+		HAlign = CMlControl::AlignHorizontal::HCenter,
+		VAlign = CMlControl::AlignVertical::Top,
+		TextFontSize = 4.,
+		TextOpacityUnfocused = 0.6,
+		BackgroundImages = [
+			ExpendableButton::C_Position_Left => ExpendableButton::K_Image {},
+			ExpendableButton::C_Position_Middle => ExpendableButton::K_Image {},
+			ExpendableButton::C_Position_Right => ExpendableButton::K_Image {}
+		],
+		FocusImages = [
+			ExpendableButton::C_Position_Left => ExpendableButton::K_Image {},
+			ExpendableButton::C_Position_Middle => ExpendableButton::K_Image {},
+			ExpendableButton::C_Position_Right => ExpendableButton::K_Image {}
+		]
+	});
+
+	InitializePopUpMultiChoices(_This);
+}
+
+/// Loop of the component
+Void MainLoop(CMlScript _This) {
+	declare K_State Trackmania_PopUpMultiChoice_State for _This.Page = C_State_Null;
+	Trackmania_PopUpMultiChoice_State.PendingEvents = Trackmania_PopUpMultiChoice_State.DelayedPendingEvents;
+	Trackmania_PopUpMultiChoice_State.DelayedPendingEvents = [];
+
+	/* Force redraw component instances */
+	if (Trackmania_PopUpMultiChoice_State.RedrawRequested != RequestRedraw::GetComponentsRedrawCounter()) {
+		Trackmania_PopUpMultiChoice_State.RedrawRequested = RequestRedraw::GetComponentsRedrawCounter();
+		RedrawPopUpMultiChoices(_This);
+	}
+
+	/* PopUpBackground events */
+	foreach (Event in PopUpBackground::GetPendingEvents(_This)) {
+		if (Event.PopUpBackground != Null && Event.PopUpBackground.ControlId == C_Id_FrameBackground) {
+			switch (Event.Type) {
+				case PopUpBackground::C_EventType_Close: {
+					Private_Close(_This, Private_GetPopUpMultiChoiceFrame(Event.PopUpBackground));
+				}
+			}
+		}
+	}
+
+	/* Navigation events */
+	foreach (Event in Navigation::GetPendingEvents(_This)) {
+		switch (Event.Type) {
+			case Navigation::C_EventType_NavigateInput: {
+				if (Navigation::IsEventFromGroup(_This, Event, C_NavGroup)) {
+					switch (Event.Input) {
+						case CMlScriptEvent::EMenuNavAction::Cancel: if (!Event.IsActionAutoRepeat) Private_Close(_This, Private_GetPopUpMultiChoiceFrame(Event.To));
+						case CMlScriptEvent::EMenuNavAction::Select: if (!Event.IsActionAutoRepeat) Private_Select(_This, Event.To);
+						default: {
+							declare CMlControl To = Event.To;
+							if (Event.To != Null && Navigation::GetControlTarget(Event.From, Event.Input) == Event.To) {
+								declare CMlControl[CMlScriptEvent::EMenuNavAction] NavigationMemory for Event.To = [];
+								NavigationMemory[Navigation::InvertInput(Event.Input)] = Event.From;
+							}
+							if (Event.From != Null) {
+								declare CMlControl[CMlScriptEvent::EMenuNavAction] NavigationMemory for Event.From = [];
+								if (NavigationMemory.existskey(Event.Input) && !Navigation::IsLocked(NavigationMemory.get(Event.Input, Null))) {
+									To = NavigationMemory[Event.Input];
+								}
+							}
+							Private_Focus(_This, Event.From, To, True);
+						}
+					}
+				}
+			}
+			case Navigation::C_EventType_NavigateMouse: {
+				if (Navigation::IsEventFromGroup(_This, Event, C_NavGroup)) {
+					if (Event.Mouse == CMlScriptEvent::Type::MouseClick) {
+						Private_Select(_This, Event.To);
+					} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+						Private_Focus(_This, Event.From, Event.To, True);
+					}
+				}
+			}
+		}
+	}
+
+	/* Scroll events */
+	foreach (Event in Scroll::GetPendingEvents(_This)) {
+		if (Event.Scroll != Null && Event.Scroll.ControlId == C_Id_FrameScrollChoices) {
+			switch (Event.Type) {
+				case Scroll::C_EventType_Cancel: if (!Event.IsActionAutoRepeat) Private_Close(_This, Private_GetPopUpMultiChoiceFrame(Event.To));
+				case Scroll::C_EventType_Select: if (!Event.IsActionAutoRepeat) Private_Select(_This, Event.To);
+				case Scroll::C_EventType_Update: {
+					declare K_PopUpMultiChoice Trackmania_PopUpMultiChoice_PopUpMultiChoice for Private_GetPopUpMultiChoiceFrame(Event.Scroll) = C_PopUpMultiChoice_Null;
+
+					foreach (Key => Frame_Element in Event.ElementsVisible) {
+						if (Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices.existskey(Key)) {
+							declare CMlFrame Button_Choice = (Frame_Element.GetFirstChild(C_Id_ButtonChoice) as CMlFrame);
+							declare Text Choice = Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.Choices[Key];
+							declare Integer ChoiceKey for Frame_Element = 0;
+							ChoiceKey = Key;
+
+							ExpendableButton::SetText(_This, Button_Choice, Choice, False);
+							ExpendableButton::SetStyles(_This, Button_Choice, Trackmania_PopUpMultiChoice_PopUpMultiChoice.MergedProperties.StylesScrollChoice, False);
+							ExpendableButton::RedrawButton(_This, Button_Choice);
+							Frame_Element.Show();
+						}
+					}
+					foreach (Frame_Element in Event.ElementsHidden) {
+						declare Integer ChoiceKey for Frame_Element = 0;
+						ChoiceKey = -1;
+						Frame_Element.Hide();
+					}
+				}
+				case Scroll::C_EventType_Focus: {
+					if (Event.From != Null) ExpendableButton::Unfocus(_This, Event.From.GetFirstChild(C_Id_ButtonChoice) as CMlFrame, Event.PlayFocusAnimation);
+					if (Event.To != Null && Scroll::IsFocused(Event.Scroll)) {
+						ExpendableButton::Focus(_This, Event.To.GetFirstChild(C_Id_ButtonChoice) as CMlFrame, True, Event.PlayFocusAnimation);
+					}
+					if (Event.IsMouse && Event.To != Null && !Scroll::IsFocused(Event.Scroll)) {
+						Private_Focus(_This, Navigation::GetFocusedControl(_This, C_NavGroup), Event.Scroll, True);
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/Trackmania/Components/PopUpMultiChoice.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[
+			Checkbox::ComponentV2(),
+			ExpendableButton_Trackmania::ComponentV2(),
+			PopUpBackground::ComponentV2(),
+			Scroll::ComponentV2(),
+			Selector::ComponentV2(),
+			TextField::ComponentV2()
+		],
+		[]
+	);
+}

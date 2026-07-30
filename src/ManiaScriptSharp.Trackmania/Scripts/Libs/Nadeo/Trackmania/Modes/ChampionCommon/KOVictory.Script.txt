@@ -1,0 +1,184 @@
+/**
+ *	Manage victory by K.O. in the TMGL Final phase
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionCommon/KOVictory.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/TMGame/Modes/Events.Script.txt" as Events
+#Include "Libs/Nadeo/CMGame/Utils/Utils.Script.txt" as Utils
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/KOVictory_Server.Script.txt" as UIModules_KOVictory
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structure
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_KOValidation {
+	Integer[] CheckpointTimes;
+	Ident PlayerId;
+	Ident ScoreId;
+	Text AccountId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer G_KOCheckpointNb;
+declare Integer G_KOCheckpointTime;
+declare Integer G_KOValidationDelay;
+declare Text[] G_KOTargets;
+declare K_KOValidation[Integer] G_KOValidations;
+declare Ident G_KOWinnerScoreId;
+declare Integer[] G_LeaderCheckpointTimes;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a new race
+ *
+ *	@param	_KOCheckpointNb						The number of checkpoints where the player must be in the lead
+ *																		0 or a negative value will disable victory by K.O.
+ *	@param	_KOCheckpointTime					The advance in milliseconds the player must have at the checkpoints
+ *	@param	_KOValidationDelay				The delay in milliseconds before running the K.O. check
+ *	@param	_KOTargets								The accounts ids of the players that can be knocked out
+ */
+Void StartRace(Integer _KOCheckpointNb, Integer _KOCheckpointTime, Integer _KOValidationDelay, Text[] _KOTargets) {
+	G_KOCheckpointNb = ML::Max(0, _KOCheckpointNb);
+	G_KOCheckpointTime = ML::Max(0, _KOCheckpointTime);
+	G_KOValidationDelay = ML::Max(0, _KOValidationDelay);
+	G_KOTargets = _KOTargets;
+	G_KOValidations = [];
+	G_KOWinnerScoreId = NullId;
+	G_LeaderCheckpointTimes = [];
+	UIModules_KOVictory::ResetKOProgression();
+}
+Void StartRace(Integer _KOCheckpointNb, Integer _KOCheckpointTime, Integer _KOValidationDelay) {
+	StartRace(_KOCheckpointNb, _KOCheckpointTime, _KOValidationDelay, []);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Clean up after the end of the race
+Void StopRace() {
+	UIModules_KOVictory::ResetKOProgression();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process checkpoint events from the mode
+Void OnWaypoint(Events::K_RaceEvent _Event) {
+	if (
+		G_KOCheckpointNb <= 0 ||
+		G_KOWinnerScoreId != NullId ||
+		_Event.Type != Events::C_Type_Waypoint ||
+		_Event.Player == Null
+	) return;
+
+	// Update leader checkpoint times
+	if (
+		G_LeaderCheckpointTimes.count <= 0 ||
+		_Event.Player.RaceWaypointTimes.count > G_LeaderCheckpointTimes.count || (
+			_Event.Player.RaceWaypointTimes.count == G_LeaderCheckpointTimes.count &&
+			_Event.Player.RaceWaypointTimes[_Event.Player.RaceWaypointTimes.count - 1] < G_LeaderCheckpointTimes[G_LeaderCheckpointTimes.count - 1]
+		)
+	) {
+		G_LeaderCheckpointTimes = Utils::ToScriptArray(_Event.Player.RaceWaypointTimes);
+
+		// Schedule a K.O. validation
+		// Delay the checkpoint validation by `G_KOCheckpointTime + G_KOValidationDelay` milliseconds
+		// Any checkpoint that only the leader crossed after this delay will be considered
+		// as valid for the K.O. because nobody crossed it since at least `G_KOCheckpointTime`
+		// Check /trackmania-next/tmnext/-/issues/2376#note_143689 for more info
+		declare Integer CheckTime = Now + G_KOCheckpointTime + G_KOValidationDelay;
+		if (_Event.Player.StartTime > 0) {
+			CheckTime = _Event.Player.StartTime + G_LeaderCheckpointTimes[G_LeaderCheckpointTimes.count - 1] + G_KOCheckpointTime + G_KOValidationDelay;
+		}
+		G_KOValidations[CheckTime] = K_KOValidation {
+			CheckpointTimes = G_LeaderCheckpointTimes,
+			PlayerId = _Event.Player.Id,
+			ScoreId = _Event.Player.Score.Id,
+			AccountId = _Event.Player.User.WebServicesUserId
+		};
+		G_KOValidations = G_KOValidations.sortkey();
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the score of the player that won by K.O.
+Ident GetWinnerByKO() {
+	if (G_KOCheckpointNb <= 0) return NullId;
+	if (G_KOWinnerScoreId != NullId) return G_KOWinnerScoreId;
+
+	if (G_KOValidations.count > 0) {
+		declare Integer[] ToRemove;
+		foreach (CheckTime => KOValidation in G_KOValidations) {
+			// Check for K.O. only after the delay has expired
+			// It is important because a checkpoint that only the leader crossed
+			// will be considered has being valid for K.O. because nobody else crossed
+			// it since at least `G_KOCheckpointTime` milliseconds
+			if (CheckTime > Now) break;
+			ToRemove.add(CheckTime);
+
+			G_KOWinnerScoreId = KOValidation.ScoreId;
+			declare Integer KOCheckpointNb = 0;
+			for (I, 0, KOValidation.CheckpointTimes.count - 1) {
+				// Start comparison from the latest checkpoint
+				declare Integer CheckpointIndex = KOValidation.CheckpointTimes.count - 1 - I;
+				declare Integer CheckpointTime = KOValidation.CheckpointTimes[CheckpointIndex];
+				foreach (Player in Players) {
+					// If another player crossed the checkpoint less than
+					// `G_KOCheckpointTime` milliseconds after the leader
+					// then cancel the K.O.
+					if (
+						Player.Id != KOValidation.PlayerId &&
+						Player.RaceWaypointTimes.existskey(CheckpointIndex) &&
+						Player.RaceWaypointTimes[CheckpointIndex] - CheckpointTime <= G_KOCheckpointTime
+					) {
+						G_KOWinnerScoreId = NullId;
+						break;
+					}
+				}
+				// Nobody was less than `G_KOCheckpointTime` milliseconds
+				// behind the leader at this checkpoint
+				// Count the checkpoint toward the K.O. target
+				if (G_KOWinnerScoreId != NullId) {
+					KOCheckpointNb += 1;
+				}
+				if (KOCheckpointNb >= G_KOCheckpointNb || G_KOWinnerScoreId == NullId) break;
+			}
+			// To be able to display the knock out progression in the UI
+			// we had run the check even if we knew that a knockout
+			// was not possible yet
+			if (KOValidation.CheckpointTimes.count < G_KOCheckpointNb) {
+				G_KOWinnerScoreId = NullId;
+			}
+			// If it is a duel, try to find the account id of the opponent
+			declare Text TargetAccountId = "";
+			if (G_KOTargets.count == 2 && G_KOTargets.exists(KOValidation.AccountId)) {
+				foreach (AccountId in G_KOTargets) {
+					if (AccountId != KOValidation.AccountId) {
+						TargetAccountId = AccountId;
+						break;
+					}
+				}
+			}
+			UIModules_KOVictory::SetKOProgression(
+				KOValidation.AccountId,
+				TargetAccountId,
+				KOCheckpointNb,
+				G_KOCheckpointNb
+			);
+		}
+		// We found a winner, remove all pending validations
+		if (G_KOWinnerScoreId != NullId) {
+			G_KOValidations = [];
+		} else {
+			foreach (Key in ToRemove) {
+				G_KOValidations.removekey(Key);
+			}
+		}
+	}
+
+	return G_KOWinnerScoreId;
+}

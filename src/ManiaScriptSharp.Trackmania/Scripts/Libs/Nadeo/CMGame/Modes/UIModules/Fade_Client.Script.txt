@@ -1,0 +1,187 @@
+/**
+ *  UI module: Fade client side
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/CMGame/Modes/UIModules/Fade_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_CMGame_Fade"
+#Const C_Type CUILayer::EUILayerType::Normal
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return MV::Create(
+C_Id, 3,
+"""
+<frame z-index="100" hidden="1" id="frame-global">
+	<quad id="quad-fade" z-index="0" size="320 180" fullscreen="1" halign="center" valign="center" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_FadeOutDark)}}}" opacity="0" />
+</frame>
+""",
+"""
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+
+#Struct K_Command {
+	Integer Action;
+	Integer Fade;
+	Integer StartTime;
+	Integer Duration;
+	Vec3 Color;
+}
+
+#Struct K_State {
+	CMlQuad Quad_Fade;
+	K_Command[][Integer] Commands;
+}
+
+#Const C_Action_Set 0
+#Const C_Action_Add 1
+
+#Const C_Fade_Out 0
+#Const C_Fade_In 1
+""",
+"""
+K_State AddCommand(K_State _State, K_Command _Command) {
+	declare K_State State = _State;
+
+	if (_Command.Action == C_Action_Set) {
+		State.Commands = [];
+	}
+
+	if (!State.Commands.existskey(_Command.StartTime)) {
+		State.Commands[_Command.StartTime] = [];
+	}
+
+	State.Commands[_Command.StartTime].add(_Command);
+	State.Commands = State.Commands.sortkey();
+
+	return State;
+}
+
+Void PlayCommand(CMlQuad _Quad_Fade, K_Command _Command) {
+	if (_Command.Fade == C_Fade_In) {
+		AnimMgr.Add(_Quad_Fade, "<a bgcolor=\""^CL::RgbToHex6(_Command.Color)^"\" opacity=\"1\" />", _Command.Duration, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else if (_Command.Fade == C_Fade_Out) {
+		AnimMgr.Add(_Quad_Fade, "<a opacity=\"0\" />", _Command.Duration, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+K_State PlayCommands(K_State _State, Integer _Key) {
+	if (!_State.Commands.existskey(_Key)) return _State;
+
+	declare K_State State = _State;
+
+	while (State.Commands[_Key].count > 0) {
+		PlayCommand(State.Quad_Fade, State.Commands[_Key][0]);
+		State.Commands[_Key].removekey(0);
+	}
+	State.Commands.removekey(_Key);
+
+	return State;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+
+declare netread Integer Net_CMGame_Fade_ZIndex for Teams[0];
+declare netread Integer Net_CMGame_Fade_CommandsUpdate for UI;
+declare netwrite Integer[] Net_CMGame_Fade_ReceivedCommands for UI;
+declare netread K_Command[][Integer] Net_CMGame_Fade_PendingCommands for UI;
+
+declare K_State State;
+declare Boolean DisplayModule;
+declare Integer ZIndex;
+declare Integer CommandsUpdate;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+
+State = K_State {
+	Quad_Fade = (Frame_Global.GetFirstChild("quad-fade") as CMlQuad),
+	Commands = []
+};
+
+DisplayModule = Frame_Global.Visible;
+ZIndex = ML::NearestInteger(Frame_Global.ZIndex);
+CommandsUpdate = -123;
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_CMGame_Fade_IsVisible for Owner;
+		if (DisplayModule != Net_CMGame_Fade_IsVisible) {
+			DisplayModule = Net_CMGame_Fade_IsVisible;
+			Frame_Global.Visible = Net_CMGame_Fade_IsVisible;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (ZIndex != Net_CMGame_Fade_ZIndex) {
+			ZIndex = Net_CMGame_Fade_ZIndex;
+			Frame_Global.ZIndex = ZIndex * 1.;
+		}
+
+		if (CommandsUpdate != Net_CMGame_Fade_CommandsUpdate) {
+			CommandsUpdate = Net_CMGame_Fade_CommandsUpdate;
+
+			// Remove already received commands
+			declare Integer[] TmpReceivedCommands = Net_CMGame_Fade_ReceivedCommands;
+			foreach (Key in TmpReceivedCommands) {
+				if (!Net_CMGame_Fade_PendingCommands.existskey(Key)) {
+					Net_CMGame_Fade_ReceivedCommands.remove(Key);
+				}
+			}
+
+			// Receive new commands
+			foreach (Key => Commands in Net_CMGame_Fade_PendingCommands) {
+				if (!Net_CMGame_Fade_ReceivedCommands.exists(Key)) {
+					Net_CMGame_Fade_ReceivedCommands.add(Key);
+					foreach (Command in Commands) {
+						State = AddCommand(State, Command);
+					}
+				}
+			}
+		}
+
+		foreach (StartTime => Commands in State.Commands) {
+			if (GameTime < StartTime) break;
+			State = PlayCommands(State, StartTime);
+		}
+	}
+}
+***
+""",
+[],
+[]
+	);
+}

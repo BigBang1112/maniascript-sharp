@@ -1,0 +1,189 @@
+/**
+ * Store for Splashscreens
+ */
+#Const Version "1.1.3"
+#Const ScriptName "Libs/Nadeo/CMGame/Stores/SplashscreenStore_MA.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/API/SplashscreenAPI.Script.txt" as SplashscreenAPI
+#Include "Libs/Nadeo/CMGame/Stores/SplashscreenStore_ML.Script.txt" as SplashscreenStore
+#Include "Libs/Nadeo/CMGame/Structures/SplashscreenStruct.Script.txt" as SplashscreenStruct
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Store_MA.Script.txt" as Store
+#Include "TextLib" as TL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct SplashscreenStore::K_State as K_State
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const SplashscreenStore::C_State_Null as C_State_Null
+#Const SplashscreenStore::C_StoreId as C_StoreId
+
+#Const SplashscreenStore::C_Action_RetrieveSplashscreen as C_Action_RetrieveSplashscreen
+#Const SplashscreenStore::C_Action_CreateImpression as C_Action_CreateImpression
+
+#Const SplashscreenStore::C_Event_SplashscreenUpdated as C_Event_SplashscreenUpdated
+#Const SplashscreenStore::C_Event_ImpressionCreated as C_Event_ImpressionCreated
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Http::K_Request G_Request_GetSplashscreen;
+declare Http::K_Request G_Request_PostCreateImpression;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Return the LocalUser depending on the given context
+CUser Private_GetLocalUser(CNod _Context) {
+	switchtype(_Context as Context) {
+		case CManiaApp: return Context.LocalUser;
+		case CMlScript: return Context.LocalUser;
+	}
+	return Null;
+}
+
+/// Retrieve the splashscreen
+Void Private_Action_RetrieveSplashscreen(Text _TargetSubscription) {
+	declare CUser User <=> Private_GetLocalUser(This);
+
+	if (User != Null && User.ZoneIdPath.count > 0) {
+		G_Request_GetSplashscreen = Http::DestroyAndCreate(Http, G_Request_GetSplashscreen, SplashscreenAPI::Request_GetSplashscreenList(Http, _TargetSubscription, User.Language, User.ZoneIdPath[-1]));
+	} else if (User != Null) {
+		G_Request_GetSplashscreen = Http::DestroyAndCreate(Http, G_Request_GetSplashscreen, SplashscreenAPI::Request_GetSplashscreenList(Http, _TargetSubscription, User.Language, ""));
+	} else {
+		G_Request_GetSplashscreen = Http::DestroyAndCreate(Http, G_Request_GetSplashscreen, SplashscreenAPI::Request_GetSplashscreenList(Http, _TargetSubscription, "", ""));
+	}
+}
+
+/// Create an impression of a viewed splashscreen
+Void Private_Action_CreateImpression(Text _SplashscreenUid, Integer _ViewTime, Boolean _IsClicked) {
+	G_Request_PostCreateImpression = Http::DestroyAndCreate(Http, G_Request_PostCreateImpression, SplashscreenAPI::Request_PostCreateImpression(Http, _SplashscreenUid, _ViewTime, _IsClicked));
+}
+
+/// Process the event for the GetSplashscreen request
+Void Private_ProcessEvent_RetrieveSplashscreen(CManiaAppEvent _Event) {
+	assert(_Event.CustomEventData.count == 1, "'C_Action_RetrieveSplashscreen' needs 1 parameter: '_TargetSubscription'.");
+	Private_Action_RetrieveSplashscreen(_Event.CustomEventData[0]);
+}
+
+/// Process the event for the PostCreateImpression request
+Void Private_ProcessEvent_CreateImpression(CManiaAppEvent _Event) {
+	assert(_Event.CustomEventData.count == 3, "'C_Action_CreateImpression' needs 3 parameters: '_SplashscreenUid', '_ViewTime' and '_IsClicked'.");
+	Private_Action_CreateImpression(
+		_Event.CustomEventData[0],
+		TL::ToInteger(_Event.CustomEventData[1]),
+		TL::ToLowerCase(_Event.CustomEventData[2] ) == "true"
+	);
+}
+
+/// Yield for the GetSplashscreen request
+Void Private_Yield_RequestGetSplashscreen() {
+	if (Http::IsInitialized(G_Request_GetSplashscreen)) {
+		G_Request_GetSplashscreen = Http::Update(Http, G_Request_GetSplashscreen);
+		if (!Http::IsRunning(G_Request_GetSplashscreen)) {
+			declare K_State CMGame_SplashscreenStore_State for System = C_State_Null;
+			if (Http::IsSuccess(G_Request_GetSplashscreen)) {
+				declare SplashscreenStruct::K_Splashscreen[] SplashscreenList = SplashscreenAPI::Response_GetSplashscreenList(G_Request_GetSplashscreen);
+				if (SplashscreenList.count > 0) {
+					CMGame_SplashscreenStore_State.Splashscreen = SplashscreenList[0];
+				}
+			}
+			Store::SendEvent(C_StoreId, C_Event_SplashscreenUpdated, [CMGame_SplashscreenStore_State.Splashscreen.Url]);
+			G_Request_GetSplashscreen = Http::Destroy(Http, G_Request_GetSplashscreen);
+		}
+	}
+}
+
+/// Yield for the PostCreateImpression request
+Void Private_Yield_RequestPostCreateImpression() {
+	if (Http::IsInitialized(G_Request_PostCreateImpression)) {
+		G_Request_PostCreateImpression = Http::Update(Http, G_Request_PostCreateImpression);
+		if (!Http::IsRunning(G_Request_PostCreateImpression)) {
+			if (Http::IsSuccess(G_Request_PostCreateImpression)) {
+				Store::SendEvent(C_StoreId, C_Event_ImpressionCreated);
+			}
+			G_Request_PostCreateImpression = Http::Destroy(Http, G_Request_PostCreateImpression);
+		}
+	}
+}
+
+/// Automatically refresh the current splashcreen
+Void Private_Yield_RefreshSplashscreen() {
+	declare K_State CMGame_SplashscreenStore_State for System = C_State_Null;
+
+	if (CMGame_SplashscreenStore_State.RequestTimestamp_GetSplashscreen > 0 && CMGame_SplashscreenStore_State.RequestTimestamp_GetSplashscreen < Now) {
+		CMGame_SplashscreenStore_State.RequestTimestamp_GetSplashscreen = Now + SplashscreenStruct::C_SplashscreenDelay;
+		Private_Action_RetrieveSplashscreen(CMGame_SplashscreenStore_State.TargetSubscription);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Retrieve the splashscreen
+Void Action_RetrieveSplashscreen(Text _TargetSubscription) {
+	Private_Action_RetrieveSplashscreen(_TargetSubscription);
+}
+
+/// Create an impression of a viewed splashscreen
+Void Action_CreateImpression(Text _SplashscreenUid, Integer _ViewTime, Boolean _IsClicked) {
+	Private_Action_CreateImpression(_SplashscreenUid, _ViewTime, _IsClicked);
+}
+
+/// Initialize the Splashscreen store
+Void Initialize(Boolean _ResetData) {
+	declare K_State CMGame_SplashscreenStore_State for System = C_State_Null;
+
+	// Reset requests
+	G_Request_GetSplashscreen = Http::DestroyIfInitialized(Http, G_Request_GetSplashscreen);
+	G_Request_PostCreateImpression = Http::DestroyIfInitialized(Http, G_Request_PostCreateImpression);
+
+	// Reset data
+	if (_ResetData) {
+		CMGame_SplashscreenStore_State = C_State_Null;
+	}
+}
+
+/// Process event
+Void ProcessEvent(CManiaAppEvent _Event) {
+	switch (_Event.Type) {
+		case CManiaAppEvent::EType::LayerCustomEvent: {
+			switch (_Event.CustomEventType) {
+				case C_Action_RetrieveSplashscreen: Private_ProcessEvent_RetrieveSplashscreen(_Event);
+				case C_Action_CreateImpression: Private_ProcessEvent_CreateImpression(_Event);
+			}
+		}
+	}
+}
+
+/// Process events
+Void ProcessEvents(CNod _Context) {
+	switchtype (_Context as Context) {
+		case CManiaAppTitle: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+		case CManiaAppPlayground: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+	}
+}
+
+/// Update the Event store
+Void Yield() {
+	Private_Yield_RequestGetSplashscreen();
+	Private_Yield_RequestPostCreateImpression();
+	Private_Yield_RefreshSplashscreen();
+
+	ProcessEvents(This);
+}

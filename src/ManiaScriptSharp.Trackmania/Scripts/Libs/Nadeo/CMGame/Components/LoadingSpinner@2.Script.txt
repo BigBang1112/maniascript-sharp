@@ -1,0 +1,408 @@
+/**
+ *	Component: LoadingSpinner@2
+ *
+ *	Available attributes are :
+ *	- label: label of the loading, if empty, it displays nothing
+ *	- label-side: side of the label of the loading: 0 is under, -1 is left, 1 is right
+ *	- label-textfont: the font of the label
+ *	- label-textprefix: the prefix of the label
+ *	- label-autonewline: enable text with multiple lines and better handle text containing '\n' characters
+ *	- color: the color of the spinner image
+ *	- opacity: the opacity of the spinner image
+ *	- size: the size of the spinner image
+ *	- dimmer: True to enable a background dimmer, False otherwise
+ */
+#Const Version "2.0.4"
+#Const ScriptName "Libs/Nadeo/CMGame/Components/LoadingSpinner@2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView@3.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet@2.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_State {
+	CMlQuad[] LoadingQuads;
+	CMlControl[][Integer] DelayedStop;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ComponentName "CMGameLoadingSpinner2"
+#Const C_ComponentClass "cmgame-components-loading-spinner-2"
+
+#Const C_ImageURL_Loading "file://Media/Manialinks/Nadeo/CMGame/Components/LoadingSpinner/LoadingSpinner.dds"
+
+#Const C_FadeInDuration 200
+#Const C_FadeOutDuration 200
+
+#Const C_LabelSide_Left -1
+#Const C_LabelSide_Center 0
+#Const C_LabelSide_Right 1
+
+#Const C_Id_QuadDimmer "menu-libs-loading-spinner_quad-dimmer"
+#Const C_Id_QuadLoading "menu-libs-loading-spinner_quad-loading"
+#Const C_Id_LabelLoading "menu-libs-loading-spinner_label-loading"
+
+#Const C_Prop_Label "label"
+#Const C_Prop_LabelSide "label-side"
+#Const C_Prop_LabelTextFont "label-textfont"
+#Const C_Prop_LabelTextPrefix "label-textprefix"
+#Const C_Prop_LabelAutoNewline "label-autonewline"
+#Const C_Prop_Color "color"
+#Const C_Prop_Opacity "opacity"
+#Const C_Prop_Size "size"
+#Const C_Prop_Dimmer "dimmer"
+
+#Const C_Private_SpinningSpeedDivider 5
+
+#Const C_State_Null K_State {
+	LoadingQuads = [],
+	DelayedStop = []
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the template of the component
+Text GetTemplate() {
+	return
+"""
+<quad id="{{{C_Id_QuadDimmer}}}" size="320 180" halign="center" valign="center" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BG_Dark)}}}" opacity="0.8" fullscreen="1" z-index="0" hidden="1" />
+<quad id="{{{C_Id_QuadLoading}}}" z-index="1" size="15 15" halign="center" valign="center" image="{{{C_ImageURL_Loading}}}" modulatecolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_Icon_White)}}}" hidden="1" />
+<label id="{{{C_Id_LabelLoading}}}" pos="0 -15" z-index="1" size="150 15" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Regular)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_Text_Primary)}}}" textprefix="$i" textsize="5" />
+""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the loading spinner is spinning
+Boolean IsLoading(CMlControl _FrameInstance) {
+	assert(_FrameInstance != Null, "[LoadingSpinner@2] Frame instance of loading spinner is Null");
+
+	declare Boolean CMGame_LoadingSpinner2_IsLoading for _FrameInstance = False;
+	return CMGame_LoadingSpinner2_IsLoading;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the color of the loading spinner quad
+Void SetColor(CMlControl _FrameInstance, Vec3 _Color) {
+	assert(_FrameInstance != Null, "[LoadingSpinner@2] Frame instance of loading spinner is Null");
+	assert((_FrameInstance is CMlFrame), "[LoadingSpinner@2] Frame instance of loading spinner is not a CMlFrame");
+
+	declare CMlQuad Quad_Loading = ((_FrameInstance as CMlFrame).GetFirstChild(C_Id_QuadLoading) as CMlQuad);
+	MV::SetProp_Color(_FrameInstance, C_Prop_Color, _Color);
+	Quad_Loading.ModulateColor = _Color;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the opacity of the loading spinner
+Void SetOpacity(CMlControl _FrameInstance, Real _Opacity) {
+	assert(_FrameInstance != Null, "[LoadingSpinner@2] Frame instance of loading spinner is Null");
+	assert((_FrameInstance is CMlFrame), "[LoadingSpinner@2] Frame instance of loading spinner is not a CMlFrame");
+
+	declare Real Opacity = ML::Clamp(_Opacity, 0., 1.);
+	MV::SetProp_Real(_FrameInstance, C_Prop_Opacity, Opacity);
+	((_FrameInstance as CMlFrame).GetFirstChild(C_Id_QuadLoading) as CMlQuad).Opacity = Opacity;
+	((_FrameInstance as CMlFrame).GetFirstChild(C_Id_LabelLoading) as CMlLabel).Opacity = Opacity;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the value of the loading spinner label
+Void SetLabel(CMlControl _FrameInstance, Text _Value) {
+	assert(_FrameInstance != Null, "[LoadingSpinner@2] Frame instance of loading spinner is Null");
+	assert((_FrameInstance is CMlFrame), "[LoadingSpinner@2] Frame instance of loading spinner is not a CMlFrame");
+
+	declare CMlLabel Label_Loading <=> ((_FrameInstance as CMlFrame).GetFirstChild(C_Id_LabelLoading) as CMlLabel);
+	MV::SetProp_Text(_FrameInstance, C_Prop_Label, _Value);
+	Label_Loading.SetText(_Value);
+	Tools::FitLabelValue(Label_Loading, 5., 2.5, 0.5);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the loading spinner background from props
+Void Private_UpdateDimmerQuad(CMlFrame _FrameInstance, CMlQuad _Quad_Dimmer) {
+	if (MV::HasProp(_FrameInstance, C_Prop_Dimmer)) {
+		_Quad_Dimmer.Visible = MV::GetProp_Boolean(_FrameInstance, C_Prop_Dimmer, False);
+	}
+	if (MV::HasProp(_FrameInstance, C_Prop_Opacity)) {
+		_Quad_Dimmer.Opacity = ML::Clamp(MV::GetProp_Real(_FrameInstance, C_Prop_Opacity, 0.8), 0., 0.8);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the loading spinner quad from props
+Void Private_UpdateLoadingQuad(CMlFrame _FrameInstance, CMlQuad _Quad_Loading) {
+	if (!_Quad_Loading.Visible) _Quad_Loading.RelativeRotation = 0.;
+	if (MV::HasProp(_FrameInstance, C_Prop_Color)) {
+		_Quad_Loading.ModulateColor = MV::GetProp_Color(_FrameInstance, C_Prop_Color, <1., 1., 1.>);
+	}
+	if (MV::HasProp(_FrameInstance, C_Prop_Opacity)) {
+		_Quad_Loading.Opacity = MV::GetProp_Real(_FrameInstance, C_Prop_Opacity, 1.);
+	}
+	if (MV::HasProp(_FrameInstance, C_Prop_Size)) {
+		_Quad_Loading.Size = MV::GetProp_Vec2(_FrameInstance, C_Prop_Size, <1., 1.>);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the loading spinner label from props
+Void Private_UpdateLoadingLabel(CMlFrame _FrameInstance, CMlLabel _Label_Loading) {
+	declare Integer LabelSide = C_LabelSide_Center;
+	declare Vec2 SpinnerSize = <15., 15.>;
+
+	/* Update label attributes */
+	if (MV::HasProp(_FrameInstance, C_Prop_Label)) {
+		SetLabel(_FrameInstance, MV::GetProp_Text(_FrameInstance, C_Prop_Label, ""));
+	}
+	if (MV::HasProp(_FrameInstance, C_Prop_LabelTextFont)) {
+		_Label_Loading.TextFont = MV::GetProp_Text(_FrameInstance, C_Prop_LabelTextFont, "");
+	}
+	if (MV::HasProp(_FrameInstance, C_Prop_LabelTextPrefix)) {
+		_Label_Loading.TextPrefix = MV::GetProp_Text(_FrameInstance, C_Prop_LabelTextPrefix, "");
+	}
+	if (MV::HasProp(_FrameInstance, C_Prop_LabelAutoNewline)) {
+		_Label_Loading.AutoNewLine = MV::GetProp_Boolean(_FrameInstance, C_Prop_LabelAutoNewline, False);
+	}
+	if (MV::HasProp(_FrameInstance, C_Prop_LabelSide)) {
+		LabelSide = MV::GetProp_Integer(_FrameInstance, C_Prop_LabelSide, C_LabelSide_Center);
+	}
+	if (MV::HasProp(_FrameInstance, C_Prop_Size)) {
+		SpinnerSize = MV::GetProp_Vec2(_FrameInstance, C_Prop_Size, <1., 1.>);
+	}
+	switch (LabelSide) {
+		case C_LabelSide_Left: {
+			_Label_Loading.RelativePosition_V3 = <-SpinnerSize.X * 0.8, 0.>;
+			_Label_Loading.HorizontalAlign = CMlControl::AlignHorizontal::Right;
+			_Label_Loading.VerticalAlign = CMlControl::AlignVertical::VCenter2;
+		}
+		case C_LabelSide_Right: {
+			_Label_Loading.RelativePosition_V3 = <SpinnerSize.X * 0.8, 0.>;
+			_Label_Loading.HorizontalAlign = CMlControl::AlignHorizontal::Left;
+			_Label_Loading.VerticalAlign = CMlControl::AlignVertical::VCenter2;
+		}
+		default: { //< Same as C_LabelSide_Center
+			_Label_Loading.RelativePosition_V3 = <0., -SpinnerSize.Y * 0.8>;
+			_Label_Loading.HorizontalAlign = CMlControl::AlignHorizontal::HCenter;
+			_Label_Loading.VerticalAlign = CMlControl::AlignVertical::Top;
+		}
+	}
+	if (MV::HasProp(_FrameInstance, C_Prop_Opacity)) {
+		_Label_Loading.Opacity = MV::GetProp_Real(_FrameInstance, C_Prop_Opacity, 1.);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the size of the loading spinner
+Void SetSize(CMlControl _FrameInstance, Vec2 _Size) {
+	assert(_FrameInstance != Null, "[LoadingSpinner@2] Frame instance of loading spinner is Null");
+	assert((_FrameInstance is CMlFrame), "[LoadingSpinner@2] Frame instance of loading spinner is not a CMlFrame");
+
+	declare CMlFrame Frame_Loading <=> (_FrameInstance as CMlFrame);
+	declare Vec2 SpinnerSize = <ML::Max(0., _Size.X), ML::Max(0., _Size.Y)>;
+	MV::SetProp_Vec2(Frame_Loading, C_Prop_Size, SpinnerSize);
+	Private_UpdateLoadingQuad(Frame_Loading, (Frame_Loading.GetFirstChild(C_Id_QuadLoading) as CMlQuad));
+	Private_UpdateLoadingLabel(Frame_Loading, (Frame_Loading.GetFirstChild(C_Id_LabelLoading) as CMlLabel));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Animated update of the loading spinner opacity
+Void Fade(CMlScript _This, CMlControl _FrameInstance, Real _Opacity, Integer _FadeDuration) {
+	assert(_FrameInstance != Null, "[LoadingSpinner@2] Frame instance of loading spinner is Null");
+	assert((_FrameInstance is CMlFrame), "[LoadingSpinner@2] Frame instance of loading spinner is not a CMlFrame");
+
+	declare CMlFrame Frame_Loading <=> (_FrameInstance as CMlFrame);
+	declare CMlLabel Label_Loading <=> (Frame_Loading.GetFirstChild(C_Id_LabelLoading) as CMlLabel);
+	declare CMlQuad Quad_Loading <=> (Frame_Loading.GetFirstChild(C_Id_QuadLoading) as CMlQuad);
+	declare CMlQuad Quad_Dimmer <=> (Frame_Loading.GetFirstChild(C_Id_QuadDimmer) as CMlQuad);
+
+	_This.AnimMgr.Flush(Label_Loading);
+	_This.AnimMgr.Flush(Quad_Loading);
+	_This.AnimMgr.Flush(Quad_Dimmer);
+	if (_FadeDuration > 0) {
+		_This.AnimMgr.Add(Label_Loading, "<anim opacity=\""^_Opacity^"\" />", _FadeDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(Quad_Loading, "<anim opacity=\""^_Opacity^"\" />", _FadeDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(Quad_Dimmer, "<anim opacity=\""^ML::Clamp(_Opacity, 0., 0.8)^"\" />", _FadeDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		Label_Loading.Opacity = _Opacity;
+		Quad_Loading.Opacity = _Opacity;
+		Quad_Dimmer.Opacity = ML::Clamp(_Opacity, 0., 0.8);
+	}
+}
+Void FadeIn(CMlScript _This, CMlControl _FrameInstance, Text _Value) {
+	Fade(_This, _FrameInstance, 1., C_FadeInDuration);
+	SetLabel(_FrameInstance, _Value);
+}
+Void FadeIn(CMlScript _This, CMlControl _FrameInstance) {
+	Fade(_This, _FrameInstance, 1., C_FadeInDuration);
+}
+Void FadeOut(CMlScript _This, CMlControl _FrameInstance) {
+	Fade(_This, _FrameInstance, 0., C_FadeOutDuration);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the spinning animation of the loading spinner
+Void StartAnimation(CMlScript _This, CMlControl _FrameInstance) {
+	assert(_FrameInstance != Null, "[LoadingSpinner@2] Frame instance of loading spinner is Null");
+	assert((_FrameInstance is CMlFrame), "[LoadingSpinner@2] Frame instance of loading spinner is not a CMlFrame");
+
+	declare K_State CMGame_LoadingSpinner2_State for _This.Page = C_State_Null;
+	declare CMlFrame FrameInstance = (_FrameInstance as CMlFrame);
+	declare CMlQuad Quad_Dimmer = (FrameInstance.GetFirstChild(C_Id_QuadDimmer) as CMlQuad);
+	declare CMlQuad Quad_Loading = (FrameInstance.GetFirstChild(C_Id_QuadLoading) as CMlQuad);
+	declare CMlLabel Label_Loading = (FrameInstance.GetFirstChild(C_Id_LabelLoading) as CMlLabel);
+	declare Boolean CMGame_LoadingSpinner2_IsLoading for _FrameInstance = False;
+	CMGame_LoadingSpinner2_IsLoading = True;
+
+	Quad_Loading.Show();
+	Private_UpdateLoadingLabel(FrameInstance, Label_Loading);
+	Private_UpdateLoadingQuad(FrameInstance, Quad_Loading);
+	Private_UpdateDimmerQuad(FrameInstance, Quad_Dimmer);
+
+	/* Cancel delayed stop for this loading spinner */
+	declare CMlControl[][Integer] TempDelayedStop = CMGame_LoadingSpinner2_State.DelayedStop;
+	foreach (StopTimestamp => DelayedInstances in TempDelayedStop) {
+		if (CMGame_LoadingSpinner2_State.DelayedStop[StopTimestamp].exists(_FrameInstance)) {
+			CMGame_LoadingSpinner2_State.DelayedStop[StopTimestamp].remove(_FrameInstance);
+			if (CMGame_LoadingSpinner2_State.DelayedStop[StopTimestamp].count <= 0) {
+				CMGame_LoadingSpinner2_State.DelayedStop.removekey(StopTimestamp);
+			}
+		}
+	}
+
+	/* Trigger spinning animation */
+	if (!CMGame_LoadingSpinner2_State.LoadingQuads.exists(Quad_Loading)) {
+		CMGame_LoadingSpinner2_State.LoadingQuads.add(Quad_Loading);
+	}
+}
+Void StartAnimation(CMlScript _This, CMlControl _FrameInstance, Text _Value) {
+	StartAnimation(_This, _FrameInstance);
+	SetLabel(_FrameInstance, _Value);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the spinning animation of the loading spinner with a fade in animation
+Void StartAnimWithFade(CMlScript _This, CMlControl _FrameInstance, Text _Value) {
+	if (IsLoading(_FrameInstance)) {
+		SetLabel(_FrameInstance, _Value);
+	} else {
+		StartAnimation(_This, _FrameInstance, _Value);
+		FadeIn(_This, _FrameInstance);
+	}
+}
+Void StartAnimWithFade(CMlScript _This, CMlControl _FrameInstance) {
+	if (!IsLoading(_FrameInstance)) {
+		StartAnimation(_This, _FrameInstance);
+		FadeIn(_This, _FrameInstance);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop the spinning animation of the loading spinner
+Void StopAnimation(CMlScript _This, CMlControl _FrameInstance) {
+	assert(_FrameInstance != Null, "[LoadingSpinner@2] Frame instance of loading spinner is Null");
+	assert((_FrameInstance is CMlFrame), "[LoadingSpinner@2] Frame instance of loading spinner is not a CMlFrame");
+
+	declare K_State CMGame_LoadingSpinner2_State for _This.Page = C_State_Null;
+	declare CMlFrame FrameInstance = (_FrameInstance as CMlFrame);
+	declare CMlQuad Quad_Dimmer = (FrameInstance.GetFirstChild(C_Id_QuadDimmer) as CMlQuad);
+	declare CMlQuad Quad_Loading = (FrameInstance.GetFirstChild(C_Id_QuadLoading) as CMlQuad);
+	declare CMlLabel Label_Loading = (FrameInstance.GetFirstChild(C_Id_LabelLoading) as CMlLabel);
+	declare Boolean CMGame_LoadingSpinner2_IsLoading for _FrameInstance = False;
+
+	CMGame_LoadingSpinner2_IsLoading = False;
+	CMGame_LoadingSpinner2_State.LoadingQuads.remove(Quad_Loading);
+	Label_Loading.SetText("");
+	Quad_Loading.Hide();
+	Quad_Dimmer.Hide();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop the spinning animation of the loading spinner with a fade out animation
+Void StopAnimWithFade(CMlScript _This, CMlControl _FrameInstance) {
+	declare K_State CMGame_LoadingSpinner2_State for _This.Page = C_State_Null;
+
+	FadeOut(_This, _FrameInstance);
+	if (CMGame_LoadingSpinner2_State.DelayedStop.existskey(Now + C_FadeOutDuration)) {
+		if (!CMGame_LoadingSpinner2_State.DelayedStop[Now + C_FadeOutDuration].exists(_FrameInstance)) {
+			CMGame_LoadingSpinner2_State.DelayedStop[Now + C_FadeOutDuration].add(_FrameInstance);
+		}
+	} else {
+		CMGame_LoadingSpinner2_State.DelayedStop[Now + C_FadeOutDuration] = [_FrameInstance];
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the loading state of the loading spinner
+Void SetIsLoading(CMlScript _This, CMlControl _FrameInstance, Boolean _IsLoading) {
+	if (_IsLoading) {
+		StartAnimation(_This, _FrameInstance);
+	} else {
+		StopAnimation(_This, _FrameInstance);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialization hook
+Void Private_Hook_PageMainInit(CMlScript _This) {
+	declare K_State CMGame_LoadingSpinner2_State for _This.Page = C_State_Null;
+	CMGame_LoadingSpinner2_State = C_State_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Yield hook
+Void Private_Hook_PageAfterYield(CMlScript _This) {
+	declare K_State CMGame_LoadingSpinner2_State for _This.Page = C_State_Null;
+
+	/* Handle rotation animation of quads */
+	foreach (LoadingQuad in CMGame_LoadingSpinner2_State.LoadingQuads) {
+		if (LoadingQuad.Visible) {
+			// Cast Integer to Real with the smallest possible number to avoid losing precision
+			// when `Now` is big. It would result in a choppy spinning animation otherwise.
+			LoadingQuad.RelativeRotation = (Now % (360 * C_Private_SpinningSpeedDivider)) * -(1. / C_Private_SpinningSpeedDivider);
+		}
+	}
+
+	/* Stop animation after a delay */
+	declare CMlControl[][Integer] TempDelayedStop = CMGame_LoadingSpinner2_State.DelayedStop;
+	foreach (StopTimestamp => FrameInstanceList in TempDelayedStop) {
+		if (StopTimestamp < Now) {
+			foreach (FrameInstance in FrameInstanceList) {
+				StopAnimation(_This, FrameInstance);
+			}
+			CMGame_LoadingSpinner2_State.DelayedStop.removekey(StopTimestamp);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+MV::K_Component Component() {
+	return MV::K_Component {
+		Name = C_ComponentName,
+		Path = ScriptName,
+		Class = C_ComponentClass,
+		Template = GetTemplate(),
+		Hooks = [
+			MV::C_Hook_PageMainInit => """{{{C_ComponentName}}}::Private_Hook_PageMainInit""",
+			MV::C_Hook_PageAfterYield => """{{{C_ComponentName}}}::Private_Hook_PageAfterYield"""
+		],
+		DefineProps = [
+			C_Prop_Label,
+			C_Prop_LabelSide,
+			C_Prop_LabelTextFont,
+			C_Prop_LabelTextPrefix,
+			C_Prop_LabelAutoNewline,
+			C_Prop_Color,
+			C_Prop_Opacity,
+			C_Prop_Size,
+			C_Prop_Dimmer
+		]
+	};
+}

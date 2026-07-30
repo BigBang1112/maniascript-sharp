@@ -1,0 +1,1053 @@
+/**
+ *	Component: TextField
+ *	===========================
+ *
+ *	The `TextField` component adds the ability to navigate to a `CMlEntry` or a `CMLTextedit` using the `Navigation` class.
+ *	With the `data-textfieldtype` parameter, it is possible to initialize this component as a `CMlEntry` or a `CMlTextEdit`.
+ *
+ *	Types of textfield
+ *	----------
+ *	- C_TextFieldType_Entry					the type to define the component as a CMlEntry
+ *	- C_TextFieldType_TextEdit			the type to define the component as a CMlTextEdit
+ *
+ *	Events
+ *	----------
+ *	- C_EventType_Update						the event sent when the displayed text of the component is updated by the player
+ *	- C_EventType_StartEdition			the event sent when the player starts to edit the text field
+ *
+ *	Parameters
+ *	----------
+ *	- data-autonewline							the boolean to allow an automatic carriage return if the x-size of the component is too short (only for `C_TextFieldType_TextEdit` type)
+ *	- data-bgcolortype							the integer to set the coloration mode of the background. Available parameter : `C_ColorType_None`, `C_ColorType_Colorize`, `C_ColorType_ModulateColor`
+ *	- data-bgcolorfocus							the hexadecimal color of the background when the component is focused
+ *	- data-bgcolorunfocus						the hexadecimal color of the background when the component is not focused
+ *	- data-bgempty									the boolean to set an empty background
+ *	- data-bgimage									the url text for the background image
+ *	- data-bgopacityfocus						the real opacity of the background when the component is focused
+ *	- data-bgopacityunfocus					the real opacity of the background when the component is not focused
+ *	- data-contourimage							the url text for the countour image
+ *	- data-contourcoloredit				the hexadecimal color of the contour when the text is being edited
+ *	- data-contourcolorfocus				the hexadecimal color of the contour when the component is focused
+ *	- data-contourcolorunfocus			the hexadecimal color of the contour when the component is not focused
+ *	- data-contouropacityedit			the real opacity of the contour when the the text is being edited
+ *	- data-contouropacityfocus			the real opacity of the contour when the component is focused
+ *	- data-contouropacityunfocus		the real opacity of the contour when the component is not focused
+ *	- data-textfieldtype						the type of the textfield. Available parameter : `C_TextFieldType_Entry`, `C_TextFieldType_TextEdit`
+ *	- data-maxline									the integer to set the maximum line of a text (only for `C_TextFieldType_TextEdit` type).
+ *	- data-placeholder							the text to display in the component when there is no text value. The opacity and the color of the placeholder cannot be changed.
+ *	- data-size											the x and y size of the component
+ *	- data-skew											the real skew to add a left and right margin depending on the background's skew
+ *	- data-textcolorfocus						the hexadecimal color of the displayed text when the component is focused
+ *	- data-textcolorunfocus					the hexadecimal color of the displayed text when the component is not focused
+ *	- data-textformat								the formatting of the displayed text when the component is focused
+ *	- data-textopacityfocus					the real opacity of the displayed text when the component is focused
+ *	- data-textopacityunfocus				the real opacity of the displayed text when the component is not focused
+ *	- data-textsize									the real size of the displayed text
+ *	- data-textvalue								the text value of the displayed text
+ *	- data-textvaluetype						the type of the displayed text. Available parameters : `Ml_Natural`, Ml_Integer, Ml_Real...
+ *	- data-textprefix								the prefix of the text displayed in the textfield (the placeholder is not impacted, CMlTextEdit doesn't support text prefix)
+ *	- data-tooltip									the text to set the virtual keyboard tooltip
+ *	- data-halign										the horizontal alignment of the component. Available parameter : `left`, `center`, `right`
+ *	- data-valign										the vertical alignment of the comonent. Available parameter : `top`, `center`, `bottom`
+ */
+#Const Version "1.0.1"
+#Const ScriptName "Libs/Nadeo/CMGame/Components/TextField.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButtonBase.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton_Styles
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_TextProperties {
+	Boolean AutoNewLine;
+	CMlEntry::ETextFormat TextFormatEntry;
+	CMlEntry::ValueType ValueType;
+	CMlTextEdit::EControlScriptEditorTextFormat TextFormatTextEdit;
+	Integer MaxLine;
+	Real OpacityFocus;
+	Real OpacityUnfocus;
+	Real TextSize;
+	Text Placeholder;
+	Text Prefix;
+	Text Value;
+	Vec3 ColorFocus;
+	Vec3 ColorUnfocus;
+}
+#Struct K_ImageProperties {
+	Integer ColorType;
+	Real OpacityEdit;
+	Real OpacityFocus;
+	Real OpacityUnfocus;
+	Text Image;
+	Vec3 ColorEdit;
+	Vec3 ColorFocus;
+	Vec3 ColorUnfocus;
+}
+#Struct K_TextField {
+	Boolean IsBgEmpty;
+	Boolean IsTextField;
+	Boolean IsFocused;
+	Boolean IsLocked;
+	Integer TextFieldType;
+	Real Skew;
+	Text HAlign;
+	Text VAlign;
+	Text Tooltip;
+	Vec2 Size;
+	K_ImageProperties Background;
+	K_ImageProperties Contour;
+	K_TextProperties Label;
+}
+#Struct K_TextFieldEvent {
+	CMlControl Control;
+	CMlFrame TextField;
+	Integer Type;
+	Text Value;
+}
+#Struct K_State {
+	CMlFrame[] TextFields;
+	CMlControl FocusedTextField;
+	Boolean IsTextFieldFocused;
+	K_TextFieldEvent[] PendingEvents;
+	K_TextFieldEvent[] DelayedPendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_TextField_Null K_TextField {
+	IsTextField = False
+}
+#Const C_State_Null K_State {
+	TextFields = [],
+	IsTextFieldFocused = False,
+	PendingEvents = [],
+	DelayedPendingEvents = []
+}
+
+#Const C_Name "component-textfield" //< Component name
+#Const P "CMGame_TextField::" //< Prefix used to differentiate functions/variables in the script
+#Const Q "CMGame_TextField"
+#Const C_NavZone "CMGame_TextField_quad-activation"
+
+#Const C_TextFieldType_Entry 0
+#Const C_TextFieldType_TextEdit 1
+
+#Const C_Prefix_Default "$t$i"
+
+#Const C_ColorType_None 0
+#Const C_ColorType_Colorize 1
+#Const C_ColorType_ModulateColor 2
+
+#Const C_Placeholder_Opacity 0.4
+#Const Stylesheet::C_Color_AccentOne as C_Placeholder_Color
+
+#Const C_EventType_Update 0
+#Const C_EventType_StartEdition 1
+
+#Const C_Skew_Default 10.
+#Const C_Skew_Margin 1.
+
+//L16N [Settings] Text pronounced when a text field is focused with a text to update.
+#Const C_TTS_TextDisplayed _("|TTS|Text field %1 - update - %2")
+//L16N [Settings] Text pronounced when a text field is focused with no text to update.
+#Const C_TTS_PlaceholderDisplayed _("|TTS|Text field %1")
+//L16N [Settings] Text pronounced when the focused text field has no text and no placeholder.
+#Const C_TTS_Empty _("|TTS|Empty text field")
+
+#Const C_Class_FrameContainerTextField "cmgame-text-field_frame-container-text-field"
+#Const C_Class_QuadDefault "cmgame-text-field_quad-default"
+#Const C_Class_TextDefault "cmgame-text-field_text-default"
+#Const C_Id_FrameTextFieldAlign "cmgame-text-field_frame-text-field-align"
+#Const C_Id_EntryLabel "cmgame-text-field_entry-label"
+#Const C_Id_TexteditLabel "cmgame-text-field_textedit-label"
+#Const C_Id_ButtonBackground "cmgame-text-field_button-background"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetManialink() {
+	return """
+<stylesheet>
+	<style class="{{{C_Class_QuadDefault}}}" halign="center" valign="center"/>
+	<style class="{{{C_Class_TextDefault}}}" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textsize="3" textcolor="FFF"/>
+</stylesheet>
+
+<frame id="{{{C_Id_FrameTextFieldAlign}}}" class="{{{C_Class_FrameContainerTextField}}}">
+	<quad id="{{{C_NavZone}}}" class="{{{Navigation::C_Class_ActivationZone}}} {{{C_Class_QuadDefault}}}" scriptevents="1" opacity="0" z-index="10"/>
+	<entry id="{{{C_Id_EntryLabel}}}" size="110 10" class="{{{C_Class_TextDefault}}}" focusareacolor1="00000000" focusareacolor2="00000000" textsize="5"/>
+	<textedit id="{{{C_Id_TexteditLabel}}}" size="110 28" pos="0 -1.5" class="{{{C_Class_TextDefault}}}" focusareacolor1="00000000" focusareacolor2="00000000" textsize="5." linespacing="1.1" hidden="1"/>
+	<frameinstance id="{{{C_Id_ButtonBackground}}}" modelid="{{{ExpendableButton_Styles::C_Name}}}" data-styles="{{{ExpendableButton_Styles::C_Style_Stack}}} {{{ExpendableButton_Styles::C_Style_AlignCenter}}}" z-index="-1"/>
+</frame>
+	""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	The component is selected by the Navigation component
+Void Select(CMlScript _This, CMlFrame _Frame_TextField) {
+	declare K_State CMGame_TextField_State for _This.Page = C_State_Null;
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+
+	switch (CMGame_TextField_TextField.TextFieldType) {
+		case C_TextFieldType_Entry: {
+			declare CMlEntry Entry_Label <=> (_Frame_TextField.GetFirstChild(C_Id_EntryLabel) as CMlEntry);
+
+			// Prepare the component for edition
+			CMGame_TextField_State.FocusedTextField = Entry_Label;
+			Entry_Label.TextColor = CMGame_TextField_TextField.Label.ColorFocus;
+			Entry_Label.Opacity = CMGame_TextField_TextField.Label.OpacityFocus;
+			Entry_Label.Value = CMGame_TextField_TextField.Label.Value;
+			if (CMGame_TextField_TextField.Label.Value == "") {
+				Entry_Label.TextFormat = CMGame_TextField_TextField.Label.TextFormatEntry;
+			}
+
+			// Start edition
+			// We need to send a delayed event for the TextFormat to be correctly applied
+			CMGame_TextField_State.DelayedPendingEvents.add(K_TextFieldEvent {
+				Control = Entry_Label,
+				TextField = _Frame_TextField,
+				Type = C_EventType_StartEdition,
+				Value = CMGame_TextField_TextField.Label.Value
+			});
+		}
+		case C_TextFieldType_TextEdit: {
+			declare CMlTextEdit TextEdit_Label <=> (_Frame_TextField.GetFirstChild(C_Id_TexteditLabel) as CMlTextEdit);
+
+			// Prepare the component for edition
+			CMGame_TextField_State.FocusedTextField = TextEdit_Label;
+			TextEdit_Label.TextColor = CMGame_TextField_TextField.Label.ColorFocus;
+			TextEdit_Label.Opacity = CMGame_TextField_TextField.Label.OpacityFocus;
+			if (CMGame_TextField_TextField.Label.Value == "") {
+				TextEdit_Label.TextFormat = CMGame_TextField_TextField.Label.TextFormatTextEdit;
+				TextEdit_Label.Value = "";
+			}
+
+			// Start edition
+			// We need to send a delayed event for the TextFormat to be correctly applied
+			CMGame_TextField_State.DelayedPendingEvents.add(K_TextFieldEvent {
+				Control = TextEdit_Label,
+				TextField = _Frame_TextField,
+				Type = C_EventType_StartEdition,
+				Value = CMGame_TextField_TextField.Label.Value
+			});
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	The component is focused by the Navigation component
+Void Focus(CMlScript _This, CMlFrame _Frame_TextField, Boolean _Forced, Boolean _IsAnimated) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	assert(CMGame_TextField_TextField.IsTextField, "Control '"^_Frame_TextField.ControlId^"' is not an entry");
+	if (CMGame_TextField_TextField.IsLocked) return;
+
+	if (CMGame_TextField_TextField.IsFocused == False || _Forced) {
+		declare CMlFrame Button_Background <=> (_Frame_TextField.GetFirstChild(C_Id_ButtonBackground) as CMlFrame);
+
+		switch (CMGame_TextField_TextField.TextFieldType) {
+			case C_TextFieldType_Entry: {
+				declare CMlEntry Entry_Label <=> (_Frame_TextField.GetFirstChild(C_Id_EntryLabel) as CMlEntry);
+				_This.AnimMgr.Flush(Entry_Label);
+				if (CMGame_TextField_TextField.Label.Value == "") {
+					Entry_Label.Opacity = C_Placeholder_Opacity;
+					Entry_Label.TextColor = Stylesheet::GetColorRGB(C_Placeholder_Color);
+				} else if (_IsAnimated) {
+					_This.AnimMgr.Add(Entry_Label, "<anim textcolor=\""^CL::RgbToHex6(CMGame_TextField_TextField.Label.ColorFocus)^"\" opacity=\""^CMGame_TextField_TextField.Label.OpacityFocus^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+				} else {
+					Entry_Label.TextColor = CMGame_TextField_TextField.Label.ColorFocus;
+					Entry_Label.Opacity = CMGame_TextField_TextField.Label.OpacityFocus;
+				}
+			}
+			case C_TextFieldType_TextEdit: {
+				declare CMlTextEdit TextEdit_Label <=> (_Frame_TextField.GetFirstChild(C_Id_TexteditLabel) as CMlTextEdit);
+				_This.AnimMgr.Flush(TextEdit_Label);
+				if (CMGame_TextField_TextField.Label.Value == "") {
+					TextEdit_Label.Opacity = C_Placeholder_Opacity;
+					TextEdit_Label.TextColor = Stylesheet::GetColorRGB(C_Placeholder_Color);
+				} else { //< Animations are not working on CMlTextEdit
+					TextEdit_Label.TextColor = CMGame_TextField_TextField.Label.ColorFocus;
+					TextEdit_Label.Opacity = CMGame_TextField_TextField.Label.OpacityFocus;
+				}
+			}
+		}
+
+		// Text to speech
+		if (CMGame_TextField_TextField.Label.Value != "") {
+			ExpendableButton::SetTextToSpeech(Button_Background, TL::Compose(C_TTS_TextDisplayed, CMGame_TextField_TextField.Label.Placeholder, CMGame_TextField_TextField.Label.Value));
+		} else if (CMGame_TextField_TextField.Label.Placeholder != "") {
+			ExpendableButton::SetTextToSpeech(Button_Background, TL::Compose(C_TTS_PlaceholderDisplayed, CMGame_TextField_TextField.Label.Placeholder));
+		} else {
+			ExpendableButton::SetTextToSpeech(Button_Background, C_TTS_Empty);
+		}
+
+		// Update focus
+		CMGame_TextField_TextField.IsFocused = True;
+		ExpendableButton::Focus(_This, Button_Background, CMGame_TextField_TextField.IsFocused, _IsAnimated);
+	}
+}
+Void Focus(CMlScript _This, CMlFrame _Frame_TextField, Boolean _Forced) {
+	Focus(_This, _Frame_TextField, _Forced, True);
+}
+Void Focus(CMlScript _This, CMlFrame _Frame_TextField) {
+	Focus(_This, _Frame_TextField, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	The component is unfocused by the Navigation component
+Void Unfocus(CMlScript _This, CMlFrame _Frame_TextField, Boolean _Forced, Boolean _IsAnimated) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	assert(CMGame_TextField_TextField.IsTextField, "Control '"^_Frame_TextField.ControlId^"' is not an entry");
+	if (CMGame_TextField_TextField.IsLocked) return;
+
+	if (CMGame_TextField_TextField.IsFocused == True || _Forced) {
+		declare CMlFrame Button_Background <=> (_Frame_TextField.GetFirstChild(C_Id_ButtonBackground) as CMlFrame);
+
+		switch (CMGame_TextField_TextField.TextFieldType) {
+			case C_TextFieldType_Entry: {
+				declare CMlEntry Entry_Label <=> (_Frame_TextField.GetFirstChild(C_Id_EntryLabel) as CMlEntry);
+				_This.AnimMgr.Flush(Entry_Label);
+				if (CMGame_TextField_TextField.Label.Value == "") {
+					Entry_Label.Opacity = C_Placeholder_Opacity;
+					Entry_Label.TextColor = Stylesheet::GetColorRGB(C_Placeholder_Color);
+				} else if (_IsAnimated) {
+					_This.AnimMgr.Add(Entry_Label, "<anim textcolor=\""^CL::RgbToHex6(CMGame_TextField_TextField.Label.ColorUnfocus)^"\" opacity=\""^CMGame_TextField_TextField.Label.OpacityUnfocus^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+				} else {
+					Entry_Label.TextColor = CMGame_TextField_TextField.Label.ColorUnfocus;
+					Entry_Label.Opacity = CMGame_TextField_TextField.Label.OpacityUnfocus;
+				}
+			}
+			case C_TextFieldType_TextEdit: {
+				declare CMlTextEdit TextEdit_Label <=> (_Frame_TextField.GetFirstChild(C_Id_TexteditLabel) as CMlTextEdit);
+				_This.AnimMgr.Flush(TextEdit_Label);
+				if (CMGame_TextField_TextField.Label.Value == "") {
+					TextEdit_Label.Opacity = C_Placeholder_Opacity;
+					TextEdit_Label.TextColor = Stylesheet::GetColorRGB(C_Placeholder_Color);
+				} else { //< Animations are not working on CMlTextEdit
+					TextEdit_Label.TextColor = CMGame_TextField_TextField.Label.ColorUnfocus;
+					TextEdit_Label.Opacity = CMGame_TextField_TextField.Label.OpacityUnfocus;
+				}
+			}
+		}
+
+		// Update focus
+		CMGame_TextField_TextField.IsFocused = False;
+		ExpendableButton::Focus(_This, Button_Background, CMGame_TextField_TextField.IsFocused, _IsAnimated);
+	}
+}
+Void Unfocus(CMlScript _This, CMlFrame _Frame_TextField, Boolean _Forced) {
+	Unfocus(_This, _Frame_TextField, _Forced, True);
+}
+Void Unfocus(CMlScript _This, CMlFrame _Frame_TextField) {
+	Unfocus(_This, _Frame_TextField, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Update the component
+Void Private_Update(CMlScript _This) {
+	declare K_State CMGame_TextField_State for _This.Page = C_State_Null;
+	declare CMlFrame Frame_TextField = CMGame_TextField_State.FocusedTextField.Parent.Parent;
+	declare K_TextField CMGame_TextField_TextField for Frame_TextField = C_TextField_Null;
+	declare CMlFrame Button_Background <=> (Frame_TextField.GetFirstChild(C_Id_ButtonBackground) as CMlFrame);
+	declare Text ContourColor = CL::RgbToHex6(CMGame_TextField_TextField.Contour.ColorEdit);
+	declare Real ContourOpacity = CMGame_TextField_TextField.Contour.OpacityEdit;
+
+	CMGame_TextField_State.IsTextFieldFocused = CMGame_TextField_State.FocusedTextField.IsFocused;
+	if (!CMGame_TextField_State.IsTextFieldFocused) {
+		ContourColor = CL::RgbToHex6(CMGame_TextField_TextField.Contour.ColorFocus);
+		ContourOpacity = CMGame_TextField_TextField.Background.OpacityFocus;
+		if (CMGame_TextField_TextField.Contour.OpacityFocus != -1.) ContourOpacity = CMGame_TextField_TextField.Contour.OpacityFocus;
+		switchtype (CMGame_TextField_State.FocusedTextField) {
+			case CMlEntry: {
+				declare CMlEntry Entry_Label = CMGame_TextField_State.FocusedTextField as CMlEntry;
+				CMGame_TextField_TextField.Label.Value = Entry_Label.Value;
+				if (Entry_Label.Value == "") {
+					Entry_Label.Opacity = C_Placeholder_Opacity;
+					Entry_Label.TextFormat = CMlEntry::ETextFormat::Basic;
+					Entry_Label.TextColor = Stylesheet::GetColorRGB(C_Placeholder_Color);
+					Entry_Label.Value = C_Prefix_Default^TL::GetTranslatedText(CMGame_TextField_TextField.Label.Placeholder);
+				} else {
+					Entry_Label.Opacity = CMGame_TextField_TextField.Label.OpacityFocus;
+					Entry_Label.TextColor = CMGame_TextField_TextField.Label.ColorFocus;
+					Entry_Label.TextFormat = CMGame_TextField_TextField.Label.TextFormatEntry;
+					if (Entry_Label.TextFormat != CMlEntry::ETextFormat::Password && Entry_Label.TextFormat != CMlEntry::ETextFormat::Newpassword) {
+						Entry_Label.Value = CMGame_TextField_TextField.Label.Prefix^Entry_Label.Value;
+					}
+				}
+			}
+			case CMlTextEdit: {
+				declare CMlTextEdit TextEdit_Label = CMGame_TextField_State.FocusedTextField as CMlTextEdit;
+				CMGame_TextField_TextField.Label.Value = TextEdit_Label.Value;
+				if (TextEdit_Label.Value == "") {
+					TextEdit_Label.Opacity = C_Placeholder_Opacity;
+					TextEdit_Label.TextColor = Stylesheet::GetColorRGB(C_Placeholder_Color);
+					TextEdit_Label.TextFormat = CMlTextEdit::EControlScriptEditorTextFormat::Basic;
+					TextEdit_Label.Value = TL::GetTranslatedText(CMGame_TextField_TextField.Label.Placeholder);
+				} else {
+					TextEdit_Label.Opacity = CMGame_TextField_TextField.Label.OpacityFocus;
+					TextEdit_Label.TextColor = CMGame_TextField_TextField.Label.ColorFocus;
+					TextEdit_Label.TextFormat = CMGame_TextField_TextField.Label.TextFormatTextEdit;
+				}
+			}
+		}
+
+		CMGame_TextField_State.PendingEvents.add(K_TextFieldEvent {
+			Control = Frame_TextField,
+			TextField = Frame_TextField,
+			Type = C_EventType_Update,
+			Value = CMGame_TextField_TextField.Label.Value
+		});
+	}
+
+	ExpendableButton::SetFocusColorFocused(_This, Button_Background, ContourColor, False);
+	ExpendableButton::SetFocusOpacityFocused(_This, Button_Background, ContourOpacity, False);
+	ExpendableButton::RedrawButton(_This, Button_Background);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Apply all the properties to the component
+Void ApplyProperties(CMlScript _This, CMlFrame _Frame_TextField, K_TextField _Properties, Boolean _RedrawBackground) {
+	declare CMlEntry Entry_Label <=> (_Frame_TextField.GetFirstChild(C_Id_EntryLabel) as CMlEntry);
+	declare CMlFrame Button_Background <=> (_Frame_TextField.GetFirstChild(C_Id_ButtonBackground) as CMlFrame);
+	declare CMlFrame Frame_Align <=> (_Frame_TextField.GetFirstChild(C_Id_FrameTextFieldAlign) as CMlFrame);
+	declare CMlQuad Quad_Activation <=> (_Frame_TextField.GetFirstChild(C_NavZone) as CMlQuad);
+	declare CMlTextEdit TextEdit_Label <=> (_Frame_TextField.GetFirstChild(C_Id_TexteditLabel) as CMlTextEdit);
+
+	// Tooltip
+	if (_Properties.Tooltip != "") {
+		Entry_Label.ToolTip = _Properties.Tooltip;
+		TextEdit_Label.ToolTip = _Properties.Tooltip;
+	} else if (_Properties.Label.Placeholder != "") {
+		Entry_Label.ToolTip = _Properties.Label.Placeholder;
+		TextEdit_Label.ToolTip = _Properties.Label.Placeholder;
+	} else {
+		Entry_Label.ToolTip = "";
+		TextEdit_Label.ToolTip = "";
+	}
+
+	// TextField label
+	Entry_Label.Visible = _Properties.TextFieldType == C_TextFieldType_Entry;
+	TextEdit_Label.Visible = _Properties.TextFieldType == C_TextFieldType_TextEdit;
+	switch (_Properties.TextFieldType) {
+		case C_TextFieldType_Entry: {
+			Entry_Label.SetValueType(_Properties.Label.ValueType);
+			/* AutoNewLine and MaxLine are deprecated on `CMlEntry`, they never had any effect.
+			Entry_Label.AutoNewLine = _Properties.Label.AutoNewLine;
+			Entry_Label.MaxLine = _Properties.Label.MaxLine;
+			*/
+			Entry_Label.Size = <_Properties.Size.X-4*MLHelpers::SkewX(_Properties.Size.Y, _Properties.Skew), _Properties.Size.Y - 2.>;
+			Entry_Label.TextSizeReal = _Properties.Label.TextSize;
+			if (_Properties.Label.Value == "") {
+				Entry_Label.Opacity = C_Placeholder_Opacity;
+				Entry_Label.TextFormat = CMlEntry::ETextFormat::Basic;
+				Entry_Label.TextColor = Stylesheet::GetColorRGB(C_Placeholder_Color);
+				Entry_Label.Value = C_Prefix_Default^TL::GetTranslatedText(_Properties.Label.Placeholder);
+			} else {
+				Entry_Label.TextFormat = _Properties.Label.TextFormatEntry;
+				if (Entry_Label.TextFormat == CMlEntry::ETextFormat::Password || Entry_Label.TextFormat == CMlEntry::ETextFormat::Newpassword) {
+					Entry_Label.Value = _Properties.Label.Value;
+				} else {
+					Entry_Label.Value = _Properties.Label.Prefix^_Properties.Label.Value;
+				}
+				if (_Properties.IsFocused) {
+					Entry_Label.Opacity = _Properties.Label.OpacityFocus;
+					Entry_Label.TextColor = _Properties.Label.ColorFocus;
+				} else {
+					Entry_Label.Opacity = _Properties.Label.OpacityUnfocus;
+					Entry_Label.TextColor = _Properties.Label.ColorUnfocus;
+				}
+			}
+		}
+		case C_TextFieldType_TextEdit: {
+			TextEdit_Label.AutoNewLine = _Properties.Label.AutoNewLine;
+			TextEdit_Label.MaxLine = _Properties.Label.MaxLine;
+			TextEdit_Label.Size = <_Properties.Size.X-4*MLHelpers::SkewX(_Properties.Size.Y, _Properties.Skew), _Properties.Size.Y - 2.>;
+			TextEdit_Label.TextSizeReal = _Properties.Label.TextSize;
+			if (_Properties.Label.Value == "") {
+				TextEdit_Label.Opacity = C_Placeholder_Opacity;
+				TextEdit_Label.TextColor = Stylesheet::GetColorRGB(C_Placeholder_Color);
+				TextEdit_Label.TextFormat = CMlTextEdit::EControlScriptEditorTextFormat::Basic;
+				TextEdit_Label.Value = TL::GetTranslatedText(_Properties.Label.Placeholder);
+			} else {
+				TextEdit_Label.TextFormat = _Properties.Label.TextFormatTextEdit;
+				TextEdit_Label.Value = _Properties.Label.Value;
+				if (_Properties.IsFocused) {
+					TextEdit_Label.Opacity = _Properties.Label.OpacityFocus;
+					TextEdit_Label.TextColor = _Properties.Label.ColorFocus;
+				} else {
+					TextEdit_Label.Opacity = _Properties.Label.OpacityUnfocus;
+					TextEdit_Label.TextColor = _Properties.Label.ColorUnfocus;
+				}
+			}
+		}
+	}
+
+	// TextField background
+	Button_Background.Visible = !_Properties.IsBgEmpty || _Properties.Background.Image != "";
+	if (_RedrawBackground && Button_Background.Visible) {
+		ExpendableButton::SetWidth(_This, Button_Background, _Properties.Size.X, False);
+		ExpendableButton::SetHeight(_This, Button_Background, _Properties.Size.Y, False);
+		if (_Properties.Background.Image != "") {
+			ExpendableButton::SetBackgroundImages(_This, Button_Background, [
+				ExpendableButton::C_Position_Left => ExpendableButton::K_Image {},
+				ExpendableButton::C_Position_Right => ExpendableButton::K_Image {},
+				ExpendableButton::C_Position_Middle => ExpendableButton::K_Image {
+					ColorMode = ExpendableButton::C_ColorMode_Colorize,
+					Url = _Properties.Background.Image,
+					Size =  _Properties.Size
+				}
+			], False);
+		} else if (_Properties.Skew == C_Skew_Margin) { //< When the TextField is not skewed
+			ExpendableButton::SetBackgroundImages(_This, Button_Background, [
+				ExpendableButton::C_Position_Left => ExpendableButton::K_Image {},
+				ExpendableButton::C_Position_Right => ExpendableButton::K_Image {},
+				ExpendableButton::C_Position_Middle => ExpendableButton::K_Image {
+					ColorMode = ExpendableButton::C_ColorMode_Background
+				}
+			], False);
+		}
+		if (_Properties.Contour.Image != "") {
+			ExpendableButton::SetFocusImages(_This, Button_Background, [
+				ExpendableButton::C_Position_Left => ExpendableButton::K_Image {},
+				ExpendableButton::C_Position_Right => ExpendableButton::K_Image {},
+				ExpendableButton::C_Position_Middle => ExpendableButton::K_Image {
+					ColorMode = ExpendableButton::C_ColorMode_Colorize,
+					Url = _Properties.Contour.Image,
+					Size =  _Properties.Size
+				}
+			], False);
+		} else if (_Properties.Skew == C_Skew_Margin) { //< When the TextField is not skewed
+			ExpendableButton::SetFocusImages(_This, Button_Background, [
+				ExpendableButton::C_Position_Left => ExpendableButton::K_Image {},
+				ExpendableButton::C_Position_Right => ExpendableButton::K_Image {},
+				ExpendableButton::C_Position_Middle => ExpendableButton::K_Image {
+					ColorMode = ExpendableButton::C_ColorMode_Background
+				}
+			], False);
+		}
+		ExpendableButton::SetBackgroundColorFocused(_This, Button_Background, _Properties.Background.ColorFocus, False);
+		ExpendableButton::SetBackgroundColorUnfocused(_This, Button_Background, _Properties.Background.ColorUnfocus, False);
+		ExpendableButton::SetBackgroundOpacityFocused(_This, Button_Background, _Properties.Background.OpacityFocus, False);
+		ExpendableButton::SetBackgroundOpacityUnfocused(_This, Button_Background, _Properties.Background.OpacityUnfocus, False);
+		ExpendableButton::SetFocusColorFocused(_This, Button_Background, _Properties.Contour.ColorFocus, False);
+		ExpendableButton::SetFocusColorUnfocused(_This, Button_Background, _Properties.Contour.ColorUnfocus, False);
+		ExpendableButton::SetFocusOpacityFocused(_This, Button_Background, _Properties.Contour.OpacityFocus, False);
+		ExpendableButton::SetFocusOpacityUnfocused(_This, Button_Background, _Properties.Contour.OpacityUnfocus, False);
+		ExpendableButton::RedrawButton(_This, Button_Background, False);
+		ExpendableButton::Focus(_This, Button_Background, _Properties.IsFocused, False);
+	}
+
+	// Align
+	Tools::Align(Frame_Align, _Properties.Size, _Properties.HAlign, _Properties.VAlign);
+
+	// Navigation
+	Quad_Activation.Size = _Properties.Size;
+
+	if (_Properties.IsFocused) {
+		Focus(_This, _Frame_TextField, True, False);
+	} else {
+		Unfocus(_This, _Frame_TextField, True, False);
+	}
+}
+Void ApplyProperties(CMlScript _This, CMlFrame _Frame_TextField, Boolean _RedrawBackground) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, _RedrawBackground);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Visibility of the component
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void ShowAndUnlock(CMlFrame _Frame_TextField) {
+	Navigation::Lock(_Frame_TextField, False);
+	_Frame_TextField.Show();
+}
+Void HideAndLock(CMlFrame _Frame_TextField) {
+	Navigation::Lock(_Frame_TextField, True);
+	_Frame_TextField.Hide();
+}
+Void SetVisibilityAndNavigation(CMlFrame _Frame_TextField, Boolean _IsVisible) {
+	Navigation::Lock(_Frame_TextField, !_IsVisible);
+	_Frame_TextField.Visible = _IsVisible;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Setters
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void SetSize(CMlScript _This, CMlFrame _Frame_TextField, Vec2 _Size, Boolean _ApplyProperties) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Size = _Size;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, True);
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_TextField, Vec2 _Size) {
+	SetSize(_This, _Frame_TextField, _Size, True);
+}
+Void SetValue(CMlScript _This, CMlFrame _Frame_TextField, Text _Value, Boolean _SendEvent, Boolean _ApplyProperties) {
+	declare K_State CMGame_TextField_State for _This.Page = C_State_Null;
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Label.Value = _Value;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, False);
+
+	if (_SendEvent) {
+		CMGame_TextField_State.DelayedPendingEvents.add(K_TextFieldEvent {
+			Control = _Frame_TextField,
+			TextField = _Frame_TextField,
+			Type = C_EventType_Update,
+			Value = CMGame_TextField_TextField.Label.Value
+		});
+	}
+}
+Void SetValue(CMlScript _This, CMlFrame _Frame_TextField, Text _Value, Boolean _SendEvent) {
+	SetValue(_This, _Frame_TextField, _Value, _SendEvent, True);
+}
+Void SetValue(CMlScript _This, CMlFrame _Frame_TextField, Text _Value) {
+	SetValue(_This, _Frame_TextField, _Value, False);
+}
+Void SetTextOpacityFocus(CMlScript _This, CMlFrame _Frame_TextField, Real _TextOpacity, Boolean _ApplyProperties) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Label.OpacityFocus = _TextOpacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, False);
+}
+Void SetTextOpacityFocus(CMlScript _This, CMlFrame _Frame_TextField, Real _TextOpacity) {
+	SetTextOpacityFocus(_This, _Frame_TextField, _TextOpacity, True);
+}
+Void SetTextOpacityUnfocus(CMlScript _This, CMlFrame _Frame_TextField, Real _TextOpacity, Boolean _ApplyProperties) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Label.OpacityUnfocus = _TextOpacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, False);
+}
+Void SetTextOpacityUnfocus(CMlScript _This, CMlFrame _Frame_TextField, Real _TextOpacity) {
+	SetTextOpacityUnfocus(_This, _Frame_TextField, _TextOpacity, True);
+}
+Void SetTextColorFocus(CMlScript _This, CMlFrame _Frame_TextField, Vec3 _TextColor, Boolean _ApplyProperties) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Label.ColorFocus = _TextColor;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, False);
+}
+Void SetTextColorFocus(CMlScript _This, CMlFrame _Frame_TextField, Vec3 _TextColor) {
+	SetTextColorFocus(_This, _Frame_TextField, _TextColor, True);
+}
+Void SetTextColorUnfocus(CMlScript _This, CMlFrame _Frame_TextField, Vec3 _TextColor, Boolean _ApplyProperties) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Label.ColorUnfocus = _TextColor;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, False);
+}
+Void SetTextColorUnfocus(CMlScript _This, CMlFrame _Frame_TextField, Vec3 _TextColor) {
+	SetTextColorUnfocus(_This, _Frame_TextField, _TextColor, True);
+}
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_TextField, Real _TextSize, Boolean _ApplyProperties) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Label.TextSize = _TextSize;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, False);
+}
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_TextField, Real _TextSize) {
+	SetTextSize(_This, _Frame_TextField, _TextSize, True);
+}
+Void SetTextFormatEntry(CMlScript _This, CMlFrame _Frame_TextField, CMlEntry::ETextFormat _TextFormat, Boolean _ApplyProperties) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Label.TextFormatEntry = _TextFormat;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, False);
+}
+Void SetTextFormatEntry(CMlScript _This, CMlFrame _Frame_TextField, CMlEntry::ETextFormat _TextFormat) {
+	SetTextFormatEntry(_This, _Frame_TextField, _TextFormat, True);
+}
+Void SetTextFormatTextEdit(CMlScript _This, CMlFrame _Frame_TextField, CMlTextEdit::EControlScriptEditorTextFormat _TextFormat, Boolean _ApplyProperties) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Label.TextFormatTextEdit = _TextFormat;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, False);
+}
+Void SetTextFormatTextEdit(CMlScript _This, CMlFrame _Frame_TextField, CMlTextEdit::EControlScriptEditorTextFormat _TextFormat) {
+	SetTextFormatTextEdit(_This, _Frame_TextField, _TextFormat, True);
+}
+Void SetValueType(CMlScript _This, CMlFrame _Frame_TextField, CMlEntry::ValueType _ValueType, Boolean _ApplyProperties) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Label.ValueType = _ValueType;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, False);
+}
+Void SetValueType(CMlScript _This, CMlFrame _Frame_TextField, CMlEntry::ValueType _ValueType) {
+	SetValueType(_This, _Frame_TextField, _ValueType, True);
+}
+Void SetBackgroundOpacityFocus(CMlScript _This, CMlFrame _Frame_TextField, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Background.OpacityFocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, True);
+}
+Void SetBackgroundOpacityFocus(CMlScript _This, CMlFrame _Frame_TextField, Real _Opacity) {
+	SetBackgroundOpacityFocus(_This, _Frame_TextField, _Opacity, True);
+}
+Void SetBackgroundOpacityUnfocus(CMlScript _This, CMlFrame _Frame_TextField, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField.Background.OpacityUnfocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, True);
+}
+Void SetBackgroundOpacityUnfocus(CMlScript _This, CMlFrame _Frame_TextField, Real _Opacity) {
+	SetBackgroundOpacityUnfocus(_This, _Frame_TextField, _Opacity, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Getters
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Boolean IsTextField(CMlControl _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.IsTextField;
+}
+
+Boolean IsFocused(CMlControl _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.IsFocused;
+}
+
+Vec2 GetSize(CMlFrame _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.Size;
+}
+Text GetValue(CMlControl _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.Label.Value;
+}
+Real GetTextOpacityFocus(CMlControl _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.Label.OpacityFocus;
+}
+Real GetTextOpacityUnfocus(CMlControl _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.Label.OpacityUnfocus;
+}
+Vec3 GetTextColorFocus(CMlControl _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.Label.ColorFocus;
+}
+Vec3 GetTextColorUnfocus(CMlControl _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.Label.ColorUnfocus;
+}
+Real GetTextSize(CMlControl _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.Label.TextSize;
+}
+CMlEntry::ETextFormat GetTextFormatEntry(CMlControl _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.Label.TextFormatEntry;
+}
+CMlTextEdit::EControlScriptEditorTextFormat GetTextFormatTextEdit(CMlControl _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.Label.TextFormatTextEdit;
+}
+CMlEntry::ValueType GetValueType(CMlControl _Frame_TextField) {
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	return CMGame_TextField_TextField.Label.ValueType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Initialize the component
+Void InitTextField(CMlScript _This, CMlFrame _Frame_TextField) {
+	declare CMlEntry Entry_Label <=> (_Frame_TextField.GetFirstChild(C_Id_EntryLabel) as CMlEntry);
+
+	// Initialize the Properties structure
+	declare K_TextField CMGame_TextField_TextField for _Frame_TextField = C_TextField_Null;
+	CMGame_TextField_TextField = K_TextField {
+		IsTextField = True,
+		IsLocked = False,
+		IsBgEmpty = False,
+		TextFieldType = C_TextFieldType_Entry,
+		Label = K_TextProperties {
+			AutoNewLine = False,
+			MaxLine = -1,
+			OpacityFocus = 1.,
+			OpacityUnfocus = 1.,
+			Placeholder = "",
+			ColorFocus = Entry_Label.TextColor,
+			ColorUnfocus = Entry_Label.TextColor,
+			TextFormatEntry = CMlEntry::ETextFormat::Basic,
+			TextFormatTextEdit = CMlTextEdit::EControlScriptEditorTextFormat::Basic,
+			TextSize = Entry_Label.TextSizeReal,
+			Prefix = C_Prefix_Default,
+			Value = ""
+		},
+		Background = K_ImageProperties {
+			ColorEdit = <0., 0., 0.>,
+			ColorFocus = <0., 0., 0.>,
+			ColorUnfocus = <0., 0., 0.>,
+			ColorType = C_ColorType_Colorize,
+			Image = "",
+			OpacityEdit = 1.,
+			OpacityFocus = 1.,
+			OpacityUnfocus = 1.
+		},
+		Contour = K_ImageProperties {
+			ColorEdit = <1., 1., 1.>,
+			ColorFocus = <0., 0., 0.>,
+			ColorUnfocus = <0., 0., 0.>,
+			ColorType = C_ColorType_Colorize,
+			Image = "",
+			OpacityEdit = 1.,
+			OpacityFocus = 0.,
+			OpacityUnfocus = 0.
+		},
+		HAlign = Tools::C_HAlign_Center,
+		VAlign = Tools::C_VAlign_Center,
+		Size = Entry_Label.Size,
+		Skew = C_Skew_Default,
+		Tooltip = ""
+	};
+
+	// Retrieve the data entered in the frameinstance of the component
+	if (_Frame_TextField.DataAttributeExists("bgempty")) {
+		CMGame_TextField_TextField.IsBgEmpty = Tools::GetBooleanAttribute(_Frame_TextField, "bgempty");
+	}
+	if (_Frame_TextField.DataAttributeExists("textfieldtype")) {
+		CMGame_TextField_TextField.TextFieldType = TL::ToInteger(_Frame_TextField.DataAttributeGet("textfieldtype"));
+	}
+	if (_Frame_TextField.DataAttributeExists("halign")) {
+		CMGame_TextField_TextField.HAlign = _Frame_TextField.DataAttributeGet("halign");
+	}
+	if (_Frame_TextField.DataAttributeExists("valign")) {
+		CMGame_TextField_TextField.VAlign = _Frame_TextField.DataAttributeGet("valign");
+	}
+	if (_Frame_TextField.DataAttributeExists("size")) {
+		CMGame_TextField_TextField.Size = Tools::TextToVec2(_Frame_TextField.DataAttributeGet("size"));
+	}
+	if (_Frame_TextField.DataAttributeExists("skew")) {
+		CMGame_TextField_TextField.Skew = TL::ToReal(_Frame_TextField.DataAttributeGet("skew"));
+		if (CMGame_TextField_TextField.Skew == 0.) CMGame_TextField_TextField.Skew = C_Skew_Margin; //< If no skew, add a small right and left margin between the text and the background
+	}
+	if (_Frame_TextField.DataAttributeExists("tooltip")) {
+		CMGame_TextField_TextField.Tooltip = _Frame_TextField.DataAttributeGet("tooltip");
+	}
+	if (_Frame_TextField.DataAttributeExists("bgimage")) {
+		CMGame_TextField_TextField.Background.Image = _Frame_TextField.DataAttributeGet("bgimage");
+	}
+	if (_Frame_TextField.DataAttributeExists("bgcolortype")) {
+		CMGame_TextField_TextField.Background.ColorType = TL::ToInteger(_Frame_TextField.DataAttributeGet("bgcolortype"));
+	}
+	if (_Frame_TextField.DataAttributeExists("bgcolorfocus")) {
+		CMGame_TextField_TextField.Background.ColorFocus = CL::HexToRgb(_Frame_TextField.DataAttributeGet("bgcolorfocus"));
+	}
+	if (_Frame_TextField.DataAttributeExists("bgcolorunfocus")) {
+		CMGame_TextField_TextField.Background.ColorUnfocus = CL::HexToRgb(_Frame_TextField.DataAttributeGet("bgcolorunfocus"));
+	}
+	if (_Frame_TextField.DataAttributeExists("bgopacityfocus")) {
+		CMGame_TextField_TextField.Background.OpacityFocus = TL::ToReal(_Frame_TextField.DataAttributeGet("bgopacityfocus"));
+	}
+	if (_Frame_TextField.DataAttributeExists("bgopacityunfocus")) {
+		CMGame_TextField_TextField.Background.OpacityUnfocus = TL::ToReal(_Frame_TextField.DataAttributeGet("bgopacityunfocus"));
+	}
+	if (_Frame_TextField.DataAttributeExists("contourimage")) {
+		CMGame_TextField_TextField.Contour.Image = _Frame_TextField.DataAttributeGet("contourimage");
+	}
+	if (_Frame_TextField.DataAttributeExists("contouropacityedit")) {
+		CMGame_TextField_TextField.Contour.OpacityEdit = TL::ToReal(_Frame_TextField.DataAttributeGet("contouropacityedit"));
+	}
+	if (_Frame_TextField.DataAttributeExists("contouropacityfocus")) {
+		CMGame_TextField_TextField.Contour.OpacityFocus = TL::ToReal(_Frame_TextField.DataAttributeGet("contouropacityfocus"));
+	}
+	if (_Frame_TextField.DataAttributeExists("contouropacityunfocus")) {
+		CMGame_TextField_TextField.Contour.OpacityUnfocus = TL::ToReal(_Frame_TextField.DataAttributeGet("contouropacityunfocus"));
+	}
+	if (_Frame_TextField.DataAttributeExists("contourcoloredit")) {
+		CMGame_TextField_TextField.Contour.ColorEdit = CL::HexToRgb(_Frame_TextField.DataAttributeGet("contourcoloredit"));
+	}
+	if (_Frame_TextField.DataAttributeExists("contourcolorfocus")) {
+		CMGame_TextField_TextField.Contour.ColorFocus = CL::HexToRgb(_Frame_TextField.DataAttributeGet("contourcolorfocus"));
+		if (CMGame_TextField_TextField.Contour.ColorUnfocus == <-1., -1., -1.>) CMGame_TextField_TextField.Contour.ColorUnfocus = CMGame_TextField_TextField.Contour.ColorFocus;
+	}
+	if (_Frame_TextField.DataAttributeExists("contourcolorunfocus")) {
+		CMGame_TextField_TextField.Contour.ColorUnfocus = CL::HexToRgb(_Frame_TextField.DataAttributeGet("contourcolorunfocus"));
+		if (CMGame_TextField_TextField.Contour.ColorFocus == <-1., -1., -1.>) CMGame_TextField_TextField.Contour.ColorFocus = CMGame_TextField_TextField.Contour.ColorUnfocus;
+	}
+	if (_Frame_TextField.DataAttributeExists("autonewline")) {
+		CMGame_TextField_TextField.Label.AutoNewLine = Tools::GetBooleanAttribute(_Frame_TextField, "autonewline");
+	}
+	if (_Frame_TextField.DataAttributeExists("maxline")) {
+		CMGame_TextField_TextField.Label.MaxLine = TL::ToInteger(_Frame_TextField.DataAttributeGet("maxline"));
+	}
+	if (_Frame_TextField.DataAttributeExists("placeholder")) {
+		CMGame_TextField_TextField.Label.Placeholder = _Frame_TextField.DataAttributeGet("placeholder");
+	}
+	if (_Frame_TextField.DataAttributeExists("textcolorfocus")) {
+		CMGame_TextField_TextField.Label.ColorFocus = CL::HexToRgb(_Frame_TextField.DataAttributeGet("textcolorfocus"));
+	}
+	if (_Frame_TextField.DataAttributeExists("textcolorunfocus")) {
+		CMGame_TextField_TextField.Label.ColorUnfocus = CL::HexToRgb(_Frame_TextField.DataAttributeGet("textcolorunfocus"));
+	}
+	if (_Frame_TextField.DataAttributeExists("textopacityfocus")) {
+		CMGame_TextField_TextField.Label.OpacityFocus = TL::ToReal(_Frame_TextField.DataAttributeGet("textopacityfocus"));
+	}
+	if (_Frame_TextField.DataAttributeExists("textopacityunfocus")) {
+		CMGame_TextField_TextField.Label.OpacityUnfocus = TL::ToReal(_Frame_TextField.DataAttributeGet("textopacityunfocus"));
+	}
+	if (_Frame_TextField.DataAttributeExists("textsize")) {
+		CMGame_TextField_TextField.Label.TextSize = TL::ToReal(_Frame_TextField.DataAttributeGet("textsize"));
+	}
+	if (_Frame_TextField.DataAttributeExists("textprefix")) {
+		CMGame_TextField_TextField.Label.Prefix = _Frame_TextField.DataAttributeGet("textprefix");
+	}
+	if (_Frame_TextField.DataAttributeExists("textvalue")) {
+		CMGame_TextField_TextField.Label.Value = _Frame_TextField.DataAttributeGet("textvalue");
+	}
+	if (_Frame_TextField.DataAttributeExists("textvaluetype")) {
+		switch (_Frame_TextField.DataAttributeGet("textvaluetype")) {
+			case "Ml_Natural": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_Natural;
+			case "Ml_Integer": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_Integer;
+			case "Ml_Real": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_Real;
+			case "Ml_String": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_String;
+			case "Ml_TimeMmSsCc": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_TimeMmSsCc;
+			case "Ml_TimeHhMmSs": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_TimeHhMmSs;
+			case "Ml_RealFormated": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_RealFormated;
+			case "Ml_TimeMmSs": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_TimeMmSs;
+			case "Ml_Ascii7bit": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_Ascii7bit;
+			case "Ml_Real3Decimals": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_Real3Decimals;
+			case "Ml_TimeHhMmSs_24": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_TimeHhMmSs_24;
+			case "Ml_TimeHhMm": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_TimeHhMm;
+			case "Ml_Percent": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_Percent;
+			case "Ml_Hexa": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_Hexa;
+			case "Ml_TimeHhMmSsOrMmSs": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_TimeHhMmSsOrMmSs;
+			case "Ml_TimeHhMmFromSeconds": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_TimeHhMmFromSeconds;
+			case "Ml_TimeHhMmSsMil": CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_TimeHhMmSsMil;
+			default: CMGame_TextField_TextField.Label.ValueType = CMlEntry::ValueType::Ml_Unknown;
+		}
+	}
+	if (_Frame_TextField.DataAttributeExists("textformat")) {
+		switch (CMGame_TextField_TextField.TextFieldType) {
+			case C_TextFieldType_Entry: {
+				switch (TL::ToLowerCase(_Frame_TextField.DataAttributeGet("textformat"))) {
+					case "script": CMGame_TextField_TextField.Label.TextFormatEntry = CMlEntry::ETextFormat::Script;
+					case "password": CMGame_TextField_TextField.Label.TextFormatEntry = CMlEntry::ETextFormat::Password;
+					case "newpassword": CMGame_TextField_TextField.Label.TextFormatEntry = CMlEntry::ETextFormat::Newpassword;
+					default: CMGame_TextField_TextField.Label.TextFormatEntry = CMlEntry::ETextFormat::Basic;
+				}
+			}
+			case C_TextFieldType_TextEdit: {
+				switch (TL::ToLowerCase(_Frame_TextField.DataAttributeGet("textformat"))) {
+					case "script": CMGame_TextField_TextField.Label.TextFormatTextEdit = CMlTextEdit::EControlScriptEditorTextFormat::Script;
+					case "password": CMGame_TextField_TextField.Label.TextFormatTextEdit = CMlTextEdit::EControlScriptEditorTextFormat::Password;
+					case "newpassword": CMGame_TextField_TextField.Label.TextFormatTextEdit = CMlTextEdit::EControlScriptEditorTextFormat::Newpassword;
+					default: CMGame_TextField_TextField.Label.TextFormatTextEdit = CMlTextEdit::EControlScriptEditorTextFormat::Basic;
+				}
+			}
+		}
+	}
+
+	// First update of the component after initialization
+	ApplyProperties(_This, _Frame_TextField, CMGame_TextField_TextField, True);
+	Unfocus(_This, _Frame_TextField, False, False);
+}
+
+K_TextFieldEvent[] GetPendingEvents(CMlScript _This) {
+	declare K_State CMGame_TextField_State for _This.Page = C_State_Null;
+	return CMGame_TextField_State.PendingEvents;
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State CMGame_TextField_State for _This.Page = C_State_Null;
+	CMGame_TextField_State = C_State_Null;
+}
+
+Void MainStart(CMlScript _This) {
+	declare K_State CMGame_TextField_State for _This.Page = C_State_Null;
+	_This.Page.GetClassChildren(C_Class_FrameContainerTextField, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_TextFieldContainer = (Control as CMlFrame);
+		InitTextField(_This, Frame_TextFieldContainer.Parent);
+		CMGame_TextField_State.TextFields.add(Frame_TextFieldContainer.Parent);
+	}
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State CMGame_TextField_State for _This.Page = C_State_Null;
+
+	CMGame_TextField_State.PendingEvents = CMGame_TextField_State.DelayedPendingEvents;
+	CMGame_TextField_State.DelayedPendingEvents = [];
+
+	/* Navigation events */
+	if (CMGame_TextField_State.TextFields.count > 0 && !CMGame_TextField_State.IsTextFieldFocused) {
+		foreach (Event in Navigation::GetPendingEvents(_This)) {
+			if (Event.To != Null && (Event.To is CMlFrame) && CMGame_TextField_State.TextFields.exists(Event.To as CMlFrame)) {
+				assert(IsTextField(Event.To), "The manialink has been modified, we do not point to the right frame anymore");
+				declare CMlFrame Frame_TextField = Event.To as CMlFrame;
+
+				if (IsFocused(Frame_TextField)) {
+					switch (Event.Type) {
+						case Navigation::C_EventType_NavigateInput: {
+							switch (Event.Input) {
+								case CMlScriptEvent::EMenuNavAction::Select: Select(_This, Frame_TextField);
+							}
+						}
+						case Navigation::C_EventType_NavigateMouse: {
+							switch (Event.Mouse) {
+								case CMlScriptEvent::Type::MouseClick: Select(_This, Frame_TextField);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/* Local events */
+	foreach (Event in CMGame_TextField_State.PendingEvents) {
+		switch (Event.Type) {
+			case C_EventType_StartEdition: {
+				if (!CMGame_TextField_State.IsTextFieldFocused) {
+					switchtype (Event.Control) {
+						case CMlEntry: (Event.Control as CMlEntry).StartEdition();
+						case CMlTextEdit: (Event.Control as CMlTextEdit).StartEdition();
+					}
+				}
+			}
+		}
+	}
+
+	/* Handle entry focused state (must be placed at the end of the main loop) */
+	if (
+		CMGame_TextField_State.FocusedTextField != Null &&
+		CMGame_TextField_State.IsTextFieldFocused != CMGame_TextField_State.FocusedTextField.IsFocused
+	) {
+		Private_Update(_This);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/TextField.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[
+			ExpendableButton_Styles::ComponentV2(),
+			Navigation::ComponentV2()
+		],
+		[]
+	);
+}

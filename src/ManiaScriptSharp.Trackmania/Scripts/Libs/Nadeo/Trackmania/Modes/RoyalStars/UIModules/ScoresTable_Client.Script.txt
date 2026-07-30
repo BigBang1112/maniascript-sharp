@@ -1,0 +1,1463 @@
+/**
+ *	UI module: ScoresTable client side
+ */
+#Const Version		"1.2.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/ScoresTable_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MenuButtonList.Script.txt" as MenuButtonList
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/PlayerName.Script.txt" as PlayerName
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as Grid
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Client.Script.txt" as PauseMenu_Online
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Client.Script.txt" as ScoresTableDefault
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Visibility_Component.Script.txt" as ScoresTableVisibility
+#Include "Libs/Nadeo/Trackmania/Components/PopUpBackground2.Script.txt" as PopUpBackground
+#Include "Libs/Nadeo/Trackmania/Components/ProfilePlayerInfo.Script.txt" as ProfilePlayerInfo
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/Ranking_Client.Script.txt" as Ranking
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/Spectator_Client.Script.txt" as Spectator
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/SuperRoyal_Client.Script.txt" as SuperRoyal
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/ScoresTable_Common.Script.txt" as UIModules_ScoresTable_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_NavGroupName "navgroup-royal-scorestable"
+#Const C_NavGroupGlobal "navgroup-royal-scorestable-global"
+#Const C_NavGroupPopUpSelectedTeam "navgroup-royal-scorestable-pop-up-selected-team"
+#Const C_NavGroupProfile "navgroup-royal-scorestable-profile"
+#Const C_Class_Team_Button "class-royal-team-button"
+#Const C_Class_Player_Button "class-royal-player-button"
+#Const C_Class_Profile_Button "class-royal-profile-button"
+#Const C_Class_Spectate_Button "class-royal-spectate-button"
+#Const C_Class_Mute_Button "class-royal-mute-button"
+#Const C_Class_Mute_Loading "class-royal-mute-loading-spinner"
+
+#Const C_Img_Header "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Mode_Common_Scorestable_Header_Royal.dds"
+#Const C_Img_HeaderMask "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Mode_Common_Scorestable_Header_Mask.dds"
+#Const C_Img_Body "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Mode_Common_Scorestable_Popup.dds"
+
+#Const C_ZIndex_ScoresTable 70 //< Must be at least 65 to be above the chat z-index
+#Const C_ColsNb 2
+#Const C_RowsNb 10
+#Const C_PlayersPerTeam 3
+#Const C_UpdateInterval 100 //< Time interval between two updates check in the scores table
+
+#Const C_Column_Rank 0
+#Const C_Column_Logo 1
+#Const C_Column_Name 2
+#Const C_Column_Points 3
+#Const C_Column_Progression 4
+
+//L16N [Track Browser] %1 MUST STAY AT THE END OF THE STRING !!! %1 will be replaced by the name of the author of the track, e.g. "by PlayerA". If your language does not permit to keep the %1 at the end of the string, do not translate "By" and just keep the text "%1"
+#Const C_Text_AuthorName _("|NameOnTheRight|By %1")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_ScoresTable_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_ScoresTable_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	//L16N [ScoresTable Royal] Display the number of teams.
+	declare Text Text_ZeroTeams = _("0 teams");
+	//L16N [ScoresTable Royal] Display the number of teams.
+	declare Text Text_OneTeam = _("1 team");
+	//L16N [ScoresTable Royal] Display the number of teams. %1 will be replaced by the number of teams, always greater than 1. eg: "20 teams".
+	declare Text Text_MultipleTeams = _("%1 teams");
+	//L16N [ScoresTable Royal] Display the number of tracks played in the match. %1 will be replaced by the number of the track currently played. %2 will be replaced by the total number of tracks that will be played. eg: "Track 3/5" meaning that we are playing the third track on the five that will be played.
+	declare Text Text_MapsProgressionFull = _("Track %1/%2");
+	//L16N [ScoresTable Royal] Display the number of tracks played in the match. %1 will be replaced by the number of the track currently played. eg: "Track 3" meaning that we are playing the third track.
+	declare Text Text_MapsProgressionPart = _("Track %1");
+	//L16N [ScoresTable Royal] Display the qualification phase number of the Super Royal competition, %1 will be replaced by a number. e.g "Qualification phase 2"
+	declare Text Text_QualifNumber =  _("Qualification phase %1");
+	//L16N [ScoresTable Royal] Last phase of the Super Royal competition
+	declare Text Text_Finale =  _("Finale");
+	//L16N [ScoresTable Royal] Ranking of the current race
+	declare Text Text_LiveRanking = _("Live ranking");
+	//L16N [ScoresTable Royal] Open my current team pop up
+	declare Text Text_DisplayMyTeam =  _("Display my team members");
+	//L16N [ScoresTable Royal] To mute all players in the voice chat
+	declare Text Text_MuteAll = _("Mute all");
+	//L16N [ScoresTable Royal] To unmute all players in the voice chat
+	declare Text Text_UnmuteAll = _("Unmute all");
+
+	declare Text Img_KOStamp = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal/hud_royal_ingame_KOSign.dds";
+
+	declare Vec2 ImgSize_MainPopUp_Background = MLHelpers::KeepRatioFromX(3680., 1856., 307.);
+	declare Real SizeX_PopUpHeader = ImgSize_MainPopUp_Background.X * 3444. / 3680.;
+	declare Vec2 ImgSize_MainPopUp_HeaderMask = MLHelpers::KeepRatioFromX(3444., 504., SizeX_PopUpHeader);
+	declare Vec2 Pos_PopUpHeader = <10., ImgSize_MainPopUp_Background.Y*0.5 + 0.1>;
+
+	declare Real SkewAngle = 10.;
+	declare Vec2 Pos_Header = <ImgSize_MainPopUp_Background.X * -0.37, ImgSize_MainPopUp_Background.Y * 0.435>;
+	declare Vec2 Size_HeaderLineLeft = <ImgSize_MainPopUp_Background.X * 0.52, 7.>;
+	declare Vec2 Size_HeaderLineRight = <ImgSize_MainPopUp_Background.X * 0.3, 10.>;
+	declare Vec2 Pos_HeaderRight = <Size_HeaderLineLeft.X + 5. + Size_HeaderLineRight.X, -0.5>;
+	declare Vec2 Pos_Teams = <ImgSize_MainPopUp_Background.X * -0.43, ImgSize_MainPopUp_Background.Y * 0.13>;
+	declare Vec2 Size_TeamBlock = <140., 8.4>;
+	declare Vec2 Size_Team = <130., 8.6>;
+	declare Vec2 Pos_MyTeam = <ImgSize_MainPopUp_Background.X * -0.22, ImgSize_MainPopUp_Background.Y * -0.45>;
+	declare Real SizeX_ClipboardMessage = 65.;
+	declare Real TextSize_ClipboardMessage = 2.;
+	declare Real TextSize_MapName = 8.;
+	declare Real TextSize_Message = 4.;
+
+	// Teams
+	declare Grid::K_GridConfig GridConfig = Grid::Create(Size_Team.X, 0., 2., Grid::C_Direction_Right);
+	GridConfig = Grid::AddColumn(GridConfig, C_Column_Rank, 10., Grid::C_Align_Center);
+	GridConfig = Grid::AddColumn(GridConfig, C_Column_Logo, 12.5, Grid::C_Align_Center);
+	GridConfig = Grid::AddColumn(GridConfig, C_Column_Name, 78., Grid::C_Align_Left);
+	GridConfig = Grid::AddColumn(GridConfig, C_Column_Points, 12.5, Grid::C_Align_Center);
+	GridConfig = Grid::AddColumn(GridConfig, C_Column_Progression, 20., Grid::C_Align_Center);
+	declare Grid::K_Grid Grid = Grid::Compile(GridConfig);
+	declare Real SizeX_TeamNameMargin = 3.;
+	declare Real TextSize_TeamName = 3.;
+
+	declare Text ML_Teams = "";
+	for (Col, 0, C_ColsNb - 1) {
+		declare Real PosX = Col * Size_TeamBlock.X;
+		for (Row, 0, C_RowsNb - 1) {
+			declare Text LeftNavTarget = "_";
+			declare Text RightNavTarget = "_";
+			declare Text UpNavTarget = "_";
+			declare Text DownNavTarget = "_";
+			if (Col > 0) LeftNavTarget = "button-team-"^Col-1^"-"^Row;
+			if (Col < C_ColsNb - 1) RightNavTarget = "button-team-"^Col+1^"-"^Row;
+			if (Row > 0) UpNavTarget = "button-team-"^Col^"-"^Row-1;
+			if (Row < C_RowsNb - 1) DownNavTarget = "button-team-"^Col^"-"^Row+1;
+
+			declare Real PosY = -Row * Size_TeamBlock.Y;
+			ML_Teams ^= """
+			<frameinstance modelid="framemodel-team"
+				id="button-team-{{{Col}}}-{{{Row}}}"
+				pos="{{{MLHelpers::SkewX(PosX, PosY, SkewAngle)}}} {{{PosY}}}"
+				class="{{{Navigation::C_Class}}} {{{C_Class_Team_Button}}}"
+				data-nav-inputs="select;left;right;up;down"
+				data-nav-targets="_;{{{LeftNavTarget}}};{{{RightNavTarget}}};{{{UpNavTarget}}};{{{DownNavTarget}}}"
+				data-nav-group="{{{C_NavGroupName}}}"
+				data-nav-zone="quad-hitbox"
+				hidden="1"
+			/>
+			""";
+		}
+	}
+
+	// Players in selected team
+	declare Vec2 Size_Player = <120., 7.>;
+	declare Vec2 Size_Flag = MLHelpers::KeepRatioFromX(320.,224., 9.5);
+
+	declare Vec2 Pos_PlayerBg = <Size_Player.X * 0.05, 0.>;
+	declare Vec2 Pos_PlayerFlag = <1., Size_Player.Y * -0.5>;
+	declare Vec2 Pos_PlayerName = <Size_Player.X * 0.07, Size_Player.Y * -0.5>;
+	declare Vec2 Pos_PlayerVoiceChatSpeaker = <Size_Player.X * 0.933, Size_Player.Y * -0.5>;
+	declare Vec2 Pos_TeamName = MLHelpers::SkewX(<0., Size_Player.Y * 3.8>, SkewAngle);
+
+	declare Vec2 Pos_SelectPlayerButtons = <Size_Player.X * 0.82, 0.>;
+	declare Vec2 Pos_SelectPlayerButtons_VoiceChatEnabled = <Size_Player.X * 0.745, 0.>;
+
+	declare Vec2 Pos_SelectFrame = Pos_SelectPlayerButtons;
+	declare Boolean VoiceChatEnabled = UserMgr.VoiceChat_DisplayUI;
+	if (VoiceChatEnabled) {
+		Pos_SelectFrame = Pos_SelectPlayerButtons_VoiceChatEnabled;
+	}
+
+	declare Text ML_Players = "";
+	for (I, 0, C_PlayersPerTeam - 1) {
+		declare Text UpNavTarget = "_";
+		declare Text DownNavTarget = "_";
+		if (I > 0) UpNavTarget = "frame-player-"^I-1;
+		if (I < C_PlayersPerTeam - 1) DownNavTarget = "frame-player-"^I+1;
+		declare Real PosY = -I * (Size_Player.Y + 1.);
+		ML_Players ^= """
+		<frame id="frame-player-global">
+			<frameinstance modelid="framemodel-player"
+				id="frame-player-{{{I}}}"
+				pos="{{{MLHelpers::SkewX(0., PosY, SkewAngle)}}} {{{PosY}}}"
+				class="{{{Navigation::C_Class}}} {{{C_Class_Player_Button}}}"
+				data-nav-inputs="select;up;down"
+				data-nav-targets="_;{{{UpNavTarget}}};{{{DownNavTarget}}}"
+				data-nav-group="{{{C_NavGroupPopUpSelectedTeam}}}"
+				data-nav-zone="quad-hitbox"
+				data-nav-locked="1"
+				hidden="1"
+			/>
+			<frame
+				id="frame-player-selected"
+				halign="right"
+				pos="{{{Pos_SelectFrame.X}}} {{{Pos_SelectFrame.Y}}}"
+				z-index="1"
+				hidden="1"
+			>
+				<frameinstance
+					id="button-profile-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Profile_Button}}}"
+					pos="{{{MLHelpers::SkewX(0., PosY, SkewAngle)}}} {{{PosY}}}"
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Profil_Oblique}}}"
+					data-nav-inputs="select;cancel;right"
+					data-nav-targets="_;_;button-spectate-{{{I}}}"
+					data-nav-group="{{{C_NavGroupPopUpSelectedTeam}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+				/>
+				<frameinstance
+					id="button-spectate-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Spectate_Button}}}"
+					pos="{{{MLHelpers::SkewX(9., PosY, SkewAngle)}}} {{{PosY}}}"
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Cam_Follow_Inc}}}"
+					data-nav-inputs="select;cancel;left;right"
+					data-nav-targets="_;_;button-profile-{{{I}}};button-mute-{{{I}}}"
+					data-nav-group="{{{C_NavGroupPopUpSelectedTeam}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+				/>
+				<frameinstance
+					id="button-mute-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Mute_Button}}}"
+					pos="{{{MLHelpers::SkewX(18., PosY, SkewAngle)}}} {{{PosY}}}"
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Speaker_Off}}}"
+					data-nav-inputs="select;cancel;left"
+					data-nav-targets="_;_;button-spectate-{{{I}}}"
+					data-nav-group="{{{C_NavGroupPopUpSelectedTeam}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+					data-nav-locked="{{{!VoiceChatEnabled}}}"
+					hidden="{{{!VoiceChatEnabled}}}"
+				/>
+				<frameinstance
+					z-index="2"
+					id="loading-spinner-speaker-{{{I}}}"
+					modelid="{{{LoadingSpinner::C_Name}}}"
+					scale="0.18"
+					class="{{{C_Class_Mute_Loading}}}"
+					pos="{{{MLHelpers::SkewX(24.75, PosY - 3.75, SkewAngle)}}} {{{PosY - 3.75}}}"
+					hidden="1"
+				/>
+			</frame>
+		</frame>
+		""";
+	}
+
+
+	declare Text ManialinkId = GetId();
+	return MV::Create(
+		ManialinkId, 3,
+"""
+<stylesheet>
+	<style class="text-bold" textcolor="ffffff" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$t$i" />
+	<style class="text-semibold" textcolor="ffffff" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textprefix="$t$i" />
+	<style class="text-regular" textcolor="ffffff" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textprefix="$t$i" />
+	<style class="quad-base" halign="center" valign="center" />
+</stylesheet>
+
+<!-- Frame models -->
+<framemodel id="framemodel-team">
+	<quad id="quad-hitbox" {{{MLHelpers::Size(Size_Team)}}} valign="center" opacity="0" scriptevents="1" class="{{{Navigation::C_Class_ActivationZone}}}" />
+	<frame z-index="-1">
+		<frameinstance id="frame-logo-background" modelid="{{{ExpendableAsset::C_Name}}}" pos="{{{Grid.Pos[C_Column_Logo]}}} 0.25" data-width="{{{Grid.Size[C_Column_Logo] * 1.35}}}" data-height="{{{Size_Team.Y - 1.25}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" data-opacity="0.5" data-halign="center" data-valign="center"/>
+		<frameinstance id="frame-name-background" modelid="{{{ExpendableAsset::C_Name}}}" pos="{{{Grid.Pos[C_Column_Name]}}} 0.25" data-width="{{{Grid.Size[C_Column_Name]}}}" data-height="{{{Size_Team.Y - 1.25}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" data-opacity="0.5" data-halign="left" data-valign="center"/>
+		<frameinstance id="frame-points-background" modelid="{{{ExpendableAsset::C_Name}}}" pos="{{{Grid.Pos[C_Column_Points]}}} 0.25" data-width="{{{Grid.Size[C_Column_Points] * 1.35}}}" data-height="{{{Size_Team.Y - 1.25}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" data-opacity="0.5" data-halign="center" data-valign="center"/>
+		<frameinstance id="frame-progression-background" modelid="{{{ExpendableAsset::C_Name}}}" pos="{{{Grid.Pos[C_Column_Progression]}}} 0.25" data-width="{{{Grid.Size[C_Column_Progression]}}}" data-height="{{{Size_Team.Y - 1.25}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" data-opacity="0.5" data-halign="center" data-valign="center"/>
+	</frame>
+	<label id="label-rank" class="text-bold" pos="{{{Grid.Pos[C_Column_Rank] + SizeX_TeamNameMargin}}} 0" size="{{{Grid.Size[C_Column_Rank]}}} {{{Size_Team.Y}}}" halign="right" valign="center2" textsize="4" />
+	<quad id="quad-logo" pos="{{{Grid.Pos[C_Column_Logo]}}} 0" size="{{{Grid.Size[C_Column_Logo]}}} {{{Size_Team.Y - 1.}}}" halign="center" valign="center" keepratio="fit" />
+	<label id="label-name" class="text-bold" pos="{{{Grid.Pos[C_Column_Name] + SizeX_TeamNameMargin}}} 0" size="{{{Grid.Size[C_Column_Name] - (SizeX_TeamNameMargin * 2)}}} {{{Size_Team.Y}}}" halign="left" valign="center2" textsize="{{{TextSize_TeamName}}}" />
+	<label id="label-points" class="text-bold" pos="{{{Grid.Pos[C_Column_Points]}}} 0" size="{{{Grid.Size[C_Column_Points]}}} {{{Size_Team.Y}}}" halign="center" valign="center2" textsize="3" />
+	<quad id="quad-progression" pos="{{{Grid.Pos[C_Column_Progression]}}} 0" z-index="1" size="{{{Grid.Size[C_Column_Progression]}}} {{{Size_Team.Y - 1}}}" halign="center" valign="center" keepratio="fit" image="{{{Icons::C_Icon_128x128_Flag}}}" />
+	<quad id="quad-eliminated" pos="{{{Grid.Pos[C_Column_Progression]}}} 0" z-index="0" size="{{{Grid.Size[C_Column_Progression]}}} {{{Size_Team.Y}}}" halign="center" valign="center2" keepratio="fit" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" image="{{{Img_KOStamp}}}" />
+</framemodel>
+
+<framemodel id="framemodel-player">
+	<frameinstance id="frame-player-background" modelid="{{{ExpendableAsset::C_Name}}}" pos="{{{Pos_PlayerBg.X}}} {{{Pos_PlayerBg.Y}}}" data-width="{{{Size_Player.X * 0.92}}}" data-height="{{{Size_Player.Y}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}" data-opacity="0.8" data-halign="left" data-valign="top" z-index="-1"/>
+	<quad id="quad-hitbox" size="{{{Size_Player.X}}} {{{Size_Player.Y}}}" scriptevents="1" class="{{{Navigation::C_Class_ActivationZone}}}"/>
+	<quad id="quad-flag" pos="{{{Pos_PlayerFlag.X}}} {{{Pos_PlayerFlag.Y}}}" pincorners="<-0.75,1.>:<1.,1.>:<0.75,-1.>:<-1.,-1.>" size="{{{Size_Flag.X}}} {{{Size_Flag.Y}}}" class="quad-base"/>
+	<frameinstance id="playername-name" modelid="{{{PlayerName::C_Name}}}" pos="{{{Pos_PlayerName.X}}} {{{Pos_PlayerName.Y}}}" data-size="{{{Size_Player.X * 0.6}}} {{{Size_Player.Y}}}" data-halign="left" data-valign="center" data-textsize="{{{TextSize_TeamName}}}" data-textcolor="ffffff" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" data-textprefix="$t$i" />
+	<frame id="frame-voice-chat" hidden="1" pos="{{{Pos_PlayerVoiceChatSpeaker.X}}} {{{Pos_PlayerVoiceChatSpeaker.Y}}}">
+		<quad id="quad-speaker" size="6 6" colorize="FFF" class="quad-base"/>
+		<frameinstance
+			z-index="2"
+			id="loading-spinner-speaker"
+			modelid="{{{LoadingSpinner::C_Name}}}"
+			scale="0.18"
+			pos="2 -0.25"
+			hidden="1"
+		/>
+	</frame>
+</framemodel>
+
+<!-- Frame global -->
+<frame id="frame-scorestable-layer" z-index="{{{C_ZIndex_ScoresTable}}}" hidden="1">
+	<frame id="frame-global" data-nav-inputs="appmenu;action1" data-nav-targets="_;_" data-nav-group="{{{C_NavGroupGlobal}}}" class="{{{Navigation::C_Class}}}" hidden="1" >
+		<quad id="quad-black-bg" bgcolor="000" size="320 180" fullscreen="1" halign="center" valign="center" z-index="-3" opacity=".6"/>
+		<frameinstance modelid="{{{MenuButtonList::C_Name}}}" id="frame-button-list-scorestable-royal" z-index="1" />
+		<frame {{{UIModules::CustomizableUIModule(UIModules_ScoresTable_Common::C_UIModuleConfig)}}}>
+			<!-- Background -->
+			<frame id="frame-background" >
+				<quad id="quad-background" class="quad-base" z-index="0" size="{{{ImgSize_MainPopUp_Background.X}}} {{{ImgSize_MainPopUp_Background.Y}}}" image="{{{C_Img_Body}}}" opacity="0.95"/>
+				<quad id="quad-header" halign="center" valign="top" z-index="2" pos="{{{Pos_PopUpHeader.X}}} {{{Pos_PopUpHeader.Y}}}" size="{{{ImgSize_MainPopUp_HeaderMask.X}}} {{{ImgSize_MainPopUp_HeaderMask.Y}}}" image="{{{C_Img_Header}}}" alphamask="{{{C_Img_HeaderMask}}}" />
+			</frame>
+			<!-- Header -->
+			<frame {{{MLHelpers::Pos(Pos_Header)}}} z-index="1">
+				<label id="label-map-name" class="text-bold" {{{MLHelpers::Size(Size_HeaderLineLeft)}}} textsize="{{{TextSize_MapName}}}" filter-profanities="OnlyIfNotTranslated" />
+				<frameinstance id="playername-map-author" modelid="{{{PlayerName::C_Name}}}" {{{MLHelpers::Pos(<MLHelpers::SkewX(-9., SkewAngle), -9.>)}}} data-{{{MLHelpers::Size(Size_HeaderLineLeft)}}} data-textsize="5" data-textcolor="ffffff" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" data-textprefix="$t$i" data-textcompose="{{{C_Text_AuthorName}}}" />
+				<label id="label-teams-nb" class="text-bold" halign="left" {{{MLHelpers::Pos(<MLHelpers::SkewX(-21., SkewAngle), -21.>)}}} {{{MLHelpers::Size(Size_HeaderLineLeft)}}} textsize="4." textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" />
+				<quad id="quad-super-royal-logo" pos="0 -23.5" size="20 20" halign="center" valign="center2"/>
+				<label id="label-super-royal-match" class="text-bold" halign="left" pos="10 -21" size="70 10" textsize="4." />
+				<label id="label-super-royal-division" class="text-regular" halign="left" pos="50 -21" size="50 10" textsize="4." textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" />
+				<frame {{{MLHelpers::Pos(Pos_HeaderRight)}}}>
+					<label id="label-message" class="text-semibold" {{{MLHelpers::Size(Size_HeaderLineRight)}}} halign="right" textsize="{{{TextSize_Message}}}" />
+					<label id="label-maps-progression" class="text-semibold" textsize="{{{TextSize_Message}}}" {{{MLHelpers::Pos(<MLHelpers::SkewX(-6., SkewAngle), -6.>)}}} {{{MLHelpers::Size(Size_HeaderLineRight)}}} textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" halign="right" />
+				</frame>
+			</frame>
+			<label pos="5 28.5" size="100 13" text="{{{Text_LiveRanking}}}" class="text-bold" halign="center" valign="center2" textsize="5"/>
+			<!-- Teams -->
+			<frame id="frame-teams" {{{MLHelpers::Pos(Pos_Teams)}}} z-index="2">
+				{{{ML_Teams}}}
+			</frame>
+			<!-- My team -->
+			<frameinstance id="frame-my-team"
+				z-index="3"
+				modelid="framemodel-team"
+				{{{MLHelpers::Pos(Pos_MyTeam)}}}
+				class="{{{Navigation::C_Class}}} {{{C_Class_Team_Button}}}"
+				data-nav-inputs="select;cancel"
+				data-nav-targets="_;_"
+				data-nav-group="{{{C_NavGroupName}}}"
+				data-nav-zone="quad-hitbox"
+				hidden="1"
+			/>
+			<label id="label-clipboard" z-index="2" size="{{{SizeX_ClipboardMessage}}} 5" pos="154 80" class="text-semibold" halign="right" valign="center2" textsize="{{{TextSize_ClipboardMessage}}}" focusareacolor1="00000000" focusareacolor2="00000030" scriptevents="1" />
+			<!-- Selected team pop up -->
+			<frame id="frame-selected-team" z-index="3" hidden="1">
+				<frameinstance
+					id="selected-team-background"
+					modelid="{{{PopUpBackground::C_Name}}}"
+					data-styles="{{{PopUpBackground::C_Style_SecondaryPopUp_WithHeader}}}"
+					data-width="{{{Size_Player.X * 1.15}}}"
+					data-dimmer-opacity="0.6"
+					z-index="0"
+				/>
+				<label id="label-selected-team-name" {{{MLHelpers::Pos(Pos_TeamName)}}} size="{{{Size_Player.X}}} 10" class="text-bold" textsize="7" halign="center" valign="center" z-index="1"/>
+				<frame id="frame-players-list" pos="{{{-Size_Player.X * 0.46}}} {{{Size_Player.Y}}}">
+					{{{ML_Players}}}
+				</frame>
+			</frame>
+			<!-- Profile players -->
+			<frameinstance
+				modelid="{{{ProfilePlayerInfo::C_Name}}}"
+				id="frame-profile"
+				z-index="3"
+				data-enable-players-pager="1"
+				data-enable-zone-selection="0"
+				data-enable-my-access-info="0"
+				data-nav-group="{{{C_NavGroupProfile}}}"
+				hidden="1"
+			/>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Modes/Bot.Script.txt" as Bot
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Client.Script.txt" as Clans
+#Include "Libs/Nadeo/TMGame/Utils/Difficulty.Script.txt" as Difficulty
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+
+#Struct K_Controls {
+	CMlFrame Frame_Teams;
+	CMlFrame Frame_MyTeam;
+	CMlLabel Label_Clipboard;
+	CMlLabel Label_MapName;
+	CMlFrame PlayerName_MapAuthor;
+	CMlLabel Label_TeamsNb;
+	CMlLabel Label_SuperRoyal_Match;
+	CMlLabel Label_Message;
+	CMlLabel Label_MapsProgression;
+	CMlQuad Quad_SuperRoyal_Logo;
+	CMlLabel Label_SuperRoyal_Division;
+	CMlFrame Frame_SelectedTeam;
+	CMlLabel Label_SelectedTeamName;
+	CMlFrame[] Frames_Player;
+	CMlFrame Frame_Profile;
+}
+
+#Struct K_State {
+	K_Controls Controls;
+	Integer TeamsRankingUpdate;
+	Text CurrentMapUid;
+	Text HeaderMessage;
+	Int2 MapsProgression;
+	Text ClipboardDisplayedMessage;
+	Text ClipboardValue;
+	Ident TargetPlayerId;
+	Integer TargetPlayerClan;
+	Integer CurrentSelectedTeamId;
+	Ident[] CurrentTeamUserIds;
+	CMlFrame Frame_CurrentTeam;
+	CMlFrame Frame_CurrentSelectedPlayer;
+}
+
+#Const C_Color_AccentOne {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}}
+
+#Const C_Class_Team_Button {{{dump(C_Class_Team_Button)}}}
+#Const C_Class_Player_Button {{{dump(C_Class_Player_Button)}}}
+#Const C_Class_Profile_Button {{{dump(C_Class_Profile_Button)}}}
+#Const C_Class_Spectate_Button {{{dump(C_Class_Spectate_Button)}}}
+#Const C_Class_Mute_Button {{{dump(C_Class_Mute_Button)}}}
+#Const C_Class_Mute_Loading {{{dump(C_Class_Mute_Loading)}}}
+#Const C_PlayersPerTeam {{{dump(C_PlayersPerTeam)}}}
+#Const C_UpdateInterval {{{dump(C_UpdateInterval)}}}
+#Const C_SizeX_ClipboardMessage {{{dump(SizeX_ClipboardMessage)}}}
+#Const C_TextSize_ClipboardMessage {{{dump(TextSize_ClipboardMessage)}}}
+#Const C_TextSize_TeamName {{{dump(TextSize_TeamName)}}}
+#Const C_TextSize_MapName {{{dump(TextSize_MapName)}}}
+#Const C_TextSize_Message {{{dump(TextSize_Message)}}}
+#Const C_Id {{{dump(ManialinkId)}}}
+#Const C_SuperRoyal_Logos {{{dump(MenuConst::C_SuperRoyal_Logos)}}}
+#Const C_SuperRoyal_DivisionNames {{{dump(MenuConst::C_SuperRoyal_DivisionNames)}}}
+#Const C_SuperRoyal_DivisionColors {{{dump(MenuConst::C_SuperRoyal_DivisionColors)}}}
+
+#Const C_RoyalMatchmakingId "royal"
+""",
+"""
+Void FocusPlayer(CMlFrame _Frame_Player, Boolean _IsFocused) {
+	declare CMlFrame Frame_Background <=> (_Frame_Player.GetFirstChild("frame-player-background") as CMlFrame);
+
+	if (_IsFocused) {
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Background, 1.);
+	} else {
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Background, 0.8);
+	}
+}
+
+Void FocusTeam(CMlFrame _Frame_Team, Integer _TargetPlayerClan, Integer _TeamScore_TeamId, Boolean _IsFocused) {
+	declare CMlFrame Frame_Logo_Background <=> (_Frame_Team.GetFirstChild("frame-logo-background") as CMlFrame);
+	declare CMlFrame Frame_Name_Background <=> (_Frame_Team.GetFirstChild("frame-name-background") as CMlFrame);
+	declare CMlFrame Frame_Points_Background <=> (_Frame_Team.GetFirstChild("frame-points-background") as CMlFrame);
+	declare CMlLabel Label_Name <=> (_Frame_Team.GetFirstChild("label-name") as CMlLabel);
+	declare CMlLabel Label_Points <=> (_Frame_Team.GetFirstChild("label-points") as CMlLabel);
+
+	if (_IsFocused) {
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Logo_Background, 1.);
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Name_Background, 1.);
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Points_Background, 1.);
+		Label_Name.Opacity = 1.;
+		if (_TargetPlayerClan == _TeamScore_TeamId) {
+			Label_Points.TextColor = C_Color_AccentOne;
+		} else {
+			Label_Points.TextColor = <1., 1., 1.>;
+		}
+	} else if (_TargetPlayerClan != _TeamScore_TeamId) {
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Logo_Background, 0.5);
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Name_Background, 0.5);
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Points_Background, 0.5);
+		Label_Name.Opacity = 0.8;
+		Label_Points.TextColor = <1., 1., 1.>;
+	}
+}
+
+Void Focus(CMlControl _From, CMlControl _To, Integer _TargetPlayerClan) {
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if (_From.HasClass(C_Class_Team_Button)) {
+			declare Integer TeamScore_TeamId for _From = 0;
+			if (TeamScore_TeamId > 0) {
+				FocusTeam(_From as CMlFrame, _TargetPlayerClan, TeamScore_TeamId, False);
+			}
+		} else if (_From.HasClass(C_Class_Player_Button)) {
+			FocusPlayer(_From as CMlFrame, False);
+		} else if ({{{ExpendableButton::P}}}IsButton(_From)) {
+			{{{ExpendableButton::P}}}Unfocus(This, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if (_To.HasClass(C_Class_Team_Button)) {
+			declare Integer TeamScore_TeamId for _To = 0;
+			if (TeamScore_TeamId > 0) {
+				FocusTeam(_To as CMlFrame, _TargetPlayerClan, TeamScore_TeamId, True);
+			}
+		} else if (_To.HasClass(C_Class_Player_Button)) {
+			FocusPlayer(_To as CMlFrame, True);
+		} else if ({{{ExpendableButton::P}}}IsButton(_To)) {
+			{{{ExpendableButton::P}}}Focus(This, (_To as CMlFrame));
+		}
+	}
+}
+
+Void Focus(CMlControl _From, CMlControl _To) {
+	Focus(_From, _To, 0);
+}
+
+Void Lock(CMlControl _Control, Boolean _IsLocked) {
+	if (_Control == Null) return;
+	if ({{{Navigation::P}}}IsNavigationControl(_Control)) {{{Navigation::P}}}Lock(_Control, _IsLocked);
+	if ({{{ExpendableButton::P}}}IsButton(_Control)) {
+		if (_IsLocked) {{{ExpendableButton::P}}}SetBackgroundOpacityUnfocused(This, _Control as CMlFrame, 0.6);
+		else {{{ExpendableButton::P}}}SetBackgroundOpacityUnfocused(This, _Control as CMlFrame, 0.8);
+	}
+}
+
+Void UpdateMySpeakerDisplay(CMlFrame _Button_Mute) {
+	if (_Button_Mute == Null) return;
+	if (UserMgr.VoiceChat_Mute_Myself) {
+		{{{ExpendableButton::P}}}SetIconImageUrl(This, _Button_Mute, Icons::C_Icon_128x128_Micro_Off);
+	} else {
+		{{{ExpendableButton::P}}}SetIconImageUrl(This, _Button_Mute, Icons::C_Icon_128x128_Micro_On);
+	}
+}
+
+Void UpdatePlayerSpeakerDisplay(Text _AccountId, CMlFrame _Button_Mute, CMlFrame _LoadingSpinner_Mute) {
+	declare CGameUserVoiceChat VoiceChatUser = UserMgr.VoiceChat_FindUserFromWebServicesUserId(_AccountId);
+	if (VoiceChatUser != Null && VoiceChatUser.IsConnected) { // If players are not connected, lock their speaker, it means they are not in the channel (because player disabled voice chat in setting for example)
+		Lock(_Button_Mute, False);
+		declare Text ImageUrl = Icons::C_Icon_128x128_Speaker_Off;
+		if (!VoiceChatUser.MuteChangePending) {
+			if (VoiceChatUser.IsMuted) {
+				ImageUrl = Icons::C_Icon_128x128_Speaker_Mute;
+			} else if (VoiceChatUser.IsSpeaking) {
+				ImageUrl = Icons::C_Icon_128x128_Speaker_On;
+			}
+		}
+
+		{{{ExpendableButton::P}}}SetIconImageUrl(This, _Button_Mute, ImageUrl);
+
+		// Start or stop mute loading spinner if necessary
+		_LoadingSpinner_Mute.Visible = VoiceChatUser.MuteChangePending;
+		if (_LoadingSpinner_Mute.Visible && !{{{LoadingSpinner::P}}}IsLoading(_LoadingSpinner_Mute)) {{{LoadingSpinner::P}}}StartAnimation(This, _LoadingSpinner_Mute);
+		else if (!_LoadingSpinner_Mute.Visible && {{{LoadingSpinner::P}}}IsLoading(_LoadingSpinner_Mute)) {{{LoadingSpinner::P}}}StopAnimation(This, _LoadingSpinner_Mute);
+	} else {
+		Lock(_Button_Mute, True);
+		{{{ExpendableButton::P}}}SetIconImageUrl(This, _Button_Mute, Icons::C_Icon_128x128_Speaker_Off);
+	}
+
+}
+
+Boolean IsVoiceChatEnabled() {
+	return UserMgr.VoiceChat_DisplayUI;
+}
+
+Void ShowPlayer(CMlFrame _Frame_Player, CUser _User) {
+	declare Text CurrentPlayerAccountId for _Frame_Player.Parent = "";
+	CurrentPlayerAccountId = _User.WebServicesUserId;
+	declare Text CurrentPlayerLogin for _Frame_Player.Parent = "";
+	CurrentPlayerLogin = _User.Login;
+
+	declare CMlFrame PlayerName_Name <=> (_Frame_Player.GetFirstChild("playername-name") as CMlFrame);
+	declare CMlQuad Quad_Flag <=> (_Frame_Player.GetFirstChild("quad-flag") as CMlQuad);
+	declare CMlFrame Frame_VoiceChat <=> (_Frame_Player.GetFirstChild("frame-voice-chat") as CMlFrame);
+	declare CMlQuad Quad_Speaker <=> (Frame_VoiceChat.GetFirstChild("quad-speaker") as CMlQuad);
+	declare CMlFrame LoadingSpinner_Mute <=> (Frame_VoiceChat.GetFirstChild("loading-spinner-speaker") as CMlFrame);
+	declare CMlFrame Frame_Select <=> (_Frame_Player.Parent.GetFirstChild("frame-player-selected") as CMlFrame);
+
+	{{{PlayerName::P}}}SetUser(This, PlayerName_Name, _User, True, False);
+	if (_User.WebServicesUserId == LocalUser.WebServicesUserId) {
+		{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}}, False);
+	} else {
+		{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight)}}}, False);
+	}
+	{{{PlayerName::P}}}Redraw(This, PlayerName_Name);
+	if (Tools::IsFakeUser(_User)) {
+		Quad_Flag.ImageUrl = Bot::GetCountryFlagUrl(_User.Name);
+	} else if (_User.CountryFlagUrl == "") {
+		Quad_Flag.ImageUrl = "file://ZoneFlags/Path/World";
+	} else {
+		Quad_Flag.ImageUrl = _User.CountryFlagUrl;
+	}
+	// Voice chat
+	declare Boolean UserConnectedToVoiceChat = 	_User != Null && _User.VoiceChat != Null &&	_User.VoiceChat.IsConnected;
+	Frame_VoiceChat.Visible =
+		IsVoiceChatEnabled() &&
+		!Frame_Select.Visible &&
+		UserConnectedToVoiceChat
+	;
+	if (UserConnectedToVoiceChat) {
+		declare Text ImageUrl = "";
+		if (_User.VoiceChat.MuteChangePending) {
+			ImageUrl = Icons::C_Icon_128x128_Speaker_Off;
+		} else if (_User.VoiceChat.IsSpeaking) {
+			ImageUrl = Icons::C_Icon_128x128_Speaker_On;
+		} else if (_User.VoiceChat.IsMuted) {
+			if (_User.WebServicesUserId == LocalUser.WebServicesUserId) {
+				ImageUrl = Icons::C_Icon_128x128_Micro_Off;
+			} else {
+				ImageUrl = Icons::C_Icon_128x128_Speaker_Mute;
+			}
+		}
+		if (Quad_Speaker.ImageUrl != ImageUrl) Quad_Speaker.ImageUrl = ImageUrl;
+
+		// Start or stop mute loading spinner if necessary
+		LoadingSpinner_Mute.Visible = _User.VoiceChat.MuteChangePending;
+		if (LoadingSpinner_Mute.Visible && !{{{LoadingSpinner::P}}}IsLoading(LoadingSpinner_Mute)) {{{LoadingSpinner::P}}}StartAnimation(This, LoadingSpinner_Mute);
+		else if (!LoadingSpinner_Mute.Visible && {{{LoadingSpinner::P}}}IsLoading(LoadingSpinner_Mute)) {{{LoadingSpinner::P}}}StopAnimation(This, LoadingSpinner_Mute);
+
+		if (_User.WebServicesUserId == LocalUser.WebServicesUserId) {
+			Quad_Speaker.Colorize = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+		} else {
+			Quad_Speaker.Colorize = <1.,1.,1.>;
+		}
+	}
+	_Frame_Player.Show();
+	{{{Navigation::P}}}Lock(_Frame_Player, False);
+}
+
+Void HidePlayer(CMlFrame _Frame_Player) {
+	_Frame_Player.Hide();
+	{{{Navigation::P}}}Lock(_Frame_Player, True);
+}
+
+Boolean IsMyTeamEliminated() {
+	declare Integer[][] TeamsRanking = {{{Ranking::P}}}GetTeamsRanking();
+	declare {{{Ranking::P}}}K_TeamRank MyTeamRank = {{{Ranking::P}}}C_TeamRankNull;
+	MyTeamRank.TeamId = InputPlayer.CurrentClan;
+	foreach (Key => TeamRank in TeamsRanking) {
+		if ({{{Ranking::P}}}IsTeamIdRank(InputPlayer.CurrentClan, TeamRank)) {
+			MyTeamRank = {{{Ranking::P}}}GetTeamRank(TeamRank, Key + 1);
+			break;
+		}
+	}
+
+	if (MyTeamRank.TeamId > 0) {
+		return MyTeamRank.Eliminated;
+	}
+	return False;
+}
+
+CSmPlayer GetPlayer(Text _AccountId) {
+	if (_AccountId != "") {
+		foreach (Player in Players) {
+			if (Player != Null && Player.User.WebServicesUserId == _AccountId) {
+				return Player;
+			}
+		}
+	}
+	return Null;
+}
+
+Void UpdateSpectateButton(Text _AccountId, CMlFrame _Button_Spectate) {
+	if (_Button_Spectate == Null) return;
+	declare CSmPlayer CurrentlySelectedPlayer <=> GetPlayer(_AccountId);
+
+	if (
+		IsMyTeamEliminated() && // due to spectator Royal mode restrictions (player must be eliminated to be in spectator)
+		CurrentlySelectedPlayer != Null &&
+		CurrentlySelectedPlayer.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned
+	) {
+		Lock(_Button_Spectate, False);
+	} else {
+		Lock(_Button_Spectate, True);
+	}
+}
+
+K_State SelectPlayer(K_State _State, CMlFrame _Frame_Player, Boolean _IsSelected, Boolean _FocusFirstIcon) {
+	if (_Frame_Player == Null) return _State;
+	declare K_State State = _State;
+
+	if (_IsSelected && State.Frame_CurrentSelectedPlayer != _Frame_Player) {
+		State = SelectPlayer(State, State.Frame_CurrentSelectedPlayer, False, False);
+	}
+
+	declare CMlFrame Frame_Background <=> (_Frame_Player.GetFirstChild("frame-player-background") as CMlFrame);
+	declare CMlFrame Frame_Select <=> (_Frame_Player.Parent.GetFirstChild("frame-player-selected") as CMlFrame);
+	declare Frame_VoiceChat <=> (_Frame_Player.GetFirstChild("frame-voice-chat") as CMlFrame);
+
+	Frame_Select.Visible = _IsSelected;
+	if (_IsSelected) {
+		Frame_VoiceChat.Visible = False;
+		State.Frame_CurrentSelectedPlayer = _Frame_Player;
+		if (IsVoiceChatEnabled()) {
+			{{{ExpendableAsset::P}}}SetWidth(This, Frame_Background, {{{Size_Player.X * 0.695}}}, False);
+			// Update mute button icon
+			Page.GetClassChildren(C_Class_Mute_Button, _Frame_Player.Parent, True);
+			if (Page.GetClassChildren_Result.count > 0 && (Page.GetClassChildren_Result[0] is CMlFrame)) {
+				declare CMlFrame Button_Mute = Page.GetClassChildren_Result[0] as CMlFrame;
+				declare Text CurrentPlayerAccountId for _Frame_Player.Parent = "";
+				if (CurrentPlayerAccountId == LocalUser.WebServicesUserId) {
+					UpdateMySpeakerDisplay(Button_Mute);
+				} else {
+					Page.GetClassChildren(C_Class_Mute_Loading, _Frame_Player.Parent, True);
+					if (Page.GetClassChildren_Result.count > 0 && (Page.GetClassChildren_Result[0] is CMlFrame)) {
+						declare CMlFrame LoadingSpinner_Mute = Page.GetClassChildren_Result[0] as CMlFrame;
+						UpdatePlayerSpeakerDisplay(CurrentPlayerAccountId, Button_Mute, LoadingSpinner_Mute);
+					}
+				}
+			}
+			// Update Spectate button
+			Page.GetClassChildren(C_Class_Spectate_Button, _Frame_Player.Parent, True);
+			if (Page.GetClassChildren_Result.count > 0 && (Page.GetClassChildren_Result[0] is CMlFrame)) {
+				declare CMlFrame Button_Spectate = Page.GetClassChildren_Result[0] as CMlFrame;
+				declare Text CurrentPlayerAccountId for _Frame_Player.Parent = "";
+				UpdateSpectateButton(CurrentPlayerAccountId, Button_Spectate);
+			}
+		} else {
+			{{{ExpendableAsset::P}}}SetWidth(This, Frame_Background, {{{Size_Player.X * 0.77}}}, False);
+		}
+		{{{ExpendableAsset::P}}}RedrawAsset(This, Frame_Background, False);
+		if (_FocusFirstIcon) {
+			Page.GetClassChildren(C_Class_Profile_Button, Frame_Select, False);
+			if (Page.GetClassChildren_Result.count > 0 && (Page.GetClassChildren_Result[0] is CMlFrame)) {
+				declare CMlFrame Button_Profile = Page.GetClassChildren_Result[0] as CMlFrame;
+				Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupPopUpSelectedTeam}}}"), Button_Profile);
+			}
+		}
+	} else {
+		State.Frame_CurrentSelectedPlayer = Null;
+		{{{ExpendableAsset::P}}}SetWidth(This, Frame_Background, {{{Size_Player.X * 0.92}}}, False);
+		{{{ExpendableAsset::P}}}RedrawAsset(This, Frame_Background, False);
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupPopUpSelectedTeam}}}"), _Frame_Player);
+		// If voice chat enabled, need to update the player speaker after their selection
+		if (IsVoiceChatEnabled()) {
+			declare Text CurrentPlayerAccountId for _Frame_Player.Parent = "";
+			foreach (Score in Scores) {
+				if (Score.User != Null && Score.User.WebServicesUserId == CurrentPlayerAccountId) {
+					ShowPlayer(_Frame_Player, Score.User);
+				}
+			}
+		}
+
+	}
+	return State;
+}
+
+K_State SelectPlayer(K_State _State, CMlFrame _Frame_Player, Boolean _IsSelected) {
+	return SelectPlayer(_State, _Frame_Player, _IsSelected, True);
+}
+
+K_State UpdateSelectedTeam(K_State _State, Integer _TeamScore_TeamId, Boolean _FocusFirstPlayer) {
+	declare K_State State = _State;
+	declare Integer I = 0;
+
+	State.CurrentTeamUserIds.clear();
+	foreach (Score in Scores) {
+		if (Score.TeamNum == _TeamScore_TeamId && Score.User != Null) {
+			ShowPlayer(State.Controls.Frames_Player[I], Score.User);
+			State.CurrentTeamUserIds.add(Score.User.Id);
+			I += 1;
+		}
+		if (I == C_PlayersPerTeam) break;
+	}
+	for (J, I, C_PlayersPerTeam-1) {
+		HidePlayer(State.Controls.Frames_Player[J]);
+	}
+	State.Controls.Label_SelectedTeamName.Value = Clans::GetClanName(_TeamScore_TeamId, False);
+	if (_FocusFirstPlayer) Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupPopUpSelectedTeam}}}"), State.Controls.Frames_Player[0]);
+
+	return State;
+}
+
+K_State UpdateSelectedTeam(K_State _State, Integer _TeamScore_TeamId) {
+	return UpdateSelectedTeam(_State, _TeamScore_TeamId, True);
+}
+
+K_State DisplaySelectedTeam(K_State _State, Integer _TeamScore_TeamId, Boolean _Display) {
+	declare K_State State = _State;
+	State.CurrentSelectedTeamId = _TeamScore_TeamId;
+	if (_Display) {
+		State = UpdateSelectedTeam(State, _TeamScore_TeamId);
+	} else {
+		State = SelectPlayer(State, State.Frame_CurrentSelectedPlayer, False, False);
+	}
+	State.Controls.Frame_SelectedTeam.Visible = _Display;
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupName}}}", !_Display);
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupPopUpSelectedTeam}}}", _Display);
+	return State;
+}
+
+K_State UpdateTeamRank(K_State _State, CMlFrame _Frame_Team, {{{Ranking::P}}}K_TeamRank _TeamRank, CSmPlayer _TargetPlayer) {
+	declare K_State State = _State;
+	declare CMlQuad Button_SelectTeam <=> (_Frame_Team.GetFirstChild("quad-hitbox") as CMlQuad);
+	declare CMlLabel Label_Rank <=> (_Frame_Team.GetFirstChild("label-rank") as CMlLabel);
+	declare CMlQuad Quad_Logo <=> (_Frame_Team.GetFirstChild("quad-logo") as CMlQuad);
+	declare CMlLabel Label_Name <=> (_Frame_Team.GetFirstChild("label-name") as CMlLabel);
+	declare CMlLabel Label_Points <=> (_Frame_Team.GetFirstChild("label-points") as CMlLabel);
+	declare CMlQuad Quad_Progression <=> (_Frame_Team.GetFirstChild("quad-progression") as CMlQuad);
+	declare CMlFrame Frame_Name_Background <=> (_Frame_Team.GetFirstChild("frame-name-background") as CMlFrame);
+	declare CMlFrame Frame_Progression_Background <=> (_Frame_Team.GetFirstChild("frame-progression-background") as CMlFrame);
+	declare CMlQuad Quad_Eliminated <=> (_Frame_Team.GetFirstChild("quad-eliminated") as CMlQuad);
+
+	declare Integer TeamScore_TeamId for _Frame_Team = 0;
+	TeamScore_TeamId = _TeamRank.TeamId;
+
+	if (_TargetPlayer != Null) {
+		FocusTeam(_Frame_Team, _TargetPlayer.CurrentClan, TeamScore_TeamId, _TargetPlayer.CurrentClan == _TeamRank.TeamId);
+		if (_Frame_Team.ControlId != "frame-my-team" && _TargetPlayer.CurrentClan == _TeamRank.TeamId && _Frame_Team.HasClass(C_Class_Team_Button)) {
+			State.Frame_CurrentTeam = _Frame_Team;
+		}
+	} else {
+		FocusTeam(_Frame_Team, 0, TeamScore_TeamId, False);
+	}
+
+	if (_TeamRank.Rank > 0) {
+		Label_Rank.Value = ""^_TeamRank.Rank;
+	} else {
+		Label_Rank.Value = "";
+	}
+	Quad_Logo.ImageUrl = Clans::GetClanLogo(_TeamRank.TeamId);
+	Quad_Logo.Visible = Quad_Logo.ImageUrl != "";
+	{{{ExpendableAsset::P}}}SetColor(This, Frame_Name_Background, Clans::GetClanColor(_TeamRank.TeamId));
+	Label_Name.Value = Clans::GetClanName(_TeamRank.TeamId, False);
+	Label_Name.TextColor = Clans::GetClanForegroundColor(_TeamRank.TeamId);
+	Tools::FitLabelValue(Label_Name, C_TextSize_TeamName, 2., 0.25);
+	Label_Points.Value = ""^_TeamRank.Points;
+	Quad_Progression.Visible = !_TeamRank.Eliminated;
+	if (Quad_Progression.Visible) {
+		Quad_Progression.Colorize = Difficulty::GetRoyalSegmentColorRGB(_TeamRank.Progression + 1);
+	}
+	Quad_Eliminated.Visible = _TeamRank.Eliminated;
+	Frame_Progression_Background.Visible = !Quad_Eliminated.Visible;
+	return State;
+}
+
+K_State UpdateTeamsRanking(K_State _State, Integer _TeamsRankingUpdate, Integer[][] _TeamsRanking, CSmPlayer _TargetPlayer) {
+	declare K_State State = _State;
+	State.TeamsRankingUpdate = _TeamsRankingUpdate;
+
+	if (_TargetPlayer == Null) {
+		State.TargetPlayerClan = -1;
+	} else {
+		State.TargetPlayerClan = _TargetPlayer.CurrentClan;
+	}
+
+	if (_TeamsRanking.count <= 0) {
+		State.Controls.Label_TeamsNb.Value = "{{{Text_ZeroTeams}}}";
+	} else if (_TeamsRanking.count == 1) {
+		State.Controls.Label_TeamsNb.Value = "{{{Text_OneTeam}}}";
+	} else {
+		State.Controls.Label_TeamsNb.Value = TL::Compose("{{{Text_MultipleTeams}}}", ""^_TeamsRanking.count);
+	}
+
+	foreach (Key => Control in State.Controls.Frame_Teams.Controls) {
+		if (_TeamsRanking.existskey(Key)) {
+			State = UpdateTeamRank(State, (Control as CMlFrame), {{{Ranking::P}}}GetTeamRank(_TeamsRanking[Key], Key + 1), _TargetPlayer);
+			Control.Visible = True;
+		} else {
+			Control.Visible = False;
+		}
+		{{{Navigation::P}}}Lock(Control, !Control.Visible);
+	}
+
+	return State;
+}
+
+K_State UpdateMyTeam(K_State _State, CSmPlayer _TargetPlayer, Integer[][] _TeamsRanking) {
+	declare K_State State = _State;
+	if (_TargetPlayer == Null) {
+		State.Controls.Frame_MyTeam.Visible = False;
+	} else {
+		declare {{{Ranking::P}}}K_TeamRank MyTeamRank = {{{Ranking::P}}}C_TeamRankNull;
+		MyTeamRank.TeamId = _TargetPlayer.CurrentClan;
+		foreach (Key => TeamRank in _TeamsRanking) {
+			if ({{{Ranking::P}}}IsTeamIdRank(_TargetPlayer.CurrentClan, TeamRank)) {
+				MyTeamRank = {{{Ranking::P}}}GetTeamRank(TeamRank, Key + 1);
+				break;
+			}
+		}
+		if (MyTeamRank.TeamId > 0) {
+			State = UpdateTeamRank(State, State.Controls.Frame_MyTeam, MyTeamRank, _TargetPlayer);
+			State.Controls.Frame_MyTeam.Visible = True;
+		} else {
+			State.Controls.Frame_MyTeam.Visible = False;
+		}
+	}
+	return State;
+}
+
+K_State SetClipboardMessage(K_State _State, Text _DisplayedMessage, Text _ClipboardValue) {
+	declare K_State State = _State;
+	State.ClipboardDisplayedMessage = _DisplayedMessage;
+	State.ClipboardValue = _ClipboardValue;
+
+	if (State.ClipboardDisplayedMessage == "") {
+		State.Controls.Label_Clipboard.Visible = False;
+	} else {
+		State.Controls.Label_Clipboard.Value = State.ClipboardDisplayedMessage;
+		State.Controls.Label_Clipboard.Size.X = ML::Min(
+			C_SizeX_ClipboardMessage,
+			State.Controls.Label_Clipboard.ComputeWidth(State.Controls.Label_Clipboard.Value, True)
+		);
+		if (State.ClipboardValue == "") {
+			State.Controls.Label_Clipboard.ScriptEvents_Disable();
+		} else {
+			State.Controls.Label_Clipboard.ScriptEvents_Restore();
+		}
+		State.Controls.Label_Clipboard.Visible = True;
+	}
+
+	// Stock match id for Report system
+	if (TL::StartsWith(MenuConst::C_CLUB_MatchId_Beginning, State.ClipboardValue)) {
+		{{{ProfilePlayerInfo::P}}}SetMatchAndMatchmakingId(State.ClipboardValue, C_RoyalMatchmakingId);
+	} else {
+		{{{ProfilePlayerInfo::P}}}SetMatchAndMatchmakingId("", "");
+	}
+	return State;
+}
+
+Void CopyToClipboard(CMlLabel _Label_Clipboard, Text _ClipboardValue) {
+	if (System != Null && _ClipboardValue != "") {
+		AnimMgr.Flush(_Label_Clipboard);
+		_Label_Clipboard.TextColor = <1., 1., 1.>;
+		AnimMgr.Add(_Label_Clipboard, "<a textcolor=\"{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}\" />", 125, CAnimManager::EAnimManagerEasing::QuadIn);
+		AnimMgr.AddChain(_Label_Clipboard, "<a textcolor=\"ffffff\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		System.ClipboardSet(_ClipboardValue);
+	}
+}
+
+K_State SetMap(K_State _State, CMap _Map) {
+	declare K_State State = _State;
+
+	if (_Map == Null) {
+		State.CurrentMapUid = "";
+		State.Controls.Label_MapName.Visible = False;
+		State.Controls.PlayerName_MapAuthor.Visible = False;
+	} else {
+		State.CurrentMapUid = _Map.MapInfo.MapUid;
+
+		State.Controls.Label_MapName.Visible = True;
+		State.Controls.Label_MapName.Value = _Map.MapName;
+		Tools::FitLabelValue(State.Controls.Label_MapName, C_TextSize_MapName, 2., 0.5);
+
+		{{{PlayerName::P}}}SetAccountId(This, State.Controls.PlayerName_MapAuthor, _Map.AuthorLogin, False);
+		State.Controls.PlayerName_MapAuthor.Visible = True;
+	}
+
+	return State;
+}
+
+K_State SetHeaderMessage(K_State _State, Text _Message) {
+	declare K_State State = _State;
+	State.HeaderMessage = _Message;
+	if (State.HeaderMessage != "") {
+		State.Controls.Label_Message.Visible = True;
+		State.Controls.Label_Message.Value = State.HeaderMessage;
+		Tools::FitLabelValue(State.Controls.Label_Message, C_TextSize_Message, 2., 0.5);
+	} else {
+		State.Controls.Label_Message.Visible = False;
+	}
+	return State;
+}
+
+K_State SetMapsProgression(K_State _State, Int2 _MapsProgression) {
+	declare K_State State = _State;
+	State.MapsProgression = _MapsProgression;
+	if (_MapsProgression.X > 0) {
+		if (_MapsProgression.Y > 0) {
+			State.Controls.Label_MapsProgression.Value = TL::Compose("{{{Text_MapsProgressionFull}}}", ""^_MapsProgression.X, ""^_MapsProgression.Y);
+		} else {
+			State.Controls.Label_MapsProgression.Value = TL::Compose("{{{Text_MapsProgressionPart}}}", ""^_MapsProgression.X);
+		}
+		State.Controls.Label_MapsProgression.Visible = True;
+	} else {
+		State.Controls.Label_MapsProgression.Visible = False;
+	}
+	Tools::FitLabelValue(State.Controls.Label_MapsProgression, C_TextSize_Message, 2., 0.5);
+	return State;
+}
+
+Void UpdateSuperRoyalMatch(K_State _State, Boolean _IsSuperRoyalEnabled, Integer _QualifNumber, Boolean _IsSuperRoyalFinale, Text _Division) {
+	_State.Controls.Label_TeamsNb.Visible = !_IsSuperRoyalEnabled;
+	_State.Controls.Quad_SuperRoyal_Logo.Visible = _IsSuperRoyalEnabled;
+	_State.Controls.Label_SuperRoyal_Match.Visible = _IsSuperRoyalEnabled;
+	_State.Controls.Label_SuperRoyal_Division.Visible = _IsSuperRoyalEnabled;
+	if (_IsSuperRoyalEnabled) {
+		if (_IsSuperRoyalFinale) _State.Controls.Label_SuperRoyal_Match.Value = "{{{Text_Finale}}}";
+		else _State.Controls.Label_SuperRoyal_Match.Value = TL::Compose("{{{Text_QualifNumber}}}", ""^_QualifNumber);
+		_State.Controls.Quad_SuperRoyal_Logo.ImageUrl = C_SuperRoyal_Logos.get(_Division, "");
+		_State.Controls.Label_SuperRoyal_Division.Value = C_SuperRoyal_DivisionNames.get(_Division, "");
+		if (C_SuperRoyal_DivisionColors.existskey(_Division)) _State.Controls.Label_SuperRoyal_Division.TextColor = CL::Hex6ToRgb(C_SuperRoyal_DivisionColors[_Division]);
+		declare Real MatchNameWidth = ML::Min(_State.Controls.Label_SuperRoyal_Match.ComputeWidth(_State.Controls.Label_SuperRoyal_Match.Value), _State.Controls.Label_SuperRoyal_Match.Size.X);
+		_State.Controls.Label_SuperRoyal_Division.RelativePosition_V3.X = _State.Controls.Label_SuperRoyal_Match.RelativePosition_V3.X + MatchNameWidth + 1;
+	}
+}
+
+K_State Cancel(K_State _State) {
+	declare K_State State = _State;
+	if (State.Controls.Frame_SelectedTeam.Visible) {
+		if (State.Frame_CurrentSelectedPlayer != Null) {
+			State = SelectPlayer(State, State.Frame_CurrentSelectedPlayer, False, False);
+		} else {
+			State = DisplaySelectedTeam(State, -1, False);
+		}
+	} else {
+		{{{ScoresTableVisibility::P}}}SetEnabledFromMenu(False);
+	}
+	return State;
+}
+
+Void SpectatePlayer(Text _PlayerLogin) {
+	if (_PlayerLogin != "") {
+		{{{Spectator::P}}}SpectatePlayer(_PlayerLogin);
+	}
+}
+
+Void UpdateControllerInfos(CMlFrame _Frame_ButtonList) {
+	if ({{{ScoresTableVisibility::P}}}EnabledFromMenu()) {
+		if (IsVoiceChatEnabled()) {
+			if (ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting == CGameUserVoiceChat::EMuteSetting::Muted) {
+				{{{MenuButtonList::P}}}SetButtons(_Frame_ButtonList, ["A" => _("Select"), "B" => _("Back"), "AppMenu" => "{{{Text_DisplayMyTeam}}}", "Action1" => "{{{Text_UnmuteAll}}}"]);
+			} else {
+				{{{MenuButtonList::P}}}SetButtons(_Frame_ButtonList, ["A" => _("Select"), "B" => _("Back"), "AppMenu" => "{{{Text_DisplayMyTeam}}}", "Action1" => "{{{Text_MuteAll}}}"]);
+			}
+		} else {
+			{{{MenuButtonList::P}}}SetButtons(_Frame_ButtonList, ["A" => _("Select"), "B" => _("Back"), "AppMenu" => "{{{Text_DisplayMyTeam}}}"]);
+		}
+	} else {
+		{{{MenuButtonList::P}}}SetButtons(_Frame_ButtonList, []);
+	}
+}
+
+Void DisplayProfile(Boolean _Display, CUser _User, CMlFrame _Frame_Profile, CMlFrame _Frame_ButtonList) {
+	if (_Display) {
+		{{{ProfilePlayerInfo::P}}}SetUser(_User);
+	} else {
+		UpdateControllerInfos(_Frame_ButtonList);
+	}
+	{{{ProfilePlayerInfo::P}}}Enable(_Display);
+	_Frame_Profile.Visible = _Display;
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupProfile}}}", _Display);
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupPopUpSelectedTeam}}}", !_Display);
+}
+
+Void OpenProfile(Text _AccountId, CMlFrame _Frame_Profile) {
+	foreach (Score in Scores) {
+		if (Score.User != Null && Score.User.WebServicesUserId == _AccountId) {
+			DisplayProfile(True, Score.User, _Frame_Profile, Null);
+			break;
+		}
+	}
+}
+
+Void MuteMyself() {
+	UserMgr.VoiceChat_Mute_Myself = !UserMgr.VoiceChat_Mute_Myself;
+}
+
+Void Mute(Text _AccountId) {
+	declare CGameUserVoiceChat VoiceChatUser = UserMgr.VoiceChat_FindUserFromWebServicesUserId(_AccountId);
+	if (VoiceChatUser != Null) {
+		if (VoiceChatUser.MuteSetting == CGameUserVoiceChat::EMuteSetting::Muted) {
+			VoiceChatUser.MuteSetting = CGameUserVoiceChat::EMuteSetting::NotMuted;
+		} else {
+			VoiceChatUser.MuteSetting = CGameUserVoiceChat::EMuteSetting::Muted;
+		}
+	}
+}
+
+Void UpdateMuteAllDisplay(CMlFrame _Frame_ButtonList) {
+	declare Boolean AllPlayerMuted = UserMgr.VoiceChat_Users_Remote_Muted.count > 0 && UserMgr.VoiceChat_Users_Remote_Muted.count == UserMgr.VoiceChat_Users_Remote.count;
+
+	// Adapt DefaultMuteSetting if player manually mute or unmute everyone
+	if (AllPlayerMuted && ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting == CGameUserVoiceChat::EMuteSetting::NotMuted) {
+		ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting = CGameUserVoiceChat::EMuteSetting::Muted;
+	} else if (UserMgr.VoiceChat_Users_Remote_Muted.count == 0 && ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting == CGameUserVoiceChat::EMuteSetting::Muted) {
+		ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting = CGameUserVoiceChat::EMuteSetting::NotMuted;
+	}
+	UpdateControllerInfos(_Frame_ButtonList);
+}
+
+Void MuteAll() {
+	if (ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting == CGameUserVoiceChat::EMuteSetting::NotMuted) {
+		ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting = CGameUserVoiceChat::EMuteSetting::Muted;
+		UserMgr.VoiceChat_MuteAll();
+	} else {
+		ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting = CGameUserVoiceChat::EMuteSetting::NotMuted;
+		UserMgr.VoiceChat_UnmuteAll();
+	}
+}
+
+K_State Select(CMlControl _Control, K_State _State) {
+	if (_Control == Null) return _State;
+	declare K_State State = _State;
+
+	if (_Control.HasClass(C_Class_Team_Button)) {
+		declare Integer TeamScore_TeamId for _Control = 0;
+		if (TeamScore_TeamId > 0) {
+			State = DisplaySelectedTeam(_State, TeamScore_TeamId, True);
+		}
+	} else if (_Control.HasClass(C_Class_Player_Button)) {
+		if (State.Frame_CurrentSelectedPlayer != Null) {
+			State = SelectPlayer(State, State.Frame_CurrentSelectedPlayer, False, False);
+		}
+		State = SelectPlayer(State, _Control as CMlFrame, True);
+	} else if (_Control.HasClass(C_Class_Spectate_Button)) {
+		declare Text CurrentPlayerLogin for _Control.Parent.Parent = "";
+		SpectatePlayer(CurrentPlayerLogin);
+		// When player wants to spectate another player from the pause menu scores table, we resume to the game
+		if ({{{ScoresTableVisibility::P}}}EnabledFromMenu()) {
+			{{{ScoresTableVisibility::P}}}SetEnabledFromMenu(False);
+			CloseInGameMenu(CMlScriptIngame::EInGameMenuResult::Resume);
+		}
+	} else if (_Control.HasClass(C_Class_Profile_Button)) {
+		declare Text CurrentPlayerAccountId for _Control.Parent.Parent = "";
+		OpenProfile(CurrentPlayerAccountId, State.Controls.Frame_Profile);
+	} else if (_Control.HasClass(C_Class_Mute_Button)) {
+		declare Text CurrentPlayerAccountId for _Control.Parent.Parent = "";
+		if (CurrentPlayerAccountId == LocalUser.WebServicesUserId) {
+			MuteMyself();
+		} else {
+			Mute(CurrentPlayerAccountId);
+		}
+		State = SelectPlayer(State, State.Frame_CurrentSelectedPlayer, False, False);
+	}
+	return State;
+}
+
+Void RedrawPlayersList(Boolean _VoiceChatEnabled, CMlFrame _Frame_PlayersList) {
+	foreach (Control in _Frame_PlayersList.Controls) {
+		declare CMlFrame Frame_Select <=> (Control as CMlFrame).GetFirstChild("frame-player-selected") as CMlFrame;
+		if (Frame_Select != Null) {
+			if (_VoiceChatEnabled) {
+				Frame_Select.RelativePosition_V3 = {{{Pos_SelectPlayerButtons_VoiceChatEnabled}}};
+			} else {
+				Frame_Select.RelativePosition_V3 = {{{Pos_SelectPlayerButtons}}};
+			}
+			Page.GetClassChildren(C_Class_Mute_Button, Frame_Select, False);
+			if (Page.GetClassChildren_Result.count > 0 && (Page.GetClassChildren_Result[0] is CMlFrame)) {
+				declare CMlFrame Button_MutePlayer = Page.GetClassChildren_Result[0] as CMlFrame;
+				Button_MutePlayer.Visible = _VoiceChatEnabled;
+				{{{Navigation::P}}}Lock(Button_MutePlayer, !_VoiceChatEnabled);
+			}
+		}
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_ScoresTable_Visibility;
+declare CMlFrame Frame_Global;
+declare CMlQuad Quad_BlackBg;
+declare CMlFrame Frame_ButtonList;
+declare CMlFrame Frame_PlayersList;
+
+declare netread Boolean Net_RoyalStars_ScoresTable_IsVisible for UI;
+declare netread Text Net_RoyalStars_ScoresTable_ClipboardDisplayedMessage for Teams[0];
+declare netread Text Net_RoyalStars_ScoresTable_ClipboardValue for Teams[0];
+declare netread Text Net_RoyalStars_ScoresTable_HeaderMessage for Teams[0];
+declare netread Int2 Net_RoyalStars_ScoresTable_MapsProgression for Teams[0];
+
+declare K_State State;
+declare Boolean DisplayModule;
+declare Boolean InterfaceVisible;
+declare Boolean IsDisplayed;
+declare Integer NextUpdateTime;
+declare {{{ScoresTableVisibility::P}}}K_ScoresTableIsVisible ScoresTableIsVisible;
+declare Boolean MatchStarted = False;
+***
+
+***MainStart***
+***
+Frame_ScoresTable_Visibility <=> (Page.GetFirstChild("frame-scorestable-layer") as CMlFrame);
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Quad_BlackBg <=> (Frame_Global.GetFirstChild("quad-black-bg") as CMlQuad);
+State.Controls.Frame_Teams <=> (Frame_Global.GetFirstChild("frame-teams") as CMlFrame);
+State.Controls.Frame_MyTeam <=> (Frame_Global.GetFirstChild("frame-my-team") as CMlFrame);
+State.Controls.Label_Clipboard <=> (Frame_Global.GetFirstChild("label-clipboard") as CMlLabel);
+State.Controls.Label_MapName <=> (Frame_Global.GetFirstChild("label-map-name") as CMlLabel);
+State.Controls.PlayerName_MapAuthor <=> (Frame_Global.GetFirstChild("playername-map-author") as CMlFrame);
+State.Controls.Label_TeamsNb <=> (Frame_Global.GetFirstChild("label-teams-nb") as CMlLabel);
+State.Controls.Label_SuperRoyal_Match <=> (Frame_Global.GetFirstChild("label-super-royal-match") as CMlLabel);
+State.Controls.Label_SuperRoyal_Division <=> (Frame_Global.GetFirstChild("label-super-royal-division") as CMlLabel);
+State.Controls.Label_Message <=> (Frame_Global.GetFirstChild("label-message") as CMlLabel);
+State.Controls.Label_MapsProgression <=> (Frame_Global.GetFirstChild("label-maps-progression") as CMlLabel);
+State.Controls.Quad_SuperRoyal_Logo <=> (Frame_Global.GetFirstChild("quad-super-royal-logo") as CMlQuad);
+State.Controls.Frame_SelectedTeam <=> (Frame_Global.GetFirstChild("frame-selected-team") as CMlFrame);
+State.Controls.Label_SelectedTeamName <=> (Frame_Global.GetFirstChild("label-selected-team-name") as CMlLabel);
+State.Controls.Frames_Player.add(Frame_Global.GetFirstChild("frame-player-0") as CMlFrame);
+State.Controls.Frames_Player.add(Frame_Global.GetFirstChild("frame-player-1") as CMlFrame);
+State.Controls.Frames_Player.add(Frame_Global.GetFirstChild("frame-player-2") as CMlFrame);
+State.Controls.Frame_Profile <=> (Frame_Global.GetFirstChild("frame-profile") as CMlFrame);
+Frame_ButtonList <=> (Frame_Global.GetFirstChild("frame-button-list-scorestable-royal") as CMlFrame);
+Frame_PlayersList <=> (Frame_Global.GetFirstChild("frame-players-list") as CMlFrame);
+
+DisplayModule = Frame_Global.Visible;
+InterfaceVisible = PageIsVisible;
+IsDisplayed = (PageIsVisible && DisplayModule && Frame_ScoresTable_Visibility.Visible);
+NextUpdateTime = Now;
+
+{{{Navigation::P}}}UseLocalEvents(This, True);
+{{{ProfilePlayerInfo::P}}}UseLocalEvents(True);
+{{{ProfilePlayerInfo::P}}}EnableGarageButton(False);
+
+State.TargetPlayerId = NullId;
+State.TargetPlayerClan = -1;
+State = UpdateTeamsRanking(State, {{{Ranking::P}}}GetTeamsRankingUpdate(), {{{Ranking::P}}}GetTeamsRanking(), GUIPlayer);
+State = SetMap(State, Map);
+State = SetHeaderMessage(State, Net_RoyalStars_ScoresTable_HeaderMessage);
+State = SetMapsProgression(State, Net_RoyalStars_ScoresTable_MapsProgression);
+State = SetClipboardMessage(State, Net_RoyalStars_ScoresTable_ClipboardDisplayedMessage, Net_RoyalStars_ScoresTable_ClipboardValue);
+State = UpdateMyTeam(State, InputPlayer, {{{Ranking::P}}}GetTeamsRanking());
+{{{ScoresTableDefault::P}}}SetIsDisplayed(IsDisplayed);
+UpdateSuperRoyalMatch(State, {{{SuperRoyal::P}}}GetSuperRoyalEnabled(), {{{SuperRoyal::P}}}GetSuperRoyalRoundNumber(), {{{SuperRoyal::P}}}GetSuperRoyalFinale(), {{{SuperRoyal::P}}}GetSuperRoyalDivision());
+ScoresTableIsVisible = {{{ScoresTableVisibility::P}}}SetScoresTableVisibility(
+	Frame_ScoresTable_Visibility,
+	Quad_BlackBg,
+	{{{ScoresTableVisibility::P}}}LayerIsVisible(),
+	{{{ScoresTableVisibility::P}}}EnabledFromMenu()
+);
+***
+
+***MainLoop***
+***
+if (InterfaceVisible != PageIsVisible) {
+	InterfaceVisible = PageIsVisible;
+	{{{PauseMenu_Online::P}}}SetScoresTableButtonLocked(!InterfaceVisible, C_Id);
+}
+if (
+	ScoresTableIsVisible.FromLayer != {{{ScoresTableVisibility::P}}}LayerIsVisible() ||
+	ScoresTableIsVisible.FromMenu != {{{ScoresTableVisibility::P}}}EnabledFromMenu()
+) {
+	ScoresTableIsVisible = {{{ScoresTableVisibility::P}}}SetScoresTableVisibility(
+		Frame_ScoresTable_Visibility,
+		Quad_BlackBg,
+		{{{ScoresTableVisibility::P}}}LayerIsVisible(),
+		{{{ScoresTableVisibility::P}}}EnabledFromMenu()
+	);
+	UpdateMuteAllDisplay(Frame_ButtonList);
+}
+if (IsDisplayed != (PageIsVisible && DisplayModule && Frame_ScoresTable_Visibility.Visible)) {
+	IsDisplayed = (PageIsVisible && DisplayModule && Frame_ScoresTable_Visibility.Visible);
+	{{{ScoresTableDefault::P}}}SetIsDisplayed(IsDisplayed);
+
+	// Hide old pop ups (profile and selected team) and focus current team when re opening the scorestable
+	if (IsDisplayed) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), State.Frame_CurrentTeam, State.TargetPlayerClan);
+		if (State.Controls.Frame_Profile.Visible || State.Controls.Frame_SelectedTeam.Visible) {
+			State = DisplaySelectedTeam(State, -1, False);
+			if (State.Controls.Frame_Profile.Visible)	{
+				DisplayProfile(False, Null, State.Controls.Frame_Profile, Frame_ButtonList);
+			}
+		}
+	}
+}
+if (PageIsVisible && Frame_ScoresTable_Visibility.Visible) {
+	if (DisplayModule != Net_RoyalStars_ScoresTable_IsVisible) {
+		DisplayModule = Net_RoyalStars_ScoresTable_IsVisible;
+		Frame_Global.Visible = Net_RoyalStars_ScoresTable_IsVisible;
+		UpdateSuperRoyalMatch(State, {{{SuperRoyal::P}}}GetSuperRoyalEnabled(), {{{SuperRoyal::P}}}GetSuperRoyalRoundNumber(), {{{SuperRoyal::P}}}GetSuperRoyalFinale(), {{{SuperRoyal::P}}}GetSuperRoyalDivision());
+	}
+
+	if (Frame_Global.Visible) {
+		if (Now >= NextUpdateTime) {
+			NextUpdateTime = Now + C_UpdateInterval;
+
+			if (State.TeamsRankingUpdate != {{{Ranking::P}}}GetTeamsRankingUpdate()) {
+				State = UpdateTeamsRanking(State, {{{Ranking::P}}}GetTeamsRankingUpdate(), {{{Ranking::P}}}GetTeamsRanking(), GUIPlayer);
+				if (InputPlayer != Null) State = UpdateMyTeam(State, InputPlayer, {{{Ranking::P}}}GetTeamsRanking());
+				if (!MatchStarted) {
+					MatchStarted = True;
+					Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), State.Frame_CurrentTeam, State.TargetPlayerClan);
+				}
+			}
+
+			if (GUIPlayer != Null) {
+				if (State.TargetPlayerId != GUIPlayer.Id || State.TargetPlayerClan != GUIPlayer.CurrentClan) {
+					State.TargetPlayerId = GUIPlayer.Id;
+					State.TargetPlayerClan = GUIPlayer.CurrentClan;
+					State = UpdateTeamsRanking(State, {{{Ranking::P}}}GetTeamsRankingUpdate(), {{{Ranking::P}}}GetTeamsRanking(), GUIPlayer);
+					State = UpdateMyTeam(State, InputPlayer, {{{Ranking::P}}}GetTeamsRanking());
+				}
+			} else if (GUIPlayer == Null && State.TargetPlayerId != NullId) {
+				State.TargetPlayerId = NullId;
+				State.TargetPlayerClan = -1;
+				State = UpdateTeamsRanking(State, {{{Ranking::P}}}GetTeamsRankingUpdate(), {{{Ranking::P}}}GetTeamsRanking(), GUIPlayer);
+				State = UpdateMyTeam(State, InputPlayer, {{{Ranking::P}}}GetTeamsRanking());
+			}
+
+			if (
+				State.ClipboardDisplayedMessage != Net_RoyalStars_ScoresTable_ClipboardDisplayedMessage ||
+				State.ClipboardValue != Net_RoyalStars_ScoresTable_ClipboardValue
+			) {
+				State = SetClipboardMessage(State, Net_RoyalStars_ScoresTable_ClipboardDisplayedMessage, Net_RoyalStars_ScoresTable_ClipboardValue);
+			}
+
+			if (
+				Map != Null && State.CurrentMapUid != Map.MapInfo.MapUid ||
+				Map == Null && State.CurrentMapUid != ""
+			) {
+				State = SetMap(State, Map);
+			}
+
+			if (State.HeaderMessage != Net_RoyalStars_ScoresTable_HeaderMessage) {
+				State = SetHeaderMessage(State, Net_RoyalStars_ScoresTable_HeaderMessage);
+			}
+
+			if (State.MapsProgression != Net_RoyalStars_ScoresTable_MapsProgression) {
+				State = SetMapsProgression(State, Net_RoyalStars_ScoresTable_MapsProgression);
+			}
+		}
+
+		/* Voice chat events */
+		foreach (Event in UserMgr.VoiceChat_Events) {
+			switchtype (Event) {
+				case CVoiceChatEvent_SpeakingUsersChanged, CVoiceChatEvent_User_IsMuted, CVoiceChatEvent_User_IsConnected, CVoiceChatEvent_DisplayUI: {
+					if (Event is CVoiceChatEvent_DisplayUI) {
+						RedrawPlayersList((Event as CVoiceChatEvent_DisplayUI).NewValue, Frame_PlayersList);
+					}
+					if (State.Controls.Frame_SelectedTeam.Visible) {
+						State = UpdateSelectedTeam(State, State.CurrentSelectedTeamId, False);
+						if (State.Frame_CurrentSelectedPlayer != Null) {
+							State = SelectPlayer(State, State.Frame_CurrentSelectedPlayer, True, False);
+						}
+					}
+					UpdateMuteAllDisplay(Frame_ButtonList);
+				}
+			}
+		}
+
+		/* Navigation events */
+		foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+			switch (Event.Type) {
+				case {{{Navigation::P}}}C_EventType_NavigateInput: {
+					if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}") || {{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupPopUpSelectedTeam}}}")) {
+						if (Event.Input == CMlScriptEvent::EMenuNavAction::Select) {
+							State = Select(Event.To, State);
+						} else {
+							Focus(Event.From, Event.To, State.TargetPlayerClan);
+						}
+					} else if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupGlobal}}}")) {
+						if (Event.Input == CMlScriptEvent::EMenuNavAction::AppMenu) {
+							if (State.Controls.Frame_SelectedTeam.Visible) {
+								State = DisplaySelectedTeam(State, -1, False);
+							} else {
+								declare Integer TeamScore_TeamId for State.Controls.Frame_MyTeam = 0;
+								if (TeamScore_TeamId > 0) {
+									State = DisplaySelectedTeam(State, TeamScore_TeamId, True);
+								}
+							}
+						} else if (Event.Input == CMlScriptEvent::EMenuNavAction::Action1 && IsVoiceChatEnabled()) {
+							MuteAll();
+						}
+					}
+				}
+				case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+					if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}") || {{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupPopUpSelectedTeam}}}")) {
+						if (Event.Mouse == CMlScriptEvent::Type::MouseClick) {
+							State = Select(Event.To, State);
+						} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+							Focus(Event.From, Event.To, State.TargetPlayerClan);
+						}
+					}
+				}
+			}
+		}
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+				if (Event.ControlId == "label-clipboard") {
+					CopyToClipboard((Event.Control as CMlLabel), Net_RoyalStars_ScoresTable_ClipboardValue);
+				}
+			} else if (Event.Type == CMlScriptEvent::Type::MenuNavigation) {
+				if (Event.MenuNavAction == CMlScriptEvent::EMenuNavAction::Cancel) {
+					State = Cancel(State);
+				}
+			}
+		}
+
+		/* PopUpBackground events */
+		foreach (Event in {{{PopUpBackground::P}}}GetPendingEvents(This)) {
+			if (Event.PopUpBackground != Null && Event.PopUpBackground.ControlId == "selected-team-background") {
+				switch (Event.Type) {
+					case {{{PopUpBackground::P}}}C_EventType_Close: {
+						State = DisplaySelectedTeam(State, -1, False);
+					}
+				}
+			}
+		}
+
+		/* Profile events */
+		foreach (Event in {{{ProfilePlayerInfo::P}}}PendingEvents) {
+			switch (Event.Type) {
+				case {{{ProfilePlayerInfo::P}}}C_EventType_Close: {
+					DisplayProfile(False, Null, State.Controls.Frame_Profile, Frame_ButtonList);
+				}
+				case {{{ProfilePlayerInfo::P}}}C_EventType_NextPlayer: {
+					declare Integer Key = State.CurrentTeamUserIds.keyof(Event.CurrentUserId);
+					if (Key >= 0) {
+						declare Ident UserId = NullId;
+						if (State.CurrentTeamUserIds.existskey(Key + 1)) {
+							UserId = State.CurrentTeamUserIds[Key + 1];
+						} else if (State.CurrentTeamUserIds.count > 0) {
+							UserId = State.CurrentTeamUserIds[0];
+						}
+						if (UserId != NullId && Scores.existskey(UserId)) {
+							{{{ProfilePlayerInfo::P}}}SetUser(Scores[UserId].User);
+						}
+					}
+				}
+				case {{{ProfilePlayerInfo::P}}}C_EventType_PrevPlayer: {
+					declare Integer Key = State.CurrentTeamUserIds.keyof(Event.CurrentUserId);
+					if (Key >= 0) {
+						declare Ident UserId = NullId;
+						if (State.CurrentTeamUserIds.existskey(Key - 1)) {
+							UserId = State.CurrentTeamUserIds[Key - 1];
+						} else if (State.CurrentTeamUserIds.count > 0) {
+							UserId = State.CurrentTeamUserIds[State.CurrentTeamUserIds.count - 1];
+						}
+						if (UserId != NullId && Scores.existskey(UserId)) {
+							{{{ProfilePlayerInfo::P}}}SetUser(Scores[UserId].User);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	ScoresTableDefault::Component(),
+	Spectator::Component(),
+	SuperRoyal::Component(),
+	Ranking::Component(),
+	ScoresTableVisibility::Component(),
+	MenuButtonList::Component(),
+	Navigation::ComponentV2(),
+	PopUpBackground::ComponentV2(),
+	ExpendableAsset::ComponentV2(),
+	ExpendableButton::ComponentV2(),
+	ProfilePlayerInfo::Component(),
+	LoadingSpinner::ComponentV2(),
+	PauseMenu_Online::Component(),
+	PlayerName::ComponentV2()
+],
+[]
+	);
+}

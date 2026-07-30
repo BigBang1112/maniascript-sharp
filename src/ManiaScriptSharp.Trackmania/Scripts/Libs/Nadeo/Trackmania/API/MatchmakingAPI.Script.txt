@@ -1,0 +1,680 @@
+/**
+ * API for Matchmaking
+ */
+#Const Version "3.3.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/API/MatchmakingAPI.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/Trackmania/Structures/MatchmakingStruct.Script.txt" as MatchmakingStruct
+#Include "Libs/Nadeo/CMGame/Utils/HttpAuthorizationHeader.Script.txt" as HttpAuthorizationHeader
+#Include "Libs/Nadeo/CMGame/Utils/HttpServerAuthorizationHeader.Script.txt" as HttpServerAuthorizationHeader
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Headers [
+	"Accept" => "application/json",
+	"Content-Type" => "application/json"
+]
+
+/* Matchmaking API */
+#Const C_API_Matchmaking "/api/matchmaking"
+#Const C_API_Match "/api/match"
+#Const C_API_Code "/api/code"
+#Const C_Route_PostMatchmakingHeartbeat "/:MatchmakingId/heartbeat"
+#Const C_Route_GetMatchmakingPlayerStatus "/:MatchmakingId/player-status"
+#Const C_Route_PostMatchmakingAccept "/:MatchmakingId/accept"
+#Const C_Route_PostMatchmakingCancel "/:MatchmakingId/cancel"
+#Const C_Route_GetLeaderboard "/:MatchmakingId/leaderboard"
+#Const C_Route_Me "/me"
+#Const C_Route_GetParticipantsScores "/:MatchId/participants"
+#Const C_Route_GetMatchmakingDivisionRules "/:MatchmakingId/division/display-rules"
+#Const C_Route_GetPlayersProgression "/:MatchmakingId/progression/players"
+#Const C_Route_GetCode "/:Code"
+#Const C_Route_GetStats "/:MatchmakingId/stats"
+#Const C_Route_PlayerId "/:PlayerAccountId"
+
+#Const C_RouteParameter_MatchmakingId "MatchmakingId"
+#Const C_RouteParameter_MatchId "MatchId"
+#Const C_RouteParameter_QueueName "QueueName"
+#Const C_RouteParameter_Code "Code"
+#Const C_RouteParameter_PlayerId "PlayerAccountId"
+
+#Const C_QueryParameter_Players "players"
+
+/* Club API */
+#Const C_API_Matches "/api/matches"
+#Const C_Route_GetMatchByLid "/:Match"
+
+#Const C_RouteParameter_MatchLid "Match"
+
+/* Competition API */
+#Const C_API_SuperRoyal "/api/me/super-royal"
+#Const C_Route_Current "/current"
+#Const C_Route_Stats "/stats"
+#Const C_Route_SuperRoyal_Stats_Player "/api/super-royal/stats/:PlayerAccountId"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/* Matchmaking API */
+#Struct K_HttpHeartbeatBody {
+	Text[] playWith;
+	Text code;
+}
+#Struct K_HttpHeartbeat {
+	Text status;
+	Integer creationDate;
+	Integer matchmakingWaitingTime;
+	Text matchLiveId;
+	Integer banEndDate;
+}
+#Struct K_HttpPenalty {
+	Integer creationDate;
+	Integer points;
+}
+#Struct K_HttpInactivity {
+	Boolean inactivityPenaltyEnabled;
+	Real immunityDays;
+	Integer penalty;
+}
+#Struct K_HttpPlayerStatus {
+	K_HttpHeartbeat currentHeartbeat;
+	K_HttpPenalty penalty;
+	K_HttpInactivity inactivity;
+	Text currentDivision;
+	Integer currentProgression;
+	Text matchmakingStatus;
+	Integer matchGenerationTimer;
+}
+#Struct K_HttpMatch {
+	Text joinLink;
+}
+#Struct K_HttpPlayerRanking {
+	Integer matchmakingId;
+	Text player;
+	Integer score;
+}
+#Struct K_HttpParticipant {
+	Text player;
+	Text currentDivision;
+	Integer currentProgression;
+}
+#Struct K_HttpMatchParticipants {
+	Boolean isCompleted;
+	K_HttpParticipant[] participants;
+}
+#Struct K_HttpOfficialQueueSummary {
+	Integer ranked3v3Id;
+	Integer royalId;
+	Integer superRoyalId;
+}
+#Struct K_HttpDivisionRules {
+	Text id;
+	Integer position;
+	Text displayRuleType;
+	Integer displayRuleMinimumPoints;
+	Integer displayRuleMaximumPoints;
+	Integer displayRuleMinimumRank;
+}
+#Struct K_HttpDisplayDivisionRules {
+	K_HttpDivisionRules[] divisions;
+}
+#Struct K_HttpPlayerProgression {
+	Text player;
+	Text division;
+	Integer progression;
+}
+#Struct K_HttpProgressions {
+	K_HttpPlayerProgression[] progressions;
+}
+#Struct K_HttpCode {
+	Text code;
+}
+#Struct K_HttpSuperRoyal {
+	Integer startsIn;
+	Text status;
+	Text matchLiveId;
+}
+#Struct K_HttpSuperRoyalStatistics {
+	Integer masterWon;
+	Integer goldWon;
+	Integer silverWon;
+	Integer bronzeWon;
+}
+#Struct K_HttpPlayerStatistics {
+	Integer matchmakingId;
+	Text player;
+	Text currentDivision;
+	Integer currentProgression;
+	Text bestDivision;
+	Integer bestProgression;
+	Integer bestProgressionDate;
+	Text previousDivision;
+	Integer previousProgression;
+	Integer previousProgressionDate;
+	Integer mvpCount;
+	Integer victories;
+	Integer playedMatches;
+}
+#Struct K_HttpPlayerLeaderboard {
+	Text player;
+	Integer rank;
+	Integer score;
+}
+#Struct K_HttpLeaderboard {
+	Text matchmakingId;
+	Integer cardinal;
+	K_HttpPlayerLeaderboard[] results;
+}
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text[Text] GetHeadersWithLiveAuth() {
+	declare Text[Text] Headers = C_Headers;
+	declare Text AuthorizationHeaders = HttpAuthorizationHeader::GetLive();
+	declare Text KeyAutho = TL::SubString(AuthorizationHeaders, 0, TL::Length("Authorization"));
+	declare Text ValueAutho = TL::SubString(AuthorizationHeaders, TL::Length("Authorization: "), TL::Length(AuthorizationHeaders));
+	Headers[KeyAutho] = ValueAutho;
+	return Headers;
+}
+Text[Text] GetHeadersWithClubAuth() {
+	log("WARNING [MatchmakingAPI] Club tokens are deprecated. Use Live tokens instead.");
+	return GetHeadersWithLiveAuth();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the players scores (skill level and score delta) for a given match
+Http::K_Request Server_GetMatchParticipants(Text _APIUrl, Text _MatchId, Integer _RetryNb, Integer _RetryInterval) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetParticipantsScores, [C_RouteParameter_MatchId => _MatchId]);
+	return Http::CreateGet(
+		_APIUrl^C_API_Match^Route,
+		HttpServerAuthorizationHeader::GetHeadersWithLiveAuthorization(C_Headers),
+		_RetryNb,
+		_RetryInterval
+	);
+}
+Http::K_Request Server_GetMatchParticipants(Text _MatchId, Integer _RetryNb, Integer _RetryInterval) {
+	return Server_GetMatchParticipants(Config::Get().APIMeetUrl, _MatchId, _RetryNb, _RetryInterval);
+}
+Http::K_Request Server_GetMatchParticipants(Text _APIUrl, Text _MatchId) {
+	return Server_GetMatchParticipants(_APIUrl, _MatchId, Http::C_NeverRetry, -1);
+}
+Http::K_Request Server_GetMatchParticipants(Text _MatchId) {
+	return Server_GetMatchParticipants(Config::Get().APIMeetUrl, _MatchId, Http::C_NeverRetry, -1);
+}
+
+MatchmakingStruct::LibStructuresMatchmaking_K_MatchParticipants GetResponseFromGetMatchParticipants(Http::K_Request _Request) {
+	declare K_HttpMatchParticipants MatchParticipantsResponse;
+	MatchParticipantsResponse.fromjson(Http::GetResult(_Request));
+
+	declare MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression[Text] Participants;
+	foreach (Participant in MatchParticipantsResponse.participants) {
+		Participants[Participant.player] = MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression {
+			AccountId = Participant.player,
+			CurrentDivision = Participant.currentDivision,
+			CurrentProgression = Participant.currentProgression
+		};
+	}
+
+	declare MatchmakingStruct::LibStructuresMatchmaking_K_MatchParticipants MatchParticipants = MatchmakingStruct::LibStructuresMatchmaking_K_MatchParticipants {
+		IsCompleted = MatchParticipantsResponse.isCompleted,
+		Participants = Participants
+	};
+
+	return MatchParticipants;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the matchmaking division rules
+ *
+ * @param _MatchmakingId				The id of matchmaking queue
+ *
+ * @return 										The request
+ */
+Http::K_Request Server_GetMatchmakingDivisionRules(Text _APIUrl, Text _MatchmakingId, Integer _RetryNb, Integer _RetryInterval) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetMatchmakingDivisionRules,
+		[C_RouteParameter_MatchmakingId => _MatchmakingId]
+	);
+	return Http::CreateGet(_APIUrl^C_API_Matchmaking^Route, HttpServerAuthorizationHeader::GetHeadersWithLiveAuthorization(C_Headers), _RetryNb, _RetryInterval);
+}
+Http::K_Request Server_GetMatchmakingDivisionRules(Text _MatchmakingId, Integer _RetryNb, Integer _RetryInterval) {
+	return Server_GetMatchmakingDivisionRules(Config::Get().APIMeetUrl, _MatchmakingId, _RetryNb, _RetryInterval);
+}
+Http::K_Request Server_GetMatchmakingDivisionRules(Text _APIUrl, Text _MatchmakingId) {
+	return Server_GetMatchmakingDivisionRules(_APIUrl, _MatchmakingId, Http::C_NeverRetry, -1);
+}
+Http::K_Request Server_GetMatchmakingDivisionRules(Text _MatchmakingId) {
+	return Server_GetMatchmakingDivisionRules(Config::Get().APIMeetUrl, _MatchmakingId, Http::C_NeverRetry, -1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the matchmaking division rules
+ *
+ * @param _MatchmakingId				The id of matchmaking queue
+ *
+ * @return 										The request
+ */
+Http::K_Request GetMatchmakingDivisionRules(Text _MatchmakingId) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetMatchmakingDivisionRules,
+		[C_RouteParameter_MatchmakingId => ""^_MatchmakingId]
+	);
+	return Http::CreateGet(Config::Get().APIMeetUrl^C_API_Matchmaking^Route, GetHeadersWithLiveAuth());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response of Server_GetMatchmakingDivisionRules and GetMatchmakingDivisionRules requests
+MatchmakingStruct::LibStructuresMatchmaking_K_Division[Text] GetResponseFromGetMatchmakingDivisionRules(Http::K_Request _Request) {
+	declare K_HttpDisplayDivisionRules DisplayDivisionRulesResponse;
+	DisplayDivisionRulesResponse.fromjson(Http::GetResult(_Request));
+
+	declare MatchmakingStruct::LibStructuresMatchmaking_K_Division[Text] Divisions;
+
+	foreach (division in DisplayDivisionRulesResponse.divisions) {
+		Divisions[division.id] = MatchmakingStruct::LibStructuresMatchmaking_K_Division {
+			Id = division.id,
+			Position = division.position,
+			RuleType = division.displayRuleType,
+			MinimumPoints = division.displayRuleMinimumPoints,
+			MaximumPoints = division.displayRuleMaximumPoints,
+			MinimumRank = division.displayRuleMinimumRank
+		};
+	}
+
+	return Divisions;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the players progressions
+ *
+ * @param _MatchmakingId				The id of matchmaking queue
+ * @param _AccountIds					The array of the players accountIds
+ *
+ * @return 										The request
+ */
+Http::K_Request GetMatchmakingPlayersProgressions(Text _MatchmakingId, Text[] _AccountIds) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetPlayersProgression,
+		[C_RouteParameter_MatchmakingId => ""^_MatchmakingId]
+	);
+
+	declare Text QueryString = Http::CreateQueryString([
+		C_QueryParameter_Players => _AccountIds
+	]);
+
+	return Http::CreateGet(Config::Get().APIMeetUrl^C_API_Matchmaking^Route^QueryString, GetHeadersWithLiveAuth());
+}
+
+MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression[Text] GetResponseFromGetMatchmakingPlayersProgressions(Http::K_Request _Request) {
+	declare K_HttpProgressions ProgressionsResponse;
+	ProgressionsResponse.fromjson(Http::GetResult(_Request));
+
+	declare MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression[Text] Progressions;
+	foreach (Progression in ProgressionsResponse.progressions) {
+		Progressions[Progression.player] = MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression {
+			AccountId = Progression.player,
+			CurrentDivision = Progression.division,
+			CurrentProgression = Progression.progression
+		};
+	}
+
+	return Progressions;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the local player leaderboard
+ *
+ * @param _MatchmakingId				The id of matchmaking queue
+ *
+ * @return 										The request
+ */
+Http::K_Request Server_GetMatchmakingLeaderboard(Text _APIUrl, Text _MatchmakingId) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetLeaderboard,
+		[C_RouteParameter_MatchmakingId => _MatchmakingId]
+	);
+
+	return Http::CreateGet(_APIUrl^C_API_Matchmaking^Route, HttpServerAuthorizationHeader::GetHeadersWithLiveAuthorization(C_Headers));
+}
+Http::K_Request Server_GetMatchmakingLeaderboard(Text _MatchmakingId) {
+	return Server_GetMatchmakingLeaderboard(Config::Get().APIMeetUrl, _MatchmakingId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the local player leaderboard
+ *
+ * @param _MatchmakingId				The id of matchmaking queue
+ *
+ * @return 										The request
+ */
+Http::K_Request GetMatchmakingLeaderboard(Text _MatchmakingId) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetLeaderboard,
+		[C_RouteParameter_MatchmakingId => ""^_MatchmakingId]
+	);
+
+	return Http::CreateGet(Config::Get().APIMeetUrl^C_API_Matchmaking^Route, GetHeadersWithLiveAuth());
+}
+
+MatchmakingStruct::LibStructuresMatchmaking_K_PlayerLeaderboard[] GetResponseFromGetMatchmakingLeaderboard(Http::K_Request _Request) {
+	declare K_HttpLeaderboard LeaderboardResponse;
+	LeaderboardResponse.fromjson(Http::GetResult(_Request));
+
+	declare MatchmakingStruct::LibStructuresMatchmaking_K_PlayerLeaderboard[] Leaderboard = [];
+	foreach (Result in LeaderboardResponse.results) {
+		Leaderboard.add(MatchmakingStruct::LibStructuresMatchmaking_K_PlayerLeaderboard {
+			AccountId = Result.player,
+			Rank = Result.rank,
+			Score = Result.score
+		});
+	}
+
+	return Leaderboard;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to post a Matchmaking Heartbeat
+ *
+ * @param _MatchmakingId				The id of matchmaking queue
+ *
+ * @return 													The request
+ */
+Http::K_Request PostMatchmakingHeartbeat(Text _MatchmakingId, Text[] _SquadMembersIds, Text _Code) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_PostMatchmakingHeartbeat,
+		[C_RouteParameter_MatchmakingId => ""^_MatchmakingId]
+	);
+	declare K_HttpHeartbeatBody HeartBeatBody = K_HttpHeartbeatBody {
+		playWith = _SquadMembersIds,
+		code = _Code
+	};
+	return Http::CreatePost(Config::Get().APIMeetUrl^C_API_Matchmaking^Route, HeartBeatBody.tojson(), GetHeadersWithLiveAuth());
+}
+
+MatchmakingStruct::LibStructuresMatchmaking_K_Heartbeat HeartbeatApiToScript(K_HttpHeartbeat _HeartbeatResponse) {
+	return MatchmakingStruct::LibStructuresMatchmaking_K_Heartbeat {
+		Status = _HeartbeatResponse.status,
+		CreationDate = _HeartbeatResponse.creationDate,
+		MatchmakingWaitingTime = _HeartbeatResponse.matchmakingWaitingTime,
+		MatchLiveId = _HeartbeatResponse.matchLiveId,
+		BanEndDate = _HeartbeatResponse.banEndDate
+	};
+}
+
+MatchmakingStruct::LibStructuresMatchmaking_K_Heartbeat GetResponseFromPostMatchmakingHeartbeat(Http::K_Request _Request) {
+	declare K_HttpHeartbeat HeartbeatResponse;
+	HeartbeatResponse.fromjson(Http::GetResult(_Request));
+
+	return HeartbeatApiToScript(HeartbeatResponse);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the player status
+ *
+ * @param _MatchmakingId				The id of matchmaking queue
+ *
+ * @return 													The request
+ */
+Http::K_Request GetMatchmakingPlayerStatus(Text _MatchmakingId) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetMatchmakingPlayerStatus,
+		[C_RouteParameter_MatchmakingId => ""^_MatchmakingId]
+	);
+	return Http::CreateGet(Config::Get().APIMeetUrl^C_API_Matchmaking^Route, GetHeadersWithLiveAuth());
+}
+
+MatchmakingStruct::LibStructuresMatchmaking_K_PlayerStatus GetResponseFromGetMatchmakingPlayerStatus(Http::K_Request _Request) {
+	declare K_HttpPlayerStatus PlayerStatusResponse;
+	PlayerStatusResponse.fromjson(Http::GetResult(_Request));
+
+	return MatchmakingStruct::LibStructuresMatchmaking_K_PlayerStatus {
+		CurrentHeartbeat = HeartbeatApiToScript(PlayerStatusResponse.currentHeartbeat),
+		Penalty = MatchmakingStruct::LibStructuresMatchmaking_K_Penalty {
+			CreationDate = PlayerStatusResponse.penalty.creationDate,
+			Points = PlayerStatusResponse.penalty.points
+		},
+		Inactivity = MatchmakingStruct::LibStructuresMatchmaking_K_Inactivity {
+			InactivityPenaltyEnabled = PlayerStatusResponse.inactivity.inactivityPenaltyEnabled,
+			ImmunityDays = PlayerStatusResponse.inactivity.immunityDays,
+			Penalty = PlayerStatusResponse.inactivity.penalty
+		},
+		CurrentDivision = PlayerStatusResponse.currentDivision,
+		CurrentProgression = PlayerStatusResponse.currentProgression,
+		MatchmakingStatus = PlayerStatusResponse.matchmakingStatus,
+		MatchGenerationTimer = PlayerStatusResponse.matchGenerationTimer
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the local player leaderboard
+ *
+ * @param _MatchmakingId				The id of matchmaking queue
+ *
+ * @return 										The request
+ */
+Http::K_Request GetMyMatchmakingLeaderboard(Text _MatchmakingId) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetLeaderboard,
+		[C_RouteParameter_MatchmakingId => ""^_MatchmakingId]
+	);
+
+	return Http::CreateGet(Config::Get().APIMeetUrl^C_API_Matchmaking^Route^C_Route_Me, GetHeadersWithLiveAuth());
+}
+
+MatchmakingStruct::LibStructuresMatchmaking_K_PlayerRank GetResponseFromGetMyMatchmakingLeaderboard(Http::K_Request _Request) {
+	declare K_HttpPlayerRanking LeaderboardResponse;
+	LeaderboardResponse.fromjson(Http::GetResult(_Request));
+
+	declare MatchmakingStruct::LibStructuresMatchmaking_K_PlayerRank Leaderboard = MatchmakingStruct::LibStructuresMatchmaking_K_PlayerRank {
+		MatchmakingId = LeaderboardResponse.matchmakingId,
+		AccountId = LeaderboardResponse.player,
+		Score = LeaderboardResponse.score
+	};
+
+	return Leaderboard;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to post "accept match". NB no response body.
+ *
+ * @param _MatchmakingId				The id of matchmaking queue
+ *
+ * @return 													The request
+ */
+Http::K_Request PostMatchmakingAccept(Text _MatchmakingId) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_PostMatchmakingAccept,
+		[C_RouteParameter_MatchmakingId => ""^_MatchmakingId]
+	);
+	return Http::CreatePost(Config::Get().APIMeetUrl^C_API_Matchmaking^Route, "", GetHeadersWithLiveAuth());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to post "cancel match". NB no response body.
+ *
+ * @param _MatchmakingId				The id of matchmaking queue
+ *
+ * @return 													The request
+ */
+Http::K_Request PostMatchmakingCancel(Text _MatchmakingId) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_PostMatchmakingCancel,
+		[C_RouteParameter_MatchmakingId => ""^_MatchmakingId]
+	);
+	return Http::CreatePost(Config::Get().APIMeetUrl^C_API_Matchmaking^Route, "", GetHeadersWithLiveAuth());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get a match by match Lid
+ *
+ * @param _MatchId				The Lid of match
+ *
+ * @return 													The request
+ */
+Http::K_Request GetMatchByLid(Text _MatchLid) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetMatchByLid,
+		[C_RouteParameter_MatchLid => _MatchLid]
+	);
+	return Http::CreateGet(Config::Get().APIMeetUrl^C_API_Matches^Route, GetHeadersWithLiveAuth());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Match by Lid response
+ *
+ * @param _Request				The request
+ *
+ * @return 							The match join link
+ */
+Text GetResponseFromGetMatchByLid(Http::K_Request _Request) {
+	declare K_HttpMatch MatchResponse;
+	MatchResponse.fromjson(Http::GetResult(_Request));
+	return MatchResponse.joinLink;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to generate a Party Code
+ *
+ * @return 											The request
+ */
+Http::K_Request GeneratePartyCode() {
+	return Http::CreatePost(Config::Get().APIMeetUrl^C_API_Code, "", GetHeadersWithLiveAuth());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to check if a party code is correct (meaning available in CLUB database)
+ *
+ * @param _Code								The code to check
+ *
+ * @return 										The request
+ */
+Http::K_Request CheckPartyCode(Text _Code) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetCode,
+		[C_RouteParameter_Code => _Code]
+	);
+	return Http::CreateGet(Config::Get().APIMeetUrl^C_API_Code^Route, GetHeadersWithLiveAuth());
+}
+
+Text GetResponseFromPartyCode(Http::K_Request _Request) {
+	declare K_HttpCode CodeResponse;
+	CodeResponse.fromjson(Http::GetResult(_Request));
+	declare Text Code = CodeResponse.code;
+	return Code;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to have the SuperRoyal infos
+ *
+ * @return 										The request
+ */
+Http::K_Request GetCurrentSuperRoyal() {
+	return Http::CreateGet(Config::Get().APIMeetUrl^C_API_SuperRoyal^C_Route_Current, GetHeadersWithLiveAuth());
+}
+
+MatchmakingStruct::LibStructuresMatchmaking_K_SuperRoyal GetResponseFromCurrentSuperRoyal(Http::K_Request _Request) {
+	declare K_HttpSuperRoyal SuperRoyalResponse;
+	SuperRoyalResponse.fromjson(Http::GetResult(_Request));
+
+	return MatchmakingStruct::LibStructuresMatchmaking_K_SuperRoyal {
+		StartsIn = SuperRoyalResponse.startsIn,
+		Status = SuperRoyalResponse.status,
+		MatchLiveId = SuperRoyalResponse.matchLiveId
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to have the SuperRoyal infos of my player
+ *
+ * @return 										The request
+ */
+Http::K_Request GetMySuperRoyalStats() {
+	return Http::CreateGet(Config::Get().APIMeetUrl^C_API_SuperRoyal^C_Route_Stats, GetHeadersWithLiveAuth());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to have the SuperRoyal infos of a specific player
+ *
+ * @param _AccountId						The id of the player
+ *
+ * @return 										The request
+ */
+Http::K_Request GetSuperRoyalStats(Text _AccountId) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_SuperRoyal_Stats_Player,
+		[C_RouteParameter_PlayerId => ""^_AccountId]
+	);
+	return Http::CreateGet(Config::Get().APIMeetUrl^Route, GetHeadersWithLiveAuth());
+}
+
+MatchmakingStruct::LibStructuresMatchmaking_K_SuperRoyalStatistics GetResponseFromSuperRoyalStats(Http::K_Request _Request) {
+	declare K_HttpSuperRoyalStatistics SuperRoyalStatsResponse;
+	SuperRoyalStatsResponse.fromjson(Http::GetResult(_Request));
+
+	return MatchmakingStruct::LibStructuresMatchmaking_K_SuperRoyalStatistics {
+		BronzeVictories = SuperRoyalStatsResponse.bronzeWon,
+		SilverVictories = SuperRoyalStatsResponse.silverWon,
+		GoldVictories = SuperRoyalStatsResponse.goldWon,
+		MasterVictories = SuperRoyalStatsResponse.masterWon
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the player statistics in a specific matchmaking and player
+ *
+ * @param _MatchmakingId				The id of matchmaking queue
+ * @param _AccountId						The id of the player
+ *
+ * @return 										The request
+ */
+Http::K_Request GetPlayerMatchmakingStatistics(Text _MatchmakingId, Text _AccountId) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetStats^C_Route_PlayerId,
+		[C_RouteParameter_MatchmakingId => ""^_MatchmakingId, C_RouteParameter_PlayerId => ""^_AccountId]
+	);
+
+	return Http::CreateGet(Config::Get().APIMeetUrl^C_API_Matchmaking^Route, GetHeadersWithLiveAuth());
+}
+
+MatchmakingStruct::LibStructuresMatchmaking_K_PlayerStatistics GetResponseFromGetPlayerMatchmakingStatistics(Http::K_Request _Request) {
+
+	declare K_HttpPlayerStatistics PlayerStatisticsResponse;
+	PlayerStatisticsResponse.fromjson(Http::GetResult(_Request));
+
+	return MatchmakingStruct::LibStructuresMatchmaking_K_PlayerStatistics {
+		MatchmakingId = PlayerStatisticsResponse.matchmakingId,
+		AccountId = PlayerStatisticsResponse.player,
+		CurrentDivision = PlayerStatisticsResponse.currentDivision,
+		CurrentProgression = PlayerStatisticsResponse.currentProgression,
+		BestDivision = PlayerStatisticsResponse.bestDivision,
+		BestProgression = PlayerStatisticsResponse.bestProgression,
+		BestProgressionDate = PlayerStatisticsResponse.bestProgressionDate,
+		PreviousDivision = PlayerStatisticsResponse.previousDivision,
+		PreviousProgression = PlayerStatisticsResponse.previousProgression,
+		PreviousProgressionDate = PlayerStatisticsResponse.previousProgressionDate,
+		MVPCount = PlayerStatisticsResponse.mvpCount,
+		Victories = PlayerStatisticsResponse.victories,
+		PlayedMatches = PlayerStatisticsResponse.playedMatches
+	};
+}
+
+/* @Changelog
+
+Version 2.0.0
+-------------
+
+- Removed `APICompetitionUrl` and `APIMatchmakingUrl` from `K_Config` to use only `APIMeetUrl` (replacing `APIBordeauxClubUrl`) with the new API
+
+
+Version 3.0.0
+-------------
+
+- Only use text ids (instead of numeric) for matchmaking (change function parameters "Integer _MatchmakingId" in "Text _MatchmakingId")
+ */

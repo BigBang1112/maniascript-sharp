@@ -1,0 +1,957 @@
+/**
+ * Slice9 component
+ * ================
+ *
+ * Resizable image that scale proportionally
+ *
+ * Props
+ * -----
+ *
+ * - `size` (`Vec2`): size of the component
+ * - `margin` (`Margin`): margin around the component
+ * - `margin-ratio` (`Margin`): margin for the component proportional to the component size
+ * - `border` (`Border`): border around the component
+ * - `border-ratio` (`Border`): border for the component proportional to the component size
+ * - `padding` (`Padding`): padding inside the component
+ * - `padding-ratio` (`Padding`): padding for the component proportional to the component size
+ * - `halign` (`Text`): horizontal alignment of the component, can be `left`, `center` or `right`
+ * - `valign` (`Text`): vertical alignment of the component, can be `top`, `center` or `bottom`
+ * - `is-visible` (`Boolean`): the visibility of the component
+ * - `border-resize` (`Text`): control how the eight border slices are resized, can be `C_BorderResize_Stretch` or `C_BorderResize_Space`
+ * - `border-flexible` (`Boolean`): control if the eight border slices can be scaled down for the component to fit in the requested size
+ * - `(top|center|right)-(left|center|right)-size` (`Vec2`): the slice size
+ * - `(top|center|right)-(left|center|right)-image-url` (`Text`): the slice image
+ * - `(top|center|right)-(left|center|right)-color-mode` (`Text`): the slice color mode, can be `default`, `background`, `colorize` or `modulate`
+ * - `(top|center|right)-(left|center|right)-color` (`Text`): the slice color
+ * - `(top|center|right)-(left|center|right)-opacity` (`Real`): the slice opacity
+ * - `(top|center|right)-(left|center|right)-mirror` (`Integer`): the slice mirror mode, can be `C_Mirror_None`, `C_Mirror_Horizontal`, `C_Mirror_Vertical` or `C_Mirror_HorizontalVertical`
+ */
+#Const Version "0.1.10"
+#Const ScriptName "Libs/Nadeo/CMGame/Components/Slice9.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "ColorLib" as CL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Structures/Box.Script.txt" as Struct_Box
+#Include "Libs/Nadeo/CMGame/Utils/Cast.Script.txt" as Cast
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView@3.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet@4.Script.txt" as Stylesheet
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_SliceProperties {
+	Vec2 Size;
+	Text ImageUrl;
+	Integer ColorMode;
+	Vec3 Color;
+	Real Opacity;
+	Integer Mirror;
+}
+#Struct K_Private_Controls {
+	CMlFrame Frame_Slice9;
+	CMlFrame Frame_Align;
+	CMlFrame Frame_ContentArea;
+	CMlQuad[Integer] QuadList_Slice;
+}
+#Struct K_Private_Properties {
+	Text[] EnabledPropList;
+	Vec2 Size;
+	Struct_Box::K_Margin Margin;
+	Struct_Box::K_Margin MarginRatio;
+	Struct_Box::K_Border Border;
+	Struct_Box::K_Border BorderRatio;
+	Struct_Box::K_Padding Padding;
+	Struct_Box::K_Padding PaddingRatio;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Boolean IsVisible;
+	Integer BorderResize;
+	Boolean BorderFlexible;
+	K_SliceProperties[Integer] SliceList;
+}
+#Struct K_Private_Instance {
+	K_Private_Controls Controls;
+	K_Private_Properties ControlProperties;
+	K_Private_Properties StyleProperties;
+	K_Private_Properties Properties;
+	Boolean IsPropertiesDirty;
+	Struct_Box::K_Box Box;
+	Boolean IsBoxDirty;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ComponentName "CMGameSlice9"
+#Const C_ComponentClass "cmgame-components-slice9"
+
+#Const C_Prop_Size "size"
+#Const C_Prop_Margin "margin"
+#Const C_Prop_MarginRatio "margin-ratio"
+#Const C_Prop_Border "border"
+#Const C_Prop_BorderRatio "border-ratio"
+#Const C_Prop_Padding "padding"
+#Const C_Prop_PaddingRatio "padding-ratio"
+#Const C_Prop_HAlign "halign"
+#Const C_Prop_VAlign "valign"
+#Const C_Prop_IsVisible "is-visible"
+#Const C_Prop_BorderResize "border-resize"
+#Const C_Prop_BorderFlexible "border-flexible"
+#Const C_Prop_TopLeftSize "top-left-size"
+#Const C_Prop_TopCenterSize "top-center-size"
+#Const C_Prop_TopRightSize "top-right-size"
+#Const C_Prop_CenterLeftSize "center-left-size"
+#Const C_Prop_CenterCenterSize "center-center-size"
+#Const C_Prop_CenterRightSize "center-right-size"
+#Const C_Prop_BottomLeftSize "bottom-left-size"
+#Const C_Prop_BottomCenterSize "bottom-center-size"
+#Const C_Prop_BottomRightSize "bottom-right-size"
+#Const C_Prop_TopLeftImageUrl "top-left-image-url"
+#Const C_Prop_TopCenterImageUrl "top-center-image-url"
+#Const C_Prop_TopRightImageUrl "top-right-image-url"
+#Const C_Prop_CenterLeftImageUrl "center-left-image-url"
+#Const C_Prop_CenterCenterImageUrl "center-center-image-url"
+#Const C_Prop_CenterRightImageUrl "center-right-image-url"
+#Const C_Prop_BottomLeftImageUrl "bottom-left-image-url"
+#Const C_Prop_BottomCenterImageUrl "bottom-center-image-url"
+#Const C_Prop_BottomRightImageUrl "bottom-right-image-url"
+#Const C_Prop_TopLeftColorMode "top-left-color-mode"
+#Const C_Prop_TopCenterColorMode "top-center-color-mode"
+#Const C_Prop_TopRightColorMode "top-right-color-mode"
+#Const C_Prop_CenterLeftColorMode "center-left-color-mode"
+#Const C_Prop_CenterCenterColorMode "center-center-color-mode"
+#Const C_Prop_CenterRightColorMode "center-right-color-mode"
+#Const C_Prop_BottomLeftColorMode "bottom-left-color-mode"
+#Const C_Prop_BottomCenterColorMode "bottom-center-color-mode"
+#Const C_Prop_BottomRightColorMode "bottom-right-color-mode"
+#Const C_Prop_TopLeftColor "top-left-color"
+#Const C_Prop_TopCenterColor "top-center-color"
+#Const C_Prop_TopRightColor "top-right-color"
+#Const C_Prop_CenterLeftColor "center-left-color"
+#Const C_Prop_CenterCenterColor "center-center-color"
+#Const C_Prop_CenterRightColor "center-right-color"
+#Const C_Prop_BottomLeftColor "bottom-left-color"
+#Const C_Prop_BottomCenterColor "bottom-center-color"
+#Const C_Prop_BottomRightColor "bottom-right-color"
+#Const C_Prop_TopLeftOpacity "top-left-opacity"
+#Const C_Prop_TopCenterOpacity "top-center-opacity"
+#Const C_Prop_TopRightOpacity "top-right-opacity"
+#Const C_Prop_CenterLeftOpacity "center-left-opacity"
+#Const C_Prop_CenterCenterOpacity "center-center-opacity"
+#Const C_Prop_CenterRightOpacity "center-right-opacity"
+#Const C_Prop_BottomLeftOpacity "bottom-left-opacity"
+#Const C_Prop_BottomCenterOpacity "bottom-center-opacity"
+#Const C_Prop_BottomRightOpacity "bottom-right-opacity"
+#Const C_Prop_TopLeftMirror "top-left-mirror"
+#Const C_Prop_TopCenterMirror "top-center-mirror"
+#Const C_Prop_TopRightMirror "top-right-mirror"
+#Const C_Prop_CenterLeftMirror "center-left-mirror"
+#Const C_Prop_CenterCenterMirror "center-center-mirror"
+#Const C_Prop_CenterRightMirror "center-right-mirror"
+#Const C_Prop_BottomLeftMirror "bottom-left-mirror"
+#Const C_Prop_BottomCenterMirror "bottom-center-mirror"
+#Const C_Prop_BottomRightMirror "bottom-right-mirror"
+#Const C_PropList [
+	"size",
+	"margin",
+	"margin-ratio",
+	"border",
+	"border-ratio",
+	"padding",
+	"padding-ratio",
+	"halign",
+	"valign",
+	"is-visible",
+	"border-resize",
+	"border-flexible",
+	"top-left-size",
+	"top-center-size",
+	"top-right-size",
+	"center-left-size",
+	"center-center-size",
+	"center-right-size",
+	"bottom-left-size",
+	"bottom-center-size",
+	"bottom-right-size",
+	"top-left-image-url",
+	"top-center-image-url",
+	"top-right-image-url",
+	"center-left-image-url",
+	"center-center-image-url",
+	"center-right-image-url",
+	"bottom-left-image-url",
+	"bottom-center-image-url",
+	"bottom-right-image-url",
+	"top-left-color-mode",
+	"top-center-color-mode",
+	"top-right-color-mode",
+	"center-left-color-mode",
+	"center-center-color-mode",
+	"center-right-color-mode",
+	"bottom-left-color-mode",
+	"bottom-center-color-mode",
+	"bottom-right-color-mode",
+	"top-left-color",
+	"top-center-color",
+	"top-right-color",
+	"center-left-color",
+	"center-center-color",
+	"center-right-color",
+	"bottom-left-color",
+	"bottom-center-color",
+	"bottom-right-color",
+	"top-left-opacity",
+	"top-center-opacity",
+	"top-right-opacity",
+	"center-left-opacity",
+	"center-center-opacity",
+	"center-right-opacity",
+	"bottom-left-opacity",
+	"bottom-center-opacity",
+	"bottom-right-opacity",
+	"top-left-mirror",
+	"top-center-mirror",
+	"top-right-mirror",
+	"center-left-mirror",
+	"center-center-mirror",
+	"center-right-mirror",
+	"bottom-left-mirror",
+	"bottom-center-mirror",
+	"bottom-right-mirror"
+]
+
+#Const C_SliceId_TopLeft 1
+#Const C_SliceId_TopCenter 2
+#Const C_SliceId_TopRight 3
+#Const C_SliceId_CenterLeft 4
+#Const C_SliceId_CenterCenter 5
+#Const C_SliceId_CenterRight 6
+#Const C_SliceId_BottomLeft 7
+#Const C_SliceId_BottomCenter 8
+#Const C_SliceId_BottomRight 9
+#Const C_Private_SliceList [
+	"top-left" => 1,
+	"top-center" => 2,
+	"top-right" => 3,
+	"center-left" => 4,
+	"center-center" => 5,
+	"center-right" => 6,
+	"bottom-left" => 7,
+	"bottom-center" => 8,
+	"bottom-right" => 9
+]
+
+#Const MLHelpers::C_ColorMode_None as C_ColorMode_None
+#Const MLHelpers::C_ColorMode_Background as C_ColorMode_Background
+#Const MLHelpers::C_ColorMode_Colorize as C_ColorMode_Colorize
+#Const MLHelpers::C_ColorMode_Modulate as C_ColorMode_Modulate
+
+#Const C_BorderResize_Stretch 1
+#Const C_BorderResize_Space 2
+
+#Const C_Mirror_None 0
+#Const C_Mirror_Horizontal 1
+#Const C_Mirror_Vertical 2
+#Const C_Mirror_HorizontalVertical 3
+#Const C_Mirror_VerticalHorizontal 3
+
+#Const C_Private_RedrawTag_Init "init"
+#Const C_Private_RedrawTag_Box "box"
+#Const C_Private_RedrawTag_Align "align"
+#Const C_Private_RedrawTag_IsVisible "is-visible"
+#Const C_Private_RedrawTag_SliceList "slice-list"
+
+#Const C_Private_Id_Frame_Align "cmgame-components-slice9-frame-align"
+#Const C_Private_Id_Frame_ContentArea "cmgame-components-slice9-frame-content-area"
+#Const C_Private_Id_Quad_TopLeft "cmgame-components-slice9-quad-top-left"
+#Const C_Private_Id_Quad_TopCenter "cmgame-components-slice9-quad-top-center"
+#Const C_Private_Id_Quad_TopRight "cmgame-components-slice9-quad-top-right"
+#Const C_Private_Id_Quad_CenterLeft "cmgame-components-slice9-quad-center-left"
+#Const C_Private_Id_Quad_CenterCenter "cmgame-components-slice9-quad-center-center"
+#Const C_Private_Id_Quad_CenterRight "cmgame-components-slice9-quad-center-right"
+#Const C_Private_Id_Quad_BottomLeft "cmgame-components-slice9-quad-bottom-left"
+#Const C_Private_Id_Quad_BottomCenter "cmgame-components-slice9-quad-bottom-center"
+#Const C_Private_Id_Quad_BottomRight "cmgame-components-slice9-quad-bottom-right"
+
+#Const C_SliceProperties_Null K_SliceProperties {
+	Size = <0., 0.>,
+	ImageUrl = "",
+	ColorMode = 0,
+	Color = <0., 0., 0.>,
+	Opacity = 1.,
+	Mirror = 0
+}
+#Const C_Private_Properties_Default K_Private_Properties {
+	EnabledPropList = [],
+	Size = <0., 0.>,
+	Margin = Struct_Box::K_Margin {},
+	MarginRatio = Struct_Box::K_Margin {},
+	Border = Struct_Box::K_Border {},
+	BorderRatio = Struct_Box::K_Border {},
+	Padding = Struct_Box::K_Padding {},
+	PaddingRatio = Struct_Box::K_Padding {},
+	HAlign = CMlControl::AlignHorizontal::Left,
+	VAlign = CMlControl::AlignVertical::Top,
+	IsVisible = True,
+	BorderResize = 2,
+	BorderFlexible = True,
+	SliceList = []
+}
+#Const C_Private_Instance_Null K_Private_Instance {
+	Controls = K_Private_Controls {},
+	ControlProperties = K_Private_Properties {},
+	StyleProperties = K_Private_Properties {},
+	Properties = K_Private_Properties {},
+	IsPropertiesDirty = True,
+	Box = Struct_Box::K_Box {},
+	IsBoxDirty = True
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component template
+Text Private_Template() {
+	return
+"""
+<frame id="{{{C_Private_Id_Frame_Align}}}">
+	<frame id="{{{C_Private_Id_Frame_ContentArea}}}">
+		<quad id="{{{C_Private_Id_Quad_TopLeft}}}" />
+		<quad id="{{{C_Private_Id_Quad_TopCenter}}}" />
+		<quad id="{{{C_Private_Id_Quad_TopRight}}}" />
+		<quad id="{{{C_Private_Id_Quad_CenterLeft}}}" />
+		<quad id="{{{C_Private_Id_Quad_CenterCenter}}}" />
+		<quad id="{{{C_Private_Id_Quad_CenterRight}}}" />
+		<quad id="{{{C_Private_Id_Quad_BottomLeft}}}" />
+		<quad id="{{{C_Private_Id_Quad_BottomCenter}}}" />
+		<quad id="{{{C_Private_Id_Quad_BottomRight}}}" />
+	</frame>
+</frame>
+"""
+	;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert an array of prop values to a properties structure
+K_Private_Properties Private_ToProperties(Text[Text] _PropValueList) {
+	declare K_Private_Properties Properties = C_Private_Properties_Default;
+
+	Properties.Margin = Struct_Box::C_Margin_Null;
+	Properties.MarginRatio = Struct_Box::C_Margin_Null;
+	Properties.Border = Struct_Box::C_Border_Null;
+	Properties.BorderRatio = Struct_Box::C_Border_Null;
+	Properties.Padding = Struct_Box::C_Padding_Null;
+	Properties.PaddingRatio = Struct_Box::C_Padding_Null;
+	Properties.BorderResize = C_BorderResize_Space;
+	for (SliceId in C_Private_SliceList) {
+		Properties.SliceList[SliceId] = C_SliceProperties_Null;
+		Properties.SliceList[SliceId].ColorMode = C_ColorMode_None;
+		Properties.SliceList[SliceId].Mirror = C_Mirror_None;
+	}
+
+	for (PropName => PropValue in _PropValueList) {
+		switch (PropName) {
+			case C_Prop_Size: Properties.Size = Cast::ToVec2(PropValue);
+			case C_Prop_Margin: Properties.Margin = Struct_Box::ToMargin(PropValue);
+			case C_Prop_MarginRatio: Properties.MarginRatio = Struct_Box::ToMargin(PropValue);
+			case C_Prop_Border: Properties.Border = Struct_Box::ToBorder(PropValue);
+			case C_Prop_BorderRatio: Properties.BorderRatio = Struct_Box::ToBorder(PropValue);
+			case C_Prop_Padding: Properties.Padding = Struct_Box::ToPadding(PropValue);
+			case C_Prop_PaddingRatio: Properties.PaddingRatio = Struct_Box::ToPadding(PropValue);
+			case C_Prop_HAlign: Properties.HAlign = Cast::ToHAlign(PropValue);
+			case C_Prop_VAlign: Properties.VAlign = Cast::ToVAlign(PropValue);
+			case C_Prop_IsVisible: Properties.IsVisible = Cast::ToBoolean(PropValue);
+			case C_Prop_BorderResize: Properties.BorderResize = Cast::ToInteger(PropValue);
+			case C_Prop_BorderFlexible: Properties.BorderFlexible = Cast::ToBoolean(PropValue);
+			case C_Prop_TopLeftSize: Properties.SliceList[C_SliceId_TopLeft].Size = Cast::ToVec2(PropValue);
+			case C_Prop_TopCenterSize: Properties.SliceList[C_SliceId_TopCenter].Size = Cast::ToVec2(PropValue);
+			case C_Prop_TopRightSize: Properties.SliceList[C_SliceId_TopRight].Size = Cast::ToVec2(PropValue);
+			case C_Prop_CenterLeftSize: Properties.SliceList[C_SliceId_CenterLeft].Size = Cast::ToVec2(PropValue);
+			case C_Prop_CenterCenterSize: Properties.SliceList[C_SliceId_CenterCenter].Size = Cast::ToVec2(PropValue);
+			case C_Prop_CenterRightSize: Properties.SliceList[C_SliceId_CenterRight].Size = Cast::ToVec2(PropValue);
+			case C_Prop_BottomLeftSize: Properties.SliceList[C_SliceId_BottomLeft].Size = Cast::ToVec2(PropValue);
+			case C_Prop_BottomCenterSize: Properties.SliceList[C_SliceId_BottomCenter].Size = Cast::ToVec2(PropValue);
+			case C_Prop_BottomRightSize: Properties.SliceList[C_SliceId_BottomRight].Size = Cast::ToVec2(PropValue);
+			case C_Prop_TopLeftImageUrl: Properties.SliceList[C_SliceId_TopLeft].ImageUrl = PropValue;
+			case C_Prop_TopCenterImageUrl: Properties.SliceList[C_SliceId_TopCenter].ImageUrl = PropValue;
+			case C_Prop_TopRightImageUrl: Properties.SliceList[C_SliceId_TopRight].ImageUrl = PropValue;
+			case C_Prop_CenterLeftImageUrl: Properties.SliceList[C_SliceId_CenterLeft].ImageUrl = PropValue;
+			case C_Prop_CenterCenterImageUrl: Properties.SliceList[C_SliceId_CenterCenter].ImageUrl = PropValue;
+			case C_Prop_CenterRightImageUrl: Properties.SliceList[C_SliceId_CenterRight].ImageUrl = PropValue;
+			case C_Prop_BottomLeftImageUrl: Properties.SliceList[C_SliceId_BottomLeft].ImageUrl = PropValue;
+			case C_Prop_BottomCenterImageUrl: Properties.SliceList[C_SliceId_BottomCenter].ImageUrl = PropValue;
+			case C_Prop_BottomRightImageUrl: Properties.SliceList[C_SliceId_BottomRight].ImageUrl = PropValue;
+			case C_Prop_TopLeftColorMode: Properties.SliceList[C_SliceId_TopLeft].ColorMode = Cast::ToInteger(PropValue);
+			case C_Prop_TopCenterColorMode: Properties.SliceList[C_SliceId_TopCenter].ColorMode = Cast::ToInteger(PropValue);
+			case C_Prop_TopRightColorMode: Properties.SliceList[C_SliceId_TopRight].ColorMode = Cast::ToInteger(PropValue);
+			case C_Prop_CenterLeftColorMode: Properties.SliceList[C_SliceId_CenterLeft].ColorMode = Cast::ToInteger(PropValue);
+			case C_Prop_CenterCenterColorMode: Properties.SliceList[C_SliceId_CenterCenter].ColorMode = Cast::ToInteger(PropValue);
+			case C_Prop_CenterRightColorMode: Properties.SliceList[C_SliceId_CenterRight].ColorMode = Cast::ToInteger(PropValue);
+			case C_Prop_BottomLeftColorMode: Properties.SliceList[C_SliceId_BottomLeft].ColorMode = Cast::ToInteger(PropValue);
+			case C_Prop_BottomCenterColorMode: Properties.SliceList[C_SliceId_BottomCenter].ColorMode = Cast::ToInteger(PropValue);
+			case C_Prop_BottomRightColorMode: Properties.SliceList[C_SliceId_BottomRight].ColorMode = Cast::ToInteger(PropValue);
+			case C_Prop_TopLeftColor: Properties.SliceList[C_SliceId_TopLeft].Color = CL::HexToRgb(PropValue);
+			case C_Prop_TopCenterColor: Properties.SliceList[C_SliceId_TopCenter].Color = CL::HexToRgb(PropValue);
+			case C_Prop_TopRightColor: Properties.SliceList[C_SliceId_TopRight].Color = CL::HexToRgb(PropValue);
+			case C_Prop_CenterLeftColor: Properties.SliceList[C_SliceId_CenterLeft].Color = CL::HexToRgb(PropValue);
+			case C_Prop_CenterCenterColor: Properties.SliceList[C_SliceId_CenterCenter].Color = CL::HexToRgb(PropValue);
+			case C_Prop_CenterRightColor: Properties.SliceList[C_SliceId_CenterRight].Color = CL::HexToRgb(PropValue);
+			case C_Prop_BottomLeftColor: Properties.SliceList[C_SliceId_BottomLeft].Color = CL::HexToRgb(PropValue);
+			case C_Prop_BottomCenterColor: Properties.SliceList[C_SliceId_BottomCenter].Color = CL::HexToRgb(PropValue);
+			case C_Prop_BottomRightColor: Properties.SliceList[C_SliceId_BottomRight].Color = CL::HexToRgb(PropValue);
+			case C_Prop_TopLeftOpacity: Properties.SliceList[C_SliceId_TopLeft].Opacity = Cast::ToReal(PropValue);
+			case C_Prop_TopCenterOpacity: Properties.SliceList[C_SliceId_TopCenter].Opacity = Cast::ToReal(PropValue);
+			case C_Prop_TopRightOpacity: Properties.SliceList[C_SliceId_TopRight].Opacity = Cast::ToReal(PropValue);
+			case C_Prop_CenterLeftOpacity: Properties.SliceList[C_SliceId_CenterLeft].Opacity = Cast::ToReal(PropValue);
+			case C_Prop_CenterCenterOpacity: Properties.SliceList[C_SliceId_CenterCenter].Opacity = Cast::ToReal(PropValue);
+			case C_Prop_CenterRightOpacity: Properties.SliceList[C_SliceId_CenterRight].Opacity = Cast::ToReal(PropValue);
+			case C_Prop_BottomLeftOpacity: Properties.SliceList[C_SliceId_BottomLeft].Opacity = Cast::ToReal(PropValue);
+			case C_Prop_BottomCenterOpacity: Properties.SliceList[C_SliceId_BottomCenter].Opacity = Cast::ToReal(PropValue);
+			case C_Prop_BottomRightOpacity: Properties.SliceList[C_SliceId_BottomRight].Opacity = Cast::ToReal(PropValue);
+			case C_Prop_TopLeftMirror: Properties.SliceList[C_SliceId_TopLeft].Mirror = Cast::ToInteger(PropValue);
+			case C_Prop_TopCenterMirror: Properties.SliceList[C_SliceId_TopCenter].Mirror = Cast::ToInteger(PropValue);
+			case C_Prop_TopRightMirror: Properties.SliceList[C_SliceId_TopRight].Mirror = Cast::ToInteger(PropValue);
+			case C_Prop_CenterLeftMirror: Properties.SliceList[C_SliceId_CenterLeft].Mirror = Cast::ToInteger(PropValue);
+			case C_Prop_CenterCenterMirror: Properties.SliceList[C_SliceId_CenterCenter].Mirror = Cast::ToInteger(PropValue);
+			case C_Prop_CenterRightMirror: Properties.SliceList[C_SliceId_CenterRight].Mirror = Cast::ToInteger(PropValue);
+			case C_Prop_BottomLeftMirror: Properties.SliceList[C_SliceId_BottomLeft].Mirror = Cast::ToInteger(PropValue);
+			case C_Prop_BottomCenterMirror: Properties.SliceList[C_SliceId_BottomCenter].Mirror = Cast::ToInteger(PropValue);
+			case C_Prop_BottomRightMirror: Properties.SliceList[C_SliceId_BottomRight].Mirror = Cast::ToInteger(PropValue);
+		}
+		if (!Properties.EnabledPropList.exists(PropName)) {
+			Properties.EnabledPropList.add(PropName);
+		}
+	}
+
+	return Properties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the default properties
+K_Private_Properties Private_GetDefaultProperties() {
+	return Private_ToProperties([]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Merge one properties structure onto another
+K_Private_Properties Private_MergeProperties(K_Private_Properties _PropertiesA, K_Private_Properties _PropertiesB) {
+	declare K_Private_Properties Properties = _PropertiesA;
+
+	for (PropName in _PropertiesB.EnabledPropList) {
+		switch (PropName) {
+			case C_Prop_Size: Properties.Size = _PropertiesB.Size;
+			case C_Prop_Margin: Properties.Margin = _PropertiesB.Margin;
+			case C_Prop_MarginRatio: Properties.MarginRatio = _PropertiesB.MarginRatio;
+			case C_Prop_Border: Properties.Border = _PropertiesB.Border;
+			case C_Prop_BorderRatio: Properties.BorderRatio = _PropertiesB.BorderRatio;
+			case C_Prop_Padding: Properties.Padding = _PropertiesB.Padding;
+			case C_Prop_PaddingRatio: Properties.PaddingRatio = _PropertiesB.PaddingRatio;
+			case C_Prop_HAlign: Properties.HAlign = _PropertiesB.HAlign;
+			case C_Prop_VAlign: Properties.VAlign = _PropertiesB.VAlign;
+			case C_Prop_IsVisible: Properties.IsVisible = _PropertiesB.IsVisible;
+			case C_Prop_BorderResize: Properties.BorderResize = _PropertiesB.BorderResize;
+			case C_Prop_BorderFlexible: Properties.BorderFlexible = _PropertiesB.BorderFlexible;
+			case C_Prop_TopLeftSize: Properties.SliceList[C_SliceId_TopLeft].Size = _PropertiesB.SliceList[C_SliceId_TopLeft].Size;
+			case C_Prop_TopCenterSize: Properties.SliceList[C_SliceId_TopCenter].Size = _PropertiesB.SliceList[C_SliceId_TopCenter].Size;
+			case C_Prop_TopRightSize: Properties.SliceList[C_SliceId_TopRight].Size = _PropertiesB.SliceList[C_SliceId_TopRight].Size;
+			case C_Prop_CenterLeftSize: Properties.SliceList[C_SliceId_CenterLeft].Size = _PropertiesB.SliceList[C_SliceId_CenterLeft].Size;
+			case C_Prop_CenterCenterSize: Properties.SliceList[C_SliceId_CenterCenter].Size = _PropertiesB.SliceList[C_SliceId_CenterCenter].Size;
+			case C_Prop_CenterRightSize: Properties.SliceList[C_SliceId_CenterRight].Size = _PropertiesB.SliceList[C_SliceId_CenterRight].Size;
+			case C_Prop_BottomLeftSize: Properties.SliceList[C_SliceId_BottomLeft].Size = _PropertiesB.SliceList[C_SliceId_BottomLeft].Size;
+			case C_Prop_BottomCenterSize: Properties.SliceList[C_SliceId_BottomCenter].Size = _PropertiesB.SliceList[C_SliceId_BottomCenter].Size;
+			case C_Prop_BottomRightSize: Properties.SliceList[C_SliceId_BottomRight].Size = _PropertiesB.SliceList[C_SliceId_BottomRight].Size;
+			case C_Prop_TopLeftImageUrl: Properties.SliceList[C_SliceId_TopLeft].ImageUrl = _PropertiesB.SliceList[C_SliceId_TopLeft].ImageUrl;
+			case C_Prop_TopCenterImageUrl: Properties.SliceList[C_SliceId_TopCenter].ImageUrl = _PropertiesB.SliceList[C_SliceId_TopCenter].ImageUrl;
+			case C_Prop_TopRightImageUrl: Properties.SliceList[C_SliceId_TopRight].ImageUrl = _PropertiesB.SliceList[C_SliceId_TopRight].ImageUrl;
+			case C_Prop_CenterLeftImageUrl: Properties.SliceList[C_SliceId_CenterLeft].ImageUrl = _PropertiesB.SliceList[C_SliceId_CenterLeft].ImageUrl;
+			case C_Prop_CenterCenterImageUrl: Properties.SliceList[C_SliceId_CenterCenter].ImageUrl = _PropertiesB.SliceList[C_SliceId_CenterCenter].ImageUrl;
+			case C_Prop_CenterRightImageUrl: Properties.SliceList[C_SliceId_CenterRight].ImageUrl = _PropertiesB.SliceList[C_SliceId_CenterRight].ImageUrl;
+			case C_Prop_BottomLeftImageUrl: Properties.SliceList[C_SliceId_BottomLeft].ImageUrl = _PropertiesB.SliceList[C_SliceId_BottomLeft].ImageUrl;
+			case C_Prop_BottomCenterImageUrl: Properties.SliceList[C_SliceId_BottomCenter].ImageUrl = _PropertiesB.SliceList[C_SliceId_BottomCenter].ImageUrl;
+			case C_Prop_BottomRightImageUrl: Properties.SliceList[C_SliceId_BottomRight].ImageUrl = _PropertiesB.SliceList[C_SliceId_BottomRight].ImageUrl;
+			case C_Prop_TopLeftColorMode: Properties.SliceList[C_SliceId_TopLeft].ColorMode = _PropertiesB.SliceList[C_SliceId_TopLeft].ColorMode;
+			case C_Prop_TopCenterColorMode: Properties.SliceList[C_SliceId_TopCenter].ColorMode = _PropertiesB.SliceList[C_SliceId_TopCenter].ColorMode;
+			case C_Prop_TopRightColorMode: Properties.SliceList[C_SliceId_TopRight].ColorMode = _PropertiesB.SliceList[C_SliceId_TopRight].ColorMode;
+			case C_Prop_CenterLeftColorMode: Properties.SliceList[C_SliceId_CenterLeft].ColorMode = _PropertiesB.SliceList[C_SliceId_CenterLeft].ColorMode;
+			case C_Prop_CenterCenterColorMode: Properties.SliceList[C_SliceId_CenterCenter].ColorMode = _PropertiesB.SliceList[C_SliceId_CenterCenter].ColorMode;
+			case C_Prop_CenterRightColorMode: Properties.SliceList[C_SliceId_CenterRight].ColorMode = _PropertiesB.SliceList[C_SliceId_CenterRight].ColorMode;
+			case C_Prop_BottomLeftColorMode: Properties.SliceList[C_SliceId_BottomLeft].ColorMode = _PropertiesB.SliceList[C_SliceId_BottomLeft].ColorMode;
+			case C_Prop_BottomCenterColorMode: Properties.SliceList[C_SliceId_BottomCenter].ColorMode = _PropertiesB.SliceList[C_SliceId_BottomCenter].ColorMode;
+			case C_Prop_BottomRightColorMode: Properties.SliceList[C_SliceId_BottomRight].ColorMode = _PropertiesB.SliceList[C_SliceId_BottomRight].ColorMode;
+			case C_Prop_TopLeftColor: Properties.SliceList[C_SliceId_TopLeft].Color = _PropertiesB.SliceList[C_SliceId_TopLeft].Color;
+			case C_Prop_TopCenterColor: Properties.SliceList[C_SliceId_TopCenter].Color = _PropertiesB.SliceList[C_SliceId_TopCenter].Color;
+			case C_Prop_TopRightColor: Properties.SliceList[C_SliceId_TopRight].Color = _PropertiesB.SliceList[C_SliceId_TopRight].Color;
+			case C_Prop_CenterLeftColor: Properties.SliceList[C_SliceId_CenterLeft].Color = _PropertiesB.SliceList[C_SliceId_CenterLeft].Color;
+			case C_Prop_CenterCenterColor: Properties.SliceList[C_SliceId_CenterCenter].Color = _PropertiesB.SliceList[C_SliceId_CenterCenter].Color;
+			case C_Prop_CenterRightColor: Properties.SliceList[C_SliceId_CenterRight].Color = _PropertiesB.SliceList[C_SliceId_CenterRight].Color;
+			case C_Prop_BottomLeftColor: Properties.SliceList[C_SliceId_BottomLeft].Color = _PropertiesB.SliceList[C_SliceId_BottomLeft].Color;
+			case C_Prop_BottomCenterColor: Properties.SliceList[C_SliceId_BottomCenter].Color = _PropertiesB.SliceList[C_SliceId_BottomCenter].Color;
+			case C_Prop_BottomRightColor: Properties.SliceList[C_SliceId_BottomRight].Color = _PropertiesB.SliceList[C_SliceId_BottomRight].Color;
+			case C_Prop_TopLeftOpacity: Properties.SliceList[C_SliceId_TopLeft].Opacity = _PropertiesB.SliceList[C_SliceId_TopLeft].Opacity;
+			case C_Prop_TopCenterOpacity: Properties.SliceList[C_SliceId_TopCenter].Opacity = _PropertiesB.SliceList[C_SliceId_TopCenter].Opacity;
+			case C_Prop_TopRightOpacity: Properties.SliceList[C_SliceId_TopRight].Opacity = _PropertiesB.SliceList[C_SliceId_TopRight].Opacity;
+			case C_Prop_CenterLeftOpacity: Properties.SliceList[C_SliceId_CenterLeft].Opacity = _PropertiesB.SliceList[C_SliceId_CenterLeft].Opacity;
+			case C_Prop_CenterCenterOpacity: Properties.SliceList[C_SliceId_CenterCenter].Opacity = _PropertiesB.SliceList[C_SliceId_CenterCenter].Opacity;
+			case C_Prop_CenterRightOpacity: Properties.SliceList[C_SliceId_CenterRight].Opacity = _PropertiesB.SliceList[C_SliceId_CenterRight].Opacity;
+			case C_Prop_BottomLeftOpacity: Properties.SliceList[C_SliceId_BottomLeft].Opacity = _PropertiesB.SliceList[C_SliceId_BottomLeft].Opacity;
+			case C_Prop_BottomCenterOpacity: Properties.SliceList[C_SliceId_BottomCenter].Opacity = _PropertiesB.SliceList[C_SliceId_BottomCenter].Opacity;
+			case C_Prop_BottomRightOpacity: Properties.SliceList[C_SliceId_BottomRight].Opacity = _PropertiesB.SliceList[C_SliceId_BottomRight].Opacity;
+			case C_Prop_TopLeftMirror: Properties.SliceList[C_SliceId_TopLeft].Mirror = _PropertiesB.SliceList[C_SliceId_TopLeft].Mirror;
+			case C_Prop_TopCenterMirror: Properties.SliceList[C_SliceId_TopCenter].Mirror = _PropertiesB.SliceList[C_SliceId_TopCenter].Mirror;
+			case C_Prop_TopRightMirror: Properties.SliceList[C_SliceId_TopRight].Mirror = _PropertiesB.SliceList[C_SliceId_TopRight].Mirror;
+			case C_Prop_CenterLeftMirror: Properties.SliceList[C_SliceId_CenterLeft].Mirror = _PropertiesB.SliceList[C_SliceId_CenterLeft].Mirror;
+			case C_Prop_CenterCenterMirror: Properties.SliceList[C_SliceId_CenterCenter].Mirror = _PropertiesB.SliceList[C_SliceId_CenterCenter].Mirror;
+			case C_Prop_CenterRightMirror: Properties.SliceList[C_SliceId_CenterRight].Mirror = _PropertiesB.SliceList[C_SliceId_CenterRight].Mirror;
+			case C_Prop_BottomLeftMirror: Properties.SliceList[C_SliceId_BottomLeft].Mirror = _PropertiesB.SliceList[C_SliceId_BottomLeft].Mirror;
+			case C_Prop_BottomCenterMirror: Properties.SliceList[C_SliceId_BottomCenter].Mirror = _PropertiesB.SliceList[C_SliceId_BottomCenter].Mirror;
+			case C_Prop_BottomRightMirror: Properties.SliceList[C_SliceId_BottomRight].Mirror = _PropertiesB.SliceList[C_SliceId_BottomRight].Mirror;
+		}
+		if (!Properties.EnabledPropList.exists(PropName)) {
+			Properties.EnabledPropList.add(PropName);
+		}
+	}
+
+	return Properties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the instance is dirty
+Boolean Private_IsDirty(K_Private_Instance _Instance) {
+	return (_Instance.IsPropertiesDirty || _Instance.IsBoxDirty);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the properties
+K_Private_Instance Private_UpdateProperties(K_Private_Instance _Instance) {
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.IsPropertiesDirty = False;
+
+	Instance.Properties = Private_GetDefaultProperties();
+	Instance.Properties = Private_MergeProperties(Instance.Properties, Instance.StyleProperties);
+	Instance.Properties = Private_MergeProperties(Instance.Properties, Instance.ControlProperties);
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the box
+K_Private_Instance Private_UpdateBox(K_Private_Instance _Instance) {
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.IsBoxDirty = False;
+
+	Instance.Box = Struct_Box::New(
+		Instance.Properties.Size,
+		Instance.Properties.Margin,
+		Instance.Properties.MarginRatio,
+		Instance.Properties.Border,
+		Instance.Properties.BorderRatio,
+		Instance.Properties.Padding,
+		Instance.Properties.PaddingRatio
+	);
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update dirty values
+K_Private_Instance Private_UpdateDirty(K_Private_Instance _Instance) {
+	if (!Private_IsDirty(_Instance)) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	if (Instance.IsPropertiesDirty) {
+		Instance = Private_UpdateProperties(Instance);
+	}
+	if (Instance.IsBoxDirty) {
+		Instance = Private_UpdateBox(Instance);
+	}
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the slice color
+Void Private_SetSliceColor(CMlQuad _Quad_Slice, K_SliceProperties _SliceProperties) {
+	MLHelpers::SetQuadColor(_Quad_Slice, _SliceProperties.ColorMode, _SliceProperties.Color);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the slice mirror mode
+Void Private_SetSliceMirror(CMlQuad _Quad_Slice, K_SliceProperties _SliceProperties) {
+	switch (_SliceProperties.Mirror) {
+		case C_Mirror_Vertical: {
+			_Quad_Slice.RelativeRotation = 90.;
+			_Quad_Slice.HorizontalAlign = CMlControl::AlignHorizontal::Left;
+			_Quad_Slice.VerticalAlign = CMlControl::AlignVertical::Bottom;
+		}
+		case C_Mirror_Horizontal: {
+			_Quad_Slice.RelativeRotation = -90.;
+			_Quad_Slice.HorizontalAlign = CMlControl::AlignHorizontal::Right;
+			_Quad_Slice.VerticalAlign = CMlControl::AlignVertical::Top;
+		}
+		case C_Mirror_HorizontalVertical, C_Mirror_VerticalHorizontal: {
+			_Quad_Slice.RelativeRotation = 180.;
+			_Quad_Slice.HorizontalAlign = CMlControl::AlignHorizontal::Right;
+			_Quad_Slice.VerticalAlign = CMlControl::AlignVertical::Bottom;
+		}
+		default: {
+			_Quad_Slice.RelativeRotation = 0.;
+			_Quad_Slice.HorizontalAlign = CMlControl::AlignHorizontal::Left;
+			_Quad_Slice.VerticalAlign = CMlControl::AlignVertical::Top;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the slice sizes in stretch mode
+Void Private_SetSliceSizes_Stretch(K_Private_Instance _Instance) {
+	declare Real[] LeftSizeXAll = [_Instance.Properties.SliceList[C_SliceId_TopLeft].Size.X, _Instance.Properties.SliceList[C_SliceId_CenterLeft].Size.X, _Instance.Properties.SliceList[C_SliceId_BottomLeft].Size.X];
+	declare Real LeftSizeXMax = LeftSizeXAll.sortreverse()[0];
+	declare Real[] RightSizeXAll = [_Instance.Properties.SliceList[C_SliceId_TopRight].Size.X, _Instance.Properties.SliceList[C_SliceId_CenterRight].Size.X, _Instance.Properties.SliceList[C_SliceId_BottomRight].Size.X];
+	declare Real RightSizeXMax = RightSizeXAll.sortreverse()[0];
+	declare Real[] TopSizeYAll = [_Instance.Properties.SliceList[C_SliceId_TopLeft].Size.Y, _Instance.Properties.SliceList[C_SliceId_TopCenter].Size.Y, _Instance.Properties.SliceList[C_SliceId_TopRight].Size.Y];
+	declare Real TopSizeYMax = TopSizeYAll.sortreverse()[0];
+	declare Real[] BottomSizeYAll = [_Instance.Properties.SliceList[C_SliceId_BottomLeft].Size.Y, _Instance.Properties.SliceList[C_SliceId_BottomCenter].Size.Y, _Instance.Properties.SliceList[C_SliceId_BottomRight].Size.Y];
+	declare Real BottomSizeYMax = BottomSizeYAll.sortreverse()[0];
+
+	declare Real LeftSizeX = 0.;
+	declare Real RightSizeX = 0.;
+	declare Real CenterSizeX = 0.;
+	declare Real TopSizeY = 0.;
+	declare Real BottomSizeY = 0.;
+	declare Real CenterSizeY = 0.;
+
+	if (_Instance.Box.ContentArea.Size.X >= LeftSizeXMax + RightSizeXMax) {
+		LeftSizeX = LeftSizeXMax;
+		RightSizeX = RightSizeXMax;
+		CenterSizeX = _Instance.Box.ContentArea.Size.X - (LeftSizeXMax + RightSizeXMax);
+	} else if (LeftSizeXMax + RightSizeXMax > 0.) {
+		declare Real Ratio = _Instance.Box.ContentArea.Size.X / (LeftSizeXMax + RightSizeXMax);
+		LeftSizeX = LeftSizeXMax * Ratio;
+		RightSizeX = RightSizeXMax * Ratio;
+	}
+	if (_Instance.Box.ContentArea.Size.Y >= TopSizeYMax + BottomSizeYMax) {
+		TopSizeY = TopSizeYMax;
+		BottomSizeY = BottomSizeYMax;
+		CenterSizeY = _Instance.Box.ContentArea.Size.Y - (TopSizeYMax + BottomSizeYMax);
+	} else if (TopSizeYMax + BottomSizeYMax > 0.) {
+		declare Real Ratio = _Instance.Box.ContentArea.Size.Y / (TopSizeYMax + BottomSizeYMax);
+		TopSizeY = TopSizeYMax * Ratio;
+		BottomSizeY = BottomSizeYMax * Ratio;
+	}
+
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].Size = <LeftSizeX, TopSizeY>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopCenter].Size = <CenterSizeX, TopSizeY>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopRight].Size = <RightSizeX, TopSizeY>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].Size = <LeftSizeX, CenterSizeY>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterCenter].Size = <CenterSizeX, CenterSizeY>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterRight].Size = <RightSizeX, CenterSizeY>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomLeft].Size = <LeftSizeX, BottomSizeY>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomCenter].Size = <CenterSizeX, BottomSizeY>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomRight].Size = <RightSizeX, BottomSizeY>;
+
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].RelativePosition_V3 = <0., 0.>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopCenter].RelativePosition_V3 = <_Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].Size.X, 0.>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopRight].RelativePosition_V3 = <_Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].Size.X + _Instance.Controls.QuadList_Slice[C_SliceId_TopCenter].Size.X, 0.>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].RelativePosition_V3 = <0., -_Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].Size.Y>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterCenter].RelativePosition_V3 = <_Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].Size.X, -_Instance.Controls.QuadList_Slice[C_SliceId_TopCenter].Size.Y>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterRight].RelativePosition_V3 = <_Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].Size.X + _Instance.Controls.QuadList_Slice[C_SliceId_CenterCenter].Size.X, -_Instance.Controls.QuadList_Slice[C_SliceId_TopRight].Size.Y>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomLeft].RelativePosition_V3 = <0., -_Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].Size.Y - _Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].Size.Y>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomCenter].RelativePosition_V3 = <_Instance.Controls.QuadList_Slice[C_SliceId_BottomLeft].Size.X, -_Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].Size.Y - _Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].Size.Y>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomRight].RelativePosition_V3 = <_Instance.Controls.QuadList_Slice[C_SliceId_BottomLeft].Size.X + _Instance.Controls.QuadList_Slice[C_SliceId_BottomCenter].Size.X, -_Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].Size.Y - _Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].Size.Y>;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the slice sizes in space mode
+Void Private_SetSliceSizes_Space(K_Private_Instance _Instance) {
+	declare Real[] LeftSizeXAll = [_Instance.Properties.SliceList[C_SliceId_TopLeft].Size.X, _Instance.Properties.SliceList[C_SliceId_CenterLeft].Size.X, _Instance.Properties.SliceList[C_SliceId_BottomLeft].Size.X];
+	declare Real LeftSizeXMax = LeftSizeXAll.sortreverse()[0];
+	declare Real[] RightSizeXAll = [_Instance.Properties.SliceList[C_SliceId_TopRight].Size.X, _Instance.Properties.SliceList[C_SliceId_CenterRight].Size.X, _Instance.Properties.SliceList[C_SliceId_BottomRight].Size.X];
+	declare Real RightSizeXMax = RightSizeXAll.sortreverse()[0];
+	declare Real[] TopSizeYAll = [_Instance.Properties.SliceList[C_SliceId_TopLeft].Size.Y, _Instance.Properties.SliceList[C_SliceId_TopCenter].Size.Y, _Instance.Properties.SliceList[C_SliceId_TopRight].Size.Y];
+	declare Real TopSizeYMax = TopSizeYAll.sortreverse()[0];
+	declare Real[] BottomSizeYAll = [_Instance.Properties.SliceList[C_SliceId_BottomLeft].Size.Y, _Instance.Properties.SliceList[C_SliceId_BottomCenter].Size.Y, _Instance.Properties.SliceList[C_SliceId_BottomRight].Size.Y];
+	declare Real BottomSizeYMax = BottomSizeYAll.sortreverse()[0];
+
+	declare Real RatioSizeX = 1.;
+	declare Real CenterSizeX = 0.;
+	if (LeftSizeXMax + RightSizeXMax > _Instance.Box.ContentArea.Size.X && _Instance.Properties.BorderFlexible) {
+		if (LeftSizeXMax + RightSizeXMax != 0.) {
+			RatioSizeX = _Instance.Box.ContentArea.Size.X / (LeftSizeXMax + RightSizeXMax);
+		} else {
+			RatioSizeX = 0.;
+		}
+	} else {
+		CenterSizeX = ML::Max(0., _Instance.Box.ContentArea.Size.X - LeftSizeXMax - RightSizeXMax);
+	}
+
+	declare Real RatioSizeY = 1.;
+	declare Real CenterSizeY = 0.;
+	if (TopSizeYMax + BottomSizeYMax > _Instance.Box.ContentArea.Size.Y && _Instance.Properties.BorderFlexible) {
+		if (TopSizeYMax + BottomSizeYMax != 0.) {
+			RatioSizeY = _Instance.Box.ContentArea.Size.Y / (TopSizeYMax + BottomSizeYMax);
+		} else {
+			RatioSizeY = 0.;
+		}
+	} else {
+		CenterSizeY = ML::Max(0., _Instance.Box.ContentArea.Size.Y - TopSizeYMax - BottomSizeYMax);
+	}
+
+	// Scale both size with the smallest ratio to respect the images aspect ratio
+	declare Real RatioSize = ML::Min(RatioSizeX, RatioSizeY);
+
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].Size = <_Instance.Properties.SliceList[C_SliceId_TopLeft].Size.X * RatioSize, _Instance.Properties.SliceList[C_SliceId_TopLeft].Size.Y * RatioSize>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopRight].Size = <_Instance.Properties.SliceList[C_SliceId_TopRight].Size.X * RatioSize, _Instance.Properties.SliceList[C_SliceId_TopRight].Size.Y * RatioSize>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomLeft].Size = <_Instance.Properties.SliceList[C_SliceId_BottomLeft].Size.X * RatioSize, _Instance.Properties.SliceList[C_SliceId_BottomLeft].Size.Y * RatioSize>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomRight].Size = <_Instance.Properties.SliceList[C_SliceId_BottomRight].Size.X * RatioSize, _Instance.Properties.SliceList[C_SliceId_BottomRight].Size.Y * RatioSize>;
+
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopCenter].Size = <CenterSizeX, _Instance.Properties.SliceList[C_SliceId_TopCenter].Size.Y * RatioSize>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterRight].Size = <_Instance.Properties.SliceList[C_SliceId_CenterRight].Size.X * RatioSize, CenterSizeY>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomCenter].Size = <CenterSizeX, _Instance.Properties.SliceList[C_SliceId_BottomCenter].Size.Y * RatioSize>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].Size = <_Instance.Properties.SliceList[C_SliceId_CenterLeft].Size.X * RatioSize, CenterSizeY>;
+
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterCenter].Size = <CenterSizeX, CenterSizeY>;
+
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].RelativePosition_V3 = <
+		(LeftSizeXMax * RatioSize) - _Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].Size.X,
+		-((TopSizeYMax * RatioSize) - _Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].Size.Y)
+	>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopCenter].RelativePosition_V3 = <
+		_Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].RelativePosition_V3.X + _Instance.Controls.QuadList_Slice[C_SliceId_TopLeft].Size.X,
+		-((TopSizeYMax * RatioSize) - _Instance.Controls.QuadList_Slice[C_SliceId_TopCenter].Size.Y)
+	>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_TopRight].RelativePosition_V3 = <
+		_Instance.Controls.QuadList_Slice[C_SliceId_TopCenter].RelativePosition_V3.X + _Instance.Controls.QuadList_Slice[C_SliceId_TopCenter].Size.X,
+		-((TopSizeYMax * RatioSize) - _Instance.Controls.QuadList_Slice[C_SliceId_TopRight].Size.Y)
+	>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].RelativePosition_V3 = <
+		(LeftSizeXMax * RatioSize) - _Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].Size.X,
+		-(TopSizeYMax * RatioSize)
+	>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterCenter].RelativePosition_V3 = <
+		_Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].RelativePosition_V3.X + _Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft].Size.X,
+		-(TopSizeYMax * RatioSize)
+	>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_CenterRight].RelativePosition_V3 = <
+		_Instance.Controls.QuadList_Slice[C_SliceId_CenterCenter].RelativePosition_V3.X + _Instance.Controls.QuadList_Slice[C_SliceId_CenterCenter].Size.X,
+		-(TopSizeYMax * RatioSize)
+	>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomLeft].RelativePosition_V3 = <
+		(LeftSizeXMax * RatioSize) - _Instance.Controls.QuadList_Slice[C_SliceId_BottomLeft].Size.X,
+		-(TopSizeYMax * RatioSize) - CenterSizeY
+	>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomCenter].RelativePosition_V3 = <
+		_Instance.Controls.QuadList_Slice[C_SliceId_BottomLeft].RelativePosition_V3.X + _Instance.Controls.QuadList_Slice[C_SliceId_BottomLeft].Size.X,
+		-(TopSizeYMax * RatioSize) - CenterSizeY
+	>;
+	_Instance.Controls.QuadList_Slice[C_SliceId_BottomRight].RelativePosition_V3 = <
+		_Instance.Controls.QuadList_Slice[C_SliceId_BottomCenter].RelativePosition_V3.X + _Instance.Controls.QuadList_Slice[C_SliceId_BottomCenter].Size.X,
+		-(TopSizeYMax * RatioSize) - CenterSizeY
+	>;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw the component
+Void Private_Hook_ComponentDraw(CMlFrame _Frame_Slice9, Text[] _Tags) {
+	declare K_Private_Instance CMGame_ComponentsSlice9_Instance as Instance for _Frame_Slice9 = C_Private_Instance_Null;
+
+	Instance = Private_UpdateDirty(Instance);
+
+	if (MV::HasRedrawTag(_Tags, [C_Private_RedrawTag_Init, C_Private_RedrawTag_Box])) {
+		Instance.Controls.Frame_ContentArea.RelativePosition_V3 = Instance.Box.ContentArea.Pos;
+
+		switch (Instance.Properties.BorderResize) {
+			case C_BorderResize_Stretch: {
+				Private_SetSliceSizes_Stretch(Instance);
+			}
+			default: { // C_BorderResize_Space
+				Private_SetSliceSizes_Space(Instance);
+			}
+		}
+	}
+
+	if (MV::HasRedrawTag(_Tags, [C_Private_RedrawTag_Init, C_Private_RedrawTag_Box, C_Private_RedrawTag_Align])) {
+		MLHelpers::AlignContent(Instance.Controls.Frame_Align, Instance.Box.MarginArea.Size, Instance.Properties.HAlign, Instance.Properties.VAlign);
+	}
+
+	if (MV::HasRedrawTag(_Tags, [C_Private_RedrawTag_Init, C_Private_RedrawTag_IsVisible])) {
+		Instance.Controls.Frame_Slice9.Visible = Instance.Properties.IsVisible;
+	}
+
+	if (MV::HasRedrawTag(_Tags, [C_Private_RedrawTag_Init, C_Private_RedrawTag_SliceList])) {
+		for (SliceId => Quad_Slice in Instance.Controls.QuadList_Slice) {
+			Quad_Slice.Visible = Instance.Properties.SliceList[SliceId].Opacity > 0.;
+			Quad_Slice.Opacity = Instance.Properties.SliceList[SliceId].Opacity;
+			Quad_Slice.ImageUrl = Instance.Properties.SliceList[SliceId].ImageUrl;
+			Private_SetSliceColor(Quad_Slice, Instance.Properties.SliceList[SliceId]);
+			Private_SetSliceMirror(Quad_Slice, Instance.Properties.SliceList[SliceId]);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the component
+Void Private_Hook_ComponentInit(CMlFrame _Frame_Slice9) {
+	declare K_Private_Instance CMGame_ComponentsSlice9_Instance as Instance for _Frame_Slice9 = C_Private_Instance_Null;
+	Instance = C_Private_Instance_Null;
+	Instance.Box = Struct_Box::C_Box_Null;
+
+	Instance.Controls.Frame_Slice9 <=> _Frame_Slice9;
+	Instance.Controls.Frame_Align <=> (Instance.Controls.Frame_Slice9.GetFirstChild(C_Private_Id_Frame_Align) as CMlFrame);
+	Instance.Controls.Frame_ContentArea <=> (Instance.Controls.Frame_Align.GetFirstChild(C_Private_Id_Frame_ContentArea) as CMlFrame);
+	Instance.Controls.QuadList_Slice[C_SliceId_TopLeft] <=> (Instance.Controls.Frame_ContentArea.GetFirstChild(C_Private_Id_Quad_TopLeft) as CMlQuad);
+	Instance.Controls.QuadList_Slice[C_SliceId_TopCenter] <=> (Instance.Controls.Frame_ContentArea.GetFirstChild(C_Private_Id_Quad_TopCenter) as CMlQuad);
+	Instance.Controls.QuadList_Slice[C_SliceId_TopRight] <=> (Instance.Controls.Frame_ContentArea.GetFirstChild(C_Private_Id_Quad_TopRight) as CMlQuad);
+	Instance.Controls.QuadList_Slice[C_SliceId_CenterRight] <=> (Instance.Controls.Frame_ContentArea.GetFirstChild(C_Private_Id_Quad_CenterRight) as CMlQuad);
+	Instance.Controls.QuadList_Slice[C_SliceId_CenterCenter] <=> (Instance.Controls.Frame_ContentArea.GetFirstChild(C_Private_Id_Quad_CenterCenter) as CMlQuad);
+	Instance.Controls.QuadList_Slice[C_SliceId_CenterLeft] <=> (Instance.Controls.Frame_ContentArea.GetFirstChild(C_Private_Id_Quad_CenterLeft) as CMlQuad);
+	Instance.Controls.QuadList_Slice[C_SliceId_BottomLeft] <=> (Instance.Controls.Frame_ContentArea.GetFirstChild(C_Private_Id_Quad_BottomLeft) as CMlQuad);
+	Instance.Controls.QuadList_Slice[C_SliceId_BottomCenter] <=> (Instance.Controls.Frame_ContentArea.GetFirstChild(C_Private_Id_Quad_BottomCenter) as CMlQuad);
+	Instance.Controls.QuadList_Slice[C_SliceId_BottomRight] <=> (Instance.Controls.Frame_ContentArea.GetFirstChild(C_Private_Id_Quad_BottomRight) as CMlQuad);
+
+	Instance.StyleProperties = Private_ToProperties(Stylesheet::GetPropertyList(Instance.Controls.Frame_Slice9));
+	Instance.ControlProperties = Private_ToProperties(MV::GetComponentPropValueList(Instance.Controls.Frame_Slice9, C_PropList));
+
+	Instance = Private_UpdateDirty(Instance);
+
+	MV::MarkForRedraw(Instance.Controls.Frame_Slice9, C_Private_RedrawTag_Init);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the size of the component
+Void SetSize(CMlFrame _Frame_Slice9, Vec2 _Size) {
+	declare K_Private_Instance CMGame_ComponentsSlice9_Instance as Instance for _Frame_Slice9 = C_Private_Instance_Null;
+	if (
+		!Instance.ControlProperties.EnabledPropList.exists(C_Prop_Size) ||
+		Instance.ControlProperties.Size != _Size
+	) {
+		Instance.ControlProperties = Private_MergeProperties(Instance.ControlProperties, K_Private_Properties {
+			EnabledPropList = [C_Prop_Size],
+			Size = _Size
+		});
+		Instance.IsPropertiesDirty = True;
+		Instance.IsBoxDirty = True;
+		MV::MarkForRedraw(Instance.Controls.Frame_Slice9, C_Private_RedrawTag_Box);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the color of the component
+Void SetColor(CMlFrame _Frame_Slice9, Vec3 _Color) {
+	declare K_Private_Instance CMGame_ComponentsSlice9_Instance as Instance for _Frame_Slice9 = C_Private_Instance_Null;
+	for (SliceName => SliceId in C_Private_SliceList) {
+		if (
+			!Instance.ControlProperties.EnabledPropList.exists(SliceName^"-color") ||
+			Instance.ControlProperties.SliceList[SliceId].Color != _Color
+		) {
+			Instance.ControlProperties = Private_MergeProperties(Instance.ControlProperties, K_Private_Properties {
+				EnabledPropList = [SliceName^"-color"],
+				SliceList = [SliceId => K_SliceProperties { Color = _Color }]
+			});
+			Instance.IsPropertiesDirty = True;
+			MV::MarkForRedraw(Instance.Controls.Frame_Slice9, C_Private_RedrawTag_SliceList);
+		}
+	}
+}
+Void SetColor(CMlFrame _Frame_Slice9, Text _Color) {
+	SetColor(_Frame_Slice9, CL::HexToRgb(_Color));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the color of the given slices
+Void SetColor(CMlFrame _Frame_Slice9, Vec3[Integer] _ColorList) {
+	declare K_Private_Instance CMGame_ComponentsSlice9_Instance as Instance for _Frame_Slice9 = C_Private_Instance_Null;
+	for (SliceName => SliceId in C_Private_SliceList) {
+		if (
+			_ColorList.existskey(SliceId) && (
+				!Instance.ControlProperties.EnabledPropList.exists(SliceName^"-color") ||
+				Instance.ControlProperties.SliceList[SliceId].Color != _ColorList[SliceId]
+			)
+		) {
+			Instance.ControlProperties = Private_MergeProperties(Instance.ControlProperties, K_Private_Properties {
+				EnabledPropList = [SliceName^"-color"],
+				SliceList = [SliceId => K_SliceProperties { Color = _ColorList[SliceId] }]
+			});
+			Instance.IsPropertiesDirty = True;
+			MV::MarkForRedraw(Instance.Controls.Frame_Slice9, C_Private_RedrawTag_SliceList);
+		}
+	}
+}
+Void SetColor(CMlFrame _Frame_Slice9, Text[Integer] _ColorList) {
+	declare Vec3[Integer] ColorList;
+	for (SliceId => Color in _ColorList) {
+		ColorList[SliceId] = CL::HexToRgb(Color);
+	}
+	SetColor(_Frame_Slice9, ColorList);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the visibility of the component
+Void SetIsComponentVisible(CMlFrame _Frame_Slice9, Boolean _IsVisible) {
+	declare K_Private_Instance CMGame_ComponentsSlice9_Instance as Instance for _Frame_Slice9 = C_Private_Instance_Null;
+	if (
+		!Instance.ControlProperties.EnabledPropList.exists(C_Prop_IsVisible) ||
+		Instance.ControlProperties.IsVisible != _IsVisible
+	) {
+		Instance.ControlProperties = Private_MergeProperties(Instance.ControlProperties, K_Private_Properties {
+			EnabledPropList = [C_Prop_IsVisible],
+			IsVisible = _IsVisible
+		});
+		Instance.IsPropertiesDirty = True;
+		MV::MarkForRedraw(Instance.Controls.Frame_Slice9, C_Private_RedrawTag_IsVisible);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the component is visible
+Boolean IsComponentVisible(CMlFrame _Frame_Slice9) {
+	declare K_Private_Instance CMGame_ComponentsSlice9_Instance as Instance for _Frame_Slice9 = C_Private_Instance_Null;
+	Instance = Private_UpdateDirty(Instance);
+	return Instance.Properties.IsVisible;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the box of the component
+Struct_Box::K_Box GetBox(CMlFrame _Frame_Slice9) {
+	declare K_Private_Instance CMGame_ComponentsSlice9_Instance as Instance for _Frame_Slice9 = C_Private_Instance_Null;
+	Instance = Private_UpdateDirty(Instance);
+	return Instance.Box;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the styles of the component
+Void SetStyleList(CMlFrame _Frame_Slice9, Text[] _StyleList) {
+	if (Stylesheet::SetStyleList(_Frame_Slice9, _StyleList)) {
+		declare K_Private_Instance CMGame_ComponentsSlice9_Instance as Instance for _Frame_Slice9 = C_Private_Instance_Null;
+		Instance.StyleProperties = Private_ToProperties(Stylesheet::GetPropertyList(Instance.Controls.Frame_Slice9));
+		Instance.IsPropertiesDirty = True;
+		Instance.IsBoxDirty = True;
+		MV::MarkForRedraw(Instance.Controls.Frame_Slice9, C_Private_RedrawTag_Init);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+MV::K_Component Component() {
+	return MV::K_Component {
+		Name = C_ComponentName,
+		Path = ScriptName,
+		Class = C_ComponentClass,
+		Template = Private_Template(),
+		DefineProps = C_PropList,
+		Hooks = [
+			MV::C_Hook_ComponentInit => """{{{C_ComponentName}}}::Private_Hook_ComponentInit(ComponentInstance)""",
+			MV::C_Hook_ComponentDraw => """{{{C_ComponentName}}}::Private_Hook_ComponentDraw(ComponentInstance, Tags)"""
+		]
+	};
+}

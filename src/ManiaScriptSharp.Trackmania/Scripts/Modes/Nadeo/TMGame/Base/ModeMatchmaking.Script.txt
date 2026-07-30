@@ -1,0 +1,348 @@
+/**
+ *  Matchmaking for a Trackmania game mode
+ */
+#Extends "Modes/Nadeo/TMGame/Base/ModeBase.Script.txt"
+
+#Const C_MB_MMT_Version			"2.0.1"
+#Const C_MB_MMT_ScriptName	"Modes/Nadeo/TMGame/Base/ModeMatchmaking.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Deprecated matchmaking settings
+// See /trackmania-next/tmnext/-/issues/2759
+// #Const C_LobbyRoundPerMap 6
+// #Const C_LobbyMatchmakerPerRound 30
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MB_RulesColor "$f70"
+#Const C_Lobby_ManiaAppUrl "file://Media/ManiaApps/Nadeo/TMGame/MatchmakingLobby/MatchmakingLobby.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Boolean MB_Settings_UseDefaultLobby;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***MB_Private_LogVersions***
+***
+Log::RegisterScript(C_MB_MMT_ScriptName, C_MB_MMT_Version);
+***
+
+***MB_Private_Settings***
+***
+MB_Settings_UseDefaultLobby = True;
+***
+
+***Lobby_LoadLibraries***
+***
+if (MB_Settings_UseDefaultLobby) {
+	// Counter the setting set in the common ModeMatchmaking2 script
+	if (MB_Private_UseMatchmaking && MMCommon::IsLobbyServer()) {
+		MB_Settings_UseDefaultHud = False;
+	}
+}
+***
+
+***Lobby_Rules***
+***
+if (MB_Settings_UseDefaultLobby) {
+	ModeInfo::SetName("Lobby");
+	ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+	ModeInfo::SetRules(MM_TL::Compose("$<%1%2$>\n\n%3\n$<%11. $>%4", C_MB_RulesColor, _("You will soon be redirected to a match server."), _("While waiting, try to become the King Of The Lobby!"), _("Do the best time before the end of the countdown.")));
+	ModeInfo::SetStatusMessage(_("TYPE: Free for all\nOBJECTIVE: Do the best time before the end of the countdown."));
+}
+***
+
+***Lobby_LoadHud***
+***
+if (MB_Settings_UseDefaultLobby) {
+	ClientManiaAppUrl = C_Lobby_ManiaAppUrl;
+	Race::SortScores(Race::C_Sort_BestLapTime);
+}
+***
+
+***Lobby_StartServer***
+***
+if (MB_Settings_UseDefaultLobby) {
+	// Config lobby
+	Clans::SetClansNb(0);
+	Race::SetInfiniteLaps(True, True);
+	Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint);
+
+	// Create UI
+	Layers::Create("RulesReminder", Lobby_Private_GetMLRulesReminder());
+	Layers::Attach("RulesReminder");
+	Layers::SetType("RulesReminder", CUILayer::EUILayerType::CutScene);
+}
+***
+
+***Lobby_StartRound***
+***
+if (MB_Settings_UseDefaultLobby) {
+	Scores::ResetPlayerWinner();
+}
+***
+
+***Lobby_PlayLoop***
+***
+if (MB_Settings_UseDefaultLobby) {
+	// Manage race events
+	declare RacePendingEvents = Race::GetPendingEvents();
+	foreach (Event in RacePendingEvents) {
+		Race::ValidEvent(Event);
+
+		// Waypoint
+		if (Event.Type == Events::C_Type_Waypoint) {
+			if (Event.Player != Null) {
+				if (Event.IsEndRace) {
+					declare BetterRace = Scores::UpdatePlayerBestRaceIfBetter(Event.Player);
+					declare BetterLap = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+					Scores::UpdatePlayerPrevRace(Event.Player);
+
+					// Skip scores table
+					Race::StopSkipScoresTable(Event.Player);
+				}
+				if (Event.IsEndLap) {
+					declare Better = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				}
+			}
+		}
+	}
+
+	// Manage mode events
+	foreach (Event in PendingEvents) {
+		if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+		Events::Invalid(Event);
+	}
+
+	// Spawn players
+	Lobby_Private_SpawnPlayers();
+}
+***
+
+***Lobby_EndServer***
+***
+if (MB_Settings_UseDefaultLobby) {
+	Layers::Destroy("RulesReminder");
+}
+***
+
+***Match_EndMap***
+***
+if (MB_Settings_UseDefaultLobby) {
+	// Find match Master
+	if (MB_Private_UseMatchmaking && MMCommon::IsMatchServer()) {
+		if (MB_Settings_UseDefaultMatchmaking) {
+			declare MasterScore <=> Scores::GetBestPlayer(Scores::C_Sort_BestRaceTime);
+			declare MasterLogin = "";
+			if (MasterScore != Null) MasterLogin = MasterScore.User.Login;
+			MM_Private_SetMasterLogin(MasterLogin);
+		}
+	}
+}
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set start time
+ *
+ *	@param	_StartTime								The new start time
+ */
+***MM_Private_SetStartTime***
+***
+StartTime = _StartTime;
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get start time
+ *
+ *	@return														The start time
+ */
+***MM_Private_GetStartTime***
+***
+return StartTime;
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set end time
+ *
+ *	@param	_EndTime									The new end time
+ *	@param	_Soft											Use soft limit
+ */
+***MM_Private_SetEndTime***
+***
+if (_Soft) UIManager.UIAll.CountdownEndTime = _EndTime;
+else EndTime = _EndTime;
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get end time
+ *
+ *	@param	_Soft											Use soft limit
+ *
+ *	@return														The end time
+ */
+***MM_Private_GetEndTime***
+***
+if (_Soft) return UIManager.UIAll.CountdownEndTime;
+return EndTime;
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reinitialize all the players
+Void Lobby_Private_InitPlayers() {
+
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Spawn the players
+Void Lobby_Private_SpawnPlayers() {
+	foreach (Player in Players) {
+		// Spawn ready players
+		if (Race::IsReadyToStart(Player) && MMLobby::IsReady(Player.User)) {
+			declare Boolean SpawnThePlayer = True;
+
+			declare UI <=> UIManager.GetUI(Player);
+			if (UI != Null) {
+				declare netread Boolean Net_Lobby_RollingIntro for UI;
+				SpawnThePlayer = !Net_Lobby_RollingIntro;
+			}
+
+			if (SpawnThePlayer) SpawnThePlayer = !MMLobby::IsOnVersusScreen(Player);
+			if (SpawnThePlayer) SpawnThePlayer = !MMLobby::IsBeingTransferred(Player);
+
+			if (SpawnThePlayer || UI == Null) {
+				Race::Start(Player);
+			}
+		}
+		// Unspawn unready players
+		else if (!Race::IsReadyToStart(Player) && !MMLobby::IsReady(Player.User)) {
+			Race::StopSkipOutro(Player);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unspawn the players
+Void Lobby_Private_UnspawnPlayers() {
+	Race::StopSkipOutroAll();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Find the winner of the round
+Void Lobby_Private_FindWinner() {
+	if (Scores::GetPlayerWinner() == Null) {
+		Scores::SetPlayerWinner(
+			Scores::GetBestPlayer(Scores::C_Sort_BestLapTime)
+		);
+	}
+
+	foreach (Score in Scores) {
+		Scores::ResetPlayer(Score);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create the rules reminder manialink
+ *
+ *	@return		The manialink
+ */
+Text Lobby_Private_GetMLRulesReminder() {
+	declare Text ImgBaseDir			= "file://Media/Manialinks/Shootmania/Common/";
+	declare Text WelcomeBgImage		= ImgBaseDir^"WelcomeBg.dds";
+
+	declare Text TitleText			= _("Waiting for your match to start");
+
+	declare Text RulesReminder1		= MM_TL::Compose("$<%1%2$>", C_MB_RulesColor, _("You will soon be redirected to a match server."));
+	declare Text RulesReminder2		= _("While waiting, try to become the King Of The Lobby!");
+	declare Text RulesReminder3		= _("Do the best time before the end of the countdown.");
+
+	declare Text DoNotShowAgain		= _("Do Not Show Again");
+	declare Text Close				= _("Close");
+
+	declare Integer	WindowWidth		= 192;
+	declare Integer	WindowHeight	= 38;
+	declare Real	WindowX			= 0.;
+	declare Real	WindowY			= 5.;
+
+	return """
+<manialink version="1" name="ModeMatchmaking:RulesReminder">
+<frame id="RulesReminderMainFrame" posn="{{{WindowX}}} {{{WindowY}}} 0" hidden="true" >
+	<format  textemboss="1" />
+	<quad posn="0 -2" sizen="210 65" halign="center" valign="center" image="{{{WelcomeBgImage}}}" />
+	<label posn="0 {{{(WindowHeight/2)-3}}}" sizen="{{{WindowWidth-4}}} 4" halign="center" valign="center" text="{{{TitleText}}}" textsize="5" />
+	<label posn="{{{-(WindowWidth/2)+2}}} {{{(WindowHeight/2)-12}}}" sizen="{{{WindowWidth-4}}} 4" valign="center" text="{{{RulesReminder1}}}" textsize="2"/>
+	<label posn="{{{-(WindowWidth/2)+2}}} {{{(WindowHeight/2)-20}}}" sizen="{{{WindowWidth-4}}} 4" valign="center" text="{{{RulesReminder2}}}" textsize="2"/>
+	<label posn="{{{-(WindowWidth/2)+2}}} {{{(WindowHeight/2)-24}}}" sizen="{{{WindowWidth-4}}} 4" valign="center" text="{{{RulesReminder3}}}" textsize="2"/>
+	<label posn="{{{(WindowWidth/2)-2}}} {{{-(WindowHeight/2)+2}}}" halign="right" valign="center" text="{{{DoNotShowAgain}}}" style="CardButtonSmall" ScriptEvents="true" id="Button_DoNotShowAgain" />
+	<label posn="{{{(WindowWidth/2)-42}}} {{{-(WindowHeight/2)+2}}}" halign="right" valign="center" text="{{{Close}}}" style="CardButtonSmall" ScriptEvents="true" id="Button_Close" />
+</frame>
+<script><!--
+main() {
+	while (InputPlayer == Null) yield;
+
+	// for the "do not show again" feature
+	declare persistent Boolean NadeoKoL_PersistentShowRulesReminder for This = True;
+	//NadeoKoL_PersistentShowRulesReminder = True;
+
+	declare netwrite Boolean Net_Lobby_RollingIntro for UI;
+	declare netread Boolean Net_Lobby_ShowRules for UI;
+	declare netread Boolean Net_Lobby_ShowSubstituteML for UI;
+	declare netread Boolean Net_Lobby_ShowVersusML for UI;
+	declare netread Text Net_Lobby_ReconnectToServer for UI;
+
+	if (!NadeoKoL_PersistentShowRulesReminder) {
+		Net_Lobby_RollingIntro = False;
+		return;
+	}
+	Net_Lobby_RollingIntro = True;
+
+	declare Button_DoNotShowAgain <=> (Page.GetFirstChild("Button_DoNotShowAgain") as CMlLabel);
+	declare Button_Close <=> (Page.GetFirstChild("Button_Close") as CMlLabel);
+	declare RulesReminderMainFrame <=> (Page.GetFirstChild("RulesReminderMainFrame") as CMlFrame);
+
+	while (True) {
+		yield;
+
+		if (Net_Lobby_ShowRules && !Net_Lobby_ShowVersusML && !Net_Lobby_ShowSubstituteML && Net_Lobby_ReconnectToServer == "") {
+			RulesReminderMainFrame.Show();
+		} else {
+			RulesReminderMainFrame.Hide();
+		}
+
+		foreach (Event in PendingEvents) {
+			switch (Event.Type){
+				case CMlEvent::Type::MouseClick: {
+					if (Event.ControlId == "Button_DoNotShowAgain") {
+						NadeoKoL_PersistentShowRulesReminder = False;
+						Net_Lobby_RollingIntro = False;
+					}
+					if (Event.ControlId == "Button_Close") {
+						Net_Lobby_RollingIntro = False;
+					}
+				}
+			}
+		}
+	}
+}
+--></script>
+</manialink>
+""";
+}
+
+/* @Changelog
+
+Version 2.0.0
+-------------
+
+- Moved from script `Modes/TrackMania/Nadeo/TMGame/Base/ModeMatchmaking.Script.txt` to `Modes/Nadeo/TMGame/Base/ModeMatchmaking.Script.txt`
+
+ */

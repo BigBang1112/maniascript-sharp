@@ -1,0 +1,168 @@
+/**
+ * Simple event emitter
+ */
+#Const Version "0.1.1"
+#Const ScriptName "Libs/Nadeo/CMGame/Utils/EventEmitter.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Event {
+	Text Type;
+	Text Data;
+	CNod EventEmitter;
+}
+#Struct K_Listener {
+	Integer Id;
+	CNod EventEmitter;
+	Text[] FilterEventTypeList;
+	K_Event[] EventList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the list of listeners on an event emitter
+K_Listener[Integer] Private_GetListenerList(CNod _EventEmitter) {
+	switchtype(_EventEmitter as TypedEventEmitter) {
+		case CMlControl: {
+			declare K_Listener[Integer] CMGame_UtilsEventEmitter_ListenerList for TypedEventEmitter = [];
+			return CMGame_UtilsEventEmitter_ListenerList;
+		}
+		default: {
+			assert(False, """[EventEmitter] Unsupported class""");
+		}
+	}
+
+	return [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the list of listeners on an event emitter
+Void Private_SetListenerList(CNod _EventEmitter, K_Listener[Integer] _EventEmitterList) {
+	switchtype(_EventEmitter as TypedEventEmitter) {
+		case CMlControl: {
+			declare K_Listener[Integer] CMGame_UtilsEventEmitter_ListenerList for TypedEventEmitter = [];
+			CMGame_UtilsEventEmitter_ListenerList = _EventEmitterList;
+		}
+		default: {
+			assert(False, """[EventEmitter] Unsupported class""");
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a listener id for the event emitter
+Integer Private_GetListenerId(CNod _EventEmitter) {
+	switchtype(_EventEmitter as TypedEventEmitter) {
+		case CMlControl: {
+			declare Integer CMGame_UtilsEventEmitter_ListenerIdGenerator for TypedEventEmitter = 0;
+			CMGame_UtilsEventEmitter_ListenerIdGenerator += 1;
+			return CMGame_UtilsEventEmitter_ListenerIdGenerator;
+		}
+		default: {
+			assert(False, """[EventEmitter] Unsupported class""");
+		}
+	}
+
+	return 0;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Emit an event on a event emitter
+Void Emit(CNod _EventEmitter, Text _EventType, Text _EventData) {
+	declare K_Listener[Integer] ListenerList = Private_GetListenerList(_EventEmitter);
+	for (ListenerId => Listener in ListenerList) {
+		if (Listener.FilterEventTypeList.count <= 0 || Listener.FilterEventTypeList.exists(_EventType)) {
+			ListenerList[ListenerId].EventList.add(K_Event {
+				Type = _EventType,
+				Data = _EventData,
+				EventEmitter = _EventEmitter
+			});
+		}
+	}
+	Private_SetListenerList(_EventEmitter, ListenerList);
+}
+Void Emit(CNod _EventEmitter, Text _EventType) {
+	Emit(_EventEmitter, _EventType, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a listener on an event emitter
+ * @param _EventEmitter - The event emitter to which the listener will be attached
+ * @param _FilterEventTypeList - The type of event to listen to, listen to all event types if empty
+ * @return The listener
+ */
+K_Listener AddListener(CNod _EventEmitter, Text[] _FilterEventTypeList) {
+	declare K_Listener[Integer] ListenerList = Private_GetListenerList(_EventEmitter);
+
+	declare Integer ListenerId = Private_GetListenerId(_EventEmitter);
+	declare K_Listener Listener = K_Listener {
+		Id = ListenerId,
+		EventEmitter = _EventEmitter,
+		FilterEventTypeList = _FilterEventTypeList,
+		EventList = []
+	};
+	ListenerList[ListenerId] = Listener;
+
+	Private_SetListenerList(_EventEmitter, ListenerList);
+
+	return Listener;
+}
+K_Listener AddListener(CNod _EventEmitter) {
+	return AddListener(_EventEmitter, []);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove a listener from an event emitter
+ * @param _Listener - The listener to remove
+ */
+Void RemoveListener(K_Listener _Listener) {
+	declare K_Listener[Integer] ListenerList = Private_GetListenerList(_Listener.EventEmitter);
+	if (ListenerList.removekey(_Listener.Id)) {
+		Private_SetListenerList(_Listener.EventEmitter, ListenerList);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the list of events emitted in the listener and clear it afterward
+ * @param _Listener - The listener to flush
+ * @return A list of events
+ */
+K_Event[] FlushListener(K_Listener _Listener) {
+	declare K_Listener[Integer] ListenerList = Private_GetListenerList(_Listener.EventEmitter);
+
+	declare K_Event[] EventList = ListenerList.get(_Listener.Id, K_Listener { EventList = [] }).EventList;
+	if (EventList.count > 0) {
+		ListenerList[_Listener.Id].EventList = [];
+		Private_SetListenerList(_Listener.EventEmitter, ListenerList);
+	}
+
+	return EventList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Flush several listeners at the same time
+K_Event[] FlushListenerList(K_Listener[] _ListenerList) {
+	declare K_Event[] EventList;
+
+	for (Listener in _ListenerList) {
+		declare K_Listener[Integer] ListenerList = Private_GetListenerList(Listener.EventEmitter);
+
+		declare K_Event[] LocalEventList = ListenerList.get(Listener.Id, K_Listener { EventList = [] }).EventList;
+		if (LocalEventList.count > 0) {
+			ListenerList[Listener.Id].EventList = [];
+			Private_SetListenerList(Listener.EventEmitter, ListenerList);
+		}
+
+		for (LocalEvent in LocalEventList) {
+			EventList.add(LocalEvent);
+		}
+	}
+
+	return EventList;
+}

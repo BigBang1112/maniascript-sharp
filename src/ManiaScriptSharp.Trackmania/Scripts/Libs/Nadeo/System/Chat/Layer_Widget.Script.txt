@@ -1,0 +1,165 @@
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Styles/CommonStyles.Script.txt" as Styles
+
+#Const C_ImgBase "file://Media/Manialinks/Common/Chat/"
+#Const C_LibChatWidget_RotationDuration		2000
+
+declare CUILayer G_ManialinkLayerWidget;
+
+Text Private_CreateManialink() {
+	return """
+<manialink version="3" name="Chat:Widget">
+<stylesheet>
+	{{{Styles::Get()}}}
+	<style class="btn-messages" halign="center" valign="center" image="{{{C_ImgBase}}}buddy-mode-messages.dds" />
+	<style class="connect" halign="center" valign="center" image="{{{C_ImgBase}}}buddy-flat-connect.dds" />
+	<style class="disabled" halign="center" valign="center" image="{{{C_ImgBase}}}buddy-flat-block.dds" />
+</stylesheet>
+
+<frame id="Frame_ChatWidget" pos="-20 90">
+	<frame pos="3.5 -3">
+		<frame id="Frame_NbNotifications" pos="2 -1.5" hidden="1">
+			<label id="Label_NbNotifications" class="Bold" pos="0 -.125" size="5" halign="center" />
+			<quad id="Quad_NbNotifications" class="Center" size="0 2.5" bgcolor="F44" />
+		</frame>
+		<quad id="Quad_IconChatMessages" class="btn-messages" size="5 5" />
+		<quad id="Quad_IconChatConnect" class="connect" pos="5.5" size="4 4" colorize="FFF" opacity=".5" hidden="1" />
+		<quad id="Quad_IconChatOffline" class="disabled" pos="5.5" size="4 4" colorize="FFF" opacity=".5" hidden="1" />
+		<label id="Label_NbActiveChats" class="Text" pos="5.5 -.25" halign="center" textsize="2.5" />
+	</frame>
+	<quad id="Quad_ButtonToggleChat" size="12 6" bgcolorfocus="070" ScriptEvents="1" />
+</frame>
+
+<script><!--
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+main() {
+	declare Frame_ChatWidget		<=> (Page.GetFirstChild("Frame_ChatWidget")			as CMlFrame);
+	declare Quad_ButtonToggleChat	<=> (Page.GetFirstChild("Quad_ButtonToggleChat")	as CMlQuad);
+	declare Label_NbActiveChats		<=> (Page.GetFirstChild("Label_NbActiveChats")		as CMlLabel);
+	declare Frame_NbNotifications	<=> (Page.GetFirstChild("Frame_NbNotifications")	as CMlFrame);
+	declare Label_NbNotifications	<=> (Page.GetFirstChild("Label_NbNotifications")	as CMlLabel);
+	declare Quad_NbNotifications	<=> (Page.GetFirstChild("Quad_NbNotifications")		as CMlQuad);
+	declare Quad_IconChatMessages	<=> (Page.GetFirstChild("Quad_IconChatMessages")	as CMlQuad);
+	declare Quad_IconChatConnect	<=> (Page.GetFirstChild("Quad_IconChatConnect")		as CMlQuad);
+	declare Quad_IconChatOffline	<=> (Page.GetFirstChild("Quad_IconChatOffline")		as CMlQuad);
+
+	declare UpdateNotificationsCount = True;
+	declare NbIncomingInvites = 0;
+	declare NbUnreadMeessages = 0;
+
+	while (True) {
+		yield;
+    if(PendingEvents.count == 0 && !UpdateNotificationsCount) continue;
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+				if (Event.Control == Quad_ButtonToggleChat) {
+					SendCustomEvent("ToggleVisibility", []);
+				}
+			}
+
+			else if (Event.Type == CMlScriptEvent::Type::PluginCustomEvent) {
+				switch (Event.CustomEventType) {
+					case "SetIconPosition" : {
+						if (!Event.CustomEventData.existskey(0)) continue;
+						Frame_ChatWidget.RelativePosition_V3.X = TL::ToReal(Event.CustomEventData[0]);
+					}
+					case "SetNbActiveChats" : {
+						if (!Event.CustomEventData.existskey(0)) continue;
+						declare NbActiveChats = ML::Max(0, TL::ToInteger(Event.CustomEventData[0]));
+						Label_NbActiveChats.Value = TL::ToText(NbActiveChats);
+					}
+					case "SetNbInvites" : {
+						if (!Event.CustomEventData.existskey(0)) continue;
+						NbIncomingInvites = ML::Max(0, TL::ToInteger(Event.CustomEventData[0]));
+						UpdateNotificationsCount = True;
+					}
+					case "SetNbUnreads" : {
+						if (!Event.CustomEventData.existskey(0)) continue;
+						NbUnreadMeessages = ML::Max(0, TL::ToInteger(Event.CustomEventData[0]));
+						UpdateNotificationsCount = True;
+					}
+					case "SetColor" : {
+						if (!Event.CustomEventData.existskey(0)) continue;
+						declare SplitColor = TL::Split(" ", Event.CustomEventData[0]);
+						declare Color = <1., 1., 1.>;
+
+						if (SplitColor.count != 3) continue;
+						for (I, 0, 2) Color[I] = TL::ToReal(SplitColor[I]) * .75;
+
+						Quad_ButtonToggleChat.BgColorFocus = Color;
+					}
+					case "SetIsConnected" : {
+						if (!Event.CustomEventData.existskey(0)) continue;
+						declare ConectionStatus = ML::Clamp(TL::ToInteger(Event.CustomEventData[0]), 0, 2);
+
+						Quad_IconChatOffline	.Visible = ConectionStatus == 0;
+						Label_NbActiveChats		.Visible = ConectionStatus == 1;
+						Quad_IconChatConnect	.Visible = ConectionStatus == 2;
+
+						if (ConectionStatus == 1) {
+							Quad_IconChatMessages.Opacity = 1.;
+						} else {
+							Quad_IconChatMessages.Opacity = .5;
+						}
+					}
+				}
+			}
+		}
+
+		if (UpdateNotificationsCount) {
+			UpdateNotificationsCount = False;
+
+			declare NbNotifications = NbIncomingInvites + NbUnreadMeessages;// + ManiaPlanet.Messenger_MessagesCount;
+			Frame_NbNotifications.Visible = NbNotifications > 0;
+
+			if (Frame_NbNotifications.Visible) {
+				Label_NbNotifications.Value = TL::ToText(NbNotifications);
+				Quad_NbNotifications.Size.X = Label_NbNotifications.ComputeWidth(Label_NbNotifications.Value) + .5;
+			}
+		}
+
+		if (Quad_IconChatConnect.Visible) {
+			Quad_IconChatConnect.RelativeRotation = Now % {{{C_LibChatWidget_RotationDuration}}} * 360. / {{{C_LibChatWidget_RotationDuration}}};
+		}
+	}
+}
+
+--></script>
+</manialink>
+	""";
+}
+
+Void Build() {
+	G_ManialinkLayerWidget = UILayerCreate();
+	G_ManialinkLayerWidget.Type = CUILayer::EUILayerType::ManiaplanetPlugin;
+	G_ManialinkLayerWidget.ManialinkPage = Private_CreateManialink();
+}
+
+Void SetIconPosition(Real _Position) {
+	LayerCustomEvent(G_ManialinkLayerWidget, "SetIconPosition", [TL::ToText(_Position)]);
+}
+
+Void SetNbActiveChats(Integer _NbActiveChats) {
+	LayerCustomEvent(G_ManialinkLayerWidget, "SetNbActiveChats", [TL::ToText(_NbActiveChats)]);
+}
+
+Void SetNbInvites(Integer _NbInvites) {
+	LayerCustomEvent(G_ManialinkLayerWidget, "SetNbInvites", [TL::ToText(_NbInvites)]);
+}
+
+Void SetNbUnreads(Integer _NbUnreads) {
+	LayerCustomEvent(G_ManialinkLayerWidget, "SetNbUnreads", [TL::ToText(_NbUnreads)]);
+}
+
+Void SetColor(Vec3 _Color) {
+	LayerCustomEvent(G_ManialinkLayerWidget, "SetColor", [_Color.X^" "^_Color.Y^" "^_Color.Z]);
+}
+
+Void SetIsConnected(Integer _Status) {
+	LayerCustomEvent(G_ManialinkLayerWidget, "SetIsConnected", [TL::ToText(_Status)]);
+}

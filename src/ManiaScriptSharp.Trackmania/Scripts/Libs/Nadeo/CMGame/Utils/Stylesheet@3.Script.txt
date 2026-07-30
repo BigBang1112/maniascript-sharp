@@ -1,0 +1,719 @@
+/**
+ * Stylesheet system for manialinks
+ * ================================
+ *
+ * Define styles for manialink elements
+ *
+ * /!\ Rapidly have performance problems
+ * Child and descendant combinators in selector make creating an efficient global cache complicated
+ *
+ * @Deprecated Use the new `Stylesheet@4` library instead
+ */
+#Const Version "0.3.8"
+#Const ScriptName "Libs/Nadeo/CMGame/Utils/Stylesheet@3.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "ColorLib" as CL
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Structures/Box.Script.txt" as Box
+#Include "Libs/Nadeo/CMGame/Utils/Cast.Script.txt" as Cast
+#Include "Libs/Nadeo/CMGame/Utils/ManiaViewShared@3.Script.txt" as MVShared
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structure
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Selector {
+	Integer Combinator;
+	Text Control;
+	Text[] Classes;
+	Text Id;
+}
+#Struct K_Private_Specificity {
+	Integer A;
+	Integer B;
+	Integer C;
+}
+#Struct K_Rule {
+	K_Selector[] Selectors;
+	Text[Text] Properties;
+	K_Private_Specificity Private_Specificity;
+}
+#Struct K_Stylesheet {
+	Text Uid;
+	K_Rule[] Rules;
+	Integer UpdateCounter;
+}
+#Struct K_Private_ControlProperties {
+	Text[Text] Properties;
+	Integer UpdateCounter;
+	Boolean IsCached;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Class_Target "nadeo-cmgame-utils-stylesheet3-target"
+#Const C_DataAttribute_KeepControlProperties "nadeo-cmgame-utils-stylesheet3-keep-control-properties"
+#Const C_DataAttribute_Class "nadeo-cmgame-utils-stylesheet3-class"
+
+// Common properties
+#Const C_Prop_Size "size"
+#Const C_Prop_HAlign "halign"
+#Const C_Prop_VAlign "valign"
+#Const C_Prop_Hidden "hidden"
+#Const C_Prop_Pos "pos"
+#Const C_Prop_ZIndex "z-index"
+#Const C_Prop_Scale "scale"
+#Const C_Prop_Rotation "rot"
+#Const C_Prop_Opacity "opacity"
+#Const C_Prop_Style "style"
+#Const C_Prop_Substyle "substyle"
+#Const C_Prop_Blend "blend"
+#Const C_Prop_TTSAltText "alt-text"
+#Const C_Prop_TTSAltTextTranslate "alt-text-translate"
+
+// Text properties
+#Const C_Prop_TextFormat "text-format"
+#Const C_Prop_TextColor "text-color"
+#Const C_Prop_TextSize "text-size"
+#Const C_Prop_TextSizeFit "text-size-fit"
+#Const C_Prop_TextFont "text-font"
+#Const C_Prop_TextPrefix "text-prefix"
+#Const C_Prop_TextValue "text-value"
+#Const C_Prop_TextMaxLine "text-max-line"
+#Const C_Prop_TextMaxLength "text-max-length"
+#Const C_Prop_TextLineSpacing "text-line-spacing"
+#Const C_Prop_TextItalicSlope "text-italic-slope"
+#Const C_Prop_TextAppendEllipsis "text-append-ellipsis"
+#Const C_Prop_TextAutoNewLine "text-auto-new-line"
+#Const C_Prop_TextFilterProfanities "text-filter-profanities"
+
+// Quad properties
+#Const C_Prop_QuadImageUrl "quad-image-url"
+#Const C_Prop_QuadImageUrlFocus "quad-image-url-focus"
+#Const C_Prop_QuadAlphaMaskUrl "quad-alpha-mask-url"
+#Const C_Prop_QuadSuperSample "quad-super-sample"
+#Const C_Prop_QuadColorize "quad-colorize"
+#Const C_Prop_QuadModulateColor "quad-modulate"
+#Const C_Prop_QuadBgColor "quad-bg-color"
+#Const C_Prop_QuadBgColorFocus "quad-bg-color-focus"
+#Const C_Prop_QuadKeepRatio "quad-keep-ratio"
+
+// Selector combinators
+// https://www.w3.org/TR/selectors-3/#combinators
+#Const C_Combinator_Null -1
+#Const C_Combinator_Descendant 0
+#Const C_Combinator_Child 1
+
+#Const C_Stylesheet_Null K_Stylesheet {
+	Uid = "",
+	Rules = [],
+	UpdateCounter = 0
+}
+#Const C_ControlProperties_Null K_Private_ControlProperties {
+	Properties = [],
+	UpdateCounter = 0,
+	IsCached = False
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the control type
+Text Private_GetControlType(CMlControl _Control) {
+	switchtype (_Control) {
+		case CMlFrame: {
+			if (MVShared::IsComponent(_Control)) {
+				return MVShared::GetComponentName(_Control);
+			} else {
+				return "frame";
+			}
+		}
+		case CMlLabel: return "label";
+		case CMlQuad: return "quad";
+		case CMlArrow: return "arrow";
+		case CMlCamera: return "camera";
+		case CMlColorPicker: return "colorpicker";
+		case CMlFileEntry: return "fileentry"; //< Must be above CMlEntry
+		case CMlEntry: return "entry";
+		case CMlGauge: return "gauge";
+		case CMlGraph: return "graph";
+		case CMlMediaPlayer: return "media"; //< Not possible to differentiate "video" from "audio"
+		case CMlMinimap: return "minimap";
+		case CMlSlider: return "slider";
+		case CMlTextEdit: return "textedit";
+		case CMlTimeLine: return "timeline";
+	}
+
+	assert(False, """[Stylesheet@3] Unknown control type""");
+
+	return "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the stylesheet classes of the control
+Text[] Private_GetControlClasses(CMlControl _Control) {
+	if (_Control.DataAttributeExists(C_DataAttribute_Class)) {
+		return TL::Split(" ", _Control.DataAttributeGet(C_DataAttribute_Class));
+	}
+	return [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the stylesheet classes of the control
+Void Private_SetControlClasses(CMlControl _Control, Text[] _Classes) {
+	_Control.DataAttributeSet(C_DataAttribute_Class, TL::Join(" ", _Classes));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a selector hash
+Text Private_GetSelectorsHash(K_Selector[] _Selectors) {
+	return _Selectors.tojson();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a selector match a control
+Boolean Private_SelectorMatchControl(K_Selector _Selector, CMlControl _Control) {
+	if (_Control == Null) return False;
+
+	if (_Selector.Control != "" && _Selector.Control != Private_GetControlType(_Control)) {
+		return False;
+	}
+
+	if (_Selector.Classes.count > 0 && !_Selector.Classes.containsonly(Private_GetControlClasses(_Control))) {
+		return False;
+	}
+
+	if (_Selector.Id != "" && _Selector.Id != _Control.ControlId) {
+		return False;
+	}
+
+	return True;
+}
+Boolean Private_SelectorsMatchControl(K_Selector[] _Selectors, CMlControl _Control) {
+	if (_Control == Null || _Selectors.count <= 0) {
+		return False;
+	} else if (_Selectors.count == 1) {
+		return Private_SelectorMatchControl(_Selectors[0], _Control);
+	}
+
+	declare CMlControl TargetControl <=> _Control;
+	declare Integer SelectorKey = _Selectors.count - 1;
+	declare Integer Combinator = C_Combinator_Null;
+	declare Boolean IsMatching = True;
+
+	while (_Selectors.existskey(SelectorKey)) {
+		declare K_Selector Selector = _Selectors[SelectorKey];
+
+		switch (Combinator) {
+			case C_Combinator_Null, C_Combinator_Child: {
+				if (TargetControl == Null) {
+					return False;
+				} else if (Private_SelectorMatchControl(Selector, TargetControl)) {
+					if (Selector.Combinator == C_Combinator_Child || Selector.Combinator == C_Combinator_Descendant) {
+						TargetControl <=> TargetControl.Parent;
+					}
+					Combinator = Selector.Combinator;
+					SelectorKey -= 1;
+					IsMatching = True;
+				} else {
+					return False;
+				}
+			}
+			case C_Combinator_Descendant: {
+				if (TargetControl == Null) {
+					return False;
+				} else if (Private_SelectorMatchControl(Selector, TargetControl)) {
+					if (Selector.Combinator == C_Combinator_Child || Selector.Combinator == C_Combinator_Descendant) {
+						TargetControl <=> TargetControl.Parent;
+					}
+					Combinator = Selector.Combinator;
+					SelectorKey -= 1;
+					IsMatching = True;
+				} else {
+					TargetControl <=> TargetControl.Parent;
+					IsMatching = False;
+				}
+			}
+			default: {
+				return False;
+			}
+		}
+	}
+
+	return IsMatching;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Compute a selector specificity
+ * Loosely based on CSS specification
+ * https://www.w3.org/TR/CSS21/cascade.html#specificity
+ */
+K_Private_Specificity Private_ComputeSelectorSpecificity(K_Selector _Selector) {
+	declare K_Private_Specificity Specificity = K_Private_Specificity { A = 0, B = 0, C = 0 };
+	if (_Selector.Id != "") Specificity.A += 1;
+	Specificity.B += _Selector.Classes.count;
+	if (_Selector.Control != "") Specificity.C += 1;
+	return Specificity;
+}
+K_Rule Private_ComputeSelectorSpecificity(K_Rule _Rule) {
+	declare K_Rule Rule = _Rule;
+	if (Rule.Selectors.count == 1) {
+		Rule.Private_Specificity = Private_ComputeSelectorSpecificity(Rule.Selectors[0]);
+	} else {
+		Rule.Private_Specificity = K_Private_Specificity { A = 0, B = 0, C = 0 };
+		for (Selector in Rule.Selectors) {
+			declare K_Private_Specificity Specificity = Private_ComputeSelectorSpecificity(Selector);
+			Rule.Private_Specificity.A += Specificity.A;
+			Rule.Private_Specificity.B += Specificity.B;
+			Rule.Private_Specificity.C += Specificity.C;
+		}
+	}
+	return Rule;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Sort rules by their specificity
+K_Rule[] Private_SortRulesBySpecificity(K_Rule[] _Rules) {
+	declare K_Rule[][Integer][Integer][Integer] RulesToSort;
+
+	for (Rule in _Rules) {
+		if (RulesToSort.existskey(Rule.Private_Specificity.A)) {
+			if (RulesToSort[Rule.Private_Specificity.A].existskey(Rule.Private_Specificity.B)) {
+				if (RulesToSort[Rule.Private_Specificity.A][Rule.Private_Specificity.B].existskey(Rule.Private_Specificity.C)) {
+					RulesToSort[Rule.Private_Specificity.A][Rule.Private_Specificity.B][Rule.Private_Specificity.C].add(Rule);
+				} else {
+					RulesToSort[Rule.Private_Specificity.A][Rule.Private_Specificity.B][Rule.Private_Specificity.C] = [Rule];
+				}
+			} else {
+				RulesToSort[Rule.Private_Specificity.A][Rule.Private_Specificity.B] = [Rule.Private_Specificity.C => [Rule]];
+			}
+		} else {
+			RulesToSort[Rule.Private_Specificity.A] = [Rule.Private_Specificity.B => [Rule.Private_Specificity.C => [Rule]]];
+		}
+	}
+
+	declare K_Rule[] RulesSorted;
+	for (RulesA in RulesToSort.sortkeyreverse()) {
+		for (RulesB in RulesA.sortkeyreverse()) {
+			for (RulesC in RulesB.sortkeyreverse()) {
+				for (Rule in RulesC) {
+					RulesSorted.addfirst(Rule);
+				}
+			}
+		}
+	}
+
+	return RulesSorted;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new stylesheet
+K_Stylesheet New(Text _Uid, K_Rule[] _Rules) {
+	return K_Stylesheet {
+		Uid = _Uid,
+		Rules = _Rules,
+		UpdateCounter = 0
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new selector
+K_Selector New_Selector(Integer _Combinator, Text _Control, Text[] _Classes, Text _Id) {
+	return K_Selector {
+		Combinator = _Combinator,
+		Control = _Control,
+		Classes = _Classes,
+		Id = _Id
+	};
+}
+K_Selector New_Selector(Text _Control, Text[] _Classes, Text _Id) {
+	return New_Selector(C_Combinator_Descendant, _Control, _Classes, _Id);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new rule
+K_Rule New_Rule(K_Selector[] _Selectors, Text[Text] _Properties) {
+	return K_Rule {
+		Selectors = _Selectors,
+		Properties = _Properties,
+		Private_Specificity = K_Private_Specificity { A = 0, B = 0, C = 0 }
+	};
+}
+K_Rule New_Rule(K_Selector _Selector, Text[Text] _Properties) {
+	return New_Rule([_Selector], _Properties);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Include a stylesheet in the page
+Void Include(CMlPage _Page, K_Stylesheet _Stylesheet) {
+	declare K_Stylesheet[Text] CMGame_UtilsStylesheet3_IncludedStylesheets for _Page = [];
+	CMGame_UtilsStylesheet3_IncludedStylesheets[_Stylesheet.Uid] = _Stylesheet;
+}
+Void Include(CMlScript _Context, K_Stylesheet _Stylesheet) {
+	Include(_Context.Page, _Stylesheet);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compile the stylesheets included in the page
+Void Compile(CMlPage _Page) {
+	declare K_Stylesheet CMGame_UtilsStylesheet3_CompiledStylesheet as CompiledStylesheet for _Page = C_Stylesheet_Null;
+	declare Integer PreviousUpdateCounter = CompiledStylesheet.UpdateCounter;
+	CompiledStylesheet = C_Stylesheet_Null;
+	CompiledStylesheet.UpdateCounter = PreviousUpdateCounter + 1;
+
+	declare K_Stylesheet[Text] CMGame_UtilsStylesheet3_IncludedStylesheets for _Page = [];
+	declare Integer[Text] SelectorHashToRuleKey = [];
+
+	// Compute specificity and merge duplicate selectors
+	for (Stylesheet in CMGame_UtilsStylesheet3_IncludedStylesheets) {
+		for (RuleWithoutSpecifity in Stylesheet.Rules) {
+			declare K_Rule Rule = Private_ComputeSelectorSpecificity(RuleWithoutSpecifity);
+			declare Text SelectorsHash = Private_GetSelectorsHash(Rule.Selectors);
+			if (SelectorHashToRuleKey.existskey(SelectorsHash)) {
+				declare K_Rule ExistingRule = CompiledStylesheet.Rules[SelectorHashToRuleKey[SelectorsHash]];
+				for (PropertyName => PropertyValue in Rule.Properties) {
+					ExistingRule.Properties[PropertyName] = PropertyValue;
+				}
+				CompiledStylesheet.Rules[SelectorHashToRuleKey[SelectorsHash]] = ExistingRule;
+			} else {
+				SelectorHashToRuleKey[SelectorsHash] = CompiledStylesheet.Rules.count;
+				CompiledStylesheet.Rules.add(Rule);
+			}
+		}
+	}
+
+	// Sort all rules by specificity
+	CompiledStylesheet.Rules = Private_SortRulesBySpecificity(CompiledStylesheet.Rules);
+}
+Void Compile(CMlScript _Context) {
+	Compile(_Context.Page);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the control classes in the manialink xml
+Text Class(Text[] _Classes) {
+	return """ data-{{{C_DataAttribute_Class}}}="{{{TL::Join(" ", _Classes)}}}" """;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Don't let the stylesheet override these control properties
+Text KeepControlProperties(Text[] _Properties) {
+	return """ data-{{{C_DataAttribute_KeepControlProperties}}}="{{{TL::Join(" ", _Properties)}}}" """;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the properties applied to a control
+Text[Text] GetControlProperties(CMlPage _Page, CMlControl _Control) {
+	declare K_Stylesheet CMGame_UtilsStylesheet3_CompiledStylesheet as CompiledStylesheet for _Page = C_Stylesheet_Null;
+	declare K_Private_ControlProperties CMGame_UtilsStylesheet3_ControlProperties as ControlProperties for _Control = C_ControlProperties_Null;
+
+	if (ControlProperties.IsCached && ControlProperties.UpdateCounter == CompiledStylesheet.UpdateCounter) {
+		return ControlProperties.Properties;
+	}
+
+
+	ControlProperties.Properties = [];
+	ControlProperties.UpdateCounter = CompiledStylesheet.UpdateCounter;
+	ControlProperties.IsCached = True;
+
+	declare Text[] KeepControlProperties;
+	if (_Control.DataAttributeExists(C_DataAttribute_KeepControlProperties)) {
+		KeepControlProperties = TL::Split(" ", _Control.DataAttributeGet(C_DataAttribute_KeepControlProperties));
+	}
+
+	for (Rule in CompiledStylesheet.Rules) {
+		if (Private_SelectorsMatchControl(Rule.Selectors, _Control)) {
+			for (PropertyName => PropertyValue in Rule.Properties) {
+				if (!KeepControlProperties.exists(PropertyName)) {
+					ControlProperties.Properties[PropertyName] = PropertyValue;
+				}
+			}
+		}
+	}
+
+	return ControlProperties.Properties;
+}
+Text[Text] GetControlProperties(CMlScript _Context, CMlControl _Control) {
+	return GetControlProperties(_Context.Page, _Control);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply properties on a control
+Void ApplyControlProperties(CMlControl _Control, Text[Text] _ControlProperties) {
+	for (PropertyName => PropertyValue in _ControlProperties) {
+		switch (PropertyName) {
+			case C_Prop_Size: _Control.Size = Cast::ToVec2(PropertyValue);
+			case C_Prop_HAlign: _Control.HorizontalAlign = Cast::ToHAlign(PropertyValue);
+			case C_Prop_VAlign: _Control.VerticalAlign = Cast::ToVAlign(PropertyValue);
+			case C_Prop_Hidden: _Control.Visible = !Cast::ToBoolean(PropertyValue);
+			case C_Prop_Pos: _Control.RelativePosition_V3 = Cast::ToVec2(PropertyValue);
+			case C_Prop_ZIndex: _Control.ZIndex = TL::ToReal(PropertyValue);
+			case C_Prop_Scale: _Control.RelativeScale = TL::ToReal(PropertyValue);
+			case C_Prop_Rotation: _Control.RelativeRotation = TL::ToReal(PropertyValue);
+			default: {
+				switchtype (_Control as TypedControl) {
+					case CMlLabel: {
+						switch (PropertyName) {
+							case C_Prop_Opacity: TypedControl.Opacity = TL::ToReal(PropertyValue);
+							case C_Prop_Style: TypedControl.Style = PropertyValue;
+							case C_Prop_Substyle: TypedControl.Substyle = PropertyValue;
+							case C_Prop_Blend: TypedControl.Blend = Cast::ToLabelBlendMode(PropertyValue);
+							case C_Prop_TTSAltText: TypedControl.TTS_AltText = PropertyValue;
+							case C_Prop_TTSAltTextTranslate: TypedControl.TTS_AltText_Translate = Cast::ToBoolean(PropertyValue);
+							case C_Prop_TextFont: TypedControl.TextFont = PropertyValue;
+							case C_Prop_TextValue: TypedControl.Value = PropertyValue;
+							case C_Prop_TextMaxLine: TypedControl.MaxLine = TL::ToInteger(PropertyValue);
+							case C_Prop_TextLineSpacing: TypedControl.LineSpacing = TL::ToReal(PropertyValue);
+							case C_Prop_TextItalicSlope: TypedControl.ItalicSlope = TL::ToReal(PropertyValue);
+							case C_Prop_TextAppendEllipsis: TypedControl.AppendEllipsis = Cast::ToBoolean(PropertyValue);
+							case C_Prop_TextAutoNewLine: TypedControl.AutoNewLine = Cast::ToBoolean(PropertyValue);
+							case C_Prop_TextPrefix: TypedControl.TextPrefix = PropertyValue;
+							case C_Prop_TextColor: TypedControl.TextColor = CL::HexToRgb(PropertyValue);
+							case C_Prop_TextSize: TypedControl.TextSizeReal = TL::ToReal(PropertyValue);
+							case C_Prop_TextSizeFit: MLHelpers::FitLabelValue(TypedControl, Cast::ToVec3(PropertyValue));
+							case C_Prop_TextFilterProfanities: TypedControl.FilterProfanities = Cast::ToFilterProfanities(PropertyValue);
+						}
+					}
+					case CMlQuad: {
+						switch (PropertyName) {
+							case C_Prop_Opacity: TypedControl.Opacity = TL::ToReal(PropertyValue);
+							case C_Prop_Style: TypedControl.Style = PropertyValue;
+							case C_Prop_Substyle: TypedControl.Substyle = PropertyValue;
+							case C_Prop_Blend: TypedControl.Blend = Cast::ToQuadBlendMode(PropertyValue);
+							case C_Prop_TTSAltText: TypedControl.TTS_AltText = PropertyValue;
+							case C_Prop_TTSAltTextTranslate: TypedControl.TTS_AltText_Translate = Cast::ToBoolean(PropertyValue);
+							case C_Prop_QuadImageUrl: TypedControl.ImageUrl = PropertyValue;
+							case C_Prop_QuadImageUrlFocus: TypedControl.ImageUrlFocus = PropertyValue;
+							case C_Prop_QuadAlphaMaskUrl: TypedControl.AlphaMaskUrl = PropertyValue;
+							case C_Prop_QuadSuperSample: TypedControl.SuperSample = Cast::ToBoolean(PropertyValue);
+							case C_Prop_QuadColorize: TypedControl.Colorize = CL::HexToRgb(PropertyValue);
+							case C_Prop_QuadModulateColor: TypedControl.ModulateColor = CL::HexToRgb(PropertyValue);
+							case C_Prop_QuadBgColor: TypedControl.BgColor = CL::HexToRgb(PropertyValue);
+							case C_Prop_QuadBgColorFocus: TypedControl.BgColorFocus = CL::HexToRgb(PropertyValue);
+							case C_Prop_QuadKeepRatio: TypedControl.KeepRatio = Cast::ToKeepRatioMode(PropertyValue);
+						}
+					}
+					case CMlFileEntry: { //< Must be above CMlEntry
+						switch (PropertyName) {
+							case C_Prop_Opacity: TypedControl.Opacity = TL::ToReal(PropertyValue);
+							case C_Prop_TextValue: TypedControl.Value = PropertyValue;
+							case C_Prop_TextFormat: TypedControl.TextFormat = Cast::ToEntryFormat(PropertyValue);
+							case C_Prop_TextColor: TypedControl.TextColor = CL::HexToRgb(PropertyValue);
+							case C_Prop_TextSize: TypedControl.TextSizeReal = TL::ToReal(PropertyValue);
+							case C_Prop_TextMaxLength: TypedControl.MaxLength = TL::ToInteger(PropertyValue);
+						}
+					}
+					case CMlEntry: {
+						switch (PropertyName) {
+							case C_Prop_Opacity: TypedControl.Opacity = TL::ToReal(PropertyValue);
+							case C_Prop_TextValue: TypedControl.Value = PropertyValue;
+							case C_Prop_TextFormat: TypedControl.TextFormat = Cast::ToEntryFormat(PropertyValue);
+							case C_Prop_TextColor: TypedControl.TextColor = CL::HexToRgb(PropertyValue);
+							case C_Prop_TextSize: TypedControl.TextSizeReal = TL::ToReal(PropertyValue);
+							case C_Prop_TextMaxLength: TypedControl.MaxLength = TL::ToInteger(PropertyValue);
+						}
+					}
+					case CMlTextEdit: {
+						switch (PropertyName) {
+							case C_Prop_Opacity: TypedControl.Opacity = TL::ToReal(PropertyValue);
+							case C_Prop_TextValue: TypedControl.Value = PropertyValue;
+							case C_Prop_TextMaxLine: TypedControl.MaxLine = TL::ToInteger(PropertyValue);
+							case C_Prop_TextAutoNewLine: TypedControl.AutoNewLine = Cast::ToBoolean(PropertyValue);
+							case C_Prop_TextLineSpacing: TypedControl.LineSpacing = TL::ToReal(PropertyValue);
+							case C_Prop_TextColor: TypedControl.TextColor = CL::HexToRgb(PropertyValue);
+							case C_Prop_TextSize: TypedControl.TextSizeReal = TL::ToReal(PropertyValue);
+							case C_Prop_TextFormat: TypedControl.TextFormat = Cast::ToTextEditFormat(PropertyValue);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+Void ApplyControlProperties(CMlPage _Page, CMlControl _Control) {
+	ApplyControlProperties(_Control, GetControlProperties(_Page, _Control));
+}
+Void ApplyControlProperties(CMlScript _Context, CMlControl _Control) {
+	ApplyControlProperties(_Context.Page, _Control);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply style properties to all controls with the target class
+Void ApplyControlPropertiesToTargets(CMlPage _Page) {
+	_Page.GetClassChildren(C_Class_Target, _Page.MainFrame, True);
+	for (Control in _Page.GetClassChildren_Result) {
+		ApplyControlProperties(_Page, Control);
+	}
+}
+Void ApplyControlPropertiesToTargets(CMlScript _Context) {
+	ApplyControlPropertiesToTargets(_Context.Page);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add a stylesheet class to the control
+Void AddControlClasses(CMlPage _Page, CMlControl _Control, Text[] _Classes) {
+	declare Text[] ControlClasses = Private_GetControlClasses(_Control);
+	declare Boolean Modified = False;
+	for (Class in _Classes) {
+		if (!ControlClasses.exists(Class)) {
+			ControlClasses.add(Class);
+			Modified = True;
+		}
+	}
+	if (Modified) {
+		declare K_Private_ControlProperties CMGame_UtilsStylesheet3_ControlProperties as ControlProperties for _Control = C_ControlProperties_Null;
+		ControlProperties.IsCached = False;
+		Private_SetControlClasses(_Control, ControlClasses);
+		ApplyControlProperties(_Page, _Control);
+	}
+}
+Void AddControlClasses(CMlScript _Context, CMlControl _Control, Text[] _Classes) {
+	AddControlClasses(_Context.Page, _Control, _Classes);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove a style class from the control
+Void RemoveControlClasses(CMlPage _Page, CMlControl _Control, Text[] _Classes) {
+	declare Text[] ControlClasses = Private_GetControlClasses(_Control);
+	declare Boolean Modified = False;
+	for (Class in _Classes) {
+		if (ControlClasses.remove(Class)) {
+			Modified = True;
+		}
+	}
+	if (Modified) {
+		declare K_Private_ControlProperties CMGame_UtilsStylesheet3_ControlProperties as ControlProperties for _Control = C_ControlProperties_Null;
+		ControlProperties.IsCached = False;
+		Private_SetControlClasses(_Control, ControlClasses);
+		ApplyControlProperties(_Page, _Control);
+	}
+}
+Void RemoveControlClasses(CMlScript _Context, CMlControl _Control, Text[] _Classes) {
+	RemoveControlClasses(_Context.Page, _Control, _Classes);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a specific property is present in a control properties
+Boolean HasProp(Text[Text] _ControlProperties, Text _PropName) {
+	return _ControlProperties.existskey(_PropName);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a `Boolean` property from control properties
+Boolean GetProp_Boolean(Text[Text] _ControlProperties, Text _PropName, Boolean _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return Cast::ToBoolean(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get an `Int2` property from control properties
+Int2 GetProp_Int2(Text[Text] _ControlProperties, Text _PropName, Int2 _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) Cast::ToInt2(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get an `Int3` property from control properties
+Int3 GetProp_Int3(Text[Text] _ControlProperties, Text _PropName, Int3 _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return Cast::ToInt3(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get an `Integer` property from control properties
+Integer GetProp_Integer(Text[Text] _ControlProperties, Text _PropName, Integer _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return TL::ToInteger(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a `Real` property from control properties
+Real GetProp_Real(Text[Text] _ControlProperties, Text _PropName, Real _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return TL::ToReal(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a `Text` property from control properties
+Text GetProp_Text(Text[Text] _ControlProperties, Text _PropName, Text _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return _ControlProperties[_PropName];
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a `Vec2` property from control properties
+Vec2 GetProp_Vec2(Text[Text] _ControlProperties, Text _PropName, Vec2 _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return Cast::ToVec2(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a `Vec3` property from control properties
+Vec3 GetProp_Vec3(Text[Text] _ControlProperties, Text _PropName, Vec3 _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return Cast::ToVec3(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a `Vec3` color property from control properties
+Vec3 GetProp_Color(Text[Text] _ControlProperties, Text _PropName, Vec3 _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return CL::HexToRgb(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a FitLabelValue() compatible Vec3 from a control
+Vec3 GetProp_TextSizeFit(Text[Text] _ControlProperties, Text _PropName, Vec3 _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return Cast::ToTextSizeFitVec3(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a FitLabelValue() compatible Vec2 from a control
+Vec2 GetProp_TextSizeFit(Text[Text] _ControlProperties, Text _PropName, Vec2 _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return Cast::ToTextSizeFitVec2(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a `Margin` property from control properties
+Box::K_Margin GetProp_Margin(Text[Text] _ControlProperties, Text _PropName, Box::K_Margin _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return Box::ToMargin(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a `Padding` property from control properties
+Box::K_Padding GetProp_Padding(Text[Text] _ControlProperties, Text _PropName, Box::K_Padding _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return Box::ToPadding(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a `CMlControl::AlignHorizontal` property from control properties
+CMlControl::AlignHorizontal GetProp_HAlign(Text[Text] _ControlProperties, Text _PropName, CMlControl::AlignHorizontal _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return Cast::ToHAlign(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a `CMlControl::AlignVertical` property from control properties
+CMlControl::AlignVertical GetProp_VAlign(Text[Text] _ControlProperties, Text _PropName, CMlControl::AlignVertical _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return Cast::ToVAlign(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a `CMlQuad::EKeepRatioMode` property from control properties
+CMlQuad::EKeepRatioMode GetProp_KeepRatioMode(Text[Text] _ControlProperties, Text _PropName, CMlQuad::EKeepRatioMode _DefaultValue) {
+	if (_ControlProperties.existskey(_PropName)) return Cast::ToKeepRatioMode(_ControlProperties[_PropName]);
+	return _DefaultValue;
+}

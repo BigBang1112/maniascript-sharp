@@ -1,0 +1,344 @@
+/**
+ * Store for Ubiservices News
+ */
+#Const Version "1.1.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Stores/NewsStore_MA.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/API/SplashscreenAPI.Script.txt" as SplashscreenAPI
+#Include "Libs/Nadeo/CMGame/Structures/SplashscreenStruct.Script.txt" as SplashscreenStruct
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Store_MA.Script.txt" as Store
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/Trackmania/Structures/NewsStruct.Script.txt" as NewsStruct
+#Include "Libs/Nadeo/Trackmania/Stores/NewsStore_ML.Script.txt" as NewsStore
+#Include "Libs/Nadeo/Trackmania/RBAC.Script.txt" as RBAC
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct NewsStore::K_State as K_State
+
+#Struct K_NewsLoading {
+	Task::K_Task Task_GetProfileNewsList;
+	Task::K_Task Task_GetSpaceNewsList;
+	Http::K_Request Request_GetSplashscreenNewsList;
+	NewsStruct::LibNewsStruct_K_News[] ProfileNews;
+	NewsStruct::LibNewsStruct_K_News[] SpaceNews;
+	NewsStruct::LibNewsStruct_K_News[] SplashscreenNews;
+	Boolean IsLoading;
+	Boolean IsSuccess;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const NewsStore::C_State_Null as C_State_Null
+#Const NewsStore::C_StoreId as C_StoreId
+
+#Const NewsStore::C_Action_LoadNews as C_Action_LoadNews
+
+#Const NewsStore::C_Event_NewsLoadingUpdate as C_Event_NewsLoadingUpdate
+
+#Const NewsStore::C_NewsLoadingState_Unloaded as C_NewsLoadingState_Unloaded
+#Const NewsStore::C_NewsLoadingState_Loading as C_NewsLoadingState_Loading
+#Const NewsStore::C_NewsLoadingState_Loaded as C_NewsLoadingState_Loaded
+#Const NewsStore::C_NewsLoadingState_Error as C_NewsLoadingState_Error
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_NewsLoading G_NewsLoading;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the subscription plan of the local user
+Text Private_GetGameSubscriptionPlan(CManiaApp _Context) {
+	if (
+		_Context.PrivilegeMgr == Null ||
+		_Context.UserMgr == Null ||
+		_Context.UserMgr.MainUser == Null
+	) {
+		return SplashscreenStruct::C_GameSubscriptionPlan_All;
+	}
+
+	declare Boolean CanBuyClubEdition = RBAC::HasGamePermission(_Context.PrivilegeMgr, _Context.UserMgr.MainUser.Id, RBAC::C_GamePermission_CanSubscribeToClub);
+	declare Boolean CanBuyStandardEdition = RBAC::HasGamePermission(_Context.PrivilegeMgr, _Context.UserMgr.MainUser.Id, RBAC::C_GamePermission_CanSubscribeToStandard);
+
+	if (!CanBuyStandardEdition && !CanBuyClubEdition) {
+		return SplashscreenStruct::C_GameSubscriptionPlan_Club;
+	} else if (!CanBuyStandardEdition && CanBuyClubEdition) {
+		return SplashscreenStruct::C_GameSubscriptionPlan_Standard;
+	} else if (CanBuyStandardEdition && CanBuyClubEdition) {
+		return SplashscreenStruct::C_GameSubscriptionPlan_Starter;
+	}
+
+	return SplashscreenStruct::C_GameSubscriptionPlan_All;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the number of unread news
+K_State Mutation_SetNews(
+	K_State _State,
+	NewsStruct::LibNewsStruct_K_News[] _ProfileNews,
+	NewsStruct::LibNewsStruct_K_News[] _SpaceNews,
+	NewsStruct::LibNewsStruct_K_News[] _SplashscreenNews
+) {
+	declare K_State State = _State;
+	State.News = [];
+
+	// Display Nadeo news before Ubisoft news
+	for (News in _SplashscreenNews) {
+		State.News.add(News);
+	}
+
+	// The same news (same `Id`) can be present at the same time in the profile and space news
+	// A news with different placements, will also be duplicated for each placement
+	// eg:
+	// - ProfileNews `[{Id: 1, Placement: Homepage, Priority: 2}, {Id: 1, Placement: Default, Priority: 2}, {Id: 2, Placement: Homepage, Priority: 1}]`
+	// - SpaceNews `[{Id: 2, Placement: Homepage, Priority: 1}, {Id: 3, Placement: Default, Priority: 3}]`
+	// The merged array should not contains the same news at the same placement several times
+	// The news should also be sorted by priority, 1 being the highest priority
+	// With the above examples, we want to have:
+	// `[{Id: 2, Placement: Homepage, Priority: 1}, {Id: 1, Placement: Homepage, Priority: 2}, {Id: 1, Placement: Default, Priority: 2}, {Id: 3, Placement: Default, Priority: 3}]`
+	declare NewsStruct::LibNewsStruct_K_News[][Integer] NewsToSort;
+	declare Text[] ProfileNewsIds;
+	foreach (News in _ProfileNews) {
+		if (NewsToSort.existskey(News.Priority)) {
+			NewsToSort[News.Priority].add(News);
+		} else {
+			NewsToSort[News.Priority] = [News];
+		}
+		if (!ProfileNewsIds.exists(News.Id)) ProfileNewsIds.add(News.Id);
+	}
+	foreach (News in _SpaceNews) {
+		// Check that the news was not already in the profile news
+		if (!ProfileNewsIds.exists(News.Id)) {
+			if (NewsToSort.existskey(News.Priority)) {
+				NewsToSort[News.Priority].add(News);
+			} else {
+				NewsToSort[News.Priority] = [News];
+			}
+		}
+	}
+
+	NewsToSort = NewsToSort.sortkey();
+	foreach (NewsAtPriority in NewsToSort) {
+		foreach (News in NewsAtPriority) {
+			State.News.add(News);
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the news loading state
+K_State Mutation_SetNewsLoadingState(K_State _State, Integer _NewsLoadingState) {
+	declare K_State State = _State;
+	State.NewsLoadingState = _NewsLoadingState;
+	Store::SendEvent(C_StoreId, C_Event_NewsLoadingUpdate, [""^State.NewsLoadingState]);
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the news are loading
+Boolean Private_AreNewsLoading(K_NewsLoading _NewsLoading) {
+	return (
+		Task::IsInitialized(_NewsLoading.Task_GetProfileNewsList) ||
+		Task::IsInitialized(_NewsLoading.Task_GetSpaceNewsList) ||
+		Http::IsInitialized(_NewsLoading.Request_GetSplashscreenNewsList)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Preload the news
+K_State Action_LoadNews(K_State _State) {
+	declare K_State State = _State;
+
+	declare Text Language = "";
+	declare Text ZoneId = "";
+
+	if (LocalUser != Null) {
+		Language = LocalUser.Language;
+		if (LocalUser.ZoneIdPath.count > 0) {
+			ZoneId = LocalUser.ZoneIdPath[-1];
+		}
+	}
+
+	G_NewsLoading.Task_GetProfileNewsList = Task::DestroyAndCreate(
+		G_NewsLoading.Task_GetProfileNewsList,
+		UserMgr, UserMgr.News_GetProfileNewsList(MainUser::GetMainUserId())
+	);
+	G_NewsLoading.Task_GetSpaceNewsList = Task::DestroyAndCreate(
+		G_NewsLoading.Task_GetSpaceNewsList,
+		UserMgr, UserMgr.News_GetSpaceNewsList(MainUser::GetMainUserId())
+	);
+	G_NewsLoading.Request_GetSplashscreenNewsList = Http::DestroyAndCreate(
+		Http,
+		G_NewsLoading.Request_GetSplashscreenNewsList,
+		SplashscreenAPI::Request_GetNewsList(Http, Private_GetGameSubscriptionPlan(This), Language, ZoneId)
+	);
+	G_NewsLoading.IsLoading = Private_AreNewsLoading(G_NewsLoading);
+	G_NewsLoading.IsSuccess = False;
+	G_NewsLoading.ProfileNews = [];
+	G_NewsLoading.SpaceNews = [];
+	G_NewsLoading.SplashscreenNews = [];
+
+	if (G_NewsLoading.IsLoading) {
+		State = Mutation_SetNewsLoadingState(State, C_NewsLoadingState_Loading);
+	} else {
+		State = Mutation_SetNewsLoadingState(State, C_NewsLoadingState_Error);
+	}
+
+	return State;
+}
+Void Action_LoadNews() {
+	declare K_State Trackmania_NewsStore_State for System = C_State_Null;
+	Trackmania_NewsStore_State = Action_LoadNews(Trackmania_NewsStore_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the news filtered with some constraints
+NewsStruct::LibNewsStruct_K_News[] GetNews(Text _Placement, Integer _Amount) {
+	declare K_State Trackmania_NewsStore_State for System = C_State_Null;
+
+	// Return all news if we are using the default filter values
+	if (_Placement == NewsStruct::C_Placement_Null && _Amount <= 0) return Trackmania_NewsStore_State.News;
+
+	declare NewsStruct::LibNewsStruct_K_News[] FilteredNews;
+	foreach (News in Trackmania_NewsStore_State.News) {
+		if (_Placement == NewsStruct::C_Placement_Null || News.Placement == _Placement) {
+			FilteredNews.add(News);
+			if (_Amount > 0 && FilteredNews.count >= _Amount) break;
+		}
+	}
+
+	return FilteredNews;
+}
+NewsStruct::LibNewsStruct_K_News[] GetNews(Text _Placement) {
+	return GetNews(_Placement, -1);
+}
+NewsStruct::LibNewsStruct_K_News[] GetNews() {
+	return GetNews(NewsStruct::C_Placement_Null);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the News store
+Void Initialize(Boolean _ResetData) {
+	// Reset news loading
+	G_NewsLoading.Task_GetProfileNewsList = Task::DestroyIfInitialized(G_NewsLoading.Task_GetProfileNewsList);
+	G_NewsLoading.Task_GetSpaceNewsList = Task::DestroyIfInitialized(G_NewsLoading.Task_GetSpaceNewsList);
+	G_NewsLoading.Request_GetSplashscreenNewsList = Http::DestroyIfInitialized(Http, G_NewsLoading.Request_GetSplashscreenNewsList);
+	G_NewsLoading = K_NewsLoading {};
+
+	// Initialize state
+	declare K_State Trackmania_NewsStore_State for System = C_State_Null;
+	if (_ResetData) {
+		Trackmania_NewsStore_State = K_State {
+			News = [],
+			NewsLoadingState = C_NewsLoadingState_Unloaded
+		};
+	} else if (Trackmania_NewsStore_State.News.count <= 0) {
+		Trackmania_NewsStore_State.NewsLoadingState = C_NewsLoadingState_Unloaded;
+	} else {
+		Trackmania_NewsStore_State.NewsLoadingState = C_NewsLoadingState_Loaded;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process event
+Void ProcessEvent(CManiaAppEvent _Event) {
+	switch (_Event.Type) {
+		case CManiaAppEvent::EType::LayerCustomEvent: {
+			switch (_Event.CustomEventType) {
+				case C_Action_LoadNews: {
+					Action_LoadNews();
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process events
+Void ProcessEvents(CNod _Context) {
+	switchtype (_Context as Context) {
+		case CManiaAppTitle: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+		case CManiaAppPlayground: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the Event store
+Void Yield() {
+	// Process news loading
+	if (G_NewsLoading.IsLoading) {
+		if (Task::IsInitialized(G_NewsLoading.Task_GetProfileNewsList)) {
+			G_NewsLoading.Task_GetProfileNewsList = Task::Update(G_NewsLoading.Task_GetProfileNewsList);
+			if (!Task::IsRunning(G_NewsLoading.Task_GetProfileNewsList)) {
+				declare CTaskResult_UserNewsList SourceTask = Task::GetSourceTask_UserNewsList(G_NewsLoading.Task_GetProfileNewsList);
+				if (Task::IsSuccess(G_NewsLoading.Task_GetProfileNewsList) && SourceTask != Null) {
+					G_NewsLoading.IsSuccess = True;
+					foreach (News in SourceTask.NewsList) {
+						G_NewsLoading.ProfileNews.add(NewsStruct::CreateNewsFromCNews(News));
+					}
+				}
+				G_NewsLoading.Task_GetProfileNewsList = Task::Destroy(G_NewsLoading.Task_GetProfileNewsList);
+				G_NewsLoading.IsLoading = Private_AreNewsLoading(G_NewsLoading);
+			}
+		}
+		if (Task::IsInitialized(G_NewsLoading.Task_GetSpaceNewsList)) {
+			G_NewsLoading.Task_GetSpaceNewsList = Task::Update(G_NewsLoading.Task_GetSpaceNewsList);
+			if (!Task::IsRunning(G_NewsLoading.Task_GetSpaceNewsList)) {
+				declare CTaskResult_UserNewsList SourceTask = Task::GetSourceTask_UserNewsList(G_NewsLoading.Task_GetSpaceNewsList);
+				if (Task::IsSuccess(G_NewsLoading.Task_GetSpaceNewsList) && SourceTask != Null) {
+					G_NewsLoading.IsSuccess = True;
+					foreach (News in SourceTask.NewsList) {
+						G_NewsLoading.SpaceNews.add(NewsStruct::CreateNewsFromCNews(News));
+					}
+				}
+				G_NewsLoading.Task_GetSpaceNewsList = Task::Destroy(G_NewsLoading.Task_GetSpaceNewsList);
+				G_NewsLoading.IsLoading = Private_AreNewsLoading(G_NewsLoading);
+			}
+		}
+		if (Http::IsInitialized(G_NewsLoading.Request_GetSplashscreenNewsList)) {
+			G_NewsLoading.Request_GetSplashscreenNewsList = Http::Update(Http, G_NewsLoading.Request_GetSplashscreenNewsList);
+			if (!Http::IsRunning(G_NewsLoading.Request_GetSplashscreenNewsList)) {
+				if (Http::IsSuccess(G_NewsLoading.Request_GetSplashscreenNewsList)) {
+					for (News in SplashscreenAPI::Response_GetNewsList(G_NewsLoading.Request_GetSplashscreenNewsList)) {
+						G_NewsLoading.SplashscreenNews.add(NewsStruct::CreateNewsFromSplashscreenNews(News));
+					}
+				}
+				G_NewsLoading.Request_GetSplashscreenNewsList = Http::Destroy(Http, G_NewsLoading.Request_GetSplashscreenNewsList);
+				G_NewsLoading.IsLoading = Private_AreNewsLoading(G_NewsLoading);
+			}
+		}
+		// News finished loading
+		if (!G_NewsLoading.IsLoading) {
+			declare K_State Trackmania_NewsStore_State for System = C_State_Null;
+			Trackmania_NewsStore_State = Mutation_SetNews(Trackmania_NewsStore_State, G_NewsLoading.ProfileNews, G_NewsLoading.SpaceNews, G_NewsLoading.SplashscreenNews);
+			// If only one of the request failed, we consider the loading a success
+			if (G_NewsLoading.IsSuccess) {
+				Trackmania_NewsStore_State = Mutation_SetNewsLoadingState(Trackmania_NewsStore_State, C_NewsLoadingState_Loaded);
+			} else {
+				Trackmania_NewsStore_State = Mutation_SetNewsLoadingState(Trackmania_NewsStore_State, C_NewsLoadingState_Error);
+			}
+		}
+	}
+
+	ProcessEvents(This);
+}

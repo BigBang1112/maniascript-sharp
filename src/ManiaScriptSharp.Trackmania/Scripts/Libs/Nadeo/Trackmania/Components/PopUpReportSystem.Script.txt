@@ -1,0 +1,951 @@
+/**
+ *	Component: PopUpReportSystem
+ *	===========================
+ *
+ *	Confluence : https://confluence.ubisoft.com/display/Nadeo/Report+System
+ *
+ *	Info
+ *	----
+ *
+ *	Pop up used to report players or UGC content
+ *
+ *
+ *	Examples of initialization
+ *	----------
+ *
+ * {{{PopUpReportSystem::P}}}SetReportTargetsData(
+ *	This,
+ *	Frame_PopUpReportSystem,
+ *	[
+ *	ReportStruct::C_ReportTarget_Player => ReportStruct::LibStructuresReport_K_ReportData {
+ *		Details = ["PlayerA"],
+ *		Ids = ["IdOfPlayerA"],
+ *		Contexts = [["ChatMessage" => "Unicorns don't exist!"]]
+ *	},
+ *	ReportStruct::C_ReportTarget_Record => ReportStruct::LibStructuresReport_K_ReportData {
+ *		Details = ["PlayerA"],
+ *		Ids = ["IdOfPlayerA:SeasonUid:MapUid"],
+ *		Contexts = [[]]
+ *	},
+ *	ReportStruct::C_ReportTarget_Club =>  ReportStruct::LibStructuresReport_K_ReportData {
+ *		Details = ["Test Club", "Burger Quizz"],
+ *		Ids = ["ClubId1", "ClubId2"],
+ *		Contexts = [[], []]
+ *	},
+ *	ReportStruct::C_ReportTarget_Activity =>  ReportStruct::LibStructuresReport_K_ReportData {
+ *		Details = ["Ourge", "Plus de crouqs"],
+ *		Ids = ["ActivityId1 ", "ActivityId2"],
+ *		Contexts = [[], []]
+ *	},
+ *	ReportStruct::C_ReportTarget_Track =>  ReportStruct::LibStructuresReport_K_ReportData {
+ *		Details = ["Fall 2022 01", "Track for bacon lovers"],
+ *		Ids = ["MapUid1", "MapUid2"],
+ *		Contexts = [[], []]
+ *	}
+ *	]
+ * );
+ *
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Components/PopUpReportSystem.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/TextToSpeech.Script.txt" as TextToSpeech
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButtonBase.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton_Trackmania
+#Include "Libs/Nadeo/Trackmania/Components/PopUpBackground2.Script.txt" as PopUpBackground
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/ButtonIcon2.Script.txt" as ButtonIcon
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Components/FormSelect.Script.txt" as FormSelect
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/Trackmania/Structures/ReportStruct.Script.txt" as ReportStruct
+#Include "Libs/Nadeo/Trackmania/API/ReportAPI.Script.txt" as ReportAPI
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ControllerInfo_ML.Script.txt" as ControllerInfo
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Controls {
+	CMlFrame Frame_Global;
+	CMlLabel Label_FirstChoice;
+	CMlFrame FormSelect_ReportTarget;
+	CMlLabel Label_SecondChoice;
+	CMlFrame FormSelect_ReportDetails;
+	CMlLabel Label_ThirdChoice;
+	CMlFrame FormSelect_ReportReason;
+	CMlFrame Button_Back;
+	CMlFrame Button_Report;
+	CMlFrame ButtonIcon_Report;
+	CMlLabel Label_ReportStatus;
+	CMlFrame Frame_LoadingSpinner;
+}
+
+#Struct K_PopUpReportSystem {
+	Boolean IsPopUpReportSystem;
+	K_Controls Controls;
+	Integer CurrentStep;
+	Integer CurrentTargetType;
+	Integer CurrentTargetDetailIndex;
+	Integer CurrentTargetReasonIndex;
+	ReportStruct::LibStructuresReport_K_ReportData[Integer] ReportData; //< indexed by the target type
+	Integer[Integer] FirstChoicesIndexesToTargetTypes;
+	Text[] FirstChoices;
+	Text[] SecondChoices;
+}
+
+#Struct K_Event {
+	Integer Type;
+}
+
+#Struct K_State {
+	K_Event[] PendingEvents;
+	CMlFrame PopUpSendingReport;
+	Http::K_Request RequestSendReport;
+	Boolean ReportStatusAvailable;
+	Boolean ReportStatusSuccess;
+	Text ReportStatusErrorCode;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_PopUpReportSystem_Null K_PopUpReportSystem {
+	IsPopUpReportSystem = False
+}
+
+#Const C_State_Null K_State {
+	PopUpSendingReport = Null,
+	RequestSendReport = Http::K_Request {
+		RequestId = NullId,
+		IsInitialized = False,
+		IsProcessing = False,
+		IsWaitingSlot = False,
+		CooldownEndTime = -1,
+		IsSuccess = False,
+		IsDestroyed = False,
+		RetryTime = -1,
+		RetryNb = 0,
+		RetryInterval = -1,
+		Result = "",
+		StatusCode = -1,
+		Url = "",
+		Ressource = "",
+		AdditionnalHeaders = [],
+		Method = 0,
+		Metadata = []
+	},
+	ReportStatusAvailable = False,
+	ReportStatusSuccess = False,
+	ReportStatusErrorCode = ""
+}
+
+#Const C_Name "component-popupreportsystem" //< Component name
+#Const C_NavGroupName "navgroup-pop-up-report-system"
+#Const P "ComponentPopUpReportSystem::" //< Prefix used to differentiate functions/variables in the script
+#Const Q "ComponentPopUpReportSystem"
+
+#Const C_Step_FirstChoice 0
+#Const C_Step_SecondChoice 1
+#Const C_Step_ThirdChoice 2
+#Const C_Step_ChoicesCompleted 3
+#Const C_Step_ReportRequestSend 4
+
+//L16N [Report System] Title of the report pop up
+#Const C_Text_Title _("|Title|Report")
+//L16N [Report System] Button to send the report, use an infinitive verb if possible
+#Const C_Text_Report _("|Verb|Report")
+//L16N [Report System] Button to go to the previous step
+#Const C_Text_Back _("Back")
+//L16N [Report System] Button to quit the pop up
+#Const C_Text_Quit _("Quit")
+//L16N [Report System] First choice of the report pop up to select the report target (example : a club, a track, a player, etc...)
+#Const C_Text_FirstChoice _("What do you want to report?")
+//L16N [Report System] Depending on the previous choice of the report, select the report reason (example : "Personal threats" for a player or "Racist UGC" of a club)
+#Const C_Text_ThirdChoice _("What is the reason of your report?")
+//L16N [Report System] Message displayed when the report was succesfully sent
+#Const C_Text_ReportSend _("Your report has been sent, it will be reviewed by our team.")
+//L16N [Report System] Message displayed when the report cannot be sent currently, %1 will be replaced by an error code, e.g "Your report cannot be sent (Error Code : C45-512)"
+#Const C_Text_ReportFailed _("Your report cannot be sent (Error Code : %1)")
+
+#Const C_Class_TextExtraBold "trackmania-pop-up-report-system_text-extra-bold"
+#Const C_Class_TextSemiBold "trackmania-pop-up-report-system_text-semi-bold"
+
+#Const C_Class_PopUpReportSystem "trackmania-pop-up-report-system_popupreportsystem" //< Component class
+#Const C_Class_Navigation "trackmania-pop-up-report-system_navigation"
+#Const C_NavContainer "trackmania-pop-up-report-system_navigation-container"
+#Const C_Id_FrameGlobal "trackmania-pop-up-report-system_frame-global"
+#Const C_Id_FrameBackground "trackmania-pop-up-report-system_frame-background"
+#Const C_Id_LabelTitle "trackmania-pop-up-report-system_label-title"
+#Const C_Id_LabelFirstChoice "trackmania-pop-up-report-system_label-first-choice"
+#Const C_Id_FormSelect_ReportTarget "trackmania-pop-up-report-system_frame-select-report-target"
+#Const C_Id_LabelSecondChoice "trackmania-pop-up-report-system_label-second-choice"
+#Const C_Id_FormSelect_ReportDetails "trackmania-pop-up-report-system_frame-select-report-details"
+#Const C_Id_LabelThirdChoice "trackmania-pop-up-report-system_label-third-choice"
+#Const C_Id_FormSelect_ReportReason "trackmania-pop-up-report-system_frame-select-report-reason"
+#Const C_Id_Button_Back "trackmania-pop-up-report-system_button-back"
+#Const C_Id_ButtonIcon_Back "trackmania-pop-up-report-system_button-icon-back"
+#Const C_Id_LabelReportStatus "trackmania-pop-up-report-system_label-report-status"
+#Const C_Id_Button_Report "trackmania-pop-up-report-system_button-report"
+#Const C_Id_ButtonIcon_Report "trackmania-pop-up-report-system_button-icon-report"
+#Const C_Id_FrameLoadingSpinner "trackmania-pop-up-report-system_frame-loading-spinner"
+
+#Const C_EventType_Open 0
+#Const C_EventType_Close 1
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetManialink() {
+	declare Vec2 Size_FormSelect = <90., 11.>;
+
+	return """
+<stylesheet>
+	<style class="{{{C_Class_TextSemiBold}}}" halign="left" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textsize="4" textprefix="$i$t" textcolor="FFFFFF"/>
+	<style class="{{{C_Class_TextExtraBold}}}" halign="left" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textsize="13" textprefix="$i$t" textcolor="FFFFFF"/>
+</stylesheet>
+
+<!-- Frame global -->
+<frame id="{{{C_Id_FrameGlobal}}}" class="{{{C_Class_PopUpReportSystem}}}">
+	<frame z-index="1" id="{{{C_NavContainer}}}" class="{{{Navigation::C_Class_Container}}}">
+		<frameinstance id="{{{C_Id_FrameBackground}}}" modelid="{{{PopUpBackground::C_Name}}}" z-index="-1"/>
+		<label id="{{{C_Id_LabelTitle}}}" pos="{{{MLHelpers::Skew(-126.5, 61.5, 10.)}}}" size="150 20" class="{{{C_Class_TextExtraBold}}}" text="{{{C_Text_Title}}}" z-index="1"/>
+		<label id="{{{C_Id_LabelFirstChoice}}}" pos="{{{MLHelpers::Skew(-125.5, 51., 10.)}}}" size="150 10" class="{{{C_Class_TextSemiBold}}}" text="{{{C_Text_FirstChoice}}}" z-index="1"/>
+
+		<!-- Drop down menu for report target -->
+		<frameinstance
+			id="{{{C_Id_FormSelect_ReportTarget}}}" pos="{{{MLHelpers::Skew(-122.5, 39., 10.)}}}"
+			modelid="{{{FormSelect::C_Name}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-size="{{{Size_FormSelect.X}}} {{{Size_FormSelect.Y}}}"
+			data-scale-options="1"
+			data-fontname="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}"
+			data-color-background="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-color-text="FFF"
+			data-custom-navigation="1"
+			data-text-center="1"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;cancel"
+			data-nav-targets="_;_"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{FormSelect::C_NavZone}}}"
+		/>
+
+		<!-- Drop down menu for report details -->
+		<label id="{{{C_Id_LabelSecondChoice}}}" pos="{{{MLHelpers::Skew(-125., 18., 10.)}}}" size="150 10" class="{{{C_Class_TextSemiBold}}}" z-index="1"/>
+		<frameinstance
+			id="{{{C_Id_FormSelect_ReportDetails}}}" pos="{{{MLHelpers::Skew(-122., 6., 10.)}}}"
+			modelid="{{{FormSelect::C_Name}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-size="{{{Size_FormSelect.X}}} {{{Size_FormSelect.Y}}}"
+			data-scale-options="1"
+			data-fontname="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}"
+			data-color-background="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-color-text="FFF"
+			data-custom-navigation="1"
+			data-text-center="1"
+			data-halign="center" data-valign="center"
+			data-nav-inputs="select;cancel"
+			data-nav-targets="_;_"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{FormSelect::C_NavZone}}}"
+		/>
+
+			<!-- Drop down menu for report reason -->
+			<label id="{{{C_Id_LabelThirdChoice}}}" pos="{{{MLHelpers::Skew(-124., -20., 10.)}}}" size="150 10" class="{{{C_Class_TextSemiBold}}}" text="{{{C_Text_ThirdChoice}}}" z-index="1"/>
+			<frameinstance
+				id="{{{C_Id_FormSelect_ReportReason}}}" pos="{{{MLHelpers::Skew(-121., -32., 10.)}}}"
+				modelid="{{{FormSelect::C_Name}}}"
+				class="{{{Navigation::C_Class}}}"
+				data-size="{{{Size_FormSelect.X}}} {{{Size_FormSelect.Y}}}"
+				data-scale-options="1"
+				data-fontname="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}"
+				data-color-background="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+				data-color-text="FFF"
+				data-custom-navigation="1"
+				data-text-center="1"
+				data-halign="center" data-valign="center"
+				data-nav-inputs="select;cancel"
+				data-nav-targets="_;_"
+				data-nav-group="{{{C_NavGroupName}}}"
+				data-nav-zone="{{{FormSelect::C_NavZone}}}"
+			/>
+
+		<!-- Bottom buttons -->
+		<frameinstance id="{{{C_Id_ButtonIcon_Back}}}" modelid="{{{ButtonIcon::C_Name}}}" pos="{{{MLHelpers::Skew(-125.5, -67., 10.)}}}" data-halign="right" data-size="8 8" data-bind="B" data-hideformouse="1" />
+		<frameinstance
+			id="{{{C_Id_Button_Back}}}" pos="{{{MLHelpers::Skew(-125.5, -67., 10.)}}}" z-index="2"
+			modelid="{{{ExpendableButton_Trackmania::C_Name}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-max-width="70."
+			data-text="{{{C_Text_Quit}}}"
+			data-styles="{{{ExpendableButton_Trackmania::C_Style_SizeExpendable}}} {{{ExpendableButton_Trackmania::C_Style_AlignCenter}}} {{{ExpendableButton_Trackmania::C_Style_ButtonSecondary}}}"
+			data-halign="left"
+			data-nav-inputs="select;cancel;right"
+			data-nav-targets="_;_;{{{C_Id_Button_Report}}}"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{ExpendableButton_Trackmania::C_NavZone}}}"
+		/>
+
+		<label id="{{{C_Id_LabelReportStatus}}}" hidden="1" pos="{{{MLHelpers::Skew(0., -67., 10.)}}}" halign="center" textsize="3" size="130 10" class="{{{C_Class_TextSemiBold}}}" z-index="1"/>
+
+		<frameinstance id="{{{C_Id_FrameLoadingSpinner}}}" modelid="{{{LoadingSpinner::C_Name}}}" pos="{{{MLHelpers::Skew(80., -67., 10.)}}}" scale="0.8" halign="right" valign="center"/>
+
+		<frameinstance id="{{{C_Id_ButtonIcon_Report}}}" modelid="{{{ButtonIcon::C_Name}}}" pos="{{{MLHelpers::Skew(127., -67., 10.)}}}" data-halign="left" data-size="8 8" data-bind="select" data-hideformouse="1" />
+		<frameinstance
+			id="{{{C_Id_Button_Report}}}" pos="{{{MLHelpers::Skew(127., -67., 10.)}}}" z-index="2"
+			modelid="{{{ExpendableButton_Trackmania::C_Name}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-text="{{{C_Text_Report}}}"
+			data-max-width="60."
+			data-styles="{{{ExpendableButton_Trackmania::C_Style_SizeExpendable}}} {{{ExpendableButton_Trackmania::C_Style_AlignCenter}}} {{{ExpendableButton_Trackmania::C_Style_ButtonSecondary}}}"
+			data-halign="right"
+			data-nav-inputs="select;cancel;left"
+			data-nav-targets="_;_;{{{C_Id_Button_Back}}}"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{ExpendableButton_Trackmania::C_NavZone}}}"
+			data-nav-locked="1"
+			hidden="1"
+		/>
+	</frame>
+</frame>
+""";
+}
+declare Ident G_TTSContextIdent_PopUpName;
+declare Ident G_TTSContextIdent_Step;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Check if the control is a pop-up report system
+Boolean IsPopUpReportSystem(CMlControl _Control) {
+	if (_Control == Null) return False;
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Control = C_PopUpReportSystem_Null;
+	return Trackmania_PopUpReportSystem_PopUpReportSystem.IsPopUpReportSystem;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the frame instance of this component from an inside control
+CMlFrame Private_GetPopUpReportSystemFrame(CMlControl _Control) {
+	if (_Control == Null) return Null;
+	if (_Control.HasClass(C_Class_PopUpReportSystem)) return _Control.Parent;
+
+	declare CMlFrame Frame_ParentPopUpReportSystem for _Control = Null;
+	if (Frame_ParentPopUpReportSystem != Null) return Frame_ParentPopUpReportSystem;
+
+	return Private_GetPopUpReportSystemFrame(_Control.Parent);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Handle the focus inside the pop-up
+Void Focus(CMlScript _This, CMlControl _From, CMlControl _To) {
+	if (Transition::IsInTransition(_This)) return;
+
+	if (_From != Null) {
+		Navigation::Unfocus(_This, _From);
+		if (FormSelect::IsFormSelect(_This, _From)) {
+			FormSelect::Unfocus(_This, _From.Id);
+		} else if (ExpendableButton::IsButton(_From)) {
+			ExpendableButton::Unfocus(_This, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		Navigation::Focus(_This, _To);
+		if (FormSelect::IsFormSelect(_This, _To)) {
+			FormSelect::Focus(_This, _To.Id);
+		} else if (ExpendableButton::IsButton(_To)) {
+			ExpendableButton::Focus(_This, (_To as CMlFrame));
+		}
+	}
+}
+
+CManiaApp Private_GetParentApp(CMlScript _This) {
+	switchtype (_This as Context) {
+		case CMlScriptIngame: {
+			return Context.ParentApp;
+		}
+		case CManiaAppTitleLayer: {
+			return Context.ParentApp;
+		}
+	}
+
+	return Null;
+}
+
+// Update text to speech context
+Void Private_TTSContextUpdate(CMlScript _This, CMlLabel _LabelToRead) {
+	if (_LabelToRead != Null) {
+		if (G_TTSContextIdent_Step == NullId) G_TTSContextIdent_Step = Private_GetParentApp(_This).TTS_Context_Enter(TextToSpeech::C_ContextLevel_Component + TextToSpeech::C_ContextLevel_Section);
+		Private_GetParentApp(_This).TTS_Context_Change(G_TTSContextIdent_Step, _LabelToRead);
+		Private_GetParentApp(_This).TTS_Context_Read(G_TTSContextIdent_Step);
+	} else {
+		G_TTSContextIdent_Step = Private_GetParentApp(_This).TTS_Context_Leave(G_TTSContextIdent_Step);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set and update display of the current step
+Void SetCurrentStep(CMlScript _This, CMlFrame _Frame_PopUpReportSystem, Integer _Step) {
+	assert(IsPopUpReportSystem(_Frame_PopUpReportSystem), _Frame_PopUpReportSystem.ControlId^" is not an instance of the PopUpReportSystem component.");
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+	declare K_State Trackmania_PopUpReportSystem_State for _This.Page = C_State_Null;
+
+	Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep = ML::Clamp(_Step, C_Step_FirstChoice, C_Step_ReportRequestSend);
+
+	// Update controls visibility
+	Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_SecondChoice.Visible = Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep >= C_Step_SecondChoice;
+	Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportDetails.Visible = Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep >= C_Step_SecondChoice;
+
+	Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_ThirdChoice.Visible = Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep >= C_Step_ThirdChoice;
+	Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportReason.Visible = Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep >= C_Step_ThirdChoice;
+
+	Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Report.Visible = Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep >= C_Step_ChoicesCompleted;
+	Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.ButtonIcon_Report.Visible = Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep >= C_Step_ChoicesCompleted;
+	Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_ReportStatus.Visible = Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep >= C_Step_ReportRequestSend && Trackmania_PopUpReportSystem_State.ReportStatusAvailable;
+
+	// Update FormSelect lock
+	Navigation::Lock(Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportTarget, Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep != C_Step_FirstChoice);
+	Navigation::Lock(Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportDetails, Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep != C_Step_SecondChoice);
+	Navigation::Lock(Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportReason, Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep != C_Step_ThirdChoice);
+
+	// Update bottom buttons lock and values
+	Navigation::Lock(Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Report, !Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Report.Visible);
+	if (!Platform::IsConsole(System) || Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep <= C_Step_FirstChoice) {
+		ExpendableButton::SetText(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Back, C_Text_Quit);
+	} else {
+		ExpendableButton::SetText(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Back, C_Text_Back);
+	}
+
+	// Update UI specifically to CurrentStep
+	switch (Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep) {
+		case C_Step_FirstChoice: {
+			Private_TTSContextUpdate(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_FirstChoice);
+			FormSelect::DisplayOptions(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportTarget.Id, True);
+			Focus(_This, Navigation::GetFocusedControl(_This, C_NavGroupName), Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportTarget);
+		}
+		case C_Step_SecondChoice: {
+			Private_TTSContextUpdate(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_SecondChoice);
+			FormSelect::DisplayOptions(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportDetails.Id, True);
+			Focus(_This, Navigation::GetFocusedControl(_This, C_NavGroupName), Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportDetails);
+		}
+		case C_Step_ThirdChoice: {
+			Private_TTSContextUpdate(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_ThirdChoice);
+			FormSelect::DisplayOptions(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportReason.Id, True);
+			Focus(_This, Navigation::GetFocusedControl(_This, C_NavGroupName), Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportReason);
+		}
+		case C_Step_ChoicesCompleted: {
+			ExpendableButton::SetText(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Report, C_Text_Report);
+			Focus(_This, Navigation::GetFocusedControl(_This, C_NavGroupName), Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Report);
+			Private_TTSContextUpdate(_This, Null);
+		}
+		case C_Step_ReportRequestSend: {
+			LoadingSpinner::SetIsLoading(
+				_This,
+				Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Frame_LoadingSpinner,
+				Http::IsRunning(Trackmania_PopUpReportSystem_State.RequestSendReport)
+			);
+			if (Trackmania_PopUpReportSystem_State.ReportStatusAvailable) {
+				if (Trackmania_PopUpReportSystem_State.ReportStatusSuccess) {
+					Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_ReportStatus.Value = C_Text_ReportSend;
+					Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_ReportStatus.TextColor = <1., 1., 1.>;
+					ExpendableButton::SetText(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Report, _("Ok"));
+					ExpendableButton::TTS_Focus(Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Report);
+				} else {
+					Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_ReportStatus.Value = TL::Compose(C_Text_ReportFailed, Trackmania_PopUpReportSystem_State.ReportStatusErrorCode);
+					Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_ReportStatus.TextColor = Stylesheet::GetColorRGB(Stylesheet::C_Color_TextError);
+				}
+				Tools::FitLabelValue(Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_ReportStatus, 3., 2., 0.25);
+				Private_TTSContextUpdate(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_ReportStatus);
+			} else {
+				Private_TTSContextUpdate(_This, Null);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Update display of the current step
+Void UpdateCurrentStep(CMlScript _This, CMlFrame _Frame_PopUpReportSystem) {
+	assert(IsPopUpReportSystem(_Frame_PopUpReportSystem), _Frame_PopUpReportSystem.ControlId^" is not an instance of the PopUpReportSystem component.");
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+
+	SetCurrentStep(_This, _Frame_PopUpReportSystem, Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep);
+}
+
+Text GetTranslatedTargetName(Integer _TargetType) {
+	declare Text[Integer] TargetDisplayNames = ReportStruct::C_ReportTargets_DisplayNames;
+	return TargetDisplayNames.get(_TargetType, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/* Set the possible report targets data (details and contexts for each target type)
+
+ /!\ CAREFUL in the struct ReportStruct::LibStructuresReport_K_ReportData : Details, Ids and Contexts must be indexed in the same order /!\
+Example : if there is two players to report and Details is [PlayerA, PlayerB] the Ids must be [IdOfPlayerA, IdOfPlayerB] and Contexts [[Context on PlayerA], [Context on PlayerB]]
+
+The Details will be displayed in second choices list
+The Ids will be sent to API, if there is more than one id (for player record) they must follow this order and separators "PlayerAccountId:SeasonUid:MapUid"
+The Contexts will be sent to API, they are an array of text indexed by text (to be converted in json)
+
+See examples in the documentation header */
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void SetReportTargetsData(CMlScript _This, CMlFrame _Frame_PopUpReportSystem, ReportStruct::LibStructuresReport_K_ReportData[Integer] _TargetsData) {
+	assert(IsPopUpReportSystem(_Frame_PopUpReportSystem), _Frame_PopUpReportSystem.ControlId^" is not an instance of the PopUpReportSystem component.");
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+
+	Trackmania_PopUpReportSystem_PopUpReportSystem.FirstChoices.clear();
+	Trackmania_PopUpReportSystem_PopUpReportSystem.SecondChoices.clear();
+
+	Trackmania_PopUpReportSystem_PopUpReportSystem.FirstChoicesIndexesToTargetTypes = [];
+	declare Integer I = 0;
+	foreach (TargetType => Data in _TargetsData) {
+		declare Text Target = GetTranslatedTargetName(TargetType);
+		if (Target != "")	{
+			Trackmania_PopUpReportSystem_PopUpReportSystem.ReportData[TargetType] = ReportStruct::LibStructuresReport_K_ReportData {
+				Details = Data.Details,
+				Ids = Data.Ids,
+				Contexts = Data.Contexts
+			};
+			Trackmania_PopUpReportSystem_PopUpReportSystem.FirstChoicesIndexesToTargetTypes[I] = TargetType;
+			Trackmania_PopUpReportSystem_PopUpReportSystem.FirstChoices.add(Target);
+			I += 1;
+		}
+	}
+
+	FormSelect::SetOptions(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportTarget.Id, Trackmania_PopUpReportSystem_PopUpReportSystem.FirstChoices);
+	FormSelect::SetOptions(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportDetails.Id, Trackmania_PopUpReportSystem_PopUpReportSystem.SecondChoices);
+	FormSelect::SetOptions(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportReason.Id, []);
+}
+
+Text GetTargetedDetailsQuestion(Integer _TargetType) {
+	declare Text[Integer] DetailsQuestions = ReportStruct::C_ReportTargets_DetailsQuestions;
+	return DetailsQuestions.get(_TargetType, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set current target type after player first choice selection
+Void Private_SetCurrentTargetType(CMlScript _This, CMlFrame _Frame_PopUpReportSystem, Integer _ChoiceIndex) {
+	assert(IsPopUpReportSystem(_Frame_PopUpReportSystem), _Frame_PopUpReportSystem.ControlId^" is not an instance of the PopUpReportSystem component.");
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+
+	// Set the current target type
+	Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType = Trackmania_PopUpReportSystem_PopUpReportSystem.FirstChoicesIndexesToTargetTypes.get(_ChoiceIndex, 0);
+
+	// Update second choices in consequence
+	Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Label_SecondChoice.Value = GetTargetedDetailsQuestion(Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType);
+	Trackmania_PopUpReportSystem_PopUpReportSystem.SecondChoices.clear();
+	if (Trackmania_PopUpReportSystem_PopUpReportSystem.ReportData.existskey(Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType)) {
+		foreach (Detail in Trackmania_PopUpReportSystem_PopUpReportSystem.ReportData[Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType].Details) {
+			Trackmania_PopUpReportSystem_PopUpReportSystem.SecondChoices.add(Detail);
+		}
+	}
+	FormSelect::SetOptions(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportDetails.Id, Trackmania_PopUpReportSystem_PopUpReportSystem.SecondChoices);
+
+	// Update third choices in consequence
+	declare Text[Integer] ReasonDisplayNames;
+	if (Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType == ReportStruct::C_ReportTarget_Player) {
+		ReasonDisplayNames = ReportStruct::C_ReportTypes_Player_DisplayNames;
+	} else if (
+		Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType == ReportStruct::C_ReportTarget_PlayerName ||
+		Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType == ReportStruct::C_ReportTarget_ClubTag ||
+		Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType == ReportStruct::C_ReportTarget_Skin
+	) {
+		ReasonDisplayNames = ReportStruct::C_ReportTypes_PlayerAttributes_DisplayNames;
+	} else if (Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType == ReportStruct::C_ReportTarget_Record) {
+		ReasonDisplayNames = ReportStruct::C_ReportTypes_Record_DisplayNames;
+	} else {
+		ReasonDisplayNames = ReportStruct::C_ReportTypes_UGC_DisplayNames;
+	}
+	FormSelect::SetOptions(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportReason.Id, ReasonDisplayNames);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set current target details index after player second choice selection
+Void Private_SetCurrentTargetDetailIndex(CMlFrame _Frame_PopUpReportSystem, Integer _ChoiceIndex) {
+	assert(IsPopUpReportSystem(_Frame_PopUpReportSystem), _Frame_PopUpReportSystem.ControlId^" is not an instance of the PopUpReportSystem component.");
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+
+	// Set the current target details index
+	Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetDetailIndex = _ChoiceIndex;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set current target reason index after player third choice selection
+Void Private_SetCurrentTargetReasonIndex(CMlFrame _Frame_PopUpReportSystem, Integer _ChoiceIndex) {
+	assert(IsPopUpReportSystem(_Frame_PopUpReportSystem), _Frame_PopUpReportSystem.ControlId^" is not an instance of the PopUpReportSystem component.");
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+
+	// Set the current target reason index
+	Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetReasonIndex = _ChoiceIndex;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set step to display when opening the pop-up, depending on choices possibles
+Void Private_SetStepToDisplay(CMlScript _This, CMlFrame _Frame_PopUpReportSystem) {
+	assert(IsPopUpReportSystem(_Frame_PopUpReportSystem), _Frame_PopUpReportSystem.ControlId^" is not an instance of the PopUpReportSystem component.");
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+
+	if (Trackmania_PopUpReportSystem_PopUpReportSystem.FirstChoices.count == 1) {
+		FormSelect::Select(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportTarget.Id, 0);
+		Private_SetCurrentTargetType(_This, _Frame_PopUpReportSystem, 0);
+		SetCurrentStep(_This, _Frame_PopUpReportSystem, C_Step_SecondChoice);
+		if (Trackmania_PopUpReportSystem_PopUpReportSystem.SecondChoices.count == 1) {
+			FormSelect::Select(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.FormSelect_ReportDetails.Id, 0);
+			Private_SetCurrentTargetDetailIndex(_Frame_PopUpReportSystem, 0);
+			SetCurrentStep(_This, _Frame_PopUpReportSystem, C_Step_ThirdChoice);
+		}
+	} else {
+		SetCurrentStep(_This, _Frame_PopUpReportSystem, C_Step_FirstChoice);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Display or hide the pop-up
+Void Display(CMlScript _This, CMlFrame _Frame_PopUpReportSystem, Boolean _Display) {
+	assert(IsPopUpReportSystem(_Frame_PopUpReportSystem), _Frame_PopUpReportSystem.ControlId^" is not an instance of the PopUpReportSystem component.");
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+	declare K_State Trackmania_PopUpReportSystem_State for _This.Page = C_State_Null;
+
+	if (_Display) {
+		G_TTSContextIdent_PopUpName = Private_GetParentApp(_This).TTS_Context_Enter(TextToSpeech::C_ContextLevel_Component + TextToSpeech::C_ContextLevel_Page);
+		Private_GetParentApp(_This).TTS_Context_Change(G_TTSContextIdent_PopUpName, C_Text_Title, True);
+		Trackmania_PopUpReportSystem_State = C_State_Null;
+		Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Frame_Global.Visible = True;
+		ExpendableButton::SetText(_This, Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Report, C_Text_Report);
+		Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Frame_LoadingSpinner.RelativePosition_V3.X = Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Report.RelativePosition_V3.X - ExpendableButton::GetWidth(Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Button_Report) - 10.;
+		Navigation::EnableGroup(_This, C_NavGroupName, True);
+		Private_SetStepToDisplay(_This, _Frame_PopUpReportSystem);
+		ControllerInfo::SetButtons(["A" => _("Select"), "B" => _("Back")]);
+		Trackmania_PopUpReportSystem_State.PendingEvents.add(K_Event {
+			Type = C_EventType_Open
+		});
+	} else {
+		if (!Http::IsRunning(Trackmania_PopUpReportSystem_State.RequestSendReport)) {
+			G_TTSContextIdent_PopUpName = Private_GetParentApp(_This).TTS_Context_Leave(G_TTSContextIdent_PopUpName);
+			G_TTSContextIdent_Step = Private_GetParentApp(_This).TTS_Context_Leave(G_TTSContextIdent_Step);
+			Trackmania_PopUpReportSystem_State = C_State_Null;
+			Trackmania_PopUpReportSystem_PopUpReportSystem.Controls.Frame_Global.Visible = False;
+			Navigation::EnableGroup(_This, C_NavGroupName, False);
+			Trackmania_PopUpReportSystem_State.PendingEvents.add(K_Event {
+				Type = C_EventType_Close
+			});
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Close the pop-up even if a report is being sent
+Void ForceHide(CMlScript _This, CMlFrame _Frame_PopUpReportSystem) {
+	declare K_State Trackmania_PopUpReportSystem_State for _This.Page = C_State_Null;
+	if (Http::IsRunning(Trackmania_PopUpReportSystem_State.RequestSendReport)) {
+		Trackmania_PopUpReportSystem_State.RequestSendReport = Http::Destroy(Trackmania_PopUpReportSystem_State.RequestSendReport);
+	}
+	Display(_This, _Frame_PopUpReportSystem, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Go back to the previous step of the pop up
+Void Cancel(CMlScript _This, CMlFrame _Frame_PopUpReportSystem, Boolean _FromBackButton) {
+	assert(IsPopUpReportSystem(_Frame_PopUpReportSystem), _Frame_PopUpReportSystem.ControlId^" is not an instance of the PopUpReportSystem component.");
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+	declare K_State Trackmania_PopUpReportSystem_State for _This.Page = C_State_Null;
+
+	if ((!_FromBackButton || Platform::IsConsole(System)) && Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep > C_Step_FirstChoice) {
+		switch (Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep) {
+			case C_Step_ChoicesCompleted: {
+				if (!Http::IsRunning(Trackmania_PopUpReportSystem_State.RequestSendReport)) {
+					SetCurrentStep(_This, _Frame_PopUpReportSystem, Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep - 1);
+				}
+			}
+			case C_Step_ReportRequestSend: {
+				if (!Http::IsRunning(Trackmania_PopUpReportSystem_State.RequestSendReport)) {
+					SetCurrentStep(_This, _Frame_PopUpReportSystem, Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep - 2);
+				}
+			}
+			default: {
+				SetCurrentStep(_This, _Frame_PopUpReportSystem, Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep - 1);
+			}
+		}
+	} else {
+		Display(_This, _Frame_PopUpReportSystem, False);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Send report to Nadeo services
+Void SendReport(CMlScript _This, CMlFrame _Frame_PopUpReportSystem) {
+	assert(IsPopUpReportSystem(_Frame_PopUpReportSystem), _Frame_PopUpReportSystem.ControlId^" is not an instance of the PopUpReportSystem component.");
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+	declare K_State Trackmania_PopUpReportSystem_State for _This.Page = C_State_Null;
+
+	declare Text ReportType = "";
+	declare Text ReportTarget = "";
+	declare Text ExternalUid = "";
+	declare Text Context = "{}"; // empty json
+
+	// Report Type
+	declare Text[Integer] ReportTypes;
+	if (
+		Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType == ReportStruct::C_ReportTarget_Player ||
+		Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType == ReportStruct::C_ReportTarget_PlayerName ||
+		Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType == ReportStruct::C_ReportTarget_ClubTag ||
+		Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType == ReportStruct::C_ReportTarget_Skin ||
+		Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType == ReportStruct::C_ReportTarget_Record
+	) {
+		ReportTypes = ReportStruct::C_ReportTypes_Player;
+	} else {
+		ReportTypes = ReportStruct::C_ReportTypes_UGC;
+	}
+	ReportType = ReportTypes.get(Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetReasonIndex, "");
+
+	// Report Target
+	declare Text[Integer] ReportTargetsAPI = ReportStruct::C_ReportTargets;
+	ReportTarget = ReportTargetsAPI.get(Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType, "");
+
+	// Faulty AccountId if player involved
+	if (Trackmania_PopUpReportSystem_PopUpReportSystem.ReportData.existskey(Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType)) {
+		declare Data = Trackmania_PopUpReportSystem_PopUpReportSystem.ReportData[Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetType];
+		if (Data.Ids.existskey(Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetDetailIndex)) {
+			ExternalUid = Data.Ids[Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetDetailIndex];
+		}
+
+		// Context
+		if (Data.Contexts.existskey(Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetDetailIndex)) {
+			Context = Data.Contexts[Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentTargetDetailIndex].tojson();
+		}
+	}
+
+	Trackmania_PopUpReportSystem_State.PopUpSendingReport = _Frame_PopUpReportSystem;
+	Trackmania_PopUpReportSystem_State.ReportStatusAvailable = False;
+	Trackmania_PopUpReportSystem_State.ReportStatusSuccess = False;
+	Trackmania_PopUpReportSystem_State.RequestSendReport = ReportAPI::PostReportCreate(
+		ReportType,
+		ReportTarget,
+		ExternalUid,
+		Context
+	);
+	UpdateCurrentStep(_This, _Frame_PopUpReportSystem);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Handle the selection inside the pop-up
+Void Select(CMlScript _This, CMlControl _Control) {
+	declare CMlFrame Frame_PopUpReportSystem = Private_GetPopUpReportSystemFrame(_Control);
+
+	if (Frame_PopUpReportSystem != Null) {
+		declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+		declare K_State Trackmania_PopUpReportSystem_State for _This.Page = C_State_Null;
+
+		switch (_Control.ControlId) {
+			case C_Id_Button_Back: Cancel(_This, Frame_PopUpReportSystem, True);
+			case C_Id_Button_Report: {
+				if (
+					Trackmania_PopUpReportSystem_PopUpReportSystem.CurrentStep == C_Step_ReportRequestSend &&
+					Trackmania_PopUpReportSystem_State.ReportStatusAvailable &&
+					Trackmania_PopUpReportSystem_State.ReportStatusSuccess
+					)
+				{
+					Display(_This, Frame_PopUpReportSystem, False);
+				} else {
+					SendReport(_This, Frame_PopUpReportSystem);
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Initialize a report system pop up
+Void InitializePopUpReportSystem(CMlFrame _Frame_PopUpReportSystem) {
+	declare K_PopUpReportSystem Trackmania_PopUpReportSystem_PopUpReportSystem for _Frame_PopUpReportSystem = C_PopUpReportSystem_Null;
+
+	Trackmania_PopUpReportSystem_PopUpReportSystem = K_PopUpReportSystem {
+		IsPopUpReportSystem = True,
+		Controls = K_Controls {
+			Frame_Global = _Frame_PopUpReportSystem,
+			Label_FirstChoice = (_Frame_PopUpReportSystem.GetFirstChild(C_Id_LabelFirstChoice) as CMlLabel),
+			FormSelect_ReportTarget = (_Frame_PopUpReportSystem.GetFirstChild(C_Id_FormSelect_ReportTarget) as CMlFrame),
+			Label_SecondChoice = (_Frame_PopUpReportSystem.GetFirstChild(C_Id_LabelSecondChoice) as CMlLabel),
+			Label_ThirdChoice = (_Frame_PopUpReportSystem.GetFirstChild(C_Id_LabelThirdChoice) as CMlLabel),
+			FormSelect_ReportDetails = (_Frame_PopUpReportSystem.GetFirstChild(C_Id_FormSelect_ReportDetails) as CMlFrame),
+			FormSelect_ReportReason = (_Frame_PopUpReportSystem.GetFirstChild(C_Id_FormSelect_ReportReason) as CMlFrame),
+			Button_Back = (_Frame_PopUpReportSystem.GetFirstChild(C_Id_Button_Back) as CMlFrame),
+			Button_Report = (_Frame_PopUpReportSystem.GetFirstChild(C_Id_Button_Report) as CMlFrame),
+			ButtonIcon_Report = (_Frame_PopUpReportSystem.GetFirstChild(C_Id_ButtonIcon_Report) as CMlFrame),
+			Label_ReportStatus = (_Frame_PopUpReportSystem.GetFirstChild(C_Id_LabelReportStatus) as CMlLabel),
+			Frame_LoadingSpinner = (_Frame_PopUpReportSystem.GetFirstChild(C_Id_FrameLoadingSpinner) as CMlFrame)
+		},
+		CurrentStep = -1,
+		CurrentTargetType = -1,
+		CurrentTargetDetailIndex = -1,
+		CurrentTargetReasonIndex = -1,
+		ReportData = [],
+		FirstChoicesIndexesToTargetTypes = [],
+		FirstChoices = [],
+		SecondChoices = []
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Initialize all report system pop up in the manialink
+Void InitializePopUpReportSystems(CMlScript _This) {
+	// The pop-up starts hidden, so navigation should be disabled
+	Navigation::EnableGroup(_This, C_NavGroupName, False);
+	_This.Page.GetClassChildren(C_Class_PopUpReportSystem, _This.Page.MainFrame, True);
+	declare CMlControl[] PageClassChildrenControls = _This.Page.GetClassChildren_Result;
+	foreach (Control in PageClassChildrenControls) {
+		InitializePopUpReportSystem((Control as CMlFrame).Parent);
+	}
+}
+
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State Trackmania_PopUpReportSystem_State for _This.Page = C_State_Null;
+	return Trackmania_PopUpReportSystem_State.PendingEvents;
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State Trackmania_PopUpReportSystem_State for _This.Page = C_State_Null;
+	Trackmania_PopUpReportSystem_State = C_State_Null;
+}
+
+Void MainStart(CMlScript _This) {
+	InitializePopUpReportSystems(_This);
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State Trackmania_PopUpReportSystem_State for _This.Page = C_State_Null;
+	Trackmania_PopUpReportSystem_State.PendingEvents = [];
+
+	/* Send Report request */
+	if (Http::IsInitialized(Trackmania_PopUpReportSystem_State.RequestSendReport)) {
+		Trackmania_PopUpReportSystem_State.RequestSendReport = Http::Update(Trackmania_PopUpReportSystem_State.RequestSendReport);
+		Trackmania_PopUpReportSystem_State.ReportStatusAvailable = False;
+		if (!Http::IsRunning(Trackmania_PopUpReportSystem_State.RequestSendReport)) {
+			Trackmania_PopUpReportSystem_State.ReportStatusAvailable = True;
+			if (Http::IsSuccess(Trackmania_PopUpReportSystem_State.RequestSendReport)) {
+				Trackmania_PopUpReportSystem_State.ReportStatusSuccess = True;
+			} else {
+				Trackmania_PopUpReportSystem_State.ReportStatusSuccess = False;
+				Trackmania_PopUpReportSystem_State.ReportStatusErrorCode = TL::ToText(Http::GetStatusCode(Trackmania_PopUpReportSystem_State.RequestSendReport));
+			}
+			Trackmania_PopUpReportSystem_State.RequestSendReport = Http::Destroy(Trackmania_PopUpReportSystem_State.RequestSendReport);
+			SetCurrentStep(_This, Trackmania_PopUpReportSystem_State.PopUpSendingReport, C_Step_ReportRequestSend);
+		}
+	}
+
+	/* PopUpBackground events */
+	foreach (Event in PopUpBackground::GetPendingEvents(_This)) {
+		if (Event.PopUpBackground != Null && Event.PopUpBackground.ControlId == C_Id_FrameBackground) {
+			switch (Event.Type) {
+				case PopUpBackground::C_EventType_Close: {
+					Display(_This, Private_GetPopUpReportSystemFrame(Event.PopUpBackground), False);
+				}
+			}
+		}
+	}
+
+	/* Navigation events */
+	foreach (Event in Navigation::GetPendingEvents(_This)) {
+		switch (Event.Type) {
+			case Navigation::C_EventType_NavigateInput: {
+				if (Navigation::IsEventFromGroup(_This, Event, C_NavGroupName)) {
+					switch (Event.Input) {
+						case CMlScriptEvent::EMenuNavAction::Cancel: Cancel(_This, Private_GetPopUpReportSystemFrame(Event.To), False);
+						case CMlScriptEvent::EMenuNavAction::Select: Select(_This, Event.To);
+						default: {
+							Focus(_This, Event.From, Event.To);
+						}
+					}
+				}
+			}
+			case Navigation::C_EventType_NavigateMouse: {
+				if (Navigation::IsEventFromGroup(_This, Event, C_NavGroupName)) {
+					if (Event.Mouse == CMlScriptEvent::Type::MouseClick) {
+						Select(_This, Event.To);
+					} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+						Focus(_This, Event.From, Event.To);
+					}
+				}
+			}
+		}
+	}
+
+	/* FormSelect events */
+	foreach (Event in FormSelect::GetPendingEvents(_This)) {
+		if (Event.Type == FormSelect::C_EventType_Select) {
+			declare CMlFrame Frame_PopUpReportSystem = Private_GetPopUpReportSystemFrame(Event.Select);
+			switch (Event.Select.ControlId) {
+				case C_Id_FormSelect_ReportTarget: {
+					Private_SetCurrentTargetType(_This, Frame_PopUpReportSystem, Event.SelectedIndex);
+					SetCurrentStep(_This, Frame_PopUpReportSystem, C_Step_SecondChoice);
+				}
+				case C_Id_FormSelect_ReportDetails: {
+					Private_SetCurrentTargetDetailIndex(Frame_PopUpReportSystem, Event.SelectedIndex);
+					SetCurrentStep(_This, Frame_PopUpReportSystem, C_Step_ThirdChoice);
+				}
+				case C_Id_FormSelect_ReportReason: {
+					Private_SetCurrentTargetReasonIndex(Frame_PopUpReportSystem, Event.SelectedIndex);
+					SetCurrentStep(_This, Frame_PopUpReportSystem, C_Step_ChoicesCompleted);
+				}
+			}
+		} else if (Event.Type == FormSelect::C_EventType_RequestToggle) {
+			if (
+				Event.DisplayingOptions ||
+				(!Event.DisplayingOptions && !Http::IsRunning(Trackmania_PopUpReportSystem_State.RequestSendReport))
+			) {
+				FormSelect::DisplayOptions(_This, Event.Id, !Event.DisplayingOptions);
+			}
+		}
+	}
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/Trackmania/Components/PopUpReportSystem.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[
+			ExpendableButton_Trackmania::ComponentV2(),
+			PopUpBackground::ComponentV2(),
+			LoadingSpinner::ComponentV2(),
+			ButtonIcon::ComponentV2(),
+			Navigation::ComponentV2(),
+			Transition::ComponentV2(),
+			FormSelect::ComponentV2()
+		],
+		[]
+	);
+}

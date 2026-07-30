@@ -1,0 +1,526 @@
+/**
+ *	Component: Outline
+ *	===========================
+ *
+ *	Confluence : https://confluence.ubisoft.com/display/Nadeo/Outline
+ *
+ *	Info
+ *	----
+ *
+ *	Display a colored outline
+ *
+ *	Parameters
+ *	----------
+ *
+ *	- `data-size` (`Vec2`): size of the outline
+ *	- `data-thickness` (`Real`): thickness of the outline
+ *	- `data-halign` (`Text`): horizontal alignment of the outline. Can be `left`, `center` or `right`.
+ *	- `data-valign` (`Text`): vertical alignment of the outline. Can be `top`, `center`, `center2` or `bottom`.
+ *	- `data-opacity` (`Real`): opacity of the outline
+ *	- `data-color` (`Text`): color of the outline
+ *	- `data-colorize` (`Text`): colorize color of the outline
+ *	- `data-modulatecolor` (`Text`): modulatecolor color of the outline
+ *	- `data-image` (`Text`): url of the image of the outline
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/Outline.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Properties {
+	Integer[] Dirty;
+	Vec2 Size;
+	Real Thickness;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Integer OpacityAnimDuration;
+	Real Opacity;
+	Vec3 Color;
+	Vec3 Colorize;
+	Vec3 ModulateColor;
+	Text ImageUrl;
+}
+#Struct K_Controls {
+	CMlFrame Outline_Component;
+	CMlFrame Frame_OutlineQuads;
+	CMlQuad[Integer] Quads_Outline;
+	CMlQuad Quad_OutlineImage;
+}
+#Struct K_Outline {
+	K_Controls Controls;
+	Boolean IsInitialized;
+	Boolean IsUsingImage;
+	K_Properties Properties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-cmgame-outline" // Component name
+#Const P "CMGame_Outline::" // Prefix use to differentiate functions/variables in the script
+#Const Q "CMGame_Outline"
+
+#Const C_DefaultColor <1., 1., 1.>
+#Const C_DefaultColorize <-1., -1., -1.>
+#Const C_DefaultModulateColor <1., 1., 1.>
+
+#Const C_Anim_Null -1
+#Const C_Anim_Instant 0
+
+#Const C_Class_Outline "cmgame-outline_outline"
+#Const C_Class_Outline_Quad "cmgame-outline_outline-quad"
+#Const C_Class_Outline_Image "cmgame-outline_outline-image"
+#Const C_Id_FrameOutlineQuads "cmgame-outline_frame-outline-quads"
+#Const C_Id_QuadOutlineTop "cmgame-outline_quad-outline-top"
+#Const C_Id_QuadOutlineBottom "cmgame-outline_quad-outline-bottom"
+#Const C_Id_QuadOutlineLeft "cmgame-outline_quad-outline-left"
+#Const C_Id_QuadOutlineRight "cmgame-outline_quad-outline-right"
+#Const C_Id_QuadOutlineImage "cmgame-outline_quad-outline-image"
+
+#Const C_Property_All 0
+#Const C_Property_Size 1
+#Const C_Property_Thickness 2
+#Const C_Property_HAlign 3
+#Const C_Property_VAlign 4
+#Const C_Property_Opacity 5
+#Const C_Property_Color 6
+#Const C_Property_Colorize 7
+#Const C_Property_ModulateColor 8
+#Const C_Property_ImageUrl 9
+
+#Const C_Outline_Top 0
+#Const C_Outline_Bottom 1
+#Const C_Outline_Left 2
+#Const C_Outline_Right 3
+
+#Const C_Outline_Null K_Outline {
+	Controls = K_Controls {},
+	IsInitialized = False,
+	IsUsingImage = False,
+	Properties = K_Properties {
+		Dirty = [0],
+		Size = <0., 0.>,
+		Thickness = 2.,
+		Color = <1., 1., 1.>,
+		Opacity = 1.,
+		OpacityAnimDuration = 0,
+		HAlign = CMlControl::AlignHorizontal::Left,
+		VAlign = CMlControl::AlignVertical::Top,
+		Colorize = <-1., -1., -1.>,
+		ModulateColor = <1., 1., 1.>,
+		ImageUrl = ""
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the manialink of the component
+Text GetManialink() {
+	return """
+<frame class="{{{C_Class_Outline}}}">
+	<frame id="{{{C_Id_FrameOutlineQuads}}}" z-index="1">
+		<quad id="{{{C_Id_QuadOutlineTop}}}" class="{{{C_Class_Outline_Quad}}}" />
+		<quad id="{{{C_Id_QuadOutlineBottom}}}" class="{{{C_Class_Outline_Quad}}}" />
+		<quad id="{{{C_Id_QuadOutlineLeft}}}" class="{{{C_Class_Outline_Quad}}}" />
+		<quad id="{{{C_Id_QuadOutlineRight}}}" class="{{{C_Class_Outline_Quad}}}" />
+	</frame>
+	<quad id="{{{C_Id_QuadOutlineImage}}}" class="{{{C_Class_Outline_Image}}}" z-index="2" hidden="1" />
+</frame>
+	""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check that the component is initialized
+Void Private_AssertValidComponent(CMlFrame _Frame_Outline, K_Outline _Outline) {
+	assert(_Outline.IsInitialized, "The control '"^_Frame_Outline.ControlId^_Frame_Outline.Id^"' is not a valid Outline component");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the property is dirty
+Boolean Private_IsDirty(Integer[] _Dirty, Integer _PropertyId) {
+	return (
+		_Dirty.exists(_PropertyId) ||
+		_Dirty.exists(C_Property_All)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw the component with its latest properties
+K_Outline Private_Redraw(CMlScript _This, K_Outline _Outline) {
+	declare K_Outline Outline = _Outline;
+	declare Integer AnimDuration = C_Anim_Null;
+	Outline.IsUsingImage = (Outline.Properties.ImageUrl != "");
+	declare Boolean IsUsingImageUpdated = (Outline.IsUsingImage != _Outline.IsUsingImage);
+
+	if (
+		IsUsingImageUpdated ||
+		Private_IsDirty(Outline.Properties.Dirty, C_Property_Size) ||
+		Private_IsDirty(Outline.Properties.Dirty, C_Property_Thickness)
+	) {
+		if (Outline.IsUsingImage) {
+			Outline.Controls.Quad_OutlineImage.Size = Outline.Properties.Size;
+		} else {
+			Outline.Controls.Quads_Outline[C_Outline_Top].Size = <
+				Outline.Properties.Size.X,
+				ML::Min(Outline.Properties.Thickness, Outline.Properties.Size.Y * 0.5)
+			>;
+			Outline.Controls.Quads_Outline[C_Outline_Bottom].Size = Outline.Controls.Quads_Outline[C_Outline_Top].Size;
+			Outline.Controls.Quads_Outline[C_Outline_Left].Size = <
+				ML::Min(Outline.Properties.Thickness, Outline.Properties.Size.X * 0.5),
+				ML::Max(0., Outline.Properties.Size.Y - Outline.Controls.Quads_Outline[C_Outline_Top].Size.Y - Outline.Controls.Quads_Outline[C_Outline_Bottom].Size.Y)
+			>;
+			Outline.Controls.Quads_Outline[C_Outline_Right].Size = Outline.Controls.Quads_Outline[C_Outline_Left].Size;
+			Outline.Controls.Quads_Outline[C_Outline_Bottom].RelativePosition_V3.Y = -Outline.Properties.Size.Y + Outline.Controls.Quads_Outline[C_Outline_Bottom].Size.Y;
+			Outline.Controls.Quads_Outline[C_Outline_Left].RelativePosition_V3.Y = -Outline.Controls.Quads_Outline[C_Outline_Top].Size.Y;
+			Outline.Controls.Quads_Outline[C_Outline_Right].RelativePosition_V3 = <
+				Outline.Properties.Size.X - Outline.Controls.Quads_Outline[C_Outline_Right].Size.X,
+				-Outline.Controls.Quads_Outline[C_Outline_Top].Size.Y
+			>;
+		}
+	}
+	if (Private_IsDirty(Outline.Properties.Dirty, C_Property_Color)) {
+		foreach (Quad_Outline in Outline.Controls.Quads_Outline) {
+			Quad_Outline.BgColor = Outline.Properties.Color;
+		}
+	}
+	if (
+		Private_IsDirty(Outline.Properties.Dirty, C_Property_Colorize) ||
+		Private_IsDirty(Outline.Properties.Dirty, C_Property_ModulateColor)
+	) {
+		// Applying Colorize will reset ModulateColor and applying ModulateColor will reset Colorize
+		// So we must apply only one at a time
+		if (Outline.Properties.Colorize != C_DefaultColorize) {
+			Outline.Controls.Quad_OutlineImage.Colorize = Outline.Properties.Colorize;
+		} else if (Outline.Properties.ModulateColor != C_DefaultModulateColor) {
+			Outline.Controls.Quad_OutlineImage.ModulateColor = Outline.Properties.ModulateColor;
+		} else {
+			Outline.Controls.Quad_OutlineImage.Colorize = C_DefaultColorize;
+			Outline.Controls.Quad_OutlineImage.ModulateColor = C_DefaultModulateColor;
+		}
+	}
+	if (Private_IsDirty(Outline.Properties.Dirty, C_Property_ImageUrl)) {
+		Outline.Controls.Quad_OutlineImage.ImageUrl = Outline.Properties.ImageUrl;
+		if (Outline.IsUsingImage) {
+			Outline.Controls.Frame_OutlineQuads.Visible = False;
+			Outline.Controls.Quad_OutlineImage.Visible = True;
+		} else {
+			Outline.Controls.Frame_OutlineQuads.Visible = True;
+			Outline.Controls.Quad_OutlineImage.Visible = False;
+		}
+	}
+	if (
+		IsUsingImageUpdated ||
+		Private_IsDirty(Outline.Properties.Dirty, C_Property_Opacity)
+	) {
+		if (Outline.Properties.OpacityAnimDuration > 0) {
+			AnimDuration = ML::Max(C_Anim_Instant, Outline.Properties.OpacityAnimDuration);
+		} else {
+			AnimDuration = C_Anim_Instant;
+		}
+	}
+	if (
+		Private_IsDirty(Outline.Properties.Dirty, C_Property_HAlign) ||
+		Private_IsDirty(Outline.Properties.Dirty, C_Property_VAlign)
+	) {
+		Tools::AlignFrame(
+			Outline.Controls.Frame_OutlineQuads,
+			Outline.Properties.Size,
+			Outline.Properties.HAlign,
+			Outline.Properties.VAlign
+		);
+		Outline.Controls.Quad_OutlineImage.HorizontalAlign = Outline.Properties.HAlign;
+		Outline.Controls.Quad_OutlineImage.VerticalAlign = Outline.Properties.VAlign;
+	}
+
+	if (AnimDuration == C_Anim_Instant) {
+		_This.AnimMgr.Flush(Outline.Controls.Quad_OutlineImage);
+		foreach (Quad_Outline in Outline.Controls.Quads_Outline) {
+			_This.AnimMgr.Flush(Quad_Outline);
+		}
+		Outline.Controls.Quad_OutlineImage.Opacity = Outline.Properties.Opacity;
+		foreach (Quad_Outline in Outline.Controls.Quads_Outline) {
+			Quad_Outline.Opacity = Outline.Properties.Opacity;
+		}
+	} else if (AnimDuration > C_Anim_Instant) {
+		_This.AnimMgr.Flush(Outline.Controls.Quad_OutlineImage);
+		foreach (Quad_Outline in Outline.Controls.Quads_Outline) {
+			_This.AnimMgr.Flush(Quad_Outline);
+		}
+		if (Outline.IsUsingImage) {
+			_This.AnimMgr.Add(
+				Outline.Controls.Quad_OutlineImage,
+				"""<a opacity="{{{Outline.Properties.Opacity}}}" />""",
+				AnimDuration,
+				CAnimManager::EAnimManagerEasing::QuadOut
+			);
+		} else {
+			foreach (Quad_Outline in Outline.Controls.Quads_Outline) {
+				_This.AnimMgr.Add(
+					Quad_Outline,
+					"""<a opacity="{{{Outline.Properties.Opacity}}}" />""",
+					AnimDuration,
+					CAnimManager::EAnimManagerEasing::QuadOut
+				);
+			}
+		}
+	}
+
+	Outline.Properties.Dirty = [];
+
+	return Outline;
+}
+Void Redraw(CMlScript _This, CMlFrame _Frame_Outline) {
+	declare K_Outline CMGame_Outline_Outline for _Frame_Outline = C_Outline_Null;
+	CMGame_Outline_Outline = Private_Redraw(_This, CMGame_Outline_Outline);
+}
+
+Boolean Private_IsPropertyEqual(K_Properties _PropertiesA, K_Properties _PropertiesB, Integer _PropertyId) {
+	switch (_PropertyId) {
+		case C_Property_Size: return _PropertiesA.Size == _PropertiesB.Size;
+		case C_Property_Thickness: return _PropertiesA.Thickness == _PropertiesB.Thickness;
+		case C_Property_HAlign: return _PropertiesA.HAlign == _PropertiesB.HAlign;
+		case C_Property_VAlign: return _PropertiesA.VAlign == _PropertiesB.VAlign;
+		case C_Property_Opacity: return (_PropertiesA.Opacity == _PropertiesB.Opacity && _PropertiesA.OpacityAnimDuration == _PropertiesB.OpacityAnimDuration);
+		case C_Property_Color: return _PropertiesA.Color == _PropertiesB.Color;
+		case C_Property_Colorize: return _PropertiesA.Colorize == _PropertiesB.Colorize;
+		case C_Property_ModulateColor: return _PropertiesA.ModulateColor == _PropertiesB.ModulateColor;
+		case C_Property_ImageUrl: return _PropertiesA.ImageUrl == _PropertiesB.ImageUrl;
+	}
+	return False;
+}
+
+K_Properties Private_MergeProperty(K_Properties _PropertiesA, K_Properties _PropertiesB, Integer _PropertyId) {
+	declare K_Properties Result = _PropertiesA;
+	switch (_PropertyId) {
+		case C_Property_Size: Result.Size = _PropertiesB.Size;
+		case C_Property_Thickness: Result.Thickness = _PropertiesB.Thickness;
+		case C_Property_HAlign: Result.HAlign = _PropertiesB.HAlign;
+		case C_Property_VAlign: Result.VAlign = _PropertiesB.VAlign;
+		case C_Property_Opacity: { Result.Opacity = _PropertiesB.Opacity; Result.OpacityAnimDuration = _PropertiesB.OpacityAnimDuration; }
+		case C_Property_Color: Result.Color = _PropertiesB.Color;
+		case C_Property_Colorize: Result.Colorize = _PropertiesB.Colorize;
+		case C_Property_ModulateColor: Result.ModulateColor = _PropertiesB.ModulateColor;
+		case C_Property_ImageUrl: Result.ImageUrl = _PropertiesB.ImageUrl;
+	}
+	if (!Result.Dirty.exists(_PropertyId)) {
+		Result.Dirty.add(_PropertyId);
+	}
+	return Result;
+}
+
+K_Outline Private_SetProperties(K_Outline _Outline, K_Properties _Properties) {
+	declare K_Outline Outline = _Outline;
+	foreach (PropertyId in _Properties.Dirty) {
+		if (!Private_IsPropertyEqual(_Outline.Properties, _Properties, PropertyId)) {
+			Outline.Properties = Private_MergeProperty(Outline.Properties, _Properties, PropertyId);
+		}
+	}
+	return Outline;
+}
+Void SetProperties(CMlScript _This, CMlFrame _Frame_Outline, K_Properties _Properties, Boolean _Redraw) {
+	declare K_Outline CMGame_Outline_Outline for _Frame_Outline = C_Outline_Null;
+	Private_AssertValidComponent(_Frame_Outline, CMGame_Outline_Outline);
+	CMGame_Outline_Outline = Private_SetProperties(CMGame_Outline_Outline, _Properties);
+	if (_Redraw) {
+		CMGame_Outline_Outline = Private_Redraw(_This, CMGame_Outline_Outline);
+	}
+}
+Void SetProperties(CMlScript _This, CMlFrame _Frame_Outline, K_Properties _Properties) {
+	SetProperties(_This, _Frame_Outline, _Properties, True);
+}
+
+Void SetSize(CMlScript _This, CMlFrame _Frame_Outline, Vec2 _Size, Boolean _Redraw) {
+	SetProperties(_This, _Frame_Outline, K_Properties { Dirty = [C_Property_Size], Size = _Size }, _Redraw);
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_Outline, Vec2 _Size) {
+	SetSize(_This, _Frame_Outline, _Size, True);
+}
+
+Void SetThickness(CMlScript _This, CMlFrame _Frame_Outline, Real _Thickness, Boolean _Redraw) {
+	SetProperties(_This, _Frame_Outline, K_Properties { Dirty = [C_Property_Thickness], Thickness = _Thickness }, _Redraw);
+}
+Void SetThickness(CMlScript _This, CMlFrame _Frame_Outline, Real _Thickness) {
+	SetThickness(_This, _Frame_Outline, _Thickness, True);
+}
+
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_Outline, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	SetProperties(_This, _Frame_Outline, K_Properties { Dirty = [C_Property_HAlign], HAlign = _HAlign }, _Redraw);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_Outline, CMlControl::AlignHorizontal _HAlign) {
+	SetHAlign(_This, _Frame_Outline, _HAlign, True);
+}
+
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_Outline, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	SetProperties(_This, _Frame_Outline, K_Properties { Dirty = [C_Property_VAlign], VAlign = _VAlign }, _Redraw);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_Outline, CMlControl::AlignVertical _VAlign) {
+	SetVAlign(_This, _Frame_Outline, _VAlign, True);
+}
+
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_Outline, Real _Opacity, Integer _AnimDuration, Boolean _Redraw) {
+	SetProperties(_This, _Frame_Outline, K_Properties { Dirty = [C_Property_Opacity], Opacity = _Opacity, OpacityAnimDuration = _AnimDuration }, _Redraw);
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_Outline, Real _Opacity, Integer _AnimDuration) {
+	SetOpacity(_This, _Frame_Outline, _Opacity, _AnimDuration, True);
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_Outline, Real _Opacity, Boolean _Redraw) {
+	SetOpacity(_This, _Frame_Outline, _Opacity, 0, _Redraw);
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_Outline, Real _Opacity) {
+	SetOpacity(_This, _Frame_Outline, _Opacity, 0, True);
+}
+
+Void SetColor(CMlScript _This, CMlFrame _Frame_Outline, Vec3 _Color, Boolean _Redraw) {
+	SetProperties(_This, _Frame_Outline, K_Properties { Dirty = [C_Property_Color], Color = _Color }, _Redraw);
+}
+Void SetColor(CMlScript _This, CMlFrame _Frame_Outline, Text _Color, Boolean _Redraw) {
+	SetColor(_This, _Frame_Outline, CL::HexToRgb(_Color), _Redraw);
+}
+Void SetColor(CMlScript _This, CMlFrame _Frame_Outline, Vec3 _Color) {
+	SetColor(_This, _Frame_Outline, _Color, True);
+}
+Void SetColor(CMlScript _This, CMlFrame _Frame_Outline, Text _Color) {
+	SetColor(_This, _Frame_Outline, CL::HexToRgb(_Color));
+}
+
+Void SetColorize(CMlScript _This, CMlFrame _Frame_Outline, Vec3 _Colorize, Boolean _Redraw) {
+	SetProperties(_This, _Frame_Outline, K_Properties { Dirty = [C_Property_Colorize], Colorize = _Colorize }, _Redraw);
+}
+Void SetColorize(CMlScript _This, CMlFrame _Frame_Outline, Text _Colorize, Boolean _Redraw) {
+	SetColorize(_This, _Frame_Outline, CL::HexToRgb(_Colorize), _Redraw);
+}
+Void SetColorize(CMlScript _This, CMlFrame _Frame_Outline, Vec3 _Colorize) {
+	SetColorize(_This, _Frame_Outline, _Colorize, True);
+}
+Void SetColorize(CMlScript _This, CMlFrame _Frame_Outline, Text _Colorize) {
+	SetColorize(_This, _Frame_Outline, CL::HexToRgb(_Colorize));
+}
+
+Void SetModulateColor(CMlScript _This, CMlFrame _Frame_Outline, Vec3 _ModulateColor, Boolean _Redraw) {
+	SetProperties(_This, _Frame_Outline, K_Properties { Dirty = [C_Property_ModulateColor], ModulateColor = _ModulateColor }, _Redraw);
+}
+Void SetModulateColor(CMlScript _This, CMlFrame _Frame_Outline, Text _ModulateColor, Boolean _Redraw) {
+	SetModulateColor(_This, _Frame_Outline, CL::HexToRgb(_ModulateColor), _Redraw);
+}
+Void SetModulateColor(CMlScript _This, CMlFrame _Frame_Outline, Vec3 _ModulateColor) {
+	SetModulateColor(_This, _Frame_Outline, _ModulateColor, True);
+}
+Void SetModulateColor(CMlScript _This, CMlFrame _Frame_Outline, Text _ModulateColor) {
+	SetModulateColor(_This, _Frame_Outline, CL::HexToRgb(_ModulateColor));
+}
+
+Void SetImageUrl(CMlScript _This, CMlFrame _Frame_Outline, Text _ImageUrl, Boolean _Redraw) {
+	SetProperties(_This, _Frame_Outline, K_Properties { Dirty = [C_Property_ImageUrl], ImageUrl = _ImageUrl }, _Redraw);
+}
+Void SetImageUrl(CMlScript _This, CMlFrame _Frame_Outline, Text _ImageUrl) {
+	SetImageUrl(_This, _Frame_Outline, _ImageUrl, True);
+}
+
+Void Private_InitializeOutline(CMlScript _This, CMlFrame _Frame_Outline) {
+	declare K_Outline CMGame_Outline_Outline for _Frame_Outline = C_Outline_Null;
+	CMGame_Outline_Outline = C_Outline_Null;
+
+	CMGame_Outline_Outline.Controls = K_Controls {
+		Outline_Component = _Frame_Outline,
+		Frame_OutlineQuads = (_Frame_Outline.GetFirstChild(C_Id_FrameOutlineQuads) as CMlFrame),
+		Quads_Outline = [
+			C_Outline_Top => (_Frame_Outline.GetFirstChild(C_Id_QuadOutlineTop) as CMlQuad),
+			C_Outline_Bottom => (_Frame_Outline.GetFirstChild(C_Id_QuadOutlineBottom) as CMlQuad),
+			C_Outline_Left => (_Frame_Outline.GetFirstChild(C_Id_QuadOutlineLeft) as CMlQuad),
+			C_Outline_Right => (_Frame_Outline.GetFirstChild(C_Id_QuadOutlineRight) as CMlQuad)
+		],
+		Quad_OutlineImage = (_Frame_Outline.GetFirstChild(C_Id_QuadOutlineImage) as CMlQuad)
+	};
+
+	declare K_Properties DataProperties = K_Properties { Dirty = [] };
+	if (_Frame_Outline.DataAttributeExists("size")) {
+		DataProperties.Dirty.add(C_Property_Size);
+		DataProperties.Size = Tools::TextToVec2(_Frame_Outline.DataAttributeGet("size"));
+	}
+	if (_Frame_Outline.DataAttributeExists("thickness")) {
+		DataProperties.Dirty.add(C_Property_Thickness);
+		DataProperties.Thickness = TL::ToReal(_Frame_Outline.DataAttributeGet("thickness"));
+	}
+	if (_Frame_Outline.DataAttributeExists("halign")) {
+		DataProperties.Dirty.add(C_Property_HAlign);
+		DataProperties.HAlign = Tools::TextToHAlign2(_Frame_Outline.DataAttributeGet("halign"));
+	}
+	if (_Frame_Outline.DataAttributeExists("valign")) {
+		DataProperties.Dirty.add(C_Property_VAlign);
+		DataProperties.VAlign = Tools::TextToVAlign2(_Frame_Outline.DataAttributeGet("valign"));
+	}
+	if (_Frame_Outline.DataAttributeExists("opacity")) {
+		DataProperties.Dirty.add(C_Property_Opacity);
+		DataProperties.Opacity = TL::ToReal(_Frame_Outline.DataAttributeGet("opacity"));
+	}
+	if (_Frame_Outline.DataAttributeExists("color")) {
+		DataProperties.Dirty.add(C_Property_Color);
+		DataProperties.Color = CL::HexToRgb(_Frame_Outline.DataAttributeGet("color"));
+	}
+	if (_Frame_Outline.DataAttributeExists("colorize")) {
+		DataProperties.Dirty.add(C_Property_Colorize);
+		DataProperties.Colorize = CL::HexToRgb(_Frame_Outline.DataAttributeGet("colorize"));
+	}
+	if (_Frame_Outline.DataAttributeExists("modulatecolor")) {
+		DataProperties.Dirty.add(C_Property_ModulateColor);
+		DataProperties.ModulateColor = CL::HexToRgb(_Frame_Outline.DataAttributeGet("modulatecolor"));
+	}
+	if (_Frame_Outline.DataAttributeExists("image")) {
+		DataProperties.Dirty.add(C_Property_ImageUrl);
+		DataProperties.ImageUrl = _Frame_Outline.DataAttributeGet("image");
+	}
+	CMGame_Outline_Outline = Private_SetProperties(CMGame_Outline_Outline, DataProperties);
+
+	CMGame_Outline_Outline.IsInitialized = True;
+
+	CMGame_Outline_Outline = Private_Redraw(_This, CMGame_Outline_Outline);
+}
+
+Void Private_InitializeOutlines(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_Outline, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_Outline = (Control as CMlFrame).Parent;
+		Private_InitializeOutline(_This, Frame_Outline);
+	}
+}
+
+Boolean IsOutline(CMlControl _Control) {
+	declare K_Outline CMGame_Outline_Outline for _Control = C_Outline_Null;
+	return CMGame_Outline_Outline.IsInitialized;
+}
+
+Void MainInit(CMlScript _This) {
+	Private_InitializeOutlines(_This);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/Outline.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+		""",
+		[],
+		[]
+	);
+}

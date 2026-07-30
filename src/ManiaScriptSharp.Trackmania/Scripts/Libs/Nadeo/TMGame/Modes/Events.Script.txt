@@ -1,0 +1,1622 @@
+/**
+ *	Events library
+ */
+#Const	Version			"1.0.0"
+#Const	ScriptName	"Libs/Nadeo/TMGame/Modes/Events.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/XmlRpc2.Script.txt" as XmlRpc
+#Include "Libs/Nadeo/CMGame/Utils/Semver.Script.txt" as Semver
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Race Events
+#Const C_Type_Unknown 0
+#Const C_Type_Waypoint 1
+#Const C_Type_GiveUp 2
+#Const C_Type_Respawn 3
+#Const C_Type_SkipOutro 4
+#Const C_Type_StartLine 5
+#Const C_Type_Eliminated 6
+
+// Event actions
+#Const C_SourceEventAction_DoNothing 0
+#Const C_SourceEventAction_Invalid 1
+#Const C_SourceEventAction_Valid 2
+
+// Callbacks
+#Const C_Callback_Event_Default											"Trackmania.Event.Default"
+#Const C_Callback_Event_OnShoot											"Trackmania.Event.OnShoot"
+#Const C_Callback_Event_OnHit												"Trackmania.Event.OnHit"
+#Const C_Callback_Event_OnNearMiss									"Trackmania.Event.OnNearMiss"
+#Const C_Callback_Event_OnArmorEmpty								"Trackmania.Event.OnArmorEmpty"
+#Const C_Callback_Event_OnCapture										"Trackmania.Event.OnCapture"
+#Const C_Callback_Event_OnShotDeny									"Trackmania.Event.OnShotDeny"
+#Const C_Callback_Event_OnFallDamage								"Trackmania.Event.OnFallDamage"
+#Const C_Callback_Event_OnCommand										"Trackmania.Event.OnCommand"
+#Const C_Callback_Event_OnPlayerAdded								"Trackmania.Event.OnPlayerAdded"
+#Const C_Callback_Event_OnPlayerRemoved							"Trackmania.Event.OnPlayerRemoved"
+#Const C_Callback_Event_OnPlayerRequestRespawn			"Trackmania.Event.OnPlayerRequestRespawn"
+#Const C_Callback_Event_OnActionCustomEvent					"Trackmania.Event.OnActionCustomEvent"
+#Const C_Callback_Event_OnActionEvent								"Trackmania.Event.OnActionEvent"
+#Const C_Callback_Event_OnPlayerTouchesObject				"Trackmania.Event.OnPlayerTouchesObject"
+#Const C_Callback_Event_OnPlayerTriggersSector			"Trackmania.Event.OnPlayerTriggersSector"
+#Const C_Callback_Event_OnPlayerThrowsObject				"Trackmania.Event.OnPlayerThrowsObject"
+#Const C_Callback_Event_OnPlayerRequestActionChange	"Trackmania.Event.OnPlayerRequestActionChange"
+#Const C_Callback_Event_OnPlayerTriggersWaypoint		"Trackmania.Event.OnPlayerTriggersWaypoint"
+#Const C_Callback_Event_OnVehicleArmorEmpty					"Trackmania.Event.OnVehicleArmorEmpty"
+#Const C_Callback_Event_OnVehicleCollision					"Trackmania.Event.OnVehicleCollision"
+#Const C_Callback_Event_OnVehicleVsVehicleCollision	"Trackmania.Event.OnVehicleVsVehicleCollision"
+#Const C_Callback_Event_StartLine										"Trackmania.Event.StartLine"
+#Const C_Callback_Event_Waypoint										"Trackmania.Event.WayPoint"
+#Const C_Callback_Event_GiveUp											"Trackmania.Event.GiveUp"
+#Const C_Callback_Event_SkipOutro										"Trackmania.Event.SkipOutro"
+#Const C_Callback_Event_Respawn											"Trackmania.Event.Respawn"
+#Const C_Callback_Event_Eliminated									"Trackmania.Event.Eliminated"
+
+// Methods
+#Const C_Method_SetCurRaceCheckpointsMode "Trackmania.Event.SetCurRaceCheckpointsMode"
+#Const C_Method_SetCurLapCheckpointsMode "Trackmania.Event.SetCurLapCheckpointsMode"
+#Const C_Method_UnsetCurRaceCheckpointsMode "Trackmania.Event.UnsetCurRaceCheckpointsMode"
+#Const C_Method_UnsetCurLapCheckpointsMode "Trackmania.Event.UnsetCurLapCheckpointsMode"
+
+#Const C_CheckpointsMode_Default "never"
+#Const C_CheckpointsMode_Always "always"
+#Const C_CheckpointsMode_Never "never"
+#Const C_CheckpointsMode_EndLap "endlap"
+#Const C_CheckpointsMode_EndRace "endrace"
+#Const C_CheckpointsModes [ //< Sorted by priority. 1 is higher priority than 4.
+	1 => "always",
+	2 => "endlap",
+	3 => "endrace",
+	4 => "never"
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_RaceEvent {
+	CSmModeEvent SourceEvent;
+	Boolean UseCppRaceProgression;
+	Integer Type;
+	CSmPlayer Player;
+	Boolean IsEndRace;
+	Boolean IsEndLap;
+	Boolean IsInfiniteLaps;
+	Boolean IsIndependentLaps;
+	Integer RaceTime;
+	Integer LapTime;
+	CSmMapLandmark Landmark;
+	Boolean RemoveCheckpoint;
+	Boolean IsGiveUp;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Generate a race event with default values
+ *
+ *	@return														The race event
+ */
+K_RaceEvent GetEmptyRaceEvent(CSmModeEvent _Event) {
+	return K_RaceEvent {
+		SourceEvent = _Event,
+		UseCppRaceProgression = False,
+		Type = C_Type_Unknown,
+		Player = Null,
+		IsEndRace = False,
+		IsEndLap = False,
+		IsInfiniteLaps = False,
+		IsIndependentLaps = False,
+		RaceTime = -1,
+		LapTime = -1,
+		Landmark = Null,
+		RemoveCheckpoint = False,
+		IsGiveUp = False
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if wa can send the checkpoints array in the callback
+Boolean Private_CanSendCheckpointsArray(Text _CheckpointsMode, Boolean _IsEndLap, Boolean _IsEndRace) {
+	return (
+		_CheckpointsMode == C_CheckpointsMode_Always ||
+		(_CheckpointsMode == C_CheckpointsMode_EndLap && _IsEndLap) ||
+		(_CheckpointsMode == C_CheckpointsMode_EndRace && _IsEndRace)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the login of a player if it exists
+ *	or an empty Text otherwise
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@return														The player's login if it exists, an empty Text otherwise
+ */
+Text Private_GetLogin(CSmPlayer _Player) {
+	if (_Player == Null) return "";
+	return _Player.User.Login;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the accountId of a player if it exists
+ *	or an empty Text otherwise
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@return														The player's accountId if it exists, an empty Text otherwise
+ */
+Text Private_GetAccountId(CSmPlayer _Player) {
+	if (_Player == Null) return "";
+	return _Player.User.WebServicesUserId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the login of an entity if it exists
+ *	or an empty Text otherwise
+ *
+ *	@param	_Entity										The entity to check
+ *
+ *	@return														The entity's login if it exists, an empty Text otherwise
+ */
+Text Private_GetLogin(CEntity _Entity) {
+	if (_Entity == Null) return "";
+	switchtype (_Entity) {
+		case CSmObject: return (_Entity as CSmObject).Id^"";
+		case CModeVehicle: return (_Entity as CModeVehicle).Id^"";
+		case CModeTurret: return (_Entity as CModeTurret).Id^"";
+		case CSmPlayer: return (_Entity as CSmPlayer).User.Login;
+	}
+	return "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get a player position in JSON format
+ *
+ *	@param	_Player										The player to check
+ *
+ *	@return														The player's position
+ */
+Text Private_GetPosition(CSmPlayer _Player) {
+	declare Vec3 Position;
+	if (_Player != Null) Position = _Player.Position;
+	return XmlRpc::JsonGetVec3(Position);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get an entity position
+ *
+ *	@param	_Entity										The entity to check
+ *
+ *	@return														The entity's position
+ */
+Vec3 Private_GetPositionVec3(CEntity _Entity) {
+	declare Vec3 Position;
+	if (_Entity != Null) {
+		switchtype (_Entity) {
+			case CSmObject: Position = (_Entity as CSmObject).Position;
+			case CModeVehicle: Position = (_Entity as CModeVehicle).Position;
+			case CModeTurret: {
+				if (TurretsManager != Null) {
+					Position = TurretsManager.Turret_GetPosition((_Entity as CModeTurret));
+				} else {
+					Position = <0., 0., 0.>;
+				}
+			}
+			case CSmPlayer: Position = (_Entity as CSmPlayer).Position;
+		}
+	}
+	return Position;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get an entity position in JSON format
+ *
+ *	@param	_Entity										The entity to check
+ *
+ *	@return														The entity's position in JSON format
+ */
+Text Private_GetPosition(CEntity _Entity) {
+	return XmlRpc::JsonGetVec3(Private_GetPositionVec3(_Entity));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get a landmark in JSON format
+ *
+ *	@param	_Landmark									The landmark to check
+ *
+ *	@return														The landmark JSON
+ */
+Text Private_GetLandmark(CSmMapLandmark _Landmark) {
+	if (_Landmark == Null) return "{}";
+
+	return """{
+		"tag": {{{XmlRpc::JsonGetText(_Landmark.Tag)}}},
+		"order": {{{dump(_Landmark.Order)}}},
+		"id": {{{dump(_Landmark.Id^"")}}},
+		"position": {{{XmlRpc::JsonGetVec3(_Landmark.Position)}}}
+	}""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the logins of the players that
+ *	captured a landmark in JSON format
+ *
+ *	@param	_Landmark									The landmark to check
+ *
+ *	@return														The capturers JSON
+ */
+Text Private_GetLandmarkCapturers(CSmMapLandmark _Landmark) {
+	if (_Landmark == Null || _Landmark.Sector == Null) return "[]";
+
+	declare Text[] Capturers;
+	foreach (PlayerId in _Landmark.Sector.PlayersIds) {
+		if (AllPlayers.existskey(PlayerId)) Capturers.add(AllPlayers[PlayerId].User.Login);
+	}
+
+	return dump(Capturers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Send events callbacks
+ *
+ *	@param	_Event										The event to send
+ */
+Void Private_XmlRpc_Event_Default(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"type": "{{{dump(_Event.Type)}}}"
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_Default, [JSON]);
+}
+Void Private_XmlRpc_Event_Default(K_RaceEvent _Event) {
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"type": "{{{dump(_Event.Type)}}}"
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_Default, [JSON]);
+}
+Void Private_XmlRpc_Event_OnShoot(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"shooter": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.ShooterEntity))}}},
+	"weapon": {{{dump(_Event.WeaponNum)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnShoot, [JSON]);
+}
+Void Private_XmlRpc_Event_OnHit(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare Distance = 0.;
+	if (_Event.ShooterEntity != Null && _Event.VictimEntity != Null) {
+		Distance = ML::Distance(Private_GetPositionVec3(_Event.ShooterEntity), Private_GetPositionVec3(_Event.VictimEntity));
+	}
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"shooter": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.ShooterEntity))}}},
+	"victim": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.VictimEntity))}}},
+	"weapon": {{{dump(_Event.WeaponNum)}}},
+	"damage": {{{dump(_Event.Damage)}}},
+	"points": {{{dump(_Event.ShooterPoints)}}},
+	"distance": {{{XmlRpc::JsonGetReal(Distance)}}},
+	"shooterposition": {{{Private_GetPosition(_Event.ShooterEntity)}}},
+	"victimposition": {{{Private_GetPosition(_Event.VictimEntity)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnHit, [JSON]);
+}
+Void Private_XmlRpc_Event_OnNearMiss(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"shooter": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.ShooterEntity))}}},
+	"victim": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.VictimEntity))}}},
+	"weapon": {{{dump(_Event.WeaponNum)}}},
+	"distance": {{{dump(XmlRpc::JsonGetReal(_Event.MissDist))}}},
+	"shooterposition": {{{Private_GetPosition(_Event.ShooterEntity)}}},
+	"victimposition": {{{Private_GetPosition(_Event.VictimEntity)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnNearMiss, [JSON]);
+}
+Void Private_XmlRpc_Event_OnArmorEmpty(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare Distance = 0.;
+	if (_Event.ShooterEntity != Null && _Event.VictimEntity != Null) {
+		Distance = ML::Distance(Private_GetPositionVec3(_Event.ShooterEntity), Private_GetPositionVec3(_Event.VictimEntity));
+	}
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"shooter": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.ShooterEntity))}}},
+	"victim": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.VictimEntity))}}},
+	"weapon": {{{dump(_Event.WeaponNum)}}},
+	"distance": {{{XmlRpc::JsonGetReal(Distance)}}},
+	"shooterposition": {{{Private_GetPosition(_Event.ShooterEntity)}}},
+	"victimposition": {{{Private_GetPosition(_Event.VictimEntity)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnArmorEmpty, [JSON]);
+}
+Void Private_XmlRpc_Event_OnCapture(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"players": {{{Private_GetLandmarkCapturers(_Event.Landmark)}}},
+	"landmark": {{{Private_GetLandmark(_Event.Landmark)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnCapture, [JSON]);
+}
+Void Private_XmlRpc_Event_OnShotDeny(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"shooter": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.ShooterEntity))}}},
+	"victim": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.VictimEntity))}}},
+	"shooterweapon": {{{dump(_Event.ShooterWeaponNum)}}},
+	"victimweapon": {{{dump(_Event.VictimWeaponNum)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnShotDeny, [JSON]);
+}
+Void Private_XmlRpc_Event_OnFallDamage(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"victim": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnFallDamage, [JSON]);
+}
+Void Private_XmlRpc_Event_OnCommand(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"name": {{{dump(_Event.CommandName)}}},
+	"value": {
+		"boolean": {{{XmlRpc::JsonGetBoolean(_Event.CommandValueBoolean)}}},
+		"integer": {{{dump(_Event.CommandValueInteger)}}},
+		"real": {{{XmlRpc::JsonGetReal(_Event.CommandValueReal)}}},
+		"text": {{{XmlRpc::JsonGetText(_Event.CommandValueText)}}}
+	}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnCommand, [JSON]);
+}
+Void Private_XmlRpc_Event_OnPlayerAdded(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare Name = "";
+	declare Zone = "";
+	declare Language = "";
+	declare LadderRank = 0;
+	declare LadderPoints = 0.;
+	if (_Event.Player != Null && _Event.Player.User != Null) {
+		Name = _Event.Player.User.Name;
+		Zone = _Event.Player.User.ZonePath;
+		Language = _Event.Player.User.Language;
+		LadderRank = _Event.Player.User.LadderRank;
+		LadderPoints = _Event.Player.User.LadderPoints;
+	}
+
+	declare Team = 0;
+	if (_Event.Player != Null && _Event.Player.Score != Null) {
+		Team = _Event.Player.Score.TeamNum - 1;
+	}
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"accountid": {{{XmlRpc::JsonGetText(Private_GetAccountId(_Event.Player))}}},
+	"name": {{{XmlRpc::JsonGetText(Name)}}},
+	"team": {{{dump(Team)}}},
+	"zone": {{{XmlRpc::JsonGetText(Zone)}}},
+	"language": {{{dump(Language)}}},
+	"ladderrank": {{{dump(LadderRank)}}},
+	"ladderpoints": {{{XmlRpc::JsonGetReal(LadderPoints)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnPlayerAdded, [JSON]);
+}
+Void Private_XmlRpc_Event_OnPlayerRemoved(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(_Event.User.Login)}}},
+	"accountid": {{{XmlRpc::JsonGetText(_Event.User.WebServicesUserId)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnPlayerRemoved, [JSON]);
+}
+Void Private_XmlRpc_Event_OnPlayerRequestRespawn(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnPlayerRequestRespawn, [JSON]);
+}
+Void Private_XmlRpc_Event_OnActionCustomEvent(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare Param2 = "";
+	foreach (Param in _Event.Param2) {
+		if (Param2 == "") Param2 ^= "["^XmlRpc::JsonGetText(Param);
+		else Param2 ^= ", "^XmlRpc::JsonGetText(Param);
+	}
+	if (Param2 == "") Param2 = "[]";
+	else Param2 ^= "]";
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"shooter": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.ShooterEntity))}}},
+	"victim": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.VictimEntity))}}},
+	"actionid": {{{XmlRpc::JsonGetText(_Event.ActionId)}}},
+	"param1": {{{XmlRpc::JsonGetText(_Event.Param1)}}},
+	"param2": {{{Param2}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnActionCustomEvent, [JSON]);
+}
+Void Private_XmlRpc_Event_OnActionEvent(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"accountid": {{{XmlRpc::JsonGetText(Private_GetAccountId(_Event.Player))}}},
+	"actioninput": "{{{dump(_Event.ActionInput)}}}"
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnActionEvent, [JSON]);
+}
+Void Private_XmlRpc_Event_OnPlayerTouchesObject(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare ModelId = NullId;
+	declare ItemName = "";
+	declare ObjectId = NullId;
+	if (_Event.Object != Null) {
+		ModelId = _Event.Object.ModelId;
+		ItemName = "";
+		ObjectId = _Event.Object.Id;
+	}
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"objectid": "{{{dump(ObjectId)}}}",
+	"modelid": "{{{dump(ModelId)}}}",
+	"modelname": {{{XmlRpc::JsonGetText(ItemName)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnPlayerTouchesObject, [JSON]);
+}
+Void Private_XmlRpc_Event_OnPlayerTriggersSector(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare SectorId = NullId;
+	if (_Event.Landmark.Sector != Null) {
+		SectorId = _Event.Landmark.Sector.Id;
+	}
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"accountid": {{{XmlRpc::JsonGetText(Private_GetAccountId(_Event.Player))}}},
+	"sectorid": "{{{dump(SectorId)}}}"
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnPlayerTriggersSector, [JSON]);
+}
+Void Private_XmlRpc_Event_OnPlayerThrowsObject(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare ModelId = NullId;
+	declare ItemName = "";
+	declare ObjectId = NullId;
+	if (_Event.Object != Null) {
+		ModelId = _Event.Object.ModelId;
+		ItemName = "";
+		ObjectId = _Event.Object.Id;
+	}
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"objectid": "{{{dump(ObjectId)}}}",
+	"modelid": "{{{dump(ModelId)}}}",
+	"modelname": {{{XmlRpc::JsonGetText(ItemName)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnPlayerThrowsObject, [JSON]);
+}
+Void Private_XmlRpc_Event_OnPlayerRequestActionChange(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"accountid": {{{XmlRpc::JsonGetText(Private_GetAccountId(_Event.Player))}}},
+	"actionchange": {{{dump(_Event.ActionChange)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnPlayerRequestActionChange, [JSON]);
+}
+Void Private_XmlRpc_Event_OnPlayerTriggersWaypoint(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare CurRaceCheckpoints = "[]";
+	declare CurLapCheckpoints = "[]";
+	declare CheckpointInRace = 0;
+	declare CheckpointInLap = 0;
+	declare Speed = 0.;
+	declare BlockId = NullId;
+	if (_Event.Player != Null && _Event.Player.IsEntityStateAvailable) {
+		declare Text TMGame_RaceEvents_CurRaceCheckpointsMode for This = C_CheckpointsMode_Default;
+		if (Private_CanSendCheckpointsArray(TMGame_RaceEvents_CurRaceCheckpointsMode, (_Event.IsNewLap || _Event.IsFinish), _Event.IsFinish)) {
+			CurRaceCheckpoints = ""^_Event.Player.RaceWaypointTimes;
+		}
+		declare Text TMGame_RaceEvents_CurLapCheckpointsMode for This = C_CheckpointsMode_Default;
+		if (Private_CanSendCheckpointsArray(TMGame_RaceEvents_CurLapCheckpointsMode, (_Event.IsNewLap || _Event.IsFinish), _Event.IsFinish)) {
+			CurLapCheckpoints = ""^_Event.Player.LapWaypointTimes;
+		}
+		CheckpointInRace = _Event.Player.RaceWaypointTimes.count - 1;
+		CheckpointInLap = _Event.Player.LapWaypointTimes.count - 1;
+		Speed = _Event.Player.Speed;
+	}
+	if (_Event.Landmark != Null) {
+		BlockId = _Event.Landmark.Id;
+	}
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"accountid": {{{XmlRpc::JsonGetText(Private_GetAccountId(_Event.Player))}}},
+	"racetime": {{{dump(_Event.WaypointTime)}}},
+	"checkpointinrace": {{{dump(CheckpointInRace)}}},
+	"checkpointinlap": {{{dump(CheckpointInLap)}}},
+	"curracecheckpoints": {{{CurRaceCheckpoints}}},
+	"curlapcheckpoints": {{{CurLapCheckpoints}}},
+	"blockid": {{{XmlRpc::JsonGetIdent(BlockId)}}},
+	"speed": {{{XmlRpc::JsonGetReal(Speed)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnPlayerTriggersWaypoint, [JSON]);
+}
+Void Private_XmlRpc_Event_OnVehicleArmorEmpty(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare Distance = 0.;
+	if (_Event.ShooterEntity != Null && _Event.VictimEntity != Null) {
+		Distance = ML::Distance(Private_GetPositionVec3(_Event.ShooterEntity), Private_GetPositionVec3(_Event.VictimEntity));
+	}
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"shooter": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.ShooterEntity))}}},
+	"victim": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.VictimEntity))}}},
+	"weapon": {{{dump(_Event.WeaponNum)}}},
+	"distance": {{{XmlRpc::JsonGetReal(Distance)}}},
+	"shooterposition": {{{Private_GetPosition(_Event.ShooterEntity)}}},
+	"victimposition": {{{Private_GetPosition(_Event.VictimEntity)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnVehicleArmorEmpty, [JSON]);
+}
+Void Private_XmlRpc_Event_OnVehicleCollision(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"shooter": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.ShooterEntity))}}},
+	"victim": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.VictimEntity))}}},
+	"damage": {{{dump(_Event.Damage)}}},
+	"shooterposition": {{{Private_GetPosition(_Event.ShooterEntity)}}},
+	"victimposition": {{{Private_GetPosition(_Event.VictimEntity)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnVehicleCollision, [JSON]);
+}
+Void Private_XmlRpc_Event_OnVehicleVsVehicleCollision(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"shooter": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.ShooterEntity))}}},
+	"victim": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.VictimEntity))}}},
+	"damage": {{{dump(_Event.Damage)}}},
+	"shooterposition": {{{Private_GetPosition(_Event.ShooterEntity)}}},
+	"victimposition": {{{Private_GetPosition(_Event.VictimEntity)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_OnVehicleVsVehicleCollision, [JSON]);
+}
+Void Private_XmlRpc_Event_StartLine(K_RaceEvent _Event) {
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"accountid": {{{XmlRpc::JsonGetText(Private_GetAccountId(_Event.Player))}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_StartLine, [JSON]);
+}
+Void Private_XmlRpc_Event_Waypoint(K_RaceEvent _Event) {
+	declare CurRaceCheckpoints = "[]";
+	declare CurLapCheckpoints = "[]";
+	declare CheckpointInRace = 0;
+	declare CheckpointInLap = 0;
+	declare Speed = 0.;
+	declare BlockId = NullId;
+	if (_Event.Player != Null && _Event.Player.IsEntityStateAvailable) {
+		declare Text TMGame_RaceEvents_CurRaceCheckpointsMode for This = C_CheckpointsMode_Default;
+		if (Private_CanSendCheckpointsArray(TMGame_RaceEvents_CurRaceCheckpointsMode, _Event.IsEndLap, _Event.IsEndRace)) {
+			CurRaceCheckpoints = ""^_Event.Player.RaceWaypointTimes;
+		}
+		declare Text TMGame_RaceEvents_CurLapCheckpointsMode for This = C_CheckpointsMode_Default;
+		if (Private_CanSendCheckpointsArray(TMGame_RaceEvents_CurLapCheckpointsMode, _Event.IsEndLap, _Event.IsEndRace)) {
+			CurLapCheckpoints = ""^_Event.Player.LapWaypointTimes;
+		}
+		CheckpointInRace = _Event.Player.RaceWaypointTimes.count - 1;
+		CheckpointInLap = _Event.Player.LapWaypointTimes.count - 1;
+		Speed = _Event.Player.Speed;
+	}
+	if (_Event.Landmark != Null) {
+		BlockId = _Event.Landmark.Id;
+	}
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"accountid": {{{XmlRpc::JsonGetText(Private_GetAccountId(_Event.Player))}}},
+	"racetime": {{{dump(_Event.RaceTime)}}},
+	"laptime": {{{dump(_Event.LapTime)}}},
+	"checkpointinrace": {{{dump(CheckpointInRace)}}},
+	"checkpointinlap": {{{dump(CheckpointInLap)}}},
+	"isendrace": {{{XmlRpc::JsonGetBoolean(_Event.IsEndRace)}}},
+	"isendlap": {{{XmlRpc::JsonGetBoolean(_Event.IsEndLap)}}},
+	"isinfinitelaps": {{{XmlRpc::JsonGetBoolean(_Event.IsInfiniteLaps)}}},
+	"isindependentlaps": {{{XmlRpc::JsonGetBoolean(_Event.IsIndependentLaps)}}},
+	"curracecheckpoints": {{{CurRaceCheckpoints}}},
+	"curlapcheckpoints": {{{CurLapCheckpoints}}},
+	"blockid": {{{XmlRpc::JsonGetIdent(BlockId)}}},
+	"speed": {{{XmlRpc::JsonGetReal(Speed)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_Waypoint, [JSON]);
+}
+Void Private_XmlRpc_Event_GiveUp(K_RaceEvent _Event) {
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"accountid": {{{XmlRpc::JsonGetText(Private_GetAccountId(_Event.Player))}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_GiveUp, [JSON]);
+}
+Void Private_XmlRpc_Event_SkipOutro(K_RaceEvent _Event) {
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"accountid": {{{XmlRpc::JsonGetText(Private_GetAccountId(_Event.Player))}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_SkipOutro, [JSON]);
+}
+Void Private_XmlRpc_Event_Respawn(K_RaceEvent _Event) {
+	declare NbRespawns = 0;
+	declare CheckpointInRace = 0;
+	declare CheckpointInLap = 0;
+	declare Speed = 0.;
+	if (_Event.Player != Null && _Event.Player.IsEntityStateAvailable) {
+		CheckpointInRace = _Event.Player.RaceWaypointTimes.count - 1;
+		CheckpointInLap = _Event.Player.LapWaypointTimes.count - 1;
+		Speed = _Event.Player.Speed;
+		if (_Event.Player.Score != Null) {
+			NbRespawns = _Event.Player.Score.NbRespawnsRequested;
+		}
+	}
+
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"accountid": {{{XmlRpc::JsonGetText(Private_GetAccountId(_Event.Player))}}},
+	"nbrespawns": {{{dump(NbRespawns)}}},
+	"racetime": {{{dump(_Event.RaceTime)}}},
+	"laptime": {{{dump(_Event.LapTime)}}},
+	"checkpointinrace": {{{dump(CheckpointInRace)}}},
+	"checkpointinlap": {{{dump(CheckpointInLap)}}},
+	"speed": {{{XmlRpc::JsonGetReal(Speed)}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_Respawn, [JSON]);
+}
+Void Private_XmlRpc_Event_Eliminated(K_RaceEvent _Event) {
+	declare JSON = """{
+	"time": {{{dump(Now)}}},
+	"login": {{{XmlRpc::JsonGetText(Private_GetLogin(_Event.Player))}}},
+	"accountid": {{{XmlRpc::JsonGetText(Private_GetAccountId(_Event.Player))}}}
+}""";
+	XmlRpc::SendCallback(C_Callback_Event_Eliminated, [JSON]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Pass on a CSmModeEvent event
+ *
+ *	@param	_Event										The event to pass on
+ */
+Void Private_PassOn(CSmModeEvent _Event) {
+	This.PassOn(_Event);
+
+	if (_Event != Null) {
+		switch (_Event.Type) {
+			case CSmModeEvent::EType::OnShoot										: Private_XmlRpc_Event_OnShoot(_Event);
+			case CSmModeEvent::EType::OnHit											: Private_XmlRpc_Event_OnHit(_Event);
+			case CSmModeEvent::EType::OnNearMiss									: Private_XmlRpc_Event_OnNearMiss(_Event);
+			case CSmModeEvent::EType::OnArmorEmpty								: Private_XmlRpc_Event_OnArmorEmpty(_Event);
+			case CSmModeEvent::EType::OnCapture									: Private_XmlRpc_Event_OnCapture(_Event);
+			case CSmModeEvent::EType::OnShotDeny									: Private_XmlRpc_Event_OnShotDeny(_Event);
+			case CSmModeEvent::EType::OnFallDamage								: Private_XmlRpc_Event_OnFallDamage(_Event);
+			case CSmModeEvent::EType::OnCommand									: Private_XmlRpc_Event_OnCommand(_Event);
+			case CSmModeEvent::EType::OnPlayerAdded							: Private_XmlRpc_Event_OnPlayerAdded(_Event);
+			case CSmModeEvent::EType::OnPlayerRemoved						: Private_XmlRpc_Event_OnPlayerRemoved(_Event);
+			case CSmModeEvent::EType::OnPlayerRequestRespawn			: Private_XmlRpc_Event_OnPlayerRequestRespawn(_Event);
+			case CSmModeEvent::EType::OnActionCustomEvent				: Private_XmlRpc_Event_OnActionCustomEvent(_Event);
+			case CSmModeEvent::EType::OnActionEvent							: Private_XmlRpc_Event_OnActionEvent(_Event);
+			case CSmModeEvent::EType::OnPlayerTouchesObject			: Private_XmlRpc_Event_OnPlayerTouchesObject(_Event);
+			case CSmModeEvent::EType::OnPlayerTriggersSector			: Private_XmlRpc_Event_OnPlayerTriggersSector(_Event);
+			case CSmModeEvent::EType::OnPlayerThrowsObject				: Private_XmlRpc_Event_OnPlayerThrowsObject(_Event);
+			case CSmModeEvent::EType::OnPlayerRequestActionChange: Private_XmlRpc_Event_OnPlayerRequestActionChange(_Event);
+			case CSmModeEvent::EType::OnPlayerTriggersWaypoint: Private_XmlRpc_Event_OnPlayerTriggersWaypoint(_Event);
+			case CSmModeEvent::EType::OnVehicleArmorEmpty: Private_XmlRpc_Event_OnVehicleArmorEmpty(_Event);
+			case CSmModeEvent::EType::OnVehicleCollision: Private_XmlRpc_Event_OnVehicleCollision(_Event);
+			case CSmModeEvent::EType::OnVehicleVsVehicleCollision: Private_XmlRpc_Event_OnVehicleVsVehicleCollision(_Event);
+			default: Private_XmlRpc_Event_Default(_Event);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Discard a CSmModeEvent event
+ *
+ *	@param	_Event										The event to discard
+ */
+Void Private_Discard(CSmModeEvent _Event) {
+	This.Discard(_Event);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Pass on a K_RaceEvent event
+ *
+ *	@param	_Event										The event to pass on
+ */
+Void Private_PassOn(K_RaceEvent _Event, Integer _SourceEventAction) {
+	if (_Event.SourceEvent != Null) {
+		switch (_SourceEventAction) {
+			case C_SourceEventAction_Invalid: Private_Discard(_Event.SourceEvent);
+			case C_SourceEventAction_Valid: Private_PassOn(_Event.SourceEvent);
+		}
+	}
+
+	switch (_Event.Type) {
+		case C_Type_StartLine	: Private_XmlRpc_Event_StartLine(_Event);
+		case C_Type_Waypoint	: Private_XmlRpc_Event_Waypoint(_Event);
+		case C_Type_GiveUp		: Private_XmlRpc_Event_GiveUp(_Event);
+		case C_Type_SkipOutro	: Private_XmlRpc_Event_SkipOutro(_Event);
+		case C_Type_Respawn		: Private_XmlRpc_Event_Respawn(_Event);
+		case C_Type_Eliminated: Private_XmlRpc_Event_Eliminated(_Event);
+		default: Private_XmlRpc_Event_Default(_Event);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Discard a K_RaceEvent event
+ *
+ *	@param	_Event										The event to discard
+ */
+Void Private_Discard(K_RaceEvent _Event, Integer _SourceEventAction) {
+	if (_Event.SourceEvent != Null) {
+		switch (_SourceEventAction) {
+			case C_SourceEventAction_Invalid: Private_Discard(_Event.SourceEvent);
+			case C_SourceEventAction_Valid: Private_PassOn(_Event.SourceEvent);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Return the version number of the script
+ *
+ *	@return														The version number of the script
+ */
+Text GetScriptVersion() {
+	return Version;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Return the name of the script
+ *
+ *	@return														The name of the script
+ */
+Text GetScriptName() {
+	return ScriptName;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Pass on an event
+ *
+ *	@param	_Event										The event to pass on
+ */
+Void Valid(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	Private_PassOn(_Event);
+}
+Void Valid(K_RaceEvent _Event, Integer _SourceEventAction) {
+	Private_PassOn(_Event, _SourceEventAction);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Discard an event
+ *
+ *	@param	_Event										The event to discard
+ */
+Void Invalid(CSmModeEvent _Event) {
+	if (_Event == Null) return;
+
+	Private_Discard(_Event);
+}
+Void Invalid(K_RaceEvent _Event, Integer _SourceEventAction) {
+	Private_Discard(_Event, _SourceEventAction);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the PassOn() function was
+ *	called on the given event
+ *
+ *	@param	_Event										The event to check
+ *
+ *	@return														True if the event was passed on,
+ *																		False otherwise
+ */
+Boolean Validated(CSmModeEvent _Event) {
+	if (_Event == Null) return False;
+	return _Event.HasBeenPassed;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the Discard() function was
+ *	called on the given event
+ *
+ *	@param	_Event										The event to check
+ *
+ *	@return														True if the event was discarded,
+ *																		False otherwise
+ */
+Boolean Invalidated(CSmModeEvent _Event) {
+	if (_Event == Null) return False;
+	return _Event.HasBeenDiscarded;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if an event was processed
+ *
+ *	@param	_Event										The event to check
+ *
+ *	@return														True if the event was already processed, False otherwise
+ */
+Boolean Processed(CSmModeEvent _Event) {
+	if (_Event == Null) return False;
+	return _Event.HasBeenPassed || _Event.HasBeenDiscarded;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get checkpoint to apply in the list
+Text Private_GetCheckpointModeToApply(Text[Text] _CheckpointModes) {
+	declare Text CheckpointModeToApply = C_CheckpointsMode_Default;
+
+	foreach (CheckpointMode in _CheckpointModes) {
+		if (C_CheckpointsModes.keyof(CheckpointMode) < C_CheckpointsModes.keyof(CheckpointModeToApply)) {
+			CheckpointModeToApply = CheckpointMode;
+		}
+	}
+
+	return CheckpointModeToApply;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Function to call at each yield
+Void Yield() {
+	foreach (Event in XmlRpc.PendingEvents) {
+		if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+			switch (Event.ParamArray1) {
+				case C_Method_SetCurRaceCheckpointsMode: {
+					if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "2.6.0")) {
+						declare Text CheckpointMode = "";
+						if (Event.ParamArray2.existskey(0)) CheckpointMode = Event.ParamArray2[0];
+						if (C_CheckpointsModes.exists(CheckpointMode)) {
+							declare Text RequesterId = "";
+							if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "3.0.0")) {
+								if (Event.ParamArray2.existskey(1)) RequesterId = Event.ParamArray2[1];
+							}
+
+							declare Text[Text] TMGame_RaceEvents_CurRaceCheckpointsModeByRequester for This = [];
+							TMGame_RaceEvents_CurRaceCheckpointsModeByRequester[RequesterId] = CheckpointMode;
+
+							declare Text TMGame_RaceEvents_CurRaceCheckpointsMode for This = C_CheckpointsMode_Default;
+							TMGame_RaceEvents_CurRaceCheckpointsMode = Private_GetCheckpointModeToApply(TMGame_RaceEvents_CurRaceCheckpointsModeByRequester);
+						}
+					}
+				}
+				case C_Method_SetCurLapCheckpointsMode: {
+					if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "2.6.0")) {
+						declare Text CheckpointMode = "";
+						if (Event.ParamArray2.existskey(0)) CheckpointMode = Event.ParamArray2[0];
+						if (C_CheckpointsModes.exists(CheckpointMode)) {
+							declare Text RequesterId = "";
+							if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "3.0.0")) {
+								if (Event.ParamArray2.existskey(1)) RequesterId = Event.ParamArray2[1];
+							}
+
+							declare Text[Text] TMGame_RaceEvents_CurLapCheckpointsModeByRequester for This = [];
+							TMGame_RaceEvents_CurLapCheckpointsModeByRequester[RequesterId] = CheckpointMode;
+
+							declare Text TMGame_RaceEvents_CurLapCheckpointsMode for This = C_CheckpointsMode_Default;
+							TMGame_RaceEvents_CurLapCheckpointsMode = Private_GetCheckpointModeToApply(TMGame_RaceEvents_CurLapCheckpointsModeByRequester);
+						}
+					}
+				}
+				case C_Method_UnsetCurRaceCheckpointsMode: {
+					if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "3.0.0")) {
+						if (Event.ParamArray2.existskey(0)) {
+							declare Text RequesterId = Event.ParamArray2[0];
+
+							declare Text[Text] TMGame_RaceEvents_CurRaceCheckpointsModeByRequester for This = [];
+							TMGame_RaceEvents_CurRaceCheckpointsModeByRequester.removekey(RequesterId);
+
+							declare Text TMGame_RaceEvents_CurRaceCheckpointsMode for This = C_CheckpointsMode_Default;
+							TMGame_RaceEvents_CurRaceCheckpointsMode = Private_GetCheckpointModeToApply(TMGame_RaceEvents_CurRaceCheckpointsModeByRequester);
+						}
+					}
+				}
+				case C_Method_UnsetCurLapCheckpointsMode: {
+					if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "3.0.0")) {
+						if (Event.ParamArray2.existskey(0)) {
+							declare Text RequesterId = Event.ParamArray2[0];
+							declare Text[Text] TMGame_RaceEvents_CurLapCheckpointsModeByRequester for This = [];
+							TMGame_RaceEvents_CurLapCheckpointsModeByRequester.removekey(RequesterId);
+
+							declare Text TMGame_RaceEvents_CurLapCheckpointsMode for This = C_CheckpointsMode_Default;
+							TMGame_RaceEvents_CurLapCheckpointsMode = Private_GetCheckpointModeToApply(TMGame_RaceEvents_CurLapCheckpointsModeByRequester);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	// Unregister methods
+	XmlRpc::UnregisterMethod(C_Method_UnsetCurRaceCheckpointsMode);
+	XmlRpc::UnregisterMethod(C_Method_UnsetCurLapCheckpointsMode);
+	XmlRpc::UnregisterMethod(C_Method_SetCurRaceCheckpointsMode);
+	XmlRpc::UnregisterMethod(C_Method_SetCurLapCheckpointsMode);
+	// Unregister callbacks
+	XmlRpc::UnregisterCallback(C_Callback_Event_Default);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnShoot);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnHit);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnNearMiss);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnArmorEmpty);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnCapture);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnShotDeny);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnFallDamage);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnCommand);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnPlayerAdded);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnPlayerRemoved);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnPlayerRequestRespawn);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnActionCustomEvent);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnActionEvent);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnPlayerTouchesObject);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnPlayerTriggersSector);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnPlayerThrowsObject);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnPlayerRequestActionChange);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnPlayerTriggersWaypoint);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnVehicleArmorEmpty);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnVehicleCollision);
+	XmlRpc::UnregisterCallback(C_Callback_Event_OnVehicleVsVehicleCollision);
+	XmlRpc::UnregisterCallback(C_Callback_Event_StartLine);
+	XmlRpc::UnregisterCallback(C_Callback_Event_Waypoint);
+	XmlRpc::UnregisterCallback(C_Callback_Event_SkipOutro);
+	XmlRpc::UnregisterCallback(C_Callback_Event_GiveUp);
+	XmlRpc::UnregisterCallback(C_Callback_Event_Respawn);
+	XmlRpc::UnregisterCallback(C_Callback_Event_Eliminated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	// Register callbacks
+	XmlRpc::RegisterCallback(C_Callback_Event_Default, """
+* Name: {{{C_Callback_Event_Default}}}
+* Type: CallbackArray
+* Description: Callback sent when the event type is not yet supported by the XmlRpc library.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"type": "::EType::EventType" //< The type of event
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnShoot, """
+* Name: {{{C_Callback_Event_OnShoot}}}
+* Type: CallbackArray
+* Description: Callback sent when a player shoots.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"shooter": "ShooterLogin", //< Login of the player who shot
+			"weapon": 2 //< Id of the weapon [1-Laser, 2-Rocket, 3-Nucleus, 5-Arrow]
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnHit, """
+* Name: {{{C_Callback_Event_OnHit}}}
+* Type: CallbackArray
+* Description: Callback sent when a player is hit.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"shooter": "ShooterLogin", //< Login of the player who shot
+			"victim": "VictimLogin", //< Login of the player who got hit
+			"weapon": 2, //< Id of the weapon [1-Laser, 2-Rocket, 3-Nucleus, 5-Arrow]
+			"damage": 100, //< Amount of damaged done by the hit
+			"points": 2, //< Amount of points scored by the shooter
+			"distance": 45.578, //< Distance between the victim and the shooter at the time of the hit
+			"shooterposition": { "x": 19.3, "y": 9.3", "z": 59.9 }, //< Position of the shooter when their projectile hits the victim
+			"victimposition": { "x": 87.6, "y": 10.0, "z": 84.5 } //< Position of the victim when they have hit by the projectile
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnNearMiss, """
+* Name: {{{C_Callback_Event_OnNearMiss}}}
+* Type: CallbackArray
+* Description: Callback sent when a player dodges a projectile.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"shooter": "ShooterLogin", //< Login of the player who shot
+			"victim": "VictimLogin", //< Login of the player who dodged
+			"weapon": 1, //< Id of the weapon [1-Laser, 2-Rocket, 3-Nucleus, 5-Arrow]
+			"distance": 0.587, //< Distance of the near miss
+			"shooterposition": { "x": 19.3, "y": 9.3", "z": 59.9 }, //< Position of the shooter when their projectile misses the victim
+			"victimposition": { "x": 87.6, "y": 10.0, "z": 84.5 } //< Position of the victim when they dodged the projectile
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnArmorEmpty, """
+* Name: {{{C_Callback_Event_OnArmorEmpty}}}
+* Type: CallbackArray
+* Description: Callback sent when a player is eliminated.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"shooter": "ShooterLogin", //< Login of the player who eliminated the victim
+			"victim": "VictimLogin", //< Login of the player who got eliminated
+			"weapon": 2, //< Id of the weapon [1-Laser, 2-Rocket, 3-Nucleus, 5-Arrow]
+			"distance": 65.948, //< Distance between the victim and the shooter at the time of the elimination
+			"shooterposition": { "x": 19.3, "y": 9.3", "z": 59.9 }, //< Position of the shooter when the victim is eliminated
+			"victimposition": { "x": 87.6, "y": 10.0, "z": 84.5 } //< Position of the victim when they have eliminated
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnCapture, """
+* Name: {{{C_Callback_Event_OnCapture}}}
+* Type: CallbackArray
+* Description: Callback sent when a landmark is captured.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"players": ["Player1", "Player2", "Player3"], //< Logins of the players who were on the landmark when it was captured
+			"landmark": { //< Info about the captured landmark
+				"tag": "LandmarkTag",
+				"order": 5,
+				"id": "#3",
+				"position": { "x": 87.6, "y": 10.0, "z": 84.5 }
+			}
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnShotDeny, """
+* Name: {{{C_Callback_Event_OnShotDeny}}}
+* Type: CallbackArray
+* Description: Callback sent when a player denies a projectile.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"shooter": "ShooterLogin", //< Login of the player who denied the projectile
+			"victim": "VictimLogin", //< Login of the player who got denied
+			"shooterweapon": 1, //< Id of the weapon [1-Laser, 2-Rocket, 3-Nucleus, 5-Arrow]
+			"victimweapon": 2 //< Id of the weapon [1-Laser, 2-Rocket, 3-Nucleus, 5-Arrow]
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnFallDamage, """
+* Name: {{{C_Callback_Event_OnFallDamage}}}
+* Type: CallbackArray
+* Description: Callback sent when a player suffers fall damage.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"victim": "VictimLogin", //< Login of the player who fell
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnCommand, """
+* Name: {{{C_Callback_Event_OnCommand}}}
+* Type: CallbackArray
+* Description: Callback sent when a command is executed on the server.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"name": "CommandName", //< Name of the command
+			"value": { //< The value passed by the command
+				"boolean": true,
+				"integer": 123,
+				"real": 123.456,
+				"text": "an example value"
+			}
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnPlayerAdded, """
+* Name: {{{C_Callback_Event_OnPlayerAdded}}}
+* Type: CallbackArray
+* Description: Callback sent when a player joins the server.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin",
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7",
+			"name": "Name of the player",
+			"team": 0,
+			"zone": "World|Europe|France|Outre-mer|Reunion",
+			"language": "en",
+			"ladderrank": 123456,
+			"ladderpoints": 789.321
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnPlayerRemoved, """
+* Name: {{{C_Callback_Event_OnPlayerRemoved}}}
+* Type: CallbackArray
+* Description: Callback sent when a player leaves the server.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin",
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7"
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnPlayerRequestRespawn, """
+* Name: {{{C_Callback_Event_OnPlayerRequestRespawn}}}
+* Type: CallbackArray
+* Description: Callback sent when a player presses the respawn button.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin",
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7"
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnActionCustomEvent, """
+* Name: {{{C_Callback_Event_OnActionCustomEvent}}}
+* Type: CallbackArray
+* Description: Callback sent when an action triggers a custom event.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"shooter": "ShooterLogin", //< Login of the player who shot if any
+			"victim": "VictimLogin", //< Login of the player who got hit if any
+			"actionid": "NameOfTheAction", //< Id of the action that triggered the event
+			"param1": "SomeParam", //< First custom param of the event
+			"param2":["Some", "Other", "Params"] //< Second custom param of the event
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnActionEvent, """
+* Name: {{{C_Callback_Event_OnActionEvent}}}
+* Type: CallbackArray
+* Description: Callback sent when a player triggers an action.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin", //< Login of the player who triggered the action
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7",
+			"actioninput": "" //< The input pressed to trigger the action
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnPlayerTouchesObject, """
+* Name: {{{C_Callback_Event_OnPlayerTouchesObject}}}
+* Type: CallbackArray
+* Description: Callback sent when a player touches an object.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin", //< Login of the player who touched the object
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7",
+			"objectid": "#456", //< The id of the object
+			"modelid": "#123", //< The id of the object model
+			"modelname": "ObjectName" //< The name of the object model
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnPlayerTriggersSector, """
+* Name: {{{C_Callback_Event_OnPlayerTriggersSector}}}
+* Type: CallbackArray
+* Description: Callback sent when a player triggers a sector.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin", //< Login of the player who triggered the sector
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7",
+			"sectorid": "#123" //< Id of the triggered sector
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnPlayerThrowsObject, """
+* Name: {{{C_Callback_Event_OnPlayerThrowsObject}}}
+* Type: CallbackArray
+* Description: Callback sent when a player throws an object.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin", //< Login of the player who threw the object
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7",
+			"objectid": "#456", //< The id of the object
+			"modelid": "#123", //< The id of the object model
+			"modelname": "ObjectName" //< The name of the object model
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnPlayerRequestActionChange, """
+* Name: {{{C_Callback_Event_OnPlayerRequestActionChange}}}
+* Type: CallbackArray
+* Description: Callback sent when a player requests to use another action.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin", //< Login of the player who requested a new action
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7",
+			"actionchange": 1 //< Can be -1 (request previous action) or 1 (request next action)
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnPlayerTriggersWaypoint, """
+* Name: {{{C_Callback_Event_OnPlayerTriggersWaypoint}}}
+* Type: CallbackArray
+* Description: Callback sent when a player triggers a waypoint in the map.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin", //< Login of the player who requested a new action
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7",
+			"racetime": 123456, //< Total race time in milliseconds
+			"checkpointinrace": 3, //< Number of checkpoints crossed since the beginning of the race minus one (index of the checkpoint in the curracecheckpoints array)
+			"checkpointinlap": 0, //< Number of checkpoints crossed since the beginning of the lap minus one (index of the checkpoint in the curlapcheckpoints array)
+			"curracecheckpoints": [1234, 5200, 7580, 9000], //< Checkpoints times since the beginning of the race. Empty by default, use the `{{{C_Method_SetCurRaceCheckpointsMode}}}` method to control how this array is filled.
+			"curlapcheckpoints": [1420], //< Checkpoints time since the beginning of the lap. Empty by default, use the `{{{C_Method_SetCurLapCheckpointsMode}}}` method to control how this array is filled.
+			"blockid": "#123", //< Id of the checkpoint block
+			"speed": 456.45 //< Speed of the player in km/h
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnVehicleArmorEmpty, """
+* Name: {{{C_Callback_Event_OnVehicleArmorEmpty}}}
+* Type: CallbackArray
+* Description: Callback sent when a player requests to use another action.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"shooter": "ShooterLogin", //< Login of the player who shot
+			"victim": "VictimLogin", //< Login of the player who got hit
+			"weapon": 2, //< Id of the weapon [1-Laser, 2-Rocket, 3-Nucleus, 5-Arrow]
+			"distance": 45.578, //< Distance between the victim and the shooter at the time of the hit
+			"shooterposition": { "x": 19.3, "y": 9.3", "z": 59.9 }, //< Position of the shooter when their projectile hits the victim
+			"victimposition": { "x": 87.6, "y": 10.0, "z": 84.5 } //< Position of the victim when they have hit by the projectile
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnVehicleCollision, """
+* Name: {{{C_Callback_Event_OnVehicleCollision}}}
+* Type: CallbackArray
+* Description: Callback sent when a player requests to use another action.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"shooter": "ShooterLogin", //< Login of the player who shot
+			"victim": "VictimLogin", //< Login of the player who got hit
+			"damage": 100, //< Amount of damaged done by the hit
+			"shooterposition": { "x": 19.3, "y": 9.3", "z": 59.9 }, //< Position of the shooter when their projectile hits the victim
+			"victimposition": { "x": 87.6, "y": 10.0, "z": 84.5 } //< Position of the victim when they have hit by the projectile
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_OnVehicleVsVehicleCollision, """
+* Name: {{{C_Callback_Event_OnVehicleVsVehicleCollision}}}
+* Type: CallbackArray
+* Description: Callback sent when a player requests to use another action.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"shooter": "ShooterLogin", //< Login of the player who shot
+			"victim": "VictimLogin", //< Login of the player who got hit
+			"damage": 100, //< Amount of damaged done by the hit
+			"shooterposition": { "x": 19.3, "y": 9.3", "z": 59.9 }, //< Position of the shooter when their projectile hits the victim
+			"victimposition": { "x": 87.6, "y": 10.0, "z": 84.5 } //< Position of the victim when they have hit by the projectile
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_StartLine, """
+* Name: {{{C_Callback_Event_StartLine}}}
+* Type: CallbackArray
+* Description: Callback sent when a player starts to race (at the end of the 3,2,1,GO! sequence).
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin",
+			"accountid": "abcd-efgh-ijkl-mnop-qrstuvwxyz01"
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_Waypoint, """
+* Name: {{{C_Callback_Event_Waypoint}}}
+* Type: CallbackArray
+* Description: Callback sent when a player crosses a checkpoint.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin",
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7",
+			"racetime": 123456, //< Total race time in milliseconds
+			"laptime": 45678, //< Lap time in milliseconds
+			"stuntsscore": 3457, //< Stunts score
+			"checkpointinrace": 3, //< Number of checkpoints crossed since the beginning of the race minus one (index of the checkpoint in the curracecheckpoints array)
+			"checkpointinlap": 0, //< Number of checkpoints crossed since the beginning of the lap minus one (index of the checkpoint in the curlapcheckpoints array)
+			"isendrace": false, //< Is it the finish line checkpoint
+			"isendlap": false, //< Is it the multilap checkpoint
+			"curracecheckpoints": [1234, 5200, 7580, 9000], //< Checkpoints times since the beginning of the race. Empty be default, use the `{{{C_Method_SetCurRaceCheckpointsMode}}}` method to control how this array is filled.
+			"curlapcheckpoints": [1420], //< Checkpoints time since the beginning of the lap. Empty by default, use the `{{{C_Method_SetCurLapCheckpointsMode}}}` method to control how this array is filled.
+			"blockid": "#123", //< Id of the checkpoint block
+			"speed": 456.45, //< Speed of the player in km/h
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_GiveUp, """
+* Name: {{{C_Callback_Event_GiveUp}}}
+* Type: CallbackArray
+* Description: Callback sent when a player gives up and restart from the beginning.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin",
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7"
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_SkipOutro, """
+* Name: {{{C_Callback_Event_SkipOutro}}}
+* Type: CallbackArray
+* Description: Callback sent when a player skip the outro at the end of their race.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin",
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7"
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_Respawn, """
+* Name: {{{C_Callback_Event_Respawn}}}
+* Type: CallbackArray
+* Description: Callback sent when a player respawns at the previous checkpoint.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin",
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7",
+			"nbrespawns": 5, //< Number of respawns since the beginning of the race
+			"racetime": 123456, //< Total race time in milliseconds
+			"laptime": 45678, //< Lap time in milliseconds
+			"stuntsscore": 3457, //< Stunts score
+			"checkpointinrace": 13, //< Number of checkpoints crossed since the beginning of the race minus one
+			"checkpointinlap": 4, //< Number of checkpoints crossed since the beginning of the lap minus one
+			"speed": 456.45 //< Speed of the player in km/h
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterCallback(C_Callback_Event_Eliminated, """
+* Name: {{{C_Callback_Event_Eliminated}}}
+* Type: CallbackArray
+* Description: Callback sent when a player is eliminated by an obstacle.
+* Data:
+	- Version >=3.7.0:
+	```
+	[
+		"{
+			"time": 123456, //< Server time when the event occurred
+			"login": "PlayerLogin",
+			"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7",
+		}"
+	]
+	```
+	""");
+
+	// Register methods
+	XmlRpc::RegisterMethod(C_Method_SetCurRaceCheckpointsMode, """
+* Name: {{{C_Method_SetCurRaceCheckpointsMode}}}
+* Type: TriggerModeScriptEventArray
+* Description: Set when the `curracecheckpoints` array in the `{{{C_Callback_Event_Waypoint}}}` and `{{{C_Callback_Event_OnPlayerTriggersWaypoint}}}` callbacks should be filled. "{{{C_CheckpointsMode_Always}}}" will fill the array at each waypoint. "{{{C_CheckpointsMode_Never}}}" will never fill the array. "{{{C_CheckpointsMode_EndLap}}}" will fill the array only if the player finished a lap. "{{{C_CheckpointsMode_EndRace}}}" will fill the array only if the player finished the race. Default value is "{{{C_CheckpointsMode_Default}}}".
+* Data:
+	- Version >=2.6.0:
+	```
+	[
+		"{{{C_CheckpointsMode_Always}}}", //< The checkpoint mode. Value can be "{{{C_CheckpointsMode_Always}}}", "{{{C_CheckpointsMode_Never}}}", "{{{C_CheckpointsMode_EndLap}}}" or "{{{C_CheckpointsMode_EndRace}}}". Default value is "{{{C_CheckpointsMode_Default}}}".
+		"RequesterId" //< If different ids request different checkpoint modes, then the mode sending the most data will be used. eg: if "A" sets checkpoint mode "{{{C_CheckpointsMode_Always}}}" and "B" sets checkpoint mode "{{{C_CheckpointsMode_EndLap}}}", then "{{{C_CheckpointsMode_Always}}}" will be applied.
+	]
+	```
+	""");
+	XmlRpc::RegisterMethod(C_Method_SetCurLapCheckpointsMode, """
+* Name: {{{C_Method_SetCurLapCheckpointsMode}}}
+* Type: TriggerModeScriptEventArray
+* Description: Set when the `curlapcheckpoints` array in the `{{{C_Callback_Event_Waypoint}}}` and `{{{C_Callback_Event_OnPlayerTriggersWaypoint}}}` callbacks should be filled. "{{{C_CheckpointsMode_Always}}}" will fill the array at each waypoint. "{{{C_CheckpointsMode_Never}}}" will never fill the array. "{{{C_CheckpointsMode_EndLap}}}" will fill the array only if the player finished a lap. "{{{C_CheckpointsMode_EndRace}}}" will fill the array only if the player finished the race. Default value is "{{{C_CheckpointsMode_Default}}}".
+* Data:
+	- Version >=2.6.0:
+	```
+	[
+		"{{{C_CheckpointsMode_Always}}}", //< The checkpoint mode. Value can be "{{{C_CheckpointsMode_Always}}}", "{{{C_CheckpointsMode_Never}}}", "{{{C_CheckpointsMode_EndLap}}}" or "{{{C_CheckpointsMode_EndRace}}}". Default value is "{{{C_CheckpointsMode_Default}}}".
+		"RequesterId" //< If different ids request different checkpoint modes, then the mode sending the most data will be used. eg: if "A" sets checkpoint mode "{{{C_CheckpointsMode_Always}}}" and "B" sets checkpoint mode "{{{C_CheckpointsMode_EndLap}}}", then "{{{C_CheckpointsMode_Always}}}" will be applied.
+	]
+	```
+	""");
+	XmlRpc::RegisterMethod(C_Method_UnsetCurRaceCheckpointsMode, """
+* Name: {{{C_Method_UnsetCurRaceCheckpointsMode}}}
+* Type: TriggerModeScriptEventArray
+* Description: Unset the checkpoint mode previously set with `{{{C_Method_SetCurRaceCheckpointsMode}}}`.
+* Data:
+	- Version >=3.0.0:
+	```
+	[
+		"RequesterId" //< Id used to set the checkpoint mode with `{{{C_Method_SetCurRaceCheckpointsMode}}}`
+	]
+	```
+	""");
+	XmlRpc::RegisterMethod(C_Method_UnsetCurLapCheckpointsMode, """
+* Name: {{{C_Method_UnsetCurLapCheckpointsMode}}}
+* Type: TriggerModeScriptEventArray
+* Description: Unset the checkpoint mode previously set with `{{{C_Method_SetCurLapCheckpointsMode}}}`.
+* Data:
+	- Version >=3.0.0:
+	```
+	[
+		"RequesterId" //< Id used to set the checkpoint mode with `{{{C_Method_SetCurLapCheckpointsMode}}}`
+	]
+	```
+	""");
+}

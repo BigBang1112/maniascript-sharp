@@ -1,0 +1,261 @@
+/**
+ * Component : MapReviewAPI, API for the server review system
+ */
+#Const Version "1.1.2"
+#Const ScriptName "Libs/Nadeo/Trackmania/API/MapReviewAPI.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_HttpJoinLink {
+	Text joinLink;
+	Boolean starting;
+	Boolean noMap;
+	Integer submissionWaitTimer;
+}
+
+#Struct K_JoinLink {
+	Text JoinLink;
+	Boolean Starting;
+	Boolean NoMap;
+	Integer SubmissionWaitTimer;
+}
+
+#Struct K_HttpMap {
+	Text mapUid;
+}
+
+#Struct K_HttpWaitingTime {
+	Integer seconds;
+}
+
+#Struct K_HttpNoteInfo {
+	Integer countTotal;
+	Real average;
+	Integer countStar1;
+	Integer countStar2;
+	Integer countStar3;
+	Integer countStar4;
+	Integer countStar5;
+	Integer countStarMax;
+}
+
+#Struct K_HttpSubmittedMapInfo {
+	Text uid;
+	Text mapId;
+	Text name;
+	Text author;
+	Text submitter;
+	Integer authorTime;
+	Integer goldTime;
+	Integer silverTime;
+	Integer bronzeTime;
+	Integer nbLaps;
+	Boolean valid;
+	Text downloadUrl;
+	Text thumbnailUrl;
+	Integer uploadTimestamp;
+	Integer updateTimestamp;
+}
+
+#Struct K_HttpSubmittedMap {
+	Text mapUid;
+	Integer feedbackCount;
+	Integer creationTimestamp;
+	Integer creationDate;
+	Integer latestSubmissionTimestamp;
+	Boolean nominated;
+	Integer nadeoNote;
+	K_HttpSubmittedMapInfo map;
+	K_HttpNoteInfo noteInfo;
+}
+
+#Struct K_HttpSubmittedMaps {
+	K_HttpSubmittedMap[] submittedMaps;
+	Integer itemCount;
+}
+
+#Struct K_NoteInfo {
+	Integer CountTotal;
+	Real Average;
+}
+
+#Struct K_SubmittedMap {
+	Text Uid;
+	Text Name;
+	Text AuthorAccountId;
+	Text AuthorDisplayName;
+	Text DownloadUrl;
+	Text ThumbnailUrl;
+	Integer FeedbackCount;
+	K_NoteInfo NoteInfo;
+}
+
+#Struct K_SubmittedMaps {
+	K_SubmittedMap[] MapList;
+	Integer ItemCount;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MapReviewUid_TOTD "totd"
+#Const C_MapReviewUid_WeeklyTracks "weekly-shorts" // Keep weekly shorts uid for backward compatibility
+
+#Const C_API_MapReview "/api/token/map-review"
+
+#Const C_RouteParameter_MapUid "MapUid"
+#Const C_RouteParameter_MapReviewUid "MapReviewUid"
+
+#Const C_QueryParameter_Offset "offset"
+#Const C_QueryParameter_Length "length"
+#Const C_QueryParameter_WithFeedback "withFeedback"
+#Const C_QueryParameter_WithMapInfo "withMapInfo"
+
+#Const C_Route_GetConnect "/:MapReviewUid/connect"
+#Const C_Route_GetWaitingTime "/:MapReviewUid/waiting-time"
+#Const C_Route_PostAddMapQueue "/:MapReviewUid/add-map-queue"
+#Const C_Route_GetSubmittedMaps "/:MapReviewUid/submitted-map"
+#Const C_Route_PostRemoveSubmittedMap "/:MapReviewUid/submitted-map/:MapUid"
+
+#Const C_MapUpload_WaitingTime 1000
+#Const C_Error_MapUnknowByLiveServices "Map:error-sizeNotFound" //< Value from LIVE's API
+
+#Const C_Headers [
+	"Accept" => "application/json",
+	"Content-Type" => "application/json"
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the waiting time
+ *
+ *	@return													The request
+ */
+Http::K_Request GetWaitingTime(Text _MapReviewUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetWaitingTime, [C_RouteParameter_MapReviewUid => _MapReviewUid]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_MapReview^Route, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetWaitingTime request
+Integer GetResponseFromGetWaitingTime(Http::K_Request _Request) {
+	declare K_HttpWaitingTime HttpWaitingTime;
+	HttpWaitingTime.fromjson(Http::GetResult(_Request));
+	return HttpWaitingTime.seconds;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to connect to the server review
+ *
+ *	@return												The request
+ */
+Http::K_Request GetConnect(Text _MapReviewUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetConnect, [C_RouteParameter_MapReviewUid => _MapReviewUid]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_MapReview^Route, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to post the map to the server review map queue
+ *
+ *	@param	_MapUid									The Uid of the map to add
+ *																	Must be registered to the NadeoServices first !
+ *
+ *	@return													The request
+ */
+Http::K_Request PostAddMapQueue(Text _MapReviewUid, Text _MapUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_PostAddMapQueue, [C_RouteParameter_MapReviewUid => _MapReviewUid]);
+	declare K_HttpMap HttpMap = K_HttpMap {
+		mapUid = _MapUid
+	};
+	return Http::CreatePost(Config::Get().APIBaseUrl^C_API_MapReview^Route, HttpMap.tojson(), C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetConnect or PostAddMapQueue request
+K_JoinLink GetJoinLinkResponse(Http::K_Request _Request) {
+	declare K_HttpJoinLink HttpJoinLink;
+	HttpJoinLink.fromjson(Http::GetResult(_Request));
+	return K_JoinLink {
+		JoinLink = HttpJoinLink.joinLink,
+		Starting = HttpJoinLink.starting,
+		NoMap = HttpJoinLink.noMap,
+		SubmissionWaitTimer = HttpJoinLink.submissionWaitTimer
+	};
+}
+K_JoinLink GetResponseFromGetConnect(Http::K_Request _Request) {
+	return GetJoinLinkResponse(_Request);
+}
+K_JoinLink GetResponseFromPostAddMapQueue(Http::K_Request _Request) {
+	return GetJoinLinkResponse(_Request);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the list of maps submitted by the player
+ *
+ *	@param	_Offset										The offset of the list to get
+ *	@param	_Length										The length of the list to get
+ *
+ *	@return														The request
+ */
+Http::K_Request GetSubmittedMaps(Text _MapReviewUid, Integer _Offset, Integer _Length) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetSubmittedMaps, [C_RouteParameter_MapReviewUid => _MapReviewUid]);
+	declare Text QueryString = Http::CreateQueryString([
+		C_QueryParameter_Offset => ""^_Offset,
+		C_QueryParameter_Length => ""^_Length,
+		C_QueryParameter_WithFeedback => "true",
+		C_QueryParameter_WithMapInfo => "true"
+	]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_MapReview^Route^QueryString, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetSubmittedMaps request
+K_SubmittedMaps GetResponseFromGetSubmittedMaps(Http::K_Request _Request) {
+	declare K_HttpSubmittedMaps HttpSubmittedMaps;
+	HttpSubmittedMaps.fromjson(Http::GetResult(_Request));
+
+	declare K_SubmittedMap[] SubmittedMaps;
+	foreach (HttpSubmittedMap in HttpSubmittedMaps.submittedMaps) {
+		SubmittedMaps.add(K_SubmittedMap {
+			Uid = HttpSubmittedMap.map.uid,
+			Name = HttpSubmittedMap.map.name,
+			AuthorAccountId = HttpSubmittedMap.map.author,
+			DownloadUrl = HttpSubmittedMap.map.downloadUrl,
+			ThumbnailUrl = HttpSubmittedMap.map.thumbnailUrl,
+			FeedbackCount = HttpSubmittedMap.feedbackCount,
+			NoteInfo = K_NoteInfo {
+				CountTotal = HttpSubmittedMap.noteInfo.countTotal,
+				Average = HttpSubmittedMap.noteInfo.average
+			}
+		});
+	}
+
+	return K_SubmittedMaps {
+		MapList = SubmittedMaps,
+		ItemCount = HttpSubmittedMaps.itemCount
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to remove a submitted map from the server review
+ *
+ *	@param	_MapUid									The Uid of the map to remove
+ *
+ *	@return													The request
+ */
+Http::K_Request PostRemoveSubmittedMapRequest(Text _MapReviewUid, Text _MapUid) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_PostRemoveSubmittedMap,
+		[
+			C_RouteParameter_MapUid => _MapUid,
+			C_RouteParameter_MapReviewUid => _MapReviewUid
+		]
+	);
+	return Http::CreatePost(Config::Get().APIBaseUrl^C_API_MapReview^Route, "", C_Headers);
+}

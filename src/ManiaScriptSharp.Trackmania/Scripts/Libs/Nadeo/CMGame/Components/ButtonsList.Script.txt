@@ -1,0 +1,320 @@
+/**
+ *	Component: ButtonsList
+ *
+ *	Valid data attributes:
+ *	- data-buttons
+ *	- data-halign
+ *	- data-color
+ *	- data-uppercase
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/ButtonsList.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/ButtonIcon.Script.txt" as ButtonIcon
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-buttonslist" //< Component name
+#Const P "ComponentButtonsList_" //< Prefix used to differentiate functions/variables in the script
+
+#Const C_ButtonsNb 6
+#Const C_ButtonSize 8.
+#Const C_Margin 4.
+#Const C_DefaultColor "eeeeee"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_ComponentButtonsList_Settings {
+	Text[Text] ButtonActions;
+}
+#Const C_K_ComponentButtonsList_Settings_ML """
+#Struct K_ComponentButtonsList_Settings {
+	Text[Text] ButtonActions;
+}
+"""
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a buttons structure
+ *	than can be passed to the
+ *	data-buttons attribute
+ *
+ *	@param	_ButtonActions						The buttons and their actions
+ *																		["ButtonName" => "ButtonAction"]
+ */
+Text Inject(Text[Text] _ButtonActions) {
+	declare K_ComponentButtonsList_Settings ButtonsListSettings;
+	ButtonsListSettings.ButtonActions = _ButtonActions;
+	return TL::MLEncode(ButtonsListSettings.tojson());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	declare Text ML_Buttons = "";
+	for (I, 0, C_ButtonsNb - 1) {
+		ML_Buttons ^= """<frameinstance pos="{{{I * 20}}} 0" modelid="{{{P}}}framemodel-button" id="{{{P}}}frame-button" />""";
+	}
+
+	return MV::Component(
+		C_Name,
+		"""
+<framemodel id="{{{P}}}framemodel-button">
+	<frameinstance data-size="{{{C_ButtonSize}}} {{{C_ButtonSize}}}" modelid="{{{ButtonIcon::C_Name}}}" id="{{{P}}}component-button-icon" />
+	<label pos="{{{C_ButtonSize*0.6}}} 0" size="100 8" valign="center2" id="{{{P}}}label-action" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"/>
+</framemodel>
+<frame class="{{{P}}}container-buttons-list">
+	<frame id="{{{P}}}frame-buttons-list">
+		{{{ML_Buttons}}}
+	</frame>
+</frame>
+		""",
+		"""
+#Include "TextLib" as {{{P}}}TL
+#Include "MathLib" as {{{P}}}ML
+#Include "ColorLib" as {{{P}}}CL
+
+#Const {{{P}}}C_HideButtonsListMouseInputs True
+
+{{{C_K_ComponentButtonsList_Settings_ML}}}
+		""",
+		"""
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// GET ALL X (from parent with class, recursive)
+CMlFrame[] {{{P}}}GetFramesRecursiveWithClass(CMlPage _Page, CMlFrame _Parent, Text _Class) {
+	_Page.GetClassChildren(_Class, _Parent, True);
+	declare CMlFrame[] Frames;
+	foreach (ResultControl in _Page.GetClassChildren_Result) {
+		if (ResultControl is CMlFrame && ResultControl.HasClass(_Class)) {
+			declare CMlFrame Frame = (ResultControl as CMlFrame);
+			Frames.add(Frame);
+		}
+	}
+	return Frames;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+CMlFrame[] {{{P}}}GetButtonsLists() {
+	declare CMlFrame[] ButtonListFrames;
+	declare CMlFrame[] Containers = {{{P}}}GetFramesRecursiveWithClass(Page, Page.MainFrame, "{{{P}}}container-buttons-list");
+	foreach (ButtonListContainer in Containers) {
+		ButtonListFrames.add((ButtonListContainer.GetFirstChild("{{{P}}}frame-buttons-list") as CMlFrame));
+	}
+	return ButtonListFrames;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Real {{{P}}}GetWidth(CMlLabel _Label) {
+	declare Real LabelWidth = _Label.ComputeWidth(_Label.Value, True);
+	return {{{C_ButtonSize}}} + {{{P}}}ML::Min(LabelWidth, _Label.Size.X) + {{{C_Margin}}};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void {{{P}}}Private_UpdateButtonsListsVisibility(Boolean _Visible) {
+	foreach (ButtonList in {{{P}}}GetButtonsLists()) ButtonList.Visible = _Visible;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void {{{P}}}InitButtonsList(CMlFrame _Frame_ButtonsList) {
+	assert(_Frame_ButtonsList != Null, "[ButtonsList] Trying to create a buttons list from a frame that does not exist");
+	assert(_Frame_ButtonsList.Parent.Parent.DataAttributeExists("buttons"), "[ButtonsList] You must add the attribute 'data-buttons' to the component");
+
+	// Uses a K_ComponentButtonsList_Settings struct to extract the button actions array from a parent.
+	declare K_ComponentButtonsList_Settings ButtonsListSettings;
+	ButtonsListSettings.fromjson(_Frame_ButtonsList.Parent.Parent.DataAttributeGet("buttons"));
+	declare Text[Text] ButtonActions = ButtonsListSettings.ButtonActions;
+	assert(ButtonActions.count <= {{{C_ButtonsNb}}}, "[ButtonsList] Too many buttons in the list ("^ButtonActions.count^"). The maximum is {{{C_ButtonsNb}}}.");
+
+	declare Text[] Binds;
+	declare Text[] Actions;
+	foreach (Bind => Action in ButtonActions) {
+		Binds.add(Bind);
+		Actions.add(Action);
+	}
+
+	declare Text Color = {{{dump(C_DefaultColor)}}};
+	if (_Frame_ButtonsList.Parent.Parent.DataAttributeExists("color")) {
+		Color = _Frame_ButtonsList.Parent.Parent.DataAttributeGet("color");
+	}
+
+	declare Boolean UpperCase = False;
+	if (_Frame_ButtonsList.Parent.Parent.DataAttributeExists("uppercase")) {
+		declare Text TextUpperCase = _Frame_ButtonsList.Parent.Parent.DataAttributeGet("uppercase");
+		UpperCase = (TextUpperCase != "" && TextUpperCase != "0" && TextUpperCase != {{{P}}}TL::ToLowerCase("false"));
+	}
+
+	declare Real PosX = 0.;
+	foreach (Key => Control in _Frame_ButtonsList.Controls) {
+		declare CMlFrame Frame_Button <=> (Control as CMlFrame);
+		if (Binds.existskey(Key)) {
+			declare Text Bind = Binds[Key];
+			declare Text Action = Actions[Key];
+			declare CMlFrame Component_ButtonIcon <=> (Frame_Button.GetFirstChild("{{{P}}}component-button-icon") as CMlFrame);
+			declare CMlLabel Label_Action <=> (Frame_Button.GetFirstChild("{{{P}}}label-action") as CMlLabel);
+			{{{ButtonIcon::P}}}SetButton(Component_ButtonIcon, Bind);
+			{{{ButtonIcon::P}}}SetColor(Component_ButtonIcon, Color);
+			if (UpperCase) {
+				Label_Action.Value = {{{P}}}TL::ToUpperCase(Action);
+			} else {
+				Label_Action.Value = Action;
+			}
+			Label_Action.TextColor = {{{P}}}CL::Hex6ToRgb(Color);
+			Frame_Button.RelativePosition_V3.X = PosX;
+			PosX += {{{P}}}GetWidth(Label_Action);
+
+			Frame_Button.Visible = True;
+		} else {
+			Frame_Button.Visible = False;
+		}
+	}
+
+	_Frame_ButtonsList.RelativePosition_V3.X = 0.;
+	if (_Frame_ButtonsList.Parent.Parent.DataAttributeExists("halign")) {
+		declare Real SizeX = PosX - {{{C_Margin}}};
+		declare Text HAlign = {{{P}}}TL::ToLowerCase(_Frame_ButtonsList.Parent.Parent.DataAttributeGet("halign"));
+		if (HAlign == "center") {
+			_Frame_ButtonsList.RelativePosition_V3.X = SizeX * -0.5;
+		} else if (HAlign == "right") {
+			_Frame_ButtonsList.RelativePosition_V3.X = SizeX * -1.;
+		}
+	}
+	_Frame_ButtonsList.RelativePosition_V3.X += {{{C_ButtonSize * 0.5}}};
+
+	_Frame_ButtonsList.Visible = !{{{P}}}C_HideButtonsListMouseInputs;
+	{{{P}}}Private_UpdateButtonsListsVisibility({{{ButtonIcon::P}}}GetCurrentControllerType() == {{{ButtonIcon::P}}}C_ControllerType_Pad);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a buttons structure
+ *	than can be passed to the
+ *	data-buttons attribute
+ *
+ *	@param	_ButtonActions						The buttons and their actions
+ *																		["ButtonName" => "ButtonAction"]
+ */
+Text {{{P}}}Inject(Text[Text] _ButtonActions) {
+	declare K_ComponentButtonsList_Settings ButtonsListSettings;
+	ButtonsListSettings.ButtonActions = _ButtonActions;
+	return ButtonsListSettings.tojson();
+}
+
+/** Create a ButtonsListSettings structure from the data-buttons attribute
+ *
+ *	@param	_Binds							The data-buttons attribute in json
+ */
+K_ComponentButtonsList_Settings {{{P}}}CreateButtonsListSettingsStruct(Text _Binds) {
+	declare K_ComponentButtonsList_Settings ButtonsListSettings;
+	ButtonsListSettings.fromjson(_Binds);
+	return ButtonsListSettings;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void {{{P}}}UpdateButtonsList(CMlControl _Control, Text[Text] _ButtonActions) {
+	if (_Control == Null) return;
+	assert(_Control.DataAttributeExists("buttons"), "[ButtonsList] You must add the attribute 'data-buttons' to the component");
+
+	declare Text Binds = {{{P}}}Inject(_ButtonActions);
+	_Control.DataAttributeSet("buttons", Binds);
+	declare Container_ButtonsList <=> (_Control as CMlFrame);
+	declare Frame_ButtonsList <=> (Container_ButtonsList.GetFirstChild("{{{P}}}frame-buttons-list") as CMlFrame);
+	{{{P}}}InitButtonsList(Frame_ButtonsList);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void {{{P}}}AddButtonsToList(CMlControl _Control, Text[Text] _ButtonActions) {
+	if (_Control == Null) return;
+	assert(_Control.DataAttributeExists("buttons"), "[ButtonsList] You must add the attribute 'data-buttons' to the component");
+
+	declare Text Binds = _Control.DataAttributeGet("buttons");
+	declare K_ComponentButtonsList_Settings ButtonsListSettings = {{{P}}}CreateButtonsListSettingsStruct(Binds);
+	foreach (Bind=>Action in _ButtonActions) {
+		ButtonsListSettings.ButtonActions[Bind] = Action;
+	}
+
+	Binds = {{{P}}}Inject(ButtonsListSettings.ButtonActions);
+	_Control.DataAttributeSet("buttons", Binds);
+	declare Container_ButtonsList <=> (_Control as CMlFrame);
+	declare Frame_ButtonsList <=> (Container_ButtonsList.GetFirstChild("{{{P}}}frame-buttons-list") as CMlFrame);
+	{{{P}}}InitButtonsList(Frame_ButtonsList);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void {{{P}}}RemoveButtonsToList(CMlControl _Control, Text[Text] _ButtonActions) {
+	if (_Control == Null) return;
+	assert(_Control.DataAttributeExists("buttons"), "[ButtonsList] You must add the attribute 'data-buttons' to the component");
+
+	declare Text Binds = _Control.DataAttributeGet("buttons");
+	declare K_ComponentButtonsList_Settings ButtonsListSettings = {{{P}}}CreateButtonsListSettingsStruct(Binds);
+	declare Boolean Update = False;
+	foreach (Bind=>Action in _ButtonActions) {
+		Update = ButtonsListSettings.ButtonActions.removekey(Bind);
+	}
+
+	if (Update) {
+		Binds = {{{P}}}Inject(ButtonsListSettings.ButtonActions);
+		_Control.DataAttributeSet("buttons", Binds);
+		declare Container_ButtonsList <=> (_Control as CMlFrame);
+		declare Frame_ButtonsList <=> (Container_ButtonsList.GetFirstChild("{{{P}}}frame-buttons-list") as CMlFrame);
+		{{{P}}}InitButtonsList(Frame_ButtonsList);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Real {{{P}}}ComputeWidth(CMlFrame _BtnListContainerParentFrame) {
+	assert(_BtnListContainerParentFrame != Null, "Can't pass a Null value in ComputeWidth(CMlFrame).");
+	declare CMlFrame BtnListContainerFrame = (_BtnListContainerParentFrame.GetFirstChild("{{{P}}}frame-buttons-list") as CMlFrame);
+	assert(BtnListContainerFrame != Null, "The frame passed in parameter is not a button list frame.");
+	declare Real Width;
+	foreach (Key => Control in BtnListContainerFrame.Controls) {
+		if (!Control.Visible) continue;
+
+		declare CMlFrame ButtonFrame <=> (Control as CMlFrame);
+		declare CMlLabel ActionLabel <=> (ButtonFrame.GetFirstChild("{{{P}}}label-action") as CMlLabel);
+		Width += {{{P}}}GetWidth(ActionLabel);
+	}
+	return Width;
+}
+
+***MainInit***
+***
+foreach (ButtonList in {{{P}}}GetButtonsLists()) {{{P}}}InitButtonsList(ButtonList);
+***
+
+***MainLoop***
+***
+if ({{{P}}}C_HideButtonsListMouseInputs) {
+	foreach (Event in {{{ButtonIcon::P}}}PendingEvents) {
+		if (Event.Type == {{{ButtonIcon::P}}}C_EventType_ChangeController) {
+			{{{P}}}Private_UpdateButtonsListsVisibility(Event.ControllerType == {{{ButtonIcon::P}}}C_ControllerType_Pad);
+		}
+	}
+
+	foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+		if (Event.Type == {{{Router::P}}}C_Event_EnteringRoute) {
+			{{{P}}}Private_UpdateButtonsListsVisibility({{{ButtonIcon::P}}}GetCurrentControllerType() == {{{ButtonIcon::P}}}C_ControllerType_Pad);
+		}
+	}
+}
+***
+		""",
+		[ButtonIcon::ComponentV2(), Router::ComponentV2()],
+		[]
+	);
+}

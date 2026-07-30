@@ -1,0 +1,195 @@
+/**
+ *  UI module: InfoPanels_2x3 client side
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/UIModules/InfoPanels_2x3_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_ChampionTMGL_InfoPanels_2x3"
+#Const C_Type CUILayer::EUILayerType::ScreenIn3d
+#Const C_AttachId "2x3_Stadium"
+
+#Const C_RankingMode_BestRace 0
+#Const C_RankingMode_CurrentRace 1
+#Const C_RankingMode_MaxPoints 2
+
+#Const C_ImagePlayersPath "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Players/"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return MV::Create(
+C_Id, 3,
+"""
+<frame z-index="-2" hidden="1" id="frame-global">
+	<quad id="quad-best-player" image="{{{C_ImagePlayersPath}}}Default.dds" size="120 180" z-index="0" halign="center" valign="center"/>
+	<quad id="quad-crossfade" size="120 180" z-index="1" halign="center" valign="center" opacity="0."/>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+
+#Const C_LeaderUpdateInterval 1000
+
+#Const C_ImagePlayersPath {{{dump(C_ImagePlayersPath)}}}
+#Const C_RankingMode_BestRace {{{dump(C_RankingMode_BestRace)}}}
+#Const C_RankingMode_CurrentRace {{{dump(C_RankingMode_CurrentRace)}}}
+#Const C_RankingMode_MaxPoints  {{{dump(C_RankingMode_MaxPoints)}}}
+""",
+"""
+Void UpdateSign(CMlQuad _Quad_BestPlayer, CMlQuad _Quad_Crossfade, Text _LeaderWebservicesUserId, Boolean _IsWarmUp) {
+	_Quad_Crossfade.ImageUrl = _Quad_BestPlayer.ImageUrl;
+	_Quad_Crossfade.Opacity = 1.;
+
+	if (_IsWarmUp) {
+		_Quad_BestPlayer.ImageUrl = C_ImagePlayersPath^"WarmUp.dds";
+	} else {
+		declare Text SignUrl = {{{PlayerProfiles::P}}}GetPlayerProfiles().get(_LeaderWebservicesUserId, {{{PlayerProfiles::P}}}K_PlayerProfile {}).Sign2x3;
+		if (SignUrl != "") {
+			_Quad_BestPlayer.ImageUrl = C_ImagePlayersPath^SignUrl;
+		} else {
+			_Quad_BestPlayer.ImageUrl = C_ImagePlayersPath^"Race.dds";
+		}
+	}
+
+	AnimMgr.Flush(_Quad_Crossfade);
+	AnimMgr.AddChain(_Quad_Crossfade, "<anim opacity=\"0.\"/>", 500, CAnimManager::EAnimManagerEasing::QuadOut);
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlQuad Quad_BestPlayer;
+declare CMlQuad Quad_Crossfade;
+
+declare netread Boolean Net_ChampionTMGL_InfoPanels_2x3_IsWarmUp for Teams[0];
+declare netread Integer Net_ChampionTMGL_InfoPanels_2x3_RankingMode for Teams[0];
+
+declare Integer LeaderUpdateTime;
+declare Text BestPlayerWebServicesUserId;
+declare Boolean DisplayModule;
+declare Boolean IsWarmUp;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Quad_BestPlayer <=> (Frame_Global.GetFirstChild("quad-best-player") as CMlQuad);
+Quad_Crossfade <=> (Frame_Global.GetFirstChild("quad-crossfade") as CMlQuad);
+
+LeaderUpdateTime = Now;
+BestPlayerWebServicesUserId = "";
+IsWarmUp = Net_ChampionTMGL_InfoPanels_2x3_IsWarmUp;
+DisplayModule = Frame_Global.Visible;
+
+UpdateSign(Quad_BestPlayer, Quad_Crossfade, BestPlayerWebServicesUserId, IsWarmUp);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_ChampionTMGL_InfoPanels_2x3_IsVisible for Owner;
+		if (DisplayModule != Net_ChampionTMGL_InfoPanels_2x3_IsVisible) {
+			DisplayModule = Net_ChampionTMGL_InfoPanels_2x3_IsVisible;
+			Frame_Global.Visible = Net_ChampionTMGL_InfoPanels_2x3_IsVisible;
+		}
+
+		/* Update best player */
+		if (Now >= LeaderUpdateTime) {
+			declare Text NewBestPlayerId = "";
+			LeaderUpdateTime = Now + C_LeaderUpdateInterval;
+
+			if (!IsWarmUp) {
+				switch (Net_ChampionTMGL_InfoPanels_2x3_RankingMode) {
+					case C_RankingMode_BestRace: {
+						declare Integer MapBestRaceTime = 0;
+						declare Integer MapBestRaceCheckpoint = 0;
+						foreach (Score in Scores) {
+							if (Score != Null && Score.User != Null && Score.BestRaceTimes.count > 0) {
+								declare Integer BestScore = Score.BestRaceTimes[Score.BestRaceTimes.count-1];
+								if (
+									MapBestRaceTime == 0 ||
+									Score.BestRaceTimes.count > MapBestRaceCheckpoint ||
+									(Score.BestRaceTimes.count == MapBestRaceCheckpoint && BestScore < MapBestRaceTime)
+								) {
+									MapBestRaceCheckpoint = Score.BestRaceTimes.count;
+									MapBestRaceTime = BestScore;
+									NewBestPlayerId = Score.User.WebServicesUserId;
+								}
+							}
+						}
+					}
+					case C_RankingMode_CurrentRace: {
+						declare Integer MapBestRaceTime = 0;
+						declare Integer MapBestRaceCheckpoint = 0;
+						foreach (Player in Players) {
+							if (Player != Null && Player.User != Null && Player.RaceWaypointTimes.count > 0) {
+								declare Integer Time = Player.RaceWaypointTimes[Player.RaceWaypointTimes.count-1];
+								if (
+									MapBestRaceTime == 0 ||
+									Player.RaceWaypointTimes.count > MapBestRaceCheckpoint ||
+									(Player.RaceWaypointTimes.count == MapBestRaceCheckpoint && Time < MapBestRaceTime)
+								) {
+									MapBestRaceCheckpoint = Player.RaceWaypointTimes.count;
+									MapBestRaceTime = Time;
+									NewBestPlayerId = Player.User.WebServicesUserId;
+								}
+							}
+						}
+					}
+					case C_RankingMode_MaxPoints: {
+						declare Integer MaxPoints = 0;
+						foreach (Score in Scores) {
+							if (Score.Points > MaxPoints) {
+								MaxPoints = Score.Points;
+								NewBestPlayerId = Score.User.WebServicesUserId;
+							}
+						}
+					}
+				}
+			}
+
+			/* Update panels */
+			if (
+				BestPlayerWebServicesUserId != NewBestPlayerId ||
+				IsWarmUp != Net_ChampionTMGL_InfoPanels_2x3_IsWarmUp
+			) {
+				BestPlayerWebServicesUserId = NewBestPlayerId;
+				IsWarmUp = Net_ChampionTMGL_InfoPanels_2x3_IsWarmUp;
+				UpdateSign(Quad_BestPlayer, Quad_Crossfade, BestPlayerWebServicesUserId, IsWarmUp);
+			}
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+}
+***
+""",
+[
+	PlayerProfiles::Component()
+],
+[]
+	);
+}

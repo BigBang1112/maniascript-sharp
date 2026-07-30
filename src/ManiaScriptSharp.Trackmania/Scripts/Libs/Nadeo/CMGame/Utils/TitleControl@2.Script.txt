@@ -1,0 +1,381 @@
+/**
+ * TitleControl wrapper to facilitate asynchronous management
+ */
+#Const Version "2.2.0"
+#Const ScriptName "Libs/Nadeo/CMGame/Utils/TitleControl@2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Error.Script.txt" as Error
+#Include "Libs/Nadeo/CMGame/Utils/Promise.Script.txt" as Promise
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structure
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Request_CreateMap {
+	Text Environment;
+	Text Decoration;
+	Text ModNameOrUrl;
+	Text PlayerModel;
+	Text MapType;
+	Boolean UseSimpleEditor;
+	Text[] EditorPluginsScripts;
+	Text[] EditorPluginsArguments;
+	Boolean OnlyUseForcedPlugins;
+}
+#Struct K_Request_PlayMap {
+	Text MapFilePath;
+	Text ModeFilePath;
+	Text ModeSettingsXml;
+}
+#Struct K_Request_CreateServer {
+	Text Name;
+	Text Comment;
+	Integer PlayerCountMax;
+	Text PlayerPassword;
+	Text SpectatorPassword;
+	CMatchSettings MatchSettings;
+	Boolean LocalOnly;
+}
+#Struct K_Request {
+	Promise::K_Promise Promise;
+	Integer Status;
+	Integer Action;
+	K_Request_CreateMap CreateMap;
+	K_Request_PlayMap PlayMap;
+	K_Request_CreateServer CreateServer;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Status_Null 0
+#Const C_Status_WaitingStart 1
+#Const C_Status_Processing 2
+#Const C_Status_WaitingExternalComplete 3
+#Const C_Status_Complete 4
+#Const C_Status_Destroyed 5
+
+#Const C_Action_Null 0
+#Const C_Action_CreateMap 1
+#Const C_Action_PlayMap 2
+#Const C_Action_CreateServer 3
+
+#Const C_Default_Environment ""
+#Const C_Default_Decoration ""
+#Const C_Default_ModNameOrUrl ""
+#Const C_Default_PlayerModel ""
+#Const C_Default_MapType ""
+#Const C_Default_UseSimpleEditor False
+#Const C_Default_EditorPluginScripts []
+#Const C_Default_EditorPluginArguments []
+#Const C_Default_OnlyUseForcedPlugins False
+
+#Const C_Request_Null K_Request {
+	Promise = Promise::K_Promise {},
+	Status = 0,
+	Action = 0,
+	CreateMap = K_Request_CreateMap {},
+	PlayMap = K_Request_PlayMap {},
+	CreateServer = K_Request_CreateServer {}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Try to get a CTitleControl instance for the given script context
+CTitleControl Private_GetTitleControl(CMlScript _Context) {
+	declare CTitleControl LocalTitleControl;
+
+	switchtype (_Context as Context) {
+		case CManiaAppTitleLayer: {
+			if (Context.ParentApp != Null && Context.ParentApp.TitleControl != Null) {
+				LocalTitleControl <=> Context.ParentApp.TitleControl;
+			} else {
+				LocalTitleControl <=> Context.TitleControl;
+			}
+		}
+		case CMlManiaPlanet: {
+			if (Context.ParentApp != Null && Context.ParentApp.TitleControl != Null) {
+				LocalTitleControl <=> Context.ParentApp.TitleControl;
+			}
+		}
+		default: {
+			assert(
+				False,
+				"""[TitleControl@2] This script context is not supported"""
+			);
+		}
+	}
+
+	return LocalTitleControl;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy the request
+K_Request Destroy(K_Request _Request) {
+	if (
+		_Request.Status == C_Status_Null ||
+		_Request.Status == C_Status_Destroyed
+	) {
+		return _Request;
+	}
+
+	declare K_Request Request = _Request;
+
+	Request.Status = C_Status_Destroyed;
+
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the title control action
+K_Request Private_StartAction(CTitleControl _TitleControl, K_Request _Request) {
+	declare K_Request Request = _Request;
+
+	switch (Request.Action) {
+		case C_Action_CreateMap: {
+			_TitleControl.EditNewMap(
+				_Request.CreateMap.Environment,
+				_Request.CreateMap.Decoration,
+				_Request.CreateMap.ModNameOrUrl,
+				_Request.CreateMap.PlayerModel,
+				_Request.CreateMap.MapType,
+				_Request.CreateMap.UseSimpleEditor,
+				_Request.CreateMap.EditorPluginsScripts,
+				_Request.CreateMap.EditorPluginsArguments,
+				_Request.CreateMap.OnlyUseForcedPlugins
+			);
+		}
+		case C_Action_PlayMap: {
+			_TitleControl.PlayMap(
+				_Request.PlayMap.MapFilePath,
+				_Request.PlayMap.ModeFilePath,
+				_Request.PlayMap.ModeSettingsXml
+			);
+		}
+		case C_Action_CreateServer: {
+			_TitleControl.CreateServer(
+				_Request.CreateServer.Name,
+				_Request.CreateServer.Comment,
+				_Request.CreateServer.PlayerCountMax,
+				_Request.CreateServer.PlayerPassword,
+				_Request.CreateServer.SpectatorPassword,
+				_Request.CreateServer.MatchSettings,
+				_Request.CreateServer.LocalOnly
+			);
+		}
+	}
+
+	Request.Status = C_Status_Processing;
+
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the request
+K_Request Private_Update(CTitleControl _TitleControl, K_Request _Request, Boolean _IsExternalUpdate) {
+	if (
+		_Request.Status != C_Status_WaitingStart &&
+		_Request.Status != C_Status_Processing &&
+		_Request.Status != C_Status_WaitingExternalComplete
+	) {
+		return _Request;
+	}
+
+	declare K_Request Request = _Request;
+
+	switch (Request.Status) {
+		case C_Status_WaitingStart: {
+			if (_TitleControl.IsReady) {
+				Request = Private_StartAction(_TitleControl, Request);
+			}
+		}
+		case C_Status_Processing: {
+			if (_TitleControl.IsReady) {
+				Request.Promise = Promise::Resolve(Request.Promise);
+				if (_IsExternalUpdate) {
+					Request.Status = C_Status_Complete;
+				} else {
+					Request.Status = C_Status_WaitingExternalComplete;
+				}
+			}
+		}
+		case C_Status_WaitingExternalComplete: {
+			if (_IsExternalUpdate) {
+				Request.Status = C_Status_Complete;
+			}
+		}
+	}
+
+	return Request;
+}
+K_Request Update(CTitleControl _TitleControl, K_Request _Request) {
+	return Private_Update(_TitleControl, _Request, True);
+}
+K_Request Update(CMlScript _Context, K_Request _Request) {
+	return Update(Private_GetTitleControl(_Context), _Request);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize a new request
+K_Request Private_InitializeRequest(Integer _Action) {
+	declare K_Request Request = C_Request_Null;
+
+	Request.Promise = Promise::Create();
+	Request.Status = C_Status_WaitingStart;
+	Request.Action = _Action;
+
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new map in the editor
+K_Request CreateMap(
+	CTitleControl _TitleControl,
+	Text _Environment,
+	Text _Decoration,
+	Text _ModNameOrUrl,
+	Text _PlayerModel,
+	Text _MapType,
+	Boolean _UseSimpleEditor,
+	Text[] _EditorPluginsScripts,
+	Text[] 	_EditorPluginsArguments,
+	Boolean _OnlyUseForcedPlugins
+) {
+	declare K_Request Request = Private_InitializeRequest(C_Action_CreateMap);
+	Request.CreateMap = K_Request_CreateMap {
+		Environment = _Environment,
+		Decoration = _Decoration,
+		ModNameOrUrl = _ModNameOrUrl,
+		PlayerModel = _PlayerModel,
+		MapType = _MapType,
+		UseSimpleEditor = _UseSimpleEditor,
+		EditorPluginsScripts = _EditorPluginsScripts,
+		EditorPluginsArguments = _EditorPluginsArguments,
+		OnlyUseForcedPlugins = _OnlyUseForcedPlugins
+	};
+	return Private_Update(_TitleControl, Request, False);
+}
+K_Request CreateMap(CTitleControl _TitleControl, Text _Environment, Text _MapType, Text[] _EditorPluginsScripts, Text[] _EditorPluginArguments) {
+	return CreateMap(_TitleControl, _Environment, C_Default_Decoration, C_Default_ModNameOrUrl, C_Default_PlayerModel, _MapType, C_Default_UseSimpleEditor, _EditorPluginsScripts, _EditorPluginArguments, C_Default_OnlyUseForcedPlugins);
+}
+K_Request CreateMap(CTitleControl _TitleControl, Text _Environment, Text _MapType) {
+	return CreateMap(_TitleControl, _Environment, C_Default_Decoration, C_Default_ModNameOrUrl, C_Default_PlayerModel, _MapType, C_Default_UseSimpleEditor, C_Default_EditorPluginScripts, C_Default_EditorPluginArguments, C_Default_OnlyUseForcedPlugins);
+}
+K_Request CreateMap(CMlScript _Context, Text _Environment, Text _Decoration, Text _ModNameOrUrl, Text _PlayerModel, Text _MapType, Boolean _UseSimpleEditor, Text[] _EditorPluginsScripts, Text[] 	_EditorPluginsArguments, Boolean _OnlyUseForcedPlugins) {
+	return CreateMap(Private_GetTitleControl(_Context), _Environment, _Decoration, _ModNameOrUrl, _PlayerModel, _MapType, _UseSimpleEditor, _EditorPluginsScripts, _EditorPluginsArguments, _OnlyUseForcedPlugins);
+}
+K_Request CreateMap(CMlScript _Context, Text _Environment, Text _MapType, Text[] _EditorPluginsScripts, Text[] _EditorPluginArguments) {
+	return CreateMap(Private_GetTitleControl(_Context), _Environment, _MapType, _EditorPluginsScripts, _EditorPluginArguments);
+}
+K_Request CreateMap(CMlScript _Context, Text _Environment, Text _MapType) {
+	return CreateMap(Private_GetTitleControl(_Context), _Environment, _MapType);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Play a map in local mode
+K_Request PlayMapWithMode(CTitleControl _TitleControl, Text _MapFilePath, Text _ModeFilePath, Text _ModeSettingsXml) {
+	declare K_Request Request = Private_InitializeRequest(C_Action_PlayMap);
+	Request.PlayMap = K_Request_PlayMap {
+		MapFilePath = _MapFilePath,
+		ModeFilePath = _ModeFilePath,
+		ModeSettingsXml = _ModeSettingsXml
+	};
+	return Private_Update(_TitleControl, Request, False);
+}
+K_Request PlayMapWithMode(CMlScript _Context, Text _MapFilePath, Text _ModeFilePath, Text _ModeSettingsXml) {
+	return PlayMapWithMode(Private_GetTitleControl(_Context), _MapFilePath, _ModeFilePath, _ModeSettingsXml);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a server
+K_Request CreateServer(
+	CTitleControl _TitleControl,
+	Text _Name,
+	Text _Comment,
+	Integer _PlayerCountMax,
+	Text _PlayerPassword,
+	Text _SpectatorPassword,
+	CMatchSettings _MatchSettings,
+	Boolean _LocalOnly
+) {
+	declare K_Request Request = Private_InitializeRequest(C_Action_CreateServer);
+	Request.CreateServer = K_Request_CreateServer {
+		Name = _Name,
+		Comment = _Comment,
+		PlayerCountMax = _PlayerCountMax,
+		PlayerPassword = _PlayerPassword,
+		SpectatorPassword = _SpectatorPassword,
+		MatchSettings = _MatchSettings,
+		LocalOnly = _LocalOnly
+	};
+	return Private_Update(_TitleControl, Request, False);
+}
+K_Request CreateServer(CMlScript _Context, Text _Name, Text _Comment, Integer _PlayerCountMax, Text _PlayerPassword, Text _SpectatorPassword, CMatchSettings _MatchSettings, Boolean _LocalOnly) {
+	return CreateServer(Private_GetTitleControl(_Context), _Name, _Comment, _PlayerCountMax, _PlayerPassword, _SpectatorPassword, _MatchSettings, _LocalOnly);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy a previous request and create a new one
+K_Request DestroyAndCreate(K_Request _PreviousRequest, K_Request _NewRequest) {
+	Destroy(_PreviousRequest);
+	return _NewRequest;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the request is processing
+Boolean IsProcessing(K_Request _Request) {
+	return (
+		_Request.Status == C_Status_WaitingStart ||
+		_Request.Status == C_Status_Processing ||
+		_Request.Status == C_Status_WaitingExternalComplete
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the request is a success
+Boolean IsSuccess(K_Request _Request) {
+	return Promise::IsFulfilled(_Request.Promise);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the error of a request
+Error::K_Error GetError(K_Request _Request) {
+	return Promise::GetError(_Request.Promise);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add metadata on a request
+K_Request SetMetadata(K_Request _Request, Text[Text] _Metadata) {
+	declare K_Request Request = _Request;
+	Request.Promise = Promise::SetMetadata(Request.Promise, _Metadata);
+	return Request;
+}
+K_Request SetMetadata(K_Request _Request, Text _Key, Text _Value) {
+	declare K_Request Request = _Request;
+	Request.Promise = Promise::SetMetadata(Request.Promise, _Key, _Value);
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove all metadata from a request
+K_Request ResetMetadata(K_Request _Request) {
+	declare K_Request Request = _Request;
+	Request.Promise = Promise::ResetMetadata(Request.Promise);
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get metadata from a request
+Text[Text] GetMetadata(K_Request _Request) {
+	return Promise::GetMetadata(_Request.Promise);
+}
+Text GetMetadata(K_Request _Request, Text _Key, Text _DefaultValue) {
+	return Promise::GetMetadata(_Request.Promise, _Key, _DefaultValue);
+}
+Text GetMetadata(K_Request _Request, Text _Key) {
+	return Promise::GetMetadata(_Request.Promise, _Key);
+}

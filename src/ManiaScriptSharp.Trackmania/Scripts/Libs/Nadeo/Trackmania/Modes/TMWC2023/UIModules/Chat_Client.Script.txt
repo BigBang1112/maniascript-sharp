@@ -1,0 +1,161 @@
+/**
+ * UI module: Chat client side
+ */
+#Const Version "1.0.1"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/Chat_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/Chat_Common.Script.txt" as UIModules_Chat_Common
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/Shared.Script.txt" as Shared
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id_FrameGlobal "frame-global"
+#Const C_Id_QuadButton "quad-global"
+#Const C_Size_Button <5., 5.>
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetId() {
+	return UIModules_Chat_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Chat_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return MV::Create(
+GetId(), 3,
+"""
+{{{Stylesheet::Get()}}}
+<frame id="{{{C_Id_FrameGlobal}}}" z-index="{{{Shared::C_ZIndex_Chat}}}">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Chat_Common::C_UIModuleConfig)}}} >
+		<quad id="{{{C_Id_QuadButton}}}" class="{{{Stylesheet::C_Class_BackgroundBgColor_Default}}}" {{{MLHelpers::Size(C_Size_Button)}}} opacity="0" scriptevents="1"/>
+		<quad class="{{{Stylesheet::C_Class_BackgroundColorize_Accent}}}" z-index="1" {{{MLHelpers::Size(C_Size_Button)}}} image="{{{Icons::C_Icon_128x128_Tchat}}}" />
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/Shared.Script.txt" as Shared
+
+#Struct K_State {
+	CMlFrame Frame_Global;
+	Boolean DisplayModule;
+	Boolean IsSpectating;
+}
+
+#Const C_Id_FrameGlobal {{{dump(C_Id_FrameGlobal)}}}
+#Const C_Id_QuadButton {{{dump(C_Id_QuadButton)}}}
+
+""",
+"""
+Void SetPersistentRequestChatVisible(Boolean _Visibility) {
+	if (InputPlayer == Null || InputPlayer.User == Null) return;
+
+	// Persistent until the game restart
+	declare persistent TMWC2023_Chat_RequestChatVisible for InputPlayer.User = False;
+	TMWC2023_Chat_RequestChatVisible = _Visibility;
+}
+
+Boolean GetPersistentRequestChatVisible() {
+	if (InputPlayer == Null || InputPlayer.User == Null) return False;
+
+	// Persistent until the game restart
+	declare persistent Boolean TMWC2023_Chat_RequestChatVisible for InputPlayer.User = False;
+	return TMWC2023_Chat_RequestChatVisible;
+}
+
+Void UpdateChatPosition(Boolean _IsSpectating) {
+	if (_IsSpectating) {
+		if (Platform::IsSony(System)) {
+			ClientUI.OverlayChatOffset = <-0.54, 0.02>;
+		} else {
+			ClientUI.OverlayChatOffset = <-0.42, 0.>;
+		}
+	} else {
+		ClientUI.OverlayChatOffset = <0., 0.>;
+	}
+}
+
+K_State SetVisibility(K_State _State, Boolean _DisplayModule, Boolean _IsSpectating, Boolean _RequestChatVisible) {
+	declare K_State State = _State;
+
+	State.DisplayModule = _DisplayModule;
+	State.Frame_Global.Visible = State.DisplayModule;
+
+	// Adjust position of the chat to not be behind the PlayerInfo UIModules
+	if (State.IsSpectating != _IsSpectating) {
+		State.IsSpectating = _IsSpectating;
+		UpdateChatPosition(State.IsSpectating);
+	}
+
+	SetPersistentRequestChatVisible(_RequestChatVisible);
+
+	ClientUI.OverlayHideChat = (!_RequestChatVisible && State.DisplayModule);
+
+	return State;
+}
+
+***MainInit***
+***
+declare netread Boolean Net_TMWC2023_Chat_IsVisible for UI = False;
+
+declare K_State State;
+***
+
+***MainStart***
+***
+State.Frame_Global <=> (Page.GetFirstChild(C_Id_FrameGlobal) as CMlFrame);
+
+State = SetVisibility(State, Net_TMWC2023_Chat_IsVisible, Shared::IsSpectating(This), GetPersistentRequestChatVisible());
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (State.DisplayModule != Net_TMWC2023_Chat_IsVisible) {
+		State = SetVisibility(State, Net_TMWC2023_Chat_IsVisible, Shared::IsSpectating(This), GetPersistentRequestChatVisible());
+	}
+
+	if (State.DisplayModule) {
+		if (State.IsSpectating != Shared::IsSpectating(This)) {
+			State = SetVisibility(State, State.DisplayModule, Shared::IsSpectating(This), GetPersistentRequestChatVisible());
+		}
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MouseClick && Event.ControlId == C_Id_QuadButton) {
+				State = SetVisibility(State, Net_TMWC2023_Chat_IsVisible, Shared::IsSpectating(This), !GetPersistentRequestChatVisible());
+			} else if (Event.Type == CMlScriptEvent::Type::MouseOver && Event.ControlId == C_Id_QuadButton) {
+				declare CMlQuad Quad = (Event.Control as CMlQuad);
+				Quad.Opacity = 0.2;
+			} else if (Event.Type == CMlScriptEvent::Type::MouseOut && Event.ControlId == C_Id_QuadButton) {
+				declare CMlQuad Quad = (Event.Control as CMlQuad);
+				Quad.Opacity = 0.;
+			}
+		}
+	}
+}
+***
+""",
+[],
+[]
+	);
+}

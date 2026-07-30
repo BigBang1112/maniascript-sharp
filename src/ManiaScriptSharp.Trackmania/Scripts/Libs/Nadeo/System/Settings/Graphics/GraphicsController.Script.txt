@@ -1,0 +1,339 @@
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Settings/Graphics/GraphicsAPI.Script.txt"		as GraphicsAPI
+#Include "Libs/Nadeo/System/Settings/Layer_SettingsTabs.Script.txt"			as LayerSettingsTabs
+#Include "Libs/Nadeo/System/Settings/Graphics/Layer_Graphics.Script.txt"	as LayerGraphics
+
+#Const C_LibGraphicsController_SettingsTabId		"Graphics"
+
+declare Boolean G_LibGraphicsController_PendingChanges;
+
+Void Private_UpdateGraphicsSettings() {
+	declare SettingsList = GraphicsAPI::GetSettingsList();
+	LayerGraphics::SetSettingsList(SettingsList);
+}
+
+Text GetTabId() {
+	return C_LibGraphicsController_SettingsTabId;
+}
+
+Void SetVisibility(Boolean _Visible) {
+	if (_Visible && ManiaPlanet.DisplaySettings == Null) {
+		ManiaPlanet.DisplaySettings_LoadCurrent();
+		assert(ManiaPlanet.DisplaySettings != Null);
+		Private_UpdateGraphicsSettings();
+	}
+	else if (!_Visible && ManiaPlanet.DisplaySettings != Null){
+		ManiaPlanet.DisplaySettings_Unload();
+	}
+
+	LayerGraphics::SetVisibility(_Visible);
+}
+
+Void Show(Integer _Direction) {
+	ManiaPlanet.DisplaySettings_LoadCurrent();
+	assert(ManiaPlanet.DisplaySettings != Null);
+	Private_UpdateGraphicsSettings();
+	
+	LayerGraphics::ShowPage(_Direction);
+}
+
+Void Hide(Integer _Direction) {
+	LayerGraphics::HidePage(_Direction);
+	
+	ManiaPlanet.DisplaySettings_Unload();
+}
+
+Void SetLayerColor(Vec3 _Color) {
+	LayerGraphics::SetColor(_Color);
+}
+
+CUILayer GetLayer() {
+	return LayerGraphics::GetLayer();
+}
+
+Boolean HasPendingChanges() {
+	return G_LibGraphicsController_PendingChanges;
+}
+
+Void MarkNoPendingChanges() {
+	G_LibGraphicsController_PendingChanges = False;
+	Private_UpdateGraphicsSettings();
+}
+
+Void Load() {
+	LayerGraphics::Build();
+
+	LayerSettingsTabs::CreateTab(C_LibGraphicsController_SettingsTabId, _("|Settings|Graphic"), "tab-graphics.dds");
+}
+
+Void Loop() {
+	GraphicsAPI::Loop();
+
+	declare Graphics <=> ManiaPlanet.DisplaySettings;
+	if (Graphics == Null)		return;
+		
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			if (Event.CustomEventLayer != LayerGraphics::GetLayer()) continue;
+
+			switch (Event.CustomEventType) {
+				case "SetSettingValue" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare Setting = GraphicsAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+
+					declare NewValue = TL::ToReal(Event.CustomEventData[1]);
+
+					switch (Setting.Id) {
+						case "WindowResolutionX"		: Graphics.WindowSize.X 			= ML::Max(0, ML::NearestInteger(NewValue));
+						case "WindowResolutionY"		: Graphics.WindowSize.Y 			= ML::Max(0, ML::NearestInteger(NewValue));
+						case "MotionBlurIntensity"		: Graphics.FxMotionBlurIntens 		= ML::Clamp(NewValue, Setting.ValueRangeMin, Setting.ValueRangeMax);
+						case "AgpUseFactor"				: Graphics.AgpUseFactor_NextStart 	= ML::Clamp(NewValue, Setting.ValueRangeMin, Setting.ValueRangeMax);
+						case "LimitFPS"					: Graphics.MaxFps 					= ML::Max(0, ML::NearestInteger(NewValue));
+						case "RealtimeSSAA_MinimumFps" : Graphics.RealtimeSSAA_MinimumFps = ML::Max(10, ML::NearestInteger(NewValue));
+
+						case "AutomaticMinFps"		: Graphics.Automatic_MinFps = ML::Max(0, ML::NearestInteger(NewValue));
+					}
+
+					G_LibGraphicsController_PendingChanges = True;
+					Private_UpdateGraphicsSettings();
+				}
+
+				case "StopSliderDragging" : {
+					Private_UpdateGraphicsSettings();
+				}
+
+				case "SettingEnum" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare Setting = GraphicsAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+
+					declare Direction = TL::ToInteger(Event.CustomEventData[1]);
+					declare Key = Setting.AvailableOptions.keyof(Setting.CurrentValueText) + Direction;
+
+					if (!Setting.AvailableOptions.existskey(Key)) continue;
+					declare NewValue = Setting.AvailableOptions[Key];
+
+					switch (Setting.Id) {
+						case "Device" : {
+							Graphics.Device_NextStart = NewValue;
+						}
+						
+						case "Preset" : {
+							switch (NewValue) {
+								case "None"			: Graphics.Preset_NextStart = CDisplaySettings::EPreset::None;
+								case "VeryNice"		: Graphics.Preset_NextStart = CDisplaySettings::EPreset::VeryNice;
+								case "Nice"			: Graphics.Preset_NextStart = CDisplaySettings::EPreset::Nice;
+								case "Fast"			: Graphics.Preset_NextStart = CDisplaySettings::EPreset::Fast;
+								case "VeryFast"		: Graphics.Preset_NextStart = CDisplaySettings::EPreset::VeryFast;
+							}
+						}
+						
+						case "ShaderQuality" : {
+							switch (NewValue) {
+								case "VeryNice"		: Graphics.ShaderQuality_NextStart = CDisplaySettings::EShaderQuality::VeryNice;
+								case "Nice"			: Graphics.ShaderQuality_NextStart = CDisplaySettings::EShaderQuality::Nice;
+								case "Fast"			: Graphics.ShaderQuality_NextStart = CDisplaySettings::EShaderQuality::Fast;
+								case "VeryFast"		: Graphics.ShaderQuality_NextStart = CDisplaySettings::EShaderQuality::VeryFast;
+							}
+						}
+						
+						case "Shadows" : {
+							switch	(NewValue) {
+								case "Low"			: Graphics.Shadows_NextStart = CDisplaySettings::EShadows::High;
+								case "High"			: Graphics.Shadows_NextStart = CDisplaySettings::EShadows::VeryHigh;
+							}
+						}
+						
+						case "TexturesQuality" : {
+							switch	(NewValue) {
+								case "VeryLow"	: Graphics.TexturesQuality_NextStart = 0;
+								case "Low"		: Graphics.TexturesQuality_NextStart = 1;
+								case "Medium"	: Graphics.TexturesQuality_NextStart = 2;
+								case "High"		: Graphics.TexturesQuality_NextStart = 3;
+							}
+						}
+						
+						case "DisplayMode" : {
+							switch (NewValue) {
+								case "Window"		: Graphics.DisplayMode = CDisplaySettings::EDisplayMode::Windowed;
+								case "Borderless"	: Graphics.DisplayMode = CDisplaySettings::EDisplayMode::WindowedFull;
+								case "Fullscreen"	: Graphics.DisplayMode = CDisplaySettings::EDisplayMode::FullscreenExclusive;
+							}
+						}
+
+						case "FullscreenResolution" : {
+							declare Explode = TL::Split("x", NewValue);
+							Graphics.FullscreenSize = <TL::ToInteger(Explode[0]), TL::ToInteger(Explode[1])>;
+						}
+
+						case "ForwardAntialiasing" : {
+							switch (NewValue) {
+								case "None"			: Graphics.Antialias_Forward = CDisplaySettings::EForwardAA::None;
+								case "2x"			: Graphics.Antialias_Forward = CDisplaySettings::EForwardAA::_2x;
+								case "4x"			: Graphics.Antialias_Forward = CDisplaySettings::EForwardAA::_4x;
+								case "6x"			: Graphics.Antialias_Forward = CDisplaySettings::EForwardAA::_6x;
+								case "8x"			: Graphics.Antialias_Forward = CDisplaySettings::EForwardAA::_8x;
+								case "16x"			: Graphics.Antialias_Forward = CDisplaySettings::EForwardAA::_16x;
+							}
+						}
+						
+						case "DeferredAntialiasing" : {
+							switch (NewValue) {
+								case "None"			: Graphics.Antialias_Deferred = CDisplaySettings::EDeferredAA::None;
+								case "FXAA"			: Graphics.Antialias_Deferred = CDisplaySettings::EDeferredAA::FXAA;
+								case "TAA"			: Graphics.Antialias_Deferred = CDisplaySettings::EDeferredAA::UBI_TXAA;
+							}
+						}
+						case "TextureFiltering" : {
+							switch (NewValue) {
+								case "Bilinear"		: Graphics.TextureFiltering = CDisplaySettings::ETextureFilter::Bilinear;
+								case "Trilinear"	: Graphics.TextureFiltering = CDisplaySettings::ETextureFilter::Trilinear;
+								case "Aniso2"		: Graphics.TextureFiltering = CDisplaySettings::ETextureFilter::Aniso_2x;
+								case "Aniso4"		: Graphics.TextureFiltering = CDisplaySettings::ETextureFilter::Aniso_4x;
+								case "Aniso8"		: Graphics.TextureFiltering = CDisplaySettings::ETextureFilter::Aniso_8x;
+								case "Aniso16"		: Graphics.TextureFiltering = CDisplaySettings::ETextureFilter::Aniso_16x;
+								case "Aniso16E"		: Graphics.TextureFiltering = CDisplaySettings::ETextureFilter::Aniso_16x_Everywhere;
+							}
+						}
+
+						case "WaterReflects" : {
+							switch (NewValue) {
+								case "VeryNice"		: Graphics.WaterReflect = CDisplaySettings::EWaterReflect::VeryNice;
+								case "Nice"			: Graphics.WaterReflect = CDisplaySettings::EWaterReflect::Nice;
+								case "Fast"			: Graphics.WaterReflect = CDisplaySettings::EWaterReflect::Fast;
+								case "VeryFast"		: Graphics.WaterReflect = CDisplaySettings::EWaterReflect::VeryFast;
+							}
+						}
+
+						case "EverywhereReflects" : {
+							switch (NewValue) {
+								case "None"			: Graphics.EverywhereReflect = CDisplaySettings::EEverywhereReflect::None;
+								case "Enabled"		: Graphics.EverywhereReflect = CDisplaySettings::EEverywhereReflect::Enabled;
+							}
+						}
+
+						case "CarReflects" : {
+							switch (NewValue) {
+								case "Low"		: Graphics.VehicleReflect = CDisplaySettings::EVehicleReflect::Low;
+								case "Replay"	: Graphics.VehicleReflect = CDisplaySettings::EVehicleReflect::HighInReplay;
+								case "High"		: Graphics.VehicleReflect = CDisplaySettings::EVehicleReflect::High;
+							}
+						}
+
+						case "Bloom" : {
+							switch (NewValue) {
+								case "Off"		: Graphics.FxBloomHdr = CDisplaySettings::EFxBloomHdr::None;
+								case "Medium"	: Graphics.FxBloomHdr = CDisplaySettings::EFxBloomHdr::Medium;
+								case "High"		: Graphics.FxBloomHdr = CDisplaySettings::EFxBloomHdr::High;
+							}
+						}
+
+						case "DisplaySync" : {
+							switch (NewValue) {
+								case "Off"		: Graphics.DisplaySync = CDisplaySettings::EDisplaySync::None;
+								case "Full"		: Graphics.DisplaySync = CDisplaySettings::EDisplaySync::VBlank1;
+								case "Half"		: Graphics.DisplaySync = CDisplaySettings::EDisplaySync::VBlank2;
+								case "Third"	: Graphics.DisplaySync = CDisplaySettings::EDisplaySync::VBlank3;
+							}
+						}
+
+						case "CPUSync" : {
+							switch (NewValue) {
+								case "Off"	: Graphics.GpuSync = CDisplaySettings::EGpuSync::None;
+								case "3"	: Graphics.GpuSync = CDisplaySettings::EGpuSync::_3Frames;
+								case "2"	: Graphics.GpuSync = CDisplaySettings::EGpuSync::_2Frames;
+								case "1"	: Graphics.GpuSync = CDisplaySettings::EGpuSync::_1Frames;
+								case "0"	: Graphics.GpuSync = CDisplaySettings::EGpuSync::Immediate;
+							}
+						}
+						
+			
+						case "RealtimeSSAA" : {
+							switch (NewValue) {
+								case "Disabled" : Graphics.RealtimeSSAA = CDisplaySettings::ERealtimeSSAA::Disabled;
+								case "2"		: Graphics.RealtimeSSAA = CDisplaySettings::ERealtimeSSAA::_2Renders;
+								case "3"		: Graphics.RealtimeSSAA = CDisplaySettings::ERealtimeSSAA::_3Renders;
+								case "4"		: Graphics.RealtimeSSAA = CDisplaySettings::ERealtimeSSAA::_4Renders;
+								case "5"		: Graphics.RealtimeSSAA = CDisplaySettings::ERealtimeSSAA::_5Renders;
+								case "6"		: Graphics.RealtimeSSAA = CDisplaySettings::ERealtimeSSAA::_6Renders;
+								case "7"		: Graphics.RealtimeSSAA = CDisplaySettings::ERealtimeSSAA::_7Renders;
+								case "8"		: Graphics.RealtimeSSAA = CDisplaySettings::ERealtimeSSAA::_8Renders;
+								case "9"		: Graphics.RealtimeSSAA = CDisplaySettings::ERealtimeSSAA::_9Renders;
+							}
+						}
+						
+						case "RealtimeSSAA_Motion" : {
+							switch (NewValue) {
+								case "Disabled" : Graphics.RealtimeSSAA_Motion = CDisplaySettings::ERealtimeSSAA_Motion::Disabled;
+								case "1"		: Graphics.RealtimeSSAA_Motion = CDisplaySettings::ERealtimeSSAA_Motion::_1Frame;
+								case "2"		: Graphics.RealtimeSSAA_Motion = CDisplaySettings::ERealtimeSSAA_Motion::_2Frames;
+								case "3"		: Graphics.RealtimeSSAA_Motion = CDisplaySettings::ERealtimeSSAA_Motion::_3Frames;
+								case "4"		: Graphics.RealtimeSSAA_Motion = CDisplaySettings::ERealtimeSSAA_Motion::_4Frames;
+							}
+						}
+					}
+
+					G_LibGraphicsController_PendingChanges = True;
+					Private_UpdateGraphicsSettings();
+				}
+
+				case "ToggleBoolean" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+
+					declare Setting = GraphicsAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+
+					declare NewValue = !Setting.CurrentValueBoolean;
+
+					switch (Setting.Id) {
+						case "Customize" : Graphics.Customize_NextStart = NewValue;
+						
+						case "ShowWindowBorder" : Graphics.WindowBorderless = !NewValue;
+
+						case "MotionBlurEnabled" : {
+							if (NewValue) {
+								Graphics.FxMotionBlur = CDisplaySettings::EFxMotionBlur::Enabled;
+							} else {
+								Graphics.FxMotionBlur = CDisplaySettings::EFxMotionBlur::None;
+							}
+						}
+						
+						case "Automatic"			: Graphics.Automatic_Enabled = NewValue;
+					}
+
+					G_LibGraphicsController_PendingChanges = True;
+					Private_UpdateGraphicsSettings();
+				}
+
+				case "SliderIncrement" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare Setting = GraphicsAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+
+					declare Direction = TL::ToInteger(Event.CustomEventData[1]);
+
+					switch (Setting.Id) {
+						case "WindowResolutionX"	: Graphics.WindowSize.X = ML::Max(0, Graphics.WindowSize.X + Direction);
+						case "WindowResolutionY"	: Graphics.WindowSize.Y = ML::Max(0, Graphics.WindowSize.Y + Direction);
+						case "LimitFPS"				: Graphics.MaxFps = ML::Max(0, Graphics.MaxFps + Direction);
+						case "MotionBlurIntensity"	: Graphics.FxMotionBlurIntens = ML::Clamp(Setting.CurrentValueReal + (Setting.ValueStep * Direction), Setting.ValueRangeMin, Setting.ValueRangeMax);
+						case "AgpUseFactor"			: Graphics.AgpUseFactor_NextStart	= ML::Clamp(Setting.CurrentValueReal + (Setting.ValueStep * Direction), Setting.ValueRangeMin, Setting.ValueRangeMax);
+					}
+
+					G_LibGraphicsController_PendingChanges = True;
+					Private_UpdateGraphicsSettings();
+				}
+			}
+		}
+	}
+
+	if (GraphicsAPI::PendingUpdate()) {
+		Private_UpdateGraphicsSettings();
+	}
+}

@@ -1,0 +1,4305 @@
+/**
+ * Store for Campaigns
+ *
+ * The campaigns in CampaignsPagers, MonthlyCampaignsPager, RoyalCampaignsPager, AllClubCampaignsPager and ClubsCampaignsPagers
+ * are only used to display basic informations in the menu and to fetch more advanced data
+ * If you want to fully use a campaign, you need to load it first with Action_LoadCampaign()
+ * Then you can use LoadedCampaigns to fetch or retrieve what you need
+ */
+#Const Version "1.11.2"
+#Const ScriptName "Libs/Nadeo/Trackmania/Stores/CampaignStore_MA.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Menus/Preload.Script.txt" as Preload
+#Include "Libs/Nadeo/CMGame/Utils/Store_MA.Script.txt" as Store
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/Trackmania/API/LeaderboardAPI.Script.txt" as LeaderboardAPI
+#Include "Libs/Nadeo/Trackmania/API/CampaignAPI.Script.txt" as CampaignAPI
+#Include "Libs/Nadeo/Trackmania/API/ClubAPI.Script.txt" as ClubAPI
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_MA.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/OfflineData.Script.txt" as OfflineData
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/MainMenu/TitleControl.Script.txt" as TitleControl
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_ML.Script.txt" as CampaignStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct CampaignStore::K_CampaignsPager as K_CampaignsPager
+#Struct CampaignStore::K_MonthlyCampaignsPager as K_MonthlyCampaignsPager
+#Struct CampaignStore::K_LiveCampaign as K_LiveCampaign
+#Struct CampaignStore::K_LiveMonthlyCampaign as K_LiveMonthlyCampaign
+#Struct CampaignStore::K_MyQuarterlyCampaignsRankingsPager as K_MyQuarterlyCampaignsRankingsPager
+#Struct CampaignStore::K_State as K_State
+#Struct CampaignStore::K_CampaignInfo as K_CampaignInfo
+
+#Struct K_LoadingCampaignRequest {
+	Task::K_Task Task_MapList;
+	Task::K_Task Task_LoadScore;
+	Task::K_Task[Text] Task_LoadPBScoreList;
+	Http::K_Request GetClubRequest;
+	Integer CampaignType;
+}
+#Struct K_LoadingMonthlyCampaignRequest {
+	Task::K_Task Task_MapList;
+	Task::K_Task Task_LoadScoreList;
+	Text[] LoadedMapUids;
+	Boolean MapsLoadingSucceed;
+}
+#Struct K_GetCampaignTopRankingsRequest {
+	Http::K_Request Request;
+	Task::K_Task Task_GetDisplayName;
+}
+#Struct K_GetRankingsRequest {
+	Http::K_Request Request;
+	Task::K_Task Task_GetDisplayName;
+	Text SeasonUid;
+}
+#Struct K_GetTopRankingsRequest {
+	Http::K_Request TopRankingsRequest;
+	Http::K_Request PlayerRankingRequest;
+	Task::K_Task Task_GetDisplayName;
+	Text SeasonUid;
+	Integer ClubId;
+}
+#Struct K_CampaignRequest {
+	Http::K_Request Request;
+	Integer ClubId;
+}
+#Struct K_MapGroupListRankingsRequest {
+	Http::K_Request Request;
+	Text[Text] MapGroupList;
+}
+#Struct K_LoadMyQuarterlyCampaignsRankings {
+	Boolean IsLoading;
+	Text AccountId;
+	Integer Offset;
+	Integer Total;
+	CampaignStruct::LibCampaignStruct_K_CampaignRanking[Integer] CampaignsRankings;
+	Text[Integer] CampaignsNames;
+	Http::K_Request Request_GetCampaignList;
+	Http::K_Request[Integer] Requests_GetPlayerRankings;
+}
+#Struct K_LoadMediaActiveRequest {
+	Http::K_Request Request;
+	Integer CooldownStartTime = -1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const CampaignStore::C_State_Null as C_State_Null
+#Const CampaignStore::C_StoreId as C_StoreId
+
+#Const CampaignStore::C_LiveCampaignStatus_Null as C_LiveCampaignStatus_Null
+#Const CampaignStore::C_LiveCampaignStatus_Loading as C_LiveCampaignStatus_Loading
+#Const CampaignStore::C_LiveCampaignStatus_Loaded as C_LiveCampaignStatus_Loaded
+#Const CampaignStore::C_LiveCampaignStatus_NoCampaigns as C_LiveCampaignStatus_NoCampaigns
+#Const CampaignStore::C_LiveCampaignStatus_Error as C_LiveCampaignStatus_Error
+
+#Const CampaignStore::C_Action_LoadCampaigns as C_Action_LoadCampaigns
+#Const CampaignStore::C_Action_LoadCampaign as C_Action_LoadCampaign
+#Const CampaignStore::C_Action_LoadClubCampaign as C_Action_LoadClubCampaign
+#Const CampaignStore::C_Action_LoadMonthlyCampaignsList as C_Action_LoadMonthlyCampaignsList
+#Const CampaignStore::C_Action_LoadMonthlyCampaignsPage as C_Action_LoadMonthlyCampaignsPage
+#Const CampaignStore::C_Action_LoadMonthlyCampaign as C_Action_LoadMonthlyCampaign
+#Const CampaignStore::C_Action_LoadRoyalCampaignsList as C_Action_LoadRoyalCampaignsList
+#Const CampaignStore::C_Action_LoadRoyalCampaign as C_Action_LoadRoyalCampaign
+#Const CampaignStore::C_Action_LoadAllClubCampaignsPage as C_Action_LoadAllClubCampaignsPage
+#Const CampaignStore::C_Action_LoadClubsCampaigns as C_Action_LoadClubsCampaigns
+#Const CampaignStore::C_Action_LoadMapPlayerGlobalRankings as C_Action_LoadMapPlayerGlobalRankings
+#Const CampaignStore::C_Action_LoadMapPlayerClubRankings as C_Action_LoadMapPlayerClubRankings
+#Const CampaignStore::C_Action_LoadMapTopGlobalRankings as C_Action_LoadMapTopGlobalRankings
+#Const CampaignStore::C_Action_LoadMapTopClubRankings as C_Action_LoadMapTopClubRankings
+#Const CampaignStore::C_Action_LoadCampaignPlayerGlobalRankings as C_Action_LoadCampaignPlayerGlobalRankings
+#Const CampaignStore::C_Action_LoadCampaignTopGlobalRankings as C_Action_LoadCampaignTopGlobalRankings
+#Const CampaignStore::C_Action_LoadCampaignTopClubRankings as C_Action_LoadCampaignTopClubRankings
+#Const CampaignStore::C_Action_GetMapLevels as C_Action_GetMapLevels
+#Const CampaignStore::C_Action_LoadOfflineCampaign as C_Action_LoadOfflineCampaign
+#Const CampaignStore::C_Action_LoadCampaignsMedia as C_Action_LoadCampaignsMedia
+#Const CampaignStore::C_Action_LoadMediaActive as C_Action_LoadMediaActive
+#Const CampaignStore::C_Action_LoadLiveQuarterlyCampaign as C_Action_LoadLiveQuarterlyCampaign
+#Const CampaignStore::C_Action_LoadLiveWeeklyShortsCampaign as C_Action_LoadLiveWeeklyShortsCampaign
+#Const CampaignStore::C_Action_LoadLiveWeeklyGrandsCampaign as C_Action_LoadLiveWeeklyGrandsCampaign
+#Const CampaignStore::C_Action_LoadLiveCupOfTheWeekCampaign as C_Action_LoadLiveCupOfTheWeekCampaign
+#Const CampaignStore::C_Action_LoadLiveMonthlyCampaign as C_Action_LoadLiveMonthlyCampaign
+#Const CampaignStore::C_Action_LoadMyQuarterlyCampaignsRankings as C_Action_LoadMyQuarterlyCampaignsRankings
+#Const CampaignStore::C_Action_BustCache_MapPlayerGlobalRankings as C_Action_BustCache_MapPlayerGlobalRankings
+#Const CampaignStore::C_Action_BustCache_MapPlayerClubRankings as C_Action_BustCache_MapPlayerClubRankings
+#Const CampaignStore::C_Action_BustCache_MapTopGlobalRankings as C_Action_BustCache_MapTopGlobalRankings
+#Const CampaignStore::C_Action_BustCache_MapTopClubRankings as C_Action_BustCache_MapTopClubRankings
+
+#Const CampaignStore::C_Event_CampaignListUpdated as C_Event_CampaignListUpdated
+#Const CampaignStore::C_Event_CampaignListUpdateError as C_Event_CampaignListUpdateError
+#Const CampaignStore::C_Event_AllClubCampaignListUpdated as C_Event_AllClubCampaignListUpdated
+#Const CampaignStore::C_Event_ClubsCampaignListUpdated as C_Event_ClubsCampaignListUpdated
+#Const CampaignStore::C_Event_ClubsCampaignListError as C_Event_ClubsCampaignListError
+#Const CampaignStore::C_Event_MapRecordsUpdated as C_Event_MapRecordsUpdated
+#Const CampaignStore::C_Event_MapPlayerGlobalRankingsUpdated as C_Event_MapPlayerGlobalRankingsUpdated
+#Const CampaignStore::C_Event_MapPlayerGlobalRankingsUpdateError as C_Event_MapPlayerGlobalRankingsUpdateError
+#Const CampaignStore::C_Event_MapClubRankingsUpdated as C_Event_MapClubRankingsUpdated
+#Const CampaignStore::C_Event_MapPlayerClubRankingsUpdated as C_Event_MapPlayerClubRankingsUpdated
+#Const CampaignStore::C_Event_MapPlayerClubRankingsUpdateError as C_Event_MapPlayerClubRankingsUpdateError
+#Const CampaignStore::C_Event_MapTopGlobalRankingsUpdate as C_Event_MapTopGlobalRankingsUpdate
+#Const CampaignStore::C_Event_MapTopClubRankingsUpdate as C_Event_MapTopClubRankingsUpdate
+#Const CampaignStore::C_Event_CampaignPlayerGlobalRankingsUpdated as C_Event_CampaignPlayerGlobalRankingsUpdated
+#Const CampaignStore::C_Event_CampaignTopGlobalRankingsUpdated as C_Event_CampaignTopGlobalRankingsUpdated
+#Const CampaignStore::C_Event_CampaignTopClubRankingsUpdated as C_Event_CampaignTopClubRankingsUpdated
+#Const CampaignStore::C_Event_MapRankingLevelsUpdated as C_Event_MapRankingLevelsUpdated
+#Const CampaignStore::C_Event_MapRankingLevelsUpdateFailed as C_Event_MapRankingLevelsUpdateFailed
+#Const CampaignStore::C_Event_CampaignLoadComplete as C_Event_CampaignLoadComplete
+#Const CampaignStore::C_Event_MonthlyCampaignLoadComplete as C_Event_MonthlyCampaignLoadComplete
+#Const CampaignStore::C_Event_MonthlyCampaignUpdated as C_Event_MonthlyCampaignUpdated
+#Const CampaignStore::C_Event_RoyalCampaignLoadComplete as C_Event_RoyalCampaignLoadComplete
+#Const CampaignStore::C_Event_RoyalCampaignUpdated as C_Event_RoyalCampaignUpdated
+#Const CampaignStore::C_Event_AllCampaignsLoadComplete as C_Event_AllCampaignsLoadComplete
+#Const CampaignStore::C_Event_CampaignUpdated as C_Event_CampaignUpdated
+#Const CampaignStore::C_Event_CampaignUpdateFailed as C_Event_CampaignUpdateFailed
+#Const CampaignStore::C_Event_CampaignListEmpty as C_Event_CampaignListEmpty
+#Const CampaignStore::C_Event_OfflineCampaignLoaded as C_Event_OfflineCampaignLoaded
+#Const CampaignStore::C_Event_CampaignsMediaUpdated as C_Event_CampaignsMediaUpdated
+#Const CampaignStore::C_Event_MediaActiveUpdated as C_Event_MediaActiveUpdated
+#Const CampaignStore::C_Event_PreloadImages as C_Event_PreloadImages
+#Const CampaignStore::C_Event_LiveQuarterlyCampaignUpdated as C_Event_LiveQuarterlyCampaignUpdated
+#Const CampaignStore::C_Event_LiveMonthlyCampaignUpdated as C_Event_LiveMonthlyCampaignUpdated
+#Const CampaignStore::C_Event_LiveWeeklyShortsCampaignUpdated as C_Event_LiveWeeklyShortsCampaignUpdated
+#Const CampaignStore::C_Event_LiveWeeklyGrandsCampaignUpdated as C_Event_LiveWeeklyGrandsCampaignUpdated
+#Const CampaignStore::C_Event_LiveCupOfTheWeekCampaignUpdated as C_Event_LiveCupOfTheWeekCampaignUpdated
+#Const CampaignStore::C_Event_MyQuarterlyCampaignsRankingsUpdated as C_Event_MyQuarterlyCampaignsRankingsUpdated
+#Const CampaignStore::C_Event_CacheBusted_MapPlayerGlobalRankings as C_Event_CacheBusted_MapPlayerGlobalRankings
+#Const CampaignStore::C_Event_CacheBusted_MapPlayerClubRankings as C_Event_CacheBusted_MapPlayerClubRankings
+#Const CampaignStore::C_Event_CacheBusted_MapTopGlobalRankings as C_Event_CacheBusted_MapTopGlobalRankings
+#Const CampaignStore::C_Event_CacheBusted_MapTopClubRankings as C_Event_CacheBusted_MapTopClubRankings
+
+#Const CampaignStore::C_ErrorType_ScoresNotLoaded as C_ErrorType_ScoresNotLoaded
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Http::K_Request[Integer] G_Request_CampaignsPagingList; //< Key is the campaign type
+declare K_CampaignRequest[Integer] G_Request_CampaignList;
+declare Http::K_Request G_Request_AllClubCampaignsPaging;
+declare Http::K_Request[Integer] G_Request_ClubsCampaignsPagingList;
+declare Http::K_Request[Text] G_Request_GetMapsRecordsList; //< Key is the SeasonUid
+declare Http::K_Request G_Request_GetPlayerMapRankings;
+declare K_MapGroupListRankingsRequest[Text] G_Request_GetPlayerMapGroupListGlobalRankings;
+declare Http::K_Request[Integer][Text] G_Request_GetMapsPositionsListInClub; //< Key1 is the SeasonUid, Key2 is the ClubId
+declare Http::K_Request G_Request_GetPlayerMapRankingsInClub;
+declare K_MapGroupListRankingsRequest[Integer][Text] G_Request_GetPlayerMapGroupListClubRankings;
+declare K_GetRankingsRequest[Text] G_Request_GetMapTopRankingsList; //< Key is the MapUid
+declare K_GetRankingsRequest[Integer][Text] G_Request_GetMapTopRankingsInClubList; //< Key1 is the MapUid, Key2 is the ClubId
+declare Http::K_Request[Integer] G_Request_GetPlayerRankingsList;
+declare K_GetCampaignTopRankingsRequest[Integer] G_Request_GetCampaignTopRankingsList; //< Key is the CampaignId
+declare K_GetTopRankingsRequest[Integer] G_Request_GetCampaignTopRankingsInClubList; //< Key is the CampaignId
+declare K_LoadingCampaignRequest[Integer] G_LoadingCampaignRequestList; //< Key is the CampaignId
+declare K_GetRankingsRequest[Text] G_Request_GetMapRankingLevelsList; //< Key is the MapUid
+declare Task::K_Task G_OfflineCampaignTaskLoadScore;
+declare Http::K_Request G_Request_MonthlyCampaignsPaging;
+declare Http::K_Request G_Request_RoyalCampaignsPaging;
+declare K_LoadingMonthlyCampaignRequest[Integer] G_LoadingMonthlyCampaignRequestList; //< Key is the MonthlyCampaignId
+declare K_LoadingMonthlyCampaignRequest[Integer] G_LoadingRoyalCampaignRequestList; //< Key is the RoyalCampaignId
+declare Http::K_Request G_Request_LoadLiveQuarterlyCampaign;
+declare Http::K_Request G_Request_LoadLiveMonthlyCampaign;
+declare Http::K_Request G_Request_LoadLiveWeeklyShortsCampaign;
+declare Http::K_Request G_Request_LoadLiveWeeklyGrandsCampaign;
+declare Http::K_Request G_Request_LoadLiveCupOfTheWeekCampaign;
+declare K_LoadMyQuarterlyCampaignsRankings G_LoadMyQuarterlyCampaignsRankings;
+declare Http::K_Request G_Request_LoadCampaignsMedia;
+declare K_LoadMediaActiveRequest G_Request_LoadMediaActive;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Getters
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_CampaignInfo GetCampaignInfoFromId(K_State _State, Integer _CampaignId) {
+	foreach (CampaignPager in _State.CampaignsPagers) {
+		foreach (CampaignIndex => Campaign in CampaignPager.CampaignList) {
+			if (Campaign.Id == _CampaignId) {
+				return K_CampaignInfo {
+					Index = CampaignIndex,
+					Campaign = Campaign
+				};
+			}
+		}
+	}
+
+	foreach (CampaignIndex => Campaign in _State.AllClubCampaignsPager.CampaignList) {
+		if (Campaign.Id == _CampaignId) {
+			return K_CampaignInfo {
+				Index = CampaignIndex,
+				Campaign = Campaign
+			};
+		}
+	}
+
+	return K_CampaignInfo {
+		Index = -1
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+CampaignStruct::LibCampaignStruct_K_Campaign GetCampaignFromId(K_State _State, Integer _CampaignId) {
+	if (_State.LoadedCampaigns.existskey(_CampaignId)) {
+		return _State.LoadedCampaigns[_CampaignId];
+	}
+
+	foreach (CampaignPager in _State.CampaignsPagers) {
+		foreach (Campaign in CampaignPager.CampaignList) {
+			if (Campaign.Id == _CampaignId) return Campaign;
+		}
+	}
+	foreach (Campaign in _State.AllClubCampaignsPager.CampaignList) {
+		if (Campaign.Id == _CampaignId) return Campaign;
+	}
+
+	return CampaignStruct::LibCampaignStruct_K_Campaign {
+		Id = CampaignStruct::C_Campaign_NullId,
+		Type = CampaignStruct::C_CampaignType_None
+	};
+}
+CampaignStruct::LibCampaignStruct_K_Campaign GetCampaignFromId(Integer _CampaignId) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	return GetCampaignFromId(Trackmania_CampaignStore_State, _CampaignId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+CampaignStruct::LibCampaignStruct_K_Map GetMap(CampaignStruct::LibCampaignStruct_K_Campaign _Campaign, Text _MapUid) {
+	foreach (Map in _Campaign.Playlist) {
+		if (Map.Uid == _MapUid) return Map;
+	}
+	return CampaignStruct::LibCampaignStruct_K_Map {};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the player's map ranking levels on the given map
+ *	@return													The player's ranking levels
+ *
+ *	@param _CampaignId							The campaign Id
+ *	@param _MapUid									The Map uid to look for
+ *
+ */
+CampaignStruct::LibCampaignStruct_K_TopScore[][Text] GetMapRankingLevels(Integer _CampaignId, Text _MapUid) {
+	foreach (Map in GetCampaignFromId(_CampaignId).Playlist) {
+		if (Map.Uid == _MapUid) {
+			return Map.RankingLevels;
+		}
+	}
+	return [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the list of maps Uid for the given campaign
+Text[] GetCampaignMapUidList(CampaignStruct::LibCampaignStruct_K_Campaign _Campaign) {
+	declare Text[] MapUidList;
+
+	foreach (Map in _Campaign.Playlist) {
+		if (Map.Uid != "") MapUidList.add(Map.Uid);
+	}
+
+	return MapUidList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**
+ * Get the biggest zone with the lowest rank under 100
+ * If there is none, gives the smallest zone of the player
+ */
+CampaignStruct::LibCampaignStruct_K_Ranking GetTopRank(CampaignStruct::LibCampaignStruct_K_Ranking[] _Rankings) {
+	if (_Rankings.count == 0) return CampaignStruct::LibCampaignStruct_K_Ranking {};
+	declare Integer TrueIndex;
+	for (Index, 0, _Rankings.count-1) {
+		TrueIndex = _Rankings.count-1 - Index;
+		declare CampaignStruct::LibCampaignStruct_K_Ranking Record = _Rankings[TrueIndex];
+		// We find a rank higher than top 100
+		if (Record.Position > 100) {
+			// We take a smallest zone if it exists
+			if (TrueIndex < _Rankings.count - 1) {
+				TrueIndex += 1;
+			}
+			break;
+		}
+	}
+
+	return _Rankings[TrueIndex];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the medal and the score to a map
+ *
+ *	@param	_CampaignId							The Id of the campaign
+ *	@param	_MapUid									The Id of the map
+ *	@param	_Medal									The medal to set
+ *	@param	_Score									The score to set
+ *
+ *	@return													The updated map
+ */
+CampaignStruct::LibCampaignStruct_K_Map SetMapMedalAndScore(Integer _CampaignId, Text _MapUid, Integer _Medal, Integer _Score, Integer _Points, Integer _RespawnCount) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	declare K_State State = Trackmania_CampaignStore_State;
+	assert(State.LoadedCampaigns.existskey(_CampaignId), "You need to load the campaign with id "^_CampaignId^" by using Action_LoadCampaign(), before setting new data");
+
+	foreach (MapPlaylistKey => Map in State.LoadedCampaigns[_CampaignId].Playlist) {
+		if (Map.Uid == _MapUid) {
+			declare CampaignStruct::LibCampaignStruct_K_Map TmpMap = Map;
+			TmpMap.Medal = _Medal;
+			TmpMap.Score = _Score;
+			TmpMap.Points = _Points;
+			TmpMap.RespawnCount = _RespawnCount;
+			State.LoadedCampaigns[_CampaignId].Playlist[MapPlaylistKey] = TmpMap;
+			Trackmania_CampaignStore_State = State;
+			return TmpMap;
+		}
+	}
+	return CampaignStruct::LibCampaignStruct_K_Map {};
+}
+CampaignStruct::LibCampaignStruct_K_Map SetMapMedalAndScore(Integer _CampaignId, Text _MapUid, Integer _Medal, Integer _Score) {
+	return SetMapMedalAndScore(_CampaignId, _MapUid, _Medal, _Score, -1, -1);
+}
+CampaignStruct::LibCampaignStruct_K_Map SetMapMedalAndScore(Integer _CampaignId, CampaignStruct::LibCampaignStruct_K_Map _Map) {
+	return SetMapMedalAndScore(_CampaignId, _Map.Uid, _Map.Medal, _Map.Score, _Map.Points, _Map.RespawnCount);
+}
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+CampaignStruct::LibCampaignStruct_K_MonthlyCampaign GetMonthlyCampaignFromId(K_State _State, Integer _MonthlyCampaignId) {
+	if (_State.LoadedMonthlyCampaigns.existskey(_MonthlyCampaignId)) {
+		return _State.LoadedMonthlyCampaigns[_MonthlyCampaignId];
+	}
+
+	foreach (MonthlyCampaign in _State.MonthlyCampaignsPager.CampaignList) {
+		if (MonthlyCampaign.Id == _MonthlyCampaignId) return MonthlyCampaign;
+	}
+	return CampaignStruct::LibCampaignStruct_K_MonthlyCampaign {};
+}
+CampaignStruct::LibCampaignStruct_K_MonthlyCampaign GetMonthlyCampaignFromId(Integer _MonthlyCampaignId) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	return GetMonthlyCampaignFromId(Trackmania_CampaignStore_State, _MonthlyCampaignId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+CampaignStruct::LibCampaignStruct_K_MonthlyCampaign GetRoyalCampaignFromId(K_State _State, Integer _RoyalCampaignId) {
+	if (_State.LoadedRoyalCampaigns.existskey(_RoyalCampaignId)) {
+		return _State.LoadedRoyalCampaigns[_RoyalCampaignId];
+	}
+
+	foreach (RoyalCampaign in _State.RoyalCampaignsPager.CampaignList) {
+		if (RoyalCampaign.Id == _RoyalCampaignId) return RoyalCampaign;
+	}
+	return CampaignStruct::LibCampaignStruct_K_MonthlyCampaign {};
+}
+CampaignStruct::LibCampaignStruct_K_MonthlyCampaign GetRoyalCampaignFromId(Integer _RoyalCampaignId) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	return GetRoyalCampaignFromId(Trackmania_CampaignStore_State, _RoyalCampaignId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the current quarterly campaign
+CampaignStruct::LibCampaignStruct_K_Campaign GetLiveQuarterlyCampaign() {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	return Trackmania_CampaignStore_State.LiveQuarterly.Campaign;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the current weekly shorts campaign
+CampaignStruct::LibCampaignStruct_K_Campaign GetLiveWeeklyShortsCampaign() {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	return Trackmania_CampaignStore_State.LiveWeeklyShorts.Campaign;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the current weekly grands campaign
+CampaignStruct::LibCampaignStruct_K_Campaign GetLiveWeeklyGrandsCampaign() {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	return Trackmania_CampaignStore_State.LiveWeeklyGrands.Campaign;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the current cup of the week campaign
+CampaignStruct::LibCampaignStruct_K_Campaign GetLiveCupOfTheWeekCampaign() {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	return Trackmania_CampaignStore_State.LiveCupOfTheWeek.Campaign;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a map can be loaded if it is not already
+Boolean CanBeLoaded(CampaignStruct::LibCampaignStruct_K_DailyMap _DailyMap) {
+	return (
+		_DailyMap.LoadStatus != CampaignStruct::C_LoadStatus_Loaded &&
+		_DailyMap.Map.Uid != ""
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Actions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request from NadeoServices map list and load score
+Void Action_StartLoadingCampaign(CampaignStruct::LibCampaignStruct_K_Campaign _Campaign) {
+	declare Text[] MapUidList = GetCampaignMapUidList(_Campaign);
+
+	// Initialize tasks and requests
+	if (G_LoadingCampaignRequestList.existskey(_Campaign.Id)) {
+		G_LoadingCampaignRequestList[_Campaign.Id].Task_MapList = Task::DestroyIfInitialized(G_LoadingCampaignRequestList[_Campaign.Id].Task_MapList);
+		G_LoadingCampaignRequestList[_Campaign.Id].Task_LoadScore = Task::DestroyIfInitialized(G_LoadingCampaignRequestList[_Campaign.Id].Task_LoadScore);
+		for (Task_LoadPBScoreList in G_LoadingCampaignRequestList[_Campaign.Id].Task_LoadPBScoreList) {
+			Task::DestroyIfInitialized(Task_LoadPBScoreList);
+		}
+		G_LoadingCampaignRequestList[_Campaign.Id].Task_LoadPBScoreList = [];
+		G_LoadingCampaignRequestList[_Campaign.Id].GetClubRequest = Http::DestroyIfInitialized(G_LoadingCampaignRequestList[_Campaign.Id].GetClubRequest);
+	} else {
+		G_LoadingCampaignRequestList[_Campaign.Id] = K_LoadingCampaignRequest {
+			Task_MapList = Task::GetEmptyTask(),
+			Task_LoadScore = Task::GetEmptyTask(),
+			Task_LoadPBScoreList = [],
+			GetClubRequest = Http::GetEmptyRequest(),
+			CampaignType = _Campaign.Type
+		};
+	}
+
+	// Create tasks and requests
+	G_LoadingCampaignRequestList[_Campaign.Id].Task_MapList = Task::Create(DataFileMgr, DataFileMgr.Map_NadeoServices_GetListFromUid(MainUser::GetMainUserId(), MapUidList));
+	if (
+		_Campaign.Type == CampaignStruct::C_CampaignType_Quarterly ||
+		_Campaign.Type == CampaignStruct::C_CampaignType_WeeklyShorts ||
+		_Campaign.Type == CampaignStruct::C_CampaignType_WeeklyGrands
+	) {
+		G_LoadingCampaignRequestList[_Campaign.Id].Task_LoadScore = Task::Create(ScoreMgr, ScoreMgr.Season_LoadScore(MainUser::GetMainUserId(), _Campaign.SeasonUid));
+	}
+	if (_Campaign.Club.Id != ClubStruct::C_ClubNullId) {
+		G_LoadingCampaignRequestList[_Campaign.Id].GetClubRequest = ClubAPI::GetClub(_Campaign.Club.Id);
+	}
+
+	// Preload images
+	Preload::PreloadImages(This, [_Campaign.Media.PopUpImageUrl]);
+}
+
+/** Update the campaigns list according to its type
+ *
+ *	@param	_State										The current state
+ *	@param	_CampaignType							The type of campaign list to set
+ *	@param	_CampaignsTotal						The total number of campaigns in the database
+ *	@param	_CampaignsUpdateTime			The time at which the campaigns will be updated on the API
+ *	@param	_Campaigns								The campaigns to set in the array
+ *
+ *	@return														The updated state
+ */
+K_State Mutation_SetCampaigns(
+	K_State _State,
+	Integer _CampaignType,
+	Integer _CampaignsTotal,
+	Integer _CampaignsUpdateTime,
+	CampaignStruct::LibCampaignStruct_K_Campaign[] _Campaigns
+) {
+	declare K_State State = _State;
+
+	if (!State.CampaignsPagers.existskey(_CampaignType)) return State;
+	declare Integer Offset = State.CampaignsPagers[_CampaignType].Offset;
+
+	declare CampaignStruct::LibCampaignStruct_K_Campaign[Integer] CampaignList = [];
+	foreach (Key => Campaign in _Campaigns) {
+		CampaignList[Offset + Key] = Campaign;
+		CampaignList[Offset + Key].IsFetched = True;
+
+		if (_CampaignType == CampaignStruct::C_CampaignType_Quarterly) {
+			Tracking::SetOfficialCampaign(System, Campaign.Id, Campaign.Year, Campaign.SeasonName, GetCampaignMapUidList(Campaign));
+		}
+
+		Preload::PreloadImages(This, [Campaign.Media.ButtonBackgroundUrl, Campaign.Media.ButtonForegroundUrl, Campaign.Media.LiveButtonBackgroundUrl, Campaign.Media.LiveButtonForegroundUrl]);
+	}
+
+	State.CampaignsPagers[_CampaignType].CampaignList = CampaignList;
+	State.CampaignsPagers[_CampaignType].Total = _CampaignsTotal;
+	State.CampaignsPagers[_CampaignType].UpdateTime = _CampaignsUpdateTime;
+
+	Store::SendEvent(C_StoreId, C_Event_CampaignListUpdated, [""^_CampaignType]);
+
+	return State;
+}
+
+/** Update the all club campaigns list
+ *
+ *	@param	_State										The current state
+ *	@param	_CampaignsTotal						The total number of campaigns in the database
+ *	@param	_Campaigns								The campaigns to set in the array
+ *
+ *	@return														The updated state
+ */
+K_State Mutation_SetAllClubCampaigns(
+	K_State _State,
+	Integer _CampaignsTotal,
+	CampaignStruct::LibCampaignStruct_K_Campaign[] _Campaigns
+) {
+	declare K_State State = _State;
+
+	declare Integer Offset = State.AllClubCampaignsPager.Offset;
+
+	declare CampaignStruct::LibCampaignStruct_K_Campaign[Integer] CampaignList = [];
+	foreach (Key => Campaign in _Campaigns) {
+		CampaignList[Offset + Key] = Campaign;
+		CampaignList[Offset + Key].IsFetched = True;
+
+		Preload::PreloadImages(This, [Campaign.Media.ButtonBackgroundUrl, Campaign.Media.ButtonForegroundUrl, Campaign.Media.LiveButtonBackgroundUrl, Campaign.Media.LiveButtonForegroundUrl]);
+	}
+
+	State.AllClubCampaignsPager.CampaignList = CampaignList;
+	State.AllClubCampaignsPager.Total = _CampaignsTotal;
+
+	Store::SendEvent(C_StoreId, C_Event_AllClubCampaignListUpdated, []);
+
+	return State;
+}
+
+/** Update the monthly campaigns list
+ *
+ *	@param	_State										The current state
+ *	@param	_Campaigns								The campaigns to set in the array
+ *
+ *	@return														The updated state
+ */
+K_State Mutation_UpdateLoadedMonthlyCampaigns(
+	K_State _State,
+	CampaignStruct::LibCampaignStruct_K_MonthlyCampaign _Campaign,
+	Boolean _IsRoyal
+) {
+	if (
+		(!_IsRoyal && !_State.LoadedMonthlyCampaigns.existskey(_Campaign.Id)) ||
+		(_IsRoyal && !_State.LoadedRoyalCampaigns.existskey(_Campaign.Id))
+	) {
+		return _State;
+	}
+
+	declare K_State State = _State;
+
+	declare Boolean AllMapsLoaded = True;
+	declare CampaignStruct::LibCampaignStruct_K_MonthlyCampaign UpdatedCampaign;
+	if (_IsRoyal) {
+		UpdatedCampaign = State.LoadedRoyalCampaigns[_Campaign.Id];
+	} else {
+		UpdatedCampaign = State.LoadedMonthlyCampaigns[_Campaign.Id];
+	}
+	UpdatedCampaign.IsLive = _Campaign.IsLive;
+	foreach (Key => DailyMap in _Campaign.DailyMaps) {
+		declare CampaignStruct::LibCampaignStruct_K_DailyMap UpdatedMap;
+		// The map already exists, only update unlock time
+		if (
+			UpdatedCampaign.DailyMaps.existskey(Key) &&
+			UpdatedCampaign.DailyMaps[Key].CampaignId == DailyMap.CampaignId &&
+			UpdatedCampaign.DailyMaps[Key].SeasonId == DailyMap.SeasonId &&
+			UpdatedCampaign.DailyMaps[Key].Map.Uid == DailyMap.Map.Uid
+		) {
+			UpdatedMap = UpdatedCampaign.DailyMaps[Key];
+			UpdatedMap.StartTimestamp = DailyMap.StartTimestamp;
+			UpdatedMap.EndTimestamp = DailyMap.EndTimestamp;
+			UpdatedMap.RelativeStart = DailyMap.RelativeStart;
+			UpdatedMap.RelativeEnd = DailyMap.RelativeEnd;
+			UpdatedMap.RelativeNow = DailyMap.RelativeNow;
+		} else {
+			UpdatedMap = DailyMap;
+		}
+		if (AllMapsLoaded && CanBeLoaded(UpdatedMap)) AllMapsLoaded = False;
+		UpdatedCampaign.DailyMaps[Key] = UpdatedMap;
+	}
+	// Mark the campaign as not loaded if some of its map are not loaded yet
+	UpdatedCampaign.IsLoaded = UpdatedCampaign.IsLoaded && AllMapsLoaded;
+	if (_IsRoyal) {
+		State.LoadedRoyalCampaigns[_Campaign.Id] = UpdatedCampaign;
+		Store::SendEvent(C_StoreId, C_Event_RoyalCampaignUpdated, [""^UpdatedCampaign.Id]);
+	} else {
+		State.LoadedMonthlyCampaigns[_Campaign.Id] = UpdatedCampaign;
+		Store::SendEvent(C_StoreId, C_Event_MonthlyCampaignUpdated, [""^UpdatedCampaign.Id]);
+	}
+
+	return State;
+}
+
+/** Update the monthly campaigns list
+ *
+ *	@param	_State										The current state
+ *	@param	_CampaignsTotal						The total number of campaigns in the database
+ *	@param	_CampaignsUpdateTime			The time at which the campaigns will be updated on the API
+ *	@param	_Campaigns								The campaigns to set in the array
+ *
+ *	@return														The updated state
+ */
+K_State Mutation_SetMonthlyCampaigns(
+	K_State _State,
+	Integer _CampaignsTotal,
+	Integer _CampaignsUpdateTime,
+	CampaignStruct::LibCampaignStruct_K_MonthlyCampaign[] _Campaigns,
+	Boolean _IsRoyal
+) {
+	declare K_State State = _State;
+
+	declare Integer Offset;
+	if (_IsRoyal) {
+		Offset = State.RoyalCampaignsPager.Offset;
+	} else {
+		Offset = State.MonthlyCampaignsPager.Offset;
+	}
+
+	declare CampaignStruct::LibCampaignStruct_K_MonthlyCampaign[Integer] CampaignList = [];
+	foreach (Key => Campaign in _Campaigns) {
+		CampaignList[Offset + Key] = Campaign;
+
+		if (!_IsRoyal) {
+			declare Text[] MapUids;
+			foreach (DailyMap in Campaign.DailyMaps) {
+				MapUids.add(DailyMap.Map.Uid);
+			}
+			Tracking::SetIsTOTDTracks(System, MapUids);
+		}
+
+		Preload::PreloadImages(This, [Campaign.Media.ButtonBackgroundUrl, Campaign.Media.ButtonForegroundUrl, Campaign.Media.LiveButtonBackgroundUrl, Campaign.Media.LiveButtonForegroundUrl]);
+
+		// If the campaign is or was live, then also update the loaded monthly campaigns
+		// with the potential new maps data. Monthly campaigns that are not live
+		// should not change anymore, so it is not necessary to update them.
+		if (
+			(_IsRoyal && State.LoadedRoyalCampaigns.existskey(Campaign.Id) &&
+				(
+					Campaign.IsLive ||
+					State.LoadedRoyalCampaigns[Campaign.Id].IsLive
+				)
+			) ||
+			(!_IsRoyal && State.LoadedMonthlyCampaigns.existskey(Campaign.Id) &&
+				(
+					Campaign.IsLive ||
+					State.LoadedMonthlyCampaigns[Campaign.Id].IsLive
+				)
+			)
+		) {
+			State = Mutation_UpdateLoadedMonthlyCampaigns(State, Campaign, _IsRoyal);
+		}
+	}
+
+	if (_IsRoyal) {
+		State.RoyalCampaignsPager.CampaignList = CampaignList;
+		State.RoyalCampaignsPager.Total = _CampaignsTotal;
+		State.RoyalCampaignsPager.UpdateTime = _CampaignsUpdateTime;
+
+		Store::SendEvent(C_StoreId, C_Event_CampaignListUpdated, [""^CampaignStruct::C_CampaignType_Royal]);
+	} else {
+		State.MonthlyCampaignsPager.CampaignList = CampaignList;
+		State.MonthlyCampaignsPager.Total = _CampaignsTotal;
+		State.MonthlyCampaignsPager.UpdateTime = _CampaignsUpdateTime;
+
+		Store::SendEvent(C_StoreId, C_Event_CampaignListUpdated, [""^CampaignStruct::C_CampaignType_Monthly]);
+	}
+
+	return State;
+}
+
+/** Update the loaded campaigns list
+ *
+ *	@param	_State										The current state
+ *	@param	_Campaign									The campaign to set
+ *
+ *	@return														The updated state
+ */
+K_State Mutation_SetLoadedCampaign(K_State _State, CampaignStruct::LibCampaignStruct_K_Campaign _Campaign) {
+	declare K_State State = _State;
+
+	State.LoadedCampaigns[_Campaign.Id] = _Campaign;
+	State.LoadedCampaigns[_Campaign.Id].IsFetched = True;
+	State.SeasonUidToCampaignId[_Campaign.SeasonUid] = _Campaign.Id;
+
+	Action_StartLoadingCampaign(_Campaign);
+
+	Store::SendEvent(C_StoreId, C_Event_CampaignUpdated, [""^_Campaign.Id]);
+
+	return State;
+}
+
+/** Update the clubs campaigns list according to the given club Id
+ *
+ *	@param	_State										The current state
+ *	@param	_ClubId										The club id to set
+ *	@param	_CampaignsTotal						The total number of campaigns in the database
+ *	@param	_Campaigns								The campaigns to set in the array
+ *
+ *	@return														The updated state
+ */
+K_State Mutation_SetClubsCampaigns(
+	K_State _State,
+	Integer _ClubId,
+	Integer _CampaignsTotal,
+	CampaignStruct::LibCampaignStruct_K_Campaign[] _Campaigns
+) {
+	declare K_State State = _State;
+
+	if (!State.ClubsCampaignsPagers.existskey(_ClubId)) {
+		State.ClubsCampaignsPagers[_ClubId] = K_CampaignsPager {};
+	}
+	declare Integer Offset = State.ClubsCampaignsPagers[_ClubId].Offset;
+
+	declare CampaignStruct::LibCampaignStruct_K_Campaign[Integer] CampaignList = [];
+	foreach (Key => Campaign in _Campaigns) {
+		CampaignList[Offset + Key] = Campaign;
+
+		Preload::PreloadImages(This, [Campaign.Media.ButtonBackgroundUrl, Campaign.Media.ButtonForegroundUrl, Campaign.Media.LiveButtonBackgroundUrl, Campaign.Media.LiveButtonForegroundUrl]);
+	}
+
+	State.ClubsCampaignsPagers[_ClubId].CampaignList = CampaignList;
+	State.ClubsCampaignsPagers[_ClubId].Total = _CampaignsTotal;
+
+	Store::SendEvent(C_StoreId, C_Event_ClubsCampaignListUpdated, [""^_ClubId]);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the campaigns offset
+K_State Mutation_SetCampaignsOffset(K_State _State, Integer _CampaignType, Integer _Offset) {
+	declare K_State State = _State;
+	if (!State.CampaignsPagers.existskey(_CampaignType)) return State;
+
+	State.CampaignsPagers[_CampaignType].Offset = _Offset;
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the monthly campaigns offset
+K_State Mutation_SetMonthlyCampaignsOffset(K_State _State, Integer _Offset) {
+	declare K_State State = _State;
+	State.MonthlyCampaignsPager.Offset = _Offset;
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the royal campaigns offset
+K_State Mutation_SetRoyalCampaignsOffset(K_State _State, Integer _Offset) {
+	declare K_State State = _State;
+	State.RoyalCampaignsPager.Offset = _Offset;
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the all club campaigns offset
+K_State Mutation_SetAllClubCampaignsOffset(K_State _State, Integer _Offset) {
+	declare K_State State = _State;
+	State.AllClubCampaignsPager.Offset = _Offset;
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the clubs campaigns offset
+K_State Mutation_SetClubsCampaignsOffset(K_State _State, Integer _ClubId, Integer _Offset) {
+	declare K_State State = _State;
+	if (!State.ClubsCampaignsPagers.existskey(_ClubId)) {
+		State.ClubsCampaignsPagers[_ClubId] = K_CampaignsPager {};
+	}
+
+	State.ClubsCampaignsPagers[_ClubId].Offset = _Offset;
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Mark the campaign as loaded and send event
+K_State Mutation_SetCampaignIsLoaded(K_State _State, Integer _CampaignId) {
+	declare K_State State = _State;
+
+	if (State.LoadedCampaigns.existskey(_CampaignId)) {
+		State.LoadedCampaigns[_CampaignId].IsLoaded = True;
+		Store::SendEvent(C_StoreId, C_Event_CampaignLoadComplete, [""^_CampaignId]);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Mark the campaign as loaded and send event
+K_State Mutation_SetMonthlyCampaignIsLoaded(
+	K_State _State,
+	Integer _MonthlyCampaignId,
+	Text[] _LoadedMapUids,
+	Boolean _MapsLoadingSucceed
+) {
+	declare K_State State = _State;
+
+	if (State.LoadedMonthlyCampaigns.existskey(_MonthlyCampaignId)) {
+		State.LoadedMonthlyCampaigns[_MonthlyCampaignId].IsLoaded = _MonthlyCampaignId != CampaignStruct::C_MonthlyCampaign_NullId;
+
+		declare CampaignStruct::LibCampaignStruct_K_DailyMap[Integer] TmpDailyMaps = State.LoadedMonthlyCampaigns[_MonthlyCampaignId].DailyMaps;
+		foreach (Key => DailyMap in TmpDailyMaps) {
+			// Set daily map load status
+			if (_LoadedMapUids.exists(DailyMap.Map.Uid)) {
+				if (_MapsLoadingSucceed) {
+					State.LoadedMonthlyCampaigns[_MonthlyCampaignId].DailyMaps[Key].LoadStatus = CampaignStruct::C_LoadStatus_Loaded;
+				} else {
+					State.LoadedMonthlyCampaigns[_MonthlyCampaignId].DailyMaps[Key].LoadStatus = CampaignStruct::C_LoadStatus_Error;
+				}
+			}
+
+			// Create standard campaign
+			if (DailyMap.CampaignId != CampaignStruct::C_Campaign_NullId) {
+				declare CampaignStruct::LibCampaignStruct_K_MonthlyCampaign MonthlyCampaign = State.LoadedMonthlyCampaigns[_MonthlyCampaignId];
+				declare Text[Integer] Month_Names = Const::C_Month_Names_With_Day;
+				declare Text CampaignName = TL::Compose(Month_Names[MonthlyCampaign.Month-1], TL::ToText(DailyMap.MonthDay), TL::ToText(MonthlyCampaign.Year));
+
+				// Truly fixing https://gitlab.nadeo.org/trackmania-next/tmnext/-/issues/6540 would require a major rewrite
+				// of `CampaignStore_MA.script.txt`. To avoid that we only apply a small patch here to copy
+				// the rankings from the previously loaded campaign.
+				declare CampaignStruct::LibCampaignStruct_K_Ranking[] PreviousRankings = State.LoadedCampaigns.get(DailyMap.CampaignId, CampaignStruct::LibCampaignStruct_K_Campaign {}).Playlist.get(0, CampaignStruct::LibCampaignStruct_K_Map{}).Rankings;
+
+				State.LoadedCampaigns[DailyMap.CampaignId] = CampaignStruct::LibCampaignStruct_K_Campaign {
+					Id = DailyMap.CampaignId,
+					Name = CampaignName,
+					SeasonUid = DailyMap.SeasonId,
+					Playlist = [DailyMap.Map],
+					IsFetched = True,
+					IsLoaded = True,
+					IsSeasonLive = DailyMap.RelativeStart <= 0 && DailyMap.RelativeEnd > 0
+				};
+				if (PreviousRankings.count > 0) {
+					State.LoadedCampaigns[DailyMap.CampaignId].Playlist[0].Rankings = PreviousRankings;
+				}
+
+				State.SeasonUidToCampaignId[DailyMap.SeasonId] = DailyMap.CampaignId;
+			}
+		}
+
+		foreach (Index => MonthlyCampaign in State.MonthlyCampaignsPager.CampaignList) {
+			if (_MonthlyCampaignId == MonthlyCampaign.Id) {
+				State.MonthlyCampaignsPager.CampaignList[Index].IsLoaded = True;
+				break;
+			}
+		}
+	}
+
+	if (State.LiveMonthly.Campaign.Id == _MonthlyCampaignId) {
+		State.LiveMonthly.Campaign.IsLoaded = _MonthlyCampaignId != CampaignStruct::C_MonthlyCampaign_NullId;
+	}
+
+	Store::SendEvent(C_StoreId, C_Event_MonthlyCampaignLoadComplete, [""^_MonthlyCampaignId]);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_UpdateMonthlyCampaignPlaylist(K_State _State, Integer _MonthlyCampaignId, CNadeoServicesMap[Text] _MapList) {
+	declare K_State State = _State;
+
+	if (!State.LoadedMonthlyCampaigns.existskey(_MonthlyCampaignId)) {
+		State.LoadedMonthlyCampaigns[_MonthlyCampaignId] = GetMonthlyCampaignFromId(State, _MonthlyCampaignId);
+	}
+
+	foreach (DayIndex => DailyMap in State.LoadedMonthlyCampaigns[_MonthlyCampaignId].DailyMaps) {
+		if (_MapList.existskey(DailyMap.Map.Uid)) {
+			State.LoadedMonthlyCampaigns[_MonthlyCampaignId].DailyMaps[DayIndex].Map = CampaignStruct::GetMapFromNSMap(
+				State.LoadedMonthlyCampaigns[_MonthlyCampaignId].DailyMaps[DayIndex].Map,
+				_MapList[DailyMap.Map.Uid]
+			);
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Mark the campaign as loaded and send event
+K_State Mutation_SetRoyalCampaignIsLoaded(
+	K_State _State,
+	Integer _RoyalCampaignId,
+	Text[] _LoadedMapUids,
+	Boolean _MapsLoadingSucceed
+) {
+	declare K_State State = _State;
+
+	if (State.LoadedRoyalCampaigns.existskey(_RoyalCampaignId)) {
+		State.LoadedRoyalCampaigns[_RoyalCampaignId].IsLoaded = True;
+
+		declare CampaignStruct::LibCampaignStruct_K_DailyMap[Integer] TmpDailyMaps = State.LoadedRoyalCampaigns[_RoyalCampaignId].DailyMaps;
+		foreach (Key => DailyMap in TmpDailyMaps) {
+			// Set daily map load status
+			if (_LoadedMapUids.exists(DailyMap.Map.Uid)) {
+				if (_MapsLoadingSucceed) {
+					State.LoadedRoyalCampaigns[_RoyalCampaignId].DailyMaps[Key].LoadStatus = CampaignStruct::C_LoadStatus_Loaded;
+				} else {
+					State.LoadedRoyalCampaigns[_RoyalCampaignId].DailyMaps[Key].LoadStatus = CampaignStruct::C_LoadStatus_Error;
+				}
+			}
+
+			// Create standard campaign
+			declare CampaignStruct::LibCampaignStruct_K_MonthlyCampaign RoyalCampaign = State.LoadedRoyalCampaigns[_RoyalCampaignId];
+			declare Text[Integer] Month_Names = Const::C_Month_Names_With_Day;
+			declare Text CampaignName = TL::Compose(Month_Names[RoyalCampaign.Month-1], TL::ToText(DailyMap.MonthDay), TL::ToText(RoyalCampaign.Year));
+			if (DailyMap.CampaignId != CampaignStruct::C_Campaign_NullId) {
+				State.LoadedCampaigns[DailyMap.CampaignId] = CampaignStruct::LibCampaignStruct_K_Campaign {
+					Id = DailyMap.CampaignId,
+					Name = CampaignName,
+					SeasonUid = DailyMap.SeasonId,
+					Playlist = [DailyMap.Map],
+					IsFetched = True,
+					IsLoaded = True,
+					IsSeasonLive = DailyMap.RelativeStart <= 0 && DailyMap.RelativeEnd > 0
+				};
+				State.SeasonUidToCampaignId[DailyMap.SeasonId] = DailyMap.CampaignId;
+			}
+		}
+
+		foreach (Index => RoyalCampaign in State.RoyalCampaignsPager.CampaignList) {
+			if (_RoyalCampaignId == RoyalCampaign.Id) {
+				State.RoyalCampaignsPager.CampaignList[Index].IsLoaded = True;
+				break;
+			}
+		}
+	}
+
+	Store::SendEvent(C_StoreId, C_Event_RoyalCampaignLoadComplete, [""^_RoyalCampaignId]);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_UpdateRoyalCampaignPlaylist(K_State _State, Integer _RoyalCampaignId, CNadeoServicesMap[Text] _MapList) {
+	declare K_State State = _State;
+
+	if (!State.LoadedRoyalCampaigns.existskey(_RoyalCampaignId)) {
+		State.LoadedRoyalCampaigns[_RoyalCampaignId] = GetRoyalCampaignFromId(State, _RoyalCampaignId);
+	}
+
+	foreach (DayIndex => DailyMap in State.LoadedRoyalCampaigns[_RoyalCampaignId].DailyMaps) {
+		if (_MapList.existskey(DailyMap.Map.Uid)) {
+			State.LoadedRoyalCampaigns[_RoyalCampaignId].DailyMaps[DayIndex].Map = CampaignStruct::GetMapFromNSMap(
+				State.LoadedRoyalCampaigns[_RoyalCampaignId].DailyMaps[DayIndex].Map,
+				_MapList[DailyMap.Map.Uid]
+			);
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ /
+/** Check if there is a map in the campaign that has not
+ *	been loaded from the CORE services
+ */
+K_State Mutation_UpdateMapsLoadStatus(K_State _State, Integer _CampaignId) {
+	declare K_State State = _State;
+	declare Boolean FailedToGetMapUrl = False;
+	declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = GetCampaignFromId(State, _CampaignId);
+
+	foreach (Map in Campaign.Playlist) {
+		if (Map.Uid != "" && Map.DownloadUrl == "" && Map.LocalFileName == "") {
+			FailedToGetMapUrl = True;
+			break;
+		}
+	}
+
+	declare Boolean Found = False;
+	foreach (CampaignType => CampaignPager in State.CampaignsPagers) {
+		foreach (Index => Campaign in CampaignPager.CampaignList) {
+			if (Campaign.Id == _CampaignId) {
+				State.CampaignsPagers[CampaignType].CampaignList[Index].FailedToGetMapUrl = FailedToGetMapUrl;
+				Found = True;
+				break;
+			}
+		}
+		if (Found) break;
+	}
+
+	foreach (CampaignIndex => Campaign in State.AllClubCampaignsPager.CampaignList) {
+		if (Campaign.Id == _CampaignId) {
+			State.AllClubCampaignsPager.CampaignList[CampaignIndex].FailedToGetMapUrl = FailedToGetMapUrl;
+			break;
+		}
+	}
+
+	if (State.LoadedCampaigns.existskey(_CampaignId)) {
+		State.LoadedCampaigns[_CampaignId].FailedToGetMapUrl = FailedToGetMapUrl;
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_UpdateCampaignPlaylist(K_State _State, Integer _CampaignId, CNadeoServicesMap[Text] _MapList) {
+	declare K_State State = _State;
+	declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = GetCampaignFromId(State, _CampaignId);
+	declare CampaignStruct::LibCampaignStruct_K_Map[] Playlist = Campaign.Playlist;
+
+	foreach (MapPlaylistKey => Map in Playlist) {
+		declare CNadeoServicesMap NSMap <=> _MapList.get(Map.Uid, Null);
+		if (NSMap != Null && NSMap.Uid == Map.Uid) {
+			Playlist[MapPlaylistKey] = CampaignStruct::GetMapFromNSMap(Map, NSMap);
+		}
+	}
+
+	declare Boolean Found = False;
+	foreach (CampaignType => CampaignPager in State.CampaignsPagers) {
+		foreach (Index => Campaign in CampaignPager.CampaignList) {
+			if (Campaign.Id == _CampaignId) {
+				State.CampaignsPagers[CampaignType].CampaignList[Index].Playlist = Playlist;
+				Found = True;
+				break;
+			}
+		}
+		if (Found) break;
+	}
+
+	foreach (CampaignIndex => Campaign in State.AllClubCampaignsPager.CampaignList) {
+		if (Campaign.Id == _CampaignId) {
+			State.AllClubCampaignsPager.CampaignList[CampaignIndex].Playlist = Playlist;
+			break;
+		}
+	}
+
+	if (State.LoadedCampaigns.existskey(_CampaignId)) {
+		State.LoadedCampaigns[_CampaignId].Playlist = Playlist;
+	}
+
+	State = Mutation_UpdateMapsLoadStatus(State, _CampaignId);
+
+	Store::SendEvent(C_StoreId, C_Event_CampaignListUpdated);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_UpdateCampaignClub(K_State _State, Integer _CampaignId, ClubStruct::LibStructuresClub_K_Club _Club) {
+	declare K_State State = _State;
+
+	declare Boolean Found = False;
+	foreach (CampaignType => CampaignPager in State.CampaignsPagers) {
+		foreach (Index => Campaign in CampaignPager.CampaignList) {
+			if (Campaign.Id == _CampaignId) {
+				State.CampaignsPagers[CampaignType].CampaignList[Index].Club = _Club;
+				Found = True;
+				break;
+			}
+		}
+		if (Found) break;
+	}
+
+	foreach (CampaignIndex => Campaign in State.AllClubCampaignsPager.CampaignList) {
+		if (Campaign.Id == _CampaignId) {
+			State.AllClubCampaignsPager.CampaignList[CampaignIndex].Club = _Club;
+			break;
+		}
+	}
+
+	if (State.LoadedCampaigns.existskey(_CampaignId)) {
+		State.LoadedCampaigns[_CampaignId].Club = _Club;
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_SetMapsRecords(
+	K_State _State,
+	Text _SeasonUid,
+	LeaderboardAPI::K_ResponseFromGetPlayerMapRankings[Text] _Records
+) {
+	declare K_State State = _State;
+
+	declare Text[] CampaignIdList;
+	foreach (CampaignId => Campaign in State.LoadedCampaigns) {
+		if (Campaign.SeasonUid != _SeasonUid) continue;
+		foreach (MapUid => Record in _Records) {
+			foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+				if (Map.Uid == MapUid) {
+					declare CampaignStruct::LibCampaignStruct_K_Map TmpMap = Map;
+					if (TmpMap.Score <= 0) TmpMap.Score = Record.Score;
+					TmpMap.ScoreBySeason[_SeasonUid] = Record.Score;
+					TmpMap.Rankings = Record.Rankings;
+					TmpMap.UpdateTime_Rankings = Now;
+					State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey] = TmpMap;
+
+					if (!CampaignIdList.exists(""^Campaign.Id)) CampaignIdList.add(""^Campaign.Id);
+				}
+			}
+		}
+	}
+
+	declare Text[] SeasonUidList = [_SeasonUid];
+
+	// We use a json formatted string instead of the array directly because there is a limit
+	// to the number of values the array can contains. The `SendCustomEvent()` function will fail
+	// if there are too many entries.
+	Store::SendEvent(C_StoreId, C_Event_MapRecordsUpdated, [CampaignIdList.tojson()]);
+	Store::SendEvent(C_StoreId, C_Event_MapPlayerGlobalRankingsUpdated, [SeasonUidList.tojson()]);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the player ranking on one map
+K_State Mutation_SetMapRecords(K_State _State, Text _SeasonUid, LeaderboardAPI::K_ResponseFromGetPlayerMapRankings _Record) {
+	declare K_State State = _State;
+
+	declare Text[] CampaignIdList;
+	foreach (CampaignId => Campaign in State.LoadedCampaigns) {
+		if (Campaign.SeasonUid == _SeasonUid) {
+			foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+				if (Map.Uid == _Record.MapUid) {
+					declare CampaignStruct::LibCampaignStruct_K_Map TmpMap = Map;
+					if (TmpMap.Score <= 0) TmpMap.Score = _Record.Score;
+					TmpMap.ScoreBySeason[_SeasonUid] = _Record.Score;
+					TmpMap.Rankings = _Record.Rankings;
+					TmpMap.UpdateTime_Rankings = Now;
+					State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey] = TmpMap;
+					if (!CampaignIdList.exists(""^Campaign.Id)) CampaignIdList.add(""^Campaign.Id);
+				}
+			}
+			// Stop looping on the campaigns once we found the right one
+			break;
+		}
+	}
+
+	declare Text[] SeasonUidList = [_SeasonUid];
+
+	// We use a json formatted string instead of the array directly because there is a limit
+	// to the number of values the array can contains. The `SendCustomEvent()` function will fail
+	// if there are too many entries.
+	Store::SendEvent(C_StoreId, C_Event_MapRecordsUpdated, [CampaignIdList.tojson()]);
+	Store::SendEvent(C_StoreId, C_Event_MapPlayerGlobalRankingsUpdated, [SeasonUidList.tojson()]);
+
+	return State;
+}
+Void SetMapRecords(Text _SeasonUid, LeaderboardAPI::K_ResponseFromGetPlayerMapRankings _Record) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetMapRecords(Trackmania_CampaignStore_State, _SeasonUid, _Record);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the player global ranking in several map/leaderboard
+K_State Mutation_SetMapGroupListGlobalRankings(
+	K_State _State,
+	Text[Text] _MapGroupList,
+	LeaderboardAPI::K_ResponseFromGetPlayerMapRankings[] _Rankings
+) {
+	declare K_State State = _State;
+
+	// The response only contains leaderboards where the player has a ranking
+	// We want to update the rankings and update time of all the requested leaderboards
+	// even the one that are not in the response
+	declare Text[] CampaignIdList;
+	declare Text[] SeasonUidList;
+	foreach (Ranking in _Rankings) {
+		if (State.SeasonUidToCampaignId.existskey(Ranking.SeasonUid)) {
+			declare Integer CampaignId = State.SeasonUidToCampaignId[Ranking.SeasonUid];
+			if (State.LoadedCampaigns.existskey(CampaignId)) {
+				declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = State.LoadedCampaigns[CampaignId];
+				foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+					if (Map.Uid == Ranking.MapUid) {
+						declare CampaignStruct::LibCampaignStruct_K_Map TmpMap = Map;
+						if (TmpMap.Score <= 0) TmpMap.Score = Ranking.Score;
+						TmpMap.ScoreBySeason[Ranking.SeasonUid] = Ranking.Score;
+						TmpMap.Rankings = Ranking.Rankings;
+						TmpMap.UpdateTime_Rankings = Now;
+						State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey] = TmpMap;
+
+						if (!CampaignIdList.exists(""^Campaign.Id)) CampaignIdList.add(""^Campaign.Id);
+						if (!SeasonUidList.exists(Ranking.SeasonUid)) SeasonUidList.add(Ranking.SeasonUid);
+					}
+				}
+			}
+		}
+	}
+
+	foreach (MapUid => SeasonUid in _MapGroupList) {
+		if (!SeasonUidList.exists(SeasonUid)) {
+			SeasonUidList.add(SeasonUid);
+			if (State.SeasonUidToCampaignId.existskey(SeasonUid)) {
+				declare Integer CampaignId = State.SeasonUidToCampaignId[SeasonUid];
+				if (State.LoadedCampaigns.existskey(CampaignId)) {
+					declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = State.LoadedCampaigns[CampaignId];
+					foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+						if (Map.Uid == MapUid) {
+							State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].UpdateTime_Rankings = Now;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// We use a json formatted string instead of the array directly because there is a limit
+	// to the number of values the array can contains. The `SendCustomEvent()` function will fail
+	// if there are too many entries.
+	Store::SendEvent(C_StoreId, C_Event_MapRecordsUpdated, [CampaignIdList.tojson()]);
+	Store::SendEvent(C_StoreId, C_Event_MapPlayerGlobalRankingsUpdated, [SeasonUidList.tojson()]);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the player position on maps in club rankings
+K_State Mutation_SetMapsClubRankings(
+	K_State _State,
+	Text _SeasonUid,
+	Integer _ClubId,
+	LeaderboardAPI::K_ResponseFromGetPlayerMapRankingsInClub[Text] _Records
+) {
+	declare K_State State = _State;
+
+	declare Integer[] CampaignIdList;
+	foreach (CampaignId => Campaign in State.LoadedCampaigns) {
+		if (Campaign.SeasonUid != _SeasonUid) continue;
+		foreach (MapUid => Record in _Records) {
+			foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+				if (Map.Uid == MapUid) {
+					State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].ScoreBySeason[Record.SeasonUid] = Record.Score;
+					State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].ClubRankings[Record.ClubId] = Record.Position;
+					State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].UpdateTime_ClubRankings[Record.ClubId] = Now;
+					if (!CampaignIdList.exists(Campaign.Id)) CampaignIdList.add(Campaign.Id);
+				}
+			}
+		}
+	}
+
+	declare Text[] SeasonUidList = [_SeasonUid];
+
+	// We use a json formatted string instead of the array directly because there is a limit
+	// to the number of values the array can contains. The `SendCustomEvent()` function will fail
+	// if there are too many entries.
+	Store::SendEvent(C_StoreId, C_Event_MapClubRankingsUpdated, [CampaignIdList.tojson()]);
+	Store::SendEvent(C_StoreId, C_Event_MapPlayerClubRankingsUpdated, [SeasonUidList.tojson()]);
+
+	return State;
+}
+K_State Mutation_SetMapClubRankings(K_State _State, Text _SeasonUid, Integer _ClubId, LeaderboardAPI::K_ResponseFromGetPlayerMapRankingsInClub _Records) {
+	return Mutation_SetMapsClubRankings(_State, _SeasonUid, _ClubId, [_Records.MapUid => _Records]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the player position on maps in club rankings
+K_State Mutation_SetMapGroupListClubRankings(
+	K_State _State,
+	Text[Text] _MapGroupList,
+	Integer _ClubId,
+	LeaderboardAPI::K_ResponseFromGetPlayerMapRankingsInClub[] _Rankings
+) {
+	declare K_State State = _State;
+
+	// The response only contains leaderboards where the player has a ranking
+	// We want to update the rankings and update time of all the requested leaderboards
+	// even the one that are not in the response
+	declare Integer[] CampaignIdList;
+	declare Text[] SeasonUidList;
+	foreach (Ranking in _Rankings) {
+		if (State.SeasonUidToCampaignId.existskey(Ranking.SeasonUid)) {
+			declare Integer CampaignId = State.SeasonUidToCampaignId[Ranking.SeasonUid];
+			if (State.LoadedCampaigns.existskey(CampaignId)) {
+				declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = State.LoadedCampaigns[CampaignId];
+				foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+					if (Map.Uid == Ranking.MapUid) {
+						State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].ScoreBySeason[Ranking.SeasonUid] = Ranking.Score;
+						State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].ClubRankings[Ranking.ClubId] = Ranking.Position;
+						State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].UpdateTime_ClubRankings[Ranking.ClubId] = Now;
+
+						if (!CampaignIdList.exists(Campaign.Id)) CampaignIdList.add(Campaign.Id);
+						if (!SeasonUidList.exists(Ranking.SeasonUid)) SeasonUidList.add(Ranking.SeasonUid);
+					}
+				}
+			}
+		}
+	}
+
+	foreach (MapUid => SeasonUid in _MapGroupList) {
+		if (!SeasonUidList.exists(SeasonUid)) {
+			SeasonUidList.add(SeasonUid);
+			if (State.SeasonUidToCampaignId.existskey(SeasonUid)) {
+				declare Integer CampaignId = State.SeasonUidToCampaignId[SeasonUid];
+				if (State.LoadedCampaigns.existskey(CampaignId)) {
+					declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = State.LoadedCampaigns[CampaignId];
+					foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+						if (Map.Uid == MapUid) {
+							State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].UpdateTime_ClubRankings[_ClubId] = Now;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// We use a json formatted string instead of the array directly because there is a limit
+	// to the number of values the array can contains. The `SendCustomEvent()` function will fail
+	// if there are too many entries.
+	Store::SendEvent(C_StoreId, C_Event_MapClubRankingsUpdated, [CampaignIdList.tojson()]);
+	Store::SendEvent(C_StoreId, C_Event_MapPlayerClubRankingsUpdated, [SeasonUidList.tojson()]);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_SetMapTopRankings(
+	K_State _State,
+	Text _MapUid,
+	LeaderboardAPI::K_ResponseFromGetMapTopRankings _MapTopRankings
+) {
+	declare K_State State = _State;
+
+	foreach (CampaignId => Campaign in State.LoadedCampaigns) {
+		if (Campaign.SeasonUid == _MapTopRankings.SeasonUid) {
+			foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+				if (Map.Uid == _MapUid) {
+					State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].TopRankings = _MapTopRankings.TopRankings;
+					State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].UpdateTime_TopRankings = Now;
+				}
+			}
+			break;
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_UpdateMapTopRankingsDisplayNames(
+	K_State _State,
+	Text _MapUid,
+	Text _SeasonUid
+) {
+	declare K_State State = _State;
+
+	foreach (CampaignId => Campaign in State.LoadedCampaigns) {
+		if (Campaign.SeasonUid == _SeasonUid) {
+			foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+				if (Map.Uid == _MapUid) {
+					foreach (TopRankingIndex => TopRanking in Map.TopRankings) {
+						foreach (TopScoreIndex => TopScore in TopRanking.Tops) {
+							State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].TopRankings[TopRankingIndex].Tops[TopScoreIndex].DisplayName = UserStore::GetUserMgrPlayerName(TopScore.AccountId);
+						}
+					}
+				}
+			}
+			break;
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_SetMapTopRankingsInClub(
+	K_State _State,
+	Text _MapUid,
+	Integer _ClubId,
+	LeaderboardAPI::K_ResponseFromGetMapTopRankingsInClub _TopRankingsInClub
+) {
+	declare K_State State = _State;
+
+	foreach (CampaignId => Campaign in State.LoadedCampaigns) {
+		if (Campaign.SeasonUid == _TopRankingsInClub.SeasonUid) {
+			foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+				if (Map.Uid == _MapUid) {
+					State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].ClubTopRankings[_ClubId] = _TopRankingsInClub.Tops;
+					State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].UpdateTime_ClubTopRankings[_ClubId] = Now;
+				}
+			}
+			break;
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_UpdateMapTopRankingsInClubDisplayNames(
+	K_State _State,
+	Text _MapUid,
+	Integer _ClubId,
+	Text _SeasonUid
+) {
+	declare K_State State = _State;
+
+	foreach (CampaignId => Campaign in State.LoadedCampaigns) {
+		if (Campaign.SeasonUid == _SeasonUid) {
+			foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+				if (Map.Uid == _MapUid && Map.ClubTopRankings.existskey(_ClubId)) {
+					foreach (TopScoreIndex => TopScore in Map.ClubTopRankings[_ClubId]) {
+						State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].ClubTopRankings[_ClubId][TopScoreIndex].DisplayName = UserStore::GetUserMgrPlayerName(TopScore.AccountId);
+					}
+				}
+			}
+			break;
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_SetCampaignRankings(K_State _State, Integer _CampaignId, CampaignStruct::LibCampaignStruct_K_CampaignRanking _CampaignRanking) {
+	declare K_State State = _State;
+
+	if (State.LoadedCampaigns.existskey(_CampaignId)) {
+		State.LoadedCampaigns[_CampaignId].CampaignRanking = _CampaignRanking;
+		State.LoadedCampaigns[_CampaignId].UpdateTime_CampaignRanking = Now;
+	}
+
+	declare K_CampaignInfo CampaignInfo = GetCampaignInfoFromId(State, _CampaignId);
+	if (CampaignInfo.Index < 0) return State;
+
+	if (State.CampaignsPagers.existskey(CampaignInfo.Campaign.Type)) {
+		State.CampaignsPagers[CampaignInfo.Campaign.Type].CampaignList[CampaignInfo.Index].CampaignRanking = _CampaignRanking;
+		State.CampaignsPagers[CampaignInfo.Campaign.Type].CampaignList[CampaignInfo.Index].UpdateTime_CampaignRanking = Now;
+	} else {
+		State.AllClubCampaignsPager.CampaignList[CampaignInfo.Index].CampaignRanking = _CampaignRanking;
+		State.AllClubCampaignsPager.CampaignList[CampaignInfo.Index].UpdateTime_CampaignRanking = Now;
+	}
+
+	Store::SendEvent(C_StoreId, C_Event_CampaignPlayerGlobalRankingsUpdated, [""^_CampaignId]);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_SetCampaignTopRankings(K_State _State, Integer _CampaignId, CampaignStruct::LibCampaignStruct_K_TopRanking[] _TopRankings) {
+	declare K_State State = _State;
+
+	if (State.LoadedCampaigns.existskey(_CampaignId)) {
+		State.LoadedCampaigns[_CampaignId].TopRankings = _TopRankings;
+		State.LoadedCampaigns[_CampaignId].UpdateTime_TopRankings = Now;
+	}
+
+	declare K_CampaignInfo CampaignInfo = GetCampaignInfoFromId(State, _CampaignId);
+	if (!State.CampaignsPagers.existskey(CampaignInfo.Campaign.Type) && State.AllClubCampaignsPager.CampaignList.existskey(CampaignInfo.Index)) {
+		State.AllClubCampaignsPager.CampaignList[CampaignInfo.Index].TopRankings = _TopRankings;
+		State.AllClubCampaignsPager.CampaignList[CampaignInfo.Index].UpdateTime_TopRankings = Now;
+	} else if (
+		State.CampaignsPagers.existskey(CampaignInfo.Campaign.Type) &&
+		State.CampaignsPagers[CampaignInfo.Campaign.Type].CampaignList.existskey(CampaignInfo.Index)
+	) {
+		State.CampaignsPagers[CampaignInfo.Campaign.Type].CampaignList[CampaignInfo.Index].TopRankings = _TopRankings;
+		State.CampaignsPagers[CampaignInfo.Campaign.Type].CampaignList[CampaignInfo.Index].UpdateTime_TopRankings = Now;
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_UpdateTopRankingsDisplayNames(K_State _State, Integer _CampaignId) {
+	declare K_State State = _State;
+
+	if (State.LoadedCampaigns.existskey(_CampaignId)) {
+		foreach (TopRankingIndex => TopRanking_ReadOnly in State.LoadedCampaigns[_CampaignId].TopRankings) {
+			foreach (TopIndex => Top_ReadOnly in TopRanking_ReadOnly.Tops) {
+				State.LoadedCampaigns[_CampaignId].TopRankings[TopRankingIndex].Tops[TopIndex].DisplayName = UserStore::GetUserMgrPlayerName(Top_ReadOnly.AccountId);
+			}
+		}
+	}
+
+	declare K_CampaignInfo CampaignInfo = GetCampaignInfoFromId(State, _CampaignId);
+	if (!State.CampaignsPagers.existskey(CampaignInfo.Campaign.Type)) {
+		if (State.AllClubCampaignsPager.CampaignList.existskey(CampaignInfo.Index)) {
+			foreach (TopRankingIndex => TopRanking_ReadOnly in State.AllClubCampaignsPager.CampaignList[CampaignInfo.Index].TopRankings) {
+				foreach (TopIndex => Top_ReadOnly in TopRanking_ReadOnly.Tops) {
+					State.AllClubCampaignsPager.CampaignList[CampaignInfo.Index].TopRankings[TopRankingIndex].Tops[TopIndex].DisplayName = UserStore::GetUserMgrPlayerName(Top_ReadOnly.AccountId);
+				}
+			}
+		}
+	} else if (State.CampaignsPagers[CampaignInfo.Campaign.Type].CampaignList.existskey(CampaignInfo.Index)) {
+		foreach (TopRankingIndex => TopRanking_ReadOnly in State.CampaignsPagers[CampaignInfo.Campaign.Type].CampaignList[CampaignInfo.Index].TopRankings) {
+			foreach (TopIndex => Top_ReadOnly in TopRanking_ReadOnly.Tops) {
+				State.CampaignsPagers[CampaignInfo.Campaign.Type].CampaignList[CampaignInfo.Index].TopRankings[TopRankingIndex].Tops[TopIndex].DisplayName = UserStore::GetUserMgrPlayerName(Top_ReadOnly.AccountId);
+			}
+		}
+	}
+
+	Store::SendEvent(C_StoreId, C_Event_CampaignTopGlobalRankingsUpdated, [""^_CampaignId]);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_SetRankingLevels(
+	K_State _State,
+	Text _MapUid,
+	Text _SeasonUid,
+	CampaignStruct::LibCampaignStruct_K_TopScore[][Text] _RankingLevels
+) {
+	declare K_State State = _State;
+
+	foreach (CampaignId => Campaign in State.LoadedCampaigns) {
+		if (Campaign.SeasonUid == _SeasonUid) {
+			foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+				if (Map.Uid == _MapUid) {
+					State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].RankingLevels = _RankingLevels;
+					State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].UpdateTime_RankingLevels = Now;
+				}
+			}
+			break;
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_UpdateRankingLevelsDisplayNames(
+	K_State _State,
+	Text _MapUid,
+	Text _SeasonUid
+) {
+	declare K_State State = _State;
+
+	declare Integer CampaignIdResult = CampaignStruct::C_Campaign_NullId;
+	foreach (CampaignId => Campaign in State.LoadedCampaigns) {
+		if (Campaign.SeasonUid == _SeasonUid) {
+			CampaignIdResult = CampaignId;
+			foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+				if (Map.Uid == _MapUid) {
+					foreach (ZoneName => SurroundingRanking in Map.RankingLevels) {
+						foreach (TopIndex => TopScore in SurroundingRanking) {
+							State.LoadedCampaigns[CampaignId].Playlist[MapPlaylistKey].RankingLevels[ZoneName][TopIndex].DisplayName = UserStore::GetUserMgrPlayerName(TopScore.AccountId);
+						}
+					}
+				}
+			}
+			break;
+		}
+	}
+
+	Store::SendEvent(C_StoreId, C_Event_MapRankingLevelsUpdated, [""^CampaignIdResult, _MapUid]);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_SetCampaignClubTopRankings(
+	K_State _State,
+	Integer _CampaignId,
+	Integer _ClubId,
+	CampaignStruct::LibCampaignStruct_K_Top[] _TopRankings
+) {
+	declare K_State State = _State;
+	assert(State.LoadedCampaigns.existskey(_CampaignId), "You need to load the campaign with id "^_CampaignId^" by using Action_LoadCampaign(), before setting new data");
+
+	State.LoadedCampaigns[_CampaignId].ClubTopRankings[_ClubId] = _TopRankings;
+	State.LoadedCampaigns[_CampaignId].UpdateTime_ClubTopRankings[_ClubId] = Now;
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_SetCampaignClubPlayerRankings(
+	K_State _State,
+	Integer _CampaignId,
+	Integer _ClubId,
+	CampaignStruct::LibCampaignStruct_K_Top _Top
+) {
+	declare K_State State = _State;
+	assert(State.LoadedCampaigns.existskey(_CampaignId), "You need to load the campaign with id "^_CampaignId^" by using Action_LoadCampaign(), before setting new data");
+
+	State.LoadedCampaigns[_CampaignId].ClubPlayerRanking[_ClubId] = _Top;
+	State.LoadedCampaigns[_CampaignId].UpdateTime_ClubPlayerRanking[_ClubId] = Now;
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State Mutation_UpdateCampaignClubTopRankingsDisplayNames(
+	K_State _State,
+	Integer _CampaignId
+) {
+	declare K_State State = _State;
+	assert(State.LoadedCampaigns.existskey(_CampaignId), "You need to load the campaign with id "^_CampaignId^" by using Action_LoadCampaign(), before setting new data");
+
+	foreach (ClubId => ClubTopRanking in State.LoadedCampaigns[_CampaignId].ClubTopRankings) {
+		foreach (TopIndex => Top in ClubTopRanking) {
+			State.LoadedCampaigns[_CampaignId].ClubTopRankings[ClubId][TopIndex].DisplayName = UserStore::GetUserMgrPlayerName(Top.AccountId);
+		}
+	}
+
+	Store::SendEvent(C_StoreId, C_Event_CampaignTopClubRankingsUpdated, [""^_CampaignId]);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Bust cache of a map player global rankings
+ *	If `_MapUid` is empty, all maps in the campaigns will be affected
+ */
+K_State Mutation_BustCache_MapPlayerGlobalRankings(
+	K_State _State,
+	Integer _CampaignId,
+	Text _MapUid
+) {
+	declare K_State State = _State;
+
+	declare Boolean CacheBusted;
+	if (State.LoadedCampaigns.existskey(_CampaignId)) {
+		declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = State.LoadedCampaigns[_CampaignId];
+		foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+			if (_MapUid == "" || Map.Uid == _MapUid) {
+				State.LoadedCampaigns[_CampaignId].Playlist[MapPlaylistKey].UpdateTime_Rankings = 0;
+				CacheBusted = True;
+			}
+		}
+	}
+
+	if (CacheBusted) Store::SendEvent(C_StoreId, C_Event_CacheBusted_MapPlayerGlobalRankings, [""^_CampaignId, _MapUid]);
+
+	return State;
+}
+Void Action_BustCache_MapPlayerGlobalRankings(
+	Integer _CampaignId,
+	Text _MapUid
+) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_BustCache_MapPlayerGlobalRankings(Trackmania_CampaignStore_State, _CampaignId, _MapUid);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Bust cache of a map player club rankings
+ *	If `_MapUid` is empty, all maps in the campaigns will be affected
+ *	If `_ClubId` is NullId, all clubs in the map will be affected
+ */
+K_State Mutation_BustCache_MapPlayerClubRankings(
+	K_State _State,
+	Integer _CampaignId,
+	Text _MapUid,
+	Integer _ClubId
+) {
+	declare K_State State = _State;
+
+	declare Boolean CacheBusted;
+	if (State.LoadedCampaigns.existskey(_CampaignId)) {
+		declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = State.LoadedCampaigns[_CampaignId];
+		foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+			if (_MapUid == "" || Map.Uid == _MapUid) {
+				if (_ClubId == ClubStruct::C_ClubNullId) {
+					State.LoadedCampaigns[_CampaignId].Playlist[MapPlaylistKey].UpdateTime_ClubRankings = [];
+				} else {
+					State.LoadedCampaigns[_CampaignId].Playlist[MapPlaylistKey].UpdateTime_ClubRankings[_ClubId] = 0;
+				}
+				CacheBusted = True;
+			}
+		}
+	}
+
+	if (CacheBusted) Store::SendEvent(C_StoreId, C_Event_CacheBusted_MapPlayerClubRankings, [""^_CampaignId, _MapUid, ""^_ClubId]);
+
+	return State;
+}
+Void Action_BustCache_MapPlayerClubRankings(
+	Integer _CampaignId,
+	Text _MapUid,
+	Integer _ClubId
+) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_BustCache_MapPlayerClubRankings(Trackmania_CampaignStore_State, _CampaignId, _MapUid, _ClubId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Bust cache of a map top global rankings
+ *	If `_MapUid` is empty, all maps in the campaigns will be affected
+ */
+K_State Mutation_BustCache_MapTopGlobalRankings(
+	K_State _State,
+	Integer _CampaignId,
+	Text _MapUid
+) {
+	declare K_State State = _State;
+
+	declare Boolean CacheBusted;
+	if (State.LoadedCampaigns.existskey(_CampaignId)) {
+		declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = State.LoadedCampaigns[_CampaignId];
+		foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+			if (_MapUid == "" || Map.Uid == _MapUid) {
+				State.LoadedCampaigns[_CampaignId].Playlist[MapPlaylistKey].UpdateTime_TopRankings = 0;
+				CacheBusted = True;
+			}
+		}
+	}
+
+	if (CacheBusted) Store::SendEvent(C_StoreId, C_Event_CacheBusted_MapTopGlobalRankings, [""^_CampaignId, _MapUid]);
+
+	return State;
+}
+Void Action_BustCache_MapTopGlobalRankings(
+	Integer _CampaignId,
+	Text _MapUid
+) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_BustCache_MapTopGlobalRankings(Trackmania_CampaignStore_State, _CampaignId, _MapUid);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Bust cache of a map top club rankings
+ *	If `_MapUid` is empty, all maps in the campaigns will be affected
+ *	If `_ClubId` is NullId, all clubs in the map will be affected
+ */
+K_State Mutation_BustCache_MapTopClubRankings(
+	K_State _State,
+	Integer _CampaignId,
+	Text _MapUid,
+	Integer _ClubId
+) {
+	declare K_State State = _State;
+
+	declare Boolean CacheBusted;
+	if (State.LoadedCampaigns.existskey(_CampaignId)) {
+		declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = State.LoadedCampaigns[_CampaignId];
+		foreach (MapPlaylistKey => Map in Campaign.Playlist) {
+			if (_MapUid == "" || Map.Uid == _MapUid) {
+				if (_ClubId == ClubStruct::C_ClubNullId) {
+					State.LoadedCampaigns[_CampaignId].Playlist[MapPlaylistKey].UpdateTime_ClubTopRankings = [];
+				} else {
+					State.LoadedCampaigns[_CampaignId].Playlist[MapPlaylistKey].UpdateTime_ClubTopRankings[_ClubId] = 0;
+				}
+				CacheBusted = True;
+			}
+		}
+	}
+
+	if (CacheBusted) Store::SendEvent(C_StoreId, C_Event_CacheBusted_MapTopClubRankings, [""^_CampaignId, _MapUid, ""^_ClubId]);
+
+	return State;
+}
+Void Action_BustCache_MapTopClubRankings(
+	Integer _CampaignId,
+	Text _MapUid,
+	Integer _ClubId
+) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_BustCache_MapTopClubRankings(Trackmania_CampaignStore_State, _CampaignId, _MapUid, _ClubId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Check if a cache has expired
+Boolean HasCacheExpired_MapPlayerGlobalRankings(CampaignStruct::LibCampaignStruct_K_Map _Map, Integer _CacheLifetime) {
+	return (
+		_Map.UpdateTime_Rankings <= 0 ||
+		Now - _Map.UpdateTime_Rankings > _CacheLifetime
+	);
+}
+Boolean HasCacheExpired_MapPlayerClubRankings(CampaignStruct::LibCampaignStruct_K_Map _Map, Integer _ClubId, Integer _CacheLifetime) {
+	return (
+		_ClubId != ClubStruct::C_ClubNullId && (
+			!_Map.UpdateTime_ClubRankings.existskey(_ClubId) ||
+			_Map.UpdateTime_ClubRankings[_ClubId] <= 0 ||
+			Now - _Map.UpdateTime_ClubRankings[_ClubId] > _CacheLifetime
+		)
+	);
+}
+Boolean HasCacheExpired_MapTopGlobalRankings(CampaignStruct::LibCampaignStruct_K_Map _Map, Integer _CacheLifetime) {
+	return (
+		_Map.UpdateTime_TopRankings <= 0 ||
+		Now - _Map.UpdateTime_TopRankings > _CacheLifetime
+	);
+}
+Boolean HasCacheExpired_MapTopClubRankings(CampaignStruct::LibCampaignStruct_K_Map _Map, Integer _ClubId, Integer _CacheLifetime) {
+	return (
+		_ClubId != ClubStruct::C_ClubNullId && (
+			!_Map.UpdateTime_ClubTopRankings.existskey(_ClubId) ||
+			_Map.UpdateTime_ClubTopRankings[_ClubId] <= 0 ||
+			Now - _Map.UpdateTime_ClubTopRankings[_ClubId] > _CacheLifetime
+		)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request new campaigns
+Void Action_LoadCampaigns(Integer _CampaignType, Integer _Offset, Integer _Length) {
+	// Abort previous request if any
+	if (G_Request_CampaignsPagingList.existskey(_CampaignType) && Http::IsInitialized(G_Request_CampaignsPagingList[_CampaignType])) {
+		G_Request_CampaignsPagingList[_CampaignType] = Http::Destroy(G_Request_CampaignsPagingList[_CampaignType]);
+	}
+	// Create new request
+	switch (_CampaignType) {
+		case CampaignStruct::C_CampaignType_Quarterly: {
+			G_Request_CampaignsPagingList[_CampaignType] = CampaignAPI::GetOfficialCampaignList(_Offset, _Length);
+		}
+		case CampaignStruct::C_CampaignType_WeeklyShorts: {
+			G_Request_CampaignsPagingList[_CampaignType] = CampaignAPI::GetWeeklyShortsCampaignList(_Offset, _Length);
+		}
+		case CampaignStruct::C_CampaignType_WeeklyGrands: {
+			G_Request_CampaignsPagingList[_CampaignType] = CampaignAPI::GetWeeklyGrandsCampaignList(_Offset, _Length);
+		}
+		case CampaignStruct::C_CampaignType_CupOfTheWeek: {
+			G_Request_CampaignsPagingList[_CampaignType] = CampaignAPI::GetCupOfTheWeekCampaignList(_Offset, _Length);
+		}
+	}
+
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetCampaignsOffset(Trackmania_CampaignStore_State, _CampaignType, _Offset);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request new monthly campaigns
+Void Action_LoadMonthlyCampaignsList(Integer _Offset, Integer _Length) {
+	// Abort previous request if any
+	if (Http::IsInitialized(G_Request_MonthlyCampaignsPaging)) {
+		Http::Destroy(G_Request_MonthlyCampaignsPaging);
+	}
+	// Create new request
+	G_Request_MonthlyCampaignsPaging = CampaignAPI::GetMonthlyCampaignList(_Offset, _Length, False);
+
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetMonthlyCampaignsOffset(Trackmania_CampaignStore_State, _Offset);
+}
+Void Action_LoadMonthlyCampaignsPage(Integer _PageNb, Integer _CampaignsPerPage) {
+	Action_LoadMonthlyCampaignsList(
+		ML::Max(0, (_PageNb - 2)) * _CampaignsPerPage,
+		_CampaignsPerPage * 3
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request new royal campaigns
+Void Action_LoadRoyalCampaignsList(Integer _Offset, Integer _Length) {
+	// Abort previous request if any and create new request
+	G_Request_RoyalCampaignsPaging = Http::DestroyAndCreate(
+		G_Request_RoyalCampaignsPaging,
+		CampaignAPI::GetMonthlyCampaignList(_Offset, _Length, True)
+	);
+
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetRoyalCampaignsOffset(Trackmania_CampaignStore_State, _Offset);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request a specific campaign
+Void Action_LoadCampaign(Integer _CampaignId, Integer _ClubId) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = GetCampaignFromId(Trackmania_CampaignStore_State, _CampaignId);
+
+	// If the campaign exists already, no need to fetch it from LIVE
+	if (Campaign.IsFetched && Campaign.Id != CampaignStruct::C_Campaign_NullId) {
+		Trackmania_CampaignStore_State = Mutation_SetLoadedCampaign(Trackmania_CampaignStore_State, Campaign);
+	} else {
+		// Abort previous request if any
+		if (G_Request_CampaignList.existskey(_CampaignId) && Http::IsInitialized(G_Request_CampaignList[_CampaignId].Request)) {
+			G_Request_CampaignList[_CampaignId].Request = Http::Destroy(G_Request_CampaignList[_CampaignId].Request);
+		} else {
+			G_Request_CampaignList[_CampaignId] = K_CampaignRequest {};
+		}
+
+		// Create new request
+		if (_ClubId != ClubStruct::C_ClubNullId) {
+			G_Request_CampaignList[_CampaignId].Request = ClubAPI::GetClubCampaign(_ClubId, _CampaignId);
+			G_Request_CampaignList[_CampaignId].ClubId = _ClubId;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request a specific club campaign
+Void Action_LoadClubCampaign(Integer _ActivityId, Integer _ClubId) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+
+	// Abort previous request if any
+	if (G_Request_CampaignList.existskey(_ActivityId) && Http::IsInitialized(G_Request_CampaignList[_ActivityId].Request)) {
+		G_Request_CampaignList[_ActivityId].Request = Http::Destroy(G_Request_CampaignList[_ActivityId].Request);
+	} else {
+		G_Request_CampaignList[_ActivityId] = K_CampaignRequest {};
+	}
+
+	// Create new request
+	if (_ClubId != ClubStruct::C_ClubNullId) {
+		G_Request_CampaignList[_ActivityId].Request = ClubAPI::GetClubCampaignActivity(_ClubId, _ActivityId);
+		G_Request_CampaignList[_ActivityId].ClubId = _ClubId;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request to load a monthly campaign
+Void Action_LoadMonthlyCampaign(K_State _State, Integer _MonthlyCampaignId) {
+	declare CampaignStruct::LibCampaignStruct_K_MonthlyCampaign MonthlyCampaign = GetMonthlyCampaignFromId(_State, _MonthlyCampaignId);
+	declare Text[] MapUidList;
+	declare Text[] SeasonIdList;
+	foreach (DailyMap in MonthlyCampaign.DailyMaps) {
+		// Load the map as soon as we have its uid even if its not yet playable
+		// This way we can preload maps that will be unlocked soon
+		if (CanBeLoaded(DailyMap)) {
+			MapUidList.add(DailyMap.Map.Uid);
+			SeasonIdList.add(DailyMap.SeasonId);
+		}
+	}
+
+	// Initialize tasks
+	if (G_LoadingMonthlyCampaignRequestList.existskey(MonthlyCampaign.Id)) {
+		G_LoadingMonthlyCampaignRequestList[MonthlyCampaign.Id].Task_LoadScoreList = Task::DestroyIfInitialized(G_LoadingMonthlyCampaignRequestList[MonthlyCampaign.Id].Task_LoadScoreList);
+		G_LoadingMonthlyCampaignRequestList[MonthlyCampaign.Id].Task_MapList = Task::DestroyIfInitialized(G_LoadingMonthlyCampaignRequestList[MonthlyCampaign.Id].Task_MapList);
+	} else {
+		G_LoadingMonthlyCampaignRequestList[MonthlyCampaign.Id] = K_LoadingMonthlyCampaignRequest {
+			Task_LoadScoreList = Task::GetEmptyTask(),
+			Task_MapList = Task::GetEmptyTask()
+		};
+	}
+
+	// Create tasks
+	if (MapUidList.count > 0) {
+		G_LoadingMonthlyCampaignRequestList[MonthlyCampaign.Id].Task_MapList = Task::Create(DataFileMgr, DataFileMgr.Map_NadeoServices_GetListFromUid(MainUser::GetMainUserId(), MapUidList));
+	}
+	if (SeasonIdList.count > 0) {
+		G_LoadingMonthlyCampaignRequestList[MonthlyCampaign.Id].Task_LoadScoreList = Task::Create(ScoreMgr, ScoreMgr.Season_LoadScoreList(MainUser::GetMainUserId(), SeasonIdList));
+	}
+
+	// Update monthly campaign info
+	G_LoadingMonthlyCampaignRequestList[MonthlyCampaign.Id].LoadedMapUids = MapUidList;
+	G_LoadingMonthlyCampaignRequestList[MonthlyCampaign.Id].MapsLoadingSucceed = True;
+
+	// Preload images
+	Preload::PreloadImages(This, [MonthlyCampaign.Media.PopUpImageUrl]);
+}
+Void Action_LoadMonthlyCampaign(Integer _MonthlyCampaignId) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Action_LoadMonthlyCampaign(Trackmania_CampaignStore_State, _MonthlyCampaignId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request to load a royal campaign
+Void Action_LoadRoyalCampaign(K_State _State, Integer _RoyalCampaignId) {
+	declare CampaignStruct::LibCampaignStruct_K_MonthlyCampaign RoyalCampaign = GetRoyalCampaignFromId(_State, _RoyalCampaignId);
+	declare Text[] MapUidList;
+	declare Text[] SeasonIdList;
+	foreach (DailyMap in RoyalCampaign.DailyMaps) {
+		// Load the map as soon as we have its uid even if its not yet playable
+		// This way we can preload maps that will be unlocked soon
+		if (CanBeLoaded(DailyMap)) {
+			MapUidList.add(DailyMap.Map.Uid);
+			SeasonIdList.add(DailyMap.SeasonId);
+		}
+	}
+
+	// Initialize tasks
+	if (G_LoadingRoyalCampaignRequestList.existskey(RoyalCampaign.Id)) {
+		G_LoadingRoyalCampaignRequestList[RoyalCampaign.Id].Task_LoadScoreList = Task::DestroyIfInitialized(G_LoadingRoyalCampaignRequestList[RoyalCampaign.Id].Task_LoadScoreList);
+		G_LoadingRoyalCampaignRequestList[RoyalCampaign.Id].Task_MapList = Task::DestroyIfInitialized(G_LoadingRoyalCampaignRequestList[RoyalCampaign.Id].Task_MapList);
+	} else {
+		G_LoadingRoyalCampaignRequestList[RoyalCampaign.Id] = K_LoadingMonthlyCampaignRequest {
+			Task_LoadScoreList = Task::GetEmptyTask(),
+			Task_MapList = Task::GetEmptyTask()
+		};
+	}
+
+	// Create tasks
+	if (MapUidList.count > 0) {
+		G_LoadingRoyalCampaignRequestList[RoyalCampaign.Id].Task_MapList = Task::Create(DataFileMgr, DataFileMgr.Map_NadeoServices_GetListFromUid(MainUser::GetMainUserId(), MapUidList));
+	}
+
+	// Update monthly campaign info
+	G_LoadingRoyalCampaignRequestList[RoyalCampaign.Id].LoadedMapUids = MapUidList;
+	G_LoadingRoyalCampaignRequestList[RoyalCampaign.Id].MapsLoadingSucceed = True;
+
+	// Preload images
+	Preload::PreloadImages(This, [RoyalCampaign.Media.PopUpImageUrl]);
+}
+Void Action_LoadRoyalCampaign(Integer _RoyalCampaignId) {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Action_LoadRoyalCampaign(Trackmania_CampaignStore_State, _RoyalCampaignId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request new campaigns
+Void Action_LoadAllClubCampaignsPage(Text _Sort, Text _Order, Text _FilterName, Integer _Offset, Integer _Length) {
+	// Abort previous request if any
+	if (Http::IsInitialized(G_Request_AllClubCampaignsPaging)) {
+		G_Request_AllClubCampaignsPaging = Http::Destroy(G_Request_AllClubCampaignsPaging);
+	}
+	// Create new request
+	G_Request_AllClubCampaignsPaging = ClubAPI::GetAllClubCampaigns(_Sort, _Order, _FilterName, _Offset, _Length);
+
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetAllClubCampaignsOffset(Trackmania_CampaignStore_State, _Offset);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request new campaigns
+Void Action_LoadClubsCampaigns(Integer _ClubId, Integer _Offset, Integer _Length) {
+	// Abort previous request if any
+	if (G_Request_ClubsCampaignsPagingList.existskey(_ClubId) && Http::IsInitialized(G_Request_ClubsCampaignsPagingList[_ClubId])) {
+		G_Request_ClubsCampaignsPagingList[_ClubId] = Http::Destroy(G_Request_ClubsCampaignsPagingList[_ClubId]);
+	}
+	// Create new request
+	G_Request_ClubsCampaignsPagingList[_ClubId] = ClubAPI::GetClubCampaignList(_ClubId, _Offset, _Length, True);
+
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetClubsCampaignsOffset(Trackmania_CampaignStore_State, _ClubId, _Offset);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the player's global rankings for all maps of the leaderboard
+Void Action_LoadMapPlayerGlobalRankings(Text _SeasonUid) {
+	// Abort previous request if any
+	if (G_Request_GetMapsRecordsList.existskey(_SeasonUid) && Http::IsInitialized(G_Request_GetMapsRecordsList[_SeasonUid])) {
+		Http::Destroy(G_Request_GetMapsRecordsList[_SeasonUid]);
+	}
+	// Create new request
+	G_Request_GetMapsRecordsList[_SeasonUid] = LeaderboardAPI::GetPlayerAllMapsRankings(_SeasonUid);
+}
+Void Action_LoadMapPlayerGlobalRankings(Text _SeasonUid, Integer[Text] _CurrentScores) {
+	// Abort previous request if any
+	if (G_Request_GetMapsRecordsList.existskey(_SeasonUid) && Http::IsInitialized(G_Request_GetMapsRecordsList[_SeasonUid])) {
+		Http::Destroy(G_Request_GetMapsRecordsList[_SeasonUid]);
+	}
+	// Create new request
+	G_Request_GetMapsRecordsList[_SeasonUid] = LeaderboardAPI::GetPlayerAllMapsRankings(_SeasonUid, _CurrentScores);
+}
+Void Action_LoadMapPlayerGlobalRankings(Text _SeasonUid, Text _MapUid, Integer _Score) {
+	G_Request_GetPlayerMapRankings = Http::DestroyAndCreate(G_Request_GetPlayerMapRankings, LeaderboardAPI::GetPlayerMapRankings(_SeasonUid, _MapUid, _Score));
+	G_Request_GetPlayerMapRankings = Http::SetMetadata(G_Request_GetPlayerMapRankings, "SeasonUid", _SeasonUid);
+}
+Void Action_LoadMapPlayerGlobalRankings(Text[Text] _MapGroupList, Integer[Text] _CurrentScores) {
+	// Abort previous request if any
+	if (G_Request_GetPlayerMapGroupListGlobalRankings.existskey(""^_MapGroupList) && Http::IsInitialized(G_Request_GetPlayerMapGroupListGlobalRankings[""^_MapGroupList].Request)) {
+		Http::Destroy(G_Request_GetPlayerMapGroupListGlobalRankings[""^_MapGroupList].Request);
+	}
+	// Create new request
+	G_Request_GetPlayerMapGroupListGlobalRankings[""^_MapGroupList] = K_MapGroupListRankingsRequest {
+		Request = LeaderboardAPI::GetPlayerMapGroupUidListRankings(_MapGroupList, _CurrentScores),
+		MapGroupList = _MapGroupList
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the player's club rankings for all maps of the leaderboard
+Void Action_LoadMapPlayerClubRankings(Text _SeasonUid, Integer _ClubId, Integer[Text] _Scores) {
+	// Abort previous request if any
+	if (G_Request_GetMapsPositionsListInClub.existskey(_SeasonUid)
+			&& G_Request_GetMapsPositionsListInClub[_SeasonUid].existskey(_ClubId)
+			&& Http::IsInitialized(G_Request_GetMapsPositionsListInClub[_SeasonUid][_ClubId])
+	) {
+		G_Request_GetMapsPositionsListInClub[_SeasonUid][_ClubId] = Http::Destroy(G_Request_GetMapsPositionsListInClub[_SeasonUid][_ClubId]);
+	}
+	// Create new request
+	if (!G_Request_GetMapsPositionsListInClub.existskey(_SeasonUid)) {
+		G_Request_GetMapsPositionsListInClub[_SeasonUid] = [];
+	}
+	G_Request_GetMapsPositionsListInClub[_SeasonUid][_ClubId] = LeaderboardAPI::GetPlayerAllMapsRankingsInAClub(_SeasonUid, _ClubId, _Scores);
+}
+Void Action_LoadMapPlayerClubRankings(Text _SeasonUid, Integer _ClubId, Text _MapUid, Integer _Score) {
+	G_Request_GetPlayerMapRankingsInClub = Http::DestroyAndCreate(G_Request_GetPlayerMapRankingsInClub, LeaderboardAPI::GetPlayerMapRankingInClub(_SeasonUid, _ClubId, _MapUid, _Score));
+	G_Request_GetPlayerMapRankingsInClub = Http::SetMetadata(G_Request_GetPlayerMapRankingsInClub, "SeasonUid", _SeasonUid);
+	G_Request_GetPlayerMapRankingsInClub = Http::SetMetadata(G_Request_GetPlayerMapRankingsInClub, "ClubId", ""^_ClubId);
+}
+Void Action_LoadMapPlayerClubRankings(Text[Text] _MapGroupList, Integer _ClubId, Integer[Text] _Scores) {
+	// Abort previous request if any
+	if (
+		G_Request_GetPlayerMapGroupListClubRankings.existskey(""^_MapGroupList) &&
+		G_Request_GetPlayerMapGroupListClubRankings[""^_MapGroupList].existskey(_ClubId) &&
+		Http::IsInitialized(G_Request_GetPlayerMapGroupListClubRankings[""^_MapGroupList][_ClubId].Request)
+	) {
+		G_Request_GetPlayerMapGroupListClubRankings[""^_MapGroupList][_ClubId].Request = Http::Destroy(G_Request_GetPlayerMapGroupListClubRankings[""^_MapGroupList][_ClubId].Request);
+	}
+	// Create new request
+	if (!G_Request_GetPlayerMapGroupListClubRankings.existskey(""^_MapGroupList)) {
+		G_Request_GetPlayerMapGroupListClubRankings[""^_MapGroupList] = [];
+	}
+	G_Request_GetPlayerMapGroupListClubRankings[""^_MapGroupList][_ClubId] = K_MapGroupListRankingsRequest {
+		Request = LeaderboardAPI::GetPlayerMapGroupUidListRankingsInAClub(_MapGroupList, _ClubId, _Scores),
+		MapGroupList = _MapGroupList
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the player's global rankings for the campaign in the leaderboard
+Void Action_LoadCampaignPlayerGlobalRankings(Integer _CampaignId, Text _SeasonUid) {
+	// Abort previous request if any
+	if (G_Request_GetPlayerRankingsList.existskey(_CampaignId) && Http::IsInitialized(G_Request_GetPlayerRankingsList[_CampaignId])) {
+		G_Request_GetPlayerRankingsList[_CampaignId] = Http::Destroy(G_Request_GetPlayerRankingsList[_CampaignId]);
+	}
+	// Create new request
+	G_Request_GetPlayerRankingsList[_CampaignId] = LeaderboardAPI::GetPlayerRankings(_SeasonUid);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request player rankings
+Void Action_LoadCampaignTopGlobalRankings(Integer _CampaignId, Text _SeasonUid) {
+	// Abort previous request if any
+	if (G_Request_GetCampaignTopRankingsList.existskey(_CampaignId)) {
+		if (Http::IsInitialized(G_Request_GetCampaignTopRankingsList[_CampaignId].Request)) {
+			G_Request_GetCampaignTopRankingsList[_CampaignId].Request = Http::Destroy(G_Request_GetCampaignTopRankingsList[_CampaignId].Request);
+		}
+		if (Task::IsInitialized(G_Request_GetCampaignTopRankingsList[_CampaignId].Task_GetDisplayName)) {
+			G_Request_GetCampaignTopRankingsList[_CampaignId].Task_GetDisplayName = Task::Destroy(G_Request_GetCampaignTopRankingsList[_CampaignId].Task_GetDisplayName);
+		}
+	}
+	// Create new request
+	G_Request_GetCampaignTopRankingsList[_CampaignId] = K_GetCampaignTopRankingsRequest {
+		Request = LeaderboardAPI::GetTopRankings(_SeasonUid),
+		Task_GetDisplayName = Task::GetEmptyTask()
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the top club rankings for the campaign in the leaderboard
+Void Action_LoadCampaignTopClubRankings(Integer _CampaignId, Integer _ClubId, Text _SeasonUid, Integer _Offset, Integer _Length) {
+	// Abort previous request if any
+	if (G_Request_GetCampaignTopRankingsInClubList.existskey(_CampaignId)) {
+		if (Http::IsInitialized(G_Request_GetCampaignTopRankingsInClubList[_CampaignId].TopRankingsRequest)) {
+			G_Request_GetCampaignTopRankingsInClubList[_CampaignId].TopRankingsRequest = Http::Destroy(G_Request_GetCampaignTopRankingsInClubList[_CampaignId].TopRankingsRequest);
+		}
+		if (Http::IsInitialized(G_Request_GetCampaignTopRankingsInClubList[_CampaignId].PlayerRankingRequest)) {
+			G_Request_GetCampaignTopRankingsInClubList[_CampaignId].PlayerRankingRequest = Http::Destroy(G_Request_GetCampaignTopRankingsInClubList[_CampaignId].PlayerRankingRequest);
+		}
+		if (Task::IsInitialized(G_Request_GetCampaignTopRankingsInClubList[_CampaignId].Task_GetDisplayName)) {
+			G_Request_GetCampaignTopRankingsInClubList[_CampaignId].Task_GetDisplayName = Task::Destroy(G_Request_GetCampaignTopRankingsInClubList[_CampaignId].Task_GetDisplayName);
+		}
+	}
+	// Create new request
+	G_Request_GetCampaignTopRankingsInClubList[_CampaignId] = K_GetTopRankingsRequest {
+		TopRankingsRequest = LeaderboardAPI::GetTopRankingsInClub(_SeasonUid, _ClubId, _Offset, _Length),
+		PlayerRankingRequest = LeaderboardAPI::GetPlayerRankingInClub(_SeasonUid, _ClubId),
+		ClubId = _ClubId
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the top global rankings for all maps of the leaderboard
+Void Action_LoadMapTopGlobalRankings(Text _SeasonUid, Text _MapUid, Integer _Score) {
+	// Abort previous request if any
+	if (G_Request_GetMapTopRankingsList.existskey(_MapUid)) {
+		if (Http::IsInitialized(G_Request_GetMapTopRankingsList[_MapUid].Request)) {
+			G_Request_GetMapTopRankingsList[_MapUid].Request = Http::Destroy(G_Request_GetMapTopRankingsList[_MapUid].Request);
+		}
+		if (Task::IsInitialized(G_Request_GetMapTopRankingsList[_MapUid].Task_GetDisplayName)) {
+			G_Request_GetMapTopRankingsList[_MapUid].Task_GetDisplayName = Task::Destroy(G_Request_GetMapTopRankingsList[_MapUid].Task_GetDisplayName);
+		}
+	}
+	// Create new request
+	G_Request_GetMapTopRankingsList[_MapUid] = K_GetRankingsRequest {
+		Request = LeaderboardAPI::GetMapTopRankings(_SeasonUid, _MapUid, _Score),
+		SeasonUid = _SeasonUid
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the top club rankings for all maps of the leaderboard
+Void Action_LoadMapTopClubRankings(Text _SeasonUid, Text _MapUid, Integer _ClubId, Integer _Score) {
+	// Abort previous request if any
+	if (G_Request_GetMapTopRankingsInClubList.existskey(_MapUid)
+			&& G_Request_GetMapTopRankingsInClubList[_MapUid].existskey(_ClubId)
+	) {
+		if (Http::IsInitialized(G_Request_GetMapTopRankingsInClubList[_MapUid][_ClubId].Request)) {
+			G_Request_GetMapTopRankingsInClubList[_MapUid][_ClubId].Request = Http::Destroy(G_Request_GetMapTopRankingsInClubList[_MapUid][_ClubId].Request);
+		}
+		if (Task::IsInitialized(G_Request_GetMapTopRankingsInClubList[_MapUid][_ClubId].Task_GetDisplayName)) {
+			G_Request_GetMapTopRankingsInClubList[_MapUid][_ClubId].Task_GetDisplayName = Task::Destroy(G_Request_GetMapTopRankingsInClubList[_MapUid][_ClubId].Task_GetDisplayName);
+		}
+	}
+	// Create new request
+	if (!G_Request_GetMapTopRankingsInClubList.existskey(_MapUid)) {
+		G_Request_GetMapTopRankingsInClubList[_MapUid] = [];
+	}
+	G_Request_GetMapTopRankingsInClubList[_MapUid][_ClubId] = K_GetRankingsRequest {
+		Request = LeaderboardAPI::GetMapTopRankingsInClub(_SeasonUid, _MapUid, _ClubId, _Score),
+		SeasonUid = _SeasonUid
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Request player map ranking levels
+Void Action_GetMapLevels(Text _GroupUid, Text _MapUid, Integer _Score) {
+	// Abort previous request if any
+	if (G_Request_GetMapRankingLevelsList.existskey(_MapUid)) {
+		if (Http::IsInitialized(G_Request_GetMapRankingLevelsList[_MapUid].Request)) {
+			G_Request_GetMapRankingLevelsList[_MapUid].Request = Http::Destroy(G_Request_GetMapRankingLevelsList[_MapUid].Request);
+		}
+		if (Task::IsInitialized(G_Request_GetMapRankingLevelsList[_MapUid].Task_GetDisplayName)) {
+			G_Request_GetMapRankingLevelsList[_MapUid].Task_GetDisplayName = Task::Destroy(G_Request_GetMapRankingLevelsList[_MapUid].Task_GetDisplayName);
+		}
+	}
+	// Create new request
+	G_Request_GetMapRankingLevelsList[_MapUid] =	K_GetRankingsRequest {
+		Request = LeaderboardAPI::GetMapLevels(_GroupUid, _MapUid, _Score),
+		SeasonUid = _GroupUid
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Manage the live quarterly campaign
+K_State Mutation_SetLiveQuarterlyCampaign(
+	K_State _State,
+	CampaignStruct::LibCampaignStruct_K_Campaign _QuarterlyCampaign,
+	Integer _LiveCampaignStatus,
+	Text _ErrorMessage,
+	Boolean _SendEvent,
+	Integer _CampaignsTotal,
+	Integer _CampaignsUpdateTime
+) {
+	declare K_State State = _State;
+
+	State.LiveQuarterly.Campaign = _QuarterlyCampaign;
+	State.LiveQuarterly.Status = _LiveCampaignStatus;
+	State.LiveQuarterly.ErrorMessage = _ErrorMessage;
+	State.LiveQuarterly.CampaignsTotal = _CampaignsTotal;
+	State.LiveQuarterly.CampaignsUpdateTime = _CampaignsUpdateTime;
+
+	Tracking::SetOfficialCampaign(System, _QuarterlyCampaign.Id, _QuarterlyCampaign.Year, _QuarterlyCampaign.SeasonName, GetCampaignMapUidList(_QuarterlyCampaign));
+
+	// Preload campaign in pager if its empty
+	if (
+		State.LiveQuarterly.Status == C_LiveCampaignStatus_Loaded &&
+		State.CampaignsPagers.existskey(CampaignStruct::C_CampaignType_Quarterly) &&
+		State.CampaignsPagers[CampaignStruct::C_CampaignType_Quarterly].CampaignList.count <= 0
+	) {
+		State = Mutation_SetCampaignsOffset(State, CampaignStruct::C_CampaignType_Quarterly, 0);
+		State = Mutation_SetCampaigns(State, CampaignStruct::C_CampaignType_Quarterly, 1, _CampaignsUpdateTime, [_QuarterlyCampaign]);
+	}
+
+	if (_SendEvent) Store::SendEvent(C_StoreId, C_Event_LiveQuarterlyCampaignUpdated);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Load the live quarterly campaign
+ *
+ *	@param	_CampaignAPICachePreload	The number of quarterly campaigns to preload in the CampaignAPI cache
+ */
+Void Action_LoadLiveQuarterlyCampaign(Integer _CampaignAPICachePreload) {
+	if (Http::IsInitialized(G_Request_LoadLiveQuarterlyCampaign)) {
+		G_Request_LoadLiveQuarterlyCampaign = Http::Destroy(G_Request_LoadLiveQuarterlyCampaign);
+	}
+
+	G_Request_LoadLiveQuarterlyCampaign = CampaignAPI::GetOfficialCampaignList(0, _CampaignAPICachePreload);
+
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetLiveQuarterlyCampaign(Trackmania_CampaignStore_State, Trackmania_CampaignStore_State.LiveQuarterly.Campaign, C_LiveCampaignStatus_Loading, "", True, 0, -1);
+}
+Void Action_LoadLiveQuarterlyCampaign() {
+	Action_LoadLiveQuarterlyCampaign(1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Manage the live weekly shorts campaign
+K_State Mutation_SetLiveWeeklyShortsCampaign(
+	K_State _State,
+	CampaignStruct::LibCampaignStruct_K_Campaign _WeeklyShortsCampaign,
+	Integer _LiveCampaignStatus,
+	Text _ErrorMessage,
+	Boolean _SendEvent,
+	Integer _CampaignsTotal,
+	Integer _CampaignsUpdateTime
+) {
+	declare K_State State = _State;
+
+	State.LiveWeeklyShorts.Campaign = _WeeklyShortsCampaign;
+	State.LiveWeeklyShorts.Status = _LiveCampaignStatus;
+	State.LiveWeeklyShorts.ErrorMessage = _ErrorMessage;
+	State.LiveWeeklyShorts.CampaignsTotal = _CampaignsTotal;
+	State.LiveWeeklyShorts.CampaignsUpdateTime = _CampaignsUpdateTime;
+
+	// Preload campaign in pager if its empty
+	if (
+		State.LiveWeeklyShorts.Status == C_LiveCampaignStatus_Loaded &&
+		State.CampaignsPagers.existskey(CampaignStruct::C_CampaignType_WeeklyShorts) &&
+		State.CampaignsPagers[CampaignStruct::C_CampaignType_WeeklyShorts].CampaignList.count <= 0
+	) {
+		State = Mutation_SetCampaignsOffset(State, CampaignStruct::C_CampaignType_WeeklyShorts, 0);
+		State = Mutation_SetCampaigns(State, CampaignStruct::C_CampaignType_WeeklyShorts, 1, _CampaignsUpdateTime, [_WeeklyShortsCampaign]);
+	}
+
+	if (_SendEvent) Store::SendEvent(C_StoreId, C_Event_LiveWeeklyShortsCampaignUpdated);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Load the live weekly shorts campaign
+ *
+ *	@param	_CampaignAPICachePreload	The number of weekly shorts campaigns to preload in the CampaignAPI cache
+ */
+Void Action_LoadLiveWeeklyShortsCampaign(Integer _CampaignAPICachePreload) {
+	if (Http::IsInitialized(G_Request_LoadLiveWeeklyShortsCampaign)) {
+		G_Request_LoadLiveWeeklyShortsCampaign = Http::Destroy(G_Request_LoadLiveWeeklyShortsCampaign);
+	}
+
+	G_Request_LoadLiveWeeklyShortsCampaign = CampaignAPI::GetWeeklyShortsCampaignList(0, _CampaignAPICachePreload);
+
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetLiveWeeklyShortsCampaign(Trackmania_CampaignStore_State, Trackmania_CampaignStore_State.LiveWeeklyShorts.Campaign, C_LiveCampaignStatus_Loading, "", True, 0, -1);
+}
+Void Action_LoadLiveWeeklyShortsCampaign() {
+	Action_LoadLiveWeeklyShortsCampaign(1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Manage the live weekly grands campaign
+K_State Mutation_SetLiveWeeklyGrandsCampaign(
+	K_State _State,
+	CampaignStruct::LibCampaignStruct_K_Campaign _WeeklyGrandsCampaign,
+	Integer _LiveCampaignStatus,
+	Text _ErrorMessage,
+	Boolean _SendEvent,
+	Integer _CampaignsTotal,
+	Integer _CampaignsUpdateTime
+) {
+	declare K_State State = _State;
+
+	State.LiveWeeklyGrands.Campaign = _WeeklyGrandsCampaign;
+	State.LiveWeeklyGrands.Status = _LiveCampaignStatus;
+	State.LiveWeeklyGrands.ErrorMessage = _ErrorMessage;
+	State.LiveWeeklyGrands.CampaignsTotal = _CampaignsTotal;
+	State.LiveWeeklyGrands.CampaignsUpdateTime = _CampaignsUpdateTime;
+
+	// Preload campaign in pager if its empty
+	if (
+		State.LiveWeeklyGrands.Status == C_LiveCampaignStatus_Loaded &&
+		State.CampaignsPagers.existskey(CampaignStruct::C_CampaignType_WeeklyGrands) &&
+		State.CampaignsPagers[CampaignStruct::C_CampaignType_WeeklyGrands].CampaignList.count <= 0
+	) {
+		State = Mutation_SetCampaignsOffset(State, CampaignStruct::C_CampaignType_WeeklyGrands, 0);
+		State = Mutation_SetCampaigns(State, CampaignStruct::C_CampaignType_WeeklyGrands, 1, _CampaignsUpdateTime, [_WeeklyGrandsCampaign]);
+	}
+
+	if (_SendEvent) Store::SendEvent(C_StoreId, C_Event_LiveWeeklyGrandsCampaignUpdated);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Load the live weekly grands campaign
+ *
+ *	@param	_CampaignAPICachePreload	The number of weekly grands campaigns to preload in the CampaignAPI cache
+ */
+Void Action_LoadLiveWeeklyGrandsCampaign(Integer _CampaignAPICachePreload) {
+	if (Http::IsInitialized(G_Request_LoadLiveWeeklyGrandsCampaign)) {
+		G_Request_LoadLiveWeeklyGrandsCampaign = Http::Destroy(G_Request_LoadLiveWeeklyGrandsCampaign);
+	}
+
+	G_Request_LoadLiveWeeklyGrandsCampaign = CampaignAPI::GetWeeklyGrandsCampaignList(0, _CampaignAPICachePreload);
+
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetLiveWeeklyGrandsCampaign(Trackmania_CampaignStore_State, Trackmania_CampaignStore_State.LiveWeeklyGrands.Campaign, C_LiveCampaignStatus_Loading, "", True, 0, -1);
+}
+Void Action_LoadLiveWeeklyGrandsCampaign() {
+	Action_LoadLiveWeeklyGrandsCampaign(1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Manage the live cup of the week campaign
+K_State Mutation_SetLiveCupOfTheWeekCampaign(
+	K_State _State,
+	CampaignStruct::LibCampaignStruct_K_Campaign _CupOfTheWeekCampaign,
+	Integer _LiveCampaignStatus,
+	Text _ErrorMessage,
+	Boolean _SendEvent,
+	Integer _CampaignsTotal,
+	Integer _CampaignsUpdateTime
+) {
+	declare K_State State = _State;
+
+	State.LiveCupOfTheWeek.Campaign = _CupOfTheWeekCampaign;
+	State.LiveCupOfTheWeek.Status = _LiveCampaignStatus;
+	State.LiveCupOfTheWeek.ErrorMessage = _ErrorMessage;
+	State.LiveCupOfTheWeek.CampaignsTotal = _CampaignsTotal;
+	State.LiveCupOfTheWeek.CampaignsUpdateTime = _CampaignsUpdateTime;
+
+	// Preload campaign in pager if its empty
+	if (
+		State.LiveCupOfTheWeek.Status == C_LiveCampaignStatus_Loaded &&
+		State.CampaignsPagers.existskey(CampaignStruct::C_CampaignType_CupOfTheWeek) &&
+		State.CampaignsPagers[CampaignStruct::C_CampaignType_CupOfTheWeek].CampaignList.count <= 0
+	) {
+		State = Mutation_SetCampaignsOffset(State, CampaignStruct::C_CampaignType_CupOfTheWeek, 0);
+		State = Mutation_SetCampaigns(State, CampaignStruct::C_CampaignType_CupOfTheWeek, 1, _CampaignsUpdateTime, [_CupOfTheWeekCampaign]);
+	}
+
+	if (_SendEvent) Store::SendEvent(C_StoreId, C_Event_LiveCupOfTheWeekCampaignUpdated);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Load the live cup of the week campaign
+ *
+ *	@param	_CampaignAPICachePreload	The number of cup of the week campaigns to preload in the CampaignAPI cache
+ */
+Void Action_LoadLiveCupOfTheWeekCampaign(Integer _CampaignAPICachePreload) {
+	if (Http::IsInitialized(G_Request_LoadLiveCupOfTheWeekCampaign)) {
+		G_Request_LoadLiveCupOfTheWeekCampaign = Http::Destroy(G_Request_LoadLiveCupOfTheWeekCampaign);
+	}
+
+	G_Request_LoadLiveCupOfTheWeekCampaign = CampaignAPI::GetCupOfTheWeekCampaignList(0, _CampaignAPICachePreload);
+
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetLiveCupOfTheWeekCampaign(Trackmania_CampaignStore_State, Trackmania_CampaignStore_State.LiveCupOfTheWeek.Campaign, C_LiveCampaignStatus_Loading, "", True, 0, -1);
+}
+Void Action_LoadLiveCupOfTheWeekCampaign() {
+	Action_LoadLiveCupOfTheWeekCampaign(1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Load the offline campaign
+Void Action_LoadOfflineCampaign() {
+	declare CampaignStruct::LibCampaignStruct_K_Campaign OfflineCampaign = OfflineData::GetOfflineCampaign();
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetCampaignsOffset(Trackmania_CampaignStore_State, OfflineCampaign.Type, 0);
+	Trackmania_CampaignStore_State = Mutation_SetCampaigns(Trackmania_CampaignStore_State, OfflineCampaign.Type, 1, -1, [OfflineCampaign]);
+	Trackmania_CampaignStore_State = Mutation_SetLiveQuarterlyCampaign(Trackmania_CampaignStore_State, OfflineCampaign, C_LiveCampaignStatus_Loaded, "", False, 1, -1);
+	G_OfflineCampaignTaskLoadScore = Task::DestroyAndCreate(G_OfflineCampaignTaskLoadScore, ScoreMgr, ScoreMgr.Season_LoadScore(MainUser::GetMainUserId(), OfflineCampaign.SeasonUid));
+	Trackmania_CampaignStore_State.LoadedCampaigns[OfflineCampaign.Id] = OfflineCampaign;
+	Trackmania_CampaignStore_State.LoadedCampaigns[OfflineCampaign.Id].IsFetched = True;
+	Trackmania_CampaignStore_State.LoadedCampaigns[OfflineCampaign.Id].IsLoaded = True;
+	Trackmania_CampaignStore_State.SeasonUidToCampaignId[OfflineCampaign.SeasonUid] = OfflineCampaign.Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Load the campaigns media for menu buttons
+Void Action_LoadCampaignsMedia() {
+	G_Request_LoadCampaignsMedia = Http::DestroyAndCreate(G_Request_LoadCampaignsMedia, CampaignAPI::GetMedia());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the active media
+Void Action_LoadMediaActive(Integer _Cooldown) {
+	if (
+		_Cooldown <= 0 ||
+		G_Request_LoadMediaActive.CooldownStartTime < 0 ||
+		Now >= G_Request_LoadMediaActive.CooldownStartTime + _Cooldown
+	) {
+		G_Request_LoadMediaActive.Request = Http::DestroyAndCreate(G_Request_LoadMediaActive.Request, CampaignAPI::Request_GetMediaActive());
+	}
+}
+Void Action_LoadMediaActive() {
+	Action_LoadMediaActive(-1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Manage the live monthly campaign
+K_State Mutation_SetLiveMonthlyCampaign(
+	K_State _State,
+	CampaignStruct::LibCampaignStruct_K_MonthlyCampaign _MonthlyCampaign,
+	Integer _LiveCampaignStatus,
+	Text _ErrorMessage,
+	Integer _CampaignsUpdateTime
+) {
+	declare K_State State = _State;
+
+	State.LiveMonthly.Campaign = _MonthlyCampaign;
+	State.LiveMonthly.Status = _LiveCampaignStatus;
+	State.LiveMonthly.ErrorMessage = _ErrorMessage;
+
+	declare Text[] MapUids;
+	foreach (DailyMap in _MonthlyCampaign.DailyMaps) {
+		MapUids.add(DailyMap.Map.Uid);
+	}
+	Tracking::SetIsTOTDTracks(System, MapUids);
+
+	// Preload campaign in pager if its empty
+	if (
+		State.LiveMonthly.Status == C_LiveCampaignStatus_Loaded &&
+		State.MonthlyCampaignsPager.CampaignList.count <= 0
+	) {
+		State = Mutation_SetMonthlyCampaignsOffset(State, 0);
+		State = Mutation_SetMonthlyCampaigns(State, 1, _CampaignsUpdateTime, [_MonthlyCampaign], False);
+	}
+
+	// Replace new or updated maps in the corresponding LoadedMonthlyCampaign
+	if (State.LoadedMonthlyCampaigns.existskey(_MonthlyCampaign.Id)) {
+		foreach (DailyMapIndex => DailyMap in _MonthlyCampaign.DailyMaps) {
+			declare Boolean IsLoaded = False;
+			foreach (LoadedDailyMap in State.LoadedMonthlyCampaigns[_MonthlyCampaign.Id].DailyMaps) {
+				if (LoadedDailyMap.Map.Uid == DailyMap.Map.Uid && LoadedDailyMap.RelativeStart == DailyMap.RelativeStart) {
+					IsLoaded = True;
+				}
+			}
+			if (!IsLoaded) {
+				State.LoadedMonthlyCampaigns[_MonthlyCampaign.Id].DailyMaps[DailyMapIndex] = DailyMap;
+				State.LoadedMonthlyCampaigns[_MonthlyCampaign.Id].IsLoaded = False;
+			}
+		}
+	}
+
+	// Replace corresponding campaign in pager
+	foreach (MonthlyIndex => MonthlyCampaign in State.MonthlyCampaignsPager.CampaignList) {
+		if (MonthlyCampaign.Id == _MonthlyCampaign.Id) {
+			State.MonthlyCampaignsPager.CampaignList[MonthlyIndex] = _MonthlyCampaign;
+		}
+	}
+
+	if (_MonthlyCampaign.Id != CampaignStruct::C_Campaign_NullId) {
+		Action_LoadMonthlyCampaign(State, _MonthlyCampaign.Id);
+	}
+
+	Store::SendEvent(C_StoreId, C_Event_LiveMonthlyCampaignUpdated);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Load the live monthly campaign
+ *
+ *	@param	_CampaignAPICachePreload	The number of monthly campaigns to preload in the CampaignAPI cache
+ */
+Void Action_LoadLiveMonthlyCampaign(Integer _CampaignAPICachePreload) {
+	if (Http::IsInitialized(G_Request_LoadLiveMonthlyCampaign)) {
+		G_Request_LoadLiveMonthlyCampaign = Http::Destroy(G_Request_LoadLiveMonthlyCampaign);
+	}
+
+	G_Request_LoadLiveMonthlyCampaign = CampaignAPI::GetMonthlyCampaignList(0, _CampaignAPICachePreload, False);
+
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = Mutation_SetLiveMonthlyCampaign(Trackmania_CampaignStore_State, Trackmania_CampaignStore_State.LiveMonthly.Campaign, C_LiveCampaignStatus_Loading, "", -1);
+}
+Void Action_LoadLiveMonthlyCampaign() {
+	Action_LoadLiveMonthlyCampaign(1);
+}
+
+K_State Mutation_SetMyQuarterlyCampaignsRankings(
+	K_State _State,
+	CampaignStruct::LibCampaignStruct_K_CampaignRanking[Integer] _CampaignsRankings,
+	Text[Integer] _CampaignsNames,
+	Text _AccountId,
+	Integer _Total
+) {
+	declare K_State State = _State;
+	State.MyQuarterlyCampaignsRankingsPager.CampaignsRankings = _CampaignsRankings;
+	State.MyQuarterlyCampaignsRankingsPager.CampaignsNames = _CampaignsNames;
+	State.MyQuarterlyCampaignsRankingsPager.AccountId = _AccountId;
+	State.MyQuarterlyCampaignsRankingsPager.Total = _Total;
+
+	Store::SendEvent(C_StoreId, C_Event_MyQuarterlyCampaignsRankingsUpdated);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the current user ranking on the quarterly campaigns
+Void Action_LoadMyQuarterlyCampaignsRankings(Text _AccountId, Integer _Offset, Integer _Length) {
+	if (Http::IsInitialized(G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList)) {
+		G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList = Http::Destroy(G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList);
+	}
+	foreach (Request_GetPlayerRankings in G_LoadMyQuarterlyCampaignsRankings.Requests_GetPlayerRankings) {
+		if (Http::IsInitialized(Request_GetPlayerRankings)) {
+			Http::Destroy(Request_GetPlayerRankings);
+		}
+	}
+
+	G_LoadMyQuarterlyCampaignsRankings.AccountId = _AccountId;
+	G_LoadMyQuarterlyCampaignsRankings.Offset = _Offset;
+	G_LoadMyQuarterlyCampaignsRankings.Total = 0;
+	G_LoadMyQuarterlyCampaignsRankings.CampaignsRankings = [];
+	G_LoadMyQuarterlyCampaignsRankings.CampaignsNames = [];
+	G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList = CampaignAPI::GetOfficialCampaignList(_Offset, _Length);
+	G_LoadMyQuarterlyCampaignsRankings.Requests_GetPlayerRankings = [];
+	G_LoadMyQuarterlyCampaignsRankings.IsLoading = True;
+}
+Void Action_LoadMyQuarterlyCampaignsRankings(Integer _Offset, Integer _Length) {
+	Action_LoadMyQuarterlyCampaignsRankings("", _Offset, _Length);
+}
+
+Void Private_ResetData() {
+	declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+	Trackmania_CampaignStore_State = K_State {
+		CampaignsPagers = [
+			CampaignStruct::C_CampaignType_Quarterly => K_CampaignsPager {},
+			CampaignStruct::C_CampaignType_WeeklyShorts => K_CampaignsPager {},
+			CampaignStruct::C_CampaignType_WeeklyGrands => K_CampaignsPager {},
+			CampaignStruct::C_CampaignType_CupOfTheWeek => K_CampaignsPager {}
+		],
+		MonthlyCampaignsPager = K_MonthlyCampaignsPager {},
+		RoyalCampaignsPager = K_MonthlyCampaignsPager {},
+		ClubsCampaignsPagers = [],
+		LoadedCampaigns = [],
+		LoadedMonthlyCampaigns = [],
+		LoadedRoyalCampaigns = [],
+		LiveQuarterly = K_LiveCampaign {
+			Campaign = CampaignStruct::GetEmptyCampaign(),
+			Status = C_LiveCampaignStatus_Null,
+			ErrorMessage = ""
+		},
+		LiveMonthly = K_LiveMonthlyCampaign {
+			Campaign = CampaignStruct::GetEmptyMonthlyCampaign(),
+			Status = C_LiveCampaignStatus_Null,
+			ErrorMessage = ""
+		},
+		LiveWeeklyShorts = K_LiveCampaign {
+			Campaign = CampaignStruct::GetEmptyCampaign(),
+			Status = C_LiveCampaignStatus_Null,
+			ErrorMessage = ""
+		},
+		LiveWeeklyGrands = K_LiveCampaign {
+			Campaign = CampaignStruct::GetEmptyCampaign(),
+			Status = C_LiveCampaignStatus_Null,
+			ErrorMessage = ""
+		},
+		MyQuarterlyCampaignsRankingsPager = K_MyQuarterlyCampaignsRankingsPager {
+			CampaignsRankings = [],
+			CampaignsNames = [],
+			AccountId = "",
+			Total = 0
+		}
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the Campaign store
+Void Initialize(Boolean _ResetData) {
+	if (_ResetData) {
+		Private_ResetData();
+	}
+
+	foreach (CampaignType => Request in G_Request_CampaignsPagingList) {
+		Http::DestroyIfInitialized(Request);
+	}
+	G_Request_CampaignsPagingList = [];
+
+	G_Request_MonthlyCampaignsPaging = Http::DestroyIfInitialized(G_Request_MonthlyCampaignsPaging);
+	G_Request_MonthlyCampaignsPaging = Http::GetEmptyRequest();
+
+	G_Request_RoyalCampaignsPaging = Http::DestroyIfInitialized(G_Request_RoyalCampaignsPaging);
+	G_Request_RoyalCampaignsPaging = Http::GetEmptyRequest();
+
+	G_Request_AllClubCampaignsPaging = Http::DestroyIfInitialized(G_Request_AllClubCampaignsPaging);
+	G_Request_AllClubCampaignsPaging = Http::GetEmptyRequest();
+
+	foreach (CampaignId => Request in G_Request_CampaignList) {
+		Http::DestroyIfInitialized(Request.Request);
+	}
+	G_Request_CampaignList = [];
+
+	foreach (ClubId => Request in G_Request_ClubsCampaignsPagingList) {
+		Http::DestroyIfInitialized(Request);
+	}
+	G_Request_ClubsCampaignsPagingList = [];
+
+	foreach (Request in G_Request_GetMapsRecordsList) {
+		Http::DestroyIfInitialized(Request);
+	}
+	G_Request_GetMapsRecordsList = [];
+
+	foreach (MapGroupListRankingsRequest in G_Request_GetPlayerMapGroupListGlobalRankings) {
+		Http::DestroyIfInitialized(MapGroupListRankingsRequest.Request);
+	}
+	G_Request_GetPlayerMapGroupListGlobalRankings = [];
+
+	foreach (Requests in G_Request_GetMapsPositionsListInClub) {
+		foreach (Request in Requests) {
+			Http::DestroyIfInitialized(Request);
+		}
+	}
+	G_Request_GetMapsPositionsListInClub = [];
+
+	foreach (Requests in G_Request_GetPlayerMapGroupListClubRankings) {
+		foreach (PlayerMapGroupListClubRankings in Requests) {
+			Http::DestroyIfInitialized(PlayerMapGroupListClubRankings.Request);
+		}
+	}
+	G_Request_GetPlayerMapGroupListClubRankings = [];
+
+	foreach (Request in G_Request_GetMapTopRankingsList) {
+		Http::DestroyIfInitialized(Request.Request);
+		Task::DestroyIfInitialized(Request.Task_GetDisplayName);
+	}
+	G_Request_GetMapTopRankingsList = [];
+
+	foreach (Requests in G_Request_GetMapTopRankingsInClubList) {
+		foreach (Request in Requests) {
+			Http::DestroyIfInitialized(Request.Request);
+			Task::DestroyIfInitialized(Request.Task_GetDisplayName);
+		}
+	}
+	G_Request_GetMapTopRankingsInClubList = [];
+
+	foreach (Index => Request in G_Request_GetCampaignTopRankingsList) {
+		Http::DestroyIfInitialized(Request.Request);
+		Task::DestroyIfInitialized(Request.Task_GetDisplayName);
+	}
+	G_Request_GetCampaignTopRankingsList = [];
+
+	foreach (Index => Request in G_Request_GetCampaignTopRankingsInClubList) {
+		Http::DestroyIfInitialized(Request.TopRankingsRequest);
+		Http::DestroyIfInitialized(Request.PlayerRankingRequest);
+	}
+	G_Request_GetCampaignTopRankingsInClubList = [];
+
+	foreach (Index => Request in G_Request_GetPlayerRankingsList) {
+		Http::DestroyIfInitialized(Request);
+	}
+	G_Request_GetPlayerRankingsList = [];
+
+	foreach (LoadingCampaignRequest in G_LoadingCampaignRequestList) {
+		Task::DestroyIfInitialized(LoadingCampaignRequest.Task_MapList);
+		Task::DestroyIfInitialized(LoadingCampaignRequest.Task_LoadScore);
+		for (Task_LoadPBScoreList in LoadingCampaignRequest.Task_LoadPBScoreList) {
+			Task::DestroyIfInitialized(Task_LoadPBScoreList);
+		}
+		Http::DestroyIfInitialized(LoadingCampaignRequest.GetClubRequest);
+	}
+	G_LoadingCampaignRequestList = [];
+
+	foreach (LoadingMonthlyCampaignRequest in G_LoadingMonthlyCampaignRequestList) {
+		Task::DestroyIfInitialized(LoadingMonthlyCampaignRequest.Task_MapList);
+		Task::DestroyIfInitialized(LoadingMonthlyCampaignRequest.Task_LoadScoreList);
+	}
+	G_LoadingMonthlyCampaignRequestList = [];
+
+	foreach (LoadingRoyalCampaignRequest in G_LoadingRoyalCampaignRequestList) {
+	Task::DestroyIfInitialized(LoadingRoyalCampaignRequest.Task_MapList);
+	Task::DestroyIfInitialized(LoadingRoyalCampaignRequest.Task_LoadScoreList);
+	}
+	G_LoadingRoyalCampaignRequestList = [];
+
+	foreach (Request_GetMapRankingLevels in G_Request_GetMapRankingLevelsList) {
+		Http::DestroyIfInitialized(Request_GetMapRankingLevels.Request);
+		Task::DestroyIfInitialized(Request_GetMapRankingLevels.Task_GetDisplayName);
+	}
+	G_Request_GetMapRankingLevelsList = [];
+
+	G_OfflineCampaignTaskLoadScore = Task::DestroyIfInitialized(G_OfflineCampaignTaskLoadScore);
+	G_OfflineCampaignTaskLoadScore = Task::GetEmptyTask();
+
+	G_Request_LoadCampaignsMedia = Http::DestroyIfInitialized(G_Request_LoadCampaignsMedia);
+	G_Request_LoadCampaignsMedia = Http::GetEmptyRequest();
+
+	G_Request_LoadMediaActive.Request = Http::DestroyIfInitialized(G_Request_LoadMediaActive.Request);
+	G_Request_LoadMediaActive.Request = Http::GetEmptyRequest();
+	G_Request_LoadMediaActive.CooldownStartTime = -1;
+
+	G_Request_LoadLiveQuarterlyCampaign = Http::DestroyIfInitialized(G_Request_LoadLiveQuarterlyCampaign);
+	G_Request_LoadLiveQuarterlyCampaign = Http::GetEmptyRequest();
+
+	G_Request_LoadLiveMonthlyCampaign = Http::DestroyIfInitialized(G_Request_LoadLiveMonthlyCampaign);
+	G_Request_LoadLiveMonthlyCampaign = Http::GetEmptyRequest();
+
+	G_Request_LoadLiveWeeklyShortsCampaign = Http::DestroyIfInitialized(G_Request_LoadLiveWeeklyShortsCampaign);
+	G_Request_LoadLiveWeeklyShortsCampaign = Http::GetEmptyRequest();
+
+	G_Request_LoadLiveWeeklyGrandsCampaign = Http::DestroyIfInitialized(G_Request_LoadLiveWeeklyGrandsCampaign);
+	G_Request_LoadLiveWeeklyGrandsCampaign = Http::GetEmptyRequest();
+
+	G_Request_LoadLiveCupOfTheWeekCampaign = Http::DestroyIfInitialized(G_Request_LoadLiveCupOfTheWeekCampaign);
+	G_Request_LoadLiveCupOfTheWeekCampaign = Http::GetEmptyRequest();
+
+	G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList = Http::DestroyIfInitialized(G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList);
+	foreach (Request_GetPlayerRankings in G_LoadMyQuarterlyCampaignsRankings.Requests_GetPlayerRankings) {
+		Http::DestroyIfInitialized(Request_GetPlayerRankings);
+	}
+	G_LoadMyQuarterlyCampaignsRankings = K_LoadMyQuarterlyCampaignsRankings {
+		IsLoading = False,
+		AccountId = "",
+		Offset = 0,
+		Total = 0,
+		CampaignsRankings = [],
+		CampaignsNames = [],
+		Request_GetCampaignList = Http::GetEmptyRequest(),
+		Requests_GetPlayerRankings = []
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process event
+Void ProcessEvent(CManiaAppEvent _Event) {
+	switch (_Event.Type) {
+		case CManiaAppEvent::EType::LayerCustomEvent: {
+			switch(_Event.CustomEventType) {
+				case C_Action_LoadCampaigns: {
+					if (_Event.CustomEventData.count >= 3) {
+						Action_LoadCampaigns(TL::ToInteger(_Event.CustomEventData[0]), TL::ToInteger(_Event.CustomEventData[1]), TL::ToInteger(_Event.CustomEventData[2]));
+					}
+				}
+				case C_Action_LoadMonthlyCampaignsList: {
+					if (_Event.CustomEventData.count >= 2) {
+						Action_LoadMonthlyCampaignsList(TL::ToInteger(_Event.CustomEventData[0]), TL::ToInteger(_Event.CustomEventData[1]));
+					}
+				}
+				case C_Action_LoadMonthlyCampaignsPage: {
+					if (_Event.CustomEventData.count >= 2) {
+						Action_LoadMonthlyCampaignsPage(TL::ToInteger(_Event.CustomEventData[0]), TL::ToInteger(_Event.CustomEventData[1]));
+					}
+				}
+				case C_Action_LoadMonthlyCampaign: {
+					if (_Event.CustomEventData.count >= 1) {
+						Action_LoadMonthlyCampaign(TL::ToInteger(_Event.CustomEventData[0]));
+					}
+				}
+				case C_Action_LoadRoyalCampaignsList: {
+					if (_Event.CustomEventData.count >= 2) {
+						Action_LoadRoyalCampaignsList(TL::ToInteger(_Event.CustomEventData[0]), TL::ToInteger(_Event.CustomEventData[1]));
+					}
+				}
+				case C_Action_LoadRoyalCampaign: {
+					if (_Event.CustomEventData.count >= 1) {
+						Action_LoadRoyalCampaign(TL::ToInteger(_Event.CustomEventData[0]));
+					}
+				}
+				case C_Action_LoadCampaign: {
+					if (_Event.CustomEventData.count >= 2) {
+						Action_LoadCampaign(TL::ToInteger(_Event.CustomEventData[0]), TL::ToInteger(_Event.CustomEventData[1]));
+					}
+				}
+				case C_Action_LoadClubCampaign: {
+					if (_Event.CustomEventData.count >= 2) {
+						Action_LoadClubCampaign(TL::ToInteger(_Event.CustomEventData[0]), TL::ToInteger(_Event.CustomEventData[1]));
+					}
+				}
+				case C_Action_LoadAllClubCampaignsPage: {
+					if (_Event.CustomEventData.count >= 5) {
+						Action_LoadAllClubCampaignsPage(
+							_Event.CustomEventData[0],
+							_Event.CustomEventData[1],
+							_Event.CustomEventData[2],
+							TL::ToInteger(_Event.CustomEventData[3]),
+							TL::ToInteger(_Event.CustomEventData[4])
+						);
+					}
+				}
+				case C_Action_LoadClubsCampaigns: {
+					if (_Event.CustomEventData.count >= 3) {
+						Action_LoadClubsCampaigns(
+							TL::ToInteger(_Event.CustomEventData[0]),
+							TL::ToInteger(_Event.CustomEventData[1]),
+							TL::ToInteger(_Event.CustomEventData[2])
+						);
+					}
+				}
+				case C_Action_LoadMapPlayerGlobalRankings: {
+					if (_Event.CustomEventData.count >= 3) {
+						declare Text[Text] MapGroupList;
+						declare Integer[Text] CurrentScores;
+						CurrentScores.fromjson(_Event.CustomEventData[1]);
+						MapGroupList.fromjson(_Event.CustomEventData[2]);
+						Action_LoadMapPlayerGlobalRankings(MapGroupList, CurrentScores);
+					} else if (_Event.CustomEventData.count >= 2) {
+						declare Integer[Text] CurrentScores;
+						CurrentScores.fromjson(_Event.CustomEventData[1]);
+						if (CurrentScores.count == 1) {
+							foreach (MapUid => Score in CurrentScores) Action_LoadMapPlayerGlobalRankings(_Event.CustomEventData[0], MapUid, Score);
+						} else {
+							Action_LoadMapPlayerGlobalRankings(_Event.CustomEventData[0], CurrentScores);
+						}
+					} else if (_Event.CustomEventData.count >= 1) {
+						Action_LoadMapPlayerGlobalRankings(_Event.CustomEventData[0]);
+					}
+				}
+				case C_Action_LoadMapPlayerClubRankings: {
+					if (_Event.CustomEventData.count >= 4) {
+						declare Text[Text] MapGroupList;
+						declare Integer[Text] CurrentScores;
+						CurrentScores.fromjson(_Event.CustomEventData[2]);
+						MapGroupList.fromjson(_Event.CustomEventData[3]);
+						Action_LoadMapPlayerClubRankings(MapGroupList, TL::ToInteger(_Event.CustomEventData[1]), CurrentScores);
+					} else if (_Event.CustomEventData.count >= 3) {
+						declare Integer[Text] CurrentScores;
+						CurrentScores.fromjson(_Event.CustomEventData[2]);
+						if (CurrentScores.count == 1) {
+							foreach (MapUid => Score in CurrentScores) Action_LoadMapPlayerClubRankings(_Event.CustomEventData[0], TL::ToInteger(_Event.CustomEventData[1]), MapUid, Score);
+						} else {
+							Action_LoadMapPlayerClubRankings(_Event.CustomEventData[0], TL::ToInteger(_Event.CustomEventData[1]), CurrentScores);
+						}
+					}
+				}
+				case C_Action_LoadCampaignPlayerGlobalRankings: {
+					if (_Event.CustomEventData.count >= 2) {
+						Action_LoadCampaignPlayerGlobalRankings(TL::ToInteger(_Event.CustomEventData[0]), _Event.CustomEventData[1]);
+					}
+				}
+				case C_Action_LoadCampaignTopGlobalRankings: {
+					if (_Event.CustomEventData.count >= 2) {
+						Action_LoadCampaignTopGlobalRankings(TL::ToInteger(_Event.CustomEventData[0]), _Event.CustomEventData[1]);
+					}
+				}
+				case C_Action_LoadCampaignTopClubRankings: {
+					if (_Event.CustomEventData.count >= 5) {
+						Action_LoadCampaignTopClubRankings(
+							TL::ToInteger(_Event.CustomEventData[0]),
+							TL::ToInteger(_Event.CustomEventData[1]),
+							_Event.CustomEventData[2],
+							TL::ToInteger(_Event.CustomEventData[3]),
+							TL::ToInteger(_Event.CustomEventData[4])
+						);
+					}
+				}
+				case C_Action_LoadMapTopGlobalRankings: {
+					if (_Event.CustomEventData.count >= 3) {
+						Action_LoadMapTopGlobalRankings(_Event.CustomEventData[0], _Event.CustomEventData[1], TL::ToInteger(_Event.CustomEventData[2]));
+					}
+				}
+				case C_Action_LoadMapTopClubRankings: {
+					if (_Event.CustomEventData.count >= 4) {
+						Action_LoadMapTopClubRankings(_Event.CustomEventData[0], _Event.CustomEventData[1], TL::ToInteger(_Event.CustomEventData[2]), TL::ToInteger(_Event.CustomEventData[3]));
+					}
+				}
+				case C_Action_GetMapLevels: {
+					if (_Event.CustomEventData.count >= 3) {
+						Action_GetMapLevels(
+							_Event.CustomEventData[0],
+							_Event.CustomEventData[1],
+							TL::ToInteger(_Event.CustomEventData[2])
+						);
+					}
+				}
+				case C_Action_LoadOfflineCampaign: {
+					Action_LoadOfflineCampaign();
+				}
+				case C_Action_LoadCampaignsMedia: {
+					Action_LoadCampaignsMedia();
+				}
+				case C_Action_LoadMediaActive: {
+					if (_Event.CustomEventData.count >= 1) {
+						Action_LoadMediaActive(TL::ToInteger(_Event.CustomEventData[0]));
+					} else {
+						Action_LoadMediaActive();
+					}
+				}
+				case C_Action_LoadLiveQuarterlyCampaign: {
+					if (_Event.CustomEventData.count >= 1) {
+						Action_LoadLiveQuarterlyCampaign(TL::ToInteger(_Event.CustomEventData[0]));
+					} else {
+						Action_LoadLiveQuarterlyCampaign();
+					}
+				}
+				case C_Action_LoadLiveWeeklyShortsCampaign: {
+					if (_Event.CustomEventData.count >= 1) {
+						Action_LoadLiveWeeklyShortsCampaign(TL::ToInteger(_Event.CustomEventData[0]));
+					} else {
+						Action_LoadLiveWeeklyShortsCampaign();
+					}
+				}
+				case C_Action_LoadLiveWeeklyGrandsCampaign: {
+					if (_Event.CustomEventData.count >= 1) {
+						Action_LoadLiveWeeklyGrandsCampaign(TL::ToInteger(_Event.CustomEventData[0]));
+					} else {
+						Action_LoadLiveWeeklyGrandsCampaign();
+					}
+				}
+				case C_Action_LoadLiveCupOfTheWeekCampaign: {
+					if (_Event.CustomEventData.count >= 1) {
+						Action_LoadLiveCupOfTheWeekCampaign(TL::ToInteger(_Event.CustomEventData[0]));
+					} else {
+						Action_LoadLiveCupOfTheWeekCampaign();
+					}
+				}
+				case C_Action_LoadLiveMonthlyCampaign: {
+					if (_Event.CustomEventData.count >= 1) {
+						Action_LoadLiveMonthlyCampaign(TL::ToInteger(_Event.CustomEventData[0]));
+					} else {
+						Action_LoadLiveMonthlyCampaign();
+					}
+				}
+				case C_Action_LoadMyQuarterlyCampaignsRankings: {
+					if (_Event.CustomEventData.count >= 3) {
+						Action_LoadMyQuarterlyCampaignsRankings(
+							_Event.CustomEventData[0],
+							TL::ToInteger(_Event.CustomEventData[1]),
+							TL::ToInteger(_Event.CustomEventData[2])
+						);
+					}
+				}
+				case C_Action_BustCache_MapPlayerGlobalRankings: {
+					if (_Event.CustomEventData.count >= 2) {
+						Action_BustCache_MapPlayerGlobalRankings(
+							TL::ToInteger(_Event.CustomEventData[0]),
+							_Event.CustomEventData[1]
+						);
+					}
+				}
+				case C_Action_BustCache_MapPlayerClubRankings: {
+					if (_Event.CustomEventData.count >= 3) {
+						Action_BustCache_MapPlayerClubRankings(
+							TL::ToInteger(_Event.CustomEventData[0]),
+							_Event.CustomEventData[1],
+							TL::ToInteger(_Event.CustomEventData[2])
+						);
+					}
+				}
+				case C_Action_BustCache_MapTopGlobalRankings: {
+					if (_Event.CustomEventData.count >= 2) {
+						Action_BustCache_MapTopGlobalRankings(
+							TL::ToInteger(_Event.CustomEventData[0]),
+							_Event.CustomEventData[1]
+						);
+					}
+				}
+				case C_Action_BustCache_MapTopClubRankings: {
+					if (_Event.CustomEventData.count >= 3) {
+						Action_BustCache_MapTopClubRankings(
+							TL::ToInteger(_Event.CustomEventData[0]),
+							_Event.CustomEventData[1],
+							TL::ToInteger(_Event.CustomEventData[2])
+						);
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process events
+Void ProcessEvents(CNod _Context) {
+	switchtype (_Context as Context) {
+		case CManiaAppTitle: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+		case CManiaAppPlayground: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+	}
+}
+
+Void ProcessTopRankingsRequests() {
+	// Get map top ranking request
+	if (G_Request_GetMapTopRankingsList.count > 0) {
+		declare TmpRequestList = G_Request_GetMapTopRankingsList;
+		foreach (MapUid => StructRequest in TmpRequestList) {
+			if (Http::IsInitialized(StructRequest.Request)) {
+				G_Request_GetMapTopRankingsList[MapUid].Request = Http::Update(StructRequest.Request);
+				if (!Http::IsRunning(G_Request_GetMapTopRankingsList[MapUid].Request)) {
+					if (Http::IsSuccess(G_Request_GetMapTopRankingsList[MapUid].Request)) {
+						declare Response = LeaderboardAPI::GetResponseFromGetMapTopRankings(G_Request_GetMapTopRankingsList[MapUid].Request);
+
+						declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+						Trackmania_CampaignStore_State = Mutation_SetMapTopRankings(
+							Trackmania_CampaignStore_State,
+							MapUid,
+							Response
+						);
+
+						declare Text[] WebServicesUserIdList;
+						foreach (TopByZone in Response.TopRankings) {
+							foreach (TopScore in TopByZone.Tops) {
+								WebServicesUserIdList.add(TopScore.AccountId);
+							}
+						}
+						G_Request_GetMapTopRankingsList[MapUid].Task_GetDisplayName = Task::Create(UserMgr, UserMgr.RetrieveDisplayName(MainUser::GetMainUserId(), WebServicesUserIdList));
+					}
+					G_Request_GetMapTopRankingsList[MapUid].Request = Http::Destroy(G_Request_GetMapTopRankingsList[MapUid].Request);
+				}
+			}
+
+			if (Task::IsInitialized(G_Request_GetMapTopRankingsList[MapUid].Task_GetDisplayName)) {
+				G_Request_GetMapTopRankingsList[MapUid].Task_GetDisplayName = Task::Update(G_Request_GetMapTopRankingsList[MapUid].Task_GetDisplayName);
+				if (!Task::IsRunning(G_Request_GetMapTopRankingsList[MapUid].Task_GetDisplayName)) {
+					if (Task::IsSuccess(G_Request_GetMapTopRankingsList[MapUid].Task_GetDisplayName)) {
+						declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+						Trackmania_CampaignStore_State = Mutation_UpdateMapTopRankingsDisplayNames(
+							Trackmania_CampaignStore_State,
+							MapUid,
+							G_Request_GetMapTopRankingsList[MapUid].SeasonUid
+						);
+					}
+					G_Request_GetMapTopRankingsList[MapUid].Task_GetDisplayName = Task::Destroy(G_Request_GetMapTopRankingsList[MapUid].Task_GetDisplayName);
+				}
+			}
+
+			if (
+				!Http::IsInitialized(G_Request_GetMapTopRankingsList[MapUid].Request) &&
+				!Task::IsInitialized(G_Request_GetMapTopRankingsList[MapUid].Task_GetDisplayName)
+			) {
+				G_Request_GetMapTopRankingsList.removekey(MapUid);
+				Store::SendEvent(C_StoreId, C_Event_MapTopGlobalRankingsUpdate, [MapUid]);
+			}
+		}
+	}
+
+	// Get map top rankings in club requests
+	if (G_Request_GetMapTopRankingsInClubList.count > 0) {
+		declare TmpRequestList = G_Request_GetMapTopRankingsInClubList;
+		foreach (MapUid => Requests in TmpRequestList) {
+			foreach (ClubId => Request in Requests) {
+				if (Http::IsInitialized(Request.Request)) {
+					G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Request = Http::Update(Request.Request);
+					if (!Http::IsRunning(G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Request)) {
+						if (Http::IsSuccess(G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Request)) {
+							declare Response = LeaderboardAPI::GetResponseFromGetMapTopRankingsInClub(G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Request);
+							declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+							Trackmania_CampaignStore_State = Mutation_SetMapTopRankingsInClub(
+								Trackmania_CampaignStore_State,
+								MapUid,
+								ClubId,
+								Response
+							);
+
+							declare Text[] WebServicesUserIdList;
+							foreach (TopScore in Response.Tops) {
+								WebServicesUserIdList.add(TopScore.AccountId);
+							}
+							G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Task_GetDisplayName = Task::Create(UserMgr, UserMgr.RetrieveDisplayName(MainUser::GetMainUserId(), WebServicesUserIdList));
+						}
+
+						G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Request = Http::Destroy(G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Request);
+					}
+				}
+
+				if (Task::IsInitialized(G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Task_GetDisplayName)) {
+					G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Task_GetDisplayName = Task::Update(G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Task_GetDisplayName);
+					if (!Task::IsRunning(G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Task_GetDisplayName)) {
+						if (Task::IsSuccess(G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Task_GetDisplayName)) {
+							declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+							Trackmania_CampaignStore_State = Mutation_UpdateMapTopRankingsInClubDisplayNames(
+								Trackmania_CampaignStore_State,
+								MapUid,
+								ClubId,
+								G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].SeasonUid
+							);
+						}
+						G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Task_GetDisplayName = Task::Destroy(G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Task_GetDisplayName);
+					}
+				}
+
+				if (
+					!Http::IsInitialized(G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Request) &&
+					!Task::IsInitialized(G_Request_GetMapTopRankingsInClubList[MapUid][ClubId].Task_GetDisplayName)
+				) {
+					G_Request_GetMapTopRankingsInClubList[MapUid].removekey(ClubId);
+					if (G_Request_GetMapTopRankingsInClubList[MapUid].count == 0) {
+						G_Request_GetMapTopRankingsInClubList.removekey(MapUid);
+					}
+					Store::SendEvent(C_StoreId, C_Event_MapTopClubRankingsUpdate, [MapUid, ""^ClubId]);
+				}
+			}
+		}
+	}
+
+	// Get campaign top rankings requests
+	declare TmpList = G_Request_GetCampaignTopRankingsList;
+	foreach (CampaignId => StructRequest in TmpList) {
+		if (Http::IsInitialized(StructRequest.Request)) {
+			G_Request_GetCampaignTopRankingsList[CampaignId].Request = Http::Update(G_Request_GetCampaignTopRankingsList[CampaignId].Request);
+			if (!Http::IsRunning(G_Request_GetCampaignTopRankingsList[CampaignId].Request)) {
+				if (Http::IsSuccess(G_Request_GetCampaignTopRankingsList[CampaignId].Request)) {
+					declare CampaignStruct::LibCampaignStruct_K_TopRanking[] Response = LeaderboardAPI::GetResponseFromGetTopRankings(G_Request_GetCampaignTopRankingsList[CampaignId].Request);
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_SetCampaignTopRankings(
+						Trackmania_CampaignStore_State,
+						CampaignId,
+						Response
+					);
+
+					declare Text[] WebServicesUserIdList;
+					foreach (TopRanking in Response) {
+						foreach (Top in TopRanking.Tops) {
+							WebServicesUserIdList.add(Top.AccountId);
+						}
+					}
+					G_Request_GetCampaignTopRankingsList[CampaignId].Task_GetDisplayName = Task::Create(UserMgr, UserMgr.RetrieveDisplayName(MainUser::GetMainUserId(), WebServicesUserIdList));
+				}
+				G_Request_GetCampaignTopRankingsList[CampaignId].Request = Http::Destroy(G_Request_GetCampaignTopRankingsList[CampaignId].Request);
+			}
+		}
+
+		if (Task::IsInitialized(G_Request_GetCampaignTopRankingsList[CampaignId].Task_GetDisplayName)) {
+			G_Request_GetCampaignTopRankingsList[CampaignId].Task_GetDisplayName = Task::Update(G_Request_GetCampaignTopRankingsList[CampaignId].Task_GetDisplayName);
+			if (!Task::IsRunning(G_Request_GetCampaignTopRankingsList[CampaignId].Task_GetDisplayName)) {
+				if (Task::IsSuccess(G_Request_GetCampaignTopRankingsList[CampaignId].Task_GetDisplayName)) {
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_UpdateTopRankingsDisplayNames(
+						Trackmania_CampaignStore_State,
+						CampaignId
+					);
+				}
+				G_Request_GetCampaignTopRankingsList[CampaignId].Task_GetDisplayName = Task::Destroy(G_Request_GetCampaignTopRankingsList[CampaignId].Task_GetDisplayName);
+			}
+		}
+
+		if (
+			!Http::IsInitialized(G_Request_GetCampaignTopRankingsList[CampaignId].Request) &&
+			!Task::IsInitialized(G_Request_GetCampaignTopRankingsList[CampaignId].Task_GetDisplayName)
+		) {
+			G_Request_GetCampaignTopRankingsList.removekey(CampaignId);
+		}
+	}
+
+	// Get campaign top rankings in club requests
+	declare TmpRequestTopRankingsInClubList = G_Request_GetCampaignTopRankingsInClubList;
+	foreach (CampaignId => StructRequest in TmpRequestTopRankingsInClubList) {
+		if (Http::IsInitialized(StructRequest.TopRankingsRequest)) {
+			G_Request_GetCampaignTopRankingsInClubList[CampaignId].TopRankingsRequest = Http::Update(G_Request_GetCampaignTopRankingsInClubList[CampaignId].TopRankingsRequest);
+			if (!Http::IsRunning(G_Request_GetCampaignTopRankingsInClubList[CampaignId].TopRankingsRequest)) {
+				if (Http::IsSuccess(G_Request_GetCampaignTopRankingsInClubList[CampaignId].TopRankingsRequest)) {
+					declare Result = LeaderboardAPI::GetResponseFromGetTopRankingsInClub(G_Request_GetCampaignTopRankingsInClubList[CampaignId].TopRankingsRequest);
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_SetCampaignClubTopRankings(
+						Trackmania_CampaignStore_State,
+						CampaignId,
+						Result.ClubId,
+						Result.TopRankings
+					);
+
+					declare Text[] WebServicesUserIdList;
+					foreach (Top in Result.TopRankings) {
+						WebServicesUserIdList.add(Top.AccountId);
+					}
+					G_Request_GetCampaignTopRankingsInClubList[CampaignId].Task_GetDisplayName = Task::Create(UserMgr, UserMgr.RetrieveDisplayName(MainUser::GetMainUserId(), WebServicesUserIdList));
+				}
+
+				G_Request_GetCampaignTopRankingsInClubList[CampaignId].TopRankingsRequest = Http::Destroy(G_Request_GetCampaignTopRankingsInClubList[CampaignId].TopRankingsRequest);
+			}
+		}
+		if (Http::IsInitialized(StructRequest.PlayerRankingRequest)) {
+			G_Request_GetCampaignTopRankingsInClubList[CampaignId].PlayerRankingRequest = Http::Update(G_Request_GetCampaignTopRankingsInClubList[CampaignId].PlayerRankingRequest);
+			if (!Http::IsRunning(G_Request_GetCampaignTopRankingsInClubList[CampaignId].PlayerRankingRequest)) {
+				if (Http::IsSuccess(G_Request_GetCampaignTopRankingsInClubList[CampaignId].PlayerRankingRequest)) {
+					declare TopResult = LeaderboardAPI::GetResponseFromGetPlayerRankingInClub(G_Request_GetCampaignTopRankingsInClubList[CampaignId].PlayerRankingRequest);
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_SetCampaignClubPlayerRankings(
+						Trackmania_CampaignStore_State,
+						CampaignId,
+						G_Request_GetCampaignTopRankingsInClubList[CampaignId].ClubId,
+						TopResult
+					);
+				}
+
+				G_Request_GetCampaignTopRankingsInClubList[CampaignId].PlayerRankingRequest = Http::Destroy(G_Request_GetCampaignTopRankingsInClubList[CampaignId].PlayerRankingRequest);
+			}
+		}
+
+		if (Task::IsInitialized(G_Request_GetCampaignTopRankingsInClubList[CampaignId].Task_GetDisplayName)) {
+			G_Request_GetCampaignTopRankingsInClubList[CampaignId].Task_GetDisplayName = Task::Update(G_Request_GetCampaignTopRankingsInClubList[CampaignId].Task_GetDisplayName);
+			if (!Task::IsRunning(G_Request_GetCampaignTopRankingsInClubList[CampaignId].Task_GetDisplayName)) {
+				if (Task::IsSuccess(G_Request_GetCampaignTopRankingsInClubList[CampaignId].Task_GetDisplayName)) {
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_UpdateCampaignClubTopRankingsDisplayNames(
+						Trackmania_CampaignStore_State,
+						CampaignId
+					);
+				}
+				G_Request_GetCampaignTopRankingsInClubList[CampaignId].Task_GetDisplayName = Task::Destroy(G_Request_GetCampaignTopRankingsInClubList[CampaignId].Task_GetDisplayName);
+			}
+		}
+
+		if (
+			!Http::IsInitialized(StructRequest.TopRankingsRequest) &&
+			!Http::IsInitialized(StructRequest.PlayerRankingRequest) &&
+			!Task::IsInitialized(G_Request_GetCampaignTopRankingsInClubList[CampaignId].Task_GetDisplayName)
+		) {
+			G_Request_GetCampaignTopRankingsInClubList.removekey(CampaignId);
+		}
+	}
+}
+
+Void ProcessCampaignPagingRequests() {
+	// Campaigns paging request
+	declare TmpRequestList = G_Request_CampaignsPagingList;
+	foreach (CampaignType => Request in TmpRequestList) {
+		if (Http::IsInitialized(G_Request_CampaignsPagingList[CampaignType])) {
+			G_Request_CampaignsPagingList[CampaignType] = Http::Update(G_Request_CampaignsPagingList[CampaignType]);
+			if (!Http::IsRunning(G_Request_CampaignsPagingList[CampaignType])) {
+				if (Http::IsSuccess(G_Request_CampaignsPagingList[CampaignType])) {
+					declare CampaignAPI::LibCampaignAPI_K_ResponseGetCampaignList Response;
+
+					switch (CampaignType) {
+						case CampaignStruct::C_CampaignType_Quarterly: Response = CampaignAPI::GetResponseFromGetOfficialCampaignList(G_Request_CampaignsPagingList[CampaignType]);
+						case CampaignStruct::C_CampaignType_WeeklyShorts: Response = CampaignAPI::GetResponseFromGetWeeklyShortsCampaignList(G_Request_CampaignsPagingList[CampaignType]);
+						case CampaignStruct::C_CampaignType_WeeklyGrands: Response = CampaignAPI::GetResponseFromGetWeeklyGrandsCampaignList(G_Request_CampaignsPagingList[CampaignType]);
+						case CampaignStruct::C_CampaignType_CupOfTheWeek: Response = CampaignAPI::GetResponseFromGetCupOfTheWeekCampaignList(G_Request_CampaignsPagingList[CampaignType]);
+					}
+
+					if (Response.CampaignsTotal > 0) {
+						declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+						Trackmania_CampaignStore_State = Mutation_SetCampaigns(
+							Trackmania_CampaignStore_State,
+							CampaignType,
+							Response.CampaignsTotal,
+							Response.CampaignsUpdateTime,
+							Response.CampaignList
+						);
+					} else {
+						Store::SendEvent(C_StoreId, C_Event_CampaignListEmpty, [""^CampaignType]);
+					}
+				} else {
+					declare Text[Integer] CampaignTypeLabels = CampaignStruct::C_CampaignType_Labels;
+					declare Text CampaignTypeLabel = CampaignTypeLabels.get(CampaignType, CampaignTypeLabels[CampaignStruct::C_CampaignType_None]);
+					//L16N [CampaignPagingRequest] %1 goes for the type of error
+					declare ErrorMessage = TL::Compose(
+						_("Error while fetching campaigns of type %1. Please try again. (Error code: %2)"),
+						TL::ToLowerCase(CampaignTypeLabel),
+						""^Http::GetStatusCode(G_Request_CampaignsPagingList[CampaignType])
+					);
+					Store::SendEvent(C_StoreId, C_Event_CampaignListUpdateError, [""^CampaignType, ErrorMessage]);
+				}
+				Http::Destroy(G_Request_CampaignsPagingList[CampaignType]);
+				G_Request_CampaignsPagingList.removekey(CampaignType);
+			}
+		}
+	}
+
+	// All Club Campaigns paging request
+	if (Http::IsInitialized(G_Request_AllClubCampaignsPaging)) {
+		G_Request_AllClubCampaignsPaging = Http::Update(G_Request_AllClubCampaignsPaging);
+		if (!Http::IsRunning(G_Request_AllClubCampaignsPaging)) {
+			if (Http::IsSuccess(G_Request_AllClubCampaignsPaging)) {
+				declare Response = ClubAPI::GetResponseFromGetClubCampaignList(G_Request_AllClubCampaignsPaging);
+
+				declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+				Trackmania_CampaignStore_State = Mutation_SetAllClubCampaigns(
+					Trackmania_CampaignStore_State,
+					Response.CampaignsTotal,
+					Response.CampaignList
+				);
+			}
+			G_Request_AllClubCampaignsPaging = Http::Destroy(G_Request_AllClubCampaignsPaging);
+		}
+	}
+
+	// Monthly Campaigns paging request
+	if (Http::IsInitialized(G_Request_MonthlyCampaignsPaging)) {
+		G_Request_MonthlyCampaignsPaging = Http::Update(G_Request_MonthlyCampaignsPaging);
+		if (!Http::IsRunning(G_Request_MonthlyCampaignsPaging)) {
+			if (Http::IsSuccess(G_Request_MonthlyCampaignsPaging)) {
+				declare Response = CampaignAPI::GetResponseFromGetMonthlyCampaignList(G_Request_MonthlyCampaignsPaging, False);
+				if (Response.CampaignsTotal > 0) {
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_SetMonthlyCampaigns(
+						Trackmania_CampaignStore_State,
+						Response.CampaignsTotal,
+						Response.CampaignsUpdateTime,
+						Response.CampaignList,
+						False
+					);
+				} else {
+					Store::SendEvent(C_StoreId, C_Event_CampaignListEmpty, [""^CampaignStruct::C_CampaignType_Monthly]);
+				}
+			} else {
+				declare Text[Integer] CampaignTypeLabels = CampaignStruct::C_CampaignType_Labels;
+				declare Text CampaignTypeLabel = CampaignTypeLabels[CampaignStruct::C_CampaignType_Monthly];
+				declare ErrorMessage = TL::Compose(
+					//L16N [MonthlyCampaignPagingRequest] %1 goes for the type of error
+					_("Error while fetching campaigns of type %1. Please try again. (Error code: %2)"),
+					TL::ToLowerCase(CampaignTypeLabel),
+					""^Http::GetStatusCode(G_Request_MonthlyCampaignsPaging)
+				);
+				Store::SendEvent(C_StoreId, C_Event_CampaignListUpdateError, [""^CampaignStruct::C_CampaignType_Monthly, ErrorMessage]);
+			}
+			G_Request_MonthlyCampaignsPaging = Http::Destroy(G_Request_MonthlyCampaignsPaging);
+		}
+	}
+
+	// Royal Campaigns paging request
+	if (Http::IsInitialized(G_Request_RoyalCampaignsPaging)) {
+		G_Request_RoyalCampaignsPaging = Http::Update(G_Request_RoyalCampaignsPaging);
+		if (!Http::IsRunning(G_Request_RoyalCampaignsPaging)) {
+			if (Http::IsSuccess(G_Request_RoyalCampaignsPaging)) {
+				declare Response = CampaignAPI::GetResponseFromGetMonthlyCampaignList(G_Request_RoyalCampaignsPaging, True);
+				if (Response.CampaignsTotal > 0) {
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_SetMonthlyCampaigns(
+						Trackmania_CampaignStore_State,
+						Response.CampaignsTotal,
+						Response.CampaignsUpdateTime,
+						Response.CampaignList,
+						True
+					);
+				} else {
+					Store::SendEvent(C_StoreId, C_Event_CampaignListEmpty, [""^CampaignStruct::C_CampaignType_Royal]);
+				}
+			} else {
+				declare Text[Integer] CampaignTypeLabels = CampaignStruct::C_CampaignType_Labels;
+				declare Text CampaignTypeLabel = CampaignTypeLabels[CampaignStruct::C_CampaignType_Royal];
+				declare ErrorMessage = TL::Compose(
+					//L16N [RoyalCampaignPagingRequest] %1 goes for the type of error
+					_("Error while fetching campaigns of type %1. Please try again. (Error code: %2)"),
+					TL::ToLowerCase(CampaignTypeLabel),
+					""^Http::GetStatusCode(G_Request_RoyalCampaignsPaging)
+				);
+				Store::SendEvent(C_StoreId, C_Event_CampaignListUpdateError, [""^CampaignStruct::C_CampaignType_Royal, ErrorMessage]);
+			}
+			G_Request_RoyalCampaignsPaging = Http::Destroy(G_Request_RoyalCampaignsPaging);
+		}
+	}
+
+	// Clubs Campaigns paging request
+	declare TmpClubsRequestList = G_Request_ClubsCampaignsPagingList;
+	foreach (ClubId => Request in TmpClubsRequestList) {
+		if (Http::IsInitialized(G_Request_ClubsCampaignsPagingList[ClubId])) {
+			G_Request_ClubsCampaignsPagingList[ClubId] = Http::Update(G_Request_ClubsCampaignsPagingList[ClubId]);
+			if (!Http::IsRunning(G_Request_ClubsCampaignsPagingList[ClubId])) {
+				if (Http::IsSuccess(G_Request_ClubsCampaignsPagingList[ClubId])) {
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					declare Response = ClubAPI::GetResponseFromGetClubCampaignList(G_Request_ClubsCampaignsPagingList[ClubId]);
+
+					Trackmania_CampaignStore_State = Mutation_SetClubsCampaigns(
+						Trackmania_CampaignStore_State,
+						ClubId,
+						Response.CampaignsTotal,
+						Response.CampaignList
+					);
+				} else {
+					Store::SendEvent(C_StoreId, C_Event_ClubsCampaignListError, [""^ClubId]);
+				}
+				Http::Destroy(G_Request_ClubsCampaignsPagingList[ClubId]);
+				G_Request_ClubsCampaignsPagingList.removekey(ClubId);
+			}
+		}
+	}
+}
+
+Void ProcessMapListAndLoadScoreRequests() {
+	// NadeoServices map list and load score requests
+	if (G_LoadingCampaignRequestList.count > 0) {
+		declare TmpRequestList = G_LoadingCampaignRequestList;
+		foreach (CampaignId => LoadingCampaignRequest in TmpRequestList) {
+			if (Task::IsInitialized(G_LoadingCampaignRequestList[CampaignId].Task_MapList)) {
+				declare Task::K_Task Task = Task::Update(G_LoadingCampaignRequestList[CampaignId].Task_MapList);
+				if (!Task::IsRunning(Task)) {
+					declare CTaskResult_NSMapList SourceTask = Task::GetSourceTask_NSMapList(Task);
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					if (Task::IsSuccess(Task) && SourceTask != Null) {
+						declare CNadeoServicesMap[Text] NSMapList;
+						declare Text[] MapThumbnailList;
+						declare Text[] MapUids;
+						declare Text[][Text] GameModeMapUidList;
+
+						foreach (NSMap in SourceTask.MapList) {
+							MapThumbnailList.add(NSMap.ThumbnailUrl);
+							NSMapList[NSMap.Uid] <=> NSMap;
+							MapUids.add(NSMap.Uid);
+
+							declare Text GameMode = TitleControl::GetGameModeFromMapType(NSMap.Type, NSMap.HasClones);
+							if (!GameModeMapUidList.existskey(GameMode)) {
+								GameModeMapUidList[GameMode] = [NSMap.Uid];
+							} else {
+								GameModeMapUidList[GameMode].add(NSMap.Uid);
+							}
+						}
+
+						if (!Task::IsInitialized(G_LoadingCampaignRequestList[CampaignId].Task_LoadScore) && GameModeMapUidList.count > 0) {
+							for (GameMode => MapUidList in GameModeMapUidList) {
+								G_LoadingCampaignRequestList[CampaignId].Task_LoadPBScoreList[GameMode] = Task::Create(
+									ScoreMgr,
+									ScoreMgr.Map_LoadPBScoreList(MainUser::GetMainUserId(), MapUidList, GameMode, "")
+								);
+							}
+						}
+
+						Trackmania_CampaignStore_State = Mutation_UpdateCampaignPlaylist(Trackmania_CampaignStore_State, CampaignId, NSMapList);
+						Preload::PreloadImages(This, MapThumbnailList);
+					} else {
+						Trackmania_CampaignStore_State = Mutation_UpdateMapsLoadStatus(Trackmania_CampaignStore_State, CampaignId);
+						Store::SendEvent(C_StoreId, C_Event_CampaignListUpdateError, [
+							""^GetCampaignFromId(Trackmania_CampaignStore_State, CampaignId).Type,
+							//L16N Do not translate "Nadeo Services". %1 will be replaced by an error code, e.g. "Error code: 500"
+							TL::Compose(_("Error while fetching track list from Nadeo Services. Please try again. (Error code: %1)"), Task::GetSourceTaskError(Task).Code)
+						]);
+					}
+					Task = Task::Destroy(Task);
+				}
+				G_LoadingCampaignRequestList[CampaignId].Task_MapList = Task;
+			}
+
+			if (Task::IsInitialized(G_LoadingCampaignRequestList[CampaignId].Task_LoadScore)) {
+				declare Task::K_Task Task = Task::Update(G_LoadingCampaignRequestList[CampaignId].Task_LoadScore);
+				if (!Task::IsRunning(Task)) {
+					if (!Task::IsSuccess(Task)) {
+						declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+						Store::SendEvent(C_StoreId, C_Event_CampaignListUpdateError, [
+							""^GetCampaignFromId(Trackmania_CampaignStore_State, CampaignId).Type,
+							//L16N Do not translate "Nadeo Services". %1 will be replaced by an error code, e.g. "Error code: 500"
+							TL::Compose(_("Error while retrieving scores from Nadeo Services. Please try again. (Error code: %1)"), Task::GetSourceTaskError(Task).Code)
+						]);
+					}
+					Task = Task::Destroy(Task);
+				}
+				G_LoadingCampaignRequestList[CampaignId].Task_LoadScore = Task;
+			}
+
+			if (G_LoadingCampaignRequestList[CampaignId].Task_LoadPBScoreList.count > 0) {
+				declare Text[] TaskKeyToRemoveList;
+				for (TaskKey => Task_LoadPBScoreList in G_LoadingCampaignRequestList[CampaignId].Task_LoadPBScoreList) {
+					declare Task::K_Task Task = Task::Update(Task_LoadPBScoreList);
+					if (Task::IsRunning(Task)) {
+						G_LoadingCampaignRequestList[CampaignId].Task_LoadPBScoreList[TaskKey] = Task;
+					} else {
+						if (!Task::IsSuccess(Task)) {
+							declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+							Store::SendEvent(C_StoreId, C_Event_CampaignListUpdateError, [
+								""^GetCampaignFromId(Trackmania_CampaignStore_State, CampaignId).Type,
+								//L16N Do not translate "Nadeo Services". %1 will be replaced by an error code, e.g. "Error code: 500"
+								TL::Compose(_("Error while retrieving scores from Nadeo Services. Please try again. (Error code: %1)"), Task::GetSourceTaskError(Task).Code)
+							]);
+						}
+						Task = Task::Destroy(Task);
+						TaskKeyToRemoveList.add(TaskKey);
+					}
+				}
+				for (TaskKey in TaskKeyToRemoveList) {
+					G_LoadingCampaignRequestList[CampaignId].Task_LoadPBScoreList.removekey(TaskKey);
+				}
+			}
+
+			if (Http::IsInitialized(G_LoadingCampaignRequestList[CampaignId].GetClubRequest)) {
+				declare Http::K_Request Request = Http::Update(G_LoadingCampaignRequestList[CampaignId].GetClubRequest);
+				if (!Http::IsRunning(Request)) {
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					if (Http::IsSuccess(Request)) {
+						Trackmania_CampaignStore_State = Mutation_UpdateCampaignClub(Trackmania_CampaignStore_State, CampaignId, ClubAPI::GetResponseFromGetClub(Request));
+					} else {
+						Store::SendEvent(C_StoreId, C_Event_CampaignListUpdateError, [
+							""^GetCampaignFromId(Trackmania_CampaignStore_State, CampaignId).Type,
+							//L16N %1 will be replaced by an error code, e.g. "Error code: 500"
+							TL::Compose(_("Error while retrieving the club of the campaign. Please try again. (Error code: %1)"), ""^Http::GetStatusCode(Request))
+						]);
+					}
+					Request = Http::Destroy(Request);
+				}
+				G_LoadingCampaignRequestList[CampaignId].GetClubRequest = Request;
+			}
+
+			if (
+				!Task::IsInitialized(G_LoadingCampaignRequestList[CampaignId].Task_MapList) &&
+				!Task::IsInitialized(G_LoadingCampaignRequestList[CampaignId].Task_LoadScore) &&
+				G_LoadingCampaignRequestList[CampaignId].Task_LoadPBScoreList.count <= 0 &&
+				!Http::IsInitialized(G_LoadingCampaignRequestList[CampaignId].GetClubRequest)
+			) {
+				declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+				Trackmania_CampaignStore_State = Mutation_SetCampaignIsLoaded(Trackmania_CampaignStore_State, CampaignId);
+				G_LoadingCampaignRequestList.removekey(CampaignId);
+			}
+			if (G_LoadingCampaignRequestList.count == 0) {
+				Store::SendEvent(C_StoreId, C_Event_AllCampaignsLoadComplete, []);
+			}
+		}
+	}
+
+	// NadeoServices map list and load score for monthly campaign requests
+	if (G_LoadingMonthlyCampaignRequestList.count > 0) {
+		declare TmpRequestList = G_LoadingMonthlyCampaignRequestList;
+		foreach (MonthlyCampaignId => LoadingMonthlyCampaignRequest in TmpRequestList) {
+			if (Task::IsInitialized(G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].Task_MapList)) {
+				declare Task::K_Task Task = Task::Update(G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].Task_MapList);
+				if (!Task::IsRunning(Task)) {
+					declare CTaskResult_NSMapList SourceTask = Task::GetSourceTask_NSMapList(Task);
+					if (Task::IsSuccess(Task) && SourceTask != Null) {
+						declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+						declare CNadeoServicesMap[Text] NSMapList;
+						declare Text[] MapThumbnailList;
+
+						foreach (NSMap in SourceTask.MapList) {
+							NSMapList[NSMap.Uid] <=> NSMap;
+							MapThumbnailList.add(NSMap.ThumbnailUrl);
+						}
+
+						Trackmania_CampaignStore_State = Mutation_UpdateMonthlyCampaignPlaylist(Trackmania_CampaignStore_State, MonthlyCampaignId, NSMapList);
+						Preload::PreloadImages(This, MapThumbnailList);
+					} else {
+						G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].MapsLoadingSucceed = False;
+						Store::SendEvent(C_StoreId, C_Event_CampaignListUpdateError, [
+							""^CampaignStruct::C_CampaignType_Monthly,
+							//L16N Do not translate "Nadeo Services". %1 will be replaced by an error code, e.g. "Error code: 500"
+							TL::Compose(_("Error while fetching track list from Nadeo Services. Please try again. (Error code: %1)"), Task::GetSourceTaskError(Task).Code)
+						]);
+					}
+					Task = Task::Destroy(Task);
+				}
+				G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].Task_MapList = Task;
+			}
+
+			if (Task::IsInitialized(G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].Task_LoadScoreList)) {
+				declare Task = Task::Update(G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].Task_LoadScoreList);
+				if (!Task::IsRunning(Task)) {
+					if (!Task::IsSuccess(Task)) {
+						G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].MapsLoadingSucceed = False;
+						Store::SendEvent(C_StoreId, C_Event_CampaignListUpdateError, [
+							""^CampaignStruct::C_CampaignType_Monthly,
+							//L16N Do not translate "Nadeo Services". %1 will be replaced by an error code, e.g. "Error code: 500"
+							TL::Compose(_("Error while retrieving scores from Nadeo Services. Please try again. (Error code: %1)"), Task::GetSourceTaskError(Task).Code),
+							C_ErrorType_ScoresNotLoaded
+						]);
+					}
+					Task = Task::Destroy(Task);
+				}
+				G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].Task_LoadScoreList = Task;
+			}
+
+			if (
+				!Task::IsInitialized(G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].Task_MapList) &&
+				!Task::IsInitialized(G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].Task_LoadScoreList)
+			) {
+				// If there was no maps to load, e.g. new monthly campaign with the first map of the month unlocked in less than 24 hours
+				// Update the monthly campaign list manually because the Task_MapList task was not created
+				if (G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].LoadedMapUids.count <= 0) {
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_UpdateMonthlyCampaignPlaylist(Trackmania_CampaignStore_State, MonthlyCampaignId, []);
+				}
+
+				declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+				Trackmania_CampaignStore_State = Mutation_SetMonthlyCampaignIsLoaded(
+					Trackmania_CampaignStore_State,
+					MonthlyCampaignId,
+					G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].LoadedMapUids,
+					G_LoadingMonthlyCampaignRequestList[MonthlyCampaignId].MapsLoadingSucceed
+				);
+				G_LoadingMonthlyCampaignRequestList.removekey(MonthlyCampaignId);
+			}
+		}
+	}
+
+	// NadeoServices map list and load score for royal campaign requests
+	if (G_LoadingRoyalCampaignRequestList.count > 0) {
+		declare TmpRequestList = G_LoadingRoyalCampaignRequestList;
+		foreach (RoyalCampaignId => LoadingRoyalCampaignRequest in TmpRequestList) {
+			if (Task::IsInitialized(G_LoadingRoyalCampaignRequestList[RoyalCampaignId].Task_MapList)) {
+				declare Task::K_Task Task = Task::Update(G_LoadingRoyalCampaignRequestList[RoyalCampaignId].Task_MapList);
+				if (!Task::IsRunning(Task)) {
+					declare CTaskResult_NSMapList SourceTask = Task::GetSourceTask_NSMapList(Task);
+					if (Task::IsSuccess(Task) && SourceTask != Null) {
+						declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+						declare CNadeoServicesMap[Text] NSMapList;
+						declare Text[] MapThumbnailList;
+
+						foreach (NSMap in SourceTask.MapList) {
+							NSMapList[NSMap.Uid] <=> NSMap;
+							MapThumbnailList.add(NSMap.ThumbnailUrl);
+						}
+
+						if (!Task::IsInitialized(G_LoadingRoyalCampaignRequestList[RoyalCampaignId].Task_LoadScoreList) && SourceTask.MapList.count > 0) {
+							G_LoadingRoyalCampaignRequestList[RoyalCampaignId].Task_LoadScoreList = Task::Create(ScoreMgr, ScoreMgr.Map_LoadPBScoreList(
+								MainUser::GetMainUserId(),
+								G_LoadingRoyalCampaignRequestList[RoyalCampaignId].LoadedMapUids,
+								TitleControl::GetGameModeFromMapType(SourceTask.MapList[0].Type),
+								""
+							));
+						}
+
+						Trackmania_CampaignStore_State = Mutation_UpdateRoyalCampaignPlaylist(Trackmania_CampaignStore_State, RoyalCampaignId, NSMapList);
+						Preload::PreloadImages(This, MapThumbnailList);
+					} else {
+						G_LoadingRoyalCampaignRequestList[RoyalCampaignId].MapsLoadingSucceed = False;
+						Store::SendEvent(C_StoreId, C_Event_CampaignListUpdateError, [
+							""^CampaignStruct::C_CampaignType_Royal,
+							//L16N Do not translate "Nadeo Services". %1 will be replaced by an error code, e.g. "Error code: 500"
+							TL::Compose(_("Error while fetching track list from Nadeo Services. Please try again. (Error code: %1)"), Task::GetSourceTaskError(Task).Code)
+						]);
+					}
+					Task = Task::Destroy(Task);
+				}
+				G_LoadingRoyalCampaignRequestList[RoyalCampaignId].Task_MapList = Task;
+			}
+
+			if (Task::IsInitialized(G_LoadingRoyalCampaignRequestList[RoyalCampaignId].Task_LoadScoreList)) {
+				declare Task::K_Task Task = Task::Update(G_LoadingRoyalCampaignRequestList[RoyalCampaignId].Task_LoadScoreList);
+				if (!Task::IsRunning(Task)) {
+					if (!Task::IsSuccess(Task)) {
+						G_LoadingRoyalCampaignRequestList[RoyalCampaignId].MapsLoadingSucceed = False;
+						Store::SendEvent(C_StoreId, C_Event_CampaignListUpdateError, [
+							""^CampaignStruct::C_CampaignType_Monthly,
+							//L16N Do not translate "Nadeo Services". %1 will be replaced by an error code, e.g. "Error code: 500"
+							TL::Compose(_("Error while retrieving scores from Nadeo Services. Please try again. (Error code: %1)"), Task::GetSourceTaskError(Task).Code),
+							C_ErrorType_ScoresNotLoaded
+						]);
+					}
+					Task = Task::Destroy(Task);
+				}
+				G_LoadingRoyalCampaignRequestList[RoyalCampaignId].Task_LoadScoreList = Task;
+			}
+
+			if (
+				!Task::IsInitialized(G_LoadingRoyalCampaignRequestList[RoyalCampaignId].Task_MapList) &&
+				!Task::IsInitialized(G_LoadingRoyalCampaignRequestList[RoyalCampaignId].Task_LoadScoreList)
+			) {
+				// If there was no maps to load, e.g. new royal campaign with the first map of the month unlocked in less than 24 hours
+				// Update the royal campaign list manually because the Task_MapList task was not created
+				if (G_LoadingRoyalCampaignRequestList[RoyalCampaignId].LoadedMapUids.count <= 0) {
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_UpdateRoyalCampaignPlaylist(Trackmania_CampaignStore_State, RoyalCampaignId, []);
+				}
+
+				declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+				Trackmania_CampaignStore_State = Mutation_SetRoyalCampaignIsLoaded(
+					Trackmania_CampaignStore_State,
+					RoyalCampaignId,
+					G_LoadingRoyalCampaignRequestList[RoyalCampaignId].LoadedMapUids,
+					G_LoadingRoyalCampaignRequestList[RoyalCampaignId].MapsLoadingSucceed
+				);
+				G_LoadingRoyalCampaignRequestList.removekey(RoyalCampaignId);
+			}
+		}
+	}
+}
+
+Void ProcessLiveCampaignRequests() {
+	// Get live quarterly campaign
+	if (Http::IsInitialized(G_Request_LoadLiveQuarterlyCampaign)) {
+		G_Request_LoadLiveQuarterlyCampaign = Http::Update(G_Request_LoadLiveQuarterlyCampaign);
+		if (!Http::IsRunning(G_Request_LoadLiveQuarterlyCampaign)) {
+			declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+			if (Http::IsSuccess(G_Request_LoadLiveQuarterlyCampaign)) {
+				declare Response = CampaignAPI::GetResponseFromGetOfficialCampaignList(G_Request_LoadLiveQuarterlyCampaign);
+				if (Response.CampaignList.count > 0) {
+					Trackmania_CampaignStore_State = Mutation_SetLiveQuarterlyCampaign(Trackmania_CampaignStore_State, Response.CampaignList[0], C_LiveCampaignStatus_Loaded, "", True, Response.CampaignsTotal, Response.CampaignsUpdateTime);
+					if (!GetCampaignFromId(Trackmania_CampaignStore_State, Response.CampaignList[0].Id).IsFetched) {
+						Trackmania_CampaignStore_State = Mutation_SetCampaignsOffset(Trackmania_CampaignStore_State, CampaignStruct::C_CampaignType_Quarterly, 0);
+						Trackmania_CampaignStore_State = Mutation_SetCampaigns(Trackmania_CampaignStore_State, CampaignStruct::C_CampaignType_Quarterly, Response.CampaignsTotal, Response.CampaignsUpdateTime, Response.CampaignList);
+					}
+				} else {
+					Trackmania_CampaignStore_State = Mutation_SetLiveQuarterlyCampaign(
+						Trackmania_CampaignStore_State,
+						Trackmania_CampaignStore_State.LiveQuarterly.Campaign,
+						C_LiveCampaignStatus_NoCampaigns,
+						//L16N Message displayed when no official quarterly campaigns were found.
+						_("No quarterly campaigns found."),
+						True,
+						0,
+						-1
+					);
+				}
+			} else {
+				declare ErrorMessage = TL::Compose(
+					//L16N Do not translate "Nadeo Services". %1 will be replaced by an error code, e.g. "Error code: 500"
+					_("Error while fetching quarterly campaign from Nadeo Services. Please try again. (Error code: %1)"),
+					""^Http::GetStatusCode(G_Request_LoadLiveQuarterlyCampaign)
+				);
+				Trackmania_CampaignStore_State = Mutation_SetLiveQuarterlyCampaign(
+					Trackmania_CampaignStore_State,
+					Trackmania_CampaignStore_State.LiveQuarterly.Campaign,
+					C_LiveCampaignStatus_Error,
+					ErrorMessage,
+					True,
+					0,
+					-1
+				);
+			}
+			G_Request_LoadLiveQuarterlyCampaign = Http::Destroy(G_Request_LoadLiveQuarterlyCampaign);
+		}
+	}
+
+	// Get live monthly campaign
+	if (Http::IsInitialized(G_Request_LoadLiveMonthlyCampaign)) {
+		G_Request_LoadLiveMonthlyCampaign = Http::Update(G_Request_LoadLiveMonthlyCampaign);
+		if (!Http::IsRunning(G_Request_LoadLiveMonthlyCampaign)) {
+			declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+			if (Http::IsSuccess(G_Request_LoadLiveMonthlyCampaign)) {
+				declare Response = CampaignAPI::GetResponseFromGetMonthlyCampaignList(G_Request_LoadLiveMonthlyCampaign, False);
+				if (Response.CampaignList.count > 0) {
+					Trackmania_CampaignStore_State = Mutation_SetLiveMonthlyCampaign(Trackmania_CampaignStore_State, Response.CampaignList[0], C_LiveCampaignStatus_Loaded, "", Response.CampaignsUpdateTime);
+				} else {
+					Trackmania_CampaignStore_State = Mutation_SetLiveMonthlyCampaign(
+						Trackmania_CampaignStore_State,
+						Trackmania_CampaignStore_State.LiveMonthly.Campaign,
+						C_LiveCampaignStatus_NoCampaigns,
+						//L16N Error displayed when there are no monthly campaigns in the database
+						_("No monthly campaigns found."),
+						-1
+					);
+				}
+			} else {
+				declare ErrorMessage = TL::Compose(
+					//L16N Do not translate "Nadeo Services". %1 will be replaced by an error code, e.g. "Error code: 500"
+					_("Error while fetching monthly campaign from Nadeo Services. Please try again. (Error code: %1)"),
+					""^Http::GetStatusCode(G_Request_LoadLiveMonthlyCampaign)
+				);
+				Trackmania_CampaignStore_State = Mutation_SetLiveMonthlyCampaign(
+					Trackmania_CampaignStore_State,
+					Trackmania_CampaignStore_State.LiveMonthly.Campaign,
+					C_LiveCampaignStatus_Error,
+					ErrorMessage,
+					-1
+				);
+			}
+			G_Request_LoadLiveMonthlyCampaign = Http::Destroy(G_Request_LoadLiveMonthlyCampaign);
+		}
+	}
+
+	// Get live weekly shorts campaign
+	if (Http::IsInitialized(G_Request_LoadLiveWeeklyShortsCampaign)) {
+		G_Request_LoadLiveWeeklyShortsCampaign = Http::Update(G_Request_LoadLiveWeeklyShortsCampaign);
+		if (!Http::IsRunning(G_Request_LoadLiveWeeklyShortsCampaign)) {
+			declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+			if (Http::IsSuccess(G_Request_LoadLiveWeeklyShortsCampaign)) {
+				declare Response = CampaignAPI::GetResponseFromGetWeeklyShortsCampaignList(G_Request_LoadLiveWeeklyShortsCampaign);
+				if (Response.CampaignList.count > 0) {
+					Trackmania_CampaignStore_State = Mutation_SetLiveWeeklyShortsCampaign(Trackmania_CampaignStore_State, Response.CampaignList[0], C_LiveCampaignStatus_Loaded, "", True, Response.CampaignsTotal, Response.CampaignsUpdateTime);
+					if (!GetCampaignFromId(Trackmania_CampaignStore_State, Response.CampaignList[0].Id).IsFetched) {
+						Trackmania_CampaignStore_State = Mutation_SetCampaignsOffset(Trackmania_CampaignStore_State, CampaignStruct::C_CampaignType_WeeklyShorts, 0);
+						Trackmania_CampaignStore_State = Mutation_SetCampaigns(Trackmania_CampaignStore_State, CampaignStruct::C_CampaignType_WeeklyShorts, Response.CampaignsTotal, Response.CampaignsUpdateTime, Response.CampaignList);
+					}
+				} else {
+					Trackmania_CampaignStore_State = Mutation_SetLiveWeeklyShortsCampaign(
+						Trackmania_CampaignStore_State,
+						Trackmania_CampaignStore_State.LiveWeeklyShorts.Campaign,
+						C_LiveCampaignStatus_NoCampaigns,
+						//L16N Message displayed when no official weekly shorts campaigns were found.
+						_("No weekly shorts campaigns found."),
+						True,
+						0,
+						-1
+					);
+				}
+			} else {
+				declare ErrorMessage = TL::Compose(
+					//L16N Do not translate "Nadeo Services". %1 will be replaced by an error code, e.g. "Error code: 500"
+					_("Error while fetching weekly shorts campaign from Nadeo Services. Please try again. (Error code: %1)"),
+					""^Http::GetStatusCode(G_Request_LoadLiveWeeklyShortsCampaign)
+				);
+				Trackmania_CampaignStore_State = Mutation_SetLiveWeeklyShortsCampaign(
+					Trackmania_CampaignStore_State,
+					Trackmania_CampaignStore_State.LiveWeeklyShorts.Campaign,
+					C_LiveCampaignStatus_Error,
+					ErrorMessage,
+					True,
+					0,
+					-1
+				);
+			}
+			G_Request_LoadLiveWeeklyShortsCampaign = Http::Destroy(G_Request_LoadLiveWeeklyShortsCampaign);
+		}
+	}
+
+	// Get live weekly grands campaign
+	if (Http::IsInitialized(G_Request_LoadLiveWeeklyGrandsCampaign)) {
+		G_Request_LoadLiveWeeklyGrandsCampaign = Http::Update(G_Request_LoadLiveWeeklyGrandsCampaign);
+		if (!Http::IsRunning(G_Request_LoadLiveWeeklyGrandsCampaign)) {
+			declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+			if (Http::IsSuccess(G_Request_LoadLiveWeeklyGrandsCampaign)) {
+				declare Response = CampaignAPI::GetResponseFromGetWeeklyGrandsCampaignList(G_Request_LoadLiveWeeklyGrandsCampaign);
+				if (Response.CampaignList.count > 0) {
+					Trackmania_CampaignStore_State = Mutation_SetLiveWeeklyGrandsCampaign(Trackmania_CampaignStore_State, Response.CampaignList[0], C_LiveCampaignStatus_Loaded, "", True, Response.CampaignsTotal, Response.CampaignsUpdateTime);
+					if (!GetCampaignFromId(Trackmania_CampaignStore_State, Response.CampaignList[0].Id).IsFetched) {
+						Trackmania_CampaignStore_State = Mutation_SetCampaignsOffset(Trackmania_CampaignStore_State, CampaignStruct::C_CampaignType_WeeklyGrands, 0);
+						Trackmania_CampaignStore_State = Mutation_SetCampaigns(Trackmania_CampaignStore_State, CampaignStruct::C_CampaignType_WeeklyGrands, Response.CampaignsTotal, Response.CampaignsUpdateTime, Response.CampaignList);
+					}
+				} else {
+					Trackmania_CampaignStore_State = Mutation_SetLiveWeeklyGrandsCampaign(
+						Trackmania_CampaignStore_State,
+						Trackmania_CampaignStore_State.LiveWeeklyGrands.Campaign,
+						C_LiveCampaignStatus_NoCampaigns,
+						//L16N Message displayed when no official Weekly Grands campaigns were found. 'Weekly Grands' is considered a proper name, so do NOT translate it unless necessary. 'Weekly Grands' is a UGC content comprising long tracks, released each week.
+						_("No Weekly Grands campaigns found."),
+						True,
+						0,
+						-1
+					);
+				}
+			} else {
+				declare ErrorMessage = TL::Compose(
+					//L16N Do not translate 'Nadeo Services'. 'Weekly Grands' is considered a proper name, so do NOT translate it unless necessary. 'Weekly Grands' is a UGC content comprising long tracks, released each week. %1 will be replaced by an error code, e.g. "Error code: 500"
+					_("Error while fetching Weekly Grands campaign from Nadeo Services. Please try again. (Error code: %1)"),
+					""^Http::GetStatusCode(G_Request_LoadLiveWeeklyGrandsCampaign)
+				);
+				Trackmania_CampaignStore_State = Mutation_SetLiveWeeklyGrandsCampaign(
+					Trackmania_CampaignStore_State,
+					Trackmania_CampaignStore_State.LiveWeeklyGrands.Campaign,
+					C_LiveCampaignStatus_Error,
+					ErrorMessage,
+					True,
+					0,
+					-1
+				);
+			}
+			G_Request_LoadLiveWeeklyGrandsCampaign = Http::Destroy(G_Request_LoadLiveWeeklyGrandsCampaign);
+		}
+	}
+
+	// Get live cup of the week campaign
+	if (Http::IsInitialized(G_Request_LoadLiveCupOfTheWeekCampaign)) {
+		G_Request_LoadLiveCupOfTheWeekCampaign = Http::Update(G_Request_LoadLiveCupOfTheWeekCampaign);
+		if (!Http::IsRunning(G_Request_LoadLiveCupOfTheWeekCampaign)) {
+			declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+			if (Http::IsSuccess(G_Request_LoadLiveCupOfTheWeekCampaign)) {
+				declare Response = CampaignAPI::GetResponseFromGetCupOfTheWeekCampaignList(G_Request_LoadLiveCupOfTheWeekCampaign);
+				if (Response.CampaignList.count > 0) {
+					Trackmania_CampaignStore_State = Mutation_SetLiveCupOfTheWeekCampaign(Trackmania_CampaignStore_State, Response.CampaignList[0], C_LiveCampaignStatus_Loaded, "", True, Response.CampaignsTotal, Response.CampaignsUpdateTime);
+					if (!GetCampaignFromId(Trackmania_CampaignStore_State, Response.CampaignList[0].Id).IsFetched) {
+						Trackmania_CampaignStore_State = Mutation_SetCampaignsOffset(Trackmania_CampaignStore_State, CampaignStruct::C_CampaignType_CupOfTheWeek, 0);
+						Trackmania_CampaignStore_State = Mutation_SetCampaigns(Trackmania_CampaignStore_State, CampaignStruct::C_CampaignType_CupOfTheWeek, Response.CampaignsTotal, Response.CampaignsUpdateTime, Response.CampaignList);
+					}
+				} else {
+					Trackmania_CampaignStore_State = Mutation_SetLiveCupOfTheWeekCampaign(
+						Trackmania_CampaignStore_State,
+						Trackmania_CampaignStore_State.LiveCupOfTheWeek.Campaign,
+						C_LiveCampaignStatus_NoCampaigns,
+						//L16N Message displayed when no official Cup of the Week campaigns were found.
+						_("No Cup of the Week campaigns found."),
+						True,
+						0,
+						-1
+					);
+				}
+			} else {
+				Trackmania_CampaignStore_State = Mutation_SetLiveCupOfTheWeekCampaign(
+					Trackmania_CampaignStore_State,
+					Trackmania_CampaignStore_State.LiveCupOfTheWeek.Campaign,
+					C_LiveCampaignStatus_Error,
+					TL::Compose(
+						//L16N Do not translate "Nadeo Services". %1 will be replaced by an error code, e.g. "Error code: 500"
+						_("Error while fetching Cup of the Week campaign from Nadeo Services. Please try again. (Error code: %1)"),
+						""^Http::GetStatusCode(G_Request_LoadLiveCupOfTheWeekCampaign)
+					),
+					True,
+					0,
+					-1
+				);
+			}
+			G_Request_LoadLiveCupOfTheWeekCampaign = Http::Destroy(G_Request_LoadLiveCupOfTheWeekCampaign);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the Campaign store
+Void Yield() {
+	ProcessCampaignPagingRequests();
+
+	// Campaign request
+	declare TmpCampaignRequestList = G_Request_CampaignList;
+	foreach (CampaignId => Request in TmpCampaignRequestList) {
+		if (Http::IsInitialized(G_Request_CampaignList[CampaignId].Request)) {
+			G_Request_CampaignList[CampaignId].Request = Http::Update(G_Request_CampaignList[CampaignId].Request);
+			if (!Http::IsRunning(G_Request_CampaignList[CampaignId].Request)) {
+				if (Http::IsSuccess(G_Request_CampaignList[CampaignId].Request)) {
+					declare CampaignStruct::LibCampaignStruct_K_Campaign CampaignResponse = ClubAPI::GetResponseFromGetClubCampaign(G_Request_CampaignList[CampaignId].Request);
+
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					declare Campaign = GetCampaignFromId(Trackmania_CampaignStore_State, CampaignId);
+					CampaignResponse.IsFetched = Campaign.IsFetched;
+					CampaignResponse.IsLoaded = Campaign.IsLoaded;
+					Trackmania_CampaignStore_State = Mutation_SetLoadedCampaign(
+						Trackmania_CampaignStore_State,
+						CampaignResponse
+					);
+				} else {
+					declare ErrorMessage = TL::Compose(
+						//L16N [CampaignRequest] %1 goes for the type of error
+						_("Error while retrieving the campaign. Please try again. (Error code: %1)"),
+						""^Http::GetStatusCode(G_Request_CampaignList[CampaignId].Request)
+					);
+					Store::SendEvent(C_StoreId, C_Event_CampaignUpdateFailed, [""^CampaignId, ErrorMessage]);
+				}
+				Http::Destroy(G_Request_CampaignList[CampaignId].Request);
+				G_Request_CampaignList.removekey(CampaignId);
+			}
+		}
+	}
+
+	ProcessMapListAndLoadScoreRequests();
+
+	// Get map records request
+	if (G_Request_GetMapsRecordsList.count > 0) {
+		declare TmpMapsRecordsList = G_Request_GetMapsRecordsList;
+		foreach (GroupUid => Request in TmpMapsRecordsList) {
+			if (Http::IsInitialized(G_Request_GetMapsRecordsList[GroupUid])) {
+				G_Request_GetMapsRecordsList[GroupUid] = Http::Update(G_Request_GetMapsRecordsList[GroupUid]);
+				if (!Http::IsRunning(G_Request_GetMapsRecordsList[GroupUid])) {
+					if (Http::IsSuccess(G_Request_GetMapsRecordsList[GroupUid])) {
+						declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+						Trackmania_CampaignStore_State = Mutation_SetMapsRecords(
+							Trackmania_CampaignStore_State,
+							GroupUid,
+							LeaderboardAPI::GetResponseFromGetPlayerAllMapsRankings(G_Request_GetMapsRecordsList[GroupUid])
+						);
+					}
+					Http::Destroy(G_Request_GetMapsRecordsList[GroupUid]);
+					G_Request_GetMapsRecordsList.removekey(GroupUid);
+				}
+			}
+		}
+	}
+
+	// Get player map rankings request
+	if (Http::IsInitialized(G_Request_GetPlayerMapRankings)) {
+		G_Request_GetPlayerMapRankings = Http::Update(G_Request_GetPlayerMapRankings);
+		if (!Http::IsRunning(G_Request_GetPlayerMapRankings)) {
+			declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+			if (Http::IsSuccess(G_Request_GetPlayerMapRankings)) {
+				Trackmania_CampaignStore_State = Mutation_SetMapRecords(
+					Trackmania_CampaignStore_State,
+					Http::GetMetadata(G_Request_GetPlayerMapRankings, "SeasonUid"),
+					LeaderboardAPI::GetResponseFromGetPlayerMapRankings(G_Request_GetPlayerMapRankings)
+				);
+			}
+			G_Request_GetPlayerMapRankings = Http::ResetMetadata(G_Request_GetPlayerMapRankings);
+			G_Request_GetPlayerMapRankings = Http::Destroy(G_Request_GetPlayerMapRankings);
+		}
+	}
+
+	// Result of the player's global ranking request
+	if (G_Request_GetPlayerMapGroupListGlobalRankings.count > 0) {
+		declare TmpPlayerMapGroupListRankings = G_Request_GetPlayerMapGroupListGlobalRankings;
+		foreach (Key => MapGroupListRankingsRequest in TmpPlayerMapGroupListRankings) {
+			if (Http::IsInitialized(MapGroupListRankingsRequest.Request)) {
+				declare UpdatedRequest = Http::Update(MapGroupListRankingsRequest.Request);
+				if (!Http::IsRunning(UpdatedRequest)) {
+					if (Http::IsSuccess(UpdatedRequest)) {
+						declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+						Trackmania_CampaignStore_State = Mutation_SetMapGroupListGlobalRankings(
+							Trackmania_CampaignStore_State,
+							MapGroupListRankingsRequest.MapGroupList,
+							LeaderboardAPI::GetResponseFromGetPlayerMapGroupUidListRankings(UpdatedRequest)
+						);
+					} else {
+						Store::SendEvent(C_StoreId, C_Event_MapPlayerGlobalRankingsUpdateError, []);
+					}
+					Http::Destroy(UpdatedRequest);
+					G_Request_GetPlayerMapGroupListGlobalRankings.removekey(Key);
+				} else {
+					G_Request_GetPlayerMapGroupListGlobalRankings[Key].Request = UpdatedRequest;
+				}
+			}
+		}
+	}
+
+	// Get player maps ranking in club requests
+	if (G_Request_GetMapsPositionsListInClub.count > 0) {
+		declare TmpRequestList = G_Request_GetMapsPositionsListInClub;
+		foreach (GroupUid => Requests in TmpRequestList) {
+			foreach (ClubId => Request in Requests) {
+				if (Http::IsInitialized(Request)) {
+					G_Request_GetMapsPositionsListInClub[GroupUid][ClubId] = Http::Update(Request);
+					if (!Http::IsRunning(G_Request_GetMapsPositionsListInClub[GroupUid][ClubId])) {
+						if (Http::IsSuccess(G_Request_GetMapsPositionsListInClub[GroupUid][ClubId])) {
+							declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+							Trackmania_CampaignStore_State = Mutation_SetMapsClubRankings(
+								Trackmania_CampaignStore_State,
+								GroupUid,
+								ClubId,
+								LeaderboardAPI::GetResponseFromGetPlayerAllMapsRankingsInAClub(G_Request_GetMapsPositionsListInClub[GroupUid][ClubId])
+							);
+						} else {
+							declare Text ErrorMessage = TL::Compose(
+								//L16N %1 will be replaced by an error code, e.g. "Error code: 500"
+								_("Error while fetching player position on tracks in club rankings. Please try again. (Error code: %1)"),
+								""^Http::GetStatusCode(G_Request_GetMapsPositionsListInClub[GroupUid][ClubId])
+							);
+							Store::SendEvent(C_StoreId, C_Event_MapPlayerClubRankingsUpdateError, [ErrorMessage]);
+						}
+						Http::Destroy(G_Request_GetMapsPositionsListInClub[GroupUid][ClubId]);
+						G_Request_GetMapsPositionsListInClub[GroupUid].removekey(ClubId);
+						if (G_Request_GetMapsPositionsListInClub[GroupUid].count == 0) {
+							G_Request_GetMapsPositionsListInClub.removekey(GroupUid);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Get player map rankings in club requests
+	if (Http::IsInitialized(G_Request_GetPlayerMapRankingsInClub)) {
+		G_Request_GetPlayerMapRankingsInClub = Http::Update(G_Request_GetPlayerMapRankingsInClub);
+		if (!Http::IsRunning(G_Request_GetPlayerMapRankingsInClub)) {
+			declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+			if (Http::IsSuccess(G_Request_GetPlayerMapRankingsInClub)) {
+				Trackmania_CampaignStore_State = Mutation_SetMapClubRankings(
+					Trackmania_CampaignStore_State,
+					Http::GetMetadata(G_Request_GetPlayerMapRankingsInClub, "SeasonUid"),
+					TL::ToInteger(Http::GetMetadata(G_Request_GetPlayerMapRankingsInClub, "ClubId")),
+					LeaderboardAPI::GetResponseFromGetPlayerMapRankingInClub(G_Request_GetPlayerMapRankingsInClub)
+				);
+			}
+			G_Request_GetPlayerMapRankingsInClub = Http::ResetMetadata(G_Request_GetPlayerMapRankingsInClub);
+			G_Request_GetPlayerMapRankingsInClub = Http::Destroy(G_Request_GetPlayerMapRankingsInClub);
+		}
+	}
+
+	// Result of the player's club ranking request
+	if (G_Request_GetPlayerMapGroupListClubRankings.count > 0) {
+		declare TmpPlayerMapGroupListClubRankings = G_Request_GetPlayerMapGroupListClubRankings;
+		foreach (Key => Requests in TmpPlayerMapGroupListClubRankings) {
+			foreach (ClubId => MapGroupListRankingsRequest in Requests) {
+				if (Http::IsInitialized(MapGroupListRankingsRequest.Request)) {
+					declare UpdatedRequest = Http::Update(MapGroupListRankingsRequest.Request);
+					if (!Http::IsRunning(UpdatedRequest)) {
+						if (Http::IsSuccess(UpdatedRequest)) {
+							declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+							Trackmania_CampaignStore_State = Mutation_SetMapGroupListClubRankings(
+								Trackmania_CampaignStore_State,
+								MapGroupListRankingsRequest.MapGroupList,
+								ClubId,
+								LeaderboardAPI::GetResponseFromGetPlayerMapGroupUidListRankingsInAClub(UpdatedRequest)
+							);
+						} else {
+							declare Text ErrorMessage = TL::Compose(
+								//L16N %1 will be replaced by an error code, e.g. "Error code: 500"
+								_("Error while fetching player position on tracks in club rankings. Please try again. (Error code: %1)"),
+								""^Http::GetStatusCode(UpdatedRequest)
+							);
+							Store::SendEvent(C_StoreId, C_Event_MapPlayerClubRankingsUpdateError, [ErrorMessage]);
+						}
+						Http::Destroy(UpdatedRequest);
+						G_Request_GetPlayerMapGroupListClubRankings[Key].removekey(ClubId);
+						if (G_Request_GetPlayerMapGroupListClubRankings[Key].count == 0) {
+							G_Request_GetPlayerMapGroupListClubRankings.removekey(Key);
+						}
+					} else {
+						G_Request_GetPlayerMapGroupListClubRankings[Key][ClubId].Request = UpdatedRequest;
+					}
+				}
+			}
+		}
+	}
+
+	ProcessTopRankingsRequests();
+
+	// Get player rankings request
+	declare TmpGetPlayerRankingsList = G_Request_GetPlayerRankingsList;
+	foreach (CampaignId => Request in TmpGetPlayerRankingsList) {
+		if (Http::IsInitialized(Request)) {
+			G_Request_GetPlayerRankingsList[CampaignId] = Http::Update(G_Request_GetPlayerRankingsList[CampaignId]);
+			if (!Http::IsRunning(G_Request_GetPlayerRankingsList[CampaignId])) {
+				if (Http::IsSuccess(G_Request_GetPlayerRankingsList[CampaignId])) {
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_SetCampaignRankings(
+						Trackmania_CampaignStore_State,
+						CampaignId,
+						LeaderboardAPI::GetResponseFromGetPlayerRankings(G_Request_GetPlayerRankingsList[CampaignId])
+					);
+				}
+				G_Request_GetPlayerRankingsList[CampaignId] = Http::Destroy(G_Request_GetPlayerRankingsList[CampaignId]);
+				G_Request_GetPlayerRankingsList.removekey(CampaignId);
+			}
+		}
+	}
+
+	// Get surrounding rankings request
+	declare TmpListLevels = G_Request_GetMapRankingLevelsList;
+	foreach (MapUid => Request_ReadOnly in TmpListLevels) {
+		if (Http::IsInitialized(G_Request_GetMapRankingLevelsList[MapUid].Request)) {
+			declare Request = Http::Update(G_Request_GetMapRankingLevelsList[MapUid].Request);
+			if (!Http::IsRunning(Request)) {
+				if (Http::IsSuccess(Request)) {
+					declare Response = LeaderboardAPI::GetResponseFromGetMapLevels(Request);
+
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_SetRankingLevels(
+						Trackmania_CampaignStore_State,
+						Response.MapUid,
+						Response.SeasonUid,
+						Response.LevelsByZone
+					);
+
+					declare Text[] WebServicesUserIdList;
+					foreach (LevelByZone in Response.LevelsByZone) {
+						foreach (TopScore in LevelByZone) {
+							WebServicesUserIdList.add(TopScore.AccountId);
+						}
+					}
+					G_Request_GetMapRankingLevelsList[MapUid].Task_GetDisplayName = Task::Create(UserMgr, UserMgr.RetrieveDisplayName(MainUser::GetMainUserId(), WebServicesUserIdList));
+				} else {
+					Store::SendEvent(C_StoreId, C_Event_MapRankingLevelsUpdateFailed, []);
+				}
+				Request = Http::Destroy(Request);
+			}
+			G_Request_GetMapRankingLevelsList[MapUid].Request = Request;
+		}
+
+		if (Task::IsInitialized(G_Request_GetMapRankingLevelsList[MapUid].Task_GetDisplayName)) {
+			G_Request_GetMapRankingLevelsList[MapUid].Task_GetDisplayName = Task::Update(G_Request_GetMapRankingLevelsList[MapUid].Task_GetDisplayName);
+			if (!Task::IsRunning(G_Request_GetMapRankingLevelsList[MapUid].Task_GetDisplayName)) {
+				if (Task::IsSuccess(G_Request_GetMapRankingLevelsList[MapUid].Task_GetDisplayName)) {
+					declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+					Trackmania_CampaignStore_State = Mutation_UpdateRankingLevelsDisplayNames(
+						Trackmania_CampaignStore_State,
+						MapUid,
+						G_Request_GetMapRankingLevelsList[MapUid].SeasonUid
+					);
+				} else {
+					Store::SendEvent(C_StoreId, C_Event_MapRankingLevelsUpdateFailed, []);
+				}
+				G_Request_GetMapRankingLevelsList[MapUid].Task_GetDisplayName = Task::Destroy(G_Request_GetMapRankingLevelsList[MapUid].Task_GetDisplayName);
+			}
+		}
+
+		if (
+			!Http::IsInitialized(G_Request_GetMapRankingLevelsList[MapUid].Request) &&
+			!Task::IsInitialized(G_Request_GetMapRankingLevelsList[MapUid].Task_GetDisplayName)
+		) {
+			G_Request_GetMapRankingLevelsList.removekey(MapUid);
+		}
+	}
+
+	// Load score of offline campaign
+	if (Task::IsInitialized(G_OfflineCampaignTaskLoadScore)) {
+		G_OfflineCampaignTaskLoadScore = Task::Update(G_OfflineCampaignTaskLoadScore);
+		if (!Task::IsRunning(G_OfflineCampaignTaskLoadScore)) {
+			Store::SendEvent(C_StoreId, C_Event_OfflineCampaignLoaded, []);
+			G_OfflineCampaignTaskLoadScore = Task::Destroy(G_OfflineCampaignTaskLoadScore);
+		}
+	}
+
+	// Load the campaigns media for menu buttons
+	if (Http::IsInitialized(G_Request_LoadCampaignsMedia)) {
+		G_Request_LoadCampaignsMedia = Http::Update(G_Request_LoadCampaignsMedia);
+		if (!Http::IsRunning(G_Request_LoadCampaignsMedia)) {
+			if (Http::IsSuccess(G_Request_LoadCampaignsMedia)) {
+				declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+				declare Integer Trackmania_CampaignStore_MenuMediaUpdate for System = 0;
+				declare Text[] CampaignsMediaUrlList;
+
+				Trackmania_CampaignStore_MenuMediaUpdate += 1;
+				Trackmania_CampaignStore_State.CampaignsMedia = CampaignAPI::GetResponseFromGetMedia(G_Request_LoadCampaignsMedia);
+				foreach (CampaignsMedia in Trackmania_CampaignStore_State.CampaignsMedia) {
+					foreach (MediaUrl in CampaignsMedia) {
+						CampaignsMediaUrlList.add(MediaUrl);
+					}
+				}
+
+				Preload::PreloadImages(This, CampaignsMediaUrlList);
+			}
+			G_Request_LoadCampaignsMedia = Http::Destroy(G_Request_LoadCampaignsMedia);
+			Store::SendEvent(C_StoreId, C_Event_CampaignsMediaUpdated, []);
+		}
+	}
+
+	// Load the active media for menu buttons
+	if (Http::IsInitialized(G_Request_LoadMediaActive.Request)) {
+		G_Request_LoadMediaActive.Request = Http::Update(G_Request_LoadMediaActive.Request);
+		if (!Http::IsRunning(G_Request_LoadMediaActive.Request)) {
+			if (Http::IsSuccess(G_Request_LoadMediaActive.Request)) {
+				declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+				declare Integer Trackmania_CampaignStore_MenuMediaUpdate for System = 0;
+				declare Text[] MediaActiveUrlList;
+
+				Trackmania_CampaignStore_MenuMediaUpdate += 1;
+				Trackmania_CampaignStore_State.MediaActiveList = CampaignAPI::Response_GetMediaActive(G_Request_LoadMediaActive.Request);
+				foreach (MediaActive in Trackmania_CampaignStore_State.MediaActiveList) {
+					MediaActiveUrlList.add(MediaActive.Url);
+				}
+
+				Preload::PreloadImages(This, MediaActiveUrlList);
+
+				G_Request_LoadMediaActive.CooldownStartTime = Now;
+			}
+			G_Request_LoadMediaActive.Request = Http::Destroy(G_Request_LoadMediaActive.Request);
+			Store::SendEvent(C_StoreId, C_Event_MediaActiveUpdated, []);
+		}
+	}
+
+	ProcessLiveCampaignRequests();
+
+	// Load my quarterly campaign ranking
+	if (G_LoadMyQuarterlyCampaignsRankings.IsLoading) {
+		if (Http::IsInitialized(G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList)) {
+			G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList = Http::Update(G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList);
+			if (!Http::IsRunning(G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList)) {
+				if (Http::IsSuccess(G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList)) {
+					declare CampaignAPI::LibCampaignAPI_K_ResponseGetCampaignList QuarterlyCampaigns = CampaignAPI::GetResponseFromGetOfficialCampaignList(G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList);
+					foreach (Index => Campaign in QuarterlyCampaigns.CampaignList) {
+						G_LoadMyQuarterlyCampaignsRankings.Requests_GetPlayerRankings[G_LoadMyQuarterlyCampaignsRankings.Offset + Index] = LeaderboardAPI::GetPlayerRankings(Campaign.SeasonUid, G_LoadMyQuarterlyCampaignsRankings.AccountId);
+						G_LoadMyQuarterlyCampaignsRankings.CampaignsNames[G_LoadMyQuarterlyCampaignsRankings.Offset + Index] = Campaign.Name;
+					}
+					G_LoadMyQuarterlyCampaignsRankings.Total = QuarterlyCampaigns.CampaignsTotal;
+				}
+				G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList = Http::Destroy(G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList);
+			}
+		}
+		if (G_LoadMyQuarterlyCampaignsRankings.Requests_GetPlayerRankings.count > 0) {
+			declare Http::K_Request[Integer] Requests_GetPlayerRankings = G_LoadMyQuarterlyCampaignsRankings.Requests_GetPlayerRankings;
+			foreach (Index => Request_GetPlayerRankings in Requests_GetPlayerRankings) {
+				if (Http::IsInitialized(Request_GetPlayerRankings)) {
+					declare Http::K_Request UpdatedRequest = Http::Update(Request_GetPlayerRankings);
+					if (Http::IsRunning(UpdatedRequest)) {
+						G_LoadMyQuarterlyCampaignsRankings.Requests_GetPlayerRankings[Index] = UpdatedRequest;
+					} else {
+						if (Http::IsSuccess(UpdatedRequest)) {
+							G_LoadMyQuarterlyCampaignsRankings.CampaignsRankings[Index] = LeaderboardAPI::GetResponseFromGetPlayerRankings(UpdatedRequest);
+						}
+						Http::Destroy(UpdatedRequest);
+						G_LoadMyQuarterlyCampaignsRankings.Requests_GetPlayerRankings.removekey(Index);
+					}
+				} else {
+					G_LoadMyQuarterlyCampaignsRankings.Requests_GetPlayerRankings.removekey(Index);
+				}
+			}
+		}
+		if (
+			!Http::IsInitialized(G_LoadMyQuarterlyCampaignsRankings.Request_GetCampaignList) &&
+			G_LoadMyQuarterlyCampaignsRankings.Requests_GetPlayerRankings.count <= 0
+		) {
+			G_LoadMyQuarterlyCampaignsRankings.IsLoading = False;
+			declare K_State Trackmania_CampaignStore_State for System = C_State_Null;
+			Trackmania_CampaignStore_State = Mutation_SetMyQuarterlyCampaignsRankings(Trackmania_CampaignStore_State, G_LoadMyQuarterlyCampaignsRankings.CampaignsRankings, G_LoadMyQuarterlyCampaignsRankings.CampaignsNames, G_LoadMyQuarterlyCampaignsRankings.AccountId, G_LoadMyQuarterlyCampaignsRankings.Total);
+		}
+	}
+
+	ProcessEvents(This);
+}

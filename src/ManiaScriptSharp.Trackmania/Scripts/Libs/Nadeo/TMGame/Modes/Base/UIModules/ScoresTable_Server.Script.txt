@@ -1,0 +1,655 @@
+/**
+ *  UI module: ScoresTable server side
+ */
+#Const Version    "1.3.1"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Common.Script.txt" as UIModules_Common
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Common.Script.txt" as UIModules_ScoresTable_Common
+#Include "Libs/Nadeo/Trackmania/API/LeaderboardAPI.Script.txt" as LeaderboardAPI
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct UIModules_ScoresTable_Common::K_CustomName as K_CustomName
+
+#Struct K_Net_GhostData {
+	Text AccountId;
+	Text Nickname;
+	Integer Time;
+	Integer Points;
+	Integer NbRespawns;
+	Integer ZoneRank;
+	Text CountryPath;
+	Boolean IsVIP;
+	Integer ScoreMgrMedal;
+	Boolean IsPB;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const UIModules_ScoresTable_Common::C_Mode_BestTime as C_Mode_BestTime
+#Const UIModules_ScoresTable_Common::C_Mode_PrevTime as C_Mode_PrevTime
+#Const UIModules_ScoresTable_Common::C_Mode_LapTime as C_Mode_LapTime
+#Const UIModules_ScoresTable_Common::C_Mode_Points as C_Mode_Points
+#Const UIModules_ScoresTable_Common::C_Mode_Laps as C_Mode_Laps
+#Const UIModules_ScoresTable_Common::C_Mode_Trophy as C_Mode_Trophy
+#Const UIModules_ScoresTable_Common::C_Mode_RaceProgression as C_Mode_RaceProgression
+#Const UIModules_ScoresTable_Common::C_Mode_Respawns as C_Mode_Respawns
+#Const UIModules_ScoresTable_Common::C_Mode_BestRespawns as C_Mode_BestRespawns
+
+#Const C_EchelonsRequestCooldownDuration 3000
+#Const UIModules_ScoresTable_Common::C_DefaultEchelon as C_DefaultEchelon
+
+#Const C_EchelonStatus_NotRequested 0
+#Const C_EchelonStatus_Requested 1
+#Const C_EchelonStatus_Retrieved 2
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Ident[] G_EchelonsRequestPendingScoreIds;
+declare Integer G_EchelonsRequestCooldownTime;
+declare Http::K_Request G_EchelonsRequest;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_ScoresTable_Common::C_Id;
+}
+
+/// Get the SplitScreen id of the UI module
+Text GetSplitScreenId() {
+	return UIModules_ScoresTable_Common::C_SplitScreenId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the configuration of the UI module
+UIModules_Common::K_ModuleConfig GetConfig() {
+	return UIModules_ScoresTable_Common::C_UIModuleConfig;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Force the use of a specific format
+ *
+ *	@param	_Format										The number of lines and columns <lines, columns>
+ */
+Void ForceFormat(Int2 _Format) {
+	declare netwrite Int2 Net_TMGame_ScoresTable_ForceFormat for Teams[0];
+	Net_TMGame_ScoresTable_ForceFormat = _Format;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set custom points for all players
+ *
+ *	@param	_CustomPoints						The custom points (Text Value & Color Value index by WebServicesUserId)
+ */
+Void SetCustomPoints(Text[][Text] _CustomPoints) {
+	declare netwrite Text[][Text] Net_TMGame_ScoresTable_CustomPoints for Teams[0];
+	Net_TMGame_ScoresTable_CustomPoints = _CustomPoints;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get custom points of all players
+Text[][Text] GetCustomPoints() {
+	declare netwrite Text[][Text] Net_TMGame_ScoresTable_CustomPoints for Teams[0];
+	return Net_TMGame_ScoresTable_CustomPoints;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set match points for all players
+ *
+ *	@param	_MatchPoints						The match points (points indexed by WebServicesUserId)
+ */
+Void SetMatchPoints(Integer[Text] _MatchPoints) {
+	declare netwrite Integer[Text] Net_TMGame_ScoresTable_MatchPoints for Teams[0];
+	Net_TMGame_ScoresTable_MatchPoints = _MatchPoints;
+}
+
+/** Set custom Rank for all players
+ *
+ *	@param	_CustomRank						The custom Rank
+ */
+Void SetCustomRanks(Text[Text] _CustomRanks) {
+	declare netwrite Text[Text] Net_TMGame_ScoresTable_CustomRanks for Teams[0];
+	Net_TMGame_ScoresTable_CustomRanks = _CustomRanks;
+}
+
+Void SetScoreMode(Integer _ScoreMode) {
+	declare netwrite Integer Net_TMGame_ScoresTable_ScoreMode for Teams[0] = C_Mode_BestTime;
+	Net_TMGame_ScoresTable_ScoreMode = _ScoreMode;
+}
+
+Integer GetScoreMode() {
+	declare netwrite Integer Net_TMGame_ScoresTable_ScoreMode for Teams[0] = C_Mode_BestTime;
+	return Net_TMGame_ScoresTable_ScoreMode;
+}
+
+Void DisplayRoundPoints(Boolean _ShowRoundPoints) {
+	declare netwrite Boolean Net_TMGame_ScoresTable_RoundPoints for Teams[0];
+	Net_TMGame_ScoresTable_RoundPoints = _ShowRoundPoints;
+}
+
+Void DisplayOnly(Text[] _AccountIds) {
+	declare netwrite Text[] Net_TMGame_ScoresTable_AccountIdsToDisplay for Teams[0];
+	declare netwrite Integer Net_TMGame_ScoresTable_AccountIdsToDisplayUpdate for Teams[0];
+	Net_TMGame_ScoresTable_AccountIdsToDisplay = _AccountIds;
+	Net_TMGame_ScoresTable_AccountIdsToDisplayUpdate = Now;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the scores table footer info
+ *
+ *	@param	_Message									The message to display
+ */
+Void SetFooterInfo(Text _Message) {
+	declare netwrite Text Net_TMGame_ScoresTable_FooterInfo for Teams[0];
+	Net_TMGame_ScoresTable_FooterInfo = _Message;
+}
+
+Void SetIsLocalMode(Boolean _IsLocalMode) {
+	declare netwrite Boolean Net_TMGame_ScoresTable_IsLocalMode for Teams[0];
+	Net_TMGame_ScoresTable_IsLocalMode = _IsLocalMode;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the scores table times with custom values
+ *
+ *	@param	_CustomTimes									Times indexed by Account ID
+ */
+Void SetCustomTimes(Integer[Text] _CustomTimes) {
+	declare netwrite Integer[Text] Net_TMGame_ScoresTable_CustomTimes for Teams[0];
+	declare netwrite Integer Net_TMGame_ScoresTable_CustomTimesUpdate for Teams[0];
+	Net_TMGame_ScoresTable_CustomTimes = _CustomTimes;
+	Net_TMGame_ScoresTable_CustomTimesUpdate = Now;
+}
+Integer[Text] GetCustomTimes() {
+	declare netwrite Integer[Text] Net_TMGame_ScoresTable_CustomTimes for Teams[0];
+	return Net_TMGame_ScoresTable_CustomTimes;
+}
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set Ghosts for the race
+ *
+ *	@param	Ghosts
+ */
+Void SetGhostsForRanking(
+	CSmPlayer _Player,
+	CGhost[] _Ghosts,
+	Text[Ident] _GhostsAccountIds,
+	Text _GhotsMedalAccountId,
+	CampaignStruct::LibCampaignStruct_K_TopScore[] _ZoneMapRanking,
+	Text _PBDisplayName,
+	Integer _PBRank,
+	Integer _PBRankWhenAdded,
+	Boolean _VIPEnabled,
+	Boolean _IsMedalsGhost,
+	Integer _GhostMedal
+) {
+	declare Boolean IncludePB = True;
+	declare Integer[Integer] GhostsSortByMedals;
+	declare netwrite K_Net_GhostData[] Net_TMGame_ScoresTable_GhostsData_V5 for Teams[0];
+	Net_TMGame_ScoresTable_GhostsData_V5 = [];
+
+	/* Set the ghosts rank */
+	if (_Player != Null && _Player.User != Null) {
+		declare Integer SessionBestTime = 0;
+		declare Text PlayerAccountId = _Player.User.WebServicesUserId;
+
+		if (GetCustomTimes().existskey(PlayerAccountId)) SessionBestTime = GetCustomTimes()[PlayerAccountId];
+		SetCustomRanks([PlayerAccountId => "-"]);
+		foreach (Ghost in _Ghosts) {
+			if (Ghost.Nickname == _PBDisplayName) {
+				if (SessionBestTime > 0 && SessionBestTime <= Ghost.Result.Time) {
+					declare Text PBRank = "-";
+					if (_PBRank > 0) PBRank = ""^_PBRank; // can be 0 if data cannot be retreived from API
+					SetCustomRanks([PlayerAccountId => ""^PBRank]);
+					IncludePB = False;
+				}
+			}
+		}
+	}
+
+	/* Replace ranks by medals for medals ghosts */
+	if (_IsMedalsGhost) {
+		declare Integer[Integer] GhostsSortByTime;
+		declare Integer MedalIndex;
+
+		foreach (Index => Ghost in _Ghosts) {
+			if (Ghost.Nickname != _PBDisplayName) {
+				GhostsSortByTime[Ghost.Result.Time] = Index;
+			}
+		}
+		GhostsSortByTime = GhostsSortByTime.sortkeyreverse();
+		foreach (GhostIndex in GhostsSortByTime) {
+			if (_GhostMedal != Medals::C_ScoreMgrMedal_None) {
+				GhostsSortByMedals[GhostIndex] = _GhostMedal;
+			} else {
+				switch (MedalIndex) {
+					case 2: GhostsSortByMedals[GhostIndex] = Medals::C_ScoreMgrMedal_Gold;
+					case 1: GhostsSortByMedals[GhostIndex] = Medals::C_ScoreMgrMedal_Silver;
+					case 0: GhostsSortByMedals[GhostIndex] = Medals::C_ScoreMgrMedal_Bronze;
+				}
+				MedalIndex += 1;
+			}
+		}
+	}
+
+	/* Add ghosts to the race */
+	foreach (Index => Ghost in _Ghosts) {
+		if (Ghost.Nickname == _PBDisplayName) {
+			if (IncludePB) {
+				Net_TMGame_ScoresTable_GhostsData_V5.add(K_Net_GhostData {
+					AccountId = _GhostsAccountIds.get(Ghost.Id, ""),
+					Nickname = Ghost.Nickname,
+					Time = Ghost.Result.Time,
+					Points = Ghost.Result.Score,
+					NbRespawns = Ghost.Result.NbRespawns,
+					ZoneRank = _PBRank,
+					CountryPath = Ghost.CountryPath,
+					IsVIP = False,
+					ScoreMgrMedal = Medals::C_ScoreMgrMedal_None,
+					IsPB = True
+				});
+			}
+		} else if (_VIPEnabled) {
+			Net_TMGame_ScoresTable_GhostsData_V5.add(K_Net_GhostData {
+				AccountId = _GhostsAccountIds.get(Ghost.Id, ""),
+				Nickname = Ghost.Nickname,
+				Time = Ghost.Result.Time,
+				Points = Ghost.Result.Score,
+				NbRespawns = Ghost.Result.NbRespawns,
+				ZoneRank = 0,
+				CountryPath = Ghost.CountryPath,
+				IsVIP = True,
+				ScoreMgrMedal = Medals::C_ScoreMgrMedal_None,
+				IsPB = False
+			});
+		} else if (_IsMedalsGhost) {
+			declare Integer ScoreMgrMedal = GhostsSortByMedals.get(Index, Medals::C_ScoreMgrMedal_None);
+			Net_TMGame_ScoresTable_GhostsData_V5.add(K_Net_GhostData {
+				AccountId = _GhotsMedalAccountId,
+				Nickname = "$<$"^Medals::GetMedalColorHex3(ScoreMgrMedal)^Ghost.Nickname^"$>",
+				Time = Ghost.Result.Time,
+				Points = Ghost.Result.Score,
+				NbRespawns = Ghost.Result.NbRespawns,
+				ZoneRank = 0,
+				CountryPath = Ghost.CountryPath,
+				IsVIP = False,
+				ScoreMgrMedal = ScoreMgrMedal,
+				IsPB = False
+			});
+		} else {
+			foreach (ScoreEntry in _ZoneMapRanking) {
+				declare Text GhostAccountId = _GhostsAccountIds.get(Ghost.Id, "");
+				if (GhostAccountId == ScoreEntry.AccountId) {
+					declare UpdatedZoneRank = ScoreEntry.Position;
+					if (_PBRank > 0 && _PBRankWhenAdded > 0 && _PBRank <= ScoreEntry.Position && _PBRankWhenAdded >= ScoreEntry.Position) UpdatedZoneRank += 1;
+					Net_TMGame_ScoresTable_GhostsData_V5.add(K_Net_GhostData {
+						AccountId = GhostAccountId,
+						Nickname = Ghost.Nickname,
+						Time = Ghost.Result.Time,
+						Points = Ghost.Result.Score,
+						NbRespawns = Ghost.Result.NbRespawns,
+						ZoneRank = UpdatedZoneRank,
+						CountryPath = Ghost.CountryPath,
+						IsVIP = False,
+						ScoreMgrMedal = Medals::C_ScoreMgrMedal_None,
+						IsPB = False
+					});
+					break;
+				}
+			}
+		}
+	}
+	declare netwrite Integer Net_TMGame_ScoresTable_GhostsDataUpdate for Teams[0];
+	Net_TMGame_ScoresTable_GhostsDataUpdate = Now;
+}
+
+Void SetRacePoints(CUser _User) {
+	if (_User == Null) return;
+
+	declare netwrite Integer Net_TMGame_ScoresTable_RacePointsUpdate for Teams[0];
+	Net_TMGame_ScoresTable_RacePointsUpdate = Now;
+}
+
+Void ResetAllRacePoints() {
+	declare netwrite Integer Net_TMGame_ScoresTable_RacePointsUpdate for Teams[0];
+	Net_TMGame_ScoresTable_RacePointsUpdate = Now;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Convert a CAccountTrophyGain object
+ *	to a trophies array
+ */
+Integer[Integer] ConvertAccountTrophyGain(CAccountTrophyGain _AccountTrophyGain) {
+	declare Integer[Integer] Trophies;
+
+	if (_AccountTrophyGain.T1Count > 0) Trophies[1] = _AccountTrophyGain.T1Count;
+	if (_AccountTrophyGain.T2Count > 0) Trophies[2] = _AccountTrophyGain.T2Count;
+	if (_AccountTrophyGain.T3Count > 0) Trophies[3] = _AccountTrophyGain.T3Count;
+	if (_AccountTrophyGain.T4Count > 0) Trophies[4] = _AccountTrophyGain.T4Count;
+	if (_AccountTrophyGain.T5Count > 0) Trophies[5] = _AccountTrophyGain.T5Count;
+	if (_AccountTrophyGain.T6Count > 0) Trophies[6] = _AccountTrophyGain.T6Count;
+	if (_AccountTrophyGain.T7Count > 0) Trophies[7] = _AccountTrophyGain.T7Count;
+	if (_AccountTrophyGain.T8Count > 0) Trophies[8] = _AccountTrophyGain.T8Count;
+	if (_AccountTrophyGain.T9Count > 0) Trophies[9] = _AccountTrophyGain.T9Count;
+
+	return Trophies;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set the amount of trophies awarded to each player
+Void SetTrophies(Integer[Integer][Text] _Trophies) {
+	declare netwrite Integer[Integer][Text] Net_TMGame_ScoresTable_Trophies for Teams[0];
+	declare netwrite Integer Net_TMGame_ScoresTable_TrophiesUpdate for Teams[0];
+	Net_TMGame_ScoresTable_Trophies = _Trophies;
+	Net_TMGame_ScoresTable_TrophiesUpdate += 1;
+}
+Void ResetTrophies() {
+	SetTrophies([]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Hide the spectators or not
+ *
+ *	It only hides the spectators from the
+ *	ranking in the scores table.
+ *	Even if the player is not visible
+ *	they are still taken into account in the ranking.
+ *	eg: 1. AAA 10 points, 2 BBB 8 points, 3 CCC 5 points
+ *	If BBB switch to spectator mode, the scores table will
+ *	display : 1. AAA 10 points, 2 CCC 5 points
+ *	but the true ranking is still the first one.
+ *	So be careful because it can be misleading.
+ */
+Void SetHideSpectators(Boolean _HideSpectators) {
+	declare netwrite Boolean Net_TMGame_ScoresTable_HideSpectators for Teams[0];
+	Net_TMGame_ScoresTable_HideSpectators = _HideSpectators;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Override player's default name with a custom one
+Void SetCustomNames(K_CustomName[Text] _CustomNames) {
+	declare netwrite K_CustomName[Text] Net_TMGame_ScoresTable_CustomNames_V2 for Teams[0] = [];
+	declare netwrite Integer Net_TMGame_ScoresTable_CustomNamesUpdate for Teams[0] = 0;
+	Net_TMGame_ScoresTable_CustomNames_V2 = _CustomNames;
+	Net_TMGame_ScoresTable_CustomNamesUpdate += 1;
+}
+Void SetCustomNames(Text[Text] _CustomNames) {
+	declare K_CustomName[Text] CustomNames;
+	foreach (AccountId => CustomName in _CustomNames) {
+		CustomNames[AccountId] = K_CustomName {
+			Name = CustomName,
+			IsFirstPartyDisplayName = False,
+			DisplayFirstParty = False
+		};
+	}
+	SetCustomNames(CustomNames);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set a message to display in the right bottom corner of the screen
+ *
+ *	@param	_Message									The message to display
+ *	@param	_InfoInClipboard					The info to set in the clipboard (when we click on the message)
+ */
+Void SetInfoMessage(Text _Message, Text _InfoInClipboard) {
+	declare netwrite Text Net_TMGame_ScoresTable_InfoMessage for Teams[0];
+	declare netwrite Text Net_TMGame_ScoresTable_InfoClipboard for Teams[0];
+	Net_TMGame_ScoresTable_InfoMessage = _Message;
+	Net_TMGame_ScoresTable_InfoClipboard = _InfoInClipboard;
+}
+
+Void SetInfoMessage(Text _Message) {
+	SetInfoMessage(_Message, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the matchmaking id (used in the report context)
+ *
+ *	@param	_MatchmakingId					The id of the current matchmaking (ranked or royal)
+ */
+Void SetMatchmakingId(Text _MatchmakingId) {
+	declare netwrite Text Net_TMGame_ScoresTable_MatchmakingId for Teams[0];
+	Net_TMGame_ScoresTable_MatchmakingId = _MatchmakingId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the race progression for a score
+Void SetRaceProgression(CScore _Score, Integer _Points, Integer _Time) {
+	if (_Score == Null) return;
+	declare netwrite Int2 Net_TMGame_ScoresTable_RaceProgression for _Score;
+	declare netwrite Integer Net_TMGame_ScoresTable_RaceProgressionUpdate for Teams[0];
+	if (Net_TMGame_ScoresTable_RaceProgression != <_Points, _Time>) {
+		Net_TMGame_ScoresTable_RaceProgression = <_Points, _Time>;
+		Net_TMGame_ScoresTable_RaceProgressionUpdate += 1;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset race progression on all scores
+Void ResetRaceProgressions() {
+	foreach (Score in Scores) {
+		declare netwrite Int2 Net_TMGame_ScoresTable_RaceProgression for Score;
+		Net_TMGame_ScoresTable_RaceProgression = <0, -1>;
+	}
+	declare netwrite Integer Net_TMGame_ScoresTable_RaceProgressionUpdate for Teams[0];
+	Net_TMGame_ScoresTable_RaceProgressionUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the best respawns for a score (in Platform mode for example)
+Void SetBestRespawns(CScore _Score, Integer _RespawnsNb) {
+	if (_Score == Null) return;
+	declare netwrite Integer Net_TMGame_ScoresTable_BestRespawns for _Score = -1;
+	declare netwrite Integer Net_TMGame_ScoresTable_BestRespawnsUpdate for Teams[0];
+	Net_TMGame_ScoresTable_BestRespawns = _RespawnsNb;
+	Net_TMGame_ScoresTable_BestRespawnsUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset best respawns on all scores
+Void ResetBestRespawns() {
+	foreach (Score in Scores) {
+		declare netwrite Integer Net_TMGame_ScoresTable_BestRespawns for Score;
+		Net_TMGame_ScoresTable_BestRespawns = -1;
+	}
+	declare netwrite Integer Net_TMGame_ScoresTable_BestRespawnsUpdate for Teams[0];
+	Net_TMGame_ScoresTable_BestRespawnsUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set if voice chat is enabled in the server (to display mute options on players)
+Void SetVoiceChatEnabled(Boolean _IsVoiceChatEnabled) {
+	declare netwrite Boolean Net_TMGame_ScoresTable_IsVoiceChatEnabled for Teams[0];
+	Net_TMGame_ScoresTable_IsVoiceChatEnabled = _IsVoiceChatEnabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Show or hide the UI
+ *
+ *	@param	_Player										The player to update
+ *	@param	_Display									True to show
+ *																		False to hide
+ */
+Void SetVisibility(CPlayer _Player, Boolean _Display) {
+	if (_Player == Null) return;
+
+	declare netwrite Boolean Net_TMGame_ScoresTable_IsVisible for _Player;
+	Net_TMGame_ScoresTable_IsVisible = _Display;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	SetVisibility(_Player, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Request the echelon of a player if it was not requested already
+Ident[] Private_RequestEchelon(Ident[] _EchelonsRequestPendingScoreIds, CSmScore _Score) {
+	if (_Score == Null || _EchelonsRequestPendingScoreIds.exists(_Score.Id)) return _EchelonsRequestPendingScoreIds;
+	declare Integer TMGame_ScoresTable_EchelonStatus for _Score = C_EchelonStatus_NotRequested;
+	if (TMGame_ScoresTable_EchelonStatus != C_EchelonStatus_NotRequested) return _EchelonsRequestPendingScoreIds;
+
+	declare Ident[] EchelonsRequestPendingScoreIds = _EchelonsRequestPendingScoreIds;
+	EchelonsRequestPendingScoreIds.add(_Score.Id);
+	return EchelonsRequestPendingScoreIds;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Request the echelon of all players
+Void RequestPlayersEchelons() {
+	foreach (Score in Scores) {
+		G_EchelonsRequestPendingScoreIds = Private_RequestEchelon(G_EchelonsRequestPendingScoreIds, Score);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CSmModeEvent::EType::OnPlayerAdded && Event.Player != Null) {
+			G_EchelonsRequestPendingScoreIds = Private_RequestEchelon(G_EchelonsRequestPendingScoreIds, Event.Player.Score);
+		}
+	}
+
+	if (G_EchelonsRequestPendingScoreIds.count > 0 && Now >= G_EchelonsRequestCooldownTime && !Http::IsInitialized(G_EchelonsRequest)) {
+		G_EchelonsRequestCooldownTime = Now + C_EchelonsRequestCooldownDuration;
+
+		declare Text[] AccountIdsToRequest;
+		declare Boolean EchelonsUpdated = False;
+		foreach (ScoreId in G_EchelonsRequestPendingScoreIds) {
+			if (Scores.existskey(ScoreId)) {
+				declare CSmScore Score <=> Scores[ScoreId];
+				declare Integer TMGame_ScoresTable_EchelonStatus for Score = C_EchelonStatus_NotRequested;
+
+				// If we cannot find a valid user to retrieve from the API, we set them at the default echelon
+				if (Score.User != Null) {
+					AccountIdsToRequest.add(Score.User.WebServicesUserId);
+					TMGame_ScoresTable_EchelonStatus = C_EchelonStatus_Requested;
+				} else {
+					declare netwrite Integer Net_TMGame_ScoresTable_Echelon for Score = C_DefaultEchelon;
+					Net_TMGame_ScoresTable_Echelon = C_DefaultEchelon;
+					TMGame_ScoresTable_EchelonStatus = C_EchelonStatus_Retrieved;
+					EchelonsUpdated = True;
+				}
+			}
+		}
+		G_EchelonsRequestPendingScoreIds = [];
+
+		if (EchelonsUpdated) {
+			declare netwrite Integer Net_TMGame_ScoresTable_EchelonsUpdate for Teams[0];
+			Net_TMGame_ScoresTable_EchelonsUpdate += 1;
+		}
+
+		if (AccountIdsToRequest.count > 0) {
+			G_EchelonsRequest = Http::DestroyAndCreate(G_EchelonsRequest, LeaderboardAPI::GetPlayersTrophyRankingServer(AccountIdsToRequest, True));
+		}
+	}
+
+	if (Http::IsInitialized(G_EchelonsRequest)) {
+		G_EchelonsRequest = Http::Update(G_EchelonsRequest);
+		if (!Http::IsRunning(G_EchelonsRequest)) {
+			if (Http::IsSuccess(G_EchelonsRequest)) {
+				declare LeaderboardAPI::K_ResponseFromGetPlayersTrophyRanking Response = LeaderboardAPI::GetResponseFromGetPlayersTrophyRankingServer(G_EchelonsRequest);
+				declare Integer[Text] Echelons;
+				foreach (Player in Response.Players) {
+					Echelons[Player.AccountId] = Player.Echelon;
+				}
+
+				foreach (Score in Scores) {
+					declare Integer TMGame_ScoresTable_EchelonStatus for Score = C_EchelonStatus_NotRequested;
+					if (TMGame_ScoresTable_EchelonStatus == C_EchelonStatus_Requested) {
+						TMGame_ScoresTable_EchelonStatus = C_EchelonStatus_Retrieved;
+
+						declare netwrite Integer Net_TMGame_ScoresTable_Echelon for Score = C_DefaultEchelon;
+						if (Score.User != Null) {
+							Net_TMGame_ScoresTable_Echelon = Echelons.get(Score.User.WebServicesUserId, C_DefaultEchelon);
+						} else {
+							Net_TMGame_ScoresTable_Echelon = C_DefaultEchelon;
+						}
+					}
+				}
+
+				declare netwrite Integer Net_TMGame_ScoresTable_EchelonsUpdate for Teams[0];
+				Net_TMGame_ScoresTable_EchelonsUpdate += 1;
+			} else {
+				foreach (Score in Scores) {
+					declare Integer TMGame_ScoresTable_EchelonStatus for Score = C_EchelonStatus_NotRequested;
+					if (TMGame_ScoresTable_EchelonStatus == C_EchelonStatus_Requested) {
+						TMGame_ScoresTable_EchelonStatus = C_EchelonStatus_NotRequested;
+					}
+				}
+			}
+			G_EchelonsRequest = Http::Destroy(G_EchelonsRequest);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	ForceFormat(<0, 0>);
+	SetCustomRanks([]);
+	SetCustomPoints([]);
+	SetScoreMode(C_Mode_BestTime);
+	SetFooterInfo("");
+	ResetAllRacePoints();
+	DisplayOnly([]);
+	DisplayRoundPoints(False);
+	SetGhostsForRanking(Null, [], [], "", [], "", 0, 0, False, False, Medals::C_ScoreMgrMedal_None);
+	SetIsLocalMode(False);
+	SetCustomTimes([]);
+	ResetTrophies();
+	SetHideSpectators(False);
+	SetCustomNames([]);
+	SetInfoMessage("");
+	SetMatchmakingId("");
+	ResetRaceProgressions();
+	ResetBestRespawns();
+	SetVoiceChatEnabled(False);
+
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+
+	G_EchelonsRequestPendingScoreIds = [];
+	G_EchelonsRequestCooldownTime = Now;
+	G_EchelonsRequest = Http::Destroy(G_EchelonsRequest);
+
+	// We destroyed any ongoing request to retrive the users echelon
+	// So we must reset the echelon status of the users that were in this request
+	foreach (Score in Scores) {
+		declare Integer TMGame_ScoresTable_EchelonStatus for Score = C_EchelonStatus_NotRequested;
+		if (TMGame_ScoresTable_EchelonStatus == C_EchelonStatus_Requested) {
+			TMGame_ScoresTable_EchelonStatus = C_EchelonStatus_NotRequested;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	RequestPlayersEchelons();
+}

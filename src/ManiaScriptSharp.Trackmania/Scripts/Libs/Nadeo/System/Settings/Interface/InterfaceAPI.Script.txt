@@ -1,0 +1,282 @@
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Settings/SettingsStructs.Script.txt" as Structs
+
+#Const C_LibInterfaceAPI_AvailableSettings """
+<settings>
+	<setting type="Enum" id="CrosshairSelect" name="|Crosshair|Crosshair skin" />
+	<setting type="Real" id="CrosshairSize" name="|Crosshair|Scale" min="0.1" max="2" step="0.05" />
+	<setting type="Real" id="CrosshairOpacity" name="|Crosshair|Opacity" min="0.1" max="1" step="0.05" />
+	<setting type="Bool" id="CrosshairUseColor" name="|Crosshair|Use custom color" />
+	<setting type="Color" id="CrosshairColorHue" name="|Crosshair|Color hue" min="0" max="1" step="0.01" />
+	<setting type="Real" id="CrosshairSaturation" name="|Crosshair|Saturation" min="0" max="1" step="0.05" />
+
+	<setting type="Bool" 	id="PlayerColorEnable" 						name="Use custom player colors" />
+	<setting type="Color" 	id="PlayerColorAlly" 						name="Teammates color" min="0" max="1" step="0.01" />
+	<setting type="Color" 	id="PlayerColorEnemy" 						name="Opponents color" min="0" max="1" step="0.01" />
+	<setting type="Real" 	id="PlayerShieldScale" 						name="Player outline intensity" min="0.1" max="2" step="0.1" />
+	
+	<setting type="Bool" id="BeaconsUseCustom" name="|Beacon|Use profile color for pings" />
+	<setting type="Real" id="BeaconsPitch" name="|Beacon|My ping sound pitch" min="0.5" max="2" step="0.1" />
+	<setting type="Real" id="BeaconsSize" name="|Beacon|Ping markers scale" min="0.1" max="5" step="0.1" />
+	<setting type="Real" id="BeaconsOpacity" name="|Beacon|Ping markers opacity" min="0" max="1" step="0.05" />
+	<setting type="Real" id="BeaconsDuration" name="|Beacon|Ping markers duration (s)" min="0.5" max="15" step="0.25" />
+	
+	<setting type="Enum" 		id="HudMarkersDisplayType" name="Player labels type" />
+	<setting type="IntSlider"   id="HudMarkersDisplaySize" name="Player labels size" min="1" max="5" step="1" />
+	
+	<setting type="Enum"	id="OnlineDefaultOpponentVisibility"		name="Default opponents visibility" />
+	<setting type="Bool"	id="UseAlternateCam1"						name="Prioritize alternative camera 1" />
+	<setting type="Bool"	id="UseAlternateCam2"						name="Prioritize alternative camera 2" />
+	<setting type="Bool"	id="UseAlternateInternalCam"				name="Prioritize alternative cockpit view" />
+	<setting type="Enum" 	id="InterfaceInternalCamPlayerVisibility" 	name="Player visibility for cockpit view" />
+	<setting type="Enum"	id="OnlineRoadsideSpectatorVisibility"		name="Visibility of roadside spectators" />
+	<setting type="Bool"	id="InterfaceShowSpecialsFeedback"			name="Show special blocks messages" />
+	<setting type="Bool"	id="InterfaceAlwaysDisplayRecords"			name="Always display records" />
+
+	<setting type="Bool"	id="EnableMapEditorQuickStart"				name="Enable map editor quick start" info="Only available with the Standard and Club access" />
+	<setting type="Bool" 	id="MapEditorQuickStartUseGampadController" name="Use gamepad" />
+	<setting type="Enum" 	id="MapEditorQuickStartDifficulty"		 	name="Difficulty" />
+	<setting type="Enum" 	id="MapEditorQuickStartMood"		 		name="Mood" />
+</settings>
+"""
+
+#Const C_GamePermission_OpenAdvancedMapEditor "client_OpenAdvancedMapEditor" //< User can open the advanced map editor
+
+declare Structs::SSettingModel[Text] G_LibInterfaceAPI_AvailableSettings;
+declare Boolean G_LibInterfaceAPI_PendingSettingsUpdate;
+declare Boolean G_LibInterfaceAPI_HasPermissionToOpenAdvancedMapEditor;
+declare Boolean G_LibInterfaceAPI_ForceMapEditorQuickStartDifficultySettingUpdate;
+declare Text[] G_LibInterfaceAPI_CrosshairSkinsList;
+declare CTaskResult_FileList G_LibInterfaceAPI_CrosshairSkinsTask;
+
+Void ForceMapEditorQuickStartDifficultySettingUpdate() {
+	G_LibInterfaceAPI_ForceMapEditorQuickStartDifficultySettingUpdate = True;
+}
+
+Structs::SSettingModel[Text] Private_GetSettingsList() {
+	if (!G_LibInterfaceAPI_ForceMapEditorQuickStartDifficultySettingUpdate && G_LibInterfaceAPI_AvailableSettings.count > 0) {
+		return G_LibInterfaceAPI_AvailableSettings;
+	}
+
+	declare Document <=> Xml.Parse_Xml(C_LibInterfaceAPI_AvailableSettings);
+	
+	foreach (Node in Document.Root.Children) {
+		declare Structs::SSettingModel Setting;
+
+		Setting.Id				= Node.GetAttributeText("id", "");
+		Setting.Type			= Node.GetAttributeText("type", "");
+		Setting.Name			= Node.GetAttributeText("name", "");
+		Setting.ValueRangeMin	= Node.GetAttributeReal("min", 0.);
+		Setting.ValueRangeMax	= Node.GetAttributeReal("max", 1.);
+		Setting.ValueStep		= Node.GetAttributeReal("step", .01);
+		Setting.Info			= Node.GetAttributeText("info", "");
+
+		if (Setting.Id == "CrosshairSelect") {
+			Setting.AvailableOptions = [""]; // Default
+			Setting.OptionsLabels = ["" => _("|Crosshair|Default")];
+
+			foreach (SkinName in G_LibInterfaceAPI_CrosshairSkinsList) {
+				Setting.AvailableOptions.add(SkinName);
+			}
+		}
+		
+		if (Setting.Id == "OnlineDefaultOpponentVisibility") {
+			Setting.AvailableOptions 	= ["Opaque", "Ghost", "Hidden"];
+			Setting.OptionsLabels 		= ["Opaque" => _("|PlayerVisibility|Opaque"), "Ghost" => _("|PlayerVisibility|Transparent"), "Hidden" => _("|PlayerVisibility|Hidden")];
+		}
+		if (Setting.Id == "OnlineRoadsideSpectatorVisibility") {
+			Setting.AvailableOptions 	= ["Always", "Never", "SpectatorOnly"];
+			Setting.OptionsLabels 		= ["Always" => _("|SpectatorsVisibility|Always"), "Never" => _("|SpectatorsVisibility|Never"), "SpectatorOnly" => _("|SpectatorsVisibility|When spectating")];
+		}	
+
+		if (Setting.Id == "InterfaceInternalCamPlayerVisibility") {
+			Setting.AvailableOptions 	= ["Opaque", "Ghost"];
+			Setting.OptionsLabels 		= ["Opaque" => _("|PlayerVisibility|Opaque"), "Ghost" => _("|PlayerVisibility|Transparent")];
+		}
+		if (Setting.Id == "HudMarkersDisplayType") {
+			Setting.AvailableOptions 	= ["Name", "Avatar", "AvatarAndName"];
+			Setting.OptionsLabels 		= ["Name" => _("Name"), "Avatar" => _("Avatar"), "AvatarAndName" => _("Avatar and Name")];
+		}
+		if (Setting.Id == "MapEditorQuickStartMood") {
+			Setting.AvailableOptions 	= ["Sunrise", "Day", "Sunset", "Night"];
+			Setting.OptionsLabels 		= ["Sunrise" => _("|MapMood|Sunrise"), "Day" => _("|MapMood|Day"), "Sunset" => _("|MapMood|Sunset"), "Night" => _("|MapMood|Night")];
+		}
+		if (Setting.Id == "MapEditorQuickStartDifficulty") {
+			Setting.AvailableOptions 	= ["Simple", "Advanced"];
+			Setting.OptionsLabels 		= ["Simple" => _("|MapEditorDifficulty|Simple"), "Advanced" => _("|MapEditorDifficulty|Advanced")];
+
+			if (ManiaPlanet.UserMgr.MainUserProfile.Editors_MapEditorQuickstartUseGamepad) {
+				Setting.AvailableOptions.add("Expert");
+				Setting.OptionsLabels["Expert"] = _("|MapEditorDifficulty|Expert");
+			}
+		}
+
+		G_LibInterfaceAPI_AvailableSettings[Setting.Id] = Setting;
+	}
+
+	Xml.Parse_Destroy(Document);
+	return G_LibInterfaceAPI_AvailableSettings;
+}
+
+Structs::SSettingModel[] GetSettingsList() {
+	declare UserSettings <=> ManiaPlanet.UserMgr.MainUserProfile;
+	declare Structs::SSettingModel[] SettingsList;
+
+	declare IsPlayerCustomColors = UserSettings.Interface_AllyEnableCustomColor && UserSettings.Interface_OppoEnableCustomColor;
+
+	foreach (SettingId => SettingModel in Private_GetSettingsList()) {
+		declare Setting = SettingModel;
+
+		// Values
+		switch (SettingId) {
+			case "CrosshairSelect"		: Setting.CurrentValueText		= UserSettings.Interface_CrosshairName;
+			case "CrosshairSize"		: Setting.CurrentValueReal		= UserSettings.Interface_CrosshairSize;
+			case "CrosshairOpacity"		: Setting.CurrentValueReal		= UserSettings.Interface_CrosshairOpacity;
+			case "CrosshairUseColor"	: Setting.CurrentValueBoolean	= UserSettings.Interface_CrosshairEnableCustomColor;
+			case "CrosshairColorHue"	: Setting.CurrentValueReal		= UserSettings.Interface_CrosshairLinearHue;
+			case "CrosshairSaturation"	: Setting.CurrentValueReal		= UserSettings.Interface_CrosshairSaturation;
+
+			case "PlayerColorEnable"	: Setting.CurrentValueBoolean	= IsPlayerCustomColors;
+			case "PlayerColorAlly"		: Setting.CurrentValueReal		= UserSettings.Interface_AllyLinearHue;
+			case "PlayerColorEnemy"		: Setting.CurrentValueReal		= UserSettings.Interface_OppoLinearHue;
+			case "PlayerShieldScale"	: Setting.CurrentValueReal		= UserSettings.Interface_PlayerShieldScale;
+
+			case "BeaconsUseCustom"		: Setting.CurrentValueBoolean	= UserSettings.Interface_BeaconUseProfileColor;
+			case "BeaconsPitch"			: Setting.CurrentValueReal		= UserSettings.User_HornPitch;
+			case "BeaconsSize"			: Setting.CurrentValueReal		= UserSettings.Interface_BeaconSize;
+			case "BeaconsOpacity"		: Setting.CurrentValueReal		= UserSettings.Interface_BeaconOpacity;
+			case "BeaconsDuration"		: Setting.CurrentValueReal		= UserSettings.Interface_BeaconDuration;
+			
+			case "OnlineDefaultOpponentVisibility" : {
+				switch (UserSettings.Online_DefaultOpponentVisibility) {
+					case CUserV2Profile::EPlayerVisibility::Opaque			: Setting.CurrentValueText = "Opaque";
+					case CUserV2Profile::EPlayerVisibility::Ghost				: Setting.CurrentValueText = "Ghost";
+					case CUserV2Profile::EPlayerVisibility::Hidden			: Setting.CurrentValueText = "Hidden";
+				}
+			}
+			
+			case "UseAlternateCam1" 		: Setting.CurrentValueBoolean = UserSettings.Interface_UseAlternateCam1;
+			case "UseAlternateCam2" 		: Setting.CurrentValueBoolean = UserSettings.Interface_UseAlternateCam2;
+			case "UseAlternateInternalCam" 	: Setting.CurrentValueBoolean = UserSettings.Interface_UseOldInternalCam;
+			
+			case "InterfaceInternalCamPlayerVisibility" : {
+				switch (UserSettings.Interface_InternalCamLocalPlayerVisibility) {
+					case CUserV2Profile::EPlayerVisibility::Opaque		: Setting.CurrentValueText = "Opaque";
+					case CUserV2Profile::EPlayerVisibility::Ghost			: Setting.CurrentValueText = "Ghost";
+				}
+			}
+			case "OnlineRoadsideSpectatorVisibility" : {
+				switch (UserSettings.Online_RoadsideSpectatorVisibility) {
+					case CUserV2Profile::ERoadsideSpectatorVisibility::Always					: Setting.CurrentValueText = "Always";
+					case CUserV2Profile::ERoadsideSpectatorVisibility::Never					: Setting.CurrentValueText = "Never";
+					case CUserV2Profile::ERoadsideSpectatorVisibility::SpectatorOnly	: Setting.CurrentValueText = "SpectatorOnly";
+				}
+			}
+			
+			case "InterfaceShowSpecialsFeedback"	: Setting.CurrentValueBoolean = UserSettings.Interface_ShowSpecialsFeedback;
+			case "InterfaceAlwaysDisplayRecords"	: Setting.CurrentValueBoolean = UserSettings.Interface_AlwaysDisplayRecords;
+			
+			case "HudMarkersDisplayType" : {
+				switch(ManiaPlanet.Interface_PlayerInfoDisplayType) {
+					case CManiaPlanet::EPlayerInfoDisplayType::Name			: Setting.CurrentValueText = "Name";
+					case CManiaPlanet::EPlayerInfoDisplayType::Avatar		: Setting.CurrentValueText = "Avatar";
+					case CManiaPlanet::EPlayerInfoDisplayType::AvatarAndName: Setting.CurrentValueText = "AvatarAndName";
+				}
+			}
+			case "HudMarkersDisplaySize" : Setting.CurrentValueInteger = ManiaPlanet.Interface_PlayerInfoDisplaySize;
+
+			case "EnableMapEditorQuickStart"				: Setting.CurrentValueBoolean = UserSettings.Editors_MapEditorUseQuickstart && G_LibInterfaceAPI_HasPermissionToOpenAdvancedMapEditor;
+			case "MapEditorQuickStartUseGampadController"	: Setting.CurrentValueBoolean = UserSettings.Editors_MapEditorQuickstartUseGamepad;
+			case "MapEditorQuickStartDifficulty" : {
+				switch (UserSettings.Editors_MapEditorQuickstartDifficulty) {
+					case CUserV2Profile::EMapEditorDifficulty::Simple: Setting.CurrentValueText = "Simple";
+					case CUserV2Profile::EMapEditorDifficulty::Advanced: Setting.CurrentValueText = "Advanced";
+					case CUserV2Profile::EMapEditorDifficulty::Expert: {
+						if (UserSettings.Editors_MapEditorQuickstartUseGamepad) {
+							Setting.CurrentValueText = "Expert";
+						} else {
+							UserSettings.Editors_MapEditorQuickstartDifficulty = CUserV2Profile::EMapEditorDifficulty::Advanced;
+							Setting.CurrentValueText = "Advanced";
+						}
+					}
+				}
+			}
+			case "MapEditorQuickStartMood"				: {
+				switch (UserSettings.Editors_MapEditorQuickstartMood) {
+					case CUserV2Profile::EMapEditorMood::Sunrise: Setting.CurrentValueText = "Sunrise";
+					case CUserV2Profile::EMapEditorMood::Day: Setting.CurrentValueText = "Day";
+					case CUserV2Profile::EMapEditorMood::Sunset: Setting.CurrentValueText = "Sunset";
+					case CUserV2Profile::EMapEditorMood::Night: Setting.CurrentValueText = "Night";
+				}
+			}
+		}
+
+		// Availability
+		switch (Setting.Id) {
+			case "CrosshairColorHue"						: Setting.IsDisabled = !UserSettings.Interface_CrosshairEnableCustomColor;
+			case "CrosshairSaturation"						: Setting.IsDisabled = !UserSettings.Interface_CrosshairEnableCustomColor;
+			case "PlayerColorAlly"							: Setting.IsDisabled = !IsPlayerCustomColors;
+			case "PlayerColorEnemy"							: Setting.IsDisabled = !IsPlayerCustomColors;
+			case "BeaconsPitch"								: Setting.IsDisabled = !UserSettings.Interface_BeaconUseProfileColor || !ManiaPlanet.ActiveContext_IsProfileEditable;
+			case "EnableMapEditorQuickStart"				: Setting.IsDisabled = !G_LibInterfaceAPI_HasPermissionToOpenAdvancedMapEditor;
+			case "MapEditorQuickStartUseGampadController"	: Setting.IsDisabled = !UserSettings.Editors_MapEditorUseQuickstart;
+			case "MapEditorQuickStartDifficulty"			: Setting.IsDisabled = !UserSettings.Editors_MapEditorUseQuickstart;
+			case "MapEditorQuickStartMood"					: Setting.IsDisabled = !UserSettings.Editors_MapEditorUseQuickstart;
+		}
+
+		SettingsList.add(Setting);
+	}
+
+	return SettingsList;
+}
+
+Structs::SSettingModel GetSetting(Text _SettingId) {
+	declare Structs::SSettingModel TargetSetting;
+
+	foreach (Setting in GetSettingsList()) {
+		if (Setting.Id == _SettingId) {
+			TargetSetting = Setting;
+			break;
+		}
+	}
+
+	return TargetSetting;
+}
+
+Void Init() {
+	G_LibInterfaceAPI_CrosshairSkinsTask <=> DataFileMgr.Media_GetGameList(CDataFileMgr::EMediaType::Skins, "Crosshairs", False);
+}
+
+Void Loop() {
+	if (
+		PrivilegeMgr != Null &&
+		UserMgr.MainUser != Null &&
+		G_LibInterfaceAPI_HasPermissionToOpenAdvancedMapEditor != PrivilegeMgr.IsPermissionEnabled(UserMgr.MainUser.Id, C_GamePermission_OpenAdvancedMapEditor)
+	) {
+		G_LibInterfaceAPI_HasPermissionToOpenAdvancedMapEditor = PrivilegeMgr.IsPermissionEnabled(UserMgr.MainUser.Id, C_GamePermission_OpenAdvancedMapEditor);
+		G_LibInterfaceAPI_PendingSettingsUpdate = True;
+	}
+
+	if (G_LibInterfaceAPI_CrosshairSkinsTask != Null && !G_LibInterfaceAPI_CrosshairSkinsTask.IsProcessing) {
+		G_LibInterfaceAPI_CrosshairSkinsList.clear();
+
+		foreach (FilePath in G_LibInterfaceAPI_CrosshairSkinsTask.Files) {
+			declare Explode = TL::Split("\\", FilePath);
+			declare FileName = Explode[Explode.count - 1];
+
+			G_LibInterfaceAPI_CrosshairSkinsList.add(FileName);
+		}
+
+		G_LibInterfaceAPI_AvailableSettings.clear(); // Forces skins list update
+		G_LibInterfaceAPI_PendingSettingsUpdate = True;
+		G_LibInterfaceAPI_CrosshairSkinsTask = Null;
+	}
+}
+
+Boolean PendingUpdate() {
+	declare IsUpdate = G_LibInterfaceAPI_PendingSettingsUpdate;
+	G_LibInterfaceAPI_PendingSettingsUpdate = False;
+	return IsUpdate;
+}

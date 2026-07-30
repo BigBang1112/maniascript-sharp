@@ -1,0 +1,192 @@
+/**
+ * Manage the "Clone" feature
+ * When the feature is enabled, clones of the player's validation replay will appear on the track.
+ * The player needs to avoid these clones to avoid losing speed.
+ */
+#Const Version "1.0.2"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/Clone/Clone.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structure
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_CloneConfig {
+	Integer Offset = 0;
+	Real PlaySpeed = 1.;
+	Integer Medal = 0;
+	Text DossardText = "";
+	Vec3 DossardColor = <1., 1., 1.>;
+}
+#Struct K_Clone {
+	Ident GhostInstanceId = NullId;
+	Integer Offset = 0;
+	Real PlaySpeed = 1.;
+	Integer Medal = 1;
+}
+#Struct K_Result {
+	Integer Rank = 0;
+	Integer Medal = 0;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_IsCloneEnableDefault False
+
+#Const C_Private_PlaySpeedPrecision 1000000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the list of clone configs based on the validation time
+Int2[] ComputeCloneConfigList(CMap _Map, CGhost _AuthorGhost) {
+	if (
+		_Map == Null ||
+		_AuthorGhost == Null ||
+		_AuthorGhost.Result == Null ||
+		_Map.TMObjective_GoldTime <= 0
+	) {
+		return [];
+	}
+
+	// Based on the GoldTime instead of the AuthorTime, because the GoldTime is tweakable if adjustements are needed.
+	declare Integer AverageLapTime = _Map.TMObjective_GoldTime;
+	if (_Map.TMObjective_IsLapRace && _Map.TMObjective_NbLaps > 1) {
+		AverageLapTime = _Map.TMObjective_GoldTime / _Map.TMObjective_NbLaps;
+	}
+
+	// Target a density of cars on the road
+	declare Integer ClonesNb_Density;
+	{
+		// Try to leave a 1.5 second gap between each clone
+		ClonesNb_Density = AverageLapTime / 1500;
+
+		// Limit the number of clones to ensure that the total number of cars in the race is a nice, round number (the number of clones + the player)
+		if (ClonesNb_Density >= 47) ClonesNb_Density = 47;
+		else if (ClonesNb_Density >= 31) ClonesNb_Density = 31;
+		else if (ClonesNb_Density >= 23) ClonesNb_Density = 23;
+		else if (ClonesNb_Density >= 15) ClonesNb_Density = 15;
+		else if (ClonesNb_Density >= 7) ClonesNb_Density = 7;
+		else if (ClonesNb_Density >= 4) ClonesNb_Density = 4;
+	}
+
+	// Target a number of "significant takeovers" by second
+	declare Integer ClonesNb_Takeovers;
+	{
+		if (_Map.TMObjective_GoldTime < 15000) ClonesNb_Takeovers = 1;
+		else if (_Map.TMObjective_GoldTime < 40000) ClonesNb_Takeovers = 4;
+		else if (_Map.TMObjective_GoldTime < 80000) ClonesNb_Takeovers = 7;
+		else if (_Map.TMObjective_GoldTime < 300000) ClonesNb_Takeovers = 15;
+		else if (_Map.TMObjective_GoldTime < 960000) ClonesNb_Takeovers = 31;
+		else ClonesNb_Takeovers = 47;
+	}
+
+	// Min of the two values to avoid too many clones on small tracks with many laps
+	declare Integer ClonesNb = ML::Min(ClonesNb_Takeovers, ClonesNb_Density);
+
+	// Range of clone spawn offsets
+	declare Integer FirstOffset = -ML::NearestInteger(ML::Clamp(AverageLapTime * 0.15, 1500., 2500.));
+	declare Integer LastOffset = ML::Min(FirstOffset, -ML::NearestInteger(ML::Min(AverageLapTime * 0.85, _AuthorGhost.Result.Time * 0.25)));
+
+	declare Int2[] CloneConfigList;
+	for (CloneIndex, 0, ClonesNb - 1) {
+		declare Integer Offset = LastOffset;
+		declare Integer FinishTime = Map.TMObjective_GoldTime;
+		if (CloneIndex > 0) {
+			Offset += ((FirstOffset - LastOffset) * CloneIndex) / (ClonesNb - 1);
+			FinishTime += ((_Map.TMObjective_BronzeTime - _Map.TMObjective_GoldTime) * CloneIndex) / (ClonesNb - 1);
+		}
+
+		declare Real PlaySpeed = ML::Min(1., (_AuthorGhost.Result.Time * 1.0) / (FinishTime - Offset));
+
+		CloneConfigList.add(<Offset, ML::NearestInteger(C_Private_PlaySpeedPrecision / PlaySpeed)>);
+	}
+
+	return CloneConfigList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert the metadata config list into an easy to use structure
+K_CloneConfig[] GetCloneConfigList(CMap _Map, CGhost _GhostAuthor, Int2[] _CloneConfigList) {
+	if (
+		_Map == Null ||
+		_GhostAuthor == Null ||
+		_GhostAuthor.Result == Null ||
+		_CloneConfigList.count <= 0
+	) {
+		return [];
+	}
+
+	declare K_CloneConfig[] CloneConfigList;
+	for (Key => CloneConfig in _CloneConfigList) {
+		declare Real PlaySpeed = C_Private_PlaySpeedPrecision / (CloneConfig.Y * 1.);
+		declare Integer FinishTime = _GhostAuthor.Result.Time;
+		if (PlaySpeed != 0.) {
+			FinishTime = ML::FloorInteger((_GhostAuthor.Result.Time / PlaySpeed) + CloneConfig.X);
+		}
+
+		declare Integer Medal = Medals::C_ScoreMgrMedal_Bronze;
+		declare Text Trigram = "BRZ";
+		if (FinishTime <= _Map.TMObjective_AuthorTime) {
+			Medal = Medals::C_ScoreMgrMedal_Author;
+			Trigram = "ATH";
+		} else if (FinishTime <= _Map.TMObjective_GoldTime) {
+			Medal = Medals::C_ScoreMgrMedal_Gold;
+			Trigram = "GLD";
+		} else if (FinishTime <= _Map.TMObjective_SilverTime) {
+			Medal = Medals::C_ScoreMgrMedal_Silver;
+			Trigram = "SLV";
+		}
+
+		CloneConfigList.add(K_CloneConfig {
+			Offset = CloneConfig.X,
+			PlaySpeed = PlaySpeed,
+			Medal = Medal,
+			DossardText = TL::FormatInteger(Key + 1, 2) ^ Trigram,
+			DossardColor = Medals::GetMedalColorRGB(Medal)
+		});
+	}
+	return CloneConfigList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new clone instance
+K_Clone NewClone(Ident _GhostInstanceId, K_CloneConfig _CloneConfig) {
+	return K_Clone {
+		GhostInstanceId = _GhostInstanceId,
+		Offset = _CloneConfig.Offset,
+		PlaySpeed = _CloneConfig.PlaySpeed,
+		Medal = _CloneConfig.Medal
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the player rank compared to the clones
+K_Result GetPlayerResultAgainstCloneList(CSmMode _Context, CGhost _AuthorGhost, CSmPlayer _Player, K_Clone[] _CloneList) {
+	declare CGhost AuthorGhost = _AuthorGhost;
+	declare Integer TimeClosestToPlayer = _Context.Ghost_GetTimeClosestToPlayer(AuthorGhost, _Player);
+
+	declare K_Result Result = K_Result {
+		Rank = _CloneList.count + 1,
+		Medal = Medals::C_ScoreMgrMedal_None
+	};
+
+	for (Clone in _CloneList) {
+		declare Integer GhostTime = ML::NearestInteger((TimeClosestToPlayer / Clone.PlaySpeed) + Clone.Offset);
+		if (GhostTime > _Player.CurrentRaceTime) {
+			Result.Rank -= 1;
+			if (Result.Medal <= Clone.Medal) {
+				Result.Medal = Clone.Medal;
+			}
+		}
+	}
+
+	return Result;
+}

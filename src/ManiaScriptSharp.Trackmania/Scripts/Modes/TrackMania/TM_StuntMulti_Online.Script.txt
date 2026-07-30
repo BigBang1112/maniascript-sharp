@@ -1,0 +1,303 @@
+/**
+ * TM_StuntMulti_Online mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Stunt,TM_Stunt"
+#Const Version "1.0.1+2024-12-05"
+#Const ScriptName "Modes/TrackMania/TM_StuntMulti_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/Utils.Script.txt" as Utils
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/RespawnHelper_Server.Script.txt" as UIModules_RespawnHelper
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/SpectatorBase_Server.Script.txt" as UIModules_SpectatorBase
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/ScorestableHelper_Server.Script.txt" as UIModules_ScorestableHelper
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/RaceData.Script.txt" as RaceData
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/StateManagerMulti.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/Stunt.Script.txt" as Stunt
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/StuntsResult_Server.Script.txt" as UIModules_StuntsResult
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/WelcomeStunt_Server.Script.txt" as UIModules_WelcomeStunt
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModulesData.Script.txt" as UIModulesData
+#Include "TextLib" as TL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "TM_StuntMulti_Online"
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/StuntMulti.Script.txt" //< Url of the mania app
+
+#Const C_IsMapValidation False //< This mode is used to validate maps
+#Const C_BaseTimer 180000 //< The base timer for every stunt map
+#Const C_AdditionnalTimerPerPark 60000 //< The amount of time to add to the base timer for each park on the map
+#Const C_ParkComboDuration 12000 //< Duration of the combo triggered when entering a park
+#Const C_EndStuntResultsDuration 7000 //< The duration of the final stunt results before the podium
+#Const C_FigurePointsMultiplier 10 //< Score multiplier for each stunt
+#Const C_GreatLandingMultiplier 1.5 //< Stunt score multiplier after a Great landing
+#Const C_ExcellentLandingMultiplier 2.0 //< Stunt score multiplier after an Excellent landing
+#Const C_EpicLandingMultiplier 2.5 //< Stunt score multiplier after an Epic landing
+
+#Const C_UploadRecord True
+#Const C_DisplayRecordGhost True
+#Const C_DisplayRecordMedal True
+#Const C_CelebrateRecordGhost True
+#Const C_CelebrateRecordMedal True
+#Const C_DisplayRecordsUIModule True
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(Stunt::ScriptName, Stunt::Version);
+Log::RegisterScript(UIModules_StuntsResult::ScriptName, UIModules_StuntsResult::Version);
+Log::RegisterScript(UIModules_WelcomeStunt::ScriptName, UIModules_WelcomeStunt::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+Stunt::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+Stunt::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultTimer = False;
+MB_Settings_UseDefaultUIManagement = False;
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+UIModules_Sign16x9Small::SetScoreMode(UIModules_Sign16x9Small::C_ScoreMode_Points);
+UIModules_PauseMenu_Online::SetHelp(Stunt::C_Text_Description);
+UIModules_RespawnHelper::SetPosition(UIModulesData::C_Position_RespawnHelper);
+UIModules_ScorestableHelper::SetPosition(UIModulesData::C_Position_ScorestableHelper);
+
+// Initialize scores table
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Points);
+
+// Hide SM Overlay
+UIManager.UIAll.OverlayHideSpectatorInfos = True;
+UIManager.UIAll.OverlayHideCountdown = True;
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+			CarRank::InitializePlayer(Event.Player);
+		}
+	}
+}
+
+StateMgr::Yield();
+Stunt::Yield();
+***
+
+***Match_StartServer***
+***
+UseStunts = True;
+CanReTriggerLatestWaypoint = True;
+Clans::SetClansNb(0);
+Scores::SaveInScore(Scores::C_Points_Map);
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint);
+Race::UseCppRaceProgression(False); // To have the custom behavior in CPs
+Race::SetupRecord(
+	Const::C_ScopeType_Season,
+	Const::C_ScopeType_PersonalBest,
+	Const::C_GameMode_Stunt,
+	"",
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal,
+	C_DisplayRecordsUIModule
+);
+Stunt::SetModeSettings(
+	C_IsMapValidation,
+	C_ParkComboDuration,
+	C_FigurePointsMultiplier,
+	C_GreatLandingMultiplier,
+	C_ExcellentLandingMultiplier,
+	C_EpicLandingMultiplier
+);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(False);
+CarRank::Reset();
+***
+
+***Match_AfterLoadMap***
+***
+// Players are available only once the map is loaded
+// We must enforce their initialization there to avoid
+// being stuck in the start or end race menu when restarting the script
+foreach (Player in AllPlayers) {
+	StateMgr::InitializePlayer(Player);
+	Stunt::InitializePlayer(Player);
+}
+***
+
+***Match_StartMap***
+***
+StateMgr::ForcePlayersStates([]);
+CarRank::Update(CarRank::C_SortCriteria_TotalPoints);
+Race::SortScores(Race::C_Sort_TotalPoints);
+RaceData::SetIsPodiumSequence(Teams[0], False);
+
+// Initialize stunt session
+StartTime = Now + Race::C_SpawnDuration;
+EndTime = StartTime + Stunt::GetSessionTimer(C_BaseTimer, C_AdditionnalTimerPerPark);
+
+// Update timer value in the scores table
+if (EndTime <= 0) {
+	UIModules_ScoresTable::SetFooterInfo(TL::Compose("%1 -", _("Time Limit")));
+} else {
+	UIModules_ScoresTable::SetFooterInfo(TL::Compose("%1 "^TL::TimeToText(EndTime - StartTime), _("Time Limit")));
+}
+***
+
+***Match_PlayLoop***
+***
+// Process menu events
+ProcessWelcomeStuntEvent();
+ProcessStuntsResultEvent();
+
+// C++ events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded || !MB_RoundIsRunning()) continue;
+	switch (Event.Type) {
+		case CSmModeEvent::EType::OnStuntFigure: {
+			Stunt::OnFigureEvent(Event.Player, Event.StuntFigure);
+			CarRank::Update(CarRank::C_SortCriteria_TotalPoints);
+		}
+		case CSmModeEvent::EType::OnPlayerTriggersWaypoint: {
+			Stunt::OnPlayerTriggersWaypoint(Event.Player, Event.Landmark);
+			if (Event.Landmark.Waypoint.IsFinish) { //< Stop round and upload records
+				StateMgr::Set(Event.Player, StateMgr::C_State_StuntsResult);
+				Stunt::ValidateCurrentSession(Event.Player);
+			}
+			Events::Valid(Event); //< Validates that the checkpoint has been passed. This enables the checkpoints launched with the replay to work.
+		}
+		case CSmModeEvent::EType::OnPlayerRequestRespawn: {
+			Stunt::OnPlayerRequestRespawn(Event.Player, Event.GiveUp);
+		}
+		default: Events::Invalid(Event);
+	}
+}
+
+// Spawn players
+if (PlayersNbDead > 0) { //< Check for unspawned players only if at least one player is unspawned
+	foreach (Player in Players) {
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned && Race::IsReadyToStart(Player)) {
+			if (StateMgr::HasState(Player, StateMgr::C_State_Playing)) {
+				Stunt::ValidateCurrentSession(Player); //< Before starting a new session, validate any current session to avoid losing progress
+				Stunt::Start(Player, Now + Race::C_SpawnDuration);
+			} else if (!StateMgr::HasState(Player, StateMgr::C_State_WelcomeStunt)) {
+				UIModules_SpectatorBase::SetCamModeAndFocus(Player, UIModules_SpectatorBase::C_CamModes_FollowAll);
+				StateMgr::Set(Player, StateMgr::C_State_WelcomeStunt);
+			}
+		}
+	}
+}
+
+// Update spectators state
+foreach (Spectator in Spectators) {
+	if (StateMgr::Get(Spectator).count <= 0) {
+		StateMgr::Set(Spectator, StateMgr::C_State_WelcomeStunt);
+	}
+}
+
+// End the map when time limit is reached
+if (EndTime > 0 && Now >= EndTime) {
+	MB_StopMatch();
+}
+***
+
+***Match_EndMap***
+***
+EndTime = -1; //< Stop the timer
+
+// Ensure that we stop the match (after a vote for the next map, ...)
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+Race::StopSkipOutroAll();
+MB_StopMatch();
+
+// Validate the stunt session that ended with the match
+foreach (Player in AllPlayers) {
+	if (StateMgr::HasState(Player, StateMgr::C_State_Playing)) {
+		Stunt::ValidateCurrentSession(Player);
+	}
+}
+
+// Update winner
+Stunt::UpdateOnlineWinner();
+CarRank::Update(CarRank::C_SortCriteria_TotalPoints);
+RaceData::SetIsPodiumSequence(Teams[0], True);
+
+// Display stunt results
+declare Integer DelayBeforePodium = Now + C_EndStuntResultsDuration;
+StateMgr::ForcePlayersStates([StateMgr::C_State_StuntsResult]);
+while (Now < DelayBeforePodium && StateMgr::HasForcedState(StateMgr::C_State_StuntsResult)) {
+	MB_Yield();
+}
+
+// Wait for the podium sequence
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the WelcomeStunt UI has been received and apply it if needed
+Void ProcessWelcomeStuntEvent() {
+	foreach (Event in UIModules_WelcomeStunt::GetPendingEvents()) {
+		declare CSmPlayer Player <=> Utils::GetPlayerFromAccountId(Event.AccountId);
+		if (Player != Null && Player.User != Null && Player.User.WebServicesUserId == Event.AccountId) {
+			if (StateMgr::HasState(Player, StateMgr::C_State_WelcomeStunt)) {
+				switch (Event.Type) {
+					case UIModules_WelcomeStunt::C_Event_PlayStunt: {
+						StateMgr::Set(Player, StateMgr::C_State_Playing);
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the StuntsResult UI has been received and apply it if needed
+Void ProcessStuntsResultEvent() {
+	foreach (Event in UIModules_StuntsResult::GetPendingEvents()) {
+		declare CSmPlayer Player <=> Utils::GetPlayerFromAccountId(Event.AccountId);
+		if (Player != Null && Player.User != Null && Player.User.WebServicesUserId == Event.AccountId) {
+			if (StateMgr::HasState(Player, StateMgr::C_State_StuntsResult)) {
+				switch (Event.Type) {
+					case UIModules_StuntsResult::C_Event_SkipStuntsResult: {
+						StateMgr::Set(Player, StateMgr::C_State_Playing);
+						Race::Stop(Player, -1, -1);
+					}
+				}
+			}
+		}
+	}
+}

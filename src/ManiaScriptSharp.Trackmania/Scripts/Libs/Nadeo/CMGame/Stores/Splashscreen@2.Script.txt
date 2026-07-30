@@ -1,0 +1,396 @@
+/**
+ * A store managing splashscreens
+ */
+#Const Version "2.0.1"
+#Const ScriptName "Libs/Nadeo/CMGame/Stores/Splashscreen@2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/API/Splashscreen@2.Script.txt" as SplashscreenAPI
+#Include "Libs/Nadeo/CMGame/Menus/Preload.Script.txt" as Preload
+#Include "Libs/Nadeo/CMGame/Shared/Splashscreen.Script.txt" as SplashscreenShared
+#Include "Libs/Nadeo/CMGame/Utils/Http@2.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct SplashscreenShared::K_Splashscreen as K_Splashscreen
+
+#Struct K_Private_UpdateCounter {
+	Integer Splashscreen;
+	Integer Loading;
+}
+#Struct K_Private_State {
+	K_Private_UpdateCounter UpdateCounter;
+	K_Splashscreen Splashscreen;
+	Boolean IsLoading;
+	Boolean MediaPreloadingEnabled;
+	Text AutomaticUpdateTargetSubscription;
+	Integer AutomaticUpdateNextTime;
+	Http::K_Request Request_GetSplashscreen;
+	Http::K_Request Request_PostCreateImpression;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constantes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_UpdateCounter_Splashscreen 1
+#Const C_UpdateCounter_Loading 2
+
+#Const C_UpdateCounterDefaultValue 0
+#Const C_AutomaticUpdateDisabled -1
+
+#Const SplashscreenShared::C_GameSubscriptionPlan_All as C_GameSubscriptionPlan_All
+#Const SplashscreenShared::C_GameSubscriptionPlan_Starter as C_GameSubscriptionPlan_Starter
+#Const SplashscreenShared::C_GameSubscriptionPlan_Standard as C_GameSubscriptionPlan_Standard
+#Const SplashscreenShared::C_GameSubscriptionPlan_Club as C_GameSubscriptionPlan_Club
+
+#Const SplashscreenShared::C_AutomaticUpdateInterval as C_AutomaticUpdateInterval
+#Const SplashscreenShared::C_Splashscreen_Null as C_Splashscreen_Null
+
+#Const C_State_Null K_Private_State {
+	UpdateCounter = K_Private_UpdateCounter {
+		Splashscreen = 0,
+		Loading = 0
+	},
+	Splashscreen = K_Splashscreen {},
+	IsLoading = False,
+	MediaPreloadingEnabled = True,
+	AutomaticUpdateTargetSubscription = "",
+	AutomaticUpdateNextTime = -1,
+	Request_GetSplashscreen = Http::K_Request {},
+	Request_PostCreateImpression = Http::K_Request {}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: State management
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the splashscreen
+K_Private_State Private_SetSplashscreen(K_Private_State _State, CManiaApp _ManiaApp, K_Splashscreen _Splashscreen) {
+	if (_State.Splashscreen == _Splashscreen) return _State;
+
+	declare K_Private_State State = _State;
+
+	State.Splashscreen = _Splashscreen;
+	State.UpdateCounter.Splashscreen += 1;
+
+	if (State.MediaPreloadingEnabled && State.Splashscreen.Url != "") {
+		Preload::PreloadImage(_ManiaApp, State.Splashscreen.Url);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the loading status
+K_Private_State Private_UpdateLoadingStatus(K_Private_State _State) {
+	declare Boolean IsLoading = Http::IsProcessing(_State.Request_GetSplashscreen);
+	if (_State.IsLoading == IsLoading) return _State;
+
+	declare K_Private_State State = _State;
+	State.IsLoading = IsLoading;
+	State.UpdateCounter.Loading += 1;
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Toggle the splashscreen media preloading
+K_Private_State Private_EnableMediaPreloading(K_Private_State _State, Boolean _MediaPreloadingEnabled) {
+	declare K_Private_State State = _State;
+	State.MediaPreloadingEnabled = _MediaPreloadingEnabled;
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the request to load the splashscreen
+K_Private_State Private_StartSplashscreenRequest(
+	K_Private_State _State,
+	CSystemPlatform _System,
+	CHttpManager _Http,
+	CUser _LocalUser,
+	Text _TargetSubscription
+) {
+	// We are already loading the splashscreen, do not start a new request
+	if (Http::IsProcessing(_State.Request_GetSplashscreen)) return _State;
+
+	declare K_Private_State State = _State;
+
+	if (_LocalUser != Null && _LocalUser.ZoneIdPath.count > 0) {
+		State.Request_GetSplashscreen = Http::DestroyAndCreate(
+			_Http,
+			State.Request_GetSplashscreen,
+			SplashscreenAPI::Request_GetSplashscreen(
+				_System,
+				_Http,
+				_TargetSubscription,
+				_LocalUser.Language,
+				_LocalUser.ZoneIdPath[-1]
+			)
+		);
+	} else if (_LocalUser != Null) {
+		State.Request_GetSplashscreen = Http::DestroyAndCreate(
+			_Http,
+			State.Request_GetSplashscreen,
+			SplashscreenAPI::Request_GetSplashscreen(_System, _Http, _TargetSubscription, _LocalUser.Language, "")
+		);
+	} else {
+		State.Request_GetSplashscreen = Http::DestroyAndCreate(
+			_Http,
+			State.Request_GetSplashscreen,
+			SplashscreenAPI::Request_GetSplashscreen(_System, _Http, _TargetSubscription, "", "")
+		);
+	}
+
+	State = Private_UpdateLoadingStatus(State);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the request to load the splashscreen
+K_Private_State Private_UpdateSplashscreenRequest(
+	K_Private_State _State,
+	CManiaApp _ManiaApp,
+	CSystemPlatform _System,
+	CHttpManager _Http
+) {
+	if (!Http::IsProcessing(_State.Request_GetSplashscreen)) return _State;
+
+	declare K_Private_State State = _State;
+
+	State.Request_GetSplashscreen = Http::Update(_System, _Http, State.Request_GetSplashscreen);
+	if (!Http::IsProcessing(State.Request_GetSplashscreen)) {
+		if (Http::IsSuccess(State.Request_GetSplashscreen)) {
+			State = Private_SetSplashscreen(
+				State,
+				_ManiaApp,
+				SplashscreenAPI::Response_GetSplashscreen(State.Request_GetSplashscreen)
+			);
+		}
+		State.Request_GetSplashscreen = Http::Destroy(_Http, State.Request_GetSplashscreen);
+		State = Private_UpdateLoadingStatus(State);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the request to count an impression on the splashscreen
+K_Private_State Private_StartCreateImpressionRequest(
+	K_Private_State _State,
+	CSystemPlatform _System,
+	CHttpManager _Http,
+	Text _SplashscreenUid,
+	Integer _ViewTime,
+	Boolean _IsClicked
+) {
+	declare K_Private_State State = _State;
+	State.Request_PostCreateImpression = Http::DestroyAndCreate(
+		_Http,
+		State.Request_PostCreateImpression,
+		SplashscreenAPI::Request_PostCreateImpression(_System, _Http, _SplashscreenUid, _ViewTime, _IsClicked)
+	);
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the request to count an impression on the splashscreen
+K_Private_State Private_UpdateCreateImpressionRequest(
+	K_Private_State _State,
+	CSystemPlatform _System,
+	CHttpManager _Http
+) {
+	if (!Http::IsProcessing(_State.Request_PostCreateImpression)) return _State;
+
+	declare K_Private_State State = _State;
+
+	State.Request_PostCreateImpression = Http::Update(_System, _Http, State.Request_PostCreateImpression);
+	if (!Http::IsProcessing(State.Request_PostCreateImpression)) {
+		State.Request_PostCreateImpression = Http::Destroy(_Http, State.Request_PostCreateImpression);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Toggle the automatic loading of new splashscreens at a regular interval
+K_Private_State Private_EnableAutomaticUpdate(K_Private_State _State, Boolean _AutomaticUpdateEnabled, Text _TargetSubscription, Integer _Now) {
+	declare K_Private_State State = _State;
+
+	if (_AutomaticUpdateEnabled) {
+		if (
+			State.AutomaticUpdateNextTime == C_AutomaticUpdateDisabled ||
+			State.AutomaticUpdateNextTime > _Now + C_AutomaticUpdateInterval
+		) {
+			State.AutomaticUpdateNextTime = _Now + C_AutomaticUpdateInterval;
+		}
+		State.AutomaticUpdateTargetSubscription = _TargetSubscription;
+	} else {
+		State.AutomaticUpdateNextTime = C_AutomaticUpdateDisabled;
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Trigger the automatic loading of new splashscreens at a regular interval
+K_Private_State Private_TriggerAutomaticUpdate(
+	K_Private_State _State,
+	CSystemPlatform _System,
+	CHttpManager _Http,
+	CUser _LocalUser,
+	Integer _Now
+) {
+	if (
+		_State.AutomaticUpdateNextTime == C_AutomaticUpdateDisabled ||
+		_State.AutomaticUpdateNextTime > _Now
+	) {
+		return _State;
+	}
+
+	declare K_Private_State State = _State;
+
+	State.AutomaticUpdateNextTime = _Now + C_AutomaticUpdateInterval;
+	State = Private_StartSplashscreenRequest(
+		State,
+		_System,
+		_Http,
+		_LocalUser,
+		State.AutomaticUpdateTargetSubscription
+	);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Getters
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the store udpate counter
+Integer GetUpdateCounter(CManiaApp _This, Integer _UpdateCounter) {
+	declare K_Private_State CMGame_StoresSplashscreen_State for _This = C_State_Null;
+	switch (_UpdateCounter) {
+		case C_UpdateCounter_Splashscreen: return CMGame_StoresSplashscreen_State.UpdateCounter.Splashscreen;
+		case C_UpdateCounter_Loading: return CMGame_StoresSplashscreen_State.UpdateCounter.Loading;
+	}
+	return C_UpdateCounterDefaultValue;
+}
+Integer GetUpdateCounter(CMlScript _This, Integer _UpdateCounter) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp == Null) return C_UpdateCounterDefaultValue;
+	return GetUpdateCounter(ManiaApp, _UpdateCounter);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the splashscreen is being loaded
+Boolean IsLoadingSplashscreen(CManiaApp _This) {
+	declare K_Private_State CMGame_StoresSplashscreen_State for _This = C_State_Null;
+	return CMGame_StoresSplashscreen_State.IsLoading;
+}
+Boolean IsLoadingSplashscreen(CMlScript _This) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp == Null) return False;
+	return IsLoadingSplashscreen(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the loaded splashscreen
+K_Splashscreen GetSplashscreen(CManiaApp _This) {
+	declare K_Private_State CMGame_StoresSplashscreen_State for _This = C_State_Null;
+	return CMGame_StoresSplashscreen_State.Splashscreen;
+}
+K_Splashscreen GetSplashscreen(CMlScript _This) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp == Null) return C_Splashscreen_Null;
+	return GetSplashscreen(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Actions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the latest splashscreen
+Void LoadSplashscreen(CManiaApp _This, Text _TargetSubscription) {
+	declare K_Private_State CMGame_StoresSplashscreen_State for _This = C_State_Null;
+	CMGame_StoresSplashscreen_State = Private_StartSplashscreenRequest(
+		CMGame_StoresSplashscreen_State,
+		_This.System,
+		_This.Http,
+		_This.LocalUser,
+		_TargetSubscription
+	);
+}
+Void LoadSplashscreen(CMlScript _This, Text _TargetSubscription) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp != Null) LoadSplashscreen(ManiaApp, _TargetSubscription);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create an impression of a viewed splashscreen
+Void CreateImpression(CManiaApp _This, Text _SplashscreenUid, Integer _ViewTime, Boolean _IsClicked) {
+	declare K_Private_State CMGame_StoresSplashscreen_State for _This = C_State_Null;
+	CMGame_StoresSplashscreen_State = Private_StartCreateImpressionRequest(
+		CMGame_StoresSplashscreen_State,
+		_This.System,
+		_This.Http,
+		_SplashscreenUid,
+		_ViewTime,
+		_IsClicked
+	);
+}
+Void CreateImpression(CMlScript _This, Text _SplashscreenUid, Integer _ViewTime, Boolean _IsClicked) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp != Null) CreateImpression(ManiaApp, _SplashscreenUid, _ViewTime, _IsClicked);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Toggle the splashscreen media preloading
+Void EnableMediaPreloading(CManiaApp _This, Boolean _MediaPreloadingEnabled) {
+	declare K_Private_State CMGame_StoresSplashscreen_State for _This = C_State_Null;
+	CMGame_StoresSplashscreen_State = Private_EnableMediaPreloading(CMGame_StoresSplashscreen_State, _MediaPreloadingEnabled);
+}
+Void EnableMediaPreloading(CMlScript _This, Boolean _MediaPreloadingEnabled) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp != Null) EnableMediaPreloading(ManiaApp, _MediaPreloadingEnabled);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Toggle the automatic loading of new splashscreens at a regular interval
+Void EnableAutomaticUpdate(CManiaApp _This, Boolean _AutomaticUpdateEnabled, Text _TargetSubscription) {
+	declare K_Private_State CMGame_StoresSplashscreen_State for _This = C_State_Null;
+	CMGame_StoresSplashscreen_State = Private_EnableAutomaticUpdate(CMGame_StoresSplashscreen_State, _AutomaticUpdateEnabled, _TargetSubscription, Now);
+}
+Void EnableAutomaticUpdate(CMlScript _This, Boolean _AutomaticUpdateEnabled, Text _TargetSubscription) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp != Null) EnableAutomaticUpdate(ManiaApp, _AutomaticUpdateEnabled, _TargetSubscription);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Instance management
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the store
+Void Initialize(CManiaApp _This) {
+	declare K_Private_State CMGame_StoresSplashscreen_State for _This = C_State_Null;
+
+	Http::Destroy(_This.Http, CMGame_StoresSplashscreen_State.Request_GetSplashscreen);
+	Http::Destroy(_This.Http, CMGame_StoresSplashscreen_State.Request_PostCreateImpression);
+
+	CMGame_StoresSplashscreen_State = C_State_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the store
+Void AfterYield(CManiaApp _This) {
+	declare K_Private_State CMGame_StoresSplashscreen_State for _This = C_State_Null;
+
+	CMGame_StoresSplashscreen_State = Private_UpdateSplashscreenRequest(CMGame_StoresSplashscreen_State, _This, _This.System, _This.Http);
+	CMGame_StoresSplashscreen_State = Private_UpdateCreateImpressionRequest(CMGame_StoresSplashscreen_State, _This.System, _This.Http);
+	CMGame_StoresSplashscreen_State = Private_TriggerAutomaticUpdate(CMGame_StoresSplashscreen_State, _This.System, _This.Http, _This.LocalUser, Now);
+}

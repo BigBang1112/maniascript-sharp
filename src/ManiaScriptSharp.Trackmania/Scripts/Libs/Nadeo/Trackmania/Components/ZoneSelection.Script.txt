@@ -1,0 +1,511 @@
+/**
+ *	Component: ZoneSelection
+ *	===========================
+ *
+ *	Parameters
+ *	----------
+ *	- `data-height` (`Real`): height of the component
+ *	- `data-width` (`Real`): width of the component
+ */
+#Const Version		"1.1.1"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Components/ZoneSelection.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/ButtonIcon2.Script.txt" as ButtonIcon
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as Button
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Event {
+	Integer Type;
+	Integer Zone;
+}
+#Struct K_Properties {
+	Real Height;
+	Real Width;
+}
+#Struct K_Controls {
+	CMlFrame Button_CurrentZone;
+	CMlFrame Button_IconLT;
+	CMlFrame Button_IconRT;
+	CMlFrame Button_NextZone;
+	CMlFrame Button_PreviousZone;
+	CMlFrame Frame_NextZone;
+	CMlFrame Frame_PreviousZone;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Integer CurrentZone;
+	Text[] CurrentZoneList;
+	K_Event[] PendingEvents;
+	Boolean UsesDefaultList;
+	Text[] DefaultZoneList;
+	Text ZonePath;
+	Integer PrevCurrentZone;
+	Boolean IsMouse;
+	K_Properties Properties;
+	Boolean IsLocked;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_State_Null K_State {
+	Controls = K_Controls {},
+	CurrentZone = 0,
+	CurrentZoneList = [],
+	PendingEvents = [],
+	UsesDefaultList = False,
+	DefaultZoneList = [],
+	ZonePath = "",
+	PrevCurrentZone = 0,
+	IsMouse = False,
+	Properties = K_Properties {
+		Height = 8.,
+		Width = 80.
+	},
+	IsLocked = False
+}
+
+#Const C_Name "component-zoneselection" //< Component name
+#Const P "Trackmania_ZoneSelection::" //< Prefix used to differentiate functions/variables in the script
+#Const Q "Trackmania_ZoneSelection"
+#Const C_NavGroupName "navgroup-zone-selection"
+#Const C_Class "trackmania-zone-selection_zone-selection"
+
+#Const C_ZoneLevel_Null -1
+#Const C_ZoneLevel_World 0
+#Const C_ZoneLevel_Continent 1
+#Const C_ZoneLevel_Country 2
+#Const C_ZoneLevel_Region 3
+#Const C_ZoneLevel_County 4
+
+#Const C_Text_ZoneLevels_World [
+	//L16N [CampaignRanking]
+	_("|RankingZone|World"),
+	//L16N [CampaignRanking]
+	_("|RankingZone|Continent"),
+	//L16N [CampaignRanking] Please keep the difference between "Country" and "Territory"
+	_("|RankingZone|Country or Territory"),
+	//L16N [CampaignRanking]
+	_("|RankingZone|Region"),
+	//L16N [CampaignRanking]
+	_("|RankingZone|District")
+]
+#Const C_Text_ZoneLevels_CN [
+	//L16N [CampaignRanking]
+	_("|RankingZone|Country"), //< Keep country in CN version as there is only China
+	//L16N [CampaignRanking]
+	_("|RankingZone|Region"),
+	//L16N [CampaignRanking]
+	_("|RankingZone|District")
+]
+
+#Const C_Event_ZoneUpdate 0
+#Const C_Event_Cancel 1
+
+#Const C_Zone_World "World"
+
+#Const Const::C_Zone_Translations as C_Zone_Translations
+
+#Const C_Id_FrameRegionChoice "trackmania-zone-selection_frame-region-choice"
+#Const C_Id_FramePreviousZone "trackmania-zone-selection_frame-previous-zone"
+#Const C_Id_ButtonIconLT "trackmania-zone-selection_button-icon-LT"
+#Const C_Id_ButtonPreviousZone "trackmania-zone-selection_button-previous-zone"
+#Const C_Id_ButtonCurrentZone "trackmania-zone-selection_button-current-zone"
+#Const C_Id_FrameNextZone "trackmania-zone-selection_frame-next-zone"
+#Const C_Id_ButtonIconRT "trackmania-zone-selection_button-icon-RT"
+#Const C_Id_ButtonNextZone "trackmania-zone-selection_button-next-zone"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetManialink() {
+	return """
+<frame id="{{{C_Id_FrameRegionChoice}}}" class="{{{C_Class}}}">
+	<frame id="{{{C_Id_FramePreviousZone}}}">
+		<frameinstance modelid="{{{ButtonIcon::C_Name}}}" id="{{{C_Id_ButtonIconLT}}}" data-size="6 6" data-halign="right" data-valign="center" data-bind="action3" data-hideformouse="1" z-index="1"/>
+		<frameinstance
+			id="{{{C_Id_ButtonPreviousZone}}}"
+			modelid="{{{Button::C_Name}}}"
+			class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}}"
+			data-image="{{{Icons::C_Icon_128x128_Arrow_Left_Oblique}}}"
+			data-imagefocus="{{{Icons::C_Icon_128x128_Arrow_Left_Oblique}}}"
+			data-bgcolor="FFF"
+			data-focuscolor="FFF"
+			data-opacityunfocus="0.6"
+			data-halign="right" data-valign="center"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-inputs="select;cancel"
+			data-nav-targets="_;_"
+			data-nav-zone="{{{Button::C_NavZone}}}"
+			data-menusounds-selectsound="ArrowSelect"
+		/>
+	</frame>
+	<frameinstance
+		id="{{{C_Id_ButtonCurrentZone}}}" pos="0 -0.5"
+		modelid="{{{Button::C_Name}}}"
+		class="{{{Navigation::C_Class}}}"
+		data-bgempty="1"
+		data-textsize="4."
+		data-textitalicslope="0.2"
+		data-fitlabel="1." data-fitlabelstep="0.5"
+		data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+		data-textcolor="FFF" data-textfocuscolor="FFF"
+		data-halign="center" data-valign="center"
+		data-nav-group="{{{C_NavGroupName}}}"
+		data-nav-inputs="action3;action4"
+		data-nav-targets="_;_"
+		data-nav-zone="{{{Button::C_NavZone}}}"
+	/>
+	<frame id="{{{C_Id_FrameNextZone}}}">
+		<frameinstance modelid="{{{ButtonIcon::C_Name}}}" id="{{{C_Id_ButtonIconRT}}}" data-size="6 6" data-halign="left" data-valign="center" data-bind="action4" data-hideformouse="1" z-index="1"/>
+		<frameinstance
+			id="{{{C_Id_ButtonNextZone}}}"
+			modelid="{{{Button::C_Name}}}"
+			class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}}"
+			data-image="{{{Icons::C_Icon_128x128_Arrow_Right_Oblique}}}"
+			data-imagefocus="{{{Icons::C_Icon_128x128_Arrow_Right_Oblique}}}"
+			data-bgcolor="FFF"
+			data-focuscolor="FFF"
+			data-opacityunfocus="0.6"
+			data-halign="left" data-valign="center"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-inputs="select;cancel"
+			data-nav-targets="_;_"
+			data-nav-zone="{{{Button::C_NavZone}}}"
+			data-menusounds-selectsound="ArrowSelect"
+		/>
+	</frame>
+</frame>
+	""";
+}
+
+Integer GetZoneLevel(CMlScript _This, Text _ZoneName) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	foreach (ZoneLevel => ZoneName in Trackmania_ZoneSelection_State.CurrentZoneList) {
+		if (ZoneName == _ZoneName) return ZoneLevel;
+	}
+	return C_ZoneLevel_Null;
+}
+
+Integer GetCurrentZone(CMlScript _This) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	return Trackmania_ZoneSelection_State.CurrentZone;
+}
+
+Void SetCurrentZone(CMlScript _This, Integer _Zone) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	declare Integer PreviousZone = Trackmania_ZoneSelection_State.CurrentZone;
+
+	if (Trackmania_ZoneSelection_State.CurrentZoneList.count <= 0) {
+		Trackmania_ZoneSelection_State.CurrentZone = C_ZoneLevel_Null;
+		return;
+	}
+
+	if (_Zone > C_ZoneLevel_Null) {
+		Trackmania_ZoneSelection_State.CurrentZone = _Zone;
+		while (!Trackmania_ZoneSelection_State.CurrentZoneList.existskey(Trackmania_ZoneSelection_State.CurrentZone)) {
+			Trackmania_ZoneSelection_State.CurrentZone -= 1;
+		}
+	} else {
+		Trackmania_ZoneSelection_State.CurrentZone = Trackmania_ZoneSelection_State.CurrentZoneList.count-1;
+	}
+
+	if (PreviousZone != Trackmania_ZoneSelection_State.CurrentZone) {
+		Trackmania_ZoneSelection_State.PendingEvents.add(
+			K_Event {
+				Type = C_Event_ZoneUpdate,
+				Zone = Trackmania_ZoneSelection_State.CurrentZone
+			}
+		);
+	}
+}
+
+Text[] GetZoneList(CMlScript _This) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	return Trackmania_ZoneSelection_State.CurrentZoneList;
+}
+
+Void SetZoneList(CMlScript _This, Text[] _ZoneList, Boolean _IsPreviousZoneKept) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+
+	if (Trackmania_ZoneSelection_State.CurrentZoneList != _ZoneList) {
+		Trackmania_ZoneSelection_State.CurrentZoneList = _ZoneList;
+		if (_IsPreviousZoneKept && Trackmania_ZoneSelection_State.CurrentZoneList.existskey(Trackmania_ZoneSelection_State.CurrentZone)) {
+			Trackmania_ZoneSelection_State.PrevCurrentZone = C_ZoneLevel_Null; //< Force update buttons
+		} else if (Trackmania_ZoneSelection_State.CurrentZoneList.count > 0) {
+			SetCurrentZone(_This, Trackmania_ZoneSelection_State.CurrentZoneList.count-1);
+		} else {
+			SetCurrentZone(_This, C_ZoneLevel_World);
+		}
+		foreach (Zone in _ZoneList) {
+			if (!Trackmania_ZoneSelection_State.DefaultZoneList.exists(Zone)) {
+				Trackmania_ZoneSelection_State.UsesDefaultList = False;
+				break;
+			}
+		}
+	}
+}
+Void SetZoneList(CMlScript _This, Text[] _ZoneList) {
+	SetZoneList(_This, _ZoneList, False);
+}
+
+Text GetCurrentZoneName(CMlScript _This) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	if (!Trackmania_ZoneSelection_State.CurrentZoneList.existskey(Trackmania_ZoneSelection_State.CurrentZone)) return "";
+	return Trackmania_ZoneSelection_State.CurrentZoneList[Trackmania_ZoneSelection_State.CurrentZone];
+}
+Text GetCurrentZoneLevel(CMlScript _This) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	declare Text[] Text_ZoneLevels = C_Text_ZoneLevels_World;
+	if (Config::Get().DefaultMasterZone != C_Zone_World) Text_ZoneLevels = C_Text_ZoneLevels_CN;
+	if (!Text_ZoneLevels.existskey(Trackmania_ZoneSelection_State.CurrentZone)) return "";
+	return Text_ZoneLevels[Trackmania_ZoneSelection_State.CurrentZone];
+}
+
+Void NextZone(CMlScript _This) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	SetCurrentZone(_This, Trackmania_ZoneSelection_State.CurrentZone-1);
+}
+
+Void PreviousZone(CMlScript _This) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	SetCurrentZone(_This, Trackmania_ZoneSelection_State.CurrentZone+1);
+}
+
+Void Select(CMlScript _This, CMlControl _Control) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	switch(_Control.ControlId) {
+		case C_Id_ButtonPreviousZone: SetCurrentZone(_This, Trackmania_ZoneSelection_State.CurrentZone+1);
+		case C_Id_ButtonNextZone: SetCurrentZone(_This, Trackmania_ZoneSelection_State.CurrentZone-1);
+	}
+}
+
+Void Focus(CMlScript _This, CMlControl _From, CMlControl _To) {
+	if (Transition::IsInTransition(_This)) return;
+
+	if (_From != Null) {
+		Navigation::Unfocus(_This, _From);
+		if (Button::IsButton(_From)) {
+			Button::Unfocus(_This, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		Navigation::Focus(_This, _To);
+		if (Button::IsButton(_To)) {
+			Button::Focus(_This, (_To as CMlFrame));
+		}
+	}
+}
+
+Void LockNavigation(CMlScript _This, Boolean _Lock) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	Trackmania_ZoneSelection_State.IsLocked = _Lock;
+}
+
+Void UpdateZoneButtons(CMlScript _This, CMlFrame _Frame_ZoneSelection, Integer _NewZone) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+
+	if (Trackmania_ZoneSelection_State.CurrentZoneList.existskey(_NewZone)) {
+		declare Boolean PreviousZoneIsValid = Trackmania_ZoneSelection_State.CurrentZoneList.existskey(_NewZone+1);
+		declare Boolean NextZoneIsValid = Trackmania_ZoneSelection_State.CurrentZoneList.existskey(_NewZone-1);
+
+		declare Text TranslatedZone = C_Zone_Translations.get(Trackmania_ZoneSelection_State.CurrentZoneList[_NewZone], "");
+		if (TranslatedZone == "") TranslatedZone = TL::GetTranslatedText(Trackmania_ZoneSelection_State.CurrentZoneList[_NewZone]);
+		Button::SetValue(_This, Trackmania_ZoneSelection_State.Controls.Button_CurrentZone, TranslatedZone);
+
+		Navigation::Lock(Trackmania_ZoneSelection_State.Controls.Button_PreviousZone, !PreviousZoneIsValid);
+		Navigation::Lock(Trackmania_ZoneSelection_State.Controls.Button_NextZone, !NextZoneIsValid);
+		Navigation::EnableInputs(Trackmania_ZoneSelection_State.Controls.Button_CurrentZone, [CMlScriptEvent::EMenuNavAction::Action3], PreviousZoneIsValid);
+		Navigation::EnableInputs(Trackmania_ZoneSelection_State.Controls.Button_CurrentZone, [CMlScriptEvent::EMenuNavAction::Action4], NextZoneIsValid);
+
+		Trackmania_ZoneSelection_State.Controls.Frame_PreviousZone.Visible = PreviousZoneIsValid;
+		Trackmania_ZoneSelection_State.Controls.Frame_NextZone.Visible = NextZoneIsValid;
+	}
+}
+
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	return Trackmania_ZoneSelection_State.PendingEvents;
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	Trackmania_ZoneSelection_State = C_State_Null;
+
+	Trackmania_ZoneSelection_State.CurrentZone = C_ZoneLevel_World;
+	if (Config::Get().DefaultMasterZone != C_Zone_World) Trackmania_ZoneSelection_State.CurrentZone = C_ZoneLevel_Country;
+}
+
+Void MainStart(CMlScript _This) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+
+	_This.Page.GetClassChildren(C_Class, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		if (!(Control is CMlFrame)) continue;
+		declare CMlFrame Frame_ZoneSelection <=> Control.Parent;
+		Trackmania_ZoneSelection_State.Controls = K_Controls {
+			Button_CurrentZone = (Frame_ZoneSelection.GetFirstChild(C_Id_ButtonCurrentZone) as CMlFrame),
+			Button_IconLT = (Frame_ZoneSelection.GetFirstChild(C_Id_ButtonIconLT) as CMlFrame),
+			Button_IconRT = (Frame_ZoneSelection.GetFirstChild(C_Id_ButtonIconRT) as CMlFrame),
+			Button_NextZone = (Frame_ZoneSelection.GetFirstChild(C_Id_ButtonNextZone) as CMlFrame),
+			Button_PreviousZone = (Frame_ZoneSelection.GetFirstChild(C_Id_ButtonPreviousZone) as CMlFrame),
+			Frame_NextZone = (Frame_ZoneSelection.GetFirstChild(C_Id_FrameNextZone) as CMlFrame),
+			Frame_PreviousZone = (Frame_ZoneSelection.GetFirstChild(C_Id_FramePreviousZone) as CMlFrame)
+		};
+
+		// Data attributes
+		if (Frame_ZoneSelection.DataAttributeExists("height")) {
+			Trackmania_ZoneSelection_State.Properties.Height = TL::ToReal(Frame_ZoneSelection.DataAttributeGet("height"));
+		}
+		if (Frame_ZoneSelection.DataAttributeExists("width")) {
+			Trackmania_ZoneSelection_State.Properties.Width = TL::ToReal(Frame_ZoneSelection.DataAttributeGet("width"));
+		}
+
+		// Update controls size
+		ButtonIcon::SetSize(_This, Trackmania_ZoneSelection_State.Controls.Button_IconLT, <Trackmania_ZoneSelection_State.Properties.Height*0.8, Trackmania_ZoneSelection_State.Properties.Height*0.8>);
+		ButtonIcon::SetSize(_This, Trackmania_ZoneSelection_State.Controls.Button_IconRT, <Trackmania_ZoneSelection_State.Properties.Height*0.8, Trackmania_ZoneSelection_State.Properties.Height*0.8>);
+		Button::SetLabelSize(_This, Trackmania_ZoneSelection_State.Controls.Button_CurrentZone, <Trackmania_ZoneSelection_State.Properties.Width + Trackmania_ZoneSelection_State.Properties.Height*0.5, Trackmania_ZoneSelection_State.Properties.Height>);
+		Button::SetSize(_This, Trackmania_ZoneSelection_State.Controls.Button_PreviousZone, <Trackmania_ZoneSelection_State.Properties.Height, Trackmania_ZoneSelection_State.Properties.Height>);
+		Button::SetSize(_This, Trackmania_ZoneSelection_State.Controls.Button_CurrentZone, <Trackmania_ZoneSelection_State.Properties.Width, Trackmania_ZoneSelection_State.Properties.Height>);
+		Button::SetSize(_This, Trackmania_ZoneSelection_State.Controls.Button_NextZone, <Trackmania_ZoneSelection_State.Properties.Height, Trackmania_ZoneSelection_State.Properties.Height>);
+
+		// Update controls position
+		Trackmania_ZoneSelection_State.Controls.Button_PreviousZone.RelativePosition_V3 = <-Trackmania_ZoneSelection_State.Properties.Width*0.55, 0.>;
+		Trackmania_ZoneSelection_State.Controls.Button_NextZone.RelativePosition_V3 = <Trackmania_ZoneSelection_State.Properties.Width*0.55, 0.>;
+		Trackmania_ZoneSelection_State.Controls.Button_IconLT.RelativePosition_V3 = Trackmania_ZoneSelection_State.Controls.Button_PreviousZone.RelativePosition_V3 - <Trackmania_ZoneSelection_State.Properties.Height, 0.>;
+		Trackmania_ZoneSelection_State.Controls.Button_IconRT.RelativePosition_V3 = Trackmania_ZoneSelection_State.Controls.Button_NextZone.RelativePosition_V3 + <Trackmania_ZoneSelection_State.Properties.Height, 0.>;
+	}
+
+	Trackmania_ZoneSelection_State.ZonePath = LocalUser.ZonePath;
+	Trackmania_ZoneSelection_State.DefaultZoneList = TL::Split("|", LocalUser.ZonePath);
+	Trackmania_ZoneSelection_State.PrevCurrentZone = C_ZoneLevel_Null;
+	Trackmania_ZoneSelection_State.UsesDefaultList = True;
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State Trackmania_ZoneSelection_State for _This.Page = C_State_Null;
+	Trackmania_ZoneSelection_State.PendingEvents = [];
+
+	if (_This.PageIsVisible) {
+		if (Trackmania_ZoneSelection_State.CurrentZoneList.count == 0) {
+			SetZoneList(_This, Trackmania_ZoneSelection_State.DefaultZoneList);
+		}
+
+		if (Trackmania_ZoneSelection_State.ZonePath != LocalUser.ZonePath) {
+			Trackmania_ZoneSelection_State.DefaultZoneList = TL::Split("|", LocalUser.ZonePath);
+			Trackmania_ZoneSelection_State.ZonePath = LocalUser.ZonePath;
+			if (Trackmania_ZoneSelection_State.UsesDefaultList) SetZoneList(_This, Trackmania_ZoneSelection_State.DefaultZoneList);
+		}
+
+		if (Trackmania_ZoneSelection_State.PrevCurrentZone != Trackmania_ZoneSelection_State.CurrentZone) {
+			_This.Page.GetClassChildren(C_Class, _This.Page.MainFrame, True);
+			foreach (Control in _This.Page.GetClassChildren_Result) {
+				if (!(Control is CMlFrame)) continue;
+				UpdateZoneButtons(_This, Control.Parent, Trackmania_ZoneSelection_State.CurrentZone);
+			}
+			Trackmania_ZoneSelection_State.PrevCurrentZone = Trackmania_ZoneSelection_State.CurrentZone;
+		}
+
+		/* Change arrows opacity depending on the current controller */
+		if (Trackmania_ZoneSelection_State.IsMouse != Tools::IsUsingMouse(Input)) {
+			Trackmania_ZoneSelection_State.IsMouse = Tools::IsUsingMouse(Input);
+			if (Trackmania_ZoneSelection_State.Controls.Button_PreviousZone != Null && Trackmania_ZoneSelection_State.Controls.Button_NextZone != Null) {
+				if (Trackmania_ZoneSelection_State.IsMouse) {
+					Button::SetOpacityUnfocus(_This, Trackmania_ZoneSelection_State.Controls.Button_NextZone, 0.6);
+					Button::SetOpacityUnfocus(_This, Trackmania_ZoneSelection_State.Controls.Button_PreviousZone, 0.6);
+				} else {
+					Button::SetOpacityUnfocus(_This, Trackmania_ZoneSelection_State.Controls.Button_NextZone, 1.);
+					Button::SetOpacityUnfocus(_This, Trackmania_ZoneSelection_State.Controls.Button_PreviousZone, 1.);
+				}
+			}
+		}
+
+		/* Navigation events */
+		if (!Trackmania_ZoneSelection_State.IsLocked) {
+			foreach (Event in Navigation::GetPendingEvents(_This)) {
+				switch (Event.Type) {
+					case Navigation::C_EventType_NavigateInput: {
+						if (Navigation::IsEventFromGroup(_This, Event, C_NavGroupName)) {
+							switch (Event.Input) {
+								case CMlScriptEvent::EMenuNavAction::Select: Select(_This, Event.To);
+								case CMlScriptEvent::EMenuNavAction::Action3: {
+									assert(Event.To != Null && Event.To.Parent.HasClass(C_Class), "The manialink has been modified, we do not point to the right frame anymore");
+									if (Event.To.Parent.Parent.Visible) PreviousZone(_This);
+								}
+								case CMlScriptEvent::EMenuNavAction::Action4: {
+									assert(Event.To != Null && Event.To.Parent.HasClass(C_Class), "The manialink has been modified, we do not point to the right frame anymore");
+									if (Event.To.Parent.Parent.Visible) NextZone(_This);
+								}
+								default: Focus(_This, Event.From, Event.To);
+							}
+						}
+					}
+					case Navigation::C_EventType_NavigateMouse: {
+						if (Navigation::IsEventFromGroup(_This, Event, C_NavGroupName)) {
+							switch (Event.Mouse) {
+								case CMlScriptEvent::Type::MouseClick: Select(_This, Event.To);
+								case CMlScriptEvent::Type::MouseOver: Focus(_This, Event.From, Event.To);
+								case CMlScriptEvent::Type::MouseOut: Focus(_This, Event.From, Event.To);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/Trackmania/Components/ZoneSelection.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[
+			ButtonIcon::ComponentV2(),
+			Navigation::ComponentV2(),
+			Button::ComponentV2(),
+			Transition::ComponentV2(),
+			MenuSounds::ComponentV2()
+		],
+		[]
+	);
+}

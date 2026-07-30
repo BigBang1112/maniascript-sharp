@@ -1,0 +1,920 @@
+/**
+ * Create a box layout
+ *
+ * Simplified version of https://github.com/nicbarker/clay
+ *
+ * ```
+ * zlib/libpng license
+ *
+ * Copyright (c) 2024 Nic Barker
+ *
+ * This software is provided 'as-is', without any express or implied warranty.
+ * In no event will the authors be held liable for any damages arising from the
+ * use of this software.
+ *
+ * Permission is granted to anyone to use this software for any purpose,
+ * including commercial applications, and to alter it and redistribute it
+ * freely, subject to the following restrictions:
+ *
+ *     1. The origin of this software must not be misrepresented; you must not
+ *     claim that you wrote the original software. If you use this software in a
+ *     product, an acknowledgment in the product documentation would be
+ *     appreciated but is not required.
+ *
+ *     2. Altered source versions must be plainly marked as such, and must not
+ *     be misrepresented as being the original software.
+ *
+ *     3. This notice may not be removed or altered from any source
+ *     distribution.
+ * ```
+ */
+#Const Version "1.2.0"
+#Const ScriptName "Libs/Nadeo/CMGame/Menus/Layout.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Structures/Box.Script.txt" as Struct_Box
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Private_Alignment {
+	CMlControl::AlignHorizontal Horizontal;
+	CMlControl::AlignVertical Vertical;
+}
+#Struct K_Private_Sizing {
+	Integer Type;
+	Vec2 Range;
+	Real Percent;
+}
+
+#Struct K_Element {
+	Text Id = "";
+	Text ParentId = "";
+	Integer Direction = 0;
+	K_Private_Sizing Width = K_Private_Sizing {
+		Type = 0,
+		Range = <0., -1.>,
+		Percent = -1.
+	};
+	K_Private_Sizing Height = K_Private_Sizing {
+		Type = 0,
+		Range = <0., -1.>,
+		Percent = -1.
+	};
+	Real AspectRatio = -1.;
+	Struct_Box::K_Padding Padding = Struct_Box::K_Padding {
+		Top = 0.,
+		Right = 0.,
+		Bottom = 0.,
+		Left = 0.
+	};
+	Real ChildGap = 0.;
+	K_Private_Alignment ChildAlignment = K_Private_Alignment {
+		Horizontal = CMlControl::AlignHorizontal::Left,
+		Vertical = CMlControl::AlignVertical::Top
+	};
+	Text[] Private_ChildIdList = [];
+	Vec2 Private_Position = <0., 0.>;
+	Vec2 Private_Size = <0., 0.>;
+	Vec2 Private_MinSize = <0., 0.>;
+	Vec2 Private_NextChildOffset = <0., 0.>;
+}
+
+#Struct K_Private_InternalLayout {
+	Text RootElementId = "";
+	K_Element[Text] ElementList = [];
+	Text[] AspectRatioElementIdList = [];
+}
+
+#Struct K_Private_ExternalElement {
+	Vec2 Size = <0., 0.>;
+	Vec2 Position = <0., 0.>;
+}
+#Struct K_Layout {
+	K_Private_ExternalElement[Text] ElementList;
+}
+
+#Struct Struct_Box::K_Padding as K_Padding
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Direction_LeftToRight 0
+#Const C_Direction_TopToBottom 1
+
+#Const C_ElementId_Null ""
+#Const C_ElementId_Layout "@LAYOUT@"
+
+#Const C_Private_MaxSize 340282346638528859811704183484516925440.
+#Const C_Private_EpsilonSize 0.01
+
+#Const C_Private_SizingType_Fit 0
+#Const C_Private_SizingType_Fixed 1
+#Const C_Private_SizingType_Grow 2
+#Const C_Private_SizingType_Percent 3
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Swap an element with the one at the end of the array and remove it
+ * `typeName arrayName##_RemoveSwapback(arrayName *array, int32_t index)`
+ */
+Text[] Private_RemoveSwapback(Text[] _Array, Integer _Key) {
+	declare Text[] Array = _Array;
+	Array[_Key] = Array[Array.count - 1];
+	Array.removekey(Array.count - 1);
+	return Array;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if two sizes are nearly equals
+ * `bool Clay__FloatEqual(float left, float right)`
+ */
+Boolean Private_IsSizeEqual(Real _SizeA, Real _SizeB) {
+	declare Real Diff = _SizeA - _SizeB;
+	return Diff > -C_Private_EpsilonSize && Diff < C_Private_EpsilonSize;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the element sizing along the requested axis
+K_Private_Sizing Private_GetElementSizingAlongAxis(K_Element _Element, Boolean _IsXAxis) {
+	if (_IsXAxis) {
+		return _Element.Width;
+	}
+	return _Element.Height;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the element padding along the requested axis
+Real Private_GetElementPaddingAlongAxis(K_Element _Element, Boolean _IsXAxis) {
+	if (_IsXAxis) {
+		return _Element.Padding.Left + _Element.Padding.Right;
+	}
+	return _Element.Padding.Top + _Element.Padding.Bottom;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the element size along the requested axis
+Real Private_GetElementSizeAlongAxis(K_Element _Element, Boolean _IsXAxis) {
+	if (_IsXAxis) {
+		return _Element.Private_Size.X;
+	}
+	return _Element.Private_Size.Y;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the element minimum size along the requested axis
+Real Private_GetElementMinSizeAlongAxis(K_Element _Element, Boolean _IsXAxis) {
+	if (_IsXAxis) {
+		return _Element.Private_MinSize.X;
+	}
+	return _Element.Private_MinSize.Y;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Compute the element size respecting its aspect ratio
+ * `void Clay__UpdateAspectRatioBox(Clay_LayoutElement *layoutElement)`
+ */
+K_Element Private_ComputeAspectRatio(K_Element _Element) {
+	if (_Element.AspectRatio <= 0.) return _Element;
+
+	declare K_Element Element = _Element;
+
+	if (Element.Private_Size.X == 0. && Element.Private_Size.Y != 0.) {
+		Element.Private_Size.X = Element.Private_Size.Y * Element.AspectRatio;
+	} else if (Element.Private_Size.X != 0. && Element.Private_Size.Y == 0.) {
+		Element.Private_Size.Y = Element.Private_Size.X * (1. / Element.AspectRatio);
+	}
+
+	return Element;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize the element sizes
+ * `void Clay__CloseElement(void)`
+ */
+K_Private_InternalLayout Private_InitializeElementSize(K_Private_InternalLayout _Layout) {
+	declare K_Private_InternalLayout Layout = _Layout;
+
+	// Depth first traversal
+	declare Text[] ElementIdList = [C_ElementId_Layout];
+	declare Text[] VisitedElementIdList;
+	while (ElementIdList.count > 0) {
+		declare Text CurrentElementId = ElementIdList[-1];
+		declare K_Element CurrentElement = Layout.ElementList[CurrentElementId];
+
+		// Downward
+		if (!VisitedElementIdList.exists(CurrentElementId)) {
+			VisitedElementIdList.add(CurrentElementId);
+
+			// Add children to the traversal
+			for (ChildId in reverse CurrentElement.Private_ChildIdList) {
+				ElementIdList.add(ChildId);
+			}
+		}
+		// Upward
+		else {
+			ElementIdList.removekey(ElementIdList.count - 1);
+
+			// Compute size of element from its padding and children
+			declare Real LeftRightPadding = CurrentElement.Padding.Left + CurrentElement.Padding.Right;
+			declare Real TopBottomPadding = CurrentElement.Padding.Top + CurrentElement.Padding.Bottom;
+			declare Real ChildGap = ML::Max(CurrentElement.Private_ChildIdList.count - 1, 0) * CurrentElement.ChildGap;
+
+			if (CurrentElement.Direction == C_Direction_LeftToRight) {
+				CurrentElement.Private_Size.X = LeftRightPadding;
+				CurrentElement.Private_MinSize.X = LeftRightPadding;
+
+				for (ChildId in CurrentElement.Private_ChildIdList) {
+					declare K_Element ChildElement = Layout.ElementList[ChildId];
+
+					CurrentElement.Private_Size.X += ChildElement.Private_Size.X;
+					CurrentElement.Private_Size.Y = ML::Max(CurrentElement.Private_Size.Y, ChildElement.Private_Size.Y + TopBottomPadding);
+
+					CurrentElement.Private_MinSize.X += ChildElement.Private_MinSize.X;
+					CurrentElement.Private_MinSize.Y = ML::Max(CurrentElement.Private_MinSize.Y, ChildElement.Private_MinSize.Y + TopBottomPadding);
+				}
+
+				CurrentElement.Private_Size.X += ChildGap;
+				CurrentElement.Private_MinSize.X += ChildGap;
+			} else if (CurrentElement.Direction == C_Direction_TopToBottom) {
+				CurrentElement.Private_Size.Y = TopBottomPadding;
+				CurrentElement.Private_MinSize.Y = TopBottomPadding;
+
+				for (ChildId in CurrentElement.Private_ChildIdList) {
+					declare K_Element ChildElement = Layout.ElementList[ChildId];
+
+					CurrentElement.Private_Size.Y += ChildElement.Private_Size.Y;
+					CurrentElement.Private_Size.X = ML::Max(CurrentElement.Private_Size.X, ChildElement.Private_Size.X + LeftRightPadding);
+
+					CurrentElement.Private_MinSize.Y += ChildElement.Private_MinSize.Y;
+					CurrentElement.Private_MinSize.X = ML::Max(CurrentElement.Private_MinSize.X, ChildElement.Private_MinSize.X + LeftRightPadding);
+				}
+
+				CurrentElement.Private_Size.Y += ChildGap;
+				CurrentElement.Private_MinSize.Y += ChildGap;
+			}
+
+			// Clamp width to the values defined in the layout
+			if (CurrentElement.Width.Type != C_Private_SizingType_Percent) {
+				if (CurrentElement.Width.Range.Y <= 0.) {
+					CurrentElement.Width.Range.Y = C_Private_MaxSize;
+				}
+				CurrentElement.Private_Size.X = ML::Min(ML::Max(CurrentElement.Private_Size.X, CurrentElement.Width.Range.X), CurrentElement.Width.Range.Y);
+				CurrentElement.Private_MinSize.X = ML::Min(ML::Max(CurrentElement.Private_MinSize.X, CurrentElement.Width.Range.X), CurrentElement.Width.Range.Y);
+			} else {
+				CurrentElement.Private_Size.X = 0.;
+			}
+
+			// Clamp height to the values defined in the layout
+			if (CurrentElement.Height.Type != C_Private_SizingType_Percent) {
+				if (CurrentElement.Height.Range.Y <= 0.) {
+					CurrentElement.Height.Range.Y = C_Private_MaxSize;
+				}
+				CurrentElement.Private_Size.Y = ML::Min(ML::Max(CurrentElement.Private_Size.Y, CurrentElement.Height.Range.X), CurrentElement.Height.Range.Y);
+				CurrentElement.Private_MinSize.Y = ML::Min(ML::Max(CurrentElement.Private_MinSize.Y, CurrentElement.Height.Range.X), CurrentElement.Height.Range.Y);
+			} else {
+				CurrentElement.Private_Size.Y = 0.;
+			}
+
+			CurrentElement = Private_ComputeAspectRatio(CurrentElement);
+
+			Layout.ElementList[CurrentElementId] = CurrentElement;
+		}
+	}
+
+	return Layout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Compute the element sizes along the requested axis
+ * `void Clay__SizeContainersAlongAxis(bool xAxis)`
+ *
+ * @mslint-disable-next-line max-statements -- We want to keep the same code than in the original library
+ */
+K_Private_InternalLayout Private_ComputeElementSizeAlongAxis(K_Private_InternalLayout _Layout, Boolean _IsXAxis) {
+	declare K_Private_InternalLayout Layout = _Layout;
+
+	// Breadth first traversal
+	declare Text[] ElementIdList = [C_ElementId_Layout];
+	while (ElementIdList.count > 0) {
+		declare Text ParentElementId = ElementIdList[0];
+		ElementIdList.removekey(0);
+
+		declare K_Element ParentElement = Layout.ElementList[ParentElementId];
+		declare Integer GrowContainerCount = 0;
+		declare Real ParentPadding = Private_GetElementPaddingAlongAxis(ParentElement, _IsXAxis);
+		declare Real ParentSize = Private_GetElementSizeAlongAxis(ParentElement, _IsXAxis);
+		declare Real InnerContentSize = 0.;
+		declare Real TotalPaddingAndChildGap = ParentPadding;
+		declare Boolean IsSizingAlongAxis = (
+			(_IsXAxis && ParentElement.Direction == C_Direction_LeftToRight) ||
+			(!_IsXAxis && ParentElement.Direction == C_Direction_TopToBottom)
+		);
+		declare Text[] ResizableElementIdList;
+
+		for (ChildKey => ChildId in ParentElement.Private_ChildIdList) {
+			declare K_Element ChildElement = Layout.ElementList[ChildId];
+			declare K_Private_Sizing ChildSizing = Private_GetElementSizingAlongAxis(ChildElement, _IsXAxis);
+			declare Real ChildSize = Private_GetElementSizeAlongAxis(ChildElement, _IsXAxis);
+
+			if (ChildElement.Private_ChildIdList.count > 0) {
+				ElementIdList.add(ChildId);
+			}
+
+			if (
+				ChildSizing.Type != C_Private_SizingType_Percent &&
+				ChildSizing.Type != C_Private_SizingType_Fixed
+			) {
+				ResizableElementIdList.add(ChildId);
+			}
+
+			if (IsSizingAlongAxis) {
+				if (ChildSizing.Type != C_Private_SizingType_Percent) {
+					InnerContentSize += ChildSize;
+				}
+				if (ChildSizing.Type == C_Private_SizingType_Grow) {
+					GrowContainerCount += 1;
+				}
+				if (ChildKey > 0) {
+					InnerContentSize += ParentElement.ChildGap;
+					TotalPaddingAndChildGap += ParentElement.ChildGap;
+				}
+			} else {
+				InnerContentSize = ML::Max(ChildSize, InnerContentSize);
+			}
+		}
+
+		// Expand percentage containers
+		for (ChildId in ParentElement.Private_ChildIdList) {
+			declare K_Element ChildElement = Layout.ElementList[ChildId];
+			declare K_Private_Sizing ChildSizing = Private_GetElementSizingAlongAxis(ChildElement, _IsXAxis);
+
+			if (ChildSizing.Type == C_Private_SizingType_Percent) {
+				declare Real ChildSize = Private_GetElementSizeAlongAxis(ChildElement, _IsXAxis);
+
+				ChildSize = (ParentSize - TotalPaddingAndChildGap) * ChildSizing.Percent;
+				if (IsSizingAlongAxis) {
+					InnerContentSize += ChildSize;
+				}
+
+				if (_IsXAxis) {
+					ChildElement.Private_Size.X = ChildSize;
+				} else {
+					ChildElement.Private_Size.Y = ChildSize;
+				}
+
+				ChildElement = Private_ComputeAspectRatio(ChildElement);
+
+				Layout.ElementList[ChildId] = ChildElement;
+			}
+		}
+
+		if (IsSizingAlongAxis) {
+			declare Real SizeToDistribute = ParentSize - ParentPadding - InnerContentSize;
+
+			// The content is too large, compress the children as much as possible
+			if (SizeToDistribute < 0.) {
+				while (SizeToDistribute < -C_Private_EpsilonSize && ResizableElementIdList.count > 0) {
+					declare Real Largest = 0.;
+					declare Real SecondLargest = 0.;
+					declare Real WidthToAdd = SizeToDistribute;
+
+					for (ResizableElementId in ResizableElementIdList) {
+						declare K_Element ResizableElement = Layout.ElementList[ResizableElementId];
+						declare Real ResizableSize = Private_GetElementSizeAlongAxis(ResizableElement, _IsXAxis);
+
+						if (Private_IsSizeEqual(ResizableSize, Largest)) continue;
+
+						if (ResizableSize > Largest) {
+							SecondLargest = Largest;
+							Largest = ResizableSize;
+						}
+						if (ResizableSize < Largest) {
+							SecondLargest = ML::Max(SecondLargest, ResizableSize);
+							WidthToAdd = SecondLargest - Largest;
+						}
+					}
+
+					WidthToAdd = ML::Max(WidthToAdd, SizeToDistribute / ResizableElementIdList.count);
+
+					declare Integer ResizableElementKey = 0;
+					while (ResizableElementKey < ResizableElementIdList.count) {
+						declare Text ResizableElementId = ResizableElementIdList[ResizableElementKey];
+						declare K_Element ResizableElement = Layout.ElementList[ResizableElementId];
+						declare Real ResizableSize = Private_GetElementSizeAlongAxis(ResizableElement, _IsXAxis);
+						declare Real ResizableMinSize = Private_GetElementMinSizeAlongAxis(ResizableElement, _IsXAxis);
+						declare Real PreviousWidth = ResizableSize;
+
+						if (Private_IsSizeEqual(ResizableSize, Largest)) {
+							ResizableSize += WidthToAdd;
+							if (ResizableSize <= ResizableMinSize) {
+								ResizableSize = ResizableMinSize;
+								ResizableElementIdList = Private_RemoveSwapback(ResizableElementIdList, ResizableElementKey);
+								ResizableElementKey -= 1;
+							}
+							SizeToDistribute -= (ResizableSize - PreviousWidth);
+
+							if (_IsXAxis) {
+								ResizableElement.Private_Size.X = ResizableSize;
+							} else {
+								ResizableElement.Private_Size.Y = ResizableSize;
+							}
+
+							Layout.ElementList[ResizableElementId] = ResizableElement;
+						}
+
+						ResizableElementKey += 1;
+					}
+				}
+			}
+			// Content is too small, expand `C_Private_SizingType_Grow` children
+			else if (SizeToDistribute > 0. && GrowContainerCount > 0) {
+				declare Integer ResizableElementKey = 0;
+				while (ResizableElementKey < ResizableElementIdList.count) {
+					declare Text ResizableElementId = ResizableElementIdList[ResizableElementKey];
+					declare K_Element ResizableElement = Layout.ElementList[ResizableElementId];
+					declare K_Private_Sizing ResizableSizing = Private_GetElementSizingAlongAxis(ResizableElement, _IsXAxis);
+
+					if (ResizableSizing.Type != C_Private_SizingType_Grow) {
+						ResizableElementIdList = Private_RemoveSwapback(ResizableElementIdList, ResizableElementKey);
+						ResizableElementKey -= 1;
+					}
+
+					ResizableElementKey += 1;
+				}
+
+				while (SizeToDistribute > C_Private_EpsilonSize && ResizableElementIdList.count > 0) {
+					declare Real Smallest = C_Private_MaxSize;
+					declare Real SecondSmallest = C_Private_MaxSize;
+					declare Real WidthToAdd = SizeToDistribute;
+
+					for (ResizableElementId in ResizableElementIdList) {
+						declare K_Element ResizableElement = Layout.ElementList[ResizableElementId];
+						declare Real ResizableSize = Private_GetElementSizeAlongAxis(ResizableElement, _IsXAxis);
+
+						if (Private_IsSizeEqual(ResizableSize, Smallest)) continue;
+
+						if (ResizableSize < Smallest) {
+							SecondSmallest = Smallest;
+							Smallest = ResizableSize;
+						}
+
+						if (ResizableSize > Smallest) {
+							SecondSmallest = ML::Min(SecondSmallest, ResizableSize);
+							WidthToAdd = SecondSmallest - Smallest;
+						}
+					}
+
+					WidthToAdd = ML::Min(WidthToAdd, SizeToDistribute / ResizableElementIdList.count);
+
+					declare Integer ResizableElementKey = 0;
+					while (ResizableElementKey < ResizableElementIdList.count) {
+						declare Text ResizableElementId = ResizableElementIdList[ResizableElementKey];
+						declare K_Element ResizableElement = Layout.ElementList[ResizableElementId];
+						declare Real ResizableSize = Private_GetElementSizeAlongAxis(ResizableElement, _IsXAxis);
+						declare Real MaxSize = Private_GetElementSizingAlongAxis(ResizableElement, _IsXAxis).Range.Y;
+						declare Real PreviousWidth = ResizableSize;
+
+						if (Private_IsSizeEqual(ResizableSize, Smallest)) {
+							ResizableSize += WidthToAdd;
+							if (ResizableSize >= MaxSize) {
+								ResizableSize = MaxSize;
+								ResizableElementIdList = Private_RemoveSwapback(ResizableElementIdList, ResizableElementKey);
+								ResizableElementKey -= 1;
+							}
+							SizeToDistribute -= (ResizableSize - PreviousWidth);
+
+							if (_IsXAxis) {
+								ResizableElement.Private_Size.X = ResizableSize;
+							} else {
+								ResizableElement.Private_Size.Y = ResizableSize;
+							}
+
+							Layout.ElementList[ResizableElementId] = ResizableElement;
+						}
+
+						ResizableElementKey += 1;
+					}
+				}
+			}
+		}
+		// Sizing along the cross axis
+		else {
+			for (ResizableElementId in ResizableElementIdList) {
+				declare K_Element ResizableElement = Layout.ElementList[ResizableElementId];
+				declare K_Private_Sizing ResizableSizing = Private_GetElementSizingAlongAxis(ResizableElement, _IsXAxis);
+				declare Real ResizableSize = Private_GetElementSizeAlongAxis(ResizableElement, _IsXAxis);
+				declare Real ResizableMinSize = Private_GetElementMinSizeAlongAxis(ResizableElement, _IsXAxis);
+				declare Real ResizableMaxSize = ParentSize - ParentPadding;
+
+				if (ResizableSizing.Type == C_Private_SizingType_Grow) {
+					ResizableSize = ML::Min(ResizableMaxSize, ResizableSizing.Range.Y);
+				}
+				ResizableSize = ML::Max(ResizableMinSize, ML::Min(ResizableSize, ResizableMaxSize));
+
+				if (_IsXAxis) {
+					ResizableElement.Private_Size.X = ResizableSize;
+				} else {
+					ResizableElement.Private_Size.Y = ResizableSize;
+				}
+
+				Layout.ElementList[ResizableElementId] = ResizableElement;
+			}
+		}
+	}
+
+	return Layout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Propagate the element aspect ratio
+K_Private_InternalLayout Private_PropagateAspectRatio(K_Private_InternalLayout _Layout) {
+	declare K_Private_InternalLayout Layout = _Layout;
+
+	// Depth first traversal
+	declare Text[] ElementIdList = [C_ElementId_Layout];
+	declare Text[] VisitedElementIdList;
+	while (ElementIdList.count > 0) {
+		declare Text CurrentElementId = ElementIdList[-1];
+		declare K_Element CurrentElement = Layout.ElementList[CurrentElementId];
+
+		// Downward
+		if (!VisitedElementIdList.exists(CurrentElementId)) {
+			VisitedElementIdList.add(CurrentElementId);
+
+			// If the element has no children, don't bother inspecting it
+			if (CurrentElement.Private_ChildIdList.count <= 0) {
+				ElementIdList.removekey(ElementIdList.count - 1);
+				continue;
+			}
+
+			// There is a comment in the original code saying children are pushed in reverse order, but the actual code push them in the default order
+			for (ChildId in CurrentElement.Private_ChildIdList) {
+				ElementIdList.add(ChildId);
+			}
+		}
+		// Upward
+		else {
+			ElementIdList.removekey(ElementIdList.count - 1);
+
+			if (CurrentElement.Direction == C_Direction_LeftToRight) {
+				// Resize any parent containers that have grown in height along their layout cross axis
+				for (ChildId in CurrentElement.Private_ChildIdList) {
+					declare K_Element ChildElement = Layout.ElementList[ChildId];
+					declare Real ChildHeightWithPadding = ML::Max(ChildElement.Private_Size.Y + ChildElement.Padding.Top + ChildElement.Padding.Bottom, CurrentElement.Private_Size.Y);
+					CurrentElement.Private_Size.Y = ML::Min(ML::Max(ChildHeightWithPadding, CurrentElement.Height.Range.X), CurrentElement.Height.Range.Y);
+				}
+				Layout.ElementList[CurrentElement.Id] = CurrentElement;
+			} else if (CurrentElement.Direction == C_Direction_TopToBottom) {
+				// Resizing along the layout main axis
+				declare Real ContentHeight = CurrentElement.Padding.Top + CurrentElement.Padding.Bottom;
+				for (ChildId in CurrentElement.Private_ChildIdList) {
+					ContentHeight += Layout.ElementList[ChildId].Private_Size.Y;
+				}
+				ContentHeight += ML::Max(CurrentElement.Private_ChildIdList.count - 1, 0) * CurrentElement.ChildGap;
+				CurrentElement.Private_Size.Y = ML::Min(ML::Max(ContentHeight, CurrentElement.Height.Range.X), CurrentElement.Height.Range.Y);
+				Layout.ElementList[CurrentElement.Id] = CurrentElement;
+			}
+		}
+	}
+
+	return Layout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the element positions
+K_Private_InternalLayout Private_ComputeElementPosition(K_Private_InternalLayout _Layout) {
+	declare K_Private_InternalLayout Layout = _Layout;
+
+	// Depth first traversal
+	declare Text[] ElementIdList = [C_ElementId_Layout];
+	declare Text[] VisitedElementIdList = [];
+	while (ElementIdList.count > 0) {
+		declare Text CurrentElementId = ElementIdList[-1];
+		declare K_Element CurrentElement = Layout.ElementList[CurrentElementId];
+
+		// Downward
+		if (!VisitedElementIdList.exists(CurrentElementId)) {
+			VisitedElementIdList.add(CurrentElementId);
+
+			// Setup initial main axis alignment
+			declare Vec2 ContentSize = <0., 0.>;
+			if (CurrentElement.Direction == C_Direction_LeftToRight) {
+				for (ChildId in CurrentElement.Private_ChildIdList) {
+					declare K_Element ChildElement = Layout.ElementList[ChildId];
+					ContentSize.X += ChildElement.Private_Size.X;
+					ContentSize.Y = ML::Max(ContentSize.Y, ChildElement.Private_Size.Y);
+				}
+				ContentSize.X += ML::Max(CurrentElement.Private_ChildIdList.count - 1, 0) * CurrentElement.ChildGap;
+
+				declare Real ExtraSpace = CurrentElement.Private_Size.X - (CurrentElement.Padding.Left + CurrentElement.Padding.Right) - ContentSize.X;
+				switch (CurrentElement.ChildAlignment.Horizontal) {
+					case CMlControl::AlignHorizontal::Left, CMlControl::AlignHorizontal::None: ExtraSpace = 0.;
+					case CMlControl::AlignHorizontal::HCenter: ExtraSpace /= 2.;
+				}
+				CurrentElement.Private_NextChildOffset.X += ExtraSpace;
+				ExtraSpace = ML::Max(0., ExtraSpace);
+
+				Layout.ElementList[CurrentElement.Id] = CurrentElement;
+			} else {
+				for (ChildId in CurrentElement.Private_ChildIdList) {
+					declare K_Element ChildElement = Layout.ElementList[ChildId];
+					ContentSize.X = ML::Max(ContentSize.X, ChildElement.Private_Size.X);
+					ContentSize.Y += ChildElement.Private_Size.Y;
+				}
+				ContentSize.Y += ML::Max(CurrentElement.Private_ChildIdList.count - 1, 0) * CurrentElement.ChildGap;
+
+				declare Real ExtraSpace = CurrentElement.Private_Size.Y - (CurrentElement.Padding.Top + CurrentElement.Padding.Bottom) - ContentSize.Y;
+				switch (CurrentElement.ChildAlignment.Vertical) {
+					case CMlControl::AlignVertical::Top, CMlControl::AlignVertical::None: ExtraSpace = 0.;
+					case CMlControl::AlignVertical::VCenter, CMlControl::AlignVertical::VCenter2: ExtraSpace /= 2.;
+				}
+				ExtraSpace = ML::Max(0., ExtraSpace);
+				CurrentElement.Private_NextChildOffset.Y += ExtraSpace;
+
+				Layout.ElementList[CurrentElement.Id] = CurrentElement;
+			}
+
+			for (ChildId in CurrentElement.Private_ChildIdList) {
+				declare K_Element ChildElement = Layout.ElementList[ChildId];
+
+				// Alignment along the layout cross axis
+				if (CurrentElement.Direction == C_Direction_LeftToRight) {
+					CurrentElement.Private_NextChildOffset.Y = CurrentElement.Padding.Top;
+
+					declare Real WhiteSpaceAroundChild = CurrentElement.Private_Size.Y - (CurrentElement.Padding.Top + CurrentElement.Padding.Bottom) - ChildElement.Private_Size.Y;
+					switch (CurrentElement.ChildAlignment.Vertical) {
+						case CMlControl::AlignVertical::VCenter, CMlControl::AlignVertical::VCenter2: CurrentElement.Private_NextChildOffset.Y += WhiteSpaceAroundChild / 2.;
+						case CMlControl::AlignVertical::Bottom: CurrentElement.Private_NextChildOffset.Y += WhiteSpaceAroundChild;
+					}
+
+					Layout.ElementList[CurrentElement.Id] = CurrentElement;
+				} else {
+					CurrentElement.Private_NextChildOffset.X = CurrentElement.Padding.Left;
+
+					declare Real WhiteSpaceAroundChild = CurrentElement.Private_Size.X - (CurrentElement.Padding.Left + CurrentElement.Padding.Right) - ChildElement.Private_Size.X;
+					switch (CurrentElement.ChildAlignment.Horizontal) {
+						case CMlControl::AlignHorizontal::HCenter: CurrentElement.Private_NextChildOffset.X += WhiteSpaceAroundChild / 2.;
+						case CMlControl::AlignHorizontal::Right: CurrentElement.Private_NextChildOffset.X += WhiteSpaceAroundChild;
+					}
+
+					Layout.ElementList[CurrentElement.Id] = CurrentElement;
+				}
+
+				ChildElement.Private_Position = <
+					CurrentElement.Private_Position.X + CurrentElement.Private_NextChildOffset.X,
+					CurrentElement.Private_Position.Y + CurrentElement.Private_NextChildOffset.Y
+				>;
+				ChildElement.Private_NextChildOffset = <
+					ChildElement.Padding.Left,
+					ChildElement.Padding.Top
+				>;
+				Layout.ElementList[ChildId] = ChildElement;
+
+				// We add children to the DFS array in the loop after this one and not here like the original code because we need to add them in reverse order
+
+				// Update parent offsets
+				if (CurrentElement.Direction == C_Direction_LeftToRight) {
+					CurrentElement.Private_NextChildOffset.X += ChildElement.Private_Size.X + CurrentElement.ChildGap;
+				} else {
+					CurrentElement.Private_NextChildOffset.Y += ChildElement.Private_Size.Y + CurrentElement.ChildGap;
+				}
+				Layout.ElementList[CurrentElement.Id] = CurrentElement;
+			}
+
+			// DFS array elements need to be added in reverse because stack traversal happens backwards
+			for (ChildId in reverse CurrentElement.Private_ChildIdList) {
+				ElementIdList.add(ChildId);
+			}
+		}
+		// Upward
+		else {
+			ElementIdList.removekey(ElementIdList.count - 1);
+		}
+	}
+
+	return Layout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** New indexed element id
+ * Useful in `for` loops to create sequential element ids
+ */
+Text NewId(Text _Id, Integer _IndexedA, Integer _IndexedB) {
+	return _Id^"#"^_IndexedA^"-"^_IndexedB;
+}
+Text NewId(Text _Id, Integer _Indexed) {
+	return _Id^"#"^_Indexed;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** New fit sizing
+ * The element will be sized to fit its children (plus padding and gaps), up to max.
+ * If max is left unspecified, it will default to `C_Private_MaxSize`.
+ * When elements are compressed to fit into a smaller parent, this element will not shrink below min.
+ */
+K_Private_Sizing NewSizingFit(Real _Min, Real _Max) {
+	declare Real Min = ML::Max(0., _Min);
+	return K_Private_Sizing {
+		Type = C_Private_SizingType_Fit,
+		Range = <Min, ML::Max(Min, _Max)>,
+		Percent = -1.
+	};
+}
+K_Private_Sizing NewSizingFit(Real _Min) {
+	return K_Private_Sizing {
+		Type = C_Private_SizingType_Fit,
+		Range = <ML::Max(0., _Min), -1.>,
+		Percent = -1.
+	};
+}
+K_Private_Sizing NewSizingFit() {
+	return K_Private_Sizing {
+		Type = C_Private_SizingType_Fit,
+		Range = <0., -1.>,
+		Percent = -1.
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** New fixed sizing
+ * The final size will always be exactly the provided fixed value. Shorthand for NewSizingFixed(_Value, _Value)
+ */
+K_Private_Sizing NewSizingFixed(Real _Value) {
+	declare Real Value = ML::Max(0., _Value);
+	return K_Private_Sizing {
+		Type = C_Private_SizingType_Fixed,
+		Range = <Value, Value>,
+		Percent = -1.
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** New grow sizing
+ * The element will grow to fill available space in its parent, up to max.
+ * If max is left unspecified, it will default to `C_Private_MaxSize`.
+ * When elements are compressed to fit into a smaller parent, this element will not shrink below min.
+ */
+K_Private_Sizing NewSizingGrow(Real _Min, Real _Max) {
+	declare Real Min = ML::Max(0., _Min);
+	return K_Private_Sizing {
+		Type = C_Private_SizingType_Grow,
+		Range = <Min, ML::Max(Min, _Max)>,
+		Percent = -1.
+	};
+}
+K_Private_Sizing NewSizingGrow(Real _Min) {
+	return K_Private_Sizing {
+		Type = C_Private_SizingType_Grow,
+		Range = <ML::Max(0., _Min), -1.>,
+		Percent = -1.
+	};
+}
+K_Private_Sizing NewSizingGrow() {
+	return K_Private_Sizing {
+		Type = C_Private_SizingType_Grow,
+		Range = <0., -1.>,
+		Percent = -1.
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** New percentage sizing
+ * Final size will be a percentage of parent size, minus padding and child gaps.
+ * `_Value` is assumed to be a `Real` between 0 and 1.
+ */
+K_Private_Sizing NewSizingPercent(Real _Value) {
+	return K_Private_Sizing {
+		Type = C_Private_SizingType_Percent,
+		Range = <0., -1.>,
+		Percent = ML::Clamp(_Value, 0., 1.)
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// New element alignment
+K_Private_Alignment NewAlignment(CMlControl::AlignHorizontal _Horizontal, CMlControl::AlignVertical _Vertical) {
+	return K_Private_Alignment {
+		Horizontal = _Horizontal,
+		Vertical = _Vertical
+	};
+}
+K_Private_Alignment NewAlignment(CMlControl::AlignHorizontal _Horizontal) {
+	return K_Private_Alignment {
+		Horizontal = _Horizontal,
+		Vertical = CMlControl::AlignVertical::Top
+	};
+}
+K_Private_Alignment NewAlignment(CMlControl::AlignVertical _Vertical) {
+	return K_Private_Alignment {
+		Horizontal = CMlControl::AlignHorizontal::Left,
+		Vertical = _Vertical
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a new layout
+ * `void Clay__CalculateFinalLayout(void)`
+ */
+K_Layout NewLayout(Vec2 _LayoutSize, Text _RootElementId, K_Element[] _ElementList) {
+	declare K_Private_InternalLayout Layout;
+
+	for (Element in _ElementList) {
+		assert(Element.Id != C_ElementId_Null, """[CMGame/Menus/Layout] An element cannot have an empty id""");
+		assert(Element.Id != C_ElementId_Layout, """[CMGame/Menus/Layout] An element id cannot be `{{{C_ElementId_Layout}}}`""");
+		assert(Element.ParentId != C_ElementId_Layout, """[CMGame/Menus/Layout] An element parent id cannot be `{{{C_ElementId_Layout}}}`""");
+		assert(_RootElementId != C_ElementId_Layout, """[CMGame/Menus/Layout] The root element id cannot be `{{{C_ElementId_Layout}}}`""");
+		assert(!Layout.ElementList.existskey(Element.Id), """[CMGame/Menus/Layout] An element with the id `{{{Element.Id}}}` already exists in the layout""");
+		assert(
+			Element.ParentId != C_ElementId_Null || Element.Id == _RootElementId,
+			"""[CMGame/Menus/Layout] Orphan element with id `{{{Element.Id}}}`"""
+		);
+
+		Layout.ElementList[Element.Id] = Element;
+
+		if (Element.AspectRatio > 0.) {
+			Layout.AspectRatioElementIdList.add(Element.Id);
+		}
+	}
+	assert(Layout.ElementList.existskey(_RootElementId), """[CMGame/Menus/Layout] Root element `{{{_RootElementId}}}` does not exist in the layout""");
+
+	for (Element in Layout.ElementList) {
+		assert(
+			Element.ParentId == C_ElementId_Null || Layout.ElementList.existskey(Element.ParentId),
+			"""[CMGame/Menus/Layout] Parent `{{{Element.ParentId}}}` of element `{{{Element.Id}}}` does not exist in the layout"""
+		);
+		if (Element.ParentId != C_ElementId_Null) {
+			Layout.ElementList[Element.ParentId].Private_ChildIdList.add(Element.Id);
+		}
+	}
+
+	Layout.RootElementId = _RootElementId;
+
+	declare K_Element LayoutElement;
+	LayoutElement.Id = C_ElementId_Layout;
+	LayoutElement.Private_ChildIdList = [Layout.RootElementId];
+	LayoutElement.Private_Size = <ML::Max(0., _LayoutSize.X), ML::Max(0., _LayoutSize.Y)>;
+	LayoutElement.Private_MinSize = LayoutElement.Private_Size;
+	Layout.ElementList[LayoutElement.Id] = LayoutElement;
+	Layout.ElementList[Layout.RootElementId].ParentId = LayoutElement.Id;
+
+	// Initialize element sizes
+	Layout = Private_InitializeElementSize(Layout);
+
+	// Compute element sizes along the X axis
+	Layout = Private_ComputeElementSizeAlongAxis(Layout, True);
+
+	// Scale vertical heights according to aspect ratio
+	for (AspectRatioElementId in Layout.AspectRatioElementIdList) {
+		declare K_Element AspectRatioElement = Layout.ElementList[AspectRatioElementId];
+		AspectRatioElement.Private_Size.Y = (1 / AspectRatioElement.AspectRatio) * AspectRatioElement.Private_Size.X;
+		AspectRatioElement.Height.Range.Y = AspectRatioElement.Private_Size.Y;
+		Layout.ElementList[AspectRatioElementId] = AspectRatioElement;
+	}
+
+	// Propagate effect of aspect ratio scaling on height of parents
+	Layout = Private_PropagateAspectRatio(Layout);
+
+	// Compute element sizes along the Y axis
+	Layout = Private_ComputeElementSizeAlongAxis(Layout, False);
+
+	// Scale horizontal widths according to aspect ratio
+	for (AspectRatioElementId in Layout.AspectRatioElementIdList) {
+		declare K_Element AspectRatioElement = Layout.ElementList[AspectRatioElementId];
+		AspectRatioElement.Private_Size.X = AspectRatioElement.AspectRatio * AspectRatioElement.Private_Size.Y;
+		Layout.ElementList[AspectRatioElementId] = AspectRatioElement;
+	}
+
+	// Calculate final positions
+	Layout = Private_ComputeElementPosition(Layout);
+
+	declare K_Layout ExternalLayout;
+	for (Element in Layout.ElementList) {
+		ExternalLayout.ElementList[Element.Id] = K_Private_ExternalElement {
+			Size = Element.Private_Size,
+			Position = <Element.Private_Position.X, -Element.Private_Position.Y>
+		};
+	}
+
+	return ExternalLayout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the size of an element in the layout
+Vec2 GetSize(K_Layout _Layout, Text _ElementId) {
+	return _Layout.ElementList.get(_ElementId, K_Private_ExternalElement {}).Size;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the position of an element in the layout
+Vec2 GetPosition(K_Layout _Layout, Text _ElementId) {
+	return _Layout.ElementList.get(_ElementId, K_Private_ExternalElement {}).Position;
+}

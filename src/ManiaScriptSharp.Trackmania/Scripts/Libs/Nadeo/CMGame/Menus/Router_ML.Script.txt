@@ -1,0 +1,294 @@
+/**
+ *	Manialink functions for the `Router` component
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Router_URL {
+	Text Path;
+	Text QueryString;
+	Text[Text] Query;
+}
+#Struct K_Router_Route {
+	K_Router_URL URL;
+	K_Router_URL ParentURL;
+	Ident LayerId;
+	Text[] Overlays;
+	Text[] ExcludedOverlays;
+	Integer TransitionIn;
+	Integer TransitionOut;
+	Integer PreloadStatus;
+}
+#Struct K_URL_Config {
+	Boolean SaveHistory;
+	Boolean ResetPreviousPagesDisplayed;
+	Boolean KeepPreviousPagesDisplayed;
+	Boolean HidePreviousPage;
+	Boolean ShowParentPage;
+	Text[] ExcludeOverlays;
+}
+#Struct K_RouterEvent {
+	Text Type;
+	Text[Text] Data;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Router_Route_Null K_Router_Route {}
+
+#Const C_Name "router" //< Component name
+#Const P "Router_Router::" //< Prefix use to differentiate functions/variables in the script
+#Const Q "Router_Router"
+
+// Event types
+#Const C_Event_Push "Router_Push"
+#Const C_Event_PushParent "Router_PushParent"
+#Const C_Event_Go "Router_Go"
+#Const C_Event_SetParentPath "Router_SetParentPath"
+#Const C_Event_SetParentURL "Router_SetParentURL"
+#Const C_Event_RoutePushed "Router_RoutePushed"
+#Const C_Event_RouteUpdated "Router_RouteUpdated"
+#Const C_Event_RouteCreated "Router_RouteCreated"
+#Const C_Event_RouteDestroyed "Router_RouteDestroyed"
+#Const C_Event_OverlayCreated "Router_OverlayCreated"
+#Const C_Event_OverlayUpdateData "Router_OverlayUpdateData"
+#Const C_Event_OverlayUpdateParent "Router_OverlayUpdateParent"
+#Const C_Event_OverlayEmptyHistory "Router_OverlayEmptyHistory"
+#Const C_Event_OverlayDestroyed "Router_OverlayDestroyed"
+#Const C_Event_OverlayLocked "Router_OverlayLocked"
+#Const C_Event_AddPendingEvent "Router_AddPendingEvent"
+#Const C_Event_EnteringRoute "Router_EnteringRoute"
+#Const C_Event_LeavingRoute "Router_LeavingRoute"
+
+#Const C_Query_EnablePrivilege "enable_privileges"
+#Const C_Query_DisablePrivilege "disable_privileges"
+#Const C_Query_MenuSection "menu_section"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Lock or unlock an overlay
+ *
+ *	@param	_OverlayName										The name of the overlay to lock/unlock
+ *	@param	_IsLocked												The lock state for the overlay
+ */
+Void LockOverlay(CMlScript _This, Text _OverlayName, Boolean _IsLocked) {
+	declare Text IsLocked = "0";
+	if (_IsLocked) IsLocked = "1";
+	_This.SendCustomEvent(C_Event_OverlayLocked, [_OverlayName, IsLocked]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if an overlay is currently locked
+ *
+ *	@param	_OverlayName										The name of the overlay to check
+ */
+Boolean IsOverlayLocked(CMlScript _This, Text _OverlayName) {
+	declare Text[] Router_LockedOverlays for _This.LocalUser = [];
+	return Router_LockedOverlays.exists(_OverlayName);
+}
+
+Void Push(CMlScript _This, Text _URL, Text[Text] _Query, K_URL_Config _Config) {
+	declare Text[] Data = [_URL];
+	Data.add(_Query.tojson());
+	Data.add(_Config.tojson());
+	_This.SendCustomEvent(C_Event_Push, Data);
+}
+Void Push(CMlScript _This, Text _URL, Text[Text] _Query, Boolean _KeepPreviousPagesDisplayed, Boolean _HidePreviousPage, Boolean _ShowParent, Text[] _ExcludeOverlays) {
+	declare K_URL_Config Config;
+	declare Text[] Data = [_URL];
+	Config = K_URL_Config {
+		SaveHistory = True,
+		ResetPreviousPagesDisplayed = True,
+		KeepPreviousPagesDisplayed = _KeepPreviousPagesDisplayed,
+		HidePreviousPage = _HidePreviousPage,
+		ShowParentPage = _ShowParent,
+		ExcludeOverlays = _ExcludeOverlays
+	};
+	Data.add(_Query.tojson());
+	Data.add(Config.tojson());
+	_This.SendCustomEvent(C_Event_Push, Data);
+}
+Void Push(CMlScript _This, Text _URL, Text[Text] _Query, Boolean _KeepPreviousPagesDisplayed, Boolean _HidePreviousPage, Boolean _ShowParent) {
+	Push(_This, _URL, _Query, _KeepPreviousPagesDisplayed, _HidePreviousPage, _ShowParent, []);
+}
+Void Push(CMlScript _This, Text _URL, Text[Text] _Query, Boolean _KeepPreviousPagesDisplayed, Boolean _HidePreviousPage) {
+	Push(_This, _URL, _Query, _KeepPreviousPagesDisplayed, _HidePreviousPage, False);
+}
+Void Push(CMlScript _This, Text _URL, Text[Text] _Query, Boolean _KeepPreviousPagesDisplayed) {
+	Push(_This, _URL, _Query, _KeepPreviousPagesDisplayed, False, False);
+}
+Void Push(CMlScript _This, Text _URL, Boolean _KeepPreviousPagesDisplayed) {
+	Push(_This, _URL, [], _KeepPreviousPagesDisplayed, False, False);
+}
+Void Push(CMlScript _This, Text _URL, Text[Text] _Query) {
+	Push(_This, _URL, _Query, False, True);
+}
+Void Push(CMlScript _This, Text _URL) {
+	Push(_This, _URL, [], False, True);
+}
+
+Void PushParent(CMlScript _This, Text _URL, Text[Text] _Query, K_URL_Config _Config) {
+	_This.SendCustomEvent(C_Event_PushParent, [_URL, _Query.tojson(), _Config.tojson()]);
+}
+Void PushParent(CMlScript _This, Text _URL, Text[Text] _Query) {
+	PushParent(_This, _URL, _Query, K_URL_Config {
+		SaveHistory = True,
+		ResetPreviousPagesDisplayed = True,
+		KeepPreviousPagesDisplayed = False,
+		HidePreviousPage = True,
+		ShowParentPage = False,
+		ExcludeOverlays = []
+	});
+}
+Void PushParent(CMlScript _This, Text _URL) {
+	_This.SendCustomEvent(C_Event_PushParent, [_URL]);
+}
+Void PushParent(CMlScript _This, Text[Text] _Query, K_URL_Config _Config) {
+	declare K_Router_Route Router_CurrentRoute for LocalUser = C_Router_Route_Null;
+	PushParent(_This, Router_CurrentRoute.URL.Path, _Query, _Config);
+}
+Void PushParent(CMlScript _This, Text[Text] _Query) {
+	declare K_Router_Route Router_CurrentRoute for LocalUser = C_Router_Route_Null;
+	PushParent(_This, Router_CurrentRoute.URL.Path, _Query);
+}
+Void PushParent(CMlScript _This) {
+	declare K_Router_Route Router_CurrentRoute for LocalUser = C_Router_Route_Null;
+	PushParent(_This, Router_CurrentRoute.URL.Path);
+}
+
+Void UpdateOverlayData(CMlScript _This, Text _OverlayName, Text[Text] _Data) {
+	declare Text[] Data = [_OverlayName];
+	Data.add(_Data.tojson());
+	_This.SendCustomEvent(C_Event_OverlayUpdateData, Data);
+}
+
+Void UpdateOverlayParent(CMlScript _This, Text _OverlayName, Text[Text] _Data) {
+	declare Text[] Data = [_OverlayName];
+	Data.add(_Data.tojson());
+	_This.SendCustomEvent(C_Event_OverlayUpdateParent, Data);
+}
+
+Void SetParentPath(CMlScript _This, Text _Path, Text _ParentPath) {
+	_This.SendCustomEvent(C_Event_SetParentPath, [_Path, _ParentPath]);
+}
+Void SetParentURL(CMlScript _This, Text _Path, K_Router_URL _URL) {
+	_This.SendCustomEvent(C_Event_SetParentURL, [_Path, _URL.tojson()]);
+}
+
+Void Go(CMlScript _This, Integer _Steps) {
+	_This.SendCustomEvent(C_Event_Go, [""^_Steps]);
+}
+
+Boolean TransitionIsActive(CMlScript _This) {
+	declare Boolean Router_TransitionIsActive for _This.Page = False;
+	return Router_TransitionIsActive;
+}
+
+K_Router_Route GetCurrentRoute(CMlScript _This) {
+	declare K_Router_Route Router_CurrentRoute for _This.LocalUser = C_Router_Route_Null;
+	return Router_CurrentRoute;
+}
+
+Text GetCurrentRoutePath(CMlScript _This) {
+	return GetCurrentRoute(_This).URL.Path;
+}
+
+Boolean PageIsRunning(CMlScript _This, Text _Path) {
+	declare Text[] Router_CurrentDeactivatedPaths for _This.LocalUser = [];
+	return _This.PageIsVisible && !Router_CurrentDeactivatedPaths.exists(_Path);
+}
+
+Boolean PageIsRunning(CMlScript _This) {
+	return PageIsRunning(_This, GetCurrentRoutePath(_This));
+}
+
+Text[Text] GetCurrentRouteQuery(CMlScript _This) {
+	return GetCurrentRoute(_This).URL.Query;
+}
+
+Text GetCurrentParentPath(CMlScript _This) {
+	declare K_Router_Route Router_CurrentRoute for _This.LocalUser = C_Router_Route_Null;
+	return Router_CurrentRoute.ParentURL.Path;
+}
+
+K_Router_Route[] GetHistory(CMlScript _This) {
+	declare K_Router_Route[] Router_History for _This.LocalUser = [];
+	return Router_History;
+}
+
+Integer GetHistoryKey(CMlScript _This) {
+	declare Integer Router_HistoryKey for _This.LocalUser = 0;
+	return Router_HistoryKey;
+}
+
+Boolean IsPreloadDone(CMlScript _This) {
+	declare Boolean Router_IsPreloadDone for _This.LocalUser = False;
+	return Router_IsPreloadDone;
+}
+
+K_RouterEvent[] GetPendingEvents(CMlScript _This) {
+	declare K_RouterEvent[] CMGame_Router_PendingEvents for _This.Page = [];
+	return CMGame_Router_PendingEvents;
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_RouterEvent[] CMGame_Router_PendingEvents for _This.Page = [];
+	CMGame_Router_PendingEvents = [];
+
+	foreach (Event in _This.PendingEvents) {
+		switch (Event.Type) {
+			case CMlScriptEvent::Type::PluginCustomEvent: {
+				if (Event.CustomEventType == C_Event_AddPendingEvent) {
+					if (Event.CustomEventData.count > 0 && Event.CustomEventData.count <= 1) {
+						CMGame_Router_PendingEvents.add(K_RouterEvent {
+							Type = Event.CustomEventData[0],
+							Data = []
+						});
+					} else if (Event.CustomEventData.count > 1) {
+						declare Text[Text] Data;
+						Data.fromjson(Event.CustomEventData[1]);
+						CMGame_Router_PendingEvents.add(K_RouterEvent {
+							Type = Event.CustomEventData[0],
+							Data = Data
+						});
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		"""
+		""",
+		"""
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[],
+		[]
+	);
+}

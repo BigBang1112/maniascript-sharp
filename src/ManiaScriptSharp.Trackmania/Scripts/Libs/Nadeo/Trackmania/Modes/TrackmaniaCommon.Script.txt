@@ -1,0 +1,94 @@
+/**
+ *	Common code for modes of the Trackmania project
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TrackmaniaCommon.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/CMGame/Utils/Log.Script.txt" as Log
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/Trackmania/Modes/StateManager.Script.txt" as BaseStateMgr
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ConfigFilePath "file://Media/Config/Nadeo/Trackmania/Config.json"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Config::K_Loading G_ConfigLoadRequest;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Start loading the configuration
+Void ConfigLoad(CHttpManager _Http) {
+	// Do not overwrite the config if it was already loaded from the client side
+	// see: /trackmania-next/tmnext/-/issues/5173
+	declare Integer ConfigSource = Config::GetSource();
+	if (ConfigSource == Config::C_Source_Null || ConfigSource == Config::C_Source_ServerTitle) {
+		Config::Load();
+		G_ConfigLoadRequest = Config::StartMergeFile(_Http, C_ConfigFilePath, Config::C_Source_ServerTitle);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Check if the configuration is still loading
+Boolean ConfigIsLoading(CHttpManager _Http) {
+	if (Config::IsMergingFile(G_ConfigLoadRequest)) {
+		return True;
+	}
+	Config::StopMergeFile(_Http, G_ConfigLoadRequest);
+	Log::EnableCustomLogUI(System, UIManager, Config::HasFeature(Config::C_Feature_CustomLogUI));
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Called in the ***MB_Private_LogVersions*** section
+Void LogVersions() {
+	Log::RegisterScript(BaseStateMgr::ScriptName, BaseStateMgr::Version);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Called in the ***MB_Private_LoadLibraries*** section
+Void LoadLibraries() {
+	// In local server, we can access the user stylesheet from `System`
+	// In dedicated server, we need to load it because there are no user
+	Stylesheet::SetTheme(Stylesheet::C_ThemeId_Trackmania);
+
+	BaseStateMgr::Load();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Called in the ***MB_Private_UnloadLibraries*** section
+Void UnloadLibraries() {
+	BaseStateMgr::Unload();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Called in the ***MB_Private_Yield*** section
+Void Yield() {
+	foreach (Event in PendingEvents) {
+		switch (Event.Type) {
+			// Initialize players when they join the server
+			case CSmModeEvent::EType::OnPlayerAdded: {
+				BaseStateMgr::InitializePlayer(Event.Player);
+			}
+		}
+	}
+	BaseStateMgr::Yield();
+	Tracking::Yield(System, This);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Called in the ***AfterLoadHud*** section
+Void AfterLoadHud() {
+	UIManager.UIAll.OverlayHide321Go = True;
+	UIManager.UIAll.OverlayHideMapInfo = True;
+}

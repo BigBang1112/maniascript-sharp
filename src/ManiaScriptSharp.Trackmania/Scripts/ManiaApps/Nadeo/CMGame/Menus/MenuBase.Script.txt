@@ -1,0 +1,188 @@
+/**
+ * Base for title menu
+ */
+#RequireContext CManiaAppTitle
+#Const C_CMGame_Version "1.11.0"
+#Const C_CMGame_ScriptName "ManiaApps/Nadeo/CMGame/Menus/MenuBase.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Menus/Audio@2.Script.txt" as CMGame_Audio
+#Include "Libs/Nadeo/CMGame/Menus/NavigationInputs.Script.txt" as CMGame_NavigationInputs
+#Include "Libs/Nadeo/CMGame/Menus/Preload.Script.txt" as CMGame_Preload
+#Include "Libs/Nadeo/CMGame/Menus/Router@3.Script.txt" as CMGame_Router
+#Include "Libs/Nadeo/CMGame/Utils/BuildInfo@2.Script.txt" as CMGame_BuildInfo
+#Include "Libs/Nadeo/CMGame/Utils/Config@2.Script.txt" as CMGame_Config
+#Include "Libs/Nadeo/CMGame/Utils/Error.Script.txt" as CMGame_Error
+#Include "Libs/Nadeo/CMGame/Utils/Synchro.Script.txt" as CMGame_Synchro
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_CMGame_State {
+	Integer CurrentNow;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_CMGame_NavigationRequestId "cmgame-menus-menu-base"
+
+#Const C_CMGame_State_Null K_CMGame_State {
+	CurrentNow = 0
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_CMGame_State CMGame_G_State;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***CMGame_ErrorInit***
+***
+CMGame_Error::SetGlobalErrorNickmane(CMGame_Error::C_ErrorNickname);
+***
+
+***CMGame_ConfigInit***
+***
+declare Text CMGame_ConfigFilePath = "";
++++CMGame_ConfigSetPath+++
+if (CMGame_ConfigFilePath != "") {
+	CMGame_Config::SetTitleConfig(Http, CMGame_ConfigFilePath);
+}
+***
+
+***CMGame_BuildInfoInit***
+***
+declare CMGame_BuildInfo::K_Request BuildInfoLoadRequest = CMGame_BuildInfo::StartLoadTitleInfoFile(This);
+while (CMGame_BuildInfo::IsLoadingTitleInfoFile(This, BuildInfoLoadRequest)) Private_InitializationYield();
+CMGame_BuildInfo::StopLoadTitleInfoFile(This, BuildInfoLoadRequest);
+CMGame_BuildInfo::UpdateUserInfo(System, LocalUser);
+CMGame_BuildInfo::UpdatePlatformInfo(System);
+***
+
+***CMGame_AudioInit***
+***
+CMGame_Audio::Initialize(This);
+CMGame_Audio::LoadLibraryFiles(
+	This, [
+		CMGame_Audio::C_DefaultLibrary_Common => CMGame_Audio::C_AudioPath_Common,
+		CMGame_Audio::C_DefaultLibrary_Menu => CMGame_Audio::C_AudioPath_Menu
+	]
+);
+while (CMGame_Audio::IsLoadingLibrary(This)) Private_InitializationYield();
+***
+
+***CMGame_LibrariesLoad***
+***
+CMGame_Preload::Initialize(This);
+CMGame_Router::Initialize(This);
+***
+
+***CMGame_AfterInitializationYield***
+***
+CMGame_Audio::AfterYield(This);
+***
+
+***CMGame_AfterYield***
+***
+CMGame_Router::AfterYield(This);
+CMGame_Audio::AfterYield(This);
+***
+
+***CMGame_MenuStart***
+***
+CMGame_Error::CheckErrorsValidity();
+
+CMGame_NavigationInputs::Initialize(This);
+CMGame_NavigationInputs::EnableNavigationInputs(This, C_CMGame_NavigationRequestId, True);
+***
+
+***CMGame_MenuEnd***
+***
+CMGame_NavigationInputs::EnableNavigationInputs(This, C_CMGame_NavigationRequestId, False);
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** `yield` the menu script during initialization
+ * We don't want to execute the `CMGame_Yield()` function
+ * before the complete initialization of the menu
+ */
+Void Private_InitializationYield() {
+	+++CMGame_BeforeInitializationYield+++
+	if (CMGame_G_State.CurrentNow > 0 && Now > CMGame_G_State.CurrentNow) {
+		log("WARNING: [MenuBase] A frame was skipped with `yield`, `sleep()` or `wait()` ("^CMGame_G_State.CurrentNow^" > "^Now^"). This is considered bad practice. Always use `Private_InitializationYield()` to advance to the next frame.");
+	}
+	yield;
+	CMGame_G_State.CurrentNow = Now;
+	+++CMGame_AfterInitializationYield+++
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** `yield` the menu script
+ * It should be the only place that directly calls the `yield` instruction
+ * Everywhere else this `CMGame_Yield()` function must be called instead
+ */
+Void CMGame_Yield() {
+	+++CMGame_BeforeYield+++
+	if (CMGame_G_State.CurrentNow > 0 && Now > CMGame_G_State.CurrentNow) {
+		log("WARNING: [MenuBase] A frame was skipped with `yield`, `sleep()` or `wait()` ("^CMGame_G_State.CurrentNow^" > "^Now^"). This is considered bad practice. Always use `CMGame_Yield()` to advance to the next frame.");
+	}
+	yield;
+	CMGame_G_State.CurrentNow = Now;
+	+++CMGame_AfterYield+++
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Sleep for a given duration
+Void CMGame_Sleep(Integer _Duration) {
+	declare Integer SleepEndTime = Now + _Duration;
+	while (Now < SleepEndTime) CMGame_Yield();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Main
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+main() {
+	CMGame_Synchro::SetTitleMenuInitializationStatus(System, CMGame_Synchro::C_Status_Initializing);
+
+	CMGame_G_State = C_CMGame_State_Null;
+	CMGame_G_State.CurrentNow = Now;
+
+	LayersDefaultManialinkVersion = 3;
+
+	// First wait for the main user
+	while (UserMgr == Null || UserMgr.MainUser == Null) Private_InitializationYield();
+	// Then wait for the persistent variables to be ready to read and write
+	while (!UserMgr.MainUser.PersistentIsReady) Private_InitializationYield();
+
+	---CMGame_ErrorInit---
+	---CMGame_ConfigInit---
+	---CMGame_BuildInfoInit---
+	---CMGame_AudioInit---
+	---CMGame_StylesheetInit---
+
+	+++CMGame_LibrariesLoad+++
+
+	+++CMGame_MenuStart+++
+
+	CMGame_Synchro::SetTitleMenuInitializationStatus(System, CMGame_Synchro::C_Status_Initialized);
+
+	while(True) {
+		CMGame_Yield();
+		+++CMGame_MenuLoop+++
+	}
+
+	+++CMGame_MenuEnd+++
+
+	+++CMGame_LibrariesUnload+++
+
+	// yield one last time to allow any remaining log to be sent
+	CMGame_Yield();
+}

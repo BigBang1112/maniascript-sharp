@@ -1,0 +1,630 @@
+/**
+ * Loading screen utilities
+ */
+#Const Version "1.2.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Stores/LoadingScreen.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/API/SplashscreenAPI.Script.txt" as SplashscreenAPI
+#Include "Libs/Nadeo/CMGame/Menus/Preload.Script.txt" as Preload
+#Include "Libs/Nadeo/CMGame/Utils/Context.Script.txt" as Context
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Structures/SplashscreenStruct.Script.txt" as SplashscreenStruct
+#Include "Libs/Nadeo/Trackmania/RBAC.Script.txt" as RBAC
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_LoadingScreenImage {
+	Text MediaUrl;
+	Text Message;
+}
+#Struct K_LoadingScreen {
+	K_LoadingScreenImage[] ImageList;
+	Text TrackingUid;
+	Text DefaultMessage;
+}
+
+#Struct K_Private_State {
+	Http::K_Request Request_GetAdScreenList;
+	Http::K_Request Request_GetTOTDScreenList;
+	Http::K_Request Request_PostCreateImpression;
+}
+#Struct K_Private_TOTDScreen {
+	SplashscreenStruct::K_LoadingScreen CurrentTOTD; ///< Image of current TOTD
+	SplashscreenStruct::K_LoadingScreen[][] RandomTOTD; ///< Images of random TOTD grouped by 4
+}
+#Struct K_Private_LocalUserState {
+	K_LoadingScreen TitleMenuLoadingScreen;
+	Integer TitleMenuLoadingScreenUpdate;
+	SplashscreenStruct::K_LoadingScreen[] AdScreenList;
+	Integer[] AdBag;
+	K_Private_TOTDScreen TOTDScreen;
+	Text TrackingUid;
+	Integer TrackingStartViewTime;
+	Integer AdScreenListRequestTime;
+	Integer TOTDScreenListRequestTime;
+}
+#Struct K_Private_RequestParameters {
+	Boolean AdsEnabled;
+	Text GameSubscriptionPlan;
+	Text Language;
+	Text ZoneId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Private_Behavior_Random 0
+#Const C_Private_Behavior_TrackNb 1
+#Const C_Private_Behavior_CurrentTOTD 2
+
+#Const C_Private_AdsEnabled True
+#Const C_Private_NoAd -1
+#Const C_Private_OneHourInMilliseconds 3600000
+
+#Const C_Private_State_Null K_Private_State {
+	Request_GetAdScreenList = Http::K_Request {},
+	Request_GetTOTDScreenList = Http::K_Request {},
+	Request_PostCreateImpression = Http::K_Request {}
+}
+#Const C_Private_LocalUserState_Null K_Private_LocalUserState {
+	TitleMenuLoadingScreen = K_LoadingScreen {
+		ImageList = [],
+		TrackingUid = "",
+		DefaultMessage = ""
+	},
+	TitleMenuLoadingScreenUpdate = 1,
+	AdScreenList = [],
+	AdBag = [],
+	TOTDScreen = K_Private_TOTDScreen {
+		CurrentTOTD = SplashscreenStruct::K_LoadingScreen {},
+		RandomTOTD = []
+	},
+	TrackingUid = "",
+	TrackingStartViewTime = -1,
+	AdScreenListRequestTime = -1,
+	TOTDScreenListRequestTime = -1
+}
+
+#Const C_LoadingScreenImage_Null K_LoadingScreenImage {
+	MediaUrl = "",
+	Message = ""
+}
+#Const C_LoadingScreen_Null K_LoadingScreen {
+	ImageList = [],
+	TrackingUid = "",
+	DefaultMessage = ""
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the subscription plan of the local user
+Text Private_GetGameSubscriptionPlan(CManiaApp _Context) {
+	if (
+		_Context.PrivilegeMgr == Null ||
+		_Context.UserMgr == Null ||
+		_Context.UserMgr.MainUser == Null
+	) {
+		return SplashscreenStruct::C_GameSubscriptionPlan_All;
+	}
+
+	declare Boolean CanBuyClubEdition = RBAC::HasGamePermission(_Context.PrivilegeMgr, _Context.UserMgr.MainUser.Id, RBAC::C_GamePermission_CanSubscribeToClub);
+	declare Boolean CanBuyStandardEdition = RBAC::HasGamePermission(_Context.PrivilegeMgr, _Context.UserMgr.MainUser.Id, RBAC::C_GamePermission_CanSubscribeToStandard);
+
+	if (!CanBuyStandardEdition && !CanBuyClubEdition) {
+		return SplashscreenStruct::C_GameSubscriptionPlan_Club;
+	} else if (!CanBuyStandardEdition && CanBuyClubEdition) {
+		return SplashscreenStruct::C_GameSubscriptionPlan_Standard;
+	} else if (CanBuyStandardEdition && CanBuyClubEdition) {
+		return SplashscreenStruct::C_GameSubscriptionPlan_Starter;
+	}
+
+	return SplashscreenStruct::C_GameSubscriptionPlan_All;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the parameters for the TOTD and loading screen requests
+K_Private_RequestParameters Private_GetRequestParameters(CManiaApp _Context) {
+	declare K_Private_RequestParameters RequestParameters = K_Private_RequestParameters {
+		AdsEnabled = C_Private_AdsEnabled,
+		GameSubscriptionPlan = Private_GetGameSubscriptionPlan(_Context),
+		Language = "",
+		ZoneId = ""
+	};
+
+	if (_Context.LocalUser != Null) {
+		RequestParameters.Language = _Context.LocalUser.Language;
+		if (_Context.LocalUser.ZoneIdPath.count > 0) {
+			RequestParameters.ZoneId = _Context.LocalUser.ZoneIdPath[-1];
+		}
+	}
+
+	if (_Context.UserMgr != Null && _Context.UserMgr.MainUser != Null) {
+		declare persistent Boolean Trackmania_StoresLoadingScreen_AdsEnabled for _Context.UserMgr.MainUser = C_Private_AdsEnabled;
+		RequestParameters.AdsEnabled = Trackmania_StoresLoadingScreen_AdsEnabled;
+	}
+
+	return RequestParameters;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Request a new batch of ad screens
+K_Private_State Private_RequestGetAdScreenList(CManiaApp _Context, K_Private_State _State) {
+	declare K_Private_State State = _State;
+
+	declare K_Private_RequestParameters RequestParameters = Private_GetRequestParameters(_Context);
+	State.Request_GetAdScreenList = Http::DestroyAndCreate(
+		_Context.Http,
+		State.Request_GetAdScreenList,
+		SplashscreenAPI::Request_GetLoadingScreenList(
+			_Context.Http,
+			RequestParameters.AdsEnabled,
+			RequestParameters.GameSubscriptionPlan,
+			RequestParameters.Language,
+			RequestParameters.ZoneId
+		)
+	);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Request a new batch of TOTD screens
+K_Private_State Private_RequestGetTOTDScreenList(CManiaApp _Context, K_Private_State _State) {
+	declare K_Private_State State = _State;
+
+	declare K_Private_RequestParameters RequestParameters = Private_GetRequestParameters(_Context);
+	State.Request_GetTOTDScreenList = Http::DestroyAndCreate(
+		_Context.Http,
+		State.Request_GetTOTDScreenList,
+		SplashscreenAPI::Request_GetTOTDScreenList(
+			_Context.Http,
+			RequestParameters.AdsEnabled,
+			RequestParameters.GameSubscriptionPlan,
+			RequestParameters.Language,
+			RequestParameters.ZoneId
+		)
+	);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Track loading screen view time
+K_Private_State Private_RequestPostCreateImpression(CManiaApp _Context, K_Private_State _State, Text _LoadingScreenUid, Integer _ViewTime) {
+	declare K_Private_State State = _State;
+
+	State.Request_PostCreateImpression = Http::DestroyAndCreate(
+		_Context.Http,
+		State.Request_PostCreateImpression,
+		SplashscreenAPI::Request_PostCreateImpression(
+			_Context.Http,
+			_LoadingScreenUid,
+			_ViewTime,
+			False
+		)
+	);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Generate a bag of ads from where the next ad will be pulled
+Integer[] Private_GenerateAdBag(SplashscreenStruct::K_LoadingScreen[] _AdScreenList) {
+	if (_AdScreenList.count <= 0) return [];
+
+	declare Integer Total = 0;
+	declare Real Ratio = 1.;
+	for (AdScreen in _AdScreenList) {
+		Total += AdScreen.DisplayPercentage;
+	}
+	if (Total > 100) {
+		Ratio = 100. / Total;
+	}
+
+	if (Total <= 0) return [];
+
+	declare Integer[] AdBag;
+	for (AdScreenKey => AdScreen in _AdScreenList) {
+		for (I, 1, ML::NearestInteger(AdScreen.DisplayPercentage * Ratio)) {
+			AdBag.add(AdScreenKey);
+		}
+	}
+
+	while (AdBag.count < 100) {
+		AdBag.add(C_Private_NoAd);
+	}
+
+	return AdBag;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Preload the ad screen list images
+Void Private_PreloadAdScreenList(CManiaApp _Context, SplashscreenStruct::K_LoadingScreen[] _AdScreenList) {
+	declare Text[] MediaUrlList;
+	for (AdScreen in _AdScreenList) {
+		MediaUrlList.add(AdScreen.MediaUrl);
+	}
+	Preload::PreloadImages(_Context, MediaUrlList);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the ad screen list
+Void Private_SetAdScreenList(CManiaApp _Context, SplashscreenAPI::K_ResponseGetLoadingScreenList _Response) {
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+	LocalUserState.AdScreenList = _Response.List;
+	LocalUserState.AdBag = Private_GenerateAdBag(LocalUserState.AdScreenList);
+	Private_PreloadAdScreenList(_Context, LocalUserState.AdScreenList);
+
+	if (_Response.RelativeUpdateTime <= 0) {
+		LocalUserState.AdScreenListRequestTime = Now + C_Private_OneHourInMilliseconds;
+	} else {
+		LocalUserState.AdScreenListRequestTime = Now + (_Response.RelativeUpdateTime * 1000);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Preload the TOTD screen images
+Void Private_PreloadTOTDScreen(CManiaApp _Context, K_Private_TOTDScreen _TOTDScreen) {
+	declare Text[] MediaUrlList;
+	MediaUrlList.add(_TOTDScreen.CurrentTOTD.MediaUrl);
+	for (RandomTOTDScreenList in _TOTDScreen.RandomTOTD) {
+		for (RandomTOTDScreen in RandomTOTDScreenList) {
+			MediaUrlList.add(RandomTOTDScreen.MediaUrl);
+		}
+	}
+	Preload::PreloadImages(_Context, MediaUrlList);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the TOTD screen
+Void Private_SetTOTDScreen(CManiaApp _Context, SplashscreenAPI::K_ResponseGetTOTDScreenList _Response) {
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+
+	LocalUserState.TOTDScreen.CurrentTOTD = _Response.List.get(0, SplashscreenStruct::C_LoadingScreen_Null);
+
+	LocalUserState.TOTDScreen.RandomTOTD = [];
+	if (_Response.List.count > 0) {
+		declare Integer K = 1; ///< Start after current TOTD
+		for (I, 0, 4) {
+			declare SplashscreenStruct::K_LoadingScreen[] RandomTOTDScreenList;
+			for (J, 0, 3) {
+				RandomTOTDScreenList.add(_Response.List.get(K % _Response.List.count, LocalUserState.TOTDScreen.CurrentTOTD));
+				K += 1;
+			}
+			LocalUserState.TOTDScreen.RandomTOTD.add(RandomTOTDScreenList);
+		}
+	}
+
+	Private_PreloadTOTDScreen(_Context, LocalUserState.TOTDScreen);
+
+	if (_Response.RelativeUpdateTime <= 0) {
+		LocalUserState.TOTDScreenListRequestTime = Now + C_Private_OneHourInMilliseconds;
+	} else {
+		LocalUserState.TOTDScreenListRequestTime = Now + (_Response.RelativeUpdateTime * 1000);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Empty the TOTD and ad screen list
+Void Private_ResetLoadingScreen(CManiaApp _Context) {
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+	Private_SetAdScreenList(_Context, SplashscreenAPI::C_ResponseGetLoadingScreenList_Null);
+	Private_SetTOTDScreen(_Context, SplashscreenAPI::C_ResponseGetTOTDScreenList_Null);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a screen from the TOTD or ad screen list
+K_LoadingScreen Private_GetNextLoadingScreen(CManiaApp _Context, Text _DefaultMessage, Integer _Behavior, Integer _TrackNb) {
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+
+	// There are active ad screens
+	if (LocalUserState.AdScreenList.count > 0) {
+		if (LocalUserState.AdBag.count <= 0) {
+			LocalUserState.AdBag = Private_GenerateAdBag(LocalUserState.AdScreenList);
+		}
+
+		if (LocalUserState.AdBag.count > 0) {
+			declare Integer AdBagKey = ML::Rand(0, LocalUserState.AdBag.count - 1);
+			declare Integer AdScreenListKey = LocalUserState.AdBag[AdBagKey];
+			LocalUserState.AdBag.removekey(AdBagKey);
+
+			// We have drawn an ad, return it now
+			if (AdScreenListKey != C_Private_NoAd && LocalUserState.AdScreenList.existskey(AdScreenListKey)) {
+				declare SplashscreenStruct::K_LoadingScreen AdScreen = LocalUserState.AdScreenList[AdScreenListKey];
+				return K_LoadingScreen {
+					ImageList = [
+						K_LoadingScreenImage {
+							MediaUrl = AdScreen.MediaUrl,
+							Message = AdScreen.Message
+						}
+					],
+					TrackingUid = AdScreen.Uid,
+					DefaultMessage = "" // Only display the message from the ad, never the default message
+				};
+			}
+		}
+	}
+
+	// We did not draw an ad
+	switch (_Behavior) {
+		// Display TOTD images based on the track number
+		case C_Private_Behavior_TrackNb: {
+			if (LocalUserState.TOTDScreen.RandomTOTD.count > 0) {
+				declare K_LoadingScreen LoadingScreen = K_LoadingScreen {
+					ImageList = [],
+					TrackingUid = "",
+					DefaultMessage = _DefaultMessage
+				};
+				declare SplashscreenStruct::K_LoadingScreen[] TOTDScreenList = LocalUserState.TOTDScreen.RandomTOTD[ML::Max(0, _TrackNb) % LocalUserState.TOTDScreen.RandomTOTD.count];
+				for (TOTDScreen in TOTDScreenList) {
+					LoadingScreen.ImageList.add(K_LoadingScreenImage {
+						MediaUrl = TOTDScreen.MediaUrl,
+						Message = TOTDScreen.Message
+					});
+				}
+				return LoadingScreen;
+			}
+		}
+		// Display the current TOTD image
+		case C_Private_Behavior_CurrentTOTD: {
+			return K_LoadingScreen {
+				ImageList = [
+					K_LoadingScreenImage {
+						MediaUrl = LocalUserState.TOTDScreen.CurrentTOTD.MediaUrl,
+						Message = LocalUserState.TOTDScreen.CurrentTOTD.Message
+					}
+				],
+				TrackingUid = "",
+				DefaultMessage = _DefaultMessage
+			};
+		}
+		// Display a random TOTD images instead
+		default: { //< C_Private_Behavior_Random
+			if (LocalUserState.TOTDScreen.RandomTOTD.count > 0) {
+				declare K_LoadingScreen LoadingScreen = K_LoadingScreen {
+					ImageList = [],
+					TrackingUid = "",
+					DefaultMessage = _DefaultMessage
+				};
+				declare SplashscreenStruct::K_LoadingScreen[] TOTDScreenList = LocalUserState.TOTDScreen.RandomTOTD[ML::Rand(0, LocalUserState.TOTDScreen.RandomTOTD.count - 1)];
+				for (TOTDScreen in TOTDScreenList) {
+					LoadingScreen.ImageList.add(K_LoadingScreenImage {
+						MediaUrl = TOTDScreen.MediaUrl,
+						Message = TOTDScreen.Message
+					});
+				}
+				return LoadingScreen;
+			}
+		}
+	}
+
+	// We did not find a loading screen, display the current TOTD image instead
+	return K_LoadingScreen {
+		ImageList = [
+			K_LoadingScreenImage {
+				MediaUrl = LocalUserState.TOTDScreen.CurrentTOTD.MediaUrl,
+				Message = LocalUserState.TOTDScreen.CurrentTOTD.Message
+			}
+		],
+		TrackingUid = "",
+		DefaultMessage = _DefaultMessage
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a new loading screen
+K_LoadingScreen GetNewLoadingScreen(CManiaApp _Context, Text _DefaultMessage) {
+	return Private_GetNextLoadingScreen(_Context, _DefaultMessage, C_Private_Behavior_Random, -1);
+}
+K_LoadingScreen GetNewLoadingScreen(CMlScript _Context, Text _DefaultMessage) {
+	return GetNewLoadingScreen(Context::GetParentApp(_Context), _DefaultMessage);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the latest title menu loading screen
+K_LoadingScreen GetCurrentTitleMenuLoadingScreen(CManiaApp _Context) {
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+	return LocalUserState.TitleMenuLoadingScreen;
+}
+K_LoadingScreen GetCurrentTitleMenuLoadingScreen(CMlScript _Context) {
+	return GetCurrentTitleMenuLoadingScreen(Context::GetParentApp(_Context));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the title menu loading screen update counter
+Integer GetCurrentTitleMenuLoadingScreenUpdate(CManiaApp _Context) {
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+	return LocalUserState.TitleMenuLoadingScreenUpdate;
+}
+Integer GetCurrentTitleMenuLoadingScreenUpdate(CMlScript _Context) {
+	return GetCurrentTitleMenuLoadingScreenUpdate(Context::GetParentApp(_Context));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the loading screen between the title menu and other activities (game mode, editors, ...) with a random image
+Void UpdateTitleMenuLoadingScreen_Random(CManiaApp _Context, Text _DefaultMessage) {
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+	LocalUserState.TitleMenuLoadingScreen = Private_GetNextLoadingScreen(_Context, _DefaultMessage, C_Private_Behavior_Random, -1);
+	LocalUserState.TitleMenuLoadingScreenUpdate += 1;
+}
+Void UpdateTitleMenuLoadingScreen_Random(CManiaApp _Context) {
+	UpdateTitleMenuLoadingScreen_Random(_Context, "");
+}
+Void UpdateTitleMenuLoadingScreen_Random(CMlScript _Context, Text _DefaultMessage) {
+	UpdateTitleMenuLoadingScreen_Random(Context::GetParentApp(_Context), _DefaultMessage);
+}
+Void UpdateTitleMenuLoadingScreen_Random(CMlScript _Context) {
+	UpdateTitleMenuLoadingScreen_Random(Context::GetParentApp(_Context));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the loading screen between the title menu and other activities (game mode, editors, ...) with images corresponding to the track number
+Void UpdateTitleMenuLoadingScreen_TrackNb(CManiaApp _Context, Text _DefaultMessage, Integer _TrackNb) {
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+	LocalUserState.TitleMenuLoadingScreen = Private_GetNextLoadingScreen(_Context, _DefaultMessage, C_Private_Behavior_TrackNb, _TrackNb);
+	LocalUserState.TitleMenuLoadingScreenUpdate += 1;
+}
+Void UpdateTitleMenuLoadingScreen_TrackNb(CMlScript _Context, Text _DefaultMessage, Integer _TrackNb) {
+	UpdateTitleMenuLoadingScreen_TrackNb(Context::GetParentApp(_Context), _DefaultMessage, _TrackNb);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the loading screen between the title menu and other activities (game mode, editors, ...) with the current TOTD image
+Void UpdateTitleMenuLoadingScreen_CurrentTOTD(CManiaApp _Context, Text _DefaultMessage) {
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+	LocalUserState.TitleMenuLoadingScreen = Private_GetNextLoadingScreen(_Context, _DefaultMessage, C_Private_Behavior_CurrentTOTD, -1);
+	LocalUserState.TitleMenuLoadingScreenUpdate += 1;
+}
+Void UpdateTitleMenuLoadingScreen_CurrentTOTD(CMlScript _Context, Text _DefaultMessage) {
+	UpdateTitleMenuLoadingScreen_CurrentTOTD(Context::GetParentApp(_Context), _DefaultMessage);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start tracking the latest title menu loading screen
+Void StartTrackingLoadingScreen(CManiaApp _Context, K_LoadingScreen _LoadingScreen) {
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+	if (_LoadingScreen.TrackingUid == "") {
+		LocalUserState.TrackingUid = "";
+		LocalUserState.TrackingStartViewTime = -1;
+	} else {
+		LocalUserState.TrackingUid = _LoadingScreen.TrackingUid;
+		LocalUserState.TrackingStartViewTime = Now;
+	}
+}
+Void StartTrackingLoadingScreen(CMlScript _Context, K_LoadingScreen _LoadingScreen) {
+	StartTrackingLoadingScreen(Context::GetParentApp(_Context), _LoadingScreen);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop tracking the latest title menu loading screen
+Void StopTrackingLoadingScreen(CManiaApp _Context) {
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+	if (LocalUserState.TrackingUid != "" && LocalUserState.TrackingStartViewTime >= 0) {
+		declare K_Private_State Trackmania_StoresLoadingScreen_State as State for _Context = C_Private_State_Null;
+		State = Private_RequestPostCreateImpression(_Context, State, LocalUserState.TrackingUid, ML::Max(0, Now - LocalUserState.TrackingStartViewTime));
+	}
+	LocalUserState.TrackingUid = "";
+	LocalUserState.TrackingStartViewTime = -1;
+}
+Void StopTrackingLoadingScreen(CMlScript _Context) {
+	StopTrackingLoadingScreen(Context::GetParentApp(_Context));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Request a new batch of loading screens
+Void RequestNewLoadingScreenList(CManiaApp _Context) {
+	declare K_Private_State Trackmania_StoresLoadingScreen_State as State for _Context = C_Private_State_Null;
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+
+	if (!Http::IsInitialized(State.Request_GetAdScreenList)) {
+		State = Private_RequestGetAdScreenList(_Context, State);
+	}
+	if (!Http::IsInitialized(State.Request_GetTOTDScreenList)) {
+		State = Private_RequestGetTOTDScreenList(_Context, State);
+	}
+}
+Void RequestNewLoadingScreenList(CMlScript _Context) {
+	RequestNewLoadingScreenList(Context::GetParentApp(_Context));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Empty the TOTD and ad screen list and get new ones
+Void RefreshLoadingScreenList(CManiaApp _Context) {
+	declare K_Private_State Trackmania_StoresLoadingScreen_State as State for _Context = C_Private_State_Null;
+	Private_ResetLoadingScreen(_Context);
+	State = Private_RequestGetAdScreenList(_Context, State);
+	State = Private_RequestGetTOTDScreenList(_Context, State);
+}
+Void RefreshLoadingScreenList(CMlScript _Context) {
+	RefreshLoadingScreenList(Context::GetParentApp(_Context));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable ads in loading screens
+Void SetAdsEnabled(CManiaApp _Context, Boolean _AdsEnabled) {
+	if (_Context.UserMgr != Null && _Context.UserMgr.MainUser != Null) {
+		declare persistent Boolean Trackmania_StoresLoadingScreen_AdsEnabled for _Context.UserMgr.MainUser = C_Private_AdsEnabled;
+		Trackmania_StoresLoadingScreen_AdsEnabled = _AdsEnabled;
+		_Context.UserMgr.MainUser.PersistentSave();
+	}
+}
+Void SetAdsEnabled(CMlScript _Context, Boolean _AdsEnabled) {
+	SetAdsEnabled(Context::GetParentApp(_Context), _AdsEnabled);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if ads are enabled loading screens
+Boolean AdsEnabled(CManiaApp _Context) {
+	if (_Context.UserMgr == Null || _Context.UserMgr.MainUser == Null) return C_Private_AdsEnabled;
+	declare persistent Boolean Trackmania_StoresLoadingScreen_AdsEnabled for _Context.UserMgr.MainUser = C_Private_AdsEnabled;
+	return Trackmania_StoresLoadingScreen_AdsEnabled;
+}
+Boolean AdsEnabled(CMlScript _Context) {
+	return AdsEnabled(Context::GetParentApp(_Context));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the store
+Void Initialize(CManiaApp _Context) {
+	declare K_Private_State Trackmania_StoresLoadingScreen_State as State for _Context = C_Private_State_Null;
+	Http::Destroy(_Context.Http, State.Request_GetAdScreenList);
+	Http::Destroy(_Context.Http, State.Request_GetTOTDScreenList);
+	Http::Destroy(_Context.Http, State.Request_PostCreateImpression);
+	State = C_Private_State_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the store
+Void Yield(CManiaApp _Context) {
+	declare K_Private_State Trackmania_StoresLoadingScreen_State as State for _Context = C_Private_State_Null;
+	declare K_Private_LocalUserState Trackmania_StoresLoadingScreen_LocalUserState as LocalUserState for _Context.LocalUser = C_Private_LocalUserState_Null;
+
+	if (Http::IsInitialized(State.Request_GetAdScreenList)) {
+		State.Request_GetAdScreenList = Http::Update(_Context.Http, State.Request_GetAdScreenList);
+		if (!Http::IsRunning(State.Request_GetAdScreenList)) {
+			if (Http::IsSuccess(State.Request_GetAdScreenList)) {
+				Private_SetAdScreenList(_Context, SplashscreenAPI::Response_GetLoadingScreenList(State.Request_GetAdScreenList));
+			} else {
+				LocalUserState.AdScreenListRequestTime = Now + C_Private_OneHourInMilliseconds;
+			}
+			State.Request_GetAdScreenList = Http::Destroy(_Context.Http, State.Request_GetAdScreenList);
+		}
+	} else if (LocalUserState.AdScreenListRequestTime >= 0 && Now > LocalUserState.AdScreenListRequestTime) {
+		// Add a one hour delay as a safety backup. This time will be updated when we receive the request answer.
+		LocalUserState.AdScreenListRequestTime = Now + C_Private_OneHourInMilliseconds;
+		State = Private_RequestGetAdScreenList(_Context, State);
+	}
+
+	if (Http::IsInitialized(State.Request_GetTOTDScreenList)) {
+		State.Request_GetTOTDScreenList = Http::Update(_Context.Http, State.Request_GetTOTDScreenList);
+		if (!Http::IsRunning(State.Request_GetTOTDScreenList)) {
+			if (Http::IsSuccess(State.Request_GetTOTDScreenList)) {
+				Private_SetTOTDScreen(_Context, SplashscreenAPI::Response_GetTOTDScreenList(State.Request_GetTOTDScreenList));
+			} else {
+				LocalUserState.TOTDScreenListRequestTime = Now + C_Private_OneHourInMilliseconds;
+			}
+			State.Request_GetTOTDScreenList = Http::Destroy(_Context.Http, State.Request_GetTOTDScreenList);
+		}
+	} else if (LocalUserState.TOTDScreenListRequestTime >= 0 && Now > LocalUserState.TOTDScreenListRequestTime) {
+		// Add a one hour delay as a safety backup. This time will be updated when we receive the request answer.
+		LocalUserState.TOTDScreenListRequestTime = Now + C_Private_OneHourInMilliseconds;
+		State = Private_RequestGetTOTDScreenList(_Context, State);
+	}
+
+	if (Http::IsInitialized(State.Request_PostCreateImpression)) {
+		State.Request_PostCreateImpression = Http::Update(_Context.Http, State.Request_PostCreateImpression);
+		if (!Http::IsRunning(State.Request_PostCreateImpression)) {
+			State.Request_PostCreateImpression = Http::Destroy(_Context.Http, State.Request_PostCreateImpression);
+		}
+	}
+}

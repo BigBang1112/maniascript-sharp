@@ -1,0 +1,702 @@
+/**
+ *	Manage UI modules
+ *
+ *	Full documentation: https://confluence.ubisoft.com/pages/viewpage.action?pageId=2217021006
+ *
+ *	This library lets you create UI for game modes. The library is divided into two parts: client and server.
+ *	The server part is executed by the game mode script in the `CSmMode` context.
+ *	The client part is executed by the ManiaApp of the game mode in the `CManiaAppPlayground` context.
+ *
+ *	In a classic setting using the `UIBase` and `ModeBase` scripts, adding a new UI to a game mode is as follows:
+ *	- Create the UI manialink with the `CreateModule()` function in the game mode ManiaApp
+ *	- Create a new `UIState` with the `CreateUIState()` function in the game mode script that will display the UI
+ *	- Still in the game mode script, assign this `UIState` to everyone or a specific player with the `SetGlobalUIState()` or `SetPlayerUIState()` functions
+ *
+ *	This library expose the following functions:
+ *	- Client
+ *		- `CreateModule()`
+ *		- `OverrideModule()`
+ *		- `DestroyModule()`
+ *		- `ModuleIsVisible()`
+ *		- `OnUIStart()`
+ *		- `OnUIEnd()`
+ *		- `OnYield()`
+ *	- Server
+ *		- `CreateUIState()`
+ *		- `SetGlobalUIStates()`
+ *		- `AddGlobalUIStates()`
+ *		- `RemoveGlobalUIStates()`
+ *		- `SetPlayerUIStates()`
+ *		- `AddPlayerUIStates()`
+ *		- `RemovePlayerUIStates()`
+ *		- `OnModeStart()`
+ */
+#Const Version "2.2.0"
+#Const ScriptName "Libs/Nadeo/CMGame/Modes/UIModules.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Module {
+	Text Id;
+	Ident[] LayerIds;
+	Boolean IsVisible;
+	Integer HideDelay;
+}
+#Struct K_StateClient {
+	K_Module[Text] Modules;
+	Integer GlobalModulesVisibilityUpdate;
+	Boolean[Text] GlobalModulesVisibility;
+	Integer PlayerModulesVisibilityUpdate;
+	Boolean[Text] PlayerModulesVisibility;
+	Ident RelayLayerId;
+	Integer[Ident] DelayedHideModules;
+}
+#Struct K_StateServer {
+	Boolean[Text][Text] UIStatesModulesVisibility;
+	Text[][Integer] GlobalUIStates;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_StateClient_Null K_StateClient {
+	Modules = [],
+	GlobalModulesVisibilityUpdate = 0,
+	GlobalModulesVisibility = [],
+	PlayerModulesVisibilityUpdate = 0,
+	PlayerModulesVisibility = [],
+	RelayLayerId = NullId,
+	DelayedHideModules = []
+}
+#Const C_StateServer_Null K_StateServer {
+	UIStatesModulesVisibility = [],
+	GlobalUIStates = []
+}
+
+#Const C_SplitScreen_Disabled -2
+#Const C_SplitScreen_Everyone -1 //< As much layers as there are players, 1 layer per screen
+#Const C_SplitScreen_Common 0 //< One layer displayed one time on the whole screen
+#Const C_SplitScreen_Player1 1
+#Const C_SplitScreen_Player2 2
+#Const C_SplitScreen_Player3 3
+#Const C_SplitScreen_Player4 4
+
+#Const C_AttachId_NullId ""
+#Const C_AttachId_155_Stadium "155" // Deprecated, use C_AttachId_155 instead
+#Const C_AttachId_155 "155"
+#Const C_AttachId_64x10_Start "64x10_Start"
+#Const C_AttachId_64x10_Finish "64x10_Finish"
+#Const C_AttachId_64x10_Checkpoint "64x10_Checkpoint"
+#Const C_AttachId_2x3_Stadium "2x3_Stadium"
+#Const C_AttachId_155_StadiumSmall "155_StadiumSmall"
+
+#Const C_Priority_CMGameBase 1000
+#Const C_Priority_QMGameBase 2000
+#Const C_Priority_SMGameBase 2000
+#Const C_Priority_TMGameBase 2000
+#Const C_Priority_QuestmaniaBase 3000
+#Const C_Priority_ShootmaniaBase 3000
+#Const C_Priority_TrackmaniaBase 3000
+#Const C_Priority_GameMode 4000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_StateClient G_StateClient;
+declare K_StateServer G_StateServer;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Common functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Flatten an array of prioritized UI states to an array of module visibilities
+Boolean[Text] Private_FlattenModulesVisibility(Boolean[Text][Text] _UIStatesModulesVisibility, Text[][Integer] _PrioritizedUIStates) {
+	declare Boolean[Text] FlattenModulesVisibility;
+	for (UIStates in _PrioritizedUIStates) {
+		for (UIState in UIStates) {
+			for (ModuleId => ModuleVisibility in _UIStatesModulesVisibility.get(UIState, [])) {
+				FlattenModulesVisibility[ModuleId] = ModuleVisibility;
+			}
+		}
+	}
+	return FlattenModulesVisibility;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Client side functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the module visibility on the layer local page
+Void Private_SetModuleVisibilityOnLocalPage(CMlPage _Page, Boolean _IsVisible) {
+	declare Boolean CMGame_UIModules_IsVisible for _Page = _IsVisible;
+	CMGame_UIModules_IsVisible = _IsVisible;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the module owning this page is visible
+Boolean ModuleIsVisible(CMlPage _Page) {
+	declare Boolean CMGame_UIModules_IsVisible for _Page = False;
+	return CMGame_UIModules_IsVisible;
+}
+Boolean IsModuleVisible(CMlPage _Page) {
+	return ModuleIsVisible(_Page);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a module layer
+Ident[] Private_CreateModuleLayer(
+	CManiaAppPlayground _This,
+	Ident[] _LayerIds,
+	Text _ManialinkPage,
+	CUILayer::EUILayerType _Type,
+	Text _AttachId,
+	Boolean _IsVisible,
+	Integer _ScreenNb
+) {
+	declare Ident[] LayerIds = _LayerIds;
+	declare CUILayer Layer <=> _This.UILayerCreate();
+
+	if (Layer != Null) {
+		LayerIds.add(Layer.Id);
+
+		Layer.IsVisible = _IsVisible;
+		Layer.Type = _Type;
+		Layer.AttachId = _AttachId;
+		Layer.ManialinkPage = _ManialinkPage;
+
+		Private_SetModuleVisibilityOnLocalPage(Layer.LocalPage, _IsVisible);
+
+		if (_ScreenNb >= 0) {
+			_This.SplitScreenAssignLayer(Layer, _ScreenNb);
+		}
+	}
+
+	return LayerIds;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create module layers
+Ident[] Private_CreateModuleLayers(
+	CManiaAppPlayground _This,
+	Text _ManialinkPage,
+	CUILayer::EUILayerType _Type,
+	Integer _SplitScreenTarget,
+	Text _AttachId,
+	Boolean _IsVisible
+) {
+	declare Ident[] LayerIds;
+
+	if (_This.SplitScreenCount > 1) {
+		switch (_SplitScreenTarget) {
+			case C_SplitScreen_Everyone: {
+				for (ScreenNb, 1, _This.SplitScreenCount) {
+					LayerIds = Private_CreateModuleLayer(_This, LayerIds, _ManialinkPage, _Type, _AttachId, _IsVisible, ScreenNb);
+				}
+			}
+			case C_SplitScreen_Common: {
+				LayerIds = Private_CreateModuleLayer(_This, LayerIds, _ManialinkPage, _Type, _AttachId, _IsVisible, 0);
+			}
+			case C_SplitScreen_Player1: {
+				LayerIds = Private_CreateModuleLayer(_This, LayerIds, _ManialinkPage, _Type, _AttachId, _IsVisible, 1);
+			}
+			case C_SplitScreen_Player2: {
+				LayerIds = Private_CreateModuleLayer(_This, LayerIds, _ManialinkPage, _Type, _AttachId, _IsVisible, 2);
+			}
+			case C_SplitScreen_Player3: {
+				LayerIds = Private_CreateModuleLayer(_This, LayerIds, _ManialinkPage, _Type, _AttachId, _IsVisible, 3);
+			}
+			case C_SplitScreen_Player4: {
+				LayerIds = Private_CreateModuleLayer(_This, LayerIds, _ManialinkPage, _Type, _AttachId, _IsVisible, 4);
+			}
+		}
+	} else {
+		LayerIds = Private_CreateModuleLayer(_This, LayerIds, _ManialinkPage, _Type, _AttachId, _IsVisible, -1);
+	}
+
+	return LayerIds;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy a module
+K_StateClient Private_DestroyModule(K_StateClient _State, CManiaAppPlayground _This, Text _ModuleId) {
+	if (_State.Modules.existskey(_ModuleId)) return _State;
+
+	declare K_StateClient State = _State;
+	declare Ident[] LayerIds = State.Modules[_ModuleId].LayerIds;
+	for (LayerId in LayerIds) {
+		State.DelayedHideModules.removekey(LayerId);
+		if (_This.UILayers.existskey(LayerId)) {
+			_This.UILayerDestroy(_This.UILayers[LayerId]);
+		}
+	}
+	State.Modules.removekey(_ModuleId);
+
+	return State;
+}
+Void DestroyModule(CManiaAppPlayground _This, Text _ModuleId) {
+	G_StateClient = Private_DestroyModule(G_StateClient, _This, _ModuleId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the module is visible
+Boolean Private_ModuleIsVisible(K_StateClient _State, Text _ModuleId) {
+	if (_State.PlayerModulesVisibility.existskey(_ModuleId)) {
+		return _State.PlayerModulesVisibility[_ModuleId];
+	}
+	return _State.GlobalModulesVisibility.get(_ModuleId, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a module
+K_StateClient Private_CreateModule(
+	K_StateClient _State,
+	CManiaAppPlayground _This,
+	Boolean _OverrideModule,
+	Text _ModuleId,
+	Text _ManialinkPage,
+	CUILayer::EUILayerType _Type,
+	Integer _SplitScreenTarget,
+	Text _AttachId,
+	Integer _HideDelay
+) {
+	declare K_StateClient State = _State;
+
+	if (_OverrideModule) {
+		State = Private_DestroyModule(State, _This, _ModuleId);
+	} else if (State.Modules.existskey(_ModuleId)) {
+		log("""WARNING: [UIModules] The UI module `{{{_ModuleId}}}` already exists""");
+		return State;
+	}
+
+	declare Boolean IsVisible = Private_ModuleIsVisible(State, _ModuleId);
+	State.Modules[_ModuleId] = K_Module {
+		Id = _ModuleId,
+		LayerIds = Private_CreateModuleLayers(_This, _ManialinkPage, _Type, _SplitScreenTarget, _AttachId, IsVisible),
+		IsVisible = IsVisible,
+		HideDelay = _HideDelay
+	};
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a module if it does not exist already
+Void CreateModule(
+	CManiaAppPlayground _This,
+	Text _ModuleId,
+	Text _ManialinkPage,
+	CUILayer::EUILayerType _Type,
+	Integer _SplitScreenTarget,
+	Text _AttachId,
+	Integer _HideDelay
+) {
+	G_StateClient = Private_CreateModule(G_StateClient, _This, False, _ModuleId, _ManialinkPage, _Type, _SplitScreenTarget, _AttachId, _HideDelay);
+}
+Void CreateModule(
+	CManiaAppPlayground _This,
+	Text _ModuleId,
+	Text _ManialinkPage,
+	CUILayer::EUILayerType _Type,
+	Integer _SplitScreenTarget,
+	Text _AttachId
+) {
+	CreateModule(_This, _ModuleId, _ManialinkPage, _Type, _SplitScreenTarget, _AttachId, 0);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Override a module if it exists already
+Void OverrideModule(
+	CManiaAppPlayground _This,
+	Text _ModuleId,
+	Text _ManialinkPage,
+	CUILayer::EUILayerType _Type,
+	Integer _SplitScreenTarget,
+	Text _AttachId,
+	Integer _HideDelay
+) {
+	G_StateClient = Private_CreateModule(G_StateClient, _This, True, _ModuleId, _ManialinkPage, _Type, _SplitScreenTarget, _AttachId, _HideDelay);
+}
+Void OverrideModule(
+	CManiaAppPlayground _This,
+	Text _ModuleId,
+	Text _ManialinkPage,
+	CUILayer::EUILayerType _Type,
+	Integer _SplitScreenTarget,
+	Text _AttachId
+) {
+	OverrideModule(_This, _ModuleId, _ManialinkPage, _Type, _SplitScreenTarget, _AttachId, 0);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the visibility of the module layers
+K_StateClient Private_SetModuleLayersVisibility(
+	K_StateClient _State,
+	CManiaAppPlayground _This,
+	Ident[] _LayerIds,
+	Boolean _IsVisible,
+	Integer _HideDelay
+) {
+	declare K_StateClient State = _State;
+
+	for (LayerId in _LayerIds) {
+		if (_This.UILayers.existskey(LayerId)) {
+			declare CUILayer Layer <=> _This.UILayers[LayerId];
+			if (_IsVisible) {
+				Layer.IsVisible = True;
+				State.DelayedHideModules.removekey(LayerId);
+			} else if (_HideDelay <= 0) {
+				Layer.IsVisible = False;
+				State.DelayedHideModules.removekey(LayerId);
+			} else {
+				State.DelayedHideModules[LayerId] = Now + _HideDelay;
+			}
+
+			Private_SetModuleVisibilityOnLocalPage(Layer.LocalPage, _IsVisible);
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the visibility of the modules
+K_StateClient Private_UpdateModulesVisibility(
+	K_StateClient _State,
+	CManiaAppPlayground _This,
+	Integer _GlobalModulesVisibilityUpdate,
+	Boolean[Text] _GlobalModulesVisibility,
+	Integer _PlayerModulesVisibilityUpdate,
+	Boolean[Text] _PlayerModulesVisibility
+) {
+	declare K_StateClient State = _State;
+
+	State.GlobalModulesVisibilityUpdate = _GlobalModulesVisibilityUpdate;
+	State.GlobalModulesVisibility = _GlobalModulesVisibility;
+	State.PlayerModulesVisibilityUpdate = _PlayerModulesVisibilityUpdate;
+	State.PlayerModulesVisibility = _PlayerModulesVisibility;
+
+	for (Module in State.Modules) {
+		if (Private_ModuleIsVisible(State, Module.Id)) {
+			if (!Module.IsVisible) {
+				State = Private_SetModuleLayersVisibility(State, _This, Module.LayerIds, True, Module.HideDelay);
+				State.Modules[Module.Id].IsVisible = True;
+			}
+		} else if (Module.IsVisible) {
+			State = Private_SetModuleLayersVisibility(State, _This, Module.LayerIds, False, Module.HideDelay);
+			State.Modules[Module.Id].IsVisible = False;
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the relay layer manialink
+Text Private_GetRelayLayerML() {
+	return
+"""
+<manialink version="3" name="UIModules:Relay">
+<script><!--
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+
+main() {
+	declare Integer CMGame_UIModules_PlayerModulesVisibilityUpdate for ParentApp = 0;
+	declare Boolean[Text] CMGame_UIModules_PlayerModulesVisibility for ParentApp = [];
+
+	declare Ident TargetPlayerId = NullId;
+	declare Integer PlayerModulesVisibilityUpdate = 0;
+	declare Boolean NeedUpdate = True;
+
+	while (True) {
+		yield;
+
+		declare TargetPlayer <=> Tools::GetTargetPlayer(This);
+		if (
+			(TargetPlayer == Null && TargetPlayerId != NullId) ||
+			(TargetPlayer != Null && TargetPlayerId != TargetPlayer.Id)
+		) {
+			if (TargetPlayer == Null) {
+				TargetPlayerId = NullId;
+			} else {
+				TargetPlayerId = TargetPlayer.Id;
+			}
+			NeedUpdate = True;
+		}
+
+		if (TargetPlayer != Null) {
+			declare netread Integer Net_CMGame_UIModules_PlayerModulesVisibilityUpdate for TargetPlayer = 0;
+			if (NeedUpdate || PlayerModulesVisibilityUpdate != Net_CMGame_UIModules_PlayerModulesVisibilityUpdate) {
+				PlayerModulesVisibilityUpdate = Net_CMGame_UIModules_PlayerModulesVisibilityUpdate;
+				NeedUpdate = False;
+
+				declare netread Boolean[Text] Net_CMGame_UIModules_PlayerModulesVisibility for TargetPlayer = [];
+				CMGame_UIModules_PlayerModulesVisibility = Net_CMGame_UIModules_PlayerModulesVisibility;
+				CMGame_UIModules_PlayerModulesVisibilityUpdate += 1;
+			}
+		}
+	}
+}
+--></script>
+</manialink>
+"""
+	;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create the layer that will relay variables from the server to the ManiaApp
+K_StateClient Private_CreateRelayLayer(K_StateClient _State, CManiaAppPlayground _This) {
+	declare K_StateClient State = _State;
+
+	declare CUILayer RelayLayer <=> _This.UILayerCreate();
+	if (RelayLayer != Null) {
+		State.RelayLayerId = RelayLayer.Id;
+		RelayLayer.ManialinkPage = Private_GetRelayLayerML();
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy the relay layer
+K_StateClient Private_DestroyRelayLayer(K_StateClient _State, CManiaAppPlayground _This) {
+	declare K_StateClient State = _State;
+
+	if (_This.UILayers.existskey(State.RelayLayerId)) {
+		_This.UILayerDestroy(_This.UILayers[State.RelayLayerId]);
+	}
+	State.RelayLayerId = NullId;
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the library at the start of the game mode ManiaApp
+Void OnUIStart(CManiaAppPlayground _This) {
+	G_StateClient = C_StateClient_Null;
+	G_StateClient = Private_CreateRelayLayer(G_StateClient, _This);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Cleanup behind library at the end of the game mode ManiaApp
+Void OnUIEnd(CManiaAppPlayground _This) {
+	G_StateClient = Private_DestroyRelayLayer(G_StateClient, _This);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the UI modules
+Void OnYield(CManiaAppPlayground _This) {
+	declare netread Integer Net_CMGame_UIModules_GlobalModulesVisibilityUpdate for _This.Playground.Teams[0] = 0;
+	if (G_StateClient.GlobalModulesVisibilityUpdate != Net_CMGame_UIModules_GlobalModulesVisibilityUpdate) {
+		declare netread Boolean[Text] Net_CMGame_UIModules_GlobalModulesVisibility for _This.Playground.Teams[0] = [];
+		G_StateClient = Private_UpdateModulesVisibility(
+			G_StateClient,
+			_This,
+			Net_CMGame_UIModules_GlobalModulesVisibilityUpdate,
+			Net_CMGame_UIModules_GlobalModulesVisibility,
+			G_StateClient.PlayerModulesVisibilityUpdate,
+			G_StateClient.PlayerModulesVisibility
+		);
+	}
+
+	declare Integer CMGame_UIModules_PlayerModulesVisibilityUpdate for _This = 0;
+	if (G_StateClient.PlayerModulesVisibilityUpdate != CMGame_UIModules_PlayerModulesVisibilityUpdate) {
+		declare Boolean[Text] CMGame_UIModules_PlayerModulesVisibility for _This = [];
+		G_StateClient = Private_UpdateModulesVisibility(
+			G_StateClient,
+			_This,
+			G_StateClient.GlobalModulesVisibilityUpdate,
+			G_StateClient.GlobalModulesVisibility,
+			CMGame_UIModules_PlayerModulesVisibilityUpdate,
+			CMGame_UIModules_PlayerModulesVisibility
+		);
+	}
+
+	if (G_StateClient.DelayedHideModules.count > 0) {
+		declare Ident[] LayerIdsToHide;
+		for (LayerId => HideTime in G_StateClient.DelayedHideModules) {
+			if (Now >= HideTime) {
+				LayerIdsToHide.add(LayerId);
+			}
+		}
+		for (LayerId in LayerIdsToHide) {
+			G_StateClient.DelayedHideModules.removekey(LayerId);
+			if (_This.UILayers.existskey(LayerId)) {
+				_This.UILayers[LayerId].IsVisible = False;
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Server side functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a new UI state
+ *	A UI state is an array of UI modules visibility
+ */
+K_StateServer Private_CreateUIState(K_StateServer _State, Text _UIState, Boolean[Text] _ModulesVisibility) {
+	if (_State.UIStatesModulesVisibility.existskey(_UIState)) {
+		log("""WARNING: [UIModules] The UI state `{{{_UIState}}}` already exists""");
+		return _State;
+	}
+
+	declare K_StateServer State = _State;
+
+	State.UIStatesModulesVisibility[_UIState] = _ModulesVisibility;
+
+	return State;
+}
+Void CreateUIState(Text _UIState, Boolean[Text] _ModulesVisibility) {
+	G_StateServer = Private_CreateUIState(G_StateServer, _UIState, _ModulesVisibility);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Flatten global UI states
+Void Private_ComputeGlobalUIStates(K_StateServer _State, CMode _This) {
+	declare netwrite Integer Net_CMGame_UIModules_GlobalModulesVisibilityUpdate for _This.Teams[0] = 0;
+	declare netwrite Boolean[Text] Net_CMGame_UIModules_GlobalModulesVisibility for _This.Teams[0] = [];
+	Net_CMGame_UIModules_GlobalModulesVisibility = Private_FlattenModulesVisibility(_State.UIStatesModulesVisibility, _State.GlobalUIStates);
+	Net_CMGame_UIModules_GlobalModulesVisibilityUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the global UI states
+ *	The global UI states are applied to all players
+ *	UI states with a higher priority are merged over ones with lower priorities
+ */
+K_StateServer Private_SetGlobalUIStates(K_StateServer _State, CMode _This, Integer _Priority, Text[] _UIStates) {
+	declare K_StateServer State = _State;
+
+	if (_UIStates.count <= 0) {
+		State.GlobalUIStates.removekey(_Priority);
+	} else {
+		declare Boolean NeedSortKey = !State.GlobalUIStates.existskey(_Priority);
+		State.GlobalUIStates[_Priority] = _UIStates;
+		if (NeedSortKey) {
+			State.GlobalUIStates = State.GlobalUIStates.sortkey();
+		}
+	}
+
+	Private_ComputeGlobalUIStates(State, _This);
+
+	return State;
+}
+Void SetGlobalUIStates(CMode _This, Integer _Priority, Text[] _UIStates) {
+	G_StateServer = Private_SetGlobalUIStates(G_StateServer, _This, _Priority, _UIStates);
+}
+Void SetGlobalUIStates(CMode _This, Text[] _UIStates) {
+	SetGlobalUIStates(_This, C_Priority_GameMode, _UIStates);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add a global UI state
+Void AddGlobalUIState(CMode _This, Integer _Priority, Text _UIState) {
+	declare Text[] UIStates = G_StateServer.GlobalUIStates.get(_Priority, []);
+	if (!UIStates.exists(_UIState)) {
+		UIStates.add(_UIState);
+		G_StateServer = Private_SetGlobalUIStates(G_StateServer, _This, _Priority, UIStates);
+	}
+}
+Void AddGlobalUIState(CMode _This, Text _UIState) {
+	AddGlobalUIState(_This, C_Priority_GameMode, _UIState);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove a global UI state
+Void RemoveGlobalUIState(CMode _This, Integer _Priority, Text _UIState) {
+	declare Text[] UIStates = G_StateServer.GlobalUIStates.get(_Priority, []);
+	if (UIStates.exists(_UIState)) {
+		UIStates.remove(_UIState);
+		G_StateServer = Private_SetGlobalUIStates(G_StateServer, _This, _Priority, UIStates);
+	}
+}
+Void RemoveGlobalUIState(CMode _This, Text _UIState) {
+	RemoveGlobalUIState(_This, C_Priority_GameMode, _UIState);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Flatten player UI states
+Void Private_ComputePlayerUIStates(K_StateServer _State, CPlayer _Player, Text[][Integer] _PlayerUIStates) {
+	declare netwrite Integer Net_CMGame_UIModules_PlayerModulesVisibilityUpdate for _Player = 0;
+	declare netwrite Boolean[Text] Net_CMGame_UIModules_PlayerModulesVisibility for _Player = [];
+	Net_CMGame_UIModules_PlayerModulesVisibility = Private_FlattenModulesVisibility(_State.UIStatesModulesVisibility, _PlayerUIStates);
+	Net_CMGame_UIModules_PlayerModulesVisibilityUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the player UI states
+ *	The player UI states are merged over the global UI states
+ *	Player UI states with a higher priority are merged over ones with lower priorities
+ */
+Text[][Integer] Private_SetPlayerUIStates(
+	K_StateServer _State,
+	CPlayer _Player,
+	Text[][Integer] _PlayerUIStates,
+	Integer _Priority,
+	Text[] _UIStates
+) {
+	declare Text[][Integer] PlayerUIStates = _PlayerUIStates;
+
+	if (_UIStates.count <= 0) {
+		PlayerUIStates.removekey(_Priority);
+	} else {
+		declare Boolean NeedSortKey = !PlayerUIStates.existskey(_Priority);
+		PlayerUIStates[_Priority] = _UIStates;
+		if (NeedSortKey) {
+			PlayerUIStates = PlayerUIStates.sortkey();
+		}
+	}
+
+	Private_ComputePlayerUIStates(_State, _Player, PlayerUIStates);
+
+	return PlayerUIStates;
+}
+Void SetPlayerUIStates(CPlayer _Player, Integer _Priority, Text[] _UIStates) {
+	declare Text[][Integer] CMGame_UIModules_PlayerUIStates for _Player = [];
+	CMGame_UIModules_PlayerUIStates = Private_SetPlayerUIStates(G_StateServer, _Player, CMGame_UIModules_PlayerUIStates, _Priority, _UIStates);
+}
+Void SetPlayerUIStates(CPlayer _Player, Text[] _UIStates) {
+	SetPlayerUIStates(_Player, C_Priority_GameMode, _UIStates);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add an UI state to a player
+Void AddPlayerUIState(CPlayer _Player, Integer _Priority, Text _UIState) {
+	declare Text[][Integer] CMGame_UIModules_PlayerUIStates for _Player = [];
+	declare Text[] UIStates = CMGame_UIModules_PlayerUIStates.get(_Priority, []);
+	if (!UIStates.exists(_UIState)) {
+		UIStates.add(_UIState);
+		CMGame_UIModules_PlayerUIStates = Private_SetPlayerUIStates(G_StateServer, _Player, CMGame_UIModules_PlayerUIStates, _Priority, UIStates);
+	}
+}
+Void AddPlayerUIState(CPlayer _Player, Text _UIState) {
+	AddPlayerUIState(_Player, C_Priority_GameMode, _UIState);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove an UI state from a player
+Void RemovePlayerUIState(CPlayer _Player, Integer _Priority, Text _UIState) {
+	declare Text[][Integer] CMGame_UIModules_PlayerUIStates for _Player = [];
+	declare Text[] UIStates = CMGame_UIModules_PlayerUIStates.get(_Priority, []);
+	if (UIStates.exists(_UIState)) {
+		UIStates.remove(_UIState);
+		CMGame_UIModules_PlayerUIStates = Private_SetPlayerUIStates(G_StateServer, _Player, CMGame_UIModules_PlayerUIStates, _Priority, UIStates);
+	}
+}
+Void RemovePlayerUIState(CPlayer _Player, Text _UIState) {
+	RemovePlayerUIState(_Player, C_Priority_GameMode, _UIState);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the library at the start of the game mode script
+Void OnModeStart(CSmMode _This) {
+	G_StateServer = C_StateServer_Null;
+	Private_ComputeGlobalUIStates(G_StateServer, _This);
+
+	for (Player in _This.AllPlayers) {
+		declare Text[][Integer] CMGame_UIModules_PlayerUIStates for Player = [];
+		CMGame_UIModules_PlayerUIStates = [];
+		Private_ComputePlayerUIStates(G_StateServer, Player, CMGame_UIModules_PlayerUIStates);
+	}
+}

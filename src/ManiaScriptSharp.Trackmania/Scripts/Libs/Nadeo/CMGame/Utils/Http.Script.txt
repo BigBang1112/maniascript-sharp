@@ -1,0 +1,710 @@
+/**
+ *	Http helpers
+ */
+#Const Version		"1.2.1"
+#Const ScriptName	"Libs/Nadeo/CMGame/Utils/Http.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Error.Script.txt" as Error
+#Include "Libs/Nadeo/CMGame/Utils/Log.Script.txt" as Log
+#Include "Libs/Nadeo/CMGame/Utils/HttpAuthorizationHeader.Script.txt" as AuthorizationHeader
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_RetryRandomVariation 100
+#Const C_AlwaysRetry -1
+#Const C_NeverRetry 0
+#Const C_Method_Get 0
+#Const C_Method_Post 1
+#Const C_Method_PostFile 2
+//#Const C_Method_Put 3 //< Not available yet in MP4
+#Const C_Method_CacheHit 4
+#Const C_StatusCode_Null -1
+#Const C_MinimumAvailableSlots 5
+#Const C_CooldownListSizeMax 25
+#Const C_CooldownDuration 1000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct Error::K_HttpNLSError as K_HttpNLSError
+#Struct Error::K_NLSError as K_NLSError
+
+#Struct K_Request {
+	Ident RequestId;
+	Boolean IsInitialized;
+	Boolean IsProcessing;
+	Boolean IsWaitingSlot;
+	Integer CooldownEndTime;
+	Boolean IsSuccess;
+	Boolean IsDestroyed;
+	Integer RetryTime;
+	Integer RetryNb;
+	Integer RetryInterval;
+	Boolean DisableAutomaticAuthorizationHeader;
+	Text Result;
+	Integer StatusCode;
+	Text Url;
+	Text Ressource;
+	Text[Text] AdditionnalHeaders;
+	Integer Method;
+	Text[Text] Metadata;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Enable or disable offline mode
+ *	In offline mode, requests not directed
+ *	to file:// will not be sent
+ */
+Void SetOfflineMode(Boolean _Enabled) {
+	declare Boolean LibCommonHttp_IsOfflineMode for System = False;
+	LibCommonHttp_IsOfflineMode = _Enabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the library is in offline mode
+Boolean IsOfflineMode() {
+	declare Boolean LibCommonHttp_IsOfflineMode for System = False;
+	return LibCommonHttp_IsOfflineMode;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get an empty request (useful to initialize variables)
+K_Request GetEmptyRequest() {
+	return K_Request {
+		RequestId = NullId,
+		IsInitialized = False,
+		IsProcessing = False,
+		IsWaitingSlot = False,
+		CooldownEndTime = -1,
+		IsSuccess = False,
+		IsDestroyed = False,
+		RetryTime = -1,
+		RetryNb = 0,
+		RetryInterval = -1,
+		DisableAutomaticAuthorizationHeader = False,
+		Result = "",
+		StatusCode = C_StatusCode_Null,
+		Url = "",
+		Ressource = "",
+		AdditionnalHeaders = [],
+		Method = C_Method_Get,
+		Metadata = []
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize a new request
+K_Request Private_InitRequest(
+	Integer _Method,
+	Text _Url,
+	Text _Ressource,
+	Text[Text] _AdditionalHeaders,
+	Integer _RetryNb,
+	Integer _RetryInterval,
+	Boolean _DisableAutomaticAuthorizationHeader
+) {
+	return K_Request {
+		RequestId = NullId,
+		IsInitialized = True,
+		IsProcessing = True,
+		IsWaitingSlot = False,
+		CooldownEndTime = -1,
+		IsSuccess = False,
+		IsDestroyed = False,
+		RetryTime = -1,
+		RetryNb = _RetryNb,
+		RetryInterval = _RetryInterval,
+		DisableAutomaticAuthorizationHeader = _DisableAutomaticAuthorizationHeader,
+		Result = "",
+		StatusCode = C_StatusCode_Null,
+		Url = _Url,
+		Ressource = _Ressource,
+		AdditionnalHeaders = _AdditionalHeaders,
+		Method = _Method,
+		Metadata = []
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add metadata on a request
+K_Request SetMetadata(K_Request _Request, Text[Text] _Metadata) {
+	declare K_Request Request = _Request;
+	foreach (Key => Value in _Metadata) {
+		Request.Metadata[Key] = Value;
+	}
+	return Request;
+}
+K_Request SetMetadata(K_Request _Request, Text _Key, Text _Value) {
+	declare K_Request Request = _Request;
+	Request.Metadata[_Key] = _Value;
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove all metadata from a request
+K_Request ResetMetadata(K_Request _Request) {
+	declare K_Request Request = _Request;
+	Request.Metadata = [];
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get metadata from a request
+Text[Text] GetMetadata(K_Request _Request) {
+	return _Request.Metadata;
+}
+Text GetMetadata(K_Request _Request, Text _Key) {
+	return _Request.Metadata.get(_Key, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a query string from an array
+ *	["key" => "value, "key2" => "value2"]
+ *	-> "?key=value&key2=value2"
+ *	["key3" => ["valueA", "valueB"], "key4" => ["valueC"]]
+ *	-> "?key3[]=valueA&key3[]=valueB&key4[]=valueC"
+ *
+ *	@param	_Query										The query array to encode
+ *
+ *	@return														The query string
+ */
+Text CreateQueryString(Text[Text] _Query, Text[][Text] _QueryArray) {
+	declare Text QueryString = "";
+
+	foreach (Key => Value in _Query) {
+		if (QueryString == "") QueryString ^= "?";
+		else QueryString ^= "&";
+		QueryString ^= TL::URLEncode(Key)^"="^TL::URLEncode(Value);
+	}
+	foreach (Key => Values in _QueryArray) {
+		foreach (Value in Values) {
+			if (QueryString == "") QueryString ^= "?";
+			else QueryString ^= "&";
+			QueryString ^= TL::URLEncode(Key)^"[]="^TL::URLEncode(Value);
+		}
+	}
+
+	return QueryString;
+}
+Text CreateQueryString(Text[Text] _Query) {
+	return CreateQueryString(_Query, []);
+}
+Text CreateQueryString(Text[][Text] _QueryArray) {
+	return CreateQueryString([], _QueryArray);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a query string from an array
+ *	_KeyName: "keyname"
+ *	_QueryArray: ["key5" => valueA, "key6" => valueB, "key7" => valueC]
+ *	-> "?keyname[key5]=valueA&keyname[key6]=valueB&keyname[key7]=valueC"
+ */
+Text CreateQueryString(Text _ChainQueryString, Text _ArrayName, Integer[Text] _QueryArray) {
+	declare Text QueryString = _ChainQueryString;
+
+	foreach (Key => Value in _QueryArray) {
+		if (QueryString == "") QueryString = "?";
+		else QueryString ^= "&";
+		QueryString ^= TL::URLEncode(_ArrayName)^"["^TL::URLEncode(Key)^"]="^Value;
+	}
+
+	return QueryString;
+}
+Text CreateQueryString(Text _ArrayName, Integer[Text] _QueryArray) {
+	return CreateQueryString("", _ArrayName, _QueryArray);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create an headers string from an array
+ *	["key" => "value", "key2" => "value2"]
+ *	-> "key: value\nkey2: value2"
+ *
+ *	@param	_AppendTo									The new headers will be append to these headers
+ *	@param	_Headers									The new headers
+ *
+ *	@return														The headers string
+ */
+Text CreateHeadersString(Text _AppendTo, Text[Text] _Headers) {
+	declare Text HeadersString = _AppendTo;
+
+	foreach (Key => Value in _Headers) {
+		if (HeadersString != "") HeadersString ^= "\n";
+		HeadersString ^= Key^": "^Value;
+	}
+
+	return HeadersString;
+}
+Text CreateHeadersString(Text[Text] _Headers) {
+	return CreateHeadersString("", _Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Inject the given parameters into the route
+ *	_Route => "/path/:Param1/to/:Param2"
+ *	_Parameters => ["Param1" => "aaa", "Param2" => "bbb"]
+ *	=> "/path/aaa/to/bbb"
+ */
+Text InjectRouteParameters(Text _Route, Text[Text] _Parameters) {
+	declare Text Route = _Route;
+	foreach (Key => Value in _Parameters) {
+		Route = TL::Replace(Route, ":"^Key, Value);
+	}
+	return Route;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Check if an http request was a success
+ *	from its status code
+ *
+ *	@param	_StatusCode								Status code of the request
+ *
+ *	@return														True if the request completed successfully
+ *																		False otherwise
+ */
+Boolean IsHttpSuccess(Integer _StatusCode) {
+	return (_StatusCode >= 200 && _StatusCode < 300);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if there are already too many requests
+ *
+ *	@return														True if there are already too many requests created
+ */
+Boolean IsSaturated(CHttpManager _HttpManager) {
+	return (_HttpManager.SlotsAvailable <= C_MinimumAvailableSlots);
+}
+Boolean IsSaturated() {
+	return IsSaturated(Http);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get and set the cooldown list
+ *	The `Now` variable on the client (ManiaApp, manialink)
+ *	is not the same than the one on the server (game mode)
+ *	On the client it starts when the game is launched
+ *	On the server it starts when the server is created
+ *	When testing on a local server, we are a client and a server at the same time
+ *	but we don't want to share the `LibCommonHttp_CooldownList` variable between
+ *	the client and the server.
+ *	If the game is started at 19:00, but the local server at 19:10,
+ *	`Now` on the client will be 600 000 but 0 on the server.
+ *	A request done on the client at 600 000 would create a cooldown
+ *	ending at 601 000. This means that the server would have to wait 10 minutes and 1 second
+ *	before being able to do a request to the same url.
+ *	To avoid that we `declare LibCommonHttp_CooldownList for This` on the server
+ *	and `declare LibCommonHttp_CooldownList for This.System` on the client.
+ *	see: /trackmania-next/tmnext/-/issues/5079
+ */
+Integer[Text] Private_GetCooldownList() {
+	if (This is CMode) {
+		declare Integer[Text] LibCommonHttp_CooldownList for This = [];
+		return LibCommonHttp_CooldownList;
+	}
+	declare Integer[Text] LibCommonHttp_CooldownList for This.System = [];
+	return LibCommonHttp_CooldownList;
+}
+Void Private_SetCooldownList(Integer[Text] _CooldownList) {
+	if (This is CMode) {
+		declare Integer[Text] LibCommonHttp_CooldownList for This = [];
+		LibCommonHttp_CooldownList = _CooldownList;
+	} else {
+		declare Integer[Text] LibCommonHttp_CooldownList for This.System = [];
+		LibCommonHttp_CooldownList = _CooldownList;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an url is on cooldown
+Integer GetUrlCooldownEndTime(Text _Url) {
+	return Private_GetCooldownList().get(_Url, -1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove the finished cooldown from the list
+Integer[Text] Private_CleanUpCooldownList(Integer[Text] _CooldownList) {
+	declare Integer[Text] CooldownList;
+
+	foreach (Url => CooldownEndTime in _CooldownList) {
+		if (Now < CooldownEndTime) {
+			CooldownList[Url] = CooldownEndTime;
+		}
+	}
+
+	return CooldownList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start a cooldown on an url
+Void StartUrlCooldown(Text _Url) {
+	declare Integer[Text] CooldownList = Private_GetCooldownList();
+
+	if (CooldownList.count > C_CooldownListSizeMax) {
+		CooldownList = Private_CleanUpCooldownList(CooldownList);
+	}
+
+	CooldownList[_Url] = Now + C_CooldownDuration;
+	Private_SetCooldownList(CooldownList);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy the given request
+K_Request Destroy(CHttpManager _HttpManager, K_Request _Request) {
+	Log::Log("[Http] Destroy request > Id: "^_Request.RequestId);
+	declare K_Request Request = _Request;
+
+	if (Request.RequestId != NullId && _HttpManager.Requests.existskey(Request.RequestId)) {
+		_HttpManager.Destroy(_HttpManager.Requests[Request.RequestId]);
+	}
+
+	Request.RequestId = NullId;
+	Request.IsInitialized = False;
+	Request.IsProcessing = False;
+	Request.IsWaitingSlot = False;
+	Request.CooldownEndTime = -1;
+	Request.IsDestroyed = True;
+	Request.RetryTime = -1;
+
+	return Request;
+}
+K_Request Destroy(K_Request _Request) {
+	return Destroy(Http, _Request);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a new request
+ *
+ *	@param	_Method										The type of request to create: GET, POST, PUT, ...
+ *	@param	_Url											Url to request
+ *	@param	_Ressource								A ressource to send with a POST or PUT request
+ *	@param	_AdditionalHeaders				Headers to add to the request
+ *	@param	_RetryNb									The number of time the request will be resend in case of error
+ *																		C_AlwaysRetry => infinite, 0 => no retry, n => n tries
+ *	@param	_RetryInterval						Time interval between two tries
+ *	@param	_IgnoreCooldown						Ignore any ongoing cooldown on the request url
+ *
+ *	@return														A request structure
+ */
+K_Request Create(
+	CHttpManager _HttpManager,
+	Integer _Method,
+	Text _Url,
+	Text _Ressource,
+	Text[Text] _AdditionalHeaders,
+	Integer _RetryNb,
+	Integer _RetryInterval,
+	Boolean _IgnoreCooldown,
+	Boolean _DisableAutomaticAuthorizationHeader
+) {
+	declare K_Request Request = Private_InitRequest(_Method, _Url, _Ressource, _AdditionalHeaders, _RetryNb, _RetryInterval, _DisableAutomaticAuthorizationHeader);
+
+	if (IsSaturated(_HttpManager)) {
+		Request.IsWaitingSlot = True;
+	} else if (!_IgnoreCooldown && GetUrlCooldownEndTime(_Url) > Now) {
+		// The way the cooldown works might be a bit counter intuitive at first.
+		// Creating 10 requests in parallel to the same url will not create the
+		// 10 requests one after another with a 1 second interval. The first one
+		// will be sent immediatly and the 9 others at the same time 1 second later.
+		// Parallels requests are already limited by the `IsSaturated()` check above.
+		// Here the cooldown is based on the fact that a lot of time the user can spam
+		// a request by keeping on pressing a button. Without the cooldown the http request
+		// would be destroyed and re-created every frame, spamming the API.
+		// The cooldown here prevent the re-creation of the http request to the same url
+		// before 1 second.
+		Request.CooldownEndTime = GetUrlCooldownEndTime(_Url);
+	} else {
+		declare CHttpRequest HttpRequest;
+		if (_Method == C_Method_CacheHit) {
+			Request.IsSuccess = True;
+		} else if (!IsOfflineMode() || TL::StartsWith("file://", _Url)) {
+			declare Text DefaultHeaders;
+			if (!_DisableAutomaticAuthorizationHeader && !_AdditionalHeaders.existskey("Authorization")) {
+				DefaultHeaders = AuthorizationHeader::GetLive();
+			}
+			declare Text Headers = CreateHeadersString(DefaultHeaders, _AdditionalHeaders);
+			switch (_Method) {
+				case C_Method_Get: HttpRequest = _HttpManager.CreateGet(_Url, False, Headers);
+				case C_Method_Post: HttpRequest = _HttpManager.CreatePost(_Url, _Ressource, Headers);
+				case C_Method_PostFile: HttpRequest = _HttpManager.CreatePostFile(_Url, _Ressource, Headers);
+				//case C_Method_Put: HttpRequest = _HttpManager.CreatePut(_Url, _Ressource, Headers);
+			}
+		}
+		if (HttpRequest == Null) {
+			Request.IsProcessing = False;
+		} else {
+			Request.RequestId = HttpRequest.Id;
+			StartUrlCooldown(_Url);
+		}
+		Log::Log("[Http] Create request > Id: "^Request.RequestId^" | Method: "^_Method^" | Url: "^_Url^" | Ressource: "^_Ressource);
+	}
+	return Request;
+}
+K_Request Create(Integer _Method, Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders, Integer _RetryNb, Integer _RetryInterval, Boolean _IgnoreCooldown, Boolean _DisableAutomaticAuthorizationHeader) {
+	return Create(Http, _Method, _Url, _Ressource, _AdditionalHeaders, _RetryNb, _RetryInterval, _IgnoreCooldown, _DisableAutomaticAuthorizationHeader);
+}
+K_Request Create(CHttpManager _HttpManager, Integer _Method, Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders, Integer _RetryNb, Integer _RetryInterval, Boolean _IgnoreCooldown) {
+	return Create(_HttpManager, _Method, _Url, _Ressource, _AdditionalHeaders, _RetryNb, _RetryInterval, _IgnoreCooldown, False);
+}
+K_Request Create(Integer _Method, Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders, Integer _RetryNb, Integer _RetryInterval, Boolean _IgnoreCooldown) {
+	return Create(Http, _Method, _Url, _Ressource, _AdditionalHeaders, _RetryNb, _RetryInterval, _IgnoreCooldown, False);
+}
+K_Request Create(CHttpManager _HttpManager, Integer _Method, Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders, Integer _RetryNb, Integer _RetryInterval) {
+	return Create(_HttpManager, _Method, _Url, _Ressource, _AdditionalHeaders, _RetryNb, _RetryInterval, False, False);
+}
+K_Request Create(Integer _Method, Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders, Integer _RetryNb, Integer _RetryInterval) {
+	return Create(Http, _Method, _Url, _Ressource, _AdditionalHeaders, _RetryNb, _RetryInterval, False, False);
+}
+K_Request CreatePost(CHttpManager _HttpManager, Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders, Integer _RetryNb, Integer _RetryInterval) {
+	return Create(_HttpManager, C_Method_Post, _Url, _Ressource, _AdditionalHeaders, _RetryNb, _RetryInterval);
+}
+K_Request CreatePost(Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders, Integer _RetryNb, Integer _RetryInterval) {
+	return Create(Http, C_Method_Post, _Url, _Ressource, _AdditionalHeaders, _RetryNb, _RetryInterval);
+}
+K_Request CreatePostFile(CHttpManager _HttpManager, Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders, Integer _RetryNb, Integer _RetryInterval) {
+	return Create(_HttpManager, C_Method_PostFile, _Url, _Ressource, _AdditionalHeaders, _RetryNb, _RetryInterval);
+}
+K_Request CreatePostFile(Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders, Integer _RetryNb, Integer _RetryInterval) {
+	return Create(Http, C_Method_PostFile, _Url, _Ressource, _AdditionalHeaders, _RetryNb, _RetryInterval);
+}
+K_Request CreateGet(CHttpManager _HttpManager, Text _Url, Text[Text] _AdditionalHeaders, Integer _RetryNb, Integer _RetryInterval) {
+	return Create(_HttpManager, C_Method_Get, _Url, "", _AdditionalHeaders, _RetryNb, _RetryInterval);
+}
+K_Request CreateGet(Text _Url, Text[Text] _AdditionalHeaders, Integer _RetryNb, Integer _RetryInterval) {
+	return Create(Http, C_Method_Get, _Url, "", _AdditionalHeaders, _RetryNb, _RetryInterval);
+}
+K_Request Create(CHttpManager _HttpManager, Integer _Method, Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders) {
+	return Create(_HttpManager, _Method, _Url, _Ressource, _AdditionalHeaders, C_NeverRetry, -1);
+}
+K_Request Create(Integer _Method, Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders) {
+	return Create(Http, _Method, _Url, _Ressource, _AdditionalHeaders, C_NeverRetry, -1);
+}
+K_Request CreatePost(CHttpManager _HttpManager, Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders) {
+	return Create(_HttpManager, C_Method_Post, _Url, _Ressource, _AdditionalHeaders);
+}
+K_Request CreatePost(Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders) {
+	return Create(Http, C_Method_Post, _Url, _Ressource, _AdditionalHeaders);
+}
+K_Request CreatePostFile(CHttpManager _HttpManager, Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders) {
+	return Create(_HttpManager, C_Method_PostFile, _Url, _Ressource, _AdditionalHeaders);
+}
+K_Request CreatePostFile(Text _Url, Text _Ressource, Text[Text] _AdditionalHeaders) {
+	return Create(Http, C_Method_PostFile, _Url, _Ressource, _AdditionalHeaders);
+}
+K_Request CreateGet(CHttpManager _HttpManager, Text _Url, Text[Text] _AdditionalHeaders, Boolean _DisableAutomaticAuthorizationHeader) {
+	return Create(_HttpManager, C_Method_Get, _Url, "", _AdditionalHeaders, C_NeverRetry, -1, False, _DisableAutomaticAuthorizationHeader);
+}
+K_Request CreateGet(Text _Url, Text[Text] _AdditionalHeaders, Boolean _DisableAutomaticAuthorizationHeader) {
+	return Create(Http, C_Method_Get, _Url, "", _AdditionalHeaders, C_NeverRetry, -1, False, _DisableAutomaticAuthorizationHeader);
+}
+K_Request CreateGet(CHttpManager _HttpManager, Text _Url, Text[Text] _AdditionalHeaders) {
+	return Create(_HttpManager, C_Method_Get, _Url, "", _AdditionalHeaders);
+}
+K_Request CreateGet(Text _Url, Text[Text] _AdditionalHeaders) {
+	return Create(Http, C_Method_Get, _Url, "", _AdditionalHeaders);
+}
+K_Request CreateCacheHit(CHttpManager _HttpManager, Text _Url, Text[Text] _AdditionalHeaders) {
+	return Create(_HttpManager, C_Method_CacheHit, _Url, "", _AdditionalHeaders);
+}
+K_Request CreateCacheHit(Text _Url, Text[Text] _AdditionalHeaders) {
+	return Create(Http, C_Method_CacheHit, _Url, "", _AdditionalHeaders);
+}
+K_Request CreateCacheHit(CHttpManager _HttpManager) {
+	return Create(_HttpManager, C_Method_CacheHit, "", "", []);
+}
+K_Request CreateCacheHit() {
+	return Create(Http, C_Method_CacheHit, "", "", []);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy and recreate a request
+K_Request Retry(CHttpManager _HttpManager, K_Request _OldRequest) {
+	declare Boolean IgnoreCooldown = _OldRequest.CooldownEndTime >= 0; //< Do this before destroying the request
+	Destroy(_HttpManager, _OldRequest);
+	declare K_Request NewRequest = Create(_HttpManager, _OldRequest.Method, _OldRequest.Url, _OldRequest.Ressource, _OldRequest.AdditionnalHeaders, _OldRequest.RetryNb, _OldRequest.RetryInterval, IgnoreCooldown, _OldRequest.DisableAutomaticAuthorizationHeader);
+	// Transfer the metadata from the old to the new request
+	if (_OldRequest.Metadata.count > 0) {
+		NewRequest = SetMetadata(NewRequest, _OldRequest.Metadata);
+	}
+	return NewRequest;
+}
+K_Request Retry(K_Request _OldRequest) {
+	return Retry(Http, _OldRequest);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Retry a request with a delay
+K_Request RetryWithDelay(CHttpManager _HttpManager, K_Request _Request, Integer _RetryTime) {
+	declare K_Request Request = Retry(_HttpManager, _Request);
+	Request.IsProcessing = _RetryTime < 0;
+	Request.RetryTime = _RetryTime;
+	return Request;
+}
+K_Request RetryWithDelay(K_Request _Request, Integer _RetryTime) {
+	return RetryWithDelay(Http, _Request, _RetryTime);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Setup a retry for the given request
+K_Request Private_RetrySetup(K_Request _Request) {
+	if (_Request.RetryNb == 0) return _Request;
+
+	declare K_Request Request = _Request;
+	if (Request.RetryNb > 0) {
+		Request.RetryNb -= 1;
+	} else if (Request.RetryNb < 0) {
+		Request.RetryNb = C_AlwaysRetry;
+	}
+
+	if (Request.RetryInterval >= 0) {
+		Request.RetryTime = Now + Request.RetryInterval + ML::Rand(0, C_RetryRandomVariation);
+	} else {
+		Request.RetryTime = Now;
+	}
+
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update on ongoing request
+K_Request Private_Update(CHttpManager _HttpManager, K_Request _Request) {
+	if (_Request.IsInitialized && _Request.IsProcessing && (_Request.IsWaitingSlot || _Request.CooldownEndTime >= 0)) {
+		if (
+			(_Request.IsWaitingSlot && !IsSaturated(_HttpManager)) ||
+			(_Request.CooldownEndTime >= 0 && Now >= _Request.CooldownEndTime)
+		) {
+			return Retry(_HttpManager, _Request);
+		}
+	} else if (_HttpManager.Requests.existskey(_Request.RequestId)) {
+		declare CHttpRequest HttpRequest = _HttpManager.Requests[_Request.RequestId];
+		if (HttpRequest.IsCompleted) {
+			declare K_Request Request = _Request;
+			Request.IsProcessing = False;
+			Request.IsSuccess = IsHttpSuccess(HttpRequest.StatusCode);
+			if (!Request.IsSuccess) {
+				Request = Private_RetrySetup(Request);
+			}
+			Request.Result = HttpRequest.Result;
+			Request.StatusCode = HttpRequest.StatusCode;
+			return Request;
+		}
+	} else {
+		declare K_Request Request = _Request;
+		Request.IsProcessing = False;
+		Request.IsSuccess = False;
+		Request = Private_RetrySetup(Request);
+		return Request;
+	}
+	return _Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check the request is a cache hit
+Boolean IsCacheHit(K_Request _Request) {
+	return _Request.Method == C_Method_CacheHit;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if we must wait for a retry
+Boolean IsWaitingRetry(K_Request _Request) {
+	return _Request.RetryTime >= 0;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// The request has been initialized
+Boolean IsInitialized(K_Request _Request) {
+	return _Request.IsInitialized;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// We are waiting a response to the request
+Boolean IsProcessing(K_Request _Request) {
+	return _Request.IsProcessing;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// We are waiting a slot to start the request
+Boolean IsWaitingSlot(K_Request _Request) {
+	return _Request.IsWaitingSlot;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the request completed successfully
+Boolean IsSuccess(K_Request _Request) {
+	return _Request.IsSuccess;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** The request is ongoing
+ *	Either because we are waiting for
+ *	an answer or a retry
+ */
+Boolean IsRunning(K_Request _Request) {
+	return (!_Request.IsDestroyed && (_Request.IsProcessing || _Request.RetryTime >= 0));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Fully automated request management
+K_Request Update(CHttpManager _HttpManager, K_Request _Request) {
+	if (_Request.IsDestroyed) {
+		return _Request;
+	} else if (_Request.IsProcessing) {
+		return Private_Update(_HttpManager, _Request);
+	} else if (_Request.RetryTime >= 0) {
+		if (Now >= _Request.RetryTime) {
+			return Retry(_HttpManager, _Request);
+		}
+	} else {
+		return Destroy(_HttpManager, _Request);
+	}
+
+	return _Request;
+}
+K_Request Update(K_Request _Request) {
+	return Update(Http, _Request);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the result from the request
+Text GetResult(K_Request _Request) {
+	return _Request.Result;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the status code from the request
+Integer GetStatusCode(K_Request _Request) {
+	return _Request.StatusCode;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the error details returned by the Nadeo Live Services API
+K_NLSError GetNLSError(K_Request _Request) {
+	return Error::ParseNLSError(_Request.Result);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy a previous request and create a new one in its place
+K_Request DestroyAndCreate(CHttpManager _HttpManager, K_Request _OldRequest, K_Request _NewRequest) {
+	if (IsInitialized(_OldRequest)) Destroy(_HttpManager, _OldRequest);
+	return _NewRequest;
+}
+K_Request DestroyAndCreate(K_Request _OldRequest, K_Request _NewRequest) {
+	return DestroyAndCreate(Http, _OldRequest, _NewRequest);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy the request if it is initialized
+K_Request DestroyIfInitialized(CHttpManager _HttpManager, K_Request _Request) {
+	if (IsInitialized(_Request)) return Destroy(_HttpManager, _Request);
+	return _Request;
+}
+K_Request DestroyIfInitialized(K_Request _Request) {
+	return DestroyIfInitialized(Http, _Request);
+}

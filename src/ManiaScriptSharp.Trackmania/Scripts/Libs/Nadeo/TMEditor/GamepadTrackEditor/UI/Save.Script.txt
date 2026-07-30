@@ -1,0 +1,278 @@
+/**
+ * Save UI
+ */
+
+#Const Version		"1.0.1"
+#Const ScriptName	"Save.Script.txt"
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/Manialink3.Script.txt" as Manialink
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Legacy/Buttons.Script.txt" as Buttons2
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Legacy/MLEffects.Script.txt" as MLE
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Inputs.Script.txt" as Inputs
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Layers.Script.txt" as Layers
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/UI/Stylesheet.Script.txt" as Styles
+
+
+#Const C_NotClickable	-1	///< Not clickable option
+#Const C_BgAnim False	///< Anim button background on mouse over/out
+#Const C_Event_Save		"LibSave_Save"
+#Const C_Event_Cancel	"LibSave_Cancel"
+#Const C_Event_Edit		"LibSave_Edit"
+#Const C_Default_HeaderSize <154., 6.38>
+
+declare Boolean G_Answer;		///< Answer to the pop up
+
+Text Private_GetSaveML() {
+	declare SaveSizeX = 27.;
+	declare SaveSizeY = 5.5;
+	declare OptionSize = 8.;
+	declare ButtonSize = 0.95;
+	declare ButtonSave = Buttons2::Menu_Select();
+	declare ButtonCancel = Buttons2::Menu_Cancel();
+	declare ButtonEnterName = Buttons2::Editor_RandomSave();
+
+	return """
+<manialink version="3" name="MapEditor:Save">
+<stylesheet>
+	{{{Styles::Get()}}}
+</stylesheet>
+<frame z-index="1" id="Frame_Global">
+	<frame pos="0 0" hidden="1" id="Frame_Save">
+		{{{Styles::BuildSmartQuad(<0., -(C_Default_HeaderSize.Y * 0.5), 0.>, C_Default_HeaderSize.Y, -0.6, _("|Save menu header|Save your track"), Styles::C_Img_TitleLeft, Styles::C_Img_TitleRight, "", False, "tm2020-text-header", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Header")}}}
+		{{{Styles::BuildQuad(<0., -1., 3.>, <SaveSizeX, SaveSizeY-2.>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), ["bgcolor" => Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "opacity" => ".6"])}}}
+		{{{Styles::BuildLabel(<0., -2.25, 4.>, <SaveSizeX, SaveSizeY-2.>, Styles::CircleSize_Bottom(), Styles::Align_CenterCenter2(), ["autonewline" => "1", "maxline" => "4", "linespacing" => "0.9", "class" => "tm2020-text-popup", "id" => "Label_Message", "text" => _("Enter a name for your track")])}}}
+
+		<entry pos="0 -18" size="80 6" z-index="3" halign="center" valign="center2" id="Entry_MapName" class="tm2020-text-popup" maxlen="60"/>
+
+		<frame id="Frame_Buttons" pos="0 3.4" z-index="3">
+			//L16N [MapEditor] Focus the entry to enter a name for the track
+			{{{Styles::BuildSmartQuad(Styles::GetPosition2(<SaveSizeX*0.5 - 2*(OptionSize) - 0.1, -SaveSizeY - 0.1, 5.>, Styles::CircleSize_Bottom()), 5., 0., _("|Infinitive|Enter Name"), "", "", ButtonEnterName, True, "tm2020-text-button", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_EnterName")}}}
+
+			//L16N [MapEditor] Cancel an action
+			{{{Styles::BuildSmartQuad(Styles::GetPosition2(<SaveSizeX*0.5 - OptionSize - 0.05, -SaveSizeY - 0.1, 5.>, Styles::CircleSize_Bottom()), 5., 0., _("|Infinitive|Cancel"), "", "", ButtonCancel, True, "tm2020-text-button", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Cancel")}}}
+
+			//L16N [MapEditor] Save your track
+			{{{Styles::BuildSmartQuad(Styles::GetPosition2(<SaveSizeX*0.5, -SaveSizeY - 0.1, 5.>, Styles::CircleSize_Bottom()), 5., 0., _("|Infinitive|Save"), "", "", ButtonSave, True, "tm2020-text-button", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Save")}}}
+		</frame>
+	</frame>
+</frame>
+<script><!--
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/UI/Stylesheet.Script.txt" as Styles
+{{{Manialink::DefaultIncludes()}}}
+{{{MLE::ML_Includes()}}}
+
+{{{Manialink::Animations(["EaseOutQuad"])}}}
+{{{Manialink::Function("AnimRepeat")}}}
+{{{Buttons2::ML_Functions()}}}
+{{{MLE::ML_Functions()}}}
+
+Void SetVisibility(Boolean _Visible) {
+	if (_Visible) {
+		declare L_PositionY for Page = 0.;
+		LibManialink_Anim("<frame pos=\"0 "^L_PositionY^"\" hidden=\"0\" id=\"Frame_Save\" />", 250, "EaseOutQuad");
+	} else {
+		LibManialink_Anim({{{Manialink::Inject("""<frame pos="0 0" hidden="1" id="Frame_Save" />""")}}}, 250, "EaseOutQuad");
+	}
+}
+
+main() {
+	declare L_Visibility for Page = False;
+	declare L_PositionY for Page = 0.;
+
+	declare PrevVisibility = False;
+	declare PrevPositionY = -1.;
+	declare PrevStyle = -1;
+
+	declare L_EntryIsFocused for Page = False;
+	declare L_FocusEntry for Page = False;
+	declare Entry_MapName <=> (Page.GetFirstChild("Entry_MapName") as CMlEntry);
+
+	declare L_GivenMapName for Page = "";
+	declare L_PrefillEntry for Page = "";
+
+	LibButtons_Init();
+	LibMLEffects_Init();
+
+	declare SmartQuad_Header <=> (Page.GetFirstChild("SmartQuad_Header") as CMlFrame);
+	Styles::SetupSmartQuad(SmartQuad_Header, CMlControl::AlignHorizontal::HCenter, 0., 100.);
+
+	declare Frame_Buttons <=> (Page.GetFirstChild("Frame_Buttons") as CMlFrame);
+	declare SmartQuad_Save <=> (Frame_Buttons.GetFirstChild("SmartQuad_Save") as CMlFrame);
+	declare SmartQuad_Cancel <=> (Frame_Buttons.GetFirstChild("SmartQuad_Cancel") as CMlFrame);
+	declare SmartQuad_EnterName <=> (Frame_Buttons.GetFirstChild("SmartQuad_EnterName") as CMlFrame);
+
+	Styles::SetupAndAlignButtonsRightToLeft([SmartQuad_Save, SmartQuad_Cancel, SmartQuad_EnterName], 0., 100.);
+
+	while (True) {
+		yield;
+
+		LibManialink_AnimLoop();
+		LibButtons_Loop();
+		LibMLEffects_Loop();
+
+		if (PrevVisibility != L_Visibility) {
+			PrevVisibility = L_Visibility;
+			SetVisibility(L_Visibility);
+		}
+
+		if (PrevPositionY != L_PositionY) {
+			PrevPositionY = L_PositionY;
+			SetVisibility(L_Visibility);
+		}
+
+		if (L_FocusEntry && !Entry_MapName.IsFocused) {
+			Entry_MapName.Focus();
+			L_FocusEntry = False;
+		}
+
+		L_EntryIsFocused = Entry_MapName.IsFocused;
+
+		if (L_PrefillEntry != "") {
+			Entry_MapName.Value = L_PrefillEntry;
+			L_PrefillEntry = "";
+		}
+		Entry_MapName.Value = TL::SubString(Entry_MapName.Value, 0, 60);
+		L_GivenMapName = Entry_MapName.Value;
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+				if (Event.ControlId == "Quad_SmartQuad" && Event.Control.Parent.ControlId == "SmartQuad_Save") {
+					SendCustomEvent("{{{C_Event_Save}}}", []);
+				} else if (Event.ControlId == "Quad_SmartQuad" && Event.Control.Parent.ControlId == "SmartQuad_Cancel") {
+					SendCustomEvent("{{{C_Event_Cancel}}}", []);
+				} else if (Event.ControlId == "Quad_SmartQuad" && Event.Control.Parent.ControlId == "SmartQuad_EnterName") {
+					SendCustomEvent("{{{C_Event_Edit}}}", []);
+				}
+			}
+		}
+	}
+}
+--></script>
+</manialink>
+""";
+}
+
+Text GetScriptVersion() { return Version; }
+Text GetScriptName() { return ScriptName; }
+
+// Check if the simple choice UI is visible
+Boolean LayerIsVisible() {
+	declare Page <=> Layers::Get("Save").LocalPage;
+	declare L_Visibility for Page = False;
+	return L_Visibility;
+}
+
+// Set the simple choice visibility
+Void SetVisibility(Boolean _Visible) {
+	declare Page <=> Layers::Get("Save").LocalPage;
+	declare L_Visibility for Page = False;
+	L_Visibility = _Visible;
+}
+
+Void Show() {
+	SetVisibility(True);
+}
+
+Void Hide() {
+	SetVisibility(False);
+}
+
+Void FocusEntry() {
+	declare Page <=> Layers::Get("Save").LocalPage;
+	declare L_FocusEntry for Page = False;
+	L_FocusEntry = True;
+}
+
+Void PrefillEntry(Text _MapName) {
+	declare Page <=> Layers::Get("Save").LocalPage;
+
+	declare L_PrefillEntry for Page = "";
+	L_PrefillEntry = TL::Replace(_MapName, ".Map.Gbx", "");
+}
+
+Text GetMapName() {
+	declare Page <=> Layers::Get("Save").LocalPage;
+	declare L_GivenMapName for Page = "";
+	L_GivenMapName = TL::SubString(L_GivenMapName, 0, 60); // if player presses enter while writing, the other one hasn't had the time to kick in yet
+	return L_GivenMapName;
+}
+
+// Get the answer to the confirmation
+Boolean Answer() {
+	return G_Answer;
+}
+
+//  Waiting for an answer
+Boolean Wait() {
+	declare Page <=> Layers::Get("Save").LocalPage;
+	declare L_EntryIsFocused for Page = False;
+
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CMapEditorPluginEvent::Type::KeyPress && Event.KeyName == "Return") {
+			G_Answer = True;
+			return False;
+		}
+		else if (Event.Type == CMapEditorPluginEvent::Type::EditorInput) {
+			declare CMapEditorPluginEvent::EInput EventInput = Inputs::GetEventInput(Event.Input, Input.JapanStylePadButtons);
+			if (EventInput == CMapEditorPluginEvent::EInput::CursorPlace) {
+				G_Answer = True;
+				return False;
+			} else if (EventInput == CMapEditorPluginEvent::EInput::RemoveAll || EventInput == CMapEditorPluginEvent::EInput::Menu) {
+				if (Event.IsFromKeyboard) {
+					G_Answer = False;
+					return False;
+				}
+			} else if (EventInput == CMapEditorPluginEvent::EInput::CursorDelete) {
+				if (Event.IsFromPad) {
+					G_Answer = False;
+					return False;
+				}
+			} else if (EventInput == CMapEditorPluginEvent::EInput::CursorTurn) {
+				FocusEntry();
+			}
+		}
+		else if (Event.Type == CMapEditorPluginEvent::Type::LayerCustomEvent) {
+			switch (Event.CustomEventType) {
+				case C_Event_Save: {
+					G_Answer = True;
+					return False;
+				}
+				case C_Event_Cancel: {
+					G_Answer = False;
+					return False;
+				}
+				case C_Event_Edit: {
+					FocusEntry();
+				}
+			}
+		}
+	}
+
+	return True;
+}
+
+Void Unload() {
+	Layers::Destroy("Save");
+}
+
+Void Load() {
+	Unload();
+
+	Buttons2::Load();
+	declare LayerSave <=> Layers::Create("Save");
+	LayerSave.ManialinkPage = Private_GetSaveML();
+	Buttons2::Unload();
+
+	G_Answer = False;
+
+	declare Page <=> LayerSave.LocalPage;
+	declare L_Visibility for Page = False;
+	declare L_PositionY for Page = 0.;
+
+	L_Visibility = False;
+	L_PositionY = Styles::GetSize2(<0., 8.>, Styles::CircleSize_Bottom()).Y;
+}

@@ -1,0 +1,533 @@
+/**
+ * Stunt mode helper library
+ */
+#Const Version "1.1.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/Stunt/Stunt.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/Race.Script.txt" as Race
+#Include "Libs/Nadeo/TMGame/Modes/Scores.Script.txt" as Scores
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/PlayerData.Script.txt" as PlayerData
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/RaceData.Script.txt" as RaceData
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "TimeLib" as TiL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_ModeSettings {
+	Boolean IsMapValidation;
+	Integer ParkComboDuration;
+	Integer FigurePointsMultiplier;
+	Real[Text] LandingMultipliers;
+}
+
+#Struct K_PlayerState {
+	Boolean IsInFigure;
+	Boolean IsSessionInProgress;
+	Ident LastLandmarkId;
+	Integer BestStuntScore;
+	Integer ParkComboEndTime;
+	Integer ParkComboPauseTime;
+	Integer ParkComboStartTime;
+	Integer TotalScore;
+	PlayerData::K_FinishEvent BestValidatedSession;
+	PlayerData::K_ParkData CurrentParkData;
+	PlayerData::K_ParkData[Integer] ParksData;
+	PlayerData::K_Stats Stats;
+}
+
+#Struct K_GhostInfo {
+	CGhost Ghost;
+	Ident InstanceId;
+	Text AccountId;
+}
+#Struct K_ReplayInfo {
+	Task::K_Task Task_SaveReplay;
+	Boolean IsReplaySaved;
+}
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const Const::C_ColorName_Parks as C_ColorName_Parks
+#Const Const::C_FigureNames as C_FigureNames
+
+//L16N [Stunt Mode] Description of the mode rules
+#Const C_Text_Description
+_("""$zIn $<$t$6F9Stunt$> mode, the goal is to set the $<$t$6F9highest score$> by making the most impressive stunts with your car.
+
+Passing a $<$t$6F9checkpoint$> in a park triggers its $<$t$6F9combo timer$>. Perform incredible stunts before it runs out!
+
+The score of your $<$t$6F9best stunt$> is also added to the $<$t$6F9total score of the parks$>.
+
+A controlled stunt will give a $<$t$6F9higher score$>!
+""")
+
+// Default values
+#Const C_ParkComboSettings_Null K_ModeSettings {
+	IsMapValidation = False,
+	ParkComboDuration = 10000,
+	FigurePointsMultiplier = 10,
+	LandingMultipliers = []
+}
+#Const C_PlayerState_Null K_PlayerState {
+	IsInFigure = False,
+	IsSessionInProgress = False,
+	LastLandmarkId = NullId,
+	BestStuntScore = 0,
+	ParkComboEndTime = -1,
+	ParkComboPauseTime = -1,
+	ParkComboStartTime = -1,
+	TotalScore = 0,
+	BestValidatedSession = PlayerData::K_FinishEvent {},
+	CurrentParkData = PlayerData::K_ParkData {
+		Id = -1, //< Const::C_ParkId_Null
+		Score = 0
+	},
+	ParksData = []
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_ModeSettings G_ModeSettings;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Count the number of trick parks (CheckPoints) in the map
+PlayerData::K_ParkData[Integer] Private_GetDefaultParksData() {
+	declare PlayerData::K_ParkData[Integer] DefaultParksData;
+
+	// Add the best stunt as a park
+	DefaultParksData[Const::C_ParkId_BestStunt] = PlayerData::K_ParkData {
+		Id = Const::C_ParkId_BestStunt,
+		Score = 0
+	};
+
+	// Add other parks defined by chekpoints
+	foreach (Landmark in MapLandmarks) {
+		if (Landmark.Waypoint != Null && !Landmark.Waypoint.IsMultiLap && !Landmark.Waypoint.IsFinish) {
+			if (C_ColorName_Parks.existskey(Landmark.Order) && !DefaultParksData.existskey(Landmark.Order)) { //< The order value of the landmark is the park's Id
+				DefaultParksData[Landmark.Order] = PlayerData::K_ParkData {
+					Id = Landmark.Order,
+					Score = 0
+				};
+			}
+		}
+	}
+
+	// Sort parks by landmark order
+	DefaultParksData = DefaultParksData.sortkey();
+
+	return DefaultParksData;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get stunt session timer based on given parameters
+Integer GetSessionTimer(Integer _BaseTimer, Integer _AdditionnalTimerPerPark) {
+	if (MapLandmarks.count <= 0) return _BaseTimer;
+	declare Integer SessionTimer = _BaseTimer;
+	declare Integer[] ParksId = [];
+
+	foreach (Landmark in MapLandmarks) {
+		if (Landmark.Waypoint != Null && !Landmark.Waypoint.IsMultiLap && !Landmark.Waypoint.IsFinish) {
+			if (C_ColorName_Parks.existskey(Landmark.Order) && !ParksId.exists(Landmark.Order)) { //< The order value of the landmark is the park's Id
+				SessionTimer += _AdditionnalTimerPerPark;
+				ParksId.add(Landmark.Order);
+			}
+		}
+	}
+
+	return SessionTimer;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert ParksData associative array to list
+PlayerData::K_ParkData[] Private_GetParksDataList(PlayerData::K_ParkData[Integer] _ParksData) {
+	declare PlayerData::K_ParkData[] ParksData = [];
+	foreach (Park in _ParksData) ParksData.add(Park);
+	return ParksData;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the total score of the player (best stunt + parks)
+Void Private_UpdateTotalScore(CSmPlayer _Player) {
+	if (_Player == Null || _Player.Score == Null) return;
+	declare K_PlayerState PlayerState for _Player.Score = C_PlayerState_Null;
+	declare Integer NewTotalScore;
+
+	foreach (ParkData in PlayerState.ParksData) NewTotalScore += ParkData.Score;
+	if (G_ModeSettings.IsMapValidation || NewTotalScore == 0 || PlayerState.TotalScore < NewTotalScore) {
+		PlayerState.TotalScore = NewTotalScore;
+		PlayerData::SendPlayerTotalScoreEvent(_Player, PlayerState.TotalScore);
+		if (Scores::GetPlayerMapPoints(_Player.Score) < PlayerState.TotalScore) {
+			Scores::SetPlayerMapPoints(_Player.Score, PlayerState.TotalScore);
+			Race::SortScores(Race::C_Sort_TotalPoints);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update new combo score of the park if best than previous score
+Void Private_UpdateCurrentParkComboScore(CSmPlayer _Player, Integer _NewStuntFigurePoints) {
+	if (_Player == Null || _Player.Score == Null) return;
+	declare K_PlayerState PlayerState for _Player.Score = C_PlayerState_Null;
+
+	PlayerState.CurrentParkData.Score += _NewStuntFigurePoints;
+	if (PlayerState.CurrentParkData.Score > PlayerState.ParksData.get(PlayerState.CurrentParkData.Id, PlayerData::K_ParkData {}).Score) {
+		// Update player park score
+		PlayerState.ParksData[PlayerState.CurrentParkData.Id] = PlayerData::K_ParkData {
+			Id = PlayerState.CurrentParkData.Id,
+			Score = PlayerState.CurrentParkData.Score
+		};
+
+		// Send a park event to the client UI
+		PlayerData::SendPlayerParkEvent(_Player, PlayerData::K_ParkEvent {
+			Parks = Private_GetParksDataList(PlayerState.ParksData),
+			IsParksInitialisation = False
+		});
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the combo timer
+Void Private_ResetParkComboTimer(CSmPlayer _Player) {
+	if (_Player == Null || _Player.Score == Null) return;
+	declare K_PlayerState PlayerState for _Player.Score = C_PlayerState_Null;
+	declare PlayerData::K_ParkComboEvent ParkComboEvent = PlayerData::C_Default_PlayerParkComboEvent;
+
+	// Send a combo event to the client UI
+	ParkComboEvent.IsEndingActiveCombo = PlayerState.ParkComboEndTime > 0 && Now < PlayerState.ParkComboEndTime;
+	if (PlayerState.ParkComboEndTime > 0) {
+		PlayerData::SendPlayerParkComboEvent(_Player, ParkComboEvent);
+	}
+
+	// Update the park combo state
+	PlayerState.ParkComboEndTime = -1;
+	PlayerState.ParkComboPauseTime = -1;
+	PlayerState.ParkComboStartTime = -1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the combo timer after a new figure, when entering a checkpoint or while in the air
+Void Private_UpdateParkComboTimer(CSmPlayer _Player, Boolean _IsComboStarting, Boolean _HasRespawned) {
+	if (_Player == Null || _Player.Score == Null) return;
+	declare K_PlayerState PlayerState for _Player.Score = C_PlayerState_Null;
+	declare Integer RemainingTime;
+
+	// Initialize starting combo
+	if (_IsComboStarting) {
+		PlayerState.ParkComboStartTime = Now + Tools::Ternary(_HasRespawned, Const::C_RespawnDelay, 0);
+		PlayerState.ParkComboEndTime = PlayerState.ParkComboStartTime + G_ModeSettings.ParkComboDuration;
+		PlayerState.ParkComboPauseTime = -1;
+	}
+
+	// Pause the combo while in the air
+	if (_Player.Stunt.IsInFigure) {
+		PlayerState.ParkComboPauseTime = Now;
+	} else if (PlayerState.ParkComboPauseTime > 0) {
+		PlayerState.ParkComboEndTime += Now - PlayerState.ParkComboPauseTime;
+		PlayerState.ParkComboPauseTime = -1;
+	}
+
+	// Check that the park combo does not exceed the defined duration
+	RemainingTime = PlayerState.ParkComboEndTime - ML::Max(0, PlayerState.ParkComboStartTime - Now) - Now;
+	if (RemainingTime > G_ModeSettings.ParkComboDuration) {
+		PlayerState.ParkComboEndTime -= RemainingTime - G_ModeSettings.ParkComboDuration;
+	}
+
+	// Send a combo event to the client UI
+	PlayerData::SendPlayerParkComboEvent(_Player, PlayerData::K_ParkComboEvent {
+		IsPaused = _Player.Stunt.IsInFigure,
+		Duration = G_ModeSettings.ParkComboDuration,
+		EndTime = PlayerState.ParkComboEndTime,
+		ParkId = PlayerState.CurrentParkData.Id,
+		Score = PlayerState.CurrentParkData.Score,
+		StartTime = PlayerState.ParkComboStartTime
+	});
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the combo for the given park
+/// A park is defined by a numbered checkpoint
+Void Private_StartParkCombo(CSmPlayer _Player, CMapLandmark _Landmark, Boolean _HasRespawned) {
+	if (_Player == Null || _Player.Score == Null) return;
+	declare K_PlayerState PlayerState for _Player.Score = C_PlayerState_Null;
+
+	if (_Landmark != Null) {
+		PlayerState.LastLandmarkId = _Landmark.Id;
+		if (C_ColorName_Parks.existskey(_Landmark.Order)) { //< The order value of the landmark is the park's Id
+			PlayerState.CurrentParkData = PlayerData::K_ParkData {
+				Id = _Landmark.Order,
+				Score = 0
+			};
+			Private_UpdateParkComboTimer(_Player, True, _HasRespawned);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the mode settings
+Void SetModeSettings(
+	Boolean _IsMapValidation,
+	Integer _ParkComboDuration,
+	Integer _FigurePointsMultiplier,
+	Real _GreatLandingMultiplier,
+	Real _ExcellentLandingMultiplier,
+	Real _EpicLandingMultiplier
+) {
+	G_ModeSettings = K_ModeSettings {
+		IsMapValidation = _IsMapValidation,
+		ParkComboDuration = _ParkComboDuration,
+		FigurePointsMultiplier = _FigurePointsMultiplier,
+		LandingMultipliers = [
+			Const::C_Landing_Great => _GreatLandingMultiplier,
+			Const::C_Landing_Excellent => _ExcellentLandingMultiplier,
+			Const::C_Landing_Epic => _EpicLandingMultiplier
+		]
+	};
+
+	RaceData::SetLandingMultipliers(Teams[0], G_ModeSettings.LandingMultipliers);
+	RaceData::SetIsMapValidation(Teams[0], G_ModeSettings.IsMapValidation);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Spawn the player with required data
+Void Start(CSmPlayer _Player, Integer _SpawnTime) {
+	if (_Player == Null || _Player.Score == Null) return;
+	declare K_PlayerState PlayerState for _Player.Score = C_PlayerState_Null;
+	declare PlayerData::K_FinishEvent BestValidatedSession = PlayerState.BestValidatedSession;
+
+	// Initialize player
+	PlayerData::InitializePlayer(_Player);
+	PlayerState = C_PlayerState_Null;
+	PlayerState.IsSessionInProgress = True;
+	PlayerState.BestValidatedSession = BestValidatedSession;
+	PlayerState.ParksData = Private_GetDefaultParksData();
+	PlayerState.Stats = PlayerData::K_Stats {
+		LandingsCount = [
+			Const::C_Landing_Great => 0,
+			Const::C_Landing_Excellent => 0,
+			Const::C_Landing_Epic => 0
+		]
+	};
+
+	// Resfresh UI with player's data
+	Private_UpdateTotalScore(_Player);
+	Private_ResetParkComboTimer(_Player);
+	PlayerData::SendPlayerParkEvent(_Player, PlayerData::K_ParkEvent {
+		Parks = Private_GetParksDataList(PlayerState.ParksData),
+		IsParksInitialisation = True
+	});
+
+	// Spawn the player
+	Race::Start(_Player, _SpawnTime);
+	Player_BeginNewRace(_Player, _SpawnTime);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Manage the 'OnStuntFigure' event
+Void OnFigureEvent(CSmPlayer _Player, CStuntFigure _StuntFigure) {
+	if (_Player == Null || _Player.Score == Null) return;
+	declare K_PlayerState PlayerState for _Player.Score = C_PlayerState_Null;
+	declare Real FigureMultiplier;
+	declare Integer FigurePoints;
+	declare Text LandingType;
+
+	// Update landing
+	if (_StuntFigure.EpicLanding) LandingType = Const::C_Landing_Epic;
+	else if (_StuntFigure.MasterLanding) LandingType = Const::C_Landing_Excellent;
+	else if (_StuntFigure.PerfectLanding) LandingType = Const::C_Landing_Great;
+	else LandingType = Const::C_Landing_Default;
+
+	// Update points
+	FigureMultiplier = G_ModeSettings.LandingMultipliers.get(LandingType, Const::C_DefaultLandingMultiplier);
+	FigurePoints = ML::NearestInteger(_StuntFigure.Points * G_ModeSettings.FigurePointsMultiplier * FigureMultiplier);
+
+	// Update best stunt score
+	if (PlayerState.BestStuntScore < FigurePoints) {
+		PlayerState.BestStuntScore = FigurePoints;
+		PlayerState.ParksData[Const::C_ParkId_BestStunt].Score = PlayerState.BestStuntScore;
+		PlayerState.Stats.BestFigure = C_FigureNames.get(_StuntFigure.Name, "")^" "^_StuntFigure.Angle^"°";
+		PlayerData::SendPlayerParkEvent(_Player, PlayerData::K_ParkEvent {
+			Parks = Private_GetParksDataList(PlayerState.ParksData),
+			IsParksInitialisation = False
+		});
+		Private_UpdateTotalScore(_Player);
+	}
+
+	// Check if figure can be counted in the current combo, reset current park otherwise
+	if (PlayerState.ParkComboEndTime > 0 && PlayerState.CurrentParkData.Id != Const::C_ParkId_Null) {
+		Private_UpdateCurrentParkComboScore(_Player, FigurePoints);
+		Private_UpdateParkComboTimer(_Player, False, False);
+		Private_UpdateTotalScore(_Player);
+	} else {
+		PlayerState.CurrentParkData = PlayerData::K_ParkData {
+			Id = Const::C_ParkId_Null,
+			Score = 0
+		};
+	}
+
+	// Send a figure event to the client UI
+	PlayerData::SendPlayerFigureEvent(_Player, PlayerData::K_FigureEvent {
+		Angle = _StuntFigure.Angle,
+		ParkId = PlayerState.CurrentParkData.Id,
+		Points = _StuntFigure.Points * G_ModeSettings.FigurePointsMultiplier,
+		Timestamp = Now,
+		Multiplier = FigureMultiplier,
+		LandingType = LandingType,
+		Name = C_FigureNames.get(_StuntFigure.Name, "")
+	});
+
+	// Update landing stats
+	PlayerState.Stats.FiguresCount += 1;
+	if (PlayerState.Stats.LandingsCount.existskey(LandingType)) {
+		PlayerState.Stats.LandingsCount[LandingType] = PlayerState.Stats.LandingsCount[LandingType] + 1;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Manage the 'OnPlayerTriggersWaypoint' event
+Void OnPlayerTriggersWaypoint(CSmPlayer _Player, CMapLandmark _Landmark) {
+	if (_Player == Null || _Landmark == Null || _Landmark.Waypoint == Null) return;
+	if (_Landmark.Waypoint.IsFinish || _Landmark.Waypoint.IsMultiLap) return;
+	Private_ResetParkComboTimer(_Player);
+	Private_StartParkCombo(_Player, _Landmark, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Manage the 'OnPlayerRequestRespawn' event
+Void OnPlayerRequestRespawn(CSmPlayer _Player, Boolean _HasPlayerGaveUp) {
+	if (_Player == Null || _Player.Score == Null) return;
+	declare K_PlayerState PlayerState for _Player.Score = C_PlayerState_Null;
+
+	Private_ResetParkComboTimer(_Player);
+	if (_HasPlayerGaveUp || !MapLandmarks.existskey(PlayerState.LastLandmarkId)) { //< Respawn at Start
+		RespawnPlayer(_Player, Race::GetPlayerDefaultStart(_Player).PlayerSpawn);
+		PlayerState.LastLandmarkId = NullId;
+	} else { //< Launched CP respawn
+		RespawnPlayer(_Player, MapLandmarks[PlayerState.LastLandmarkId].Waypoint);
+		Private_StartParkCombo(_Player, MapLandmarks[PlayerState.LastLandmarkId], True);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Validate the session in progress and send scores data to the given player
+Void ValidateCurrentSession(CSmPlayer _Player) {
+	if (_Player == Null || _Player.Score == Null) return;
+	declare K_PlayerState PlayerState for _Player.Score = C_PlayerState_Null;
+
+	// Validate only sessions that have started correctly
+	if (PlayerState.IsSessionInProgress && _Player.StartTime > 0) {
+		declare PlayerData::K_FinishEvent CurrentSessionFinishEvent = PlayerData::K_FinishEvent {
+			TotalScore = PlayerState.TotalScore,
+			Parks = Private_GetParksDataList(PlayerState.ParksData),
+			Stats = PlayerState.Stats
+		};
+
+		Scores::UpdatePlayerPrevRace(_Player);
+		PlayerData::SendPlayerFinishEvent(_Player, CurrentSessionFinishEvent);
+		Player_SetFinishTime(_Player, _Player.CurrentRaceTime, Race::GetPlayerDefaultStart(_Player) as CSmMapLandmark); // to register the ghost
+		if (PlayerState.BestValidatedSession.TotalScore < PlayerState.TotalScore) {
+			PlayerState.BestValidatedSession = CurrentSessionFinishEvent;
+		}
+	}
+
+	PlayerState.IsSessionInProgress = False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the ranking for the current online stunt session and extract the winner
+Void UpdateOnlineWinner() {
+	foreach (Player in AllPlayers) {
+		if (Player != Null && Player.Score != Null) {
+			declare K_PlayerState PlayerState for Player.Score = C_PlayerState_Null;
+			Scores::SetPlayerMapPoints(Player.Score, PlayerState.BestValidatedSession.TotalScore);
+			PlayerData::SendPlayerFinishEvent(Player, PlayerState.BestValidatedSession);
+		}
+	}
+
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	Scores::SetPlayerWinner(Scores::GetBestPlayer(Scores::C_Sort_MapPoints));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Save the replay of the given ghost
+Task::K_Task SaveReplay(Ident _GhostId, Task::K_Task _Task_SaveReplay) {
+	if (Players.count <= 0 || Players[0] == Null || Players[0].User == Null) return _Task_SaveReplay;
+	if (!DataFileMgr.Ghosts.existskey(_GhostId) || DataFileMgr.Ghosts[_GhostId] == Null) return _Task_SaveReplay;
+	declare Boolean ReplaySaved = False;
+	declare CGhost LastGhost = DataFileMgr.Ghosts[_GhostId];
+	declare Text Time = TiL::FormatDate(TiL::GetCurrent(), TiL::EDateFormats::Time);
+	declare Text Date = TiL::FormatDate(TiL::GetCurrent(), TiL::EDateFormats::DateShort);
+	declare Text RaceTime = TL::Replace(TL::Replace(TL::TimeToText(LastGhost.Result.Time, True, True), ":", "'"), ".", "''");
+	declare Text FullName = TL::RegexReplace("\\W", Map.MapInfo.Name^"_"^Players[0].User.Name^"_"^Date^"_"^Time, "g", "-");
+	declare Text ReplayFileName = FullName^"("^LastGhost.Result.Score^")("^RaceTime^")";
+
+	// Rename the ghost before save
+	LastGhost.Nickname = Players[0].User.Name;
+
+	// Manage the task that saves the replay
+	return Task::DestroyAndCreate(_Task_SaveReplay, DataFileMgr, DataFileMgr.Replay_Save("My Replays/"^ReplayFileName^".Replay.Gbx", Map, LastGhost));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Release ghost
+K_GhostInfo ReleaseGhost(K_GhostInfo _GhostInfo) {
+	if (_GhostInfo.InstanceId != NullId) GhostMgr.Ghost_Remove(_GhostInfo.InstanceId);
+	if (_GhostInfo.Ghost != Null && _GhostInfo.Ghost.Id != NullId && DataFileMgr.Ghosts.existskey(_GhostInfo.Ghost.Id)) {
+		DataFileMgr.Ghost_Release(_GhostInfo.Ghost.Id);
+	}
+	return K_GhostInfo {};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the player
+Void InitializePlayer(CSmPlayer _Player) {
+	if (_Player == Null || _Player.Score == Null) return;
+	declare K_PlayerState PlayerState for _Player.Score = C_PlayerState_Null;
+	PlayerState = C_PlayerState_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	// Manage park combo timer
+	foreach (Player in Players) {
+		declare K_PlayerState PlayerState for Player.Score = C_PlayerState_Null;
+
+		// Pause combo while in the air
+		if (PlayerState.IsInFigure != Player.Stunt.IsInFigure) {
+			PlayerState.IsInFigure = Player.Stunt.IsInFigure;
+			if (PlayerState.ParkComboEndTime > 0 && PlayerState.CurrentParkData.Id != Const::C_ParkId_Null) {
+				Private_UpdateParkComboTimer(Player, False, False);
+			}
+		}
+
+		// Reset combo
+		if (PlayerState.ParkComboEndTime > 0 && Now > PlayerState.ParkComboEndTime && !PlayerState.IsInFigure) {
+			Private_ResetParkComboTimer(Player);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	G_ModeSettings = C_ParkComboSettings_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

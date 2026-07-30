@@ -1,0 +1,216 @@
+/**
+ *	Royal markers client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/Royal/Markers_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Components/PlayerName.Script.txt" as PlayerName
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+
+#Const C_Name "royal-marker" //< Component name
+#Const P "RoyalMarker_" //< Prefix use to differentiate functions/variables in the script
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_PlayerNameMaxWidth 30.
+#Const C_AllMarkersDisplayDuration 150
+#Const C_ImgMarkerPath "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text Component() {
+	declare Real Opacity = 0.5;
+	declare Real MarkerSizeY = 4.;
+
+	return MV::Component(
+		C_Name,
+"""
+<frame id="{{{P}}}frame-royal-marker" size="{{{C_PlayerNameMaxWidth + 20}}} {{{MarkerSizeY}}}" halign="center" valign="bottom">
+	<frame id="{{{P}}}frame-display-anim" pos="0 {{{-MarkerSizeY}}}" hidden="1">
+		<quad id="{{{P}}}quad-side-left" z-index="0" size="1 {{{MarkerSizeY}}}" halign="right" valign="bottom" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="{{{Opacity}}}" image="{{{C_ImgMarkerPath}}}/hud_marker_side.dds" />
+		<quad id="{{{P}}}quad-background" z-index="1" size="30 {{{MarkerSizeY}}}" halign="center" valign="bottom" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="{{{Opacity}}}" />
+		<quad id="{{{P}}}quad-side-right" z-index="0" pos="0 4" rot="180" size="1 {{{MarkerSizeY}}}" halign="right" valign="bottom" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="{{{Opacity}}}" image="{{{C_ImgMarkerPath}}}/hud_marker_side.dds" />
+		<quad id="{{{P}}}quad-team-color" z-index="2" size="2 {{{MarkerSizeY}}}" halign="right" valign="bottom" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.9" image="{{{C_ImgMarkerPath}}}/hud_marker_team.dds" />
+		<quad id="{{{P}}}quad-team-logo" pos="-14.5 2" z-index="3" size="5 {{{MarkerSizeY - 0.5}}}" valign="center" bgcolor="000000" keepratio="fit" />
+		<frameinstance id="{{{P}}}playername-name" modelid="{{{PlayerName::C_Name}}}" pos="-9 2" z-index="4" data-size="{{{C_PlayerNameMaxWidth}}} {{{MarkerSizeY}}}" data-valign="center" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-textsize="1" />
+	</frame>
+</frame>
+""",
+"""
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Client.Script.txt" as Clans
+
+#Struct {{{P}}}K_Marker {
+	{{{PlayerName::P}}}K_UserInfo UserInfo;
+	Integer Clan;
+}
+
+#Const {{{P}}}C_PlayerNameMaxWidth {{{dump(C_PlayerNameMaxWidth)}}}
+#Const {{{P}}}C_AllMarkersDisplayDuration {{{dump(C_AllMarkersDisplayDuration)}}}
+""",
+"""
+declare Boolean {{{P}}}G_AllMarkersVisible;
+declare Integer {{{P}}}G_UpdateNb;
+
+/** Once the player is spawned since more than `C_AllMarkersDisplayDuration` milliseconds,
+ *	display only the markers of their teammates. Otherwise display the markers of everyone.
+ */
+Void {{{P}}}SetAllMarkersVisible(Integer _StartTime, CSmPlayer::ESpawnStatus _SpawnStatus) {
+	{{{P}}}G_AllMarkersVisible = _SpawnStatus != CSmPlayer::ESpawnStatus::Spawned || _StartTime < 0 || GameTime < _StartTime + {{{P}}}C_AllMarkersDisplayDuration;
+}
+
+Void {{{P}}}SetMarkerVisibility(CMlFrame _Frame_DisplayAnim, Boolean _Display) {
+	declare Boolean {{{P}}}IsDisplayed for _Frame_DisplayAnim = False;
+	if ({{{P}}}IsDisplayed != _Display) {
+		{{{P}}}IsDisplayed = _Display;
+		AnimMgr.Flush(_Frame_DisplayAnim);
+		if ({{{P}}}IsDisplayed) {
+			AnimMgr.Add(_Frame_DisplayAnim, "<a pos=\"0 0\" hidden=\"0\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			AnimMgr.Add(_Frame_DisplayAnim, "<a pos=\"0 {{{-MarkerSizeY}}}\" hidden=\"1\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	}
+}
+
+Void {{{P}}}UpdateMarker(CMlFrame _Frame_Marker, {{{P}}}K_Marker _MarkerInfo) {
+	declare CMlFrame Frame_DisplayAnim <=> (_Frame_Marker.GetFirstChild("{{{P}}}frame-display-anim") as CMlFrame);
+	declare CMlQuad Quad_Background <=> (_Frame_Marker.GetFirstChild("{{{P}}}quad-background") as CMlQuad);
+	declare CMlQuad Quad_SideLeft <=> (_Frame_Marker.GetFirstChild("{{{P}}}quad-side-left") as CMlQuad);
+	declare CMlQuad Quad_SideRight <=> (_Frame_Marker.GetFirstChild("{{{P}}}quad-side-right") as CMlQuad);
+	declare CMlQuad Quad_TeamLogo <=> (_Frame_Marker.GetFirstChild("{{{P}}}quad-team-logo") as CMlQuad);
+	declare CMlQuad Quad_TeamColor <=> (_Frame_Marker.GetFirstChild("{{{P}}}quad-team-color") as CMlQuad);
+	declare CMlFrame PlayerName_Name = (_Frame_Marker.GetFirstChild("{{{P}}}playername-name") as CMlFrame);
+
+	declare Integer InputPlayerClan = 0;
+	if (InputPlayer != Null) InputPlayerClan = InputPlayer.CurrentClan;
+
+	if ({{{P}}}G_AllMarkersVisible || InputPlayerClan < 0 || _MarkerInfo.Clan == InputPlayerClan) {
+		Quad_TeamLogo.ImageUrl = Clans::GetClanLogo(_MarkerInfo.Clan);
+		Quad_TeamLogo.Visible = (Quad_TeamLogo.ImageUrl != "");
+		// Be sure to force a redraw now so we can get the right width for the player name after.
+		{{{PlayerName::P}}}SetUserInfo(This, PlayerName_Name, _MarkerInfo.UserInfo, True);
+
+		if (Quad_TeamLogo.Visible) {
+			Quad_Background.Size.X = 0.5 + Quad_TeamLogo.Size.X + 0.5 + {{{PlayerName::P}}}GetWidth(PlayerName_Name) + 0.5;
+			Quad_TeamLogo.RelativePosition_V3.X = (Quad_Background.Size.X * -0.5) + 0.5;
+			PlayerName_Name.RelativePosition_V3.X = Quad_TeamLogo.RelativePosition_V3.X + Quad_TeamLogo.Size.X + 0.5;
+		} else {
+			Quad_Background.Size.X = 0.5 + {{{PlayerName::P}}}GetWidth(PlayerName_Name) + 0.5;
+			PlayerName_Name.RelativePosition_V3.X = (Quad_Background.Size.X * -0.5) + 0.5;
+		}
+		Quad_SideLeft.RelativePosition_V3.X = Quad_Background.Size.X * -0.5;
+		Quad_SideRight.RelativePosition_V3.X = Quad_Background.Size.X * 0.5;
+		Quad_TeamColor.RelativePosition_V3.X = Quad_SideLeft.RelativePosition_V3.X;
+
+		declare Vec3 ClanColor = Clans::GetClanColor(_MarkerInfo.Clan);
+		Quad_TeamColor.Colorize = ClanColor;
+
+		{{{P}}}SetMarkerVisibility(Frame_DisplayAnim, True);
+	} else {
+		{{{P}}}SetMarkerVisibility(Frame_DisplayAnim, False);
+	}
+}
+
+***UpdateMarkers_Init***
+***
+declare {{{P}}}K_Marker[Text] {{{P}}}MarkersInfo;
+foreach (Player in Players) {
+	if (Player.User != Null) {
+		{{{P}}}MarkersInfo[Player.User.WebServicesUserId] = {{{P}}}K_Marker {
+			UserInfo = {{{PlayerName::P}}}GetUserInfo(Player.User, True),
+			Clan = Player.CurrentClan
+		};
+	}
+}
+***
+
+***UpdateMarkers_CreateMarker***
+***
+if ({{{P}}}MarkersInfo.existskey(AccountId)) {
+	declare Integer {{{P}}}UpdateNb for Frame_Marker = -1;
+	declare Integer {{{P}}}CurrentClan for Frame_Marker = -1;
+	{{{P}}}UpdateNb = {{{P}}}G_UpdateNb;
+	{{{P}}}CurrentClan = {{{P}}}MarkersInfo[AccountId].Clan;
+	{{{P}}}UpdateMarker(Frame_Marker, {{{P}}}MarkersInfo[AccountId]);
+}
+***
+
+***UpdateMarkers_UpdateMarker***
+***
+declare Integer {{{P}}}UpdateNb for Frame_Marker = -1;
+declare Integer {{{P}}}CurrentClan for Frame_Marker = -1;
+if (
+	{{{P}}}MarkersInfo.existskey(AccountId) && (
+		{{{P}}}UpdateNb != {{{P}}}G_UpdateNb ||
+		{{{P}}}CurrentClan != {{{P}}}MarkersInfo[AccountId].Clan
+	)
+) {
+	declare {{{P}}}K_Marker MarkerInfo = {{{P}}}MarkersInfo[AccountId];
+	{{{P}}}UpdateNb = {{{P}}}G_UpdateNb;
+	{{{P}}}CurrentClan = MarkerInfo.Clan;
+	{{{P}}}UpdateMarker(Frame_Marker, MarkerInfo);
+}
+***
+
+***MainInit***
+***
+declare Integer {{{P}}}InputPlayerStartTime;
+declare CSmPlayer::ESpawnStatus {{{P}}}InputPlayerSpawnStatus;
+declare Integer {{{P}}}MarkersUpdateTime;
+***
+
+***MainStart***
+***
+{{{P}}}G_AllMarkersVisible = True;
+{{{P}}}G_UpdateNb = 0;
+
+{{{P}}}InputPlayerStartTime = -1;
+{{{P}}}InputPlayerSpawnStatus = CSmPlayer::ESpawnStatus::NotSpawned;
+{{{P}}}MarkersUpdateTime = -1;
+
+{{{P}}}SetAllMarkersVisible({{{P}}}InputPlayerStartTime, {{{P}}}InputPlayerSpawnStatus);
+***
+
+***MainLoop***
+***
+if (InputPlayer != Null) {
+	if ({{{P}}}InputPlayerStartTime != InputPlayer.StartTime || {{{P}}}InputPlayerSpawnStatus != InputPlayer.SpawnStatus) {
+		{{{P}}}InputPlayerStartTime = InputPlayer.StartTime;
+		{{{P}}}InputPlayerSpawnStatus = InputPlayer.SpawnStatus;
+		{{{P}}}MarkersUpdateTime = -1;
+		if ({{{P}}}InputPlayerSpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned && {{{P}}}InputPlayerStartTime + {{{P}}}C_AllMarkersDisplayDuration > GameTime) {
+			{{{P}}}MarkersUpdateTime = {{{P}}}InputPlayerStartTime + {{{P}}}C_AllMarkersDisplayDuration;
+		}
+		{{{P}}}SetAllMarkersVisible({{{P}}}InputPlayerStartTime, {{{P}}}InputPlayerSpawnStatus);
+		{{{P}}}G_UpdateNb += 1;
+		NeedMarkersUpdate = True;
+	}
+	if ({{{P}}}MarkersUpdateTime >= 0 && GameTime >= {{{P}}}MarkersUpdateTime) {
+		{{{P}}}MarkersUpdateTime = -1;
+		{{{P}}}SetAllMarkersVisible({{{P}}}InputPlayerStartTime, {{{P}}}InputPlayerSpawnStatus);
+		{{{P}}}G_UpdateNb += 1;
+		NeedMarkersUpdate = True;
+	}
+}
+***
+""",
+[
+	UserStore::ComponentV2(),
+	PlayerName::ComponentV2()
+],
+[]
+	);
+}

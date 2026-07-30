@@ -1,0 +1,186 @@
+/**
+ *	Markers for the TrackMania World Championship 2023
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TMWC2023/TMWC2023Markers.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/TMWC2023Markers_Server.Script.txt" as UIModules_TMWC2023Markers
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MarkersRefreshInterval 1000
+#Const C_MarkerHideOnSelf True
+#Const C_MarkerDistMin 2.
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer G_MarkersRefreshTime;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Find a valid marker frame id
+Integer Private_GetMarkerFrameId(Integer[Ident] _MarkerFrameIds) {
+	declare Integer[Ident] SortedMarkerFrameIds = _MarkerFrameIds.sort();
+	declare Integer NewFrameId = 0;
+	foreach (FrameId in SortedMarkerFrameIds) {
+		if (NewFrameId != FrameId) {
+			return NewFrameId;
+		}
+		NewFrameId += 1;
+	}
+	return SortedMarkerFrameIds.count;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a marker on a player
+CUIConfigMarker Private_CreatePlayerMarker(CSmPlayer _MarkedPlayer) {
+	declare CUIConfigMarker Marker = UIManager.UIAll.AddMarker(_MarkedPlayer);
+	if (Marker != Null) {
+		Marker.Box = <1., 0.5, 1.>;
+		Marker.HudVisibility = CUIConfigMarker::EHudVisibility::WhenVisible;
+		Marker.MiniMapVisibility = CUIConfigMarker::EMiniMapVisibility::Never;
+		Marker.HideOnSelf = C_MarkerHideOnSelf;
+		Marker.DistMin = C_MarkerDistMin;
+	}
+	return Marker;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy a marker on a player
+Void Private_DestroyPlayerMarker(Ident _MarkerId) {
+	if (UIManager.UIAll.Markers.existskey(_MarkerId)) {
+		UIManager.UIAll.RemoveMarker(UIManager.UIAll.Markers[_MarkerId]);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the markers on the UI
+ *
+ *	@param	_MarkersPlayers						The player with a marker to attach
+ */
+Void Private_UpdateMarkers(CSmPlayer[Ident] _MarkedPlayers) {
+	declare Ident[Ident] TMWC2023Markers_MarkedPlayerIds for UIManager.UIAll = [];
+	declare Integer[Ident] TMWC2023Markers_MarkerFrameIds for UIManager.UIAll = [];
+
+	// Remove markers
+	declare Ident[Ident] ToRemove;
+	foreach (MarkedPlayerId => MarkerId in TMWC2023Markers_MarkedPlayerIds) {
+		if (!_MarkedPlayers.existskey(MarkedPlayerId)) {
+			ToRemove[MarkedPlayerId] = MarkerId;
+		}
+	}
+	foreach (MarkedPlayerId => MarkerId in ToRemove) {
+		Private_DestroyPlayerMarker(MarkerId);
+		TMWC2023Markers_MarkedPlayerIds.removekey(MarkedPlayerId);
+		if (TMWC2023Markers_MarkerFrameIds.existskey(MarkerId)) {
+			UIModules_TMWC2023Markers::RemoveMarkerFrameId(TMWC2023Markers_MarkerFrameIds[MarkerId]);
+		}
+		TMWC2023Markers_MarkerFrameIds.removekey(MarkerId);
+	}
+
+	// Add markers
+	foreach (MarkedPlayer in _MarkedPlayers) {
+		if (!TMWC2023Markers_MarkedPlayerIds.existskey(MarkedPlayer.Id)) {
+			declare CUIConfigMarker Marker = Private_CreatePlayerMarker(MarkedPlayer);
+			if (Marker != Null) {
+				TMWC2023Markers_MarkedPlayerIds[MarkedPlayer.Id] = Marker.Id;
+
+				// Get a frame id for the marker
+				declare Integer MarkerFrameId = Private_GetMarkerFrameId(TMWC2023Markers_MarkerFrameIds);
+				TMWC2023Markers_MarkerFrameIds[Marker.Id] = MarkerFrameId;
+				Marker.ManialinkFrameId = "marker-player-"^MarkerFrameId;
+				UIModules_TMWC2023Markers::SetMarkerFrameId(MarkerFrameId, MarkedPlayer.User.WebServicesUserId);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove all markers created on the UI
+Void Private_RemoveAllMarkers() {
+	declare Ident[Ident] TMWC2023Markers_MarkedPlayerIds for UIManager.UIAll = [];
+	declare Integer[Ident] TMWC2023Markers_MarkerFrameIds for UIManager.UIAll = [];
+	foreach (MarkerId in TMWC2023Markers_MarkedPlayerIds) {
+		Private_DestroyPlayerMarker(MarkerId);
+	}
+	TMWC2023Markers_MarkedPlayerIds = [];
+	TMWC2023Markers_MarkerFrameIds = [];
+	UIModules_TMWC2023Markers::ResetMarkerFrameIds();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update library
+Void Yield() {
+	if (G_MarkersRefreshTime >= 0 && Now >= G_MarkersRefreshTime) {
+		G_MarkersRefreshTime = Now + C_MarkersRefreshInterval;
+
+		// Check if a player joined or spawned/unspawned
+		declare Boolean MarkersMustBeUpdated = False;
+		foreach (Player in AllPlayers) {
+			declare Boolean TMWTMakers_NewPlayer for Player = True;
+			declare CSmPlayer::ESpawnStatus TMWTMakers_SpawnStatus for Player = CSmPlayer::ESpawnStatus::NotSpawned;
+			if (TMWTMakers_NewPlayer || TMWTMakers_SpawnStatus != Player.SpawnStatus) {
+				TMWTMakers_NewPlayer = False;
+				TMWTMakers_SpawnStatus = Player.SpawnStatus;
+				MarkersMustBeUpdated = True;
+			}
+		}
+
+		if (MarkersMustBeUpdated) {
+			// Find all players that must have a marker above them
+			declare CSmPlayer[Ident] MarkedPlayers;
+			foreach (Player in Players) {
+				if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned) {
+					MarkedPlayers[Player.Id] = Player;
+				}
+			}
+
+			Private_UpdateMarkers(MarkedPlayers);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Enable or disable the markers
+Void Enable(Boolean _Enabled) {
+	if (_Enabled) {
+		G_MarkersRefreshTime = Now;
+	} else {
+		G_MarkersRefreshTime = -1;
+
+		// Reinitialize players
+		foreach (Player in AllPlayers) {
+			declare Boolean TMWTMakers_NewPlayer for Player = True;
+			declare CSmPlayer::ESpawnStatus TMWTMakers_SpawnStatus for Player = CSmPlayer::ESpawnStatus::NotSpawned;
+			TMWTMakers_NewPlayer = True;
+			TMWTMakers_SpawnStatus = CSmPlayer::ESpawnStatus::NotSpawned;
+		}
+
+		Private_RemoveAllMarkers();
+	}
+}
+Void Enable() {
+	Enable(True);
+}
+Void Disable() {
+	Enable(False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	Disable();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

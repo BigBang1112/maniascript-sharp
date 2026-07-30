@@ -1,0 +1,972 @@
+/**
+ * Track content library
+ */
+
+#Const Version		"1.0.1"
+#Const ScriptName	"MapContent.Script.txt"
+
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Macroblock.Script.txt" as Macroblock
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Utils.Script.txt" as Utils
+
+// Constants
+#Const C_Sequence_Browse	0
+#Const C_Sequence_Order		1
+/// Type of special macroblocks
+#Const C_Block_Start		0
+#Const C_Block_Checkpoint	1
+#Const C_Block_Finish		2
+#Const C_Block_StopEngine	3
+#Const C_Block_Multilap		4
+#Const C_Block_Podium			5
+
+///Structure for a Macroblock that we're retrieving at one coord
+#Struct K_Retrieve {
+	Int3 									Coord; 				///< The coordinates currently retrieved
+	Boolean 							MacroblockExists; 	///< The requested macroblock exists
+	CMacroblockModel 			MacroblockModel; 	///< The retrieved macroblock model
+	Int3									MacroblockCoord; 	///< The retrieved macroblock coordinates
+	CMapEditorPlugin::CardinalDirections 	MacroblockDir; 		///< The retrieved macroblock direction
+	Integer 							MacroblockType; 	///< The retrieved macroblock type
+	Integer 							MacroblockOrder; 	///< The retrieved macroblock order
+	CMapEditorPlugin::MapElemColor MacroblockColor; ///< The retrieved macroblock order
+}
+
+// /!\ DEPRECATED BUT NEEDED FOR BACKWARDS COMPATIBILITY
+/// Old Structure for saving MacroblockInstances to Metadata. Use V2 now.
+#Struct K_MacroblockInstanceSave {
+	Integer 	MacroblockModelNumId;
+	Int3			Coord;
+	Integer 	Dir;
+	Integer 	Type;
+}
+
+///Structure for saving MacroblockInstances to Metadata
+#Struct K_MacroblockInstanceSaveV2 {
+	Integer 	MacroblockModelNumId; 	///< The retrieved macroblock model num id. We use an int instead of text so we don't overflow the persistent storage limit too quickly.
+	Int3			Coord; 	///< The retrieved macroblock coordinates
+	Integer 	Dir; 		///< The retrieved macroblock direction
+	Integer 	Type; 	///< The retrieved macroblock type
+	Integer		Color; ///< The retrieved macroblock color (CMapEditorPlugin::MapElemColor)
+	// Note: No need for ForceMacroblockColor. In this editor, Color::Default == !ForceMacroblockColor. They're never simultaneous.
+}
+
+// Globales
+declare K_Retrieve		G_Retrieve;										///< All of the information of the retrieved macroblock
+declare Boolean 			G_NeedComputeBarycentre; 		///< Do we need to recompute the barycentre
+declare Int3 					G_Barycentre_Barycentre; 		///< Barycentre
+declare Integer 			G_Barycentre_Type; 					///< Barycentre blocks type
+declare Int3 					G_Barycentre_BoundingBoxMax;	///< Barycentre bouding box max
+declare Int3 					G_Barycentre_BoundingBoxMin;	///< Barycentre bounding box min
+declare Real[Integer] 		G_DistanceTo;							///< Distance to the last occurrence of a special block
+declare K_MacroblockInstanceSaveV2[Integer] G_KMBInstancesCache;		///< Used for save optimizations only. Integer is order
+declare Text[]				G_MacroblockModelNumIdsCache;			///< Used for save optimizations only.
+declare Integer[Integer]	G_TypeCount;							///< How many blocks of each type are in our track (see #Const C_Modes... in GamepadEditor)
+
+/// Macroblocks info
+declare Ident[Int3] 				G_CollisionsCoords; 		///< A list of collisions coordinates
+declare Ident[][Integer] 		G_SpecialIds;						///< If the macroblock has any waypoint(s) (Start, multilap, checkpoint, finish, StopEngine)
+declare Real[Ident] 					G_MacroblocksLengths; 	///< The macroblocks lengths
+declare Boolean 							G_MustSaveMapContent; 	///< if we currently need to save the cache to the track
+declare Integer[][Integer] G_DisconnectedClips; 					///< List of disconnected clips by MacroBlock order
+
+
+/// Invalidate the retrieve cache
+Void Private_InvalidCache() {
+	G_Retrieve.Coord = Utils::NullCoord();
+	G_NeedComputeBarycentre = True;
+	G_DistanceTo.clear();
+	G_DisconnectedClips.clear();
+}
+
+// Add the block units of a macroblock to the occupied coords
+Boolean Private_AddMacroblock(CMacroblockInstance _MacroblockInstance) {
+	// Something went wrong, the macroblock model we are trying to add is Null
+	if (_MacroblockInstance == Null) return False;
+	tuningmark("Private_AddMacroblock");
+
+	declare MacroblockModel = _MacroblockInstance.MacroblockModel;
+	//declare Key = _MacroblockInstance.Key;
+	declare MbId = _MacroblockInstance.Id;
+	declare Coord = _MacroblockInstance.Coord;
+	declare Dir = _MacroblockInstance.Dir;
+	declare ClipList = _MacroblockInstance.ClipList;
+	declare MacroblockInstanceColor = Utils::ColorToInt(_MacroblockInstance.Color);
+	declare ForceMacroblockInstanceColor = _MacroblockInstance.ForceMacroblockColor;
+
+	if (!ForceMacroblockInstanceColor) {
+		MacroblockInstanceColor = Utils::ColorToInt(CMapEditorPlugin::MapElemColor::Default);
+	}
+
+	G_MacroblocksLengths[MbId] = Macroblock::GetLength(MacroblockModel);
+
+	declare CollisionsCoords = Macroblock::GetCollisionsCoords(MacroblockModel, Coord, Dir);
+	foreach (Coord in CollisionsCoords) {
+		G_CollisionsCoords[Coord] = MbId;
+	}
+
+	// Save optimizations
+	if (_MacroblockInstance != Null) {
+		declare K_MacroblockInstanceSaveV2 KMBInstance;
+		declare Text MacroblockModelId = MacroblockModel.Id^"";
+		if (!G_MacroblockModelNumIdsCache.exists(MacroblockModelId)) {
+			G_MacroblockModelNumIdsCache.add(MacroblockModelId);
+		}
+		KMBInstance.MacroblockModelNumId = G_MacroblockModelNumIdsCache.keyof(MacroblockModelId);
+		KMBInstance.Coord = Coord;
+		KMBInstance.Dir = Utils::DirToInt(Dir);
+		KMBInstance.Type = _MacroblockInstance.UserData;
+		KMBInstance.Color = MacroblockInstanceColor;
+
+		G_KMBInstancesCache[_MacroblockInstance.Order] = KMBInstance;
+	}
+
+	// If the macroblock has any special waypoints, add them to G_SpecialIds
+	if (MacroblockModel.HasStart || MacroblockModel.HasMultilap) {
+		if (!G_SpecialIds.existskey(C_Block_Start)) G_SpecialIds[C_Block_Start] = [];
+		G_SpecialIds[C_Block_Start].add(MbId);
+	}
+	if (MacroblockModel.HasMultilap) {
+		if (!G_SpecialIds.existskey(C_Block_Multilap)) G_SpecialIds[C_Block_Multilap] = [];
+		G_SpecialIds[C_Block_Multilap].add(MbId);
+	}
+	if (MacroblockModel.HasCheckpoint) {
+		if (!G_SpecialIds.existskey(C_Block_Checkpoint)) G_SpecialIds[C_Block_Checkpoint] = [];
+		G_SpecialIds[C_Block_Checkpoint].add(MbId);
+	}
+	if (MacroblockModel.HasFinish) {
+		if (!G_SpecialIds.existskey(C_Block_Finish)) G_SpecialIds[C_Block_Finish] = [];
+		G_SpecialIds[C_Block_Finish].add(MbId);
+	}
+	if (TL::Find("StopEngine", Macroblock::GetName(MacroblockModel), False, False)) {
+		if (!G_SpecialIds.existskey(C_Block_StopEngine)) G_SpecialIds[C_Block_StopEngine] = [];
+		G_SpecialIds[C_Block_StopEngine].add(MbId);
+	}
+
+	if (Macroblock::GetType(MacroblockModel) == "Podium") {
+		if (!G_SpecialIds.existskey(C_Block_Podium)) G_SpecialIds[C_Block_Podium] = [];
+		G_SpecialIds[C_Block_Podium].add(MbId);
+	}
+
+	return True;
+}
+
+/** Check if a macroblock of the given type is present in the track
+ *	@param	_AllowNegatives		Some functions use -1 to check all types. If so, it's always true
+ */
+Boolean HasMacroblocks(Integer _Type, Boolean _AllowNegatives) {
+	tuningmark("HasMacroblocks");
+	if (_AllowNegatives && _Type < 0) return True;
+	if (G_TypeCount.existskey(_Type) && G_TypeCount[_Type] > 0) return True;
+	return False;
+}
+
+
+/// Overload of HasMacroblocks
+Boolean HasMacroblocks(Integer _Type) {
+	return HasMacroblocks(_Type, False);
+}
+
+
+// if you delete a block, or have a default skin, remove the index for the skin; no need to fill useless metadata
+Void RemoveMultiSkin(CMacroblockInstance _MBInstance) {
+	declare metadata Integer[Integer] MapContent_MBInstanceMultiSkinIndex for Map;
+
+	MapContent_MBInstanceMultiSkinIndex.removekey(_MBInstance.Order);
+}
+
+// adds if not found or edits otherwise
+Void SetMultiSkinIndex(CMacroblockInstance _MBInstance, Integer _SkinIndex) {
+	declare metadata Integer[Integer] MapContent_MBInstanceMultiSkinIndex for Map;
+
+	if (_SkinIndex == 0 || _SkinIndex == -1) { // 0 is default, but i'll accept -1 to make it more intuitive/crashproof
+		RemoveMultiSkin(_MBInstance);
+	} else {
+		MapContent_MBInstanceMultiSkinIndex[_MBInstance.Order] = _SkinIndex;
+	}
+}
+
+Integer GetMultiSkinIndex(CMacroblockInstance _MBInstance) {
+	declare metadata Integer[Integer] MapContent_MBInstanceMultiSkinIndex for Map;
+
+	if (MapContent_MBInstanceMultiSkinIndex.existskey(_MBInstance.Order)) {
+		return MapContent_MBInstanceMultiSkinIndex[_MBInstance.Order];
+	}
+
+	return 0; // default skin
+}
+
+// Remove the block units and the clips of a macroblock from the occupied coords
+Void Private_RemoveMacroblock(CMacroblockInstance _MBInstance) {
+	if (_MBInstance == Null) return;
+	tuningmark("Private_RemoveMacroblock");
+	declare MbId = _MBInstance.Id;
+
+	// Remove the references to the block everywhere
+	declare Removed = G_MacroblocksLengths.removekey(MbId);
+
+	if (!G_TypeCount.existskey(_MBInstance.UserData)) 	log("We're removing a type that apparently hasn't been placed yet?");
+	else if (G_TypeCount[_MBInstance.UserData] > 0)		G_TypeCount[_MBInstance.UserData] -= 1;
+	else 												log("We're removing a type while apparently it's count was already 0");
+
+	RemoveMultiSkin(_MBInstance);
+	Removed = G_KMBInstancesCache.removekey(_MBInstance.Order);
+	Removed = RemoveMacroblockInstance(_MBInstance);
+
+	while (G_CollisionsCoords.remove(MbId)) {}
+
+	declare Integer[] Indexes;
+	foreach (Index => SpecialKeys in G_SpecialIds) {
+		Indexes.add(Index);
+	}
+	foreach (Index in Indexes) {
+		Removed = G_SpecialIds[Index].remove(MbId);
+	}
+
+	G_MustSaveMapContent = True;
+	Private_InvalidCache();
+}
+
+Void Private_Reset_Retrieve() {
+	G_Retrieve.Coord = Utils::NullCoord();
+	G_Retrieve.MacroblockExists = False;
+	G_Retrieve.MacroblockModel <=> Null;
+	G_Retrieve.MacroblockCoord = Utils::NullCoord();
+	G_Retrieve.MacroblockDir = CMapEditorPlugin::CardinalDirections::North;
+	G_Retrieve.MacroblockType = -1;
+	G_Retrieve.MacroblockOrder = -1;
+	G_Retrieve.MacroblockColor = CMapEditorPlugin::MapElemColor::Default;
+}
+
+// Retrieve the info about the macroblock occupying a coordinate
+Void Private_Get(Int3 _Coord) {
+	//Optimization in order to find a macroblock model and reuse it's data as long as we don't find another one
+	tuningmark("Private_Get");
+	if (G_Retrieve.Coord == _Coord)	return;
+
+	Private_Reset_Retrieve();
+	G_Retrieve.Coord = _Coord;
+	declare CMacroblockInstance RetrievedInstance = GetMacroblockInstanceFromUnitCoord(_Coord);
+	if (RetrievedInstance == Null) return;
+
+	G_Retrieve.MacroblockExists = True;
+	G_Retrieve.MacroblockModel <=> RetrievedInstance.MacroblockModel;
+	G_Retrieve.MacroblockCoord = RetrievedInstance.Coord;
+	G_Retrieve.MacroblockDir = RetrievedInstance.Dir;
+	G_Retrieve.MacroblockType = RetrievedInstance.UserData;
+	G_Retrieve.MacroblockOrder = RetrievedInstance.Order;
+	G_Retrieve.MacroblockColor = RetrievedInstance.Color;
+
+	if (RetrievedInstance.ForceMacroblockColor == False) {
+		G_Retrieve.MacroblockColor = CMapEditorPlugin::MapElemColor::Default;
+	}
+}
+
+// Compute the track barycentre. Use -1 for the whole track barytype
+Void Private_ComputeBarycentre(Integer _Type) {
+	G_NeedComputeBarycentre = False;
+	G_Barycentre_Barycentre = Utils::NullCoord();
+	G_Barycentre_Type = _Type;
+	G_Barycentre_BoundingBoxMin = Utils::NullCoord();
+	G_Barycentre_BoundingBoxMax = Utils::NullCoord();
+
+	if (MacroblockInstances.count <= 0 || !HasMacroblocks(_Type, True)) return; // If we have no macroblocks, or we're not computing the whole track and we have placed no block of this type yet
+	tuningmark("Private_ComputeBarycentre");
+
+	declare Int3 Total;
+	declare Integer Count;
+	foreach (MBInstance in MacroblockInstances) {
+		if (_Type < 0 || (_Type >= 0 && MBInstance.UserData == _Type)) {
+			declare Coord = MBInstance.Coord;
+			Total += Coord;
+			Count += 1;
+
+			if (G_Barycentre_BoundingBoxMin == Utils::NullCoord()) G_Barycentre_BoundingBoxMin = Coord;
+			if (G_Barycentre_BoundingBoxMax == Utils::NullCoord()) G_Barycentre_BoundingBoxMax = Coord;
+
+			G_Barycentre_BoundingBoxMin.X = ML::Min(G_Barycentre_BoundingBoxMin.X, Coord.X);
+			G_Barycentre_BoundingBoxMin.Y = ML::Min(G_Barycentre_BoundingBoxMin.Y, Coord.Y);
+			G_Barycentre_BoundingBoxMin.Z = ML::Min(G_Barycentre_BoundingBoxMin.Z, Coord.Z);
+			G_Barycentre_BoundingBoxMax.X = ML::Max(G_Barycentre_BoundingBoxMax.X, Coord.X);
+			G_Barycentre_BoundingBoxMax.Y = ML::Max(G_Barycentre_BoundingBoxMax.Y, Coord.Y);
+			G_Barycentre_BoundingBoxMax.Z = ML::Max(G_Barycentre_BoundingBoxMax.Z, Coord.Z);
+		}
+	}
+
+	if (Count <= 0) G_Barycentre_Barycentre = <Map.Size.X/2, CollectionGroundY, Map.Size.Z/2>;
+	else G_Barycentre_Barycentre = <Total.X / Count, Total.Y / Count, Total.Z / Count>;
+}
+
+// Clear the history
+Void Private_Clear() {
+	G_MacroblocksLengths.clear();
+	G_CollisionsCoords.clear();
+	G_SpecialIds.clear();
+	Private_Reset_Retrieve();
+	G_NeedComputeBarycentre = True;
+	G_Barycentre_Barycentre = Utils::NullCoord();
+	G_Barycentre_Type = -1;
+	G_Barycentre_BoundingBoxMax = Utils::NullCoord();
+	G_Barycentre_BoundingBoxMin = Utils::NullCoord();
+	G_DistanceTo.clear();
+	G_DisconnectedClips.clear();
+	G_KMBInstancesCache.clear();
+	G_MacroblockModelNumIdsCache.clear();
+	G_TypeCount.clear();
+}
+
+Text GetScriptVersion() { return Version; }
+Text GetScriptName() { return ScriptName; }
+
+// Get the block special type constants
+Integer Block_Start() { return C_Block_Start; }
+Integer Block_Checkpoint() { return C_Block_Checkpoint; }
+Integer Block_Finish() { return C_Block_Finish; }
+Integer Block_StopEngine() { return C_Block_StopEngine; }
+Integer Block_Multilap() { return C_Block_Multilap; }
+
+// Add a macroblock to the track
+Void Add(CMacroblockModel _MacroblockModel, Int3 _Coord, CMapEditorPlugin::CardinalDirections _Dir, Integer _Type, CMapEditorPlugin::MapElemColor _Color) {
+	if (_MacroblockModel == Null) return;
+
+	tuningmark("Add");
+	declare metadata Integer MapContent_MaxOrder for Map;
+
+	declare ForceMBInstanceColor = (_Color != CMapEditorPlugin::MapElemColor::Default);
+
+	declare CBlockClipList MacroblockModelClipList = Macroblock::GetCreatedClipList(_MacroblockModel);
+	declare CMacroblockInstance MBInstance = CreateMacroblockInstance(_MacroblockModel, _Coord, _Dir, MacroblockModelClipList, _Color, ForceMBInstanceColor, _Type);
+
+	declare Added = Private_AddMacroblock(MBInstance);
+	if (!Added) return;
+
+	if (!G_TypeCount.existskey(_Type))	G_TypeCount[_Type] = 1;
+	else								G_TypeCount[_Type] += 1;
+
+	MapContent_MaxOrder += 1;
+
+	G_MustSaveMapContent = True;
+	Private_InvalidCache();
+}
+
+// Get a macroblock instance making sure of its model, coordinates, direction and type
+CMacroblockInstance GetMacroblockInstance(CMacroblockModel _MacroblockModel, Int3 _Coord, CMapEditorPlugin::CardinalDirections _Dir, Integer _Type) {
+	if (_MacroblockModel == Null || !HasMacroblocks(_Type, True)) return Null; // If we're specifying a certain type and we have placed no block of this type yet
+
+	declare CMacroblockInstance MBInstance = GetMacroblockInstanceFromUnitCoord(_Coord);
+	if (MBInstance != Null && MBInstance.MacroblockModel == _MacroblockModel && MBInstance.Coord == _Coord && MBInstance.Dir == _Dir && (_Type == -1 || MBInstance.UserData == _Type)) {
+		// Si le bloc occupe la coordonnée où il a été posé (95% des cas)
+		return MBInstance;
+	} else {
+		// Si le bloc n'a pas de UnitCoord à l'endroit de sa coord
+		declare UnitCoord = Macroblock::GetBlockUnitCoord(_MacroblockModel, _Coord, _Dir);
+		MBInstance = GetMacroblockInstanceFromUnitCoord(UnitCoord);
+		if (MBInstance != Null && MBInstance.MacroblockModel == _MacroblockModel && MBInstance.Coord == _Coord && MBInstance.Dir == _Dir && (_Type == -1 || MBInstance.UserData == _Type)) {
+			return MBInstance;
+		}
+	}
+
+	return Null;
+}
+
+// Get a macroblock instance making sure of its model, coordinates, direction
+CMacroblockInstance GetMacroblockInstance(CMacroblockModel _MacroblockModel, Int3 _Coord, CMapEditorPlugin::CardinalDirections _Dir) {
+	return GetMacroblockInstance(_MacroblockModel, _Coord, _Dir, -1);
+}
+
+// Remove a macroblock from the track
+Void Remove(CMacroblockModel _MacroblockModel, Int3 _Coord, CMapEditorPlugin::CardinalDirections _Dir, Integer _Type) {
+	if (_MacroblockModel == Null) return;
+	tuningmark("Remove");
+	declare MBInstance = GetMacroblockInstance(_MacroblockModel, _Coord, _Dir, _Type);
+
+	Private_RemoveMacroblock(MBInstance);
+}
+
+// Remove a macroblock from the track
+Void Remove(Ident _Id) {
+	declare MBInstance = MacroblockInstances[_Id];
+	Private_RemoveMacroblock(MBInstance);
+}
+
+// Remove a macroblock occupying a given coordinate without checking if it's the one we want
+Void Remove(Int3 _UnitCoord) {
+	declare MBInstance = GetMacroblockInstanceFromUnitCoord(_UnitCoord);
+	Private_RemoveMacroblock(MBInstance);
+}
+
+// Remove all macroblocks of the given type from the track
+Void RemoveAllContent(Integer _Type) {
+	if (!HasMacroblocks(_Type)) return; // If we have placed no block of this type yet
+
+	foreach (MBInstance in MacroblockInstances) { // On pourrait utiliser RemoveMacroblockInstancesByUserData sauf qu'on fait des choses en plus dans le Private RemoveMacroblock pour l'instant.
+		if (MBInstance.UserData != _Type) continue;
+		Private_RemoveMacroblock(MBInstance);
+	}
+}
+
+// Remove all macroblocks from the track
+Void RemoveAllContent() {
+	declare metadata Integer MapContent_MaxOrder for Map;
+	declare metadata K_MacroblockInstanceSaveV2[Integer] KMBInstancesV2 for Map;
+	declare metadata Text[] MacroblockModelNumIds for Map;
+
+	MapContent_MaxOrder = 0;
+	ResetAllMacroblockInstances();
+
+	G_MustSaveMapContent = True;
+	Private_Clear();
+	Private_InvalidCache();
+}
+
+// Check if there is a macroblock located at a given coordinate
+Boolean Exists(Int3 _Coord) {
+	Private_Get(_Coord);
+	return G_Retrieve.MacroblockExists;
+}
+
+// Get the number of macroblocks on the track
+Integer Count() {
+	return MacroblockInstances.count;
+}
+
+// Get the macroblock model located at a given coordinate
+CMacroblockModel GetMacroblockModel(Int3 _Coord) {
+	Private_Get(_Coord);
+	return G_Retrieve.MacroblockModel;
+}
+
+// Get the macroblock model from a macroblock with a given ID
+CMacroblockModel GetMacroblockModel(Ident _Id) {
+	declare MBInstance = MacroblockInstances[_Id];
+	if (MBInstance != Null)	return MBInstance.MacroblockModel;
+	return Null;
+}
+// Get the coordinates of a macroblock located at a given coordinate
+Int3 GetMacroblockCoord(Int3 _Coord) {
+	Private_Get(_Coord);
+	return G_Retrieve.MacroblockCoord;
+}
+
+// Get the coordinates of a macroblock with a given ID
+Int3 GetMacroblockCoord(Ident _Id) {
+	declare MBInstance = MacroblockInstances[_Id];
+	if (MBInstance == Null) return Utils::NullCoord();
+	return MBInstance.Coord;
+}
+
+// Get the direction of a macroblock located at a given coordinate
+CMapEditorPlugin::CardinalDirections GetMacroblockDir(Int3 _Coord) {
+	Private_Get(_Coord);
+	return G_Retrieve.MacroblockDir;
+}
+
+// Get the direction of a macroblock with a given ID
+CMapEditorPlugin::CardinalDirections GetMacroblockDir(Ident _Id) {
+	declare MBInstance = MacroblockInstances[_Id];
+	if (MBInstance == Null) return CMapEditorPlugin::CardinalDirections::North;
+	return MBInstance.Dir;
+}
+
+// Get the direction of a macroblock located at a given coordinate
+CMapEditorPlugin::MapElemColor GetMacroblockColor(Int3 _Coord) {
+	Private_Get(_Coord);
+	return G_Retrieve.MacroblockColor;
+}
+
+// Get the direction of a macroblock with a given ID
+CMapEditorPlugin::MapElemColor GetMacroblockColor(Ident _Id) {
+	declare MBInstance = MacroblockInstances[_Id];
+	if (MBInstance == Null) return CMapEditorPlugin::MapElemColor::Default;
+	return MBInstance.Color;
+}
+
+
+// Get the type of a macroblock located at a given coordinate
+Integer GetMacroblockType(Int3 _Coord) {
+	Private_Get(_Coord);
+	return G_Retrieve.MacroblockType;
+}
+
+// Get the type of a macroblock with a given ID
+Integer GetMacroblockType(Ident _Id) {
+	declare MBInstance = MacroblockInstances[_Id];
+	if (MBInstance == Null) return -1;
+	return MBInstance.UserData;
+}
+
+// Get the order of a macroblock located at a given coordinate
+Integer GetMacroblockOrder(Int3 _Coord) {
+	Private_Get(_Coord);
+	return G_Retrieve.MacroblockOrder;
+}
+
+// Get the order of a macroblock with a given ID
+Integer GetMacroblockOrder(Ident _Id) {
+	declare MBInstance = MacroblockInstances[_Id];
+	if (MBInstance == Null) return -1;
+	return MBInstance.Order;
+}
+
+// Check if the track contains custom collision
+Boolean HasCollisions() {
+	return G_CollisionsCoords.count > 0;
+}
+
+// Get all of the custom collision coords of the track
+Ident[Int3] GetCollisions() {
+	return G_CollisionsCoords;
+}
+
+// Check if a clip is connected. This can be checked on a "theorical" clip and does not require a block to actually be placed (for GamepadEditor::AddMacroblock2)
+Boolean IsClipConnected(CBlockClip _Clip) {
+	if (_Clip == Null) return False;
+	if (GetMacroblockInstanceConnectedToClip(_Clip) != Null) return True;
+	return False;
+}
+
+// Get the ids of the connected clips of a placed macroblock instance
+Integer[] GetConnectedClips(CMacroblockInstance _MacroblockInstance) {
+	if (_MacroblockInstance == Null) return [];
+
+	tuningmark("GetConnectedClips");
+	declare Integer[] ConnectedClips;
+	foreach (ListClip in _MacroblockInstance.ClipList.Clips) {
+		if (IsClipConnected(ListClip)) ConnectedClips.add(ListClip.ClipId);
+	}
+
+	return ConnectedClips;
+}
+
+// Get the ids of the disconnected clips of a placed macroblock instance
+Integer[] GetDisconnectedClips(CMacroblockInstance _MacroblockInstance) {
+	if (_MacroblockInstance == Null) return [];
+	tuningmark("GetDisconnectedClips");
+
+	declare Order = _MacroblockInstance.Order;
+	if (G_DisconnectedClips.existskey(Order)) return G_DisconnectedClips[Order];
+
+	declare Integer[] DisconnectedClips;
+	foreach (ListClip in _MacroblockInstance.ClipList.Clips) {
+		if (!IsClipConnected(ListClip)) DisconnectedClips.add(ListClip.ClipId);
+	}
+
+	if (!G_DisconnectedClips.existskey(Order))	G_DisconnectedClips[Order] = DisconnectedClips;
+
+	return DisconnectedClips;
+}
+
+/** Find the latest macroblock instance from a given type
+ *	@param	_WithClips			With open clips
+ */
+CMacroblockInstance GetLatestTypedMacroblockInstance(Integer _Type, Boolean _WithClips) {
+	if (!HasMacroblocks(_Type)) return Null; // If we have placed no block of this type yet
+	tuningmark("GetLatestMacroblockInstance");
+	declare MaxOrder = GetMaxOrder();
+	for (I, 0, MaxOrder) {
+		declare MBInstance = GetLatestMacroblockInstance(I);
+		if (MBInstance != Null) {
+			if (MBInstance.UserData == _Type) {
+				if (_WithClips) {
+					declare DisconnectedClips = GetDisconnectedClips(MBInstance);
+					if (DisconnectedClips.count != 0) return MBInstance;
+				} else {
+					return MBInstance;
+				}
+			}
+		}
+	}
+	return Null;
+}
+
+/** Find the latest macroblock block unit coordinates from a given type
+ *	@param	_WithClips			With open clips
+ */
+Int3 GetLatestMacroblockUnitCoord(Integer _Type, Boolean _WithClips) {
+	if (!HasMacroblocks(_Type)) return Utils::NullCoord(); // If we have placed no block of this type yet
+	tuningmark("GetLatestMacroblockUnitCoord");
+	declare MaxOrder = GetMaxOrder();
+	for (I, 0, MaxOrder) {
+		declare MBInstance = GetLatestMacroblockInstance(I);
+		if (MBInstance != Null) {
+			if (MBInstance.UserData == _Type) {
+				if (_WithClips) {
+					declare DisconnectedClips = GetDisconnectedClips(MBInstance);
+					if (DisconnectedClips.count != 0) return MBInstance.UnitCoords[0];
+				} else {
+					return MBInstance.UnitCoords[0];
+				}
+			}
+		}
+	}
+	return Utils::NullCoord();
+}
+
+/** Find the nearest macroblock block unit coordinates from a given coordinate excluding one macroblock
+ *	@param	_WithClips			With open clips
+ */
+Int3 GetNearestMacroblockUnitCoordExcluding(
+	Int3 _Coord,
+	Integer _Type,
+	Boolean _WithClips,
+	CMacroblockModel _MacroblockModel,
+	Int3 _MacroblockCoord,
+	CMapEditorPlugin::CardinalDirections _MacroblockDir
+) {
+	if (!HasMacroblocks(_Type)) return Utils::NullCoord(); // If we have placed no block of this type yet
+	tuningmark("GetNearestMacroblockUnitCoordExcluding");
+	declare ShortestDistance = -1;
+	declare NearestCoord = Utils::NullCoord();
+
+	foreach (MBInstance in MacroblockInstances) {
+		declare Distance = Utils::ManhattanDistance(MBInstance.Coord, _Coord);
+		if (ShortestDistance < 0 || Distance < ShortestDistance) {
+			if (MBInstance.UserData == _Type) {
+				declare MacroblockModel = MBInstance.MacroblockModel;
+				declare MacroblockCoord = MBInstance.Coord;
+				declare MacroblockDir = MBInstance.Dir;
+				if (MacroblockModel == _MacroblockModel && MacroblockCoord == _MacroblockCoord && MacroblockDir == _MacroblockDir) continue;
+
+				declare Integer[] DisconnectedClips;
+				if (_WithClips) {
+					DisconnectedClips = GetDisconnectedClips(MBInstance);
+				}
+
+				if (!_WithClips || DisconnectedClips.count > 0) {
+					NearestCoord = MBInstance.UnitCoords[0];
+					ShortestDistance = Distance;
+					if (Distance <= 0) return NearestCoord;
+				}
+			}
+		}
+	}
+	return NearestCoord;
+}
+
+/** Find the nearest macroblock block unit coordinates from a given coordinate
+ *	@param	_WithClips		With open clips
+ */
+Int3 GetNearestMacroblockUnitCoord(Int3 _Coord, Integer _Type, Boolean _WithClips) {
+	if (!HasMacroblocks(_Type)) return Utils::NullCoord(); // If we have placed no block of this type yet
+	tuningmark("GetNearestMacroblockUnitCoord");
+	declare ShortestDistance = -1;
+	declare NearestCoord = Utils::NullCoord();
+
+	foreach (MBInstance in MacroblockInstances) {
+		declare Distance = Utils::ManhattanDistance(MBInstance.Coord, _Coord);
+		if (ShortestDistance < 0 || Distance < ShortestDistance) {
+			if (MBInstance.UserData == _Type) {
+				declare Integer[] DisconnectedClips;
+				if (_WithClips) {
+					DisconnectedClips = GetDisconnectedClips(MBInstance);
+				}
+
+				if (!_WithClips || DisconnectedClips.count > 0) {
+					NearestCoord = MBInstance.UnitCoords[0];
+					ShortestDistance = Distance;
+					if (Distance <= 0) return NearestCoord;
+				}
+			}
+		}
+	}
+	return NearestCoord;
+}
+
+/** Get the connected block units to a cliplist
+ *	@param	_ClipList				The list of clips. Can come from a theorical MBlock or an actual instance
+ *	@return							The coordinates of one block unit of each of the connected macroblocks
+ */
+Int3[] GetConnectedMacroblockUnitCoords(CBlockClipList _ClipList) {
+	if (_ClipList == Null || _ClipList.Clips.count == 0) return [];
+
+	tuningmark("GetConnectedMacroblockUnitCoords");
+	declare Int3[] BlockUnitCoords;
+	foreach (ListClip in _ClipList.Clips) {
+		declare ConnectedMacroblockInstance = GetMacroblockInstanceConnectedToClip(ListClip);
+		if (ConnectedMacroblockInstance != Null) BlockUnitCoords.add(ConnectedMacroblockInstance.UnitCoords[0]);
+	}
+
+	return BlockUnitCoords;
+}
+
+/** Get one block unit coord of the macroblocks connected to the given placed macroblock instance
+ *	@return							The coordinates of one block unit of each of the connected macroblocks
+ */
+Int3[] GetActualConnectedMacroblockUnitCoords(CMacroblockInstance _MacroblockInstance) {
+	if (_MacroblockInstance == Null) return [];
+
+	return GetConnectedMacroblockUnitCoords(_MacroblockInstance.ClipList);
+}
+
+// Same idea as GetConnectedMacroblockUnitCoords but this one works when a block has been deleted or isn't really placed
+Int3[] GetTheoricalConnectedMacroblockUnitCoords(CMacroblockModel _MacroblockModel, Int3 _MacroblockCoord, CMapEditorPlugin::CardinalDirections _MacroblockDir) {
+	if (_MacroblockModel == Null) return [];
+
+	declare CBlockClipList PlacedClipList = Macroblock::GetPlacedClipList(_MacroblockModel, _MacroblockCoord, _MacroblockDir);
+	return GetConnectedMacroblockUnitCoords(PlacedClipList);
+}
+
+/** Get the id of the clips used to connect the given macroblock to the previous one
+ *	@return							[The id of clip used on the previous macroblock, id of the clip used on the given macroblock]
+ */
+Integer[] GetConnectionToPrevious(CMacroblockInstance _MacroblockInstance) {
+	if (_MacroblockInstance == Null) return [-1, -1];
+	tuningmark("GetConnectionToPrevious");
+	declare MaxOrder = -1;
+	declare PrevClipId = -1;
+	declare NextClipId = -1;
+	foreach (ListClip in _MacroblockInstance.ClipList.Clips) {
+		declare ConnectedMacroblockInstance = GetMacroblockInstanceConnectedToClip(ListClip);
+		if (ConnectedMacroblockInstance != Null) {
+			declare Order = ConnectedMacroblockInstance.Order;
+			if (MaxOrder < 0 || Order > MaxOrder) {
+				MaxOrder = Order;
+				NextClipId = ListClip.ClipId;
+				foreach (ClipOtherBlock in ConnectedMacroblockInstance.ClipList.Clips) { // find which clip from the other block is actually the one connected
+					if (ClipOtherBlock.GetConnectableCoord() == ListClip.Coord) {
+						PrevClipId = ClipOtherBlock.ClipId;
+						break;
+					}
+				}
+			}
+		}
+	}
+	return [PrevClipId, NextClipId];
+}
+
+// Overload of GetConnectionToPrevious
+Integer[] GetConnectionToPrevious(CMacroblockModel _MacroblockModel, Int3 _MacroblockCoord, CMapEditorPlugin::CardinalDirections _MacroblockDir) {
+	declare MBInstance = GetMacroblockInstanceFromUnitCoord(_MacroblockCoord);
+	if (MBInstance != Null && MBInstance.MacroblockModel == _MacroblockModel && MBInstance.Dir == _MacroblockDir) return GetConnectionToPrevious(MBInstance);
+
+	return [-1, -1];
+}
+
+Integer GetPodiumCount() { // note, could exist for all special blocks, but for now I only need to count podiums
+	if (!G_SpecialIds.existskey(C_Block_Podium)) return 0;
+	return G_SpecialIds[C_Block_Podium].count;
+}
+
+// Check if the track contains a given special macroblock
+Boolean Has(Integer _Special) {
+	return (G_SpecialIds.existskey(_Special) && G_SpecialIds[_Special].count > 0);
+}
+
+// Check if the track contains a finish block
+Boolean HasFinish() {
+	return Has(C_Block_Finish);
+}
+
+// Check if the track contains a checkpoint block
+Boolean HasCheckpoint() {
+	return Has(C_Block_Checkpoint);
+}
+
+// Check if the track contains a start block (start or multilap)
+Boolean HasStart() {
+	return Has(C_Block_Start);
+}
+
+// Check if the track contains a multilap block
+Boolean HasMultilap() {
+	return Has(C_Block_Multilap);
+}
+
+// Get the track barycentre for a given type of block
+Int3 GetMapBarycentre(Integer _Type) {
+	if (G_NeedComputeBarycentre || G_Barycentre_Type != _Type) {
+		Private_ComputeBarycentre(_Type);
+	}
+
+	return G_Barycentre_Barycentre;
+}
+
+Int3 GetMapBarycentre() {
+	return GetMapBarycentre(-1);
+}
+
+// Get the track bounding box minimum and maximum points
+Int3[] GetMapBoundingBox(Integer _Type) {
+	if (G_NeedComputeBarycentre || G_Barycentre_Type != _Type) {
+		Private_ComputeBarycentre(_Type);
+	}
+
+	return [G_Barycentre_BoundingBoxMin, G_Barycentre_BoundingBoxMax];
+}
+
+// Get the track bounding box minimum and maximum points
+Int3[] GetMapBoundingBox() {
+	return GetMapBoundingBox(-1);
+}
+
+// Get all of the macroblocks coordinates for one given type
+Int3[] GetMacroblocksCoords(Integer _Type) {
+	declare Int3[] Coords;
+	if (!HasMacroblocks(_Type)) return Coords; // If we have placed no block of this type yet
+	foreach (MBInstance in MacroblockInstances) {
+		if (MBInstance.UserData == _Type) Coords.add(MBInstance.Coord);
+	}
+	return Coords;
+}
+
+// Get a coord of any unit of every MBInstance with a given type
+Int3[] GetMacroblocksUnitCoords(Integer _Type) {
+	declare Int3[] Coords;
+	if (!HasMacroblocks(_Type)) return Coords; // If we have placed no block of this type yet
+	foreach (MBInstance in MacroblockInstances) {
+		if (MBInstance.UserData == _Type) Coords.add(MBInstance.UnitCoords[0]);
+	}
+	return Coords;
+}
+
+// Get the coordinates of one finish macroblock unit
+Int3 GetFinishUnitCoord() {
+	if (!G_SpecialIds.existskey(C_Block_Finish)) return Utils::NullCoord();
+	if (G_SpecialIds[C_Block_Finish].count <= 0) return Utils::NullCoord();
+
+	declare Finish = MacroblockInstances[G_SpecialIds[C_Block_Finish][0]];
+
+	if (Finish != Null) return Finish.UnitCoords[0];
+	return Utils::NullCoord();
+}
+
+// Get the coordinates of one macroblock unit of all finishes
+Int3[] GetFinishesUnitCoord(Integer _Type) {
+	if (!G_SpecialIds.existskey(C_Block_Finish) || !HasMacroblocks(_Type)) return [];
+	declare FinishesIds = G_SpecialIds[C_Block_Finish];
+
+	declare Int3[] Coords;
+	foreach (FinishId in FinishesIds) {
+		declare Finish <=> MacroblockInstances[FinishId];
+		if (Finish.UserData != _Type) continue;
+
+		declare FinishCoord = Finish.UnitCoords[0];
+		if (!Coords.exists(FinishCoord)) Coords.add(FinishCoord);
+	}
+
+	return Coords;
+}
+
+Ident[] GetSpecialMacroblockIds(Integer _Type) {
+	if (G_SpecialIds.existskey(_Type)) {
+		return G_SpecialIds[_Type];
+	}
+
+	return [];
+}
+
+// Get the distance since the last special macroblock. Note : Only works in Beginner and Advanced (ordered blocks), never called in Expert
+Real GetDistanceTo(Integer _Special) {
+	// NOTE : The old way calculated all of the special blocks at once. I don't think that this is useful considering we don't need the distance very often in a single frame, knowing the cache gets reset every time we place/delete a block anyways.
+	tuningmark("GetDistanceTo");
+	declare Special = _Special;
+	if (!Has(_Special)) { // If we have placed no block of this type yet, get distance to start;
+		Special = Block_Start();
+		if (!Has(Special)) return 0.; // If we have no start placed either, we should have nothing, return 0
+	}
+	if (G_DistanceTo.existskey(Special)) {
+		return G_DistanceTo[Special]; // If we have calculated this special key before during the frame (without clearing cache)
+	}
+
+	declare TotalDistance = 0.;
+
+	if (Special != Block_Start()) { // we have to find a block in descending order
+		declare MaxOrder = GetMaxOrder();
+		for (I, 0, MaxOrder) {
+			declare MBInstance = GetLatestMacroblockInstance(I);
+			if (MBInstance != Null) {
+				declare MbId = MBInstance.Id;
+				TotalDistance += G_MacroblocksLengths[MbId];
+				if (G_SpecialIds[Special].exists(MbId)) { // As we're starting with the latest blocks, as soon as we get a corresponding special we can stop.
+					G_DistanceTo[Special] = TotalDistance;
+					return TotalDistance;
+				}
+			}
+		}
+	} else { // we just have to add all of the lengths of all of the blocks as we're looking for our starting block
+		foreach (Length in G_MacroblocksLengths) {
+				TotalDistance += Length;
+		}
+		G_DistanceTo[Special] = TotalDistance;
+		return TotalDistance;
+	}
+	log("We didn't find a block while we were supposed to find one");
+	return -1.;
+}
+
+// Get the last macroblock model placed
+CMacroblockModel GetPreviousMacroblockModel() {
+	declare MBInstance = GetLatestMacroblockInstance();
+	if (MBInstance != Null) return MBInstance.MacroblockModel;
+	return Null;
+}
+
+// If a macroblock has been changed, we have to save the mapcontent
+Boolean MustSaveMapContent() {
+	return G_MustSaveMapContent;
+}
+
+/** For performance issues, we only save the MapContentCache every (100) ticks max
+ *  (see C_Tick_SaveMapContent in GamepadTrackEditor.Script.txt)
+ *  This way we dont write in a metadata structure table every time we edit a block.
+ * 	Heavy operation now that we're using MBInstances sadly, gotta see if we can improve
+ */
+Void SaveMapContent() {
+	tuningmark("Save mapcontent");
+	declare metadata K_MacroblockInstanceSaveV2[Integer] KMBInstancesV2 for Map;
+	declare metadata Text[] MacroblockModelNumIds for Map;
+
+	KMBInstancesV2 = G_KMBInstancesCache;
+	MacroblockModelNumIds = G_MacroblockModelNumIdsCache;
+	G_MustSaveMapContent = False;
+}
+
+/** This is only necessary if we don't use RebuildMap(), typically in Expert mode.
+ *	Rebuilding the track already recreates every single block normally and thus
+ *  the mapcontent will already be up to date
+ */
+Void ReloadMapContent() {
+	declare metadata K_MacroblockInstanceSaveV2[Integer] KMBInstancesV2 for Map;
+
+	if (KMBInstancesV2.count != 0) {
+		RemoveAllContent();
+		declare metadata Text[] MacroblockModelNumIds for Map;
+		foreach (KMBInstance in KMBInstancesV2) {
+			declare MacroblockModel = GetMacroblockModelFromFilePath(MacroblockModelNumIds[KMBInstance.MacroblockModelNumId]);
+			Add(MacroblockModel, KMBInstance.Coord, Utils::IntToDir(KMBInstance.Dir), KMBInstance.Type, Utils::IntToColor(KMBInstance.Color));
+		}
+	}
+}
+
+Void ConvertMacroblockInstanceSaveToV2() {
+	declare metadata K_MacroblockInstanceSave[Integer] KMBInstances for Map;
+
+	if (KMBInstances.count > 0) {
+		declare metadata K_MacroblockInstanceSaveV2[Integer] KMBInstancesV2 for Map;
+		declare Integer DefaultColor = Utils::ColorToInt(CMapEditorPlugin::MapElemColor::Default);
+
+		//assert(KMBInstancesV2.count == 0);
+		foreach (Key => KMBInstance in KMBInstances) {
+			declare K_MacroblockInstanceSaveV2 KMBInstanceV2;
+			KMBInstanceV2.MacroblockModelNumId = KMBInstance.MacroblockModelNumId;
+			KMBInstanceV2.Coord = KMBInstance.Coord;
+			KMBInstanceV2.Dir = KMBInstance.Dir;
+			KMBInstanceV2.Type = KMBInstance.Type;
+			KMBInstanceV2.Color = DefaultColor;
+			KMBInstancesV2[Key] = KMBInstanceV2;
+		}
+
+		declare K_MacroblockInstanceSave[Integer] EmptyKMBInstances;
+		KMBInstances = EmptyKMBInstances;
+	}
+}
+
+Void Unload() {
+	Private_Clear();
+}
+
+Void Load() {
+	Unload();
+	ConvertMacroblockInstanceSaveToV2();
+}

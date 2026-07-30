@@ -1,0 +1,354 @@
+
+#Include "Libs/Nadeo/System/Styles/CommonStyles.Script.txt"		as Styles
+#Include "Libs/Nadeo/System/Chat/ChatServersInfo.Script.txt"	as ChatServersInfo
+
+#Const C_ImgBase "file://Media/Manialinks/Common/Chat/"
+
+#Const C_LibLayerServerInfo_NbFriendsCards	32
+
+declare CUILayer G_ManialinkLayerServerInfo;
+
+Text Private_CreateManialink() {
+	declare FriendCards = "";
+
+	for (I, 0, C_LibLayerServerInfo_NbFriendsCards - 1) {
+		FriendCards ^= "<frameinstance modelid='FrameModel_FriendCard' id='Frame_FriendCard#"^I^"' hidden='1' />";
+	}
+
+	return """
+<manialink version="3" name="">
+<stylesheet>
+	{{{Styles::Get()}}}
+	<style class="Separator" valign="center" size="78 .25" bgcolor="FFF" opacity=".125" />
+	<style id="Quad_ServerPrivate" valign="center" image="{{{C_ImgBase}}}buddy-private.dds" />
+</stylesheet>
+
+<frame id="Frame_ServerHoverTooltip" z-index="1" scale="0">
+<frame id="Frame_WindowOffset">
+	<quad pos="-41" size="82 1" class="ColorFg2" />
+	<quad class="ColorFg" pos="-45.5 4.5" size="45.5 5" scale="2" style="Bgs1InRace" substyle="BgButtonGlow" />
+	<label id="Label_TopArrow" pos="0 2" halign="center" textsize="3" text="" />
+
+	<frame id="Frame_ServerName" pos="0 -4.5">
+		<quad id="Quad_ServerPrivate" size="4 4" hidden="1" />
+		<label pos="0 -.125" id="Label_ServerName" class="Text" size="72" textsize="2" />
+	</frame>
+
+	<frame pos="0 -8">
+		<quad class="Separator" halign="center"/>
+		<frame pos="-39">
+			<label id="Label_GameModeName" class="Bold" pos="0 -4" textsize="2" textprefix="$t" />
+			<label pos="0 -7" class="Text" textsize=".75" textprefix="$t" text="Game mode" translate="1" />
+		</frame>
+		<frame pos="39">
+			<label id="Label_PlayersCount" class="Bold" pos="0 -4" halign="right" textsize="2" />
+			<label pos="0 -7" class="Text" halign="right" textsize=".75" textprefix="$t" text="Players" translate="1" />
+		</frame>
+	</frame>
+
+	<frame id="Frame_ServerDescription" pos="-39" hidden="1">
+		<quad class="Separator" />
+		<label pos="0 -3" class="Text" textsize=".75" textprefix="$t" text="Description" translate="1" />
+		<label pos="0 -5" size="76" class="Text" valign="top" textsize="1" autonewline="1" />
+	</frame>
+
+	<frame id="Frame_GameModeStatus" pos="-39" hidden="1">
+		<quad class="Separator" />
+		<label pos="0 -3" class="Text" textsize=".75" textprefix="$t" text="Game status" translate="1" />
+		<label id="Label_GameModeStatus" pos="0 -5" size="76" class="Text" valign="top" textsize="1" autonewline="1" />
+	</frame>
+
+	<frame id="Frame_ConnectedFriends" pos="-39" hidden="1">
+		<quad class="Separator" />
+		<label pos="0 -3" class="Text" textsize=".75" textprefix="$t" text="Friends online" translate="1" />
+		<frame pos="0 -5">
+			<framemodel id="FrameModel_FriendCard">
+				<label id="Label_ContactName" class="Text" pos="5 -2" textsize="1" />
+				<quad id="Quad_ContactAvatar" size="4 4" bgcolor="000" opacity="1" />
+				<quad id="Quad_ContactCard" size="20 4" bgcolor="FFF" opacity=".125" />
+			</framemodel>
+			{{{FriendCards}}}
+		</frame>
+	</frame>
+
+	<label id="Label_BottomArrow" pos="0" halign="center" rot="180" text="" textcolor="A9B4C2" scale=".8" />
+	<quad id="Quad_ServerInfoBgMetal" pos="-41" size="82.125 1" style="Bgs1InRace" substyle="BgMetalBar" />
+	<quad id="Quad_ServerInfoBgColor" class="ColorBg" pos="-41 -1" size="82 82" image="{{{C_ImgBase}}}background.dds" opacity=".95" />
+	<quad id="Quad_ServerInfoBgBlur" pos="-41 -1" size="54 82" style="Bgs1" substyle="BgDialogBlur" opacity="0" />
+	<quad id="Quad_ServerInfoBgShadow" pos="-41.5 1.5" size="118 284" scale=".5" style="Bgs1InRace" substyle="BgButtonShadow" opacity=".5" />
+</frame>
+</frame>
+
+<script><!--
+
+#Include "MathLib" as ML
+
+#Struct SServerInfo {
+	Text	Login;
+	Text	Name;
+	Text	JoinLink;
+	Text	GameMode;
+	Text	ModeStatus;
+	Text[]	Contacts;
+	Integer	NbPlayers;
+	Integer	NbPlayersMax;
+	Boolean	IsLobby;
+	Boolean	Private;
+}
+
+Void UpdateServerData() {
+	declare Boolean		LayerServerInfo_IsVisible	for Page;
+	declare SServerInfo	LayerServerInfo_ServerInfo	for Page;
+
+	if (!LayerServerInfo_IsVisible) return;
+
+	declare Frame_ServerHoverTooltip	<=> (Page.GetFirstChild("Frame_ServerHoverTooltip")	as CMlFrame);
+	declare Frame_WindowOffset			<=> (Page.GetFirstChild("Frame_WindowOffset")		as CMlFrame);
+	declare Quad_ServerInfoBgMetal		<=> (Page.GetFirstChild("Quad_ServerInfoBgMetal")	as CMlFrame);
+	declare Quad_ServerInfoBgColor		<=> (Page.GetFirstChild("Quad_ServerInfoBgColor")	as CMlFrame);
+	declare Quad_ServerInfoBgBlur		<=> (Page.GetFirstChild("Quad_ServerInfoBgBlur")	as CMlFrame);
+	declare Quad_ServerInfoBgShadow		<=> (Page.GetFirstChild("Quad_ServerInfoBgShadow")	as CMlFrame);
+	declare Frame_ServerName			<=> (Page.GetFirstChild("Frame_ServerName")			as CMlFrame);
+	declare Label_ServerName			<=> (Page.GetFirstChild("Label_ServerName")			as CMlLabel);
+	declare Quad_ServerPrivate			<=> (Page.GetFirstChild("Quad_ServerPrivate")		as CMlQuad);
+	declare Label_PlayersCount			<=> (Page.GetFirstChild("Label_PlayersCount")		as CMlLabel);
+	declare Label_GameModeName			<=> (Page.GetFirstChild("Label_GameModeName")		as CMlLabel);
+	declare Frame_GameModeStatus		<=> (Page.GetFirstChild("Frame_GameModeStatus")		as CMlFrame);
+	declare Frame_ConnectedFriends		<=> (Page.GetFirstChild("Frame_ConnectedFriends")	as CMlFrame);
+	declare Label_TopArrow				<=> (Page.GetFirstChild("Label_TopArrow")			as CMlLabel);
+	declare Label_BottomArrow			<=> (Page.GetFirstChild("Label_BottomArrow")		as CMlLabel);
+
+	Label_ServerName.Value		= LayerServerInfo_ServerInfo.Name;
+	Label_PlayersCount.Value	= LayerServerInfo_ServerInfo.NbPlayers ^ " / " ^ LayerServerInfo_ServerInfo.NbPlayersMax;
+	Label_GameModeName.Value	= LayerServerInfo_ServerInfo.GameMode;
+	Quad_ServerPrivate.Visible	= LayerServerInfo_ServerInfo.Private;
+
+	declare NameTotalWidth = ML::Min(Label_ServerName.Size.X, Label_ServerName.ComputeWidth(Label_ServerName.Value));
+	Label_ServerName.RelativePosition_V3.X = 0.;
+
+	if (Quad_ServerPrivate.Visible) {
+		Label_ServerName.RelativePosition_V3.X += Quad_ServerPrivate.Size.X + 1.;
+		NameTotalWidth += Label_ServerName.RelativePosition_V3.X;
+	}
+
+	Frame_ServerName.RelativePosition_V3.X = NameTotalWidth / -2.;
+
+	declare FrameTotalHeight = 18.;
+
+	Frame_GameModeStatus.Visible = LayerServerInfo_ServerInfo.ModeStatus != "";
+
+	if (Frame_GameModeStatus.Visible) {
+		declare Label_GameModeStatus <=> (Page.GetFirstChild("Label_GameModeStatus") as CMlLabel);
+		Frame_GameModeStatus.RelativePosition_V3.Y = -FrameTotalHeight;
+		Label_GameModeStatus.Value = LayerServerInfo_ServerInfo.ModeStatus;
+		FrameTotalHeight += Label_GameModeStatus.ComputeHeight(Label_GameModeStatus.Value) + 7.;
+	}
+
+	Frame_ConnectedFriends.Visible = LayerServerInfo_ServerInfo.Contacts.count > 0;
+
+	if (Frame_ConnectedFriends.Visible) {
+		declare CurrentOffset = <0., 0.>;
+
+		for (I, 0, {{{C_LibLayerServerInfo_NbFriendsCards - 1}}}) {
+			declare Frame <=> (Page.GetFirstChild("Frame_FriendCard#"^I) as CMlFrame);
+
+			Frame.Visible = LayerServerInfo_ServerInfo.Contacts.existskey(I);
+			if (!Frame.Visible) continue;
+
+			declare ContactLogin		= LayerServerInfo_ServerInfo.Contacts[I];
+			declare Contact				<=> ManiaPlanet.ChatManager.GetContactFromLogin(ContactLogin);
+			declare ContactNickname		= ContactLogin;
+			declare ContactAvatarURL	= "{{{C_ImgBase}}}default-avatar.dds";
+
+			// That's us!
+			if (ContactLogin == LocalUser.Login) {
+				ContactLogin		= LocalUser.Login;
+				ContactNickname		= LocalUser.Name;
+				ContactAvatarURL	= LocalUser.AvatarUrl;
+			}
+
+			// Chat contact exists
+			else if (Contact != Null) {
+				ContactLogin		= Contact.Login;
+				ContactNickname		= Contact.Name;
+				ContactAvatarURL	= Contact.AvatarUrl;
+			}
+
+			declare Label_ContactName	<=> (Frame.GetFirstChild("Label_ContactName")	as CMlLabel);
+			declare Quad_ContactCard	<=> (Frame.GetFirstChild("Quad_ContactCard")	as CMlQuad);
+			declare Quad_ContactAvatar	<=> (Frame.GetFirstChild("Quad_ContactAvatar")	as CMlQuad);
+
+			Label_ContactName.Value = ContactNickname;
+			Quad_ContactAvatar.ImageUrl = ContactAvatarURL;
+
+			declare FrameSize = <Label_ContactName.ComputeWidth(Label_ContactName.Value) + Label_ContactName.RelativePosition_V3.X + 1., 4.>;
+
+			Quad_ContactCard.Size.X = FrameSize.X;
+
+			if (CurrentOffset.X > 78. - FrameSize.X) {
+				CurrentOffset.Y -= FrameSize.Y + 1.;
+				CurrentOffset.X = 0.;
+			}
+
+			Frame.RelativePosition_V3 = CurrentOffset;
+			CurrentOffset.X += FrameSize.X + 1.;
+		}
+
+		Frame_ConnectedFriends.RelativePosition_V3.Y = -FrameTotalHeight;
+		FrameTotalHeight += -CurrentOffset.Y + 11.;
+	}
+
+	Quad_ServerInfoBgColor.Size.Y	= FrameTotalHeight;
+	Quad_ServerInfoBgBlur.Size.Y	= Quad_ServerInfoBgColor.Size.Y;
+	Quad_ServerInfoBgShadow.Size.Y	= Quad_ServerInfoBgColor.Size.Y * 2. + 10.;
+	Quad_ServerInfoBgMetal.RelativePosition_V3.Y = -FrameTotalHeight;
+	Label_BottomArrow.RelativePosition_V3.Y = -FrameTotalHeight - 2.75;
+
+	declare Flipped = (Frame_ServerHoverTooltip.AbsolutePosition.Y - FrameTotalHeight - 1.) <= -88.;
+	Frame_WindowOffset.RelativePosition_V3.Y = 0.;
+
+	Label_TopArrow.Visible		= !Flipped;
+	Label_BottomArrow.Visible	= Flipped;
+
+	if (Flipped) {
+		Frame_WindowOffset.RelativePosition_V3.Y += FrameTotalHeight + 1.;
+		Frame_ServerHoverTooltip.RelativePosition_V3.Y += 8.;
+	}
+}
+
+Void UpdateServerInfo() {
+	declare Frame_ServerHoverTooltip <=> (Page.GetFirstChild("Frame_ServerHoverTooltip") as CMlFrame);
+
+	declare Boolean		LayerServerInfo_IsVisible	for Page;
+	declare Vec2		LayerServerInfo_Position	for Page;
+
+	if (LayerServerInfo_IsVisible) {
+		AnimMgr.Flush(Frame_ServerHoverTooltip);
+		Frame_ServerHoverTooltip.RelativeScale = 0.;
+		Frame_ServerHoverTooltip.RelativePosition_V3 = LayerServerInfo_Position + <0., -4.>;
+		AnimMgr.Add(Frame_ServerHoverTooltip, "<frame scale='1' />", 125, CAnimManager::EAnimManagerEasing::SineOut);
+	}
+
+	else {
+		AnimMgr.Add(Frame_ServerHoverTooltip, "<frame scale='0' />", 125, CAnimManager::EAnimManagerEasing::SineIn);
+		return;
+	}
+
+	UpdateServerData();
+}
+
+main() {
+	declare Label_TopArrow <=> (Page.GetFirstChild("Label_TopArrow") as CMlLabel);
+
+	declare Vec3 LayerServerInfo_BackgroundColor	for Page;
+	declare Vec3 LayerServerInfo_HighlightsColor	for Page;
+	declare Real LayerServerInfo_PositionOffset		for Page;
+
+	declare UpdateColorScheme = True;
+
+	while (True) {
+		yield;
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::PluginCustomEvent) {
+				switch (Event.CustomEventType) {
+					case "UpdateServerInfo" : {
+						UpdateServerInfo();
+					}
+					case "UpdateServerData" : {
+						UpdateServerData();
+					}
+					case "UpdateColorScheme" : {
+						UpdateColorScheme = True;
+					}
+				}
+			}
+		}
+
+		if (UpdateColorScheme) {
+			UpdateColorScheme = False;
+
+			Label_TopArrow.TextColor = LayerServerInfo_HighlightsColor;
+
+			declare BgColor = LayerServerInfo_BackgroundColor;
+			for (I, 0, 2) BgColor[I] *= .625;
+
+			Page.GetClassChildren("ColorBg", Page.MainFrame, True);
+
+			foreach (Control in Page.GetClassChildren_Result) {
+				if (Control is CMlQuad) {
+					(Control as CMlQuad).Colorize = BgColor;
+				}
+			}
+
+			Page.GetClassChildren("ColorFg", Page.MainFrame, True);
+
+			foreach (Control in Page.GetClassChildren_Result) {
+				if (Control is CMlQuad) {
+					(Control as CMlQuad).Colorize = LayerServerInfo_HighlightsColor;
+				}
+			}
+
+			Page.GetClassChildren("ColorFg2", Page.MainFrame, True);
+
+			foreach (Control in Page.GetClassChildren_Result) {
+				if (Control is CMlQuad) {
+					(Control as CMlQuad).BgColor = LayerServerInfo_HighlightsColor;
+				}
+			}
+		}
+	}
+}
+
+--></script>
+</manialink>
+	""";
+}
+
+Void Private_TriggerLayerUpdate() {
+	LayerCustomEvent(G_ManialinkLayerServerInfo, "UpdateServerInfo", []);
+}
+
+Void Build() {
+	G_ManialinkLayerServerInfo = UILayerCreate();
+	G_ManialinkLayerServerInfo.Type = CUILayer::EUILayerType::Normal;
+	G_ManialinkLayerServerInfo.ManialinkPage = Private_CreateManialink();
+}
+
+Void SetColorScheme(Vec3 _Background, Vec3 _Highlights) {
+	declare Vec3 LayerServerInfo_BackgroundColor for G_ManialinkLayerServerInfo.LocalPage;
+	declare Vec3 LayerServerInfo_HighlightsColor for G_ManialinkLayerServerInfo.LocalPage;
+	LayerServerInfo_BackgroundColor = _Background;
+	LayerServerInfo_HighlightsColor = _Highlights;
+	LayerCustomEvent(G_ManialinkLayerServerInfo, "UpdateColorScheme", []);
+}
+
+Void ShowServerInfo(ChatServersInfo::SServerInfo _ServerInfo, Vec2 _Position) {
+	declare Boolean							LayerServerInfo_IsVisible	for G_ManialinkLayerServerInfo.LocalPage;
+	declare ChatServersInfo::SServerInfo	LayerServerInfo_ServerInfo	for G_ManialinkLayerServerInfo.LocalPage;
+	declare Vec2							LayerServerInfo_Position	for G_ManialinkLayerServerInfo.LocalPage;
+
+	LayerServerInfo_IsVisible	= True;
+	LayerServerInfo_ServerInfo	= _ServerInfo;
+	LayerServerInfo_Position	= _Position;
+
+	Private_TriggerLayerUpdate();
+}
+
+Void HideServerInfo() {
+	declare Boolean LayerServerInfo_IsVisible for G_ManialinkLayerServerInfo.LocalPage;
+	LayerServerInfo_IsVisible = False;
+	Private_TriggerLayerUpdate();
+}
+
+Text GetCurrentServerLogin() {
+	declare ChatServersInfo::SServerInfo LayerServerInfo_ServerInfo	for G_ManialinkLayerServerInfo.LocalPage;
+	return LayerServerInfo_ServerInfo.Login;
+}
+
+Void UpdateServerData(ChatServersInfo::SServerInfo _ServerInfo) {
+	declare ChatServersInfo::SServerInfo LayerServerInfo_ServerInfo	for G_ManialinkLayerServerInfo.LocalPage;
+	LayerServerInfo_ServerInfo = _ServerInfo;
+
+	LayerCustomEvent(G_ManialinkLayerServerInfo, "UpdateServerData", []);
+}

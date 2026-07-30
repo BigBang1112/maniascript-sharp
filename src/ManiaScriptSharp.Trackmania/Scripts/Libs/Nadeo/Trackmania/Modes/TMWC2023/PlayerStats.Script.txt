@@ -1,0 +1,247 @@
+/**
+ *	Player Stats manager for the TrackMania World Championship 2023
+ */
+#Const Version		"1.1.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TMWC2023/PlayerStats.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/Structs.Script.txt" as Structs
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/PlayerInfo_Server.Script.txt" as UIModules_PlayerInfo
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Headers [
+	"Accept" => "application/json",
+	"Content-Type" => "application/json"
+]
+
+#Const C_QueryParameter_CompetitionUid "competitionUid"
+#Const C_QueryParameter_Player "player"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_State {
+	Text AuthorizationHeader;
+	Text Url;
+	Text CompetitionUid;
+	Text[] PlayerStatsToFetch;
+	Http::K_Request Request_FetchPlayerStats;
+	Http::K_Request Request_UpdatePlayerStats;
+	Structs::K_PlayerStats[Text] PlayerStats; // WebServicesUserId as key
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_State G_State;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the url of the player stats API
+Void SetAPIUrl(Text _Url) {
+	G_State.Url = _Url;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the authorization header to add to the request
+Void SetAuthorizationHeader(Text _AuthorizationHeader) {
+	G_State.AuthorizationHeader = _AuthorizationHeader;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the competition uid to add to the requests
+Void SetCompetitionUid(Text _Uid) {
+	G_State.CompetitionUid = _Uid;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get default headers with basic auth
+Text[Text] GetHeaders() {
+	declare Text[Text] Headers = C_Headers;
+	if (G_State.AuthorizationHeader != "") {
+		Headers["Authorization"] = G_State.AuthorizationHeader;
+	}
+	return Headers;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void SendPlayerStats() {
+	foreach (Score in Scores) {
+		if (Score.User == Null) continue;
+		if (!G_State.PlayerStats.existskey(Score.User.WebServicesUserId)) continue;
+		UIModules_PlayerInfo::SetPlayerStats(Score, G_State.PlayerStats[Score.User.WebServicesUserId]);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a Top 1 to the Player
+ *
+ *	@param	_Score										The Score to update
+ */
+Void AddTop1(CScore _Score) {
+	if (_Score == Null || _Score.User == Null) return;
+
+	declare Structs::K_PlayerStats PlayerStats = G_State.PlayerStats.get(_Score.User.WebServicesUserId, Structs::K_PlayerStats {});
+	PlayerStats.Top1 += 1;
+
+	G_State.PlayerStats[_Score.User.WebServicesUserId] = PlayerStats;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a Top 1 to the Player
+ *
+ *	@param	_Score										The Score to update
+ */
+Void AddCrash(CScore _Score) {
+	if (_Score == Null || _Score.User == Null) return;
+
+	declare Structs::K_PlayerStats PlayerStats = G_State.PlayerStats.get(_Score.User.WebServicesUserId, Structs::K_PlayerStats {});
+	PlayerStats.Crashes += 1;
+
+	G_State.PlayerStats[_Score.User.WebServicesUserId] = PlayerStats;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a run to the Player
+ *
+ *	@param	_Score										The Score to update
+ */
+Void AddRun(CScore _Score) {
+	if (_Score == Null || _Score.User == Null) return;
+
+	declare Structs::K_PlayerStats PlayerStats = G_State.PlayerStats.get(_Score.User.WebServicesUserId, Structs::K_PlayerStats {});
+	PlayerStats.NumberOfRuns += 1;
+
+	G_State.PlayerStats[_Score.User.WebServicesUserId] = PlayerStats;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add Account Id to the Player Stats queue
+ *
+ *	@param	_AccountId									The AccountId to add if needed
+ */
+Void AddToFetchQueueIfNeeded(Text _AccountId) {
+	if (
+		!G_State.PlayerStats.existskey(_AccountId) &&
+		!G_State.PlayerStatsToFetch.exists(_AccountId) &&
+		!TL::StartsWith("*fakeplayer", _AccountId)
+	) {
+		G_State.PlayerStatsToFetch.add(_AccountId);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add all players Account Id to the queue
+Void FetchAllPlayers() {
+	G_State.PlayerStatsToFetch = [];
+	foreach (Player in AllPlayers) {
+		if (Player.User == Null || Tools::IsFakeUser(Player.User) || G_State.PlayerStatsToFetch.exists(Player.User.WebServicesUserId)) continue;
+		G_State.PlayerStatsToFetch.add(Player.User.WebServicesUserId);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start Fetch Task
+Void InitRequest_FetchPlayerStats() {
+	declare Text[] PlayerStatsToFetch;
+	foreach (AccountId in G_State.PlayerStatsToFetch) {
+		if (G_State.PlayerStats.existskey(AccountId)) continue;
+		PlayerStatsToFetch.add(AccountId);
+	}
+	G_State.PlayerStatsToFetch = [];
+
+	declare Text[Text] SimpleQuery;
+	if (G_State.CompetitionUid != "") {
+		SimpleQuery[C_QueryParameter_CompetitionUid] = G_State.CompetitionUid;
+	}
+
+	declare Text[][Text] ArrayQuery;
+	if (PlayerStatsToFetch.count > 0) {
+		ArrayQuery[C_QueryParameter_Player] = PlayerStatsToFetch;
+	}
+
+	declare Text QueryString = Http::CreateQueryString(SimpleQuery, ArrayQuery);
+
+	if (G_State.Url != "") {
+		G_State.Request_FetchPlayerStats = Http::CreateGet(G_State.Url^QueryString, GetHeaders());
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start Update Task
+Void InitRequest_UpdatePlayerStats() {
+	declare Structs::K_HttpGetPostPlayerStats HttpGetPostPlayerStats;
+
+	declare Text QueryString = "";
+	if (G_State.CompetitionUid != "") {
+		QueryString = Http::CreateQueryString([
+			C_QueryParameter_CompetitionUid => G_State.CompetitionUid
+		]);
+	}
+
+	foreach (AccountId => PlayerStats in G_State.PlayerStats) {
+		HttpGetPostPlayerStats.competitionUid = G_State.CompetitionUid;
+		HttpGetPostPlayerStats.stats[AccountId] = Structs::ToHttpPlayerStats(PlayerStats);
+	}
+
+	if (G_State.Url != "") {
+		G_State.Request_UpdatePlayerStats = Http::CreatePost(G_State.Url^QueryString, HttpGetPostPlayerStats.tojson(), GetHeaders());
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update library
+Void Yield() {
+	if (G_State.PlayerStatsToFetch.count > 0 && !Http::IsInitialized(G_State.Request_FetchPlayerStats)) {
+		InitRequest_FetchPlayerStats();
+	}
+
+	if (Http::IsInitialized(G_State.Request_FetchPlayerStats)) {
+		G_State.Request_FetchPlayerStats = Http::Update(G_State.Request_FetchPlayerStats);
+		if (!Http::IsProcessing(G_State.Request_FetchPlayerStats)) {
+			if (Http::IsSuccess(G_State.Request_FetchPlayerStats)) {
+				declare Text Result = Http::GetResult(G_State.Request_FetchPlayerStats);
+				if (Result != "" && Result != "[]") {
+					declare Structs::K_HttpGetPostPlayerStats HttpGetPostPlayerStats;
+					HttpGetPostPlayerStats.fromjson(Result);
+					if (HttpGetPostPlayerStats.stats.count > 0) {
+						foreach (AccountId => HttpPlayerStats in HttpGetPostPlayerStats.stats) {
+							G_State.PlayerStats[AccountId] = Structs::ToPlayerStats(HttpPlayerStats);
+						}
+						SendPlayerStats();
+					}
+				}
+			}
+			G_State.Request_FetchPlayerStats = Http::Destroy(G_State.Request_FetchPlayerStats);
+		}
+	}
+
+	if (Http::IsInitialized(G_State.Request_UpdatePlayerStats)) {
+		G_State.Request_UpdatePlayerStats = Http::Update(G_State.Request_UpdatePlayerStats);
+		if (!Http::IsProcessing(G_State.Request_UpdatePlayerStats)) {
+			G_State.Request_UpdatePlayerStats = Http::Destroy(G_State.Request_UpdatePlayerStats);
+		}
+	}
+
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Unload() {
+	G_State = K_State {};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Load() {
+	Unload();
+}

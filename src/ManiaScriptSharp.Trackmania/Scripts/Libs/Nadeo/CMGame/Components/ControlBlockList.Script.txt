@@ -1,0 +1,1072 @@
+/**
+ * Component: ControlBlockList
+ * ===========================
+ *
+ * Confluence : https://confluence.ubisoft.com/display/Nadeo/ControlBlockList
+ *
+ * Info
+ * ----
+ *
+ * Display a control if the target user is not in our blocklist
+ *
+ * Parameters
+ * ----------
+ *
+ * - `data-type` (`Integer`): type of control
+ * - `data-size` (`Vec2`): size of the control
+ * - `data-opacity` (`Real`): opacity of the component
+ * - `data-halign` (`Text`): horizontal alignment of the component. Can be `left`, `center` or `right`.
+ * - `data-valign` (`Text`): vertical alignment of the component. Can be `top`, `center`, `center2` or `bottom`.
+ * - `data-text` (`Text`): value of the label
+ * - `data-text-blocked` (`Text`): value of the label when the owner is blocked
+ * - `data-tts-alttext` (`Text`): text to speech alternative text of the label
+ * - `data-tts-alttext-blocked` (`Text`): text to speech alternative text of the label when the owner is blocked
+ * - `data-textsize` (`Real`): textsize of the label
+ * - `data-textsize-fitlabel-min` (`Real`): minimum textsize for the `FitLabelValue()` on the label
+ * - `data-textsize-fitlabel-step` (`Real`): size of the steps for the `FitLabelValue()` on the label
+ * - `data-textfont` (`Text`): font of the label
+ * - `data-textprefix` (`Text`): prefix of the label
+ * - `data-textcolor` (`Text`): color of the label
+ * - `data-maxline` (`Integer`): maximum number of lines of the label
+ * - `data-linespacing` (`Real`): space between the lines of the label
+ * - `data-autonewline` (`Boolean`): create a new line if there's not enough space to display the text on a single line
+ * - `data-filter-profanities` (`Text`): filter profanities in the label
+ * - `data-translate` (`Boolean`): translate the content of the label even if the text does not have a translation marker
+ * - `data-bgcolor` (`Text`): background color of the quad
+ * - `data-colorize` (`Text`): colorize color of the quad
+ * - `data-modulatecolor` (`Text`): modulatecolor color of the quad
+ * - `data-image` (`Text`): url of the image of the quad
+ * - `data-alphamask` (`Text`): url of the alpha mask of the quad
+ * - `data-keepratio` (`Text`): ratio of the quad
+ * - `data-owner` (`Text`): the account id of the user that own the ressource and that could be blocked
+ * - `data-owners` (`Text`): the account ids separated by a space of the users that own the ressource and that could be blocked
+ */
+#Const Version "1.0.1"
+#Const ScriptName "Libs/Nadeo/CMGame/Components/ControlBlockList.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Properties {
+	Integer[] Dirty;
+	Integer Type;
+	Vec2 Size;
+	Text TextValue;
+	Text TextValueBlocked;
+	Text TTS_AltText;
+	Text TTS_AltTextBlocked;
+	Real TextSize;
+	Real TextFitLabelMin;
+	Real TextFitLabelStep;
+	Text TextFont;
+	Text TextPrefix;
+	Vec3 TextColor;
+	Integer MaxLine;
+	Real LineSpacing;
+	Boolean AutoNewLine;
+	Real Opacity;
+	Integer OpacityAnimDuration;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Text[] Owners;
+	CMlLabel::EFilterProfanities FilterProfanities;
+	Vec3 BgColor;
+	Vec3 Colorize;
+	Vec3 ModulateColor;
+	Text ImageUrl;
+	Text AlphaMaskUrl;
+	CMlQuad::EKeepRatioMode KeepRatio;
+}
+#Struct K_Controls {
+	CMlFrame ControlBlockList_Component;
+	CMlLabel Label_Content;
+	CMlQuad Quad_Content;
+}
+#Struct K_ControlBlockList {
+	K_Controls Controls;
+	Boolean IsInitialized;
+	Boolean Private_IsBlocked_Redraw; //< Updated only after a redraw, do not expose this value outside of the component
+	K_Properties Properties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-cmgame-control-block-list" // Component name
+#Const P "CMGame_ControlBlockList::" // Prefix use to differentiate functions/variables in the script
+#Const Q "CMGame_ControlBlockList"
+
+//L16N [ControlBlockList] Text displayed instead of the content name when the creator of the content is in the user blocklist. eg: User A blocks user B. When user A see a content (track, skin, ...) created by user B, "Blocked content" will be displayed instead of the name of the content.
+#Const C_DefaultTextValueBlocked _("Blocked content")
+#Const C_DefaultBgColorBlocked <0., 0., 0.>
+// We must use an image and not a bgcolor for blocked content otherwise the alpha mask won't be applied properly
+#Const C_DefaultImageUrlBlocked "file://Media/Manialinks/Nadeo/CMGame/Components/BlackPixel.dds"
+#Const C_DefaultColorize <-1., -1., -1.>
+#Const C_DefaultModulateColor <1., 1., 1.>
+
+#Const C_Anim_Null -1
+#Const C_Anim_Instant 0
+
+#Const C_IsDebugEnabled False
+#Const C_DebugBlockEveryone False
+#Const C_DebugUnblockEveryone False
+#Const C_DebugBlockList [
+	"9defb3a8-9f5a-44cf-88c6-e72c190f6d7c",
+	"ne-zqJ9aRM-IxucsGQ9tfA",
+	"e6e4ab93-5fcd-44e2-b980-cc76d7e16ac9",
+	"aa5b9808-a028-428e-add1-8078e4bccb42",
+	"403b50a4-e71e-4a3d-8f0c-62b7a7e4f284"
+]
+
+#Const C_Class_ControlBlockList "cmgame-control-block-list_control-block-list"
+#Const C_Class_ControlBlockList_Label "cmgame-control-block-list_control-block-list-label"
+#Const C_Class_ControlBlockList_Quad "cmgame-control-block-list_control-block-list-quad"
+#Const C_Id_LabelContent "cmgame-control-block-list_label-content"
+#Const C_Id_LabelContentTranslate "cmgame-control-block-list_label-content-translate"
+#Const C_Id_QuadContent "cmgame-control-block-list_quad-content"
+
+#Const C_Property_All 0
+#Const C_Property_Type 1
+#Const C_Property_Size 2
+#Const C_Property_TextValue 3
+#Const C_Property_TextValueBlocked 4
+#Const C_Property_TextSize 5
+#Const C_Property_TextFitLabelMin 6
+#Const C_Property_TextFitLabelStep 7
+#Const C_Property_TextFont 8
+#Const C_Property_TextPrefix 9
+#Const C_Property_TextColor 10
+#Const C_Property_Opacity 11
+#Const C_Property_HAlign 12
+#Const C_Property_VAlign 13
+#Const C_Property_Owners 14
+#Const C_Property_FilterProfanities 15
+#Const C_Property_MaxLine 16
+#Const C_Property_LineSpacing 17
+#Const C_Property_AutoNewLine 18
+#Const C_Property_BgColor 19
+#Const C_Property_ImageUrl 20
+#Const C_Property_AlphaMaskUrl 21
+#Const C_Property_Colorize 22
+#Const C_Property_ModulateColor 23
+#Const C_Property_KeepRatio 24
+#Const C_Property_TTS_AltText 25
+#Const C_Property_TTS_AltTextBlocked 26
+
+#Const C_Type_Null 0
+#Const C_Type_Label 1
+#Const C_Type_Quad 2
+
+#Const C_ControlBlockList_Null K_ControlBlockList {
+	Controls = K_Controls {},
+	IsInitialized = False,
+	Private_IsBlocked_Redraw = False,
+	Properties = K_Properties {
+		Dirty = [0], //< [C_Property_All]
+		Type = 0, //< C_Type_Null
+		Size = <0., 0.>,
+		TextValue = "",
+		TextValueBlocked = "",
+		TTS_AltText = "",
+		TTS_AltTextBlocked = "",
+		TextSize = 2.,
+		TextFitLabelMin = 2.,
+		TextFitLabelStep = 0.,
+		TextFont = "",
+		TextPrefix = "",
+		TextColor = <1., 1., 1.>,
+		MaxLine = -1,
+		LineSpacing = 1.,
+		AutoNewLine = False,
+		Opacity = 1.,
+		OpacityAnimDuration = 0,
+		HAlign = CMlControl::AlignHorizontal::Left,
+		VAlign = CMlControl::AlignVertical::Top,
+		Owners = [],
+		FilterProfanities = CMlLabel::EFilterProfanities::Never,
+		BgColor = <0., 0., 0.>,
+		Colorize = <-1., -1., -1.>,
+		ModulateColor = <1., 1., 1.>,
+		ImageUrl = "",
+		AlphaMaskUrl = "",
+		KeepRatio = CMlQuad::EKeepRatioMode::Inactive
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the manialink of the component
+Text GetManialink() {
+	return """
+<frame class="{{{C_Class_ControlBlockList}}}">
+	<!--
+	We MUST initialize the label with a textprefix value.
+	Otherwise the `TextPrefix` property initialization in the
+	script will be bugged. The latest `TextPrefix` applied
+	will also be applied to all other labels that had their
+	`TextPrefix` updated.
+	-->
+	<label id="{{{C_Id_LabelContent}}}" class="{{{C_Class_ControlBlockList_Label}}}" hidden="1" textprefix="$z" />
+	<label id="{{{C_Id_LabelContentTranslate}}}" class="{{{C_Class_ControlBlockList_Label}}}" hidden="1" textprefix="$z" translate="1" />
+	<quad id="{{{C_Id_QuadContent}}}" class="{{{C_Class_ControlBlockList_Quad}}}" />
+</frame>
+	""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check that the component is initialized
+Void Private_AssertValidComponent(CMlFrame _Frame_ControlBlockList, K_ControlBlockList _ControlBlockList) {
+	assert(_ControlBlockList.IsInitialized, "The control '"^_Frame_ControlBlockList.ControlId^_Frame_ControlBlockList.Id^"' is not a valid ControlBlockList component");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the property is dirty
+Boolean Private_IsDirty(Integer[] _Dirty, Integer _PropertyId) {
+	return (
+		_Dirty.exists(_PropertyId) ||
+		_Dirty.exists(C_Property_All) ||
+		_Dirty.exists(C_Property_Type)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the content should be blocked
+Boolean IsBlocked(CMlScript _This, Text[] _Owners) {
+	foreach (Owner in _Owners) {
+		if (
+			Owner != "" &&
+			_This.UserMgr != Null && (
+				(
+					C_IsDebugEnabled &&
+					!C_DebugUnblockEveryone &&
+					(C_DebugBlockEveryone || C_DebugBlockList.exists(Owner))
+				) || (
+					!C_IsDebugEnabled &&
+					_This.UserMgr.MainUser != Null &&
+					!_This.UserMgr.Blocklist_CanViewUGC(_This.UserMgr.MainUser.Id, Owner)
+				)
+			)
+		) {
+			return True;
+		}
+	}
+	return False;
+}
+Boolean IsBlocked(CMlScript _This, Text _Owner) {
+	return IsBlocked(_This, [_Owner]);
+}
+
+K_ControlBlockList Private_RedrawLabel(CMlScript _This, K_ControlBlockList _ControlBlockList, Boolean _IsBlockedUpdated) {
+	declare K_ControlBlockList ControlBlockList = _ControlBlockList;
+	declare Integer AnimDuration = C_Anim_Null;
+	declare Boolean NeedFitLabel = False;
+
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_Size)) {
+		NeedFitLabel = True;
+		ControlBlockList.Controls.Label_Content.Size = ControlBlockList.Properties.Size;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_FilterProfanities)) {
+		NeedFitLabel = True;
+		ControlBlockList.Controls.Label_Content.FilterProfanities = ControlBlockList.Properties.FilterProfanities;
+	}
+	if (
+		Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_TextValue) ||
+		Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_TextValueBlocked) ||
+		_IsBlockedUpdated
+	) {
+		NeedFitLabel = True;
+		if (ControlBlockList.Private_IsBlocked_Redraw) {
+			ControlBlockList.Controls.Label_Content.Value = Tools::Ternary(
+				ControlBlockList.Properties.TextValueBlocked == "",
+				C_DefaultTextValueBlocked,
+				ControlBlockList.Properties.TextValueBlocked
+			);
+		} else {
+			ControlBlockList.Controls.Label_Content.Value = ControlBlockList.Properties.TextValue;
+		}
+	}
+	if (
+		Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_TTS_AltText) ||
+		Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_TTS_AltTextBlocked) ||
+		_IsBlockedUpdated
+	) {
+		if (ControlBlockList.Private_IsBlocked_Redraw && ControlBlockList.Properties.TTS_AltTextBlocked != "") {
+			ControlBlockList.Controls.Label_Content.TTS_AltText = ControlBlockList.Properties.TTS_AltTextBlocked;
+		} else {
+			ControlBlockList.Controls.Label_Content.TTS_AltText = ControlBlockList.Properties.TTS_AltText;
+		}
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_TextSize)) {
+		NeedFitLabel = True;
+		ControlBlockList.Controls.Label_Content.TextSizeReal = ControlBlockList.Properties.TextSize;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_TextFont)) {
+		NeedFitLabel = True;
+		ControlBlockList.Controls.Label_Content.TextFont = ControlBlockList.Properties.TextFont;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_TextPrefix)) {
+		NeedFitLabel = True;
+		ControlBlockList.Controls.Label_Content.TextPrefix = ControlBlockList.Properties.TextPrefix;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_TextColor)) {
+		ControlBlockList.Controls.Label_Content.TextColor = ControlBlockList.Properties.TextColor;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_MaxLine)) {
+		NeedFitLabel = True;
+		ControlBlockList.Controls.Label_Content.MaxLine = ControlBlockList.Properties.MaxLine;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_LineSpacing)) {
+		NeedFitLabel = True;
+		ControlBlockList.Controls.Label_Content.LineSpacing = ControlBlockList.Properties.LineSpacing;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_AutoNewLine)) {
+		NeedFitLabel = True;
+		ControlBlockList.Controls.Label_Content.AutoNewLine = ControlBlockList.Properties.AutoNewLine;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_Opacity)) {
+		if (ControlBlockList.Properties.OpacityAnimDuration > 0) {
+			AnimDuration = ML::Max(C_Anim_Instant, ControlBlockList.Properties.OpacityAnimDuration);
+		} else {
+			AnimDuration = C_Anim_Instant;
+		}
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_HAlign)) {
+		ControlBlockList.Controls.Label_Content.HorizontalAlign = ControlBlockList.Properties.HAlign;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_VAlign)) {
+		ControlBlockList.Controls.Label_Content.VerticalAlign = ControlBlockList.Properties.VAlign;
+	}
+
+	if (
+		NeedFitLabel ||
+		Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_TextFitLabelMin) ||
+		Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_TextFitLabelStep)
+	) {
+		if (ControlBlockList.Properties.TextSize > ControlBlockList.Properties.TextFitLabelMin && ControlBlockList.Properties.TextFitLabelStep > 0.) {
+			Tools::FitLabelValue(ControlBlockList.Controls.Label_Content, ControlBlockList.Properties.TextSize, ControlBlockList.Properties.TextFitLabelMin, ControlBlockList.Properties.TextFitLabelStep);
+		}
+	}
+
+	if (AnimDuration == C_Anim_Instant) {
+		_This.AnimMgr.Flush(ControlBlockList.Controls.Label_Content);
+		ControlBlockList.Controls.Label_Content.Opacity = ControlBlockList.Properties.Opacity;
+	} else if (AnimDuration > C_Anim_Instant) {
+		_This.AnimMgr.Flush(ControlBlockList.Controls.Label_Content);
+		_This.AnimMgr.Add(
+			ControlBlockList.Controls.Label_Content,
+			"""<a opacity="{{{ControlBlockList.Properties.Opacity}}}" />""",
+			AnimDuration,
+			CAnimManager::EAnimManagerEasing::QuadOut
+		);
+	}
+
+	return ControlBlockList;
+}
+
+K_ControlBlockList Private_RedrawQuad(CMlScript _This, K_ControlBlockList _ControlBlockList, Boolean _IsBlockedUpdated) {
+	declare K_ControlBlockList ControlBlockList = _ControlBlockList;
+	declare Integer AnimDuration = C_Anim_Null;
+
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_Size)) {
+		ControlBlockList.Controls.Quad_Content.Size = ControlBlockList.Properties.Size;
+	}
+	if (
+		Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_BgColor) ||
+		_IsBlockedUpdated
+	) {
+		if (ControlBlockList.Private_IsBlocked_Redraw) {
+			ControlBlockList.Controls.Quad_Content.BgColor = C_DefaultBgColorBlocked;
+		} else {
+			ControlBlockList.Controls.Quad_Content.BgColor = ControlBlockList.Properties.BgColor;
+		}
+	}
+	if (
+		Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_Colorize) ||
+		Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_ModulateColor) ||
+		_IsBlockedUpdated
+	) {
+		// Applying Colorize will reset ModulateColor and applying ModulateColor will reset Colorize
+		// So we must apply only one at a time
+		if (ControlBlockList.Private_IsBlocked_Redraw) {
+			ControlBlockList.Controls.Quad_Content.Colorize = C_DefaultColorize;
+			ControlBlockList.Controls.Quad_Content.ModulateColor = C_DefaultModulateColor;
+		} else if (ControlBlockList.Properties.Colorize != C_DefaultColorize) {
+			ControlBlockList.Controls.Quad_Content.Colorize = ControlBlockList.Properties.Colorize;
+		} else if (ControlBlockList.Properties.ModulateColor != C_DefaultModulateColor) {
+			ControlBlockList.Controls.Quad_Content.ModulateColor = ControlBlockList.Properties.ModulateColor;
+		} else {
+			ControlBlockList.Controls.Quad_Content.Colorize = C_DefaultColorize;
+			ControlBlockList.Controls.Quad_Content.ModulateColor = C_DefaultModulateColor;
+		}
+	}
+	if (
+		Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_ImageUrl) ||
+		Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_AlphaMaskUrl) ||
+		_IsBlockedUpdated
+	) {
+		if (ControlBlockList.Private_IsBlocked_Redraw) {
+			ControlBlockList.Controls.Quad_Content.ImageUrl = C_DefaultImageUrlBlocked;
+		} else if (
+			ControlBlockList.Properties.ImageUrl == "" &&
+			ControlBlockList.Properties.AlphaMaskUrl != ""
+		) {
+			// When dynamically assigning an `AlphaMaskUrl`, we always have to provide an image url
+			// otherwise the full quad will be displayed without applying the alpha mask
+			ControlBlockList.Controls.Quad_Content.ImageUrl = C_DefaultImageUrlBlocked;
+		} else {
+			ControlBlockList.Controls.Quad_Content.ImageUrl = ControlBlockList.Properties.ImageUrl;
+		}
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_AlphaMaskUrl)) {
+		ControlBlockList.Controls.Quad_Content.AlphaMaskUrl = ControlBlockList.Properties.AlphaMaskUrl;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_KeepRatio)) {
+		ControlBlockList.Controls.Quad_Content.KeepRatio = ControlBlockList.Properties.KeepRatio;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_Opacity)) {
+		if (ControlBlockList.Properties.OpacityAnimDuration > 0) {
+			AnimDuration = ML::Max(C_Anim_Instant, ControlBlockList.Properties.OpacityAnimDuration);
+		} else {
+			AnimDuration = C_Anim_Instant;
+		}
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_HAlign)) {
+		ControlBlockList.Controls.Quad_Content.HorizontalAlign = ControlBlockList.Properties.HAlign;
+	}
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_VAlign)) {
+		ControlBlockList.Controls.Quad_Content.VerticalAlign = ControlBlockList.Properties.VAlign;
+	}
+
+	if (AnimDuration == C_Anim_Instant) {
+		_This.AnimMgr.Flush(ControlBlockList.Controls.Quad_Content);
+		ControlBlockList.Controls.Quad_Content.Opacity = ControlBlockList.Properties.Opacity;
+	} else if (AnimDuration > C_Anim_Instant) {
+		_This.AnimMgr.Flush(ControlBlockList.Controls.Quad_Content);
+		_This.AnimMgr.Add(
+			ControlBlockList.Controls.Quad_Content,
+			"""<a opacity="{{{ControlBlockList.Properties.Opacity}}}" />""",
+			AnimDuration,
+			CAnimManager::EAnimManagerEasing::QuadOut
+		);
+	}
+
+	return ControlBlockList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw the component with its latest properties
+K_ControlBlockList Private_Redraw(CMlScript _This, K_ControlBlockList _ControlBlockList) {
+	declare K_ControlBlockList ControlBlockList = _ControlBlockList;
+
+	declare Boolean WasBlocked = ControlBlockList.Private_IsBlocked_Redraw;
+	ControlBlockList.Private_IsBlocked_Redraw = IsBlocked(_This, ControlBlockList.Properties.Owners);
+	declare Boolean IsBlockedUpdated = (ControlBlockList.Private_IsBlocked_Redraw != WasBlocked);
+
+	if (Private_IsDirty(ControlBlockList.Properties.Dirty, C_Property_Type)) {
+		ControlBlockList.Controls.Label_Content.Visible = (ControlBlockList.Properties.Type == C_Type_Label);
+		ControlBlockList.Controls.Quad_Content.Visible = (ControlBlockList.Properties.Type == C_Type_Quad);
+	}
+
+	if (ControlBlockList.Properties.Type == C_Type_Label) {
+		ControlBlockList = Private_RedrawLabel(_This, ControlBlockList, IsBlockedUpdated);
+	}
+
+	if (ControlBlockList.Properties.Type == C_Type_Quad) {
+		ControlBlockList = Private_RedrawQuad(_This, ControlBlockList, IsBlockedUpdated);
+	}
+
+	ControlBlockList.Properties.Dirty = [];
+
+	return ControlBlockList;
+}
+Void Redraw(CMlScript _This, CMlFrame _Frame_ControlBlockList) {
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Frame_ControlBlockList = C_ControlBlockList_Null;
+	CMGame_ControlBlockList_ControlBlockList = Private_Redraw(_This, CMGame_ControlBlockList_ControlBlockList);
+}
+
+Boolean Private_IsPropertyEqual(K_Properties _PropertiesA, K_Properties _PropertiesB, Integer _PropertyId) {
+	switch (_PropertyId) {
+		case C_Property_Type: return _PropertiesA.Type == _PropertiesB.Type;
+		case C_Property_Size: return _PropertiesA.Size == _PropertiesB.Size;
+		case C_Property_TextValue: return _PropertiesA.TextValue == _PropertiesB.TextValue;
+		case C_Property_TextValueBlocked: return _PropertiesA.TextValueBlocked == _PropertiesB.TextValueBlocked;
+		case C_Property_TTS_AltText: return _PropertiesA.TTS_AltText == _PropertiesB.TTS_AltText;
+		case C_Property_TTS_AltTextBlocked: return _PropertiesA.TTS_AltTextBlocked == _PropertiesB.TTS_AltTextBlocked;
+		case C_Property_TextSize: return _PropertiesA.TextSize == _PropertiesB.TextSize;
+		case C_Property_TextFitLabelMin: return _PropertiesA.TextFitLabelMin == _PropertiesB.TextFitLabelMin;
+		case C_Property_TextFitLabelStep: return _PropertiesA.TextFitLabelStep == _PropertiesB.TextFitLabelStep;
+		case C_Property_TextFont: return _PropertiesA.TextFont == _PropertiesB.TextFont;
+		case C_Property_TextPrefix: return _PropertiesA.TextPrefix == _PropertiesB.TextPrefix;
+		case C_Property_TextColor: return _PropertiesA.TextColor == _PropertiesB.TextColor;
+		case C_Property_MaxLine: return _PropertiesA.MaxLine == _PropertiesB.MaxLine;
+		case C_Property_LineSpacing: return _PropertiesA.LineSpacing == _PropertiesB.LineSpacing;
+		case C_Property_AutoNewLine: return _PropertiesA.AutoNewLine == _PropertiesB.AutoNewLine;
+		case C_Property_Opacity: return (_PropertiesA.Opacity == _PropertiesB.Opacity && _PropertiesA.OpacityAnimDuration == _PropertiesB.OpacityAnimDuration);
+		case C_Property_HAlign: return _PropertiesA.HAlign == _PropertiesB.HAlign;
+		case C_Property_VAlign: return _PropertiesA.VAlign == _PropertiesB.VAlign;
+		case C_Property_Owners: return _PropertiesA.Owners == _PropertiesB.Owners;
+		case C_Property_FilterProfanities: return _PropertiesA.FilterProfanities == _PropertiesB.FilterProfanities;
+		case C_Property_BgColor: return _PropertiesA.BgColor == _PropertiesB.BgColor;
+		case C_Property_Colorize: return _PropertiesA.Colorize == _PropertiesB.Colorize;
+		case C_Property_ModulateColor: return _PropertiesA.ModulateColor == _PropertiesB.ModulateColor;
+		case C_Property_ImageUrl: return _PropertiesA.ImageUrl == _PropertiesB.ImageUrl;
+		case C_Property_AlphaMaskUrl: return _PropertiesA.AlphaMaskUrl == _PropertiesB.AlphaMaskUrl;
+		case C_Property_KeepRatio: return _PropertiesA.KeepRatio == _PropertiesB.KeepRatio;
+	}
+	return False;
+}
+
+K_Properties Private_MergeProperty(K_Properties _PropertiesA, K_Properties _PropertiesB, Integer _PropertyId) {
+	declare K_Properties Result = _PropertiesA;
+	switch (_PropertyId) {
+		case C_Property_Type: Result.Type = _PropertiesB.Type;
+		case C_Property_Size: Result.Size = _PropertiesB.Size;
+		case C_Property_TextValue: Result.TextValue = _PropertiesB.TextValue;
+		case C_Property_TextValueBlocked: Result.TextValueBlocked = _PropertiesB.TextValueBlocked;
+		case C_Property_TTS_AltText: Result.TTS_AltText = _PropertiesB.TTS_AltText;
+		case C_Property_TTS_AltTextBlocked: Result.TTS_AltTextBlocked = _PropertiesB.TTS_AltTextBlocked;
+		case C_Property_TextSize: Result.TextSize = _PropertiesB.TextSize;
+		case C_Property_TextFitLabelMin: Result.TextFitLabelMin = _PropertiesB.TextFitLabelMin;
+		case C_Property_TextFitLabelStep: Result.TextFitLabelStep = _PropertiesB.TextFitLabelStep;
+		case C_Property_TextFont: Result.TextFont = _PropertiesB.TextFont;
+		case C_Property_TextPrefix: Result.TextPrefix = _PropertiesB.TextPrefix;
+		case C_Property_TextColor: Result.TextColor = _PropertiesB.TextColor;
+		case C_Property_MaxLine: Result.MaxLine = _PropertiesB.MaxLine;
+		case C_Property_LineSpacing: Result.LineSpacing = _PropertiesB.LineSpacing;
+		case C_Property_AutoNewLine: Result.AutoNewLine = _PropertiesB.AutoNewLine;
+		case C_Property_Opacity: { Result.Opacity = _PropertiesB.Opacity; Result.OpacityAnimDuration = _PropertiesB.OpacityAnimDuration; }
+		case C_Property_HAlign: Result.HAlign = _PropertiesB.HAlign;
+		case C_Property_VAlign: Result.VAlign = _PropertiesB.VAlign;
+		case C_Property_Owners: Result.Owners = _PropertiesB.Owners;
+		case C_Property_FilterProfanities: Result.FilterProfanities = _PropertiesB.FilterProfanities;
+		case C_Property_BgColor: Result.BgColor = _PropertiesB.BgColor;
+		case C_Property_Colorize: Result.Colorize = _PropertiesB.Colorize;
+		case C_Property_ModulateColor: Result.ModulateColor = _PropertiesB.ModulateColor;
+		case C_Property_ImageUrl: Result.ImageUrl = _PropertiesB.ImageUrl;
+		case C_Property_AlphaMaskUrl: Result.AlphaMaskUrl = _PropertiesB.AlphaMaskUrl;
+		case C_Property_KeepRatio: Result.KeepRatio = _PropertiesB.KeepRatio;
+	}
+	if (!Result.Dirty.exists(_PropertyId)) {
+		Result.Dirty.add(_PropertyId);
+	}
+	return Result;
+}
+
+K_ControlBlockList Private_SetProperties(K_ControlBlockList _ControlBlockList, K_Properties _Properties) {
+	declare K_ControlBlockList ControlBlockList = _ControlBlockList;
+	foreach (PropertyId in _Properties.Dirty) {
+		if (!Private_IsPropertyEqual(_ControlBlockList.Properties, _Properties, PropertyId)) {
+			ControlBlockList.Properties = Private_MergeProperty(ControlBlockList.Properties, _Properties, PropertyId);
+		}
+	}
+	return ControlBlockList;
+}
+Void SetProperties(CMlScript _This, CMlFrame _Frame_ControlBlockList, K_Properties _Properties, Boolean _Redraw) {
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Frame_ControlBlockList = C_ControlBlockList_Null;
+	Private_AssertValidComponent(_Frame_ControlBlockList, CMGame_ControlBlockList_ControlBlockList);
+	CMGame_ControlBlockList_ControlBlockList = Private_SetProperties(CMGame_ControlBlockList_ControlBlockList, _Properties);
+	if (_Redraw) {
+		CMGame_ControlBlockList_ControlBlockList = Private_Redraw(_This, CMGame_ControlBlockList_ControlBlockList);
+	}
+}
+Void SetProperties(CMlScript _This, CMlFrame _Frame_ControlBlockList, K_Properties _Properties) {
+	SetProperties(_This, _Frame_ControlBlockList, _Properties, True);
+}
+
+Void SetType(CMlScript _This, CMlFrame _Frame_ControlBlockList, Integer _Type, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_Type], Type = _Type }, _Redraw);
+}
+Void SetType(CMlScript _This, CMlFrame _Frame_ControlBlockList, Integer _Type) {
+	SetType(_This, _Frame_ControlBlockList, _Type, True);
+}
+
+Void SetSize(CMlScript _This, CMlFrame _Frame_ControlBlockList, Vec2 _Size, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_Size], Size = _Size }, _Redraw);
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_ControlBlockList, Vec2 _Size) {
+	SetSize(_This, _Frame_ControlBlockList, _Size, True);
+}
+Vec2 GetSize(CMlFrame _Frame_ControlBlockList) {
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Frame_ControlBlockList = C_ControlBlockList_Null;
+	Private_AssertValidComponent(_Frame_ControlBlockList, CMGame_ControlBlockList_ControlBlockList);
+	return CMGame_ControlBlockList_ControlBlockList.Properties.Size;
+}
+
+Void SetTextValue(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TextValue, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_TextValue], TextValue = _TextValue }, _Redraw);
+}
+Void SetTextValue(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TextValue) {
+	SetTextValue(_This, _Frame_ControlBlockList, _TextValue, True);
+}
+Text GetTextValue(CMlFrame _Frame_ControlBlockList) {
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Frame_ControlBlockList = C_ControlBlockList_Null;
+	Private_AssertValidComponent(_Frame_ControlBlockList, CMGame_ControlBlockList_ControlBlockList);
+	return CMGame_ControlBlockList_ControlBlockList.Properties.TextValue;
+}
+
+Void SetTextValueBlocked(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TextValueBlocked, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_TextValueBlocked], TextValueBlocked = _TextValueBlocked }, _Redraw);
+}
+Void SetTextValueBlocked(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TextValueBlocked) {
+	SetTextValueBlocked(_This, _Frame_ControlBlockList, _TextValueBlocked, True);
+}
+
+Void SetTTSAltText(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TTS_AltText, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_TTS_AltText], TTS_AltText = _TTS_AltText }, _Redraw);
+}
+Void SetTTSAltText(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TTS_AltText) {
+	SetTTSAltText(_This, _Frame_ControlBlockList, _TTS_AltText, True);
+}
+
+Void SetTTSAltTextBlocked(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TTS_AltTextBlocked, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_TTS_AltTextBlocked], TTS_AltTextBlocked = _TTS_AltTextBlocked }, _Redraw);
+}
+Void SetTTSAltTextBlocked(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TTS_AltTextBlocked) {
+	SetTTSAltTextBlocked(_This, _Frame_ControlBlockList, _TTS_AltTextBlocked, True);
+}
+
+Void SetTTSAltText(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TTS_AltText, Text _TTS_AltTextBlocked, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_TTS_AltText, C_Property_TTS_AltTextBlocked], TTS_AltText = _TTS_AltText, TTS_AltTextBlocked = _TTS_AltTextBlocked }, _Redraw);
+}
+Void SetTTSAltText(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TTS_AltText, Text _TTS_AltTextBlocked) {
+	SetTTSAltText(_This, _Frame_ControlBlockList, _TTS_AltText, _TTS_AltTextBlocked, True);
+}
+
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_ControlBlockList, Real _TextSize, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_TextSize], TextSize = _TextSize }, _Redraw);
+}
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_ControlBlockList, Real _TextSize) {
+	SetTextSize(_This, _Frame_ControlBlockList, _TextSize, True);
+}
+
+Void SetTextFitLabel(CMlScript _This, CMlFrame _Frame_ControlBlockList, Real _TextFitLabelMin, Real _TextFitLabelStep, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_TextFitLabelMin, C_Property_TextFitLabelStep], TextFitLabelMin = _TextFitLabelMin, TextFitLabelStep = _TextFitLabelStep }, _Redraw);
+}
+Void SetTextFitLabel(CMlScript _This, CMlFrame _Frame_ControlBlockList, Real _TextFitLabelMin, Real _TextFitLabelStep) {
+	SetTextFitLabel(_This, _Frame_ControlBlockList, _TextFitLabelMin, _TextFitLabelStep, True);
+}
+
+Void SetTextFont(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TextFont, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_TextFont], TextFont = _TextFont }, _Redraw);
+}
+Void SetTextFont(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TextFont) {
+	SetTextFont(_This, _Frame_ControlBlockList, _TextFont, True);
+}
+
+Void SetTextPrefix(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TextPrefix, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_TextPrefix], TextPrefix = _TextPrefix }, _Redraw);
+}
+Void SetTextPrefix(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TextPrefix) {
+	SetTextPrefix(_This, _Frame_ControlBlockList, _TextPrefix, True);
+}
+
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Vec3 _TextColor, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_TextColor], TextColor = _TextColor }, _Redraw);
+}
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TextColor, Boolean _Redraw) {
+	SetTextColor(_This, _Frame_ControlBlockList, CL::HexToRgb(_TextColor), _Redraw);
+}
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Vec3 _TextColor) {
+	SetTextColor(_This, _Frame_ControlBlockList, _TextColor, True);
+}
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _TextColor) {
+	SetTextColor(_This, _Frame_ControlBlockList, CL::HexToRgb(_TextColor));
+}
+
+Void SetMaxLine(CMlScript _This, CMlFrame _Frame_ControlBlockList, Integer _MaxLine, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_MaxLine], MaxLine = _MaxLine }, _Redraw);
+}
+Void SetMaxLine(CMlScript _This, CMlFrame _Frame_ControlBlockList, Integer _MaxLine) {
+	SetMaxLine(_This, _Frame_ControlBlockList, _MaxLine, True);
+}
+
+Void SetLineSpacing(CMlScript _This, CMlFrame _Frame_ControlBlockList, Real _LineSpacing, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_LineSpacing], LineSpacing = _LineSpacing }, _Redraw);
+}
+Void SetLineSpacing(CMlScript _This, CMlFrame _Frame_ControlBlockList, Real _LineSpacing) {
+	SetLineSpacing(_This, _Frame_ControlBlockList, _LineSpacing, True);
+}
+
+Void SetAutoNewLine(CMlScript _This, CMlFrame _Frame_ControlBlockList, Boolean _AutoNewLine, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_AutoNewLine], AutoNewLine = _AutoNewLine }, _Redraw);
+}
+Void SetAutoNewLine(CMlScript _This, CMlFrame _Frame_ControlBlockList, Boolean _AutoNewLine) {
+	SetAutoNewLine(_This, _Frame_ControlBlockList, _AutoNewLine, True);
+}
+
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ControlBlockList, Real _Opacity, Integer _AnimDuration, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_Opacity], Opacity = _Opacity, OpacityAnimDuration = _AnimDuration }, _Redraw);
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ControlBlockList, Real _Opacity, Integer _AnimDuration) {
+	SetOpacity(_This, _Frame_ControlBlockList, _Opacity, _AnimDuration, True);
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ControlBlockList, Real _Opacity, Boolean _Redraw) {
+	SetOpacity(_This, _Frame_ControlBlockList, _Opacity, 0, _Redraw);
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ControlBlockList, Real _Opacity) {
+	SetOpacity(_This, _Frame_ControlBlockList, _Opacity, 0, True);
+}
+
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_ControlBlockList, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_HAlign], HAlign = _HAlign }, _Redraw);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_ControlBlockList, CMlControl::AlignHorizontal _HAlign) {
+	SetHAlign(_This, _Frame_ControlBlockList, _HAlign, True);
+}
+
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_ControlBlockList, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_VAlign], VAlign = _VAlign }, _Redraw);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_ControlBlockList, CMlControl::AlignVertical _VAlign) {
+	SetVAlign(_This, _Frame_ControlBlockList, _VAlign, True);
+}
+
+Void SetOwners(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text[] _OwnersAccountIds, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_Owners], Owners = _OwnersAccountIds }, _Redraw);
+}
+Void SetOwners(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text[] _OwnersAccountIds) {
+	SetOwners(_This, _Frame_ControlBlockList, _OwnersAccountIds, True);
+}
+Void SetOwner(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _OwnerAccountId, Boolean _Redraw) {
+	SetOwners(_This, _Frame_ControlBlockList, [_OwnerAccountId], _Redraw);
+}
+Void SetOwner(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _OwnerAccountId) {
+	SetOwners(_This, _Frame_ControlBlockList, [_OwnerAccountId]);
+}
+
+Void SetOwnersAndTextValue(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text[] _OwnersAccountIds, Text _TextValue, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_Owners, C_Property_TextValue], Owners = _OwnersAccountIds, TextValue = _TextValue }, _Redraw);
+}
+Void SetOwnersAndTextValue(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text[] _OwnersAccountIds, Text _TextValue) {
+	SetOwnersAndTextValue(_This, _Frame_ControlBlockList, _OwnersAccountIds, _TextValue, True);
+}
+Void SetOwnerAndTextValue(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _OwnerAccountId, Text _TextValue, Boolean _Redraw) {
+	SetOwnersAndTextValue(_This, _Frame_ControlBlockList, [_OwnerAccountId], _TextValue, _Redraw);
+}
+Void SetOwnerAndTextValue(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _OwnerAccountId, Text _TextValue) {
+	SetOwnersAndTextValue(_This, _Frame_ControlBlockList, [_OwnerAccountId], _TextValue);
+}
+
+Void SetFilterProfanities(CMlScript _This, CMlFrame _Frame_ControlBlockList, CMlLabel::EFilterProfanities _FilterProfanities, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_FilterProfanities], FilterProfanities = _FilterProfanities }, _Redraw);
+}
+Void SetFilterProfanities(CMlScript _This, CMlFrame _Frame_ControlBlockList, CMlLabel::EFilterProfanities _FilterProfanities) {
+	SetFilterProfanities(_This, _Frame_ControlBlockList, _FilterProfanities, True);
+}
+
+Void SetBgColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Vec3 _BgColor, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_BgColor], BgColor = _BgColor }, _Redraw);
+}
+Void SetBgColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _BgColor, Boolean _Redraw) {
+	SetBgColor(_This, _Frame_ControlBlockList, CL::HexToRgb(_BgColor), _Redraw);
+}
+Void SetBgColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Vec3 _BgColor) {
+	SetBgColor(_This, _Frame_ControlBlockList, _BgColor, True);
+}
+Void SetBgColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _BgColor) {
+	SetBgColor(_This, _Frame_ControlBlockList, CL::HexToRgb(_BgColor));
+}
+
+Void SetColorize(CMlScript _This, CMlFrame _Frame_ControlBlockList, Vec3 _Colorize, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_Colorize], Colorize = _Colorize }, _Redraw);
+}
+Void SetColorize(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _Colorize, Boolean _Redraw) {
+	SetColorize(_This, _Frame_ControlBlockList, CL::HexToRgb(_Colorize), _Redraw);
+}
+Void SetColorize(CMlScript _This, CMlFrame _Frame_ControlBlockList, Vec3 _Colorize) {
+	SetColorize(_This, _Frame_ControlBlockList, _Colorize, True);
+}
+Void SetColorize(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _Colorize) {
+	SetColorize(_This, _Frame_ControlBlockList, CL::HexToRgb(_Colorize));
+}
+
+Void SetModulateColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Vec3 _ModulateColor, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_ModulateColor], ModulateColor = _ModulateColor }, _Redraw);
+}
+Void SetModulateColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _ModulateColor, Boolean _Redraw) {
+	SetModulateColor(_This, _Frame_ControlBlockList, CL::HexToRgb(_ModulateColor), _Redraw);
+}
+Void SetModulateColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Vec3 _ModulateColor) {
+	SetModulateColor(_This, _Frame_ControlBlockList, _ModulateColor, True);
+}
+Void SetModulateColor(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _ModulateColor) {
+	SetModulateColor(_This, _Frame_ControlBlockList, CL::HexToRgb(_ModulateColor));
+}
+
+Void SetImageUrl(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _ImageUrl, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_ImageUrl], ImageUrl = _ImageUrl }, _Redraw);
+}
+Void SetImageUrl(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _ImageUrl) {
+	SetImageUrl(_This, _Frame_ControlBlockList, _ImageUrl, True);
+}
+Text GetImageUrl(CMlFrame _Frame_ControlBlockList) {
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Frame_ControlBlockList = C_ControlBlockList_Null;
+	Private_AssertValidComponent(_Frame_ControlBlockList, CMGame_ControlBlockList_ControlBlockList);
+	return CMGame_ControlBlockList_ControlBlockList.Properties.ImageUrl;
+}
+
+Void SetOwnersAndImageUrl(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text[] _OwnersAccountIds, Text _ImageUrl, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_Owners, C_Property_ImageUrl], Owners = _OwnersAccountIds, ImageUrl = _ImageUrl }, _Redraw);
+}
+Void SetOwnersAndImageUrl(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text[] _OwnersAccountIds, Text _ImageUrl) {
+	SetOwnersAndImageUrl(_This, _Frame_ControlBlockList, _OwnersAccountIds, _ImageUrl, True);
+}
+Void SetOwnerAndImageUrl(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _OwnerAccountId, Text _ImageUrl, Boolean _Redraw) {
+	SetOwnersAndImageUrl(_This, _Frame_ControlBlockList, [_OwnerAccountId], _ImageUrl, _Redraw);
+}
+Void SetOwnerAndImageUrl(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _OwnerAccountId, Text _ImageUrl) {
+	SetOwnersAndImageUrl(_This, _Frame_ControlBlockList, [_OwnerAccountId], _ImageUrl);
+}
+
+Void SetAlphaMaskUrl(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _AlphaMaskUrl, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_AlphaMaskUrl], AlphaMaskUrl = _AlphaMaskUrl }, _Redraw);
+}
+Void SetAlphaMaskUrl(CMlScript _This, CMlFrame _Frame_ControlBlockList, Text _AlphaMaskUrl) {
+	SetAlphaMaskUrl(_This, _Frame_ControlBlockList, _AlphaMaskUrl, True);
+}
+
+Void SetKeepRatio(CMlScript _This, CMlFrame _Frame_ControlBlockList, CMlQuad::EKeepRatioMode _KeepRatio, Boolean _Redraw) {
+	SetProperties(_This, _Frame_ControlBlockList, K_Properties { Dirty = [C_Property_KeepRatio], KeepRatio = _KeepRatio }, _Redraw);
+}
+Void SetKeepRatio(CMlScript _This, CMlFrame _Frame_ControlBlockList, CMlQuad::EKeepRatioMode _KeepRatio) {
+	SetKeepRatio(_This, _Frame_ControlBlockList, _KeepRatio, True);
+}
+
+Void Private_InitializeControlBlockList(CMlScript _This, CMlFrame _Frame_ControlBlockList) {
+	assert(_Frame_ControlBlockList.DataAttributeExists("type"), "The ControlBlockList component '"^_Frame_ControlBlockList.ControlId^_Frame_ControlBlockList.Id^"' must have its 'data-type' attribute set");
+	assert(_Frame_ControlBlockList.DataAttributeExists("size"), "The ControlBlockList component '"^_Frame_ControlBlockList.ControlId^_Frame_ControlBlockList.Id^"' must have its 'data-size' attribute set");
+
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Frame_ControlBlockList = C_ControlBlockList_Null;
+	CMGame_ControlBlockList_ControlBlockList = C_ControlBlockList_Null;
+
+	declare Text LabelContentId = C_Id_LabelContent;
+	if (
+		_Frame_ControlBlockList.DataAttributeExists("translate") &&
+		Tools::TextToBoolean(_Frame_ControlBlockList.DataAttributeGet("translate"))
+	) {
+		LabelContentId = C_Id_LabelContentTranslate;
+	}
+
+	CMGame_ControlBlockList_ControlBlockList.Controls = K_Controls {
+		ControlBlockList_Component = _Frame_ControlBlockList,
+		Label_Content = (_Frame_ControlBlockList.GetFirstChild(LabelContentId) as CMlLabel),
+		Quad_Content = (_Frame_ControlBlockList.GetFirstChild(C_Id_QuadContent) as CMlQuad)
+	};
+	CMGame_ControlBlockList_ControlBlockList.Controls.Label_Content.Visible = True;
+
+	declare K_Properties DataProperties = K_Properties {
+		Dirty = [C_Property_Type, C_Property_Size],
+		Type = TL::ToInteger(_Frame_ControlBlockList.DataAttributeGet("type")),
+		Size = Tools::TextToVec2(_Frame_ControlBlockList.DataAttributeGet("size"))
+	};
+	if (_Frame_ControlBlockList.DataAttributeExists("text")) {
+		DataProperties.Dirty.add(C_Property_TextValue);
+		DataProperties.TextValue = _Frame_ControlBlockList.DataAttributeGet("text");
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("text-blocked")) {
+		DataProperties.Dirty.add(C_Property_TextValueBlocked);
+		DataProperties.TextValueBlocked = _Frame_ControlBlockList.DataAttributeGet("text-blocked");
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("tts-alttext")) {
+		DataProperties.Dirty.add(C_Property_TTS_AltText);
+		DataProperties.TTS_AltText = _Frame_ControlBlockList.DataAttributeGet("tts-alttext");
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("tts-alttext-blocked")) {
+		DataProperties.Dirty.add(C_Property_TTS_AltTextBlocked);
+		DataProperties.TTS_AltTextBlocked = _Frame_ControlBlockList.DataAttributeGet("tts-alttext-blocked");
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("textsize")) {
+		DataProperties.Dirty.add(C_Property_TextSize);
+		DataProperties.TextSize = TL::ToReal(_Frame_ControlBlockList.DataAttributeGet("textsize"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("textsize-fitlabel-min")) {
+		DataProperties.Dirty.add(C_Property_TextFitLabelMin);
+		DataProperties.TextFitLabelMin = TL::ToReal(_Frame_ControlBlockList.DataAttributeGet("textsize-fitlabel-min"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("textsize-fitlabel-step")) {
+		DataProperties.Dirty.add(C_Property_TextFitLabelStep);
+		DataProperties.TextFitLabelStep = TL::ToReal(_Frame_ControlBlockList.DataAttributeGet("textsize-fitlabel-step"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("textfont")) {
+		DataProperties.Dirty.add(C_Property_TextFont);
+		DataProperties.TextFont = _Frame_ControlBlockList.DataAttributeGet("textfont");
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("textprefix")) {
+		DataProperties.Dirty.add(C_Property_TextPrefix);
+		DataProperties.TextPrefix = _Frame_ControlBlockList.DataAttributeGet("textprefix");
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("textcolor")) {
+		DataProperties.Dirty.add(C_Property_TextColor);
+		DataProperties.TextColor = CL::HexToRgb(_Frame_ControlBlockList.DataAttributeGet("textcolor"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("maxline")) {
+		DataProperties.Dirty.add(C_Property_MaxLine);
+		DataProperties.MaxLine = TL::ToInteger(_Frame_ControlBlockList.DataAttributeGet("maxline"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("linespacing")) {
+		DataProperties.Dirty.add(C_Property_LineSpacing);
+		DataProperties.LineSpacing = TL::ToReal(_Frame_ControlBlockList.DataAttributeGet("linespacing"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("autonewline")) {
+		DataProperties.Dirty.add(C_Property_AutoNewLine);
+		DataProperties.AutoNewLine = Tools::TextToBoolean(_Frame_ControlBlockList.DataAttributeGet("autonewline"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("opacity")) {
+		DataProperties.Dirty.add(C_Property_Opacity);
+		DataProperties.Opacity = TL::ToReal(_Frame_ControlBlockList.DataAttributeGet("opacity"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("halign")) {
+		DataProperties.Dirty.add(C_Property_HAlign);
+		DataProperties.HAlign = Tools::TextToHAlign2(_Frame_ControlBlockList.DataAttributeGet("halign"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("valign")) {
+		DataProperties.Dirty.add(C_Property_VAlign);
+		DataProperties.VAlign = Tools::TextToVAlign2(_Frame_ControlBlockList.DataAttributeGet("valign"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("owners")) {
+		assert(!_Frame_ControlBlockList.DataAttributeExists("owner"), "You cannot define both 'data-owner' and 'data-owners' attributes on control '"^_Frame_ControlBlockList.ControlId^_Frame_ControlBlockList.Id^"'");
+		DataProperties.Dirty.add(C_Property_Owners);
+		declare Text[] AccountIds = TL::Split(" ", _Frame_ControlBlockList.DataAttributeGet("owners"));
+		foreach (AccountId in AccountIds) {
+			if (AccountId != "") {
+				DataProperties.Owners.add(AccountId);
+			}
+		}
+	} else if (_Frame_ControlBlockList.DataAttributeExists("owner")) {
+		DataProperties.Dirty.add(C_Property_Owners);
+		DataProperties.Owners = [_Frame_ControlBlockList.DataAttributeGet("owner")];
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("filter-profanities")) {
+		DataProperties.Dirty.add(C_Property_FilterProfanities);
+		DataProperties.FilterProfanities = Tools::TextToFilterProfanities(_Frame_ControlBlockList.DataAttributeGet("filter-profanities"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("bgcolor")) {
+		DataProperties.Dirty.add(C_Property_BgColor);
+		DataProperties.BgColor = CL::HexToRgb(_Frame_ControlBlockList.DataAttributeGet("bgcolor"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("colorize")) {
+		DataProperties.Dirty.add(C_Property_Colorize);
+		DataProperties.Colorize = CL::HexToRgb(_Frame_ControlBlockList.DataAttributeGet("colorize"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("modulatecolor")) {
+		DataProperties.Dirty.add(C_Property_ModulateColor);
+		DataProperties.ModulateColor = CL::HexToRgb(_Frame_ControlBlockList.DataAttributeGet("modulatecolor"));
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("image")) {
+		DataProperties.Dirty.add(C_Property_ImageUrl);
+		DataProperties.ImageUrl = _Frame_ControlBlockList.DataAttributeGet("image");
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("alphamask")) {
+		DataProperties.Dirty.add(C_Property_AlphaMaskUrl);
+		DataProperties.AlphaMaskUrl = _Frame_ControlBlockList.DataAttributeGet("alphamask");
+	}
+	if (_Frame_ControlBlockList.DataAttributeExists("keepratio")) {
+		DataProperties.Dirty.add(C_Property_KeepRatio);
+		DataProperties.KeepRatio = Tools::TextToKeepRatioMode(_Frame_ControlBlockList.DataAttributeGet("keepratio"));
+	}
+	CMGame_ControlBlockList_ControlBlockList = Private_SetProperties(CMGame_ControlBlockList_ControlBlockList, DataProperties);
+
+	CMGame_ControlBlockList_ControlBlockList.IsInitialized = True;
+
+	CMGame_ControlBlockList_ControlBlockList = Private_Redraw(_This, CMGame_ControlBlockList_ControlBlockList);
+}
+
+Void Private_InitializeControlBlockLists(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_ControlBlockList, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_ControlBlockList = (Control as CMlFrame).Parent;
+		Private_InitializeControlBlockList(_This, Frame_ControlBlockList);
+	}
+}
+
+Boolean IsControlBlockList(CMlControl _Control) {
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Control = C_ControlBlockList_Null;
+	return CMGame_ControlBlockList_ControlBlockList.IsInitialized;
+}
+
+Integer GetValueLineCount(CMlScript _This, CMlFrame _Frame_ControlBlockList) {
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Frame_ControlBlockList = C_ControlBlockList_Null;
+	Private_AssertValidComponent(_Frame_ControlBlockList, CMGame_ControlBlockList_ControlBlockList);
+	// If there are some dirty properties, redraw the component now to be sure that the `ValueLineCount`
+	// value has beed computed properly with the latest label properties applied
+	if (CMGame_ControlBlockList_ControlBlockList.Properties.Dirty.count > 0) {
+		CMGame_ControlBlockList_ControlBlockList = Private_Redraw(_This, CMGame_ControlBlockList_ControlBlockList);
+	}
+	return CMGame_ControlBlockList_ControlBlockList.Controls.Label_Content.ValueLineCount;
+}
+
+Real GetLabelWidth(CMlScript _This, CMlFrame _Frame_ControlBlockList, Boolean _Translated) {
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Frame_ControlBlockList = C_ControlBlockList_Null;
+	Private_AssertValidComponent(_Frame_ControlBlockList, CMGame_ControlBlockList_ControlBlockList);
+	// If there are some dirty properties, redraw the component now to be sure that the latest label properties have been applied
+	if (CMGame_ControlBlockList_ControlBlockList.Properties.Dirty.count > 0) {
+		CMGame_ControlBlockList_ControlBlockList = Private_Redraw(_This, CMGame_ControlBlockList_ControlBlockList);
+	}
+	return ML::Min(
+		CMGame_ControlBlockList_ControlBlockList.Controls.Label_Content.ComputeWidth(
+			CMGame_ControlBlockList_ControlBlockList.Controls.Label_Content.Value, _Translated
+		),
+		CMGame_ControlBlockList_ControlBlockList.Controls.Label_Content.Size.X
+	);
+}
+Real GetLabelWidth(CMlScript _This, CMlFrame _Frame_ControlBlockList) {
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Frame_ControlBlockList = C_ControlBlockList_Null;
+	Private_AssertValidComponent(_Frame_ControlBlockList, CMGame_ControlBlockList_ControlBlockList);
+	// If there are some dirty properties, redraw the component now to be sure that the latest label properties have been applied
+	if (CMGame_ControlBlockList_ControlBlockList.Properties.Dirty.count > 0) {
+		CMGame_ControlBlockList_ControlBlockList = Private_Redraw(_This, CMGame_ControlBlockList_ControlBlockList);
+	}
+	return ML::Min(
+		CMGame_ControlBlockList_ControlBlockList.Controls.Label_Content.ComputeWidth(
+			CMGame_ControlBlockList_ControlBlockList.Controls.Label_Content.Value
+		),
+		CMGame_ControlBlockList_ControlBlockList.Controls.Label_Content.Size.X
+	);
+}
+
+Void TTS_Focus(CMlFrame _Frame_ControlBlockList) {
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Frame_ControlBlockList = C_ControlBlockList_Null;
+	Private_AssertValidComponent(_Frame_ControlBlockList, CMGame_ControlBlockList_ControlBlockList);
+	CMGame_ControlBlockList_ControlBlockList.Controls.Label_Content.TTS_Focus();
+}
+
+Void TTS_Unfocus(CMlFrame _Frame_ControlBlockList) {
+	declare K_ControlBlockList CMGame_ControlBlockList_ControlBlockList for _Frame_ControlBlockList = C_ControlBlockList_Null;
+	Private_AssertValidComponent(_Frame_ControlBlockList, CMGame_ControlBlockList_ControlBlockList);
+	CMGame_ControlBlockList_ControlBlockList.Controls.Label_Content.TTS_Unfocus();
+}
+
+Void MainInit(CMlScript _This) {
+	Private_InitializeControlBlockLists(_This);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/ControlBlockList.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+		""",
+		[],
+		[]
+	);
+}

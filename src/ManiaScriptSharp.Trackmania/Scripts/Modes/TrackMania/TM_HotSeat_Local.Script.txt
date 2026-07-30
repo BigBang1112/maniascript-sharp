@@ -1,0 +1,744 @@
+/**
+ *	HotSeat mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const	CompatibleMapTypes	"TrackMania\\TM_Race,TM_Race"
+#Const	Version							"1.5.0+2024-03-06"
+#Const	ScriptName					"Modes/TrackMania/TM_HotSeat_Local.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Server.Script.txt" as UIModules_TimeGap
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/StateManager.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/InGame_Server.Script.txt" as UIModules_InGame
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/NextRoundPopUp_Server.Script.txt" as UIModules_NextRoundPopUp
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/EndRound_Server.Script.txt" as UIModules_EndRound
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/EndMatch_Server.Script.txt" as UIModules_EndMatch
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/PauseMenu_Server.Script.txt" as UIModules_PauseMenu
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/Components/NetShare_Server.Script.txt" as NetShare
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/Structs.Script.txt" as Structs
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/Consts.Script.txt" as Consts
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConsts
+#Include "Libs/Nadeo/Trackmania/Structures/PrestigeStruct.Script.txt" as PrestigeStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_MultiplierEnergyAmount 5. as _("Multiplier of the author time for max energy value :")
+#Setting S_PlayersNb 2 as "<hidden>"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "HotSeat"
+//L16N [HotSeat] Description of the mode rules
+#Const Description ""
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/HotSeat.Script.txt" //< Url of the mania app
+
+#Const C_ModeState_StartMatch 0
+#Const C_ModeState_MatchLoop 1
+#Const C_ModeState_EndMatch 2
+
+#Const C_UploadRecord True
+#Const C_DisplayRecordGhost False
+#Const C_DisplayRecordMedal False
+#Const C_CelebrateRecordGhost False
+#Const C_CelebrateRecordMedal False
+
+#Const C_MarkerColor_MaxHsvValue 0.8
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structs
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_RoundData {
+	Integer PlayerID;
+	Integer TimeToBeat;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+Race_Settings_UseDefaultUIManagement = False;
+MB_Settings_UseDefaultTimer = False;
+Race_Settings_IsLocalMode = True;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+UIModules_TimeGap::SetTimeGapMode(UIModules_TimeGap::C_TimeGapMode_Hidden);
+UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_Ghost);
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+		}
+	}
+}
+
+StateMgr::Yield();
+UIModules_PauseMenu::Yield();
+***
+
+***Match_InitServer***
+***
+declare Integer Server_ModeState;
+declare Structs::K_HotSeatPlayer[Integer] Server_HotSeatPlayers; //< list of the players indexed by their PlayerID (an unique Integer used as a pointer to access a specific player in the array)
+// The clans styles must be set in `InitServer`
+// because `LoadItems` is executed before `StartServer`
+Clans::SetClansNb(Clans::C_MultiClansMax);
+Clans::SetRandomClanStyle();
+Clans::EnableClanSkins(True);
+for (Clan, 1, Clans::C_MultiClansMax) {
+	declare Vec3 ClanColor = Clans::GetClanColor(Clan);
+	Teams[Clan - 1].ColorPrimary = ClanColor;
+	Teams[Clan - 1].ColorUI = ClanColor;
+}
+***
+
+***Match_LoadItems***
+***
+Clans::LoadClanStyleSkins();
+***
+
+***Match_StartServer***
+***
+//Init values
+Server_ModeState = C_ModeState_StartMatch;
+//Set max allowed players and their infos
+declare Integer[] RandomClans = Clans::GetRandomDistinctTeams(Consts::C_MaxPlayersNb);
+// Fallback if the function GetRandomDistinctTeams() failed
+if (RandomClans.count < Consts::C_MaxPlayersNb) {
+	RandomClans = [1, 2, 3, 4, 5, 6, 7, 8];
+}
+for (I, 0, Consts::C_MaxPlayersNb-1) {
+	Server_HotSeatPlayers[I] = Structs::K_HotSeatPlayer {
+		Rank = I,
+		Clan = RandomClans[I],
+		PlayerName = Clans::GetClanName(RandomClans[I]),
+		PlayerTrigram = Clans::GetClanTrigram(RandomClans[I]),
+		PlayerLogo = Clans::GetClanLogo(RandomClans[I]),
+		PlayerMarkerColor = GetCustomMarkerColor(RandomClans[I])
+	};
+}
+
+//Set settings
+declare Integer PlayersNb = ML::Clamp(S_PlayersNb, Consts::C_MinPlayersNb, Consts::C_MaxPlayersNb);
+while (Server_HotSeatPlayers.count > PlayersNb) Server_HotSeatPlayers.removekey(Server_HotSeatPlayers.count-1);
+UIManager.UIAll.ScoreTableOnlyManialink = True;
+MB_Settings_UseDefaultPodiumSequence = False;
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_Normal);
+Race::UseAutomaticDossardColor(False);
+NetShare::SetMapsCount(MapList.count);
+Race::SetupRecord(
+	MenuConsts::C_ScopeType_Season,
+	MenuConsts::C_ScopeType_PersonalBest,
+	MenuConsts::C_GameMode_HotSeat,
+	"",
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal
+);
+
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+***
+
+***Match_InitMap***
+***
+// Set the first player clan to see the good skin in map intro
+if (Players.count > 0) {
+	SetPlayerClan(Players[0], Server_HotSeatPlayers[0].Clan);
+}
+declare K_RoundData Map_CurrentRoundData;
+declare Integer Map_MaxEnergyAmount;
+declare Ident Map_BestGhostId;
+declare Ident Map_SecondToLastGhostId;
+declare Integer Map_BestTime;
+declare Ident[Integer] Players_GhostIds; // list of the players ghost ids, indexed by PlayerID
+***
+
+***Match_StartMap***
+***
+//Init UI
+UIModules_InGame::SetPlayerStarted(False);
+UIModules_PauseMenu::SetTimeToBeat(Consts::C_BestTime_None);
+if (Players.count > 0) UIModules_Checkpoint::SetGhostsForRanking(Players[0], []);
+
+//Force one lap for multilaps
+Race::SetLapsNb(1);
+
+//Compute the max energy for this map and send to UI
+if (Map.TMObjective_IsLapRace && Map.TMObjective_NbLaps > 1) {
+	Map_MaxEnergyAmount = ML::CeilingInteger((Map.TMObjective_GoldTime / Map.TMObjective_NbLaps) * S_MultiplierEnergyAmount);
+} else {
+	Map_MaxEnergyAmount = ML::CeilingInteger(Map.TMObjective_GoldTime * S_MultiplierEnergyAmount);
+}
+UIModules_InGame::SetMaxEnergyAmount(Map_MaxEnergyAmount);
+***
+
+***Match_InitRound***
+***
+declare Boolean Round_PlayerStarted; //< true when the current player is really racing (and not spawning/unspawning/preparing to start)
+***
+
+***Match_StartRound***
+***
+//Start match
+if (Server_ModeState == C_ModeState_StartMatch) {
+	// Force reset round count because "Restart map" option restart the match without really ending the map,
+	// so the round count is not automatically reset in this case
+	MB_Private_SectionCount_Round = <1, 1>;
+	//Reset ghost, checkpoints' times and best time
+	foreach (Player in Players) {
+		Player_ClearRaceWaypointTimes(Player);
+		Player_SetPlayerCurRaceAsScoreBestRace(Player);
+	}
+	Map_BestTime = Consts::C_BestTime_None;
+	Map_BestGhostId = ReleaseGhost(Map_BestGhostId);
+	Map_SecondToLastGhostId = ReleaseGhost(Map_SecondToLastGhostId);
+
+	//Reset players' data
+	foreach (PlayerID => HotSeatPlayer in Server_HotSeatPlayers) {
+		Server_HotSeatPlayers[PlayerID].EnergyAmount = Map_MaxEnergyAmount;
+		Server_HotSeatPlayers[PlayerID].BestTime = Consts::C_BestTime_None;
+	}
+	NetShare::SetHotSeatPlayers(Server_HotSeatPlayers);
+	UIModules_InGame::InitPlayers();
+
+	//Get first player to race
+	Map_CurrentRoundData = GetNextRoundData(Server_HotSeatPlayers);
+	NetShare::SetCurrentPlayerID(Map_CurrentRoundData.PlayerID);
+}
+
+Server_ModeState = C_ModeState_MatchLoop;
+
+// Init data for new round
+Round_PlayerStarted = False;
+
+// Wait for next player to notify they are ready (by pressing A)
+StateMgr::ForcePlayersStates([StateMgr::C_State_StartRound]);
+declare CUIConfig::EUISequence PrevUISequence = StartMenuDisplay();
+UIModules_NextRoundPopUp::OpenMenu();
+while (MB_RoundIsRunning() && UIModules_NextRoundPopUp::IsMenuOpen()) {
+	if (ApplyPauseMenuEvent()) Server_ModeState = C_ModeState_EndMatch;
+	MB_Yield();
+}
+StopMenuDisplay(PrevUISequence);
+UIModules_NextRoundPopUp::CloseMenu();
+
+MB_EnablePlayMode(True);
+
+declare CGhost[] RankingGhosts = [];
+foreach (PlayerId => GhostId in Players_GhostIds) {
+	if (PlayerId != Map_CurrentRoundData.PlayerID && GhostId != NullId && DataFileMgr.Ghosts.existskey(GhostId)) {
+		RankingGhosts.add(DataFileMgr.Ghosts[GhostId]);
+	}
+}
+
+// Wait for player then start race
+while (MB_RoundIsRunning() && Players.count == 0) MB_Yield();
+if (MB_RoundIsRunning()) {
+	StartTime = Now + Race::C_SpawnDuration;
+	Race::ResetSolo();
+	declare Integer PlayerClan = 0;
+	declare Text Dossard_Trigram = "";
+	declare Text Dossard_Number = "";
+	declare Vec3 Dossard_Color = Race::C_DossardColor_Default;
+	if (Server_HotSeatPlayers.existskey(Map_CurrentRoundData.PlayerID)) {
+		PlayerClan = Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].Clan;
+		Dossard_Trigram = TL::GetTranslatedText(Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].PlayerTrigram);
+		Dossard_Number = TL::FormatInteger(Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].Rank+1, 2);
+		Dossard_Color = Clans::GetClanTrigramColor(PlayerClan);
+	}
+
+	SetPlayerClan(Players[0], PlayerClan);
+	Players[0].Dossard_Trigram = Dossard_Trigram;
+	Players[0].Dossard_Number = Dossard_Number;
+	Players[0].Dossard_Color = Dossard_Color;
+	Race::Start(Players[0], StartTime);
+	UIModules_Checkpoint::SetGhostsForRanking(Players[0], RankingGhosts);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+}
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	Race::ValidEvent(Event);
+
+	switch (Event.Type) {
+		case Events::C_Type_StartLine: {
+			Round_PlayerStarted = True;
+			UIModules_InGame::SetPlayerStarted(True);
+		}
+		case Events::C_Type_Waypoint: {
+			if (Event.Player != Null) {
+				if (Event.IsEndRace) {
+					Race::StopSkipScoresTable(Event.Player);
+					Round_PlayerStarted = False; //Stop the energy consumption while restarting
+					UIModules_InGame::SetPlayerStarted(False);
+					// Stop round if beat player over them, some player still haven't raced or no energy left
+					if (
+							Map_CurrentRoundData.TimeToBeat == Consts::C_BestTime_None ||
+							Event.RaceTime < Map_CurrentRoundData.TimeToBeat ||
+							MB_GetRoundCount() < Server_HotSeatPlayers.count ||
+							Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].EnergyAmount <= 0
+					) {
+						// Update map best time
+						if (Event.RaceTime < Map_BestTime || Map_BestTime == Consts::C_BestTime_None) {
+							Map_BestTime = Event.RaceTime;
+						}
+						MB_StopRound();
+					}
+					// Save player best time and register ghost
+					if (
+						Event.RaceTime < Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].BestTime ||
+						Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].BestTime == Consts::C_BestTime_None
+					) {
+						declare Ghost <=> Ghost_RetrieveFromPlayer(Event.Player);
+						if (Ghost != Null) {
+							if (Players_GhostIds.existskey(Map_CurrentRoundData.PlayerID) && Players_GhostIds[Map_CurrentRoundData.PlayerID] != NullId && DataFileMgr.Ghosts.existskey(Map_CurrentRoundData.PlayerID)) {
+								DataFileMgr.Ghost_Release(Players_GhostIds[Map_CurrentRoundData.PlayerID]);
+							}
+							Players_GhostIds[Map_CurrentRoundData.PlayerID] = Ghost.Id;
+						}
+						Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].BestTime = Event.RaceTime;
+						NetShare::SetHotSeatPlayers(Server_HotSeatPlayers);
+						UIModules_InGame::RefreshPlayers();
+					}
+				}
+			}
+		}
+		case Events::C_Type_GiveUp: {
+			UIModules_InGame::SetPlayerStarted(False);
+			//Giveup race if no energy left, else the restart will be automatic
+			if (Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].EnergyAmount > 0) {
+				Round_PlayerStarted = False; //Stop the energy consumption while restarting
+			} else {
+				MB_StopRound();
+			}
+		}
+	}
+}
+
+// Update energy and finish round if needed
+if (Round_PlayerStarted) {
+	Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].EnergyAmount = ML::Max(0, Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].EnergyAmount - Period);
+	UIModules_InGame::ForcePlayerEnergyAmount(Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].EnergyAmount);
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	// Invalid all other events, especially give up event that would restart the whole script
+	Events::Invalid(Event);
+}
+
+// If the player is not racing (if they gave up for exemple), restart race
+if (MB_RoundIsRunning() && Players.count > 0 && Race::IsReadyToStart(Players[0])) {
+	StartTime = Now + Race::C_SpawnDuration;
+	Race::ResetSolo();
+	Race::Start(Players[0], StartTime);
+}
+
+if (ApplyPauseMenuEvent()) Server_ModeState = C_ModeState_EndMatch;
+***
+
+***Match_EndRound***
+***
+GhostMgr.Ghost_RemoveAll();
+UIModules_InGame::SetPlayerStarted(False);
+
+if (MB_MapIsRunning() && Server_ModeState == C_ModeState_MatchLoop) {
+	StateMgr::ForcePlayersStates([StateMgr::C_State_EndRound]);
+
+	// If player is here but don't have any best time, it means they tried but didn't finish the race
+	if (Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].BestTime == Consts::C_BestTime_None) {
+		Server_HotSeatPlayers[Map_CurrentRoundData.PlayerID].BestTime = Consts::C_BestTime_RaceNotFinished;
+	}
+
+	// Update ranking and UI
+	Server_HotSeatPlayers = UpdateRanks(Server_HotSeatPlayers);
+	NetShare::SetHotSeatPlayers(Server_HotSeatPlayers);
+	UIModules_InGame::RefreshPlayers();
+
+	// Update ghosts
+	declare Integer SecondToLastPlayerID = -1;
+	declare Integer LastPlayerID = -1;
+	declare Boolean AllPlayersHaveRacedOnce = True;
+	declare Integer LastAlivePlayerBestTime = Consts::C_BestTime_None;
+	declare Integer[Integer] PlayersBestTimes; // indexed by player id, contains the players with a time still in the competition, even if the player doesn't have energy anymore
+	declare Integer AlivePlayerWithTimeNb = 0;
+	Map_BestGhostId = NullId;
+	Map_SecondToLastGhostId = NullId;
+
+	// Find players with a time set and sort them
+	foreach (PlayerID => HotSeatPlayer in Server_HotSeatPlayers) {
+		if (HotSeatPlayer.BestTime >= 0) {
+			PlayersBestTimes[PlayerID] = HotSeatPlayer.BestTime;
+			if (HotSeatPlayer.EnergyAmount > 0) {
+				AlivePlayerWithTimeNb += 1;
+				if (HotSeatPlayer.BestTime >= LastAlivePlayerBestTime) {
+					LastAlivePlayerBestTime = HotSeatPlayer.BestTime;
+				}
+			}
+		} else if (HotSeatPlayer.BestTime < Consts::C_BestTime_RaceNotFinished) {
+			AllPlayersHaveRacedOnce = False;
+		}
+	}
+	PlayersBestTimes = PlayersBestTimes.sort(); // to have the players in the race order
+
+	// Release eliminated players ghosts at the end of the ranking once everyone has raced once
+	if (AllPlayersHaveRacedOnce) {
+		foreach (PlayerID => HotSeatPlayer in Server_HotSeatPlayers) {
+			if (HotSeatPlayer.EnergyAmount == 0 && HotSeatPlayer.BestTime >= LastAlivePlayerBestTime) {
+				PlayersBestTimes.removekey(PlayerID); // to have only the players times in competition (to calculate the last and second to last index)
+				if (Players_GhostIds.existskey(PlayerID) && Players_GhostIds[PlayerID] != NullId && DataFileMgr.Ghosts.existskey(Players_GhostIds[PlayerID])) {
+					DataFileMgr.Ghost_Release(Players_GhostIds[PlayerID]);
+					Players_GhostIds.removekey(PlayerID);
+				}
+			}
+		}
+	}
+
+	// Find the best, second to last and last player ghost
+	declare Integer Rank = 0;
+	foreach (PlayerID => PlayerBestTime in PlayersBestTimes) {
+		if (
+			Rank == 0 &&
+			Players_GhostIds.existskey(PlayerID) &&
+			Players_GhostIds[PlayerID] != Map_BestGhostId &&
+			DataFileMgr.Ghosts.existskey(Players_GhostIds[PlayerID]) &&
+			Server_HotSeatPlayers.existskey(PlayerID)
+		) {
+			// Add the best player ghost
+			Map_BestGhostId = CustomGhost_Add(DataFileMgr.Ghosts[Players_GhostIds[PlayerID]], Server_HotSeatPlayers[PlayerID], (PlayersBestTimes.count <= 2));
+		} else if (Rank == PlayersBestTimes.count - 2) {
+			SecondToLastPlayerID = PlayerID;
+		} else if (Rank == PlayersBestTimes.count - 1) {
+			LastPlayerID = PlayerID;
+		}
+		Rank += 1;
+	}
+	// Add second to last player ghost if all players have set a time
+	if (
+		AllPlayersHaveRacedOnce &&
+		Players_GhostIds.existskey(SecondToLastPlayerID) &&
+		Players_GhostIds[SecondToLastPlayerID] != Map_SecondToLastGhostId &&
+		Players_GhostIds[SecondToLastPlayerID] != Map_BestGhostId &&
+		DataFileMgr.Ghosts.existskey(Players_GhostIds[SecondToLastPlayerID]) &&
+		Server_HotSeatPlayers.existskey(SecondToLastPlayerID)
+	) {
+		Map_SecondToLastGhostId = CustomGhost_Add(DataFileMgr.Ghosts[Players_GhostIds[SecondToLastPlayerID]], Server_HotSeatPlayers[SecondToLastPlayerID], True);
+	// or just the last player ghost with a time set (beginning of the race)
+	} else if (
+		!AllPlayersHaveRacedOnce &&
+		Players_GhostIds.existskey(LastPlayerID) &&
+		Players_GhostIds[LastPlayerID] != Map_SecondToLastGhostId &&
+		Players_GhostIds[LastPlayerID] != Map_BestGhostId &&
+		Players_GhostIds[LastPlayerID] != Map_BestGhostId &&
+		DataFileMgr.Ghosts.existskey(Players_GhostIds[LastPlayerID]) &&
+		Server_HotSeatPlayers.existskey(LastPlayerID)
+	) {
+		Map_SecondToLastGhostId = CustomGhost_Add(DataFileMgr.Ghosts[Players_GhostIds[LastPlayerID]], Server_HotSeatPlayers[LastPlayerID], True);
+	}
+
+	//Play end round animation
+	declare Boolean OutroFinished = False;
+	UIModules_EndRound::StartAnimation();
+	while (MB_MapIsRunning() && UIModules_EndRound::IsAnimationPlaying() && !OutroFinished) {
+		MB_Yield();
+		OutroFinished = PlayOutro();
+	}
+	UIModules_EndRound::StopAnimation();
+
+	// Check end match conditions
+	Map_CurrentRoundData = GetNextRoundData(Server_HotSeatPlayers);
+	if (Map_CurrentRoundData.PlayerID == Consts::C_PlayerID_Null) Server_ModeState = C_ModeState_EndMatch;
+	else NetShare::SetCurrentPlayerID(Map_CurrentRoundData.PlayerID);
+
+	// End match
+	if (Server_ModeState == C_ModeState_EndMatch) {
+		GhostMgr.Ghost_RemoveAll();
+		Map_BestGhostId = ReleaseGhost(Map_BestGhostId);
+		Map_SecondToLastGhostId = ReleaseGhost(Map_SecondToLastGhostId);
+
+		StateMgr::ForcePlayersStates([StateMgr::C_State_EndMatch]);
+		NetShare::SetCurrentPlayerID(Consts::C_PlayerID_Null);
+		// There's only one local player, use them to trigger the match result tracking update
+		// Tracking for HotSeat only cares about match completion
+		// Rank and winning status are not taken into account
+		if (Scores.count > 0) {
+			Tracking::SendPlayerMatchResult(UIManager, Scores[0].User, 1, False);
+		}
+		// Display endmatch menu and wait for it to close
+		UIModules_EndMatch::OpenMenu();
+		declare CUIConfig::EUISequence PrevUISequence = StartMenuDisplay();
+		declare Boolean Waiting = True;
+		while (MB_MapIsRunning() && Waiting) {
+			foreach (Event in UIManager.PendingEvents) {
+				if (Event.Type == CUIConfigEvent::EType::OnLayerCustomEvent) {
+					switch (Event.CustomEventType) {
+						case Consts::C_EndMatchMenu_NextMap: {
+							MB_StopMap();
+							Waiting = False;
+						}
+						case Consts::C_EndMatchMenu_RestartMap: {
+							Waiting = False;
+						}
+						case Consts::C_EndMatchMenu_Quit: {
+							MB_StopServer();
+							Waiting = False;
+						}
+					}
+				}
+			}
+			if (Waiting) MB_Yield();
+		}
+		StopMenuDisplay(PrevUISequence);
+		UIModules_EndMatch::CloseMenu();
+		StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+		Server_ModeState = C_ModeState_StartMatch;
+	}
+} else {
+	NetShare::SetCurrentPlayerID(Consts::C_PlayerID_Null);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+	Server_ModeState = C_ModeState_StartMatch;
+}
+
+Race::StopSkipOutroAll();
+MB_EnablePlayMode(False);
+MB_Yield();
+***
+
+***Match_EndMap***
+***
+//Release ghosts
+GhostMgr.Ghost_RemoveAll();
+Map_BestGhostId = ReleaseGhost(Map_BestGhostId);
+Map_SecondToLastGhostId = ReleaseGhost(Map_SecondToLastGhostId);
+***
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Play the outro sequence
+ *
+ *	@return														True when the outro sequence is complete for all players
+ *																		False otherwise
+ */
+Boolean PlayOutro() {
+	declare RacePendingEvents = Race::GetPendingEvents();
+	foreach (Event in RacePendingEvents) {
+		if (Event.Type == Events::C_Type_SkipOutro) {
+			Race::ValidEvent(Event);
+		} else {
+			Race::InvalidEvent(Event);
+		}
+	}
+	foreach (Event in PendingEvents) {
+		if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+		Events::Invalid(Event);
+	}
+
+	declare OutroFinished = True;
+	foreach (Player in AllPlayers) {
+		if (Race::IsWatchingOutro(Player)) {
+			OutroFinished = False;
+			break;
+		}
+	}
+	return OutroFinished;
+}
+
+/*	Compute the next round data :
+ *		@param		_HotSeatPlayers		list of the players indexed by their PlayerID (an unique Integer used as a pointer to access a specific player in the array)
+ *		@return											PlayerID : first player who didn't race or last player with energy left or Consts::C_PlayerID_Null if race finished
+ * 																TimeToBeat : BestTime of the player directly over or Consts::C_BestTime_None if first
+ */
+K_RoundData GetNextRoundData(Structs::K_HotSeatPlayer[Integer] _HotSeatPlayers) {
+	declare NextRoundData = K_RoundData { PlayerID = Consts::C_PlayerID_Null, TimeToBeat = Consts::C_BestTime_None };
+	declare Integer NextPlayerRank = -1;
+	// Get next player PlayerID
+	if (MB_GetRoundCount() < _HotSeatPlayers.count) {
+		// First player who didn't race
+		foreach (PlayerID => HotSeatPlayer in _HotSeatPlayers) {
+			if (HotSeatPlayer.BestTime == Consts::C_BestTime_None && (NextRoundData.PlayerID == Consts::C_PlayerID_Null || HotSeatPlayer.Rank < NextPlayerRank)) {
+				NextRoundData.PlayerID = PlayerID;
+				NextPlayerRank = HotSeatPlayer.Rank;
+			}
+		}
+	} else {
+		// Last player with energy left
+		foreach (PlayerID => HotSeatPlayer in _HotSeatPlayers) {
+			if (HotSeatPlayer.EnergyAmount > 0 && HotSeatPlayer.Rank > 0 && (NextRoundData.PlayerID == Consts::C_PlayerID_Null || HotSeatPlayer.Rank > NextPlayerRank)) {
+				NextRoundData.PlayerID = PlayerID;
+				NextPlayerRank = HotSeatPlayer.Rank;
+			}
+		}
+	}
+	// Get time to beat
+	if (NextRoundData.PlayerID != Consts::C_PlayerID_Null) {
+		foreach (PlayerID => HotSeatPlayer in _HotSeatPlayers) {
+			if (HotSeatPlayer.Rank == NextPlayerRank-1) {
+				NextRoundData.TimeToBeat = HotSeatPlayer.BestTime;
+				UIModules_PauseMenu::SetTimeToBeat(NextRoundData.TimeToBeat);
+				break;
+			}
+		}
+	} else {
+		UIModules_PauseMenu::SetTimeToBeat(Consts::C_BestTime_None);
+	}
+
+	return NextRoundData;
+}
+
+/*	Update the ranks of the hotseat players
+ *		@param		_HotSeatPlayers		list of the players indexed by their PlayerID (an unique Integer used as a pointer to access a specific player in the array)
+ *		@return											the updated players' list
+ */
+Structs::K_HotSeatPlayer[Integer] UpdateRanks(Structs::K_HotSeatPlayer[Integer] _HotSeatPlayers) {
+	declare Integer[Integer] PlayersToSort;
+	declare Integer[] PlayersWhoGaveUp;
+	declare Integer[] PlayersWithoutTime;
+	foreach(PlayerID => HotSeatPlayer in _HotSeatPlayers) {
+		if (HotSeatPlayer.BestTime >= 0) {
+			PlayersToSort[PlayerID] = HotSeatPlayer.BestTime;
+		} else if (HotSeatPlayer.BestTime == Consts::C_BestTime_RaceNotFinished) {
+			PlayersWhoGaveUp.add(PlayerID);
+		} else { //< HotSeatPlayer.BestTime == Consts::C_BestTime_None
+			PlayersWithoutTime.add(PlayerID);
+		}
+	}
+	PlayersToSort = PlayersToSort.sort();
+
+	declare Structs::K_HotSeatPlayer[Integer] UpdatedHotSeatPlayers = _HotSeatPlayers;
+	declare Integer Rank = 0;
+	foreach (PlayerID => Time in PlayersToSort) {
+		UpdatedHotSeatPlayers[PlayerID].Rank = Rank;
+		Rank += 1;
+	}
+	foreach (PlayerID in PlayersWithoutTime) {
+		UpdatedHotSeatPlayers[PlayerID].Rank = Rank;
+		Rank += 1;
+	}
+	foreach (PlayerID in PlayersWhoGaveUp) {
+		UpdatedHotSeatPlayers[PlayerID].Rank = Rank;
+		Rank += 1;
+	}
+
+	return UpdatedHotSeatPlayers;
+}
+
+// Apply PauseMenu event, return if need to stop the match
+Boolean ApplyPauseMenuEvent() {
+	declare StopMatch = True;
+	switch (UIModules_PauseMenu::GetEvent()) {
+		case Consts::C_PauseMenu_RestartMap: MB_StopRound();
+		case Consts::C_PauseMenu_NextMap: MB_StopMap();
+		default: StopMatch = False;
+	}
+	UIModules_PauseMenu::ResetEvent();
+	return StopMatch;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Setup the UI to display a menu
+CUIConfig::EUISequence StartMenuDisplay() {
+	declare CUIConfig::EUISequence PrevUISequence = UIManager.UIAll.UISequence;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::UIInteraction; //< Prevent the menu from pausing the game mode
+	UIManager.UIAll.SpectatorForceCameraType = 0; //< Prevent the camera from moving while navigating the menu
+	return PrevUISequence;
+}
+Void StopMenuDisplay(CUIConfig::EUISequence _PrevUISequence) {
+	UIManager.UIAll.SpectatorForceCameraType = -1;
+	UIManager.UIAll.UISequence = _PrevUISequence;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/* Set up a ghost with the given parameters and add it on the track
+*		@param					_Ghost										The ghost to customize and add
+*		@param					_Player										The player to use for the ghost customisation (name, trigram)
+*		@param					_SetUpCheckpointsTimes		If True, will use this ghost to set up the checkpoints time
+*		@return																		The Id of the ghost added
+*/
+Ident CustomGhost_Add(CGhost _Ghost, Structs::K_HotSeatPlayer _Player, Boolean _SetUpCheckpointsTimes) {
+	declare Ghost <=> _Ghost;
+	Ghost.Nickname = "$"^CL::RgbToHex3(_Player.PlayerMarkerColor)^TL::GetTranslatedText(_Player.PlayerName);
+	Ghost.OverrideZoneIcon_ImageUrl  = _Player.PlayerLogo;
+	declare Ident GhostAddId = NullId;
+	GhostAddId = GhostMgr.Ghost_Add(Ghost, True);
+	// Need to call Ghost_SetDossard() after Ghost_Add()
+	GhostMgr.Ghost_SetDossard(GhostAddId, TL::FormatInteger(_Player.Rank+1, 2)^TL::GetTranslatedText(_Player.PlayerTrigram), Clans::GetClanTrigramColor(_Player.Clan));
+	if (_SetUpCheckpointsTimes) {
+		// Set race with the ghost checkpoints times
+		foreach (Score in Scores) {
+			Ghost_CopyToScoreBestRaceAndLap(Ghost, Score);
+		}
+	}
+	return Ghost.Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Increase the brightness of the color to have readable markers
+Vec3 GetCustomMarkerColor(Integer _PlayerClan) {
+	declare Vec3 Color = CL::RgbToHsv(Clans::GetClanColor(_PlayerClan));
+	Color.Z = ML::Clamp(Color.Z, C_MarkerColor_MaxHsvValue, 1.);
+	Color = CL::HsvToRgb(Color);
+	return Color;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Release a ghost and reset its Id
+Ident ReleaseGhost(Ident _GhostId) {
+	declare Ident GhostId = _GhostId;
+	if (GhostId != NullId && DataFileMgr.Ghosts.existskey(GhostId)) DataFileMgr.Ghost_Release(GhostId);
+	GhostId = NullId;
+	return GhostId;
+}

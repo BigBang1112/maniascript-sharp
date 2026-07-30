@@ -1,0 +1,954 @@
+/**
+ *	Component: PopUpBackground
+ *	===========================
+ *
+ *	Confluence : https://confluence.ubisoft.com/display/Nadeo/PopUpBackground
+ *	GitLab : https://gitlab.nadeo.org/utils/script-documentation/-/wikis/PopUpBackground
+ *
+ *	Info
+ *	----
+ *
+ *	Create a pop-up background with a customizable header.
+ *	The background is divide into two area :
+ *	- the header at the top
+ *	- the content at the bottom
+ *
+ *	There is three predefined styles to use with the `data-styles` parameter:
+ *	- `C_Style_MainPopUp`: a large pop-up with a customizable header (default)
+ *	- `C_Style_SecondaryPopUp_WithHeader`: a small pop-up with header
+ *	- `C_Style_SecondaryPopUp_NoHeader`: a small pop-up without header
+ *	- `C_Style_TertiaryPopUp_WithHeader`: a medium pop-up with header
+ *
+ *	Parameters
+ *	----------
+ *
+ *	- `data-pos` (`Vec2`): position of the pop-up
+ *	- `data-width` (`Real`): width of the pop-up
+ *	- `data-halign` (`Text`): horizontal alignment of the pop-up
+ *			Can be `left`, `center` or `right`.
+ *	- `data-valign` (`Text`): horizontal alignment of the pop-up
+ *			Can be `top`, `center` or `bottom`.
+ *	- `data-background-color` (`Text`): color of the background image
+ *	- `data-background-colormode` (`Integer`): color mode of the image used for the background of the pop-up
+ *			Can be `C_ColorMode_None` for no color,
+ *			`C_ColorMode_Colorize` to use the `colorize` property of the quad,
+ *			`C_ColorMode_Modulate` to use the `modulatecolor` property of the quad or
+ *			`C_ColorMode_Background` to use the `bgcolor` property of the quad.
+ *	- `data-header-image` (`Text`): path to the image of the header
+ *	- `data-header-gradient-visible` (`Boolean`): display a gradient on top of the header image
+ *	- `data-dimmer-opacity` (`Real`): opacity of the dimmer behind the pop-up
+ *			Set to 0. or less to disable the dimmer
+ *	- `data-dimmer-color` (`Text`): color of the dimmer behind the pop-up
+ *	- `data-dimmer-send-close-event` (`Boolean`): clicking on the dimmer send an event to close the pop-up
+ *	- `data-button-leave-enabled` (`Boolean`): display a cross button in the upper right corner of the pop-up, send an event to close the pop-up when clicking on it
+ *	- `data-styles` (`Text`): styles to apply to the pop-up background, new styles can be created with the `CreateStyle()` function
+ *			When several styles are applied to a pop-up background, the styles are merged together with the properties
+ *			of the latest style overriding the properties of the earlier ones.
+ *			For example if "style-a" is `{ A = 1, B = 2, C = 3 }`, "style-b" is `{ A = 11 , C = 33}` and
+ *			"style-c" is `{ A = 111 }` and we set the pop-up background style to `"style-a style-b style-c"`
+ *			then the applied properties will be `{ A = 111, B = 2, C = 33 }`.
+ */
+#Const Version		"1.1.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Components/PopUpBackground2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Controls {
+	CMlQuad Quad_Dimmer;
+	CMlFrame Frame_Background;
+	CMlFrame Frame_Align;
+	CMlQuad Quad_Background;
+	CMlQuad Quad_HeaderImage;
+	CMlQuad Quad_HeaderGradient;
+	CMlFrame Frame_BackgroundHitbox;
+	CMlQuad Quad_BackgroundHitbox;
+	CMlQuad Button_Leave;
+}
+#Struct K_Area {
+	Vec2 Size;
+	Vec2 Position;
+}
+#Struct K_Properties {
+	Integer[] Enabled;
+	Vec2 Position;
+	Real Width;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Vec3 BackgroundColor;
+	Integer BackgroundColorMode;
+	Text HeaderImageUrl;
+	Real DimmerOpacity;
+	Vec3 DimmerColor;
+	Boolean DimmerSendCloseEvent;
+	Boolean ButtonLeaveEnable;
+	Boolean HeaderGradientVisible;
+}
+#Struct K_PopUpBackground {
+	K_Controls Controls;
+	K_Properties CustomizedProperties;
+	K_Properties MergedProperties;
+	Text[] Styles;
+	Boolean IsPopUpBackground;
+	K_Area HeaderArea;
+	K_Area ContentArea;
+}
+#Struct K_Event {
+	Integer Type;
+	CMlFrame PopUpBackground;
+}
+#Struct K_State {
+	K_Event[] PendingEvents;
+	K_Properties[Text] Styles;
+	K_Properties DefaultProperties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_State_Null K_State {
+	PendingEvents = [],
+	Styles = [],
+	DefaultProperties = K_Properties {
+		Enabled = []
+	}
+}
+#Const C_PopUpBackground_Null K_PopUpBackground {
+	Controls = K_Controls {},
+	CustomizedProperties = K_Properties {
+		Enabled = []
+	},
+	MergedProperties = K_Properties {
+		Enabled = []
+	},
+	Styles = [],
+	IsPopUpBackground = False,
+	HeaderArea = K_Area {},
+	ContentArea = K_Area {}
+}
+
+#Const C_Name "component-trackmania-pop-up-background-2" // Component name
+#Const P "Trackmania_PopUpBackground2::" // Prefix use to differentiate functions/variables in the script
+#Const Q "Trackmania_PopUpBackground2"
+
+#Const C_Style_MainPopUp "main-pop-up"
+#Const C_Style_SecondaryPopUp_NoHeader "secondary-pop-up-no-header"
+#Const C_Style_SecondaryPopUp_WithHeader "secondary-pop-up-with-header"
+#Const C_Style_TertiaryPopUp_WithHeader "tertiary-pop-up-with-header"
+
+#Const C_Class_PopUpBackground "trackmania-pop-up-background-2_pop-up-background"
+#Const C_Id_QuadDimmer "trackmania-pop-up-background-2_quad-dimmer"
+#Const C_Id_FrameBackground "trackmania-pop-up-background-2_frame-background"
+#Const C_Id_FrameAlign "trackmania-pop-up-background-2_frame-align"
+#Const C_Id_QuadBackground "trackmania-pop-up-background-2_quad-background"
+#Const C_Id_QuadHeaderImage "trackmania-pop-up-background-2_quad-header-image"
+#Const C_Id_QuadHeaderGradient "trackmania-pop-up-background-2_quad-header-gradient"
+#Const C_Id_ButtonLeave "trackmania-pop-up-background-2_button-leave"
+#Const C_Id_FrameBackgroundHitbox "trackmania-pop-up-background-2_frame-background-hitbox"
+#Const C_Id_QuadBackgroundHitbox "trackmania-pop-up-background-2_quad-background-hitbox"
+
+// Common variables
+#Const C_DefaultBackgroundOpacity 0.95
+#Const C_SizeY_Common_HeaderGap 8. //< size in pixels
+#Const C_SkewAngle 10.
+
+// Default colors
+#Const C_Default_Colorize <-1., -1., -1.>
+#Const C_Default_ModulateColor <1., 1., 1.>
+#Const C_Default_BgColor <0., 0., 0.>
+
+// Color modes
+#Const C_ColorMode_None 0
+#Const C_ColorMode_Colorize 1
+#Const C_ColorMode_Modulate 2
+#Const C_ColorMode_Background 3
+
+// Main pop-up variables
+#Const C_Img_MainPopUp_Background "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_MainPopup.dds"
+#Const C_Img_MainPopUp_HeaderMask "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_MainPopup_Header_Mask.dds"
+#Const C_Img_MainPopUp_HeaderGradient "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_MainPopup_Header_Gradient.dds"
+#Const C_ImgSize_MainPopUp_Background <3680., 1856.> //< size in pixels
+#Const C_ImgSize_MainPopUp_HeaderMask <3460., 604.> //< size in pixels
+#Const C_ImgSize_MainPopUp_HeaderGradient <3256., 568.> //< size in pixels
+#Const C_SizeX_MainPopUp_Background 308.
+
+// Secondary pop-up variables
+#Const C_Img_SecondaryPopUp_NoHeader "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_SecondaryPopup_NoHeader.dds"
+#Const C_Img_SecondaryPopUp_WithHeader "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_SecondaryPopup_WithHeader.dds"
+#Const C_ImgSize_SecondaryPopUp_Background <1988., 928.> //< size in pixels
+#Const C_ImgSize_SecondaryPopUp_Header <1857., 182.> //< size in pixels
+#Const C_SizeX_SecondaryPopUp_Background 166.
+
+// Tertiary pop-up variables
+#Const C_Img_TertiaryPopUp_WithHeader "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_TertiaryPopup_WithHeader.dds"
+#Const C_ImgSize_TertiaryPopUp_Background <1260., 716.> //< size in pixels
+#Const C_ImgSize_TertiaryPopUp_Header <1152., 104.> //< size in pixels
+#Const C_SizeX_TertiaryPopUp_Background 200.
+
+// The properties indexing must be a continuous sequence starting from 0
+// 0,1,2,3,... not 0,1,3,... for example
+#Const C_Property_Position 0
+#Const C_Property_Width 1
+#Const C_Property_HAlign 2
+#Const C_Property_VAlign 3
+#Const C_Property_BackgroundColor 4
+#Const C_Property_BackgroundColorMode 5
+#Const C_Property_HeaderImageUrl 6
+#Const C_Property_DimmerOpacity 7
+#Const C_Property_DimmerColor 8
+#Const C_Property_DimmerSendCloseEvent 9
+#Const C_Property_ButtonLeaveEnable 10
+#Const C_Property_HeaderGradientVisible 11
+
+#Const C_EventType_Close 0
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetManialink() {
+	return """
+<frame class="{{{C_Class_PopUpBackground}}}">
+	<quad id="{{{C_Id_QuadDimmer}}}" z-index="0" size="320 180" halign="center" valign="center" fullscreen="1" scriptevents="1" />
+	<frame id="{{{C_Id_FrameBackground}}}" z-index="2">
+		<frame id="{{{C_Id_FrameAlign}}}">
+			<quad id="{{{C_Id_QuadBackground}}}" z-index="0" image="{{{C_Img_MainPopUp_Background}}}" opacity="{{{C_DefaultBackgroundOpacity}}}"/>
+			<quad id="{{{C_Id_QuadHeaderImage}}}" z-index="1" halign="right" alphamask="{{{C_Img_MainPopUp_HeaderMask}}}" />
+			<quad id="{{{C_Id_QuadHeaderGradient}}}" z-index="2" halign="right" image="{{{C_Img_MainPopUp_HeaderGradient}}}" />
+			<quad id="{{{C_Id_ButtonLeave}}}" z-index="3" image="{{{Icons::C_Icon_256x256_Cross_Oblique}}}" size="7 7" halign="center" valign="center" colorize="FFF" scriptevents="1" />
+			<frame id="{{{C_Id_FrameBackgroundHitbox}}}" z-index="2">
+				<quad id="{{{C_Id_QuadBackgroundHitbox}}}" rot="{{{C_SkewAngle}}}" halign="right" scriptevents="1" />
+			</frame>
+		</frame>
+	</frame>
+</frame>
+	""";
+}
+
+// Check if the control is a pop-up background
+Boolean IsPopUpBackground(CMlControl _Control) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Control = C_PopUpBackground_Null;
+	return Trackmania_PopUpBackground2_PopUpBackground.IsPopUpBackground;
+}
+
+/// Set the color of a quad
+Void Private_SetColor(CMlQuad _Quad, Integer _ColorMode, Vec3 _Color) {
+	// Initialize all properties properly here first
+	// Modifying one of them afterward can also have an effect on the others.
+	// eg: modifying `ModulateColor` will also change the value of `Colorize`.
+	_Quad.Colorize = C_Default_Colorize;
+	_Quad.ModulateColor = C_Default_ModulateColor;
+	_Quad.BgColor = C_Default_BgColor;
+
+	switch (_ColorMode) {
+		case C_ColorMode_Colorize: _Quad.Colorize = _Color;
+		case C_ColorMode_Modulate: _Quad.ModulateColor = _Color;
+		case C_ColorMode_Background: _Quad.BgColor = _Color;
+	}
+}
+
+// Enable or disable a properties from the `Enabled` array
+Integer[] Private_EnableProperty(Integer[] _EnabledProperties, Integer _Property, Boolean _Enabled) {
+	declare Integer[] EnabledProperties = _EnabledProperties;
+
+	if (_Enabled) {
+		if (!EnabledProperties.exists(_Property)) {
+			EnabledProperties.add(_Property);
+		}
+	} else {
+		EnabledProperties.remove(_Property);
+	}
+
+	return EnabledProperties;
+}
+
+// Set and enable a property
+K_Properties Private_SetProperty(K_Properties _TargetProperties, Integer _PropertyId, K_Properties _SourceProperties) {
+	declare K_Properties Properties = _TargetProperties;
+
+	Properties.Enabled = Private_EnableProperty(Properties.Enabled, _PropertyId, True);
+
+	switch (_PropertyId) {
+		case C_Property_Position: Properties.Position = _SourceProperties.Position;
+		case C_Property_Width: Properties.Width = _SourceProperties.Width;
+		case C_Property_HAlign: Properties.HAlign = _SourceProperties.HAlign;
+		case C_Property_VAlign: Properties.VAlign = _SourceProperties.VAlign;
+		case C_Property_BackgroundColor: Properties.BackgroundColor = _SourceProperties.BackgroundColor;
+		case C_Property_BackgroundColorMode: Properties.BackgroundColorMode = _SourceProperties.BackgroundColorMode;
+		case C_Property_HeaderImageUrl: Properties.HeaderImageUrl = _SourceProperties.HeaderImageUrl;
+		case C_Property_DimmerOpacity: Properties.DimmerOpacity = _SourceProperties.DimmerOpacity;
+		case C_Property_DimmerColor: Properties.DimmerColor = _SourceProperties.DimmerColor;
+		case C_Property_DimmerSendCloseEvent: Properties.DimmerSendCloseEvent = _SourceProperties.DimmerSendCloseEvent;
+		case C_Property_ButtonLeaveEnable: Properties.ButtonLeaveEnable = _SourceProperties.ButtonLeaveEnable;
+		case C_Property_HeaderGradientVisible: Properties.HeaderGradientVisible = _SourceProperties.HeaderGradientVisible;
+	}
+
+	return Properties;
+}
+
+// Merge a base properties with other enabled properties
+K_Properties Private_MergeProperties(K_Properties _Base, K_Properties[] _PropertiesToMerge) {
+	declare K_Properties MergedProperties = _Base;
+
+	foreach (Properties in _PropertiesToMerge) {
+		foreach (PropertyId in Properties.Enabled) {
+			MergedProperties = Private_SetProperty(MergedProperties, PropertyId, Properties);
+		}
+	}
+
+	return MergedProperties;
+}
+
+// Redraw the pop-up background (apply style, width, ...)
+Void RedrawPopUpBackground(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	declare K_State Trackmania_PopUpBackground2_State for _This.Page = C_State_Null;
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+
+	declare K_Properties[] PropertiesToMerge = [Trackmania_PopUpBackground2_State.DefaultProperties];
+	foreach (Style in Trackmania_PopUpBackground2_PopUpBackground.Styles) {
+		PropertiesToMerge.add(Trackmania_PopUpBackground2_State.Styles.get(Style, K_Properties {}));
+	}
+	PropertiesToMerge.add(Trackmania_PopUpBackground2_PopUpBackground.CustomizedProperties);
+
+	Trackmania_PopUpBackground2_PopUpBackground.MergedProperties = Private_MergeProperties(
+		K_Properties {
+			Position = <0., 0.>,
+			Width = C_SizeX_MainPopUp_Background,
+			HAlign = CMlControl::AlignHorizontal::HCenter,
+			VAlign = CMlControl::AlignVertical::VCenter,
+			BackgroundColor = <-1., -1., -1.>,
+			BackgroundColorMode = C_ColorMode_Background,
+			HeaderImageUrl = "",
+			DimmerOpacity = 0.7,
+			DimmerColor = Stylesheet::GetColorRGB(Stylesheet::C_Color_BGDark),
+			DimmerSendCloseEvent = True,
+			ButtonLeaveEnable = True,
+			HeaderGradientVisible = False
+		},
+		PropertiesToMerge
+	);
+
+	// Get pop-up variables depending on predefined styles
+	declare Text Img_Background = C_Img_MainPopUp_Background;
+	declare Vec2 Size_Background = C_ImgSize_MainPopUp_Background;
+	declare Vec2 Size_Header = C_ImgSize_MainPopUp_HeaderMask;
+	if (Trackmania_PopUpBackground2_PopUpBackground.Styles.exists(C_Style_SecondaryPopUp_WithHeader)) {
+		Img_Background = C_Img_SecondaryPopUp_WithHeader;
+		Size_Background = C_ImgSize_SecondaryPopUp_Background;
+		Size_Header = C_ImgSize_SecondaryPopUp_Header;
+	} else if (Trackmania_PopUpBackground2_PopUpBackground.Styles.exists(C_Style_SecondaryPopUp_NoHeader)) {
+		Img_Background = C_Img_SecondaryPopUp_NoHeader;
+		Size_Background = C_ImgSize_SecondaryPopUp_Background;
+		Size_Header = C_ImgSize_SecondaryPopUp_Header;
+	} else if (Trackmania_PopUpBackground2_PopUpBackground.Styles.exists(C_Style_TertiaryPopUp_WithHeader)) {
+		Img_Background = C_Img_TertiaryPopUp_WithHeader;
+		Size_Background = C_ImgSize_TertiaryPopUp_Background;
+		Size_Header = C_ImgSize_TertiaryPopUp_Header;
+	}
+
+	// Update pop-up background image
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.ImageUrl = Img_Background;
+	Private_SetColor(
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background,
+		Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.BackgroundColorMode,
+		Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.BackgroundColor
+	);
+
+	// Update pop-up size
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size = <
+		Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.Width,
+		Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.Width * Size_Background.Y / Size_Background.X
+	>;
+	declare Real SizeX_PopUpHeader = Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.X * Size_Header.X / Size_Background.X;
+	// The + 0.1 is for an alignment problem between the mask header and the background pop-up (https://gitlab.nadeo.org/trackmania-next/tmnext/-/merge_requests/4427#note_187413)
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.Size = <
+		SizeX_PopUpHeader + 0.1,
+		SizeX_PopUpHeader * Size_Header.Y / Size_Header.X
+	>;
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.RelativePosition_V3 = <
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.X,
+		0.
+	>;
+	// Update background hitbox
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_BackgroundHitbox.RelativePosition_V3.X = Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.X;
+	declare Real SkewAngle = ML::DegToRad(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_BackgroundHitbox.RelativeRotation);
+	declare Real SkewHeight = 0.;
+	if (ML::Cos(SkewAngle) != 0.) SkewHeight = Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.Y / ML::Cos(SkewAngle);
+	declare Real SkewWidth = Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.X - (SkewHeight * ML::Sin(SkewAngle));
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_BackgroundHitbox.Size = <
+		SkewWidth * ML::Cos(SkewAngle),
+		(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.X * ML::Sin(SkewAngle)) + SkewHeight
+	>;
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Frame_BackgroundHitbox.Size = Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size;
+
+	// Update area size and position
+	declare Real HeaderGap = Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.Y * C_SizeY_Common_HeaderGap / Size_Background.Y; //< Small gap between the header and the content area
+	Trackmania_PopUpBackground2_PopUpBackground.HeaderArea.Size = <
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.Size.X - (Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.Size.Y * ML::Tan(SkewAngle)),
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.Size.Y
+	>;
+	Trackmania_PopUpBackground2_PopUpBackground.HeaderArea.Position = <
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.Y * ML::Tan(SkewAngle),
+		0.
+	>;
+	Trackmania_PopUpBackground2_PopUpBackground.ContentArea.Size = <
+		Trackmania_PopUpBackground2_PopUpBackground.HeaderArea.Size.X,
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.Y - HeaderGap - Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.Size.Y
+	>;
+	Trackmania_PopUpBackground2_PopUpBackground.ContentArea.Position = <
+		(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.Y - Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.Size.Y) * ML::Tan(SkewAngle),
+		-Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.Size.Y - HeaderGap
+	>;
+
+	// Update pop-up position
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Frame_Background.RelativePosition_V3 = Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.Position;
+
+	// Update pop-up alignment
+	declare Vec2 AlignPosition = Tools::GetAlignPosition(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size, Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.HAlign, Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.VAlign);
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Frame_Align.RelativePosition_V3 = AlignPosition;
+	Trackmania_PopUpBackground2_PopUpBackground.HeaderArea.Position += AlignPosition;
+	Trackmania_PopUpBackground2_PopUpBackground.ContentArea.Position += AlignPosition;
+
+	// Update header
+	if (Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.HeaderImageUrl == "") {
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.Visible = False;
+	} else {
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.ImageUrl = Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.HeaderImageUrl;
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.Visible = True;
+	}
+
+	// Update header gradient
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderGradient.Visible = Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.HeaderGradientVisible;
+	if (Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderGradient.Visible) {
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderGradient.RelativePosition_V3 = Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.RelativePosition_V3;
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderGradient.Size = <
+			SizeX_PopUpHeader + 0.1,
+			SizeX_PopUpHeader * C_ImgSize_MainPopUp_HeaderMask.Y / C_ImgSize_MainPopUp_HeaderMask.X
+		>;
+	}
+
+	// Update dimmer
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Dimmer.BgColor = Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.DimmerColor;
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Dimmer.Opacity = Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.DimmerOpacity;
+
+	// Update leave button
+	Trackmania_PopUpBackground2_PopUpBackground.Controls.Button_Leave.Visible = (
+		(Platform::IsPC(System) || Platform::IsStreaming(System)) &&
+		Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.ButtonLeaveEnable
+	);
+	if (Trackmania_PopUpBackground2_PopUpBackground.Controls.Button_Leave.Visible) {
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Button_Leave.RelativePosition_V3.X = Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.RelativePosition_V3.X - 6.;
+		Trackmania_PopUpBackground2_PopUpBackground.Controls.Button_Leave.RelativePosition_V3.Y = Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage.RelativePosition_V3.Y - 5.;
+	}
+}
+
+// Redraw all pop-up backgrounds
+Void RedrawPopUpBackgrounds(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_PopUpBackground, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_PopUpBackground = (Control as CMlFrame).Parent;
+		if (IsPopUpBackground(Frame_PopUpBackground)) {
+			RedrawPopUpBackground(_This, Frame_PopUpBackground);
+		}
+	}
+}
+
+// Customize a property
+Void Private_SetCustomizedProperty(CMlScript _This, CMlFrame _Frame_PopUpBackground, Integer _PropertyId, K_Properties _Properties, Boolean _Redraw) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+	Trackmania_PopUpBackground2_PopUpBackground.CustomizedProperties = Private_SetProperty(Trackmania_PopUpBackground2_PopUpBackground.CustomizedProperties, _PropertyId, _Properties);
+	if (_Redraw) RedrawPopUpBackground(_This, _Frame_PopUpBackground);
+}
+
+// Reset a customized property
+Void Private_ResetCustomizedProperty(CMlScript _This, CMlFrame _Frame_PopUpBackground, Integer _PropertyId, Boolean _Redraw) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+	Trackmania_PopUpBackground2_PopUpBackground.CustomizedProperties.Enabled = Private_EnableProperty(Trackmania_PopUpBackground2_PopUpBackground.CustomizedProperties.Enabled, _PropertyId, False);
+	if (_Redraw) RedrawPopUpBackground(_This, _Frame_PopUpBackground);
+}
+
+// Update the position of the pop-up background
+Void SetPosition(CMlScript _This, CMlFrame _Frame_PopUpBackground, Vec2 _Position, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_Position, K_Properties { Position = _Position }, _Redraw);
+}
+Void SetPosition(CMlScript _This, CMlFrame _Frame_PopUpBackground, Vec2 _Position) {
+	SetPosition(_This, _Frame_PopUpBackground, _Position, True);
+}
+Void ResetPosition(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_Position, _Redraw);
+}
+Void ResetPosition(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetPosition(_This, _Frame_PopUpBackground, True);
+}
+
+// Update the width of the pop-up background
+Void SetWidth(CMlScript _This, CMlFrame _Frame_PopUpBackground, Real _Width, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_Width, K_Properties { Width = _Width }, _Redraw);
+}
+Void SetWidth(CMlScript _This, CMlFrame _Frame_PopUpBackground, Real _Width) {
+	SetWidth(_This, _Frame_PopUpBackground, _Width, True);
+}
+Void ResetWidth(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_Width, _Redraw);
+}
+Void ResetWidth(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetWidth(_This, _Frame_PopUpBackground, True);
+}
+
+// Update the horizontal alignment of the pop-up background
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_PopUpBackground, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_HAlign, K_Properties { HAlign = _HAlign }, _Redraw);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_PopUpBackground, CMlControl::AlignHorizontal _HAlign) {
+	SetHAlign(_This, _Frame_PopUpBackground, _HAlign, True);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_HAlign, _Redraw);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetHAlign(_This, _Frame_PopUpBackground, True);
+}
+
+// Update the vertical alignment of the pop-up background
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_PopUpBackground, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_VAlign, K_Properties { VAlign = _VAlign }, _Redraw);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_PopUpBackground, CMlControl::AlignVertical _VAlign) {
+	SetVAlign(_This, _Frame_PopUpBackground, _VAlign, True);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_VAlign, _Redraw);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetVAlign(_This, _Frame_PopUpBackground, True);
+}
+
+// Update the color of the pop-up background
+Void SetBackgroundColor(CMlScript _This, CMlFrame _Frame_PopUpBackground, Vec3 _Color, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_BackgroundColor, K_Properties { BackgroundColor = _Color }, _Redraw);
+}
+Void SetBackgroundColor(CMlScript _This, CMlFrame _Frame_PopUpBackground, Vec3 _Color) {
+	SetBackgroundColor(_This, _Frame_PopUpBackground, _Color, True);
+}
+Void ResetBackgroundColor(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_BackgroundColor, _Redraw);
+}
+Void ResetBackgroundColor(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetBackgroundColor(_This, _Frame_PopUpBackground, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the color mode of the pop-up background
+Void SetBackgroundColorMode(CMlScript _This, CMlFrame _Frame_PopUpBackground, Integer _ColorMode, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_BackgroundColorMode, K_Properties { BackgroundColorMode = _ColorMode }, _Redraw);
+}
+Void SetBackgroundColorMode(CMlScript _This, CMlFrame _Frame_PopUpBackground, Integer _ColorMode) {
+	SetBackgroundColorMode(_This, _Frame_PopUpBackground, _ColorMode, True);
+}
+Void ResetBackgroundColorMode(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_BackgroundColorMode, _Redraw);
+}
+Void ResetBackgroundColorMode(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetBackgroundColorMode(_This, _Frame_PopUpBackground, True);
+}
+
+// Update the header image url
+Void SetHeaderImageUrl(CMlScript _This, CMlFrame _Frame_PopUpBackground, Text _HeaderImageUrl, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_HeaderImageUrl, K_Properties { HeaderImageUrl = _HeaderImageUrl }, _Redraw);
+}
+Void SetHeaderImageUrl(CMlScript _This, CMlFrame _Frame_PopUpBackground, Text _HeaderImageUrl) {
+	SetHeaderImageUrl(_This, _Frame_PopUpBackground, _HeaderImageUrl, True);
+}
+Void ResetHeaderImageUrl(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_HeaderImageUrl, _Redraw);
+}
+Void ResetHeaderImageUrl(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetHeaderImageUrl(_This, _Frame_PopUpBackground, True);
+}
+
+// Update the opacity of the dimmer
+Void SetDimmerOpacity(CMlScript _This, CMlFrame _Frame_PopUpBackground, Real _Opacity, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_DimmerOpacity, K_Properties { DimmerOpacity = _Opacity }, _Redraw);
+}
+Void SetDimmerOpacity(CMlScript _This, CMlFrame _Frame_PopUpBackground, Real _Opacity) {
+	SetDimmerOpacity(_This, _Frame_PopUpBackground, _Opacity, True);
+}
+Void ResetDimmerOpacity(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_DimmerOpacity, _Redraw);
+}
+Void ResetDimmerOpacity(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetDimmerOpacity(_This, _Frame_PopUpBackground, True);
+}
+
+// Update the color of the dimmer
+Void SetDimmerColor(CMlScript _This, CMlFrame _Frame_PopUpBackground, Vec3 _Color, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_DimmerColor, K_Properties { DimmerColor = _Color }, _Redraw);
+}
+Void SetDimmerColor(CMlScript _This, CMlFrame _Frame_PopUpBackground, Vec3 _Color) {
+	SetDimmerColor( _This, _Frame_PopUpBackground, _Color, True);
+}
+Void SetDimmerColor(CMlScript _This, CMlFrame _Frame_PopUpBackground, Text _Color, Boolean _Redraw) {
+	SetDimmerColor( _This, _Frame_PopUpBackground, CL::HexToRgb(_Color), _Redraw);
+}
+Void SetDimmerColor(CMlScript _This, CMlFrame _Frame_PopUpBackground, Text _Color) {
+	SetDimmerColor( _This, _Frame_PopUpBackground, CL::HexToRgb(_Color));
+}
+Void ResetDimmerColor(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_DimmerColor, _Redraw);
+}
+Void ResetDimmerColor(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetDimmerColor( _This, _Frame_PopUpBackground, True);
+}
+
+// Send a close event when clicking on the dimmer
+Void SetDimmerSendCloseEvent(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Enabled, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_DimmerSendCloseEvent, K_Properties { DimmerSendCloseEvent = _Enabled }, _Redraw);
+}
+Void SetDimmerSendCloseEvent(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Enabled) {
+	SetDimmerSendCloseEvent(_This, _Frame_PopUpBackground, _Enabled, True);
+}
+Void ResetDimmerSendCloseEvent(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_DimmerSendCloseEvent, _Redraw);
+}
+Void ResetDimmerSendCloseEvent(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetDimmerSendCloseEvent(_This, _Frame_PopUpBackground, True);
+}
+
+// Display the cross button and send a close event when clicking on it
+Void SetButtonLeaveEnable(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Enabled, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_ButtonLeaveEnable, K_Properties { ButtonLeaveEnable = _Enabled }, _Redraw);
+}
+Void SetButtonLeaveEnable(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Enabled) {
+	SetButtonLeaveEnable(_This, _Frame_PopUpBackground, _Enabled, True);
+}
+Void ResetButtonLeaveEnable(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_ButtonLeaveEnable, _Redraw);
+}
+Void ResetButtonLeaveEnable(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetButtonLeaveEnable(_This, _Frame_PopUpBackground, True);
+}
+
+
+// Display a gradient on top of the header image
+Void SetHeaderGradientVisible(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _IsVisible, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_HeaderGradientVisible, K_Properties { HeaderGradientVisible = _IsVisible }, _Redraw);
+}
+Void SetHeaderGradientVisible(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _IsVisible) {
+	SetHeaderGradientVisible(_This, _Frame_PopUpBackground, _IsVisible, True);
+}
+Void ResetHeaderGradientVisible(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_PopUpBackground, C_Property_HeaderGradientVisible, _Redraw);
+}
+Void ResetHeaderGradientVisible(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	ResetHeaderGradientVisible(_This, _Frame_PopUpBackground, True);
+}
+
+// Update the styles of the pop-up background
+Void SetStyles(CMlScript _This, CMlFrame _Frame_PopUpBackground, Text[] _StyleIds, Boolean _Redraw) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+	Trackmania_PopUpBackground2_PopUpBackground.Styles = _StyleIds;
+	if (_Redraw) RedrawPopUpBackground(_This, _Frame_PopUpBackground);
+}
+Void SetStyles(CMlScript _This, CMlFrame _Frame_PopUpBackground, Text[] _StyleIds) {
+	SetStyles(_This, _Frame_PopUpBackground, _StyleIds, True);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_PopUpBackground, Boolean _Redraw) {
+	SetStyles(_This, _Frame_PopUpBackground, [], _Redraw);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	SetStyles(_This, _Frame_PopUpBackground, []);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_PopUpBackground, Text _StyleId, Boolean _Redraw) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+	if (!Trackmania_PopUpBackground2_PopUpBackground.Styles.exists(_StyleId)) {
+		Trackmania_PopUpBackground2_PopUpBackground.Styles.add(_StyleId);
+	}
+	if (_Redraw) RedrawPopUpBackground(_This, _Frame_PopUpBackground);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_PopUpBackground, Text _StyleId) {
+	AddStyle(_This, _Frame_PopUpBackground, _StyleId, True);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_PopUpBackground, Text _StyleId, Boolean _Redraw) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+	Trackmania_PopUpBackground2_PopUpBackground.Styles.remove(_StyleId);
+	if (_Redraw) RedrawPopUpBackground(_This, _Frame_PopUpBackground);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_PopUpBackground, Text _StyleId) {
+	RemoveStyle(_This, _Frame_PopUpBackground, _StyleId, True);
+}
+
+// Set the default properties of all pop-up background
+Void SetPopUpBackgroundsDefaultProperties(CMlScript _This, K_Properties _DefaultProperties, Boolean _Redraw) {
+	declare K_State Trackmania_PopUpBackground2_State for _This.Page = C_State_Null;
+	Trackmania_PopUpBackground2_State.DefaultProperties = _DefaultProperties;
+	if (_Redraw) RedrawPopUpBackgrounds(_This);
+}
+Void SetPopUpBackgroundsDefaultProperties(CMlScript _This, K_Properties _DefaultProperties) {
+	SetPopUpBackgroundsDefaultProperties(_This, _DefaultProperties, True);
+}
+
+// Create a new pop-up background style
+Void CreateStyle(CMlScript _This, Text _StyleId, K_Properties _Style) {
+	declare K_State Trackmania_PopUpBackground2_State for _This.Page = C_State_Null;
+	Trackmania_PopUpBackground2_State.Styles[_StyleId] = _Style;
+}
+
+// Set the visibility of the pop-up with animation
+Void SetVisibilityWithAnim(CMlScript _This, CMlFrame _Frame_PopUpBackground, Integer _StartTime, Integer _Duration, CAnimManager::EAnimManagerEasing _Easing, Boolean _IsVisible) {
+	declare K_State Trackmania_PopUpBackground2_State for _This.Page = C_State_Null;
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+
+	_This.AnimMgr.Flush(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background);
+	_This.AnimMgr.Flush(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Dimmer);
+	_This.AnimMgr.Flush(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderGradient);
+	_This.AnimMgr.Flush(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage);
+	if (_IsVisible) {
+		_This.AnimMgr.Add(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background, """<anim opacity="{{{C_DefaultBackgroundOpacity}}}" />""", _StartTime, _Duration, _Easing);
+		_This.AnimMgr.Add(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Dimmer, """<anim opacity="{{{Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.DimmerOpacity}}}" />""", _StartTime, _Duration, _Easing);
+		_This.AnimMgr.Add(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderGradient, """<anim opacity="1." />""", _StartTime, _Duration, _Easing);
+		_This.AnimMgr.Add(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage, """<anim opacity="1." />""", _StartTime, _Duration, _Easing);
+	} else {
+		_This.AnimMgr.Add(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background, """<anim opacity="0" />""", _StartTime, _Duration, _Easing);
+		_This.AnimMgr.Add(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Dimmer, """<anim opacity="0" />""", _StartTime, _Duration, _Easing);
+		_This.AnimMgr.Add(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderGradient, """<anim opacity="0" />""", _StartTime, _Duration, _Easing);
+		_This.AnimMgr.Add(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_HeaderImage, """<anim opacity="0" />""", _StartTime, _Duration, _Easing);
+	}
+}
+Void ShowWithAnim(CMlScript _This, CMlFrame _Frame_PopUpBackground, Integer _StartTime, Integer _Duration, CAnimManager::EAnimManagerEasing _Easing) {
+	SetVisibilityWithAnim(_This, _Frame_PopUpBackground, _StartTime, _Duration, _Easing, True);
+}
+Void HideWithAnim(CMlScript _This, CMlFrame _Frame_PopUpBackground, Integer _StartTime, Integer _Duration, CAnimManager::EAnimManagerEasing _Easing) {
+	SetVisibilityWithAnim(_This, _Frame_PopUpBackground, _StartTime, _Duration, _Easing, False);
+}
+
+// Initialize a pop-up background
+Void InitializePopUpBackground(CMlScript _This, CMlFrame _Frame_PopUpBackground) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+	Trackmania_PopUpBackground2_PopUpBackground = K_PopUpBackground {};
+
+	Trackmania_PopUpBackground2_PopUpBackground.IsPopUpBackground = True;
+
+	declare CMlFrame Frame_Background <=> (_Frame_PopUpBackground.GetFirstChild(C_Id_FrameBackground) as CMlFrame);
+	declare CMlFrame Frame_Align <=> (Frame_Background.GetFirstChild(C_Id_FrameAlign) as CMlFrame);
+	declare CMlFrame Frame_BackgroundHitbox <=> (Frame_Align.GetFirstChild(C_Id_FrameBackgroundHitbox) as CMlFrame);
+	Trackmania_PopUpBackground2_PopUpBackground.Controls = K_Controls {
+		Quad_Dimmer = (_Frame_PopUpBackground.GetFirstChild(C_Id_QuadDimmer) as CMlQuad),
+		Frame_Background = Frame_Background,
+		Frame_Align = Frame_Align,
+		Quad_Background = (Frame_Align.GetFirstChild(C_Id_QuadBackground) as CMlQuad),
+		Quad_HeaderImage = (Frame_Align.GetFirstChild(C_Id_QuadHeaderImage) as CMlQuad),
+		Quad_HeaderGradient = (Frame_Align.GetFirstChild(C_Id_QuadHeaderGradient) as CMlQuad),
+		Frame_BackgroundHitbox = Frame_BackgroundHitbox,
+		Quad_BackgroundHitbox = (Frame_BackgroundHitbox.GetFirstChild(C_Id_QuadBackgroundHitbox) as CMlQuad),
+		Button_Leave = (Frame_Align.GetFirstChild(C_Id_ButtonLeave) as CMlQuad)
+	};
+
+	Trackmania_PopUpBackground2_PopUpBackground.CustomizedProperties = K_Properties {};
+	Trackmania_PopUpBackground2_PopUpBackground.MergedProperties = K_Properties {};
+	Trackmania_PopUpBackground2_PopUpBackground.Styles = [];
+
+	declare CMlFrame Trackmania_PopUpBackground2_Root as Trackmania_PopUpBackground2_Root_Dimmer for Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Dimmer = Null;
+	Trackmania_PopUpBackground2_Root_Dimmer = _Frame_PopUpBackground;
+	declare CMlFrame Trackmania_PopUpBackground2_Root as Trackmania_PopUpBackground2_Root_ButtonLeave for Trackmania_PopUpBackground2_PopUpBackground.Controls.Button_Leave = Null;
+	Trackmania_PopUpBackground2_Root_ButtonLeave = _Frame_PopUpBackground;
+
+	if (_Frame_PopUpBackground.DataAttributeExists("pos")) {
+		SetPosition(_This, _Frame_PopUpBackground, Tools::TextToVec2(_Frame_PopUpBackground.DataAttributeGet("pos")), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("width")) {
+		SetWidth(_This, _Frame_PopUpBackground, TL::ToReal(_Frame_PopUpBackground.DataAttributeGet("width")), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("halign")) {
+		SetHAlign(_This, _Frame_PopUpBackground, Tools::TextToHAlign2(_Frame_PopUpBackground.DataAttributeGet("halign")), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("valign")) {
+		SetVAlign(_This, _Frame_PopUpBackground, Tools::TextToVAlign2(_Frame_PopUpBackground.DataAttributeGet("valign")), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("background-color")) {
+		SetBackgroundColor(_This, _Frame_PopUpBackground, CL::Hex6ToRgb(_Frame_PopUpBackground.DataAttributeGet("background-color")), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("background-colormode")) {
+		SetBackgroundColorMode(_This, _Frame_PopUpBackground, TL::ToInteger(_Frame_PopUpBackground.DataAttributeGet("background-colormode")), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("header-image")) {
+		SetHeaderImageUrl(_This, _Frame_PopUpBackground, _Frame_PopUpBackground.DataAttributeGet("header-image"), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("dimmer-opacity")) {
+		SetDimmerOpacity(_This, _Frame_PopUpBackground, TL::ToReal(_Frame_PopUpBackground.DataAttributeGet("dimmer-opacity")), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("dimmer-color")) {
+		SetDimmerColor(_This, _Frame_PopUpBackground, _Frame_PopUpBackground.DataAttributeGet("dimmer-color"), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("dimmer-send-close-event")) {
+		SetDimmerSendCloseEvent(_This, _Frame_PopUpBackground, Tools::TextToBoolean(_Frame_PopUpBackground.DataAttributeGet("dimmer-send-close-event")), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("button-leave-enabled")) {
+		SetButtonLeaveEnable(_This, _Frame_PopUpBackground, Tools::TextToBoolean(_Frame_PopUpBackground.DataAttributeGet("button-leave-enabled")), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("header-gradient-visible")) {
+		SetHeaderGradientVisible(_This, _Frame_PopUpBackground, Tools::TextToBoolean(_Frame_PopUpBackground.DataAttributeGet("header-gradient-visible")), False);
+	}
+	if (_Frame_PopUpBackground.DataAttributeExists("styles")) {
+		SetStyles(_This, _Frame_PopUpBackground, TL::Split(" ", TL::Trim(_Frame_PopUpBackground.DataAttributeGet("styles"))), False);
+	}
+
+	RedrawPopUpBackground(_This, _Frame_PopUpBackground);
+}
+
+// Initialize all pop-up backgrounds in the manialink
+Void InitializePopUpBackgrounds(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_PopUpBackground, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		InitializePopUpBackground(_This, (Control as CMlFrame).Parent);
+	}
+}
+
+// Get the size of the usable header area
+Vec2 GetHeaderAreaSize(CMlFrame _Frame_PopUpBackground) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+	return Trackmania_PopUpBackground2_PopUpBackground.HeaderArea.Size;
+}
+
+// Get the size of the usable content area
+Vec2 GetContentAreaSize(CMlFrame _Frame_PopUpBackground) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+	return Trackmania_PopUpBackground2_PopUpBackground.ContentArea.Size;
+}
+
+// Get the position of the usable header area
+Vec2 GetHeaderAreaPosition(CMlFrame _Frame_PopUpBackground) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+	return Trackmania_PopUpBackground2_PopUpBackground.HeaderArea.Position;
+}
+
+// Get the position of the usable content area
+Vec2 GetContentAreaPosition(CMlFrame _Frame_PopUpBackground) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+	return Trackmania_PopUpBackground2_PopUpBackground.ContentArea.Position;
+}
+
+// Get the width of the background
+Real GetBackgroundWidth(CMlFrame _Frame_PopUpBackground) {
+	declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for _Frame_PopUpBackground = C_PopUpBackground_Null;
+	return Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.X - (Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_Background.Size.Y * ML::Tan(ML::DegToRad(Trackmania_PopUpBackground2_PopUpBackground.Controls.Quad_BackgroundHitbox.RelativeRotation)));
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State Trackmania_PopUpBackground2_State for _This.Page = C_State_Null;
+	Trackmania_PopUpBackground2_State = C_State_Null;
+
+	// Style of the main pop-up
+	CreateStyle(_This, C_Style_MainPopUp, K_Properties {
+		Enabled = [C_Property_Width],
+		Width = C_SizeX_MainPopUp_Background
+	});
+
+	// Style of the secondary pop-up
+	CreateStyle(_This, C_Style_SecondaryPopUp_NoHeader, K_Properties {
+		Enabled = [C_Property_Width],
+		Width = C_SizeX_SecondaryPopUp_Background
+	});
+
+	// Style of the secondary pop-up
+	CreateStyle(_This, C_Style_SecondaryPopUp_WithHeader, K_Properties {
+		Enabled = [C_Property_Width],
+		Width = C_SizeX_SecondaryPopUp_Background
+	});
+
+	// Style of the tertiary pop-up
+	CreateStyle(_This, C_Style_TertiaryPopUp_WithHeader, K_Properties {
+		Enabled = [C_Property_Width],
+		Width = C_SizeX_TertiaryPopUp_Background
+	});
+}
+
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State Trackmania_PopUpBackground2_State for _This.Page = C_State_Null;
+	return Trackmania_PopUpBackground2_State.PendingEvents;
+}
+
+Void MainStart(CMlScript _This) {
+	InitializePopUpBackgrounds(_This);
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State Trackmania_PopUpBackground2_State for _This.Page = C_State_Null;
+	Trackmania_PopUpBackground2_State.PendingEvents = [];
+
+	foreach (Event in _This.PendingEvents) {
+		switch (Event.Type) {
+			case CMlScriptEvent::Type::MouseOver: {
+				if (Event.ControlId == C_Id_ButtonLeave) {
+					_This.AnimMgr.Add(Event.Control, "<anim scale=\"1.2\"/>", 100, CAnimManager::EAnimManagerEasing::Linear);
+				}
+			}
+			case CMlScriptEvent::Type::MouseOut: {
+				if (Event.ControlId == C_Id_ButtonLeave) {
+					_This.AnimMgr.Add(Event.Control, "<anim scale=\"1.\"/>", 100, CAnimManager::EAnimManagerEasing::Linear);
+				}
+			}
+			case CMlScriptEvent::Type::MouseClick: {
+				if (Event.Control != Null && (Event.ControlId == C_Id_QuadDimmer || Event.ControlId == C_Id_ButtonLeave)) {
+					declare CMlFrame Trackmania_PopUpBackground2_Root for Event.Control = Null;
+					if (Trackmania_PopUpBackground2_Root != Null) {
+						declare K_PopUpBackground Trackmania_PopUpBackground2_PopUpBackground for Trackmania_PopUpBackground2_Root = C_PopUpBackground_Null;
+						if (
+							(Event.ControlId == C_Id_QuadDimmer && Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.DimmerSendCloseEvent) ||
+							(Event.ControlId == C_Id_ButtonLeave && Trackmania_PopUpBackground2_PopUpBackground.MergedProperties.ButtonLeaveEnable)
+						) {
+							Trackmania_PopUpBackground2_State.PendingEvents.add(K_Event {
+								Type = C_EventType_Close,
+								PopUpBackground = Trackmania_PopUpBackground2_Root
+							});
+							if (Event.ControlId == C_Id_ButtonLeave) Event.Control.RelativeScale = 1.;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/Trackmania/Components/PopUpBackground2.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[],
+		[]
+	);
+}

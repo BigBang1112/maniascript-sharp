@@ -1,0 +1,228 @@
+/**
+ * Configuration management
+ */
+#Const Version "2.15.0"
+#Const ScriptName "Libs/Nadeo/CMGame/Utils/Config.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Loading {
+	CHttpRequest Request;
+	Integer Source;
+}
+// To stay fully backward compatible and avoid creating conflicts between
+// the title scripts and the plugin scripts NEVER remove or rename a member of this structure
+// Only add new members
+#Struct K_Config {
+	Text ConfigName;
+	Text APIBaseUrl;
+	Text APICoreUrl;
+	Text APIMeetUrl;
+	Text WebsiteAdminClubUrl;
+	Text WebsitePlayersPageUrl;
+	Text WebsiteOnlineServicesStatusPage;
+	Text ScriptEnvironment;
+	Text BuildEnvironment;
+	Text DefaultSubscription;
+	Text DefaultMasterZone;
+	Text OfflineCampaignJsonName;
+	Integer MinBronzeMedalNbToPlayRanked;
+	Text RankedMode;
+	Text[] Features;
+	// Do not forget to update the MergeConfig() function with any new property added to the structure!
+	// also update Config.dev.json, Config.production.json, Config.production-cn.json, Config.production-lt.json and Config.uat.json
+	// also update the struct here: https://gitlab.nadeo.org/nadeo-live/maniaplanet-live-scripts/-/blob/dev/Scripts/Libs/Nadeo/System/Settings/SettingsStructs.Script.txt#L51
+	// also update the console parameters here: https://console.online.ubisoft.org/
+	// also update the `C_ConfigStructVersion` constant
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_DefaultConfig K_Config {
+	ConfigName = "default-0",
+	APIBaseUrl = "https://live-services.trackmania.nadeo.live",
+	APICoreUrl = "https://core.trackmania.nadeo.live",
+	APIMeetUrl = "https://meet.trackmania.nadeo.club",
+	WebsiteAdminClubUrl = "https://www.trackmania.com/competition",
+	WebsitePlayersPageUrl = "https://www.trackmania.com",
+	WebsiteOnlineServicesStatusPage = "https://trackmania-status.cdn.ubi.com",
+	ScriptEnvironment = "production",
+	BuildEnvironment = "",
+	DefaultSubscription = "",
+	DefaultMasterZone = "World",
+	OfflineCampaignJsonName = "Campaign.production.json",
+	MinBronzeMedalNbToPlayRanked = 5,
+	RankedMode = "",
+	Features = []
+}
+#Const C_DefaultConfigDirtyCounter 1
+
+#Const C_ConfigStructVersion "2.0.0"
+
+#Const C_Feature_MatchmakingDebugQueue "MatchmakingDebugQueue"
+#Const C_Feature_Squadding "Squadding"
+#Const C_Feature_DebugShortcut "DebugShortcut"
+#Const C_Feature_DebugToolbox "DebugToolbox"
+#Const C_Feature_CustomLogUI "CustomLogUI"
+#Const C_Feature_DebugBrowserAllData "DebugBrowserAllData"
+#Const C_Feature_DisplayMenuPagesCreationProgress "DisplayMenuPagesCreationProgress"
+#Const C_Feature_DebugFastBoot "DebugFastBoot"
+#Const C_Feature_DebugFakeCampaignUnlock "DebugFakeCampaignUnlock"
+#Const C_Feature_Gallery "Gallery"
+#Const C_Feature_F9Access "F9Access"
+#Const C_Feature_OldKnockoutRanking "OldKnockoutRanking"
+#Const C_Feature_DisableMusicMainMenuBonus "DisableMusicMainMenuBonus"
+
+#Const C_Source_Null 0
+#Const C_Source_ClientTitle 1
+#Const C_Source_ClientOnline 2
+#Const C_Source_ServerTitle 3
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the configuration object
+K_Config Get() {
+	declare K_Config CMGame_Config_Config for System = C_DefaultConfig;
+	return CMGame_Config_Config;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Is the given feature enabled
+Boolean HasFeature(Text _Feature) {
+	declare K_Config CMGame_Config_Config for System = C_DefaultConfig;
+	return CMGame_Config_Config.Features.exists(_Feature);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the configuration object
+Void Set(K_Config _Config, Integer _Source) {
+	declare K_Config CMGame_Config_Config for System = C_DefaultConfig;
+	declare Text CMGame_Config_ConfigJson for System = C_DefaultConfig.tojson();
+	declare Text CMGame_Config_ConfigStructVersion for System = C_ConfigStructVersion;
+	declare Integer CMGame_Config_Source for System = C_Source_Null;
+	declare Integer CMGame_Config_ConfigDirtyCounter for System = C_DefaultConfigDirtyCounter;
+	CMGame_Config_Config = _Config;
+	CMGame_Config_ConfigJson = CMGame_Config_Config.tojson();
+	CMGame_Config_ConfigStructVersion = C_ConfigStructVersion;
+	CMGame_Config_Source = _Source;
+	CMGame_Config_ConfigDirtyCounter += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the source of the config
+Integer GetSource() {
+	declare Integer CMGame_Config_Source for System = C_Source_Null;
+	return CMGame_Config_Source;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the value of the config dirty counter
+Integer GetDirtyCounter() {
+	declare Integer CMGame_Config_ConfigDirtyCounter for System = C_DefaultConfigDirtyCounter;
+	return CMGame_Config_ConfigDirtyCounter;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the configuration from a file
+K_Loading StartLoadFile(CHttpManager _Http, Text _FilePath, Integer _Source) {
+	return K_Loading {
+		Request = _Http.CreateGet(_FilePath, False),
+		Source = _Source
+	};
+}
+Boolean IsLoadingFile(K_Loading _Loading) {
+	if (_Loading.Request == Null) return False;
+
+	if (_Loading.Request.IsCompleted && _Loading.Request.Result != "") {
+		declare K_Config Config;
+		Config.fromjson(_Loading.Request.Result);
+		Set(Config, _Loading.Source);
+	}
+
+	return !_Loading.Request.IsCompleted;
+}
+Void StopLoadingFile(CHttpManager _Http, K_Loading _Loading) {
+	_Http.Destroy(_Loading.Request);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Merge configuration B into configuration A
+K_Config MergeConfig(K_Config _ConfigA, K_Config _ConfigB) {
+	declare K_Config ConfigMerged = _ConfigA;
+	if (_ConfigB.ConfigName != "") ConfigMerged.ConfigName = _ConfigB.ConfigName;
+	if (_ConfigB.APIBaseUrl != "") ConfigMerged.APIBaseUrl = _ConfigB.APIBaseUrl;
+	if (_ConfigB.APICoreUrl != "") ConfigMerged.APICoreUrl = _ConfigB.APICoreUrl;
+	if (_ConfigB.APIMeetUrl != "") ConfigMerged.APIMeetUrl = _ConfigB.APIMeetUrl;
+	if (_ConfigB.WebsiteAdminClubUrl != "") ConfigMerged.WebsiteAdminClubUrl = _ConfigB.WebsiteAdminClubUrl;
+	if (_ConfigB.WebsitePlayersPageUrl != "") ConfigMerged.WebsitePlayersPageUrl = _ConfigB.WebsitePlayersPageUrl;
+	if (_ConfigB.WebsiteOnlineServicesStatusPage != "") ConfigMerged.WebsiteOnlineServicesStatusPage = _ConfigB.WebsiteOnlineServicesStatusPage;
+	if (_ConfigB.ScriptEnvironment != "") ConfigMerged.ScriptEnvironment = _ConfigB.ScriptEnvironment;
+	if (_ConfigB.BuildEnvironment != "") ConfigMerged.BuildEnvironment = _ConfigB.BuildEnvironment;
+	if (_ConfigB.DefaultSubscription != "") ConfigMerged.DefaultSubscription = _ConfigB.DefaultSubscription;
+	if (_ConfigB.DefaultMasterZone != "") ConfigMerged.DefaultMasterZone = _ConfigB.DefaultMasterZone;
+	if (_ConfigB.OfflineCampaignJsonName != "") ConfigMerged.OfflineCampaignJsonName = _ConfigB.OfflineCampaignJsonName;
+	if (_ConfigB.MinBronzeMedalNbToPlayRanked >= 0) ConfigMerged.MinBronzeMedalNbToPlayRanked = _ConfigB.MinBronzeMedalNbToPlayRanked;
+	if (_ConfigB.RankedMode != "") ConfigMerged.RankedMode = _ConfigB.RankedMode;
+	if (_ConfigB.Features.count > 0) ConfigMerged.Features = _ConfigB.Features;
+	return ConfigMerged;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Merge configuration from a json string into the current configuration
+Void MergeJson(Text _ConfigJson, Integer _Source) {
+	declare K_Config ConfigJson;
+	ConfigJson.fromjson(_ConfigJson);
+	Set(MergeConfig(Get(), ConfigJson), _Source);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Merge configuration from file into the current configuration
+K_Loading StartMergeFile(CHttpManager _Http, Text _FilePath, Integer _Source) {
+	return K_Loading {
+		Request = _Http.CreateGet(_FilePath, False),
+		Source = _Source
+	};
+}
+Boolean IsMergingFile(K_Loading _Loading) {
+	if (_Loading.Request == Null) return False;
+
+	if (_Loading.Request.IsCompleted && _Loading.Request.Result != "") {
+		MergeJson(_Loading.Request.Result, _Loading.Source);
+	}
+
+	return !_Loading.Request.IsCompleted;
+}
+Void StopMergeFile(CHttpManager _Http, K_Loading _Loading) {
+	_Http.Destroy(_Loading.Request);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the library
+Void Initialize() {
+	Set(C_DefaultConfig, C_Source_Null);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload library
+Void Unload() {
+	Set(C_DefaultConfig, C_Source_Null);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load library
+Void Load() {
+	Initialize();
+}
+
+/* @Changelog
+
+Version 2.0.0
+-------------
+
+- Removed `APICompetitionUrl` and `APIMatchmakingUrl` from `K_Config` to use only `APIMeetUrl` (replacing `APIBordeauxClubUrl`) with the new API
+
+ */

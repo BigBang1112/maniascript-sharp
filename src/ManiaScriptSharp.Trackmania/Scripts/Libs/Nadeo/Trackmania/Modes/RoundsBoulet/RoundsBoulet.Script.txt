@@ -1,0 +1,452 @@
+/**
+ *	RoundsBoulet mode helper library
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/RoundsBoulet/RoundsBoulet.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Log.Script.txt" as Log
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Server.Script.txt" as Clans
+#Include "Libs/Nadeo/TMGame/Modes/Scores.Script.txt" as Scores
+#Include "Libs/Nadeo/Trackmania/Modes/RoundsBoulet/UIModules/RaceRanking_Server.Script.txt" as UIModules_RaceRanking
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Team {
+	Integer Id;
+	Text[] Members;
+	Text[][Integer] TriggeredCheckpoint;
+	Integer[] WaypointTimes;
+	Boolean FinishedRace;
+	Integer FinishedNb;
+	Integer Rank;
+}
+#Struct K_RankingUpdate {
+	Integer UpdateTime;
+	Integer CooldownTime;
+}
+#Struct K_Json_Team {
+	Text name;
+	Text[] players;
+}
+#Struct K_Json_Teams {
+	K_Json_Team[] teams;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_TeamNullId 0
+#Const C_TeamNull K_Team { Id = 0 }
+#Const C_RankingUpdateNull K_RankingUpdate {
+	UpdateTime = -1,
+	CooldownTime = -1
+}
+
+#Const C_SortDirection_Ascending 0
+#Const C_SortDirection_Descending 1
+
+#Const C_SortCriterion_SegmentsNb 0
+#Const C_SortCriterion_SegmentsTime 1
+
+#Const C_NotRanked 0
+
+#Const C_RankingUpdateCooldown 1000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer[Text] G_AccountIdToTeamId;
+declare K_Team[Integer] G_Teams;
+declare K_RankingUpdate G_RankingUpdate;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Create a new team if it does not exist yet
+K_Team[Integer] Private_CreateTeamIfNew(K_Team[Integer] _Teams, Integer _TeamId) {
+	if (_Teams.existskey(_TeamId)) return _Teams;
+
+	declare K_Team[Integer] UpdatedTeams = _Teams;
+	UpdatedTeams[_TeamId] = K_Team {
+		Id = _TeamId,
+		Members = [],
+		TriggeredCheckpoint = [],
+		WaypointTimes = [],
+		FinishedRace = False,
+		FinishedNb = 0,
+		Rank = C_NotRanked
+	};
+
+	return UpdatedTeams;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Add a member to a team if they are not already in
+Text[] Private_AddMemberIfNew(Text[] _Members, Text _AccountId) {
+	if (_Members.exists(_AccountId)) return _Members;
+
+	declare Text[] UpdatedMembers = _Members;
+	UpdatedMembers.add(_AccountId);
+
+	return UpdatedMembers;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a team is "Null"
+Boolean TeamIsNull(K_Team _Team) {
+	return _Team.Id == C_TeamNullId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the team id of a player
+ *	Return `C_TeamNullId` if the player is not in a team
+ */
+Integer GetTeamId(Text _AccountId) {
+	return G_AccountIdToTeamId.get(_AccountId, C_TeamNullId);
+}
+Integer GetTeamId(CSmPlayer _Player) {
+	if (_Player == Null || _Player.User == Null) return C_TeamNullId;
+	return GetTeamId(_Player.User.WebServicesUserId);
+}
+Integer GetTeamId(CUser _User) {
+	if (_User == Null) return C_TeamNullId;
+	return GetTeamId(_User.WebServicesUserId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the team of a player
+ *	Return `C_TeamNull` if the player is not in a team
+ */
+K_Team GetTeam(Text _AccountId) {
+	declare Integer TeamId = GetTeamId(_AccountId);
+	if (TeamId == C_TeamNullId) return C_TeamNull;
+	return G_Teams.get(TeamId, C_TeamNull);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a player is in a team
+Boolean IsInATeam(Text _AccountId) {
+	return G_AccountIdToTeamId.existskey(_AccountId);
+}
+Boolean IsInATeam(CSmPlayer _Player) {
+	if (_Player.User == Null) return False;
+	return IsInATeam(_Player.User.WebServicesUserId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove a member from a team
+Void RemoveTeamMember(Text _AccountId) {
+	declare Integer TeamId = GetTeamId(_AccountId);
+	if (TeamId == C_TeamNullId) return;
+	G_Teams[TeamId].Members.remove(_AccountId);
+	G_AccountIdToTeamId.removekey(_AccountId);
+	// Even if a team does not have any players left
+	// it must not be destroyed. A player can come back later.
+	// Only the `ResetTeams()` function can delete teams.
+	Log::Log("""[RoundsBoulet] RemoveTeamMember() > _AccountId : {{{_AccountId}}} | G_Teams : {{{G_Teams.count}}}""");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add a member to a team
+Void AddTeamMember(Text _AccountId, Integer _TeamId) {
+	if (_TeamId <= 0 || _TeamId > Clans::C_MultiClansMax) {
+		log("""WARNING > RoundsBoulet::AddTeamMember() > The team id parameter is incorrect. It must be in range [1, {{{Clans::C_MultiClansMax}}}], received: {{{_TeamId}}}""");
+		return;
+	}
+
+	// Check if the player is already in a team
+	if (G_AccountIdToTeamId.existskey(_AccountId)) {
+		if (G_AccountIdToTeamId[_AccountId] == _TeamId) {
+			return; // Already in this team
+		} else {
+			RemoveTeamMember(_AccountId); // Leave old team before joining the new one
+		}
+	}
+
+	G_AccountIdToTeamId[_AccountId] = _TeamId;
+	G_Teams = Private_CreateTeamIfNew(G_Teams, _TeamId);
+	G_Teams[_TeamId].Members = Private_AddMemberIfNew(G_Teams[_TeamId].Members, _AccountId);
+	Log::Log("""[RoundsBoulet] AddTeamMember() > _AccountId : {{{_AccountId}}} | _TeamId : {{{_TeamId}}} | G_Teams : {{{G_Teams.count}}}""");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a player can spawn
+Boolean CanSpawn(CSmPlayer _Player) {
+	if (_Player.User == Null) return False;
+	return !TeamIsNull(GetTeam(_Player.User.WebServicesUserId));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get all teams
+K_Team[Integer] GetTeams() {
+	return G_Teams;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the number of teams
+Integer GetTeamsNb() {
+	return G_Teams.count;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the teams ranking
+K_Team[] UpdateRaceRanking() {
+	// Sort team by waypoint times
+	declare Integer[][Integer] TeamsToSortByTimes;
+	foreach (Team in G_Teams) {
+		TeamsToSortByTimes[Team.Id] = Team.WaypointTimes;
+	}
+	declare Integer[][Integer] TeamsSortedByTimes = Scores::SortKeysByWaypointTimes(TeamsToSortByTimes);
+
+	// Update teams ranking
+	declare K_Team[] Ranking;
+	declare Integer[][] RaceTeamsRanking;
+	declare Integer Rank = 1;
+	foreach (TimesTeamIds in TeamsSortedByTimes) {
+		declare Integer[][] TeamsSortedByPoints;
+		if (TimesTeamIds.count > 1) {
+			declare Integer[Integer] TeamsToSortByPoints;
+			foreach (TeamId in TimesTeamIds) {
+				TeamsToSortByPoints[TeamId] = Scores::GetClanMatchPoints(TeamId);
+			}
+			TeamsSortedByPoints = Scores::SortKeysByPoints(TeamsToSortByPoints, Scores::C_Order_Descending, 0);
+		} else if (TimesTeamIds.count == 1) {
+			TeamsSortedByPoints = [[TimesTeamIds[0]]];
+		}
+
+		foreach (PointsTeamIds in TeamsSortedByPoints) {
+			foreach (TeamId in PointsTeamIds) {
+				declare K_Team UpdatedTeam = G_Teams[TeamId];
+				UpdatedTeam.Rank = Rank;
+				Ranking.add(UpdatedTeam);
+				RaceTeamsRanking.add(UIModules_RaceRanking::CreateTeamRank(UpdatedTeam.Id, UpdatedTeam.Rank));
+				G_Teams[TeamId] = UpdatedTeam;
+			}
+			Rank += PointsTeamIds.count;
+		}
+	}
+	UIModules_RaceRanking::SetTeamsRanking(RaceTeamsRanking);
+
+	G_RankingUpdate.UpdateTime = -1;
+	G_RankingUpdate.CooldownTime = Now + C_RankingUpdateCooldown;
+
+	return Ranking;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the current map ranking
+Void ThrottleUpdateRaceRanking() {
+	G_RankingUpdate.UpdateTime = ML::Max(Now, G_RankingUpdate.CooldownTime);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** A player triggers a checkpoint
+ *
+ *	@return													Return `True` if all players of the team triggered this checkpoint
+ *																	`False` otherwise
+ */
+Boolean TriggerCheckpoint(CSmPlayer _Player, Boolean _IsFinish) {
+	if (_Player == Null || _Player.User == Null) return False;
+	declare K_Team Team = GetTeam(_Player.User.WebServicesUserId);
+	if (TeamIsNull(Team)) return False;
+
+	// This checkpoint has already been triggered by the last player of the team
+	if (_Player.RaceWaypointTimes.count <= Team.WaypointTimes.count) return True;
+
+	declare Integer CheckpointIndex = _Player.RaceWaypointTimes.count - 1;
+	if (!Team.TriggeredCheckpoint.existskey(CheckpointIndex)) {
+		Team.TriggeredCheckpoint[CheckpointIndex] = [_Player.User.WebServicesUserId];
+	} else if (!Team.TriggeredCheckpoint[CheckpointIndex].exists(_Player.User.WebServicesUserId)) {
+		Team.TriggeredCheckpoint[CheckpointIndex].add(_Player.User.WebServicesUserId);
+	}
+
+	if (_IsFinish) {
+		Team.FinishedNb = Team.TriggeredCheckpoint[CheckpointIndex].count;
+		UIModules_RaceRanking::SetTeamFinish(Team.Id, Team.FinishedNb, Team.Members.count);
+	}
+
+	declare Boolean AllMembersTriggeredCheckpoint = Team.Members.containsonly(Team.TriggeredCheckpoint[CheckpointIndex]);
+	if (AllMembersTriggeredCheckpoint) {
+		Team.WaypointTimes.add(_Player.RaceWaypointTimes[CheckpointIndex]);
+		Team.TriggeredCheckpoint.removekey(CheckpointIndex);
+		if (_IsFinish) {
+			Team.FinishedRace = True;
+		}
+	}
+
+	G_Teams[Team.Id] = Team;
+
+	return AllMembersTriggeredCheckpoint;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the race of all teams
+Void ResetRaces() {
+	foreach (Team in G_Teams) {
+		declare K_Team UpdatedTeam = Team;
+		UpdatedTeam.TriggeredCheckpoint = [];
+		UpdatedTeam.WaypointTimes = [];
+		UpdatedTeam.FinishedRace = False;
+		UpdatedTeam.FinishedNb = 0;
+		UpdatedTeam.Rank = C_NotRanked;
+		G_Teams[Team.Id] = UpdatedTeam;
+	}
+	UIModules_RaceRanking::ResetTeamsFinish();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the points earned for the current race
+Void UpdateTeamsRoundPoints(Integer[] _PointsDistribution) {
+	// Give 0 points to teams whose the last player did not finish
+	declare Integer[][Integer] TeamsToSort;
+	foreach (Team in G_Teams) {
+		if (Team.FinishedRace && Team.WaypointTimes.count > 0) {
+			TeamsToSort[Team.Id] = Team.WaypointTimes;
+		} else {
+			Scores::SetClanRoundPoints(Team.Id, 0);
+		}
+	}
+
+	// Rank and give points to the teams that finished
+	declare Integer Rank = 0;
+	declare Integer[][Integer] TeamsSortedByWaypointTimes = Scores::SortKeysByWaypointTimes(TeamsToSort);
+	declare Integer[Integer] TeamsRoundPoints;
+	foreach (TeamIds in TeamsSortedByWaypointTimes) {
+		declare Integer Points = 0;
+		if (_PointsDistribution.count > 0) {
+			if (Rank > _PointsDistribution.count - 1) {
+				Points = _PointsDistribution[_PointsDistribution.count - 1];
+			} else {
+				Points = _PointsDistribution[Rank];
+			}
+		}
+		foreach (TeamId in TeamIds) {
+			Scores::SetClanRoundPoints(TeamId, Points);
+			TeamsRoundPoints[TeamId] = Points;
+		}
+		Rank += TeamIds.count;
+	}
+	UIModules_RaceRanking::SetTeamsRoundPoints(TeamsRoundPoints);
+
+	// Apply teams points to players
+	foreach (Score in Scores) {
+		declare Integer TeamId = GetTeamId(Score.User);
+		if (TeamId != C_TeamNullId) {
+			Scores::SetPlayerRoundPoints(Score, Scores::GetClanRoundPoints(TeamId));
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Transfert the round points to the map/match points
+Void UpdateTeamsMatchPoints() {
+	// Transfert team points
+	Scores::AffectClansRoundToMapAndMatchPoints();
+	UIModules_RaceRanking::ResetTeamsRoundPoints();
+
+	// Apply teams points to players
+	foreach (Score in Scores) {
+		Scores::SetPlayerRoundPoints(Score, 0);
+		declare Integer TeamId = GetTeamId(Score.User);
+		if (TeamId != C_TeamNullId) {
+			Scores::SetPlayerMapPoints(Score, Scores::GetClanMapPoints(TeamId));
+			Scores::SetPlayerMatchPoints(Score, Scores::GetClanMatchPoints(TeamId));
+		} else {
+			Scores::SetPlayerMapPoints(Score, 0);
+			Scores::SetPlayerMatchPoints(Score, 0);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset all teams
+Void ResetTeams() {
+	G_AccountIdToTeamId = [];
+	G_Teams = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create the teams from a json string
+Void CreateTeamsFromJson(Text _Json) {
+	declare K_Json_Teams JsonTeams;
+	JsonTeams.fromjson(_Json);
+
+	foreach (Key => Team in JsonTeams.teams) {
+		foreach (AccountId in Team.players) {
+			AddTeamMember(TL::Trim(AccountId), Key + 1);
+		}
+		if (Team.name != "" && Teams.existskey(Key)) {
+			Teams[Key].Name = Team.name;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create fake teams
+Void CreateFakeTeams(Integer _ClansNb, Integer _MembersPerClan, Integer[Text] _FakeMembers) {
+	declare Integer[Text] FakeMembers = _FakeMembers;
+	declare Integer[Integer] ClansMembersCount;
+	foreach (Clan in FakeMembers) {
+		if (!ClansMembersCount.existskey(Clan)) {
+			ClansMembersCount[Clan] = 0;
+		}
+		ClansMembersCount[Clan] += 1;
+	}
+	declare Integer Clan = 1;
+	for (I, FakeMembers.count + 1, _ClansNb * _MembersPerClan) {
+		while (ClansMembersCount.existskey(Clan) && ClansMembersCount[Clan] >= _MembersPerClan) {
+			Clan += 1;
+		}
+		if (!ClansMembersCount.existskey(Clan)) {
+			ClansMembersCount[Clan] = 0;
+		}
+		FakeMembers["Fake#"^I] = Clan;
+		ClansMembersCount[Clan] += 1;
+	}
+	foreach (AccountId => Clan in FakeMembers) {
+		AddTeamMember(AccountId, Clan);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize a player that joins the server
+Void InitializePlayer(CSmPlayer _Player) {
+	if (_Player != Null && _Player.Score != Null) {
+		declare Integer TeamId = GetTeamId(_Player.User);
+		if (TeamId != C_TeamNullId) {
+			Scores::SetPlayerMapPoints(_Player.Score, Scores::GetClanMapPoints(TeamId));
+			Scores::SetPlayerMatchPoints(_Player.Score, Scores::GetClanMatchPoints(TeamId));
+		} else {
+			Scores::SetPlayerMapPoints(_Player.Score, 0);
+			Scores::SetPlayerMatchPoints(_Player.Score, 0);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (G_RankingUpdate.UpdateTime >= 0 && G_RankingUpdate.UpdateTime <= Now) {
+		UpdateRaceRanking();
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	ResetTeams();
+	G_RankingUpdate = C_RankingUpdateNull;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

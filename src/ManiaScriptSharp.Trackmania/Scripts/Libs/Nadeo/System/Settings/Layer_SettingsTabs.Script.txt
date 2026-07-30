@@ -1,0 +1,532 @@
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Styles/CommonStyles.Script.txt" as Styles
+
+#Const C_ImgBase "file://Media/Manialinks/Common/Settings/"
+#Const C_ButtonsPath "file://Media/Manialinks/Common/PadButtons/"
+
+#Struct SMenuTab {
+	Text	TabId;
+	Text	Name;
+	Text	IconURL;
+	Boolean	Visible;
+	Boolean	Active;
+	Boolean	Focused;
+}
+
+declare CUILayer		G_ManialinkLayerSettingsTabs;
+declare SMenuTab[Text]	G_CreatedSettingsTabs;
+
+Text Private_CreateManialink() {
+	declare TabsModels = "";
+
+	for (I, 0, G_CreatedSettingsTabs.count - 1) {
+		declare X = I * 22.;
+		TabsModels ^= "<frameinstance modelid='FrameModel_SettingsTab' id='Frame_SettingsTab#"^I^"' pos='"^X^"' hidden='0' />";
+	}
+
+	return """
+<manialink version="3" name="Settings:Tabs">
+<stylesheet>
+	{{{Styles::Get()}}}
+	<style id="Quad_ButtonApply" halign="center" valign="center" image="{{{C_ImgBase}}}button-apply.dds" imagefocus="{{{C_ImgBase}}}button-apply-focus.dds" />
+	<style id="Quad_ButtonClose" halign="center" valign="center" image="{{{C_ImgBase}}}button-close.dds" imagefocus="{{{C_ImgBase}}}button-close-focus.dds" />
+</stylesheet>
+
+<frame id="Frame_GlobalPageContainer" hidden="1">
+	<frame id="Frame_SettingsTabsWindow" pos="-120 60">
+		<frame pos="0 14">
+			<quad id="Quad_SettingsCogIcon" pos="4" size="9 9" halign="center" valign="center" image="file://Media/Manialinks/Common/Chat/buddy-mode-settings.dds" />
+			<label id="Label_MenuHeader" class="Title" pos="10 -.75" textemboss="1" textsize="8" textprefix="$t" text="Settings" translate="1" />
+		</frame>
+
+		<label class="Text" pos=".5 5.5" textemboss="1" id="Label_Version" />
+
+		<quad id="Quad_ColoredLine0" valign="bottom" size="26 1" bgcolor="FFF" />
+		<quad id="Quad_ColoredLine1" valign="bottom" size="0 .25" bgcolor="FFF" />
+		<quad id="Quad_ColoredLine2" valign="bottom" size="0 .25" bgcolor="FFF" pos="240" halign="right" />
+
+		<frame id="Frame_TabsContainer">
+			<framemodel id="FrameModel_SettingsTab">
+				<quad id="Quad_TabIcon" class="Center" pos="11 14" size="12 12" />
+				<label id="Label_TabName" class="Text" pos="11 4.5" size="20" halign="center" textsize="1.5" textemboss="1" textprefix="$t" />
+				<quad id="Quad_TabLine" valign="bottom" size="22 .25" bgcolor="FFF" hidden="1" />
+				<quad id="Quad_TabActive" pos=".5 -2" valign="bottom" size="21 32" bgcolor="FFF" opacity=".25" hidden="1" />
+				<quad id="Quad_TabCard" class="Focus" pos=".5 -2" valign="bottom" size="21 32" ScriptEvents="1" />
+
+				<frame id="Frame_TabHover" pos="0 -2" hidden="1">
+					<label pos="11 2" halign="center" textsize="1.25" textcolor="FFF" text="" />
+					<quad valign="bottom" pos=".5" size="21 .625" bgcolor="FFF" />
+				</frame>
+			</framemodel>
+
+			{{{TabsModels}}}
+		</frame>
+
+		<quad id="Quad_GamepadButtonLB" pos="0 14" valign="center" halign="right" size="7 7" />
+		<quad id="Quad_GamepadButtonRB" pos="0 14" valign="center" halign="left" size="7 7" />
+	</frame>
+
+	<frame id="Frame_ApplyButton" pos="134 74" hidden="1">
+		<quad id="Quad_GamepadButtonX" valign="center" halign="center" size="10 10" />
+		<quad id="Quad_ButtonApply" class="Focus" size="8 8" ScriptEvents="1" />
+		<label class="Text" pos="0 -6" size="14" halign="center" textsize=".75" textprefix="$t" text="Apply" translate="1" />
+	</frame>
+
+	<frame id="Frame_CloseButton" pos="148 74">
+		<quad id="Quad_GamepadButtonB" valign="center" halign="center" size="10 10" />
+		<quad id="Quad_ButtonClose" class="Focus" size="8 8" ScriptEvents="1" />
+		<label class="Text" pos="0 -6" size="14" halign="center" textsize=".75" textprefix="$t" text="Close" translate="1" />
+	</frame>
+</frame>
+
+<frame id="Frame_SettingsBackground">
+	<quad id="Quad_BackgroundTint" class="Fullscreen" opacity="0" />
+	<quad id="Quad_BackgroundDimm" class="Fullscreen" bgcolor="000" opacity="0" />
+	<quad id="Quad_BackgroundBlur" class="Fullscreen" style="Bgs1" substyle="BgDialogBlur" ScriptEvents="1" opacity="0" hidden="1" />
+</frame>
+
+<script><!--
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+#Struct SMenuTab {
+	Text	TabId;
+	Text	Name;
+	Text	IconURL;
+	Boolean	Visible;
+	Boolean	Active;
+	Boolean	Focused;
+}
+
+declare Vec3 G_ColorPrimary;
+declare Vec3 G_ColorSecondary;
+
+Void FormatTabFrame(CMlFrame _Frame, SMenuTab _Tab) {
+	if (_Frame == Null) return;
+
+	declare Quad_TabIcon	<=> (_Frame.GetFirstChild("Quad_TabIcon")	as CMlQuad);
+	declare Label_TabName	<=> (_Frame.GetFirstChild("Label_TabName")	as CMlLabel);
+	declare Quad_TabLine	<=> (_Frame.GetFirstChild("Quad_TabLine")	as CMlQuad);
+	declare Quad_TabActive	<=> (_Frame.GetFirstChild("Quad_TabActive")	as CMlQuad);
+	declare Quad_TabCard	<=> (_Frame.GetFirstChild("Quad_TabCard")	as CMlQuad);
+	declare Frame_TabHover	<=> (_Frame.GetFirstChild("Frame_TabHover")	as CMlFrame);
+
+	Quad_TabIcon.ImageUrl	= "{{{C_ImgBase}}}Tabs/" ^ _Tab.IconURL;
+	Label_TabName.Value		= _Tab.Name;
+	Quad_TabLine.Visible	= !_Tab.Active && !_Tab.Focused;
+	Quad_TabActive.Visible	= _Tab.Active;
+	Frame_TabHover.Visible	= _Tab.Active || _Tab.Focused;
+
+	Quad_TabLine.BgColor = G_ColorPrimary;
+	Quad_TabCard.Visible = !_Tab.Active;
+
+	declare Text ControlTabId for Quad_TabCard;
+	ControlTabId = _Tab.TabId;
+}
+
+Void AnimHoverPart(CMlFrame _Frame) {
+	declare Frame_TabHover <=> (_Frame.GetFirstChild("Frame_TabHover") as CMlFrame);
+
+	AnimMgr.Flush(Frame_TabHover);
+	Frame_TabHover.RelativePosition_V3.Y = -1.;
+	AnimMgr.Add(Frame_TabHover, "<frame pos='0 -2' />", 125, CAnimManager::EAnimManagerEasing::CircOut);
+}
+
+main() {
+	declare Frame_GlobalPageContainer	<=> (Page.GetFirstChild("Frame_GlobalPageContainer")	as CMlFrame);
+
+	declare Quad_SettingsCogIcon	<=> (Page.GetFirstChild("Quad_SettingsCogIcon")	as CMlQuad);
+	declare Label_Version			<=> (Page.GetFirstChild("Label_Version")		as CMlLabel);
+	declare Label_MenuHeader		<=> (Page.GetFirstChild("Label_MenuHeader")		as CMlLabel);
+	declare Quad_ColoredLine0		<=> (Page.GetFirstChild("Quad_ColoredLine0")	as CMlQuad);
+	declare Quad_ColoredLine1		<=> (Page.GetFirstChild("Quad_ColoredLine1")	as CMlQuad);
+	declare Quad_ColoredLine2		<=> (Page.GetFirstChild("Quad_ColoredLine2")	as CMlQuad);
+	declare Quad_BackgroundTint		<=> (Page.GetFirstChild("Quad_BackgroundTint")	as CMlQuad);
+	declare Quad_BackgroundDimm		<=> (Page.GetFirstChild("Quad_BackgroundDimm")	as CMlQuad);
+	declare Quad_BackgroundBlur		<=> (Page.GetFirstChild("Quad_BackgroundBlur")	as CMlQuad);
+	declare Frame_TabsContainer		<=> (Page.GetFirstChild("Frame_TabsContainer")	as CMlFrame);
+	declare Quad_GamepadButtonLB	<=> (Page.GetFirstChild("Quad_GamepadButtonLB")	as CMlQuad);
+	declare Quad_GamepadButtonRB	<=> (Page.GetFirstChild("Quad_GamepadButtonRB")	as CMlQuad);
+	declare Quad_GamepadButtonB		<=> (Page.GetFirstChild("Quad_GamepadButtonB")	as CMlQuad);
+	declare Quad_GamepadButtonX		<=> (Page.GetFirstChild("Quad_GamepadButtonX")	as CMlQuad);
+	declare Frame_ApplyButton		<=> (Page.GetFirstChild("Frame_ApplyButton")	as CMlFrame);
+
+	declare CMlFrame[] Frame_SettingsTabs;
+
+	for (I, 0, {{{G_CreatedSettingsTabs.count - 1}}}){
+		Frame_SettingsTabs.add((Page.GetFirstChild("Frame_SettingsTab#"^I) as CMlFrame));
+	}
+
+	declare Boolean		LayerSettingsTabs_IsVisible		for Page;
+	declare SMenuTab[]	LayerSettingsTabs_CreatedTabs	for Page;
+	declare Integer		LayerSettingsTabs_TabsUpdate	for Page;
+	declare Text		LayerSettingsTabs_ActiveTabId	for Page;
+	declare Boolean		LayerSettingsTabs_ApplyVisible	for Page;
+
+	declare UpdateSettingsTabs = True;
+	declare UpdateNavigationInput = True;
+	declare UpdatePadButtons = True;
+	
+	declare CurHoveredTabId = "";
+	declare CurPadModel = "";
+
+	declare PrevTabsUpdate = -1;
+	declare PrevIsVisible = False;
+	declare PrevDialogIsFinished = False;
+	declare PrevMousePos = Input.MousePos;
+	declare PrevPadModel = "";
+
+	G_ColorPrimary		= <1., 1., 1.>;
+	G_ColorSecondary	= <1., 1., 1.>;
+
+	//L16N [DisplayVersion] Display the version number of the game. %1 will be replaced by the version number. eg: "Version: 2020-05-05"
+	Label_Version.Value = TL::Compose(_("Version: %1"), System.ExeVersion);
+
+	while (True) {
+		yield;
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+				if (Event.ControlId == "Quad_ButtonClose") {
+					SendCustomEvent("CloseSettingsMenu", []);
+				}
+				else if (Event.ControlId == "Quad_ButtonApply") {
+					SendCustomEvent("ApplySettingsChanges", []);
+				}
+				else if (Event.ControlId == "Quad_TabCard") {
+					declare Text ControlTabId for Event.Control;
+					SendCustomEvent("SetActiveTab", [ControlTabId]);
+				}
+
+				if (Event.Control.HasClass("Focus")) {
+					Audio.PlaySoundEvent(CAudioManager::ELibSound::Valid, 1, 0.);
+				}
+			}
+
+			else if (Event.Type == CMlScriptEvent::Type::MouseOut) {
+				if (Event.ControlId == "Quad_TabCard") {
+					CurHoveredTabId = "";
+					UpdateSettingsTabs = True;
+				}
+			}
+
+			else if (Event.Type == CMlScriptEvent::Type::MouseOver) {
+				if (Event.ControlId == "Quad_TabCard") {
+					declare Text ControlTabId for Event.Control;
+					CurHoveredTabId = ControlTabId;
+					UpdateSettingsTabs = True;
+				}
+
+				if (Event.Control.HasClass("Focus")) {
+					Audio.PlaySoundEvent(CAudioManager::ELibSound::Focus, 1, 0.);
+				}
+			}
+
+			else if (Event.Type == CMlScriptEvent::Type::PluginCustomEvent) {
+				switch (Event.CustomEventType) {
+					case "SetColors" : {
+						if (!Event.CustomEventData.existskey(1)) continue;
+
+						declare SplitColorPrimary	= TL::Split(" ", Event.CustomEventData[0]);
+						declare SplitColorSecondary	= TL::Split(" ", Event.CustomEventData[1]);
+
+						if (SplitColorPrimary.count != 3 && SplitColorSecondary.count != 3) continue;
+
+						for (I, 0, 2) {
+							G_ColorPrimary		[I] = TL::ToReal(SplitColorPrimary[I]);
+							G_ColorSecondary	[I] = TL::ToReal(SplitColorSecondary[I]);
+						}
+
+						Quad_BackgroundTint.BgColor = G_ColorSecondary;
+
+						foreach (Quad in [Quad_ColoredLine0, Quad_ColoredLine1, Quad_ColoredLine2]) {
+							Quad.BgColor = G_ColorPrimary;
+						}
+
+						UpdateSettingsTabs = True;
+					}
+
+					case "ShowGamepadButtons" : {
+						if (!Event.CustomEventData.existskey(0)) continue;
+
+						CurPadModel = Event.CustomEventData[0];
+						UpdatePadButtons = True;
+					}
+				}
+			}
+		}
+
+		if (PrevIsVisible != LayerSettingsTabs_IsVisible) {
+			PrevIsVisible = LayerSettingsTabs_IsVisible;
+
+			Frame_GlobalPageContainer.Visible = LayerSettingsTabs_IsVisible;
+			Quad_BackgroundBlur.Visible = LayerSettingsTabs_IsVisible;
+			UpdateNavigationInput = True;
+
+			AnimMgr.Flush(Quad_SettingsCogIcon);
+			Quad_SettingsCogIcon.RelativeRotation = -180.;
+			AnimMgr.Add(Quad_SettingsCogIcon, "<quad rot='0' />", 500, CAnimManager::EAnimManagerEasing::CircOut);
+
+			declare Duration = 125;
+
+			if (LayerSettingsTabs_IsVisible) {
+				declare Easing = CAnimManager::EAnimManagerEasing::SineOut;
+
+				AnimMgr.Add(Quad_BackgroundTint, "<quad opacity='.1' />", Duration, Easing);
+				AnimMgr.Add(Quad_BackgroundDimm, "<quad opacity='.75' />", Duration, Easing);
+			}
+
+			else {
+				declare Easing = CAnimManager::EAnimManagerEasing::SineIn;
+
+				AnimMgr.Add(Quad_BackgroundTint, "<quad opacity='0' />", Duration, Easing);
+				AnimMgr.Add(Quad_BackgroundDimm, "<quad opacity='0' />", Duration, Easing);
+			}
+		}
+
+		if (PrevDialogIsFinished != ManiaPlanet.Dialog_IsFinished) {
+			PrevDialogIsFinished = ManiaPlanet.Dialog_IsFinished;
+			UpdateNavigationInput = True;
+		}
+
+		if (UpdateNavigationInput) {
+			UpdateNavigationInput = False;
+
+			EnableMenuNavigation(LayerSettingsTabs_IsVisible && ManiaPlanet.Dialog_IsFinished, False, Null, 1);
+		}
+
+		if (!LayerSettingsTabs_IsVisible) continue;
+
+		if (Frame_ApplyButton.Visible != LayerSettingsTabs_ApplyVisible) {
+			Frame_ApplyButton.Visible = LayerSettingsTabs_ApplyVisible;
+		}
+
+		if (ML::Distance(PrevMousePos, Input.MousePos) > 2.) {
+			PrevMousePos = Input.MousePos;
+			CurPadModel = "";
+			UpdatePadButtons = True;
+		}
+
+		if (UpdatePadButtons) {
+			UpdatePadButtons = False;
+			PrevMousePos = Input.MousePos;
+
+			declare IsGamepad = CurPadModel != "";
+
+			switch (CurPadModel) {
+				case "PS4" : {
+					Quad_GamepadButtonLB.ImageUrl = "{{{C_ButtonsPath}}}PS4/L1.dds";
+					Quad_GamepadButtonRB.ImageUrl = "{{{C_ButtonsPath}}}PS4/R1.dds";
+					Quad_GamepadButtonB.ImageUrl = "{{{C_ButtonsPath}}}PS4/Circle.dds";
+					Quad_GamepadButtonX.ImageUrl = "{{{C_ButtonsPath}}}PS4/Square.dds";
+				}
+				case "XB1" : {
+					Quad_GamepadButtonLB.ImageUrl = "{{{C_ButtonsPath}}}XB1/LB.dds";
+					Quad_GamepadButtonRB.ImageUrl = "{{{C_ButtonsPath}}}XB1/RB.dds";
+					Quad_GamepadButtonB.ImageUrl = "{{{C_ButtonsPath}}}XB1/B.dds";
+					Quad_GamepadButtonX.ImageUrl = "{{{C_ButtonsPath}}}XB1/X.dds";
+				}
+			}
+
+			Quad_GamepadButtonLB.Visible = IsGamepad;
+			Quad_GamepadButtonRB.Visible = IsGamepad;
+			Quad_GamepadButtonB.Visible = IsGamepad;
+			Quad_GamepadButtonX.Visible = IsGamepad;
+		}
+
+		foreach (Event in Input.PendingEvents) {
+			if (!ManiaPlanet.Dialog_IsFinished || !Frame_GlobalPageContainer.Visible) break;
+
+			if (Event.Type == CInputEvent::EType::PadButtonPress) {
+				if (Event.Button == CInputEvent::EButton::B) {
+					SendCustomEvent("CloseSettingsMenu", []);
+				}
+
+				else if (Event.Button == CInputEvent::EButton::X) {
+					SendCustomEvent("ApplySettingsChanges", []);
+				}
+
+				else if (Event.Button == CInputEvent::EButton::L1) {
+					declare Text[] VisibleTabs;
+
+					foreach (Tab in LayerSettingsTabs_CreatedTabs) {
+						if (Tab.Visible) VisibleTabs.add(Tab.TabId);
+					}
+
+					declare Key = VisibleTabs.keyof(LayerSettingsTabs_ActiveTabId) - 1;
+
+					if (VisibleTabs.existskey(Key)) {
+						SendCustomEvent("SetActiveTab", [VisibleTabs[Key]]);
+					}
+				}
+
+				else if (Event.Button == CInputEvent::EButton::R1) {
+					declare Text[] VisibleTabs;
+
+					foreach (Tab in LayerSettingsTabs_CreatedTabs) {
+						if (Tab.Visible) VisibleTabs.add(Tab.TabId);
+					}
+
+					declare Key = VisibleTabs.keyof(LayerSettingsTabs_ActiveTabId) + 1;
+
+					if (VisibleTabs.existskey(Key)) {
+						SendCustomEvent("SetActiveTab", [VisibleTabs[Key]]);
+					}
+				}
+			}
+		}
+
+		if (PrevTabsUpdate != LayerSettingsTabs_TabsUpdate) {
+			PrevTabsUpdate = LayerSettingsTabs_TabsUpdate;
+			UpdateSettingsTabs = True;
+		}
+
+		if (UpdateSettingsTabs) {
+			UpdateSettingsTabs = False;
+
+			Quad_ColoredLine1.Size.X = 24. + Label_MenuHeader.ComputeWidth(Label_MenuHeader.Value);
+			Frame_TabsContainer.RelativePosition_V3.X = Quad_ColoredLine1.Size.X;
+			declare TotalHeaderWidth = Quad_ColoredLine1.Size.X;
+
+			Quad_GamepadButtonLB.RelativePosition_V3.X = TotalHeaderWidth - 1.;
+
+			declare SMenuTab[] VisibleTabs;
+
+			foreach (Tab in LayerSettingsTabs_CreatedTabs) {
+				if (Tab.Visible) VisibleTabs.add(Tab);
+			}
+
+			foreach (I => Frame in Frame_SettingsTabs) {
+				Frame.Visible = VisibleTabs.existskey(I);
+				if (!Frame.Visible) continue;
+				declare Tab = VisibleTabs[I];
+
+				Tab.Active	= Tab.TabId == LayerSettingsTabs_ActiveTabId;
+				Tab.Focused	= Tab.TabId == CurHoveredTabId;
+
+				FormatTabFrame(Frame, Tab);
+				TotalHeaderWidth += 22.;
+
+				if (Tab.Focused && !Tab.Active) {
+					AnimHoverPart(Frame);
+				}
+			}
+
+			Quad_ColoredLine2.Size.X = ML::Abs(Quad_ColoredLine2.RelativePosition_V3.X) - TotalHeaderWidth;
+			Quad_GamepadButtonRB.RelativePosition_V3.X = TotalHeaderWidth + 1.;
+		}
+	}
+}
+
+--></script>
+</manialink>
+	""";
+}
+
+Void CreateTab(Text _TabId, Text _Name, Text _IconURL) {
+	if (_TabId == "" || _Name == "") return;
+
+	declare SMenuTab MenuTab;
+
+	MenuTab.TabId		= _TabId;
+	MenuTab.Name		= _Name;
+	MenuTab.IconURL		= _IconURL;
+	MenuTab.Visible		= True;
+	MenuTab.Active		= False;
+	MenuTab.Focused		= False;
+
+	G_CreatedSettingsTabs[_TabId] = MenuTab;
+}
+
+Text[] GetTabsList() {
+	declare Text[] TabsList;
+	foreach (Tab in G_CreatedSettingsTabs) TabsList.add(Tab.TabId);	
+	return TabsList;
+}
+
+SMenuTab[] GetTabsArray() {
+	declare SMenuTab[] TabsList;
+	foreach (Tab in G_CreatedSettingsTabs) TabsList.add(Tab);	
+	return TabsList;
+}
+
+Void Build() {
+	G_ManialinkLayerSettingsTabs = UILayerCreate();
+	G_ManialinkLayerSettingsTabs.Type = CUILayer::EUILayerType::Normal;
+	G_ManialinkLayerSettingsTabs.ManialinkPage = Private_CreateManialink();
+
+	declare SMenuTab[]	LayerSettingsTabs_CreatedTabs	for G_ManialinkLayerSettingsTabs.LocalPage;
+	declare Integer		LayerSettingsTabs_TabsUpdate	for G_ManialinkLayerSettingsTabs.LocalPage;
+
+	LayerSettingsTabs_CreatedTabs	= GetTabsArray();
+	LayerSettingsTabs_TabsUpdate	= Now;
+}
+
+Void SetTabVisibility(Text _TabId, Boolean _Visible) {
+	if (!G_CreatedSettingsTabs.existskey(_TabId)) return;
+
+	G_CreatedSettingsTabs[_TabId].Visible = _Visible;
+
+	declare SMenuTab[]	LayerSettingsTabs_CreatedTabs	for G_ManialinkLayerSettingsTabs.LocalPage;
+	declare Integer		LayerSettingsTabs_TabsUpdate	for G_ManialinkLayerSettingsTabs.LocalPage;
+
+	LayerSettingsTabs_CreatedTabs	= GetTabsArray();
+	LayerSettingsTabs_TabsUpdate	= Now;
+}
+
+Void SetTabIcon(Text _TabId, Text _IconUrl) {
+	if (!G_CreatedSettingsTabs.existskey(_TabId)) return;
+	
+	G_CreatedSettingsTabs[_TabId].IconURL = _IconUrl;
+}
+
+Boolean GetTabVisibility(Text _TabId) {
+	declare SMenuTab[] LayerSettingsTabs_CreatedTabs for G_ManialinkLayerSettingsTabs.LocalPage;
+	return G_CreatedSettingsTabs.existskey(_TabId) && G_CreatedSettingsTabs[_TabId].Visible;
+}
+
+Void SetVisibility(Boolean _Visible) {
+	G_ManialinkLayerSettingsTabs.IsVisible = _Visible;
+	declare Boolean LayerSettingsTabs_IsVisible for G_ManialinkLayerSettingsTabs.LocalPage;
+	LayerSettingsTabs_IsVisible = _Visible;
+}
+
+Void SetActiveTab(Text _TabId) {
+	declare Text	LayerSettingsTabs_ActiveTabId	for G_ManialinkLayerSettingsTabs.LocalPage;
+	declare Integer	LayerSettingsTabs_TabsUpdate	for G_ManialinkLayerSettingsTabs.LocalPage;
+
+	LayerSettingsTabs_ActiveTabId	= _TabId;
+	LayerSettingsTabs_TabsUpdate	= Now;
+}
+
+Text GetActiveTab() {
+	declare Text LayerSettingsTabs_ActiveTabId for G_ManialinkLayerSettingsTabs.LocalPage;
+	return LayerSettingsTabs_ActiveTabId;
+}
+
+Void SetColors(Vec3 _Primary, Vec3 _Secondary) {
+	LayerCustomEvent(G_ManialinkLayerSettingsTabs, "SetColors", [_Primary.X^" "^_Primary.Y^" "^_Primary.Z, _Secondary.X^" "^_Secondary.Y^" "^_Secondary.Z]);
+}
+
+Void ShowGamepadButtons(CInputPad::EPadType _GamepadType) {
+	declare Text PadModel;
+
+	switch (_GamepadType) {
+		case CInputPad::EPadType::PlayStation	: PadModel = "PS4";
+		case CInputPad::EPadType::XBox			: PadModel = "XB1";
+		default									: PadModel = "";
+	}
+
+	LayerCustomEvent(G_ManialinkLayerSettingsTabs, "ShowGamepadButtons", [PadModel]);
+}
+
+CUILayer GetLayer() {
+	return G_ManialinkLayerSettingsTabs;
+}
+
+Void SetApplyButtonVisibility(Boolean _Visible) {
+	declare Boolean LayerSettingsTabs_ApplyVisible for G_ManialinkLayerSettingsTabs.LocalPage;
+	LayerSettingsTabs_ApplyVisible = _Visible;
+}

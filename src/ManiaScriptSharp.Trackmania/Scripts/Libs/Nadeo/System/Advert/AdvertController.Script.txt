@@ -1,0 +1,386 @@
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+#Include "Libs/Nadeo/System/Auth/Auth.Script.txt" as Auth
+#Include "Libs/Nadeo/System/Settings/SettingsStructs.Script.txt"		as SettingsStructs
+#Include "Libs/Nadeo/System/Advert/AdvertStore.Script.txt"				as AdStore
+
+//Paramètres utilisés pour savoir quand déclencher une impression
+#Const C_ImpressionParams_MinDuration_seconds		3.
+#Const C_ImpressionParams_MaxAngle_deg				50.
+#Const C_ImpressionParams_MinScreenSurface01		0.015
+#Const C_ImpressionParams_MinAdVisibleSurface01		0.7
+
+//Constantes pour les requêtes
+#Const C_LiveAPI_RequestBaseURL	"/api/token/advertising"
+#Const C_LiveAPI_FetchAdCampaignsRoute 	"/display/active"
+#Const C_LiveAPI_ImpressionsReportRoute "/player-report"
+
+#Const C_LiveAPI_RequestTimeout		8000			//en ms, temps avant le timeout d'une requête
+#Const C_BaseMinTimeBetweenRequests 5000			//en ms, temps minimum entre 2 requêtes du même type
+#Const C_MinTimeBetweenRequestsMultiplier 2			//on multiplie le C_BaseMinTimeBetweenRequests d'un type de requête par C_MinTimeBetweenRequestsMultiplier à chaque échec
+
+#Const C_AdCampaignsValidityDuration 	250000		//en ms, temps entre 2 mises à jour de la liste des ad actives
+#Const C_TimeBetweenImpressionsReports 	300000		//en ms, temps entre 2 rapports d'impression quand on est en jeu (on envoie automatiquement un rapport en quittant une partie
+
+//Structures d'API
+#Struct SAd {
+	Text campaignUid;
+	Text name;
+	Text screen2x3Url;
+	Text screen16x9Url;
+	Text screen64x10Url;
+	Text externalUrl;
+	Text adType;
+}
+
+#Struct SAdCampaignsList {
+	SAd[] displayList;
+}
+
+#Struct SImpressionReport {
+	Text campaignUid;
+	Integer impressions;
+}
+
+#Struct SImpressionReportsList {
+	SImpressionReport[] campaignImpressions;
+}
+
+declare Boolean			G_MustRefreshAds;
+declare Boolean			G_MustSetImpressionParams;							//le plugin peut être initialisé avant AdvertisingManager (donc il faut faire SetImpressionParams dans la loop)
+declare Boolean			G_IsAdSystemAvailable_Nadeo;						//les deux ne sont pas toujours actifs
+declare Boolean			G_IsAdSystemAvailable_UGC;							//les deux ne sont pas toujours actifs
+declare Boolean			G_WasInGame;										//utilisé pour savoir si on doit envoyer un rapport d'impression parce qu'on quitte une partie
+declare Boolean 		G_AreAdsEnabled;
+
+declare Boolean			G_AdCampaignsFetched;
+declare CHttpRequest 	G_FetchAdCampaignsRequest;
+declare Integer			G_LatestAdCampaignsFetchTime;
+declare Integer			G_FetchAdCampaignsRequestTimeout;
+declare Integer			G_FetchAdCampaignsMinTimeBetweenRequests; 			//ça double à chaque échec
+declare Integer			G_UGCAds_LastChangeTime;
+
+declare CHttpRequest	G_ImpressionsReportRequest;
+declare Integer			G_ImpressionsReportLatestSendTime;
+declare Integer			G_ImpressionsReportRequestTimeout;
+declare Integer			G_ImpressionsReportRequestMinTimeBetweenRequests; 	//ça double à chaque échec
+
+Void Load() {
+	yield;
+
+	AdStore::Init();
+	
+	G_MustRefreshAds 			= False;
+	G_MustSetImpressionParams 	= True;
+	G_IsAdSystemAvailable_Nadeo = False;
+	G_IsAdSystemAvailable_UGC	= False;
+	G_WasInGame 				= False;
+	G_AreAdsEnabled				= False;
+
+	G_LatestAdCampaignsFetchTime 				= -1;
+	G_AdCampaignsFetched						= False;
+	G_FetchAdCampaignsRequest 					= Null;
+	G_FetchAdCampaignsMinTimeBetweenRequests 	= C_BaseMinTimeBetweenRequests;
+	
+	G_ImpressionsReportLatestSendTime					= -1;
+	G_ImpressionsReportRequest							= Null;
+	G_ImpressionsReportRequestMinTimeBetweenRequests	= C_BaseMinTimeBetweenRequests;
+	
+	G_UGCAds_LastChangeTime = -1;
+}
+
+Void UpdateFetchAdCampaignsRequest() {
+	if (G_FetchAdCampaignsRequest == Null) {
+		declare AdCampaignsValidityExpired = G_LatestAdCampaignsFetchTime != -1 && C_AdCampaignsValidityDuration != 0 && (Now - G_LatestAdCampaignsFetchTime) > C_AdCampaignsValidityDuration;
+		declare AdCampaignsCanIssueRequest = G_AreAdsEnabled && (G_LatestAdCampaignsFetchTime == -1 || (Now - G_LatestAdCampaignsFetchTime) > G_FetchAdCampaignsMinTimeBetweenRequests);
+		
+		//est-ce qu'il faut envoyer une nouvelle requête ?
+		if((!G_AdCampaignsFetched || AdCampaignsValidityExpired) && AdCampaignsCanIssueRequest) {
+			G_AdCampaignsFetched = False;
+			if (TL::Length(Auth::GetHttpHeaderLive()) > 0 && TL::Length(SettingsStructs::GetConfig().APIBaseUrl) > 0) {
+				declare Text URL = SettingsStructs::GetConfig().APIBaseUrl^C_LiveAPI_RequestBaseURL^C_LiveAPI_FetchAdCampaignsRoute;
+				G_FetchAdCampaignsRequest = Http.CreateGet(URL, False, Auth::GetHttpHeaderLive());
+				G_FetchAdCampaignsRequestTimeout = Now + C_LiveAPI_RequestTimeout;
+			}
+		}
+	} else {
+		//est-ce qu'on a timeout ?
+		if (!G_FetchAdCampaignsRequest.IsCompleted && Now >= G_FetchAdCampaignsRequestTimeout) {
+			Http.Destroy(G_FetchAdCampaignsRequest);
+			G_FetchAdCampaignsRequest 		= Null;
+			G_LatestAdCampaignsFetchTime	= Now;
+			G_FetchAdCampaignsRequestTimeout = -1;
+			G_FetchAdCampaignsMinTimeBetweenRequests = C_MinTimeBetweenRequestsMultiplier * G_FetchAdCampaignsMinTimeBetweenRequests;
+			return;
+		}
+		
+		if (!G_FetchAdCampaignsRequest.IsCompleted)
+			return;
+		
+		if (G_FetchAdCampaignsRequest.StatusCode / 100 == 2) { //OnSuccess
+			G_FetchAdCampaignsMinTimeBetweenRequests = C_BaseMinTimeBetweenRequests;
+			declare SAdCampaignsList HttpResponseFetchAdCampaigns;
+			HttpResponseFetchAdCampaigns.fromjson(G_FetchAdCampaignsRequest.Result);
+			G_AdCampaignsFetched = True;
+			
+			declare AdStore::SAd[] Ads;
+			for (I, 0, HttpResponseFetchAdCampaigns.displayList.count - 1) {
+				declare Ad = HttpResponseFetchAdCampaigns.displayList[I];
+				Ads.add(AdStore::SAd {
+					CampaignUid 			= Ad.campaignUid,
+					Name					= Ad.name,
+					Uid 					= -1,
+					MediaUrl_2x3 			= Ad.screen2x3Url,
+					MediaUrl_64x41			= Ad.screen16x9Url,
+					MediaUrl_64x10			= Ad.screen64x10Url,
+					AdType					= Ad.adType,
+					ExternalUrl				= Ad.externalUrl,
+					LatestSentImpressions 	= 0,
+					Impressions 			= 0,
+					DisplayDuration			= 0.
+				});
+			}
+			AdStore::SetActiveAds(Ads);
+			G_MustRefreshAds = True;
+		} else { //OnFailure
+			G_FetchAdCampaignsMinTimeBetweenRequests = C_MinTimeBetweenRequestsMultiplier * G_FetchAdCampaignsMinTimeBetweenRequests;
+		}
+		
+		Http.Destroy(G_FetchAdCampaignsRequest);
+		G_FetchAdCampaignsRequest 			= Null;	
+		G_LatestAdCampaignsFetchTime		= Now;
+		G_FetchAdCampaignsRequestTimeout 	= -1;
+	}
+}
+
+Void UpdateImpressionsReportRequest() {
+
+	//Quand on rentre dans une partie, on démarre le timer de C_TimeBetweenImpressionsReports secondes avant envoi du premier rapport d'impression.
+	if (!G_WasInGame && (ActiveContext != ::EContext::MenuCustom)) {
+		G_ImpressionsReportLatestSendTime = Now;
+	}
+
+	if (G_ImpressionsReportRequest == Null) {
+		declare MustSendImpressionsReport = G_ImpressionsReportLatestSendTime == -1 || (Now - G_ImpressionsReportLatestSendTime) > C_TimeBetweenImpressionsReports;
+		MustSendImpressionsReport = MustSendImpressionsReport || (G_WasInGame && (ActiveContext == ::EContext::MenuCustom));
+		MustSendImpressionsReport = MustSendImpressionsReport && G_AreAdsEnabled;
+		declare CanSendImpressionsReport = G_ImpressionsReportLatestSendTime == -1 || ((Now - G_ImpressionsReportLatestSendTime) > G_ImpressionsReportRequestMinTimeBetweenRequests);
+		
+		//est-ce qu'il faut envoyer une nouvelle requête ?
+		if(MustSendImpressionsReport && CanSendImpressionsReport) {
+			if (TL::Length(Auth::GetHttpHeaderLive()) > 0 && TL::Length(SettingsStructs::GetConfig().APIBaseUrl) > 0) {
+				declare Text URL = SettingsStructs::GetConfig().APIBaseUrl^C_LiveAPI_RequestBaseURL^C_LiveAPI_ImpressionsReportRoute;
+				
+				declare AdStore::SImpression[] ImpressionsToReport = AdStore::Reports_GetImpressionsToSend();
+				if (ImpressionsToReport.count > 0) {
+					declare SImpressionReportsList RequestData;
+					declare Boolean SendRequest = False;
+					for (I, 0, ImpressionsToReport.count - 1) {
+						if (ImpressionsToReport[I].Impressions > 0) {
+							RequestData.campaignImpressions.add( SImpressionReport{
+								campaignUid = ImpressionsToReport[I].CampaignUid,
+								impressions = ImpressionsToReport[I].Impressions
+							}
+							);
+							SendRequest = True;
+						}
+					}
+					if (SendRequest) {
+						G_ImpressionsReportRequest = Http.CreatePost(URL, RequestData.tojson(), Auth::GetHttpHeaderLive());
+						G_ImpressionsReportRequestTimeout = Now + C_LiveAPI_RequestTimeout;
+					} else {
+						G_ImpressionsReportRequestMinTimeBetweenRequests = C_BaseMinTimeBetweenRequests;
+						AdStore::Reports_SetSuccess(True);
+						G_ImpressionsReportLatestSendTime	= Now;
+						G_ImpressionsReportRequestTimeout 	= -1;
+					}
+				}
+			}
+		}
+	} else {
+		//est-ce qu'on a timeout ?
+		if (!G_ImpressionsReportRequest.IsCompleted && Now >= G_ImpressionsReportRequestTimeout) {
+			Http.Destroy(G_ImpressionsReportRequest);
+			G_ImpressionsReportRequest 			= Null;
+			G_ImpressionsReportLatestSendTime 	= Now;
+			G_ImpressionsReportRequestTimeout 	= -1;
+			G_ImpressionsReportRequestMinTimeBetweenRequests = C_MinTimeBetweenRequestsMultiplier * G_ImpressionsReportRequestMinTimeBetweenRequests;
+			AdStore::Reports_SetSuccess(False);
+			return;
+		}
+		
+		if (!G_ImpressionsReportRequest.IsCompleted)
+			return;
+		
+		if (G_ImpressionsReportRequest.StatusCode / 100 == 2) { //OnSuccess
+			G_ImpressionsReportRequestMinTimeBetweenRequests = C_BaseMinTimeBetweenRequests;
+			AdStore::Reports_SetSuccess(True);
+		} else { //OnFailure
+			G_ImpressionsReportRequestMinTimeBetweenRequests = C_MinTimeBetweenRequestsMultiplier * G_ImpressionsReportRequestMinTimeBetweenRequests;
+			AdStore::Reports_SetSuccess(False);
+		}
+		
+		Http.Destroy(G_ImpressionsReportRequest);
+		G_ImpressionsReportRequest 			= Null;	
+		G_ImpressionsReportLatestSendTime	= Now;
+		G_ImpressionsReportRequestTimeout 	= -1;
+	}
+}
+
+Boolean AreNearlyEqual(Real A, Real B) {	
+	if (A == B)
+		return True;
+	if (A * B == 0. && (A != 0. || B != 0.))
+		return False;
+	return ML::Abs((A / B) - 1) < 0.05; //moins de 5% d'écart
+}
+
+Text MediaUrlFromSlotRatio(AdStore::SAd Ad, Real SlotRatio) {
+	if (AreNearlyEqual(2./3., SlotRatio)) {
+		return Ad.MediaUrl_2x3;
+	} else if (AreNearlyEqual(16. / 9., SlotRatio) || AreNearlyEqual(1.55, SlotRatio)) {
+		return Ad.MediaUrl_64x41;
+	} else if (AreNearlyEqual(64. / 10., SlotRatio)) {
+		return Ad.MediaUrl_64x10;
+	}
+	assert(False, "The ratio '"^SlotRatio^"' does not correspond to any advertisement");
+	return "";
+}
+
+Void Loop() {
+	declare Boolean IsInGame = (ActiveContext != ::EContext::MenuCustom);
+
+	//update adsenabled
+	G_AreAdsEnabled =  ManiaPlanet.UserMgr.MainUserProfile.Adverts_Enabled;
+
+	//set impressionparams if need be
+	if (G_MustSetImpressionParams && AdvertisingManager != Null) {
+		G_MustSetImpressionParams = False;
+		G_IsAdSystemAvailable_Nadeo = AdvertisingManager.AdSystem_GetAvailability(CAdvertisingManager::ELiveAdSystem::Nadeo);
+		G_IsAdSystemAvailable_UGC 	= AdvertisingManager.AdSystem_GetAvailability(CAdvertisingManager::ELiveAdSystem::UGC);
+		
+		if (G_IsAdSystemAvailable_Nadeo) {
+			AdvertisingManager.AdSystem_SetImpressionParams(CAdvertisingManager::ELiveAdSystem::Nadeo,
+										C_ImpressionParams_MinDuration_seconds,
+										C_ImpressionParams_MaxAngle_deg,
+										C_ImpressionParams_MinScreenSurface01,
+										C_ImpressionParams_MinAdVisibleSurface01);
+		}
+		if (G_IsAdSystemAvailable_UGC) {
+			AdvertisingManager.AdSystem_SetImpressionParams(CAdvertisingManager::ELiveAdSystem::Nadeo,
+										C_ImpressionParams_MinDuration_seconds,
+										C_ImpressionParams_MaxAngle_deg,
+										C_ImpressionParams_MinScreenSurface01,
+										C_ImpressionParams_MinAdVisibleSurface01);
+		}
+	}
+
+	//update requests
+	UpdateFetchAdCampaignsRequest();
+	UpdateImpressionsReportRequest();
+	
+	//update AdSlots
+	if (AdvertisingManager != Null) {
+		
+		declare Boolean AdType_HasImpression 	= False;
+		declare Boolean AdType_HasAnAd			= False;
+		declare Boolean AdType_IsNextAdPlanned	= False;
+		declare Integer CurAdUid = -1;
+		declare Real	CurAdDisplayDuration = 0.;
+		
+		
+		//NADEO
+		if (G_IsAdSystemAvailable_Nadeo) {
+			for (I, 0, AdvertisingManager.AdSlots_Nadeo.count - 1) {
+				declare Boolean HasAnAd = (AdvertisingManager.AdSlots_Nadeo[I].CurrentAdUid != -1);
+				
+				//Fetch impressions
+				if (HasAnAd) {
+					if (CurAdUid == -1) {
+						CurAdUid 				= AdvertisingManager.AdSlots_Nadeo[I].CurrentAdUid;
+						CurAdDisplayDuration 	= AdvertisingManager.AdSlot_FetchDisplayDuration(CAdvertisingManager::ELiveAdSystem::Nadeo, AdvertisingManager.AdSlots_Nadeo[I].Id);
+					} else {
+						declare Real FetchedDuration = AdvertisingManager.AdSlot_FetchDisplayDuration(CAdvertisingManager::ELiveAdSystem::Nadeo, AdvertisingManager.AdSlots_Nadeo[I].Id);
+						CurAdDisplayDuration = ML::Max(CurAdDisplayDuration, FetchedDuration);
+					}
+				
+					declare Integer ImpressionsCount = AdvertisingManager.AdSlot_FetchImpressions(CAdvertisingManager::ELiveAdSystem::Nadeo, AdvertisingManager.AdSlots_Nadeo[I].Id);
+					if (ImpressionsCount > 0) {
+						AdType_HasImpression = True;
+						AdStore::Reports_AddImpressions(AdvertisingManager.AdSlots_Nadeo[I].CurrentAdUid, ImpressionsCount);
+					}
+				}
+				AdType_HasAnAd 			= AdType_HasAnAd || HasAnAd;
+				AdType_IsNextAdPlanned  = AdType_IsNextAdPlanned || AdvertisingManager.AdSlots_Nadeo[I].NextAdUid != -1;
+			}
+			if (CurAdUid != -1 && IsInGame)
+				AdStore::Reports_AddDisplayDuration(CurAdUid, CurAdDisplayDuration);
+			
+			//Update NADEO ad if needed
+			if (G_MustRefreshAds || ((AdType_HasImpression || !AdType_HasAnAd) && !AdType_IsNextAdPlanned)) {
+				declare AdStore::SAd Ad = AdStore::GetNextAd(AdStore::C_AdType_Nadeo);
+				if (Ad.Uid != -1) {
+					for (I, 0, AdvertisingManager.AdSlots_Nadeo.count - 1) {
+						declare Text MediaUrl = MediaUrlFromSlotRatio(Ad, AdvertisingManager.AdSlots_Nadeo[I].DisplayRatio);
+						if (MediaUrl != "")
+							AdvertisingManager.AdSlot_SetNextAd(CAdvertisingManager::ELiveAdSystem::Nadeo, AdvertisingManager.AdSlots_Nadeo[I].Id, Ad.Uid, MediaUrl);
+						else
+							AdvertisingManager.AdSlot_SetNextAd(CAdvertisingManager::ELiveAdSystem::Nadeo, AdvertisingManager.AdSlots_Nadeo[I].Id, -1, "");
+					}
+				}
+			}
+		}
+		
+		//UGC
+		if (G_IsAdSystemAvailable_UGC) {
+			AdType_HasImpression 	= False;
+			AdType_HasAnAd			= False;
+			AdType_IsNextAdPlanned	= False;
+			CurAdUid = -1;
+			CurAdDisplayDuration = 0.;
+			for (I, 0, AdvertisingManager.AdSlots_UGC.count - 1) {
+				declare Boolean HasAnAd = (AdvertisingManager.AdSlots_UGC[I].CurrentAdUid != -1);
+				
+				//Fetch impressions
+				if (HasAnAd) {
+					if (CurAdUid == -1) {
+						CurAdUid 				= AdvertisingManager.AdSlots_UGC[I].CurrentAdUid;
+						CurAdDisplayDuration 	= AdvertisingManager.AdSlot_FetchDisplayDuration(CAdvertisingManager::ELiveAdSystem::UGC, AdvertisingManager.AdSlots_UGC[I].Id);
+					} else {
+						declare Real FetchedDuration = AdvertisingManager.AdSlot_FetchDisplayDuration(CAdvertisingManager::ELiveAdSystem::UGC, AdvertisingManager.AdSlots_UGC[I].Id);
+						CurAdDisplayDuration = ML::Max(CurAdDisplayDuration, FetchedDuration);
+					}
+				
+					declare Integer ImpressionsCount = AdvertisingManager.AdSlot_FetchImpressions(CAdvertisingManager::ELiveAdSystem::UGC, AdvertisingManager.AdSlots_UGC[I].Id);
+					if (ImpressionsCount > 0) {
+						AdType_HasImpression = True;
+						AdStore::Reports_AddImpressions(AdvertisingManager.AdSlots_UGC[I].CurrentAdUid, ImpressionsCount);
+					}
+				}
+				AdType_HasAnAd 			= AdType_HasAnAd || HasAnAd;
+				AdType_IsNextAdPlanned  = AdType_IsNextAdPlanned || AdvertisingManager.AdSlots_UGC[I].NextAdUid != -1;
+			}
+			if (CurAdUid != -1 && IsInGame)
+				AdStore::Reports_AddDisplayDuration(CurAdUid, CurAdDisplayDuration);
+			
+			//Update UGC ad if needed
+			if (G_MustRefreshAds || ((G_UGCAds_LastChangeTime == -1 || Now >= (G_UGCAds_LastChangeTime + 5000)) && !AdType_IsNextAdPlanned && IsInGame)) {
+				G_UGCAds_LastChangeTime = Now;
+				declare AdStore::SAd Ad = AdStore::GetNextAd(AdStore::C_AdType_UGC);
+				if (Ad.Uid != -1) {
+					for (I, 0, AdvertisingManager.AdSlots_UGC.count - 1) {
+						declare Text MediaUrl = MediaUrlFromSlotRatio(Ad, AdvertisingManager.AdSlots_UGC[I].DisplayRatio);
+						if (MediaUrl != "")
+							AdvertisingManager.AdSlot_SetNextAd(CAdvertisingManager::ELiveAdSystem::UGC, AdvertisingManager.AdSlots_UGC[I].Id, Ad.Uid, MediaUrl);
+						else
+							AdvertisingManager.AdSlot_SetNextAd(CAdvertisingManager::ELiveAdSystem::UGC, AdvertisingManager.AdSlots_UGC[I].Id, -1, "");
+					}
+				}
+			}
+		}
+		G_MustRefreshAds = False;
+	}
+	
+	G_WasInGame = ActiveContext != ::EContext::MenuCustom;
+}

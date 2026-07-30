@@ -1,0 +1,2053 @@
+/**
+ *	Component: Button
+ *
+ *	Available attributes are :
+ *	- data-text
+ *	- data-size
+ *	- data-sizehitbox
+ *	- data-tilthitbox
+ *	- data-isblink
+ *	- data-opacity
+ *	- data-opacityunfocus
+ *	- data-bgcolor
+ *	- data-backgroundcolortype
+ *	- data-focuscolor
+ *	- data-textcolor
+ *	- data-textfocuscolor
+ *	- data-textsize
+ *	- data-textprefix
+ *	- data-textfont
+ *	- data-textitalicslope
+ *	- data-textopacityunfocus
+ *	- data-labelsize
+ *	- data-bgempty
+ *	- data-image
+ *	- data-imagefocus
+ *	- data-imagefocusopacity
+ *	- data-imageoffset <= Flat position offset (Not a Ratio) (Base position is center of image size)
+ *	- data-alphamask
+ *	- data-icon
+ *	- data-iconsize
+ *	- data-iconcolortype
+ *	- data-iconfocus
+ *	- data-iconcolor
+ *	- data-iconfocuscolor
+ *	- data-iconrotation
+ *	- data-iconxpos <= Ratio (0;1)
+ *	- data-iconypos <= Ratio (0;1)
+ *	- data-textxpos <= Ratio (0;1)
+ *	- data-textypos <= Ratio (0;1)
+ *	- data-texthalign
+ *	- data-textvalign
+ *	- data-halign
+ *	- data-valign
+ *	- data-maxline
+ *	- data-autonewline
+ *	- data-bgkeepratio
+ *	- data-fitlabel : Real (must superior to 0.) If a value is provided the textsize will be reduced until the text fits the label or reaches the provided value
+ *	- data-fitlabelstep
+ *	- data-gradientimage
+ *	- data-gradientopacityfocus
+ *	- data-gradientopacityunfocus
+ *	- data-gradientimagecolor
+ *	- data-contourimage
+ *	- data-contouropacityfocus
+ *	- data-contouropacityunfocus
+ *	- data-contourimagecolor
+ *	- data-state
+ *	- data-loadingscale
+ *	- data-loadingpos
+ *	- data-supersample
+ *	- data-tts-text
+ *	- data-tts-translate
+ *	- data-filter-profanities
+ */
+#Const Version		"1.0.5"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/Button.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/RequestRedraw.Script.txt" as RequestRedraw
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_TextProperties {
+	Vec2 Size;
+	Real TextSize;
+	Text TextPrefix;
+	Text Value;
+	Text Font;
+	Real PosX;
+	Real PosY;
+	Vec3 Color;
+	Vec3 FocusColor;
+	Real ItalicSlope;
+	Text HAlign;
+	Text VAlign;
+	Integer MaxLine;
+	Boolean AutoNewLine;
+	Real Fit;
+	Real FitStep;
+	Real OpacityUnfocus;
+	Text TTS_Text;
+	Boolean TTS_IsTranslated;
+	CMlLabel::EFilterProfanities  FilterProfanities;
+}
+#Struct K_ImageProperties {
+	Integer ColorType;
+	Vec2 Size;
+	Real Scale;
+	Text Image;
+	Text ImageFocus;
+	Real PosX;
+	Real PosY;
+	Vec3 Color;
+	Vec3 FocusColor;
+	Real Rotation;
+	Real Opacity;
+	Real OpacityUnfocus;
+	Real ImageFocusOpacity;
+	CMlQuad::EKeepRatioMode KeepRatio;
+	Text ContourImage;
+	Real ContourOpacityFocus;
+	Real ContourOpacityUnfocus;
+	Vec3 ContourColor;
+	Text GradientImage;
+	Real GradientOpacityFocus;
+	Real GradientOpacityUnfocus;
+	Vec3 GradientColor;
+}
+#Struct K_Button {
+	Boolean IsButton;
+	Boolean IsLocked;
+	Boolean IsFocused;
+	Boolean IsBgEmpty;
+	Boolean IsBlink;
+	Real OpacityUnfocus;
+	Vec2 SizeHitbox;
+	Real TiltHitbox;
+	Text AlphaMask;
+	K_TextProperties Label;
+	K_ImageProperties Icon;
+	K_ImageProperties Background;
+	K_ImageProperties Loading;
+	Text HAlign;
+	Text VAlign;
+	Integer State;
+	Boolean SuperSample;
+}
+#Struct K_DelayedState {
+	Integer ActivationTime;
+	Integer State;
+	CMlFrame Frame_Button;
+}
+#Struct K_State {
+	Integer RedrawRequested;
+	Integer BlinkEndTime;
+	CMlQuad[][Ident] QuadBlinking;
+	Boolean ResetBlink;
+	Vec3 DefaultColorFocus;
+	K_DelayedState[Ident] DelayedStates;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Button_Null K_Button {
+	IsButton = False,
+	IsLocked = False,
+	IsFocused = False,
+	IsBgEmpty = False,
+	IsBlink = False,
+	OpacityUnfocus = 0.,
+	SizeHitbox = <0., 0.>,
+	TiltHitbox = 0.,
+	AlphaMask = "",
+	Label = K_TextProperties {},
+	Icon = K_ImageProperties {},
+	Background = K_ImageProperties {},
+	Loading = K_ImageProperties {},
+	HAlign = "",
+	VAlign = "",
+	State = 0,
+	SuperSample = False
+}
+#Const C_State_Null K_State {
+	RedrawRequested = 0,
+	BlinkEndTime = 0,
+	QuadBlinking = [],
+	ResetBlink = False,
+	DefaultColorFocus = <0., 0., 0.>,
+	DelayedStates = []
+}
+
+#Const C_Name "component-trackmania-button" //< Component name
+#Const P "Trackmania_Button::" //< Prefix used to differentiate functions/variables in the script
+#Const Q "Trackmania_Button"
+#Const C_NavZone "ComponentTrackmania_Button_quad-background"
+
+#Const C_ColorType_None 0
+#Const C_ColorType_Colorize 1
+#Const C_ColorType_ModulateColor 2
+
+#Const C_State_Normal 0
+#Const C_State_Loading 1
+
+#Const C_AnimTime_Blink 500
+#Const C_DefaultTextPrefix "$t$i"
+#Const C_DefaultColor "005948"
+
+#Const C_Class_FrameButtonContainer "Trackmania_Button_frame-button-container"
+#Const C_Id_FrameAlign "Trackmania_Button_frame-align"
+#Const C_Id_FrameBackground "Trackmania_Button_frame-background"
+#Const C_Id_QuadImage "Trackmania_Button_quad-image"
+#Const C_Id_QuadGradient "Trackmania_Button_quad-gradient"
+#Const C_Id_QuadContour "Trackmania_Button_quad-contour"
+#Const C_Id_FrameHitboxClip "Trackmania_Button_frame-hitbox-clip"
+#Const C_Id_QuadFocusBackground "Trackmania_Button_quad-focus-background"
+#Const C_Id_FrameContent "Trackmania_Button_frame-content"
+#Const C_Id_FrameIcon "Trackmania_Button_frame-icon"
+#Const C_Id_QuadIcon "Trackmania_Button_quad-icon"
+#Const C_Id_QuadFocusIcon "Trackmania_Button_quad-focus-icon"
+#Const C_Id_LabelValue "Trackmania_Button_label-value"
+#Const C_Id_SpinnerLoading "Trackmania_Button_spinner-loading"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetManialink() {
+	return """
+<frame class="{{{C_Class_FrameButtonContainer}}}" id="{{{C_Id_FrameAlign}}}">
+	<frame id="{{{C_Id_FrameBackground}}}">
+		<quad id="{{{C_Id_QuadImage}}}" bgcolor="{{{C_DefaultColor}}}" size="40 10" z-index="0" />
+		<quad id="{{{C_Id_QuadGradient}}}" z-index="2" hidden="1" />
+		<quad id="{{{C_Id_QuadContour}}}" z-index="3" hidden="1" />
+		<frame id="{{{C_Id_FrameHitboxClip}}}">
+			<quad id="{{{C_NavZone}}}" class="{{{Navigation::C_Class_ActivationZone}}}" size="40 10" scriptevents="1" />
+		</frame>
+		<quad id="{{{C_Id_QuadFocusBackground}}}" z-index="1" size="40 10" bgcolor="{{{C_DefaultColor}}}" hidden="1" />
+	</frame>
+	<frame id="{{{C_Id_FrameContent}}}" z-index="1">
+		<frame id="{{{C_Id_FrameIcon}}}" z-index="1">
+			<quad id="{{{C_Id_QuadIcon}}}" size="10 10" bgcolor="FFF" />
+			<quad id="{{{C_Id_QuadFocusIcon}}}" z-index="1" size="10 10" bgcolor="{{{C_DefaultColor}}}" hidden="1" />
+		</frame>
+		<label id="{{{C_Id_LabelValue}}}" pos="20 -5" z-index="10" size="39 9" halign="center" valign="center2" textsize="3" textprefix="{{{C_DefaultTextPrefix}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="FFF" />
+	</frame>
+	<frameinstance id="{{{C_Id_SpinnerLoading}}}" modelid="{{{LoadingSpinner::C_Name}}}" z-index="2" />
+</frame>
+	""";
+}
+
+Void Private_SetOpacity(CMlScript _This, CMlControl _Control, Real _Opacity, Boolean _IsAnimated) {
+	_This.AnimMgr.Flush(_Control);
+	if (_IsAnimated) {
+		_This.AnimMgr.Add(_Control, "<anim opacity=\""^_Opacity^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		switchtype (_Control) {
+			case CMlQuad: (_Control as CMlQuad).Opacity = _Opacity;
+			case CMlLabel: (_Control as CMlLabel).Opacity = _Opacity;
+			default: assert(False, "Invalid control class");
+		}
+	}
+}
+
+// Read the text of the button if the TTS feature is enabled
+Void TTS_Focus(CMlFrame _Frame_Button, Boolean _IsFocused) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	if (!Trackmania_Button_Button.IsButton || Trackmania_Button_Button.IsLocked) return;
+	if (_IsFocused) (_Frame_Button.GetFirstChild(C_Id_LabelValue) as CMlLabel).TTS_Focus();
+	else (_Frame_Button.GetFirstChild(C_Id_LabelValue) as CMlLabel).TTS_Unfocus();
+}
+Void TTS_Focus(CMlFrame _Frame_Button) {
+	TTS_Focus(_Frame_Button, True);
+}
+Void TTS_Unfocus(CMlFrame _Frame_Button) {
+	TTS_Focus(_Frame_Button, False);
+}
+
+Void Private_Focus(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsAnimated) {
+	declare K_State Trackmania_Button_State for _This.Page = C_State_Null;
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	if (!Trackmania_Button_Button.IsButton || Trackmania_Button_Button.IsLocked) return;
+
+	declare CMlLabel Label_Value <=> (_Frame_Button.GetFirstChild(C_Id_LabelValue) as CMlLabel);
+	declare CMlQuad Quad_Image <=> (_Frame_Button.GetFirstChild(C_Id_QuadImage) as CMlQuad);
+	declare CMlQuad Quad_Gradient <=> (_Frame_Button.GetFirstChild(C_Id_QuadGradient) as CMlQuad);
+	declare CMlQuad Quad_Contour <=> (_Frame_Button.GetFirstChild(C_Id_QuadContour) as CMlQuad);
+	declare CMlQuad Quad_Icon <=> (_Frame_Button.GetFirstChild(C_Id_QuadIcon) as CMlQuad);
+	declare CMlQuad Quad_FocusIcon <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusIcon) as CMlQuad);
+	declare CMlQuad Quad_FocusBackground <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusBackground) as CMlQuad);
+	declare CMlFrame Spinner_Loading <=> (_Frame_Button.GetFirstChild(C_Id_SpinnerLoading) as CMlFrame);
+
+	Quad_FocusIcon.Show();
+	Quad_FocusBackground.Visible = ((Trackmania_Button_Button.Background.FocusColor != Trackmania_Button_State.DefaultColorFocus || Trackmania_Button_Button.Background.ImageFocus != "") && !Trackmania_Button_Button.IsBgEmpty);
+	Quad_Image.Visible = (!Quad_FocusBackground.Visible || Trackmania_Button_Button.Background.ImageFocus != Trackmania_Button_Button.Background.Image) && !Trackmania_Button_Button.IsBgEmpty;
+	Quad_Icon.Visible = !Quad_FocusIcon.Visible;
+
+	if (Trackmania_Button_Button.IsBlink) {
+		if (Quad_FocusBackground.Visible) {
+			if (Trackmania_Button_State.QuadBlinking.existskey(_Frame_Button.Id)) {
+				if (!Trackmania_Button_State.QuadBlinking[_Frame_Button.Id].exists(Quad_FocusBackground)) {
+					Trackmania_Button_State.QuadBlinking[_Frame_Button.Id].add(Quad_FocusBackground);
+				}
+			} else {
+				Trackmania_Button_State.QuadBlinking[_Frame_Button.Id] = [Quad_FocusBackground];
+			}
+		}
+		if (Trackmania_Button_Button.Background.ContourImage != "") {
+			if (Trackmania_Button_State.QuadBlinking.existskey(_Frame_Button.Id)) {
+				if (!Trackmania_Button_State.QuadBlinking[_Frame_Button.Id].exists(Quad_Contour)) {
+					Trackmania_Button_State.QuadBlinking[_Frame_Button.Id].add(Quad_Contour);
+				}
+			} else {
+				Trackmania_Button_State.QuadBlinking[_Frame_Button.Id] = [Quad_Contour];
+			}
+		}
+		Trackmania_Button_State.ResetBlink = True;
+	} else {
+		Trackmania_Button_State.QuadBlinking.removekey(_Frame_Button.Id);
+	}
+
+	Private_SetOpacity(_This, Label_Value, 1., _IsAnimated);
+
+	if (Quad_FocusBackground.Visible) {
+		Label_Value.TextColor = Tools::GetVisibleColorOnBackground(Trackmania_Button_Button.Background.FocusColor, Trackmania_Button_Button.Label.FocusColor);
+		if (Trackmania_Button_Button.Background.ImageFocusOpacity == -1.) {
+			Private_SetOpacity(_This, Quad_FocusBackground, Trackmania_Button_Button.Background.Opacity, _IsAnimated);
+			Quad_Image.Opacity = Trackmania_Button_Button.Background.Opacity;
+		} else {
+			Private_SetOpacity(_This, Quad_FocusBackground, Trackmania_Button_Button.Background.ImageFocusOpacity, _IsAnimated);
+			Quad_Image.Opacity = Trackmania_Button_Button.Background.ImageFocusOpacity;
+		}
+	} else {
+		Label_Value.TextColor = Tools::GetVisibleColorOnBackground(Trackmania_Button_Button.Background.Color, Trackmania_Button_Button.Label.FocusColor);
+		if (Trackmania_Button_Button.Background.ImageFocusOpacity == -1.) {
+			Private_SetOpacity(_This, Quad_Image, Trackmania_Button_Button.Background.Opacity, _IsAnimated);
+		} else {
+			Private_SetOpacity(_This, Quad_Image, Trackmania_Button_Button.Background.ImageFocusOpacity, _IsAnimated);
+		}
+	}
+
+	if (Quad_FocusIcon.Visible) {
+		if (Trackmania_Button_Button.Icon.ImageFocusOpacity == -1.) {
+			Private_SetOpacity(_This, Quad_FocusIcon, Trackmania_Button_Button.Icon.Opacity, _IsAnimated);
+			Quad_Icon.Opacity = Trackmania_Button_Button.Icon.Opacity;
+		} else {
+			Private_SetOpacity(_This, Quad_FocusIcon, Trackmania_Button_Button.Icon.ImageFocusOpacity, _IsAnimated);
+			Quad_Icon.Opacity = Trackmania_Button_Button.Icon.ImageFocusOpacity;
+		}
+	} else if (Trackmania_Button_Button.Icon.ImageFocusOpacity != -1.) {
+		Private_SetOpacity(_This, Quad_Icon, Trackmania_Button_Button.Icon.ImageFocusOpacity, _IsAnimated);
+	} else {
+		Private_SetOpacity(_This, Quad_Icon, Trackmania_Button_Button.Icon.Opacity, _IsAnimated);
+	}
+	if (Trackmania_Button_Button.Icon.ImageFocusOpacity == -1.) {
+		if (_IsAnimated) {
+			LoadingSpinner::Fade(_This, Spinner_Loading, Trackmania_Button_Button.Icon.Opacity, 250);
+		} else {
+			LoadingSpinner::Fade(_This, Spinner_Loading, Trackmania_Button_Button.Icon.Opacity, 0);
+		}
+	} else if (_IsAnimated) {
+		LoadingSpinner::Fade(_This, Spinner_Loading, Trackmania_Button_Button.Icon.ImageFocusOpacity, 250);
+	} else {
+		LoadingSpinner::Fade(_This, Spinner_Loading, Trackmania_Button_Button.Icon.ImageFocusOpacity, 0);
+	}
+
+	if (Quad_Gradient.Visible) {
+		if (Trackmania_Button_Button.Background.GradientOpacityFocus == -1.) {
+			Private_SetOpacity(_This, Quad_Gradient, Trackmania_Button_Button.Background.Opacity, _IsAnimated);
+		} else {
+			Private_SetOpacity(_This, Quad_Gradient, Trackmania_Button_Button.Background.GradientOpacityFocus, _IsAnimated);
+		}
+	}
+
+	if (Quad_Contour.Visible) {
+		if (Trackmania_Button_Button.Background.ContourOpacityFocus == -1.) {
+			Private_SetOpacity(_This, Quad_Contour, Trackmania_Button_Button.Background.Opacity, _IsAnimated);
+		} else {
+			Private_SetOpacity(_This, Quad_Contour, Trackmania_Button_Button.Background.ContourOpacityFocus, _IsAnimated);
+		}
+	}
+
+	Trackmania_Button_Button.IsFocused = True;
+}
+Void Focus(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsAnimated) {
+	Private_Focus(_This, _Frame_Button, _IsAnimated);
+	TTS_Focus(_Frame_Button);
+}
+Void Focus(CMlScript _This, CMlFrame _Frame_Button) {
+	Focus(_This, _Frame_Button, True);
+}
+
+Void Private_Unfocus(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsAnimated) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	if (!Trackmania_Button_Button.IsButton || Trackmania_Button_Button.IsLocked) return;
+	declare K_State Trackmania_Button_State for _This.Page = C_State_Null;
+
+	declare CMlLabel Label_Value <=> (_Frame_Button.GetFirstChild(C_Id_LabelValue) as CMlLabel);
+	declare CMlQuad Quad_Image <=> (_Frame_Button.GetFirstChild(C_Id_QuadImage) as CMlQuad);
+	declare CMlQuad Quad_Gradient <=> (_Frame_Button.GetFirstChild(C_Id_QuadGradient) as CMlQuad);
+	declare CMlQuad Quad_Contour <=> (_Frame_Button.GetFirstChild(C_Id_QuadContour) as CMlQuad);
+	declare CMlQuad Quad_Icon <=> (_Frame_Button.GetFirstChild(C_Id_QuadIcon) as CMlQuad);
+	declare CMlQuad Quad_FocusIcon <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusIcon) as CMlQuad);
+	declare CMlQuad Quad_FocusBackground <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusBackground) as CMlQuad);
+	declare CMlFrame Spinner_Loading <=> (_Frame_Button.GetFirstChild(C_Id_SpinnerLoading) as CMlFrame);
+
+	Quad_Icon.Show();
+	Quad_Image.Visible = !Trackmania_Button_Button.IsBgEmpty;
+	Quad_FocusBackground.Hide();
+	Quad_FocusIcon.Hide();
+	Label_Value.TextColor = Trackmania_Button_Button.Label.Color;
+
+	Trackmania_Button_State.QuadBlinking.removekey(_Frame_Button.Id);
+
+	if (Trackmania_Button_Button.Icon.OpacityUnfocus != -1.) {
+		Private_SetOpacity(_This, Quad_Icon, Trackmania_Button_Button.Icon.OpacityUnfocus, _IsAnimated);
+		Private_SetOpacity(_This, Quad_FocusIcon, Trackmania_Button_Button.Icon.OpacityUnfocus, _IsAnimated);
+		if (_IsAnimated) {
+			LoadingSpinner::Fade(_This, Spinner_Loading, Trackmania_Button_Button.Icon.OpacityUnfocus, 250);
+		} else {
+			LoadingSpinner::Fade(_This, Spinner_Loading, Trackmania_Button_Button.Icon.OpacityUnfocus, 0);
+		}
+	} else if (Trackmania_Button_Button.OpacityUnfocus != -1.) {
+		Private_SetOpacity(_This, Quad_Icon, Trackmania_Button_Button.OpacityUnfocus, _IsAnimated);
+		Private_SetOpacity(_This, Quad_FocusIcon, Trackmania_Button_Button.OpacityUnfocus, _IsAnimated);
+		if (_IsAnimated) {
+			LoadingSpinner::Fade(_This, Spinner_Loading, Trackmania_Button_Button.OpacityUnfocus, 250);
+		} else {
+			LoadingSpinner::Fade(_This, Spinner_Loading, Trackmania_Button_Button.OpacityUnfocus, 0);
+		}
+	} else {
+		Private_SetOpacity(_This, Quad_Icon, Trackmania_Button_Button.Icon.Opacity, _IsAnimated);
+		Private_SetOpacity(_This, Quad_FocusIcon, Trackmania_Button_Button.Icon.Opacity, _IsAnimated);
+		if (_IsAnimated) {
+			LoadingSpinner::Fade(_This, Spinner_Loading, Trackmania_Button_Button.Icon.Opacity, 250);
+		} else {
+			LoadingSpinner::Fade(_This, Spinner_Loading, Trackmania_Button_Button.Icon.Opacity, 0);
+		}
+	}
+
+	if (Trackmania_Button_Button.Background.OpacityUnfocus != -1.) {
+		Private_SetOpacity(_This, Quad_Image, Trackmania_Button_Button.Background.OpacityUnfocus, _IsAnimated);
+		Private_SetOpacity(_This, Quad_FocusBackground, Trackmania_Button_Button.Background.OpacityUnfocus, _IsAnimated);
+	} else if (Trackmania_Button_Button.OpacityUnfocus != -1) {
+		Private_SetOpacity(_This, Quad_Image, Trackmania_Button_Button.OpacityUnfocus, _IsAnimated);
+		Private_SetOpacity(_This, Quad_FocusBackground, Trackmania_Button_Button.OpacityUnfocus, _IsAnimated);
+	} else {
+		Private_SetOpacity(_This, Quad_Image, Trackmania_Button_Button.Background.Opacity, _IsAnimated);
+		Private_SetOpacity(_This, Quad_FocusBackground, Trackmania_Button_Button.Background.Opacity, _IsAnimated);
+	}
+
+	if (Quad_Gradient.Visible) {
+		if (Trackmania_Button_Button.Background.GradientOpacityUnfocus != -1.) {
+			Private_SetOpacity(_This, Quad_Gradient, Trackmania_Button_Button.Background.GradientOpacityUnfocus, _IsAnimated);
+		} else if (Trackmania_Button_Button.Background.OpacityUnfocus != -1.) {
+			Private_SetOpacity(_This, Quad_Gradient, Trackmania_Button_Button.Background.OpacityUnfocus, _IsAnimated);
+		} else {
+			Private_SetOpacity(_This, Quad_Gradient, Trackmania_Button_Button.OpacityUnfocus, _IsAnimated);
+		}
+	}
+
+	if (Quad_Contour.Visible) {
+		if (Trackmania_Button_Button.Background.ContourOpacityUnfocus != -1.) {
+			Private_SetOpacity(_This, Quad_Contour, Trackmania_Button_Button.Background.ContourOpacityUnfocus, _IsAnimated);
+		} else if (Trackmania_Button_Button.Background.OpacityUnfocus != -1.) {
+			Private_SetOpacity(_This, Quad_Contour, Trackmania_Button_Button.Background.OpacityUnfocus, _IsAnimated);
+		} else {
+			Private_SetOpacity(_This, Quad_Contour, Trackmania_Button_Button.OpacityUnfocus, _IsAnimated);
+		}
+	}
+
+	if (Trackmania_Button_Button.Label.OpacityUnfocus == -1.) {
+		Private_SetOpacity(_This, Label_Value, Trackmania_Button_Button.OpacityUnfocus, _IsAnimated);
+	} else {
+		Private_SetOpacity(_This, Label_Value, Trackmania_Button_Button.Label.OpacityUnfocus, _IsAnimated);
+	}
+
+	Trackmania_Button_Button.IsFocused = False;
+}
+Void Unfocus(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsAnimated) {
+	Private_Unfocus(_This, _Frame_Button, _IsAnimated);
+	TTS_Unfocus(_Frame_Button);
+}
+Void Unfocus(CMlScript _This, CMlFrame _Frame_Button) {
+	Unfocus(_This, _Frame_Button, True);
+}
+
+Void Lock(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsLocked) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	if (!Trackmania_Button_Button.IsButton) return;
+	declare K_State Trackmania_Button_State for _This.Page = C_State_Null;
+
+	declare CMlFrame Frame_Align <=> (_Frame_Button.GetFirstChild(C_Id_FrameAlign) as CMlFrame);
+	declare CMlLabel Label_Value <=> (Frame_Align.GetFirstChild(C_Id_LabelValue) as CMlLabel);
+	declare CMlQuad Quad_Icon <=> (_Frame_Button.GetFirstChild(C_Id_QuadIcon) as CMlQuad);
+	declare CMlQuad Quad_Image <=> (_Frame_Button.GetFirstChild(C_Id_QuadImage) as CMlQuad);
+	declare CMlQuad Quad_Gradient <=> (_Frame_Button.GetFirstChild(C_Id_QuadGradient) as CMlQuad);
+	declare CMlQuad Quad_Contour <=> (_Frame_Button.GetFirstChild(C_Id_QuadContour) as CMlQuad);
+	declare CMlQuad Quad_FocusIcon <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusIcon) as CMlQuad);
+	declare CMlQuad Quad_FocusBackground <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusBackground) as CMlQuad);
+
+	Trackmania_Button_State.QuadBlinking.removekey(_Frame_Button.Id);
+	Quad_FocusBackground.Visible = False;
+	Quad_FocusIcon.Visible = False;
+	if (_IsLocked) {
+		Quad_Icon.Opacity = 0.5;
+		Quad_Image.Opacity = 0.5;
+		Quad_Gradient.Opacity = 0.5;
+		Quad_Contour.Opacity = 0.5;
+		Label_Value.Opacity = 0.5;
+	} else {
+		if (Trackmania_Button_Button.Icon.OpacityUnfocus == -1.) {
+			Quad_Icon.Opacity = Trackmania_Button_Button.OpacityUnfocus;
+		} else {
+			Quad_Icon.Opacity = Trackmania_Button_Button.Icon.OpacityUnfocus;
+		}
+		if (Trackmania_Button_Button.Background.OpacityUnfocus == -1.) {
+			Quad_Image.Opacity = Trackmania_Button_Button.OpacityUnfocus;
+		} else {
+			Quad_Image.Opacity = Trackmania_Button_Button.Background.OpacityUnfocus;
+		}
+		if (Trackmania_Button_Button.Background.GradientOpacityUnfocus != -1.) {
+			Quad_Gradient.Opacity = Trackmania_Button_Button.Background.GradientOpacityUnfocus;
+		} else if (Trackmania_Button_Button.Background.OpacityUnfocus != -1.) {
+			Quad_Gradient.Opacity = Trackmania_Button_Button.Background.OpacityUnfocus;
+		} else {
+			Quad_Gradient.Opacity = Trackmania_Button_Button.OpacityUnfocus;
+		}
+		if (Trackmania_Button_Button.Background.ContourOpacityUnfocus != -1.) {
+			Quad_Contour.Opacity = Trackmania_Button_Button.Background.ContourOpacityUnfocus;
+		} else if (Trackmania_Button_Button.Background.OpacityUnfocus != -1.) {
+			Quad_Contour.Opacity = Trackmania_Button_Button.Background.OpacityUnfocus;
+		} else {
+			Quad_Contour.Opacity = Trackmania_Button_Button.OpacityUnfocus;
+		}
+		if (Trackmania_Button_Button.Label.OpacityUnfocus == -1.) {
+			Label_Value.Opacity = Trackmania_Button_Button.OpacityUnfocus;
+		} else {
+			Label_Value.Opacity = Trackmania_Button_Button.Label.OpacityUnfocus;
+		}
+	}
+
+	Trackmania_Button_Button.IsLocked = _IsLocked;
+}
+
+Boolean IsButton(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.IsButton;
+}
+
+Boolean IsButtonTrigger(CMlControl _Control_Trigger) {
+	return (_Control_Trigger != Null && _Control_Trigger.ControlId == C_NavZone);
+}
+
+CMlFrame GetButtonFromTrigger(CMlControl _Control_Trigger) {
+	declare CMlFrame Trackmania_Button_ParentButton for _Control_Trigger = Null;
+	return Trackmania_Button_ParentButton;
+}
+
+Void UpdateStateDisplay(CMlScript _This, CMlFrame _Frame_Button, K_Button _Properties) {
+	declare CMlFrame Frame_Content <=> (_Frame_Button.GetFirstChild(C_Id_FrameContent) as CMlFrame);
+	declare CMlFrame Spinner_Loading <=> (_Frame_Button.GetFirstChild(C_Id_SpinnerLoading) as CMlFrame);
+	Frame_Content.Visible = (_Properties.State == C_State_Normal);
+	if (_Properties.State == C_State_Loading) {
+		if (!LoadingSpinner::IsLoading(Spinner_Loading)) {
+			LoadingSpinner::StartAnimation(_This, Spinner_Loading);
+		}
+	} else {
+		LoadingSpinner::StopAnimation(_This, Spinner_Loading);
+	}
+}
+
+Void Private_SetBackgroundGradientImage(CMlQuad _Quad_Gradient, K_Button _Properties) {
+	_Quad_Gradient.Visible = _Properties.Background.GradientImage != "";
+	if (_Properties.Background.GradientImage != "") {
+		_Quad_Gradient.ChangeImageUrl(_Properties.Background.GradientImage);
+		_Quad_Gradient.KeepRatio = _Properties.Background.KeepRatio;
+		switch (_Properties.Background.ColorType) {
+			case C_ColorType_ModulateColor: _Quad_Gradient.ModulateColor = _Properties.Background.GradientColor;
+			case C_ColorType_Colorize: _Quad_Gradient.Colorize = _Properties.Background.GradientColor;
+			case C_ColorType_None: {
+				if (_Properties.Background.GradientColor != <-1., -1., -1.>) {
+					_Quad_Gradient.Colorize = _Properties.Background.GradientColor;
+				} else {
+					_Quad_Gradient.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+				}
+			}
+		}
+		_Quad_Gradient.SuperSample = (_Properties.SuperSample && _Quad_Gradient.ImageUrl != "" && _Quad_Gradient.Colorize != <-1., -1., -1.>);
+		if (_Properties.AlphaMask != "") {
+			_Quad_Gradient.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.IsFocused) {
+			if (_Properties.Background.GradientOpacityFocus != -1.) {
+				_Quad_Gradient.Opacity = _Properties.Background.GradientOpacityFocus;
+			} else {
+				_Quad_Gradient.Opacity = _Properties.Background.Opacity;
+			}
+		} else {
+			if (_Properties.Background.GradientOpacityUnfocus != -1.) {
+				_Quad_Gradient.Opacity = _Properties.Background.GradientOpacityUnfocus;
+			} else if (_Properties.Background.OpacityUnfocus != -1.) {
+				_Quad_Gradient.Opacity = _Properties.Background.OpacityUnfocus;
+			} else {
+				_Quad_Gradient.Opacity = _Properties.OpacityUnfocus;
+			}
+		}
+	} else {
+		_Quad_Gradient.SuperSample = False;
+	}
+}
+
+Void Private_SetBackgroundContourImage(CMlQuad _Quad_Contour, K_Button _Properties) {
+	_Quad_Contour.Visible = _Properties.Background.ContourImage != "";
+	if (_Properties.Background.ContourImage != "") {
+		_Quad_Contour.ChangeImageUrl(_Properties.Background.ContourImage);
+		_Quad_Contour.KeepRatio = _Properties.Background.KeepRatio;
+		switch (_Properties.Background.ColorType) {
+			case C_ColorType_ModulateColor: _Quad_Contour.ModulateColor = _Properties.Background.ContourColor;
+			case C_ColorType_Colorize: _Quad_Contour.Colorize = _Properties.Background.ContourColor;
+			case C_ColorType_None: {
+				if (_Properties.Background.ContourColor != <-1., -1., -1.>) {
+					_Quad_Contour.Colorize = _Properties.Background.ContourColor;
+				} else {
+					_Quad_Contour.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+				}
+			}
+		}
+		_Quad_Contour.SuperSample = (_Properties.SuperSample && _Quad_Contour.ImageUrl != "" && _Quad_Contour.Colorize != <-1., -1., -1.>);
+		if (_Properties.AlphaMask != "") {
+			_Quad_Contour.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.IsFocused) {
+			if (_Properties.Background.ContourOpacityFocus != -1.) {
+				_Quad_Contour.Opacity = _Properties.Background.ContourOpacityFocus;
+			} else {
+				_Quad_Contour.Opacity = _Properties.Background.Opacity;
+			}
+		} else {
+			if (_Properties.Background.ContourOpacityUnfocus != -1.) {
+				_Quad_Contour.Opacity = _Properties.Background.ContourOpacityUnfocus;
+			} else if (_Properties.Background.OpacityUnfocus != -1.) {
+				_Quad_Contour.Opacity = _Properties.Background.OpacityUnfocus;
+			} else {
+				_Quad_Contour.Opacity = _Properties.OpacityUnfocus;
+			}
+		}
+	} else {
+		_Quad_Contour.SuperSample = False;
+	}
+}
+
+Void Private_SetBackgroundImage(CMlQuad _Quad_Image, K_Button _Properties) {
+	_Quad_Image.Visible = !_Properties.IsBgEmpty;
+	if (!_Properties.IsBgEmpty) {
+		_Quad_Image.BgColor = _Properties.Background.Color;
+		_Quad_Image.ChangeImageUrl(_Properties.Background.Image);
+		_Quad_Image.KeepRatio = _Properties.Background.KeepRatio;
+		switch (_Properties.Background.ColorType) {
+			case C_ColorType_ModulateColor: _Quad_Image.ModulateColor = _Properties.Background.Color;
+			case C_ColorType_Colorize:	_Quad_Image.Colorize = _Properties.Background.Color;
+			case C_ColorType_None: _Quad_Image.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+		}
+		_Quad_Image.SuperSample = (_Properties.SuperSample && _Quad_Image.ImageUrl != "" && _Quad_Image.Colorize != <-1., -1., -1.>);
+
+		if (_Properties.Background.Image != "") {
+			_Quad_Image.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.IsFocused) {
+			_Quad_Image.Opacity = _Properties.Background.Opacity;
+		} else {
+			if (_Properties.Background.OpacityUnfocus == -1.) {
+				_Quad_Image.Opacity = _Properties.OpacityUnfocus;
+			} else {
+				_Quad_Image.Opacity = _Properties.Background.OpacityUnfocus;
+			}
+		}
+	} else {
+		_Quad_Image.SuperSample = False;
+	}
+}
+
+Void Private_SetBackgroundFocus(CMlQuad _Quad_FocusBackground, K_Button _Properties, K_State _State) {
+	if (
+		(
+			_Properties.Background.FocusColor == _State.DefaultColorFocus ||
+			_Properties.Background.ImageFocus == ""
+		) &&
+		_Properties.IsBgEmpty
+	) {
+		_Quad_FocusBackground.Visible = False;
+		_Quad_FocusBackground.SuperSample = False;
+	} else {
+		_Quad_FocusBackground.BgColor = _Properties.Background.FocusColor;
+		_Quad_FocusBackground.ChangeImageUrl(_Properties.Background.ImageFocus);
+		_Quad_FocusBackground.KeepRatio = _Properties.Background.KeepRatio;
+
+		switch (_Properties.Background.ColorType) {
+			case C_ColorType_ModulateColor: _Quad_FocusBackground.ModulateColor = _Properties.Background.FocusColor;
+			case C_ColorType_Colorize: _Quad_FocusBackground.Colorize = _Properties.Background.FocusColor;
+			case C_ColorType_None: _Quad_FocusBackground.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+		}
+
+		_Quad_FocusBackground.SuperSample = (_Properties.SuperSample && _Quad_FocusBackground.ImageUrl != "" && _Quad_FocusBackground.Colorize != <-1., -1., -1.>);
+
+		if (_Properties.Background.ImageFocus != "") {
+			_Quad_FocusBackground.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.IsFocused) {
+			if (_Properties.Background.ImageFocusOpacity == -1.) {
+				_Quad_FocusBackground.Opacity = _Properties.Background.Opacity;
+			} else {
+				_Quad_FocusBackground.Opacity = _Properties.Background.ImageFocusOpacity;
+			}
+		} else {
+			if (_Properties.Background.OpacityUnfocus == -1.) {
+				_Quad_FocusBackground.Opacity = _Properties.OpacityUnfocus;
+			} else {
+				_Quad_FocusBackground.Opacity = _Properties.Background.OpacityUnfocus;
+			}
+		}
+	}
+}
+
+Void Private_SetIcon(CMlQuad _Quad_Icon, CMlQuad _Quad_FocusIcon, K_Button _Properties) {
+	_Quad_Icon.Parent.Visible = _Properties.Icon.Image != "";
+	if (_Properties.Icon.Image != "") {
+		_Quad_Icon.BgColor = _Properties.Icon.Color;
+		_Quad_FocusIcon.BgColor = _Properties.Icon.FocusColor;
+		_Quad_Icon.ChangeImageUrl(_Properties.Icon.Image);
+		_Quad_FocusIcon.ChangeImageUrl(_Properties.Icon.ImageFocus);
+		switch (_Properties.Icon.ColorType) {
+			case C_ColorType_ModulateColor: {
+				_Quad_Icon.ModulateColor = _Properties.Icon.Color;
+				_Quad_FocusIcon.ModulateColor = _Properties.Icon.FocusColor;
+			}
+			case C_ColorType_Colorize: {
+				_Quad_Icon.Colorize = _Properties.Icon.Color;
+				_Quad_FocusIcon.Colorize = _Properties.Icon.FocusColor;
+			}
+			case C_ColorType_None: {
+				_Quad_Icon.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+				_Quad_FocusIcon.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+			}
+		}
+		if (_Properties.Icon.Image != "") {
+			_Quad_Icon.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.Icon.ImageFocus != "") {
+			_Quad_FocusIcon.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.IsFocused) {
+			_Quad_FocusIcon.Opacity = _Properties.Icon.Opacity;
+		} else {
+			if (_Properties.Icon.OpacityUnfocus == -1.) {
+				_Quad_Icon.Opacity = _Properties.OpacityUnfocus;
+			} else {
+				_Quad_Icon.Opacity = _Properties.Icon.OpacityUnfocus;
+			}
+		}
+	}
+}
+
+Void ApplyProperties(CMlScript _This, CMlFrame _Frame_Button, K_Button _Properties) {
+	declare K_State Trackmania_Button_State for _This.Page = C_State_Null;
+
+	declare CMlFrame Frame_Align <=> (_Frame_Button.GetFirstChild(C_Id_FrameAlign) as CMlFrame);
+	declare CMlQuad Quad_Icon <=> (_Frame_Button.GetFirstChild(C_Id_QuadIcon) as CMlQuad);
+	declare CMlFrame Frame_HitboxClip <=> (_Frame_Button.GetFirstChild(C_Id_FrameHitboxClip) as CMlFrame);
+	declare CMlQuad Quad_Hitbox <=> (Frame_HitboxClip.GetFirstChild(C_NavZone) as CMlQuad);
+	declare CMlQuad Quad_Image <=> (_Frame_Button.GetFirstChild(C_Id_QuadImage) as CMlQuad);
+	declare CMlQuad Quad_Gradient <=> (_Frame_Button.GetFirstChild(C_Id_QuadGradient) as CMlQuad);
+	declare CMlQuad Quad_Contour <=> (_Frame_Button.GetFirstChild(C_Id_QuadContour) as CMlQuad);
+	declare CMlQuad Quad_FocusIcon <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusIcon) as CMlQuad);
+	declare CMlQuad Quad_FocusBackground <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusBackground) as CMlQuad);
+	declare CMlLabel Label_Value <=> (_Frame_Button.GetFirstChild(C_Id_LabelValue) as CMlLabel);
+	declare CMlFrame Spinner_Loading <=> (_Frame_Button.GetFirstChild(C_Id_SpinnerLoading) as CMlFrame);
+
+	Label_Value.Value = _Properties.Label.Value;
+	Label_Value.TextSizeReal = _Properties.Label.TextSize;
+	Label_Value.TextPrefix = _Properties.Label.TextPrefix;
+	Label_Value.TextFont = _Properties.Label.Font;
+	Label_Value.HorizontalAlign = Tools::TextToHAlign(_Properties.Label.HAlign);
+	Label_Value.VerticalAlign = Tools::TextToVAlign(_Properties.Label.VAlign);
+	Label_Value.MaxLine = _Properties.Label.MaxLine;
+	Label_Value.AutoNewLine = _Properties.Label.AutoNewLine;
+	Label_Value.TTS_AltText = _Properties.Label.TTS_Text;
+	Label_Value.TTS_AltText_Translate = _Properties.Label.TTS_IsTranslated;
+	Label_Value.FilterProfanities = _Properties.Label.FilterProfanities;
+	if (_Properties.IsFocused) {
+		if (Quad_FocusBackground.Visible) {
+			Label_Value.TextColor = Tools::GetVisibleColorOnBackground(_Properties.Background.FocusColor, _Properties.Label.FocusColor);
+		} else {
+			Label_Value.TextColor = Tools::GetVisibleColorOnBackground(_Properties.Background.Color, _Properties.Label.FocusColor);
+		}
+	} else {
+		Label_Value.TextColor = _Properties.Label.Color;
+	}
+
+	Private_SetBackgroundGradientImage(Quad_Gradient, _Properties);
+	Private_SetBackgroundContourImage(Quad_Contour, _Properties);
+	Private_SetBackgroundImage(Quad_Image, _Properties);
+	Private_SetBackgroundFocus(Quad_FocusBackground, _Properties, Trackmania_Button_State);
+	Private_SetIcon(Quad_Icon, Quad_FocusIcon, _Properties);
+
+	// Size
+
+	declare Vec2 SizeOfReference;
+	if (_Properties.SizeHitbox == <-1., -1.>) {
+		Quad_Hitbox.Size = _Properties.Background.Size;
+		SizeOfReference = _Properties.Background.Size;
+	} else {
+		Quad_Hitbox.Size = _Properties.SizeHitbox;
+		SizeOfReference = _Properties.SizeHitbox;
+	}
+
+	if (_Properties.TiltHitbox != 0.) {
+		declare Real TiltRad = ML::DegToRad(_Properties.TiltHitbox);
+		declare Real TiltWidthAtBase = SizeOfReference.Y * ML::Tan(TiltRad);
+		declare Real CosTiltRad = ML::Cos(TiltRad);
+		declare Real SinTiltRad = ML::Sin(TiltRad);
+		Quad_Hitbox.Size.X = (SizeOfReference.X - TiltWidthAtBase) * CosTiltRad;
+		if (CosTiltRad == 0.) {
+			Quad_Hitbox.Size.Y = 0.;
+		} else {
+			Quad_Hitbox.Size.Y = (SizeOfReference.Y / CosTiltRad) + ML::Abs((SizeOfReference.X - TiltWidthAtBase) * SinTiltRad);
+		}
+		if (SinTiltRad >= 0.) {
+			Quad_Hitbox.VerticalAlign = CMlControl::AlignVertical::Bottom;
+			Quad_Hitbox.RelativePosition_V3 = <0., -SizeOfReference.Y>;
+		} else {
+			Quad_Hitbox.VerticalAlign = CMlControl::AlignVertical::Top;
+			Quad_Hitbox.RelativePosition_V3 = <0., 0.>;
+		}
+		Quad_Hitbox.RelativeRotation = _Properties.TiltHitbox;
+		Frame_HitboxClip.Size = SizeOfReference;
+	} else {
+		Quad_Hitbox.VerticalAlign = CMlControl::AlignVertical::Top;
+		Quad_Hitbox.RelativePosition_V3 = <SizeOfReference.X * 0.5 - Quad_Hitbox.Size.X/2., SizeOfReference.Y * 0.5 - Quad_Hitbox.Size.Y/2.>;
+		Quad_Hitbox.RelativeRotation = 0.;
+		Frame_HitboxClip.Size = <0., 0.>; //< This default value disable the clipping
+	}
+
+	Quad_Image.Size = _Properties.Background.Size;
+	Quad_Gradient.Size = _Properties.Background.Size;
+	Quad_Contour.Size = _Properties.Background.Size;
+	Quad_FocusBackground.Size = _Properties.Background.Size;
+
+	if (_Properties.Icon.Size == <-1., -1.>) {
+		Quad_Icon.Size = <ML::Max(0., SizeOfReference.X - 5.), ML::Max(0., SizeOfReference.Y - 5.)>;
+		Quad_FocusIcon.Size = <ML::Max(0., SizeOfReference.X - 5.), ML::Max(0., SizeOfReference.Y - 5.)>;
+	} else {
+		Quad_Icon.Size = _Properties.Icon.Size;
+		Quad_FocusIcon.Size = _Properties.Icon.Size;
+	}
+
+	Spinner_Loading.RelativeScale = _Properties.Loading.Scale;
+
+	if (_Properties.Label.Size == <-1., -1.>) {
+		Label_Value.Size = <ML::Max(0., SizeOfReference.X - 5.), ML::Max(0., SizeOfReference.Y - 1.)>;
+	} else {
+		Label_Value.Size = _Properties.Label.Size;
+	}
+
+	Label_Value.ItalicSlope = _Properties.Label.ItalicSlope;
+
+	Label_Value.RelativePosition_V3 = <SizeOfReference.X * _Properties.Label.PosX, SizeOfReference.Y * _Properties.Label.PosY>;
+	Quad_Icon.RelativePosition_V3 = <SizeOfReference.X * _Properties.Icon.PosX - Quad_Icon.Size.X/2., SizeOfReference.Y * _Properties.Icon.PosY + Quad_Icon.Size.Y/2.>;
+	Quad_FocusIcon.RelativePosition_V3 = <SizeOfReference.X * _Properties.Icon.PosX - Quad_Icon.Size.X/2., SizeOfReference.Y * _Properties.Icon.PosY + Quad_Icon.Size.Y/2.>;
+	Quad_Image.RelativePosition_V3 = <SizeOfReference.X * 0.5 - Quad_Image.Size.X/2. + _Properties.Background.PosX, SizeOfReference.Y * -0.5 + Quad_Image.Size.Y/2. + _Properties.Background.PosY>;
+	Quad_Gradient.RelativePosition_V3 = <SizeOfReference.X * 0.5 - Quad_Gradient.Size.X/2. + _Properties.Background.PosX, SizeOfReference.Y * -0.5 + Quad_Gradient.Size.Y/2. + _Properties.Background.PosY>;
+	Quad_Contour.RelativePosition_V3 = <SizeOfReference.X * 0.5 - Quad_Contour.Size.X/2. + _Properties.Background.PosX, SizeOfReference.Y * -0.5 + Quad_Contour.Size.Y/2. + _Properties.Background.PosY>;
+	Quad_FocusBackground.RelativePosition_V3 = <SizeOfReference.X * 0.5 - Quad_FocusBackground.Size.X/2.+ _Properties.Background.PosX, SizeOfReference.Y * -0.5 + Quad_FocusBackground.Size.Y/2. + _Properties.Background.PosY>;
+	Quad_Icon.RelativeRotation = _Properties.Icon.Rotation;
+	Quad_FocusIcon.RelativeRotation = _Properties.Icon.Rotation;
+	Spinner_Loading.RelativePosition_V3 = <SizeOfReference.X * _Properties.Loading.PosX, SizeOfReference.Y * _Properties.Icon.PosY>;
+
+	// Align
+	Tools::AlignFrame(Frame_Align, SizeOfReference, _Properties.HAlign, _Properties.VAlign);
+
+	// Apply after every other properties are set on the label, especially its size
+	if (_Properties.Label.Fit > 0.) {
+		Tools::FitLabelValue(Label_Value, _Properties.Label.Fit, _Properties.Label.FitStep);
+	}
+
+	if (_Properties.IsFocused) {
+		Private_Focus(_This, _Frame_Button, False);
+	} else {
+		Private_Unfocus(_This, _Frame_Button, False);
+	}
+
+	UpdateStateDisplay(_This, _Frame_Button, _Properties);
+}
+Void ApplyProperties(CMlScript _This, CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+
+Void ShowAndUnlock(CMlFrame _Frame_Button) {
+	Navigation::Lock(_Frame_Button, False);
+	_Frame_Button.Show();
+}
+Void HideAndLock(CMlFrame _Frame_Button) {
+	Navigation::Lock(_Frame_Button, True);
+	_Frame_Button.Hide();
+}
+Void SetVisibilityAndNavigation(CMlFrame _Frame_Button, Boolean _IsVisible) {
+	Navigation::Lock(_Frame_Button, !_IsVisible);
+	_Frame_Button.Visible = _IsVisible;
+}
+
+Void SetIconColorType(CMlScript _This, CMlFrame _Frame_Button, Integer _ColorType, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Icon.ColorType = _ColorType;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIconColorType(CMlScript _This, CMlFrame _Frame_Button, Integer _ColorType) {
+	SetIconColorType(_This, _Frame_Button, _ColorType, True);
+}
+Void SetBgIsEmpty(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsBgEmpty, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.IsBgEmpty = _IsBgEmpty;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetBgIsEmpty(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsBgEmpty) {
+	SetBgIsEmpty(_This, _Frame_Button, _IsBgEmpty, True);
+}
+Void SetIsBlink(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsBlink, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.IsBlink = _IsBlink;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIsBlink(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsBlink) {
+	SetIsBlink(_This, _Frame_Button, _IsBlink, True);
+}
+Void SetAlphaMask(CMlScript _This, CMlFrame _Frame_Button, Text _AlphaMask, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.AlphaMask = _AlphaMask;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetAlphaMask(CMlScript _This, CMlFrame _Frame_Button, Text _AlphaMask) {
+	SetAlphaMask(_This, _Frame_Button, _AlphaMask, True);
+}
+Void SetBgColorType(CMlScript _This, CMlFrame _Frame_Button, Integer _ColorType, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.ColorType = _ColorType;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetBgColorType(CMlScript _This, CMlFrame _Frame_Button, Integer _ColorType) {
+	SetBgColorType(_This, _Frame_Button, _ColorType, True);
+}
+Void SetValue(CMlScript _This, CMlFrame _Frame_Button, Text _Value, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.Value = _Value;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetValue(CMlScript _This, CMlFrame _Frame_Button, Text _Value) {
+	SetValue(_This, _Frame_Button, _Value, True);
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Size, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.Size = _Size;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Size) {
+	SetSize(_This, _Frame_Button, _Size, True);
+}
+Void SetSizeHitbox(CMlScript _This, CMlFrame _Frame_Button, Vec2 _SizeHitbox, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.SizeHitbox = _SizeHitbox;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetSizeHitbox(CMlScript _This, CMlFrame _Frame_Button, Vec2 _SizeHitbox) {
+	SetSizeHitbox(_This, _Frame_Button, _SizeHitbox, True);
+}
+Void SetTiltHitbox(CMlScript _This, CMlFrame _Frame_Button, Real _TiltHitbox, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.TiltHitbox = _TiltHitbox;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTiltHitbox(CMlScript _This, CMlFrame _Frame_Button, Real _TiltHitbox) {
+	SetTiltHitbox(_This, _Frame_Button, _TiltHitbox, True);
+}
+Void SetBackgroundOpacity(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.Opacity = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetBackgroundOpacity(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetBackgroundOpacity(_This, _Frame_Button, _Opacity, True);
+}
+Void SetOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.OpacityUnfocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetOpacityUnfocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetBgColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _BgColor, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.Color = _BgColor;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetBgColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _BgColor) {
+	SetBgColor(_This, _Frame_Button, _BgColor, True);
+}
+Void SetFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _FocusColor, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.FocusColor = _FocusColor;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _FocusColor) {
+	SetFocusColor(_This, _Frame_Button, _FocusColor, True);
+}
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _TextColor, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.Color = _TextColor;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _TextColor) {
+	SetTextColor(_This, _Frame_Button, _TextColor, True);
+}
+Void SetTextFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _TextColor, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.FocusColor = _TextColor;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _TextColor) {
+	SetTextFocusColor(_This, _Frame_Button, _TextColor, True);
+}
+Void SetTextOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.OpacityUnfocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetTextOpacityUnfocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_Button, Real _TextSize, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.TextSize = _TextSize;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_Button, Real _TextSize) {
+	SetTextSize(_This, _Frame_Button, _TextSize, True);
+}
+Void SetTextPrefix(CMlScript _This, CMlFrame _Frame_Button, Text _TextPrefix, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.TextPrefix = _TextPrefix;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextPrefix(CMlScript _This, CMlFrame _Frame_Button, Text _TextPrefix) {
+	SetTextPrefix(_This, _Frame_Button, _TextPrefix, True);
+}
+Void SetTextFont(CMlScript _This, CMlFrame _Frame_Button, Text _TextFont, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.Font = _TextFont;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextFont(CMlScript _This, CMlFrame _Frame_Button, Text _TextFont) {
+	SetTextFont(_This, _Frame_Button, _TextFont, True);
+}
+Void SetTextItalicSlope(CMlScript _This, CMlFrame _Frame_Button, Real _ItalicSlope, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.ItalicSlope = _ItalicSlope;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextItalicSlope(CMlScript _This, CMlFrame _Frame_Button, Real _ItalicSlope) {
+	SetTextItalicSlope(_This, _Frame_Button, _ItalicSlope, True);
+}
+Void SetLabelSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _LabelSize, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.Size = _LabelSize;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetLabelSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _LabelSize) {
+	SetLabelSize(_This, _Frame_Button, _LabelSize, True);
+}
+Void SetImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.Image = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetImage(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetImageFocus(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.ImageFocus = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetImageFocus(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetImageFocus(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetImageFocusOpacity(CMlScript _This, CMlFrame _Frame_Button, Real _ImageFocusOpacity, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.ImageFocusOpacity = _ImageFocusOpacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetImageFocusOpacity(CMlScript _This, CMlFrame _Frame_Button, Real _ImageFocusOpacity) {
+	SetImageFocusOpacity(_This, _Frame_Button, _ImageFocusOpacity, True);
+}
+Void SetImageOffset(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Offset, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.PosX = _Offset.X;
+	Trackmania_Button_Button.Background.PosY = _Offset.Y;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetImageOffset(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Offset) {
+	SetImageOffset(_This, _Frame_Button, _Offset, True);
+}
+Void SetImageXOffset(CMlScript _This, CMlFrame _Frame_Button, Real _XOffset, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.PosX = _XOffset;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetImageXOffset(CMlScript _This, CMlFrame _Frame_Button, Real _XOffset) {
+	SetImageXOffset(_This, _Frame_Button, _XOffset, True);
+}
+Void SetImageYOffset(CMlScript _This, CMlFrame _Frame_Button, Real _YOffset, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.PosY = _YOffset;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetImageYOffset(CMlScript _This, CMlFrame _Frame_Button, Real _YOffset) {
+	SetImageYOffset(_This, _Frame_Button, _YOffset, True);
+}
+Void SetIcon(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Icon.Image = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIcon(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetIcon(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetIconFocus(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Icon.ImageFocus = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIconFocus(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetIconFocus(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetIconColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Icon.Color = _Color;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIconColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color) {
+	SetIconColor(_This, _Frame_Button, _Color, True);
+}
+Void SetIconFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Icon.FocusColor = _Color;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIconFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color) {
+	SetIconFocusColor(_This, _Frame_Button, _Color, True);
+}
+Void SetIconOpacityFocused(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Icon.Opacity = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIconOpacityFocused(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetIconOpacityFocused(_This, _Frame_Button, _Opacity, True);
+}
+Void SetIconOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Icon.OpacityUnfocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIconOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetIconOpacityUnfocused(_This, _Frame_Button, _Opacity, True);
+}
+Void SetIconSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Size, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Icon.Size = _Size;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIconSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Size) {
+	SetIconSize(_This, _Frame_Button, _Size, True);
+}
+Void SetIconXPos(CMlScript _This, CMlFrame _Frame_Button, Real _IconXPos, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Icon.PosX = _IconXPos;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIconXPos(CMlScript _This, CMlFrame _Frame_Button, Real _IconXPos) {
+	SetIconXPos(_This, _Frame_Button, _IconXPos, True);
+}
+Void SetIconYPos(CMlScript _This, CMlFrame _Frame_Button, Real _IconYPos, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Icon.PosY = _IconYPos;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIconYPos(CMlScript _This, CMlFrame _Frame_Button, Real _IconYPos) {
+	SetIconYPos(_This, _Frame_Button, _IconYPos, True);
+}
+Void SetIconRot(CMlScript _This, CMlFrame _Frame_Button, Real _Rotation, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Icon.Rotation = _Rotation;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetIconRot(CMlScript _This, CMlFrame _Frame_Button, Real _Rotation) {
+	SetIconRot(_This, _Frame_Button, _Rotation, True);
+}
+Void SetTextXPos(CMlScript _This, CMlFrame _Frame_Button, Real _TextXPos, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.PosX = _TextXPos;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextXPos(CMlScript _This, CMlFrame _Frame_Button, Real _TextXPos) {
+	SetTextXPos(_This, _Frame_Button, _TextXPos, True);
+}
+Void SetTextYPos(CMlScript _This, CMlFrame _Frame_Button, Real _TextYPos, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.PosY = _TextYPos;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextYPos(CMlScript _This, CMlFrame _Frame_Button, Real _TextYPos) {
+	SetTextYPos(_This, _Frame_Button, _TextYPos, True);
+}
+Void SetTextHAlign(CMlScript _This, CMlFrame _Frame_Button, Text _HAlign, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.HAlign = _HAlign;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextHAlign(CMlScript _This, CMlFrame _Frame_Button, Text _HAlign) {
+	SetTextHAlign(_This, _Frame_Button, _HAlign, True);
+}
+Void SetTextVAlign(CMlScript _This, CMlFrame _Frame_Button, Text _VAlign, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.VAlign = _VAlign;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextVAlign(CMlScript _This, CMlFrame _Frame_Button, Text _VAlign) {
+	SetTextVAlign(_This, _Frame_Button, _VAlign, True);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_Button, Text _HAlign, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.HAlign = _HAlign;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_Button, Text _HAlign) {
+	SetHAlign(_This, _Frame_Button, _HAlign, True);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_Button, Text _VAlign, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.VAlign = _VAlign;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_Button, Text _VAlign) {
+	SetVAlign(_This, _Frame_Button, _VAlign, True);
+}
+Void SetMaxLine(CMlScript _This, CMlFrame _Frame_Button, Integer _MaxLine, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.MaxLine = _MaxLine;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetMaxLine(CMlScript _This, CMlFrame _Frame_Button, Integer _MaxLine) {
+	SetMaxLine(_This, _Frame_Button, _MaxLine, True);
+}
+Void SetAutoNewLine(CMlScript _This, CMlFrame _Frame_Button, Boolean _AutoNewLine, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.AutoNewLine = _AutoNewLine;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetAutoNewLine(CMlScript _This, CMlFrame _Frame_Button, Boolean _AutoNewLine) {
+	SetAutoNewLine(_This, _Frame_Button, _AutoNewLine, True);
+}
+Void SetFitLabel(CMlScript _This, CMlFrame _Frame_Button, Real _MinTextSize, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.Fit = _MinTextSize;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetFitLabel(CMlScript _This, CMlFrame _Frame_Button, Real _MinTextSize) {
+	SetFitLabel(_This, _Frame_Button, _MinTextSize, True);
+}
+Void SetFitLabelStep(CMlScript _This, CMlFrame _Frame_Button, Real _StepSize, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.FitStep = _StepSize;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetFitLabelStep(CMlScript _This, CMlFrame _Frame_Button, Real _StepSize) {
+	SetFitLabelStep(_This, _Frame_Button, _StepSize, True);
+}
+Void SetBackgroundKeepRatio(CMlScript _This, CMlFrame _Frame_Button, CMlQuad::EKeepRatioMode _KeepRatio, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.KeepRatio = _KeepRatio;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetBackgroundKeepRatio(CMlScript _This, CMlFrame _Frame_Button, CMlQuad::EKeepRatioMode _KeepRatio) {
+	SetBackgroundKeepRatio(_This, _Frame_Button, _KeepRatio, True);
+}
+Void SetGradientImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.GradientImage = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetGradientImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetGradientImage(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetGradientOpacityFocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.GradientOpacityFocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetGradientOpacityFocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetGradientOpacityFocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetGradientOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.GradientOpacityUnfocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetGradientOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetGradientOpacityUnfocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetGradientColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.GradientColor = _Color;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetGradientColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color) {
+	SetGradientColor(_This, _Frame_Button, _Color, True);
+}
+Void SetContourImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.ContourImage = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetContourImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetContourImage(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetContourOpacityFocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.ContourOpacityFocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetContourOpacityFocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetContourOpacityFocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetContourOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.ContourOpacityUnfocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetContourOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetContourOpacityUnfocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetContourColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Background.ContourColor = _Color;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetContourColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color) {
+	SetContourColor(_This, _Frame_Button, _Color, True);
+}
+Void SetState(CMlScript _This, CMlFrame _Frame_Button, Integer _State, Integer _Delay) {
+	declare K_State Trackmania_Button_State for _This.Page = C_State_Null;
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	if (_Delay <= 0) {
+		Trackmania_Button_State.DelayedStates.removekey(_Frame_Button.Id);
+		Trackmania_Button_Button.State = _State;
+		UpdateStateDisplay(_This, _Frame_Button, Trackmania_Button_Button);
+	} else {
+		Trackmania_Button_State.DelayedStates[_Frame_Button.Id] = K_DelayedState {
+			ActivationTime = Now + _Delay,
+			State = _State,
+			Frame_Button = _Frame_Button
+		};
+	}
+}
+Void SetState(CMlScript _This, CMlFrame _Frame_Button, Integer _State) {
+	SetState(_This, _Frame_Button, _State, 0);
+}
+Void SetLoadingScale(CMlScript _This, CMlFrame _Frame_Button, Real _Scale, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Loading.Scale = _Scale;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetLoadingScale(CMlScript _This, CMlFrame _Frame_Button, Real _Scale) {
+	SetLoadingScale(_This, _Frame_Button, _Scale, True);
+}
+Void SetLoadingPos(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Pos, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Loading.PosX = _Pos.X;
+	Trackmania_Button_Button.Loading.PosY = _Pos.Y;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetLoadingPos(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Pos) {
+	SetLoadingPos(_This, _Frame_Button, _Pos, True);
+}
+Void SetSuperSample(CMlScript _This, CMlFrame _Frame_Button, Boolean _SuperSample, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.SuperSample = _SuperSample;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetSuperSample(CMlScript _This, CMlFrame _Frame_Button, Boolean _SuperSample) {
+	SetSuperSample(_This, _Frame_Button, _SuperSample, True);
+}
+Void SetTextToSpeech(CMlScript _This, CMlFrame _Frame_Button, Text _Text, Boolean _IsTranslated, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.TTS_Text = _Text;
+	Trackmania_Button_Button.Label.TTS_IsTranslated = _IsTranslated;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetTextToSpeech(CMlScript _This, CMlFrame _Frame_Button, Text _Text, Boolean _IsTranslated) {
+	SetTextToSpeech(_This, _Frame_Button, _Text, _IsTranslated, True);
+}
+Void SetTextToSpeech(CMlScript _This, CMlFrame _Frame_Button, Text _Text) {
+	SetTextToSpeech(_This, _Frame_Button, _Text, True);
+}
+Void SetFilterProfanities(CMlScript _This, CMlFrame _Frame_Button, CMlLabel::EFilterProfanities _FilterProfanities, Boolean _ApplyProperties) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button.Label.FilterProfanities = _FilterProfanities;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+}
+Void SetFilterProfanities(CMlScript _This, CMlFrame _Frame_Button, CMlLabel::EFilterProfanities _FilterProfanities) {
+	SetFilterProfanities(_This, _Frame_Button, _FilterProfanities, True);
+}
+
+Integer GetIconColorType(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Icon.ColorType;
+}
+Boolean GetBgIsEmpty(CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.IsBgEmpty;
+}
+Boolean GetIsBlink(CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.IsBlink;
+}
+Text GetAlphaMask(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.AlphaMask;
+}
+Integer GetBgColorType(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.ColorType;
+}
+Text GetValue(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.Value;
+}
+Vec2 GetSize(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.Size;
+}
+Vec2 GetSizeHitbox(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.SizeHitbox;
+}
+Real GetTiltHitbox(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.TiltHitbox;
+}
+Real GetBackgroundOpacity(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.Opacity;
+}
+Real GetOpacityUnfocus(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.OpacityUnfocus;
+}
+Vec3 GetBgColor(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.Color;
+}
+Vec3 GetFocusColor(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.FocusColor;
+}
+Vec3 GetTextColor(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.Color;
+}
+Vec3 GetTextFocusColor(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.FocusColor;
+}
+Real GetTextSize(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.TextSize;
+}
+Text GetTextPrefix(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.TextPrefix;
+}
+Real GetTextItalicSlope(CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.ItalicSlope;
+}
+Text GetTextFont(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.Font;
+}
+CMlLabel GetLabel(CMlFrame _Frame_Button) {
+	return (_Frame_Button.GetFirstChild(C_Id_LabelValue) as CMlLabel);
+}
+Vec2 GetLabelSize(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.Size;
+}
+Text GetImage(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.Image;
+}
+Text GetImageFocus(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.ImageFocus;
+}
+Real GetImageFocusOpacity(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.ImageFocusOpacity;
+}
+Vec2 GetImageOffset(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return <Trackmania_Button_Button.Background.PosX, Trackmania_Button_Button.Background.PosY>;
+}
+Real GetImageXOffset(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.PosX;
+}
+Real GetImageYOffset(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.PosY;
+}
+CMlFrame GetIconFrame(CMlFrame _Frame_Button) {
+	return (_Frame_Button.GetFirstChild(C_Id_FrameIcon) as CMlFrame);
+}
+Text GetIcon(CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Icon.Image;
+}
+Text GetIconFocus(CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Icon.ImageFocus;
+}
+Vec3 GetIconColor(CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Icon.Color;
+}
+Vec3 GetIconFocusColor(CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Icon.FocusColor;
+}
+Vec2 GetIconSize(CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Icon.Size;
+}
+Real GetIconXPos(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Icon.PosX;
+}
+Real GetIconYPos(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Icon.PosY;
+}
+Real GetIconRot(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Icon.Rotation;
+}
+Text GetTextHAlign(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.HAlign;
+}
+Text GetTextVAlign(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.VAlign;
+}
+Real GetTextXPos(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.PosX;
+}
+Real GetTextYPos(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.PosY;
+}
+Text GetHAlign(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.HAlign;
+}
+Text GetVAlign(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.VAlign;
+}
+Integer GetMaxLine(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.MaxLine;
+}
+Boolean GetAutoNewLine(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.AutoNewLine;
+}
+Real GetFitLabel(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.Fit;
+}
+Real GetFitLabelStep(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.FitStep;
+}
+CMlQuad::EKeepRatioMode GetBackgroundKeepRatio(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.KeepRatio;
+}
+Text GetGradientImage(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.GradientImage;
+}
+Real GetGradientOpacityFocus(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.GradientOpacityFocus;
+}
+Real GetGradientOpacityUnfocus(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.GradientOpacityUnfocus;
+}
+Vec3 GetGradientColor(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.GradientColor;
+}
+Text GetContourImage(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.ContourImage;
+}
+Real GetContourOpacityFocus(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.ContourOpacityFocus;
+}
+Real GetContourOpacityUnfocus(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.ContourOpacityUnfocus;
+}
+Vec3 GetContourColor(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Background.ContourColor;
+}
+Integer GetState(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.State;
+}
+Real GetLoadingScale(CMlControl _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Loading.Scale;
+}
+Vec2 GetLoadingPos(CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return <Trackmania_Button_Button.Loading.PosX, Trackmania_Button_Button.Loading.PosY>;
+}
+Boolean GetSuperSample(CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.SuperSample;
+}
+Text GetTextToSpeech(CMlFrame _Frame_Button) {
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	return Trackmania_Button_Button.Label.TTS_Text;
+}
+
+K_Button Private_InitializeDataAttributes_Text(CMlFrame _Frame_Button, K_Button _Button) {
+	declare K_Button Button = _Button;
+
+	if (_Frame_Button.DataAttributeExists("text")) {
+		Button.Label.Value = _Frame_Button.DataAttributeGet("text");
+	}
+	if (_Frame_Button.DataAttributeExists("textcolor")) {
+		Button.Label.Color = CL::HexToRgb(_Frame_Button.DataAttributeGet("textcolor"));
+	}
+	if (_Frame_Button.DataAttributeExists("textfocuscolor")) {
+		Button.Label.FocusColor = CL::HexToRgb(_Frame_Button.DataAttributeGet("textfocuscolor"));
+	}
+	if (_Frame_Button.DataAttributeExists("textsize")) {
+		Button.Label.TextSize = TL::ToReal(_Frame_Button.DataAttributeGet("textsize"));
+	}
+	if (_Frame_Button.DataAttributeExists("textprefix")) {
+		Button.Label.TextPrefix = _Frame_Button.DataAttributeGet("textprefix");
+	}
+	if (_Frame_Button.DataAttributeExists("textfont")) {
+		Button.Label.Font = _Frame_Button.DataAttributeGet("textfont");
+	}
+	if (_Frame_Button.DataAttributeExists("textitalicslope")) {
+		Button.Label.ItalicSlope = TL::ToReal(_Frame_Button.DataAttributeGet("textitalicslope"));
+	}
+	if (_Frame_Button.DataAttributeExists("textopacityunfocus")) {
+		Button.Label.OpacityUnfocus = TL::ToReal(_Frame_Button.DataAttributeGet("textopacityunfocus"));
+	}
+	if (_Frame_Button.DataAttributeExists("labelsize")) {
+		Button.Label.Size = Tools::TextToVec2(_Frame_Button.DataAttributeGet("labelsize"));
+	}
+	if (_Frame_Button.DataAttributeExists("textxpos")) {
+		Button.Label.PosX = TL::ToReal(_Frame_Button.DataAttributeGet("textxpos"));
+	}
+	if (_Frame_Button.DataAttributeExists("textypos")) {
+		Button.Label.PosY = TL::ToReal(_Frame_Button.DataAttributeGet("textypos"));
+	}
+	if (_Frame_Button.DataAttributeExists("texthalign")) {
+		Button.Label.HAlign = _Frame_Button.DataAttributeGet("texthalign");
+	}
+	if (_Frame_Button.DataAttributeExists("textvalign")) {
+		Button.Label.VAlign = _Frame_Button.DataAttributeGet("textvalign");
+	}
+	if (_Frame_Button.DataAttributeExists("maxline")) {
+		Button.Label.MaxLine = TL::ToInteger(_Frame_Button.DataAttributeGet("maxline"));
+	}
+	if (_Frame_Button.DataAttributeExists("autonewline")) {
+		Button.Label.AutoNewLine = Tools::GetBooleanAttribute(_Frame_Button, "autonewline");
+	}
+	if (_Frame_Button.DataAttributeExists("fitlabel")) {
+		Button.Label.Fit = TL::ToReal(_Frame_Button.DataAttributeGet("fitlabel"));
+	}
+	if (_Frame_Button.DataAttributeExists("fitlabelstep")) {
+		Button.Label.FitStep = TL::ToReal(_Frame_Button.DataAttributeGet("fitlabelstep"));
+	}
+	if (_Frame_Button.DataAttributeExists("tts-text")) {
+		Button.Label.TTS_Text = _Frame_Button.DataAttributeGet("tts-text");
+	}
+	if (_Frame_Button.DataAttributeExists("tts-translate")) {
+		Button.Label.TTS_IsTranslated = Tools::TextToBoolean(_Frame_Button.DataAttributeGet("tts-translate"));
+	}
+	if (_Frame_Button.DataAttributeExists("filter-profanities")) {
+		Button.Label.FilterProfanities = Tools::TextToFilterProfanities(_Frame_Button.DataAttributeGet("filter-profanities"));
+	}
+
+	return Button;
+}
+
+K_Button Private_InitializeDataAttributes(CMlFrame _Frame_Button, K_Button _Button) {
+	declare K_Button Button = Private_InitializeDataAttributes_Text(_Frame_Button, _Button);
+
+	if (_Frame_Button.DataAttributeExists("iconcolortype")) {
+		Button.Icon.ColorType = TL::ToInteger(_Frame_Button.DataAttributeGet("iconcolortype"));
+	}
+	if (_Frame_Button.DataAttributeExists("bgempty")) {
+		Button.IsBgEmpty = Tools::GetBooleanAttribute(_Frame_Button, "bgempty");
+	}
+	if (_Frame_Button.DataAttributeExists("isblink")) {
+		Button.IsBlink = Tools::GetBooleanAttribute(_Frame_Button, "isblink");
+	}
+	if (_Frame_Button.DataAttributeExists("alphamask")) {
+		Button.AlphaMask = _Frame_Button.DataAttributeGet("alphamask");
+	}
+	if (_Frame_Button.DataAttributeExists("backgroundcolortype")) {
+		Button.Background.ColorType = TL::ToInteger(_Frame_Button.DataAttributeGet("backgroundcolortype"));
+	}
+	if (_Frame_Button.DataAttributeExists("size")) {
+		Button.Background.Size = Tools::TextToVec2(_Frame_Button.DataAttributeGet("size"));
+	}
+	if (_Frame_Button.DataAttributeExists("sizehitbox")) {
+		Button.SizeHitbox = Tools::TextToVec2(_Frame_Button.DataAttributeGet("sizehitbox"));
+	}
+	if (_Frame_Button.DataAttributeExists("tilthitbox")) {
+		Button.TiltHitbox = TL::ToReal(_Frame_Button.DataAttributeGet("tilthitbox"));
+	}
+	if (_Frame_Button.DataAttributeExists("opacity")) {
+		Button.Background.Opacity = TL::ToReal(_Frame_Button.DataAttributeGet("opacity"));
+	}
+	if (_Frame_Button.DataAttributeExists("opacityunfocus")) {
+		Button.OpacityUnfocus = TL::ToReal(_Frame_Button.DataAttributeGet("opacityunfocus"));
+	}
+	if (_Frame_Button.DataAttributeExists("bgcolor")) {
+		Button.Background.Color = CL::HexToRgb(_Frame_Button.DataAttributeGet("bgcolor"));
+	}
+	if (_Frame_Button.DataAttributeExists("focuscolor")) {
+		Button.Background.FocusColor = CL::HexToRgb(_Frame_Button.DataAttributeGet("focuscolor"));
+	}
+	if (_Frame_Button.DataAttributeExists("image")) {
+		Button.Background.Image = _Frame_Button.DataAttributeGet("image");
+	}
+	if (_Frame_Button.DataAttributeExists("imagefocus")) {
+		Button.Background.ImageFocus = _Frame_Button.DataAttributeGet("imagefocus");
+	}
+	if (_Frame_Button.DataAttributeExists("imagefocusopacity")) {
+		Button.Background.ImageFocusOpacity = TL::ToReal(_Frame_Button.DataAttributeGet("imagefocusopacity"));
+	}
+	if (_Frame_Button.DataAttributeExists("imageoffset")) {
+		declare Vec2 Pos = Tools::TextToVec2(_Frame_Button.DataAttributeGet("imageoffset"));
+		Button.Background.PosX = Pos.X;
+		Button.Background.PosY = Pos.Y;
+	}
+	if (_Frame_Button.DataAttributeExists("icon")) {
+		Button.Icon.Image = _Frame_Button.DataAttributeGet("icon");
+	}
+	if (_Frame_Button.DataAttributeExists("iconfocus")) {
+		Button.Icon.ImageFocus = _Frame_Button.DataAttributeGet("iconfocus");
+	}
+	if (_Frame_Button.DataAttributeExists("iconcolor")) {
+		Button.Icon.Color = CL::HexToRgb(_Frame_Button.DataAttributeGet("iconcolor"));
+	}
+	if (_Frame_Button.DataAttributeExists("iconfocuscolor")) {
+		Button.Icon.FocusColor = CL::HexToRgb(_Frame_Button.DataAttributeGet("iconfocuscolor"));
+	}
+	if (_Frame_Button.DataAttributeExists("iconsize")) {
+		Button.Icon.Size = Tools::TextToVec2(_Frame_Button.DataAttributeGet("iconsize"));
+	}
+	if (_Frame_Button.DataAttributeExists("iconxpos")) {
+		Button.Icon.PosX = TL::ToReal(_Frame_Button.DataAttributeGet("iconxpos"));
+	}
+	if (_Frame_Button.DataAttributeExists("iconypos")) {
+		Button.Icon.PosY = TL::ToReal(_Frame_Button.DataAttributeGet("iconypos"));
+	}
+	if (_Frame_Button.DataAttributeExists("iconrot")) {
+		Button.Icon.Rotation = TL::ToReal(_Frame_Button.DataAttributeGet("iconrot"));
+	}
+	if (_Frame_Button.DataAttributeExists("iconopacityunfocus")) {
+		Button.Icon.OpacityUnfocus = TL::ToReal(_Frame_Button.DataAttributeGet("iconopacityunfocus"));
+	}
+	if (_Frame_Button.DataAttributeExists("halign")) {
+		Button.HAlign = _Frame_Button.DataAttributeGet("halign");
+	}
+	if (_Frame_Button.DataAttributeExists("valign")) {
+		Button.VAlign = _Frame_Button.DataAttributeGet("valign");
+	}
+	if (_Frame_Button.DataAttributeExists("bgkeepratio")) {
+		declare Text KeepRatio = TL::ToLowerCase(_Frame_Button.DataAttributeGet("bgkeepratio"));
+		switch (KeepRatio) {
+			case "clip": Button.Background.KeepRatio = CMlQuad::EKeepRatioMode::Clip;
+			case "fit": Button.Background.KeepRatio = CMlQuad::EKeepRatioMode::Fit;
+			default: Button.Background.KeepRatio = CMlQuad::EKeepRatioMode::Inactive;
+		}
+	}
+	if (_Frame_Button.DataAttributeExists("gradientimage")) {
+		Button.Background.GradientImage = _Frame_Button.DataAttributeGet("gradientimage");
+	}
+	if (_Frame_Button.DataAttributeExists("gradientopacityfocus")) {
+		Button.Background.GradientOpacityFocus = TL::ToReal(_Frame_Button.DataAttributeGet("gradientopacityfocus"));
+	}
+	if (_Frame_Button.DataAttributeExists("gradientopacityunfocus")) {
+		Button.Background.GradientOpacityUnfocus = TL::ToReal(_Frame_Button.DataAttributeGet("gradientopacityunfocus"));
+	}
+	if (_Frame_Button.DataAttributeExists("gradientimagecolor")) {
+		Button.Background.GradientColor = CL::HexToRgb(_Frame_Button.DataAttributeGet("gradientimagecolor"));
+	}
+	if (_Frame_Button.DataAttributeExists("contourimage")) {
+		Button.Background.ContourImage = _Frame_Button.DataAttributeGet("contourimage");
+	}
+	if (_Frame_Button.DataAttributeExists("contouropacityfocus")) {
+		Button.Background.ContourOpacityFocus = TL::ToReal(_Frame_Button.DataAttributeGet("contouropacityfocus"));
+	}
+	if (_Frame_Button.DataAttributeExists("contouropacityunfocus")) {
+		Button.Background.ContourOpacityUnfocus = TL::ToReal(_Frame_Button.DataAttributeGet("contouropacityunfocus"));
+	}
+	if (_Frame_Button.DataAttributeExists("contourimagecolor")) {
+		Button.Background.ContourColor = CL::HexToRgb(_Frame_Button.DataAttributeGet("contourimagecolor"));
+	}
+	if (_Frame_Button.DataAttributeExists("state")) {
+		Button.State = TL::ToInteger(_Frame_Button.DataAttributeGet("State"));
+	}
+	if (_Frame_Button.DataAttributeExists("loadingscale")) {
+		Button.Loading.Scale = TL::ToReal(_Frame_Button.DataAttributeGet("loadingscale"));
+	}
+	if (_Frame_Button.DataAttributeExists("loadingpos")) {
+		declare Vec2 Pos = Tools::TextToVec2(_Frame_Button.DataAttributeGet("loadingpos"));
+		Button.Loading.PosX = Pos.X;
+		Button.Loading.PosY = Pos.Y;
+	}
+	if (_Frame_Button.DataAttributeExists("supersample")) {
+		Button.SuperSample = Tools::GetBooleanAttribute(_Frame_Button, "supersample");
+	}
+
+	return Button;
+}
+
+Void InitButton(CMlScript _This, CMlFrame _Frame_Button) {
+	declare CMlQuad Quad_Icon <=> (_Frame_Button.GetFirstChild(C_Id_QuadIcon) as CMlQuad);
+	declare CMlQuad Quad_Image <=> (_Frame_Button.GetFirstChild(C_Id_QuadImage) as CMlQuad);
+	declare CMlQuad Quad_FocusIcon <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusIcon) as CMlQuad);
+	declare CMlQuad Quad_FocusBackground <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusBackground) as CMlQuad);
+	declare CMlLabel Label_Value <=> (_Frame_Button.GetFirstChild(C_Id_LabelValue) as CMlLabel);
+	declare CMlQuad Quad_Hitbox <=> (_Frame_Button.GetFirstChild(C_NavZone) as CMlQuad);
+
+	declare K_Button Trackmania_Button_Button for _Frame_Button = C_Button_Null;
+	Trackmania_Button_Button = K_Button {
+		IsButton = True,
+		IsLocked = False,
+		IsBgEmpty = False,
+		IsBlink = False,
+		SizeHitbox = <-1., -1.>,
+		TiltHitbox = 0.,
+		AlphaMask = "",
+		OpacityUnfocus = 1.,
+		Label = K_TextProperties {
+			Size = <-1., -1.>,
+			TextSize = Label_Value.TextSizeReal,
+			TextPrefix = C_DefaultTextPrefix,
+			Value = "",
+			Font = Label_Value.TextFont,
+			PosX = 0.5,
+			PosY = -0.5,
+			Color = Label_Value.TextColor,
+			FocusColor = Tools::GetVisibleColorOnBackground(Tools::GetVisibleColorOnBackground(Quad_Image.BgColor, Quad_Image.BgColor), Label_Value.TextColor),
+			ItalicSlope = 0.,
+			HAlign = "center",
+			VAlign = "center",
+			MaxLine = -1,
+			AutoNewLine = False,
+			Fit = -1.,
+			FitStep = 0.25,
+			OpacityUnfocus = -1.,
+			TTS_Text = "",
+			TTS_IsTranslated = True
+		},
+		Icon = K_ImageProperties {
+			ColorType = C_ColorType_Colorize,
+			Size = Quad_Icon.Size,
+			Image = Quad_Icon.ImageUrl,
+			ImageFocus = Quad_FocusIcon.ImageUrl,
+			PosX = 0.5,
+			PosY = -0.5,
+			Color = Quad_Icon.BgColor,
+			FocusColor = Tools::GetVisibleColorOnBackground(Quad_Icon.BgColor, Quad_Icon.BgColor),
+			Rotation = 0.,
+			OpacityUnfocus = -1.,
+			Opacity = 1.,
+			ImageFocusOpacity = -1.,
+			KeepRatio = CMlQuad::EKeepRatioMode::Inactive,
+			GradientImage = "",
+			GradientOpacityFocus = -1.,
+			GradientOpacityUnfocus = -1.,
+			GradientColor = <-1., -1., -1.>,
+			ContourImage = "",
+			ContourOpacityFocus = -1.,
+			ContourOpacityUnfocus = -1.,
+			ContourColor = <-1., -1., -1.>
+		},
+		Background = K_ImageProperties {
+			ColorType = C_ColorType_Colorize,
+			Size = Quad_Image.Size,
+			Image = Quad_Image.ImageUrl,
+			ImageFocus = Quad_FocusBackground.ImageUrl,
+			PosX = 0.,
+			PosY = 0.,
+			Color = Quad_Image.BgColor,
+			FocusColor = Tools::GetVisibleColorOnBackground(Quad_Image.BgColor, Quad_Image.BgColor),
+			Rotation = 0.,
+			OpacityUnfocus = -1.,
+			Opacity = 1.,
+			ImageFocusOpacity = -1.,
+			KeepRatio = CMlQuad::EKeepRatioMode::Inactive,
+			GradientImage = "",
+			GradientOpacityFocus = -1.,
+			GradientOpacityUnfocus = -1.,
+			GradientColor = <-1., -1., -1.>,
+			ContourImage = "",
+			ContourOpacityFocus = -1.,
+			ContourOpacityUnfocus = -1.,
+			ContourColor = <-1., -1., -1.>
+		},
+		HAlign = Tools::C_HAlign_Left,
+		VAlign = Tools::C_VAlign_Top,
+		State = C_State_Normal,
+		Loading = K_ImageProperties {
+			Scale = 1.,
+			PosX = 0.5,
+			PosY = -0.5
+		},
+		SuperSample = False
+	};
+
+	Trackmania_Button_Button = Private_InitializeDataAttributes(_Frame_Button, Trackmania_Button_Button);
+
+	declare CMlFrame Trackmania_Button_ParentButton for Quad_Hitbox = Null;
+	Trackmania_Button_ParentButton = _Frame_Button;
+
+	ApplyProperties(_This, _Frame_Button, Trackmania_Button_Button);
+	Private_Unfocus(_This, _Frame_Button, False);
+}
+
+// Redraw all buttons
+Void RedrawButtons(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_FrameButtonContainer, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_ButtonContainer = (Control as CMlFrame);
+		declare K_Button Trackmania_Button_Button for Frame_ButtonContainer.Parent = C_Button_Null;
+		ApplyProperties(_This, Frame_ButtonContainer.Parent, Trackmania_Button_Button);
+	}
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State Trackmania_Button_State for _This.Page = C_State_Null;
+	Trackmania_Button_State = C_State_Null;
+	Trackmania_Button_State.DelayedStates = [];
+	Trackmania_Button_State.DefaultColorFocus = Tools::GetVisibleColorOnBackground(CL::Hex6ToRgb(C_DefaultColor), CL::Hex6ToRgb(C_DefaultColor));
+	_This.Page.GetClassChildren(C_Class_FrameButtonContainer, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_ButtonContainer = (Control as CMlFrame);
+		InitButton(_This, Frame_ButtonContainer.Parent);
+	}
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State Trackmania_Button_State for _This.Page = C_State_Null;
+	if (Trackmania_Button_State.QuadBlinking.count > 0 && (Now >= Trackmania_Button_State.BlinkEndTime || Trackmania_Button_State.ResetBlink)) {
+		foreach (Quads in Trackmania_Button_State.QuadBlinking) {
+			foreach (Quad in Quads) {
+				_This.AnimMgr.Flush(Quad);
+				_This.AnimMgr.Add(Quad, "<anim opacity=\"0.3\" />", 2*C_AnimTime_Blink/5, CAnimManager::EAnimManagerEasing::QuadOut);
+				_This.AnimMgr.AddChain(Quad, "<anim opacity=\"0.85\" />", 3*C_AnimTime_Blink/5, CAnimManager::EAnimManagerEasing::QuadOut);
+			}
+		}
+		Trackmania_Button_State.BlinkEndTime = Now + C_AnimTime_Blink;
+		Trackmania_Button_State.ResetBlink = False;
+	}
+	if (Trackmania_Button_State.DelayedStates.count > 0) {
+		declare K_DelayedState[Ident] DelayedStates = Trackmania_Button_State.DelayedStates;
+		foreach (ButtonId => DelayedState in DelayedStates) {
+			if (DelayedState.ActivationTime > 0 && Now >= DelayedState.ActivationTime) {
+				Trackmania_Button_State.DelayedStates.removekey(ButtonId);
+				SetState(_This, DelayedState.Frame_Button, DelayedState.State);
+			}
+		}
+	}
+
+	/* Force redraw component instances */
+	if (Trackmania_Button_State.RedrawRequested != RequestRedraw::GetComponentsRedrawCounter()) {
+		Trackmania_Button_State.RedrawRequested = RequestRedraw::GetComponentsRedrawCounter();
+		RedrawButtons(_This);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[
+			Navigation::ComponentV2(),
+			LoadingSpinner::ComponentV2()
+		],
+		[]
+	);
+}

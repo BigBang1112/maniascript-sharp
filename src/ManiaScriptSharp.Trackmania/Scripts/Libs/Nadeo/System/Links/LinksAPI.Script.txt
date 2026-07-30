@@ -1,0 +1,184 @@
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Links/TitleInfoStructs.Script.txt" as Structs
+
+#Const C_LibLinksAPI_TitleIngameURL		"https://prod.live.maniaplanet.com/ingame/public/titles/"
+#Const C_LibLinksAPI_RequestTimeout		5000
+
+declare Structs::STitleOnlineInfo		G_LibLinksAPI_CurrentTitleInfo;
+declare Structs::STitleOnlineInfo[Text]	G_LibLinksAPI_CachedTitleInfo;
+
+declare Ident[]	G_LibLinksAPI_OngoingHTTPRequests;
+declare Ident	G_LibLinksAPI_PrevLoadedTitleId;
+declare Boolean	G_LibLinksAPI_PendingUpdate;
+declare CManiaPlanet::EContext G_LibLinksAPI_PrevActiveContext;
+
+Void Private_UpdateSharedTitleInfo() {
+	declare Structs::STitleOnlineInfo LibLinksController_CurTitleInfo for ManiaPlanet;
+	declare Integer LibLinksController_LastTitleInfoUpdate for ManiaPlanet;
+
+	LibLinksController_CurTitleInfo = G_LibLinksAPI_CurrentTitleInfo;
+	LibLinksController_LastTitleInfoUpdate = Now;
+	G_LibLinksAPI_PendingUpdate = True;
+}
+
+Void Private_UpdateLoadedTitleInfo() {
+	if (ManiaPlanet.ActiveContext != CManiaPlanet::EContext::MenuManiaPlanet && ManiaPlanet.LoadedTitle != Null) {
+		if (G_LibLinksAPI_CachedTitleInfo.existskey(ManiaPlanet.LoadedTitle.TitleId)) {
+			G_LibLinksAPI_CurrentTitleInfo = G_LibLinksAPI_CachedTitleInfo[ManiaPlanet.LoadedTitle.TitleId];
+		}
+	}
+
+	else {
+		declare Structs::STitleOnlineInfo TitleEmptyInfo;
+		G_LibLinksAPI_CurrentTitleInfo = TitleEmptyInfo;
+	}
+
+	Private_UpdateSharedTitleInfo();
+}
+
+Void Private_LaunchTitleInfoRequest(Text _TitleUID) {
+	if (G_LibLinksAPI_CachedTitleInfo.existskey(_TitleUID) || Http.SlotsAvailable <= 0) return;
+
+	declare Request <=> Http.CreateGet(C_LibLinksAPI_TitleIngameURL ^ _TitleUID, False, "Accept: application/xml");
+	if (Request == Null)
+		return;
+
+	declare Integer LibLinksController_RequestTimeout for Request;
+	declare Text LibLinksController_TitleUID for Request;
+
+	LibLinksController_RequestTimeout = Now + C_LibLinksAPI_RequestTimeout;
+	LibLinksController_TitleUID = _TitleUID;
+
+	G_LibLinksAPI_OngoingHTTPRequests.add(Request.Id);
+}
+
+Structs::STitleOnlineInfo Private_ParseTitleInfoResult(CXmlDocument _Document) {
+	declare Structs::STitleOnlineInfo TitleInfo;
+
+	if (_Document == Null || _Document.Root == Null || _Document.Root.Name != "response") return TitleInfo;
+
+	foreach (Node in _Document.Root.Children) {
+		switch (Node.Name) {
+			case "uid"				: TitleInfo.UID					= Node.TextContents;
+			case "name"				: TitleInfo.Name				= Node.TextContents;
+			case "description"		: TitleInfo.Description			= Node.TextContents;
+			case "punchline"		: TitleInfo.Punchline			= Node.TextContents;
+			case "author_login"		: TitleInfo.AuthorLogin			= Node.TextContents;
+			case "author_nickname"	: TitleInfo.AuthorNickName		= Node.TextContents;
+			case "download_url"		: TitleInfo.DownloadURL			= Node.TextContents;
+			case "creation_date"	: TitleInfo.CreatedAt			= TL::ToInteger(Node.TextContents);
+			case "last_update"		: TitleInfo.UpdatedAt			= TL::ToInteger(Node.TextContents);
+			case "cost"				: TitleInfo.PlanetsCost			= TL::ToInteger(Node.TextContents);
+			case "registrations"	: TitleInfo.PlayersNbRegistered	= TL::ToInteger(Node.TextContents);
+			case "players_last24h"	: TitleInfo.PlayersNbLast24h	= TL::ToInteger(Node.TextContents);
+			case "online_players"	: TitleInfo.PlayersNbOnline		= TL::ToInteger(Node.TextContents);
+			case "facebook_url"		: if (Node.TextContents != "")	TitleInfo.ExternalURLs.add(Node.TextContents);
+			case "twitter_url"		: if (Node.TextContents != "")	TitleInfo.ExternalURLs.add(Node.TextContents);
+			case "youtube_url"		: if (Node.TextContents != "")	TitleInfo.ExternalURLs.add(Node.TextContents);
+			case "forum_url"		: if (Node.TextContents != "")	TitleInfo.ExternalURLs.add(Node.TextContents);
+			case "website_url"		: if (Node.TextContents != "")	TitleInfo.ExternalURLs.add(Node.TextContents);
+			case "card_url"			: TitleInfo.CardURL				= Node.TextContents;
+			case "background_url"	: TitleInfo.BackgroundURL		= Node.TextContents;
+			case "logo_url"			: TitleInfo.LogoURL				= Node.TextContents;
+			case "is_solo"			: TitleInfo.IsSolo				= Node.TextContents == "1";
+			case "is_multiplayer"	: TitleInfo.IsMultiplayer		= Node.TextContents == "1";
+			case "is_environment"	: TitleInfo.IsEnvironment		= Node.TextContents == "1";
+			case "is_trackmania"	: TitleInfo.IsTrackMania		= Node.TextContents == "1";
+			case "is_shootmania"	: TitleInfo.IsShootMania		= Node.TextContents == "1";
+			case "is_matchmaking"	: TitleInfo.IsMatchmaking		= Node.TextContents == "1";
+			case "primary_color"	: TitleInfo.ColorPrimary		= TL::ToColor(Node.TextContents);
+			case "title_maker_uid"	: TitleInfo.TitleMakerUID		= Node.TextContents;
+			case "title_maker_name"	: TitleInfo.TitleMakerName		= Node.TextContents;
+			case "title_page_url"	: TitleInfo.TitlePageURL		= Node.TextContents;
+		}
+
+		if (TL::StartsWith("screenshot_url_", Node.Name) && Node.TextContents != "") {
+			TitleInfo.ScreenshotsURLs.add(Node.TextContents);
+		}
+
+		if (TL::StartsWith("youtube_url_", Node.Name) && Node.TextContents != "") {
+			TitleInfo.YouTubeURLs.add(Node.TextContents);
+		}
+	}
+
+	return TitleInfo;
+}
+
+Structs::STitleOnlineInfo GetCurTitleInfo() {
+	declare Structs::STitleOnlineInfo LibLinksController_CurTitleInfo for ManiaPlanet;
+	return LibLinksController_CurTitleInfo;
+}
+
+Void Load() {
+	G_LibLinksAPI_OngoingHTTPRequests.clear();
+	G_LibLinksAPI_PrevLoadedTitleId = NullId;
+	G_LibLinksAPI_PendingUpdate = True;
+}
+
+Void Loop() {
+	if (G_LibLinksAPI_PrevActiveContext != ManiaPlanet.ActiveContext) {
+		G_LibLinksAPI_PrevActiveContext = ManiaPlanet.ActiveContext;
+
+		Private_UpdateLoadedTitleInfo();
+	}
+
+	if (ManiaPlanet.LoadedTitle != Null) {
+		if (G_LibLinksAPI_PrevLoadedTitleId != ManiaPlanet.LoadedTitle.Id) {
+			G_LibLinksAPI_PrevLoadedTitleId = ManiaPlanet.LoadedTitle.Id;
+
+			Private_LaunchTitleInfoRequest(ManiaPlanet.LoadedTitle.TitleId);
+			Private_UpdateLoadedTitleInfo();
+		}
+	}
+
+	else if (G_LibLinksAPI_PrevLoadedTitleId != NullId) {
+		G_LibLinksAPI_PrevLoadedTitleId = NullId;
+		Private_UpdateLoadedTitleInfo();
+	}
+
+	declare Ident[] RequestsToDestroy;
+
+	foreach (RequestId in G_LibLinksAPI_OngoingHTTPRequests) {
+		if (!Http.Requests.existskey(RequestId)) {
+			RequestsToDestroy.add(RequestId);
+			continue;
+		}
+
+		declare Request <=> Http.Requests[RequestId];
+		declare Integer LibLinksController_RequestTimeout for Request;
+
+		if (Now >= LibLinksController_RequestTimeout) {
+			RequestsToDestroy.add(RequestId);
+			continue;
+		}
+
+		if (!Request.IsCompleted) continue;
+
+		declare Text LibLinksController_TitleUID for Request;
+		declare Document <=> Xml.Parse_Xml(Request.Result);
+		declare TitleInfo = Private_ParseTitleInfoResult(Document);
+
+		G_LibLinksAPI_CachedTitleInfo[TitleInfo.UID] = TitleInfo;
+		Private_UpdateLoadedTitleInfo();
+
+		Xml.Parse_Destroy(Document);
+		RequestsToDestroy.add(RequestId);
+	}
+
+	while (RequestsToDestroy.existskey(0)) {
+		declare RequestId = RequestsToDestroy[0];
+		declare Removed = G_LibLinksAPI_OngoingHTTPRequests.remove(RequestId);
+
+		if (Http.Requests.existskey(RequestId)) {
+			Http.Destroy(Http.Requests[RequestId]);
+		}
+
+		Removed = RequestsToDestroy.removekey(0);
+	}
+}
+
+Boolean PendingUpdate() {
+	declare IsUpdate = G_LibLinksAPI_PendingUpdate;
+	G_LibLinksAPI_PendingUpdate = False;
+	return IsUpdate;
+}

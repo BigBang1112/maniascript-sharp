@@ -1,0 +1,408 @@
+/**
+ * Multi-Teams mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaRoundsBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Race,TM_Race"
+#Const Version "1.0.1+2024-12-05"
+#Const ScriptName "Modes/TrackMania/Deprecated/TM_MultiTeams_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Semver.Script.txt" as Semver
+#Include "Libs/Nadeo/CMGame/Modes/Utils.Script.txt" as ModeUtils
+#Include "Libs/Nadeo/Trackmania/Modes/MultiTeams/StateManager.Script.txt" as StateMgr
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_TeamsNb 10 as _("Number of teams")
+#Setting S_PointsLimit 50 as _("Points limit")
+#Setting S_FinishTimeout -1 as _("Finish timeout")
+#Setting S_RoundsPerMap -1 as _("Number of rounds per track") ///< Number of round to play on one map before going to the next one
+#Setting S_MapsPerMatch -1 as _("Number of tracks per match") ///< Number of maps to play before finishing the match
+#Setting S_UseTieBreak True as _("Use tie-break")	///< Continue to play the map until the tie is broken
+#Setting S_WarmUpNb 0	as _("Number of warm up")
+#Setting S_WarmUpDuration 0 as _("Duration of one warm up")
+#Setting S_WarmUpTimeout -1 as _("Warm up timeout")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "Multi-Teams"
+//L16N [Multi-Teams] Description of the mode rules
+#Const Description _("""Teams but with more than two teams.""")
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/MultiTeams.Script.txt" //< Url of the mania app
+#Const C_FakeUsersNb 0
+
+#Const C_PointsLimit_NotReached 0
+#Const C_PointsLimit_Reached 1
+#Const C_PointsLimit_Tie 2
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(Semver::ScriptName, Semver::Version);
+Log::RegisterScript(ModeUtils::ScriptName, ModeUtils::Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+Race::SortScores(Race::C_Sort_TotalPoints);
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Points);
+UIModules_Checkpoint::SetVisibilityTimeDiff(False);
+UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_CurrentRace);
+UIModules_PauseMenu_Online::SetHelp(Description);
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+			CarRank::InitializePlayer(Event.Player);
+		}
+	}
+}
+
+StateMgr::Yield();
+***
+
+***Match_InitServer***
+***
+declare Integer Server_PointsLimit;
+declare Integer Server_RoundsPerMap;
+declare Integer Server_MapsPerMatch;
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+Clans::SetClansNb(ML::Max(3, S_TeamsNb));
+Scores::SaveInScore(Scores::C_Points_Match);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(True);
+
+Server_PointsLimit = S_PointsLimit - 1;
+Server_RoundsPerMap = S_RoundsPerMap - 1;
+Server_MapsPerMatch = S_MapsPerMatch - 1;
+***
+
+***Match_InitMap***
+***
+declare Integer Map_ValidRoundsNb;
+
+UpdateScoresTableFooter(S_PointsLimit, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb);
+***
+
+***Match_StartMap***
+***
+// Add bot when necessary
+Users_SetNbFakeUsers(C_FakeUsersNb, 0);
+
+CarRank::Reset();
+
+// Warm up
+UIModules_ScoresTable::SetFooterInfo(_("Warm up"));
+MB_WarmUp(S_WarmUpNb, S_WarmUpDuration * 1000, S_WarmUpTimeout * 1000);
+UpdateScoresTableFooter(S_PointsLimit, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb);
+***
+
+***Match_StartRound***
+***
+UpdateScoresTableFooter(S_PointsLimit, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+***
+
+***Rounds_PlayerSpawned***
+***
+CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRace);
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	Race::ValidEvent(Event);
+
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRace);
+		if (Event.Player != Null) {
+			if (Event.IsEndRace) {
+				declare BetterRace = Scores::UpdatePlayerBestRaceIfBetter(Event.Player);
+				declare BetterLap = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				Scores::UpdatePlayerPrevRace(Event.Player);
+				ComputeLatestRaceScores();
+				Race::SortScores(Race::C_Sort_TotalPoints);
+
+				// Start the countdown if it's the first player to finish
+				if (EndTime <= 0) {
+					EndTime = GetFinishTimeout();
+				}
+			}
+			if (Event.IsEndLap) {
+				declare Better = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+			}
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Server info change
+if (
+	Server_PointsLimit != S_PointsLimit ||
+	Server_RoundsPerMap != S_RoundsPerMap ||
+	Server_MapsPerMatch != S_MapsPerMatch
+) {
+	Server_PointsLimit = S_PointsLimit;
+	Server_RoundsPerMap = S_RoundsPerMap;
+	Server_MapsPerMatch = S_MapsPerMatch;
+
+	UpdateScoresTableFooter(S_PointsLimit, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb);
+}
+***
+
+***Match_EndRound***
+***
+Race::StopSkipOutroAll();
+EndTime = -1;
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+CarRank::Update(CarRank::C_SortCriteria_CurrentRace);
+
+if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "2.1.1")) {
+	Scores::XmlRpc_SendScores(Scores::C_Section_PreEndRound, "");
+}
+
+if (Round_ForceEndRound || Round_SkipPauseRound || Round_Skipped) {
+	// Cancel points
+	foreach (Score in Scores) {
+		Scores::SetPlayerRoundPoints(Score, 0);
+	}
+	// Do not launch the forced end round sequence after a pause
+	if (!Round_SkipPauseRound) {
+		ForcedEndRoundSequence();
+	}
+} else {
+	Map_ValidRoundsNb += 1;
+	// Get the last round points
+	ComputeLatestRaceScores();
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;
+	MB_Sleep(3000);
+	// Add them to the total scores
+	ComputeScores();
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	MB_Sleep(3000);
+	UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+
+	if (MapIsOver(Map_ValidRoundsNb)) MB_StopMap();
+}
+***
+
+***Match_EndMap***
+***
+if (MatchIsOver()) MB_StopMatch();
+
+if (!MB_MapIsRunning() && MB_MatchIsRunning()) MB_SkipPodiumSequence();
+
+Race::SortScores(Race::C_Sort_TotalPoints);
+Scores::SetPlayerWinner(Scores::GetBestPlayer(Scores::C_Sort_MatchPoints));
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the scores table footer text
+ *
+ *	@param	_PointsLimit							The points limit
+ *	@param	_RoundsPerMap							The number of round per map
+ *	@param	_MapsPerMatch							The number of maps per match
+ *	@param	_ValidRoundsNb						Number of valid rounds played
+ */
+Void UpdateScoresTableFooter(Integer _PointsLimit, Integer _RoundsPerMap, Integer _MapsPerMatch, Integer _ValidRoundsNb) {
+	declare Text[] Parts;
+	declare Message = "";
+	if (_PointsLimit > 0) {
+		if (Parts.count > 0) Message ^= " | ";
+		Message ^= """%{{{Parts.count + 1}}}{{{_PointsLimit}}}""";
+		//L16N [Multi-Teams] Number of points to reach to win the match.
+		Parts.add(_("Points limit : "));
+	}
+	if (_RoundsPerMap > 0) {
+		if (Parts.count > 0) Message ^= " | ";
+		Message ^= """%{{{Parts.count + 1}}}{{{ML::Min(_ValidRoundsNb+1, _RoundsPerMap)}}}/{{{_RoundsPerMap}}}""";
+		//L16N [Multi-Teams] Number of rounds played during the track.
+		Parts.add(_("Rounds : "));
+	}
+	if (_MapsPerMatch > 0) {
+		if (Parts.count > 0) Message ^= " | ";
+		Message ^= """%{{{Parts.count + 1}}}{{{MB_GetMapCount()}}}/{{{_MapsPerMatch}}}""";
+		//L16N [Multi-Teams] Number of tracks played during the match.
+		Parts.add(_("Tracks : "));
+	}
+
+	switch (Parts.count) {
+		case 0: UIModules_ScoresTable::SetFooterInfo(Message);
+		case 1: UIModules_ScoresTable::SetFooterInfo(TL::Compose(Message, Parts[0]));
+		case 2: UIModules_ScoresTable::SetFooterInfo(TL::Compose(Message, Parts[0], Parts[1]));
+		case 3: UIModules_ScoresTable::SetFooterInfo(TL::Compose(Message, Parts[0], Parts[1], Parts[2]));
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the time left to the players to finish the round after the first player
+ *
+ *	@return 		The time left in ms
+ */
+Integer GetFinishTimeout() {
+	declare FinishTimeout = 0;
+
+	if (S_FinishTimeout >= 0) {
+		FinishTimeout = S_FinishTimeout * 1000;
+	} else {
+		FinishTimeout = 5000;
+		if (Map.TMObjective_IsLapRace && Race::GetLapsNb() > 0 && Map.TMObjective_NbLaps > 0) {
+			FinishTimeout += ((Map.TMObjective_AuthorTime / Map.TMObjective_NbLaps) * Race::GetLapsNb()) / 6;
+		} else {
+			FinishTimeout += Map.TMObjective_AuthorTime / 6;
+		}
+	}
+
+	return Now + FinishTimeout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the latest race scores
+Void ComputeLatestRaceScores() {
+	Race::SortScores(Race::C_Sort_PrevRaceTime);
+
+	// Points distributed between all players
+	declare I = 0;
+	foreach (Score in Scores) {
+		if (Scores::GetPlayerPrevRaceTime(Score) > 0) {
+			declare Points = 0;
+			declare PointsRepartition = PointsRepartition::GetPointsRepartition();
+			if (PointsRepartition.count > 0) {
+				if (PointsRepartition.existskey(I)) {
+					Points = PointsRepartition[I];
+				} else {
+					Points = PointsRepartition[PointsRepartition.count - 1];
+				}
+			}
+			Scores::SetPlayerRoundPoints(Score, Points);
+			I += 1;
+		} else {
+			Scores::SetPlayerRoundPoints(Score, 0);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the map scores
+Void ComputeScores() {
+	Scores::EndRound();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the points limit was reached
+ *
+ *	@return														C_PointsLimit_Reached if the points limit is reached
+ *																		C_PointsLimit_Tie if there is a tie
+ *																		C_PointsLimit_NotReached if the points limit is not reached
+ */
+Integer PointsLimitReached() {
+	declare MaxScore = -1;
+	declare Tie = False;
+	foreach (Score in Scores) {
+		declare Points = Scores::GetPlayerMatchPoints(Score);
+		if (Points > MaxScore) {
+			MaxScore = Points;
+			Tie = False;
+		} else if (Points == MaxScore) {
+			Tie = True;
+		}
+	}
+
+	if (S_UseTieBreak && Tie) return C_PointsLimit_Tie; //< There is a tie and it is not allowed
+	if (S_PointsLimit > 0 && MaxScore >= S_PointsLimit) return C_PointsLimit_Reached; //< There is a points limit and it is reached
+	return C_PointsLimit_NotReached; //< There is no points limit or the points limit is not reached
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if we should go to the next map
+ *
+ *	@param	_ValidRoundsNb						Number of valid rounds played
+ *
+ *	@return		True if it is the case, false otherwise
+ */
+Boolean MapIsOver(Integer _ValidRoundsNb) {
+	declare Integer PointsLimitReached = PointsLimitReached();
+
+	if (PointsLimitReached == C_PointsLimit_Reached) return True; //< There is a points limit and it is reached
+	if (S_RoundsPerMap > 0 && _ValidRoundsNb >= S_RoundsPerMap) return True; //< There is a rounds limit and it is reached
+
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if we should go to the next match
+ *
+ *	@return		True if it is the case, false otherwise
+ */
+Boolean MatchIsOver() {
+	declare Integer PointsLimitReached = PointsLimitReached();
+
+	if (S_MapsPerMatch > 1 && PointsLimitReached == C_PointsLimit_Tie) return False; //< Ties are allowed if the map was skipped and match is played on one map only
+	if (PointsLimitReached == C_PointsLimit_Reached) return True; //< There is a points limit and it is reached
+	if (S_MapsPerMatch > 1 && MB_GetMapCount() >= S_MapsPerMatch) return True; //< There is a maps limit and it is reached
+	if (S_MapsPerMatch <= 1) return True;
+
+	return False;
+}

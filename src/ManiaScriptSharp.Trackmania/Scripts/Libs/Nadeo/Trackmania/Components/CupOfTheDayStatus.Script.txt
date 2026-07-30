@@ -1,0 +1,126 @@
+/**
+ *	Component: Cup Of The Day Status
+ */
+#Const Version		"1.0.2"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Components/CupOfTheDayStatus.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_ML.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-cupofthedaystatus" //< Component name
+#Const P "ComponentCupOfTheDayStatus_" //< Prefix used to differentiate functions/variables in the script
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	return MV::Component(
+		C_Name,
+		"""
+		""",
+		"""
+#Include "TextLib" as {{{P}}}TL
+#Include "TimeLib" as {{{P}}}TiL
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as {{{P}}}Config
+
+#Const {{{P}}}C_CupOfTheDayStatus_None -1
+#Const {{{P}}}C_CupOfTheDayStatus_NotStarted 0
+#Const {{{P}}}C_CupOfTheDayStatus_StartingDateDisplayed 1
+#Const {{{P}}}C_CupOfTheDayStatus_StartingSoon 2
+#Const {{{P}}}C_CupOfTheDayStatus_QualificationsStarted 3
+#Const {{{P}}}C_CupOfTheDayStatus_Over 4
+#Const {{{P}}}C_CupOfTheDayStatus_NotPlanned 5
+
+#Const {{{P}}}C_DeltaTime_BetweenRerun 28800 // 8h in s
+#Const {{{P}}}C_DelayToDisplayTime 3600 // 1h in s
+#Const {{{P}}}C_DelayToShowStartingSoon 900 // 15min in s
+#Const {{{P}}}C_QualificationsDuration 600 // 10min in s
+
+#Const {{{P}}}C_CupOfTheDay_UseWinterTime False
+		""",
+		"""
+declare Integer {{{P}}}G_New_COTD_TimeStamp;
+declare Integer {{{P}}}G_COTD_FirstRerun_TimeStamp;
+declare Integer {{{P}}}G_COTD_SecondRerun_TimeStamp;
+
+Void {{{P}}}Update_COTD_Times() {
+	declare Integer Old_COTD_TimeStamp;
+	declare {{{CampaignStruct::P}}}K_MonthlyCampaign LiveMonthlyCampaign = {{{CampaignStore::P}}}GetLiveMonthlyCampaign();
+	foreach (DailyMap in LiveMonthlyCampaign.DailyMaps) {
+		if (DailyMap.RelativeStart < 0 && DailyMap.RelativeEnd >= 0) {
+			declare Integer RelativeNowTimeDiff = ((Now - DailyMap.RelativeNow) / 1000);
+			Old_COTD_TimeStamp = {{{P}}}TL::ToInteger({{{P}}}TiL::GetCurrent()) + DailyMap.RelativeStart - RelativeNowTimeDiff;
+			{{{P}}}G_New_COTD_TimeStamp = {{{P}}}TL::ToInteger({{{P}}}TiL::GetCurrent()) + DailyMap.RelativeEnd - RelativeNowTimeDiff;
+			break;
+		}
+	}
+	{{{P}}}G_COTD_FirstRerun_TimeStamp = Old_COTD_TimeStamp + {{{P}}}C_DeltaTime_BetweenRerun;
+	{{{P}}}G_COTD_SecondRerun_TimeStamp = {{{P}}}G_COTD_FirstRerun_TimeStamp + {{{P}}}C_DeltaTime_BetweenRerun;
+}
+
+Integer {{{P}}}GetNewCOTDTimeStamp() {
+	return {{{P}}}G_New_COTD_TimeStamp;
+}
+Integer {{{P}}}GetFirstRerunCOTDTimeStamp() {
+	return {{{P}}}G_COTD_FirstRerun_TimeStamp;
+}
+Integer {{{P}}}GetSecondRerunCOTDTimeStamp() {
+	return {{{P}}}G_COTD_SecondRerun_TimeStamp;
+}
+
+Integer {{{P}}}GetStatus(Integer _TimeStampCOTD) {
+	declare Integer Status = {{{P}}}C_CupOfTheDayStatus_None;
+	if ({{{P}}}TiL::Compare(""^_TimeStampCOTD, {{{P}}}TiL::GetCurrent()) >= 0) {
+		if ({{{P}}}TiL::Compare(""^(_TimeStampCOTD - {{{P}}}C_DelayToShowStartingSoon), {{{P}}}TiL::GetCurrent()) <= 0) Status = {{{P}}}C_CupOfTheDayStatus_StartingSoon;
+		else if ({{{P}}}TiL::Compare(""^(_TimeStampCOTD - {{{P}}}C_DelayToDisplayTime), {{{P}}}TiL::GetCurrent()) <= 0) Status = {{{P}}}C_CupOfTheDayStatus_StartingDateDisplayed;
+		else Status = {{{P}}}C_CupOfTheDayStatus_NotStarted;
+	} else {
+		if ({{{P}}}TiL::Compare(""^(_TimeStampCOTD + {{{P}}}C_QualificationsDuration), {{{P}}}TiL::GetCurrent()) >= 0) {
+			Status = {{{P}}}C_CupOfTheDayStatus_QualificationsStarted;
+		} else {
+			Status = {{{P}}}C_CupOfTheDayStatus_Over;
+			// Each time an offical COTD is over, we check if we need to update the reruns times
+			if (_TimeStampCOTD == {{{P}}}G_New_COTD_TimeStamp) {{{P}}}Update_COTD_Times();
+		}
+	}
+	return Status;
+}
+
+Integer {{{P}}}GetStatus() {
+	declare Integer Status;
+	declare Integer StatusFirstRerun = {{{P}}}GetStatus({{{P}}}G_COTD_FirstRerun_TimeStamp);
+	declare Integer StatusSecondRerun = {{{P}}}GetStatus({{{P}}}G_COTD_SecondRerun_TimeStamp);
+	declare Integer StatusNewCOTD = {{{P}}}GetStatus({{{P}}}G_New_COTD_TimeStamp);
+
+	if (StatusFirstRerun > {{{P}}}C_CupOfTheDayStatus_NotStarted && StatusFirstRerun < {{{P}}}C_CupOfTheDayStatus_Over) {
+		Status = StatusFirstRerun;
+	} else if (StatusSecondRerun > {{{P}}}C_CupOfTheDayStatus_NotStarted && StatusSecondRerun < {{{P}}}C_CupOfTheDayStatus_Over) {
+		Status = StatusSecondRerun;
+	} else {
+		Status = StatusNewCOTD;
+	}
+	return Status;
+}
+		""",
+		[
+			CampaignStore::ComponentV2(),
+			CampaignStruct::Component()
+		],
+		[]
+	);
+}

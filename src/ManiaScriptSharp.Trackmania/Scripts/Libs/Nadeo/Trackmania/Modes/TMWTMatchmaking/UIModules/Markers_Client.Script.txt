@@ -1,0 +1,355 @@
+/**
+ * UI module: Markers client side
+ */
+#Const Version "1.2.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/Markers_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/UIModules/Markers_Common.Script.txt" as UIModules_Markers_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MarkersMaxNb 32
+#Const C_PlayerNameMaxWidth 50.
+
+#Const C_ModelId_Framemodel_MarkerPlayer "framemodel-marker-player"
+#Const C_Id_Frame_MarkerContent "frame-marker-content"
+#Const C_Id_Quad_SideLeft "quad-side-left"
+#Const C_Id_Quad_Background "quad-background"
+#Const C_Id_Quad_SideRight "quad-side-right"
+#Const C_Id_Quad_Flag "quad-flag"
+#Const C_Id_Label_Name "label-name"
+#Const C_Id_Frame_Global "frame-global"
+#Const C_Id_Frame_Markers "frame-markers"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_Markers_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Markers_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	declare Text MarkersML = "";
+	for (I, 0, C_MarkersMaxNb - 1) {
+		MarkersML ^= """<frame z-index="{{{I}}}"><frameinstance modelid="{{{C_ModelId_Framemodel_MarkerPlayer}}}" id="marker-player-{{{I}}}" /></frame>""";
+	}
+
+	return MV::Create(
+GetId(), 3,
+"""
+{{{Stylesheet::Get()}}}
+<framemodel id="{{{C_ModelId_Framemodel_MarkerPlayer}}}">
+	<frame id="{{{C_Id_Frame_MarkerContent}}}" hidden="1">
+		<quad id="{{{C_Id_Quad_Background}}}" class="{{{Stylesheet::C_Class_BackgroundBgColor_Default}}}" z-index="1" size="30 4" halign="center" valign="bottom" opacity="0.6" />
+		<quad id="{{{C_Id_Quad_Flag}}}" pos="-14.5 2" z-index="2" size="3 3" valign="center" bgcolor="000000" keepratio="fit" />
+		<label id="{{{C_Id_Label_Name}}}" class="{{{Stylesheet::C_Class_Text_Default}}}" pos="-9 2" z-index="3" size="23 3" valign="center2" textsize="1.5" />
+	</frame>
+</framemodel>
+<frame id="{{{C_Id_Frame_Global}}}" z-index="-2" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Markers_Common::C_UIModuleConfig)}}}>
+		<frame id="{{{C_Id_Frame_Markers}}}">
+			{{{MarkersML}}}
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Modes/Bot.Script.txt" as Bot
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+
+#Struct K_UserData {
+	Text Name;
+	Text ClubTag;
+	Boolean IsFirstPartyDisplayName;
+	Text CountryFlagUrl;
+	Integer Clan;
+	Boolean IsFakeUser;
+}
+#Struct K_Controls {
+	CMlFrame Frame_Global;
+	CMlFrame Frame_Markers;
+	CMlFrame[] Frames_Marker;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Boolean DisplayModule;
+	Text[Integer] LoadedMarkers;
+	Boolean ForceMarkersUpdate;
+}
+
+#Const C_State_Null K_State {
+	Controls = K_Controls {},
+	DisplayModule = False,
+	LoadedMarkers = [],
+	ForceMarkersUpdate = False
+}
+
+#Const C_PlayerNameMaxWidth {{{dump(C_PlayerNameMaxWidth)}}}
+
+#Const C_Id_Frame_MarkerContent {{{dump(C_Id_Frame_MarkerContent)}}}
+#Const C_Id_Quad_SideLeft {{{dump(C_Id_Quad_SideLeft)}}}
+#Const C_Id_Quad_Background {{{dump(C_Id_Quad_Background)}}}
+#Const C_Id_Quad_SideRight {{{dump(C_Id_Quad_SideRight)}}}
+#Const C_Id_Quad_Flag {{{dump(C_Id_Quad_Flag)}}}
+#Const C_Id_Label_Name {{{dump(C_Id_Label_Name)}}}
+#Const C_Id_Frame_Global {{{dump(C_Id_Frame_Global)}}}
+#Const C_Id_Frame_Markers {{{dump(C_Id_Frame_Markers)}}}
+""",
+"""
+K_State SetVisibility(K_State _State, Boolean _DisplayModule) {
+	declare K_State State = _State;
+
+	State.DisplayModule = _DisplayModule;
+	State.Controls.Frame_Global.Visible = State.DisplayModule;
+
+	return State;
+}
+
+K_State UpdateMarkers(K_State _State, Text[Integer] _MarkerFrameIds) {
+	declare K_State State = _State;
+
+	// Allow only valid markers to be displayed
+	declare Text[] ValidMarkers;
+	foreach (Marker in UI.Markers) {
+		if (
+			Marker.Type != CUIConfigMarker::EAnchorType::Invalid &&
+			Marker.ManialinkFrameId != "" &&
+			!ValidMarkers.exists(Marker.ManialinkFrameId)
+		) {
+			ValidMarkers.add(Marker.ManialinkFrameId);
+		}
+	}
+
+	// Link an account id to a present user
+	declare K_UserData[Text] AccountIdToUserData;
+	foreach (Score in Scores) {
+		if (Score.User != Null) {
+			declare Text CountryFlagUrl = Score.User.CountryFlagUrl;
+			if (Tools::IsFakeUser(Score.User)) {
+				CountryFlagUrl = Bot::GetCountryFlagUrl(Score.User.Name);
+			}
+			AccountIdToUserData[Score.User.WebServicesUserId] = K_UserData {
+				Name = Score.User.Name,
+				ClubTag = Score.User.ClubTag,
+				IsFirstPartyDisplayName = Score.User.IsFirstPartyDisplayName,
+				CountryFlagUrl = CountryFlagUrl,
+				Clan = Score.TeamNum,
+				IsFakeUser = Tools::IsFakeUser(Score.User)
+			};
+		}
+	}
+
+	foreach (Key => Frame_Marker in State.Controls.Frames_Marker) {
+		if (
+			_MarkerFrameIds.existskey(Key) &&
+			ValidMarkers.exists(Frame_Marker.Parent.ControlId)
+		) {
+			declare Text AccountId = _MarkerFrameIds[Key];
+			if (
+				State.ForceMarkersUpdate ||
+				!State.LoadedMarkers.existskey(Key) ||
+				State.LoadedMarkers[Key] != AccountId
+			) {
+				declare K_UserData UserData = AccountIdToUserData.get(AccountId, K_UserData {});
+
+				declare CMlQuad Quad_Background <=> (Frame_Marker.GetFirstChild(C_Id_Quad_Background) as CMlQuad);
+				declare CMlQuad Quad_Flag <=> (Frame_Marker.GetFirstChild(C_Id_Quad_Flag) as CMlQuad);
+				declare CMlLabel Label_Name <=> (Frame_Marker.GetFirstChild(C_Id_Label_Name) as CMlLabel);
+
+				declare Boolean DisplayTeamLogo = True;
+				declare Boolean DisplayName = True;
+				if (ParentApp != Null && ParentApp.ManiaPlanet != Null) {
+					switch (ParentApp.ManiaPlanet.Interface_PlayerInfoDisplayType) {
+						case CManiaPlanet::EPlayerInfoDisplayType::Name: {
+							DisplayTeamLogo = False;
+							DisplayName = True;
+						}
+						case CManiaPlanet::EPlayerInfoDisplayType::Avatar: {
+							DisplayTeamLogo = True;
+							DisplayName = False;
+						}
+						default: { //< CManiaPlanet::EPlayerInfoDisplayType::AvatarAndName
+							DisplayTeamLogo = True;
+							DisplayName = True;
+						}
+					}
+					switch (ParentApp.ManiaPlanet.Interface_PlayerInfoDisplaySize) {
+						case 1: Frame_Marker.RelativeScale = 0.5;
+						case 2: Frame_Marker.RelativeScale = 0.75;
+						case 4: Frame_Marker.RelativeScale = 1.25;
+						case 5: Frame_Marker.RelativeScale = 1.5;
+						default: Frame_Marker.RelativeScale = 1.; //< size 3
+					}
+				}
+
+				if (DisplayTeamLogo) {
+					Quad_Flag.ImageUrl = UserData.CountryFlagUrl;
+				} else {
+					Quad_Flag.ImageUrl = "";
+				}
+				Quad_Flag.Visible = (Quad_Flag.ImageUrl != "");
+
+				if (DisplayName) {
+					Label_Name.Value = UserStore::GetPlayerName(UserData.Name, UserData.ClubTag, UserData.IsFirstPartyDisplayName, !UserData.IsFakeUser);
+					Tools::FirstPartyLogoMatchLuminance(Label_Name);
+				} else {
+					Label_Name.Value = "";
+				}
+
+				Label_Name.Size.X = ML::Min(Label_Name.ComputeWidth(Label_Name.Value), C_PlayerNameMaxWidth);
+				if (Quad_Flag.Visible) {
+					Quad_Background.Size.X = 0.5 + Quad_Flag.Size.X + 0.5;
+					if (Label_Name.Value != "") {
+						Quad_Background.Size.X += Label_Name.Size.X + 0.5;
+					}
+					Quad_Flag.RelativePosition_V3.X = (Quad_Background.Size.X * -0.5) + 0.5;
+					Label_Name.RelativePosition_V3.X = Quad_Flag.RelativePosition_V3.X + Quad_Flag.Size.X + 0.5;
+				} else {
+					Quad_Background.Size.X = 0.5 + Label_Name.Size.X + 0.5;
+					Label_Name.RelativePosition_V3.X = (Quad_Background.Size.X * -0.5) + 0.5;
+				}
+
+				declare Vec3 Color = Stylesheet::C_Color_Vec3_TMWC2023_Default;
+				if (Teams.existskey(UserData.Clan - 1)) {
+					Color = Teams[UserData.Clan - 1].ColorUI;
+				} else if (UserData.Clan == 1) {
+					Color = Stylesheet::C_Color_Vec3_TMWC2023_BlueTeam_Primary;
+				} else if (UserData.Clan == 2) {
+					Color = Stylesheet::C_Color_Vec3_TMWC2023_RedTeam_Primary;
+				}
+				Quad_Background.BgColor = Color;
+
+				State.LoadedMarkers[Key] = AccountId;
+			}
+			Frame_Marker.Visible = True;
+		} else {
+			Frame_Marker.Visible = False;
+		}
+	}
+
+	State.ForceMarkersUpdate = False;
+
+	return State;
+}
+
+***MainInit***
+***
+declare netread Boolean Net_TMWTMatchmakingMarkers_IsVisible for UI;
+declare netread Integer Net_TMWTMatchmakingMarkers_InitializeUpdate for Teams[0] = 0;
+declare netread Text[Integer] Net_TMWTMatchmakingMarkers_MarkerFrameIds for Teams[0] = [];
+declare netread Integer Net_TMWTMatchmakingMarkers_MarkerFrameIdsUpdate for Teams[0] = 0;
+
+declare K_State State = C_State_Null;
+declare Integer MarkerFrameIdsUpdate;
+declare Integer InitializeUpdate;
+declare Ident GUIPlayerId;
+declare Boolean NeedMarkersUpdate;
+declare Integer ScoresCount;
+declare Integer UIMarkersCount;
+declare CManiaPlanet::EPlayerInfoDisplayType PlayerInfoDisplayType;
+declare Integer PlayerInfoDisplaySize;
+***
+
+***MainStart***
+***
+State.Controls.Frame_Global <=> (Page.GetFirstChild(C_Id_Frame_Global) as CMlFrame);
+State.Controls.Frame_Markers <=> (State.Controls.Frame_Global.GetFirstChild(C_Id_Frame_Markers) as CMlFrame);
+State.Controls.Frames_Marker = [];
+foreach (Control in State.Controls.Frame_Markers.Controls) {
+	State.Controls.Frames_Marker.add(
+		((Control as CMlFrame).GetFirstChild(C_Id_Frame_MarkerContent) as CMlFrame)
+	);
+}
+
+MarkerFrameIdsUpdate = -1;
+InitializeUpdate = -1;
+GUIPlayerId = NullId;
+NeedMarkersUpdate = True;
+ScoresCount = Scores.count;
+UIMarkersCount = UI.Markers.count;
+
+State = SetVisibility(State, State.Controls.Frame_Global.Visible);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (State.DisplayModule != Net_TMWTMatchmakingMarkers_IsVisible) {
+		State = SetVisibility(State, Net_TMWTMatchmakingMarkers_IsVisible);
+	}
+
+	if (State.DisplayModule) {
+		if (MarkerFrameIdsUpdate != Net_TMWTMatchmakingMarkers_MarkerFrameIdsUpdate) {
+			MarkerFrameIdsUpdate = Net_TMWTMatchmakingMarkers_MarkerFrameIdsUpdate;
+			NeedMarkersUpdate = True;
+		}
+		if (InitializeUpdate != Net_TMWTMatchmakingMarkers_InitializeUpdate) {
+			InitializeUpdate = Net_TMWTMatchmakingMarkers_InitializeUpdate;
+			State.LoadedMarkers = [];
+			NeedMarkersUpdate = True;
+		}
+		if (ParentApp != Null && ParentApp.ManiaPlanet != Null) {
+			if (PlayerInfoDisplayType != ParentApp.ManiaPlanet.Interface_PlayerInfoDisplayType) {
+				PlayerInfoDisplayType = ParentApp.ManiaPlanet.Interface_PlayerInfoDisplayType;
+				State.ForceMarkersUpdate = True;
+			}
+			if (PlayerInfoDisplaySize != ParentApp.ManiaPlanet.Interface_PlayerInfoDisplaySize) {
+				PlayerInfoDisplaySize = ParentApp.ManiaPlanet.Interface_PlayerInfoDisplaySize;
+				State.ForceMarkersUpdate = True;
+			}
+		}
+
+		if (GUIPlayer == Null && GUIPlayerId != NullId) {
+			GUIPlayerId = NullId;
+			NeedMarkersUpdate = True;
+		} else if (GUIPlayer != Null && GUIPlayerId != GUIPlayer.Id) {
+			GUIPlayerId = GUIPlayer.Id;
+			NeedMarkersUpdate = True;
+		}
+
+		if (ScoresCount != Scores.count) {
+			ScoresCount = Scores.count;
+			State.ForceMarkersUpdate = True;
+		}
+		if (UIMarkersCount != UI.Markers.count) {
+			UIMarkersCount = UI.Markers.count;
+			State.ForceMarkersUpdate = True;
+		}
+
+		if (NeedMarkersUpdate || State.ForceMarkersUpdate) {
+			NeedMarkersUpdate = False;
+			State = UpdateMarkers(State, Net_TMWTMatchmakingMarkers_MarkerFrameIds);
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

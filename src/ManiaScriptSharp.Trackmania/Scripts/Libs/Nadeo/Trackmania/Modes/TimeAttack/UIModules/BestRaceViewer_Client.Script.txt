@@ -1,0 +1,236 @@
+/**
+ *  UI module: BestRaceViewer client side
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/TimeAttack/UIModules/BestRaceViewer_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttack/UIModules/BestRaceViewer_Common.Script.txt" as UIModules_BestRaceViewer_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_BestRaceViewer_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_BestRaceViewer_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	//L16N In the UI, this tag is followed by the time of the player's best race
+	declare Text_BestRace = _("|Time|Best");
+	//L16N In the UI, this tag is followed by the time of the player's previous race
+	declare Text_PrevRace = _("|Time|Previous");
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-ingame-text" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textsize="2.5" textemboss="1"/>
+	<style class="text-ingame-time" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_IngameTime)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textsize="3.5" textemboss="1"/>
+</stylesheet>
+<frame z-index="-2" hidden="1" id="frame-global">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_BestRaceViewer_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-best-race">
+			<label class="text-ingame-text" size="100 10" halign="right" valign="center2" text="{{{Text_BestRace}}}"/>
+			<label id="label-best-race" class="text-ingame-time" pos="20 0" size="20 10" halign="right" valign="center2"/>
+		</frame>
+		<frame id="frame-prev-race" pos="0 -6">
+			<label class="text-ingame-text" size="100 10" halign="right" valign="center2" text="{{{Text_PrevRace}}}"/>
+			<label id="label-prev-race" class="text-ingame-time" pos="20 0" size="20 10" halign="right" valign="center2"/>
+		</frame>
+		<frame id="frame-rank" pos="0 -13">
+			<label id="label-rank" class="text-ingame-time" pos="10 0" size="10 10" halign="right" valign="center2" textsize="5.5"/>
+			<label id="label-players" class="text-ingame-time" pos="10.5 0.7" size="9 10" halign="left" valign="center2" textsize="3.25"/>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Client.Script.txt" as Helpers
+""",
+"""
+declare CMlFrame G_Frame_PrevRace;
+declare CMlFrame G_Frame_BestRace;
+declare CMlLabel G_Label_Rank;
+declare CMlLabel G_Label_Players;
+declare CMlLabel G_Label_PrevRace;
+declare CMlLabel G_Label_BestRace;
+
+Void UpdateRank(Integer _Rank, Integer _Players) {
+	if (_Rank > 0) G_Label_Rank.Value = ""^ _Rank;
+	else G_Label_Rank.Value = "-";
+	if (_Players > 0) G_Label_Players.Value = "/"^ _Players;
+	else G_Label_Players.Value = "";
+}
+
+Void UpdateBestRace(Integer _Time) {
+	G_Frame_BestRace.Visible = (_Time > 0);
+	if (_Time > 0) G_Label_BestRace.Value = TL::TimeToText(_Time, True, True);
+	else G_Label_BestRace.Value = "-";
+}
+
+Void UpdatePrevRace(Integer _Time, Boolean _DisplayPrevEnabled) {
+	G_Frame_PrevRace.Visible = (_DisplayPrevEnabled && _Time > 0);
+	if (_DisplayPrevEnabled && _Time > 0) G_Label_PrevRace.Value = TL::TimeToText(_Time, True, True);
+	else G_Label_PrevRace.Value = "-";
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_Rank;
+
+declare netread Boolean Net_TimeAttack_BestRaceViewer_RankIsVisible for Teams[0];
+
+declare Boolean DisplayModule;
+declare Integer PlayersCount;
+declare Integer CurrentRank;
+declare Integer CurrentBestTime;
+declare Integer CurrentPrevTime;
+declare Boolean DisplayPrev;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+G_Label_Rank <=> (Page.GetFirstChild("label-rank") as CMlLabel);
+G_Label_Players <=> (Page.GetFirstChild("label-players") as CMlLabel);
+G_Frame_BestRace <=> (Page.GetFirstChild("frame-best-race") as CMlFrame);
+G_Frame_PrevRace <=> (Page.GetFirstChild("frame-prev-race") as CMlFrame);
+G_Label_BestRace <=> (Page.GetFirstChild("label-best-race") as CMlLabel);
+G_Label_PrevRace <=> (Page.GetFirstChild("label-prev-race") as CMlLabel);
+Frame_Rank <=> (Frame_Global.GetFirstChild("frame-rank") as CMlFrame);
+
+declare netread Integer Net_TimeAttack_BestRaceViewer_CustomCardinal for Teams[0] = -1;
+declare netread Integer Net_TimeAttack_BestRaceViewer_CustomRank for UI = -1;
+declare netread Boolean Net_TimeAttack_BestRaceViewer_DisplayPrev for UI = True;
+
+DisplayModule = Frame_Global.Visible;
+CurrentBestTime = 0;
+UpdateBestRace(CurrentBestTime);
+CurrentPrevTime = 0;
+DisplayPrev = True;
+UpdatePrevRace(CurrentPrevTime, DisplayPrev);
+CurrentRank = PlayersCount;
+PlayersCount = Players.count;
+UpdateRank(CurrentRank, PlayersCount);
+if (SplitScreenCount > 1) MV_Utils::AutoScaleSplitScreen(Frame_Global, 0.5, 1.);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_TimeAttack_BestRaceViewer_IsVisible for Owner;
+		if (DisplayModule != Net_TimeAttack_BestRaceViewer_IsVisible) {
+			DisplayModule = Net_TimeAttack_BestRaceViewer_IsVisible;
+			Frame_Global.Visible = Net_TimeAttack_BestRaceViewer_IsVisible;
+		}
+
+		if (DisplayPrev != Net_TimeAttack_BestRaceViewer_DisplayPrev) {
+			DisplayPrev = Net_TimeAttack_BestRaceViewer_DisplayPrev;
+			UpdatePrevRace(CurrentPrevTime, DisplayPrev);
+		}
+
+		if (Helpers::IsIndependentLaps(Teams[0])) {
+			//Best Lap
+			if (CurrentBestTime != 0 && (Owner.Score == Null || Owner.Score.BestLapTimes.count == 0)) {
+				CurrentBestTime = 0;
+				UpdateBestRace(CurrentBestTime);
+			} else if (Owner.Score != Null && Owner.Score.BestLapTimes.count > 0 && CurrentBestTime != Owner.Score.BestLapTimes[Owner.Score.BestLapTimes.count - 1]) {
+				CurrentBestTime = Owner.Score.BestLapTimes[Owner.Score.BestLapTimes.count - 1];
+				UpdateBestRace(CurrentBestTime);
+			}
+			// Previous lap
+			if (CurrentPrevTime != 0 && (Owner.Score == Null || Owner.Score.PrevLapTimes.count == 0)) {
+				CurrentPrevTime = 0;
+				UpdatePrevRace(0, DisplayPrev);
+			} else if (Owner.Score != Null && Owner.Score.PrevLapTimes.count > 0 && CurrentPrevTime != Owner.Score.PrevLapTimes[Owner.Score.PrevLapTimes.count -1]) {
+				CurrentPrevTime = Owner.Score.PrevLapTimes[Owner.Score.PrevLapTimes.count -1];
+				UpdatePrevRace(Owner.Score.PrevLapTimes[Owner.Score.PrevLapTimes.count -1], DisplayPrev);
+			}
+		} else {
+			// Best Race
+			if (CurrentBestTime != 0 && (Owner.Score == Null || Owner.Score.BestRaceTimes.count == 0)) {
+				CurrentBestTime = 0;
+				UpdateBestRace(CurrentBestTime);
+			} else if (Owner.Score != Null && Owner.Score.BestRaceTimes.count > 0 && CurrentBestTime != Owner.Score.BestRaceTimes[Owner.Score.BestRaceTimes.count - 1]) {
+				CurrentBestTime = Owner.Score.BestRaceTimes[Owner.Score.BestRaceTimes.count - 1];
+				UpdateBestRace(CurrentBestTime);
+			}
+			// Previous Race
+			if (CurrentPrevTime != 0 && (Owner.Score == Null || Owner.Score.PrevRaceTimes.count == 0)) {
+				CurrentPrevTime = 0;
+				UpdatePrevRace(0, DisplayPrev);
+			} else if (Owner.Score != Null && Owner.Score.PrevRaceTimes.count > 0 && CurrentPrevTime != Owner.Score.PrevRaceTimes[Owner.Score.PrevRaceTimes.count -1]) {
+				CurrentPrevTime = Owner.Score.PrevRaceTimes[Owner.Score.PrevRaceTimes.count -1];
+				UpdatePrevRace(Owner.Score.PrevRaceTimes[Owner.Score.PrevRaceTimes.count -1], DisplayPrev);
+			}
+		}
+
+		if (Frame_Rank.Visible != Net_TimeAttack_BestRaceViewer_RankIsVisible) {
+			Frame_Rank.Visible = Net_TimeAttack_BestRaceViewer_RankIsVisible;
+		}
+
+		if (Frame_Rank.Visible) {
+			if (
+				Net_TimeAttack_BestRaceViewer_CustomRank > 0 ||
+				Net_TimeAttack_BestRaceViewer_CustomCardinal > 0
+			) {
+				if (
+					CurrentRank != Net_TimeAttack_BestRaceViewer_CustomRank ||
+					PlayersCount != Net_TimeAttack_BestRaceViewer_CustomCardinal
+				) {
+					CurrentRank = Net_TimeAttack_BestRaceViewer_CustomRank;
+					PlayersCount = Net_TimeAttack_BestRaceViewer_CustomCardinal;
+					UpdateRank(Net_TimeAttack_BestRaceViewer_CustomRank, Net_TimeAttack_BestRaceViewer_CustomCardinal);
+				}
+			} else if (
+				(Owner.Score == Null && CurrentRank != PlayersCount) ||
+				(Owner.Score != Null && CurrentRank != Scores.keyof(Owner.Score) + 1) ||
+				PlayersCount != Scores.count
+			) {
+				PlayersCount = Scores.count;
+				if (Owner.Score == Null || Owner.Score.BestRaceTimes.count == 0) CurrentRank = PlayersCount;
+				else CurrentRank = Scores.keyof(Owner.Score) + 1;
+				UpdateRank(CurrentRank, PlayersCount);
+			}
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

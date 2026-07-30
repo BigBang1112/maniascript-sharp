@@ -1,0 +1,1143 @@
+/**
+ * Random styles library
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"RandomStyles.Script.txt"
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Macroblock.Script.txt" as Macroblock
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Random.Script.txt" as Random
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Collection.Script.txt" as Collection
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/ThemePack.Script.txt" as ThemePack
+
+// ---------------------------------- //
+// Constants
+// ---------------------------------- //
+#Const C_LibRandomStyles_MapLengths [
+	"veryshort" =>	["Canyon" => 600., "Valley" => 500., "Stadium" => 600., "Lagoon" => 600.],
+	"short" =>		["Canyon" => 1200., "Valley" => 1200., "Stadium" => 1200., "Lagoon" => 1200.],
+	"medium" =>		["Canyon" => 2300., "Valley" => 1800., "Stadium" => 1800., "Lagoon" => 2000.],
+	"long"  =>		["Canyon" => 3200., "Valley" => 2400., "Stadium" => 2600., "Lagoon" => 2800.],
+	"verylong"  =>	["Canyon" => 3200., "Valley" => 3000., "Stadium" => 3000., "Lagoon" => 3000.]
+] ///< Distance
+#Const C_LibRandomStyles_MapSpeeds ["slow", "medium", "fast"] ///< Speed
+#Const C_LibRandomStyles_MapStyles ["tech", "lol", "race", "multilaps", "street", "offroad"]	///< Style
+#Const C_LibRandomStyles_MapThemes ["Default", "Nature", "Show", "Winter", "Spring", "Summer", "Fall", "Rainbow", "Purple", "Black"]
+// Default values
+#Const C_LibRandomStyles_Length				1200.	///< Default length
+#Const C_LibRandomStyles_CheckpointsSpacing	250.	///< Default checkpoints spacing
+#Const C_LibRandomStyles_Multiplier			1.		///< Default multipliers
+#Const C_LibRandomStyles_DecoMultiplier		0.5		///< Default decoration multiplier
+/// Values for IsTurning, IsShifting, IsRising and IsTransfert selectors
+#Const C_LibRandomStyles_True	1
+#Const C_LibRandomStyles_False	0
+#Const C_LibRandomStyles_Null	-1
+
+// Globales
+declare Real G_LibRandomStyles_Length;	///< Length of the track
+declare Text[] G_LibRandomStyles_AllowedMultiSkins;
+declare CMapEditorPlugin::MapElemColor[] G_LibRandomStyles_AllowedColors;
+declare Real G_LibRandomStyles_CheckpointsSpacing;	///< Distance between checkpoints
+declare Text[] G_LibRandomStyles_ClipsPriority;	///< Clips to use in priority
+/// Multipliers values and selectors
+declare Real[] G_LibRandomStyles_Multiplier_Value;
+declare Text[] G_LibRandomStyles_Multiplier_Family;
+declare Text[] G_LibRandomStyles_Multiplier_Type;
+declare Text[] G_LibRandomStyles_Multiplier_Name;
+declare Text[] G_LibRandomStyles_Multiplier_Clip;
+declare Integer[] G_LibRandomStyles_Multiplier_IsTurning;
+declare Integer[] G_LibRandomStyles_Multiplier_IsShifting;
+declare Integer[] G_LibRandomStyles_Multiplier_IsRising;
+declare Integer[] G_LibRandomStyles_Multiplier_IsTransfert;
+/// Decoration multipliers
+declare Real[Text] G_LibRandomStyles_DecoMultipliers;
+
+Boolean Private_ToBoolean(Text _Text) {
+	return (_Text != "False" && _Text != "false" && _Text != "0" && _Text != "");
+}
+
+// Match the IsTurning, IsShifting, IsRising and IsTransfert selectors
+Boolean Private_MatchIsXSelector(Boolean _Boolean, Integer _Integer) {
+	if (_Integer == C_LibRandomStyles_Null) return True;
+	if (_Boolean && _Integer == C_LibRandomStyles_True) return True;
+	if (!_Boolean && _Integer == C_LibRandomStyles_False) return True;
+
+	return False;
+}
+
+// Check if a multiplier match the given selectors
+Integer[] Private_MatchMultiplier(Text _Family, Text _Type, Text _Name, Text[] _Clips, Boolean _IsTurning, Boolean _IsShifting, Boolean _IsRising, Boolean _IsTransfert) {
+	declare Integer[] MatchedKeys;
+
+	foreach (Key => Value in G_LibRandomStyles_Multiplier_Value) {
+		declare Family = G_LibRandomStyles_Multiplier_Family[Key];
+		declare Type = G_LibRandomStyles_Multiplier_Type[Key];
+		declare Name = G_LibRandomStyles_Multiplier_Name[Key];
+		declare Clip = G_LibRandomStyles_Multiplier_Clip[Key];
+		declare IsTurning = G_LibRandomStyles_Multiplier_IsTurning[Key];
+		declare IsShifting = G_LibRandomStyles_Multiplier_IsShifting[Key];
+		declare IsRising = G_LibRandomStyles_Multiplier_IsRising[Key];
+		declare IsTransfert = G_LibRandomStyles_Multiplier_IsTransfert[Key];
+
+		if (Family != "" && _Family != Family) continue;
+		if (Type != "" && _Type != Type) continue;
+		if (Name != "" && _Name != Name) continue;
+		if (Clip != "" && !_Clips.exists(Clip)) continue;
+		if (!Private_MatchIsXSelector(_IsTurning, IsTurning)) continue;
+		if (!Private_MatchIsXSelector(_IsShifting, IsShifting)) continue;
+		if (!Private_MatchIsXSelector(_IsRising, IsRising)) continue;
+		if (!Private_MatchIsXSelector(_IsTransfert, IsTransfert)) continue;
+
+		MatchedKeys.add(Key);
+	}
+
+	return MatchedKeys;
+}
+
+Real Private_GetMultiplier(Integer[] _Keys) {
+	declare Multiplier = C_LibRandomStyles_Multiplier;
+
+	foreach (Key in _Keys) {
+		if (!G_LibRandomStyles_Multiplier_Value.existskey(Key)) continue;
+		Multiplier *= G_LibRandomStyles_Multiplier_Value[Key];
+	}
+
+	return Multiplier;
+}
+
+Real Private_MatchAndGetMultiplier(Text _Family, Text _Type, Text _Name, Text[] _Clips, Boolean _IsTurning, Boolean _IsShifting, Boolean _IsRising, Boolean _IsTransfert) {
+	return Private_GetMultiplier(Private_MatchMultiplier(_Family, _Type, _Name, _Clips, _IsTurning, _IsShifting, _IsRising, _IsTransfert));
+}
+
+Void Private_AddMultiplier(Real _Value, Text _Family, Text _Type, Text _Name, Text _Clip, Integer _IsTurning, Integer _IsShifting, Integer _IsRising, Integer _IsTransfert) {
+	G_LibRandomStyles_Multiplier_Value.add(_Value);
+	G_LibRandomStyles_Multiplier_Family.add(_Family);
+	G_LibRandomStyles_Multiplier_Type.add(_Type);
+	G_LibRandomStyles_Multiplier_Name.add(_Name);
+	G_LibRandomStyles_Multiplier_Clip.add(_Clip);
+	G_LibRandomStyles_Multiplier_IsTurning.add(_IsTurning);
+	G_LibRandomStyles_Multiplier_IsShifting.add(_IsShifting);
+	G_LibRandomStyles_Multiplier_IsRising.add(_IsRising);
+	G_LibRandomStyles_Multiplier_IsTransfert.add(_IsTransfert);
+}
+
+Void Private_AddMultiplier(Real _Value, Text _Family, Text _Type, Text _Name, Text _Clip) {
+	Private_AddMultiplier(_Value, _Family, _Type, _Name, _Clip, C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+}
+
+Void Private_RemoveMultiplier(Integer _Key) {
+	declare Boolean Removed;
+	Removed = G_LibRandomStyles_Multiplier_Value.removekey(_Key);
+	Removed = G_LibRandomStyles_Multiplier_Family.removekey(_Key);
+	Removed = G_LibRandomStyles_Multiplier_Type.removekey(_Key);
+	Removed = G_LibRandomStyles_Multiplier_Name.removekey(_Key);
+	Removed = G_LibRandomStyles_Multiplier_Clip.removekey(_Key);
+	Removed = G_LibRandomStyles_Multiplier_IsTurning.removekey(_Key);
+	Removed = G_LibRandomStyles_Multiplier_IsShifting.removekey(_Key);
+	Removed = G_LibRandomStyles_Multiplier_IsRising.removekey(_Key);
+	Removed = G_LibRandomStyles_Multiplier_IsTransfert.removekey(_Key);
+}
+
+/// Bake the multipliers into the macroblocks
+Void Private_BuildMultiplier() {
+	foreach (MacroblockModel in MacroblockModels) {
+		if (!Macroblock::GetValidity(MacroblockModel)) continue;
+		if (!ThemePack::IsListed(MacroblockModel)) continue;
+
+		declare Family = Macroblock::GetFamily(MacroblockModel);
+		declare Type = Macroblock::GetType(MacroblockModel);
+		declare Name = Macroblock::GetName(MacroblockModel);
+		declare Clips = Macroblock::GetClipNames(MacroblockModel);
+		declare IsTurning = Macroblock::IsTurning(MacroblockModel);
+		declare IsShifting = Macroblock::IsShifting(MacroblockModel);
+		declare IsRising = Macroblock::IsRising(MacroblockModel);
+		declare IsTransfert = Macroblock::IsTransfert(MacroblockModel);
+
+		declare LibRandomStyles_Multiplier for MacroblockModel = C_LibRandomStyles_Multiplier;
+		LibRandomStyles_Multiplier = Private_MatchAndGetMultiplier(Family, Type, Name, Clips, IsTurning, IsShifting, IsRising, IsTransfert);
+
+		//log(MacroblockModel.Id^": "^LibRandomStyles_Multiplier);
+		yield(5);
+	}
+}
+
+
+Void Private_ReadXml_Theme(CParsingNode _Node) {
+	if (_Node == Null) return;
+	if (_Node.Name != "theme") return;
+	if (!C_LibRandomStyles_MapThemes.exists(_Node.TextContents)) return;
+
+	G_LibRandomStyles_AllowedColors = [CMapEditorPlugin::MapElemColor::Default];
+
+	switch (_Node.TextContents) {
+		case "Default" : {
+			G_LibRandomStyles_AllowedMultiSkins = ["Default"];
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Show|Winter" => 0.2,
+				"|Show|Spring" => 0.2,
+				"|Show|Summer" => 0.2,
+				"|Show|Fall" => 0.2,
+				"|Show|StandSmall" => 0.2,
+				"|Show|StandMedium" => 0.15,
+				"|Show|StandLarge" => 0.15,
+				"|Show|LightShapes" => 0.2,
+				"|Screens|4x1" => 0.15,
+				"|Screens|2x1" => 0.15,
+				"|Screens|1x1" => 0.15,
+				"|Nature|Winter" => 0.2,
+				"|Nature|Spring" => 0.2,
+				"|Nature|Summer" => 0.2,
+				"|Nature|Fall" => 0.2
+			];
+		}
+		case "Nature" : {
+			G_LibRandomStyles_AllowedMultiSkins = ["Valley", "Summer", "Fall"];
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Nature|Spring" => 1.,
+				"|Nature|Summer" => 1.,
+				"|Nature|Fall" => 1.
+			];
+		}
+		case "Show" : {
+			G_LibRandomStyles_AllowedColors = [CMapEditorPlugin::MapElemColor::Default, CMapEditorPlugin::MapElemColor::Black, CMapEditorPlugin::MapElemColor::White];
+
+			G_LibRandomStyles_AllowedMultiSkins = ["AnimatedFoggyMarine", "AnimatedFoggyCyan", "AnimatedFoggyBlue", "AnimatedFoggyPurple", "AnimatedFoggyOrange"];
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Show|StandSmall" => 0.7,
+				"|Show|StandMedium" => 0.5,
+				"|Show|StandLarge" => 0.4,
+				"|Show|LightShapes" => 0.7,
+				"|Screens|4x1" => 0.15,
+				"|Screens|2x1" => 0.15,
+				"|Screens|1x1" => 0.15
+			];
+		}
+		case "Winter" : {
+			G_LibRandomStyles_AllowedColors = [CMapEditorPlugin::MapElemColor::Default, CMapEditorPlugin::MapElemColor::Black, CMapEditorPlugin::MapElemColor::White, CMapEditorPlugin::MapElemColor::Blue];
+			G_LibRandomStyles_AllowedMultiSkins = ["Snow", "AnimatedFoggyMarine"];
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Show|Winter" => 0.8,
+				"|Show|StandSmall" => 0.2,
+				"|Show|StandMedium" => 0.15,
+				"|Show|StandLarge" => 0.15,
+				"|Show|LightShapes" => 0.2,
+				"|Screens|4x1" => 0.15,
+				"|Screens|2x1" => 0.15,
+				"|Screens|1x1" => 0.15,
+				"|Nature|Winter" => 1.
+			];
+		}
+		case "Spring" : {
+			G_LibRandomStyles_AllowedColors = [CMapEditorPlugin::MapElemColor::Default, CMapEditorPlugin::MapElemColor::Green];
+			G_LibRandomStyles_AllowedMultiSkins = ["Valley", "AnimatedFoggyCyan"];
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Show|Spring" => 0.8,
+				"|Show|StandSmall" => 0.2,
+				"|Show|StandMedium" => 0.15,
+				"|Show|StandLarge" => 0.15,
+				"|Show|LightShapes" => 0.2,
+				"|Screens|4x1" => 0.15,
+				"|Screens|2x1" => 0.15,
+				"|Screens|1x1" => 0.15,
+				"|Nature|Spring" => 1.
+			];
+		}
+		case "Summer" :  {
+			G_LibRandomStyles_AllowedColors = [CMapEditorPlugin::MapElemColor::Default, CMapEditorPlugin::MapElemColor::Blue];
+
+			G_LibRandomStyles_AllowedMultiSkins = ["Summer", "AnimatedFoggyBlue"];
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Show|Summer" => 0.8,
+				"|Show|StandSmall" => 0.2,
+				"|Show|StandMedium" => 0.15,
+				"|Show|StandLarge" => 0.15,
+				"|Show|LightShapes" => 0.2,
+				"|Screens|4x1" => 0.15,
+				"|Screens|2x1" => 0.15,
+				"|Screens|1x1" => 0.15,
+				"|Nature|Summer" => 1.
+			];
+		}
+		case "Fall" : {
+			G_LibRandomStyles_AllowedColors = [CMapEditorPlugin::MapElemColor::Default, CMapEditorPlugin::MapElemColor::Red];
+			G_LibRandomStyles_AllowedMultiSkins = ["Fall", "AnimatedFoggyOrange"];
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Show|Fall" => 0.8,
+				"|Show|StandSmall" => 0.2,
+				"|Show|StandMedium" => 0.15,
+				"|Show|StandLarge" => 0.15,
+				"|Show|LightShapes" => 0.2,
+				"|Screens|4x1" => 0.15,
+				"|Screens|2x1" => 0.15,
+				"|Screens|1x1" => 0.15,
+				"|Nature|Fall" => 1.
+			];
+		}
+		case "Rainbow" : {
+			G_LibRandomStyles_AllowedColors = [CMapEditorPlugin::MapElemColor::White, CMapEditorPlugin::MapElemColor::Green, CMapEditorPlugin::MapElemColor::Blue, CMapEditorPlugin::MapElemColor::Red, CMapEditorPlugin::MapElemColor::Black, CMapEditorPlugin::MapElemColor::Default];
+
+			G_LibRandomStyles_AllowedMultiSkins = ["Valley", "Summer", "Fall", "Snow", "AnimatedFoggyMarine", "AnimatedFoggyCyan", "AnimatedFoggyBlue", "AnimatedFoggyPurple", "AnimatedFoggyOrange"];
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Show|Winter" => 0.4,
+				"|Show|Spring" => 0.4,
+				"|Show|Summer" => 0.4,
+				"|Show|Fall" => 0.4,
+				"|Show|StandSmall" => 0.3,
+				"|Show|StandMedium" => 0.2,
+				"|Show|StandLarge" => 0.2,
+				"|Show|LightShapes" => 0.3,
+				"|Screens|4x1" => 0.15,
+				"|Screens|2x1" => 0.15,
+				"|Screens|1x1" => 0.15,
+				"|Nature|Winter" => 0.3,
+				"|Nature|Spring" => 0.3,
+				"|Nature|Summer" => 0.3,
+				"|Nature|Fall" => 0.3
+			];
+		}
+		case "Purple" : {
+			G_LibRandomStyles_AllowedColors = [CMapEditorPlugin::MapElemColor::Default, CMapEditorPlugin::MapElemColor::Black];
+			G_LibRandomStyles_AllowedMultiSkins = ["AnimatedFoggyPurple"];
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Show|StandSmall" => 0.5,
+				"|Show|StandMedium" => 0.4,
+				"|Show|StandLarge" => 0.3,
+				"|Show|LightShapes" => 0.5,
+				"|Screens|4x1" => 0.15,
+				"|Screens|2x1" => 0.15,
+				"|Screens|1x1" => 0.15
+			];
+		}
+		case "Black" : {
+			G_LibRandomStyles_AllowedColors = [CMapEditorPlugin::MapElemColor::Black];
+			G_LibRandomStyles_AllowedMultiSkins = ["Off"];
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Show|StandSmall" => 0.5,
+				"|Show|StandMedium" => 0.4,
+				"|Show|StandLarge" => 0.3,
+				"|Show|LightShapes" => 0.5,
+				"|Screens|4x1" => 0.15,
+				"|Screens|2x1" => 0.15,
+				"|Screens|1x1" => 0.15
+			];
+		}
+	}
+}
+
+// Read a style node
+Void Private_ReadXml_Style(CParsingNode _Node) {
+	if (_Node == Null) return;
+	if (_Node.Name != "style") return;
+	if (
+		!C_LibRandomStyles_MapLengths.existskey(_Node.TextContents)
+		&& !C_LibRandomStyles_MapSpeeds.exists(_Node.TextContents)
+		&& !C_LibRandomStyles_MapStyles.exists(_Node.TextContents)
+	) return;
+
+	// Note: As of 2023-02-11, the styles like Fast, Slow, Tech, Street, Race... seem to be unused, and only the length is set.
+	// This means I have not spent any time trying to make these work for TM2020.
+	switch (_Node.TextContents) {
+		// Distance
+		case "veryshort": {
+			if (C_LibRandomStyles_MapLengths.existskey("veryshort") && C_LibRandomStyles_MapLengths["veryshort"].existskey(Map.CollectionName)) {
+				G_LibRandomStyles_Length = C_LibRandomStyles_MapLengths["veryshort"][Map.CollectionName];
+			} else {
+				G_LibRandomStyles_Length = 600.;
+			}
+			G_LibRandomStyles_CheckpointsSpacing = C_LibRandomStyles_CheckpointsSpacing;
+		}
+		case "short": {
+			if (C_LibRandomStyles_MapLengths.existskey("short") && C_LibRandomStyles_MapLengths["short"].existskey(Map.CollectionName)) {
+				G_LibRandomStyles_Length = C_LibRandomStyles_MapLengths["short"][Map.CollectionName];
+			} else {
+				G_LibRandomStyles_Length = 1200.;
+			}
+			G_LibRandomStyles_CheckpointsSpacing = C_LibRandomStyles_CheckpointsSpacing;
+		}
+		case "medium": {
+			if (C_LibRandomStyles_MapLengths.existskey("medium") && C_LibRandomStyles_MapLengths["medium"].existskey(Map.CollectionName)) {
+				G_LibRandomStyles_Length = C_LibRandomStyles_MapLengths["medium"][Map.CollectionName];
+			} else {
+				G_LibRandomStyles_Length = 1800.;
+			}
+			G_LibRandomStyles_CheckpointsSpacing = C_LibRandomStyles_CheckpointsSpacing;
+		}
+		case "long": {
+			if (C_LibRandomStyles_MapLengths.existskey("long") && C_LibRandomStyles_MapLengths["long"].existskey(Map.CollectionName)) {
+				G_LibRandomStyles_Length = C_LibRandomStyles_MapLengths["long"][Map.CollectionName];
+			} else {
+				G_LibRandomStyles_Length = 2400.;
+			}
+			G_LibRandomStyles_CheckpointsSpacing = C_LibRandomStyles_CheckpointsSpacing;
+		}
+		case "verylong": {
+			if (C_LibRandomStyles_MapLengths.existskey("verylong") && C_LibRandomStyles_MapLengths["verylong"].existskey(Map.CollectionName)) {
+				G_LibRandomStyles_Length = C_LibRandomStyles_MapLengths["verylong"][Map.CollectionName];
+			} else {
+				G_LibRandomStyles_Length = 3000.;
+			}
+			G_LibRandomStyles_CheckpointsSpacing = C_LibRandomStyles_CheckpointsSpacing;
+		}
+
+		case "slow": {
+			// Less turbo
+			Private_AddMultiplier(0.01, "", "Turbos", "", "");
+			// Less straight road
+			Private_AddMultiplier(0.5, "", "", "", "", C_LibRandomStyles_False, C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+		}
+		// case "medium": {
+			// "medium" is already used by length
+		// }
+		case "fast": {
+			// More turbo
+			Private_AddMultiplier(5., "", "Turbos", "", "");
+			// Less turning road
+			Private_AddMultiplier(0.5, "", "", "", "", C_LibRandomStyles_True, C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+			// Less rising road
+			Private_AddMultiplier(0.1, "", "", "", "", C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_True, C_LibRandomStyles_Null);
+		}
+		// Style
+		case "tech": {
+			// Less straight road
+			Private_AddMultiplier(0.5, "", "", "", "", C_LibRandomStyles_False, C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+			// More turning road
+			Private_AddMultiplier(5., "", "", "", "", C_LibRandomStyles_True, C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+			// More shifting road
+			Private_AddMultiplier(5., "", "", "", "", C_LibRandomStyles_Null, C_LibRandomStyles_True, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+		}
+		case "race": {
+			// Less rising road
+			Private_AddMultiplier(0.25, "", "", "", "", C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_True, C_LibRandomStyles_Null);
+			// Less turning road
+			Private_AddMultiplier(0.75, "", "", "", "", C_LibRandomStyles_True, C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+			// More shifting road
+			Private_AddMultiplier(1.25, "", "", "", "", C_LibRandomStyles_Null, C_LibRandomStyles_True, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+			if (Map.CollectionName == "Canyon") {
+				// Prioritize GP road
+				G_LibRandomStyles_ClipsPriority.add("RoadRaceClipLeft");
+				G_LibRandomStyles_ClipsPriority.add("RoadRaceClipRight");
+				G_LibRandomStyles_ClipsPriority.add("RoadRaceTiltClipRight");
+				G_LibRandomStyles_ClipsPriority.add("RoadRaceTiltClipLeft");
+			} else if (Map.CollectionName == "Valley") {
+				// Prioritize 4Ways road
+				G_LibRandomStyles_ClipsPriority.add("Road4WayClip");
+				G_LibRandomStyles_ClipsPriority.add("HighwayClip");
+			}
+		}
+		case "street": {
+			if (Map.CollectionName == "Canyon") {
+				// Prioritize main road
+				G_LibRandomStyles_ClipsPriority.add("RoadMainClip");
+				G_LibRandomStyles_ClipsPriority.add("Cliff12RoadHighClipRight");
+				G_LibRandomStyles_ClipsPriority.add("Cliff12RoadHighClipLeft");
+				G_LibRandomStyles_ClipsPriority.add("Cliff12RoadMedClipRight");
+				G_LibRandomStyles_ClipsPriority.add("Cliff12RoadMedClipLeft");
+				G_LibRandomStyles_ClipsPriority.add("RoadHill2ClipLeft");
+				G_LibRandomStyles_ClipsPriority.add("RoadHill2ClipRight");
+			}
+		}
+	}
+}
+
+Void Private_ReadXml_Property(CParsingNode _Node) {
+	if (_Node == Null) return;
+
+	switch (_Node.Name) {
+		case "length": {
+			G_LibRandomStyles_Length = TL::ToReal(_Node.TextContents);
+		}
+		case "checkpointsspacing": {
+			G_LibRandomStyles_CheckpointsSpacing = TL::ToReal(_Node.TextContents);
+		}
+		case "clipspriority": {
+			foreach (NodeClip in _Node.Children) {
+				G_LibRandomStyles_ClipsPriority.add(NodeClip.TextContents);
+			}
+		}
+	}
+}
+
+Void Private_ReadXml_TrackMultiplier(CParsingNode _Node) {
+	if (_Node == Null) return;
+	if (_Node.Name != "multiplier") return;
+
+	declare Family = _Node.GetAttributeText("family", "");
+	declare Type = _Node.GetAttributeText("type", "");
+	declare Name = _Node.GetAttributeText("name", "");
+	declare Clip = _Node.GetAttributeText("clip", "");
+	declare IsTurning = C_LibRandomStyles_Null;
+	declare IsShifting = C_LibRandomStyles_Null;
+	declare IsRising = C_LibRandomStyles_Null;
+	declare IsTransfert = C_LibRandomStyles_Null;
+
+	declare TextIsTurning = _Node.GetAttributeText("isturning", "");
+	declare TextIsShifting = _Node.GetAttributeText("isshifting", "");
+	declare TextIsRising = _Node.GetAttributeText("isrising", "");
+	declare TextIsTransfert = _Node.GetAttributeText("istransfert", "");
+	if (TextIsTurning != "") {
+		if (Private_ToBoolean(TextIsTurning)) IsTurning = C_LibRandomStyles_True;
+		else IsTurning = C_LibRandomStyles_False;
+	}
+	if (TextIsShifting != "") {
+		if (Private_ToBoolean(TextIsShifting)) IsShifting = C_LibRandomStyles_True;
+		else IsShifting = C_LibRandomStyles_False;
+	}
+	if (TextIsRising != "") {
+		if (Private_ToBoolean(TextIsRising)) IsRising = C_LibRandomStyles_True;
+		else IsRising = C_LibRandomStyles_False;
+	}
+	if (TextIsTransfert != "") {
+		if (Private_ToBoolean(TextIsTransfert)) IsTransfert = C_LibRandomStyles_True;
+		else IsTransfert = C_LibRandomStyles_False;
+	}
+
+	declare Value = TL::ToReal(_Node.TextContents);
+
+	Private_AddMultiplier(Value, Family, Type, Name, Clip, IsTurning, IsShifting, IsRising, IsTransfert);
+}
+
+Void Private_ReadXml_DecoMultiplier(CParsingNode _Node) {
+	if (_Node == Null) return;
+	if (_Node.Name != "multiplier") return;
+
+	declare Type = _Node.GetAttributeText("type", "");
+	declare Value = TL::ToReal(_Node.TextContents);
+	if (Value < 0.) Value = 0.;
+	else if (Value > 1.) Value = 1.;
+
+	G_LibRandomStyles_DecoMultipliers[Type] = Value;
+}
+
+Text GetScriptVersion() { return Version; }
+Text GetScriptName() { return ScriptName; }
+
+Real GetLength() {
+	return G_LibRandomStyles_Length;
+}
+
+Real GetCheckpointsSpacing() {
+	return G_LibRandomStyles_CheckpointsSpacing;
+}
+
+Text[] GetClipsPriority() {
+	return G_LibRandomStyles_ClipsPriority;
+}
+
+Text[] GetThemes() {
+	return C_LibRandomStyles_MapThemes;
+}
+
+CMapEditorPlugin::MapElemColor[] GetColors() {
+	return G_LibRandomStyles_AllowedColors;
+}
+
+Text[] GetAllowedMultiSkins() {
+	return G_LibRandomStyles_AllowedMultiSkins;
+}
+
+Real GetMultiplier(CMacroblockModel _MacroblockModel) {
+	if (_MacroblockModel == Null) return C_LibRandomStyles_Multiplier;
+
+	declare LibRandomStyles_Multiplier for _MacroblockModel = C_LibRandomStyles_Multiplier;
+	return LibRandomStyles_Multiplier;
+}
+
+Real GetMultiplier(Text _Type) {
+	if (G_LibRandomStyles_DecoMultipliers.existskey(_Type)) return G_LibRandomStyles_DecoMultipliers[_Type];
+	return C_LibRandomStyles_DecoMultiplier;
+}
+
+Boolean ExistsMultiplier(Text _Type) {
+	return G_LibRandomStyles_DecoMultipliers.existskey(_Type);
+}
+
+Real[Text] GetDecoMultipliers() {
+	return G_LibRandomStyles_DecoMultipliers;
+}
+
+Void ClearTheme() {
+	G_LibRandomStyles_AllowedMultiSkins = ["Default"];
+	G_LibRandomStyles_AllowedColors = [CMapEditorPlugin::MapElemColor::Default];
+	G_LibRandomStyles_DecoMultipliers = [
+		"|Show|Winter" => 0.2,
+		"|Show|Summer" => 0.2,
+		"|Show|StandSmall" => 0.2,
+		"|Show|StandMedium" => 0.15,
+		"|Show|StandLarge" => 0.15,
+		"|Show|Spring" => 0.2,
+		"|Show|LightShapes" => 0.2,
+		"|Show|Fall" => 0.2,
+		"|Screens|4x1" => 0.2,
+		"|Screens|2x1" => 0.2,
+		"|Screens|1x1" => 0.2,
+		"|Nature|Winter" => 0.2,
+		"|Nature|Summer" => 0.2,
+		"|Nature|Spring" => 0.2,
+		"|Nature|Fall" => 0.2
+	];
+}
+
+Void ClearStyles() {
+	G_LibRandomStyles_Length = C_LibRandomStyles_Length;
+	G_LibRandomStyles_CheckpointsSpacing = C_LibRandomStyles_CheckpointsSpacing;
+	G_LibRandomStyles_ClipsPriority.clear();
+	G_LibRandomStyles_Multiplier_Value.clear();
+	G_LibRandomStyles_Multiplier_Family.clear();
+	G_LibRandomStyles_Multiplier_Type.clear();
+	G_LibRandomStyles_Multiplier_Name.clear();
+	G_LibRandomStyles_Multiplier_Clip.clear();
+	G_LibRandomStyles_Multiplier_IsTurning.clear();
+	G_LibRandomStyles_Multiplier_IsShifting.clear();
+	G_LibRandomStyles_Multiplier_IsRising.clear();
+	G_LibRandomStyles_Multiplier_IsTransfert.clear();
+
+	foreach (MacroblockModel in MacroblockModels) {
+		declare LibRandomStyles_Multiplier for MacroblockModel = C_LibRandomStyles_Multiplier;
+		LibRandomStyles_Multiplier = C_LibRandomStyles_Multiplier;
+	}
+
+	G_LibRandomStyles_DecoMultipliers.clear();
+}
+
+Void ReadStyles(Text _Xml, Boolean _Reset) {
+	if (_Xml == "") return;
+	declare XmlDoc = Xml.Create(_Xml);
+	if (XmlDoc == Null) return;
+
+	if (_Reset) ClearStyles();
+	if (_Reset) ClearTheme();
+
+	if (XmlDoc.Root.Name == "commands") {
+		foreach (NodeCommand in XmlDoc.Root.Children) {
+			yield(2);
+			switch (NodeCommand.Name) {
+				case "seed": {
+					Random::Init(TL::ToInteger(NodeCommand.TextContents));
+				}
+				case "styles": {
+					foreach (NodeStyle in NodeCommand.Children) {
+						Private_ReadXml_Style(NodeStyle);
+					}
+				}
+				case "themes": {
+					foreach (NodeTheme in NodeCommand.Children) {
+						Private_ReadXml_Theme(NodeTheme);
+					}
+				}
+				case "properties": {
+					foreach (NodeProperty in NodeCommand.Children) {
+						Private_ReadXml_Property(NodeProperty);
+					}
+				}
+				case "trackmultipliers": {
+					foreach (NodeMultiplier in NodeCommand.Children) {
+						Private_ReadXml_TrackMultiplier(NodeMultiplier);
+					}
+				}
+				case "decomultupliers": {
+					foreach (NodeMultiplier in NodeCommand.Children) {
+						Private_ReadXml_DecoMultiplier(NodeMultiplier);
+					}
+				}
+			}
+		}
+	}
+
+	Xml.Destroy(XmlDoc);
+
+	// Build multipliers
+	Private_BuildMultiplier();
+}
+
+Void ApplyStyles(Text[] _Styles, Boolean _Reset) {
+	declare Styles = "";
+	foreach (Style in _Styles) {
+		if (Style != "") Styles ^= """<style>{{{Style}}}</style>""";
+	}
+
+	if (Styles != "") ReadStyles("""<commands><styles>{{{Styles}}}</styles></commands>""", _Reset);
+}
+
+Void ApplyTheme(Text _Theme, Boolean _Reset) {
+	if (_Theme != "") ReadStyles("""<commands><themes><theme>{{{_Theme}}}</theme></themes></commands>""", _Reset);
+}
+
+Text[] GetMapLengths() {
+	declare Text[] Lengths;
+	foreach (LengthName => CollectionLengths in C_LibRandomStyles_MapLengths) {
+		Lengths.add(LengthName);
+	}
+	return Lengths;
+}
+
+Text[] GetMapSpeeds() {
+	return C_LibRandomStyles_MapSpeeds;
+}
+
+Text[] GetMapStyles() {
+	return C_LibRandomStyles_MapStyles;
+}
+
+Integer GetDecoMaxCount(CMacroblockModel _MacroblockModel) {
+	if (_MacroblockModel == Null) return -1;
+	declare LibRandomStyles_DecoMaxCount for _MacroblockModel = -1;
+	return LibRandomStyles_DecoMaxCount;
+}
+
+Real GetDecoRate(CMacroblockModel _MacroblockModel) {
+	if (_MacroblockModel == Null) return 1.;
+	declare LibRandomStyles_DecoRate for _MacroblockModel = 1.;
+	return LibRandomStyles_DecoRate;
+}
+
+Text[] GetSkins(CMacroblockModel _MacroblockModel) {
+	if (_MacroblockModel == Null) return [];
+	declare Text[] LibRandomStyles_Skins for _MacroblockModel;
+	return LibRandomStyles_Skins;
+}
+
+Boolean CanSkin(CMacroblockModel _MacroblockModel) {
+	if (_MacroblockModel == Null) return False;
+	declare LibRandomStyles_CanSkin for _MacroblockModel = True;
+	return LibRandomStyles_CanSkin;
+}
+
+Void LoadDefaultStyles() {
+	// Real _Value, Text _Family, Text _Type, Text _Name, Text _Clip, Integer _IsTurning, Integer _IsShifting, Integer _IsRising, Integer _IsTransfert
+	switch (Map.CollectionName) {
+		case "Canyon": {
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Decoration|Technology" => 0.7,
+				"|Decoration|Nature" => 0.25,
+				"|Decoration|International Turbo" => 0.4,
+				"|Decoration|Podium" => 0.
+			];
+			Private_AddMultiplier(0.5, "", "", "", "", C_LibRandomStyles_False, C_LibRandomStyles_False, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+			Private_AddMultiplier(0.25, "", "", "", "", C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_True, C_LibRandomStyles_Null);
+			Private_AddMultiplier(0.5, "Arena", "Checkpoints", "ArenaLargeCopterStartMidAir", "");
+			Private_AddMultiplier(0.5, "Arena", "Checkpoints", "Start", "");
+			Private_AddMultiplier(0.5, "Arena", "Checkpoints", "StartHelico", "");
+		}
+		case "Valley": {
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Decoration|Technology" => 0.05,
+				"|Decoration|Nature" => 1.,
+				"|Decoration|International Turbo" => 0.25,
+				"|Decoration|Podium" => 0.
+			];
+			Private_AddMultiplier(0.5, "", "", "", "", C_LibRandomStyles_False, C_LibRandomStyles_False, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+			Private_AddMultiplier(0.25, "", "", "", "", C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_True, C_LibRandomStyles_Null);
+		}
+		case "Stadium": {
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Show|Winter" => 0.2,
+				"|Show|Spring" => 0.2,
+				"|Show|Summer" => 0.2,
+				"|Show|Fall" => 0.2,
+				"|Show|StandSmall" => 0.2,
+				"|Show|StandMedium" => 0.15,
+				"|Show|StandLarge" => 0.15,
+				"|Show|LightShapes" => 0.2,
+				"|Screens|4x1" => 0.2,
+				"|Screens|2x1" => 0.2,
+				"|Screens|1x1" => 0.2,
+				"|Nature|Winter" => 0.2,
+				"|Nature|Spring" => 0.2,
+				"|Nature|Summer" => 0.2,
+				"|Nature|Fall" => 0.2
+			];
+
+			Private_AddMultiplier(0.5, "", "", "", "", C_LibRandomStyles_False, C_LibRandomStyles_False, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+			Private_AddMultiplier(0.25, "", "", "", "", C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_True, C_LibRandomStyles_Null);
+
+			// Less ice platforms in general, they can lead to hard to impossible tracks
+			Private_AddMultiplier(0.1, "PlatformIceFlat", "", "", "");
+			Private_AddMultiplier(0.1, "PlatformIceSlope", "", "", "");
+			Private_AddMultiplier(0.2, "PlatformIceZoneFlat", "", "", "");
+			Private_AddMultiplier(0.2, "PlatformIceZoneSlope", "", "", "");
+
+			// Due to blocks like SlopeBaseCurve1InFull and similar ones, these roads, when generated, are often not very fun/hard to read
+			Private_AddMultiplier(0.7, "PlatformTechSlope", "", "", "");
+			Private_AddMultiplier(0.8, "PlatformTechZoneSlope", "", "", "");
+			Private_AddMultiplier(0.7, "PlatformGrassSlope", "", "", "");
+			Private_AddMultiplier(0.8, "PlatformGrassZoneSlope", "", "", "");
+			Private_AddMultiplier(0.7, "PlatformDirtSlope", "", "", "");
+			Private_AddMultiplier(0.8, "PlatformDirtZoneSlope", "", "", "");
+			Private_AddMultiplier(0.7, "PlatformPlasticSlope", "", "", "");
+			Private_AddMultiplier(0.8, "PlatformPlasticZoneSlope", "", "", "");
+
+			// A bit less water in general
+			Private_AddMultiplier(0.7, "PlatformWaterFlat", "", "", "");
+			Private_AddMultiplier(0.7, "WaterRoadDeep", "", "", "");
+			Private_AddMultiplier(0.7, "WaterRoadFlat", "", "", "");
+
+			// Ice road slope is very boring, it doesn't even have turns; will often result in big straight lines with zigzags
+			Private_AddMultiplier(0.5, "IceRoadSlope", "", "", "");
+
+			// almost impossible turns with no wall
+			Private_AddMultiplier(0.2, "IceRoadFlat", "Turns", "Corner", "");
+			Private_AddMultiplier(0.5, "IceRoadFlat", "Turns", "Curve01", "");
+
+			// There aren't enough water blocks in general, so engine blocks/obstacles became very prevalent
+			Private_AddMultiplier(0.2, "PlatformWaterFlat", "EngineBlocks", "", "");
+			Private_AddMultiplier(0.2, "WaterRoadFlat", "EngineBlocks", "", "");
+			Private_AddMultiplier(0.2, "WaterRoadDeep", "EngineBlocks", "", "");
+
+			Private_AddMultiplier(0.6, "PlatformWaterFlat", "Obstacles", "", "");
+			Private_AddMultiplier(0.6, "WaterRoadFlat", "Obstacles", "", "");
+			Private_AddMultiplier(0.6, "WaterRoadDeep", "Obstacles", "", "");
+
+			// Same goes for Ice roads, plus they're already hard to start with
+			Private_AddMultiplier(0.5, "IceRoadFlat", "EngineBlocks", "", "");
+			Private_AddMultiplier(0.5, "IceRoadSlope", "EngineBlocks", "", "");
+			Private_AddMultiplier(0.3, "IceRoadDiag", "EngineBlocks", "", "");
+
+			Private_AddMultiplier(0.7, "IceRoadFlat", "Turbos", "", "");
+			Private_AddMultiplier(0.7, "IceRoadSlope", "Turbos", "", "");
+			Private_AddMultiplier(0.5, "IceRoadDiag", "Turbos", "", "");
+
+			// In general, lower engine blocks & turbos because they can make maps hard
+			Private_AddMultiplier(0.3, "", "EngineBlocks", "", "");
+			Private_AddMultiplier(0.9, "", "Obstacles", "", "");
+			Private_AddMultiplier(0.7, "", "Turbos", "", "");
+
+			// since these can go any direction, they can be a little too chaotic, especially after loopings/wallrides
+			// since they're not counted as curves, can't even "lower curves proba after obstacles"
+			Private_AddMultiplier(0.8, "", "", "PlatformTechBase", "");
+			Private_AddMultiplier(0.8, "", "", "PlatformDirtBase", "");
+			Private_AddMultiplier(0.8, "", "", "PlatformIceBase", "");
+
+			// hard after loopings/wallrides as well
+			Private_AddMultiplier(0.9, "", "", "Curve2", "");
+
+			// Like explained above, these are often just annoying
+			Private_AddMultiplier(0.4, "", "", "PlatformTechSlopeBaseCurve1In", "");
+			Private_AddMultiplier(0.5, "", "", "PlatformTechSlopeBaseCurve1InFull", "");
+			Private_AddMultiplier(0.4, "", "", "PlatformIceSlopeBaseCurve1In", "");
+			Private_AddMultiplier(0.5, "", "", "PlatformIceSlopeBaseCurve1InFull", "");
+			Private_AddMultiplier(0.4, "", "", "PlatformDirtSlopeBaseCurve1In", "");
+			Private_AddMultiplier(0.5, "", "", "PlatformDirtSlopeBaseCurve1InFull", "");
+			Private_AddMultiplier(0.4, "", "", "PlatformGrassSlopeBaseCurve1In", "");
+			Private_AddMultiplier(0.5, "", "", "PlatformGrassSlopeBaseCurve1InFull", "");
+			Private_AddMultiplier(0.4, "", "", "PlatformPlasticSlopeBaseCurve1In", "");
+			Private_AddMultiplier(0.5, "", "", "PlatformPlasticSlopeBaseCurve1InFull", "");
+
+			Private_AddMultiplier(0.4, "", "", "PlatformTechSlopeBaseCurve1Out", "");
+			Private_AddMultiplier(0.5, "", "", "PlatformTechSlopeBaseCurve1OutFull", "");
+			Private_AddMultiplier(0.4, "", "", "PlatformIceSlopeBaseCurve1Out", "");
+			Private_AddMultiplier(0.5, "", "", "PlatformIceSlopeBaseCurve1OutFull", "");
+			Private_AddMultiplier(0.4, "", "", "PlatformDirtSlopeBaseCurve1Out", "");
+			Private_AddMultiplier(0.5, "", "", "PlatformDirtSlopeBaseCurve1OutFull", "");
+			Private_AddMultiplier(0.4, "", "", "PlatformGrassSlopeBaseCurve1Out", "");
+			Private_AddMultiplier(0.5, "", "", "PlatformGrassSlopeBaseCurve1OutFull", "");
+			Private_AddMultiplier(0.4, "", "", "PlatformPlasticSlopeBaseCurve1Out", "");
+			Private_AddMultiplier(0.5, "", "", "PlatformPlasticSlopeBaseCurve1OutFull", "");
+
+			// Lower all Boost2 & Turbo2, too chaotic
+			Private_AddMultiplier(0.4, "", "", "Boost", "");
+			Private_AddMultiplier(0.4, "", "", "BoostUp", "");
+			Private_AddMultiplier(0.4, "", "", "BoostSlope2Up", "");
+			Private_AddMultiplier(0.4, "", "", "BoostDown", "");
+			Private_AddMultiplier(0.4, "", "", "BoostSlope2Down", "");
+			Private_AddMultiplier(0.4, "", "", "BoostDiagLeft", "");
+			Private_AddMultiplier(0.4, "", "", "BoostDiagRight", "");
+			Private_AddMultiplier(0.4, "", "", "BoostTilt2Left", "");
+			Private_AddMultiplier(0.4, "", "", "BoostTilt2Right", "");
+
+			Private_AddMultiplier(0.2, "", "", "Boost2", "");
+			Private_AddMultiplier(0.2, "", "", "Boost2Up", "");
+			Private_AddMultiplier(0.2, "", "", "Boost2Slope2Up", "");
+			Private_AddMultiplier(0.2, "", "", "Boost2Down", "");
+			Private_AddMultiplier(0.2, "", "", "Boost2Slope2Down", "");
+			Private_AddMultiplier(0.2, "", "", "Boost2DiagLeft", "");
+			Private_AddMultiplier(0.2, "", "", "Boost2DiagRight", "");
+			Private_AddMultiplier(0.2, "", "", "Boost2Tilt2Left", "");
+			Private_AddMultiplier(0.2, "", "", "Boost2Tilt2Right", "");
+
+			Private_AddMultiplier(0.2, "", "", "Turbo2", "");
+			Private_AddMultiplier(0.2, "", "", "Turbo2Up", "");
+			Private_AddMultiplier(0.2, "", "", "Turbo2Slope2Up", "");
+			Private_AddMultiplier(0.2, "", "", "Turbo2Down", "");
+			Private_AddMultiplier(0.2, "", "", "Turbo2Slope2Down", "");
+			Private_AddMultiplier(0.2, "", "", "Turbo2DiagLeft", "");
+			Private_AddMultiplier(0.2, "", "", "Turbo2DiagRight", "");
+			Private_AddMultiplier(0.2, "", "", "Turbo2Tilt2Left", "");
+			Private_AddMultiplier(0.2, "", "", "Turbo2Tilt2Right", "");
+
+			// Lower all very hard engine blocks
+			Private_AddMultiplier(0.5, "", "", "SlowMotion", "");
+			Private_AddMultiplier(0.5, "", "", "SlowMotionDiagLeft", "");
+			Private_AddMultiplier(0.5, "", "", "SlowMotionDiagRight", "");
+			Private_AddMultiplier(0.5, "", "", "SlowMotionTilt2", "");
+			Private_AddMultiplier(0.5, "", "", "SlowMotionSlope2", "");
+
+			Private_AddMultiplier(0.5, "", "", "Fragile", "");
+			Private_AddMultiplier(0.5, "", "", "FragileDiagLeft", "");
+			Private_AddMultiplier(0.5, "", "", "FragileDiagRight", "");
+			Private_AddMultiplier(0.5, "", "", "FragileTilt2", "");
+			Private_AddMultiplier(0.5, "", "", "FragileSlope2", "");
+
+			Private_AddMultiplier(0.3, "", "", "NoSteering", "");
+			Private_AddMultiplier(0.3, "", "", "NoSteeringDiagLeft", "");
+			Private_AddMultiplier(0.3, "", "", "NoSteeringDiagRight", "");
+			Private_AddMultiplier(0.3, "", "", "NoSteeringTilt2", "");
+			Private_AddMultiplier(0.3, "", "", "NoSteeringSlope2", "");
+
+			// Higher chance of reset in general to compensate for lower EngineBlocks probas
+			Private_AddMultiplier(1.4, "", "", "Reset", "");
+			Private_AddMultiplier(1.4, "", "", "ResetDiagLeft", "");
+			Private_AddMultiplier(1.4, "", "", "ResetDiagRight", "");
+			Private_AddMultiplier(1.4, "", "", "ResetTilt2", "");
+			Private_AddMultiplier(1.4, "", "", "ResetSlope2", "");
+
+			// avoid having too many switcharoos
+			Private_AddMultiplier(0.4, "", "", "RoadIceWithWallDiagLeftSwitchLeft", "");
+			Private_AddMultiplier(0.4, "", "", "RoadIceWithWallDiagLeftSwitchRight", "");
+			Private_AddMultiplier(0.4, "", "", "RoadIceWithWallDiagRightSwitchLeft", "");
+			Private_AddMultiplier(0.4, "", "", "RoadIceWithWallDiagRightSwitchRight", "");
+
+			// hard obstacles, a bit too common
+			Private_AddMultiplier(0.5, "IceRoadFlat", "", "BigLoopLeft", "");
+			Private_AddMultiplier(0.5, "IceRoadFlat", "", "BigLoopRight", "");
+		}
+		case "Lagoon": {
+			G_LibRandomStyles_DecoMultipliers = [
+				"|Decoration|Technology" => 0.25,
+				"|Decoration|Nature" => 0.7,
+				"|Decoration|International Turbo" => 0.25,
+				"|Decoration|Podium" => 0.
+			];
+			Private_AddMultiplier(0.5, "", "", "", "", C_LibRandomStyles_False, C_LibRandomStyles_False, C_LibRandomStyles_Null, C_LibRandomStyles_Null);
+			Private_AddMultiplier(0.25, "", "", "", "", C_LibRandomStyles_Null, C_LibRandomStyles_Null, C_LibRandomStyles_True, C_LibRandomStyles_Null);
+		}
+	}
+
+	Private_BuildMultiplier();
+}
+
+Void Unload() {
+	ClearStyles();
+	ClearTheme();
+}
+
+Void Load() {
+	Unload();
+
+	foreach (MacroblockModel in MacroblockModels) {
+		declare LibRandomStyles_DecoMaxCount for MacroblockModel = -1;
+		declare LibRandomStyles_DecoRate for MacroblockModel = 1.;
+		declare Text[] LibRandomStyles_Skins for MacroblockModel;
+		declare LibRandomStyles_CanSkin for MacroblockModel = True;
+		LibRandomStyles_DecoMaxCount = -1;
+		LibRandomStyles_DecoRate = 1.;
+		LibRandomStyles_Skins.clear();
+		LibRandomStyles_CanSkin = True;
+
+		if (Map.CollectionName == "Canyon") {
+			if (Macroblock::GetFamily(MacroblockModel) == "Deco") {
+				declare Name = Macroblock::GetName(MacroblockModel);
+				declare Type = Macroblock::GetType(MacroblockModel);
+
+				if (Type == "Technology") {
+					if (TL::Find("CoolingTower", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 2;
+					} else if (TL::Find("Copter", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (TL::Find("Crane", Name, False, False)) {
+						LibRandomStyles_DecoRate = 0.5;
+						if (Name == "CraneContainersAir") {
+							LibRandomStyles_Skins = ["rd_Canyon_skull", "rd_Canyon_skull_Bk"];
+						}
+					} else if (TL::Find("HeliPad", Name, False, False)) {
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, False, True);
+					} else if (TL::Find("Pipeline", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (Name == "PowerPlant") {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (TL::Find("RadioTower", Name, False, False)) {
+						LibRandomStyles_DecoRate = 0.25;
+					} else if (Name == "SmallReffinery") {
+						LibRandomStyles_DecoMaxCount = 2;
+					}
+				} else if (Type == "International Turbo") {
+					if (Name == "BillboardsHigh" || Name == "BillboardsLow" || Name == "BillboardsMid") {
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+					} else if (TL::Find("Blimp", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+						LibRandomStyles_CanSkin = False;
+					} else if (TL::Find("Copter", Name, False, False)) {
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+						LibRandomStyles_DecoMaxCount = 2;
+					} else if (Name == "Donut") {
+						LibRandomStyles_DecoMaxCount = 3;
+					} else if (TL::Find("Pig", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 2;
+					} else if (Name == "TMBuilding") {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (TL::Find("Wheel", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (TL::Find("WIPBillboard", Name, False, False)) {
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+						LibRandomStyles_DecoRate = 0.25;
+					} else if (Name == "WIPStructureBillboardsAir") {
+						LibRandomStyles_DecoMaxCount = 1;
+						LibRandomStyles_CanSkin = False;
+					}
+				}
+			}
+		} else if (Map.CollectionName == "Valley") {
+			if (Macroblock::GetFamily(MacroblockModel) == "Deco") {
+				declare Name = Macroblock::GetName(MacroblockModel);
+				declare Type = Macroblock::GetType(MacroblockModel);
+
+				if (Type == "Nature") {
+					if (Name == "Bridge" || Name == "BusStop") {
+						LibRandomStyles_DecoRate = 0.25;
+					} else if (Name == "Church") {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (TL::Find("House", Name, False, False)) {
+						LibRandomStyles_DecoRate = 0.25;
+					} else if (Name == "Square") {
+						LibRandomStyles_DecoRate = 0.25;
+					} else if (TL::Find("WaterMill", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					}
+				} else if (Type == "Technology") {
+					if (TL::Find("ArenaPillarRoadPaint", Name, False, False)) {
+						LibRandomStyles_Skins = ["rd_BEAR_black", "rd_BEAR_white"];
+					} else if (TL::Find("Copter", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 2;
+					} else if (Name == "Crane" || Name == "CraneContainers") {
+						LibRandomStyles_DecoRate = 0.5;
+					} else if (TL::Find("PowerLine", Name, False, False)) {
+						LibRandomStyles_DecoRate = 0.25;
+					} else if (Name == "Windmill") {
+						LibRandomStyles_DecoMaxCount = 20;
+					}
+				} else if (Type == "International Turbo") {
+					if (TL::Find("Blimp", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+						LibRandomStyles_CanSkin = False;
+					} else if (TL::Find("Copter", Name, False, False)) {
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+						LibRandomStyles_DecoMaxCount = 2;
+					} else if (TL::Find("Pig", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 2;
+					} else if (TL::Find("Signs", Name, False, False)) {
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+					} else if (Name == "TMBuilding") {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (TL::Find("Wheel", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					}
+				}
+			}
+		} else if (Map.CollectionName == "Stadium") {
+			if (Macroblock::GetFamily(MacroblockModel) == "Deco") {
+				declare Type = Macroblock::GetType(MacroblockModel);
+				declare Name = Macroblock::GetName(MacroblockModel);
+
+				if (Type == "Technology") {
+					if (TL::Find("Copter", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 2;
+					} else if (TL::Find("Crane", Name, False, False)) {
+						LibRandomStyles_DecoRate = 0.25;
+					} else if (Name == "RadioTower") {
+						LibRandomStyles_DecoMaxCount = 2;
+					}
+				} else if (Type == "International Turbo") {
+					if (Name == "Bretzel") {
+						LibRandomStyles_DecoMaxCount = 2;
+					} else if (TL::Find("Copter", Name, False, False)) {
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+						LibRandomStyles_DecoMaxCount = 2;
+					} else if (Name == "CraneBigBillboards") {
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+					} else if (Name == "CraneRussianDolls") {
+						LibRandomStyles_DecoRate = 0.25;
+					} else if (Name == "Donut") {
+						LibRandomStyles_DecoMaxCount = 2;
+					} else if (Name == "Donut+Bretzel") {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (TL::Find("FabricSigns", Name, False, False)) {
+						LibRandomStyles_CanSkin = False;
+					} else if (TL::Find("Pig", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (Name == "TMBuilding") {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (TL::Find("TowerBaseBillboard", Name, False, False)) {
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+					} else if (TL::Find("TowerBillboards", Name, False, False)) {
+						LibRandomStyles_CanSkin = False;
+					} else if (TL::Find("Towers2layers", Name, False, False)) {
+						LibRandomStyles_CanSkin = False;
+					} else if (TL::Find("TowerSpeakers", Name, False, False)) {
+						LibRandomStyles_CanSkin = False;
+					} else if (TL::Find("TowersTwin", Name, False, False)) {
+						LibRandomStyles_CanSkin = False;
+					} else if (TL::Find("Wheel", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					}
+				} else if (Type == "Inflatables") {
+					if (TL::Find("Blimp", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+						LibRandomStyles_CanSkin = False;
+					} else if (TL::Find("InflatablePig", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (Name == "InflatableSigns") {
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+						LibRandomStyles_DecoMaxCount = 3;
+					}
+				}
+			}
+		} else if (Map.CollectionName == "Lagoon") {
+			if (Macroblock::GetFamily(MacroblockModel) == "Deco") {
+				declare Name = Macroblock::GetName(MacroblockModel);
+				declare Type = Macroblock::GetType(MacroblockModel);
+
+				if (Type == "Nature") {
+					if (TL::Find("Cell", Name, False, False)) {
+						LibRandomStyles_DecoRate = 0.1;
+					}
+				} else if (Type == "Technology") {
+					if (TL::Find("Boat", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (TL::Find("Copter", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 2;
+					} else if (Name == "Crane" || Name == "CraneContainers") {
+						LibRandomStyles_DecoRate = 0.5;
+					} else if (TL::Find("HeliPad", Name, False, False)) {
+						LibRandomStyles_Skins = ["rd_TM_CN", "rd_TM_CN_Bk"];
+					} else if (TL::Find("ParkWheel", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (TL::Find("WoodCrane", Name, False, False)) {
+						LibRandomStyles_Skins = ["rd_Lagoon", "rd_Lagoon_Bk"];
+					}
+				} else if (Type == "International Turbo") {
+					if (TL::Find("Blimp", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+						LibRandomStyles_CanSkin = False;
+					} else if (TL::Find("Copter", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+					}  else if (Name == "CraneCats") {
+						LibRandomStyles_DecoRate = 0.5;
+					} else if (TL::Find("PigBlack", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+					} else if (Name == "SignsHigh" || Name == "SignsHighSea" || Name == "SignsWood1" || Name == "SignsWood1Sea") {
+						LibRandomStyles_CanSkin = False;
+					} else if (TL::Find("Signs", Name, False, False)) {
+						LibRandomStyles_Skins = Collection::GetEnviroSkins(Map.CollectionName, True, False);
+					} else if (TL::Find("TMBuilding", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					} else if (TL::Find("Wheel", Name, False, False)) {
+						LibRandomStyles_DecoMaxCount = 1;
+					}
+				}
+			}
+		}
+
+		yield(2);
+	}
+}

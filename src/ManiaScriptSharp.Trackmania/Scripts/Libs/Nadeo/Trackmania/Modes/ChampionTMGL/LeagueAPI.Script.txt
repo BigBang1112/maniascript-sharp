@@ -1,0 +1,352 @@
+/**
+ *	Communication with the league API
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionTMGL/LeagueAPI.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/LeagueRanking.Script.txt" as LeagueRanking
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/UIModules/CheersCounter_Server.Script.txt" as UIModules_CheersCounter
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/LiveRankingChampion_Server.Script.txt" as UIModules_LiveRanking
+
+//#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/RoundsCounter_Server.Script.txt" as UIModules_RoundsCounter QG : c'est pour le mode cup
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_CheersUpdateFrequency 60000
+#Const C_NumberOfPlayers 16 //< Number of players participating in the league
+#Const C_Callback_Cheers "Trackmania.Champion.Cheers"
+#Const C_MaxHeartsNb 8
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Text G_APIUrl_Competition;
+declare Text G_APIUrl_Cheers;
+declare Integer G_NextCheersUpdate;
+declare Ident G_CheersRequestId;
+declare Ident G_LeagueRankingRequestId;
+declare Boolean G_LeagueRankingIsValid;
+declare LeagueRanking::K_LeagueRanking G_LeagueRanking;
+declare LeagueRanking::K_Cheers G_Cheers;
+declare Integer[Text] G_PrevCheers;
+declare Text G_PrevCheerAccountId;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the competition API url
+ *
+ *	@param	_Url											The base url of the API
+ */
+Void SetCompetitionAPIUrl(Text _Url) {
+	G_APIUrl_Competition = _Url;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the cheers API url
+ *
+ *	@param	_Url											The base url of the API
+ */
+Void SetCheersAPIUrl(Text _Url) {
+	G_APIUrl_Cheers = _Url;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the league ranking from the API
+Void UpdateLeagueRanking() {
+	G_LeagueRankingIsValid = False;
+
+	// Destroy previous request if any
+	if (G_LeagueRankingRequestId != NullId && Http.Requests.existskey(G_LeagueRankingRequestId)) {
+		Http.Destroy(Http.Requests[G_LeagueRankingRequestId]);
+		G_LeagueRankingRequestId = NullId;
+	}
+
+	// Send new request
+	declare Text Headers;
+	Headers ^= "Accept: application/json\n";
+
+	declare CHttpRequest Request;
+	if (Http.IsValidUrl(G_APIUrl_Competition^"/leaderboard?length="^C_NumberOfPlayers)) {
+		Request <=> Http.CreateGet(G_APIUrl_Competition^"/leaderboard?length="^C_NumberOfPlayers, False, Headers);
+	}
+
+	if (Request != Null) {
+		G_LeagueRankingRequestId = Request.Id;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if an update of the league
+ *	ranking is ongoing
+ *
+ *	@return														True if there's an ongoing update
+ *																		False otherwise
+ */
+Boolean IsUpdatingLeagueRanking() {
+	return (G_LeagueRankingRequestId != NullId && Http.Requests.existskey(G_LeagueRankingRequestId) && !Http.Requests[G_LeagueRankingRequestId].IsCompleted);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the current league ranking
+ *	is valid
+ *
+ *	@return														True if it's valid
+ *																		False otherwise
+ */
+Boolean LeagueRankingIsValid() {
+	return G_LeagueRankingIsValid;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Parse the result of the cheers request
+ *
+ *	@param	_RequestResult						The result of the request
+ *
+ *	@return														The parsed result
+ */
+LeagueRanking::K_Cheers ParseCheersResponse(Text _RequestResult) {
+	declare LeagueRanking::K_Cheers Cheers;
+
+	Cheers.cheers = [];
+	Cheers.cheers.fromjson(_RequestResult);
+
+	Cheers.total_cheers = 0;
+	foreach (CheersNb in Cheers.cheers) {
+		Cheers.total_cheers += CheersNb;
+	}
+
+	Cheers.hearts = [];
+	declare Integer[Text] SortedCheers = Cheers.cheers.sortreverse();
+	declare Integer HeartsNb = C_MaxHeartsNb;
+	foreach (AccountId => CheersNb in SortedCheers) {
+		if (CheersNb > 0) {
+			Cheers.hearts[AccountId] = HeartsNb;
+			if (HeartsNb > 0) HeartsNb -= 1;
+		}
+	}
+
+	return Cheers;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Parse the result of the league ranking request
+ *
+ *	@param	_RequestResult						The result of the request
+ *
+ *	@return														The parsed result
+ */
+LeagueRanking::K_LeagueRanking ParseLeagueRankingResponse(Text _RequestResult) {
+	declare LeagueRanking::K_LeagueRankingFromAPI LeagueRankingFromAPI;
+	LeagueRankingFromAPI.fromjson("""{ ranking: {{{_RequestResult}}} }""");
+
+	declare LeagueRanking::K_LeagueRanking LeagueRanking;
+	foreach (Player in LeagueRankingFromAPI.ranking) {
+		declare WebServicesUserId = Player.participant;
+		LeagueRanking.ranking[WebServicesUserId] = LeagueRanking::K_LeagueRankingPlayer {
+			participant = WebServicesUserId,
+			rank = Player.rank,
+			old_rank = Player.old_rank,
+			score = Player.score
+		};
+	}
+
+	return LeagueRanking;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Force an update of the league ranking
+Void UpdateLeagueRankingWithScores() {
+	// Get the points from the previous steps in the league
+	declare Integer[Text] LeaguePoints;
+	declare Integer[Text] LeagueRank;
+	foreach (Player in G_LeagueRanking.ranking) {
+		LeaguePoints[Player.participant] = Player.score;
+		LeagueRank[Player.participant] = Player.rank;
+	}
+	// Add the current step points
+	foreach (Score in Scores) {
+		if (LeaguePoints.existskey(Score.User.WebServicesUserId)) {
+			LeaguePoints[Score.User.WebServicesUserId] += Score.Points;
+		}
+	}
+	// Update the ranking
+	LeaguePoints = LeaguePoints.sortreverse();
+	declare LeagueRanking::K_LeagueRanking LeagueRankingWithScores;
+	declare Integer Rank = 1;
+	foreach (WebServicesUserId => Points in LeaguePoints) {
+		LeagueRankingWithScores.ranking[WebServicesUserId] = LeagueRanking::K_LeagueRankingPlayer {
+			participant = WebServicesUserId,
+			rank = Rank,
+			old_rank = LeagueRank[WebServicesUserId],
+			score = Points
+		};
+		Rank += 1;
+	}
+
+	declare netwrite LeagueRanking::K_LeagueRanking Net_Champion_LeagueRanking_LeagueRanking for Teams[0];
+	declare netwrite Integer Net_Champion_LeagueRanking_LeagueRankingUpdate for Teams[0];
+	Net_Champion_LeagueRanking_LeagueRanking = LeagueRankingWithScores;
+	Net_Champion_LeagueRanking_LeagueRankingUpdate = Now;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the number of players in the ranking
+ *
+ * @return The number of players.
+ */
+Integer GetLeagueRankingPlayerCount() {
+	declare netwrite LeagueRanking::K_LeagueRanking Net_Champion_LeagueRanking_LeagueRanking for Teams[0];
+	return Net_Champion_LeagueRanking_LeagueRanking.ranking.count;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the league ranking
+ *
+ * @return The league ranking.
+ */
+LeagueRanking::K_LeagueRanking GetLeagueRanking() {
+	declare netwrite LeagueRanking::K_LeagueRanking Net_Champion_LeagueRanking_LeagueRanking for Teams[0];
+	return Net_Champion_LeagueRanking_LeagueRanking;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the account id of the player to cheer
+ *	If several players have the same
+ *	amount of cheers select one at random
+ *	Do not cheer for the same player
+ *	two times in a row
+ */
+Text GetAccountIdToCheer() {
+	// Compute the cheers evolution since the last update
+	declare Integer[Text] CheersEvolution;
+	foreach (AccountId => Cheers in G_Cheers.cheers) {
+		if (G_PrevCheers.existskey(AccountId))  {
+			CheersEvolution[AccountId] = Cheers - G_PrevCheers[AccountId];
+		} else {
+			CheersEvolution[AccountId] = Cheers;
+		}
+	}
+
+	// Select the players who got the most cheers
+	declare Text[] AccountIds = [];
+	declare Integer MaxCheers = 0;
+	foreach (AccountId => Cheers in CheersEvolution) {
+		if (AccountId != G_PrevCheerAccountId) {
+			if (Cheers == MaxCheers) {
+				if (!AccountIds.exists(AccountId)) {
+					AccountIds.add(AccountId);
+				}
+			} else if (Cheers > MaxCheers) {
+				MaxCheers = Cheers;
+				AccountIds = [AccountId];
+			}
+		}
+	}
+
+	G_PrevCheerAccountId = "";
+	if (AccountIds.count > 0) {
+		G_PrevCheerAccountId = AccountIds[ML::Rand(0, AccountIds.count - 1)];
+	}
+
+	return G_PrevCheerAccountId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (G_APIUrl_Cheers != "" && Now >= G_NextCheersUpdate) {
+		G_NextCheersUpdate = Now + C_CheersUpdateFrequency;
+
+		// Destroy previous request if any
+		if (G_CheersRequestId != NullId && Http.Requests.existskey(G_CheersRequestId)) {
+			Http.Destroy(Http.Requests[G_CheersRequestId]);
+			G_CheersRequestId = NullId;
+		}
+
+		// Send new request
+		declare Text Headers;
+		Headers ^= "Accept: application/json\n";
+
+		declare CHttpRequest Request;
+		if (Http.IsValidUrl(G_APIUrl_Cheers^"/cheers")) {
+			Request <=> Http.CreateGet(G_APIUrl_Cheers^"/cheers", False, Headers);
+		}
+
+		if (Request != Null) {
+			G_CheersRequestId = Request.Id;
+		}
+	}
+
+	if (G_CheersRequestId != NullId && Http.Requests.existskey(G_CheersRequestId)) {
+		if (Http.Requests[G_CheersRequestId].IsCompleted) {
+
+			declare Request <=> Http.Requests[G_CheersRequestId];
+			if (Request.StatusCode >= 200 && Request.StatusCode <= 299) {
+				G_PrevCheers = G_Cheers.cheers;
+				G_Cheers = ParseCheersResponse(Request.Result);
+				UIModules_ScoresTable::SetHearts(G_Cheers.hearts);
+				UIModules_LiveRanking::SetCheers(G_Cheers);
+				UIModules_CheersCounter::SetCheers(G_Cheers.total_cheers);
+			}
+
+			Http.Destroy(Request);
+			G_CheersRequestId = NullId;
+		}
+	}
+
+	if (G_LeagueRankingRequestId != NullId && Http.Requests.existskey(G_LeagueRankingRequestId)) {
+		if (Http.Requests[G_LeagueRankingRequestId].IsCompleted) {
+			declare Request <=> Http.Requests[G_LeagueRankingRequestId];
+			if (Request.StatusCode >= 200 && Request.StatusCode <= 299) {
+				G_LeagueRanking = ParseLeagueRankingResponse(Request.Result);
+				UpdateLeagueRankingWithScores();
+				G_LeagueRankingIsValid = True;
+			} else {
+				G_LeagueRankingIsValid = False;
+			}
+
+			Http.Destroy(Request);
+			G_LeagueRankingRequestId = NullId;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	G_APIUrl_Competition = "";
+	G_APIUrl_Cheers = "";
+	G_NextCheersUpdate = Now;
+	if (G_CheersRequestId != NullId && Http.Requests.existskey(G_CheersRequestId)) {
+		Http.Destroy(Http.Requests[G_CheersRequestId]);
+		G_CheersRequestId = NullId;
+	}
+	if (G_LeagueRankingRequestId != NullId && Http.Requests.existskey(G_LeagueRankingRequestId)) {
+		Http.Destroy(Http.Requests[G_LeagueRankingRequestId]);
+		G_LeagueRankingRequestId = NullId;
+	}
+
+	G_LeagueRankingIsValid = False;
+	G_LeagueRanking = LeagueRanking::K_LeagueRanking {};
+	G_Cheers = LeagueRanking::K_Cheers {};
+	G_PrevCheers = [];
+	G_PrevCheerAccountId = "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+
+}

@@ -1,0 +1,682 @@
+/**
+ *	Component: Rankings
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Components/Rankings.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as Grid
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/PlayerName.Script.txt" as PlayerName
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/Trackmania/Components/RankingSelection.Script.txt" as RankingSelection
+#Include "Libs/Nadeo/Trackmania/Components/ZoneSelection.Script.txt" as ZoneSelection
+#Include "Libs/Nadeo/Trackmania/Stores/ClubStore_ML.Script.txt" as ClubStore
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "MathLib" as ML
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-rankings" //< Component name
+#Const P "ComponentRankings_" //< Prefix used to differentiate functions/variables in the script
+#Const C_NavZone "ComponentRankings_quad-activation"
+#Const C_NavGroupName "ComponentRankings_NavGroup"
+
+#Const C_NumberOf_RanksInList 5
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+
+	/* map rankings list */
+	declare Text ML_Rankings = "";
+	declare Real PersonnalRankSpacing = 4.;
+	declare Vec2 Size_Background = <76., 5.5>;
+	declare Grid::K_GridConfig GridConfig = Grid::Create(0., 0., 0., Grid::C_Direction_Bottom);
+	for (RankingIndex, 0, C_NumberOf_RanksInList-1) {
+		GridConfig = Grid::AddRow(GridConfig, RankingIndex, Size_Background.Y, Grid::C_Align_Center);
+		declare Text UpTarget = P^"frame-region-ranking-"^ML::Clamp(RankingIndex-1, 0, C_NumberOf_RanksInList-1);
+		declare Text DownTarget = P^"frame-region-ranking-"^ML::Clamp(RankingIndex+1, 0, C_NumberOf_RanksInList-1);
+		ML_Rankings ^= """
+			<frameinstance
+				id="{{{P}}}frame-region-ranking-{{{RankingIndex}}}"
+				modelid="{{{P}}}framemodel-region-ranking"
+				class="{{{Grid::C_Class_Element}}} {{{Navigation::C_Class}}}"
+				data-grid-row="{{{RankingIndex}}}"
+				data-nav-inputs="select;cancel;down;up"
+				data-nav-targets="_;_;{{{DownTarget}}};{{{UpTarget}}}"
+				data-nav-group="{{{C_NavGroupName}}}"
+				data-nav-zone="{{{P}}}quad-activation-ranking"
+				data-nav-locked="1"
+				hidden="1"
+			/>
+		""";
+	}
+	GridConfig = Grid::SetSize(GridConfig, Size_Background.Y * GridConfig.Columns.count);
+	declare Text GridConfigJson = GridConfig.tojson();
+	declare Vec2 Size_FrameHitbox = <
+		Size_Background.X + MLHelpers::SkewX(GridConfig.Size + PersonnalRankSpacing + Size_Background.Y, 10.),
+		GridConfig.Size + PersonnalRankSpacing + Size_Background.Y
+	>;
+
+	return MV::Component(
+		C_Name,
+"""
+<stylesheet>
+	<style class="{{{P}}}quad-default" halign="center" valign="center" />
+	<style class="{{{P}}}text-semibold" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="FFF" textprefix="$i"/>
+	<style class="{{{P}}}text-extrabold" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textcolor="FFF" textprefix="$i"/>
+</stylesheet>
+
+<framemodel id="{{{P}}}framemodel-region-ranking">
+	<frameinstance id="{{{P}}}frame-background" modelid="{{{ExpendableAsset::C_Name}}}" data-width="{{{Size_Background.X}}}" data-height="{{{Size_Background.Y}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" data-opacity="0." data-halign="left" z-index="0"/>
+	<quad id="{{{P}}}quad-activation-ranking" size="{{{Size_Background.X}}} {{{Size_Background.Y}}}" class="{{{Navigation::C_Class_ActivationZone}}} {{{P}}}quad-default" opacity="0." halign="left" scriptevents="1" z-index="10"/>
+	<label id="{{{P}}}label-rank" class="{{{P}}}text-extrabold" pos="9 -0.3" size="7 {{{Size_Background.Y}}}" textsize="3" halign="right" z-index="1"/>
+	<frameinstance id="{{{P}}}playername-name" modelid="{{{PlayerName::C_Name}}}" pos="12 -0.3" data-size="35 {{{Size_Background.Y}}}" data-valign="center" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-textsize="2.5" z-index="1" />
+	<label id="{{{P}}}label-score" class="{{{P}}}text-semibold" pos="74 -0.3" size="20 {{{Size_Background.Y}}}" textsize="2.5" halign="right" z-index="1"/>
+</framemodel>
+<framemodel id="{{{P}}}framemodel-campaign-top">
+	<label id="{{{P}}}label-position" class="{{{P}}}text-semibold" pos="4 0" size="10 1" halign="left" textsize="3.5" italicslope=".2" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"/>
+	<label id="{{{P}}}label-zone" class="{{{P}}}text-extrabold" size="65 1" halign="right" textsize="3.5" textprefix="$i$t" italicslope=".2"/>
+</framemodel>
+
+<frame id="{{{P}}}frame-rankings-align" class="{{{P}}}frame-container-rankings">
+	<frame z-index="1" id="{{{P}}}frame-navigation-container" class="{{{Navigation::C_Class_Container}}}">
+		<frame id="{{{P}}}frame-hitbox-clip" size="{{{Size_FrameHitbox.X*1.5}}} {{{Size_FrameHitbox.Y}}}" halign="center" valign="center" z-index="10" >
+			<quad id="{{{C_NavZone}}}" class="{{{Navigation::C_Class_ActivationZone}}}" size="{{{Size_FrameHitbox.X - MLHelpers::SkewX(Size_FrameHitbox.Y, 10.)}}} {{{Size_FrameHitbox.Y*1.5}}}" rot="10" halign="center" valign="center" opacity="0" scriptevents="1"/>
+		</frame>
+
+		<frame id="{{{P}}}frame-rankings" class="{{{Grid::C_Class_Container}}}" pos="{{{MLHelpers::Skew(-Size_Background.X/2., (GridConfig.Size + Size_Background.Y + PersonnalRankSpacing)/2., 10.)}}}">
+			{{{ML_Rankings}}}
+			<frameinstance
+				id="{{{P}}}frame-region-ranking-personnal"
+				pos="{{{MLHelpers::Skew(0., -GridConfig.Size - Size_Background.Y/2 - PersonnalRankSpacing, 10.)}}}"
+				modelid="{{{P}}}framemodel-region-ranking"
+				hidden="1"
+			/>
+		</frame>
+
+		<frame id="{{{P}}}frame-tops" pos="{{{MLHelpers::Skew(15., 0., 10.)}}}" z-index="1">
+			<frameinstance modelid="{{{P}}}framemodel-campaign-top" id="{{{P}}}frameinstance-campaign-top-{{{ZoneSelection::C_ZoneLevel_County}}}" pos="{{{MLHelpers::Skew(0., 6., 10.)}}}" data-zonelevel="{{{ZoneSelection::C_ZoneLevel_County}}}"/>
+			<frameinstance modelid="{{{P}}}framemodel-campaign-top" id="{{{P}}}frameinstance-campaign-top-{{{ZoneSelection::C_ZoneLevel_Country}}}" pos="{{{MLHelpers::Skew(0., 0., 10.)}}}" data-zonelevel="{{{ZoneSelection::C_ZoneLevel_Country}}}"/>
+			<frameinstance modelid="{{{P}}}framemodel-campaign-top" id="{{{P}}}frameinstance-campaign-top-{{{ZoneSelection::C_ZoneLevel_World}}}" pos="{{{MLHelpers::Skew(0., -6., 10.)}}}" data-zonelevel="{{{ZoneSelection::C_ZoneLevel_World}}}"/>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as {{{P}}}TL
+#Include "ColorLib" as {{{P}}}CL
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as {{{P}}}Grid
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as {{{P}}}Tools
+#Include "Libs/Nadeo/Trackmania/RBAC.Script.txt" as {{{P}}}RBAC
+
+#Const {{{P}}}C_Zone_Translations {{{dump(Const::C_Zone_Translations)}}}
+
+#Const {{{P}}}C_EventType_Select 0
+
+#Struct {{{P}}}K_Rankings {
+	{{{CampaignStruct::P}}}K_TopRanking[] ZoneTopRankings;
+	{{{CampaignStruct::P}}}K_Top[] ClubTopRankings;
+	{{{CampaignStruct::P}}}K_Top ClubPlayerRanking;
+}
+
+#Struct {{{P}}}K_Properties {
+	Boolean IsFocused;
+	Boolean IsLocked;
+	Boolean IsRegionRankings;
+	CMlControl LastControlFocused;
+	Text HAlign;
+	Text VAlign;
+	{{{CampaignStruct::P}}}K_Ranking[] Tops;
+	{{{P}}}K_Rankings Rankings;
+}
+
+#Struct {{{P}}}K_Event {
+	Integer Type;
+	Text AccountId;
+}
+		""",
+		"""
+declare {{{P}}}K_Event[] {{{P}}}PendingEvents;
+declare Integer {{{P}}}G_DisplayType;
+declare CMlFrame[] {{{P}}}G_RegionRankings;
+declare {{{P}}}Grid::K_GridConfig {{{P}}}G_GridConfig;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Lock the navigation inside the component
+Void {{{P}}}LockNavigation(CMlFrame _Frame_RegionRanking, Boolean _IsLocked) {
+	if (_Frame_RegionRanking == Null) return;
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRanking;
+	assert({{{P}}}Properties.IsRegionRankings, "Control '"^_Frame_RegionRanking.ControlId^"' is not Rankings component.");
+
+	{{{Navigation::P}}}EnableContainer(This, _Frame_RegionRanking.GetFirstChild("{{{P}}}frame-navigation-container") as CMlFrame, !_IsLocked);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Handle the focus inside the component
+Void {{{P}}}Private_FocusRegionRanking({{{P}}}K_Properties _Properties, CMlFrame _Frame_RegionRanking, Boolean _IsFocused) {
+	if (_Frame_RegionRanking == Null || !{{{Navigation::P}}}IsNavigationControl(_Frame_RegionRanking)) return;
+
+	declare CMlFrame Frame_Background = (_Frame_RegionRanking.GetFirstChild("{{{P}}}frame-background") as CMlFrame);
+	declare CMlLabel Label_Rank <=> (_Frame_RegionRanking.GetFirstChild("{{{P}}}label-rank") as CMlLabel);
+	declare CMlFrame PlayerName_Name <=> (_Frame_RegionRanking.GetFirstChild("{{{P}}}playername-name") as CMlFrame);
+	declare CMlLabel Label_Score <=> (_Frame_RegionRanking.GetFirstChild("{{{P}}}label-score") as CMlLabel);
+	declare Text AccountId for _Frame_RegionRanking;
+
+	AnimMgr.Flush(Label_Rank);
+	AnimMgr.Flush(Label_Score);
+
+	if (!_Properties.IsFocused) {
+		{{{PlayerName::P}}}SetOpacity(This, PlayerName_Name, 1., 250);
+		AnimMgr.Add(Label_Rank, "<anim opacity=\"1.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Label_Score, "<anim opacity=\"1.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Background, 0.);
+	} else if (_IsFocused) {
+		{{{PlayerName::P}}}SetOpacity(This, PlayerName_Name, 1., 250);
+		AnimMgr.Add(Label_Rank, "<anim opacity=\"1.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Label_Score, "<anim opacity=\"1.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Background, 0.6);
+	} else {
+		{{{PlayerName::P}}}SetOpacity(This, PlayerName_Name, 0.8, 250);
+		AnimMgr.Add(Label_Rank, "<anim opacity=\"0.8\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Label_Score, "<anim opacity=\"0.8\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Background, 0.);
+	}
+
+	// Text to speech
+	if (_IsFocused) {{{PlayerName::P}}}TTS_Focus(PlayerName_Name);
+	else {{{PlayerName::P}}}TTS_Unfocus(PlayerName_Name);
+}
+Void {{{P}}}Private_FocusRegionRankings({{{P}}}K_Properties _Properties, CMlFrame _Frame_RegionRankings, Boolean _IsFocused) {
+	foreach (Control_RegionRanking in _Frame_RegionRankings.Controls) {
+		{{{P}}}Private_FocusRegionRanking(_Properties, Control_RegionRanking as CMlFrame, _IsFocused);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Handle the focus inside the component
+Void {{{P}}}Private_InnerFocus(CMlFrame _Frame_RegionRankings, CMlControl _From, CMlControl _To) {
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	assert({{{P}}}Properties.IsRegionRankings, "Control '"^_Frame_RegionRankings.ControlId^"' is not a Rankings component.");
+	if ({{{P}}}Properties.IsLocked) return;
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		{{{P}}}Private_FocusRegionRanking({{{P}}}Properties, _From as CMlFrame, False);
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		{{{P}}}Private_FocusRegionRanking({{{P}}}Properties, _To as CMlFrame, True);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	The component is focused by the Navigation component
+Void {{{P}}}Focus(CMlFrame _Frame_RegionRankings) {
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	assert({{{P}}}Properties.IsRegionRankings, "Control '"^_Frame_RegionRankings.ControlId^"' is not a Rankings component.");
+	if ({{{P}}}Properties.IsLocked) return;
+
+	if ({{{P}}}Properties.IsFocused == False) {
+		declare CMlQuad Quad_Activation <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}quad-activation") as CMlQuad);
+		declare CMlFrame Frame_NavigationContainer <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-navigation-container") as CMlFrame);
+		declare CMlFrame Frame_Rankings <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-rankings") as CMlFrame);
+
+		// Enable navigation
+		{{{P}}}Properties.IsFocused = True;
+		Quad_Activation.Visible = !{{{P}}}Properties.IsFocused;
+		{{{Navigation::P}}}EnableContainer(This, Frame_NavigationContainer, {{{P}}}Properties.IsFocused);
+
+		// Entering counter component - focus the default button if possible
+		AnimMgr.Flush(_Frame_RegionRankings);
+		AnimMgr.Add(_Frame_RegionRankings, "<anim scale=\"1.05\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{P}}}Private_FocusRegionRankings({{{P}}}Properties, Frame_Rankings, False);
+		if ({{{P}}}Properties.LastControlFocused != Null && !{{{Navigation::P}}}IsLocked({{{P}}}Properties.LastControlFocused)) {
+			{{{P}}}Private_InnerFocus(_Frame_RegionRankings, {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), {{{P}}}Properties.LastControlFocused);
+		} else {
+			{{{P}}}Private_InnerFocus(_Frame_RegionRankings, {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), Frame_Rankings.Controls[0]);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	The component is unfocused by the Navigation component
+Void {{{P}}}Unfocus(CMlFrame _Frame_RegionRankings) {
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	assert({{{P}}}Properties.IsRegionRankings, "Control '"^_Frame_RegionRankings.ControlId^"' is not a Rankings component.");
+	if ({{{P}}}Properties.IsLocked) return;
+
+	if ({{{P}}}Properties.IsFocused == True) {
+		declare CMlQuad Quad_Activation <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}quad-activation") as CMlQuad);
+		declare CMlFrame Frame_NavigationContainer <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-navigation-container") as CMlFrame);
+		declare CMlFrame Frame_Rankings <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-rankings") as CMlFrame);
+
+		// Disable navigation
+		{{{P}}}Properties.IsFocused = False;
+		{{{P}}}Properties.LastControlFocused = {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}");
+		Quad_Activation.Visible = !{{{P}}}Properties.IsFocused;
+		{{{Navigation::P}}}EnableContainer(This, Frame_NavigationContainer, {{{P}}}Properties.IsFocused);
+
+		// Leaving counter component - unfocus buttons
+		AnimMgr.Flush(_Frame_RegionRankings);
+		AnimMgr.Add(_Frame_RegionRankings, "<anim scale=\"1.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{P}}}Private_InnerFocus(_Frame_RegionRankings, {{{P}}}Properties.LastControlFocused, Null);
+		{{{P}}}Private_FocusRegionRankings({{{P}}}Properties, Frame_Rankings, False);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Getters
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Boolean {{{P}}}IsRegionRankings(CMlControl _Frame_RegionRankings) {
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	return {{{P}}}Properties.IsRegionRankings;
+}
+
+Boolean {{{P}}}IsFocused(CMlControl _Frame_RegionRankings) {
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	return {{{P}}}Properties.IsFocused;
+}
+
+Boolean {{{P}}}IsTopDisplayed() {
+	return {{{P}}}G_DisplayType == {{{RankingSelection::P}}}C_Display_Medals;
+}
+
+Boolean {{{P}}}GetBooleanAttribute(CMlControl _Control, Text _AttributeName) {
+	if (_Control.DataAttributeExists(_AttributeName)) {
+		declare Text AttributeValue = _Control.DataAttributeGet(_AttributeName);
+		if (AttributeValue == "1" || {{{P}}}TL::ToLowerCase(AttributeValue) == "true") {
+			return True;
+		}
+	}
+	return False;
+}
+
+Void {{{P}}}UpdateRankingDisplayed(CMlFrame _Frame_RegionRankings, Integer _DisplayType) {
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	assert({{{P}}}Properties.IsRegionRankings, "Control '"^_Frame_RegionRankings.ControlId^"' is not a Rankings component.");
+
+	declare CMlFrame Frame_Rankings <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-rankings") as CMlFrame);
+	declare CMlFrame Frame_Tops <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-tops") as CMlFrame);
+
+	{{{P}}}G_DisplayType = _DisplayType;
+	Frame_Tops.Visible = {{{P}}}G_DisplayType == {{{RankingSelection::P}}}C_Display_Medals;
+	Frame_Rankings.Visible = {{{P}}}G_DisplayType == {{{RankingSelection::P}}}C_Display_ZoneRankings || {{{P}}}G_DisplayType == {{{RankingSelection::P}}}C_Display_ClubRankings;
+	if ({{{Navigation::P}}}IsNavigationControl(_Frame_RegionRankings)) {
+		{{{Navigation::P}}}Lock(_Frame_RegionRankings, !Frame_Rankings.Visible);
+	}
+}
+
+Void {{{P}}}Private_UpdateRegionRanking({{{P}}}K_Properties _Properties, {{{CampaignStruct::P}}}K_Top _NewPlayerTop, CMlFrame _Frame_RegionRanking) {
+	if (_Frame_RegionRanking == Null) return;
+
+	declare CMlLabel Label_Rank <=> (_Frame_RegionRanking.GetFirstChild("{{{P}}}label-rank") as CMlLabel);
+	declare CMlFrame PlayerName_Name <=> (_Frame_RegionRanking.GetFirstChild("{{{P}}}playername-name") as CMlFrame);
+	declare CMlLabel Label_Score <=> (_Frame_RegionRanking.GetFirstChild("{{{P}}}label-score") as CMlLabel);
+	declare CMlFrame Frame_Background <=> (_Frame_RegionRanking.GetFirstChild("{{{P}}}frame-background") as CMlFrame);
+	declare Text AccountId for _Frame_RegionRanking;
+	AccountId = _NewPlayerTop.AccountId;
+
+	if (_NewPlayerTop.Position <= 0) {
+		Label_Rank.Value = "-";
+	} else {
+		Label_Rank.Value = {{{P}}}Tools::FormatTop(_NewPlayerTop.Position, False, 10000);
+	}
+	{{{P}}}Tools::FitLabelValue(Label_Rank, 3., 1., 0.2);
+
+	if (_NewPlayerTop.AccountId == "") {
+		PlayerName_Name.Visible = False;
+	} else {
+		PlayerName_Name.Visible = True;
+		{{{PlayerName::P}}}SetAccountId(This, PlayerName_Name, _NewPlayerTop.AccountId, False);
+	}
+
+	if ({{{P}}}TL::ToInteger(_NewPlayerTop.SP) < 0) {
+		Label_Score.Value = "-";
+	} else {
+		Label_Score.Value = _NewPlayerTop.SP;
+	}
+
+	if (_Frame_RegionRanking.ControlId != "{{{P}}}frame-region-ranking-personnal") {
+		if (_NewPlayerTop.AccountId == LocalUser.WebServicesUserId) {
+			Label_Rank.TextColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+			{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}});
+			Label_Score.TextColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+		} else {
+			Label_Rank.TextColor = <1., 1., 1.>;
+			{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, <1., 1., 1.>);
+			Label_Score.TextColor = <1., 1., 1.>;
+		}
+	}
+
+	_Frame_RegionRanking.Show();
+	{{{P}}}Private_FocusRegionRanking(_Properties, _Frame_RegionRanking, {{{Navigation::P}}}IsFocused(This, _Frame_RegionRanking, "{{{C_NavGroupName}}}"));
+	if ({{{Navigation::P}}}IsNavigationControl(_Frame_RegionRanking)) {
+		{{{Navigation::P}}}Lock(_Frame_RegionRanking, False);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Clear rankings
+Void {{{P}}}Private_ClearRankings(CMlFrame _Frame_RegionRankings) {
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	declare CMlFrame Frame_Rankings <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-rankings") as CMlFrame);
+	declare CMlFrame Frame_RegionRankingPersonnal <=> (Frame_Rankings.GetFirstChild("{{{P}}}frame-region-ranking-personnal") as CMlFrame);
+
+	Frame_RegionRankingPersonnal.Hide();
+	foreach (Index => Control_RegionRanking in Frame_Rankings.Controls) {
+		if (Control_RegionRanking.ControlId == Frame_RegionRankingPersonnal.ControlId) {
+			{{{P}}}Private_UpdateRegionRanking({{{P}}}Properties, {{{CampaignStruct::P}}}K_Top { DisplayName = {{{UserStore::P}}}GetPlayerName(LocalUser), AccountId = LocalUser.WebServicesUserId, SP = "" }, Control_RegionRanking as CMlFrame);
+		} else {
+			{{{P}}}Private_UpdateRegionRanking({{{P}}}Properties, {{{CampaignStruct::P}}}K_Top {}, Control_RegionRanking as CMlFrame);
+		}
+	}
+}
+
+Void {{{P}}}UpdateRanking({{{CampaignStruct::P}}}K_TopRanking _NewRanking, CMlFrame _Frame_RegionRankings) {
+	if (_NewRanking.ZoneName == "") return;
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	assert({{{P}}}Properties.IsRegionRankings, "Control '"^_Frame_RegionRankings.ControlId^"' is not a Rankings component.");
+
+	declare CMlFrame Frame_Rankings <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-rankings") as CMlFrame);
+	declare CMlFrame Frame_RegionRankingPersonnal <=> (Frame_Rankings.GetFirstChild("{{{P}}}frame-region-ranking-personnal") as CMlFrame);
+
+	{{{P}}}Private_ClearRankings(_Frame_RegionRankings);
+	Frame_RegionRankingPersonnal.Visible = _NewRanking.Tops.count > {{{C_NumberOf_RanksInList}}};
+	foreach (Index => Top in _NewRanking.Tops) {
+		if (Frame_Rankings.Controls.existskey(Index)) {
+			{{{P}}}Private_UpdateRegionRanking({{{P}}}Properties, Top, Frame_Rankings.Controls[Index] as CMlFrame);
+		}
+	}
+
+	Frame_Rankings.Visible = _NewRanking.ZoneName != "";
+}
+
+Boolean {{{P}}}SetRankingUIZone(CMlFrame _Frame_RegionRankings, Integer _ZoneLevel) {
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	assert({{{P}}}Properties.IsRegionRankings, "Control '"^_Frame_RegionRankings.ControlId^"' is not a Rankings component.");
+
+	declare CMlFrame Frame_Rankings = (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-rankings") as CMlFrame);
+	Frame_Rankings.Visible = {{{P}}}G_DisplayType == {{{RankingSelection::P}}}C_Display_ZoneRankings || {{{P}}}G_DisplayType == {{{RankingSelection::P}}}C_Display_ClubRankings;
+	declare Ranking = {{{CampaignStruct::P}}}K_TopRanking {};
+	declare Result = False;
+
+	switch ({{{P}}}G_DisplayType) {
+		case {{{RankingSelection::P}}}C_Display_ZoneRankings: {
+			if ({{{P}}}Properties.Rankings.ZoneTopRankings.existskey(_ZoneLevel)) {
+				Ranking = {{{P}}}Properties.Rankings.ZoneTopRankings[_ZoneLevel];
+				Result = True;
+			}
+		}
+		case {{{RankingSelection::P}}}C_Display_ClubRankings: {
+			if ({{{UserStore::P}}}HasGamePermission(PrivilegeMgr, {{{P}}}RBAC::C_GamePermission_JoinClub)) {
+				declare PinnedClub = {{{ClubStore::P}}}GetUserPinnedClub();
+				declare {{{CampaignStruct::P}}}K_Top[] Tops = {{{P}}}Properties.Rankings.ClubTopRankings;
+				declare Boolean AddPlayerRanking = True;
+				foreach (Top in Tops) {
+					if (Top.AccountId == LocalUser.WebServicesUserId) {
+						AddPlayerRanking = False;
+						break;
+					}
+				}
+				if (AddPlayerRanking) {
+					Tops.add({{{CampaignStruct::P}}}K_Top {
+						AccountId = LocalUser.WebServicesUserId,
+						DisplayName = {{{UserStore::P}}}GetPlayerName(LocalUser),
+						Position = {{{P}}}Properties.Rankings.ClubPlayerRanking.Position,
+						SP = {{{P}}}Properties.Rankings.ClubPlayerRanking.SP
+					});
+				}
+				Ranking = {{{CampaignStruct::P}}}K_TopRanking {
+					ZoneName = PinnedClub.Name,
+					Tops = Tops
+				};
+			} else {
+				if ({{{P}}}Properties.Rankings.ZoneTopRankings.existskey(_ZoneLevel)) Ranking = {{{P}}}Properties.Rankings.ZoneTopRankings[_ZoneLevel];
+			}
+		}
+	}
+
+	{{{P}}}UpdateRanking(Ranking, _Frame_RegionRankings);
+	{{{P}}}Grid::Update({{{P}}}G_GridConfig, AnimMgr, Frame_Rankings, 10., False, False);
+	return Result;
+}
+
+Boolean {{{P}}}IsZoneLevelValid(CMlFrame _Frame_RegionRankings, Integer _ZoneLevel) {
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	assert({{{P}}}Properties.IsRegionRankings, "Control '"^_Frame_RegionRankings.ControlId^"' is not a Rankings component.");
+
+	switch ({{{P}}}G_DisplayType) {
+		case {{{RankingSelection::P}}}C_Display_ZoneRankings: {
+			return {{{P}}}Properties.Rankings.ZoneTopRankings.existskey(_ZoneLevel);
+		}
+		case {{{RankingSelection::P}}}C_Display_ClubRankings: return False;
+	}
+	return False;
+}
+
+Void {{{P}}}SetRankingsInRankingControl(
+	CMlFrame _Frame_RegionRankings,
+	{{{CampaignStruct::P}}}K_TopRanking[] _NewRankings,
+	{{{CampaignStruct::P}}}K_Top[] _ClubTopRankings,
+	{{{CampaignStruct::P}}}K_Top _ClubPlayerRanking,
+	Integer _ZoneLevel
+) {
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	assert({{{P}}}Properties.IsRegionRankings, "Control '"^_Frame_RegionRankings.ControlId^"' is not a Rankings component.");
+
+	{{{P}}}Properties.Rankings.ZoneTopRankings = _NewRankings;
+	{{{P}}}Properties.Rankings.ClubTopRankings = _ClubTopRankings;
+	{{{P}}}Properties.Rankings.ClubPlayerRanking = _ClubPlayerRanking;
+
+	{{{P}}}SetRankingUIZone(_Frame_RegionRankings, _ZoneLevel);
+}
+
+Void {{{P}}}Private_SetTopInRankingControl(CMlFrame _Frame_RegionRankings) {
+	if ({{{P}}}G_DisplayType != {{{RankingSelection::P}}}C_Display_Medals) return;
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	assert({{{P}}}Properties.IsRegionRankings, "Control '"^_Frame_RegionRankings.ControlId^"' is not a Rankings component.");
+
+	declare CMlFrame Frame_Tops <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-tops") as CMlFrame);
+
+	foreach (Control in Frame_Tops.Controls) {
+		declare CMlFrame Frame_Top = (Control as CMlFrame);
+		if (Frame_Top.DataAttributeExists("zonelevel")) {
+			declare Integer ZoneLevel = {{{P}}}TL::ToInteger(Frame_Top.DataAttributeGet("zonelevel"));
+			if ({{{P}}}Properties.Tops.existskey(ZoneLevel)) {
+				(Frame_Top.GetFirstChild("{{{P}}}label-position") as CMlLabel).Value = {{{P}}}Tools::FormatTop({{{P}}}Properties.Tops[ZoneLevel].Position, False, 10000);
+
+				declare Text TranslatedZone = {{{P}}}C_Zone_Translations.get({{{P}}}Properties.Tops[ZoneLevel].ZoneName, "");
+				if (TranslatedZone == "") TranslatedZone = TL::GetTranslatedText({{{P}}}Properties.Tops[ZoneLevel].ZoneName);
+				(Frame_Top.GetFirstChild("{{{P}}}label-zone") as CMlLabel).Value = TranslatedZone;
+				Frame_Top.Show();
+			} else {
+				Frame_Top.Hide();
+			}
+		}
+	}
+
+	Frame_Tops.Visible = {{{P}}}G_DisplayType == {{{RankingSelection::P}}}C_Display_Medals;
+	{{{Navigation::P}}}Lock(_Frame_RegionRankings, Frame_Tops.Visible);
+}
+
+Void {{{P}}}SetTopInRankingsControl(CMlFrame _Frame_RegionRankings, {{{CampaignStruct::P}}}K_Ranking[] _NewTops) {
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	assert({{{P}}}Properties.IsRegionRankings, "Control '"^_Frame_RegionRankings.ControlId^"' is not a Rankings component.");
+	{{{P}}}Properties.Tops = _NewTops;
+	{{{P}}}Private_SetTopInRankingControl(_Frame_RegionRankings);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Initialize the component
+Void {{{P}}}InitRegionRankings(CMlFrame _Frame_RegionRankings)	{
+	if (_Frame_RegionRankings == Null) return;
+
+	declare CMlFrame Frame_Align <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-rankings-align") as CMlFrame);
+	declare CMlFrame Frame_RegionRankingPersonnal <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-region-ranking-personnal") as CMlFrame);
+	declare CMlFrame Frame_Rankings <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-rankings") as CMlFrame);
+	declare CMlFrame Frame_Tops <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-tops") as CMlFrame);
+
+	declare {{{P}}}K_Properties {{{P}}}Properties for _Frame_RegionRankings;
+	{{{P}}}Properties = {{{P}}}K_Properties {
+		IsRegionRankings = True,
+		IsLocked = False,
+		IsFocused = False,
+		LastControlFocused = Frame_Rankings.Controls[0],
+		HAlign = {{{P}}}Tools::C_HAlign_Center,
+		VAlign = {{{P}}}Tools::C_VAlign_Center,
+		Tops = [],
+		Rankings = {{{P}}}K_Rankings {
+			ZoneTopRankings = [],
+			ClubTopRankings = [],
+			ClubPlayerRanking = {{{CampaignStruct::P}}}K_Top {}
+		}
+	};
+
+	/* Initialize personnal region ranking */
+	declare CMlFrame Frame_Background = (Frame_RegionRankingPersonnal.GetFirstChild("{{{P}}}frame-background") as CMlFrame);
+	(Frame_RegionRankingPersonnal.GetFirstChild("{{{P}}}label-rank") as CMlLabel).TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_BGDark))}}};
+	{{{PlayerName::P}}}SetTextColor(This, (Frame_RegionRankingPersonnal.GetFirstChild("{{{P}}}playername-name") as CMlFrame), "{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}");
+	(Frame_RegionRankingPersonnal.GetFirstChild("{{{P}}}label-score") as CMlLabel).TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_BGDark))}}};
+	{{{ExpendableAsset::P}}}SetColor(This, Frame_Background, <1., 1., 1.>, False);
+	{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Background, 1., False);
+	{{{ExpendableAsset::P}}}RedrawAsset(This, Frame_Background, False);
+
+	/* Nav inputs */
+	if ({{{Navigation::P}}}IsNavigationControl(_Frame_RegionRankings)) {
+		declare CMlFrame Frame_NavigationContainer <=> (_Frame_RegionRankings.GetFirstChild("{{{P}}}frame-navigation-container") as CMlFrame);
+		foreach (Row_MapRanking in Frame_Rankings.Controls) {
+			if ({{{Navigation::P}}}IsNavigationControl(Row_MapRanking)) {
+				foreach (NavAction => Control in {{{Navigation::P}}}GetControlTargets(_Frame_RegionRankings)) {
+					if (Control != Null) {
+						{{{Navigation::P}}}ChangeControlTarget(This, Frame_NavigationContainer, Row_MapRanking, {{{P}}}Tools::MenuNavActionToText(NavAction), "_");
+					}
+				}
+			}
+		}
+		{{{Navigation::P}}}EnableInputs(_Frame_RegionRankings, False);
+	}
+
+	// Initialize the Rankings state
+	if (_Frame_RegionRankings.DataAttributeExists("halign")) {
+		{{{P}}}Properties.HAlign = _Frame_RegionRankings.DataAttributeGet("halign");
+	}
+	if (_Frame_RegionRankings.DataAttributeExists("valign")) {
+		{{{P}}}Properties.VAlign = _Frame_RegionRankings.DataAttributeGet("valign");
+	}
+
+	{{{P}}}Tools::Align(Frame_Align, {{{Size_FrameHitbox}}}, {{{P}}}Properties.HAlign, {{{P}}}Properties.VAlign);
+	{{{P}}}SetRankingUIZone(_Frame_RegionRankings, {{{ZoneSelection::P}}}C_ZoneLevel_World);
+	{{{P}}}Private_SetTopInRankingControl(_Frame_RegionRankings);
+	{{{P}}}Unfocus(_Frame_RegionRankings);
+}
+
+***MainStart***
+***
+Page.GetClassChildren("{{{P}}}frame-container-rankings", Page.MainFrame, True);
+foreach (Control in Page.GetClassChildren_Result) {
+	declare CMlFrame Frame_RegionRankingsContainer = (Control as CMlFrame);
+	{{{P}}}InitRegionRankings(Frame_RegionRankingsContainer.Parent);
+	{{{P}}}G_RegionRankings.add(Frame_RegionRankingsContainer.Parent);
+}
+
+{{{P}}}G_GridConfig.fromjson({{{"\"\"\""^GridConfigJson^"\"\"\""}}});
+***
+
+***MainLoop***
+***
+{{{P}}}PendingEvents = [];
+
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		case CMlScriptEvent::Type::PluginCustomEvent: {
+			switch (Event.CustomEventType) {
+				case {{{UserStore::P}}}C_Event_UserPermissionsUpdated: {
+					foreach (Frame_RegionRankings in {{{P}}}G_RegionRankings) {
+						{{{P}}}SetRankingUIZone(Frame_RegionRankings, {{{ZoneSelection::P}}}C_ZoneLevel_World);
+						{{{P}}}Private_SetTopInRankingControl(Frame_RegionRankings);
+					}
+				}
+			}
+		}
+	}
+}
+
+/* Navigation events */
+foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+	switch (Event.Type) {
+		case {{{Navigation::P}}}C_EventType_NavigateInput: {
+			if ({{{Navigation::P}}}IsEventFromNestedContainer(This, Event.Container) && Event.Container.ControlId == "{{{P}}}frame-navigation-container") {
+				assert({{{P}}}IsRegionRankings(Event.Container.Parent.Parent), "The manialink has been modified, we do not point to the right frame anymore");
+				declare CMlFrame Frame_RegionRankings = Event.Container.Parent.Parent;
+				if ({{{P}}}IsFocused(Frame_RegionRankings)) {
+					if (Event.Input == CMlScriptEvent::EMenuNavAction::Select && Event.To != Null) {
+						declare Text AccountId for Event.To;
+						{{{P}}}PendingEvents.add({{{P}}}K_Event {
+							Type = {{{P}}}C_EventType_Select,
+							AccountId = AccountId
+						});
+					} else if (Event.From != Null && Event.From == Event.To) {
+						{{{Navigation::P}}}EnableInputs(Frame_RegionRankings, True);
+						{{{Navigation::P}}}ApplyInput(This, Frame_RegionRankings, Event.Input, Event.UserIndex, []);
+						{{{Navigation::P}}}EnableInputs(Frame_RegionRankings, False);
+					} else {
+						{{{P}}}Private_InnerFocus(Frame_RegionRankings, Event.From, Event.To);
+					}
+				}
+			}
+		}
+		case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+			if ({{{Navigation::P}}}IsEventFromNestedContainer(This, Event.Container) && Event.Container.ControlId == "{{{P}}}frame-navigation-container") {
+				assert({{{P}}}IsRegionRankings(Event.Container.Parent.Parent), "The manialink has been modified, we do not point to the right frame anymore");
+				declare CMlFrame Frame_RegionRankings = Event.Container.Parent.Parent;
+				if ({{{P}}}IsFocused(Frame_RegionRankings)) {
+					if (Event.Mouse == CMlScriptEvent::Type::MouseClick && Event.To != Null) {
+						declare Text AccountId for Event.To;
+						{{{P}}}PendingEvents.add({{{P}}}K_Event {
+							Type = {{{P}}}C_EventType_Select,
+							AccountId = AccountId
+						});
+					} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+						{{{P}}}Private_InnerFocus(Frame_RegionRankings, Event.From, Event.To);
+					}
+				}
+			}
+		}
+	}
+}
+***
+
+""",
+[
+	CampaignStruct::Component(),
+	ClubStore::ComponentV2(),
+	ExpendableAsset::ComponentV2(),
+	RankingSelection::ComponentV2(),
+	UserStore::ComponentV2(),
+	ZoneSelection::ComponentV2(),
+	PlayerName::ComponentV2()
+],
+[]
+);
+}

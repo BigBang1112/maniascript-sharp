@@ -1,0 +1,391 @@
+
+/**
+ *	Detects embedable URLs in messages, obtains data and queues messages with ready embeds.
+ */
+
+#Include "ColorLib" as CL
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+// ---------------------------------- //
+// Constants
+// ---------------------------------- //
+#Const C_LibChatEmbeds_LimitPerMessage	2		///< First two URLs only.
+#Const C_LibChatEmbeds_RequestTimeout	2000	///< Message may appear with max 2 seconds delay.
+#Const C_LibChatEmbeds_RequestHeaders	"User-Agent: ManiaPlanet/4.1"
+
+// Embed types
+#Const C_LibChatIntegrations_EmbedType_NotEmbed			0
+#Const C_LibChatIntegrations_EmbedType_Image			1
+#Const C_LibChatIntegrations_EmbedType_OpenGraph		2
+#Const C_LibChatIntegrations_EmbedType_VideoPlayer		3
+#Const C_LibChatIntegrations_EmbedType_AudioPlayer		4
+#Const C_LibChatIntegrations_EmbedType_ManiaPlanetMap	5
+#Const C_LibChatIntegrations_EmbedType_ManiaExchange	6
+#Const C_LibChatIntegrations_EmbedType_TitlePack		7
+#Const C_LibChatIntegrations_EmbedType_PlanetsTransfer	8
+
+// ---------------------------------- //
+// Data structures
+// ---------------------------------- //
+#Struct SChatMessageEmbed {
+	Integer	Type;
+	Text URL;
+	Text Title;
+	Text Description;
+	Text Author;
+	Text ImageProxy;
+	Text ImageURL;
+	Text Provider;
+	Integer Color;
+	Text UID;
+	Text MapType;
+	Integer Planets;
+	Text Sender;
+	Text Recipient;
+}
+
+#Struct SPendingChatMessage {
+	Text RecipientLogin;
+	Text MessageBody;
+	Text EmbedsJSON;
+
+	// "Private"
+	Ident[] RequestsIds;
+	SChatMessageEmbed[] ReadyEmbeds;
+}
+
+// ---------------------------------- //
+// Global variables
+// ---------------------------------- //
+declare SPendingChatMessage[] G_LibChatEmbeds_PendingChatMessages;
+declare SPendingChatMessage[] G_LibChatEmbeds_FinishedChatMessages;
+declare Ident[] G_LibChatEmbeds_PendingHTTPRequests;
+
+// ---------------------------------- //
+// Functions
+// ---------------------------------- //
+
+// ---------------------------------- //
+// Private
+// ---------------------------------- //
+
+// ---------------------------------- //
+/** Find embedable URLs in a message.
+ *
+ *	@param	_MessageBody	String to find URLs in.
+ *
+ *	@return		List of found URLs (if any).
+ */
+Text[] Private_DetectURLs(Text _MessageBody) {
+	declare Text[] MatchingURLs;
+
+	foreach (URL in TL::RegexFind("\\b((https?|maniaplanet|file)\\:\\/\\/|www\\.)[^ \\n]+", TL::StripFormatting(_MessageBody), "gi")) {
+		if (Http.IsValidUrl(URL)) MatchingURLs.add(URL);
+	}
+
+	return MatchingURLs;
+}
+
+// ---------------------------------- //
+/** Attach an embed to a message.
+ *
+ *	@param	_RequestId	Id of the finished request.
+ *	@param	_Embed		Embed to be attached to the message.
+ */
+Void Private_AttachEmbed(Ident _RequestId, SChatMessageEmbed _Embed) {
+	// Can't do pointer to a struct
+	declare SPendingChatMessage[] TemporaryArray;
+
+	foreach (Old in G_LibChatEmbeds_PendingChatMessages) {
+		declare PendingMessage = Old;
+
+		// Add embed to the message
+		if (PendingMessage.RequestsIds.exists(_RequestId)) {
+			PendingMessage.ReadyEmbeds.add(_Embed);
+		}
+
+		TemporaryArray.add(PendingMessage);
+	}
+
+	G_LibChatEmbeds_PendingChatMessages = TemporaryArray;
+}
+
+// ---------------------------------- //
+/** Mark request as finished.
+ *
+ *	@param	_RequestId	Id of the finished request.
+ */
+Void Private_ReleaseRequest(Ident _RequestId) {
+	// Can't do pointer to a struct
+	declare SPendingChatMessage[] TemporaryArray;
+
+	foreach (Old in G_LibChatEmbeds_PendingChatMessages) {
+		declare PendingMessage = Old;
+
+		if (!PendingMessage.RequestsIds.exists(_RequestId)) continue;
+
+		declare Removed = PendingMessage.RequestsIds.remove(_RequestId);
+
+		// Finished processing all embeds - throw ready message
+		if (PendingMessage.RequestsIds.count <= 0) {
+			PendingMessage.EmbedsJSON = PendingMessage.ReadyEmbeds.tojson();
+
+			G_LibChatEmbeds_FinishedChatMessages.add(PendingMessage);
+		}
+
+		// Message not ready yet
+		else {
+			TemporaryArray.add(PendingMessage);
+		}
+	}
+
+	G_LibChatEmbeds_PendingChatMessages = TemporaryArray;
+}
+
+// Put that in ColorLib pls
+Integer CL_RgbToInteger(Vec3 _Color) {
+    if (_Color == <0., 0., 0.>) return 0;
+   
+    declare R = ML::NearestInteger(_Color.X * 255) * 256 * 256;
+    declare G = ML::NearestInteger(_Color.Y * 255) * 256;
+    declare B = ML::NearestInteger(_Color.Z * 255);
+
+    return R + G + B;
+}
+
+// ---------------------------------- //
+/** Parse request result into an OpenGraph embed.
+ *
+ *	@param	_Document	Received HTML document body.
+ *
+ *	@return		Embed (if valid).
+ */
+SChatMessageEmbed Private_CreateEmbed_OpenGraph(Text _Document) {
+	declare SChatMessageEmbed Embed;
+
+	// Just in case
+	if (_Document == "") return Embed;
+
+	Embed.Type = C_LibChatIntegrations_EmbedType_OpenGraph;
+
+	declare RawMetaTags = TL::RegexFind("<meta(.|\n)*?>", _Document, "gi");
+	declare Text[] MetaTags;
+
+	// This pretty much validates the meta tags
+	foreach (Tag in RawMetaTags) {
+		declare EscapedTag = Tag;
+
+		if (!TL::EndsWith("/>", Tag)) {
+			EscapedTag = TL::SubString(Tag, 0, TL::Length(Tag) - 1) ^ "/>";
+		}
+
+		// YES, THIS IS BAD
+		declare TestFor = Xml.Parse_Xml(EscapedTag);
+		if (TestFor != Null) MetaTags.add(EscapedTag);
+		Xml.Destroy(TestFor);
+	}
+
+	// Parse data from these meta tags
+	declare FakeDOM = Xml.Parse_Xml("<head>" ^ TL::Join("", MetaTags) ^ "</head>");
+
+	foreach (META in FakeDOM.Root.Children) {
+		if (META.Name != "meta") continue;
+
+		declare Property = META.GetAttributeText("property", "");
+		declare Content = META.GetAttributeText("content", "");
+		declare Name = META.GetAttributeText("name", "");
+
+		if (Name != "") Property = Name;
+
+		switch (Property) {
+			case "theme-color"			: Embed.Color = CL_RgbToInteger(TL::ToColor(TL::Replace(Content, "#", "")));
+			case "og:url"				: Embed.URL = Content;
+			case "og:title"				: if (Embed.Title		== "") Embed.Title = Content;
+			case "og:description"		: if (Embed.Description	== "") Embed.Description = Content;
+			case "og:image"				: if (Embed.ImageURL	== "") Embed.ImageURL = Content;
+			case "og:site_name"			: if (Embed.Provider	== "") Embed.Provider = Content;
+			case "twitter:title"		: if (Embed.Title		== "") Embed.Title = Content;
+			case "twitter:description"	: if (Embed.Description	== "") Embed.Description = Content;
+			case "twitter:image"		: if (Embed.ImageURL	== "") Embed.ImageURL = Content;
+		}
+	}
+
+	Xml.Parse_Destroy(FakeDOM);
+
+	// Embed is now ready
+	return Embed;
+}
+
+// ---------------------------------- //
+// Public
+// ---------------------------------- //
+
+// ---------------------------------- //
+/** Insert embed struct into manialink.
+ *
+ *	@return		The embed struct string.
+ */
+Text EmbedStruct() {
+	// Something like {{{dump(ChatEmbeds::SChatMessageEmbed)}}} would be far better
+	return """
+#Struct SChatMessageEmbed {
+	Integer	Type;
+	Text URL;
+	Text Title;
+	Text Description;
+	Text Author;
+	Text ImageProxy;
+	Text ImageURL;
+	Text Provider;
+	Integer Color;
+	Text UID;
+	Text MapType;
+	Integer Planets;
+	Text Sender;
+	Text Recipient;
+}
+	""";
+}
+
+// ---------------------------------- //
+/** Process a message in order to find embeds.
+ *
+ *	@param	_RecipientLogin		Target conversation login.
+ *	@param	_MessageBody		Raw message text.
+ *
+ *	@return		True, if embedable links were detected.
+ */
+Boolean ProcessMessage(Text _RecipientLogin, Text _MessageBody) {
+	declare FoundURLs = Private_DetectURLs(_MessageBody);
+
+	// No URLs were found, no need to process them.
+	if (FoundURLs.count <= 0) return False;
+
+	// Limit the number of URLs to process to 3
+	declare RequestsLimit = ML::Min(C_LibChatEmbeds_LimitPerMessage, Http.SlotsAvailable);
+
+	while (FoundURLs.count > RequestsLimit) {
+		declare Removed = FoundURLs.removekey(FoundURLs.count - 1);
+	}
+
+	// There's nothing to process
+	if (FoundURLs.count <= 0) return False;
+
+	declare SPendingChatMessage PendingMessage;
+
+	PendingMessage.RecipientLogin	= _RecipientLogin;
+	PendingMessage.MessageBody		= _MessageBody;
+
+	// Launch requests for every URL
+	foreach (URL in FoundURLs) {
+		declare Request = Http.CreateGet(URL, False, C_LibChatEmbeds_RequestHeaders);
+		declare Integer LibChatEmbeds_RequestTimeout	for Request;
+		declare Integer LibChatEmbeds_RequestEmbedType	for Request;
+
+		LibChatEmbeds_RequestTimeout = Now + C_LibChatEmbeds_RequestTimeout;
+		LibChatEmbeds_RequestEmbedType = 0;
+
+		G_LibChatEmbeds_PendingHTTPRequests.add(Request.Id);
+		PendingMessage.RequestsIds.add(Request.Id);
+	}
+
+	// Queue the message
+	if (PendingMessage.RequestsIds.count > 0) {
+		G_LibChatEmbeds_PendingChatMessages.add(PendingMessage);
+	}
+	
+	// Apparently the message is already done
+	else {
+		G_LibChatEmbeds_FinishedChatMessages.add(PendingMessage);
+	}
+
+	return True;
+}
+
+// ---------------------------------- //
+/** Creates JSON embed for planets transaction display.
+ *	Doesn't perform the transaction.
+ *
+ *	@param	_TaskResult		Finished transaction.
+ *
+ *	@return		JSON embed.
+ */
+Text CreatePlanetsTransactionEmbed(CTaskResult_PlanetsTransationBill _TaskResult) {
+	if (_TaskResult == Null || !(_TaskResult is CTaskResult_PlanetsTransationBill)) return "";
+
+	declare SChatMessageEmbed Embed;
+
+	Embed.Type		= C_LibChatIntegrations_EmbedType_PlanetsTransfer;
+	Embed.Title		= _TaskResult.Label;
+	Embed.UID		= TL::ToText(_TaskResult.TransactionId);
+	Embed.Sender	= _TaskResult.LoginPayer;
+	Embed.Recipient	= _TaskResult.LoginPayee;
+	Embed.Planets	= _TaskResult.Cost;
+
+	declare Array = [Embed];
+	return Array.tojson();
+}
+
+// ---------------------------------- //
+// Main loop for handling requests.
+Void Loop() {
+	declare Ident[] RequestsToDestroy;
+
+	foreach (RequestId in G_LibChatEmbeds_PendingHTTPRequests) {
+		if (!Http.Requests.existskey(RequestId)) {
+			RequestsToDestroy.add(RequestId);
+			Private_ReleaseRequest(RequestId);
+			continue;
+		}
+
+		declare Request <=> Http.Requests[RequestId];
+		declare Integer LibChatEmbeds_RequestTimeout for Request;
+
+		if (Now >= LibChatEmbeds_RequestTimeout) {
+			RequestsToDestroy.add(RequestId);
+			Private_ReleaseRequest(RequestId);
+			continue;
+		}
+
+		if (!Request.IsCompleted) continue;
+
+		declare Integer LibChatEmbeds_RequestEmbedType for Request;
+		declare SChatMessageEmbed Embed;
+
+		switch (LibChatEmbeds_RequestEmbedType) {
+			case 0 : Embed = Private_CreateEmbed_OpenGraph(Request.Result);
+		}
+
+		// Save the valid embed
+		if (Embed.Type != C_LibChatIntegrations_EmbedType_NotEmbed) {
+			Private_AttachEmbed(RequestId, Embed);
+		}
+		
+		RequestsToDestroy.add(RequestId);
+		Private_ReleaseRequest(RequestId);
+	}
+
+	while (RequestsToDestroy.existskey(0)) {
+		declare RequestId = RequestsToDestroy[0];
+		declare Boolean Removed;
+
+		Removed = RequestsToDestroy.removekey(0);
+		Removed = G_LibChatEmbeds_PendingHTTPRequests.remove(RequestId);
+
+		if (Http.Requests.existskey(RequestId)) {
+			Http.Destroy(Http.Requests[RequestId]);
+		}
+	}
+}
+
+// ---------------------------------- //
+/** List of messages with embeds ready to be sent.
+ *
+ *	@return		List of processed message structs.
+ */
+SPendingChatMessage[] MessagesReadyForDelivery() {
+	declare FinishedMessages = G_LibChatEmbeds_FinishedChatMessages;
+	G_LibChatEmbeds_FinishedChatMessages.clear();
+	return FinishedMessages;
+}

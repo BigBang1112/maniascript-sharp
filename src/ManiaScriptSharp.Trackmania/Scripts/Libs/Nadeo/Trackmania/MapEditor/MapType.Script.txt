@@ -1,0 +1,279 @@
+/**
+ * Common functions for Trackmania map types
+ */
+#Const Version "1.1.1"
+#Const ScriptName "Libs/Nadeo/Trackmania/MapEditor/MapType.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "Libs/Nadeo/TMGame/Modes/Landmark.Script.txt" as Landmark
+#Include "Libs/Nadeo/Trackmania/Stores/ClubStore_MA.Script.txt" as ClubStore
+#Include "Modes/TrackMania/TM_RaceTest_Local.Script.txt" as RaceTest
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_PlayersCount 1
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Save the map type script version in the metadata of the map
+Void SetVersion(Integer _Version) {
+	declare metadata LibMapType_MapTypeVersion for Map = 0;
+	LibMapType_MapTypeVersion = _Version;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the map type script version from the metadata of the map
+Integer GetVersion() {
+	declare metadata LibMapType_MapTypeVersion for Map = 0;
+	return LibMapType_MapTypeVersion;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the time objectives of a map based on the author time
+/// The gold, silver and bronze times are automatically overwritten by new values
+/// based on the author time when the author time changes, so its not needed to do it manually.
+Void SetObjectivesFromAuthorTime(Integer _AuthorTime) {
+	Map.TMObjective_AuthorTime = _AuthorTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the objectives of the map
+Void ResetObjectives() {
+	Map.ObjectiveTextAuthor = "";
+	Map.ObjectiveTextGold = "";
+	Map.ObjectiveTextSilver = "";
+	Map.ObjectiveTextBronze = "";
+
+	Map.TMObjective_AuthorTime = -1;
+	Map.TMObjective_BronzeTime = -1;
+	Map.TMObjective_SilverTime = -1;
+	Map.TMObjective_GoldTime = -1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the objectives are valid
+/// For the time being this function shoud always return 'True' because the values set in
+/// the 'TMObjectives' variables are automatically checked by the game and sanitized when necessary.
+Boolean IsEachObjectiveValid() {
+	if (Map.TMObjective_SilverTime > Map.TMObjective_BronzeTime) return False;
+	if (Map.TMObjective_GoldTime > Map.TMObjective_SilverTime) return False;
+	if (Map.TMObjective_AuthorTime > Map.TMObjective_GoldTime) return False;
+	return True;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply the deco images from the user club
+Void ApplyDecoImages() {
+	declare Club = ClubStore::GetUserPinnedClub();
+	if (Club.Id != ClubStruct::C_ClubNullId) {
+		Mode.SetClubLogoUrl(Club.DecalUrl);
+		Mode.SetDecoImageUrl_DecalSponsor4x1(Club.DecoImageUrl_DecalSponsor4x1);
+		Mode.SetDecoImageUrl_Screen16x9(Club.DecoImageUrl_Screen16x9);
+		Mode.SetDecoImageUrl_Screen8x1(Club.DecoImageUrl_Screen8x1);
+		Mode.SetDecoImageUrl_Screen16x1(Club.DecoImageUrl_Screen16x1);
+	} else {
+		Mode.SetClubLogoUrl("");
+		Mode.SetDecoImageUrl_DecalSponsor4x1("");
+		Mode.SetDecoImageUrl_Screen16x9("");
+		Mode.SetDecoImageUrl_Screen8x1("");
+		Mode.SetDecoImageUrl_Screen16x1("");
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start playing from a start or checkpoint with no validation
+Void PlayTestRun_Yield() {
+	// Start the server
+	RaceTest::StartServer();
+
+	// Enter playground
+	if (!IsSwitchedToPlayground) RequestEnterPlayground();
+	while (!IsSwitchedToPlayground) yield;
+	while (Mode == Null || Mode.AllPlayers.count < C_PlayersCount) yield;
+	assert(Mode.AllPlayers.count == C_PlayersCount);
+
+	// Load the map
+	while (Mode.Map == Null) yield;
+	RaceTest::StartMap();
+
+	// Play loop
+	while (!ValidationEndRequested) {
+		yield;
+		RaceTest::PlayLoop();
+	}
+
+	// Leave playground and wait for map unload
+	RaceTest::EndMap();
+	if (IsSwitchedToPlayground) RequestLeavePlayground();
+	while (IsSwitchedToPlayground && Mode.Map != Null) yield;
+
+	// Stop the server
+	RaceTest::EndServer();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Do a full run of the race to validate
+Void PlayValidationRun_Yield(Text _Mode) {
+	declare Text Settings = "";
+	declare Club = ClubStore::GetUserPinnedClub();
+	if (Club.Id != ClubStruct::C_ClubNullId) {
+		Settings = """
+<root>
+	<setting name="S_DecoImageUrl_Checkpoint" value="{{{TL::MLEncode(Club.DecalUrl)}}}" type="text" />
+	<setting name="S_DecoImageUrl_DecalSponsor4x1" value="{{{TL::MLEncode(Club.DecoImageUrl_DecalSponsor4x1)}}}" type="text" />",
+	<setting name="S_DecoImageUrl_Screen16x9" value="{{{TL::MLEncode(Club.DecoImageUrl_Screen16x9)}}}" type="text" />",
+	<setting name="S_DecoImageUrl_Screen8x1" value="{{{TL::MLEncode(Club.DecoImageUrl_Screen8x1)}}}" type="text" />",
+	<setting name="S_DecoImageUrl_Screen16x1" value="{{{TL::MLEncode(Club.DecoImageUrl_Screen16x1)}}}" type="text" />",
+</root>
+	""";
+	}
+	TestMapWithMode(_Mode, Settings);
+	sleep(100); //< Sleep to update the editor status
+	while (!IsEditorReadyForRequest) {
+		yield;
+	}
+	// Apply the deco images again because the validation mode
+	// may have overwritten them.
+	ApplyDecoImages();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Sanitize a specific landmarks tag
+Void SanitizeLandmark(CAnchorData _Anchor) {
+	declare Text[] LandmarkTypes = Landmark::C_Types;
+	if (!LandmarkTypes.exists(_Anchor.Tag)) {
+		_Anchor.Tag = _Anchor.DefaultTag;
+	}
+	if (_Anchor.WaypointType != CAnchorData::EWaypointType::None) {
+		switch (_Anchor.WaypointType) {
+			case CAnchorData::EWaypointType::StartFinish: {
+				if (_Anchor.Tag != Landmark::C_Type_Multilap) {
+					_Anchor.Tag = Landmark::C_Type_Multilap;
+				}
+			}
+			case CAnchorData::EWaypointType::Start: {
+				if (_Anchor.Tag != Landmark::C_Type_Start) {
+					_Anchor.Tag = Landmark::C_Type_Start;
+				}
+			}
+			case CAnchorData::EWaypointType::Finish: {
+				if (_Anchor.Tag != Landmark::C_Type_Finish) {
+					_Anchor.Tag = Landmark::C_Type_Finish;
+				}
+			}
+			case CAnchorData::EWaypointType::Checkpoint: {
+				if (_Anchor.Tag != Landmark::C_Type_LinkedCheckpoint && _Anchor.Tag != Landmark::C_Type_Checkpoint) {
+					_Anchor.Tag = Landmark::C_Type_Checkpoint;
+				}
+			}
+			default: {
+				_Anchor.Tag = _Anchor.DefaultTag;
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Sanitize all the landmarks tags
+Void SanitizeAllLandmarks() {
+	foreach (Anchor in AnchorData) {
+		SanitizeLandmark(Anchor);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the map is valid
+/// Used for Race and Platform map only for now
+Void CheckMapValidity() {
+	declare Integer StartsFinishes = 0;
+	declare Integer Starts = 0;
+	declare Integer Finishes = 0;
+	declare Integer Checkpoints = 0;
+	declare Integer[] CheckpointGroups = [];
+
+	foreach (Anchor in AnchorData) {
+		SanitizeLandmark(Anchor);
+		if (Anchor.WaypointType != CAnchorData::EWaypointType::None) {
+			switch (Anchor.WaypointType) {
+				case CAnchorData::EWaypointType::StartFinish: {
+					StartsFinishes += 1;
+				}
+				case CAnchorData::EWaypointType::Start: {
+					Starts += 1;
+				}
+				case CAnchorData::EWaypointType::Finish: {
+					Finishes += 1;
+				}
+				case CAnchorData::EWaypointType::Checkpoint: {
+					if (Anchor.Tag == Landmark::C_Type_LinkedCheckpoint) {
+						if (!CheckpointGroups.exists(Anchor.Order)) {
+							CheckpointGroups.add(Anchor.Order);
+						}
+					} else {
+						Checkpoints += 1;
+					}
+				}
+			}
+		}
+	}
+
+	Checkpoints += CheckpointGroups.count;
+
+	// It's a multilap
+	if (StartsFinishes > 0) {
+		// No start line block, so there must be exactly one multilap block, so that we know where the car will spawn.
+		if (Starts == 0 && StartsFinishes > 1) {
+			ValidationStatus = CMapType::ValidationStatus::NotValidable;
+			//L16N [MapEditor] Message explaining to the player that a track can contain only one start line block.
+			ValidabilityRequirementsMessage = _("You can place only one starting point!");
+			return;
+		}
+		// A start line block may be present: in that case the car will spawn on it, and not on the multilap block.
+		// But there must be only one start line block (and there could be more than one multilap block).
+		if (Starts > 1) {
+			ValidationStatus = CMapType::ValidationStatus::NotValidable;
+			//L16N [MapEditor] Message explaining to the player that a track can contain only one start line block.
+			ValidabilityRequirementsMessage = _("You can place only one starting point!");
+			return;
+		}
+		// Has at least one checkpoint
+		if (Checkpoints < 1) {
+			ValidationStatus = CMapType::ValidationStatus::NotValidable;
+			//L16N [MapEditor] Message explaining to the player that a track has to contain at least one checkpoint block.
+			ValidabilityRequirementsMessage = _("You must place at least one checkpoint!");
+			return;
+		}
+	}
+	// It's a simple race
+	else {
+		// Exactly one start
+		if (Starts <= 0) {
+			ValidationStatus = CMapType::ValidationStatus::NotValidable;
+			//L16N [MapEditor] Message explaining to the player that a track has to contain exactly one start line block.
+			ValidabilityRequirementsMessage = _("You need to place a starting point!");
+			return;
+		}
+		if (Starts >= 2) {
+			ValidationStatus = CMapType::ValidationStatus::NotValidable;
+			//L16N [MapEditor] Message explaining to the player that a track can contain only one start line block.
+			ValidabilityRequirementsMessage = _("You can place only one starting point!");
+			return;
+		}
+		// At least one finish
+		if (Finishes < 1) {
+			ValidationStatus = CMapType::ValidationStatus::NotValidable;
+			//L16N [MapEditor] Message explaining to the player that a track has to contain at least one finish line block.
+			ValidabilityRequirementsMessage = _("You must place at least one finish line!");
+			return;
+		}
+	}
+
+	ValidationStatus = CMapType::ValidationStatus::Validable;
+}

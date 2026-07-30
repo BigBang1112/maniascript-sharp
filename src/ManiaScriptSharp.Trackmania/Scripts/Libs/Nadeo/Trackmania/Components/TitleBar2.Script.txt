@@ -1,0 +1,913 @@
+/**
+ *	Component: TitleBar
+ *	===========================
+ *
+ *	Confluence: https://confluence.ubisoft.com/display/Nadeo/TitleBar
+ *	GitLab: https://gitlab.nadeo.org/utils/script-documentation/-/wikis/TitleBar
+ *
+ *	Info
+ *	----
+ *
+ *	Create a title bar with a navigation tab and multiple actions.
+ *
+ *	Events
+ *	----------
+ *
+ *	- `C_EventType_TabUpdate`: event sent when the current tab has been updated
+ *	- `C_EventType_Action`: event sent when a button is selected
+ *	- `C_EventType_Update`: event sent when the component is visually updated
+ *
+ *	Parameters
+ *	----------
+ *
+ *	- `data-focused` (`Boolean`): true to focus the tile bar (default), false otherwise
+ *	- `data-locked` (`Boolean`): true to lock the tile bar (default), false otherwise
+ *	- `data-halign` (`Text`): horizontal alignment of the component
+ *			Can be `left`, `center` or `right`.
+ *	- `data-valign` (`Text`): horizontal alignment of the component
+ *			Can be `top`, `center` or `bottom`.
+ *	- `data-tabs` (`Text`): Text for each tab. It must be a Text[Integer] associative array converted into a json.
+ *	- `data-tabs-max-width` (`Real`): maximum width of all tabs placed end to end
+ *	- `data-size` (`Vec2`): the size of the title bar
+ *	- `data-actions` (`Text`): Text for each actions. It must be a K_Actions[Integer] associative array converted into a json.
+ *	- `data-events-delay` (`Integer`): delays the tab selection event sent by the component
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Components/TitleBar2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as Grid
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Components/ButtonIcon2.Script.txt" as ButtonIcon
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as Button
+#Include "Libs/Nadeo/Trackmania/Components/NavigationTabs.Script.txt" as NavigationTabs
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-titlebar2" //< Component name
+#Const P "ComponentTitleBar2_" //< Prefix used to differentiate functions/variables in the script
+#Const C_NavGroup_AllActions "navgroup-component-titlebar2-allactions"
+#Const C_NavGroup_Actions "navgroup-component-titlebar2-actions"
+
+#Const C_Class_TitleBar "class-component-titlebar2-container"
+#Const C_Class_Action "class-component-titlebar2-action"
+
+#Const C_Action_First 0
+#Const C_Action_Second 1
+#Const C_Action_Third 2
+#Const C_MaxActions 3
+
+#Const C_SkewAngle 10.
+#Const C_Size_ButtonIcon 8.
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct ComponentTitleBar2_K_Actions {
+	Real ActionMargin; //< The margin added to the right side of the action's button
+	Real IconMargin; //< The margin added to the right side of the action's buttonicon
+	Real OpacityFocused;
+	Real OpacityUnfocused;
+	Text ImageUrl;
+	Text Input;
+	Vec2 ButtonSize;
+	Vec3 ColorFocused;
+	Vec3 ColorUnfocused;
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Add an action to the component
+ComponentTitleBar2_K_Actions AddAction(
+	Text _Input,
+	Text _ImageUrl,
+	Vec2 _ButtonSize,
+	Real _ActionMargin,
+	Real _IconMargin,
+	Real _OpacityFocused,
+	Real _OpacityUnfocused,
+	Vec3 _ColorFocused,
+	Vec3 _ColorUnfocused
+) {
+	return ComponentTitleBar2_K_Actions {
+		Input = _Input,
+		ImageUrl = _ImageUrl,
+		ButtonSize = _ButtonSize,
+		ActionMargin = _ActionMargin,
+		IconMargin = _IconMargin,
+		OpacityFocused = _OpacityFocused,
+		OpacityUnfocused = _OpacityUnfocused,
+		ColorFocused = _ColorFocused,
+		ColorUnfocused = _ColorUnfocused
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	declare Text ML_Actions = "";
+	for (ActionIndex, 0, C_MaxActions-1) {
+		ML_Actions ^= """
+			<frameinstance
+				id="{{{P}}}button-action-{{{ActionIndex}}}" z-index="5"
+				modelid="{{{Button::C_Name}}}"
+				class="{{{Navigation::C_Class}}} {{{Grid::C_Class_Element}}} {{{C_Class_Action}}}"
+				data-grid-column="{{{ActionIndex*2}}}"
+				data-action="{{{ActionIndex}}}"
+				data-bgempty="1"
+				data-halign="center" data-valign="center"
+				data-nav-group="{{{C_NavGroup_Actions}}}"
+				data-nav-zone="{{{Button::C_NavZone}}}"
+			/>
+			<frame id="{{{P}}}frame-buttonicon" class="{{{Grid::C_Class_Element}}}" data-grid-column="{{{ActionIndex*2 + 1}}}">
+				<frameinstance
+					id="{{{P}}}buttonicon-action-{{{ActionIndex}}}"
+					modelid="{{{ButtonIcon::C_Name}}}"
+					data-size="{{{C_Size_ButtonIcon}}} {{{C_Size_ButtonIcon}}}"
+					data-halign="center"
+					data-hideformouse="1"
+				/>
+			</frame>
+		""";
+	}
+
+	return MV::Component(
+		C_Name,
+		"""
+<frame id="{{{P}}}frame-align" class="{{{C_Class_TitleBar}}}">
+	<frame id="{{{P}}}frame-navigation-container" class="{{{Navigation::C_Class_Container}}}">
+		<frameinstance id="{{{P}}}frame-navigation-tabs" modelid="{{{NavigationTabs::C_Name}}}" data-halign="left"/>
+		<frame id="{{{P}}}frame-actions" class="{{{Navigation::C_Class}}} {{{Grid::C_Class_Container}}}" data-nav-group="{{{C_NavGroup_AllActions}}}">
+			{{{ML_Actions}}}
+		</frame>
+	</frame>
+</frame>
+		""",
+		"""
+#Include "TextLib" as {{{P}}}TL
+#Include "MathLib" as {{{P}}}ML
+#Include "ColorLib" as {{{P}}}CL
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as {{{P}}}Grid
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as {{{P}}}Tools
+#Include "Libs/Nadeo/CMGame/Utils/RequestRedraw.Script.txt" as {{{P}}}RequestRedraw
+
+#Const {{{P}}}C_Margin 6. //< Margin between navigations tabs and the first action
+#Const {{{P}}}C_Action_First {{{C_Action_First}}}
+#Const {{{P}}}C_Action_Second {{{C_Action_Second}}}
+#Const {{{P}}}C_Action_Third {{{C_Action_Third}}}
+
+{{{dumptype(ComponentTitleBar2_K_Actions)}}}
+
+#Struct {{{P}}}K_Controls {
+	CMlFrame Frame_Actions;
+	CMlFrame Frame_Align;
+	CMlFrame Frame_NavigationTabs;
+	CMlFrame Frame_NavigationContainer;
+	CMlFrame[Integer] ButtonIcons_Actions;
+	CMlFrame[Integer] Buttons_Actions;
+}
+#Struct {{{P}}}K_Properties {
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Integer[] Enabled;
+	Text[Integer] Tabs;
+	Real TabsMaxWidth;
+	Vec2 Size;
+	{{{P}}}K_Actions[Integer] Actions;
+}
+#Struct {{{P}}}K_State {
+	Boolean IsFocused;
+	Boolean IsLocked;
+	Boolean IsTitleBar;
+	{{{P}}}Grid::K_Grid LastestCompiledGrid;
+	{{{P}}}Grid::K_GridConfig GridConfig;
+	{{{P}}}K_Controls Controls;
+	{{{P}}}K_Properties CustomizedProperties;
+	{{{P}}}K_Properties MergedProperties;
+}
+#Struct {{{P}}}K_Event {
+	CMlFrame TitleBar;
+	Integer Action;
+	Integer CurrentTab;
+	Integer Type;
+	Vec2[Integer] ActionsPos;
+}
+
+// The properties indexing must be a continuous sequence starting from 0
+// 0,1,2,3,... not 0,1,3,... for example
+#Const {{{P}}}C_Property_HAlign 0
+#Const {{{P}}}C_Property_VAlign 1
+#Const {{{P}}}C_Property_Tabs 2
+#Const {{{P}}}C_Property_TabsMaxWidth 3
+#Const {{{P}}}C_Property_Size 4
+#Const {{{P}}}C_Property_Actions 5
+
+#Const {{{P}}}C_EventType_TabUpdate 0
+#Const {{{P}}}C_EventType_Action 1
+#Const {{{P}}}C_EventType_Update 2
+
+#Const {{{P}}}C_DefaultProperties {{{P}}}K_Properties {
+	HAlign = CMlControl::AlignHorizontal::HCenter,
+	VAlign = CMlControl::AlignVertical::VCenter,
+	Tabs = [0 => "Title"],
+	TabsMaxWidth = 260.,
+	Size = <0., 0.>,
+	Actions = []
+}
+		""",
+		"""
+declare Integer {{{P}}}RedrawRequested;
+declare CMlFrame[] {{{P}}}G_Frames_TitleBar;
+declare {{{P}}}K_Event[] {{{P}}}PendingEvents;
+declare {{{P}}}K_Event[] {{{P}}}DelayedPendingEvents;
+declare {{{P}}}K_Properties {{{P}}}G_DefaultProperties;
+
+// Check if the control is a title bar
+Boolean {{{P}}}IsTitleBar(CMlControl _Control) {
+	if (_Control == Null) return False;
+	declare {{{P}}}K_State {{{P}}}State for _Control;
+	return {{{P}}}State.IsTitleBar;
+}
+
+// Check if the title bar is focused
+Boolean {{{P}}}IsFocused(CMlFrame _Frame_TitleBar) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+	return {{{P}}}State.IsFocused;
+}
+
+// Check if the title bar is locked
+Boolean {{{P}}}IsLocked(CMlFrame _Frame_TitleBar) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+	return {{{P}}}State.IsLocked;
+}
+
+// Check if the given tab is available to select
+Boolean {{{P}}}IsAvailableTab(CMlFrame _Frame_TitleBar, Integer _TabId) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+	return {{{NavigationTabs::P}}}IsAvailableTab({{{P}}}State.Controls.Frame_NavigationTabs, _TabId);
+}
+
+// Check if button icons are visible
+Boolean {{{P}}}AreButtonIconsVisible(CMlFrame _Frame_TitleBar) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+
+	foreach (ButtonIcon in {{{P}}}State.Controls.ButtonIcons_Actions) {
+		if (ButtonIcon.Parent.Visible) return True; //< Return True if one of them is visible
+	}
+
+	return False;
+}
+
+// Get the final position of the actions frame
+Real {{{P}}}Private_GetFinalFrameActionsPosX(CMlFrame _Frame_TitleBar) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+	return {{{NavigationTabs::P}}}GetWidth({{{P}}}State.Controls.Frame_NavigationTabs, False, {{{P}}}AreButtonIconsVisible(_Frame_TitleBar)) + {{{P}}}C_Margin;
+}
+
+// Change the focus state of the component by changing the navigation tabs focus state
+Void {{{P}}}Focus(CMlFrame _Frame_TitleBar, Boolean _IsFocused) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+	{{{P}}}State.IsFocused = _IsFocused;
+
+	if (_IsFocused) {
+		{{{NavigationTabs::P}}}Focus(This, {{{P}}}State.Controls.Frame_NavigationTabs);
+	} else {
+		{{{NavigationTabs::P}}}Unfocus(This, {{{P}}}State.Controls.Frame_NavigationTabs);
+	}
+}
+Void {{{P}}}Focus(CMlFrame _Frame_TitleBar) {
+	{{{P}}}Focus(_Frame_TitleBar, True);
+}
+
+// Display the component as unfocused
+Void {{{P}}}Unfocus(CMlFrame _Frame_TitleBar) {
+	{{{P}}}Focus(_Frame_TitleBar, False);
+}
+
+// Lock the navigation of the given title bar
+Void {{{P}}}LockNavigation(CMlFrame _Frame_TitleBar, Boolean _IsLocked) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+	{{{P}}}State.IsLocked = _IsLocked;
+
+	{{{Navigation::P}}}EnableContainer(This, {{{P}}}State.Controls.Frame_NavigationContainer, !_IsLocked);
+	{{{NavigationTabs::P}}}LockTabs(This, {{{P}}}State.Controls.Frame_NavigationTabs, _IsLocked);
+	foreach (Button in {{{P}}}State.Controls.Buttons_Actions) {
+		{{{Navigation::P}}}Lock(Button, _IsLocked || !Button.Visible);
+	}
+
+	// Update the navigation focus
+	if (!_IsLocked) {
+		{{{Navigation::P}}}Focus(This, {{{P}}}State.Controls.Frame_Actions);
+	}
+}
+
+// Update current tab
+Void {{{P}}}UpdateCurrentTab(CMlFrame _Frame_TitleBar, Integer _TabIndex, Boolean _SendEvent) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+	{{{NavigationTabs::P}}}UpdateCurrentTab(This, {{{P}}}State.Controls.Frame_NavigationTabs, _TabIndex, _SendEvent);
+}
+Void {{{P}}}UpdateCurrentTab(CMlFrame _Frame_TitleBar, Integer _TabIndex) {
+	{{{P}}}UpdateCurrentTab(_Frame_TitleBar, _TabIndex, True);
+}
+
+// Get current tab
+Integer {{{P}}}GetCurrentTab(CMlFrame _Frame_TitleBar) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+	return {{{NavigationTabs::P}}}GetCurrentTab({{{P}}}State.Controls.Frame_NavigationTabs);
+}
+
+// Go to the next tab
+Void {{{P}}}GoToNextTab(CMlFrame _Frame_TitleBar) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+	{{{NavigationTabs::P}}}GoToNextTab(This, {{{P}}}State.Controls.Frame_NavigationTabs);
+}
+
+// Go to the previous tab
+Void {{{P}}}GoToPreviousTab(CMlFrame _Frame_TitleBar) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+	{{{NavigationTabs::P}}}GoToPreviousTab(This, {{{P}}}State.Controls.Frame_NavigationTabs);
+}
+
+// Get the position of an action button
+Vec2 {{{P}}}GetActionButtonPosition(CMlFrame _Frame_TitleBar, Integer _Action) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	assert({{{P}}}State.IsTitleBar, "Control '"^_Frame_TitleBar.ControlId^"' is not a title bar");
+	return (
+		<{{{P}}}Private_GetFinalFrameActionsPosX(_Frame_TitleBar) + {{{P}}}State.LastestCompiledGrid.Pos[_Action*2],
+		{{{P}}}State.Controls.Buttons_Actions[_Action].RelativePosition_V3.Y> +
+		{{{P}}}Tools::GetAlignPosition({{{P}}}State.MergedProperties.Size, {{{P}}}State.MergedProperties.HAlign, CMlControl::AlignVertical::Top) //< Inner controls are aligned top
+	);
+}
+
+// Get current tab label
+CMlLabel {{{P}}}GetCurrentTabLabel(CMlFrame _Frame_TitleBar) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	return {{{NavigationTabs::P}}}GetCurrentTabLabel({{{P}}}State.Controls.Frame_NavigationTabs);
+}
+
+// Focus or unfocus actions
+Void {{{P}}}Private_Focus(CMlControl _From, CMlControl _To) {
+	if ({{{Transition::P}}}IsInTransition(This)) return;
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{Button::P}}}IsButton(_From)) {
+			{{{Button::P}}}Unfocus(This, _From as CMlFrame);
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{Button::P}}}IsButton(_To)) {
+			{{{Button::P}}}Focus(This, _To as CMlFrame);
+		}
+	}
+}
+
+// Update button icons visibility and return the updated grid config
+{{{P}}}Grid::K_GridConfig Private_UpdateButtonIconsVisibility({{{P}}}K_State _State) {
+	declare {{{P}}}Grid::K_GridConfig GridConfig = _State.GridConfig;
+
+	foreach (Index => Button_Action in _State.Controls.Buttons_Actions) {
+		declare {{{P}}}K_Actions Action = _State.MergedProperties.Actions.get(Index, {{{P}}}K_Actions {});
+		declare CMlFrame ButtonIcon_Action = _State.Controls.ButtonIcons_Actions[Index];
+
+		ButtonIcon_Action.Parent.Visible = Action.Input != "" && ButtonIcon_Action.Visible && {{{ButtonIcon::P}}}IsVisible(ButtonIcon_Action);
+		if (!ButtonIcon_Action.Parent.Visible) { //< Add the IconMargin to the associated action's button
+			GridConfig = {{{P}}}Grid::AddColumn(GridConfig, Index*2, Action.ButtonSize.X + Action.ActionMargin + Action.IconMargin, {{{P}}}Grid::C_Align_Left);
+		}
+	}
+
+	return GridConfig;
+}
+
+// Enable or disable a property from the `Enabled` array
+Integer[] {{{P}}}Private_EnableProperty(Integer[] _EnabledProperties, Integer _Property, Boolean _Enabled) {
+	declare Integer[] EnabledProperties = _EnabledProperties;
+
+	if (_Enabled) {
+		if (!EnabledProperties.exists(_Property)) {
+			EnabledProperties.add(_Property);
+		}
+	} else {
+		EnabledProperties.remove(_Property);
+	}
+
+	return EnabledProperties;
+}
+
+// Set and enable a property
+{{{P}}}K_Properties {{{P}}}Private_SetProperty({{{P}}}K_Properties _TargetProperties, Integer _PropertyId, {{{P}}}K_Properties _SourceProperties) {
+	declare {{{P}}}K_Properties Properties = _TargetProperties;
+
+	Properties.Enabled = {{{P}}}Private_EnableProperty(Properties.Enabled, _PropertyId, True);
+
+	switch (_PropertyId) {
+		case {{{P}}}C_Property_HAlign: Properties.HAlign = _SourceProperties.HAlign;
+		case {{{P}}}C_Property_VAlign: Properties.VAlign = _SourceProperties.VAlign;
+		case {{{P}}}C_Property_Size: Properties.Size = _SourceProperties.Size;
+		case {{{P}}}C_Property_Tabs: Properties.Tabs = _SourceProperties.Tabs;
+		case {{{P}}}C_Property_TabsMaxWidth: Properties.TabsMaxWidth = _SourceProperties.TabsMaxWidth;
+		case {{{P}}}C_Property_Actions: Properties.Actions = _SourceProperties.Actions;
+	}
+
+	return Properties;
+}
+
+// Merge a base properties struct with other enabled properties
+{{{P}}}K_Properties {{{P}}}Private_MergeProperties({{{P}}}K_Properties _Base, {{{P}}}K_Properties[] _PropertiesToMerge) {
+	declare {{{P}}}K_Properties MergedProperties = _Base;
+
+	foreach (Properties in _PropertiesToMerge) {
+		foreach (PropertyId in Properties.Enabled) {
+			MergedProperties = {{{P}}}Private_SetProperty(MergedProperties, PropertyId, Properties);
+		}
+	}
+
+	return MergedProperties;
+}
+
+// Redraw the title bar (apply style, ...)
+Void {{{P}}}RedrawTitleBar(CMlFrame _Frame_TitleBar, Boolean _IsAnimated) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	declare {{{P}}}K_Properties[] PropertiesToMerge = [{{{P}}}G_DefaultProperties];
+	declare Vec2[Integer] ActionsPos = [];
+
+	PropertiesToMerge.add({{{P}}}State.CustomizedProperties);
+	{{{P}}}State.MergedProperties = {{{P}}}Private_MergeProperties(
+		{{{P}}}C_DefaultProperties,
+		PropertiesToMerge
+	);
+
+	// Reset actions visibility
+	foreach (Control in {{{P}}}State.Controls.Frame_Actions.Controls) {
+		if ({{{Button::P}}}IsButton(Control)) {
+			{{{Button::P}}}HideAndLock(Control as CMlFrame);
+		} else {
+			Control.Hide();
+		}
+	}
+
+	// Update navigation tabs
+	{{{NavigationTabs::P}}}SetTabs(This, {{{P}}}State.Controls.Frame_NavigationTabs, {{{P}}}State.MergedProperties.Tabs, False);
+	{{{NavigationTabs::P}}}SetMaxWidth(This, {{{P}}}State.Controls.Frame_NavigationTabs, {{{P}}}State.MergedProperties.TabsMaxWidth, False);
+	{{{NavigationTabs::P}}}RedrawNavigationTabs(This, {{{P}}}State.Controls.Frame_NavigationTabs, _IsAnimated);
+
+	// Set the default action grid
+	declare Real Spaccing = 2.;
+	{{{P}}}State.GridConfig = {{{P}}}Grid::Create(0., 0., 0., {{{P}}}Grid::C_Direction_Right);
+	foreach (Index => Action in {{{P}}}State.MergedProperties.Actions) {
+		if ({{{P}}}State.Controls.Buttons_Actions.existskey(Index)) {
+			declare CMlFrame Button_Action = {{{P}}}State.Controls.Buttons_Actions[Index];
+			{{{P}}}State.GridConfig = {{{P}}}Grid::AddColumn({{{P}}}State.GridConfig, Index*2, Action.ButtonSize.X + Action.ActionMargin, {{{P}}}Grid::C_Align_Left);
+			{{{P}}}State.GridConfig = {{{P}}}Grid::SetSize({{{P}}}State.GridConfig, {{{P}}}State.GridConfig.Size + Action.ButtonSize.X + Action.ActionMargin);
+
+			{{{Navigation::P}}}ChangeControlTarget(This, {{{P}}}State.Controls.Frame_NavigationContainer, {{{P}}}State.Controls.Frame_Actions, Action.Input, Button_Action.ControlId);
+			{{{Button::P}}}SetSize(This, Button_Action, Action.ButtonSize, False);
+			{{{Button::P}}}SetIconSize(This, Button_Action, Action.ButtonSize, False);
+			{{{Button::P}}}SetIcon(This, Button_Action, Action.ImageUrl, False);
+			{{{Button::P}}}SetIconFocus(This, Button_Action, Action.ImageUrl, False);
+			{{{Button::P}}}SetIconColor(This, Button_Action, Action.ColorUnfocused, False);
+			{{{Button::P}}}SetIconFocusColor(This, Button_Action, Action.ColorFocused, False);
+			{{{Button::P}}}SetIconOpacityFocused(This, Button_Action, Action.OpacityFocused, False);
+			if ({{{P}}}Tools::IsUsingMouse(Input)) {{{Button::P}}}SetIconOpacityUnfocused(This, Button_Action, Action.OpacityUnfocused, False);
+			else {{{Button::P}}}SetIconOpacityUnfocused(This, Button_Action, 1., False);
+			{{{Button::P}}}ApplyProperties(This, Button_Action);
+			{{{Button::P}}}ShowAndUnlock(Button_Action);
+			{{{Button::P}}}Unfocus(This, Button_Action);
+		}
+
+		if ({{{P}}}State.Controls.ButtonIcons_Actions.existskey(Index)) {
+			declare CMlFrame ButtonIcon_Action = {{{P}}}State.Controls.ButtonIcons_Actions[Index];
+			{{{P}}}State.GridConfig = {{{P}}}Grid::AddColumn({{{P}}}State.GridConfig, Index*2 + 1, {{{C_Size_ButtonIcon}}} + Action.IconMargin, {{{P}}}Grid::C_Align_Left);
+			{{{P}}}State.GridConfig = {{{P}}}Grid::SetSize({{{P}}}State.GridConfig, {{{P}}}State.GridConfig.Size + {{{C_Size_ButtonIcon}}} + Action.IconMargin);
+			{{{ButtonIcon::P}}}SetBind(This, ButtonIcon_Action, Action.Input);
+			ButtonIcon_Action.Parent.Show();
+		}
+	}
+
+	// Update actions grid
+	{{{P}}}State.LastestCompiledGrid = {{{P}}}Grid::Update(
+		{{{P}}}Grid::Compile(Private_UpdateButtonIconsVisibility({{{P}}}State)).Config,
+		AnimMgr,
+		{{{P}}}State.Controls.Frame_Actions,
+		False,
+		_IsAnimated
+	);
+
+	// Update navigation and focus
+	{{{P}}}LockNavigation(_Frame_TitleBar, {{{P}}}State.IsLocked);
+	{{{P}}}Focus(_Frame_TitleBar, {{{P}}}State.IsFocused);
+
+	// Update positions
+	if (!_IsAnimated) {
+		AnimMgr.Flush({{{P}}}State.Controls.Frame_Actions);
+		{{{P}}}State.Controls.Frame_Actions.RelativePosition_V3.X = {{{P}}}Private_GetFinalFrameActionsPosX(_Frame_TitleBar);
+	} else {
+		AnimMgr.Flush({{{P}}}State.Controls.Frame_Actions);
+		AnimMgr.Add({{{P}}}State.Controls.Frame_Actions, "<anim pos=\""^{{{P}}}Private_GetFinalFrameActionsPosX(_Frame_TitleBar)^" "^{{{P}}}State.Controls.Frame_Actions.RelativePosition_V3.Y^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+	{{{P}}}State.Controls.Frame_NavigationContainer.RelativePosition_V3.Y = -{{{P}}}State.MergedProperties.Size.Y/2.; //< Compensate the `center` valign of inner controls
+
+	// Align the component
+	{{{P}}}Tools::AlignFrame(
+		{{{P}}}State.Controls.Frame_Align,
+		{{{P}}}State.MergedProperties.Size,
+		{{{P}}}State.MergedProperties.HAlign,
+		{{{P}}}State.MergedProperties.VAlign
+	);
+
+	// Get the new position of all visible action buttons
+	foreach (Index => Button_Action in {{{P}}}State.MergedProperties.Actions) {
+		ActionsPos[Index] = {{{P}}}GetActionButtonPosition(_Frame_TitleBar, Index);
+	}
+
+	// Send an update event
+	{{{P}}}DelayedPendingEvents.add({{{P}}}K_Event {
+		Type = {{{P}}}C_EventType_Update,
+		TitleBar = _Frame_TitleBar,
+		ActionsPos = ActionsPos
+	});
+}
+Void {{{P}}}RedrawTitleBar(CMlFrame _Frame_TitleBar) {
+	{{{P}}}RedrawTitleBar(_Frame_TitleBar, True);
+}
+
+// Redraw all title bars
+Void {{{P}}}RedrawTitleBar() {
+	Page.GetClassChildren("{{{C_Class_TitleBar}}}", Page.MainFrame, True);
+	foreach (Control in Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_TitleBar = (Control as CMlFrame).Parent;
+		if ({{{P}}}IsTitleBar(Frame_TitleBar)) {
+			{{{P}}}RedrawTitleBar(Frame_TitleBar);
+		}
+	}
+}
+
+// Customize a property
+Void {{{P}}}Private_SetCustomizedProperty(CMlFrame _Frame_TitleBar, Integer _PropertyId, {{{P}}}K_Properties _Properties, Boolean _Redraw) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	{{{P}}}State.CustomizedProperties = {{{P}}}Private_SetProperty({{{P}}}State.CustomizedProperties, _PropertyId, _Properties);
+	if (_Redraw) {{{P}}}RedrawTitleBar(_Frame_TitleBar);
+}
+
+// Reset a customized property
+Void {{{P}}}Private_ResetCustomizedProperty(CMlFrame _Frame_TitleBar, Integer _PropertyId, Boolean _Redraw) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	{{{P}}}State.CustomizedProperties.Enabled = {{{P}}}Private_EnableProperty({{{P}}}State.CustomizedProperties.Enabled, _PropertyId, False);
+	if (_Redraw) {{{P}}}RedrawTitleBar(_Frame_TitleBar);
+}
+
+// Update the horizontal alignment of the title bar
+Void {{{P}}}SetHAlign(CMlFrame _Frame_TitleBar, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_HAlign, {{{P}}}K_Properties { HAlign = _HAlign }, _Redraw);
+}
+Void {{{P}}}SetHAlign(CMlFrame _Frame_TitleBar, CMlControl::AlignHorizontal _HAlign) {
+	{{{P}}}SetHAlign(_Frame_TitleBar, _HAlign, True);
+}
+Void {{{P}}}ResetHAlign(CMlFrame _Frame_TitleBar, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_HAlign, _Redraw);
+}
+Void {{{P}}}ResetHAlign(CMlFrame _Frame_TitleBar) {
+	{{{P}}}ResetHAlign(_Frame_TitleBar, True);
+}
+
+// Update the vertical alignment of the title bar
+Void {{{P}}}SetVAlign(CMlFrame _Frame_TitleBar, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_VAlign, {{{P}}}K_Properties { VAlign = _VAlign }, _Redraw);
+}
+Void {{{P}}}SetVAlign(CMlFrame _Frame_TitleBar, CMlControl::AlignVertical _VAlign) {
+	{{{P}}}SetVAlign(_Frame_TitleBar, _VAlign, True);
+}
+Void {{{P}}}ResetVAlign(CMlFrame _Frame_TitleBar, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_VAlign, _Redraw);
+}
+Void {{{P}}}ResetVAlign(CMlFrame _Frame_TitleBar) {
+	{{{P}}}ResetVAlign(_Frame_TitleBar, True);
+}
+
+// Update the size of the title bar
+Void {{{P}}}SetSize(CMlFrame _Frame_TitleBar, Vec2 _Size, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_Size, {{{P}}}K_Properties { Size = _Size }, _Redraw);
+}
+Void {{{P}}}SetSize(CMlFrame _Frame_TitleBar, Vec2 _Size) {
+	{{{P}}}SetSize(_Frame_TitleBar, _Size, True);
+}
+Void {{{P}}}ResetSize(CMlFrame _Frame_TitleBar, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_Size, _Redraw);
+}
+Void {{{P}}}ResetSize(CMlFrame _Frame_TitleBar) {
+	{{{P}}}ResetSize(_Frame_TitleBar, True);
+}
+
+// Update the maximum width of all tabs placed end to end
+Void {{{P}}}SetTabsMaxWidth(CMlFrame _Frame_TitleBar, Real _TabsMaxWidth, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_TabsMaxWidth, {{{P}}}K_Properties { TabsMaxWidth = _TabsMaxWidth }, _Redraw);
+}
+Void {{{P}}}SetTabsMaxWidth(CMlFrame _Frame_TitleBar, Real _TabsMaxWidth) {
+	{{{P}}}SetTabsMaxWidth(_Frame_TitleBar, _TabsMaxWidth, True);
+}
+Void {{{P}}}ResetTabsMaxWidth(CMlFrame _Frame_TitleBar, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_TabsMaxWidth, _Redraw);
+}
+Void {{{P}}}ResetTabsMaxWidth(CMlFrame _Frame_TitleBar) {
+	{{{P}}}ResetTabsMaxWidth(_Frame_TitleBar, True);
+}
+
+// Update the tabs of the component. Array keys do not have to be continuous.
+Void {{{P}}}SetTabs(CMlFrame _Frame_TitleBar, Text[Integer] _Tabs, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_Tabs, {{{P}}}K_Properties { Tabs = _Tabs }, _Redraw);
+}
+Void {{{P}}}SetTabs(CMlFrame _Frame_TitleBar, Text[Integer] _Tabs) {
+	{{{P}}}SetTabs(_Frame_TitleBar, _Tabs, True);
+}
+Void {{{P}}}ResetTabs(CMlFrame _Frame_TitleBar, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_Tabs, _Redraw);
+}
+Void {{{P}}}ResetTabs(CMlFrame _Frame_TitleBar) {
+	{{{P}}}ResetTabs(_Frame_TitleBar, True);
+}
+
+// Update the actions of the component
+Void {{{P}}}SetActions(CMlFrame _Frame_TitleBar, {{{P}}}K_Actions[Integer] _Actions, Boolean _Redraw) {
+	assert(_Actions.count <= {{{C_MaxActions}}}, "The number of actions exceeds the maximum number of actions. Remove some actions or update constant C_MaxActions.");
+	{{{P}}}Private_SetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_Actions, {{{P}}}K_Properties { Actions = _Actions }, _Redraw);
+}
+Void {{{P}}}SetActions(CMlFrame _Frame_TitleBar, {{{P}}}K_Actions[Integer] _Actions) {
+	{{{P}}}SetActions(_Frame_TitleBar, _Actions, True);
+}
+Void {{{P}}}ResetActions(CMlFrame _Frame_TitleBar, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_TitleBar, {{{P}}}C_Property_Actions, _Redraw);
+}
+Void {{{P}}}ResetActions(CMlFrame _Frame_TitleBar) {
+	{{{P}}}ResetActions(_Frame_TitleBar, True);
+}
+
+// Set the default properties of all navigations tab
+Void {{{P}}}SetTitleBarDefaultProperties({{{P}}}K_Properties _DefaultProperties, Boolean _Redraw) {
+	{{{P}}}G_DefaultProperties = _DefaultProperties;
+	if (_Redraw) {{{P}}}RedrawTitleBar();
+}
+Void {{{P}}}SetTitleBarDefaultProperties({{{P}}}K_Properties _DefaultProperties) {
+	{{{P}}}SetTitleBarDefaultProperties(_DefaultProperties, True);
+}
+
+// Initialize title bars
+Void {{{P}}}InitializeTitleBar(CMlFrame _Frame_TitleBar) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_TitleBar;
+	{{{P}}}State = {{{P}}}K_State {
+		IsFocused = True,
+		IsLocked = False,
+		IsTitleBar = True
+	};
+
+	declare CMlFrame Frame_Align <=> (_Frame_TitleBar.GetFirstChild("{{{P}}}frame-align") as CMlFrame);
+	{{{P}}}State.Controls = {{{P}}}K_Controls {
+		Frame_Align = Frame_Align,
+		Frame_Actions = (Frame_Align.GetFirstChild("{{{P}}}frame-actions") as CMlFrame),
+		Frame_NavigationTabs = (Frame_Align.GetFirstChild("{{{P}}}frame-navigation-tabs") as CMlFrame),
+		Frame_NavigationContainer = (Frame_Align.GetFirstChild("{{{P}}}frame-navigation-container") as CMlFrame)
+	};
+	for (ActionIndex, 0, {{{C_MaxActions - 1}}}) {
+		{{{P}}}State.Controls.Buttons_Actions[ActionIndex] = (Frame_Align.GetFirstChild("{{{P}}}button-action-"^ActionIndex) as CMlFrame);
+		{{{P}}}State.Controls.ButtonIcons_Actions[ActionIndex] = (Frame_Align.GetFirstChild("{{{P}}}buttonicon-action-"^ActionIndex) as CMlFrame);
+	}
+
+	{{{P}}}State.CustomizedProperties = {{{P}}}K_Properties {};
+	{{{P}}}State.MergedProperties = {{{P}}}K_Properties {};
+
+	if (_Frame_TitleBar.DataAttributeExists("focused")) {
+		{{{P}}}State.IsFocused = {{{P}}}Tools::TextToBoolean(_Frame_TitleBar.DataAttributeGet("focused"));
+	}
+	if (_Frame_TitleBar.DataAttributeExists("locked")) {
+		{{{P}}}State.IsLocked = {{{P}}}Tools::TextToBoolean(_Frame_TitleBar.DataAttributeGet("locked"));
+	}
+	if (_Frame_TitleBar.DataAttributeExists("halign")) {
+		{{{P}}}SetHAlign(_Frame_TitleBar, {{{P}}}Tools::TextToHAlign2(_Frame_TitleBar.DataAttributeGet("halign")), False);
+	}
+	if (_Frame_TitleBar.DataAttributeExists("valign")) {
+		{{{P}}}SetVAlign(_Frame_TitleBar, {{{P}}}Tools::TextToVAlign2(_Frame_TitleBar.DataAttributeGet("valign")), False);
+	}
+	if (_Frame_TitleBar.DataAttributeExists("size")) {
+		{{{P}}}SetSize(_Frame_TitleBar, {{{P}}}Tools::TextToVec2(_Frame_TitleBar.DataAttributeGet("size")), False);
+	}
+	if (_Frame_TitleBar.DataAttributeExists("tabs-max-width")) {
+		{{{P}}}SetTabsMaxWidth(_Frame_TitleBar, {{{P}}}TL::ToReal(_Frame_TitleBar.DataAttributeGet("tabs-max-width")), False);
+	}
+	if (_Frame_TitleBar.DataAttributeExists("tabs")) {
+		declare Text[Integer] Tabs;
+		Tabs.fromjson(_Frame_TitleBar.DataAttributeGet("tabs"));
+		{{{P}}}SetTabs(_Frame_TitleBar, Tabs, False);
+	}
+	if (_Frame_TitleBar.DataAttributeExists("actions")) {
+		declare {{{P}}}K_Actions[Integer] Actions;
+		Actions.fromjson(_Frame_TitleBar.DataAttributeGet("actions"));
+		{{{P}}}SetActions(_Frame_TitleBar, Actions, False);
+	}
+	if (_Frame_TitleBar.DataAttributeExists("events-delay")) {
+		{{{NavigationTabs::P}}}SetEventsDelay({{{P}}}State.Controls.Frame_NavigationTabs, {{{P}}}TL::ToInteger(_Frame_TitleBar.DataAttributeGet("events-delay")));
+	}
+
+	{{{P}}}RedrawTitleBar(_Frame_TitleBar, False);
+}
+
+// Initialize all title bars in the manialink
+Void {{{P}}}InitializeTitleBar() {
+	Page.GetClassChildren("{{{C_Class_TitleBar}}}", Page.MainFrame, True);
+	foreach (Control in Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_TitleBar = (Control as CMlFrame).Parent;
+		{{{P}}}G_Frames_TitleBar.add(Frame_TitleBar);
+		{{{P}}}InitializeTitleBar(Frame_TitleBar);
+	}
+}
+
+Void {{{P}}}UpdateButtonActionOpacity(Boolean _IsMouse) {
+	foreach (Frame_TitleBar in {{{P}}}G_Frames_TitleBar) {
+		declare {{{P}}}K_State {{{P}}}State for Frame_TitleBar;
+
+		foreach (Index => Action in {{{P}}}State.MergedProperties.Actions) {
+			if ({{{P}}}State.Controls.Buttons_Actions.existskey(Index)) {
+				declare CMlFrame Button_Action = {{{P}}}State.Controls.Buttons_Actions[Index];
+				if (_IsMouse) {{{Button::P}}}SetIconOpacityUnfocused(This, Button_Action, Action.OpacityUnfocused);
+				else {{{Button::P}}}SetIconOpacityUnfocused(This, Button_Action, 1.);
+			}
+		}
+	}
+}
+
+***MainInit***
+***
+declare Boolean {{{P}}}IsMouse;
+***
+
+***MainStart***
+***
+{{{P}}}InitializeTitleBar();
+***
+
+***MainLoop***
+***
+{{{P}}}PendingEvents = {{{P}}}DelayedPendingEvents;
+{{{P}}}DelayedPendingEvents = [];
+
+/* Force redraw component instances */
+if ({{{P}}}RedrawRequested != {{{P}}}RequestRedraw::GetComponentsRedrawCounter()) {
+	{{{P}}}RedrawRequested = {{{P}}}RequestRedraw::GetComponentsRedrawCounter();
+	foreach (Frame_TitleBar in {{{P}}}G_Frames_TitleBar) {
+		{{{P}}}RedrawTitleBar(Frame_TitleBar, False);
+	}
+}
+
+/* ButtonIcon events */
+foreach (Event in {{{ButtonIcon::P}}}GetPendingEvents(This)) {
+	if (Event.Type == {{{ButtonIcon::P}}}C_EventType_HideForMouse) {
+		foreach (Frame_TitleBar in {{{P}}}G_Frames_TitleBar) {
+			declare {{{P}}}K_State {{{P}}}State for Frame_TitleBar;
+			declare Vec2[Integer] ActionsPos = [];
+
+			// Compile the grid with the updated grid config
+			{{{P}}}State.LastestCompiledGrid = {{{P}}}Grid::Update(
+				{{{P}}}Grid::Compile(Private_UpdateButtonIconsVisibility({{{P}}}State)).Config,
+				AnimMgr,
+				{{{P}}}State.Controls.Frame_Actions,
+				False,
+				True
+			);
+
+			// Get the new position of all visible action buttons
+			AnimMgr.Flush({{{P}}}State.Controls.Frame_Actions);
+			AnimMgr.Add({{{P}}}State.Controls.Frame_Actions, "<anim pos=\""^{{{P}}}Private_GetFinalFrameActionsPosX(Frame_TitleBar)^" "^{{{P}}}State.Controls.Frame_Actions.RelativePosition_V3.Y^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			foreach (Index => Button_Action in {{{P}}}State.MergedProperties.Actions) {
+				ActionsPos[Index] = {{{P}}}GetActionButtonPosition(Frame_TitleBar, Index);
+			}
+
+			// Send an update event
+			{{{P}}}DelayedPendingEvents.add({{{P}}}K_Event {
+				Type = {{{P}}}C_EventType_Update,
+				TitleBar = Frame_TitleBar,
+				ActionsPos = ActionsPos
+			});
+		}
+	}
+}
+
+/* Change actions icons opacity depending on the current controller */
+if ({{{P}}}IsMouse != {{{P}}}Tools::IsUsingMouse(Input)) {
+	{{{P}}}IsMouse = {{{P}}}Tools::IsUsingMouse(Input);
+	{{{P}}}UpdateButtonActionOpacity({{{P}}}IsMouse);
+}
+
+/* Navigation events */
+foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+	switch (Event.Type) {
+		case {{{Navigation::P}}}C_EventType_NavigateInput: {
+			if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_AllActions}}}")) {
+				if (Event.To != Null && Event.To.HasClass("{{{C_Class_Action}}}") && Event.To.DataAttributeExists("action")) {
+					declare CMlFrame TitleBar = Event.To.Parent.Parent.Parent.Parent;
+					declare {{{P}}}K_State {{{P}}}State for TitleBar;
+					assert({{{P}}}State.IsTitleBar, "The manialink has been modified, we do not point to the right frame anymore");
+					declare Integer Action = {{{P}}}TL::ToInteger(Event.To.DataAttributeGet("action"));
+					if ({{{P}}}State.MergedProperties.Actions.existskey(Action)) {
+						{{{P}}}PendingEvents.add({{{P}}}K_Event {
+							Type = {{{P}}}C_EventType_Action,
+							Action = Action,
+							CurrentTab = {{{NavigationTabs::P}}}GetCurrentTab({{{P}}}State.Controls.Frame_NavigationTabs),
+							TitleBar = TitleBar
+						});
+					}
+				}
+			}
+		}
+		case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+			if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_Actions}}}")) {
+				switch (Event.Mouse) {
+					case CMlScriptEvent::Type::MouseOver: {{{P}}}Private_Focus(Event.From, Event.To);
+					case CMlScriptEvent::Type::MouseOut: {{{P}}}Private_Focus(Event.From, Event.To);
+					case CMlScriptEvent::Type::MouseClick: {
+						if (Event.To != Null && Event.To.HasClass("{{{C_Class_Action}}}") && Event.To.DataAttributeExists("action")) {
+							declare CMlFrame TitleBar = Event.To.Parent.Parent.Parent.Parent;
+							declare {{{P}}}K_State {{{P}}}State for TitleBar;
+							assert({{{P}}}State.IsTitleBar, "The manialink has been modified, we do not point to the right frame anymore");
+							declare Integer Action = {{{P}}}TL::ToInteger(Event.To.DataAttributeGet("action"));
+							if ({{{P}}}State.MergedProperties.Actions.existskey(Action)) {
+								{{{P}}}PendingEvents.add({{{P}}}K_Event {
+									Type = {{{P}}}C_EventType_Action,
+									Action = Action,
+									CurrentTab = {{{NavigationTabs::P}}}GetCurrentTab({{{P}}}State.Controls.Frame_NavigationTabs),
+									TitleBar = TitleBar
+								});
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+/* Events NavigationTabs */
+foreach (Event in {{{NavigationTabs::P}}}GetPendingEvents(This)) {
+	switch (Event.Type) {
+		case {{{NavigationTabs::P}}}C_EventType_Update: {
+			if (Event.Frame_NavigationTabs.ControlId == "{{{P}}}frame-navigation-tabs") {
+				declare CMlFrame TitleBar = Event.Frame_NavigationTabs.Parent.Parent.Parent;
+				declare {{{P}}}K_State {{{P}}}State for TitleBar;
+				assert({{{P}}}State.IsTitleBar, "The manialink has been modified, we do not point to the right frame anymore");
+				{{{P}}}PendingEvents.add({{{P}}}K_Event {
+					Type = {{{P}}}C_EventType_Update,
+					TitleBar = TitleBar
+				});
+			}
+		}
+		case {{{NavigationTabs::P}}}C_EventType_Select: {
+			if (Event.Frame_NavigationTabs.ControlId == "{{{P}}}frame-navigation-tabs") {
+				declare CMlFrame TitleBar = Event.Frame_NavigationTabs.Parent.Parent.Parent;
+				declare {{{P}}}K_State {{{P}}}State for TitleBar;
+				assert({{{P}}}State.IsTitleBar, "The manialink has been modified, we do not point to the right frame anymore");
+				{{{P}}}PendingEvents.add({{{P}}}K_Event {
+					Type = {{{P}}}C_EventType_TabUpdate,
+					CurrentTab = Event.CurrentTab,
+					TitleBar = TitleBar
+				});
+			}
+		}
+	}
+}
+***
+		""",
+		[
+			Button::ComponentV2(),
+			ButtonIcon::ComponentV2(),
+			MenuSounds::ComponentV2(),
+			Navigation::ComponentV2(),
+			NavigationTabs::ComponentV2(),
+			Transition::ComponentV2()
+		],
+		[]
+	);
+}

@@ -1,0 +1,640 @@
+/**
+ * TM_StuntSolo mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Stunt,TM_Stunt"
+#Const Version "1.0.3+2024-12-05"
+#Const ScriptName "Modes/TrackMania/TM_StuntSolo_Local.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/RespawnHelper_Server.Script.txt" as UIModules_RespawnHelper
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/Trackmania/API/LeaderboardAPI.Script.txt" as LeaderboardAPI
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/GhostUpload_Server.Script.txt" as GhostUpload
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/EndRaceMenu_Server.Script.txt" as UIModules_EndRaceMenu
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/PauseMenu_Server.Script.txt" as UIModules_PauseMenu
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/ScorestableHelper_Server.Script.txt" as UIModules_ScorestableHelper
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/StartRaceMenu_Server.Script.txt" as UIModules_StartRaceMenu
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/StateManagerSolo.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/Stunt.Script.txt" as Stunt
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/FiguresFeed_Server.Script.txt" as UIModules_FiguresFeed
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/NewFigure_Server.Script.txt" as UIModules_NewFigure
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/ParkCombo_Server.Script.txt" as UIModules_ParkCombo
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/ParksPoints_Server.Script.txt" as UIModules_ParksPoints
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/StuntsResult_Server.Script.txt" as UIModules_StuntsResult
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/WelcomeStunt_Server.Script.txt" as UIModules_WelcomeStunt
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModulesData.Script.txt" as UIModulesData
+#Include "Libs/Nadeo/Trackmania/Modes/UIModules/NetShare_Server.Script.txt" as NetShare
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_MA.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "TextLib" as TL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_CampaignId 0 as "<hidden>"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structure
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Private_Ghost {
+	Ident GhostId;
+	Ident GhostInstanceId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "TM_StuntSolo"
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/StuntSolo.Script.txt" //< Url of the mania app
+
+#Const C_IsMapValidation False //< This mode is used to validate maps
+#Const C_BaseTimer 180000 //< The base timer for every stunt map
+#Const C_AdditionnalTimerPerPark 60000 //< The amount of time to add to the base timer for each park on the map
+#Const C_ParkComboDuration 12000 //< Duration of the combo triggered when entering a park
+#Const C_FigurePointsMultiplier 10 //< Score multiplier for each stunt
+#Const C_GreatLandingMultiplier 1.5 //< Stunt score multiplier after a Great landing
+#Const C_ExcellentLandingMultiplier 2.0 //< Stunt score multiplier after an Excellent landing
+#Const C_EpicLandingMultiplier 2.5 //< Stunt score multiplier after an Epic landing
+
+#Const C_UploadRecord True
+#Const C_DisplayRecordGhost False
+#Const C_DisplayRecordMedal True
+#Const C_CelebrateRecordGhost True
+#Const C_CelebrateRecordMedal True
+#Const C_DisplayRecordsUIModule True
+#Const C_GhostUploadTimeout 60000
+#Const C_GhostLabel_PB "7FA" // GreenOne - applied with $xxx, must be hex3
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Global variables
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Task::K_Task G_Task_SaveReplay;
+declare Stunt::K_GhostInfo G_Ghost_LastStuntSession;
+declare K_Private_Ghost G_BestGhost;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(CampaignStore::ScriptName, CampaignStore::Version);
+Log::RegisterScript(CampaignStruct::ScriptName, CampaignStruct::Version);
+Log::RegisterScript(Http::ScriptName, Http::Version);
+Log::RegisterScript(ModeUtils::ScriptName, ModeUtils::Version);
+Log::RegisterScript(NetShare::ScriptName, NetShare::Version);
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(Tracking::ScriptName, Tracking::Version);
+Log::RegisterScript(UIModules_EndRaceMenu::ScriptName, UIModules_EndRaceMenu::Version);
+Log::RegisterScript(UIModules_FiguresFeed::ScriptName, UIModules_FiguresFeed::Version);
+Log::RegisterScript(UIModules_NewFigure::ScriptName, UIModules_NewFigure::Version);
+Log::RegisterScript(UIModules_ParkCombo::ScriptName, UIModules_ParkCombo::Version);
+Log::RegisterScript(UIModules_ParksPoints::ScriptName, UIModules_ParksPoints::Version);
+Log::RegisterScript(UIModules_PauseMenu::ScriptName, UIModules_PauseMenu::Version);
+Log::RegisterScript(UIModules_StartRaceMenu::ScriptName, UIModules_StartRaceMenu::Version);
+Log::RegisterScript(UIModules_StuntsResult::ScriptName, UIModules_StuntsResult::Version);
+Log::RegisterScript(UIModules_WelcomeStunt::ScriptName, UIModules_WelcomeStunt::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+Stunt::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+Stunt::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultIntroSequence = False; //< Intro sequence is hidden by HoldLoadingScreen
+MB_Settings_UseDefaultPodiumSequence = False;
+MB_Settings_UseDefaultTimer = False;
+MB_Settings_UseDefaultUIManagement = False;
+Race_Settings_IsLocalMode = True;
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+Race::SortScores(Race::C_Sort_TotalPoints);
+UIModules_Sign16x9Small::SetScoreMode(UIModules_Sign16x9Small::C_ScoreMode_Points);
+UIModules_PauseMenu::SetZIndex(UIModulesData::C_ZIndex_PauseMenu);
+UIModules_RespawnHelper::SetPosition(UIModulesData::C_Position_RespawnHelper);
+UIModules_ScorestableHelper::SetPosition(UIModulesData::C_Position_ScorestableHelper);
+UIModules_Record::SetIsGhostSpectatingEnabled(False);
+
+// Initialize scores table
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Points);
+UIModules_ScoresTable::SetIsLocalMode(True);
+
+// Hide SM Overlay
+UIManager.UIAll.OverlayHideSpectatorInfos = True;
+UIManager.UIAll.OverlayHideCountdown = True;
+***
+
+***Match_Yield***
+***
+// Update map record
+declare Http::K_Request Campaign_RequestMapRecord for This;
+if (Http::IsInitialized(Campaign_RequestMapRecord)) {
+	Campaign_RequestMapRecord = Http::Update(Campaign_RequestMapRecord);
+	if (!Http::IsRunning(Campaign_RequestMapRecord)) {
+		if (Http::IsSuccess(Campaign_RequestMapRecord)) {
+			declare Text Server_RequestParam_GroupUid for This;
+			declare Text Server_RequestParam_MapUid for This;
+			declare CampaignStruct::LibCampaignStruct_K_Map Map_Map for This;
+			declare MapRecord = LeaderboardAPI::GetResponseFromGetPlayerMapRankings(Campaign_RequestMapRecord);
+
+			CampaignStore::SetMapRecords(Server_RequestParam_GroupUid, MapRecord);
+			Map_Map = CampaignStore::GetMap(CampaignStore::GetCampaignFromId(S_CampaignId), Server_RequestParam_MapUid);
+			NetShare::SetMap(Map_Map);
+		}
+		Campaign_RequestMapRecord = Http::Destroy(Campaign_RequestMapRecord);
+		NetShare::SetRankingsAreLoading(False);
+	}
+}
+
+StateMgr::Yield();
+Stunt::Yield();
+***
+
+***Match_InitServer***
+***
+declare Text Server_RequestParam_GroupUid for This;
+declare Text Server_RequestParam_MapUid for This;
+declare Http::K_Request Campaign_RequestMapRecord for This;
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+UseStunts = True;
+CanReTriggerLatestWaypoint = True;
+Clans::SetClansNb(0);
+Scores::SaveInScore(Scores::C_Points_Map);
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint);
+Race::UseCppRaceProgression(False); // To have the custom behavior in CPs
+Race::SetupRecord(
+	MenuConst::C_ScopeType_Season,
+	MenuConst::C_ScopeType_PersonalBest,
+	MenuConst::C_GameMode_Stunt,
+	"",
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal,
+	C_DisplayRecordsUIModule
+);
+Stunt::SetModeSettings(
+	C_IsMapValidation,
+	C_ParkComboDuration,
+	C_FigurePointsMultiplier,
+	C_GreatLandingMultiplier,
+	C_ExcellentLandingMultiplier,
+	C_EpicLandingMultiplier
+);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(False);
+CarRank::Reset();
+
+// Initialize map ranking request
+Server_RequestParam_GroupUid = "";
+Server_RequestParam_MapUid = "";
+Campaign_RequestMapRecord = Http::DestroyIfInitialized(Campaign_RequestMapRecord);
+Campaign_RequestMapRecord = Http::GetEmptyRequest();
+NetShare::SetRankingsAreLoading(False);
+***
+
+***Match_AfterLoadMap***
+***
+// Players are available only once the map is loaded
+// We must enforce their initialization there to avoid
+// being stuck in the start or end race menu when restarting the script
+foreach (Player in AllPlayers) {
+	StateMgr::InitializePlayer(Player);
+	Stunt::InitializePlayer(Player);
+}
+***
+
+***Match_InitMap***
+***
+declare CampaignStruct::LibCampaignStruct_K_Campaign Map_Campaign for This;
+declare CampaignStruct::LibCampaignStruct_K_Map Map_Map for This;
+declare Integer CurrentMedal;
+***
+
+***Match_StartMap***
+***
+MB_EnablePlayMode(False);
+
+// Update variables
+Map_Campaign = CampaignStore::GetCampaignFromId(S_CampaignId);
+Map_Map = UpdateMapNetShare(Map_Campaign.Id);
+
+// Update the NetShare lib
+NetShare::SetHasNextMap(NextMapIndex != 0);
+NetShare::SetCampaign(Map_Campaign);
+
+// Retrieve map records when loading the map
+UpdateMapRanking(Map_Campaign.SeasonUid, Map.MapInfo.MapUid);
+
+// Init UIs
+UIModules_EndRaceMenu::SetMapChanged();
+UIModules_ScoresTable::SetGhostsForRanking(Players[0], [], [], "", [], "", 0, 0, False, False, Medals::C_ScoreMgrMedal_None);
+
+// Process welcome stunt events (only for the first map of the list)
+if (MapList.keyof(Map.MapInfo) == 0) {
+	StateMgr::ForcePlayersStates([StateMgr::C_State_WelcomeStunt]);
+	while (MB_MapIsRunning() && StateMgr::HasForcedState(StateMgr::C_State_WelcomeStunt)) {
+		ProcessWelcomeStuntEvent();
+		MB_Yield();
+	}
+}
+***
+
+***Match_StartRound***
+***
+// Update the current medal
+CurrentMedal = Map_Map.Medal;
+
+// Reset the EndRaceMenu UIModule
+UIModules_EndRaceMenu::SetPlayerDrivingAloneState(True);
+UIModules_EndRaceMenu::SetVisibilityOfNewMedal(False);
+UIModules_EndRaceMenu::SetEarlyMedalDisplay(False);
+UIModules_EndRaceMenu::StopCurrentSounds();
+UIModules_EndRaceMenu::SetRoundChanged();
+
+// Display player in spawn with background intro
+ModeUtils::PushAndApplyUISequence(UIManager.UIAll, CUIConfig::EUISequence::RollingBackgroundIntro);
+foreach (Player in Players) {
+	if (Race::IsReadyToStart(Player)) {
+		Race::Start(Player, Map::GetStart(), 0, -1);
+	}
+}
+
+// Process start race menu events
+if (!StateMgr::HasForcedState(StateMgr::C_State_Playing)) {
+	StateMgr::ForcePlayersStates([StateMgr::C_State_StartRaceMenu]);
+	while (MB_MapIsRunning() && StateMgr::HasForcedState(StateMgr::C_State_StartRaceMenu)) {
+		ProcessStartRaceMenuEvent();
+		MB_Yield();
+	}
+}
+ModeUtils::PopAndApplyUISequence(UIManager.UIAll);
+
+// Ensure that the volume balance enters Playing state
+UIModules_StartRaceMenu::SetVolumeBalanceState_Playing();
+
+// Update play mode
+MB_EnablePlayMode(StateMgr::HasForcedState(StateMgr::C_State_Playing));
+
+// Fetch best ghost of the player
+G_BestGhost = UpdatePBGhost_Yield(G_BestGhost);
+if (G_BestGhost.GhostId != NullId && DataFileMgr.Ghosts.existskey(G_BestGhost.GhostId)) {
+	UIModules_ScoresTable::SetGhostsForRanking(Players[0], [DataFileMgr.Ghosts[G_BestGhost.GhostId]], [], "", [], GetPBName(), 0, 0, False, False, -1);
+}
+
+// Initialize stunt session
+StartTime = Now + Race::C_SpawnDuration;
+EndTime = StartTime + Stunt::GetSessionTimer(C_BaseTimer, C_AdditionnalTimerPerPark);
+
+// Spawn players for the race
+Stunt::Start(Players[0], StartTime);
+***
+
+***Match_PlayLoop***
+***
+// Process menu events
+ProcessPauseMenuEvent();
+ProcessRecordsEvent();
+
+// C++ events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded || !MB_RoundIsRunning()) continue;
+	switch (Event.Type) {
+		case CSmModeEvent::EType::OnStuntFigure: {
+			Stunt::OnFigureEvent(Event.Player, Event.StuntFigure);
+		}
+		case CSmModeEvent::EType::OnPlayerTriggersWaypoint: {
+			Stunt::OnPlayerTriggersWaypoint(Event.Player, Event.Landmark);
+			if (Event.Landmark.Waypoint.IsFinish) { //< Stop round and upload records
+				EndPlayerStuntSession(Event.Player);
+			}
+			Events::Valid(Event); //< Validates that the checkpoint has been passed. This enables the checkpoints launched with the replay to work.
+		}
+		case CSmModeEvent::EType::OnPlayerRequestRespawn: {
+			Stunt::OnPlayerRequestRespawn(Event.Player, Event.GiveUp);
+		}
+		default: Events::Invalid(Event);
+	}
+}
+
+// End the round when time limit is reached
+if (EndTime > 0 && Now >= EndTime) {
+	EndPlayerStuntSession(Players[0]);
+}
+***
+
+***Match_EndRound***
+***
+EndTime = -1; //< Stop the timer
+
+if (!StateMgr::HasForcedState(StateMgr::C_State_Playing)) {
+	//Wait for the end of the record transmission
+	while (GhostUpload::IsUploading()) MB_Yield();
+
+	// Update variables
+	Map_Map = UpdateMapNetShare(Map_Campaign.Id);
+
+	// Retrieve the latest ghost
+	declare CGhost Ghost = Ghost_RetrieveFromPlayer(Players[0]);
+	if (Ghost != Null) {
+		G_Ghost_LastStuntSession = Stunt::ReleaseGhost(G_Ghost_LastStuntSession);
+		G_Ghost_LastStuntSession = Stunt::K_GhostInfo { Ghost = Ghost };
+	}
+
+	// Process stunts result events
+	StateMgr::ForcePlayersStates([StateMgr::C_State_StuntsResult]);
+	while (MB_MapIsRunning() && StateMgr::HasForcedState(StateMgr::C_State_StuntsResult)) {
+		ProcessStuntsResultEvent();
+		ProcessPauseMenuEvent();
+		MB_Yield();
+	}
+
+	// Process end race menu events
+	StateMgr::ForcePlayersStates([StateMgr::C_State_EndRaceMenu]);
+	UIModules_EndRaceMenu::SetEarlyMedalDisplay(CurrentMedal < Map_Map.Medal);
+	UIModules_EndRaceMenu::SetVisibilityOfNewMedal(CurrentMedal < Map_Map.Medal);
+	while (MB_MapIsRunning() && StateMgr::HasForcedState(StateMgr::C_State_EndRaceMenu)) {
+		ProcessEndRaceMenuEvent();
+		MB_Yield();
+	}
+}
+***
+
+***Match_EndMap***
+***
+// Ensure that we stop the match (after a vote for the next map, ...)
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+Race::StopSkipOutroAll();
+MB_StopMatch();
+
+// Clear variables
+G_Task_SaveReplay = Task::Destroy(G_Task_SaveReplay);
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the headers for the requests to the Live API
+Text[Text] GetLiveHeaders() {
+	declare Text[Text] Headers = LeaderboardAPI::C_Headers;
+	declare Text Campaign_LiveAuthorizationValue for Teams[0] = "";
+	Headers["Authorization"] = Campaign_LiveAuthorizationValue;
+	return Headers;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update rankings for players
+Void UpdateMapRanking(Text _GroupUid, Text _MapUid, Integer _NewScore) {
+	declare Text Server_RequestParam_GroupUid for This;
+	declare Text Server_RequestParam_MapUid for This;
+	declare Http::K_Request Campaign_RequestMapRecord for This;
+
+	Server_RequestParam_GroupUid = _GroupUid;
+	Server_RequestParam_MapUid = _MapUid;
+
+	if (Server_RequestParam_GroupUid != "" && Server_RequestParam_MapUid != "") {
+		Campaign_RequestMapRecord = Http::DestroyIfInitialized(Campaign_RequestMapRecord);
+		if (_NewScore > 0) {
+			Campaign_RequestMapRecord = LeaderboardAPI::Server_GetPlayerMapRankings(GetLiveHeaders(), Server_RequestParam_GroupUid, Server_RequestParam_MapUid, _NewScore);
+		} else {
+			Campaign_RequestMapRecord = LeaderboardAPI::Server_GetPlayerMapRankings(GetLiveHeaders(), Server_RequestParam_GroupUid, Server_RequestParam_MapUid);
+		}
+		NetShare::SetRankingsAreLoading(True);
+	}
+}
+Void UpdateMapRanking(Text _GroupUid, Text _MapUid) {
+	UpdateMapRanking(_GroupUid, _MapUid, -1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the map in the NetShare component
+CampaignStruct::LibCampaignStruct_K_Map UpdateMapNetShare(Integer _CampaignId) {
+	if (Map == Null || Map.MapInfo == Null) return CampaignStruct::LibCampaignStruct_K_Map {};
+	declare CampaignStruct::LibCampaignStruct_K_Map NetShareMap;
+	declare Integer RespawnCount = -1; //< ScoreMgr will update this variable
+	declare Integer Points = -1; //< ScoreMgr will update this variable
+	declare Integer Score = -1; //< ScoreMgr will update this variable
+	declare Integer Medal;
+
+	// Update medal and full score from ScoreMgr
+	Medal = ScoreMgr.Map_GetMedal(
+		MainUser::GetMainUserId(),
+		Map.MapInfo.MapUid,
+		MenuConst::C_ScopeType_PersonalBest,
+		"",
+		MenuConst::C_GameMode_Stunt,
+		""
+	);
+	ScoreMgr.Map_GetRecordFullScore(
+		MainUser::GetMainUserId(),
+		Map.MapInfo.MapUid,
+		MenuConst::C_ScopeType_PersonalBest,
+		"",
+		MenuConst::C_GameMode_Stunt,
+		"",
+		Score,
+		Points,
+		RespawnCount
+	);
+
+	// Update the NetShare map
+	if (_CampaignId != CampaignStruct::C_Campaign_NullId) {
+		NetShareMap = CampaignStore::SetMapMedalAndScore(_CampaignId, Map.MapInfo.MapUid, Medal, Score, Points, RespawnCount);
+	} else { //< When playing a Stunt track that is not in a campaign (e.g. using the 'Play a track' button in the 'Local' menu)
+		NetShareMap = CampaignStruct::GetMapFromMapInfo(Map.MapInfo);
+		NetShareMap.RespawnCount = RespawnCount;
+		NetShareMap.Points = Points;
+		NetShareMap.Score = Score;
+		NetShareMap.Medal = Medal;
+	}
+	NetShare::SetMap(NetShareMap);
+
+	return NetShareMap;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the colored "Personnal Best" text
+Text GetPBName() {
+	//L16N [Record] Name displayed above the ghost of the player's best score
+	return "$"^C_GhostLabel_PB^TL::GetTranslatedText(_("Personal best"));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Fetch the best ghost of the race for the player
+K_Private_Ghost UpdatePBGhost_Yield(K_Private_Ghost _PreviousGhost) {
+	declare K_Private_Ghost Ghost = _PreviousGhost;
+
+	if (Ghost.GhostInstanceId != NullId) {
+		GhostMgr.Ghost_Remove(_PreviousGhost.GhostInstanceId);
+	}
+	if (Ghost.GhostId != NullId && DataFileMgr.Ghosts.existskey(Ghost.GhostId)) {
+		DataFileMgr.Ghost_Release(Ghost.GhostId);
+	}
+	Ghost.GhostInstanceId = NullId;
+	Ghost.GhostId = NullId;
+
+	declare Task::K_Task Task_GetRecordGhost = Task::Create(ScoreMgr, ScoreMgr.Map_GetRecordGhost_v2(
+		MainUser::GetMainUserId(),
+		Map.MapInfo.MapUid,
+		MenuConst::C_ScopeType_PersonalBest,
+		"",
+		MenuConst::C_GameMode_Stunt,
+		""
+	));
+
+	while (Task::IsInitialized(Task_GetRecordGhost)) {
+		Task_GetRecordGhost = Task::Update(Task_GetRecordGhost);
+		if (!Task::IsRunning(Task_GetRecordGhost)) {
+			declare CTaskResult_Ghost SourceTask = Task::GetSourceTask_Ghost(Task_GetRecordGhost);
+			if (Task::IsSuccess(Task_GetRecordGhost) && SourceTask != Null && SourceTask.Ghost != Null) {
+				//L16N [Record] Best score done by the player. PB stands for Personnal Best. The translation must be 3 or less letters because it's displayed on the back of the car (as the trigram).
+				SourceTask.Ghost.Trigram = _("|Personal best|PB");
+				SourceTask.Ghost.Nickname = GetPBName();
+				Ghost.GhostInstanceId = GhostMgr.Ghost_Add(SourceTask.Ghost, True);
+				Ghost.GhostId = SourceTask.Ghost.Id;
+			}
+			Task_GetRecordGhost = Task::Destroy(Task_GetRecordGhost);
+		}
+		MB_Yield();
+	}
+
+	return Ghost;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop and validate the current stunt session
+Void EndPlayerStuntSession(CSmPlayer _Player) {
+	declare CampaignStruct::LibCampaignStruct_K_Campaign Map_Campaign for This;
+
+	Stunt::ValidateCurrentSession(_Player);
+	GhostUpload::ForceUploadWaiting(C_GhostUploadTimeout);
+	UpdateMapRanking(Map_Campaign.SeasonUid, Map.MapInfo.MapUid, _Player.Score.Points);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+	MB_StopRound();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the WelcomeStunt UI has been received and apply it if needed
+Void ProcessWelcomeStuntEvent() {
+	foreach (Event in UIModules_WelcomeStunt::GetPendingEvents()) {
+		switch (Event.Type) {
+			case UIModules_WelcomeStunt::C_Event_PlayStunt: {
+				StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the StartRaceMenu UI has been received and apply it if needed
+Void ProcessStartRaceMenuEvent() {
+	switch (UIModules_StartRaceMenu::GetLastEventType()) {
+		case Const::C_RaceMenuEvent_MapRecordsUpdated: {
+			declare CampaignStruct::LibCampaignStruct_K_Map Map_Map for This;
+			declare CampaignStruct::LibCampaignStruct_K_Campaign Map_Campaign for This;
+			Map_Map = UpdateMapNetShare(Map_Campaign.Id);
+		}
+		case Const::C_RaceMenuEvent_Exit: MB_StopServer();
+		case Const::C_StartRaceMenuEvent_StartRace: StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the PauseMenu UI has been received and apply it if needed
+Void ProcessPauseMenuEvent() {
+	switch (UIModules_PauseMenu::GetLastEventType()) {
+		case Const::C_RaceMenuEvent_NextMap: MB_StopMap();
+		case Const::C_RaceMenuEvent_ChangeOpponents: {
+			StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+			MB_StopRound();
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the StuntsResult UI has been received and apply it if needed
+Void ProcessStuntsResultEvent() {
+	foreach (Event in UIModules_StuntsResult::GetPendingEvents()) {
+		switch (Event.Type) {
+			case UIModules_StuntsResult::C_Event_SkipStuntsResult: {
+				StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the EndRaceMenu UI has been received and apply it if needed
+Void ProcessEndRaceMenuEvent() {
+	switch (UIModules_EndRaceMenu::GetLastEventType()) {
+		case Const::C_EndRaceMenuEvent_Improve: StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+		case Const::C_RaceMenuEvent_NextMap: MB_StopMap();
+		case Const::C_RaceMenuEvent_Exit: MB_StopServer();
+		case Const::C_RaceMenuEvent_MapRecordsUpdated: {
+			declare CampaignStruct::LibCampaignStruct_K_Map Map_Map for This;
+			declare CampaignStruct::LibCampaignStruct_K_Campaign Map_Campaign for This;
+			Map_Map = UpdateMapNetShare(Map_Campaign.Id);
+		}
+		case Const::C_EndRaceMenuEvent_SaveReplay: {
+			G_Task_SaveReplay = Stunt::SaveReplay(G_Ghost_LastStuntSession.Ghost.Id, G_Task_SaveReplay);
+			while (Task::IsInitialized(G_Task_SaveReplay)) {
+				G_Task_SaveReplay = Task::Update(G_Task_SaveReplay);
+				if (!Task::IsRunning(G_Task_SaveReplay)) {
+					if (Task::IsSuccess(G_Task_SaveReplay)) UIModules_EndRaceMenu::SetReplaySaved();
+					G_Task_SaveReplay = Task::Destroy(G_Task_SaveReplay);
+				}
+				MB_Yield();
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the Records UI has been received and apply it if needed
+Void ProcessRecordsEvent() {
+	foreach (Event in UIManager.PendingEvents) {
+		if (Event.Type == CUIConfigEvent::EType::OnLayerCustomEvent) {
+			switch (Event.CustomEventType) {
+				case UIModules_Record::C_Event_UpdatePBGhostVisibility: {
+					if (UIModules_Record::PBGhostIsVisible(Event)) {
+						G_BestGhost = UpdatePBGhost_Yield(G_BestGhost);
+					} else if (G_BestGhost.GhostInstanceId != NullId) {
+						GhostMgr.Ghost_Remove(G_BestGhost.GhostInstanceId);
+						G_BestGhost.GhostInstanceId = NullId;
+					}
+				}
+			}
+		}
+	}
+}

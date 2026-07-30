@@ -1,0 +1,340 @@
+
+#Include "Libs/Nadeo/System/Notifications/NotificationStructs.Script.txt" as Structs
+#Include "Libs/Nadeo/System/Styles/CommonStyles.Script.txt" as Styles
+
+#Const C_LibLayerNotifications_NotificationWidth	68.
+
+declare CUILayer G_ManialinkLayerNotifications;
+
+Text Private_CreateManialink(Integer _NbNotifications) {
+	declare Text NotificationFrames;
+	declare Text NotificationFrames_Ghost;
+
+	for (I, 0, _NbNotifications - 1) {
+		NotificationFrames			^= "<frameinstance modelid='FrameModel_Notification' id='Frame_Notification#"^I^"' />";
+		NotificationFrames_Ghost	^= "<frameinstance modelid='FrameModel_Notification' id='Frame_NotificationGhost#"^I^"' />";
+	}
+
+	declare X = C_LibLayerNotifications_NotificationWidth;
+
+	return """
+<manialink version="3" name="Notifications">
+<stylesheet>
+	{{{Styles::Get()}}}
+</stylesheet>
+
+<frame pos="-158 82">
+	<framemodel id="FrameModel_Notification">
+		<label id="Label_NotificationApp" class="Text" pos="{{{X - 4.75}}} -3" halign="right" textsize=".75" textprefix="$t" opacity="0" />
+		<label id="Label_NotificationName" class="Text" pos="2 -3.5" size="{{{X - 10.}}}" textsize="1.5" opacity="0" />
+		<label id="Label_NotificationDesc" class="Text" pos="2 -5.5" valign="top" size="{{{X - 4.}}}" textsize="1" autonewline="1" opacity="0" />
+		<quad id="Quad_NotificationDeny" pos="{{{X - 2.75}}} -2.9" halign="center" valign="center" size="5 5" style="Icons64x64_1" substyle="QuitRace" ScriptEvents="1" opacity="0" />
+
+		<quad id="Quad_NotificationFrame" pos="-.25 .25" size="{{{X * 2. + .5}}}" scale=".5" style="Bgs1InRace" substyle="BgColorContour" opacity="0" />
+		<quad id="Quad_NotificationImage" pos="1 -1" size="0 8" opacity="0" />
+		<quad id="Quad_NotificationCard" size="{{{X}}}" opacity="0" ScriptEvents="1" />
+		<quad id="Quad_NotificationBg" size="{{{X}}}" opacity="0" />
+		<quad id="Quad_NotificationGlow" pos="-4.5 4.5" size="{{{(X + 9.) / 2.}}}" scale="2" style="Bgs1InRace" substyle="BgButtonGlow" opacity="0" />
+	</framemodel>
+	{{{NotificationFrames}}}
+	{{{NotificationFrames_Ghost}}}
+</frame>
+
+<script><!--
+
+#Include "TextLib" as TL
+
+{{{Structs::IntoManialink()}}}
+
+declare SNotification[] G_CachedNotifications;
+declare Real G_NotificationsTotalHeight;
+declare Real[Integer] G_NotificationLastHeight;
+
+Void FormatNotificationFrame(CMlFrame _Frame, SNotification _Notification, Boolean _Anim) {
+	if (_Frame == Null) return;
+
+	declare Label_NotificationApp	<=> (_Frame.GetFirstChild("Label_NotificationApp")	as CMlLabel);
+	declare Label_NotificationName	<=> (_Frame.GetFirstChild("Label_NotificationName")	as CMlLabel);
+	declare Label_NotificationDesc	<=> (_Frame.GetFirstChild("Label_NotificationDesc")	as CMlLabel);
+	declare Quad_NotificationFrame	<=> (_Frame.GetFirstChild("Quad_NotificationFrame")	as CMlQuad);
+	declare Quad_NotificationCard	<=> (_Frame.GetFirstChild("Quad_NotificationCard")	as CMlQuad);
+	declare Quad_NotificationBg		<=> (_Frame.GetFirstChild("Quad_NotificationBg")	as CMlQuad);
+	declare Quad_NotificationGlow	<=> (_Frame.GetFirstChild("Quad_NotificationGlow")	as CMlQuad);
+	declare Quad_NotificationImage	<=> (_Frame.GetFirstChild("Quad_NotificationImage")	as CMlQuad);
+	declare Quad_NotificationDeny	<=> (_Frame.GetFirstChild("Quad_NotificationDeny")	as CMlQuad);
+
+	Label_NotificationApp.Value		= _Notification.AppName;
+	Label_NotificationName.Value	= _Notification.Title;
+	Label_NotificationDesc.Value	= _Notification.Description;
+
+	declare DefaultHeight = Label_NotificationDesc.ComputeHeight("A");
+	declare NotificationHeight = 10. + Label_NotificationDesc.ComputeHeight(Label_NotificationDesc.Value) - DefaultHeight;
+
+	Quad_NotificationCard.Size.Y	= NotificationHeight;
+	Quad_NotificationBg.Size.Y		= NotificationHeight;
+	Quad_NotificationFrame.Size.Y	= NotificationHeight * 2. + 1.;
+	Quad_NotificationGlow.Size.Y	= (NotificationHeight + 9.) / 2.;
+
+	Quad_NotificationCard.BgColorFocus	= _Notification.Color;
+	Quad_NotificationBg.BgColor			= _Notification.Color;
+	Quad_NotificationFrame.Colorize		= _Notification.Color;
+	Quad_NotificationGlow.Colorize		= _Notification.Color;
+
+	for (I, 0, 2) Quad_NotificationBg.BgColor[I] *= .125;
+
+	Quad_NotificationImage.Visible	= _Notification.Image.URL != "";
+
+	Label_NotificationName.RelativePosition_V3.X	= 2.;
+	Label_NotificationDesc.RelativePosition_V3.X	= 2.;
+
+	if (Quad_NotificationImage.Visible) {
+		Quad_NotificationImage.ImageUrl = _Notification.Image.URL;
+		Quad_NotificationImage.Size.X = Quad_NotificationImage.Size.Y * _Notification.Image.Ratio;
+
+		Label_NotificationName.RelativePosition_V3.X	+= Quad_NotificationImage.Size.X;
+		Label_NotificationDesc.RelativePosition_V3.X	+= Quad_NotificationImage.Size.X;
+	}
+
+	Label_NotificationName.Size.X = {{{X}}} - Label_NotificationName.RelativePosition_V3.X - 16.;
+	Label_NotificationDesc.Size.X = {{{X}}} - Label_NotificationDesc.RelativePosition_V3.X - 2.;
+
+	if (_Anim) {
+		AnimMgr.Flush(_Frame);
+
+		if (G_NotificationLastHeight.existskey(_Notification.Id)) {
+			_Frame.RelativePosition_V3.Y = G_NotificationLastHeight[_Notification.Id];
+			declare Y = -G_NotificationsTotalHeight;
+			AnimMgr.Add(_Frame, "<frame pos='0 "^Y^"' />", 500, CAnimManager::EAnimManagerEasing::SineInOut);
+			G_NotificationLastHeight[_Notification.Id] = Y;
+		}
+
+		else {
+			declare Y = -G_NotificationsTotalHeight;
+			_Frame.RelativePosition_V3 = <-2., Y>;
+			AnimMgr.Add(_Frame, "<frame pos='0 "^Y^"' />", 250, CAnimManager::EAnimManagerEasing::SineOut);
+			G_NotificationLastHeight[_Notification.Id] = _Frame.RelativePosition_V3.Y;
+		}
+	}
+
+	G_NotificationsTotalHeight += NotificationHeight + 2.;
+
+	declare SAction NotificationAction for Quad_NotificationCard;
+	NotificationAction = _Notification.Action;
+
+	foreach (Quad in [Quad_NotificationCard, Quad_NotificationDeny]) {
+		declare Integer NotificationId for Quad;
+		NotificationId = _Notification.Id;
+	}
+}
+
+Void FrameAnimationIn(CMlFrame _Frame) {
+	if (_Frame == Null) return;
+
+	declare Label_NotificationApp	<=> (_Frame.GetFirstChild("Label_NotificationApp")	as CMlLabel);
+	declare Label_NotificationName	<=> (_Frame.GetFirstChild("Label_NotificationName")	as CMlLabel);
+	declare Label_NotificationDesc	<=> (_Frame.GetFirstChild("Label_NotificationDesc")	as CMlLabel);
+	declare Quad_NotificationFrame	<=> (_Frame.GetFirstChild("Quad_NotificationFrame")	as CMlQuad);
+	declare Quad_NotificationCard	<=> (_Frame.GetFirstChild("Quad_NotificationCard")	as CMlQuad);
+	declare Quad_NotificationBg		<=> (_Frame.GetFirstChild("Quad_NotificationBg")	as CMlQuad);
+	declare Quad_NotificationGlow	<=> (_Frame.GetFirstChild("Quad_NotificationGlow")	as CMlQuad);
+	declare Quad_NotificationImage	<=> (_Frame.GetFirstChild("Quad_NotificationImage")	as CMlQuad); 
+	declare Quad_NotificationDeny	<=> (_Frame.GetFirstChild("Quad_NotificationDeny")	as CMlQuad); 
+
+	declare Easing = CAnimManager::EAnimManagerEasing::SineOut;
+	declare Duration = 250;
+
+	Label_NotificationApp.Opacity	= 0.;
+	Label_NotificationName.Opacity	= 0.;
+	Label_NotificationDesc.Opacity	= 0.;
+	Quad_NotificationFrame.Opacity	= 0.;
+	Quad_NotificationCard.Opacity	= 0.;
+	Quad_NotificationBg.Opacity		= 0.;
+	Quad_NotificationGlow.Opacity	= 0.;
+	Quad_NotificationImage.Opacity	= 0.;
+	Quad_NotificationDeny.Opacity	= 0.;
+
+	AnimMgr.Add(Label_NotificationApp,	"<label opacity='.5' />",	Duration, Easing);
+	AnimMgr.Add(Label_NotificationName,	"<label opacity='1' />",	Duration, Easing);
+	AnimMgr.Add(Label_NotificationDesc,	"<label opacity='1' />",	Duration, Easing);
+	AnimMgr.Add(Quad_NotificationFrame,	"<quad opacity='1' />",		Duration, Easing);
+	AnimMgr.Add(Quad_NotificationCard,	"<quad opacity='.25' />",	Duration, Easing);
+	AnimMgr.Add(Quad_NotificationBg,	"<quad opacity='.95' />",	Duration, Easing);
+	AnimMgr.Add(Quad_NotificationGlow,	"<quad opacity='1' />",		Duration, Easing);
+	AnimMgr.Add(Quad_NotificationImage,	"<quad opacity='1' />",		Duration, Easing);
+	AnimMgr.Add(Quad_NotificationDeny,	"<quad opacity='.5' />",	Duration, Easing);
+}
+
+Void FrameAnimationOut(CMlFrame _Frame, SNotification _Notification) {
+	if (_Frame == Null) return;
+
+	declare Label_NotificationApp	<=> (_Frame.GetFirstChild("Label_NotificationApp")	as CMlLabel);
+	declare Label_NotificationName	<=> (_Frame.GetFirstChild("Label_NotificationName")	as CMlLabel);
+	declare Label_NotificationDesc	<=> (_Frame.GetFirstChild("Label_NotificationDesc")	as CMlLabel);
+	declare Quad_NotificationFrame	<=> (_Frame.GetFirstChild("Quad_NotificationFrame")	as CMlQuad);
+	declare Quad_NotificationCard	<=> (_Frame.GetFirstChild("Quad_NotificationCard")	as CMlQuad);
+	declare Quad_NotificationBg		<=> (_Frame.GetFirstChild("Quad_NotificationBg")	as CMlQuad);
+	declare Quad_NotificationGlow	<=> (_Frame.GetFirstChild("Quad_NotificationGlow")	as CMlQuad);
+	declare Quad_NotificationImage	<=> (_Frame.GetFirstChild("Quad_NotificationImage")	as CMlQuad);
+	declare Quad_NotificationDeny	<=> (_Frame.GetFirstChild("Quad_NotificationDeny")	as CMlQuad); 
+
+	declare Easing = CAnimManager::EAnimManagerEasing::SineIn;
+	declare Duration = 125;
+
+	if (G_NotificationLastHeight.existskey(_Notification.Id)) {
+		_Frame.RelativePosition_V3 = <0., G_NotificationLastHeight[_Notification.Id]>;
+		declare Y = _Frame.RelativePosition_V3.Y;
+		AnimMgr.Add(_Frame, "<frame pos='-10 "^Y^"' />", Duration, Easing);
+		AnimMgr.Add(_Frame, "<frame hidden='1' />", Now + Duration, 1, Easing);
+	}
+
+	Label_NotificationApp.Opacity	= .5;
+	Label_NotificationName.Opacity	= 1.;
+	Label_NotificationDesc.Opacity	= 1.;
+	Quad_NotificationFrame.Opacity	= 1.;
+	Quad_NotificationCard.Opacity	= .25;
+	Quad_NotificationBg.Opacity		= .95;
+	Quad_NotificationGlow.Opacity	= 1.;
+	Quad_NotificationImage.Opacity	= 1.;
+	Quad_NotificationDeny.Opacity	= .5;
+
+	AnimMgr.Add(Label_NotificationApp,	"<label opacity='0' />",	Duration, Easing);
+	AnimMgr.Add(Label_NotificationName,	"<label opacity='0' />",	Duration, Easing);
+	AnimMgr.Add(Label_NotificationDesc,	"<label opacity='0' />",	Duration, Easing);
+	AnimMgr.Add(Quad_NotificationFrame,	"<quad opacity='0' />",		Duration, Easing);
+	AnimMgr.Add(Quad_NotificationCard,	"<quad opacity='0' />",		Duration, Easing);
+	AnimMgr.Add(Quad_NotificationBg,	"<quad opacity='0' />",		Duration, Easing);
+	AnimMgr.Add(Quad_NotificationGlow,	"<quad opacity='0' />",		Duration, Easing);
+	AnimMgr.Add(Quad_NotificationImage,	"<quad opacity='0' />",		Duration, Easing);
+	AnimMgr.Add(Quad_NotificationDeny,	"<quad opacity='0' />",		Duration, Easing);
+}
+
+main() {
+	declare CMlFrame[] Frame_Notifications;
+	declare CMlFrame[] Frame_NotificationsGhosts;
+
+	for (I, 0, {{{_NbNotifications - 1}}}) {
+		Frame_Notifications			.add((Page.GetFirstChild("Frame_Notification#"^I) as CMlFrame));
+		Frame_NotificationsGhosts	.add((Page.GetFirstChild("Frame_NotificationGhost#"^I) as CMlFrame));
+	}
+
+	declare SNotification[] LayerMotifications_Notifications for Page;
+
+	declare UpdateNotifications = True;
+
+	declare LastUsedGhostId = 0;
+
+	while (True) {
+		yield;
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlEvent::Type::MouseClick) {
+				if (Event.ControlId == "Quad_NotificationCard") {
+					declare Integer NotificationId for Event.Control;
+					declare SAction NotificationAction for Event.Control;
+
+					declare Text[] Params = [TL::ToText(NotificationId), NotificationAction.Name];
+					foreach (Param in NotificationAction.Params) Params.add(Param);
+
+					SendCustomEvent("TriggerNotificationAction", Params);
+				}
+				else if (Event.ControlId == "Quad_NotificationDeny") {
+					declare Integer NotificationId for Event.Control;
+					SendCustomEvent("DismissNotification", [TL::ToText(NotificationId)]);
+				}
+			}
+			else if (Event.Type == CMlScriptEvent::Type::PluginCustomEvent) {
+				switch (Event.CustomEventType) {
+					case "UpdateNotifications" : UpdateNotifications = True;
+				}
+			}
+		}
+
+		if (UpdateNotifications) {
+			UpdateNotifications = False;
+
+			declare SNotification[] PastNotifications;
+			declare Integer[] CachedNoticesToRemove;
+
+			foreach (I => PastNotification in G_CachedNotifications) {
+				declare Exists = False;
+
+				foreach (CurrentNotification in LayerMotifications_Notifications) {
+					if (PastNotification.Id != CurrentNotification.Id) continue;
+					Exists = True;
+					break;
+				}
+
+				if (!Exists) {
+					PastNotifications.add(PastNotification);
+					CachedNoticesToRemove.add(I);
+				}
+			}
+
+			foreach (Notification in PastNotifications) {
+				if (LastUsedGhostId >= Frame_NotificationsGhosts.count) {
+					LastUsedGhostId = 0;
+				}
+
+				declare Frame <=> Frame_NotificationsGhosts[LastUsedGhostId];
+
+				FormatNotificationFrame(Frame, Notification, False);
+				FrameAnimationOut(Frame, Notification);
+
+				LastUsedGhostId += 1;
+			}
+
+			G_NotificationsTotalHeight = 0.;
+
+			foreach (I => Frame in Frame_Notifications) {
+				Frame.Visible = LayerMotifications_Notifications.existskey(I);
+				if (!Frame.Visible) continue;
+
+				declare Notification = LayerMotifications_Notifications[I];
+				declare IsNewNotification = True;
+
+				foreach (CachedNotification in G_CachedNotifications) {
+					if (CachedNotification.Id != Notification.Id) continue;
+					IsNewNotification = False;
+					break;
+				}
+
+				FormatNotificationFrame(Frame, Notification, True);
+
+				if (IsNewNotification) {
+					FrameAnimationIn(Frame);
+					G_CachedNotifications.add(Notification);
+				}
+			}
+
+			while (CachedNoticesToRemove.existskey(0)) {
+				declare Key = CachedNoticesToRemove[0];
+				declare Boolean Removed;
+
+				if (G_CachedNotifications.existskey(Key)) {
+					declare NotificationId = G_CachedNotifications[Key].Id;
+					Removed = G_NotificationLastHeight.removekey(NotificationId);
+					Removed = G_CachedNotifications.removekey(Key);
+				}
+				Removed = CachedNoticesToRemove.removekey(0);
+			}
+		}
+	}
+}
+
+--></script>
+</manialink>
+	""";
+}
+
+Void Build(Integer _NbNotifications) {
+	G_ManialinkLayerNotifications = UILayerCreate();
+	G_ManialinkLayerNotifications.Type = CUILayer::EUILayerType::Normal;
+	G_ManialinkLayerNotifications.ManialinkPage = Private_CreateManialink(_NbNotifications);
+}
+
+Void SetNotificationsArray(Structs::SNotification[] _Notifications) {
+	declare Structs::SNotification[] LayerMotifications_Notifications for G_ManialinkLayerNotifications.LocalPage;
+	LayerMotifications_Notifications = _Notifications;
+
+	LayerCustomEvent(G_ManialinkLayerNotifications, "UpdateNotifications", []);
+}

@@ -1,0 +1,512 @@
+/**
+ * Component: ProgressBar
+ */
+#Const Version "1.0.1"
+#Const ScriptName "Libs/Nadeo/Trackmania/Components/ProgressBar.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Structures/MatchmakingStruct.Script.txt" as MatchmakingStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-progressbar" //< Component name
+#Const P "ComponentProgressBar_" //< Prefix used to differentiate functions/variables in the script
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	declare Vec2 ProgressBarSize = <11.*1568/136, 11.>;
+	declare Real ProgressBarSizeMargin = 3.5;
+	declare Real ProgressBarMaxSizeX = ProgressBarSize.X - ProgressBarSizeMargin;
+
+	declare Text XP_Ratio = "%1/%2";
+	// L16N [Progress Bar] The world ranking of a player, %1 will be replaced by a number e.g "Top 3"
+	declare Text Text_Top = _("Top %1");
+
+	return MV::Component(
+		C_Name,
+		"""
+<stylesheet>
+	<style class="{{{P}}}quad-base" halign="center" valign="center"/>
+	<style class="{{{P}}}text-base" halign="center" valign="center2" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textsize="3"/>
+</stylesheet>
+
+<framemodel id="{{{P}}}frame-rank-image">
+	<label id="{{{P}}}label-top" hidden="1" class="{{{P}}}text-base" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textsize="2.5" pos="0.5 12." size="30 10"/>
+	<quad id="{{{P}}}quad-rank" class="{{{P}}}quad-base" size="25 25" z-index="1"/>
+</framemodel>
+
+<frame id="{{{P}}}frame-global" >
+	<frameinstance id="{{{P}}}frame-current-rank" modelid="{{{P}}}frame-rank-image" pos="{{{-(ProgressBarSize.X * 0.5) - ProgressBarSizeMargin}}} 0" z-index="1"/>
+	<quad class="{{{P}}}quad-base" z-index="-1" image="{{{Const::C_ImageUrl_Progress_Bar_XP_Bg}}}" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}" size="{{{ProgressBarSize.X}}} {{{ProgressBarSize.Y}}}"/>
+	<quad class="{{{P}}}quad-base" image="{{{Const::C_ImageUrl_Progress_Bar_XP_Contour}}}" colorize="333333" size="{{{ProgressBarSize.X}}} {{{ProgressBarSize.Y}}}" />
+	<frame size="{{{ProgressBarMaxSizeX}}} {{{ProgressBarSize.Y}}}" halign="center" valign="center">
+		<quad id="{{{P}}}quad-progress-bar" class="{{{P}}}quad-base" pos="0 0" image="{{{Const::C_ImageUrl_Progress_Bar_XP}}}" size="{{{ProgressBarSize.X}}} {{{ProgressBarSize.Y}}}" />
+	</frame>
+	<frameinstance id="{{{P}}}frame-next-rank" modelid="{{{P}}}frame-rank-image" pos="{{{ProgressBarSize.X * 0.5 + ProgressBarSizeMargin}}} 0" z-index="2"/>
+	<frame id="{{{P}}}frame-mandatory" pos="0 11">
+		<label id="{{{P}}}label-initial-rank-name" class="{{{P}}}text-base" size="100 10" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"/>
+		<label id="{{{P}}}label-current-rank-name" class="{{{P}}}text-base" size="100 10" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"/>
+		<label id="{{{P}}}label-current-xp" class="{{{P}}}text-base" pos="0 -5.5" size="30 10"/>
+	</frame>
+	<frame id="{{{P}}}frame-optional" pos="-1 -7" hidden="1">
+		<label id="{{{P}}}label-new-xp" class="{{{P}}}text-base" size="30 10" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textsize="5"/>
+		<quad id="{{{P}}}quad-new-xp" class="{{{P}}}quad-base" pos="1 -2.5" image="{{{Const::C_ImageUrl_Progress_Bar_XP_Flare}}}" colorize="FFF" size="33 7" />
+	</frame>
+</frame>
+		""",
+		"""
+#Include "TextLib" as {{{P}}}TL
+#Include "MathLib" as {{{P}}}ML
+#Include "AnimLib" as {{{P}}}AL
+#Include "Libs/Nadeo/CMGame/Utils/AudioManager_ML.Script.txt" as {{{P}}}AudioManager
+
+#Const {{{P}}}C_Event_None 0
+#Const {{{P}}}C_Event_PlayNewRankAnim 1
+
+#Const {{{P}}}C_BarAnimDuration 600
+#Const {{{P}}}C_CurrentRankAnim_Duration 500
+#Const {{{P}}}C_NextRankAnim_Duration 200
+
+#Const {{{P}}}C_Rank_Icons {{{dump(Const::C_Rank_Icons)}}}
+#Const {{{P}}}C_Rank_Bar_Colors {{{dump(Const::C_Rank_Bar_Colors)}}}
+#Const {{{P}}}C_Rank_Names {{{dump(Const::C_Rank_Names)}}}
+
+#Const C_GaugeUpSound "GaugeUp"
+#Const C_GaugeDownSound "GaugeDown"
+#Const C_ChangeRankUpSound "RankUp"
+#Const C_ChangeRankDownSound "RankDown"
+
+#Struct {{{P}}}K_RankLevels {
+	Integer CurrentRank;
+	Integer PreviousLevel;
+	Integer NextLevel;
+}
+
+#Struct {{{P}}}K_RankAnim {
+	Boolean NeedAnim;
+	Integer InitialXP;
+	Integer NewXP;
+	Integer DeltaXP;
+	Integer PrevXPLevel;
+	Integer NextXPLevel;
+	Integer AnimStartTime;
+	Boolean NeedAnimNewRank;
+	Boolean NewRankAnimPlayed;
+	Integer DeltaXPNewRank;
+	Boolean NeedAnimNewTop;
+}
+
+#Struct {{{P}}}K_PendingEvent {
+	Integer Type;
+	Integer InitialRank;
+	Integer NewRank;
+}
+""",
+"""
+declare {{{MatchmakingStruct::P}}}K_Division[Text] {{{P}}}G_Divisions;
+declare Integer[] {{{P}}}G_Rank_Levels;
+declare {{{P}}}K_RankAnim {{{P}}}G_RankAnim;
+declare Text {{{P}}}G_Master3_DivisionId;
+declare Text {{{P}}}G_TrackMaster_DivisionId;
+declare Integer {{{P}}}G_Top10_MinPoints;
+declare Text {{{P}}}G_CurrentDivisionId;
+declare Integer {{{P}}}G_CurrentTop;
+declare Integer {{{P}}}G_PreviousTop;
+
+Integer {{{P}}}GetTop10MinPoints() {
+	return {{{P}}}G_Top10_MinPoints;
+}
+
+// Mandatory function to call to use the ProgressBar component
+Void {{{P}}}SetDivisions({{{MatchmakingStruct::P}}}K_Division[Text] _Divisions, Integer _Top10_Score, Integer _Top1_Score) {
+	{{{P}}}G_Rank_Levels = [];
+	{{{P}}}G_Divisions.clear();
+	{{{P}}}G_Top10_MinPoints = 0;
+	{{{P}}}G_Divisions = _Divisions;
+	declare Integer DivisionMaxPoints = 0;
+	foreach (I => Division in _Divisions) {
+		if (Division.RuleType == {{{MatchmakingStruct::P}}}C_RuleType_Points || Division.RuleType == {{{MatchmakingStruct::P}}}C_RuleType_MinPointsAndRank || Division.RuleType == {{{MatchmakingStruct::P}}}C_RuleType_MinPoints) {
+			if (Division.MinimumRank > 0) { // Trackmaster
+				{{{P}}}G_Top10_MinPoints = Division.MinimumPoints;
+				{{{P}}}G_TrackMaster_DivisionId = Division.Id;
+				if (_Top1_Score > {{{P}}}G_Top10_MinPoints)	DivisionMaxPoints = _Top1_Score;
+				else DivisionMaxPoints = {{{P}}}G_Top10_MinPoints;
+			} else {
+				DivisionMaxPoints = Division.MaximumPoints + 1;
+			}
+
+			if (Division.MinimumPoints == {{{P}}}G_Top10_MinPoints && Division.RuleType == {{{MatchmakingStruct::P}}}C_RuleType_MinPointsAndRank && _Top10_Score > {{{P}}}G_Top10_MinPoints) {
+				{{{P}}}G_Rank_Levels.add(_Top10_Score);
+			} else {
+				{{{P}}}G_Rank_Levels.add(Division.MinimumPoints);
+				if (Division.RuleType == {{{MatchmakingStruct::P}}}C_RuleType_MinPoints) {{{P}}}G_Master3_DivisionId = Division.Id;
+			}
+
+		}
+	}
+	{{{P}}}G_Rank_Levels.add(DivisionMaxPoints);
+}
+
+Void {{{P}}}SetDivisions({{{MatchmakingStruct::P}}}K_Division[Text] _Divisions) {
+	{{{P}}}SetDivisions(_Divisions, -1, -1);
+}
+
+{{{P}}}K_RankLevels {{{P}}}GetRankLevelsFromDivisionId(Text _DivisionId) {
+	declare {{{P}}}K_RankLevels RankLevels;
+	assert({{{P}}}G_Divisions.count > 0, "Divisions must be set before using the ProgressBar component");
+	if ({{{P}}}G_Divisions.existskey(_DivisionId)) {
+		RankLevels.CurrentRank = {{{P}}}G_Divisions[_DivisionId].Position;
+		RankLevels.PreviousLevel = {{{P}}}G_Divisions[_DivisionId].MinimumPoints;
+		RankLevels.NextLevel = {{{P}}}G_Divisions[_DivisionId].MaximumPoints + 1;
+		// We need to retrieve the max points of the two last divisions based on the Top 10 scores stored in SetDivisions()
+		if (_DivisionId == {{{P}}}G_Master3_DivisionId) {
+			RankLevels.NextLevel = {{{P}}}G_Rank_Levels[{{{P}}}G_Rank_Levels.count - 2];
+		} else if (_DivisionId == {{{P}}}G_TrackMaster_DivisionId) {
+			RankLevels.NextLevel = {{{P}}}G_Rank_Levels[{{{P}}}G_Rank_Levels.count - 1];
+		}
+	}
+	return RankLevels;
+}
+
+{{{P}}}K_RankLevels {{{P}}}FindSurroundingLevels(Integer _CurrentXP) {
+	declare Integer Current;
+	declare Integer Previous;
+	declare Integer Next;
+	foreach (I => Level in {{{P}}}G_Rank_Levels) {
+		Next = Level;
+		if (Level > _CurrentXP) break;
+		Previous = Level;
+		Current = I+1;
+	}
+	return {{{P}}}K_RankLevels {
+		CurrentRank = Current,
+		PreviousLevel = Previous,
+		NextLevel = Next
+	};
+}
+
+Void {{{P}}}InitProgressBar(CMlFrame _Frame_ProgressBar) {
+	declare CMlQuad Quad_XP <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}quad-progress-bar") as CMlQuad;
+	declare CMlLabel Label_XP <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}label-current-xp") as CMlLabel;
+	declare CMlFrame Frame_Optional <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}frame-optional") as CMlFrame;
+	Frame_Optional.Visible = False;
+
+	Quad_XP.RelativePosition_V3.X = -{{{ProgressBarMaxSizeX}}};
+	Label_XP.Value = "";
+}
+
+Void {{{P}}}UpdateRankName(CMlFrame _Frame_ProgressBar, Integer _CurrentRank, Integer _PreviousRank) {
+	declare CMlLabel Label_InitialRankName <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}label-initial-rank-name") as CMlLabel;
+	declare CMlLabel Label_RankName <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}label-current-rank-name") as CMlLabel;
+	if ({{{P}}}C_Rank_Names.existskey(_CurrentRank)) {
+		Label_RankName.Value = {{{P}}}C_Rank_Names[_CurrentRank];
+	} else {
+		Label_RankName.Value = "";
+	}
+	if (_PreviousRank >= 0 && {{{P}}}C_Rank_Names.existskey(_PreviousRank)) {
+		Label_InitialRankName.Value = {{{P}}}C_Rank_Names[_PreviousRank];
+		Label_InitialRankName.Opacity = 1.;
+		Label_RankName.Opacity = 0.;
+		AnimMgr.Flush(Label_InitialRankName);
+		AnimMgr.Flush(Label_RankName);
+		AnimMgr.Add(Label_InitialRankName, "<anim opacity=\"0.\"/>", 3*{{{P}}}C_CurrentRankAnim_Duration/4, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Label_RankName, "<anim opacity=\"1.\"/>", Now + 3*{{{P}}}C_CurrentRankAnim_Duration/4, {{{P}}}C_CurrentRankAnim_Duration/4, CAnimManager::EAnimManagerEasing::QuadIn);
+	}
+}
+Void {{{P}}}UpdateRankName(CMlFrame _Frame_ProgressBar, Integer _CurrentRank) {
+	{{{P}}}UpdateRankName(_Frame_ProgressBar, _CurrentRank, -1);
+}
+
+Void {{{P}}}UpdateRankVisual(CMlQuad _Quad_XP_Bar, Boolean _UpdateBar, CMlQuad _Quad_Rank, CMlLabel _Label_Top, Integer _Top, Integer _CurrentRank) {
+	_Quad_Rank.ChangeImageUrl({{{P}}}C_Rank_Icons.get(_CurrentRank, ""));
+	if (_UpdateBar) _Quad_XP_Bar.Colorize = {{{P}}}C_Rank_Bar_Colors.get(_CurrentRank, <0.,0.,0.>);
+	declare Boolean ShowTop = _Top > 0;
+	if (_Label_Top != Null) _Label_Top.Visible = ShowTop;
+	if (ShowTop) _Label_Top.Value = {{{P}}}TL::Compose("{{{Text_Top}}}", ""^_Top);
+}
+
+Void {{{P}}}UpdateRankVisual(CMlQuad _Quad_XP_Bar, Boolean _UpdateBar, CMlQuad _Quad_Rank, Integer _CurrentRank) {
+	{{{P}}}UpdateRankVisual(_Quad_XP_Bar, _UpdateBar, _Quad_Rank, Null, -1, _CurrentRank);
+}
+
+/* Animation is played if _StartingCurrentRank is 0 or more. No Rank change animation otherwise
+ *
+ * @param _Frame_ProgressBar				The component global frame
+ * @param _NewCurrentRank						The target rank to display (at the left of the bar, which is the player current rank)
+ * @param _StartingCurrentRank			The rank the player was before change, used for animation transition from _StartingCurrentRank to _NewCurrentRank (also at the left of the bar)
+ */
+Void {{{P}}}SetNewRank(CMlFrame _Frame_ProgressBar, Integer _NewCurrentRank, Integer _StartingCurrentRank, Integer _CurrentTop) {
+	declare CMlQuad Quad_XP_Bar <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}quad-progress-bar") as CMlQuad;
+	declare CMlFrame Frame_CurrentRank <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}frame-current-rank") as CMlFrame;
+	declare CMlFrame Frame_NewNextRank <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}frame-next-rank") as CMlFrame;
+	declare CMlQuad Quad_CurrentRank <=> Frame_CurrentRank.GetFirstChild("{{{P}}}quad-rank") as CMlQuad;
+	declare CMlLabel Label_CurrentTop <=> Frame_CurrentRank.GetFirstChild("{{{P}}}label-top") as CMlLabel;
+	declare CMlQuad Quad_NewNextRank <=> Frame_NewNextRank.GetFirstChild("{{{P}}}quad-rank") as CMlQuad;
+	declare CMlLabel Label_NextTop <=> Frame_NewNextRank.GetFirstChild("{{{P}}}label-top") as CMlLabel;
+
+	declare Integer NewRank = _NewCurrentRank + 1;
+	declare Integer NextTop = -1;
+	// If current rank is last rank (Trackmaster)
+	if (_NewCurrentRank == {{{P}}}G_Divisions.count) {
+		if (_CurrentTop == 1) NewRank = -1; //to not display a rank icon on the right of the progress bar for the Top1
+		else NextTop = 1;
+	} else if (_NewCurrentRank == {{{P}}}G_Divisions.count-1) { // or Master 3
+		if (_CurrentTop > 0) NextTop = _CurrentTop-1;
+		else NextTop = 10;
+	}
+
+	if (_StartingCurrentRank >= 0) {
+		// Level up or down
+		if (_NewCurrentRank > _StartingCurrentRank) {
+			{{{P}}}AudioManager::StopSound(This, C_ChangeRankUpSound);
+			{{{P}}}AudioManager::PlaySound(This, C_ChangeRankUpSound);
+		} else {
+			{{{P}}}AudioManager::StopSound(This, C_ChangeRankDownSound);
+			{{{P}}}AudioManager::PlaySound(This, C_ChangeRankDownSound);
+		}
+		{{{P}}}UpdateRankVisual(Quad_XP_Bar, True, Quad_CurrentRank,  Label_CurrentTop, _CurrentTop, _NewCurrentRank);
+		Frame_CurrentRank.RelativeScale = 1.;
+		Frame_CurrentRank.RelativeRotation = 0.;
+		AnimMgr.Flush(Frame_CurrentRank);
+		AnimMgr.Add(Frame_CurrentRank, "<anim scale=\"1.35\" rot=\""^{{{P}}}ML::Rand(-4., 4.)^"\"/>", {{{P}}}C_CurrentRankAnim_Duration/4, CAnimManager::EAnimManagerEasing::QuadIn);
+		AnimMgr.Add(Frame_CurrentRank, "<anim scale=\"1.\" rot=\"0.\"/>", Now + {{{P}}}C_CurrentRankAnim_Duration/4, 3*{{{P}}}C_CurrentRankAnim_Duration/4, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{P}}}UpdateRankVisual(Quad_XP_Bar, False, Quad_NewNextRank, Label_NextTop, NextTop, NewRank);
+		{{{P}}}UpdateRankName(_Frame_ProgressBar, _NewCurrentRank, _StartingCurrentRank);
+		AnimMgr.Flush(Frame_NewNextRank);
+		AnimMgr.Add(Frame_NewNextRank, "<anim scale=\"1.35\" rot=\""^{{{P}}}ML::Rand(-4., 4.)^"\"/>", {{{P}}}C_CurrentRankAnim_Duration/4, CAnimManager::EAnimManagerEasing::QuadIn);
+		AnimMgr.Add(Frame_NewNextRank, "<anim scale=\"1.\" rot=\"0.\"/>", Now + {{{P}}}C_CurrentRankAnim_Duration/4, 3*{{{P}}}C_CurrentRankAnim_Duration/4, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		{{{P}}}UpdateRankVisual(Quad_XP_Bar, True, Quad_CurrentRank, Label_CurrentTop, _CurrentTop, _NewCurrentRank);
+		{{{P}}}UpdateRankVisual(Quad_XP_Bar, False, Quad_NewNextRank, Label_NextTop, NextTop, NewRank);
+		Quad_NewNextRank.Opacity = 1.;
+		{{{P}}}UpdateRankName(_Frame_ProgressBar, _NewCurrentRank);
+	}
+}
+
+Void {{{P}}}SetNewRank(CMlFrame _Frame_ProgressBar, Integer _NewCurrentRank) {
+	{{{P}}}SetNewRank(_Frame_ProgressBar, _NewCurrentRank, -1, -1);
+}
+
+Real {{{P}}}Private_GetProgressBarPosX(Integer _CurrentXP, {{{P}}}K_RankLevels _Levels) {
+	if (_Levels.NextLevel - _Levels.PreviousLevel == 0) {
+		return {{{-ProgressBarMaxSizeX}}};
+	}
+	return (({{{ProgressBarMaxSizeX}}} * (_CurrentXP - _Levels.PreviousLevel)) / (_Levels.NextLevel - _Levels.PreviousLevel)) - {{{ProgressBarMaxSizeX}}};
+}
+
+Void {{{P}}}Private_SetProgressBarValue(CMlFrame _Frame_ProgressBar, Integer _CurrentXP, {{{P}}}K_RankLevels _Levels, Integer _CurrentTop) {
+	declare CMlQuad Quad_XP <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}quad-progress-bar") as CMlQuad;
+	declare CMlLabel Label_XP <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}label-current-xp") as CMlLabel;
+	declare CMlFrame Frame_Optional <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}frame-optional") as CMlFrame;
+	Frame_Optional.Visible = False;
+
+	// Special case for Master 3 who are entering the Top 10 (but are not TM yet)
+	if (_Levels.CurrentRank == {{{P}}}G_Divisions.count-1 && _CurrentTop > 0) {
+		declare TmpLevels = _Levels;
+		TmpLevels.NextLevel = _CurrentXP;
+		Quad_XP.RelativePosition_V3.X = {{{P}}}Private_GetProgressBarPosX(_CurrentXP, TmpLevels);
+		Label_XP.Value = ""^_CurrentXP;
+	} else {
+		Quad_XP.RelativePosition_V3.X = {{{P}}}Private_GetProgressBarPosX(_CurrentXP, _Levels);
+		Label_XP.Value = {{{P}}}TL::Compose("{{{XP_Ratio}}}", ""^_CurrentXP, ""^_Levels.NextLevel);
+	}
+
+	{{{P}}}SetNewRank(_Frame_ProgressBar, _Levels.CurrentRank, -1, _CurrentTop);
+}
+
+Void {{{P}}}SetProgressBarValue(CMlFrame _Frame_ProgressBar, Integer _CurrentXP, Text _DivisionId, Integer _CurrentTop) {
+	assert(_CurrentXP >= 0, "Current XP cannot be negative");
+	{{{P}}}G_PreviousTop = _CurrentTop;
+	{{{P}}}G_CurrentDivisionId = _DivisionId;
+	declare {{{P}}}K_RankLevels Levels = {{{P}}}GetRankLevelsFromDivisionId(_DivisionId);
+	{{{P}}}Private_SetProgressBarValue(_Frame_ProgressBar, _CurrentXP, Levels, _CurrentTop);
+}
+
+Void {{{P}}}SetProgressBarValue(CMlFrame _Frame_ProgressBar, Integer _CurrentXP) {
+	assert(_CurrentXP >= 0, "Current XP cannot be negative");
+	declare {{{P}}}K_RankLevels Levels = {{{P}}}FindSurroundingLevels(_CurrentXP);
+	{{{P}}}Private_SetProgressBarValue(_Frame_ProgressBar, _CurrentXP, Levels, -1);
+}
+
+Void {{{P}}}Private_SetProgressBarValueWithDelta(CMlFrame _Frame_ProgressBar, Integer _CurrentXP, Integer _DeltaXP, {{{P}}}K_RankLevels _Levels, Integer _DeltaXpFadeTime) {
+	declare CMlQuad Quad_XP <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}quad-progress-bar") as CMlQuad;
+	declare CMlLabel Label_XP <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}label-current-xp") as CMlLabel;
+	declare CMlFrame Frame_Optional <=> _Frame_ProgressBar.GetFirstChild("{{{P}}}frame-optional") as CMlFrame;
+	declare CMlLabel Label_NewXP <=> Frame_Optional.GetFirstChild("{{{P}}}label-new-xp") as CMlLabel;
+	declare CMlQuad Quad_NewXP <=> Frame_Optional.GetFirstChild("{{{P}}}quad-new-xp") as CMlQuad;
+
+	declare Integer NewXP = {{{P}}}ML::Max(0, _CurrentXP + _DeltaXP);
+	if (!{{{P}}}G_RankAnim.NeedAnimNewRank) {
+		if (_DeltaXP >= 0) Label_NewXP.Value = "+"^_DeltaXP;
+		else Label_NewXP.Value = ""^_DeltaXP;
+		Label_NewXP.Opacity = 0.;
+		Quad_NewXP.Opacity = 0.;
+		AnimMgr.Add(Label_NewXP, "<a opacity=\"1.\" />", {{{P}}}C_BarAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Quad_NewXP, "<a opacity=\"1.\" />", {{{P}}}C_BarAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		if (_DeltaXpFadeTime > 0) {
+			AnimMgr.Add(Label_NewXP, "<a opacity=\"0.\" />", Now +_DeltaXpFadeTime, 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			AnimMgr.Add(Quad_NewXP, "<a opacity=\"0.\" />", Now + _DeltaXpFadeTime, 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	}
+	//Check if the XP gain change the player's rank
+	if ((_DeltaXP > 0 && NewXP >= _Levels.NextLevel) || (_DeltaXP < 0 && NewXP < _Levels.PreviousLevel)) {
+		// Divisions cant change for M3 and TM in live, promotion and relegation happen at midnight only
+		if (_Levels.CurrentRank == {{{P}}}G_Divisions.count) {
+			NewXP = _CurrentXP + _DeltaXP;
+		} else {
+			{{{P}}}G_RankAnim.NeedAnimNewRank = True;
+			{{{P}}}G_RankAnim.NewRankAnimPlayed = False;
+			if (_DeltaXP > 0) {
+				{{{P}}}G_RankAnim.DeltaXPNewRank = NewXP - _Levels.NextLevel;
+				NewXP = _Levels.NextLevel;
+			} else {
+				{{{P}}}G_RankAnim.DeltaXPNewRank = NewXP - _Levels.PreviousLevel + 1;
+				NewXP = _Levels.PreviousLevel - 1;
+			}
+		}
+	}
+	{{{P}}}G_RankAnim.NeedAnimNewTop = ({{{P}}}G_CurrentTop > 0 || {{{P}}}G_PreviousTop > 0) && !{{{P}}}G_RankAnim.NeedAnimNewRank;
+	if (_DeltaXP > 0) {{{P}}}AudioManager::PlaySound(This, C_GaugeUpSound);
+	else if (_DeltaXP < 0) {{{P}}}AudioManager::PlaySound(This, C_GaugeDownSound);
+	Quad_XP.RelativePosition_V3.X = {{{P}}}Private_GetProgressBarPosX(_CurrentXP, _Levels);
+	declare Real NewPosX = {{{P}}}Private_GetProgressBarPosX(NewXP, _Levels);
+	Frame_Optional.Visible = True;
+	AnimMgr.Flush(Quad_XP);
+	AnimMgr.Add(Quad_XP, "<anim pos=\"" ^NewPosX^" "^Quad_XP.RelativePosition_V3.Y^ "\" />", {{{P}}}C_BarAnimDuration, CAnimManager::EAnimManagerEasing::Linear);
+	{{{P}}}G_RankAnim.NeedAnim = True;
+	{{{P}}}G_RankAnim.InitialXP = _CurrentXP;
+	{{{P}}}G_RankAnim.DeltaXP = _DeltaXP;
+	{{{P}}}G_RankAnim.NewXP = NewXP;
+	{{{P}}}G_RankAnim.PrevXPLevel = _Levels.PreviousLevel;
+	{{{P}}}G_RankAnim.NextXPLevel = _Levels.NextLevel;
+	{{{P}}}G_RankAnim.AnimStartTime = Now;
+
+}
+
+Void {{{P}}}SetProgressBarValueWithDelta(CMlFrame _Frame_ProgressBar, Integer _CurrentXP, Integer _DeltaXP, Integer _DeltaXpFadeTime) {
+	assert(_CurrentXP >= 0, "Current XP cannot be negative");
+	declare {{{P}}}K_RankLevels Levels = {{{P}}}FindSurroundingLevels(_CurrentXP);
+	{{{P}}}Private_SetProgressBarValueWithDelta(_Frame_ProgressBar, _CurrentXP, _DeltaXP, Levels, _DeltaXpFadeTime);
+}
+
+Void {{{P}}}SetProgressBarValueWithDelta(CMlFrame _Frame_ProgressBar, Integer _CurrentXP, Integer _DeltaXP, Integer _DeltaXpFadeTime, Text _DivisionId, Integer _CurrentTop) {
+	assert(_CurrentXP >= 0, "Current XP cannot be negative");
+	declare {{{P}}}K_RankLevels Levels = {{{P}}}GetRankLevelsFromDivisionId(_DivisionId);
+	{{{P}}}G_CurrentTop = _CurrentTop;
+	{{{P}}}G_CurrentDivisionId = _DivisionId;
+	{{{P}}}Private_SetProgressBarValueWithDelta(_Frame_ProgressBar, _CurrentXP, _DeltaXP, Levels, _DeltaXpFadeTime);
+}
+
+CManiaAppPlayground {{{P}}}CastCManiaAppPlayground(CManiaApp _ManiaApp) {
+	if (_ManiaApp is CManiaAppPlayground) {
+			return (_ManiaApp as CManiaAppPlayground);
+	}
+	return Null;
+}
+
+***MainInit***
+***
+declare CMlFrame {{{P}}}Frame_Global;
+declare CMlLabel {{{P}}}Label_XP;
+
+declare Integer {{{P}}}CurrentXP = -1;
+
+declare {{{P}}}K_PendingEvent[] {{{P}}}PendingEvents;
+***
+
+***MainStart***
+***
+{{{P}}}Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+{{{P}}}Label_XP <=> {{{P}}}Frame_Global.GetFirstChild("{{{P}}}label-current-xp") as CMlLabel;
+
+{{{P}}}G_RankAnim = {{{P}}}K_RankAnim {
+	NeedAnim = False,
+	InitialXP = -1,
+	NewXP = -1,
+	DeltaXP = -1,
+	PrevXPLevel = -1,
+	NextXPLevel = -1,
+	AnimStartTime = -1,
+	NeedAnimNewRank = False,
+	NewRankAnimPlayed = True,
+	DeltaXPNewRank = -1,
+	NeedAnimNewTop = False
+};
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	{{{P}}}PendingEvents = [];
+
+	if ({{{P}}}G_RankAnim.NeedAnim) {
+		if ({{{P}}}CurrentXP == -1) {{{P}}}CurrentXP = {{{P}}}G_RankAnim.InitialXP;
+		if (
+			({{{P}}}G_RankAnim.DeltaXP > 0 && ({{{P}}}CurrentXP < {{{P}}}G_RankAnim.NewXP)) ||
+			({{{P}}}G_RankAnim.DeltaXP <= 0 && ({{{P}}}CurrentXP > {{{P}}}G_RankAnim.NewXP))
+		) {
+			{{{P}}}CurrentXP = {{{P}}}ML::FloorInteger({{{P}}}AL::EaseLinear(Now - {{{P}}}G_RankAnim.AnimStartTime, {{{P}}}G_RankAnim.InitialXP*1., {{{P}}}G_RankAnim.DeltaXP*1., {{{P}}}C_BarAnimDuration));
+			{{{P}}}Label_XP.Value = {{{P}}}TL::Compose("{{{XP_Ratio}}}", ""^{{{P}}}CurrentXP, ""^{{{P}}}G_RankAnim.NextXPLevel);
+		}	else {
+			if ({{{P}}}CurrentXP == {{{P}}}G_RankAnim.PrevXPLevel || {{{P}}}CurrentXP == {{{P}}}G_RankAnim.NextXPLevel - 1) {
+				{{{P}}}Label_XP.Value = {{{P}}}TL::Compose("{{{XP_Ratio}}}", ""^{{{P}}}CurrentXP, ""^{{{P}}}G_RankAnim.NextXPLevel);
+			}
+			// Special case for Master 3 who are entering the Top 10 (but are not TM yet)
+			declare {{{P}}}K_RankLevels InitialLevels = {{{P}}}GetRankLevelsFromDivisionId({{{P}}}G_CurrentDivisionId);
+			if ({{{P}}}CurrentXP >= {{{P}}}G_Top10_MinPoints && InitialLevels.CurrentRank == {{{P}}}G_Divisions.count-1) {{{P}}}Label_XP.Value = ""^{{{P}}}CurrentXP;
+			{{{P}}}G_RankAnim.NeedAnim = False;
+			{{{P}}}CurrentXP = -1;
+		}
+	}
+
+	if ({{{P}}}G_RankAnim.NeedAnimNewRank && !{{{P}}}G_RankAnim.NeedAnim) {
+		declare {{{P}}}K_RankLevels InitialLevels = {{{P}}}FindSurroundingLevels({{{P}}}G_RankAnim.InitialXP);
+		declare {{{P}}}K_RankLevels NewLevels = {{{P}}}FindSurroundingLevels({{{P}}}G_RankAnim.NewXP);
+		declare {{{P}}}K_RankLevels CurrentLevels = NewLevels;
+		// Divisions cant change for M3 and TM in live, promotion and relegation happen at midnight only
+		if (InitialLevels.CurrentRank < {{{P}}}G_Divisions.count-1) {
+			{{{P}}}SetNewRank({{{P}}}Frame_Global, NewLevels.CurrentRank, InitialLevels.CurrentRank, {{{P}}}G_CurrentTop);
+			{{{P}}}PendingEvents.add({{{P}}}K_PendingEvent {
+				Type = {{{P}}}C_Event_PlayNewRankAnim,
+				InitialRank = InitialLevels.CurrentRank,
+				NewRank = NewLevels.CurrentRank
+			});
+		} else {
+			CurrentLevels = InitialLevels;
+			CurrentLevels.NextLevel = {{{P}}}G_RankAnim.NewXP + {{{P}}}G_RankAnim.DeltaXPNewRank;
+			{{{P}}}SetNewRank({{{P}}}Frame_Global, InitialLevels.CurrentRank, InitialLevels.CurrentRank, {{{P}}}G_CurrentTop);
+		}
+		{{{P}}}Private_SetProgressBarValueWithDelta({{{P}}}Frame_Global, {{{P}}}G_RankAnim.NewXP, {{{P}}}G_RankAnim.DeltaXPNewRank, CurrentLevels, -1);
+		{{{P}}}G_RankAnim.NeedAnimNewRank = False;
+	}
+
+	if ({{{P}}}G_RankAnim.NeedAnimNewTop) {
+		declare {{{P}}}K_RankLevels InitialLevels = {{{P}}}GetRankLevelsFromDivisionId({{{P}}}G_CurrentDivisionId);
+		{{{P}}}SetNewRank({{{P}}}Frame_Global, InitialLevels.CurrentRank, InitialLevels.CurrentRank, {{{P}}}G_CurrentTop);
+		{{{P}}}G_RankAnim.NeedAnimNewTop = False;
+	}
+}
+***
+""",
+[
+	MatchmakingStruct::Component()
+],
+[]
+	);
+}

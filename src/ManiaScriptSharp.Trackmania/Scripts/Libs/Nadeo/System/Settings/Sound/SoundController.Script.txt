@@ -1,0 +1,160 @@
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Settings/Sound/SoundAPI.Script.txt"		as SoundAPI
+#Include "Libs/Nadeo/System/Settings/Layer_SettingsTabs.Script.txt"	as LayerSettingsTabs
+#Include "Libs/Nadeo/System/Settings/Sound/Layer_Sound.Script.txt"	as LayerSound
+
+#Const C_LibSoundController_SettingsTabId		"Sound"
+
+declare Boolean G_LibSoundController_PendingChanges;
+
+Void Private_UpdateSoundSettings() {
+	declare SettingsList = SoundAPI::GetSettingsList();
+
+	LayerSound::SetSettingsList(SettingsList);
+}
+
+Text GetTabId() {
+	return C_LibSoundController_SettingsTabId;
+}
+
+Void SetVisibility(Boolean _Visible) {
+	LayerSound::SetVisibility(_Visible);
+}
+
+Void Show(Integer _Direction) {
+	ManiaPlanet.AudioSettings_LoadCurrent();
+	assert(ManiaPlanet.AudioSettings != Null);
+	Private_UpdateSoundSettings();
+
+	LayerSound::ShowPage(_Direction);
+}
+
+Void Hide(Integer _Direction) {
+	LayerSound::HidePage(_Direction);
+
+	ManiaPlanet.AudioSettings_Unload();
+}
+
+Void SetLayerColor(Vec3 _Color) {
+	LayerSound::SetColor(_Color);
+}
+
+CUILayer GetLayer() {
+	return LayerSound::GetLayer();
+}
+
+Boolean HasPendingChanges() {
+	return G_LibSoundController_PendingChanges;
+}
+
+Void MarkNoPendingChanges() {
+	G_LibSoundController_PendingChanges = False;
+	Private_UpdateSoundSettings();
+}
+
+Void Load() {
+	LayerSound::Build();
+
+	LayerSettingsTabs::CreateTab(C_LibSoundController_SettingsTabId, _("|Settings|Sound"), "tab-sound.dds");
+}
+
+Void Loop() {
+	SoundAPI::Loop();
+
+	declare AudioSettings <=> ManiaPlanet.AudioSettings;
+	if (AudioSettings == Null)		return;
+
+	foreach (Event in PendingEvents) {
+		
+		if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			if (Event.CustomEventLayer != LayerSound::GetLayer()) continue;
+
+			switch (Event.CustomEventType) {
+				case "SetSettingValue", "SliderTempValue" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare Setting = SoundAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+
+					declare NewValue = ML::Clamp(TL::ToReal(Event.CustomEventData[1]), Setting.ValueRangeMin, Setting.ValueRangeMax);
+
+					switch (Setting.Id) {
+						case "SoundVolumeEffects"	: SoundAPI::SetSoundsVolume(NewValue);
+						case "SoundVolumeMusic"		: SoundAPI::SetMusicVolume(NewValue);
+					}
+				}
+
+				case "ToggleBoolean" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+
+					declare Setting = SoundAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+
+					declare NewValue = !Setting.CurrentValueBoolean;
+
+					switch (Setting.Id) {
+						case "SoundMuteUnfocused" 			: SoundAPI::SetSoundMuteUnfocused(NewValue);
+						case "SoundEnable"					: SoundAPI::SetIsAudioEnabled(NewValue);
+					}
+
+					SoundAPI::SetIsPendingDialog(True);
+					Private_UpdateSoundSettings();
+				}
+
+				case "SliderIncrement" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare Setting = SoundAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+
+					declare Direction = TL::ToInteger(Event.CustomEventData[1]);
+					declare NewValue = Setting.CurrentValueReal + (Setting.ValueStep * Direction);
+
+					if (Direction > 0 && NewValue < -40) NewValue = -38.;
+
+					switch (Setting.Id) {
+						case "SoundVolumeEffects" : {
+							SoundAPI::SetSoundsVolume(NewValue);
+						}
+
+						case "SoundVolumeMusic" : {
+							SoundAPI::SetMusicVolume(NewValue);
+						}
+					}
+				}
+				case "SettingEnum" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare Setting = SoundAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+
+					declare Direction = TL::ToInteger(Event.CustomEventData[1]);
+					declare Key = Setting.AvailableOptions.keyof(Setting.CurrentValueText) + Direction;
+
+					if (!Setting.AvailableOptions.existskey(Key)) continue;
+					declare NewValue = Setting.AvailableOptions[Key];
+
+					switch (Setting.Id) {
+						case "SoundDevice" : {
+							AudioSettings.Device_NextApply = NewValue;
+						}
+					}
+
+					G_LibSoundController_PendingChanges = True;
+					Private_UpdateSoundSettings();
+				}
+			}
+		}
+	}
+	
+	if (SoundAPI::GetIsPendingDialog() && ManiaPlanet.Dialog_IsFinished) {
+		SoundAPI::SetIsPendingDialog(False);
+		Private_UpdateSoundSettings();
+	}
+	
+	if (SoundAPI::PendingUpdate()) {
+		Private_UpdateSoundSettings();
+	}
+}

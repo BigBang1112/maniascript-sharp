@@ -1,0 +1,163 @@
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Settings/SettingsStructs.Script.txt"	as Structs
+#Include "Libs/Nadeo/System/Settings/Layer_CommonBase.Script.txt"	as LayerBase
+
+
+#Const C_ImgBase "file://Media/Manialinks/Common/Settings/"
+
+declare CUILayer G_ManialinkLayerInputs;
+
+Text Private_CreateManialink() {
+	LayerBase::InitSettingsCards();
+
+	return LayerBase::CreateLayerMaialink("Settings:Inputs", """
+
+<frame id="Frame_PageInputsSettings" pos="0 0">
+	{{{LayerBase::AddSettingsCards(60)}}}
+
+	<framemodel id="FrameModel_GroupHeader">
+		<label id="Label_Header" class="Bold" pos="3 -2" textsize="2" textprefix="$t" />
+		<quad class="Separator" pos="0 -5" />
+	</framemodel>
+
+	<frameinstance modelid="FrameModel_GroupHeader" id="Frame_GroupHeader#0" />
+	<frameinstance modelid="FrameModel_GroupHeader" id="Frame_GroupHeader#1" />
+	<frameinstance modelid="FrameModel_GroupHeader" id="Frame_GroupHeader#2" />
+	<frameinstance modelid="FrameModel_GroupHeader" id="Frame_GroupHeader#3" />
+
+</frame>
+
+""", "", """
+
+declare CMlFrame[] Frame_GroupHeaders;
+for (I, 0, 3) Frame_GroupHeaders.add((Page.GetFirstChild("Frame_GroupHeader#"^I) as CMlFrame));
+
+declare SSettingModel[] LayerInputs_SettingsList for Page;
+declare Integer LayerInputs_LastSettingsUpdate for Page;
+
+declare Integer[] LayerInputs_CategoriesSizes for Page;
+declare Text[] LayerInputs_CategoriesNames for Page;
+declare Integer LayerInputs_LastGroupsUpdate for Page;
+
+declare PrevSettingsUpdate = -1;
+declare PrevGroupsUpdate = -1;
+
+""", """
+
+foreach (Event in Input.PendingEvents) {
+	if (!ListenToGamepadInputs()) break;
+
+	if (Event.Type == CInputEvent::EType::PadButtonPress) {
+		if (Event.Button == CInputEvent::EButton::Up || Event.Button == CInputEvent::EButton::LeftStick_Up) {
+			PrevSetting(LayerInputs_SettingsList);
+			G_CommonBase_UseSettingHover = True;
+			LayerInputs_LastSettingsUpdate = Now;
+		}
+
+		else if (Event.Button == CInputEvent::EButton::Down || Event.Button == CInputEvent::EButton::LeftStick_Down) {
+			NextSetting(LayerInputs_SettingsList);
+			G_CommonBase_UseSettingHover = True;
+			LayerInputs_LastSettingsUpdate = Now;
+		}
+	}
+}
+
+if (PrevGroupsUpdate != LayerInputs_LastGroupsUpdate) {
+	PrevGroupsUpdate = LayerInputs_LastGroupsUpdate;
+
+	declare HeadersOffset = 0.;
+
+	foreach (I => Frame in Frame_GroupHeaders) {
+		Frame.Visible = LayerInputs_CategoriesNames.existskey(I);
+		if (!Frame.Visible) continue;
+
+		declare Label_Header <=> (Frame.GetFirstChild("Label_Header") as CMlLabel);
+		Label_Header.Value = LayerInputs_CategoriesNames[I];
+
+		Frame.RelativePosition_V3.Y = -HeadersOffset;
+		HeadersOffset += 9.5 + LayerInputs_CategoriesSizes[I] * 7.5;
+	}
+
+	declare PageTotalHeight = 7.;
+	declare RemainingGroups = LayerInputs_CategoriesSizes;
+	declare CurrentGroupCounter = 0;
+
+	for (I, 0, 59) {
+		declare Frame <=> (Page.GetFirstChild("Frame_SettingCard#"^I) as CMlFrame);
+		if (Frame == Null) continue;
+
+		if (CurrentGroupCounter <= 0 && RemainingGroups.count > 0) {
+			CurrentGroupCounter = RemainingGroups[0];
+			declare Removed = RemainingGroups.removekey(0);
+			if (I != 0) PageTotalHeight += 9.5;
+		}
+
+		Frame.Visible = CurrentGroupCounter > 0;
+		Frame.RelativePosition_V3.Y = -PageTotalHeight;
+
+		if (Frame.Visible) {
+			PageTotalHeight += 7.5;
+			CurrentGroupCounter -= 1;
+		}
+	}
+
+	SetScrollPageHeight(PageTotalHeight);
+}
+
+if (PrevSettingsUpdate != LayerInputs_LastSettingsUpdate) {
+	PrevSettingsUpdate = LayerInputs_LastSettingsUpdate;
+	FormatSettingCards(LayerInputs_SettingsList);
+}
+
+	""", "");
+}
+
+Void Private_CustomEvent(Text _Name, Text[] _Params) {
+	LayerCustomEvent(G_ManialinkLayerInputs, _Name, _Params);
+}
+
+Void Build() {
+	G_ManialinkLayerInputs = UILayerCreate();
+	G_ManialinkLayerInputs.Type = CUILayer::EUILayerType::Normal;
+	G_ManialinkLayerInputs.ManialinkPage = Private_CreateManialink();
+}
+
+CUILayer GetLayer() {
+	return G_ManialinkLayerInputs;
+}
+
+Void SetVisibility(Boolean _Visible) {
+    G_ManialinkLayerInputs.IsVisible = _Visible;
+	Private_CustomEvent("SetPageVisibility", [TL::ToText(_Visible)]);
+}
+
+Void ShowPage(Integer _Direction) {
+	Private_CustomEvent("ShowPage", [TL::ToText(_Direction)]);
+}
+
+Void HidePage(Integer _Direction) {
+	Private_CustomEvent("HidePage", [TL::ToText(_Direction)]);
+}
+
+Void SetColor(Vec3 _Color) {
+	Private_CustomEvent("SetColor", [_Color.X^" "^_Color.Y^" "^_Color.Z]);
+}
+
+Void SetSettingsList(Structs::SSettingModel[] _SettingsList) {
+	declare Structs::SSettingModel[] LayerInputs_SettingsList for G_ManialinkLayerInputs.LocalPage;
+	declare Integer LayerInputs_LastSettingsUpdate for G_ManialinkLayerInputs.LocalPage;
+
+	LayerInputs_SettingsList = _SettingsList;
+	LayerInputs_LastSettingsUpdate = Now;
+}
+
+Void SetInputCategories(Integer[] _Sizes, Text[] _Names) {
+	declare Integer[]	LayerInputs_CategoriesSizes		for G_ManialinkLayerInputs.LocalPage;
+	declare Text[]		LayerInputs_CategoriesNames		for G_ManialinkLayerInputs.LocalPage;
+	declare Integer		LayerInputs_LastGroupsUpdate	for G_ManialinkLayerInputs.LocalPage;
+
+	LayerInputs_CategoriesSizes = _Sizes;
+	LayerInputs_CategoriesNames = _Names;
+	LayerInputs_LastGroupsUpdate = Now;
+}

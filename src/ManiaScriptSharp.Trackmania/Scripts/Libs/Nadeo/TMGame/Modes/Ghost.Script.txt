@@ -1,0 +1,350 @@
+/**
+ *	Ghosts management
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/TMGame/Modes/Ghost.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Ghost {
+	Ident Id;
+	Integer Time;
+	Integer[] Checkpoints;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_BestGhostsLimit 3
+#Const C_GhostLabel_BestCP "1f8" //< Applied with $xxx, must be hex3
+
+#Const C_Visibility_None 0
+#Const C_Visibility_All 1
+#Const C_Visibility_BestOnly 2
+#Const C_Visibility_AllExceptBest 3
+
+#Const C_GhostMaxAlpha_LocalLow 1.
+#Const C_GhostMaxAlpha_LocalHigh 0.75
+#Const C_GhostMaxAlpha_MultiLow 1.
+#Const C_GhostMaxAlpha_MultiHigh 0.75
+
+// Number of ghosts after which we toggle the max alpha
+#Const C_LowHighLimit_Local 2
+#Const C_LowHighLimit_Multi -1
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Boolean G_BestGhosts_Enabled;
+declare Integer G_BestGhosts_GhostsLimit;
+declare Integer G_BestGhosts_Visibility;
+// [GhostId => GhostAddId]
+// GhostId is the id of the ghost in the DataFileMgr.Ghosts array.
+// GhostAddId is the id returned by the Ghost_Add() function
+declare Ident[Ident] G_BestGhosts_GhostIds;
+declare Integer[Ident] G_BestGhosts_GhostsRanking; //< [GhostId => Rank]
+declare K_Ghost[] G_BestGhosts_Duplicate;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if two ghosts are from the same race
+Boolean AreSameRace(CGhost _GhostA, CGhost _GhostB) {
+	if (_GhostA.Result.Time != _GhostB.Result.Time || _GhostA.Result.Checkpoints.count != _GhostB.Result.Checkpoints.count) return False;
+	foreach (CPKey => CPTime in _GhostA.Result.Checkpoints) {
+		if (CPTime != _GhostB.Result.Checkpoints[CPKey]) {
+			return False;
+		}
+	}
+	return True;
+}
+Boolean AreSameRace(Ident _GhostIdA, Ident _GhostIdB) {
+	if (_GhostIdA == NullId || _GhostIdB == NullId) return False;
+	if (!DataFileMgr.Ghosts.existskey(_GhostIdA) || !DataFileMgr.Ghosts.existskey(_GhostIdB)) return False;
+	return AreSameRace(DataFileMgr.Ghosts[_GhostIdA], DataFileMgr.Ghosts[_GhostIdB]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a ghost is a duplicate
+Boolean Private_IsDuplicate(Ident _GhostId, K_Ghost[] _Duplicate) {
+	if (!DataFileMgr.Ghosts.existskey(_GhostId)) return False;
+	declare CGhost Ghost = DataFileMgr.Ghosts[_GhostId];
+	foreach (GhostToAvoid in _Duplicate) {
+		if (Ghost.Result.Time == GhostToAvoid.Time && Ghost.Result.Checkpoints.count == GhostToAvoid.Checkpoints.count) {
+			declare Boolean AllCPMatches = True;
+			foreach (CPKey => CPTime in Ghost.Result.Checkpoints) {
+				if (CPTime != GhostToAvoid.Checkpoints[CPKey]) {
+					AllCPMatches = False;
+					break;
+				}
+			}
+			if (AllCPMatches) {
+				return True;
+			}
+		}
+	}
+
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add or remove ghost on the track
+ *	depending on the requested visibility
+ *	and ghost duplication to avoid
+ */
+Void Private_UpdateBestGhostsVisibility(Integer _Visibility, K_Ghost[] _Duplicate) {
+	declare TmpGhostIds = G_BestGhosts_GhostIds;
+	foreach (GhostId => GhostAddId in TmpGhostIds) {
+		declare Integer Rank = G_BestGhosts_GhostsRanking.get(GhostId, -1);
+		if (
+			_Visibility == C_Visibility_None ||
+			(_Visibility == C_Visibility_BestOnly && Rank != 0) ||
+			(_Visibility == C_Visibility_AllExceptBest && Rank == 0) ||
+			Private_IsDuplicate(GhostId, G_BestGhosts_Duplicate)
+		) {
+			if (GhostAddId != NullId) {
+				GhostMgr.Ghost_Remove(GhostAddId);
+				G_BestGhosts_GhostIds[GhostId] = NullId;
+			}
+		} else if (
+			_Visibility == C_Visibility_All ||
+			(_Visibility == C_Visibility_BestOnly && Rank == 0) ||
+			(_Visibility == C_Visibility_AllExceptBest && Rank != 0)
+		) {
+			if (DataFileMgr.Ghosts.existskey(GhostId)) {
+				declare Text Nickname = "";
+				if (Rank == 0) {
+					//L16N [Ghost] Name displayed above the ghost of the player's best race. %1 will be replaced by a color code. eg: "$f00Best Race". The sentence should be kept short, preferably around 10 characters max.
+					Nickname = TL::Compose(_("%1Best race"), "$"^C_GhostLabel_BestCP);
+				} else {
+					//L16N [Ghost] Name displayed above the ghost of the player's best time at checkpoint n. %1 will be replaced by a color code. %2 will be replaced by the checkpoint number. eg: "$f00Best CP 12". CP stands for "checkpoint". The sentence should be kept short, preferably around 10 characters max.
+					Nickname = TL::Compose(_("%1Best CP %2"), "$"^C_GhostLabel_BestCP, ""^Rank);
+				}
+
+				declare Boolean GhostRenamed = False;
+				declare CGhost Ghost = DataFileMgr.Ghosts[GhostId];
+				if (Ghost.Nickname != Nickname) {
+					Ghost.Nickname = Nickname;
+					GhostRenamed = True;
+					if (GhostAddId != NullId) {
+						GhostMgr.Ghost_Remove(GhostAddId);
+						G_BestGhosts_GhostIds[GhostId] = NullId;
+					}
+				}
+				if (GhostAddId == NullId || GhostRenamed) {
+					G_BestGhosts_GhostIds[GhostId] = GhostMgr.Ghost_Add(Ghost, True);
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the visibility of the best ghosts
+Void SetBestGhostsVisibility(Integer _Visibility) {
+	G_BestGhosts_Visibility = _Visibility;
+	Private_UpdateBestGhostsVisibility(G_BestGhosts_Visibility, G_BestGhosts_Duplicate);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Try to not display the same ghosts
+ *	as the one listed in _GhostIds
+ */
+Void AvoidDuplicate_Add(Ident _GhostId, Boolean _UpdateVisibility) {
+	if (DataFileMgr.Ghosts.existskey(_GhostId)) {
+		declare CGhost Ghost = DataFileMgr.Ghosts[_GhostId];
+		declare Integer[] Checkpoints;
+		foreach (Time in Ghost.Result.Checkpoints) {
+			Checkpoints.add(Time);
+		}
+		G_BestGhosts_Duplicate.add(K_Ghost {
+			Id = Ghost.Id,
+			Time = Ghost.Result.Time,
+			Checkpoints = Checkpoints
+		});
+		if (_UpdateVisibility) {
+			Private_UpdateBestGhostsVisibility(G_BestGhosts_Visibility, G_BestGhosts_Duplicate);
+		}
+	}
+}
+Void AvoidDuplicate_Add(Ident _GhostId) {
+	AvoidDuplicate_Add(_GhostId, True);
+}
+Void AvoidDuplicate_Remove(Ident _GhostId) {
+	declare Integer ToRemove = -1;
+	foreach (Key => GhostTime in G_BestGhosts_Duplicate) {
+		if (GhostTime.Id == _GhostId) {
+			ToRemove = Key;
+			break;
+		}
+	}
+	if (ToRemove >= 0) {
+		declare Boolean Removed = G_BestGhosts_Duplicate.removekey(ToRemove);
+		if (Removed) {
+			Private_UpdateBestGhostsVisibility(G_BestGhosts_Visibility, G_BestGhosts_Duplicate);
+		}
+	}
+}
+Void AvoidDuplicate(Ident[] _GhostIds) {
+	G_BestGhosts_Duplicate = [];
+	foreach (GhostId in _GhostIds) {
+		AvoidDuplicate_Add(GhostId, False);
+	}
+	Private_UpdateBestGhostsVisibility(G_BestGhosts_Visibility, G_BestGhosts_Duplicate);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove a ghost from the best ghosts
+Void RemoveBestGhost(Ident _GhostId) {
+	if (G_BestGhosts_GhostIds.existskey(_GhostId)) {
+		declare Ident GhostAddId = G_BestGhosts_GhostIds[_GhostId];
+		if (GhostAddId != NullId) {
+			GhostMgr.Ghost_Remove(GhostAddId);
+		}
+		G_BestGhosts_GhostIds.removekey(_GhostId);
+		G_BestGhosts_GhostsRanking.removekey(_GhostId);
+	}
+	if (DataFileMgr.Ghosts.existskey(_GhostId)) {
+		DataFileMgr.Ghost_Release(_GhostId);
+	}
+}
+Void RemoveBestGhosts() {
+	foreach (GhostId => GhostAddId in G_BestGhosts_GhostIds) {
+		RemoveBestGhost(GhostId);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Try to add a ghost to the best ghosts
+Void AddBestGhost(CGhost _Ghost) {
+	G_BestGhosts_GhostIds[_Ghost.Id] = NullId;
+
+	// Find the result with the most checkpoints
+	declare Integer CheckpointKeyMax = _Ghost.Result.Checkpoints.count - 1;
+	foreach (GhostId => GhostAddId in G_BestGhosts_GhostIds) {
+		if (
+			DataFileMgr.Ghosts.existskey(GhostId) &&
+			DataFileMgr.Ghosts[GhostId].Result.Checkpoints.count - 1 > CheckpointKeyMax
+		) {
+			CheckpointKeyMax = DataFileMgr.Ghosts[GhostId].Result.Checkpoints.count - 1;
+		}
+	}
+
+	// Browse through the checkpoints from the last
+	G_BestGhosts_GhostsRanking = [];
+	declare SmallestCPIndex = -1;
+	for (I, 0, CheckpointKeyMax) {
+		declare Integer CheckpointKey = CheckpointKeyMax - I;
+		declare Integer BestCheckpointTime = -1;
+		declare Ident BestCheckpointGhostId = NullId;
+
+		// Find the best time done by the already selected ghosts
+		foreach (GhostId => Rank in G_BestGhosts_GhostsRanking) {
+			if (DataFileMgr.Ghosts[GhostId].Result.Checkpoints.existskey(CheckpointKey)) {
+				if (BestCheckpointTime < 0 || DataFileMgr.Ghosts[GhostId].Result.Checkpoints[CheckpointKey] < BestCheckpointTime) {
+					BestCheckpointTime = DataFileMgr.Ghosts[GhostId].Result.Checkpoints[CheckpointKey];
+					BestCheckpointGhostId = GhostId;
+				}
+			}
+		}
+
+		// Check if one of the ghost that is not already selected did a better time
+		foreach (GhostId => GhostAddId in G_BestGhosts_GhostIds) {
+			if (!G_BestGhosts_GhostsRanking.existskey(GhostId) && DataFileMgr.Ghosts.existskey(GhostId)) {
+				if (DataFileMgr.Ghosts[GhostId].Result.Checkpoints.existskey(CheckpointKey)) {
+					if (BestCheckpointTime < 0 || DataFileMgr.Ghosts[GhostId].Result.Checkpoints[CheckpointKey] < BestCheckpointTime) {
+						BestCheckpointTime = DataFileMgr.Ghosts[GhostId].Result.Checkpoints[CheckpointKey];
+						BestCheckpointGhostId = GhostId;
+					}
+				}
+			}
+		}
+
+		// Keep the id of the ghost with the best time of the checkpoint if they were not selected already
+		if (BestCheckpointGhostId != NullId && !G_BestGhosts_GhostsRanking.existskey(BestCheckpointGhostId)) {
+			G_BestGhosts_GhostsRanking[BestCheckpointGhostId] = G_BestGhosts_GhostsRanking.count;
+		}
+		// Save the Ghost Id selected for each CP
+		SmallestCPIndex = CheckpointKey;
+		// Stop searching if we found enough ghosts
+		if (G_BestGhosts_GhostsRanking.count >= G_BestGhosts_GhostsLimit+1 || G_BestGhosts_GhostsRanking.count >= G_BestGhosts_GhostIds.count) {
+			break;
+		}
+	}
+
+	// Free the ghosts that were not selected
+	declare TmpGhostIds = G_BestGhosts_GhostIds;
+	foreach (GhostId => GhostAddId in TmpGhostIds) {
+		if (!G_BestGhosts_GhostsRanking.existskey(GhostId)) {
+			if (GhostAddId != NullId) GhostMgr.Ghost_Remove(GhostAddId);
+			if (DataFileMgr.Ghosts.existskey(GhostId)) DataFileMgr.Ghost_Release(GhostId);
+			G_BestGhosts_GhostIds.removekey(GhostId);
+		}
+	}
+
+	// Update ghosts on track
+	Private_UpdateBestGhostsVisibility(G_BestGhosts_Visibility, G_BestGhosts_Duplicate);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Enable or disable the best ghosts feature
+ *
+ *	@param	_Enabled								True to enable, False to disable
+ *	@param	_GhostsLimit						The maximum number of concurrent ghosts to keep
+ *	@param	_GhostsVisibility				The default ghost visibility
+ */
+Void EnableBestGhosts(Boolean _Enabled, Integer _GhostsLimit, Integer _GhostsVisibility) {
+	G_BestGhosts_Enabled = _Enabled;
+	G_BestGhosts_GhostsLimit = _GhostsLimit;
+	if (!G_BestGhosts_Enabled) {
+		RemoveBestGhosts();
+	}
+	SetBestGhostsVisibility(_GhostsVisibility);
+}
+Void EnableBestGhosts(Boolean _Enabled) {
+	EnableBestGhosts(_Enabled, C_BestGhostsLimit, C_Visibility_All);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Setup the max alpha of the ghosts
+Void AutoGhostsMaxAlpha(Boolean _IsLocalMode, Integer _GhostsNb) {
+	if (_IsLocalMode) {
+		if (C_LowHighLimit_Local >= 0 && _GhostsNb <= C_LowHighLimit_Local) Ghosts_SetMaxAlpha(C_GhostMaxAlpha_LocalLow);
+		else Ghosts_SetMaxAlpha(C_GhostMaxAlpha_LocalHigh);
+	} else {
+		if (C_LowHighLimit_Multi >= 0 && _GhostsNb <= C_LowHighLimit_Multi) Ghosts_SetMaxAlpha(C_GhostMaxAlpha_MultiLow);
+		else Ghosts_SetMaxAlpha(C_GhostMaxAlpha_MultiHigh);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Call this when a player finish the race
+Void EndRace(CSmPlayer _Player) {
+	if (G_BestGhosts_Enabled) {
+		declare CGhost NewGhost = Ghost_RetrieveFromPlayer(_Player);
+		if (NewGhost != Null) {
+			AddBestGhost(NewGhost);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Call this at the start of each map
+Void StartMap() {
+
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Call this at the end of each map
+Void EndMap() {
+	if (G_BestGhosts_Enabled) {
+		RemoveBestGhosts();
+	}
+}

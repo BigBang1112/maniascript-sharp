@@ -1,0 +1,337 @@
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Settings/SettingsStructs.Script.txt" as Structs
+
+#Const C_LibInputsAPI_AvailableSettings """
+<settings>
+	<setting type="Enum" id="GlobalCurDevice" name="|Inputs|Edited device" />
+	<setting type="Action" id="GlobalUnbindAll" name="Unbind all buttons" />
+	<setting type="Action" id="GlobalUnbindOne" name="Unbind one button" />
+	<setting type="Action" id="GlobalResetBinds" name="Restore defaults" />
+
+	<setting type="Real" id="MouseSensitivity" name="|Mouse|Sensitivity" min="0.1" max="10" step="0.1" />
+	<setting type="Real" id="MouseAcceleration" name="|Mouse|Acceleration" min="0" max="3" step="0.01" />
+	<setting type="Bool" id="MouseInvertVertical" name="|Mouse|Invert Y axis" />
+	<setting type="Real" id="MouseScaleVertical" name="|Mouse|Vertical scale" min="0.1" max="3" step="0.01" />
+	<setting type="Real" id="MouseScaleFreeLook" name="|Mouse|FreeLook scale" min="0.1" max="3" step="0.01" />
+	<setting type="Real" id="MouseScaleLaser" name="|Mouse|Laser sensitivity" min="0.1" max="10" step="0.01" />
+	<setting type="Enum" id="MouseReleaseKey" name="|Mouse|Cursor release key" />
+
+	<setting type="Enum" id="AnalogCurVehicle" name="Vehicle" />
+	<setting type="Real" id="AnalogSensitivity" name="Analog sensitivity" min="0.1" max="10" step="0.01" />
+	<setting type="Real" id="AnalogDeadZone" name="Analog dead zone" min="0" max="0.25" step="0.001" />
+	<setting type="Real" id="AnalogRumbleIntens" name="Rumble intensity" min="0" max="2" step="0.001" />
+	<setting type="Bool" id="AnalogWheelSensi" name="Wheel sensitivity" />
+	<setting type="Real" id="AnalogCenterSpring" name="Center spring intensity" min="0" max="1" step="0.001" />
+</settings>
+"""
+
+declare Structs::SSettingModel[] G_LibInputsAPI_GlobalSettings;
+declare Structs::SSettingModel[] G_LibInputsAPI_MouseSettings;
+declare Structs::SSettingModel[] G_LibInputsAPI_AnalogSettings;
+declare Boolean G_LibInputsAPI_PendingSettingsUpdate;
+
+declare Integer[] G_LibInputsAPI_GroupsSizes;
+declare Text[] G_LibInputsAPI_GroupsNames;
+
+declare Text G_LibInputsAPI_SelectedVehicleId;
+declare Ident G_LibInputsAPI_PrevPlaygroundVehicleId;
+
+declare Integer G_LibInputsAPI_SelectedDeviceControllerId;
+declare Boolean G_LibInputsAPI_SelectedDeviceIsMouse;
+declare Boolean G_LibInputsAPI_SelectedDeviceIsAnalog;
+
+Structs::SSettingModel[] Private_GetSettingsList() {
+	if (G_LibInputsAPI_GlobalSettings.count > 0) {
+		return G_LibInputsAPI_GlobalSettings;
+	}
+
+	declare Document <=> Xml.Parse_Xml(C_LibInputsAPI_AvailableSettings);
+	
+	foreach (Node in Document.Root.Children) {
+		declare Structs::SSettingModel Setting;
+
+		Setting.Id				= Node.GetAttributeText("id", "");
+		Setting.Type			= Node.GetAttributeText("type", "");
+		Setting.Name			= Node.GetAttributeText("name", "");
+		Setting.ValueRangeMin	= Node.GetAttributeReal("min", 0.);
+		Setting.ValueRangeMax	= Node.GetAttributeReal("max", 1.);
+		Setting.ValueStep		= Node.GetAttributeReal("step", .01);
+		Setting.Info			= Node.GetAttributeText("info", "");
+
+		switch (Setting.Id) {
+			case "MouseReleaseKey" : {
+				Setting.AvailableOptions = ["LeftAlt", "RightAlt", "LeftCtrl", "RightCtrl"];
+				Setting.OptionsLabels = ["LeftAlt" => _("|Keyboard|Left Alt"), "RightAlt" => _("|Keyboard|Right Alt"), "LeftCtrl" => _("|Keyboard|Left Control"), "RightCtrl" => _("|Keyboard|Right Control")];
+			}
+			
+			case "MouseSensitivity" 	: Setting.AlternativeDisplay = True;
+			case "MouseScaleLaser" 	: Setting.AlternativeDisplay = True;
+		}
+
+		if (TL::Find("Global", Setting.Id, True, True)) {
+			G_LibInputsAPI_GlobalSettings.add(Setting);
+		}
+
+		else if (TL::Find("Mouse", Setting.Id, True, True)) {
+			G_LibInputsAPI_MouseSettings.add(Setting);
+		}
+
+		else if (TL::Find("Analog", Setting.Id, True, True)) {
+			G_LibInputsAPI_AnalogSettings.add(Setting);
+		}
+	}
+
+	Xml.Parse_Destroy(Document);
+	return G_LibInputsAPI_GlobalSettings;
+}
+
+Structs::SSettingModel[] GetSettingsList() {
+	declare UserSettings <=> ManiaPlanet.UserMgr.MainUserProfile;
+	declare Structs::SSettingModel[] SettingsList;
+	declare CInputPad Device;
+	declare IncrementalSettingId = 0;
+
+	G_LibInputsAPI_GroupsSizes.clear();
+	G_LibInputsAPI_GroupsNames.clear();
+
+	G_LibInputsAPI_GroupsSizes.add(4);
+	G_LibInputsAPI_GroupsNames.add(_("|InputDevice|Device"));
+
+	foreach (SettingModel in Private_GetSettingsList()) {
+		declare Setting = SettingModel;
+
+		switch (Setting.Id) {
+			case "GlobalCurDevice" : {
+				declare Integer[] ControllerIds;
+
+				foreach (Pad in Input.Pads) {
+					declare ControllerId = TL::ToText(Pad.ControllerId);
+					ControllerIds.add(Pad.ControllerId);
+
+					Setting.AvailableOptions.add(ControllerId);
+					Setting.OptionsLabels[ControllerId] = TL::GetTranslatedText(Pad.ModelName);
+				}
+
+				ControllerIds = ControllerIds.sort();
+
+				if (!ControllerIds.exists(G_LibInputsAPI_SelectedDeviceControllerId)) {
+					if (ControllerIds.count > 0) {
+						G_LibInputsAPI_SelectedDeviceControllerId = ControllerIds[0];
+					} else {
+						G_LibInputsAPI_SelectedDeviceControllerId = 0;
+					}
+				}
+
+				Setting.AvailableOptions = Setting.AvailableOptions.sort();
+				Setting.CurrentValueText = TL::ToText(G_LibInputsAPI_SelectedDeviceControllerId);
+			}
+		}
+
+		SettingsList.add(Setting);
+	}
+
+	foreach (Pad in Input.Pads) {
+		if (Pad.ControllerId == G_LibInputsAPI_SelectedDeviceControllerId) {
+			Device <=> Pad;
+			break;
+		}
+	}
+
+	if (Device == Null) return SettingsList;
+
+	// Mouse settings
+	if (Device.Type == CInputPad::EPadType::Mouse) {
+		G_LibInputsAPI_GroupsSizes.add(G_LibInputsAPI_MouseSettings.count);
+		G_LibInputsAPI_GroupsNames.add(_("Mouse settings"));
+
+		foreach (SettingModel in G_LibInputsAPI_MouseSettings) {
+			declare Setting = SettingModel;
+
+			switch (Setting.Id) {
+				case "MouseSensitivity"		: Setting.CurrentValueReal		= UserSettings.Inputs_MouseSensitivityDefault_Raw;
+				case "MouseAcceleration"		: Setting.CurrentValueReal		= UserSettings.Inputs_MouseAccel;
+				case "MouseInvertVertical"	: Setting.CurrentValueBoolean	= UserSettings.Inputs_MouseLookInvertY;
+				case "MouseScaleVertical"	: Setting.CurrentValueReal		= UserSettings.Inputs_MouseScaleY;
+				case "MouseScaleFreeLook"	: Setting.CurrentValueReal		= UserSettings.Inputs_MouseScaleFreeLook;
+				case "MouseScaleLaser"			: Setting.CurrentValueReal		= UserSettings.Inputs_MouseSensitivityLaser_Raw;
+				case "MouseReleaseKey"		: {
+					switch (UserSettings.Inputs_MouseReleaseKey) {
+						case CUserV2Profile::EInputMouseReleaseKey::LeftAlt		: Setting.CurrentValueText = "LeftAlt";
+						case CUserV2Profile::EInputMouseReleaseKey::RightAlt	: Setting.CurrentValueText = "RightAlt";
+						case CUserV2Profile::EInputMouseReleaseKey::LeftCtrl	: Setting.CurrentValueText = "LeftCtrl";
+						case CUserV2Profile::EInputMouseReleaseKey::RightCtrl	: Setting.CurrentValueText = "RightCtrl";
+					}
+				}
+			}
+
+			SettingsList.add(Setting);
+		}
+	}
+
+	// Analog settings
+	if (Device.Type != CInputPad::EPadType::Keyboard && Device.Type != CInputPad::EPadType::Mouse) {
+		G_LibInputsAPI_GroupsSizes.add(G_LibInputsAPI_AnalogSettings.count);
+		G_LibInputsAPI_GroupsNames.add(_("Analog settings"));
+
+		declare CVehicleSettings VehicleSettings;
+
+		if (G_LibInputsAPI_SelectedVehicleId == "") {
+			foreach (Vehicle in UserSettings.Inputs_Vehicles) {
+				G_LibInputsAPI_SelectedVehicleId = Vehicle.ModelName;
+				VehicleSettings <=> Vehicle;
+				break;
+			}
+		}
+
+		if (VehicleSettings == Null) {
+			foreach (Vehicle in UserSettings.Inputs_Vehicles) {
+				if (G_LibInputsAPI_SelectedVehicleId != Vehicle.ModelName) continue;
+				VehicleSettings <=> Vehicle;
+				break;
+			}
+		}
+
+		if (VehicleSettings != Null) {
+			foreach (SettingModel in G_LibInputsAPI_AnalogSettings) {
+				declare Setting = SettingModel;
+
+				switch (Setting.Id) {
+					case "AnalogCurVehicle" : {
+						Setting.CurrentValueText = VehicleSettings.ModelName;
+
+						foreach (Vehicle in UserSettings.Inputs_Vehicles) {
+							if (Setting.AvailableOptions.exists(Vehicle.ModelName) || Vehicle.ModelName == "Unassigned") continue;
+
+							Setting.AvailableOptions.add(Vehicle.ModelName);
+							Setting.OptionsLabels[Vehicle.ModelName] = Vehicle.ModelDisplayName;
+						}
+					}
+
+					case "AnalogSensitivity"	: Setting.CurrentValueReal		= VehicleSettings.AnalogSensitivity;
+					case "AnalogDeadZone"		: Setting.CurrentValueReal		= VehicleSettings.AnalogDeadZone;
+					case "AnalogRumbleIntens"	: Setting.CurrentValueReal		= VehicleSettings.RumbleIntensity;
+					case "AnalogWheelSensi"		: Setting.CurrentValueBoolean	= VehicleSettings.AnalogSteerV2;
+					case "AnalogCenterSpring"	: Setting.CurrentValueReal		= VehicleSettings.CenterSpringIntensity;
+				}
+				
+				SettingsList.add(Setting);
+			}
+		}
+	}
+
+	// Bindings
+	ManiaPlanet.InputBindings_UpdateList(CManiaPlanet::EInputsListFilter::All, Device);
+
+	G_LibInputsAPI_GroupsNames.add(_("Player bindings"));
+	G_LibInputsAPI_GroupsSizes.add(ManiaPlanet.InputBindings_PlayerInputsCount);
+
+	G_LibInputsAPI_GroupsNames.add(_("General bindings"));
+	G_LibInputsAPI_GroupsSizes.add(ManiaPlanet.InputBindings_Bindings.count - ManiaPlanet.InputBindings_PlayerInputsCount);
+
+	foreach (I => Bindings in ManiaPlanet.InputBindings_Bindings) {
+		declare Structs::SSettingModel Setting;
+
+		Setting.Id					= TL::ToText(IncrementalSettingId);
+		Setting.Type				= "Input";
+		Setting.Name				= ManiaPlanet.InputBindings_ActionNames[I];
+		Setting.CurrentBindings		= TL::Split(",", Bindings);
+
+		SettingsList.add(Setting);
+		IncrementalSettingId += 1;
+	}
+
+	return SettingsList;
+}
+
+Structs::SSettingModel GetSetting(Text _SettingId) {
+	declare Structs::SSettingModel TargetSetting;
+
+	foreach (Setting in GetSettingsList()) {
+		if (Setting.Id == _SettingId) {
+			TargetSetting = Setting;
+			break;
+		}
+	}
+
+	return TargetSetting;
+}
+
+Integer[] GetGroupSizes() {
+	return G_LibInputsAPI_GroupsSizes;
+}
+
+Text[] GetGroupNames() {
+	return G_LibInputsAPI_GroupsNames;
+}
+
+Void SetSelectedDeviceId(Integer _DeviceId) {
+	G_LibInputsAPI_SelectedDeviceControllerId = _DeviceId;
+}
+
+Void SetSelectedVehicleId(Text _VehicleId) {
+	G_LibInputsAPI_SelectedVehicleId = _VehicleId;
+}
+
+CVehicleSettings GetCurVehicleSettings() {
+	foreach (Vehicle in ManiaPlanet.UserMgr.MainUserProfile.Inputs_Vehicles) {
+		if (G_LibInputsAPI_SelectedVehicleId == Vehicle.ModelName) {
+			return Vehicle;
+		}
+	}
+
+	return Null;
+}
+
+Void UnbindAllCurrent() {
+	if (!ManiaPlanet.Dialog_IsFinished) return;
+
+	foreach (Pad in Input.Pads) {
+		if (G_LibInputsAPI_SelectedDeviceControllerId == Pad.ControllerId) {
+			ManiaPlanet.Dialog_UnbindInputDevice(Pad);
+			return;
+		}
+	}
+}
+
+Void UnbindOneButton() {
+	if (!ManiaPlanet.Dialog_IsFinished) return;
+
+	foreach (Pad in Input.Pads) {
+		if (G_LibInputsAPI_SelectedDeviceControllerId == Pad.ControllerId) {
+			ManiaPlanet.Dialog_BindInput(-1, Pad);
+			return;
+		}
+	}
+}
+
+Void RestoreDefaultsCurrent() {
+	if (!ManiaPlanet.Dialog_IsFinished) return;
+
+	foreach (Pad in Input.Pads) {
+		if (G_LibInputsAPI_SelectedDeviceControllerId == Pad.ControllerId) {
+			ManiaPlanet.Dialog_DefaultInputBindings(Pad);
+			return;
+		}
+	}
+}
+
+Void Loop() {
+	if (Playground != Null) {
+		if (G_LibInputsAPI_PrevPlaygroundVehicleId != Playground.SettingsPlayerModelId) {
+			G_LibInputsAPI_PrevPlaygroundVehicleId = Playground.SettingsPlayerModelId;
+			G_LibInputsAPI_PendingSettingsUpdate = True;
+
+			if (ManiaPlanet.UserMgr.MainUserProfile.Inputs_Vehicles.existskey(G_LibInputsAPI_PrevPlaygroundVehicleId)) {
+				G_LibInputsAPI_SelectedVehicleId = ManiaPlanet.UserMgr.MainUserProfile.Inputs_Vehicles[G_LibInputsAPI_PrevPlaygroundVehicleId].ModelName;
+			}
+		}
+	}
+}
+
+Boolean PendingUpdate() {
+	declare IsUpdate = G_LibInputsAPI_PendingSettingsUpdate;
+	G_LibInputsAPI_PendingSettingsUpdate = False;
+	return IsUpdate;
+}

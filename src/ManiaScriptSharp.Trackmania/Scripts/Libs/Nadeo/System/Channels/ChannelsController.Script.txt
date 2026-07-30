@@ -1,0 +1,365 @@
+
+#Include "ColorLib" as CL
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Channels/Layer_Frontpage.Script.txt"	as LayerFrontpage
+#Include "Libs/Nadeo/System/Channels/Layer_WeekGrid.Script.txt"		as LayerWeekGrid
+#Include "Libs/Nadeo/System/Channels/Layer_ProgramInfo.Script.txt"	as LayerProgramInfo
+#Include "Libs/Nadeo/System/Channels/Layer_StoreList.Script.txt"	as LayerStoreList
+#Include "Libs/Nadeo/System/Channels/Layer_StoreTitle.Script.txt"	as LayerStoreTitle
+#Include "Libs/Nadeo/System/Channels/Layer_Options.Script.txt"		as LayerOptions
+#Include "Libs/Nadeo/System/Channels/WebServicesAPI.Script.txt"		as WebServicesAPI
+#Include "Libs/Nadeo/System/Channels/Structs.Script.txt"			as Structs
+
+#Include "Libs/Nadeo/System/InternalEvents/Events_Producer.Script.txt" as EventsProducer
+#Include "Libs/Nadeo/System/Styles/ColorScheme.Script.txt" as ColorScheme
+
+#Const C_LibChannelsController_ChannelsRefreshRate		30000
+
+#Const C_LibChannelsController_MenuContext_Frontpage	0
+#Const C_LibChannelsController_MenuContext_WeekGrid		1
+#Const C_LibChannelsController_MenuContext_ProgramInfo	2
+#Const C_LibChannelsController_MenuContext_StoreList	3
+#Const C_LibChannelsController_MenuContext_StoreTitle	4
+#Const C_LibChannelsController_MenuContext_Options		5
+
+#Const C_LibChannelsController_StoreTitleOrder ["playersLast24h", "lastUpdate", "onlinePlayers", "registrations"]
+
+declare Integer G_LibChannelsController_NextChannelsUpdate;
+
+declare Integer G_LibChannelsController_ActiveContext;
+
+declare Text	G_LibChannelsController_ChannelGridUID;
+declare Integer G_LibChannelsController_DisplayedProgramID;
+
+declare Text	G_LibChannelsController_StoreTitleUID;
+declare Integer	G_LibChannelsController_StoreCurrentOffset;
+declare Text	G_LibChannelsController_StoreSortingOrder;
+declare Text[]	G_LibChannelsController_StoreActiveFilters;
+
+declare Integer	G_ColorScheme_PreviousChangeCount;
+
+Void UpdateLayersVisibility() {
+	LayerFrontpage::SetVisibility(G_LibChannelsController_ActiveContext == C_LibChannelsController_MenuContext_Frontpage);
+	LayerWeekGrid::SetVisibility(G_LibChannelsController_ActiveContext == C_LibChannelsController_MenuContext_WeekGrid);
+	LayerProgramInfo::SetVisibility(G_LibChannelsController_ActiveContext == C_LibChannelsController_MenuContext_ProgramInfo);
+	LayerStoreList::SetVisibility(G_LibChannelsController_ActiveContext == C_LibChannelsController_MenuContext_StoreList);
+	LayerStoreTitle::SetVisibility(G_LibChannelsController_ActiveContext == C_LibChannelsController_MenuContext_StoreTitle);
+	LayerOptions::SetVisibility(G_LibChannelsController_ActiveContext == C_LibChannelsController_MenuContext_Options);
+}
+
+Void UpdateLayerColors() {
+	declare ColorPrimary	= ColorScheme::GetPrimaryColor();
+	declare ColorSecondary	= ColorScheme::GetSecondaryColor();
+
+	LayerFrontpage::SetColors(ColorPrimary, ColorSecondary);
+	LayerWeekGrid::SetColors(ColorPrimary, ColorSecondary);
+	LayerProgramInfo::SetColors(ColorPrimary, ColorSecondary);
+	LayerStoreList::SetColors(ColorPrimary, ColorSecondary);
+	LayerOptions::SetColors(ColorPrimary, ColorSecondary);
+
+	declare TitleInfo = WebServicesAPI::GetTitleInfo(G_LibChannelsController_StoreTitleUID);
+
+	if (TitleInfo.ColorPrimary != <0., 0., 0.> && TitleInfo.ColorPrimary != <0., 8/15., 1.>) {
+		declare TitleColorPrimary = CL::RgbToHsv(TitleInfo.ColorPrimary);
+
+		ColorPrimary	= CL::HsvToRgb(<TitleColorPrimary.X, TitleColorPrimary.Y, 1.>);
+		ColorSecondary	= TitleInfo.ColorPrimary;
+	}
+
+	LayerStoreTitle::SetColors(ColorPrimary, ColorSecondary);
+}
+
+Void UpdateLayerFrontpage() {
+	LayerFrontpage::SetChannelsData([WebServicesAPI::ChannelShootMania(), WebServicesAPI::ChannelTrackMania()], WebServicesAPI::NbPlayersOnline(), WebServicesAPI::NbPlayersLast24());
+}
+
+Void UpdateLayerWeekGrid() {
+	declare Structs::SGridEpisode[] Episodes;
+
+	switch (G_LibChannelsController_ChannelGridUID) {
+		case "trackmania" : Episodes = WebServicesAPI::TrackManiaGridEpisodes();
+		case "shootmania" : Episodes = WebServicesAPI::ShootManiaGridEpisodes();
+	}
+
+	LayerWeekGrid::SetPageContents(Episodes, G_LibChannelsController_ChannelGridUID);
+	LayerWeekGrid::SetRequestStatus(WebServicesAPI::ChannelGridRequestStatus());
+}
+
+Void UpdateStoreFiltersTarget() {
+	LayerStoreList::SetPageDetailsTarget(G_LibChannelsController_StoreCurrentOffset, G_LibChannelsController_StoreSortingOrder, G_LibChannelsController_StoreActiveFilters);
+}
+
+Void UpdateStoreFiltersResult() {
+	LayerStoreList::SetPageDetailsResult(WebServicesAPI::LastStoreOffset(), WebServicesAPI::LastStoreSortingOrder(), WebServicesAPI::LastStoreActiveFilters());
+}
+
+Void UpdateLayerStoreList() {
+	LayerStoreList::SetPageContents(WebServicesAPI::CurrentStorePage());
+	LayerStoreList::SetRequestStatus(WebServicesAPI::TitlesListRequestStatus());
+}
+
+Void UpdateDisplayedTitleInfo() {
+	LayerStoreTitle::SetDisplayedTitleInfo(WebServicesAPI::GetTitleInfo(G_LibChannelsController_StoreTitleUID));
+	LayerStoreTitle::SetRequestStatus(WebServicesAPI::TitleInfoRequestStatus());
+	UpdateLayerColors();
+}
+
+Void UpdateDisplayedProgramInfo() {
+	LayerProgramInfo::SetDisplayedProgramInfo(WebServicesAPI::GetProgramInfo(G_LibChannelsController_DisplayedProgramID));
+	LayerProgramInfo::SetRequestStatus(WebServicesAPI::ProgramInfoRequestStatus());
+	UpdateLayerColors();
+}
+
+Void UpdateAllLayers() {
+	UpdateLayerFrontpage();
+	UpdateLayerWeekGrid();
+	UpdateStoreFiltersTarget();
+	UpdateStoreFiltersResult();
+	UpdateLayerStoreList();
+	UpdateDisplayedTitleInfo();
+	UpdateDisplayedProgramInfo();
+}
+
+Void NewStoreRequest() {
+	WebServicesAPI::GetTitlesList(G_LibChannelsController_StoreCurrentOffset, 7, G_LibChannelsController_StoreSortingOrder, G_LibChannelsController_StoreActiveFilters);
+}
+
+Void NewProgramInfoRequest() {
+	WebServicesAPI::NewProgramInfoRequest(G_LibChannelsController_DisplayedProgramID);
+}
+
+Void NewTitleInfoRequest() {
+	WebServicesAPI::NewTitleInfoRequest(G_LibChannelsController_StoreTitleUID);
+}
+
+Boolean Title_IsInStation(Text _TitleUid) {
+	return ManiaPlanet.TitleIdsInstalled.exists(_TitleUid);
+}
+
+Void Load() {
+	LayerFrontpage::Build();
+	LayerWeekGrid::Build();
+	LayerProgramInfo::Build();
+	LayerStoreList::Build();
+	LayerStoreTitle::Build();
+	LayerOptions::Build();
+
+	G_LibChannelsController_ActiveContext		= C_LibChannelsController_MenuContext_Frontpage;
+	G_LibChannelsController_StoreSortingOrder	= C_LibChannelsController_StoreTitleOrder[0];
+
+	UpdateLayersVisibility();
+	UpdateAllLayers();
+
+	yield;
+
+	UpdateLayerColors();
+}
+
+Void Loop() {
+
+	declare ColorScheme_LatestChangeCount = ColorScheme::GetLatestChangeCount();
+	if(	PendingEvents.count == 0 &&
+			Now < G_LibChannelsController_NextChannelsUpdate &&
+			Http.PendingEvents.count == 0 &&
+			G_ColorScheme_PreviousChangeCount == ColorScheme_LatestChangeCount)
+			return;
+
+	if (Now >= G_LibChannelsController_NextChannelsUpdate) {
+		G_LibChannelsController_NextChannelsUpdate = Now + C_LibChannelsController_ChannelsRefreshRate;
+
+		WebServicesAPI::GetLiveChannels();
+	}
+
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			switch (Event.CustomEventType) {
+				case "RefreshChannelsData" : {
+					WebServicesAPI::GetLiveChannels();
+				}
+
+				case "OpenFrontpage" : {
+					G_LibChannelsController_ActiveContext = C_LibChannelsController_MenuContext_Frontpage;
+
+					WebServicesAPI::GetLiveChannels();
+					UpdateLayersVisibility();
+				}
+
+				case "OpenStore" : {
+					G_LibChannelsController_ActiveContext = C_LibChannelsController_MenuContext_StoreList;
+
+					NewStoreRequest();
+					UpdateLayersVisibility();
+					UpdateLayerStoreList();
+				}
+
+				case "OpenOptions" : {
+					G_LibChannelsController_ActiveContext = C_LibChannelsController_MenuContext_Options;
+					UpdateLayersVisibility();
+				}
+
+				case "OpenSettings" : {
+					EventsProducer::SendInternalEvent("OpenSettingsMenu", "");
+				}
+
+				case "EnterGameKey" : {
+					ManiaPlanet.Dialog_EnterGameKey();
+				}
+
+				case "BuyStations" : {
+					ManiaPlanet.Dialog_BuyStations();
+				}
+
+				case "JoinChannel" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					OpenLink(Event.CustomEventData[0], CManiaApp::ELinkType::ManialinkBrowser);
+				}
+
+				case "ShowProgramInfo" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+
+					G_LibChannelsController_DisplayedProgramID = TL::ToInteger(Event.CustomEventData[0]);
+					G_LibChannelsController_ActiveContext = C_LibChannelsController_MenuContext_ProgramInfo;
+
+					WebServicesAPI::GetProgramInfo(G_LibChannelsController_DisplayedProgramID);
+
+					NewProgramInfoRequest();
+					UpdateDisplayedProgramInfo();
+					UpdateLayersVisibility();
+				}
+
+				case "OpenChannelGrid" : {
+					if (Event.CustomEventData.existskey(0)) {
+						G_LibChannelsController_ChannelGridUID = Event.CustomEventData[0];
+					}
+
+					WebServicesAPI::GetLiveChannel(G_LibChannelsController_ChannelGridUID);
+
+					G_LibChannelsController_ActiveContext = C_LibChannelsController_MenuContext_WeekGrid;
+					UpdateLayersVisibility();
+					UpdateLayerWeekGrid();
+				}
+
+				case "ShowTitleInfoPage" : {
+					if (Event.CustomEventData.existskey(0)) {
+						G_LibChannelsController_StoreTitleUID = Event.CustomEventData[0];
+					}
+					G_LibChannelsController_ActiveContext = C_LibChannelsController_MenuContext_StoreTitle;
+
+					WebServicesAPI::GetTitleInfo(G_LibChannelsController_StoreTitleUID);
+
+					NewTitleInfoRequest();
+					UpdateLayersVisibility();
+					UpdateDisplayedTitleInfo();
+				}
+
+				case "CycleStoreOrder" : {
+					G_LibChannelsController_StoreSortingOrder = C_LibChannelsController_StoreTitleOrder[(C_LibChannelsController_StoreTitleOrder.keyof(G_LibChannelsController_StoreSortingOrder) + 1) % C_LibChannelsController_StoreTitleOrder.count];
+					G_LibChannelsController_StoreCurrentOffset = 0;
+
+					NewStoreRequest();
+					UpdateStoreFiltersTarget();
+					UpdateLayerStoreList();
+				}
+
+				case "ToggleStoreFilter" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+
+					declare FilterName = Event.CustomEventData[0];
+
+					if (!G_LibChannelsController_StoreActiveFilters.exists(FilterName)) {
+						G_LibChannelsController_StoreActiveFilters.add(FilterName);
+					} else {
+						declare Removed = G_LibChannelsController_StoreActiveFilters.remove(FilterName);
+					}
+
+					G_LibChannelsController_StoreCurrentOffset = 0;
+
+					NewStoreRequest();
+					UpdateStoreFiltersTarget();
+					UpdateLayerStoreList();
+				}
+
+				case "SetSingleFilter" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+
+					G_LibChannelsController_StoreActiveFilters = [Event.CustomEventData[0]];
+					G_LibChannelsController_ActiveContext = C_LibChannelsController_MenuContext_StoreList;
+					G_LibChannelsController_StoreCurrentOffset = 0;
+
+					UpdateLayersVisibility();
+					NewStoreRequest();
+					UpdateStoreFiltersTarget();
+					UpdateLayerStoreList();
+				}
+
+				case "TitlePackAction" : {
+					if (G_LibChannelsController_StoreTitleUID == "") continue;
+
+					if (Title_IsInStation(G_LibChannelsController_StoreTitleUID)) {
+						ManiaPlanet.SelectTitle(G_LibChannelsController_StoreTitleUID);
+						continue;
+					}
+
+					declare TitleInfo = WebServicesAPI::GetTitleInfo(G_LibChannelsController_StoreTitleUID);
+
+					if (!Title_IsInStation(G_LibChannelsController_StoreTitleUID) && TitleInfo.IsEnvironment) {
+						OpenLink("#openstore=" ^ G_LibChannelsController_StoreTitleUID, ::ELinkType::ManialinkBrowser);
+					}
+					else if (ManiaPlanet.Dialog_IsFinished && Http.IsValidUrl(TitleInfo.DownloadURL)) {
+						ManiaPlanet.InstallTitleFromUrl(TitleInfo.DownloadURL, TitleInfo.Name);
+					} else {
+						ManiaPlanet.Dialog_Message(_("Cannot install the title"));
+					}
+				}
+
+				case "StorePrevPage" : {
+					if (G_LibChannelsController_StoreCurrentOffset <= 0) continue;
+
+					G_LibChannelsController_StoreCurrentOffset -= 6;
+					NewStoreRequest();
+					UpdateStoreFiltersTarget();
+					UpdateLayerStoreList();
+				}
+
+				case "StoreNextPage" : {
+					if (WebServicesAPI::PendingStoreListRequest()) continue;
+
+					G_LibChannelsController_StoreCurrentOffset += 6;
+					NewStoreRequest();
+					UpdateStoreFiltersTarget();
+					UpdateLayerStoreList();
+				}
+			}
+		}
+		else if (Event.Type == CManiaAppEvent::EType::ExternalCustomEvent
+				&& Event.ExternalEventType == "maniaplanet.GotoChannelsPage")  {
+			if (Event.ExternalEventData.existskey(1))
+				G_LibChannelsController_StoreTitleUID = Event.ExternalEventData[1];
+			else
+			  G_LibChannelsController_StoreTitleUID = "";		
+			if (G_LibChannelsController_StoreTitleUID == "") {
+				G_LibChannelsController_ActiveContext = C_LibChannelsController_MenuContext_StoreList;
+				NewStoreRequest();
+				UpdateLayersVisibility();
+				UpdateLayerStoreList();
+			} else {
+				G_LibChannelsController_ActiveContext = C_LibChannelsController_MenuContext_StoreTitle;
+				WebServicesAPI::GetTitleInfo(G_LibChannelsController_StoreTitleUID);
+				NewTitleInfoRequest();
+				UpdateLayersVisibility();
+				UpdateDisplayedTitleInfo();
+			}				
+		}
+	}
+
+	WebServicesAPI::Loop();
+
+	if (WebServicesAPI::PendingUpdate()) {
+		UpdateAllLayers();
+	}
+
+	if (G_ColorScheme_PreviousChangeCount != ColorScheme_LatestChangeCount) {
+		UpdateLayerColors();
+        G_ColorScheme_PreviousChangeCount = ColorScheme_LatestChangeCount;
+	}
+}

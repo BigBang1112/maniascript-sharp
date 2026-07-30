@@ -1,0 +1,895 @@
+/**
+ *	Component: ExpendableAsset
+ *	===========================
+ *
+ *	Confluence: https://confluence.ubisoft.com/display/Nadeo/ExpendableAsset
+ *	GitLab: https://gitlab.nadeo.org/utils/script-documentation/-/wikis/ExpendableAsset
+ *
+ *	The `ExpendableAsset` component was designed to easily create assets with custom edges.
+ *	It will automatically adapt depending on the height and the width without deforming edges assets.
+ *	By default, the asset will have straigth 10° edges.
+ *
+ *	Parameters
+ *	----------
+ *
+ *	- `data-height` (`Real`): height of the asset
+ *	- `data-width` (`Real`): width of the asset
+ *	- `data-halign` (`Text`): horizontal alignment of the asset
+ *			Can be `left`, `center` or `right`.
+ *	- `data-valign` (`Text`): vertical alignment of the asset
+ *			Can be `top`, `center` or `bottom`.
+ *	- `data-color` (`Text`): color of the asset
+ *			Hexadecimal format, eg: `ff0000` for red.
+ *	- `data-opacity` (`Real`): opacity of the asset
+ *	- `data-image-left` (`Text`): url to the image used for the left part of the asset
+ *	- `data-image-middle` (`Text`): url to the image used for the middle part of the asset
+ *	- `data-image-right` (`Text`): url to the image used for the right part of the asset
+ *	- `data-size-left` (`Vec2`): size of the image used for the left part of the asset
+ *			This size is only used to know the ratio of the image. The real image size in the asset will be computed
+ *			from this ratio and the asset height.
+ *	- `data-size-middle` (`Vec2`): size of the image used for the middle part of the asset
+ *			Not used. The middle image will be stretch horizontally to match the text size and
+ *			its height will be the same as the asset.
+ *	- `data-size-right` (`Vec2`): size of the image used for the right part of the asset
+ *			This size is only used to know the ratio of the image. The real image size in the asset will be computed
+ *			from this ratio and the asset height.
+ *	- `data-colormode-left` (`Integer`): color mode of the image used for the left part of the asset
+ *			Can be `C_ColorMode_None` for no color,
+ *			`C_ColorMode_Colorize` to use the `colorize` property of the quad,
+ *			`C_ColorMode_Modulate` to use the `modulatecolor` property of the quad or
+ *			`C_ColorMode_Background` to use the `bgcolor` property of the quad.
+ *	- `data-colormode-middle` (`Integer`): color mode of the image used for the middle part of the asset
+ *			Can be `C_ColorMode_None` for no color,
+ *			`C_ColorMode_Colorize` to use the `colorize` property of the quad,
+ *			`C_ColorMode_Modulate` to use the `modulatecolor` property of the quad or
+ *			`C_ColorMode_Background` to use the `bgcolor` property of the quad.
+ *	- `data-colormode-right` (`Integer`): color mode of the image used for the right part of the asset
+ *			Can be `C_ColorMode_None` for no color,
+ *			`C_ColorMode_Colorize` to use the `colorize` property of the quad,
+ *			`C_ColorMode_Modulate` to use the `modulatecolor` property of the quad or
+ *			`C_ColorMode_Background` to use the `bgcolor` property of the quad.
+ *	- `data-supersample`: enable super sample on the images that use `colorized` to reduce aliasing
+ *	- `data-styles` (`Text`): styles to apply to the asset, new styles can be created with the `CreateStyle()` function
+ *			When several styles are applied to a asset, the styles are merged together with the properties
+ *			of the latest style overriding the properties of the earlier ones.
+ *			For example if "style-a" is `{ A = 1, B = 2, C = 3 }`, "style-b" is `{ A = 11 , C = 33}` and
+ *			"style-c" is `{ A = 111 }` and we set the asset style to `"style-a style-b style-c"`
+ *			then the applied properties will be `{ A = 111, B = 2, C = 33 }`.
+ */
+#Const Version "1.0.1"
+#Const ScriptName "Libs/Nadeo/CMGame/Components/ExpendableAssetBase.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/RequestRedraw.Script.txt" as RequestRedraw
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Image {
+	Text Url;
+	Vec2 Size;
+	Integer ColorMode;
+}
+#Struct K_Controls {
+	CMlFrame Frame_Align;
+	CMlQuad[Integer] Quads;
+}
+#Struct K_Properties {
+	Integer[] Enabled;
+	Real Height;
+	Real Width;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	K_Image[Integer] Images; //< Three images for the left, middle and right part of the asset background
+	Vec3 Color;
+	Real Opacity;
+	Boolean SuperSample;
+}
+#Struct K_ExpendableAsset {
+	K_Controls Controls;
+	K_Properties CustomizedProperties;
+	K_Properties MergedProperties;
+	Integer[] DirtyProperties;
+	Text[] Styles;
+	Boolean IsAsset;
+}
+#Struct K_State {
+	Integer RedrawRequested;
+	K_Properties[Text] Styles;
+	K_Properties DefaultProperties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ExpendableAsset_Null K_ExpendableAsset {
+	Controls = K_Controls {},
+	CustomizedProperties = K_Properties {
+		Enabled = []
+	},
+	MergedProperties = K_Properties {
+		Enabled = []
+	},
+	DirtyProperties = [],
+	Styles = [],
+	IsAsset = False
+}
+#Const C_State_Null K_State {
+	RedrawRequested = 0,
+	Styles = [],
+	DefaultProperties = K_Properties {
+		Enabled = []
+	}
+}
+
+#Const C_Name "component-cmgame-expendable-asset" //< Component name
+#Const P "CMGame_ExpendableAsset::" //< Prefix used to differentiate functions/variables in the script
+#Const Q "CMGame_ExpendableAsset"
+
+#Const C_ColorMode_None 0
+#Const C_ColorMode_Colorize 1
+#Const C_ColorMode_Modulate 2
+#Const C_ColorMode_Background 3
+
+#Const C_Class_ExpendableAsset "expendable-asset_expendable-asset"
+#Const C_Id_FrameAlign "expendable-asset_frame-align"
+#Const C_Id_QuadLeft "expendable-asset_quad-left"
+#Const C_Id_QuadCenter "expendable-asset_quad-center"
+#Const C_Id_QuadRight "expendable-asset_quad-right"
+
+// The properties indexing must be a continuous sequence starting from 0
+// 0,1,2,3,... not 0,1,3,... for example
+#Const C_Property_Height 0
+#Const C_Property_Width 1
+#Const C_Property_HAlign 2
+#Const C_Property_VAlign 3
+#Const C_Property_Images 4
+#Const C_Property_Color 5
+#Const C_Property_Opacity 6
+#Const C_Property_SuperSample 7
+#Const C_Property_Styles 8
+
+#Const C_Position_Left 0
+#Const C_Position_Middle 1
+#Const C_Position_Right 2
+#Const C_Positions [0, 1, 2]
+
+#Const C_Default_Colorize <-1., -1., -1.>
+#Const C_Default_ModulateColor <1., 1., 1.>
+#Const C_Default_BgColor <0., 0., 0.>
+#Const C_Default_AnimDuration 250
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetManialink() {
+	return """
+<frame id="{{{C_Id_FrameAlign}}}" class="{{{C_Class_ExpendableAsset}}}">
+	<quad id="{{{C_Id_QuadLeft}}}" halign="right"/>
+	<quad id="{{{C_Id_QuadCenter}}}" halign="center"/>
+	<quad id="{{{C_Id_QuadRight}}}" halign="left"/>
+</frame>
+	""";
+}
+
+// Check if the control is a asset
+Boolean IsAsset(CMlControl _Control) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Control = C_ExpendableAsset_Null;
+	return CMGame_ExpendableAsset_ExpendableAsset.IsAsset;
+}
+
+Void Private_FlushAnimations(CMlScript _This, K_ExpendableAsset _ExpendableAsset) {
+	foreach (Quad in _ExpendableAsset.Controls.Quads) {
+		_This.AnimMgr.Flush(Quad);
+	}
+}
+
+Text Private_GetColorAnim(K_Image _Image, Vec3 _Color) {
+	declare Text ColorAnim = "";
+
+	switch (_Image.ColorMode) {
+		case C_ColorMode_Colorize: {
+			ColorAnim = "colorize=\""^CL::RgbToHex6(_Color)^"\"";
+		}
+		case C_ColorMode_Modulate: {
+			ColorAnim = "modulatecolor=\""^CL::RgbToHex6(_Color)^"\"";
+		}
+		case C_ColorMode_Background: {
+			ColorAnim = "bgcolor=\""^CL::RgbToHex6(_Color)^"\"";
+		}
+	}
+
+	return ColorAnim;
+}
+
+Void Private_SetColor(CMlQuad _Quad, K_Image _Image, Vec3 _Color) {
+	// Initialize all properties properly here first
+	// Modifying one of them afterward can also have an effect on the others.
+	// eg: modifying `ModulateColor` will also change the value of `Colorize`.
+	_Quad.Colorize = C_Default_Colorize;
+	_Quad.ModulateColor = C_Default_ModulateColor;
+	_Quad.BgColor = C_Default_BgColor;
+
+	switch (_Image.ColorMode) {
+		case C_ColorMode_Colorize: {
+			_Quad.Colorize = _Color;
+		}
+		case C_ColorMode_Modulate: {
+			_Quad.ModulateColor = _Color;
+		}
+		case C_ColorMode_Background: {
+			_Quad.BgColor = _Color;
+		}
+	}
+}
+
+Integer[] Private_EnableProperty(Integer[] _EnabledProperties, Integer _Property, Boolean _Enabled) {
+	declare Integer[] EnabledProperties = _EnabledProperties;
+
+	if (_Enabled) {
+		if (!EnabledProperties.exists(_Property)) {
+			EnabledProperties.add(_Property);
+		}
+	} else {
+		EnabledProperties.remove(_Property);
+	}
+
+	return EnabledProperties;
+}
+
+Void Private_ApplyImages(CMlQuad[Integer] _Quads, K_Image[Integer] _Images, Real _Height, Boolean _SuperSample, Boolean _IsAnimated) {
+	foreach (Position in C_Positions) {
+		if (_Quads.existskey(Position))	{
+			declare CMlQuad Quad = _Quads[Position];
+			declare K_Image Image = _Images.get(Position, K_Image {});
+
+			if (Image.Url != "" || Image.ColorMode == C_ColorMode_Background) {
+				Quad.ImageUrl = Image.Url;
+				if (!_IsAnimated && Image.Size.Y != 0.) {
+					Quad.Size = <_Height * Image.Size.X / Image.Size.Y, _Height>;
+				} else if (!_IsAnimated) {
+					Quad.Size = <_Height, _Height>;
+				}
+				Quad.SuperSample = (_SuperSample && Image.Url != "" && Image.ColorMode == C_ColorMode_Colorize);
+				Quad.Visible = True;
+			} else {
+				Quad.ImageUrl = "";
+				Quad.Size = <0., _Height>;
+				Quad.SuperSample = False;
+				Quad.Visible = False;
+			}
+		}
+	}
+}
+
+// Set and enable a property
+K_Properties Private_SetProperty(K_Properties _TargetProperties, Integer _PropertyId, K_Properties _SourceProperties) {
+	declare K_Properties Properties = _TargetProperties;
+
+	Properties.Enabled = Private_EnableProperty(Properties.Enabled, _PropertyId, True);
+
+	switch (_PropertyId) {
+		case C_Property_Height: Properties.Height = _SourceProperties.Height;
+		case C_Property_Width: Properties.Width = _SourceProperties.Width;
+		case C_Property_HAlign: Properties.HAlign = _SourceProperties.HAlign;
+		case C_Property_VAlign: Properties.VAlign = _SourceProperties.VAlign;
+		case C_Property_Images: {
+			foreach (Position => Image in _SourceProperties.Images) {
+				Properties.Images[Position] = Image;
+			}
+		}
+		case C_Property_Color: Properties.Color = _SourceProperties.Color;
+		case C_Property_Opacity: Properties.Opacity = _SourceProperties.Opacity;
+		case C_Property_SuperSample: Properties.SuperSample = _SourceProperties.SuperSample;
+	}
+
+	return Properties;
+}
+
+// Merge a base properties struct with other enabled properties
+K_Properties Private_MergeProperties(K_Properties _Base, K_Properties[] _PropertiesToMerge) {
+	declare K_Properties MergedProperties = _Base;
+
+	foreach (Properties in _PropertiesToMerge) {
+		foreach (PropertyId in Properties.Enabled) {
+			MergedProperties = Private_SetProperty(MergedProperties, PropertyId, Properties);
+		}
+	}
+
+	return MergedProperties;
+}
+
+// Check if one of the given property is dirty
+Boolean Private_IsDirty(Boolean _IsInit, Integer[] _DirtyProperties, Integer[] _PropertyIds) {
+	if (_IsInit) return True;
+	return _DirtyProperties.containsoneof(_PropertyIds) || _DirtyProperties.exists(C_Property_Styles);
+}
+
+// Redraw the asset (apply style, size, ...)
+Void RedrawAsset(
+	CMlScript _This,
+	CMlFrame _Frame_ExpendableAsset,
+	Boolean _IsAnimated,
+	Integer _AnimLaunchTime,
+	Integer _AnimDuration,
+	Boolean _FlushAnimations,
+	Boolean _IsInit
+) {
+	declare K_State CMGame_ExpendableAsset_State for _This.Page = C_State_Null;
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+
+	declare K_Properties[] PropertiesToMerge = [];
+	foreach (Style in CMGame_ExpendableAsset_ExpendableAsset.Styles) {
+		PropertiesToMerge.add(CMGame_ExpendableAsset_State.Styles.get(Style, K_Properties {}));
+	}
+	PropertiesToMerge.add(CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties);
+
+	CMGame_ExpendableAsset_ExpendableAsset.MergedProperties = Private_MergeProperties(
+		CMGame_ExpendableAsset_State.DefaultProperties,
+		PropertiesToMerge
+	);
+
+	// Flush animations
+	if (_FlushAnimations) Private_FlushAnimations(_This, CMGame_ExpendableAsset_ExpendableAsset);
+
+	// Set animation duration
+	declare Integer AnimDuration = C_Default_AnimDuration;
+	declare Integer AnimLaunchTime = Now;
+	if (_AnimDuration != -1) AnimDuration = _AnimDuration;
+	if (_AnimLaunchTime != -1) AnimLaunchTime = _AnimLaunchTime;
+
+	// Update the asset background images
+	declare Boolean ImagesUpdated = False;
+	if (Private_IsDirty(_IsInit, CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties, [C_Property_Images, C_Property_Height, C_Property_SuperSample])) {
+		ImagesUpdated = True;
+		Private_ApplyImages(
+			CMGame_ExpendableAsset_ExpendableAsset.Controls.Quads,
+			CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Images,
+			CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Height,
+			CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.SuperSample,
+			_IsAnimated
+		);
+	}
+
+	declare Boolean SizeUpdated = False;
+	if (ImagesUpdated || Private_IsDirty(_IsInit, CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties, [C_Property_Width, C_Property_Images, C_Property_Color, C_Property_Height, C_Property_Opacity])) {
+		SizeUpdated = True;
+
+		// Compute width of the three asset parts
+		declare Real LeftWidth = 0.;
+		if (CMGame_ExpendableAsset_ExpendableAsset.Controls.Quads[C_Position_Left].Visible) {
+			if (_IsAnimated) {
+				declare K_Image LeftImage = CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Images.get(C_Position_Left, K_Image {});
+				if (LeftImage.Size.Y != 0.) {
+					LeftWidth = CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Height * LeftImage.Size.X / LeftImage.Size.Y;
+				} else {
+					LeftWidth = CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Height;
+				}
+			} else {
+				LeftWidth = CMGame_ExpendableAsset_ExpendableAsset.Controls.Quads[C_Position_Left].Size.X;
+			}
+		}
+		declare Real RightWidth = 0.;
+		if (CMGame_ExpendableAsset_ExpendableAsset.Controls.Quads[C_Position_Right].Visible) {
+			if (_IsAnimated) {
+				declare K_Image RightImage = CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Images.get(C_Position_Right, K_Image {});
+				if (RightImage.Size.Y != 0.) {
+					RightWidth = CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Height * RightImage.Size.X / RightImage.Size.Y;
+				} else {
+					RightWidth = CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Height;
+				}
+			} else {
+				RightWidth = CMGame_ExpendableAsset_ExpendableAsset.Controls.Quads[C_Position_Right].Size.X;
+			}
+		}
+		declare Real MiddleWidth = 0.;
+		if (CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Enabled.exists(C_Property_Width)) {
+			MiddleWidth = ML::Max(0., CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Width - LeftWidth - RightWidth);
+		}
+
+		// Update quads properties
+		foreach (Position in C_Positions) {
+			if (CMGame_ExpendableAsset_ExpendableAsset.Controls.Quads.existskey(Position)) {
+				declare CMlQuad Quad = CMGame_ExpendableAsset_ExpendableAsset.Controls.Quads[Position];
+				declare K_Image Image = CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Images.get(Position, K_Image {});
+
+				Quad.VerticalAlign = CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.VAlign;
+
+				if (_IsAnimated) {
+					declare Text PositionAnim = "";
+					declare Text SizeAnim = "";
+					switch (Position) {
+						case C_Position_Left: {
+							SizeAnim = "size=\""^LeftWidth^" "^CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Height^"\"";
+							PositionAnim = "pos=\""^LeftWidth^" "^Quad.RelativePosition_V3.Y^"\"";
+						}
+						case C_Position_Right: {
+							SizeAnim = "size=\""^RightWidth^" "^CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Height^"\"";
+							PositionAnim = "pos=\""^LeftWidth + MiddleWidth^" "^Quad.RelativePosition_V3.Y^"\"";
+						}
+						case C_Position_Middle: {
+							SizeAnim = "size=\""^MiddleWidth^" "^CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Height^"\"";
+							PositionAnim = "pos=\""^LeftWidth + MiddleWidth*0.5^" "^Quad.RelativePosition_V3.Y^"\"";
+						}
+					}
+
+					_This.AnimMgr.Add(Quad, "<anim opacity=\""^CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Opacity^"\" "^Private_GetColorAnim(Image, CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Color)^" "^PositionAnim^" "^SizeAnim^"/>", AnimLaunchTime, AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+				} else {
+					Quad.Opacity = CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Opacity;
+					Private_SetColor(Quad, Image, CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Color);
+					switch (Position) {
+						case C_Position_Left: Quad.RelativePosition_V3.X = LeftWidth;
+						case C_Position_Right: Quad.RelativePosition_V3.X = LeftWidth + MiddleWidth;
+						case C_Position_Middle: {
+							Quad.RelativePosition_V3.X = LeftWidth + MiddleWidth*0.5;
+							Quad.Size.X = MiddleWidth;
+						}
+					}
+				}
+			}
+		}
+
+		// Update width property
+		CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Width = LeftWidth + MiddleWidth + RightWidth;
+	}
+
+	// Align the asset
+	if (SizeUpdated || Private_IsDirty(_IsInit, CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties, [C_Property_Width, C_Property_Height, C_Property_HAlign, C_Property_VAlign])) {
+		declare Vec2 Pos_AlignFrame = Tools::GetAlignPosition(<CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Width, CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Height>, CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.HAlign, CMlControl::AlignVertical::Top);
+		_This.AnimMgr.Flush(CMGame_ExpendableAsset_ExpendableAsset.Controls.Frame_Align);
+		if (_IsAnimated) {
+			_This.AnimMgr.Add(CMGame_ExpendableAsset_ExpendableAsset.Controls.Frame_Align, "<anim pos=\""^Pos_AlignFrame.X^" "^Pos_AlignFrame.Y^"\" />", AnimLaunchTime, AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			CMGame_ExpendableAsset_ExpendableAsset.Controls.Frame_Align.RelativePosition_V3 = Pos_AlignFrame;
+		}
+	}
+
+	CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties = [];
+}
+Void RedrawAsset(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _IsAnimated,  Integer _AnimLaunchTime, Integer _AnimDuration, Boolean _FlushAnimations) {
+	RedrawAsset(_This, _Frame_ExpendableAsset, _IsAnimated, _AnimLaunchTime, _AnimDuration, _FlushAnimations, False);
+}
+Void RedrawAsset(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _IsAnimated, Boolean _IsInit) {
+	RedrawAsset(_This, _Frame_ExpendableAsset, _IsAnimated, -1, -1, True, _IsInit);
+}
+Void RedrawAsset(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _IsAnimated) {
+	RedrawAsset(_This, _Frame_ExpendableAsset, _IsAnimated, False);
+}
+Void RedrawAsset(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	RedrawAsset(_This, _Frame_ExpendableAsset, True);
+}
+
+// Redraw all assets
+Void RedrawAssets(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_ExpendableAsset, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_ExpendableAsset = (Control as CMlFrame).Parent;
+		if (IsAsset(Frame_ExpendableAsset)) {
+			RedrawAsset(_This, Frame_ExpendableAsset, False, True);
+		}
+	}
+}
+
+// Customize a property
+Void Private_SetCustomizedProperty(
+	CMlScript _This,
+	CMlFrame _Frame_ExpendableAsset,
+	Integer _PropertyId,
+	K_Properties _Properties,
+	Boolean _Redraw
+) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties = Private_SetProperty(CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties, _PropertyId, _Properties);
+	if (!CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.exists(_PropertyId)) {
+		CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.add(_PropertyId);
+	}
+	if (_Redraw) RedrawAsset(_This, _Frame_ExpendableAsset);
+}
+
+// Reset a customized property
+Void Private_ResetCustomizedProperty(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Integer _PropertyId, Boolean _Redraw) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Enabled = Private_EnableProperty(CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Enabled, _PropertyId, False);
+	if (!CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.exists(_PropertyId)) {
+		CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.add(_PropertyId);
+	}
+	if (_Redraw) RedrawAsset(_This, _Frame_ExpendableAsset);
+}
+
+// Update the height of the asset
+Void SetHeight(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Real _Height, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_Height, K_Properties { Height = _Height }, _Redraw);
+}
+Void SetHeight(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Real _Height) {
+	SetHeight(_This, _Frame_ExpendableAsset, _Height, True);
+}
+Void ResetHeight(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_Height, _Redraw);
+}
+Void ResetHeight(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	ResetHeight(_This, _Frame_ExpendableAsset, True);
+}
+
+// Force the width of the asset
+Void SetWidth(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Real _Width, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_Width, K_Properties { Width = _Width }, _Redraw);
+}
+Void SetWidth(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Real _Width) {
+	SetWidth(_This, _Frame_ExpendableAsset, _Width, True);
+}
+Void ResetWidth(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_Width, _Redraw);
+}
+Void ResetWidth(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	ResetWidth(_This, _Frame_ExpendableAsset, True);
+}
+
+// Update the horizontal alignment of the asset
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_ExpendableAsset, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_HAlign, K_Properties { HAlign = _HAlign }, _Redraw);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_ExpendableAsset, CMlControl::AlignHorizontal _HAlign) {
+	SetHAlign(_This, _Frame_ExpendableAsset, _HAlign, True);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_HAlign, _Redraw);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	ResetHAlign(_This, _Frame_ExpendableAsset, True);
+}
+
+// Update the vertical alignment of the asset
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_ExpendableAsset, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_VAlign, K_Properties { VAlign = _VAlign }, _Redraw);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_ExpendableAsset, CMlControl::AlignVertical _VAlign) {
+	SetVAlign(_This, _Frame_ExpendableAsset, _VAlign, True);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_VAlign, _Redraw);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	ResetVAlign(_This, _Frame_ExpendableAsset, True);
+}
+
+// Update the background images of the asset
+Void SetImages(CMlScript _This, CMlFrame _Frame_ExpendableAsset, K_Image[Integer] _Images, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_Images, K_Properties { Images = _Images }, _Redraw);
+}
+Void SetImages(CMlScript _This, CMlFrame _Frame_ExpendableAsset, K_Image[Integer] _Images) {
+	SetImages(_This, _Frame_ExpendableAsset, _Images, True);
+}
+Void ResetImages(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_Images, _Redraw);
+}
+Void ResetImages(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	ResetImages(_This, _Frame_ExpendableAsset, True);
+}
+
+// Update the background color of the unfocused asset
+Void SetColor(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Vec3 _Color, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_Color, K_Properties { Color = _Color }, _Redraw);
+}
+Void SetColor(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Vec3 _Color) {
+	SetColor(_This, _Frame_ExpendableAsset, _Color, True);
+}
+Void SetColor(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text _Color, Boolean _Redraw) {
+	SetColor(_This, _Frame_ExpendableAsset, CL::HexToRgb(_Color), _Redraw);
+}
+Void SetColor(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text _Color) {
+	SetColor(_This, _Frame_ExpendableAsset, CL::HexToRgb(_Color));
+}
+Void ResetColor(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_Color, _Redraw);
+}
+Void ResetColor(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	ResetColor(_This, _Frame_ExpendableAsset, True);
+}
+
+// Update the background opacity of the unfocused asset
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Real _Opacity, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_Opacity, K_Properties { Opacity = _Opacity }, _Redraw);
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Real _Opacity) {
+	SetOpacity(_This, _Frame_ExpendableAsset, _Opacity, True);
+}
+Void ResetOpacity(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_Opacity, _Redraw);
+}
+Void ResetOpacity(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	ResetOpacity(_This, _Frame_ExpendableAsset, True);
+}
+
+// Enable supersample
+Void SetSuperSample(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _Enabled, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_SuperSample, K_Properties { SuperSample = _Enabled }, _Redraw);
+}
+Void SetSuperSample(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _Enabled) {
+	SetSuperSample(_This, _Frame_ExpendableAsset, _Enabled, True);
+}
+Void ResetSuperSample(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_ExpendableAsset, C_Property_SuperSample, _Redraw);
+}
+Void ResetSuperSample(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	ResetSuperSample(_This, _Frame_ExpendableAsset, True);
+}
+
+// Update the styles of the asset
+Void SetStyles(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text[] _StyleIds, Boolean _Redraw) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	CMGame_ExpendableAsset_ExpendableAsset.Styles = _StyleIds;
+	if (!CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.exists(C_Property_Styles)) {
+		CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.add(C_Property_Styles);
+	}
+	if (_Redraw) RedrawAsset(_This, _Frame_ExpendableAsset);
+}
+Void SetStyles(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text[] _StyleIds) {
+	SetStyles(_This, _Frame_ExpendableAsset, _StyleIds, True);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Boolean _Redraw) {
+	SetStyles(_This, _Frame_ExpendableAsset, [], _Redraw);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	SetStyles(_This, _Frame_ExpendableAsset, []);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text _StyleId, Boolean _Redraw) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	if (!CMGame_ExpendableAsset_ExpendableAsset.Styles.exists(_StyleId)) {
+		CMGame_ExpendableAsset_ExpendableAsset.Styles.add(_StyleId);
+		if (!CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.exists(C_Property_Styles)) {
+			CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.add(C_Property_Styles);
+		}
+	}
+	if (_Redraw) RedrawAsset(_This, _Frame_ExpendableAsset);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text _StyleId) {
+	AddStyle(_This, _Frame_ExpendableAsset, _StyleId, True);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text _StyleId, Boolean _Redraw) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	declare Boolean Removed = CMGame_ExpendableAsset_ExpendableAsset.Styles.remove(_StyleId);
+	if (Removed && !CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.exists(C_Property_Styles)) {
+		CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.add(C_Property_Styles);
+	}
+	if (_Redraw) RedrawAsset(_This, _Frame_ExpendableAsset);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text _StyleId) {
+	RemoveStyle(_This, _Frame_ExpendableAsset, _StyleId, True);
+}
+
+// Set the default properties of all assets
+Void SetAssetsDefaultProperties(CMlScript _This, K_Properties _DefaultProperties, Boolean _Redraw) {
+	declare K_State CMGame_ExpendableAsset_State for _This.Page = C_State_Null;
+	CMGame_ExpendableAsset_State.DefaultProperties = _DefaultProperties;
+	if (_Redraw) RedrawAssets(_This);
+}
+Void SetAssetsDefaultProperties(CMlScript _This, K_Properties _DefaultProperties) {
+	SetAssetsDefaultProperties(_This, _DefaultProperties, True);
+}
+
+// Create a new asset style
+Void CreateStyle(CMlScript _This, Text _StyleId, K_Properties _Style) {
+	declare K_State CMGame_ExpendableAsset_State for _This.Page = C_State_Null;
+	CMGame_ExpendableAsset_State.Styles[_StyleId] = _Style;
+}
+
+// Initialize a asset
+Void InitializeAsset(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	declare CMlFrame Frame_Align <=> (_Frame_ExpendableAsset.GetFirstChild(C_Id_FrameAlign) as CMlFrame);
+	CMGame_ExpendableAsset_ExpendableAsset = K_ExpendableAsset {
+		Styles = [],
+		IsAsset = True,
+		MergedProperties = K_Properties {},
+		CustomizedProperties = K_Properties {},
+		DirtyProperties = [],
+		Controls = K_Controls {
+			Frame_Align = Frame_Align,
+			Quads = [
+				C_Position_Left => (Frame_Align.GetFirstChild(C_Id_QuadLeft) as CMlQuad),
+				C_Position_Middle => (Frame_Align.GetFirstChild(C_Id_QuadCenter) as CMlQuad),
+				C_Position_Right => (Frame_Align.GetFirstChild(C_Id_QuadRight) as CMlQuad)
+			]
+		}
+	};
+
+	if (_Frame_ExpendableAsset.DataAttributeExists("height")) {
+		SetHeight(_This, _Frame_ExpendableAsset, TL::ToReal(_Frame_ExpendableAsset.DataAttributeGet("height")), False);
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("width")) {
+		SetWidth(_This, _Frame_ExpendableAsset, TL::ToReal(_Frame_ExpendableAsset.DataAttributeGet("width")), False);
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("halign")) {
+		SetHAlign(_This, _Frame_ExpendableAsset, Tools::TextToHAlign2(_Frame_ExpendableAsset.DataAttributeGet("halign")), False);
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("valign")) {
+		SetVAlign(_This, _Frame_ExpendableAsset, Tools::TextToVAlign2(_Frame_ExpendableAsset.DataAttributeGet("valign")), False);
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("color")) {
+		SetColor(_This, _Frame_ExpendableAsset, _Frame_ExpendableAsset.DataAttributeGet("color"), False);
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("opacity")) {
+		SetOpacity(_This, _Frame_ExpendableAsset, TL::ToReal(_Frame_ExpendableAsset.DataAttributeGet("opacity")), False);
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("styles")) {
+		SetStyles(_This, _Frame_ExpendableAsset, TL::Split(" ", TL::Trim(_Frame_ExpendableAsset.DataAttributeGet("styles"))), False);
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("image-left")) {
+		if (!CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images.existskey(C_Position_Left)) CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Left] = K_Image {};
+		CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Left].Url = _Frame_ExpendableAsset.DataAttributeGet("image-left");
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("image-middle")) {
+		if (!CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images.existskey(C_Position_Middle)) CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Middle] = K_Image {};
+		CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Middle].Url = _Frame_ExpendableAsset.DataAttributeGet("image-middle");
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("image-right")) {
+		if (!CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images.existskey(C_Position_Right)) CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Right] = K_Image {};
+		CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Right].Url = _Frame_ExpendableAsset.DataAttributeGet("image-right");
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("size-left")) {
+		if (!CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images.existskey(C_Position_Left)) CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Left] = K_Image {};
+		CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Left].Size = Tools::TextToVec2(_Frame_ExpendableAsset.DataAttributeGet("size-left"));
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("size-middle")) {
+		if (!CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images.existskey(C_Position_Middle)) CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Middle] = K_Image {};
+		CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Middle].Size = Tools::TextToVec2(_Frame_ExpendableAsset.DataAttributeGet("size-middle"));
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("size-right")) {
+		if (!CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images.existskey(C_Position_Right)) CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Right] = K_Image {};
+		CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Right].Size = Tools::TextToVec2(_Frame_ExpendableAsset.DataAttributeGet("size-right"));
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("colormode-left")) {
+		if (!CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images.existskey(C_Position_Left)) CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Left] = K_Image {};
+		CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Left].ColorMode = TL::ToInteger(_Frame_ExpendableAsset.DataAttributeGet("colormode-left"));
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("colormode-middle")) {
+		if (!CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images.existskey(C_Position_Middle)) CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Middle] = K_Image {};
+		CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Middle].ColorMode = TL::ToInteger(_Frame_ExpendableAsset.DataAttributeGet("colormode-middle"));
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("colormode-right")) {
+		if (!CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images.existskey(C_Position_Right)) CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Right] = K_Image {};
+		CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images[C_Position_Right].ColorMode = TL::ToInteger(_Frame_ExpendableAsset.DataAttributeGet("colormode-right"));
+	}
+	if (_Frame_ExpendableAsset.DataAttributeExists("supersample")) {
+		SetSuperSample(_This, _Frame_ExpendableAsset, Tools::TextToBoolean(_Frame_ExpendableAsset.DataAttributeGet("supersample")), False);
+	}
+	if (CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images.count > 0) {
+		SetImages(_This, _Frame_ExpendableAsset, CMGame_ExpendableAsset_ExpendableAsset.CustomizedProperties.Images, False);
+	}
+
+	RedrawAsset(_This, _Frame_ExpendableAsset, False, True);
+}
+
+// Initialize all assets in the manialink
+Void InitializeAssets(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_ExpendableAsset, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		InitializeAsset(_This, (Control as CMlFrame).Parent);
+	}
+}
+
+// Get the width of the component
+Real GetWidth(CMlFrame _Frame_ExpendableAsset) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	assert(CMGame_ExpendableAsset_ExpendableAsset.IsAsset, "Control '"^_Frame_ExpendableAsset.ControlId^"' is not an expendanble asset");
+	return CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Width;
+}
+
+// Get the height of the component
+Real GetHeight(CMlFrame _Frame_ExpendableAsset) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	assert(CMGame_ExpendableAsset_ExpendableAsset.IsAsset, "Control '"^_Frame_ExpendableAsset.ControlId^"' is not an expendanble asset");
+	return CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Height;
+}
+
+// Get the opacity of the component
+Real GetOpacity(CMlFrame _Frame_ExpendableAsset) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	assert(CMGame_ExpendableAsset_ExpendableAsset.IsAsset, "Control '"^_Frame_ExpendableAsset.ControlId^"' is not an expendanble asset");
+	return CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Opacity;
+}
+
+// Animate opacity
+Void AddOpacityAnimation(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Real _Opacity, Integer _StartTime, Integer _Duration, CAnimManager::EAnimManagerEasing _EasingFunc) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	assert(CMGame_ExpendableAsset_ExpendableAsset.IsAsset, "Control '"^_Frame_ExpendableAsset.ControlId^"' is not an expendanble asset");
+
+	// Animations
+	foreach (Quad in CMGame_ExpendableAsset_ExpendableAsset.Controls.Quads) {
+		_This.AnimMgr.Add(Quad, "<anim opacity=\""^_Opacity^"\"/>", _StartTime, _Duration, _EasingFunc);
+	}
+
+	// Set opacity property as dirty to enable a future redraw
+	if (!CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.exists(C_Property_Opacity)) {
+		CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.add(C_Property_Opacity);
+	}
+}
+Void AddOpacityAnimation(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Real _Opacity, Integer _Duration, CAnimManager::EAnimManagerEasing _EasingFunc) {
+	AddOpacityAnimation(_This, _Frame_ExpendableAsset, _Opacity, Now, _Duration, _EasingFunc);
+}
+
+// Animate color
+Void AddColorAnimation(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Vec3 _Color, Integer _StartTime, Integer _Duration, CAnimManager::EAnimManagerEasing _EasingFunc) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	assert(CMGame_ExpendableAsset_ExpendableAsset.IsAsset, "Control '"^_Frame_ExpendableAsset.ControlId^"' is not an expendanble asset");
+
+	// Animations
+	foreach (Position => Quad in CMGame_ExpendableAsset_ExpendableAsset.Controls.Quads) {
+		declare K_Image Image = CMGame_ExpendableAsset_ExpendableAsset.MergedProperties.Images.get(Position, K_Image {});
+		_This.AnimMgr.Add(Quad, "<anim "^Private_GetColorAnim(Image, _Color)^"/>", _StartTime, _Duration, _EasingFunc);
+	}
+
+	// Set color property as dirty to enable a future redraw
+	if (!CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.exists(C_Property_Color)) {
+		CMGame_ExpendableAsset_ExpendableAsset.DirtyProperties.add(C_Property_Color);
+	}
+}
+Void AddColorAnimation(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Vec3 _Color, Integer _Duration, CAnimManager::EAnimManagerEasing _EasingFunc) {
+	AddColorAnimation(_This, _Frame_ExpendableAsset, _Color, Now, _Duration, _EasingFunc);
+}
+
+// Flush animations
+Void FlushAnimations(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	declare K_ExpendableAsset CMGame_ExpendableAsset_ExpendableAsset for _Frame_ExpendableAsset = C_ExpendableAsset_Null;
+	assert(CMGame_ExpendableAsset_ExpendableAsset.IsAsset, "Control '"^_Frame_ExpendableAsset.ControlId^"' is not an expendanble asset");
+	Private_FlushAnimations(_This, CMGame_ExpendableAsset_ExpendableAsset);
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State CMGame_ExpendableAsset_State for _This.Page = C_State_Null;
+	CMGame_ExpendableAsset_State = C_State_Null;
+}
+
+Void MainStart(CMlScript _This) {
+	InitializeAssets(_This);
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State CMGame_ExpendableAsset_State for _This.Page = C_State_Null;
+
+	/* Force redraw component instances */
+	if (CMGame_ExpendableAsset_State.RedrawRequested != RequestRedraw::GetComponentsRedrawCounter()) {
+		CMGame_ExpendableAsset_State.RedrawRequested = RequestRedraw::GetComponentsRedrawCounter();
+		RedrawAssets(_This);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAssetBase.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[],
+		[]
+	);
+}

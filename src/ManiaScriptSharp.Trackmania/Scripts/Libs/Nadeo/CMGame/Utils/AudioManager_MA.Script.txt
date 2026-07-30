@@ -1,0 +1,734 @@
+/**
+ *	Component: AudioManager
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/CMGame/Utils/AudioManager_MA.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/AudioManager_ML.Script.txt" as AudioManager
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-cmgame-audio-manager" //< Component name
+#Const P "Component_CMGame_AudioManager_" //< Prefix used to differentiate functions/variables in the script
+
+#Const C_NullId -1
+
+#Const C_BasePath_CommonSound "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Common/"
+#Const C_BasePath_MenuSound "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Menu/"
+#Const C_BasePath_GameSound "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Game/"
+
+#Const AudioManager::C_Event_PlaySound as C_Event_PlaySound
+#Const AudioManager::C_Event_PlaySoundWithDelay as C_Event_PlaySoundWithDelay
+#Const AudioManager::C_Event_RemoveDelayedSounds as C_Event_RemoveDelayedSounds
+#Const AudioManager::C_Event_DestroyDuplicatedSources as C_Event_DestroyDuplicatedSources
+#Const AudioManager::C_Event_StopSound as C_Event_StopSound
+#Const AudioManager::C_Event_StopAllSounds as C_Event_StopAllSounds
+#Const AudioManager::C_Event_SetNewSoundBalance as C_Event_SetNewSoundBalance
+#Const AudioManager::C_Event_SetFadeDuration as C_Event_SetFadeDuration
+
+#Const AudioManager::C_Playing_State as C_Playing_State
+#Const AudioManager::C_InMenu_State as C_InMenu_State
+#Const AudioManager::C_PauseMenu_State as C_PauseMenu_State
+#Const AudioManager::C_Preload_State as C_Preload_State
+#Const AudioManager::C_Mute_State as C_Mute_State
+#Const AudioManager::C_Default_State as C_Default_State
+
+#Const AudioManager::C_True as C_True
+#Const AudioManager::C_False as C_False
+
+// Variables for Sound design. Use REAL numbers.
+// Volumes dB when playing
+#Const C_Playing_SceneVolume 0.
+#Const C_Playing_MusicVolume 0.
+#Const C_Playing_AmbianceAndIngameUIVolume 0. // For example this is the volume of wind or checkpoint sound
+
+// Volumes dB when in a menu
+#Const C_InMenu_SceneVolume -8.
+#Const C_InMenu_MusicVolume 7.
+#Const C_InMenu_AmbianceAndIngameUIVolume -4.
+
+// Volumes dB when in pause menu
+#Const C_PauseMenu_SceneVolume -8.
+#Const C_PauseMenu_MusicVolume 7.
+#Const C_PauseMenu_AmbianceAndIngameUIVolume -40.
+
+// Volumes dB when preloading menu
+// -60. dB is silent (will be converted to -100. by the C++)
+// Do not use a lower value otherwise fading the sound balance
+// will add a lot of silence at the begining/end of the fade
+#Const C_Preload_SceneVolume 0.
+#Const C_Preload_MusicVolume -60.
+#Const C_Preload_AmbianceAndIngameUIVolume -60.
+
+// Mute all sounds
+#Const C_Mute_SceneVolume -60.
+#Const C_Mute_MusicVolume -60.
+#Const C_Mute_AmbianceAndIngameUIVolume -60.
+
+// Volumes dB by default
+#Const C_Default_SceneVolume 0.
+#Const C_Default_MusicVolume 0.
+#Const C_Default_AmbianceAndIngameUIVolume 0.
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Sound {
+	Text FileName;
+	Real[] VolumedB;
+	Real[] Pitch;
+	CAudioSource AudioSource;
+}
+
+#Struct K_Audio {
+	K_Sound[] Sounds;
+	Boolean IsMusic;
+	Boolean IsLooping;
+	Boolean IsSpatialized;
+	Text Description;
+	Integer LastIdPlayed;
+}
+
+#Struct K_SoundBalance {
+	Integer FadeStartTime;
+	Integer FadeEndTime;
+	Real PrevSceneVolumedB;
+	Real PrevUIVolumedB;
+	Real PrevMusicVolumedB;
+	Real TargetSceneVolumedB;
+	Real TargetUIVolumedB;
+	Real TargetMusicVolumedB;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Global variables
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_Audio[Text] G_AudioSources;
+declare CAudioSource[] G_DuplicatedAudioSources;
+declare CAudioSource[Text] G_CreatedAudioSources;
+declare K_SoundBalance G_SoundBalance;
+declare Boolean G_PlaySoundDisabled;
+declare Text[][Integer][Text] G_DelayedSounds; //< G_DelayedSounds[UI][PlayTime][SoundName]
+
+declare Ident G_ReqIdJsonMenu;
+declare Ident G_ReqIdJsonGame;
+declare Ident G_ReqIdJsonCommon;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Stop sound according to its name
+ *
+ *	@param _SoundName										The name of the sound
+ */
+Void StopSound(Text _SoundName) {
+	if (G_AudioSources.existskey(_SoundName)) {
+		foreach (Sound in G_AudioSources[_SoundName].Sounds) {
+			if (Sound.AudioSource == Null) continue;
+			Sound.AudioSource.PlayCursor = 0.;
+			Sound.AudioSource.Stop();
+		}
+	}
+}
+Void StopAllSounds() {
+	foreach (SoundName=>AudioSource in G_AudioSources) {
+		StopSound(SoundName);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop a sound without restarting it
+Void StopSound(Text _SoundName, Boolean _RestartSound) {
+	if (G_AudioSources.existskey(_SoundName)) {
+		declare K_Audio AudioDesc = G_AudioSources[_SoundName];
+		foreach (Sound in AudioDesc.Sounds) {
+			if (Sound.AudioSource != Null) {
+				if (_RestartSound) Sound.AudioSource.PlayCursor = 0.;
+				Sound.AudioSource.Stop();
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Play sound according to its name
+ *
+ *	@param _SoundName										The name of the sound
+ *	@param _PanRadiusLfeX								The angle of the sound in 2D space
+ *	@param _Pitch										The pitch of the sound
+ *	@param _IsNewAudioSource							Create a new audio source for this sound. Useful when playing a rapid succession of sounds.
+ */
+Void PlaySound(Text _SoundName, Real _PanRadiusLfeX, Real _Pitch, Boolean _IsNewAudioSource) {
+	if (G_PlaySoundDisabled) return;
+
+	if (G_AudioSources.existskey(_SoundName)) {
+		declare K_Audio AudioDesc = G_AudioSources[_SoundName];
+		if (AudioDesc.Sounds.count == 0) return;
+
+		declare K_Sound AudioToPlay;
+		if (AudioDesc.Sounds.count == 1) {
+			AudioToPlay = AudioDesc.Sounds[0];
+		} else {
+			declare Integer RandIndex = ML::Rand(0, AudioDesc.Sounds.count-1);
+			while (AudioDesc.LastIdPlayed != C_NullId && RandIndex == AudioDesc.LastIdPlayed) {
+				RandIndex = ML::Rand(0, AudioDesc.Sounds.count-1);
+			}
+			G_AudioSources[_SoundName].LastIdPlayed = RandIndex;
+			AudioToPlay = AudioDesc.Sounds[RandIndex];
+		}
+
+		if (_IsNewAudioSource && G_CreatedAudioSources.exists(AudioToPlay.AudioSource)) {
+			AudioToPlay.AudioSource = Audio.CreateSound(G_CreatedAudioSources.keyof(AudioToPlay.AudioSource), 0., AudioDesc.IsMusic, AudioDesc.IsLooping, AudioDesc.IsSpatialized);
+			G_DuplicatedAudioSources.add(AudioToPlay.AudioSource);
+		}
+
+		declare Real[] VolumeRange = AudioToPlay.VolumedB;
+		if (VolumeRange.count >= 2) {
+			AudioToPlay.AudioSource.VolumedB = ML::Rand(VolumeRange[0], VolumeRange[1]);
+		} else if (VolumeRange.count == 1) {
+			AudioToPlay.AudioSource.VolumedB = VolumeRange[0];
+		}
+
+		if (_Pitch >= 0) {
+			AudioToPlay.AudioSource.Pitch = _Pitch;
+		} else {
+			declare Real[] PitchRange = AudioToPlay.Pitch;
+			if (PitchRange.count >= 2) {
+				AudioToPlay.AudioSource.Pitch = ML::Rand(PitchRange[0], PitchRange[1]);
+			} else if (PitchRange.count == 1) {
+				AudioToPlay.AudioSource.Pitch = PitchRange[0];
+			}
+		}
+
+		AudioToPlay.AudioSource.PanRadiusLfe.X = _PanRadiusLfeX;
+
+		AudioToPlay.AudioSource.Play();
+	}
+}
+Void PlaySound(Text _SoundName, Real _PanRadiusLfeX, Boolean _IsNewAudioSource) {
+	PlaySound(_SoundName, _PanRadiusLfeX, -1., _IsNewAudioSource);
+}
+Void PlaySound(Text _SoundName, Real _PanRadiusLfeX, Real _Pitch) {
+	PlaySound(_SoundName, _PanRadiusLfeX, _Pitch, False);
+}
+Void PlaySound(Text _SoundName, Real _PanRadiusLfeX) {
+	PlaySound(_SoundName, _PanRadiusLfeX, False);
+}
+Void PlaySound(Text _SoundName, Boolean _IsNewAudioSource) {
+	PlaySound(_SoundName, 0., _IsNewAudioSource);
+}
+Void PlaySound(Text _SoundName) {
+	PlaySound(_SoundName, 0.);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Play sound according to its name with a specified play time
+ *
+ *	@param _UIId											The id of the UI asking to play a sound
+ *	@param _SoundName										The name of the sound
+ *	@param _PlayTime										The playing time of the sound
+ */
+Void PlaySoundWithDelay(Text _UIId, Text _SoundName, Integer _PlayTime) {
+	if (_PlayTime <= Now) {
+		PlaySound(_SoundName);
+	} else {
+		if (!G_DelayedSounds.existskey(_UIId)) G_DelayedSounds[_UIId] = [];
+		if (G_DelayedSounds[_UIId].existskey(_PlayTime)) {
+			G_DelayedSounds[_UIId][_PlayTime].add(_SoundName);
+		} else {
+			G_DelayedSounds[_UIId][_PlayTime] = [_SoundName];
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove all sounds in the waiting list
+ *
+ *	@param _UIId											The id of the UI asking to remove delayed sounds
+ */
+Void RemoveDelayedSounds(Text _UIId) {
+	G_DelayedSounds.removekey(_UIId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy all duplicated audio sources
+Void DestroyDuplicatedSources() {
+	while (G_DuplicatedAudioSources.count > 0) {
+		Audio.DestroySound(G_DuplicatedAudioSources[0]);
+		G_DuplicatedAudioSources.removekey(0);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the fade duration of a sound
+Void SetFadeDuration(Text _SoundName, Real _FadeDuration) {
+	if (G_AudioSources.existskey(_SoundName)) {
+		declare K_Audio AudioDesc = G_AudioSources[_SoundName];
+		foreach (Sound in AudioDesc.Sounds) {
+			if (Sound.AudioSource != Null) {
+				Sound.AudioSource.FadeDuration = _FadeDuration;
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a sound exists in the sounds library
+Boolean SoundExistsInLibrary(Text _SoundId) {
+	return G_AudioSources.existskey(_SoundId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add a sound to the sounds library
+Void Private_AddSoundToLibrary(
+	Boolean _OverrideSound,
+	Text _SoundId,
+	Text[] _FilePath,
+	Text[] _FileName,
+	Real[][] _VolumedB,
+	Real[][] _Pitch,
+	Boolean _IsMusic,
+	Boolean _IsLooping,
+	Boolean _IsSpatialized,
+	Text _Description
+) {
+	assert(
+		_FilePath.count == _FileName.count && _FilePath.count == _VolumedB.count && _FilePath.count == _Pitch.count,
+		"Each sound must have a _FilePath, _FileName, _VolumedB and _Pitch"
+	);
+
+	if (!_OverrideSound && SoundExistsInLibrary(_SoundId)) {
+		log("WARNING [AudioManager] You are overriding a sound that already exists in the sounds library. Use `OverrideSoundInLibrary()` if this is voluntary.");
+	}
+
+	declare K_Audio AudioConfig = K_Audio {
+		IsMusic = _IsMusic,
+		IsLooping = _IsLooping,
+		IsSpatialized = _IsSpatialized,
+		Description = _Description,
+		LastIdPlayed = C_NullId
+	};
+
+	for (I, 0, _FilePath.count - 1) {
+		declare Text FilePath = _FilePath[I];
+		declare Text FileName = _FileName[I];
+		if (FilePath != "" && FileName != "") {
+			declare Text SoundFileFullPath = FilePath^FileName;
+			declare CAudioSource AudioSource;
+			if (G_CreatedAudioSources.existskey(SoundFileFullPath)) {
+				AudioSource = G_CreatedAudioSources[SoundFileFullPath];
+			} else {
+				AudioSource = Audio.CreateSound(SoundFileFullPath, 0., AudioConfig.IsMusic, AudioConfig.IsLooping, AudioConfig.IsSpatialized);
+				G_CreatedAudioSources[SoundFileFullPath] = AudioSource;
+			}
+
+			AudioConfig.Sounds.add(K_Sound {
+				FileName = FileName,
+				VolumedB = _VolumedB[I],
+				Pitch = _Pitch[I],
+				AudioSource = AudioSource
+			});
+		}
+	}
+
+	G_AudioSources[_SoundId] = AudioConfig;
+}
+Void AddSoundToLibrary(Text _SoundId, Text[] _FilePath, Text[] _FileName, Real[][] _VolumedB, Real[][] _Pitch, Boolean _IsMusic, Boolean _IsLooping, Boolean _IsSpatialized, Text _Description) {
+	Private_AddSoundToLibrary(False, _SoundId, _FilePath, _FileName, _VolumedB, _Pitch, _IsMusic, _IsLooping, _IsSpatialized, _Description);
+}
+Void AddSoundToLibrary(Text _SoundId, Text _FilePath, Text _FileName, Real[] _VolumedB, Real[] _Pitch, Boolean _IsMusic, Boolean _IsLooping, Boolean _IsSpatialized, Text _Description) {
+	AddSoundToLibrary(_SoundId, [_FilePath], [_FileName], [_VolumedB], [_Pitch], _IsMusic, _IsLooping, _IsSpatialized, _Description);
+}
+Void OverrideSoundInLibrary(Text _SoundId, Text[] _FilePath, Text[] _FileName, Real[][] _VolumedB, Real[][] _Pitch, Boolean _IsMusic, Boolean _IsLooping, Boolean _IsSpatialized, Text _Description) {
+	Private_AddSoundToLibrary(True, _SoundId, _FilePath, _FileName, _VolumedB, _Pitch, _IsMusic, _IsLooping, _IsSpatialized, _Description);
+}
+Void OverrideSoundInLibrary(Text _SoundId, Text _FilePath, Text _FileName, Real[] _VolumedB, Real[] _Pitch, Boolean _IsMusic, Boolean _IsLooping, Boolean _IsSpatialized, Text _Description) {
+	OverrideSoundInLibrary(_SoundId, [_FilePath], [_FileName], [_VolumedB], [_Pitch], _IsMusic, _IsLooping, _IsSpatialized, _Description);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	return MV::Component(
+		C_Name,
+		"""
+		""",
+		"""
+		""",
+		"""
+/** Play sound according to its name
+ *
+ *	@param														The name of the sound
+ */
+Void {{{P}}}PlaySound(Text _SoundName, Real _PanRadiusLfeX, Real _Pitch) {
+	SendCustomEvent("{{{C_Event_PlaySound}}}", [_SoundName, ""^_PanRadiusLfeX, ""^_Pitch]);
+}
+Void {{{P}}}PlaySound(Text _SoundName, Real _PanRadiusLfeX) {
+	{{{P}}}PlaySound(_SoundName, _PanRadiusLfeX, -1.);
+}
+Void {{{P}}}PlaySound(Text _SoundName) {
+	{{{P}}}PlaySound(_SoundName, 0.);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Play sound according to its name with a specified play time
+ *
+ *	@param _UIId											The id of the UI asking to play a sound
+ *	@param _SoundName										The name of the sound
+ *	@param _PlayTime										The playing time of the sound
+ */
+Void {{{P}}}PlaySoundWithDelay(Text _UIId, Text _SoundName, Integer _PlayTime) {
+	SendCustomEvent("{{{C_Event_PlaySoundWithDelay}}}", [_UIId, _SoundName, ""^_PlayTime]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove all sounds in the waiting list
+ *
+ *	@param _UIId											The id of the UI asking to remove delayed sounds
+ */
+Void {{{P}}}RemoveDelayedSounds(Text _UIId) {
+	SendCustomEvent("{{{C_Event_RemoveDelayedSounds}}}", [_UIId]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy all duplicated audio sources
+Void {{{P}}}DestroyDuplicatedSources() {
+	SendCustomEvent("{{{C_Event_DestroyDuplicatedSources}}}", []);
+}
+
+/** Stop sound according to its name
+ *
+ *	@param														The name of the sound
+ */
+Void {{{P}}}StopSound(Text _SoundName) {
+	SendCustomEvent("{{{C_Event_StopSound}}}", [_SoundName]);
+}
+Void {{{P}}}StopSound(Text _SoundName, Boolean _RestartSound) {
+	declare Text RestartSound = "{{{C_False}}}";
+	if (_RestartSound) RestartSound = "{{{C_True}}}";
+	SendCustomEvent("{{{C_Event_StopSound}}}", [_SoundName, RestartSound]);
+}
+
+/** Stop all sounds
+ */
+Void {{{P}}}StopAllSounds() {
+	SendCustomEvent("{{{C_Event_StopAllSounds}}}", []);
+}
+
+/** Change sound balance for scene, UI and music
+ */
+Void {{{P}}}SetNewSoundBalance(Integer _NewState, Integer _FadeTime) {
+	SendCustomEvent("{{{C_Event_SetNewSoundBalance}}}", [""^_NewState, ""^ _FadeTime]);
+}
+
+/// Update sound fade duration
+Void {{{P}}}SetFadeDuration(Text _SoundName, Real _FadeDuration) {
+	SendCustomEvent("{{{C_Event_SetFadeDuration}}}", [_SoundName, ""^_FadeDuration]);
+}
+""",
+[],
+[]
+);
+}
+
+Boolean IsLoading() {
+	return
+		(Http.Requests.existskey(G_ReqIdJsonMenu) && !Http.Requests[G_ReqIdJsonMenu].IsCompleted) ||
+		(Http.Requests.existskey(G_ReqIdJsonGame) && !Http.Requests[G_ReqIdJsonGame].IsCompleted) ||
+		(Http.Requests.existskey(G_ReqIdJsonCommon) && !Http.Requests[G_ReqIdJsonCommon].IsCompleted);
+}
+
+Void AddAudiosToAudioSources(Ident _RequestId, Text _SoundPath) {
+	declare CHttpRequest Request = Http.Requests[_RequestId];
+	declare Text JsonText = Request.Result;
+	Http.Destroy(Request);
+	if (JsonText != "") {
+		declare K_Audio[Text] Audios;
+		Audios.fromjson(JsonText);
+		foreach (AudioName=>AudioDesc in Audios) {
+			G_AudioSources[AudioName] = AudioDesc;
+			G_AudioSources[AudioName].Sounds = [];
+			G_AudioSources[AudioName].LastIdPlayed = C_NullId;
+			foreach (Sound in AudioDesc.Sounds) {
+				declare Text SoundFileFullPath = _SoundPath^Sound.FileName;
+				if (Sound.FileName == "") continue;
+				G_AudioSources[AudioName].Sounds.add(Sound);
+				declare Integer CurrIndex = G_AudioSources[AudioName].Sounds.count-1;
+				if (G_CreatedAudioSources.existskey(SoundFileFullPath)) {
+					G_AudioSources[AudioName].Sounds[CurrIndex].AudioSource = G_CreatedAudioSources[SoundFileFullPath];
+				} else {
+					declare CAudioSource CreatedAudioSource = Audio.CreateSound(SoundFileFullPath, 0., AudioDesc.IsMusic, AudioDesc.IsLooping, AudioDesc.IsSpatialized);
+					G_AudioSources[AudioName].Sounds[CurrIndex].AudioSource = CreatedAudioSource;
+					G_CreatedAudioSources[SoundFileFullPath] = CreatedAudioSource;
+				}
+			}
+		}
+	}
+}
+
+Void CreateAudioSources() {
+	if (Http.Requests.existskey(G_ReqIdJsonCommon)) {
+		AddAudiosToAudioSources(G_ReqIdJsonCommon, C_BasePath_CommonSound);
+		G_ReqIdJsonCommon = NullId;
+	}
+	if ((This is CManiaAppTitle) && Http.Requests.existskey(G_ReqIdJsonMenu)) {
+		AddAudiosToAudioSources(G_ReqIdJsonMenu, C_BasePath_MenuSound);
+		G_ReqIdJsonMenu = NullId;
+	}
+	if ((This is CManiaAppPlayground) && Http.Requests.existskey(G_ReqIdJsonGame)) {
+		AddAudiosToAudioSources(G_ReqIdJsonGame, C_BasePath_GameSound);
+		G_ReqIdJsonGame = NullId;
+	}
+}
+
+Real GetCurrentVolumedB(Real _PrevVolumedB, Real _TargetVolumedB, Integer _FadeStartTime, Integer _FadeEndTime) {
+	if (_FadeStartTime >= Now) return _PrevVolumedB;
+	if (_FadeEndTime <= Now) return _TargetVolumedB;
+	if (_FadeEndTime-_FadeStartTime == 0) return _TargetVolumedB;
+	declare Real Result = _PrevVolumedB + (_TargetVolumedB - _PrevVolumedB)*(Now-_FadeStartTime)/(_FadeEndTime-_FadeStartTime);
+	if (Result > _PrevVolumedB && Result > _TargetVolumedB) Result = _TargetVolumedB;
+	return Result;
+}
+
+Void SetNewSoundBalance(Integer _NewState, Integer _FadeTime) {
+	declare Real TargetSceneVolumedB = 0.;
+	declare Real TargetUIVolumedB = 0.;
+	declare Real TargetMusicVolumedB = 0.;
+	switch (_NewState) {
+		case C_Playing_State: {
+			TargetSceneVolumedB = C_Playing_SceneVolume;
+			TargetUIVolumedB = C_Playing_AmbianceAndIngameUIVolume;
+			TargetMusicVolumedB = C_Playing_MusicVolume;
+		}
+		case C_InMenu_State: {
+			TargetSceneVolumedB = C_InMenu_SceneVolume;
+			TargetUIVolumedB = C_InMenu_AmbianceAndIngameUIVolume;
+			TargetMusicVolumedB = C_InMenu_MusicVolume;
+		}
+		case C_PauseMenu_State: {
+			TargetSceneVolumedB = C_PauseMenu_SceneVolume;
+			TargetUIVolumedB = C_PauseMenu_AmbianceAndIngameUIVolume;
+			TargetMusicVolumedB = C_PauseMenu_MusicVolume;
+		}
+		case C_Preload_State: {
+			TargetSceneVolumedB = C_Preload_SceneVolume;
+			TargetUIVolumedB = C_Preload_AmbianceAndIngameUIVolume;
+			TargetMusicVolumedB = C_Preload_MusicVolume;
+		}
+		case C_Mute_State: {
+			TargetSceneVolumedB = C_Mute_SceneVolume;
+			TargetUIVolumedB = C_Mute_AmbianceAndIngameUIVolume;
+			TargetMusicVolumedB = C_Mute_MusicVolume;
+		}
+		case C_Default_State: {
+			TargetSceneVolumedB = C_Default_SceneVolume;
+			TargetUIVolumedB = C_Default_AmbianceAndIngameUIVolume;
+			TargetMusicVolumedB = C_Default_MusicVolume;
+		}
+	}
+	G_SoundBalance = K_SoundBalance {
+		FadeStartTime = Now,
+		FadeEndTime = Now + _FadeTime,
+		PrevSceneVolumedB = GetCurrentVolumedB(G_SoundBalance.PrevSceneVolumedB, G_SoundBalance.TargetSceneVolumedB, G_SoundBalance.FadeStartTime, G_SoundBalance.FadeEndTime),
+		PrevUIVolumedB = GetCurrentVolumedB(G_SoundBalance.PrevUIVolumedB, G_SoundBalance.TargetUIVolumedB, G_SoundBalance.FadeStartTime, G_SoundBalance.FadeEndTime),
+		PrevMusicVolumedB = GetCurrentVolumedB(G_SoundBalance.PrevMusicVolumedB, G_SoundBalance.TargetMusicVolumedB, G_SoundBalance.FadeStartTime, G_SoundBalance.FadeEndTime),
+		TargetSceneVolumedB = TargetSceneVolumedB,
+		TargetUIVolumedB = TargetUIVolumedB,
+		TargetMusicVolumedB = TargetMusicVolumedB
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Prevent any sound from being played
+Void DisablePlaySound(Boolean _PlaySoundDisabled) {
+	G_PlaySoundDisabled = _PlaySoundDisabled;
+}
+
+Void InitializeSoundVolumes() {
+	Audio.LimitSceneSoundVolumedB = C_Mute_SceneVolume;
+	Audio.LimitUiSoundVolumedB = C_Mute_AmbianceAndIngameUIVolume;
+	Audio.LimitMusicVolumedB = C_Mute_MusicVolume;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload library
+Void Unload() {
+	DestroyDuplicatedSources();
+	foreach (AudioDesc in G_AudioSources) {
+		foreach (Sound in AudioDesc.Sounds) {
+			Audio.DestroySound(Sound.AudioSource);
+		}
+	}
+	G_AudioSources = [];
+	G_CreatedAudioSources = [];
+
+	// Complete sound balance transition before unloading
+	if (G_SoundBalance.FadeEndTime > 0) {
+		Audio.LimitSceneSoundVolumedB = G_SoundBalance.TargetSceneVolumedB;
+		Audio.LimitUiSoundVolumedB = G_SoundBalance.TargetUIVolumedB;
+		Audio.LimitMusicVolumedB = G_SoundBalance.TargetMusicVolumedB;
+	}
+	G_SoundBalance = K_SoundBalance {
+		FadeStartTime = -1,
+		FadeEndTime = -1,
+		PrevSceneVolumedB = Audio.LimitSceneSoundVolumedB,
+		PrevUIVolumedB = Audio.LimitUiSoundVolumedB,
+		PrevMusicVolumedB = Audio.LimitMusicVolumedB,
+		TargetSceneVolumedB = Audio.LimitSceneSoundVolumedB,
+		TargetUIVolumedB = Audio.LimitUiSoundVolumedB,
+		TargetMusicVolumedB = Audio.LimitMusicVolumedB
+	};
+
+	if (G_ReqIdJsonCommon != NullId) {
+		if (Http.Requests.existskey(G_ReqIdJsonCommon)) Http.Destroy(Http.Requests[G_ReqIdJsonCommon]);
+		G_ReqIdJsonCommon = NullId;
+	}
+	if (G_ReqIdJsonMenu != NullId) {
+		if (Http.Requests.existskey(G_ReqIdJsonMenu)) Http.Destroy(Http.Requests[G_ReqIdJsonMenu]);
+		G_ReqIdJsonMenu = NullId;
+	}
+	if (G_ReqIdJsonGame != NullId) {
+		if (Http.Requests.existskey(G_ReqIdJsonGame)) Http.Destroy(Http.Requests[G_ReqIdJsonGame]);
+		G_ReqIdJsonGame = NullId;
+	}
+
+	DisablePlaySound(False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the audio files and create audio sources
+Void Load(Text _JsonFilePath_AudioCommon, Text _JsonFilePath_AudioMenu, Text _JsonFilePath_AudioGame, Integer _SoundBalance, Integer _FadeInDuration) {
+	Unload();
+
+	declare CHttpRequest Req = Http.CreateGet(_JsonFilePath_AudioCommon);
+	if (Req != Null) G_ReqIdJsonCommon = Req.Id;
+
+	if (This is CManiaAppTitle) {
+		Req = Http.CreateGet(_JsonFilePath_AudioMenu);
+		if (Req != Null) G_ReqIdJsonMenu = Req.Id;
+	} else if (This is CManiaAppPlayground) {
+		Req = Http.CreateGet(_JsonFilePath_AudioGame);
+		if (Req != Null) G_ReqIdJsonGame = Req.Id;
+	}
+
+	SetNewSoundBalance(_SoundBalance, _FadeInDuration);
+}
+Void Load(Text _JsonFilePath_AudioCommon, Text _JsonFilePath_AudioMenu, Text _JsonFilePath_AudioGame) {
+	Load(_JsonFilePath_AudioCommon, _JsonFilePath_AudioMenu, _JsonFilePath_AudioGame, C_Default_State, 1000);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process ManiaApp events
+Void ProcessEvent(CManiaAppEvent _Event) {
+	if (_Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+		switch (_Event.CustomEventType) {
+			case C_Event_PlaySound: {
+				if (_Event.CustomEventData.count > 2) {
+					PlaySound(_Event.CustomEventData[0], TL::ToReal(_Event.CustomEventData[1]), TL::ToReal(_Event.CustomEventData[2]));
+				} else if (_Event.CustomEventData.count > 1) {
+					PlaySound(_Event.CustomEventData[0], TL::ToReal(_Event.CustomEventData[1]));
+				} else if (_Event.CustomEventData.count > 0) {
+					PlaySound(_Event.CustomEventData[0]);
+				}
+			}
+			case C_Event_PlaySoundWithDelay: {
+				if (_Event.CustomEventData.count > 2) {
+					PlaySoundWithDelay(_Event.CustomEventData[0], _Event.CustomEventData[1], TL::ToInteger(_Event.CustomEventData[2]));
+				}
+			}
+			case C_Event_RemoveDelayedSounds: {
+				if (_Event.CustomEventData.count > 0) {
+					RemoveDelayedSounds(_Event.CustomEventData[0]);
+				}
+			}
+			case C_Event_DestroyDuplicatedSources: {
+				DestroyDuplicatedSources();
+			}
+			case C_Event_StopSound: {
+				if (_Event.CustomEventData.count > 1) {
+					StopSound(_Event.CustomEventData[0], _Event.CustomEventData[1] == C_True);
+				} else if (_Event.CustomEventData.count > 0) {
+					StopSound(_Event.CustomEventData[0]);
+				}
+			}
+			case C_Event_StopAllSounds: {
+				StopAllSounds();
+			}
+			case C_Event_SetNewSoundBalance: {
+				if (_Event.CustomEventData.count > 1) {
+					declare Integer NewState = TL::ToInteger(_Event.CustomEventData[0]);
+					declare Integer FadeTime = TL::ToInteger(_Event.CustomEventData[1]);
+					SetNewSoundBalance(NewState, FadeTime);
+				}
+			}
+			case C_Event_SetFadeDuration: {
+				if (_Event.CustomEventData.count > 1) {
+					SetFadeDuration(_Event.CustomEventData[0], TL::ToReal(_Event.CustomEventData[1]));
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update library for ManiaApp
+Void Yield(CNod _Context) {
+	if (_Context is CManiaAppTitle) {
+		declare CManiaAppTitle ManiaAppTitle = (_Context as CManiaAppTitle);
+		foreach (Event in ManiaAppTitle.PendingEvents) {
+			ProcessEvent(Event);
+		}
+	} else if (_Context is CManiaAppPlayground) {
+		declare CManiaAppPlayground ManiaAppPlayground = (_Context as CManiaAppPlayground);
+		foreach (Event in ManiaAppPlayground.PendingEvents) {
+			ProcessEvent(Event);
+		}
+	}
+	if (G_SoundBalance.FadeEndTime > Now) {
+		Audio.LimitSceneSoundVolumedB = GetCurrentVolumedB(G_SoundBalance.PrevSceneVolumedB, G_SoundBalance.TargetSceneVolumedB, G_SoundBalance.FadeStartTime, G_SoundBalance.FadeEndTime);
+		Audio.LimitUiSoundVolumedB = GetCurrentVolumedB(G_SoundBalance.PrevUIVolumedB, G_SoundBalance.TargetUIVolumedB, G_SoundBalance.FadeStartTime, G_SoundBalance.FadeEndTime);
+		Audio.LimitMusicVolumedB = GetCurrentVolumedB(G_SoundBalance.PrevMusicVolumedB, G_SoundBalance.TargetMusicVolumedB, G_SoundBalance.FadeStartTime, G_SoundBalance.FadeEndTime);
+	} else if (G_SoundBalance.FadeEndTime > 0 && G_SoundBalance.FadeEndTime <= Now) {
+		G_SoundBalance.FadeStartTime = 0;
+		G_SoundBalance.FadeEndTime = 0;
+		Audio.LimitSceneSoundVolumedB = G_SoundBalance.TargetSceneVolumedB;
+		Audio.LimitUiSoundVolumedB = G_SoundBalance.TargetUIVolumedB;
+		Audio.LimitMusicVolumedB = G_SoundBalance.TargetMusicVolumedB;
+	}
+
+	// Play sounds with a specific play time
+	if (G_DelayedSounds.count > 0) {
+		foreach (UI => DelayedSounds in G_DelayedSounds) {
+			foreach (PlayTime => Sounds in DelayedSounds) {
+				if (PlayTime <= Now) {
+					foreach (Sound in Sounds) {
+						PlaySound(Sound, True);
+					}
+					G_DelayedSounds[UI].removekey(PlayTime);
+				}
+			}
+		}
+	}
+
+	// Remove already played duplicated audio sources
+	if (G_DuplicatedAudioSources.count > 0) {
+		if (!G_DuplicatedAudioSources[0].IsPlaying) { //< Duplicate audio sources are played instantly after being added to the array
+			Audio.DestroySound(G_DuplicatedAudioSources[0]);
+			G_DuplicatedAudioSources.removekey(0);
+		}
+	}
+}

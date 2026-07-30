@@ -1,0 +1,1473 @@
+/**
+ * Router library
+ * Allow the user to create routes.
+ * A route is accessible with an url and display
+ * a page and a group of overlays.
+ */
+#Const Version "1.1.1"
+#Const ScriptName "Libs/Nadeo/CMGame/Menus/Router_MA.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Log.Script.txt" as Log
+#Include "Libs/Nadeo/CMGame/Utils/Privileges.Script.txt" as Privileges
+#Include "Libs/Nadeo/CMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/CMGame/Menus/Events.Script.txt" as Events
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Utils/TextToSpeech.Script.txt" as TextToSpeech
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Event types
+#Const Router::C_Event_Push as C_Event_Push
+#Const Router::C_Event_PushParent as C_Event_PushParent
+#Const Router::C_Event_Go as C_Event_Go
+#Const Router::C_Event_SetParentPath as C_Event_SetParentPath
+#Const Router::C_Event_SetParentURL as C_Event_SetParentURL
+#Const Router::C_Event_RoutePushed as C_Event_RoutePushed
+#Const Router::C_Event_RouteUpdated as C_Event_RouteUpdated
+#Const Router::C_Event_RouteCreated as C_Event_RouteCreated
+#Const Router::C_Event_RouteDestroyed as C_Event_RouteDestroyed
+#Const Router::C_Event_OverlayCreated as C_Event_OverlayCreated
+#Const Router::C_Event_OverlayUpdateData as C_Event_OverlayUpdateData
+#Const Router::C_Event_OverlayUpdateParent as C_Event_OverlayUpdateParent
+#Const Router::C_Event_OverlayEmptyHistory as C_Event_OverlayEmptyHistory
+#Const Router::C_Event_OverlayDestroyed as C_Event_OverlayDestroyed
+#Const Router::C_Event_OverlayLocked as C_Event_OverlayLocked
+#Const Router::C_Event_AddPendingEvent as C_Event_AddPendingEvent
+#Const Router::C_Event_EnteringRoute as C_Event_EnteringRoute
+#Const Router::C_Event_LeavingRoute as C_Event_LeavingRoute
+
+#Const C_Event_PagesLoaded "PagesLoaded"
+
+#Const C_HistorySize 100
+
+#Const C_HidingLayer_ZIndex 1000.
+#Const C_HidingLayer_Name "PreloadRouter"
+
+#Const C_PreloadStatus_NotPreloaded 0
+#Const C_PreloadStatus_PreloadingVisible 1
+#Const C_PreloadStatus_PreloadingNotVisible 2
+
+#Const Router::C_Query_EnablePrivilege as C_Query_EnablePrivilege
+#Const Router::C_Query_DisablePrivilege as C_Query_DisablePrivilege
+#Const Router::C_Query_MenuSection as C_Query_MenuSection
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct Router::K_Router_URL as K_Router_URL
+#Struct Router::K_Router_Route as K_Router_Route
+#Struct Router::K_URL_Config as K_URL_Config
+
+#Struct K_Router_Routes {
+	K_Router_Route From;
+	K_Router_Route To;
+}
+
+#Struct K_Overlay {
+	Text Name;
+	Ident LayerId;
+	Boolean Global;
+	Integer TransitionIn;
+	Integer TransitionOut;
+}
+
+#Struct K_ActiveTransition {
+	Integer EndTime;
+	Integer InOrOut;
+	Ident LayerId;
+}
+
+#Struct K_RouterPreload {
+	K_Router_Route[] Routes;
+	Ident LayerId;
+}
+
+#Struct K_RoutePrivilegesCheck {
+	Text URL;
+	K_URL_Config Config;
+	Privileges::K_PrivilegesCheck PrivilegesCheck;
+}
+
+#Struct K_SquadConfig {
+	Text[] EnabledPathList;
+	Text QueryParameterMode;
+	Text[Text] ModeSquadTypeList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_Router_Route[Text] G_Routes;
+declare K_Router_Route G_CurrentRoute;
+declare K_Router_Route[] G_History;
+declare Integer G_HistoryKey;
+declare Text[] G_CurrentDeactivatedPaths;
+
+declare K_Overlay[Text] G_Overlays;
+declare K_Overlay[Text] G_CurrentOverlays;
+
+declare K_ActiveTransition[Text] G_Transitions;
+
+declare Text[Text] G_Redirections;
+
+declare CPrivilegeMgr::EPrivilege[][Text] G_RoutesPrivileges;
+declare K_RoutePrivilegesCheck G_RoutePrivelegesCheck;
+
+declare Ident G_TTSContextIdent;
+declare K_SquadConfig G_SquadConfig;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if an overlay exists
+ *
+ *	@param	_Name											The name of the overlay to check
+ *
+ *	@return														True if the overlay exists
+ *																		False otherwise
+ */
+Boolean OverlayExists(Text _Name) {
+	return G_Overlays.existskey(_Name);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the layer associated to an overlay
+ *
+ *	@param	_Overlay									The overlay
+ *
+ *	@return														The layer of the overlay if found
+ *																		Null otherwise
+ */
+CUILayer GetOverlayLayer(K_Overlay _Overlay) {
+	if (_Overlay.LayerId == NullId || !UILayers.existskey(_Overlay.LayerId)) return Null;
+	return UILayers[_Overlay.LayerId];
+}
+CUILayer GetOverlayLayer(Text _Name) {
+	if (!OverlayExists(_Name)) return Null;
+	return GetOverlayLayer(G_Overlays[_Name]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Destroy an existing overlay
+ *
+ *	@param	_Name											The name of the overlay to destroy
+ */
+Void DestroyOverlay(Text _Name) {
+	if (!OverlayExists(_Name)) return;
+
+	declare CUILayer Layer <=> GetOverlayLayer(_Name);
+	if (Layer != Null) {
+		UILayerDestroy(Layer);
+	}
+
+	G_Overlays.removekey(_Name);
+	G_CurrentOverlays.removekey(_Name);
+
+	declare Text[] Router_LockedOverlays for LocalUser = [];
+	Router_LockedOverlays.remove(_Name);
+
+	Events::Send(C_Event_OverlayDestroyed, [_Name]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy all overlays
+Void DestroyAllOverlays() {
+	declare K_Overlay[Text] TmpOverlays = G_Overlays;
+	foreach (Name => Overlay in TmpOverlays) {
+		DestroyOverlay(Name);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if an overlay is currently displayed
+ *
+ *	@param	_OverlayName										The name of the overlay to check
+ */
+Boolean IsOverlayDisplayed(Text _OverlayName) {
+	return G_CurrentOverlays.existskey(_OverlayName);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Lock or unlock an overlay
+ *
+ *	@param	_OverlayName										The name of the overlay to lock/unlock
+ *	@param	_IsLocked												The lock state for the overlay
+ */
+Void LockOverlay(Text _OverlayName, Boolean _IsLocked) {
+	if (OverlayExists(_OverlayName)) {
+		declare Text[] Router_LockedOverlays for LocalUser = [];
+		if (_IsLocked) {
+			if (!Router_LockedOverlays.exists(_OverlayName)) Router_LockedOverlays.add(_OverlayName);
+		} else {
+			Router_LockedOverlays.remove(_OverlayName);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if an overlay is currently locked
+ *
+ *	@param	_OverlayName										The name of the overlay to check
+ */
+Boolean IsOverlayLocked(Text _OverlayName) {
+	declare Text[] Router_LockedOverlays for LocalUser = [];
+	return Router_LockedOverlays.exists(_OverlayName);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a new overlay
+ *	If an overlay with the same name already
+ *	exists it will be destroyed and replaced
+ *	by the new one
+ *
+ *	@param	_Name											The name of the overlay
+ *	@param	_ManialinkPage						The manialink page to display in the overlay
+ *	@param	_Global										The overlay will be displayed on all routes or not
+ *	@param	_TransitionIn							Duration of the in transition (in ms)
+ *																		if the value is negative the transition is disabled
+ *	@param	_TransitionOut						Duration of the out transition (in ms)
+ *																		if the value is negative the transition is disabled
+ */
+Void CreateOverlay(Text _Name, Text _ManialinkPage, Boolean _Global, Integer _TransitionIn, Integer _TransitionOut) {
+	assert(!G_Routes.existskey(_Name), """A route with the same path already exists. Path : {{{_Name}}}""");
+
+	if (OverlayExists(_Name)) {
+		DestroyOverlay(_Name);
+	}
+
+	declare CUILayer Layer <=> UILayerCreate();
+	if (Layer != Null) {
+		declare K_Overlay Overlay;
+		Overlay.Name = _Name;
+		Overlay.LayerId = Layer.Id;
+		Overlay.Global = _Global;
+		Overlay.TransitionIn = _TransitionIn;
+		Overlay.TransitionOut = _TransitionOut;
+		G_Overlays[_Name] = Overlay;
+
+		Layer.ManialinkPage = _ManialinkPage;
+		Layer.IsVisible = False;
+
+		Events::Send(C_Event_OverlayCreated, [_Name]);
+	}
+}
+Void CreateOverlay(Text _Name, Text _ManialinkPage, Boolean _Global) {
+	CreateOverlay(_Name, _ManialinkPage, _Global, -1, -1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** @Todo
+ *	At the moment we only have access
+ *	to the URLEncode function in the
+ *	TextLib, making it impossible
+ *	to decode encoded value later
+ *	This two functions recreate a minimal
+ *	implementation of URL encoding and decoding
+ */
+Text Private_FakeURLEncode(Text _URL) {
+	declare Text URL = TL::Replace(_URL, "%", "%0");
+	URL = TL::Replace(URL, "?", "%1");
+	URL = TL::Replace(URL, "&", "%2");
+	URL = TL::Replace(URL, "=", "%3");
+	return URL;
+}
+Text Private_FakeURLDecode(Text _URL) {
+	declare Text URL = TL::Replace(_URL, "%3", "=");
+	URL = TL::Replace(URL, "%2", "&");
+	URL = TL::Replace(URL, "%1", "?");
+	URL = TL::Replace(URL, "%0", "%");
+	return URL;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a query string from an array
+ *	["key" => "value, "key2" => "value2"]
+ *	-> "?key=value&key2=value2"
+ *
+ *	@param	_Query										The query array to encode
+ *
+ *	@return														The query string
+ */
+Text CreateQueryString(Text[Text] _Query) {
+	declare Text QueryString = "";
+
+	foreach (Key => Value in _Query) {
+		if (QueryString == "") QueryString ^= "?";
+		else QueryString ^= "&";
+		QueryString ^= Private_FakeURLEncode(Key)^"="^Private_FakeURLEncode(Value);
+	}
+
+	return QueryString;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Parse a query string and convert
+ *	it to a key => value query array
+ *	"?key=value&key2=value2"
+ *	-> ["key" => "value, "key2" => "value2"]
+ *
+ *	@param	_QueryString							The query string
+ *
+ *	@return														The query array
+ */
+Text[Text] ParseQueryString(Text _QueryString) {
+	declare Text[Text] Query;
+	declare Text QueryString = _QueryString;
+
+	// Remove the leading ?
+	if (TL::StartsWith("?", QueryString)) {
+		QueryString = TL::SubText(QueryString, 1, TL::Length(QueryString) - 1);
+	}
+	declare Text[] Params = TL::Split("&", QueryString);
+
+	foreach (Param in Params) {
+		declare Text[] KeyValue = TL::Split("=", Param);
+		if (KeyValue.count >= 2) {
+			declare Text Key = Private_FakeURLDecode(KeyValue[0]);
+			declare Text Value = Private_FakeURLDecode(KeyValue[1]);
+			Query[Key] = Value;
+		} else if (KeyValue.count >= 1 && TL::EndsWith("=", Param)) {
+			declare Text Key = Private_FakeURLDecode(KeyValue[0]);
+			Query[Key] = "";
+		}
+	}
+	return Query;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create an URL string from a
+ *	route path and query
+ *
+ *	@param	_RoutePath								The path of the route
+ *	@param	_Query										The query to append to the route path
+ *
+ *	@return														The URL
+ */
+Text CreateURL(Text _RoutePath, Text[Text] _Query) {
+	return _RoutePath^CreateQueryString(_Query);
+}
+Text CreateURL(K_Router_URL _URL) {
+	return CreateURL(_URL.Path, _URL.Query);
+}
+Text CreateURL(K_Router_Route _Route) {
+	return CreateURL(_Route.URL);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Parse an URL string and return
+ *	an URL structure with the route path
+ *	and the query
+ *
+ *	@param	_URL											The URL string
+ *
+ *	@return														The URL struct
+ */
+K_Router_URL ParseURL(Text _URL) {
+	declare K_Router_URL URL;
+
+	declare Text[] SplitURL = TL::Split("?", _URL);
+	if (SplitURL.existskey(0)) {
+		URL.Path = SplitURL[0];
+	}
+	if (SplitURL.existskey(1)) {
+		URL.QueryString = "?"^SplitURL[1];
+		URL.Query = ParseQueryString(URL.QueryString);
+	}
+
+	return URL;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a route exists
+ *
+ *	@param	_Path											The path of the route to check
+ *
+ *	@return														True if the route exists
+ *																		False otherwise
+ */
+Boolean RouteExists(Text _Path) {
+	return G_Routes.existskey(_Path);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the layer associated to a route
+ *
+ *	@param	_Route										The route
+ *
+ *	@return														The layer of the route if found
+ *																		Null otherwise
+ */
+CUILayer GetRouteLayer(K_Router_Route _Route) {
+	// If LayerId is NullId it might be because
+	// the route was unserialized. Then try
+	// to get the original route object
+	declare K_Router_Route Route = _Route;
+	if (_Route.LayerId == NullId && RouteExists(Route.URL.Path)) {
+		Route = G_Routes[Route.URL.Path];
+	}
+	if (!UILayers.existskey(Route.LayerId)) return Null;
+	return UILayers[Route.LayerId];
+}
+CUILayer GetRouteLayer(Text _Path) {
+	if (!RouteExists(_Path)) return Null;
+	return GetRouteLayer(G_Routes[_Path]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Destroy an existing route
+ *
+ *	@param	_Path											The path of the route to destroy
+ */
+Void DestroyRoute(Text _Path) {
+	if (!RouteExists(_Path)) return;
+
+	declare CUILayer Layer <=> GetRouteLayer(_Path);
+	if (Layer != Null) {
+		UILayerDestroy(Layer);
+	}
+
+	G_Routes.removekey(_Path);
+	G_RoutesPrivileges.removekey(_Path);
+
+	// If the user was on this route, reset it
+	if (G_CurrentRoute.URL.Path == _Path) {
+		declare K_Router_Route EmptyRoute;
+		G_CurrentRoute = EmptyRoute;
+	}
+
+	Events::Send(C_Event_RouteDestroyed, [_Path]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy all routes
+Void DestroyAllRoutes() {
+	declare K_Router_Route[Text] TmpRoutes = G_Routes;
+	foreach (Path => Route in TmpRoutes) {
+		DestroyRoute(Path);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the privileges the user must have
+ *	to be able to access the given route
+ *
+ *	@param	_Path											The path of the route to update
+ *	@param	_Privileges								The privileges the user must have
+ */
+Void SetRoutePrivileges(Text _Path, CPrivilegeMgr::EPrivilege[] _Privileges) {
+	assert(RouteExists(_Path), "This route does not exist");
+	if (_Privileges.count > 0) {
+		G_RoutesPrivileges[_Path] = _Privileges;
+	} else {
+		G_RoutesPrivileges.removekey(_Path);
+	}
+}
+Void SetRoutePrivilege(Text _Path, CPrivilegeMgr::EPrivilege _Privilege) {
+	SetRoutePrivileges(_Path, [_Privilege]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a path does not contain
+ *	any invalid character
+ *
+ *	@param	_Path											The path to check
+ *
+ *	@return														True if the path is valid
+ *																		False if it contains an invalid character
+ */
+Boolean PathIsValid(Text _Path) {
+	declare Text[] Match = TL::RegexMatch("""^[-@:%_\+.~//a-zA-Z0-9]*$""", _Path, "");
+	return (Match.count > 0 && Match[0] != "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a new route
+ *	If a route with the same path already
+ *	exists it will be destroyed and replaced
+ *	by the new one
+ *
+ *	@param	_Path											The path of the route
+ *	@param	_ManialinkPage						The manialink page to display when matching this route
+ *	@param	_Overlays									The overlays to load when matching this route
+ *	@param	_ExcludedOverlays					The global overlays to exclude on load when matching this route
+ *	@param	_TransitionIn							Duration of the in transition (in ms)
+ *																		if the value is negative the transition is disabled
+ *	@param	_TransitionOut						Duration of the out transition (in ms)
+ *																		if the value is negative the transition is disabled
+ */
+Void CreateRoute(
+	Text _Path,
+	Text _ParentPath,
+	Text _ManialinkPage,
+	Text[] _Overlays,
+	Text[] _ExcludedOverlays,
+	Integer _TransitionIn,
+	Integer _TransitionOut,
+	CPrivilegeMgr::EPrivilege[] _Privileges
+) {
+	assert(PathIsValid(_Path), """Invalid route path. Path : {{{_Path}}}""");
+	assert(!G_Overlays.existskey(_Path), """An overlay with the same path already exists. Path : {{{_Path}}}""");
+
+	if (RouteExists(_Path)) {
+		DestroyRoute(_Path);
+	}
+
+	declare CUILayer Layer <=> UILayerCreate();
+	if (Layer != Null) {
+		declare K_Router_Route Route;
+		Route.URL.Path = _Path;
+		Route.URL.QueryString = "";
+		Route.URL.Query = [];
+		Route.ParentURL.Path = _ParentPath;
+		Route.ParentURL.QueryString = "";
+		Route.ParentURL.Query = [];
+		Route.LayerId = Layer.Id;
+		Route.Overlays = _Overlays;
+		Route.ExcludedOverlays = _ExcludedOverlays;
+		Route.TransitionIn = _TransitionIn;
+		Route.TransitionOut = _TransitionOut;
+		G_Routes[_Path] = Route;
+
+		SetRoutePrivileges(_Path, _Privileges);
+
+		Layer.ManialinkPage = _ManialinkPage;
+		Layer.IsVisible = False;
+
+		Events::Send(C_Event_RouteCreated, [_Path]);
+	}
+}
+Void CreateRoute(Text _Path, Text _ParentPath, Text _ManialinkPage, Text[] _Overlays, Text[] _ExcludedOverlays, Integer _TransitionIn, Integer _TransitionOut) {
+	CreateRoute(_Path, _ParentPath, _ManialinkPage, _Overlays, _ExcludedOverlays, _TransitionIn, _TransitionOut, []);
+}
+Void CreateRoute(Text _Path, Text _ParentPath, Text _ManialinkPage, Text[] _Overlays, Integer _TransitionIn, Integer _TransitionOut, CPrivilegeMgr::EPrivilege[] _Privileges) {
+	CreateRoute(_Path, _ParentPath, _ManialinkPage, _Overlays, [], _TransitionIn, _TransitionOut, _Privileges);
+}
+Void CreateRoute(Text _Path, Text _ParentPath, Text _ManialinkPage, Text[] _Overlays, Integer _TransitionIn, Integer _TransitionOut) {
+	CreateRoute(_Path, _ParentPath, _ManialinkPage, _Overlays, [], _TransitionIn, _TransitionOut);
+}
+Void CreateRoute(Text _Path, Text _ParentPath, Text _ManialinkPage, Text[] _Overlays) {
+	CreateRoute(_Path, _ParentPath, _ManialinkPage, _Overlays, [], -1, -1);
+}
+Void CreateRoute(Text _Path, Text _ManialinkPage, Text[] _Overlays, Text[] _ExcludedOverlays, Integer _TransitionIn, Integer _TransitionOut) {
+	CreateRoute(_Path, _Path, _ManialinkPage, _Overlays, _ExcludedOverlays, _TransitionIn, _TransitionOut);
+}
+Void CreateRoute(Text _Path, Text _ManialinkPage, Text[] _Overlays, Integer _TransitionIn, Integer _TransitionOut, CPrivilegeMgr::EPrivilege[] _Privileges) {
+	CreateRoute(_Path, _Path, _ManialinkPage, _Overlays, _TransitionIn, _TransitionOut, _Privileges);
+}
+Void CreateRoute(Text _Path, Text _ManialinkPage, Text[] _Overlays, Integer _TransitionIn, Integer _TransitionOut) {
+	CreateRoute(_Path, _Path, _ManialinkPage, _Overlays, [], _TransitionIn, _TransitionOut);
+}
+Void CreateRoute(Text _Path, Text _ManialinkPage, Text[] _Overlays) {
+	CreateRoute(_Path, _Path, _ManialinkPage, _Overlays, [], -1, -1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** De-serialize the route structure
+ *	from the C_Event_RoutePushed event
+ *	data
+ *
+ *	@param	_RouteJson								The serialized route
+ *
+ *	@return														The unserialized route
+ */
+K_Router_Route GetRouteFromEvent(Text _RouteJson) {
+	declare K_Router_Route Route;
+	Route.fromjson(_RouteJson);
+	return Route;
+}
+K_Router_Routes GetRoutesFromEvent(CManiaAppEvent _Event) {
+	declare K_Router_Routes Routes;
+	if (_Event.CustomEventData.count >= 2) {
+		Routes.From = GetRouteFromEvent(_Event.CustomEventData[0]);
+		Routes.To = GetRouteFromEvent(_Event.CustomEventData[1]);
+	}
+	return Routes;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the current route is matching
+ *	the given url
+ *
+ *	@param	_URL											The URL to check
+ *
+ *	@return														True if the route match the URL
+ *																		False otherwise
+ */
+Boolean IsOnRoute(K_Router_Route _Route, Text _URL) {
+	declare K_Router_URL URL = ParseURL(_URL);
+	return (_Route.URL.Path == URL.Path);
+}
+Boolean IsOnRoute(Text _URL) {
+	return IsOnRoute(G_CurrentRoute, _URL);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player is entering
+ *	or leaving the given route
+ */
+Boolean IsEnteringRoute(K_Router_Routes _Routes, Text _URL) {
+	declare K_Router_URL URL = ParseURL(_URL);
+	return (_Routes.To.URL.Path == URL.Path && _Routes.From.URL.Path != URL.Path);
+}
+Boolean IsLeavingRoute(K_Router_Routes _Routes, Text _URL) {
+	declare K_Router_URL URL = ParseURL(_URL);
+	return (_Routes.From.URL.Path == URL.Path && _Routes.To.URL.Path != URL.Path);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the active route
+ *
+ *	@return														The the active route
+ */
+K_Router_Route GetCurrentRoute() {
+	return G_CurrentRoute;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the path of the active route
+ *
+ *	@return														The path of the active route
+ */
+Text GetCurrentRoutePath() {
+	return G_CurrentRoute.URL.Path;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the query of the active route
+ *
+ *	@return														The query of the active route
+ */
+Text[Text] GetCurrentRouteQuery() {
+	return G_CurrentRoute.URL.Query;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the layer of the active route
+ *
+ *	@return														The layer of the active route
+ */
+CUILayer GetCurrentRouteLayer() {
+	return GetRouteLayer(G_CurrentRoute);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a redirection
+ *	If the user request the route _FromPath
+ *	it will be replaced by _ToPath
+ *
+ *	@param	_FromPath									The original route path
+ *	@param	_ToPath										The route where the user will be redirected
+ */
+Void CreateRedirection(Text _FromPath, Text _ToPath) {
+	assert(PathIsValid(_FromPath), """Invalid redirection path. From path : {{{_FromPath}}}""");
+	assert(PathIsValid(_ToPath), """Invalid route path. To path : {{{_ToPath}}}""");
+	G_Redirections[_FromPath] = _ToPath;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the layer created by a route
+ *	or an overlay
+ *
+ *	@param	_Id												The name of the overlay or
+ *																		the path of the route
+ *
+ *	@return														The layer created for the route
+ *																		or the overlay if found
+ *																		Null otherwise
+ */
+CUILayer GetLayer(Text _Id) {
+	if (OverlayExists(_Id)) {
+		return GetOverlayLayer(_Id);
+	} else if (RouteExists(_Id)) {
+		return GetRouteLayer(_Id);
+	}
+	return Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove a transition from the ongoing
+ *	transition array
+ */
+Void Private_RemoveTransition(Text _Id) {
+	if (!G_Transitions.existskey(_Id)) return;
+
+	declare K_ActiveTransition Transition = G_Transitions[_Id];
+	G_Transitions.removekey(_Id);
+
+	if (Transition.LayerId != NullId && UILayers.existskey(Transition.LayerId)) {
+		declare CUILayer Layer <=> UILayers[Transition.LayerId];
+
+		if (Transition.InOrOut == Transition::C_Out) {
+			Layer.IsVisible = False;
+		}
+
+		Transition::SendLayerEvent(This, Layer, Transition::C_End, Transition.InOrOut, Transition.EndTime);
+
+		declare Boolean Router_TransitionIsActive for Layer.LocalPage = False;
+		Router_TransitionIsActive = False;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a transition to the ongoing
+ *	transitions array
+ *
+ *	@param	_Id												The name of the overlay or path of the route affected by the transition
+ *	@param	_LayerId									The id of the layer affected by the transition
+ *	@param	_Duration									The duration of the transition
+ *	@param	_InOrOut									Is it an in or out transition
+ */
+Void Private_AddTransition(Text _Id, Ident _LayerId, Integer _Duration, Integer _InOrOut) {
+	if (G_Transitions.existskey(_Id)) {
+		Private_RemoveTransition(_Id);
+	}
+
+	declare K_ActiveTransition Transition;
+	Transition.LayerId = _LayerId;
+	Transition.EndTime = Now + _Duration;
+	Transition.InOrOut = _InOrOut;
+	G_Transitions[_Id] = Transition;
+
+	if (_LayerId != NullId && UILayers.existskey(_LayerId)) {
+		declare CUILayer Layer <=> UILayers[_LayerId];
+
+		if (_InOrOut == Transition::C_In) {
+			Layer.IsVisible = True;
+		}
+
+		Transition::SendLayerEvent(This, Layer, Transition::C_Start, Transition.InOrOut, Transition.EndTime);
+
+		declare Boolean Router_TransitionIsActive for Layer.LocalPage = False;
+		Router_TransitionIsActive = True;
+	}
+}
+Void Private_AddTransition(K_Overlay _Overlay, Integer _InOrOut) {
+	declare Integer Duration = 0;
+	if (_InOrOut == Transition::C_In) Duration = _Overlay.TransitionIn;
+	else if (_InOrOut == Transition::C_Out) Duration = _Overlay.TransitionOut;
+	Private_AddTransition(_Overlay.Name, _Overlay.LayerId, Duration, _InOrOut);
+}
+Void Private_AddTransition(K_Router_Route _Route, Integer _InOrOut) {
+	declare Integer Duration = 0;
+	if (_InOrOut == Transition::C_In) Duration = _Route.TransitionIn;
+	else if (_InOrOut == Transition::C_Out) Duration = _Route.TransitionOut;
+	Private_AddTransition(_Route.URL.Path, _Route.LayerId, Duration, _InOrOut);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set parent path of a route
+ *
+ *	@param	_Path											The path to update
+ *	@param	_ParentPath								The parent path to set
+ */
+Void SetParentPath(Text _Path, Text _ParentPath) {
+	if (!RouteExists(_Path)) return;
+
+	G_Routes[_Path].ParentURL.Path = _ParentPath;
+	G_Routes[_Path].ParentURL.QueryString = "";
+	G_Routes[_Path].ParentURL.Query = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set parent URL of a route
+ *
+ *	@param	_Path											The path to update
+ *	@param	_ParentUrl								The parent url to set
+ */
+Void SetParentURL(Text _Path, K_Router_URL _ParentURL) {
+	if (!RouteExists(_Path)) return;
+	G_Routes[_Path].ParentURL = _ParentURL;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the main user from the user manager
+Ident Private_GetMainUserId(CUserV2Manager _UserMgr) {
+	if (_UserMgr != Null && _UserMgr.MainUser != Null) return _UserMgr.MainUser.Id;
+	return NullId;
+}
+
+// Stop a privileges check
+K_RoutePrivilegesCheck RoutePrivilegesCheck_Stop(K_RoutePrivilegesCheck _RoutePrivilegesCheck) {
+	declare K_RoutePrivilegesCheck RoutePrivilegesCheck = _RoutePrivilegesCheck;
+	RoutePrivilegesCheck.PrivilegesCheck = Privileges::Check_Destroy(RoutePrivilegesCheck.PrivilegesCheck);
+	return RoutePrivilegesCheck;
+}
+
+// Start a check to see if the user has the required privileges
+K_RoutePrivilegesCheck RoutePrivilegesCheck_Start(
+	K_RoutePrivilegesCheck _RoutePrivilegesCheck,
+	Text _URL,
+	K_URL_Config _Config,
+	CPrivilegeMgr::EPrivilege[] _Privileges
+) {
+	RoutePrivilegesCheck_Stop(_RoutePrivilegesCheck);
+
+	declare Privileges::K_PrivilegeCheck[] Checks;
+	foreach (Privilege in _Privileges) {
+		Checks.add(Privileges::Check_Create(PrivilegeMgr, Private_GetMainUserId(UserMgr), Privilege));
+	}
+	declare K_RoutePrivilegesCheck RoutePrivilegesCheck = K_RoutePrivilegesCheck {
+		URL = _URL,
+		Config = _Config,
+		PrivilegesCheck = Privileges::Check_Group(Checks)
+	};
+
+	return RoutePrivilegesCheck;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send events alerting about a route update
+Void SendRouteUpdateEvents(K_Router_Route _PreviousRoute, K_Router_Route _CurrentRoute) {
+	Events::Send(C_Event_RouteUpdated, [_CurrentRoute.URL.Path, _CurrentRoute.ParentURL.Path]);
+	Events::Send(C_Event_RoutePushed, [_PreviousRoute.tojson(), _CurrentRoute.tojson()]);
+	declare CUILayer FromLayer <=> GetRouteLayer(_PreviousRoute);
+	if (FromLayer != Null) LayerCustomEvent(FromLayer, C_Event_AddPendingEvent, [C_Event_LeavingRoute]);
+	declare CUILayer ToLayer <=> GetRouteLayer(_CurrentRoute);
+	if (ToLayer != Null) LayerCustomEvent(ToLayer, C_Event_AddPendingEvent, [C_Event_EnteringRoute]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the privilege to apply on the route
+CPrivilegeMgr::EPrivilege[] GetRoutePrivileges(K_Router_URL _URL) {
+	declare CPrivilegeMgr::EPrivilege[] Privileges = G_RoutesPrivileges.get(_URL.Path, []);
+	declare CPrivilegeMgr::EPrivilege[] QueryPrivileges = Privileges::QueryToPrivileges(_URL.Query.get(C_Query_EnablePrivilege, ""));
+	foreach (Privilege in QueryPrivileges) {
+		if (!Privileges.exists(Privilege)) {
+			Privileges.add(Privilege);
+		}
+	}
+	QueryPrivileges = Privileges::QueryToPrivileges(_URL.Query.get(C_Query_DisablePrivilege, ""));
+	foreach (Privilege in QueryPrivileges) {
+		Privileges.remove(Privilege);
+	}
+	return Privileges;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the url are identical
+Boolean Private_IsSameURL(K_Router_URL _UrlA, K_Router_URL _UrlB) {
+	return (_UrlA.Path == _UrlB.Path && _UrlA.QueryString == _UrlB.QueryString);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable squads on specific pages
+Void Private_UpdateSquad(K_SquadConfig _SquadConfig, K_Router_URL _URL) {
+	declare Boolean SquadEnabled = _SquadConfig.EnabledPathList.exists(_URL.Path);
+	if (SquadEnabled) {
+		// The squad id can be left blank in the `Squad_SetType()` function. The squad type set here will be used to create the squad when the `Squad_SetEnabled()` function is called below.
+		if (_SquadConfig.QueryParameterMode == "") {
+			UserMgr.Squad_SetType(Private_GetMainUserId(UserMgr), "", _SquadConfig.ModeSquadTypeList.get(Config::Get().RankedMode, ""));
+		} else {
+			UserMgr.Squad_SetType(Private_GetMainUserId(UserMgr), "", _SquadConfig.ModeSquadTypeList.get(_URL.Query.get(_SquadConfig.QueryParameterMode, Config::Get().RankedMode), ""));
+		}
+	}
+	UserMgr.Squad_SetEnabled(Private_GetMainUserId(UserMgr), SquadEnabled);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Navigate to the given URL
+ *
+ *	@param	_URL													The URL to reach
+ *	@param	_Config												Config of URL push
+ *		- SaveHistory												Add a record in the history or not
+ *		- ResetPreviousPagesDisplayed				True to reset the pages in the background, False otherwise
+ *		- KeepPreviousPagesDisplayed				True to keep the pages in the background, False otherwise
+ *		- HidePreviousPage									True to hide the previous page anyway, False otherwise
+ *																				Only taken into account if KeepPreviousPagesDisplayed is at True
+ *	@param	_CheckPrivileges							Start a check to see if the user has the required privileges to access the route
+ */
+Void Private_Push(Text _URL, K_URL_Config _Config, Boolean _CheckPrivileges) {
+	declare K_Router_URL URL = ParseURL(_URL);
+
+	// Apply redirection
+	if (G_Redirections.existskey(URL.Path)) {
+		URL.Path = G_Redirections[URL.Path];
+	}
+
+	// Skip if we are already on the requested route
+	if (Private_IsSameURL(G_CurrentRoute.URL, URL)) return;
+
+	// Check if the user needs some privileges to access the route
+	declare CPrivilegeMgr::EPrivilege[] Privileges;
+	if (_CheckPrivileges) {
+		Privileges = GetRoutePrivileges(URL);
+	}
+	if (Privileges.count > 0) {
+		G_RoutePrivelegesCheck = RoutePrivilegesCheck_Start(G_RoutePrivelegesCheck, _URL, _Config, Privileges);
+	} else {
+		G_RoutePrivelegesCheck = RoutePrivilegesCheck_Stop(G_RoutePrivelegesCheck);
+	}
+
+	if (!Privileges::Check_IsComplete(G_RoutePrivelegesCheck.PrivilegesCheck)) return;
+
+	// Hide previous page
+	declare K_Router_Route PreviousRoute = G_CurrentRoute;
+	if (!_Config.KeepPreviousPagesDisplayed || _Config.HidePreviousPage) {
+		if (PreviousRoute.TransitionOut > 0) {
+			Private_AddTransition(PreviousRoute, Transition::C_Out);
+		} else {
+			declare CUILayer FromLayer <=> GetRouteLayer(PreviousRoute);
+			if (FromLayer != Null) {
+				FromLayer.IsVisible = False;
+			}
+		}
+		G_CurrentDeactivatedPaths.remove(URL.Path);
+	}
+
+	if (!_Config.KeepPreviousPagesDisplayed) {
+		if (_Config.ResetPreviousPagesDisplayed) {
+			foreach (DeactivatedPath in G_CurrentDeactivatedPaths) {
+				declare CUILayer DeactivatedPathLayer = GetRouteLayer(DeactivatedPath);
+				if (DeactivatedPathLayer != Null) {
+					DeactivatedPathLayer.IsVisible = False;
+				}
+			}
+			G_CurrentDeactivatedPaths = [];
+		}
+	} else if (!_Config.HidePreviousPage) {
+		G_CurrentDeactivatedPaths.add(G_CurrentRoute.URL.Path);
+	}
+
+	// Show new page
+	if (RouteExists(URL.Path)) {
+		G_CurrentRoute = G_Routes[URL.Path];
+		G_CurrentRoute.URL = URL;
+
+		if (_Config.SaveHistory) {
+			if (G_HistoryKey <= G_History.count - 1) {
+				G_History = G_History.slice(0, G_HistoryKey + 1);
+			}
+			G_History.add(G_CurrentRoute);
+			while (G_History.count > C_HistorySize) {
+				G_History.removekey(0);
+			}
+			G_HistoryKey = G_History.count - 1;
+		}
+
+		if (_Config.ShowParentPage) {
+			declare CUILayer ParentPathLayer = GetRouteLayer(G_CurrentRoute.ParentURL.Path);
+			if (ParentPathLayer != Null) {
+				ParentPathLayer.IsVisible = _Config.ShowParentPage;
+			}
+			G_CurrentDeactivatedPaths.add(G_CurrentRoute.ParentURL.Path);
+		}
+
+		declare K_Router_Route Router_CurrentRoute for LocalUser = K_Router_Route {};
+		declare K_Router_Route[] Router_History for LocalUser = [];
+		declare Integer Router_HistoryKey for LocalUser = 0;
+		declare Text[] Router_CurrentDeactivatedPaths for LocalUser = [];
+		Router_CurrentRoute = G_CurrentRoute;
+		Router_History = G_History;
+		Router_HistoryKey = G_HistoryKey;
+		Router_CurrentDeactivatedPaths = G_CurrentDeactivatedPaths;
+
+		if (G_CurrentRoute.TransitionIn > 0) {
+			Private_AddTransition(G_CurrentRoute, Transition::C_In);
+		} else {
+			declare CUILayer ToLayer <=> GetRouteLayer(G_CurrentRoute);
+			if (ToLayer != Null) {
+				ToLayer.IsVisible = True;
+			}
+		}
+
+		// Text to speech
+		if (G_TTSContextIdent == NullId) G_TTSContextIdent = TTS_Context_Enter(TextToSpeech::C_ContextLevel_Router);
+		TTS_Context_Change(G_TTSContextIdent, G_CurrentRoute.URL.Path, False);
+	} else {
+		declare K_Router_Route EmptyRoute;
+		G_CurrentRoute = EmptyRoute;
+		Log::Error("""[Router] Trying to reach a route that does not exist. Path : {{{URL.Path}}}""");
+	}
+
+	// Remove old overlays...
+	declare K_Overlay[Text] TmpOverlays = G_CurrentOverlays;
+	foreach (Overlay in TmpOverlays) {
+		// ...if they aren't defined in the current route, or if they are excluded in the Push's config
+		if (!G_CurrentRoute.Overlays.exists(Overlay.Name) || _Config.ExcludeOverlays.exists(Overlay.Name)) {
+			G_CurrentOverlays.removekey(Overlay.Name);
+			if (Overlay.TransitionOut > 0) {
+				Private_AddTransition(Overlay, Transition::C_Out);
+			} else {
+				declare CUILayer OverlayLayer <=> GetOverlayLayer(Overlay);
+				if (OverlayLayer != Null) {
+					OverlayLayer.IsVisible = False;
+				}
+			}
+		}
+	}
+	// Add new overlays...
+	foreach (Name in G_CurrentRoute.Overlays) {
+		// ...if they aren't currently being displayed, if they have been created, and if they haven't been excluded in the Push's config.
+		if (!G_CurrentOverlays.existskey(Name) && G_Overlays.existskey(Name) && !_Config.ExcludeOverlays.exists(Name)) {
+			declare K_Overlay Overlay = G_Overlays[Name];
+			G_CurrentOverlays[Name] = Overlay;
+
+			if (Overlay.TransitionIn > 0) {
+				Private_AddTransition(Overlay, Transition::C_In);
+			} else {
+				declare CUILayer OverlayLayer <=> GetOverlayLayer(Name);
+				if (OverlayLayer != Null) {
+					OverlayLayer.IsVisible = True;
+				}
+			}
+		}
+	}
+	foreach (Overlay in G_Overlays) {
+		// ...if they aren't currently being displayed, and if they haven't been excluded from the route or in the Push's config.
+		if (
+			Overlay.Global &&
+			!G_CurrentOverlays.existskey(Overlay.Name) &&
+			!G_CurrentRoute.ExcludedOverlays.exists(Overlay.Name) &&
+			!_Config.ExcludeOverlays.exists(Overlay.Name)
+		) {
+			G_CurrentOverlays[Overlay.Name] = Overlay;
+
+			if (Overlay.TransitionIn > 0) {
+				Private_AddTransition(Overlay, Transition::C_In);
+			} else {
+				declare CUILayer OverlayLayer <=> GetOverlayLayer(Overlay);
+				if (OverlayLayer != Null) {
+					OverlayLayer.IsVisible = True;
+				}
+			}
+		}
+	}
+
+	Tracking::SetMenuPage(UserMgr, TrackingMgr, System, G_CurrentRoute.URL.Path, G_CurrentRoute.URL.Query.get(C_Query_MenuSection, ""));
+	Private_UpdateSquad(G_SquadConfig, G_CurrentRoute.URL);
+
+	SendRouteUpdateEvents(PreviousRoute, G_CurrentRoute);
+}
+Void Private_Push(Text _URL, K_URL_Config _Config) {
+	Private_Push(_URL, _Config, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Navigate to the given URL and
+ *	add an entry in the history stack
+ *
+ *	@param	_URL											The URL to reach
+ */
+Void Push(Text _URL) {
+	Private_Push(_URL, K_URL_Config {
+		SaveHistory = True,
+		ResetPreviousPagesDisplayed = True,
+		KeepPreviousPagesDisplayed = False,
+		HidePreviousPage = True,
+		ShowParentPage = False,
+		ExcludeOverlays = []
+	});
+}
+Void Push(Text _URL, K_URL_Config _Config) {
+	Private_Push(_URL, _Config);
+}
+Void Push(Text _URL, Boolean _KeepPreviousPagesDisplayed, Boolean _HidePreviousPage) {
+	Private_Push(_URL, K_URL_Config {
+		SaveHistory = True,
+		ResetPreviousPagesDisplayed = True,
+		KeepPreviousPagesDisplayed = _KeepPreviousPagesDisplayed,
+		HidePreviousPage = _HidePreviousPage,
+		ShowParentPage = False,
+		ExcludeOverlays = []
+	});
+}
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Navigate to the given URL with the given query and
+ *	add an entry in the history stack
+ *
+ *	@param	_URL											The URL to reach
+ *	@param	_Query										The query to add to the URL
+ */
+Void Push(Text _URL, Text[Text] _Query) {
+	declare Text URL = CreateURL(_URL, _Query);
+	Push(URL);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Go to the parent route of the given
+ *	route
+ *
+ *	@param	_Route										The child route
+ *	@param	_Query										An optionnal query to append to the parent url
+ */
+Void PushParent(K_Router_Route _Route, Text[Text] _Query, K_URL_Config _Config) {
+	Push(CreateURL(_Route.ParentURL.Path, _Query), _Config);
+}
+Void PushParent(K_Router_Route _Route, Text[Text] _Query) {
+	Push(CreateURL(_Route.ParentURL.Path, _Query));
+}
+Void PushParent(K_Router_Route _Route) {
+	Push(CreateURL(_Route.ParentURL));
+}
+Void PushParent(Text _URL, Text[Text] _Query, K_URL_Config _Config) {
+	declare K_Router_URL URL = ParseURL(_URL);
+	if (RouteExists(URL.Path)) {
+		PushParent(G_Routes[URL.Path], _Query, _Config);
+	}
+}
+Void PushParent(Text _URL, Text[Text] _Query) {
+	declare K_Router_URL URL = ParseURL(_URL);
+	if (RouteExists(URL.Path)) {
+		PushParent(G_Routes[URL.Path], _Query);
+	}
+}
+Void PushParent(Text _URL) {
+	declare K_Router_URL URL = ParseURL(_URL);
+	if (RouteExists(URL.Path)) {
+		PushParent(G_Routes[URL.Path]);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Go forward or backward in the history
+ *	Fails if there aren't enough records
+ *
+ *	@param	_Steps										A positive value will go forward
+ *																		A negative value will go backward
+ */
+Void Go(Integer _Steps) {
+	declare Integer NewHistoryKey = G_HistoryKey + _Steps;
+	if (!G_History.existskey(NewHistoryKey)) return;
+
+	G_HistoryKey = NewHistoryKey;
+
+	Private_Push(CreateURL(G_History[G_HistoryKey]), K_URL_Config {
+		SaveHistory = True,
+		ResetPreviousPagesDisplayed = False,
+		KeepPreviousPagesDisplayed = False,
+		HidePreviousPage = True,
+		ShowParentPage = False,
+		ExcludeOverlays = []
+	});
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the history of the router
+ *
+ *	@return														The latest routes visited with the router
+ */
+K_Router_Route[] GetHistory() {
+	return G_History;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the current position of the router
+ *	in the history
+ *
+ *	@return														The history key
+ */
+Integer GetHistoryKey() {
+	return G_HistoryKey;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the manialink to display during the preload
+Text Private_GetHidingLayerML(Real _ZIndex) {
+	return MV::Create(
+		C_HidingLayer_Name, 3,
+		"""
+<frame z-index="{{{_ZIndex}}}">
+	<quad z-index="0" size="320 180" fullscreen="1" halign="center" valign="center" bgcolor="000000" scriptevents="1" />
+	<frameinstance id="loading-spinner-preload" pos="150 -80" z-index="1" modelid="{{{LoadingSpinner::C_Name}}}" />
+</frame>
+		""",
+		"""
+		""",
+		"""
+***MainStart***
+***
+{{{LoadingSpinner::P}}}StartAnimation(This, Page.GetFirstChild("loading-spinner-preload"));
+***
+		""",
+		[LoadingSpinner::ComponentV2()],
+		[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Preload all routes to avoid freeze later on
+K_RouterPreload StartPreload(Real _ZIndex) {
+	declare K_RouterPreload RouterPreload = K_RouterPreload {
+		Routes = [],
+		LayerId = NullId
+	};
+
+	// Create a layer to hide the preloading
+	declare CUILayer HidingLayer <=> UILayerCreate();
+	if (HidingLayer != Null) {
+		RouterPreload.LayerId = HidingLayer.Id;
+		HidingLayer.ManialinkPage = Private_GetHidingLayerML(_ZIndex);
+		HidingLayer.Type = CUILayer::EUILayerType::Normal;
+		HidingLayer.IsVisible = True;
+	}
+
+	foreach (Route in G_Routes) {
+		declare K_Router_Route RouteToPreload = Route;
+		RouteToPreload.PreloadStatus = C_PreloadStatus_NotPreloaded;
+		RouterPreload.Routes.add(RouteToPreload);
+	}
+
+	declare Boolean Router_IsPreloadDone for LocalUser = False;
+	Router_IsPreloadDone = False;
+
+	return RouterPreload;
+}
+K_RouterPreload StartPreload() {
+	return StartPreload(C_HidingLayer_ZIndex);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the router preloading. Yield between each call.
+K_RouterPreload UpdatePreload(K_RouterPreload _RouterPreload) {
+	declare K_RouterPreload RouterPreload = _RouterPreload;
+
+	declare Boolean YieldPreload = False;
+	while (RouterPreload.Routes.count > 0 && !YieldPreload) {
+		declare K_Router_Route Route = RouterPreload.Routes[0];
+
+		if (Route.PreloadStatus == C_PreloadStatus_NotPreloaded) {
+			declare CUILayer Layer = GetRouteLayer(Route);
+			declare Boolean LayerWasVisible = False;
+			if (Layer != Null) {
+				LayerWasVisible = Layer.IsVisible;
+				Layer.IsVisible = True;
+			}
+			if (LayerWasVisible) {
+				RouterPreload.Routes[0].PreloadStatus = C_PreloadStatus_PreloadingVisible;
+			} else {
+				RouterPreload.Routes[0].PreloadStatus = C_PreloadStatus_PreloadingNotVisible;
+			}
+			YieldPreload = True;
+		} else if (Route.PreloadStatus == C_PreloadStatus_PreloadingVisible) {
+			declare CUILayer Layer = GetRouteLayer(Route);
+			if (Layer != Null) Layer.IsVisible = True;
+			RouterPreload.Routes.removekey(0);
+		} else if (Route.PreloadStatus == C_PreloadStatus_PreloadingNotVisible) {
+			declare CUILayer Layer = GetRouteLayer(Route);
+			if (Layer != Null) Layer.IsVisible = False;
+			RouterPreload.Routes.removekey(0);
+		} else {
+			RouterPreload.Routes.removekey(0);
+		}
+	}
+
+	return RouterPreload;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the router is still preloading
+Boolean IsPreloading(K_RouterPreload _RouterPreload) {
+	return _RouterPreload.Routes.count > 0;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Finish the router preloading
+K_RouterPreload StopPreload(K_RouterPreload _RouterPreload) {
+	declare K_RouterPreload RouterPreload = _RouterPreload;
+
+	declare Boolean Router_IsPreloadDone for LocalUser = False;
+	Router_IsPreloadDone = True;
+
+	if (RouterPreload.LayerId != NullId && UILayers.existskey(RouterPreload.LayerId)) {
+		UILayerDestroy(UILayers[RouterPreload.LayerId]);
+	}
+	RouterPreload.LayerId = NullId;
+
+	return RouterPreload;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the squadding system configuration
+ *
+ * @param _Paths - The paths on which the squadding system will be enabled
+ * @param _QueryParameterMode - The query parameter used to select the game mode to play
+ * @param _ModeSquadTypeList - The squad type to use for each mode
+ */
+Void SetSquadConfig(Text[] _EnabledPathList, Text _QueryParameterMode, Text[Text] _ModeSquadTypeList) {
+	G_SquadConfig.EnabledPathList = _EnabledPathList;
+	G_SquadConfig.QueryParameterMode = _QueryParameterMode;
+	G_SquadConfig.ModeSquadTypeList = _ModeSquadTypeList;
+	Private_UpdateSquad(G_SquadConfig, G_CurrentRoute.URL);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the router at each frame
+Void Yield() {
+	// Manage events from layer
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			switch (Event.CustomEventType) {
+				case C_Event_Push: {
+					declare Text URL = "";
+					declare K_URL_Config Config;
+					if (Event.CustomEventData.existskey(0)) {
+						URL = Event.CustomEventData[0];
+					}
+					if (Event.CustomEventData.existskey(1)) {
+						declare Text[Text] Query;
+						Query.fromjson(Event.CustomEventData[1]);
+						URL = CreateURL(URL, Query);
+					}
+					if (Event.CustomEventData.existskey(2)) {
+						Config.fromjson(Event.CustomEventData[2]);
+					}
+					Config.SaveHistory = True;
+					Config.ResetPreviousPagesDisplayed = True;
+					Push(URL, Config);
+				}
+				case C_Event_PushParent: {
+					declare Text URL = "";
+					if (Event.CustomEventData.existskey(0)) {
+						URL = Event.CustomEventData[0];
+					}
+					if (Event.CustomEventData.existskey(1)) {
+						declare Text[Text] Query;
+						Query.fromjson(Event.CustomEventData[1]);
+						if (Event.CustomEventData.existskey(2)) {
+							declare K_URL_Config Config;
+							Config.fromjson(Event.CustomEventData[2]);
+							PushParent(URL, Query, Config);
+						} else {
+							PushParent(URL, Query);
+						}
+					} else {
+						PushParent(URL);
+					}
+				}
+				case C_Event_Go: {
+					declare Integer Steps = 0;
+					if (Event.CustomEventData.existskey(0)) {
+						Steps = TL::ToInteger(Event.CustomEventData[0]);
+					}
+					Go(Steps);
+				}
+				case C_Event_SetParentPath: {
+					if (Event.CustomEventData.count > 1) {
+						SetParentPath(Event.CustomEventData[0], Event.CustomEventData[1]);
+					}
+				}
+				case C_Event_SetParentURL: {
+					if (Event.CustomEventData.count > 1) {
+						declare K_Router_URL URL;
+						URL.fromjson(Event.CustomEventData[1]);
+						SetParentURL(Event.CustomEventData[0], URL);
+					}
+				}
+				case C_Event_OverlayUpdateData: {
+					if (Event.CustomEventData.count > 1) {
+						declare Text RoutePath = Event.CustomEventData[0];
+						if (RoutePath == GetCurrentRoutePath()) {
+							declare CUILayer PageLayer <=> GetCurrentRouteLayer();
+							LayerCustomEvent(PageLayer, C_Event_AddPendingEvent, [C_Event_OverlayEmptyHistory]);
+							continue;
+						}
+						declare CUILayer OverlayLayer <=> GetOverlayLayer(RoutePath);
+						LayerCustomEvent(OverlayLayer, C_Event_AddPendingEvent, [C_Event_OverlayUpdateData, Event.CustomEventData[1]]);
+						declare Text[Text] TempData;
+						declare CUILayer PageLayer <=> GetCurrentRouteLayer();
+						TempData.fromjson(Event.CustomEventData[1]);
+						TempData[C_Event_OverlayUpdateData] = RoutePath;
+						LayerCustomEvent(PageLayer, C_Event_AddPendingEvent, [C_Event_OverlayUpdateData, TempData.tojson()]);
+					}
+				}
+				case C_Event_OverlayUpdateParent: {
+					if (Event.CustomEventData.count > 1) {
+						declare Text RoutePath = Event.CustomEventData[0];
+						declare CUILayer OverlayLayer <=> GetOverlayLayer(RoutePath);
+						LayerCustomEvent(OverlayLayer, C_Event_AddPendingEvent, [C_Event_OverlayUpdateParent, Event.CustomEventData[1]]);
+					}
+				}
+				case C_Event_OverlayLocked: {
+					if (Event.CustomEventData.count > 1) {
+						LockOverlay(Event.CustomEventData[0], Event.CustomEventData[1] == "1");
+					}
+				}
+			}
+		}
+	}
+
+	// Manage transitions
+	declare Text[] TransitionsToRemove;
+	foreach (TransitionId => Transition in G_Transitions) {
+		if (Now >= Transition.EndTime) {
+			TransitionsToRemove.add(TransitionId);
+		}
+	}
+	foreach (TransitionId in TransitionsToRemove) {
+		Private_RemoveTransition(TransitionId);
+	}
+
+	// Manage privileges check
+	if (!Privileges::Check_IsComplete(G_RoutePrivelegesCheck.PrivilegesCheck)) {
+		G_RoutePrivelegesCheck.PrivilegesCheck = Privileges::Check_Update(G_RoutePrivelegesCheck.PrivilegesCheck);
+		if (Privileges::Check_IsComplete(G_RoutePrivelegesCheck.PrivilegesCheck)) {
+			G_RoutePrivelegesCheck.PrivilegesCheck = Privileges::Check_Destroy(G_RoutePrivelegesCheck.PrivilegesCheck);
+			if (Privileges::Check_HasPrivilege(G_RoutePrivelegesCheck.PrivilegesCheck)) {
+				Private_Push(G_RoutePrivelegesCheck.URL, G_RoutePrivelegesCheck.Config, False);
+			} else {
+				// If the user misses a privilege to access the page, try to go to the parent page instead
+				declare K_Router_URL URL = ParseURL(G_RoutePrivelegesCheck.URL);
+				if (
+					RouteExists(URL.Path) &&
+					RouteExists(G_Routes[URL.Path].ParentURL.Path) &&
+					!Private_IsSameURL(G_CurrentRoute.URL, G_Routes[URL.Path].ParentURL)
+				) {
+					Push(CreateURL(G_Routes[URL.Path].ParentURL));
+				} else {
+					// Trigger the route update events to avoid soft lock in pages that think that the route changed
+					SendRouteUpdateEvents(G_CurrentRoute, G_CurrentRoute);
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the router
+Void Unload() {
+	DestroyAllRoutes();
+	G_Routes = [];
+	declare K_Router_Route EmptyRoute;
+	G_CurrentRoute = EmptyRoute;
+	G_History = [];
+	G_HistoryKey = -1;
+	G_CurrentDeactivatedPaths = [];
+
+	declare K_Router_Route Router_CurrentRoute for LocalUser = K_Router_Route {};
+	declare K_Router_Route[] Router_History for LocalUser = [];
+	declare Integer Router_HistoryKey for LocalUser = 0;
+	declare Text[] Router_CurrentDeactivatedPaths for LocalUser = [];
+	Router_CurrentRoute = G_CurrentRoute;
+	Router_History = G_History;
+	Router_HistoryKey = G_HistoryKey;
+	Router_CurrentDeactivatedPaths = G_CurrentDeactivatedPaths;
+
+	DestroyAllOverlays();
+	G_Overlays = [];
+	G_CurrentOverlays = [];
+
+	G_Transitions = [];
+
+	G_Redirections = [];
+
+	declare Boolean Router_IsPreloadDone for LocalUser = False;
+	Router_IsPreloadDone = False;
+
+	G_TTSContextIdent = TTS_Context_Leave(G_TTSContextIdent);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the router
+Void Load() {
+	Unload();
+}
