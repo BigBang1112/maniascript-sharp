@@ -1162,41 +1162,6 @@ declare Real Z = V3.Z;
 declare Real First = V3[0];
 ```
 
-## Classes and Aliases
-
-### Regular Assignment (Pointer by Id)
-
-C#:
-```cs
-var bestPlayer = Players[0]; // Resolves to the player's Id at this moment
-Players[1].Score += 1000;
-Log(bestPlayer.Login);       // Still logs original player
-```
-ManiaScript:
-```
-declare BestPlayer = Players[0];
-Players[1].Score += 1000;
-log(BestPlayer.Login); // Still logs Alice
-```
-
-### Alias Assignment (`<=>`)
-
-For cases where you want a live reference to an expression (not the resolved value):
-
-C#:
-```cs
-// Use a special Alias<T> wrapper or attribute
-[Alias]
-var bestPlayer = Players[0]; // Always means "player at index 0"
-```
-ManiaScript:
-```
-declare BestPlayer <=> Players[0];
-// BestPlayer always resolves to whoever is currently at index 0
-```
-
-> When in doubt, use regular assignment (`=`). Aliases are advanced and can produce surprising behavior.
-
 ### Null Checks
 
 C#:
@@ -1799,85 +1764,6 @@ Console.WriteLine(score);
 ManiaScript:
 ```
 log(Score);
-```
-
-## Game Mode Structure
-
-### Execution Hierarchy
-
-```
-Server → Match → Map → Round → Turn → PlayLoop
-```
-
-### Complete Game Mode Example
-
-C#:
-```cs
-[Include("Libs/Nadeo/Message.Script.txt", As = "Message")]
-[Include("TextLib", As = "TextLib")]
-[Setting(As = "Time limit")]
-public class MyMode : CTmMode, IContext
-{
-    [Setting(As = "Time limit")]
-    const int TimeLimit = 600;
-
-    [Setting(As = "Points limit")]
-    const int PointLimit = 25;
-
-    public int CurrentRound;
-
-    public virtual void StartMap()
-    {
-        CurrentRound = 0;
-        UIManager.UIAll.UISequence = CUIConfig.EUISequence.Playing;
-    }
-
-    public virtual void PlayLoop()
-    {
-        foreach (var ev in PendingEvents)
-        {
-            // handle events
-        }
-    }
-
-    public virtual void EndMap()
-    {
-        Log("Map ended");
-    }
-
-    public void Main() { }
-    public void Loop() { }
-}
-```
-ManiaScript:
-```
-#RequireContext CTmMode
-
-#Include "Libs/Nadeo/Message.Script.txt" as Message
-#Include "TextLib" as TextLib
-
-#Setting S_TimeLimit 600 as _("Time limit")
-#Setting S_PointLimit 25 as _("Points limit")
-
-declare Integer G_CurrentRound;
-
-***Match_StartMap***
-***
-G_CurrentRound = 0;
-UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
-***
-
-***Match_PlayLoop***
-***
-foreach (Event in PendingEvents) {
-    // handle events
-}
-***
-
-***Match_EndMap***
-***
-log("Map ended");
-***
 ```
 
 ## Quick Reference Table
