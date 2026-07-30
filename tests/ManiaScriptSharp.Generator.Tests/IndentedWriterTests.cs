@@ -1,3 +1,4 @@
+using System;
 using ManiaScriptSharp.Generator.Emission;
 using Xunit;
 
@@ -10,7 +11,7 @@ public class IndentedWriterTests
     {
         var w = new IndentedWriter();
         w.Line("hello");
-        Assert.Equal("hello\r\n", w.ToString());
+        Assert.Equal("hello" + Environment.NewLine, w.ToString());
     }
 
     [Fact]
@@ -18,7 +19,7 @@ public class IndentedWriterTests
     {
         var w = new IndentedWriter();
         w.Line();
-        Assert.Equal("\r\n", w.ToString());
+        Assert.Equal(Environment.NewLine, w.ToString());
     }
 
     [Fact]
@@ -54,7 +55,7 @@ public class IndentedWriterTests
         var w = new IndentedWriter(useSpaces: false, indentSize: 1);
         w.Push();
         w.Line("x");
-        Assert.Equal("\tx\r\n", w.ToString());
+        Assert.Equal("\tx" + Environment.NewLine, w.ToString());
     }
 
     [Fact]
@@ -63,7 +64,7 @@ public class IndentedWriterTests
         var w = new IndentedWriter(useSpaces: true, indentSize: 4);
         w.Push();
         w.Line("y");
-        Assert.Equal("    y\r\n", w.ToString());
+        Assert.Equal("    y" + Environment.NewLine, w.ToString());
     }
 
     [Fact]
@@ -73,7 +74,7 @@ public class IndentedWriterTests
         w.Push();
         w.Push();
         w.Line("z");
-        Assert.Equal("\t\tz\r\n", w.ToString());
+        Assert.Equal("\t\tz" + Environment.NewLine, w.ToString());
     }
 
     [Fact]
@@ -83,7 +84,7 @@ public class IndentedWriterTests
         w.Push();
         w.Line();
         // Blank lines should have no leading whitespace
-        Assert.Equal("\r\n", w.ToString());
+        Assert.Equal(Environment.NewLine, w.ToString());
     }
 
     [Fact]
@@ -101,6 +102,6 @@ public class IndentedWriterTests
         var w = new IndentedWriter(useSpaces: false, indentSize: 2);
         w.Push();
         w.Line("a");
-        Assert.Equal("\t\ta\r\n", w.ToString());
+        Assert.Equal("\t\ta" + Environment.NewLine, w.ToString());
     }
 }
