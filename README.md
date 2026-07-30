@@ -1335,11 +1335,16 @@ must exist for `#Include "MathLib" as MathLib` to be emitted):
 
 ### Custom Libraries
 
+A custom library is a class implementing `ILib` (or `ILib<T>` when it needs the calling
+context). Add it as a field on the consuming class — any public/internal field whose type
+implements `ILib` is auto-`#Include`d, using the field name (PascalCase) as the alias:
+
 C#:
 ```cs
-[Include("Libs/Nadeo/Message.Script.txt", As = "Message")]
 public class MyMode : CTmMode, IContext
 {
+    public required Message Message;
+
     public void Main()
     {
         var version = Message.Version;
@@ -1355,7 +1360,10 @@ main() {
 }
 ```
 
-> Note: C# uses `.` for namespace access, ManiaScript uses `::`.
+> Note: C# uses `.` for member access on the lib field, ManiaScript uses `::` on the alias.
+> The `[Include]` attribute only emits a raw `#Include` directive — it does not give you a
+> callable/accessible member in C#. Use a lib-typed field for anything you actually call
+> into from code.
 
 ## Labels
 
@@ -1484,7 +1492,7 @@ public class MyManialink : CTmMlScriptIngame, IContext
     [ManialinkControl] public required CMlQuad QuadMapName;
     [ManialinkControl] public required CMlEntry EntryInput;
 
-    public MyManialink()
+    public void Main()
     {
         QuadMapName.MouseClick += () =>
         {
@@ -1531,7 +1539,7 @@ main() {
 }
 ```
 
-> Delegates, lambdas, and method references are all supported. Referencing a named method will call it rather than inlining contents.
+> Delegates, lambdas, and method references are all supported. Referencing a named method will call it rather than inlining contents. Subscriptions must be registered inside `Main()` — the generator only scans `Main()` for `+=` registrations.
 
 ## Manialink Bindings
 
