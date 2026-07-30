@@ -64,4 +64,20 @@ internal static class SymbolExtensions
         }
         return false;
     }
+
+    /// <summary>
+    /// Returns <see langword="true"/> when <paramref name="m"/> implements <c>IContext.Main()</c>
+    /// or <c>IContext.Loop()</c> — the two entry points invoked only by the generated
+    /// <c>main()</c> wrapper, never by user code.
+    /// </summary>
+    public static bool IsIContextEntryPoint(this IMethodSymbol? m)
+    {
+        if (m is null || m.Name is not ("Main" or "Loop") || m.Parameters.Length != 0) return false;
+        var iface = m.ContainingType?.AllInterfaces.FirstOrDefault(static i =>
+            i.Name == "IContext" && i.ContainingNamespace?.ToDisplayString() == "ManiaScriptSharp");
+        var ifaceMethod = iface?.GetMembers(m.Name).OfType<IMethodSymbol>().FirstOrDefault();
+        if (ifaceMethod is null) return false;
+        return SymbolEqualityComparer.Default.Equals(
+            m.ContainingType!.FindImplementationForInterfaceMember(ifaceMethod), m);
+    }
 }

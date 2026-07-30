@@ -19,13 +19,19 @@ internal sealed class MainEmitter
     {
         var main = _ctx.Info.Symbol.GetMembers("Main").OfType<IMethodSymbol>().FirstOrDefault();
         var loopRaw = _ctx.Info.Symbol.GetMembers("Loop").OfType<IMethodSymbol>().FirstOrDefault();
+        // [NoLoop] fully suppresses the while(True) wrapper for one-off scripts — Loop() is
+        // never emitted, even if it has a body.
+        var noLoop = _ctx.Info.Symbol.HasAttr("NoLoopAttribute");
         // A Loop() whose body is only `throw new NotImplementedException(...)` is treated as absent —
         // it is a placeholder stub and should not generate a while(True) loop.
-        var loop = (loopRaw is not null && IsNotImplementedStub(loopRaw)) ? null : loopRaw;
+        var loop = (noLoop || (loopRaw is not null && IsNotImplementedStub(loopRaw))) ? null : loopRaw;
         var bindings = _ctx.ManialinkBindings;
         var deferred = _ctx.DeferredInits;
         var eventRegs = _events.Collect();
-        var anyLoopBody = loop is not null || eventRegs.Count > 0;
+        var anyLoopBody = !noLoop && (loop is not null || eventRegs.Count > 0);
+
+        if (noLoop && eventRegs.Count > 0)
+            _ctx.Report(Diagnostics.NoLoopIgnoresEvents, _ctx.Info.Declaration.Identifier.GetLocation(), _ctx.Info.Symbol.Name);
 
         if (main is null && !anyLoopBody && bindings.Count == 0 && deferred.Count == 0)
             return;

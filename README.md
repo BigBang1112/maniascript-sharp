@@ -1195,7 +1195,9 @@ declare Player <=> Players[PlayerId];
 
 ## Contexts
 
-`IContext` generates the `main()` function with the main loop:
+`IContext` generates ManiaScript code from `Main()` (runs once) and `Loop()` (wrapped in `while(True) { yield; ... }`).
+
+ManiaScript only requires a `main()` entry point when the script also declares other functions — bare top-level statements aren't allowed alongside function definitions. So when the class defines nothing besides `Main()`/`Loop()`, the code is emitted directly at the top level, with no `main()` wrapper:
 
 C#:
 ```cs
@@ -1216,14 +1218,74 @@ ManiaScript:
 ```
 #RequireContext CTmMode
 
+// Main() contents here
+
+while (True) {
+    yield;
+    // Loop() contents here
+}
+```
+
+Once the class declares any other function, the generator wraps `Main()`/`Loop()` in `main()` so ManiaScript accepts the file:
+
+C#:
+```cs
+public class MyMode : CTmMode, IContext
+{
+    public void Main()
+    {
+        Setup();
+    }
+
+    public void Loop()
+    {
+        // Runs every frame inside while(True) { yield; ... }
+    }
+
+    void Setup() { }
+}
+```
+ManiaScript:
+```
+#RequireContext CTmMode
+
+Void Setup() {
+}
+
 main() {
-    // Main() contents here
+    Setup();
 
     while (True) {
         yield;
-        // Loop() contents here
     }
 }
+```
+
+### One-off Scripts (`NoLoopAttribute`)
+
+Add `NoLoopAttribute` on your class to suppress the generated `while(True) { yield; ... }` wrapper entirely. `Loop()` is never emitted, even if it has a body — useful for scripts that only need `Main()` to run once and then end.
+
+C#:
+```cs
+[NoLoop]
+public class MyOneOffScript : CTmMode, IContext
+{
+    public void Main()
+    {
+        // Runs once, script then ends — no while(True) loop is generated
+    }
+
+    public void Loop()
+    {
+        // Never emitted
+    }
+}
+```
+ManiaScript:
+```
+#RequireContext CTmMode
+
+// Main() contents here
 ```
 
 ## Inheritance (RequireContext & Extends)

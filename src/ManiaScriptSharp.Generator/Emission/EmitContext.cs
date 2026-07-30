@@ -84,10 +84,15 @@ internal sealed class EmitContext
         // _hasSpc stays false → Report() is a no-op
     }
 
+    /// <summary>Diagnostics reported via <see cref="Report"/>, kept regardless of <c>SourceProductionContext</c> availability so tests can assert on them.</summary>
+    public List<Diagnostic> ReportedDiagnostics { get; } = [];
+
     public void Report(DiagnosticDescriptor d, Location? loc, params object?[] args)
     {
+        var diagnostic = Diagnostic.Create(d, loc ?? Location.None, args);
+        ReportedDiagnostics.Add(diagnostic);
         if (_hasSpc)
-            Spc.ReportDiagnostic(Diagnostic.Create(d, loc ?? Location.None, args));
+            Spc.ReportDiagnostic(diagnostic);
     }
 }
 

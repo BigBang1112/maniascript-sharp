@@ -67,4 +67,20 @@ internal static class Diagnostics
         category: "ManiaScriptSharp",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor NoLoopIgnoresEvents = new(
+        id: "MSS009",
+        title: "Event registrations ignored due to [NoLoop]",
+        messageFormat: "'{0}' has [NoLoop] applied, so its registered event handlers will never run because the event-processing loop is not emitted.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor ContextEntryPointCalledDirectly = new(
+        id: "MSS010",
+        title: "IContext.Main/Loop called directly",
+        messageFormat: "'{0}()' is invoked by the generated main() wrapper and must not be called directly.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

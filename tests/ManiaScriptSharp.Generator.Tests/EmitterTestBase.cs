@@ -61,6 +61,34 @@ public class EmitterTestBase
     }
 
     /// <summary>
+    /// Like <see cref="TranslateExpr"/>, but allows a custom class header (e.g. <c>: IContext</c>)
+    /// and returns the diagnostics reported by <see cref="EmitContext.Report"/> alongside the output.
+    /// </summary>
+    protected static (string Output, IReadOnlyList<Diagnostic> Diagnostics) TranslateExprWithDiagnostics(
+        string csharpExpr, string extraClassMembers = "", string classHeader = "")
+    {
+        var code = $@"
+using System;
+using System.Collections.Generic;
+using ManiaScriptSharp;
+class Test {classHeader} {{
+    {extraClassMembers}
+    void M() {{
+        var __result__ = ({csharpExpr});
+    }}
+}}";
+        var (ctx, expr, _, _) = CreateEmitters(code);
+        var initExpr = ctx.Info.Model.SyntaxTree.GetRoot()
+            .DescendantNodes().OfType<VariableDeclaratorSyntax>()
+            .First(v => v.Identifier.Text == "__result__")
+            .Initializer!.Value;
+        if (initExpr is ParenthesizedExpressionSyntax pe)
+            initExpr = pe.Expression;
+        var output = expr.Translate(initExpr);
+        return (output, ctx.ReportedDiagnostics);
+    }
+
+    /// <summary>
     /// Compiles <paramref name="csharpExpr"/> as the RHS of a local variable initialiser
     /// and returns the ManiaScript translation produced by <see cref="ExpressionEmitter"/>.
     /// <paramref name="extraClassMembers"/> can supply fields/methods that the expression
@@ -207,13 +235,16 @@ class Test {{
     /// <paramref name="extraCode"/> may supply additional top-level type declarations that are
     /// visible to <c>Test</c> (e.g. a helper control type for external-event tests); the
     /// <c>Test</c> class must appear first so <c>CreateEmitters</c> selects it correctly.
+    /// <paramref name="classAttributes"/> may supply attributes (e.g. <c>[NoLoop]</c>) applied
+    /// directly above the <c>Test</c> class declaration.
     /// </summary>
-    protected static string EmitMain(string classBody, string extraCode = "")
+    protected static string EmitMain(string classBody, string extraCode = "", string classAttributes = "")
     {
         var code = $@"
 using System;
 using System.Collections.Generic;
 using ManiaScriptSharp;
+{classAttributes}
 class Test {{
     {classBody}
 }}

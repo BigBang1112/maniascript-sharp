@@ -259,6 +259,10 @@ internal sealed class ExpressionEmitter
         var callee = inv.Expression;
         var sym = _ctx.Model.GetSymbolInfo(callee).Symbol as IMethodSymbol;
 
+        // IContext.Main()/Loop() are invoked only by the generated main() wrapper.
+        if (sym.IsIContextEntryPoint())
+            _ctx.Report(Diagnostics.ContextEntryPointCalledDirectly, inv.GetLocation(), sym!.Name);
+
         // ManiaScriptSharp.ManiaScript.* helpers (also via `using static`).
         if (sym is not null && sym.ContainingType?.ToDisplayString() == "ManiaScriptSharp.ManiaScript")
         {

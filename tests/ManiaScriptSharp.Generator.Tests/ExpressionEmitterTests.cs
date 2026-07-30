@@ -367,4 +367,40 @@ public class ExpressionEmitterTests : EmitterTestBase
         var extra = "System.Runtime.CompilerServices.StrongBox<int> myVar;";
         Assert.Equal("MyVar = 42", TranslateExpr("myVar.Value = 42", extra));
     }
+
+    // ────────── IContext.Main()/Loop() direct-call restriction ──────────
+
+    [Fact]
+    public void Translate_DirectMainCall_ReportsDiagnostic()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics(
+            "Main()",
+            "public void Main() { } public void Loop() { }",
+            ": IContext");
+        Assert.Equal("Main()", output);
+        Assert.Contains(diagnostics, d => d.Id == "MSS010");
+    }
+
+    [Fact]
+    public void Translate_DirectLoopCall_ReportsDiagnostic()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics(
+            "Loop()",
+            "public void Main() { } public void Loop() { }",
+            ": IContext");
+        Assert.Equal("Loop()", output);
+        Assert.Contains(diagnostics, d => d.Id == "MSS010");
+    }
+
+    [Fact]
+    public void Translate_UnrelatedLoopMethodCall_NoDiagnostic()
+    {
+        // A method named "Loop" that does not implement IContext.Loop() is unrelated and allowed.
+        var (output, diagnostics) = TranslateExprWithDiagnostics(
+            "Loop()",
+            "public void Loop() { }");
+        Assert.Equal("Loop()", output);
+        Assert.DoesNotContain(diagnostics, d => d.Id == "MSS010");
+    }
 }
+

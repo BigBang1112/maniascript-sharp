@@ -89,6 +89,31 @@ public class EventEmitterTests : EmitterTestBase
         Assert.Contains("PendingEvents", output);
     }
 
+    [Fact]
+    public void EmitMain_NoLoopAttribute_SuppressesWhileLoopEvenWithBody()
+    {
+        // [NoLoop] fully suppresses the while(True) wrapper, and Loop()'s body is never emitted.
+        var output = EmitMain(
+            "void Loop() { Foo(); } void Foo() { }",
+            classAttributes: "[NoLoop]");
+        Assert.DoesNotContain("while", output);
+        Assert.DoesNotContain("Foo();", output);
+    }
+
+    [Fact]
+    public void EmitMain_NoLoopAttribute_SuppressesEventLoopToo()
+    {
+        // Registered events are also dropped along with the while loop when [NoLoop] is set.
+        var output = EmitMain(
+            $@"
+            {ClickDelegates}
+            void OnClick(string controlId) {{ }}
+            void Main() {{ Click += OnClick; }}",
+            classAttributes: "[NoLoop]");
+        Assert.DoesNotContain("while", output);
+        Assert.DoesNotContain("PendingEvents", output);
+    }
+
     // ────────── Main() body ──────────
 
     [Fact]
