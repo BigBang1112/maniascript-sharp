@@ -59,12 +59,6 @@ Edit the C# file, save, and the `.Script.txt` is rewritten automatically.
 - Add a new statement/expression in [ScriptEmitter.cs](src/ManiaScriptSharp.Generator/ScriptEmitter.cs).
 - Add new diagnostics in [Diagnostics.cs](src/ManiaScriptSharp.Generator/Diagnostics.cs).
 
-## Notes
-
-- The generator targets `netstandard2.0` (required by Roslyn).
-- Writing arbitrary files from a source generator is a side effect outside the canonical contract, but it is the de-facto pattern used by other "code-to-other-language" generators and is the simplest way to get real-time IDE updates without an external watcher.
-- The ManiaPlanet stubs are intentionally minimal. Expand them as you need — only the symbol names matter for translation.
-
 ---
 
 ## Table of Contents
@@ -291,42 +285,9 @@ public class MyMode : CTmMode, IContext
 
 ## Operators
 
-### Arithmetic
+All basic operators are supported.
 
-| C# | ManiaScript | Notes |
-|---|---|---|
-| `a + b` | `a + b` | Addition |
-| `a - b` | `a - b` | Subtraction |
-| `a * b` | `a * b` | Multiplication |
-| `a / b` | `a / b` | Division |
-| `a % b` | `a % b` | Modulo/Remainder |
-| `a += b` | `a += b` | Compound add |
-| `a -= b` | `a -= b` | Compound subtract |
-| `a *= b` | `a *= b` | Compound multiply |
-| `a /= b` | `a /= b` | Compound divide |
-
-> Mixing `int` and `float` produces `Real` in ManiaScript.
-
-### Boolean / Logical
-
-| C# | ManiaScript |
-|---|---|
-| `!a` | `!a` |
-| `a && b` | `a && b` |
-| `a \|\| b` | `a \|\| b` |
-
-### Comparison
-
-| C# | ManiaScript |
-|---|---|
-| `a == b` | `a == b` |
-| `a != b` | `a != b` |
-| `a < b` | `a < b` |
-| `a > b` | `a > b` |
-| `a <= b` | `a <= b` |
-| `a >= b` | `a >= b` |
-
-> Comparison operators `<`, `>`, `<=`, `>=` do not work with `Boolean` in ManiaScript.
+Mixing `int` and `float` produces `Real` in ManiaScript.
 
 ### Ternary (`?:`) and `??=`
 
