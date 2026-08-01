@@ -1495,17 +1495,17 @@ ManiaScript:
 wait(SomeCondition);
 ```
 
-### Practical Pattern (avoid missing events)
+### Practical Pattern (timeout with early exit)
 
 C#:
 ```cs
 var start = Now;
-Wait(() => Now > start + 1000 || PendingEvents.Count >= 1);
+Wait(() => Now > start + 1000);
 ```
 ManiaScript:
 ```
 declare Start = Now;
-wait(Now > Start + 1000 || PendingEvents.count >= 1);
+wait(Now > Start + 1000);
 ```
 
 ## Event Handling
