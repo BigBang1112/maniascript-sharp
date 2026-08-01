@@ -618,7 +618,7 @@ internal sealed class ExpressionEmitter
             or "System.Collections.Immutable.ImmutableArray<T>";
     }
 
-    private static bool IsDictionaryType(INamedTypeSymbol? t)
+    internal static bool IsDictionaryType(INamedTypeSymbol? t)
     {
         if (t is null) return false;
         var name = t.ConstructedFrom?.ToDisplayString() ?? t.ToDisplayString();

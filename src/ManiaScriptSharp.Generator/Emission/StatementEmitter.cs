@@ -211,6 +211,9 @@ internal sealed class StatementEmitter
             && _patterns.TryEmitDeclarationIf(ifs))
             return;
 
+        if (TryEmitDictionaryTryGetValueIf(ifs))
+            return;
+
         _ctx.W.Line($"if ({_expr.Translate(ifs.Condition)}) {{");
         _ctx.W.Push(); EmitInline(ifs.Statement); _ctx.W.Pop();
         if (ifs.Else is not null)
@@ -233,6 +236,70 @@ internal sealed class StatementEmitter
             }
         }
         _ctx.W.Line("}");
+    }
+
+    /// <summary>
+    /// Detects <c>if (dict.TryGetValue(key, out var value)) { ... }</c> (and its negated form
+    /// <c>if (!dict.TryGetValue(key, out var value)) { ... }</c>) and rewrites it using
+    /// ManiaScript's <c>existskey</c>/indexer, since ManiaScript has no out-parameter equivalent.
+    /// Returns <c>true</c> when the statement was consumed.
+    /// </summary>
+    private bool TryEmitDictionaryTryGetValueIf(IfStatementSyntax ifs)
+    {
+        var condition = ifs.Condition;
+        var negated = false;
+        if (condition is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } notExpr)
+        {
+            condition = notExpr.Operand;
+            negated = true;
+        }
+
+        if (condition is not InvocationExpressionSyntax inv) return false;
+        if (inv.Expression is not MemberAccessExpressionSyntax ma || ma.Name.Identifier.Text != "TryGetValue") return false;
+        if (_ctx.Model.GetSymbolInfo(inv).Symbol is not IMethodSymbol sym) return false;
+        if (!ExpressionEmitter.IsDictionaryType(sym.ContainingType)) return false;
+
+        var args = inv.ArgumentList.Arguments;
+        if (args.Count != 2) return false;
+        var outArg = args[1];
+        if (!outArg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)) return false;
+        if (outArg.Expression is not DeclarationExpressionSyntax decl) return false;
+        if (decl.Designation is not SingleVariableDesignationSyntax desig) return false;
+
+        var recv = _expr.Translate(ma.Expression);
+        var keyArg = _expr.Translate(args[0].Expression);
+        var valueName = NameMangler.Local(desig.Identifier.Text);
+        var msValueType = TypeMapper.Map(sym.Parameters[1].Type);
+
+        if (!negated)
+        {
+            _ctx.W.Line($"if ({recv}.existskey({keyArg})) {{");
+            _ctx.W.Push();
+            _ctx.W.Line($"declare {msValueType} {valueName} = {recv}[{keyArg}];");
+            EmitInline(ifs.Statement);
+            _ctx.W.Pop();
+            if (ifs.Else is not null)
+            {
+                _ctx.W.Line("} else {");
+                _ctx.W.Push(); EmitInline(ifs.Else.Statement); _ctx.W.Pop();
+            }
+            _ctx.W.Line("}");
+        }
+        else
+        {
+            // The value is only definitely assigned on the "exists" path, so declare it
+            // ahead of the if and assign it in the (possibly synthetic) else branch.
+            _ctx.W.Line($"declare {msValueType} {valueName};");
+            _ctx.W.Line($"if (!{recv}.existskey({keyArg})) {{");
+            _ctx.W.Push(); EmitInline(ifs.Statement); _ctx.W.Pop();
+            _ctx.W.Line("} else {");
+            _ctx.W.Push();
+            _ctx.W.Line($"{valueName} = {recv}[{keyArg}];");
+            if (ifs.Else is not null) EmitInline(ifs.Else.Statement);
+            _ctx.W.Pop();
+            _ctx.W.Line("}");
+        }
+        return true;
     }
 
     private void EmitForeach(ForEachStatementSyntax fes)

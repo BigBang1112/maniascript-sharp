@@ -297,6 +297,36 @@ public class StatementEmitterTests : EmitterTestBase
         Assert.Contains("} else if (X == 2) {", output);
     }
 
+    [Fact]
+    public void Emit_If_TryGetValue_Simple()
+    {
+        var output = TranslateStmt(
+            "if (dict.TryGetValue(key, out var value)) { }",
+            "System.Collections.Generic.Dictionary<string, int> dict; string key;");
+        Assert.Equal("if (Dict.existskey(Key)) {\n\tdeclare Integer Value = Dict[Key];\n}", output);
+    }
+
+    [Fact]
+    public void Emit_If_TryGetValue_WithElse()
+    {
+        var output = TranslateStmt(
+            "if (dict.TryGetValue(key, out var value)) { } else { }",
+            "System.Collections.Generic.Dictionary<string, int> dict; string key;");
+        Assert.Contains("if (Dict.existskey(Key)) {", output);
+        Assert.Contains("} else {", output);
+    }
+
+    [Fact]
+    public void Emit_If_TryGetValue_Negated()
+    {
+        var output = TranslateStmt(
+            "if (!dict.TryGetValue(key, out var value)) { return; }",
+            "System.Collections.Generic.Dictionary<string, int> dict; string key;");
+        Assert.Equal(
+            "declare Integer Value;\nif (!Dict.existskey(Key)) {\n\treturn;\n} else {\n\tValue = Dict[Key];\n}",
+            output);
+    }
+
     // ────────── Local declarations ──────────
 
     [Fact]

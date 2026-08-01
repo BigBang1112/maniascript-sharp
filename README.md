@@ -988,6 +988,28 @@ Scores["Leet"] = 13.37;
 declare Pi = Scores["Pi"];
 ```
 
+`TryGetValue` (in an `if`/`if (!...)` condition) is translated using `.existskey()` plus an indexer read, since ManiaScript has no out-parameter equivalent:
+
+C#:
+```cs
+if (scores.TryGetValue("Pi", out var pi)) { /* use pi */ }
+if (!scores.TryGetValue("Pi", out var pi)) { return; } // use pi below
+```
+ManiaScript:
+```
+if (Scores.existskey("Pi")) {
+    declare Real Pi = Scores["Pi"];
+    /* use Pi */
+}
+declare Real Pi;
+if (!Scores.existskey("Pi")) {
+    return;
+} else {
+    Pi = Scores["Pi"];
+}
+// use Pi below
+```
+
 ### Nested Collections
 
 C#:
