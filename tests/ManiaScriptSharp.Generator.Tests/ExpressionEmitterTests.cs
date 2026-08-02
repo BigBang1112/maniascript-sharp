@@ -165,8 +165,120 @@ public class ExpressionEmitterTests : EmitterTestBase
     [Fact]
     public void Translate_CastExpression_AsForm()
     {
-        // (int)x → cast emits as `(X as int)` because x is a private field (mangled to X)
-        Assert.Equal("(X as int)", TranslateExpr("(int)x", "object x;"));
+        // (int)x → cast emits as `(X as Integer)` because x is a private field (mangled to X)
+        // and the target type is mapped through TypeMapper, not emitted verbatim.
+        Assert.Equal("(X as Integer)", TranslateExpr("(int)x", "object x;"));
+    }
+
+     // ────────── Basic-type casts ──────────
+
+    [Fact]
+    public void Translate_Cast_IntToFloat_UsesMathLibToReal()
+    {
+        Assert.Equal("MathLib::ToReal(X)", TranslateExpr("(float)x", "int x;"));
+    }
+
+    [Fact]
+    public void Translate_Cast_FloatToInt_UsesMathLibTruncInteger()
+    {
+        // Explicit cast truncates toward zero, matching C# semantics.
+        Assert.Equal("MathLib::TruncInteger(X)", TranslateExpr("(int)x", "float x;"));
+    }
+
+    [Fact]
+    public void Translate_Cast_LongToInt_IsNoOp()
+    {
+        // Both map to ManiaScript's single Integer type.
+        Assert.Equal("X", TranslateExpr("(int)x", "long x;"));
+    }
+
+    [Fact]
+    public void Translate_Cast_DoubleToFloat_IsNoOp()
+    {
+        // Both map to ManiaScript's single Real type.
+        Assert.Equal("X", TranslateExpr("(float)x", "double x;"));
+    }
+
+    [Fact]
+    public void Translate_Cast_BoolToInt_Unsupported()
+    {
+        // ManiaScript has no ternary and no boolean-to-number function — no expression form exists.
+        Assert.Equal("/* cast from Boolean to Integer (ManiaScript has no boolean-to-number conversion; extract to an if/else assigning 1/0 explicitly) */", TranslateExpr("(int)x", "bool x;"));
+    }
+
+    [Fact]
+    public void Translate_Cast_IntToBool_ComparesNotEqualZero()
+    {
+        Assert.Equal("(X != 0)", TranslateExpr("(bool)x", "int x;"));
+    }
+
+    [Fact]
+    public void Translate_Cast_StringToInt_UsesTextLibToInteger()
+    {
+        Assert.Equal("TextLib::ToInteger(X)", TranslateExpr("(int)x", "string x;"));
+    }
+
+    [Fact]
+    public void Translate_Cast_StringToFloat_UsesTextLibToReal()
+    {
+        Assert.Equal("TextLib::ToReal(X)", TranslateExpr("(float)x", "string x;"));
+    }
+
+    [Fact]
+    public void Translate_Cast_IntToString_UsesTextLibToText()
+    {
+        Assert.Equal("TextLib::ToText(X)", TranslateExpr("(string)x", "int x;"));
+    }
+
+    [Fact]
+    public void Translate_Cast_StringToBool_ComparesToTrueLiteral()
+    {
+        Assert.Equal("(X == \"True\")", TranslateExpr("(bool)x", "string x;"));
+    }
+
+    // ────────── Convert.To* methods ──────────
+
+    [Fact]
+    public void Translate_ConvertToInt32_FromFloat_UsesMathLibNearestInteger()
+    {
+        // Convert.ToInt32 rounds (unlike an explicit cast, which truncates).
+        Assert.Equal("MathLib::NearestInteger(X)", TranslateExpr("Convert.ToInt32(x)", "float x;"));
+    }
+
+    [Fact]
+    public void Translate_ConvertToInt32_FromString_UsesTextLibToInteger()
+    {
+        Assert.Equal("TextLib::ToInteger(X)", TranslateExpr("Convert.ToInt32(x)", "string x;"));
+    }
+
+    [Fact]
+    public void Translate_ConvertToDouble_FromInt_UsesMathLibToReal()
+    {
+        Assert.Equal("MathLib::ToReal(X)", TranslateExpr("Convert.ToDouble(x)", "int x;"));
+    }
+
+    [Fact]
+    public void Translate_ConvertToString_FromBool_UsesTextLibToText()
+    {
+        Assert.Equal("TextLib::ToText(X)", TranslateExpr("Convert.ToString(x)", "bool x;"));
+    }
+
+    [Fact]
+    public void Translate_ConvertToInt32_FromBool_Unsupported()
+    {
+        Assert.Equal("/* Convert.ToInt32 from Boolean (ManiaScript has no boolean-to-number conversion; extract to an if/else assigning 1/0 explicitly) */", TranslateExpr("Convert.ToInt32(x)", "bool x;"));
+    }
+
+    [Fact]
+    public void Translate_ConvertToBoolean_FromInt_ComparesNotEqualZero()
+    {
+        Assert.Equal("(X != 0)", TranslateExpr("Convert.ToBoolean(x)", "int x;"));
+    }
+
+    [Fact]
+    public void Translate_ConvertToInt32_FromInt_IsNoOp()
+    {
+        Assert.Equal("X", TranslateExpr("Convert.ToInt32(x)", "int x;"));
     }
 
     [Fact]

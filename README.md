@@ -305,6 +305,40 @@ Using `?:` or `??=` anywhere else (e.g. nested inside another expression or as a
 argument) cannot be expressed in ManiaScript and is reported as an unsupported construct
 (`MSS003`) — extract it into its own statement first.
 
+### Casts
+
+ManiaScript has only one numeric type per family (`Integer`, `Real`) and no basic-type cast
+syntax, so explicit C# casts between `bool`/numeric/`string` types translate to a
+`MathLib`/`TextLib` conversion call (or a no-op when both sides map to the same ManiaScript
+type). `System.Convert.ToXxx(value)` uses the same table, except Real→Integer **rounds**
+instead of truncating, matching `Convert.ToInt32` semantics:
+
+| C# | ManiaScript |
+|---|---|
+| `(float)intValue` | `MathLib::ToReal(IntValue)` |
+| `(int)floatValue` | `MathLib::TruncInteger(FloatValue)` (truncates toward zero) |
+| `Convert.ToInt32(floatValue)` | `MathLib::NearestInteger(FloatValue)` (rounds) |
+| `(long)intValue` / `(double)floatValue` | `IntValue` / `FloatValue` (no-op; same ManiaScript type) |
+| `(int)stringValue` | `TextLib::ToInteger(StringValue)` |
+| `(float)stringValue` | `TextLib::ToReal(StringValue)` |
+| `(string)numberOrBool` | `TextLib::ToText(NumberOrBool)` |
+| `(bool)intValue` | `(IntValue != 0)` |
+| `(bool)stringValue` | `(StringValue == "True")` |
+
+There is no ManiaScript expression for a `bool`→numeric conversion (`(int)boolValue`,
+`Convert.ToInt32(boolValue)`, ...) since ManiaScript has no ternary operator — these are
+reported as unsupported (`MSS003`); extract the conversion into an `if`/`else` assigning
+`1`/`0` explicitly instead.
+
+Casts that aren't between basic types (e.g. object/class casts, downcasts) fall back to
+ManiaScript's `as` cast syntax, with the target type mapped through the same
+[type table](#type-mappings) used everywhere else:
+
+| C# | ManiaScript |
+|---|---|
+| `(SomeClass)x` | `(X as SomeClass)` |
+| `x as string` | `(X as Text)` |
+
 ---
 
 ## String Handling

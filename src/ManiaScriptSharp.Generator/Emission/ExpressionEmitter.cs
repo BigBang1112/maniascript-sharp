@@ -36,7 +36,7 @@ internal sealed class ExpressionEmitter
             ParenthesizedExpressionSyntax par => $"({Translate(par.Expression)})",
             ElementAccessExpressionSyntax ea => TranslateElementAccess(ea),
             InterpolatedStringExpressionSyntax istr => TranslateInterpolatedString(istr),
-            CastExpressionSyntax cast => $"({Translate(cast.Expression)} as {cast.Type})",
+            CastExpressionSyntax cast => TranslateCast(cast),
             IsPatternExpressionSyntax isp when _patterns is not null => _patterns.TranslateAsExpression(isp),
             ObjectCreationExpressionSyntax oc => TranslateObjectCreation(oc.Type, oc.ArgumentList, oc.Initializer),
             ImplicitObjectCreationExpressionSyntax ioc => TranslateImplicitObjectCreation(ioc),
@@ -306,6 +306,13 @@ internal sealed class ExpressionEmitter
                 return $"\"\" ^ {Translate(tsMa.Expression)}";
         }
 
+        // System.Convert.ToXxx(value) → TextLib::/MathLib:: conversions (same table as explicit casts).
+        if (sym is not null && sym.ContainingType?.ToDisplayString() == "System.Convert")
+        {
+            var mapped = MapConvertCall(sym, inv);
+            if (mapped is not null) return mapped;
+        }
+
         // Console.Write/WriteLine → log
         if (callee is MemberAccessExpressionSyntax cw &&
             cw.Expression.ToString() == "Console" &&
@@ -369,7 +376,10 @@ internal sealed class ExpressionEmitter
     {
         // `as` cast
         if (bin.IsKind(SyntaxKind.AsExpression))
-            return $"({Translate(bin.Left)} as {bin.Right})";
+        {
+            var typeSym = _ctx.Model.GetTypeInfo(bin.Right).Type;
+            return $"({Translate(bin.Left)} as {TypeMapper.Map(typeSym)})";
+        }
 
         var left = Translate(bin.Left);
         var right = Translate(bin.Right);
@@ -452,6 +462,105 @@ internal sealed class ExpressionEmitter
     {
         var a = string.Join(", ", ea.ArgumentList.Arguments.Select(arg => Translate(arg.Expression)));
         return $"{Translate(ea.Expression)}[{a}]";
+    }
+
+    // ------- Casts -------
+
+    /// <summary>
+    /// A C# explicit cast between two ManiaScript basic types (<c>Boolean</c>/<c>Integer</c>/
+    /// <c>Real</c>/<c>Text</c>) has no direct syntax in ManiaScript — it must go through a
+    /// TextLib/MathLib conversion call (or a no-op passthrough for same-family types).
+    /// Casts that don't fall into a recognised basic-type pair (e.g. class downcasts) keep
+    /// using ManiaScript's `as` operator.
+    /// </summary>
+    private string TranslateCast(CastExpressionSyntax cast)
+    {
+        var exprText = Translate(cast.Expression);
+        var targetType = _ctx.Model.GetTypeInfo(cast.Type).Type;
+        var from = Categorize(_ctx.Model.GetTypeInfo(cast.Expression).Type);
+        var to = Categorize(targetType);
+
+        if (from != Prim.None && to != Prim.None)
+        {
+            var converted = PrimitiveConversion(from, to, exprText, roundNarrowing: false);
+            if (converted is not null) return converted;
+            return Unsupported(cast, $"cast from {from} to {to} (ManiaScript has no boolean-to-number conversion; extract to an if/else assigning 1/0 explicitly)");
+        }
+
+        return $"({exprText} as {TypeMapper.Map(targetType)})";
+    }
+
+    /// <summary>ManiaScript basic-type family a C# type maps to, for cast/Convert translation.</summary>
+    private enum Prim { None, Boolean, Integer, Real, Text }
+
+    private static Prim Categorize(ITypeSymbol? t) => t?.SpecialType switch
+    {
+        SpecialType.System_Boolean => Prim.Boolean,
+        SpecialType.System_Byte or SpecialType.System_SByte or
+        SpecialType.System_Int16 or SpecialType.System_UInt16 or
+        SpecialType.System_Int32 or SpecialType.System_UInt32 or
+        SpecialType.System_Int64 or SpecialType.System_UInt64 => Prim.Integer,
+        SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal => Prim.Real,
+        SpecialType.System_String => Prim.Text,
+        _ => Prim.None,
+    };
+
+    /// <summary>
+    /// Builds the ManiaScript expression converting <paramref name="expr"/> from one basic-type
+    /// family to another. Same-family conversions (e.g. <c>long</c> → <c>int</c>) are a no-op
+    /// since ManiaScript has only one Integer/Real type. <paramref name="roundNarrowing"/>
+    /// selects Real→Integer semantics: <see langword="false"/> truncates toward zero (matches a
+    /// C# explicit cast), <see langword="true"/> rounds to nearest (matches <c>Convert.ToInt32</c>
+    /// and friends). Returns <see langword="null"/> for Boolean→Integer/Real: ManiaScript has no
+    /// ternary operator and no built-in boolean-to-number function, so there is no expression form.
+    /// </summary>
+    private static string? PrimitiveConversion(Prim from, Prim to, string expr, bool roundNarrowing)
+    {
+        if (from == to) return expr;
+        return (from, to) switch
+        {
+            (Prim.Integer, Prim.Real) => $"MathLib::ToReal({expr})",
+            (Prim.Real, Prim.Integer) => roundNarrowing ? $"MathLib::NearestInteger({expr})" : $"MathLib::TruncInteger({expr})",
+            (Prim.Boolean, Prim.Integer) or (Prim.Boolean, Prim.Real) => null,
+            (Prim.Integer, Prim.Boolean) => $"({expr} != 0)",
+            (Prim.Real, Prim.Boolean) => $"({expr} != 0.)",
+            (Prim.Integer, Prim.Text) or (Prim.Real, Prim.Text) or (Prim.Boolean, Prim.Text) => $"TextLib::ToText({expr})",
+            (Prim.Text, Prim.Integer) => $"TextLib::ToInteger({expr})",
+            (Prim.Text, Prim.Real) => $"TextLib::ToReal({expr})",
+            (Prim.Text, Prim.Boolean) => $"({expr} == \"True\")",
+            _ => expr,
+        };
+    }
+
+    /// <summary>
+    /// Maps a <c>System.Convert.ToXxx(value)</c> call onto the same basic-type conversion
+    /// table as <see cref="TranslateCast"/>, using rounding (not truncation) for Real→Integer
+    /// narrowing to match <c>Convert.ToInt32</c> semantics. Returns <see langword="null"/> when
+    /// either side isn't a recognised ManiaScript basic type, so the caller falls back to the
+    /// default translation.
+    /// </summary>
+    private string? MapConvertCall(IMethodSymbol method, InvocationExpressionSyntax inv)
+    {
+        if (inv.ArgumentList.Arguments.Count != 1) return null;
+
+        var to = method.Name switch
+        {
+            "ToBoolean" => Prim.Boolean,
+            "ToByte" or "ToSByte" or "ToInt16" or "ToUInt16" or
+            "ToInt32" or "ToUInt32" or "ToInt64" or "ToUInt64" => Prim.Integer,
+            "ToSingle" or "ToDouble" or "ToDecimal" => Prim.Real,
+            "ToString" => Prim.Text,
+            _ => Prim.None,
+        };
+        if (to == Prim.None) return null;
+
+        var argExpr = inv.ArgumentList.Arguments[0].Expression;
+        var from = Categorize(_ctx.Model.GetTypeInfo(argExpr).Type);
+        if (from == Prim.None) return null;
+
+        var converted = PrimitiveConversion(from, to, Translate(argExpr), roundNarrowing: true);
+        if (converted is not null) return converted;
+        return Unsupported(inv, $"Convert.{method.Name} from {from} (ManiaScript has no boolean-to-number conversion; extract to an if/else assigning 1/0 explicitly)");
     }
 
     // ------- Strings -------
