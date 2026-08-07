@@ -10,17 +10,17 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMap Supported declare modes : - Local - Metadata - Persistent</summary>
 public partial class CMap : CNod, ILocalProvider, IMetadataProvider, IPersistentProvider
 {
-    public CMapInfo MapInfo { get; set; }
+    public CMapInfo MapInfo { get; }
     public string MapName { get; set; }
     public string Comments { get; set; }
-    public string AuthorZoneIconUrl { get; set; }
-    public string CollectionName { get; set; }
-    public string DecorationName { get; set; }
-    public string AuthorLogin { get; set; }
-    public string AuthorNickName { get; set; }
-    public string AuthorZonePath { get; set; }
-    public string MapType { get; set; }
-    public string MapStyle { get; set; }
+    public string AuthorZoneIconUrl { get; }
+    public string CollectionName { get; }
+    public string DecorationName { get; }
+    public string AuthorLogin { get; }
+    public string AuthorNickName { get; }
+    public string AuthorZonePath { get; }
+    public string MapType { get; }
+    public string MapStyle { get; }
     public int TMObjective_AuthorTime { get; set; }
     public int TMObjective_GoldTime { get; set; }
     public int TMObjective_SilverTime { get; set; }
@@ -31,10 +31,10 @@ public partial class CMap : CNod, ILocalProvider, IMetadataProvider, IPersistent
     public string ObjectiveTextGold { get; set; }
     public string ObjectiveTextSilver { get; set; }
     public string ObjectiveTextBronze { get; set; }
-    public int CopperPrice { get; set; }
-    public Int3 Size { get; set; }
-    public bool HasCustomIntro { get; set; }
-    public bool HasCustomMusic { get; set; }
+    public int CopperPrice { get; }
+    public Int3 Size { get; }
+    public bool HasCustomIntro { get; }
+    public bool HasCustomMusic { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

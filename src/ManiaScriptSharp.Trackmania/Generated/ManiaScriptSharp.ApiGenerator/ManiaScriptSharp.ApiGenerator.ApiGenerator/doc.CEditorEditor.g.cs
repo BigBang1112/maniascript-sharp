@@ -15,7 +15,7 @@ public partial class CEditorEditor : CEditorBase, IMetadataProvider
     public void Bindings_RemoveContext(string ContextName) { }
     public void Bindings_RemoveBinding(string ContextName, string BindingName) { }
     public void Bindings_RequestInput(string ContextName, string BindingName) { }
-    public bool Bindings_RequestInput_Done { get; set; }
+    public bool Bindings_RequestInput_Done { get; }
     public void Bindings_SetBindingScriptId(string ContextName, string BindingScriptId, string NewBindingScriptId) { }
     public void Bindings_SetBindingDisplayName(string ContextName, string BindingScriptId, string BindingDisplayName) { }
     public void Bindings_SetContextName(string ContextName, string NewContextName) { }
@@ -24,6 +24,6 @@ public partial class CEditorEditor : CEditorBase, IMetadataProvider
     public string[] RequestedContextBindings { get; set; }
     public string Bindings_GetBindingActionName(string ContextName, string BindingName) => default!;
     public string Bindings_GetBindingDisplayName(string ContextName, string BindingName) => default!;
-    public CEditorEvent[] PendingEvents { get; set; }
+    public CEditorEvent[] PendingEvents { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
 }

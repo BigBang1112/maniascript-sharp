@@ -28,7 +28,7 @@ public partial class CScoreMgr : CNod
     }
 
     /// <summary>Array of task results.</summary>
-    public CTaskResult[] TaskResults { get; set; }
+    public CTaskResult[] TaskResults { get; }
     /// <summary>Release a task result no more used.</summary>
     public void TaskResult_Release(Ident TaskId) { }
     /// <summary>Returns the local status of user records.</summary>

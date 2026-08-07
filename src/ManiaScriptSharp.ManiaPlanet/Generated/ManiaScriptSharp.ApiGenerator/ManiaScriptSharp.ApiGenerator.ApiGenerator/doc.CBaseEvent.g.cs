@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  An event</summary>
 public partial class CBaseEvent : CBaseConstEvent, ILocalProvider
 {
-    public bool HasBeenPassed { get; set; }
-    public bool HasBeenDiscarded { get; set; }
+    public bool HasBeenPassed { get; }
+    public bool HasBeenDiscarded { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

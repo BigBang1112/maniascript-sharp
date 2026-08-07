@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Metadata</summary>
 public partial class CSmBlock : CSmLandmark, ILocalProvider, IMetadataProvider
 {
-    public CSmBase Base { get; set; }
+    public CSmBase Base { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
 }

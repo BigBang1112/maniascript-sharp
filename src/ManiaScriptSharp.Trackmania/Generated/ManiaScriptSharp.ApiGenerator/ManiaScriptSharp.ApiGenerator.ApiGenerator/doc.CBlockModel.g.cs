@@ -20,13 +20,13 @@ public partial class CBlockModel : CCollector
         Dispenser,
     }
 
-    public new string Name { get; set; }
-    public bool IsRoad { get; set; }
-    public bool IsTerrain { get; set; }
-    public bool IsPodium { get; set; }
-    public CBlockModel.EWayPointType WaypointType { get; set; }
-    public bool NoRespawn { get; set; }
-    public bool IsClip { get; set; }
-    public CBlockModelVariantGround VariantGround { get; set; }
-    public CBlockModelVariantAir VariantAir { get; set; }
+    public new string Name { get; }
+    public bool IsRoad { get; }
+    public bool IsTerrain { get; }
+    public bool IsPodium { get; }
+    public CBlockModel.EWayPointType WaypointType { get; }
+    public bool NoRespawn { get; }
+    public bool IsClip { get; }
+    public CBlockModelVariantGround VariantGround { get; }
+    public CBlockModelVariantAir VariantAir { get; }
 }

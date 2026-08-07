@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_MapRecordList : CWebServicesTaskResult_WSMapRecordList, ILocalProvider
 {
     /// <summary>List of map record info retrieve from NadeoServices contained by this result.</summary>
-    public CMapRecord[] MapRecordList { get; set; }
+    public CMapRecord[] MapRecordList { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

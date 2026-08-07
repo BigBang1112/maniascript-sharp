@@ -53,27 +53,27 @@ public partial class CMlScriptIngame : CMlScript, ILocalProvider, IPersistentPro
         ServerSettings,
     }
 
-    public int GameTime { get; set; }
-    public CPlaygroundClient Playground { get; set; }
+    public int GameTime { get; }
+    public CPlaygroundClient Playground { get; }
     /// <summary>(read-only) UI actually displayed, as defined by the server.</summary>
     public CUIConfig UI { get; set; }
     /// <summary>Locally accessible by the client script to locally override settings from the server.</summary>
     public CUIConfig ClientUI { get; set; }
     /// <summary>Is in spectator mode - may be only for a short time between rounds.</summary>
-    public bool IsSpectator { get; set; }
+    public bool IsSpectator { get; }
     /// <summary>Client actually desires to spectate instead of playing.</summary>
-    public bool IsSpectatorClient { get; set; }
-    public bool UseClans { get; set; }
-    public bool UseForcedClans { get; set; }
+    public bool IsSpectatorClient { get; }
+    public bool UseClans { get; }
+    public bool UseForcedClans { get; }
     /// <summary>Will be Null if the script is not runing in a layer of an app.</summary>
-    public CManiaAppPlaygroundCommon ParentApp { get; set; }
-    public CMap Map { get; set; }
+    public CManiaAppPlaygroundCommon ParentApp { get; }
+    public CMap Map { get; }
     public void ShowCurChallengeCard() { }
     public void ShowModeHelp() { }
     public void CopyServerLinkToClipBoard() { }
     public void JoinTeam1() { }
     public void JoinTeam2() { }
-    public CTeam[] Teams { get; set; }
+    public CTeam[] Teams { get; }
     /// <summary>Request change of IsSpectatorClient (not immediate, and it may be refused).</summary>
     public void RequestSpectatorClient(bool Spectator) { }
     /// <summary>Set the spectated player, but do not switch to spectator mode automatically. Equivalent to numpad1/2/3/4</summary>
@@ -82,16 +82,16 @@ public partial class CMlScriptIngame : CMlScript, ILocalProvider, IPersistentPro
     public void ShowInGameMenu() { }
     public void CloseInGameMenu(EInGameMenuResult Result) { }
     public void CloseScoresTable() { }
-    public bool IsInGameMenuDisplayed { get; set; }
-    public string CurrentServerLogin { get; set; }
-    public string CurrentServerName { get; set; }
-    public string CurrentServerDesc { get; set; }
-    public string CurrentServerJoinLink { get; set; }
-    public string CurrentServerModeName { get; set; }
-    public int SplitScreenNum { get; set; }
-    public int SplitScreenCount { get; set; }
+    public bool IsInGameMenuDisplayed { get; }
+    public string CurrentServerLogin { get; }
+    public string CurrentServerName { get; }
+    public string CurrentServerDesc { get; }
+    public string CurrentServerJoinLink { get; }
+    public string CurrentServerModeName { get; }
+    public int SplitScreenNum { get; }
+    public int SplitScreenCount { get; }
     public void PlayUiSound(EUISound Sound, int SoundVariant, float Volume) { }
-    public CAchievementsManager AchievementsManager { get; set; }
+    public CAchievementsManager AchievementsManager { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

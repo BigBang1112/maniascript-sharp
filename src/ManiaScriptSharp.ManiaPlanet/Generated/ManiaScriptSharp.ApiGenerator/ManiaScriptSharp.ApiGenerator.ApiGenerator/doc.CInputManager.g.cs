@@ -40,23 +40,23 @@ public partial class CInputManager : CNod
         None,
     }
 
-    public CInputEvent[] PendingEvents { get; set; }
-    public int Now { get; set; }
-    public int Period { get; set; }
-    public CInputPad[] Pads { get; set; }
-    public Vec2 MousePos { get; set; }
-    public Vec2 MouseKineticScrollVel { get; set; }
-    public bool MouseLeftButton { get; set; }
-    public bool MouseRightButton { get; set; }
-    public bool MouseMiddleButton { get; set; }
-    public Vec2[] TouchPoints_Cur { get; set; }
-    public Vec2[] TouchPoints_Init { get; set; }
+    public CInputEvent[] PendingEvents { get; }
+    public int Now { get; }
+    public int Period { get; }
+    public CInputPad[] Pads { get; }
+    public Vec2 MousePos { get; }
+    public Vec2 MouseKineticScrollVel { get; }
+    public bool MouseLeftButton { get; }
+    public bool MouseRightButton { get; }
+    public bool MouseMiddleButton { get; }
+    public Vec2[] TouchPoints_Cur { get; }
+    public Vec2[] TouchPoints_Init { get; }
     public string GetPadButtonPlaygroundBinding(CInputPad Pad, EButton Button) => default!;
     public string GetPadButtonCurrentBinding(CInputPad Pad, EButton Button) => default!;
     public bool ExclusiveMode { get; set; }
     public bool IsKeyPressed(int KeyCode) => default!;
-    public int TimeSinceLatestMouseActivity { get; set; }
-    public int TimeSinceLatestTouchActivity { get; set; }
-    public int TimeSinceLatestKeyboardActivity { get; set; }
-    public int TimeSinceLatestPadActivity { get; set; }
+    public int TimeSinceLatestMouseActivity { get; }
+    public int TimeSinceLatestTouchActivity { get; }
+    public int TimeSinceLatestKeyboardActivity { get; }
+    public int TimeSinceLatestPadActivity { get; }
 }

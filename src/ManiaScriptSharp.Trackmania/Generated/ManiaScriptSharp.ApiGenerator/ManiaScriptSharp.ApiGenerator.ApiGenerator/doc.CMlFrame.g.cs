@@ -17,12 +17,12 @@ public partial class CMlFrame : CMlControl, ILocalProvider
         NonInteractive,
     }
 
-    public CMlControl[] Controls { get; set; }
+    public CMlControl[] Controls { get; }
     public CMlControl GetFirstChild(string ControlId) => default!;
     public bool ScrollActive { get; set; }
     public CMlFrame.EScrollWheel ScrollWheel { get; set; }
     public Vec2 ScrollOffset { get; set; }
-    public Vec2 ScrollAnimOffset { get; set; }
+    public Vec2 ScrollAnimOffset { get; }
     public Vec2 ScrollMax { get; set; }
     public Vec2 ScrollMin { get; set; }
     public bool ScrollGridSnap { get; set; }

@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>An achievement's description.</summary>
 public partial class CAchievementsAchievementDesc : CNod
 {
-    public string TitleId { get; set; }
+    public string TitleId { get; }
     /// <summary>Name of the achievement.</summary>
-    public string DisplayName { get; set; }
-    public string Description { get; set; }
-    public string IconUrl { get; set; }
+    public string DisplayName { get; }
+    public string Description { get; }
+    public string IconUrl { get; }
 }

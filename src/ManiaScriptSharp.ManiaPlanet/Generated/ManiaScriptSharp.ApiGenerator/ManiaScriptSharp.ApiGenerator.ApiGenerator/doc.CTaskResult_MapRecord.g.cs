@@ -11,25 +11,25 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_MapRecord : CNod
 {
     /// <summary>Context.</summary>
-    public string Context { get; set; }
+    public string Context { get; }
     /// <summary>MapUid.</summary>
-    public string MapUid { get; set; }
+    public string MapUid { get; }
     /// <summary>MapName.</summary>
-    public string MapName { get; set; }
+    public string MapName { get; }
     /// <summary>Score.</summary>
-    public int Score { get; set; }
+    public int Score { get; }
     /// <summary>Time.</summary>
-    public int Time { get; set; }
+    public int Time { get; }
     /// <summary>RespawnCount.</summary>
-    public int RespawnCount { get; set; }
+    public int RespawnCount { get; }
     /// <summary>Timestamp.</summary>
-    public int Timestamp { get; set; }
+    public int Timestamp { get; }
     /// <summary>MultiAsyncLevel.</summary>
-    public int MultiAsyncLevel { get; set; }
+    public int MultiAsyncLevel { get; }
     /// <summary>SkillPoints.</summary>
-    public int SkillPoints { get; set; }
+    public int SkillPoints { get; }
     /// <summary>FileName.</summary>
-    public string FileName { get; set; }
+    public string FileName { get; }
     /// <summary>ReplayUrl.</summary>
-    public string ReplayUrl { get; set; }
+    public string ReplayUrl { get; }
 }

@@ -10,47 +10,47 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Persistent  Server plugin</summary>
 public partial class CServerPlugin : CNod, ILocalProvider, IPersistentProvider
 {
-    public CTitle LoadedTitle { get; set; }
-    public CMapInfo MapInfo { get; set; }
+    public CTitle LoadedTitle { get; }
+    public CMapInfo MapInfo { get; }
     public CClient GetClient(string Login) => default!;
     public CClient GetClient(CUIConfig UI) => default!;
     /// <summary>Currently connected Users.</summary>
-    public CClient[] Clients { get; set; }
+    public CClient[] Clients { get; }
     /// <summary>Users connected as spectators.</summary>
-    public CClient[] Spectators { get; set; }
+    public CClient[] Spectators { get; }
     /// <summary>Users connected as players.</summary>
-    public CClient[] Players { get; set; }
+    public CClient[] Players { get; }
     /// <summary>Sorted scores.</summary>
-    public CScore[] Scores { get; set; }
-    public CUser[] Users { get; set; }
-    public CTeam[] Teams { get; set; }
+    public CScore[] Scores { get; }
+    public CUser[] Users { get; }
+    public CTeam[] Teams { get; }
     public string NeutralEmblemUrl { get; set; }
     public string ForcedClubLinkUrl1 { get; set; }
     public string ForcedClubLinkUrl2 { get; set; }
     public void TweakTeamColorsToAvoidHueOverlap() { }
-    public int Now { get; set; }
-    public CServerPluginEvent[] PendingEvents { get; set; }
+    public int Now { get; }
+    public CServerPluginEvent[] PendingEvents { get; }
     public void TriggerModeScriptEvent(string Type, string[] Data) { }
     public void SendModeScriptCommand(string CommandName, bool BoolVal) { }
     public void SendModeScriptCommand(string CommandName, int IntVal) { }
     public void SendModeScriptCommand(string CommandName, float RealVal) { }
     public void SendModeScriptCommand(string CommandName, string TextVal) { }
-    public bool MapLoaded { get; set; }
-    public bool MapUnloadRequested { get; set; }
-    public CMapInfo[] MapList { get; set; }
-    public int CurMapIndex { get; set; }
+    public bool MapLoaded { get; }
+    public bool MapUnloadRequested { get; }
+    public CMapInfo[] MapList { get; }
+    public int CurMapIndex { get; }
     public int NextMapIndex { get; set; }
     public void RestartMap() { }
     public void NextMap() { }
     public bool HoldMapUnloadRequest { get; set; }
     /// <summary>Enable minimap on the clients, even if the mode does not do it.</summary>
     public bool Client_ComputeMinimap { get; set; }
-    public CUIConfigMgr UIManager { get; set; }
-    public CServerAdmin ServerAdmin { get; set; }
-    public CXmlRpc XmlRpc { get; set; }
-    public CParsingManager Xml { get; set; }
-    public CHttpManager Http { get; set; }
-    public CSystemPlatform System { get; set; }
+    public CUIConfigMgr UIManager { get; }
+    public CServerAdmin ServerAdmin { get; }
+    public CXmlRpc XmlRpc { get; }
+    public CParsingManager Xml { get; }
+    public CHttpManager Http { get; }
+    public CSystemPlatform System { get; }
     public string Dbg_DumpDeclareForVariables(CNod Nod, bool StatsOnly) => default!;
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

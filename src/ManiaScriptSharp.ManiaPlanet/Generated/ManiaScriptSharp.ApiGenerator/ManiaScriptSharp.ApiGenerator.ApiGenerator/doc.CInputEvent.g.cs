@@ -43,10 +43,10 @@ public partial class CInputEvent : CNod
         None,
     }
 
-    public EType Type { get; set; }
-    public CInputPad Pad { get; set; }
-    public EButton Button { get; set; }
-    public bool IsAutoRepeat { get; set; }
-    public int KeyCode { get; set; }
-    public string KeyName { get; set; }
+    public EType Type { get; }
+    public CInputPad Pad { get; }
+    public EButton Button { get; }
+    public bool IsAutoRepeat { get; }
+    public int KeyCode { get; }
+    public string KeyName { get; }
 }

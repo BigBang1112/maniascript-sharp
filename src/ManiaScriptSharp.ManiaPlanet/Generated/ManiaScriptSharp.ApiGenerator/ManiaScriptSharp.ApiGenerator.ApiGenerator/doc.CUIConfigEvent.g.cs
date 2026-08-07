@@ -39,15 +39,15 @@ public partial class CUIConfigEvent : CBaseEvent, ILocalProvider
         TeamState,
     }
 
-    public EType Type { get; set; }
-    public CUIConfig UI { get; set; }
-    public EModuleType ModuleType { get; set; }
-    public string Param1 { get; set; }
-    public string[] Param2 { get; set; }
-    public CUILayer CustomEventLayer { get; set; }
-    public string CustomEventType { get; set; }
-    public string[] CustomEventData { get; set; }
-    public string ItemUrl { get; set; }
-    public int Quantity { get; set; }
+    public EType Type { get; }
+    public CUIConfig UI { get; }
+    public EModuleType ModuleType { get; }
+    public string Param1 { get; }
+    public string[] Param2 { get; }
+    public CUILayer CustomEventLayer { get; }
+    public string CustomEventType { get; }
+    public string[] CustomEventData { get; }
+    public string ItemUrl { get; }
+    public int Quantity { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

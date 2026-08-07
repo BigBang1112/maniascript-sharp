@@ -11,9 +11,9 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_ModeInfo : CNod
 {
     /// <summary>Name of the GameMode</summary>
-    public string Name { get; set; }
-    public string Path { get; set; }
-    public string Description { get; set; }
-    public string Version { get; set; }
+    public string Name { get; }
+    public string Path { get; }
+    public string Description { get; }
+    public string Version { get; }
     public string[] CompatibleMapTypes { get; set; }
 }

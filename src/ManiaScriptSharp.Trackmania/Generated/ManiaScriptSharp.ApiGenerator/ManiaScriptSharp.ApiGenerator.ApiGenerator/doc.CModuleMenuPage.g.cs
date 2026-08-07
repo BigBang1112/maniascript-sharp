@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CModuleMenuPage</summary>
 public partial class CModuleMenuPage : CNod
 {
-    public string Name { get; set; }
-    public CModuleMenuComponent[] Components { get; set; }
+    public string Name { get; }
+    public CModuleMenuComponent[] Components { get; }
 }

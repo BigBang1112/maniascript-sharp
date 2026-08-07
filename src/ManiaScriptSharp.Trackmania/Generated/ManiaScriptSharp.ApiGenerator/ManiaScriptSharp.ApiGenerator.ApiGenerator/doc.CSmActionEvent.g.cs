@@ -44,17 +44,17 @@ public partial class CSmActionEvent : CBaseConstEvent, ILocalProvider
     }
 
     /// <summary>Type.</summary>
-    public CSmActionEvent.EType Type { get; set; }
-    public Ident ProjectileModelId { get; set; }
-    public int ProjectileStartDate { get; set; }
-    public int Damage { get; set; }
-    public int ContextId { get; set; }
-    public Vec3 Position { get; set; }
-    public Vec3 Direction { get; set; }
-    public Vec3 Normal { get; set; }
-    public CEntity Victim { get; set; }
-    public int Shield { get; set; }
-    public CSmActionEvent.EInputChange Input { get; set; }
-    public int ScrollDelta { get; set; }
+    public CSmActionEvent.EType Type { get; }
+    public Ident ProjectileModelId { get; }
+    public int ProjectileStartDate { get; }
+    public int Damage { get; }
+    public int ContextId { get; }
+    public Vec3 Position { get; }
+    public Vec3 Direction { get; }
+    public Vec3 Normal { get; }
+    public CEntity Victim { get; }
+    public int Shield { get; }
+    public CSmActionEvent.EInputChange Input { get; }
+    public int ScrollDelta { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

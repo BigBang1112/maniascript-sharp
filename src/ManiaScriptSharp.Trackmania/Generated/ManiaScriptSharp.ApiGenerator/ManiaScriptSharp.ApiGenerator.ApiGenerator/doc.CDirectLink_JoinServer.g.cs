@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CDirectLink_JoinServer</summary>
 public partial class CDirectLink_JoinServer : CDirectLink
 {
-    public string ServerId { get; set; }
-    public bool IsSpectator { get; set; }
+    public string ServerId { get; }
+    public bool IsSpectator { get; }
 }

@@ -25,20 +25,20 @@ public partial class CStation : CNod
         Gold3,
     }
 
-    public CTitle Title { get; set; }
-    public int AudienceRegisteredUsers { get; set; }
-    public int CampaignMedalsMax { get; set; }
-    public int CampaignMedalsCurrent { get; set; }
-    public int CampaignMedalsRanking { get; set; }
-    public float LadderPoints { get; set; }
-    public int LadderRank { get; set; }
-    public EEchelon Echelon { get; set; }
-    public int NextEchelonPercent { get; set; }
+    public CTitle Title { get; }
+    public int AudienceRegisteredUsers { get; }
+    public int CampaignMedalsMax { get; }
+    public int CampaignMedalsCurrent { get; }
+    public int CampaignMedalsRanking { get; }
+    public float LadderPoints { get; }
+    public int LadderRank { get; }
+    public EEchelon Echelon { get; }
+    public int NextEchelonPercent { get; }
     public bool DisableQuickEnter { get; set; }
     public bool IsLogoVisible { get; set; }
     public float GhostAlpha { get; set; }
     public Vec3 FocusLightColor { get; set; }
     public Vec3 NormalLightColor { get; set; }
     /// <summary>Is title present in WorkTitles folder?</summary>
-    public bool IsEditable { get; set; }
+    public bool IsEditable { get; }
 }

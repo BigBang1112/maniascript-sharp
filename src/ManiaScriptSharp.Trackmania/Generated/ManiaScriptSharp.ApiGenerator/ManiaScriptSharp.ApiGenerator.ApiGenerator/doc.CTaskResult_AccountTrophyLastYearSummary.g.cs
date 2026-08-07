@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_AccountTrophyLastYearSummary : CWebServicesTaskResult_AccountTrophyLastYearSummary, ILocalProvider
 {
     /// <summary>Last year summary of account trophy contained by this result.</summary>
-    public CAccountTrophyLastYearSummary Summary { get; set; }
+    public CAccountTrophyLastYearSummary Summary { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

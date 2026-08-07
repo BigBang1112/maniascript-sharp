@@ -18,11 +18,11 @@ public partial class CAnyEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         Aborted,
     }
 
-    public CManiaAppEvent[] PendingEvents { get; set; }
-    public CEditorModule ModuleEditor { get; set; }
-    public CEditorMesh MeshEditor { get; set; }
-    public CEditorEditor EditorEditor { get; set; }
-    public EInteractionStatus InteractionStatus { get; set; }
+    public CManiaAppEvent[] PendingEvents { get; }
+    public CEditorModule ModuleEditor { get; }
+    public CEditorMesh MeshEditor { get; }
+    public CEditorEditor EditorEditor { get; }
+    public EInteractionStatus InteractionStatus { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

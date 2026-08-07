@@ -42,6 +42,6 @@ public partial class CEditorEvent : CManiaAppEvent, ILocalProvider
         Autosave,
     }
 
-    public CEditorEvent.Type Type_ { get; set; }
+    public CEditorEvent.Type Type_ { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

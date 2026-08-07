@@ -20,6 +20,6 @@ public partial class CStuntStatus
     public int ChainCounter { get; set; }
     /// <summary>Values in range (0 - 65535)</summary>
     public int ChainDelay { get; set; }
-    public int TimeLeftForStuntCombo { get; set; }
-    public int TimeElapsedSinceLastStunt { get; set; }
+    public int TimeLeftForStuntCombo { get; }
+    public int TimeElapsedSinceLastStunt { get; }
 }

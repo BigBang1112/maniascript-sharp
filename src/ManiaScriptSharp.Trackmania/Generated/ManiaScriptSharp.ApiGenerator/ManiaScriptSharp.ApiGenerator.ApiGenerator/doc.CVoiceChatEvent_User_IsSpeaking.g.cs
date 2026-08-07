@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CVoiceChatEvent_User_IsSpeaking</summary>
 public partial class CVoiceChatEvent_User_IsSpeaking : CVoiceChatEvent
 {
-    public CGameUserVoiceChat User { get; set; }
-    public bool NewValue { get; set; }
+    public CGameUserVoiceChat User { get; }
+    public bool NewValue { get; }
 }

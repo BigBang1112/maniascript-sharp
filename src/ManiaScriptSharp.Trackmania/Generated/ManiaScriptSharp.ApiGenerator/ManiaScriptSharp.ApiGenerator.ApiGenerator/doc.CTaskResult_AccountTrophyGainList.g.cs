@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_AccountTrophyGainList : CWebServicesTaskResult_AccountTrophyGainList, ILocalProvider
 {
     /// <summary>List of account trophy gain contained in this result.</summary>
-    public CAccountTrophyGain[] AccountTrophyGainList { get; set; }
+    public CAccountTrophyGain[] AccountTrophyGainList { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

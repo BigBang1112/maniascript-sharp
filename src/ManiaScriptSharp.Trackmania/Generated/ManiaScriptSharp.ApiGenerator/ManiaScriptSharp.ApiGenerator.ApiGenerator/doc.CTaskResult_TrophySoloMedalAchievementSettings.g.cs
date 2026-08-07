@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_TrophySoloMedalAchievementSettings : CWebServicesTaskResult_TrophySoloMedalAchievementSettings, ILocalProvider
 {
     /// <summary>Settings of a solo medal trophy achievement contained by this result.</summary>
-    public CTrophySoloMedalAchievementSettings Settings { get; set; }
+    public CTrophySoloMedalAchievementSettings Settings { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

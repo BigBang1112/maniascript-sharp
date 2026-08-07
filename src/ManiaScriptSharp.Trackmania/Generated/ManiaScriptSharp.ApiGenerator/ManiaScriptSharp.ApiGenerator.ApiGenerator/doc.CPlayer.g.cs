@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>A player is the incarnation of the user in the playground. Supported declare modes : - Local - NetworkRead - NetworkWrite</summary>
 public partial class CPlayer : CEntity, ILocalProvider, INetreadProvider, INetwriteProvider
 {
-    public CUser User { get; set; }
-    public int RequestedClan { get; set; }
-    public bool RequestsSpectate { get; set; }
+    public CUser User { get; }
+    public int RequestedClan { get; }
+    public bool RequestsSpectate { get; }
     /// <summary>This player will only have Race interactions (CP, finishes...) with landmarks whose Order is equal to the selector. Set to -1 to interact with all landmarks.</summary>
     public int LandmarkOrderSelector_Race { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

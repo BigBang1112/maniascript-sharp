@@ -18,7 +18,7 @@ public partial class CNotificationsConsumerEvent : CNod
     }
 
     /// <summary>Type of the event.</summary>
-    public EType Type { get; set; }
+    public EType Type { get; }
     /// <summary>Notification concerned by the event.</summary>
-    public CNotificationsConsumerNotification Notification { get; set; }
+    public CNotificationsConsumerNotification Notification { get; }
 }

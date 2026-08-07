@@ -10,5 +10,5 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CTrophyAchievement_SoloMedal</summary>
 public partial class CTrophyAchievement_SoloMedal : CTrophyAchievement
 {
-    public string SoloMedalAchievementType { get; set; }
+    public string SoloMedalAchievementType { get; }
 }

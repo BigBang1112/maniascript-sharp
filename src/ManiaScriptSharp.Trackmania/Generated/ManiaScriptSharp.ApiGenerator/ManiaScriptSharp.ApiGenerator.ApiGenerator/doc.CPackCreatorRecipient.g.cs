@@ -11,9 +11,9 @@ namespace ManiaScriptSharp;
 public partial class CPackCreatorRecipient : CNod
 {
     /// <summary>Login of the recipient.</summary>
-    public string Login { get; set; }
+    public string Login { get; }
     /// <summary>Cost to read the data (and see it ingame).</summary>
-    public int GetCost { get; set; }
+    public int GetCost { get; }
     /// <summary>Cost to use the in other creations.</summary>
-    public int UseCost { get; set; }
+    public int UseCost { get; }
 }

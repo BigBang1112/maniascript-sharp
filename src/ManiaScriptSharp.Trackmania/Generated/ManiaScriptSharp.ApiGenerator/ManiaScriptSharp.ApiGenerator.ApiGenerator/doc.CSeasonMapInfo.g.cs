@@ -10,11 +10,11 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CSeasonMapInfo</summary>
 public partial class CSeasonMapInfo : CNod
 {
-    public string MapId { get; set; }
-    public Ident MapUid { get; set; }
-    public int BronzeScore { get; set; }
-    public int SilverScore { get; set; }
-    public int GoldScore { get; set; }
-    public int AuthorScore { get; set; }
-    public int TimeStamp { get; set; }
+    public string MapId { get; }
+    public Ident MapUid { get; }
+    public int BronzeScore { get; }
+    public int SilverScore { get; }
+    public int GoldScore { get; }
+    public int AuthorScore { get; }
+    public int TimeStamp { get; }
 }

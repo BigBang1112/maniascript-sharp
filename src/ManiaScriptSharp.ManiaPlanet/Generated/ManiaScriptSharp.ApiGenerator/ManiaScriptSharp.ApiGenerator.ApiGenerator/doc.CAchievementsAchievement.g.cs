@@ -11,7 +11,7 @@ namespace ManiaScriptSharp;
 public partial class CAchievementsAchievement : CNod
 {
     /// <summary>User that earned the achievement.</summary>
-    public Ident UserId { get; set; }
+    public Ident UserId { get; }
     /// <summary>Description of the achievement.</summary>
-    public CAchievementsAchievementDesc AchievementDesc { get; set; }
+    public CAchievementsAchievementDesc AchievementDesc { get; }
 }

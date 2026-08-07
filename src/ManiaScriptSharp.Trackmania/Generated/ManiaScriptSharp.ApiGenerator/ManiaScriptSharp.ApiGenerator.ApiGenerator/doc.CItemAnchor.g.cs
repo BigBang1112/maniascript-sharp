@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CItemAnchor</summary>
 public partial class CItemAnchor : CNod
 {
-    public Vec3 Position { get; set; }
-    public CGameItemModel ItemModel { get; set; }
+    public Vec3 Position { get; }
+    public CGameItemModel ItemModel { get; }
 }

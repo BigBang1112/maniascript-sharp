@@ -50,38 +50,38 @@ public partial class CInputPad : CNod
         Vive,
     }
 
-    public int ControllerId { get; set; }
-    public Ident UserId { get; set; }
-    public EPadType Type { get; set; }
-    public string ModelName { get; set; }
-    public int IdleDuration { get; set; }
-    public int Left { get; set; }
-    public int Right { get; set; }
-    public int Up { get; set; }
-    public int Down { get; set; }
-    public int A { get; set; }
-    public int B { get; set; }
-    public int X { get; set; }
-    public int Y { get; set; }
-    public int L1 { get; set; }
-    public int R1 { get; set; }
-    public int LeftStickBut { get; set; }
-    public int RightStickBut { get; set; }
-    public int Menu { get; set; }
-    public int View { get; set; }
+    public int ControllerId { get; }
+    public Ident UserId { get; }
+    public EPadType Type { get; }
+    public string ModelName { get; }
+    public int IdleDuration { get; }
+    public int Left { get; }
+    public int Right { get; }
+    public int Up { get; }
+    public int Down { get; }
+    public int A { get; }
+    public int B { get; }
+    public int X { get; }
+    public int Y { get; }
+    public int L1 { get; }
+    public int R1 { get; }
+    public int LeftStickBut { get; }
+    public int RightStickBut { get; }
+    public int Menu { get; }
+    public int View { get; }
     /// <summary>Values in range (-1.000000-1.000000)</summary>
-    public float LeftStickX { get; set; }
+    public float LeftStickX { get; }
     /// <summary>Values in range (-1.000000-1.000000)</summary>
-    public float LeftStickY { get; set; }
+    public float LeftStickY { get; }
     /// <summary>Values in range (-1.000000-1.000000)</summary>
-    public float RightStickX { get; set; }
+    public float RightStickX { get; }
     /// <summary>Values in range (-1.000000-1.000000)</summary>
-    public float RightStickY { get; set; }
+    public float RightStickY { get; }
     /// <summary>Values in range (0.000000-1.000000)</summary>
-    public float L2 { get; set; }
+    public float L2 { get; }
     /// <summary>Values in range (0.000000-1.000000)</summary>
-    public float R2 { get; set; }
-    public EButton[] ButtonEvents { get; set; }
+    public float R2 { get; }
+    public EButton[] ButtonEvents { get; }
     public void ClearRumble() { }
     /// <summary>Duration = 0 --&gt; forever.</summary>
     public void AddRumble(int Duration, float LargeMotor, float SmallMotor) { }

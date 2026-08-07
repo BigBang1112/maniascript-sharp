@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CAccountTrophyGainForHistory_SoloMedal</summary>
 public partial class CAccountTrophyGainForHistory_SoloMedal : CAccountTrophyGainForHistory
 {
-    public int Level { get; set; }
-    public int PreviousLevel { get; set; }
+    public int Level { get; }
+    public int PreviousLevel { get; }
     public CTrophyAchievement_SoloMedal TrophyAchievement_SoloMedal { get; set; }
 }

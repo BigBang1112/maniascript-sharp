@@ -49,10 +49,10 @@ public partial class CTitleControl : CNod
     }
 
     /// <summary>Can a command be issued.</summary>
-    public bool IsReady { get; set; }
+    public bool IsReady { get; }
     /// <summary>Result of the latest command issued.</summary>
-    public CTitleControl.EResult LatestResult { get; set; }
-    public string CustomResultType { get; set; }
+    public CTitleControl.EResult LatestResult { get; }
+    public string CustomResultType { get; }
     public string[] CustomResultData { get; set; }
     public void PlayMap(string Map, string Mode, string SettingsXml) { }
     public void PlayCampaign(CCampaign Campaign, CMapInfo MapInfo, string Mode, string SettingsXml) { }
@@ -84,12 +84,12 @@ public partial class CTitleControl : CNod
     public void EditNewMapFromBaseMap(string BaseMapName, string ModNameOrUrl, string PlayerModel, string MapType, string EditorPluginScript, string EditorPluginArgument) { }
     public void EditNewMapFromBaseMap(string BaseMapName, string Decoration, string ModNameOrUrl, string PlayerModel, string MapType, string EditorPluginScript, string EditorPluginArgument) { }
     public void EditNewMapFromBaseMap(string BaseMapName, string Decoration, string ModNameOrUrl, string PlayerModel, string MapType, string[] EditorPluginsScripts, string[] EditorPluginsArguments, bool OnlyUseForcedPlugins) { }
-    public bool CanPublishFiles { get; set; }
+    public bool CanPublishFiles { get; }
     /// <summary>Set FileName='' to open a file select dialog.</summary>
     public void PublishFile(string FileName) { }
     public void ProcessManiaCodeXml(string ManiaCodeXml) { }
-    public CServerInfo[] LocalServers { get; set; }
-    public CServerInfo[] LocalServers_CurrentTitle { get; set; }
+    public CServerInfo[] LocalServers { get; }
+    public CServerInfo[] LocalServers_CurrentTitle { get; }
     public void DiscoverLocalServers() { }
     public void CreateServer(string ServerName, string ServerComment, int MaxPlayerCount, string Password, string PasswordSpectators, CMatchSettings MatchSettings) { }
     public void CreateServer(string ServerName, string ServerComment, int MaxPlayerCount, string Password, string PasswordSpectators, CMatchSettings MatchSettings, bool LocalOnly) { }
@@ -97,7 +97,7 @@ public partial class CTitleControl : CNod
     public void GetServerInfo(string ServerLogin) { }
     public void GetServerInfo(CServerInfo LocalServer) { }
     public void GetServerInfo_Abort() { }
-    public CServerInfo GetServerInfo_Result { get; set; }
+    public CServerInfo GetServerInfo_Result { get; }
     public void Join_GetServerInfo_Result(bool AsSpectator, string Password) { }
     /// <summary>Join a server</summary>
     public void JoinServer(string ServerLogin, bool AsSpectator, string Password) { }

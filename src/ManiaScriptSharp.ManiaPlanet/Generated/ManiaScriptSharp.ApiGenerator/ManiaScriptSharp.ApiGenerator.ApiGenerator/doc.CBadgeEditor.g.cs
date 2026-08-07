@@ -22,10 +22,10 @@ public partial class CBadgeEditor : CManiaAppBase, ILocalProvider, IPersistentPr
     /// <summary>Values in range (0.100000-10.000000)</summary>
     public float MeshRotation_Acceleration { get; set; }
     public Ident DisplayCurrentMeshId { get; set; }
-    public Ident[] MeshIds { get; set; }
+    public Ident[] MeshIds { get; }
     public void MeshId_Next() { }
     public void MeshId_Previous() { }
-    public CBadge[] Badges { get; set; }
+    public CBadge[] Badges { get; }
     public CBadge BadgeCreate() => default!;
     public void BadgeDestroy(CBadge Badge) { }
     public void BadgeCopy(CBadge Source, CBadge Destination) { }

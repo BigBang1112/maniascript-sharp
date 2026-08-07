@@ -28,7 +28,7 @@ public partial class CMlLabel : CMlControl, ILocalProvider
     public string TextFont { get; set; }
     public void SetText(string NewText) { }
     public string Value { get; set; }
-    public int ValueLineCount { get; set; }
+    public int ValueLineCount { get; }
     public int MaxLine { get; set; }
     public float LineSpacing { get; set; }
     public float ItalicSlope { get; set; }

@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  NetworkRead  NetworkWrite  A player is the incarnation of the user in the playground.</summary>
 public partial class CPlayer : CEntity, ILocalProvider, INetreadProvider, INetwriteProvider
 {
-    public CUser User { get; set; }
-    public int RequestedClan { get; set; }
-    public bool RequestsSpectate { get; set; }
+    public CUser User { get; }
+    public int RequestedClan { get; }
+    public bool RequestsSpectate { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> INetworkProvider.NetworkData { get; } = [];
 }

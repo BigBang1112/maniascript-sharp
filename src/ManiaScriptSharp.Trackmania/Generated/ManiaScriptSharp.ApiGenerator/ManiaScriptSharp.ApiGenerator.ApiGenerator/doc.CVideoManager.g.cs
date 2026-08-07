@@ -13,5 +13,5 @@ public partial class CVideoManager : CNod
     public CVideo CreateVideo(string Url, bool IsLooping, bool AutoProcessing) => default!;
     public CVideo CreateVideo(string Url, bool IsLooping, bool AutoProcessing, bool UseMipMap) => default!;
     public void DestroyVideo(CVideo Video) { }
-    public CVideo[] Videos { get; set; }
+    public CVideo[] Videos { get; }
 }

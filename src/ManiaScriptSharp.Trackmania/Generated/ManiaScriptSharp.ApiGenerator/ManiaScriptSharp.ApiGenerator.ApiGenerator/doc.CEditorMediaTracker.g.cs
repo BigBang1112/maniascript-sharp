@@ -114,11 +114,11 @@ public partial class CEditorMediaTracker : CEditorPluginAPI
     public void ToggleAlwaysShowTriggerZone() { }
     public void ResetTriggerZone() { }
     public void RemoveAllTracks() { }
-    public CMediaTrackerClip Clip { get; set; }
-    public CMediaTrackerClipGroup ClipGroup { get; set; }
-    public CEditorEvent[] PendingEvents { get; set; }
-    public string PopUpMessage { get; set; }
-    public CEditorMediaTracker.EMediaTrackerBlockType EditMode { get; set; }
+    public CMediaTrackerClip Clip { get; }
+    public CMediaTrackerClipGroup ClipGroup { get; }
+    public CEditorEvent[] PendingEvents { get; }
+    public string PopUpMessage { get; }
+    public CEditorMediaTracker.EMediaTrackerBlockType EditMode { get; }
     public void SetClip(CMediaTrackerClip Clip) { }
     public bool IsPlaying() => default!;
     public bool IsDevMode() => default!;

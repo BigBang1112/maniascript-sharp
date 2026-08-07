@@ -12,8 +12,8 @@ public partial class CMlFileEntry : CMlEntry, ILocalProvider
 {
     public bool OnlyUserFiles { get; set; }
     public void ClearFileNames() { }
-    public string FullFileName { get; set; }
-    public string RelativeNameToRoot { get; set; }
-    public string RelativeNameToTypeFolder { get; set; }
+    public string FullFileName { get; }
+    public string RelativeNameToRoot { get; }
+    public string RelativeNameToTypeFolder { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

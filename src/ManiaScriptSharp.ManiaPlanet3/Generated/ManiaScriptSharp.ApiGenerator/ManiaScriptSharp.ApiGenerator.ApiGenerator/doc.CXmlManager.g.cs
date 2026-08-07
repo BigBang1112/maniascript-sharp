@@ -12,5 +12,5 @@ public partial class CXmlManager : CNod
     public CXmlDocument Create(string Contents) => default!;
     public CXmlDocument Create(string Contents, bool GenerateText, bool GenerateTextRaw, bool GenerateTextResursive) => default!;
     public void Destroy(CXmlDocument Document) { }
-    public CXmlDocument[] Documents { get; set; }
+    public CXmlDocument[] Documents { get; }
 }

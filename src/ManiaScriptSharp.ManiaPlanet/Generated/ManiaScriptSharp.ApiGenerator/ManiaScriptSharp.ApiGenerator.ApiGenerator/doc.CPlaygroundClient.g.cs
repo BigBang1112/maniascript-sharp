@@ -11,25 +11,25 @@ namespace ManiaScriptSharp;
 public partial class CPlaygroundClient : CNod, ILocalProvider, IPersistentProvider
 {
     /// <summary>Null when no map loaded.</summary>
-    public CMap Map { get; set; }
-    public int GameTime { get; set; }
-    public CUser LocalUser { get; set; }
-    public CUIConfig UI { get; set; }
-    public CServerInfo ServerInfo { get; set; }
-    public Ident SettingsPlayerModelId { get; set; }
+    public CMap Map { get; }
+    public int GameTime { get; }
+    public CUser LocalUser { get; }
+    public CUIConfig UI { get; }
+    public CServerInfo ServerInfo { get; }
+    public Ident SettingsPlayerModelId { get; }
     /// <summary>Is in spectator mode - may be only for a short time between rounds.</summary>
-    public bool IsSpectator { get; set; }
+    public bool IsSpectator { get; }
     /// <summary>Client actually desires to spectate instead of playing.</summary>
-    public bool IsSpectatorClient { get; set; }
-    public bool UseClans { get; set; }
-    public bool UseForcedClans { get; set; }
-    public bool IsLoadingScreen { get; set; }
+    public bool IsSpectatorClient { get; }
+    public bool UseClans { get; }
+    public bool UseForcedClans { get; }
+    public bool IsLoadingScreen { get; }
     public void QuitServer(bool Silent) { }
     public void QuitServerAndSetResult(bool Silent, string Type, string[] Data) { }
-    public bool IsInGameMenuDisplayed { get; set; }
+    public bool IsInGameMenuDisplayed { get; }
     public void JoinTeam1() { }
     public void JoinTeam2() { }
-    public CTeam[] Teams { get; set; }
+    public CTeam[] Teams { get; }
     /// <summary>Request change of IsSpectatorClient (not immediate, and it may be refused).</summary>
     public void RequestSpectatorClient(bool Spectator) { }
     public void SetSpectateTarget(string Player) { }

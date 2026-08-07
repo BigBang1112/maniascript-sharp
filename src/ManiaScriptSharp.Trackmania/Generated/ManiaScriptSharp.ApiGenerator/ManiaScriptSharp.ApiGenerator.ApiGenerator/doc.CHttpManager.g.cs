@@ -19,8 +19,8 @@ public partial class CHttpManager : CNod
     public CHttpRequest CreatePostFile(string Url, string FileName, string AdditionalHeaders) => default!;
     public void Destroy(CHttpRequest Request) { }
     public bool IsValidUrl(string Url) => default!;
-    public CHttpRequest[] Requests { get; set; }
-    public int SlotsAvailable { get; set; }
-    public CHttpEvent[] PendingEvents { get; set; }
+    public CHttpRequest[] Requests { get; }
+    public int SlotsAvailable { get; }
+    public CHttpEvent[] PendingEvents { get; }
     public bool AutomaticHeaders_Timezone { get; set; }
 }

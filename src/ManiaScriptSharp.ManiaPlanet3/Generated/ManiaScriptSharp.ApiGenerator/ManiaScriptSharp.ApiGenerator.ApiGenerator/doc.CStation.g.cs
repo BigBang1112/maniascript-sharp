@@ -9,11 +9,11 @@ namespace ManiaScriptSharp;
 
 public partial class CStation : CNod
 {
-    public CTitle Title { get; set; }
-    public int AudienceRegisteredUsers { get; set; }
-    public int CampaignMedalsMax { get; set; }
-    public int CampaignMedalsCurrent { get; set; }
-    public int CampaignMedalsRanking { get; set; }
-    public float LadderPoints { get; set; }
-    public int LadderRank { get; set; }
+    public CTitle Title { get; }
+    public int AudienceRegisteredUsers { get; }
+    public int CampaignMedalsMax { get; }
+    public int CampaignMedalsCurrent { get; }
+    public int CampaignMedalsRanking { get; }
+    public float LadderPoints { get; }
+    public int LadderRank { get; }
 }

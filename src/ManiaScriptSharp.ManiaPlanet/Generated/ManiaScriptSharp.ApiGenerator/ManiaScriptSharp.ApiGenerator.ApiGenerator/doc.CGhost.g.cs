@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>Ghost</summary>
 public partial class CGhost : CNod
 {
-    public new Ident Id { get; set; }
+    public new Ident Id { get; }
     /// <summary>Result associated to this ghost (score/time/respawncount).</summary>
-    public CTmResult Result { get; set; }
+    public CTmResult Result { get; }
     /// <summary>Nickname of the player.</summary>
     public string Nickname { get; set; }
 }

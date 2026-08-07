@@ -11,17 +11,17 @@ namespace ManiaScriptSharp;
 public partial class CNaturalLeaderBoardInfo : CNod
 {
     /// <summary>Rank.</summary>
-    public int Rank { get; set; }
+    public int Rank { get; }
     /// <summary>UserId.</summary>
-    public Ident UserId { get; set; }
+    public Ident UserId { get; }
     /// <summary>Login.</summary>
-    public string Login { get; set; }
+    public string Login { get; }
     /// <summary>Display name.</summary>
-    public string DisplayName { get; set; }
+    public string DisplayName { get; }
     /// <summary>Score.</summary>
-    public int Score { get; set; }
+    public int Score { get; }
     /// <summary>FileName.</summary>
-    public string FileName { get; set; }
+    public string FileName { get; }
     /// <summary>ReplayUrl.</summary>
-    public string ReplayUrl { get; set; }
+    public string ReplayUrl { get; }
 }

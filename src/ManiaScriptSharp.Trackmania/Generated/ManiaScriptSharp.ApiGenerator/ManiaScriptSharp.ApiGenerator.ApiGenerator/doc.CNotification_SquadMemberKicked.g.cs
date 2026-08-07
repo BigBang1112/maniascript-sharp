@@ -10,17 +10,17 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNotification_SquadMemberKicked</summary>
 public partial class CNotification_SquadMemberKicked : CNotification_Squad
 {
-    public string KickerAccountId { get; set; }
-    public string KickerCountryFlagUrl { get; set; }
-    public string KickerDisplayName { get; set; }
-    public bool KickerIsFirstPartyDisplayName { get; set; }
-    public string KickerWebServicesUserId { get; set; }
-    public string MemberAccountId { get; set; }
-    public string MemberCountryFlagUrl { get; set; }
-    public string MemberDisplayName { get; set; }
-    public bool MemberIsFirstPartyDisplayName { get; set; }
-    public string MemberWebServicesUserId { get; set; }
-    public string SquadId { get; set; }
-    public string SquadType { get; set; }
-    public int TimeStamp { get; set; }
+    public string KickerAccountId { get; }
+    public string KickerCountryFlagUrl { get; }
+    public string KickerDisplayName { get; }
+    public bool KickerIsFirstPartyDisplayName { get; }
+    public string KickerWebServicesUserId { get; }
+    public string MemberAccountId { get; }
+    public string MemberCountryFlagUrl { get; }
+    public string MemberDisplayName { get; }
+    public bool MemberIsFirstPartyDisplayName { get; }
+    public string MemberWebServicesUserId { get; }
+    public string SquadId { get; }
+    public string SquadType { get; }
+    public int TimeStamp { get; }
 }

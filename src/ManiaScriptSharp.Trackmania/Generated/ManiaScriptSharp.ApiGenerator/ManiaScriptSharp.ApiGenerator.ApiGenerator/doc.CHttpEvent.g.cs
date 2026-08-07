@@ -15,7 +15,7 @@ public partial class CHttpEvent : CNod
         RequestComplete,
     }
 
-    public CHttpEvent.EType Type { get; set; }
+    public CHttpEvent.EType Type { get; }
     /// <summary>Request triggering the event</summary>
-    public CHttpRequest Request { get; set; }
+    public CHttpRequest Request { get; }
 }

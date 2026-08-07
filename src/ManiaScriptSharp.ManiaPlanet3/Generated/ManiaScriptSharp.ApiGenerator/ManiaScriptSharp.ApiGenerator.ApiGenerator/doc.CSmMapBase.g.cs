@@ -11,5 +11,5 @@ public partial class CSmMapBase : CNod
 {
     public int Clan { get; set; }
     public bool IsActive { get; set; }
-    public int NumberOfCollectors { get; set; }
+    public int NumberOfCollectors { get; }
 }

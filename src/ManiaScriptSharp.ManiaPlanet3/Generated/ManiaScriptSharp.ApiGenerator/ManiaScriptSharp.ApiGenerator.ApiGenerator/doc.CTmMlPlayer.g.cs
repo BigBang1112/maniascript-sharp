@@ -19,28 +19,28 @@ public partial class CTmMlPlayer : CPlayer, ILocalProvider, INetreadProvider, IN
         Eliminated,
     }
 
-    public int CurrentClan { get; set; }
-    public ERaceState RaceState { get; set; }
-    public bool IsSpawned { get; set; }
+    public int CurrentClan { get; }
+    public ERaceState RaceState { get; }
+    public bool IsSpawned { get; }
     public CTrackManiaScore Score { get; set; }
-    public int RaceStartTime { get; set; }
-    public int LapStartTime { get; set; }
+    public int RaceStartTime { get; }
+    public int LapStartTime { get; }
     public CTmResult CurRace { get; set; }
     public CTmResult CurLap { get; set; }
-    public int CurrentNbLaps { get; set; }
-    public int CurTriggerIndex { get; set; }
-    public int CurCheckpointRaceTime { get; set; }
-    public int CurCheckpointLapTime { get; set; }
-    public float AccelCoef { get; set; }
-    public float ControlCoef { get; set; }
-    public float GravityCoef { get; set; }
-    public Vec3 Position { get; set; }
-    public float AimYaw { get; set; }
-    public float AimPitch { get; set; }
-    public Vec3 AimDirection { get; set; }
-    public float Distance { get; set; }
-    public float Speed { get; set; }
-    public int DisplaySpeed { get; set; }
+    public int CurrentNbLaps { get; }
+    public int CurTriggerIndex { get; }
+    public int CurCheckpointRaceTime { get; }
+    public int CurCheckpointLapTime { get; }
+    public float AccelCoef { get; }
+    public float ControlCoef { get; }
+    public float GravityCoef { get; }
+    public Vec3 Position { get; }
+    public float AimYaw { get; }
+    public float AimPitch { get; }
+    public Vec3 AimDirection { get; }
+    public float Distance { get; }
+    public float Speed { get; }
+    public int DisplaySpeed { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> INetworkProvider.NetworkData { get; } = [];
 }

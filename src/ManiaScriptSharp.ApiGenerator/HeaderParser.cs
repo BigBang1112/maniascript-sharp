@@ -423,6 +423,7 @@ internal sealed class HeaderParser
             IsArray = isArray,
             IsDictionary = isDict,
             DictKey = key,
+            IsConst = ContainsWord(type, "const"),
         };
     }
 
@@ -605,6 +606,21 @@ internal sealed class HeaderParser
         return s;
     }
 
+    /// <summary>Returns true if <paramref name="word"/> occurs as a standalone token in <paramref name="s"/>.</summary>
+    private static bool ContainsWord(string s, string word)
+    {
+        int idx = 0;
+        while ((idx = s.IndexOf(word, idx, StringComparison.Ordinal)) >= 0)
+        {
+            bool leftOk = idx == 0 || !char.IsLetterOrDigit(s[idx - 1]);
+            int after = idx + word.Length;
+            bool rightOk = after >= s.Length || !char.IsLetterOrDigit(s[after]);
+            if (leftOk && rightOk) return true;
+            idx = after;
+        }
+        return false;
+    }
+
     private static string CollapseSpaces(string s)
     {
         var sb = new StringBuilder(s.Length);
@@ -697,6 +713,8 @@ internal sealed class MemberDecl
     public bool IsDictionary { get; set; }
     public string? DictKey { get; set; }
     public List<ParamDecl> Parameters { get; set; } = new();
+    /// <summary>Whether the field was declared <c>const</c> (read-only from script) in the header.</summary>
+    public bool IsConst { get; set; }
 }
 
 internal sealed class ParamDecl

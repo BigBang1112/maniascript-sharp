@@ -9,9 +9,9 @@ namespace ManiaScriptSharp;
 
 public partial class CCollector : CNod
 {
-    public string Name { get; set; }
+    public string Name { get; }
     public string PageName { get; set; }
     public int InterfaceNumber { get; set; }
-    public CImage Icon { get; set; }
-    public string SkinDirectory { get; set; }
+    public CImage Icon { get; }
+    public string SkinDirectory { get; }
 }

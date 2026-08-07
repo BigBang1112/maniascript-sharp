@@ -10,14 +10,14 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CTrophySoloMedalAchievementLevelSettings</summary>
 public partial class CTrophySoloMedalAchievementLevelSettings : CNod
 {
-    public string Level { get; set; }
-    public int T1Count { get; set; }
-    public int T2Count { get; set; }
-    public int T3Count { get; set; }
-    public int T4Count { get; set; }
-    public int T5Count { get; set; }
-    public int T6Count { get; set; }
-    public int T7Count { get; set; }
-    public int T8Count { get; set; }
-    public int T9Count { get; set; }
+    public string Level { get; }
+    public int T1Count { get; }
+    public int T2Count { get; }
+    public int T3Count { get; }
+    public int T4Count { get; }
+    public int T5Count { get; }
+    public int T6Count { get; }
+    public int T7Count { get; }
+    public int T8Count { get; }
+    public int T9Count { get; }
 }

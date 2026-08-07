@@ -24,7 +24,7 @@ public partial class CEditorPluginModuleEvent : CManiaAppEvent, ILocalProvider
         FileSaveAs,
     }
 
-    public Type Type_ { get; set; }
+    public Type Type_ { get; }
     public void Eat() { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

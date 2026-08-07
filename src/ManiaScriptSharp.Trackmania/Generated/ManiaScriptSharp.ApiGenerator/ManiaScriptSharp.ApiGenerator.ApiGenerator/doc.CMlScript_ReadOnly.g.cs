@@ -41,8 +41,8 @@ public partial class CMlScript_ReadOnly : CNod
     public string CurrentTimeText { get; set; }
     public string CurrentLocalDateText { get; set; }
     public string CurrentTimezone { get; set; }
-    public CUser LocalUser { get; set; }
-    public CTitle LoadedTitle { get; set; }
+    public CUser LocalUser { get; }
+    public CTitle LoadedTitle { get; }
     public CMlScript_ReadOnly.ESystemPlatform SystemPlatform { get; set; }
     public CMlScript_ReadOnly.ESystemSkuIdentifier SystemSkuIdentifier { get; set; }
     public CParsingManager Xml { get; set; }

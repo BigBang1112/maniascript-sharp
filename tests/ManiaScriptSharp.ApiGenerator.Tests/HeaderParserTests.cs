@@ -162,6 +162,43 @@ public :
     }
 
     [Fact]
+    public void Parse_ManiaPlanetLeadingConstField_IsConst()
+    {
+        var input = @"
+struct CFoo : public CNod {
+    const Integer Now;
+};";
+        var result = new HeaderParser(input).Parse();
+        var m = result.Types[0].Members[0];
+        Assert.True(m.IsConst);
+    }
+
+    [Fact]
+    public void Parse_TrackmaniaConstPointerField_IsConst()
+    {
+        var input = @"
+class CFoo : public CNod {
+public :
+    CUser * const  LocalUser;
+};";
+        var result = new HeaderParser(input).Parse();
+        var m = result.Types[0].Members[0];
+        Assert.True(m.IsConst);
+    }
+
+    [Fact]
+    public void Parse_RegularField_IsNotConst()
+    {
+        var input = @"
+struct CFoo : public CNod {
+    Integer Score;
+};";
+        var result = new HeaderParser(input).Parse();
+        var m = result.Types[0].Members[0];
+        Assert.False(m.IsConst);
+    }
+
+    [Fact]
     public void Parse_AssociativeArray_DetectedAsDict()
     {
         var input = @"

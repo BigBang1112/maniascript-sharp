@@ -28,8 +28,8 @@ public partial class CMlControl : CNod, ILocalProvider
         VCenter2,
     }
 
-    public string ControlId { get; set; }
-    public string[] ControlClasses { get; set; }
+    public string ControlId { get; }
+    public string[] ControlClasses { get; }
     public bool HasClass(string Class) => default!;
     public Vec2 Size { get; set; }
     public AlignHorizontal HorizontalAlign { get; set; }
@@ -38,9 +38,9 @@ public partial class CMlControl : CNod, ILocalProvider
     public Vec3 RelativePosition { get; set; }
     public float RelativeScale { get; set; }
     public float RelativeRotation { get; set; }
-    public Vec3 AbsolutePosition { get; set; }
-    public float AbsoluteScale { get; set; }
-    public float AbsoluteRotation { get; set; }
+    public Vec3 AbsolutePosition { get; }
+    public float AbsoluteScale { get; }
+    public float AbsoluteRotation { get; }
     public bool DataAttributeExists(string DataName) => default!;
     public string DataAttributeGet(string DataName) => default!;
     public void DataAttributeSet(string DataName, string DataValue) { }

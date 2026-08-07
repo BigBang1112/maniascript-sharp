@@ -9,11 +9,11 @@ namespace ManiaScriptSharp;
 
 public partial class CParsingNode : CNod
 {
-    public string Name { get; set; }
-    public string TextContents { get; set; }
-    public string TextRawContents { get; set; }
-    public string TextRecursiveContents { get; set; }
-    public CParsingNode[] Children { get; set; }
+    public string Name { get; }
+    public string TextContents { get; }
+    public string TextRawContents { get; }
+    public string TextRecursiveContents { get; }
+    public CParsingNode[] Children { get; }
     public string GetAttributeText(string Name, string DefaultValue) => default!;
     public int GetAttributeInteger(string Name, int DefaultValue) => default!;
     public float GetAttributeReal(string Name, float DefaultValue) => default!;

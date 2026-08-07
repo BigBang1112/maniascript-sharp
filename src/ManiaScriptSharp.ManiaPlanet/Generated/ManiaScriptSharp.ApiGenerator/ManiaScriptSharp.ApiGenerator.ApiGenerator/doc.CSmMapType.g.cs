@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Persistent  API for the plugins of the map editor.</summary>
 public partial class CSmMapType : CMapType, ILocalProvider, IPersistentProvider
 {
-    public CSmMode Mode { get; set; }
-    public CSmPlayer[] AllPlayers { get; set; }
-    public CSmPlayer[] Players { get; set; }
+    public CSmMode Mode { get; }
+    public CSmPlayer[] AllPlayers { get; }
+    public CSmPlayer[] Players { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

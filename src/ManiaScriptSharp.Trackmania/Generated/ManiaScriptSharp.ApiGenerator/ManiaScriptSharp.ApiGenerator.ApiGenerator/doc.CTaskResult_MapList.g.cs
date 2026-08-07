@@ -11,11 +11,11 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_MapList : CTaskResult, ILocalProvider
 {
     /// <summary>Path of the parent zone.</summary>
-    public string ParentPath { get; set; }
+    public string ParentPath { get; }
     /// <summary>Path of the current zone.</summary>
-    public string Path { get; set; }
+    public string Path { get; }
     /// <summary>List of the map info. Array of CMapInfo objects.</summary>
-    public CMapInfo[] MapInfos { get; set; }
+    public CMapInfo[] MapInfos { get; }
     /// <summary>List of the sub folders. Array of string.</summary>
     public string[] SubFolders { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMapObjectAnchor</summary>
 public partial class CMapObjectAnchor : CNod
 {
-    public string ItemName { get; set; }
-    public Ident ItemModelId { get; set; }
+    public string ItemName { get; }
+    public Ident ItemModelId { get; }
 }

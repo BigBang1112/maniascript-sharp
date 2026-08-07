@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CAccountTrophyGainForHistory_CompetitionMatch</summary>
 public partial class CAccountTrophyGainForHistory_CompetitionMatch : CAccountTrophyGainForHistory
 {
-    public int Rank { get; set; }
+    public int Rank { get; }
     public CTrophyAchievement_CompetitionMatch TrophyAchievement_CompetitionMatch { get; set; }
 }

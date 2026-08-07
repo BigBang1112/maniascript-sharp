@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMapWaypoint</summary>
 public partial class CMapWaypoint : CNod
 {
-    public bool IsFinish { get; set; }
-    public bool IsMultiLap { get; set; }
+    public bool IsFinish { get; }
+    public bool IsMultiLap { get; }
 }

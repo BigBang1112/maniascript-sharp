@@ -41,13 +41,13 @@ public partial class CUILayer : CNod
     }
 
     public bool IsVisible { get; set; }
-    public bool AnimInProgress { get; set; }
+    public bool AnimInProgress { get; }
     public CUILayer.EUILayerType Type { get; set; }
     public CUILayer.EUILayerAnimation InAnimation { get; set; }
     public CUILayer.EUILayerAnimation OutAnimation { get; set; }
     public CUILayer.EUILayerAnimation InOutAnimation { get; set; }
     public string AttachId { get; set; }
     public string ManialinkPage { get; set; }
-    public CMlPage LocalPage { get; set; }
-    public bool IsLocalPageScriptRunning { get; set; }
+    public CMlPage LocalPage { get; }
+    public bool IsLocalPageScriptRunning { get; }
 }

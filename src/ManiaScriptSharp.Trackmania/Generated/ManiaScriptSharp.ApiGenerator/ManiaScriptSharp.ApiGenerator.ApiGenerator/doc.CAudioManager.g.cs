@@ -29,7 +29,7 @@ public partial class CAudioManager : CNod
     public CAudioSource CreateSound(string Url) => default!;
     public CAudioSource CreateSound(string Url, float VolumedB, bool IsMusic, bool IsLooping, bool IsSpatialized) => default!;
     public void DestroySound(CAudioSource Sound) { }
-    public CAudioSource[] Sounds { get; set; }
+    public CAudioSource[] Sounds { get; }
     public CAudioSourceMusic CreateMusic(string Url) => default!;
     public void DestroyMusic(CAudioSourceMusic Music) { }
     public void PlaySoundEvent(CAudioSource Sound, float VolumedB) { }

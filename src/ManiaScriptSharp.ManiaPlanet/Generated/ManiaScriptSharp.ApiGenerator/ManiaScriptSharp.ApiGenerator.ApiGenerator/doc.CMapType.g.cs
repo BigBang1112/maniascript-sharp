@@ -26,9 +26,9 @@ public partial class CMapType : CMapEditorPlugin, ILocalProvider, IPersistentPro
     public bool ValidationEndNoConfirm { get; set; }
     public void RequestEnterPlayground() { }
     public void RequestLeavePlayground() { }
-    public bool IsSwitchedToPlayground { get; set; }
-    public CUIConfigMgr UIManager { get; set; }
-    public CUser[] Users { get; set; }
+    public bool IsSwitchedToPlayground { get; }
+    public CUIConfigMgr UIManager { get; }
+    public CUser[] Users { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

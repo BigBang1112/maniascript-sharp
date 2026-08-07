@@ -49,8 +49,8 @@ public partial class CSmPlayerDriver : CNod
     public bool RocketAnticipation { get; set; }
     public float Fov { get; set; }
     public ESmAttackFilter AttackFilter { get; set; }
-    public CSmPlayer Target { get; set; }
-    public bool IsStuck { get; set; }
+    public CSmPlayer Target { get; }
+    public bool IsStuck { get; }
     public bool IsFlying { get; set; }
     public int PathOffset { get; set; }
     public float Agressivity { get; set; }

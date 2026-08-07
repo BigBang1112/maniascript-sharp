@@ -10,10 +10,10 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNotification_SquadUpdated</summary>
 public partial class CNotification_SquadUpdated : CNotification_Squad
 {
-    public string SquadId { get; set; }
-    public string SquadType { get; set; }
-    public string LeaderAccountId { get; set; }
-    public string LeaderWebServicesUserId { get; set; }
-    public bool WasForcedToLeaveDueToCrossPlaySetting { get; set; }
-    public int TimeStamp { get; set; }
+    public string SquadId { get; }
+    public string SquadType { get; }
+    public string LeaderAccountId { get; }
+    public string LeaderWebServicesUserId { get; }
+    public bool WasForcedToLeaveDueToCrossPlaySetting { get; }
+    public int TimeStamp { get; }
 }

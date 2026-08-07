@@ -67,11 +67,11 @@ public partial class CSmPlayerDriver : CNod
     /// <summary>The field of view angle the driver uses to search for targets. Value in degrees.Values in range (0.000000-360.000000)</summary>
     public float TargetDetectionFov { get; set; }
     public CSmPlayerDriver.ESmAttackFilter AttackFilter { get; set; }
-    public CSmPlayer Target { get; set; }
-    public bool IsStuck { get; set; }
+    public CSmPlayer Target { get; }
+    public bool IsStuck { get; }
     /// <summary>PathFinding takes some time to compute and doesn't always reach the intended goal. The player will most probably reach the goal in the case CSmPlayerDriver::ESmDriverPathState::Full.</summary>
-    public CSmPlayerDriver.ESmDriverPathState PathState { get; set; }
-    public CSmPlayer Owner { get; set; }
+    public CSmPlayerDriver.ESmDriverPathState PathState { get; }
+    public CSmPlayer Owner { get; }
     public void Scripted_Move(Vec3 Goal) { }
     public void Scripted_MoveDelta(Vec3 Delta) { }
     public void Scripted_MoveAndAim(Vec3 Goal) { }

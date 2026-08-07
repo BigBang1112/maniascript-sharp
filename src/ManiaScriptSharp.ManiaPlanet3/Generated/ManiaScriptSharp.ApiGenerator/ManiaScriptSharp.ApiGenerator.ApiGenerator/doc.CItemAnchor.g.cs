@@ -17,5 +17,5 @@ public partial class CItemAnchor : CNod
         West,
     }
 
-    public Vec3 Position { get; set; }
+    public Vec3 Position { get; }
 }

@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CTrophyAchievement_LiveMatch</summary>
 public partial class CTrophyAchievement_LiveMatch : CTrophyAchievement
 {
-    public int Duration { get; set; }
-    public string GameMode { get; set; }
-    public string GameModeCustomData { get; set; }
-    public bool IsOfficial { get; set; }
-    public string ServerId { get; set; }
+    public int Duration { get; }
+    public string GameMode { get; }
+    public string GameModeCustomData { get; }
+    public bool IsOfficial { get; }
+    public string ServerId { get; }
 }

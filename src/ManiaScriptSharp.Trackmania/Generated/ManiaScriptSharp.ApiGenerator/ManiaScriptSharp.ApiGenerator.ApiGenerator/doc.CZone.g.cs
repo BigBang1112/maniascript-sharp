@@ -10,15 +10,15 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CZone</summary>
 public partial class CZone : CNod
 {
-    public new string Id { get; set; }
-    public string Name { get; set; }
-    public string ParentId { get; set; }
-    public string Path { get; set; }
-    public string FullPath { get; set; }
-    public string FlagUrl { get; set; }
-    public string CountryFlagUrl { get; set; }
-    public string Model_CarSport_SkinName { get; set; }
-    public string Model_CarSport_SkinUrl { get; set; }
-    public string Model_CharacterPilot_SkinName { get; set; }
-    public string Model_CharacterPilot_SkinUrl { get; set; }
+    public new string Id { get; }
+    public string Name { get; }
+    public string ParentId { get; }
+    public string Path { get; }
+    public string FullPath { get; }
+    public string FlagUrl { get; }
+    public string CountryFlagUrl { get; }
+    public string Model_CarSport_SkinName { get; }
+    public string Model_CarSport_SkinUrl { get; }
+    public string Model_CharacterPilot_SkinName { get; }
+    public string Model_CharacterPilot_SkinUrl { get; }
 }

@@ -28,13 +28,13 @@ public partial class CSystemPlatform : CNod, ILocalProvider
         JP,
     }
 
-    public ESystemPlatform Platform { get; set; }
-    public ESystemSkuIdentifier SkuIdentifier { get; set; }
-    public string ExeVersion { get; set; }
-    public int CurrentLocalDate { get; set; }
-    public string CurrentLocalDateText { get; set; }
-    public string CurrentTimezone { get; set; }
-    public string ExtraTool_Info { get; set; }
+    public ESystemPlatform Platform { get; }
+    public ESystemSkuIdentifier SkuIdentifier { get; }
+    public string ExeVersion { get; }
+    public int CurrentLocalDate { get; }
+    public string CurrentLocalDateText { get; }
+    public string CurrentTimezone { get; }
+    public string ExtraTool_Info { get; }
     public string ExtraTool_Data { get; set; }
     public void ClipboardSet(string ClipboardText) { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

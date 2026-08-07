@@ -10,11 +10,11 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  NetworkRead  NetworkWrite</summary>
 public partial class CPlayer : CNod, ILocalProvider, INetreadProvider, INetwriteProvider
 {
-    public CUser User { get; set; }
-    public string Login { get; set; }
-    public string Name { get; set; }
-    public int RequestedClan { get; set; }
-    public bool RequestsSpectate { get; set; }
+    public CUser User { get; }
+    public string Login { get; }
+    public string Name { get; }
+    public int RequestedClan { get; }
+    public bool RequestsSpectate { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> INetworkProvider.NetworkData { get; } = [];
 }

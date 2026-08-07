@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Asynchronous task result. Supported declare modes : - Local</summary>
 public partial class CTaskResult_Bool : CTaskResult, ILocalProvider
 {
-    public bool Value { get; set; }
+    public bool Value { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

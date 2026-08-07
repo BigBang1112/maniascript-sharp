@@ -25,14 +25,14 @@ public partial class CTmRaceClientEvent : CNod
         AirSpawnRelease,
     }
 
-    public EType Type { get; set; }
-    public CTmMlPlayer Player { get; set; }
-    public int CheckpointInRace { get; set; }
-    public int CheckpointInLap { get; set; }
-    public bool IsEndRace { get; set; }
-    public bool IsEndLap { get; set; }
-    public int RaceTime { get; set; }
-    public int LapTime { get; set; }
-    public int StuntsScore { get; set; }
-    public int NbRespawns { get; set; }
+    public EType Type { get; }
+    public CTmMlPlayer Player { get; }
+    public int CheckpointInRace { get; }
+    public int CheckpointInLap { get; }
+    public bool IsEndRace { get; }
+    public bool IsEndLap { get; }
+    public int RaceTime { get; }
+    public int LapTime { get; }
+    public int StuntsScore { get; }
+    public int NbRespawns { get; }
 }

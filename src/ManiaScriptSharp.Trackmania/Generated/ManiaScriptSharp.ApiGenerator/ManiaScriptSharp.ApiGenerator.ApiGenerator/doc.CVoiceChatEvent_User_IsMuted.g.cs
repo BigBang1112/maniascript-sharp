@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CVoiceChatEvent_User_IsMuted</summary>
 public partial class CVoiceChatEvent_User_IsMuted : CVoiceChatEvent
 {
-    public CGameUserVoiceChat User { get; set; }
-    public bool NewValue { get; set; }
-    public bool ChangePending { get; set; }
+    public CGameUserVoiceChat User { get; }
+    public bool NewValue { get; }
+    public bool ChangePending { get; }
 }

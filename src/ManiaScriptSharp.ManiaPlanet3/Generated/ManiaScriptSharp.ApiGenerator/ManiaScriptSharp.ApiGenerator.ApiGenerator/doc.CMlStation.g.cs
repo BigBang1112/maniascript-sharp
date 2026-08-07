@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Persistent  This is the Manialink browser interface.</summary>
 public partial class CMlStation : CMlBrowser, ILocalProvider, IPersistentProvider
 {
-    public CStation Station { get; set; }
+    public CStation Station { get; }
     public void EnterStation() { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

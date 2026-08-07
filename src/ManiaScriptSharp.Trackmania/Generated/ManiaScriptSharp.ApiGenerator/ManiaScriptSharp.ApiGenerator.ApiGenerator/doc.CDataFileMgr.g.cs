@@ -22,11 +22,11 @@ public partial class CDataFileMgr : CNod
     }
 
     /// <summary>Array of task results.</summary>
-    public CTaskResult[] TaskResults { get; set; }
+    public CTaskResult[] TaskResults { get; }
     /// <summary>Release a task result no more used.</summary>
     public void TaskResult_Release(Ident TaskId) { }
     /// <summary>Array of campaigns.</summary>
-    public CCampaign[] Campaigns { get; set; }
+    public CCampaign[] Campaigns { get; }
     /// <summary>Get a campaign from its id.</summary>
     public CCampaign Campaign_Get(string CampaignId) => default!;
     public CTaskResult_NSItemCollection ItemCollection_Create(Ident UserId, string ClubId, string DisplayName, string FileName) => default!;
@@ -75,7 +75,7 @@ public partial class CDataFileMgr : CNod
     public CTaskResult_NSSkin AccountSkin_NadeoServices_Set(Ident UserId, string SkinId) => default!;
     public CTaskResult AccountSkin_NadeoServices_Unset(Ident UserId, string SkinType) => default!;
     /// <summary>Array of ghosts.</summary>
-    public CGhost[] Ghosts { get; set; }
+    public CGhost[] Ghosts { get; }
     /// <summary>Release a downloaded ghost no longer needed.</summary>
     public void Ghost_Release(Ident GhostId) { }
     public CTaskResult_Ghost Ghost_Download(string FileName, string Url) => default!;
@@ -104,7 +104,7 @@ public partial class CDataFileMgr : CNod
     public CTaskResult Pack_DownloadOrUpdate(string DisplayName, string Url) => default!;
     public CTaskResult UserSave_DeleteFile(string Path) => default!;
     /// <summary>Available space for user files, in kilobytes. (clamped to 1Gb)</summary>
-    public int UserSave_AvailableSpace { get; set; }
+    public int UserSave_AvailableSpace { get; }
     /// <summary>Background write to usersave in progress. Do not switch off the console.</summary>
-    public bool UserSave_IsWriting { get; set; }
+    public bool UserSave_IsWriting { get; }
 }

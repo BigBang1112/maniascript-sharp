@@ -11,7 +11,7 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_ZoneList : CWebServicesTaskResult_WSZonePtrList, ILocalProvider
 {
     /// <summary>List of zones. Array of CRankingsZone objects.</summary>
-    public CZone[] ZoneList { get; set; }
+    public CZone[] ZoneList { get; }
     /// <summary>Get a zone into the list from a zone id. Must be called after the task has succeeded.</summary>
     public CZone GetZone(string ZoneId) => default!;
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

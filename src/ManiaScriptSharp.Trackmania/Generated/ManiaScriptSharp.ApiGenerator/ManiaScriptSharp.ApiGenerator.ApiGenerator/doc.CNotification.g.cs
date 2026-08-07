@@ -10,5 +10,5 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNotification</summary>
 public partial class CNotification : CNod
 {
-    public string Type { get; set; }
+    public string Type { get; }
 }

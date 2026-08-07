@@ -25,11 +25,11 @@ public partial class CMlBrowser : CMlScript, ILocalProvider, IPersistentProvider
         NotFinished,
     }
 
-    public CMap CurMap { get; set; }
+    public CMap CurMap { get; }
     public void ShowCurMapCard() { }
-    public EBuddyResult BuddyDoResult { get; set; }
-    public string BuddyDoErrorMessage { get; set; }
-    public bool IsInBrowser { get; set; }
+    public EBuddyResult BuddyDoResult { get; }
+    public string BuddyDoErrorMessage { get; }
+    public bool IsInBrowser { get; }
     public void BrowserBack() { }
     public void BrowserQuit() { }
     public void BrowserHome() { }

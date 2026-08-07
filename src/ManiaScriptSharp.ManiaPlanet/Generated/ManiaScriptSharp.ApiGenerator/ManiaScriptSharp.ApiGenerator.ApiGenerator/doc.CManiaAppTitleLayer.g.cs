@@ -11,8 +11,8 @@ namespace ManiaScriptSharp;
 public partial class CManiaAppTitleLayer : CMlScript, ILocalProvider, IPersistentProvider
 {
     /// <summary>Will be Null if the script is not runing in a layer of an app.</summary>
-    public CManiaAppTitle ParentApp { get; set; }
-    public CTitleControl TitleControl { get; set; }
+    public CManiaAppTitle ParentApp { get; }
+    public CTitleControl TitleControl { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

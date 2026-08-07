@@ -11,7 +11,7 @@ namespace ManiaScriptSharp;
 public partial class CScoreMgr : CNod
 {
     /// <summary>Array of task results.</summary>
-    public CTaskResult[] TaskResults { get; set; }
+    public CTaskResult[] TaskResults { get; }
     /// <summary>Release a task result no more used.</summary>
     public void TaskResult_Release(Ident TaskId) { }
     /// <summary>Returns the ghost currently being recorded for a player on the current playground. (or the latest ghost if the player is not playing.)</summary>

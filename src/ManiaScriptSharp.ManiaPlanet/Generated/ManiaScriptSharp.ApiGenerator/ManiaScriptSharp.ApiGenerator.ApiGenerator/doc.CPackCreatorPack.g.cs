@@ -11,10 +11,10 @@ namespace ManiaScriptSharp;
 public partial class CPackCreatorPack : CNod
 {
     /// <summary>PackId is the TitleId if the pack is a TitlePack.</summary>
-    public Ident PackId { get; set; }
-    public Ident CreatorId { get; set; }
-    public bool IsTitlePack { get; set; }
+    public Ident PackId { get; }
+    public Ident CreatorId { get; }
+    public bool IsTitlePack { get; }
     public void Recipients_Add(string Login, int UseCost, int GetCost) { }
     public void Recipients_Remove(string Login) { }
-    public CPackCreatorRecipient[] Recipients { get; set; }
+    public CPackCreatorRecipient[] Recipients { get; }
 }

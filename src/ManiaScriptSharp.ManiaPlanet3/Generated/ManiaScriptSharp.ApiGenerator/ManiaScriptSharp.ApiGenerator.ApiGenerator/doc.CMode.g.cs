@@ -22,29 +22,29 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     }
 
     public string ModeStatusMessage { get; set; }
-    public CTitle LoadedTitle { get; set; }
-    public string ServerLogin { get; set; }
-    public string ServerName { get; set; }
-    public string ServerModeName { get; set; }
-    public string MapName { get; set; }
-    public CMap Map { get; set; }
-    public string MapPlayerModelName { get; set; }
-    public CUser[] Users { get; set; }
-    public CTeam[] Teams { get; set; }
+    public CTitle LoadedTitle { get; }
+    public string ServerLogin { get; }
+    public string ServerName { get; }
+    public string ServerModeName { get; }
+    public string MapName { get; }
+    public CMap Map { get; }
+    public string MapPlayerModelName { get; }
+    public CUser[] Users { get; }
+    public CTeam[] Teams { get; }
     public string NeutralEmblemUrl { get; set; }
-    public string ForcedClubLinkUrl1 { get; set; }
-    public string ForcedClubLinkUrl2 { get; set; }
+    public string ForcedClubLinkUrl1 { get; }
+    public string ForcedClubLinkUrl2 { get; }
     public void TweakTeamColorsToAvoidHueOverlap() { }
-    public int Now { get; set; }
-    public int Period { get; set; }
+    public int Now { get; }
+    public int Period { get; }
     public bool MatchEndRequested { get; set; }
-    public bool ServerShutdownRequested { get; set; }
-    public bool MapLoaded { get; set; }
+    public bool ServerShutdownRequested { get; }
+    public bool MapLoaded { get; }
     public void RequestLoadMap() { }
     public void RequestUnloadMap() { }
-    public CMapInfo[] MapList { get; set; }
+    public CMapInfo[] MapList { get; }
     public int NextMapIndex { get; set; }
-    public CUIConfigMgr UIManager { get; set; }
+    public CUIConfigMgr UIManager { get; }
     public void Ladder_OpenMatch_Request() { }
     public void Ladder_AddPlayer(CScore PlayerScore) { }
     public void Ladder_OpenMatch_BeginRequest() { }
@@ -52,7 +52,7 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public void Ladder_OpenMatch_EndRequest() { }
     public void Ladder_CloseMatchRequest() { }
     public void Ladder_CancelMatchRequest() { }
-    public bool Ladder_RequestInProgress { get; set; }
+    public bool Ladder_RequestInProgress { get; }
     public void Ladder_SetResultsVersion(int Version) { }
     public void Ladder_SetMatchMakingMatchId(int MatchId) { }
     public void Ladder_EnableChallengeMode(bool Enable) { }
@@ -60,10 +60,10 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public void Admin_SetLobbyInfo(bool IsLobby, int LobbyPlayerCount, int LobbyMaxPlayerCount, float LobbyPlayersLevel) { }
     public void AutoTeamBalance() { }
     public void Solo_SetNewRecord(CScore PlayerScore, EMedal PlayerScore2) { }
-    public bool Solo_NewRecordSequenceInProgress { get; set; }
-    public CXmlRpc XmlRpc { get; set; }
-    public CXmlManager Xml { get; set; }
-    public CHttpManager Http { get; set; }
+    public bool Solo_NewRecordSequenceInProgress { get; }
+    public CXmlRpc XmlRpc { get; }
+    public CXmlManager Xml { get; }
+    public CHttpManager Http { get; }
     public int Synchro_AddBarrier() => default!;
     public bool Synchro_BarrierReached(int Barrier) => default!;
     public bool Users_AreAllies(CUser User1, CUser User2) => default!;

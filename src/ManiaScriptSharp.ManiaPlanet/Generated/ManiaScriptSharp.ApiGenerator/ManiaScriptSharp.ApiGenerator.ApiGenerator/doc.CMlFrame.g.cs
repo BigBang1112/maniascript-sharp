@@ -10,14 +10,14 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local</summary>
 public partial class CMlFrame : CMlControl, ILocalProvider
 {
-    public CMlControl[] Controls { get; set; }
+    public CMlControl[] Controls { get; }
     public CMlControl GetFirstChild(string ControlId) => default!;
     public bool ClipWindowActive { get; set; }
     public Vec2 ClipWindowRelativePosition { get; set; }
     public Vec2 ClipWindowSize { get; set; }
     public bool ScrollActive { get; set; }
     public Vec2 ScrollOffset { get; set; }
-    public Vec2 ScrollAnimOffset { get; set; }
+    public Vec2 ScrollAnimOffset { get; }
     public Vec2 ScrollMax { get; set; }
     public Vec2 ScrollMin { get; set; }
     public bool ScrollGridSnap { get; set; }

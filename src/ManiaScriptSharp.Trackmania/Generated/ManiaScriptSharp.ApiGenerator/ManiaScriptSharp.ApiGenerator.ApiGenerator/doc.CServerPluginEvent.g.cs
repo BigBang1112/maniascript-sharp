@@ -36,15 +36,15 @@ public partial class CServerPluginEvent : CBaseConstEvent, ILocalProvider
     }
 
     /// <summary>Event type.</summary>
-    public CServerPluginEvent.EType Type { get; set; }
-    public CClient Client { get; set; }
-    public string ChatText { get; set; }
-    public CServerPluginEvent.EChatOption ChatOption { get; set; }
-    public string ChatCommandType { get; set; }
+    public CServerPluginEvent.EType Type { get; }
+    public CClient Client { get; }
+    public string ChatText { get; }
+    public CServerPluginEvent.EChatOption ChatOption { get; }
+    public string ChatCommandType { get; }
     public string[] ChatCommandData { get; set; }
-    public string ModeCallbackType { get; set; }
+    public string ModeCallbackType { get; }
     public string[] ModeCallbackData { get; set; }
-    public CScore[] EndMatchScores { get; set; }
+    public CScore[] EndMatchScores { get; }
     public int[] EndMatchRanks { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

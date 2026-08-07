@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Persistent  This is the title menus Manialink interface.</summary>
 public partial class CModuleMenuLayer : CManiaAppTitleLayer, ILocalProvider, IPersistentProvider
 {
-    public CModuleMenuComponent[] Components { get; set; }
+    public CModuleMenuComponent[] Components { get; }
     public CModuleMenuComponent GetFirstComponent(string Name) => default!;
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

@@ -10,12 +10,12 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Metadata</summary>
 public partial class CMacroblockModel : CCollector, ILocalProvider, IMetadataProvider
 {
-    public bool IsGround { get; set; }
-    public bool HasStart { get; set; }
-    public bool HasFinish { get; set; }
-    public bool HasCheckpoint { get; set; }
-    public CBlockModel GeneratedBlockModel { get; set; }
-    public new string Name { get; set; }
+    public bool IsGround { get; }
+    public bool HasStart { get; }
+    public bool HasFinish { get; }
+    public bool HasCheckpoint { get; }
+    public CBlockModel GeneratedBlockModel { get; }
+    public new string Name { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
 }

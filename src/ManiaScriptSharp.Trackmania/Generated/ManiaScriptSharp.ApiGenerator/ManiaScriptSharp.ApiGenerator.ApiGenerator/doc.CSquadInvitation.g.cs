@@ -10,10 +10,10 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CSquadInvitation</summary>
 public partial class CSquadInvitation : CNod
 {
-    public string AccountId { get; set; }
-    public string CountryFlagUrl { get; set; }
-    public string DisplayName { get; set; }
-    public bool IsFirstPartyDisplayName { get; set; }
-    public string PrestigeSkinOptions { get; set; }
+    public string AccountId { get; }
+    public string CountryFlagUrl { get; }
+    public string DisplayName { get; }
+    public bool IsFirstPartyDisplayName { get; }
+    public string PrestigeSkinOptions { get; }
     public CSkinInfo[] SkinList { get; set; }
 }

@@ -11,12 +11,12 @@ namespace ManiaScriptSharp;
 public partial class CMatchSettings : CNod
 {
     /// <summary>Name of the file</summary>
-    public string Name { get; set; }
-    public string FileName { get; set; }
+    public string Name { get; }
+    public string FileName { get; }
     public string ScriptModeName { get; set; }
     public bool ScriptModeName_Check(string ScriptModeName) => default!;
     public void ScriptModeName_Set(string ScriptModeName) { }
-    public CMatchSettingsPlaylistItem[] Playlist { get; set; }
+    public CMatchSettingsPlaylistItem[] Playlist { get; }
     public bool Playlist_FileExists(string File) => default!;
     public bool Playlist_FileMatchesMode(string File) => default!;
     public void Playlist_Add(string File) { }

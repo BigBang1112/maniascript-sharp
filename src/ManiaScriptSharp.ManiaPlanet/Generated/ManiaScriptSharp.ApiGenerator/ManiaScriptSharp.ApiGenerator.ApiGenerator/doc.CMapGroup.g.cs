@@ -10,5 +10,5 @@ namespace ManiaScriptSharp;
 public partial class CMapGroup : CNod
 {
     public void IsUnlocked() { }
-    public CMapInfo[] MapInfos { get; set; }
+    public CMapInfo[] MapInfos { get; }
 }

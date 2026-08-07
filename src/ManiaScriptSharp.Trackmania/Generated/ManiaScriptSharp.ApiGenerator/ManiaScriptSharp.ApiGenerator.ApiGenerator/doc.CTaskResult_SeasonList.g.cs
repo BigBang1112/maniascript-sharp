@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_SeasonList : CWebServicesTaskResult_SeasonList, ILocalProvider
 {
     /// <summary>List of season contained by this result.</summary>
-    public CSeason[] SeasonList { get; set; }
+    public CSeason[] SeasonList { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

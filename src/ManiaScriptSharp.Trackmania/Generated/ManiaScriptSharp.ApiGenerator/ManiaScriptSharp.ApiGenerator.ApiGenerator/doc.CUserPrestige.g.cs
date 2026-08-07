@@ -10,12 +10,12 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CUserPrestige</summary>
 public partial class CUserPrestige : CNod
 {
-    public string CategoryType { get; set; }
-    public int CategoryLevel { get; set; }
-    public EPrestigeMode Mode { get; set; }
-    public string PrestigeId { get; set; }
-    public int PrestigeLevel { get; set; }
-    public string SkinOptions { get; set; }
-    public int TimeStamp { get; set; }
-    public int Year { get; set; }
+    public string CategoryType { get; }
+    public int CategoryLevel { get; }
+    public EPrestigeMode Mode { get; }
+    public string PrestigeId { get; }
+    public int PrestigeLevel { get; }
+    public string SkinOptions { get; }
+    public int TimeStamp { get; }
+    public int Year { get; }
 }

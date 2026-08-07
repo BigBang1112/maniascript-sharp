@@ -17,13 +17,13 @@ public partial class CBlock : CNod
         West,
     }
 
-    public int BlockScriptId { get; set; }
-    public bool CanHaveAnchor { get; set; }
+    public int BlockScriptId { get; }
+    public bool CanHaveAnchor { get; }
     public void UseDefaultAnchor() { }
     public void UseCustomAnchor() { }
-    public Int3 Coord { get; set; }
-    public CMapEditorPlugin.CardinalDirections Dir { get; set; }
-    public CardinalDirections Direction { get; set; }
-    public CBlockUnit[] BlockUnits { get; set; }
-    public CBlockModel BlockModel { get; set; }
+    public Int3 Coord { get; }
+    public CMapEditorPlugin.CardinalDirections Dir { get; }
+    public CardinalDirections Direction { get; }
+    public CBlockUnit[] BlockUnits { get; }
+    public CBlockModel BlockModel { get; }
 }

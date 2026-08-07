@@ -10,20 +10,20 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNadeoServicesItemCollection</summary>
 public partial class CNadeoServicesItemCollection : CNod
 {
-    public string ActivityId { get; set; }
-    public int CreationTimeStamp { get; set; }
-    public string CreatorAccountId { get; set; }
-    public string CreatorWebServicesUserId { get; set; }
-    public string CreatorDisplayName { get; set; }
-    public bool CreatorIsFirstPartyDisplayName { get; set; }
-    public string ClubId { get; set; }
+    public string ActivityId { get; }
+    public int CreationTimeStamp { get; }
+    public string CreatorAccountId { get; }
+    public string CreatorWebServicesUserId { get; }
+    public string CreatorDisplayName { get; }
+    public bool CreatorIsFirstPartyDisplayName { get; }
+    public string ClubId { get; }
     public CNadeoServicesItemCollectionVersion CurrentVersion { get; set; }
-    public string DisplayName { get; set; }
-    public bool HasVersionList { get; set; }
-    public new string Id { get; set; }
-    public bool IsCurrentVersionNull { get; set; }
-    public string Name { get; set; }
-    public string Type { get; set; }
-    public int UpdateTimeStamp { get; set; }
+    public string DisplayName { get; }
+    public bool HasVersionList { get; }
+    public new string Id { get; }
+    public bool IsCurrentVersionNull { get; }
+    public string Name { get; }
+    public string Type { get; }
+    public int UpdateTimeStamp { get; }
     public CNadeoServicesItemCollectionVersion[] VersionList { get; set; }
 }

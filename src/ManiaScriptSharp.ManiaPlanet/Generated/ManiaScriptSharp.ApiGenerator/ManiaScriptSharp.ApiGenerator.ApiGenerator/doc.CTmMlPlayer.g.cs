@@ -70,101 +70,101 @@ public partial class CTmMlPlayer : CPlayer, ILocalProvider, INetreadProvider, IN
         Reset,
     }
 
-    public int CurrentClan { get; set; }
-    public ERaceState RaceState { get; set; }
-    public bool IsSpawned { get; set; }
-    public CTrackManiaScore Score { get; set; }
-    public int RaceStartTime { get; set; }
-    public int LapStartTime { get; set; }
+    public int CurrentClan { get; }
+    public ERaceState RaceState { get; }
+    public bool IsSpawned { get; }
+    public CTrackManiaScore Score { get; }
+    public int RaceStartTime { get; }
+    public int LapStartTime { get; }
     public CTmResult CurRace { get; set; }
     public CTmResult CurLap { get; set; }
-    public int CurrentNbLaps { get; set; }
-    public int CurTriggerIndex { get; set; }
-    public int CurCheckpointRaceTime { get; set; }
-    public int CurCheckpointLapTime { get; set; }
-    public int CoopSymbiosysPercentTotal { get; set; }
-    public int CoopCheckpointCurController { get; set; }
-    public float AccelCoef { get; set; }
-    public float ControlCoef { get; set; }
-    public float GravityCoef { get; set; }
-    public Vec3 Position { get; set; }
-    public Vec3 AimDirection { get; set; }
-    public float AimYaw { get; set; }
-    public float AimPitch { get; set; }
-    public float Upwardness { get; set; }
-    public int CurRaceContinuousRank { get; set; }
-    public float Distance { get; set; }
-    public float Speed { get; set; }
-    public int DisplaySpeed { get; set; }
-    public float InputSteer { get; set; }
-    public float InputGasPedal { get; set; }
-    public bool InputIsBraking { get; set; }
-    public float EngineRpm { get; set; }
-    public int EngineCurGear { get; set; }
-    public float EngineTurboRatio { get; set; }
-    public int WheelsContactCount { get; set; }
-    public int WheelsSkiddingCount { get; set; }
-    public float DamageHullRatio { get; set; }
-    public float DamageWindowRatio { get; set; }
-    public int InWaterDuration { get; set; }
+    public int CurrentNbLaps { get; }
+    public int CurTriggerIndex { get; }
+    public int CurCheckpointRaceTime { get; }
+    public int CurCheckpointLapTime { get; }
+    public int CoopSymbiosysPercentTotal { get; }
+    public int CoopCheckpointCurController { get; }
+    public float AccelCoef { get; }
+    public float ControlCoef { get; }
+    public float GravityCoef { get; }
+    public Vec3 Position { get; }
+    public Vec3 AimDirection { get; }
+    public float AimYaw { get; }
+    public float AimPitch { get; }
+    public float Upwardness { get; }
+    public int CurRaceContinuousRank { get; }
+    public float Distance { get; }
+    public float Speed { get; }
+    public int DisplaySpeed { get; }
+    public float InputSteer { get; }
+    public float InputGasPedal { get; }
+    public bool InputIsBraking { get; }
+    public float EngineRpm { get; }
+    public int EngineCurGear { get; }
+    public float EngineTurboRatio { get; }
+    public int WheelsContactCount { get; }
+    public int WheelsSkiddingCount { get; }
+    public float DamageHullRatio { get; }
+    public float DamageWindowRatio { get; }
+    public int InWaterDuration { get; }
     /// <summary>alias of HandicapNoGasDuration</summary>
-    public int FreeWheelingDuration { get; set; }
-    public int FlyingDuration { get; set; }
-    public int SparklingDuration { get; set; }
-    public int LightTrailsDuration { get; set; }
-    public int SkiddingDuration { get; set; }
-    public float SkiddingDistance { get; set; }
-    public float FlyingDistance { get; set; }
-    public int HandicapNoGasDuration { get; set; }
-    public int HandicapFullGasDuration { get; set; }
-    public int HandicapNoBrakesDuration { get; set; }
-    public int HandicapNoSteeringDuration { get; set; }
-    public int HandicapNoGripDuration { get; set; }
-    public int StuntLastTime { get; set; }
-    public ESceneVehiclePhyStuntFigure StuntLast { get; set; }
-    public int StuntAngle { get; set; }
-    public int StuntPoints { get; set; }
-    public int StuntCombo { get; set; }
-    public float StuntFactor { get; set; }
-    public bool StuntStraightLanding { get; set; }
-    public bool StuntReverseLanding { get; set; }
-    public bool StuntPerfectLanding { get; set; }
-    public bool StuntMasterJump { get; set; }
-    public bool StuntMasterLanding { get; set; }
-    public bool StuntEpicLanding { get; set; }
-    public bool StuntIsInFigure { get; set; }
-    public bool StuntCurFigureMasterJump { get; set; }
+    public int FreeWheelingDuration { get; }
+    public int FlyingDuration { get; }
+    public int SparklingDuration { get; }
+    public int LightTrailsDuration { get; }
+    public int SkiddingDuration { get; }
+    public float SkiddingDistance { get; }
+    public float FlyingDistance { get; }
+    public int HandicapNoGasDuration { get; }
+    public int HandicapFullGasDuration { get; }
+    public int HandicapNoBrakesDuration { get; }
+    public int HandicapNoSteeringDuration { get; }
+    public int HandicapNoGripDuration { get; }
+    public int StuntLastTime { get; }
+    public ESceneVehiclePhyStuntFigure StuntLast { get; }
+    public int StuntAngle { get; }
+    public int StuntPoints { get; }
+    public int StuntCombo { get; }
+    public float StuntFactor { get; }
+    public bool StuntStraightLanding { get; }
+    public bool StuntReverseLanding { get; }
+    public bool StuntPerfectLanding { get; }
+    public bool StuntMasterJump { get; }
+    public bool StuntMasterLanding { get; }
+    public bool StuntEpicLanding { get; }
+    public bool StuntIsInFigure { get; }
+    public bool StuntCurFigureMasterJump { get; }
     /// <summary>Values in range (0.000000-1.000000)</summary>
-    public float StuntCurFigureMasterGauge { get; set; }
+    public float StuntCurFigureMasterGauge { get; }
     /// <summary>Values in range (0.000000-1.000000)</summary>
-    public float StuntCurFigureEpicGauge { get; set; }
-    public bool StuntCurComboChainCounter { get; set; }
-    public int TimeLeftForStuntCombo { get; set; }
-    public int TimeElapsedSinceLastStunt { get; set; }
-    public bool BonusModeIsJump { get; set; }
-    public bool BonusModeIsTurbo { get; set; }
-    public bool BonusModeIsMiniCar { get; set; }
-    public bool BonusModeIsBigCar { get; set; }
-    public bool BonusModeIsEmptyCars { get; set; }
-    public bool BonusModeIsSpeedyCars { get; set; }
-    public bool BonusModeIsGold { get; set; }
-    public int BonusModeEmptyCarsStock { get; set; }
-    public int BonusModeTurboStock { get; set; }
-    public int BonusModeJumpStock { get; set; }
-    public int BonusBumpCooldown { get; set; }
-    public bool BonusIsPossible { get; set; }
-    public int BonusModeTimeTillEvent { get; set; }
-    public int BonusModeTimeTillEndEvent { get; set; }
-    public int BonusModeTimeTillEventWarning { get; set; }
-    public ETmBonusModeEventType BonusModeEventType { get; set; }
-    public bool BonusModeEventIsGold { get; set; }
-    public int UniqueCameraRespawnCount { get; set; }
-    public int UniqueCameraAvailableRespawnLeft { get; set; }
-    public int TimeTillSmashRespawn { get; set; }
-    public int TimeTillSmashGiveUp { get; set; }
-    public bool SmashNeedHelp { get; set; }
-    public int TimeBeforeDeadlyZone { get; set; }
-    public bool IsDeadlyZoneActive { get; set; }
+    public float StuntCurFigureEpicGauge { get; }
+    public bool StuntCurComboChainCounter { get; }
+    public int TimeLeftForStuntCombo { get; }
+    public int TimeElapsedSinceLastStunt { get; }
+    public bool BonusModeIsJump { get; }
+    public bool BonusModeIsTurbo { get; }
+    public bool BonusModeIsMiniCar { get; }
+    public bool BonusModeIsBigCar { get; }
+    public bool BonusModeIsEmptyCars { get; }
+    public bool BonusModeIsSpeedyCars { get; }
+    public bool BonusModeIsGold { get; }
+    public int BonusModeEmptyCarsStock { get; }
+    public int BonusModeTurboStock { get; }
+    public int BonusModeJumpStock { get; }
+    public int BonusBumpCooldown { get; }
+    public bool BonusIsPossible { get; }
+    public int BonusModeTimeTillEvent { get; }
+    public int BonusModeTimeTillEndEvent { get; }
+    public int BonusModeTimeTillEventWarning { get; }
+    public ETmBonusModeEventType BonusModeEventType { get; }
+    public bool BonusModeEventIsGold { get; }
+    public int UniqueCameraRespawnCount { get; }
+    public int UniqueCameraAvailableRespawnLeft { get; }
+    public int TimeTillSmashRespawn { get; }
+    public int TimeTillSmashGiveUp { get; }
+    public bool SmashNeedHelp { get; }
+    public int TimeBeforeDeadlyZone { get; }
+    public bool IsDeadlyZoneActive { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> INetworkProvider.NetworkData { get; } = [];
 }

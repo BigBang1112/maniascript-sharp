@@ -36,7 +36,7 @@ public partial class CUIConfigMarker : CNod
         WhenInMiddleOfScreen,
     }
 
-    public CUIConfigMarker.EAnchorType Type { get; set; }
+    public CUIConfigMarker.EAnchorType Type { get; }
     public bool IsTurning { get; set; }
     public bool ShowArmor { get; set; }
     public string Label { get; set; }

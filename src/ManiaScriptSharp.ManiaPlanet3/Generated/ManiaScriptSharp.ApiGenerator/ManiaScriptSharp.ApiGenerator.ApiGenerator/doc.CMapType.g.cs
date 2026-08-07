@@ -22,13 +22,13 @@ public partial class CMapType : CEditorPlugin, ILocalProvider, IPersistentProvid
     public void ClearMapMetadata() { }
     public ValidationStatus ValidationStatus_ { get; set; }
     public string ValidabilityRequirementsMessage { get; set; }
-    public bool ValidationEndRequested { get; set; }
+    public bool ValidationEndRequested { get; }
     public void StartTestMapWithMode(string RulesModeName) { }
     public void RequestEnterPlayground() { }
     public void RequestLeavePlayground() { }
-    public bool IsSwitchedToPlayground { get; set; }
-    public CUIConfigMgr UIManager { get; set; }
-    public CUser[] Users { get; set; }
+    public bool IsSwitchedToPlayground { get; }
+    public CUIConfigMgr UIManager { get; }
+    public CUser[] Users { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

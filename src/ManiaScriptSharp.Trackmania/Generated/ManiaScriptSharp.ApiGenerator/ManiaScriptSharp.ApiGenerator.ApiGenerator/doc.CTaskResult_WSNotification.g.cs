@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_WSNotification : CWebServicesTaskResult_WSNotification, ILocalProvider
 {
     /// <summary>Notification info contained by this result.</summary>
-    public CNotification Notification { get; set; }
+    public CNotification Notification { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

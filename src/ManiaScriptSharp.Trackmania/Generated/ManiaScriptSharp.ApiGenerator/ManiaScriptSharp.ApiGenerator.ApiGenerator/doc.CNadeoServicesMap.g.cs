@@ -10,28 +10,28 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNadeoServicesMap</summary>
 public partial class CNadeoServicesMap : CNod
 {
-    public string AuthorAccountId { get; set; }
-    public string AuthorWebServicesUserId { get; set; }
-    public string AuthorDisplayName { get; set; }
-    public bool AuthorIsFirstPartyDisplayName { get; set; }
-    public int AuthorScore { get; set; }
-    public int BronzeScore { get; set; }
-    public string CollectionName { get; set; }
-    public bool CreatedWithGamepadEditor { get; set; }
-    public bool CreatedWithSimpleEditor { get; set; }
-    public string FileName { get; set; }
-    public string FileUrl { get; set; }
-    public int GoldScore { get; set; }
-    public bool HasClones { get; set; }
-    public new string Id { get; set; }
-    public bool IsPlayable { get; set; }
-    public string Name { get; set; }
-    public int SilverScore { get; set; }
-    public string Style { get; set; }
-    public string SubmitterAccountId { get; set; }
-    public string SubmitterWebServicesUserId { get; set; }
-    public string ThumbnailUrl { get; set; }
-    public int TimeStamp { get; set; }
-    public string Type { get; set; }
-    public string Uid { get; set; }
+    public string AuthorAccountId { get; }
+    public string AuthorWebServicesUserId { get; }
+    public string AuthorDisplayName { get; }
+    public bool AuthorIsFirstPartyDisplayName { get; }
+    public int AuthorScore { get; }
+    public int BronzeScore { get; }
+    public string CollectionName { get; }
+    public bool CreatedWithGamepadEditor { get; }
+    public bool CreatedWithSimpleEditor { get; }
+    public string FileName { get; }
+    public string FileUrl { get; }
+    public int GoldScore { get; }
+    public bool HasClones { get; }
+    public new string Id { get; }
+    public bool IsPlayable { get; }
+    public string Name { get; }
+    public int SilverScore { get; }
+    public string Style { get; }
+    public string SubmitterAccountId { get; }
+    public string SubmitterWebServicesUserId { get; }
+    public string ThumbnailUrl { get; }
+    public int TimeStamp { get; }
+    public string Type { get; }
+    public string Uid { get; }
 }

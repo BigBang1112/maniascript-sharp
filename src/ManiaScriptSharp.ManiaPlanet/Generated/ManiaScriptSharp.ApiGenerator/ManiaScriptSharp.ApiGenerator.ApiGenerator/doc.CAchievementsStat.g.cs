@@ -11,9 +11,9 @@ namespace ManiaScriptSharp;
 public partial class CAchievementsStat : CNod
 {
     /// <summary>User that owns the stat.</summary>
-    public Ident UserId { get; set; }
+    public Ident UserId { get; }
     /// <summary>Description of the stat.</summary>
-    public CAchievementsStatDesc StatDesc { get; set; }
+    public CAchievementsStatDesc StatDesc { get; }
     /// <summary>Value of the stat.</summary>
-    public int Value { get; set; }
+    public int Value { get; }
 }

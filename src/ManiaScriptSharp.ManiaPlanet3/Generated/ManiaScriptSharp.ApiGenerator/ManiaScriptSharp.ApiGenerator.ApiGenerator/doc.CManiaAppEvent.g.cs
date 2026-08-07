@@ -29,13 +29,13 @@ public partial class CManiaAppEvent : CNod
         PageDown,
     }
 
-    public EType Type { get; set; }
-    public CUILayer CustomEventLayer { get; set; }
-    public string CustomEventType { get; set; }
-    public string[] CustomEventData { get; set; }
-    public string ExternalEventType { get; set; }
-    public string[] ExternalEventData { get; set; }
-    public EMenuNavAction MenuNavAction { get; set; }
-    public int KeyCode { get; set; }
-    public string KeyName { get; set; }
+    public EType Type { get; }
+    public CUILayer CustomEventLayer { get; }
+    public string CustomEventType { get; }
+    public string[] CustomEventData { get; }
+    public string ExternalEventType { get; }
+    public string[] ExternalEventData { get; }
+    public EMenuNavAction MenuNavAction { get; }
+    public int KeyCode { get; }
+    public string KeyName { get; }
 }

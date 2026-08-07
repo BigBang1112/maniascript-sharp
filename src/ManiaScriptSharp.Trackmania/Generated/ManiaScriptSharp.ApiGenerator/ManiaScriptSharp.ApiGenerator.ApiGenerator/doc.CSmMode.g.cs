@@ -149,33 +149,33 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public float OffZoneRadius { get; set; }
     public float OffZoneRadiusSpeed { get; set; }
     public Ident OffZoneCenterLandmarkId { get; set; }
-    public int PlayersNbTotal { get; set; }
-    public int PlayersNbAlive { get; set; }
-    public int PlayersNbDead { get; set; }
-    public int ClansNbTotal { get; set; }
-    public int ClansNbAlive { get; set; }
-    public int ClansNbDead { get; set; }
+    public int PlayersNbTotal { get; }
+    public int PlayersNbAlive { get; }
+    public int PlayersNbDead { get; }
+    public int ClansNbTotal { get; }
+    public int ClansNbAlive { get; }
+    public int ClansNbDead { get; }
     public int[] ClansNbPlayers { get; set; }
     public int[] ClansNbPlayersAlive { get; set; }
-    public CSmPlayer[] Players { get; set; }
-    public CSmPlayer[] BotPlayers { get; set; }
-    public CSmPlayer[] Spectators { get; set; }
-    public CSmPlayer[] AllPlayers { get; set; }
-    public CSmModeEvent[] PendingEvents { get; set; }
+    public CSmPlayer[] Players { get; }
+    public CSmPlayer[] BotPlayers { get; }
+    public CSmPlayer[] Spectators { get; }
+    public CSmPlayer[] AllPlayers { get; }
+    public CSmModeEvent[] PendingEvents { get; }
     public CSmPlayer GetPlayer(CUIConfig UI) => default!;
     public CSmPlayer GetPlayer(string Login) => default!;
-    public CSmMapBase[] MapBases { get; set; }
-    public CSmMapLandmark[] MapLandmarks { get; set; }
-    public CSmMapLandmark[] MapLandmarks_PlayerSpawn { get; set; }
-    public CSmMapLandmark[] MapLandmarks_Gauge { get; set; }
-    public CSmMapLandmark[] MapLandmarks_Sector { get; set; }
-    public CSmMapLandmark[] MapLandmarks_BotPath { get; set; }
-    public CSmMapLandmark[] MapLandmarks_BotSpawn { get; set; }
-    public CSmMapLandmark[] MapLandmarks_ObjectAnchor { get; set; }
-    public CSmMapLandmark[] MapLandmarks_Gate { get; set; }
-    public CSmMapLandmark[] MapLandmarks_Foundation { get; set; }
+    public CSmMapBase[] MapBases { get; }
+    public CSmMapLandmark[] MapLandmarks { get; }
+    public CSmMapLandmark[] MapLandmarks_PlayerSpawn { get; }
+    public CSmMapLandmark[] MapLandmarks_Gauge { get; }
+    public CSmMapLandmark[] MapLandmarks_Sector { get; }
+    public CSmMapLandmark[] MapLandmarks_BotPath { get; }
+    public CSmMapLandmark[] MapLandmarks_BotSpawn { get; }
+    public CSmMapLandmark[] MapLandmarks_ObjectAnchor { get; }
+    public CSmMapLandmark[] MapLandmarks_Gate { get; }
+    public CSmMapLandmark[] MapLandmarks_Foundation { get; }
     public int UiScoresPointsLimit { get; set; }
-    public CSmScore[] Scores { get; set; }
+    public CSmScore[] Scores { get; }
     public int[] ClanScores { get; set; }
     public void Save_Request(string FileName) { }
     public void Load_Request(string FileName) { }
@@ -242,7 +242,7 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public void SpawnBotPlayer(CSmPlayer Player, int ClanNum, int Armor, CMapBotSpawn BotSpawn, int ActivationDate) { }
     public void SpawnBotPlayer(CSmPlayer Player, CSmPlayer Owner, int Armor, Vec3 Offset, int ActivationDate) { }
     public void UnspawnPlayer(CSmPlayer Player) { }
-    public CSmMode.ESmScoreSortOrder Scores_SortCriteria { get; set; }
+    public CSmMode.ESmScoreSortOrder Scores_SortCriteria { get; }
     public bool Scores_AutoUpdateLadderRank { get; set; }
     public bool Scores_AutoUploadPersonalBests { get; set; }
     public void Scores_SetSortCriteria(CSmMode.ESmScoreSortOrder Criteria) { }
@@ -294,7 +294,7 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public void ActionSetVariant1(CSmPlayer Player, CSmMode.EActionSlot ActionSlot, int ActionVariant) { }
     public void ActionSetVariant2(CSmPlayer Player, CSmMode.EActionSlot ActionSlot, int ActionVariant) { }
     public void ActionSetVariant3(CSmPlayer Player, CSmMode.EActionSlot ActionSlot, int ActionVariant) { }
-    public CSmObject[] Objects { get; set; }
+    public CSmObject[] Objects { get; }
     public CSmObject ObjectCreate(Ident ModelId) => default!;
     public void ObjectDestroy(CSmObject Object) { }
     public void ObjectDestroyAll() { }
@@ -319,7 +319,7 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public void Player_SetPlayerPrevLapAsScoreBestLap(CSmPlayer Player) { }
     public void Player_SetPlayerPrevLapAsScorePrevLap(CSmPlayer Player) { }
     /// <summary>Only available in solo mode and map is loaded.</summary>
-    public CGhostManager GhostMgr { get; set; }
+    public CGhostManager GhostMgr { get; }
     public void Ghosts_SetStartTime(int StartTime) { }
     public void Ghosts_SetMaxAlpha(float MaxAlpha) { }
     public CGhost Ghost_RetrieveFromPlayer(CSmPlayer Player) => default!;
@@ -330,7 +330,7 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public void GhostRecorder_SetEnabled(CSmPlayer Player, bool Value) { }
     public void GhostRecorder_Ghosts_Select(CSmPlayer Player) { }
     public void GhostRecorder_Clear(CSmPlayer Player) { }
-    public CGhost[] GhostRecorder_Ghosts { get; set; }
+    public CGhost[] GhostRecorder_Ghosts { get; }
     public CSmMapLandmark GhostDriver_Playlist_GetNextSpawn(CPlayer Player) => default!;
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

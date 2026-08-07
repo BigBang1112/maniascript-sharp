@@ -9,23 +9,23 @@ namespace ManiaScriptSharp;
 
 public partial class CHighScoreComparison : CNod
 {
-    public CMapInfo MapInfo { get; set; }
-    public string Login { get; set; }
-    public int RecordScore { get; set; }
-    public int RecordTime { get; set; }
-    public int RecordRespawnCount { get; set; }
-    public int RecordDate { get; set; }
-    public string RecordDateString { get; set; }
-    public int RecordElapsedTime { get; set; }
-    public int RecordCount { get; set; }
-    public string OpponentLogin { get; set; }
-    public string OpponentDisplayName { get; set; }
-    public string OpponentRecordUrl { get; set; }
-    public int OpponentRecordScore { get; set; }
-    public int OpponentRecordTime { get; set; }
-    public int OpponentRecordRespawnCount { get; set; }
-    public int OpponentRecordDate { get; set; }
-    public string OpponentRecordDateString { get; set; }
-    public int OpponentRecordElapsedTime { get; set; }
-    public int OpponentRecordCount { get; set; }
+    public CMapInfo MapInfo { get; }
+    public string Login { get; }
+    public int RecordScore { get; }
+    public int RecordTime { get; }
+    public int RecordRespawnCount { get; }
+    public int RecordDate { get; }
+    public string RecordDateString { get; }
+    public int RecordElapsedTime { get; }
+    public int RecordCount { get; }
+    public string OpponentLogin { get; }
+    public string OpponentDisplayName { get; }
+    public string OpponentRecordUrl { get; }
+    public int OpponentRecordScore { get; }
+    public int OpponentRecordTime { get; }
+    public int OpponentRecordRespawnCount { get; }
+    public int OpponentRecordDate { get; }
+    public string OpponentRecordDateString { get; }
+    public int OpponentRecordElapsedTime { get; }
+    public int OpponentRecordCount { get; }
 }

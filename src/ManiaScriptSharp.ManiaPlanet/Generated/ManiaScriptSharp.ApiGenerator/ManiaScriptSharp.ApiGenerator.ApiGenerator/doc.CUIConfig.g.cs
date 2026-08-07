@@ -130,7 +130,7 @@ public partial class CUIConfig : CNod, ILocalProvider, INetreadProvider, INetwri
     }
 
     public EUISequence UISequence { get; set; }
-    public bool UISequenceIsCompleted { get; set; }
+    public bool UISequenceIsCompleted { get; }
     public string UISequence_CustomMTClip { get; set; }
     public int UISequence_CustomMTRefTime { get; set; }
     public bool UISequence_CanSkipIntroMT { get; set; }
@@ -148,7 +148,7 @@ public partial class CUIConfig : CNod, ILocalProvider, INetreadProvider, INetwri
     public int GaugeClan { get; set; }
     /// <summary>An XML text describing the map tooltips appearing in the HUD.&lt;br/&gt;It's a set of &amp;lt;marker/&amp;gt; elements which can have the following attributes : &lt;ol&gt;&lt;li&gt;label : a text to display&lt;/li&gt;&lt;li&gt;pos : a vector of 3 world coordinates desribing the position of the marker&lt;/li&gt;&lt;li&gt;playerlogin : alternatively, instead of using pos, you can use a player login. The marker will smoothly follow the player&lt;/li&gt;&lt;li&gt;playerid : similar to playerlogin. Fill it with Player.Id. The marker will smoothly follow the player&lt;/li&gt;&lt;li&gt;box : a vector of 3 dimensions describing the size of the marked object (allows a better placement of the marker on the screen)&lt;/li&gt;&lt;li&gt;gauge : a Real. If between 0. and 1. a gauge will be shown undeneath the text&lt;/li&gt;&lt;li&gt;imageurl : a string. URL of an image to use&lt;/li&gt;&lt;li&gt;distmax : a real. The marker will disappear if the dist to it is greater than distmax&lt;/li&gt;&lt;li&gt;isturning : a bool. Only for markers attached to players. If the marker appear on a minimap, it will turn around to reflect the player orientation.&lt;/li&gt;&lt;/ol&gt;</summary>
     public string MarkersXML { get; set; }
-    public CUILayer[] UILayers { get; set; }
+    public CUILayer[] UILayers { get; }
     public bool OverlayHideNotices { get; set; }
     public bool OverlayHideMapInfo { get; set; }
     public bool OverlayHideOpponentsInfo { get; set; }

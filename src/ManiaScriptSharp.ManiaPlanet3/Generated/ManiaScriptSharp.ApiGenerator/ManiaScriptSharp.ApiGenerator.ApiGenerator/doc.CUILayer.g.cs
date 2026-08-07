@@ -28,5 +28,5 @@ public partial class CUILayer : CNod
     public EUILayerType Type { get; set; }
     public string AttachId { get; set; }
     public string ManialinkPage { get; set; }
-    public CMlPage LocalPage { get; set; }
+    public CMlPage LocalPage { get; }
 }

@@ -47,7 +47,7 @@ public partial class CTrackingMgr : CNod
     }
 
     /// <summary>Array of task results.</summary>
-    public CTaskResult[] TaskResults { get; set; }
+    public CTaskResult[] TaskResults { get; }
     /// <summary>Release a task result no more used.</summary>
     public void TaskResult_Release(Ident TaskId) { }
     /// <summary>Track_Context_PlayTime</summary>

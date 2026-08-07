@@ -9,8 +9,8 @@ namespace ManiaScriptSharp;
 
 public partial class CXmlDocument : CNod
 {
-    public string TextContents { get; set; }
-    public CXmlNode Root { get; set; }
-    public CXmlNode[] Nodes { get; set; }
+    public string TextContents { get; }
+    public CXmlNode Root { get; }
+    public CXmlNode[] Nodes { get; }
     public CXmlNode GetFirstChild(string Name) => default!;
 }

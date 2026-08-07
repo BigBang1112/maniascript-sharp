@@ -10,8 +10,8 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNotification_SquadLockStateUpdated</summary>
 public partial class CNotification_SquadLockStateUpdated : CNotification_Squad
 {
-    public string SquadId { get; set; }
-    public string SquadType { get; set; }
-    public bool IsLocked { get; set; }
-    public int TimeStamp { get; set; }
+    public string SquadId { get; }
+    public string SquadType { get; }
+    public bool IsLocked { get; }
+    public int TimeStamp { get; }
 }

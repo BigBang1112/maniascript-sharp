@@ -9,7 +9,7 @@ namespace ManiaScriptSharp;
 
 public partial class CBadgeManager : CNod
 {
-    public CBadge[] Badges { get; set; }
+    public CBadge[] Badges { get; }
     public CBadge BadgeCreate() => default!;
     public void BadgeDestroy(CBadge Badge) { }
     public void BadgeCopy(CBadge Source, CBadge Destination) { }

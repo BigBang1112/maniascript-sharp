@@ -47,9 +47,9 @@ public partial class CEditorPlugin : CManiaApp, ILocalProvider, IPersistentProvi
         SelectionRemove,
     }
 
-    public CEditorPluginEvent[] PendingEvents { get; set; }
-    public CMap Map { get; set; }
-    public string MapName { get; set; }
+    public CEditorPluginEvent[] PendingEvents { get; }
+    public CMap Map { get; }
+    public string MapName { get; }
     public void ComputeShadows() { }
     public void Undo() { }
     public void Redo() { }
@@ -114,43 +114,43 @@ public partial class CEditorPlugin : CManiaApp, ILocalProvider, IPersistentProvi
     public CMacroblockModel GetMacroblockModelFromName(string MacroblockModelName) => default!;
     public CBlockModel GetTerrainBlockModelFromName(string TerrainBlockModelName) => default!;
     public CBlockModel GetBlockModelFromName(string BlockModelName) => default!;
-    public CItemAnchor[] Items { get; set; }
-    public string[] MediatrackIngameClips { get; set; }
-    public string[] MediatrackIngameIsScriptClips { get; set; }
+    public CItemAnchor[] Items { get; }
+    public string[] MediatrackIngameClips { get; }
+    public string[] MediatrackIngameIsScriptClips { get; }
     public int MediatrackIngameEditedClipIndex { get; set; }
-    public CBlock[] Blocks { get; set; }
-    public CBlockModel[] BlockModels { get; set; }
-    public CBlockModel[] TerrainBlockModels { get; set; }
-    public CMacroblockModel[] MacroblockModels { get; set; }
-    public CAnchorData[] AnchorData { get; set; }
+    public CBlock[] Blocks { get; }
+    public CBlockModel[] BlockModels { get; }
+    public CBlockModel[] TerrainBlockModels { get; }
+    public CMacroblockModel[] MacroblockModels { get; }
+    public CAnchorData[] AnchorData { get; }
     public Int3[] CustomSelectionCoords { get; set; }
     public Vec3 CustomSelectionRGB { get; set; }
     public bool EnableEditorInputsCustomProcessing { get; set; }
-    public bool EditorInputIsDown_Menu { get; set; }
-    public bool EditorInputIsDown_SwitchToRace { get; set; }
-    public bool EditorInputIsDown_CursorUp { get; set; }
-    public bool EditorInputIsDown_CursorRight { get; set; }
-    public bool EditorInputIsDown_CursorDown { get; set; }
-    public bool EditorInputIsDown_CursorLeft { get; set; }
-    public bool EditorInputIsDown_CursorRaise { get; set; }
-    public bool EditorInputIsDown_CursorLower { get; set; }
-    public bool EditorInputIsDown_CursorTurn { get; set; }
-    public bool EditorInputIsDown_CursorPick { get; set; }
-    public bool EditorInputIsDown_CursorPlace { get; set; }
-    public bool EditorInputIsDown_CursorDelete { get; set; }
-    public bool EditorInputIsDown_CameraUp { get; set; }
-    public bool EditorInputIsDown_CameraRight { get; set; }
-    public bool EditorInputIsDown_CameraDown { get; set; }
-    public bool EditorInputIsDown_CameraLeft { get; set; }
-    public bool EditorInputIsDown_IconUp { get; set; }
-    public bool EditorInputIsDown_IconRight { get; set; }
-    public bool EditorInputIsDown_IconDown { get; set; }
-    public bool EditorInputIsDown_IconLeft { get; set; }
-    public float CollectionSquareSize { get; set; }
-    public float CollectionSquareHeight { get; set; }
-    public int CollectionGroundY { get; set; }
+    public bool EditorInputIsDown_Menu { get; }
+    public bool EditorInputIsDown_SwitchToRace { get; }
+    public bool EditorInputIsDown_CursorUp { get; }
+    public bool EditorInputIsDown_CursorRight { get; }
+    public bool EditorInputIsDown_CursorDown { get; }
+    public bool EditorInputIsDown_CursorLeft { get; }
+    public bool EditorInputIsDown_CursorRaise { get; }
+    public bool EditorInputIsDown_CursorLower { get; }
+    public bool EditorInputIsDown_CursorTurn { get; }
+    public bool EditorInputIsDown_CursorPick { get; }
+    public bool EditorInputIsDown_CursorPlace { get; }
+    public bool EditorInputIsDown_CursorDelete { get; }
+    public bool EditorInputIsDown_CameraUp { get; }
+    public bool EditorInputIsDown_CameraRight { get; }
+    public bool EditorInputIsDown_CameraDown { get; }
+    public bool EditorInputIsDown_CameraLeft { get; }
+    public bool EditorInputIsDown_IconUp { get; }
+    public bool EditorInputIsDown_IconRight { get; }
+    public bool EditorInputIsDown_IconDown { get; }
+    public bool EditorInputIsDown_IconLeft { get; }
+    public float CollectionSquareSize { get; }
+    public float CollectionSquareHeight { get; }
+    public int CollectionGroundY { get; }
     public string ManialinkText { get; set; }
-    public CMlPage ManialinkPage { get; set; }
+    public CMlPage ManialinkPage { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

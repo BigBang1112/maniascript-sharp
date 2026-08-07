@@ -10,14 +10,14 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMacroblockInstance</summary>
 public partial class CMacroblockInstance : CNod
 {
-    public CMacroblockModel MacroblockModel { get; set; }
-    public CBlockClipList ClipList { get; set; }
+    public CMacroblockModel MacroblockModel { get; }
+    public CBlockClipList ClipList { get; }
     public CMapEditorPlugin.CardinalDirections Dir { get; set; }
-    public Int3 Coord { get; set; }
+    public Int3 Coord { get; }
     public int Order { get; set; }
     public int UserData { get; set; }
     public Int3[] UnitCoords { get; set; }
-    public CMapEditorPlugin.MapElemColor Color { get; set; }
-    public bool ForceMacroblockColor { get; set; }
+    public CMapEditorPlugin.MapElemColor Color { get; }
+    public bool ForceMacroblockColor { get; }
     public Int3 GetSize() => default!;
 }

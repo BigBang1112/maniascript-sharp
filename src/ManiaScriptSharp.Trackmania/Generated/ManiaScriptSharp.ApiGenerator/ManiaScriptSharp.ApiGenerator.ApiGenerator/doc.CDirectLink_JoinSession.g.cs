@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CDirectLink_JoinSession</summary>
 public partial class CDirectLink_JoinSession : CDirectLink
 {
-    public string SessionId { get; set; }
-    public bool IsFirstPartySession { get; set; }
-    public int Context { get; set; }
+    public string SessionId { get; }
+    public bool IsFirstPartySession { get; }
+    public int Context { get; }
 }

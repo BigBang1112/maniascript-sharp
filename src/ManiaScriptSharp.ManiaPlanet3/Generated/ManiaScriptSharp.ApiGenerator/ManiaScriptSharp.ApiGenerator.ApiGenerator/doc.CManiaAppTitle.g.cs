@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Persistent</summary>
 public partial class CManiaAppTitle : CManiaApp, ILocalProvider, IPersistentProvider
 {
-    public CManiaAppEvent[] PendingEvents { get; set; }
+    public CManiaAppEvent[] PendingEvents { get; }
     public void Menu_Quit() { }
     public void Menu_Home() { }
     public void Menu_Solo() { }

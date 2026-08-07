@@ -10,8 +10,8 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNewsLink</summary>
 public partial class CNewsLink : CNod
 {
-    public string Type { get; set; }
-    public string Param { get; set; }
-    public string ActionName { get; set; }
-    public string ActionDescription { get; set; }
+    public string Type { get; }
+    public string Param { get; }
+    public string ActionName { get; }
+    public string ActionDescription { get; }
 }

@@ -10,10 +10,10 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CBlockClip</summary>
 public partial class CBlockClip : CNod
 {
-    public string Name { get; set; }
+    public string Name { get; }
     public CMapEditorPlugin.CardinalDirections Dir { get; set; }
-    public Int3 Coord { get; set; }
-    public Int3 Offset { get; set; }
+    public Int3 Coord { get; }
+    public Int3 Offset { get; }
     public int ClipId { get; set; }
     public Int3 GetConnectableCoord() => default!;
 }

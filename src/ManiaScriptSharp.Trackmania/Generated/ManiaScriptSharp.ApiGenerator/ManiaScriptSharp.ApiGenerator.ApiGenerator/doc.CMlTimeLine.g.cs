@@ -15,11 +15,11 @@ public partial class CMlTimeLine : CMlControl, ILocalProvider
     public float TimeMax { get; set; }
     public int Page { get; set; }
     public int TracksPerPage { get; set; }
-    public bool IsDraggingCursor { get; set; }
-    public bool IsDraggingBlock { get; set; }
-    public bool IsDraggingKey { get; set; }
-    public bool IsScaling { get; set; }
-    public bool IsPanning { get; set; }
+    public bool IsDraggingCursor { get; }
+    public bool IsDraggingBlock { get; }
+    public bool IsDraggingKey { get; }
+    public bool IsScaling { get; }
+    public bool IsPanning { get; }
     public void ShowFullTimeLine() { }
     public void ResetCycling() { }
     public void SetSimpleMediaTrackerPilot(CEditorMediaTracker MediaTracker) { }

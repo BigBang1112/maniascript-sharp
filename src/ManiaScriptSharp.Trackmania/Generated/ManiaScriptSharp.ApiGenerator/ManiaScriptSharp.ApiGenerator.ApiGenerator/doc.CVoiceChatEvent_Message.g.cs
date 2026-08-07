@@ -10,8 +10,8 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CVoiceChatEvent_Message</summary>
 public partial class CVoiceChatEvent_Message : CVoiceChatEvent
 {
-    public CGameUserVoiceChat Sender { get; set; }
-    public CGameUserVoiceChat Destination { get; set; }
-    public string Message { get; set; }
-    public string Lang_BCP47 { get; set; }
+    public CGameUserVoiceChat Sender { get; }
+    public CGameUserVoiceChat Destination { get; }
+    public string Message { get; }
+    public string Lang_BCP47 { get; }
 }

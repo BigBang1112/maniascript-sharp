@@ -11,7 +11,7 @@ namespace ManiaScriptSharp;
 public partial class CMediaTrackerClip : CNod
 {
     public string Name { get; set; }
-    public CMediaTrackerTrack[] Tracks { get; set; }
+    public CMediaTrackerTrack[] Tracks { get; }
     public bool StopWhenRespawn { get; set; }
     public bool StopWhenLeave { get; set; }
     public bool TriggersBeforeRaceStart { get; set; }

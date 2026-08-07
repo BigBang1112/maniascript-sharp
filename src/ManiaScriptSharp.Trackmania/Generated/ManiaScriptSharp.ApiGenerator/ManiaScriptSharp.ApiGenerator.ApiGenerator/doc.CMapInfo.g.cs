@@ -10,29 +10,29 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMapInfo</summary>
 public partial class CMapInfo : CNod
 {
-    public string MapUid { get; set; }
-    public string Comments { get; set; }
-    public int CopperPrice { get; set; }
-    public string CollectionName { get; set; }
-    public string AuthorLogin { get; set; }
-    public string AuthorNickName { get; set; }
-    public string AuthorZonePath { get; set; }
-    public string AuthorZoneFlagUrl { get; set; }
-    public string AuthorCountryFlagUrl { get; set; }
-    public string MapType { get; set; }
-    public string MapStyle { get; set; }
-    public bool IsPlayable { get; set; }
-    public bool CreatedWithSimpleEditor { get; set; }
-    public bool CreatedWithPartyEditor { get; set; }
-    public bool CreatedWithGamepadEditor { get; set; }
-    public int TMObjective_AuthorTime { get; set; }
-    public int TMObjective_GoldTime { get; set; }
-    public int TMObjective_SilverTime { get; set; }
-    public int TMObjective_BronzeTime { get; set; }
-    public int TMObjective_NbLaps { get; set; }
-    public bool TMObjective_IsLapRace { get; set; }
-    public int TMObjective_NbClones { get; set; }
-    public string Name { get; set; }
-    public string Path { get; set; }
-    public string FileName { get; set; }
+    public string MapUid { get; }
+    public string Comments { get; }
+    public int CopperPrice { get; }
+    public string CollectionName { get; }
+    public string AuthorLogin { get; }
+    public string AuthorNickName { get; }
+    public string AuthorZonePath { get; }
+    public string AuthorZoneFlagUrl { get; }
+    public string AuthorCountryFlagUrl { get; }
+    public string MapType { get; }
+    public string MapStyle { get; }
+    public bool IsPlayable { get; }
+    public bool CreatedWithSimpleEditor { get; }
+    public bool CreatedWithPartyEditor { get; }
+    public bool CreatedWithGamepadEditor { get; }
+    public int TMObjective_AuthorTime { get; }
+    public int TMObjective_GoldTime { get; }
+    public int TMObjective_SilverTime { get; }
+    public int TMObjective_BronzeTime { get; }
+    public int TMObjective_NbLaps { get; }
+    public bool TMObjective_IsLapRace { get; }
+    public int TMObjective_NbClones { get; }
+    public string Name { get; }
+    public string Path { get; }
+    public string FileName { get; }
 }

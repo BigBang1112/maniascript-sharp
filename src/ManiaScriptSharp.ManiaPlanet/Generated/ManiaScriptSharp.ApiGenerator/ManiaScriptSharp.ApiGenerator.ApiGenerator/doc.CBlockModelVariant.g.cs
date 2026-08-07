@@ -10,10 +10,10 @@ namespace ManiaScriptSharp;
 public partial class CBlockModelVariant : CNod
 {
     public string Name { get; set; }
-    public bool IsAllUnderground { get; set; }
-    public bool IsPartUnderground { get; set; }
-    public Int3 Size { get; set; }
-    public Int3 OffsetBoundingBoxMin { get; set; }
-    public Int3 OffsetBoundingBoxMax { get; set; }
-    public CBlockUnitModel[] BlockUnitModels { get; set; }
+    public bool IsAllUnderground { get; }
+    public bool IsPartUnderground { get; }
+    public Int3 Size { get; }
+    public Int3 OffsetBoundingBoxMin { get; }
+    public Int3 OffsetBoundingBoxMax { get; }
+    public CBlockUnitModel[] BlockUnitModels { get; }
 }

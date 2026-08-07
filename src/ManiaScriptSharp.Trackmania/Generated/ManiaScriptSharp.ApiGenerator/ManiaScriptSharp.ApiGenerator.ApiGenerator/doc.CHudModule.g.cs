@@ -15,5 +15,5 @@ public partial class CHudModule : CNod
     public float PosY { get; set; }
     public float ZIndex { get; set; }
     public float Scale { get; set; }
-    public string ModulePath { get; set; }
+    public string ModulePath { get; }
 }

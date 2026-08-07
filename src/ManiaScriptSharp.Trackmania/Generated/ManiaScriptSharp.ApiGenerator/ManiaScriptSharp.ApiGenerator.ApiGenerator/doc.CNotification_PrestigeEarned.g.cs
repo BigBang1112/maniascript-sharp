@@ -10,20 +10,20 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNotification_PrestigeEarned</summary>
 public partial class CNotification_PrestigeEarned : CNotification_Prestige
 {
-    public string CategoryType { get; set; }
-    public int CategoryLevel { get; set; }
-    public EPrestigeMode Mode { get; set; }
-    public string PrestigeId { get; set; }
-    public int PrestigeLevel { get; set; }
-    public int PrestigeLevelMax { get; set; }
-    public string RewardDisplayName { get; set; }
-    public string RewardFileUrl { get; set; }
-    public string RewardThumbnailUrl { get; set; }
-    public string RewardType { get; set; }
-    public string SkinOptions { get; set; }
-    public int StatCurrentValue { get; set; }
-    public int StatValueForCurrentLevel { get; set; }
-    public int StatValueForNextLevel { get; set; }
-    public int TimeStamp { get; set; }
-    public int Year { get; set; }
+    public string CategoryType { get; }
+    public int CategoryLevel { get; }
+    public EPrestigeMode Mode { get; }
+    public string PrestigeId { get; }
+    public int PrestigeLevel { get; }
+    public int PrestigeLevelMax { get; }
+    public string RewardDisplayName { get; }
+    public string RewardFileUrl { get; }
+    public string RewardThumbnailUrl { get; }
+    public string RewardType { get; }
+    public string SkinOptions { get; }
+    public int StatCurrentValue { get; }
+    public int StatValueForCurrentLevel { get; }
+    public int StatValueForNextLevel { get; }
+    public int TimeStamp { get; }
+    public int Year { get; }
 }

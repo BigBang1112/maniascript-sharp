@@ -14,10 +14,10 @@ public partial class CSmScore : CScore, ILocalProvider, INetreadProvider, INetwr
     public int Points { get; set; }
     public int RoundPoints { get; set; }
     public int NbRespawnsRequested { get; set; }
-    public int NbEliminationsInflicted { get; set; }
-    public int NbEliminationsTaken { get; set; }
-    public int DamageInflicted { get; set; }
-    public int DamageTaken { get; set; }
+    public int NbEliminationsInflicted { get; }
+    public int NbEliminationsTaken { get; }
+    public int DamageInflicted { get; }
+    public int DamageTaken { get; }
     public int[] BestRaceTimes { get; set; }
     public int[] PrevRaceTimes { get; set; }
     public int[] BestLapTimes { get; set; }

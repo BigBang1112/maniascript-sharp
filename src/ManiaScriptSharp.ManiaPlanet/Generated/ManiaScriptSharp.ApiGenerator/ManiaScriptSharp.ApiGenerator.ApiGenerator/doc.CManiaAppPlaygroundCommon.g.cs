@@ -10,14 +10,14 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Persistent  API for game interface client scripts</summary>
 public partial class CManiaAppPlaygroundCommon : CManiaApp, ILocalProvider, IPersistentProvider
 {
-    public CManiaAppPlaygroundEvent[] PendingEvents { get; set; }
-    public CPlaygroundClient Playground { get; set; }
-    public CMap Map { get; set; }
+    public CManiaAppPlaygroundEvent[] PendingEvents { get; }
+    public CPlaygroundClient Playground { get; }
+    public CMap Map { get; }
     /// <summary>(read-only) UI actually displayed, as defined by the server.</summary>
     public CUIConfig UI { get; set; }
     /// <summary>Locally accessible by the client script to locally override settings from the server.</summary>
     public CUIConfig ClientUI { get; set; }
-    public int SplitScreenCount { get; set; }
+    public int SplitScreenCount { get; }
     /// <summary>Set a layer to be displayed on a subscreen. ScreenNum: 0=global, 1,2.... = screen index.  Limitation: a local layer can only be one screen at a time.</summary>
     public void SplitScreenAssignLayer(CUILayer UILayer, int ScreenNum) { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

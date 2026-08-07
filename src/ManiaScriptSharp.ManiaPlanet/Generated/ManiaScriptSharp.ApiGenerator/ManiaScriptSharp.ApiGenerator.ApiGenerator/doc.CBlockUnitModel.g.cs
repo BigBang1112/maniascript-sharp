@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>A 1-square-sized part of a block model.</summary>
 public partial class CBlockUnitModel : CNod
 {
-    public Int3 RelativeOffset { get; set; }
-    public CBlockModelClip[] Clips { get; set; }
+    public Int3 RelativeOffset { get; }
+    public CBlockModelClip[] Clips { get; }
 }

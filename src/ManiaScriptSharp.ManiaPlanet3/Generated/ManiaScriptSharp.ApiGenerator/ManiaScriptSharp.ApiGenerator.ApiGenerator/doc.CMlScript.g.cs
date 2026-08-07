@@ -21,38 +21,38 @@ public partial class CMlScript : CNod, ILocalProvider, IPersistentProvider
         GotoFromId,
     }
 
-    public CMlPage Page { get; set; }
-    public bool PageIsVisible { get; set; }
-    public int Now { get; set; }
-    public int Period { get; set; }
-    public int CurrentTime { get; set; }
-    public string CurrentTimeText { get; set; }
-    public string CurrentLocalDateText { get; set; }
+    public CMlPage Page { get; }
+    public bool PageIsVisible { get; }
+    public int Now { get; }
+    public int Period { get; }
+    public int CurrentTime { get; }
+    public string CurrentTimeText { get; }
+    public string CurrentLocalDateText { get; }
     /// <summary>Local user structure.</summary>
-    public CUser LocalUser { get; set; }
-    public CTitle LoadedTitle { get; set; }
-    public CMlEvent[] PendingEvents { get; set; }
-    public float MouseX { get; set; }
-    public float MouseY { get; set; }
-    public bool MouseLeftButton { get; set; }
-    public bool MouseRightButton { get; set; }
-    public bool MouseMiddleButton { get; set; }
-    public bool KeyUp { get; set; }
-    public bool KeyDown { get; set; }
-    public bool KeyLeft { get; set; }
-    public bool KeyRight { get; set; }
-    public bool KeyReturn { get; set; }
-    public bool KeySpace { get; set; }
-    public bool KeyDelete { get; set; }
+    public CUser LocalUser { get; }
+    public CTitle LoadedTitle { get; }
+    public CMlEvent[] PendingEvents { get; }
+    public float MouseX { get; }
+    public float MouseY { get; }
+    public bool MouseLeftButton { get; }
+    public bool MouseRightButton { get; }
+    public bool MouseMiddleButton { get; }
+    public bool KeyUp { get; }
+    public bool KeyDown { get; }
+    public bool KeyLeft { get; }
+    public bool KeyRight { get; }
+    public bool KeyReturn { get; }
+    public bool KeySpace { get; }
+    public bool KeyDelete { get; }
     public bool IsKeyPressed(int KeyCode) => default!;
     public bool EnableMenuNavigationInputs { get; set; }
     public void EnableMenuNavigation(bool EnableInputs, bool WithAutoFocus, CMlControl AutoBackControl, int InputPriority) { }
-    public bool IsMenuNavigationForeground { get; set; }
+    public bool IsMenuNavigationForeground { get; }
     public void OpenLink(string Url, LinkType LinkType) { }
     public void TriggerPageAction(string ActionString) { }
-    public CXmlManager Xml { get; set; }
-    public CHttpManager Http { get; set; }
-    public CAudioManager Audio { get; set; }
+    public CXmlManager Xml { get; }
+    public CHttpManager Http { get; }
+    public CAudioManager Audio { get; }
     /// <summary>Send a custom event to the ManiaApp owning the layer, no-op otherwise.</summary>
     public void SendCustomEvent(string Type, string[] Data) { }
     public void PreloadImage(string ImageUrl) { }

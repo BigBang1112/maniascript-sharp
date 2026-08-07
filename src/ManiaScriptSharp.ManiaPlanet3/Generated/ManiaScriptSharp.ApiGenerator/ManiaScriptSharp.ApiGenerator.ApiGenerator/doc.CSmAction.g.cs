@@ -10,16 +10,16 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local</summary>
 public partial class CSmAction : CNod, ILocalProvider
 {
-    public int Now { get; set; }
-    public int Variant { get; set; }
+    public int Now { get; }
+    public int Variant { get; }
     public CSmPlayer[] Players { get; set; }
     public CSmPlayer Owner { get; set; }
-    public bool IsActive { get; set; }
+    public bool IsActive { get; }
     public int Energy { get; set; }
     public int EnergyMax { get; set; }
     public int EnergyCost { get; set; }
     public bool EnergyReload { get; set; }
-    public CSmActionEvent[] PendingEvents { get; set; }
+    public CSmActionEvent[] PendingEvents { get; }
     public void SendRulesEvent(string Param1, string[] Param2, CSmPlayer Shooter, CSmPlayer Victim) { }
     public Ident GetAnimModelId(string ModelName) => default!;
     public void PlayAnimOnPlayer(Ident AnimModelId, CSmPlayer Player) { }

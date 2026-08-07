@@ -11,7 +11,7 @@ namespace ManiaScriptSharp;
 public partial class CMatchSettingsPlaylistItem : CNod
 {
     /// <summary>Name of the map</summary>
-    public string Name { get; set; }
+    public string Name { get; }
     /// <summary>True if the file is found</summary>
-    public bool FileExists { get; set; }
+    public bool FileExists { get; }
 }

@@ -9,8 +9,8 @@ namespace ManiaScriptSharp;
 
 public partial class CReplayInfo : CNod
 {
-    public string MapUid { get; set; }
-    public string Name { get; set; }
-    public string Path { get; set; }
-    public string FileName { get; set; }
+    public string MapUid { get; }
+    public string Name { get; }
+    public string Path { get; }
+    public string FileName { get; }
 }

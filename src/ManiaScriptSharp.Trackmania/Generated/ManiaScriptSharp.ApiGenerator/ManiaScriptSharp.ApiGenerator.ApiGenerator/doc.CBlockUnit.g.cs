@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>A 1-square-sized part of a block instance.</summary>
 public partial class CBlockUnit : CNod
 {
-    public Int3 AbsoluteOffset { get; set; }
-    public CBlockUnitModel BlockUnitModel { get; set; }
-    public CBlock Block { get; set; }
+    public Int3 AbsoluteOffset { get; }
+    public CBlockUnitModel BlockUnitModel { get; }
+    public CBlock Block { get; }
 }

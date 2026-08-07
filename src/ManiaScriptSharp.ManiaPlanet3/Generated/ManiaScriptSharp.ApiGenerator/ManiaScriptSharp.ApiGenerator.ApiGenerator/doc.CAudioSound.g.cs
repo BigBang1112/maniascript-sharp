@@ -11,12 +11,12 @@ public partial class CAudioSound : CNod
 {
     public void Play() { }
     public void Stop() { }
-    public bool IsPlaying { get; set; }
-    public bool DownloadInProgress { get; set; }
+    public bool IsPlaying { get; }
+    public bool DownloadInProgress { get; }
     public float Volume { get; set; }
     public float VolumedB { get; set; }
     public float Pitch { get; set; }
     public Vec3 RelativePosition { get; set; }
     public float PlayCursor { get; set; }
-    public float PlayLength { get; set; }
+    public float PlayLength { get; }
 }

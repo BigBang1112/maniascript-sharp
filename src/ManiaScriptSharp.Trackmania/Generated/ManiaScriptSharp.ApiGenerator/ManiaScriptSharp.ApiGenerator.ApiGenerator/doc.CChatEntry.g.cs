@@ -10,12 +10,12 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CChatEntry</summary>
 public partial class CChatEntry
 {
-    public SConstStringInt Text { get; set; }
-    public SConstString SenderLogin { get; set; }
-    public SConstStringInt SenderDisplayName { get; set; }
-    public SConstStringInt SenderFullDisplayName { get; set; }
-    public SConstStringInt SenderFullDisplayName_ForTTS { get; set; }
-    public SConstStringInt SenderTeamColorText { get; set; }
-    public bool IsSystemMessage { get; set; }
-    public EChatScope ChatScope { get; set; }
+    public SConstStringInt Text { get; }
+    public SConstString SenderLogin { get; }
+    public SConstStringInt SenderDisplayName { get; }
+    public SConstStringInt SenderFullDisplayName { get; }
+    public SConstStringInt SenderFullDisplayName_ForTTS { get; }
+    public SConstStringInt SenderTeamColorText { get; }
+    public bool IsSystemMessage { get; }
+    public EChatScope ChatScope { get; }
 }

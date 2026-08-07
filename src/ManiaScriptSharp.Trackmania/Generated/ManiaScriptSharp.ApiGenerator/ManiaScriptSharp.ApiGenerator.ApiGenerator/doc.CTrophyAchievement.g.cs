@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CTrophyAchievement</summary>
 public partial class CTrophyAchievement : CNod
 {
-    public string TrophyAchievementId { get; set; }
-    public string TrophyAchievementType { get; set; }
+    public string TrophyAchievementId { get; }
+    public string TrophyAchievementType { get; }
 }

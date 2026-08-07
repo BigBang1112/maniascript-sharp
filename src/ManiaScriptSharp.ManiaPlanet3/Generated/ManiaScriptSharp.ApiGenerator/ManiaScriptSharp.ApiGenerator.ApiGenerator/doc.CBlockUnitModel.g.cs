@@ -28,6 +28,6 @@ public partial class CBlockUnitModel : CNod
         PreviousDirOnly,
     }
 
-    public Int3 Offset { get; set; }
-    public CBlockModelClip[] Clips { get; set; }
+    public Int3 Offset { get; }
+    public CBlockModelClip[] Clips { get; }
 }

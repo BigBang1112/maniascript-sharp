@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CTrophyAchievement_CompetitionRanking</summary>
 public partial class CTrophyAchievement_CompetitionRanking : CTrophyAchievement
 {
-    public string CompetitionId { get; set; }
-    public string CompetitionName { get; set; }
-    public string CompetitionStage { get; set; }
-    public string CompetitionStageStep { get; set; }
-    public string CompetitionType { get; set; }
+    public string CompetitionId { get; }
+    public string CompetitionName { get; }
+    public string CompetitionStage { get; }
+    public string CompetitionStageStep { get; }
+    public string CompetitionType { get; }
 }

@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNotification_SquadDeleted</summary>
 public partial class CNotification_SquadDeleted : CNotification_Squad
 {
-    public string SquadId { get; set; }
-    public string SquadType { get; set; }
-    public int TimeStamp { get; set; }
+    public string SquadId { get; }
+    public string SquadType { get; }
+    public int TimeStamp { get; }
 }

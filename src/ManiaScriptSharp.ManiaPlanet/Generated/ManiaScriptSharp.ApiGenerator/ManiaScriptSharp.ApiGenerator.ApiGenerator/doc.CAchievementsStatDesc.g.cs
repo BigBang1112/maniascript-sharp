@@ -10,8 +10,8 @@ namespace ManiaScriptSharp;
 /// <summary>Achievement stat.</summary>
 public partial class CAchievementsStatDesc : CNod
 {
-    public string TitleId { get; set; }
+    public string TitleId { get; }
     /// <summary>Name of the stat.</summary>
-    public string DisplayName { get; set; }
-    public string Description { get; set; }
+    public string DisplayName { get; }
+    public string Description { get; }
 }

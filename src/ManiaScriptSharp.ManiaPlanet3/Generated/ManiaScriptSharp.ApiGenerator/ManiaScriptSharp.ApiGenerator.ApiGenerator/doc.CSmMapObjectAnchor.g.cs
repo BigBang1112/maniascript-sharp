@@ -9,6 +9,6 @@ namespace ManiaScriptSharp;
 
 public partial class CSmMapObjectAnchor : CNod
 {
-    public string ItemName { get; set; }
-    public Ident ItemModelId { get; set; }
+    public string ItemName { get; }
+    public Ident ItemModelId { get; }
 }

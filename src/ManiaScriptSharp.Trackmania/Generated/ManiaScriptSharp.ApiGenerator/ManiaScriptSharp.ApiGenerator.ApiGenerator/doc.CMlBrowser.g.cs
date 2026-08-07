@@ -11,10 +11,10 @@ namespace ManiaScriptSharp;
 public partial class CMlBrowser : CMlScript, ILocalProvider, IPersistentProvider
 {
     /// <summary>Will be Null if the script is not runing in a layer of an app.</summary>
-    public CManiaAppBrowser ParentApp { get; set; }
-    public CMap CurMap { get; set; }
+    public CManiaAppBrowser ParentApp { get; }
+    public CMap CurMap { get; }
     public void ShowCurMapCard() { }
-    public bool IsInBrowser { get; set; }
+    public bool IsInBrowser { get; }
     public void BrowserBack() { }
     public void BrowserQuit() { }
     public void BrowserHome() { }

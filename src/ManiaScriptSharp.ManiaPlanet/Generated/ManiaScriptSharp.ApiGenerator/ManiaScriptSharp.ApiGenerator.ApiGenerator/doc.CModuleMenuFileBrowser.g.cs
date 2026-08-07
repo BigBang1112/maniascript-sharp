@@ -32,8 +32,8 @@ public partial class CModuleMenuFileBrowser : CModuleMenuComponent
         MultiSelect,
     }
 
-    public bool HasFinished { get; set; }
-    public string[] Selection { get; set; }
+    public bool HasFinished { get; }
+    public string[] Selection { get; }
     public void SetFileType(EFileType FileType) { }
     public void SetFileAction(EFileAction FileAction) { }
 }

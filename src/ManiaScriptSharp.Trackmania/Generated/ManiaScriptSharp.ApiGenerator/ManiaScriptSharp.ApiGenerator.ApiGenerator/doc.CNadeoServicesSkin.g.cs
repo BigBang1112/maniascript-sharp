@@ -10,17 +10,17 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNadeoServicesSkin</summary>
 public partial class CNadeoServicesSkin : CNod
 {
-    public string Checksum { get; set; }
-    public string CreatorAccountId { get; set; }
-    public string CreatorWebServicesUserId { get; set; }
-    public string CreatorDisplayName { get; set; }
-    public bool CreatorIsFirstPartyDisplayName { get; set; }
-    public string DisplayName { get; set; }
-    public string FileName { get; set; }
-    public string FileUrl { get; set; }
-    public new string Id { get; set; }
-    public string Name { get; set; }
-    public string ThumbnailUrl { get; set; }
-    public int TimeStamp { get; set; }
-    public string Type { get; set; }
+    public string Checksum { get; }
+    public string CreatorAccountId { get; }
+    public string CreatorWebServicesUserId { get; }
+    public string CreatorDisplayName { get; }
+    public bool CreatorIsFirstPartyDisplayName { get; }
+    public string DisplayName { get; }
+    public string FileName { get; }
+    public string FileUrl { get; }
+    public new string Id { get; }
+    public string Name { get; }
+    public string ThumbnailUrl { get; }
+    public int TimeStamp { get; }
+    public string Type { get; }
 }

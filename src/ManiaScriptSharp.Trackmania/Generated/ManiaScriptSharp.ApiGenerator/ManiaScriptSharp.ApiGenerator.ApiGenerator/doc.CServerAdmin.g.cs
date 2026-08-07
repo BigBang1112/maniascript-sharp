@@ -20,7 +20,7 @@ public partial class CServerAdmin : CNod
     }
 
     /// <summary>ServerInfo</summary>
-    public CServerInfo ServerInfo { get; set; }
+    public CServerInfo ServerInfo { get; }
     public void AutoTeamBalance() { }
     public bool Kick(CUser User, string Reason) => default!;
     public bool Kick(CClient Client, string Reason) => default!;
@@ -42,9 +42,9 @@ public partial class CServerAdmin : CNod
     public void CustomizeQuitDialog(string ManialinkPage, string SendToServerUrl, bool ProposeAddToFavorites, int ForceDelay) { }
     /// <summary>Always use NullId as UserId.</summary>
     public void Authentication_GetToken(Ident UserId, string AppLogin) { }
-    public bool Authentication_GetTokenResponseReceived { get; set; }
-    public int Authentication_ErrorCode { get; set; }
-    public string Authentication_Token { get; set; }
+    public bool Authentication_GetTokenResponseReceived { get; }
+    public int Authentication_ErrorCode { get; }
+    public string Authentication_Token { get; }
     public void SetViewerCount(int ViewerCount) { }
-    public string PlayerRestrictions { get; set; }
+    public string PlayerRestrictions { get; }
 }

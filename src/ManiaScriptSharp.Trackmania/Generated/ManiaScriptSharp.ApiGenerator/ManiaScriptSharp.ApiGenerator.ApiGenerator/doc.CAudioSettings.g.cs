@@ -14,11 +14,11 @@ public partial class CAudioSettings : CNod
     public string[] Devices { get; set; }
     public string Device_Current { get; set; }
     public string Device_NextApply { get; set; }
-    public int VoiceChat_Devices_DirtyCounter { get; set; }
+    public int VoiceChat_Devices_DirtyCounter { get; }
     public string[] VoiceChat_Devices_In { get; set; }
     public string[] VoiceChat_Devices_Out { get; set; }
-    public string VoiceChat_Device_In_Current { get; set; }
-    public string VoiceChat_Device_Out_Current { get; set; }
+    public string VoiceChat_Device_In_Current { get; }
+    public string VoiceChat_Device_Out_Current { get; }
     public string VoiceChat_Device_In_NextApply { get; set; }
     public string VoiceChat_Device_Out_NextApply { get; set; }
     public float VoiceChat_SpeakerVolume { get; set; }

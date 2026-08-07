@@ -11,11 +11,11 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_ReplayList : CTaskResult
 {
     /// <summary>Path of the parent zone.</summary>
-    public string ParentPath { get; set; }
+    public string ParentPath { get; }
     /// <summary>Path of the current zone.</summary>
-    public string Path { get; set; }
+    public string Path { get; }
     /// <summary>List of the replay info. Array of CReplayInfo objects.</summary>
-    public CReplayInfo[] ReplayInfos { get; set; }
+    public CReplayInfo[] ReplayInfos { get; }
     /// <summary>List of the sub folders. Array of string.</summary>
-    public string[] SubFolders { get; set; }
+    public string[] SubFolders { get; }
 }

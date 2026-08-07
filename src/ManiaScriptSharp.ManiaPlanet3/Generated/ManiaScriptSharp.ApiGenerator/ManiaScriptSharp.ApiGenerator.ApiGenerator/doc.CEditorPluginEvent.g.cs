@@ -50,7 +50,7 @@ public partial class CEditorPluginEvent : CManiaAppEvent
         IconLeft,
     }
 
-    public Type Type_ { get; set; }
-    public EInput Input { get; set; }
-    public Ident EditedAnchorDataId { get; set; }
+    public Type Type_ { get; }
+    public EInput Input { get; }
+    public Ident EditedAnchorDataId { get; }
 }

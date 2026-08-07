@@ -33,7 +33,7 @@ public partial class CModuleMenuFileBrowser : CModuleMenuComponent
         MultiSelect,
     }
 
-    public bool HasFinished { get; set; }
+    public bool HasFinished { get; }
     public string[] Selection { get; set; }
     public void SetFileType(CModuleMenuFileBrowser.EFileType FileType) { }
     public void SetFileAction(CModuleMenuFileBrowser.EFileAction FileAction) { }

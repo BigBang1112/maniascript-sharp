@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_NSMapList : CWebServicesTaskResult_NadeoServicesMapList, ILocalProvider
 {
     /// <summary>List of map info retrieve from NadeoServices contained by this result.</summary>
-    public CNadeoServicesMap[] MapList { get; set; }
+    public CNadeoServicesMap[] MapList { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

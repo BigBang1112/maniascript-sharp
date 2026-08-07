@@ -10,12 +10,12 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNotification_SquadInvitationReceived</summary>
 public partial class CNotification_SquadInvitationReceived : CNotification_Squad
 {
-    public string InviterAccountId { get; set; }
-    public string InviterCountryFlagUrl { get; set; }
-    public string InviterDisplayName { get; set; }
-    public bool InviterIsFirstPartyDisplayName { get; set; }
-    public string InviterWebServicesUserId { get; set; }
-    public string SquadId { get; set; }
-    public string SquadType { get; set; }
-    public int TimeStamp { get; set; }
+    public string InviterAccountId { get; }
+    public string InviterCountryFlagUrl { get; }
+    public string InviterDisplayName { get; }
+    public bool InviterIsFirstPartyDisplayName { get; }
+    public string InviterWebServicesUserId { get; }
+    public string SquadId { get; }
+    public string SquadType { get; }
+    public int TimeStamp { get; }
 }

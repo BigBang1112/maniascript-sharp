@@ -11,13 +11,13 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_BuddyChallengeRecordsComparison : CTaskResult
 {
     /// <summary>Login of the user who has launched the task.</summary>
-    public string Login { get; set; }
+    public string Login { get; }
     /// <summary>Buddy login.</summary>
-    public string BuddyLogin { get; set; }
+    public string BuddyLogin { get; }
     /// <summary>List of best challenge records for user. Array of CHighScoreComparison objects.</summary>
-    public CHighScoreComparison[] PlayerBestRecordsComparison { get; set; }
+    public CHighScoreComparison[] PlayerBestRecordsComparison { get; }
     /// <summary>List of best challenge records for buddy. Array of CHighScoreComparison objects.</summary>
-    public CHighScoreComparison[] BuddyBestRecordsComparison { get; set; }
+    public CHighScoreComparison[] BuddyBestRecordsComparison { get; }
     /// <summary>Sort the results by map name.</summary>
     public void SortByMapName() { }
     /// <summary>Sort the results by record time.</summary>

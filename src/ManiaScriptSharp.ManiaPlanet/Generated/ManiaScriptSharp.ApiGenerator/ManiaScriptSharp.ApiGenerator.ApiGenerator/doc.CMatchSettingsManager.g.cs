@@ -18,7 +18,7 @@ public partial class CMatchSettingsManager : CNod
     public void MatchSettings_Save(CMatchSettings MatchSettings) { }
     public CMatchSettings MatchSettings_SaveAs(string FilePath, CMatchSettings MatchSettings) => default!;
     public void MatchSettings_EditScriptSettings(CMatchSettings MatchSettings) { }
-    public bool MatchSettings_EditScriptSettings_Ongoing { get; set; }
+    public bool MatchSettings_EditScriptSettings_Ongoing { get; }
     /// <summary>Array of the matchsettings</summary>
-    public CMatchSettings[] MatchSettings { get; set; }
+    public CMatchSettings[] MatchSettings { get; }
 }

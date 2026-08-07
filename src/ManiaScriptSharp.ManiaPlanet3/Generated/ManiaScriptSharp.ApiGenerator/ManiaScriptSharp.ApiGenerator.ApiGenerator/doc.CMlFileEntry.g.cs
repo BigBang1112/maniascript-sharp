@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Manialink control.</summary>
 public partial class CMlFileEntry : CMlEntry, ILocalProvider
 {
-    public string FullFileName { get; set; }
+    public string FullFileName { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

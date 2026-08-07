@@ -10,12 +10,12 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNotification_SquadMemberRemoved</summary>
 public partial class CNotification_SquadMemberRemoved : CNotification_Squad
 {
-    public string MemberAccountId { get; set; }
-    public string MemberCountryFlagUrl { get; set; }
-    public string MemberDisplayName { get; set; }
-    public bool MemberIsFirstPartyDisplayName { get; set; }
-    public string MemberWebServicesUserId { get; set; }
-    public string SquadId { get; set; }
-    public string SquadType { get; set; }
-    public int TimeStamp { get; set; }
+    public string MemberAccountId { get; }
+    public string MemberCountryFlagUrl { get; }
+    public string MemberDisplayName { get; }
+    public bool MemberIsFirstPartyDisplayName { get; }
+    public string MemberWebServicesUserId { get; }
+    public string SquadId { get; }
+    public string SquadType { get; }
+    public int TimeStamp { get; }
 }

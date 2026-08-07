@@ -17,11 +17,11 @@ public partial class CTitleEdition : CNod
         User,
     }
 
-    public CTitle TitleMaker { get; set; }
+    public CTitle TitleMaker { get; }
     /// <summary>PackCreator - only available when the title author is the current logged user.</summary>
-    public CPackCreator PackCreator { get; set; }
-    public string EditedTitleId { get; set; }
-    public CPackCreatorTitleInfo EditedTitleInfo { get; set; }
+    public CPackCreator PackCreator { get; }
+    public string EditedTitleId { get; }
+    public CPackCreatorTitleInfo EditedTitleInfo { get; }
     /// <summary>Will copy file 'FileName' from the UserDir to the TitleDir, including its dependencies.</summary>
     public void File_ImportFromUser(string FileName) { }
     /// <summary>Will move or copy file 'OrigName' to 'DestName'. If DestName is a '\' terminated folder path, keeps the orginial short name.</summary>
@@ -31,9 +31,9 @@ public partial class CTitleEdition : CNod
     public void File_WriteText(string FileName, string Text) { }
     public string File_ReadText(string FileName) => default!;
     public void Dialog_ImportFiles() { }
-    public bool Dialog_IsFinished { get; set; }
-    public bool Dialog_Success { get; set; }
-    public bool Dialog_Aborted { get; set; }
+    public bool Dialog_IsFinished { get; }
+    public bool Dialog_Success { get; }
+    public bool Dialog_Aborted { get; }
     public void OpenTitleFolderInExplorer() { }
     public void ReloadTitleDesc() { }
     public void SaveTitleDesc() { }

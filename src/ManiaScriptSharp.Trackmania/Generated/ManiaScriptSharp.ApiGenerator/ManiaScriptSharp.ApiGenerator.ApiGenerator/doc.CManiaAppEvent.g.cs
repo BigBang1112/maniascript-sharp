@@ -37,15 +37,15 @@ public partial class CManiaAppEvent : CBaseConstEvent, ILocalProvider
         ScrollDown,
     }
 
-    public CManiaAppEvent.EType Type { get; set; }
-    public CUILayer CustomEventLayer { get; set; }
-    public string CustomEventType { get; set; }
+    public CManiaAppEvent.EType Type { get; }
+    public CUILayer CustomEventLayer { get; }
+    public string CustomEventType { get; }
     public string[] CustomEventData { get; set; }
-    public string ExternalEventType { get; set; }
+    public string ExternalEventType { get; }
     public string[] ExternalEventData { get; set; }
-    public CManiaAppEvent.EMenuNavAction MenuNavAction { get; set; }
-    public bool IsActionAutoRepeat { get; set; }
-    public int KeyCode { get; set; }
-    public string KeyName { get; set; }
+    public CManiaAppEvent.EMenuNavAction MenuNavAction { get; }
+    public bool IsActionAutoRepeat { get; }
+    public int KeyCode { get; }
+    public string KeyName { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

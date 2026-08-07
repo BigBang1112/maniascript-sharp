@@ -11,5 +11,5 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_Ghost : CTaskResult
 {
     /// <summary>Ghost contained by this result.</summary>
-    public CGhost Ghost { get; set; }
+    public CGhost Ghost { get; }
 }

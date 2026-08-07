@@ -24,14 +24,14 @@ public partial class CSmActionEvent : CBaseConstEvent, ILocalProvider
         OnHitTurret,
     }
 
-    public EType Type { get; set; }
-    public Ident ProjectileModelId { get; set; }
-    public int Damage { get; set; }
-    public int ContextId { get; set; }
-    public Vec3 Position { get; set; }
-    public Vec3 Direction { get; set; }
-    public Vec3 Normal { get; set; }
-    public CEntity Victim { get; set; }
-    public int Shield { get; set; }
+    public EType Type { get; }
+    public Ident ProjectileModelId { get; }
+    public int Damage { get; }
+    public int ContextId { get; }
+    public Vec3 Position { get; }
+    public Vec3 Direction { get; }
+    public Vec3 Normal { get; }
+    public CEntity Victim { get; }
+    public int Shield { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

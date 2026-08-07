@@ -19,12 +19,12 @@ public partial class CAudioSourceMusic : CAudioSource
 
     public float[] Tracks_Volume { get; set; }
     public float[] Tracks_VolumedB { get; set; }
-    public string[] Tracks_Name { get; set; }
-    public float[] Tracks_Length { get; set; }
-    public int Tracks_Count { get; set; }
-    public float BeatsPerMinute { get; set; }
-    public float BeatDuration { get; set; }
-    public int BeatsPerBar { get; set; }
+    public string[] Tracks_Name { get; }
+    public float[] Tracks_Length { get; }
+    public int Tracks_Count { get; }
+    public float BeatsPerMinute { get; }
+    public float BeatDuration { get; }
+    public int BeatsPerBar { get; }
     public EUpdateMode UpdateMode { get; set; }
     public bool Dbg_ForceIntensity { get; set; }
     public bool Dbg_ForceSequential { get; set; }

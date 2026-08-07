@@ -10,12 +10,12 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Persistent  Station mania app.</summary>
 public partial class CManiaAppStation : CManiaAppBase, ILocalProvider, IPersistentProvider
 {
-    public CStation Station { get; set; }
+    public CStation Station { get; }
     public void EnterStation() { }
     public void Maker_EditTitle(string EditedTitleId) { }
     /// <summary>A new title id will be derived from the EditedTitleName.</summary>
     public void Maker_EditNewTitle(string EditedTitleName) { }
-    public CPackCreatorTitleInfo[] Maker_EditedTitles { get; set; }
+    public CPackCreatorTitleInfo[] Maker_EditedTitles { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

@@ -18,10 +18,10 @@ public partial class CXmlRpcEvent : CBaseConstEvent, ILocalProvider
         CallbackArray,
     }
 
-    public EType Type { get; set; }
-    public string Param1 { get; set; }
-    public string Param2 { get; set; }
-    public string ParamArray1 { get; set; }
-    public string[] ParamArray2 { get; set; }
+    public EType Type { get; }
+    public string Param1 { get; }
+    public string Param2 { get; }
+    public string ParamArray1 { get; }
+    public string[] ParamArray2 { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

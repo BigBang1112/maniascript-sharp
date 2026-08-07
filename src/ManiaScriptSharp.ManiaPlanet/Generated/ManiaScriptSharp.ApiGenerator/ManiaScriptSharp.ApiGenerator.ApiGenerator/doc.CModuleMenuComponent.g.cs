@@ -9,7 +9,7 @@ namespace ManiaScriptSharp;
 
 public partial class CModuleMenuComponent : CNod
 {
-    public CUILayer ComponentLayer { get; set; }
+    public CUILayer ComponentLayer { get; }
     public void Hide() { }
     public void Show() { }
 }

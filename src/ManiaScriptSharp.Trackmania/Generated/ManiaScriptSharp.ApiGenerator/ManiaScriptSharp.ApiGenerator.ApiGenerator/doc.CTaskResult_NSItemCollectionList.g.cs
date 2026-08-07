@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_NSItemCollectionList : CWebServicesTaskResult_NadeoServicesItemCollectionList, ILocalProvider
 {
     /// <summary>List of ItemCollection info retrieve from NadeoServices contained by this result.</summary>
-    public CNadeoServicesItemCollection[] ItemCollectionList { get; set; }
+    public CNadeoServicesItemCollection[] ItemCollectionList { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

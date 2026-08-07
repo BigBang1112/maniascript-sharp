@@ -18,20 +18,20 @@ public partial class CSmObject : CEntity, ILocalProvider
         Unspawned,
     }
 
-    public CSmObject.EStatus Status { get; set; }
-    public Ident ModelId { get; set; }
+    public CSmObject.EStatus Status { get; }
+    public Ident ModelId { get; }
     public void SetAnchor(CMapObjectAnchor ObjectAnchor) { }
     public void SetPlayer(CSmPlayer Player) { }
     public void SetPosition(Vec3 Position) { }
     public void SetPositionAndVel(Vec3 Position, Vec3 Vel) { }
     public void SetUnspawned() { }
     /// <summary>Player holding the object, or Null if the object isn't held by a player.</summary>
-    public CSmPlayer Player { get; set; }
-    public CSmMapLandmark AnchorLandmark { get; set; }
-    public Vec3 Position { get; set; }
-    public Vec3 Vel { get; set; }
+    public CSmPlayer Player { get; }
+    public CSmMapLandmark AnchorLandmark { get; }
+    public Vec3 Position { get; }
+    public Vec3 Vel { get; }
     public int MachineState { get; set; }
     public bool Throwable { get; set; }
-    public Ident ThrowLatestPlayerId { get; set; }
+    public Ident ThrowLatestPlayerId { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

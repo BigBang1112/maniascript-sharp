@@ -17,7 +17,7 @@ public partial class CModulePlaygroundHud : CNod
     public CModulePlaygroundSpeedMeter SpeedMeter { get; set; }
     public CModulePlaygroundPlayerState PlayerState { get; set; }
     public CModulePlaygroundTeamState TeamState { get; set; }
-    public CModulePlayground[] Modules { get; set; }
+    public CModulePlayground[] Modules { get; }
     public void SwitchContext(CPlayer Player, string ContextName) { }
     public void SetDefaultContext(CPlayer Player) { }
     public Ident RetrieveModuleId(string ModuleName) => default!;

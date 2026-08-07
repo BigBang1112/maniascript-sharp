@@ -10,5 +10,5 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CDirectLink_WaitingPage</summary>
 public partial class CDirectLink_WaitingPage : CDirectLink
 {
-    public string Reason { get; set; }
+    public string Reason { get; }
 }

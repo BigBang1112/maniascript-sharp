@@ -141,19 +141,19 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         Black,
     }
 
-    public CMapEditorPluginEvent[] PendingEvents { get; set; }
-    public CMap Map { get; set; }
-    public string MapName { get; set; }
-    public string MapFileName { get; set; }
-    public bool IsEditorReadyForRequest { get; set; }
-    public bool BackToMainMenuRequested { get; set; }
+    public CMapEditorPluginEvent[] PendingEvents { get; }
+    public CMap Map { get; }
+    public string MapName { get; }
+    public string MapFileName { get; }
+    public bool IsEditorReadyForRequest { get; }
+    public bool BackToMainMenuRequested { get; }
     public bool HoldLoadingScreen { get; set; }
     public void HideOtherPlugins() { }
     public void ShowOtherPlugins() { }
     public void ComputeShadows() { }
     public void ComputeShadows(CMapEditorPlugin.ShadowsQuality ShadowsQuality) { }
-    public CMapEditorPlugin.ShadowsQuality CurrentShadowsQuality { get; set; }
-    public bool IsUltraShadowsQualityAvailable { get; set; }
+    public CMapEditorPlugin.ShadowsQuality CurrentShadowsQuality { get; }
+    public bool IsUltraShadowsQualityAvailable { get; }
     public void DisplayDefaultSetObjectivesDialog() { }
     public bool Undo() => default!;
     public bool Redo() => default!;
@@ -181,7 +181,7 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public CMapEditorPlugin.MapElemColor NextMapElemColor { get; set; }
     public CMapEditorPlugin.MapElemColorPalette MapElemColorPalette_ { get; set; }
     public void SetNextMapElemColorPalette() { }
-    public bool IsColorBlindModeActive { get; set; }
+    public bool IsColorBlindModeActive { get; }
     public CMapEditorPlugin.MapElemColorPalette[] MapElemColorPalettes { get; set; }
     public bool ForceMacroblockColor { get; set; }
     public CMapEditorPlugin.MapElemColor GetMapElemColor(CBlock Block) => default!;
@@ -200,13 +200,13 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public bool ForceMacroblockLightmapQuality { get; set; }
     public bool UndergroundMode { get; set; }
     public bool BlockStockMode { get; set; }
-    public CMapEditorInventory Inventory { get; set; }
+    public CMapEditorInventory Inventory { get; }
     public bool HideInventory { get; set; }
     public float CameraVAngle { get; set; }
     public float CameraHAngle { get; set; }
     public float CameraToTargetDistance { get; set; }
     public Vec3 CameraTargetPosition { get; set; }
-    public Vec3 CameraPosition { get; set; }
+    public Vec3 CameraPosition { get; }
     public float ThumbnailCameraVAngle { get; set; }
     public float ThumbnailCameraHAngle { get; set; }
     public float ThumbnailCameraRoll { get; set; }
@@ -308,7 +308,7 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public bool PlaceMacroblock_NoTerrain_NoUnvalidate(CMacroblockModel MacroblockModel, Int3 Coord, CMapEditorPlugin.CardinalDirections Dir) => default!;
     public void ResetAutoRepeat() { }
     public void ComputeItemsForMacroblockInstance(CMacroblockInstance MacroBlockInstance) { }
-    public CItemAnchor[] MacroblockInstanceItemsResults { get; set; }
+    public CItemAnchor[] MacroblockInstanceItemsResults { get; }
     public void GetConnectResults(CBlock ExistingBlock, CBlockModel NewBlock) { }
     public void GetConnectResults(CBlock ExistingBlock, CMacroblockModel NewBlock) { }
     public void GetConnectResults(CMacroblockInstance ExistingBlock, CBlockModel NewBlock) { }
@@ -341,24 +341,24 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public string GetAvailableMapName() => default!;
     public bool IsMapFileNameAvailable(string MapName) => default!;
     public Vec3 GetVec3FromCoord(Int3 Coord) => default!;
-    public CMapEditorCamera Camera { get; set; }
-    public CMapEditorCursor Cursor { get; set; }
-    public CItemAnchor[] Items { get; set; }
+    public CMapEditorCamera Camera { get; }
+    public CMapEditorCursor Cursor { get; }
+    public CItemAnchor[] Items { get; }
     public string[] MediatrackIngameClips { get; set; }
     public int MediatrackIngameEditedClipIndex { get; set; }
-    public CBlock[] Blocks { get; set; }
-    public CBlockModel[] BlockModels { get; set; }
-    public CBlockModel[] TerrainBlockModels { get; set; }
-    public CMacroblockModel[] MacroblockModels { get; set; }
-    public CBlock[] ClassicBlocks { get; set; }
-    public CBlock[] TerrainBlocks { get; set; }
-    public CBlock[] GhostBlocks { get; set; }
-    public CBlockClipList[] FixedClipLists { get; set; }
-    public CBlockClipList[] FrameClipLists { get; set; }
-    public CBlockClipList[] MacroblockInstanceClipLists { get; set; }
-    public CMacroblockInstance[] MacroblockInstances { get; set; }
-    public CMapEditorConnectResults[] ConnectResults { get; set; }
-    public CAnchorData[] AnchorData { get; set; }
+    public CBlock[] Blocks { get; }
+    public CBlockModel[] BlockModels { get; }
+    public CBlockModel[] TerrainBlockModels { get; }
+    public CMacroblockModel[] MacroblockModels { get; }
+    public CBlock[] ClassicBlocks { get; }
+    public CBlock[] TerrainBlocks { get; }
+    public CBlock[] GhostBlocks { get; }
+    public CBlockClipList[] FixedClipLists { get; }
+    public CBlockClipList[] FrameClipLists { get; }
+    public CBlockClipList[] MacroblockInstanceClipLists { get; }
+    public CMacroblockInstance[] MacroblockInstances { get; }
+    public CMapEditorConnectResults[] ConnectResults { get; }
+    public CAnchorData[] AnchorData { get; }
     public bool DoesAnchorHaveSpawn(CAnchorData Anchor) => default!;
     public Int3[] CustomSelectionCoords { get; set; }
     public Vec3 CustomSelectionRGB { get; set; }
@@ -367,57 +367,57 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public bool HideEditorInterface { get; set; }
     public bool HideBlockHelpers { get; set; }
     public bool ShowPlacementGrid { get; set; }
-    public bool IsTesting { get; set; }
-    public bool IsValidating { get; set; }
-    public bool EditorInputIsDown_Menu { get; set; }
-    public bool EditorInputIsDown_SwitchToRace { get; set; }
-    public bool EditorInputIsDown_Undo { get; set; }
-    public bool EditorInputIsDown_Redo { get; set; }
-    public bool EditorInputIsDown_CursorTiltLeft { get; set; }
-    public bool EditorInputIsDown_CursorTiltRight { get; set; }
-    public bool EditorInputIsDown_CursorUp { get; set; }
-    public bool EditorInputIsDown_CursorRight { get; set; }
-    public bool EditorInputIsDown_CursorDown { get; set; }
-    public bool EditorInputIsDown_CursorLeft { get; set; }
-    public bool EditorInputIsDown_CursorRaise { get; set; }
-    public bool EditorInputIsDown_CursorLower { get; set; }
-    public bool EditorInputIsDown_CursorTurn { get; set; }
-    public bool EditorInputIsDown_CursorPick { get; set; }
-    public bool EditorInputIsDown_CursorPlace { get; set; }
-    public bool EditorInputIsDown_CursorDelete { get; set; }
-    public bool EditorInputIsDown_CameraUp { get; set; }
-    public bool EditorInputIsDown_CameraRight { get; set; }
-    public bool EditorInputIsDown_CameraDown { get; set; }
-    public bool EditorInputIsDown_CameraLeft { get; set; }
-    public bool EditorInputIsDown_CameraZoomNext { get; set; }
-    public bool EditorInputIsDown_Camera0 { get; set; }
-    public bool EditorInputIsDown_Camera1 { get; set; }
-    public bool EditorInputIsDown_Camera3 { get; set; }
-    public bool EditorInputIsDown_Camera7 { get; set; }
-    public bool EditorInputIsDown_Camera9 { get; set; }
-    public bool EditorInputIsDown_PivotChange { get; set; }
-    public bool EditorInputIsDown_CursorTurnSlightly { get; set; }
-    public bool EditorInputIsDown_CursorTurnSlightlyAntiClockwise { get; set; }
-    public bool EditorInputIsDown_IconUp { get; set; }
-    public bool EditorInputIsDown_IconRight { get; set; }
-    public bool EditorInputIsDown_IconDown { get; set; }
-    public bool EditorInputIsDown_IconLeft { get; set; }
-    public bool EditorInputIsDown_RemoveAll { get; set; }
-    public bool EditorInputIsDown_Save { get; set; }
-    public bool EditorInputIsDown_SelectAll { get; set; }
-    public bool EditorInputIsDown_Copy { get; set; }
-    public bool EditorInputIsDown_Cut { get; set; }
-    public bool EditorInputIsDown_Paste { get; set; }
-    public float CollectionSquareSize { get; set; }
-    public float CollectionSquareHeight { get; set; }
-    public int CollectionGroundY { get; set; }
-    public CMapEditorPlugin.ValidationStatus ValidationStatus_ { get; set; }
+    public bool IsTesting { get; }
+    public bool IsValidating { get; }
+    public bool EditorInputIsDown_Menu { get; }
+    public bool EditorInputIsDown_SwitchToRace { get; }
+    public bool EditorInputIsDown_Undo { get; }
+    public bool EditorInputIsDown_Redo { get; }
+    public bool EditorInputIsDown_CursorTiltLeft { get; }
+    public bool EditorInputIsDown_CursorTiltRight { get; }
+    public bool EditorInputIsDown_CursorUp { get; }
+    public bool EditorInputIsDown_CursorRight { get; }
+    public bool EditorInputIsDown_CursorDown { get; }
+    public bool EditorInputIsDown_CursorLeft { get; }
+    public bool EditorInputIsDown_CursorRaise { get; }
+    public bool EditorInputIsDown_CursorLower { get; }
+    public bool EditorInputIsDown_CursorTurn { get; }
+    public bool EditorInputIsDown_CursorPick { get; }
+    public bool EditorInputIsDown_CursorPlace { get; }
+    public bool EditorInputIsDown_CursorDelete { get; }
+    public bool EditorInputIsDown_CameraUp { get; }
+    public bool EditorInputIsDown_CameraRight { get; }
+    public bool EditorInputIsDown_CameraDown { get; }
+    public bool EditorInputIsDown_CameraLeft { get; }
+    public bool EditorInputIsDown_CameraZoomNext { get; }
+    public bool EditorInputIsDown_Camera0 { get; }
+    public bool EditorInputIsDown_Camera1 { get; }
+    public bool EditorInputIsDown_Camera3 { get; }
+    public bool EditorInputIsDown_Camera7 { get; }
+    public bool EditorInputIsDown_Camera9 { get; }
+    public bool EditorInputIsDown_PivotChange { get; }
+    public bool EditorInputIsDown_CursorTurnSlightly { get; }
+    public bool EditorInputIsDown_CursorTurnSlightlyAntiClockwise { get; }
+    public bool EditorInputIsDown_IconUp { get; }
+    public bool EditorInputIsDown_IconRight { get; }
+    public bool EditorInputIsDown_IconDown { get; }
+    public bool EditorInputIsDown_IconLeft { get; }
+    public bool EditorInputIsDown_RemoveAll { get; }
+    public bool EditorInputIsDown_Save { get; }
+    public bool EditorInputIsDown_SelectAll { get; }
+    public bool EditorInputIsDown_Copy { get; }
+    public bool EditorInputIsDown_Cut { get; }
+    public bool EditorInputIsDown_Paste { get; }
+    public float CollectionSquareSize { get; }
+    public float CollectionSquareHeight { get; }
+    public int CollectionGroundY { get; }
+    public CMapEditorPlugin.ValidationStatus ValidationStatus_ { get; }
     /// <summary>Preview the 'RoadsideSpectators' on the bleachers. if -1, use the BleacherSpectatorsAbsoluteCount instead.</summary>
     public float BleacherSpectatorsFillRatio { get; set; }
     /// <summary>Preview the 'RoadsideSpectators' on the bleachers. used if BleacherSpectatorsFillRatio &lt; 0.</summary>
     public int BleacherSpectatorsCount { get; set; }
     public string ManialinkText { get; set; }
-    public CMlPage ManialinkPage { get; set; }
+    public CMlPage ManialinkPage { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

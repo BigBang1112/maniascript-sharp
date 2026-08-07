@@ -11,9 +11,9 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_FileList : CTaskResult, ILocalProvider
 {
     /// <summary>Path of the parent zone.</summary>
-    public string ParentPath { get; set; }
+    public string ParentPath { get; }
     /// <summary>Path of the current zone.</summary>
-    public string Path { get; set; }
+    public string Path { get; }
     /// <summary>List of files. Array of string.</summary>
     public string[] Files { get; set; }
     /// <summary>List of the sub folders. Array of string.</summary>

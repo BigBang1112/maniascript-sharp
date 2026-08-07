@@ -137,7 +137,7 @@ public partial class CUIConfig : CNod, ILocalProvider, INetreadProvider, INetwri
     }
 
     public CUIConfig.EUISequence UISequence { get; set; }
-    public bool UISequenceIsCompleted { get; set; }
+    public bool UISequenceIsCompleted { get; }
     public string UISequence_CustomMTClip { get; set; }
     public int UISequence_CustomMTRefTime { get; set; }
     public bool UISequence_CanSkipIntroMT { get; set; }
@@ -159,8 +159,8 @@ public partial class CUIConfig : CNod, ILocalProvider, INetreadProvider, INetwri
     public string MarkersXML { get; set; }
     /// <summary>If True, the markers of this UI config overrides the markers of more generic UI configs. If False they are merged.</summary>
     public bool OverrideMarkers { get; set; }
-    public CUIConfigMarker[] Markers { get; set; }
-    public CUILayer[] UILayers { get; set; }
+    public CUIConfigMarker[] Markers { get; }
+    public CUILayer[] UILayers { get; }
     public bool OverlayHideNotices { get; set; }
     public bool OverlayHideMapInfo { get; set; }
     public bool OverlayHideChat { get; set; }

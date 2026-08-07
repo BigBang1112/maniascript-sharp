@@ -10,15 +10,15 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNotification_SquadMemberAdded</summary>
 public partial class CNotification_SquadMemberAdded : CNotification_Squad
 {
-    public string MemberAccountId { get; set; }
-    public string MemberCountryFlagUrl { get; set; }
-    public string MemberDisplayName { get; set; }
-    public bool MemberIsCommunicationRestricted { get; set; }
-    public bool MemberIsFirstPartyDisplayName { get; set; }
-    public string MemberSkinOptions { get; set; }
+    public string MemberAccountId { get; }
+    public string MemberCountryFlagUrl { get; }
+    public string MemberDisplayName { get; }
+    public bool MemberIsCommunicationRestricted { get; }
+    public bool MemberIsFirstPartyDisplayName { get; }
+    public string MemberSkinOptions { get; }
     public CSkinInfo[] MemberSkinList { get; set; }
-    public string MemberWebServicesUserId { get; set; }
-    public string SquadId { get; set; }
-    public string SquadType { get; set; }
-    public int TimeStamp { get; set; }
+    public string MemberWebServicesUserId { get; }
+    public string SquadId { get; }
+    public string SquadType { get; }
+    public int TimeStamp { get; }
 }

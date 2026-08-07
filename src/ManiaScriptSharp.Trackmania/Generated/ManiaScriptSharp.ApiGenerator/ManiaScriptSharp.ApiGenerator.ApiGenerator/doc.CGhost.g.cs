@@ -11,9 +11,9 @@ namespace ManiaScriptSharp;
 public partial class CGhost : CNod
 {
     /// <summary>Ghost id</summary>
-    public new Ident Id { get; set; }
+    public new Ident Id { get; }
     /// <summary>Result associated to this ghost (score/time/respawncount).</summary>
-    public CTmRaceResultNod Result { get; set; }
+    public CTmRaceResultNod Result { get; }
     /// <summary>Nickname of the player.</summary>
     public string Nickname { get; set; }
     /// <summary>Trigram of the player.</summary>

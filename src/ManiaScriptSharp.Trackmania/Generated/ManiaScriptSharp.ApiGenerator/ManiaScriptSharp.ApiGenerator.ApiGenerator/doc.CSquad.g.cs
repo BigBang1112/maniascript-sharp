@@ -10,15 +10,15 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CSquad</summary>
 public partial class CSquad : CNod
 {
-    public int CreationTimeStamp { get; set; }
-    public string LeaderAccountId { get; set; }
-    public string LeaderWebServicesUserId { get; set; }
-    public new string Id { get; set; }
-    public bool IsLocked { get; set; }
-    public string Name { get; set; }
-    public int Size { get; set; }
-    public string Type { get; set; }
-    public int UpdateTimeStamp { get; set; }
+    public int CreationTimeStamp { get; }
+    public string LeaderAccountId { get; }
+    public string LeaderWebServicesUserId { get; }
+    public new string Id { get; }
+    public bool IsLocked { get; }
+    public string Name { get; }
+    public int Size { get; }
+    public string Type { get; }
+    public int UpdateTimeStamp { get; }
     public CSquadInvitation[] InvitationList { get; set; }
     public CSquadMember[] MemberList { get; set; }
 }

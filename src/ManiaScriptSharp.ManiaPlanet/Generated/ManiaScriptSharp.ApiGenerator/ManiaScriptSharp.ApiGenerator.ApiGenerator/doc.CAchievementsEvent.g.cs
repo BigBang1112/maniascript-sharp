@@ -17,8 +17,8 @@ public partial class CAchievementsEvent : CBaseConstEvent, ILocalProvider
     }
 
     /// <summary>Type of the event.</summary>
-    public EType Type { get; set; }
+    public EType Type { get; }
     /// <summary>When Type==::NewAchievement, this will be the new achievement</summary>
-    public CAchievementsAchievement Achievement { get; set; }
+    public CAchievementsAchievement Achievement { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

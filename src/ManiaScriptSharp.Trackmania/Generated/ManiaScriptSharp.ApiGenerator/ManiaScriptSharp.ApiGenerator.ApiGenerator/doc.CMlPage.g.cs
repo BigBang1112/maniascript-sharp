@@ -10,12 +10,12 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMlPage Supported declare modes : - Local - Persistent</summary>
 public partial class CMlPage : CNod, ILocalProvider, IPersistentProvider
 {
-    public CMlFrame MainFrame { get; set; }
+    public CMlFrame MainFrame { get; }
     public CMlControl GetFirstChild(string ControlId) => default!;
-    public CMlControl FocusedControl { get; set; }
+    public CMlControl FocusedControl { get; }
     public bool LinksInhibited { get; set; }
     public void GetClassChildren(string Class, CMlFrame Frame, bool Recursive) { }
-    public CMlControl[] GetClassChildren_Result { get; set; }
+    public CMlControl[] GetClassChildren_Result { get; }
     public void ScrollToControl(CMlControl Control) { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

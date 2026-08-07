@@ -24,7 +24,7 @@ public partial class CMlTextEdit : CMlControl, ILocalProvider
     public bool AutoNewLine { get; set; }
     public bool ShowLineNumbers { get; set; }
     public float LineSpacing { get; set; }
-    public int ValueLineCount { get; set; }
+    public int ValueLineCount { get; }
     public float Opacity { get; set; }
     public Vec3 TextColor { get; set; }
     public float TextSizeReal { get; set; }

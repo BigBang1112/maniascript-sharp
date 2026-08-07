@@ -9,5 +9,5 @@ namespace ManiaScriptSharp;
 
 public partial class CItemAnchor : CNod
 {
-    public Vec3 Position { get; set; }
+    public Vec3 Position { get; }
 }

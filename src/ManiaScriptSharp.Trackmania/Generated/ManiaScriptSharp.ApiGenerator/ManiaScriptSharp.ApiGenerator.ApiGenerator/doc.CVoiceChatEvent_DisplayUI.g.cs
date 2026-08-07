@@ -10,5 +10,5 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CVoiceChatEvent_DisplayUI</summary>
 public partial class CVoiceChatEvent_DisplayUI : CVoiceChatEvent
 {
-    public bool NewValue { get; set; }
+    public bool NewValue { get; }
 }

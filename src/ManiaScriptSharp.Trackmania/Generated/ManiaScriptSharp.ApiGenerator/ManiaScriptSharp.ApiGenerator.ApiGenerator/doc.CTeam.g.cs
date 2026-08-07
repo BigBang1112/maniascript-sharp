@@ -19,8 +19,8 @@ public partial class CTeam : CNod, ILocalProvider, INetreadProvider, INetwritePr
     public Vec3 ColorPrimary { get; set; }
     public Vec3 ColorSecondary { get; set; }
     public Vec3 ColorUI { get; set; }
-    public string ColorText { get; set; }
-    public string ColorizedName { get; set; }
+    public string ColorText { get; }
+    public string ColorizedName { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> INetworkProvider.NetworkData { get; } = [];
 }

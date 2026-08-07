@@ -10,28 +10,28 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  NetworkRead  NetworkWrite  Player for CTmMode.</summary>
 public partial class CTmPlayer : CPlayer, ILocalProvider, INetreadProvider, INetwriteProvider
 {
-    public int CurrentClan { get; set; }
-    public CTmScore Score { get; set; }
+    public int CurrentClan { get; }
+    public CTmScore Score { get; }
     public int RaceStartTime { get; set; }
     public bool IsSpawned { get; set; }
     public CTmResult CurRace { get; set; }
     public CTmResult CurLap { get; set; }
     public int CurrentNbLaps { get; set; }
-    public int CurTriggerIndex { get; set; }
+    public int CurTriggerIndex { get; }
     /// <summary>Approximated value, very dependent on network quality.</summary>
-    public Vec3 Position { get; set; }
+    public Vec3 Position { get; }
     /// <summary>Approximated value, very dependent on network quality.</summary>
-    public float AimYaw { get; set; }
+    public float AimYaw { get; }
     /// <summary>Approximated value, very dependent on network quality.</summary>
-    public float AimPitch { get; set; }
+    public float AimPitch { get; }
     /// <summary>Approximated value, very dependent on network quality.</summary>
-    public Vec3 AimDirection { get; set; }
+    public Vec3 AimDirection { get; }
     /// <summary>Approximated value, very dependent on network quality.</summary>
-    public Vec3 Velocity { get; set; }
+    public Vec3 Velocity { get; }
     /// <summary>Approximated value, very dependent on network quality.</summary>
-    public float Speed { get; set; }
+    public float Speed { get; }
     public Ident ForceModelId { get; set; }
-    public int IdleDuration { get; set; }
+    public int IdleDuration { get; }
     public float AccelCoef { get; set; }
     public float ControlCoef { get; set; }
     public float GravityCoef { get; set; }

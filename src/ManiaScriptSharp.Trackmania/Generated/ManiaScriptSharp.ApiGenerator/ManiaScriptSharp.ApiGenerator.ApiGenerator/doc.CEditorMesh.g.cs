@@ -190,21 +190,21 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public int NewTransitionPosition { get; set; }
     public float NewTransitionSize { get; set; }
     public int RotateAxis { get; set; }
-    public bool Tmp_UseParts { get; set; }
-    public bool IsDebug { get; set; }
+    public bool Tmp_UseParts { get; }
+    public bool IsDebug { get; }
     public bool CameraEatingInputsScript { get; set; }
-    public int VertexCount { get; set; }
-    public int EdgeCount { get; set; }
-    public int FaceCount { get; set; }
+    public int VertexCount { get; }
+    public int EdgeCount { get; }
+    public int FaceCount { get; }
     public void EditionBox_SetStep(float Step) { }
-    public bool EditionBox_IsPlaneOriented { get; set; }
-    public float Scale { get; set; }
-    public float Step { get; set; }
-    public float Size { get; set; }
-    public int RotationStep { get; set; }
-    public float RotationValue { get; set; }
-    public float ScalingStep { get; set; }
-    public float ScalingRatio { get; set; }
+    public bool EditionBox_IsPlaneOriented { get; }
+    public float Scale { get; }
+    public float Step { get; }
+    public float Size { get; }
+    public int RotationStep { get; }
+    public float RotationValue { get; }
+    public float ScalingStep { get; }
+    public float ScalingRatio { get; }
     public bool DisplayVertices { get; set; }
     public bool DisplayFaces { get; set; }
     public bool DisplayJoints { get; set; }
@@ -218,7 +218,7 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public void Redo() { }
     public void SwitchPlane() { }
     public void GridSnap_SetActive(bool IsActive) { }
-    public bool GridSnap_IsActive { get; set; }
+    public bool GridSnap_IsActive { get; }
     public Vec3 PickInfo_GetNormal() => default!;
     public Vec3 PickInfo_GetPosition() => default!;
     public Ident PickInfo_GetAnchorId() => default!;
@@ -233,8 +233,8 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public void Joint_Link(Ident IdChild, Ident IdParent) { }
     public void Anchor_Remove(Ident Id) { }
     public bool IsUsingPhysicMatLib { get; set; }
-    public int MaterialGameplayIdNumber { get; set; }
-    public int MaterialsUpdateId { get; set; }
+    public int MaterialGameplayIdNumber { get; }
+    public int MaterialsUpdateId { get; }
     public Ident[] MaterialIds { get; set; }
     public Ident[] MaterialPhysicsIds { get; set; }
     public Ident[] MaterialDynaIds { get; set; }
@@ -281,11 +281,11 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public void Material_UVEditor_Apply() { }
     public void Material_CopyMaterial(Ident SetHandle) { }
     public void Material_PasteMaterial(Ident SetHandle) { }
-    public int Material_Atlas_SelectedSubTexIndex { get; set; }
-    public CEditorMesh.EInteraction CurrentInteraction { get; set; }
+    public int Material_Atlas_SelectedSubTexIndex { get; }
+    public CEditorMesh.EInteraction CurrentInteraction { get; }
     public void Interaction_Close() { }
     public void Interaction_SetPreview(Ident SetToPreview) { }
-    public int CreationElemsCount { get; set; }
+    public int CreationElemsCount { get; }
     public bool Interaction_StartCreation(Ident CreationSetHandle, CEditorMesh.EElemType ElemType, Ident SetToPickFromHandle) => default!;
     public void Interaction_Creation_GetElems(Ident ResultSetHandle) { }
     public void Interaction_Creation_ClearParams() { }
@@ -326,7 +326,7 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public bool Interaction_StartSplit() => default!;
     public void Display_HighlightSet(Ident SetHandle) { }
     public void Display_ClearHighlighting() { }
-    public bool Display_HideElemsByDistance_IsActive { get; set; }
+    public bool Display_HideElemsByDistance_IsActive { get; }
     public int Display_HideElemsByDistance_Distance { get; set; }
     public float Display_HideElemsByDistance_Opacity { get; set; }
     public void Display_HideElemsByDistance_Start(Ident SetHandle) { }
@@ -334,7 +334,7 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public void Display_HideMap() { }
     public void Display_ShowMap() { }
     public void MergeAllSuperposedElements(Ident SetHandle) { }
-    public Ident SelectionSet { get; set; }
+    public Ident SelectionSet { get; }
     public void Selection_Undo() { }
     public void Selection_Redo() { }
     public void Selection_Invert() { }
@@ -401,7 +401,7 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public void SetOfFaces_PlanarExpand(Ident FacesSetHandle) { }
     public void SetOfFaces_ChangeOrientation(Ident FacesSetHandle) { }
     public string[] PrefabNames { get; set; }
-    public int PrefabNamesUpdateId { get; set; }
+    public int PrefabNamesUpdateId { get; }
     public int PrefabListCurrentPage { get; set; }
     public int Prefab_TotalNb { get; set; }
     public void Prefabs_Reload() { }
@@ -418,9 +418,9 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public void Copy() { }
     public void AddUndoState() { }
     public bool AutoSave(string FileName) => default!;
-    public CEditorEvent[] PendingEvents { get; set; }
+    public CEditorEvent[] PendingEvents { get; }
     public bool MustClearLastSaveBuffer { get; set; }
-    public bool IsExperimental { get; set; }
+    public bool IsExperimental { get; }
     public CEditorMesh.ETitleCoreType GetTitleCoreType() => default!;
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
 }

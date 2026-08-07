@@ -10,16 +10,16 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNews</summary>
 public partial class CNews : CNod
 {
-    public new string Id { get; set; }
-    public string Type { get; set; }
-    public string Placement { get; set; }
-    public string Locale { get; set; }
-    public string Title { get; set; }
-    public string Body { get; set; }
-    public string MediaUrl { get; set; }
-    public string MediaType { get; set; }
-    public string PublicationDate { get; set; }
-    public int Priority { get; set; }
-    public int DisplayTime { get; set; }
+    public new string Id { get; }
+    public string Type { get; }
+    public string Placement { get; }
+    public string Locale { get; }
+    public string Title { get; }
+    public string Body { get; }
+    public string MediaUrl { get; }
+    public string MediaType { get; }
+    public string PublicationDate { get; }
+    public int Priority { get; }
+    public int DisplayTime { get; }
     public CNewsLink[] LinkList { get; set; }
 }

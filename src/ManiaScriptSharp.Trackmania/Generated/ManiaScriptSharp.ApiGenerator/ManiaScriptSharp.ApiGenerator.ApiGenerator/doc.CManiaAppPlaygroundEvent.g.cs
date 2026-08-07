@@ -61,23 +61,23 @@ public partial class CManiaAppPlaygroundEvent : CManiaAppEvent, ILocalProvider
         TurboRoulette_3,
     }
 
-    public CManiaAppPlaygroundEvent.Type PlaygroundType { get; set; }
-    public string PlaygroundScriptEventType { get; set; }
+    public CManiaAppPlaygroundEvent.Type PlaygroundType { get; }
+    public string PlaygroundScriptEventType { get; }
     public string[] PlaygroundScriptEventData { get; set; }
-    public CGhost Ghost { get; set; }
-    public CManiaAppPlaygroundEvent.GameplaySpecialType GameplaySpecialType_ { get; set; }
-    public CManiaAppPlaygroundEvent.GameplayTurboRoulette GameplayTurboRoulette_ { get; set; }
-    public bool IsBoostUpElseDown { get; set; }
-    public int WaypointLandmarkIndex { get; set; }
-    public int RaceWaypointTime { get; set; }
-    public int DiffWithBestRace { get; set; }
-    public bool DiffWithBestRace_IsValid { get; set; }
-    public int LapWaypointTime { get; set; }
-    public int DiffWithBestLap { get; set; }
-    public bool DiffWithBestLap_IsValid { get; set; }
-    public bool IsFinish { get; set; }
-    public bool IsNewLap { get; set; }
-    public int RaceWaypointCount { get; set; }
-    public int LapWaypointCount { get; set; }
+    public CGhost Ghost { get; }
+    public CManiaAppPlaygroundEvent.GameplaySpecialType GameplaySpecialType_ { get; }
+    public CManiaAppPlaygroundEvent.GameplayTurboRoulette GameplayTurboRoulette_ { get; }
+    public bool IsBoostUpElseDown { get; }
+    public int WaypointLandmarkIndex { get; }
+    public int RaceWaypointTime { get; }
+    public int DiffWithBestRace { get; }
+    public bool DiffWithBestRace_IsValid { get; }
+    public int LapWaypointTime { get; }
+    public int DiffWithBestLap { get; }
+    public bool DiffWithBestLap_IsValid { get; }
+    public bool IsFinish { get; }
+    public bool IsNewLap { get; }
+    public int RaceWaypointCount { get; }
+    public int LapWaypointCount { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

@@ -11,5 +11,5 @@ namespace ManiaScriptSharp;
 public partial class CMediaTrackerTrack : CNod
 {
     public string Name { get; set; }
-    public CMediaTrackerBlock[] Blocks { get; set; }
+    public CMediaTrackerBlock[] Blocks { get; }
 }

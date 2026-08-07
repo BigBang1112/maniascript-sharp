@@ -10,14 +10,14 @@ namespace ManiaScriptSharp;
 /// <summary>A currently connected CUser Supported declare modes : - Local</summary>
 public partial class CClient : CNod, ILocalProvider
 {
-    public CUser User { get; set; }
-    public CUIConfig UI { get; set; }
+    public CUser User { get; }
+    public CUIConfig UI { get; }
     /// <summary>Otherwise, it's a LAN account not currently authentified with the masterserver.</summary>
-    public bool IsConnectedToMasterServer { get; set; }
-    public string ClientVersion { get; set; }
-    public string ClientTitleVersion { get; set; }
-    public bool IsSpectator { get; set; }
+    public bool IsConnectedToMasterServer { get; }
+    public string ClientVersion { get; }
+    public string ClientTitleVersion { get; }
+    public bool IsSpectator { get; }
     /// <summary>Duration during which the player is not active while they should be (AFK).</summary>
-    public int IdleDuration { get; set; }
+    public int IdleDuration { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

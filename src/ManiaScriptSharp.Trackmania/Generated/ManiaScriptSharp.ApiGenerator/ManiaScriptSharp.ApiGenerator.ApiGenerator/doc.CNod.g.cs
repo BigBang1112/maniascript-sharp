@@ -10,5 +10,5 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNod</summary>
 public partial class CNod
 {
-    public Ident Id { get; set; }
+    public Ident Id { get; }
 }

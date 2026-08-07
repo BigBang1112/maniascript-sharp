@@ -9,7 +9,7 @@ namespace ManiaScriptSharp;
 
 public partial class CBlockUnit : CNod
 {
-    public Int3 Offset { get; set; }
-    public CBlockUnitModel BlockUnitModel { get; set; }
-    public CBlock Block { get; set; }
+    public Int3 Offset { get; }
+    public CBlockUnitModel BlockUnitModel { get; }
+    public CBlock Block { get; }
 }

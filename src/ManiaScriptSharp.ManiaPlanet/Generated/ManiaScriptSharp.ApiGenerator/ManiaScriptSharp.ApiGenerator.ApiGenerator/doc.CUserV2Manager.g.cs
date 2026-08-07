@@ -10,8 +10,8 @@ namespace ManiaScriptSharp;
 /// <summary>API for local users/profiles.</summary>
 public partial class CUserV2Manager : CNod
 {
-    public CUserV2Profile MainUserProfile { get; set; }
-    public CTaskResult[] TaskResults { get; set; }
+    public CUserV2Profile MainUserProfile { get; }
+    public CTaskResult[] TaskResults { get; }
     public void TaskResult_Release(Ident TaskId) { }
     /// <summary>NullId for the mainuser.</summary>
     public CTaskResult_StringIntList GetGroups(Ident UserId) => default!;

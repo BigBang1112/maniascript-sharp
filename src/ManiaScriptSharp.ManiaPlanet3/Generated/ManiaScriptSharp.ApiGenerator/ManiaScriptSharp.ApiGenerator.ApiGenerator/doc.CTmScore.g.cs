@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  NetworkRead  NetworkWrite</summary>
 public partial class CTmScore : CScore, ILocalProvider, INetreadProvider, INetwriteProvider
 {
-    public int TeamNum { get; set; }
+    public int TeamNum { get; }
     public int Points { get; set; }
     public CTmResult BestRace { get; set; }
     public CTmResult BestLap { get; set; }

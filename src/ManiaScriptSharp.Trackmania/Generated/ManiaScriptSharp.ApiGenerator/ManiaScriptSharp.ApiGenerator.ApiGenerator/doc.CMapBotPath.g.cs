@@ -10,8 +10,8 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMapBotPath</summary>
 public partial class CMapBotPath : CNod
 {
-    public int Clan { get; set; }
+    public int Clan { get; }
     public Vec3[] Path { get; set; }
-    public bool IsFlying { get; set; }
-    public Ident BotModelId { get; set; }
+    public bool IsFlying { get; }
+    public Ident BotModelId { get; }
 }

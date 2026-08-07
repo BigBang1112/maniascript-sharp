@@ -10,16 +10,16 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Metadata</summary>
 public partial class CSmMapLandmark : CNod, ILocalProvider, IMetadataProvider
 {
-    public string Tag { get; set; }
-    public int Order { get; set; }
-    public Vec3 Position { get; set; }
-    public CSmMapBase Base { get; set; }
-    public CSmMapGate Gate { get; set; }
-    public CSmMapGauge Gauge { get; set; }
-    public CSmMapSector Sector { get; set; }
-    public CSmMapPlayerSpawn PlayerSpawn { get; set; }
-    public CSmMapBotPath BotPath { get; set; }
-    public CSmMapObjectAnchor ObjectAnchor { get; set; }
+    public string Tag { get; }
+    public int Order { get; }
+    public Vec3 Position { get; }
+    public CSmMapBase Base { get; }
+    public CSmMapGate Gate { get; }
+    public CSmMapGauge Gauge { get; }
+    public CSmMapSector Sector { get; }
+    public CSmMapPlayerSpawn PlayerSpawn { get; }
+    public CSmMapBotPath BotPath { get; }
+    public CSmMapObjectAnchor ObjectAnchor { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
 }

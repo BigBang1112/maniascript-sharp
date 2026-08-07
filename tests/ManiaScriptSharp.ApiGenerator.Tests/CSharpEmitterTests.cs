@@ -51,6 +51,26 @@ public class CSharpEmitterTests
     }
 
     [Fact]
+    public void Emit_ConstField_NoSetter()
+    {
+        var input = @"struct CFoo : public CNod { const Integer Now; };";
+        var files = EmitAll(input);
+        Assert.Contains("public int Now { get; }", files["CFoo.g.cs"]);
+    }
+
+    [Fact]
+    public void Emit_TrackmaniaConstPointerField_NoSetter()
+    {
+        var input = @"
+class CFoo : public CNod {
+public :
+    CUser * const  LocalUser;
+};";
+        var files = EmitAll(input);
+        Assert.Contains("public CUser LocalUser { get; }", files["CFoo.g.cs"]);
+    }
+
+    [Fact]
     public void Emit_Method_GeneratesMethodStub()
     {
         var input = @"struct CFoo : public CNod { Void DoWork(Integer X); };";
@@ -298,7 +318,7 @@ public :
     {
         var input = "namespace MathLib { const Real Pi = 3.14159; };";
         var files = EmitAll(input);
-        Assert.Contains("public static float Pi { get; set; }", files["MathLib.g.cs"]);
+        Assert.Contains("public static float Pi { get; }", files["MathLib.g.cs"]);
     }
 
     [Fact]

@@ -10,11 +10,11 @@ namespace ManiaScriptSharp;
 /// <summary>Vehicle or Character settings.</summary>
 public partial class CVehicleSettings : CNod
 {
-    public string ModelDisplayName { get; set; }
-    public string ModelName { get; set; }
+    public string ModelDisplayName { get; }
+    public string ModelName { get; }
     /// <summary>....</summary>
-    public string SkinName { get; set; }
-    public string SkinUrl { get; set; }
+    public string SkinName { get; }
+    public string SkinUrl { get; }
     /// <summary>actual range is [1.0..10.0]Values in range (0.100000-10.000000)</summary>
     public float AnalogSensitivity { get; set; }
     /// <summary>Values in range (0.000000-0.900000)</summary>

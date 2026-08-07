@@ -11,5 +11,5 @@ namespace ManiaScriptSharp;
 public partial class CEntity : CNod
 {
     /// <summary>Use this instead of Id when filling CUIConfig.MarkersXML</summary>
-    public Ident MarkerId { get; set; }
+    public Ident MarkerId { get; }
 }

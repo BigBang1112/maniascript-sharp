@@ -34,6 +34,6 @@ public partial class CEditorEvent : CManiaAppEvent, ILocalProvider
         DisableRedo,
     }
 
-    public Type Type_ { get; set; }
+    public Type Type_ { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

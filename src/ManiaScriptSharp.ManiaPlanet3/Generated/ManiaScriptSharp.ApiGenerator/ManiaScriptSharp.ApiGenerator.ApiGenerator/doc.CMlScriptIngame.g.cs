@@ -53,30 +53,30 @@ public partial class CMlScriptIngame : CMlScript, ILocalProvider, IPersistentPro
         ServerSettings,
     }
 
-    public int GameTime { get; set; }
+    public int GameTime { get; }
     /// <summary>(read-only) UI actually displayed, as defined by the server.</summary>
     public CUIConfig UI { get; set; }
     /// <summary>Locally accessible by the client script to locally override settings from the server.</summary>
     public CUIConfig ClientUI { get; set; }
     /// <summary>Switch the player to spectator or back into playing</summary>
     public bool IsSpectatorMode { get; set; }
-    public bool UseClans { get; set; }
-    public bool UseForcedClans { get; set; }
-    public CMap Map { get; set; }
+    public bool UseClans { get; }
+    public bool UseForcedClans { get; }
+    public CMap Map { get; }
     public void ShowCurChallengeCard() { }
     public void ShowModeHelp() { }
     public void CopyServerLinkToClipBoard() { }
     public void JoinTeam1() { }
     public void JoinTeam2() { }
-    public CTeam[] Teams { get; set; }
+    public CTeam[] Teams { get; }
     /// <summary>Set the spectated player, but do not switch to spectator mode automatically. Equivalent to pavnum1/2/3/4</summary>
     public void SetSpectateTarget(string Player) { }
     public void ShowProfile(string Player) { }
     public void ShowInGameMenu() { }
-    public string CurrentServerLogin { get; set; }
-    public string CurrentServerName { get; set; }
-    public string CurrentServerJoinLink { get; set; }
-    public string CurrentServerModeName { get; set; }
+    public string CurrentServerLogin { get; }
+    public string CurrentServerName { get; }
+    public string CurrentServerJoinLink { get; }
+    public string CurrentServerModeName { get; }
     public void PlayUiSound(EUISound Sound, int SoundVariant, float Volume) { }
     public void CloseInGameMenu(EInGameMenuResult Result) { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

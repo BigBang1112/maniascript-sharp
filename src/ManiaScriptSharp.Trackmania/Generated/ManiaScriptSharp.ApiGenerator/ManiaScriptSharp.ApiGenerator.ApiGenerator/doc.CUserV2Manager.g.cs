@@ -25,18 +25,18 @@ public partial class CUserV2Manager : CNod
         Season,
     }
 
-    public CUserV2Profile MainUserProfile { get; set; }
-    public CTaskResult[] TaskResults { get; set; }
+    public CUserV2Profile MainUserProfile { get; }
+    public CTaskResult[] TaskResults { get; }
     public void TaskResult_Release(Ident TaskId) { }
     public CTaskResult TaskError_ShowSystemDialog(Ident UserId, string ErrorCode) => default!;
     /// <summary>NullId for the mainuser.</summary>
     public CTaskResult_StringIntList GetGroups(Ident UserId) => default!;
     public string FindDisplayName(string WebServicesUserId, bool IsFirstPartyDisplayName) => default!;
-    public CMasterServerUser MainUserWebServicesInfo { get; set; }
+    public CMasterServerUser MainUserWebServicesInfo { get; }
     public string ResolveURLShorcut(string ShortCutId) => default!;
     public CMasterServerUser FindWebServicesUserInfo(Ident UserId) => default!;
     public CTaskResult CheckNetworkAvailability(Ident UserId) => default!;
-    public bool IsNetworkAvailable { get; set; }
+    public bool IsNetworkAvailable { get; }
     public CTaskResult_Connect ConnectUser(Ident UserId) => default!;
     public CTaskResult_Connect ConnectUser(Ident UserId, bool ForceUbisoftConnectOverlay) => default!;
     public CTaskResult ConnectUser(Ident UserId, bool ForceUbisoftConnectOverlay, bool OfflineMode) => default!;
@@ -80,18 +80,18 @@ public partial class CUserV2Manager : CNod
     public void Squad_SetLocked(Ident UserId, string SquadId, bool Locked) { }
     public void Squad_SetType(Ident UserId, string SquadId, string Type) { }
     public void Squad_SetEnabled(Ident UserId, bool Enabled) { }
-    public CVoiceChatEvent[] VoiceChat_Events { get; set; }
-    public bool VoiceChat_DisplayUI { get; set; }
+    public CVoiceChatEvent[] VoiceChat_Events { get; }
+    public bool VoiceChat_DisplayUI { get; }
     public bool VoiceChat_Mute_Myself { get; set; }
     public void VoiceChat_MuteAll() { }
     public void VoiceChat_UnmuteAll() { }
-    public CGameUserVoiceChat[] VoiceChat_Users { get; set; }
-    public CGameUserVoiceChat[] VoiceChat_Users_Local { get; set; }
-    public CGameUserVoiceChat[] VoiceChat_Users_Remote { get; set; }
+    public CGameUserVoiceChat[] VoiceChat_Users { get; }
+    public CGameUserVoiceChat[] VoiceChat_Users_Local { get; }
+    public CGameUserVoiceChat[] VoiceChat_Users_Remote { get; }
     /// <summary>List of users currently speaking. Sorted with local users first.</summary>
-    public CGameUserVoiceChat[] VoiceChat_Users_Speaking { get; set; }
-    public CGameUserVoiceChat[] VoiceChat_Users_Muted { get; set; }
-    public CGameUserVoiceChat[] VoiceChat_Users_Remote_Muted { get; set; }
+    public CGameUserVoiceChat[] VoiceChat_Users_Speaking { get; }
+    public CGameUserVoiceChat[] VoiceChat_Users_Muted { get; }
+    public CGameUserVoiceChat[] VoiceChat_Users_Remote_Muted { get; }
     public CGameUserVoiceChat VoiceChat_FindUserFromWebServicesUserId(string WebServicesUserId) => default!;
     public int Subscription_GetEndTimeStamp(Ident UserId, string SubscriptionName) => default!;
     public bool Subscription_IsRefreshingInfo(Ident UserId) => default!;

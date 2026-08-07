@@ -9,15 +9,15 @@ namespace ManiaScriptSharp;
 
 public partial class CHighScoreComparisonSummary : CNod
 {
-    public string Login { get; set; }
-    public int BestRecordCount { get; set; }
-    public int BestRecordLastDate { get; set; }
-    public string BestRecordLastDateString { get; set; }
-    public int BestRecordElapsedTime { get; set; }
-    public string OpponentLogin { get; set; }
-    public string OpponentDisplayName { get; set; }
-    public int OpponentBestRecordCount { get; set; }
-    public int OpponentBestRecordLastDate { get; set; }
-    public string OpponentBestRecordLastDateString { get; set; }
-    public int OpponentBestRecordElapsedTime { get; set; }
+    public string Login { get; }
+    public int BestRecordCount { get; }
+    public int BestRecordLastDate { get; }
+    public string BestRecordLastDateString { get; }
+    public int BestRecordElapsedTime { get; }
+    public string OpponentLogin { get; }
+    public string OpponentDisplayName { get; }
+    public int OpponentBestRecordCount { get; }
+    public int OpponentBestRecordLastDate { get; }
+    public string OpponentBestRecordLastDateString { get; }
+    public int OpponentBestRecordElapsedTime { get; }
 }

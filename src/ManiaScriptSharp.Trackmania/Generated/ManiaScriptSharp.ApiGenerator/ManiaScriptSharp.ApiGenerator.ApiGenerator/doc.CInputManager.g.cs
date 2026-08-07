@@ -49,15 +49,15 @@ public partial class CInputManager : CNod
         Vive,
     }
 
-    public CInputEvent[] PendingEvents { get; set; }
-    public int Now { get; set; }
-    public int Period { get; set; }
-    public CInputPad[] Pads { get; set; }
-    public Vec2 MousePos { get; set; }
-    public Vec2 MouseKineticScrollVel { get; set; }
-    public bool MouseLeftButton { get; set; }
-    public bool MouseRightButton { get; set; }
-    public bool MouseMiddleButton { get; set; }
+    public CInputEvent[] PendingEvents { get; }
+    public int Now { get; }
+    public int Period { get; }
+    public CInputPad[] Pads { get; }
+    public Vec2 MousePos { get; }
+    public Vec2 MouseKineticScrollVel { get; }
+    public bool MouseLeftButton { get; }
+    public bool MouseRightButton { get; }
+    public bool MouseMiddleButton { get; }
     public Vec2[] TouchPoints_Cur { get; set; }
     public Vec2[] TouchPoints_Init { get; set; }
     public string GetPadButtonPlaygroundBinding(CInputPad Pad, CInputManager.EButton Button) => default!;
@@ -65,15 +65,15 @@ public partial class CInputManager : CNod
     public string GetActionBindingRaw(CInputPad Pad, string ActionMap, string ActionId) => default!;
     public string GetActionBinding(CInputPad Pad, string ActionMap, string ActionId) => default!;
     public string GetActionDisplayName(string ActionMap, string ActionId) => default!;
-    public bool JapanStylePadButtons { get; set; }
+    public bool JapanStylePadButtons { get; }
     public bool ExclusiveMode { get; set; }
     public bool IsKeyPressed(int KeyCode) => default!;
-    public CInputPad LatestActivePad { get; set; }
-    public CInputManager.EPadType LatestActivePadType { get; set; }
+    public CInputPad LatestActivePad { get; }
+    public CInputManager.EPadType LatestActivePadType { get; }
     /// <summary>Duration (ms) elapsed since latest user interraction on any device.</summary>
-    public int TimeSinceLatestActivity { get; set; }
-    public int TimeSinceLatestMouseActivity { get; set; }
-    public int TimeSinceLatestTouchActivity { get; set; }
-    public int TimeSinceLatestKeyboardActivity { get; set; }
-    public int TimeSinceLatestPadActivity { get; set; }
+    public int TimeSinceLatestActivity { get; }
+    public int TimeSinceLatestMouseActivity { get; }
+    public int TimeSinceLatestTouchActivity { get; }
+    public int TimeSinceLatestKeyboardActivity { get; }
+    public int TimeSinceLatestPadActivity { get; }
 }

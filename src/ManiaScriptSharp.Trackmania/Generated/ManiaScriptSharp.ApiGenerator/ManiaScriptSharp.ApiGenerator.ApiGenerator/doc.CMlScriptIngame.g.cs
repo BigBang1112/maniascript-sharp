@@ -53,11 +53,11 @@ public partial class CMlScriptIngame : CMlScript, ILocalProvider, IPersistentPro
     }
 
     public int GameTime { get; set; }
-    public CPlaygroundClient Playground { get; set; }
+    public CPlaygroundClient Playground { get; }
     /// <summary>(read-only) UI actually displayed, as defined by the server.</summary>
-    public CUIConfig UI { get; set; }
+    public CUIConfig UI { get; }
     /// <summary>Locally accessible by the client script to locally override settings from the server.</summary>
-    public CUIConfig ClientUI { get; set; }
+    public CUIConfig ClientUI { get; }
     /// <summary>Is in spectator mode - may be only for a short time between rounds.</summary>
     public bool IsSpectator { get; set; }
     /// <summary>Client actually desires to spectate instead of playing.</summary>
@@ -65,14 +65,14 @@ public partial class CMlScriptIngame : CMlScript, ILocalProvider, IPersistentPro
     public bool UseClans { get; set; }
     public bool UseForcedClans { get; set; }
     /// <summary>Will be Null if the script is not runing in a layer of an app.</summary>
-    public CManiaAppPlaygroundCommon ParentApp { get; set; }
-    public CMap Map { get; set; }
+    public CManiaAppPlaygroundCommon ParentApp { get; }
+    public CMap Map { get; }
     public void ShowCurChallengeCard() { }
     public void ShowModeHelp() { }
     public void CopyServerLinkToClipBoard() { }
     public void JoinTeam1() { }
     public void JoinTeam2() { }
-    public CTeam[] Teams { get; set; }
+    public CTeam[] Teams { get; }
     /// <summary>Request change of IsSpectatorClient (not immediate, and it may be refused).</summary>
     public void RequestSpectatorClient(bool Spectator) { }
     /// <summary>Set the spectated player, but do not switch to spectator mode automatically. Equivalent to numpad1/2/3/4</summary>

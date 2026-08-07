@@ -12,6 +12,6 @@ public partial class CModeTurret : CEntity, ILocalProvider
 {
     public int Armor { get; set; }
     public int ArmorMax { get; set; }
-    public CPlayer Owner { get; set; }
+    public CPlayer Owner { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

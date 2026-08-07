@@ -10,33 +10,33 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CServerInfo</summary>
 public partial class CServerInfo : CNod
 {
-    public string ServerName { get; set; }
-    public string ServerLogin { get; set; }
-    public string JoinLink { get; set; }
-    public string Comment { get; set; }
-    public string ServerVersionBuild { get; set; }
-    public int PlayerCount { get; set; }
-    public int MaxPlayerCount { get; set; }
-    public int SpectatorCount { get; set; }
-    public int MaxSpectatorCount { get; set; }
-    public float PlayersLevelMin { get; set; }
-    public float PlayersLevelAvg { get; set; }
-    public float PlayersLevelMax { get; set; }
-    public string ModeName { get; set; }
-    public float LadderServerLimitMax { get; set; }
-    public float LadderServerLimitMin { get; set; }
+    public string ServerName { get; }
+    public string ServerLogin { get; }
+    public string JoinLink { get; }
+    public string Comment { get; }
+    public string ServerVersionBuild { get; }
+    public int PlayerCount { get; }
+    public int MaxPlayerCount { get; }
+    public int SpectatorCount { get; }
+    public int MaxSpectatorCount { get; }
+    public float PlayersLevelMin { get; }
+    public float PlayersLevelAvg { get; }
+    public float PlayersLevelMax { get; }
+    public string ModeName { get; }
+    public float LadderServerLimitMax { get; }
+    public float LadderServerLimitMin { get; }
     public string[] PlayerNames { get; set; }
     public string[] ChallengeNames { get; set; }
     public string[] ChallengeIds { get; set; }
-    public int NbChallenges { get; set; }
-    public bool HasBuddies { get; set; }
-    public bool IsFavourite { get; set; }
-    public bool IsLobbyServer { get; set; }
-    public bool IsPrivate { get; set; }
-    public bool IsPrivateForSpectator { get; set; }
-    public bool IsMapDownloadAllowed { get; set; }
-    public bool IsTeamMode { get; set; }
-    public bool IsDisableChangeTeams { get; set; }
-    public string SendToServerAfterMatchUrl { get; set; }
-    public int ViewerCount { get; set; }
+    public int NbChallenges { get; }
+    public bool HasBuddies { get; }
+    public bool IsFavourite { get; }
+    public bool IsLobbyServer { get; }
+    public bool IsPrivate { get; }
+    public bool IsPrivateForSpectator { get; }
+    public bool IsMapDownloadAllowed { get; }
+    public bool IsTeamMode { get; }
+    public bool IsDisableChangeTeams { get; }
+    public string SendToServerAfterMatchUrl { get; }
+    public int ViewerCount { get; }
 }

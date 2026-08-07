@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  NetworkRead  NetworkWrite</summary>
 public partial class CXmlRpc : CNod, ILocalProvider, INetreadProvider, INetwriteProvider
 {
-    public CXmlRpcEvent[] PendingEvents { get; set; }
+    public CXmlRpcEvent[] PendingEvents { get; }
     public void SendCallback(string Param1, string Param2) { }
     public void SendCallbackArray(string Type, string[] Data) { }
     public void SendCallback_BeginRound() { }

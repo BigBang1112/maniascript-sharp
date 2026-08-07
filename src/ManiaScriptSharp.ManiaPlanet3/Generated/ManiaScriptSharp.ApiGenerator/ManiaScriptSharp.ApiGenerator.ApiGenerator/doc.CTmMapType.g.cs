@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Persistent</summary>
 public partial class CTmMapType : CMapType, ILocalProvider, IPersistentProvider
 {
-    public CTmMode Mode { get; set; }
-    public CTmPlayer[] AllPlayers { get; set; }
-    public CTmPlayer[] Players { get; set; }
+    public CTmMode Mode { get; }
+    public CTmPlayer[] AllPlayers { get; }
+    public CTmPlayer[] Players { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

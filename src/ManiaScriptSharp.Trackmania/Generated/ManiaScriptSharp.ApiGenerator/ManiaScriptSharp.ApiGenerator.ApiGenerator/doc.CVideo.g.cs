@@ -16,19 +16,19 @@ public partial class CVideo : CNod
         Point,
     }
 
-    public CImage Image { get; set; }
+    public CImage Image { get; }
     public bool IsLooping { get; set; }
-    public bool DownloadInProgress { get; set; }
-    public float PlayLength { get; set; }
+    public bool DownloadInProgress { get; }
+    public float PlayLength { get; }
     public void BeginProcessing() { }
     public void EndProcessing() { }
-    public bool IsProcessing { get; set; }
+    public bool IsProcessing { get; }
     /// <summary>Automatically begin processing when the layer becomes visible and end when hidden.</summary>
     public bool AutoProcessing { get; set; }
     public void Play() { }
     public void Pause() { }
     public void Stop() { }
-    public bool IsPlaying { get; set; }
+    public bool IsPlaying { get; }
     /// <summary>note: seeking not implemented, setting a value is ignored.</summary>
     public float PlayCursor { get; set; }
     public CVideo.ETextureFilter TextureFilter { get; set; }

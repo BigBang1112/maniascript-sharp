@@ -11,7 +11,7 @@ namespace ManiaScriptSharp;
 public partial class CGameScriptHandlerMediaTrack : CMlScript, ILocalProvider, IPersistentProvider
 {
     /// <summary>Info of the map.</summary>
-    public CMap CurMap { get; set; }
+    public CMap CurMap { get; }
     public void ShowCurMapCard() { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

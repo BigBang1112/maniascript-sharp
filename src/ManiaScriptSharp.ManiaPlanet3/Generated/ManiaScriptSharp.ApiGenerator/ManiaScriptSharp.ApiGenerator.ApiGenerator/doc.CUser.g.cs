@@ -56,36 +56,36 @@ public partial class CUser : CNod, ILocalProvider, IPersistentProvider
         Target,
     }
 
-    public string Login { get; set; }
-    public string Name { get; set; }
-    public string AvatarUrl { get; set; }
-    public string ZonePath { get; set; }
-    public string ZoneFlagUrl { get; set; }
-    public string CountryFlagUrl { get; set; }
-    public string Language { get; set; }
-    public string Description { get; set; }
-    public Vec3 Color { get; set; }
-    public string ClubLink { get; set; }
-    public string BroadcastTVLogin { get; set; }
-    public string SteamUserId { get; set; }
-    public int FameStars { get; set; }
-    public EEchelon Echelon { get; set; }
-    public bool IsBeginner { get; set; }
-    public int LadderRank { get; set; }
-    public int LadderTotal { get; set; }
-    public float LadderPoints { get; set; }
-    public string LadderZoneName { get; set; }
-    public string LadderZoneFlagUrl { get; set; }
-    public int RequestedClan { get; set; }
-    public bool RequestsSpectate { get; set; }
-    public bool IsFakeUser { get; set; }
-    public int[] Tags_Favored_Indices { get; set; }
-    public string[] Tags_Id { get; set; }
-    public ETagType[] Tags_Type { get; set; }
-    public string[] Tags_Comments { get; set; }
-    public string[] Tags_Deliverer { get; set; }
-    public string[] AlliesConnected { get; set; }
-    public EStereoDisplayMode StereoDisplayMode { get; set; }
+    public string Login { get; }
+    public string Name { get; }
+    public string AvatarUrl { get; }
+    public string ZonePath { get; }
+    public string ZoneFlagUrl { get; }
+    public string CountryFlagUrl { get; }
+    public string Language { get; }
+    public string Description { get; }
+    public Vec3 Color { get; }
+    public string ClubLink { get; }
+    public string BroadcastTVLogin { get; }
+    public string SteamUserId { get; }
+    public int FameStars { get; }
+    public EEchelon Echelon { get; }
+    public bool IsBeginner { get; }
+    public int LadderRank { get; }
+    public int LadderTotal { get; }
+    public float LadderPoints { get; }
+    public string LadderZoneName { get; }
+    public string LadderZoneFlagUrl { get; }
+    public int RequestedClan { get; }
+    public bool RequestsSpectate { get; }
+    public bool IsFakeUser { get; }
+    public int[] Tags_Favored_Indices { get; }
+    public string[] Tags_Id { get; }
+    public ETagType[] Tags_Type { get; }
+    public string[] Tags_Comments { get; }
+    public string[] Tags_Deliverer { get; }
+    public string[] AlliesConnected { get; }
+    public EStereoDisplayMode StereoDisplayMode { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

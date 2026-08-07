@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CCampaign</summary>
 public partial class CCampaign : CNod
 {
-    public string CampaignId { get; set; }
+    public string CampaignId { get; }
     public CMapGroup[] MapGroups { get; set; }
     public int GetMapGroupCount() => default!;
     public CMapGroup GetMapGroup(int Index) => default!;

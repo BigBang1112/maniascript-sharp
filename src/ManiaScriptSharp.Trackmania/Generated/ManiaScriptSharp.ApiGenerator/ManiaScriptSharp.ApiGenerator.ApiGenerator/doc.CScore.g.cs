@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CScore Supported declare modes : - Local - NetworkRead - NetworkWrite</summary>
 public partial class CScore : CNod, ILocalProvider, INetreadProvider, INetwriteProvider
 {
-    public CUser User { get; set; }
-    public bool IsRegisteredForLadderMatch { get; set; }
-    public float LadderScore { get; set; }
+    public CUser User { get; }
+    public bool IsRegisteredForLadderMatch { get; }
+    public float LadderScore { get; }
     public int LadderRankSortValue { get; set; }
     public float LadderMatchScoreValue { get; set; }
     public int LadderClan { get; set; }

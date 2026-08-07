@@ -10,18 +10,18 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  NetworkRead  NetworkWrite</summary>
 public partial class CTmPlayer : CPlayer, ILocalProvider, INetreadProvider, INetwriteProvider
 {
-    public int CurrentClan { get; set; }
-    public CTmScore Score { get; set; }
+    public int CurrentClan { get; }
+    public CTmScore Score { get; }
     public int RaceStartTime { get; set; }
     public bool IsSpawned { get; set; }
     public CTmResult CurRace { get; set; }
     public CTmResult CurLap { get; set; }
     public int CurrentNbLaps { get; set; }
-    public int CurTriggerIndex { get; set; }
-    public Vec3 Position { get; set; }
-    public float AimYaw { get; set; }
-    public float AimPitch { get; set; }
-    public Vec3 AimDirection { get; set; }
+    public int CurTriggerIndex { get; }
+    public Vec3 Position { get; }
+    public float AimYaw { get; }
+    public float AimPitch { get; }
+    public Vec3 AimDirection { get; }
     public float AccelCoef { get; set; }
     public float ControlCoef { get; set; }
     public float GravityCoef { get; set; }

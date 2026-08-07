@@ -17,12 +17,12 @@ public partial class CSmActionEvent : CNod
         OnActiveChange,
     }
 
-    public EType Type { get; set; }
-    public CSmPlayer Player { get; set; }
-    public int Damage { get; set; }
-    public Ident ProjectileModelId { get; set; }
-    public int ContextId { get; set; }
-    public Vec3 Position { get; set; }
-    public Vec3 Direction { get; set; }
-    public Vec3 Normal { get; set; }
+    public EType Type { get; }
+    public CSmPlayer Player { get; }
+    public int Damage { get; }
+    public Ident ProjectileModelId { get; }
+    public int ContextId { get; }
+    public Vec3 Position { get; }
+    public Vec3 Direction { get; }
+    public Vec3 Normal { get; }
 }

@@ -10,5 +10,5 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMediaTrackerClipGroup</summary>
 public partial class CMediaTrackerClipGroup : CNod
 {
-    public CMediaTrackerClip[] Clips { get; set; }
+    public CMediaTrackerClip[] Clips { get; }
 }

@@ -10,14 +10,14 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  NetworkRead  NetworkWrite  Scoring info for ShootMania players.</summary>
 public partial class CSmScore : CScore, ILocalProvider, INetreadProvider, INetwriteProvider
 {
-    public int TeamNum { get; set; }
+    public int TeamNum { get; }
     public int Points { get; set; }
     public int RoundPoints { get; set; }
-    public int NbEliminationsInflicted { get; set; }
-    public int NbEliminationsTaken { get; set; }
-    public int NbRespawnsRequested { get; set; }
-    public int DamageInflicted { get; set; }
-    public int DamageTaken { get; set; }
+    public int NbEliminationsInflicted { get; }
+    public int NbEliminationsTaken { get; }
+    public int NbRespawnsRequested { get; }
+    public int DamageInflicted { get; }
+    public int DamageTaken { get; }
     public void Clear() { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> INetworkProvider.NetworkData { get; } = [];

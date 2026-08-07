@@ -10,16 +10,16 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CTitle Supported declare modes : - Local - Persistent</summary>
 public partial class CTitle : CNod, ILocalProvider, IPersistentProvider
 {
-    public string TitleId { get; set; }
-    public string AuthorLogin { get; set; }
-    public string AuthorName { get; set; }
-    public string Name { get; set; }
-    public string Desc { get; set; }
-    public string InfoUrl { get; set; }
-    public string DownloadUrl { get; set; }
-    public string TitleVersion { get; set; }
-    public string MakerTitleId { get; set; }
-    public string BaseTitleId { get; set; }
+    public string TitleId { get; }
+    public string AuthorLogin { get; }
+    public string AuthorName { get; }
+    public string Name { get; }
+    public string Desc { get; }
+    public string InfoUrl { get; }
+    public string DownloadUrl { get; }
+    public string TitleVersion { get; }
+    public string MakerTitleId { get; }
+    public string BaseTitleId { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

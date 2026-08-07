@@ -46,18 +46,18 @@ public partial class CTmMode : CMode, ILocalProvider, IPersistentProvider
         FastestRace,
     }
 
-    public CTmPlayer[] AllPlayers { get; set; }
-    public CTmPlayer[] Spectators { get; set; }
-    public CTmPlayer[] Players { get; set; }
-    public CTmPlayer[] PlayersRacing { get; set; }
-    public CTmPlayer[] PlayersWaiting { get; set; }
-    public CTmScore[] Scores { get; set; }
+    public CTmPlayer[] AllPlayers { get; }
+    public CTmPlayer[] Spectators { get; }
+    public CTmPlayer[] Players { get; }
+    public CTmPlayer[] PlayersRacing { get; }
+    public CTmPlayer[] PlayersWaiting { get; }
+    public CTmScore[] Scores { get; }
     public int Clan1Score { get; set; }
     public int Clan2Score { get; set; }
     public int[] ClanScores { get; set; }
-    public int ClansNbTotal { get; set; }
-    public int[] ClansNbPlayers { get; set; }
-    public CTmModeEvent[] PendingEvents { get; set; }
+    public int ClansNbTotal { get; }
+    public int[] ClansNbPlayers { get; }
+    public CTmModeEvent[] PendingEvents { get; }
     public void PassOn(CTmModeEvent Event) { }
     public void Discard(CTmModeEvent Event) { }
     public void SpawnPlayer(CTmPlayer Player, int ClanNum, int RaceStartTime) { }
@@ -86,12 +86,12 @@ public partial class CTmMode : CMode, ILocalProvider, IPersistentProvider
     public bool MedalGhost_ShowSilver { get; set; }
     public bool MedalGhost_ShowBronze { get; set; }
     public EPersonalGhost PersonalGhost { get; set; }
-    public Vec3 MapStartLinePos { get; set; }
+    public Vec3 MapStartLinePos { get; }
     /// <summary>You can use MapCheckpointPos.count to get the number of checkpoints.</summary>
-    public Vec3[] MapCheckpointPos { get; set; }
-    public Vec3[] MapFinishLinePos { get; set; }
-    public bool MapIsLapRace { get; set; }
-    public int MapNbLaps { get; set; }
+    public Vec3[] MapCheckpointPos { get; }
+    public Vec3[] MapFinishLinePos { get; }
+    public bool MapIsLapRace { get; }
+    public int MapNbLaps { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

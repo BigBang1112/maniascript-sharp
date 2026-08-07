@@ -32,19 +32,19 @@ public partial class CSystemPlatform : CNod, ILocalProvider
         CN,
     }
 
-    public CSystemPlatform.ESystemPlatform Platform { get; set; }
-    public CSystemPlatform.ESystemSkuIdentifier SkuIdentifier { get; set; }
-    public string ExeVersion { get; set; }
+    public CSystemPlatform.ESystemPlatform Platform { get; }
+    public CSystemPlatform.ESystemSkuIdentifier SkuIdentifier { get; }
+    public string ExeVersion { get; }
     /// <summary>Beware: altough it is a number of seconds since 'local epoch', this is *not a unix timestamp* as it is the time in the local time zone. It is only useful for localized UI.  Use Timelib::GetCurrent() instead if you need an absolute unix timestamp.</summary>
-    public int CurrentLocalDate { get; set; }
-    public string CurrentLocalDateText { get; set; }
-    public string CurrentTimezone { get; set; }
-    public string CurrentTimezoneTimeOffset { get; set; }
-    public string ExtraTool_Info { get; set; }
+    public int CurrentLocalDate { get; }
+    public string CurrentLocalDateText { get; }
+    public string CurrentTimezone { get; }
+    public string CurrentTimezoneTimeOffset { get; }
+    public string ExtraTool_Info { get; }
     public string ExtraTool_Data { get; set; }
     public void ClipboardSet(string ClipboardText) { }
     public void FlashWindow() { }
     /// <summary>Background write to usersave in progress. Do not switch off the console.</summary>
-    public bool IsWritingUserSave { get; set; }
+    public bool IsWritingUserSave { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

@@ -72,13 +72,13 @@ public partial class CMapEditorPluginEvent : CManiaAppEvent, ILocalProvider
         Paste,
     }
 
-    public CMapEditorPluginEvent.Type Type_ { get; set; }
-    public CMapEditorPluginEvent.EInput Input { get; set; }
-    public Ident EditedAnchorDataId { get; set; }
-    public bool IsFromPad { get; set; }
-    public bool IsFromMouse { get; set; }
-    public bool IsFromKeyboard { get; set; }
-    public bool OnlyScriptMetadataModified { get; set; }
-    public bool MapSavedOrSaveCancelled { get; set; }
+    public CMapEditorPluginEvent.Type Type_ { get; }
+    public CMapEditorPluginEvent.EInput Input { get; }
+    public Ident EditedAnchorDataId { get; }
+    public bool IsFromPad { get; }
+    public bool IsFromMouse { get; }
+    public bool IsFromKeyboard { get; }
+    public bool OnlyScriptMetadataModified { get; }
+    public bool MapSavedOrSaveCancelled { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

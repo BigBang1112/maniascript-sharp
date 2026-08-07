@@ -351,7 +351,7 @@ internal sealed class CSharpEmitter
         sb.Append("    public ");
         if (isStatic) sb.Append("static ");
         if (useNew) sb.Append("new ");
-        sb.Append(type).Append(' ').Append(name).AppendLine(" { get; set; }");
+        sb.Append(type).Append(' ').Append(name).AppendLine(m.IsConst ? " { get; }" : " { get; set; }");
     }
 
     private void EmitMethod(StringBuilder sb, MemberDecl m, string name, bool useNew,

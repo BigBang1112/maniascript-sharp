@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNadeoServicesItemCollectionVersion</summary>
 public partial class CNadeoServicesItemCollectionVersion : CNod
 {
-    public string Checksum { get; set; }
-    public int CreationTimeStamp { get; set; }
-    public new string Id { get; set; }
-    public int UpdateTimeStamp { get; set; }
-    public string Url { get; set; }
+    public string Checksum { get; }
+    public int CreationTimeStamp { get; }
+    public new string Id { get; }
+    public int UpdateTimeStamp { get; }
+    public string Url { get; }
 }

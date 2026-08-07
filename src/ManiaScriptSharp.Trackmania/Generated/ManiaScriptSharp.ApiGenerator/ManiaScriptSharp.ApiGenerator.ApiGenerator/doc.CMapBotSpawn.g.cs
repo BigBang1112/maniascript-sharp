@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMapBotSpawn</summary>
 public partial class CMapBotSpawn : CNod
 {
-    public bool IsFlying { get; set; }
-    public Ident BotModelId { get; set; }
+    public bool IsFlying { get; }
+    public Ident BotModelId { get; }
 }

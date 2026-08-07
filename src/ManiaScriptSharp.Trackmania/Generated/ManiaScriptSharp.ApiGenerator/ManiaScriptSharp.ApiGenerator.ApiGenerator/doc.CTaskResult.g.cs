@@ -11,19 +11,19 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult : CNod, ILocalProvider
 {
     /// <summary>Returns a boolean indicating if the task is still processing.</summary>
-    public bool IsProcessing { get; set; }
+    public bool IsProcessing { get; }
     /// <summary>Returns a boolean indicating if the task has succeeded.</summary>
-    public bool HasSucceeded { get; set; }
+    public bool HasSucceeded { get; }
     /// <summary>Returns a boolean indicating if the task has failed or has been canceled.</summary>
-    public bool HasFailed { get; set; }
+    public bool HasFailed { get; }
     /// <summary>Returns a boolean indicating if the task has been canceled.</summary>
-    public bool IsCanceled { get; set; }
+    public bool IsCanceled { get; }
     /// <summary>Returns the type of the error if the task has failed.</summary>
-    public string ErrorType { get; set; }
+    public string ErrorType { get; }
     /// <summary>Returns the code of the error if the task has failed.</summary>
-    public string ErrorCode { get; set; }
+    public string ErrorCode { get; }
     /// <summary>Returns the description of the error if the task has failed.</summary>
-    public string ErrorDescription { get; set; }
+    public string ErrorDescription { get; }
     public void Cancel() { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

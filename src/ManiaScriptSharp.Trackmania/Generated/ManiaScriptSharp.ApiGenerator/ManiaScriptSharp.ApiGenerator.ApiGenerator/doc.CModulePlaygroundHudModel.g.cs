@@ -14,10 +14,10 @@ public partial class CModulePlaygroundHudModel : CNod
     public Ident ContextSetId(Ident ContextId, string NewContextName) => default!;
     public void ContextRemove(Ident ContextId) { }
     public Ident[] ContextsIds { get; set; }
-    public CHudModule[] SubModules { get; set; }
+    public CHudModule[] SubModules { get; }
     public CHudModule NewSubModule(string ModulePath) => default!;
     public void DeleteSubModule(CHudModule SubModule) { }
     public bool SubModuleIsContextActive(CHudModule SubModule, Ident ContextId) => default!;
     public void SubModuleSetContextIsActive(CHudModule SubModule, Ident ContextId, bool IsActive) { }
-    public int EditorContextIndex { get; set; }
+    public int EditorContextIndex { get; }
 }

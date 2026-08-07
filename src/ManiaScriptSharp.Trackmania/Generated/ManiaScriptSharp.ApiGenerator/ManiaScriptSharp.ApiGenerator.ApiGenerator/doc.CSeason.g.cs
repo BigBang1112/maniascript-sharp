@@ -10,15 +10,15 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CSeason</summary>
 public partial class CSeason : CNod
 {
-    public string CreatorAccountId { get; set; }
-    public string CreatorWebServicesUserId { get; set; }
-    public string GameMode { get; set; }
-    public string GameModeCustomData { get; set; }
-    public string MapRecordType { get; set; }
-    public new string Id { get; set; }
-    public string Name { get; set; }
-    public int CreationTimeStamp { get; set; }
-    public int StartTimeStamp { get; set; }
-    public int EndTimeStamp { get; set; }
+    public string CreatorAccountId { get; }
+    public string CreatorWebServicesUserId { get; }
+    public string GameMode { get; }
+    public string GameModeCustomData { get; }
+    public string MapRecordType { get; }
+    public new string Id { get; }
+    public string Name { get; }
+    public int CreationTimeStamp { get; }
+    public int StartTimeStamp { get; }
+    public int EndTimeStamp { get; }
     public CSeasonMapInfo[] MapInfoList { get; set; }
 }

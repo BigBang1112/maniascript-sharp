@@ -19,7 +19,7 @@ public partial class CParsingManager : CNod
     public CParsingDocument Parse_Xml(string Contents, bool GenerateText, bool GenerateTextRaw, bool GenerateTextResursive) => default!;
     public void Parse_Destroy(CParsingDocument Document) { }
     public int DocumentsSlotsLimit { get; set; }
-    public CParsingDocument[] DocumentsXml { get; set; }
+    public CParsingDocument[] DocumentsXml { get; }
     public Ident Compose_Start_Xml(bool Compact) => default!;
     public Ident Compose_Start_Json(bool Compact) => default!;
     public void Compose_End(Ident ComposerId) { }

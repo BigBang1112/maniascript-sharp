@@ -20,36 +20,36 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
         Author,
     }
 
-    public CTaskResult[] TaskResults { get; set; }
+    public CTaskResult[] TaskResults { get; }
     public void TaskResult_Release(Ident TaskId) { }
     public string ModeStatusMessage { get; set; }
-    public CTitle LoadedTitle { get; set; }
-    public string ServerLogin { get; set; }
-    public string ServerName { get; set; }
-    public string ServerModeName { get; set; }
-    public string MapName { get; set; }
-    public CMap Map { get; set; }
-    public string MapPlayerModelName { get; set; }
-    public bool HasPodium { get; set; }
-    public CUser[] Users { get; set; }
-    public CTeam[] Teams { get; set; }
+    public CTitle LoadedTitle { get; }
+    public string ServerLogin { get; }
+    public string ServerName { get; }
+    public string ServerModeName { get; }
+    public string MapName { get; }
+    public CMap Map { get; }
+    public string MapPlayerModelName { get; }
+    public bool HasPodium { get; }
+    public CUser[] Users { get; }
+    public CTeam[] Teams { get; }
     public string NeutralEmblemUrl { get; set; }
-    public string ForcedClubLinkUrl1 { get; set; }
-    public string ForcedClubLinkUrl2 { get; set; }
+    public string ForcedClubLinkUrl1 { get; }
+    public string ForcedClubLinkUrl2 { get; }
     public void TweakTeamColorsToAvoidHueOverlap() { }
     public string ClientManiaAppUrl { get; set; }
-    public int Now { get; set; }
-    public int Period { get; set; }
+    public int Now { get; }
+    public int Period { get; }
     public bool MatchEndRequested { get; set; }
-    public bool ServerShutdownRequested { get; set; }
-    public bool MapLoaded { get; set; }
+    public bool ServerShutdownRequested { get; }
+    public bool MapLoaded { get; }
     public void RequestLoadMap() { }
     public void RequestUnloadMap() { }
-    public CMapInfo[] MapList { get; set; }
+    public CMapInfo[] MapList { get; }
     public int NextMapIndex { get; set; }
-    public CUIConfigMgr UIManager { get; set; }
+    public CUIConfigMgr UIManager { get; }
     public void Hud_Load(string ModuleName) { }
-    public CModulePlaygroundHud Hud { get; set; }
+    public CModulePlaygroundHud Hud { get; }
     public void PassOn(CUIConfigEvent EventToPassOn) { }
     public void Discard(CUIConfigEvent EventToDiscard) { }
     public void Ladder_OpenMatch_Request() { }
@@ -59,7 +59,7 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public void Ladder_OpenMatch_EndRequest() { }
     public void Ladder_CloseMatchRequest() { }
     public void Ladder_CancelMatchRequest() { }
-    public bool Ladder_RequestInProgress { get; set; }
+    public bool Ladder_RequestInProgress { get; }
     public void Ladder_SetResultsVersion(int Version) { }
     public void Ladder_SetMatchMakingMatchId(int MatchId) { }
     public void Ladder_EnableChallengeMode(bool Enable) { }
@@ -69,20 +69,20 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public void Trophy_LiveTimeAttackAchievement_AddResult(string WebServicesUserId, int MatchRank, int TrophyRanking) { }
     public void Trophy_LiveTimeAttackAchievement_ClearResultList() { }
     public CTaskResult_AccountTrophyGainList Trophy_LiveTimeAttackAchievement_SendResultList(int Duration) => default!;
-    public CServerAdmin ServerAdmin { get; set; }
+    public CServerAdmin ServerAdmin { get; }
     public void AutoTeamBalance() { }
     public void Solo_SetNewRecord(CScore PlayerScore, CMode.EMedal PlayerScore2) { }
-    public bool Solo_NewRecordSequenceInProgress { get; set; }
-    public CXmlRpc XmlRpc { get; set; }
-    public CParsingManager Xml { get; set; }
-    public CHttpManager Http { get; set; }
+    public bool Solo_NewRecordSequenceInProgress { get; }
+    public CXmlRpc XmlRpc { get; }
+    public CParsingManager Xml { get; }
+    public CHttpManager Http { get; }
     /// <summary>Only available for local solo modes.</summary>
-    public CInputManager Input { get; set; }
+    public CInputManager Input { get; }
     /// <summary>Only available for local solo modes.</summary>
-    public CDataFileMgr DataFileMgr { get; set; }
-    public CScoreMgr ScoreMgr { get; set; }
-    public CSystemPlatform System { get; set; }
-    public CUserV2Manager UserMgr { get; set; }
+    public CDataFileMgr DataFileMgr { get; }
+    public CScoreMgr ScoreMgr { get; }
+    public CSystemPlatform System { get; }
+    public CUserV2Manager UserMgr { get; }
     public int Synchro_AddBarrier() => default!;
     public bool Synchro_BarrierReached(int Barrier) => default!;
     public bool Users_AreAllies(CUser User1, CUser User2) => default!;
@@ -107,9 +107,9 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public bool Replay_AutoStart { get; set; }
     public void Replay_Start() { }
     public void Replay_Stop() { }
-    public CModeTurretManager TurretsManager { get; set; }
-    public CModeVehicleManager VehiclesManager { get; set; }
-    public CActionManager ActionsManager { get; set; }
+    public CModeTurretManager TurretsManager { get; }
+    public CModeVehicleManager VehiclesManager { get; }
+    public CActionManager ActionsManager { get; }
     public void Activity_Match_Create_Begin(string ActivityId) { }
     public void Activity_Match_Create_AddPlayer(string WebServicesUserId, string TeamName) { }
     public void Activity_Match_Create_AddTeam(string TeamName) { }
@@ -119,7 +119,7 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public void Activity_Match_ReportResult_SetTeamResult(string TeamName, int Rank, int Score) { }
     public void Activity_Match_ReportResult_End() { }
     public bool EnableGhostRecording { get; set; }
-    public CGhost[] Ghosts { get; set; }
+    public CGhost[] Ghosts { get; }
     public void Ghost_Release(Ident GhostId) { }
     public void GhostDriver_Playlist_Clear(CPlayer Player) { }
     public void GhostDriver_Playlist_Add(CPlayer Player, CGhost Ghost) { }
@@ -137,7 +137,7 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public CTaskResult_MapRecordList MapRecord_GetListByMapAndPlayerList(Ident UserId, string[] WebServicesUserIdList, string MapUid, string ScopeType, string ScopeId, string GameMode, string GameModeCustomData) => default!;
     public void GameScene_ResetAll() { }
     public string Dbg_DumpDeclareForVariables(CNod Nod, bool StatsOnly) => default!;
-    public int UiUpdatePeriod { get; set; }
+    public int UiUpdatePeriod { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

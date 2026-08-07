@@ -36,11 +36,11 @@ public partial class CBlockModel : CCollector
         Release,
     }
 
-    public new string Name { get; set; }
-    public bool IsRoad { get; set; }
-    public bool IsTerrain { get; set; }
-    public EWayPointType WaypointType { get; set; }
-    public bool NoRespawn { get; set; }
-    public CBlockModelVariantGround VariantGround { get; set; }
-    public CBlockModelVariantAir VariantAir { get; set; }
+    public new string Name { get; }
+    public bool IsRoad { get; }
+    public bool IsTerrain { get; }
+    public EWayPointType WaypointType { get; }
+    public bool NoRespawn { get; }
+    public CBlockModelVariantGround VariantGround { get; }
+    public CBlockModelVariantAir VariantAir { get; }
 }

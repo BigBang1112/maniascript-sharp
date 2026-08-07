@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Asynchronous task result. Supported declare modes : - Local</summary>
 public partial class CTaskResult_UserNewsList : CWebServicesTaskResult_WSNewsList, ILocalProvider
 {
-    public CNews[] NewsList { get; set; }
+    public CNews[] NewsList { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

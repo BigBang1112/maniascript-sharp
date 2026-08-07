@@ -12,19 +12,19 @@ public partial class CSmArenaInterfaceManialinkScriptHandler_ReadOnly : CMlScrip
 {
     public int ArenaNow { get; set; }
     /// <summary>Player receiving the inputs. Null if spectating other players.</summary>
-    public CSmPlayer InputPlayer { get; set; }
+    public CSmPlayer InputPlayer { get; }
     /// <summary>Player currently targetted by the camera. Same as InputPlayer when playing. Can be null in freecam when there's no specific target.</summary>
-    public CSmPlayer GUIPlayer { get; set; }
-    public CSmPlayer[] Players { get; set; }
-    public CModeVehicle[] Vehicles { get; set; }
-    public CSmScore[] Scores { get; set; }
-    public CSmMapBase[] MapBases { get; set; }
-    public CSmMapLandmark[] MapLandmarks { get; set; }
-    public CSmMapLandmark[] MapLandmarks_PlayerSpawn { get; set; }
-    public CSmMapLandmark[] MapLandmarks_Gauge { get; set; }
-    public CSmMapLandmark[] MapLandmarks_Sector { get; set; }
-    public CSmMapLandmark[] MapLandmarks_BotPath { get; set; }
-    public CSmMapLandmark[] MapLandmarks_ObjectAnchor { get; set; }
-    public CSmMapLandmark[] MapLandmarks_Gate { get; set; }
-    public CSmMapLandmark[] MapLandmarks_Foundation { get; set; }
+    public CSmPlayer GUIPlayer { get; }
+    public CSmPlayer[] Players { get; }
+    public CModeVehicle[] Vehicles { get; }
+    public CSmScore[] Scores { get; }
+    public CSmMapBase[] MapBases { get; }
+    public CSmMapLandmark[] MapLandmarks { get; }
+    public CSmMapLandmark[] MapLandmarks_PlayerSpawn { get; }
+    public CSmMapLandmark[] MapLandmarks_Gauge { get; }
+    public CSmMapLandmark[] MapLandmarks_Sector { get; }
+    public CSmMapLandmark[] MapLandmarks_BotPath { get; }
+    public CSmMapLandmark[] MapLandmarks_ObjectAnchor { get; }
+    public CSmMapLandmark[] MapLandmarks_Gate { get; }
+    public CSmMapLandmark[] MapLandmarks_Foundation { get; }
 }

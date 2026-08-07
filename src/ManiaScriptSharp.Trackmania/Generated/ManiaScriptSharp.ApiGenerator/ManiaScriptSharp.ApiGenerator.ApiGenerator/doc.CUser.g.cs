@@ -39,53 +39,53 @@ public partial class CUser : CNod, ILocalProvider, IPersistentProvider
         HMD,
     }
 
-    public string Login { get; set; }
-    public string WebServicesUserId { get; set; }
-    public string Name { get; set; }
-    public bool IsFirstPartyDisplayName { get; set; }
-    public string AvatarUrl { get; set; }
-    public string ZonePath { get; set; }
-    public string ZoneFlagUrl { get; set; }
-    public string CountryFlagUrl { get; set; }
-    public string CountryPath { get; set; }
+    public string Login { get; }
+    public string WebServicesUserId { get; }
+    public string Name { get; }
+    public bool IsFirstPartyDisplayName { get; }
+    public string AvatarUrl { get; }
+    public string ZonePath { get; }
+    public string ZoneFlagUrl { get; }
+    public string CountryFlagUrl { get; }
+    public string CountryPath { get; }
     public string[] ZoneIdPath { get; set; }
-    public string Language { get; set; }
-    public string Description { get; set; }
-    public Vec3 Color { get; set; }
-    public string ClubLink { get; set; }
-    public string Trigram { get; set; }
-    public string BroadcastTVLogin { get; set; }
-    public string SteamUserId { get; set; }
-    public int FameStars { get; set; }
-    public CUser.EEchelon Echelon { get; set; }
-    public int NextEchelonPercent { get; set; }
-    public bool IsBeginner { get; set; }
-    public int LadderRank { get; set; }
-    public int LadderTotal { get; set; }
-    public float LadderPoints { get; set; }
-    public string LadderZoneName { get; set; }
-    public string LadderZoneFlagUrl { get; set; }
-    public float ReferenceScore { get; set; }
-    public bool IsFakeUser { get; set; }
+    public string Language { get; }
+    public string Description { get; }
+    public Vec3 Color { get; }
+    public string ClubLink { get; }
+    public string Trigram { get; }
+    public string BroadcastTVLogin { get; }
+    public string SteamUserId { get; }
+    public int FameStars { get; }
+    public CUser.EEchelon Echelon { get; }
+    public int NextEchelonPercent { get; }
+    public bool IsBeginner { get; }
+    public int LadderRank { get; }
+    public int LadderTotal { get; }
+    public float LadderPoints { get; }
+    public string LadderZoneName { get; }
+    public string LadderZoneFlagUrl { get; }
+    public float ReferenceScore { get; }
+    public bool IsFakeUser { get; }
     public int[] Tags_Favored_Indices { get; set; }
     public string[] Tags_Id { get; set; }
     public CUser.ETagType[] Tags_Type { get; set; }
     public string[] Tags_Comments { get; set; }
     public string[] Tags_Deliverer { get; set; }
-    public string ClubTag { get; set; }
-    public CUser.EStereoDisplayMode StereoDisplayMode { get; set; }
-    public bool ColorblindModeEnabled { get; set; }
+    public string ClubTag { get; }
+    public CUser.EStereoDisplayMode StereoDisplayMode { get; }
+    public bool ColorblindModeEnabled { get; }
     public bool HackCamHmdDisabled { get; set; }
-    public string AvatarDisplayName { get; set; }
-    public string HornDisplayName { get; set; }
-    public string Model_CarSport_SkinName { get; set; }
-    public string Model_CarSport_SkinUrl { get; set; }
-    public string Model_CharacterPilot_SkinName { get; set; }
-    public string Model_CharacterPilot_SkinUrl { get; set; }
-    public string Prestige_SkinOptions { get; set; }
-    public string Character_SkinOptions { get; set; }
-    public CGameUserVoiceChat VoiceChat { get; set; }
-    public bool IsConnectedToMasterServer { get; set; }
+    public string AvatarDisplayName { get; }
+    public string HornDisplayName { get; }
+    public string Model_CarSport_SkinName { get; }
+    public string Model_CarSport_SkinUrl { get; }
+    public string Model_CharacterPilot_SkinName { get; }
+    public string Model_CharacterPilot_SkinUrl { get; }
+    public string Prestige_SkinOptions { get; }
+    public string Character_SkinOptions { get; }
+    public CGameUserVoiceChat VoiceChat { get; }
+    public bool IsConnectedToMasterServer { get; }
     public string[] AlliesConnected { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

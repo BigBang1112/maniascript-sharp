@@ -17,11 +17,11 @@ public partial class CGameUserVoiceChat : CNod
     }
 
     public CGameUserVoiceChat.EMuteSetting MuteSetting { get; set; }
-    public bool IsLocal { get; set; }
-    public bool IsMuted { get; set; }
-    public bool MuteChangePending { get; set; }
-    public bool IsSpeaking { get; set; }
-    public bool IsConnected { get; set; }
-    public bool Supported { get; set; }
-    public CUser MatchingPlayerInfo { get; set; }
+    public bool IsLocal { get; }
+    public bool IsMuted { get; }
+    public bool MuteChangePending { get; }
+    public bool IsSpeaking { get; }
+    public bool IsConnected { get; }
+    public bool Supported { get; }
+    public CUser MatchingPlayerInfo { get; }
 }

@@ -21,11 +21,11 @@ public partial class CAnchorData : CNod, IMetadataProvider
         Dispenser,
     }
 
-    public string DefaultTag { get; set; }
-    public int DefaultOrder { get; set; }
+    public string DefaultTag { get; }
+    public int DefaultOrder { get; }
     public string Tag { get; set; }
     public int Order { get; set; }
-    public EWaypointType WaypointType { get; set; }
-    public Vec3 Position { get; set; }
+    public EWaypointType WaypointType { get; }
+    public Vec3 Position { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
 }

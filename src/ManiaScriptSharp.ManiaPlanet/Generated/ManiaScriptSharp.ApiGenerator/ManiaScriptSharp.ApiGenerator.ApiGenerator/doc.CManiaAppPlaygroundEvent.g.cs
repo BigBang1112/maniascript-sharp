@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  An event</summary>
 public partial class CManiaAppPlaygroundEvent : CManiaAppEvent, ILocalProvider
 {
-    public string PlaygroundScriptEventType { get; set; }
-    public string[] PlaygroundScriptEventData { get; set; }
+    public string PlaygroundScriptEventType { get; }
+    public string[] PlaygroundScriptEventData { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

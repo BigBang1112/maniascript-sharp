@@ -10,17 +10,17 @@ namespace ManiaScriptSharp;
 /// <summary>An action Supported declare modes : - Local</summary>
 public partial class CSmAction : CAction, ILocalProvider
 {
-    public int Now { get; set; }
-    public int Variant1 { get; set; }
-    public int Variant2 { get; set; }
-    public int Variant3 { get; set; }
-    public CSmPlayer[] Players { get; set; }
-    public CSmPlayer Owner { get; set; }
-    public CModeVehicle OwnerVehicle { get; set; }
-    public bool IsActive { get; set; }
-    public bool IsBound { get; set; }
+    public int Now { get; }
+    public int Variant1 { get; }
+    public int Variant2 { get; }
+    public int Variant3 { get; }
+    public CSmPlayer[] Players { get; }
+    public CSmPlayer Owner { get; }
+    public CModeVehicle OwnerVehicle { get; }
+    public bool IsActive { get; }
+    public bool IsBound { get; }
     /// <summary>Is true only once during action init. Allow to init state variables</summary>
-    public bool IsInitialFrame { get; set; }
+    public bool IsInitialFrame { get; }
     public int Energy { get; set; }
     public int EnergyMax { get; set; }
     public int EnergyCost { get; set; }
@@ -30,7 +30,7 @@ public partial class CSmAction : CAction, ILocalProvider
     public int State_Integer1 { get; set; }
     public int State_Integer2 { get; set; }
     public bool State_Boolean1 { get; set; }
-    public CSmActionEvent[] PendingEvents { get; set; }
+    public CSmActionEvent[] PendingEvents { get; }
     public bool IsJumping { get; set; }
     public bool IsGliding { get; set; }
     public bool IsAttractor { get; set; }
@@ -67,21 +67,21 @@ public partial class CSmAction : CAction, ILocalProvider
     public void Vehicle_TriggerTurboBrake() { }
     public bool Focus_Request() => default!;
     public void Focus_Release() { }
-    public bool Focus_Active { get; set; }
-    public bool Trigger0 { get; set; }
-    public bool Trigger1 { get; set; }
-    public bool Trigger2 { get; set; }
-    public bool Trigger3 { get; set; }
-    public bool Trigger4 { get; set; }
-    public bool Trigger5 { get; set; }
-    public bool Trigger6 { get; set; }
-    public bool Trigger7 { get; set; }
-    public bool Trigger8 { get; set; }
-    public bool Trigger9 { get; set; }
-    public bool Trigger10 { get; set; }
-    public bool Trigger11 { get; set; }
-    public bool Trigger12 { get; set; }
-    public bool Trigger13 { get; set; }
+    public bool Focus_Active { get; }
+    public bool Trigger0 { get; }
+    public bool Trigger1 { get; }
+    public bool Trigger2 { get; }
+    public bool Trigger3 { get; }
+    public bool Trigger4 { get; }
+    public bool Trigger5 { get; }
+    public bool Trigger6 { get; }
+    public bool Trigger7 { get; }
+    public bool Trigger8 { get; }
+    public bool Trigger9 { get; }
+    public bool Trigger10 { get; }
+    public bool Trigger11 { get; }
+    public bool Trigger12 { get; }
+    public bool Trigger13 { get; }
     public int Focused_Scroll { get; set; }
     public int Focused_Scroll_Max { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

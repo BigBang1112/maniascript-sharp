@@ -16,15 +16,15 @@ public partial class CManiaApp : CNod, ILocalProvider, IPersistentProvider
         ManialinkBrowser,
     }
 
-    public string ManiaAppUrl { get; set; }
-    public string ManiaAppBaseUrl { get; set; }
-    public int Now { get; set; }
-    public bool IsVisible { get; set; }
+    public string ManiaAppUrl { get; }
+    public string ManiaAppBaseUrl { get; }
+    public int Now { get; }
+    public bool IsVisible { get; }
     public int LayersDefaultManialinkVersion { get; set; }
-    public CUser LocalUser { get; set; }
-    public CTitle LoadedTitle { get; set; }
+    public CUser LocalUser { get; }
+    public CTitle LoadedTitle { get; }
     public bool EnableMenuNavigationInputs { get; set; }
-    public CUILayer[] UILayers { get; set; }
+    public CUILayer[] UILayers { get; }
     public CUILayer UILayerCreate() => default!;
     public void UILayerDestroy(CUILayer Layer) { }
     public void UILayerDestroyAll() { }
@@ -33,18 +33,18 @@ public partial class CManiaApp : CNod, ILocalProvider, IPersistentProvider
     /// <summary>Explore to given file or folder. Returns False if it does not exist on the filesystem. (may be because it is in a pack)</summary>
     public bool OpenFileInExplorer(string FileName) => default!;
     public void Dialog_Message(string Message) { }
-    public CParsingManager Xml { get; set; }
-    public CHttpManager Http { get; set; }
-    public CVideoManager Video { get; set; }
-    public CAudioManager Audio { get; set; }
-    public CInputManager Input { get; set; }
-    public CDataFileMgr DataFileMgr { get; set; }
-    public CScoreMgr ScoreMgr { get; set; }
-    public CRankingsZoneMgr ZoneMgr { get; set; }
-    public CTrackingMgr TrackingMgr { get; set; }
-    public CUserV2Manager UserMgr { get; set; }
-    public CWSNotificationManager WSNotificationMgr { get; set; }
-    public CSystemPlatform System { get; set; }
+    public CParsingManager Xml { get; }
+    public CHttpManager Http { get; }
+    public CVideoManager Video { get; }
+    public CAudioManager Audio { get; }
+    public CInputManager Input { get; }
+    public CDataFileMgr DataFileMgr { get; }
+    public CScoreMgr ScoreMgr { get; }
+    public CRankingsZoneMgr ZoneMgr { get; }
+    public CTrackingMgr TrackingMgr { get; }
+    public CUserV2Manager UserMgr { get; }
+    public CWSNotificationManager WSNotificationMgr { get; }
+    public CSystemPlatform System { get; }
     public string Dbg_DumpDeclareForVariables(CNod Nod, bool StatsOnly) => default!;
     public bool TTS_Disabled { get; set; }
     public Ident TTS_Context_Enter(int Level) => default!;

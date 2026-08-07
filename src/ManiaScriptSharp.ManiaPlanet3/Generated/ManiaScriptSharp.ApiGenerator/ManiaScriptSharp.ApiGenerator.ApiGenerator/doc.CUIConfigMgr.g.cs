@@ -10,14 +10,14 @@ namespace ManiaScriptSharp;
 public partial class CUIConfigMgr : CNod
 {
     public void ResetAll() { }
-    public CUIConfig UIAll { get; set; }
-    public CUIConfig[] UI { get; set; }
+    public CUIConfig UIAll { get; }
+    public CUIConfig[] UI { get; }
     public CUIConfig GetUI(CPlayer Player) => default!;
     public CUIConfig GetUI(CUser User) => default!;
-    public CUILayer[] UILayers { get; set; }
+    public CUILayer[] UILayers { get; }
     public CUILayer UILayerCreate() => default!;
     public void UILayerDestroy(CUILayer Layer) { }
     public void UILayerDestroyAll() { }
-    public CUILayer[] UIReplayLayers { get; set; }
+    public CUILayer[] UIReplayLayers { get; }
     public int UISequenceMaxDuration { get; set; }
 }

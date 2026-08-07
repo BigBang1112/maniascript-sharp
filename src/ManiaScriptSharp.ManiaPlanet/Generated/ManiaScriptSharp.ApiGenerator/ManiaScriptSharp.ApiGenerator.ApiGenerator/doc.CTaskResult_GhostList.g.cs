@@ -11,5 +11,5 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_GhostList : CTaskResult
 {
     /// <summary>List of ghost. Array of CGhost.</summary>
-    public CGhost[] Ghosts { get; set; }
+    public CGhost[] Ghosts { get; }
 }

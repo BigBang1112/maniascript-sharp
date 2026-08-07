@@ -12,7 +12,7 @@ public partial class CSmMapGate : CNod
     public int Clan { get; set; }
     public bool Automatic { get; set; }
     public bool ManualClosed { get; set; }
-    public bool AutoClosed { get; set; }
+    public bool AutoClosed { get; }
     public bool AutoIsActive { get; set; }
     public int AutoCloseDelay { get; set; }
     public int AutoOpenSpeed { get; set; }

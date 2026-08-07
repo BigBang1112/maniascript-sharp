@@ -12,8 +12,8 @@ public partial class CPackCreator : CNod
 {
     /// <summary>Register (or retreive) a package for the currently edited title.</summary>
     public void RegisterPackForEditedTitle() { }
-    public bool RegisterPack_IsInProgess { get; set; }
-    public CPackCreatorPack CurrentPack { get; set; }
+    public bool RegisterPack_IsInProgess { get; }
+    public CPackCreatorPack CurrentPack { get; }
     /// <summary>Start a new build for a pack, optionnaly a titlepack.</summary>
     public Ident Build_Begin(CPackCreatorPack Pack, CPackCreatorTitleInfo TitleInfo) => default!;
     public void Build_AddFile(Ident BuildId, string FileName) { }

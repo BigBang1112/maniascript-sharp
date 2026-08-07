@@ -74,28 +74,28 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public float OffZoneRadius { get; set; }
     public float OffZoneRadiusSpeed { get; set; }
     public Ident OffZoneCenterLandmarkId { get; set; }
-    public int PlayersNbTotal { get; set; }
-    public int PlayersNbAlive { get; set; }
-    public int PlayersNbDead { get; set; }
-    public int ClansNbTotal { get; set; }
-    public int ClansNbAlive { get; set; }
-    public int ClansNbDead { get; set; }
-    public int[] ClansNbPlayers { get; set; }
-    public int[] ClansNbPlayersAlive { get; set; }
-    public CSmPlayer[] Players { get; set; }
-    public CSmPlayer[] BotPlayers { get; set; }
-    public CSmPlayer[] Spectators { get; set; }
-    public CSmPlayer[] AllPlayers { get; set; }
-    public CSmModeEvent[] PendingEvents { get; set; }
-    public CSmMapBase[] MapBases { get; set; }
-    public CSmMapLandmark[] MapLandmarks { get; set; }
-    public CSmMapLandmark[] MapLandmarks_PlayerSpawn { get; set; }
-    public CSmMapLandmark[] MapLandmarks_Gauge { get; set; }
-    public CSmMapLandmark[] MapLandmarks_Sector { get; set; }
-    public CSmMapLandmark[] MapLandmarks_BotPath { get; set; }
-    public CSmMapLandmark[] MapLandmarks_ObjectAnchor { get; set; }
-    public CSmMapLandmark[] MapLandmarks_Gate { get; set; }
-    public CSmScore[] Scores { get; set; }
+    public int PlayersNbTotal { get; }
+    public int PlayersNbAlive { get; }
+    public int PlayersNbDead { get; }
+    public int ClansNbTotal { get; }
+    public int ClansNbAlive { get; }
+    public int ClansNbDead { get; }
+    public int[] ClansNbPlayers { get; }
+    public int[] ClansNbPlayersAlive { get; }
+    public CSmPlayer[] Players { get; }
+    public CSmPlayer[] BotPlayers { get; }
+    public CSmPlayer[] Spectators { get; }
+    public CSmPlayer[] AllPlayers { get; }
+    public CSmModeEvent[] PendingEvents { get; }
+    public CSmMapBase[] MapBases { get; }
+    public CSmMapLandmark[] MapLandmarks { get; }
+    public CSmMapLandmark[] MapLandmarks_PlayerSpawn { get; }
+    public CSmMapLandmark[] MapLandmarks_Gauge { get; }
+    public CSmMapLandmark[] MapLandmarks_Sector { get; }
+    public CSmMapLandmark[] MapLandmarks_BotPath { get; }
+    public CSmMapLandmark[] MapLandmarks_ObjectAnchor { get; }
+    public CSmMapLandmark[] MapLandmarks_Gate { get; }
+    public CSmScore[] Scores { get; }
     public int[] ClanScores { get; set; }
     public void PassOn(CSmModeEvent Event) { }
     public void Discard(CSmModeEvent Event) { }
@@ -133,7 +133,7 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public void ActionBind(CSmPlayer Player, EActionSlot ActionSlot, EActionInput ActionInput) { }
     public void ActionSetVariant(CSmPlayer Player, EActionSlot ActionSlot, int ActionVariant) { }
     public void SetNbFakePlayers(int NbClan1, int NbClan2) { }
-    public CSmObject[] Objects { get; set; }
+    public CSmObject[] Objects { get; }
     public CSmObject ObjectCreate(Ident ModelId) => default!;
     public void ObjectDestroy(CSmObject Object) { }
     public void ObjectDestroyAll() { }

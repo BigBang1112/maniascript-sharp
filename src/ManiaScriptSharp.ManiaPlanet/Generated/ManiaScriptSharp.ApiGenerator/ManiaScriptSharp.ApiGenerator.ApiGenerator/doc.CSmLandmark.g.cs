@@ -10,10 +10,10 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Metadata</summary>
 public partial class CSmLandmark : CNod, ILocalProvider, IMetadataProvider
 {
-    public string Tag { get; set; }
-    public int Order { get; set; }
-    public Vec3 Position { get; set; }
-    public Vec3 DirFront { get; set; }
+    public string Tag { get; }
+    public int Order { get; }
+    public Vec3 Position { get; }
+    public Vec3 DirFront { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
 }

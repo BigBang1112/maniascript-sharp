@@ -64,34 +64,34 @@ public partial class CTmModeEvent : CNod
         Reset,
     }
 
-    public EType Type { get; set; }
-    public CTmPlayer Player { get; set; }
+    public EType Type { get; }
+    public CTmPlayer Player { get; }
     public int RaceTime { get; set; }
-    public int CheckpointInRace { get; set; }
-    public int CheckpointInLap { get; set; }
-    public bool IsEndLap { get; set; }
-    public bool IsEndRace { get; set; }
+    public int CheckpointInRace { get; }
+    public int CheckpointInLap { get; }
+    public bool IsEndLap { get; }
+    public bool IsEndRace { get; }
     public int LapTime { get; set; }
     public int StuntsScore { get; set; }
     public int NbRespawns { get; set; }
-    public Ident BlockId { get; set; }
+    public Ident BlockId { get; }
     public float Speed { get; set; }
     public float Distance { get; set; }
     public float Damages { get; set; }
-    public EStuntFigure StuntFigure { get; set; }
-    public int Angle { get; set; }
-    public int Points { get; set; }
-    public int Combo { get; set; }
-    public bool IsStraight { get; set; }
-    public bool IsReverse { get; set; }
-    public bool IsMasterJump { get; set; }
-    public float Factor { get; set; }
-    public CUser User { get; set; }
-    public bool PlayerWasSpawned { get; set; }
-    public bool PlayerWasInLadderMatch { get; set; }
-    public string CommandName { get; set; }
-    public bool CommandValueBoolean { get; set; }
-    public int CommandValueInteger { get; set; }
-    public float CommandValueReal { get; set; }
-    public string CommandValueText { get; set; }
+    public EStuntFigure StuntFigure { get; }
+    public int Angle { get; }
+    public int Points { get; }
+    public int Combo { get; }
+    public bool IsStraight { get; }
+    public bool IsReverse { get; }
+    public bool IsMasterJump { get; }
+    public float Factor { get; }
+    public CUser User { get; }
+    public bool PlayerWasSpawned { get; }
+    public bool PlayerWasInLadderMatch { get; }
+    public string CommandName { get; }
+    public bool CommandValueBoolean { get; }
+    public int CommandValueInteger { get; }
+    public float CommandValueReal { get; }
+    public string CommandValueText { get; }
 }

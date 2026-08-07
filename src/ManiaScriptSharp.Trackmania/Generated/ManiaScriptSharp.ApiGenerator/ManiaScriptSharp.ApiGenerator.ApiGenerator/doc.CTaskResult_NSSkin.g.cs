@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_NSSkin : CWebServicesTaskResult_NadeoServicesSkin, ILocalProvider
 {
     /// <summary>Skin info retrieve from NadeoServices contained by this result.</summary>
-    public CNadeoServicesSkin Skin { get; set; }
+    public CNadeoServicesSkin Skin { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

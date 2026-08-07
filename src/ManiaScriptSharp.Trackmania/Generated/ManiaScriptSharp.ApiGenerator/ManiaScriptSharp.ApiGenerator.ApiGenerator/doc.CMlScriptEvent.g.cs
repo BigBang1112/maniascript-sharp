@@ -41,15 +41,15 @@ public partial class CMlScriptEvent : CBaseConstEvent, ILocalProvider
         ScrollDown,
     }
 
-    public CMlScriptEvent.Type Type_ { get; set; }
-    public int KeyCode { get; set; }
-    public string KeyName { get; set; }
-    public string CharPressed { get; set; }
-    public string ControlId { get; set; }
-    public CMlControl Control { get; set; }
-    public CMlScriptEvent.EMenuNavAction MenuNavAction { get; set; }
-    public bool IsActionAutoRepeat { get; set; }
-    public string CustomEventType { get; set; }
+    public CMlScriptEvent.Type Type_ { get; }
+    public int KeyCode { get; }
+    public string KeyName { get; }
+    public string CharPressed { get; }
+    public string ControlId { get; }
+    public CMlControl Control { get; }
+    public CMlScriptEvent.EMenuNavAction MenuNavAction { get; }
+    public bool IsActionAutoRepeat { get; }
+    public string CustomEventType { get; }
     public string[] CustomEventData { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

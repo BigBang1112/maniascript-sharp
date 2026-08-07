@@ -11,11 +11,11 @@ namespace ManiaScriptSharp;
 public partial class CHttpRequest : CNod, ILocalProvider
 {
     /// <summary>Url of the request</summary>
-    public string Url { get; set; }
+    public string Url { get; }
     /// <summary>Result available once IsCompleted and StatusCode = 200</summary>
-    public string Result { get; set; }
+    public string Result { get; }
     /// <summary>HTTP status code</summary>
-    public int StatusCode { get; set; }
-    public bool IsCompleted { get; set; }
+    public int StatusCode { get; }
+    public bool IsCompleted { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

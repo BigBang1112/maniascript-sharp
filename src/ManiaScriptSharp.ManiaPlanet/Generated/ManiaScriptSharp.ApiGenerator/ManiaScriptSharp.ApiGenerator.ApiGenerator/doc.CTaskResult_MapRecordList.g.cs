@@ -11,5 +11,5 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_MapRecordList : CTaskResult_PlayerMapRecords
 {
     /// <summary>List of the map records. Array of CPlayerMapRecord objects.</summary>
-    public CTaskResult_MapRecord[] MapRecordList { get; set; }
+    public CTaskResult_MapRecord[] MapRecordList { get; }
 }

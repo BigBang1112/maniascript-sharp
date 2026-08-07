@@ -11,9 +11,9 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_NaturalLeaderBoardInfoList
 {
     /// <summary>Starting index.</summary>
-    public new int FromIndex { get; set; }
+    public new int FromIndex { get; }
     /// <summary>Number of item contained.</summary>
-    public new int Count { get; set; }
+    public new int Count { get; }
     /// <summary>List of the ranking info. Array of CNaturalLeaderBoardInfo objects.</summary>
-    public new CNaturalLeaderBoardInfo[] LeaderBoardInfo { get; set; }
+    public new CNaturalLeaderBoardInfo[] LeaderBoardInfo { get; }
 }

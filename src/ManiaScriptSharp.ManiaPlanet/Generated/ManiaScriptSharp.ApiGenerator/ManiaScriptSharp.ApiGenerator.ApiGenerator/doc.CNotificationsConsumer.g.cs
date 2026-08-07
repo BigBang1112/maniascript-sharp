@@ -19,9 +19,9 @@ public partial class CNotificationsConsumer : CNod
     }
 
     /// <summary>Events</summary>
-    public CNotificationsConsumerEvent[] Events { get; set; }
+    public CNotificationsConsumerEvent[] Events { get; }
     /// <summary>List of the Notifications.</summary>
-    public CNotificationsConsumerNotification[] Notifications { get; set; }
-    public CNotificationsConsumerNotification[] FilteredNotifications { get; set; }
+    public CNotificationsConsumerNotification[] Notifications { get; }
+    public CNotificationsConsumerNotification[] FilteredNotifications { get; }
     public EFilterPriority Filter_Priority { get; set; }
 }

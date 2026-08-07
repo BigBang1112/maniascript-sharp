@@ -91,13 +91,13 @@ public partial class CUserV2Profile : CNod
         Big,
     }
 
-    public bool CanChangePassword { get; set; }
-    public bool CanChangeNickName { get; set; }
+    public bool CanChangePassword { get; }
+    public bool CanChangeNickName { get; }
     /// <summary>avatar, horn and podium pose</summary>
-    public bool CanChangeAvatar { get; set; }
-    public bool CanChangeSkin { get; set; }
-    public bool CanChangeZone { get; set; }
-    public bool CanChangeGroups { get; set; }
+    public bool CanChangeAvatar { get; }
+    public bool CanChangeSkin { get; }
+    public bool CanChangeZone { get; }
+    public bool CanChangeGroups { get; }
     public void Account_ResetChanges() { }
     public string Account_Name { get; set; }
     public string Account_EMail { get; set; }
@@ -189,6 +189,6 @@ public partial class CUserV2Profile : CNod
     public bool STT_Enabled { get; set; }
     public bool VoiceChat_Loopback { get; set; }
     public bool VoiceChat_Enabled { get; set; }
-    public bool STT_Available { get; set; }
+    public bool STT_Available { get; }
     public bool VoiceChat_SendTextAsVoice { get; set; }
 }

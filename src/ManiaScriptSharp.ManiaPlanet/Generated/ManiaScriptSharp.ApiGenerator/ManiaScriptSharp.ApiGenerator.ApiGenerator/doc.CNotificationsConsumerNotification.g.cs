@@ -18,12 +18,12 @@ public partial class CNotificationsConsumerNotification : CNod
         Alarm,
     }
 
-    public string Title { get; set; }
-    public string Description { get; set; }
-    public string ImageUrl { get; set; }
-    public ENotificationPriority Priority { get; set; }
-    public bool HasBeenRead { get; set; }
-    public bool HasBeenActivated { get; set; }
+    public string Title { get; }
+    public string Description { get; }
+    public string ImageUrl { get; }
+    public ENotificationPriority Priority { get; }
+    public bool HasBeenRead { get; }
+    public bool HasBeenActivated { get; }
     /// <summary>The user has been displayed the Notification for a sufficient time.</summary>
     public void SetRead() { }
     /// <summary>The user has clicked on the Notification.</summary>

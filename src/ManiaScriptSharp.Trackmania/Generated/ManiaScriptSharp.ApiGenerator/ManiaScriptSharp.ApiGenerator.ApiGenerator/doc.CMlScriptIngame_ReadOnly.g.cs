@@ -12,15 +12,15 @@ public partial class CMlScriptIngame_ReadOnly : CMlScript_ReadOnly
 {
     public int GameTime { get; set; }
     /// <summary>Read-only</summary>
-    public CPlaygroundClient Playground { get; set; }
+    public CPlaygroundClient Playground { get; }
     /// <summary>Is in spectator mode - may be only for a short time between rounds.</summary>
     public bool IsSpectator { get; set; }
     /// <summary>Client actually desires to spectate instead of playing.</summary>
     public bool IsSpectatorClient { get; set; }
     public bool UseClans { get; set; }
     public bool UseForcedClans { get; set; }
-    public CMap Map { get; set; }
-    public CTeam[] Teams { get; set; }
+    public CMap Map { get; }
+    public CTeam[] Teams { get; }
     public bool IsInGameMenuDisplayed { get; set; }
     public string CurrentServerLogin { get; set; }
     public string CurrentServerName { get; set; }

@@ -18,19 +18,19 @@ public partial class CSmPlayer : CPlayer, ILocalProvider, INetreadProvider, INet
         Spawned,
     }
 
-    public CSmScore Score { get; set; }
-    public ESpawnStatus SpawnStatus { get; set; }
-    public int StartTime { get; set; }
+    public CSmScore Score { get; }
+    public ESpawnStatus SpawnStatus { get; }
+    public int StartTime { get; }
     public int EndTime { get; set; }
     /// <summary>Values in range (0.000000-10.000000)</summary>
     public float AmmoGain { get; set; }
     /// <summary>Values in range (0.100000-10.000000)</summary>
     public float AmmoPower { get; set; }
-    public bool AutoSwitchWeapon { get; set; }
-    public int CurWeapon { get; set; }
-    public int CurAmmo { get; set; }
-    public int CurAmmoMax { get; set; }
-    public int CurAmmoUnit { get; set; }
+    public bool AutoSwitchWeapon { get; }
+    public int CurWeapon { get; }
+    public int CurAmmo { get; }
+    public int CurAmmoMax { get; }
+    public int CurAmmoUnit { get; }
     public int Armor { get; set; }
     public int ArmorMax { get; set; }
     public int ArmorGain { get; set; }
@@ -59,32 +59,32 @@ public partial class CSmPlayer : CPlayer, ILocalProvider, INetreadProvider, INet
     public bool HasShield { get; set; }
     /// <summary>Values in range (0.000000-500.000000)</summary>
     public float ThrowSpeed { get; set; }
-    public int CurrentClan { get; set; }
-    public int IdleDuration { get; set; }
-    public Vec3 Position { get; set; }
-    public float AimYaw { get; set; }
-    public float AimPitch { get; set; }
-    public Vec3 AimDirection { get; set; }
-    public bool IsUnderground { get; set; }
-    public bool IsTouchingGround { get; set; }
-    public bool IsInAir { get; set; }
-    public bool IsOnTechGround { get; set; }
-    public bool IsOnTechLaser { get; set; }
-    public bool IsOnTechArrow { get; set; }
-    public bool IsOnTechArmor { get; set; }
-    public bool IsOnTechSafeZone { get; set; }
-    public bool IsOnTech { get; set; }
-    public bool IsOnTechNoWeapon { get; set; }
-    public bool IsInWater { get; set; }
-    public Vec3 Velocity { get; set; }
-    public float Speed { get; set; }
-    public bool IsInOffZone { get; set; }
-    public bool IsCapturing { get; set; }
-    public CSmMapLandmark CapturedLandmark { get; set; }
-    public CSmObject[] Objects { get; set; }
-    public bool IsFakePlayer { get; set; }
-    public bool IsBot { get; set; }
-    public CSmPlayerDriver Driver { get; set; }
+    public int CurrentClan { get; }
+    public int IdleDuration { get; }
+    public Vec3 Position { get; }
+    public float AimYaw { get; }
+    public float AimPitch { get; }
+    public Vec3 AimDirection { get; }
+    public bool IsUnderground { get; }
+    public bool IsTouchingGround { get; }
+    public bool IsInAir { get; }
+    public bool IsOnTechGround { get; }
+    public bool IsOnTechLaser { get; }
+    public bool IsOnTechArrow { get; }
+    public bool IsOnTechArmor { get; }
+    public bool IsOnTechSafeZone { get; }
+    public bool IsOnTech { get; }
+    public bool IsOnTechNoWeapon { get; }
+    public bool IsInWater { get; }
+    public Vec3 Velocity { get; }
+    public float Speed { get; }
+    public bool IsInOffZone { get; }
+    public bool IsCapturing { get; }
+    public CSmMapLandmark CapturedLandmark { get; }
+    public CSmObject[] Objects { get; }
+    public bool IsFakePlayer { get; }
+    public bool IsBot { get; }
+    public CSmPlayerDriver Driver { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> INetworkProvider.NetworkData { get; } = [];
 }

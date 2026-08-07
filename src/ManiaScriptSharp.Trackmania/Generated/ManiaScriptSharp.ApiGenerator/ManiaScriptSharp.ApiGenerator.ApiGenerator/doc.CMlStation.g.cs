@@ -11,8 +11,8 @@ namespace ManiaScriptSharp;
 public partial class CMlStation : CMlScript, ILocalProvider, IPersistentProvider
 {
     /// <summary>Will be Null if the script is not runing in a layer of an app.</summary>
-    public CManiaAppStation ParentApp { get; set; }
-    public CStation Station { get; set; }
+    public CManiaAppStation ParentApp { get; }
+    public CStation Station { get; }
     public void EnterStation() { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

@@ -10,8 +10,8 @@ namespace ManiaScriptSharp;
 /// <summary>Script API to create Pack files (can be Titlepack or plain ManiaCredited data).</summary>
 public partial class CPackCreatorTitleInfo : CNod
 {
-    public Ident TitleId { get; set; }
-    public Ident MakerTitleId { get; set; }
+    public Ident TitleId { get; }
+    public Ident MakerTitleId { get; }
     public string DisplayName { get; set; }
     public string Description { get; set; }
     public string InfoUrl { get; set; }
@@ -29,7 +29,7 @@ public partial class CPackCreatorTitleInfo : CNod
     public string Menus_ManiaAppFileName { get; set; }
     public string Menus_MusicFileName { get; set; }
     /// <summary>Use  CGameManiaTitleEditionScriptAPI::SetTitleCampaign() to modify</summary>
-    public bool Solo_HasCampaign { get; set; }
+    public bool Solo_HasCampaign { get; }
     public string FallbackFontFileName { get; set; }
     public string Hud3dFontFileName { get; set; }
     public string MusicFolder { get; set; }

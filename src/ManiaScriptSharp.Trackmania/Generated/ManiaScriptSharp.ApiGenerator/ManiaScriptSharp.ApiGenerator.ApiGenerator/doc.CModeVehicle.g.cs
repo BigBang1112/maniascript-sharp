@@ -12,16 +12,16 @@ public partial class CModeVehicle : CEntity, ILocalProvider
 {
     public int Armor { get; set; }
     public int ArmorMax { get; set; }
-    public Vec3 Position { get; set; }
-    public float Pitch { get; set; }
-    public float Roll { get; set; }
-    public Vec3 Left { get; set; }
-    public Vec3 Up { get; set; }
-    public Vec3 Dir { get; set; }
-    public Vec3 Velocity { get; set; }
+    public Vec3 Position { get; }
+    public float Pitch { get; }
+    public float Roll { get; }
+    public Vec3 Left { get; }
+    public Vec3 Up { get; }
+    public Vec3 Dir { get; }
+    public Vec3 Velocity { get; }
     public int Clan { get; set; }
     public float AccelCoef { get; set; }
-    public float AccelInput { get; set; }
+    public float AccelInput { get; }
     public void SetEngineActivated(bool IsActivated) { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>API for a Title main menu. Supported declare modes : - Local - Persistent</summary>
 public partial class CManiaAppTitle : CManiaApp, ILocalProvider, IPersistentProvider
 {
-    public CManiaAppEvent[] PendingEvents { get; set; }
+    public CManiaAppEvent[] PendingEvents { get; }
     public void Menu_Quit() { }
     public void Menu_Home() { }
     public void Menu_Solo() { }
@@ -22,24 +22,24 @@ public partial class CManiaAppTitle : CManiaApp, ILocalProvider, IPersistentProv
     public bool DontScaleMainMenuForHMD { get; set; }
     /// <summary>Values in range (0.000000-1.000000)</summary>
     public float FillExtraSpaceWithBluredContents_Opacity { get; set; }
-    public CTitleControl TitleControl { get; set; }
+    public CTitleControl TitleControl { get; }
     /// <summary>Only available when editing a title.</summary>
-    public CTitleEdition TitleEdition { get; set; }
-    public CNotificationsConsumer Notifications { get; set; }
-    public string ExternalRequest_Type { get; set; }
+    public CTitleEdition TitleEdition { get; }
+    public CNotificationsConsumer Notifications { get; }
+    public string ExternalRequest_Type { get; }
     public string[] ExternalRequest_Data { get; set; }
     /// <summary>Call as soon as the request has been consumed and is being processed.</summary>
     public void ExternalRequest_Clear() { }
     public void LogToSessionTrace(string Text) { }
-    public CMatchSettingsManager MatchSettingsManager { get; set; }
-    public CMenuSceneManager MenuSceneManager { get; set; }
+    public CMatchSettingsManager MatchSettingsManager { get; }
+    public CMenuSceneManager MenuSceneManager { get; }
     public void Authentication_GetToken(Ident UserId, string AppLogin) { }
-    public bool Authentication_GetTokenResponseReceived { get; set; }
-    public int Authentication_ErrorCode { get; set; }
-    public string Authentication_Token { get; set; }
+    public bool Authentication_GetTokenResponseReceived { get; }
+    public int Authentication_ErrorCode { get; }
+    public string Authentication_Token { get; }
     public bool Adverts_UsePersonnalData { get; set; }
     public bool Adverts_Enabled { get; set; }
-    public CVoiceChatConfig VoiceChat { get; set; }
+    public CVoiceChatConfig VoiceChat { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

@@ -11,5 +11,5 @@ namespace ManiaScriptSharp;
 public partial class CMapSector : CNod
 {
     public Ident[] PlayersIds { get; set; }
-    public string Tag { get; set; }
+    public string Tag { get; }
 }

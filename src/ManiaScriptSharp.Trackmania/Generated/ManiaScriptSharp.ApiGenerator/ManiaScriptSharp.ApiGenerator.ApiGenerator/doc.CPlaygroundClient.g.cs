@@ -39,27 +39,27 @@ public partial class CPlaygroundClient : CNod, ILocalProvider, IPersistentProvid
     }
 
     /// <summary>Null when no map loaded.</summary>
-    public CMap Map { get; set; }
-    public int GameTime { get; set; }
-    public CUser LocalUser { get; set; }
-    public CUIConfig UI { get; set; }
-    public CServerInfo ServerInfo { get; set; }
-    public Ident SettingsPlayerModelId { get; set; }
-    public bool HasPodium { get; set; }
+    public CMap Map { get; }
+    public int GameTime { get; }
+    public CUser LocalUser { get; }
+    public CUIConfig UI { get; }
+    public CServerInfo ServerInfo { get; }
+    public Ident SettingsPlayerModelId { get; }
+    public bool HasPodium { get; }
     /// <summary>Is in spectator mode - may be only for a short time between rounds.</summary>
-    public bool IsSpectator { get; set; }
+    public bool IsSpectator { get; }
     /// <summary>Client actually desires to spectate instead of playing.</summary>
-    public bool IsSpectatorClient { get; set; }
-    public bool UseClans { get; set; }
-    public bool UseForcedClans { get; set; }
-    public bool IsLoadingScreen { get; set; }
-    public bool IsServerOrSolo { get; set; }
+    public bool IsSpectatorClient { get; }
+    public bool UseClans { get; }
+    public bool UseForcedClans { get; }
+    public bool IsLoadingScreen { get; }
+    public bool IsServerOrSolo { get; }
     public void QuitServer(bool Silent) { }
     public void QuitServerAndSetResult(bool Silent, string Type, string[] Data) { }
-    public bool IsInGameMenuDisplayed { get; set; }
+    public bool IsInGameMenuDisplayed { get; }
     public void JoinTeam1() { }
     public void JoinTeam2() { }
-    public CTeam[] Teams { get; set; }
+    public CTeam[] Teams { get; }
     /// <summary>Request change of IsSpectatorClient (not immediate, and it may be refused). Caveat: will not set Request_Success</summary>
     public void RequestSpectatorClient(bool Spectator) { }
     public void SetSpectateTarget(string Player) { }
@@ -73,11 +73,11 @@ public partial class CPlaygroundClient : CNod, ILocalProvider, IPersistentProvid
     public CPlaygroundClient.ESpectatorCameraType GetSpectatorCameraType() => default!;
     public CPlaygroundClient.ESpectatorTargetType GetSpectatorTargetType() => default!;
     public void SetWantedSpectatorCameraType(CPlaygroundClient.ESpectatorCameraType CameraType) { }
-    public bool MapList_IsInProgress { get; set; }
+    public bool MapList_IsInProgress { get; }
     public string[] MapList_Names { get; set; }
     public string[] MapList_MapUids { get; set; }
-    public bool Request_IsInProgress { get; set; }
-    public bool Request_Success { get; set; }
+    public bool Request_IsInProgress { get; }
+    public bool Request_Success { get; }
     public void RequestRestartMap() { }
     public void RequestNextMap() { }
     public void RequestGotoMap(string MapUid) { }
@@ -85,8 +85,8 @@ public partial class CPlaygroundClient : CNod, ILocalProvider, IPersistentProvid
     public void RequestAutoTeamBalance() { }
     /// <summary>Change some settings from the mode with new values. No need to include unchanged settings.  ex: '&amp;lt;script_settings&amp;gt;&amp;lt;setting name="S_TimeLimit" type="integer" value="300"/&amp;gt;&amp;lt;script_settings/&amp;gt;' nb: you can use TriggerPageAction('maniaplanet:editsettings'); to use the legacy UI.</summary>
     public void RequestChangeModeScriptSettings(string SettingsXml) { }
-    public string Vote_Question { get; set; }
-    public bool Vote_CanVote { get; set; }
+    public string Vote_Question { get; }
+    public bool Vote_CanVote { get; }
     public void Vote_Cast(bool Answer) { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

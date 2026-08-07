@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMapEditorInventory</summary>
 public partial class CMapEditorInventory : CNod
 {
-    public CMapEditorInventoryDirectory CurrentRootNode { get; set; }
-    public CMapEditorInventoryDirectory CurrentDirectory { get; set; }
-    public CMapEditorInventoryNode CurrentSelectedNode { get; set; }
+    public CMapEditorInventoryDirectory CurrentRootNode { get; }
+    public CMapEditorInventoryDirectory CurrentDirectory { get; }
+    public CMapEditorInventoryNode CurrentSelectedNode { get; }
     public CMapEditorInventoryNode[] RootNodes { get; set; }
     public void EnterDirectory() { }
     public void LeaveDirectory() { }

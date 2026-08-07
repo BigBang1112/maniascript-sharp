@@ -10,13 +10,13 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  An action</summary>
 public partial class CSmAction : CAction, ILocalProvider
 {
-    public int Now { get; set; }
-    public int Variant { get; set; }
-    public CSmPlayer[] Players { get; set; }
-    public CSmPlayer Owner { get; set; }
-    public CModeVehicle OwnerVehicle { get; set; }
-    public bool IsActive { get; set; }
-    public bool IsBound { get; set; }
+    public int Now { get; }
+    public int Variant { get; }
+    public CSmPlayer[] Players { get; }
+    public CSmPlayer Owner { get; }
+    public CModeVehicle OwnerVehicle { get; }
+    public bool IsActive { get; }
+    public bool IsBound { get; }
     public int Energy { get; set; }
     public int EnergyMax { get; set; }
     public int EnergyCost { get; set; }
@@ -26,7 +26,7 @@ public partial class CSmAction : CAction, ILocalProvider
     public int State_Integer1 { get; set; }
     public int State_Integer2 { get; set; }
     public bool State_Boolean1 { get; set; }
-    public CSmActionEvent[] PendingEvents { get; set; }
+    public CSmActionEvent[] PendingEvents { get; }
     public bool IsJumping { get; set; }
     public bool IsGliding { get; set; }
     public bool IsAttractor { get; set; }

@@ -10,12 +10,12 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CFriend</summary>
 public partial class CFriend : CNod
 {
-    public string AccountId { get; set; }
-    public string CountryFlagUrl { get; set; }
-    public string DisplayName { get; set; }
-    public bool IsFirstPartyDisplayName { get; set; }
-    public string PlatformType { get; set; }
-    public string Presence { get; set; }
-    public string Relationship { get; set; }
-    public string WebServicesUserId { get; set; }
+    public string AccountId { get; }
+    public string CountryFlagUrl { get; }
+    public string DisplayName { get; }
+    public bool IsFirstPartyDisplayName { get; }
+    public string PlatformType { get; }
+    public string Presence { get; }
+    public string Relationship { get; }
+    public string WebServicesUserId { get; }
 }

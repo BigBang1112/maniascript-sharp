@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CTrophyAchievement_SoloRanking</summary>
 public partial class CTrophyAchievement_SoloRanking : CTrophyAchievement
 {
-    public string MapId { get; set; }
-    public string SeasonId { get; set; }
-    public string SoloRankingAchievementType { get; set; }
+    public string MapId { get; }
+    public string SeasonId { get; }
+    public string SoloRankingAchievementType { get; }
 }

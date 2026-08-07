@@ -28,9 +28,9 @@ public partial class CMlControl : CNod, ILocalProvider
         VCenter2,
     }
 
-    public CMlFrame Parent { get; set; }
-    public string ControlId { get; set; }
-    public string[] ControlClasses { get; set; }
+    public CMlFrame Parent { get; }
+    public string ControlId { get; }
+    public string[] ControlClasses { get; }
     public bool HasClass(string Class) => default!;
     public Vec2 Size { get; set; }
     public AlignHorizontal HorizontalAlign { get; set; }
@@ -40,9 +40,9 @@ public partial class CMlControl : CNod, ILocalProvider
     public float ZIndex { get; set; }
     public float RelativeScale { get; set; }
     public float RelativeRotation { get; set; }
-    public Vec2 AbsolutePosition_V3 { get; set; }
-    public float AbsoluteScale { get; set; }
-    public float AbsoluteRotation { get; set; }
+    public Vec2 AbsolutePosition_V3 { get; }
+    public float AbsoluteScale { get; }
+    public float AbsoluteRotation { get; }
     public bool DataAttributeExists(string DataName) => default!;
     public string DataAttributeGet(string DataName) => default!;
     public void DataAttributeSet(string DataName, string DataValue) { }
@@ -50,6 +50,6 @@ public partial class CMlControl : CNod, ILocalProvider
     public void Show() { }
     public void Hide() { }
     public void Focus() { }
-    public bool IsFocused { get; set; }
+    public bool IsFocused { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

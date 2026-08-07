@@ -10,5 +10,5 @@ namespace ManiaScriptSharp;
 /// <summary>Asynchronous task result.</summary>
 public partial class CTaskResult_StringIntList : CTaskResult
 {
-    public string[] Values { get; set; }
+    public string[] Values { get; }
 }

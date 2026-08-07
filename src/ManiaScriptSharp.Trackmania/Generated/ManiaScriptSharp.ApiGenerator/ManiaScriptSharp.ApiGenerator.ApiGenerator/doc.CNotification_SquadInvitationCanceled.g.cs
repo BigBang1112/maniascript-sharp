@@ -10,17 +10,17 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CNotification_SquadInvitationCanceled</summary>
 public partial class CNotification_SquadInvitationCanceled : CNotification_Squad
 {
-    public string CancelerAccountId { get; set; }
-    public string CancelerCountryFlagUrl { get; set; }
-    public string CancelerDisplayName { get; set; }
-    public bool CancelerIsFirstPartyDisplayName { get; set; }
-    public string CancelerWebServicesUserId { get; set; }
-    public string InvitedAccountId { get; set; }
-    public string InvitedCountryFlagUrl { get; set; }
-    public string InvitedDisplayName { get; set; }
-    public bool InvitedIsFirstPartyDisplayName { get; set; }
-    public string InvitedWebServicesUserId { get; set; }
-    public string SquadId { get; set; }
-    public string SquadType { get; set; }
-    public int TimeStamp { get; set; }
+    public string CancelerAccountId { get; }
+    public string CancelerCountryFlagUrl { get; }
+    public string CancelerDisplayName { get; }
+    public bool CancelerIsFirstPartyDisplayName { get; }
+    public string CancelerWebServicesUserId { get; }
+    public string InvitedAccountId { get; }
+    public string InvitedCountryFlagUrl { get; }
+    public string InvitedDisplayName { get; }
+    public bool InvitedIsFirstPartyDisplayName { get; }
+    public string InvitedWebServicesUserId { get; }
+    public string SquadId { get; }
+    public string SquadType { get; }
+    public int TimeStamp { get; }
 }

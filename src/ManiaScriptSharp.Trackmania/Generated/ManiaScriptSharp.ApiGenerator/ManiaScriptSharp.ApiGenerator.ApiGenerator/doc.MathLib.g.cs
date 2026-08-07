@@ -11,8 +11,8 @@ namespace ManiaScriptSharp;
 public sealed partial class MathLib : ILib
 {
     /// <summary>Standard mathematical operations, angles are in radians unless specified.</summary>
-    public float Pi { get; set; }
-    public float Tau { get; set; }
+    public float Pi { get; }
+    public float Tau { get; }
     public int Abs(int _Argument1) => default!;
     public float Abs(float _Argument1) => default!;
     public float ToReal(int _Argument1) => default!;

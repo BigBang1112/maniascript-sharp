@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_GhostList : CTaskResult, ILocalProvider
 {
     /// <summary>List of ghost. Array of CGhost.</summary>
-    public CGhost[] Ghosts { get; set; }
+    public CGhost[] Ghosts { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

@@ -24,7 +24,7 @@ public partial class CMlQuad : CMlControl, ILocalProvider
     public string Style { get; set; }
     public string Substyle { get; set; }
     public bool StyleSelected { get; set; }
-    public bool DownloadInProgress { get; set; }
+    public bool DownloadInProgress { get; }
     public Vec3 Colorize { get; set; }
     public Vec3 ModulateColor { get; set; }
     public Vec3 BgColor { get; set; }

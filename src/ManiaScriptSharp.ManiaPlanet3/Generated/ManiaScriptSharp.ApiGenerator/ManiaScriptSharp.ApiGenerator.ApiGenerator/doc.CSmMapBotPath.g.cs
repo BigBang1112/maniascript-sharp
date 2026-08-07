@@ -9,7 +9,7 @@ namespace ManiaScriptSharp;
 
 public partial class CSmMapBotPath : CNod
 {
-    public int Clan { get; set; }
-    public Vec3[] Path { get; set; }
-    public bool IsFlying { get; set; }
+    public int Clan { get; }
+    public Vec3[] Path { get; }
+    public bool IsFlying { get; }
 }

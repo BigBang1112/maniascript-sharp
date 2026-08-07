@@ -22,11 +22,11 @@ public partial class CDataFileMgr : CNod
     }
 
     /// <summary>Array of task results.</summary>
-    public CTaskResult[] TaskResults { get; set; }
+    public CTaskResult[] TaskResults { get; }
     /// <summary>Release a task result no more used.</summary>
     public void TaskResult_Release(Ident TaskId) { }
     /// <summary>Array of campaigns.</summary>
-    public CCampaign[] Campaigns { get; set; }
+    public CCampaign[] Campaigns { get; }
     /// <summary>Get a campaign from its id.</summary>
     public CCampaign Campaign_Get(string CampaignId) => default!;
     public void Map_RefreshFromDisk() { }
@@ -39,7 +39,7 @@ public partial class CDataFileMgr : CNod
     /// <summary>Get the list of map stored in the specified path. Scope is used to specify if the list is retrieved from game data (1), title data (2) or user data (4).</summary>
     public CTaskResult_MapList Map_GetFilteredGameList(int Scope, string Path, bool Flatten) => default!;
     /// <summary>Array of ghosts.</summary>
-    public CGhost[] Ghosts { get; set; }
+    public CGhost[] Ghosts { get; }
     /// <summary>Release a downloaded ghost no longer needed.</summary>
     public void Ghost_Release(Ident GhostId) { }
     public CTaskResult_Ghost Ghost_Download(string FileName, string Url) => default!;

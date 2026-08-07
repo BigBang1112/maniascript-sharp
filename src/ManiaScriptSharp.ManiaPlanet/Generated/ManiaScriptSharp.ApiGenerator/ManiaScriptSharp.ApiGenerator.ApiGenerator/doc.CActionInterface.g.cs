@@ -9,9 +9,9 @@ namespace ManiaScriptSharp;
 
 public partial class CActionInterface : CNod
 {
-    public int Cooldown { get; set; }
-    public int CooldownStartTime { get; set; }
-    public int Energy { get; set; }
-    public int EnergyCost { get; set; }
-    public int EnergyMax { get; set; }
+    public int Cooldown { get; }
+    public int CooldownStartTime { get; }
+    public int Energy { get; }
+    public int EnergyCost { get; }
+    public int EnergyMax { get; }
 }

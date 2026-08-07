@@ -10,8 +10,8 @@ namespace ManiaScriptSharp;
 /// <summary>Asynchronous task result. Supported declare modes : - Local</summary>
 public partial class CTaskResult_Session_Get : CTaskResult, ILocalProvider
 {
-    public string SessionId { get; set; }
-    public string ServerLogin { get; set; }
-    public string ServerPassword { get; set; }
+    public string SessionId { get; }
+    public string ServerLogin { get; }
+    public string ServerPassword { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

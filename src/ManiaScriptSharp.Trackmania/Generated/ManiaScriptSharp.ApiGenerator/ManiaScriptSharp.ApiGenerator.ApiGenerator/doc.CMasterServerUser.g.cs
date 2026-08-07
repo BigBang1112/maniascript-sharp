@@ -18,19 +18,19 @@ public partial class CMasterServerUser : CNod
         Disconnecting,
     }
 
-    public bool NeedToChangeZone { get; set; }
+    public bool NeedToChangeZone { get; }
     /// <summary>Number of level in the full path of the user zone.</summary>
-    public int ZoneLevelCount { get; set; }
+    public int ZoneLevelCount { get; }
     /// <summary>Returns the zone path of the indicated level.</summary>
     public string GetZone(int ZoneLevel) => default!;
-    public int MultiInternetPlayTimeLeft { get; set; }
+    public int MultiInternetPlayTimeLeft { get; }
     /// <summary>Login.</summary>
-    public string Login { get; set; }
+    public string Login { get; }
     /// <summary>Display name.</summary>
-    public string DisplayName { get; set; }
+    public string DisplayName { get; }
     /// <summary>Connection status: NotConnected, Connecting, Connected or Disconnecting.</summary>
-    public CMasterServerUser.EMasterServerConnectionStatus ConnectionStatus { get; set; }
-    public string LastConnectionErrorType { get; set; }
-    public string LastConnectionErrorCode { get; set; }
-    public string LastConnectionErrorDescription { get; set; }
+    public CMasterServerUser.EMasterServerConnectionStatus ConnectionStatus { get; }
+    public string LastConnectionErrorType { get; }
+    public string LastConnectionErrorCode { get; }
+    public string LastConnectionErrorDescription { get; }
 }

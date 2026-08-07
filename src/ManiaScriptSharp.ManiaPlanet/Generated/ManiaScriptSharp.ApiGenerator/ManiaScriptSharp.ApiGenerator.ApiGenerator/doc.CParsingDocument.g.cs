@@ -9,8 +9,8 @@ namespace ManiaScriptSharp;
 
 public partial class CParsingDocument : CNod
 {
-    public string TextContents { get; set; }
-    public CParsingNode Root { get; set; }
-    public CParsingNode[] Nodes { get; set; }
+    public string TextContents { get; }
+    public CParsingNode Root { get; }
+    public CParsingNode[] Nodes { get; }
     public CParsingNode GetFirstChild(string Name) => default!;
 }

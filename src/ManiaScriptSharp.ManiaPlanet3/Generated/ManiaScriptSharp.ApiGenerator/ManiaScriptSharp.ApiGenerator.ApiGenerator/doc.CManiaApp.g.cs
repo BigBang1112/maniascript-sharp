@@ -17,22 +17,22 @@ public partial class CManiaApp : CNod, ILocalProvider, IPersistentProvider
         ManialinkBrowser,
     }
 
-    public int Now { get; set; }
-    public bool IsVisible { get; set; }
-    public CUser LocalUser { get; set; }
-    public CTitle LoadedTitle { get; set; }
+    public int Now { get; }
+    public bool IsVisible { get; }
+    public CUser LocalUser { get; }
+    public CTitle LoadedTitle { get; }
     public bool EnableMenuNavigationInputs { get; set; }
-    public float MouseX { get; set; }
-    public float MouseY { get; set; }
-    public CUILayer[] UILayers { get; set; }
+    public float MouseX { get; }
+    public float MouseY { get; }
+    public CUILayer[] UILayers { get; }
     public CUILayer UILayerCreate() => default!;
     public void UILayerDestroy(CUILayer Layer) { }
     public void UILayerDestroyAll() { }
     public void LayerCustomEvent(CUILayer Layer, string Type, string[] Data) { }
     public void OpenLink(string Url, ELinkType LinkType) { }
-    public CXmlManager Xml { get; set; }
-    public CHttpManager Http { get; set; }
-    public CAudioManager Audio { get; set; }
+    public CXmlManager Xml { get; }
+    public CHttpManager Http { get; }
+    public CAudioManager Audio { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

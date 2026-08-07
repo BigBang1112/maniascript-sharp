@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>This is the base Manialink page interface. Supported declare modes : - Local - Persistent</summary>
 public partial class CMapEditorPluginLayer : CMlScript, ILocalProvider, IPersistentProvider
 {
-    public CMapEditorPlugin Editor { get; set; }
+    public CMapEditorPlugin Editor { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

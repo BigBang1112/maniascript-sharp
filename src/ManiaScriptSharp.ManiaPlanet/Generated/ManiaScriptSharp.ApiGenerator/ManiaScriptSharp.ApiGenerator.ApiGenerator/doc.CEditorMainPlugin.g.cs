@@ -32,7 +32,7 @@ public partial class CEditorMainPlugin : CAnyEditorPlugin, ILocalProvider, IPers
     public bool Binding_IsActive(string BindingName) => default!;
     public bool Binding_IsActive(string ContextName, string BindingName) => default!;
     public void Plugin_SetClearance(CEditorPluginHandle Handle, EMeshEditorAPI API, bool IsAllowed) { }
-    public CEditorPluginHandle[] Plugins { get; set; }
+    public CEditorPluginHandle[] Plugins { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

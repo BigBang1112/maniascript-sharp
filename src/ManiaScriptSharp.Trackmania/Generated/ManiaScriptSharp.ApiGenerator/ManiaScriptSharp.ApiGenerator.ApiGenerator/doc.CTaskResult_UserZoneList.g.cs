@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Results of task requesting the zone of user. Supported declare modes : - Local</summary>
 public partial class CTaskResult_UserZoneList : CTaskResult, ILocalProvider
 {
-    public CZone[] ZoneList { get; set; }
+    public CZone[] ZoneList { get; }
     /// <summary>Get a zone for a user. Must be called after the task has succeeded.</summary>
     public CZone GetUserZone(string WebServicesUserId) => default!;
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

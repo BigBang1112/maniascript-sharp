@@ -10,16 +10,16 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CAccountTrophyLastYearSummary</summary>
 public partial class CAccountTrophyLastYearSummary : CNod
 {
-    public string AccountId { get; set; }
-    public string WebServicesUserId { get; set; }
-    public int T1Count { get; set; }
-    public int T2Count { get; set; }
-    public int T3Count { get; set; }
-    public int T4Count { get; set; }
-    public int T5Count { get; set; }
-    public int T6Count { get; set; }
-    public int T7Count { get; set; }
-    public int T8Count { get; set; }
-    public int T9Count { get; set; }
-    public int TimeStamp { get; set; }
+    public string AccountId { get; }
+    public string WebServicesUserId { get; }
+    public int T1Count { get; }
+    public int T2Count { get; }
+    public int T3Count { get; }
+    public int T4Count { get; }
+    public int T5Count { get; }
+    public int T6Count { get; }
+    public int T7Count { get; }
+    public int T8Count { get; }
+    public int T9Count { get; }
+    public int TimeStamp { get; }
 }

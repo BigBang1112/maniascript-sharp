@@ -23,11 +23,11 @@ public partial class CMatchSettingsManager : CNod
     /// <summary>Save a matchsettings to a new file.</summary>
     public CMatchSettings MatchSettings_SaveAs(string FilePath, CMatchSettings MatchSettings) => default!;
     public void MatchSettings_EditScriptSettings(CMatchSettings MatchSettings) { }
-    public bool MatchSettings_EditScriptSettings_Ongoing { get; set; }
+    public bool MatchSettings_EditScriptSettings_Ongoing { get; }
     /// <summary>Remove a matchsetting file (or only the matchsetting for temp ones).</summary>
     public void MatchSettings_Remove(CMatchSettings MatchSettings) { }
     /// <summary>Array of the matchsettings</summary>
-    public CMatchSettings[] MatchSettings { get; set; }
-    public CMatchSettings[] MatchSettings_File { get; set; }
-    public CMatchSettings[] MatchSettings_Temp { get; set; }
+    public CMatchSettings[] MatchSettings { get; }
+    public CMatchSettings[] MatchSettings_File { get; }
+    public CMatchSettings[] MatchSettings_Temp { get; }
 }

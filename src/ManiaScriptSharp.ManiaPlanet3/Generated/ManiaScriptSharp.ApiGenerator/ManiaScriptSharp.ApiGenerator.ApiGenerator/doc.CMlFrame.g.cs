@@ -22,7 +22,7 @@ public partial class CMlFrame : CMlControl, ILocalProvider
         Video,
     }
 
-    public CMlControl[] Controls { get; set; }
+    public CMlControl[] Controls { get; }
     public CMlControl GetFirstChild(string ControlId) => default!;
     public bool ClipWindowActive { get; set; }
     public Vec2 ClipWindowRelativePosition { get; set; }

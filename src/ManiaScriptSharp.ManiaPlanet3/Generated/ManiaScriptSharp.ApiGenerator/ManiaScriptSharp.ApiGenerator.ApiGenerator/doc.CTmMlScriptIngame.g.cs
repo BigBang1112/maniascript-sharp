@@ -10,19 +10,19 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Persistent  Trackmania race API for Manialink scripts</summary>
 public partial class CTmMlScriptIngame : CMlScriptIngame, ILocalProvider, IPersistentProvider
 {
-    public CTmMlPlayer InputPlayer { get; set; }
-    public CTmMlPlayer GUIPlayer { get; set; }
-    public int NbLaps { get; set; }
-    public bool IndependantLaps { get; set; }
-    public CTmMlPlayer[] Players { get; set; }
-    public CTmScore[] Scores { get; set; }
-    public int[] ClanScores { get; set; }
-    public Vec3 MapStartLinePos { get; set; }
+    public CTmMlPlayer InputPlayer { get; }
+    public CTmMlPlayer GUIPlayer { get; }
+    public int NbLaps { get; }
+    public bool IndependantLaps { get; }
+    public CTmMlPlayer[] Players { get; }
+    public CTmScore[] Scores { get; }
+    public int[] ClanScores { get; }
+    public Vec3 MapStartLinePos { get; }
     /// <summary>You can use MapCheckpointPos.count to get the number of checkpoints.</summary>
-    public Vec3[] MapCheckpointPos { get; set; }
-    public Vec3[] MapFinishLinePos { get; set; }
-    public bool MapIsLapRace { get; set; }
-    public int MapNbLaps { get; set; }
+    public Vec3[] MapCheckpointPos { get; }
+    public Vec3[] MapFinishLinePos { get; }
+    public bool MapIsLapRace { get; }
+    public int MapNbLaps { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

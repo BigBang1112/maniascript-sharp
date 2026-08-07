@@ -71,56 +71,56 @@ public partial class CSmModeEvent : CBaseEvent, ILocalProvider
     }
 
     /// <summary>Event type</summary>
-    public CSmModeEvent.EType Type { get; set; }
-    public CSmPlayer Player { get; set; }
+    public CSmModeEvent.EType Type { get; }
+    public CSmPlayer Player { get; }
     public int Damage { get; set; }
-    public int VictimShield { get; set; }
-    public CEntity VictimEntity { get; set; }
+    public int VictimShield { get; }
+    public CEntity VictimEntity { get; }
     public int ShooterPoints { get; set; }
-    public CEntity ShooterEntity { get; set; }
-    public int ShooterClan { get; set; }
-    public float Height { get; set; }
-    public int UserData { get; set; }
-    public Vec3 ItemPosition { get; set; }
-    public float MissDist { get; set; }
-    public int WeaponNum { get; set; }
-    public bool ShooterUsedAction { get; set; }
-    public int ShooterWeaponNum { get; set; }
-    public CSmModeEvent.EActionSlot ShooterActionSlot { get; set; }
-    public string ShooterActionId { get; set; }
-    public bool VictimUsedAction { get; set; }
-    public int VictimWeaponNum { get; set; }
-    public CSmModeEvent.EActionSlot VictimActionSlot { get; set; }
-    public string VictimActionId { get; set; }
-    public CSmModeEvent.EActionSlot ActionSlot { get; set; }
-    public CSmModeEvent.EActionInput ActionInput { get; set; }
-    public string ActionId { get; set; }
-    public string Param1 { get; set; }
+    public CEntity ShooterEntity { get; }
+    public int ShooterClan { get; }
+    public float Height { get; }
+    public int UserData { get; }
+    public Vec3 ItemPosition { get; }
+    public float MissDist { get; }
+    public int WeaponNum { get; }
+    public bool ShooterUsedAction { get; }
+    public int ShooterWeaponNum { get; }
+    public CSmModeEvent.EActionSlot ShooterActionSlot { get; }
+    public string ShooterActionId { get; }
+    public bool VictimUsedAction { get; }
+    public int VictimWeaponNum { get; }
+    public CSmModeEvent.EActionSlot VictimActionSlot { get; }
+    public string VictimActionId { get; }
+    public CSmModeEvent.EActionSlot ActionSlot { get; }
+    public CSmModeEvent.EActionInput ActionInput { get; }
+    public string ActionId { get; }
+    public string Param1 { get; }
     public string[] Param2 { get; set; }
-    public CSmObject Object { get; set; }
-    public int WaypointTime { get; set; }
-    public int WaypointLapTime { get; set; }
-    public bool IsFinish { get; set; }
-    public bool IsNewLap { get; set; }
-    public CSmMapLandmark Landmark { get; set; }
-    public CUser User { get; set; }
-    public bool PlayerWasSpawned { get; set; }
-    public bool PlayerWasDisconnected { get; set; }
-    public bool PlayerWasInLadderMatch { get; set; }
-    public Vec3 PlayerLastPosition { get; set; }
-    public Vec3 PlayerLastAimDirection { get; set; }
-    public bool GiveUp { get; set; }
-    public bool RegressRespawn { get; set; }
-    public string CommandName { get; set; }
-    public bool CommandValueBoolean { get; set; }
-    public int CommandValueInteger { get; set; }
-    public float CommandValueReal { get; set; }
-    public string CommandValueText { get; set; }
-    public Vec2 CommandValueVec2 { get; set; }
-    public Vec3 CommandValueVec3 { get; set; }
-    public Int2 CommandValueInt2 { get; set; }
-    public Int3 CommandValueInt3 { get; set; }
-    public int ActionChange { get; set; }
-    public CStuntFigure StuntFigure { get; set; }
+    public CSmObject Object { get; }
+    public int WaypointTime { get; }
+    public int WaypointLapTime { get; }
+    public bool IsFinish { get; }
+    public bool IsNewLap { get; }
+    public CSmMapLandmark Landmark { get; }
+    public CUser User { get; }
+    public bool PlayerWasSpawned { get; }
+    public bool PlayerWasDisconnected { get; }
+    public bool PlayerWasInLadderMatch { get; }
+    public Vec3 PlayerLastPosition { get; }
+    public Vec3 PlayerLastAimDirection { get; }
+    public bool GiveUp { get; }
+    public bool RegressRespawn { get; }
+    public string CommandName { get; }
+    public bool CommandValueBoolean { get; }
+    public int CommandValueInteger { get; }
+    public float CommandValueReal { get; }
+    public string CommandValueText { get; }
+    public Vec2 CommandValueVec2 { get; }
+    public Vec3 CommandValueVec3 { get; }
+    public Int2 CommandValueInt2 { get; }
+    public Int3 CommandValueInt3 { get; }
+    public int ActionChange { get; }
+    public CStuntFigure StuntFigure { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

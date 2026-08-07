@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CAccountTrophyGainForHistory_SoloRanking</summary>
 public partial class CAccountTrophyGainForHistory_SoloRanking : CAccountTrophyGainForHistory
 {
-    public int Rank { get; set; }
+    public int Rank { get; }
     public CTrophyAchievement_SoloRanking TrophyAchievement_SoloRanking { get; set; }
 }

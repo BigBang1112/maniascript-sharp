@@ -10,21 +10,21 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMapRecord</summary>
 public partial class CMapRecord : CNod
 {
-    public string AccountId { get; set; }
-    public string WebServicesUserId { get; set; }
-    public string MapId { get; set; }
-    public Ident MapUid { get; set; }
-    public string ScopeType { get; set; }
-    public string ScopeId { get; set; }
-    public string GameMode { get; set; }
-    public string GameModeCustomData { get; set; }
-    public int Score { get; set; }
-    public int Time { get; set; }
-    public int RespawnCount { get; set; }
-    public int Timestamp { get; set; }
-    public int Medal { get; set; }
-    public int MultiAsyncLevel { get; set; }
-    public int SkillPoints { get; set; }
-    public string FileName { get; set; }
-    public string ReplayUrl { get; set; }
+    public string AccountId { get; }
+    public string WebServicesUserId { get; }
+    public string MapId { get; }
+    public Ident MapUid { get; }
+    public string ScopeType { get; }
+    public string ScopeId { get; }
+    public string GameMode { get; }
+    public string GameModeCustomData { get; }
+    public int Score { get; }
+    public int Time { get; }
+    public int RespawnCount { get; }
+    public int Timestamp { get; }
+    public int Medal { get; }
+    public int MultiAsyncLevel { get; }
+    public int SkillPoints { get; }
+    public string FileName { get; }
+    public string ReplayUrl { get; }
 }

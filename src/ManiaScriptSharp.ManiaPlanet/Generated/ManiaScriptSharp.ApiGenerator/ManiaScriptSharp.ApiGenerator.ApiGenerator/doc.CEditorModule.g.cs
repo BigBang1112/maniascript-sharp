@@ -33,14 +33,14 @@ public partial class CEditorModule : CEditorBase, IMetadataProvider
     public void SaveAs(string Path) { }
     public void SaveCopyAs(string Path) { }
     public void ForceExit() { }
-    public CModuleMenuModel EditedMenu { get; set; }
-    public CModuleMenuPageModel EditedMenuPage { get; set; }
-    public CModulePlaygroundHudModel EditedPlaygroundHud { get; set; }
+    public CModuleMenuModel EditedMenu { get; }
+    public CModuleMenuPageModel EditedMenuPage { get; }
+    public CModulePlaygroundHudModel EditedPlaygroundHud { get; }
     public void EditedPlaygroundHud_SetPreviewContext(Ident ContextId) { }
     public void FileBrowser_Open() { }
-    public bool FileBrowser_IsRunning { get; set; }
-    public string FileBrowser_FilePath { get; set; }
-    public CEditorPluginModuleEvent[] PendingEvents { get; set; }
-    public bool IsPreviewMode { get; set; }
+    public bool FileBrowser_IsRunning { get; }
+    public string FileBrowser_FilePath { get; }
+    public CEditorPluginModuleEvent[] PendingEvents { get; }
+    public bool IsPreviewMode { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
 }

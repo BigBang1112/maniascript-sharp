@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_Squad : CWebServicesTaskResult_Squad, ILocalProvider
 {
     /// <summary>Squad info contained by this result.</summary>
-    public CSquad Squad { get; set; }
+    public CSquad Squad { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

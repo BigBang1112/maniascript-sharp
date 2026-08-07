@@ -21,46 +21,46 @@ public partial class CMlScript : CNod, ILocalProvider, IPersistentProvider
         GotoFromId,
     }
 
-    public CMlPage Page { get; set; }
-    public bool PageIsVisible { get; set; }
+    public CMlPage Page { get; }
+    public bool PageIsVisible { get; }
     public bool PageAlwaysUpdateScript { get; set; }
-    public int Now { get; set; }
-    public int Period { get; set; }
-    public int CurrentTime { get; set; }
+    public int Now { get; }
+    public int Period { get; }
+    public int CurrentTime { get; }
     /// <summary>Local user structure.</summary>
-    public CUser LocalUser { get; set; }
-    public CTitle LoadedTitle { get; set; }
-    public CMlScriptEvent[] PendingEvents { get; set; }
+    public CUser LocalUser { get; }
+    public CTitle LoadedTitle { get; }
+    public CMlScriptEvent[] PendingEvents { get; }
     public void Dbg_SetProcessed(CMlScriptEvent Event) { }
     public bool Dbg_WarnOnDroppedEvents { get; set; }
-    public float MouseX { get; set; }
-    public float MouseY { get; set; }
-    public bool MouseLeftButton { get; set; }
-    public bool MouseRightButton { get; set; }
-    public bool MouseMiddleButton { get; set; }
-    public bool KeyUp { get; set; }
-    public bool KeyDown { get; set; }
-    public bool KeyLeft { get; set; }
-    public bool KeyRight { get; set; }
-    public bool KeyReturn { get; set; }
-    public bool KeySpace { get; set; }
-    public bool KeyDelete { get; set; }
+    public float MouseX { get; }
+    public float MouseY { get; }
+    public bool MouseLeftButton { get; }
+    public bool MouseRightButton { get; }
+    public bool MouseMiddleButton { get; }
+    public bool KeyUp { get; }
+    public bool KeyDown { get; }
+    public bool KeyLeft { get; }
+    public bool KeyRight { get; }
+    public bool KeyReturn { get; }
+    public bool KeySpace { get; }
+    public bool KeyDelete { get; }
     public bool IsKeyPressed(int KeyCode) => default!;
     public bool EnableMenuNavigationInputs { get; set; }
     public void EnableMenuNavigation(bool EnableInputs, bool WithAutoFocus, CMlControl AutoBackControl, int InputPriority) { }
     public void EnableMenuNavigation(bool EnableInputs, bool WithAutoFocus, bool WithManualScroll, CMlControl AutoBackControl, int InputPriority) { }
-    public bool IsMenuNavigationForeground { get; set; }
+    public bool IsMenuNavigationForeground { get; }
     public void OpenLink(string Url, LinkType LinkType) { }
     public void TriggerPageAction(string ActionString) { }
-    public CParsingManager Xml { get; set; }
-    public CHttpManager Http { get; set; }
-    public CVideoManager Video { get; set; }
-    public CAudioManager Audio { get; set; }
-    public CInputManager Input { get; set; }
-    public CDataFileMgr DataFileMgr { get; set; }
-    public CScoreMgr ScoreMgr { get; set; }
-    public CAnimManager AnimMgr { get; set; }
-    public CSystemPlatform System { get; set; }
+    public CParsingManager Xml { get; }
+    public CHttpManager Http { get; }
+    public CVideoManager Video { get; }
+    public CAudioManager Audio { get; }
+    public CInputManager Input { get; }
+    public CDataFileMgr DataFileMgr { get; }
+    public CScoreMgr ScoreMgr { get; }
+    public CAnimManager AnimMgr { get; }
+    public CSystemPlatform System { get; }
     /// <summary>Send a custom event to the owner of the layer.</summary>
     public void SendCustomEvent(string Type, string[] Data) { }
     public void PreloadImage(string ImageUrl) { }

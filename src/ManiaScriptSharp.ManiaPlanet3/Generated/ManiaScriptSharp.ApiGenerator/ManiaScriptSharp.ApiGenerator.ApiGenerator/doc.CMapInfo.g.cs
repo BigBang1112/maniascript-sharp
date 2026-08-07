@@ -9,16 +9,16 @@ namespace ManiaScriptSharp;
 
 public partial class CMapInfo : CNod
 {
-    public Ident MapUid { get; set; }
-    public string Comments { get; set; }
-    public int CopperPrice { get; set; }
-    public string CollectionName { get; set; }
-    public string AuthorLogin { get; set; }
-    public string AuthorNickName { get; set; }
-    public string AuthorZonePath { get; set; }
-    public string MapType { get; set; }
-    public string MapStyle { get; set; }
-    public bool Unlocked { get; set; }
-    public string Name { get; set; }
-    public string Path { get; set; }
+    public Ident MapUid { get; }
+    public string Comments { get; }
+    public int CopperPrice { get; }
+    public string CollectionName { get; }
+    public string AuthorLogin { get; }
+    public string AuthorNickName { get; }
+    public string AuthorZonePath { get; }
+    public string MapType { get; }
+    public string MapStyle { get; }
+    public bool Unlocked { get; }
+    public string Name { get; }
+    public string Path { get; }
 }

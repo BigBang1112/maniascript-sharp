@@ -11,8 +11,8 @@ namespace ManiaScriptSharp;
 public partial class CSmBlockPole : CSmBlock, ILocalProvider, IMetadataProvider
 {
     public bool Captured { get; set; }
-    public CSmSector Sector { get; set; }
-    public CSmGauge Gauge { get; set; }
+    public CSmSector Sector { get; }
+    public CSmGauge Gauge { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
 }

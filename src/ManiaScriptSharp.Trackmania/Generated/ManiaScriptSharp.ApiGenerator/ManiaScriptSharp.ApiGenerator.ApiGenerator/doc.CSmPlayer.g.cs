@@ -17,20 +17,20 @@ public partial class CSmPlayer : CPlayer, ILocalProvider, INetreadProvider, INet
         Spawned,
     }
 
-    public CSmScore Score { get; set; }
-    public CSmPlayer.ESpawnStatus SpawnStatus { get; set; }
-    public int StartTime { get; set; }
+    public CSmScore Score { get; }
+    public CSmPlayer.ESpawnStatus SpawnStatus { get; }
+    public int StartTime { get; }
     public int EndTime { get; set; }
     public int[] RaceWaypointTimes { get; set; }
     /// <summary>Equals CurrentLapWaypointTimes when not empty. If it is empty (i.e. before the 1st CP of a new lap), equals PreviousLapWaypointTimes.</summary>
     public int[] LapWaypointTimes { get; set; }
     public int[] CurrentLapWaypointTimes { get; set; }
     public int[] PreviousLapWaypointTimes { get; set; }
-    public int CurrentLapNumber { get; set; }
-    public int CurrentRaceTime { get; set; }
-    public int CurrentLapTime { get; set; }
-    public int CurrentRaceRespawns { get; set; }
-    public int CurrentLapRespawns { get; set; }
+    public int CurrentLapNumber { get; }
+    public int CurrentRaceTime { get; }
+    public int CurrentLapTime { get; }
+    public int CurrentRaceRespawns { get; }
+    public int CurrentLapRespawns { get; }
     /// <summary>Values in range (0.000000-10.000000)</summary>
     public float AmmoGain { get; set; }
     public int ActionWheelSelectedSlotIndex { get; set; }
@@ -41,7 +41,7 @@ public partial class CSmPlayer : CPlayer, ILocalProvider, INetreadProvider, INet
     /// <summary>Values in range (0.100000-10.000000)</summary>
     public float ArmorPower { get; set; }
     public int Stamina { get; set; }
-    public int StaminaMaxValue { get; set; }
+    public int StaminaMaxValue { get; }
     /// <summary>Values in range (0.100000-3.000000)</summary>
     public float StaminaMax { get; set; }
     /// <summary>Values in range (0.000000-1.000000)</summary>
@@ -66,54 +66,54 @@ public partial class CSmPlayer : CPlayer, ILocalProvider, INetreadProvider, INet
     public string Dossard_Trigram { get; set; }
     public Vec3 Dossard_Color { get; set; }
     /// <summary>Values in range (0.000000-1.000000)</summary>
-    public float GetLinearHue { get; set; }
+    public float GetLinearHue { get; }
     public float ForceLinearHue { get; set; }
     public bool ForceLightTrail { get; set; }
     public bool HasShield { get; set; }
-    public bool IsInVehicle { get; set; }
+    public bool IsInVehicle { get; }
     public bool IsStuck { get; set; }
     /// <summary>Values in range (0.000000-500.000000)</summary>
     public float ThrowSpeed { get; set; }
-    public int CurrentClan { get; set; }
-    public int IdleDuration { get; set; }
-    public bool IsEntityStateAvailable { get; set; }
-    public Vec3 Position { get; set; }
-    public float AimYaw { get; set; }
-    public float AimPitch { get; set; }
-    public float AimRoll { get; set; }
-    public Vec3 AimDirection { get; set; }
-    public Vec3 UpDirection { get; set; }
-    public Vec3 LeftDirection { get; set; }
-    public Vec3 Velocity { get; set; }
-    public float Speed { get; set; }
-    public bool IsUnderground { get; set; }
-    public bool IsTouchingGround { get; set; }
-    public bool IsInAir { get; set; }
-    public bool IsInWater { get; set; }
-    public bool IsInOffZone { get; set; }
-    public bool IsOnTech { get; set; }
-    public bool IsOnTechGround { get; set; }
-    public bool IsOnTechLaser { get; set; }
-    public bool IsOnTechArrow { get; set; }
-    public bool IsOnTechNucleus { get; set; }
-    public bool IsOnTechArmor { get; set; }
-    public bool IsOnTechSafeZone { get; set; }
-    public bool IsOnTechTeleport { get; set; }
-    public bool IsOnTechNoWeapon { get; set; }
-    public bool IsPowerJumpActivable { get; set; }
-    public bool IsTeleportActivable { get; set; }
-    public bool IsAttractorActivable { get; set; }
-    public int NbActiveAttractors { get; set; }
-    public bool IsCapturing { get; set; }
-    public CSmMapLandmark CapturedLandmark { get; set; }
-    public CSmObject[] Objects { get; set; }
-    public CModeVehicle Vehicle { get; set; }
-    public bool IsFakePlayer { get; set; }
-    public bool IsBot { get; set; }
+    public int CurrentClan { get; }
+    public int IdleDuration { get; }
+    public bool IsEntityStateAvailable { get; }
+    public Vec3 Position { get; }
+    public float AimYaw { get; }
+    public float AimPitch { get; }
+    public float AimRoll { get; }
+    public Vec3 AimDirection { get; }
+    public Vec3 UpDirection { get; }
+    public Vec3 LeftDirection { get; }
+    public Vec3 Velocity { get; }
+    public float Speed { get; }
+    public bool IsUnderground { get; }
+    public bool IsTouchingGround { get; }
+    public bool IsInAir { get; }
+    public bool IsInWater { get; }
+    public bool IsInOffZone { get; }
+    public bool IsOnTech { get; }
+    public bool IsOnTechGround { get; }
+    public bool IsOnTechLaser { get; }
+    public bool IsOnTechArrow { get; }
+    public bool IsOnTechNucleus { get; }
+    public bool IsOnTechArmor { get; }
+    public bool IsOnTechSafeZone { get; }
+    public bool IsOnTechTeleport { get; }
+    public bool IsOnTechNoWeapon { get; }
+    public bool IsPowerJumpActivable { get; }
+    public bool IsTeleportActivable { get; }
+    public bool IsAttractorActivable { get; }
+    public int NbActiveAttractors { get; }
+    public bool IsCapturing { get; }
+    public CSmMapLandmark CapturedLandmark { get; }
+    public CSmObject[] Objects { get; }
+    public CModeVehicle Vehicle { get; }
+    public bool IsFakePlayer { get; }
+    public bool IsBot { get; }
     /// <summary>Use a low-fi extrapolation to display the player. This extrapolation mode does not take interactions into account. Only use it when this player does not interact with other player (e.g. TM TimeAttack, SM Obstacle).</summary>
     public bool UseCrudeExtrapolation { get; set; }
     public bool TrustClientSimu { get; set; }
-    public CSmPlayerDriver Driver { get; set; }
+    public CSmPlayerDriver Driver { get; }
     /// <summary>Values in range (0.000000-1.000000)</summary>
     public float AccelCoef { get; set; }
     /// <summary>Values in range (0.000000-1.000000)</summary>
@@ -122,28 +122,28 @@ public partial class CSmPlayer : CPlayer, ILocalProvider, INetreadProvider, INet
     public float GravityCoef { get; set; }
     /// <summary>Values in range (0.000000-1.000000)</summary>
     public float AdherenceCoef { get; set; }
-    public float Upwardness { get; set; }
-    public float Distance { get; set; }
-    public int DisplaySpeed { get; set; }
-    public float InputSteer { get; set; }
-    public float InputGasPedal { get; set; }
-    public bool InputIsBraking { get; set; }
-    public float EngineRpm { get; set; }
-    public int EngineCurGear { get; set; }
-    public float EngineTurboRatio { get; set; }
-    public int WheelsContactCount { get; set; }
-    public int WheelsSkiddingCount { get; set; }
-    public int FlyingDuration { get; set; }
-    public int SkiddingDuration { get; set; }
-    public float SkiddingDistance { get; set; }
-    public float FlyingDistance { get; set; }
+    public float Upwardness { get; }
+    public float Distance { get; }
+    public int DisplaySpeed { get; }
+    public float InputSteer { get; }
+    public float InputGasPedal { get; }
+    public bool InputIsBraking { get; }
+    public float EngineRpm { get; }
+    public int EngineCurGear { get; }
+    public float EngineTurboRatio { get; }
+    public int WheelsContactCount { get; }
+    public int WheelsSkiddingCount { get; }
+    public int FlyingDuration { get; }
+    public int SkiddingDuration { get; }
+    public float SkiddingDistance { get; }
+    public float FlyingDistance { get; }
     /// <summary>Latest stunt event, and stunt currently building-up. Available when `UseStunts` is enabled.</summary>
-    public CStuntStatus Stunt { get; set; }
-    public int HandicapNoGasDuration { get; set; }
-    public int HandicapForceGasDuration { get; set; }
-    public int HandicapNoBrakesDuration { get; set; }
-    public int HandicapNoSteeringDuration { get; set; }
-    public int HandicapNoGripDuration { get; set; }
+    public CStuntStatus Stunt { get; }
+    public int HandicapNoGasDuration { get; }
+    public int HandicapForceGasDuration { get; }
+    public int HandicapNoBrakesDuration { get; }
+    public int HandicapNoSteeringDuration { get; }
+    public int HandicapNoGripDuration { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> INetworkProvider.NetworkData { get; } = [];
 }
