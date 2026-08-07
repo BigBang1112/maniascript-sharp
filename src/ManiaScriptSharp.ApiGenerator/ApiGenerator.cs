@@ -54,7 +54,30 @@ public sealed class ApiGenerator : IIncrementalGenerator
                 })
             .Collect();
 
-        var combined = headerFiles.Combine(settings).Combine(userPartials);
+        // Collect (TypeName, MemberName) from user-written fields/properties declared by hand
+        // in another partial declaration of the type (not generated) — the matching generated
+        // field/property is skipped so the user's own member (which may use a more specific
+        // type, e.g. Dictionary<Ident, CUILayer> instead of CUILayer[]) wins.
+        var userMembers = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (node, _) =>
+                    (node is PropertyDeclarationSyntax || node is FieldDeclarationSyntax)
+                    && !node.SyntaxTree.FilePath.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase),
+                transform: static (ctx, _) =>
+                {
+                    var typeName = (ctx.Node.Parent as TypeDeclarationSyntax)?.Identifier.Text ?? "";
+                    var memberName = ctx.Node switch
+                    {
+                        PropertyDeclarationSyntax p => p.Identifier.Text,
+                        FieldDeclarationSyntax f => f.Declaration.Variables.FirstOrDefault()?.Identifier.Text ?? "",
+                        _ => "",
+                    };
+                    return (TypeName: typeName, MemberName: memberName);
+                })
+            .Where(static x => x.TypeName.Length > 0 && x.MemberName.Length > 0)
+            .Collect();
+
+        var combined = headerFiles.Combine(settings).Combine(userPartials).Combine(userMembers);
 
         // ── .Script.txt pipeline ──────────────────────────────────────────────
         var scriptFiles = context.AdditionalTextsProvider
@@ -160,19 +183,23 @@ public sealed class ApiGenerator : IIncrementalGenerator
         });
 
         // ── doc.h pipeline ────────────────────────────────────────────────────
-        context.RegisterSourceOutput(combined, static (spc, triple) =>
+        context.RegisterSourceOutput(combined, static (spc, quad) =>
         {
-            var ((file, generatorSettings), userImplemented) = triple;
+            var (((file, generatorSettings), userImplemented), userMemberList) = quad;
             const string ns = "ManiaScriptSharp";
 
             var userSet = new System.Collections.Generic.HashSet<(string, string)>();
             foreach (var (typeName, methodName) in userImplemented)
                 userSet.Add((typeName, methodName));
 
+            var userMemberSet = new System.Collections.Generic.HashSet<(string, string)>();
+            foreach (var (typeName, memberName) in userMemberList)
+                userMemberSet.Add((typeName, memberName));
+
             try
             {
                 var parsed = new HeaderParser(file.Text).Parse();
-                var emitter = new CSharpEmitter(ns, file.FileName, parsed, generatorSettings, userSet);
+                var emitter = new CSharpEmitter(ns, file.FileName, parsed, generatorSettings, userSet, userMemberSet);
                 var prefix = SanitisePrefix(Path.GetFileNameWithoutExtension(file.FileName));
                 var added = new System.Collections.Generic.HashSet<string>();
                 foreach (var (name, src) in emitter.Emit(parsed))

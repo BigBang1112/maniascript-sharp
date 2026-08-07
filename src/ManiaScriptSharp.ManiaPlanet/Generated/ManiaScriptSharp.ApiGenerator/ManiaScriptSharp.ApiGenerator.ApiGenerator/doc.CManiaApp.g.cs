@@ -25,7 +25,6 @@ public partial class CManiaApp : CNod, ILocalProvider, IPersistentProvider
     public CUser LocalUser { get; }
     public CTitle LoadedTitle { get; }
     public bool EnableMenuNavigationInputs { get; set; }
-    public CUILayer[] UILayers { get; }
     public CUILayer UILayerCreate() => default!;
     public void UILayerDestroy(CUILayer Layer) { }
     public void UILayerDestroyAll() { }

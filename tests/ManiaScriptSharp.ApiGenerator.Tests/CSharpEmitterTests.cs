@@ -10,10 +10,11 @@ public class CSharpEmitterTests
 
     private static Dictionary<string, string> EmitAll(string input, string ns = "Test",
         ApiGeneratorSettings? settings = null,
-        HashSet<(string TypeName, string MethodName)>? userImplemented = null)
+        HashSet<(string TypeName, string MethodName)>? userImplemented = null,
+        HashSet<(string TypeName, string MemberName)>? userDefinedMembers = null)
     {
         var parsed = ParseHeader(input);
-        var emitter = new CSharpEmitter(ns, "test.h", parsed, settings, userImplemented);
+        var emitter = new CSharpEmitter(ns, "test.h", parsed, settings, userImplemented, userDefinedMembers);
         return emitter.Emit(parsed).ToDictionary(x => x.FileName, x => x.Source);
     }
 
@@ -56,6 +57,15 @@ public class CSharpEmitterTests
         var input = @"struct CFoo : public CNod { const Integer Now; };";
         var files = EmitAll(input);
         Assert.Contains("public int Now { get; }", files["CFoo.g.cs"]);
+    }
+
+    [Fact]
+    public void Emit_UserDefinedMember_SkipsGeneratedField()
+    {
+        var input = "struct CFoo : public CNod { CBar[] Items; };";
+        var userMembers = new HashSet<(string, string)> { ("CFoo", "Items") };
+        var files = EmitAll(input, userDefinedMembers: userMembers);
+        Assert.DoesNotContain("Items", files["CFoo.g.cs"]);
     }
 
     [Fact]

@@ -15,7 +15,6 @@ public partial class CUIConfigMgr : CNod
     public CUIConfig GetUI(CPlayer Player) => default!;
     public CUIConfig GetUI(CUser User) => default!;
     public CUIConfig GetUI(CClient Client) => default!;
-    public CUILayer[] UILayers { get; }
     public CUILayer UILayerCreate() => default!;
     public void UILayerDestroy(CUILayer Layer) { }
     public void UILayerDestroyAll() { }

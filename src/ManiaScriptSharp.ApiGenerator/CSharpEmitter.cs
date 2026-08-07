@@ -23,6 +23,10 @@ internal sealed class CSharpEmitter
     private readonly HashSet<(string TypeName, string MethodName)> _userImplemented;
     private readonly Dictionary<string, TypeDecl> _typesByName;
     private readonly Dictionary<string, EmittedMemberSet> _ownMembersCache = new();
+    /// <summary>(TypeName, MemberName) pairs the user already declared by hand in another partial
+    /// declaration — the generated field/property with that name is skipped so the user's own
+    /// member (which may have a different, more specific type) wins.</summary>
+    private readonly HashSet<(string TypeName, string MemberName)> _userDefinedMembers;
     private readonly HashSet<string> _knownPrimitives = new(new[]
     {
         "Void", "Integer", "Real", "Boolean", "Text",
@@ -44,12 +48,14 @@ internal sealed class CSharpEmitter
 
     public CSharpEmitter(string ns, string sourceFileName, ParsedHeader header,
         ApiGeneratorSettings? settings = null,
-        HashSet<(string TypeName, string MethodName)>? userImplemented = null)
+        HashSet<(string TypeName, string MethodName)>? userImplemented = null,
+        HashSet<(string TypeName, string MemberName)>? userDefinedMembers = null)
     {
         _namespace = ns;
         _sourceFileName = sourceFileName;
         _settings = settings ?? ApiGeneratorSettings.Default;
         _userImplemented = userImplemented ?? new HashSet<(string, string)>();
+        _userDefinedMembers = userDefinedMembers ?? new HashSet<(string, string)>();
         _typesByName = new Dictionary<string, TypeDecl>();
         foreach (var t in header.Types)
         {
@@ -150,7 +156,10 @@ internal sealed class CSharpEmitter
         sb.AppendLine("public partial struct Int3 { public int X; public int Y; public int Z; public Int3(int x, int y, int z) { X = x; Y = y; Z = z; } }");
         sb.AppendLine();
         sb.AppendLine("/// <summary>ManiaScript Ident — opaque unique object identifier.</summary>");
-        sb.AppendLine("public readonly partial struct Ident { public static readonly Ident? NullId = null; public override string ToString() => \"NullId\"; }");
+        sb.AppendLine("public readonly partial struct Ident : System.IEquatable<Ident> { public static readonly Ident? NullId = null; " +
+            "public override string ToString() => \"NullId\"; public bool Equals(Ident other) => true; " +
+            "public override bool Equals(object? obj) => obj is Ident; public override int GetHashCode() => 0; " +
+            "public static bool operator ==(Ident left, Ident right) => left.Equals(right); public static bool operator !=(Ident left, Ident right) => !left.Equals(right); }");
         sb.AppendLine();
         EndFile(sb);
         return sb.ToString();
@@ -286,6 +295,7 @@ internal sealed class CSharpEmitter
             if (m.Kind == MemberKind.Field)
             {
                 if (!seenFields.Add(m.Name)) continue;
+                if (_userDefinedMembers.Contains((t.Name, m.Name))) continue; // user overwrote this member by hand
                 var name = DisambiguateMember(m.Name, reservedMemberNames);
                 var useNew = inheritedMembers.FieldNames.Contains(BareIdentifier(name));
                 EmitField(sb, m, name, useNew, isStatic: t.IsNamespace && _settings.NamespaceLibsStatic);
