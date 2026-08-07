@@ -422,6 +422,7 @@ directly to `TextLib::` calls — no explicit `TextLib.Method(...)` call is requ
 | C# | ManiaScript |
 |---|---|
 | `s.Length` | `TextLib::Length(s)` |
+| `string.Empty` | `""` |
 | `s.ToUpper()` / `ToUpperInvariant()` | `TextLib::ToUpperCase(s)` |
 | `s.ToLower()` / `ToLowerInvariant()` | `TextLib::ToLowerCase(s)` |
 | `s.Trim()` | `TextLib::Trim(s)` |

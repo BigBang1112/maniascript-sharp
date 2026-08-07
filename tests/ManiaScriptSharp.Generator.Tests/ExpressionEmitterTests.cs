@@ -43,6 +43,12 @@ public class ExpressionEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Translate_StringEmpty_EmitsEmptyStringLiteral()
+    {
+        Assert.Equal("\"\"", TranslateExpr("string.Empty"));
+    }
+
+    [Fact]
     public void Translate_DefaultLiteral()
     {
         // default(T) is a DefaultExpressionSyntax — not explicitly handled,

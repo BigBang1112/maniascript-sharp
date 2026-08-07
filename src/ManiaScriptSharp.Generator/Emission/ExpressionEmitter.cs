@@ -201,6 +201,11 @@ internal sealed class ExpressionEmitter
         if (name == "NullId" && memberSym is IFieldSymbol { IsStatic: true, ContainingType.Name: "Ident" })
             return "NullId";
 
+        // string.Empty → "" literal.
+        if (name == "Empty" && memberSym is IFieldSymbol { IsStatic: true } emptyField
+            && emptyField.ContainingType?.SpecialType == SpecialType.System_String)
+            return "\"\"";
+
         // Accessing .Context directly as a member on an ILib field (e.g., myLib.Context).
         if (!_ctx.IsLib && IsLibContextAccess(memberSym))
         {
