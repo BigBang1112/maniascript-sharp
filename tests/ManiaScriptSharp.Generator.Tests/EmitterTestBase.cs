@@ -35,17 +35,17 @@ public class EmitterTestBase
         return refs;
     }
 
-    private static CSharpCompilation Compile(string code) =>
+    private static CSharpCompilation Compile(string code, string path = "") =>
         CSharpCompilation.Create(
             "TestAssembly",
-            [CSharpSyntaxTree.ParseText(code)],
+            [CSharpSyntaxTree.ParseText(code, path: path)],
             SharedRefs.Value,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
     private static (EmitContext ctx, ExpressionEmitter expr, StatementEmitter stmt, PatternEmitter pattern)
-        CreateEmitters(string classCode, BuildSettings? settings = null)
+        CreateEmitters(string classCode, BuildSettings? settings = null, string path = "")
     {
-        var compilation = Compile(classCode);
+        var compilation = Compile(classCode, path);
         var tree = compilation.SyntaxTrees[0];
         var model = compilation.GetSemanticModel(tree);
         var classDecl = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
@@ -86,6 +86,28 @@ class Test {classHeader} {{
             initExpr = pe.Expression;
         var output = expr.Translate(initExpr);
         return (output, ctx.ReportedDiagnostics);
+    }
+
+    /// <summary>
+    /// Like <see cref="TranslateExpr"/>, but parses the snippet as if it lived in a generator-produced
+    /// <c>.g.cs</c> file — used to verify that plain auto-generated API properties (no user-written
+    /// body) are treated as ManiaScript fields rather than routed through a Get/Set method call.
+    /// </summary>
+    protected static string TranslateExprFromGeneratedSource(string csharpExpr, string extraClassMembers = "")
+    {
+        var code = $@"
+using System;
+using System.Collections.Generic;
+class Test {{
+    {extraClassMembers}
+    void M() {{
+        {csharpExpr};
+    }}
+}}";
+        var (ctx, expr, _, _) = CreateEmitters(code, path: "Test.g.cs");
+        var stmt = ctx.Info.Model.SyntaxTree.GetRoot()
+            .DescendantNodes().OfType<ExpressionStatementSyntax>().First();
+        return expr.Translate(stmt.Expression);
     }
 
     /// <summary>

@@ -181,6 +181,12 @@ internal sealed class ExpressionEmitter
         var leftSym = _ctx.Model.GetSymbolInfo(m.Expression).Symbol;
         var memberSym = _ctx.Model.GetSymbolInfo(m).Symbol;
 
+        // string.Empty → "" literal. Checked before translating the receiver because `string`
+        // is a PredefinedTypeSyntax, not an identifier, and isn't otherwise translatable.
+        if (m.Name.Identifier.Text == "Empty" && memberSym is IFieldSymbol { IsStatic: true } emptyField
+            && emptyField.ContainingType?.SpecialType == SpecialType.System_String)
+            return "\"\"";
+
         // ILib<T>.Context appears as the left-hand expression of a member-access chain
         // (e.g., Context.Foo or myLib.Context.Foo → strip the Context receiver; it is implicit in ManiaScript).
         if (IsLibContextAccess(leftSym))
@@ -200,11 +206,6 @@ internal sealed class ExpressionEmitter
         // Ident.NullId → ManiaScript's bare `NullId` constant (not namespace-qualified).
         if (name == "NullId" && memberSym is IFieldSymbol { IsStatic: true, ContainingType.Name: "Ident" })
             return "NullId";
-
-        // string.Empty → "" literal.
-        if (name == "Empty" && memberSym is IFieldSymbol { IsStatic: true } emptyField
-            && emptyField.ContainingType?.SpecialType == SpecialType.System_String)
-            return "\"\"";
 
         // Accessing .Context directly as a member on an ILib field (e.g., myLib.Context).
         if (!_ctx.IsLib && IsLibContextAccess(memberSym))
@@ -321,13 +322,10 @@ internal sealed class ExpressionEmitter
             return $"assert({Args(inv.ArgumentList)})";
         }
 
-        // ToString on numerics → "" ^ x
-        if (sym is { Name: "ToString" } && callee is MemberAccessExpressionSyntax tsMa)
-        {
-            var recvType = _ctx.Model.GetTypeInfo(tsMa.Expression).Type;
-            if (IsNumericOrBoolText(recvType))
-                return $"\"\" ^ {Translate(tsMa.Expression)}";
-        }
+        // ToString() on any type → "" ^ x; ManiaScript's `^` operator auto-converts every type.
+        // (Static `Convert.ToString(x)` is handled below via MapConvertCall, not here.)
+        if (sym is { IsStatic: false, Name: "ToString" } && callee is MemberAccessExpressionSyntax tsMa)
+            return $"\"\" ^ {Translate(tsMa.Expression)}";
 
         // System.Convert.ToXxx(value) → TextLib::/MathLib:: conversions (same table as explicit casts).
         if (sym is not null && sym.ContainingType?.ToDisplayString() == "System.Convert")
@@ -448,17 +446,26 @@ internal sealed class ExpressionEmitter
         {
             var lsym = _ctx.Model.GetSymbolInfo(lid2).Symbol;
             if (lsym is IPropertySymbol lp && !lp.HasAttr("ManialinkControlAttribute")
-                && lp.SetMethod is not null)
+                && lp.SetMethod is not null && IsUserDefinedProperty(lp))
                 return $"{NameMangler.Setter(lp)}({valueText})";
         }
         if (left is MemberAccessExpressionSyntax lma)
         {
             var lsym = _ctx.Model.GetSymbolInfo(lma).Symbol;
+            // Only user-defined properties (with a C# body) translate to a Set*() call — a
+            // plain auto-generated API property (e.g. CUILayer.IsVisible) is a real ManiaScript
+            // field and must stay a plain assignment.
             if (lsym is IPropertySymbol lp && !lp.HasAttr("ManialinkControlAttribute")
-                && lp.SetMethod is not null)
+                && lp.SetMethod is not null && IsUserDefinedProperty(lp))
             {
                 var recv = Translate(lma.Expression);
-                return $"{recv}::{NameMangler.Setter(lp)}({valueText})";
+                // `::` is reserved for library/enum/type-qualified receivers; any other
+                // receiver (e.g. a plain instance) calls the Set*() function via `.`.
+                var recvSym = _ctx.Model.GetSymbolInfo(lma.Expression).Symbol;
+                var recvIsLib = recvSym is IFieldSymbol recvField && recvField.IsLibImplementation();
+                var recvIsType = recvSym is INamedTypeSymbol;
+                var sep = (recvIsLib || recvIsType) ? "::" : ".";
+                return $"{recv}{sep}{NameMangler.Setter(lp)}({valueText})";
             }
         }
 
@@ -726,17 +733,6 @@ internal sealed class ExpressionEmitter
 
     private static bool IsLinqMethod(IMethodSymbol m)
         => (m.ReducedFrom ?? m).ContainingType?.ToDisplayString() == "System.Linq.Enumerable";
-
-    private static bool IsNumericOrBoolText(ITypeSymbol? t) => t?.SpecialType switch
-    {
-        SpecialType.System_Boolean or
-        SpecialType.System_Byte or SpecialType.System_SByte or
-        SpecialType.System_Int16 or SpecialType.System_UInt16 or
-        SpecialType.System_Int32 or SpecialType.System_UInt32 or
-        SpecialType.System_Int64 or SpecialType.System_UInt64 or
-        SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal => true,
-        _ => false,
-    };
 
     private static bool IsListLikeType(INamedTypeSymbol? t)
     {

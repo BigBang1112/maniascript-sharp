@@ -137,4 +137,20 @@ public class PropertyEmitterTests : EmitterTestBase
         var output = TranslateStmt("score = 5;", "int _x; public int score { get { return _x; } set { _x = value; } }");
         Assert.Equal("SetScore(5);", output);
     }
+
+    [Fact]
+    public void Translate_LibFieldPropertyAssign_UsesDoubleColon()
+    {
+        // A lib field's user-defined property setter is a real library call — `::` is correct here.
+        var extra = @"
+            class Layers : ManiaScriptSharp.ILib<object>
+            {
+                public object Context => null!;
+                int _x;
+                public int Score { get { return _x; } set { _x = value; } }
+            }
+            Layers myLib = new Layers();";
+        var output = TranslateStmt("myLib.Score = 5;", extra);
+        Assert.Equal("MyLib::SetScore(5);", output);
+    }
 }

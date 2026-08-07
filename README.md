@@ -400,10 +400,11 @@ declare Text Raw = """no need to escape "quotes" or paths\here""";
 | `"\\"` | `"\\"` |
 | `"\""` | Not needed in `"""..."""` |
 
-### `ToString()` on Numbers/Booleans
+### `ToString()` on Any Type
 
-Calling `.ToString()` on a numeric or `bool` value converts to `Text` via ManiaScript's
-auto-coercing `^` operator instead of a `TextLib` call:
+Calling `.ToString()` on any value — numeric, `bool`, `Ident`, `Vec2`/`Vec3`/`Int2`/`Int3`,
+or a class reference like `CSmPlayer` — converts to `Text` via ManiaScript's auto-coercing
+`^` operator instead of a `TextLib` call:
 
 C#:
 ```cs
@@ -1903,7 +1904,7 @@ log(Score);
 | Collection expression `[1, 2, 3]` | `[1, 2, 3]` |
 | Named argument `f(x: 1)` | `f(/* x: */ 1)` |
 | Auto-property / property with body | `Get`/`Set` functions |
-| `x.ToString()` (numeric/bool) | `"" ^ X` |
+| `x.ToString()` (any type) | `"" ^ X` |
 | `Console.WriteLine(x)` / `Console.Write(x)` | `log(x)` |
 | `Math.Abs(x)` etc. | `MathLib::Abs(x)` etc. (auto-mapped) |
 | `s.ToUpper()`, `int.Parse(s)`, etc. | `TextLib::` calls (auto-mapped) |
