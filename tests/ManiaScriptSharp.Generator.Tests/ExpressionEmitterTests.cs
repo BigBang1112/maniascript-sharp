@@ -25,6 +25,24 @@ public class ExpressionEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Translate_NullLiteral_ForIdentField_BecomesNullId()
+    {
+        Assert.Equal("X = NullId", TranslateExpr("x = null", "public struct Ident {} Ident? x;"));
+    }
+
+    [Fact]
+    public void Translate_NullLiteral_ForNonIdentField_StaysNull()
+    {
+        Assert.Equal("X = Null", TranslateExpr("x = null", "public class Foo {} Foo? x;"));
+    }
+
+    [Fact]
+    public void Translate_IdentNullId_StaticField_EmitsBareNullId()
+    {
+        Assert.Equal("NullId", TranslateExpr("Ident.NullId", "public struct Ident { public static readonly Ident NullId = default; }"));
+    }
+
+    [Fact]
     public void Translate_DefaultLiteral()
     {
         // default(T) is a DefaultExpressionSyntax — not explicitly handled,

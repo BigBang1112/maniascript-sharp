@@ -20,5 +20,5 @@ public partial struct Int2 { public int X; public int Y; public Int2(int x, int 
 public partial struct Int3 { public int X; public int Y; public int Z; public Int3(int x, int y, int z) { X = x; Y = y; Z = z; } }
 
 /// <summary>ManiaScript Ident — opaque unique object identifier.</summary>
-public readonly partial struct Ident { public static readonly Ident NullId = default; public override string ToString() => "NullId"; }
+public readonly partial struct Ident { public static readonly Ident? NullId = null; public override string ToString() => "NullId"; }
 

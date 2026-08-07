@@ -66,12 +66,12 @@ declare MyVariable = 42;
 After declaration, the type cannot change. Variables are always initialized to a default value if not specified.
 
 ```
-declare planets = 9000;         // planets is cast to Integer
-planets = "9000 planets";       // ERROR: type mismatch
+declare Planets = 9000;         // Planets is cast to Integer
+Planets = "9000 planets";       // ERROR: type mismatch
 
-declare Text serverName;        // initial value is empty string
-serverName = "My testing server";
-log(serverName ^ " has currently " ^ planets ^ "p.");
+declare Text ServerName;        // initial value is empty string
+ServerName = "My testing server";
+log(ServerName ^ " has currently " ^ Planets ^ "p.");
 ```
 
 ### Variable Scope

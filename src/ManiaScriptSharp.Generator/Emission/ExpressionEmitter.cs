@@ -61,13 +61,27 @@ internal sealed class ExpressionEmitter
     {
         SyntaxKind.TrueLiteralExpression => "True",
         SyntaxKind.FalseLiteralExpression => "False",
-        SyntaxKind.NullLiteralExpression => "Null",
-        SyntaxKind.DefaultLiteralExpression => "Null",
+        SyntaxKind.NullLiteralExpression => TranslateNullLiteral(lit),
+        SyntaxKind.DefaultLiteralExpression => TranslateNullLiteral(lit),
         SyntaxKind.StringLiteralExpression => TranslateStringLiteral(lit),
         SyntaxKind.CharacterLiteralExpression => "\"" + lit.Token.ValueText + "\"",
         SyntaxKind.NumericLiteralExpression => TranslateNumeric(lit),
         _ => lit.Token.Text,
     };
+
+    /// <summary>`null`/`default` targeting an <c>Ident</c> (or <c>Ident?</c>) maps to ManiaScript's <c>NullId</c>.</summary>
+    private string TranslateNullLiteral(LiteralExpressionSyntax lit)
+    {
+        // The literal must belong to the bound model's tree — patterns translated from a
+        // detached syntax fragment (e.g. constant sub-expressions in `is`-patterns) have no
+        // semantic info available, so fall back to the untyped "Null" in that case.
+        if (lit.SyntaxTree != _ctx.Model.SyntaxTree) return "Null";
+
+        var type = _ctx.Model.GetTypeInfo(lit).ConvertedType;
+        if (type is INamedTypeSymbol { ConstructedFrom.SpecialType: SpecialType.System_Nullable_T } nullable)
+            type = nullable.TypeArguments[0];
+        return type?.Name == "Ident" ? "NullId" : "Null";
+    }
 
     private static string TranslateStringLiteral(LiteralExpressionSyntax lit)
     {
@@ -182,6 +196,10 @@ internal sealed class ExpressionEmitter
 
         var lhs = Translate(m.Expression);
         var name = m.Name.Identifier.Text;
+
+        // Ident.NullId → ManiaScript's bare `NullId` constant (not namespace-qualified).
+        if (name == "NullId" && memberSym is IFieldSymbol { IsStatic: true, ContainingType.Name: "Ident" })
+            return "NullId";
 
         // Accessing .Context directly as a member on an ILib field (e.g., myLib.Context).
         if (!_ctx.IsLib && IsLibContextAccess(memberSym))

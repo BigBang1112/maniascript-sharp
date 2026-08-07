@@ -27,6 +27,7 @@ internal sealed class LiteralEmitter
         SpecialType.System_String => "\"\"",
         SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal => "0.",
         SpecialType.System_Void => "",
+        SpecialType.None when t.Name == "Ident" => "NullId",
         _ => "0",
     };
 

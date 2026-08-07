@@ -103,4 +103,12 @@ public class LiteralEmitterTests
         var type = SymbolHelper.CreateType(Microsoft.CodeAnalysis.SpecialType.System_Void);
         Assert.Equal("", _emitter.Default(type));
     }
+
+    [Fact]
+    public void Default_Ident_ReturnsNullId()
+    {
+        // An uninitialized [Setting]/field of type Ident (non-nullable, no explicit `null`) defaults to NullId.
+        var type = SymbolHelper.CreateType(Microsoft.CodeAnalysis.SpecialType.None, "Ident");
+        Assert.Equal("NullId", _emitter.Default(type));
+    }
 }

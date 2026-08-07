@@ -123,13 +123,13 @@ Edit the C# file, save, and the `.Script.txt` is rewritten automatically.
 | `Vector3` / custom | `Vec3` | `<Real, Real, Real>` |
 | custom `Int3` | `Int3` | `<Integer, Integer, Integer>` |
 
-### Special Types
+### Nullability
 
 | C# | ManiaScript | Notes |
 |---|---|---|
-| `Ident` (custom) | `Ident` | Object identifier |
 | `null` | `Null` | For class references |
-| `NullId` (custom) | `NullId` | For Ident values |
+| `null` (in an `Ident` context) | `NullId` | e.g. `Ident? x = null;` or `x == null` |
+| `Ident.NullId` | `NullId` | Static field on the generated `Ident` struct (itself typed `Ident?`) |
 
 ### Boolean Literals
 

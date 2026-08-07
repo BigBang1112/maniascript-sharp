@@ -354,6 +354,21 @@ public class StatementEmitterTests : EmitterTestBase
         Assert.Equal("declare StringBuilder S;", output);
     }
 
+    [Fact]
+    public void Emit_LocalDecl_NullLiteral_ForIdentType_BecomesNullId()
+    {
+        // Ident? x = null; → declare Ident X = NullId; (Ident's default value)
+        var output = TranslateStmt("Ident? x = null;", "public struct Ident {}");
+        Assert.Equal("declare Ident X = NullId;", output);
+    }
+
+    [Fact]
+    public void Emit_LocalDecl_DefaultLiteral_ForIdentType_BecomesNullId()
+    {
+        var output = TranslateStmt("Ident? x = default;", "public struct Ident {}");
+        Assert.Equal("declare Ident X = NullId;", output);
+    }
+
     // ────────── Label calls ──────────
 
     [Fact]

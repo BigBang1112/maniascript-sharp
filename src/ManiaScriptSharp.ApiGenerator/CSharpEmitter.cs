@@ -150,7 +150,7 @@ internal sealed class CSharpEmitter
         sb.AppendLine("public partial struct Int3 { public int X; public int Y; public int Z; public Int3(int x, int y, int z) { X = x; Y = y; Z = z; } }");
         sb.AppendLine();
         sb.AppendLine("/// <summary>ManiaScript Ident — opaque unique object identifier.</summary>");
-        sb.AppendLine("public readonly partial struct Ident { public static readonly Ident NullId = default; public override string ToString() => \"NullId\"; }");
+        sb.AppendLine("public readonly partial struct Ident { public static readonly Ident? NullId = null; public override string ToString() => \"NullId\"; }");
         sb.AppendLine();
         EndFile(sb);
         return sb.ToString();
