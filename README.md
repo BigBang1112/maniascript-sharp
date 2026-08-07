@@ -22,7 +22,7 @@ flowchart LR
     D -->|AddSource| F[marker .g.cs<br/>satisfies generator contract]
 ```
 
-1. The generator's `SyntaxProvider` watches every `ClassDeclarationSyntax` whose base list references [`IContext`](src/ManiaScriptSharp/IContext.cs).
+1. The generator's `SyntaxProvider` watches every `ClassDeclarationSyntax` whose base references [`IContext`](src/ManiaScriptSharp/IContext.cs) or [`ILib`](src/ManiaScriptSharp/ILib.cs).
 2. For each match, [`ScriptEmitter`](src/ManiaScriptSharp.Generator/ScriptEmitter.cs) walks the syntax tree with a `SemanticModel` and produces ManiaScript text following the C# to ManiaScript conversion reference below.
 3. [`BuildSettings`](src/ManiaScriptSharp.Generator/BuildSettings.cs) reads compiler-visible MSBuild properties to set the output folder and indentation. Configure them in your `.csproj`:
 
@@ -52,6 +52,18 @@ samples/MyMode/out/MyMode/MyGamemode.Script.txt
 ```
 
 Edit the C# file, save, and the `.Script.txt` is rewritten automatically.
+
+### IDE setup
+
+**VSCode:** Copy the `.vscode/settings.json` from this repo into your own project (or add the setting below to your existing one). It sets the C# extension's Roslyn server to re-run source generators on every keystroke instead of only on save, matching the "even when typing" behavior described above:
+
+```json
+{
+  "dotnet.server.sourceGeneratorExecution": "Automatic"
+}
+```
+
+**Visual Studio (not Code):** There's no equivalent setting — source generators already re-run automatically as part of the background/design-time build. If the generated `.Script.txt` looks stale, save the file or trigger a build (Build → Build Solution) to force a re-run.
 
 ### Extending the generator
 
@@ -152,9 +164,9 @@ var inferred = "hello";       // type inferred
 ```
 ManiaScript:
 ```
-declare Text name;
-declare Integer count = 42;
-declare inferred = "hello";
+declare Text Name;
+declare Integer Count = 42;
+declare Inferred = "hello";
 ```
 
 ### Global Variables
@@ -354,8 +366,8 @@ string greeting = name + " has " + score + " points.";
 ```
 ManiaScript:
 ```
-declare Text result = "Hello " ^ "world!";
-declare Text greeting = name ^ " has " ^ score ^ " points.";
+declare Text Result = "Hello " ^ "world!";
+declare Text Greeting = Name ^ " has " ^ Score ^ " points.";
 ```
 
 ### String Interpolation → Triple-Quote Expressions
@@ -366,7 +378,7 @@ string msg = $"Hello {playerName}, score = {2 + 3}";
 ```
 ManiaScript:
 ```
-declare Text msg = """Hello {{{playerName}}}, score = {{{2 + 3}}}""";
+declare Text Msg = """Hello {{{PlayerName}}}, score = {{{2 + 3}}}""";
 ```
 
 ### Verbatim / Raw Strings → Triple-Quoted Text
@@ -377,7 +389,7 @@ string raw = @"no need to escape ""quotes"" or paths\here";
 ```
 ManiaScript:
 ```
-declare Text raw = """no need to escape "quotes" or paths\here""";
+declare Text Raw = """no need to escape "quotes" or paths\here""";
 ```
 
 ### Escape Sequences
@@ -453,9 +465,9 @@ else
 ```
 ManiaScript:
 ```
-if (list.count > 2) {
-    DoSomething(list);
-} else if (list.count == 0) {
+if (List.count > 2) {
+    DoSomething(List);
+} else if (List.count == 0) {
     log("Empty");
 } else {
     log("Too few items");
@@ -1890,7 +1902,7 @@ log(Score);
 | Collection expression `[1, 2, 3]` | `[1, 2, 3]` |
 | Named argument `f(x: 1)` | `f(/* x: */ 1)` |
 | Auto-property / property with body | `Get`/`Set` functions |
-| `x.ToString()` (numeric/bool) | `"" ^ x` |
+| `x.ToString()` (numeric/bool) | `"" ^ X` |
 | `Console.WriteLine(x)` / `Console.Write(x)` | `log(x)` |
 | `Math.Abs(x)` etc. | `MathLib::Abs(x)` etc. (auto-mapped) |
 | `s.ToUpper()`, `int.Parse(s)`, etc. | `TextLib::` calls (auto-mapped) |

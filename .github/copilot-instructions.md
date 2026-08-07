@@ -1,7 +1,6 @@
 # ManiaScriptSharp
 
-Roslyn incremental source generator translating C# (`IContext`, `AliasAttribute`,
-`SettingAttribute`, ...) into ManiaScript `.Script.txt` files.
+Roslyn incremental source generator translating C# into ManiaScript `.Script.txt` files.
 
 ## README sync (important)
 
