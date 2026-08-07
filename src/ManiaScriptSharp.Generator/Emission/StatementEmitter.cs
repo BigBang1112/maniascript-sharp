@@ -321,10 +321,84 @@ internal sealed class StatementEmitter
             _ctx.W.Line("}");
             return;
         }
+
+        if (TryEmitDictionaryForeach(fes)) return;
+
         var name = NameMangler.Local(fes.Identifier.Text);
         _ctx.W.Line($"foreach ({name} in {_expr.Translate(fes.Expression)}) {{");
         _ctx.W.Push(); EmitInline(fes.Statement); _ctx.W.Pop();
         _ctx.W.Line("}");
+    }
+
+    /// <summary>
+    /// Handles <c>foreach</c> over a <c>Dictionary</c> (or its <c>.Keys</c>/<c>.Values</c>), all of
+    /// which ManiaScript requires as <c>foreach (Key => Value in Dict)</c> — there is no plain
+    /// single-variable form for associative arrays. Returns <see langword="false"/> when
+    /// <paramref name="fes"/> isn't one of these cases, so the caller falls back to the plain form.
+    /// </summary>
+    private bool TryEmitDictionaryForeach(ForEachStatementSyntax fes)
+    {
+        // foreach (var k in dict.Keys) / foreach (var v in dict.Values) — the ignored side gets
+        // a synthesized placeholder name; the used side keeps the C#-declared loop variable name.
+        if (fes.Expression is MemberAccessExpressionSyntax ma && ma.Name.Identifier.Text is "Keys" or "Values"
+            && ExpressionEmitter.IsDictionaryType(_ctx.Model.GetTypeInfo(ma.Expression).Type as INamedTypeSymbol))
+        {
+            var loopName = NameMangler.Local(fes.Identifier.Text);
+            var isKeys = ma.Name.Identifier.Text == "Keys";
+            var keyName = isKeys ? loopName : loopName + "Key";
+            var valName = isKeys ? loopName + "Value" : loopName;
+
+            _ctx.W.Line($"foreach ({keyName} => {valName} in {_expr.Translate(ma.Expression)}) {{");
+            _ctx.W.Push(); EmitInline(fes.Statement); _ctx.W.Pop();
+            _ctx.W.Line("}");
+            return true;
+        }
+
+        // foreach (var pair in dict) → foreach (PairKey => PairValue in Dict), remapping
+        // pair.Key/pair.Value to the bare Key/Value names inside the loop body.
+        if (ExpressionEmitter.IsDictionaryType(_ctx.Model.GetTypeInfo(fes.Expression).Type as INamedTypeSymbol))
+        {
+            var pairName = fes.Identifier.Text;
+            if (HasUnsupportedPairUsage(fes, pairName))
+            {
+                _ctx.Report(Diagnostics.Unsupported, fes.GetLocation(),
+                    $"foreach (var {pairName} in ...) over a Dictionary used beyond .Key/.Value " +
+                    "(switch to 'foreach (var (key, value) in ...)' instead)");
+                return false;
+            }
+
+            var baseName = NameMangler.Local(pairName);
+            var keyName = baseName + "Key";
+            var valName = baseName + "Value";
+
+            _ctx.DictPairLocals[pairName] = (keyName, valName);
+            _ctx.W.Line($"foreach ({keyName} => {valName} in {_expr.Translate(fes.Expression)}) {{");
+            _ctx.W.Push(); EmitInline(fes.Statement); _ctx.W.Pop();
+            _ctx.W.Line("}");
+            _ctx.DictPairLocals.Remove(pairName);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns <see langword="true"/> when <paramref name="pairName"/> is referenced in
+    /// <paramref name="fes"/>'s body some way other than <c>.Key</c>/<c>.Value</c> member access
+    /// (e.g. passed around whole), which the automatic Key/Value rewrite cannot express.
+    /// </summary>
+    private bool HasUnsupportedPairUsage(ForEachStatementSyntax fes, string pairName)
+    {
+        foreach (var id in fes.Statement.DescendantNodes().OfType<IdentifierNameSyntax>())
+        {
+            if (id.Identifier.Text != pairName) continue;
+            if (_ctx.Model.GetSymbolInfo(id).Symbol is not ILocalSymbol) continue;
+            if (id.Parent is MemberAccessExpressionSyntax { Name.Identifier.Text: "Key" or "Value" } ma2
+                && ma2.Expression == id)
+                continue;
+            return true;
+        }
+        return false;
     }
 
     /// <summary>

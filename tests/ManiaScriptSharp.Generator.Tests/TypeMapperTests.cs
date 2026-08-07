@@ -58,4 +58,20 @@ public class TypeMapperTests
         var type = SymbolHelper.CreateType(SpecialType.None, "Vector3");
         Assert.Equal("Vec3", TypeMapper.Map(type));
     }
+
+    [Fact]
+    public void Map_NestedEnum_KeepsContainingTypeInPath()
+    {
+        // C# CUILayer.EUILayerType → ManiaScript CUILayer::EUILayerType
+        var containing = (INamedTypeSymbol)SymbolHelper.CreateType(SpecialType.None, "CUILayer");
+        var type = SymbolHelper.CreateType(SpecialType.None, "EUILayerType", TypeKind.Enum, containing);
+        Assert.Equal("CUILayer::EUILayerType", TypeMapper.Map(type));
+    }
+
+    [Fact]
+    public void Map_TopLevelEnum_HasNoContainingTypePrefix()
+    {
+        var type = SymbolHelper.CreateType(SpecialType.None, "EWeapon", TypeKind.Enum);
+        Assert.Equal("EWeapon", TypeMapper.Map(type));
+    }
 }

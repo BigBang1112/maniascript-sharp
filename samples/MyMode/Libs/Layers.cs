@@ -170,16 +170,6 @@ public class Layers : ILib<CManiaApp>
             layer.IsVisible = false;
     }
 
-    public void ShowOnly(string layerName, bool showEvent = false, bool hideEvent = false)
-    {
-        foreach (var layer in LayersByName.Keys)
-        {
-            Hide(layer, hideEvent);
-        }
-
-        Show(layerName, showEvent);
-    }
-
     public void SendEvent(string layerName, string type, string[] data)
     {
         Context.LayerCustomEvent(Get(layerName), type, data);

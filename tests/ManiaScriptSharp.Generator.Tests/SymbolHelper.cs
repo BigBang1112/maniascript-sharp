@@ -36,12 +36,18 @@ internal static class SymbolHelper
         return method;
     }
 
-    public static ITypeSymbol CreateType(SpecialType specialType, string name = "")
+    public static ITypeSymbol CreateType(
+        SpecialType specialType,
+        string name = "",
+        TypeKind typeKind = TypeKind.Class,
+        INamedTypeSymbol? containingType = null)
     {
         var type = Substitute.For<INamedTypeSymbol>();
         type.SpecialType.Returns(specialType);
         type.Name.Returns(name);
         type.IsGenericType.Returns(false);
+        type.TypeKind.Returns(typeKind);
+        type.ContainingType.Returns(containingType);
         return type;
     }
 

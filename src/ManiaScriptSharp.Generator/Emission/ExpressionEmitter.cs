@@ -187,6 +187,13 @@ internal sealed class ExpressionEmitter
             && emptyField.ContainingType?.SpecialType == SpecialType.System_String)
             return "\"\"";
 
+        // pair.Key / pair.Value on a `foreach (var pair in dict)` loop variable → the bare
+        // synthesized Key/Value name from the rewritten `foreach (Key => Value in dict)`.
+        if (m.Expression is IdentifierNameSyntax dictPairId
+            && _ctx.DictPairLocals.TryGetValue(dictPairId.Identifier.Text, out var dictPairNames)
+            && m.Name.Identifier.Text is "Key" or "Value")
+            return m.Name.Identifier.Text == "Key" ? dictPairNames.KeyName : dictPairNames.ValueName;
+
         // ILib<T>.Context appears as the left-hand expression of a member-access chain
         // (e.g., Context.Foo or myLib.Context.Foo → strip the Context receiver; it is implicit in ManiaScript).
         if (IsLibContextAccess(leftSym))
@@ -379,6 +386,7 @@ internal sealed class ExpressionEmitter
             "Clear" => $"{recv}.clear()",
             "Contains" => $"{recv}.exists({a})",
             "ContainsKey" => $"{recv}.existskey({a})",
+            "ContainsValue" => $"{recv}.exists({a})",
             "IndexOf" => $"{recv}.keyof({a})",
             "Sort" or "OrderBy" => $"{recv}.sort()",
             "Reverse" or "OrderByDescending" => $"{recv}.sortreverse()",

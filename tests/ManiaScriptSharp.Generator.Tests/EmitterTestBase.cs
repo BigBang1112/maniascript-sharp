@@ -161,6 +161,30 @@ class Test {{
     }
 
     /// <summary>
+    /// Like <see cref="TranslateStmt"/>, but also returns the diagnostics reported by
+    /// <see cref="EmitContext.Report"/> while emitting the statement.
+    /// </summary>
+    protected static (string Output, IReadOnlyList<Diagnostic> Diagnostics) TranslateStmtWithDiagnostics(
+        string csharpStmt, string extraClassMembers = "")
+    {
+        var code = $@"
+using System;
+using System.Collections.Generic;
+class Test {{
+    {extraClassMembers}
+    void M() {{
+        {csharpStmt}
+    }}
+}}";
+        var (ctx, _, stmt, _) = CreateEmitters(code);
+        var firstStmt = ctx.Info.Model.SyntaxTree.GetRoot()
+            .DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .First(m => m.Identifier.Text == "M").Body!.Statements.First();
+        stmt.Emit(firstStmt);
+        return (ctx.W.ToString().ReplaceLineEndings("\n").Trim(), ctx.ReportedDiagnostics);
+    }
+
+    /// <summary>
     /// Emits statements with an extra label method registered so label-call
     /// rewriting can be tested.  The labeled method is declared in the class so
     /// Roslyn can resolve its symbol and the +++Name+++ rewriting fires.

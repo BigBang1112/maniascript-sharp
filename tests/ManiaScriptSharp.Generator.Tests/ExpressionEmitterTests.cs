@@ -365,6 +365,20 @@ public class ExpressionEmitterTests : EmitterTestBase
         Assert.Empty(diagnostics);
     }
 
+    // ────────── Dictionary methods ──────────
+
+    [Fact]
+    public void Translate_DictionaryContainsValue_MapsToExists()
+    {
+        Assert.Equal("Map.exists(5)", TranslateExpr("map.ContainsValue(5)", "Dictionary<string, int> map = new();"));
+    }
+
+    [Fact]
+    public void Translate_DictionaryContainsKey_MapsToExistsKey()
+    {
+        Assert.Equal("Map.existskey(\"a\")", TranslateExpr("map.ContainsKey(\"a\")", "Dictionary<string, int> map = new();"));
+    }
+
     [Fact]
     public void Translate_TernaryExpression_UnsupportedInline()
     {

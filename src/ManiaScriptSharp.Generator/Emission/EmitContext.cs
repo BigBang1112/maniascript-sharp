@@ -64,6 +64,13 @@ internal sealed class EmitContext
     /// </summary>
     public Dictionary<string, ExpressionSyntax> PendingLinqChains { get; } = [];
 
+    /// <summary>
+    /// Maps a <c>foreach (var pair in dict)</c> loop variable name to its synthesized ManiaScript
+    /// Key/Value names (e.g. <c>PairKey</c>/<c>PairValue</c>), so <c>pair.Key</c>/<c>pair.Value</c>
+    /// in the loop body translate to the corresponding bare identifier.
+    /// </summary>
+    public Dictionary<string, (string KeyName, string ValueName)> DictPairLocals { get; } = [];
+
     private readonly bool _hasSpc;
 
     public EmitContext(ContextClassInfo info, SourceProductionContext spc, BuildSettings settings)

@@ -272,6 +272,48 @@ public class StatementEmitterTests : EmitterTestBase
         Assert.DoesNotContain("=>", output);
     }
 
+    [Fact]
+    public void Emit_Foreach_DictionaryPair_UsesKeyValueForm_AndRemapsMembers()
+    {
+        // foreach (var pair in dict) { ... pair.Key / pair.Value ... } → foreach (PairKey => PairValue in Dict)
+        var output = TranslateStmt(
+            "foreach (var pair in dict) { if (pair.Value == 1) { } var k = pair.Key; }",
+            "System.Collections.Generic.Dictionary<string, int> dict;");
+        Assert.StartsWith("foreach (PairKey => PairValue in Dict) {", output);
+        Assert.Contains("if (PairValue == 1) {", output);
+        Assert.Contains("declare K = PairKey;", output);
+    }
+
+    [Fact]
+    public void Emit_Foreach_DictionaryKeys_UsesKeyValueForm_WithPlaceholderValue()
+    {
+        var output = TranslateStmt(
+            "foreach (var name in dict.Keys) { }",
+            "System.Collections.Generic.Dictionary<string, int> dict;");
+        Assert.Equal("foreach (Name => NameValue in Dict) {\n}", output);
+    }
+
+    [Fact]
+    public void Emit_Foreach_DictionaryValues_UsesKeyValueForm_WithPlaceholderKey()
+    {
+        var output = TranslateStmt(
+            "foreach (var score in dict.Values) { }",
+            "System.Collections.Generic.Dictionary<string, int> dict;");
+        Assert.Equal("foreach (ScoreKey => Score in Dict) {\n}", output);
+    }
+
+    [Fact]
+    public void Emit_Foreach_DictionaryPair_ComplexUsage_ReportsDiagnosticAndFallsBack()
+    {
+        // Passing the whole KeyValuePair around can't be expressed via Key => Value —
+        // report the construct as unsupported and fall back to the plain single-variable form.
+        var (output, diagnostics) = TranslateStmtWithDiagnostics(
+            "foreach (var pair in dict) { Log(pair); }",
+            "System.Collections.Generic.Dictionary<string, int> dict; void Log(object o) {}");
+        Assert.StartsWith("foreach (Pair in Dict) {", output);
+        Assert.Single(diagnostics);
+    }
+
     // ────────── If ──────────
 
     [Fact]

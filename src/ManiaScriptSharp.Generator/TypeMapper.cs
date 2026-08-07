@@ -48,10 +48,18 @@ internal static class TypeMapper
         };
     }
 
-    private static string MapNamed(ITypeSymbol type) => type.Name switch
+    private static string MapNamed(ITypeSymbol type)
     {
-        "Vector2" => "Vec2",
-        "Vector3" => "Vec3",
-        _ => type.Name,
-    };
+        // Nested enums (e.g. CUILayer.EUILayerType) keep their containing type in the
+        // path, mirroring the ManiaScript header (`CUILayer::EUILayerType`).
+        if (type.TypeKind == TypeKind.Enum && type.ContainingType is { } containing)
+            return $"{containing.Name}::{type.Name}";
+
+        return type.Name switch
+        {
+            "Vector2" => "Vec2",
+            "Vector3" => "Vec3",
+            _ => type.Name,
+        };
+    }
 }
