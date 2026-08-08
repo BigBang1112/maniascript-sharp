@@ -45,6 +45,12 @@ internal sealed class GlobalEmitter
             _ctx.W.Line($"declare {msType} {backing};");
             any = true;
         }
+        // Backing globals for OnChange(value, oldValue => { ... }) call sites (collected up-front).
+        foreach (var kvp in _ctx.OnChangeGlobals)
+        {
+            _ctx.W.Line($"declare {TypeMapper.Map(kvp.Value)} {kvp.Key};");
+            any = true;
+        }
         if (any) _ctx.W.Line();
     }
 

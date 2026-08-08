@@ -51,6 +51,13 @@ public class MyGamemode : CTmMode, IContext
             _state = "Finished";
             Log("Round over");
         }
+
+        OnChange(_score, prevScore =>
+        {
+            Log($"Score changed from {prevScore} to {_score}");
+            int bonus = ComputeBonus(_score);
+            Log($"Bonus points: {bonus}");
+        });
     }
 
     private static int ComputeBonus(int basePoints)

@@ -94,13 +94,14 @@ Edit the C# file, save, and the `.Script.txt` is rewritten automatically.
 17. [Labels](#labels)
 18. [Timing Instructions](#timing-instructions)
 19. [Event Handling](#event-handling)
-20. [Manialink Bindings](#manialink-bindings)
-21. [Netwrites & Netreads](#netwrites--netreads)
-22. [Persistent Variables](#persistent-variables)
-23. [Pattern Matching](#pattern-matching)
-24. [Log & Assertions](#log--assertions)
-25. [Game Mode Structure](#game-mode-structure)
-26. [Quick Reference Table](#quick-reference-table)
+20. [Change Detection (OnChange)](#change-detection-onchange)
+21. [Manialink Bindings](#manialink-bindings)
+22. [Netwrites & Netreads](#netwrites--netreads)
+23. [Persistent Variables](#persistent-variables)
+24. [Pattern Matching](#pattern-matching)
+25. [Log & Assertions](#log--assertions)
+26. [Game Mode Structure](#game-mode-structure)
+27. [Quick Reference Table](#quick-reference-table)
 
 ---
 
@@ -1599,6 +1600,41 @@ main() {
 
 > Delegates, lambdas, and method references are all supported. Referencing a named method will call it rather than inlining contents. Subscriptions must be registered inside `Main()` — the generator only scans `Main()` for `+=` registrations.
 
+## Change Detection (OnChange)
+
+`CNod.OnChange` (available on any `CNod`-derived context, e.g. inside `Loop()`) detects when a
+field/property's value changes between calls and runs a callback with the previous value.
+ManiaScript has no equivalent runtime mechanism, so the generator translates it statically into
+a backing global plus an `if` check.
+
+C#:
+```cs
+private int _score;
+
+public void Loop()
+{
+    OnChange(_score, (int oldScore) =>
+    {
+        Log($"Score changed from {oldScore} to {_score}");
+    });
+}
+```
+ManiaScript:
+```
+declare Integer Score;
+declare Integer OldScore;
+
+while (True) {
+    yield;
+    if (Score != OldScore) {
+        log("Score changed from " ^ OldScore ^ " to " ^ Score);
+        OldScore = Score;
+    }
+}
+```
+
+The first argument must be a direct field/property reference — that's what names the generated backing global (`_score` → `OldScore`).
+
 ## Manialink Bindings
 
 Binding retrieves manialink elements by ID in a validated, strongly-typed way.
@@ -1877,6 +1913,7 @@ log(Score);
 | `override` method | Label extension |
 | `[ManialinkControl]` field | `Page.GetFirstChild()` binding |
 | Event handler (`+=`) | `foreach (Event in PendingEvents)` |
+| `OnChange(value, old => { ... })` | Backing global + `if (Value != OldValue) { ...; OldValue = Value; }` |
 | String interpolation `$""` | Triple-quote `"""..{{{expr}}}..."""` |
 | String concatenation `+` | `^` operator |
 | `IList<T>` / `List<T>` | `T[]` list |

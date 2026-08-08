@@ -82,6 +82,7 @@ internal sealed class ScriptEmitter
 
         // Two-pass: register labels before any expression is translated so call sites are rewritten.
         functions.CollectLabels();
+        new OnChangeCollector(_ctx).Collect();
 
         globals.Emit();
         functions.Emit();

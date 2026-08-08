@@ -227,6 +227,25 @@ class Test {{
     }
 
     /// <summary>
+    /// Runs <see cref="OnChangeCollector"/> then <see cref="GlobalEmitter"/> on the given class
+    /// body, returning the normalised declare-globals output (including any OnChange backing globals).
+    /// </summary>
+    protected static string EmitGlobalsWithOnChange(string classBody)
+    {
+        var code = $@"
+using System;
+using System.Collections.Generic;
+using ManiaScriptSharp;
+class Test {{
+    {classBody}
+}}";
+        var (ctx, expr, _, _) = CreateEmitters(code);
+        new OnChangeCollector(ctx).Collect();
+        new GlobalEmitter(ctx, expr).Emit();
+        return ctx.W.ToString().ReplaceLineEndings("\n").Trim();
+    }
+
+    /// <summary>
     /// Like <see cref="TranslateStmt"/> but also imports <c>ManiaScriptSharp</c> types so
     /// statements using <c>Persistent&lt;T&gt;</c>, <c>Local&lt;T&gt;</c>, etc. compile.
     /// </summary>
@@ -248,6 +267,31 @@ class Test {{
             .First(m => m.Identifier.Text == "M").Body!.Statements.First();
         stmt.Emit(firstStmt);
         return ctx.W.ToString().ReplaceLineEndings("\n").Trim();
+    }
+
+    /// <summary>
+    /// Like <see cref="TranslateStmtMs"/>, but also returns the diagnostics reported by
+    /// <see cref="EmitContext.Report"/> while emitting the statement.
+    /// </summary>
+    protected static (string Output, IReadOnlyList<Diagnostic> Diagnostics) TranslateStmtWithDiagnosticsMs(
+        string csharpStmt, string extraClassMembers = "")
+    {
+        var code = $@"
+using System;
+using System.Collections.Generic;
+using ManiaScriptSharp;
+class Test {{
+    {extraClassMembers}
+    void M() {{
+        {csharpStmt}
+    }}
+}}";
+        var (ctx, _, stmt, _) = CreateEmitters(code);
+        var firstStmt = ctx.Info.Model.SyntaxTree.GetRoot()
+            .DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .First(m => m.Identifier.Text == "M").Body!.Statements.First();
+        stmt.Emit(firstStmt);
+        return (ctx.W.ToString().ReplaceLineEndings("\n").Trim(), ctx.ReportedDiagnostics);
     }
 
     /// <summary>

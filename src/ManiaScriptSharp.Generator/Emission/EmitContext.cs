@@ -56,6 +56,13 @@ internal sealed class EmitContext
     public Dictionary<string, string> DeclareForLocals { get; } = [];
 
     /// <summary>
+    /// Backing globals for <c>OnChange(value, oldValue => { ... })</c> calls, collected by
+    /// <see cref="OnChangeCollector"/> before <see cref="GlobalEmitter"/> runs. Keyed by the
+    /// generated global name (e.g. <c>OldScore</c>), value is its ManiaScript-mapped type.
+    /// </summary>
+    public Dictionary<string, ITypeSymbol> OnChangeGlobals { get; } = [];
+
+    /// <summary>
     /// C# local variables whose initializers are lazy LINQ chains with no materialising terminal.
     /// The stored expression is the raw C# LINQ invocation chain (e.g. <c>source.Where(pred)</c>).
     /// When such a variable is later used as the source of a terminating LINQ chain, its stages are

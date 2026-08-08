@@ -44,6 +44,8 @@ internal sealed class StatementEmitter
             case ExpressionStatementSyntax es:
                 if (es.Expression is InvocationExpressionSyntax inv && TryEmitDeclareFor(inv))
                     break;
+                if (es.Expression is InvocationExpressionSyntax onChangeInv && TryEmitOnChange(onChangeInv))
+                    break;
                 // Skip event subscription statements — consumed by EventCollector → event loop.
                 if (IsEventSubscription(es.Expression))
                     break;
@@ -649,6 +651,46 @@ internal sealed class StatementEmitter
         }
         _ctx.W.Pop();
         _ctx.W.Line("}");
+    }
+
+    /// <summary>
+    /// Translates <c>OnChange(value, oldValue => { ... })</c> into
+    /// <c>if (Value != OldValue) { ...; OldValue = Value; }</c>, using the backing global
+    /// already declared by <see cref="OnChangeCollector"/>. Returns <c>true</c> when the
+    /// statement was consumed (translated, or reported as an unsupported shape).
+    /// </summary>
+    private bool TryEmitOnChange(InvocationExpressionSyntax inv)
+    {
+        if (!OnChangeSupport.TryMatch(_ctx.Model, inv, out var match))
+        {
+            if (!OnChangeSupport.IsOnChangeMethod(_ctx.Model.GetSymbolInfo(inv).Symbol as IMethodSymbol))
+                return false;
+            _ctx.Report(Diagnostics.Unsupported, inv.GetLocation(),
+                "OnChange(...) call shape (expected 'OnChange(value, oldValue => { ... })' " +
+                "with a single field/property reference and a single-parameter callback)");
+            return true;
+        }
+
+        var valueText = _expr.Translate(match.ValueExpr);
+        _ctx.W.Line($"if ({valueText} != {match.BackingName}) {{");
+        _ctx.W.Push();
+
+        _ctx.DeclareForLocals[match.CallbackParamName] = match.BackingName;
+        switch (match.Callback.Body)
+        {
+            case BlockSyntax block:
+                foreach (var s in block.Statements) Emit(s);
+                break;
+            case ExpressionSyntax bodyExpr:
+                _ctx.W.Line(_expr.Translate(bodyExpr) + ";");
+                break;
+        }
+        _ctx.DeclareForLocals.Remove(match.CallbackParamName);
+
+        _ctx.W.Line($"{match.BackingName} = {valueText};");
+        _ctx.W.Pop();
+        _ctx.W.Line("}");
+        return true;
     }
 
     /// <summary>
