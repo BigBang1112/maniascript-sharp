@@ -55,7 +55,13 @@ Edit the C# file, save, and the `.Script.txt` is rewritten automatically.
 
 ### IDE setup
 
-**VSCode:** Copy the `.vscode/settings.json` from this repo into your own project (or add the setting below to your existing one). It sets the C# extension's Roslyn server to re-run source generators on every keystroke instead of only on save, matching the "even when typing" behavior described above:
+It is recommended to enable the generator to run on every keystroke instead of only on save, so you can see the generated `.Script.txt` update in real time as you type.
+
+Default behavior would be to build the project for the generator to run.
+
+#### Visual Studio Code
+
+Create a `.vscode/settings.json` in your own project and add this setting:
 
 ```json
 {
@@ -63,13 +69,9 @@ Edit the C# file, save, and the `.Script.txt` is rewritten automatically.
 }
 ```
 
-**Visual Studio (not Code):** There's no equivalent setting — source generators already re-run automatically as part of the background/design-time build. If the generated `.Script.txt` looks stale, save the file or trigger a build (Build → Build Solution) to force a re-run.
+#### Visual Studio
 
-### Extending the generator
-
-- Add a new type mapping in [TypeMapper.cs](src/ManiaScriptSharp.Generator/TypeMapper.cs).
-- Add a new statement/expression in [ScriptEmitter.cs](src/ManiaScriptSharp.Generator/ScriptEmitter.cs).
-- Add new diagnostics in [Diagnostics.cs](src/ManiaScriptSharp.Generator/Diagnostics.cs).
+You have to globally enable it for all projects. Enable the setting "Automatically run generators on any change" in `Tools → Options → Text Editor → C# → Advanced → Source Generator`.
 
 ---
 
@@ -876,27 +878,6 @@ ManiaScript:
 Integer Sum(Integer _A, Integer _B) { return _A + _B; }
 Real Sum(Real _A, Real _B) { return _A + _B; }
 ```
-
-### Optional Parameters (Simulated)
-
-ManiaScript does not have default parameters, but overloading provides the same pattern:
-
-C#:
-```cs
-void DoSomething(CMlControl control, bool flag = true)
-{
-    // ...
-}
-```
-ManiaScript:
-```
-Void DoSomething(CMlControl _Control, Boolean _Flag) { /* ... */ }
-Void DoSomething(CMlControl _Control) {
-    DoSomething(_Control, True);
-}
-```
-
-> The most generic overload must be declared first in ManiaScript.
 
 ### Named Arguments
 
