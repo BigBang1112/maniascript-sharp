@@ -214,14 +214,57 @@ internal sealed class StatementEmitter
 
     /// <summary>
     /// Lowers a C# switch expression (<c>subject switch { pat1 => e1, pat2 => e2, _ => e3 }</c>)
-    /// into nested ManiaScript if/else blocks. The governing expression is translated once and
-    /// reused for every arm's pattern check — if it has side effects, prefer assigning it to a
-    /// local variable first.
+    /// into a real ManiaScript <c>switch</c> statement when every arm is a plain constant (or a
+    /// single trailing catch-all), falling back to nested if/else blocks otherwise (relational/
+    /// type/`when`-guarded arms have no case-label equivalent). The governing expression is
+    /// translated once and reused for every arm's check — if it has side effects, prefer
+    /// assigning it to a local variable first.
     /// </summary>
     private void EmitSwitchExpressionAsIfElse(SwitchExpressionSyntax swe, System.Action<ExpressionSyntax> emitLeaf)
     {
         var subject = _expr.Translate(swe.GoverningExpression);
+        if (TryEmitSwitchExpressionAsSwitch(subject, swe.Arms, emitLeaf)) return;
         EmitSwitchExpressionArm(subject, swe.Arms, 0, emitLeaf);
+    }
+
+    /// <summary>
+    /// Emits <paramref name="arms"/> as a real <c>switch</c> statement when viable: every arm's
+    /// pattern is a <see cref="ConstantPatternSyntax"/> with no <c>when</c> clause, except for at
+    /// most one trailing catch-all (<c>_</c> / <c>var x</c>) arm that becomes <c>default:</c>.
+    /// Returns <see langword="false"/> without emitting anything when the shape doesn't qualify.
+    /// </summary>
+    private bool TryEmitSwitchExpressionAsSwitch(string subject, SeparatedSyntaxList<SwitchExpressionArmSyntax> arms, System.Action<ExpressionSyntax> emitLeaf)
+    {
+        for (var i = 0; i < arms.Count; i++)
+        {
+            var arm = arms[i];
+            if (arm.WhenClause is not null) return false;
+            var isCatchAll = arm.Pattern is DiscardPatternSyntax or VarPatternSyntax;
+            if (isCatchAll) { if (i != arms.Count - 1) return false; }
+            else if (arm.Pattern is not ConstantPatternSyntax) return false;
+        }
+
+        _ctx.W.Line($"switch ({subject}) {{");
+        _ctx.W.Push();
+        foreach (var arm in arms)
+        {
+            var isCatchAll = arm.Pattern is DiscardPatternSyntax or VarPatternSyntax;
+            _ctx.W.Line(isCatchAll
+                ? "default: {"
+                : $"case {_expr.Translate(((ConstantPatternSyntax)arm.Pattern).Expression)}: {{");
+            _ctx.W.Push();
+
+            var (boundName, boundTarget) = BindingFor(subject, arm.Pattern);
+            if (boundName is not null) _ctx.DeclareForLocals[boundName] = boundTarget!;
+            EmitTernaryAsIfElse(arm.Expression, emitLeaf);
+            if (boundName is not null) _ctx.DeclareForLocals.Remove(boundName);
+
+            _ctx.W.Pop();
+            _ctx.W.Line("}");
+        }
+        _ctx.W.Pop();
+        _ctx.W.Line("}");
+        return true;
     }
 
     private void EmitSwitchExpressionArm(string subject, SeparatedSyntaxList<SwitchExpressionArmSyntax> arms, int index, System.Action<ExpressionSyntax> emitLeaf)

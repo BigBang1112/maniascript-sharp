@@ -106,6 +106,62 @@ public class StatementEmitterTests : EmitterTestBase
         Assert.Equal("if (X == Null) {\n\tX = 1;\n}", output);
     }
 
+    // ────────── Switch expressions (no switch expression in ManiaScript) ──────────
+
+    [Fact]
+    public void Emit_LocalDecl_SwitchExpression_ConstantArms_RewritesToSwitchStatement()
+    {
+        // All-constant arms (plus a trailing discard) can be expressed as a real switch statement.
+        var output = TranslateStmt(
+            "var y = x switch { \"a\" => 1, \"b\" => 2, _ => 0 };", "string x;");
+        Assert.Equal(
+            "declare Y;\n" +
+            "switch (X) {\n" +
+            "\tcase \"a\": {\n\t\tY = 1;\n\t}\n" +
+            "\tcase \"b\": {\n\t\tY = 2;\n\t}\n" +
+            "\tdefault: {\n\t\tY = 0;\n\t}\n" +
+            "}",
+            output);
+    }
+
+    [Fact]
+    public void Emit_Return_SwitchExpression_ConstantArms_RewritesToSwitchStatement()
+    {
+        var output = TranslateStmt("return x switch { 1 => 10, 2 => 20, _ => 0 };", "int x;");
+        Assert.Equal(
+            "switch (X) {\n" +
+            "\tcase 1: {\n\t\treturn 10;\n\t}\n" +
+            "\tcase 2: {\n\t\treturn 20;\n\t}\n" +
+            "\tdefault: {\n\t\treturn 0;\n\t}\n" +
+            "}",
+            output);
+    }
+
+    [Fact]
+    public void Emit_SwitchExpression_RelationalPattern_FallsBackToIfElse()
+    {
+        // A relational pattern has no case-label equivalent, so the whole expression falls
+        // back to nested if/else instead of a switch statement.
+        var output = TranslateStmt("return x switch { > 0 => 1, _ => 0 };", "int x;");
+        Assert.Equal("if (X > 0) {\n\treturn 1;\n} else {\n\treturn 0;\n}", output);
+    }
+
+    [Fact]
+    public void Emit_SwitchExpression_WhenClause_FallsBackToIfElse()
+    {
+        // A `when` clause has no case-label equivalent even on an otherwise-constant arm.
+        var output = TranslateStmt("return x switch { 1 when x > 0 => 10, _ => 0 };", "int x;");
+        Assert.Equal("if ((X == 1) && (X > 0)) {\n\treturn 10;\n} else {\n\treturn 0;\n}", output);
+    }
+
+    [Fact]
+    public void Emit_SwitchExpression_VarPattern_AliasesBoundVariable()
+    {
+        // `var n` is aliased directly to the subject expression (no physical declare needed).
+        var output = TranslateStmt("return x switch { var n when n > 0 => n, _ => 0 };", "int x;");
+        Assert.Equal("if (X > 0) {\n\treturn X;\n} else {\n\treturn 0;\n}", output);
+    }
+
     // ────────── While ──────────
 
     [Fact]
