@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using System.Xml.Linq;
 using ManiaScriptSharp.Generator.Emission;
@@ -40,6 +41,16 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
 
         var combined = contextClasses.Combine(settingsProvider);
 
+        // ── XML manialink templates, tracked as proper incremental inputs ────────────
+        // Reading these via raw File.IO (keyed off the .cs file's path) would bypass Roslyn's
+        // incremental caching entirely, so editing only the .xml would never re-trigger the
+        // generator. Sourcing them from AdditionalTextsProvider makes XML edits a real input.
+        var xmlTemplates = context.AdditionalTextsProvider
+            .Where(static t => t.Path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+            .Select(static (t, ct) => (Path: t.Path, Text: t.GetText(ct)?.ToString()))
+            .Collect();
+        // ─────────────────────────────────────────────────────────────────────────────
+
         // ── ILib<T> pipeline: generate a .Script.txt for each lib class ──────────────
         var libClasses = context.SyntaxProvider
             .CreateSyntaxProvider(
@@ -80,12 +91,12 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
         });
         // ─────────────────────────────────────────────────────────────────────────────
 
-        context.RegisterSourceOutput(combined, static (spc, tuple) =>
+        context.RegisterSourceOutput(combined.Combine(xmlTemplates), static (spc, tuple) =>
         {
-            var (info, proj) = tuple;
+            var ((info, proj), xmlFiles) = tuple;
             try
             {
-                var xmlTemplate = TryReadXmlTemplate(info);
+                var xmlTemplate = TryFindXmlTemplate(info, xmlFiles);
                 var effectiveInfo = xmlTemplate is not null
                     ? new ContextClassInfo(info.Declaration, info.Symbol, info.Model, isManialink: true)
                     : info;
@@ -158,16 +169,24 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
     }
 
     /// <summary>
-    /// Looks for an XML template file alongside the declaring .cs file.
-    /// Returns the file contents if found, <see langword="null"/> otherwise.
+    /// Looks for an XML template alongside the declaring .cs file among the AdditionalFiles
+    /// tracked by the incremental pipeline. Returns the file contents if found,
+    /// <see langword="null"/> otherwise.
     /// </summary>
-    private static string? TryReadXmlTemplate(ContextClassInfo info)
+    private static string? TryFindXmlTemplate(ContextClassInfo info, ImmutableArray<(string Path, string? Text)> xmlFiles)
     {
         var csPath = info.Declaration.SyntaxTree.FilePath;
         if (string.IsNullOrEmpty(csPath)) return null;
-        var xmlPath = Path.ChangeExtension(csPath, ".xml");
-        if (!File.Exists(xmlPath)) return null;
-        return File.ReadAllText(xmlPath, Encoding.UTF8);
+        var xmlPath = Path.GetFullPath(Path.ChangeExtension(csPath, ".xml"));
+
+        foreach (var (path, text) in xmlFiles)
+        {
+            if (text is null || string.IsNullOrEmpty(path)) continue;
+            if (string.Equals(Path.GetFullPath(path), xmlPath, StringComparison.OrdinalIgnoreCase))
+                return text;
+        }
+
+        return null;
     }
 
     /// <summary>
