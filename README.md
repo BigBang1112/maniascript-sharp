@@ -18,7 +18,7 @@ flowchart LR
     A[C# source<br/>MyGamemode.cs] -->|saved / typed| B(Roslyn<br/>IIncrementalGenerator)
     C[MSBuild properties] -->|CompilerVisibleProperty| B
     B --> D{{ScriptEmitter}}
-    D -->|File.WriteAllText| E[out/MyMode/<br/>MyGamemode.Script.txt]
+    D -->|File.WriteAllText| E[out/<br/>MyGamemode.Script.txt]
     D -->|AddSource| F[marker .g.cs<br/>satisfies generator contract]
 ```
 
@@ -39,19 +39,45 @@ flowchart LR
 
 Writes are skipped when the existing file is byte-identical, so IDE responsiveness stays smooth.
 
-## Quick start
+## Installation
+
+ManiaScriptSharp is distributed as NuGet packages. Add the runtime library, the generator, and the API surface package matching your target game:
 
 ```powershell
-dotnet build samples/MyMode/MyMode.csproj
+dotnet add package ManiaScriptSharp
+dotnet add package ManiaScriptSharp.Generator
+dotnet add package ManiaScriptSharp.ManiaPlanet     # ManiaPlanet (TM2 / ShootMania)
+# or ManiaScriptSharp.ManiaPlanet3                  # ManiaPlanet 3 (TM Nations Forever)
+# or ManiaScriptSharp.Trackmania                    # Trackmania (2020)
 ```
 
-After building (or just opening `samples/MyMode/MyGamemode.cs` in Visual Studio / VS Code with the C# extension), look at:
+`ManiaScriptSharp.Generator` is a `DevelopmentDependency` Roslyn analyzer package, so it contributes no runtime assembly, and its `build/ManiaScriptSharp.Generator.props` is imported automatically once referenced.
 
-```
-samples/MyMode/out/MyMode/MyGamemode.Script.txt
+Configure the output folder and indentation via MSBuild properties in your `.csproj`:
+
+```xml
+<PropertyGroup>
+    <ManiaScriptOutputDir>out</ManiaScriptOutputDir>
+    <ManiaScriptIndentSize>4</ManiaScriptIndentSize>
+    <ManiaScriptIndentStyle>spaces</ManiaScriptIndentStyle>
+</PropertyGroup>
 ```
 
-Edit the C# file, save, and the `.Script.txt` is rewritten automatically.
+`ManiaScriptOutputDir` defaults to `out`; indentation defaults to tabs.
+
+Then write a class implementing [`IContext`](src/ManiaScriptSharp/IContext.cs):
+
+```cs
+using ManiaScriptSharp;
+
+public class MyGamemode : CTmMode, IContext
+{
+    public void Main() { }
+    public void Loop() { }
+}
+```
+
+Building the project generates `out/MyGamemode.Script.txt` next to it, following the C# to ManiaScript conversion reference below.
 
 ### IDE setup
 
@@ -72,6 +98,10 @@ Create a `.vscode/settings.json` in your own project and add this setting:
 #### Visual Studio
 
 You have to globally enable it for all projects. Enable the setting "Automatically run generators on any change" in `Tools → Options → Text Editor → C# → Advanced → Source Generator`.
+
+## Contributing
+
+Building from source, running the sample project, and running the test suite are covered in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
