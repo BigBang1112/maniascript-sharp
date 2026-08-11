@@ -83,4 +83,12 @@ internal static class Diagnostics
         category: "ManiaScriptSharp",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor CircularFunctionCalls = new(
+        id: "MSS011",
+        title: "Circular calls between functions",
+        messageFormat: "'{0}' takes part in a call cycle with another function. ManiaScript requires every function to be defined before it is called and does not allow circular calls between distinct functions (self-recursion is fine).",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

@@ -226,6 +226,23 @@ class Test {{
         return ctx.W.ToString().ReplaceLineEndings("\n").Trim();
     }
 
+    /// <summary>Like <see cref="EmitFunctions"/>, but also returns diagnostics reported while emitting.</summary>
+    protected static (string Output, IReadOnlyList<Diagnostic> Diagnostics) EmitFunctionsWithDiagnostics(string classBody)
+    {
+        var code = $@"
+using System;
+using System.Collections.Generic;
+using ManiaScriptSharp;
+class Test {{
+    {classBody}
+}}";
+        var (ctx, expr, stmt, _) = CreateEmitters(code);
+        var functions = new FunctionEmitter(ctx, stmt, expr);
+        functions.CollectLabels();
+        functions.Emit();
+        return (ctx.W.ToString().ReplaceLineEndings("\n").Trim(), ctx.ReportedDiagnostics);
+    }
+
     /// <summary>
     /// Runs <see cref="OnChangeCollector"/> then <see cref="GlobalEmitter"/> on the given class
     /// body, returning the normalised declare-globals output (including any OnChange backing globals).
