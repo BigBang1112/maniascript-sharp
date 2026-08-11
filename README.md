@@ -303,29 +303,6 @@ ManiaScript:
 #Setting S_PointLimit 25
 ```
 
-### Setting Change Detection
-
-Add `SettingsChangeDetectorsAttribute` on your class:
-
-```cs
-[SettingsChangeDetectors]
-public class MyMode : CTmMode, IContext
-{
-    [Setting(ReloadOnChange = true)]
-    const int TimeLimit = 600;
-
-    [Setting(CallOnChange = nameof(OnChatTimeChanged))]
-    const int ChatTime = 50;
-
-    public bool Reload;
-
-    public virtual void Settings() { }
-    public virtual void UpdateSettings() { }
-
-    private void OnChatTimeChanged() { /* handle change */ }
-}
-```
-
 ---
 
 ## Operators

@@ -8,30 +8,61 @@ public class TryEnvimix : CMlBrowser, IContext
 {
     public void Main()
     {
-        var campaignMultiplier = LoadedTitle.TitleId switch
+        if (CurMap is null)
         {
-            "TMUF" => 1.0f,
-            "TM2" => 1.5f,
-            "TMS" => 2.0f,
-            _ => 1.0f
+            return;
+        }
+
+        var campaignOffset = LoadedTitle.TitleId switch
+        {
+            "TMCanyon@nadeo" => 0,
+            "TMStadium@nadeo" => 65,
+            "TMValley@nadeo" => 130,
+            "TMLagoon@nadeo" => 195,
+            _ => -1
         };
 
-        var mapNum = -1;
-
-        foreach (var (i, campaign) in DataFileMgr.Campaigns.Index())
+        if (campaignOffset == -1)
         {
-            foreach (var (j, mapGroup) in campaign.MapGroups.Index())
+            return;
+        }
+
+        var mapFound = false;
+        var mapNum = 0;
+
+        foreach (var campaign in DataFileMgr.Campaigns)
+        {
+            foreach (var mapGroup in campaign.MapGroups)
             {
-                foreach (var (k, map) in mapGroup.MapInfos.Index())
+                foreach (var mapInfo in mapGroup.MapInfos)
                 {
-                    if (map.MapUid == CurMap.MapInfo.MapUid)
+                    mapNum++;
+                    if (mapInfo.MapUid == CurMap.MapInfo.MapUid)
                     {
-                        mapNum++;
+                        mapFound = true;
                         break;
                     }
                 }
+
+                if (mapFound)
+                {
+                    break;
+                }
+            }
+
+            if (mapFound)
+            {
+                break;
             }
         }
+
+        if (!mapFound)
+        {
+            return;
+        }
+
+        ManiaScript.Log($"#campaign=#({campaignOffset} + {mapNum})@Nadeo_Envimix@bigbang1112");
+        OpenLink($"#campaign=#{campaignOffset + mapNum}@Nadeo_Envimix@bigbang1112", LinkType.ManialinkBrowser);
     }
 
     public void Loop()
