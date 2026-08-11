@@ -67,7 +67,7 @@ internal static class TypeMapper
     }
 
     /// <summary>Returns <see langword="true"/> when <paramref name="type"/> implements <c>IContext</c> or <c>ILib&lt;T&gt;</c>.</summary>
-    private static bool IsContextOrLibType(INamedTypeSymbol type)
+    internal static bool IsContextOrLibType(INamedTypeSymbol type)
     {
         foreach (var i in type.AllInterfaces)
         {

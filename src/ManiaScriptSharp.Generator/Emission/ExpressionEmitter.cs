@@ -265,16 +265,22 @@ internal sealed class ExpressionEmitter
     }
 
     /// <summary>
-    /// Returns true when the property is defined in user source code (has a syntax reference
-    /// in a non-generated file), as opposed to being an API-generated property from a
-    /// <c>.g.cs</c> file or a compiled assembly.
+    /// Returns true when the property is declared on the context/lib class currently being
+    /// emitted, or on another class implementing <c>IContext</c>/<c>ILib&lt;T&gt;</c> — those are
+    /// the only cases where a matching Get*()/Set*() function actually exists (emitted by this
+    /// class's own <see cref="FunctionEmitter"/> pass, or by that other lib's own pass).
+    /// Properties inherited from plain API types (e.g. <c>CMlBrowser.CurMap</c>) must stay plain
+    /// field access even when their declaring file isn't a <c>.g.cs</c> (some API types are
+    /// hand-authored, not generated).
     /// </summary>
-    private static bool IsUserDefinedProperty(IPropertySymbol p)
+    private bool IsUserDefinedProperty(IPropertySymbol p)
     {
         var syntaxRef = p.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxRef?.GetSyntax() is not PropertyDeclarationSyntax) return false;
         if (p.ContainingType.TypeKind == Microsoft.CodeAnalysis.TypeKind.Interface) return false;
         if (p.IsLibContextProperty()) return false;
+        var isOwnClass = SymbolEqualityComparer.Default.Equals(p.ContainingType, _ctx.Info.Symbol);
+        if (!isOwnClass && !TypeMapper.IsContextOrLibType(p.ContainingType)) return false;
         var path = syntaxRef.SyntaxTree.FilePath;
         return !path.EndsWith(".g.cs", System.StringComparison.OrdinalIgnoreCase);
     }

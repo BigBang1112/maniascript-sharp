@@ -68,6 +68,19 @@ public class ExpressionEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Translate_HandAuthoredApiPropertyRead_StaysPlainFieldAccess()
+    {
+        // Some API types (e.g. CMlBrowser.CurMap) are patched with a hand-written partial-class
+        // property in a plain (non-.g.cs) file rather than the generator, since they aren't
+        // IContext/ILib types themselves — they must still stay plain field access, not a
+        // GetXxx() call, even though the file-suffix check alone can't tell them apart from
+        // real user-defined properties.
+        var extra = "class CMlBrowser { public object CurMap { get; } } CMlBrowser browser = new CMlBrowser();";
+        var output = TranslateExpr("browser.CurMap == null", extra);
+        Assert.Equal("Browser.CurMap == Null", output);
+    }
+
+    [Fact]
     public void Translate_DefaultLiteral()
     {
         // default(T) is a DefaultExpressionSyntax — not explicitly handled,

@@ -63,6 +63,8 @@ internal sealed class FunctionEmitter
     /// <summary>
     /// Returns true for properties defined in user source code (non-generated files).
     /// Excludes properties from <c>.g.cs</c> files (API-generated) and compiled assemblies.
+    /// Safe to key off source file alone here: this is only ever called for members of
+    /// <c>_ctx.Info.Symbol</c> itself (see <see cref="Emit"/> below), never inherited properties.
     /// </summary>
     private static bool IsUserDefinedProperty(IPropertySymbol p)
     {
