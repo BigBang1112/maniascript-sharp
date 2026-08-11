@@ -70,6 +70,14 @@ internal sealed class StatementEmitter
                     EmitTernaryAsIfElse(plainAsg.Right, v => _ctx.W.Line($"{_expr.TranslateAssignTo(plainAsg.Left, _expr.Translate(v))};"));
                     break;
                 }
+                // ManiaScript has no tuple type: `(a, b) = (b, a)` deconstruction assignment (incl.
+                // swaps) is lowered to temporaries — see TryEmitTupleAssignment.
+                if (es.Expression is AssignmentExpressionSyntax tupleAsg
+                    && tupleAsg.Left is TupleExpressionSyntax
+                    && TryEmitTupleAssignment(tupleAsg))
+                {
+                    break;
+                }
                 var text = _expr.Translate(es.Expression);
                 // Label calls already form a complete statement (+++Name+++) — no trailing ';'.
                 if (text.StartsWith("+++") && text.EndsWith("+++"))
@@ -567,6 +575,47 @@ internal sealed class StatementEmitter
                 => $"\"{istr.Contents}\"",                               // best-effort fallback
             _ => null                                                    // skip non-literal messages
         };
+    }
+
+    /// <summary>
+    /// Lowers `(a, b, …) = (x, y, …);` deconstruction assignment — ManiaScript has no tuple
+    /// type, so it can't be a single expression. All right-hand elements are evaluated into
+    /// temporaries first, then assigned back to the left-hand targets in order; this preserves
+    /// C#'s simultaneous-assignment semantics, which matters for a swap like `(a, b) = (b, a)`.
+    /// </summary>
+    private bool TryEmitTupleAssignment(AssignmentExpressionSyntax asg)
+    {
+        var leftTuple = (TupleExpressionSyntax)asg.Left;
+
+        if (asg.Right is not TupleExpressionSyntax rightTuple)
+        {
+            _ctx.Report(Diagnostics.Unsupported, asg.GetLocation(), "tuple assignment from a non-tuple-literal expression");
+            return true;
+        }
+        if (leftTuple.Arguments.Count != rightTuple.Arguments.Count)
+        {
+            _ctx.Report(Diagnostics.Unsupported, asg.GetLocation(), "tuple assignment with mismatched element counts");
+            return true;
+        }
+
+        var temps = new string[rightTuple.Arguments.Count];
+        for (var i = 0; i < rightTuple.Arguments.Count; i++)
+        {
+            var rightExpr = rightTuple.Arguments[i].Expression;
+            var rightText = _expr.Translate(rightExpr);
+            var msType = TypeMapper.Map(_ctx.Model.GetTypeInfo(rightExpr).Type);
+            var tmpName = _ctx.NextTupleTempName();
+            _ctx.W.Line($"declare {msType} {tmpName} = {rightText};");
+            temps[i] = tmpName;
+        }
+        for (var i = 0; i < leftTuple.Arguments.Count; i++)
+        {
+            var leftExpr = leftTuple.Arguments[i].Expression;
+            if (leftExpr is IdentifierNameSyntax { Identifier.Text: "_" })
+                continue; // discard
+            _ctx.W.Line($"{_expr.TranslateAssignTo(leftExpr, temps[i])};");
+        }
+        return true;
     }
 
     private void EmitForeachVariable(ForEachVariableStatementSyntax fev)

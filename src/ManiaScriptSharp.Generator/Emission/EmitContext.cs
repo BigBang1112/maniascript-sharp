@@ -78,6 +78,11 @@ internal sealed class EmitContext
     /// </summary>
     public Dictionary<string, (string KeyName, string ValueName)> DictPairLocals { get; } = [];
 
+    private int _tupleTempCounter;
+
+    /// <summary>Next unique temporary name for lowering tuple deconstruction assignment (e.g. swaps).</summary>
+    public string NextTupleTempName() => $"TupleTmp{++_tupleTempCounter}";
+
     private readonly bool _hasSpc;
 
     public EmitContext(ContextClassInfo info, SourceProductionContext spc, BuildSettings settings)

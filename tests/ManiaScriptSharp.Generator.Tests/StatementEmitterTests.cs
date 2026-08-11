@@ -340,6 +340,36 @@ public class StatementEmitterTests : EmitterTestBase
         Assert.Contains("declare K = PairKey;", output);
     }
 
+    // ────────── Tuple deconstruction assignment ──────────
+
+    [Fact]
+    public void Emit_TupleAssignment_Swap_UsesTemporaries()
+    {
+        // (a, b) = (b, a): ManiaScript has no tuple type, so every RHS element is evaluated
+        // into a temp first (preserving simultaneous-assignment semantics), then assigned back.
+        var output = TranslateStmt("(a, b) = (b, a);", "int a; int b;");
+        Assert.Equal(
+            "declare Integer TupleTmp1 = B;\n" +
+            "declare Integer TupleTmp2 = A;\n" +
+            "A = TupleTmp1;\n" +
+            "B = TupleTmp2;",
+            output);
+    }
+
+    [Fact]
+    public void Emit_TupleAssignment_MismatchedArity_ReportsUnsupported()
+    {
+        var (_, diagnostics) = TranslateStmtWithDiagnostics("(a, b) = (1, 2, 3);", "int a; int b;");
+        Assert.NotEmpty(diagnostics);
+    }
+
+    [Fact]
+    public void Emit_TupleAssignment_NonTupleRight_ReportsUnsupported()
+    {
+        var (_, diagnostics) = TranslateStmtWithDiagnostics("(a, b) = GetPair();", "int a; int b; (int, int) GetPair() => (1, 2);");
+        Assert.NotEmpty(diagnostics);
+    }
+
     [Fact]
     public void Emit_Foreach_DictionaryKeys_UsesKeyValueForm_WithPlaceholderValue()
     {
