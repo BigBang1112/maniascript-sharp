@@ -115,7 +115,7 @@ public class StatementEmitterTests : EmitterTestBase
         var output = TranslateStmt(
             "var y = x switch { \"a\" => 1, \"b\" => 2, _ => 0 };", "string x;");
         Assert.Equal(
-            "declare Y;\n" +
+            "declare Integer Y;\n" +
             "switch (X) {\n" +
             "\tcase \"a\": {\n\t\tY = 1;\n\t}\n" +
             "\tcase \"b\": {\n\t\tY = 2;\n\t}\n" +

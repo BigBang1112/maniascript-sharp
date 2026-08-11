@@ -167,7 +167,9 @@ internal sealed class StatementEmitter
             // bare declaration followed by an if/else assigning X in each branch.
             if (v.Initializer?.Value is ConditionalExpressionSyntax or SwitchExpressionSyntax)
             {
-                _ctx.W.Line(local.Declaration.Type.IsVar ? $"declare {name};" : $"declare {msType} {name};");
+                // Unlike the plain-init case below, there's no value here yet to infer a type
+                // from (it's assigned per-branch afterwards), so the type can never be elided.
+                _ctx.W.Line($"declare {msType} {name};");
                 EmitTernaryAsIfElse(v.Initializer.Value, v2 => _ctx.W.Line($"{name} = {_expr.Translate(v2)};"));
                 continue;
             }
