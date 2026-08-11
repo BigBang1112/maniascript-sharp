@@ -5,7 +5,7 @@ namespace MyMode;
 
 /// <summary>
 /// Demonstrates the ManiaScriptSharp pipeline. When you save this file the
-/// generator emits <c>out/MyMode/MyGamemode.Script.txt</c> in real time.
+/// generator emits <c>out/MyGamemode.Script.txt</c> in real time.
 /// </summary>
 public class MyGamemode : CTmMode, IContext
 {

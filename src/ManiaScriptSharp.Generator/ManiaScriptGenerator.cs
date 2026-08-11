@@ -153,10 +153,8 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
         var root = settings.OutputDir;
         if (!Path.IsPathRooted(root)) root = Path.Combine(projectDir, root);
 
-        var ns = info.Symbol.ContainingNamespace?.ToDisplayString() ?? "";
-        var relative = ns.Replace('.', Path.DirectorySeparatorChar);
         var fileName = info.Symbol.Name + extension;
-        return string.IsNullOrEmpty(relative) ? Path.Combine(root, fileName) : Path.Combine(root, relative, fileName);
+        return Path.Combine(root, fileName);
     }
 
     /// <summary>
