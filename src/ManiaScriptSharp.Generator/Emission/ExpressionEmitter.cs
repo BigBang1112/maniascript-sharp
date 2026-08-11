@@ -145,6 +145,10 @@ internal sealed class ExpressionEmitter
             case IMethodSymbol m:
                 if (_ctx.LabelMethods.Contains(m.Name)) return $"+++{m.Name}+++";
                 return NameMangler.Method(m);
+            // Enum type used bare (e.g. `MyState` as the receiver of `MyState.Idle`) →
+            // route through TypeMapper so context-nested enums get the leading `::`.
+            case INamedTypeSymbol { TypeKind: TypeKind.Enum } nt:
+                return TypeMapper.Map(nt);
         }
         return id.Identifier.Text;
     }

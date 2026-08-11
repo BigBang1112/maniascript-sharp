@@ -51,9 +51,12 @@ internal static class TypeMapper
     private static string MapNamed(ITypeSymbol type)
     {
         // Nested enums (e.g. CUILayer.EUILayerType) keep their containing type in the
-        // path, mirroring the ManiaScript header (`CUILayer::EUILayerType`).
+        // path, mirroring the ManiaScript header (`CUILayer::EUILayerType`). An enum
+        // nested directly inside the context/lib class itself has no ManiaScript
+        // counterpart for its "container" (the class IS the script), so it's a
+        // script-local enum referenced with a leading `::` instead (e.g. `::MyState`).
         if (type.TypeKind == TypeKind.Enum && type.ContainingType is { } containing)
-            return $"{containing.Name}::{type.Name}";
+            return IsContextOrLibType(containing) ? $"::{type.Name}" : $"{containing.Name}::{type.Name}";
 
         return type.Name switch
         {
@@ -61,5 +64,17 @@ internal static class TypeMapper
             "Vector3" => "Vec3",
             _ => type.Name,
         };
+    }
+
+    /// <summary>Returns <see langword="true"/> when <paramref name="type"/> implements <c>IContext</c> or <c>ILib&lt;T&gt;</c>.</summary>
+    private static bool IsContextOrLibType(INamedTypeSymbol type)
+    {
+        foreach (var i in type.AllInterfaces)
+        {
+            if (i.ContainingNamespace?.ToDisplayString() != "ManiaScriptSharp") continue;
+            if (i.Name == "IContext") return true;
+            if (i.Name == "ILib" && i.IsGenericType) return true;
+        }
+        return false;
     }
 }

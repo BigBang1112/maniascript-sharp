@@ -612,5 +612,28 @@ public class ExpressionEmitterTests : EmitterTestBase
         Assert.Equal("Loop()", output);
         Assert.DoesNotContain(diagnostics, d => d.Id == "MSS010");
     }
+
+    // ────────── Enums nested directly in the context class ──────────
+
+    [Fact]
+    public void Translate_EnumNestedInContextClass_UsesLeadingDoubleColon()
+    {
+        // MyState has no ManiaScript struct to be qualified by (the class IS the script),
+        // so it's referenced as a script-local enum: `::MyState::Running`, not `Test::MyState::Running`.
+        var (output, _) = TranslateExprWithDiagnostics(
+            "MyState.Running",
+            "enum MyState { Idle, Running } public void Main() { } public void Loop() { }",
+            ": IContext");
+        Assert.Equal("::MyState::Running", output);
+    }
+
+    [Fact]
+    public void Translate_EnumNestedInOtherType_KeepsContainingTypeName()
+    {
+        var output = TranslateExpr(
+            "CFoo.Color.Red",
+            "public class CFoo { public enum Color { Red, Green } }");
+        Assert.Equal("CFoo::Color::Red", output);
+    }
 }
 

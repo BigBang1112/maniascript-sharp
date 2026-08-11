@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using NSubstitute;
 
@@ -40,7 +43,8 @@ internal static class SymbolHelper
         SpecialType specialType,
         string name = "",
         TypeKind typeKind = TypeKind.Class,
-        INamedTypeSymbol? containingType = null)
+        INamedTypeSymbol? containingType = null,
+        IEnumerable<INamedTypeSymbol>? allInterfaces = null)
     {
         var type = Substitute.For<INamedTypeSymbol>();
         type.SpecialType.Returns(specialType);
@@ -48,7 +52,20 @@ internal static class SymbolHelper
         type.IsGenericType.Returns(false);
         type.TypeKind.Returns(typeKind);
         type.ContainingType.Returns(containingType);
+        type.AllInterfaces.Returns(allInterfaces?.ToImmutableArray() ?? ImmutableArray<INamedTypeSymbol>.Empty);
         return type;
+    }
+
+    /// <summary>Mocks an interface symbol (e.g. <c>IContext</c>) as seen via <c>AllInterfaces</c>.</summary>
+    public static INamedTypeSymbol CreateInterface(string name, string containingNamespace = "ManiaScriptSharp", bool isGenericType = false)
+    {
+        var iface = Substitute.For<INamedTypeSymbol>();
+        iface.Name.Returns(name);
+        iface.IsGenericType.Returns(isGenericType);
+        var ns = Substitute.For<INamespaceSymbol>();
+        ns.ToDisplayString().Returns(containingNamespace);
+        iface.ContainingNamespace.Returns(ns);
+        return iface;
     }
 
     public static IArrayTypeSymbol CreateArrayType(ITypeSymbol elementType)
