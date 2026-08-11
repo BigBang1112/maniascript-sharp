@@ -30,6 +30,8 @@ internal sealed class PatternEmitter
         RelationalPatternSyntax rp => $"{lhs} {rp.OperatorToken.Text} {_expr.Translate(rp.Expression)}",
         DeclarationPatternSyntax dp => $"{lhs} is {dp.Type}",
         TypePatternSyntax tp => $"{lhs} is {tp.Type}",
+        DiscardPatternSyntax => "True",
+        VarPatternSyntax => "True",
         UnaryPatternSyntax up when up.OperatorToken.IsKind(SyntaxKind.NotKeyword)
             => up.Pattern switch
             {

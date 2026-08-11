@@ -61,10 +61,11 @@ internal sealed class StatementEmitter
                     _ctx.W.Line("}");
                     break;
                 }
-                // ManiaScript has no inline conditional: rewrite `left = cond ? a : b;` as if/else.
+                // ManiaScript has no inline conditional or switch expression: rewrite
+                // `left = cond ? a : b;` / `left = x switch { ... };` as if/else.
                 if (es.Expression is AssignmentExpressionSyntax plainAsg
                     && plainAsg.OperatorToken.IsKind(SyntaxKind.EqualsToken)
-                    && plainAsg.Right is ConditionalExpressionSyntax)
+                    && plainAsg.Right is ConditionalExpressionSyntax or SwitchExpressionSyntax)
                 {
                     EmitTernaryAsIfElse(plainAsg.Right, v => _ctx.W.Line($"{_expr.TranslateAssignTo(plainAsg.Left, _expr.Translate(v))};"));
                     break;
@@ -80,7 +81,7 @@ internal sealed class StatementEmitter
             case ReturnStatementSyntax rs:
                 if (_ctx.ReturnIsContinue && rs.Expression is null)
                     _ctx.W.Line("continue;");
-                else if (rs.Expression is ConditionalExpressionSyntax)
+                else if (rs.Expression is ConditionalExpressionSyntax or SwitchExpressionSyntax)
                     EmitTernaryAsIfElse(rs.Expression, v => _ctx.W.Line($"return {_expr.Translate(v)};"));
                 else
                     _ctx.W.Line(rs.Expression is null ? "return;" : $"return {_expr.Translate(rs.Expression)};");
@@ -161,12 +162,13 @@ internal sealed class StatementEmitter
                 if (Linq.TryEmit(linqInit, name, typeSym)) continue;
             }
 
-            // ManiaScript has no inline conditional: split `declare X = cond ? a : b;` into a
+            // ManiaScript has no inline conditional or switch expression: split
+            // `declare X = cond ? a : b;` / `declare X = x switch { ... };` into a
             // bare declaration followed by an if/else assigning X in each branch.
-            if (v.Initializer?.Value is ConditionalExpressionSyntax ternaryInit)
+            if (v.Initializer?.Value is ConditionalExpressionSyntax or SwitchExpressionSyntax)
             {
                 _ctx.W.Line(local.Declaration.Type.IsVar ? $"declare {name};" : $"declare {msType} {name};");
-                EmitTernaryAsIfElse(ternaryInit, v2 => _ctx.W.Line($"{name} = {_expr.Translate(v2)};"));
+                EmitTernaryAsIfElse(v.Initializer.Value, v2 => _ctx.W.Line($"{name} = {_expr.Translate(v2)};"));
                 continue;
             }
 
@@ -181,9 +183,10 @@ internal sealed class StatementEmitter
     }
 
     /// <summary>
-    /// Recursively lowers a (possibly nested) C# ternary into ManiaScript if/else blocks,
-    /// since ManiaScript has no inline conditional operator. <paramref name="emitLeaf"/> emits
-    /// the final statement (assignment, return, …) for each non-ternary branch value.
+    /// Recursively lowers a (possibly nested) C# ternary or switch expression into ManiaScript
+    /// if/else blocks, since ManiaScript has neither an inline conditional operator nor a switch
+    /// expression. <paramref name="emitLeaf"/> emits the final statement (assignment, return, …)
+    /// for each non-branching leaf value.
     /// </summary>
     private void EmitTernaryAsIfElse(ExpressionSyntax valueExpr, System.Action<ExpressionSyntax> emitLeaf)
     {
@@ -199,11 +202,85 @@ internal sealed class StatementEmitter
             _ctx.W.Pop();
             _ctx.W.Line("}");
         }
+        else if (valueExpr is SwitchExpressionSyntax swe)
+        {
+            EmitSwitchExpressionAsIfElse(swe, emitLeaf);
+        }
         else
         {
             emitLeaf(valueExpr);
         }
     }
+
+    /// <summary>
+    /// Lowers a C# switch expression (<c>subject switch { pat1 => e1, pat2 => e2, _ => e3 }</c>)
+    /// into nested ManiaScript if/else blocks. The governing expression is translated once and
+    /// reused for every arm's pattern check — if it has side effects, prefer assigning it to a
+    /// local variable first.
+    /// </summary>
+    private void EmitSwitchExpressionAsIfElse(SwitchExpressionSyntax swe, System.Action<ExpressionSyntax> emitLeaf)
+    {
+        var subject = _expr.Translate(swe.GoverningExpression);
+        EmitSwitchExpressionArm(subject, swe.Arms, 0, emitLeaf);
+    }
+
+    private void EmitSwitchExpressionArm(string subject, SeparatedSyntaxList<SwitchExpressionArmSyntax> arms, int index, System.Action<ExpressionSyntax> emitLeaf)
+    {
+        var arm = arms[index];
+        var isLast = index == arms.Count - 1;
+        // `_ => …` / `var x => …` always matches — treated as an unconditional catch-all.
+        var isCatchAll = arm.Pattern is DiscardPatternSyntax or VarPatternSyntax;
+
+        // Pattern-bound variable (declaration/var pattern) is aliased — not physically declared —
+        // to the subject expression, the same way lambda params are bound in LinqChainEmitter.
+        // This lets the `when` clause reference it before any ManiaScript statement could declare it.
+        var (boundName, boundTarget) = BindingFor(subject, arm.Pattern);
+        if (boundName is not null) _ctx.DeclareForLocals[boundName] = boundTarget!;
+
+        // A trailing catch-all with no `when` clause needs no if/else wrapper at all.
+        if (isCatchAll && arm.WhenClause is null && isLast)
+        {
+            EmitTernaryAsIfElse(arm.Expression, emitLeaf);
+            if (boundName is not null) _ctx.DeclareForLocals.Remove(boundName);
+            return;
+        }
+
+        var cond = isCatchAll ? "True" : _patterns!.Translate(subject, arm.Pattern);
+        if (arm.WhenClause is not null)
+        {
+            var when = _expr.Translate(arm.WhenClause.Condition);
+            cond = isCatchAll ? when : $"({cond}) && ({when})";
+        }
+
+        _ctx.W.Line($"if ({cond}) {{");
+        _ctx.W.Push();
+        EmitTernaryAsIfElse(arm.Expression, emitLeaf);
+        _ctx.W.Pop();
+        if (boundName is not null) _ctx.DeclareForLocals.Remove(boundName);
+
+        if (isLast)
+        {
+            _ctx.W.Line("}");
+        }
+        else
+        {
+            _ctx.W.Line("} else {");
+            _ctx.W.Push();
+            EmitSwitchExpressionArm(subject, arms, index + 1, emitLeaf);
+            _ctx.W.Pop();
+            _ctx.W.Line("}");
+        }
+    }
+
+    /// <summary>Resolves the name/alias-target pair for a switch-expression arm's pattern binding, if any.</summary>
+    private static (string? name, string? target) BindingFor(string subject, PatternSyntax pattern) => pattern switch
+    {
+        DeclarationPatternSyntax { Designation: SingleVariableDesignationSyntax svd } dp
+            => (svd.Identifier.Text, $"({subject} as {dp.Type})"),
+        VarPatternSyntax { Designation: SingleVariableDesignationSyntax svd2 }
+            => (svd2.Identifier.Text, subject),
+        _ => (null, null),
+    };
 
     private void EmitIf(IfStatementSyntax ifs)
     {

@@ -42,9 +42,10 @@ internal sealed class ExpressionEmitter
             ImplicitObjectCreationExpressionSyntax ioc => TranslateImplicitObjectCreation(ioc),
             CollectionExpressionSyntax ce => TranslateCollectionExpr(ce),
             InitializerExpressionSyntax init => TranslateInitializer(init),
-            // ManiaScript has no inline conditional (?:) — only supported as a statement-level
-            // if/else rewrite (see StatementEmitter.EmitTernaryAsIfElse).
+            // ManiaScript has no inline conditional (?:) or switch expression — only supported as a
+            // statement-level if/else rewrite (see StatementEmitter.EmitTernaryAsIfElse / EmitSwitchExpressionAsIfElse).
             ConditionalExpressionSyntax => Unsupported(expr, "ternary operator '?:' (extract to an if/else statement)"),
+            SwitchExpressionSyntax => Unsupported(expr, "switch expression (extract to an if/else or switch statement)"),
             _ => Unsupported(expr, expr.Kind().ToString()),
         };
     }
