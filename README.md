@@ -130,10 +130,11 @@ Building from source, running the sample project, and running the test suite are
 21. [Manialink Bindings](#manialink-bindings)
 22. [Netwrites & Netreads](#netwrites--netreads)
 23. [Persistent Variables](#persistent-variables)
-24. [Pattern Matching](#pattern-matching)
-25. [Log & Assertions](#log--assertions)
-26. [Game Mode Structure](#game-mode-structure)
-27. [Quick Reference Table](#quick-reference-table)
+24. [Metadata Variables](#metadata-variables)
+25. [Pattern Matching](#pattern-matching)
+26. [Log & Assertions](#log--assertions)
+27. [Game Mode Structure](#game-mode-structure)
+28. [Quick Reference Table](#quick-reference-table)
 
 ---
 
@@ -225,38 +226,24 @@ main() {
 
 ### Extension Variables (`for` keyword)
 
-C#:
-```cs
-// Attach a variable to an existing object
-[For(nameof(LocalUser))]
-public string SomeVar;
-
-[For(nameof(LocalUser), Default = 42)]
-public int SomeOtherVar;
-```
-ManiaScript:
-```
-declare Text SomeVar for LocalUser;
-declare Integer SomeOtherVar for LocalUser = 42;
-```
-
-### Variable Aliasing
-
-When two objects of the same type share a variable name:
+Attach a variable to an existing object with `Local<T>.For(provider, out var name)` — the
+generator recognizes this call and emits a `declare ... for provider;` statement instead of a
+real method call. `provider` must implement `ILocalProvider` (most API classes do, e.g.
+`CSmPlayer`, `CMap`, `CMlControl`).
 
 C#:
 ```cs
-[For("Players[0]", Alias = "CustomScore1")]
-public int CustomScore;
-
-[For("Players[1]", Alias = "CustomScore2")]
-public int CustomScore;
+Local<int>.For(LocalUser, out var someVar);
+someVar.Value = 42;
 ```
 ManiaScript:
 ```
-declare Integer CustomScore for Players[0] as CustomScore1;
-declare Integer CustomScore for Players[1] as CustomScore2;
+declare Integer SomeVar for LocalUser;
+SomeVar = 42;
 ```
+
+> `someVar` is a `StrongBox<int>` — read/write through `.Value`; the generator strips
+> `.Value` since the declared ManiaScript variable itself holds the value.
 
 ---
 
@@ -1659,50 +1646,76 @@ main() {
 
 ## Netwrites & Netreads
 
-Network-synchronized variables for communication between server and client scripts.
+Network-synchronized variables for communication between server and client scripts, declared
+with `Netwrite<T>.For(provider, out var name)` / `Netread<T>.For(provider, out var name)` — the
+generator recognizes these calls and emits a `declare netwrite`/`declare netread` statement.
+`provider` must implement `INetwriteProvider`/`INetreadProvider` (e.g. `CSmPlayer`, `CScore`).
 
 ### Netwrite (server → client)
 
 C#:
 ```cs
-[Netwrite]
-[For(nameof(player))]
-public int NetScore;
+Netwrite<int>.For(player, out var netScore);
+netScore.Value = 5;
 ```
 ManiaScript:
 ```
 declare netwrite Integer Net_NetScore for Player;
+Net_NetScore = 5;
 ```
 
 ### Netread (client ← server)
 
 C#:
 ```cs
-[Netread]
-[For(nameof(player))]
-public int NetScore;
+Netread<int>.For(player, out var netScore);
+Log(netScore.ToString());
 ```
 ManiaScript:
 ```
 declare netread Integer Net_NetScore for Player;
+log("" ^ Net_NetScore);
 ```
+
+> `Netwrite<T>.For` yields a `StrongBox<T>` — read/write through `.Value` (stripped by the
+> generator). `Netread<T>.For` yields a plain `T` instead — read-only, no `.Value`, since the
+> client can't write network variables back.
 
 ## Persistent Variables
 
-Variables that survive across script restarts (like cookies):
+Variables that survive across script restarts (like cookies), declared with
+`Persistent<T>.For(provider, out var name)` — `provider` must implement `IPersistentProvider`
+(e.g. `CMap`, `CUser`, `CTmMode`).
 
 C#:
 ```cs
-[Persistent]
-[For(nameof(LocalUser))]
-public string SavedSetting;
+Persistent<string>.For(LocalUser, out var savedSetting);
+savedSetting.Value = "some value";
 ```
 ManiaScript:
 ```
 declare persistent Text Persistent_SavedSetting for LocalUser;
+Persistent_SavedSetting = "some value";
 ```
 
 > Limited storage per object. Type cannot be changed once set — you must use a new name.
+
+## Metadata Variables
+
+Variables attached to a `CNod`-derived object's metadata store, declared with
+`Metadata<T>.For(provider, out var name)` — `provider` must implement `IMetadataProvider`
+(e.g. `CMap`, `CSmBlock`, `CEditorAsset`).
+
+C#:
+```cs
+Metadata<int>.For(block, out var difficulty);
+difficulty.Value = 3;
+```
+ManiaScript:
+```
+declare metadata Integer Metadata_Difficulty for Block;
+Metadata_Difficulty = 3;
+```
 
 ## Pattern Matching
 
@@ -1915,9 +1928,11 @@ log(Score);
 | `yield return` concept | `yield;` (pause 1 frame) |
 | `Thread.Sleep(ms)` | `sleep(ms)` |
 | `SpinWait.SpinUntil(cond)` | `wait(condition)` |
-| `[Netwrite]` | `declare netwrite` |
-| `[Netread]` | `declare netread` |
-| `[Persistent]` | `declare persistent` |
+| `Netwrite<T>.For(provider, out var x)` | `declare netwrite` |
+| `Netread<T>.For(provider, out var x)` | `declare netread` |
+| `Persistent<T>.For(provider, out var x)` | `declare persistent` |
+| `Metadata<T>.For(provider, out var x)` | `declare metadata` |
+| `Local<T>.For(provider, out var x)` | `declare ... for provider` (extension var) |
 | `struct` | `#Struct` |
 | `Vector2` / `Vector3` | `Vec2` / `Vec3` |
 | `for (i = a; i <= b; i++)` | `for (I, a, b)` |
