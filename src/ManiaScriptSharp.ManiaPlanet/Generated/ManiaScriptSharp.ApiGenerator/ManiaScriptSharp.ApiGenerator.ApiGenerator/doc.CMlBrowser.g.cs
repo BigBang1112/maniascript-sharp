@@ -20,7 +20,6 @@ public partial class CMlBrowser : CMlScript, ILocalProvider, IPersistentProvider
 
     /// <summary>Will be Null if the script is not runing in a layer of an app.</summary>
     public CManiaAppBrowser ParentApp { get; }
-    public CMap CurMap { get; }
     public void ShowCurMapCard() { }
     public EBuddyResult BuddyDoResult { get; }
     public string BuddyDoErrorMessage { get; }
