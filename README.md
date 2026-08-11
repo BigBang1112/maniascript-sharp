@@ -1399,6 +1399,68 @@ main() {
 > callable/accessible member in C#. Use a lib-typed field for anything you actually call
 > into from code.
 
+### Pre-Built Libraries per game
+
+Each game-specific package (`ManiaScriptSharp.ManiaPlanet`, `ManiaScriptSharp.ManiaPlanet3`,
+`ManiaScriptSharp.Trackmania`) ships ready-made `ILib` wrapper classes for Nadeo's own official
+library scripts, generated from the actual `.Script.txt` files bundled with that package (e.g.
+`Message`, `Layers2`, `ScoresTable3`, `UISync`, `WarmUp`, …). They live under the
+`ManiaScriptSharp.Scripts.Libs.Nadeo` namespace, mirroring the real `Libs/Nadeo/*.Script.txt`
+folder layout — the `Message` field used above is one of these, not something you write
+yourself:
+
+```cs
+using ManiaScriptSharp.Scripts.Libs.Nadeo;
+
+public class MyMode : CTmMode, IContext
+{
+    public required Layers2 Layers;
+    public required ScoresTable3 ScoresTable;
+}
+```
+
+These classes are pure API stubs (their bodies never run) — the real implementation is the
+matching `Libs/Nadeo/*.Script.txt` file, resolved by the game at the `#Include` path shown
+above.
+
+### Libraries in Manialink Scripts (Inlining)
+
+Manialink ManiaScript can't `#Include` arbitrary library files — only the handful of truly
+built-in globals (`TextLib`, `MathLib`, `TimeLib`, `AnimLib`, `MapUnits`) get a real
+`#Include` line there. So whenever the consuming class is emitted as a manialink (i.e. it has
+a matching `.xml` template), every other `ILib` field — whether one of the pre-built Nadeo
+libraries above or your own custom class — has its functions copied directly into the
+manialink script instead, and call sites drop the `Alias::` prefix, since no alias/`#Include`
+exists anymore:
+
+C#:
+```cs
+public class MyManialink : CTmMlScriptIngame, IContext
+{
+    public required Layers2 Layers;
+
+    public void Main()
+    {
+        Layers.DestroyAll();
+    }
+}
+```
+ManiaScript:
+```
+// Inlined lib: Layers2
+Void DestroyAll() {
+    ...
+}
+
+main() {
+    DestroyAll();
+}
+```
+
+> This applies transitively — if an inlined lib itself references another lib (e.g. a custom
+> lib that uses `TextLib` or another Nadeo library), that nested dependency's `#Include` or
+> inlining is hoisted up into the manialink script too.
+
 ## Labels
 
 The closest C# feature to ManiaScript labels is virtual/override methods.
