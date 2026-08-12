@@ -55,6 +55,11 @@ dotnet new msharp-gamemode -n Test --Api Trackmania -o /tmp/Test
 dotnet new uninstall ./templates/ManiaScriptSharp.Templates/content/ManiaScriptSharp.Gamemode
 ```
 
+The same applies to the other templates under `templates/ManiaScriptSharp.Templates/content/`
+(`ManiaScriptSharp.Library` / `msharp-library`, `ManiaScriptSharp.Manialink` / `msharp-manialink`,
+`ManiaScriptSharp.MapEditorPlugin` / `msharp-map-editor-plugin`, `ManiaScriptSharp.ServerPlugin` /
+`msharp-server-plugin`) — install/uninstall each by its own subfolder path.
+
 Installing `content/ManiaScriptSharp.Gamemode` directly (instead of the packed `.nupkg`) picks up
 template edits immediately, without a pack/publish round-trip.
 
@@ -70,6 +75,6 @@ dotnet test ManiaScriptSharp.slnx
 - `src/ManiaScriptSharp.Generator` — the Roslyn incremental source generator (C# → ManiaScript).
 - `src/ManiaScriptSharp.ApiGenerator` — turns Nadeo's `doc.h` headers and `.Script.txt` libraries into a C# API surface.
 - `src/ManiaScriptSharp.ManiaPlanet`, `ManiaScriptSharp.ManiaPlanet3`, `ManiaScriptSharp.Trackmania` — generated API surfaces per game.
-- `templates/ManiaScriptSharp.Templates` — `dotnet new` template pack (`msharp-gamemode`, `--Api ManiaPlanet|ManiaPlanet3|Trackmania`) for scaffolding a new consumer project.
+- `templates/ManiaScriptSharp.Templates` — `dotnet new` template pack with 5 templates for scaffolding a new consumer project: `msharp-gamemode`, `msharp-library`, `msharp-manialink`, `msharp-map-editor-plugin`, `msharp-server-plugin` (`--Api ManiaPlanet|ManiaPlanet3|Trackmania`, though the map editor plugin and server plugin templates only support ManiaPlanet/Trackmania).
 - `samples/MyMode` — a sample game mode exercising the generator end to end.
 - `tests/` — unit tests for the generator and API generator.

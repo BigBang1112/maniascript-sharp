@@ -84,11 +84,31 @@ surface package (`ManiaScriptSharp.ManiaPlanet` / `ManiaScriptSharp.ManiaPlanet3
 
 `ManiaPlanet` and `ManiaPlanet3` expose both `CTmMode` and `CSmMode` as a context base class; pick
 one with `--BaseClass` (defaults to `CTmMode`). Trackmania only has `CSmMode`, so `--BaseClass` is
-ignored (disabled) when `--Api Trackmania` is selected:
+ignored (always `CSmMode`) when `--Api Trackmania` is selected:
 
 ```powershell
 dotnet new msharp-gamemode -n MyGamemode --Api ManiaPlanet --BaseClass CSmMode
 ```
+
+Other templates in the pack scaffold the other kinds of ManiaScript projects:
+
+| Short name | Scaffolds | `--Api` choices |
+| --- | --- | --- |
+| `msharp-gamemode` | Game mode (`CTmMode` / `CSmMode`) | ManiaPlanet, ManiaPlanet3, Trackmania |
+| `msharp-library` | `ILib<T>` reusable library | ManiaPlanet, ManiaPlanet3, Trackmania |
+| `msharp-manialink` | Ingame manialink (`CTmMlScriptIngame` / `CSmMlScriptIngame`) + matching `.xml` | ManiaPlanet, ManiaPlanet3, Trackmania |
+| `msharp-map-editor-plugin` | Map editor plugin (`CMapEditorPlugin`) | ManiaPlanet, Trackmania |
+| `msharp-server-plugin` | Server plugin (`CServerPlugin`) | ManiaPlanet, Trackmania |
+
+```powershell
+dotnet new msharp-library -n MyLib --Api Trackmania
+dotnet new msharp-manialink -n MyManialink --Api Trackmania
+dotnet new msharp-map-editor-plugin -n MyMapEditorPlugin --Api ManiaPlanet
+dotnet new msharp-server-plugin -n MyServerPlugin --Api ManiaPlanet
+```
+
+`msharp-map-editor-plugin` and `msharp-server-plugin` only support `ManiaPlanet`/`Trackmania` —
+`CMapEditorPlugin`/`CServerPlugin` aren't exposed by the ManiaPlanet3 API.
 
 ### IDE setup
 
