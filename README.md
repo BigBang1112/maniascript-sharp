@@ -18,23 +18,13 @@ flowchart LR
     A[C# source<br/>MyGamemode.cs] -->|saved / typed| B(Roslyn<br/>IIncrementalGenerator)
     C[MSBuild properties] -->|CompilerVisibleProperty| B
     B --> D{{ScriptEmitter}}
-    D -->|File.WriteAllText| E[out/<br/>MyGamemode.Script.txt]
+    D -->|File.WriteAllText| E[ManiaScript/<br/>MyGamemode.Script.txt]
     D -->|AddSource| F[marker .g.cs<br/>satisfies generator contract]
 ```
 
 1. The generator's `SyntaxProvider` watches every `ClassDeclarationSyntax` whose base references [`IContext`](src/ManiaScriptSharp/IContext.cs) or [`ILib`](src/ManiaScriptSharp/ILib.cs).
 2. For each match, [`ScriptEmitter`](src/ManiaScriptSharp.Generator/ScriptEmitter.cs) walks the syntax tree with a `SemanticModel` and produces ManiaScript text following the C# to ManiaScript conversion reference below.
-3. [`BuildSettings`](src/ManiaScriptSharp.Generator/BuildSettings.cs) reads compiler-visible MSBuild properties to set the output folder and indentation. Configure them in your `.csproj`:
-
-     ```xml
-     <PropertyGroup>
-         <ManiaScriptOutputDir>out</ManiaScriptOutputDir>
-         <ManiaScriptIndentSize>4</ManiaScriptIndentSize>
-         <ManiaScriptIndentStyle>spaces</ManiaScriptIndentStyle>
-     </PropertyGroup>
-     ```
-
-     `ManiaScriptOutputDir` defaults to `out`; indentation defaults to tabs.
+3. [`BuildSettings`](src/ManiaScriptSharp.Generator/BuildSettings.cs) reads compiler-visible MSBuild properties to set the output folder and indentation.
 4. The emitted text is written via `File.WriteAllText`, and a tiny marker `// generated` C# file is added through `SourceProductionContext.AddSource` so the generator participates in the compilation legitimately.
 
 Writes are skipped when the existing file is byte-identical, so IDE responsiveness stays smooth.
@@ -46,24 +36,22 @@ ManiaScriptSharp is distributed as NuGet packages. Add the runtime library, the 
 ```powershell
 dotnet add package ManiaScriptSharp
 dotnet add package ManiaScriptSharp.Generator
-dotnet add package ManiaScriptSharp.ManiaPlanet     # ManiaPlanet (TM2 / ShootMania)
-# or ManiaScriptSharp.ManiaPlanet3                  # ManiaPlanet 3 (TM Nations Forever)
+dotnet add package ManiaScriptSharp.ManiaPlanet     # ManiaPlanet (2019)
+# or ManiaScriptSharp.ManiaPlanet3                  # ManiaPlanet 3 (2015)
 # or ManiaScriptSharp.Trackmania                    # Trackmania (2020)
 ```
 
 `ManiaScriptSharp.Generator` is a `DevelopmentDependency` Roslyn analyzer package, so it contributes no runtime assembly, and its `build/ManiaScriptSharp.Generator.props` is imported automatically once referenced.
 
-Configure the output folder and indentation via MSBuild properties in your `.csproj`:
+Optionally configure the build properties in your `.csproj`. These are the defaults:
 
 ```xml
 <PropertyGroup>
-    <ManiaScriptOutputDir>out</ManiaScriptOutputDir>
+    <ManiaScriptOutputDir>ManiaScript</ManiaScriptOutputDir>
     <ManiaScriptIndentSize>4</ManiaScriptIndentSize>
     <ManiaScriptIndentStyle>spaces</ManiaScriptIndentStyle>
 </PropertyGroup>
 ```
-
-`ManiaScriptOutputDir` defaults to `out`; indentation defaults to tabs.
 
 Then write a class implementing [`IContext`](src/ManiaScriptSharp/IContext.cs):
 
@@ -77,7 +65,7 @@ public class MyGamemode : CTmMode, IContext
 }
 ```
 
-Building the project generates `out/MyGamemode.Script.txt` next to it, following the C# to ManiaScript conversion reference below.
+Building the project generates `ManiaScript/MyGamemode.Script.txt` next to it, following the C# to ManiaScript conversion reference below.
 
 ### IDE setup
 

@@ -7,9 +7,10 @@ namespace ManiaScriptSharp.Generator;
 /// <c>CompilerVisibleProperty</c>. Consumers set these in their <c>.csproj</c>:
 /// <code>
 /// &lt;PropertyGroup&gt;
-///   &lt;ManiaScriptOutputDir&gt;out&lt;/ManiaScriptOutputDir&gt;
+///   &lt;ManiaScriptOutputDir&gt;ManiaScript&lt;/ManiaScriptOutputDir&gt;
 ///   &lt;ManiaScriptIndentSize&gt;4&lt;/ManiaScriptIndentSize&gt;
 ///   &lt;ManiaScriptIndentStyle&gt;spaces&lt;/ManiaScriptIndentStyle&gt;
+/// (these are also the defaults when omitted)
 /// &lt;/PropertyGroup&gt;
 /// </code>
 /// </summary>
@@ -18,13 +19,13 @@ internal sealed class BuildSettings
     /// <summary>Destination folder for .Script.txt files (relative to project dir or absolute).</summary>
     public string OutputDir { get; }
 
-    /// <summary>Number of characters per indent level (default 1 for tabs, 4 for spaces).</summary>
+    /// <summary>Number of characters per indent level (default 4 for spaces, 1 for tabs).</summary>
     public int IndentSize { get; }
 
-    /// <summary>Whether to indent with spaces (<c>true</c>) or tabs (<c>false</c>).</summary>
+    /// <summary>Whether to indent with spaces (<c>true</c>, default) or tabs (<c>false</c>).</summary>
     public bool UseSpaces { get; }
 
-    public static readonly BuildSettings Default = new("out", 1, false);
+    public static readonly BuildSettings Default = new("ManiaScript", 4, true);
 
     private BuildSettings(string outputDir, int indentSize, bool useSpaces)
     {
@@ -42,12 +43,13 @@ internal sealed class BuildSettings
         globalOptions.TryGetValue("build_property.ManiaScriptIndentSize", out var indentSizeStr);
         globalOptions.TryGetValue("build_property.ManiaScriptIndentStyle", out var indentStyle);
 
-        var useSpaces = indentStyle?.Equals("spaces", StringComparison.OrdinalIgnoreCase) == true;
+        // Spaces is the default style; only an explicit "tabs" opts out.
+        var useSpaces = indentStyle?.Equals("tabs", StringComparison.OrdinalIgnoreCase) != true;
         var defaultSize = useSpaces ? 4 : 1;
         var indentSize = int.TryParse(indentSizeStr, out var parsed) && parsed > 0 ? parsed : defaultSize;
 
         return new BuildSettings(
-            string.IsNullOrWhiteSpace(outputDir) ? "out" : outputDir!,
+            string.IsNullOrWhiteSpace(outputDir) ? "ManiaScript" : outputDir!,
             indentSize,
             useSpaces);
     }

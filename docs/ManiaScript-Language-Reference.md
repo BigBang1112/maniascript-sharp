@@ -100,8 +100,8 @@ The initial value acts as a default when the object hasn't initialized the varia
 **Aliasing** is required when two objects of the same type share the same variable name:
 
 ```
-declare Integer CustomScore for Players[0] as CustomScore1;
-declare Integer CustomScore for Players[1] as CustomScore2;
+declare Integer CustomScore for Players[0];
+declare Integer CustomScore for Players[1];
 ```
 
 **`declare for` variants:**

@@ -18,30 +18,30 @@ public class BuildSettingsTests
         BuildSettings.FromOptions(new DictOptions(values));
 
     [Fact]
-    public void Default_OutputDir_IsOut()
+    public void Default_OutputDir_IsManiaScript()
     {
-        Assert.Equal("out", BuildSettings.Default.OutputDir);
+        Assert.Equal("ManiaScript", BuildSettings.Default.OutputDir);
     }
 
     [Fact]
-    public void Default_UseSpaces_IsFalse()
+    public void Default_UseSpaces_IsTrue()
     {
-        Assert.False(BuildSettings.Default.UseSpaces);
+        Assert.True(BuildSettings.Default.UseSpaces);
     }
 
     [Fact]
-    public void Default_IndentSize_IsOne()
+    public void Default_IndentSize_IsFour()
     {
-        Assert.Equal(1, BuildSettings.Default.IndentSize);
+        Assert.Equal(4, BuildSettings.Default.IndentSize);
     }
 
     [Fact]
     public void FromOptions_NoOptions_ReturnsDefaults()
     {
         var s = FromDict([]);
-        Assert.Equal("out", s.OutputDir);
-        Assert.Equal(1, s.IndentSize);
-        Assert.False(s.UseSpaces);
+        Assert.Equal("ManiaScript", s.OutputDir);
+        Assert.Equal(4, s.IndentSize);
+        Assert.True(s.UseSpaces);
     }
 
     [Fact]
@@ -52,10 +52,10 @@ public class BuildSettingsTests
     }
 
     [Fact]
-    public void FromOptions_WhitespaceOutputDir_FallsBackToOut()
+    public void FromOptions_WhitespaceOutputDir_FallsBackToDefault()
     {
         var s = FromDict(new() { ["build_property.ManiaScriptOutputDir"] = "   " });
-        Assert.Equal("out", s.OutputDir);
+        Assert.Equal("ManiaScript", s.OutputDir);
     }
 
     [Fact]
@@ -102,14 +102,14 @@ public class BuildSettingsTests
     public void FromOptions_InvalidIndentSize_UsesDefault()
     {
         var s = FromDict(new() { ["build_property.ManiaScriptIndentSize"] = "abc" });
-        // Not spaces → default is 1
-        Assert.Equal(1, s.IndentSize);
+        // Default style is spaces → default size is 4
+        Assert.Equal(4, s.IndentSize);
     }
 
     [Fact]
     public void FromOptions_ZeroIndentSize_UsesDefault()
     {
         var s = FromDict(new() { ["build_property.ManiaScriptIndentSize"] = "0" });
-        Assert.Equal(1, s.IndentSize);
+        Assert.Equal(4, s.IndentSize);
     }
 }

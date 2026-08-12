@@ -36,7 +36,7 @@ After building (or just opening `samples/MyMode/MyGamemode.cs` in Visual Studio 
 C# extension), look at:
 
 ```
-samples/MyMode/out/MyGamemode.Script.txt
+samples/MyMode/ManiaScript/MyGamemode.Script.txt
 ```
 
 Edit the C# file, save, and the `.Script.txt` is rewritten automatically. See
