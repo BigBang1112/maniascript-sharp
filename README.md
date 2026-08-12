@@ -67,6 +67,29 @@ public class MyGamemode : CTmMode, IContext
 
 Building the project generates `ManiaScript/MyGamemode.Script.txt` next to it, following the C# to ManiaScript conversion reference below.
 
+### Project templates
+
+Instead of setting up a project by hand, install the `dotnet new` template pack and scaffold one,
+picking the target game via the `--Api` parameter (`ManiaPlanet` (default), `ManiaPlanet3`, or
+`Trackmania`):
+
+```powershell
+dotnet new install ManiaScriptSharp.Templates
+dotnet new msharp-gamemode -n MyGamemode --Api Trackmania
+```
+
+This generates a ready-to-build project with the runtime library, generator, and matching API
+surface package (`ManiaScriptSharp.ManiaPlanet` / `ManiaScriptSharp.ManiaPlanet3` /
+`ManiaScriptSharp.Trackmania`) already referenced.
+
+`ManiaPlanet` and `ManiaPlanet3` expose both `CTmMode` and `CSmMode` as a context base class; pick
+one with `--BaseClass` (defaults to `CTmMode`). Trackmania only has `CSmMode`, so `--BaseClass` is
+ignored (disabled) when `--Api Trackmania` is selected:
+
+```powershell
+dotnet new msharp-gamemode -n MyGamemode --Api ManiaPlanet --BaseClass CSmMode
+```
+
 ### IDE setup
 
 It is recommended to enable the generator to run on every keystroke instead of only on save, so you can see the generated `.Script.txt` update in real time as you type.

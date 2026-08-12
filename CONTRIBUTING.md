@@ -47,6 +47,17 @@ packages, so changes made locally are picked up immediately. Its `.csproj` also 
 `build/ManiaScriptSharp.Generator.props` explicitly — that file is imported automatically when
 the generator is consumed as a NuGet package instead.
 
+## Testing the project template locally
+
+```powershell
+dotnet new install ./templates/ManiaScriptSharp.Templates/content/ManiaScriptSharp.Gamemode
+dotnet new msharp-gamemode -n Test --Api Trackmania -o /tmp/Test
+dotnet new uninstall ./templates/ManiaScriptSharp.Templates/content/ManiaScriptSharp.Gamemode
+```
+
+Installing `content/ManiaScriptSharp.Gamemode` directly (instead of the packed `.nupkg`) picks up
+template edits immediately, without a pack/publish round-trip.
+
 ## Running tests
 
 ```powershell
@@ -59,5 +70,6 @@ dotnet test ManiaScriptSharp.slnx
 - `src/ManiaScriptSharp.Generator` — the Roslyn incremental source generator (C# → ManiaScript).
 - `src/ManiaScriptSharp.ApiGenerator` — turns Nadeo's `doc.h` headers and `.Script.txt` libraries into a C# API surface.
 - `src/ManiaScriptSharp.ManiaPlanet`, `ManiaScriptSharp.ManiaPlanet3`, `ManiaScriptSharp.Trackmania` — generated API surfaces per game.
+- `templates/ManiaScriptSharp.Templates` — `dotnet new` template pack (`msharp-gamemode`, `--Api ManiaPlanet|ManiaPlanet3|Trackmania`) for scaffolding a new consumer project.
 - `samples/MyMode` — a sample game mode exercising the generator end to end.
 - `tests/` — unit tests for the generator and API generator.
