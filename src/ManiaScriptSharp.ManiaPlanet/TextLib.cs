@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 
@@ -9,164 +6,164 @@ namespace ManiaScriptSharp;
 
 public sealed partial class TextLib
 {
-    public partial float ToReal(string text)
+    public partial float ToReal(string _Text)
     {
-        return float.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out float result) ? result : -1f;
+        return float.TryParse(_Text, NumberStyles.Any, CultureInfo.InvariantCulture, out float result) ? result : -1f;
     }
 
-    public partial int ToInteger(string text)
+    public partial int ToInteger(string _Text)
     {
-        return int.TryParse(text, out int result) ? result : -1;
+        return int.TryParse(_Text, out int result) ? result : -1;
     }
 
-    public partial Vec3 ToColor(string text)
+    public partial Vec3 ToColor(string _Text)
     {
-        if (string.IsNullOrWhiteSpace(text)) return default!;
-        text = text.TrimStart('#');
-        if (text.Length == 6 && int.TryParse(text, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int hex))
+        if (string.IsNullOrWhiteSpace(_Text)) return default!;
+        _Text = _Text.TrimStart('#');
+        if (_Text.Length == 6 && int.TryParse(_Text, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int hex))
         {
             return new Vec3(((hex >> 16) & 0xFF) / 255f, ((hex >> 8) & 0xFF) / 255f, (hex & 0xFF) / 255f);
         }
         return default!;
     }
 
-    public partial string SubString(string text, int start, int length)
+    public partial string SubString(string _Text, int _Start, int _Length)
     {
-        if (string.IsNullOrEmpty(text) || start >= text.Length || length <= 0 || start < 0) return string.Empty;
-        if (start + length > text.Length) length = text.Length - start;
-        return text.Substring(start, length);
+        if (string.IsNullOrEmpty(_Text) || _Start >= _Text.Length || _Length <= 0 || _Start < 0) return string.Empty;
+        if (_Start + _Length > _Text.Length) _Length = _Text.Length - _Start;
+        return _Text.Substring(_Start, _Length);
     }
 
-    public partial string SubText(string text, int start, int length)
+    public partial string SubText(string _Text, int _Start, int _Length)
     {
-        return SubString(text, start, length);
+        return SubString(_Text, _Start, _Length);
     }
 
-    public partial int Length(string text)
+    public partial int Length(string _Text)
     {
-        return string.IsNullOrEmpty(text) ? 0 : text.Length;
+        return string.IsNullOrEmpty(_Text) ? 0 : _Text.Length;
     }
 
-    public partial string ToText(int integer) => integer.ToString(CultureInfo.InvariantCulture);
+    public partial string ToText(int _Integer) => _Integer.ToString(CultureInfo.InvariantCulture);
 
-    public partial string ToText(float real) => real.ToString(CultureInfo.InvariantCulture);
+    public partial string ToText(float _Real) => _Real.ToString(CultureInfo.InvariantCulture);
 
-    public partial string ToText(bool boolean) => boolean ? "True" : "False";
+    public partial string ToText(bool _Boolean) => _Boolean ? "True" : "False";
 
-    public partial string ToText(Int3 int3) => int3.ToString();
+    public partial string ToText(Int3 _Int3) => _Int3.ToString() ?? string.Empty;
 
-    public partial string ToText(Vec3 vec3) => vec3.ToString();
+    public partial string ToText(Vec3 _Vec3) => _Vec3.ToString() ?? string.Empty;
 
-    public partial string TimeToText(int time, bool includeCentiSeconds)
+    public partial string TimeToText(int _Time, bool _IncludeCentiSeconds)
     {
-        var ts = TimeSpan.FromMilliseconds(time);
+        var ts = TimeSpan.FromMilliseconds(_Time);
         var baseTime = $"{(int)Math.Floor(ts.TotalMinutes):D2}:{ts.Seconds:D2}";
-        return includeCentiSeconds ? $"{baseTime}:{ts.Milliseconds / 10:D2}" : baseTime;
+        return _IncludeCentiSeconds ? $"{baseTime}:{ts.Milliseconds / 10:D2}" : baseTime;
     }
 
-    public partial string TimeToText(int time) => TimeToText(time, false);
+    public partial string TimeToText(int _Time) => TimeToText(_Time, false);
 
-    public partial string ColorToText(Vec3 color) => color.ToString();
+    public partial string ColorToText(Vec3 _Color) => _Color.ToString() ?? string.Empty;
 
-    public partial string FormatInteger(int argument1, int argument2) => argument1.ToString().PadLeft(argument2, '0');
+    public partial string FormatInteger(int Argument1, int Argument2) => Argument1.ToString().PadLeft(Argument2, '0');
 
-    public partial string FormatReal(float value, int fPartLength, bool hideZeroes, bool hideDot)
+    public partial string FormatReal(float _Value, int _FPartLength, bool _HideZeroes, bool _HideDot)
     {
-        var format = "0." + new string(hideZeroes ? '#' : '0', fPartLength);
-        var result = value.ToString(format, CultureInfo.InvariantCulture);
-        if (hideDot && result.EndsWith(".")) result = result.TrimEnd('.');
+        var format = "0." + new string(_HideZeroes ? '#' : '0', _FPartLength);
+        var result = _Value.ToString(format, CultureInfo.InvariantCulture);
+        if (_HideDot && result.EndsWith(".")) result = result.TrimEnd('.');
         return result;
     }
 
-    public partial string ToUpperCase(string textToChange) => textToChange?.ToUpperInvariant() ?? string.Empty;
+    public partial string ToUpperCase(string _TextToChange) => _TextToChange?.ToUpperInvariant() ?? string.Empty;
 
-    public partial string ToLowerCase(string textToChange) => textToChange?.ToLowerInvariant() ?? string.Empty;
+    public partial string ToLowerCase(string _TextToChange) => _TextToChange?.ToLowerInvariant() ?? string.Empty;
 
-    public partial string CloseStyleTags(string @string)
+    public partial string CloseStyleTags(string _String)
     {
-        if (string.IsNullOrEmpty(@string)) return string.Empty;
-        var openCount = @string.Split(["$<"], StringSplitOptions.None).Length - 1;
-        var closeCount = @string.Split(["$>"], StringSplitOptions.None).Length - 1;
+        if (string.IsNullOrEmpty(_String)) return string.Empty;
+        var openCount = _String.Split(["$<"], StringSplitOptions.None).Length - 1;
+        var closeCount = _String.Split(["$>"], StringSplitOptions.None).Length - 1;
         var missing = openCount - closeCount;
-        if (missing > 0) @string += string.Concat(Enumerable.Repeat("$>", missing));
-        return @string;
+        if (missing > 0) _String += string.Concat(Enumerable.Repeat("$>", missing));
+        return _String;
     }
 
-    public partial bool CompareWithoutFormat(string text1, string text2, bool isCaseSensitive)
+    public partial bool CompareWithoutFormat(string _Text1, string _Text2, bool _IsCaseSensitive)
     {
-        var t1 = StripFormatting(text1);
-        var t2 = StripFormatting(text2);
-        return string.Equals(t1, t2, isCaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
+        var t1 = StripFormatting(_Text1);
+        var t2 = StripFormatting(_Text2);
+        return string.Equals(t1, t2, _IsCaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
     }
 
-    public partial bool Find(string textToFind, string textToSearchIn, bool isFormatSensitive, bool isCaseSensitive)
+    public partial bool Find(string _TextToFind, string _TextToSearchIn, bool _IsFormatSensitive, bool _IsCaseSensitive)
     {
-        if (string.IsNullOrEmpty(textToFind) || string.IsNullOrEmpty(textToSearchIn)) return false;
+        if (string.IsNullOrEmpty(_TextToFind) || string.IsNullOrEmpty(_TextToSearchIn)) return false;
 
-        var target = isFormatSensitive ? textToSearchIn : StripFormatting(textToSearchIn);
-        var query = isFormatSensitive ? textToFind : StripFormatting(textToFind);
+        var target = _IsFormatSensitive ? _TextToSearchIn : StripFormatting(_TextToSearchIn);
+        var query = _IsFormatSensitive ? _TextToFind : StripFormatting(_TextToFind);
 
-        return target.IndexOf(query, isCaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase) >= 0;
+        return target.IndexOf(query, _IsCaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
-    public partial bool EndsWith(string textToFind, string textToSearchIn) => EndsWith(textToFind, textToSearchIn, true, true);
+    public partial bool EndsWith(string _TextToFind, string _TextToSearchIn) => EndsWith(_TextToFind, _TextToSearchIn, true, true);
 
-    public partial bool EndsWith(string textToFind, string textToSearchIn, bool isFormatSensitive, bool isCaseSensitive)
+    public partial bool EndsWith(string _TextToFind, string _TextToSearchIn, bool _IsFormatSensitive, bool _IsCaseSensitive)
     {
-        string target = isFormatSensitive ? textToSearchIn : StripFormatting(textToSearchIn);
-        string query = isFormatSensitive ? textToFind : StripFormatting(textToFind);
-        return target?.EndsWith(query, isCaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase) ?? false;
+        string target = _IsFormatSensitive ? _TextToSearchIn : StripFormatting(_TextToSearchIn);
+        string query = _IsFormatSensitive ? _TextToFind : StripFormatting(_TextToFind);
+        return target?.EndsWith(query, _IsCaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase) ?? false;
     }
 
-    public partial bool StartsWith(string textToFind, string textToSearchIn) => StartsWith(textToFind, textToSearchIn, true, true);
+    public partial bool StartsWith(string _TextToFind, string _TextToSearchIn) => StartsWith(_TextToFind, _TextToSearchIn, true, true);
 
-    public partial bool StartsWith(string textToFind, string textToSearchIn, bool isFormatSensitive, bool isCaseSensitive)
+    public partial bool StartsWith(string _TextToFind, string _TextToSearchIn, bool _IsFormatSensitive, bool _IsCaseSensitive)
     {
-        var target = isFormatSensitive ? textToSearchIn : StripFormatting(textToSearchIn);
-        var query = isFormatSensitive ? textToFind : StripFormatting(textToFind);
-        return target?.StartsWith(query, isCaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase) ?? false;
+        var target = _IsFormatSensitive ? _TextToSearchIn : StripFormatting(_TextToSearchIn);
+        var query = _IsFormatSensitive ? _TextToFind : StripFormatting(_TextToFind);
+        return target?.StartsWith(query, _IsCaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase) ?? false;
     }
 
-    public partial string Compose(string argument1) => argument1;
-    public partial string Compose(string argument1, string argument2) => argument1?.Replace("%1", argument2) ?? string.Empty;
-    public partial string Compose(string argument1, string argument2, string argument3) => Compose(argument1, argument2).Replace("%2", argument3);
-    public partial string Compose(string argument1, string argument2, string argument3, string argument4) => Compose(argument1, argument2, argument3).Replace("%3", argument4);
-    public partial string Compose(string argument1, string argument2, string argument3, string argument4, string argument5) => Compose(argument1, argument2, argument3, argument4).Replace("%4", argument5);
-    public partial string Compose(string argument1, string argument2, string argument3, string argument4, string argument5, string argument6) => Compose(argument1, argument2, argument3, argument4, argument5).Replace("%5", argument6);
+    public partial string Compose(string Argument1) => Argument1;
+    public partial string Compose(string Argument1, string Argument2) => Argument1?.Replace("%1", Argument2) ?? string.Empty;
+    public partial string Compose(string Argument1, string Argument2, string Argument3) => Compose(Argument1, Argument2).Replace("%2", Argument3);
+    public partial string Compose(string Argument1, string Argument2, string Argument3, string Argument4) => Compose(Argument1, Argument2, Argument3).Replace("%3", Argument4);
+    public partial string Compose(string Argument1, string Argument2, string Argument3, string Argument4, string Argument5) => Compose(Argument1, Argument2, Argument3, Argument4).Replace("%4", Argument5);
+    public partial string Compose(string Argument1, string Argument2, string Argument3, string Argument4, string Argument5, string Argument6) => Compose(Argument1, Argument2, Argument3, Argument4, Argument5).Replace("%5", Argument6);
 
-    public partial string MLEncode(string argument1) => WebUtility.HtmlEncode(argument1);
-    public partial string URLEncode(string argument1) => Uri.EscapeDataString(argument1);
+    public partial string MLEncode(string Argument1) => WebUtility.HtmlEncode(Argument1);
+    public partial string URLEncode(string Argument1) => Uri.EscapeDataString(Argument1);
 
-    public partial string StripFormatting(string argument1)
+    public partial string StripFormatting(string Argument1)
     {
-        if (string.IsNullOrEmpty(argument1)) return string.Empty;
-        return Regex.Replace(argument1, @"\$(?:(\$)|[0-9a-fA-F]{2,3}|[lhLH]\[.*?\]|[lhLH]\[|.)", "");
+        if (string.IsNullOrEmpty(Argument1)) return string.Empty;
+        return Regex.Replace(Argument1, @"\$(?:(\$)|[0-9a-fA-F]{2,3}|[lhLH]\[.*?\]|[lhLH]\[|.)", "");
     }
 
-    public partial string[] Split(string separators, string text) =>
-        text?.Split(separators.ToCharArray(), StringSplitOptions.None) ?? [];
+    public partial string[] Split(string _Separators, string _Text) =>
+        _Text?.Split(_Separators.ToCharArray(), StringSplitOptions.None) ?? [];
 
-    public partial string Join(string separator, string[] texts) => string.Join(separator, texts);
+    public partial string Join(string _Separator, string[] _Texts) => string.Join(_Separator, _Texts);
 
-    public partial string Trim(string argument1) => argument1?.Trim() ?? string.Empty;
+    public partial string Trim(string Argument1) => Argument1?.Trim() ?? string.Empty;
 
-    public partial string ReplaceChars(string argument1, string argument2, string argument3)
+    public partial string ReplaceChars(string Argument1, string Argument2, string Argument3)
     {
-        if (string.IsNullOrEmpty(argument1) || string.IsNullOrEmpty(argument2) || string.IsNullOrEmpty(argument3)) return argument1 ?? string.Empty;
-        var chars = argument1.ToCharArray();
+        if (string.IsNullOrEmpty(Argument1) || string.IsNullOrEmpty(Argument2) || string.IsNullOrEmpty(Argument3)) return Argument1 ?? string.Empty;
+        var chars = Argument1.ToCharArray();
         for (int i = 0; i < chars.Length; i++)
         {
-            int index = argument2.IndexOf(chars[i]);
-            if (index >= 0 && index < argument3.Length)
+            int index = Argument2.IndexOf(chars[i]);
+            if (index >= 0 && index < Argument3.Length)
             {
-                chars[i] = argument3[index];
+                chars[i] = Argument3[index];
             }
         }
         return new string(chars);
     }
 
-    public partial string Replace(string text, string toReplace, string replacement) =>
-        text?.Replace(toReplace, replacement) ?? string.Empty;
+    public partial string Replace(string _Text, string _ToReplace, string _Replacement) =>
+        _Text?.Replace(_ToReplace, _Replacement) ?? string.Empty;
 
     private RegexOptions GetRegexOptions(string flags)
     {
@@ -176,17 +173,17 @@ public sealed partial class TextLib
         return options;
     }
 
-    public partial string[] RegexFind(string pattern, string text, string flags)
+    public partial string[] RegexFind(string _Pattern, string _Text, string _Flags)
     {
-        if (string.IsNullOrEmpty(pattern) || string.IsNullOrEmpty(text)) return [];
-        var matches = Regex.Matches(text, pattern, GetRegexOptions(flags));
+        if (string.IsNullOrEmpty(_Pattern) || string.IsNullOrEmpty(_Text)) return [];
+        var matches = Regex.Matches(_Text, _Pattern, GetRegexOptions(_Flags));
         return matches.Cast<Match>().Select(m => m.Value).ToArray();
     }
 
-    public partial string[] RegexMatch(string pattern, string text, string flags)
+    public partial string[] RegexMatch(string _Pattern, string _Text, string _Flags)
     {
-        if (string.IsNullOrEmpty(pattern) || string.IsNullOrEmpty(text)) return [];
-        var match = Regex.Match(text, pattern, GetRegexOptions(flags));
+        if (string.IsNullOrEmpty(_Pattern) || string.IsNullOrEmpty(_Text)) return [];
+        var match = Regex.Match(_Text, _Pattern, GetRegexOptions(_Flags));
         if (!match.Success) return [];
 
         var result = new List<string> { match.Value };
@@ -194,15 +191,15 @@ public sealed partial class TextLib
         return result.ToArray();
     }
 
-    public partial string RegexReplace(string pattern, string text, string flags, string replacement)
+    public partial string RegexReplace(string _Pattern, string _Text, string _Flags, string _Replacement)
     {
-        if (string.IsNullOrEmpty(pattern) || text == null) return text ?? string.Empty;
-        var regex = new Regex(pattern, GetRegexOptions(flags));
-        return flags.Contains("g") ? regex.Replace(text, replacement) : regex.Replace(text, replacement, 1);
+        if (string.IsNullOrEmpty(_Pattern) || _Text == null) return _Text ?? string.Empty;
+        var regex = new Regex(_Pattern, GetRegexOptions(_Flags));
+        return _Flags.Contains("g") ? regex.Replace(_Text, _Replacement) : regex.Replace(_Text, _Replacement, 1);
     }
 
-    public partial string GetTranslatedText(string text)
+    public partial string GetTranslatedText(string _Text)
     {
-        return text;
+        return _Text;
     }
 }

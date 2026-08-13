@@ -2,7 +2,6 @@ namespace ManiaScriptSharp;
 
 public partial class CMlScript
 {
-    // ── Delegate types ─────────────────────────────────────────────────────────
     // Each delegate describes the signature and the event list it belongs to.
     // Subscribable events derived from these delegates are declared below.
 
@@ -34,7 +33,6 @@ public partial class CMlScript
         [MemberName(nameof(CMlScriptEvent.CustomEventType))] string type,
         [MemberName(nameof(CMlScriptEvent.CustomEventData))] string[] data);
 
-    // ── Subscribable events ───────────────────────────────────────────────────
     // Subscribe to these with += in the constructor or Main().
     // The generator consumes the subscription and emits a foreach/switch in the
     // while-loop; the statements are NOT emitted verbatim into ManiaScript.
