@@ -1,0 +1,119 @@
+/**
+ *	UI module: StartMatch_Teams server side
+ */
+#Const Version		"1.1.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/StartMatch_Teams_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Common.Script.txt" as UIModules_Common
+#Include "Libs/Nadeo/CMGame/Utils/CommunicationRestriction.Script.txt" as CommunicationRestriction
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/StartMatch_Teams_Common.Script.txt" as UIModules_StartMatch_Teams_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_StartMatch_Teams_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the configuration of the UI module
+UIModules_Common::K_ModuleConfig GetConfig() {
+	return UIModules_StartMatch_Teams_Common::C_UIModuleConfig;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the display duration of the UI
+Void SetDisplayDuration(Integer _DisplayDuration) {
+	declare netwrite Integer Net_TeamsMatchmaking_StartMatch_DisplayDuration for Teams[0];
+	Net_TeamsMatchmaking_StartMatch_DisplayDuration = _DisplayDuration;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Show or hide the UI
+ *
+ *	@param	_Player										The player to update
+ *	@param	_Display									True to show
+ *																		False to hide
+ */
+Void SetVisibility(CPlayer _Player, Boolean _Display) {
+	if (_Player == Null) return;
+
+	declare netwrite Boolean Net_TeamsMatchmaking_StartMatch_IsVisible for _Player;
+	Net_TeamsMatchmaking_StartMatch_IsVisible = _Display;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the player has the permission to chat
+Boolean CanPlayerChat(CPlayer _Player) {
+	if (_Player == Null || _Player.User == Null || _Player.User.IsFakeUser) return True;
+	declare PlayerUI = UIManager.GetUI(_Player);
+	if (PlayerUI == Null) return True;
+	declare netread Boolean Net_TeamsMatchmaking_StartMatch_PlayerCanChat for PlayerUI;
+	return Net_TeamsMatchmaking_StartMatch_PlayerCanChat;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the communication restriction level of a player
+CPrivilegeMgr::ECommunicationRestrictionLevel GetPlayerCommunicationRestrictionLevel(CPlayer _Player) {
+	if (_Player == Null || _Player.User == Null || _Player.User.IsFakeUser) return CPrivilegeMgr::ECommunicationRestrictionLevel::Unknown;
+	declare PlayerUI = UIManager.GetUI(_Player);
+	if (PlayerUI == Null) return CPrivilegeMgr::ECommunicationRestrictionLevel::Unknown;
+	declare netread Integer Net_TeamsMatchmaking_StartMatch_CommunicationRestrictionLevel for PlayerUI;
+	return CommunicationRestriction::IntegerToCommunicationRestrictionLevel(Net_TeamsMatchmaking_StartMatch_CommunicationRestrictionLevel);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send a message in the chat to explain that some players are not allowed to write in the chat
+Void DisplayChatNotAllowedPlayers() {
+	declare netwrite Integer Net_TeamsMatchmaking_StartMatch_ChatRestrictionUpdate for Teams[0] = 0;
+	declare netwrite Text[] Net_TeamsMatchmaking_StartMatch_StarterAccessAccountIds for Teams[0] = [];
+	declare netwrite Text[] Net_TeamsMatchmaking_StartMatch_RestrictedChatAccountIds for Teams[0] = [];
+
+	Net_TeamsMatchmaking_StartMatch_StarterAccessAccountIds.clear();
+	Net_TeamsMatchmaking_StartMatch_RestrictedChatAccountIds.clear();
+	Net_TeamsMatchmaking_StartMatch_ChatRestrictionUpdate += 1;
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null) {
+			if (!CanPlayerChat(Player)) {
+				Net_TeamsMatchmaking_StartMatch_StarterAccessAccountIds.add(Player.User.WebServicesUserId);
+			}
+			if (CommunicationRestriction::ChatIsRestricted(GetPlayerCommunicationRestrictionLevel(Player))) {
+				Net_TeamsMatchmaking_StartMatch_RestrictedChatAccountIds.add(Player.User.WebServicesUserId);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	SetVisibility(_Player, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+	SetDisplayDuration(-1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

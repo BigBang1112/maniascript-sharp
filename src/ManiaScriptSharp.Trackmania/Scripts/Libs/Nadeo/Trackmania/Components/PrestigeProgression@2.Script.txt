@@ -1,0 +1,850 @@
+/**
+ * Component: PrestigeProgression
+ * Show the player's progression in the seasonal prestige unlock
+ *
+ * Properties:
+ * - `data-halign`: Horizontal alignment of the component
+ * - `data-valign`: Vertical alignment of the component
+ * - `data-use-skin-viewer`: Display the prestige skin in 3d instead of a 2d medal
+ */
+#Const Version "2.1.3"
+#Const ScriptName "Libs/Nadeo/Trackmania/Components/PrestigeProgression@2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "TimeLib" as TiL
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Menus/Layout.Script.txt" as Layout
+#Include "Libs/Nadeo/CMGame/Utils/Cast.Script.txt" as Cast
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/CMGame/Utils/MenuSceneManager.Script.txt" as MenuSceneManager
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MainMenuConst
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_ML.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Structures/PrestigeStruct.Script.txt" as PrestigeStruct
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_PrestigeProgression {
+	Integer Type = 0;
+	Integer LevelCurrent = 0;
+	Integer LevelMax = 0;
+	Integer Next = 0;
+	Text SkinName = "";
+	Text SkinUrl = "";
+	Text SkinOptions = "";
+}
+
+#Struct K_Private_Controls {
+	CMlFrame Frame_PrestigeProgression;
+	CMlFrame Frame_Align;
+	CMlLabel Label_PrestigeSeasonLevel;
+	CMlCamera Camera_SkinViewer;
+	CMlQuad Quad_Medal;
+	CMlFrame Frame_PrestigeTypeLevel;
+	CMlQuad[] QuadList_PrestigeTypeLevel;
+	CMlLabel Label_PrestigeNextLevel;
+	CMlQuad Quad_NavZone;
+}
+#Struct K_Private_Component {
+	K_Private_Controls Controls;
+	Vec2 Size = <0., 0.>;
+	Vec2 SizePrestigeLevelList = <0., 0.>;
+	CMlControl::AlignHorizontal HAlign = CMlControl::AlignHorizontal::Left;
+	CMlControl::AlignVertical VAlign = CMlControl::AlignVertical::Top;
+	Boolean UseSkinViewer = False;
+	Boolean IsVisible = False;
+	Integer PrestigeProgressionUpdate = 0;
+	Ident SceneId = NullId;
+	Ident CarItemId = NullId;
+	Vec3 UserColor = <-1., -1., -1.>;
+	Text SkinName = "";
+	Text SkinUrl = "";
+	Text SkinOptions = "";
+}
+#Struct K_Private_GlobalState {
+	Task::K_Task Task_GetPrestigeList;
+	Boolean CanGetPrestigeList = True;
+	Integer LiveQuarterlyCampaignId = 0;
+	Text PrestigeSeason = "";
+	Integer PrestigeYear = 0;
+	K_PrestigeProgression[Integer] PrestigeProgressionList = [];
+	Integer PrestigeProgressionUpdate = 0;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "trackmania-prestige-progression-2" ///< Component name
+#Const P "Trackmania_PrestigeProgression2::" ///< Prefix used to differentiate functions/variables in the script
+#Const Q "Trackmania_PrestigeProgression2"
+#Const C_NavZone "Trackmania_PrestigeProgression2_quad-nav-zone" ///< Id of the quad used to trigger mouse event for the navigation
+
+#Const C_PrestigeTypeRange <1, 4>
+#Const C_PrestigeType_Null 0
+#Const C_PrestigeType_Bronze 1
+#Const C_PrestigeType_Silver 2
+#Const C_PrestigeType_Gold 3
+#Const C_PrestigeType_Author 4
+
+#Const PrestigeStruct::C_PrestigeLevelMax_Season as C_Private_PrestigeLevelMax
+
+#Const C_Private_SceneLayout "Empty" ///< Check ManiaScript documentation to see all layouts
+#Const C_Private_CameraPosition <0.4, 1.8, -4.8>
+#Const C_Private_CameraRotation 20.
+#Const C_Private_CameraFOV 53.
+
+#Const MainMenuConst::C_CameraSkinModel as C_Private_CarModelName
+#Const C_Private_CarPosition <0., 0., 0.>
+#Const C_Private_CarRotation 140.
+#Const C_Private_CarIsTurntable False
+#Const C_Private_CarSteer -0.7
+#Const C_Private_CarBrake False
+#Const C_Private_CarFrontLight False
+#Const C_Private_CarTurboLevel 0
+#Const C_Private_CarBoostLevel 0
+#Const C_Private_CarBurnoutSmoke False
+
+#Const C_Private_SkinViewerSize <64., 40.>
+#Const C_Private_SkinViewerScale 2. //< To avoid cutting the bloom effect on the border of the render
+#Const C_Private_ProgressionSize <70., 16.>
+#Const C_Private_SkinViewerProgressionGap 2.
+#Const C_Private_ContainerChildGap 1.
+#Const C_Private_MedalScale 0.5
+#Const C_Private_PrestigeSeasonLevelTextSize <1.5, 0.5>
+#Const C_Private_PrestigeNextLevelTextSize <1.5, 0.5>
+#Const C_Private_PrestigeLevelIndicatorScale 1.5
+
+#Const C_Private_Debug_ForcePrestige False
+#Const C_Private_Debug_PrestigeYear 2023
+#Const C_Private_Debug_PrestigeSeason "Fall"
+#Const C_Private_Debug_CanAlwaysGetPrestige False
+
+#Const C_Private_Class_ComponentContainer "trackmania-prestige-progression-2-class-component-container"
+#Const C_Private_Id_Frame_Data "trackmania-prestige-progression-2-id-frame-data"
+#Const C_Private_Id_Frame_Align "trackmania-prestige-progression-2-id-frame-align"
+#Const C_Private_Id_Label_PrestigeSeasonLevel "trackmania-prestige-progression-2-id-label-prestige-season-level"
+#Const C_Private_Id_Camera_SkinViewer "trackmania-prestige-progression-2-id-camera-skin-viewer"
+#Const C_Private_Id_Quad_Medal "trackmania-prestige-progression-2-id-quad-medal"
+#Const C_Private_Id_Frame_PrestigeTypeLevel "trackmania-prestige-progression-2-id-frame-prestige-type-level"
+#Const C_Private_Id_Label_PrestigeNextLevel "trackmania-prestige-progression-2-id-label-prestige-next-level"
+
+#Const C_Private_ImageUrl_PrestigeLevelSeasonOn "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Season_On.dds"
+#Const C_Private_ImageUrl_PrestigeLevelSeasonOff "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Season_Off.dds"
+
+#Const C_Private_PrestigeSeason_Spring "Spring"
+#Const C_Private_PrestigeSeason_Summer "Summer"
+#Const C_Private_PrestigeSeason_Fall "Fall"
+#Const C_Private_PrestigeSeason_Winter "Winter"
+
+#Const Medals::C_MedalNames as C_Private_PrestigeTypeNameList
+
+#Const C_Private_Text_SeasonSpring _("|Season|Spring")
+#Const C_Private_Text_SeasonSummer _("|Season|Summer")
+#Const C_Private_Text_SeasonFall _("|Season|Fall")
+#Const C_Private_Text_SeasonWinter _("|Season|Winter")
+//L16N [PrestigeProgression] Prestige skin level during the current season. %1 will be replaced by the season (spring, summer, fall, winter). %2 will be replaced by the year. %3 will be replaced by the prestige skin type (bronze, silver, gold, author). %4 will be replaced by the prestige skin level. eg: "Fall 2025 level: silver 7"
+#Const C_Private_Text_PrestigeLevel _("|PrestigeLevel|%1 %2 level: %3 %4")
+//L16N [PrestigeProgression] Number of bronze medals required to unlock the next prestige skin level. %1 will be replaced by the number of medals, always more than 1. eg: "Next level in 3 bronze medals"
+#Const C_Private_Text_NextLevelBronzeSeveral _("Next level in %1 bronze medals")
+//L16N [PrestigeProgression] Number of bronze medals required to unlock the next prestige skin level.
+#Const C_Private_Text_NextLevelBronzeOne _("Next level in 1 bronze medal")
+//L16N [PrestigeProgression] Number of silver medals required to unlock the next prestige skin level. %1 will be replaced by the number of medals, always more than 1. eg: "Next level in 3 silver medals"
+#Const C_Private_Text_NextLevelSilverSeveral _("Next level in %1 silver medals")
+//L16N [PrestigeProgression] Number of silver medals required to unlock the next prestige skin level.
+#Const C_Private_Text_NextLevelSilverOne _("Next level in 1 silver medal")
+//L16N [PrestigeProgression] Number of gold medals required to unlock the next prestige skin level. %1 will be replaced by the number of medals, always more than 1. eg: "Next level in 3 gold medals"
+#Const C_Private_Text_NextLevelGoldSeveral _("Next level in %1 gold medals")
+//L16N [PrestigeProgression] Number of gold medals required to unlock the next prestige skin level.
+#Const C_Private_Text_NextLevelGoldOne _("Next level in 1 gold medal")
+//L16N [PrestigeProgression] Number of author medals required to unlock the next prestige skin level. %1 will be replaced by the number of medals, always more than 1. eg: "Next level in 3 author medals"
+#Const C_Private_Text_NextLevelAuthorSeveral _("Next level in %1 author medals")
+//L16N [PrestigeProgression] Number of author medals required to unlock the next prestige skin level.
+#Const C_Private_Text_NextLevelAuthorOne _("Next level in 1 author medal")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component manialink
+Text Private_GetManialink() {
+	declare Layout::K_Element[] ElementList = [
+		Layout::K_Element {
+			Id = "RootContainer",
+			Direction = Layout::C_Direction_LeftToRight,
+			ChildGap = C_Private_SkinViewerProgressionGap
+		},
+		Layout::K_Element {
+			Id = "ProgressionAlignContainer",
+			ParentId = "RootContainer",
+			Direction = Layout::C_Direction_TopToBottom,
+			Width = Layout::NewSizingFixed(C_Private_ProgressionSize.X),
+			Height = Layout::NewSizingFixed(ML::Max(C_Private_ProgressionSize.Y, C_Private_SkinViewerSize.Y)),
+			ChildGap = C_Private_ContainerChildGap,
+			ChildAlignment = Layout::NewAlignment(CMlControl::AlignVertical::VCenter)
+		},
+		Layout::K_Element {
+			Id = "ProgressionContainer",
+			ParentId = "ProgressionAlignContainer",
+			Direction = Layout::C_Direction_TopToBottom,
+			Width = Layout::NewSizingFixed(C_Private_ProgressionSize.X),
+			Height = Layout::NewSizingFixed(C_Private_ProgressionSize.Y),
+			ChildGap = C_Private_ContainerChildGap
+		},
+		Layout::K_Element {
+			Id = "PrestigeSeasonLevel",
+			ParentId = "ProgressionContainer",
+			Width = Layout::NewSizingGrow(),
+			Height = Layout::NewSizingGrow()
+		},
+		Layout::K_Element {
+			Id = "PrestigeTypeLevelContainer",
+			ParentId = "ProgressionContainer",
+			Direction = Layout::C_Direction_LeftToRight,
+			Width = Layout::NewSizingGrow(),
+			Height = Layout::NewSizingGrow()
+		},
+		Layout::K_Element {
+			Id = "PrestigeNextLevel",
+			ParentId = "ProgressionContainer",
+			Width = Layout::NewSizingGrow(),
+			Height = Layout::NewSizingGrow()
+		},
+		Layout::K_Element {
+			Id = "SkinViewer",
+			ParentId = "RootContainer",
+			Width = Layout::NewSizingFixed(C_Private_SkinViewerSize.X),
+			Height = Layout::NewSizingFixed(C_Private_SkinViewerSize.Y)
+		}
+	];
+
+	declare Layout::K_Layout ComponentLayout = Layout::NewLayout(<320., 180.>, "RootContainer", ElementList);
+
+	declare Vec2 Size_Component = Layout::GetSize(ComponentLayout, "RootContainer");
+	declare Vec2 Size_SkinViewer = Layout::GetSize(ComponentLayout, "SkinViewer");
+	declare Vec2 Size_SkinViewerScaled = Size_SkinViewer * C_Private_SkinViewerScale;
+	declare Vec2 Pos_SkinViewer = Layout::GetPosition(ComponentLayout, "SkinViewer") + <Size_SkinViewer.X * 0.5, Size_SkinViewer.Y * -0.5>;
+	declare Vec2 Size_Medal = Layout::GetSize(ComponentLayout, "SkinViewer");
+	declare Vec2 Pos_Medal = Layout::GetPosition(ComponentLayout, "SkinViewer") + <0., Size_Medal.Y * -0.5>;
+	declare Vec2 Size_PrestigeSeasonLevel = Layout::GetSize(ComponentLayout, "PrestigeSeasonLevel");
+	declare Vec2 Pos_PrestigeSeasonLevel = Layout::GetPosition(ComponentLayout, "PrestigeSeasonLevel") + <Size_PrestigeSeasonLevel.X, Size_PrestigeSeasonLevel.Y * -0.5> + <0., -0.3>;
+	declare Vec2 Size_PrestigeTypeLevelContainer = Layout::GetSize(ComponentLayout, "PrestigeTypeLevelContainer");
+	declare Vec2 Pos_PrestigeTypeLevelContainer = Layout::GetPosition(ComponentLayout, "PrestigeTypeLevelContainer") ;
+	declare Vec2 Size_PrestigeNextLevel = Layout::GetSize(ComponentLayout, "PrestigeNextLevel");
+	declare Vec2 Pos_PrestigeNextLevel = Layout::GetPosition(ComponentLayout, "PrestigeNextLevel") + <Size_PrestigeNextLevel.X, Size_PrestigeNextLevel.Y * -0.5> + <0., -0.3>;
+
+	declare Text ML_PrestigeTypeLevel;
+	for (I, 1, C_Private_PrestigeLevelMax) {
+		ML_PrestigeTypeLevel ^= """<quad scale="{{{C_Private_PrestigeLevelIndicatorScale}}}" halign="right" valign="center" keepratio="fit" />""";
+	}
+
+	return
+"""
+<frame class="{{{C_Private_Class_ComponentContainer}}}">
+	<frame id="{{{C_Private_Id_Frame_Data}}}" data-size="{{{Size_Component.X}}} {{{Size_Component.Y}}}" />
+	<frame id="{{{C_Private_Id_Frame_Align}}}">
+		<camera id="{{{C_Private_Id_Camera_SkinViewer}}}" pos="{{{Pos_SkinViewer.X}}} {{{Pos_SkinViewer.Y}}}" z-index="1" size="{{{Size_SkinViewerScaled.X}}} {{{Size_SkinViewerScaled.Y}}}" halign="center" valign="center" />
+		<quad id="{{{C_Private_Id_Quad_Medal}}}" pos="{{{Pos_Medal.X}}} {{{Pos_Medal.Y}}}" z-index="2" size="{{{Size_Medal.X}}} {{{Size_Medal.Y}}}" scale="{{{C_Private_MedalScale}}}" valign="center" keepratio="fit" />
+		<label id="{{{C_Private_Id_Label_PrestigeSeasonLevel}}}" pos="{{{Pos_PrestigeSeasonLevel.X}}} {{{Pos_PrestigeSeasonLevel.Y}}}" z-index="3" size="{{{Size_PrestigeSeasonLevel.X}}} {{{Size_PrestigeSeasonLevel.Y}}}" halign="right" valign="center2" textsize="{{{C_Private_PrestigeSeasonLevelTextSize.X}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textprefix="$t$i" />
+		<frame id="{{{C_Private_Id_Frame_PrestigeTypeLevel}}}" pos="{{{Pos_PrestigeTypeLevelContainer.X}}} {{{Pos_PrestigeTypeLevelContainer.Y}}}" z-index="4" data-size="{{{Size_PrestigeTypeLevelContainer.X}}} {{{Size_PrestigeTypeLevelContainer.Y}}}">
+			{{{ML_PrestigeTypeLevel}}}
+		</frame>
+		<label id="{{{C_Private_Id_Label_PrestigeNextLevel}}}" pos="{{{Pos_PrestigeNextLevel.X}}} {{{Pos_PrestigeNextLevel.Y}}}" z-index="5" size="{{{Size_PrestigeNextLevel.X}}} {{{Size_PrestigeNextLevel.Y}}}" halign="right" valign="center2" textsize="{{{C_Private_PrestigeNextLevelTextSize.X}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textprefix="$t$i" />
+		<quad id="{{{C_NavZone}}}" class="{{{Navigation::C_Class_ActivationZone}}}" z-index="6" size="{{{Size_Component.X}}} {{{Size_Component.Y}}}" opacity="0" scriptevents="1" />
+	</frame>
+</frame>
+""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the car in the scene
+K_Private_Component Private_UpdateCameraCar(CMlScript _Context, K_Private_Component _Component) {
+	if (_Component.SceneId == NullId) return _Component;
+
+	declare K_Private_Component Component = _Component;
+
+	if (_Context.LocalUser != Null) {
+		Component.UserColor = _Context.LocalUser.Color;
+	}
+
+	if (Component.CarItemId != NullId) {
+		_Context.MenuSceneMgr.ItemDestroy(Component.SceneId, Component.CarItemId);
+		Component.CarItemId = NullId;
+	}
+
+	Component.CarItemId = _Context.MenuSceneMgr.ItemCreate(Component.SceneId, C_Private_CarModelName, Component.SkinName, Component.SkinUrl, Component.SkinOptions);
+
+	if (Component.CarItemId != NullId) {
+		_Context.MenuSceneMgr.ItemSetLocation(Component.SceneId, Component.CarItemId, C_Private_CarPosition, C_Private_CarRotation, C_Private_CarIsTurntable);
+		_Context.MenuSceneMgr.ItemSetVehicleState(Component.SceneId, Component.CarItemId, C_Private_CarSteer,	C_Private_CarBrake, C_Private_CarFrontLight, C_Private_CarTurboLevel, C_Private_CarBoostLevel, C_Private_CarBurnoutSmoke);
+		if (_Context.LocalUser != Null) {
+			_Context.MenuSceneMgr.ItemSetPlayerState(Component.SceneId, Component.CarItemId, _Context.LocalUser);
+		}
+	}
+
+
+	return Component;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create the scene
+K_Private_Component Private_CreateCameraScene(CMlScript _Context, K_Private_Component _Component) {
+	if (_Component.SceneId != NullId || !_Component.UseSkinViewer) return _Component;
+
+	declare K_Private_Component Component = _Component;
+
+	Component.SceneId = _Context.MenuSceneMgr.SceneCreate(C_Private_SceneLayout);
+	Component.Controls.Camera_SkinViewer.Visible = (Component.SceneId != NullId);
+	if (_Context.LocalUser != Null) {
+		MenuSceneManager::PageSynchronizeScene(_Context.Page, _Context.LocalUser);
+	}
+
+	if (Component.SceneId != NullId) {
+		_Context.MenuSceneMgr.CameraSetLocation(Component.SceneId, C_Private_CameraPosition, C_Private_CameraRotation, C_Private_CameraFOV);
+	}
+
+	return Component;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy the scene
+K_Private_Component Private_DestroyCameraScene(CMlScript _Context, K_Private_Component _Component) {
+	if (_Component.SceneId == NullId) return _Component;
+
+	declare K_Private_Component Component = _Component;
+
+	if (Component.CarItemId != NullId) {
+		_Context.MenuSceneMgr.ItemDestroy(Component.SceneId, Component.CarItemId);
+		Component.CarItemId = NullId;
+	}
+	_Context.MenuSceneMgr.SceneDestroy(Component.SceneId);
+	Component.SceneId = NullId;
+	Component.Controls.Camera_SkinViewer.Visible = False;
+
+	return Component;
+}
+
+/// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the name of the prestige season
+Text Private_GetPrestigeSeasonName(Text _PrestigeSeason) {
+	switch (_PrestigeSeason) {
+		case C_Private_PrestigeSeason_Spring: return C_Private_Text_SeasonSpring;
+		case C_Private_PrestigeSeason_Summer: return C_Private_Text_SeasonSummer;
+		case C_Private_PrestigeSeason_Fall: return C_Private_Text_SeasonFall;
+		case C_Private_PrestigeSeason_Winter: return C_Private_Text_SeasonWinter;
+	}
+	return "";
+}
+
+/// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the name of the prestige type
+Text Private_GetPrestigeTypeName(Integer _PrestigeType) {
+	switch (_PrestigeType) {
+		case C_PrestigeType_Bronze: return C_Private_PrestigeTypeNameList.get(CMode::EMedal::Bronze, "");
+		case C_PrestigeType_Silver: return C_Private_PrestigeTypeNameList.get(CMode::EMedal::Silver, "");
+		case C_PrestigeType_Gold: return C_Private_PrestigeTypeNameList.get(CMode::EMedal::Gold, "");
+		case C_PrestigeType_Author: return C_Private_PrestigeTypeNameList.get(CMode::EMedal::Author, "");
+	}
+	return "";
+}
+
+/// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the medal image of the prestige type
+Text Private_GetPrestigeTypeMedalImageUrl(Integer _PrestigeType) {
+	switch (_PrestigeType) {
+		case C_PrestigeType_Bronze: return MainMenuConst::C_ImageUrl_Medal_Bronze;
+		case C_PrestigeType_Silver: return MainMenuConst::C_ImageUrl_Medal_Silver;
+		case C_PrestigeType_Gold: return MainMenuConst::C_ImageUrl_Medal_Gold;
+		case C_PrestigeType_Author: return MainMenuConst::C_ImageUrl_Medal_Nadeo;
+	}
+	return "";
+}
+
+/// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the prestige progression display
+K_Private_Component Private_ComponentUpdatePrestigeProgression(
+	CMlScript _Context,
+	K_Private_Component _Component,
+	K_Private_GlobalState _GlobalState
+) {
+	declare K_Private_Component Component = _Component;
+
+	Component.PrestigeProgressionUpdate = _GlobalState.PrestigeProgressionUpdate;
+
+	// Find the lowest progressing prestige type (bronze < silver < gold < author)
+	declare K_PrestigeProgression LastUnlockedPrestigeProgression;
+	declare K_PrestigeProgression NextUnlockedPrestigeProgression;
+	for (PrestigeProgression in _GlobalState.PrestigeProgressionList) {
+		if (
+			PrestigeProgression.LevelCurrent >= 0 &&
+			PrestigeProgression.LevelCurrent < PrestigeProgression.LevelMax && (
+				LastUnlockedPrestigeProgression.Type == C_PrestigeType_Null ||
+				PrestigeProgression.Type < LastUnlockedPrestigeProgression.Type
+			)
+		) {
+			LastUnlockedPrestigeProgression = PrestigeProgression;
+		}
+	}
+
+	// If all prestiges are complete, find the highest completed one
+	if (LastUnlockedPrestigeProgression.Type == C_PrestigeType_Null) {
+		for (PrestigeProgression in _GlobalState.PrestigeProgressionList) {
+			if (
+				PrestigeProgression.LevelCurrent >= PrestigeProgression.LevelMax && (
+					LastUnlockedPrestigeProgression.Type == C_PrestigeType_Null ||
+					PrestigeProgression.Type > LastUnlockedPrestigeProgression.Type
+				)
+			) {
+				LastUnlockedPrestigeProgression = PrestigeProgression;
+			}
+		}
+	}
+	// If the found prestige is locked at level 0, select the previous completed prestige
+	else if (LastUnlockedPrestigeProgression.LevelCurrent == 0 && LastUnlockedPrestigeProgression.Type > C_PrestigeType_Bronze) {
+		NextUnlockedPrestigeProgression = LastUnlockedPrestigeProgression;
+		LastUnlockedPrestigeProgression = K_PrestigeProgression {};
+		for (PrestigeProgression in _GlobalState.PrestigeProgressionList) {
+			if (
+				PrestigeProgression.Type < NextUnlockedPrestigeProgression.Type &&
+				PrestigeProgression.LevelCurrent >= PrestigeProgression.LevelMax && (
+					LastUnlockedPrestigeProgression.Type == C_PrestigeType_Null ||
+					PrestigeProgression.Type > LastUnlockedPrestigeProgression.Type
+				)
+			) {
+				LastUnlockedPrestigeProgression = PrestigeProgression;
+			}
+		}
+	}
+
+	if (NextUnlockedPrestigeProgression.Type == C_PrestigeType_Null) {
+		NextUnlockedPrestigeProgression = LastUnlockedPrestigeProgression;
+	}
+
+	Component.SkinName = LastUnlockedPrestigeProgression.SkinName;
+	Component.SkinUrl = LastUnlockedPrestigeProgression.SkinUrl;
+	Component.SkinOptions = LastUnlockedPrestigeProgression.SkinOptions;
+
+	if (LastUnlockedPrestigeProgression.Type == C_PrestigeType_Null) {
+		Component.Controls.Quad_Medal.Visible = False;
+		Component.Controls.Label_PrestigeSeasonLevel.Visible = False;
+		Component.Controls.Frame_PrestigeTypeLevel.Visible = False;
+		Component.Controls.Label_PrestigeNextLevel.Visible = False;
+		Component.Controls.Quad_NavZone.Visible = False;
+	} else {
+		Component.Controls.Label_PrestigeSeasonLevel.Value = TL::Compose(
+			C_Private_Text_PrestigeLevel,
+			Private_GetPrestigeSeasonName(_GlobalState.PrestigeSeason),
+			""^_GlobalState.PrestigeYear,
+			Private_GetPrestigeTypeName(LastUnlockedPrestigeProgression.Type),
+			""^LastUnlockedPrestigeProgression.LevelCurrent
+		);
+		MLHelpers::FitLabelValue(Component.Controls.Label_PrestigeSeasonLevel, C_Private_PrestigeSeasonLevelTextSize);
+
+
+		if (NextUnlockedPrestigeProgression.Next > 1) {
+			switch (NextUnlockedPrestigeProgression.Type) {
+				case C_PrestigeType_Bronze: {
+					Component.Controls.Label_PrestigeNextLevel.Value = TL::Compose(C_Private_Text_NextLevelBronzeSeveral, ""^NextUnlockedPrestigeProgression.Next);
+				}
+				case C_PrestigeType_Silver: {
+					Component.Controls.Label_PrestigeNextLevel.Value = TL::Compose(C_Private_Text_NextLevelSilverSeveral, ""^NextUnlockedPrestigeProgression.Next);
+				}
+				case C_PrestigeType_Gold: {
+					Component.Controls.Label_PrestigeNextLevel.Value = TL::Compose(C_Private_Text_NextLevelGoldSeveral, ""^NextUnlockedPrestigeProgression.Next);
+				}
+				case C_PrestigeType_Author: {
+					Component.Controls.Label_PrestigeNextLevel.Value = TL::Compose(C_Private_Text_NextLevelAuthorSeveral, ""^NextUnlockedPrestigeProgression.Next);
+				}
+				default: {
+					Component.Controls.Label_PrestigeNextLevel.Value = "";
+				}
+			}
+		} else if (NextUnlockedPrestigeProgression.Next == 1) {
+			switch (NextUnlockedPrestigeProgression.Type) {
+				case C_PrestigeType_Bronze: {
+					Component.Controls.Label_PrestigeNextLevel.Value = C_Private_Text_NextLevelBronzeOne;
+				}
+				case C_PrestigeType_Silver: {
+					Component.Controls.Label_PrestigeNextLevel.Value = C_Private_Text_NextLevelSilverOne;
+				}
+				case C_PrestigeType_Gold: {
+					Component.Controls.Label_PrestigeNextLevel.Value = C_Private_Text_NextLevelGoldOne;
+				}
+				case C_PrestigeType_Author: {
+					Component.Controls.Label_PrestigeNextLevel.Value = C_Private_Text_NextLevelAuthorOne;
+				}
+				default: {
+					Component.Controls.Label_PrestigeNextLevel.Value = "";
+				}
+			}
+		} else {
+			Component.Controls.Label_PrestigeNextLevel.Value = "";
+		}
+		MLHelpers::FitLabelValue(Component.Controls.Label_PrestigeNextLevel, C_Private_PrestigeNextLevelTextSize);
+
+		// Get the maximum number of level controls to display
+		declare Integer LevelControlListCount = 0;
+		for (PrestigeProgression in _GlobalState.PrestigeProgressionList) {
+			if (LevelControlListCount < PrestigeProgression.LevelMax) {
+				LevelControlListCount = PrestigeProgression.LevelMax;
+			}
+		}
+		LevelControlListCount = ML::Clamp(LevelControlListCount, 0, Component.Controls.QuadList_PrestigeTypeLevel.count);
+
+		// Create the level controls layout
+		declare Layout::K_Element[] ElementList = [
+			Layout::K_Element {
+				Id = "RootContainer",
+				Direction = Layout::C_Direction_LeftToRight,
+				Width = Layout::NewSizingFixed(Component.SizePrestigeLevelList.X),
+				Height = Layout::NewSizingFixed(Component.SizePrestigeLevelList.Y),
+				ChildGap = C_Private_ContainerChildGap
+			}
+		];
+		for (I, 1, LevelControlListCount) {
+			ElementList.add(Layout::K_Element {
+				Id = Layout::NewId("PrestigeTypeLevel", I),
+				ParentId = "RootContainer",
+				Width = Layout::NewSizingGrow(),
+				Height = Layout::NewSizingGrow()
+			});
+		}
+		declare Layout::K_Layout ComponentLayout = Layout::NewLayout(Component.SizePrestigeLevelList, "RootContainer", ElementList);
+
+		// Update the level controls properties
+		declare Integer Level = 1;
+		for (Quad_PrestigeTypeLevel in Component.Controls.QuadList_PrestigeTypeLevel) {
+			if (Level < 1 || Level > LastUnlockedPrestigeProgression.LevelMax) {
+				Quad_PrestigeTypeLevel.ImageUrl = "";
+			} else {
+				declare Integer PositionIndex = Level + (LevelControlListCount - ML::Min(LastUnlockedPrestigeProgression.LevelMax, Component.Controls.QuadList_PrestigeTypeLevel.count));
+				Quad_PrestigeTypeLevel.Size = Layout::GetSize(ComponentLayout, Layout::NewId("PrestigeTypeLevel", PositionIndex));
+				Quad_PrestigeTypeLevel.RelativePosition_V3 = Layout::GetPosition(ComponentLayout, Layout::NewId("PrestigeTypeLevel", PositionIndex)) + <Quad_PrestigeTypeLevel.Size.X, Quad_PrestigeTypeLevel.Size.Y * -0.5>;
+
+				if (Level <= LastUnlockedPrestigeProgression.LevelCurrent) {
+					Quad_PrestigeTypeLevel.ImageUrl = C_Private_ImageUrl_PrestigeLevelSeasonOn;
+				} else {
+					Quad_PrestigeTypeLevel.ImageUrl = C_Private_ImageUrl_PrestigeLevelSeasonOff;
+				}
+			}
+			Quad_PrestigeTypeLevel.Visible = (Quad_PrestigeTypeLevel.ImageUrl != "");
+			Level += 1;
+		}
+
+		if (Component.UseSkinViewer) {
+			Component.Controls.Quad_Medal.ImageUrl = "";
+		} else {
+			Component.Controls.Quad_Medal.ImageUrl = Private_GetPrestigeTypeMedalImageUrl(LastUnlockedPrestigeProgression.Type);
+		}
+
+		Component.Controls.Quad_Medal.Visible = (Component.Controls.Quad_Medal.ImageUrl != "");
+		Component.Controls.Label_PrestigeSeasonLevel.Visible = (Component.Controls.Label_PrestigeSeasonLevel.Value != "");
+		Component.Controls.Frame_PrestigeTypeLevel.Visible = True;
+		Component.Controls.Label_PrestigeNextLevel.Visible = (Component.Controls.Label_PrestigeNextLevel.Value != "");
+		Component.Controls.Quad_NavZone.Visible = True;
+	}
+
+	Component = Private_UpdateCameraCar(_Context, Component);
+
+	return Component;
+}
+
+/// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the current season
+Text Private_GetSeason() {
+	switch (Tools::GetTimestampSeason(TiL::GetCurrent())) {
+		case Tools::C_Season_Winter: return C_Private_PrestigeSeason_Winter;
+		case Tools::C_Season_Spring: return C_Private_PrestigeSeason_Spring;
+		case Tools::C_Season_Summer: return C_Private_PrestigeSeason_Summer;
+		case Tools::C_Season_Fall: return C_Private_PrestigeSeason_Fall;
+	}
+	return "Winter";
+}
+
+/// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start a task to get the seasonal prestige list
+K_Private_GlobalState Private_GetPrestigeList(CMlScript _Context, K_Private_GlobalState _GlobalState, Boolean _ForceUpdate) {
+	declare Integer LiveQuarterlyCampaignId = CampaignStore::GetLiveQuarterlyCampaignId();
+	if (
+		!_ForceUpdate && (
+			_GlobalState.LiveQuarterlyCampaignId == LiveQuarterlyCampaignId ||
+			LiveQuarterlyCampaignId == CampaignStruct::C_Campaign_NullId
+		) && (
+			(!C_Private_Debug_CanAlwaysGetPrestige && !_GlobalState.CanGetPrestigeList) ||
+			Task::IsInitialized(_GlobalState.Task_GetPrestigeList)
+		)
+	) {
+		return _GlobalState;
+	}
+
+	declare K_Private_GlobalState GlobalState = _GlobalState;
+
+	declare Integer Year = Tools::GetYear();
+	declare Text Season = Private_GetSeason();
+	if (C_Private_Debug_ForcePrestige) {
+		Year = C_Private_Debug_PrestigeYear;
+		Season = C_Private_Debug_PrestigeSeason;
+	} else if (LiveQuarterlyCampaignId != CampaignStruct::C_Campaign_NullId) {
+		declare CampaignStruct::LibCampaignStruct_K_CampaignName CampaignName = CampaignStruct::ParseCampaignName(CampaignStore::GetLiveQuarterlyCampaign().Name);
+		if (CampaignName.IsValid) {
+			Year = Cast::ToInteger(CampaignName.Year);
+			switch (TL::ToLowerCase(CampaignName.Season)) {
+				case "winter": Season = C_Private_PrestigeSeason_Winter;
+				case "spring": Season = C_Private_PrestigeSeason_Spring;
+				case "summer": Season = C_Private_PrestigeSeason_Summer;
+				case "fall": Season = C_Private_PrestigeSeason_Fall;
+			}
+		}
+	}
+	GlobalState.LiveQuarterlyCampaignId = LiveQuarterlyCampaignId;
+	GlobalState.PrestigeYear = Year;
+	GlobalState.PrestigeSeason = Season;
+	GlobalState.Task_GetPrestigeList = Task::DestroyAndCreate(
+		GlobalState.Task_GetPrestigeList,
+		_Context.UserMgr,
+		_Context.UserMgr.Prestige_GetPrestigeList(_Context.UserMgr.MainUser.Id, CUserV2Manager::EPrestigeMode::Season, Year, Season)
+	);
+
+	return GlobalState;
+}
+K_Private_GlobalState Private_GetPrestigeList(CMlScript _Context, K_Private_GlobalState _GlobalState) {
+	return Private_GetPrestigeList(_Context, _GlobalState, False);
+}
+
+/// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the prestige progression with the seasonal list of prestige
+K_Private_GlobalState Private_UpdatePrestigeProgressionList(K_Private_GlobalState _GlobalState, CTaskResult_PrestigeList _TaskResult) {
+	declare K_Private_GlobalState GlobalState = _GlobalState;
+
+	for (Prestige in _TaskResult.PrestigeList) {
+		if (Prestige.CategoryLevel >= C_PrestigeTypeRange.X && Prestige.CategoryLevel <= C_PrestigeTypeRange.Y) {
+			// Update existing progression when possible
+			declare K_PrestigeProgression PrestigeProgression = GlobalState.PrestigeProgressionList.get(Prestige.CategoryLevel, K_PrestigeProgression {});
+			PrestigeProgression.Type = Prestige.CategoryLevel;
+			PrestigeProgression.LevelCurrent = Prestige.PrestigeLevel;
+			PrestigeProgression.LevelMax = Prestige.PrestigeLevelMax;
+			PrestigeProgression.Next = ML::Max(0, Prestige.StatValueForNextLevel - Prestige.StatCurrentValue);
+			PrestigeProgression.SkinName = Prestige.RewardDisplayName;
+			PrestigeProgression.SkinUrl = Prestige.RewardFileUrl;
+			PrestigeProgression.SkinOptions = Prestige.SkinOptions;
+			GlobalState.PrestigeProgressionList[PrestigeProgression.Type] = PrestigeProgression;
+		}
+	}
+
+	GlobalState.PrestigeProgressionUpdate += 1;
+
+	return GlobalState;
+}
+
+//// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the visibility of the component
+ * This will destroy or create the 3d scene
+ */
+K_Private_Component Private_SetIsComponentVisible(
+	CMlScript _Context,
+	K_Private_Component _Component,
+	Boolean _IsVisible,
+	Boolean _IsInit
+) {
+	if (!_IsInit && _Component.IsVisible == _IsVisible) return _Component;
+
+	declare K_Private_Component Component = _Component;
+
+	Component.IsVisible = _IsVisible;
+	Component.Controls.Frame_PrestigeProgression.Visible = Component.IsVisible;
+
+	if (_IsVisible && Component.UseSkinViewer) {
+		Component = Private_CreateCameraScene(_Context, Component);
+		Component = Private_UpdateCameraCar(_Context, Component);
+	} else {
+		Component = Private_DestroyCameraScene(_Context, Component);
+	}
+
+	return Component;
+}
+K_Private_Component Private_SetIsComponentVisible(CMlScript _Context, K_Private_Component _Component, Boolean _IsVisible) {
+	return Private_SetIsComponentVisible(_Context, _Component, _IsVisible, False);
+}
+
+/// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the component instance
+K_Private_Component Private_ComponentInit(CMlScript _Context, CMlFrame _Frame_PrestigeProgression) {
+	declare K_Private_Component Component = K_Private_Component {};
+	Component = K_Private_Component {};
+
+	Component.Controls.Frame_PrestigeProgression = _Frame_PrestigeProgression;
+	Component.Controls.Frame_Align = (Component.Controls.Frame_PrestigeProgression.GetFirstChild(C_Private_Id_Frame_Align) as CMlFrame);
+	Component.Controls.Label_PrestigeSeasonLevel = (Component.Controls.Frame_PrestigeProgression.GetFirstChild(C_Private_Id_Label_PrestigeSeasonLevel) as CMlLabel);
+	Component.Controls.Camera_SkinViewer = (Component.Controls.Frame_PrestigeProgression.GetFirstChild(C_Private_Id_Camera_SkinViewer) as CMlCamera);
+	Component.Controls.Quad_Medal = (Component.Controls.Frame_PrestigeProgression.GetFirstChild(C_Private_Id_Quad_Medal) as CMlQuad);
+	Component.Controls.Frame_PrestigeTypeLevel = (Component.Controls.Frame_PrestigeProgression.GetFirstChild(C_Private_Id_Frame_PrestigeTypeLevel) as CMlFrame);
+	for (Control in Component.Controls.Frame_PrestigeTypeLevel.Controls) {
+		Component.Controls.QuadList_PrestigeTypeLevel.add(Control as CMlQuad);
+	}
+	Component.Controls.Label_PrestigeNextLevel = (Component.Controls.Frame_PrestigeProgression.GetFirstChild(C_Private_Id_Label_PrestigeNextLevel) as CMlLabel);
+	Component.Controls.Quad_NavZone = (Component.Controls.Frame_PrestigeProgression.GetFirstChild(C_NavZone) as CMlQuad);
+
+	declare CMlFrame Frame_Data <=> (Component.Controls.Frame_PrestigeProgression.GetFirstChild(C_Private_Id_Frame_Data) as CMlFrame);
+	Component.Size = Cast::ToVec2(Frame_Data.DataAttributeGet("size"));
+	Component.SizePrestigeLevelList = Cast::ToVec2(Component.Controls.Frame_PrestigeTypeLevel.DataAttributeGet("size"));
+
+	if (Component.Controls.Frame_PrestigeProgression.DataAttributeExists("halign")) {
+		Component.HAlign = Cast::ToHAlign(Component.Controls.Frame_PrestigeProgression.DataAttributeGet("halign"));
+	}
+	if (Component.Controls.Frame_PrestigeProgression.DataAttributeExists("valign")) {
+		Component.VAlign = Cast::ToVAlign(Component.Controls.Frame_PrestigeProgression.DataAttributeGet("valign"));
+	}
+	if (Component.Controls.Frame_PrestigeProgression.DataAttributeExists("use-skin-viewer")) {
+		Component.UseSkinViewer = Cast::ToBoolean(Component.Controls.Frame_PrestigeProgression.DataAttributeGet("use-skin-viewer"));
+	}
+
+	MLHelpers::AlignContent(Component.Controls.Frame_Align, Component.Size, Component.HAlign, Component.VAlign);
+	Component.Controls.Quad_Medal.Visible = Component.UseSkinViewer;
+
+	Component = Private_SetIsComponentVisible(_Context, Component, Component.IsVisible, True);
+
+	return Component;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// `MainInit` section of the component
+Void Private_MainInit(CMlScript _Context) {
+	declare K_Private_GlobalState Trackmania_ComponentsPrestigeProgression2_GlobalState as GlobalState for _Context.System = K_Private_GlobalState {};
+	for (PrestigeType, C_PrestigeTypeRange.X, C_PrestigeTypeRange.Y) {
+		if (!GlobalState.PrestigeProgressionList.existskey(PrestigeType)) {
+			declare K_PrestigeProgression PrestigeProgressionOffline = K_PrestigeProgression {};
+			PrestigeProgressionOffline.Type = PrestigeType;
+			GlobalState.PrestigeProgressionList[PrestigeType] = PrestigeProgressionOffline;
+		}
+	}
+
+	declare CMlFrame[] Trackmania_ComponentsPrestigeProgression2_ComponentControlList for _Context.Page = [];
+	Trackmania_ComponentsPrestigeProgression2_ComponentControlList = [];
+	_Context.Page.GetClassChildren(C_Private_Class_ComponentContainer, _Context.Page.MainFrame, True);
+	foreach (Control in _Context.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_ComponentContainer = (Control as CMlFrame);
+		Trackmania_ComponentsPrestigeProgression2_ComponentControlList.add(Frame_ComponentContainer.Parent);
+
+		declare K_Private_Component Trackmania_ComponentsPrestigeProgression2_Component as Component for Frame_ComponentContainer.Parent = K_Private_Component {};
+		Component = Private_ComponentInit(_Context, Frame_ComponentContainer.Parent);
+		Component = Private_ComponentUpdatePrestigeProgression(_Context, Component, GlobalState);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// `MainLoop` section of the component
+Void Private_MainLoop(CMlScript _Context) {
+	declare K_Private_GlobalState Trackmania_ComponentsPrestigeProgression2_GlobalState as GlobalState for _Context.System = K_Private_GlobalState {};
+
+	if (_Context.LocalUser != Null) {
+		declare Boolean Trackmania_ComponentsPrestigeProgression2_IsPrestigeProgressionDirty for _Context.LocalUser = False;
+		if (Trackmania_ComponentsPrestigeProgression2_IsPrestigeProgressionDirty) {
+			Trackmania_ComponentsPrestigeProgression2_IsPrestigeProgressionDirty = False;
+			GlobalState = Private_GetPrestigeList(_Context, GlobalState, True);
+		}
+	}
+
+	if (Task::IsInitialized(GlobalState.Task_GetPrestigeList)) {
+		GlobalState.Task_GetPrestigeList = Task::Update(GlobalState.Task_GetPrestigeList);
+		if (!Task::IsRunning(GlobalState.Task_GetPrestigeList)) {
+			declare CTaskResult_PrestigeList TaskResult <=> Task::GetSourceTask_PrestigeList(GlobalState.Task_GetPrestigeList);
+			if (Task::IsSuccess(GlobalState.Task_GetPrestigeList) && TaskResult != Null) {
+				GlobalState.CanGetPrestigeList = False;
+				GlobalState = Private_UpdatePrestigeProgressionList(GlobalState, TaskResult);
+			}
+			GlobalState.Task_GetPrestigeList = Task::Destroy(GlobalState.Task_GetPrestigeList);
+		}
+	}
+
+	declare CMlFrame[] Trackmania_ComponentsPrestigeProgression2_ComponentControlList for _Context.Page = [];
+	for (ComponentControl in Trackmania_ComponentsPrestigeProgression2_ComponentControlList) {
+		declare K_Private_Component Trackmania_ComponentsPrestigeProgression2_Component as Component for ComponentControl = K_Private_Component {};
+		if (Component.PrestigeProgressionUpdate != GlobalState.PrestigeProgressionUpdate) {
+			Component = Private_ComponentUpdatePrestigeProgression(_Context, Component, GlobalState);
+		}
+
+		if (Component.IsVisible) {
+			if (_Context.LocalUser != Null) {
+				if (Component.SceneId != NullId && MenuSceneManager::PageNeedToRecreateScene(_Context.Page, _Context.LocalUser)) {
+					Component = Private_DestroyCameraScene(_Context, Component);
+					Component = Private_CreateCameraScene(_Context, Component);
+				}
+				if (Component.SceneId != NullId && Component.UserColor != _Context.LocalUser.Color) {
+					Component = Private_UpdateCameraCar(_Context, Component);
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Refresh the prestige unlock progress
+Void RefreshPrestigeProgression(CMlScript _Context) {
+	declare K_Private_GlobalState Trackmania_ComponentsPrestigeProgression2_GlobalState as GlobalState for _Context.System = K_Private_GlobalState {};
+	GlobalState = Private_GetPrestigeList(_Context, GlobalState);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the prestige progression update counter
+Integer GetPrestigeProgressionUpdate(CMlScript _Context) {
+	declare K_Private_GlobalState Trackmania_ComponentsPrestigeProgression2_GlobalState as GlobalState for _Context.System = K_Private_GlobalState {};
+	return GlobalState.PrestigeProgressionUpdate;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the prestige progression
+K_PrestigeProgression[Integer] GetPrestigeProgressionList(CMlScript _Context) {
+	declare K_Private_GlobalState Trackmania_ComponentsPrestigeProgression2_GlobalState as GlobalState for _Context.System = K_Private_GlobalState {};
+	return GlobalState.PrestigeProgressionList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Mark the prestige progression as dirty and needing an update
+Void SetPrestigeProgressionDirty(CUser _User) {
+	declare Boolean Trackmania_ComponentsPrestigeProgression2_IsPrestigeProgressionDirty for _User = False;
+	Trackmania_ComponentsPrestigeProgression2_IsPrestigeProgressionDirty = True;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the visibility of the component
+Void SetIsComponentVisible(CMlScript _Context, CMlFrame _Frame_PrestigeProgression, Boolean _IsVisible) {
+	declare K_Private_Component Trackmania_ComponentsPrestigeProgression2_Component as Component for _Frame_PrestigeProgression = K_Private_Component {};
+	Component = Private_SetIsComponentVisible(_Context, Component, _IsVisible);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		Private_GetManialink(),
+		"""
+#Include "Libs/Nadeo/Trackmania/Components/PrestigeProgression@2.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}Private_MainInit(This);
+***
+
+***MainLoop***
+***
+{{{P}}}Private_MainLoop(This);
+***
+""",
+		[],
+		[]
+	);
+}

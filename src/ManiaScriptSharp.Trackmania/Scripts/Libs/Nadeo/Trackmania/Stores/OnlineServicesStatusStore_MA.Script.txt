@@ -1,0 +1,126 @@
+/**
+ *	Store value for Online Services Status (online services)
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Stores/OnlineServicesStatusStore_MA.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Store_MA.Script.txt" as Store
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/Trackmania/API/OnlineServicesStatusAPI.Script.txt" as OnlineServicesStatusAPI
+#Include "Libs/Nadeo/Trackmania/Stores/OnlineServicesStatusStore_ML.Script.txt" as OnlineServicesStatusStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct OnlineServicesStatusStore::K_State as K_State
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const OnlineServicesStatusStore::C_State_Null as C_State_Null
+#Const OnlineServicesStatusStore::C_StoreId as C_StoreId
+
+#Const OnlineServicesStatusStore::C_Action_GetStatus as C_Action_GetStatus
+
+#Const OnlineServicesStatusStore::C_Event_OnlineServicesStatusUpdated as C_Event_OnlineServicesStatusUpdated
+
+#Const OnlineServicesStatusStore::C_OnlineServicesStatus_None as C_OnlineServicesStatus_None
+#Const OnlineServicesStatusStore::C_OnlineServicesStatus_Maintenance as C_OnlineServicesStatus_Maintenance
+#Const OnlineServicesStatusStore::C_OnlineServicesStatus_Outage as C_OnlineServicesStatus_Outage
+#Const OnlineServicesStatusStore::C_OnlineServicesStatus_Degraded as C_OnlineServicesStatus_Degraded
+
+#Const OnlineServicesStatusStore::C_OnlineServicesStatus_FailedRequest as C_OnlineServicesStatus_FailedRequest
+
+#Const OnlineServicesStatusStore::C_OnlineServicesStatus_Names as C_OnlineServicesStatus_Names
+#Const OnlineServicesStatusStore::C_OnlineServicesStatus_Colors as C_OnlineServicesStatus_Colors
+#Const OnlineServicesStatusStore::C_OnlineServicesStatus_Icons as C_OnlineServicesStatus_Icons
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Http::K_Request G_Request_GetStatus;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get infos on the current online services status
+ *
+ */
+Void Action_GetStatus() {
+	G_Request_GetStatus = Http::DestroyAndCreate(
+		G_Request_GetStatus,
+		OnlineServicesStatusAPI::GetStatus()
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the Online Services Status store
+Void Initialize(Boolean _ResetData) {
+	if (_ResetData) {
+		declare K_State Trackmania_OnlineServicesStatusStore_State for System = C_State_Null;
+		Trackmania_OnlineServicesStatusStore_State = K_State {
+			Status = OnlineServicesStatusAPI::OnlineServicesStatusAPI_K_OnlineServiceOverview {}
+		};
+	}
+
+	if (Http::IsInitialized(G_Request_GetStatus)) {
+		G_Request_GetStatus = Http::Destroy(G_Request_GetStatus);
+	}
+	G_Request_GetStatus = Http::GetEmptyRequest();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process event
+Void ProcessEvent(CManiaAppEvent _Event) {
+	switch (_Event.Type) {
+		case CManiaAppEvent::EType::LayerCustomEvent: {
+			switch(_Event.CustomEventType) {
+				case C_Action_GetStatus: {
+					Action_GetStatus();
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process events
+Void ProcessEvents(CNod _Context) {
+	switchtype (_Context as Context) {
+		case CManiaAppTitle: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+		case CManiaAppPlayground: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the Online Services Status store
+Void Yield() {
+	ProcessEvents(This);
+
+	// Get online services status
+	if (Http::IsInitialized(G_Request_GetStatus)) {
+		G_Request_GetStatus = Http::Update(G_Request_GetStatus);
+		if (!Http::IsRunning(G_Request_GetStatus)) {
+			declare K_State Trackmania_OnlineServicesStatusStore_State for System = C_State_Null;
+			if (Http::IsSuccess(G_Request_GetStatus)) {
+				Trackmania_OnlineServicesStatusStore_State.Status = OnlineServicesStatusAPI::GetResponseFromGetStatus(G_Request_GetStatus);
+			} else {
+				Trackmania_OnlineServicesStatusStore_State.Status.Event.Type = C_OnlineServicesStatus_FailedRequest;
+			}
+			Store::SendEvent(C_StoreId, C_Event_OnlineServicesStatusUpdated);
+			G_Request_GetStatus = Http::Destroy(G_Request_GetStatus);
+		}
+	}
+}

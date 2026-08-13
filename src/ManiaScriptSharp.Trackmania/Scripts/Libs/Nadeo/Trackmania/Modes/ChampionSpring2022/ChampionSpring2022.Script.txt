@@ -1,0 +1,139 @@
+/**
+ *  Champion common functions
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/ChampionSpring2022.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/TMGame/Modes/Scores.Script.txt" as Scores
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/MatchInfo_Server.Script.txt" as UIModules_MatchInfo
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_MapBestTime {
+	Integer LocalTime;
+	Text LocalAccountId;
+	Text WorldRecord;
+	Integer WorldRecordTime;
+	Text WorldRecordName;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the map best time to the UI
+Void SendMapBestTime(K_MapBestTime _MapBestTime, Boolean _IsInit) {
+	if (
+		_MapBestTime.WorldRecordName != "" &&
+		_MapBestTime.WorldRecordTime > 0 && (
+			_MapBestTime.LocalTime <= 0 ||
+			_MapBestTime.WorldRecordTime < _MapBestTime.LocalTime
+		)
+	) {
+		UIModules_MatchInfo::SetBestTime("", _MapBestTime.WorldRecordTime, True, _IsInit, _MapBestTime.WorldRecordName);
+	} else {
+		declare Boolean IsWorldRecord = _MapBestTime.WorldRecordTime > 0 && _MapBestTime.LocalTime > 0 && _MapBestTime.LocalTime < _MapBestTime.WorldRecordTime;
+		UIModules_MatchInfo::SetBestTime(_MapBestTime.LocalAccountId, _MapBestTime.LocalTime, IsWorldRecord, _IsInit, "");
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Parse the world record Text
+K_MapBestTime Private_ParseWorldRecord(K_MapBestTime _MapBestTime, Text _WorldRecord) {
+	declare K_MapBestTime MapBestTime = _MapBestTime;
+	MapBestTime.WorldRecord = _WorldRecord;
+	declare Text[] WorldRecordSplit = TL::Split(";", MapBestTime.WorldRecord);
+	if (WorldRecordSplit.count >= 2) {
+		MapBestTime.WorldRecordName = WorldRecordSplit[0];
+		MapBestTime.WorldRecordTime = TL::ToInteger(WorldRecordSplit[1]);
+	} else {
+		MapBestTime.WorldRecordName = "";
+		MapBestTime.WorldRecordTime = 0;
+	}
+	return MapBestTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize map best time
+K_MapBestTime InitMapBestTime(Text _WorldRecord) {
+	declare K_MapBestTime MapBestTime = K_MapBestTime {
+		LocalAccountId = "",
+		LocalTime = 0,
+		WorldRecord = "",
+		WorldRecordName = "",
+		WorldRecordTime = 0
+	};
+	MapBestTime = Private_ParseWorldRecord(MapBestTime, _WorldRecord);
+	SendMapBestTime(MapBestTime, True);
+	return MapBestTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the map local best time if better
+K_MapBestTime UpdateMapBestTime_Local(K_MapBestTime _MapBestTime, Text _AccountId, Integer _Time) {
+	if (_MapBestTime.LocalAccountId == "" || _MapBestTime.LocalTime > _Time) {
+		declare K_MapBestTime MapBestTime = _MapBestTime;
+		MapBestTime.LocalAccountId = _AccountId;
+		MapBestTime.LocalTime = _Time;
+		SendMapBestTime(MapBestTime, False);
+		return MapBestTime;
+	}
+	return _MapBestTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the map world record
+K_MapBestTime UpdateMapBestTime_WorldRecord(K_MapBestTime _MapBestTime, Text _WorldRecord) {
+	if (_MapBestTime.WorldRecord != _WorldRecord) {
+		declare K_MapBestTime MapBestTime = Private_ParseWorldRecord(_MapBestTime, _WorldRecord);
+		SendMapBestTime(MapBestTime, False);
+		return MapBestTime;
+	}
+	return _MapBestTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the players' name in the scores table
+Void UpdateScoresTableNames() {
+	declare Text[Text] CustomNames;
+	foreach (Score in Scores) {
+		if (Score.User != Null && PlayerProfiles::PlayerProfileExists(Score.User.WebServicesUserId)) {
+			CustomNames[Score.User.WebServicesUserId] = PlayerProfiles::GetPlayerProfile(Score.User.WebServicesUserId).Nickname;
+		}
+	}
+	UIModules_ScoresTable::SetCustomNames(CustomNames);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Retrieve the players' match points
+Integer[Text] RetrieveLatestMatchPoints(Integer[Text] _MatchPoints) {
+	declare Integer[Text] MatchPoints = _MatchPoints;
+	foreach (Score in Scores) {
+		if (Score.User != Null && Scores::GetPlayerMatchPoints(Score) > 0) {
+			MatchPoints[Score.User.WebServicesUserId] = Scores::GetPlayerMatchPoints(Score);
+		}
+	}
+	return MatchPoints;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Restore the players' match points
+Integer[Text] RestoreMatchPoints(Integer[Text] _MatchPoints) {
+	if (_MatchPoints.count <= 0) return _MatchPoints;
+
+	declare Integer[Text] MatchPoints = _MatchPoints;
+	foreach (Score in Scores) {
+		if (Score.User != Null && MatchPoints.existskey(Score.User.WebServicesUserId)) {
+			Scores::SetPlayerMatchPoints(Score, MatchPoints[Score.User.WebServicesUserId]);
+			MatchPoints.removekey(Score.User.WebServicesUserId);
+		}
+	}
+	return MatchPoints;
+}

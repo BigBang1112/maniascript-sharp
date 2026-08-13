@@ -1,0 +1,269 @@
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+#Const C_AdType_Nadeo	0
+#Const C_AdType_UGC		1
+#Const C_AdType_Count	2
+
+#Const C_LatestDisplayedAdsLinksCount 3
+
+#Const C_NextAdMinPeriod	15000 //ne pas changer la NextAd plus souvent que ça
+
+#Struct SAd {
+	Text 	CampaignUid;
+	Text	Name;
+	Integer Uid;					// == index dans G_Ads
+	Text	MediaUrl_2x3;
+	Text	MediaUrl_64x41;
+	Text	MediaUrl_64x10;
+	
+	Text	AdType;					// "nadeo" || "ugc"
+	Text	ExternalUrl;
+	
+	Integer LatestSentImpressions; 		//à garder en tête le temps que la requête soit complétée des fois qu'elle échoue
+	Integer Impressions;
+	Real	DisplayDuration;			//en s, pour savoir quelle est la prochaine pub UGC à afficher
+}
+
+#Struct SImpression {
+	Text 	CampaignUid;
+	Integer Impressions;
+	Real	DisplayDuration;
+}
+
+#Struct SAdCat { //ads by type
+	Integer		AdType;
+	Integer[] 	AdIndexes;				//index dans G_Ads
+	Integer 	NextAdLastChangeTime;	//pour éviter d'en changer trop souvent
+	Integer		NextAdIndex;			//index dans AdIndexes
+	Integer		CurAdIndex;				//index dans AdIndexes
+}
+
+//Structures de communication avec les menus
+#Struct K_PluginAdverts_AdLink {
+	Integer AdUid;
+	Text    CampaignUid;
+	Text	MediaUrl_2x3;
+	Text	MediaUrl_64x41;
+	Text	MediaUrl_64x10;
+	Text 	ExternalUrl;
+	Text	Name;
+}
+
+#Struct K_PluginAdverts_AdHistory {
+	K_PluginAdverts_AdLink[] 	AdLinks;
+	Integer						UpdateCount;
+}
+
+declare Text[]		G_Uids;				//Table de correspondance CampagnUid de l'API live <=> AdUid de l'API script
+declare SAd[]		G_Ads;				//Liste toutes les pubs récupérées depuis le lancement du jeu
+
+declare SAdCat[] 	G_AdCats;			//Catégories de pubs, regroupe les pubs actives par adtype
+declare Integer[]	G_ActiveAds;		//Liste les indexs dans G_Ads des pubs récupérées lors du dernier SetActiveAds
+
+declare Integer		G_Impression_LastSendingTime_Prev; //à garder en tête le temps que la requête soit complétée des fois qu'elle échoue
+declare Integer		G_Impression_LastSendingTime;
+
+Integer AdTypeIndexFromAdTypeText(Text AdType) {
+	if (AdType == "nadeo")
+		return C_AdType_Nadeo;
+	if (AdType == "ugc")
+		return C_AdType_UGC;
+	assert(False);
+	return -1;
+}
+
+Void InitAdCats() {
+	G_AdCats.clear();
+
+	declare SAdCat NewCat;
+	for (I, 0, C_AdType_Count - 1) {
+		NewCat.AdType 				= I;
+		NewCat.AdIndexes			.clear();
+		NewCat.NextAdIndex 			= 0;
+		NewCat.CurAdIndex			= -1;
+		NewCat.NextAdLastChangeTime = -1;
+		G_AdCats.add(NewCat);
+	}
+}
+
+Void UpdateAdCats() {
+	for (I, 0, C_AdType_Count - 1) {
+		G_AdCats[I].AdIndexes	.clear();
+		G_AdCats[I].NextAdIndex = 0;
+		G_AdCats[I].CurAdIndex = -1;
+	}
+	
+	for (iAd, 0, G_ActiveAds.count - 1) {
+		declare AdIndex = G_ActiveAds[iAd];
+		declare iCat = AdTypeIndexFromAdTypeText(G_Ads[AdIndex].AdType);
+		G_AdCats[iCat].AdIndexes.add(G_ActiveAds[iAd]);
+	}
+}
+
+Void Init() {
+	G_Uids.clear();
+	G_Ads.clear();
+	
+	InitAdCats();
+	
+	G_ActiveAds.clear();
+	
+	declare K_PluginAdverts_AdHistory PluginAdverts_AdHistory for System;
+	PluginAdverts_AdHistory.AdLinks.clear();
+	PluginAdverts_AdHistory.UpdateCount = 0;
+}
+
+Void PushAdLink(Integer AdUid) {
+	declare K_PluginAdverts_AdHistory PluginAdverts_AdHistory for System;
+
+	//early exit : c'est déjà le dernier lien enregistré
+	if (PluginAdverts_AdHistory.AdLinks.count > 0 && PluginAdverts_AdHistory.AdLinks[PluginAdverts_AdHistory.AdLinks.count - 1].AdUid == AdUid)
+		return;
+
+	declare K_PluginAdverts_AdLink AdLink;
+	for (I, 0, PluginAdverts_AdHistory.AdLinks.count - 2) {
+		if (PluginAdverts_AdHistory.AdLinks[I].AdUid == AdUid) {
+			AdLink = PluginAdverts_AdHistory.AdLinks[I];
+			PluginAdverts_AdHistory.AdLinks.removekey(I);
+			PluginAdverts_AdHistory.AdLinks.add(AdLink);
+			PluginAdverts_AdHistory.UpdateCount += 1;
+			return;
+		}
+	}
+	//AdLink not found
+	declare SAd Ad = G_Ads[AdUid];
+	assert(Ad.Uid == AdUid);
+	AdLink.AdUid 			= AdUid;
+	AdLink.MediaUrl_2x3 	= Ad.MediaUrl_2x3;
+	AdLink.MediaUrl_64x41 	= Ad.MediaUrl_64x41;
+	AdLink.MediaUrl_64x10 	= Ad.MediaUrl_64x10;
+	AdLink.ExternalUrl		= Ad.ExternalUrl;
+	AdLink.Name				= Ad.Name;
+	AdLink.CampaignUid      = Ad.CampaignUid;
+	PluginAdverts_AdHistory.AdLinks.add(AdLink);
+	PluginAdverts_AdHistory.UpdateCount += 1;
+	if (PluginAdverts_AdHistory.AdLinks.count > C_LatestDisplayedAdsLinksCount)
+		PluginAdverts_AdHistory.AdLinks.removekey(0);
+}
+
+Void SetActiveAds(SAd[] Ads) {
+	G_ActiveAds.clear();
+	
+	for (I, 0, Ads.count - 1) {
+		declare Integer AdIndex = -1;
+		if(G_Uids.exists(Ads[I].CampaignUid)) {
+			AdIndex = G_Uids.keyof(Ads[I].CampaignUid);
+			assert(G_Ads[AdIndex].CampaignUid == Ads[I].CampaignUid && G_Ads[AdIndex].Uid == AdIndex);
+		} else {
+			AdIndex =  G_Uids.count;
+			G_Ads.add(Ads[I]);
+			G_Ads[AdIndex].Uid = AdIndex;
+			G_Uids.add(Ads[I].CampaignUid);
+		}
+		G_ActiveAds.add(AdIndex);
+	}
+	
+	UpdateAdCats();
+}
+
+SAd GetNextAd(Integer AdType) {
+	declare SAd Ad;
+	Ad.Uid 				= -1;
+	Ad.Name				= "";
+	Ad.MediaUrl_2x3 	= "";
+	Ad.MediaUrl_64x41 	= "";
+	Ad.MediaUrl_64x10 	= "";
+	Ad.ExternalUrl		= "";
+	Ad.CampaignUid      = "";
+
+	//early exit : pas encore l'heure de refresh la pub
+	if ((G_AdCats[AdType].NextAdLastChangeTime != -1) && ((Now - G_AdCats[AdType].NextAdLastChangeTime) < C_NextAdMinPeriod) && (G_AdCats[AdType].CurAdIndex != -1)) {
+		declare Integer AdIndex = G_AdCats[AdType].CurAdIndex;
+		Ad = G_Ads[G_AdCats[AdType].AdIndexes[AdIndex]];
+		return Ad;
+	}
+
+	if (AdType == C_AdType_Nadeo) {
+		if (G_AdCats[C_AdType_Nadeo].AdIndexes.count > 0) {
+			G_AdCats[C_AdType_Nadeo].CurAdIndex = G_AdCats[C_AdType_Nadeo].NextAdIndex;
+			Ad = G_Ads[G_AdCats[C_AdType_Nadeo].AdIndexes[G_AdCats[C_AdType_Nadeo].NextAdIndex]];
+			if (G_AdCats[C_AdType_Nadeo].NextAdIndex == G_AdCats[C_AdType_Nadeo].AdIndexes.count - 1)
+				G_AdCats[C_AdType_Nadeo].NextAdIndex = 0;
+			else
+				G_AdCats[C_AdType_Nadeo].NextAdIndex += 1;
+			G_AdCats[C_AdType_Nadeo].NextAdLastChangeTime = Now;
+		}
+	} else if (AdType == C_AdType_UGC) {
+		if (G_AdCats[C_AdType_UGC].AdIndexes.count > 0) {
+			declare Real MinDisplayDuration = -1.;
+			declare Integer iNextAd = -1;
+			for (I, 0, G_AdCats[C_AdType_UGC].AdIndexes.count - 1) {
+				declare DisplayDuration = G_Ads[G_AdCats[C_AdType_UGC].AdIndexes[I]].DisplayDuration;
+				if (I == G_AdCats[C_AdType_UGC].CurAdIndex && G_AdCats[C_AdType_UGC].AdIndexes.count > 1)
+					continue; //pas deux fois de suite la même si possible
+				if (MinDisplayDuration < 0 || DisplayDuration < MinDisplayDuration) {
+					MinDisplayDuration = DisplayDuration;
+					iNextAd = I;
+				}
+			}
+			G_AdCats[C_AdType_UGC].NextAdLastChangeTime = Now;
+			G_AdCats[C_AdType_UGC].CurAdIndex = iNextAd;
+			Ad = G_Ads[G_AdCats[C_AdType_UGC].AdIndexes[iNextAd]];
+		}
+	} else {
+		assert(False);
+	}
+	
+	return Ad;
+}
+
+Void Reports_AddImpressions(Integer Uid, Integer Impressions) {
+	if (Uid >= G_Ads.count || G_Ads[Uid].Uid != Uid) {
+		return; //arrive lors d'un reset plugin
+	}
+	G_Ads[Uid].Impressions += Impressions;
+	if (Impressions > 0)
+		PushAdLink(Uid);
+}
+
+Void Reports_AddDisplayDuration(Integer Uid, Real DisplayDuration) {
+	if (Uid >= G_Ads.count || G_Ads[Uid].Uid != Uid) {
+		return; //arrive lors d'un reset plugin
+	}
+	G_Ads[Uid].DisplayDuration += DisplayDuration;
+	if (DisplayDuration > 0)
+		PushAdLink(Uid);
+}
+
+//Envoie toutes les pubs dont on a des impressions en cours. 
+//Stocke dans un coin le nombre d'impressions à ce moment là pour pouvoir continuer de stacker des impressions pendant que la requête est en cours
+//Il faut appeler Reports_SetSuccess pour confirmer que l'envoie d'impressions a réussi (et clear LatestSentImpressions)
+SImpression[] Reports_GetImpressionsToSend() {
+	declare SImpression[] Impressions;
+	for (iAd, 0, G_Ads.count - 1) {
+		if (G_Ads[iAd].Impressions > 0 || G_Ads[iAd].DisplayDuration > 0) {
+			assert(G_Ads[iAd].LatestSentImpressions == 0); //on n'est pas censé demander les impressions à envoyer si y'a déjà un envoi en cours
+			if (G_Ads[iAd].LatestSentImpressions == 0) {
+				declare SImpression Impression;
+				Impression.CampaignUid 		= G_Ads[iAd].CampaignUid;
+				Impression.Impressions 		= G_Ads[iAd].Impressions;
+				G_Ads[iAd].LatestSentImpressions 		= Impression.Impressions;
+				Impressions.add(Impression);
+			}
+		}
+	}
+	return Impressions;
+}
+
+Void Reports_SetSuccess(Boolean Success) {
+	for (iAd, 0, G_Ads.count - 1) {
+		if (G_Ads[iAd].LatestSentImpressions != 0) {
+			if (Success) {
+				G_Ads[iAd].Impressions -= G_Ads[iAd].LatestSentImpressions;
+			}
+			G_Ads[iAd].LatestSentImpressions = 0;
+		}
+	}	
+}
+

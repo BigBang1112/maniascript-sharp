@@ -1,0 +1,2098 @@
+/**
+ *	Component: Button@2
+ *
+ *	Available attributes are :
+ *	- text
+ *	- size
+ *	- sizehitbox
+ *	- tilthitbox
+ *	- isblink
+ *	- opacity
+ *	- opacityunfocus
+ *	- bgcolor
+ *	- backgroundcolortype
+ *	- focuscolor
+ *	- textcolor
+ *	- textfocuscolor
+ *	- textsize
+ *	- textprefix
+ *	- textfont
+ *	- textitalicslope
+ *	- textopacityunfocus
+ *	- labelsize
+ *	- bgempty
+ *	- image
+ *	- imagefocus
+ *	- imagefocusopacity
+ *	- imageoffset <= Flat position offset (Not a Ratio) (Base position is center of image size)
+ *	- alphamask
+ *	- icon
+ *	- iconsize
+ *	- iconcolortype
+ *	- iconfocus
+ *	- iconcolor
+ *	- iconfocuscolor
+ *	- iconrot
+ *	- iconopacityunfocus
+ *	- iconxpos <= Ratio (0;1)
+ *	- iconypos <= Ratio (0;1)
+ *	- textxpos <= Ratio (0;1)
+ *	- textypos <= Ratio (0;1)
+ *	- texthalign
+ *	- textvalign
+ *	- halign
+ *	- valign
+ *	- maxline
+ *	- autonewline
+ *	- bgkeepratio
+ *	- fitlabel : Real (must superior to 0.) If a value is provided the textsize will be reduced until the text fits the label or reaches the provided value
+ *	- fitlabelstep
+ *	- gradientimage
+ *	- gradientopacityfocus
+ *	- gradientopacityunfocus
+ *	- gradientimagecolor
+ *	- contourimage
+ *	- contouropacityfocus
+ *	- contouropacityunfocus
+ *	- contourimagecolor
+ *	- state
+ *	- loadingscale
+ *	- loadingpos
+ *	- supersample
+ *	- tts-text
+ *	- tts-translate
+ *	- filter-profanities
+ */
+#Const Version "2.1.3"
+#Const ScriptName "Libs/Nadeo/CMGame/Components/Button@2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView@3.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/RequestRedraw.Script.txt" as RequestRedraw
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet@2.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Mixins/Navigation@2.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner@2.Script.txt" as LoadingSpinner
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Controls {
+	CMlFrame Frame_Content;
+	CMlFrame Frame_Align;
+	CMlQuad Quad_Icon;
+	CMlFrame Frame_HitboxClip;
+	CMlQuad Quad_Hitbox;
+	CMlQuad Quad_Image;
+	CMlQuad Quad_Gradient;
+	CMlQuad Quad_Contour;
+	CMlQuad Quad_FocusIcon;
+	CMlQuad Quad_FocusBackground;
+	CMlLabel Label_Value;
+	CMlFrame Spinner_Loading;
+}
+#Struct K_TextProperties {
+	Vec2 Size;
+	Real TextSize;
+	Text TextPrefix;
+	Text Value;
+	Text Font;
+	Real PosX;
+	Real PosY;
+	Vec3 Color;
+	Vec3 FocusColor;
+	Real ItalicSlope;
+	Text HAlign;
+	Text VAlign;
+	Integer MaxLine;
+	Boolean AutoNewLine;
+	Real Fit;
+	Real FitStep;
+	Real OpacityUnfocus;
+	Text TTS_Text;
+	Boolean TTS_IsTranslated;
+	CMlLabel::EFilterProfanities  FilterProfanities;
+}
+#Struct K_ImageProperties {
+	Integer ColorType;
+	Vec2 Size;
+	Real Scale;
+	Text Image;
+	Text ImageFocus;
+	Real PosX;
+	Real PosY;
+	Vec3 Color;
+	Vec3 FocusColor;
+	Real Rotation;
+	Real Opacity;
+	Real OpacityUnfocus;
+	Real ImageFocusOpacity;
+	CMlQuad::EKeepRatioMode KeepRatio;
+	Text ContourImage;
+	Real ContourOpacityFocus;
+	Real ContourOpacityUnfocus;
+	Vec3 ContourColor;
+	Text GradientImage;
+	Real GradientOpacityFocus;
+	Real GradientOpacityUnfocus;
+	Vec3 GradientColor;
+}
+#Struct K_Button {
+	K_Controls Controls;
+	Boolean IsButton;
+	Boolean IsLocked;
+	Boolean IsFocused;
+	Boolean IsBgEmpty;
+	Boolean IsBlink;
+	Real OpacityUnfocus;
+	Vec2 SizeHitbox;
+	Real TiltHitbox;
+	Text AlphaMask;
+	K_TextProperties Label;
+	K_ImageProperties Icon;
+	K_ImageProperties Background;
+	K_ImageProperties Loading;
+	Text HAlign;
+	Text VAlign;
+	Integer State;
+	Boolean SuperSample;
+}
+#Struct K_DelayedState {
+	Integer ActivationTime;
+	Integer State;
+	CMlFrame Frame_Button;
+}
+#Struct K_State {
+	Integer BlinkEndTime;
+	CMlQuad[][Ident] QuadBlinking;
+	Boolean ResetBlink;
+	Vec3 DefaultColorFocus;
+	K_DelayedState[Ident] DelayedStates;
+	Integer RedrawRequested;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ComponentName "CMGameButton2"
+#Const C_ComponentClass "cmgame-components-button-2"
+#Const C_ComponentNavZone "cmgame-components-button-2-quad-nav-zone" //< Id of the quad used to trigger mouse event for the navigation
+
+#Const C_AnimTime_Blink 500
+#Const C_DefaultTextPrefix "$t$i"
+#Const C_DefaultColor "005948"
+
+#Const C_ColorType_None 0
+#Const C_ColorType_Colorize 1
+#Const C_ColorType_ModulateColor 2
+
+#Const C_State_Normal 0
+#Const C_State_Loading 1
+
+#Const C_Class_FrameButtonContainer "cmgame-components-button-2-frame-button-container"
+#Const C_Id_FrameAlign "cmgame-components-button-2-frame-align"
+#Const C_Id_FrameBackground "cmgame-components-button-2-frame-background"
+#Const C_Id_QuadImage "cmgame-components-button-2-quad-image"
+#Const C_Id_QuadGradient "cmgame-components-button-2-quad-gradient"
+#Const C_Id_QuadContour "cmgame-components-button-2-quad-contour"
+#Const C_Id_FrameHitboxClip "cmgame-components-button-2-frame-hitbox-clip"
+#Const C_Id_QuadFocusBackground "cmgame-components-button-2-quad-focus-background"
+#Const C_Id_FrameContent "cmgame-components-button-2-frame-content"
+#Const C_Id_FrameIcon "cmgame-components-button-2-frame-icon"
+#Const C_Id_QuadIcon "cmgame-components-button-2-quad-icon"
+#Const C_Id_QuadFocusIcon "cmgame-components-button-2-quad-focus-icon"
+#Const C_Id_LabelValue "cmgame-components-button-2-label-value"
+#Const C_Id_SpinnerLoading "cmgame-components-button-2-spinner-loading"
+
+#Const C_Prop_Text "text"
+#Const C_Prop_Size "size"
+#Const C_Prop_SizeHitbox "sizehitbox"
+#Const C_Prop_TitltHitbox "tilthitbox"
+#Const C_Prop_IsBlink "isblink"
+#Const C_Prop_Opacity "opacity"
+#Const C_Prop_OpacityUnfocus "opacityunfocus"
+#Const C_Prop_BgColor "bgcolor"
+#Const C_Prop_BackgroundColorType "backgroundcolortype"
+#Const C_Prop_FocusColor "focuscolor"
+#Const C_Prop_TextColor "textcolor"
+#Const C_Prop_TextFocusColor "textfocuscolor"
+#Const C_Prop_TextSize "textsize"
+#Const C_Prop_TextPrefix "textprefix"
+#Const C_Prop_TextFont "textfont"
+#Const C_Prop_TextItalicSlope "textitalicslope"
+#Const C_Prop_TextOpacityUnfocus "textopacityunfocus"
+#Const C_Prop_LabelSize "labelsize"
+#Const C_Prop_BgEmpty "bgempty"
+#Const C_Prop_Image "image"
+#Const C_Prop_ImageFocus "imagefocus"
+#Const C_Prop_ImageFocusOpacity "imagefocusopacity"
+#Const C_Prop_ImageOffset "imageoffset"
+#Const C_Prop_AlphaMask "alphamask"
+#Const C_Prop_Icon "icon"
+#Const C_Prop_IconSize "iconsize"
+#Const C_Prop_IconColorType "iconcolortype"
+#Const C_Prop_IconFocus "iconfocus"
+#Const C_Prop_IconColor "iconcolor"
+#Const C_Prop_IconFocusColor "iconfocuscolor"
+#Const C_Prop_IconRot "iconrot"
+#Const C_Prop_IconOpacityUnfocus "iconopacityunfocus"
+#Const C_Prop_IconXPos "iconxpos"
+#Const C_Prop_IconYPos "iconypos"
+#Const C_Prop_TextXPos "textxpos"
+#Const C_Prop_TextYPos "textypos"
+#Const C_Prop_TextHAlign "texthalign"
+#Const C_Prop_TextVAlign "textvalign"
+#Const C_Prop_HAlign "halign"
+#Const C_Prop_VAlign "valign"
+#Const C_Prop_Maxline "maxline"
+#Const C_Prop_AutoNewline "autonewline"
+#Const C_Prop_BgKeepRatio "bgkeepratio"
+#Const C_Prop_FitLabel "fitlabel"
+#Const C_Prop_FitLabelStep "fitlabelstep"
+#Const C_Prop_GradientImage "gradientimage"
+#Const C_Prop_GradientOpacityFocus "gradientopacityfocus"
+#Const C_Prop_GradientOpacityUnfocus "gradientopacityunfocus"
+#Const C_Prop_GradientImageColor "gradientimagecolor"
+#Const C_Prop_ContourImage "contourimage"
+#Const C_Prop_ContourOpacityFocus "contouropacityfocus"
+#Const C_Prop_ContourOpacityUnfocus "contouropacityunfocus"
+#Const C_Prop_ContourImageColor "contourimagecolor"
+#Const C_Prop_State "state"
+#Const C_Prop_LoadingScale "loadingscale"
+#Const C_Prop_LoadingPos "loadingpos"
+#Const C_Prop_SuperSample "supersample"
+#Const C_Prop_TTSText "tts-text"
+#Const C_Prop_TTSTranslate "tts-translate"
+#Const C_Prop_FilterProfanities "filter-profanities"
+
+#Const C_Button_Null K_Button {
+	IsButton = False,
+	IsLocked = False,
+	IsFocused = False,
+	IsBgEmpty = False,
+	IsBlink = False,
+	OpacityUnfocus = 0.,
+	SizeHitbox = <0., 0.>,
+	TiltHitbox = 0.,
+	AlphaMask = "",
+	Label = K_TextProperties {},
+	Icon = K_ImageProperties {},
+	Background = K_ImageProperties {},
+	Loading = K_ImageProperties {},
+	HAlign = "",
+	VAlign = "",
+	State = 0,
+	SuperSample = False
+}
+#Const C_State_Null K_State {
+	BlinkEndTime = 0,
+	QuadBlinking = [],
+	ResetBlink = False,
+	DefaultColorFocus = <0., 0., 0.>,
+	DelayedStates = [],
+	RedrawRequested = 0
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the template of the component
+Text GetTemplate() {
+	return
+"""
+<frame class="{{{C_Class_FrameButtonContainer}}}" id="{{{C_Id_FrameAlign}}}">
+	<frame id="{{{C_Id_FrameBackground}}}">
+		<quad id="{{{C_Id_QuadImage}}}" bgcolor="{{{C_DefaultColor}}}" size="40 10" z-index="0" />
+		<quad id="{{{C_Id_QuadGradient}}}" z-index="1" hidden="1" />
+		<quad id="{{{C_Id_QuadContour}}}" z-index="2" hidden="1" />
+		<frame id="{{{C_Id_FrameHitboxClip}}}">
+			<quad id="{{{C_ComponentNavZone}}}" class="{{{Navigation::C_Class_ActivationZone}}}" size="40 10" scriptevents="1" />
+		</frame>
+		<quad id="{{{C_Id_QuadFocusBackground}}}" z-index="1" size="40 10" bgcolor="{{{C_DefaultColor}}}" hidden="1" />
+	</frame>
+	<frame id="{{{C_Id_FrameContent}}}" z-index="1">
+		<frame id="{{{C_Id_FrameIcon}}}" z-index="1">
+			<quad id="{{{C_Id_QuadIcon}}}" size="10 10" bgcolor="FFF" />
+			<quad id="{{{C_Id_QuadFocusIcon}}}" z-index="1" size="10 10" bgcolor="{{{C_DefaultColor}}}" hidden="1" />
+		</frame>
+		<label id="{{{C_Id_LabelValue}}}" pos="20 -5" z-index="10" size="39 9" halign="center" valign="center2" textsize="3" textprefix="{{{C_DefaultTextPrefix}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_SemiBold)}}}" textcolor="FFF" />
+	</frame>
+	<CMGameLoadingSpinner2 id="{{{C_Id_SpinnerLoading}}}" z-index="2" />
+</frame>
+""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the opacity of a control
+Void Private_SetOpacity(CMlScript _This, CMlControl _Control, Real _Opacity, Boolean _IsAnimated) {
+	_This.AnimMgr.Flush(_Control);
+	if (_IsAnimated) {
+		_This.AnimMgr.Add(_Control, "<anim opacity=\""^_Opacity^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		switchtype (_Control) {
+			case CMlQuad: (_Control as CMlQuad).Opacity = _Opacity;
+			case CMlLabel: (_Control as CMlLabel).Opacity = _Opacity;
+			default: assert(False, "Invalid control class");
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Read the text of the button if the TTS feature is enabled
+Void TTS_Focus(CMlFrame _Frame_Button, Boolean _IsFocused) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	if (!CMGame_Button2_Button.IsButton || CMGame_Button2_Button.IsLocked) return;
+	if (_IsFocused) CMGame_Button2_Button.Controls.Label_Value.TTS_Focus();
+	else CMGame_Button2_Button.Controls.Label_Value.TTS_Unfocus();
+}
+Void TTS_Focus(CMlFrame _Frame_Button) {
+	TTS_Focus(_Frame_Button, True);
+}
+Void TTS_Unfocus(CMlFrame _Frame_Button) {
+	TTS_Focus(_Frame_Button, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus the button
+Void Private_Focus(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsAnimated) {
+	declare K_State CMGame_Button2_State for _This.Page = C_State_Null;
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	if (!CMGame_Button2_Button.IsButton || CMGame_Button2_Button.IsLocked) return;
+
+	CMGame_Button2_Button.Controls.Quad_FocusIcon.Show();
+	CMGame_Button2_Button.Controls.Quad_FocusBackground.Visible = ((CMGame_Button2_Button.Background.FocusColor != CMGame_Button2_State.DefaultColorFocus || CMGame_Button2_Button.Background.ImageFocus != "") && !CMGame_Button2_Button.IsBgEmpty);
+	CMGame_Button2_Button.Controls.Quad_Image.Visible = (!CMGame_Button2_Button.Controls.Quad_FocusBackground.Visible || CMGame_Button2_Button.Background.ImageFocus != CMGame_Button2_Button.Background.Image) && !CMGame_Button2_Button.IsBgEmpty;
+	CMGame_Button2_Button.Controls.Quad_Icon.Visible = !CMGame_Button2_Button.Controls.Quad_FocusIcon.Visible;
+
+	if (CMGame_Button2_Button.IsBlink) {
+		if (CMGame_Button2_Button.Controls.Quad_FocusBackground.Visible) {
+			if (CMGame_Button2_State.QuadBlinking.existskey(_Frame_Button.Id)) {
+				if (!CMGame_Button2_State.QuadBlinking[_Frame_Button.Id].exists(CMGame_Button2_Button.Controls.Quad_FocusBackground)) {
+					CMGame_Button2_State.QuadBlinking[_Frame_Button.Id].add(CMGame_Button2_Button.Controls.Quad_FocusBackground);
+				}
+			} else {
+				CMGame_Button2_State.QuadBlinking[_Frame_Button.Id] = [CMGame_Button2_Button.Controls.Quad_FocusBackground];
+			}
+		}
+		if (CMGame_Button2_Button.Background.ContourImage != "") {
+			if (CMGame_Button2_State.QuadBlinking.existskey(_Frame_Button.Id)) {
+				if (!CMGame_Button2_State.QuadBlinking[_Frame_Button.Id].exists(CMGame_Button2_Button.Controls.Quad_Contour)) {
+					CMGame_Button2_State.QuadBlinking[_Frame_Button.Id].add(CMGame_Button2_Button.Controls.Quad_Contour);
+				}
+			} else {
+				CMGame_Button2_State.QuadBlinking[_Frame_Button.Id] = [CMGame_Button2_Button.Controls.Quad_Contour];
+			}
+		}
+		CMGame_Button2_State.ResetBlink = True;
+	} else {
+		CMGame_Button2_State.QuadBlinking.removekey(_Frame_Button.Id);
+	}
+
+	Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Label_Value, 1., _IsAnimated);
+
+	if (CMGame_Button2_Button.Controls.Quad_FocusBackground.Visible) {
+		CMGame_Button2_Button.Controls.Label_Value.TextColor = Tools::GetVisibleColorOnBackground(CMGame_Button2_Button.Background.FocusColor, CMGame_Button2_Button.Label.FocusColor);
+		if (CMGame_Button2_Button.Background.ImageFocusOpacity == -1.) {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_FocusBackground, CMGame_Button2_Button.Background.Opacity, _IsAnimated);
+			CMGame_Button2_Button.Controls.Quad_Image.Opacity = CMGame_Button2_Button.Background.Opacity;
+		} else {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_FocusBackground, CMGame_Button2_Button.Background.ImageFocusOpacity, _IsAnimated);
+			CMGame_Button2_Button.Controls.Quad_Image.Opacity = CMGame_Button2_Button.Background.ImageFocusOpacity;
+		}
+	} else {
+		CMGame_Button2_Button.Controls.Label_Value.TextColor = Tools::GetVisibleColorOnBackground(CMGame_Button2_Button.Background.Color, CMGame_Button2_Button.Label.FocusColor);
+		if (CMGame_Button2_Button.Background.ImageFocusOpacity == -1.) {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Image, CMGame_Button2_Button.Background.Opacity, _IsAnimated);
+		} else {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Image, CMGame_Button2_Button.Background.ImageFocusOpacity, _IsAnimated);
+		}
+	}
+
+	if (CMGame_Button2_Button.Controls.Quad_FocusIcon.Visible) {
+		if (CMGame_Button2_Button.Icon.ImageFocusOpacity == -1.) {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_FocusIcon, CMGame_Button2_Button.Icon.Opacity, _IsAnimated);
+			CMGame_Button2_Button.Controls.Quad_Icon.Opacity = CMGame_Button2_Button.Icon.Opacity;
+		} else {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_FocusIcon, CMGame_Button2_Button.Icon.ImageFocusOpacity, _IsAnimated);
+			CMGame_Button2_Button.Controls.Quad_Icon.Opacity = CMGame_Button2_Button.Icon.ImageFocusOpacity;
+		}
+	} else if (CMGame_Button2_Button.Icon.ImageFocusOpacity != -1.) {
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Icon, CMGame_Button2_Button.Icon.ImageFocusOpacity, _IsAnimated);
+	} else {
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Icon, CMGame_Button2_Button.Icon.Opacity, _IsAnimated);
+	}
+	if (CMGame_Button2_Button.Icon.ImageFocusOpacity == -1.) {
+		if (_IsAnimated) {
+			LoadingSpinner::Fade(_This, CMGame_Button2_Button.Controls.Spinner_Loading, CMGame_Button2_Button.Icon.Opacity, 250);
+		} else {
+			LoadingSpinner::Fade(_This, CMGame_Button2_Button.Controls.Spinner_Loading, CMGame_Button2_Button.Icon.Opacity, 0);
+		}
+	} else if (_IsAnimated) {
+		LoadingSpinner::Fade(_This, CMGame_Button2_Button.Controls.Spinner_Loading, CMGame_Button2_Button.Icon.ImageFocusOpacity, 250);
+	} else {
+		LoadingSpinner::Fade(_This, CMGame_Button2_Button.Controls.Spinner_Loading, CMGame_Button2_Button.Icon.ImageFocusOpacity, 0);
+	}
+
+	if (CMGame_Button2_Button.Controls.Quad_Gradient.Visible) {
+		if (CMGame_Button2_Button.Background.GradientOpacityFocus == -1.) {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Gradient, CMGame_Button2_Button.Background.Opacity, _IsAnimated);
+		} else {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Gradient, CMGame_Button2_Button.Background.GradientOpacityFocus, _IsAnimated);
+		}
+	}
+
+	if (CMGame_Button2_Button.Controls.Quad_Contour.Visible) {
+		if (CMGame_Button2_Button.Background.ContourOpacityFocus == -1.) {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Contour, CMGame_Button2_Button.Background.Opacity, _IsAnimated);
+		} else {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Contour, CMGame_Button2_Button.Background.ContourOpacityFocus, _IsAnimated);
+		}
+	}
+
+	CMGame_Button2_Button.IsFocused = True;
+}
+Void Focus(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsAnimated) {
+	Private_Focus(_This, _Frame_Button, _IsAnimated);
+	TTS_Focus(_Frame_Button);
+}
+Void Focus(CMlScript _This, CMlFrame _Frame_Button) {
+	Focus(_This, _Frame_Button, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unfocus the button
+Void Private_Unfocus(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsAnimated) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	if (!CMGame_Button2_Button.IsButton || CMGame_Button2_Button.IsLocked) return;
+	declare K_State CMGame_Button2_State for _This.Page = C_State_Null;
+
+	CMGame_Button2_Button.Controls.Quad_Icon.Show();
+	CMGame_Button2_Button.Controls.Quad_Image.Visible = !CMGame_Button2_Button.IsBgEmpty;
+	CMGame_Button2_Button.Controls.Quad_FocusBackground.Hide();
+	CMGame_Button2_Button.Controls.Quad_FocusIcon.Hide();
+	CMGame_Button2_Button.Controls.Label_Value.TextColor = CMGame_Button2_Button.Label.Color;
+
+	CMGame_Button2_State.QuadBlinking.removekey(_Frame_Button.Id);
+
+	if (CMGame_Button2_Button.Icon.OpacityUnfocus != -1.) {
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Icon, CMGame_Button2_Button.Icon.OpacityUnfocus, _IsAnimated);
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_FocusIcon, CMGame_Button2_Button.Icon.OpacityUnfocus, _IsAnimated);
+		if (_IsAnimated) {
+			LoadingSpinner::Fade(_This, CMGame_Button2_Button.Controls.Spinner_Loading, CMGame_Button2_Button.Icon.OpacityUnfocus, 250);
+		} else {
+			LoadingSpinner::Fade(_This, CMGame_Button2_Button.Controls.Spinner_Loading, CMGame_Button2_Button.Icon.OpacityUnfocus, 0);
+		}
+	} else if (CMGame_Button2_Button.OpacityUnfocus != -1.) {
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Icon, CMGame_Button2_Button.OpacityUnfocus, _IsAnimated);
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_FocusIcon, CMGame_Button2_Button.OpacityUnfocus, _IsAnimated);
+		if (_IsAnimated) {
+			LoadingSpinner::Fade(_This, CMGame_Button2_Button.Controls.Spinner_Loading, CMGame_Button2_Button.OpacityUnfocus, 250);
+		} else {
+			LoadingSpinner::Fade(_This, CMGame_Button2_Button.Controls.Spinner_Loading, CMGame_Button2_Button.OpacityUnfocus, 0);
+		}
+	} else {
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Icon, CMGame_Button2_Button.Icon.Opacity, _IsAnimated);
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_FocusIcon, CMGame_Button2_Button.Icon.Opacity, _IsAnimated);
+		if (_IsAnimated) {
+			LoadingSpinner::Fade(_This, CMGame_Button2_Button.Controls.Spinner_Loading, CMGame_Button2_Button.Icon.Opacity, 250);
+		} else {
+			LoadingSpinner::Fade(_This, CMGame_Button2_Button.Controls.Spinner_Loading, CMGame_Button2_Button.Icon.Opacity, 0);
+		}
+	}
+
+	if (CMGame_Button2_Button.Background.OpacityUnfocus != -1.) {
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Image, CMGame_Button2_Button.Background.OpacityUnfocus, _IsAnimated);
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_FocusBackground, CMGame_Button2_Button.Background.OpacityUnfocus, _IsAnimated);
+	} else if (CMGame_Button2_Button.OpacityUnfocus != -1) {
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Image, CMGame_Button2_Button.OpacityUnfocus, _IsAnimated);
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_FocusBackground, CMGame_Button2_Button.OpacityUnfocus, _IsAnimated);
+	} else {
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Image, CMGame_Button2_Button.Background.Opacity, _IsAnimated);
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_FocusBackground, CMGame_Button2_Button.Background.Opacity, _IsAnimated);
+	}
+
+	if (CMGame_Button2_Button.Controls.Quad_Gradient.Visible) {
+		if (CMGame_Button2_Button.Background.GradientOpacityUnfocus != -1.) {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Gradient, CMGame_Button2_Button.Background.GradientOpacityUnfocus, _IsAnimated);
+		} else if (CMGame_Button2_Button.Background.OpacityUnfocus != -1.) {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Gradient, CMGame_Button2_Button.Background.OpacityUnfocus, _IsAnimated);
+		} else {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Gradient, CMGame_Button2_Button.OpacityUnfocus, _IsAnimated);
+		}
+	}
+
+	if (CMGame_Button2_Button.Controls.Quad_Contour.Visible) {
+		if (CMGame_Button2_Button.Background.ContourOpacityUnfocus != -1.) {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Contour, CMGame_Button2_Button.Background.ContourOpacityUnfocus, _IsAnimated);
+		} else if (CMGame_Button2_Button.Background.OpacityUnfocus != -1.) {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Contour, CMGame_Button2_Button.Background.OpacityUnfocus, _IsAnimated);
+		} else {
+			Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Quad_Contour, CMGame_Button2_Button.OpacityUnfocus, _IsAnimated);
+		}
+	}
+
+	if (CMGame_Button2_Button.Label.OpacityUnfocus == -1.) {
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Label_Value, CMGame_Button2_Button.OpacityUnfocus, _IsAnimated);
+	} else {
+		Private_SetOpacity(_This, CMGame_Button2_Button.Controls.Label_Value, CMGame_Button2_Button.Label.OpacityUnfocus, _IsAnimated);
+	}
+
+	CMGame_Button2_Button.IsFocused = False;
+}
+Void Unfocus(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsAnimated) {
+	Private_Unfocus(_This, _Frame_Button, _IsAnimated);
+	TTS_Unfocus(_Frame_Button);
+}
+Void Unfocus(CMlScript _This, CMlFrame _Frame_Button) {
+	Unfocus(_This, _Frame_Button, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Lock the button
+Void Lock(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsLocked) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	if (!CMGame_Button2_Button.IsButton) return;
+	declare K_State CMGame_Button2_State for _This.Page = C_State_Null;
+
+	CMGame_Button2_State.QuadBlinking.removekey(_Frame_Button.Id);
+	CMGame_Button2_Button.Controls.Quad_FocusBackground.Visible = False;
+	CMGame_Button2_Button.Controls.Quad_FocusIcon.Visible = False;
+	if (_IsLocked) {
+		CMGame_Button2_Button.Controls.Quad_Icon.Opacity = 0.5;
+		CMGame_Button2_Button.Controls.Quad_Image.Opacity = 0.5;
+		CMGame_Button2_Button.Controls.Quad_Gradient.Opacity = 0.5;
+		CMGame_Button2_Button.Controls.Quad_Contour.Opacity = 0.5;
+		CMGame_Button2_Button.Controls.Label_Value.Opacity = 0.5;
+	} else {
+		if (CMGame_Button2_Button.Icon.OpacityUnfocus == -1.) {
+			CMGame_Button2_Button.Controls.Quad_Icon.Opacity = CMGame_Button2_Button.OpacityUnfocus;
+		} else {
+			CMGame_Button2_Button.Controls.Quad_Icon.Opacity = CMGame_Button2_Button.Icon.OpacityUnfocus;
+		}
+		if (CMGame_Button2_Button.Background.OpacityUnfocus == -1.) {
+			CMGame_Button2_Button.Controls.Quad_Image.Opacity = CMGame_Button2_Button.OpacityUnfocus;
+		} else {
+			CMGame_Button2_Button.Controls.Quad_Image.Opacity = CMGame_Button2_Button.Background.OpacityUnfocus;
+		}
+		if (CMGame_Button2_Button.Background.GradientOpacityUnfocus != -1.) {
+			CMGame_Button2_Button.Controls.Quad_Gradient.Opacity = CMGame_Button2_Button.Background.GradientOpacityUnfocus;
+		} else if (CMGame_Button2_Button.Background.OpacityUnfocus != -1.) {
+			CMGame_Button2_Button.Controls.Quad_Gradient.Opacity = CMGame_Button2_Button.Background.OpacityUnfocus;
+		} else {
+			CMGame_Button2_Button.Controls.Quad_Gradient.Opacity = CMGame_Button2_Button.OpacityUnfocus;
+		}
+		if (CMGame_Button2_Button.Background.ContourOpacityUnfocus != -1.) {
+			CMGame_Button2_Button.Controls.Quad_Contour.Opacity = CMGame_Button2_Button.Background.ContourOpacityUnfocus;
+		} else if (CMGame_Button2_Button.Background.OpacityUnfocus != -1.) {
+			CMGame_Button2_Button.Controls.Quad_Contour.Opacity = CMGame_Button2_Button.Background.OpacityUnfocus;
+		} else {
+			CMGame_Button2_Button.Controls.Quad_Contour.Opacity = CMGame_Button2_Button.OpacityUnfocus;
+		}
+		if (CMGame_Button2_Button.Label.OpacityUnfocus == -1.) {
+			CMGame_Button2_Button.Controls.Label_Value.Opacity = CMGame_Button2_Button.OpacityUnfocus;
+		} else {
+			CMGame_Button2_Button.Controls.Label_Value.Opacity = CMGame_Button2_Button.Label.OpacityUnfocus;
+		}
+	}
+
+	CMGame_Button2_Button.IsLocked = _IsLocked;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the control is a button component instance
+Boolean IsButton(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.IsButton;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the control is the activation zone of the button
+Boolean IsButtonTrigger(CMlControl _Control_Trigger) {
+	return (_Control_Trigger != Null && _Control_Trigger.ControlId == C_ComponentNavZone);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the button that owns the given activation zone
+CMlFrame GetButtonFromTrigger(CMlControl _Control_Trigger) {
+	declare CMlFrame CMGame_Button2_ParentButton for _Control_Trigger = Null;
+	return CMGame_Button2_ParentButton;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the state of the button
+Void UpdateStateDisplay(CMlScript _This, CMlFrame _Frame_Button, K_Button _Properties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Controls.Frame_Content.Visible = (_Properties.State == C_State_Normal);
+	if (_Properties.State == C_State_Loading) {
+		if (!LoadingSpinner::IsLoading(CMGame_Button2_Button.Controls.Spinner_Loading)) {
+			LoadingSpinner::StartAnimation(_This, CMGame_Button2_Button.Controls.Spinner_Loading);
+		}
+	} else {
+		LoadingSpinner::StopAnimation(_This, CMGame_Button2_Button.Controls.Spinner_Loading);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the `Label_Value` visual
+Void Private_ApplyProperties_LabelValue(K_Button _Properties) {
+	_Properties.Controls.Label_Value.Value = _Properties.Label.Value;
+	_Properties.Controls.Label_Value.TextSizeReal = _Properties.Label.TextSize;
+	_Properties.Controls.Label_Value.TextPrefix = _Properties.Label.TextPrefix;
+	_Properties.Controls.Label_Value.TextFont = _Properties.Label.Font;
+	_Properties.Controls.Label_Value.HorizontalAlign = Tools::TextToHAlign(_Properties.Label.HAlign);
+	_Properties.Controls.Label_Value.VerticalAlign = Tools::TextToVAlign(_Properties.Label.VAlign);
+	_Properties.Controls.Label_Value.MaxLine = _Properties.Label.MaxLine;
+	_Properties.Controls.Label_Value.AutoNewLine = _Properties.Label.AutoNewLine;
+	_Properties.Controls.Label_Value.TTS_AltText = _Properties.Label.TTS_Text;
+	_Properties.Controls.Label_Value.TTS_AltText_Translate = _Properties.Label.TTS_IsTranslated;
+	_Properties.Controls.Label_Value.FilterProfanities = _Properties.Label.FilterProfanities;
+	_Properties.Controls.Label_Value.ItalicSlope = _Properties.Label.ItalicSlope;
+	if (_Properties.IsFocused) {
+		if (_Properties.Controls.Quad_FocusBackground.Visible) {
+			_Properties.Controls.Label_Value.TextColor = Tools::GetVisibleColorOnBackground(_Properties.Background.FocusColor, _Properties.Label.FocusColor);
+		} else {
+			_Properties.Controls.Label_Value.TextColor = Tools::GetVisibleColorOnBackground(_Properties.Background.Color, _Properties.Label.FocusColor);
+		}
+	} else {
+		_Properties.Controls.Label_Value.TextColor = _Properties.Label.Color;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the `Quad_Gradient` visual
+Void Private_ApplyProperties_QuadGradient(K_Button _Properties) {
+	_Properties.Controls.Quad_Gradient.Visible = _Properties.Background.GradientImage != "";
+	if (_Properties.Background.GradientImage != "") {
+		_Properties.Controls.Quad_Gradient.ChangeImageUrl(_Properties.Background.GradientImage);
+		_Properties.Controls.Quad_Gradient.KeepRatio = _Properties.Background.KeepRatio;
+		switch (_Properties.Background.ColorType) {
+			case C_ColorType_ModulateColor: _Properties.Controls.Quad_Gradient.ModulateColor = _Properties.Background.GradientColor;
+			case C_ColorType_Colorize: _Properties.Controls.Quad_Gradient.Colorize = _Properties.Background.GradientColor;
+			case C_ColorType_None: {
+				if (_Properties.Background.GradientColor != <-1., -1., -1.>) {
+					_Properties.Controls.Quad_Gradient.Colorize = _Properties.Background.GradientColor;
+				} else {
+					_Properties.Controls.Quad_Gradient.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+				}
+			}
+		}
+		_Properties.Controls.Quad_Gradient.SuperSample = (_Properties.SuperSample && _Properties.Controls.Quad_Gradient.ImageUrl != "" && _Properties.Controls.Quad_Gradient.Colorize != <-1., -1., -1.>);
+		if (_Properties.AlphaMask != "") {
+			_Properties.Controls.Quad_Gradient.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.IsFocused) {
+			if (_Properties.Background.GradientOpacityFocus != -1.) {
+				_Properties.Controls.Quad_Gradient.Opacity = _Properties.Background.GradientOpacityFocus;
+			} else {
+				_Properties.Controls.Quad_Gradient.Opacity = _Properties.Background.Opacity;
+			}
+		} else {
+			if (_Properties.Background.GradientOpacityUnfocus != -1.) {
+				_Properties.Controls.Quad_Gradient.Opacity = _Properties.Background.GradientOpacityUnfocus;
+			} else if (_Properties.Background.OpacityUnfocus != -1.) {
+				_Properties.Controls.Quad_Gradient.Opacity = _Properties.Background.OpacityUnfocus;
+			} else {
+				_Properties.Controls.Quad_Gradient.Opacity = _Properties.OpacityUnfocus;
+			}
+		}
+	} else {
+		_Properties.Controls.Quad_Gradient.SuperSample = False;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the `Quad_Contour` visual
+Void Private_ApplyProperties_QuadContour(K_Button _Properties) {
+	_Properties.Controls.Quad_Contour.Visible = _Properties.Background.ContourImage != "";
+	if (_Properties.Background.ContourImage != "") {
+		_Properties.Controls.Quad_Contour.ChangeImageUrl(_Properties.Background.ContourImage);
+		_Properties.Controls.Quad_Contour.KeepRatio = _Properties.Background.KeepRatio;
+		switch (_Properties.Background.ColorType) {
+			case C_ColorType_ModulateColor: _Properties.Controls.Quad_Contour.ModulateColor = _Properties.Background.ContourColor;
+			case C_ColorType_Colorize: _Properties.Controls.Quad_Contour.Colorize = _Properties.Background.ContourColor;
+			case C_ColorType_None: {
+				if (_Properties.Background.ContourColor != <-1., -1., -1.>) {
+					_Properties.Controls.Quad_Contour.Colorize = _Properties.Background.ContourColor;
+				} else {
+					_Properties.Controls.Quad_Contour.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+				}
+			}
+		}
+		_Properties.Controls.Quad_Contour.SuperSample = (_Properties.SuperSample && _Properties.Controls.Quad_Contour.ImageUrl != "" && _Properties.Controls.Quad_Contour.Colorize != <-1., -1., -1.>);
+		if (_Properties.AlphaMask != "") {
+			_Properties.Controls.Quad_Contour.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.IsFocused) {
+			if (_Properties.Background.ContourOpacityFocus != -1.) {
+				_Properties.Controls.Quad_Contour.Opacity = _Properties.Background.ContourOpacityFocus;
+			} else {
+				_Properties.Controls.Quad_Contour.Opacity = _Properties.Background.Opacity;
+			}
+		} else {
+			if (_Properties.Background.ContourOpacityUnfocus != -1.) {
+				_Properties.Controls.Quad_Contour.Opacity = _Properties.Background.ContourOpacityUnfocus;
+			} else if (_Properties.Background.OpacityUnfocus != -1.) {
+				_Properties.Controls.Quad_Contour.Opacity = _Properties.Background.OpacityUnfocus;
+			} else {
+				_Properties.Controls.Quad_Contour.Opacity = _Properties.OpacityUnfocus;
+			}
+		}
+	} else {
+		_Properties.Controls.Quad_Contour.SuperSample = False;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the `Quad_Image` visual
+Void Private_ApplyProperties_QuadImage(K_Button _Properties) {
+	_Properties.Controls.Quad_Image.Visible = !_Properties.IsBgEmpty;
+	if (!_Properties.IsBgEmpty) {
+		_Properties.Controls.Quad_Image.BgColor = _Properties.Background.Color;
+		_Properties.Controls.Quad_Image.ChangeImageUrl(_Properties.Background.Image);
+		_Properties.Controls.Quad_Image.KeepRatio = _Properties.Background.KeepRatio;
+		switch (_Properties.Background.ColorType) {
+			case C_ColorType_ModulateColor: _Properties.Controls.Quad_Image.ModulateColor = _Properties.Background.Color;
+			case C_ColorType_Colorize:	_Properties.Controls.Quad_Image.Colorize = _Properties.Background.Color;
+			case C_ColorType_None: _Properties.Controls.Quad_Image.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+		}
+		_Properties.Controls.Quad_Image.SuperSample = (_Properties.SuperSample && _Properties.Controls.Quad_Image.ImageUrl != "" && _Properties.Controls.Quad_Image.Colorize != <-1., -1., -1.>);
+
+		if (_Properties.Background.Image != "") {
+			_Properties.Controls.Quad_Image.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.IsFocused) {
+			_Properties.Controls.Quad_Image.Opacity = _Properties.Background.Opacity;
+		} else {
+			if (_Properties.Background.OpacityUnfocus == -1.) {
+				_Properties.Controls.Quad_Image.Opacity = _Properties.OpacityUnfocus;
+			} else {
+				_Properties.Controls.Quad_Image.Opacity = _Properties.Background.OpacityUnfocus;
+			}
+		}
+	} else {
+		_Properties.Controls.Quad_Image.SuperSample = False;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the `Quad_FocusBackground` visual
+Void Private_ApplyProperties_QuadFocusBackground(K_Button _Properties, K_State _State) {
+	if ((_Properties.Background.FocusColor == _State.DefaultColorFocus || _Properties.Background.ImageFocus == "") && _Properties.IsBgEmpty) {
+		_Properties.Controls.Quad_FocusBackground.Visible = False;
+		_Properties.Controls.Quad_FocusBackground.SuperSample = False;
+	} else {
+		_Properties.Controls.Quad_FocusBackground.BgColor = _Properties.Background.FocusColor;
+		_Properties.Controls.Quad_FocusBackground.ChangeImageUrl(_Properties.Background.ImageFocus);
+		_Properties.Controls.Quad_FocusBackground.KeepRatio = _Properties.Background.KeepRatio;
+
+		switch (_Properties.Background.ColorType) {
+			case C_ColorType_ModulateColor: _Properties.Controls.Quad_FocusBackground.ModulateColor = _Properties.Background.FocusColor;
+			case C_ColorType_Colorize: _Properties.Controls.Quad_FocusBackground.Colorize = _Properties.Background.FocusColor;
+			case C_ColorType_None: _Properties.Controls.Quad_FocusBackground.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+		}
+
+		_Properties.Controls.Quad_FocusBackground.SuperSample = (_Properties.SuperSample && _Properties.Controls.Quad_FocusBackground.ImageUrl != "" && _Properties.Controls.Quad_FocusBackground.Colorize != <-1., -1., -1.>);
+
+		if (_Properties.Background.ImageFocus != "") {
+			_Properties.Controls.Quad_FocusBackground.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.IsFocused) {
+			if (_Properties.Background.ImageFocusOpacity == -1.) {
+				_Properties.Controls.Quad_FocusBackground.Opacity = _Properties.Background.Opacity;
+			} else {
+				_Properties.Controls.Quad_FocusBackground.Opacity = _Properties.Background.ImageFocusOpacity;
+			}
+		} else {
+			if (_Properties.Background.OpacityUnfocus == -1.) {
+				_Properties.Controls.Quad_FocusBackground.Opacity = _Properties.OpacityUnfocus;
+			} else {
+				_Properties.Controls.Quad_FocusBackground.Opacity = _Properties.Background.OpacityUnfocus;
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the `Quad_Icon` and `Quad_FocusIcon` visual
+Void Private_ApplyProperties_QuadIconAndFocusIcon(K_Button _Properties) {
+	_Properties.Controls.Quad_Icon.Parent.Visible = _Properties.Icon.Image != "";
+	if (_Properties.Icon.Image != "") {
+		_Properties.Controls.Quad_Icon.BgColor = _Properties.Icon.Color;
+		_Properties.Controls.Quad_FocusIcon.BgColor = _Properties.Icon.FocusColor;
+		_Properties.Controls.Quad_Icon.ChangeImageUrl(_Properties.Icon.Image);
+		_Properties.Controls.Quad_FocusIcon.ChangeImageUrl(_Properties.Icon.ImageFocus);
+		switch (_Properties.Icon.ColorType) {
+			case C_ColorType_ModulateColor: {
+				_Properties.Controls.Quad_Icon.ModulateColor = _Properties.Icon.Color;
+				_Properties.Controls.Quad_FocusIcon.ModulateColor = _Properties.Icon.FocusColor;
+			}
+			case C_ColorType_Colorize: {
+				_Properties.Controls.Quad_Icon.Colorize = _Properties.Icon.Color;
+				_Properties.Controls.Quad_FocusIcon.Colorize = _Properties.Icon.FocusColor;
+			}
+			case C_ColorType_None: {
+				_Properties.Controls.Quad_Icon.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+				_Properties.Controls.Quad_FocusIcon.Colorize = <-1., -1., -1.>; //< Sets the quad in Colorize mode and resets ModulateColor as well
+			}
+		}
+		if (_Properties.Icon.Image != "") {
+			_Properties.Controls.Quad_Icon.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.Icon.ImageFocus != "") {
+			_Properties.Controls.Quad_FocusIcon.AlphaMaskUrl = _Properties.AlphaMask;
+		}
+		if (_Properties.IsFocused) {
+			_Properties.Controls.Quad_FocusIcon.Opacity = _Properties.Icon.Opacity;
+		} else {
+			if (_Properties.Icon.OpacityUnfocus == -1.) {
+				_Properties.Controls.Quad_Icon.Opacity = _Properties.OpacityUnfocus;
+			} else {
+				_Properties.Controls.Quad_Icon.Opacity = _Properties.Icon.OpacityUnfocus;
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the size of the button
+Vec2 Private_ApplyProperties_Size(K_Button _Properties) {
+	declare Vec2 SizeOfReference;
+	if (_Properties.SizeHitbox == <-1., -1.>) {
+		_Properties.Controls.Quad_Hitbox.Size = _Properties.Background.Size;
+		SizeOfReference = _Properties.Background.Size;
+	} else {
+		_Properties.Controls.Quad_Hitbox.Size = _Properties.SizeHitbox;
+		SizeOfReference = _Properties.SizeHitbox;
+	}
+
+	if (_Properties.TiltHitbox != 0.) {
+		declare Real TiltRad = ML::DegToRad(_Properties.TiltHitbox);
+		declare Real TiltWidthAtBase = SizeOfReference.Y * ML::Tan(TiltRad);
+		declare Real CosTiltRad = ML::Cos(TiltRad);
+		declare Real SinTiltRad = ML::Sin(TiltRad);
+		_Properties.Controls.Quad_Hitbox.Size.X = (SizeOfReference.X - TiltWidthAtBase) * CosTiltRad;
+		if (CosTiltRad == 0.) {
+			_Properties.Controls.Quad_Hitbox.Size.Y = 0.;
+		} else {
+			_Properties.Controls.Quad_Hitbox.Size.Y = (SizeOfReference.Y / CosTiltRad) + ML::Abs((SizeOfReference.X - TiltWidthAtBase) * SinTiltRad);
+		}
+		if (SinTiltRad >= 0.) {
+			_Properties.Controls.Quad_Hitbox.VerticalAlign = CMlControl::AlignVertical::Bottom;
+			_Properties.Controls.Quad_Hitbox.RelativePosition_V3 = <0., -SizeOfReference.Y>;
+		} else {
+			_Properties.Controls.Quad_Hitbox.VerticalAlign = CMlControl::AlignVertical::Top;
+			_Properties.Controls.Quad_Hitbox.RelativePosition_V3 = <0., 0.>;
+		}
+		_Properties.Controls.Quad_Hitbox.RelativeRotation = _Properties.TiltHitbox;
+		_Properties.Controls.Frame_HitboxClip.Size = SizeOfReference;
+	} else {
+		_Properties.Controls.Quad_Hitbox.VerticalAlign = CMlControl::AlignVertical::Top;
+		_Properties.Controls.Quad_Hitbox.RelativePosition_V3 = <SizeOfReference.X * 0.5 - _Properties.Controls.Quad_Hitbox.Size.X/2., SizeOfReference.Y * 0.5 - _Properties.Controls.Quad_Hitbox.Size.Y/2.>;
+		_Properties.Controls.Quad_Hitbox.RelativeRotation = 0.;
+		_Properties.Controls.Frame_HitboxClip.Size = <0., 0.>; //< This default value disable the clipping
+	}
+
+	_Properties.Controls.Quad_Image.Size = _Properties.Background.Size;
+	_Properties.Controls.Quad_Gradient.Size = _Properties.Background.Size;
+	_Properties.Controls.Quad_Contour.Size = _Properties.Background.Size;
+	_Properties.Controls.Quad_FocusBackground.Size = _Properties.Background.Size;
+
+	if (_Properties.Icon.Size == <-1., -1.>) {
+		_Properties.Controls.Quad_Icon.Size = <ML::Max(0., SizeOfReference.X - 5.), ML::Max(0., SizeOfReference.Y - 5.)>;
+		_Properties.Controls.Quad_FocusIcon.Size = <ML::Max(0., SizeOfReference.X - 5.), ML::Max(0., SizeOfReference.Y - 5.)>;
+	} else {
+		_Properties.Controls.Quad_Icon.Size = _Properties.Icon.Size;
+		_Properties.Controls.Quad_FocusIcon.Size = _Properties.Icon.Size;
+	}
+
+	_Properties.Controls.Spinner_Loading.RelativeScale = _Properties.Loading.Scale;
+
+	if (_Properties.Label.Size == <-1., -1.>) {
+		_Properties.Controls.Label_Value.Size = <ML::Max(0., SizeOfReference.X - 5.), ML::Max(0., SizeOfReference.Y - 1.)>;
+	} else {
+		_Properties.Controls.Label_Value.Size = _Properties.Label.Size;
+	}
+
+	_Properties.Controls.Label_Value.RelativePosition_V3 = <SizeOfReference.X * _Properties.Label.PosX, SizeOfReference.Y * _Properties.Label.PosY>;
+	_Properties.Controls.Quad_Icon.RelativePosition_V3 = <SizeOfReference.X * _Properties.Icon.PosX - _Properties.Controls.Quad_Icon.Size.X/2., SizeOfReference.Y * _Properties.Icon.PosY + _Properties.Controls.Quad_Icon.Size.Y/2.>;
+	_Properties.Controls.Quad_FocusIcon.RelativePosition_V3 = <SizeOfReference.X * _Properties.Icon.PosX - _Properties.Controls.Quad_Icon.Size.X/2., SizeOfReference.Y * _Properties.Icon.PosY + _Properties.Controls.Quad_Icon.Size.Y/2.>;
+	_Properties.Controls.Quad_Image.RelativePosition_V3 = <SizeOfReference.X * 0.5 - _Properties.Controls.Quad_Image.Size.X/2. + _Properties.Background.PosX, SizeOfReference.Y * -0.5 + _Properties.Controls.Quad_Image.Size.Y/2. + _Properties.Background.PosY>;
+	_Properties.Controls.Quad_Gradient.RelativePosition_V3 = <SizeOfReference.X * 0.5 - _Properties.Controls.Quad_Gradient.Size.X/2. + _Properties.Background.PosX, SizeOfReference.Y * -0.5 + _Properties.Controls.Quad_Gradient.Size.Y/2. + _Properties.Background.PosY>;
+	_Properties.Controls.Quad_Contour.RelativePosition_V3 = <SizeOfReference.X * 0.5 - _Properties.Controls.Quad_Contour.Size.X/2. + _Properties.Background.PosX, SizeOfReference.Y * -0.5 + _Properties.Controls.Quad_Contour.Size.Y/2. + _Properties.Background.PosY>;
+	_Properties.Controls.Quad_FocusBackground.RelativePosition_V3 = <SizeOfReference.X * 0.5 - _Properties.Controls.Quad_FocusBackground.Size.X/2.+ _Properties.Background.PosX, SizeOfReference.Y * -0.5 + _Properties.Controls.Quad_FocusBackground.Size.Y/2. + _Properties.Background.PosY>;
+	_Properties.Controls.Quad_Icon.RelativeRotation = _Properties.Icon.Rotation;
+	_Properties.Controls.Quad_FocusIcon.RelativeRotation = _Properties.Icon.Rotation;
+	_Properties.Controls.Spinner_Loading.RelativePosition_V3 = <SizeOfReference.X * _Properties.Loading.PosX, SizeOfReference.Y * _Properties.Icon.PosY>;
+
+	return SizeOfReference;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply properties on the button visual
+Void ApplyProperties(CMlScript _This, CMlFrame _Frame_Button, K_Button _Properties) {
+	declare K_State CMGame_Button2_State for _This.Page = C_State_Null;
+
+	Private_ApplyProperties_LabelValue(_Properties);
+	Private_ApplyProperties_QuadGradient(_Properties);
+	Private_ApplyProperties_QuadContour(_Properties);
+	Private_ApplyProperties_QuadImage(_Properties);
+	Private_ApplyProperties_QuadFocusBackground(_Properties, CMGame_Button2_State);
+	Private_ApplyProperties_QuadIconAndFocusIcon(_Properties);
+
+	// Size
+	declare Vec2 SizeOfReference = Private_ApplyProperties_Size(_Properties);
+
+	// Align
+	Tools::AlignFrame(_Properties.Controls.Frame_Align, SizeOfReference, _Properties.HAlign, _Properties.VAlign);
+
+	// Apply after every other properties are set on the label, especially its size
+	if (_Properties.Label.Fit > 0.) {
+		Tools::FitLabelValue(_Properties.Controls.Label_Value, _Properties.Label.Fit, _Properties.Label.FitStep);
+	}
+
+	if (_Properties.IsFocused) {
+		Private_Focus(_This, _Frame_Button, False);
+	} else {
+		Private_Unfocus(_This, _Frame_Button, False);
+	}
+
+	UpdateStateDisplay(_This, _Frame_Button, _Properties);
+}
+Void ApplyProperties(CMlScript _This, CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update navigation on the button
+Void ShowAndUnlock(CMlFrame _Frame_Button) {
+	Navigation::Lock(_Frame_Button, False);
+	_Frame_Button.Show();
+}
+Void HideAndLock(CMlFrame _Frame_Button) {
+	Navigation::Lock(_Frame_Button, True);
+	_Frame_Button.Hide();
+}
+Void SetVisibilityAndNavigation(CMlFrame _Frame_Button, Boolean _IsVisible) {
+	Navigation::Lock(_Frame_Button, !_IsVisible);
+	_Frame_Button.Visible = _IsVisible;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the button properties
+Void SetIconColorType(CMlScript _This, CMlFrame _Frame_Button, Integer _ColorType, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Icon.ColorType = _ColorType;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIconColorType(CMlScript _This, CMlFrame _Frame_Button, Integer _ColorType) {
+	SetIconColorType(_This, _Frame_Button, _ColorType, True);
+}
+Void SetBgIsEmpty(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsBgEmpty, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.IsBgEmpty = _IsBgEmpty;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetBgIsEmpty(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsBgEmpty) {
+	SetBgIsEmpty(_This, _Frame_Button, _IsBgEmpty, True);
+}
+Void SetIsBlink(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsBlink, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.IsBlink = _IsBlink;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIsBlink(CMlScript _This, CMlFrame _Frame_Button, Boolean _IsBlink) {
+	SetIsBlink(_This, _Frame_Button, _IsBlink, True);
+}
+Void SetAlphaMask(CMlScript _This, CMlFrame _Frame_Button, Text _AlphaMask, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.AlphaMask = _AlphaMask;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetAlphaMask(CMlScript _This, CMlFrame _Frame_Button, Text _AlphaMask) {
+	SetAlphaMask(_This, _Frame_Button, _AlphaMask, True);
+}
+Void SetBgColorType(CMlScript _This, CMlFrame _Frame_Button, Integer _ColorType, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.ColorType = _ColorType;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetBgColorType(CMlScript _This, CMlFrame _Frame_Button, Integer _ColorType) {
+	SetBgColorType(_This, _Frame_Button, _ColorType, True);
+}
+Void SetValue(CMlScript _This, CMlFrame _Frame_Button, Text _Value, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.Value = _Value;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetValue(CMlScript _This, CMlFrame _Frame_Button, Text _Value) {
+	SetValue(_This, _Frame_Button, _Value, True);
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Size, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.Size = _Size;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Size) {
+	SetSize(_This, _Frame_Button, _Size, True);
+}
+Void SetSizeHitbox(CMlScript _This, CMlFrame _Frame_Button, Vec2 _SizeHitbox, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.SizeHitbox = _SizeHitbox;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetSizeHitbox(CMlScript _This, CMlFrame _Frame_Button, Vec2 _SizeHitbox) {
+	SetSizeHitbox(_This, _Frame_Button, _SizeHitbox, True);
+}
+Void SetTiltHitbox(CMlScript _This, CMlFrame _Frame_Button, Real _TiltHitbox, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.TiltHitbox = _TiltHitbox;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTiltHitbox(CMlScript _This, CMlFrame _Frame_Button, Real _TiltHitbox) {
+	SetTiltHitbox(_This, _Frame_Button, _TiltHitbox, True);
+}
+Void SetBackgroundOpacity(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.Opacity = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetBackgroundOpacity(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetBackgroundOpacity(_This, _Frame_Button, _Opacity, True);
+}
+Void SetOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.OpacityUnfocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetOpacityUnfocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetBgColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _BgColor, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.Color = _BgColor;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetBgColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _BgColor) {
+	SetBgColor(_This, _Frame_Button, _BgColor, True);
+}
+Void SetFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _FocusColor, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.FocusColor = _FocusColor;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _FocusColor) {
+	SetFocusColor(_This, _Frame_Button, _FocusColor, True);
+}
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _TextColor, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.Color = _TextColor;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _TextColor) {
+	SetTextColor(_This, _Frame_Button, _TextColor, True);
+}
+Void SetTextFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _TextColor, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.FocusColor = _TextColor;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _TextColor) {
+	SetTextFocusColor(_This, _Frame_Button, _TextColor, True);
+}
+Void SetTextOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.OpacityUnfocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetTextOpacityUnfocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_Button, Real _TextSize, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.TextSize = _TextSize;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_Button, Real _TextSize) {
+	SetTextSize(_This, _Frame_Button, _TextSize, True);
+}
+Void SetTextPrefix(CMlScript _This, CMlFrame _Frame_Button, Text _TextPrefix, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.TextPrefix = _TextPrefix;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextPrefix(CMlScript _This, CMlFrame _Frame_Button, Text _TextPrefix) {
+	SetTextPrefix(_This, _Frame_Button, _TextPrefix, True);
+}
+Void SetTextFont(CMlScript _This, CMlFrame _Frame_Button, Text _TextFont, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.Font = _TextFont;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextFont(CMlScript _This, CMlFrame _Frame_Button, Text _TextFont) {
+	SetTextFont(_This, _Frame_Button, _TextFont, True);
+}
+Void SetTextItalicSlope(CMlScript _This, CMlFrame _Frame_Button, Real _ItalicSlope, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.ItalicSlope = _ItalicSlope;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextItalicSlope(CMlScript _This, CMlFrame _Frame_Button, Real _ItalicSlope) {
+	SetTextItalicSlope(_This, _Frame_Button, _ItalicSlope, True);
+}
+Void SetLabelSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _LabelSize, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.Size = _LabelSize;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetLabelSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _LabelSize) {
+	SetLabelSize(_This, _Frame_Button, _LabelSize, True);
+}
+Void SetImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.Image = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetImage(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetImageFocus(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.ImageFocus = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetImageFocus(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetImageFocus(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetImageFocusOpacity(CMlScript _This, CMlFrame _Frame_Button, Real _ImageFocusOpacity, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.ImageFocusOpacity = _ImageFocusOpacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetImageFocusOpacity(CMlScript _This, CMlFrame _Frame_Button, Real _ImageFocusOpacity) {
+	SetImageFocusOpacity(_This, _Frame_Button, _ImageFocusOpacity, True);
+}
+Void SetImageOffset(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Offset, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.PosX = _Offset.X;
+	CMGame_Button2_Button.Background.PosY = _Offset.Y;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetImageOffset(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Offset) {
+	SetImageOffset(_This, _Frame_Button, _Offset, True);
+}
+Void SetImageXOffset(CMlScript _This, CMlFrame _Frame_Button, Real _XOffset, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.PosX = _XOffset;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetImageXOffset(CMlScript _This, CMlFrame _Frame_Button, Real _XOffset) {
+	SetImageXOffset(_This, _Frame_Button, _XOffset, True);
+}
+Void SetImageYOffset(CMlScript _This, CMlFrame _Frame_Button, Real _YOffset, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.PosY = _YOffset;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetImageYOffset(CMlScript _This, CMlFrame _Frame_Button, Real _YOffset) {
+	SetImageYOffset(_This, _Frame_Button, _YOffset, True);
+}
+Void SetIcon(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Icon.Image = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIcon(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetIcon(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetIconFocus(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Icon.ImageFocus = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIconFocus(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetIconFocus(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetIconColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Icon.Color = _Color;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIconColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color) {
+	SetIconColor(_This, _Frame_Button, _Color, True);
+}
+Void SetIconFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Icon.FocusColor = _Color;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIconFocusColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color) {
+	SetIconFocusColor(_This, _Frame_Button, _Color, True);
+}
+Void SetIconOpacityFocused(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Icon.Opacity = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIconOpacityFocused(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetIconOpacityFocused(_This, _Frame_Button, _Opacity, True);
+}
+Void SetIconOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Icon.OpacityUnfocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIconOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetIconOpacityUnfocused(_This, _Frame_Button, _Opacity, True);
+}
+Void SetIconSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Size, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Icon.Size = _Size;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIconSize(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Size) {
+	SetIconSize(_This, _Frame_Button, _Size, True);
+}
+Void SetIconXPos(CMlScript _This, CMlFrame _Frame_Button, Real _IconXPos, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Icon.PosX = _IconXPos;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIconXPos(CMlScript _This, CMlFrame _Frame_Button, Real _IconXPos) {
+	SetIconXPos(_This, _Frame_Button, _IconXPos, True);
+}
+Void SetIconYPos(CMlScript _This, CMlFrame _Frame_Button, Real _IconYPos, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Icon.PosY = _IconYPos;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIconYPos(CMlScript _This, CMlFrame _Frame_Button, Real _IconYPos) {
+	SetIconYPos(_This, _Frame_Button, _IconYPos, True);
+}
+Void SetIconRot(CMlScript _This, CMlFrame _Frame_Button, Real _Rotation, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Icon.Rotation = _Rotation;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetIconRot(CMlScript _This, CMlFrame _Frame_Button, Real _Rotation) {
+	SetIconRot(_This, _Frame_Button, _Rotation, True);
+}
+Void SetTextXPos(CMlScript _This, CMlFrame _Frame_Button, Real _TextXPos, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.PosX = _TextXPos;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextXPos(CMlScript _This, CMlFrame _Frame_Button, Real _TextXPos) {
+	SetTextXPos(_This, _Frame_Button, _TextXPos, True);
+}
+Void SetTextYPos(CMlScript _This, CMlFrame _Frame_Button, Real _TextYPos, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.PosY = _TextYPos;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextYPos(CMlScript _This, CMlFrame _Frame_Button, Real _TextYPos) {
+	SetTextYPos(_This, _Frame_Button, _TextYPos, True);
+}
+Void SetTextHAlign(CMlScript _This, CMlFrame _Frame_Button, Text _HAlign, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.HAlign = _HAlign;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextHAlign(CMlScript _This, CMlFrame _Frame_Button, Text _HAlign) {
+	SetTextHAlign(_This, _Frame_Button, _HAlign, True);
+}
+Void SetTextVAlign(CMlScript _This, CMlFrame _Frame_Button, Text _VAlign, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.VAlign = _VAlign;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextVAlign(CMlScript _This, CMlFrame _Frame_Button, Text _VAlign) {
+	SetTextVAlign(_This, _Frame_Button, _VAlign, True);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_Button, Text _HAlign, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.HAlign = _HAlign;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_Button, Text _HAlign) {
+	SetHAlign(_This, _Frame_Button, _HAlign, True);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_Button, Text _VAlign, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.VAlign = _VAlign;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_Button, Text _VAlign) {
+	SetVAlign(_This, _Frame_Button, _VAlign, True);
+}
+Void SetMaxLine(CMlScript _This, CMlFrame _Frame_Button, Integer _MaxLine, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.MaxLine = _MaxLine;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetMaxLine(CMlScript _This, CMlFrame _Frame_Button, Integer _MaxLine) {
+	SetMaxLine(_This, _Frame_Button, _MaxLine, True);
+}
+Void SetAutoNewLine(CMlScript _This, CMlFrame _Frame_Button, Boolean _AutoNewLine, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.AutoNewLine = _AutoNewLine;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetAutoNewLine(CMlScript _This, CMlFrame _Frame_Button, Boolean _AutoNewLine) {
+	SetAutoNewLine(_This, _Frame_Button, _AutoNewLine, True);
+}
+Void SetFitLabel(CMlScript _This, CMlFrame _Frame_Button, Real _MinTextSize, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.Fit = _MinTextSize;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetFitLabel(CMlScript _This, CMlFrame _Frame_Button, Real _MinTextSize) {
+	SetFitLabel(_This, _Frame_Button, _MinTextSize, True);
+}
+Void SetFitLabelStep(CMlScript _This, CMlFrame _Frame_Button, Real _StepSize, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.FitStep = _StepSize;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetFitLabelStep(CMlScript _This, CMlFrame _Frame_Button, Real _StepSize) {
+	SetFitLabelStep(_This, _Frame_Button, _StepSize, True);
+}
+Void SetBackgroundKeepRatio(CMlScript _This, CMlFrame _Frame_Button, CMlQuad::EKeepRatioMode _KeepRatio, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.KeepRatio = _KeepRatio;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetBackgroundKeepRatio(CMlScript _This, CMlFrame _Frame_Button, CMlQuad::EKeepRatioMode _KeepRatio) {
+	SetBackgroundKeepRatio(_This, _Frame_Button, _KeepRatio, True);
+}
+Void SetGradientImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.GradientImage = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetGradientImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetGradientImage(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetGradientOpacityFocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.GradientOpacityFocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetGradientOpacityFocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetGradientOpacityFocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetGradientOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.GradientOpacityUnfocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetGradientOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetGradientOpacityUnfocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetGradientColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.GradientColor = _Color;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetGradientColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color) {
+	SetGradientColor(_This, _Frame_Button, _Color, True);
+}
+Void SetContourImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.ContourImage = _ImageUrl;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetContourImage(CMlScript _This, CMlFrame _Frame_Button, Text _ImageUrl) {
+	SetContourImage(_This, _Frame_Button, _ImageUrl, True);
+}
+Void SetContourOpacityFocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.ContourOpacityFocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetContourOpacityFocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetContourOpacityFocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetContourOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.ContourOpacityUnfocus = _Opacity;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetContourOpacityUnfocus(CMlScript _This, CMlFrame _Frame_Button, Real _Opacity) {
+	SetContourOpacityUnfocus(_This, _Frame_Button, _Opacity, True);
+}
+Void SetContourColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Background.ContourColor = _Color;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetContourColor(CMlScript _This, CMlFrame _Frame_Button, Vec3 _Color) {
+	SetContourColor(_This, _Frame_Button, _Color, True);
+}
+Void SetState(CMlScript _This, CMlFrame _Frame_Button, Integer _State, Integer _Delay) {
+	declare K_State CMGame_Button2_State for _This.Page = C_State_Null;
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	if (_Delay <= 0) {
+		CMGame_Button2_State.DelayedStates.removekey(_Frame_Button.Id);
+		CMGame_Button2_Button.State = _State;
+		UpdateStateDisplay(_This, _Frame_Button, CMGame_Button2_Button);
+	} else {
+		CMGame_Button2_State.DelayedStates[_Frame_Button.Id] = K_DelayedState {
+			ActivationTime = Now + _Delay,
+			State = _State,
+			Frame_Button = _Frame_Button
+		};
+	}
+}
+Void SetState(CMlScript _This, CMlFrame _Frame_Button, Integer _State) {
+	SetState(_This, _Frame_Button, _State, 0);
+}
+Void SetLoadingScale(CMlScript _This, CMlFrame _Frame_Button, Real _Scale, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Loading.Scale = _Scale;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetLoadingScale(CMlScript _This, CMlFrame _Frame_Button, Real _Scale) {
+	SetLoadingScale(_This, _Frame_Button, _Scale, True);
+}
+Void SetLoadingPos(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Pos, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Loading.PosX = _Pos.X;
+	CMGame_Button2_Button.Loading.PosY = _Pos.Y;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetLoadingPos(CMlScript _This, CMlFrame _Frame_Button, Vec2 _Pos) {
+	SetLoadingPos(_This, _Frame_Button, _Pos, True);
+}
+Void SetSuperSample(CMlScript _This, CMlFrame _Frame_Button, Boolean _SuperSample, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.SuperSample = _SuperSample;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetSuperSample(CMlScript _This, CMlFrame _Frame_Button, Boolean _SuperSample) {
+	SetSuperSample(_This, _Frame_Button, _SuperSample, True);
+}
+Void SetTextToSpeech(CMlScript _This, CMlFrame _Frame_Button, Text _Text, Boolean _IsTranslated, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.TTS_Text = _Text;
+	CMGame_Button2_Button.Label.TTS_IsTranslated = _IsTranslated;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetTextToSpeech(CMlScript _This, CMlFrame _Frame_Button, Text _Text, Boolean _IsTranslated) {
+	SetTextToSpeech(_This, _Frame_Button, _Text, _IsTranslated, True);
+}
+Void SetTextToSpeech(CMlScript _This, CMlFrame _Frame_Button, Text _Text) {
+	SetTextToSpeech(_This, _Frame_Button, _Text, True);
+}
+Void SetFilterProfanities(CMlScript _This, CMlFrame _Frame_Button, CMlLabel::EFilterProfanities _FilterProfanities, Boolean _ApplyProperties) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button.Label.FilterProfanities = _FilterProfanities;
+	if (_ApplyProperties) ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+}
+Void SetFilterProfanities(CMlScript _This, CMlFrame _Frame_Button, CMlLabel::EFilterProfanities _FilterProfanities) {
+	SetFilterProfanities(_This, _Frame_Button, _FilterProfanities, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the button properties
+Integer GetIconColorType(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Icon.ColorType;
+}
+Boolean GetBgIsEmpty(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.IsBgEmpty;
+}
+Boolean GetIsBlink(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.IsBlink;
+}
+Text GetAlphaMask(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.AlphaMask;
+}
+Integer GetBgColorType(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.ColorType;
+}
+Text GetValue(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.Value;
+}
+Vec2 GetSize(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.Size;
+}
+Vec2 GetSizeHitbox(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.SizeHitbox;
+}
+Real GetTiltHitbox(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.TiltHitbox;
+}
+Real GetBackgroundOpacity(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.Opacity;
+}
+Real GetOpacityUnfocus(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.OpacityUnfocus;
+}
+Vec3 GetBgColor(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.Color;
+}
+Vec3 GetFocusColor(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.FocusColor;
+}
+Vec3 GetTextColor(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.Color;
+}
+Vec3 GetTextFocusColor(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.FocusColor;
+}
+Real GetTextSize(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.TextSize;
+}
+Text GetTextPrefix(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.TextPrefix;
+}
+Real GetTextItalicSlope(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.ItalicSlope;
+}
+Text GetTextFont(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.Font;
+}
+CMlLabel GetLabel(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Controls.Label_Value;
+}
+Vec2 GetLabelSize(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.Size;
+}
+Text GetImage(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.Image;
+}
+Text GetImageFocus(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.ImageFocus;
+}
+Real GetImageFocusOpacity(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.ImageFocusOpacity;
+}
+Vec2 GetImageOffset(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return <CMGame_Button2_Button.Background.PosX, CMGame_Button2_Button.Background.PosY>;
+}
+Real GetImageXOffset(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.PosX;
+}
+Real GetImageYOffset(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.PosY;
+}
+CMlFrame GetIconFrame(CMlFrame _Frame_Button) {
+	return (_Frame_Button.GetFirstChild(C_Id_FrameIcon) as CMlFrame);
+}
+Text GetIcon(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Icon.Image;
+}
+Text GetIconFocus(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Icon.ImageFocus;
+}
+Vec3 GetIconColor(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Icon.Color;
+}
+Vec3 GetIconFocusColor(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Icon.FocusColor;
+}
+Vec2 GetIconSize(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Icon.Size;
+}
+Real GetIconXPos(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Icon.PosX;
+}
+Real GetIconYPos(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Icon.PosY;
+}
+Real GetIconRot(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Icon.Rotation;
+}
+Text GetTextHAlign(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.HAlign;
+}
+Text GetTextVAlign(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.VAlign;
+}
+Real GetTextXPos(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.PosX;
+}
+Real GetTextYPos(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.PosY;
+}
+Text GetHAlign(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.HAlign;
+}
+Text GetVAlign(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.VAlign;
+}
+Integer GetMaxLine(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.MaxLine;
+}
+Boolean GetAutoNewLine(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.AutoNewLine;
+}
+Real GetFitLabel(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.Fit;
+}
+Real GetFitLabelStep(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.FitStep;
+}
+CMlQuad::EKeepRatioMode GetBackgroundKeepRatio(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.KeepRatio;
+}
+Text GetGradientImage(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.GradientImage;
+}
+Real GetGradientOpacityFocus(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.GradientOpacityFocus;
+}
+Real GetGradientOpacityUnfocus(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.GradientOpacityUnfocus;
+}
+Vec3 GetGradientColor(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.GradientColor;
+}
+Text GetContourImage(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.ContourImage;
+}
+Real GetContourOpacityFocus(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.ContourOpacityFocus;
+}
+Real GetContourOpacityUnfocus(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.ContourOpacityUnfocus;
+}
+Vec3 GetContourColor(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Background.ContourColor;
+}
+Integer GetState(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.State;
+}
+Real GetLoadingScale(CMlControl _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Loading.Scale;
+}
+Vec2 GetLoadingPos(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return <CMGame_Button2_Button.Loading.PosX, CMGame_Button2_Button.Loading.PosY>;
+}
+Boolean GetSuperSample(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.SuperSample;
+}
+Text GetTextToSpeech(CMlFrame _Frame_Button) {
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	return CMGame_Button2_Button.Label.TTS_Text;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the button props
+K_Button Private_InitButtonProps(CMlFrame _Frame_Button, K_Button _Button) {
+	declare K_Button Button = _Button;
+
+	Button.Icon.ColorType = MV::GetProp_Integer(_Frame_Button, C_Prop_IconColorType, Button.Icon.ColorType);
+	Button.IsBgEmpty = MV::GetProp_Boolean(_Frame_Button, C_Prop_BgEmpty, Button.IsBgEmpty);
+	Button.IsBlink = MV::GetProp_Boolean(_Frame_Button, C_Prop_IsBlink, Button.IsBlink);
+	Button.AlphaMask = MV::GetProp_Text(_Frame_Button, C_Prop_AlphaMask, Button.AlphaMask);
+	Button.Background.ColorType = MV::GetProp_Integer(_Frame_Button, C_Prop_BackgroundColorType, Button.Background.ColorType);
+	Button.Label.Value = MV::GetProp_Text(_Frame_Button, C_Prop_Text, Button.Label.Value);
+	Button.Background.Size = MV::GetProp_Vec2(_Frame_Button, C_Prop_Size, Button.Background.Size);
+	Button.SizeHitbox = MV::GetProp_Vec2(_Frame_Button, C_Prop_SizeHitbox, Button.SizeHitbox);
+	Button.TiltHitbox = MV::GetProp_Real(_Frame_Button, C_Prop_TitltHitbox, Button.TiltHitbox);
+	Button.Background.Opacity = MV::GetProp_Real(_Frame_Button, C_Prop_Opacity, Button.Background.Opacity);
+	Button.OpacityUnfocus = MV::GetProp_Real(_Frame_Button, C_Prop_OpacityUnfocus, Button.OpacityUnfocus);
+	Button.Background.Color = MV::GetProp_Color(_Frame_Button, C_Prop_BgColor, Button.Background.Color);
+	Button.Background.FocusColor = MV::GetProp_Color(_Frame_Button, C_Prop_FocusColor, Button.Background.FocusColor);
+	Button.Label.Color = MV::GetProp_Color(_Frame_Button, C_Prop_TextColor, Button.Label.Color);
+	Button.Label.FocusColor = MV::GetProp_Color(_Frame_Button, C_Prop_TextFocusColor, Button.Label.FocusColor);
+	Button.Label.TextSize = MV::GetProp_Real(_Frame_Button, C_Prop_TextSize, Button.Label.TextSize);
+	Button.Label.TextPrefix = MV::GetProp_Text(_Frame_Button, C_Prop_TextPrefix, Button.Label.TextPrefix);
+	Button.Label.Font = MV::GetProp_Text(_Frame_Button, C_Prop_TextFont, Button.Label.Font);
+	Button.Label.ItalicSlope = MV::GetProp_Real(_Frame_Button, C_Prop_TextItalicSlope, Button.Label.ItalicSlope);
+	Button.Label.OpacityUnfocus = MV::GetProp_Real(_Frame_Button, C_Prop_TextOpacityUnfocus, Button.Label.OpacityUnfocus);
+	Button.Label.Size = MV::GetProp_Vec2(_Frame_Button, C_Prop_LabelSize, Button.Label.Size);
+	Button.Background.Image = MV::GetProp_Text(_Frame_Button, C_Prop_Image, Button.Background.Image);
+	Button.Background.ImageFocus = MV::GetProp_Text(_Frame_Button, C_Prop_ImageFocus, Button.Background.ImageFocus);
+	Button.Background.ImageFocusOpacity = MV::GetProp_Real(_Frame_Button, C_Prop_ImageFocusOpacity, Button.Background.ImageFocusOpacity);
+	declare Vec2 PropImageOffset = MV::GetProp_Vec2(_Frame_Button, C_Prop_ImageOffset, <Button.Background.PosX, Button.Background.PosY>);
+	Button.Background.PosX = PropImageOffset.X;
+	Button.Background.PosY = PropImageOffset.Y;
+	Button.Icon.Image = MV::GetProp_Text(_Frame_Button, C_Prop_Icon, Button.Icon.Image);
+	Button.Icon.ImageFocus = MV::GetProp_Text(_Frame_Button, C_Prop_IconFocus, Button.Icon.ImageFocus);
+	Button.Icon.Image = MV::GetProp_Text(_Frame_Button, C_Prop_Icon, Button.Icon.Image);
+	Button.Icon.Color = MV::GetProp_Color(_Frame_Button, C_Prop_IconColor, Button.Icon.Color);
+	Button.Icon.FocusColor = MV::GetProp_Color(_Frame_Button, C_Prop_IconFocusColor, Button.Icon.FocusColor);
+	Button.Icon.Size = MV::GetProp_Vec2(_Frame_Button, C_Prop_IconSize, Button.Icon.Size);
+	Button.Icon.PosX = MV::GetProp_Real(_Frame_Button, C_Prop_IconXPos, Button.Icon.PosX);
+	Button.Icon.PosY = MV::GetProp_Real(_Frame_Button, C_Prop_IconYPos, Button.Icon.PosY);
+	Button.Icon.Rotation = MV::GetProp_Real(_Frame_Button, C_Prop_IconRot, Button.Icon.Rotation);
+	Button.Icon.OpacityUnfocus = MV::GetProp_Real(_Frame_Button, C_Prop_IconOpacityUnfocus, Button.Icon.OpacityUnfocus);
+	Button.Label.PosX = MV::GetProp_Real(_Frame_Button, C_Prop_TextXPos, Button.Label.PosX);
+	Button.Label.PosY = MV::GetProp_Real(_Frame_Button, C_Prop_TextYPos, Button.Label.PosY);
+	Button.Label.HAlign = MV::GetProp_Text(_Frame_Button, C_Prop_TextHAlign, Button.Label.HAlign);
+	Button.Label.VAlign = MV::GetProp_Text(_Frame_Button, C_Prop_TextVAlign, Button.Label.VAlign);
+	Button.HAlign = MV::GetProp_Text(_Frame_Button, C_Prop_HAlign, Button.HAlign);
+	Button.VAlign = MV::GetProp_Text(_Frame_Button, C_Prop_VAlign, Button.VAlign);
+	Button.Label.MaxLine = MV::GetProp_Integer(_Frame_Button, C_Prop_Maxline, Button.Label.MaxLine);
+	Button.Label.AutoNewLine = MV::GetProp_Boolean(_Frame_Button, C_Prop_AutoNewline, Button.Label.AutoNewLine);
+	Button.Label.Fit = MV::GetProp_Real(_Frame_Button, C_Prop_FitLabel, Button.Label.Fit);
+	Button.Label.FitStep = MV::GetProp_Real(_Frame_Button, C_Prop_FitLabelStep, Button.Label.FitStep);
+	if (MV::HasProp(_Frame_Button, C_Prop_BgKeepRatio)) {
+		declare Text KeepRatio = TL::ToLowerCase(MV::GetProp_Text(_Frame_Button, C_Prop_BgKeepRatio, ""));
+		switch (KeepRatio) {
+			case "clip": Button.Background.KeepRatio = CMlQuad::EKeepRatioMode::Clip;
+			case "fit": Button.Background.KeepRatio = CMlQuad::EKeepRatioMode::Fit;
+			default: Button.Background.KeepRatio = CMlQuad::EKeepRatioMode::Inactive;
+		}
+	}
+	Button.Background.GradientImage = MV::GetProp_Text(_Frame_Button, C_Prop_GradientImage, Button.Background.GradientImage);
+	Button.Background.GradientOpacityFocus = MV::GetProp_Real(_Frame_Button, C_Prop_GradientOpacityFocus, Button.Background.GradientOpacityFocus);
+	Button.Background.GradientOpacityUnfocus = MV::GetProp_Real(_Frame_Button, C_Prop_GradientOpacityUnfocus, Button.Background.GradientOpacityUnfocus);
+	Button.Background.GradientColor = MV::GetProp_Color(_Frame_Button, C_Prop_GradientImageColor, Button.Background.GradientColor);
+	Button.Background.ContourImage = MV::GetProp_Text(_Frame_Button, C_Prop_ContourImage, Button.Background.ContourImage);
+	Button.Background.ContourOpacityFocus = MV::GetProp_Real(_Frame_Button, C_Prop_ContourOpacityFocus, Button.Background.ContourOpacityFocus);
+	Button.Background.ContourOpacityUnfocus = MV::GetProp_Real(_Frame_Button, C_Prop_ContourOpacityUnfocus, Button.Background.ContourOpacityUnfocus);
+	Button.Background.ContourColor = MV::GetProp_Color(_Frame_Button, C_Prop_ContourImageColor, Button.Background.ContourColor);
+	Button.State = MV::GetProp_Integer(_Frame_Button, C_Prop_State, Button.State);
+	Button.Loading.Scale = MV::GetProp_Real(_Frame_Button, C_Prop_LoadingScale, Button.Loading.Scale);
+	if (MV::HasProp(_Frame_Button, C_Prop_LoadingPos)) {
+		declare Vec2 Pos = MV::GetProp_Vec2(_Frame_Button, C_Prop_LoadingPos, <0., 0.>);
+		Button.Loading.PosX = Pos.X;
+		Button.Loading.PosY = Pos.Y;
+	}
+	Button.SuperSample = MV::GetProp_Boolean(_Frame_Button, C_Prop_SuperSample, Button.SuperSample);
+	Button.Label.TTS_Text = MV::GetProp_Text(_Frame_Button, C_Prop_TTSText, Button.Label.TTS_Text);
+	Button.Label.TTS_IsTranslated = MV::GetProp_Boolean(_Frame_Button, C_Prop_TTSTranslate, Button.Label.TTS_IsTranslated);
+	if (MV::HasProp(_Frame_Button, C_Prop_FilterProfanities)) {
+		Button.Label.FilterProfanities = Tools::TextToFilterProfanities(MV::GetProp_Text(_Frame_Button, C_Prop_FilterProfanities, ""));
+	}
+
+	return Button;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Component instance initialization hook
+Void Private_Hook_ComponentInit(CMlScript _This, CMlFrame _Frame_Button) {
+	declare CMlFrame Frame_Content <=> (_Frame_Button.GetFirstChild(C_Id_FrameContent) as CMlFrame);
+	declare CMlFrame Frame_Align <=> (_Frame_Button.GetFirstChild(C_Id_FrameAlign) as CMlFrame);
+	declare CMlQuad Quad_Icon <=> (_Frame_Button.GetFirstChild(C_Id_QuadIcon) as CMlQuad);
+	declare CMlFrame Frame_HitboxClip <=> (_Frame_Button.GetFirstChild(C_Id_FrameHitboxClip) as CMlFrame);
+	declare CMlQuad Quad_Hitbox <=> (Frame_HitboxClip.GetFirstChild(C_ComponentNavZone) as CMlQuad);
+	declare CMlQuad Quad_Image <=> (_Frame_Button.GetFirstChild(C_Id_QuadImage) as CMlQuad);
+	declare CMlQuad Quad_Gradient <=> (_Frame_Button.GetFirstChild(C_Id_QuadGradient) as CMlQuad);
+	declare CMlQuad Quad_Contour <=> (_Frame_Button.GetFirstChild(C_Id_QuadContour) as CMlQuad);
+	declare CMlQuad Quad_FocusIcon <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusIcon) as CMlQuad);
+	declare CMlQuad Quad_FocusBackground <=> (_Frame_Button.GetFirstChild(C_Id_QuadFocusBackground) as CMlQuad);
+	declare CMlLabel Label_Value <=> (_Frame_Button.GetFirstChild(C_Id_LabelValue) as CMlLabel);
+	declare CMlFrame Spinner_Loading <=> (_Frame_Button.GetFirstChild(C_Id_SpinnerLoading) as CMlFrame);
+
+	declare K_Button CMGame_Button2_Button for _Frame_Button = C_Button_Null;
+	CMGame_Button2_Button = K_Button {
+		Controls = K_Controls {
+			Frame_Content = Frame_Content,
+			Frame_Align = Frame_Align,
+			Quad_Icon = Quad_Icon,
+			Frame_HitboxClip = Frame_HitboxClip,
+			Quad_Hitbox = Quad_Hitbox,
+			Quad_Image = Quad_Image,
+			Quad_Gradient = Quad_Gradient,
+			Quad_Contour = Quad_Contour,
+			Quad_FocusIcon = Quad_FocusIcon,
+			Quad_FocusBackground = Quad_FocusBackground,
+			Label_Value = Label_Value,
+			Spinner_Loading = Spinner_Loading
+		},
+		IsButton = True,
+		IsLocked = False,
+		IsBgEmpty = False,
+		IsBlink = False,
+		SizeHitbox = <-1., -1.>,
+		TiltHitbox = 0.,
+		AlphaMask = "",
+		OpacityUnfocus = 1.,
+		Label = K_TextProperties {
+			Size = <-1., -1.>,
+			TextSize = Label_Value.TextSizeReal,
+			TextPrefix = C_DefaultTextPrefix,
+			Value = "",
+			Font = Label_Value.TextFont,
+			PosX = 0.5,
+			PosY = -0.5,
+			Color = Label_Value.TextColor,
+			FocusColor = Tools::GetVisibleColorOnBackground(
+				Tools::GetVisibleColorOnBackground(
+					Quad_Image.BgColor,
+					Quad_Image.BgColor
+				),
+				Label_Value.TextColor
+			),
+			ItalicSlope = 0.,
+			HAlign = "center",
+			VAlign = "center",
+			MaxLine = -1,
+			AutoNewLine = False,
+			Fit = -1.,
+			FitStep = 0.25,
+			OpacityUnfocus = -1.,
+			TTS_Text = "",
+			TTS_IsTranslated = True
+		},
+		Icon = K_ImageProperties {
+			ColorType = C_ColorType_Colorize,
+			Size = Quad_Icon.Size,
+			Image = Quad_Icon.ImageUrl,
+			ImageFocus = Quad_FocusIcon.ImageUrl,
+			PosX = 0.5,
+			PosY = -0.5,
+			Color = Quad_Icon.BgColor,
+			FocusColor = Tools::GetVisibleColorOnBackground(
+				Quad_Icon.BgColor,
+				Quad_Icon.BgColor
+			),
+			Rotation = 0.,
+			OpacityUnfocus = -1.,
+			Opacity = 1.,
+			ImageFocusOpacity = -1.,
+			KeepRatio = CMlQuad::EKeepRatioMode::Inactive,
+			GradientImage = "",
+			GradientOpacityFocus = -1.,
+			GradientOpacityUnfocus = -1.,
+			GradientColor = <-1., -1., -1.>,
+			ContourImage = "",
+			ContourOpacityFocus = -1.,
+			ContourOpacityUnfocus = -1.,
+			ContourColor = <-1., -1., -1.>
+		},
+		Background = K_ImageProperties {
+			ColorType = C_ColorType_Colorize,
+			Size = Quad_Image.Size,
+			Image = Quad_Image.ImageUrl,
+			ImageFocus = Quad_FocusBackground.ImageUrl,
+			PosX = 0.,
+			PosY = 0.,
+			Color = Quad_Image.BgColor,
+			FocusColor = Tools::GetVisibleColorOnBackground(
+				Quad_Image.BgColor,
+				Quad_Image.BgColor
+			),
+			Rotation = 0.,
+			OpacityUnfocus = -1.,
+			Opacity = 1.,
+			ImageFocusOpacity = -1.,
+			KeepRatio = CMlQuad::EKeepRatioMode::Inactive,
+			GradientImage = "",
+			GradientOpacityFocus = -1.,
+			GradientOpacityUnfocus = -1.,
+			GradientColor = <-1., -1., -1.>,
+			ContourImage = "",
+			ContourOpacityFocus = -1.,
+			ContourOpacityUnfocus = -1.,
+			ContourColor = <-1., -1., -1.>
+		},
+		HAlign = Tools::C_HAlign_Left,
+		VAlign = Tools::C_VAlign_Top,
+		State = C_State_Normal,
+		Loading = K_ImageProperties {
+			Scale = 1.,
+			PosX = 0.5,
+			PosY = -0.5
+		},
+		SuperSample = False
+	};
+
+	CMGame_Button2_Button = Private_InitButtonProps(_Frame_Button, CMGame_Button2_Button);
+
+	declare CMlFrame CMGame_Button2_ParentButton for CMGame_Button2_Button.Controls.Quad_Hitbox = Null;
+	CMGame_Button2_ParentButton = _Frame_Button;
+
+	ApplyProperties(_This, _Frame_Button, CMGame_Button2_Button);
+	Private_Unfocus(_This, _Frame_Button, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialization hook
+Void Private_Hook_PageMainInit(CMlScript _This) {
+	declare K_State CMGame_Button2_State for _This.Page = C_State_Null;
+	CMGame_Button2_State = C_State_Null;
+	CMGame_Button2_State.DelayedStates = [];
+	CMGame_Button2_State.DefaultColorFocus = Tools::GetVisibleColorOnBackground(CL::Hex6ToRgb(C_DefaultColor), CL::Hex6ToRgb(C_DefaultColor));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw all buttons
+Void RedrawButtons(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_FrameButtonContainer, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_ButtonContainer = (Control as CMlFrame);
+		Private_Hook_ComponentInit(_This, Frame_ButtonContainer.Parent);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Yield hook
+Void Private_Hook_PageAfterYield(CMlScript _This) {
+	declare K_State CMGame_Button2_State for _This.Page = C_State_Null;
+	if (CMGame_Button2_State.QuadBlinking.count > 0 && (Now >= CMGame_Button2_State.BlinkEndTime || CMGame_Button2_State.ResetBlink)) {
+		foreach (Quads in CMGame_Button2_State.QuadBlinking) {
+			foreach (Quad in Quads) {
+				_This.AnimMgr.Flush(Quad);
+				_This.AnimMgr.Add(Quad, "<anim opacity=\"0.3\" />", 2*C_AnimTime_Blink/5, CAnimManager::EAnimManagerEasing::QuadOut);
+				_This.AnimMgr.AddChain(Quad, "<anim opacity=\"0.85\" />", 3*C_AnimTime_Blink/5, CAnimManager::EAnimManagerEasing::QuadOut);
+			}
+		}
+		CMGame_Button2_State.BlinkEndTime = Now + C_AnimTime_Blink;
+		CMGame_Button2_State.ResetBlink = False;
+	}
+	if (CMGame_Button2_State.DelayedStates.count > 0) {
+		declare K_DelayedState[Ident] DelayedStates = CMGame_Button2_State.DelayedStates;
+		foreach (ButtonId => DelayedState in DelayedStates) {
+			if (DelayedState.ActivationTime > 0 && Now >= DelayedState.ActivationTime) {
+				CMGame_Button2_State.DelayedStates.removekey(ButtonId);
+				SetState(_This, DelayedState.Frame_Button, DelayedState.State);
+			}
+		}
+	}
+
+	// Force redraw component instances
+	if (CMGame_Button2_State.RedrawRequested != RequestRedraw::GetComponentsRedrawCounter()) {
+		CMGame_Button2_State.RedrawRequested = RequestRedraw::GetComponentsRedrawCounter();
+		RedrawButtons(_This);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+MV::K_Component Component() {
+	return MV::K_Component {
+		Name = C_ComponentName,
+		Path = ScriptName,
+		Class = C_ComponentClass,
+		Template = GetTemplate(),
+		Hooks = [
+			MV::C_Hook_PageMainInit => """{{{C_ComponentName}}}::Private_Hook_PageMainInit""",
+			MV::C_Hook_PageAfterYield => """{{{C_ComponentName}}}::Private_Hook_PageAfterYield""",
+			MV::C_Hook_ComponentInit => """{{{C_ComponentName}}}::Private_Hook_ComponentInit"""
+		],
+		DefineProps = [
+			C_Prop_Text,
+			C_Prop_Size,
+			C_Prop_SizeHitbox,
+			C_Prop_TitltHitbox,
+			C_Prop_IsBlink,
+			C_Prop_Opacity,
+			C_Prop_OpacityUnfocus,
+			C_Prop_BgColor,
+			C_Prop_BackgroundColorType,
+			C_Prop_FocusColor,
+			C_Prop_TextColor,
+			C_Prop_TextFocusColor,
+			C_Prop_TextSize,
+			C_Prop_TextPrefix,
+			C_Prop_TextFont,
+			C_Prop_TextItalicSlope,
+			C_Prop_TextOpacityUnfocus,
+			C_Prop_LabelSize,
+			C_Prop_BgEmpty,
+			C_Prop_Image,
+			C_Prop_ImageFocus,
+			C_Prop_ImageFocusOpacity,
+			C_Prop_ImageOffset,
+			C_Prop_AlphaMask,
+			C_Prop_Icon,
+			C_Prop_IconSize,
+			C_Prop_IconColorType,
+			C_Prop_IconFocus,
+			C_Prop_IconColor,
+			C_Prop_IconFocusColor,
+			C_Prop_IconRot,
+			C_Prop_IconOpacityUnfocus,
+			C_Prop_IconXPos,
+			C_Prop_IconYPos,
+			C_Prop_TextXPos,
+			C_Prop_TextYPos,
+			C_Prop_TextHAlign,
+			C_Prop_TextVAlign,
+			C_Prop_HAlign,
+			C_Prop_VAlign,
+			C_Prop_Maxline,
+			C_Prop_AutoNewline,
+			C_Prop_BgKeepRatio,
+			C_Prop_FitLabel,
+			C_Prop_FitLabelStep,
+			C_Prop_GradientImage,
+			C_Prop_GradientOpacityFocus,
+			C_Prop_GradientOpacityUnfocus,
+			C_Prop_GradientImageColor,
+			C_Prop_ContourImage,
+			C_Prop_ContourOpacityFocus,
+			C_Prop_ContourOpacityUnfocus,
+			C_Prop_ContourImageColor,
+			C_Prop_State,
+			C_Prop_LoadingScale,
+			C_Prop_LoadingPos,
+			C_Prop_SuperSample,
+			C_Prop_TTSText,
+			C_Prop_TTSTranslate,
+			C_Prop_FilterProfanities
+		],
+		Components = [
+			LoadingSpinner::Component()
+		]
+	};
+}

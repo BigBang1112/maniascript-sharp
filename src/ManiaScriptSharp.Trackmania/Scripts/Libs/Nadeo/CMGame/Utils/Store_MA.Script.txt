@@ -1,0 +1,146 @@
+/**
+ *	Store helpers
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/CMGame/Utils/Store_MA.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Store_ML.Script.txt" as Store
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_IntervalBetweenAutoCleanUp 10
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Ident[][Text] G_Subscribers;
+declare Integer[Text] G_NextAutoCleanUp;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Broadcast an event to the subscribers
+Void SendEvent(CNod _Context, Text _StoreId, Text _Type, Text[] _Data) {
+	if (!G_Subscribers.existskey(_StoreId)) return;
+
+	// When in ManiaApp, broadcast event to all layers
+	if (_Context is CManiaApp) {
+		declare CManiaApp ManiaApp = (_Context as CManiaApp);
+		declare Ident[] StoreSubscribers = G_Subscribers[_StoreId];
+		foreach (LayerId in StoreSubscribers) {
+			if (ManiaApp.UILayers.existskey(LayerId)) {
+				ManiaApp.LayerCustomEvent(ManiaApp.UILayers[LayerId], _Type, _Data);
+			}
+		}
+	}
+}
+Void SendEvent(Text _StoreId, Text _Type, Text[] _Data) {
+	SendEvent(This, _StoreId, _Type, _Data);
+}
+Void SendEvent(Text _StoreId, Text _Type) {
+	SendEvent(This, _StoreId, _Type, []);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Some layers might be destroyed without triggering the unsubscribe event
+// We need to find and remove them from the subscribers array
+Void CleanUpStoreSubscribers(CNod _Context, Text _StoreId) {
+	if (!G_Subscribers.existskey(_StoreId)) return;
+
+	if (_Context is CManiaApp) {
+		declare CManiaApp ManiaApp = (_Context as CManiaApp);
+		declare Ident[] StoreSubscribers = G_Subscribers[_StoreId];
+		foreach (LayerId in StoreSubscribers) {
+			if (!ManiaApp.UILayers.existskey(LayerId)) {
+				G_Subscribers[_StoreId].remove(LayerId);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process event
+Void ProcessEvent(CManiaAppEvent _Event) {
+	if (_Event != Null && _Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+		switch (_Event.CustomEventType) {
+			case Store::C_Event_Subscribe: {
+				if (_Event.CustomEventLayer != Null && _Event.CustomEventData.count >= 1) {
+					declare Text StoreId = _Event.CustomEventData[0];
+
+					// Auto clean-up
+					declare Integer NextAutoCleanUp = G_NextAutoCleanUp.get(StoreId, 0);
+					if (NextAutoCleanUp >= C_IntervalBetweenAutoCleanUp) {
+						CleanUpStoreSubscribers(This, StoreId);
+						NextAutoCleanUp = 0;
+					} else {
+						NextAutoCleanUp += 1;
+					}
+					G_NextAutoCleanUp[StoreId] = NextAutoCleanUp;
+
+					if (!G_Subscribers.existskey(StoreId)) {
+						G_Subscribers[StoreId] = [];
+					}
+					if (!G_Subscribers[StoreId].exists(_Event.CustomEventLayer.Id)) {
+						G_Subscribers[StoreId].add(_Event.CustomEventLayer.Id);
+					}
+				}
+			}
+			case Store::C_Event_Unsubscribe: {
+				if (_Event.CustomEventData.count >= 1) {
+					declare Text StoreId = _Event.CustomEventData[0];
+					if (_Event.CustomEventLayer == Null) {
+						CleanUpStoreSubscribers(This, StoreId);
+					} else if (G_Subscribers.existskey(StoreId)) {
+						G_Subscribers[StoreId].remove(_Event.CustomEventLayer.Id);
+					}
+				}
+			}
+			case Store::C_Event_RelayEvent: {
+				if (_Event.CustomEventData.count >= 2) {
+					declare Text StoreId = _Event.CustomEventData[0];
+					declare Text Type = _Event.CustomEventData[1];
+					declare Text[] Data;
+					foreach (Key => Value in _Event.CustomEventData) {
+						if (Key > 1) {
+							Data.add(Value);
+						}
+					}
+					SendEvent(StoreId, Type, Data);
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Udate the library
+Void Yield(CNod _Context) {
+	if (_Context is CManiaAppTitle) {
+		declare CManiaAppTitle ManiaAppTitle = (_Context as CManiaAppTitle);
+		foreach (Event in ManiaAppTitle.PendingEvents) {
+			ProcessEvent(Event);
+		}
+	} else if (_Context is CManiaAppPlayground) {
+		declare CManiaAppPlayground ManiaAppPlayground = (_Context as CManiaAppPlayground);
+		foreach (Event in ManiaAppPlayground.PendingEvents) {
+			ProcessEvent(Event);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	G_Subscribers = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

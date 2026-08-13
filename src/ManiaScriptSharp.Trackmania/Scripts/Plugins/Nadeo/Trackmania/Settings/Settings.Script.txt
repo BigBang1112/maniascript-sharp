@@ -1,0 +1,198 @@
+/**
+ * Settings plugin
+ */
+#Const Version "1.1.0"
+#Const ScriptName "Plugins/Nadeo/Trackmania/Settings/Settings.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Menus/Router@2.Script.txt" as Router
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet@2.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_MA.Script.txt" as UserStore
+#Include "Plugins/Nadeo/Trackmania/ZIndex.Script.txt" as ZIndex
+#Include "Plugins/Nadeo/Trackmania/Settings/RoutePaths.Script.txt" as RoutePaths
+#Include "Plugins/Nadeo/Trackmania/Settings/Routes.Script.txt" as Routes
+#Include "Plugins/Nadeo/Trackmania/Settings/Visibility.Script.txt" as Visibility
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Private_State {
+	Boolean IsInitialized;
+	Boolean IsEnabled;
+	Boolean IsVisibleUser;
+	Boolean IsVisible;
+	Integer ConfigDirtyCounter;
+	Text[] Route;
+	Text[Text] RouteData;
+	Ident ToggleLayerId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_WaitForMenuInitialization True
+
+#Const RoutePaths::C_Route_PageSettings as C_Private_StartRoute
+#Const C_Private_StartRouteData []
+
+#Const C_Private_Id_ButtonToggleSettings "plugins-trackmania-settings-button-toggle-settings"
+
+#Const C_Private_State_Null K_Private_State {
+	IsInitialized = False,
+	IsEnabled = False,
+	IsVisibleUser = False,
+	IsVisible = False,
+	ConfigDirtyCounter = 0,
+	Route = [],
+	RouteData = [],
+	ToggleLayerId = NullId
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the toggle manialink page
+Text Private_GetToggleManialinkPage() {
+	return
+"""
+<manialink version="3" name="Plugins:Settings:Toggle">
+	<frame pos="0 86">
+		<quad id="{{{C_Private_Id_ButtonToggleSettings}}}" pos="116 0" size="6 6" halign="center" valign="center" style="UICommon64_1" substyle="Parameters_light" scriptevents="1 1" />
+	</frame>
+	<script><!--
+#Include "Plugins/Nadeo/Trackmania/Settings/Visibility.Script.txt" as Visibility
+
+main () {
+	declare Boolean IsVisible = False;
+	while (True) {
+		yield;
+
+		for (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+				Visibility::Request(This.System, !Visibility::GetIsVisible(This.System));
+			}
+		}
+	}
+}
+	--></script>
+</manialink>
+"""
+	;
+}
+
+/// Show or hide the settings plugin
+K_Private_State Private_SetVisibility(CManiaplanetPlugin _Plugin, K_Private_State _State, Boolean _IsVisibleUser, Boolean _IsInit) {
+	declare Boolean UpdatedIsVisible = (_State.IsEnabled && _IsVisibleUser);
+	if (!_IsInit && _State.IsVisibleUser == _IsVisibleUser && _State.IsVisible == UpdatedIsVisible) return _State;
+
+	declare K_Private_State State = _State;
+
+	State.IsVisibleUser = _IsVisibleUser;
+	State.IsVisible = UpdatedIsVisible;
+	if (State.IsVisible) {
+		Router::Push(_Plugin, State.Route, Router::K_PushOptions { Data = State.RouteData });
+	} else if (!Router::IsActiveRoute(_Plugin, RoutePaths::C_Route_PageEmpty, False)) {
+		declare Text[] Route = Router::GetRoute(_Plugin);
+		if (Route != []) {
+			State.Route = Route;
+			State.RouteData = Router::GetRouteData(_Plugin);
+		}
+		Router::Push(_Plugin, RoutePaths::C_Route_PageEmpty);
+	}
+
+	Visibility::Protected_SetIsVisible(_Plugin.System, State.IsVisible);
+
+	return State;
+}
+K_Private_State Private_SetVisibility(CManiaplanetPlugin _Plugin, K_Private_State _State, Boolean _IsVisibleUser) {
+	return Private_SetVisibility(_Plugin, _State, _IsVisibleUser, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the settings plugin
+K_Private_State Private_SetEnabled(CManiaplanetPlugin _Plugin, K_Private_State _State, Boolean _Enabled, Boolean _IsInit) {
+	if (!_IsInit && _State.IsEnabled == _Enabled) return _State;
+
+	declare K_Private_State State = _State;
+
+	State.IsEnabled = _Enabled;
+	State = Private_SetVisibility(_Plugin, State, State.IsVisibleUser);
+
+	if (State.IsEnabled && (State.ToggleLayerId == NullId || !_Plugin.UILayers.existskey(State.ToggleLayerId))) {
+		declare CUILayer ToggleLayer <=> _Plugin.UILayerCreate();
+		if (ToggleLayer != Null)  {
+			State.ToggleLayerId = ToggleLayer.Id;
+			ToggleLayer.ManialinkPage = Private_GetToggleManialinkPage();
+			ToggleLayer.Type = CUILayer::EUILayerType::ManiaplanetPlugin;
+		}
+	} else if (!State.IsEnabled && State.ToggleLayerId != NullId && _Plugin.UILayers.existskey(State.ToggleLayerId)) {
+		_Plugin.UILayerDestroy(_Plugin.UILayers[State.ToggleLayerId]);
+		State.ToggleLayerId = NullId;
+	}
+
+	return State;
+}
+K_Private_State Private_SetEnabled(CManiaplanetPlugin _Plugin, K_Private_State _State, Boolean _Enabled) {
+	return Private_SetEnabled(_Plugin, _State, _Enabled, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the settings plugin
+Void Initialize(CManiaplanetPlugin _Plugin) {
+	declare K_Private_State Trackmania_PluginsSettings_State as State for _Plugin = C_Private_State_Null;
+	State = C_Private_State_Null;
+	State.Route = [C_Private_StartRoute];
+	State.RouteData = C_Private_StartRouteData;
+	State.IsInitialized = True;
+
+	_Plugin.PluginZOrder = ZIndex::C_ZIndexPlugin_Settings;
+
+	Stylesheet::SetTheme(_Plugin, Stylesheet::C_ThemeId_Trackmania);
+	Router::Initialize(_Plugin);
+	Routes::Initialize(_Plugin);
+
+	State = Private_SetVisibility(_Plugin, State, State.IsVisibleUser, True);
+	State = Private_SetEnabled(_Plugin, State, Platform::IsPC(_Plugin.System), True);
+
+	if (_Plugin.ManiaPlanet != Null) {
+		UserStore::SetPlayerInfoDisplayType(_Plugin.ManiaPlanet.Interface_PlayerInfoDisplayType);
+		UserStore::SetPlayerInfoDisplaySize(_Plugin.ManiaPlanet.Interface_PlayerInfoDisplaySize);
+		UserStore::SetPlayerInfoHidden(_Plugin.ManiaPlanet.Interface_PlayerInfoHidden);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the settings plugin
+Void AfterYield(CManiaplanetPlugin _Plugin) {
+	declare K_Private_State Trackmania_PluginsSettings_State as State for _Plugin = C_Private_State_Null;
+
+	if (State.IsInitialized) {
+		Router::AfterYield(_Plugin);
+
+		if (State.IsEnabled) {
+			if (Visibility::Protected_IsRequesting(_Plugin.System)) {
+				State = Private_SetVisibility(_Plugin, State, Visibility::Protected_GetRequest(_Plugin.System));
+			}
+		}
+
+		if (_Plugin.ManiaPlanet != Null) {
+			if (UserStore::GetPlayerInfoDisplayType() != _Plugin.ManiaPlanet.Interface_PlayerInfoDisplayType) {
+				UserStore::SetPlayerInfoDisplayType(_Plugin.ManiaPlanet.Interface_PlayerInfoDisplayType);
+			}
+			if (UserStore::GetPlayerInfoDisplaySize() != _Plugin.ManiaPlanet.Interface_PlayerInfoDisplaySize) {
+				UserStore::SetPlayerInfoDisplaySize(_Plugin.ManiaPlanet.Interface_PlayerInfoDisplaySize);
+			}
+			if (UserStore::GetPlayerInfoHidden() != _Plugin.ManiaPlanet.Interface_PlayerInfoHidden) {
+				UserStore::SetPlayerInfoHidden(_Plugin.ManiaPlanet.Interface_PlayerInfoHidden);
+			}
+		}
+	}
+}

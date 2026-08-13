@@ -1,0 +1,186 @@
+/**
+ * UI module: Countdown client side
+ */
+#Const Version "1.1.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/Countdown_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Countdown_Common.Script.txt" as UIModules_Countdown_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Target_Everyone 0
+#Const C_Target_Players 1
+#Const C_Target_Spectators 2
+#Const C_Target_Nobody 3
+
+#Const C_RedCountdownTime 30000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_Countdown_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Countdown_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	declare Color_Red = "f22626";
+	declare Color_White = "f8f8ff";
+	declare Color_Blue = "03252a";
+	declare Color_Orange = "ffa500";
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-number" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_IngameTime)}}}" textcolor="ffffff" textsize="3" />
+</stylesheet>
+<frame z-index="-2" hidden="1" id="frame-global">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Countdown_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-intro">
+			<frame id="frame-countdown">
+				<label size="25 6" halign="right" textsize="8" textcolor="{{{Color_Orange}}}" class="text-number" id="label-countdown" textemboss="1"/>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Client.Script.txt" as RaceHelpers
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmupHelpers_Client.Script.txt" as WarmupHelpers
+""",
+"""
+Void HideDuringIntro(CMlFrame _Frame) {
+	if (_Frame == Null) return;
+
+	declare IsIntro = (
+		UI.UISequence == CUIConfig::EUISequence::Intro ||
+		UI.UISequence == CUIConfig::EUISequence::RollingBackgroundIntro ||
+		UI.UISequence == CUIConfig::EUISequence::Outro
+	);
+
+	if (_Frame.Visible && IsIntro) {
+		_Frame.Visible = False;
+	} else if (!_Frame.Visible && !IsIntro) {
+		_Frame.Visible = True;
+	}
+}
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_Intro;
+declare CMlFrame Frame_Countdown;
+declare CMlLabel Label_Countdown;
+
+declare netread Text[Text] Net_LibUI_Settings for Teams[0];
+declare netread Integer Net_Race_Countdown_VisibilityTarget for Teams[0];
+
+declare Boolean DisplayModule;
+declare Integer CutOffTimeLimit;
+declare Boolean PrevCountdownVisible;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_Intro  <=> (Frame_Global.GetFirstChild("frame-intro") as CMlFrame);
+Frame_Countdown  <=> (Frame_Intro.GetFirstChild("frame-countdown") as CMlFrame);
+Label_Countdown <=> (Frame_Countdown.GetFirstChild("label-countdown") as CMlLabel);
+
+DisplayModule = Frame_Global.Visible;
+CutOffTimeLimit = -1;
+PrevCountdownVisible = True;
+if (SplitScreenCount > 1) MV_Utils::AutoScaleSplitScreen(Frame_Global, 0.5, 1.);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_Race_Countdown_IsVisible for Owner;
+		if (DisplayModule != Net_Race_Countdown_IsVisible) {
+			DisplayModule = Net_Race_Countdown_IsVisible;
+			Frame_Global.Visible = Net_Race_Countdown_IsVisible;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (CutOffTimeLimit != RaceHelpers::GetTimeLimit(Teams[0])) {
+		CutOffTimeLimit = RaceHelpers::GetTimeLimit(Teams[0]);
+	}
+
+	HideDuringIntro(Frame_Intro);
+
+	if (Frame_Global.Visible && Owner != Null) {
+		if (PrevCountdownVisible) {
+			if (
+				Net_Race_Countdown_VisibilityTarget != {{{C_Target_Nobody}}} &&
+				((WarmupHelpers::IsWarmupActive(Teams[0]) && WarmupHelpers::CurrentWarmupEndTime(Teams[0]) >= 0) || CutOffTimeLimit > 0) && (
+					Net_Race_Countdown_VisibilityTarget == {{{C_Target_Everyone}}} ||
+					(Net_Race_Countdown_VisibilityTarget == {{{C_Target_Players}}} && InputPlayer != Null && InputPlayer.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned) ||
+					(Net_Race_Countdown_VisibilityTarget == {{{C_Target_Spectators}}} && InputPlayer != Null && InputPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)
+				)
+			) {
+				if (!Frame_Countdown.Visible) Frame_Countdown.Visible = True;
+			} else if (Frame_Countdown.Visible) {
+				Frame_Countdown.Visible = False;
+			}
+		}
+
+		if (Frame_Countdown.Visible) {
+			if (WarmupHelpers::IsWarmupActive(Teams[0]) && WarmupHelpers::CurrentWarmupEndTime(Teams[0]) >= GameTime) {
+				Label_Countdown.Value = TL::TimeToText(WarmupHelpers::CurrentWarmupEndTime(Teams[0]) - GameTime + 1);
+			} else if (CutOffTimeLimit >= GameTime) {
+				Label_Countdown.Value = TL::TimeToText(CutOffTimeLimit - GameTime +1000);
+			} else {
+				Label_Countdown.Value = TL::TimeToText(0);
+			}
+
+			if (WarmupHelpers::IsWarmupActive(Teams[0])) {
+				Label_Countdown.TextColor = CL::Hex6ToRgb("{{{Color_Orange}}}");
+			} else if (CutOffTimeLimit - GameTime > {{{C_RedCountdownTime}}}) {
+				Label_Countdown.TextColor = CL::Hex6ToRgb("{{{Color_White}}}");
+			} else {
+				Label_Countdown.TextColor = CL::Hex6ToRgb("{{{Color_Red}}}");
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

@@ -1,0 +1,659 @@
+/**
+ *	Clash Time mode
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ClashTime/ClashTime.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/TMGame/Modes/Race.Script.txt" as Race
+#Include "Libs/Nadeo/TMGame/Modes/Scores.Script.txt" as Scores
+#Include "Libs/Nadeo/TMGame/Modes/Events.Script.txt" as Events
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/TMGame/Modes/CarRank.Script.txt" as CarRank
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Server.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConsts
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Server.Script.txt" as UIModules_TimeGap
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/Trackmania/Modes/ClashTime/UIModules/ClashTime_Server.Script.txt" as UIModules_ClashTime
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_UploadRecord True
+#Const C_DisplayRecordGhost False
+#Const C_DisplayRecordMedal False
+#Const C_CelebrateRecordGhost True
+#Const C_CelebrateRecordMedal True
+
+#Const C_ControlAPIRequestMinInterval 250
+#Const C_ControlAPIRequestMaxInterval 5000
+#Const C_Headers [
+	"Accept" => "application/json",
+	"Content-Type" => "application/json"
+]
+
+#Const C_SteeringRatio 0.25
+#Const C_TopSpeed 50.
+
+#Const C_ControlledPlayersMax 255
+//L16N [Clash Time] Message displayed at the end of the race to announce the winner. %1 will be replaced by formatting tags, %2 will be replaced by the winner name. Do not translate "Clash Time". eg: XYZ's chat wins Clash Time!
+#Const C_WinMessage _("%1$<%2$>'s chat wins Clash Time!")
+#Const C_StartDelay 1000 // Delay the start a little to give a bit more time to the viewers to react to the start line countdown
+
+#Const C_TargetAccountId 0
+#Const C_TargetName 1
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_ValuesToRestore {
+	Integer ScoresSortOrder;
+	Integer TimeGapMode;
+	Integer CheckpointRankMode;
+	Integer ScoresTableMode;
+	Boolean UseClans;
+	Integer RespawnBehaviour;
+	Race::K_GhostConfig RecordSettings;
+	Integer StartTime;
+	Integer EndTime;
+}
+
+#Struct K_HttpPlayerControl {
+	Real direction;
+	Real maxspeed;
+	Boolean brake;
+	Boolean reset;
+}
+
+#Struct K_ControlledPlayer {
+	Ident PlayerId;
+	Boolean CanRespawn;
+}
+
+#Struct K_ControlAPI {
+	Http::K_Request Request;
+	Integer NextRequestTime;
+	Integer RequestInterval;
+	Text Url;
+}
+
+#Struct K_State {
+	K_ValuesToRestore ValuesToRestore;
+	Boolean IsIntro;
+	Boolean IsRace;
+	Boolean IsOutro;
+	Integer SequenceEndTime;
+	K_ControlAPI ControlAPI;
+	K_ControlledPlayer[Text] ControlledPlayers;
+	Ident WinnerScoreId;
+	Text[][Text] StreamersTargets; //< Streamer account id => [controlled player account id, controlled player name]
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_State G_State;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the player controlled by this player
+Void Private_UpdatePlayerTarget(CSmPlayer _Player, Text[][Text] _StreamersTargets) {
+	if (
+		_Player != Null &&
+		_Player.User != Null &&
+		_StreamersTargets.existskey(_Player.User.WebServicesUserId)
+	) {
+		declare Text[] Target = _StreamersTargets[_Player.User.WebServicesUserId];
+		declare Text TargetAccountId;
+		declare Text TargetName;
+		if (Target.existskey(C_TargetAccountId)) TargetAccountId = Target[C_TargetAccountId];
+		if (Target.existskey(C_TargetName)) TargetName = Target[C_TargetName];
+		UIModules_ClashTime::SetTarget(_Player, TargetAccountId, TargetName);
+	} else {
+		UIModules_ClashTime::SetTarget(_Player, "", "");
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize a player that joins the server
+Void InitializePlayer(CSmPlayer _Player) {
+	UIModules_ClashTime::InitializePlayer(_Player);
+	UIModules_ClashTime::SetVisibility(_Player, G_State.IsIntro || G_State.IsRace);
+	Private_UpdatePlayerTarget(_Player, G_State.StreamersTargets);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Things to do when starting Clash Time
+Void Start(Text[][Text] _StreamersTargets) {
+	G_State.StreamersTargets = _StreamersTargets;
+
+	// Load Clash Time UI
+	UIModules_ClashTime::Load();
+	UIModules::InitializeCustomizableModule(UIModules_ClashTime::GetConfig());
+	UIModules::LoadModules([UIModules_ClashTime::GetId()]);
+	UIModules_ClashTime::SetTopSpeed(C_TopSpeed);
+	foreach (Player in AllPlayers) {
+		UIModules_ClashTime::SetVisibility(Player, True);
+		UIModules_ClashTime::ResetCommands(Player);
+		Private_UpdatePlayerTarget(Player, G_State.StreamersTargets);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Things to do when stoping Clash Time
+Void Stop() {
+	// Unload Clash Time UI
+	foreach (Player in AllPlayers) {
+		UIModules_ClashTime::SetVisibility(Player, False);
+	}
+	UIModules_ClashTime::Unload();
+	UIModules::UnloadModules([UIModules_ClashTime::GetId()]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the Clash Time intro
+Void StartIntro(Integer _IntroDuration) {
+	declare Integer IntroDuration = ML::Max(0, _IntroDuration * 1000);
+	G_State.SequenceEndTime = Now + IntroDuration;
+	G_State.IsIntro = True;
+
+	UIModules_ClashTime::SetIntro(True, G_State.SequenceEndTime);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the Clash Time intro is running
+Boolean IsIntro() {
+	return (
+		!ServerShutdownRequested &&
+		!MatchEndRequested &&
+		G_State.IsIntro &&
+		G_State.SequenceEndTime > Now
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop the Clash Time intro
+Void StopIntro() {
+	G_State.IsIntro = False;
+
+	UIModules_ClashTime::SetIntro(False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the Clash Time mode
+K_ControlledPlayer[Text] Private_AddControlledPlayer(K_ControlledPlayer[Text] _ControlledPlayers, CSmPlayer _Player) {
+	assert(_Player != Null, "The player cannot be Null");
+
+	// Player already in the cache, skip
+	if (
+		_ControlledPlayers.existskey(_Player.User.WebServicesUserId) &&
+		_ControlledPlayers[_Player.User.WebServicesUserId].PlayerId == _Player.Id
+	) {
+		return _ControlledPlayers;
+	}
+
+	declare K_ControlledPlayer[Text] ControlledPlayers = _ControlledPlayers;
+
+	// Cache full, clean up if possible
+	if (ControlledPlayers.count >= C_ControlledPlayersMax) {
+		foreach (AccountId => ControlledPlayer in _ControlledPlayers) { //< Loop on original array to be able to remove content from the new array
+			if (!Players.existskey(ControlledPlayer.PlayerId)) {
+				ControlledPlayers.removekey(AccountId);
+			} else {
+				declare CSmPlayer Player <=> Players[ControlledPlayer.PlayerId];
+				if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned) {
+					ControlledPlayers.removekey(AccountId);
+				} else {
+					declare Boolean ClashTime_ControlledByMode for Player = False;
+					if (!ClashTime_ControlledByMode) {
+						ControlledPlayers.removekey(AccountId);
+					}
+				}
+			}
+		}
+	}
+
+	// Add or update PlayerControl in the cache
+	declare K_ControlledPlayer ControlledPlayer = K_ControlledPlayer {};
+	if (ControlledPlayers.existskey(_Player.User.WebServicesUserId)) {
+		ControlledPlayer = ControlledPlayers[_Player.User.WebServicesUserId];
+	}
+	ControlledPlayer.PlayerId = _Player.Id;
+	ControlledPlayer.CanRespawn = True;
+	ControlledPlayers[_Player.User.WebServicesUserId] = ControlledPlayer;
+
+	return ControlledPlayers;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the rank of the players that finished the race
+Void Private_UpdateFinishRank() {
+	// Retrieve players' best race
+	declare Integer[CSmScore][Integer] SortScores;
+	foreach (Score in Scores) {
+		declare Integer ClashTime_FinishRank for Score = 0;
+		ClashTime_FinishRank = 0;
+
+		// Need at least one checkpoint to get ranked
+		if (Score.BestRaceTimes.count > 0) {
+			if (!SortScores.existskey(Score.BestRaceTimes.count)) {
+				SortScores[Score.BestRaceTimes.count] = [];
+			}
+			SortScores[Score.BestRaceTimes.count][Score] = Score.BestRaceTimes[Score.BestRaceTimes.count - 1];
+		}
+	}
+
+	// Rank players
+	declare Integer Rank = 1;
+	SortScores = SortScores.sortkeyreverse();
+	foreach (CheckpointCount => CheckpointTimes in SortScores) {
+		declare Integer[CSmScore] SortCheckpointTimes = CheckpointTimes.sort();
+		foreach (Score => CheckpointTime in SortCheckpointTimes) {
+			declare Integer ClashTime_FinishRank for Score = 0;
+			ClashTime_FinishRank = Rank;
+			Rank += 1;
+		}
+	}
+
+	// Send ranks
+	foreach (Player in AllPlayers) {
+		declare Boolean ClashTime_FinishedRace for Player = False;
+		if (ClashTime_FinishedRace && Player.Score != Null) {
+			declare Integer ClashTime_FinishRank for Player.Score = 0;
+			UIModules_ClashTime::SetFinishRank(Player, ClashTime_FinishRank);
+		} else {
+			UIModules_ClashTime::SetFinishRank(Player, 0);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the Clash Time race
+Void StartRace(Integer _TimeLimit, Text _ControlAPIUrl) {
+	// Initialize state
+	G_State.ValuesToRestore = K_ValuesToRestore {};
+	G_State.IsRace = True;
+	if (Http::IsInitialized(G_State.ControlAPI.Request)) {
+		G_State.ControlAPI.Request = Http::Destroy(G_State.ControlAPI.Request);
+	}
+	G_State.ControlAPI = K_ControlAPI {
+		Request = Http::GetEmptyRequest(),
+		NextRequestTime = Now,
+		RequestInterval = C_ControlAPIRequestMinInterval,
+		Url = _ControlAPIUrl
+	};
+	G_State.ControlledPlayers = [];
+	G_State.WinnerScoreId = NullId;
+
+	// Setup UI
+	G_State.ValuesToRestore.ScoresSortOrder = Race::GetScoresSortOrder();
+	G_State.ValuesToRestore.TimeGapMode = UIModules_TimeGap::GetTimeGapMode();
+	G_State.ValuesToRestore.CheckpointRankMode = UIModules_Checkpoint::GetRankMode();
+	G_State.ValuesToRestore.ScoresTableMode = UIModules_ScoresTable::GetScoreMode();
+	Race::SortScores(Race::C_Sort_BestRaceCheckpointsProgress);
+	UIModules_TimeGap::SetTimeGapMode(UIModules_TimeGap::C_TimeGapMode_BestRace);
+	UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_BestRace);
+	UIModules_Checkpoint::SetVisibilityTimeDiff(False, True);
+	UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Laps);
+	foreach (Player in AllPlayers) {
+		declare Integer ClashTime_LastRespawnTime for Player = -1;
+		ClashTime_LastRespawnTime = -1;
+	}
+	UIModules_ClashTime::SetIsRace(True);
+
+	// Setup race
+	G_State.ValuesToRestore.UseClans = UseClans;
+	G_State.ValuesToRestore.RespawnBehaviour = Race::GetRespawnBehaviour();
+	G_State.ValuesToRestore.RecordSettings = Race::GetRecordSettings();
+	G_State.ValuesToRestore.StartTime = StartTime;
+	G_State.ValuesToRestore.EndTime = EndTime;
+	UseClans = False;
+	Race::StopSkipOutroAll();
+	Race::SetLapsSettings(False, -1);
+	Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_DoNothing);
+	Race::SetupRecord(
+		MenuConsts::C_ScopeType_Season,
+		MenuConsts::C_ScopeType_PersonalBest,
+		MenuConsts::C_GameMode_ClashTime,
+		"",
+		C_UploadRecord,
+		C_DisplayRecordGhost,
+		C_DisplayRecordMedal,
+		C_CelebrateRecordGhost,
+		C_CelebrateRecordMedal
+	);
+	CarRank::Reset();
+	CarRank::Update(CarRank::C_SortCriteria_BestRace);
+	StartTime = Now + Race::C_SpawnDuration + C_StartDelay;
+	EndTime = StartTime + (_TimeLimit * 1000);
+
+	// Spawn players
+	foreach (User in Users) {
+		declare Boolean ClashTime_CanSpawn for User = True;
+		ClashTime_CanSpawn = True;
+	}
+	foreach (Player in Players) {
+		if (Player.User != Null && Race::IsReadyToStart(Player)) {
+			declare Boolean ClashTime_CanSpawn for Player.User = True;
+			declare Boolean ClashTime_ControlledByMode for Player = False;
+			declare Boolean ClashTime_FinishedRace for Player = False;
+			Race::Start(Player, StartTime);
+			Player.TrustClientSimu = False; //< Must be false to be controlled by the mode
+			ClashTime_CanSpawn = False;
+			ClashTime_ControlledByMode = False;
+			ClashTime_FinishedRace = False;
+		}
+	}
+
+	Private_UpdateFinishRank();
+	UIModules_ClashTime::AllStreamersSpectateTarget();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the Clash Time race is running
+Boolean IsRace() {
+	return (
+		!ServerShutdownRequested &&
+		!MatchEndRequested &&
+		G_State.IsRace
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the Clash Time race
+Void UpdateRace() {
+	declare Boolean UpdateFinishRanks = False;
+
+	// Manage race events
+	declare RacePendingEvents = Race::GetPendingEvents();
+	foreach (Event in RacePendingEvents) {
+		Race::ValidEvent(Event);
+
+		// Waypoint
+		if (Event.Type == Events::C_Type_Waypoint) {
+			if (Event.Player != Null) {
+				if (Event.IsEndRace) {
+					declare Boolean ClashTime_FinishedRace for Event.Player = False;
+					ClashTime_FinishedRace = True;
+					UpdateFinishRanks = True;
+				}
+				// Update best race at each checkpoint to sort scores with C_Sort_BestRaceCheckpointsProgress
+				Scores::UpdatePlayerBestRace(Event.Player);
+				CarRank::ThrottleUpdate(CarRank::C_SortCriteria_BestRace);
+			}
+		}
+	}
+
+	// Manage mode events
+	foreach (Event in PendingEvents) {
+		if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+		Events::Invalid(Event);
+	}
+
+	// Spawn players
+	if (PlayersNbDead > 0) { //< Check for unspawned players only if at least one player is unspawned
+		foreach (Player in Players) {
+			if (
+				Player.User != Null &&
+				Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned
+			) {
+				declare Boolean ClashTime_CanSpawn for Player.User = True;
+				if (ClashTime_CanSpawn && Race::IsReadyToStart(Player)) {
+					declare Boolean ClashTime_ControlledByMode for Player = False;
+					declare Boolean ClashTime_FinishedRace for Player = False;
+					Race::Start(Player, StartTime);
+					Player.TrustClientSimu = False; //< Must be false to be controlled by the mode
+					ClashTime_CanSpawn = False;
+					ClashTime_ControlledByMode = False;
+					ClashTime_FinishedRace = False;
+					UpdateFinishRanks = True;
+				}
+			}
+		}
+	}
+
+	if (UpdateFinishRanks) {
+		Private_UpdateFinishRank();
+	}
+
+	// Enable control by mode
+	foreach (Player in Players) {
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned) {
+			declare Boolean ClashTime_ControlledByMode for Player = False;
+			if (!ClashTime_ControlledByMode) {
+				SetPlayerVehicle_ControlledByMode(Player, True);
+				SetPlayerVehicle_ResetControlledModeValues(Player);
+				G_State.ControlledPlayers = Private_AddControlledPlayer(G_State.ControlledPlayers, Player);
+				ClashTime_ControlledByMode = True;
+			}
+		}
+	}
+
+	// Get controls from API
+	declare Boolean ControlsApplied = False;
+	if (Http::IsInitialized(G_State.ControlAPI.Request)) {
+		G_State.ControlAPI.Request = Http::Update(G_State.ControlAPI.Request);
+		if (!Http::IsRunning(G_State.ControlAPI.Request)) {
+			if (Http::IsSuccess(G_State.ControlAPI.Request)) {
+				declare K_HttpPlayerControl[Text] HttpPlayersControls;
+				HttpPlayersControls.fromjson(Http::GetResult(G_State.ControlAPI.Request));
+
+				// Apply controls
+				foreach (AccountId => HttpPlayerControl in HttpPlayersControls) {
+					if (G_State.ControlledPlayers.existskey(AccountId)) {
+						declare Boolean ValidControlledPlayer = False;
+						declare K_ControlledPlayer ControlledPlayer = G_State.ControlledPlayers[AccountId];
+						if (Players.existskey(ControlledPlayer.PlayerId)) {
+							declare CSmPlayer Player <=> Players[ControlledPlayer.PlayerId];
+							if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned) {
+								declare Boolean ClashTime_ControlledByMode for Player = False;
+								if (ClashTime_ControlledByMode) {
+									ValidControlledPlayer = True;
+									declare Real TargetSpeed = ML::Clamp(HttpPlayerControl.maxspeed, 0., C_TopSpeed);
+									declare Real SteerValue = ML::Clamp(HttpPlayerControl.direction, -1., 1.) * C_SteeringRatio;
+									if (HttpPlayerControl.brake) TargetSpeed *= -1.;
+									if (!HttpPlayerControl.reset && !ControlledPlayer.CanRespawn) {
+										ControlledPlayer.CanRespawn = True;
+										G_State.ControlledPlayers[AccountId] = ControlledPlayer;
+									}
+									SetPlayerVehicle_SteerValue(Player, SteerValue);
+									SetPlayerVehicle_TargetSpeedValue(Player, TargetSpeed);
+									if (HttpPlayerControl.reset && ControlledPlayer.CanRespawn) {
+										declare Boolean ClashTime_FinishedRace for Player = False;
+										if (!ClashTime_FinishedRace) {
+											ControlledPlayer.CanRespawn = False;
+											G_State.ControlledPlayers[AccountId] = ControlledPlayer;
+											RespawnPlayer(Player);
+											// Respawning the player disable the control by the mode
+											// We must re-enable it
+											declare Integer ClashTime_LastRespawnTime for Player = -1;
+											ClashTime_ControlledByMode = False;
+											ClashTime_LastRespawnTime = Now;
+										}
+									}
+									ControlsApplied = True;
+								}
+							}
+						}
+						if (!ValidControlledPlayer) {
+							G_State.ControlledPlayers.removekey(AccountId);
+						}
+					}
+				}
+
+				// Decrease request interval when the request is successful
+				G_State.ControlAPI.RequestInterval = ML::Max(
+					G_State.ControlAPI.RequestInterval / 2,
+					C_ControlAPIRequestMinInterval
+				);
+			} else {
+				// Increase request interval when the request fails
+				G_State.ControlAPI.RequestInterval = ML::Min(
+					G_State.ControlAPI.RequestInterval + C_ControlAPIRequestMinInterval,
+					C_ControlAPIRequestMaxInterval
+				);
+			}
+			G_State.ControlAPI.Request = Http::Destroy(G_State.ControlAPI.Request);
+		}
+	} else if (
+		G_State.ControlAPI.NextRequestTime >= 0 &&
+		Now >= G_State.ControlAPI.NextRequestTime
+	) {
+		if (G_State.ControlAPI.Url != "") {
+			G_State.ControlAPI.Request = Http::CreateGet(G_State.ControlAPI.Url, C_Headers);
+		}
+		G_State.ControlAPI.NextRequestTime = Now + G_State.ControlAPI.RequestInterval;
+	}
+
+	// Send player's input to the spectators
+	if (ControlsApplied) {
+		foreach (Player in AllPlayers) {
+			declare CSmPlayer Target = Player;
+			if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned) {
+				Target = UIModules_ClashTime::GetSpecTarget(Player);
+			}
+			if (Target != Null) {
+				declare Integer ClashTime_LastRespawnTime for Target = -1;
+				UIModules_ClashTime::SetCommands(
+					Player,
+					Target.InputGasPedal > 0.,
+					Target.InputIsBraking,
+					ML::Clamp(Target.InputSteer * (1. / C_SteeringRatio), -1., 1.),
+					ClashTime_LastRespawnTime >= 0 && ClashTime_LastRespawnTime + 1000 > Now
+				);
+			} else {
+				UIModules_ClashTime::ResetCommands(Player);
+			}
+		}
+	}
+
+	// Stop race
+	// If All players finished
+	if (Players.count > 0 && PlayersNbAlive <= 0) {
+		declare Boolean HasSpawnablePlayer = False;
+		foreach (Player in Players) {
+			if (Player.User != Null) {
+				declare Boolean ClashTime_CanSpawn for Player.User = True;
+				if (ClashTime_CanSpawn) {
+					HasSpawnablePlayer  = True;
+					break;
+				}
+			}
+		}
+		if (!HasSpawnablePlayer) {
+			G_State.IsRace = False;
+		}
+	}
+	// If time limit is reached
+	if (EndTime > 0 && Now >= EndTime) G_State.IsRace = False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop the Clash Time race
+Integer StopRace(Boolean _InfiniteLaps, Integer _ForceLapsNb) {
+	G_State.IsRace = False;
+
+	declare Integer RemainingTime = ML::Max(0, EndTime - Now);
+
+	// Stop race
+	foreach (Player in AllPlayers) {
+		declare Boolean ClashTime_ControlledByMode for Player = False;
+		if (ClashTime_ControlledByMode && Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned) {
+			SetPlayerVehicle_ResetControlledModeValues(Player);
+			SetPlayerVehicle_ControlledByMode(Player, False);
+			ClashTime_ControlledByMode = False;
+		}
+		Race::ApplyNetworkMode(Player); //< Restore TrustClientSimu to its default value
+	}
+	Race::StopSkipOutroAll();
+
+	// Find winner
+	declare CSmScore Winner <=> Scores::GetBestPlayer(Scores::C_Sort_BestRaceCheckpointsProgress);
+	if (Winner != Null) {
+		G_State.WinnerScoreId = Winner.Id;
+	}
+
+	// Stop any ongoing request
+	if (Http::IsInitialized(G_State.ControlAPI.Request)) {
+		G_State.ControlAPI.Request = Http::Destroy(G_State.ControlAPI.Request);
+	}
+
+	// Restore UI
+	Race::SortScores(G_State.ValuesToRestore.ScoresSortOrder);
+	UIModules_TimeGap::SetTimeGapMode(G_State.ValuesToRestore.TimeGapMode);
+	UIModules_Checkpoint::SetRankMode(G_State.ValuesToRestore.CheckpointRankMode);
+	UIModules_ScoresTable::SetScoreMode(G_State.ValuesToRestore.ScoresTableMode);
+	UIModules_ClashTime::SetIsRace(False);
+
+	// Restore mode settings
+	UseClans = G_State.ValuesToRestore.UseClans;
+	Race::SetLapsSettings(_InfiniteLaps, _ForceLapsNb); //< Do this before updating the record setup
+	Race::SetRespawnBehaviour(G_State.ValuesToRestore.RespawnBehaviour);
+	Race::SetupRecord(G_State.ValuesToRestore.RecordSettings);
+	CarRank::Reset();
+	StartTime = G_State.ValuesToRestore.StartTime;
+	EndTime = G_State.ValuesToRestore.EndTime;
+
+	return RemainingTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the winner of the clash time
+CSmScore GetWinner() {
+	if (G_State.WinnerScoreId == NullId || !Scores.existskey(G_State.WinnerScoreId)) return Null;
+	return Scores[G_State.WinnerScoreId];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Genarate the win message
+Text GetWinMessage(Text _WinnerName) {
+	return TL::Compose(C_WinMessage, "$t$i", _WinnerName);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start the Clash Time outro
+Void StartOutro(Integer _OutroDuration, Text _Message) {
+	declare Integer OutroDuration = ML::Max(0, _OutroDuration * 1000);
+	G_State.SequenceEndTime = Now + OutroDuration;
+	G_State.IsOutro = True;
+
+	declare Text Message = _Message;
+	if (Message == "") {
+		Message = _("|Match|Draw");
+		declare CSmScore Winner <=> GetWinner();
+		if (Winner != Null) {
+			Message = GetWinMessage(Winner.User.Name);
+		}
+	}
+	UIManager.UIAll.BigMessageSound = CUIConfig::EUISound::EndMatch;
+	UIManager.UIAll.BigMessageSoundVariant = 0;
+	UIManager.UIAll.BigMessage = Message;
+}
+Void StartOutro(Integer _OutroDuration) {
+	StartOutro(_OutroDuration, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the Clash Time outro is running
+Boolean IsOutro() {
+	return (
+		!ServerShutdownRequested &&
+		!MatchEndRequested &&
+		G_State.IsOutro &&
+		G_State.SequenceEndTime > Now
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop the Clash Time outro
+Void StopOutro() {
+	G_State.IsOutro = False;
+	UIManager.UIAll.BigMessage = "";
+}

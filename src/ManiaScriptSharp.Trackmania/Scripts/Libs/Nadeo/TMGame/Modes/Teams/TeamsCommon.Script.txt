@@ -1,0 +1,597 @@
+/**
+ *	Teams mode common lib
+ */
+#Const Version		"1.1.0"
+#Const ScriptName	"Libs/Nadeo/TMGame/Modes/Teams/TeamsCommon.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Utils.Script.txt" as Utils
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/TMGame/Modes/PointsRepartition.Script.txt" as PointsRepartition
+#Include "Libs/Nadeo/TMGame/Modes/Race.Script.txt" as Race
+#Include "Libs/Nadeo/TMGame/Modes/Scores.Script.txt" as Scores
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_PointsLimit_NotReached 0
+#Const C_PointsLimit_Reached 1
+#Const C_PointsLimit_Tie 2
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer[Text] G_AccountIdToClan;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the time left to the players to finish the round after the first player
+ *
+ *	@param	_FinishTimeout						The time left setting
+ *	@param	_Divider									The integer that will divide the MapAuthorTime to compute the Finish Timeout
+ *
+ *	@return 													The time left in ms
+ */
+Integer GetFinishTimeout(Integer _FinishTimeout, Integer _Divider) {
+	if (_Divider == 0) return  (Now + 5000);
+	declare FinishTimeout = 0;
+
+	if (_FinishTimeout >= 0) {
+		FinishTimeout = _FinishTimeout * 1000;
+	} else {
+		FinishTimeout = 5000;
+		if (Map.TMObjective_IsLapRace && Race::GetLapsNb() > 0 && Map.TMObjective_NbLaps > 0) {
+			FinishTimeout += ((Map.TMObjective_AuthorTime / Map.TMObjective_NbLaps) * Race::GetLapsNb()) / _Divider;
+		} else {
+			FinishTimeout += Map.TMObjective_AuthorTime / _Divider;
+		}
+	}
+
+	return Now + FinishTimeout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the time left to the players to finish the round after the first player
+Integer GetFinishTimeout(Integer _FinishTimeout) {
+	return GetFinishTimeout(_FinishTimeout, 6);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the scores table footer text
+ *
+ *	@param	_PointsLimit							The points limit
+ *	@param	_PointsGap								The points gap
+ *	@param	_RoundsPerMap							The number of round per map
+ *	@param	_MapsPerMatch							The number of maps per match
+ *	@param	_ValidRoundsNb						Number of valid rounds played
+ *	@param	_MapCount									Number of valid maps played
+ */
+Void UpdateScoresTableFooter(Integer _PointsLimit, Integer _PointsGap, Integer _RoundsPerMap, Integer _MapsPerMatch, Integer _ValidRoundsNb, Integer _MapCount) {
+
+	declare Text[] Parts;
+	declare Message = "";
+	if (_PointsLimit > 0) {
+		if (Parts.count > 0) Message ^= " | ";
+		Message ^= """%{{{Parts.count + 1}}}{{{_PointsLimit}}}""";
+		//L16N [Team] Number of points to reach to win the match.
+		Parts.add(_("Points limit "));
+	}
+	if (_PointsGap > 1) {
+		if (Parts.count > 0) Message ^= " | ";
+		Message ^= """%{{{Parts.count + 1}}} {{{_PointsGap}}}""";
+		//L16N [Team] Points gap between the two teams to win.
+		Parts.add(_("Points gap"));
+	}
+	if (_RoundsPerMap > 0) {
+		if (Parts.count > 0) Message ^= " | ";
+		Message ^= """%{{{Parts.count + 1}}}{{{ML::Min(_ValidRoundsNb+1, _RoundsPerMap)}}}/{{{_RoundsPerMap}}}""";
+		//L16N [Team] Number of rounds played during the track.
+		Parts.add(_("Rounds "));
+	}
+	if (_MapsPerMatch > 0) {
+		if (Parts.count > 0) Message ^= " | ";
+		Message ^= """%{{{Parts.count + 1}}}{{{_MapCount}}}/{{{_MapsPerMatch}}}""";
+		//L16N [Team] Number of tracks played during the match.
+		Parts.add(_("Tracks "));
+	}
+
+	switch (Parts.count) {
+		case 0: UIModules_ScoresTable::SetFooterInfo(Message);
+		case 1: UIModules_ScoresTable::SetFooterInfo(TL::Compose(Message, Parts[0]));
+		case 2: UIModules_ScoresTable::SetFooterInfo(TL::Compose(Message, Parts[0], Parts[1]));
+		case 3: UIModules_ScoresTable::SetFooterInfo(TL::Compose(Message, Parts[0], Parts[1], Parts[2]));
+		case 4: UIModules_ScoresTable::SetFooterInfo(TL::Compose(Message, Parts[0], Parts[1], Parts[2], Parts[3]));
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Announce the round winner in the chat
+ *
+ *	@param	_TeamNum	The number of the team who won the round
+ */
+Void AnnounceWinner(Integer _TeamNum) {
+	declare Message = "";
+	if (!Teams.existskey(_TeamNum)) {
+		Message = _("This round is a draw.");
+	} else {
+		Message = TL::Compose(_("$<%1$> wins the round!"), Teams[_TeamNum].ColorizedName);
+	}
+	UIManager.UIAll.SendChat(Message);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the points limit was reached
+ *
+ *	@param	_PointsGap							The number of points lead a team must have to win the map
+ *	@param	_UseTieBreak						Continue to play the map until the tie is broken
+ *	@param	_PointsLimit						The points limit
+ *
+ *	@return														C_PointsLimit_Reached if the points limit is reached
+ *																		C_PointsLimit_Tie if there is a tie
+ *																		C_PointsLimit_NotReached if the points limit is not reached
+ */
+Integer PointsLimitReached(Integer _PointsGap, Boolean _UseTieBreak, Integer _PointsLimit) {
+	declare Integer PointsGap = ML::Max(0, _PointsGap);
+
+	declare Integer ScoreClan1 = Scores::GetClanMatchPoints(1);
+	declare Integer ScoreClan2 = Scores::GetClanMatchPoints(2);
+
+	if (_UseTieBreak && ScoreClan1 == ScoreClan2) {
+		return C_PointsLimit_Tie;
+	} else if (ScoreClan1 >= _PointsLimit && ScoreClan1 - ScoreClan2 >= PointsGap) {
+		return C_PointsLimit_Reached;
+	} else if (ScoreClan2 >= _PointsLimit && ScoreClan2 - ScoreClan1 >= PointsGap) {
+		return C_PointsLimit_Reached;
+	}
+
+	return C_PointsLimit_NotReached;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if we should go to the next map
+ *
+ *	@param	_ValidRoundsNb						Number of valid rounds played
+ *	@param	_PointsGap							The number of points lead a team must have to win the map
+ *	@param	_UseTieBreak						Continue to play the map until the tie is broken
+ *	@param	_PointsLimit						The points limit
+ *	@param	_RoundsPerMap						Number of round to play on one map before going to the next one
+ *
+ *	@return		True if it is the case, false otherwise
+ */
+Boolean MapIsOver(Integer _ValidRoundsNb, Integer _PointsGap, Boolean _UseTieBreak, Integer _PointsLimit, Integer _RoundsPerMap) {
+	declare Integer PointsLimitReached = PointsLimitReached(_PointsGap, _UseTieBreak, _PointsLimit);
+
+	if (PointsLimitReached == C_PointsLimit_Reached) return True; //< There is a points limit and it is reached
+	if (_RoundsPerMap > 0 && _ValidRoundsNb >= _RoundsPerMap) return True; //< There is a rounds limit and it is reached
+
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the match is over
+ *
+ *	@param	_PointsGap							The number of points lead a team must have to win the map
+ *	@param	_UseTieBreak						Continue to play the map until the tie is broken
+ *	@param	_PointsLimit						The points limit
+ *	@param	_MapsPerMatch						Number of maps to play before finishing the match
+ *	@param	_MapCount									Number of valid maps played
+ *
+ *	@return		True if it is the case, false otherwise
+ */
+Boolean MatchIsOver(Integer _PointsGap, Boolean _UseTieBreak, Integer _PointsLimit, Integer _MapsPerMatch, Integer _MapCount, Integer _RoundsPerMap) {
+	declare Integer PointsLimitReached = PointsLimitReached(_PointsGap, _UseTieBreak, _PointsLimit);
+
+	if (_MapsPerMatch > 1 && PointsLimitReached == C_PointsLimit_Tie) return False; //< Ties are allowed if the map was skipped and match is played on one map only
+	if (PointsLimitReached == C_PointsLimit_Reached) return True; //< There is a points limit and it is reached
+	if (_MapsPerMatch > 1 && _MapCount >= _MapsPerMatch) return True; //< There is a maps limit and it is reached
+	if (_MapsPerMatch <= 1 && _RoundsPerMap <= 0) return True;
+
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Compute the latest race scores
+ *
+ *	@param	_UseCustomPointsRepartition		Use a custom points repartition. Default [10, 6, 4, 3, 2, 1]
+ *	@param	_CumulatePoints								At the end of the round both teams win their players points
+ *	@param	_UseAlternateRules						Each player finishing the race scores
+ *	@param	_MaxPointsPerRound						The maxium number of points attributed to the first player to cross the finish line
+ *	@param	_NoRoundTie 									[Careful ! Used only if teams are not balanced in 3v3] If the round scores result in a tie, winning team is declared by the first player who cross the finish line
+ *	@param	_BalanceScore 								If the teams are not balanced, consider balanced players number in score compute (ex only 2 players of each team if we have a 2vs3)
+ *	@param	_BalancedNbPlayers 						The minimum number of players in the teams (to consider in score compute)
+ *	@param	_TeamBalancedIn3v3 						If the teams are balances in 3v3
+ */
+Void ComputeLatestRaceScores(
+	Boolean _UseCustomPointsRepartition,
+	Boolean _CumulatePoints,
+	Boolean _UseAlternateRules,
+	Integer _MaxPointsPerRound,
+	Boolean _NoRoundTie,
+	Boolean _BalanceScore,
+	Integer _BalancedNbPlayers,
+	Boolean _TeamBalancedIn3v3
+) {
+	Race::SortScores(Race::C_Sort_PrevRaceTime);
+	declare CSmScore[] PrevRaceRanking = Race::GetPrevRaceRanking();
+	if (PrevRaceRanking.count <= 0) return;
+
+	declare Integer CountPlayersTeam1 = 0;
+	declare Integer CountPlayersTeam2 = 0;
+	declare Boolean CountPlayerReached = False;
+	declare Integer FirstTeamToCrossLine = -1;
+	if (_NoRoundTie && !_TeamBalancedIn3v3 && PrevRaceRanking.count > 0 && Scores::GetPlayerPrevRaceTime(PrevRaceRanking[0]) > 0) {
+		FirstTeamToCrossLine = PrevRaceRanking[0].TeamNum - 1;
+	}
+	// Each player finishing the race scores points from the custom repartition. Default: [10, 6, 4, 3, 2, 1]
+	if (_UseCustomPointsRepartition) {
+		declare TeamsScores = [0, 0];
+		declare WinningTeam = -1;
+		declare Key = 0;
+		declare PointsRepartition = PointsRepartition::GetPointsRepartition();
+		foreach (Score in PrevRaceRanking) {
+			if (Score.TeamNum != 1 && Score.TeamNum != 2) continue;
+			if (_BalanceScore && _BalancedNbPlayers != -1) {
+				CountPlayerReached = False;
+				if (Score.TeamNum == 1) {
+					CountPlayersTeam1 += 1;
+					if (CountPlayersTeam1 > _BalancedNbPlayers) CountPlayerReached = True;
+				}
+				else if (Score.TeamNum == 2) {
+					CountPlayersTeam2 += 1;
+					if (CountPlayersTeam2 > _BalancedNbPlayers) CountPlayerReached = True;
+				}
+			}
+			if (_BalanceScore && CountPlayerReached) continue;
+
+			if (Scores::GetPlayerPrevRaceTime(Score) > 0) {
+				declare PlayerPoints = 0;
+				if (PointsRepartition.count > 0) {
+					if (PointsRepartition.existskey(Key)) {
+						PlayerPoints = PointsRepartition[Key];
+					} else {
+						PlayerPoints = PointsRepartition[PointsRepartition.count - 1];
+					}
+				}
+				TeamsScores[Score.TeamNum - 1] += PlayerPoints;
+				Scores::SetPlayerRoundPoints(Score, PlayerPoints);
+				Key += 1;
+			} else {
+				Scores::SetPlayerRoundPoints(Score, 0);
+			}
+		}
+
+		if (TeamsScores[0] != TeamsScores[1]) {
+			if (TeamsScores[0] > TeamsScores[1]) {
+				WinningTeam = 0;
+			} else {
+				WinningTeam = 1;
+			}
+		} else if (_NoRoundTie && !_TeamBalancedIn3v3) {
+			WinningTeam = FirstTeamToCrossLine;
+		}
+
+		foreach (TeamIndex => Team in Teams) {
+			declare PrevRaceDeltaPoints for Team = 0;
+			if (_CumulatePoints) {
+				PrevRaceDeltaPoints = 0;
+				if (TeamsScores.existskey(TeamIndex)) {
+					PrevRaceDeltaPoints = TeamsScores[TeamIndex];
+				}
+			} else {
+				if (TeamIndex == WinningTeam) {
+					PrevRaceDeltaPoints = 1;
+				} else {
+					PrevRaceDeltaPoints = 0;
+				}
+			}
+		}
+	}
+	// Each player finishing the race scores (MaxPoints - (Rank - 1))
+	else if (_UseAlternateRules) {
+		foreach (Player in AllPlayers) {
+			if (Player.Score == Null) continue;
+			declare IsSpectator for Player.Score = False;
+			IsSpectator = Player.RequestsSpectate;
+		}
+		declare Points = PrevRaceRanking.count;
+		foreach (Score in PrevRaceRanking) {
+			declare IsSpectator for Score = False;
+			if (IsSpectator && Scores::GetPlayerPrevRaceTime(Score) <= 0) {
+				Points -= 1;
+			}
+		}
+		if (Points > _MaxPointsPerRound) Points = _MaxPointsPerRound;
+
+		declare TeamsScores = [0, 0];
+		declare WinningTeam = -1;
+		foreach (Score in PrevRaceRanking) {
+			if (Score.TeamNum != 1 && Score.TeamNum != 2) continue;
+			if (_BalanceScore && _BalancedNbPlayers != -1) {
+				CountPlayerReached = False;
+				if (Score.TeamNum == 1) {
+					CountPlayersTeam1 += 1;
+					if (CountPlayersTeam1 > _BalancedNbPlayers) CountPlayerReached = True;
+				}
+				else if (Score.TeamNum == 2) {
+					CountPlayersTeam2 += 1;
+					if (CountPlayersTeam2 > _BalancedNbPlayers) CountPlayerReached = True;
+				}
+			}
+			if (_BalanceScore && CountPlayerReached) continue;
+
+			if (Scores::GetPlayerPrevRaceTime(Score) > 0) {
+				TeamsScores[Score.TeamNum - 1] += Points;
+				Scores::SetPlayerRoundPoints(Score, Points);
+				if (Points > 0) Points -= 1;
+			} else {
+				Scores::SetPlayerRoundPoints(Score, 0);
+			}
+		}
+
+		if (TeamsScores[0] != TeamsScores[1]) {
+			if (TeamsScores[0] > TeamsScores[1]) {
+				WinningTeam = 0;
+			} else {
+				WinningTeam = 1;
+			}
+		} else if (_NoRoundTie && !_TeamBalancedIn3v3) {
+			WinningTeam = FirstTeamToCrossLine;
+		}
+
+		foreach (TeamIndex => Team in Teams) {
+			declare PrevRaceDeltaPoints for Team = 0;
+			if (_CumulatePoints) {
+				PrevRaceDeltaPoints = 0;
+				if (TeamsScores.existskey(TeamIndex)) {
+					PrevRaceDeltaPoints = TeamsScores[TeamIndex];
+				}
+			} else {
+				if (TeamIndex == WinningTeam) {
+					PrevRaceDeltaPoints = 1;
+				} else {
+					PrevRaceDeltaPoints = 0;
+				}
+			}
+		}
+	}
+	// Give one points to all the players of a team from first place to the first player of the opposing team
+	// eg: R, R, B, R, B, B -> 1, 1, 0, 0, 0, 0 -> 2 points for Red
+	else {
+		declare WinningTeam = -1;
+		declare Points = 0;
+		declare AheadOfOpponents = True;
+
+		foreach (Score in PrevRaceRanking) {
+			if (Score.TeamNum != 1 && Score.TeamNum != 2) continue;
+			if (_BalanceScore && _BalancedNbPlayers != -1) {
+				CountPlayerReached = False;
+				if (Score.TeamNum == 1) {
+					CountPlayersTeam1 += 1;
+					if (CountPlayersTeam1 > _BalancedNbPlayers) CountPlayerReached = True;
+				}
+				else if (Score.TeamNum == 2) {
+					CountPlayersTeam2 += 1;
+					if (CountPlayersTeam2 > _BalancedNbPlayers) CountPlayerReached = True;
+				}
+			}
+			if (_BalanceScore && CountPlayerReached) continue;
+
+			if (Scores::GetPlayerPrevRaceTime(Score) <= 0) break;
+			if (WinningTeam == -1) WinningTeam = Score.TeamNum - 1;
+
+			if (Score.TeamNum - 1 == WinningTeam) {
+				if (AheadOfOpponents) {
+					Points += 1;
+					Scores::SetPlayerRoundPoints(Score, 1);
+				}
+			} else {
+				AheadOfOpponents = False;
+			}
+		}
+
+		if (Points > _MaxPointsPerRound) Points = _MaxPointsPerRound;
+
+		foreach (TeamIndex => Team in Teams) {
+			declare PrevRaceDeltaPoints for Team = 0;
+			if (TeamIndex == WinningTeam) {
+				PrevRaceDeltaPoints = Points;
+			} else {
+				PrevRaceDeltaPoints = 0;
+			}
+		}
+	}
+}
+
+Void ComputeLatestRaceScores(Boolean _UseCustomPointsRepartition, Boolean _CumulatePoints, Boolean _UseAlternateRules, Integer _MaxPointsPerRound) {
+	ComputeLatestRaceScores(_UseCustomPointsRepartition, _CumulatePoints, _UseAlternateRules, _MaxPointsPerRound, False, False, -1, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Compute the map scores
+ *
+ *	@param	_AnnonceWinner							Annonce the winner in the chat
+ *	@param	_ResetPlayersRoundPoints		Reset the round points of each player during the fct or not
+ *
+ *	@return		WinningTeam Id (0 or 1)
+ */
+Integer ComputeScores(Boolean _AnnonceWinner, Boolean _ResetPlayersRoundPoints) {
+	declare PrevRaceDeltaPoints as ScoreTeam0 for Teams[0] = 0;
+	declare PrevRaceDeltaPoints as ScoreTeam1 for Teams[1] = 0;
+
+	declare WinningTeam = -1;
+	if (ScoreTeam0 > 0 && ScoreTeam0 > ScoreTeam1) {
+		WinningTeam = 0;
+	} else if (ScoreTeam1 > 0 && ScoreTeam1 > ScoreTeam0) {
+		WinningTeam = 1;
+	}
+
+	if (_AnnonceWinner)	AnnounceWinner(WinningTeam);
+
+	foreach (TeamIndex => Team in Teams) {
+		declare PrevRaceDeltaPoints for Team = 0;
+		Scores::AddClanMapPoints(TeamIndex + 1, PrevRaceDeltaPoints);
+		Scores::AddClanMatchPoints(TeamIndex + 1, PrevRaceDeltaPoints);
+	}
+
+	foreach (Player in AllPlayers) {
+		if (Player.Score == Null) continue;
+		declare IsSpectator for Player.Score = False;
+		IsSpectator = Player.RequestsSpectate;
+	}
+	foreach (Score in Scores) {
+		Scores::AddPlayerMapPoints(Score, Scores::GetPlayerRoundPoints(Score));
+		Scores::AddPlayerMatchPoints(Score, Scores::GetPlayerRoundPoints(Score));
+		if (_ResetPlayersRoundPoints) Scores::SetPlayerRoundPoints(Score, 0);
+		declare IsSpectator for Score = False;
+		if (IsSpectator) {
+			Score.LadderClan = -1;
+		} else {
+			Score.LadderClan = Score.TeamNum;
+		}
+	}
+
+	return WinningTeam;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the map scores
+Void ComputeScores() {
+	ComputeScores(True, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the clans of players
+ */
+Integer[Text] GetAccountIdsToClans() {
+	return G_AccountIdToClan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the clan of a player
+ *	Return -1 if the player is not found
+ */
+Integer GetClan(Text _AccountId) {
+	return G_AccountIdToClan.get(_AccountId, -1);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Stock player's clan
+ */
+Void AddClanMember(Text _AccountId, Integer _ClanId) {
+	G_AccountIdToClan[_AccountId] = _ClanId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the account id of all clans members
+Text[] GetClansMembers() {
+	declare Text[] AccountIds;
+	foreach (AccountId => Clan in G_AccountIdToClan) {
+		AccountIds.add(AccountId);
+	}
+	return AccountIds;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset clans
+Void ResetClans() {
+	G_AccountIdToClan = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set clan & force spec on new player's connection
+ */
+Void ForceSpecNewPlayer(CSmPlayer _Player) {
+	declare Integer PlayerClan = GetClan(_Player.User.WebServicesUserId);
+	if (_Player.CurrentClan == 0 && (PlayerClan == 1 || PlayerClan == 2)) {
+		declare Boolean NeedToSpawn for _Player;
+		NeedToSpawn = True;
+		if (ServerAdmin != Null) {
+			ServerAdmin.ForceSpectator(_Player.User, CServerAdmin::ESpecMode::SpectatorForced);
+			declare UI <=> UIManager.GetUI(_Player);
+			if (UI != Null) {
+				//L16N Message to explain to the player that after a reconnection, they must wait until the next round to play
+				UI.StatusMessage = _("You are in spectator mode\nYou will be able to play from the next round");
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Unforce Spec on the players who arrived in a middle of a round
+ */
+Void UnforceSpecNewPlayers() {
+	if (ServerAdmin != Null) {
+		foreach (Player in AllPlayers) {
+			declare Boolean NeedToSpawn for Player;
+			if (NeedToSpawn) {
+				ServerAdmin.ForceSpectator(Player.User, CServerAdmin::ESpecMode::PlayerSelectable);
+				declare Integer PlayerClan = GetClan(Player.User.WebServicesUserId);
+				SetPlayerClan(Player, PlayerClan);
+				declare UI <=> UIManager.GetUI(Player);
+				if (UI != Null) UI.StatusMessage = "";
+				NeedToSpawn = False;
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Setup the podium sequence
+Void BeforePodiumSequence(Integer _ClanWinner) {
+	// Sort players by points first
+	// If several players have the same number of points
+	// use their best race checkpoints times to rank them
+	declare CSmScore[] SortedScores;
+	if (_ClanWinner == 1 || _ClanWinner == 2) {
+		declare Integer[Ident] ScoreIdsToSortByPoints;
+		foreach (Score in Scores) {
+			if (Score.TeamNum == _ClanWinner) {
+				ScoreIdsToSortByPoints[Score.Id] = Scores::GetPlayerMatchPoints(Score);
+			}
+		}
+		declare Ident[][] ScoreIdsSortedByBestTime = Scores::SortIdsByPoints(ScoreIdsToSortByPoints, Scores::C_Order_Descending, 0);
+
+		foreach (ScoreIdsPoints in ScoreIdsSortedByBestTime)  {
+			declare Ident[][Integer] ScoreIdsSortedByBestTime;
+			if (ScoreIdsPoints.count > 1) {
+				declare Integer[][Ident] ScoreIdsToSortByBestTime;
+				foreach (ScoreId in ScoreIdsPoints) {
+					ScoreIdsToSortByBestTime[ScoreId] = Utils::ToScriptArray(Scores[ScoreId].BestRaceTimes);
+				}
+				ScoreIdsSortedByBestTime = Scores::SortIdsByWaypointTimes(ScoreIdsToSortByBestTime);
+			} else {
+				ScoreIdsSortedByBestTime = [0 => [ScoreIdsPoints[0]]];
+			}
+
+			foreach (ScoreIdsTimes in ScoreIdsSortedByBestTime) {
+				foreach (ScoreId in ScoreIdsTimes) {
+					SortedScores.add(Scores[ScoreId]);
+				}
+			}
+		}
+	}
+
+	// ... display them on the podium
+	UIManager.UIAll.UISequence_PodiumPlayersWin = "";
+	foreach (Score in SortedScores) {
+		if (Score.User != Null) {
+			if (UIManager.UIAll.UISequence_PodiumPlayersWin != "") {
+				UIManager.UIAll.UISequence_PodiumPlayersWin ^= ","^Score.User.Login;
+			} else {
+				UIManager.UIAll.UISequence_PodiumPlayersWin ^= Score.User.Login;
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Cleanup after the podium sequence
+Void AfterPodiumSequence() {
+	UIManager.UIAll.UISequence_PodiumPlayersWin = "";
+}

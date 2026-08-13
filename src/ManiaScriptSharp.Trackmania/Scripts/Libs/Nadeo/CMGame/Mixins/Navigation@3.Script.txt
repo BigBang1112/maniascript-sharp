@@ -1,0 +1,726 @@
+/**
+ * Navigation in manialink controls
+ *
+ * The library construct a static graph of control that the user can navigate
+ * The navigation data is stored in a navigation context, which is the only thing updated during navigation
+ */
+#Const Version "0.3.4"
+#Const ScriptName "Libs/Nadeo/CMGame/Mixins/Navigation@3.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/EventEmitter.Script.txt" as EventEmitter
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView@3.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Menus/NavigationInputs.Script.txt" as NavigationInputs
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Event {
+	Text Type;
+	Text ContextUid;
+	CMlControl Target;
+	Integer InputType;
+}
+#Struct K_ContextOptions {
+	CMlControl DefaultFocus = Null; //< The control focused by default
+	Boolean IsForcedFocusEnabled = True; //< Prevent the context from having no focused control
+}
+
+#Struct K_Private_Action {
+	Integer Input;
+	Integer Type;
+	CMlControl Target;
+}
+#Struct K_Private_Control {
+	CMlControl Control = Null;
+	K_Private_Action[Integer] ActionList = [];
+	Boolean IsLocked = False;
+}
+#Struct K_Private_Context {
+	Text Uid = "";
+	Ident[] ControlIdList = [];
+	Ident FocusedControlId = NullId;
+	Ident[] FocusedControlIdList = [];
+	Ident[Ident] Memory = [];
+	Boolean IsEnabled = True;
+	Boolean IsForcedFocusEnabled = True;
+}
+#Struct K_Private_State {
+	K_Private_Control[Ident] ControlList;
+	Ident[][Ident] ChildrenList;
+	Ident[Ident] ParentList;
+	K_Private_Context[Text] ContextList;
+	Integer[] ListenToActionInputList;
+	Boolean IsMouseSleeping;
+}
+#Struct K_Private_EventData {
+	Text ContextUid;
+	Integer InputType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MixinName "CMGame_Mixins_Navigation3"
+#Const C_MixinClass "cmgame-mixins-navigation-3"
+
+#Const NavigationInputs::C_InputType_Null as C_ActionInput_Null
+#Const NavigationInputs::C_InputType_Up as C_ActionInput_Up
+#Const NavigationInputs::C_InputType_Right as C_ActionInput_Right
+#Const NavigationInputs::C_InputType_Left as C_ActionInput_Left
+#Const NavigationInputs::C_InputType_Down as C_ActionInput_Down
+#Const NavigationInputs::C_InputType_Select as C_ActionInput_Select
+#Const NavigationInputs::C_InputType_Cancel as C_ActionInput_Cancel
+#Const NavigationInputs::C_InputType_PageUp as C_ActionInput_PageUp
+#Const NavigationInputs::C_InputType_PageDown as C_ActionInput_PageDown
+#Const NavigationInputs::C_InputType_AppMenu as C_ActionInput_AppMenu
+#Const NavigationInputs::C_InputType_Action1 as C_ActionInput_Action1
+#Const NavigationInputs::C_InputType_Action2 as C_ActionInput_Action2
+#Const NavigationInputs::C_InputType_Action3 as C_ActionInput_Action3
+#Const NavigationInputs::C_InputType_Action4 as C_ActionInput_Action4
+#Const NavigationInputs::C_InputType_ScrollUp as C_ActionInput_ScrollUp
+#Const NavigationInputs::C_InputType_ScrollDown as C_ActionInput_ScrollDown
+#Const NavigationInputs::C_InputType_MouseOver as C_ActionInput_MouseOver
+#Const NavigationInputs::C_InputType_MouseOut as C_ActionInput_MouseOut
+#Const NavigationInputs::C_InputType_MouseClick as C_ActionInput_MouseClick
+#Const NavigationInputs::C_InputType_MouseRightClick as C_ActionInput_MouseRightClick
+
+#Const C_ActionType_Null 0
+#Const C_ActionType_Focus 1
+#Const C_ActionType_Select 2
+
+#Const C_EventType_Focus "cmgame-mixins-navigation-3-focus"
+#Const C_EventType_Unfocus "cmgame-mixins-navigation-3-unfocus"
+#Const C_EventType_Select "cmgame-mixins-navigation-3-select"
+#Const C_Private_EventTypeList [
+	"cmgame-mixins-navigation-3-focus",
+	"cmgame-mixins-navigation-3-unfocus",
+	"cmgame-mixins-navigation-3-select"
+]
+
+#Const C_Private_MouseSleepDelay 500
+#Const C_Private_MouseLastInputDelay 750
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_Private_State G_State;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert a list of basic event emitter events to a list of navigation events
+K_Event[] Private_ToEventList(EventEmitter::K_Event[] _EventList) {
+	declare K_Event[] EventList;
+	for (Event in _EventList) {
+		if (C_Private_EventTypeList.exists(Event.Type)) {
+			declare K_Private_EventData EventData;
+			EventData.fromjson(Event.Data);
+			EventList.add(K_Event {
+				Type = Event.Type,
+				ContextUid = EventData.ContextUid,
+				Target = (Event.EventEmitter as CMlControl),
+				InputType = EventData.InputType
+			});
+		}
+	}
+	return EventList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a control is locked
+Boolean Private_IsControlLocked(K_Private_State _State, Ident _ControlId) {
+	return (
+		_ControlId != NullId &&
+		_State.ControlList.existskey(_ControlId) &&
+		_State.ControlList[_ControlId].IsLocked
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus a control
+K_Private_State Private_Focus(K_Private_State _State, Text _ContextUid, CMlControl _NewFocus, Integer _InputType) {
+	if (
+		!_State.ContextList.existskey(_ContextUid) ||
+		!_State.ContextList[_ContextUid].IsEnabled ||
+		(_NewFocus == Null && _State.ContextList[_ContextUid].IsForcedFocusEnabled)
+	) {
+		return _State;
+	}
+
+	declare Boolean IsSuccess = False;
+	declare K_Private_State State = _State;
+	declare K_Private_Context Context = State.ContextList[_ContextUid];
+
+	// Gather unfocused control and its parent
+	declare Ident UnfocusedControlId = Context.FocusedControlId;
+	declare Ident[] UnfocusedControlIdList;
+	while (UnfocusedControlId != NullId) {
+		if (Context.ControlIdList.exists(UnfocusedControlId)) {
+			UnfocusedControlIdList.add(UnfocusedControlId);
+		}
+		UnfocusedControlId = State.ParentList.get(UnfocusedControlId, NullId);
+	}
+
+	// Gather focused control and its parent
+	// If the control or one of its parent if locked, the whole focus request must fail
+	declare Ident FocusedControlId = NullId;
+	if (_NewFocus != Null && State.ControlList.existskey(_NewFocus.Id)) {
+		FocusedControlId = _NewFocus.Id;
+	}
+	declare Boolean IsFocusedControlLocked = False;
+	declare Ident[] FocusedControlIdList;
+	while (FocusedControlId != NullId && !IsFocusedControlLocked) {
+		if (Private_IsControlLocked(State, FocusedControlId)) {
+			IsFocusedControlLocked = True;
+		} else {
+			if (Context.ControlIdList.exists(FocusedControlId)) {
+				FocusedControlIdList.add(FocusedControlId);
+			}
+			FocusedControlId = State.ParentList.get(FocusedControlId, NullId);
+		}
+	}
+
+	// Drill into focused control unlocked children until we reach a leaf
+	if (!IsFocusedControlLocked && _NewFocus != Null && State.ControlList.existskey(_NewFocus.Id)) {
+		FocusedControlId = _NewFocus.Id;
+	} else {
+		FocusedControlId = NullId;
+	}
+	while (FocusedControlId != NullId && State.ChildrenList.existskey(FocusedControlId)) {
+		declare Ident[] Children = State.ChildrenList[FocusedControlId];
+		if (
+			Context.Memory.existskey(FocusedControlId) &&
+			Children.exists(Context.Memory[FocusedControlId]) &&
+			!Private_IsControlLocked(State, Context.Memory[FocusedControlId])
+		) {
+			FocusedControlId = Context.Memory[FocusedControlId];
+		} else {
+			declare Ident UnlockedChildId = NullId;
+			for (ChildId in Children) {
+				if (!Private_IsControlLocked(State, ChildId)) {
+					UnlockedChildId = ChildId;
+					break;
+				}
+			}
+			FocusedControlId = UnlockedChildId;
+		}
+		if (FocusedControlId != NullId && Context.ControlIdList.exists(FocusedControlId)) {
+			FocusedControlIdList.addfirst(FocusedControlId);
+		}
+	}
+
+	// Avoid unfocusing and immediatly refocusing a control
+	declare Ident[] DuplicateControlIdList;
+	declare Ident[] FullFocusedControlIdList = FocusedControlIdList;
+	for (FocusedControlId in FocusedControlIdList) {
+		if (UnfocusedControlIdList.exists(FocusedControlId)) {
+			DuplicateControlIdList.add(FocusedControlId);
+		}
+	}
+	for (DuplicateControlId in DuplicateControlIdList) {
+		UnfocusedControlIdList.remove(DuplicateControlId);
+		FocusedControlIdList.remove(DuplicateControlId);
+	}
+
+	// Validate focus update
+	IsSuccess = (
+		!IsFocusedControlLocked && (
+			FocusedControlIdList.count > 0 ||
+			(!Context.IsForcedFocusEnabled && UnfocusedControlIdList.count > 0)
+		)
+	);
+
+	if (IsSuccess) {
+		// Update navigation context
+		Context.FocusedControlId = NullId;
+		Context.FocusedControlIdList = FullFocusedControlIdList;
+		for (Key => FocusedControlId in FocusedControlIdList) {
+			if (Key == 0) {
+				Context.FocusedControlId = FocusedControlId;
+			}
+			declare Ident ParentControlId = State.ParentList.get(FocusedControlId, NullId);
+			// Save in memory only if the group has several children
+			if (ParentControlId == NullId || State.ChildrenList.get(ParentControlId, []).count > 1) {
+				Context.Memory[ParentControlId] = FocusedControlId;
+			}
+		}
+
+		// Send events to listeners
+		for (UnfocusedControlId in UnfocusedControlIdList) {
+			if (State.ControlList.existskey(UnfocusedControlId)) {
+				declare K_Private_EventData EventData = K_Private_EventData {
+					ContextUid = _ContextUid,
+					InputType =_InputType
+				};
+				EventEmitter::Emit(State.ControlList[UnfocusedControlId].Control, C_EventType_Unfocus, EventData.tojson());
+			}
+		}
+		for (FocusedControlId in FocusedControlIdList) {
+			if (State.ControlList.existskey(FocusedControlId)) {
+				declare K_Private_EventData EventData = K_Private_EventData {
+					ContextUid = _ContextUid,
+					InputType =_InputType
+				};
+				EventEmitter::Emit(State.ControlList[FocusedControlId].Control, C_EventType_Focus, EventData.tojson());
+			}
+		}
+
+		State.ContextList[_ContextUid] = Context;
+		return State;
+	}
+
+	return _State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Select a control
+Void Private_Select(K_Private_State _State, Text _ContextUid, CMlControl _SelectedControl, Integer _InputType) {
+	if (
+		_SelectedControl == Null ||
+		!_State.ContextList.existskey(_ContextUid) ||
+		!_State.ContextList[_ContextUid].IsEnabled ||
+		!_State.ContextList[_ContextUid].ControlIdList.exists(_SelectedControl.Id) ||
+		!_State.ControlList.existskey(_SelectedControl.Id)
+	) {
+		return;
+	}
+
+	declare Boolean IsSuccess = False;
+
+	// Gather selected control and its parent
+	// If the control or one of its parent if locked, the whole select request must fail
+	declare Ident SelectedControlId = _SelectedControl.Id;
+	declare Boolean IsSelectedControlLocked = False;
+	declare Ident[] SelectedControlIdList;
+	while (SelectedControlId != NullId && !IsSelectedControlLocked) {
+		if (Private_IsControlLocked(_State, SelectedControlId)) {
+			IsSelectedControlLocked = True;
+		} else {
+			SelectedControlIdList.add(SelectedControlId);
+			SelectedControlId = _State.ParentList.get(SelectedControlId, NullId);
+		}
+	}
+
+	// Validate selection
+	IsSuccess = !IsSelectedControlLocked && SelectedControlIdList.count > 0;
+
+	if (IsSuccess) {
+		for (SelectedControlId in SelectedControlIdList) {
+			if (_State.ControlList.existskey(SelectedControlId)) {
+				declare K_Private_EventData EventData = K_Private_EventData {
+					ContextUid = _ContextUid,
+					InputType =_InputType
+				};
+				EventEmitter::Emit(_State.ControlList[SelectedControlId].Control, C_EventType_Select, EventData.tojson());
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply an input on a control
+K_Private_State Private_ApplyInput(K_Private_State _State, K_Private_Context _Context, Ident _FocusedControlId, Integer _InputType) {
+	if (
+		_FocusedControlId == NullId ||
+		!_Context.ControlIdList.exists(_FocusedControlId) ||
+		!_State.ControlList.existskey(_FocusedControlId)
+	) {
+		return _State;
+	}
+
+	// Bubble up the input along the focused control parent chain until we find a control that capture the input
+	declare K_Private_Control Control = _State.ControlList[_FocusedControlId];
+	while (Control.Control != Null && !Control.ActionList.existskey(_InputType)) {
+		Control = _State.ControlList.get(_State.ParentList.get(Control.Control.Id, NullId), K_Private_Control { Control = Null });
+	}
+
+	if (Control.Control == Null || !Control.ActionList.existskey(_InputType)) {
+		return _State;
+	}
+
+	declare K_Private_State State = _State;
+
+	// Trigger the input action
+	declare K_Private_Action Action = Control.ActionList[_InputType];
+	switch (Action.Type) {
+		case C_ActionType_Focus: {
+			State = Private_Focus(State, _Context.Uid, Action.Target, _InputType);
+		}
+		case C_ActionType_Select: {
+			Private_Select(State, _Context.Uid, Action.Target, _InputType);
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the mouse is sleeping and should not generate events
+Boolean Private_IsMouseSleeping(CMlScript _Context) {
+	return (_Context.Input.TimeSinceLatestMouseActivity >= C_Private_MouseSleepDelay);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the mouse is the last input device used
+Boolean Private_IsMouseLastInput(CMlScript _Context) {
+	return (
+		_Context.Input.TimeSinceLatestMouseActivity == _Context.Input.TimeSinceLatestActivity &&
+		_Context.Input.	TimeSinceLatestTouchActivity >= C_Private_MouseLastInputDelay &&
+		_Context.Input.	TimeSinceLatestKeyboardActivity >= C_Private_MouseLastInputDelay &&
+		_Context.Input.	TimeSinceLatestPadActivity >= C_Private_MouseLastInputDelay
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update mixin
+Void Private_Hook_PageAfterYield(CMlScript _Context) {
+	if (G_State.IsMouseSleeping != Private_IsMouseSleeping(_Context)) {
+		G_State.IsMouseSleeping = Private_IsMouseSleeping(_Context);
+
+		// Restore mouse focus on wake-up
+		if (!G_State.IsMouseSleeping) {
+			declare K_Private_Context[Text] LocalContextList = G_State.ContextList;
+			for (Context in LocalContextList) {
+				G_State = Private_Focus(G_State, Context.Uid, _Context.Page.FocusedControl, C_ActionInput_MouseOver);
+			}
+		}
+	}
+
+	for (Input in NavigationInputs::GetInputList(_Context)) {
+		if (Input.IsFromMouse && Private_IsMouseSleeping(_Context)) continue;
+
+		if (G_State.ListenToActionInputList.exists(Input.Type)) {
+			declare K_Private_Context[Text] LocalContextList = G_State.ContextList;
+			for (Context in LocalContextList) {
+				// Skip disabled context
+				if (!Context.IsEnabled) continue;
+
+				// If the input event target a specific control (mainly mouse event like mouse over, mouse out, ...) use it
+				// Otherwise use the context currently focused control
+				declare Ident FocusedControlId = Context.FocusedControlId;
+				if (Input.Control != Null) {
+					FocusedControlId = Input.Control.Id;
+				}
+
+				G_State = Private_ApplyInput(G_State, Context, FocusedControlId, Input.Type);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a new navigation action
+ * @param _Input - The navigation input that will trigger action
+ * @param _Type - The type of action
+ * @param _Target - The control targeted by the action
+ * @return The navigation action
+ */
+K_Private_Action NewAction(Integer _Input, Integer _Type, CMlControl _Target) {
+	return K_Private_Action {
+		Input = _Input,
+		Type = _Type,
+		Target = _Target
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new navigation control
+Void NewControl(CMlControl _Control, K_Private_Action[] _ActionList) {
+	assert(_Control != Null, "[Navigation@3] Control cannot be `Null`");
+	assert(!G_State.ControlList.existskey(_Control.Id), """[Navigation@3] Control `#{{{_Control.ControlId}}}` is already a control""");
+
+	declare K_Private_Action[Integer] ActionList;
+	for (Action in _ActionList) {
+		assert(!ActionList.existskey(Action.Input), """[Navigation@3] Input `{{{Action.Input}}}` already exists in control `#{{{_Control.ControlId}}}`""");
+		ActionList[Action.Input] = Action;
+
+		if (!G_State.ListenToActionInputList.exists(Action.Input)) {
+			G_State.ListenToActionInputList.add(Action.Input);
+		}
+	}
+
+	G_State.ControlList[_Control.Id] = K_Private_Control {
+		Control = _Control,
+		ActionList = ActionList
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new navigation control without actions that will only receive events from children controls
+Void NewControl(CMlControl _Control) {
+	NewControl(_Control, []);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new navigation control with all mouse related actions
+Void NewControl_WithMouseActionList(CMlControl _Control, K_Private_Action[] _ActionList) {
+	declare K_Private_Action[] ActionList = _ActionList;
+	declare Integer[] ActionInputList;
+	for (Action in _ActionList) {
+		ActionInputList.add(Action.Input);
+	}
+	declare K_Private_Action[] MouseActionList = [
+		NewAction(C_ActionInput_MouseClick, C_ActionType_Select, _Control),
+		NewAction(C_ActionInput_MouseRightClick, C_ActionType_Select, _Control),
+		NewAction(C_ActionInput_MouseOver, C_ActionType_Focus, _Control),
+		NewAction(C_ActionInput_MouseOut, C_ActionType_Focus, Null)
+	];
+	for (MouseAction in MouseActionList) {
+		if (!ActionInputList.exists(MouseAction.Input)) {
+			ActionList.add(MouseAction);
+		}
+	}
+	NewControl(_Control, ActionList);
+}
+Void NewControl_WithMouseActionList(CMlControl _Control) {
+	NewControl(_Control, [
+		NewAction(C_ActionInput_MouseClick, C_ActionType_Select, _Control),
+		NewAction(C_ActionInput_MouseRightClick, C_ActionType_Select, _Control),
+		NewAction(C_ActionInput_MouseOver, C_ActionType_Focus, _Control),
+		NewAction(C_ActionInput_MouseOut, C_ActionType_Focus, Null)
+	]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new navigation group
+Void NewGroup(CMlControl _Container, CMlControl[] _ControlList) {
+	assert(_Container != Null, "[Navigation@3] Group container cannot be `Null`");
+	assert(_ControlList.count > 0, "[Navigation@3] Control list cannot be empty");
+	assert(!G_State.ChildrenList.existskey(_Container.Id), """[Navigation@3] Control `#{{{_Container.ControlId}}}` is already a group container""");
+
+	declare Ident[] ControlIdList;
+	for (Control in _ControlList) {
+		assert(!G_State.ParentList.existskey(Control.Id), """[Navigation@3] Control `#{{{Control.ControlId}}}` is already in a group""");
+		ControlIdList.add(Control.Id);
+		G_State.ParentList[Control.Id] = _Container.Id;
+	}
+
+	G_State.ChildrenList[_Container.Id] = ControlIdList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new navigation context
+Void NewContext(Text _ContextUid, CMlControl _Root, K_ContextOptions _ContextOptions) {
+	assert(!G_State.ContextList.existskey(_ContextUid), """[Navigation@3] Context `#{{{_ContextUid}}}` already exists""");
+	assert(_Root != Null, """[Navigation@3] The context root cannot be `Null`""");
+	assert(G_State.ControlList.existskey(_Root.Id) || G_State.ChildrenList.existskey(_Root.Id), """[Navigation@3] Context root `#{{{_Root.ControlId}}}` is not a valid navigation control or group""");
+	assert(!_ContextOptions.IsForcedFocusEnabled || _ContextOptions.DefaultFocus != Null, """[Navigation@3] The context must have a focused control""");
+	assert(_ContextOptions.DefaultFocus == Null || G_State.ControlList.existskey(_ContextOptions.DefaultFocus.Id), """[Navigation@3] Default focus `#{{{_ContextOptions.DefaultFocus.ControlId}}}` is not a valid control""");
+
+	declare K_Private_Context Context = K_Private_Context {
+		Uid = _ContextUid,
+		IsForcedFocusEnabled = _ContextOptions.IsForcedFocusEnabled
+	};
+
+	// Find all controls that are part of the context
+	declare Ident[] TmpControlIdList = [_Root.Id];
+	while (TmpControlIdList.count > 0) {
+		declare Ident ControlId = TmpControlIdList[0];
+
+		if (ControlId != NullId) {
+			if (!Context.ControlIdList.exists(ControlId)) {
+				Context.ControlIdList.add(ControlId);
+			}
+			for (ChildId in G_State.ChildrenList.get(ControlId, [])) {
+				if (!Context.ControlIdList.exists(ChildId) && !TmpControlIdList.exists(ChildId)) {
+					TmpControlIdList.add(ChildId);
+				}
+			}
+		}
+
+		TmpControlIdList.removekey(0);
+	}
+
+	assert(_ContextOptions.DefaultFocus == Null || Context.ControlIdList.exists(_ContextOptions.DefaultFocus.Id), """[Navigation@3] Default focus `#{{{_ContextOptions.DefaultFocus.ControlId}}}` not found inside `#{{{_Root.ControlId}}}`""");
+
+	G_State.ContextList[_ContextUid] = Context;
+	G_State = Private_Focus(G_State, _ContextUid, _ContextOptions.DefaultFocus, C_ActionInput_Null);
+}
+Void NewContext(Text _ContextUid, CMlControl _Root, CMlControl _DefaultFocus) {
+	NewContext(_ContextUid, _Root, K_ContextOptions {
+		DefaultFocus = _DefaultFocus
+	});
+}
+Void NewContext(Text _ContextUid, CMlControl _Root) {
+	declare K_ContextOptions ContextOptions = K_ContextOptions {};
+	if (ContextOptions.IsForcedFocusEnabled) {
+		if (G_State.ControlList.existskey(_Root.Id)) {
+			ContextOptions.DefaultFocus = _Root;
+		} else {
+			declare Ident ChildId = _Root.Id;
+			while (ChildId != NullId) {
+				ChildId = G_State.ChildrenList.get(ChildId, []).get(0, NullId);
+				if (G_State.ControlList.existskey(ChildId)) {
+					ContextOptions.DefaultFocus = G_State.ControlList[ChildId].Control;
+					ChildId = NullId;
+				}
+			}
+		}
+	}
+	NewContext(_ContextUid, _Root, ContextOptions);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Lock or unlock a control
+Void SetIsControlLocked(CMlControl _Control, Boolean _IsLocked) {
+	if (_Control == Null || !G_State.ControlList.existskey(_Control.Id)) return;
+	G_State.ControlList[_Control.Id].IsLocked = _IsLocked;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Lock or unlock a control and update mouse focus if necessary
+Void SetIsControlLocked(CMlPage _Page, CMlControl _Control, Boolean _IsLocked) {
+	SetIsControlLocked(_Control, _IsLocked);
+	if (_Page != Null) {
+		declare K_Private_Context[Text] LocalContextList = G_State.ContextList;
+		for (Context in LocalContextList) {
+			G_State = Private_Focus(G_State, Context.Uid, _Page.FocusedControl, C_ActionInput_Null);
+		}
+	}
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable navigation in a context
+Void SetIsContextEnabled(Text _ContextUid, Boolean _IsEnabled) {
+	assert(G_State.ContextList.existskey(_ContextUid), """[Navigation@3] Context `#{{{_ContextUid}}}` does not exist""");
+	G_State.ContextList[_ContextUid].IsEnabled = _IsEnabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable navigation in a context and update mouse focus if necessary
+Void SetIsContextEnabled(CMlPage _Page, Text _ContextUid, Boolean _IsEnabled) {
+	SetIsContextEnabled(_ContextUid, _IsEnabled);
+	if (_IsEnabled && _Page != Null) {
+		G_State = Private_Focus(G_State, _ContextUid, _Page.FocusedControl, C_ActionInput_Null);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the focus in the given context
+Void SetFocus(Text _ContextUid, CMlControl _Focus, Integer _InputType) {
+	assert(G_State.ContextList.existskey(_ContextUid), """[Navigation@3] Context `#{{{_ContextUid}}}` does not exist""");
+	G_State = Private_Focus(G_State, _ContextUid, _Focus, _InputType);
+}
+Void SetFocus(Text _ContextUid, CMlControl _Focus) {
+	SetFocus(_ContextUid, _Focus, C_ActionInput_Null);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the focus in all contexts
+Void SetFocus(CMlControl _Focus, Integer _InputType) {
+	declare K_Private_Context[Text] LocalContextList = G_State.ContextList;
+	for (Context in LocalContextList) {
+		G_State = Private_Focus(G_State, Context.Uid, _Focus, _InputType);
+	}
+}
+Void SetFocus(CMlControl _Focus) {
+	SetFocus(_Focus, C_ActionInput_Null);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the focused control in the given context
+CMlControl GetFocus(Text _ContextUid) {
+	assert(G_State.ContextList.existskey(_ContextUid), """[Navigation@3] Context `#{{{_ContextUid}}}` does not exist""");
+	return G_State.ControlList.get(G_State.ContextList[_ContextUid].FocusedControlId, K_Private_Control { Control = Null }).Control;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given control is focused in the given context
+Boolean IsFocused(Text _ContextUid, CMlControl _Control) {
+	if (_Control == Null) return False;
+	assert(G_State.ContextList.existskey(_ContextUid), """[Navigation@3] Context `#{{{_ContextUid}}}` does not exist""");
+	return G_State.ContextList[_ContextUid].FocusedControlIdList.exists(_Control.Id);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given control is focused in any context
+Boolean IsFocused(CMlControl _Control) {
+	if (_Control == Null) return False;
+
+	for (Context in G_State.ContextList) {
+		if (Context.FocusedControlIdList.exists(_Control.Id)) {
+			return True;
+		}
+	}
+
+	return False;
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Trigger a select event on a control
+Void TriggerSelect(Text _ContextUid, CMlControl _SelectedControl, Integer _InputType) {
+	assert(G_State.ContextList.existskey(_ContextUid), """[Navigation@3] Context `#{{{_ContextUid}}}` does not exist""");
+	Private_Select(G_State, _ContextUid, _SelectedControl, _InputType);
+}
+Void TriggerSelect(Text _ContextUid, CMlControl _SelectedControl) {
+	TriggerSelect(_ContextUid, _SelectedControl, C_ActionInput_Null);
+}
+Void TriggerSelect(CMlControl _SelectedControl, Integer _InputType) {
+	for (Context in G_State.ContextList) {
+		Private_Select(G_State, Context.Uid, _SelectedControl, _InputType);
+	}
+}
+Void TriggerSelect(CMlControl _SelectedControl) {
+	TriggerSelect(_SelectedControl, C_ActionInput_Null);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Trigger an input on a control
+Void TriggerInput(CMlControl _Control, Integer _InputType) {
+	declare K_Private_Context[Text] LocalContextList = G_State.ContextList;
+	for (Context in LocalContextList) {
+		G_State = Private_ApplyInput(G_State, Context, _Control.Id, _InputType);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the list of navigation events emitted on a control
+ * @param _Listener - The listener to flush
+ * @return A list of events
+ */
+K_Event[] FlushListener(EventEmitter::K_Listener _Listener) {
+	return Private_ToEventList(EventEmitter::FlushListener(_Listener));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the list of navigation events emitted on a list of controls
+ * @param _ListenerList - The list of listeners to flush
+ * @return A list of events
+ */
+K_Event[] FlushListenerList(EventEmitter::K_Listener[] _ListenerList) {
+	return Private_ToEventList(EventEmitter::FlushListenerList(_ListenerList));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the mouse is sleeping and should not generate events
+Boolean IsMouseSleeping(CMlScript _Context) {
+	return Private_IsMouseSleeping(_Context);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the mouse is the last input device used
+Boolean IsMouseLastInput(CMlScript _Context) {
+	return Private_IsMouseLastInput(_Context);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the navigation mixin
+MV::K_Mixin Mixin() {
+	return MV::K_Mixin {
+		Name = C_MixinName,
+		Path = ScriptName,
+		Class = C_MixinClass,
+		Hooks = [
+			MV::C_Hook_PageAfterYield => """{{{C_MixinName}}}::Private_Hook_PageAfterYield(This)"""
+		]
+	};
+}

@@ -1,0 +1,184 @@
+/**
+ * Component for the MapStore
+ */
+#Const Version "2.1.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Stores/MapStore_ML.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Store_ML.Script.txt" as Store
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_CurrentMap {
+	Integer Status;
+	Integer ErrorCode;
+	Text ErrorCodeTask;
+	Boolean IsMapUploadedToNS; // NS : NadeoServices, meaning can we use this map with LIVE API
+	Boolean IsFavorite;
+	Text Uid;
+}
+
+#Struct K_State {
+	CampaignStruct::LibCampaignStruct_K_Map[Integer] FavoriteMapList;
+	K_CurrentMap CurrentMap;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_State_Null K_State {
+	FavoriteMapList = [],
+	CurrentMap = K_CurrentMap {
+		Status = 0,
+		ErrorCode = 0,
+		ErrorCodeTask = "",
+		IsMapUploadedToNS = False,
+		IsFavorite = False,
+		Uid = ""
+	}
+}
+
+#Const C_ComponentName "lib-map-store"
+#Const P "Trackmania_MapStore::"
+#Const Q "Trackmania_MapStore"
+#Const C_StoreId "map"
+
+#Const C_Action_GetMap "Trackmania_MapStore_Action_GetMap"
+#Const C_Action_LoadFavoriteMaps "Trackmania_MapStore_Action_LoadFavoriteMaps"
+#Const C_Action_RemoveMapFromFavorites "Trackmania_MapStore_Action_RemoveMapFromFavorites"
+#Const C_Action_AddMapToFavorites "Trackmania_MapStore_Action_AddMapToFavorites"
+#Const C_Action_ToggleCurrentMapFromFavorites "Trackmania_MapStore_Action_ToggleCurrentMapFromFavorites"
+
+#Const C_Event_CurrentMapUpdated "Trackmania_MapStore_Event_CurrentMapUdpated"
+#Const C_Event_CurrentMapRequestInProgress "Trackmania_MapStore_Event_CurrentRequestInProgress"
+#Const C_Event_FavoriteMapsUpdated "Trackmania_MapStore_Event_FavoriteMapsUpdated"
+#Const C_Event_FavoriteMapsError "Trackmania_MapStore_Event_FavoriteMapsError"
+
+#Const C_CurrentMapStatus_Null 0
+#Const C_CurrentMapStatus_LoadingInfos 1
+#Const C_CurrentMapStatus_AddingToFavorites 2
+#Const C_CurrentMapStatus_RemovingFromFavorites 3
+#Const C_CurrentMapStatus_Success 4
+#Const C_CurrentMapStatus_Error 5
+
+#Const C_ErrorCodeTask_Null ""
+
+#Const C_ErrorCode_Null 0
+#Const C_ErrorCode_FailedLoadInfos 1
+#Const C_ErrorCode_FailedAddFavorites 2
+#Const C_ErrorCode_FailedRemoveFavorites 3
+
+//L16N An error happened while adding the track to the player's favorites. They need to try to add it again
+#Const C_AddFavoriteMap_Error _("Error while adding track to your favorites. Please try again.")
+//L16N An error happened while removing the track to the player's favorites. They need to try to remove it again
+#Const C_RemoveFavoriteMap_Error _("Error while removing track from your favorites. Please try again.")
+//L16N Message displayed when there is a request in progress and the player tries to launch a new one
+#Const C_RequestInProgress _("A request is already in progress. Please try again in a few seconds.")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void Action_LoadFavoriteMapList(
+	CMlScript _This,
+	Text[] _MapTypeList,
+	Boolean _SortByNameElseByDate,
+	Boolean _SortOrderAsc,
+	Boolean _OnlyPlayable,
+	Boolean _OnlyMine
+) {
+	declare Text SortByNameElseByDate = "0";
+	if (_SortByNameElseByDate) SortByNameElseByDate = "1";
+	declare Text SortOrderAsc = "0";
+	if (_SortOrderAsc) SortOrderAsc = "1";
+	declare Text OnlyPlayable = "0";
+	if (_OnlyPlayable) OnlyPlayable = "1";
+	declare Text OnlyMine = "0";
+	if (_OnlyMine) OnlyMine = "1";
+
+	_This.SendCustomEvent(
+		C_Action_LoadFavoriteMaps,
+		[
+			_MapTypeList.tojson(),
+			SortByNameElseByDate,
+			SortOrderAsc,
+			OnlyPlayable,
+			OnlyMine
+		]
+	);
+}
+
+Void Action_GetMap(CMlScript _This, Text _MapUid) {
+	_This.SendCustomEvent(C_Action_GetMap, [_MapUid]);
+}
+
+Void Action_RemoveMapFromFavorites(CMlScript _This, Text _MapUid) {
+	_This.SendCustomEvent(C_Action_RemoveMapFromFavorites, [_MapUid]);
+}
+
+Void Action_AddMapToFavorites(CMlScript _This, Text _MapUid) {
+	_This.SendCustomEvent(C_Action_AddMapToFavorites, [_MapUid]);
+}
+
+Void Action_ToggleCurrentMapFromFavorites(CMlScript _This) {
+	_This.SendCustomEvent(C_Action_ToggleCurrentMapFromFavorites, []);
+}
+
+CampaignStruct::LibCampaignStruct_K_Map[Integer] GetFavoriteMaps() {
+	declare K_State Trackmania_MapStore_State for System = C_State_Null;
+	return Trackmania_MapStore_State.FavoriteMapList;
+}
+
+Integer GetFavoriteMapsTotal() {
+	declare K_State Trackmania_MapStore_State for System = C_State_Null;
+	return Trackmania_MapStore_State.FavoriteMapList.count;
+}
+
+// Reset the current map status
+Void ResetCurrentMap() {
+	declare K_State Trackmania_MapStore_State for System = C_State_Null;
+	Trackmania_MapStore_State.CurrentMap = K_CurrentMap {
+		Status = C_CurrentMapStatus_Null,
+		ErrorCode = C_ErrorCode_Null,
+		ErrorCodeTask = C_ErrorCodeTask_Null,
+		IsMapUploadedToNS = False,
+		IsFavorite = False,
+		Uid = ""
+	};
+}
+
+// Get information about the current map status
+K_CurrentMap GetCurrentMap() {
+	declare K_State Trackmania_MapStore_State for System = C_State_Null;
+	return Trackmania_MapStore_State.CurrentMap;
+}
+
+Void MainInit(CMlScript _This) {
+	Store::Subscribe(_This, C_StoreId);
+	ResetCurrentMap();
+}
+
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_ComponentName,
+		"""
+		""",
+		"""
+#Include "Libs/Nadeo/Trackmania/Stores/MapStore_ML.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+		""",
+[
+	CampaignStruct::Component()
+],
+[]
+	);
+}

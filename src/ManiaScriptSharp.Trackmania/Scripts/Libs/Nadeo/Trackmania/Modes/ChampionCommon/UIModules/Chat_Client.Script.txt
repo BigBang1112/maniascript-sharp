@@ -1,0 +1,269 @@
+/**
+ *	UI module: Chat client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Chat_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Chat_Common.Script.txt" as UIModules_Chat_Common
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/ZIndex.Script.txt" as ZIndex
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ComponentName "component-championcup-chat"
+#Const P "LibChampionCupChat_"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_Chat_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Chat_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return MV::Create(
+GetId(), 3,
+"""
+<frame id="frame-global" z-index="{{{ZIndex::C_ZIndex_Chat}}}" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Chat_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-buttons">
+			<frame id="frame-chat-toggle">
+				<quad size="6 6" pos="3 0" z-index="-1" halign="center" valign="center" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" bgcolorfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDarkFocused)}}}" opacity="0.7" scriptevents="1" id="button-chat-toggle" />
+				<quad z-index="0" size="6 6" valign="center" image="{{{Icons::C_Icon_128x128_Tchat}}}" colorize="ffffff" />
+			</frame>
+			<frame pos="6 0" id="frame-navigation-toggle">
+				<quad size="6 6" pos="3 0" z-index="-1" halign="center" valign="center" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" bgcolorfocus="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDarkFocused)}}}" opacity="0.7" scriptevents="1" id="button-navigation-toggle" />
+				<quad z-index="0" pos="0.5 0" size="5 5" valign="center" image="{{{Icons::C_Icon_128x128_Lock_Private_Request}}}" colorize="ffffff" id="quad-navigation-toggle" />
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Struct K_Controls {
+	CMlFrame Frame_NavigationToggle;
+	CMlQuad Quad_NavigationToggle;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Boolean IsSpectatorClient;
+	Vec2 MousePosition;
+	Boolean RequestActivation;
+	Integer ActivationRequesterIdsUpdate;
+}
+
+#Const C_BottomLeftCorner <0., -83.5>
+""",
+"""
+Boolean UserWantToDisplayChat() {
+	declare persistent Persistent_ChampionCup_Chat_IsVisible for UserMgr.MainUser = False;
+	return Persistent_ChampionCup_Chat_IsVisible;
+}
+
+K_State SetVisibility(
+	K_State _State,
+	CMlFrame _Frame_Buttons,
+	Boolean _UserWantToDisplayChat,
+	Boolean _IsSpectatorClient,
+	Vec2 _MousePosition
+) {
+	declare K_State State = _State;
+
+	State.IsSpectatorClient = _IsSpectatorClient;
+	State.MousePosition = _MousePosition;
+
+	declare persistent Persistent_ChampionCup_Chat_IsVisible for UserMgr.MainUser = False;
+	if (Persistent_ChampionCup_Chat_IsVisible != _UserWantToDisplayChat) {
+		Persistent_ChampionCup_Chat_IsVisible = _UserWantToDisplayChat;
+		UserMgr.MainUser.PersistentSave();
+	}
+
+	ClientUI.OverlayHideChat = !Persistent_ChampionCup_Chat_IsVisible;
+
+	if (!ClientUI.OverlayHideChat) {
+		_Frame_Buttons.RelativePosition_V3.Y = 41.;
+		_Frame_Buttons.Visible = True;
+	} else if (
+		!State.IsSpectatorClient || (
+			State.MousePosition.X <= C_BottomLeftCorner.X &&
+			State.MousePosition.Y <= C_BottomLeftCorner.Y &&
+			State.MousePosition.X > -1000. &&
+			State.MousePosition.Y > -1000.
+		)
+	) {
+		_Frame_Buttons.RelativePosition_V3.Y = 0.;
+		_Frame_Buttons.Visible = True;
+	} else {
+		_Frame_Buttons.Visible = False;
+	}
+
+	return State;
+}
+
+K_State RequestActivation(K_State _State, Boolean _RequestActivation) {
+	declare K_State State = _State;
+
+	State.RequestActivation = _RequestActivation;
+
+	declare Boolean LibChampionCupChat_IsRequestingActivation for UI;
+	LibChampionCupChat_IsRequestingActivation = State.RequestActivation;
+
+	if (State.RequestActivation) {
+		State.Controls.Quad_NavigationToggle.ImageUrl = "{{{Icons::C_Icon_128x128_Lock_Private_Request}}}";
+	} else {
+		State.Controls.Quad_NavigationToggle.ImageUrl = "{{{Icons::C_Icon_128x128_Lock_Oblique}}}";
+	}
+
+	return State;
+}
+
+K_State UpdateActivationRequesterIds(K_State _State, Integer _ActivationRequesterIdsUpdate, Text[] _ActivationRequesterIds) {
+	declare K_State State = _State;
+
+	State.ActivationRequesterIdsUpdate = _ActivationRequesterIdsUpdate;
+
+	if (_ActivationRequesterIds.count > 0) {
+		State.Controls.Frame_NavigationToggle.Visible = True;
+	} else {
+		State.Controls.Frame_NavigationToggle.Visible = False;
+	}
+
+	return State;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_Buttons;
+declare CMlFrame Frame_ChatToggle;
+
+declare netread Boolean Net_ChampionCup_Chat_IsVisible for UI;
+
+declare Text[] LibChampionCupChat_ActivationRequesterIds for UI;
+declare Integer LibChampionCupChat_ActivationRequesterIdsUpdate for UI;
+
+declare K_State State;
+declare Boolean DisplayModule;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_Buttons <=> (Frame_Global.GetFirstChild("frame-buttons") as CMlFrame);
+Frame_ChatToggle <=> (Frame_Buttons.GetFirstChild("frame-chat-toggle") as CMlFrame);
+State.Controls.Frame_NavigationToggle <=> (Frame_Buttons.GetFirstChild("frame-navigation-toggle") as CMlFrame);
+State.Controls.Quad_NavigationToggle <=> (State.Controls.Frame_NavigationToggle.GetFirstChild("quad-navigation-toggle") as CMlQuad);
+
+DisplayModule = Frame_Global.Visible;
+
+State = SetVisibility(State, Frame_Buttons, UserWantToDisplayChat(), IsSpectatorClient, <MouseX, MouseY>);
+State = UpdateActivationRequesterIds(State, LibChampionCupChat_ActivationRequesterIdsUpdate, LibChampionCupChat_ActivationRequesterIds);
+State = RequestActivation(State, False);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (DisplayModule != Net_ChampionCup_Chat_IsVisible) {
+		DisplayModule = Net_ChampionCup_Chat_IsVisible;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (State.IsSpectatorClient != IsSpectatorClient) {
+			// When the player switches to spectator mode, force the hiding of the chat
+			if (IsSpectatorClient) {
+				State = SetVisibility(State, Frame_Buttons, False, IsSpectatorClient, <MouseX, MouseY>);
+			} else {
+				State = SetVisibility(State, Frame_Buttons, UserWantToDisplayChat(), IsSpectatorClient, <MouseX, MouseY>);
+			}
+		}
+		if (State.ActivationRequesterIdsUpdate != LibChampionCupChat_ActivationRequesterIdsUpdate) {
+			State = UpdateActivationRequesterIds(State, LibChampionCupChat_ActivationRequesterIdsUpdate, LibChampionCupChat_ActivationRequesterIds);
+		}
+
+		// Update the mouse position only when it's necessary
+		if (IsSpectatorClient && ClientUI.OverlayHideChat && State.MousePosition != <MouseX, MouseY>) {
+			State = SetVisibility(State, Frame_Buttons, UserWantToDisplayChat(), IsSpectatorClient, <MouseX, MouseY>);
+		}
+
+		foreach (Event in PendingEvents) {
+			switch (Event.Type) {
+				case CMlScriptEvent::Type::MouseClick: {
+					if (Event.ControlId == "button-chat-toggle") {
+						State = SetVisibility(State, Frame_Buttons, !UserWantToDisplayChat(), IsSpectatorClient, <MouseX, MouseY>);
+					} else if (Event.ControlId == "button-navigation-toggle") {
+						State = RequestActivation(State, !State.RequestActivation);
+					}
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the Chat component
+Text Component() {
+	return MV::Component(
+		C_ComponentName,
+		"",
+		"""
+		""",
+		"""
+Boolean {{{P}}}IsRequestingActivation() {
+	declare Boolean LibChampionCupChat_IsRequestingActivation for UI;
+	declare Text[] LibChampionCupChat_ActivationRequesterIds for UI;
+	return LibChampionCupChat_IsRequestingActivation && LibChampionCupChat_ActivationRequesterIds.count > 0;
+}
+
+Void {{{P}}}CanRequestActivation(Text _RequesterId, Boolean _CanRequestActivation) {
+	declare Text[] LibChampionCupChat_ActivationRequesterIds for UI;
+	declare Integer LibChampionCupChat_ActivationRequesterIdsUpdate for UI;
+	if (_CanRequestActivation) {
+		if (!LibChampionCupChat_ActivationRequesterIds.exists(_RequesterId)) {
+			LibChampionCupChat_ActivationRequesterIds.add(_RequesterId);
+			LibChampionCupChat_ActivationRequesterIdsUpdate += 1;
+		}
+	} else {
+		declare Boolean Removed = LibChampionCupChat_ActivationRequesterIds.remove(_RequesterId);
+		if (Removed) {
+			LibChampionCupChat_ActivationRequesterIdsUpdate += 1;
+		}
+	}
+}
+		""",
+		[],
+		[]
+	);
+}

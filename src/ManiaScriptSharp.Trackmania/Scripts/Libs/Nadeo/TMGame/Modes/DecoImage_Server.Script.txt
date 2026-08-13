@@ -1,0 +1,277 @@
+/**
+ *	Manage the DecoImage (checkpoints, bleachers, signs, ...) server side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/TMGame/Modes/DecoImage_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_DecoImages {
+	Integer ClubId;
+	Text ClubName;
+	Text Checkpoint;
+	Text DecalSponsor4x1;
+	Text Screen16x9;
+	Text Screen8x1;
+	Text Screen16x1;
+}
+#Struct K_HttpResponseDecoImages {
+	Integer id;
+	Text name;
+	Text decalUrl;
+	Text decalSponsor4x1Url;
+	Text screen16x9Url;
+	Text screen8x1Url;
+	Text screen16x1Url;
+	Text decalTheme;
+	Text screen16x9Theme;
+	Text screen8x1Theme;
+	Text screen16x1Theme;
+	// There are more fields in the response but we do not need them
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constantes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_RouteParameter_ServerLogin "ServerLogin"
+#Const C_Headers [
+	"Accept" => "application/json",
+	"Content-Type" => "application/json"
+]
+
+#Const ClubStruct::C_ClubThemes_Path as C_ClubThemes_Path
+#Const ClubStruct::C_ClubThemes_Folders as C_ClubThemes_Folders
+#Const ClubStruct::C_ClubThemes_Files as C_ClubThemes_Files
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Http::K_Request G_Request_GetServerInfo;
+declare K_DecoImages G_LocalDecoImages;
+declare K_DecoImages G_APIDecoImages;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the club theme url or the HTTP url depending on the given media type
+Text Private_GetClubMediaUrl(Text _MediaUrl, Text _MediaTheme, Text _MediaType) {
+	declare Text MediaUrl = ClubStruct::GetClubThemeUrl(_MediaTheme, _MediaType);
+	if (MediaUrl == "") return _MediaUrl;
+	return MediaUrl;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Merge local and API images and apply them
+Void Private_ApplyDecoImages(K_DecoImages _LocalDecoImages, K_DecoImages _APIDecoImages) {
+	declare K_DecoImages MergedDecoImages;
+
+	// Merge deco images
+	if (_LocalDecoImages.Checkpoint != "") MergedDecoImages.Checkpoint = _LocalDecoImages.Checkpoint;
+	else if (_APIDecoImages.Checkpoint != "") MergedDecoImages.Checkpoint = _APIDecoImages.Checkpoint;
+	if (_LocalDecoImages.DecalSponsor4x1 != "") MergedDecoImages.DecalSponsor4x1 = _LocalDecoImages.DecalSponsor4x1;
+	else if (_APIDecoImages.DecalSponsor4x1 != "") MergedDecoImages.DecalSponsor4x1 = _APIDecoImages.DecalSponsor4x1;
+	if (_LocalDecoImages.Screen16x9 != "") MergedDecoImages.Screen16x9 = _LocalDecoImages.Screen16x9;
+	else if (_APIDecoImages.Screen16x9 != "") MergedDecoImages.Screen16x9 = _APIDecoImages.Screen16x9;
+	if (_LocalDecoImages.Screen8x1 != "") MergedDecoImages.Screen8x1 = _LocalDecoImages.Screen8x1;
+	else if (_APIDecoImages.Screen8x1 != "") MergedDecoImages.Screen8x1 = _APIDecoImages.Screen8x1;
+	if (_LocalDecoImages.Screen16x1 != "") MergedDecoImages.Screen16x1 = _LocalDecoImages.Screen16x1;
+	else if (_APIDecoImages.Screen16x1 != "") MergedDecoImages.Screen16x1 = _APIDecoImages.Screen16x1;
+
+	// Apply deco images
+	if (MergedDecoImages.Checkpoint == "" || Http.IsValidUrl(MergedDecoImages.Checkpoint)) {
+		SetClubLogoUrl(MergedDecoImages.Checkpoint);
+	} else {
+		SetClubLogoUrl("");
+	}
+	if (MergedDecoImages.DecalSponsor4x1 == "" || Http.IsValidUrl(MergedDecoImages.DecalSponsor4x1)) {
+		SetDecoImageUrl_DecalSponsor4x1(MergedDecoImages.DecalSponsor4x1);
+	} else {
+		SetDecoImageUrl_DecalSponsor4x1("");
+	}
+	if (MergedDecoImages.Screen16x9 == "" || Http.IsValidUrl(MergedDecoImages.Screen16x9)) {
+		SetDecoImageUrl_Screen16x9(MergedDecoImages.Screen16x9);
+	} else {
+		SetDecoImageUrl_Screen16x9("");
+	}
+	if (MergedDecoImages.Screen8x1 == "" || Http.IsValidUrl(MergedDecoImages.Screen8x1)) {
+		SetDecoImageUrl_Screen8x1(MergedDecoImages.Screen8x1);
+	} else {
+		SetDecoImageUrl_Screen8x1("");
+	}
+	if (MergedDecoImages.Screen16x1 == "" || Http.IsValidUrl(MergedDecoImages.Screen16x1)) {
+		SetDecoImageUrl_Screen16x1(MergedDecoImages.Screen16x1);
+	} else {
+		SetDecoImageUrl_Screen16x1("");
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Parse the API response and apply the deco images it returned
+Void Private_ParseAPIResponse(Text _Result) {
+	if (_Result == "") return;
+
+	declare K_HttpResponseDecoImages HttpResponseDecoImages;
+	HttpResponseDecoImages.fromjson(_Result);
+	G_APIDecoImages.ClubId = HttpResponseDecoImages.id;
+	G_APIDecoImages.ClubName = HttpResponseDecoImages.name;
+	G_APIDecoImages.Checkpoint = Private_GetClubMediaUrl(HttpResponseDecoImages.decalUrl, HttpResponseDecoImages.decalTheme, ClubStruct::C_MediaType_Decal);
+	G_APIDecoImages.DecalSponsor4x1 = Private_GetClubMediaUrl(HttpResponseDecoImages.decalSponsor4x1Url, "", ClubStruct::C_MediaType_DecalSponsor);
+	G_APIDecoImages.Screen16x9 = Private_GetClubMediaUrl(HttpResponseDecoImages.screen16x9Url, HttpResponseDecoImages.screen16x9Theme, ClubStruct::C_MediaType_Screen16x9);
+	G_APIDecoImages.Screen8x1 = Private_GetClubMediaUrl(HttpResponseDecoImages.screen8x1Url, HttpResponseDecoImages.screen8x1Theme, ClubStruct::C_MediaType_Screen8x1);
+	G_APIDecoImages.Screen16x1 = Private_GetClubMediaUrl(HttpResponseDecoImages.screen16x1Url, HttpResponseDecoImages.screen16x1Theme, ClubStruct::C_MediaType_Screen16x1);
+
+	declare netwrite Integer Net_TMGame_DecoImage_ClubId for Teams[0] = 0;
+	Net_TMGame_DecoImage_ClubId = G_APIDecoImages.ClubId;
+	declare netwrite Text Net_TMGame_DecoImage_ClubName for Teams[0] = "";
+	Net_TMGame_DecoImage_ClubName = G_APIDecoImages.ClubName;
+
+	Private_ApplyDecoImages(G_LocalDecoImages, G_APIDecoImages);
+}
+
+Integer GetClubId() {
+	return G_APIDecoImages.ClubId;
+}
+
+Text GetClubName() {
+	return G_APIDecoImages.ClubName;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Retrieve club infos
+Void GetClubInfos(Integer _ClubId, Text _ClubName, Boolean _IsLocalServer, Text _WhoAmIUrl, Text _ServerLogin) {
+	declare Boolean NeedToRetrieveClubInfos = True;
+
+	// If Club id and name knowned, no need to do the request unless we do not have all deco images
+	if (_ClubId != ClubStruct::C_ClubNullId) {
+		declare netwrite Integer Net_TMGame_DecoImage_ClubId for Teams[0] = 0;
+		Net_TMGame_DecoImage_ClubId = _ClubId;
+		declare netwrite Text Net_TMGame_DecoImage_ClubName for Teams[0] = "";
+		Net_TMGame_DecoImage_ClubName = _ClubName;
+
+		if (
+			G_LocalDecoImages.Checkpoint != "" &&
+			G_LocalDecoImages.DecalSponsor4x1 != "" &&
+			G_LocalDecoImages.Screen16x9 != "" &&
+			G_LocalDecoImages.Screen8x1 != "" &&
+			G_LocalDecoImages.Screen16x1 != ""
+		) {
+			NeedToRetrieveClubInfos = False;
+		}
+	}
+
+	if (NeedToRetrieveClubInfos && !_IsLocalServer && _WhoAmIUrl != "" && _ServerLogin != "") {
+		declare Text Route = Http::InjectRouteParameters(_WhoAmIUrl, [C_RouteParameter_ServerLogin => _ServerLogin]);
+		G_Request_GetServerInfo = Http::DestroyAndCreate(G_Request_GetServerInfo, Http::CreateGet(Config::Get().APIBaseUrl^Route, C_Headers));
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update deco images with local data
+Void SetDecoImages(
+	Boolean _IsLocalServer,
+	Text _WhoAmIUrl,
+	Text _ServerLogin,
+	Text _DecoImageUrl_Checkpoint,
+	Text _DecoImageUrl_DecalSponsor4x1,
+	Text _DecoImageUrl_Screen16x9,
+	Text _DecoImageUrl_Screen8x1,
+	Text _DecoImageUrl_Screen16x1,
+	Integer _ClubId,
+	Text _ClubName
+) {
+	// Update the local images
+	G_LocalDecoImages = K_DecoImages {
+		Checkpoint = _DecoImageUrl_Checkpoint,
+		DecalSponsor4x1 = _DecoImageUrl_DecalSponsor4x1,
+		Screen16x9 = _DecoImageUrl_Screen16x9,
+		Screen8x1 = _DecoImageUrl_Screen8x1,
+		Screen16x1 = _DecoImageUrl_Screen16x1
+	};
+
+	// Update the API images and club infos
+	if (
+		_IsLocalServer ||
+		_WhoAmIUrl == "" ||
+		_ServerLogin == ""
+	) {
+		G_APIDecoImages = K_DecoImages {};
+	}
+	GetClubInfos(_ClubId, _ClubName, _IsLocalServer, _WhoAmIUrl, _ServerLogin);
+
+	Private_ApplyDecoImages(G_LocalDecoImages, G_APIDecoImages);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the local checkpoint deco image
+Void SetDecoImage_Checkpoint(Text _DecoImageUrl_Checkpoint) {
+	G_LocalDecoImages.Checkpoint = _DecoImageUrl_Checkpoint;
+	Private_ApplyDecoImages(G_LocalDecoImages, G_APIDecoImages);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the local DecalSponsor4x1 deco image
+Void SetDecoImage_DecalSponsor4x1(Text _DecoImageUrl_DecalSponsor4x1) {
+	G_LocalDecoImages.DecalSponsor4x1 = _DecoImageUrl_DecalSponsor4x1;
+	Private_ApplyDecoImages(G_LocalDecoImages, G_APIDecoImages);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the local Screen16x9 deco image
+Void SetDecoImage_Screen16x9(Text _DecoImageUrl_Screen16x9) {
+	G_LocalDecoImages.Screen16x9 = _DecoImageUrl_Screen16x9;
+	Private_ApplyDecoImages(G_LocalDecoImages, G_APIDecoImages);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the local Screen8x1 deco image
+Void SetDecoImage_Screen8x1(Text _DecoImageUrl_Screen8x1) {
+	G_LocalDecoImages.Screen8x1 = _DecoImageUrl_Screen8x1;
+	Private_ApplyDecoImages(G_LocalDecoImages, G_APIDecoImages);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the local Screen16x1 deco image
+Void SetDecoImage_Screen16x1(Text _DecoImageUrl_Screen16x1) {
+	G_LocalDecoImages.Screen16x1 = _DecoImageUrl_Screen16x1;
+	Private_ApplyDecoImages(G_LocalDecoImages, G_APIDecoImages);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (Http::IsInitialized(G_Request_GetServerInfo)) {
+		G_Request_GetServerInfo = Http::Update(G_Request_GetServerInfo);
+		if (!Http::IsRunning(G_Request_GetServerInfo)) {
+			if (Http::IsSuccess(G_Request_GetServerInfo)) {
+				Private_ParseAPIResponse(Http::GetResult(G_Request_GetServerInfo));
+			}
+			G_Request_GetServerInfo = Http::Destroy(G_Request_GetServerInfo);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	if (Http::IsInitialized(G_Request_GetServerInfo)) {
+		G_Request_GetServerInfo = Http::Destroy(G_Request_GetServerInfo);
+	}
+	G_Request_GetServerInfo = Http::GetEmptyRequest();
+	G_LocalDecoImages = K_DecoImages {};
+	G_APIDecoImages = K_DecoImages {};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

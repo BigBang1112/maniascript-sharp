@@ -1,0 +1,95 @@
+/**
+ *  Component : CampaignAPI
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/TMGame/API/CampaignAPI.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_API_CampaignNoAuth "/api/campaign"
+
+#Const C_RouteParameter_MapUid "MapUid"
+
+#Const C_Route_GetMapInfo "/map/:MapUid"
+
+#Const C_Headers [
+	"Accept" => "application/json",
+	"Content-Type" => "application/json"
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct LibCampaignAPI_K_HttpResponseGetMapInfo {
+	Integer officialYear;
+	Integer season;
+	Text[] officialMaps;
+	Integer totdYear;
+	Integer week;
+	Text[] totdMaps;
+}
+#Struct LibCampaignAPI_K_ResponseGetMapInfo {
+	Boolean IsCampaignOfficial;
+	Boolean IsCampaignMonthly;
+	Integer OfficialYear;
+	Integer OfficialSeason;
+	Text[] OfficialMapsUids;
+	Integer MonthlyYear;
+	Integer MonthlyWeek;
+	Text[] MonthlyMapsUids;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to check if a track in an official campaign or TOTD track
+ *
+ *	@param	_MapUid										The map uid of the track
+ *
+ *	@return														The request
+ */
+Http::K_Request GetMapInfo(Text _MapUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetMapInfo, [C_RouteParameter_MapUid => ""^_MapUid]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_CampaignNoAuth^Route, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetMapInfo request
+LibCampaignAPI_K_ResponseGetMapInfo GetResponseFromGetMapInfo(Http::K_Request _Request) {
+	declare LibCampaignAPI_K_HttpResponseGetMapInfo HttpResponseGetMapInfo;
+	HttpResponseGetMapInfo.fromjson(Http::GetResult(_Request));
+
+	// Season should be 0 -> winter, 1 -> spring, 2 -> summer, 3 -> fall
+	// But sometimes the season go above 3
+	// If we receive a valid season (not -1)
+	// do a modulo to clamp the season in the right range
+	// and adjust the year accordingly
+	// eg: HttpResponseGetMapInfo.officialYear = 2022 and HttpResponseGetMapInfo.season = 4
+	// should become OfficialYear = 2023 and OfficialSeason = 0
+	// see: /trackmania-next/tmnext/-/issues/4522#note_246610
+	declare Integer OfficialYear = HttpResponseGetMapInfo.officialYear;
+	declare Integer OfficialSeason = HttpResponseGetMapInfo.season;
+	if (OfficialSeason >= 4) {
+		OfficialYear += OfficialSeason / 4;
+		OfficialSeason %= 4;
+	}
+
+	return LibCampaignAPI_K_ResponseGetMapInfo {
+		IsCampaignOfficial = HttpResponseGetMapInfo.officialYear >= 0 && HttpResponseGetMapInfo.season >= 0,
+		IsCampaignMonthly = HttpResponseGetMapInfo.totdYear >= 0 && HttpResponseGetMapInfo.week >= 0,
+		OfficialYear = OfficialYear,
+		OfficialSeason = OfficialSeason,
+		OfficialMapsUids = HttpResponseGetMapInfo.officialMaps,
+		MonthlyYear = HttpResponseGetMapInfo.totdYear,
+		MonthlyWeek = HttpResponseGetMapInfo.week,
+		MonthlyMapsUids = HttpResponseGetMapInfo.totdMaps
+	};
+}

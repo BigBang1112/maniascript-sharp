@@ -1,0 +1,963 @@
+/**
+ * UI module: Checkpoint client side
+ */
+#Const Version "1.1.1"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/ClientUI.Script.txt" as ClientUI
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Common.Script.txt" as UIModules_Checkpoint_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const UIModules_Checkpoint_Common::C_RankMode_BestRace as C_RankMode_BestRace
+#Const UIModules_Checkpoint_Common::C_RankMode_CurrentRace as C_RankMode_CurrentRace
+#Const UIModules_Checkpoint_Common::C_RankMode_Self as C_RankMode_Self
+#Const UIModules_Checkpoint_Common::C_RankMode_Ghost as C_RankMode_Ghost
+#Const UIModules_Checkpoint_Common::C_RankMode_GhostRespawns as C_RankMode_GhostRespawns
+#Const UIModules_Checkpoint_Common::C_RankMode_BestRespawns as C_RankMode_BestRespawns
+#Const UIModules_Checkpoint_Common::C_RankMode_Custom as C_RankMode_Custom
+#Const UIModules_Checkpoint_Common::C_RankMode_Default as C_RankMode_Default
+
+#Const UIModules_Checkpoint_Common::C_Target_Everyone as C_Target_Everyone
+#Const UIModules_Checkpoint_Common::C_Target_Players as C_Target_Players
+#Const UIModules_Checkpoint_Common::C_Target_None as C_Target_None
+
+#Const C_Event_Waypoint "TMGame_RaceCheckpoint_Waypoint"
+#Const C_Event_PlayWaypointSound "TMGame_RaceCheckpoint_PlayWaypointSound"
+
+#Const C_SoundPath "file://Media/Manialinks/Nadeo/Trackmania/Ingame/Sound/"
+
+#Const C_Waypoint_Ahead "-1"
+#Const C_Waypoint_Neutral "0"
+#Const C_Waypoint_Late "1"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare CAudioSource G_Sound_Checkpoint;
+declare CAudioSource G_Sound_CheckpointLate;
+declare CAudioSource G_Sound_CheckpointAhead;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_Checkpoint_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Checkpoint_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	//L16N Legend display beside the lap time
+	declare Text_Lap = _("|Race|Lap");
+
+	declare Color_Red = <0.980, 0.149, 0.149>;
+	declare Color_Blue = <0.149, 0.149, 0.980>;
+	declare Color_Grey = CL::Hex6ToRgb("777777");
+
+	if (G_Sound_Checkpoint == Null) G_Sound_Checkpoint = Audio.CreateSound(C_SoundPath^"RaceCheckPoint_Experimental.wav", 0.0, False, False, False);
+	if (G_Sound_CheckpointLate == Null) G_Sound_CheckpointLate = Audio.CreateSound(C_SoundPath^"RaceCheckPointLate_Experimental.wav", 0.0, False, False, False);
+	if (G_Sound_CheckpointAhead == Null) G_Sound_CheckpointAhead = Audio.CreateSound(C_SoundPath^"RaceCheckPointAhead_Experimental.wav", 0.0, False, False, False);
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-default" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="ffffff" textsize="3" />
+	<style class="text-number" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_IngameTime)}}}" textcolor="ffffff" textsize="4" />
+</stylesheet>
+<frame z-index="-2" hidden="1" id="frame-global">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Checkpoint_Common::C_UIModuleConfig)}}}>
+		<frame hidden="1" id="frame-checkpoint">
+			<frame pos="0 -12" id="frame-race">
+				<frame pos="0 5" id="frame-race-time" scale="0.9">
+					<quad z-index="0" size="20 8" valign="center" bgcolor="000000" opacity="0.6" />
+					<label pos="19 0" z-index="1" size="18 10"  halign="right" valign="center2" class="text-number" id="label-race-time" />
+				</frame>
+				<frame pos="0 -2.1" id="frame-race-diff" scale="0.9">
+					<quad z-index="0" size="20 8" valign="center" bgcolor="000000" opacity="0.6" id="quad-race-diff" />
+					<label pos="19 0" z-index="1" size="18 10" halign="right" valign="center2" class="text-number" id="label-race-diff" />
+				</frame>
+				<frame pos="0 5" id="frame-race-rank" scale="0.9" hidden="1">
+					<quad z-index="0" size="10 8" halign="right" valign="center" bgcolor="000000" opacity="0.6" id="quad-race-rank" />
+					<label pos="-0.5 0" z-index="1" size="8.5 10" halign="right" valign="center2" textsize="3" textemboss="1" class="text-default" id="label-race-rank" />
+				</frame>
+			</frame>
+			<frame pos="0 12" id="frame-lap">
+				<frame pos="0 5" id="frame-lap-time" scale="0.9">
+					<quad z-index="0" size="20 8" valign="center" bgcolor="000000" opacity="0.6" />
+					<label pos="19 0" z-index="1" size="18 10" halign="right" valign="center2" class="text-number" id="label-lap-time" />
+				</frame>
+				<frame pos="0 -2.2" id="frame-lap-diff" scale="0.9">
+					<quad z-index="0" size="20 8" valign="center" bgcolor="000000" opacity="0.6" id="quad-lap-diff" />
+					<label pos="19 0" z-index="1" size="18 10" halign="right" valign="center2" class="text-number" id="label-lap-diff" />
+				</frame>
+				<frame pos="0 2.1" id="frame-lap-legend" scale="0.9">
+					<label pos="-1 0" z-index="1" size="18 10" halign="right" textsize="4" valign="center" text="{{{Text_Lap}}}" textemboss="1" class="text-default" />
+				</frame>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Modes/ClientUI.Script.txt" as ClientUI
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Client.Script.txt" as RaceHelpers
+#Include "Libs/Nadeo/TMGame/Utils/Constants.Script.txt" as TM_Const
+
+#Const C_DisplayDuration 3000
+#Const C_RankUpdateInterval 250
+
+#Const C_Race 0
+#Const C_Lap 1
+
+#Const C_Target_Everyone {{{dump(C_Target_Everyone)}}}
+#Const C_Target_Players {{{dump(C_Target_Players)}}}
+#Const C_Target_None {{{dump(C_Target_None)}}}
+
+#Const C_RankMode_BestRace {{{dump(C_RankMode_BestRace)}}}
+#Const C_RankMode_CurrentRace {{{dump(C_RankMode_CurrentRace)}}}
+#Const C_RankMode_Self {{{dump(C_RankMode_Self)}}}
+#Const C_RankMode_Ghost {{{dump(C_RankMode_Ghost)}}}
+#Const C_RankMode_GhostRespawns {{{dump(C_RankMode_GhostRespawns)}}}
+#Const C_RankMode_BestRespawns {{{dump(C_RankMode_BestRespawns)}}}
+#Const C_RankMode_Custom {{{dump(C_RankMode_Custom)}}}
+#Const C_RankMode_Default {{{dump(C_RankMode_Default)}}}
+
+#Const C_TextFont_Number {{{dump(Stylesheet::C_FontRaw_Oswald_Mono)}}}
+#Const C_TextFont_Text {{{dump(Stylesheet::C_FontRaw_Oswald_Regular)}}}
+
+#Struct K_Best {
+	Integer Time;
+	Integer CheckpointIndex;
+}
+
+#Struct K_RankUpdate {
+	Boolean KeepUpdating;
+	Integer NextUpdateTime;
+	Integer RankMode;
+	Integer CheckpointIndex;
+	Integer RaceTime;
+	Boolean IsIndependentLaps;
+}
+""",
+"""
+declare CMlFrame Frame_Checkpoint;
+declare CMlFrame Frame_Race;
+declare CMlFrame Frame_RaceTime;
+declare CMlLabel Label_RaceTime;
+declare CMlFrame Frame_RaceDiff;
+declare CMlQuad Quad_RaceDiff;
+declare CMlLabel Label_RaceDiff;
+declare CMlFrame Frame_RaceRank;
+declare CMlLabel Label_RaceRank;
+declare CMlFrame Frame_Lap;
+declare CMlFrame Frame_LapTime;
+declare CMlLabel Label_LapTime;
+declare CMlFrame Frame_LapDiff;
+declare CMlQuad Quad_LapDiff;
+declare CMlLabel Label_LapDiff;
+
+declare Integer G_DisplayEndTime;
+declare Integer G_LapCurrent;
+declare K_RankUpdate G_RankUpdate;
+
+Boolean IsInVisibilityTarget(Integer _Target) {
+	switch(_Target) {
+		case C_Target_Everyone: {
+			return True;
+		}
+		case C_Target_Players: {
+			return (InputPlayer != Null && (InputPlayer.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned));
+		}
+		case C_Target_None: {
+			return False;
+		}
+	}
+	return False;
+}
+
+Integer GetCurRaceRank(CSmPlayer _Owner, Integer _CheckpointIndex, Integer _Time, Boolean _IsIndependentLaps) {
+	declare Rank = 1;
+
+	if (_Owner != Null && _Time >= 0 && _CheckpointIndex >= 0) {
+		foreach (Player in Players) {
+			if (Player.Id != _Owner.Id) {
+				if (
+					_IsIndependentLaps &&
+					_CheckpointIndex < Player.LapWaypointTimes.count &&
+					Player.LapWaypointTimes[_CheckpointIndex] >= 0 &&
+					_Time > Player.LapWaypointTimes[_CheckpointIndex]
+				) {
+					Rank += 1;
+				} else if (
+					!_IsIndependentLaps &&
+					_CheckpointIndex < Player.RaceWaypointTimes.count &&
+					Player.RaceWaypointTimes[_CheckpointIndex] >= 0 &&
+					_Time > Player.RaceWaypointTimes[_CheckpointIndex]
+				) {
+					Rank += 1;
+				}
+			}
+		}
+	}
+
+	return Rank;
+}
+
+Integer GetBestRaceRank(CSmPlayer _Owner, Integer _CheckpointIndex, Integer _Time, Boolean _IsIndependentLaps) {
+	declare Rank = 1;
+
+	if (_Owner != Null && _Time >= 0) {
+		foreach (Score in Scores) {
+			if (
+				(_Owner.Score == Null || Score.Id != _Owner.Score.Id) &&
+				_CheckpointIndex >= 0
+			) {
+				if (
+					_IsIndependentLaps &&
+					_CheckpointIndex < Score.BestLapTimes.count &&
+					Score.BestLapTimes[_CheckpointIndex] >= 0 &&
+					_Time > Score.BestLapTimes[_CheckpointIndex]
+				) {
+					Rank += 1;
+				} else if (
+					!_IsIndependentLaps &&
+					_CheckpointIndex < Score.BestRaceTimes.count &&
+					Score.BestRaceTimes[_CheckpointIndex] >= 0 &&
+					_Time > Score.BestRaceTimes[_CheckpointIndex]
+				) {
+					Rank += 1;
+				}
+			}
+		}
+	}
+
+	return Rank;
+}
+
+Integer GetSelfRaceRank(CSmPlayer _Owner, Integer _CheckpointIndex, Integer _Time, Boolean _IsIndependentLaps) {
+	declare Rank = 1;
+
+	if (
+		_Time >= 0 &&
+		_Owner != Null &&
+		_Owner.Score != Null &&
+		_CheckpointIndex >= 0
+	) {
+		if (
+			_IsIndependentLaps &&
+			_CheckpointIndex < _Owner.Score.BestLapTimes.count &&
+			_Owner.Score.BestLapTimes[_CheckpointIndex] >= 0 &&
+			_Time > _Owner.Score.BestLapTimes[_CheckpointIndex]
+		) {
+			Rank = 2;
+		} else if (
+			!_IsIndependentLaps &&
+			_CheckpointIndex < _Owner.Score.BestRaceTimes.count &&
+			_Owner.Score.BestRaceTimes[_CheckpointIndex] >= 0 &&
+			_Time > _Owner.Score.BestRaceTimes[_CheckpointIndex]
+		) {
+			Rank = 2;
+		}
+	}
+
+	return Rank;
+}
+
+Integer GetGhostRaceRank(CSmPlayer _Owner, Integer _CheckpointIndex, Integer _Time, Boolean _IsIndependentLaps) {
+	declare Integer Rank = 1;
+
+	assert(!_IsIndependentLaps, "Ghost race ranking does not support independent laps");
+
+	if (_Owner != Null && _Time >= 0 && _CheckpointIndex >= 0) {
+		declare netread Integer[][] Net_Race_Checkpoint_GhostsTimes for UI;
+		foreach (WaypointsTimes in Net_Race_Checkpoint_GhostsTimes) {
+			if (
+				_CheckpointIndex < WaypointsTimes.count &&
+				WaypointsTimes[_CheckpointIndex] >= 0 &&
+				_Time > WaypointsTimes[_CheckpointIndex]
+			) {
+				Rank += 1;
+			}
+		}
+	}
+
+	return Rank;
+}
+
+Integer GetGhostRespawnsRank(Integer _CurrentRespawnsNb) {
+	declare Rank = 1;
+
+	if (_CurrentRespawnsNb >= 0) {
+		declare netread Integer Net_Race_Checkpoint_BestGhostRespawnsNb for UI = -1;
+		if (Net_Race_Checkpoint_BestGhostRespawnsNb >= 0 &&	_CurrentRespawnsNb > Net_Race_Checkpoint_BestGhostRespawnsNb) {
+			Rank = 2;
+		}
+	}
+
+	return Rank;
+}
+
+Integer GetBestRespawnsRank(CSmPlayer _Owner, Integer _CurrentRespawnsNb) {
+	declare Rank = 1;
+
+	if (_Owner != Null && _CurrentRespawnsNb >= 0) {
+		foreach (Score in Scores) {
+			if (_Owner.Score == Null || Score.Id != _Owner.Score.Id) {
+				if (
+					Score.BestRaceTimes.count > 0 &&
+					Score.BestRaceNbRespawns >= 0 &&
+					_CurrentRespawnsNb > Score.BestRaceNbRespawns
+				) {
+					Rank += 1;
+				}
+			}
+		}
+	}
+
+	return Rank;
+}
+
+Integer GetCustomRank(CSmPlayer _Owner) {
+	declare netread Integer Net_Race_Checkpoint_CustomRank for _Owner = 1;
+	return Net_Race_Checkpoint_CustomRank;
+}
+
+Void UpdateRank(CSmPlayer _Owner, Integer _RankMode, Integer _CheckpointIndex, Integer _RaceTime, Boolean _IsIndependentLaps) {
+	declare Rank = 1;
+	switch (_RankMode) {
+		case C_RankMode_CurrentRace: Rank = GetCurRaceRank(_Owner, _CheckpointIndex, _RaceTime, _IsIndependentLaps);
+		case C_RankMode_Self: Rank = GetSelfRaceRank(_Owner, _CheckpointIndex, _RaceTime, _IsIndependentLaps);
+		case C_RankMode_Ghost: Rank = GetGhostRaceRank(_Owner, _CheckpointIndex, _RaceTime, _IsIndependentLaps);
+		case C_RankMode_GhostRespawns: Rank = GetGhostRespawnsRank(_RaceTime);
+		case C_RankMode_BestRespawns: Rank = GetBestRespawnsRank(_Owner, _RaceTime);
+		case C_RankMode_Custom: Rank = GetCustomRank(_Owner);
+		default: Rank = GetBestRaceRank(_Owner, _CheckpointIndex, _RaceTime, _IsIndependentLaps); //< C_RankMode_BestRace
+	}
+	Frame_RaceRank.Visible = Rank > 0;
+	if (Frame_RaceRank.Visible)	Label_RaceRank.Value = TL::FormatRank(Rank, False);
+}
+
+Void DisplayCheckpointTime(
+	CSmPlayer _Owner,
+	Integer _RaceCheckpointIndex,
+	Integer _LapCheckpointIndex,
+	Integer _RaceTime,
+	Integer _LapTime,
+	Integer _RankMode,
+	Boolean _VisibilityRaceTimeDiff,
+	Boolean _VisibilityLapTimeDiff,
+	Boolean _IsIndependentLaps,
+	K_Best _OverrideBestRace,
+	K_Best _OverrideBestLap,
+	Boolean _OverrideTimeDiff,
+	Boolean _ValidRaceTimeDiff,
+	Integer _RaceTimeDiff,
+	Boolean _ValidLapTimeDiff,
+	Integer _LapTimeDiff,
+	Boolean _DisplayRespawnsInsteadOfTime
+) {
+	if (_Owner != Null) {
+		G_LapCurrent = RaceHelpers::GetPlayerLap(_Owner);
+		Frame_Checkpoint.Visible = True;
+		G_DisplayEndTime = Now + C_DisplayDuration;
+		declare RaceTime = -1;
+
+		if (_DisplayRespawnsInsteadOfTime) {
+			Label_RaceTime.TextFont = C_TextFont_Text;
+			Label_RaceDiff.TextFont = C_TextFont_Text;
+		} else {
+			Label_RaceTime.TextFont = C_TextFont_Number;
+			Label_RaceDiff.TextFont = C_TextFont_Number;
+		}
+
+		if (_DisplayRespawnsInsteadOfTime) {
+			// Platform Score
+			if (_Owner.Score != Null && _Owner.Score.NbRespawnsRequested >= 0) {
+				Label_RaceTime.Value = TM_Const::GetScoreText(_Owner.Score.NbRespawnsRequested, TM_Const::C_ScoreType_Respawns, False);
+				RaceTime = _Owner.Score.NbRespawnsRequested;
+				Frame_RaceTime.Visible = True;
+			} else {
+				Frame_RaceTime.Visible = False;
+			}
+		} else {
+			// Race time
+			if (_IsIndependentLaps && _LapTime >= 0) {
+				RaceTime = _LapTime;
+				Label_RaceTime.Value = TL::TimeToText(RaceTime, True, True);
+				Frame_RaceTime.Visible = True;
+			} else if (!_IsIndependentLaps && _RaceTime >= 0) {
+				RaceTime = _RaceTime;
+				Label_RaceTime.Value = TL::TimeToText(RaceTime, True, True);
+				Frame_RaceTime.Visible = True;
+			} else {
+				Frame_RaceTime.Visible = False;
+			}
+		}
+
+		// Race diff
+		declare Boolean RaceDiffIsVisible = False;
+		declare Integer RaceDiff;
+		if (_VisibilityRaceTimeDiff) {
+			declare BestRaceTime = -1;
+
+			if (_DisplayRespawnsInsteadOfTime) {
+				switch (_RankMode) {
+					case C_RankMode_GhostRespawns: {
+						declare netread Integer Net_Race_Checkpoint_BestGhostRespawnsNb for UI = -1;
+						if (Net_Race_Checkpoint_BestGhostRespawnsNb >= 0) BestRaceTime = Net_Race_Checkpoint_BestGhostRespawnsNb;
+					}
+					case C_RankMode_BestRespawns: {
+						if (_Owner.Score.BestRaceTimes.count > 0 && _Owner.Score.BestRaceNbRespawns >= 0) BestRaceTime = _Owner.Score.BestRaceNbRespawns;
+					}
+				}
+			} else if (_OverrideTimeDiff) {
+				if (_IsIndependentLaps) {
+					if (_ValidLapTimeDiff) {
+						RaceDiffIsVisible = True;
+						RaceDiff = _LapTimeDiff;
+					}
+				} else {
+					if (_ValidRaceTimeDiff) {
+						RaceDiffIsVisible = True;
+						RaceDiff = _RaceTimeDiff;
+					}
+				}
+			} else {
+				if (_IsIndependentLaps && _Owner.Score != Null && _Owner.Score.BestLapTimes.existskey(_LapCheckpointIndex)) {
+					if (_OverrideBestLap.Time >= 0) {
+						if (_OverrideBestLap.Time > 0 && _OverrideBestLap.CheckpointIndex == _LapCheckpointIndex) {
+							BestRaceTime = _OverrideBestLap.Time;
+						} else {
+							BestRaceTime = -1; // If it's the first time the player finish the race, do not display time diff.
+						}
+					} else {
+						BestRaceTime = _Owner.Score.BestLapTimes[_LapCheckpointIndex];
+					}
+				} else if (!_IsIndependentLaps && _Owner.Score != Null && _Owner.Score.BestRaceTimes.existskey(_RaceCheckpointIndex)) {
+					if (_OverrideBestRace.Time >= 0) {
+						if (_OverrideBestRace.Time > 0 && _OverrideBestRace.CheckpointIndex == _RaceCheckpointIndex) {
+							BestRaceTime = _OverrideBestRace.Time;
+						} else {
+							BestRaceTime = -1; // If it's the first time the player finish the lap, do not display time diff.
+						}
+					} else {
+						BestRaceTime = _Owner.Score.BestRaceTimes[_RaceCheckpointIndex];
+					}
+				}
+			}
+
+			if (RaceTime >= 0 && BestRaceTime >= 0) {
+				RaceDiffIsVisible = True;
+				RaceDiff = RaceTime - BestRaceTime;
+			}
+		}
+
+		if (RaceDiffIsVisible) {
+			if (RaceDiff > 0) {
+				Quad_RaceDiff.BgColor = {{{Color_Red}}};
+				if (_DisplayRespawnsInsteadOfTime) {
+					Label_RaceDiff.Value = "+" ^ TL::GetTranslatedText(TM_Const::GetScoreText(RaceDiff, TM_Const::C_ScoreType_Respawns, False));
+				} else {
+					Label_RaceDiff.Value = "+" ^ TL::GetTranslatedText(TM_Const::GetScoreText(RaceDiff, TM_Const::C_ScoreType_Time, False));
+				}
+				SendCustomEvent("{{{C_Event_PlayWaypointSound}}}", ["{{{C_Waypoint_Late}}}"]);
+			} else if (RaceDiff < 0) {
+				Quad_RaceDiff.BgColor = {{{Color_Blue}}};
+				if (_DisplayRespawnsInsteadOfTime) {
+					Label_RaceDiff.Value = "-" ^ TL::GetTranslatedText(TM_Const::GetScoreText(ML::Abs(RaceDiff), TM_Const::C_ScoreType_Respawns, False));
+				} else {
+					Label_RaceDiff.Value = TL::TimeToText(RaceDiff, True, True);
+				}
+				SendCustomEvent("{{{C_Event_PlayWaypointSound}}}", ["{{{C_Waypoint_Ahead}}}"]);
+			} else {
+				Quad_RaceDiff.BgColor = {{{Color_Grey}}};
+				if (_DisplayRespawnsInsteadOfTime) {
+					Label_RaceDiff.Value = TM_Const::GetScoreText(RaceDiff, TM_Const::C_ScoreType_Respawns, False);
+				} else {
+					Label_RaceDiff.Value = TL::TimeToText(RaceDiff, True, True);
+				}
+				SendCustomEvent("{{{C_Event_PlayWaypointSound}}}", ["{{{C_Waypoint_Neutral}}}"]);
+			}
+			Frame_RaceDiff.Visible = True;
+		} else {
+			Frame_RaceDiff.Visible = False;
+			SendCustomEvent("{{{C_Event_PlayWaypointSound}}}", ["{{{C_Waypoint_Neutral}}}"]);
+		}
+
+		// Race time and diff Y position
+		/*if (Frame_RaceTime.Visible && Frame_RaceDiff.Visible) {
+			Frame_RaceTime.RelativePosition_V3.Y = 5.;
+			Frame_RaceDiff.RelativePosition_V3.Y = 2.;
+		} else {
+			Frame_RaceTime.RelativePosition_V3.Y = 0.;
+			Frame_RaceDiff.RelativePosition_V3.Y = 5.;
+		}*/
+
+		// Race rank
+		declare Rank = 1;
+		declare CheckpointIndex = _RaceCheckpointIndex;
+		if (_IsIndependentLaps) CheckpointIndex = _LapCheckpointIndex;
+		UpdateRank(_Owner, _RankMode, CheckpointIndex, RaceTime, _IsIndependentLaps);
+
+		G_RankUpdate.KeepUpdating = _RankMode == C_RankMode_CurrentRace;
+		if (G_RankUpdate.KeepUpdating) {
+			G_RankUpdate.NextUpdateTime = Now + C_RankUpdateInterval;
+			G_RankUpdate.RankMode = _RankMode;
+			G_RankUpdate.CheckpointIndex = CheckpointIndex;
+			G_RankUpdate.RaceTime = RaceTime;
+			G_RankUpdate.IsIndependentLaps = _IsIndependentLaps;
+		}
+
+		// Lap time + diff
+		if (_IsIndependentLaps) {
+			Frame_Lap.Visible = False;
+		} else if (_RaceCheckpointIndex > _LapCheckpointIndex) {
+			// Lap time
+			declare LapTime = -1;
+			if (_LapTime >= 0) {
+				LapTime = _LapTime;
+				Label_LapTime.Value = TL::TimeToText(LapTime, True, True);
+				Frame_LapTime.Visible = True;
+			} else {
+				Frame_LapTime.Visible = False;
+			}
+
+			// Lap diff
+			declare Boolean LapDiffIsVisible = False;
+			declare Integer LapDiff;
+			if (_VisibilityLapTimeDiff) {
+				if (_OverrideTimeDiff) {
+					if (_ValidLapTimeDiff) {
+						LapDiffIsVisible = True;
+						LapDiff = _LapTimeDiff;
+					}
+				} else {
+					declare BestLapTime = -1;
+					if (_OverrideBestLap.Time >= 0) {
+						if (_OverrideBestLap.Time > 0 && _OverrideBestLap.CheckpointIndex == _LapCheckpointIndex) {
+							BestLapTime = _OverrideBestLap.Time;
+						} else {
+							BestLapTime = -1; // If it's the first time the player finish the race, do not display time diff.
+						}
+					} else if (_Owner.Score != Null && _Owner.Score.BestLapTimes.existskey(_LapCheckpointIndex)) {
+						BestLapTime = _Owner.Score.BestLapTimes[_LapCheckpointIndex];
+					}
+					if (LapTime >= 0 && BestLapTime >= 0) {
+						LapDiffIsVisible = True;
+						LapDiff = LapTime - BestLapTime;
+					}
+				}
+			}
+
+			if (LapDiffIsVisible) {
+				if (LapDiff > 0) {
+					Quad_LapDiff.BgColor = {{{Color_Grey}}};
+					Label_LapDiff.Value = "+"^TL::TimeToText(LapDiff, True, True);
+				} else if (LapDiff < 0) {
+					Quad_LapDiff.BgColor = {{{Color_Grey}}};
+					Label_LapDiff.Value = TL::TimeToText(LapDiff, True, True);
+				} else {
+					Quad_LapDiff.BgColor = {{{Color_Grey}}};
+					Label_LapDiff.Value = TL::TimeToText(LapDiff, True, True);
+				}
+				Frame_LapDiff.Visible = True;
+			} else {
+				Frame_LapDiff.Visible = False;
+			}
+
+			// Lap time and diff Y position
+			if (Frame_LapTime.Visible && Frame_LapDiff.Visible) {
+				Frame_LapTime.RelativePosition_V3.Y = 5.;
+				Frame_LapDiff.RelativePosition_V3.Y = -2.2;
+			} else {
+				Frame_LapTime.RelativePosition_V3.Y = 1.;
+				Frame_LapDiff.RelativePosition_V3.Y = 1.;
+			}
+
+			Frame_Lap.Visible = True;
+		} else {
+			declare Owner <=> MV_Utils::GetOwner(This);
+			if(Owner != Null){
+				declare LapTime = -1;
+				if (G_LapCurrent != RaceHelpers::GetPlayerLap(Owner)){
+					G_LapCurrent = RaceHelpers::GetPlayerLap(Owner);
+					Frame_Lap.Visible = True;
+					if (_LapTime >= 0) {
+						LapTime = _LapTime;
+						Label_LapTime.Value = TL::TimeToText(LapTime, True, True);
+						Frame_LapTime.Visible = True;
+					}
+				} else Frame_Lap.Visible = False;
+			} else Frame_Lap.Visible = False;
+		}
+
+		// Race and lap info Y position
+		/*if (Frame_Race.Visible && Frame_Lap.Visible) {
+			Frame_Race.RelativePosition_V3.X = -20.;
+			Frame_Lap.RelativePosition_V3.X = 20.;
+		} else {
+			Frame_Race.RelativePosition_V3.X = 0.;
+			Frame_Lap.RelativePosition_V3.X = 0.;
+		}*/
+	}
+}
+
+K_Best GetBestTime(CSmPlayer _Player, Integer _Type) {
+	declare K_Best Best = K_Best {
+		Time = -1,
+		CheckpointIndex = -1
+	};
+
+	if (_Player == Null) return Best;
+
+	if (_Type == C_Race) {
+		if (_Player.Score != Null && _Player.Score.BestRaceTimes.count > 0) {
+			Best.Time = _Player.Score.BestRaceTimes[_Player.Score.BestRaceTimes.count - 1];
+			Best.CheckpointIndex = _Player.Score.BestRaceTimes.count - 1;
+			return Best;
+		}
+	} else if (_Type == C_Lap) {
+		if (_Player.Score != Null && _Player.Score.BestLapTimes.count > 0) {
+			Best.Time = _Player.Score.BestLapTimes[_Player.Score.BestLapTimes.count - 1];
+			Best.CheckpointIndex = _Player.Score.BestLapTimes.count - 1;
+			return Best;
+		}
+	}
+
+	return Best;
+}
+
+Void HideCheckpointTime() {
+	Frame_Checkpoint.Visible = False;
+	G_DisplayEndTime = -1;
+	G_RankUpdate.KeepUpdating = False;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+
+declare netread Integer Net_Race_Checkpoint_RankMode for Teams[0];
+declare netread Integer Net_Race_Checkpoint_VisibilityTarget for Teams[0];
+declare netread Boolean Net_Race_Checkpoint_VisibilityRaceTimeDiff for Teams[0];
+declare netread Boolean Net_Race_Checkpoint_VisibilityLapTimeDiff for Teams[0];
+declare netread Boolean Net_Race_Checkpoint_AutoUISequenceFinish for Teams[0];
+declare netread Boolean Net_Race_Checkpoint_UseWaypointEvent for Teams[0];
+declare netread Boolean Net_Race_Checkpoint_DisplayRespawnsInsteadOfTime for Teams[0];
+
+declare Integer Race_Checkpoint_UISequenceFinishTime for ClientUI = 0;
+declare Boolean TMGame_Record_CelebrationIsActive for UI;
+
+declare Boolean DisplayModule;
+declare Integer CheckpointsCount;
+declare Integer CheckpointTime;
+declare K_Best BestRace;
+declare K_Best BestLap;
+declare Ident SpecTargetId;
+declare Boolean UpdatePlayerInfo;
+declare Boolean IsRewind;
+declare Integer RaceStartTime;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_Checkpoint <=> (Frame_Global.GetFirstChild("frame-checkpoint") as CMlFrame);
+Frame_Race <=> (Frame_Checkpoint.GetFirstChild("frame-race") as CMlFrame);
+Frame_RaceTime <=> (Frame_Race.GetFirstChild("frame-race-time") as CMlFrame);
+Label_RaceTime <=> (Frame_RaceTime.GetFirstChild("label-race-time") as CMlLabel);
+Frame_RaceDiff <=> (Frame_Race.GetFirstChild("frame-race-diff") as CMlFrame);
+Label_RaceDiff <=> (Frame_RaceDiff.GetFirstChild("label-race-diff") as CMlLabel);
+Quad_RaceDiff <=> (Frame_RaceDiff.GetFirstChild("quad-race-diff") as CMlQuad);
+Frame_RaceRank <=> (Frame_Race.GetFirstChild("frame-race-rank") as CMlFrame);
+Label_RaceRank <=> (Frame_RaceRank.GetFirstChild("label-race-rank") as CMlLabel);
+Frame_Lap <=> (Frame_Checkpoint.GetFirstChild("frame-lap") as CMlFrame);
+Frame_LapTime <=> (Frame_Lap.GetFirstChild("frame-lap-time") as CMlFrame);
+Label_LapTime <=> (Frame_LapTime.GetFirstChild("label-lap-time") as CMlLabel);
+Frame_LapDiff <=> (Frame_Lap.GetFirstChild("frame-lap-diff") as CMlFrame);
+Label_LapDiff <=> (Frame_LapDiff.GetFirstChild("label-lap-diff") as CMlLabel);
+Quad_LapDiff <=> (Frame_LapDiff.GetFirstChild("quad-lap-diff") as CMlQuad);
+
+G_DisplayEndTime = -123;
+G_RankUpdate = K_RankUpdate {
+	KeepUpdating = False
+};
+
+DisplayModule = Frame_Global.Visible;
+CheckpointsCount = -123;
+CheckpointTime = -123;
+BestRace = GetBestTime(Null, C_Race);
+BestLap = GetBestTime(Null, C_Lap);
+SpecTargetId = NullId;
+UpdatePlayerInfo = True;
+IsRewind = False;
+RaceStartTime = -123;
+
+HideCheckpointTime();
+if (SplitScreenCount > 1) MV_Utils::AutoScaleSplitScreen(Frame_Global, 1., 0.75);
+***
+
+***MainLoop***
+***
+// We must always update this UI even when it is not visible.
+// So do not use `if (PageIsVisible).
+
+if (ClientUI::IsUISequenceModeEnabled(ClientUI::C_UISequenceMode_FinishRace)) {
+	if (
+		!Net_Race_Checkpoint_AutoUISequenceFinish ||
+		InputPlayer == Null ||
+		InputPlayer.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned ||
+		InputPlayer.RaceWaypointTimes.count <= 0 ||
+		InputPlayer.RaceWaypointTimes[InputPlayer.RaceWaypointTimes.count - 1] != Race_Checkpoint_UISequenceFinishTime
+	) {
+		ClientUI::SetUISequenceModeEnabled(ClientUI::C_UISequenceMode_FinishRace, False);
+	}
+}
+
+declare Owner <=> MV_Utils::GetOwner(This);
+if (Owner != Null) {
+	declare netread Boolean Net_Race_Checkpoint_IsVisible for Owner;
+	if (DisplayModule != (Net_Race_Checkpoint_IsVisible && IsInVisibilityTarget(Net_Race_Checkpoint_VisibilityTarget))) {
+		DisplayModule = (Net_Race_Checkpoint_IsVisible && IsInVisibilityTarget(Net_Race_Checkpoint_VisibilityTarget));
+		Frame_Global.Visible = DisplayModule;
+	}
+}
+
+if (Owner == Null && DisplayModule) {
+	DisplayModule = False;
+	Frame_Global.Visible = DisplayModule;
+}
+
+if (GUIPlayer != Null && SpecTargetId != GUIPlayer.Id) {
+	SpecTargetId = GUIPlayer.Id;
+	UpdatePlayerInfo = True;
+} else if (GUIPlayer == Null && SpecTargetId != NullId) {
+	SpecTargetId = NullId;
+}
+
+if (Frame_Global.Visible) {
+	if (Owner != Null) {
+		if (UpdatePlayerInfo) {
+			UpdatePlayerInfo = False;
+			CheckpointsCount = Owner.RaceWaypointTimes.count;
+			CheckpointTime = -1;
+			HideCheckpointTime();
+			BestRace = GetBestTime(Owner, C_Race);
+			BestLap = GetBestTime(Owner, C_Lap);
+		}
+
+		// Update best race when the player spawned
+		if (RaceStartTime != Owner.StartTime && GameTime >= Owner.StartTime) {
+			RaceStartTime = Owner.StartTime;
+			BestRace = GetBestTime(Owner, C_Race);
+			BestLap = GetBestTime(Owner, C_Lap);
+		}
+
+		// Keep updating the rank in CurrentRace rank mode
+		// We receive the checkpoint times of other players with a delay
+		// Some of these times could be better than our own
+		// So we need to refresh our rank taking these new times into account
+		if (G_RankUpdate.KeepUpdating && Now >= G_RankUpdate.NextUpdateTime) {
+			G_RankUpdate.NextUpdateTime = Now + C_RankUpdateInterval;
+			UpdateRank(Owner, G_RankUpdate.RankMode, G_RankUpdate.CheckpointIndex, G_RankUpdate.RaceTime, G_RankUpdate.IsIndependentLaps);
+		}
+
+		// Use the waypoint events as source for the waypoint time
+		if (Net_Race_Checkpoint_UseWaypointEvent) {
+			foreach (Event in PendingEvents) {
+				if (Event.Type == CMlScriptEvent::Type::PluginCustomEvent) {
+					if (Event.CustomEventType == "{{{C_Event_Waypoint}}}" && Event.CustomEventData.count >= 8) {
+						HideCheckpointTime();
+
+						// Sometimes we receive the new best race
+						// from the server before the finish waypoint event
+						// on the client (especially in local modes)
+						// In this case we must use the previous best
+						// race to display the time diff.
+						declare NewBestRace = GetBestTime(Owner, C_Race);
+						declare OverrideBestRace = GetBestTime(Null, C_Race);
+						if (BestRace.Time != NewBestRace.Time || BestRace.CheckpointIndex != NewBestRace.CheckpointIndex) {
+							if (BestRace.Time >= 0 && BestRace.CheckpointIndex >= 0) OverrideBestRace = BestRace;
+							else OverrideBestRace.Time = 0;
+							BestRace = NewBestRace;
+						}
+						declare NewBestLap = GetBestTime(Owner, C_Lap);
+						declare OverrideBestLap = GetBestTime(Null, C_Lap);
+						if (BestLap.Time != NewBestLap.Time || BestLap.CheckpointIndex != NewBestLap.CheckpointIndex) {
+							if (BestLap.Time >= 0 && BestLap.CheckpointIndex >= 0) OverrideBestLap = BestLap;
+							else OverrideBestLap.Time = 0;
+							BestLap = NewBestLap;
+						}
+
+						DisplayCheckpointTime(
+							Owner,
+							TL::ToInteger(Event.CustomEventData[6]) - 1,
+							TL::ToInteger(Event.CustomEventData[7]) - 1,
+							TL::ToInteger(Event.CustomEventData[0]),
+							TL::ToInteger(Event.CustomEventData[1]),
+							Net_Race_Checkpoint_RankMode,
+							Net_Race_Checkpoint_VisibilityRaceTimeDiff,
+							Net_Race_Checkpoint_VisibilityLapTimeDiff,
+							RaceHelpers::IsIndependentLaps(Teams[0]),
+							OverrideBestRace,
+							OverrideBestLap,
+							True,
+							Tools::TextToBoolean(Event.CustomEventData[2]),
+							TL::ToInteger(Event.CustomEventData[3]),
+							Tools::TextToBoolean(Event.CustomEventData[4]),
+							TL::ToInteger(Event.CustomEventData[5]),
+							Net_Race_Checkpoint_DisplayRespawnsInsteadOfTime
+						);
+					}
+				}
+			}
+		}
+		// Use `RaceWaypointTimes` as source for the waypoint time
+		else {
+			if (CheckpointsCount != Owner.RaceWaypointTimes.count) {
+				IsRewind = CheckpointsCount > Owner.RaceWaypointTimes.count;
+				CheckpointsCount = Owner.RaceWaypointTimes.count;
+				CheckpointTime = -1;
+				HideCheckpointTime();
+			}
+
+			if (Owner.RaceWaypointTimes.count > 0) {
+				if (CheckpointTime < 0 && Owner.RaceWaypointTimes[Owner.RaceWaypointTimes.count - 1] >= 0) {
+					CheckpointTime = Owner.RaceWaypointTimes[Owner.RaceWaypointTimes.count - 1];
+
+					declare NewBestRace = GetBestTime(Owner, C_Race);
+					declare OverrideBestRace = GetBestTime(Null, C_Race);
+					if (BestRace.Time != NewBestRace.Time || BestRace.CheckpointIndex != NewBestRace.CheckpointIndex) {
+						if (BestRace.Time >= 0 && BestRace.CheckpointIndex >= 0) OverrideBestRace = BestRace;
+						else OverrideBestRace.Time = 0;
+						BestRace = NewBestRace;
+					}
+
+					declare NewBestLap = GetBestTime(Owner, C_Lap);
+					declare OverrideBestLap = GetBestTime(Null, C_Lap);
+					if (BestLap.Time != NewBestLap.Time || BestLap.CheckpointIndex != NewBestLap.CheckpointIndex) {
+						if (BestLap.Time >= 0 && BestLap.CheckpointIndex >= 0) OverrideBestLap = BestLap;
+						else OverrideBestLap.Time = 0;
+						BestLap = NewBestLap;
+					}
+
+					if (!IsRewind) { //< Do not show the CP time if the player rewound to this CP
+						declare Integer RaceTime = -1;
+						if (Owner.RaceWaypointTimes.existskey(Owner.RaceWaypointTimes.count - 1)) {
+							RaceTime = Owner.RaceWaypointTimes[Owner.RaceWaypointTimes.count - 1];
+						}
+						declare Integer LapTime = -1;
+						if (Owner.LapWaypointTimes.existskey(Owner.LapWaypointTimes.count - 1)) {
+							LapTime = Owner.LapWaypointTimes[Owner.LapWaypointTimes.count - 1];
+						}
+						DisplayCheckpointTime(
+							Owner,
+							Owner.RaceWaypointTimes.count - 1,
+							Owner.LapWaypointTimes.count - 1,
+							RaceTime,
+							LapTime,
+							Net_Race_Checkpoint_RankMode,
+							Net_Race_Checkpoint_VisibilityRaceTimeDiff,
+							Net_Race_Checkpoint_VisibilityLapTimeDiff,
+							RaceHelpers::IsIndependentLaps(Teams[0]),
+							OverrideBestRace,
+							OverrideBestLap,
+							False,
+							False,
+							0,
+							False,
+							0,
+							Net_Race_Checkpoint_DisplayRespawnsInsteadOfTime
+						);
+					}
+					IsRewind = False;
+				}
+			}
+		}
+	}
+
+	if (Frame_Lap.Visible && TMGame_Record_CelebrationIsActive) Frame_Lap.Hide();
+
+	if (G_DisplayEndTime > 0) {
+		if (Now >= G_DisplayEndTime) {
+			HideCheckpointTime();
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}
+
+Void Yield() {
+	foreach (Event in PendingEvents) {
+		if (Event.PlaygroundType == CManiaAppPlaygroundEvent::Type::OnPlayerTriggerWaypoint) {
+			if (Event.IsFinish) {
+				declare netread Boolean Net_Race_Checkpoint_AutoUISequenceFinish for Playground.Teams[0];
+				if (Net_Race_Checkpoint_AutoUISequenceFinish) {
+					declare Integer Race_Checkpoint_UISequenceFinishTime for ClientUI = 0;
+					Race_Checkpoint_UISequenceFinishTime = Event.RaceWaypointTime;
+					ClientUI::SetUISequenceModeEnabled(ClientUI::C_UISequenceMode_FinishRace, True);
+				}
+			}
+			declare CUILayer Layer = UIModules::GetModuleLayer(GetId());
+			if (Layer != Null) {
+				LayerCustomEvent(Layer, C_Event_Waypoint, [
+					""^Event.RaceWaypointTime,
+					""^Event.LapWaypointTime,
+					""^Event.DiffWithBestRace_IsValid,
+					""^Event.DiffWithBestRace,
+					""^Event.DiffWithBestLap_IsValid,
+					""^Event.DiffWithBestLap,
+					""^Event.RaceWaypointCount,
+					""^Event.LapWaypointCount
+				]);
+			}
+		} else if (Event.PlaygroundType == CManiaAppPlaygroundEvent::Type::LayerCustomEvent) {
+			if (Event.CustomEventType == C_Event_PlayWaypointSound) {
+				if (Event.CustomEventData.count >= 1) {
+					G_Sound_Checkpoint.Stop();
+					G_Sound_CheckpointAhead.Stop();
+					G_Sound_CheckpointLate.Stop();
+					switch (Event.CustomEventData[0]) {
+						case C_Waypoint_Ahead: G_Sound_CheckpointAhead.Play();
+						case C_Waypoint_Late: G_Sound_CheckpointLate.Play();
+						default: G_Sound_Checkpoint.Play();
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,230 @@
+/**
+ *  UI module: DisplayMessage client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Common.Script.txt" as UIModules_DisplayMessage_Common
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_DisplayMessage_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_DisplayMessage_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-ingame-text" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textprefix="$t$i" />
+</stylesheet>
+<frame z-index="-2" hidden="1" id="frame-global">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_DisplayMessage_Common::C_UIModuleConfig)}}}>
+		<quad pos="7 0" z-index="0" size="14 14" halign="center" valign="center" id="quad-image" hidden="{{{SplitScreenCount > 1}}}" keepratio="fit" />
+		<label z-index="1" pos="18 0" size="100 10" valign="center2" textsize="4" id="label-message" class="text-ingame-text" />
+		<frameinstance id="asset-background" modelid="{{{ExpendableAsset::C_Name}}}" z-index="-1" pos="16 0" data-height="10" data-halign="left" data-valign="center" data-color="000000" data-opacity="0.7" data-styles="{{{ExpendableAsset::C_Style_RightEdgeSoloRounded}}}" hidden="1" />
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Common.Script.txt" as UIModules_DisplayMessage_Common
+
+#Const C_DisplayMsg_MinTime 1000
+#Const C_DisplayMsg_MaxTime 5000
+""",
+"""
+declare UIModules_DisplayMessage_Common::K_DisplayMessage[] G_MessagePile;
+
+
+/* Display the next message in pile and erase previous one
+ *
+ *	@return 						The displayed message (of Type UIModules_DisplayMessage_Common::C_Message_Null if Null)
+ */
+UIModules_DisplayMessage_Common::K_DisplayMessage DisplayNextMessage(CMlLabel _Label_Message, CMlFrame _Asset_MessageBg, CMlQuad _Quad_Image) {
+	declare NewMessage = UIModules_DisplayMessage_Common::K_DisplayMessage { Type = UIModules_DisplayMessage_Common::C_Message_Null };
+	if (G_MessagePile.count > 0) {
+		NewMessage = G_MessagePile[0];
+		NewMessage.DisplayStartTime = Now;
+		G_MessagePile.removekey(0);
+	}
+
+	declare Text PlayerName = {{{UserStore::P}}}GetPlayerName(NewMessage.PlayerName, NewMessage.PlayerClubTag);
+	foreach (Score in Scores) {
+		if (Score.User != Null && Score.User.WebServicesUserId == NewMessage.PlayerAccountId) {
+			PlayerName = {{{UserStore::P}}}GetPlayerName(Score.User, True);
+			break;
+		}
+	}
+
+	declare Text MessageToDisplay = "";
+	declare Text ImageToDisplay = "";
+	switch(NewMessage.Type) {
+		case (UIModules_DisplayMessage_Common::C_Message_PlayerRemoved): {
+			MessageToDisplay = TL::Compose(
+				//L16N [UI] Message displayed when a player leaves the server
+				_("$<%1$> left the game"),
+				PlayerName
+			);
+			ImageToDisplay = NewMessage.PlayerImage;
+		}
+		case (UIModules_DisplayMessage_Common::C_Message_PlayerAdded): {
+			MessageToDisplay = TL::Compose(
+				//L16N [UI] Message displayed when a player joins the server
+				_("$<%1$> joined the game"),
+				PlayerName
+			);
+			ImageToDisplay = NewMessage.PlayerImage;
+		}
+		case (UIModules_DisplayMessage_Common::C_Message_RankUpdate): {
+			MessageToDisplay = TL::Compose(
+				//L16N [UI] Message displayed when the player finishes the race. %1 is the name of the player. %2 is its rank in the ranking e.g "1st", "4th"...
+				_("$<%1$> takes %2 place!"),
+				PlayerName,
+				TL::FormatRank(NewMessage.PlayerRank, False)
+			);
+			ImageToDisplay = NewMessage.PlayerImage;
+		}
+	}
+
+	if (_Label_Message != Null) {
+		_Label_Message.Value = MessageToDisplay;
+		Tools::FitLabelValue(_Label_Message, 4., 1., 0.5);
+		Tools::FirstPartyLogoMatchLuminance(_Label_Message);
+		if (_Asset_MessageBg != Null) {
+			if (_Label_Message.Value == "") {
+				_Asset_MessageBg.Visible = False;
+			} else {
+				{{{ExpendableAsset::P}}}SetWidth(This, _Asset_MessageBg, ML::Min(_Label_Message.Size.X, _Label_Message.ComputeWidth(_Label_Message.Value, True)) + 6.);
+				_Asset_MessageBg.Visible = True;
+			}
+		}
+	}
+	if (_Quad_Image != Null) _Quad_Image.ChangeImageUrl(ImageToDisplay);
+	return NewMessage;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlLabel Label_Message;
+declare CMlFrame Asset_MessageBg;
+declare CMlQuad Quad_Image;
+
+declare netwrite Integer[] Net_TimeAttack_DisplayMessage_ReadMessages for UI;
+declare netread Integer Net_TimeAttack_DisplayMessage_MessageUpdate for UI;
+declare netread UIModules_DisplayMessage_Common::K_DisplayMessage[Integer] Net_TimeAttack_DisplayMessage_Message_V3 for UI;
+
+declare Boolean DisplayModule;
+declare Integer MessageUpdate;
+declare UIModules_DisplayMessage_Common::K_DisplayMessage CurMessage;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Label_Message <=> (Frame_Global.GetFirstChild("label-message") as CMlLabel);
+Asset_MessageBg <=> (Frame_Global.GetFirstChild("asset-background") as CMlFrame);
+Quad_Image <=> (Frame_Global.GetFirstChild("quad-image") as CMlQuad);
+
+DisplayModule = Frame_Global.Visible;
+MessageUpdate = -123;
+CurMessage = UIModules_DisplayMessage_Common::K_DisplayMessage { Type = UIModules_DisplayMessage_Common::C_Message_Null };
+
+if (SplitScreenCount == 2) {
+	Frame_Global.GetFirstChild("{{{UIModules::GetCustomizableUIModuleFrameId(UIModules_DisplayMessage_Common::C_UIModuleConfig)}}}").RelativePosition_V3 = <-80., 77.>;
+} else if (SplitScreenCount == 4) {
+	Frame_Global.RelativeScale = 0.5;
+	Frame_Global.GetFirstChild("{{{UIModules::GetCustomizableUIModuleFrameId(UIModules_DisplayMessage_Common::C_UIModuleConfig)}}}").RelativePosition_V3 = <-144., 67.>;
+} else if (Platform::IsSony(System)) { //< On Sony consoles every player names must be in the safe area (see: /trackmania-next/tmnext/-/issues/4660)
+	Frame_Global.GetFirstChild("{{{UIModules::GetCustomizableUIModuleFrameId(UIModules_DisplayMessage_Common::C_UIModuleConfig)}}}").RelativePosition_V3 = <-125., 74.>;
+}
+***
+
+***MainLoop***
+***
+// This must stay outside of `if (PageIsVisible)` otherwise
+// the `Net_TimeAttack_DisplayMessage_Message_V3` array could
+// continue to grow indefinitely causing network problems
+if (MessageUpdate != Net_TimeAttack_DisplayMessage_MessageUpdate) {
+	MessageUpdate = Net_TimeAttack_DisplayMessage_MessageUpdate;
+	foreach (Key in Net_TimeAttack_DisplayMessage_ReadMessages) {
+		if (!Net_TimeAttack_DisplayMessage_Message_V3.existskey(Key)) {
+			Net_TimeAttack_DisplayMessage_ReadMessages.remove(Key);
+		}
+	}
+	foreach (Key => Message in Net_TimeAttack_DisplayMessage_Message_V3) {
+		if (Net_TimeAttack_DisplayMessage_ReadMessages.exists(Key)) continue;
+		if (Message.Type != UIModules_DisplayMessage_Common::C_Message_Null) {
+			G_MessagePile.add(Message);
+		}
+		Net_TimeAttack_DisplayMessage_ReadMessages.add(Key);
+	}
+}
+
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_TimeAttack_DisplayMessage_IsVisible for Owner;
+		if (DisplayModule != Net_TimeAttack_DisplayMessage_IsVisible) {
+			DisplayModule = Net_TimeAttack_DisplayMessage_IsVisible;
+			Frame_Global.Visible = Net_TimeAttack_DisplayMessage_IsVisible;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (CurMessage.Type != UIModules_DisplayMessage_Common::C_Message_Null) {
+		if (CurMessage.DisplayStartTime + C_DisplayMsg_MaxTime < Now) {
+			CurMessage = DisplayNextMessage(Label_Message, Asset_MessageBg, Quad_Image);
+		}
+		if (CurMessage.DisplayStartTime + C_DisplayMsg_MinTime < Now && G_MessagePile.count > 0) {
+			CurMessage = DisplayNextMessage(Label_Message, Asset_MessageBg, Quad_Image);
+		}
+	} else if (G_MessagePile.count > 0) {
+		CurMessage = DisplayNextMessage(Label_Message, Asset_MessageBg, Quad_Image);
+	}
+}
+***
+""",
+[
+	UserStore::ComponentV2(),
+	ExpendableAsset::ComponentV2(),
+	UIModules::Component()
+],
+[]
+	);
+}

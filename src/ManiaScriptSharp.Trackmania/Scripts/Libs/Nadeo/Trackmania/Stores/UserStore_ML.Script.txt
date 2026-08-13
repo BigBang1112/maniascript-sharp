@@ -1,0 +1,432 @@
+/**
+ *	Component for the UserStore
+ */
+#Const Version		"2.2.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Structures/SplashscreenStruct.Script.txt" as SplashscreenStruct
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Store_ML.Script.txt" as Store
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/Structures/MatchmakingStruct.Script.txt" as MatchmakingStruct
+#Include "Libs/Nadeo/Trackmania/RBAC.Script.txt" as RBAC
+#Include "Libs/Nadeo/Trackmania/API/LeaderboardAPI.Script.txt" as LeaderboardAPI
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_MatchmakingInfo {
+	Text QueueId;
+	MatchmakingStruct::LibStructuresMatchmaking_K_Division[Text] Divisions;
+	MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression PlayerProgression;
+}
+
+#Struct K_LoadMatchmakingInfosProgress {
+	Boolean GetMatchmakingOfficialQueueSummary;
+	Text[] LoadMatchmakingDivisions;
+	Text[] GetPlayerProgression;
+}
+
+#Struct K_TrackBrowserInfos {
+	Integer CurrentTabIndex;
+	// Sort settings
+	Boolean IsFlatten;
+	Boolean IsSortingByNameElseByDate;
+	Boolean IsSortingFromAscendingOrder;
+}
+
+#Struct K_State {
+	Boolean IsOfflineMode;
+	K_MatchmakingInfo[Text] MatchmakingInfos; //< The Text represents the matchmaking mode name
+	K_LoadMatchmakingInfosProgress LoadMatchmakingInfosProgress;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_State_Null K_State {
+	IsOfflineMode = False,
+	MatchmakingInfos = [],
+	LoadMatchmakingInfosProgress = K_LoadMatchmakingInfosProgress {
+		GetMatchmakingOfficialQueueSummary = False,
+		LoadMatchmakingDivisions = [],
+		GetPlayerProgression = []
+	}
+}
+
+#Const C_ComponentName "lib-user-store"
+#Const P "Trackmania_UserStore::"
+#Const Q "Trackmania_UserStore"
+
+#Const C_StoreId "user"
+
+#Const C_Action_UpdateGameSubscriptionPlan "Trackmania_UserStore_Action_UpdateGameSubscriptionPlan"
+#Const C_Action_SetOfflineMode "Trackmania_UserStore_Action_SetOfflineMode"
+#Const C_Action_LoadMatchmakingInfos "Trackmania_UserStore_Action_LoadMatchmakingInfos"
+#Const C_Action_SetMatchmakingDivisions "Trackmania_UserStore_Action_SetMatchmakingDivisions"
+#Const C_Action_SetMatchmakingPlayerProgression "Trackmania_UserStore_Action_SetMatchmakingPlayerProgression"
+#Const C_Action_LoadUserTrophyRankings "Trackmania_UserStore_Action_LoadUserTrophyRankings"
+#Const C_Action_SetUserTrophyRankings "Trackmania_UserStore_Action_SetUserTrophyRankings"
+
+#Const C_Event_UserPermissionsUpdated "Trackmania_UserStore_Event_UserPermissionsUpdated"
+#Const C_Event_UserDataUpdated "Trackmania_UserStore_Event_UserDataUpdated"
+#Const C_Event_OfflineModeUpdated "Trackmania_UserStore_Event_OfflineModeUpdated"
+#Const C_Event_MatchmakingInfosUpdated "Trackmania_UserStore_Event_MatchmakingInfosUpdated"
+#Const C_Event_UserTrophyRankingsUpdated "Trackmania_UserStore_Event_UserTrophyRankingsUpdated"
+#Const C_Event_LoadUserTrophyRankingsComplete "Trackmania_UserStore_Event_LoadUserTrophyRankingsComplete"
+#Const C_Event_LoadMatchmakingInfosComplete "Trackmania_UserStore_Event_LoadMatchmakingInfosComplete"
+
+#Const C_GameSubscriptionPlan_Null -1
+#Const C_GameSubscriptionPlan_Free 0
+#Const C_GameSubscriptionPlan_Standard 1
+#Const C_GameSubscriptionPlan_Club 2
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+K_State GetState() {
+	declare K_State Trackmania_UserStore_State for System = C_State_Null;
+	return Trackmania_UserStore_State;
+}
+
+Boolean IsOfflineMode() {
+	declare K_State Trackmania_UserStore_State for System = C_State_Null;
+	return Trackmania_UserStore_State.IsOfflineMode;
+}
+
+Boolean HasGamePermission(CPrivilegeMgr _PrivilegeMgr, Text _Permission, Text _SeasonId) {
+	return RBAC::HasGamePermission(_PrivilegeMgr, MainUser::GetMainUserId(), _Permission, _SeasonId);
+}
+Boolean HasGamePermission(CPrivilegeMgr _PrivilegeMgr, Text _Permission) {
+	return HasGamePermission(_PrivilegeMgr, _Permission, "");
+}
+Boolean HasGamePermissions(CPrivilegeMgr _PrivilegeMgr, Text[] _Permissions) {
+	return RBAC::HasGamePermissions(_PrivilegeMgr, MainUser::GetMainUserId(), _Permissions);
+}
+
+Integer GetGameSubscriptionPlan(CPrivilegeMgr _PrivilegeMgr) {
+	declare Boolean CanBuyClubEdition = HasGamePermission(_PrivilegeMgr, RBAC::C_GamePermission_CanSubscribeToClub);
+	declare Boolean CanBuyStandardEdition = HasGamePermission(_PrivilegeMgr, RBAC::C_GamePermission_CanSubscribeToStandard);
+
+	if (!CanBuyStandardEdition && !CanBuyClubEdition) {
+		return C_GameSubscriptionPlan_Club;
+	} else if (!CanBuyStandardEdition && CanBuyClubEdition) {
+		return C_GameSubscriptionPlan_Standard;
+	} else if (CanBuyStandardEdition && CanBuyClubEdition) {
+		return C_GameSubscriptionPlan_Free;
+	}
+
+	return C_GameSubscriptionPlan_Null;
+}
+Text GetGameSubscriptionPlanForAPI(CPrivilegeMgr _PrivilegeMgr) {
+	switch (GetGameSubscriptionPlan(_PrivilegeMgr)) {
+		case C_GameSubscriptionPlan_Free: return SplashscreenStruct::C_GameSubscriptionPlan_Starter;
+		case C_GameSubscriptionPlan_Standard: return SplashscreenStruct::C_GameSubscriptionPlan_Standard;
+		case C_GameSubscriptionPlan_Club: return SplashscreenStruct::C_GameSubscriptionPlan_Club;
+	}
+
+	return SplashscreenStruct::C_GameSubscriptionPlan_All;
+}
+
+Boolean GetUserHasSetAdvertsPreferences() {
+	declare persistent Boolean Trackmania_UserStore_HasSetAdvertsPreferences for UserMgr.MainUser = False;
+	return Trackmania_UserStore_HasSetAdvertsPreferences;
+}
+
+Void SetUserHasSetAdvertsPreferences(Boolean _HasSetAdvertsPreferences) {
+	declare persistent Boolean Trackmania_UserStore_HasSetAdvertsPreferences for UserMgr.MainUser = False;
+	Trackmania_UserStore_HasSetAdvertsPreferences = _HasSetAdvertsPreferences;
+	UserMgr.MainUser.PersistentSave();
+}
+
+Boolean GetUserHasSplashscreensEnabled() {
+	declare persistent Boolean Trackmania_UserStore_HasSplashscreensEnabled for UserMgr.MainUser = True;
+	return Trackmania_UserStore_HasSplashscreensEnabled;
+}
+
+Void SetUserHasSplashscreensEnabled(Boolean _HasSplashscreensEnabled) {
+	declare persistent Boolean Trackmania_UserStore_HasSplashscreensEnabled for UserMgr.MainUser = True;
+	Trackmania_UserStore_HasSplashscreensEnabled = _HasSplashscreensEnabled;
+	UserMgr.MainUser.PersistentSave();
+}
+
+Boolean GetUserHasSeenOnboardingOptions() {
+	declare persistent Boolean Trackmania_UserStore_HasSeenOnboardingOptions for UserMgr.MainUser = False;
+	return Trackmania_UserStore_HasSeenOnboardingOptions;
+}
+
+Void SetUserHasSeenOnboardingOptions(Boolean _HasSeenOnboardingOptions) {
+	declare persistent Boolean Trackmania_UserStore_HasSeenOnboardingOptions for UserMgr.MainUser = False;
+	Trackmania_UserStore_HasSeenOnboardingOptions = _HasSeenOnboardingOptions;
+	UserMgr.MainUser.PersistentSave();
+}
+
+Boolean GetUserHasSeenUbiConnectWelcomeBack() {
+	declare persistent Boolean Trackmania_UserStore_HasSeenUbiConnectWelcomeBack for UserMgr.MainUser = False;
+	return Trackmania_UserStore_HasSeenUbiConnectWelcomeBack;
+}
+
+Void SetUserHasSeenUbiConnectWelcomeBack(Boolean _HasSeenUbiConnectWelcomeBack) {
+	declare persistent Boolean Trackmania_UserStore_HasSeenUbiConnectWelcomeBack for UserMgr.MainUser = False;
+	Trackmania_UserStore_HasSeenUbiConnectWelcomeBack = _HasSeenUbiConnectWelcomeBack;
+	UserMgr.MainUser.PersistentSave();
+}
+
+Boolean GetUserIsFirstBoot() {
+	declare persistent Boolean Trackmania_UserStore_IsFirstBoot for UserMgr.MainUser = True;
+	return Trackmania_UserStore_IsFirstBoot;
+}
+
+Void SetUserIsFirstBoot(Boolean _IsFirstBoot) {
+	declare persistent Boolean Trackmania_UserStore_IsFirstBoot for UserMgr.MainUser = True;
+	Trackmania_UserStore_IsFirstBoot = _IsFirstBoot;
+	UserMgr.MainUser.PersistentSave();
+}
+
+// Check if the user linked their Ubisoft Connect account to their first party account from inside Trackmania
+Boolean GetUserHasLinkedUbiConnectInsideTrackmania() {
+	declare persistent Boolean Trackmania_UserStore_HasLinkedUbiConnectInsideTrackmania for UserMgr.MainUser = False;
+	return Trackmania_UserStore_HasLinkedUbiConnectInsideTrackmania;
+}
+Void SetUserHasLinkedUbiConnectInsideTrackmania(Boolean _LinkedFromTrackmania) {
+	declare persistent Boolean Trackmania_UserStore_HasLinkedUbiConnectInsideTrackmania for UserMgr.MainUser = False;
+	Trackmania_UserStore_HasLinkedUbiConnectInsideTrackmania = _LinkedFromTrackmania;
+	UserMgr.MainUser.PersistentSave();
+}
+
+Integer GetCurrentPlayTabIndex() {
+	declare persistent Integer Trackmania_UserStore_CurrentTabIndex for UserMgr.MainUser = 0;
+	return Trackmania_UserStore_CurrentTabIndex;
+}
+
+Void SetCurrentPlayTabIndex(Integer _CurrentTabIndex) {
+	declare persistent Integer Trackmania_UserStore_CurrentTabIndex for UserMgr.MainUser = 0;
+	Trackmania_UserStore_CurrentTabIndex = _CurrentTabIndex;
+	UserMgr.MainUser.PersistentSave();
+}
+
+K_TrackBrowserInfos GetPersistentTrackBrowserInfos() {
+	declare persistent Integer Trackmania_UserStore_TrackBrowser_CurrentTabIndex for UserMgr.MainUser = 0;
+	declare persistent Boolean Trackmania_UserStore_TrackBrowser_IsFlatten for UserMgr.MainUser = False;
+	declare persistent Boolean Trackmania_UserStore_TrackBrowser_IsSortingByNameElseByDate for UserMgr.MainUser = False;
+	declare persistent Boolean Trackmania_UserStore_TrackBrowser_IsSortingFromAscendingOrder for UserMgr.MainUser = False;
+
+	return K_TrackBrowserInfos {
+		CurrentTabIndex = Trackmania_UserStore_TrackBrowser_CurrentTabIndex,
+		IsFlatten = Trackmania_UserStore_TrackBrowser_IsFlatten,
+		IsSortingByNameElseByDate = Trackmania_UserStore_TrackBrowser_IsSortingByNameElseByDate,
+		IsSortingFromAscendingOrder = Trackmania_UserStore_TrackBrowser_IsSortingFromAscendingOrder
+	};
+}
+
+Void SetTrackBrowser_Tab(Integer _CurrentTabIndex) {
+	declare persistent Integer Trackmania_UserStore_TrackBrowser_CurrentTabIndex for UserMgr.MainUser = 0;
+	Trackmania_UserStore_TrackBrowser_CurrentTabIndex = _CurrentTabIndex;
+	UserMgr.MainUser.PersistentSave();
+}
+
+Void SetTrackBrowser_FlattenOption(Boolean _IsFlatten) {
+	declare persistent Boolean Trackmania_UserStore_TrackBrowser_IsFlatten for UserMgr.MainUser = False;
+	Trackmania_UserStore_TrackBrowser_IsFlatten = _IsFlatten;
+	UserMgr.MainUser.PersistentSave();
+}
+
+Void SetTrackBrowser_SortOption1(Boolean _IsSortingByNameElseByDate) {
+	declare persistent Boolean Trackmania_UserStore_TrackBrowser_IsSortingByNameElseByDate for UserMgr.MainUser = False;
+	Trackmania_UserStore_TrackBrowser_IsSortingByNameElseByDate = _IsSortingByNameElseByDate;
+	UserMgr.MainUser.PersistentSave();
+}
+
+Void SetTrackBrowser_SortOption2(Boolean _IsSortingFromAscendingOrder) {
+	declare persistent Boolean Trackmania_UserStore_TrackBrowser_IsSortingFromAscendingOrder for UserMgr.MainUser = False;
+	Trackmania_UserStore_TrackBrowser_IsSortingFromAscendingOrder = _IsSortingFromAscendingOrder;
+	UserMgr.MainUser.PersistentSave();
+}
+
+LeaderboardAPI::K_ResponseFromGetPlayerTrophyRanking GetUserTrophyRankings() {
+	declare LeaderboardAPI::K_ResponseFromGetPlayerTrophyRanking Trackmania_UserStore_UserTrophyRankings for System = LeaderboardAPI::K_ResponseFromGetPlayerTrophyRanking{};
+	return Trackmania_UserStore_UserTrophyRankings;
+}
+
+K_MatchmakingInfo GetMatchmakingInfos(Text _ModeName) {
+	declare K_State Trackmania_UserStore_State for System = C_State_Null;
+	return Trackmania_UserStore_State.MatchmakingInfos.get(_ModeName, K_MatchmakingInfo {});
+}
+
+Boolean IsCrossPlayActive() {
+	return UserMgr.CrossPlay_V2_IsEnabled(MainUser::GetMainUserId()) == CUserV2Manager::ECrossPlayState::Enabled;
+}
+
+Boolean GetUserHasSeenCrossPlayWarning() {
+	declare persistent Boolean Trackmania_UserStore_HasSeenCrossPlayWarning for UserMgr.MainUser = False;
+	return Trackmania_UserStore_HasSeenCrossPlayWarning;
+}
+
+Void SetUserHasSeenCrossPlayWarning(Boolean _HasSeenCrossPlayWarning) {
+	declare persistent Boolean Trackmania_UserStore_HasSeenCrossPlayWarning for UserMgr.MainUser = False;
+	Trackmania_UserStore_HasSeenCrossPlayWarning = _HasSeenCrossPlayWarning;
+	UserMgr.MainUser.PersistentSave();
+}
+
+Boolean GetUserDisplayCheckpointCounter() {
+	declare persistent Boolean Trackmania_UserStore_DisplayCheckpointCounter for UserMgr.MainUser = False;
+	return Trackmania_UserStore_DisplayCheckpointCounter;
+}
+
+Void SetUserDisplayCheckpointCounter(Boolean _DisplayCheckpointCounter) {
+	declare persistent Boolean Trackmania_UserStore_DisplayCheckpointCounter for UserMgr.MainUser = False;
+	Trackmania_UserStore_DisplayCheckpointCounter = _DisplayCheckpointCounter;
+	UserMgr.MainUser.PersistentSave();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the 3D markers display type
+CManiaPlanet::EPlayerInfoDisplayType GetPlayerInfoDisplayType() {
+	declare CManiaPlanet::EPlayerInfoDisplayType Trackmania_UserStore_PlayerInfoDisplayType for System = CManiaPlanet::EPlayerInfoDisplayType::AvatarAndName;
+	return Trackmania_UserStore_PlayerInfoDisplayType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the 3D markers display size
+Integer GetPlayerInfoDisplaySize() {
+	declare Integer Trackmania_UserStore_PlayerInfoDisplaySize for System = 3;
+	return Trackmania_UserStore_PlayerInfoDisplaySize;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the 3D markers visibility
+Boolean GetPlayerInfoHidden() {
+	declare Boolean Trackmania_UserStore_PlayerInfoHidden for System = False;
+	return Trackmania_UserStore_PlayerInfoHidden;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Return the formatted player name
+Text GetPlayerName(Text _UserName, Text _ClubTag, Boolean _IsFirstPartyDisplayName, Boolean _DisplayFirstPartyLogo) {
+	if (_UserName == "") return "";
+	declare Text Name = _UserName;
+
+	// Club Tag
+	if (_ClubTag != "") {
+		Name = Tools::FormatClubTag(_ClubTag)^" $<"^Name^"$>";
+	}
+
+	// If not PC and crossplay is enabled on the client, we check if the player's display name is from the same first party as the client.
+	// So if _IsFirstPartyDisplayName is True, we add the logo of the current platform, otherwise, we add the default Ubisoft Connect logo.
+	// If crossplay is disabled on the client, no platform logo is added after the display name.
+	if (_DisplayFirstPartyLogo && !Platform::IsPC(System) && IsCrossPlayActive()) {
+		if (_IsFirstPartyDisplayName) {
+			Name = Name^" "^Platform::GetFirstPartyLogo(System);
+		} else {
+			Name = Name^" "^Platform::GetFirstPartyLogo(CSystemPlatform::ESystemPlatform::None);
+		}
+	}
+
+	return Name;
+}
+Text GetPlayerName(Text _UserName, Text _ClubTag, Boolean _IsFirstPartyDisplayName) {
+	return GetPlayerName(_UserName, _ClubTag, _IsFirstPartyDisplayName, True);
+}
+Text GetPlayerName(Text _UserName, Text _ClubTag) {
+	return GetPlayerName(_UserName, _ClubTag, False);
+}
+Text GetPlayerName(Text _UserName, Boolean _IsFirstPartyDisplayName) {
+	return GetPlayerName(_UserName, "", _IsFirstPartyDisplayName);
+}
+Text GetPlayerName(Text _UserName) {
+	return GetPlayerName(_UserName, "", False);
+}
+Text GetPlayerName(CUser _User, Boolean _IsClubTagNeeded) {
+	if (_User == Null) return "";
+	//@HACK to detect fake user until Falguiere fix the bug
+	// see /trackmania-next/trackmania-console/-/issues/360
+	declare Boolean IsFakeUser = _User.IsFakeUser || TL::StartsWith("*fake", _User.Login);
+	if (_IsClubTagNeeded) return GetPlayerName(_User.Name, _User.ClubTag, _User.IsFirstPartyDisplayName, !IsFakeUser);
+	return GetPlayerName(_User.Name, "", _User.IsFirstPartyDisplayName, !IsFakeUser);
+}
+Text GetPlayerName(CUser _User) {
+	return GetPlayerName(_User, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Return the formatted player name from account id
+Text GetUserMgrPlayerName(Text _AccountId, Text _ClubTag) {
+	if (_AccountId == "") return "";
+	// In addition to its return value, `UserMgr.FindDisplayName()` will also update the value of the `IsFirstPartyDisplayName` variable.
+	declare Boolean IsFirstPartyDisplayName;
+	declare Text DisplayName = UserMgr.FindDisplayName(_AccountId, IsFirstPartyDisplayName);
+	return GetPlayerName(DisplayName, _ClubTag, IsFirstPartyDisplayName);
+}
+Text GetUserMgrPlayerName(Text _AccountId) {
+	return GetUserMgrPlayerName(_AccountId, "");
+}
+
+Void Action_UpdateUserTrophyRankings(CMlScript _This, LeaderboardAPI::K_ResponseFromGetPlayerTrophyRanking _UserTrophyRankings) {
+	_This.SendCustomEvent(C_Action_SetUserTrophyRankings, [_UserTrophyRankings.tojson()]);
+}
+
+Void Action_UpdatePlayerProgression(CMlScript _This, Text _ModeName, MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression _PlayerProgression) {
+	_This.SendCustomEvent(C_Action_SetMatchmakingPlayerProgression, [_ModeName, _PlayerProgression.tojson()]);
+}
+
+Void Action_UpdateDivisions(CMlScript _This, Text _ModeName, MatchmakingStruct::LibStructuresMatchmaking_K_Division[Text] _Divisions) {
+	_This.SendCustomEvent(C_Action_SetMatchmakingDivisions, [_ModeName, _Divisions.tojson()]);
+}
+
+Void Action_UpdateGameSubscriptionPlan(CMlScript _This) {
+	_This.SendCustomEvent(C_Action_UpdateGameSubscriptionPlan, []);
+}
+
+Void Action_SetOfflineMode(CMlScript _This, Boolean _IsOffline) {
+	declare Text IsOffline = "0";
+	if (_IsOffline) IsOffline = "1";
+	_This.SendCustomEvent(C_Action_SetOfflineMode, [IsOffline]);
+}
+
+Void Action_LoadUserTrophyRankings(CMlScript _This, Text _AccountId) {
+	_This.SendCustomEvent(C_Action_LoadUserTrophyRankings, [_AccountId]);
+}
+
+Void Action_LoadMatchmakingInfos(CMlScript _This, Text _AccountId) {
+	_This.SendCustomEvent(C_Action_LoadMatchmakingInfos, [_AccountId]);
+}
+
+Void MainInit(CMlScript _This) {
+	Store::Subscribe(_This, C_StoreId);
+}
+
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_ComponentName,
+		"""
+		""",
+		"""
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+		""",
+[
+	MatchmakingStruct::Component()
+],
+[]
+	);
+}
+
+/* @Changelog
+
+Version 2.0.0
+-------------
+
+- Only use text ids (instead of numeric) for matchmaking
+ */

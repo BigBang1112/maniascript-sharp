@@ -1,0 +1,376 @@
+/**
+ * ManiaView
+ */
+#Const Version "1.0.2"
+#Const ScriptName	"Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Log.Script.txt" as Log
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Targets for the component concat function
+#Const C_Target_Template 0
+#Const C_Target_Directive 1
+#Const C_Target_Script 2
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer G_Id; //< Unique id source
+declare Text[Text] G_Components; //< Id of the components
+declare Text[Text] G_Templates; //< ManiaView instance template
+declare Text[Text] G_Directives; //< ManiaView instance directives
+declare Text[Text] G_Scripts; //< ManiaView instance script
+declare Text[][Text] G_UsedComponents; //< ManiaView instance components
+declare Text[][Text] G_UsedPlugins; //< ManiaView instance plugins
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create an id
+ *
+ *	@return														The id
+ */
+Text Private_CreateId () {
+	G_Id += 1;
+	return "#"^G_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Log the state of the library
+Void Private_LogState () {
+	Log::Log("""G_Id : {{{G_Id}}}""");
+	Log::Log("""G_Components : {{{G_Components}}}""");
+	Log::Log("""G_Templates : {{{G_Templates}}}""");
+	Log::Log("""G_Directives : {{{G_Directives}}}""");
+	Log::Log("""G_Scripts : {{{G_Scripts}}}""");
+	Log::Log("""G_UsedComponents : {{{G_UsedComponents}}}""");
+	Log::Log("""G_UsedPlugins : {{{G_UsedPlugins}}}""");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Recursively concatenate the target
+ *	of the components
+ *
+ *	@param	_ComponentId							Id of the component to concatenate
+ *	@param	_Target										The target to concatenate
+ *	@param	_Done											The ids of concatenated components
+ *
+ *	@return														The concatenated target
+ */
+Text[Text] Private_ComponentMap (Text _ComponentId, Integer _Target) {
+	declare Text[Text] Result;
+
+	if (G_UsedComponents.existskey(_ComponentId)) {
+		declare Text[] ComponentIds = G_UsedComponents[_ComponentId];
+		foreach (ComponentId in ComponentIds) {
+			declare Text[Text] ComponentMap = Private_ComponentMap(ComponentId, _Target);
+			foreach (ComponentId => Content in ComponentMap) {
+				Result[ComponentId] = Content;
+			}
+		}
+	}
+
+	if (!Result.existskey(_ComponentId)) {
+		declare Text Content = "";
+
+		switch (_Target) {
+			case C_Target_Template: {
+				if (G_Templates.existskey(_ComponentId)) {
+					Content = G_Templates[_ComponentId];
+				}
+			}
+			case C_Target_Directive: {
+				if (G_Directives.existskey(_ComponentId)) {
+					Content = G_Directives[_ComponentId];
+				}
+			}
+			case C_Target_Script: {
+				if (G_Scripts.existskey(_ComponentId)) {
+					Content = G_Scripts[_ComponentId];
+				}
+			}
+		}
+
+		Result[_ComponentId] = Content;
+	}
+
+	return Result;
+}
+Text Private_ComponentConcat (Text _ComponentId, Integer _Target) {
+	declare Text[Text] ComponentMap = Private_ComponentMap(_ComponentId, _Target);
+
+	declare Text Concat = "";
+	foreach (Content in ComponentMap) {
+		Concat ^= Content;
+	}
+	return Concat;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Execute the plugins used by the
+ *	ManiaView instances
+ *
+ *	@param	_MVId											Id of the root ManiaView instance
+ */
+Void Private_ExecutePlugins (Text _MVId) {
+	// @mslint-disable-next-line no-empty -- For backward compatibility reasons we cannot remove this function
+	if (G_UsedPlugins.existskey(_MVId)) {
+		/* @todo
+		declare Text[] PluginsIds = G_UsedPlugins[_MVId];
+		foreach (PluginId in PluginsIds) {
+
+		}
+		*/
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a new ManiaView instance
+ *
+ *	@param	_Template									Manialink of the instance
+ *	@param	_Directives								Directives of the instance
+ *	@param	_Script										Script of the instance
+ *	@param	_Components								Other components used by the instance
+ *	@param	_Plugins									Plugins used by the instance
+ *
+ *	@return														Return the ManiaView instance unique id
+ */
+Text New (
+	Text _Template,
+	Text _Directives,
+	Text _Script,
+	Text[] _Components,
+	Text[] _Plugins
+) {
+	declare Text MVId = Private_CreateId();
+
+	G_Templates[MVId] = _Template;
+	G_Directives[MVId] = _Directives;
+	G_Scripts[MVId] = _Script;
+	G_UsedComponents[MVId] = _Components;
+	G_UsedPlugins[MVId] = _Plugins;
+
+	return MVId;
+}
+
+Text Private_TemplateConcat(Text _Name, Text[Text] _Templates)
+{
+	declare Text[] AllTemplates;
+	foreach (TemplateKey => Template in _Templates) {
+		if (TemplateKey != "") {
+			AllTemplates.add("""<framemodel id="{{{_Name}}}_{{{TemplateKey}}}">{{{Template}}}</framemodel>""");
+		} else {
+			AllTemplates.add("""<framemodel id="{{{_Name}}}">{{{Template}}}</framemodel>""");
+		}
+	}
+	return TL::Join("\n", AllTemplates);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a component
+ *	If a component with the same name
+ *	already exists, then return its
+ *	id immediatly without creating a
+ *	new component
+ *
+ *	@param	_Name											Unique name of the component
+ *	@param	_Template									Manialink of the component
+ *	@param	_Directives								Directives of the component
+ *	@param	_Script										Script of the component
+ *	@param	_Components								Other components used by the component
+ *	@param	_Plugins									Plugins used by the component
+ *
+ *	@return														Return the component unique id
+ */
+Text Component (
+	Text _Name,
+	Text[Text] _Templates,
+	Text _Directives,
+	Text _Script,
+	Text[] _Components,
+	Text[] _Plugins
+) {
+	declare Text Name = TL::MLEncode(_Name);
+
+	// Wrap the script
+	declare Text MVScript = """
+// @Component start {{{Name}}}
+// /*
+{{{_Script}}}
+// */
+// @Component end {{{Name}}}
+""";
+
+	// Return id immediatly if the component already exists
+	if (G_Components.existskey(_Name)) {
+		if (G_Scripts[G_Components[_Name]] != MVScript) {
+			Log::Log("[ManiaView2] Error : Two different components share the same name, please change name: " ^ _Name);
+		}
+		return G_Components[_Name];
+	}
+
+	// Wrap the template into a framemodel
+	declare Text MVTemplate = """
+<!-- @Component start {{{Name}}} -->
+{{{Private_TemplateConcat(Name, _Templates)}}}
+<!-- @Component end {{{Name}}} -->
+""";
+
+	// Wrap the directives
+	declare Text MVDirectives = """
+// @Component start {{{Name}}}
+// /*
+{{{_Directives}}}
+// */
+// @Component end {{{Name}}}
+""";
+
+	// Create component
+	declare Text ComponentId = New(MVTemplate, MVDirectives, MVScript, _Components, _Plugins);
+	G_Components[_Name] = ComponentId;
+
+	return ComponentId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a component
+ *	If a component with the same name
+ *	already exists, then return its
+ *	id immediatly without creating a
+ *	new component
+ *
+ *	@param	_Name											Unique name of the component
+ *	@param	_Template									Manialink of the component
+ *	@param	_Directives								Directives of the component
+ *	@param	_Script										Script of the component
+ *	@param	_Components								Other components used by the component
+ *	@param	_Plugins									Plugins used by the component
+ *
+ *	@return														Return the component unique id
+ */
+Text Component (
+	Text _Name,
+	Text _Template,
+	Text _Directives,
+	Text _Script,
+	Text[] _Components,
+	Text[] _Plugins
+) {
+	return Component(_Name, ["" => _Template], _Directives, _Script, _Components, _Plugins);
+}
+// Do the exact same thing than `Component()`
+// This function allow to mark components that have been converted
+// to library to included in manialink
+Text ComponentV2 (
+	Text _Name,
+	Text _Template,
+	Text _Directives,
+	Text _Script,
+	Text[] _Components,
+	Text[] _Plugins
+) {
+	return Component(_Name, _Template, _Directives, _Script, _Components, _Plugins);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Compile the given ManiaView instance
+ *	into a Manialink
+ *
+ *	@param	_MVId											Id of the ManiaView instance to compile
+ *	@param	_Name											Name of the compiled manialink
+ *	@param	_Version									Version of the compiled manialink
+ *
+ *	@return														The Manialink
+ */
+Text Compile (Text _MVId, Text _Name, Integer _Version) {
+	declare Text Name = TL::MLEncode(_Name);
+
+	Private_ExecutePlugins(_MVId);
+
+	declare Text MVTemplate = Private_ComponentConcat(_MVId, C_Target_Template);
+	declare Text MVDirectives = Private_ComponentConcat(_MVId, C_Target_Directive);
+	declare Text MVScript = Private_ComponentConcat(_MVId, C_Target_Script);
+
+	declare Text Manialink = """
+<manialink name="{{{Name}}}" version="{{{_Version}}}">
+{{{MVTemplate}}}
+<script><!--
+{{{MVDirectives}}}
+
+{{{MVScript}}}
+
+Void ManiaView_DoNothing() {}
+
+main() {
+	+++MainInit+++
+	+++MainStart+++
+	while (True) {
+		yield;
+		+++MainLoop+++
+	}
+	+++MainEnd+++
+}
+--></script>
+</manialink>
+""";
+
+	return Manialink;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a new ManiaView instance
+ *	and compile it to a Manialink
+ *	immediatly
+ *
+ *	@param	_Name											Name of the compiled manialink
+ *	@param	_Version									Version of the compiled manialink
+ *	@param	_Template									Manialink of the instance
+ *	@param	_Directives								Directives of the instance
+ *	@param	_Script										Script of the instance
+ *	@param	_Components								Other components used by the instance
+ *	@param	_Plugins									Plugins used by the instance
+ *
+ *	@return														The Manialink
+ */
+Text Create (
+	Text _Name,
+	Integer _Version,
+	Text _Template,
+	Text _Directives,
+	Text _Script,
+	Text[] _Components,
+	Text[] _Plugins
+) {
+	return Compile(New(_Template, _Directives, _Script, _Components, _Plugins), _Name, _Version);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload () {
+	G_Id = 0;
+	G_Components = [];
+	G_Templates = [];
+	G_Directives = [];
+	G_Scripts = [];
+	G_UsedComponents = [];
+	G_UsedPlugins = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load () {
+	Unload();
+}

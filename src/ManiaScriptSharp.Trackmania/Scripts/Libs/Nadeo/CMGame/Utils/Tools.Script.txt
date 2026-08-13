@@ -1,0 +1,1358 @@
+/**
+ * Tools for component
+ *
+ * @Deprecated
+ * Most functions of this library have been moved to new libraries:
+ * `Controller.Script.txt`, `Context.Script.txt`, `MLHelpers.Script.txt`, `Box.Script.txt`, `Cast.Script.txt`, ...
+ */
+#Const Version "1.18.0"
+#Const ScriptName "Libs/Nadeo/CMGame/Utils/Tools.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "TimeLib" as TiL
+#Include "Libs/Nadeo/CMGame/Utils/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_JoinLink {
+	Text Full;
+	Text Type;
+	Text ServerLoginOrIp;
+	Text Password;
+	Text Port;
+	Text Title;
+}
+#Struct K_Margin {
+	Real Top;
+	Real Right;
+	Real Bottom;
+	Real Left;
+}
+#Struct K_Padding {
+	Real Top;
+	Real Right;
+	Real Bottom;
+	Real Left;
+}
+#Struct K_Area {
+	Vec2 Pos;
+	Vec2 Size;
+}
+#Struct K_Box {
+	K_Margin Margin;
+	K_Padding Padding;
+	K_Area MarginArea;
+	K_Area PaddingArea;
+	K_Area ContentArea;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+//L16N %1 will be the rank of the player. (e.g. "Top 1231")
+#Const C_Text_Top _("Top %1")
+
+#Const C_RegexJoinLink """#(\S+)=([^:@\s]+)(?::([^:@\s]+)?(?::([^:@\s]+))?)?(?:@(\S+))?"""
+#Const C_FitLabelMaxSteps 15.
+#Const C_TagForbiddenTags ["$h", "$l", "$<", "$>", "\\n", "\\r", "\\t"]
+#Const C_TagMaxLength 64
+#Const C_LiveApiRankRoundingStart 100000
+#Const C_DefaultMouseActivationDelay 1000
+
+// WCAG constants for contrast ratio : https://www.w3.org/TR/WCAG20-TECHS/G17.html
+#Const C_WACG_Gamma 2.2
+#Const C_WACG_RedRatio 0.2126
+#Const C_WACG_GreenRatio 0.7152
+#Const C_WACG_BlueRatio 0.0722
+
+#Const C_HAlign_Left "left"
+#Const C_HAlign_Center "center"
+#Const C_HAlign_Right "right"
+#Const C_HAlign_None "none"
+
+#Const C_VAlign_Top "top"
+#Const C_VAlign_Center "center"
+#Const C_VAlign_Center2 "center2"
+#Const C_VAlign_Bottom "bottom"
+#Const C_VAlign_None "none"
+
+#Const C_FilterProfanities_Never "never"
+#Const C_FilterProfanities_OnlyIfNotTranslated "onlyifnottranslated"
+#Const C_FilterProfanities_Always "always"
+
+#Const C_KeepRatioMode_Inactive "inactive"
+#Const C_KeepRatioMode_Clip "clip"
+#Const C_KeepRatioMode_Fit "fit"
+
+#Const C_Season_Spring 0
+#Const C_Season_Summer 1
+#Const C_Season_Fall 2
+#Const C_Season_Winter 3
+
+#Const C_TranslateCharacter ""
+#Const C_ComposeCharacter ""
+
+#Const Const::C_Season_Names as C_Season_Names
+
+#Const C_Margin_Null K_Margin {
+	Top = 0.,
+	Right = 0.,
+	Bottom = 0.,
+	Left = 0.
+}
+#Const C_Padding_Null K_Padding {
+	Top = 0.,
+	Right = 0.,
+	Bottom = 0.,
+	Left = 0.
+}
+#Const C_Box_Null K_Box {
+	Margin = K_Margin { Top = 0., Right = 0., Bottom = 0., Left = 0. },
+	Padding = K_Padding { Top = 0., Right = 0., Bottom = 0., Left = 0. },
+	MarginArea = K_Area { Pos = <0., 0.>, Size = <0., 0.> },
+	PaddingArea = K_Area { Pos = <0., 0.>, Size = <0., 0.> },
+	ContentArea = K_Area { Pos = <0., 0.>, Size = <0., 0.> }
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert a Text to a Boolean
+Boolean TextToBoolean(Text _Source) {
+	declare Text Value = TL::ToLowerCase(TL::Trim(_Source));
+	return (Value != "0" && Value != "false");
+}
+Boolean TextToBoolean2(Text _Source) {
+	declare Text Value = TL::ToLowerCase(_Source);
+	return (
+		Value != "0" &&
+		Value != "-0" &&
+		Value != "null" &&
+		Value != "nullid" &&
+		Value != "false" &&
+		Value != ""
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert a Vec3 to a Text
+Text Vec3ToText(Vec3 _Vec) {
+	declare Text NewText;
+	NewText = ""^_Vec.X^" "^_Vec.Y^" "^_Vec.Z;
+	return NewText;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert a Vec2 to a Text
+Text Vec2ToText(Vec2 _Vec) {
+	return _Vec.X^" "^_Vec.Y;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Modify a color so it is visible on the given background color
+Vec3 GetVisibleColorOnBackground(Vec3 _BackgroundColor, Vec3 _TargetColor, Real _Threshold) {
+	declare Real Threshold = ML::Clamp(_Threshold, 0., 0.5);
+	declare Vec3 BackgroundColorHSV = CL::RgbToHsv(_BackgroundColor);
+	declare Vec3 TargetColorHSV = CL::RgbToHsv(_TargetColor);
+
+	if (ML::Abs(BackgroundColorHSV.X - TargetColorHSV.X) > 0.1) {
+		return _TargetColor;
+	}
+
+	if (ML::Abs(BackgroundColorHSV.Z - TargetColorHSV.Z) < Threshold) {
+		if (BackgroundColorHSV.Z > TargetColorHSV.Z) {
+			if (BackgroundColorHSV.Z - Threshold > 0.) {
+				TargetColorHSV.Z = BackgroundColorHSV.Z - Threshold;
+			} else {
+				TargetColorHSV.Z = BackgroundColorHSV.Z + Threshold;
+			}
+		} else if (BackgroundColorHSV.Z + Threshold < 1.) {
+			TargetColorHSV.Z = BackgroundColorHSV.Z + Threshold;
+		} else {
+			TargetColorHSV.Z = BackgroundColorHSV.Z - Threshold;
+		}
+	}
+
+	return CL::HsvToRgb(TargetColorHSV);
+}
+Vec3 GetVisibleColorOnBackground(Vec3 _BackgroundColor, Vec3 _TargetColor) {
+	return GetVisibleColorOnBackground(_BackgroundColor, _TargetColor, 0.15);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Parse a joinlink in Text format and
+ *	return a structure containing all
+ *	the joinlink parts
+ */
+K_JoinLink ParseJoinLink(Text _JoinLink) {
+	declare Text[] Matches = TL::RegexMatch(C_RegexJoinLink, _JoinLink, "");
+	declare K_JoinLink JoinLink;
+	if (Matches.count >= 6) {
+		JoinLink = K_JoinLink {
+			Full = Matches[0],
+			Type = Matches[1],
+			ServerLoginOrIp = Matches[2],
+			Password = Matches[3],
+			Port = Matches[4],
+			Title = Matches[5]
+		};
+	}
+	return JoinLink;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the full joinlink inside a joinlink structure
+K_JoinLink UpdateJoinLink(K_JoinLink _JoinLink) {
+	declare K_JoinLink JoinLink = _JoinLink;
+	JoinLink.Full = "#"^JoinLink.Type^"="^JoinLink.ServerLoginOrIp;
+	if (JoinLink.Password != "") JoinLink.Full ^= ":"^JoinLink.Password;
+	if (JoinLink.Port != "") {
+		if (JoinLink.Password == "") JoinLink.Full ^= "::"^JoinLink.Port;
+		else JoinLink.Full ^= ":"^JoinLink.Port;
+	}
+	if (JoinLink.Title != "") JoinLink.Full ^= "@"^JoinLink.Title;
+	return JoinLink;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Generate a Text joinlink from a joinlink structure
+Text GenerateJoinLink(K_JoinLink _JoinLink) {
+	return UpdateJoinLink(_JoinLink).Full;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Remove completly the given tags in a given string
+ *
+ *	@param _Source										The text to clean
+ *	@param _ForbiddenTags							The tags to remove in the source text
+ */
+Text RemoveForbiddenTags(Text _Source, Text[] _ForbiddenTags) {
+	if (_Source == "") return _Source;
+
+	declare Text CleanedText = _Source;
+
+	declare Text[] ForbiddenTags;
+	for (Tag in _ForbiddenTags) {
+		declare Text UpperCase = TL::ToUpperCase(Tag);
+		if (!ForbiddenTags.exists(UpperCase)) ForbiddenTags.add(UpperCase);
+		declare Text LowerCase = TL::ToLowerCase(Tag);
+		if (!ForbiddenTags.exists(LowerCase)) ForbiddenTags.add(LowerCase);
+	}
+
+	declare Boolean LoopAgain = True;
+	while (LoopAgain) {
+		LoopAgain = False;
+
+		foreach (Tag in ForbiddenTags) {
+			while (TL::Find(Tag, CleanedText, True, True)) {
+				CleanedText = TL::Replace(CleanedText, Tag, "");
+				// Removing a tag could create a tag that we already tried to remove previously
+				// eg: forbidden tags ["$<", "$>"], string: "a$$><b"
+				// After the first loop on the array we have the following string: "a$<b"
+				// At first we did not found a "$<" but after removing "$>" we created a "$<"
+				// So another loop an all forbidden tags is required
+				LoopAgain = True;
+			}
+		}
+	}
+
+	return CleanedText;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Return the formatted and filtered (only on client) club tag
+Text FormatClubTag(CNod _This, Text _ClubTag) {
+	declare Text ClubTag = _ClubTag;
+	if (ClubTag != "") {
+		if (TL::Find("$", ClubTag, True, False)) {
+			// Use CloseStyleTags() to avoid problem with tags ending with a $ character that would break the $> that follows.
+			// eg: if tag is "MyTag$", the formatted tag would be "[MyTag$$>]" where "$$" would be escaped to "$"
+			ClubTag = "["^TL::CloseStyleTags("$<"^RemoveForbiddenTags(TL::SubText(ClubTag, 0, C_TagMaxLength), C_TagForbiddenTags)^"$>")^"]";
+		} else {
+			ClubTag = "[$<"^TL::SubText(ClubTag, 0, C_TagMaxLength)^"$>]";
+		}
+		switchtype (_This as Context) {
+			case CMlScript: ClubTag = Context.FilterProfanities(ClubTag);
+			case CManiaApp: ClubTag = Context.FilterProfanities(ClubTag);
+			default: log("WARNING [Tools] Club tag not filtered in this context. Only `CMlScript` and `CManiaApp` provide filtering.");
+		}
+	}
+	return ClubTag;
+}
+Text FormatClubTag(Text _ClubTag) {
+	return FormatClubTag(This, _ClubTag);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Return the day of the current month depending on timezone
+Integer GetMonthDay(Integer _Timestamp) {
+	declare Integer Epoch = _Timestamp / 86400 + 719468; //< Shift epoch (719468 days from 1970-01-01 to 0000-03-01)
+	declare Integer Era = Epoch - 146096 / 146097; //< 146097 days in an era
+	if (Epoch >= 0) Era = Epoch / 146097;
+	declare Integer DayOfEra = Epoch - Era * 146097; //< In the range [0, 146096].
+	declare Integer YearOfEra = (DayOfEra - DayOfEra/1460 + DayOfEra/36524 - DayOfEra/146096) / 365; //< In the range [0, 399].
+	declare Integer DayOfYear = DayOfEra - (365*YearOfEra + YearOfEra/4 - YearOfEra/100); //< In the range of [0, 364] for a non-leap year, and for leap years has a range of [0, 365].
+	declare Integer InternalMonth = (5*DayOfYear + 2)/153; //< Map civil month number [1, 12] (Jan. - Dec.) into the internal month numbering [0, 11] (Mar. - Feb.).
+
+	return DayOfYear - (153*InternalMonth+2)/5 + 1;
+}
+Integer GetMonthDay() {
+	return GetMonthDay(TL::ToInteger(TiL::GetCurrent()));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Return the current year depending on timezone
+Integer GetYear() {
+	return TiL::GetLocalDelta_Years(TiL::GetCurrent(), "0") + 1970; //< The Unix epoch is the number of seconds that have elapsed since January 1, 1970
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Return the season of the given timestamp
+Integer GetTimestampSeason(Text _CurrentTimestamp) {
+	declare Integer CurrentMonth = TiL::GetLocalDelta_Months(_CurrentTimestamp, "0") % 12;
+	if (CurrentMonth >= 0 && CurrentMonth <= 2) {
+		return C_Season_Winter;
+	} else if (CurrentMonth >= 3 && CurrentMonth <= 5) {
+		return C_Season_Spring;
+	} else if (CurrentMonth >= 6 && CurrentMonth <= 8) {
+		return C_Season_Summer;
+	}
+	return C_Season_Fall;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**
+ * Get the formatted name of the given script name
+ *
+ * @param _ScriptName											The script name to format
+ * @param _DefaultScriptPath							The default path of a script name. e.g. "TrackMania/{ScriptName}.Script.txt"
+ * @param _ToReplaceInDefaultScriptPath		The text to replace in the default script path. e.g. "{ScriptName}"
+ * @param _ModeNames											An array with script names associated with their script path
+ */
+Text GetScriptName(Text _ScriptName, Text _DefaultScriptPath, Text _ToReplaceInDefaultScriptPath, Text[Text] _ModeNames) {
+	declare Text NewScriptName = _ScriptName;
+	if (!TL::EndsWith("Script.txt", _ScriptName, False, False)) {
+		NewScriptName = TL::Replace(_DefaultScriptPath, _ToReplaceInDefaultScriptPath, _ScriptName);
+	}
+
+	if (_ModeNames.exists(NewScriptName)) {
+		return _ModeNames.keyof(NewScriptName);
+	} else {
+		// This Regex extract the name of the script to display it as a gamemode label.
+		// The path and the extension are removed during the operation, the case is ignored (flag "i").
+		declare Text[] ParsedScriptName = TL::RegexMatch("(?:.*(?:\\/|\\\\|^))(.*).Script.txt", NewScriptName, "i");
+		if (ParsedScriptName.count > 1 && ParsedScriptName[1] != "") {
+			NewScriptName = ParsedScriptName[1];
+			if (TL::StartsWith("TM_", NewScriptName)) {
+				// This Regex extract words from camelCase and PascalCase.
+				return TL::Join(" ", TL::RegexFind("([A-Z0-9]+|[A-Z]?[a-z]+)(?=[A-Z0-9]|\\b)", TL::Split("_", NewScriptName)[1], "g"));
+			}
+			return NewScriptName;
+		}
+	}
+
+	return _ScriptName; //< Return the function's parameter to avoid partially formatted script name
+}
+
+Boolean GetBooleanAttribute(CMlControl _Control, Text _AttributeName) {
+	if (_Control.DataAttributeExists(_AttributeName)) {
+		declare Text AttributeValue = _Control.DataAttributeGet(_AttributeName);
+		if (AttributeValue == "1" || TL::ToLowerCase(AttributeValue ) == "true") {
+			return True;
+		}
+	}
+	return False;
+}
+
+CMlQuad::EKeepRatioMode TextToKeepRatioMode(Text _KeepRatioMode) {
+	switch (TL::ToLowerCase(TL::Trim(_KeepRatioMode))) {
+		case C_KeepRatioMode_Inactive: return CMlQuad::EKeepRatioMode::Inactive;
+		case C_KeepRatioMode_Clip: return CMlQuad::EKeepRatioMode::Clip;
+		case C_KeepRatioMode_Fit: return CMlQuad::EKeepRatioMode::Fit;
+	}
+
+	assert(False, "Unknown value for KeepRatioMode '"^_KeepRatioMode^"'");
+	return CMlQuad::EKeepRatioMode::Inactive;
+}
+Text KeepRatioModeToText(CMlQuad::EKeepRatioMode _KeepRatioMode) {
+	switch (_KeepRatioMode) {
+		case CMlQuad::EKeepRatioMode::Inactive: return C_KeepRatioMode_Inactive;
+		case CMlQuad::EKeepRatioMode::Clip: return C_KeepRatioMode_Clip;
+		case CMlQuad::EKeepRatioMode::Fit: return C_KeepRatioMode_Fit;
+	}
+
+	assert(False, "Unknown value for KeepRatioMode '"^_KeepRatioMode^"'");
+	return C_KeepRatioMode_Inactive;
+}
+
+CMlLabel::EFilterProfanities TextToFilterProfanities(Text _FilterProfanities) {
+	switch (TL::ToLowerCase(TL::Trim(_FilterProfanities))) {
+		case C_FilterProfanities_Never: return CMlLabel::EFilterProfanities::Never;
+		case C_FilterProfanities_OnlyIfNotTranslated: return CMlLabel::EFilterProfanities::OnlyIfNotTranslated;
+		case C_FilterProfanities_Always: return CMlLabel::EFilterProfanities::Always;
+	}
+
+	assert(False, "Unknown value for FilterProfanities '"^_FilterProfanities^"'");
+	return CMlLabel::EFilterProfanities::Never;
+}
+
+CMlLabel::EBlendMode TextToLabelBlendMode(Text _Source) {
+	switch (TL::ToLowerCase(TL::Trim(_Source))) {
+		case "default": return CMlLabel::EBlendMode::Default;
+		case "add": return CMlLabel::EBlendMode::Add;
+	}
+	return CMlLabel::EBlendMode::Default;
+}
+CMlQuad::EBlendMode TextToQuadBlendMode(Text _Source) {
+	switch (TL::ToLowerCase(TL::Trim(_Source))) {
+		case "default": return CMlQuad::EBlendMode::Default;
+		case "add": return CMlQuad::EBlendMode::Add;
+	}
+	return CMlQuad::EBlendMode::Default;
+}
+
+CMlEntry::ETextFormat TextToEntryFormat(Text _Source) {
+	switch (TL::ToLowerCase(TL::Trim(_Source))) {
+		case "basic": return CMlEntry::ETextFormat::Basic;
+		case "script": return CMlEntry::ETextFormat::Script;
+		case "password": return CMlEntry::ETextFormat::Password;
+		case "newpassword", "new-password": return CMlEntry::ETextFormat::Newpassword;
+	}
+	return CMlEntry::ETextFormat::Basic;
+}
+CMlTextEdit::EControlScriptEditorTextFormat  TextToTextEditFormat(Text _Source) {
+	switch (TL::ToLowerCase(TL::Trim(_Source))) {
+		case "basic": return CMlTextEdit::EControlScriptEditorTextFormat::Basic;
+		case "script": return CMlTextEdit::EControlScriptEditorTextFormat::Script;
+		case "password": return CMlTextEdit::EControlScriptEditorTextFormat::Password;
+		case "newpassword", "new-password": return CMlTextEdit::EControlScriptEditorTextFormat::Newpassword;
+	}
+	return CMlTextEdit::EControlScriptEditorTextFormat::Basic;
+}
+
+CMlControl::AlignHorizontal TextToHAlign(Text _HAlign) {
+	switch (TL::ToLowerCase(TL::Trim(_HAlign))) {
+		case C_HAlign_Left: return CMlControl::AlignHorizontal::Left;
+		case C_HAlign_Center: return CMlControl::AlignHorizontal::HCenter;
+		case C_HAlign_Right: return CMlControl::AlignHorizontal::Right;
+	}
+
+	return CMlControl::AlignHorizontal::HCenter;
+}
+CMlControl::AlignHorizontal TextToHAlign2(Text _HAlign) {
+	switch (TL::ToLowerCase(TL::Trim(_HAlign))) {
+		case C_HAlign_Left: return CMlControl::AlignHorizontal::Left;
+		case C_HAlign_Center: return CMlControl::AlignHorizontal::HCenter;
+		case C_HAlign_Right: return CMlControl::AlignHorizontal::Right;
+	}
+
+	return CMlControl::AlignHorizontal::None;
+}
+
+Text HAlign2ToText(CMlControl::AlignHorizontal _HAlign) {
+	switch (_HAlign) {
+		case CMlControl::AlignHorizontal::Left: return C_HAlign_Left;
+		case CMlControl::AlignHorizontal::HCenter: return C_HAlign_Center;
+		case CMlControl::AlignHorizontal::Right: return C_HAlign_Right;
+	}
+
+	return C_HAlign_None;
+}
+
+CMlControl::AlignHorizontal MirrorHAlign(CMlControl::AlignHorizontal _HAlign) {
+	switch (_HAlign) {
+		case CMlControl::AlignHorizontal::Left: return CMlControl::AlignHorizontal::Right;
+		case CMlControl::AlignHorizontal::HCenter: return CMlControl::AlignHorizontal::HCenter;
+		case CMlControl::AlignHorizontal::Right: return CMlControl::AlignHorizontal::Left;
+	}
+	return CMlControl::AlignHorizontal::HCenter;
+}
+
+CMlControl::AlignVertical TextToVAlign(Text _VAlign) {
+	switch (TL::ToLowerCase(TL::Trim(_VAlign))) {
+		case C_VAlign_Top: return CMlControl::AlignVertical::Top;
+		case C_VAlign_Center: return CMlControl::AlignVertical::VCenter2;
+		case C_VAlign_Bottom: return CMlControl::AlignVertical::Bottom;
+	}
+
+	return CMlControl::AlignVertical::VCenter2;
+}
+CMlControl::AlignVertical TextToVAlign2(Text _VAlign) {
+	switch (TL::ToLowerCase(TL::Trim(_VAlign))) {
+		case C_VAlign_Top: return CMlControl::AlignVertical::Top;
+		case C_VAlign_Center: return CMlControl::AlignVertical::VCenter;
+		case C_VAlign_Center2: return CMlControl::AlignVertical::VCenter2;
+		case C_VAlign_Bottom: return CMlControl::AlignVertical::Bottom;
+	}
+
+	return CMlControl::AlignVertical::None;
+}
+
+Text VAlign2ToText(CMlControl::AlignVertical _VAlign) {
+	switch (_VAlign) {
+		case CMlControl::AlignVertical::Top: return C_VAlign_Top;
+		case CMlControl::AlignVertical::VCenter: return C_VAlign_Center;
+		case CMlControl::AlignVertical::VCenter2: return C_VAlign_Center2;
+		case CMlControl::AlignVertical::Bottom: return C_VAlign_Bottom;
+	}
+
+	return C_VAlign_None;
+}
+
+CMlControl::AlignVertical MirrorVAlign(CMlControl::AlignVertical _VAlign) {
+	switch (_VAlign) {
+		case CMlControl::AlignVertical::Top: return CMlControl::AlignVertical::Bottom;
+		case CMlControl::AlignVertical::VCenter: return CMlControl::AlignVertical::VCenter;
+		case CMlControl::AlignVertical::VCenter2: return CMlControl::AlignVertical::VCenter2;
+		case CMlControl::AlignVertical::Bottom: return CMlControl::AlignVertical::Top;
+	}
+	return CMlControl::AlignVertical::VCenter2;
+}
+
+Vec2 TextToVec2(Text _Source) {
+	declare Text[] Values = TL::Split(" ", TL::Trim(_Source));
+
+	declare Vec2 Value = <0., 0.>;
+	if (Values.existskey(0)) {
+		Value.X = TL::ToReal(Values[0]);
+	}
+	if (Values.existskey(1)) {
+		Value.Y = TL::ToReal(Values[1]);
+	}
+
+	return Value;
+}
+
+Int2 TextToInt2(Text _Source) {
+	declare Text[] Values = TL::Split(" ", TL::Trim(_Source));
+
+	declare Int2 Value = <0, 0>;
+	if (Values.existskey(0)) {
+		Value.X = TL::ToInteger(Values[0]);
+	}
+	if (Values.existskey(1)) {
+		Value.Y = TL::ToInteger(Values[1]);
+	}
+
+	return Value;
+}
+
+Real[] TextToRealArray(Text _Source) {
+	declare Real[] Array;
+	declare Text[] Values = TL::Split(" ", TL::Trim(_Source));
+
+	foreach (Value in Values) {
+		Array.add(TL::ToReal(Value));
+	}
+
+	return Array;
+}
+
+Vec3 TextToVec3(Text _Source) {
+	declare Text[] Values = TL::Split(" ", TL::Trim(_Source));
+
+	declare Vec3 Value = <0., 0., 0.>;
+	if (Values.existskey(0)) {
+		Value.X = TL::ToReal(Values[0]);
+	}
+	if (Values.existskey(1)) {
+		Value.Y = TL::ToReal(Values[1]);
+	}
+	if (Values.existskey(2)) {
+		Value.Z = TL::ToReal(Values[2]);
+	}
+
+	return Value;
+}
+
+Int3 TextToInt3(Text _Source) {
+	declare Text[] Values = TL::Split(" ", TL::Trim(_Source));
+
+	declare Int3 Value = <0, 0, 0>;
+	if (Values.existskey(0)) {
+		Value.X = TL::ToInteger(Values[0]);
+	}
+	if (Values.existskey(1)) {
+		Value.Y = TL::ToInteger(Values[1]);
+	}
+	if (Values.existskey(2)) {
+		Value.Z = TL::ToInteger(Values[2]);
+	}
+
+	return Value;
+}
+
+Text Int2ToText(Int2 _Source) {
+	return _Source.X^" "^_Source.Y;
+}
+
+Text Int3ToText(Int3 _Source) {
+	return _Source.X^" "^_Source.Y^" "^_Source.Z;
+}
+
+// Convert a real array to a margin struct following css syntax rule
+K_Margin RealArrayToMargin(Real[] _Source) {
+	if (_Source.count <= 0) return C_Margin_Null;
+
+	declare K_Margin Margin = C_Margin_Null;
+	switch (_Source.count) {
+		case 1: {
+			Margin.Top = _Source[0];
+			Margin.Right = Margin.Top;
+			Margin.Bottom = Margin.Top;
+			Margin.Left = Margin.Right;
+		}
+		case 2: {
+			Margin.Top = _Source[0];
+			Margin.Right = _Source[1];
+			Margin.Bottom = Margin.Top;
+			Margin.Left = Margin.Right;
+		}
+		case 3: {
+			Margin.Top = _Source[0];
+			Margin.Right = _Source[1];
+			Margin.Bottom = _Source[2];
+			Margin.Left = Margin.Right;
+		}
+		default: {
+			Margin.Top = _Source[0];
+			Margin.Right = _Source[1];
+			Margin.Bottom = _Source[2];
+			Margin.Left = _Source[3];
+		}
+	}
+	return Margin;
+}
+
+// Convert a margin text property to a struct following css syntax rule
+K_Margin TextToMargin(Text _Source) {
+	return RealArrayToMargin(TextToRealArray(_Source));
+}
+
+// Convert a real array to a padding struct following css syntax rule
+K_Padding RealArrayToPadding(Real[] _Source) {
+	if (_Source.count <= 0) return C_Padding_Null;
+
+	declare K_Padding Padding = C_Padding_Null;
+	switch (_Source.count) {
+		case 1: {
+			Padding.Top = _Source[0];
+			Padding.Right = Padding.Top;
+			Padding.Bottom = Padding.Top;
+			Padding.Left = Padding.Right;
+		}
+		case 2: {
+			Padding.Top = _Source[0];
+			Padding.Right = _Source[1];
+			Padding.Bottom = Padding.Top;
+			Padding.Left = Padding.Right;
+		}
+		case 3: {
+			Padding.Top = _Source[0];
+			Padding.Right = _Source[1];
+			Padding.Bottom = _Source[2];
+			Padding.Left = Padding.Right;
+		}
+		default: {
+			Padding.Top = _Source[0];
+			Padding.Right = _Source[1];
+			Padding.Bottom = _Source[2];
+			Padding.Left = _Source[3];
+		}
+	}
+	return Padding;
+}
+
+// Convert a padding text property to a struct following css syntax rule
+K_Padding TextToPadding(Text _Source) {
+	return RealArrayToPadding(TextToRealArray(_Source));
+}
+
+// Create a box
+K_Box CreateBox(Vec2 _Size, K_Margin _MarginAbsolute, K_Margin _MarginRatio, K_Padding _PaddingAbsolute, K_Padding _PaddingRatio) {
+	declare K_Padding Padding = K_Padding {
+		Top = ML::Max(0., _PaddingAbsolute.Top) + ML::Max(0., _Size.Y * _PaddingRatio.Top),
+		Right = ML::Max(0., _PaddingAbsolute.Right) + ML::Max(0., _Size.X * _PaddingRatio.Right),
+		Bottom = ML::Max(0., _PaddingAbsolute.Bottom) + ML::Max(0., _Size.Y * _PaddingRatio.Bottom),
+		Left = ML::Max(0., _PaddingAbsolute.Left) + ML::Max(0., _Size.X * _PaddingRatio.Left)
+	};
+	declare K_Margin Margin = K_Margin {
+		Top = ML::Max(0., _MarginAbsolute.Top) + ML::Max(0., _Size.Y * _MarginRatio.Top),
+		Right = ML::Max(0., _MarginAbsolute.Right) + ML::Max(0., _Size.X * _MarginRatio.Right),
+		Bottom = ML::Max(0., _MarginAbsolute.Bottom) + ML::Max(0., _Size.Y * _MarginRatio.Bottom),
+		Left = ML::Max(0., _MarginAbsolute.Left) + ML::Max(0., _Size.X * _MarginRatio.Left)
+	};
+	// The content area is expanded as needed to fit the entire padding area
+	declare Vec2 ContentWithPaddingSize = <
+		ML::Max(Padding.Right + Padding.Left, _Size.X),
+		ML::Max(Padding.Top + Padding.Bottom, _Size.Y)
+	>;
+	return K_Box {
+		Margin = Margin,
+		Padding = Padding,
+		MarginArea = K_Area {
+			Pos = <0., 0.>,
+			Size = <Margin.Left + ContentWithPaddingSize.X + Margin.Right, Margin.Top + ContentWithPaddingSize.Y + Margin.Bottom>
+		},
+		PaddingArea = K_Area {
+			Pos = <Margin.Left, -Margin.Top>,
+			Size = ContentWithPaddingSize
+		},
+		ContentArea = K_Area {
+			Pos = <Margin.Left + Padding.Left, -Margin.Top - Padding.Top>,
+			Size = <ContentWithPaddingSize.X - Padding.Right - Padding.Left, ContentWithPaddingSize.Y - Padding.Top - Padding.Bottom>
+		}
+	};
+}
+
+Text MenuNavActionToText(CMlScriptEvent::EMenuNavAction _MenuNavAction) {
+	switch (_MenuNavAction) {
+		case CMlScriptEvent::EMenuNavAction::Up: return "up";
+		case CMlScriptEvent::EMenuNavAction::Right: return "right";
+		case CMlScriptEvent::EMenuNavAction::Left: return "left";
+		case CMlScriptEvent::EMenuNavAction::Down: return "down";
+		case CMlScriptEvent::EMenuNavAction::Select: return "select";
+		case CMlScriptEvent::EMenuNavAction::Cancel: return "cancel";
+		case CMlScriptEvent::EMenuNavAction::PageUp: return "pageup";
+		case CMlScriptEvent::EMenuNavAction::PageDown: return "pagedown";
+		case CMlScriptEvent::EMenuNavAction::AppMenu: return "appmenu";
+		case CMlScriptEvent::EMenuNavAction::Action1: return "action1";
+		case CMlScriptEvent::EMenuNavAction::Action2: return "action2";
+		case CMlScriptEvent::EMenuNavAction::Action3: return "action3";
+		case CMlScriptEvent::EMenuNavAction::Action4: return "action4";
+		case CMlScriptEvent::EMenuNavAction::ScrollUp: return "scrollup";
+		case CMlScriptEvent::EMenuNavAction::ScrollDown: return "scrolldown";
+	}
+
+	return "";
+}
+
+Vec3 GetBlinkingRed(Integer _BlinkingEndTime) {
+	declare Real ValueA = ML::Cos((_BlinkingEndTime - Now) / 200.);
+	declare Real ValueB = (ValueA * 0.5 * 0.2) + 0.9;
+	if (ValueA > 0.) ValueA *= 0.1;
+	ValueA = (ValueA * 0.9) + 0.9;
+	return <ValueB, ValueA, ValueA>;
+}
+
+Vec3 GetBlinkingColor(Integer _BlinkingEndTime, Integer _BlinkingFrequency, Integer _BlinkingDamping, Vec3 _BaseColor, Vec3 _BlinkColor) {
+	declare Vec3 DiffColor = _BlinkColor - _BaseColor;
+	declare Real Ratio = (ML::Cos(((_BlinkingEndTime - Now) * ML::Pi * 2.) / (_BlinkingFrequency * 1.)) * -0.5) + 0.5;
+	return _BaseColor + (DiffColor * ML::Pow(Ratio, _BlinkingDamping * 1.));
+}
+Vec3 GetBlinkingColor(Integer _BlinkingEndTime, Integer _BlinkingFrequency, Vec3 _BaseColor, Vec3 _BlinkColor) {
+	return GetBlinkingColor(_BlinkingEndTime, _BlinkingFrequency, 1, _BaseColor, _BlinkColor);
+}
+
+Vec2 GetAlignPosition(Vec2 _Size, CMlControl::AlignHorizontal _HAlign, CMlControl::AlignVertical _VAlign) {
+	declare Vec2 Position = <0., 0.>;
+
+	switch (_HAlign) {
+		case CMlControl::AlignHorizontal::Left: Position.X = 0.;
+		case CMlControl::AlignHorizontal::HCenter: Position.X = _Size.X * -0.5;
+		case CMlControl::AlignHorizontal::Right: Position.X = _Size.X * -1.;
+	}
+	switch (_VAlign) {
+		case CMlControl::AlignVertical::Top: Position.Y = 0.;
+		case CMlControl::AlignVertical::VCenter: Position.Y = _Size.Y * 0.5;
+		case CMlControl::AlignVertical::VCenter2: Position.Y = _Size.Y * 0.5;
+		case CMlControl::AlignVertical::Bottom: Position.Y = _Size.Y * 1.;
+	}
+
+	return Position;
+}
+
+Void AlignFrame(CMlFrame _Frame_Align, Vec2 _Size, CMlControl::AlignHorizontal _HAlign, CMlControl::AlignVertical _VAlign) {
+	_Frame_Align.RelativePosition_V3 = GetAlignPosition(_Size, _HAlign, _VAlign);
+}
+Void AlignFrame(CMlFrame _Frame_Align, Vec2 _Size, Text _HAlign, Text _VAlign) {
+	AlignFrame(_Frame_Align, _Size, TextToHAlign(_HAlign), TextToVAlign(_VAlign));
+}
+Void AlignFrame2(CMlFrame _Frame_Align, Vec2 _Size, Text _HAlign, Text _VAlign) {
+	AlignFrame(_Frame_Align, _Size, TextToHAlign2(_HAlign), TextToVAlign2(_VAlign));
+}
+Void AlignFrameContent(CMlFrame _Frame_Align, Vec2 _Size, CMlControl::AlignHorizontal _HAlign, CMlControl::AlignVertical _VAlign) {
+	AlignFrame(_Frame_Align, -_Size, _HAlign, _VAlign);
+}
+Void AlignFrameContent(CMlFrame _Frame_Align, Vec2 _Size, Text _HAlign, Text _VAlign) {
+	AlignFrameContent(_Frame_Align, _Size, TextToHAlign(_HAlign), TextToVAlign(_VAlign));
+}
+Void AlignFrameContent2(CMlFrame _Frame_Align, Vec2 _Size, Text _HAlign, Text _VAlign) {
+	AlignFrameContent(_Frame_Align, _Size, TextToHAlign2(_HAlign), TextToVAlign2(_VAlign));
+}
+
+Void AlignControl(CMlControl _Control_Align, Vec2 _Size, CMlControl::AlignHorizontal _HAlign, CMlControl::AlignVertical _VAlign) {
+	_Control_Align.RelativePosition_V3 = GetAlignPosition(-_Size, _HAlign, _VAlign);
+	_Control_Align.HorizontalAlign = _HAlign;
+	_Control_Align.VerticalAlign = _VAlign;
+}
+
+/** Add the halign and valign parameters to a CMlControl.
+ *	This function acts like the halign and valign parameters for the CMlQuad in the Manialink.
+ *	Basically it will move the frame anchor point to its given side.
+ *
+ *	@note			Use this function before updating the control's position
+ *	@example 	PauseMenuOnline_Client.Script.txt
+ *
+ *	@param	_Control					The given control
+ *	@param	_Size							The size of the given control
+ * 	@param	_HAlign						The horizontal align for the given control
+ *	@param	_VAlign						The vertical align for the given control
+ */
+Void Align(CMlControl _Control, Vec2 _Size, CMlControl::AlignHorizontal _HAlign, CMlControl::AlignVertical _VAlign) {
+	switch (_HAlign) {
+		case CMlControl::AlignHorizontal::Left: {
+			_Control.RelativePosition_V3.X = _Size.X * 0.5;
+		}
+		case CMlControl::AlignHorizontal::HCenter: {
+			_Control.RelativePosition_V3.X = 0.;
+		}
+		case CMlControl::AlignHorizontal::Right: {
+			_Control.RelativePosition_V3.X = _Size.X * -0.5;
+		}
+	}
+	switch (_VAlign) {
+		case CMlControl::AlignVertical::Top: {
+			_Control.RelativePosition_V3.Y = _Size.Y * -0.5;
+		}
+		case CMlControl::AlignVertical::VCenter: {
+			_Control.RelativePosition_V3.Y = 0.;
+		}
+		case CMlControl::AlignVertical::VCenter2: {
+			_Control.RelativePosition_V3.Y = 0.;
+		}
+		case CMlControl::AlignVertical::Bottom: {
+			_Control.RelativePosition_V3.Y = _Size.Y * 0.5;
+		}
+	}
+}
+Void Align(CMlFrame _Frame_Align, Vec2 _Size, Text _HAlign, Text _VAlign) {
+	Align(_Frame_Align, _Size, TextToHAlign(_HAlign), TextToVAlign(_VAlign));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the width of the longest line in a text depending on the given label
+Real ComputeLongestLineWidth(CMlLabel _Label_Target, Text[] _Words, Integer _NewlinesCount) {
+	if (_NewlinesCount == _Label_Target.ValueLineCount-1) return _Label_Target.ComputeWidth(_Label_Target.Value);
+
+	declare Integer CurrentLine = 1;
+	declare Real LongestLineWidth;
+	declare Real LineWidth;
+
+	foreach (Word in _Words) {
+		declare Real WordWidth = _Label_Target.ComputeWidth(Word);
+		if (LineWidth + WordWidth < _Label_Target.Size.X*0.99 || CurrentLine >= _Label_Target.ValueLineCount) {
+			LineWidth += WordWidth;
+		} else {
+			if (LongestLineWidth < LineWidth) {
+				LongestLineWidth = LineWidth;
+			}
+			LineWidth = WordWidth;
+			CurrentLine += 1;
+		}
+	}
+	if (LongestLineWidth < LineWidth) {
+		LongestLineWidth = LineWidth;
+	}
+
+	return LongestLineWidth;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Make the text in the label fit inside without being cut.
+ *	Can only reduce label size, USE ONLY FOR STATIC LABELS.
+ *	For dynamic labels use overloaded version with settable Default Size
+ *
+ *	Be careful to not use a too big initial text size with small steps
+ *	Otherwise the function will spend a long time reducing the
+ *	TextSize to make the text fit in the label
+ *	Which will cause performances problems
+ *
+ *	@param	_Label_Target							The label to update
+ *	@param	_MinTextSize							Stop decreasing the label text size at this value
+ */
+Void FitLabelValue(CMlLabel _Label_Target, Real _MinTextSize, Real _TextSizeStep) {
+	if (_MinTextSize < 0. || _TextSizeStep <= 0.) return;
+
+	declare Text OriginalText = _Label_Target.Value;
+	declare Text TranslatedText = TL::GetTranslatedText(_Label_Target.Value);
+	declare Text[] TranslatedWords = TL::RegexFind("""\b\w+""", TranslatedText, "g");
+	declare Integer NewlinesCount = TL::RegexFind("""\r\n|\n|\r""", TranslatedText, "g").count;
+	declare Boolean IsMultilinesLabel = _Label_Target.AutoNewLine || _Label_Target.MaxLine > 1 || (_Label_Target.MaxLine == 0 && _Label_Target.ValueLineCount > 1);
+	declare Real MaxSteps = (_Label_Target.TextSizeReal - _MinTextSize) / _TextSizeStep;
+
+	// Maximum steps verification
+	if (MaxSteps > C_FitLabelMaxSteps) {
+		log("WARNING [Tools] FitLabelValue() too many steps : "^MaxSteps^" > "^C_FitLabelMaxSteps^" | Start : "^_Label_Target.TextSizeReal^" | Min : "^_MinTextSize^" | Step : "^_TextSizeStep^" | Label '"^_Label_Target.ControlId^"'");
+	}
+
+	// Set the translated text in the label to get the `ValueLineCount` property based on the translated text and not on the original text.
+	// For example :
+	// - `ValueLineCount = 1` with the original text _("Use custom car skins")
+	// - `ValueLineCount = 2` with the same text translated in french "Utilisez des skins de voiture personnalisés"
+	_Label_Target.SetText(TranslatedText);
+
+	// Fit width and height
+	// Support the special case of multilines text (i.e. when the text contains the carriage return '\n' character)
+	// The `ValueLineCount` property is corresponding to the number of lines needed to fully display the label with the current font size
+	// In this case, the following functions are working as if every line was displayed on one line :
+	// - ComputeWidth() return the width of the line. So if there is a forced end of line (EOL) like '\n' or '\r', the width of the longest line is returned.
+	// - ComputeHeight() return the height of all lines. So the height of one line is defined by `ComputeHeight() / ValueLineCount`.
+	while (
+		_Label_Target.TextSizeReal > _MinTextSize && (
+			(_Label_Target.ComputeHeight(TranslatedText) > _Label_Target.Size.Y) || //< Text must fit in the height of the label
+			(!IsMultilinesLabel && _Label_Target.ComputeWidth(TranslatedText) > _Label_Target.Size.X) || //< Text must be on one line if the label is not multilines
+			(IsMultilinesLabel && _Label_Target.MaxLine > 0 && _Label_Target.ValueLineCount > _Label_Target.MaxLine) || //< Multiline text must respect the maximum number of lines if the label has a limit
+			(IsMultilinesLabel && _Label_Target.ValueLineCount == 1 && _Label_Target.ComputeWidth(TranslatedText) > _Label_Target.Size.X) || //< Multiline text with only one word must fit in the width of the label
+			(IsMultilinesLabel && ComputeLongestLineWidth(_Label_Target, TranslatedWords, NewlinesCount) > _Label_Target.Size.X) // The longest line in a multiline text must fit in the label width
+		)
+	) {
+		_Label_Target.TextSizeReal -= _TextSizeStep;
+	}
+
+	// Force text size to a minimum
+	if (_Label_Target.TextSizeReal < _MinTextSize) {
+		_Label_Target.TextSizeReal = _MinTextSize;
+	}
+
+	// Restore original text to avoid any weird behaviors
+	_Label_Target.SetText(OriginalText);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Use this overload for dynamic labels
+ *
+ *	@param	_DefaultSize							Initial text size before decreasing
+ */
+Void FitLabelValue(CMlLabel _Label_Target, Real _DefaultSize, Real _MinTextSize, Real _TextSizeStep) {
+	_Label_Target.TextSizeReal = _DefaultSize;
+	FitLabelValue(_Label_Target, _MinTextSize, _TextSizeStep);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the width of a label value taking the label size.x into account
+Real ComputeLabelValueWidth(CMlLabel _Label, Boolean _Translated) {
+	return ML::Min(_Label.ComputeWidth(_Label.Value, _Translated), _Label.Size.X);
+}
+Real ComputeLabelValueWidth(CMlLabel _Label) {
+	return ML::Min(_Label.ComputeWidth(_Label.Value), _Label.Size.X);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the luminance of an RGB color
+Real GetColorLuminance(Vec3 _RGBColor) {
+	if (_RGBColor.X < 0. || _RGBColor.Y < 0. || _RGBColor.Z < 0.) return 1.;
+	return (
+		(C_WACG_RedRatio * ML::Pow(_RGBColor.X, C_WACG_Gamma)) +
+		(C_WACG_GreenRatio * ML::Pow(_RGBColor.Y, C_WACG_Gamma)) +
+		(C_WACG_BlueRatio * ML::Pow(_RGBColor.Z, C_WACG_Gamma))
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Adapt the color of the first party logo if necessary
+Void FirstPartyLogoContrastLuminance(CMlLabel _Label_Target, Vec3 _RGBColor) {
+	if (GetColorLuminance(_RGBColor) > 0.5) { //< Bright background
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoWhite_Sony, Platform::C_LogoBlack_Sony);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoWhite_Amazon, Platform::C_LogoBlack_Amazon);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoWhite_Google, Platform::C_LogoBlack_Google);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoWhite_Microsoft, Platform::C_LogoBlack_Microsoft);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoWhite_Ubisoft, Platform::C_LogoBlack_Ubisoft);
+	} else { //< Dark background
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoBlack_Sony, Platform::C_LogoWhite_Sony);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoBlack_Amazon, Platform::C_LogoWhite_Amazon);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoBlack_Google, Platform::C_LogoWhite_Google);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoBlack_Microsoft, Platform::C_LogoWhite_Microsoft);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoBlack_Ubisoft, Platform::C_LogoWhite_Ubisoft);
+	}
+}
+Void FirstPartyLogoContrastLuminance(CMlLabel _Label_Target) {
+	FirstPartyLogoContrastLuminance(_Label_Target, _Label_Target.TextColor);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Make the first party logo color match the label text color luminance
+Void FirstPartyLogoMatchLuminance(CMlLabel _Label_Target, Vec3 _RGBColor) {
+	if (GetColorLuminance(_RGBColor) > 0.5) { //< Bright text color
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoBlack_Sony, Platform::C_LogoWhite_Sony);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoBlack_Amazon, Platform::C_LogoWhite_Amazon);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoBlack_Google, Platform::C_LogoWhite_Google);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoBlack_Microsoft, Platform::C_LogoWhite_Microsoft);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoBlack_Ubisoft, Platform::C_LogoWhite_Ubisoft);
+	} else { //< Dark text color
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoWhite_Sony, Platform::C_LogoBlack_Sony);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoWhite_Amazon, Platform::C_LogoBlack_Amazon);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoWhite_Google, Platform::C_LogoBlack_Google);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoWhite_Microsoft, Platform::C_LogoBlack_Microsoft);
+		_Label_Target.Value = TL::Replace(_Label_Target.Value, Platform::C_LogoWhite_Ubisoft, Platform::C_LogoBlack_Ubisoft);
+	}
+}
+Void FirstPartyLogoMatchLuminance(CMlLabel _Label_Target) {
+	FirstPartyLogoMatchLuminance(_Label_Target, _Label_Target.TextColor);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Format a rank into a top
+ *
+ *	@param	_Rank											The rank to format
+ *	@param	_PrefixWithTop						Prefix the rank with top or not
+ *	@param	_FormatLimit							Above this limit, format the rank with "K" when above the thousands
+ *	@param	_IsFromLiveApi						Is the ranking coming from the Live API ?
+ *
+ *	@return														"Top 123", "Top 5K", "123", "5K"
+ */
+Text FormatTop(Integer _Rank, Boolean _PrefixWithTop, Integer _FormatLimit, Boolean _IsFromLiveApi) {
+	declare Integer Rank = _Rank;
+	// The `TL::FormatRank()` function will format 1500 as 1K, but for a top it makes more sense to display "Top 2K",
+	// so we round it up to the superior thousand.
+	// If the rank comes from the Live API, it will already be rounded correctly above the value of `C_LiveApiRankRoundingStart`,
+	// so we don't have to correct the rounding ourselves.
+	if (_FormatLimit >= 1000 && Rank % 1000 != 0 && Rank >= _FormatLimit && (!_IsFromLiveApi || Rank < C_LiveApiRankRoundingStart)) {
+		Rank += 1000;
+	}
+	declare Text Top = ""^Rank;
+	if (Rank >= _FormatLimit) {
+		Top = TL::FormatRank(Rank, True);
+	}
+	if (_PrefixWithTop) {
+		Top = TL::Compose(C_Text_Top, Top);
+	}
+	return Top;
+}
+Text FormatTop(Integer _Rank, Boolean _PrefixWithTop, Integer _FormatLimit) {
+	return FormatTop(_Rank, _PrefixWithTop, _FormatLimit, True);
+}
+Text FormatTop(Integer _Rank, Boolean _PrefixWithTop) {
+	return FormatTop(_Rank, _PrefixWithTop, 1000);
+}
+Text FormatTop(Integer _Rank) {
+	return FormatTop(_Rank, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Format a time diff to show the least number possible
+Text FormatTimeDiff(Integer _TimeDiff) {
+	declare Text Diff = "";
+
+	if (_TimeDiff > -60000 && _TimeDiff < 60000) {
+		Diff = TL::FormatReal(_TimeDiff / 1000., 3, False, False);
+	} else {
+		Diff = TL::TimeToText(_TimeDiff, True, True);
+	}
+
+	if (_TimeDiff >= 0) {
+		Diff = "+"^Diff;
+	}
+
+	return Diff;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Check if a controller (keyboard, gamepad, mouse, ...)
+// was used during the past frame
+// `_PrevMousePos` must come from `Input.MousePos`. `<MouseX, MouseY>` is not the same thing.
+// /trackmania-next/tmnext/-/issues/4110#note_205932
+Boolean ControllerWasUsed(CMlScript _Context, CInputManager _Input, Vec2 _PrevMousePos) {
+	foreach (Event in _Context.PendingEvents) {
+		if (
+			Event.Type == CMlScriptEvent::Type::KeyPress ||
+			Event.Type == CMlScriptEvent::Type::MenuNavigation ||
+			Event.Type == CMlScriptEvent::Type::MouseClick ||
+			Event.Type == CMlScriptEvent::Type::MouseRightClick
+		) {
+			return True;
+		}
+	}
+
+	foreach (Event in _Input.PendingEvents) {
+		if (Event.Type == CInputEvent::EType::PadButtonPress) {
+			return True;
+		}
+	}
+
+	if (
+		_PrevMousePos != _Input.MousePos ||
+		_Input.MouseLeftButton ||
+		_Input.MouseRightButton ||
+		_Input.MouseMiddleButton
+	) {
+		return True;
+	}
+
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the player is using their mouse
+Boolean IsUsingMouse(CInputManager _Input, Integer _Delay) {
+	return (
+		_Input.TimeSinceLatestMouseActivity < _Input.TimeSinceLatestTouchActivity &&
+		_Input.TimeSinceLatestMouseActivity < _Input.TimeSinceLatestKeyboardActivity &&
+		_Input.TimeSinceLatestMouseActivity < _Input.TimeSinceLatestPadActivity &&
+		_Input.TimeSinceLatestTouchActivity > _Delay &&
+		_Input.TimeSinceLatestKeyboardActivity > _Delay &&
+		_Input.TimeSinceLatestPadActivity > _Delay
+	);
+}
+Boolean IsUsingMouse(CInputManager _Input) {
+	return IsUsingMouse(_Input, C_DefaultMouseActivationDelay);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the idle duration of a pad
+Integer GetPadIdleDuration(CInputPad _Pad) {
+	// The `IdleDuration` of mouses is never reset
+	// We have to rely on the global mouse idle duration value instead
+	if (_Pad.Type == CInputPad::EPadType::Mouse) {
+		return Input.TimeSinceLatestMouseActivity;
+	}
+	return _Pad.IdleDuration;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the Id of the last used controller
+Ident GetActivePadId(CInputManager _Input, Boolean _ExcludeMouse) {
+	declare Integer MinIdleDuration = 0;
+	declare Ident PadId = NullId;
+	foreach (Pad in _Input.Pads) {
+		if (Pad.Type != CInputPad::EPadType::Mouse || !_ExcludeMouse) {
+			if (PadId == NullId || MinIdleDuration > GetPadIdleDuration(Pad)) {
+				PadId = Pad.Id;
+				MinIdleDuration = GetPadIdleDuration(Pad);
+			}
+		}
+	}
+	return PadId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**
+ * Remove all $h, $l, \n and \r in the given text
+ * First, the Regex will remove all the $h[] and $l[] tags, as well as the control characters \n and \r
+ * Then it will remove the remaining forbidden tags and control characters
+ *
+ * @param _ToFormat								The text to clean
+ */
+Text FormatValue(Text _ToFormat) {
+	return RemoveForbiddenTags(
+		TL::RegexReplace("\\$[hl](?:\\[.*\\])?|[\\n\\r]", TL::Trim(_ToFormat), "gi", ""),
+		["$h", "$l", "$<", "$>", "\\n", "\\r"]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Use to get only the CountryPath without the region
+Text GetCountryPath(Text _ZonePath, Text _DefaultMasterZone) {
+
+	if (_DefaultMasterZone == "World") {
+		declare Text[] Zones = TL::Split("|", _ZonePath);
+		if (Zones.count <= 3) {
+			return _ZonePath;
+		} else {
+			return TL::Join("|", ["World", Zones.get(1), Zones.get(2)]);
+		}
+	} else { //CN version
+		return _DefaultMasterZone;
+	}
+
+	return "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the suffix of a rank
+Text GetRankSuffix(Integer _Rank) {
+	if (_Rank <= 0) return "";
+
+	declare Text Rank = TL::ToText(_Rank);
+	declare Text Suffix = TL::FormatRank(_Rank, False);
+
+	if (TL::Find(Rank, Suffix, False, False)) {
+		return TL::Trim(TL::Replace(Suffix, Rank, ""));
+	}
+
+	return "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the list of all keys in an array
+Text[] GetListOfKeys(Text[Text] _Array) {
+	declare Text[] List = [];
+
+	foreach (Key => Element in _Array) {
+		List.add(Key);
+	}
+
+	return List;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+//@HACK to detect fake user until Falguiere fix the bug
+// see /trackmania-next/trackmania-console/-/issues/360
+Boolean IsFakeUser(CUser _User) {
+	return _User.IsFakeUser || TL::StartsWith("*fake", _User.Login);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Ternary operator polyfill
+Text Ternary(Boolean _IsTrue, Text _ValueA, Text _ValueB) {
+	if (_IsTrue) return _ValueA;
+	return _ValueB;
+}
+Integer Ternary(Boolean _IsTrue, Integer _ValueA, Integer _ValueB) {
+	if (_IsTrue) return _ValueA;
+	return _ValueB;
+}
+Real Ternary(Boolean _IsTrue, Real _ValueA, Real _ValueB) {
+	if (_IsTrue) return _ValueA;
+	return _ValueB;
+}
+Ident Ternary(Boolean _IsTrue, Ident _ValueA, Ident _ValueB) {
+	if (_IsTrue) return _ValueA;
+	return _ValueB;
+}
+Int2 Ternary(Boolean _IsTrue, Int2 _ValueA, Int2 _ValueB) {
+	if (_IsTrue) return _ValueA;
+	return _ValueB;
+}
+Int3 Ternary(Boolean _IsTrue, Int3 _ValueA, Int3 _ValueB) {
+	if (_IsTrue) return _ValueA;
+	return _ValueB;
+}
+Vec2 Ternary(Boolean _IsTrue, Vec2 _ValueA, Vec2 _ValueB) {
+	if (_IsTrue) return _ValueA;
+	return _ValueB;
+}
+Vec3 Ternary(Boolean _IsTrue, Vec3 _ValueA, Vec3 _ValueB) {
+	if (_IsTrue) return _ValueA;
+	return _ValueB;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**
+ * Translate map's name if it's an official map
+ *
+ *	@param _MapName							The name of the map to translate
+ *	@param _ForceTranslation		Force the translation of the map name
+ *
+ *	@return											The translated name
+ */
+Text TranslateOfficialMapName(Text _MapName, Text _AuthorLogin, Boolean _ForceTranslation) {
+	declare Text LocalMapName = _MapName;
+	if (_ForceTranslation || _AuthorLogin == Const::C_Nadeo_Login) {
+		declare Text[] NameSplit = TL::Split(" ", LocalMapName, False);
+		if (NameSplit.count > 0) {
+			declare Text SeasonName = C_Season_Names.get(NameSplit[0], NameSplit[0]);
+			NameSplit.removekey(0);
+			LocalMapName = TL::Compose("%1 %2", SeasonName, TL::Join(" ", NameSplit));
+		}
+	}
+	return LocalMapName;
+}
+Text TranslateOfficialMapName(Text _MapName, Text _AuthorLogin) {
+	return TranslateOfficialMapName(_MapName, _AuthorLogin, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the parent mania app instance from a manialink script
+CManiaApp GetParentApp(CMlScript _This) {
+	switchtype (_This as Script) {
+		case CAnyEditorPluginLayer: return Null;
+		case CManiaAppTitleLayer: return Script.ParentApp;
+		case CMapEditorPluginLayer: return Script.Editor;
+		case CMlBrowser: return Script.ParentApp;
+		case CMlManiaPlanet: return Script.ParentApp;
+		case CMlScriptIngame: return Script.ParentApp;
+		case CMlStation: return Script.ParentApp;
+		default: {
+			assert(
+				False,
+				"""[Tools] This manialink script context is not supported"""
+			);
+		}
+	}
+
+	return Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the http manager instance for the given context
+CHttpManager GetHttpManager(CNod _Context) {
+	switchtype (_Context as Context) {
+		case CManiaApp: return Context.Http;
+		case CMlScript: return Context.Http;
+		case CMode: return Context.Http;
+		case CServerPlugin: return Context.Http;
+		default: {
+			assert(False, "Context not supported");
+		}
+	}
+	return Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the system instance for the given context
+CSystemPlatform GetSystem(CNod _Context) {
+	switchtype (_Context as Context) {
+		case CManiaApp: return Context.System;
+		case CManiaPlanet: return Context.System;
+		case CMlScript: return Context.System;
+		case CMode: return Context.System;
+		case CServerPlugin: return Context.System;
+		default: {
+			assert(False, "Context not supported");
+		}
+	}
+	return Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the maniaplanet instance for the given context
+CManiaPlanet GetManiaPlanet(CNod _Context) {
+	switchtype (_Context as Context) {
+		case CManiaApp: return Context.ManiaPlanet;
+		case CManiaAppTitleLayer: return Context.ParentApp.ManiaPlanet;
+		case CMapEditorPluginLayer: return Context.Editor.ManiaPlanet;
+		case CMlBrowser: return Context.ManiaPlanet;
+		case CMlManiaPlanet: return Context.ManiaPlanet;
+		case CMlScriptIngame: return Context.ParentApp.ManiaPlanet;
+		case CMlStation: return Context.ManiaPlanet;
+		default: {
+			assert(False, "Context not supported");
+		}
+	}
+	return Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create an xml node
+Text CreateXmlNode(Text _Name, Text[Text] _Attributes) {
+	declare Text Attributes = "";
+	for (AttributeName => AttributeValue in _Attributes) {
+		Attributes ^= """{{{TL::MLEncode(AttributeName)}}}="{{{TL::MLEncode(AttributeValue)}}}" """;
+	}
+	return """<{{{TL::MLEncode(_Name)}}} {{{Attributes}}}/>""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the text is translated
+Boolean IsTranslatedText(Text _Text) {
+	// The compose character also act as a translate character
+	return TL::StartsWith(C_TranslateCharacter, _Text) || TL::StartsWith(C_ComposeCharacter, _Text);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** If `InputPlayer` is not spawned and they are not spectating anyone (cam7 or no other player is spawned)
+ * then `GUIPlayer` will be `Null`. In this case we want to get the `InputPlayer` instead of `Null`.
+ */
+CSmPlayer GetTargetPlayer(CSmMlScriptIngame _Context) {
+	if (_Context.GUIPlayer != Null) return _Context.GUIPlayer;
+	return _Context.InputPlayer;
+}

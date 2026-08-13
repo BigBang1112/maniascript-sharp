@@ -1,0 +1,182 @@
+/**
+ *	UI module: Sign16x9 client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign16x9_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign16x9_Common.Script.txt" as UIModules_Sign16x9_Common
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/ZIndex.Script.txt" as ZIndex
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const UIModules_Sign16x9_Common::C_InstancesNb as C_InstancesNb
+#Const UIModules_Sign16x9_Common::C_AttachId as C_AttachId
+#Const C_ImageSponsorsPath "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Sponsors"
+#Const C_DisplayLapNb False //< Risk of overlap with the background image (sponsors, team name, ...)
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId(Integer _InstanceNb) {
+	return UIModules_Sign16x9_Common::C_Id^"_"^_InstanceNb;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Sign16x9_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML(Integer _InstanceNb) {
+	//L16N [TMGL] The lap number. eg : "Lap 3/6"
+	declare Text Text_LapNb = _("Lap %1/%2");
+
+	return MV::Create(
+GetId(_InstanceNb), 3,
+"""
+<frame id="frame-global" z-index="{{{ZIndex::C_ZIndex_Sign16x9}}}" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Sign16x9_Common::C_UIModuleConfig)}}}>
+		<quad id="quad-target-player" image="{{{C_ImageSponsorsPath}}}/Default.dds" size="320 180" z-index="0" halign="center" valign="center"/>
+		<quad id="quad-crossfade" size="320 180" z-index="1" halign="center" valign="center" opacity="0"/>
+		<label id="label-lap-number" pos="0 -60" z-index="3" size="320 30" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textsize="23" textcolor="ffffff" textprefix="$t$i" />
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Client.Script.txt" as RaceHelpers
+
+#Const C_ImageSponsorsPath {{{dump(C_ImageSponsorsPath)}}}
+#Const C_DisplayLapNb {{{dump(C_DisplayLapNb)}}}
+""",
+"""
+Void UpdateSign(CMlQuad _Quad_TargetPlayer, CMlQuad _Quad_Crossfade, CSmPlayer _TargetPlayer) {
+	declare Text NewImageUrl = _Quad_TargetPlayer.ImageUrl;
+
+	if (_TargetPlayer != Null && _TargetPlayer.User != Null) {
+		declare Text Sign = {{{PlayerProfiles::P}}}GetPlayerProfiles().get(_TargetPlayer.User.WebServicesUserId, {{{PlayerProfiles::P}}}K_PlayerProfile {}).Sign16x9;
+		if (Sign != "") {
+			NewImageUrl = C_ImageSponsorsPath^"/"^Sign;
+		} else {
+			NewImageUrl = C_ImageSponsorsPath^"/Default.dds";
+		}
+	}
+
+	if (_Quad_TargetPlayer.ImageUrl != NewImageUrl) {
+		_Quad_Crossfade.ImageUrl = _Quad_TargetPlayer.ImageUrl;
+		_Quad_Crossfade.Opacity = 1.;
+		_Quad_TargetPlayer.ImageUrl = NewImageUrl;
+
+		// If the game is not focused when the opacity animation should be played,
+		// the opacity might change only once the sign is updated by the
+		// C++ to display the ads again. It is normal, do not worry if the
+		// animation is not played properly while testing with several game instances.
+		AnimMgr.Flush(_Quad_Crossfade);
+		AnimMgr.Add(_Quad_Crossfade, "<anim opacity=\"0\" />", 500, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+Void UpdateLap(CMlLabel _Label_LapNumber, Boolean _DisplayLapNb, Integer _CurrentLap, Integer _TotalLap) {
+	if (_DisplayLapNb && _CurrentLap > 0 && _TotalLap > 0) {
+		_Label_LapNumber.Value = TL::Compose("{{{Text_LapNb}}}", ""^_CurrentLap, ""^_TotalLap);
+		_Label_LapNumber.Visible = True;
+	} else {
+		_Label_LapNumber.Visible = False;
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlQuad Quad_TargetPlayer;
+declare CMlQuad Quad_Crossfade;
+declare CMlLabel Label_LapNumber;
+
+declare netread Boolean Net_ChampionCup_Sign16x9_IsVisible for UI;
+
+declare Boolean DisplayModule;
+declare Integer CurrentLap;
+declare Integer TotalLap;
+declare Ident TargetPlayerId;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Quad_TargetPlayer <=> (Frame_Global.GetFirstChild("quad-target-player") as CMlQuad);
+Quad_Crossfade <=> (Frame_Global.GetFirstChild("quad-crossfade") as CMlQuad);
+Label_LapNumber <=> (Frame_Global.GetFirstChild("label-lap-number") as CMlLabel);
+
+DisplayModule = Frame_Global.Visible;
+
+UpdateLap(Label_LapNumber, C_DisplayLapNb, CurrentLap, TotalLap);
+UpdateSign(Quad_TargetPlayer, Quad_Crossfade, GUIPlayer);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (DisplayModule != Net_ChampionCup_Sign16x9_IsVisible) {
+		DisplayModule = Net_ChampionCup_Sign16x9_IsVisible;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (GUIPlayer != Null) {
+			if (TargetPlayerId != GUIPlayer.Id) {
+				TargetPlayerId = GUIPlayer.Id;
+				UpdateSign(Quad_TargetPlayer, Quad_Crossfade, GUIPlayer);
+			}
+
+			if (
+				C_DisplayLapNb && (
+					CurrentLap != RaceHelpers::GetPlayerLap(GUIPlayer) ||
+					TotalLap != RaceHelpers::GetLapsNb(Teams[0])
+				)
+			) {
+				CurrentLap = RaceHelpers::GetPlayerLap(GUIPlayer);
+				TotalLap = RaceHelpers::GetLapsNb(Teams[0]);
+				UpdateLap(Label_LapNumber, C_DisplayLapNb, CurrentLap, TotalLap);
+			}
+		} else if (
+			GUIPlayer == Null && (
+				TargetPlayerId != NullId ||
+				CurrentLap != 0 ||
+				TotalLap != 0
+			)
+		) {
+			TargetPlayerId = NullId;
+			CurrentLap = 0;
+			TotalLap = 0;
+			UpdateLap(Label_LapNumber, C_DisplayLapNb, CurrentLap, TotalLap);
+			UpdateSign(Quad_TargetPlayer, Quad_Crossfade, GUIPlayer);
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	PlayerProfiles::Component()
+],
+[]
+	);
+}

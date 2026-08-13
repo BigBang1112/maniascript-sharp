@@ -1,0 +1,319 @@
+/**
+ *  Display the player record for the season or overall
+ */
+#Const Version    "1.1.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/Record_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Record_Common.Script.txt" as Record
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Common.Script.txt" as UIModules_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Strutures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Record {
+	Text AccountId;
+	Integer Time;
+	Text ZonePath;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_Race_Record"
+#Const C_NotificationDelay 5000
+#Const C_NotificationCooldown 1000
+#Const Record::C_Event_UpdatePBGhostVisibility as C_Event_UpdatePBGhostVisibility
+#Const Record::C_Event_Spectate as C_Event_Spectate
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer[] G_NotificationsQueue_Times;
+declare K_Record[] G_NotificationsQueue_Records;
+declare Integer G_NotificationsQueue_CooldownEndTime;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return Record::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the configuration of the UI module
+UIModules_Common::K_ModuleConfig GetConfig() {
+	return Record::C_UIModuleConfig;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Setup the records
+ *
+ *	@param	_MapUid										Uid of the current map
+ *	@param	_ScopeSeason							Scope of the ghost on the nadeoservices when playing on a season map
+ *	@param	_ScopeNotSeason						Scope of the ghost on the nadeoservices when playing on a map outside of a season
+ *	@param	_ModeName									The name of the mode on the nadeoservices
+ *	@param	_CustomData								Mode's custom data on the nadeoservices
+ *	@param	_PBGhostEnabled						Enable the display of the PB ghost
+ *	@param	_MedalEnabled							Enable the display of the medal
+ *	@param	_CelebratePB							Enable the celebration screen when improving best time
+ *	@param	_CelebrateMedal						Enable the celebration screen when unlocking a better medal
+ *	@param	_DisplayRecords						Display the best times on the map
+ *	@param	_UploadGhost							Will the ghosts of the players' races be uploaded to nadeoservices
+ */
+Void Setup(
+	Text _MapUid,
+	Text _ScopeSeason,
+	Text _ScopeNotSeason,
+	Text _ModeName,
+	Text _CustomData,
+	Boolean _PBGhostEnabled,
+	Boolean _MedalEnabled,
+	Boolean _CelebratePB,
+	Boolean _CelebrateMedal,
+	Boolean _DisplayRecords,
+	Boolean _UploadGhost
+) {
+	declare netwrite Integer Net_TMGame_Record_SetupUpdate for Teams[0] = -1;
+	declare netwrite Boolean Net_TMGame_Record_PBGhostEnabled for Teams[0] = False;
+	declare netwrite Boolean Net_TMGame_Record_CelebratePB for Teams[0] = False;
+	declare netwrite Boolean Net_TMGame_Record_MedalEnabled for Teams[0] = False;
+	declare netwrite Boolean Net_TMGame_Record_CelebrateMedal for Teams[0] = False;
+	declare netwrite Text Net_TMGame_Record_ScopeSeason for Teams[0] = "";
+	declare netwrite Text Net_TMGame_Record_ScopeNotSeason for Teams[0] = "";
+	declare netwrite Text Net_TMGame_Record_ModeName for Teams[0] = "";
+	declare netwrite Text Net_TMGame_Record_CustomData for Teams[0] = "";
+	declare netwrite Boolean Net_TMGame_Record_DisplayRecords for Teams[0] = False;
+	declare netwrite Boolean Net_TMGame_Record_NewRecordsEnabled for Teams[0] = False;
+	Net_TMGame_Record_PBGhostEnabled = _PBGhostEnabled;
+	Net_TMGame_Record_CelebratePB = _CelebratePB;
+	Net_TMGame_Record_MedalEnabled = _MedalEnabled;
+	Net_TMGame_Record_CelebrateMedal = _CelebrateMedal;
+	Net_TMGame_Record_ScopeSeason = _ScopeSeason;
+	Net_TMGame_Record_ScopeNotSeason = _ScopeNotSeason;
+	Net_TMGame_Record_ModeName = _ModeName;
+	Net_TMGame_Record_CustomData = _CustomData;
+	Net_TMGame_Record_DisplayRecords = _DisplayRecords;
+	Net_TMGame_Record_NewRecordsEnabled = _UploadGhost;
+	Net_TMGame_Record_SetupUpdate += 1;
+}
+Void Reset() {
+	Setup("", "", "", "", "", False, False, False, False, False, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the season id to use on each map
+Void SetSeasonIds(Text _SeasonIdsJson) {
+	declare netwrite Text[Text] Net_TMGame_Record_SeasonIds for Teams[0] = [];
+	declare netwrite Integer Net_TMGame_Record_SetupUpdate for Teams[0] = -1;
+	Net_TMGame_Record_SeasonIds.fromjson(_SeasonIdsJson);
+	Net_TMGame_Record_SetupUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Force a map update on the client
+Void ForceMapUpdate() {
+	declare netwrite Integer Net_TMGame_Record_SetupUpdate for Teams[0] = -1;
+	declare netwrite Integer Net_TMGame_Record_ForceMapUpdate for Teams[0] = -1;
+	Net_TMGame_Record_ForceMapUpdate += 1;
+	Net_TMGame_Record_SetupUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Show or hide the UI
+ *
+ *	@param	_Player										The player to update
+ *	@param	_Display									True to show
+ *																		False to hide
+ */
+Void SetIsGhostSpectatingEnabled(Boolean _Enabled) {
+	declare netwrite Boolean Net_TMGame_Record_IsGhostSpectatingEnabled for Teams[0];
+	Net_TMGame_Record_IsGhostSpectatingEnabled = _Enabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Show or hide the UI
+ *
+ *	@param	_Player										The player to update
+ *	@param	_Display									True to show
+ *																		False to hide
+ */
+Void SetVisibility(CPlayer _Player, Boolean _Display) {
+	if (_Player == Null) return;
+
+	declare netwrite Boolean Net_TMGame_Record_IsVisible for _Player;
+	Net_TMGame_Record_IsVisible = _Display;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Hide the UI for all players in special situations
+ *
+ *	@param	_Display									True to show
+ *																		False to hide
+ */
+Void SetSpecialVisibility(Boolean _Display) {
+	declare netwrite Boolean Net_TMGame_Record_SpecialVisibility for Teams[0] = True;
+	Net_TMGame_Record_SpecialVisibility = _Display;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the player wants to display the PB ghost or not
+Boolean PBGhostIsVisible(CPlayer _Player) {
+	if (_Player == Null) return False;
+	declare CUIConfig UI <=> UIManager.GetUI(_Player);
+	if (UI == Null) return True;
+	declare netread Boolean Net_TMGame_Record_PBGhostIsVisible for UI = True;
+	return Net_TMGame_Record_PBGhostIsVisible;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the player wants to display the PB ghost or not
+Boolean PBGhostIsVisible(CUIConfigEvent _Event) {
+	if (
+		_Event.CustomEventType == C_Event_UpdatePBGhostVisibility &&
+		_Event.CustomEventData.count >= 1
+	) {
+		return Tools::TextToBoolean(_Event.CustomEventData[0]);
+	}
+
+	return True;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the accountId of the current target of the spectator mode
+Void SetSpectatorTargetAccountId(Text _AccountId) {
+	declare netwrite Text Net_TMGame_Record_SpectatorTargetAccountId for Teams[0] = "";
+	Net_TMGame_Record_SpectatorTargetAccountId = _AccountId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	SetVisibility(_Player, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	foreach (Event in UIManager.PendingEvents) {
+		if (Event.Type == CUIConfigEvent::EType::OnLayerCustomEvent) {
+			if (
+				Event.CustomEventType == Record::C_Event_NewRecord &&
+				Event.CustomEventData.count >= 1 &&
+				Event.UI != Null
+			) {
+				declare CSmPlayer Player = GetPlayer(Event.UI);
+				if (Player != Null) {
+					G_NotificationsQueue_Times.add(Now + C_NotificationDelay);
+					G_NotificationsQueue_Records.add(K_Record {
+						AccountId  = Player.User.WebServicesUserId,
+						Time = TL::ToInteger(Event.CustomEventData[0]),
+						ZonePath = Player.User.ZonePath
+					});
+				}
+			}
+		}
+	}
+
+	// Delay and throttle the transmission so the leaderboard have time to update
+	// and we do not request an update too often
+	if (
+		(G_NotificationsQueue_Times.count > 0 && Now >= G_NotificationsQueue_Times[0]) &&
+		(G_NotificationsQueue_CooldownEndTime < 0 || Now >= G_NotificationsQueue_CooldownEndTime)
+	) {
+		G_NotificationsQueue_CooldownEndTime = Now + C_NotificationCooldown;
+
+		// If only one player did a new record
+		// it is not necessary to notify them
+		// about the new record, they already
+		// know about it.
+		declare Text SkipAccountId;
+		if (G_NotificationsQueue_Records.count == 1) {
+			SkipAccountId = G_NotificationsQueue_Records[0].AccountId;
+		}
+
+		// Find best new record time
+		declare Integer[Text] ZonesBestTime;
+		while (G_NotificationsQueue_Times.count > 0 && Now >= G_NotificationsQueue_Times[0]) {
+			declare K_Record Record = G_NotificationsQueue_Records[0];
+			G_NotificationsQueue_Times.removekey(0);
+			G_NotificationsQueue_Records.removekey(0);
+			if (Record.Time >= 0) {
+				declare Text[] Zones = TL::Split("|", Record.ZonePath);
+				foreach (Zone in Zones) {
+					if (!ZonesBestTime.existskey(Zone) || Record.Time < ZonesBestTime[Zone]) {
+						ZonesBestTime[Zone] = Record.Time;
+					}
+				}
+			}
+		}
+
+		// Send the new record time to the players
+		// Clean records received by the players
+		if (ZonesBestTime.count > 0) {
+			declare netwrite Integer Net_TMGame_Record_NewRecordsUpdate for Teams[0];
+			Net_TMGame_Record_NewRecordsUpdate = Now;
+			foreach (Player in AllPlayers) {
+				if (Player.User.WebServicesUserId != SkipAccountId) {
+					declare UI <=> UIManager.GetUI(Player);
+					if (UI != Null) {
+						declare netwrite Integer[Text][Integer] Net_TMGame_Record_NewRecords for UI;
+						declare netread Integer[] Net_TMGame_Record_ReceivedRecords for UI;
+						foreach (Key in Net_TMGame_Record_ReceivedRecords) {
+							Net_TMGame_Record_NewRecords.removekey(Key);
+						}
+						Net_TMGame_Record_NewRecords[Now] = [];
+						declare Text[] PlayerZones = TL::Split("|", Player.User.ZonePath);
+						foreach (Zone in PlayerZones) {
+							if (ZonesBestTime.existskey(Zone)) {
+								Net_TMGame_Record_NewRecords[Now][Zone] = ZonesBestTime[Zone];
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	SetIsGhostSpectatingEnabled(True);
+	SetSpecialVisibility(True);
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+
+		declare UI <=> UIManager.GetUI(Player);
+		if (UI != Null) {
+			declare netwrite Integer[Text][Integer] Net_TMGame_Record_NewRecords for UI;
+			Net_TMGame_Record_NewRecords = [];
+		}
+	}
+	Reset();
+	SetSeasonIds("");
+
+	G_NotificationsQueue_Times = [];
+	G_NotificationsQueue_Records = [];
+	G_NotificationsQueue_CooldownEndTime = -1;
+
+	declare netwrite Integer Net_TMGame_Record_NewRecordsUpdate for Teams[0];
+	Net_TMGame_Record_NewRecordsUpdate = Now;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

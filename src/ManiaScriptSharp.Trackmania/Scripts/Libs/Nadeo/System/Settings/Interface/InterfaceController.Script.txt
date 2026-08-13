@@ -1,0 +1,253 @@
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Settings/Interface/InterfaceAPI.Script.txt"		as InterfaceAPI
+#Include "Libs/Nadeo/System/Settings/Layer_SettingsTabs.Script.txt"			as LayerSettingsTabs
+#Include "Libs/Nadeo/System/Settings/Interface/Layer_Interface.Script.txt"	as LayerInterface
+
+#Const C_LibInterfaceController_SettingsTabId		"Interface"
+#Const C_GamePermission_OpenAdvancedMapEditor "client_OpenAdvancedMapEditor" //< User can open the advanced map editor
+
+declare Boolean G_LibInterfaceController_PendingChanges;
+declare Text 	G_LibInterfaceController_TitleUsedForTheTab;
+
+Void Private_UpdateInterfaceSettings() {
+	if (ManiaPlanet.UserMgr.MainUserProfile == Null) return;
+
+	declare SettingsList = InterfaceAPI::GetSettingsList();
+
+	LayerInterface::SetSettingsList(SettingsList);
+}
+
+Text GetTabId() {
+	return C_LibInterfaceController_SettingsTabId;
+}
+
+Void SetVisibility(Boolean _Visible) {
+	LayerInterface::SetVisibility(_Visible);
+}
+
+Void Show(Integer _Direction) {
+	LayerInterface::ShowPage(_Direction);
+}
+
+Void Hide(Integer _Direction) {
+	LayerInterface::HidePage(_Direction);
+}
+
+Void SetLayerColor(Vec3 _Color) {
+	LayerInterface::SetColor(_Color);
+}
+
+CUILayer GetLayer() {
+	return LayerInterface::GetLayer();
+}
+
+Boolean HasUnsavedChanges() {
+	declare HasChanges = G_LibInterfaceController_PendingChanges;
+	G_LibInterfaceController_PendingChanges = False;
+	return HasChanges;
+}
+
+Void Load() {
+	InterfaceAPI::Init();
+	LayerInterface::Build();
+	
+	
+	if (ManiaPlanet.LoadedTitle == Null)
+		G_LibInterfaceController_TitleUsedForTheTab = "";
+	else
+		G_LibInterfaceController_TitleUsedForTheTab = ManiaPlanet.LoadedTitle.TitleId;
+	
+	declare Boolean IsTrackmaniaStandalone = G_LibInterfaceController_TitleUsedForTheTab == "Trackmania";
+	if (IsTrackmaniaStandalone)
+		LayerSettingsTabs::CreateTab(C_LibInterfaceController_SettingsTabId, _("|Settings|Interface"), "tab-interface-TM.dds");
+	else
+		LayerSettingsTabs::CreateTab(C_LibInterfaceController_SettingsTabId, _("|Settings|Interface"), "tab-interface-SM.dds");
+	Private_UpdateInterfaceSettings();
+}
+
+Void Loop() {
+	InterfaceAPI::Loop();
+	
+	declare Text CurrentlyLoadedTitleId = "";
+	if (ManiaPlanet.LoadedTitle != Null)
+		CurrentlyLoadedTitleId = ManiaPlanet.LoadedTitle.TitleId;
+	if (G_LibInterfaceController_TitleUsedForTheTab != CurrentlyLoadedTitleId) {
+		G_LibInterfaceController_TitleUsedForTheTab = CurrentlyLoadedTitleId;
+		declare Boolean IsTrackmaniaStandalone = G_LibInterfaceController_TitleUsedForTheTab == "Trackmania";
+		if (IsTrackmaniaStandalone)
+			LayerSettingsTabs::SetTabIcon(C_LibInterfaceController_SettingsTabId, "tab-interface-TM.dds");
+		else
+			LayerSettingsTabs::SetTabIcon(C_LibInterfaceController_SettingsTabId, "tab-interface-SM.dds");
+	}
+	
+	foreach (Event in PendingEvents) {
+		declare UserSettings <=> ManiaPlanet.UserMgr.MainUserProfile;
+		declare IsPlayerCustomColors = UserSettings.Interface_AllyEnableCustomColor && UserSettings.Interface_OppoEnableCustomColor;
+
+		if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			if (Event.CustomEventLayer != LayerInterface::GetLayer()) continue;
+
+			switch (Event.CustomEventType) {
+				case "SetSettingValue" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare Setting = InterfaceAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+
+					declare NewValue = ML::Clamp(TL::ToReal(Event.CustomEventData[1]), Setting.ValueRangeMin, Setting.ValueRangeMax);
+
+					switch (Setting.Id) {
+						case "CrosshairSize"					: UserSettings.Interface_CrosshairSize			= NewValue;
+						case "CrosshairOpacity"					: UserSettings.Interface_CrosshairOpacity		= NewValue;
+						case "CrosshairColorHue"				: UserSettings.Interface_CrosshairLinearHue		= NewValue;
+						case "CrosshairSaturation"				: UserSettings.Interface_CrosshairSaturation	= NewValue;
+						case "PlayerColorAlly"					: UserSettings.Interface_AllyLinearHue			= NewValue;
+						case "PlayerColorEnemy"					: UserSettings.Interface_OppoLinearHue			= NewValue;
+						case "PlayerShieldScale"				: UserSettings.Interface_PlayerShieldScale		= NewValue;
+						case "BeaconsPitch"						: UserSettings.User_HornPitch					= NewValue;
+						case "BeaconsSize"						: UserSettings.Interface_BeaconSize				= NewValue;
+						case "BeaconsOpacity"					: UserSettings.Interface_BeaconOpacity			= NewValue;
+						case "BeaconsDuration"					: UserSettings.Interface_BeaconDuration			= NewValue;
+						case "HudMarkersDisplaySize"			: ManiaPlanet.Interface_PlayerInfoDisplaySize	= ML::NearestInteger(NewValue);
+					}
+
+					G_LibInterfaceController_PendingChanges = True;
+					Private_UpdateInterfaceSettings();
+				}
+
+				case "StopSliderDragging" : {
+					Private_UpdateInterfaceSettings();
+				}
+
+				case "SettingEnum" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare Setting = InterfaceAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+
+					declare Direction = TL::ToInteger(Event.CustomEventData[1]);
+					declare Key = Setting.AvailableOptions.keyof(Setting.CurrentValueText) + Direction;
+
+					if (!Setting.AvailableOptions.existskey(Key)) continue;
+					declare NewValue = Setting.AvailableOptions[Key];
+
+					switch (Setting.Id) {
+						case "CrosshairSelect" : UserSettings.Interface_CrosshairName = NewValue;
+						case "OnlineDefaultOpponentVisibility": {
+							switch (NewValue) {
+								case "Opaque" 	: UserSettings.Online_DefaultOpponentVisibility = CUserV2Profile::EPlayerVisibility::Opaque;
+								case "Ghost" 	: UserSettings.Online_DefaultOpponentVisibility = CUserV2Profile::EPlayerVisibility::Ghost;
+								case "Hidden"	: UserSettings.Online_DefaultOpponentVisibility = CUserV2Profile::EPlayerVisibility::Hidden;
+							}
+						}
+						case "InterfaceInternalCamPlayerVisibility" : {
+							switch (NewValue) {
+								case "Opaque" 	: UserSettings.Interface_InternalCamLocalPlayerVisibility = CUserV2Profile::EPlayerVisibility::Opaque;
+								case "Ghost" 	: UserSettings.Interface_InternalCamLocalPlayerVisibility = CUserV2Profile::EPlayerVisibility::Ghost;
+							}
+						}
+						case "OnlineRoadsideSpectatorVisibility": {
+							switch (NewValue) {
+								case "Always" 				: UserSettings.Online_RoadsideSpectatorVisibility = CUserV2Profile::ERoadsideSpectatorVisibility::Always;
+								case "Never" 					: UserSettings.Online_RoadsideSpectatorVisibility = CUserV2Profile::ERoadsideSpectatorVisibility::Never;
+								case "SpectatorOnly"	: UserSettings.Online_RoadsideSpectatorVisibility = CUserV2Profile::ERoadsideSpectatorVisibility::SpectatorOnly;
+							}
+						}
+			
+						case "HudMarkersDisplayType" : {
+							switch (NewValue) {
+								case "Name" 			: ManiaPlanet.Interface_PlayerInfoDisplayType = CManiaPlanet::EPlayerInfoDisplayType::Name;
+								case "Avatar" 			: ManiaPlanet.Interface_PlayerInfoDisplayType = CManiaPlanet::EPlayerInfoDisplayType::Avatar;
+								case "AvatarAndName" 	: ManiaPlanet.Interface_PlayerInfoDisplayType = CManiaPlanet::EPlayerInfoDisplayType::AvatarAndName;
+							}
+						}
+
+						case "MapEditorQuickStartDifficulty" : {
+							switch (NewValue) {
+								case "Simple": UserSettings.Editors_MapEditorQuickstartDifficulty = CUserV2Profile::EMapEditorDifficulty::Simple;
+								case "Advanced": UserSettings.Editors_MapEditorQuickstartDifficulty = CUserV2Profile::EMapEditorDifficulty::Advanced;
+								case "Expert": UserSettings.Editors_MapEditorQuickstartDifficulty = CUserV2Profile::EMapEditorDifficulty::Expert;
+							}
+						}
+
+						case "MapEditorQuickStartMood" : {
+							switch (NewValue) {
+								case "Sunrise": UserSettings.Editors_MapEditorQuickstartMood = CUserV2Profile::EMapEditorMood::Sunrise;
+								case "Day": UserSettings.Editors_MapEditorQuickstartMood = CUserV2Profile::EMapEditorMood::Day;
+								case "Sunset": UserSettings.Editors_MapEditorQuickstartMood = CUserV2Profile::EMapEditorMood::Sunset;
+								case "Night": UserSettings.Editors_MapEditorQuickstartMood = CUserV2Profile::EMapEditorMood::Night;
+							}
+						}
+					}
+
+					G_LibInterfaceController_PendingChanges = True;
+					Private_UpdateInterfaceSettings();
+				}
+
+				case "ToggleBoolean" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+
+					declare Setting = InterfaceAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+
+					declare NewValue = !Setting.CurrentValueBoolean;
+					switch (Setting.Id) {
+						case "CrosshairUseColor"	: UserSettings.Interface_CrosshairEnableCustomColor = NewValue;
+						case "BeaconsUseCustom"		: UserSettings.Interface_BeaconUseProfileColor 		= NewValue;
+						case "PlayerColorEnable"	: {
+							UserSettings.Interface_AllyEnableCustomColor = NewValue;
+							UserSettings.Interface_OppoEnableCustomColor = NewValue;
+						}
+						case "UseAlternateCam1" 						: UserSettings.Interface_UseAlternateCam1 = NewValue;
+						case "UseAlternateCam2" 						: UserSettings.Interface_UseAlternateCam2 = NewValue;
+						case "UseAlternateInternalCam" 					: UserSettings.Interface_UseOldInternalCam = NewValue;
+						case "InterfaceShowSpecialsFeedback"			: UserSettings.Interface_ShowSpecialsFeedback = NewValue;
+						case "InterfaceAlwaysDisplayRecords"			: UserSettings.Interface_AlwaysDisplayRecords = NewValue;
+						case "EnableMapEditorQuickStart"				: UserSettings.Editors_MapEditorUseQuickstart = NewValue && PrivilegeMgr != Null && UserMgr.MainUser != Null && PrivilegeMgr.IsPermissionEnabled(UserMgr.MainUser.Id, C_GamePermission_OpenAdvancedMapEditor);
+						case "MapEditorQuickStartUseGampadController"	: {
+							UserSettings.Editors_MapEditorQuickstartUseGamepad = NewValue;
+							InterfaceAPI::ForceMapEditorQuickStartDifficultySettingUpdate();
+						}
+					}
+
+					G_LibInterfaceController_PendingChanges = True;
+					Private_UpdateInterfaceSettings();
+				}
+
+				case "SliderIncrement" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare Setting = InterfaceAPI::GetSetting(Event.CustomEventData[0]);
+					if (Setting.Id == "") continue;
+					if (Setting.Type != "Real") continue;
+					
+					declare Direction = TL::ToInteger(Event.CustomEventData[1]);
+					declare NewValue = ML::Clamp(Setting.CurrentValueReal + (Setting.ValueStep * Direction), Setting.ValueRangeMin, Setting.ValueRangeMax);
+
+					switch (Setting.Id) {
+						case "CrosshairSize"		: UserSettings.Interface_CrosshairSize			= NewValue;
+						case "CrosshairOpacity"		: UserSettings.Interface_CrosshairOpacity		= NewValue;
+						case "CrosshairColorHue"	: UserSettings.Interface_CrosshairLinearHue		= NewValue;
+						case "CrosshairSaturation"	: UserSettings.Interface_CrosshairSaturation	= NewValue;
+						case "PlayerColorAlly"		: UserSettings.Interface_AllyLinearHue			= NewValue;
+						case "PlayerColorEnemy"		: UserSettings.Interface_OppoLinearHue			= NewValue;
+						case "PlayerShieldScale"	: UserSettings.Interface_PlayerShieldScale		= NewValue;
+						case "BeaconsPitch"			: UserSettings.User_HornPitch					= NewValue;
+						case "BeaconsSize"			: UserSettings.Interface_BeaconSize				= NewValue;
+						case "BeaconsOpacity"		: UserSettings.Interface_BeaconOpacity			= NewValue;
+						case "BeaconsDuration"		: UserSettings.Interface_BeaconDuration			= NewValue;
+					}
+
+					G_LibInterfaceController_PendingChanges = True;
+					Private_UpdateInterfaceSettings();
+				}
+			}
+		}
+	}
+
+	if (InterfaceAPI::PendingUpdate()) {
+		Private_UpdateInterfaceSettings();
+	}
+}

@@ -1,0 +1,241 @@
+/**
+ *  UI module: TimeDiffToPoints client side
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/TimeDiffToPoints_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_Champion_TimeDiffToPoints"
+#Const C_Type CUILayer::EUILayerType::Normal
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	declare Color_BrightRed = "ff4a4a";
+	declare Color_BrightGreen = "45f2a1";
+
+	return MV::Create(
+C_Id, 3,
+"""
+<frame z-index="-2" hidden="1" id="frame-global">
+	<frame pos="0 -72" hidden="1" id="frame-diff">
+		<label size="50 10" halign="center" valign="center" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_IngameTime)}}}" textcolor="ffffff" textsize="4" id="label-diff" />
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+
+#Const C_UpdateMaxFrequency 250
+""",
+"""
+declare CMlLabel G_Label_Diff;
+
+Void UpdateDiff(Integer _WinningPlayersNb, CSmPlayer _Player) {
+	if (_Player == Null || _Player.Score == Null) return;
+
+	declare Integer[Ident][Integer] TmpRanking;
+	declare Integer LatestCPTime = 0;
+	foreach (Score in Scores) {
+		if (Score.BestRaceTimes.count > 0) {
+			if (!TmpRanking.existskey(Score.BestRaceTimes.count)) {
+					TmpRanking[Score.BestRaceTimes.count] = [];
+			}
+
+			declare CheckpointTime = Score.BestRaceTimes[Score.BestRaceTimes.count - 1];
+			TmpRanking[Score.BestRaceTimes.count][Score.Id] = CheckpointTime;
+
+			if (CheckpointTime > LatestCPTime) LatestCPTime = CheckpointTime;
+		} else {
+			if (!TmpRanking.existskey(0)) {
+					TmpRanking[0] = [];
+			}
+			TmpRanking[0][Score.Id] = -1;
+		}
+	}
+	TmpRanking = TmpRanking.sortkeyreverse();
+
+	declare Integer Rank = 1;
+	declare CSmScore MyScore;
+	declare Integer MyCheckpointsNb;
+	declare Integer MyCheckpointTime = LatestCPTime;
+	declare CSmScore TargetScore;
+	declare Integer TargetCheckpointsNb;
+	declare Integer TargetCheckpointTime = LatestCPTime;
+	foreach (CheckpointKey => CheckpointTimes in TmpRanking) {
+		declare SortedCheckpointTimes = CheckpointTimes.sort();
+
+		foreach (ScoreId => CheckpointTime in SortedCheckpointTimes) {
+			if (ScoreId == _Player.Score.Id && Scores.existskey(ScoreId)) {
+				MyScore <=> Scores[ScoreId];
+				MyCheckpointsNb = CheckpointKey;
+				MyCheckpointTime = CheckpointTime;
+			} else if (
+				((MyScore == Null && Rank == _WinningPlayersNb) ||
+				(MyScore != Null && Rank == _WinningPlayersNb + 1)) &&
+				Scores.existskey(ScoreId)
+			) {
+				TargetScore <=> Scores[ScoreId];
+				TargetCheckpointsNb = CheckpointKey;
+				TargetCheckpointTime = CheckpointTime;
+			}
+			Rank += 1;
+		}
+	}
+
+	declare Boolean HasTimeDiff = True;
+	declare Integer TimeDiff = 0;
+	if (TargetCheckpointsNb <= 0) {
+		HasTimeDiff = False;
+	}
+	// I am at the same CP
+	else if (MyCheckpointsNb == TargetCheckpointsNb) {
+		TimeDiff = MyCheckpointTime - TargetCheckpointTime;
+	}
+	// I am ahead
+	else if (MyCheckpointsNb > TargetCheckpointsNb) {
+		if (
+			MyScore != Null &&
+			MyScore.BestRaceTimes.existskey(TargetCheckpointsNb - 1) &&
+			MyScore.BestRaceTimes.existskey(TargetCheckpointsNb)
+		) {
+			declare Integer CurrentCPTimeDiff = MyScore.BestRaceTimes[TargetCheckpointsNb - 1] - TargetCheckpointTime;
+			declare Integer NextCPTimeDiff = MyScore.BestRaceTimes[TargetCheckpointsNb] - LatestCPTime;
+			TimeDiff = ML::Min(CurrentCPTimeDiff, NextCPTimeDiff);
+		} else {
+			HasTimeDiff = False;
+		}
+	}
+	// I am behind
+	else {
+		if (
+			TargetScore != Null &&
+			TargetScore.BestRaceTimes.existskey(MyCheckpointsNb - 1) &&
+			TargetScore.BestRaceTimes.existskey(MyCheckpointsNb)
+		) {
+			declare Integer CurrentCPTimeDiff = MyCheckpointTime - TargetScore.BestRaceTimes[MyCheckpointsNb - 1];
+			declare Integer NextCPTimeDiff = LatestCPTime - TargetScore.BestRaceTimes[MyCheckpointsNb];
+			TimeDiff = ML::Max(CurrentCPTimeDiff, NextCPTimeDiff);
+		} else {
+			HasTimeDiff = False;
+		}
+	}
+
+	if (HasTimeDiff) {
+		if (TimeDiff > 0) {
+			G_Label_Diff.Value = "+"^TL::TimeToText(TimeDiff, True, True);
+			G_Label_Diff.TextColor = CL::HexToRgb("{{{Color_BrightRed}}}");
+		} else {
+			G_Label_Diff.Value = TL::TimeToText(TimeDiff, True, True);
+			G_Label_Diff.TextColor = CL::HexToRgb("{{{Color_BrightGreen}}}");
+		}
+	} else {
+		G_Label_Diff.Value = "";
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_Diff;
+
+declare netread Integer Net_ShareChampion_WinningPlayersNb for Teams[0];
+declare netread Boolean Net_ShareChampion_WarmUpIsActive for Teams[0];
+declare netread Integer Net_Champion_TimeDiffToPoints_ForceUpdate for Teams[0];
+
+declare Boolean DisplayModule;
+declare Integer WinningPlayersNb;
+declare Integer ForceUpdate;
+declare Integer NextRankingUpdate;
+declare Integer PrevRaceWaypointCount;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_Diff <=> (Frame_Global.GetFirstChild("frame-diff") as CMlFrame);
+G_Label_Diff <=> (Frame_Diff.GetFirstChild("label-diff") as CMlLabel);
+
+DisplayModule = Frame_Global.Visible;
+WinningPlayersNb = -123;
+ForceUpdate = -123;
+NextRankingUpdate = -1;
+PrevRaceWaypointCount = -1;
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_Champion_TimeDiffToPoints_IsVisible for Owner;
+		if (DisplayModule != Net_Champion_TimeDiffToPoints_IsVisible) {
+			DisplayModule = Net_Champion_TimeDiffToPoints_IsVisible;
+			Frame_Global.Visible = Net_Champion_TimeDiffToPoints_IsVisible;
+		}
+	}
+
+	if (DisplayModule) {
+		if (Owner == Null) {
+			DisplayModule = False;
+			Frame_Global.Visible = DisplayModule;
+		} else {
+			if (
+				InputPlayer != Null &&
+				InputPlayer.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned &&
+				!Net_ShareChampion_WarmUpIsActive
+			) {
+				if (!Frame_Diff.Visible) {
+					Frame_Diff.Visible = True;
+					if (NextRankingUpdate < 0) NextRankingUpdate = Now + C_UpdateMaxFrequency;
+				}
+				if (
+					WinningPlayersNb != Net_ShareChampion_WinningPlayersNb ||
+					ForceUpdate != Net_Champion_TimeDiffToPoints_ForceUpdate
+				) {
+					WinningPlayersNb = Net_ShareChampion_WinningPlayersNb;
+					ForceUpdate = Net_Champion_TimeDiffToPoints_ForceUpdate;
+					if (NextRankingUpdate < 0) NextRankingUpdate = Now + C_UpdateMaxFrequency;
+				}
+
+				if (PrevRaceWaypointCount != Owner.RaceWaypointTimes.count) {
+					PrevRaceWaypointCount = Owner.RaceWaypointTimes.count;
+					if (NextRankingUpdate < 0) NextRankingUpdate = Now + C_UpdateMaxFrequency;
+				}
+
+				if (NextRankingUpdate > 0 && Now >= NextRankingUpdate) {
+					UpdateDiff(WinningPlayersNb, Owner);
+					NextRankingUpdate = -1;
+				}
+			} else if (Frame_Diff.Visible) {
+				Frame_Diff.Visible = False;
+			}
+		}
+	}
+}
+***
+""",
+[],
+[]
+	);
+}

@@ -1,0 +1,1056 @@
+/**
+ * Final TMGL mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaRoundsBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Race,TM_Race"
+#Const Version "1.0.1+2024-12-05"
+#Const ScriptName "Modes/TrackMania/Deprecated/TM_Final42TMGL_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Semver.Script.txt" as Semver
+#Include "Libs/Nadeo/CMGame/Modes/Utils.Script.txt" as ModeUtils
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/Constants.Script.txt" as ChampionConst
+#Include "Libs/Nadeo/Trackmania/Modes/TMGLMarkers.Script.txt" as TMGLMarkers
+#Include "Libs/Nadeo/Trackmania/Modes/FinalTMGL/StateManager.Script.txt" as StateMgr
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/NetShareChampion_Server.Script.txt" as UIModules_NetShare
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/SpectatorInfo_Server.Script.txt" as UIModules_SpectatorInfo
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/LapsCounter_Server.Script.txt" as UIModules_LapsCounter
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/LiveRankingChampion_Server.Script.txt" as UIModules_LiveRanking
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/CountDown_Server.Script.txt" as UIModules_CountDown
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/MapInfo_Server.Script.txt" as UIModules_MapInfo
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/UIModules/InfoPanels_2x3_Server.Script.txt" as UIModules_InfoPanels_2x3
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/AmbientSound_Server.Script.txt" as UIModules_AmbientSound
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/WinScreen_Server.Script.txt" as UIModules_WinScreen
+#Include "Libs/Nadeo/Trackmania/Modes/FinalTMGL/UIModules/ScoresHeader_Server.Script.txt" as UIModules_ScoresHeader
+#Include "Libs/Nadeo/Trackmania/Modes/FinalTMGL/FinalTMGL.Script.txt" as FinalTMGL
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/KOVictory.Script.txt" as KOVictory
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_MatchPointsLimit 3 as _("Match points limit")
+#Setting S_MapPointsLimit 1 as _("Track points limit")
+#Setting S_NbOfWinners 1 as _("Number of winners")
+#Setting S_FinishTimeout -1 as _("Finish timeout")
+#Setting S_WarmUpNb 0	as _("Number of warm up")
+#Setting S_WarmUpDuration 0 as _("Duration of one warm up")
+#Setting S_WarmUpTimeout -1 as _("Warm up timeout")
+#Setting S_FinalistsAccountIds "" as "Account ids of the finalists. Comma separated list: aaa,bbb,ccc,..."
+#Setting S_ForceLapsNb 2
+#Setting S_PointsRepartition "1,0"
+#Setting S_KOCheckpointNb 3 as _("Number of checkpoints in lead to validate a K.O.")
+#Setting S_KOCheckpointTime 1500 as _("Advance in milliseconds to validate a K.O.")
+#Setting S_KOValidationDelay 1000 as _("Delay in milliseconds before validating a K.O.")
+#Setting S_ChatTime 1800 //< 30 minutes
+#Setting S_EnableAmbientSound True as _("Enable ambient sound")
+#Setting S_WorldRecords "" as "<hidden>" // Format : {"map uid": {"AcountId": "player account id", "Time": time in milliseconds}, ...}
+#Setting S_EnableWinScreen True as "<hidden>"
+#Setting S_ForceRoadSpectatorsNb -1 as "<hidden>" //< Force the number of spectators displayed on the border of the road
+#Setting S_DecoImageUrl_Screen16x9 "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Sponsors/Default.dds"
+#Setting S_DecoImageUrl_Screen8x1 "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Stadium/Screen8x1.dds"
+#Setting S_DecoImageUrl_Screen16x1 "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Stadium/Screen16x1.dds"
+#Setting S_OverridePlayerProfiles "" as "<hidden>"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_WorldRecord {
+	Text AccountId;
+	Integer Time;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "Final TMGL"
+//L16N [Final TMGL] Description of the mode rules
+#Const Description _("""Final TMGL""")
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/FinalTMGL.Script.txt" //< Url of the mania app
+#Const C_Team1BotsNb 0
+#Const C_Team2BotsNb 0
+#Const C_AfterRaceStartDuration 15000
+#Const C_UpdateSignLiveCameraInterval 5000
+#Const C_DisplayTeamColorInLiveRanking False
+#Const C_DisplayTeamNameInLiveRanking True
+#Const C_UseEsportsProgrammation True
+#Const C_DisplayScoreProgression False
+
+#Const C_UploadRecord True
+#Const C_DisplayRecordGhost False
+#Const C_DisplayRecordMedal False
+#Const C_CelebrateRecordGhost False
+#Const C_CelebrateRecordMedal False
+
+#Const C_Color_Qualified "FFFFFF"
+#Const C_Color_Finalist "FF0000"
+#Const C_Color_Winner "48DA36"
+
+//L16N [FinalTMGL] Player is qualified for the next stage of the competition
+#Const C_Qualified_Text _("|Status|Qualified")
+//L16N [CupModeOnline] Player has reached the finalist status
+#Const C_Finalist_Text _("|Status|Finalist")
+//L16N [CupModeOnline] Player won the match
+#Const C_Winner_Text _("|Status|Winner")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(Semver::ScriptName, Semver::Version);
+Log::RegisterScript(ModeUtils::ScriptName, ModeUtils::Version);
+Log::RegisterScript(MenuConst::ScriptName, MenuConst::Version);
+Log::RegisterScript(ChampionConst::ScriptName, ChampionConst::Version);
+Log::RegisterScript(ChampionConst::ScriptName, ChampionConst::Version);
+Log::RegisterScript(TMGLMarkers::ScriptName, TMGLMarkers::Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(UIModules_PauseMenu_Online::ScriptName, UIModules_PauseMenu_Online::Version);
+Log::RegisterScript(UIModules_ScoresTable::ScriptName, UIModules_ScoresTable::Version);
+Log::RegisterScript(UIModules_Checkpoint::ScriptName, UIModules_Checkpoint::Version);
+Log::RegisterScript(UIModules_NetShare::ScriptName, UIModules_NetShare::Version);
+Log::RegisterScript(UIModules_SpectatorInfo::ScriptName, UIModules_SpectatorInfo::Version);
+Log::RegisterScript(UIModules_LapsCounter::ScriptName, UIModules_LapsCounter::Version);
+Log::RegisterScript(UIModules_LiveRanking::ScriptName, UIModules_LiveRanking::Version);
+Log::RegisterScript(UIModules_CountDown::ScriptName, UIModules_CountDown::Version);
+Log::RegisterScript(UIModules_MapInfo::ScriptName, UIModules_MapInfo::Version);
+Log::RegisterScript(UIModules_InfoPanels_2x3::ScriptName, UIModules_InfoPanels_2x3::Version);
+Log::RegisterScript(UIModules_AmbientSound::ScriptName, UIModules_AmbientSound::Version);
+Log::RegisterScript(FinalTMGL::ScriptName, FinalTMGL::Version);
+Log::RegisterScript(PlayerProfiles::ScriptName, PlayerProfiles::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+TMGLMarkers::Load();
+***
+
+***Match_UnloadLibraries***
+***
+TMGLMarkers::Unload();
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultPodiumSequence = False;
+MB_Settings_UseDefaultPodiumMessage = False;
+Rounds_Settings_UseDefaultSpawnManagement = False;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_Teams);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+
+Race::SortScores(Race::C_Sort_TotalPoints);
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Points);
+
+UIModules_PauseMenu_Online::SetHelp(Description);
+UIModules_Checkpoint::SetVisibilityTimeDiff(False);
+UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_CurrentRace);
+UIModules_Checkpoint::SetVisibleFor(UIModules_Checkpoint::C_Target_Players);
+UIModules_ScoresTable::SetHideSpectators(True);
+UIModules_InfoPanels_2x3::SetWarmUp(False);
+UIModules_InfoPanels_2x3::SetRankingMode(UIModules_InfoPanels_2x3::C_RankingMode_CurrentRace);
+UIModules_SpectatorBase::HidePlayerName(True);
+UIModules_TimeGap::HideForSpectators(True);
+UIModules_SpectatorInfo::SetRankingMode(UIModules_SpectatorInfo::C_RankingMode_CurrentRace);
+UIModules_SpectatorInfo::SetPointsLimit(S_MapPointsLimit);
+UIModules_LapsCounter::SetRoundMode(False);
+UIModules_LiveRanking::SetPointsLimit(S_MapPointsLimit);
+UIModules_LiveRanking::SetRankingMode(UIModules_LiveRanking::C_RankingMode_CurrentRace);
+UIModules_LiveRanking::DisplayTeamColor(C_DisplayTeamColorInLiveRanking);
+UIModules_LiveRanking::DisplayTeamName(C_DisplayTeamNameInLiveRanking);
+UIModules_LiveRanking::DisplayScoreProgression(C_DisplayScoreProgression);
+UIModules_CountDown::SetVisibleFor(UIModules_CountDown::C_Target_Everyone);
+UIModules_NetShare::SetWinningPlayersNb(0);
+UIModules_NetShare::SetRoundsNb(0);
+UIModules_NetShare::SetRoundsTotal(0);
+UIModules_NetShare::SetRoundsPerMap(0);
+UIModules_NetShare::SetPhase(ChampionConst::C_Phase_Null);
+UIModules_AmbientSound::Enable(S_EnableAmbientSound);
+
+// Markers are handled by TMGLMarkers
+UIManager.UIAll.AlliesLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+UIManager.UIAll.TeamLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+UIManager.UIAll.OpposingTeamLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+			CarRank::InitializePlayer(Event.Player);
+			UIModules_LiveRanking::TriggerUIUpdate();
+
+			declare FinalTMGL::K_Team[] Server_DefaultTeams for This;
+			declare Integer[Text] Server_FinalistsClans for This;
+			FinalTMGL::UpdateTeams(Server_DefaultTeams, Server_FinalistsClans);
+			FinalTMGL::UpdatePlayersList(Server_FinalistsClans);
+
+			if (WarmUp::IsActive()) {
+				declare Integer PlayerClan = FinalTMGL::GetPlayerClan(Event.Player, Server_FinalistsClans);
+				WarmUp::CanPlay(Event.Player.Score, FinalTMGL::CanSpawn(PlayerClan, Scores::GetClanMatchPoints(PlayerClan), S_MatchPointsLimit));
+			}
+
+			// Enable the esports programmation in the signs
+			// see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#
+			if (Event.Player != Null) {
+				declare CUIConfig UI <=> UIManager.GetUI(Event.Player);
+				if (UI != Null && UI.DisplayControl_UseEsportsProgrammation != C_UseEsportsProgrammation) {
+					UI.DisplayControl_UseEsportsProgrammation = C_UseEsportsProgrammation;
+				}
+			}
+		}
+		case CSmModeEvent::EType::OnPlayerRemoved: {
+			UIModules_LiveRanking::TriggerUIUpdate();
+		}
+	}
+}
+
+StateMgr::Yield();
+TMGLMarkers::Yield();
+
+declare Integer FinalTMGL_PrevEndTime for This = -123;
+if (FinalTMGL_PrevEndTime != EndTime) {
+	FinalTMGL_PrevEndTime = EndTime;
+	UIModules_CountDown::SetTimeLimit(EndTime);
+	UIModules_MapInfo::SetCutOffTimeLimit(EndTime);
+}
+
+// Force the number of spectators on the border of the road
+if (S_ForceRoadSpectatorsNb >= 0) {
+	declare Integer FinalTMGL_ForceRoadSpectatorsNb for This = -1;
+	if (FinalTMGL_ForceRoadSpectatorsNb != S_ForceRoadSpectatorsNb) {
+		FinalTMGL_ForceRoadSpectatorsNb = S_ForceRoadSpectatorsNb;
+		if (ServerAdmin != Null) ServerAdmin.SetViewerCount(FinalTMGL_ForceRoadSpectatorsNb);
+	}
+}
+***
+
+***Match_InitServer***
+***
+declare FinalTMGL::K_Team[] Server_DefaultTeams for This;
+declare Integer[Text] Server_FinalistsClans for This;
+declare Integer Server_ClansNb;
+declare Text[] Server_FinalistsAccountIds;
+declare Integer FinalTMGL_PrevEndTime for This;
+***
+
+***Match_StartServer***
+***
+Server_FinalistsClans = FinalTMGL::GetPlayersClans(S_FinalistsAccountIds);
+Server_ClansNb = ML::Max(2, FinalTMGL::GetClansNb(Server_FinalistsClans));
+Server_FinalistsAccountIds = [];
+foreach (AccountId => Clan in Server_FinalistsClans) Server_FinalistsAccountIds.add(AccountId);
+FinalTMGL_PrevEndTime = -123;
+MB_Settings_UseDefaultPodiumSequence = (!S_EnableWinScreen || Server_ClansNb != 2);
+
+// Initialize mode
+Clans::SetClansNb(Server_ClansNb);
+Clans::SetUseForcedClans(True);
+if (Server_ClansNb == 2) {
+	UIModules_ScoresTable::ForceFormat(<0, 0>);
+} else {
+	UIModules_ScoresTable::ForceFormat(<10, 1>);
+}
+Scores::SaveInScore(Scores::C_Points_Map);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(True);
+Race::SetupRecord(
+	MenuConst::C_ScopeType_Season,
+	MenuConst::C_ScopeType_PersonalBest,
+	MenuConst::C_GameMode_TimeAttack,
+	"",
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal
+);
+Race::UseAutomaticDossardColor(False);
+PlayerProfiles::OverridePlayerProfiles(Teams[0], S_OverridePlayerProfiles);
+
+// Initiaze default teams
+Server_DefaultTeams = [];
+foreach (Team in Teams) {
+	Server_DefaultTeams.add(FinalTMGL::K_Team {
+		Name = Team.Name,
+		ColorPrimary = Team.ColorPrimary
+	});
+}
+***
+
+***Match_InitMatch***
+***
+declare Text[] Match_QualifiedPlayers; //< Players qualified for the next stage of the competition. Sorted by qualification order.
+***
+
+***Match_StartMatch***
+***
+Match_QualifiedPlayers = [];
+
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Before);
+UIModules_LiveRanking::SetQualifiedPlayers(Match_QualifiedPlayers);
+UpdateScoresTableClansScores(Server_FinalistsClans, Server_ClansNb, Match_QualifiedPlayers, S_MatchPointsLimit);
+UpdateLiveRankingInfoMessage(S_MapPointsLimit);
+***
+
+***Match_InitMap***
+***
+declare Text Map_BestLapAccountId;
+declare Integer Map_BestLapTime;
+declare Boolean Map_BestLapIsWorldRecord;
+
+Map_BestLapAccountId = "";
+Map_BestLapTime = -1;
+Map_BestLapIsWorldRecord = False;
+
+declare K_WorldRecord[Text] WorldRecords;
+WorldRecords.fromjson(S_WorldRecords);
+if (WorldRecords.existskey(Map.MapInfo.MapUid)) {
+	Map_BestLapAccountId = WorldRecords[Map.MapInfo.MapUid].AccountId;
+	Map_BestLapTime = WorldRecords[Map.MapInfo.MapUid].Time;
+	Map_BestLapIsWorldRecord = True;
+}
+
+declare Integer[Integer] ClansMatchPoints = Scores::GetClansMatchPoints();
+declare Integer TotalPoints = 0;
+foreach (Points in ClansMatchPoints) {
+	TotalPoints += Points;
+}
+
+UpdateScoresTableFooter(S_MatchPointsLimit);
+FinalTMGL::UpdateTeams(Server_DefaultTeams, Server_FinalistsClans);
+FinalTMGL::UpdatePlayersList(Server_FinalistsClans);
+UIModules_NetShare::SetRoundsNb(TotalPoints + 1);
+UIModules_NetShare::SetRoundsTotal(((S_MatchPointsLimit - 1) * Server_ClansNb) + S_NbOfWinners);
+UIModules_NetShare::SetRoundsPerMap(0);
+UIModules_AmbientSound::Enable(S_EnableAmbientSound);
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Before);
+UIModules_LapsCounter::SetBestLapPlayer(Map_BestLapAccountId, Map_BestLapTime, Map_BestLapIsWorldRecord, True);
+UpdateScoresTablePlayersScores(S_NbOfWinners, Match_QualifiedPlayers);
+UIModules_ScoresTable::DisplayRoundPoints(True);
+
+// Restore match points
+for (Clan, 1, Server_ClansNb) {
+	Scores::SetClanMapPoints(Clan, Scores::GetClanMatchPoints(Clan));
+}
+UpdateScoresTableClansScores(Server_FinalistsClans, Server_ClansNb, Match_QualifiedPlayers, S_MatchPointsLimit);
+UpdateLiveRankingInfoMessage(S_MapPointsLimit);
+
+// Sort qualified players at the top of the scores table
+foreach (Score in Scores) {
+	if (Match_QualifiedPlayers.exists(Score.User.WebServicesUserId)) {
+		// Players that just won a map get (S_MapPointsLimit + 1) points
+		// So qualified players must have more than that
+		Scores::SetPlayerMapPoints(
+			Score,
+			S_MapPointsLimit + 2 + Match_QualifiedPlayers.count - Match_QualifiedPlayers.keyof(Score.User.WebServicesUserId)
+		);
+	}
+}
+***
+
+***Match_StartMap***
+***
+// Add bot when necessary
+Users_SetNbFakeUsers(C_Team1BotsNb, C_Team2BotsNb);
+
+CarRank::Reset();
+EnableSignESportsMode(C_UseEsportsProgrammation);
+
+// Prevent players that already won to spawn during the warm up
+foreach (Player in AllPlayers) {
+	FinalTMGL::SaveClanOnScore(Player, FinalTMGL::GetPlayerClan(Player, Server_FinalistsClans));
+}
+foreach (Score in Scores) {
+	declare Integer Clan = FinalTMGL::GetClanFromScore(Score);
+	WarmUp::CanPlay(Score, FinalTMGL::CanSpawn(Clan, Scores::GetClanMatchPoints(Clan), S_MatchPointsLimit));
+}
+
+// Warm up
+MB_WarmUp(S_WarmUpNb, S_WarmUpDuration * 1000, S_WarmUpTimeout * 1000);
+***
+
+***Match_StartWarmUp***
+***
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing, StateMgr::C_State_WarmUp]);
+UIModules_NetShare::SetWarmUpIsActive(True);
+UIModules_InfoPanels_2x3::SetWarmUp(True);
+UIModules_CountDown::SetVisibleFor(UIModules_CountDown::C_Target_Players);
+UIModules_CountDown::SetTimeLimit(EndTime);
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_WarmUp);
+TMGLMarkers::SetFinalists([]);
+TMGLMarkers::Enable();
+WarmUp::SetUIVisibility(False); //< Disable default warm up UI. We have a custom one.
+WarmUp::SetUIPosition(<153., 13., 0.>);
+***
+
+***Match_EndWarmUp***
+***
+TMGLMarkers::Disable();
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Starting);
+UIModules_CountDown::SetVisibleFor(UIModules_CountDown::C_Target_Everyone);
+UIModules_InfoPanels_2x3::SetWarmUp(False);
+UIModules_NetShare::SetWarmUpIsActive(False);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+***
+
+***Rounds_PlayerSpawned***
+***
+CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRace);
+***
+
+***Match_InitRound***
+***
+declare Text[] Round_PlayerFinishedRace; //< List of players who finished the race
+declare Boolean Round_RaceIsStarting;
+declare Boolean Round_RaceIsFinishing;
+declare Integer Round_RaceStartEndTime;
+declare Boolean Round_SequenceLastLap;
+declare Boolean Round_SequenceLastCheckpoint;
+declare Integer Round_UpdateSignLiveCameraTime;
+declare Ident Round_WinnerByKO;
+***
+
+***Match_StartRound***
+***
+Round_PlayerFinishedRace = [];
+Round_RaceIsStarting = True;
+Round_RaceStartEndTime = StartTime + C_AfterRaceStartDuration;
+Round_RaceIsFinishing = False;
+Round_SequenceLastLap = False;
+Round_SequenceLastCheckpoint = False;
+Round_WinnerByKO = NullId;
+
+FinalTMGL::UpdateTeams(Server_DefaultTeams, Server_FinalistsClans);
+FinalTMGL::UpdatePlayersList(Server_FinalistsClans);
+
+if (!Rounds_Settings_UseDefaultSpawnManagement) {
+	// Set the players who can spawn
+	---Rounds_CanSpawn---
+
+	// Spawn players for the race
+	foreach (Player in Players) {
+		if (Player.Score == Null) continue;
+
+		declare Boolean ModeRounds_CanSpawn for Player.Score = True;
+		declare Integer PlayerClan = FinalTMGL::GetPlayerClan(Player, Server_FinalistsClans);
+		if (
+			ModeRounds_CanSpawn &&
+			FinalTMGL::CanSpawn(PlayerClan, Scores::GetClanMatchPoints(PlayerClan), S_MatchPointsLimit)
+		) {
+			Race::StartInClan(Player, PlayerClan, StartTime);
+			ModeRounds_CanSpawn = False;
+			+++Rounds_PlayerSpawned+++
+		} else {
+			Race::StopSkipOutro(Player);
+		}
+	}
+}
+
+// Update UI modules
+UIModules_InfoPanels_2x3::SetRankingMode(UIModules_InfoPanels_2x3::C_RankingMode_CurrentRace);
+UIModules_SpectatorInfo::SetPointsLimit(S_MapPointsLimit);
+UIModules_SpectatorInfo::ForceUpdate();
+UIModules_LiveRanking::SetPointsLimit(S_MapPointsLimit);
+UIModules_LiveRanking::SetPlayerFinishedRace(Round_PlayerFinishedRace);
+UIModules_LiveRanking::StartNewRace();
+UIModules_LiveRanking::TriggerUIUpdate();
+if (MB_GetRoundCount() <= 1) {
+	UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Starting);
+} else {
+	UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Ongoing);
+	Round_RaceIsStarting = False;
+}
+
+// Update markers
+declare Text[] Finalists;
+foreach (Score in Scores) {
+	if (Scores::GetPlayerMapPoints(Score) >= S_MapPointsLimit) {
+		Finalists.add(Score.User.WebServicesUserId);
+	}
+}
+TMGLMarkers::SetFinalists(Finalists);
+TMGLMarkers::Enable();
+
+// Enable live camera display in 16/9 screens for spectators
+EnableSignLiveCamera(True);
+Round_UpdateSignLiveCameraTime = Now + C_UpdateSignLiveCameraInterval;
+EnableSignESportsMode(C_UseEsportsProgrammation);
+
+// Update dossard color
+foreach (Player in AllPlayers) {
+	if (Player.Score != Null && Scores::GetPlayerMapPoints(Player.Score) >= S_MapPointsLimit) {
+		Player.Dossard_Color = <0.7, 0., 0.>;
+	} else {
+		Player.Dossard_Color = Race::C_DossardColor_Default;
+	}
+}
+
+KOVictory::StartRace(S_KOCheckpointNb, S_KOCheckpointTime, S_KOValidationDelay, Server_FinalistsAccountIds);
+UpdateScoresTableFooter(S_MatchPointsLimit);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+***
+
+***Rounds_PlayLoopSpawnPlayers***
+***
+// Spawn allowed players
+foreach (Player in Players) {
+	if (Player.Score == Null) continue;
+
+	declare Boolean ModeRounds_CanSpawn for Player.Score = True;
+	if (MB_RoundIsRunning() && ModeRounds_CanSpawn) {
+		declare Integer PlayerClan = FinalTMGL::GetPlayerClan(Player, Server_FinalistsClans);
+		if (
+			FinalTMGL::CanSpawn(PlayerClan, Scores::GetClanMatchPoints(PlayerClan), S_MatchPointsLimit) &&
+			Race::IsReadyToStart(Player)
+		) {
+			Race::StartInClan(Player, PlayerClan, StartTime);
+			ModeRounds_CanSpawn = False;
+			+++Rounds_PlayerSpawned+++
+		}
+	}
+}
+***
+
+***Match_PlayLoop***
+***
+if (!Rounds_Settings_UseDefaultSpawnManagement) {
+	// Spawn players joining during the round
+	---Rounds_PlayLoopSpawnPlayers---
+}
+
+// Manage race events
+declare RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	Race::ValidEvent(Event);
+
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRace);
+
+		if (Event.Player != Null) {
+			if (Event.IsEndRace) {
+				declare BetterRace = Scores::UpdatePlayerBestRaceIfBetter(Event.Player);
+				declare BetterLap = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				Scores::UpdatePlayerPrevRace(Event.Player);
+				ComputeLatestRaceScores(S_MapPointsLimit);
+				Race::SortScores(Race::C_Sort_TotalPoints);
+
+				// Start the countdown if it's the first player to finish
+				if (EndTime <= 0) {
+					EndTime = GetFinishTimeout();
+					if (!Round_RaceIsFinishing) {
+						Round_RaceIsFinishing = True;
+						Round_RaceIsStarting = False;
+						UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Finishing);
+					}
+				}
+
+				// Update the list of players who finished the race
+				if (
+					Event.Player.User != Null &&
+					!Round_PlayerFinishedRace.exists(Event.Player.User.Login)
+				) {
+					Round_PlayerFinishedRace.add(Event.Player.User.Login);
+					UIModules_LiveRanking::SetPlayerFinishedRace(Round_PlayerFinishedRace);
+				}
+			}
+
+			if (Event.IsEndLap) {
+				declare Better = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+
+				// Saves the best lap time of the round
+				if (Map_BestLapTime <= 0 || Map_BestLapTime > Event.LapTime) {
+					Map_BestLapTime = Event.LapTime;
+					if (Event.Player.User != Null) {
+						Map_BestLapAccountId = Event.Player.User.WebServicesUserId;
+					} else {
+						Map_BestLapAccountId = "";
+					}
+					UIModules_LapsCounter::SetBestLapPlayer(Map_BestLapAccountId, Map_BestLapTime, Map_BestLapIsWorldRecord, False);
+				}
+			}
+
+			// Update live ranking
+			UIModules_LiveRanking::TriggerUIUpdate();
+
+			// Update K.O.
+			KOVictory::OnWaypoint(Event);
+
+			// The leading player starts the last lap
+			if (
+				!Round_SequenceLastLap &&
+				!Round_RaceIsFinishing &&
+				Event.IsEndLap &&
+				Race::GetPlayerLap(Event.Player) == Race::GetLapsNb() - 1
+			) {
+				Round_SequenceLastLap = True;
+				Round_RaceIsStarting = False;
+				UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_LastLap);
+			}
+
+			// The leading player crosses the last checkpoint before the finish
+			if (
+				!Round_SequenceLastCheckpoint &&
+				!Round_RaceIsFinishing &&
+				!Event.IsEndLap &&
+				Race::GetPlayerLap(Event.Player) == Race::GetLapsNb() - 1 &&
+				Event.Player.LapWaypointTimes.count == Map::GetCheckpointsCount()
+			) {
+				Round_SequenceLastCheckpoint = True;
+				Round_RaceIsStarting = False;
+				UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_LastCheckpoint);
+			}
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+if (Round_RaceIsStarting && Now >= Round_RaceStartEndTime) {
+	Round_RaceIsStarting = False;
+	UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Ongoing);
+}
+
+if (Now >= Round_UpdateSignLiveCameraTime) {
+	Round_UpdateSignLiveCameraTime = Now + C_UpdateSignLiveCameraInterval;
+	EnableSignLiveCamera(True);
+}
+
+// Stop the round if there is a victory by K.O.
+if (KOVictory::GetWinnerByKO() != NullId) {
+	MB_StopRound();
+	Round_Skipped = False;
+	Round_WinnerByKO = KOVictory::GetWinnerByKO();
+}
+***
+
+***Match_EndPlayLoop***
+***
+// If the round is won by KO, sleep a little
+// to let the players and spectators understand
+// what is happening
+if (Round_WinnerByKO != NullId) {
+	declare Integer SleepEndTime = Now + 1000;
+	while (Now < SleepEndTime && MB_MapIsRunning()) {
+		MB_Yield();
+		// Cancel all events
+		declare RacePendingEvents = Race::GetPendingEvents();
+		foreach (Event in RacePendingEvents) {
+			Race::InvalidEvent(Event);
+		}
+		foreach (Event in PendingEvents) {
+			if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+			Events::Invalid(Event);
+		}
+	}
+}
+
+EnableSignLiveCamera(False);
+TMGLMarkers::Disable();
+UIModules_InfoPanels_2x3::SetRankingMode(UIModules_InfoPanels_2x3::C_RankingMode_MaxPoints);
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_After);
+***
+
+***Match_EndRound***
+***
+Race::StopSkipOutroAll();
+EndTime = -1;
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+CarRank::Update(CarRank::C_SortCriteria_CurrentRace);
+KOVictory::StopRace();
+
+if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "2.1.1")) {
+	Scores::XmlRpc_SendScores(Scores::C_Section_PreEndRound, "");
+}
+
+if (Round_ForceEndRound || Round_SkipPauseRound) {
+	// Cancel points
+	foreach (Score in Scores) {
+		Scores::SetPlayerRoundPoints(Score, 0);
+	}
+	// Do not launch the forced end round sequence after a pause
+	if (!Round_SkipPauseRound) {
+		ForcedEndRoundSequence();
+	}
+} else {
+	// Win by K.O.
+	if (Round_WinnerByKO != NullId) {
+		//L16N [FinalTMGL] Message displayed when a player wins a round by K.O.
+		declare Text Message = _("Victory by K.O.");
+		if (Scores.existskey(Round_WinnerByKO)) {
+
+			//L16N [FinalTMGL] Message displayed when a player wins a round by K.O.. %1 will be replaced by the name of the winning player. e.g. "Alex wins by K.O."
+			Message = TL::Compose(_("%1 wins by K.O."), "$<"^FinalTMGL::GetName(Scores[Round_WinnerByKO])^"$>");
+		}
+		UIManager.UIAll.BigMessageSound = CUIConfig::EUISound::EndRound;
+		UIManager.UIAll.BigMessage = Message;
+		MB_Sleep(3000);
+		UIManager.UIAll.BigMessage = "";
+
+		// Give points only to the winner by K.O.
+		foreach (Score in Scores) {
+			if (Score.Id == Round_WinnerByKO) {
+				declare Integer Points = 0;
+				if (Scores::GetPlayerMapPoints(Score) <= S_MapPointsLimit) {
+					declare Integer[] PointsRepartition = PointsRepartition::GetPointsRepartition();
+					if (PointsRepartition.count > 0) {
+						Points = PointsRepartition[0];
+					}
+				}
+				Scores::SetPlayerRoundPoints(Score, Points);
+			} else {
+				Scores::SetPlayerRoundPoints(Score, 0);
+			}
+		}
+	}
+	// Standard round
+	else {
+		ComputeLatestRaceScores(S_MapPointsLimit);
+	}
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;
+	MB_Sleep(3000);
+
+	// Add them to the total scores
+	ComputeScores(S_MapPointsLimit);
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	UIModules_LiveRanking::TriggerUIUpdate();
+
+	// Check if a player won
+	declare Integer WinnerClan = 0;
+	foreach (Score in Scores) {
+		if (
+			Scores::GetPlayerMapPoints(Score) > S_MapPointsLimit &&
+			!Match_QualifiedPlayers.exists(Score.User.WebServicesUserId)
+		) {
+			declare Integer Clan = FinalTMGL::GetUserClan(Score.User, Server_FinalistsClans);
+			if (Clan > 0) {
+				WinnerClan = Clan;
+				break;
+			}
+		}
+	}
+	if (WinnerClan > 0) {
+		Scores::AddClanMatchPoints(WinnerClan, 1);
+		Scores::SetClanMapPoints(WinnerClan, Scores::GetClanMatchPoints(WinnerClan));
+		MB_StopMap();
+	}
+
+	// Update qualified players
+	foreach (Score in Scores) {
+		declare Integer Clan = FinalTMGL::GetUserClan(Score.User, Server_FinalistsClans);
+		if (
+			Clan > 0 &&
+			Scores::GetClanMatchPoints(Clan) >= S_MatchPointsLimit &&
+			!Match_QualifiedPlayers.exists(Score.User.WebServicesUserId)
+		) {
+			Match_QualifiedPlayers.add(Score.User.WebServicesUserId);
+		}
+	}
+	UIModules_LiveRanking::SetQualifiedPlayers(Match_QualifiedPlayers);
+
+	// Update Qualified, Finalist & Winner status in the scores table
+	UpdateScoresTablePlayersScores(S_NbOfWinners, Match_QualifiedPlayers);
+	UpdateScoresTableClansScores(Server_FinalistsClans, Server_ClansNb, Match_QualifiedPlayers, S_MatchPointsLimit);
+	UpdateLiveRankingInfoMessage(S_MapPointsLimit);
+
+	// Check if a team won
+	declare Integer WinnersNb = 0;
+	for (Clan, 1, Server_ClansNb) {
+		if (Scores::GetClanMatchPoints(Clan) >= S_MatchPointsLimit) {
+			WinnersNb += 1;
+		}
+	}
+	if (WinnersNb >= S_NbOfWinners || WinnersNb >= Server_ClansNb - 1) {
+		MB_StopMatch();
+	}
+
+	MB_Sleep(3000);
+	UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+}
+***
+
+***Match_EndMap***
+***
+UIModules_ScoresTable::DisplayRoundPoints(False);
+
+Race::SortScores(Race::C_Sort_TotalPoints);
+Scores::SetClanWinner(Scores::GetBestClanMatchPoints());
+
+if (!MB_MapIsRunning() && MB_MatchIsRunning()) MB_SkipPodiumSequence();
+***
+
+***Match_BeforePodiumSequence***
+***
+if (!MB_Private_SkipPodiumSequence) {
+	if (MB_Settings_UseDefaultPodiumSequence) {
+		declare Integer ClanWinner = -1;
+		if (Match_QualifiedPlayers.count > 0) {
+			ClanWinner = Server_FinalistsClans.get(Match_QualifiedPlayers[0], -1);
+		}
+		UIManager.UIAll.BigMessage = FinalTMGL::GetWinMessage(ClanWinner, Server_FinalistsClans);
+	} else {
+		declare Integer WinnerClan = Scores::GetClanWinner();
+		if (Server_FinalistsClans.exists(WinnerClan)) {
+			UIModules_WinScreen::SetWinnerAccountId(Server_FinalistsClans.keyof(WinnerClan));
+		} else {
+			UIModules_WinScreen::SetWinnerAccountId("");
+		}
+	}
+}
+***
+
+***Match_PodiumSequence***
+***
+declare PrevUISequence = UIManager.UIAll.UISequence;
+UIManager.UIAll.UISequence = CUIConfig::EUISequence::Podium;
+StateMgr::ForcePlayersStates([StateMgr::C_State_WinScreen]);
+declare Integer ChatTime = S_ChatTime;
+declare Integer WinScreenStartTime = Now;
+declare Integer WinScreenStopTime = ML::Max(WinScreenStartTime, WinScreenStartTime + (ChatTime * 1000));
+while (Now < WinScreenStopTime) {
+	MB_Yield();
+	if (ChatTime != S_ChatTime) {
+		ChatTime = S_ChatTime;
+		WinScreenStopTime = ML::Max(WinScreenStartTime, WinScreenStartTime + (ChatTime * 1000));
+	}
+}
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+UIManager.UIAll.UISequence = PrevUISequence;
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the scores table footer text
+ *
+ *	@param	_MatchPointsLimit					The match points limit
+ */
+Void UpdateScoresTableFooter(Integer _MatchPointsLimit) {
+	if (_MatchPointsLimit == 1) {
+		//L16N [Final TMGL] Number of points to reach to win the match.
+		UIModules_ScoresTable::SetFooterInfo(_("First to 1 point wins the match"));
+	} else if (_MatchPointsLimit > 1) {
+		//L16N [Final TMGL] Number of points to reach to win the match. %1 will be replaced by a number greater than 1. e.g. "First to 3 points wins the match"
+		UIModules_ScoresTable::SetFooterInfo(TL::Compose(_("First to %1 points wins the match"), ""^_MatchPointsLimit));
+	} else {
+		UIModules_ScoresTable::SetFooterInfo("");
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the time left to the players to finish the round after the first player
+ *
+ *	@return 		The time left in ms
+ */
+Integer GetFinishTimeout() {
+	declare FinishTimeout = 0;
+
+	if (S_FinishTimeout >= 0) {
+		FinishTimeout = S_FinishTimeout * 1000;
+	} else {
+		FinishTimeout = 5000;
+		if (Map.TMObjective_IsLapRace && Race::GetLapsNb() > 0 && Map.TMObjective_NbLaps > 0) {
+			FinishTimeout += ((Map.TMObjective_AuthorTime / Map.TMObjective_NbLaps) * Race::GetLapsNb()) / 6;
+		} else {
+			FinishTimeout += Map.TMObjective_AuthorTime / 6;
+		}
+	}
+
+	return Now + FinishTimeout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the latest race scores
+Void ComputeLatestRaceScores(Integer _PointsLimit) {
+	Race::SortScores(Race::C_Sort_PrevRaceTime);
+
+	// Points distributed between all players
+	declare Integer I = 0;
+	declare Boolean IsFirstPlace = True;
+	foreach (Score in Scores) {
+		if (Scores::GetPlayerPrevRaceTime(Score) > 0) {
+			declare Points = 0;
+			declare PointsRepartition = PointsRepartition::GetPointsRepartition();
+			if (PointsRepartition.count > 0) {
+				if (PointsRepartition.existskey(I)) {
+					Points = PointsRepartition[I];
+				} else {
+					Points = PointsRepartition[PointsRepartition.count - 1];
+				}
+			}
+
+			// The player does not get points if :
+			// - they are finalist and didn't take the first place
+			// - they already won
+			if (
+				(Scores::GetPlayerMapPoints(Score) == _PointsLimit && !IsFirstPlace) ||
+				Scores::GetPlayerMapPoints(Score) > _PointsLimit
+			) {
+				Scores::SetPlayerRoundPoints(Score, 0);
+			} else {
+				Scores::SetPlayerRoundPoints(Score, Points);
+			}
+			I += 1;
+		} else {
+			Scores::SetPlayerRoundPoints(Score, 0);
+		}
+		if (IsFirstPlace) IsFirstPlace = False;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the map scores
+Void ComputeScores(Integer _PointsLimit) {
+	declare Boolean NewWinner = False;
+
+	Race::SortScores(Race::C_Sort_TotalPoints);
+
+	foreach (Score in Scores) {
+		if (Scores::GetPlayerMapPoints(Score) <= _PointsLimit) {
+			// New winner
+			if (Scores::GetPlayerMapPoints(Score) == _PointsLimit && Scores::GetPlayerRoundPoints(Score) > 0 && !NewWinner) {
+				Scores::SetPlayerMapPoints(Score, _PointsLimit + 1);
+				NewWinner = True;
+			}
+			// Standard round finish
+			else {
+				Scores::AddPlayerMapPoints(Score, Scores::GetPlayerRoundPoints(Score));
+				if (Scores::GetPlayerMapPoints(Score) > _PointsLimit) Scores::SetPlayerMapPoints(Score, _PointsLimit);
+			}
+		}
+
+		Scores::SetPlayerRoundPoints(Score, 0);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Toggle on/off the camera display in signs for spectators
+Void EnableSignLiveCamera(Boolean _Enabled) {
+	foreach (Spectator in Spectators) {
+		declare CUIConfig UI <=> UIManager.GetUI(Spectator);
+		if (UI != Null && UI.DisplayControl_UseLiveCamera != _Enabled) {
+			UI.DisplayControl_UseLiveCamera = _Enabled;
+		}
+	}
+	foreach (Player in Players) {
+		declare CUIConfig UI <=> UIManager.GetUI(Player);
+		if (UI != Null && UI.DisplayControl_UseLiveCamera) {
+			UI.DisplayControl_UseLiveCamera = False;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Enable the esports programmation in the signs
+ *	see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#
+ */
+Void EnableSignESportsMode(Boolean _Enabled) {
+	foreach (Player in AllPlayers) {
+		declare CUIConfig UI <=> UIManager.GetUI(Player);
+		if (UI != Null && UI.DisplayControl_UseEsportsProgrammation != _Enabled) {
+			UI.DisplayControl_UseEsportsProgrammation = _Enabled;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the players' scores in the scores table
+Void UpdateScoresTablePlayersScores(Integer _NbOfWinners, Text[] _QualifiedPlayers) {
+	declare Text[][Text] CustomPoints;
+	foreach (Score in Scores) {
+		if (_NbOfWinners > 1 && _QualifiedPlayers.exists(Score.User.WebServicesUserId)) {
+			CustomPoints[Score.User.WebServicesUserId] = [C_Qualified_Text, C_Color_Qualified] ;
+		} else if (Scores::GetPlayerMapPoints(Score) == S_MapPointsLimit) {
+			CustomPoints[Score.User.WebServicesUserId] = [C_Finalist_Text, C_Color_Finalist] ;
+		} else if (Scores::GetPlayerMapPoints(Score) > S_MapPointsLimit) {
+			CustomPoints[Score.User.WebServicesUserId] = [C_Winner_Text, C_Color_Winner];
+		}
+	}
+	UIModules_ScoresTable::SetCustomPoints(CustomPoints);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the clans' scores in the scores table
+Void UpdateScoresTableClansScores(Integer[Text] _PlayersClans, Integer _ClansNb, Text[] _QualifiedPlayers, Integer _MatchPointsLimit) {
+	// We use the solo scores table, display the teams points for each player
+	if (_ClansNb > 2) {
+		declare Integer[Text] MatchPoints;
+		declare Integer[Integer] AllClansScores;
+		foreach (AccountId => Clan in _PlayersClans) {
+			declare Integer Points = Scores::GetClanMatchPoints(Clan);
+			AllClansScores[Clan] = Points;
+			// Do not display match points of already qualified players
+			if (!_QualifiedPlayers.exists(AccountId)) {
+				MatchPoints[AccountId] = Points;
+			}
+		}
+		UIModules_ScoresTable::SetMatchPoints(MatchPoints);
+		UIModules_ScoresHeader::SetClansScores(AllClansScores);
+		UIModules_ScoresHeader::SetQualificationPoints(_MatchPointsLimit);
+		UIModules_ScoresHeader::SetFinal(False);
+	} else {
+		UIModules_ScoresTable::SetMatchPoints([]);
+		UIModules_ScoresHeader::SetClansScores([]);
+		UIModules_ScoresHeader::SetQualificationPoints(_MatchPointsLimit);
+		UIModules_ScoresHeader::SetFinal(True);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update live ranking info message
+Void UpdateLiveRankingInfoMessage(Integer _MapPointsLimit) {
+	declare Integer MapPointsLimit = _MapPointsLimit + 1; // +1 because of finalist mode
+	if (MapPointsLimit > 0) {
+		declare Integer[] PointsRepartition = PointsRepartition::GetPointsRepartition();
+		if (PointsRepartition.count > 0 && PointsRepartition[0] == 1) {
+			if (MapPointsLimit == 1) {
+				//L16N [Final TMGL] Number of points to reach to win the track.
+				UIModules_LiveRanking::SetInfoMessage(_("First to 1 point wins the track"));
+			} else {
+				//L16N [Final TMGL] Number of points to reach to win the track. %1 will be replaced by a number greater than 1. e.g. "First to 3 points wins the track"
+				UIModules_LiveRanking::SetInfoMessage(TL::Compose(_("First to %1 points wins the track"), ""^MapPointsLimit));
+			}
+		} else {
+			UIModules_LiveRanking::SetInfoMessage("");
+		}
+	} else {
+		UIModules_LiveRanking::SetInfoMessage("");
+	}
+}

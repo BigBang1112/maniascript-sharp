@@ -1,0 +1,417 @@
+/**
+ *	Cut & Paste library
+ */
+
+#Const Version		"1.0.0"
+#Const ScriptName	"CutPaste.Script.txt"
+
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/Manialink3.Script.txt" as Manialink
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Legacy/Buttons.Script.txt" as Buttons2
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Legacy/MLEffects.Script.txt" as MLE
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Layers.Script.txt" as Layers
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/UI/Stylesheet.Script.txt" as Styles
+
+#Const C_BgAnim True ///< Anim button background on mouse over/out
+/// The type of operation
+#Const C_Type_Cut		0
+#Const C_Type_Paste		1
+#Const C_Type_Discard	2
+/// Events
+#Const C_Event_Paste	"LibCutPaste_Paste"
+#Const C_Event_Discard	"LibCutPaste_Discard"
+
+// Globales
+declare Ident[] G_LibCutPaste_PrevMacroblockModelsIds;	///< Ids of the previous macroblocks
+declare Integer[] G_LibCutPaste_PrevConnectedBy;		///< Id of the clips used to connect to the next macroblocks
+declare Ident[] G_LibCutPaste_NextMacroblockModelsIds;	///< Ids of the next macroblocks
+declare Integer[] G_LibCutPaste_NextConnectedBy;		///< Id of the clips used to connect to the previous macroblocks
+
+Text Private_GetCutPasteML() {
+	declare BigSize = 4.;
+	declare SmallSize = 2.;
+	declare QuadPositions = [
+		Styles::GetPosition2(<0.+BigSize*0.5, -2.-BigSize*0.5, 0.>, Styles::CircleSize_Top()),
+		Styles::GetPosition2(<4.+SmallSize*0.5, 0.-SmallSize*0.5, 1.>, Styles::CircleSize_Top()),
+		Styles::GetPosition2(<2.+SmallSize*0.5, 0.-SmallSize*0.5, 2.>, Styles::CircleSize_Top()),
+		Styles::GetPosition2(<0.+SmallSize*0.5, 0.-SmallSize*0.5, 3.>, Styles::CircleSize_Top()),
+		Styles::GetPosition2(<-2.+SmallSize*0.5, 0.-SmallSize*0.5, 4.>, Styles::CircleSize_Top())
+	];
+
+	declare PasteButton = Buttons2::Editor_PasteBlock();
+	declare SkipButton = Buttons2::Editor_DiscardBlock();
+	declare ButtonSize = 0.95;
+
+	return """
+<manialink version="3" name="MapEditor:CutPaste">
+<stylesheet>
+	{{{Styles::Get()}}}
+</stylesheet>
+<frame pos="175 {{{Styles::Margin_Top()}}}" z-index="1" id="Frame_Global">
+	<frame hidden="1" id="Frame_CutHistory">
+		{{{Styles::BuildQuad(<-0.5, 0.5, 1.>, <11., 9.>, Styles::CircleSize_Top(), Styles::Align_LeftTop(), ["bgcolor" => Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "opacity" => "0.6"])}}}
+		{{{Styles::BuildLabel(<0., 0.5, 2.>, <8., 1.>, Styles::CircleSize_Top(), Styles::Align_LeftTop(), ["class" => "tm2020-text-header", "id" => "Label_Title", "text" => _("|Track Editor, cut/paste UI title, recently used blocks|Recent"), "textsize" => "3"])}}}
+		<frame z-index="2" pos="0 -3">
+			<frame z-index="6" id="Frame_More">
+				{{{Styles::BuildLabel(<1., -0.9, 0.>, <2., 2.>, Styles::CircleSize_Top(), Styles::Align_CenterCenter2(), ["class" => "turbo2-text-cutpaste-more", "id" => "Label_More"])}}}
+			</frame>
+			<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<2., 0., 5.>, Styles::CircleSize_Top()))}}} id="Frame_Macroblocks">
+				{{{Styles::BuildQuad(<0., -2., 0.>, <3.5, 3.5>, Styles::CircleSize_Top(), Styles::Align_CenterCenter2(), [])}}}
+				{{{Styles::BuildQuad(<4., 0., 1.>, <1.5, 1.5>, Styles::CircleSize_Top(), Styles::Align_CenterCenter2(), [])}}}
+				{{{Styles::BuildQuad(<2., 0., 2.>, <1.5, 1.5>, Styles::CircleSize_Top(), Styles::Align_CenterCenter2(), [])}}}
+				{{{Styles::BuildQuad(<0., 0., 3.>, <1.5, 1.5>, Styles::CircleSize_Top(), Styles::Align_CenterCenter2(), [])}}}
+			</frame>
+			<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<2., -2., 2.>, Styles::CircleSize_Top()))}}}>
+				<frame hidden="1" id="Frame_Start">
+					{{{Styles::BuildQuad(<0., 0., 0.>, <3.5, 3.5>, Styles::CircleSize_Top(), Styles::Align_CenterCenter2(), ["id" => "Quad_Macroblock", "opacity" => "0.6"])}}}
+				</frame>
+			</frame>
+			<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<0., -5.8, 4.>, Styles::CircleSize_Top()))}}}>
+				{{{Styles::BuildLine(<0., 0., 0.>, <1., 1.>, Styles::CircleSize_Top(), Styles::Align_LeftTop(), Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), True, False, ["scriptevents" => "1", MLE::Data_Effects() => """B1:{{{MLE::Effect_QuadHover()}}}""", MLE::Data_Triggers() => "B1", "class" => """{{{MLE::ML_Class()}}}""", "id" => "Quad_HoverPaste", "opacity" => "0."])}}}
+				{{{Styles::BuildLine(<0., 0., 2.>, <8., 1.>, Styles::CircleSize_Top(), Styles::Align_LeftTop(), Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), False, True, ["hidden" => "1"])}}}
+				{{{Styles::BuildButton(PasteButton, <0.5, -0.5, 1.>, <ButtonSize, ButtonSize>, Styles::CircleSize_Top(), Styles::Align_CenterCenter2(), [])}}}
+			</frame>
+			<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<1., -5.8, 3.>, Styles::CircleSize_Top()))}}}>
+				{{{Styles::BuildLine(<0., 0., 0.>, <7., 1.>, Styles::CircleSize_Top(), Styles::Align_LeftTop(), Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), True, False, ["scriptevents" => "1", MLE::Data_Effects() => """B1:{{{MLE::Effect_QuadHover()}}}""", MLE::Data_Triggers() => "B1", "class" => """{{{MLE::ML_Class()}}}""", "id" => "Quad_Paste", "opacity" => "0."])}}}
+				{{{Styles::BuildLabel(<0., -0.45, 1.>, <7., 1.>, Styles::CircleSize_Top(), Styles::Align_LeftCenter2(), [
+					//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: pasting a block.
+					"text" => _("Paste"), "class" => "turbo2-text-cutpaste ", "id" => "Label_Paste"
+				])}}}
+			</frame>
+			<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<0., -6.8, 4.>, Styles::CircleSize_Top()))}}}>
+				{{{Styles::BuildLine(<0., 0., 0.>, <1., 1.>, Styles::CircleSize_Top(), Styles::Align_LeftTop(), Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), True, False, ["scriptevents" => "1", MLE::Data_Effects() => """B2:{{{MLE::Effect_QuadHover()}}}""", MLE::Data_Triggers() => "B2", "class" => """{{{MLE::ML_Class()}}}""", "id" => "Quad_HoverDiscard", "opacity" => "0."])}}}
+				{{{Styles::BuildLine(<0., 0., 2.>, <8., 1.>, Styles::CircleSize_Top(), Styles::Align_LeftTop(), Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), False, True, ["hidden" => "1"])}}}
+				{{{Styles::BuildButton(SkipButton, <0.5, -0.5, 1.>, <ButtonSize, ButtonSize>, Styles::CircleSize_Top(), Styles::Align_CenterCenter2(), [])}}}
+			</frame>
+			<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<1., -6.8, 3.>, Styles::CircleSize_Top()))}}}>
+				{{{Styles::BuildLine(<0., 0., 0.>, <7., 1.>, Styles::CircleSize_Top(), Styles::Align_LeftTop(), Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), True, False, ["scriptevents" => "1", MLE::Data_Effects() => """B2:{{{MLE::Effect_QuadHover()}}}""", MLE::Data_Triggers() => "B2", "class" => """{{{MLE::ML_Class()}}}""", "id" => "Quad_Discard", "opacity" => "0."])}}}
+				{{{Styles::BuildLabel(<0., -0.45, 1.>, <7., 1.>, Styles::CircleSize_Top(), Styles::Align_LeftCenter2(), [
+					//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here : when cutting a block, it goes inside a stack. You can then paste a block from this stack or discard it.
+					"text" => _("|Infinitive - throw out|Discard"), "class" => "turbo2-text-cutpaste"
+				])}}}
+			</frame>
+		</frame>
+	</frame>
+</frame>
+<script><!--
+{{{Manialink::DefaultIncludes()}}}
+{{{MLE::ML_Includes()}}}
+{{{Manialink::Animations(["EaseOutQuad"])}}}
+
+{{{Buttons2::ML_Functions()}}}
+{{{MLE::ML_Functions()}}}
+
+Void SetVisibility(Boolean _Visible, Integer _Count) {
+	if (_Visible && _Count > 0) {
+		LibManialink_Anim({{{Manialink::Inject("""<frame pos="{{{-Styles::GetSize2(<11., 0.>, Styles::CircleSize_Top()).X}}} 0" hidden="0" id="Frame_CutHistory" />""")}}}, 250, "EaseOutQuad");
+	} else {
+		LibManialink_Anim({{{Manialink::Inject("""<frame pos="0 0" hidden="1" id="Frame_CutHistory" />""")}}}, 250, "EaseOutQuad");
+	}
+}
+
+Void UpdateCuts(Ident[] _MacroblockModelsIds, Integer _Type, Integer _Count) {
+	declare Frame_Macroblocks <=> (Page.GetFirstChild("Frame_Macroblocks") as CMlFrame);
+	declare Frame_Start <=> (Page.GetFirstChild("Frame_Start") as CMlFrame);
+	declare Quad_Start <=> (Frame_Start.GetFirstChild("Quad_Macroblock") as CMlQuad);
+	declare Label_More <=> (Page.GetFirstChild("Label_More") as CMlLabel);
+
+	Quad_Start.Image = Null;
+
+	foreach (Key => Control in Frame_Macroblocks.Controls) {
+		declare Quad_Macroblock <=> (Control as CMlQuad);
+
+		if ((_Type == {{{C_Type_Paste}}} || _Type == {{{C_Type_Discard}}}) && Quad_Start.Image == Null && Quad_Macroblock.Image != Null) {
+			Quad_Start.Image = Quad_Macroblock.Image;
+		} else if (_Type == {{{C_Type_Cut}}} && Quad_Macroblock.Image != Null && Key == Frame_Macroblocks.Controls.count-1) {
+			Quad_Start.Image = Quad_Macroblock.Image;
+		}
+
+		if (_MacroblockModelsIds.existskey(Key)) {
+			if (Editor.MacroblockModels.existskey(_MacroblockModelsIds[Key])) {
+				declare MacroblockModel <=> Editor.MacroblockModels[_MacroblockModelsIds[Key]];
+				if (MacroblockModel != Null) {
+					Quad_Macroblock.Image = MacroblockModel.Icon;
+				} else {
+					Quad_Macroblock.Image = Null;
+				}
+			} else {
+				Quad_Macroblock.Image = Null;
+			}
+		} else {
+			Quad_Macroblock.Image = Null;
+		}
+	}
+
+	if (_Count > Frame_Macroblocks.Controls.count) {
+		Label_More.Value = "+"^(_Count - Frame_Macroblocks.Controls.count);
+	} else {
+		Label_More.Value = "";
+	}
+
+	if (_Type == {{{C_Type_Cut}}}) {
+		Frame_Macroblocks.Controls[0].RelativePosition_V3 = Frame_Macroblocks.Controls[0].RelativePosition_V3 - Frame_Macroblocks.Controls[0].AbsolutePosition_V3;
+		Frame_Macroblocks.Controls[1].RelativePosition_V3 = {{{Styles::Vec3ToVec2(QuadPositions[0])}}};
+		Frame_Macroblocks.Controls[2].RelativePosition_V3 = {{{Styles::Vec3ToVec2(QuadPositions[1])}}};
+		Frame_Macroblocks.Controls[3].RelativePosition_V3 = {{{Styles::Vec3ToVec2(QuadPositions[2])}}};
+		Frame_Start.RelativePosition_V3 = {{{Styles::Vec3ToVec2(Styles::GetPosition2(<0.+SmallSize*0.5, 2.-SmallSize*0.5, 4.>, Styles::CircleSize_Top()))}}};
+
+		Frame_Macroblocks.Controls[0].RelativeScale = 0.;
+		Frame_Macroblocks.Controls[1].RelativeScale = {{{Styles::GetSize2(<4., 0.>, Styles::CircleSize_Top()).X/Styles::GetSize2(<2., 0.>, Styles::CircleSize_Top()).X}}};
+		Frame_Macroblocks.Controls[2].RelativeScale = 1.;
+		Frame_Macroblocks.Controls[3].RelativeScale = 1.;
+		Frame_Start.RelativeScale = {{{Styles::GetSize2(<2., 0.>, Styles::CircleSize_Top()).X/Styles::GetSize2(<4., 0.>, Styles::CircleSize_Top()).X}}};
+
+		Frame_Start.Visible = True;
+
+		LibManialink_Anim(Frame_Macroblocks.Controls[0], {{{Manialink::Inject("""<frame {{{Styles::BuildPosition2(QuadPositions[0])}}} scale="1" />""")}}}, 750, "EaseOutQuad");
+		LibManialink_Anim(Frame_Macroblocks.Controls[1], {{{Manialink::Inject("""<frame {{{Styles::BuildPosition2(QuadPositions[1])}}} scale="1" />""")}}}, 750, "EaseOutQuad");
+		LibManialink_Anim(Frame_Macroblocks.Controls[2], {{{Manialink::Inject("""<frame {{{Styles::BuildPosition2(QuadPositions[2])}}} scale="1" />""")}}}, 500, "EaseOutQuad");
+		LibManialink_Anim(Frame_Macroblocks.Controls[3], {{{Manialink::Inject("""<frame {{{Styles::BuildPosition2(QuadPositions[3])}}} scale="1" />""")}}}, 500, "EaseOutQuad");
+		LibManialink_Anim(Frame_Start, {{{Manialink::Inject("""<frame {{{Styles::BuildPosition2(Styles::GetPosition2(<-2., 2.-SmallSize*0.5, 4.>, Styles::CircleSize_Top()))}}} scale="0" hidden="1" />""")}}}, 500, "EaseOutQuad");
+	} else {
+		Frame_Macroblocks.Controls[0].RelativePosition_V3 = {{{Styles::Vec3ToVec2(QuadPositions[1])}}};
+		Frame_Macroblocks.Controls[1].RelativePosition_V3 = {{{Styles::Vec3ToVec2(QuadPositions[2])}}};
+		Frame_Macroblocks.Controls[2].RelativePosition_V3 = {{{Styles::Vec3ToVec2(QuadPositions[3])}}};
+		Frame_Macroblocks.Controls[3].RelativePosition_V3 = {{{Styles::Vec3ToVec2(QuadPositions[4])}}};
+		Frame_Start.RelativePosition_V3 = <{{{Styles::GetSize2(<BigSize*0.5, 0.>, Styles::CircleSize_Top()).X}}}, {{{-Styles::GetSize2(<0., BigSize*0.5>, Styles::CircleSize_Top()).Y}}}>;
+
+		Frame_Macroblocks.Controls[0].RelativeScale = {{{Styles::GetSize2(<2., 0.>, Styles::CircleSize_Top()).X/Styles::GetSize2(<4., 0.>, Styles::CircleSize_Top()).X}}};
+		Frame_Macroblocks.Controls[1].RelativeScale = 1.;
+		Frame_Macroblocks.Controls[2].RelativeScale = 1.;
+		Frame_Macroblocks.Controls[3].RelativeScale = 0.;
+		Frame_Start.RelativeScale = 1.;
+
+		Frame_Start.Visible = True;
+
+		LibManialink_Anim(Frame_Macroblocks.Controls[0], {{{Manialink::Inject("""<frame {{{Styles::BuildPosition2(QuadPositions[0])}}} scale="1" />""")}}}, 750, "EaseOutQuad");
+		LibManialink_Anim(Frame_Macroblocks.Controls[1], {{{Manialink::Inject("""<frame {{{Styles::BuildPosition2(QuadPositions[1])}}} scale="1" />""")}}}, 500, "EaseOutQuad");
+		LibManialink_Anim(Frame_Macroblocks.Controls[2], {{{Manialink::Inject("""<frame {{{Styles::BuildPosition2(QuadPositions[2])}}} scale="1" />""")}}}, 500, "EaseOutQuad");
+		LibManialink_Anim(Frame_Macroblocks.Controls[3], {{{Manialink::Inject("""<frame {{{Styles::BuildPosition2(QuadPositions[3])}}} scale="1" />""")}}}, 500, "EaseOutQuad");
+
+		if (_Type == {{{C_Type_Paste}}}) {
+			declare CenterPosition = Frame_Start.RelativePosition_V3 - Frame_Start.AbsolutePosition_V3;
+			LibManialink_Anim(Frame_Start, "<frame pos=\""^CenterPosition.X^" "^CenterPosition.Y^"\" scale=\"0\" hidden=\"1\" />", 750, "EaseOutQuad");
+		} else {
+			LibManialink_Anim(Frame_Start, {{{Manialink::Inject("""<frame pos="{{{Styles::GetSize2(<10., 0.>, Styles::CircleSize_Top()).X}}} {{{-Styles::GetSize2(<0., BigSize*0.5>, Styles::CircleSize_Top()).Y}}}" hidden="1" />""")}}}, 750, "EaseOutQuad");
+		}
+	}
+
+	declare L_Visibility for Page = False;
+	SetVisibility(L_Visibility, _Count);
+}
+
+main() {
+	declare L_Visibility for Page = False;
+	declare L_CutsUpdate for Page = -1;
+	declare L_Cuts for Page = Ident[];
+	declare L_CutsType for Page = -1;
+	declare L_CutsCount for Page = 0;
+
+	declare PrevVisibility = False;
+	declare PrevCutsUpdate = -1;
+
+	declare Integer L_CannotPasteTimer for Page = 0;
+	declare CMlLabel Label_Paste <=> (Page.GetFirstChild("Label_Paste") as CMlLabel);
+	declare Quad_Paste <=> (Page.GetFirstChild("Quad_Paste") as CMlQuad);
+	declare Quad_Discard <=> (Page.GetFirstChild("Quad_Discard") as CMlQuad);
+
+	LibButtons_Init();
+	LibMLEffects_Init();
+
+	while (True) {
+		yield;
+
+		LibManialink_AnimLoop();
+		LibButtons_Loop();
+		LibMLEffects_Loop();
+
+		if (PrevVisibility != L_Visibility) {
+			PrevVisibility = L_Visibility;
+			SetVisibility(L_Visibility, L_CutsCount);
+		}
+
+		if (PrevCutsUpdate != L_CutsUpdate) {
+			PrevCutsUpdate = L_CutsUpdate;
+			UpdateCuts(L_Cuts, L_CutsType, L_CutsCount);
+		}
+		if (Now < L_CannotPasteTimer) {
+			declare Real GB = 1.0;
+			declare Real X = (L_CannotPasteTimer - Now)/1000.0;
+			GB = ((2.0 * X - 2.0)*(2.0 * X - 2.0))/(4.0);
+			Label_Paste.TextColor = <1.0, GB, GB>;
+		} else {
+			Label_Paste.TextColor = <1.0, 1.0, 1.0>;
+		}
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+				if (Event.ControlId == "Quad_Paste" || Event.ControlId == "Quad_HoverPaste") {
+					SendCustomEvent("{{{C_Event_Paste}}}", Text[]);
+				} else if (Event.ControlId == "Quad_Discard" || Event.ControlId == "Quad_HoverDiscard") {
+					SendCustomEvent("{{{C_Event_Discard}}}", Text[]);
+				}
+			}
+		}
+	}
+}
+--></script>
+</manialink>
+""";
+}
+
+Void Private_SendList(Integer _Type) {
+	declare Page <=> Layers::GetPage("CutPaste");
+	declare L_CutsUpdate for Page = -1;
+	declare Ident[] L_Cuts for Page;
+	declare L_CutsType for Page = -1;
+	declare L_CutsCount for Page = 0;
+	L_Cuts.clear();
+	L_CutsType = _Type;
+	L_CutsCount = G_LibCutPaste_NextMacroblockModelsIds.count;
+
+	if (G_LibCutPaste_NextMacroblockModelsIds.count > 0) {
+		for (I, 0, 3) {
+			declare Key = G_LibCutPaste_NextMacroblockModelsIds.count - 1 - I;
+			if (Key < 0) break;
+			L_Cuts.add(G_LibCutPaste_NextMacroblockModelsIds[Key]);
+		}
+	}
+
+	L_CutsUpdate = Now;
+}
+
+Text GetScriptVersion() { return Version; }
+Text GetScriptName() { return ScriptName; }
+
+/// Get the events constants
+Text Event_Paste() { return C_Event_Paste; }
+Text Event_Discard() { return C_Event_Discard; }
+
+// Add a new macroblock in the stack
+Void Cut(Ident _PrevMacroblockModelId, Integer _PrevConnectedBy, Ident _NextMacroblockModelId, Integer _NextConnectedBy) {
+	G_LibCutPaste_PrevMacroblockModelsIds.add(_PrevMacroblockModelId);
+	G_LibCutPaste_PrevConnectedBy.add(_PrevConnectedBy);
+	G_LibCutPaste_NextMacroblockModelsIds.add(_NextMacroblockModelId);
+	G_LibCutPaste_NextConnectedBy.add(_NextConnectedBy);
+
+	Private_SendList(C_Type_Cut);
+}
+
+/// Remove the newest macroblock from the stack
+Void Paste() {
+	if (G_LibCutPaste_PrevMacroblockModelsIds.count <= 0) return;
+
+	declare Boolean Removed;
+	Removed = G_LibCutPaste_PrevMacroblockModelsIds.removekey(G_LibCutPaste_PrevMacroblockModelsIds.count-1);
+	Removed = G_LibCutPaste_PrevConnectedBy.removekey(G_LibCutPaste_PrevConnectedBy.count-1);
+	Removed = G_LibCutPaste_NextMacroblockModelsIds.removekey(G_LibCutPaste_NextMacroblockModelsIds.count-1);
+	Removed = G_LibCutPaste_NextConnectedBy.removekey(G_LibCutPaste_NextConnectedBy.count-1);
+
+	Private_SendList(C_Type_Paste);
+}
+
+/// Remove the newest macroblock from the stack
+Void Skip() {
+	if (G_LibCutPaste_PrevMacroblockModelsIds.count <= 0) return;
+
+	declare Boolean Removed;
+	Removed = G_LibCutPaste_PrevMacroblockModelsIds.removekey(G_LibCutPaste_PrevMacroblockModelsIds.count-1);
+	Removed = G_LibCutPaste_PrevConnectedBy.removekey(G_LibCutPaste_PrevConnectedBy.count-1);
+	Removed = G_LibCutPaste_NextMacroblockModelsIds.removekey(G_LibCutPaste_NextMacroblockModelsIds.count-1);
+	Removed = G_LibCutPaste_NextConnectedBy.removekey(G_LibCutPaste_NextConnectedBy.count-1);
+
+	Private_SendList(C_Type_Discard);
+}
+
+/// Clear all macroblocks from the stack
+Void Clear() {
+	G_LibCutPaste_PrevMacroblockModelsIds.clear();
+	G_LibCutPaste_PrevConnectedBy.clear();
+	G_LibCutPaste_NextMacroblockModelsIds.clear();
+	G_LibCutPaste_NextConnectedBy.clear();
+
+	Private_SendList(C_Type_Discard);
+}
+
+// Get the number of macroblocks saved in the stack
+Integer Count() {
+	return G_LibCutPaste_PrevMacroblockModelsIds.count;
+}
+
+// Get the newest macroblock model id
+Ident GetPrevMacroblockModelId() {
+	if (G_LibCutPaste_PrevMacroblockModelsIds.count <= 0) return NullId;
+
+	return G_LibCutPaste_PrevMacroblockModelsIds[G_LibCutPaste_PrevMacroblockModelsIds.count-1];
+}
+
+// Get the newest macroblock connection
+Integer GetPrevMacroblockConnectedBy() {
+	if (G_LibCutPaste_PrevConnectedBy.count <= 0) return -1;
+
+	return G_LibCutPaste_PrevConnectedBy[G_LibCutPaste_PrevConnectedBy.count-1];
+}
+
+// Get the newest macroblock model id
+Ident GetNextMacroblockModelId() {
+	if (G_LibCutPaste_NextMacroblockModelsIds.count <= 0) return NullId;
+
+	return G_LibCutPaste_NextMacroblockModelsIds[G_LibCutPaste_NextMacroblockModelsIds.count-1];
+}
+
+// Get the newest macroblock connection
+Integer GetNextMacroblockConnectedBy() {
+	if (G_LibCutPaste_NextConnectedBy.count <= 0) return -1;
+
+	return G_LibCutPaste_NextConnectedBy[G_LibCutPaste_NextConnectedBy.count-1];
+}
+
+// Warn the player that they cannot paste
+Void WarnNoPaste() {
+	declare Page <=> Layers::GetPage("CutPaste");
+	declare L_CannotPasteTimer for Page = 0;
+	L_CannotPasteTimer = Now + 2000;
+}
+
+//  Set the header visibility
+Void SetVisibility(Boolean _Visible) {
+	declare Page <=> Layers::GetPage("CutPaste");
+	declare L_Visibility for Page = False;
+	L_Visibility = _Visible;
+}
+
+Void Show() {
+	SetVisibility(True);
+}
+Void Hide() {
+	SetVisibility(False);
+}
+
+Void Unload() {
+	Layers::Destroy("CutPaste");
+
+	Clear();
+}
+
+Void Load() {
+	Unload();
+
+	declare LayerCutPaste <=> Layers::Create("CutPaste");
+	LayerCutPaste.ManialinkPage = Private_GetCutPasteML();
+
+	declare Page <=> LayerCutPaste.LocalPage;
+	declare L_Visibility for Page = False;
+	declare L_CutsUpdate for Page = -1;
+	declare Ident[] L_Cuts for Page;
+	declare L_CutsType for Page = -1;
+	declare L_CutsCount for Page = 0;
+	declare L_CannotPasteTimer for Page = 0;
+	L_Visibility = False;
+	L_CutsUpdate = -1;
+	L_Cuts.clear();
+	L_CutsType = -1;
+	L_CutsCount = 0;
+	L_CannotPasteTimer = 0;
+
+	Private_SendList(C_Type_Discard);
+}

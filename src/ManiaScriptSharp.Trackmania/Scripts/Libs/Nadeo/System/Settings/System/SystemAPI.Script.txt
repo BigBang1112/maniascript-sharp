@@ -1,0 +1,261 @@
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Chat/ChatSettings.Script.txt"			as ChatSettings
+#Include "Libs/Nadeo/System/Settings/SettingsStructs.Script.txt"	as Structs
+#Include "Libs/Nadeo/System/Styles/ColorScheme.Script.txt"			as ColorScheme
+
+#Const C_LibSystemAPI_AvailableSettings """
+<settings>
+	<setting type="Action" id="Credits" 				name="Credits" 										    />
+
+	<setting type="Enum" id="Language" 					name="Language" 										/>
+	
+	<setting type="Text" id="JoinLink" 				  	  name="Enter join link" 				/>
+	<setting type="Enum" id="NetworkSpeed" 				  name="Speed" 									/>
+	<setting type="Int"  id="NetworkSpeed_CustomDownload" name="Custom Download speed in Bytes/s" min="0" step="1" />
+	<setting type="Int"  id="NetworkSpeed_CustomUpload"   name="Custom Upload speed in Bytes/s" min="0" step="1" />
+		
+	<setting type="Bool" id="ChatAllowHide" 			name="|Chat|Allow hiding in-game chat"	 				/>
+	
+	<setting type="Bool" id="EnableVehicleSkinLocators"	name="Model skins"										/>
+	<setting type="Bool" id="EnableMapModLocators"		name="Map mods"											/>
+	<setting type="Bool" id="EnableMapSkinLocators"		name="Map skins"										/>
+	<setting type="Action" 	id="CleanCache"				name="Clean cache" 								        />
+</settings>
+"""
+
+declare Structs::SSettingModel[] G_LibSystemAPI_AvailableSettings;
+declare Boolean G_LibSystemAPI_PendingSettingsUpdate;
+declare Integer G_LibSystemAPI_PrevNbColorSchemes;
+declare Boolean G_LibSystemAPI_IsDialogActive;
+declare CManiaplanetPlugin::EContext G_LibSystemAPI_PrevActiveContext;
+
+Structs::SSettingModel[] Private_GetSettingsList() {
+	if (G_LibSystemAPI_AvailableSettings.count > 0) {
+		return G_LibSystemAPI_AvailableSettings;
+	}
+
+	declare Document <=> Xml.Parse_Xml(C_LibSystemAPI_AvailableSettings);
+	
+	foreach (Node in Document.Root.Children) {
+		declare Structs::SSettingModel Setting;
+
+		Setting.Id				= Node.GetAttributeText("id", "");
+		Setting.Type			= Node.GetAttributeText("type", "");
+		Setting.Name			= Node.GetAttributeText("name", "");
+		Setting.ValueRangeMin	= Node.GetAttributeReal("min", 0.);
+		Setting.ValueRangeMax	= Node.GetAttributeReal("max", 1.);
+		Setting.Info			= Node.GetAttributeText("info", "");
+
+		switch (Setting.Id) {
+			case "ChatPosition" : {
+				Setting.AvailableOptions = ["Left", "Center"];
+				Setting.OptionsLabels = ["Left" => _("Left"), "Center" => _("Center")];
+			}
+			case "ChatOwnMessagesPos" : {
+				Setting.AvailableOptions = ["Left", "Right"];
+				Setting.OptionsLabels = ["Right" => _("Right"), "Left" => _("Left")];
+			}
+			case "NotificationsPos" : {
+				Setting.AvailableOptions = ["TLeft", "TRight", "BLeft", "BRight"];
+				Setting.OptionsLabels = ["TLeft" => _("Top left"), "TRight" => _("Top right"), "BLeft" => _("Bottom left"), "BRight" => _("Bottom right")];
+			}
+			case "ChatNotifyMessage" : {
+				Setting.AvailableOptions = ["Off", "Private", "Squad", "All"];
+				Setting.OptionsLabels = ["Off" => _("|Notifications|Nothing"), "Private" => _("|Notifications|Friends"), "Squad" => _("|Notifications|Friends + Squad"), "All" => _("|Notifications|Everything")];
+			}
+		}
+
+		G_LibSystemAPI_AvailableSettings.add(Setting);
+	}
+
+	Xml.Parse_Destroy(Document);
+	return G_LibSystemAPI_AvailableSettings;
+}
+
+Structs::SSettingModel[] GetSettingsList() {
+	declare Structs::SSettingModel[] SettingsList;
+	
+	declare Text SelectedScheme;
+	declare Boolean UseTitleColor;
+	declare Boolean ShowNextEpisodes;
+
+	if (ManiaPlanet.PersistentIsReady) {
+		declare persistent Text		Persistent_ColorsController_SelectedScheme		for ManiaPlanet;
+		declare persistent Boolean	Persistent_ColorsController_UseTitleColor		for ManiaPlanet = True;
+		declare persistent Boolean	Persistent_ChannelsMP4_ShowNextEpisodes			for ManiaPlanet = False;
+		SelectedScheme = Persistent_ColorsController_SelectedScheme;
+		UseTitleColor = Persistent_ColorsController_UseTitleColor;
+		ShowNextEpisodes = Persistent_ChannelsMP4_ShowNextEpisodes;
+	}
+
+	foreach (SettingModel in Private_GetSettingsList()) {
+		declare Setting = SettingModel;
+
+		switch (Setting.Id) {
+			case "Language" : {
+				Setting.CurrentValueText = ManiaPlanet.Language_NextStart;
+				Setting.NeedsRestart = ManiaPlanet.Language_NextStart != ManiaPlanet.Language_Current;
+				foreach (I => LanguagueId in ManiaPlanet.Language_AvailableChoices ) {
+					Setting.AvailableOptions.add(LanguagueId);
+					Setting.OptionsLabels[LanguagueId] = ManiaPlanet.Language_AvailableChoices_Names[I];
+				}
+			}
+			
+			case "JoinLink" : {
+				Setting.CurrentValueText = "";
+				Setting.IsDisabled = False;
+			}
+
+			case "NetworkSpeed" : {
+				switch (ManiaPlanet.NetworkSpeed_NextStart) {
+					case CManiaPlanet::ENetworkSpeed::Custom			: Setting.CurrentValueText = "Custom";
+					case CManiaPlanet::ENetworkSpeed::_100Kbps			: Setting.CurrentValueText = "100Kbps";
+					case CManiaPlanet::ENetworkSpeed::_1Mbps 			: Setting.CurrentValueText = "1Mbps";
+					case CManiaPlanet::ENetworkSpeed::_10Mbps			: Setting.CurrentValueText = "10Mbps";
+					case CManiaPlanet::ENetworkSpeed::_100Mbps			: Setting.CurrentValueText = "100Mbps";
+				}
+				Setting.NeedsRestart = ManiaPlanet.NetworkSpeed_NextStart != ManiaPlanet.NetworkSpeed_Current;
+				Setting.AvailableOptions = ["Custom", "100Kbps", "1Mbps", "10Mbps", "100Mbps"];
+				Setting.OptionsLabels = ["Custom" => _("|NetworkSpeed|Custom"), 
+				"100Kbps" => _("|NetworkSpeed|Very Low - 100Kbps"), 
+				"1Mbps" => _("|NetworkSpeed|Low - 1Mbps"), 
+				"10Mbps" => _("|NetworkSpeed|Medium - 10Mbps"), 
+				"100Mbps" => _("|NetworkSpeed|High - 100Mbps")];
+			}
+			
+			case "NetworkSpeed_CustomUpload" : {			
+				Setting.NeedsRestart = ManiaPlanet.NetworkSpeed_CustomUpload_NextStart != ManiaPlanet.NetworkSpeed_CustomUpload_Current;
+				if(ManiaPlanet.NetworkSpeed_NextStart == CManiaPlanet::ENetworkSpeed::Custom) {
+					Setting.IsDisabled = False;
+					Setting.CurrentValueInteger	= ManiaPlanet.NetworkSpeed_CustomUpload_NextStart;
+				} else {
+					Setting.IsDisabled = True;
+					Setting.CurrentValueInteger	= ManiaPlanet.NetworkSpeed_Upload_NextStart;
+				}
+			}
+			
+			case "NetworkSpeed_CustomDownload" : {			
+				Setting.NeedsRestart = ManiaPlanet.NetworkSpeed_CustomDownload_NextStart != ManiaPlanet.NetworkSpeed_CustomDownload_Current;
+				if(ManiaPlanet.NetworkSpeed_NextStart == CManiaPlanet::ENetworkSpeed::Custom) {
+					Setting.IsDisabled = False;
+					Setting.CurrentValueInteger	= ManiaPlanet.NetworkSpeed_CustomDownload_NextStart;
+				} else {
+					Setting.IsDisabled = True;
+					Setting.CurrentValueInteger	= ManiaPlanet.NetworkSpeed_Download_NextStart;
+				}
+			}
+			
+			case "EnableMapModLocators"			: Setting.CurrentValueBoolean	= ManiaPlanet.Network_EnableMapModLocators;
+			case "EnableMapSkinLocators"		: Setting.CurrentValueBoolean	= ManiaPlanet.Network_EnableMapSkinLocators;
+			case "EnableVehicleSkinLocators"	: Setting.CurrentValueBoolean	= ManiaPlanet.Network_EnableVehicleSkinLocators;
+
+			case "ChatAllowHide" : {
+				declare UserSettings <=> ManiaPlanet.UserMgr.MainUserProfile;
+				if(UserSettings == Null)  {
+					Setting.IsDisabled			= True;
+					Setting.CurrentValueBoolean	= False;
+				} else  {
+					Setting.IsDisabled			= False;
+					Setting.CurrentValueBoolean	= UserSettings.Interface_AllowChatHiding;
+				}
+			}
+
+			case "ChatNotifyMessage" : {
+				switch (ChatSettings::NotificationMessageLevel()) {
+					case 1	: Setting.CurrentValueText = "Private";
+					case 2	: Setting.CurrentValueText = "Squad";
+					case 3	: Setting.CurrentValueText = "All";
+					default	: Setting.CurrentValueText = "Off";
+				}
+			}
+			default : Setting.IsDisabled = True;
+		}
+
+		if (Setting.Type == "Enum") {
+			if (!Setting.AvailableOptions.exists(Setting.CurrentValueText)) {
+				Setting.CurrentValueText = Setting.AvailableOptions[0];
+			}
+		}
+
+		// Availability
+		switch (Setting.Id) {
+			case "Credits" : Setting.IsDisabled = ActiveContext != CManiaplanetPlugin::EContext::MenuCustom;
+			case "CleanCache" : Setting.IsDisabled = False;
+		}
+
+		SettingsList.add(Setting);
+	}
+	
+
+	return SettingsList;
+}
+
+Structs::SSettingModel GetSetting(Text _SettingId) {
+	declare Structs::SSettingModel TargetSetting;
+
+	foreach (Setting in GetSettingsList()) {
+		if (Setting.Id == _SettingId) {
+			TargetSetting = Setting;
+			break;
+		}
+	}
+
+	return TargetSetting;
+}
+
+Void SetColorScheme(Text _ColorSchemeName) {
+	if (!ManiaPlanet.PersistentIsReady) return;
+	declare persistent Text Persistent_ColorsController_SelectedScheme for ManiaPlanet;
+	declare Integer ColorsController_SettingsLatestChangeCount for ManiaPlanet;
+
+	Persistent_ColorsController_SelectedScheme = _ColorSchemeName;
+	G_LibSystemAPI_PendingSettingsUpdate = True;
+	ColorsController_SettingsLatestChangeCount += 1;
+}
+
+Void SetUseTitleColor(Boolean _UseTitleColor) {
+	if (!ManiaPlanet.PersistentIsReady) return;
+	declare persistent Boolean Persistent_ColorsController_UseTitleColor for ManiaPlanet;
+	declare Integer ColorsController_SettingsLatestChangeCount for ManiaPlanet;
+
+	Persistent_ColorsController_UseTitleColor = _UseTitleColor;
+	G_LibSystemAPI_PendingSettingsUpdate = True;
+	ColorsController_SettingsLatestChangeCount += 1;
+}
+
+Boolean IsDialogActive() {
+	return G_LibSystemAPI_IsDialogActive;
+}
+
+Void Loop() {
+	if (ManiaPlanet.Dialog_IsFinished && IsDialogActive()) {
+		G_LibSystemAPI_IsDialogActive = False;
+		G_LibSystemAPI_PendingSettingsUpdate = True;
+	}
+
+	declare Text[] LibColorsController_ColorSchemes for ManiaPlanet;
+
+	if (G_LibSystemAPI_PrevNbColorSchemes != LibColorsController_ColorSchemes.count) {
+		G_LibSystemAPI_PrevNbColorSchemes = LibColorsController_ColorSchemes.count;
+		G_LibSystemAPI_PendingSettingsUpdate = True;
+	}
+
+	if (G_LibSystemAPI_PrevActiveContext != ActiveContext) {
+		G_LibSystemAPI_PrevActiveContext = ActiveContext;
+		G_LibSystemAPI_PendingSettingsUpdate = True;
+	}
+}
+
+Boolean PendingUpdate() {
+	declare IsUpdate = G_LibSystemAPI_PendingSettingsUpdate;
+	G_LibSystemAPI_PendingSettingsUpdate = False;
+	return IsUpdate;
+}
+
+Void CleanCache() {
+	if (IsDialogActive()) return;
+	ManiaPlanet.Dialog_CleanCache();
+	G_LibSystemAPI_IsDialogActive = True;
+}

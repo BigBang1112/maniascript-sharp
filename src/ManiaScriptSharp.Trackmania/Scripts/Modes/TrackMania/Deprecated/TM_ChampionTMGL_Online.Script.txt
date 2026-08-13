@@ -1,0 +1,532 @@
+/**
+ *	Champion TMGL mode
+ */
+#Extends "Modes/TrackMania/Deprecated/TM_Champion_Online.Script.txt"
+
+#Const C_ChampionTMGL_Version    "1.0.0+2022-01-20"
+#Const C_ChampionTMGL_ScriptName "Modes/TrackMania/Deprecated/TM_ChampionTMGL_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/Constants.Script.txt" as ChampionConst
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/StateManager.Script.txt" as ChampionTMGL_StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/LeagueAPI.Script.txt" as LeagueAPI
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+#Include "Libs/Nadeo/Trackmania/Modes/TMGLMarkers.Script.txt" as TMGLMarkers
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/Sponsors_Server.Script.txt" as UIModules_Sponsors
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/PlayerStats_Server.Script.txt" as UIModules_PlayerStats
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/AmbientSound_Server.Script.txt" as UIModules_AmbientSound
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/UIModules/InfoPanels_2x3_Server.Script.txt" as UIModules_InfoPanels_2x3
+#Include "Libs/Nadeo/Trackmania/Modes/ClashTime/ClashTime.Script.txt" as ClashTime
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_SponsorsUrl "" as "<hidden>" // "urlimage1,urlimage2,..."
+#Setting S_LeagueAPIUrl "https://competition.uat.next.nadeo.club/api/competitions/207" as "<hidden>"
+#Setting S_CheersAPIUrl "https://cheer.trackmania.nadeo.club/api" as "<hidden>"
+#Setting S_ClashTimeAPIUrl "https://cheer.trackmania.nadeo.club/api/clash" as "<hidden>"
+#Setting S_StepNb 1 as "<hidden>"
+#Setting S_LeaguePlayersNb 16 as _("Number of players in the league")
+#Setting S_EnableAmbientSound True as _("Enable ambient sound")
+#Setting S_EnableClashTime False as _("Enable Clash Time")
+#Setting S_ForceRoadSpectatorsNb -1 as "<hidden>" //< Force the number of spectators displayed on the border of the road
+#Setting S_DecoImageUrl_Screen16x9 "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Sponsors/Default.dds"
+#Setting S_DecoImageUrl_Screen8x1 "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Stadium/Screen8x1.dds"
+#Setting S_DecoImageUrl_Screen16x1 "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Stadium/Screen16x1.dds"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ChampionTMGL_ModeName "Champion TMGL"
+#Const C_ChampionTMGL_Description _("Champion mode")
+#Const C_ChampionTMGL_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/ChampionTMGL.Script.txt" //< Url of the mania app
+#Const C_AfterRaceStartDuration 15000
+#Const C_UpdateSignLiveCameraInterval 5000
+#Const C_UseEsportsProgrammation True
+#Const C_ClashTimeIntroDuration 45 //< Seconds
+#Const C_ClashTimeOutroDuration 10 //< Seconds
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(C_ChampionTMGL_ScriptName, C_ChampionTMGL_Version);
+Log::RegisterScript(ChampionTMGL_StateMgr::ScriptName, ChampionTMGL_StateMgr::Version);
+Log::RegisterScript(LeagueAPI::ScriptName, LeagueAPI::Version);
+Log::RegisterScript(TMGLMarkers::ScriptName, TMGLMarkers::Version);
+***
+
+***Match_LoadLibraries***
+***
+LeagueAPI::Load();
+ChampionTMGL_StateMgr::Load();
+TMGLMarkers::Load();
+***
+
+***Match_UnloadLibraries***
+***
+TMGLMarkers::Unload();
+ChampionTMGL_StateMgr::Unload();
+LeagueAPI::Unload();
+***
+
+***Match_Settings***
+***
+Champion_Settings_UseDefaultWinnerBigMessage = False;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ChampionTMGL_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(C_ChampionTMGL_Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ChampionTMGL_ManiaAppUrl;
+UIModules_ScoresTable_Champion::SetLeagueRankingVisibility(True);
+declare Boolean ChampionTMGL_MatchIsOngoing for This = False;
+UIModules_MapInfo::SetSpecialVisibility(ChampionTMGL_MatchIsOngoing); // In TMGL mode, MapInfo is hidden during prematch warmup because Club plugin info are displayed
+UIModules_AmbientSound::Enable(S_EnableAmbientSound);
+UIModules_InfoPanels_2x3::SetRankingMode(UIModules_InfoPanels_2x3::C_RankingMode_BestRace);
+UIModules_InfoPanels_2x3::SetWarmUp(False);
+
+// Markers are handled by TMGLMarkers
+UIManager.UIAll.AlliesLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+UIManager.UIAll.TeamLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+UIManager.UIAll.OpposingTeamLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+***
+
+***Match_Yield***
+***
+LeagueAPI::Yield();
+TMGLMarkers::Yield();
+
+foreach (Event in PendingEvents) {
+	if (Event.Type == CSmModeEvent::EType::OnPlayerAdded) {
+		ChampionTMGL_StateMgr::InitializePlayer(Event.Player);
+		ClashTime::InitializePlayer(Event.Player);
+
+		// Enable the esports programmation in the signs
+		// see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#
+		if (Event.Player != Null) {
+			declare CUIConfig UI <=> UIManager.GetUI(Event.Player);
+			if (UI != Null && UI.DisplayControl_UseEsportsProgrammation != C_UseEsportsProgrammation) {
+				UI.DisplayControl_UseEsportsProgrammation = C_UseEsportsProgrammation;
+			}
+		}
+	}
+}
+
+// Apply Champion_StateMgr states to ChampionTMGL_StateMgr
+if (
+	StateMgr::GetForcedStates().count != ChampionTMGL_StateMgr::GetForcedStates().count ||
+	!StateMgr::GetForcedStates().containsonly(ChampionTMGL_StateMgr::GetForcedStates()) ||
+	!ChampionTMGL_StateMgr::GetForcedStates().containsonly(StateMgr::GetForcedStates())
+) {
+	ChampionTMGL_StateMgr::ForcePlayersStates(StateMgr::GetForcedStates());
+}
+ChampionTMGL_StateMgr::Yield();
+
+// Update the league ranking
+declare Boolean Match_NeedLeagueRankingUpdate for This = False;
+if (Match_NeedLeagueRankingUpdate) {
+	declare Integer Server_LeagueRankingNextUpdate for This = -1;
+	if (Now >= Server_LeagueRankingNextUpdate) {
+		Server_LeagueRankingNextUpdate = Now + 60000;
+		LeagueAPI::UpdateLeagueRanking();
+	}
+	if (LeagueAPI::LeagueRankingIsValid()) {
+		Match_NeedLeagueRankingUpdate = False;
+		Server_LeagueRankingNextUpdate = -1;
+	}
+}
+
+// Manage XmlRpc events
+foreach (Event in XmlRpc.PendingEvents) {
+	if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+		if (Event.ParamArray1 == "Club.Match.Start") {
+			declare Boolean ChampionTMGL_MatchIsOngoing for This = False;
+			ChampionTMGL_MatchIsOngoing = True;
+			UIModules_MapInfo::SetSpecialVisibility(ChampionTMGL_MatchIsOngoing);
+		} else if (Event.ParamArray1 == "Club.Match.Completed") {
+			declare Boolean ChampionTMGL_MatchIsOngoing for This = False;
+			ChampionTMGL_MatchIsOngoing = False;
+			UIModules_MapInfo::SetSpecialVisibility(ChampionTMGL_MatchIsOngoing);
+		}
+	}
+}
+
+// Force the number of spectators on the border of the road
+if (S_ForceRoadSpectatorsNb >= 0) {
+	declare Integer ChampionTMGL_ForceRoadSpectatorsNb for This = -1;
+	if (ChampionTMGL_ForceRoadSpectatorsNb != S_ForceRoadSpectatorsNb) {
+		ChampionTMGL_ForceRoadSpectatorsNb = S_ForceRoadSpectatorsNb;
+		if (ServerAdmin != Null) ServerAdmin.SetViewerCount(ChampionTMGL_ForceRoadSpectatorsNb);
+	}
+}
+***
+
+***Match_InitServer***
+***
+declare Integer Server_LeagueRankingNextUpdate for This = -1;
+***
+
+***Match_StartServer***
+***
+LeagueAPI::SetCompetitionAPIUrl(S_LeagueAPIUrl);
+LeagueAPI::SetCheersAPIUrl(S_CheersAPIUrl);
+Server_LeagueRankingNextUpdate = Now;
+***
+
+***Match_InitMatch***
+***
+declare Boolean Match_NeedLeagueRankingUpdate for This;
+declare Boolean Match_HasPlayedClashTime;
+declare Integer Match_ClashTimeRemainingTime;
+***
+
+***Match_StartMatch***
+***
+Match_NeedLeagueRankingUpdate = True;
+Match_HasPlayedClashTime = False;
+
+UIModules_PlayerStats::SetPlayersNb(S_LeaguePlayersNb);
+UIModules_PlayerStats::SetRoundNb(Match_RoundsNb, S_RoundsLimit);
+UIModules_PlayerStats::ResetMatchProgression();
+UIModules_PlayerStats::ResetRoundProgression();
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Before);
+***
+
+***Champion_EnablePause***
+***
+declare Boolean Map_StartClashTime = S_EnableClashTime && !Match_HasPlayedClashTime && Map_PauseBeforeStart;
+Map_PauseBeforeStart = Map_PauseBeforeStart && !Map_StartClashTime; //< Disable the pause if we start Clash Time
+// After playing Clash Time, start a pause if time remained
+// otherwise only play a standard warm up
+if (Map_PauseBeforeStart && Match_HasPlayedClashTime) {
+	if (Match_ClashTimeRemainingTime > 5000) {
+		Map_PauseDuration = Match_ClashTimeRemainingTime / 1000;
+	} else {
+		Map_PauseBeforeStart = False;
+	}
+}
+***
+
+***Match_InitMap***
+***
+UIModules_Sponsors::SetSponsorsUrl(S_SponsorsUrl);
+UIModules_PlayerStats::SetRoundNb(Match_RoundsNb, S_RoundsLimit);
+UIModules_PlayerStats::ResetRoundProgression();
+UIModules_AmbientSound::Enable(S_EnableAmbientSound);
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Before);
+UIModules_InfoPanels_2x3::SetRankingMode(UIModules_InfoPanels_2x3::C_RankingMode_BestRace);
+EnableSignESportsMode(C_UseEsportsProgrammation);
+***
+
+***Champion_BeforeWarmUp***
+***
+// Clash Time
+if (Map_StartClashTime) {
+	// Setup which streamer follows which player
+	declare Text[][Text] StreamersTargets;
+	declare PlayerProfiles::PlayerProfiles_K_PlayerProfile[Text] PlayerProfiles = PlayerProfiles::GetPlayerProfiles();
+	foreach (PlayerAccountId => PlayerProfile in PlayerProfiles) {
+		if (PlayerProfile.StreamerId != "") {
+			StreamersTargets[PlayerProfile.StreamerId] = [PlayerAccountId, PlayerProfile.Nickname];
+		}
+	}
+
+	// Start Clash Time
+	ClashTime::Start(StreamersTargets);
+	UIModules_NetShare_Champion::SetClashTimeIsActive(True);
+	StateMgr::ForcePlayersStates([LibChampion_Constants::C_State_ClashTimeWaiting]);
+
+	// Clash Time intro
+	ClashTime::StartIntro(C_ClashTimeIntroDuration);
+	while (ClashTime::IsIntro()) {
+		MB_Yield();
+	}
+	ClashTime::StopIntro();
+
+	// Clash time race
+	declare Integer BestLapTime = -1;
+	declare Text[] PlayerFinishedRace = [];
+
+	StateMgr::ForcePlayersStates([LibChampion_Constants::C_State_ClashTimeRace]);
+	TMGLMarkers::Enable();
+	MB_EnablePlayMode(True);
+
+	UIModules_LapsCounter::SetBestLapPlayer("", BestLapTime);
+	UIModules_NetShare_Champion::SetRoundsNb(0);
+	UIModules_NetShare_Champion::SetRoundsTotal(0);
+	UIModules_NetShare_Champion::SetRoundsPerMap(0);
+
+	ClashTime::StartRace(Map_PauseDuration, S_ClashTimeAPIUrl);
+	while (ClashTime::IsRace()) {
+		MB_Yield();
+		ClashTime::UpdateRace();
+
+		// Update best lap time
+		declare RacePendingEvents = Race::GetPendingEvents();
+		foreach (Event in RacePendingEvents) {
+			if (Event.Type == Events::C_Type_Waypoint) {
+				if (Event.Player != Null) {
+					if (Event.IsEndRace) {
+						if (!PlayerFinishedRace.exists(Event.Player.Score.User.Login)) {
+							PlayerFinishedRace.add(Event.Player.Score.User.Login);
+							UIModules_LiveRanking::SetPlayerFinishedRace(PlayerFinishedRace);
+						}
+					}
+					if (Event.IsEndLap) {
+						if (BestLapTime <= 0 || BestLapTime > Event.LapTime) {
+							BestLapTime = Event.LapTime;
+							UIModules_LapsCounter::SetBestLapPlayer(Event.Player.User.WebServicesUserId, BestLapTime);
+						}
+					}
+				}
+			}
+		}
+	}
+	Match_ClashTimeRemainingTime = ClashTime::StopRace(S_InfiniteLaps, S_ForceLapsNb);
+
+	UIModules_LapsCounter::SetBestLapPlayer(G_BestLapPlayer, G_BestLapTime);
+	UIModules_NetShare_Champion::SetRoundsNb(Match_RoundsNb);
+	UIModules_NetShare_Champion::SetRoundsTotal(S_RoundsLimit);
+	UIModules_NetShare_Champion::SetRoundsPerMap(S_RoundsPerMap);
+
+	MB_EnablePlayMode(False);
+	TMGLMarkers::Disable();
+	StateMgr::ForcePlayersStates([LibChampion_Constants::C_State_ClashTimeWaiting]);
+
+	// Clash Time outro
+	declare CSmScore Winner <=> ClashTime::GetWinner();
+	declare Text OutroMessage = "";
+	if (Winner != Null && PlayerProfiles.existskey(Winner.User.WebServicesUserId)) {
+		OutroMessage = ClashTime::GetWinMessage(PlayerProfiles[Winner.User.WebServicesUserId].Nickname);
+	}
+	ClashTime::StartOutro(C_ClashTimeOutroDuration, OutroMessage);
+	while (ClashTime::IsOutro()) {
+		MB_Yield();
+	}
+	ClashTime::StopOutro();
+
+	// Stop Clash Time
+	StateMgr::ForcePlayersStates([LibChampion_Constants::C_State_Waiting]);
+	UIModules_NetShare_Champion::SetClashTimeIsActive(False);
+	ClashTime::Stop();
+
+	// If we played Clash Time we did it on a dedicated map
+	// So we need to load the next map before resuming the match
+	Match_HasPlayedClashTime = True;
+	WarmUpNb = 0;
+	MB_StopMap();
+}
+***
+
+***Match_StartWarmUp***
+***
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_WarmUp);
+UIModules_InfoPanels_2x3::SetWarmUp(True);
+TMGLMarkers::Enable();
+***
+
+***Match_EndWarmUp***
+***
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Starting);
+UIModules_InfoPanels_2x3::SetWarmUp(False);
+TMGLMarkers::Disable();
+***
+
+***Match_InitRound***
+***
+declare Boolean Round_RaceIsStarting;
+declare Boolean Round_RaceIsFinishing;
+declare Integer Round_RaceStartEndTime;
+declare Integer Round_CheersLapsNb;
+declare Integer Round_UpdateSignLiveCameraTime;
+declare Boolean Round_SequenceLastLap;
+declare Boolean Round_SequenceLastCheckpoint;
+***
+
+***Match_StartRound***
+***
+UIModules_PlayerStats::SetRoundNb(Match_RoundsNb, S_RoundsLimit);
+UIModules_PlayerStats::ResetRoundProgression();
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Starting);
+
+Round_RaceIsStarting = True;
+Round_RaceIsFinishing = False;
+Round_RaceStartEndTime = StartTime + C_AfterRaceStartDuration;
+Round_CheersLapsNb = 0;
+Round_SequenceLastLap = False;
+Round_SequenceLastCheckpoint = False;
+
+TMGLMarkers::Enable();
+UpdateSignLiveCamera(True);
+Round_UpdateSignLiveCameraTime = Now + C_UpdateSignLiveCameraInterval;
+EnableSignESportsMode(C_UseEsportsProgrammation);
+***
+
+***Match_PlayLoop***
+***
+foreach (Event in RacePendingEvents) {
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		if (Event.Player != Null) {
+			if (Event.IsEndLap) {
+				if (Event.Player.LapWaypointTimes.count > 0 && Event.Player.RaceWaypointTimes.count > 0) {
+					declare Integer CurrentNbLaps = Race::GetPlayerLap(Event.Player);
+					declare Integer CurLapTime = Event.Player.LapWaypointTimes[Event.Player.LapWaypointTimes.count - 1];
+					declare Integer CurRaceTime = Event.Player.RaceWaypointTimes[Event.Player.RaceWaypointTimes.count - 1];
+					UIModules_PlayerStats::AddLapTime(Event.Player.User, CurLapTime, CurRaceTime, CurrentNbLaps);
+
+					if (CurrentNbLaps > Round_CheersLapsNb) {
+						Round_CheersLapsNb = CurrentNbLaps;
+						UIModules_AmbientSound::PlayCheers(LeagueAPI::GetAccountIdToCheer());
+					}
+				}
+			}
+
+			// The leading player start the last lap
+			if (
+				!Round_SequenceLastLap &&
+				!Round_RaceIsFinishing &&
+				Event.IsEndLap &&
+				Race::GetPlayerLap(Event.Player) == Race::GetLapsNb() - 1
+			) {
+				Round_SequenceLastLap = True;
+				Round_RaceIsStarting = False;
+				UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_LastLap);
+			}
+
+			// The leading player crosses the last checkpoint before the finish
+			if (
+				!Round_SequenceLastCheckpoint &&
+				!Round_RaceIsFinishing &&
+				!Event.IsEndLap &&
+				Race::GetPlayerLap(Event.Player) == Race::GetLapsNb() - 1 &&
+				Event.Player.LapWaypointTimes.count == Map::GetCheckpointsCount()
+			) {
+				Round_SequenceLastCheckpoint = True;
+				Round_RaceIsStarting = False;
+				UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_LastCheckpoint);
+			}
+		}
+	}
+}
+
+if (Server_RoundsLimit != S_RoundsLimit) {
+	Server_RoundsLimit = S_RoundsLimit;
+	UIModules_PlayerStats::SetRoundNb(Match_RoundsNb, S_RoundsLimit);
+}
+
+if (Round_RaceIsStarting && Now >= Round_RaceStartEndTime) {
+	Round_RaceIsStarting = False;
+	UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Ongoing);
+}
+
+if (Now >= Round_UpdateSignLiveCameraTime) {
+	Round_UpdateSignLiveCameraTime = Now + C_UpdateSignLiveCameraInterval;
+	UpdateSignLiveCamera(True);
+}
+***
+
+***Champion_PlayerFinishedRace***
+***
+if (!Round_RaceIsFinishing) {
+	Round_RaceIsFinishing = True;
+	Round_RaceIsStarting = False;
+	UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Finishing);
+}
+***
+
+***Match_EndPlayLoop***
+***
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_After);
+UIModules_InfoPanels_2x3::SetRankingMode(UIModules_InfoPanels_2x3::C_RankingMode_MaxPoints);
+TMGLMarkers::Disable();
+UpdateSignLiveCamera(False);
+***
+
+***Match_EndRound_BeforeComputeScores***
+***
+UIModules_ScoresTable_Champion::SetTab(UIModules_ScoresTable_Champion::C_Tab_StepRanking);
+
+// Send the round result to the stats UI
+Race::SortScores(Race::C_Sort_BestRaceCheckpointsProgress);
+foreach (Key => Score in Scores) {
+	UIModules_PlayerStats::AddRoundRanking(Score.User, Match_RoundsNb, Key + 1);
+}
+Race::SortScores(Race::C_Sort_TotalPoints);
+***
+
+***Match_EndRound_AfterComputeScores***
+***
+LeagueAPI::UpdateLeagueRankingWithScores();
+***
+
+***Match_PodiumSequence_EnterPodium***
+***
+if (!Champion_Settings_UseDefaultWinnerBigMessage) {
+	UIManager.UIAll.BigMessageSound = CUIConfig::EUISound::EndRound;
+	UIManager.UIAll.BigMessageSoundVariant = 0;
+
+	//L16N %1 is a marker to apply typography
+	declare Message = TL::Compose(_("|Match|%1Draw"), "$i");
+	declare WinnerScore <=> Scores::GetPlayerWinner();
+	if (WinnerScore != Null) {
+		//L16N %1 is a marker to apply typography, %2 is a player's name, %3 is the step number
+		declare Text_WinnerMessage = _("%1$<%2$> wins step %3");
+		if (PlayerProfiles::GetPlayerProfiles().existskey(WinnerScore.User.WebServicesUserId)) {
+			declare NickNameWinner = PlayerProfiles::GetPlayerProfiles()[WinnerScore.User.WebServicesUserId].Nickname;
+			Message = TL::Compose(Text_WinnerMessage, "$i", NickNameWinner, TL::ToText(S_StepNb));
+		} else {
+			Message = TL::Compose(Text_WinnerMessage, "$i", WinnerScore.User.Name, TL::ToText(S_StepNb));
+		}
+	}
+	UIManager.UIAll.BigMessage = Message;
+}
+
+UIModules_ScoresTable_Champion::SetTab(UIModules_ScoresTable_Champion::C_Tab_LeagueRanking);
+***
+
+***Match_PodiumSequence***
+***
+UIModules_ScoresTable_Champion::SetTab(UIModules_ScoresTable_Champion::C_Tab_StepRanking);
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Toggle on/off the camera display in signs
+Void UpdateSignLiveCamera(Boolean _Enabled) {
+	foreach (Spectator in Spectators) {
+		declare CUIConfig UI <=> UIManager.GetUI(Spectator);
+		if (UI != Null && UI.DisplayControl_UseLiveCamera != _Enabled) {
+			UI.DisplayControl_UseLiveCamera = _Enabled;
+		}
+	}
+	foreach (Player in Players) {
+		declare CUIConfig UI <=> UIManager.GetUI(Player);
+		if (UI != Null && UI.DisplayControl_UseLiveCamera) {
+			UI.DisplayControl_UseLiveCamera = False;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Enable the esports programmation in the signs
+ *	see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#
+ */
+Void EnableSignESportsMode(Boolean _Enabled) {
+	foreach (Player in AllPlayers) {
+		declare CUIConfig UI <=> UIManager.GetUI(Player);
+		if (UI != Null && UI.DisplayControl_UseEsportsProgrammation != _Enabled) {
+			UI.DisplayControl_UseEsportsProgrammation = _Enabled;
+		}
+	}
+}

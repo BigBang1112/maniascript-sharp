@@ -1,0 +1,188 @@
+/**
+ * Base for a standard menu
+ */
+#Const C_MenuBase_Version "1.4.1"
+#Const C_MenuBase_ScriptName "ManiaApps/Nadeo/Trackmania/Menus/MenuBase.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/MedalStack.Script.txt" as MedalStack
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Menus/Events.Script.txt" as Events
+#Include "Libs/Nadeo/CMGame/Menus/Preload.Script.txt" as Preload
+#Include "Libs/Nadeo/CMGame/Menus/Router_MA.Script.txt" as Router
+#Include "Libs/Nadeo/CMGame/Menus/ShareMenuNavigation_MA.Script.txt" as ShareMenuNavigation
+#Include "Libs/Nadeo/CMGame/Utils/AudioManager_MA.Script.txt" as AudioManager
+#Include "Libs/Nadeo/CMGame/Utils/BuildInfo@2.Script.txt" as BuildInfo
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/CMGame/Utils/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/CMGame/Utils/Env.Script.txt" as Env
+#Include "Libs/Nadeo/CMGame/Utils/Error.Script.txt" as Error
+#Include "Libs/Nadeo/CMGame/Utils/Layers.Script.txt" as Layers
+#Include "Libs/Nadeo/CMGame/Utils/Log.Script.txt" as Log
+#Include "Libs/Nadeo/CMGame/Utils/NotificationManager.Script.txt" as NotificationMgr
+#Include "Libs/Nadeo/CMGame/Utils/Store_MA.Script.txt" as Store
+#Include "Libs/Nadeo/CMGame/Utils/Synchro.Script.txt" as Synchro
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as TMConsts
+#Include "Libs/Nadeo/Trackmania/MainMenu/Menu.Script.txt" as Menu
+#Include "Libs/Nadeo/Trackmania/OfflineData.Script.txt" as OfflineData
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ConfigFilePath "file://Media/Config/Nadeo/Trackmania/Config.json"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***LoadLibraries***
+***
+Error::CheckErrorsValidity();
+
+Config::Load();
+declare Config::K_Loading ConfigMergeRequest = Config::StartMergeFile(Http, C_ConfigFilePath, Config::C_Source_ClientTitle);
+while (Config::IsMergingFile(ConfigMergeRequest)) Menu_Yield();
+Config::StopMergeFile(Http, ConfigMergeRequest);
+
+declare BuildInfo::K_Request BuildInfoLoadRequest = BuildInfo::StartLoadTitleInfoFile(This);
+while (BuildInfo::IsLoadingTitleInfoFile(This, BuildInfoLoadRequest)) Menu_Yield();
+BuildInfo::StopLoadTitleInfoFile(This, BuildInfoLoadRequest);
+BuildInfo::UpdateUserInfo(System, LocalUser);
+BuildInfo::UpdatePlatformInfo(System);
+
+declare CHttpRequest OfflineDataRequest = OfflineData::StartLoadFile();
+while (OfflineData::IsLoadingFile(OfflineDataRequest)) Menu_Yield();
+OfflineData::StopLoadFile(OfflineDataRequest);
+
+// Env must be loaded before other libraries
+// because they use it
+Env::Load();
+Env::Set(Config::Get().ScriptEnvironment);
+Log::Load();
+Menu::Load();
+Layers::Load();
+ShareMenuNavigation::Load();
+Navigation::Load(This);
+Preload::Initialize(This);
+Events::Load();
+// The events library created a layer
+// we must wait for it to be ready
+Menu_Yield();
+Router::Load();
+Store::Load();
+MedalStack::Load(
+	[TMConsts::C_ImageUrl_Medal_Bronze, TMConsts::C_ImageUrl_Medal_Silver, TMConsts::C_ImageUrl_Medal_Gold, TMConsts::C_ImageUrl_Medal_Nadeo],
+	TMConsts::C_ImageUrl_Medal_Shadow
+);
+
+AudioManager::Load(Const::C_JsonFilePath_AudioCommon, Const::C_JsonFilePath_AudioMenu, Const::C_JsonFilePath_AudioGame, AudioManager::C_Preload_State, 1000);
+while (AudioManager::IsLoading()) Menu_Yield();
+AudioManager::CreateAudioSources();
+NotificationMgr::Load();
+***
+
+***UnloadLibraries***
+***
+AudioManager::Unload();
+MedalStack::Unload();
+Store::Unload();
+Router::Unload();
+Events::Unload();
+Navigation::Unload(This);
+ShareMenuNavigation::Unload();
+Layers::Unload();
+Menu::Unload();
+Log::Unload();
+Env::Unload();
+Config::Unload();
+NotificationMgr::Unload();
+***
+
+***Yield***
+***
+ShareMenuNavigation::Yield(This);
+Store::Yield(This);
+NotificationMgr::Yield();
+AudioManager::Yield(This);
+Tracking::Yield(System, This);
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** yield; the script
+ *  This should be the only place
+ *  in the complete mania app where
+ *  the script yields
+ */
+Void Menu_Yield() {
+	yield;
+	+++Yield+++
+	Router::Yield();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Main
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+main() {
+	Synchro::SetTitleMenuInitializationStatus(System, Synchro::C_Status_Initializing);
+
+	LayersDefaultManialinkVersion = 3;
+	EnableMenuNavigationInputs = False;
+	// Prevent user from logging in as soon as they press a button on the gamepad
+	// see: /trackmania-next/tmnext/-/issues/5026
+	UserMgr.MainUserAcceptPressStart = False;
+	// Do this first to avoid hearing sounds for a fraction of second at the launch of the game
+	// see: /trackmania-next/tmnext/-/issues/5224
+	AudioManager::InitializeSoundVolumes();
+
+	while (True) {
+		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+		// Settings
+		+++Settings+++
+
+		// First wait for the main user
+		// see: /trackmania-next/tmnext/-/issues/3567
+		while (UserMgr == Null || UserMgr.MainUser == Null) Menu_Yield();
+		// Then wait for the persistent variables to be ready to read and write
+		while (!UserMgr.MainUser.PersistentIsReady) Menu_Yield();
+
+		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+		// Load libraries
+		+++LoadLibraries+++
+
+		+++LogVersions+++
+		// Log::DisplayScripts();
+
+		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+		// Init menu and config
+		+++InitMenu+++
+
+		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+		// Start menu
+		+++StartMenu+++
+
+		Synchro::SetTitleMenuInitializationStatus(System, Synchro::C_Status_Initialized);
+
+		while (!Menu::IsRequestingRestart()) {
+			Menu_Yield();
+			+++LoopMenu+++
+		}
+
+		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+		// Stop menu and cleanup
+		+++EndMenu+++
+
+		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+		// Unload libraries
+		+++UnloadLibraries+++
+
+		Menu_Yield(); //< Yield to properly unload everything
+	}
+}

@@ -1,0 +1,237 @@
+/**
+ *	UI module: KOVictory client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/KOVictory_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/KOVictory_Common.Script.txt" as UIModules_KOVictory_Common
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_KOVictory_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_KOVictory_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	//L16N [KOVictory] A player can win a round by leading the race by a given amount of time for several checkpoint (2 seconds lead for 3 checkpoints). If they do that, they win the round by knocking out their opponents. %1 will be replaced by the name of the player knocking out the other players. %2 will be replace by some text formatting code that will not be visible to the user. e.g. "Alex is trying to knockout all players"
+	declare Text Text_KnockoutAllPlayers = _("%1 is trying to $<%2knockout$> all players");
+	//L16N [KOVictory] A player can win a round by leading the race by a given amount of time for several checkpoint (2 seconds lead for 3 checkpoints). If they do that, they win the round by knocking out their opponent. %1 will be replaced by the name of the player knocking out the other player. %2 will be replace by some text formatting code that will not be visible to the user. %3 will be replaced by the name of the player being knocked out. e.g. "Alex is trying to knockout Sam"
+	declare Text Text_KnockoutPlayer = _("%1 is trying to $<%2knockout$> %3");
+	//L16N [KOVictory] Message displayed above a bar showing the progression of the knockout. For exemple the player can be at the step 2 out of 3 to do a knockout and win the round.
+	declare Text Text_KnockoutProgression = _("Knockout progression");
+
+	declare Vec2 Size_QuadProgression = <10., 2.>;
+	declare Real SizeX_MarginProgression = 1.;
+	declare Text ML_QuadLevels = "";
+	for (I, 1, 10) {
+		ML_QuadLevels ^= """<quad pos="{{{(I - 1) * (Size_QuadProgression.X + SizeX_MarginProgression)}}} 0" size="{{{Size_QuadProgression.X}}} {{{Size_QuadProgression.Y}}}" opacity="0.7" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" />""";
+	}
+
+	return MV::Create(
+GetId(), 3,
+"""
+<frame z-index="-2" hidden="1" id="frame-global">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_KOVictory_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-spectator">
+			<label id="label-knockout" size="180 10" halign="center" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$t$i" textsize="5" />
+			<frame id="frame-knockout-progression" pos="0 -10">
+				{{{ML_QuadLevels}}}
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+
+#Const C_Size_QuadProgression {{{dump(Size_QuadProgression)}}}
+#Const C_SizeX_MarginProgression {{{dump(SizeX_MarginProgression)}}}
+""",
+"""
+Void UpdateKnockoutProgression(
+	CMlLabel _Label_Knockout,
+	CMlFrame _Frame_KnockoutProgression,
+	Text _SourceAccountId,
+	Text _TargetAccountId,
+	Integer _Current,
+	Integer _Max
+) {
+	if (_Current > 0 && _Max > 0) {
+		declare Profiles = {{{PlayerProfiles::P}}}GetPlayerProfiles();
+
+		// Adapt the knockout progression to the number
+		// of quads available to display it
+		declare Integer Max = _Max;
+		declare Integer Current = _Current;
+		if (_Max > _Frame_KnockoutProgression.Controls.count) {
+			Max = _Frame_KnockoutProgression.Controls.count;
+			Current = ML::Max(0, _Current - (_Max - _Frame_KnockoutProgression.Controls.count));
+		}
+
+		// Get the name of the source and target
+		declare Text SourceNickname = "";
+		declare Text TargetNickname = "";
+		if (Profiles.existskey(_SourceAccountId)) {
+			SourceNickname = Profiles[_SourceAccountId].Nickname;
+		}
+		if (Profiles.existskey(_TargetAccountId)) {
+			TargetNickname = Profiles[_TargetAccountId].Nickname;
+		}
+		if (
+			(_SourceAccountId != "" && SourceNickname == "") ||
+			(_TargetAccountId != "" && TargetNickname == "")
+		) {
+			foreach (Score in Scores) {
+				if (SourceNickname == "" && Score.User.WebServicesUserId == _SourceAccountId) {
+					SourceNickname = Score.User.Name;
+				}
+				if (TargetNickname == "" && Score.User.WebServicesUserId == _TargetAccountId) {
+					TargetNickname = Score.User.Name;
+				}
+				if (SourceNickname != "" && TargetNickname != "") break;
+			}
+		}
+
+		if (SourceNickname != "") {
+			if (TargetNickname != "") {
+				_Label_Knockout.Value = TL::Compose("{{{Text_KnockoutPlayer}}}", SourceNickname, "$f00", TargetNickname);
+			} else {
+				_Label_Knockout.Value = TL::Compose("{{{Text_KnockoutAllPlayers}}}", SourceNickname, "$f00");
+			}
+		} else {
+			_Label_Knockout.Value = "{{{Text_KnockoutProgression}}}";
+		}
+
+		_Frame_KnockoutProgression.RelativePosition.X = ((Max * (C_Size_QuadProgression.X + C_SizeX_MarginProgression)) - C_SizeX_MarginProgression) * -0.5;
+		foreach (Index => Control in _Frame_KnockoutProgression.Controls) {
+			if (Index < Max) {
+				if (Index < Current) {
+					(Control as CMlQuad).BgColor = <1., 0., 0.>;
+				} else {
+					(Control as CMlQuad).BgColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_BGDark))}}};
+				}
+				Control.Visible = True;
+			} else {
+				Control.Visible = False;
+			}
+		}
+
+		_Label_Knockout.Visible = True;
+		_Frame_KnockoutProgression.Visible = True;
+	} else {
+		_Label_Knockout.Visible = False;
+		_Frame_KnockoutProgression.Visible = False;
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_Spectator;
+declare CMlLabel Label_Knockout;
+declare CMlFrame Frame_KnockoutProgression;
+
+declare netread Integer Net_FinalTMGL_KOVictory_Update for Teams[0];
+declare netread Text Net_FinalTMGL_KOVictory_SourceAccountId for Teams[0];
+declare netread Text Net_FinalTMGL_KOVictory_TargetAccountId for Teams[0];
+declare netread Integer Net_FinalTMGL_KOVictory_Current for Teams[0];
+declare netread Integer Net_FinalTMGL_KOVictory_Max for Teams[0];
+
+declare Boolean DisplayModule;
+declare Integer KOVictoryUpdate;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_Spectator <=> (Frame_Global.GetFirstChild("frame-spectator") as CMlFrame);
+Label_Knockout <=> (Frame_Spectator.GetFirstChild("label-knockout") as CMlLabel);
+Frame_KnockoutProgression <=> (Frame_Spectator.GetFirstChild("frame-knockout-progression") as CMlFrame);
+
+DisplayModule = Frame_Global.Visible;
+KOVictoryUpdate = Net_FinalTMGL_KOVictory_Update;
+Frame_Spectator.Visible = (InputPlayer != Null && InputPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned);
+
+UpdateKnockoutProgression(
+	Label_Knockout,
+	Frame_KnockoutProgression,
+	Net_FinalTMGL_KOVictory_SourceAccountId,
+	Net_FinalTMGL_KOVictory_TargetAccountId,
+	Net_FinalTMGL_KOVictory_Current,
+	Net_FinalTMGL_KOVictory_Max
+);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_FinalTMGL_KOVictory_IsVisible for Owner;
+		if (DisplayModule != Net_FinalTMGL_KOVictory_IsVisible) {
+			DisplayModule = Net_FinalTMGL_KOVictory_IsVisible;
+			Frame_Global.Visible = Net_FinalTMGL_KOVictory_IsVisible;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (Frame_Spectator.Visible != (InputPlayer != Null && InputPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)) {
+			Frame_Spectator.Visible = (InputPlayer != Null && InputPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned);
+		}
+
+		if (Frame_Spectator.Visible) {
+			if (KOVictoryUpdate != Net_FinalTMGL_KOVictory_Update) {
+				KOVictoryUpdate = Net_FinalTMGL_KOVictory_Update;
+				UpdateKnockoutProgression(
+					Label_Knockout,
+					Frame_KnockoutProgression,
+					Net_FinalTMGL_KOVictory_SourceAccountId,
+					Net_FinalTMGL_KOVictory_TargetAccountId,
+					Net_FinalTMGL_KOVictory_Current,
+					Net_FinalTMGL_KOVictory_Max
+				);
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	PlayerProfiles::Component()
+],
+[]
+	);
+}

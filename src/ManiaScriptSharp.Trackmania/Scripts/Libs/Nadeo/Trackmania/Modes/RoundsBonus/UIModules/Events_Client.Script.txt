@@ -1,0 +1,178 @@
+/**
+ *	UI module: Events client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/RoundsBonus/UIModules/Events_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/RoundsBonus/Data.Script.txt" as Data
+#Include "Libs/Nadeo/Trackmania/Modes/RoundsBonus/UIModules/Events_Common.Script.txt" as UIModules_Events_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_Events_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Events_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	//L16N [RoundsBonus Events] Display the time before the activation of the next event and its name. %1 will be replaced by the name of the event. %2 will be replaced by the time before the start of the event. eg: "Next: Low Gravity 0:02"
+	declare Text Text_NextEvent = _("Next: %1 %2");
+	//L16N [RoundsBonus Events] Display the time before the end of the active event and its name. %1 will be replaced by the name of the event. %2 will be replaced by the time before the end of the event. eg: "Active: Low Gravity 0:02"
+	declare Text Text_ActiveEvent = _("Active: %1 %2");
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-bold" textsize="5" textcolor="ffffff" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$t$i" />
+</stylesheet>
+<frame id="frame-global" z-index="-2" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Events_Common::C_UIModuleConfig)}}}>
+	<label id="label-next-event" size="150 10" halign="center" valign="center2" class="text-bold" />
+		<label id="label-active-event" pos="0 -10" size="150 10" halign="center" valign="center2" class="text-bold" />
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+
+#Const C_EventsNames {{{dump(Data::C_EventsNames)}}}
+#Const C_EventType_Null {{{dump(Data::C_EventType_Null)}}}
+""",
+"""
+Void UpdateActiveEventType(CMlLabel _Label_ActiveEvent, Integer _ActiveEventType, Integer _ActiveEventEndTime) {
+	if (_ActiveEventType == C_EventType_Null || (_ActiveEventEndTime > 0 && GameTime >= _ActiveEventEndTime)) {
+		_Label_ActiveEvent.Visible = False;
+	} else {
+		if (_ActiveEventEndTime > 0 && GameTime < _ActiveEventEndTime) {
+			_Label_ActiveEvent.Value = TL::Compose(
+				"{{{Text_ActiveEvent}}}",
+				C_EventsNames.get(_ActiveEventType, "Unknown event"),
+				TL::TimeToText(_ActiveEventEndTime - GameTime + 1000, False, False)
+			);
+		} else {
+			_Label_ActiveEvent.Value = C_EventsNames.get(_ActiveEventType, "Unknown event");
+		}
+		_Label_ActiveEvent.Visible = True;
+		Tools::FitLabelValue(_Label_ActiveEvent, 5., 2., 1.);
+	}
+}
+
+Void UpdateNextEventStartTime(CMlLabel _Label_NextEvent, Integer _NextEventType, Boolean _NextEventAnnounced, Integer _NextEventStartTime) {
+	if (
+		_NextEventStartTime > 0 &&
+		_NextEventAnnounced &&
+		GameTime < _NextEventStartTime
+	) {
+		_Label_NextEvent.Value = TL::Compose(
+			"{{{Text_NextEvent}}}",
+			C_EventsNames.get(_NextEventType, "Unknown event"),
+			TL::TimeToText(_NextEventStartTime - GameTime + 1000, False, False)
+		);
+		_Label_NextEvent.Visible = True;
+	} else if (_Label_NextEvent.Visible) {
+		_Label_NextEvent.Visible = False;
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlLabel Label_ActiveEvent;
+declare CMlLabel Label_NextEvent;
+
+declare netread Boolean Net_RoundsBonus_Events_IsVisible for UI;
+declare netread Integer Net_RoundsBonus_Events_ActiveEventType for Teams[0];
+declare netread Integer Net_RoundsBonus_Events_ActiveEventEndTime for Teams[0];
+declare netread Integer Net_RoundsBonus_Events_NextEventType for Teams[0];
+declare netread Boolean Net_RoundsBonus_Events_NextEventAnnounced for Teams[0];
+declare netread Integer Net_RoundsBonus_Events_NextEventStartTime for Teams[0];
+
+declare Boolean DisplayModule;
+declare Integer ActiveEventType;
+declare Integer ActiveEventEndTime;
+declare Integer NextEventType;
+declare Boolean NextEventAnnounced;
+declare Integer NextEventStartTime;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Label_ActiveEvent <=> (Frame_Global.GetFirstChild("label-active-event") as CMlLabel);
+Label_NextEvent <=> (Frame_Global.GetFirstChild("label-next-event") as CMlLabel);
+
+DisplayModule = Frame_Global.Visible;
+ActiveEventType = Net_RoundsBonus_Events_ActiveEventType;
+ActiveEventEndTime = Net_RoundsBonus_Events_ActiveEventEndTime;
+NextEventType = Net_RoundsBonus_Events_NextEventType;
+NextEventAnnounced = Net_RoundsBonus_Events_NextEventAnnounced;
+NextEventStartTime = Net_RoundsBonus_Events_NextEventStartTime;
+
+UpdateActiveEventType(Label_ActiveEvent, ActiveEventType, ActiveEventEndTime);
+UpdateNextEventStartTime(Label_NextEvent, NextEventType, NextEventAnnounced, NextEventStartTime);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (DisplayModule != Net_RoundsBonus_Events_IsVisible) {
+		DisplayModule = Net_RoundsBonus_Events_IsVisible;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (
+		ActiveEventType != Net_RoundsBonus_Events_ActiveEventType ||
+		ActiveEventEndTime != Net_RoundsBonus_Events_ActiveEventEndTime ||
+		NextEventType != Net_RoundsBonus_Events_NextEventType ||
+		NextEventAnnounced != Net_RoundsBonus_Events_NextEventAnnounced ||
+		NextEventStartTime != Net_RoundsBonus_Events_NextEventStartTime
+	) {
+		ActiveEventType = Net_RoundsBonus_Events_ActiveEventType;
+		ActiveEventEndTime = Net_RoundsBonus_Events_ActiveEventEndTime;
+		NextEventType = Net_RoundsBonus_Events_NextEventType;
+		NextEventAnnounced = Net_RoundsBonus_Events_NextEventAnnounced;
+		NextEventStartTime = Net_RoundsBonus_Events_NextEventStartTime;
+		UpdateActiveEventType(Label_ActiveEvent, ActiveEventType, ActiveEventEndTime);
+		UpdateNextEventStartTime(Label_NextEvent, NextEventType, NextEventAnnounced, NextEventStartTime);
+	}
+
+	if (ActiveEventType != C_EventType_Null && ActiveEventEndTime > 0) {
+		UpdateActiveEventType(Label_ActiveEvent, ActiveEventType, ActiveEventEndTime);
+	}
+
+	if (NextEventStartTime > 0 && NextEventAnnounced) {
+		UpdateNextEventStartTime(Label_NextEvent, NextEventType, NextEventAnnounced, NextEventStartTime);
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

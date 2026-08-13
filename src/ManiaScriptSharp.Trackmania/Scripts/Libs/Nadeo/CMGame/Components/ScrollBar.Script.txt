@@ -1,0 +1,624 @@
+/**
+ * ScrollBar component
+ * ===================
+ *
+ * A scrollbar that can easily be coupled with a scroll
+ *
+ * Props
+ * -----
+ *
+ * - `size` (`Vec2`): the size of the scrollbar
+ * - `margin` (`Margin`): margin around the scrollbar
+ * - `halign` (`Text`): horizontal alignment of the scrollbar, can be `left`, `center` or `right`
+ * - `valign` (`Text`): vertical alignment of the scrollbar, can be `top`, `center` or `bottom`
+ * - `hide-no-scroll` (`Boolean`): hide the scrollbar when its not possible to scroll (eg: not enough content)
+ * - `direction` (`Integer`): the direction of the scrollbar
+ */
+#Const Version "0.1.5"
+#Const ScriptName "Libs/Nadeo/CMGame/Components/ScrollBar.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "ColorLib" as CL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Structures/Box.Script.txt" as Box
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView@3.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Private_FlexVec2 {
+	Real Main;
+	Real Cross;
+}
+#Struct K_Private_Vec2 {
+	K_Private_FlexVec2 Flex;
+	Vec2 Screen;
+}
+#Struct K_Private_Controls {
+	CMlFrame Frame_ScrollBar;
+	CMlFrame Frame_Align;
+	CMlFrame Frame_Content;
+	CMlQuad Quad_BackgroundTop;
+	CMlQuad Quad_BackgroundCenter;
+	CMlQuad Quad_BackgroundBottom;
+	CMlFrame Frame_Foreground;
+	CMlQuad Quad_ForegroundTop;
+	CMlQuad Quad_ForegroundCenter;
+	CMlQuad Quad_ForegroundBottom;
+}
+#Struct K_Private_Properties {
+	K_Private_Vec2 Size;
+	Box::K_Margin Margin;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Boolean HideNoScroll;
+	Integer Direction;
+}
+#Struct K_Private_DrawCache {
+	Vec2 BoundingBoxSize;
+	K_Private_Vec2 TipSize;
+	Vec2 ForegroundAbsolutePosCrossRange;
+}
+#Struct K_Private_Instance {
+	K_Private_Controls Controls;
+	K_Private_Properties Properties;
+	K_Private_DrawCache DrawCache;
+	Vec2 VisibleRange;
+	Real FullLength;
+	Boolean IsFocused;
+	Boolean IsPressed;
+	Real MouseDraggingScrollRatio;
+	Vec2 MouseDraggingOffset;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ComponentName "CMGameScrollBar"
+#Const C_ComponentClass "cmgame-components-scroll-bar"
+
+#Const C_Prop_Size "size"
+#Const C_Prop_Margin "margin"
+#Const C_Prop_HAlign "halign"
+#Const C_Prop_VAlign "valign"
+#Const C_Prop_HideNoScroll "hide-no-scroll"
+#Const C_Prop_Direction "direction"
+
+#Const C_Direction_Vertical 0
+#Const C_Direction_Horizontal 1
+
+#Const C_Private_RedrawTag_Init "init"
+#Const C_Private_RedrawTag_Size "size"
+#Const C_Private_RedrawTag_Align "align"
+#Const C_Private_RedrawTag_Range "range"
+
+#Const C_Private_Id_FrameAlign "cmgame-components-scroll-bar-frame-align"
+#Const C_Private_Id_FrameContent "cmgame-components-scroll-bar-frame-content"
+#Const C_Private_Id_QuadBackgroundTop "cmgame-components-scroll-bar-quad-background-top"
+#Const C_Private_Id_QuadBackgroundCenter "cmgame-components-scroll-bar-quad-background-center"
+#Const C_Private_Id_QuadBackgroundBottom "cmgame-components-scroll-bar-quad-background-bottom"
+#Const C_Private_Id_FrameForeground "cmgame-components-scroll-bar-frame-foreground"
+#Const C_Private_Id_QuadForegroundTop "cmgame-components-scroll-bar-quad-foreground-top"
+#Const C_Private_Id_QuadForegroundCenter "cmgame-components-scroll-bar-quad-foreground-center"
+#Const C_Private_Id_QuadForegroundBottom "cmgame-components-scroll-bar-quad-foreground-bottom"
+
+#Const C_Private_ImageUrl_ScrollBarTip "file://Media/Manialinks/Nadeo/CMGame/Components/Scroll/ScrollBar_TopBottom.dds"
+#Const C_Private_ImageUrl_ScrollBarCenter "file://Media/Manialinks/Nadeo/CMGame/Components/Scroll/ScrollBar_Center.dds"
+
+#Const C_Private_Color_ScrollBarBackground <0.96, 0.96, 0.96>
+#Const C_Private_Color_ScrollBarForeground_Default <0.5, 0.5, 0.5>
+#Const C_Private_Color_ScrollBarForeground_Focused <0.38, 0.38, 0.38>
+#Const C_Private_Color_ScrollBarForeground_Pressed <0.33, 0.33, 0.33>
+
+#Const C_Private_Instance_Null K_Private_Instance {
+	Controls = K_Private_Controls {},
+	Properties = K_Private_Properties {
+		Size = K_Private_Vec2 {
+			Flex = K_Private_FlexVec2 { Main = 0., Cross = 0. },
+			Screen = <0., 0.>
+		},
+		Margin = Box::K_Margin {},
+		HAlign = CMlControl::AlignHorizontal::Left,
+		VAlign = CMlControl::AlignVertical::Top,
+		HideNoScroll = True,
+		Direction = 0
+	},
+	DrawCache = K_Private_DrawCache {
+		BoundingBoxSize = <0., 0.>,
+		TipSize = K_Private_Vec2 {
+			Flex = K_Private_FlexVec2 { Main = 0., Cross = 0. },
+			Screen = <0., 0.>
+		},
+		ForegroundAbsolutePosCrossRange = <0., 0.>
+	},
+	VisibleRange = <0., 0.>,
+	FullLength = 0.,
+	IsFocused = False,
+	IsPressed = False,
+	MouseDraggingScrollRatio = 0.,
+	MouseDraggingOffset = <0., 0.>
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component template
+Text Private_Template() {
+	return
+"""
+<frame id="{{{C_Private_Id_FrameAlign}}}">
+	<frame id="{{{C_Private_Id_FrameContent}}}">
+		<frame z-index="1">
+			<quad id="{{{C_Private_Id_QuadBackgroundTop}}}" rot="180" halign="center" valign="center" image="{{{C_Private_ImageUrl_ScrollBarTip}}}" colorize="{{{CL::RgbToHex6(C_Private_Color_ScrollBarBackground)}}}" />
+			<quad id="{{{C_Private_Id_QuadBackgroundCenter}}}" image="{{{C_Private_ImageUrl_ScrollBarCenter}}}" colorize="{{{CL::RgbToHex6(C_Private_Color_ScrollBarBackground)}}}" />
+			<quad id="{{{C_Private_Id_QuadBackgroundBottom}}}" halign="center" valign="center" image="{{{C_Private_ImageUrl_ScrollBarTip}}}" colorize="{{{CL::RgbToHex6(C_Private_Color_ScrollBarBackground)}}}" />
+		</frame>
+		<frame id="{{{C_Private_Id_FrameForeground}}}" z-index="2">
+			<quad id="{{{C_Private_Id_QuadForegroundTop}}}" class="{{{MV::C_Class_TriggerZone}}}" rot="180" halign="center" valign="center" image="{{{C_Private_ImageUrl_ScrollBarTip}}}" colorize="{{{CL::RgbToHex6(C_Private_Color_ScrollBarForeground_Default)}}}" scriptevents="1" />
+			<quad id="{{{C_Private_Id_QuadForegroundCenter}}}" class="{{{MV::C_Class_TriggerZone}}}" image="{{{C_Private_ImageUrl_ScrollBarCenter}}}" colorize="{{{CL::RgbToHex6(C_Private_Color_ScrollBarForeground_Default)}}}" scriptevents="1" />
+			<quad id="{{{C_Private_Id_QuadForegroundBottom}}}" class="{{{MV::C_Class_TriggerZone}}}" halign="center" valign="center" image="{{{C_Private_ImageUrl_ScrollBarTip}}}" colorize="{{{CL::RgbToHex6(C_Private_Color_ScrollBarForeground_Default)}}}" scriptevents="1" />
+		</frame>
+	</frame>
+</frame>
+"""
+	;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Convert a screen coordinate or size to a flex coordinate or size
+ * The main axis is the axis running in the direction the scroll elements are laid out in (for example, as a row across the page, or a column down the page)
+ 8 The cross axis is the axis running perpendicular to the direction the scroll elements are laid out in
+ * ref: CSS flexbox
+ */
+K_Private_FlexVec2 Private_GetPosFlex(Vec2 _VecPos, Integer _Direction) {
+	switch (_Direction) {
+		case C_Direction_Vertical: return K_Private_FlexVec2 { Main = _VecPos.X, Cross = _VecPos.Y };
+		case C_Direction_Horizontal: return K_Private_FlexVec2 { Main = -_VecPos.Y, Cross = -_VecPos.X };
+	}
+	return K_Private_FlexVec2 { Main = _VecPos.X, Cross = _VecPos.Y };
+}
+K_Private_FlexVec2 Private_GetSizeFlex(Vec2 _VecSize, Integer _Direction) {
+	switch (_Direction) {
+		case C_Direction_Vertical: return K_Private_FlexVec2 { Main = _VecSize.X, Cross = _VecSize.Y };
+		case C_Direction_Horizontal: return K_Private_FlexVec2 { Main = _VecSize.Y, Cross = _VecSize.X };
+	}
+	return K_Private_FlexVec2 { Main = _VecSize.X, Cross = _VecSize.Y };
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert a flex coordinate or size to a screen coordinate or size
+Vec2 Private_GetPosScreen(K_Private_FlexVec2 _FlexPos, Integer _Direction) {
+	switch (_Direction) {
+		case C_Direction_Vertical: return <_FlexPos.Main, _FlexPos.Cross>;
+		case C_Direction_Horizontal: return <-_FlexPos.Cross, -_FlexPos.Main>;
+	}
+	return <_FlexPos.Main, _FlexPos.Cross>;
+}
+Vec2 Private_GetSizeScreen(K_Private_FlexVec2 _FlexSize, Integer _Direction) {
+	switch (_Direction) {
+		case C_Direction_Vertical: return <_FlexSize.Main, _FlexSize.Cross>;
+		case C_Direction_Horizontal: return <_FlexSize.Cross, _FlexSize.Main>;
+	}
+	return <_FlexSize.Main, _FlexSize.Cross>;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the scrollbar foreground color
+Void Private_UpdateForegroundColor(K_Private_Instance _Instance) {
+	if (_Instance.IsPressed) {
+		_Instance.Controls.Quad_ForegroundTop.Colorize = C_Private_Color_ScrollBarForeground_Pressed;
+		_Instance.Controls.Quad_ForegroundCenter.Colorize = C_Private_Color_ScrollBarForeground_Pressed;
+		_Instance.Controls.Quad_ForegroundBottom.Colorize = C_Private_Color_ScrollBarForeground_Pressed;
+	} else if (_Instance.IsFocused) {
+		_Instance.Controls.Quad_ForegroundTop.Colorize = C_Private_Color_ScrollBarForeground_Focused;
+		_Instance.Controls.Quad_ForegroundCenter.Colorize = C_Private_Color_ScrollBarForeground_Focused;
+		_Instance.Controls.Quad_ForegroundBottom.Colorize = C_Private_Color_ScrollBarForeground_Focused;
+	} else {
+		_Instance.Controls.Quad_ForegroundTop.Colorize = C_Private_Color_ScrollBarForeground_Default;
+		_Instance.Controls.Quad_ForegroundCenter.Colorize = C_Private_Color_ScrollBarForeground_Default;
+		_Instance.Controls.Quad_ForegroundBottom.Colorize = C_Private_Color_ScrollBarForeground_Default;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set if the scrollbar foreground is focused or not
+K_Private_Instance Private_SetIsForegroundFocused(K_Private_Instance _Instance, Boolean _IsFocused, Boolean _IsInit) {
+	if (!_IsInit && _Instance.IsFocused == _IsFocused) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+	Instance.IsFocused = _IsFocused;
+	Private_UpdateForegroundColor(Instance);
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set if the scrollbar foreground is pressed or not
+K_Private_Instance Private_SetIsForegroundPressed(CMlScript _This, K_Private_Instance _Instance, Boolean _IsPressed, Boolean _IsInit) {
+	if (!_IsInit && _Instance.IsPressed == _IsPressed) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+	Instance.IsPressed = _IsPressed;
+	if (Instance.IsPressed) {
+		Instance.MouseDraggingOffset = <
+			_This.MouseX - Instance.Controls.Frame_Foreground.AbsolutePosition_V3.X,
+			_This.MouseY - Instance.Controls.Frame_Foreground.AbsolutePosition_V3.Y
+		>;
+	}
+	Private_UpdateForegroundColor(Instance);
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set how much of the scrollbar content is visible
+K_Private_Instance Private_SetRange(K_Private_Instance _Instance, Vec2 _VisibleRange, Real _FullLength, Boolean _IsInit) {
+	if (!_IsInit && _Instance.VisibleRange == _VisibleRange && _Instance.FullLength == _FullLength) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+	Instance.VisibleRange = _VisibleRange;
+	Instance.FullLength = _FullLength;
+	MV::MarkForRedraw(Instance.Controls.Frame_ScrollBar, C_Private_RedrawTag_Range);
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the scroll ratio when dragging the scrollbar with the mouse
+K_Private_Instance Private_ComputeMouseDraggingScrollRatio(CMlScript _This, K_Private_Instance _Instance) {
+	declare K_Private_Instance Instance = _Instance;
+
+	declare Real Length = ML::Distance(Instance.DrawCache.ForegroundAbsolutePosCrossRange.X, Instance.DrawCache.ForegroundAbsolutePosCrossRange.Y);
+	if (Length != 0.) {
+		declare K_Private_FlexVec2 MousePosFlex = Private_GetPosFlex(<_This.MouseX, _This.MouseY>, Instance.Properties.Direction);
+		declare K_Private_FlexVec2 MouseDraggingOffsetFlex = Private_GetPosFlex(Instance.MouseDraggingOffset, Instance.Properties.Direction);
+		Instance.MouseDraggingScrollRatio = (Instance.DrawCache.ForegroundAbsolutePosCrossRange.X - ML::Clamp(MousePosFlex.Cross - MouseDraggingOffsetFlex.Cross, Instance.DrawCache.ForegroundAbsolutePosCrossRange.Y, Instance.DrawCache.ForegroundAbsolutePosCrossRange.X)) / Length;
+	} else {
+		Instance.MouseDraggingScrollRatio = 0.;
+	}
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the size of the scrollbar
+K_Private_Instance Private_SetSize(K_Private_Instance _Instance, Vec2 _SizeScreen, Boolean _IsInit) {
+	if (!_IsInit && _Instance.Properties.Size.Screen == _SizeScreen) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+	Instance.Properties.Size.Screen = _SizeScreen;
+	Instance.Properties.Size.Flex = Private_GetSizeFlex(Instance.Properties.Size.Screen, Instance.Properties.Direction);
+	MV::MarkForRedraw(Instance.Controls.Frame_ScrollBar, C_Private_RedrawTag_Size);
+	return Instance;
+}
+K_Private_Instance Private_SetSize(K_Private_Instance _Instance, Vec2 _SizeScreen) {
+	return Private_SetSize(_Instance, _SizeScreen, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw the component
+Void Private_Hook_ComponentDraw(CMlFrame _Frame_ScrollBar, Text[] _Tags) {
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+
+	if (MV::HasRedrawTag(_Tags, [C_Private_RedrawTag_Init, C_Private_RedrawTag_Size])) {
+		Instance.DrawCache.BoundingBoxSize = <
+			Instance.Properties.Size.Screen.X + ML::Max(0., Instance.Properties.Margin.Left) + ML::Max(0., Instance.Properties.Margin.Right),
+			Instance.Properties.Size.Screen.Y + ML::Max(0., Instance.Properties.Margin.Top) + ML::Max(0., Instance.Properties.Margin.Bottom)
+		>;
+
+		Instance.Controls.Frame_Content.RelativePosition_V3 = <Instance.Properties.Margin.Left, -Instance.Properties.Margin.Top>;
+
+		Instance.DrawCache.TipSize.Flex.Main = ML::Min(Instance.Properties.Size.Flex.Main, Instance.Properties.Size.Flex.Cross * 0.5);
+		Instance.DrawCache.TipSize.Flex.Cross = Instance.DrawCache.TipSize.Flex.Main * 0.5;
+		Instance.DrawCache.TipSize.Screen = Private_GetSizeScreen(Instance.DrawCache.TipSize.Flex, Instance.Properties.Direction);
+
+		declare K_Private_Vec2 CenterSize;
+		CenterSize.Flex.Main = Instance.DrawCache.TipSize.Flex.Main;
+		CenterSize.Flex.Cross = ML::Max(0., Instance.Properties.Size.Flex.Cross - (Instance.DrawCache.TipSize.Flex.Cross * 2.));
+		CenterSize.Screen = Private_GetSizeScreen(CenterSize.Flex, Instance.Properties.Direction);
+
+		Instance.Controls.Quad_BackgroundTop.Size = <Instance.DrawCache.TipSize.Flex.Main, Instance.DrawCache.TipSize.Flex.Cross>;
+		Instance.Controls.Quad_BackgroundCenter.Size = CenterSize.Screen;
+		Instance.Controls.Quad_BackgroundBottom.Size = <Instance.DrawCache.TipSize.Flex.Main, Instance.DrawCache.TipSize.Flex.Cross>;
+		Instance.Controls.Quad_ForegroundTop.Size = Instance.Controls.Quad_BackgroundTop.Size;
+		Instance.Controls.Quad_ForegroundCenter.Size = Instance.Controls.Quad_BackgroundCenter.Size;
+		Instance.Controls.Quad_ForegroundBottom.Size = Instance.Controls.Quad_BackgroundBottom.Size;
+
+		switch (Instance.Properties.Direction) {
+			case C_Direction_Vertical: {
+				Instance.Controls.Quad_BackgroundTop.RelativeRotation = 180.;
+				Instance.Controls.Quad_BackgroundBottom.RelativeRotation = 0.;
+			}
+			case C_Direction_Horizontal: {
+				Instance.Controls.Quad_BackgroundTop.RelativeRotation = 90.;
+				Instance.Controls.Quad_BackgroundBottom.RelativeRotation = -90.;
+			}
+		}
+		Instance.Controls.Quad_ForegroundTop.RelativeRotation = Instance.Controls.Quad_BackgroundTop.RelativeRotation;
+		Instance.Controls.Quad_ForegroundBottom.RelativeRotation = Instance.Controls.Quad_BackgroundBottom.RelativeRotation;
+
+		Instance.Controls.Quad_BackgroundTop.RelativePosition_V3 = Private_GetPosScreen(K_Private_FlexVec2 { Main = Instance.DrawCache.TipSize.Flex.Main * 0.5, Cross = -Instance.DrawCache.TipSize.Flex.Cross * 0.5 }, Instance.Properties.Direction);
+		Instance.Controls.Quad_BackgroundCenter.RelativePosition_V3 = Private_GetPosScreen(K_Private_FlexVec2 { Main = 0., Cross = -Instance.DrawCache.TipSize.Flex.Cross }, Instance.Properties.Direction);
+		Instance.Controls.Quad_BackgroundBottom.RelativePosition_V3 = Private_GetPosScreen(K_Private_FlexVec2 { Main = Instance.DrawCache.TipSize.Flex.Main * 0.5, Cross = -Instance.DrawCache.TipSize.Flex.Cross - CenterSize.Flex.Cross - (Instance.DrawCache.TipSize.Flex.Cross * 0.5) }, Instance.Properties.Direction);
+
+		Instance.Controls.Quad_ForegroundTop.RelativePosition_V3 = Instance.Controls.Quad_BackgroundTop.RelativePosition_V3;
+		Instance.Controls.Quad_ForegroundCenter.RelativePosition_V3 = Instance.Controls.Quad_BackgroundCenter.RelativePosition_V3;
+		Instance.Controls.Quad_ForegroundBottom.RelativePosition_V3 = Instance.Controls.Quad_BackgroundBottom.RelativePosition_V3;
+	}
+
+	if (MV::HasRedrawTag(_Tags, [C_Private_RedrawTag_Init, C_Private_RedrawTag_Size, C_Private_RedrawTag_Align])) {
+		MLHelpers::AlignContent(Instance.Controls.Frame_Align, Instance.DrawCache.BoundingBoxSize, Instance.Properties.HAlign, Instance.Properties.VAlign);
+	}
+
+	if (MV::HasRedrawTag(_Tags, [C_Private_RedrawTag_Init, C_Private_RedrawTag_Size, C_Private_RedrawTag_Range])) {
+		declare Real VisibleLength = ML::Abs(Instance.VisibleRange.Y - Instance.VisibleRange.X);
+		declare Real VisibleRatio = 1.;
+		if (Instance.FullLength > 0. && VisibleLength < Instance.FullLength) {
+			VisibleRatio = VisibleLength / Instance.FullLength;
+		}
+		declare Real MinimumForegroundLength = ML::Max(Instance.DrawCache.TipSize.Flex.Cross * 2., 10.);
+		declare Real ForegroundLength = ML::Min(ML::Max(MinimumForegroundLength, Instance.Properties.Size.Flex.Cross * VisibleRatio), Instance.Properties.Size.Flex.Cross);
+		declare K_Private_FlexVec2 CenterSizeFlex = K_Private_FlexVec2 {
+			Main = Instance.DrawCache.TipSize.Flex.Main,
+			Cross = ForegroundLength - (Instance.DrawCache.TipSize.Flex.Cross * 2.)
+		};
+		Instance.Controls.Quad_ForegroundCenter.Size = Private_GetSizeScreen(CenterSizeFlex, Instance.Properties.Direction);
+		Instance.Controls.Quad_ForegroundBottom.RelativePosition_V3 = Private_GetPosScreen(K_Private_FlexVec2 { Main = Instance.DrawCache.TipSize.Flex.Main * 0.5, Cross = -Instance.DrawCache.TipSize.Flex.Cross - CenterSizeFlex.Cross - (Instance.DrawCache.TipSize.Flex.Cross * 0.5) }, Instance.Properties.Direction);
+
+		declare Real ProgressRatio = 0.;
+		if (Instance.FullLength - VisibleLength > 0.) {
+			ProgressRatio = Instance.VisibleRange.X / (Instance.FullLength - VisibleLength);
+		}
+		Instance.Controls.Frame_Foreground.RelativePosition_V3 = Private_GetPosScreen(
+			K_Private_FlexVec2 {
+				Main = 0.,
+				Cross = (Instance.Properties.Size.Flex.Cross - ForegroundLength) * -ProgressRatio
+			},
+			Instance.Properties.Direction
+		);
+
+		Instance.Controls.Frame_Content.Visible = Instance.FullLength > VisibleLength;
+
+		declare K_Private_FlexVec2 AbsolutePositionFlex = Private_GetPosFlex(Instance.Controls.Frame_Content.AbsolutePosition_V3, Instance.Properties.Direction);
+		Instance.DrawCache.ForegroundAbsolutePosCrossRange = <AbsolutePositionFlex.Cross, AbsolutePositionFlex.Cross - Instance.Properties.Size.Flex.Cross + ForegroundLength>;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the component
+Void Private_Hook_ComponentInit(CMlScript _This, CMlFrame _Frame_ScrollBar) {
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+	Instance = C_Private_Instance_Null;
+
+	Instance.Properties.Margin = Box::C_Margin_Null;
+
+	Instance.Controls.Frame_ScrollBar <=> _Frame_ScrollBar;
+	Instance.Controls.Frame_Align <=> (Instance.Controls.Frame_ScrollBar.GetFirstChild(C_Private_Id_FrameAlign) as CMlFrame);
+	Instance.Controls.Frame_Content <=> (Instance.Controls.Frame_ScrollBar.GetFirstChild(C_Private_Id_FrameContent) as CMlFrame);
+	Instance.Controls.Quad_BackgroundTop <=> (Instance.Controls.Frame_ScrollBar.GetFirstChild(C_Private_Id_QuadBackgroundTop) as CMlQuad);
+	Instance.Controls.Quad_BackgroundCenter <=> (Instance.Controls.Frame_ScrollBar.GetFirstChild(C_Private_Id_QuadBackgroundCenter) as CMlQuad);
+	Instance.Controls.Quad_BackgroundBottom <=> (Instance.Controls.Frame_ScrollBar.GetFirstChild(C_Private_Id_QuadBackgroundBottom) as CMlQuad);
+	Instance.Controls.Frame_Foreground <=> (Instance.Controls.Frame_ScrollBar.GetFirstChild(C_Private_Id_FrameForeground) as CMlFrame);
+	Instance.Controls.Quad_ForegroundTop <=> (Instance.Controls.Frame_ScrollBar.GetFirstChild(C_Private_Id_QuadForegroundTop) as CMlQuad);
+	Instance.Controls.Quad_ForegroundCenter <=> (Instance.Controls.Frame_ScrollBar.GetFirstChild(C_Private_Id_QuadForegroundCenter) as CMlQuad);
+	Instance.Controls.Quad_ForegroundBottom <=> (Instance.Controls.Frame_ScrollBar.GetFirstChild(C_Private_Id_QuadForegroundBottom) as CMlQuad);
+
+	if (MV::HasProp(Instance.Controls.Frame_ScrollBar, C_Prop_Size)) {
+		Instance.Properties.Size.Screen = MV::GetProp_Vec2(Instance.Controls.Frame_ScrollBar, C_Prop_Size, Instance.Properties.Size.Screen);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ScrollBar, C_Prop_Margin)) {
+		Instance.Properties.Margin = MV::GetProp_Margin(Instance.Controls.Frame_ScrollBar, C_Prop_Margin, Instance.Properties.Margin);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ScrollBar, C_Prop_HAlign)) {
+		Instance.Properties.HAlign = MV::GetProp_HAlign(Instance.Controls.Frame_ScrollBar, C_Prop_HAlign, Instance.Properties.HAlign);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ScrollBar, C_Prop_VAlign)) {
+		Instance.Properties.VAlign = MV::GetProp_VAlign(Instance.Controls.Frame_ScrollBar, C_Prop_VAlign, Instance.Properties.VAlign);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ScrollBar, C_Prop_HideNoScroll)) {
+		Instance.Properties.HideNoScroll = MV::GetProp_Boolean(Instance.Controls.Frame_ScrollBar, C_Prop_HideNoScroll, Instance.Properties.HideNoScroll);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ScrollBar, C_Prop_Direction)) {
+		Instance.Properties.Direction = MV::GetProp_Integer(Instance.Controls.Frame_ScrollBar, C_Prop_Direction, Instance.Properties.Direction);
+	}
+
+	Instance = Private_SetSize(Instance, Instance.Properties.Size.Screen, True);
+	Instance = Private_SetRange(Instance, Instance.VisibleRange, Instance.FullLength, True);
+	Instance = Private_SetIsForegroundFocused(Instance, Instance.IsFocused, True);
+	Instance = Private_SetIsForegroundPressed(_This, Instance, Instance.IsPressed, True);
+
+	MV::MarkForRedraw(Instance.Controls.Frame_ScrollBar, C_Private_RedrawTag_Init);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize scrollbar components
+Void Private_Hook_PageMainInit(CMlScript _This) {
+	declare CMlFrame CMGame_ComponentsScrollBar_PressedScrollbar for _This.Page <=> Null;
+	CMGame_ComponentsScrollBar_PressedScrollbar <=> Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update scrollbar components
+Void Private_Hook_PageAfterYield(CMlScript _This) {
+	declare CMlFrame CMGame_ComponentsScrollBar_PressedScrollbar for _This.Page <=> Null;
+	if (CMGame_ComponentsScrollBar_PressedScrollbar != Null) {
+		declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for CMGame_ComponentsScrollBar_PressedScrollbar = C_Private_Instance_Null;
+		if (_This.MouseLeftButton) {
+			Instance = Private_ComputeMouseDraggingScrollRatio(_This, Instance);
+		} else {
+			Instance = Private_SetIsForegroundPressed(_This, Instance, False, False);
+			CMGame_ComponentsScrollBar_PressedScrollbar <=> Null;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Mouse over event on a scrollbar control
+Void Private_Hook_ComponentOnEvent_TriggerZoneMouseOver(CMlScriptEvent _Event, CMlFrame _Frame_ScrollBar) {
+	if (
+		_Event.ControlId == C_Private_Id_QuadForegroundTop ||
+		_Event.ControlId == C_Private_Id_QuadForegroundCenter ||
+		_Event.ControlId == C_Private_Id_QuadForegroundBottom
+	) {
+		declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+		Instance = Private_SetIsForegroundFocused(Instance, True, False);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Mouse out event on a scrollbar control
+Void Private_Hook_ComponentOnEvent_TriggerZoneMouseOut(CMlScriptEvent _Event, CMlFrame _Frame_ScrollBar) {
+	if (
+		_Event.ControlId == C_Private_Id_QuadForegroundTop ||
+		_Event.ControlId == C_Private_Id_QuadForegroundCenter ||
+		_Event.ControlId == C_Private_Id_QuadForegroundBottom
+	) {
+		declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+		Instance = Private_SetIsForegroundFocused(Instance, False, False);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Mouse click event on a scrollbar control
+Void Private_Hook_ComponentOnEvent_TriggerZoneMouseClick(CMlScript _This, CMlScriptEvent _Event, CMlFrame _Frame_ScrollBar) {
+	if (
+		_Event.ControlId == C_Private_Id_QuadForegroundTop ||
+		_Event.ControlId == C_Private_Id_QuadForegroundCenter ||
+		_Event.ControlId == C_Private_Id_QuadForegroundBottom
+	) {
+		declare CMlFrame CMGame_ComponentsScrollBar_PressedScrollbar for _This.Page <=> Null;
+		if (CMGame_ComponentsScrollBar_PressedScrollbar != Null) {
+			declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for CMGame_ComponentsScrollBar_PressedScrollbar = C_Private_Instance_Null;
+			Instance = Private_SetIsForegroundPressed(_This, Instance, False, False);
+		}
+
+		CMGame_ComponentsScrollBar_PressedScrollbar <=> _Frame_ScrollBar;
+
+		declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for CMGame_ComponentsScrollBar_PressedScrollbar = C_Private_Instance_Null;
+		Instance = Private_SetIsForegroundPressed(_This, Instance, True, False);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the size of the scrollbar
+Void SetSize(CMlFrame _Frame_ScrollBar, Vec2 _Size) {
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+	Instance = Private_SetSize(Instance, _Size);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the margin of the scrollbar
+Void SetMargin(CMlFrame _Frame_ScrollBar, Box::K_Margin _Margin) {
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+	if (Instance.Properties.Margin != _Margin) {
+		Instance.Properties.Margin = _Margin;
+		MV::MarkForRedraw(Instance.Controls.Frame_ScrollBar, C_Private_RedrawTag_Size);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the horizontal alignment of the scrollbar
+Void SetHAlign(CMlFrame _Frame_ScrollBar, CMlControl::AlignHorizontal _HAlign) {
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+	if (Instance.Properties.HAlign != _HAlign) {
+		Instance.Properties.HAlign = _HAlign;
+		MV::MarkForRedraw(Instance.Controls.Frame_ScrollBar, C_Private_RedrawTag_Align);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the vertical alignment of the scrollbar
+Void SetVAlign(CMlFrame _Frame_ScrollBar, CMlControl::AlignVertical _VAlign) {
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+	if (Instance.Properties.VAlign != _VAlign) {
+		Instance.Properties.VAlign = _VAlign;
+		MV::MarkForRedraw(Instance.Controls.Frame_ScrollBar, C_Private_RedrawTag_Align);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Toggle the hidding of the scrollbar when there is nothing to scroll
+Void SetHideNoScroll(CMlFrame _Frame_ScrollBar, Boolean _HideNoScroll) {
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+	if (Instance.Properties.HideNoScroll != _HideNoScroll) {
+		Instance.Properties.HideNoScroll = _HideNoScroll;
+		MV::MarkForRedraw(Instance.Controls.Frame_ScrollBar, C_Private_RedrawTag_Range);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the visibility of the scrollbar
+Void SetIsScrollBarVisible(CMlFrame _Frame_ScrollBar, Boolean _IsVisible) {
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+	Instance.Controls.Frame_ScrollBar.Visible = _IsVisible;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the scrollbar is visible
+Boolean IsScrollBarVisible(CMlFrame _Frame_ScrollBar) {
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+	return Instance.Controls.Frame_ScrollBar.Visible;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the size of the scrollbar bounding box
+Vec2 GetBoundingBoxSize(CMlFrame _Frame_ScrollBar) {
+	declare Text[] RedrawTags = MV::DoManualRedraw(_Frame_ScrollBar);
+	if (RedrawTags.count > 0) {
+		Private_Hook_ComponentDraw(_Frame_ScrollBar, RedrawTags);
+	}
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+	return Instance.DrawCache.BoundingBoxSize;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set how much of the scrollbar content is visible
+Void SetRange(CMlFrame _Frame_ScrollBar, Vec2 _VisibleRange, Real _FullLength) {
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+	Instance = Private_SetRange(Instance, _VisibleRange, _FullLength, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the user is dragging the scrollbar with the mouse
+Boolean IsMouseDragging(CMlScript _This, CMlFrame _Frame_ScrollBar) {
+	declare CMlFrame CMGame_ComponentsScrollBar_PressedScrollbar for _This.Page <=> Null;
+	return CMGame_ComponentsScrollBar_PressedScrollbar == _Frame_ScrollBar;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the request scroll ratio while dragging the scrollbar with the mouse
+Real GetMouseDraggingScrollRatio(CMlFrame _Frame_ScrollBar) {
+	declare K_Private_Instance CMGame_ComponentsScrollBar_Instance as Instance for _Frame_ScrollBar = C_Private_Instance_Null;
+	return Instance.MouseDraggingScrollRatio;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+MV::K_Component Component() {
+	return MV::K_Component {
+		Name = C_ComponentName,
+		Path = ScriptName,
+		Class = C_ComponentClass,
+		Template = Private_Template(),
+		DefineProps = [
+			C_Prop_Size,
+			C_Prop_Margin,
+			C_Prop_HAlign,
+			C_Prop_VAlign,
+			C_Prop_HideNoScroll,
+			C_Prop_Direction
+		],
+		Hooks = [
+			MV::C_Hook_ComponentInit => """{{{C_ComponentName}}}::Private_Hook_ComponentInit""",
+			MV::C_Hook_ComponentDraw => """{{{C_ComponentName}}}::Private_Hook_ComponentDraw(ComponentInstance, Tags)""",
+			MV::C_Hook_PageAfterYield => """{{{C_ComponentName}}}::Private_Hook_PageAfterYield""",
+			MV::C_Hook_ComponentOnEvent_TriggerZoneMouseOver => """{{{C_ComponentName}}}::Private_Hook_ComponentOnEvent_TriggerZoneMouseOver(Event, ComponentInstance)""",
+			MV::C_Hook_ComponentOnEvent_TriggerZoneMouseOut => """{{{C_ComponentName}}}::Private_Hook_ComponentOnEvent_TriggerZoneMouseOut(Event, ComponentInstance)""",
+			MV::C_Hook_ComponentOnEvent_TriggerZoneMouseClick => """{{{C_ComponentName}}}::Private_Hook_ComponentOnEvent_TriggerZoneMouseClick"""
+		]
+	};
+}

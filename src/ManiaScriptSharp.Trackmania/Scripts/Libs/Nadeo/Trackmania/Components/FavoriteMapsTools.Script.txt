@@ -1,0 +1,110 @@
+/**
+ *	Favorite Maps Tools for component
+ */
+#Const Version		"1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Components/FavoriteMapsTools.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Stores/MapStore_ML.Script.txt" as MapStore
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as Button
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-trackmania-favoritemapstools" //< Component name
+#Const P "Trackmania_FavoriteMapsTools_" //< Prefix use to differentiate functions/variables in the script
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	return MV::Component(
+		C_Name,
+		"""
+		""",
+		"""
+#Include "ColorLib" as {{{P}}}CL
+		""",
+		"""
+Void {{{P}}}SetErrorMessage(CMlLabel _Label, CMlFrame _Frame_BgError, Text _Message) {
+	_Label.Value = _Message;
+	AnimMgr.Flush(_Label);
+	AnimMgr.Add(_Label, "<a opacity=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(_Label, "<a opacity=\"0.\" />", Now+4000, 500, CAnimManager::EAnimManagerEasing::QuadOut);
+	if (_Frame_BgError != Null) {
+		{{{ExpendableAsset::P}}}AddOpacityAnimation(This, _Frame_BgError, 1., 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{ExpendableAsset::P}}}AddOpacityAnimation(This, _Frame_BgError, 0., Now + 4000, 500, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+Void {{{P}}}UdpateFavoriteButton(
+	CMlFrame _Button_FavoriteMap,
+	CMlFrame _Frame_LoadingSpinner,
+	CMlFrame _Frame_BgError,
+	CMlLabel _Label_Error,
+	Text _MapUid
+) {
+	declare {{{MapStore::P}}}K_CurrentMap CurrentMap = {{{MapStore::P}}}GetCurrentMap();
+
+	// Lock button if map not available on NadeoServices, is not loaded yet in `MapStore` or offline mode
+	declare Boolean LockFeature = {{{UserStore::P}}}IsOfflineMode() || !CurrentMap.IsMapUploadedToNS || CurrentMap.Uid != _MapUid;
+	{{{Navigation::P}}}Lock(_Button_FavoriteMap, LockFeature);
+	if (LockFeature) {{{Button::P}}}SetTextColor(This, _Button_FavoriteMap, {{{P}}}CL::HexToRgb("{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"));
+	else {{{Button::P}}}SetTextColor(This, _Button_FavoriteMap, {{{P}}}CL::HexToRgb("{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"));
+
+	// And set the button value depending on favorite map attribute
+	declare Text ButtonValue = "{{{Const::C_AddFavoriteMap}}}";
+	if (CurrentMap.IsMapUploadedToNS && CurrentMap.IsFavorite) {
+		ButtonValue = "{{{Const::C_RemoveFavoriteMap}}}";
+	}
+	{{{Button::P}}}SetValue(This, _Button_FavoriteMap, ButtonValue);
+
+	if (CurrentMap.Status == {{{MapStore::P}}}C_CurrentMapStatus_Error) {
+		declare Text ErrorMessage;
+		switch (CurrentMap.ErrorCode) {
+			case {{{MapStore::P}}}C_ErrorCode_FailedAddFavorites: ErrorMessage = "{{{MapStore::C_AddFavoriteMap_Error}}}";
+			case {{{MapStore::P}}}C_ErrorCode_FailedRemoveFavorites: ErrorMessage = "{{{MapStore::C_RemoveFavoriteMap_Error}}}";
+		}
+		if (ErrorMessage != "") {{{P}}}SetErrorMessage(_Label_Error, _Frame_BgError, ErrorMessage);
+		{{{LoadingSpinner::P}}}StopAnimation(This, _Frame_LoadingSpinner);
+	} else if (
+		CurrentMap.Status == {{{MapStore::P}}}C_CurrentMapStatus_LoadingInfos ||
+		CurrentMap.Status == {{{MapStore::P}}}C_CurrentMapStatus_AddingToFavorites ||
+		CurrentMap.Status == {{{MapStore::P}}}C_CurrentMapStatus_RemovingFromFavorites
+	) {
+		{{{LoadingSpinner::P}}}StartAnimation(This, _Frame_LoadingSpinner);
+	} else {
+		{{{LoadingSpinner::P}}}StopAnimation(This, _Frame_LoadingSpinner);
+	}
+}
+
+Void {{{P}}}SelectFavoriteButton(CMap _Map) {
+	// Check that the map we are currently playing is the one loaded in `MapStore`
+	// before trying to toggle its favorite status
+	if (_Map != Null && _Map.MapInfo != Null && {{{MapStore::P}}}GetCurrentMap().Uid == _Map.MapInfo.MapUid) {
+		{{{MapStore::P}}}Action_ToggleCurrentMapFromFavorites(This);
+	}
+}
+""",
+[
+	Navigation::ComponentV2(),
+	Button::ComponentV2(),
+	LoadingSpinner::ComponentV2(),
+	UserStore::ComponentV2(),
+	MapStore::ComponentV2()
+],
+[]
+	);
+}

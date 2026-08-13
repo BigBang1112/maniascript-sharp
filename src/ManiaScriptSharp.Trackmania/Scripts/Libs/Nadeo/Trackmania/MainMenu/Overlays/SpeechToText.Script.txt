@@ -1,0 +1,297 @@
+/**
+ *	Overlay: SpeechToText
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/MainMenu/Overlays/SpeechToText.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/PlayerName.Script.txt" as PlayerName
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Overlay_SpeechToText"
+
+#Const C_MaxLines 4 //< The maximum of lines that can be displayed on screen
+#Const C_TextSize 9 //< The size of the text
+#Const C_WordDelay 250 //< The delay between the appearance of words
+#Const C_MessageDelay 500 //< The delay between the appearance of messages
+#Const C_DisplayTimer 7000 //< The maximum line display time
+#Const C_MaxPendingMessages 100 //< The maximum number of messages waiting to be displayed
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the overlay manialink page
+Text GetManialink() {
+	declare Vec2 Size_Line = <200., 10.>;
+	declare Vec2 Size_Lines = <Size_Line.X + 4., (Size_Line.Y * C_MaxLines)>;
+	declare Vec2 Size_PlayerName = <Size_Line.X*0.5, Size_Line.Y>;
+
+	declare Text ML_Lines;
+	for (Line, 0, C_MaxLines) {
+		ML_Lines ^= """
+			<frameinstance id="frame-message" modelid="framemodel-message"/>
+		""";
+	}
+
+	return MV::Create(
+		C_Name, 3,
+"""
+<!-- Frame models -->
+<framemodel id="framemodel-message">
+	<frameinstance id="playername-speeker" modelid="{{{PlayerName::C_Name}}}" pos="0 {{{Size_Line.Y*0.5}}}" data-size="{{{Size_PlayerName.X}}} {{{Size_PlayerName.Y}}}" data-halign="left" data-valign="center2" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-textsize="{{{C_TextSize}}}" data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" data-opacity="0." z-index="1" />
+	<label id="label-message" pos="0 {{{Size_Line.Y*0.5}}}" size="{{{Size_Line.X}}} {{{Size_Line.Y}}}" halign="left" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textsize="{{{C_TextSize}}}" textprefix="$i$t" textcolor="FFFFFF" opacity="0." filter-profanities="Always" z-index="1"/>
+</framemodel>
+
+<!-- Frame global -->
+<frame id="frame-global" pos="0 -80" z-index="{{{Const::C_ZIndex_SpeechToText}}}" hidden="1">
+	<frameinstance id="asset-background" modelid="{{{ExpendableAsset::C_Name}}}" data-width="{{{Size_Lines.X}}}" data-height="0" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" data-opacity="0.8" data-halign="center" data-valign="bottom" z-index="0"/>
+	<frame id="frame-clip" size="{{{Size_Lines.X*1.5}}} 0" halign="center" valign="bottom" z-index="1">
+		<frame id="frame-lines" pos="{{{-Size_Lines.X*0.5 + 3.}}} 0">
+			{{{ML_Lines}}}
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+#Const C_MaxLines {{{dump(C_MaxLines)}}}
+#Const C_WordDelay {{{dump(C_WordDelay)}}}
+#Const C_MessageDelay {{{dump(C_MessageDelay)}}}
+#Const C_DisplayTimer {{{dump(C_DisplayTimer)}}}
+#Const C_MaxPendingMessages {{{dump(C_MaxPendingMessages)}}}
+
+#Struct K_Line {
+	CMlFrame Frame_Line;
+	Integer DisplayTimer;
+}
+#Struct K_Message {
+	Text[] Words;
+	{{{PlayerName::P}}}K_UserInfo Sender;
+}
+#Struct K_Controls {
+	CMlFrame Asset_Background;
+	CMlFrame Frame_Clip;
+	CMlFrame Frame_Lines;
+}
+#Struct K_SpeechToText {
+	CMlFrame Frame_CurrentLine;
+	K_Controls Controls;
+	K_Line[] DisplayedLines;
+	K_Message[] Messages;
+}
+
+""",
+"""
+/// Check if the given line is already displayed in the overlay
+Boolean IsDisplayedLine(K_SpeechToText _SpeechToText, CMlFrame _Frame_Line) {
+	foreach (DisplayedLine in _SpeechToText.DisplayedLines) {
+		if (DisplayedLine.Frame_Line.Id == _Frame_Line.Id) return True;
+	}
+	return False;
+}
+
+/// Update the overlay background to match the number of lines displayed
+Void UpdateBackground(K_SpeechToText _SpeechToText) {
+	declare Real SizeY = ML::Clamp(_SpeechToText.DisplayedLines.count*{{{Size_Line.Y}}}, 0., C_MaxLines*{{{Size_Line.Y}}});
+
+	if (SizeY != {{{ExpendableAsset::P}}}GetHeight(_SpeechToText.Controls.Asset_Background)) {
+		/* Update clip frame */
+		AnimMgr.Flush(_SpeechToText.Controls.Frame_Clip);
+		AnimMgr.Add(_SpeechToText.Controls.Frame_Clip, "<anim size=\""^{{{Size_Lines.X*1.5}}}^" "^SizeY^"\" />", {{{ExpendableAsset::P}}}C_Default_AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+
+		/* Update background */
+		AnimMgr.Flush(_SpeechToText.Controls.Asset_Background);
+		AnimMgr.Add(_SpeechToText.Controls.Asset_Background, "<anim pos=\""^MLHelpers::SkewX(SizeY, 10.)*0.5^" 0\" />", {{{ExpendableAsset::P}}}C_Default_AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{ExpendableAsset::P}}}SetHeight(This, _SpeechToText.Controls.Asset_Background, SizeY + ML::Min(1, _SpeechToText.DisplayedLines.count), False);
+		{{{ExpendableAsset::P}}}SetWidth(This, _SpeechToText.Controls.Asset_Background, {{{Size_Lines.X}}} + MLHelpers::SkewX(SizeY - {{{Size_Line.Y}}}, 10.));
+	}
+}
+
+/// Remove the last line at the top of the overlay that contains the oldest message
+K_SpeechToText RemoveOldestMessage(K_SpeechToText _SpeechToText) {
+	declare K_SpeechToText SpeechToText = _SpeechToText;
+
+	if (SpeechToText.DisplayedLines.count > 0) {
+		declare CMlFrame Frame_Line = SpeechToText.DisplayedLines.get(-1).Frame_Line;
+		declare CMlFrame PlayerName_Speeker = (Frame_Line.GetFirstChild("playername-speeker") as CMlFrame);
+		declare CMlLabel Label_Message = (Frame_Line.GetFirstChild("label-message") as CMlLabel);
+
+		/* Remove from visible messages */
+		SpeechToText.DisplayedLines.removekey(SpeechToText.DisplayedLines.count-1);
+
+		/* Animations */
+		AnimMgr.Flush(Label_Message);
+		AnimMgr.Add(Label_Message, "<anim opacity=\"0.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{PlayerName::P}}}SetOpacity(This, PlayerName_Speeker, 0., 250);
+	}
+
+	return SpeechToText;
+}
+
+/// Add a new line at the bottom of the overlay with the given message
+K_SpeechToText AddNewMessage(K_SpeechToText _SpeechToText, {{{PlayerName::P}}}K_UserInfo _SenderInfo, Text _Message) {
+	declare K_SpeechToText SpeechToText = _SpeechToText;
+
+	if (SpeechToText.DisplayedLines.count <= C_MaxLines) {
+		foreach (Control in SpeechToText.Controls.Frame_Lines.Controls) {
+			if (!IsDisplayedLine(SpeechToText, Control as CMlFrame)) {
+				declare CMlFrame Frame_Line = (Control as CMlFrame);
+				declare CMlFrame PlayerName_Speeker = (Frame_Line.GetFirstChild("playername-speeker") as CMlFrame);
+				declare CMlLabel Label_Message = (Frame_Line.GetFirstChild("label-message") as CMlLabel);
+
+				/* Update message */
+				Label_Message.RelativePosition_V3.X = 3.;
+				PlayerName_Speeker.Visible = _SenderInfo.Name != "";
+				if (PlayerName_Speeker.Visible) {
+					{{{PlayerName::P}}}SetUserInfo(This, PlayerName_Speeker, _SenderInfo);
+					Label_Message.RelativePosition_V3.X += {{{PlayerName::P}}}GetWidth(PlayerName_Speeker);
+				}
+				Label_Message.Size.X = {{{Size_Line.X}}} - Label_Message.RelativePosition_V3.X;
+				Label_Message.SetText(_Message);
+
+				/* Play animation */
+				AnimMgr.Flush(Label_Message);
+				AnimMgr.Add(Label_Message, "<anim opacity=\"1.\" />", 1000, CAnimManager::EAnimManagerEasing::QuadOut);
+				{{{PlayerName::P}}}SetOpacity(This, PlayerName_Speeker, 1., 1000);
+
+				/* Add to visible messages */
+				SpeechToText.Frame_CurrentLine = Frame_Line;
+				SpeechToText.DisplayedLines.addfirst(K_Line {
+					DisplayTimer = Now + C_DisplayTimer,
+					Frame_Line = Frame_Line
+				});
+
+				break;
+			}
+		}
+	}
+
+	return SpeechToText;
+}
+
+/// Display the message at the bottom of the overlay and scroll previous messages upward
+K_SpeechToText DisplayMessage(K_SpeechToText _SpeechToText, {{{PlayerName::P}}}K_UserInfo _SenderInfo, Text _Message) {
+	declare K_SpeechToText SpeechToText = _SpeechToText;
+
+	/* Add new message */
+	SpeechToText = AddNewMessage(SpeechToText, _SenderInfo, _Message);
+
+	/* Move messages upward */
+	for (Index => DisplayedLine in reverse SpeechToText.DisplayedLines) {
+		DisplayedLine.Frame_Line.RelativePosition_V3 = MLHelpers::SkewX(<0., (Index-1)*{{{Size_Line.Y}}}>, 10.);
+		AnimMgr.Flush(DisplayedLine.Frame_Line);
+		AnimMgr.Add(DisplayedLine.Frame_Line, "<anim pos=\""^MLHelpers::Skew(0., Index*{{{Size_Line.Y}}}, 10.)^"\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	/* Remove the oldest message to let space for new ones */
+	if (SpeechToText.DisplayedLines.count > C_MaxLines) {
+		SpeechToText = RemoveOldestMessage(SpeechToText);
+	}
+
+	/* Update background */
+	UpdateBackground(SpeechToText);
+
+	return SpeechToText;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+
+declare K_SpeechToText SpeechToText;
+declare Integer WordDelay;
+***
+
+***MainStart***
+***
+Frame_Global = (Page.GetFirstChild("frame-global") as CMlFrame);
+
+SpeechToText = K_SpeechToText {
+	Controls = K_Controls {
+		Asset_Background = (Frame_Global.GetFirstChild("asset-background") as CMlFrame),
+		Frame_Clip = (Frame_Global.GetFirstChild("frame-clip") as CMlFrame),
+		Frame_Lines = (Frame_Global.GetFirstChild("frame-lines") as CMlFrame)
+	}
+};
+***
+
+***MainLoop***
+***
+if (PageIsVisible && UserMgr.MainUserProfile.STT_Available) {
+	if (Frame_Global.Visible != UserMgr.MainUserProfile.STT_Enabled) {
+		Frame_Global.Visible = UserMgr.MainUserProfile.STT_Enabled;
+	}
+
+	if (Frame_Global.Visible) {
+		foreach (Event in UserMgr.VoiceChat_Events) {
+			switchtype (Event as VoiceChatEvent) {
+				case CVoiceChatEvent_Message: {
+					if (VoiceChatEvent.Sender != Null && VoiceChatEvent.Sender.MatchingPlayerInfo != Null) {
+						SpeechToText.Messages.add(K_Message {
+							Words = TL::Split(" ", VoiceChatEvent.Message),
+							Sender = {{{PlayerName::P}}}GetUserInfo(VoiceChatEvent.Sender.MatchingPlayerInfo, False)
+						});
+						if (SpeechToText.Messages.count > C_MaxPendingMessages) {
+							SpeechToText.Messages.removekey(1); //< Remove the penultimate message to let the oldest message show until the end
+						}
+					}
+				}
+			}
+		}
+
+		/* Display messages word by word */
+		if (Now > WordDelay) {
+			if (SpeechToText.Messages.count > 0) {
+				declare K_Message CurrentMessage = SpeechToText.Messages[0];
+
+				if (CurrentMessage.Words.count > 0) {
+					if (SpeechToText.Frame_CurrentLine == Null) {
+						SpeechToText = DisplayMessage(SpeechToText, CurrentMessage.Sender, CurrentMessage.Words[0]);
+					} else {
+						declare CMlLabel Label_Message = (SpeechToText.Frame_CurrentLine.GetFirstChild("label-message") as CMlLabel);
+						if (Label_Message.ComputeWidth(Label_Message.Value) < Label_Message.Size.X - {{{Size_Line.X/10.}}}) {
+							Label_Message.SetText(Label_Message.Value^" "^CurrentMessage.Words[0]);
+						} else {
+							SpeechToText = DisplayMessage(SpeechToText, {{{PlayerName::P}}}K_UserInfo {}, CurrentMessage.Words[0]);
+						}
+					}
+					SpeechToText.Messages[0].Words.removekey(0);
+					WordDelay = Now + C_WordDelay;
+				}
+
+				if (CurrentMessage.Words.count <= 0) {
+					SpeechToText.Messages.removekey(0);
+					SpeechToText.Frame_CurrentLine = Null;
+					WordDelay = Now + C_MessageDelay;
+				}
+			}
+		}
+
+		/* Check oldest message display timer */
+		if (SpeechToText.DisplayedLines.count > 0 && Now > SpeechToText.DisplayedLines.get(-1).DisplayTimer) {
+			SpeechToText = RemoveOldestMessage(SpeechToText);
+			UpdateBackground(SpeechToText);
+		}
+	}
+}
+***
+""",
+		[
+			ExpendableAsset::ComponentV2(),
+			PlayerName::ComponentV2()
+		],
+		[]
+	);
+}

@@ -1,0 +1,228 @@
+/**
+ *	Markers for the TMGL modes
+ *
+ *	This implementation will not scale to a lot of players
+ *	But we have to do this until /utils/script-documentation/-/issues/122
+ *	and /script-documentation/-/issues/123 are done
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TMGLMarkers.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/Trackmania/Modes/UIModules/TMGLMarkers_Server.Script.txt" as UIModules_TMGLMarkers
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MarkersRefreshInterval 1000
+#Const C_UseUIAll True
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer G_MarkersRefreshTime;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Find a valid marker frame id
+Integer Private_GetMarkerFrameId(Integer[Ident] _MarkerFrameIds) {
+	declare Integer[Ident] SortedMarkerFrameIds = _MarkerFrameIds.sort();
+	declare Integer NewFrameId = 0;
+	foreach (FrameId in SortedMarkerFrameIds) {
+		if (NewFrameId != FrameId) {
+			return NewFrameId;
+		}
+		NewFrameId += 1;
+	}
+	return SortedMarkerFrameIds.count;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a marker on a player
+CUIConfigMarker Private_CreatePlayerMarker(CUIConfig _UI, CSmPlayer _MarkedPlayer) {
+	declare CUIConfigMarker Marker = _UI.AddMarker(_MarkedPlayer);
+	if (Marker != Null) {
+		Marker.Box = <1., 0.5, 1.>;
+		Marker.HudVisibility = CUIConfigMarker::EHudVisibility::WhenVisible;
+		Marker.MiniMapVisibility = CUIConfigMarker::EMiniMapVisibility::Never;
+		// We want to display the marker above the targeted car
+		// during the mediatracker camera shots, so we cannot use
+		// `HideOnSelf`. We have to rely on the `DistMin` value
+		// to hide the marker above our car while playing.
+		Marker.HideOnSelf = False;
+		Marker.DistMin = 12.;
+	}
+	return Marker;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy a marker on a player
+Void Private_DestroyPlayerMarker(CUIConfig _UI, Ident _MarkerId) {
+	if (_UI.Markers.existskey(_MarkerId)) {
+		_UI.RemoveMarker(_UI.Markers[_MarkerId]);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the markers on the UI
+ *
+ *	@param	_UI												The UI to update
+ *	@param	_MarkersPlayers						The player with a marker to attach
+ *	@param	_ReceivingPlayerId				The id of the player receiving the marker
+ *																		when the marker is added on the player's UI
+ *																		instead of UIAll
+ */
+Void Private_UpdateMarkers(CUIConfig _UI, CSmPlayer[Ident] _MarkedPlayers, Ident _ReceivingPlayerId) {
+	declare Ident[Ident] LibTMGLMarkers_MarkedPlayerIds for _UI = [];
+	declare Integer[Ident] LibTMGLMarkers_MarkerFrameIds for _UI = [];
+
+	// Remove markers
+	declare Ident[Ident] ToRemove;
+	foreach (MarkedPlayerId => MarkerId in LibTMGLMarkers_MarkedPlayerIds) {
+		if (!_MarkedPlayers.existskey(MarkedPlayerId)) {
+			ToRemove[MarkedPlayerId] = MarkerId;
+		}
+	}
+	foreach (MarkedPlayerId => MarkerId in ToRemove) {
+		Private_DestroyPlayerMarker(_UI, MarkerId);
+		LibTMGLMarkers_MarkedPlayerIds.removekey(MarkedPlayerId);
+		if (LibTMGLMarkers_MarkerFrameIds.existskey(MarkerId)) {
+			UIModules_TMGLMarkers::RemoveMarkerFrameId(_UI, LibTMGLMarkers_MarkerFrameIds[MarkerId]);
+		}
+		LibTMGLMarkers_MarkerFrameIds.removekey(MarkerId);
+	}
+
+	// Add markers
+	foreach (MarkedPlayer in _MarkedPlayers) {
+		if (
+			(_ReceivingPlayerId == NullId || _ReceivingPlayerId != MarkedPlayer.Id) &&
+			!LibTMGLMarkers_MarkedPlayerIds.existskey(MarkedPlayer.Id)
+		) {
+			declare CUIConfigMarker Marker = Private_CreatePlayerMarker(_UI, MarkedPlayer);
+			if (Marker != Null) {
+				LibTMGLMarkers_MarkedPlayerIds[MarkedPlayer.Id] = Marker.Id;
+
+				// Get a frame id for the marker
+				declare Integer MarkerFrameId = Private_GetMarkerFrameId(LibTMGLMarkers_MarkerFrameIds);
+				LibTMGLMarkers_MarkerFrameIds[Marker.Id] = MarkerFrameId;
+				Marker.ManialinkFrameId = "marker-player-"^MarkerFrameId;
+				UIModules_TMGLMarkers::SetMarkerFrameId(_UI, MarkerFrameId, MarkedPlayer.User.WebServicesUserId);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove all markers created on the UI
+Void Private_RemoveAllMarkers(CUIConfig _UI) {
+	declare Ident[Ident] LibTMGLMarkers_MarkedPlayerIds for _UI = [];
+	declare Integer[Ident] LibTMGLMarkers_MarkerFrameIds for _UI = [];
+	foreach (MarkerId in LibTMGLMarkers_MarkedPlayerIds) {
+		Private_DestroyPlayerMarker(_UI, MarkerId);
+	}
+	LibTMGLMarkers_MarkedPlayerIds = [];
+	LibTMGLMarkers_MarkerFrameIds = [];
+	UIModules_TMGLMarkers::ResetMarkerFrameIds(_UI);
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the account ids of the finalists in Cup mode
+Void SetFinalists(Text[] _AccountIds) {
+	UIModules_TMGLMarkers::SetFinalists(_AccountIds);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update library
+Void Yield() {
+	if (G_MarkersRefreshTime >= 0 && Now >= G_MarkersRefreshTime) {
+		G_MarkersRefreshTime = Now + C_MarkersRefreshInterval;
+
+		// Check if a player joined or spawned/unspawned
+		declare Boolean MarkersMustBeUpdated = False;
+		foreach (Player in AllPlayers) {
+			declare Boolean LibTMGLMarkers_NewPlayer for Player = True;
+			declare CSmPlayer::ESpawnStatus LibTMGLMarkers_SpawnStatus for Player = CSmPlayer::ESpawnStatus::NotSpawned;
+			if (LibTMGLMarkers_NewPlayer || LibTMGLMarkers_SpawnStatus != Player.SpawnStatus) {
+				LibTMGLMarkers_NewPlayer = False;
+				LibTMGLMarkers_SpawnStatus = Player.SpawnStatus;
+				MarkersMustBeUpdated = True;
+			}
+		}
+
+		if (MarkersMustBeUpdated) {
+			// Find all players that must have a marker above them
+			declare CSmPlayer[Ident] MarkedPlayers;
+			foreach (Player in Players) {
+				if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned) {
+					MarkedPlayers[Player.Id] = Player;
+				}
+			}
+
+			// Update markers
+			if (C_UseUIAll) {
+				Private_UpdateMarkers(UIManager.UIAll, MarkedPlayers, NullId);
+			} else {
+				foreach (Player in AllPlayers) {
+					declare CUIConfig UI <=> UIManager.GetUI(Player);
+					if (UI != Null) {
+						Private_UpdateMarkers(UI, MarkedPlayers, Player.Id);
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Enable or disable the markers
+Void Enable(Boolean _Enabled) {
+	if (_Enabled) {
+		G_MarkersRefreshTime = Now;
+	} else {
+		G_MarkersRefreshTime = -1;
+
+		// Reinitialize players
+		foreach (Player in AllPlayers) {
+			declare Boolean LibTMGLMarkers_NewPlayer for Player = True;
+			declare CSmPlayer::ESpawnStatus LibTMGLMarkers_SpawnStatus for Player = CSmPlayer::ESpawnStatus::NotSpawned;
+			LibTMGLMarkers_NewPlayer = True;
+			LibTMGLMarkers_SpawnStatus = CSmPlayer::ESpawnStatus::NotSpawned;
+		}
+
+		// Remove all markers
+		if (C_UseUIAll) {
+			Private_RemoveAllMarkers(UIManager.UIAll);
+		} else {
+			foreach (Player in AllPlayers) {
+				declare CUIConfig UI <=> UIManager.GetUI(Player);
+				if (UI != Null) {
+					Private_RemoveAllMarkers(UI);
+				}
+			}
+		}
+	}
+}
+Void Enable() {
+	Enable(True);
+}
+Void Disable() {
+	Enable(False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	Disable();
+	SetFinalists([]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

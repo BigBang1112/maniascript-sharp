@@ -1,0 +1,149 @@
+/**
+ * UI module: Fade server side
+ */
+#Const Version "1.0.2"
+#Const ScriptName "Libs/Nadeo/CMGame/Modes/UIModules/Fade_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "ColorLib" as CL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Command {
+	Integer Action;
+	Integer Fade;
+	Integer StartTime;
+	Integer Duration;
+	Vec3 Color;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_CMGame_Fade"
+
+#Const C_Action_Set 0
+#Const C_Action_Add 1
+
+#Const C_Fade_Out 0
+#Const C_Fade_In 1
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Set the z-index of the fade quad
+ *	We use an Integer instead of a Real
+ *	to avoid any weird behaviour linked to Real precision
+ */
+Void SetZIndex(Integer _ZIndex) {
+	declare netwrite Integer Net_CMGame_Fade_ZIndex for Teams[0] = 0;
+	Net_CMGame_Fade_ZIndex = _ZIndex;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start a fade for a specific player
+Void Fade(CPlayer _Player, Integer _Action, Integer _Fade, Integer _StartTime, Integer _Duration, Text _Color) {
+	declare CUIConfig UI <=> UIManager.GetUI(_Player);
+	if (UI == Null) return;
+
+	declare netwrite Integer Net_CMGame_Fade_CommandsUpdate for UI = 0;
+	declare netread Integer[] Net_CMGame_Fade_ReceivedCommands for UI = [];
+	declare netwrite K_Command[][Integer] Net_CMGame_Fade_PendingCommands for UI = [];
+
+	// Clean up received commands
+	foreach (Key in Net_CMGame_Fade_ReceivedCommands) {
+		Net_CMGame_Fade_PendingCommands.removekey(Key);
+	}
+
+	declare Vec3 Color = <0., 0., 0.>;
+	if (_Color != "") {
+		Color = CL::HexToRgb(_Color);
+	}
+
+	// Add new command
+	if (!Net_CMGame_Fade_PendingCommands.existskey(Now)) {
+		Net_CMGame_Fade_PendingCommands[Now] = [];
+	}
+	Net_CMGame_Fade_PendingCommands[Now].add(K_Command {
+		Action = _Action,
+		Fade = _Fade,
+		StartTime = _StartTime,
+		Duration = _Duration,
+		Color = Color
+	});
+
+	Net_CMGame_Fade_CommandsUpdate += 1;
+}
+Void SetFade(CPlayer _Player, Integer _Fade, Integer _StartTime, Integer _Duration, Text _Color) {
+	Fade(_Player, C_Action_Set, _Fade, _StartTime, _Duration, _Color);
+}
+Void AddFade(CPlayer _Player, Integer _Fade, Integer _StartTime, Integer _Duration, Text _Color) {
+	Fade(_Player, C_Action_Add, _Fade, _StartTime, _Duration, _Color);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start a fade for all players
+Void Fade(Integer _Action, Integer _Fade, Integer _StartTime, Integer _Duration, Text _Color) {
+	foreach (Player in AllPlayers) {
+		Fade(Player, _Action, _Fade, _StartTime, _Duration, _Color);
+	}
+}
+Void SetFade(Integer _Fade, Integer _StartTime, Integer _Duration, Text _Color) {
+	foreach (Player in AllPlayers) {
+		SetFade(Player, _Fade, _StartTime, _Duration, _Color);
+	}
+}
+Void AddFade(Integer _Fade, Integer _StartTime, Integer _Duration, Text _Color) {
+	foreach (Player in AllPlayers) {
+		AddFade(Player, _Fade, _StartTime, _Duration, _Color);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Show or hide the UI
+ *
+ *	@param	_Player										The player to update
+ *	@param	_Display									True to show
+ *																		False to hide
+ */
+Void SetVisibility(CPlayer _Player, Boolean _Display) {
+	if (_Player == Null) return;
+
+	declare netwrite Boolean Net_CMGame_Fade_IsVisible for _Player = False;
+	Net_CMGame_Fade_IsVisible = _Display;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	SetVisibility(_Player, False);
+	SetFade(_Player, C_Fade_Out, Now, 0, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	SetZIndex(100);
+
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

@@ -1,0 +1,3212 @@
+/**
+ *  UI module: ScoresTable client side
+ */
+#Const Version		"1.4.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MenuButtonList.Script.txt" as MenuButtonList
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/PlayerName.Script.txt" as PlayerName
+#Include "Libs/Nadeo/CMGame/Components/Scroll.Script.txt" as Scroll
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMGame/Utils/Images.Script.txt" as Images
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Client.Script.txt" as PauseMenu_Online
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Common.Script.txt" as UIModules_ScoresTable_Common
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Visibility_Component.Script.txt" as ScoresTableVisibility
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Constants
+#Include "Libs/Nadeo/Trackmania/Components/ProfilePlayerInfo.Script.txt" as ProfilePlayerInfo
+#Include "Libs/Nadeo/Trackmania/Trophy.Script.txt" as Trophy
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "race-scores-table" //< Component name
+#Const P "RaceScoresTable_" //< Prefix use to differentiate functions/variables in the script
+
+#Const C_IdProfile "UIModule_TMGame_ScoresTableProfile"
+#Const C_NavGroupName "navgroup-moduleui-scorestable"
+
+#Const C_PlayersPerColumn 10
+#Const C_ColumnsNb 1
+
+#Const UIModules_ScoresTable_Common::C_Mode_BestTime as C_Mode_BestTime
+#Const UIModules_ScoresTable_Common::C_Mode_PrevTime as C_Mode_PrevTime
+#Const UIModules_ScoresTable_Common::C_Mode_LapTime as C_Mode_LapTime
+#Const UIModules_ScoresTable_Common::C_Mode_Points as C_Mode_Points
+#Const UIModules_ScoresTable_Common::C_Mode_Laps as C_Mode_Laps
+#Const UIModules_ScoresTable_Common::C_Mode_Trophy as C_Mode_Trophy
+#Const UIModules_ScoresTable_Common::C_Mode_RaceProgression as C_Mode_RaceProgression
+#Const UIModules_ScoresTable_Common::C_Mode_Respawns as C_Mode_Respawns
+#Const UIModules_ScoresTable_Common::C_Mode_BestRespawns as C_Mode_BestRespawns
+
+#Const C_UpdateFrequency 250
+#Const UIModules_ScoresTable_Common::C_DefaultEchelon as C_DefaultEchelon
+
+#Const C_CustomPoints_Text 0
+#Const C_CustomPoints_Color 1
+
+#Const C_ZIndex_ScoresTable 70 //< Must be at least 65 to be above the chat z-index
+#Const C_ZIndex_Profile 10000 //< High value because some server controllers use really high z-index for their UI
+
+#Const C_TrophyStyle_Group 1
+#Const C_TrophyStyle_Details 2
+#Const C_TrophyStyle_Points 3
+#Const C_TrophyStyle 3
+
+#Const C_Class_Profile_Button "class-scorestable-profile-button"
+#Const C_Class_Spectate_Button "class-scorestable-spectate-button"
+#Const C_Class_Mute_Button "class-scorestable-mute-button"
+#Const C_Class_Mute_Loading "class-scorestable-mute-loading-spinner"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_ScoresTable_Common::C_Id;
+}
+
+/// Get the SplitScreen id of the UI module
+Text GetSplitScreenId() {
+	return UIModules_ScoresTable_Common::C_SplitScreenId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_ScoresTable_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the forced format
+ *
+ *	@return														The number of lines and columns <lines, columns>
+ *																		<0, 0> means no format forced
+ */
+Int2 GetForcedFormat() {
+	declare netread Int2 Net_TMGame_ScoresTable_ForceFormat for Playground.Teams[0];
+	return Net_TMGame_ScoresTable_ForceFormat;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML(Integer _PlayersPerColumn, Integer _ColumnsNb) {
+	//L16N [ScoresTable] Ranking of the current race
+	declare Text Text_LiveRanking = _("Live ranking");
+	//L16N [ScoresTable] To display directly your position in the scores table
+	declare Text Text_FindMySelf = _("Find myself");
+	//L16N [ScoresTable] To mute all players in the voice chat
+	declare Text Text_MuteAll = _("Mute all");
+	//L16N [ScoresTable] To unmute all players in the voice chat
+	declare Text Text_UnmuteAll = _("Unmute all");
+
+	declare Boolean IsTeamMode = (_ColumnsNb == 2);
+
+	/* Header and body pop up */
+	declare Image_Header = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Mode_Common_Scorestable_Header_Default.dds";
+	declare Image_HeaderMask = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Mode_Common_Scorestable_Header_Mask.dds";
+	declare Image_Body = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Mode_Common_Scorestable_Popup.dds";
+	declare Image_HeaderLeft = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Teams/Mode_Common_Scorestable_Header_Ranked_Left.dds";
+	declare Image_HeaderRight = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Teams/Mode_Common_Scorestable_Header_Ranked_Right.dds";
+	declare Image_HeaderBg = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Teams/Mode_Common_Scorestable_Header_Ranked_Background.dds";
+	declare HeaderLeftColorize = Stylesheet::GetColorHex6(Stylesheet::C_Color_TeamBlue);
+	declare HeaderRightColorize = Stylesheet::GetColorHex6(Stylesheet::C_Color_TeamRed);
+
+	declare Vec2 ImgSize_MainPopUp_Background = MLHelpers::KeepRatioFromX(3680., 1856., 307.);
+	declare Real SizeX_PopUpHeader = ImgSize_MainPopUp_Background.X * 3444. / 3680.;
+	declare Vec2 ImgSize_MainPopUp_HeaderMask = MLHelpers::KeepRatioFromX(3444., 504., SizeX_PopUpHeader);
+	declare Vec2 Pos_PopUpHeader = <10., ImgSize_MainPopUp_Background.Y*0.5 + 0.1>;
+
+	/* Scroll config */
+	declare ScrollConfig = Scroll::K_Config {
+		AnimEnabled = True,
+		PreScrollEnabled = True,
+		PreScrollBefore = 1,
+		PreScrollAfter = 1,
+		ScrollBarVisibility = Scroll::C_ScrollBarVisibility_Never,
+		ScrollGrid = <8., 8.>,
+		ScrollIndicator = True,
+		ScrollIndicatorColorize = <1., 1., 1.>,
+		ScrollIndicatorImage = Icons::C_Icon_128x128_Arrow_Bottom_Oblique,
+		ScrollIndicatorSize = 10.,
+		ScrollIndicatorYOffset = -10.,
+		ScrollPadding = 27.5,
+		Skew = -10.,
+		SkewVAlign = Scroll::C_SkewVAlign_Top,
+		WindowSize = <245., 80.>
+	};
+
+	/* Default players scroll */
+	declare Integer Scroll_ColumnsNb = 1;
+	declare Integer Scroll_RowsNb = 10;
+	declare Integer PlayersPerPage = Scroll_ColumnsNb * Scroll_RowsNb;
+	declare Vec2 Size_PlayerMargin = <0., 1.>;
+	declare Vec2 Size_Player = Scroll::GetElementSize(ScrollConfig.WindowSize, Size_PlayerMargin, Scroll_ColumnsNb, Scroll_RowsNb);
+	declare Integer Scroll_ElementsNb = Scroll::GetRequiredElementsNb(ScrollConfig.WindowSize, Size_Player, Size_PlayerMargin, Scroll_ColumnsNb);
+
+	declare Vec2 Pos_PlayerBg = <Size_Player.X * 0.08, 0.>;
+	declare Vec2 Pos_PlayerRank = <Size_Player.X * 0.025, Size_Player.Y * -0.5>;
+	declare Vec2 Pos_PlayerStatus = <Size_Player.X * 0.053, Size_Player.Y * -0.5>;
+	declare Vec2 Pos_PlayerEchelon = <Size_Player.X * 0.095, Size_Player.Y * -0.5>;
+	declare Vec2 Pos_PlayerName = <Size_Player.X * 0.11, Size_Player.Y * -0.55>;
+	declare Vec2 Pos_PlayerMatchPoints = <Size_Player.X * 0.77, Size_Player.Y * -0.57>;
+	declare Vec2 Pos_PlayerVoiceChatSpeaker = <Size_Player.X * 0.76, Size_Player.Y * -0.5>;
+	declare Vec2 Pos_PlayerScore = <Size_Player.X * 0.865, Size_Player.Y * -0.57>;
+	declare Vec2 Pos_PlayerCPCount = <-Size_Player.X * 0.078, 0.>;
+	declare Vec2 Pos_PlayerRoundPoints = <Size_Player.X * 0.03, Size_Player.Y * -0.57>;
+	declare Vec2 Pos_ScoreBg = <Size_Player.X * 0.78, 0.>;
+	declare Vec2 Pos_RoundPointsBg = <Size_Player.X * 0.95, 0.>;
+	declare Vec2 Pos_Trophies = <Size_Player.X * 0.91, 0.>;
+	declare Vec2 Pos_TrophyDetails = <-Size_Player.X * 0.005, Size_Player.Y * -0.57>;
+	declare Vec3 Pos_TrophyDetailsList = <-23., -10., 3.>;
+	declare Vec2 Pos_TrophyIconBg = <0., Size_Player.Y * 0.73>;
+	declare Vec2 Pos_TrophyIcon = <8., 0.4>;
+	declare Vec2 Pos_LabelTrophy = <0., 0.>;
+	declare Vec2 Pos_TrophyGroup = <0., Size_Player.Y * -0.57>;
+	declare Vec2 Pos_TrophyPoints = <0., Size_Player.Y * -0.57>;
+	declare Vec2 Pos_SelectPlayerButtons = <Size_Player.X * 0.707, 0.>;
+	declare Vec2 Pos_SelectPlayerButtons_VoiceChatEnabled = <Size_Player.X * 0.67, 0.>;
+	declare Vec2 Pos_PersonnalFrame = <-115., -67.>;
+	declare Vec2 Pos_IconMuteAll = <139., 28.5>;
+
+	declare Vec2 Size_Flag = MLHelpers::KeepRatioFromY(232.,140., Size_Player.Y);
+	declare Vec2 Size_TrophyDetailsText = <7., 7.>;
+	declare Vec2 Size_TrophyDetailsIcon = <5., 5.>;
+	declare Vec2 Size_TrophyBgIcon = MLHelpers::KeepRatioFromY(224.,128., Size_Player.Y * 1.33);
+	declare Vec2 Size_TrophyIcon = <Size_TrophyBgIcon.Y * 0.85, Size_TrophyBgIcon.Y * 0.85>;
+	declare Vec2 Size_PlayerName = <Size_Player.X * 0.45, Size_Player.Y>;
+	declare Vec2 Size_PlayerName_VoiceChatEnabled = Size_PlayerName;
+	declare Vec2 Size_PlayerScore = <Size_Player.X * 0.15, Size_Player.Y>;
+	declare Vec2 Size_PlayerCPCount = <Size_Player.X * 0.03, Size_Player.Y>;
+	declare Vec2 Size_PlayerScoreRoundPoints = <Size_Player.X * 0.06, Size_Player.Y>;
+	declare Vec2 Size_PlayerScoreRoundPointsLabel = <Size_Player.X * 0.05, Size_Player.Y>;
+
+	declare Real WidthHitbox = Size_Player.X;
+	declare Real WidthPlayerBgDefault = Size_Player.X * 0.7;
+	declare Real WidthPlayerBgSelected = Size_Player.X * 0.627;
+	declare Real WidthPlayerBgSelected_VoiceChatEnabled = Size_Player.X * 0.59;
+	declare Real WidthScoreBgDefault = Size_Player.X * 0.17;
+	declare Real WidthScoreBgTrophies = Size_Player.X * 0.135;
+	declare Real OffsetHitboxAndSelectedIcons = 18.;
+
+	declare Real Scale_TrophyDetails = 1.;
+	declare Real Scale_PersonnalFrame = 0.9;
+
+	declare Real UnfocusOpacityBg = 0.8;
+	declare Real UnselectedOpacityBg = 0.6;
+
+	declare Text FramePlayerPrefix = "frame-player-";
+	declare Text FramePlayerClass = FramePlayerPrefix^"class";
+	declare Text DefaultFocus = FramePlayerPrefix^"0";
+
+	declare Text ML_Players = "";
+	for (I, 1, Scroll_ElementsNb) {
+		ML_Players ^= """
+		<frame class="{{{Scroll::C_Class_Element}}}" hidden="1">
+			<frameinstance
+				id="{{{FramePlayerPrefix}}}{{{I}}}"
+				modelid="framemodel-player"
+				data-nav-inputs="select;cancel"
+				data-nav-targets="_;_"
+				data-nav-zone="quad-hitbox"
+				data-nav-group="{{{C_NavGroupName}}}"
+				class="{{{Navigation::C_Class}}} {{{FramePlayerClass}}}"
+			/>
+			<frame
+				id="frame-select-player"
+				z-index="1"
+				hidden="1"
+				pos="{{{Pos_SelectPlayerButtons.X}}} {{{Pos_SelectPlayerButtons.Y}}}"
+			>
+				<frameinstance
+					id="button-profile-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Profile_Button}}}"
+					pos="{{{MLHelpers::SkewX(0., 0., 10.)}}} 0."
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Profil_Oblique}}}"
+					data-nav-inputs="select;cancel;right;action1"
+					data-nav-targets="_;_;button-spectate-{{{I}}};_"
+					data-nav-group="{{{C_NavGroupName}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+				/>
+				<frameinstance
+					id="button-spectate-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Spectate_Button}}}"
+					pos="{{{MLHelpers::SkewX(9., 0., 10.)}}} 0."
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Cam_Follow_Inc}}}"
+					data-nav-inputs="select;cancel;left;right;action1"
+					data-nav-targets="_;_;button-profile-{{{I}}};button-mute-{{{I}}};_"
+					data-nav-group="{{{C_NavGroupName}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+				/>
+				<frameinstance
+					id="button-mute-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Mute_Button}}}"
+					pos="{{{MLHelpers::SkewX(18., 0., 10.)}}} 0."
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Speaker_Off}}}"
+					data-nav-inputs="select;cancel;left;action1"
+					data-nav-targets="_;_;button-spectate-{{{I}}};_"
+					data-nav-group="{{{C_NavGroupName}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+					data-nav-locked="1"
+					hidden="1"
+				/>
+				<frameinstance
+					z-index="2"
+					id="loading-spinner-speaker-{{{I}}}"
+					modelid="{{{LoadingSpinner::C_Name}}}"
+					scale="0.18"
+					class="{{{C_Class_Mute_Loading}}}"
+					pos="{{{MLHelpers::SkewX(24.75, -3.75, 10.)}}} -3.75"
+					hidden="1"
+				/>
+			</frame>
+		</frame>
+		""";
+	}
+
+	/* Teams scrolls */
+	if (IsTeamMode) {
+		Pos_PlayerName = <Size_Player.X * 0.10, Size_Player.Y * -0.55>;
+		Pos_PlayerMatchPoints = <Size_Player.X * 0.37, Size_Player.Y * -0.57>;
+		Pos_PlayerVoiceChatSpeaker = <Size_Player.X * 0.36, Size_Player.Y * -0.5>;
+		Pos_PlayerScore = <Size_Player.X * 0.435, Size_Player.Y * -0.57>;
+		Pos_PlayerCPCount = <-Size_Player.X * 0.05, 0.>;
+		Pos_PlayerRoundPoints = <Size_Player.X * 0.025, Size_Player.Y * -0.57>;
+		Pos_ScoreBg = <Size_Player.X * 0.38, 0.>;
+		Pos_RoundPointsBg = <Size_Player.X * 0.49, 0.>;
+		Pos_Trophies = <Size_Player.X * 0.45, 0.>;
+		Pos_TrophyDetails = <Size_Player.X * 0.005, Size_Player.Y * -0.57>;
+		Pos_TrophyDetailsList = <-15., -6., 3.>;
+		Pos_TrophyIconBg = <-Size_Player.X * 0.015, Size_Player.Y * 0.73>;
+		Pos_TrophyIcon = <4.5, 0.4>;
+		Pos_LabelTrophy = <-4., 0.>;
+		Pos_TrophyGroup = <Size_Player.X * 0.015, Size_Player.Y * -0.57>;
+		Pos_TrophyPoints = <Size_Player.X * 0.015, Size_Player.Y * -0.57>;
+		Pos_SelectPlayerButtons = <Size_Player.X * 0.307, 0.>;
+		Pos_SelectPlayerButtons_VoiceChatEnabled = <Size_Player.X * 0.27, 0.>;
+		Pos_PersonnalFrame = <-65., -67.>;
+
+		WidthHitbox = Size_Player.X * 0.5;
+		WidthPlayerBgDefault = Size_Player.X * 0.3;
+		WidthPlayerBgSelected = Size_Player.X * 0.227;
+		WidthPlayerBgSelected_VoiceChatEnabled = Size_Player.X * 0.19;
+		WidthScoreBgDefault = Size_Player.X * 0.11;
+		WidthScoreBgTrophies = Size_Player.X * 0.075;
+
+		Size_TrophyDetailsText = <5., 5.>;
+		Size_TrophyDetailsIcon = <5., 5.>;
+		Size_PlayerName = <Size_Player.X * 0.2, Size_Player.Y>;
+		Size_PlayerName_VoiceChatEnabled = <Size_Player.X * 0.165, Size_Player.Y>;
+		Size_PlayerScore = <Size_Player.X * 0.095, Size_Player.Y>;
+		Size_PlayerCPCount = <Size_Player.X * 0.02, Size_Player.Y>;
+		Size_PlayerScoreRoundPoints = <Size_Player.X * 0.05, Size_Player.Y>;
+		Size_PlayerScoreRoundPointsLabel = <Size_Player.X * 0.04, Size_Player.Y>;
+
+		Scale_TrophyDetails = 0.85;
+		UnfocusOpacityBg = 0.6;
+		UnselectedOpacityBg = 0.4;
+	}
+
+	/* Left team scroll */
+	declare Text ML_LeftTeam_Players = "";
+	for (I, 1, Scroll_ElementsNb) {
+		ML_LeftTeam_Players ^= """
+		<frame class="{{{Scroll::C_Class_Element}}}" hidden="1">
+			<frameinstance
+				id="{{{FramePlayerPrefix}}}-left-team-{{{I}}}"
+				modelid="framemodel-player"
+				data-nav-inputs="select;cancel"
+				data-nav-targets="_;_"
+				data-nav-zone="quad-hitbox"
+				data-nav-group="{{{C_NavGroupName}}}"
+				class="{{{Navigation::C_Class}}} {{{FramePlayerClass}}}"
+			/>
+			<frame
+				id="frame-select-player"
+				z-index="1"
+				hidden="1"
+				pos="{{{Pos_SelectPlayerButtons.X}}} {{{Pos_SelectPlayerButtons.Y}}}"
+			>
+				<frameinstance
+					id="button-profile-left-team-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Profile_Button}}}"
+					pos="{{{MLHelpers::SkewX(0., 0., 10.)}}} 0."
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Profil_Oblique}}}"
+					data-nav-inputs="select;cancel;right;action1"
+					data-nav-targets="_;_;button-spectate-left-team-{{{I}}};_"
+					data-nav-group="{{{C_NavGroupName}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+				/>
+				<frameinstance
+					id="button-spectate-left-team-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Spectate_Button}}}"
+					pos="{{{MLHelpers::SkewX(9., 0., 10.)}}} 0."
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Cam_Follow_Inc}}}"
+					data-nav-inputs="select;cancel;left;right;action1"
+					data-nav-targets="_;_;button-profile-left-team-{{{I}}};button-mute-left-team-{{{I}}};_"
+					data-nav-group="{{{C_NavGroupName}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+				/>
+				<frameinstance
+					id="button-mute-left-team-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Mute_Button}}}"
+					pos="{{{MLHelpers::SkewX(18., 0., 10.)}}} 0."
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Speaker_Off}}}"
+					data-nav-inputs="select;cancel;left;action1"
+					data-nav-targets="_;_;button-spectate-left-team-{{{I}}};_"
+					data-nav-group="{{{C_NavGroupName}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+					data-nav-locked="1"
+					hidden="1"
+				/>
+				<frameinstance
+					z-index="2"
+					id="loading-spinner-speaker-{{{I}}}"
+					modelid="{{{LoadingSpinner::C_Name}}}"
+					scale="0.18"
+					class="{{{C_Class_Mute_Loading}}}"
+					pos="{{{MLHelpers::SkewX(24.75, -3.75, 10.)}}} -3.75"
+					hidden="1"
+				/>
+			</frame>
+		</frame>
+		""";
+	}
+
+	/* Right team scroll */
+	declare Text ML_RightTeam_Players = "";
+	for (I, 1, Scroll_ElementsNb) {
+		ML_RightTeam_Players ^= """
+		<frame class="{{{Scroll::C_Class_Element}}}" hidden="1">
+			<frameinstance
+				id="{{{FramePlayerPrefix}}}-right-team-{{{I}}}"
+				modelid="framemodel-player"
+				data-nav-inputs="select;cancel"
+				data-nav-targets="_;_"
+				data-nav-zone="quad-hitbox"
+				data-nav-group="{{{C_NavGroupName}}}"
+				class="{{{Navigation::C_Class}}} {{{FramePlayerClass}}}"
+			/>
+			<frame
+				id="frame-select-player"
+				z-index="1"
+				hidden="1"
+				pos="{{{Pos_SelectPlayerButtons.X}}} {{{Pos_SelectPlayerButtons.Y}}}"
+			>
+				<frameinstance
+					id="button-profile-right-team-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Profile_Button}}}"
+					pos="{{{MLHelpers::SkewX(0., 0., 10.)}}} 0."
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Profil_Oblique}}}"
+					data-nav-inputs="select;cancel;right;action1"
+					data-nav-targets="_;_;button-spectate-right-team-{{{I}}};_"
+					data-nav-group="{{{C_NavGroupName}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+				/>
+				<frameinstance
+					id="button-spectate-right-team-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Spectate_Button}}}"
+					pos="{{{MLHelpers::SkewX(9., 0., 10.)}}} 0."
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Cam_Follow_Inc}}}"
+					data-nav-inputs="select;cancel;left;right;action1"
+					data-nav-targets="_;_;button-profile-right-team-{{{I}}};button-mute-right-team-{{{I}}};_"
+					data-nav-group="{{{C_NavGroupName}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+				/>
+				<frameinstance
+					id="button-mute-right-team-{{{I}}}"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					class="{{{Navigation::C_Class}}} {{{C_Class_Mute_Button}}}"
+					pos="{{{MLHelpers::SkewX(18., 0., 10.)}}} 0."
+					data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_ScoresTableIcons}}}"
+					data-icon-image="{{{Icons::C_Icon_128x128_Speaker_Off}}}"
+					data-nav-inputs="select;cancel;left;action1"
+					data-nav-targets="_;_;button-spectate-right-team-{{{I}}};_"
+					data-nav-group="{{{C_NavGroupName}}}"
+					data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+					data-nav-locked="1"
+					hidden="1"
+				/>
+				<frameinstance
+					z-index="2"
+					id="loading-spinner-speaker-{{{I}}}"
+					modelid="{{{LoadingSpinner::C_Name}}}"
+					scale="0.18"
+					class="{{{C_Class_Mute_Loading}}}"
+					pos="{{{MLHelpers::SkewX(24.75, -3.75, 10.)}}} -3.75"
+					hidden="1"
+				/>
+			</frame>
+		</frame>
+		""";
+	}
+
+	declare Text ModuleId = GetId();
+	return MV::Create(
+ModuleId, 3,
+"""
+<stylesheet>
+	<style class="text-title" halign="center" valign="center2" textsize="8" textcolor="FFFFFF" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+	<style class="text-regular" halign="center" valign="center2" textsize="5" textcolor="FFFFFF" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" />
+	<style class="text-semibold" halign="center" valign="center2" textsize="4" textprefix="$t$i" textcolor="FFFFFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" />
+	<style class="text-bold" halign="center" valign="center2" textsize="4" textprefix="$t$i" textcolor="FFFFFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+	<style class="quad-base" halign="center" valign="center" />
+</stylesheet>
+
+<!-- Frame models -->
+<framemodel id="framemodel-trophy">
+	<label id="label-trophy" class="text-bold" pos="0.5 0." halign="right" z-index="2" size="{{{Size_TrophyDetailsText.X}}} {{{Size_TrophyDetailsText.Y}}}" textprefix="$i" />
+	<quad id="quad-trophy" class="quad-base" z-index="1" pos="0. 0.25" size="{{{Size_TrophyDetailsIcon.X}}} {{{Size_TrophyDetailsIcon.Y}}}" halign="left" autoscale="0" />
+</framemodel>
+
+<framemodel id="framemodel-player">
+	<!-- Backgrounds -->
+	<frameinstance id="frame-player-background" modelid="{{{ExpendableAsset::C_Name}}}" pos="{{{Pos_PlayerBg.X}}} {{{Pos_PlayerBg.Y}}}" data-width="{{{WidthPlayerBgDefault}}}" data-height="{{{Size_Player.Y}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}" data-opacity="{{{UnfocusOpacityBg}}}" data-halign="left" data-valign="top" z-index="-1"/>
+	<frameinstance id="frame-score-background" modelid="{{{ExpendableAsset::C_Name}}}" pos="{{{Pos_ScoreBg.X}}} {{{Pos_ScoreBg.Y}}}" data-width="{{{WidthScoreBgDefault}}}" data-height="{{{Size_Player.Y}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFive)}}}" data-opacity="{{{UnfocusOpacityBg}}}" data-halign="left" data-valign="top" z-index="-1"/>
+	<quad id="quad-hitbox" size="{{{WidthHitbox}}} {{{Size_Player.Y}}}" scriptevents="1" class="{{{Scroll::C_Class_ActivationZone}}}"/>
+
+	<!-- Rank (+ VIP and medal in Solo) -->
+	<frame id="frame-rank" pos="{{{Pos_PlayerRank.X}}} {{{Pos_PlayerRank.Y}}}" >
+		<label id="label-rank" text="-" size="{{{Size_Player.X * 0.05}}} {{{Size_Player.Y}}}" pos="0. {{{Size_Player.Y * -0.07}}}" class="text-bold" halign="right" />
+		<quad id="quad-vip" hidden="1" size="{{{Size_Player.X * 0.03}}} {{{Size_Player.Y}}}" class="quad-base" image="{{{Icons::C_Icon_128x128_VIP}}}" colorize="FFF" halign="right" />
+		<quad id="quad-medal" hidden="1" size="7.5 7.5" autoscale="0" class="quad-base" halign="right" />
+		<label id="label-ghost" hidden="1" size="{{{Size_Player.X * 0.2}}} {{{Size_Player.Y}}}" pos="{{{Size_Player.X * 0.74}}} {{{Size_Player.Y * -0.07}}}" class="text-semibold" textsize="2.5" halign="right"/>
+	</frame>
+
+	<!-- Status (flag and connection status) -->
+	<frame id="frame-status" pos="{{{Pos_PlayerStatus.X}}} {{{Pos_PlayerStatus.Y}}}" >
+		<quad id="quad-flag" pincorners="<-0.75,1.>:<1.,1.>:<0.75,-1.>:<-1.,-1.>" size="{{{Size_Flag.X}}} {{{Size_Flag.Y}}}" class="quad-base"/>
+		<quad id="quad-disconnected" hidden="1" image="{{{Icons::C_Icon_128x128_Profil_Disconnect_1}}}" size="{{{Size_Player.X * 0.03}}} {{{Size_Player.Y}}}" class="quad-base" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_IconLight)}}}"/>
+	</frame>
+
+	<!-- Echelon (bronze, silver or gold) -->
+	<frame id="frame-echelon" pos="{{{Pos_PlayerEchelon.X}}} {{{Pos_PlayerEchelon.Y}}}" >
+		<quad id="quad-echelon-shadow" z-index="-1" size="{{{Size_Player.Y * 1.35}}} {{{Size_Player.Y * 1.35}}}" class="quad-base" image="{{{Constants::C_ImageUrl_Echelon_64_Shadow}}}" colorize="000"/>
+		<quad id="quad-echelon" pos="{{{-Size_Player.Y * 0.25}}} 0" size="{{{Size_Player.Y * 1.35}}} {{{Size_Player.Y * 1.35}}}" class="quad-base" />
+	</frame>
+
+	<!-- Player name, club tag (and platform logo if needed) -->
+	<frameinstance id="playername-name" z-index="2" modelid="{{{PlayerName::C_Name}}}" pos="{{{Pos_PlayerName.X}}} {{{Pos_PlayerName.Y}}}" data-size="{{{Size_PlayerName.X}}} {{{Size_PlayerName.Y}}}" data-halign="left" data-valign="center" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" data-textsize="4." />
+
+	<!-- Voice chat speaker -->
+	<frame id="frame-voice-chat" hidden="1" pos="{{{Pos_PlayerVoiceChatSpeaker.X}}} {{{Pos_PlayerVoiceChatSpeaker.Y}}}">
+		<quad id="quad-speaker" size="6 6" colorize="FFF" class="quad-base"/>
+		<frameinstance
+			z-index="2"
+			id="loading-spinner-speaker"
+			modelid="{{{LoadingSpinner::C_Name}}}"
+			scale="0.18"
+			pos="2 -0.25"
+			hidden="1"
+		/>
+	</frame>
+
+	<!-- Match points -->
+	<label id="label-match-points" size="{{{Size_Player.X * 0.1}}} {{{Size_Player.Y}}}" pos="{{{Pos_PlayerMatchPoints.X}}} {{{Pos_PlayerMatchPoints.Y}}}" class="text-bold" halign="right"/>
+
+	<!-- Score (time, points, etc...) -->
+	<frame id="frame-score" pos="{{{Pos_PlayerScore.X}}} {{{Pos_PlayerScore.Y}}}" >
+		<label id="label-points" size="{{{Size_PlayerScore.X}}} {{{Size_PlayerScore.Y}}}" class="text-semibold" />
+		<label id="label-custom" size="{{{Size_PlayerScore.X}}} {{{Size_PlayerScore.Y}}}" class="text-semibold" />
+		<label id="label-time" size="{{{Size_PlayerScore.X}}} {{{Size_PlayerScore.Y}}}" class="text-semibold" />
+		<label id="label-cp-count" pos="{{{Pos_PlayerCPCount.X}}} {{{Pos_PlayerCPCount.Y}}}" size="{{{Size_PlayerCPCount.X}}} {{{Size_PlayerCPCount.Y}}}" halign="left" textsize="3" class="text-semibold"/>
+	</frame>
+
+	<!-- Round points -->
+	<frame id="frame-round-points" hidden="1" pos="{{{Pos_RoundPointsBg.X}}} {{{Pos_RoundPointsBg.Y}}}">
+		<label id="label-round-points" pos="{{{Pos_PlayerRoundPoints.X}}} {{{Pos_PlayerRoundPoints.Y}}}" size="{{{Size_PlayerScoreRoundPointsLabel.X}}} {{{Size_PlayerScoreRoundPointsLabel.Y}}}" class="text-bold" />
+		<frameinstance id="frame-score-round-points-background" modelid="{{{ExpendableAsset::C_Name}}}" data-width="{{{Size_PlayerScoreRoundPoints.X}}}" data-height="{{{Size_PlayerScoreRoundPoints.Y}}}" data-styles="{{{ExpendableAsset::C_Style_RightEdgeRounded}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFive)}}}" data-opacity="{{{UnfocusOpacityBg}}}" data-halign="left" data-valign="top" z-index="-1"/>
+	</frame>
+
+	<!-- Trophies -->
+	<frame id="frame-trophies" pos="{{{Pos_Trophies.X}}} {{{Pos_Trophies.Y}}}" hidden="1">
+		<frame id="frame-trophies-style-{{{C_TrophyStyle_Details}}}" pos="{{{Pos_TrophyDetails.X}}} {{{Pos_TrophyDetails.Y}}}" scale="{{{Scale_TrophyDetails}}}" hidden="1">
+			<frameinstance modelid="framemodel-trophy" pos="{{{Pos_TrophyDetailsList.X}}} 0" />
+			<frameinstance modelid="framemodel-trophy" pos="{{{Pos_TrophyDetailsList.Y}}} 0" />
+			<frameinstance modelid="framemodel-trophy" pos="{{{Pos_TrophyDetailsList.Z}}} 0" />
+		</frame>
+		<frame id="frame-trophies-style-{{{C_TrophyStyle_Group}}}" pos="{{{Pos_TrophyGroup.X}}} {{{Pos_TrophyGroup.Y}}}" hidden="1">
+			<quad id="quad-trophy-bg-icon" pos="{{{Pos_TrophyIconBg.X}}} {{{Pos_TrophyIconBg.Y}}}" z-index="1" size="{{{Size_TrophyBgIcon.X}}} {{{Size_TrophyBgIcon.Y}}}" opacity="0.5" />
+			<quad id="quad-best-trophy" class="quad-base" pos="{{{Pos_TrophyIcon.X}}} {{{Pos_TrophyIcon.Y}}}" z-index="2" size="{{{Size_TrophyIcon.X}}} {{{Size_TrophyIcon.Y}}}" autoscale="0" />
+			<label id="label-big-trophy" class="text-bold" pos="{{{Pos_LabelTrophy.X}}} {{{Pos_LabelTrophy.Y}}}" z-index="3" halign="right" size="{{{WidthScoreBgTrophies * 0.85 * 0.5}}} 10" textprefix="$i" />
+			<label id="label-small-trophy" class="text-bold" pos="{{{Pos_LabelTrophy.X}}} {{{Pos_LabelTrophy.Y - 0.4}}}" z-index="4" halign="left" size="{{{WidthScoreBgTrophies * 0.85 * 0.5}}} 10" textprefix="$i" textsize="2" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextSecondary)}}}" />
+		</frame>
+		<frame id="frame-trophies-style-{{{C_TrophyStyle_Points}}}" pos="{{{Pos_TrophyPoints.X}}} {{{Pos_TrophyPoints.Y}}}" hidden="1">
+			<quad id="quad-trophy-bg-icon" pos="{{{Pos_TrophyIconBg.X}}} {{{Pos_TrophyIconBg.Y}}}" z-index="1" size="{{{Size_TrophyBgIcon.X}}} {{{Size_TrophyBgIcon.Y}}}" opacity="0.5" />
+			<quad id="quad-best-trophy" class="quad-base" pos="{{{Pos_TrophyIcon.X}}} {{{Pos_TrophyIcon.Y}}}" z-index="2" size="{{{Size_TrophyIcon.X}}} {{{Size_TrophyIcon.Y}}}" autoscale="0" />
+			<label id="label-big-trophy" class="text-bold" pos="{{{Pos_LabelTrophy.X}}} {{{Pos_LabelTrophy.Y}}}" z-index="3" halign="right" size="{{{WidthScoreBgTrophies * 0.85}}} 10" textprefix="$i" />
+		</frame>
+	</frame>
+</framemodel>
+
+<!-- Frame layer -->
+<frame id="frame-scorestable-layer" z-index="{{{C_ZIndex_ScoresTable}}}" hidden="1">
+	<!-- Frame global -->
+	<frame hidden="1" id="frame-global">
+		<quad id="quad-black-bg" bgcolor="000" size="320 180" fullscreen="1" halign="center" valign="center" z-index="-3" opacity=".6"/>
+		<frameinstance modelid="{{{MenuButtonList::C_Name}}}" id="frame-button-list-scorestable" z-index="1" />
+		<frame {{{UIModules::CustomizableUIModule(UIModules_ScoresTable_Common::C_UIModuleConfig)}}}>
+
+			<!-- Backgrounds pop up -->
+			<frame id="frame-background" >
+				<quad id="quad-background" class="quad-base" z-index="0" size="{{{ImgSize_MainPopUp_Background.X}}} {{{ImgSize_MainPopUp_Background.Y}}}" image="{{{Image_Body}}}" opacity="0.95"/>
+				<quad id="quad-header" hidden="{{{IsTeamMode}}}" halign="center" valign="top" z-index="2" pos="{{{Pos_PopUpHeader.X}}} {{{Pos_PopUpHeader.Y}}}" size="{{{ImgSize_MainPopUp_HeaderMask.X}}} {{{ImgSize_MainPopUp_HeaderMask.Y}}}" image="{{{Image_Header}}}" alphamask="{{{Image_HeaderMask}}}" />
+				<quad id="quad-header-bg-team" hidden="{{{!IsTeamMode}}}" halign="center" valign="top" z-index="1" pos="{{{Pos_PopUpHeader.X}}} {{{Pos_PopUpHeader.Y}}}" size="{{{ImgSize_MainPopUp_HeaderMask.X}}} {{{ImgSize_MainPopUp_HeaderMask.Y}}}" image="{{{Image_HeaderBg}}}" />
+				<quad id="quad-header-blue-team" hidden="{{{!IsTeamMode}}}" colorize="{{{HeaderLeftColorize}}}" halign="center" valign="top" z-index="2" pos="{{{Pos_PopUpHeader.X}}} {{{Pos_PopUpHeader.Y}}}" size="{{{ImgSize_MainPopUp_HeaderMask.X}}} {{{ImgSize_MainPopUp_HeaderMask.Y}}}" image="{{{Image_HeaderLeft}}}" />
+				<quad id="quad-header-red-team" hidden="{{{!IsTeamMode}}}" colorize="{{{HeaderRightColorize}}}" halign="center" valign="top" z-index="2" pos="{{{Pos_PopUpHeader.X}}} {{{Pos_PopUpHeader.Y}}}" size="{{{ImgSize_MainPopUp_HeaderMask.X}}} {{{ImgSize_MainPopUp_HeaderMask.Y}}}" image="{{{Image_HeaderRight}}}" />
+			</frame>
+
+			<!-- Default header (common to modes like Time Attack, Rounds, etc...) -->
+			<frame id="frame-default-header" pos="{{{-ImgSize_MainPopUp_HeaderMask.X * 0.55}}} {{{ImgSize_MainPopUp_Background.Y * 0.4}}}">
+				<label id="label-info" pos="{{{ImgSize_MainPopUp_Background.X * 0.975}}} 3." z-index="1" size="{{{ImgSize_MainPopUp_HeaderMask.X * 0.4}}} 12" halign="right" valign="top" class="text-semibold" textprefix="$t$i" autonewline="1" maxline="3"/>
+				<label id="label-map-name" pos="{{{ImgSize_MainPopUp_Background.X * 0.15}}} -1" z-index="1" size="{{{ImgSize_MainPopUp_HeaderMask.X * 0.45}}} 12" halign="left" class="text-title" filter-profanities="Always"/>
+				<label id="label-map-author" pos="{{{ImgSize_MainPopUp_Background.X * 0.146}}} -8" z-index="1" size="{{{ImgSize_MainPopUp_HeaderMask.X * 0.45}}} 12" halign="left" class="text-regular"/>
+				<label id="label-players-nb" pos="{{{ImgSize_MainPopUp_Background.X * 0.14}}} -19" z-index="1" size="{{{ImgSize_MainPopUp_HeaderMask.X * 0.3}}} 10" halign="left" class="text-bold" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"/>
+			</frame>
+
+			<!-- Specific header for Teams mode -->
+			<frame id="frame-teams-header" pos="{{{-ImgSize_MainPopUp_HeaderMask.X * 0.55}}} {{{ImgSize_MainPopUp_Background.Y * 0.4}}}">
+				<label id="label-map-name" {{{MLHelpers::Pos(MLHelpers::SkewX(<ImgSize_MainPopUp_HeaderMask.X * 0.57, 4.>, 10.))}}} z-index="1" size="{{{ImgSize_MainPopUp_HeaderMask.X * 0.39}}} 12" class="text-title" filter-profanities="Always"/>
+				<label id="label-map-author" {{{MLHelpers::Pos(MLHelpers::SkewX(<ImgSize_MainPopUp_HeaderMask.X * 0.57, -3.>, 10.))}}} z-index="1" size="{{{ImgSize_MainPopUp_HeaderMask.X * 0.35}}} 12" class="text-regular"/>
+				<label id="label-info" {{{MLHelpers::Pos(MLHelpers::SkewX(<ImgSize_MainPopUp_HeaderMask.X * 0.57, -16.>, 10.))}}} z-index="1" size="{{{ImgSize_MainPopUp_HeaderMask.X * 0.41}}} 12" class="text-semibold" textprefix="$t$i" italicslope="0.2"/>
+				<label id="label-blue-team" pos="{{{ImgSize_MainPopUp_HeaderMask.X * 0.22}}} -5" size="60 15" text="{{{_("Blue")}}}" class="text-title" filter-profanities="OnlyIfNotTranslated"/>
+				<label id="label-blue-team-score" pos="{{{ImgSize_MainPopUp_HeaderMask.X * 0.215}}} -15" size="60 15" class="text-title"/>
+				<label id="label-red-team" pos="{{{ImgSize_MainPopUp_HeaderMask.X * 0.925}}} -5" size="60 15" text="{{{_("Red")}}}" class="text-title" filter-profanities="OnlyIfNotTranslated"/>
+				<label id="label-red-team-score" pos="{{{ImgSize_MainPopUp_HeaderMask.X * 0.92}}} -15" size="60 15" class="text-title"/>
+			</frame>
+
+			<label pos="5 28" size="100 13" text="{{{Text_LiveRanking}}}" class="text-bold" textsize="5"/>
+
+			<!-- Icon displayed if all players muted in voicechat -->
+			<quad id="quad-mute-all" pos="{{{Pos_IconMuteAll.X}}} {{{Pos_IconMuteAll.Y}}}" size="9 9" image="{{{Icons::C_Icon_128x128_Speaker_Mute}}}" colorize="FFF" class="quad-base"/>
+
+			<!-- Default players scroll -->
+			<frame id="frame-classic-scroll" hidden="{{{IsTeamMode}}}" z-index="2">
+				<frameinstance modelid="{{{Scroll::C_Name}}}" data-scroll-parent="frame-scroll-players" z-index="1" />
+				<frame
+					id="frame-scroll-players"
+					pos="{{{-ScrollConfig.WindowSize.X * 0.46}}} {{{ScrollConfig.WindowSize.Y * 0.29}}}"
+					class="{{{Scroll::C_Class_Window}}} {{{Navigation::C_Class}}}"
+					data-config="{{{TL::MLEncode(ScrollConfig.tojson())}}}"
+					data-pager-page-size="{{{PlayersPerPage*2}}}"
+					data-elements-per-line="{{{Scroll_ColumnsNb}}}"
+					data-element-size="{{{Size_Player.X}}} {{{Size_Player.Y}}}"
+					data-margin-size="{{{Size_PlayerMargin.X}}} {{{Size_PlayerMargin.Y}}}"
+					data-scroll-indicator-x-offset="-15"
+					data-scrollbar-xoffset="3"
+					data-nav-inputs="select;cancel;appmenu;action1"
+					data-nav-targets="_;_;_;_"
+					data-nav-group="{{{C_NavGroupName}}}"
+				>
+					<quad z-index="-1" scriptevents="1" class="{{{Scroll::C_Class_ScrollEvent}}}" />
+					{{{ML_Players}}}
+				</frame>
+			</frame>
+
+			<!-- Teams players scrolls -->
+			<frame id="frame-teams-scrolls" hidden="{{{!IsTeamMode}}}">
+				<frameinstance modelid="{{{Scroll::C_Name}}}" data-scroll-parent="frame-scroll-players-left-team" z-index="1" />
+				<frame
+					id="frame-scroll-players-left-team"
+					pos="{{{-ScrollConfig.WindowSize.X * 0.54}}} {{{ScrollConfig.WindowSize.Y * 0.29}}}"
+					class="{{{Scroll::C_Class_Window}}} {{{Navigation::C_Class}}}"
+					data-config="{{{TL::MLEncode(ScrollConfig.tojson())}}}"
+					data-pager-page-size="{{{PlayersPerPage*2}}}"
+					data-elements-per-line="{{{Scroll_ColumnsNb}}}"
+					data-element-size="{{{Size_Player.X}}} {{{Size_Player.Y}}}"
+					data-margin-size="{{{Size_PlayerMargin.X}}} {{{Size_PlayerMargin.Y}}}"
+					data-scroll-indicator-x-offset="-75"
+					data-nav-inputs="select;cancel;appmenu;action1;right"
+					data-nav-targets="_;_;_;_;frame-scroll-players-right-team"
+					data-nav-group="{{{C_NavGroupName}}}"
+				>
+					<quad z-index="-1" scriptevents="1" class="{{{Scroll::C_Class_ScrollEvent}}}" />
+					{{{ML_LeftTeam_Players}}}
+				</frame>
+
+				<frameinstance modelid="{{{Scroll::C_Name}}}" data-scroll-parent="frame-scroll-players-right-team" z-index="1" />
+				<frame
+					id="frame-scroll-players-right-team"
+					pos="{{{ScrollConfig.WindowSize.X * 0.04}}} {{{ScrollConfig.WindowSize.Y * 0.29}}}"
+					class="{{{Scroll::C_Class_Window}}} {{{Navigation::C_Class}}}"
+					data-config="{{{TL::MLEncode(ScrollConfig.tojson())}}}"
+					data-pager-page-size="{{{PlayersPerPage*2}}}"
+					data-elements-per-line="{{{Scroll_ColumnsNb}}}"
+					data-element-size="{{{Size_Player.X}}} {{{Size_Player.Y}}}"
+					data-margin-size="{{{Size_PlayerMargin.X}}} {{{Size_PlayerMargin.Y}}}"
+					data-scroll-indicator-x-offset="-75"
+					data-nav-inputs="select;cancel;appmenu;action1;left"
+					data-nav-targets="_;_;_;_;frame-scroll-players-left-team"
+					data-nav-group="{{{C_NavGroupName}}}"
+				>
+					<quad z-index="-1" scriptevents="1" class="{{{Scroll::C_Class_ScrollEvent}}}" />
+					{{{ML_RightTeam_Players}}}
+				</frame>
+			</frame>
+
+			<!-- Right top corner custom : label message -->
+			<label id="label-info-msg" z-index="2" size="65 5" pos="154 81" class="text-semibold" halign="right" textsize="2" focusareacolor1="00000000" focusareacolor2="00000030" scriptevents="1" />
+
+			<!-- Right bottom corner : trophy banner -->
+			<frame size="320 200" pos="-160 90">
+				<frame id="frame-trophy" z-index="1" pos="315 -145" hidden="1" scale="0.54">
+					<frame id="frame-trophy-banner" rot="-80" z-index="1">
+						<quad id="quad-trophy-banner" z-index="0" image="{{{Images::C_ImageUrl_ModeMenu_Banner_MedalsShortSymetry}}}" size="47.7 90" class="quad-base" keepratio="Fit"/>
+						<quad id="quad-trophy-banner-glow" z-index="1" image="{{{Images::C_ImageUrl_ModeMenu_Banner_MedalsShortGlowSymetry}}}" size="47.7 90" class="quad-base" keepratio="Fit"/>
+					</frame>
+					<quad id="quad-trophy" pos="-20 0" size="43 43" class="quad-base" autoscale="0" z-index="2"/>
+				</frame>
+			</frame>
+
+			<!-- Local player line at the bottom of the scroll -->
+			<frameinstance id="frame-personnal-rank" z-index="1" modelid="framemodel-player" pos="{{{Pos_PersonnalFrame.X}}} {{{Pos_PersonnalFrame.Y}}}" scale="{{{Scale_PersonnalFrame}}}"/>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Common.Script.txt" as UIModules_ScoresTable_Common
+#Include "Libs/Nadeo/CMGame/Modes/Bot.Script.txt" as Bot
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/Trackmania/Structures/ReportStruct.Script.txt" as ReportStruct
+
+#Struct UIModules_ScoresTable_Common::K_CustomName as K_CustomName
+
+#Struct K_Net_GhostData {
+	Text AccountId;
+	Text Nickname;
+	Integer Time;
+	Integer Points;
+	Integer NbRespawns;
+	Integer ZoneRank;
+	Text CountryPath;
+	Boolean IsVIP;
+	Integer ScoreMgrMedal;
+	Boolean IsPB;
+}
+
+// Used to sort Ghost and Scores on their times
+#Struct K_ScoreOrGhostEntry {
+	Text AccountId;
+	Boolean IsScore;
+	Integer ScoreIndex;
+	Text Nickname;
+	Integer Time;
+	Integer Points;
+	Integer NbRespawns;
+	Integer ZoneRank;
+	Text CountryPath;
+	Boolean IsVIP;
+	Integer ScoreMgrMedal;
+	Boolean IsPB;
+}
+
+#Struct K_ScoreOrGhost {
+	Boolean UseScoreOrGhostData;
+	K_ScoreOrGhostEntry[] ScoreOrGhostData;
+}
+
+#Struct K_Trophy {
+	Integer Level;
+	Integer Amount;
+}
+
+#Const C_ClanScrollElementsTotalUpdate_Frequency 1000
+#Const C_SpectatorsUpdateInterval 1000
+#Const C_IsTeamMode {{{dump(_ColumnsNb == 2)}}}
+#Const C_Id {{{dump(ModuleId)}}}
+#Const C_DefaultEchelon {{{dump(C_DefaultEchelon)}}}
+#Const C_IsPersonalBestId "IsPB"
+
+#Const C_Echelon_Bronze1 1
+#Const C_Echelon_Bronze2 2
+#Const C_Echelon_Bronze3 3
+#Const C_Echelon_Silver1 4
+#Const C_Echelon_Silver2 5
+#Const C_Echelon_Silver3 6
+#Const C_Echelon_Gold1 7
+#Const C_Echelon_Gold2 8
+#Const C_Echelon_Gold3 9
+
+#Const C_Image_TrophyIconBgGold "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scoretable_line_trophy_gold.dds"
+#Const C_Image_TrophyIconBgSilver "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scoretable_line_trophy_silver.dds"
+#Const C_Image_TrophyIconBgBronze "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scoretable_line_trophy_bronze.dds"
+
+#Const C_Default_BlueColor <0.,0.,1.>
+#Const C_Default_RedColor <1.,0.,0.>
+#Const C_BlueTeamColorBg "040D7C"
+#Const C_RedTeamColorBg "540404"
+
+//L16N [ScoresTable] Text displayed on the line of the bronze medal opponent in Solo
+#Const C_Text_BronzeMedal _("Bronze medal")
+//L16N [ScoresTable] Text displayed on the line of the silver medal opponent in Solo
+#Const C_Text_SilverMedal _("Silver medal")
+//L16N [ScoresTable] Text displayed on the line of the gold medal opponent in Solo
+#Const C_Text_GoldMedal _("Gold medal")
+""",
+"""
+declare CMlFrame G_Frame_CurrentlySelectedPlayer;
+declare CMlFrame G_Frame_CurrentScroll;
+declare Text G_CurrentlySelectedPlayerUserId;
+declare Text G_CurrentlyFocusedPlayerUserId;
+declare Text G_MatchId;
+declare Text G_MatchmakingId;
+
+Void UpdateEchelon(CMlQuad _Quad_Echelon, CMlQuad _Quad_EchelonShadow, Integer _Echelon, Boolean _IsVisible) {
+	if (_Quad_Echelon == Null || _Quad_EchelonShadow == Null) return;
+	if (!_IsVisible) {
+		_Quad_Echelon.ChangeImageUrl("");
+		_Quad_EchelonShadow.ChangeImageUrl("");
+	} else {
+		_Quad_EchelonShadow.ChangeImageUrl("{{{Constants::C_ImageUrl_Echelon_64_Shadow}}}");
+		switch (_Echelon) {
+			case C_Echelon_Bronze1: {
+				_Quad_Echelon.ChangeImageUrl("{{{Constants::C_ImageUrl_Echelon_64_Bronze1}}}");
+			}
+			case C_Echelon_Bronze2: {
+				_Quad_Echelon.ChangeImageUrl("{{{Constants::C_ImageUrl_Echelon_64_Bronze2}}}");
+			}
+			case C_Echelon_Bronze3: {
+				_Quad_Echelon.ChangeImageUrl("{{{Constants::C_ImageUrl_Echelon_64_Bronze3}}}");
+			}
+			case C_Echelon_Silver1: {
+				_Quad_Echelon.ChangeImageUrl("{{{Constants::C_ImageUrl_Echelon_64_Silver1}}}");
+			}
+			case C_Echelon_Silver2: {
+				_Quad_Echelon.ChangeImageUrl("{{{Constants::C_ImageUrl_Echelon_64_Silver2}}}");
+			}
+			case C_Echelon_Silver3: {
+				_Quad_Echelon.ChangeImageUrl("{{{Constants::C_ImageUrl_Echelon_64_Silver3}}}");
+			}
+			case C_Echelon_Gold1: {
+				_Quad_Echelon.ChangeImageUrl("{{{Constants::C_ImageUrl_Echelon_64_Gold1}}}");
+			}
+			case C_Echelon_Gold2: {
+				_Quad_Echelon.ChangeImageUrl("{{{Constants::C_ImageUrl_Echelon_64_Gold2}}}");
+			}
+			case C_Echelon_Gold3: {
+				_Quad_Echelon.ChangeImageUrl("{{{Constants::C_ImageUrl_Echelon_64_Gold3}}}");
+			}
+			default: {
+				_Quad_Echelon.ChangeImageUrl("{{{Constants::C_ImageUrl_Echelon_64_Unranked}}}");
+			}
+		}
+	}
+}
+
+Void SetRacePoints(CMlFrame _Frame_RoundPoints, Integer _RacePoints, Boolean _IsLocalPlayer) {
+	_Frame_RoundPoints.Visible = _RacePoints != 0;
+	if (_Frame_RoundPoints.Visible) {
+		declare CMlLabel Label_RoundPoints <=> (_Frame_RoundPoints.GetFirstChild("label-round-points") as CMlLabel);
+		if (_RacePoints > 0) {
+			Label_RoundPoints.Value = "+"^_RacePoints;
+		} else if (_RacePoints < 0) {
+			Label_RoundPoints.Value = TL::ToText(_RacePoints);
+		}
+		if (_IsLocalPlayer) {
+			Label_RoundPoints.TextColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+		} else {
+			Label_RoundPoints.TextColor = <1., 1., 1.>;
+		}
+		Tools::FitLabelValue(Label_RoundPoints, 4., 1., 0.25);
+	}
+}
+
+Void UpdateRank(CMlFrame _Frame_Rank, Text _Rank, K_ScoreOrGhostEntry _ScoreOrGhostData, Boolean _IsPlayerSelected) {
+	if (_Frame_Rank == Null) return;
+	declare CMlLabel Label_Rank <=> (_Frame_Rank.GetFirstChild("label-rank") as CMlLabel);
+	Label_Rank.Value = _Rank;
+	Label_Rank.Visible = !_ScoreOrGhostData.IsVIP && _ScoreOrGhostData.ScoreMgrMedal == Medals::C_ScoreMgrMedal_None;
+
+	declare CMlQuad Quad_VIP <=> (_Frame_Rank.GetFirstChild("quad-vip") as CMlQuad);
+	Quad_VIP.Visible = _ScoreOrGhostData.IsVIP;
+	declare CMlQuad Quad_Medal <=> (_Frame_Rank.GetFirstChild("quad-medal") as CMlQuad);
+	declare CMlLabel Label_Ghost <=> (_Frame_Rank.GetFirstChild("label-ghost") as CMlLabel);
+	Quad_Medal.Visible = _ScoreOrGhostData.ScoreMgrMedal != Medals::C_ScoreMgrMedal_None;
+	Label_Ghost.Visible = !_IsPlayerSelected && (Quad_Medal.Visible || _ScoreOrGhostData.IsPB);
+	if (Quad_Medal.Visible) {
+		switch (_ScoreOrGhostData.ScoreMgrMedal) {
+			case Medals::C_ScoreMgrMedal_Bronze: {
+				Quad_Medal.ChangeImageUrl("{{{Constants::C_ImageUrl_Medal_Bronze}}}");
+				Label_Ghost.Value = C_Text_BronzeMedal;
+			}
+			case Medals::C_ScoreMgrMedal_Silver: {
+				Quad_Medal.ChangeImageUrl("{{{Constants::C_ImageUrl_Medal_Silver}}}");
+				Label_Ghost.Value = C_Text_SilverMedal;
+			}
+			case Medals::C_ScoreMgrMedal_Gold: {
+				Quad_Medal.ChangeImageUrl("{{{Constants::C_ImageUrl_Medal_Gold}}}");
+				Label_Ghost.Value = C_Text_GoldMedal;
+			}
+		}
+		Label_Ghost.TextColor = Medals::GetMedalColorVec3(_ScoreOrGhostData.ScoreMgrMedal);
+		Tools::FitLabelValue(Label_Ghost, 2.5, 1., 0.25);
+	}	else if (_ScoreOrGhostData.IsPB) {
+		Label_Ghost.Value = _ScoreOrGhostData.Nickname;
+		Label_Ghost.TextColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+		Tools::FitLabelValue(Label_Ghost, 2.5, 1., 0.25);
+	}
+}
+
+Void UpdateRank(CMlFrame _Frame_Rank, Text _Rank, K_ScoreOrGhostEntry _ScoreOrGhostData) {
+	UpdateRank(_Frame_Rank, _Rank, _ScoreOrGhostData, False);
+}
+
+Void UpdateRank(CMlFrame _Frame_Rank, Text _Rank) {
+	declare K_ScoreOrGhostEntry FakeEntry = K_ScoreOrGhostEntry {
+		AccountId = "",
+		IsScore = False,
+		ScoreIndex = -1,
+		Nickname = "",
+		Time = -1,
+		Points = -1,
+		NbRespawns = -1,
+		ZoneRank = -1,
+		CountryPath = "",
+		IsVIP = False,
+		ScoreMgrMedal = Medals::C_ScoreMgrMedal_None,
+		IsPB = False
+	};
+	UpdateRank(_Frame_Rank, _Rank, FakeEntry);
+}
+
+Void Focus(CMlControl _From, CMlControl _To) {
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{Scroll::P}}}IsScroll(_From)) {
+			{{{Scroll::P}}}Unfocus(This, (_From as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_From)) {
+			{{{ExpendableButton::P}}}Unfocus(This, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{Scroll::P}}}IsScroll(_To)) {
+			{{{Scroll::P}}}Focus(This, (_To as CMlFrame));
+			G_Frame_CurrentScroll = (_To as CMlFrame);
+		} else if ({{{ExpendableButton::P}}}IsButton(_To)) {
+			{{{ExpendableButton::P}}}Focus(This, (_To as CMlFrame));
+		}
+	}
+}
+
+Void FocusPlayer(CMlFrame _Frame_Player, Boolean _IsFocused, Boolean _AnotherPlayerIsSelected) {
+	if (_Frame_Player == Null) return;
+	declare Text PlayerWebServicesUserId for _Frame_Player = "";
+	if (_IsFocused) {
+		G_CurrentlyFocusedPlayerUserId = PlayerWebServicesUserId;
+	} else if (!_IsFocused &&	G_CurrentlyFocusedPlayerUserId == PlayerWebServicesUserId) {
+		G_CurrentlyFocusedPlayerUserId = "";
+	}
+
+	declare Frame_Player_Background = (_Frame_Player.GetFirstChild("frame-player-background") as CMlFrame);
+	declare Frame_Player_ScoreBackground = (_Frame_Player.GetFirstChild("frame-score-background") as CMlFrame);
+	declare Frame_Player_ScoreRoundPointsBackground = (_Frame_Player.GetFirstChild("frame-score-round-points-background") as CMlFrame);
+	declare PlayerName_Name <=> (_Frame_Player.GetFirstChild("playername-name") as CMlFrame);
+	declare Label_Points <=> (_Frame_Player.GetFirstChild("label-points") as CMlLabel);
+	declare Label_Custom <=> (_Frame_Player.GetFirstChild("label-custom") as CMlLabel);
+	declare Label_Time <=> (_Frame_Player.GetFirstChild("label-time") as CMlLabel);
+	declare Label_CpCount <=> (_Frame_Player.GetFirstChild("label-cp-count") as CMlLabel);
+	declare Label_MatchPoints <=> (_Frame_Player.GetFirstChild("label-match-points") as CMlLabel);
+
+	declare Real LabelOpacity = 1.;
+	if (_IsFocused) {
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Player_Background, 1.);
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Player_ScoreBackground, 1.);
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Player_ScoreRoundPointsBackground, 1.);
+	} else {
+		if (_AnotherPlayerIsSelected) {
+			{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Player_Background, {{{UnselectedOpacityBg}}});
+			{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Player_ScoreBackground, {{{UnselectedOpacityBg}}});
+			{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Player_ScoreRoundPointsBackground, {{{UnselectedOpacityBg}}});
+			LabelOpacity = {{{UnselectedOpacityBg}}};
+		} else {
+			{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Player_Background, {{{UnfocusOpacityBg}}});
+			{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Player_ScoreBackground, {{{UnfocusOpacityBg}}});
+			{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Player_ScoreRoundPointsBackground, {{{UnfocusOpacityBg}}});
+		}
+	}
+	AnimMgr.Flush(Label_Points);
+	AnimMgr.Flush(Label_Custom);
+	AnimMgr.Flush(Label_Time);
+	AnimMgr.Flush(Label_CpCount);
+	AnimMgr.Flush(Label_MatchPoints);
+	{{{PlayerName::P}}}SetOpacity(This, PlayerName_Name, LabelOpacity, 200);
+	AnimMgr.Add(Label_Points, "<anim opacity=\""^LabelOpacity^"\" />", Now, 200, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(Label_Custom, "<anim opacity=\""^LabelOpacity^"\" />", Now, 200, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(Label_Time, "<anim opacity=\""^LabelOpacity^"\" />", Now, 200, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(Label_CpCount, "<anim opacity=\""^LabelOpacity^"\" />", Now, 200, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(Label_MatchPoints, "<anim opacity=\""^LabelOpacity^"\" />", Now, 200, CAnimManager::EAnimManagerEasing::QuadOut);
+}
+
+Void FocusPlayer(CMlFrame _Frame_Player, Boolean _IsFocused) {
+	FocusPlayer(_Frame_Player, _IsFocused, False);
+}
+
+Void Lock(CMlControl _Control, Boolean _IsLocked) {
+	if (_Control == Null) return;
+	if ({{{Navigation::P}}}IsNavigationControl(_Control)) {{{Navigation::P}}}Lock(_Control, _IsLocked);
+	if ((_Control is CMlFrame)) {
+		declare CMlQuad Quad_Hitbox <=> ((_Control as CMlFrame).GetFirstChild("quad-hitbox") as CMlQuad);
+		if (Quad_Hitbox != Null) Quad_Hitbox.Visible = !_IsLocked;
+	}
+	if ({{{ExpendableButton::P}}}IsButton(_Control)) {
+		if (_IsLocked) {{{ExpendableButton::P}}}SetBackgroundOpacityUnfocused(This, _Control as CMlFrame, 0.6);
+		else {{{ExpendableButton::P}}}SetBackgroundOpacityUnfocused(This, _Control as CMlFrame, 0.8);
+	}
+}
+
+CSmPlayer GetPlayer(Text _Id) {
+	if (_Id != "") {
+		foreach (Player in Players) {
+			if (
+				Player != Null &&
+				Player.User != Null &&
+				Player.User.WebServicesUserId == _Id
+			) {
+				return Player;
+			}
+		}
+	}
+	return Null;
+}
+
+Void UpdateSpectateButton() {
+	if (G_Frame_CurrentlySelectedPlayer == Null) return;
+	declare Text PlayerWebServicesUserId for G_Frame_CurrentlySelectedPlayer = "";
+	declare CSmPlayer CurrentlySelectedPlayer <=> GetPlayer(PlayerWebServicesUserId);
+
+	declare Frame_Select <=> (G_Frame_CurrentlySelectedPlayer.GetFirstChild("frame-select-player") as CMlFrame);
+	declare CMlFrame Button_Spectate;
+	if (Frame_Select != Null) {
+		Page.GetClassChildren("{{{C_Class_Spectate_Button}}}", Frame_Select, False);
+		if (Page.GetClassChildren_Result.count > 0 && (Page.GetClassChildren_Result[0] is CMlFrame)) {
+			Button_Spectate <=> Page.GetClassChildren_Result[0] as CMlFrame;
+		}
+	}
+	if (Button_Spectate == Null) return;
+
+	if (
+		CurrentlySelectedPlayer != Null &&
+		CurrentlySelectedPlayer.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned
+	) {
+		{{{ExpendableButton::P}}}SetIconImageUrl(This, Button_Spectate, "{{{Icons::C_Icon_128x128_Cam_Follow_Inc}}}");
+		Lock(Button_Spectate, False);
+	} else {
+		if (
+			InputPlayer != Null &&
+			CurrentlySelectedPlayer != Null &&
+			CurrentlySelectedPlayer.Id == InputPlayer.Id &&
+			IsSpectatorClient
+		) {
+			{{{ExpendableButton::P}}}SetIconImageUrl(This, Button_Spectate, "{{{Icons::C_Icon_128x128_Cam_Unfollow_Inc}}}");
+			Lock(Button_Spectate, False);
+		} else {
+			{{{ExpendableButton::P}}}SetIconImageUrl(This, Button_Spectate, "{{{Icons::C_Icon_128x128_Cam_Follow_Inc}}}");
+			Lock(Button_Spectate, True);
+		}
+	}
+}
+
+Void SetScoreAndTrophyBgVisibility(CMlFrame _Frame_Player, Integer _ScoreMode, Boolean _IsSelected) {
+	declare CMlFrame Frame_Trophies <=> (_Frame_Player.GetFirstChild("frame-trophies") as CMlFrame);
+	declare CMlFrame Frame_ScoreBg <=> (_Frame_Player.GetFirstChild("frame-score-background") as CMlFrame);
+	declare Boolean DefaultScoreBg = (
+		_ScoreMode != {{{C_Mode_Trophy}}} ||
+		_Frame_Player.ControlId == "frame-personnal-rank" || (
+			{{{C_TrophyStyle != C_TrophyStyle_Group}}} &&
+			{{{C_TrophyStyle != C_TrophyStyle_Points}}}
+		)
+	);
+
+	if (DefaultScoreBg) {
+		{{{ExpendableAsset::P}}}SetWidth(This, Frame_ScoreBg, {{{WidthScoreBgDefault}}}, False);
+	} else {
+		{{{ExpendableAsset::P}}}SetWidth(This, Frame_ScoreBg, {{{WidthScoreBgTrophies}}}, False);
+	}
+	{{{ExpendableAsset::P}}}RedrawAsset(This, Frame_ScoreBg, False);
+	Frame_Trophies.Visible = _ScoreMode == {{{C_Mode_Trophy}}};
+}
+
+// Button visible only when selecting local player, display micro if muted or not
+Void UpdateMySpeakerDisplay(CMlFrame _Button_Mute) {
+	if (UserMgr.VoiceChat_Mute_Myself) {
+		{{{ExpendableButton::P}}}SetIconImageUrl(This, _Button_Mute, "{{{Icons::C_Icon_128x128_Micro_Off}}}");
+	} else {
+		{{{ExpendableButton::P}}}SetIconImageUrl(This, _Button_Mute, "{{{Icons::C_Icon_128x128_Micro_On}}}");
+	}
+}
+
+// Button visible only when selecting a player, display the current state (muted, speaking or not)
+Void UpdatePlayerSpeakerDisplay(Text _AccountId, CMlFrame _Button_Mute, CMlFrame _LoadingSpinner_Mute) {
+	declare CGameUserVoiceChat VoiceChatUser = UserMgr.VoiceChat_FindUserFromWebServicesUserId(_AccountId);
+	if (VoiceChatUser != Null && VoiceChatUser.IsConnected) { // If players are not connected, lock their speaker, it means they are not in the channel (because player disabled voice chat in setting for example)
+		Lock(_Button_Mute, False);
+		declare Text ImageUrl = "{{{Icons::C_Icon_128x128_Speaker_Off}}}";
+		if (!VoiceChatUser.MuteChangePending) {
+			if (VoiceChatUser.IsMuted) {
+				ImageUrl = "{{{Icons::C_Icon_128x128_Speaker_Mute}}}";
+			} else if (VoiceChatUser.IsSpeaking) {
+				ImageUrl = "{{{Icons::C_Icon_128x128_Speaker_On}}}";
+			}
+		}
+
+		{{{ExpendableButton::P}}}SetIconImageUrl(This, _Button_Mute, ImageUrl, False);
+
+		// Start or stop mute loading spinner if necessary
+		_LoadingSpinner_Mute.Visible = VoiceChatUser.MuteChangePending;
+		if (_LoadingSpinner_Mute.Visible && !{{{LoadingSpinner::P}}}IsLoading(_LoadingSpinner_Mute)) {{{LoadingSpinner::P}}}StartAnimation(This, _LoadingSpinner_Mute);
+		else if (!_LoadingSpinner_Mute.Visible && {{{LoadingSpinner::P}}}IsLoading(_LoadingSpinner_Mute)) {{{LoadingSpinner::P}}}StopAnimation(This, _LoadingSpinner_Mute);
+	} else {
+		Lock(_Button_Mute, True);
+		{{{ExpendableButton::P}}}SetIconImageUrl(This, _Button_Mute, "{{{Icons::C_Icon_128x128_Speaker_Off}}}", False);
+	}
+}
+
+Boolean IsVoiceChatEnabled() {
+	declare netread Boolean Net_TMGame_ScoresTable_IsVoiceChatEnabled for Teams[0];
+	return UserMgr.VoiceChat_DisplayUI && Net_TMGame_ScoresTable_IsVoiceChatEnabled;
+}
+
+Void SelectPlayerDisplay(CMlFrame _Frame_Player, Boolean _IsSelected) {
+	if (_Frame_Player == Null || _Frame_Player.ControlId == "frame-personnal-rank") return;
+	declare CMlFrame Frame_Background <=> (_Frame_Player.GetFirstChild("frame-player-background") as CMlFrame);
+	declare CMlFrame Frame_Select <=> (_Frame_Player.GetFirstChild("frame-select-player") as CMlFrame);
+	declare CMlQuad Quad_HitboxPlayer <=> (_Frame_Player.GetFirstChild("quad-hitbox") as CMlQuad);
+	declare Frame_VoiceChat <=> (_Frame_Player.GetFirstChild("frame-voice-chat") as CMlFrame);
+
+	Frame_Select.Visible = _IsSelected;
+	if (_IsSelected) {
+		_Frame_Player.GetFirstChild("label-ghost").Visible = False;
+
+		if (IsVoiceChatEnabled()) {
+			{{{ExpendableAsset::P}}}SetWidth(This, Frame_Background, {{{WidthPlayerBgSelected_VoiceChatEnabled}}}, False);
+			Quad_HitboxPlayer.Size.X = {{{WidthPlayerBgSelected_VoiceChatEnabled + OffsetHitboxAndSelectedIcons}}};
+			Frame_VoiceChat.Visible = False;
+			// Update mute button icon
+			Page.GetClassChildren("{{{C_Class_Mute_Button}}}", Frame_Select, False);
+			if (Page.GetClassChildren_Result.count > 0 && (Page.GetClassChildren_Result[0] is CMlFrame)) {
+				declare CMlFrame Button_Mute = Page.GetClassChildren_Result[0] as CMlFrame;
+				declare Text PlayerWebServicesUserId for _Frame_Player = "";
+				if (PlayerWebServicesUserId == LocalUser.WebServicesUserId) {
+					UpdateMySpeakerDisplay(Button_Mute);
+				} else {
+					Page.GetClassChildren("{{{C_Class_Mute_Loading}}}", Frame_Select, False);
+					if (Page.GetClassChildren_Result.count > 0 && (Page.GetClassChildren_Result[0] is CMlFrame)) {
+						declare CMlFrame LoadingSpinner_Mute = Page.GetClassChildren_Result[0] as CMlFrame;
+						UpdatePlayerSpeakerDisplay(PlayerWebServicesUserId, Button_Mute, LoadingSpinner_Mute);
+					}
+				}
+			}
+		} else {
+			{{{ExpendableAsset::P}}}SetWidth(This, Frame_Background, {{{WidthPlayerBgSelected}}}, False);
+			Quad_HitboxPlayer.Size.X = {{{WidthPlayerBgSelected + OffsetHitboxAndSelectedIcons}}};
+		}
+		{{{ExpendableAsset::P}}}RedrawAsset(This, Frame_Background, False);
+	} else {
+		Quad_HitboxPlayer.Size.X = {{{WidthHitbox}}};
+		{{{ExpendableAsset::P}}}SetWidth(This, Frame_Background, {{{WidthPlayerBgDefault}}}, False);
+		{{{ExpendableAsset::P}}}RedrawAsset(This, Frame_Background, False);
+	}
+}
+
+
+Void SelectPlayer(CMlFrame _Frame_Player, Boolean _IsSelected) {
+	if (_Frame_Player == Null || _Frame_Player.ControlId == "frame-personnal-rank") return;
+	if (_IsSelected) {
+		if (G_Frame_CurrentlySelectedPlayer != Null && G_Frame_CurrentlySelectedPlayer != _Frame_Player) {
+			SelectPlayerDisplay(G_Frame_CurrentlySelectedPlayer, False);
+			FocusPlayer(G_Frame_CurrentlySelectedPlayer, False, True);
+		}
+		G_Frame_CurrentlySelectedPlayer = _Frame_Player;
+		declare Text PlayerWebServicesUserId for _Frame_Player = "";
+		G_CurrentlySelectedPlayerUserId = PlayerWebServicesUserId;
+	}
+
+	if (
+		!_IsSelected &&
+		G_Frame_CurrentlySelectedPlayer != Null &&
+		G_Frame_CurrentlySelectedPlayer.Id == _Frame_Player.Id
+	) {
+		G_Frame_CurrentlySelectedPlayer = Null;
+		G_CurrentlySelectedPlayerUserId = "";
+	}
+
+	UpdateSpectateButton();
+	SelectPlayerDisplay(_Frame_Player, _IsSelected);
+}
+
+Void OpenProfile(Text _Login, Boolean _IsGhost, Text _RecordDetail, Text _RecordId, Text _MatchId, Text _MatchmakingId) {
+	declare Text TMGame_ScoresTable_OpenProfileUserId for ClientUI = "";
+	TMGame_ScoresTable_OpenProfileUserId = _Login;
+	declare Boolean TMGame_ScoresTable_OpenProfileUserIsGhost for ClientUI = False;
+	TMGame_ScoresTable_OpenProfileUserIsGhost = _IsGhost;
+	declare Text TMGame_ScoresTable_OpenProfileUserRecordDetail for ClientUI = "";
+	TMGame_ScoresTable_OpenProfileUserRecordDetail = _RecordDetail;
+	declare Text TMGame_ScoresTable_OpenProfileUserRecordId for ClientUI = "";
+	TMGame_ScoresTable_OpenProfileUserRecordId = _RecordId;
+	declare Text TMGame_ScoresTable_OpenProfileUserMatchId for ClientUI = "";
+	TMGame_ScoresTable_OpenProfileUserMatchId = _MatchId;
+	declare Text TMGame_ScoresTable_OpenProfileUserMatchmakingId for ClientUI = "";
+	TMGame_ScoresTable_OpenProfileUserMatchmakingId = _MatchmakingId;
+}
+
+Void MuteMyself() {
+	UserMgr.VoiceChat_Mute_Myself = !UserMgr.VoiceChat_Mute_Myself;
+}
+
+Void UpdateControllerInfos(CMlFrame _Frame_ButtonList, Boolean _ScoresTableEnabledFromMenu) {
+	if (_ScoresTableEnabledFromMenu) {
+		declare Text[Text] ControllerInfos = ["A" => _("Select")];
+
+		// FindMyself option not available in SplitScreen
+		if (SplitScreenCount <= 1) ControllerInfos["AppMenu"] = "{{{Text_FindMySelf}}}";
+
+		if (IsVoiceChatEnabled()) {
+			if (ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting == CGameUserVoiceChat::EMuteSetting::Muted) {
+				ControllerInfos["Action1"] = "{{{Text_UnmuteAll}}}";
+			} else {
+				ControllerInfos["Action1"] = "{{{Text_MuteAll}}}";
+			}
+		}
+
+		ControllerInfos["pageup"] = "";
+		ControllerInfos["pagedown"] = _("Scroll");
+		ControllerInfos["B"] = _("Back");
+
+		{{{MenuButtonList::P}}}SetButtons(_Frame_ButtonList, ControllerInfos);
+	} else {
+		{{{MenuButtonList::P}}}SetButtons(_Frame_ButtonList, []);
+	}
+}
+
+Void UpdateMuteAllDisplay(CMlQuad _Quad_MuteAll, CMlFrame _Frame_ButtonList) {
+	declare Boolean AllPlayerMuted = UserMgr.VoiceChat_Users_Remote_Muted.count > 0 && UserMgr.VoiceChat_Users_Remote_Muted.count == UserMgr.VoiceChat_Users_Remote.count;
+	_Quad_MuteAll.Visible = IsVoiceChatEnabled() && AllPlayerMuted;
+
+	// Adapt DefaultMuteSetting if player manually mute or unmute everyone
+	if (AllPlayerMuted && ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting == CGameUserVoiceChat::EMuteSetting::NotMuted) {
+		ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting = CGameUserVoiceChat::EMuteSetting::Muted;
+	} else if (UserMgr.VoiceChat_Users_Remote_Muted.count == 0 && ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting == CGameUserVoiceChat::EMuteSetting::Muted) {
+		ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting = CGameUserVoiceChat::EMuteSetting::NotMuted;
+	}
+	UpdateControllerInfos(_Frame_ButtonList, {{{ScoresTableVisibility::P}}}EnabledFromMenu());
+}
+
+Void MuteAll() {
+	if (ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting == CGameUserVoiceChat::EMuteSetting::NotMuted) {
+		ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting = CGameUserVoiceChat::EMuteSetting::Muted;
+		UserMgr.VoiceChat_MuteAll();
+	} else {
+		ParentApp.VoiceChat.NewRemoteUser_DefaultMuteSetting = CGameUserVoiceChat::EMuteSetting::NotMuted;
+		UserMgr.VoiceChat_UnmuteAll();
+	}
+}
+
+Void Mute(Text _AccountId, CMlFrame _Button_Mute) {
+	declare CGameUserVoiceChat VoiceChatUser = UserMgr.VoiceChat_FindUserFromWebServicesUserId(_AccountId);
+	if (VoiceChatUser != Null) {
+		if (VoiceChatUser.MuteSetting == CGameUserVoiceChat::EMuteSetting::Muted) {
+			VoiceChatUser.MuteSetting = CGameUserVoiceChat::EMuteSetting::NotMuted;
+		} else {
+			VoiceChatUser.MuteSetting = CGameUserVoiceChat::EMuteSetting::Muted;
+		}
+	}
+}
+
+/** Handle select input
+ *
+ *	@return														True if page changed, False otherwise
+ */
+Boolean Select(CMlControl _Control) {
+	if (_Control == Null) return False;
+
+	declare Result = False;
+
+	if (_Control.HasClass("{{{C_Class_Spectate_Button}}}")) {
+		if (G_Frame_CurrentlySelectedPlayer != Null) {
+			declare CSmPlayer CurrentlySelectedPlayer;
+			declare Text PlayerWebServicesUserId for G_Frame_CurrentlySelectedPlayer = "";
+			CurrentlySelectedPlayer <=> GetPlayer(PlayerWebServicesUserId);
+			if (
+				InputPlayer != Null &&
+				CurrentlySelectedPlayer != Null &&
+				CurrentlySelectedPlayer.Id == InputPlayer.Id &&
+				IsSpectatorClient
+			) {
+				RequestSpectatorClient(False);
+			} else {
+				if (InputPlayer != Null && InputPlayer.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned) RequestSpectatorClient(True);
+				if (CurrentlySelectedPlayer != Null && CurrentlySelectedPlayer.User != Null && CurrentlySelectedPlayer.User.Login != "") {
+					ClientUI.SpectatorForceCameraType = 15;
+					ClientUI.Spectator_SetForcedTarget_Clear();
+					SetSpectateTarget(CurrentlySelectedPlayer.User.Login);
+				}
+			}
+		}
+		SelectPlayer(G_Frame_CurrentlySelectedPlayer, False);
+		Result = True;
+		// When player wants to spectate another player from the pause menu scores table, we resume to the game
+		if ({{{ScoresTableVisibility::P}}}EnabledFromMenu()) {
+			{{{ScoresTableVisibility::P}}}SetEnabledFromMenu(False);
+		}
+	} else if (_Control.HasClass("{{{C_Class_Profile_Button}}}")) {
+		if (G_Frame_CurrentlySelectedPlayer != Null) {
+			declare Text PlayerWebServicesUserId for G_Frame_CurrentlySelectedPlayer = "";
+			declare Text PlayerRecordDetail for G_Frame_CurrentlySelectedPlayer = "";
+			declare Text PlayerRecordId for G_Frame_CurrentlySelectedPlayer = "";
+			if (PlayerWebServicesUserId == C_IsPersonalBestId) PlayerWebServicesUserId = LocalUser.WebServicesUserId;
+			declare netread Boolean Net_TMGame_ScoresTable_IsLocalMode for Teams[0];
+			OpenProfile(PlayerWebServicesUserId, Net_TMGame_ScoresTable_IsLocalMode, PlayerRecordDetail, PlayerRecordId, G_MatchId, G_MatchmakingId);
+			if ({{{ScoresTableVisibility::P}}}EnabledFromMenu() && {{{Scroll::P}}}IsScroll(G_Frame_CurrentScroll)) {
+				Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), G_Frame_CurrentScroll);
+			}
+		}
+		SelectPlayer(G_Frame_CurrentlySelectedPlayer, False);
+	} else if (_Control.HasClass("{{{C_Class_Mute_Button}}}")) {
+		if (G_Frame_CurrentlySelectedPlayer != Null) {
+			declare Text PlayerWebServicesUserId for G_Frame_CurrentlySelectedPlayer = "";
+			declare CSmPlayer CurrentlySelectedPlayer <=> GetPlayer(PlayerWebServicesUserId);
+			if (CurrentlySelectedPlayer != Null && CurrentlySelectedPlayer.User != Null) {
+				if (CurrentlySelectedPlayer.User.WebServicesUserId == LocalUser.WebServicesUserId) {
+					MuteMyself();
+				} else {
+					Mute(CurrentlySelectedPlayer.User.WebServicesUserId, _Control as CMlFrame);
+				}
+			}
+			if ({{{ScoresTableVisibility::P}}}EnabledFromMenu() && {{{Scroll::P}}}IsScroll(G_Frame_CurrentScroll)) {
+				Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), G_Frame_CurrentScroll);
+			}
+			SelectPlayer(G_Frame_CurrentlySelectedPlayer, False);
+		}
+	}
+
+	UpdateSpectateButton();
+	return Result;
+}
+
+Void SelectPlayer_FromScroll(CMlFrame _Frame_ScrollPlayer) {
+	if (_Frame_ScrollPlayer == Null) return;
+
+	declare CMlQuad Quad_HitboxPlayer = _Frame_ScrollPlayer.GetFirstChild("quad-hitbox") as CMlQuad;
+	if (Quad_HitboxPlayer.Visible) {
+		declare Text PlayerWebServicesUserId for _Frame_ScrollPlayer = "";
+		declare Boolean SelectPlayer = (G_CurrentlySelectedPlayerUserId == "" || G_CurrentlySelectedPlayerUserId != PlayerWebServicesUserId);
+		SelectPlayer(_Frame_ScrollPlayer, SelectPlayer);
+		if (SelectPlayer) {
+			declare Frame_Select <=> (_Frame_ScrollPlayer.GetFirstChild("frame-select-player") as CMlFrame);
+			Page.GetClassChildren("{{{C_Class_Profile_Button}}}", Frame_Select, False);
+			if (Page.GetClassChildren_Result.count > 0 && (Page.GetClassChildren_Result[0] is CMlFrame)) {
+				declare CMlFrame Button_Profile = Page.GetClassChildren_Result[0] as CMlFrame;
+				Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), Button_Profile);
+			}
+		}
+	}
+}
+
+Void ApplyTrophyImage(CMlQuad _Quad_Tropy, Integer _Level) {
+	switch (_Level) {
+		case 1: _Quad_Tropy.ImageUrl = "{{{Constants::C_ImageUrl_Trophy_128_Bronze1}}}";
+		case 2: _Quad_Tropy.ImageUrl = "{{{Constants::C_ImageUrl_Trophy_128_Bronze2}}}";
+		case 3: _Quad_Tropy.ImageUrl = "{{{Constants::C_ImageUrl_Trophy_128_Bronze3}}}";
+		case 4: _Quad_Tropy.ImageUrl = "{{{Constants::C_ImageUrl_Trophy_128_Silver1}}}";
+		case 5: _Quad_Tropy.ImageUrl = "{{{Constants::C_ImageUrl_Trophy_128_Silver2}}}";
+		case 6: _Quad_Tropy.ImageUrl = "{{{Constants::C_ImageUrl_Trophy_128_Silver3}}}";
+		case 7: _Quad_Tropy.ImageUrl = "{{{Constants::C_ImageUrl_Trophy_128_Gold1}}}";
+		case 8: _Quad_Tropy.ImageUrl = "{{{Constants::C_ImageUrl_Trophy_128_Gold2}}}";
+		case 9: _Quad_Tropy.ImageUrl = "{{{Constants::C_ImageUrl_Trophy_128_Gold3}}}";
+		default: _Quad_Tropy.ImageUrl = "{{{Constants::C_ImageUrl_Trophy_128_None}}}";
+	}
+}
+
+Void UpdatePlayer(
+	CMlFrame _Frame_Player,
+	Integer _Key,
+	Integer _ScoreMode,
+	Text[][Text] _CustomPoints,
+	Integer[Text] _MatchPoints,
+	Text[Text] _CustomRanks,
+	Boolean _DisplayRoundPoints,
+	K_ScoreOrGhost _ScoreOrGhost,
+	Boolean _IsLocalMode,
+	Integer[Text] _CustomTimes,
+	Integer[Integer] _ScrollKeyToScoreKey,
+	Integer _TrophyStyle,
+	Boolean _HideSpectators,
+	K_CustomName[Text] _CustomNames
+) {
+	if (_Frame_Player == Null) return;
+
+	_Frame_Player.Show();
+	declare Frame_Rank <=> (_Frame_Player.GetFirstChild("frame-rank") as CMlFrame);
+	declare Quad_Flag <=> (_Frame_Player.GetFirstChild("quad-flag") as CMlQuad);
+	declare Quad_Disconnected <=> (_Frame_Player.GetFirstChild("quad-disconnected") as CMlQuad);
+	declare Quad_Echelon <=> (_Frame_Player.GetFirstChild("quad-echelon") as CMlQuad);
+	declare Quad_EchelonShadow <=> (_Frame_Player.GetFirstChild("quad-echelon-shadow") as CMlQuad);
+	declare PlayerName_Name <=> (_Frame_Player.GetFirstChild("playername-name") as CMlFrame);
+	declare Frame_RoundPoints <=> (_Frame_Player.GetFirstChild("frame-round-points") as CMlFrame);
+	declare Label_Points <=> (_Frame_Player.GetFirstChild("label-points") as CMlLabel);
+	declare Label_Custom <=> (_Frame_Player.GetFirstChild("label-custom") as CMlLabel);
+	declare Label_Time <=> (_Frame_Player.GetFirstChild("label-time") as CMlLabel);
+	declare Label_CpCount <=> (_Frame_Player.GetFirstChild("label-cp-count") as CMlLabel);
+	declare Label_MatchPoints <=> (_Frame_Player.GetFirstChild("label-match-points") as CMlLabel);
+	declare Frame_VoiceChat <=> (_Frame_Player.GetFirstChild("frame-voice-chat") as CMlFrame);
+	declare Quad_Speaker <=> (Frame_VoiceChat.GetFirstChild("quad-speaker") as CMlQuad);
+	declare LoadingSpinner_Mute <=> (Frame_VoiceChat.GetFirstChild("loading-spinner-speaker") as CMlFrame);
+	declare Frame_Trophies <=> (_Frame_Player.GetFirstChild("frame-trophies") as CMlFrame);
+	declare Frame_TrophiesGroup <=> (Frame_Trophies.GetFirstChild("frame-trophies-style-{{{C_TrophyStyle_Group}}}") as CMlFrame);
+	declare Frame_TrophiesPoints <=> (Frame_Trophies.GetFirstChild("frame-trophies-style-{{{C_TrophyStyle_Points}}}") as CMlFrame);
+	declare Frame_TrophiesDetails <=> (Frame_Trophies.GetFirstChild("frame-trophies-style-{{{C_TrophyStyle_Details}}}") as CMlFrame);
+
+	declare Text PlayerWebServicesUserId for _Frame_Player = "";
+	declare Text PlayerRecordDetail for _Frame_Player = "";
+	declare Text PlayerRecordId for _Frame_Player = "";
+	declare Key = _Key;
+	declare Rank = Key + 1;
+
+	SetScoreAndTrophyBgVisibility(_Frame_Player, _ScoreMode, G_Frame_CurrentlySelectedPlayer == _Frame_Player);
+	Frame_TrophiesGroup.Visible = (_TrophyStyle == {{{C_TrophyStyle_Group}}});
+	Frame_TrophiesPoints.Visible = (_TrophyStyle == {{{C_TrophyStyle_Points}}});
+	Frame_TrophiesDetails.Visible = (_TrophyStyle == {{{C_TrophyStyle_Details}}});
+
+	declare Boolean IsGhost = False;
+	if (_ScoreOrGhost.UseScoreOrGhostData) {
+		if (_ScoreOrGhost.ScoreOrGhostData.existskey(Key)) {
+			if (_ScoreOrGhost.ScoreOrGhostData[Key].IsScore) {
+				Key = _ScoreOrGhost.ScoreOrGhostData[Key].ScoreIndex;
+			} else {
+				IsGhost = True;
+				PlayerWebServicesUserId = _ScoreOrGhost.ScoreOrGhostData[Key].AccountId;
+				declare Text_Rank = "-";
+				if (_ScoreOrGhost.ScoreOrGhostData[Key].ZoneRank > 0) {
+					Text_Rank = TL::ToText(_ScoreOrGhost.ScoreOrGhostData[Key].ZoneRank);
+				}
+
+				if (_ScoreOrGhost.ScoreOrGhostData[Key].IsPB && LocalUser != Null) {
+					{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}}, False);
+					{{{PlayerName::P}}}SetUser(This, PlayerName_Name, LocalUser);
+					Label_Time.TextColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+					Label_Points.TextColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+					PlayerWebServicesUserId = C_IsPersonalBestId; // To avoid two lines in scroll with same PlayerWebServicesId in Solo mode
+				} else {
+					if (_ScoreOrGhost.ScoreOrGhostData[Key].ScoreMgrMedal != Medals::C_ScoreMgrMedal_None) {
+						{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, Medals::GetMedalColorVec3(_ScoreOrGhost.ScoreOrGhostData[Key].ScoreMgrMedal), False);
+						{{{PlayerName::P}}}SetName(This, PlayerName_Name, _ScoreOrGhost.ScoreOrGhostData[Key].Nickname, "", False, False);
+					} else {
+						{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight)}}}, False);
+						{{{PlayerName::P}}}SetAccountId(This, PlayerName_Name, _ScoreOrGhost.ScoreOrGhostData[Key].AccountId, False);
+					}
+					Label_Time.TextColor = <1.,1.,1.>;
+					Label_Points.TextColor = <1.,1.,1.>;
+				}
+
+				Label_Time.Value = "";
+				Label_Points.Value = "";
+				if (_ScoreMode == {{{C_Mode_Points}}} && _ScoreOrGhost.ScoreOrGhostData[Key].Points >= 0) {
+					Label_Points.Value = TL::ToText(_ScoreOrGhost.ScoreOrGhostData[Key].Points);
+				} else if (_ScoreMode == {{{C_Mode_Respawns}}} && _ScoreOrGhost.ScoreOrGhostData[Key].NbRespawns >= 0) {
+					Label_Points.Value = TL::ToText(_ScoreOrGhost.ScoreOrGhostData[Key].NbRespawns);
+				} else if (_ScoreOrGhost.ScoreOrGhostData[Key].Time > 0) {
+					Label_Time.Value = TL::TimeToText(_ScoreOrGhost.ScoreOrGhostData[Key].Time, True, True);
+				} else {
+					Label_Time.Value = "--:--.---";
+				}
+
+				// Save player record for report system in Profile
+				if (Map != Null && Map.MapInfo != Null)	{
+					PlayerRecordDetail = ReportStruct::FormatRecordDetail({{{PlayerName::P}}}GetName(This, PlayerName_Name), _ScoreOrGhost.ScoreOrGhostData[Key].Time);
+					if (PlayerWebServicesUserId == C_IsPersonalBestId) {
+						PlayerRecordId = ReportStruct::FormatRecordId(LocalUser.WebServicesUserId, "", Map.MapInfo.MapUid);
+					} else {
+						PlayerRecordId = ReportStruct::FormatRecordId(PlayerWebServicesUserId, "", Map.MapInfo.MapUid);
+					}
+				}
+
+				if (_ScoreOrGhost.ScoreOrGhostData[Key].CountryPath != "") {
+					Quad_Flag.ChangeImageUrl("file://ZoneFlags/Path/"^_ScoreOrGhost.ScoreOrGhostData[Key].CountryPath);
+				} else {
+					Quad_Flag.ChangeImageUrl("");
+				}
+
+				declare Boolean IsPlayerSelected = (PlayerWebServicesUserId != "" && PlayerWebServicesUserId == G_CurrentlySelectedPlayerUserId);
+				// Select line display
+				if (_Frame_Player.ControlId != "frame-personnal-rank") {
+					if (IsPlayerSelected) {
+						SelectPlayer(_Frame_Player, True);
+					} else {
+						SelectPlayerDisplay(_Frame_Player, False);
+					}
+				}
+
+				// Player Selection exceptions
+				if (_Frame_Player.ControlId != "frame-personnal-rank") {
+					declare Boolean AnotherPlayerIsSelected = (G_CurrentlySelectedPlayerUserId != "" && G_CurrentlySelectedPlayerUserId != PlayerWebServicesUserId);
+					declare Boolean PlayerIsFocused = (G_CurrentlyFocusedPlayerUserId == PlayerWebServicesUserId);
+					FocusPlayer(_Frame_Player, PlayerIsFocused, AnotherPlayerIsSelected);
+				}
+
+				UpdateRank(Frame_Rank, Text_Rank, _ScoreOrGhost.ScoreOrGhostData[Key], IsPlayerSelected);
+
+				Quad_Disconnected.Visible = False;
+				SetRacePoints(Frame_RoundPoints, 0, False);
+				Label_MatchPoints.Value = "";
+				Label_Custom.Value = "";
+				Label_CpCount.Value = "";
+				Frame_VoiceChat.Visible = False;
+				Lock(_Frame_Player, PlayerWebServicesUserId == "");
+				UpdateEchelon(Quad_Echelon, Quad_EchelonShadow, 0, False);
+			}
+		} else {
+			Key = -1;
+		}
+	}
+
+	if (_Frame_Player.ControlId == "frame-personnal-rank") {
+		IsGhost = False;
+		Key = -1;
+		if (InputPlayer != Null && InputPlayer.Score != Null) {
+			declare Integer NoSpectatorsRank = 1;
+			foreach (Local_Key => Score in Scores) {
+				if (Score.Id == InputPlayer.Score.Id) {
+					Key = Local_Key;
+					if (_HideSpectators) {
+						declare Boolean Race_ScoresTable_IsSpectator for Score = False;
+						if (Race_ScoresTable_IsSpectator) {
+							Rank = -1;
+						} else {
+							Rank = NoSpectatorsRank;
+						}
+					} else {
+						Rank = Key + 1;
+					}
+					break;
+				}
+				if (_HideSpectators) {
+					declare Boolean Race_ScoresTable_IsSpectator for Score = False;
+					if (!Race_ScoresTable_IsSpectator) {
+						NoSpectatorsRank += 1;
+					}
+				}
+			}
+		}
+	} else if (C_IsTeamMode || _HideSpectators) {
+		if (_ScrollKeyToScoreKey.existskey(_Key)) {
+			Key = _ScrollKeyToScoreKey[_Key];
+			Rank = Key + 1;
+		}
+	}
+
+	if (
+		!IsGhost &&
+		Scores.existskey(Key) &&
+		Scores[Key] != Null &&
+		Scores[Key].User != Null
+	) {
+		declare Score <=> Scores[Key];
+		PlayerWebServicesUserId = Score.User.WebServicesUserId;
+		declare Boolean IsLocalPlayer = (InputPlayer != Null && InputPlayer.Score != Null && Score.Id == InputPlayer.Score.Id);
+
+		// Background color
+		if (C_IsTeamMode && _Frame_Player.ControlId == "frame-personnal-rank") {
+			declare Frame_Player_Background = (_Frame_Player.GetFirstChild("frame-player-background") as CMlFrame);
+			declare Frame_Player_ScoreRoundPointsBackground = (_Frame_Player.GetFirstChild("frame-score-round-points-background") as CMlFrame);
+
+			declare Vec3 ColorBgVec3 = Teams[Score.TeamNum-1].ColorPrimary;
+			declare Text ColorBgHex;
+			// Specific blue and red colors are defined in the DA
+			if (ColorBgVec3 == C_Default_BlueColor) {
+				ColorBgHex = C_BlueTeamColorBg;
+			} else if (ColorBgVec3 == C_Default_RedColor) {
+				ColorBgHex = C_RedTeamColorBg;
+			} else {
+				ColorBgHex = CL::RgbToHex3(ColorBgVec3);
+			}
+			{{{ExpendableAsset::P}}}SetColor(This, Frame_Player_Background, ColorBgHex);
+			{{{ExpendableAsset::P}}}SetColor(This, Frame_Player_ScoreRoundPointsBackground, ColorBgHex);
+		}
+		// Connection status
+		declare ScoresTable_PlayerLastUpdate for Score = -1;
+		if (ScoresTable_PlayerLastUpdate == Now) {
+			Quad_Disconnected.Visible = False;
+			if (Tools::IsFakeUser(Score.User)) {
+				Quad_Flag.ChangeImageUrl(Bot::GetCountryFlagUrl(Score.User.Name));
+			} else if (Score.User.CountryFlagUrl == "") {
+				Quad_Flag.ChangeImageUrl("file://ZoneFlags/Path/World");
+			} else {
+				Quad_Flag.ChangeImageUrl(Score.User.CountryFlagUrl);
+			}
+		} else {
+			Quad_Disconnected.Visible = True;
+			Quad_Flag.ChangeImageUrl("");
+		}
+
+		// Rank
+		declare Text_Rank = "";
+		if (_CustomRanks.existskey(Score.User.WebServicesUserId)) {
+			Text_Rank = _CustomRanks[Score.User.WebServicesUserId];
+		} else if (_CustomRanks.count != 0) {
+			Text_Rank = "-";
+		} else if (Rank > 0) {
+			Text_Rank = TL::ToText(Rank);
+		}
+		UpdateRank(Frame_Rank, Text_Rank);
+
+		// Name Color
+		if (_Frame_Player.ControlId == "frame-personnal-rank" || IsLocalPlayer) {
+			{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}}, False);
+		} else {
+			{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight)}}}, False);
+		}
+
+		// Name
+		if (_CustomNames.count > 0 && _CustomNames.existskey(Score.User.WebServicesUserId)) {
+			declare K_CustomName CustomName = _CustomNames[Score.User.WebServicesUserId];
+			{{{PlayerName::P}}}SetName(This, PlayerName_Name, CustomName.Name, "", CustomName.IsFirstPartyDisplayName, CustomName.DisplayFirstParty);
+		} else {
+			{{{PlayerName::P}}}SetUser(This, PlayerName_Name, Score.User, True);
+		}
+
+		// Select line display
+		if (_Frame_Player.ControlId != "frame-personnal-rank") {
+			if (PlayerWebServicesUserId != "" && PlayerWebServicesUserId == G_CurrentlySelectedPlayerUserId) {
+				SelectPlayer(_Frame_Player, True);
+			} else {
+				SelectPlayerDisplay(_Frame_Player, False);
+			}
+		}
+
+		// Player Selection exceptions
+		if (_Frame_Player.ControlId != "frame-personnal-rank") {
+			declare Boolean AnotherPlayerIsSelected = (G_CurrentlySelectedPlayerUserId != "" && G_CurrentlySelectedPlayerUserId != PlayerWebServicesUserId);
+			declare Boolean PlayerIsFocused = (G_CurrentlyFocusedPlayerUserId == PlayerWebServicesUserId);
+			FocusPlayer(_Frame_Player, PlayerIsFocused, AnotherPlayerIsSelected);
+		}
+
+		// Echelon
+		declare netread Integer Net_TMGame_ScoresTable_Echelon for Score = C_DefaultEchelon;
+		UpdateEchelon(Quad_Echelon, Quad_EchelonShadow, Net_TMGame_ScoresTable_Echelon, !_IsLocalMode);
+
+		// Voice chat
+		Frame_VoiceChat.Visible =
+			IsVoiceChatEnabled() &&
+			_Frame_Player.ControlId != "frame-personnal-rank" &&
+			PlayerWebServicesUserId != G_CurrentlySelectedPlayerUserId &&
+			Score.User != Null && Score.User.VoiceChat != Null &&
+			Score.User.VoiceChat.IsConnected
+		;
+		if (Frame_VoiceChat.Visible) {
+			declare Text ImageUrl = "";
+			if (Score.User.VoiceChat.MuteChangePending) {
+				ImageUrl = "{{{Icons::C_Icon_128x128_Speaker_Off}}}";
+			} else if (Score.User.VoiceChat.IsSpeaking) {
+				ImageUrl = "{{{Icons::C_Icon_128x128_Speaker_On}}}";
+			} else if (Score.User.VoiceChat.IsMuted) {
+				if (IsLocalPlayer) {
+					ImageUrl = "{{{Icons::C_Icon_128x128_Micro_Off}}}";
+				} else {
+					ImageUrl = "{{{Icons::C_Icon_128x128_Speaker_Mute}}}";
+				}
+			}
+			if (Quad_Speaker.ImageUrl != ImageUrl) Quad_Speaker.ImageUrl = ImageUrl;
+
+			// Start or stop mute loading spinner if necessary
+			LoadingSpinner_Mute.Visible = Score.User.VoiceChat.MuteChangePending;
+			if (LoadingSpinner_Mute.Visible && !{{{LoadingSpinner::P}}}IsLoading(LoadingSpinner_Mute)) {{{LoadingSpinner::P}}}StartAnimation(This, LoadingSpinner_Mute);
+			else if (!LoadingSpinner_Mute.Visible && {{{LoadingSpinner::P}}}IsLoading(LoadingSpinner_Mute)) {{{LoadingSpinner::P}}}StopAnimation(This, LoadingSpinner_Mute);
+
+			if (IsLocalPlayer) {
+				Quad_Speaker.Colorize = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+			} else {
+				Quad_Speaker.Colorize = <1.,1.,1.>;
+			}
+		}
+
+		// Score
+		declare Boolean CustomPointsEnabled = _CustomPoints.existskey(Score.User.WebServicesUserId);
+		Label_Custom.Value = "";
+		Label_MatchPoints.Value = "";
+		Label_Points.Value = "";
+		SetRacePoints(Frame_RoundPoints, 0, IsLocalPlayer);
+		Label_Time.Value = "";
+		Label_CpCount.Value = "";
+
+		declare LabelColor = <1.,1.,1.>;
+		if (_Frame_Player.ControlId == "frame-personnal-rank" || IsLocalPlayer) {
+			LabelColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+		}
+		Label_Custom.TextColor = LabelColor;
+		Label_Points.TextColor = LabelColor;
+		Label_Time.TextColor = LabelColor;
+
+		if (_MatchPoints.existskey(Score.User.WebServicesUserId)) {
+			Label_MatchPoints.Value = ""^_MatchPoints[Score.User.WebServicesUserId];
+		}
+		if (_DisplayRoundPoints) {
+			SetRacePoints(Frame_RoundPoints, Score.RoundPoints, IsLocalPlayer);
+		}
+		if (CustomPointsEnabled && _ScoreMode != {{{C_Mode_Trophy}}}) {
+			if (_CustomPoints[Score.User.WebServicesUserId].existskey({{{C_CustomPoints_Text}}})) {
+				Label_Custom.Value = _CustomPoints[Score.User.WebServicesUserId][{{{C_CustomPoints_Text}}}];
+			}
+			if (_CustomPoints[Score.User.WebServicesUserId].existskey({{{C_CustomPoints_Color}}})) {
+				Label_Custom.TextColor = CL::HexToRgb(_CustomPoints[Score.User.WebServicesUserId][{{{C_CustomPoints_Color}}}]);
+			}
+		} else if (_ScoreMode == {{{C_Mode_Points}}}) {
+			SetRacePoints(Frame_RoundPoints, Score.RoundPoints, IsLocalPlayer);
+			Label_Points.Value = TL::ToText(Score.Points);
+		} else if (_ScoreMode == {{{C_Mode_Respawns}}}) {
+			Label_Points.Value = TL::ToText(Score.NbRespawnsRequested);
+		} else if (_ScoreMode == {{{C_Mode_BestRespawns}}}) {
+			declare netread Integer Net_TMGame_ScoresTable_BestRespawns for Score = -1;
+			if (Net_TMGame_ScoresTable_BestRespawns >= 0) {
+				Label_Points.Value = TL::ToText(Net_TMGame_ScoresTable_BestRespawns);
+			} else {
+				Label_Points.Value = "-";
+			}
+		} else if (_CustomTimes.existskey(Score.User.WebServicesUserId)) {
+			if (_CustomTimes[Score.User.WebServicesUserId] > 0){
+				Label_Time.Value = TL::TimeToText(_CustomTimes[Score.User.WebServicesUserId], True, True);
+			} else {
+				Label_Time.Value = "--:--.---";
+			}
+		} else if (_ScoreMode == {{{C_Mode_BestTime}}} && Score.BestRaceTimes.count > 0) {
+			Label_Time.Value = TL::TimeToText(Score.BestRaceTimes[Score.BestRaceTimes.count - 1], True, True);
+		} else if (_ScoreMode == {{{C_Mode_PrevTime}}} && Score.PrevRaceTimes.count > 0) {
+			Label_Time.Value = TL::TimeToText(Score.PrevRaceTimes[Score.PrevRaceTimes.count - 1], True, True);
+		} else if (_ScoreMode == {{{C_Mode_LapTime}}} && Score.BestLapTimes.count > 0) {
+			Label_Time.Value = TL::TimeToText(Score.BestLapTimes[Score.BestLapTimes.count - 1], True, True);
+		} else if (_ScoreMode == {{{C_Mode_Laps}}} && Score.BestRaceTimes.count > 0) {
+			Label_Time.Value = TL::TimeToText(Score.BestRaceTimes[Score.BestRaceTimes.count - 1], True, True);
+			Label_CpCount.Value = ""^Score.BestRaceTimes.count;
+		} else if (_ScoreMode == {{{C_Mode_RaceProgression}}}) {
+			declare netread Int2 Net_TMGame_ScoresTable_RaceProgression for Score;
+			Label_CpCount.Value = ""^Net_TMGame_ScoresTable_RaceProgression.X;
+			if (Net_TMGame_ScoresTable_RaceProgression.Y > 0) {
+				Label_Time.Value = TL::TimeToText(Net_TMGame_ScoresTable_RaceProgression.Y, True, True);
+			} else {
+				Label_Time.Value = "--:--.---";
+			}
+		} else if (_ScoreMode == {{{C_Mode_Trophy}}}) {
+			declare K_Trophy[] TMGame_ScoresTable_Trophies for Score = [];
+			if (Frame_TrophiesDetails.Visible) {
+				foreach (Key => Control in Frame_TrophiesDetails.Controls) {
+					// Show the best trophies
+					declare Integer TrophyKey = Key;
+					if (TMGame_ScoresTable_Trophies.count < Frame_TrophiesDetails.Controls.count) {
+						TrophyKey = Key - (Frame_TrophiesDetails.Controls.count - TMGame_ScoresTable_Trophies.count);
+					}
+					if (TMGame_ScoresTable_Trophies.existskey(TrophyKey)) {
+						declare CMlFrame Frame_Trophy <=> (Control as CMlFrame);
+						declare CMlQuad Quad_Trophy <=> (Frame_Trophy.GetFirstChild("quad-trophy") as CMlQuad);
+						declare CMlLabel Label_Trophy <=> (Frame_Trophy.GetFirstChild("label-trophy") as CMlLabel);
+						ApplyTrophyImage(Quad_Trophy, TMGame_ScoresTable_Trophies[TrophyKey].Level);
+						Label_Trophy.Value = ""^TMGame_ScoresTable_Trophies[TrophyKey].Amount;
+						Frame_Trophy.Visible = True;
+						Tools::FitLabelValue(Label_Trophy, 1., 0.25);
+					} else {
+						Control.Visible = False;
+					}
+				}
+			} else if (Frame_TrophiesGroup.Visible) {
+				declare CMlQuad Quad_BestTrophy <=> (Frame_TrophiesGroup.GetFirstChild("quad-best-trophy") as CMlQuad);
+				declare CMlLabel Label_BigTrophy <=> (Frame_TrophiesGroup.GetFirstChild("label-big-trophy") as CMlLabel);
+				declare CMlLabel Label_SmallTrophy <=> (Frame_TrophiesGroup.GetFirstChild("label-small-trophy") as CMlLabel);
+				declare CMlQuad Quad_TrophyBgIcon <=> (Frame_TrophiesGroup.GetFirstChild("quad-trophy-bg-icon") as CMlQuad);
+				if (TMGame_ScoresTable_Trophies.count >= 1) {
+					declare Integer TrophyLevel = TMGame_ScoresTable_Trophies[0].Level;
+					ApplyTrophyImage(Quad_BestTrophy, TrophyLevel);
+					if (TrophyLevel >= 1 && TrophyLevel <= 3) {
+						Quad_TrophyBgIcon.ImageUrl = C_Image_TrophyIconBgBronze;
+					} else if (TrophyLevel >= 4 && TrophyLevel <= 6) {
+						Quad_TrophyBgIcon.ImageUrl = C_Image_TrophyIconBgSilver;
+					} else if (TrophyLevel >= 7 && TrophyLevel <= 9) {
+						Quad_TrophyBgIcon.ImageUrl = C_Image_TrophyIconBgGold;
+					} else {
+						Quad_TrophyBgIcon.ImageUrl = "";
+					}
+					Label_BigTrophy.Value = ""^TMGame_ScoresTable_Trophies[0].Amount;
+					if (TMGame_ScoresTable_Trophies.count >= 2) {
+						Label_SmallTrophy.Value = "."^TMGame_ScoresTable_Trophies[1].Amount;
+						Label_SmallTrophy.Visible = True;
+						declare Real SmallWidth = ML::Min(Label_SmallTrophy.Size.X, Label_SmallTrophy.ComputeWidth(Label_SmallTrophy.Value));
+						Label_SmallTrophy.RelativePosition_V3.X = {{{Pos_LabelTrophy.X}}} - SmallWidth;
+						Label_BigTrophy.Size.X = {{{WidthScoreBgTrophies * 0.85 * 0.5}}};
+						Label_BigTrophy.RelativePosition_V3.X = Label_SmallTrophy.RelativePosition_V3.X + 0.5;
+					} else {
+						Label_BigTrophy.Size.X = {{{WidthScoreBgTrophies * 0.85}}};
+						Label_BigTrophy.RelativePosition_V3.X = {{{Pos_LabelTrophy.X}}};
+						Label_SmallTrophy.Visible = False;
+					}
+					Quad_TrophyBgIcon.Visible = True;
+					Quad_BestTrophy.Visible = True;
+					Label_BigTrophy.Visible = True;
+				} else {
+					Quad_TrophyBgIcon.Visible = False;
+					Quad_BestTrophy.Visible = False;
+					Label_BigTrophy.Visible = False;
+					Label_SmallTrophy.Visible = False;
+				}
+			} else if (Frame_TrophiesPoints.Visible) {
+				declare Integer TMGame_ScoresTable_TrophyPoints for Score = 0;
+				declare CMlQuad Quad_BestTrophy <=> (Frame_TrophiesPoints.GetFirstChild("quad-best-trophy") as CMlQuad);
+				declare CMlLabel Label_BigTrophy <=> (Frame_TrophiesPoints.GetFirstChild("label-big-trophy") as CMlLabel);
+				declare CMlQuad Quad_TrophyBgIcon <=> (Frame_TrophiesPoints.GetFirstChild("quad-trophy-bg-icon") as CMlQuad);
+				if (TMGame_ScoresTable_TrophyPoints > 0) {
+					declare Integer TrophyLevel = TMGame_ScoresTable_Trophies[0].Level;
+					ApplyTrophyImage(Quad_BestTrophy, TrophyLevel);
+					if (TrophyLevel >= 1 && TrophyLevel <= 3) {
+						Quad_TrophyBgIcon.ImageUrl = C_Image_TrophyIconBgBronze;
+					} else if (TrophyLevel >= 4 && TrophyLevel <= 6) {
+						Quad_TrophyBgIcon.ImageUrl = C_Image_TrophyIconBgSilver;
+					} else if (TrophyLevel >= 7 && TrophyLevel <= 9) {
+						Quad_TrophyBgIcon.ImageUrl = C_Image_TrophyIconBgGold;
+					} else {
+						Quad_TrophyBgIcon.ImageUrl = "";
+					}
+					Label_BigTrophy.Value = Tools::FormatTop(TMGame_ScoresTable_TrophyPoints, False, 100000);
+					MLHelpers::FitLabelValue(Label_BigTrophy, <4., 2.>);
+					Quad_TrophyBgIcon.Visible = True;
+					Quad_BestTrophy.Visible = True;
+					Label_BigTrophy.Visible = True;
+				} else {
+					Quad_TrophyBgIcon.Visible = False;
+					Quad_BestTrophy.Visible = False;
+					Label_BigTrophy.Visible = False;
+				}
+			}
+		} else {
+			Label_Time.Value = "--:--.---";
+		}
+
+		// Lock frame if needed
+		if (
+			G_Frame_CurrentlySelectedPlayer == Null ||
+			_Frame_Player.Id != G_Frame_CurrentlySelectedPlayer.Id
+		) {
+			Lock(_Frame_Player, _Frame_Player.ControlId == "frame-personnal-rank");
+		}
+	} else if (!IsGhost) {
+		// Empty line
+		_Frame_Player.Hide();
+		UpdateRank(Frame_Rank, "");
+		PlayerWebServicesUserId = "";
+		Quad_Flag.ChangeImageUrl("");
+		Quad_Disconnected.Visible = False;
+		{{{PlayerName::P}}}SetName(This, PlayerName_Name, "", "", False, False);
+		SetRacePoints(Frame_RoundPoints, 0, False);
+		Label_MatchPoints.Value = "";
+		Label_Points.Value = "";
+		Label_Custom.Value = "";
+		Label_Time.Value = "";
+		Label_CpCount.Value = "";
+		if (
+			G_Frame_CurrentlySelectedPlayer == Null ||
+			_Frame_Player.Id != G_Frame_CurrentlySelectedPlayer.Id
+		) {
+			Lock(_Frame_Player, True);
+		}
+	}
+
+	declare Real Label_Time_DefaultTextSize = 4.;
+	if (Label_CpCount.Value != "") {
+		if (C_IsTeamMode) {
+			Label_Time.RelativePosition_V3.X = 3.;
+			Label_Time_DefaultTextSize = 2.;
+		} else {
+			Label_Time.RelativePosition_V3.X = 4.;
+		}
+	} else {
+		Label_Time.RelativePosition_V3.X = 0.;
+	}
+
+	Tools::FitLabelValue(Label_Points, 4., 1., 0.25);
+	Tools::FitLabelValue(Label_Custom, 4., 1., 0.25);
+	Tools::FitLabelValue(Label_Time, Label_Time_DefaultTextSize, 1., 0.25);
+	Tools::FitLabelValue(Label_CpCount, 3., 1., 0.25);
+}
+
+Void UpdateStepRanking(
+	CMlFrame _Frame_Info,
+	Integer _ScoreMode,
+	Text[][Text] _CustomPoints,
+	Integer[Text] _MatchPoints,
+	Text[Text] _CustomRanks,
+	Boolean _DisplayRoundPoints,
+	K_ScoreOrGhost _ScoreOrGhost,
+	Boolean _IsLocalMode,
+	Integer[Text] _CustomTimes,
+	Boolean _HideSpectators,
+	K_CustomName[Text] _CustomNames
+) {
+	declare Label_PlayersNb <=> (_Frame_Info.GetFirstChild("label-players-nb") as CMlLabel);
+	if (Label_PlayersNb != Null) {
+		declare PlayersNb = Players.count;
+		if (_IsLocalMode && PlayersNb == 1) {
+			Label_PlayersNb.Value = "Solo";
+		} else {
+			if (_ScoreOrGhost.UseScoreOrGhostData) PlayersNb = _ScoreOrGhost.ScoreOrGhostData.count;
+			switch (PlayersNb) {
+				//L16N Displayed in the score table ingame. This is the number of online players;
+				case 0: Label_PlayersNb.Value = _("No player");
+				//L16N Displayed in the score table ingame. This is the number of online players;
+				case 1: Label_PlayersNb.Value = _("1 player");
+				//L16N Displayed in the score table ingame. %1 is the number of online players;
+				default: Label_PlayersNb.Value = TL::Compose(_("%1 players"), ""^PlayersNb);
+			}
+		}
+	}
+
+	declare Label_MapName <=> (_Frame_Info.GetFirstChild("label-map-name") as CMlLabel);
+	declare Label_MapAuthor <=> (_Frame_Info.GetFirstChild("label-map-author") as CMlLabel);
+	if (Map != Null) {
+		Label_MapName.Value = Tools::TranslateOfficialMapName(Map.MapName, Map.AuthorLogin);
+		Tools::FitLabelValue(Label_MapName, 8., 5., 0.5);
+
+		declare Text AuthorDisplayName = {{{UserStore::P}}}GetUserMgrPlayerName(Map.AuthorLogin);
+		if (AuthorDisplayName == "") AuthorDisplayName = Map.AuthorNickName;
+		//L16N %1 will be replaced by the name of the author of the track, e.g. "by Darrek"
+		Label_MapAuthor.Value = TL::Compose(_("by %1"), AuthorDisplayName);
+		Tools::FitLabelValue(Label_MapAuthor, 5., 2., 0.5);
+	}
+
+	if (C_IsTeamMode) {
+		declare Label_BlueTeamScore <=> (Page.GetFirstChild("label-blue-team-score") as CMlLabel);
+		declare Label_RedTeamScore <=> (Page.GetFirstChild("label-red-team-score") as CMlLabel);
+		Label_BlueTeamScore.Value = TL::ToText(ClanScores[1]);
+		Label_RedTeamScore.Value = TL::ToText(ClanScores[2]);
+	}
+
+	// Mark player scores as connected
+	foreach (Player in Players) {
+		if (Player != Null && Player.Score != Null) {
+			declare ScoresTable_PlayerLastUpdate for Player.Score = -1;
+			ScoresTable_PlayerLastUpdate = Now;
+		}
+	}
+
+	// Update personnal rank line
+	UpdatePlayer(
+		(Page.GetFirstChild("frame-personnal-rank") as CMlFrame),
+		-1,
+		_ScoreMode,
+		_CustomPoints,
+		_MatchPoints,
+		_CustomRanks,
+		_DisplayRoundPoints,
+		_ScoreOrGhost,
+		_IsLocalMode,
+		_CustomTimes,
+		[],
+		{{{C_TrophyStyle_Details}}},
+		_HideSpectators,
+		_CustomNames
+	);
+
+	// Update selected player specate button ("Play" / "Spectate" / greyed out "Spectate")
+	UpdateSpectateButton();
+}
+
+Void SetScrollTeamsColor(CMlFrame _Scroll, Text _TeamColor) {
+	if (_Scroll == Null) return;
+	foreach (Control in _Scroll.Controls) {
+		if (Control.HasClass("{{{Scroll::C_Class_Element}}}")) {
+			declare Frame_Player_Background = ((Control as CMlFrame).GetFirstChild("frame-player-background") as CMlFrame);
+			declare Frame_Player_ScoreRoundPointsBackground = ((Control as CMlFrame).GetFirstChild("frame-score-round-points-background") as CMlFrame);
+			{{{ExpendableAsset::P}}}SetColor(This, Frame_Player_Background, _TeamColor);
+			{{{ExpendableAsset::P}}}SetColor(This, Frame_Player_ScoreRoundPointsBackground, _TeamColor);
+		}
+	}
+}
+
+Void SetTeamsName(Text _Team1Name, Text _Team2Name) {
+	(Page.GetFirstChild("label-blue-team") as CMlLabel).Value = _Team1Name;
+	(Page.GetFirstChild("label-red-team") as CMlLabel).Value = _Team2Name;
+}
+
+Void SetTeamsColorsInHeader(Vec3 _Team1Color, Vec3 _Team2Color) {
+	(Page.GetFirstChild("quad-header-blue-team") as CMlQuad).Colorize = _Team1Color;
+	(Page.GetFirstChild("quad-header-red-team") as CMlQuad).Colorize = _Team2Color;
+}
+
+CMlFrame SetTeamMode(Boolean _IsTeamMode, CMlFrame _Frame_ScrollTeam1, CMlFrame _Frame_ScrollTeam2) {
+	declare CMlFrame Frame_TeamsHeader <=> (Page.GetFirstChild("frame-teams-header") as CMlFrame);
+	declare CMlFrame Frame_DefaultHeader <=> (Page.GetFirstChild("frame-default-header") as CMlFrame);
+	Frame_TeamsHeader.Visible = _IsTeamMode;
+	Frame_DefaultHeader.Visible = !_IsTeamMode;
+	if (_Frame_ScrollTeam2 != Null) _Frame_ScrollTeam2.Visible = _IsTeamMode;
+
+	if (_IsTeamMode) {
+		SetTeamsName(Teams[0].Name, Teams[1].Name);
+		SetTeamsColorsInHeader(Teams[0].ColorPrimary, Teams[1].ColorPrimary);
+		// Specific blue and red colors are defined in the DA
+		if (Teams[0].ColorPrimary == C_Default_BlueColor) {
+			SetScrollTeamsColor(_Frame_ScrollTeam1, C_BlueTeamColorBg);
+		} else {
+			SetScrollTeamsColor(_Frame_ScrollTeam1, CL::RgbToHex3(Teams[0].ColorPrimary));
+		}
+		if (Teams[1].ColorPrimary == C_Default_RedColor) {
+			SetScrollTeamsColor(_Frame_ScrollTeam2, C_RedTeamColorBg);
+		} else {
+			SetScrollTeamsColor(_Frame_ScrollTeam2, CL::RgbToHex3(Teams[1].ColorPrimary));
+		}
+	}
+
+	if (_IsTeamMode) return Frame_TeamsHeader;
+	return Frame_DefaultHeader;
+}
+
+Void HidePlayer(CMlFrame _Frame_Player) {
+	_Frame_Player.Hide();
+}
+
+Void UpdateTrophy(CMlFrame _Frame_Trophy, Integer[Integer][Text] _Trophies) {
+	if (_Frame_Trophy == Null) return;
+
+	declare Integer[Integer] Trophies = [];
+	if (InputPlayer != Null && InputPlayer.User != Null && _Trophies.existskey(InputPlayer.User.WebServicesUserId)) Trophies = _Trophies[InputPlayer.User.WebServicesUserId];
+	declare Quad_Trophy <=> (_Frame_Trophy.GetFirstChild("quad-trophy") as CMlQuad);
+
+	_Frame_Trophy.Visible = Trophies.count > 0;
+
+	declare Text TrophyImage;
+	declare Integer BestTrophy = -123;
+	declare Integer BestTrophyCount;
+	foreach (Trophy => TrophyCount in Trophies) {
+		if (BestTrophy < Trophy) {
+			BestTrophy = Trophy;
+			BestTrophyCount = TrophyCount;
+		}
+	}
+	switch (BestTrophy) {
+		case {{{Trophy::C_Trophy_T1}}}: {
+			TrophyImage = {{{dump(Constants::C_ImageUrl_Trophy_512_Bronze1)}}};
+		}
+		case {{{Trophy::C_Trophy_T2}}}: {
+			TrophyImage = {{{dump(Constants::C_ImageUrl_Trophy_512_Bronze2)}}};
+		}
+		case {{{Trophy::C_Trophy_T3}}}: {
+			TrophyImage = {{{dump(Constants::C_ImageUrl_Trophy_512_Bronze3)}}};
+		}
+		case {{{Trophy::C_Trophy_T4}}}: {
+			TrophyImage = {{{dump(Constants::C_ImageUrl_Trophy_512_Silver1)}}};
+		}
+		case {{{Trophy::C_Trophy_T5}}}: {
+			TrophyImage = {{{dump(Constants::C_ImageUrl_Trophy_512_Silver2)}}};
+		}
+		case {{{Trophy::C_Trophy_T6}}}: {
+			TrophyImage = {{{dump(Constants::C_ImageUrl_Trophy_512_Silver3)}}};
+		}
+		case {{{Trophy::C_Trophy_T7}}}: {
+			TrophyImage = {{{dump(Constants::C_ImageUrl_Trophy_512_Gold1)}}};
+		}
+		case {{{Trophy::C_Trophy_T8}}}: {
+			TrophyImage = {{{dump(Constants::C_ImageUrl_Trophy_512_Gold2)}}};
+		}
+		case {{{Trophy::C_Trophy_T9}}}: {
+			TrophyImage = {{{dump(Constants::C_ImageUrl_Trophy_512_Gold3)}}};
+		}
+		default: {
+			TrophyImage = {{{dump(Constants::C_ImageUrl_Trophy_512_None)}}};
+		}
+	}
+
+	Quad_Trophy.ChangeImageUrl(TrophyImage);
+}
+
+{{{ScoresTableVisibility::P}}}K_ScoresTableIsVisible SetScoresTableVisibility(CMlFrame _Frame_Layer, CMlFrame _Frame_Global, CMlFrame _Frame_ButtonList, CMlQuad _Quad_BlackBg, CMlFrame _Frame_Scroll) {
+	declare {{{ScoresTableVisibility::P}}}K_ScoresTableIsVisible ScoresTableIsVisible = {{{ScoresTableVisibility::P}}}SetScoresTableVisibility(
+		_Frame_Layer,
+		_Frame_Global,
+		_Quad_BlackBg,
+		{{{ScoresTableVisibility::P}}}LayerIsVisible(),
+		{{{ScoresTableVisibility::P}}}EnabledFromMenu()
+	);
+
+	if (ScoresTableIsVisible.FromMenu && _Frame_Layer.Visible && {{{Scroll::P}}}IsScroll(_Frame_Scroll)) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), _Frame_Scroll);
+	}
+
+	return ScoresTableIsVisible;
+}
+
+Void ScrollDown(CMlFrame _Frame_Scroll) {
+	declare Integer NewFocusedKey = ML::Min({{{Scroll::P}}}GetFocusedElementKey(_Frame_Scroll) + 5, {{{Scroll::P}}}GetElementsTotal(_Frame_Scroll)-1);
+	{{{Scroll::P}}}ScrollToElement(This, _Frame_Scroll, NewFocusedKey, True);
+}
+
+Void ScrollUp(CMlFrame _Frame_Scroll) {
+	declare Integer NewFocusedKey = ML::Max({{{Scroll::P}}}GetFocusedElementKey(_Frame_Scroll) - 5, 0);
+	{{{Scroll::P}}}ScrollToElement(This, _Frame_Scroll, NewFocusedKey, True);
+}
+
+Integer GetScrollKeyFromPlayerLogin(Text _PlayerLogin, K_ScoreOrGhost _ScoreOrGhost, Boolean _HideSpectators, CMlFrame _Frame_ScrollTeam1Members,  CMlFrame _Frame_ScrollTeam2Members) {
+	declare Integer Key = -1;
+	if (_ScoreOrGhost.UseScoreOrGhostData) {
+		foreach (ScoreKey => ScoreOrGhost in _ScoreOrGhost.ScoreOrGhostData) {
+			if (ScoreOrGhost.IsScore) {
+				if (
+					Scores.existskey(ScoreOrGhost.ScoreIndex) &&
+					Scores[ScoreOrGhost.ScoreIndex].User != Null &&
+					Scores[ScoreOrGhost.ScoreIndex].User.Login == _PlayerLogin
+				) {
+					Key = ScoreKey;
+					break;
+				}
+			}
+		}
+	} else if (C_IsTeamMode) {
+		declare Integer FirstTeamKey = 0;
+		declare Integer SecondTeamKey = 0;
+		foreach (Score in Scores) {
+			if (Score != Null) {
+				declare Boolean Race_ScoresTable_IsSpectator for Score = False;
+				if (!_HideSpectators || !Race_ScoresTable_IsSpectator) {
+					if (Score.TeamNum == 1) {
+						if (Score.User != Null && _PlayerLogin == Score.User.Login) {
+							Key = FirstTeamKey;
+							if (G_Frame_CurrentScroll.Id != _Frame_ScrollTeam1Members.Id) {
+								Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), _Frame_ScrollTeam1Members);
+							}
+							break;
+						}
+						FirstTeamKey += 1;
+					}	else if (Score.TeamNum == 2) {
+						if (Score.User != Null && _PlayerLogin == Score.User.Login) {
+							Key = SecondTeamKey;
+							if (G_Frame_CurrentScroll.Id != _Frame_ScrollTeam2Members.Id) {
+								Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), _Frame_ScrollTeam2Members);
+							}
+							break;
+						}
+						SecondTeamKey += 1;
+					}
+				}
+			}
+		}
+	} else {
+		if (!_HideSpectators) {
+			foreach (ScoreKey => Score in Scores) {
+				if (Score != Null && Score.User != Null && _PlayerLogin == Score.User.Login) {
+					Key = ScoreKey;
+					break;
+				}
+			}
+		} else {
+			declare Integer ScoreKey = 0;
+			foreach (Score in Scores) {
+				if (Score != Null) {
+					declare Boolean Race_ScoresTable_IsSpectator for Score = False;
+					if (!Race_ScoresTable_IsSpectator) {
+						if (Score.User != Null && _PlayerLogin == Score.User.Login) {
+							Key = ScoreKey;
+							break;
+						}
+						ScoreKey += 1;
+					}
+				}
+			}
+		}
+	}
+	return Key;
+}
+
+Void RedrawScroll(Boolean _VoiceChatEnabled, CMlFrame[] _Scrolls) {
+	foreach (Scroll in _Scrolls) {
+		foreach (Control in Scroll.Controls) {
+			if (Control.HasClass("{{{Scroll::C_Class_Element}}}")) {
+				declare CMlFrame Frame_Select <=> (Control as CMlFrame).GetFirstChild("frame-select-player") as CMlFrame;
+				if (Frame_Select != Null) {
+					declare CMlFrame PlayerName_Name <=> (Control as CMlFrame).GetFirstChild("playername-name") as CMlFrame;
+					if (_VoiceChatEnabled) {
+						Frame_Select.RelativePosition_V3 = {{{Pos_SelectPlayerButtons_VoiceChatEnabled}}};
+						{{{PlayerName::P}}}SetSize(This, PlayerName_Name, {{{Size_PlayerName_VoiceChatEnabled}}});
+					} else {
+						Frame_Select.RelativePosition_V3 = {{{Pos_SelectPlayerButtons}}};
+						{{{PlayerName::P}}}SetSize(This, PlayerName_Name, {{{Size_PlayerName}}});
+					}
+					Page.GetClassChildren("{{{C_Class_Mute_Button}}}", Frame_Select, False);
+					if (Page.GetClassChildren_Result.count > 0 && (Page.GetClassChildren_Result[0] is CMlFrame)) {
+						declare CMlFrame Button_MutePlayer = Page.GetClassChildren_Result[0] as CMlFrame;
+						Button_MutePlayer.Visible = _VoiceChatEnabled;
+						{{{Navigation::P}}}Lock(Button_MutePlayer, !_VoiceChatEnabled);
+					}
+				}
+			}
+		}
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_ScoresTable_Visibility;
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_ButtonList;
+declare CMlQuad Quad_BlackBg;
+declare CMlFrame Frame_Info;
+declare CMlFrame Frame_ScrollPlayers;
+declare CMlFrame Frame_ScrollTeam1Members;
+declare CMlFrame Frame_ScrollTeam2Members;
+declare CMlLabel Label_Info;
+declare CMlFrame Frame_Trophy;
+declare CMlLabel Label_MatchId;
+declare CMlQuad Quad_MuteAll;
+
+declare netread Text Net_TMGame_ScoresTable_FooterInfo for Teams[0];
+declare netread Integer Net_TMGame_ScoresTable_RacePointsUpdate for Teams[0];
+declare netread Integer Net_TMGame_ScoresTable_ScoreMode for Teams[0];
+declare netread Text[][Text] Net_TMGame_ScoresTable_CustomPoints for Teams[0];
+declare netread Integer[Text] Net_TMGame_ScoresTable_MatchPoints for Teams[0];
+declare netread Text[] Net_TMGame_ScoresTable_AccountIdsToDisplay for Teams[0] = [];
+declare netread Integer Net_TMGame_ScoresTable_AccountIdsToDisplayUpdate for Teams[0] = -1;
+declare netread Text[Text] Net_TMGame_ScoresTable_CustomRanks for Teams[0] = [];
+declare netread Boolean Net_TMGame_ScoresTable_RoundPoints for Teams[0] = False;
+declare netread K_Net_GhostData[] Net_TMGame_ScoresTable_GhostsData_V5 for Teams[0];
+declare netread Integer Net_TMGame_ScoresTable_GhostsDataUpdate for Teams[0];
+declare netread Boolean Net_TMGame_ScoresTable_IsLocalMode for Teams[0];
+declare netread Integer[Text] Net_TMGame_ScoresTable_CustomTimes for Teams[0];
+declare netread Integer Net_TMGame_ScoresTable_CustomTimesUpdate for Teams[0];
+declare Boolean TMGame_ScoresTable_IsDisplayed for UI;
+declare netread Integer[Integer][Text] Net_TMGame_ScoresTable_Trophies for Teams[0];
+declare netread Integer Net_TMGame_ScoresTable_TrophiesUpdate for Teams[0];
+declare netread Boolean Net_TMGame_ScoresTable_HideSpectators for Teams[0];
+declare netread K_CustomName[Text] Net_TMGame_ScoresTable_CustomNames_V2 for Teams[0];
+declare netread Integer Net_TMGame_ScoresTable_CustomNamesUpdate for Teams[0];
+declare netread Text Net_TMGame_ScoresTable_InfoMessage for Teams[0];
+declare netread Text Net_TMGame_ScoresTable_InfoClipboard for Teams[0];
+declare netread Text Net_TMGame_ScoresTable_MatchmakingId for Teams[0];
+declare netread Integer Net_TMGame_ScoresTable_RaceProgressionUpdate for Teams[0];
+declare netread Integer Net_TMGame_ScoresTable_BestRespawnsUpdate for Teams[0];
+declare netread Integer Net_TMGame_ScoresTable_EchelonsUpdate for Teams[0];
+
+declare Boolean DisplayModule;
+declare Boolean InterfaceVisible;
+declare Text FooterInfo;
+declare Integer RacePointsUpdate;
+declare Integer GhostsDataUpdate;
+declare K_ScoreOrGhost ScoreOrGhost;
+declare Integer StepRankingUpdateTime;
+declare Integer ScoresCount;
+declare Integer CustomTimesUpdate;
+declare Integer ScrollTeam1ElementsNb;
+declare Integer ScrollTeam2ElementsNb;
+declare Integer ClanScrollElementsTotalUpdate;
+declare Integer TrophiesUpdate;
+declare Integer SpectatorsUpdateTime;
+declare Integer AccountIdsToDisplayUpdate;
+declare Text Team1Name;
+declare Text Team2Name;
+declare Integer CustomNamesUpdate;
+declare Text InfoMessage;
+declare Text InfoClipboard;
+declare Integer RaceProgressionUpdate;
+declare Integer BestRespawnsUpdate;
+declare {{{ScoresTableVisibility::P}}}K_ScoresTableIsVisible ScoresTableIsVisible;
+declare Integer CurrentSelectedPlayerKey;
+declare Boolean NeedSelectedPlayerCheck;
+declare Integer EchelonsUpdate;
+declare Boolean VoiceChatEnabled;
+declare Task::K_Task Task_RetrieveDisplayName;
+***
+
+***MainStart***
+***
+Frame_ScoresTable_Visibility <=> (Page.GetFirstChild("frame-scorestable-layer") as CMlFrame);
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_ButtonList <=> (Frame_Global.GetFirstChild("frame-button-list-scorestable") as CMlFrame);
+Quad_BlackBg <=> (Frame_Global.GetFirstChild("quad-black-bg") as CMlQuad);
+Frame_ScrollPlayers = (Frame_Global.GetFirstChild("frame-scroll-players") as CMlFrame);
+Frame_ScrollTeam1Members = (Frame_Global.GetFirstChild("frame-scroll-players-left-team") as CMlFrame);
+Frame_ScrollTeam2Members = (Frame_Global.GetFirstChild("frame-scroll-players-right-team") as CMlFrame);
+Frame_Info <=> SetTeamMode(C_IsTeamMode, Frame_ScrollTeam1Members, Frame_ScrollTeam2Members);
+Frame_Trophy <=> (Frame_Global.GetFirstChild("frame-trophy") as CMlFrame);
+Label_MatchId <=> (Frame_Global.GetFirstChild("label-info-msg") as CMlLabel);
+Label_Info <=> (Frame_Info.GetFirstChild("label-info") as CMlLabel);
+Quad_MuteAll <=> (Frame_Global.GetFirstChild("quad-mute-all") as CMlQuad);
+
+{{{Navigation::P}}}Lock(Frame_ScrollPlayers, C_IsTeamMode);
+{{{Navigation::P}}}Lock(Frame_ScrollTeam1Members, !C_IsTeamMode);
+{{{Navigation::P}}}Lock(Frame_ScrollTeam2Members, !C_IsTeamMode);
+
+if (C_IsTeamMode) G_Frame_CurrentScroll = Frame_ScrollTeam1Members;
+else G_Frame_CurrentScroll = Frame_ScrollPlayers;
+
+DisplayModule = Frame_Global.Visible;
+InterfaceVisible = PageIsVisible;
+FooterInfo = "";
+RacePointsUpdate = -123;
+GhostsDataUpdate = -123;
+CustomTimesUpdate = -123;
+ScoresCount = -123;
+ClanScrollElementsTotalUpdate = -123;
+SpectatorsUpdateTime = Now;
+AccountIdsToDisplayUpdate = Net_TMGame_ScoresTable_AccountIdsToDisplayUpdate;
+Team1Name = Teams[0].ColorizedName;
+Team2Name = Teams[1].ColorizedName;
+CustomNamesUpdate = -123;
+EchelonsUpdate = -123;
+VoiceChatEnabled = False;
+G_MatchmakingId = "";
+
+UpdateStepRanking(
+	Frame_Info,
+	Net_TMGame_ScoresTable_ScoreMode,
+	Net_TMGame_ScoresTable_CustomPoints,
+	Net_TMGame_ScoresTable_MatchPoints,
+	Net_TMGame_ScoresTable_CustomRanks,
+	Net_TMGame_ScoresTable_RoundPoints,
+	ScoreOrGhost,
+	Net_TMGame_ScoresTable_IsLocalMode,
+	Net_TMGame_ScoresTable_CustomTimes,
+	Net_TMGame_ScoresTable_HideSpectators,
+	Net_TMGame_ScoresTable_CustomNames_V2
+);
+StepRankingUpdateTime = Now + {{{C_UpdateFrequency}}};
+{{{Navigation::P}}}UseLocalEvents(This, True);
+{{{Scroll::P}}}UseLocalEvents(This, True);
+
+if (SplitScreenCount > 1 && SplitScreenNum != 0) MV_Utils::AutoScaleSplitScreen(Frame_Global, 0.5, 0.5);
+ScrollTeam1ElementsNb = -123;
+ScrollTeam2ElementsNb = -123;
+ScoresTableIsVisible = SetScoresTableVisibility(
+	Frame_ScoresTable_Visibility,
+	Frame_Global,
+	Frame_ButtonList,
+	Quad_BlackBg,
+	G_Frame_CurrentScroll
+);
+***
+
+***MainLoop***
+***
+if (InterfaceVisible != PageIsVisible) {
+	InterfaceVisible = PageIsVisible;
+	{{{PauseMenu_Online::P}}}SetScoresTableButtonLocked(!InterfaceVisible, C_Id);
+}
+if (
+	ScoresTableIsVisible.FromLayer != {{{ScoresTableVisibility::P}}}LayerIsVisible() ||
+	ScoresTableIsVisible.FromMenu != {{{ScoresTableVisibility::P}}}EnabledFromMenu()
+) {
+	ScoresTableIsVisible = SetScoresTableVisibility(
+		Frame_ScoresTable_Visibility,
+		Frame_Global,
+		Frame_ButtonList,
+		Quad_BlackBg,
+		G_Frame_CurrentScroll
+	);
+	// Update voice chat mute all param and controller infos
+	UpdateMuteAllDisplay(Quad_MuteAll, Frame_ButtonList);
+}
+if (TMGame_ScoresTable_IsDisplayed != (PageIsVisible && DisplayModule && Frame_ScoresTable_Visibility.Visible)) {
+	TMGame_ScoresTable_IsDisplayed = (PageIsVisible && DisplayModule && Frame_ScoresTable_Visibility.Visible);
+	if (!TMGame_ScoresTable_IsDisplayed && G_Frame_CurrentlySelectedPlayer != Null) {
+		SelectPlayer(G_Frame_CurrentlySelectedPlayer, False);
+	}
+}
+if (PageIsVisible && Frame_ScoresTable_Visibility.Visible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_TMGame_ScoresTable_IsVisible for Owner;
+		if (DisplayModule != Net_TMGame_ScoresTable_IsVisible) {
+			DisplayModule = Net_TMGame_ScoresTable_IsVisible;
+			Frame_Global.Visible = Net_TMGame_ScoresTable_IsVisible;
+			Label_MatchId.Value = "";
+			Label_MatchId.Visible = False;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (ScoreOrGhost.UseScoreOrGhostData) {
+		if (ScrollTeam1ElementsNb != ScoreOrGhost.ScoreOrGhostData.count) {
+			ScrollTeam1ElementsNb = ScoreOrGhost.ScoreOrGhostData.count;
+			{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollTeam1Members, ScrollTeam1ElementsNb);
+			{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollPlayers, ScrollTeam1ElementsNb);
+		}
+	} else if (C_IsTeamMode) {
+		if (ClanScrollElementsTotalUpdate < Now) {
+			ClanScrollElementsTotalUpdate = Now + C_ClanScrollElementsTotalUpdate_Frequency;
+			declare Integer[Integer] TeamPlayersNb;
+			if (Net_TMGame_ScoresTable_HideSpectators) {
+				foreach (Player in Players) {
+					if (Player.Score != Null) {
+						declare Boolean Race_ScoresTable_IsSpectator for Player.Score = False;
+						Race_ScoresTable_IsSpectator = Player.RequestsSpectate;
+					}
+				}
+			}
+			foreach (Score in Scores) {
+				if (Score != Null) {
+					declare Boolean Race_ScoresTable_IsSpectator for Score = False;
+					if (!Net_TMGame_ScoresTable_HideSpectators || !Race_ScoresTable_IsSpectator) {
+						if (!TeamPlayersNb.existskey(Score.TeamNum)) TeamPlayersNb[Score.TeamNum] = 0;
+						TeamPlayersNb[Score.TeamNum] += 1;
+					}
+				}
+			}
+			declare NewScrollTeam1ElementsNb = 0;
+			if (TeamPlayersNb.existskey(1)) NewScrollTeam1ElementsNb = TeamPlayersNb[1];
+			if (ScrollTeam1ElementsNb != NewScrollTeam1ElementsNb) {
+				ScrollTeam1ElementsNb = NewScrollTeam1ElementsNb;
+				{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollTeam1Members, ScrollTeam1ElementsNb);
+				{{{Navigation::P}}}Lock(Frame_ScrollTeam1Members, (ScrollTeam1ElementsNb == 0));
+				{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollPlayers, ScrollTeam1ElementsNb);
+				{{{Navigation::P}}}Lock(Frame_ScrollPlayers, (ScrollTeam1ElementsNb == 0));
+			}
+
+			declare NewScrollTeam2ElementsNb = 0;
+			if (TeamPlayersNb.existskey(2)) NewScrollTeam2ElementsNb = TeamPlayersNb[2];
+			if (ScrollTeam2ElementsNb != NewScrollTeam2ElementsNb) {
+				ScrollTeam2ElementsNb = NewScrollTeam2ElementsNb;
+				{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollTeam2Members, ScrollTeam2ElementsNb);
+				{{{Navigation::P}}}Lock(Frame_ScrollTeam2Members, (ScrollTeam2ElementsNb == 0));
+			}
+		}
+	} else {
+		if (!Net_TMGame_ScoresTable_HideSpectators) {
+			if (ScrollTeam1ElementsNb != Scores.count) {
+				ScrollTeam1ElementsNb = Scores.count;
+				{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollTeam1Members, ScrollTeam1ElementsNb);
+				{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollPlayers, ScrollTeam1ElementsNb);
+			}
+		} else {
+			if (Now >= SpectatorsUpdateTime) {
+				SpectatorsUpdateTime = Now + C_SpectatorsUpdateInterval;
+				foreach (Player in Players) {
+					if (Player.Score != Null) {
+						declare Boolean Race_ScoresTable_IsSpectator for Player.Score = False;
+						Race_ScoresTable_IsSpectator = Player.RequestsSpectate;
+					}
+				}
+				declare NewScrollTeam1ElementsNb = 0;
+				foreach (Score in Scores) {
+					if (Score != Null) {
+						declare Boolean Race_ScoresTable_IsSpectator for Score = False;
+						if (!Net_TMGame_ScoresTable_HideSpectators || !Race_ScoresTable_IsSpectator) {
+							NewScrollTeam1ElementsNb += 1;
+						}
+					}
+				}
+				if (ScrollTeam1ElementsNb != NewScrollTeam1ElementsNb) {
+					ScrollTeam1ElementsNb = NewScrollTeam1ElementsNb;
+					{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollTeam1Members, ScrollTeam1ElementsNb);
+					{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollPlayers, ScrollTeam1ElementsNb);
+				}
+			}
+		}
+	}
+
+	// Always keep the selected player visible if pad navigation enabled (<=> scores table from pause menu)
+	if (NeedSelectedPlayerCheck && ScoresTableIsVisible.FromMenu && G_CurrentlySelectedPlayerUserId != "") {
+		NeedSelectedPlayerCheck = False;
+		if (
+			!Scores.existskey(CurrentSelectedPlayerKey) ||
+			Scores[CurrentSelectedPlayerKey].User == Null ||
+			Scores[CurrentSelectedPlayerKey].User.Login != G_CurrentlySelectedPlayerUserId
+		) {
+			CurrentSelectedPlayerKey = GetScrollKeyFromPlayerLogin(G_CurrentlySelectedPlayerUserId, ScoreOrGhost, Net_TMGame_ScoresTable_HideSpectators, Frame_ScrollTeam1Members, Frame_ScrollTeam2Members);
+			if (CurrentSelectedPlayerKey != -1 && {{{Scroll::P}}}GetFocusedElementKey(G_Frame_CurrentScroll) != CurrentSelectedPlayerKey) {
+				{{{Scroll::P}}}ScrollToElement(This, G_Frame_CurrentScroll, CurrentSelectedPlayerKey, True);
+			}
+		}
+
+	}
+
+	if (VoiceChatEnabled != IsVoiceChatEnabled()) {
+		VoiceChatEnabled = IsVoiceChatEnabled();
+		if (C_IsTeamMode) RedrawScroll(VoiceChatEnabled, [Frame_ScrollTeam1Members, Frame_ScrollTeam2Members]);
+		else RedrawScroll(VoiceChatEnabled, [Frame_ScrollPlayers]);
+		UpdateMuteAllDisplay(Quad_MuteAll, Frame_ButtonList);
+	}
+
+	if (FooterInfo != Net_TMGame_ScoresTable_FooterInfo) {
+		FooterInfo = Net_TMGame_ScoresTable_FooterInfo;
+		Label_Info.Value = Net_TMGame_ScoresTable_FooterInfo;
+		Tools::FitLabelValue(Label_Info, 4., 2., 0.5);
+	}
+
+	if (InfoMessage != Net_TMGame_ScoresTable_InfoMessage) {
+		InfoMessage = Net_TMGame_ScoresTable_InfoMessage;
+		if (InfoMessage != "") Label_MatchId.Value = InfoMessage;
+		else Label_MatchId.Value = "";
+		Label_MatchId.Visible = Label_MatchId.Value != "";
+	}
+
+	if (InfoClipboard != Net_TMGame_ScoresTable_InfoClipboard) {
+		InfoClipboard = Net_TMGame_ScoresTable_InfoClipboard;
+		// Stock match id for Report system
+		if (TL::StartsWith("{{{Constants::C_CLUB_MatchId_Beginning}}}", InfoClipboard)) {
+			G_MatchId = InfoClipboard;
+		} else {
+			G_MatchId = "";
+		}
+	}
+
+	if (G_MatchmakingId != Net_TMGame_ScoresTable_MatchmakingId) {
+		G_MatchmakingId = Net_TMGame_ScoresTable_MatchmakingId;
+	}
+
+	if (C_IsTeamMode) {
+		if (Team1Name != Teams[0].ColorizedName || Team2Name != Teams[1].ColorizedName) {
+			Team1Name = Teams[0].ColorizedName;
+			Team2Name = Teams[1].ColorizedName;
+			SetTeamsName(Team1Name, Team2Name);
+		}
+	}
+
+	declare NeedStepRankingUpdate = False;
+	declare ScoresUpdated = False;
+
+	/* Voice chat events */
+	if (VoiceChatEnabled) {
+		foreach (Event in UserMgr.VoiceChat_Events) {
+			switchtype (Event) {
+				case CVoiceChatEvent_SpeakingUsersChanged, CVoiceChatEvent_User_IsConnected: {
+					NeedStepRankingUpdate = True;
+				}
+				case CVoiceChatEvent_User_IsMuted: {
+					NeedStepRankingUpdate = True;
+					UpdateMuteAllDisplay(Quad_MuteAll, Frame_ButtonList);
+				}
+			}
+		}
+	}
+
+	foreach (Key => Score in Scores) {
+		declare Integer TimeAttackScoresTable_Rank for Score = -123;
+		if (TimeAttackScoresTable_Rank != Key) {
+			TimeAttackScoresTable_Rank = Key;
+			NeedStepRankingUpdate = True;
+			ScoresUpdated = True;
+		}
+		declare Integer TimeAttackScoresTable_Points for Score = -123;
+		if (TimeAttackScoresTable_Points != Score.Points) {
+			TimeAttackScoresTable_Points = Score.Points;
+			NeedStepRankingUpdate = True;
+			ScoresUpdated = True;
+		}
+		declare Integer TimeAttackScoresTable_Time for Score = -123;
+		declare PlayerTime = 0;
+		if (Score.BestRaceTimes.count > 0) PlayerTime = Score.BestRaceTimes[Score.BestRaceTimes.count-1];
+		if (TimeAttackScoresTable_Time != PlayerTime) {
+			TimeAttackScoresTable_Time = PlayerTime;
+			NeedStepRankingUpdate = True;
+			ScoresUpdated = True;
+		}
+	}
+
+	if (ScoresCount != Scores.count) {
+		ScoresCount = Scores.count;
+		NeedStepRankingUpdate = True;
+	}
+
+	if (RacePointsUpdate != Net_TMGame_ScoresTable_RacePointsUpdate) {
+		RacePointsUpdate = Net_TMGame_ScoresTable_RacePointsUpdate;
+		NeedStepRankingUpdate = True;
+	}
+
+	if (TrophiesUpdate != Net_TMGame_ScoresTable_TrophiesUpdate) {
+		TrophiesUpdate = Net_TMGame_ScoresTable_TrophiesUpdate;
+		// Scores with trophies cannot be added
+		// after we receive the trophies from the server.
+		// So it is safe to assign the trophies to the scores
+		// now instead of having to check in the trophies array
+		// every time we update the players list later on.
+		foreach (Score in Scores) {
+			declare K_Trophy[] TMGame_ScoresTable_Trophies for Score = [];
+			declare Integer TMGame_ScoresTable_TrophyPoints for Score = 0;
+			TMGame_ScoresTable_Trophies = [];
+			TMGame_ScoresTable_TrophyPoints = 0;
+			if (Score.User != Null && Net_TMGame_ScoresTable_Trophies.existskey(Score.User.WebServicesUserId)) {
+				declare Integer[Integer] NewTrophies = Net_TMGame_ScoresTable_Trophies[Score.User.WebServicesUserId].sortkeyreverse();
+				foreach (TrophyLevel => TrophyAmount in NewTrophies) {
+					if (TrophyAmount > 0) {
+						TMGame_ScoresTable_Trophies.add(K_Trophy {
+							Level = TrophyLevel,
+							Amount = TrophyAmount
+						});
+					}
+					TMGame_ScoresTable_TrophyPoints += (TrophyAmount * ML::NearestInteger(ML::Pow(10., TrophyLevel - 1.)));
+				}
+			}
+		}
+
+		UpdateTrophy(Frame_Trophy, Net_TMGame_ScoresTable_Trophies);
+		NeedStepRankingUpdate = True;
+	}
+
+	if (CustomNamesUpdate != Net_TMGame_ScoresTable_CustomNamesUpdate) {
+		CustomNamesUpdate = Net_TMGame_ScoresTable_CustomNamesUpdate;
+		NeedStepRankingUpdate = True;
+	}
+
+	if (RaceProgressionUpdate != Net_TMGame_ScoresTable_RaceProgressionUpdate) {
+		RaceProgressionUpdate = Net_TMGame_ScoresTable_RaceProgressionUpdate;
+		NeedStepRankingUpdate = True;
+	}
+
+	if (BestRespawnsUpdate != Net_TMGame_ScoresTable_BestRespawnsUpdate) {
+		BestRespawnsUpdate = Net_TMGame_ScoresTable_BestRespawnsUpdate;
+		NeedStepRankingUpdate = True;
+	}
+
+	if (EchelonsUpdate != Net_TMGame_ScoresTable_EchelonsUpdate) {
+		EchelonsUpdate = Net_TMGame_ScoresTable_EchelonsUpdate;
+		NeedStepRankingUpdate = True;
+	}
+
+	if (
+		ScoresUpdated ||
+		GhostsDataUpdate != Net_TMGame_ScoresTable_GhostsDataUpdate ||
+		CustomTimesUpdate != Net_TMGame_ScoresTable_CustomTimesUpdate ||
+		AccountIdsToDisplayUpdate != Net_TMGame_ScoresTable_AccountIdsToDisplayUpdate
+	) {
+		GhostsDataUpdate = Net_TMGame_ScoresTable_GhostsDataUpdate;
+		CustomTimesUpdate = Net_TMGame_ScoresTable_CustomTimesUpdate;
+		AccountIdsToDisplayUpdate = Net_TMGame_ScoresTable_AccountIdsToDisplayUpdate;
+		ScoreOrGhost.ScoreOrGhostData = [];
+		if (Net_TMGame_ScoresTable_GhostsData_V5.count > 0) {
+			declare Text[] AccountIds;
+			ScoreOrGhost.UseScoreOrGhostData = True;
+			// Create a sortable table
+			foreach (NetGhostData in Net_TMGame_ScoresTable_GhostsData_V5) {
+				ScoreOrGhost.ScoreOrGhostData.add(
+					K_ScoreOrGhostEntry {
+						AccountId =  NetGhostData.AccountId,
+						IsScore = False,
+						ScoreIndex = -1,
+						Nickname = NetGhostData.Nickname,
+						Time = NetGhostData.Time,
+						Points = NetGhostData.Points,
+						NbRespawns = NetGhostData.NbRespawns,
+						ZoneRank = NetGhostData.ZoneRank,
+						CountryPath = NetGhostData.CountryPath,
+						IsVIP = NetGhostData.IsVIP,
+						ScoreMgrMedal = NetGhostData.ScoreMgrMedal,
+						IsPB = NetGhostData.IsPB
+					}
+				);
+
+				if ({{{UserStore::P}}}GetUserMgrPlayerName(NetGhostData.AccountId) == "" && !AccountIds.exists(NetGhostData.AccountId)) {
+					AccountIds.add(NetGhostData.AccountId);
+				}
+			}
+			foreach (Index => Score in Scores) {
+				if (
+					Score != Null &&
+					Score.User != Null &&
+					(
+						Net_TMGame_ScoresTable_AccountIdsToDisplay.count == 0 ||
+						Net_TMGame_ScoresTable_AccountIdsToDisplay.exists(Score.User.WebServicesUserId)
+					)
+				) {
+					declare Time = 0;
+					if (Net_TMGame_ScoresTable_CustomTimes.existskey(Score.User.WebServicesUserId)) {
+						Time = Net_TMGame_ScoresTable_CustomTimes[Score.User.WebServicesUserId];
+					} else if (Score.BestRaceTimes.count > 0) {
+						Time = Score.BestRaceTimes[Score.BestRaceTimes.count-1];
+					}
+					if (Time > 0) {
+						ScoreOrGhost.ScoreOrGhostData.add(K_ScoreOrGhostEntry {
+							AccountId = "",
+							IsScore = True,
+							ScoreIndex = Index,
+							Nickname = "",
+							Time = Time,
+							Points = -1,
+							NbRespawns = -1,
+							ZoneRank = -1,
+							CountryPath = "",
+							IsVIP = False,
+							ScoreMgrMedal = Medals::C_ScoreMgrMedal_None,
+							IsPB = False
+						});
+					}
+				}
+			}
+			declare Integer[Integer] ToSort;
+			foreach (Index => ScoreOrGhost_Entry in ScoreOrGhost.ScoreOrGhostData) {
+				ToSort[Index] = ScoreOrGhost_Entry.Time;
+			}
+
+			// Retrieve map author display name if needed
+			if (Map != Null && {{{UserStore::P}}}GetUserMgrPlayerName(Map.AuthorLogin) == "" && !AccountIds.exists(Map.AuthorLogin)) {
+				AccountIds.add(Map.AuthorLogin);
+			}
+
+			// Retrieve display names if needed
+			if (AccountIds.count > 0) {
+				Task_RetrieveDisplayName = Task::DestroyAndCreate(Task_RetrieveDisplayName, UserMgr, UserMgr.RetrieveDisplayName(MainUser::GetMainUserId(), AccountIds));
+			}
+
+			// Sort
+			ToSort = ToSort.sort();
+
+			// Add scores without bestrace
+			declare K_ScoreOrGhostEntry[] NewScoreOrGhostData;
+			foreach (Index => Time in ToSort) {
+				if (ScoreOrGhost.ScoreOrGhostData.existskey(Index)) NewScoreOrGhostData.add(ScoreOrGhost.ScoreOrGhostData[Index]);
+			}
+			foreach (Index => Score in Scores) {
+				if (
+					Score != Null &&
+					Score.User != Null &&
+					(
+						Net_TMGame_ScoresTable_AccountIdsToDisplay.count == 0 ||
+						Net_TMGame_ScoresTable_AccountIdsToDisplay.exists(Score.User.WebServicesUserId)
+					)
+				) {
+					declare Time = 0;
+					if (Net_TMGame_ScoresTable_CustomTimes.existskey(Score.User.WebServicesUserId)) {
+						Time = Net_TMGame_ScoresTable_CustomTimes[Score.User.WebServicesUserId];
+					} else if (Score.BestRaceTimes.count > 0) {
+						Time = Score.BestRaceTimes[Score.BestRaceTimes.count-1];
+					}
+					if (Time <= 0) {
+						NewScoreOrGhostData.add(K_ScoreOrGhostEntry {
+							AccountId = "",
+							IsScore = True,
+							ScoreIndex = Index,
+							Nickname = "",
+							Time = 0,
+							Points = -1,
+							NbRespawns = -1,
+							ZoneRank = -1,
+							CountryPath = "",
+							IsVIP = False,
+							ScoreMgrMedal = Medals::C_ScoreMgrMedal_None,
+							IsPB = False
+						});
+					}
+				}
+			}
+			ScoreOrGhost.ScoreOrGhostData = NewScoreOrGhostData;
+		} else if (Net_TMGame_ScoresTable_AccountIdsToDisplay.count > 0) {
+			ScoreOrGhost.UseScoreOrGhostData = True;
+			declare Index = 0;
+			foreach (Score in Scores) {
+				if (
+					Score != Null &&
+					Score.User != Null &&
+					Net_TMGame_ScoresTable_AccountIdsToDisplay.exists(Score.User.WebServicesUserId)
+				) {
+					declare Time = 0;
+					if (Net_TMGame_ScoresTable_CustomTimes.existskey(Score.User.WebServicesUserId)) {
+						Time = Net_TMGame_ScoresTable_CustomTimes[Score.User.WebServicesUserId];
+					} else if (Score.BestRaceTimes.count > 0) {
+						Time = Score.BestRaceTimes[Score.BestRaceTimes.count-1];
+					}
+					ScoreOrGhost.ScoreOrGhostData.add(K_ScoreOrGhostEntry {
+						IsScore = True,
+						ScoreIndex = Index,
+						Nickname = "",
+						Time = Time,
+						Points = -1,
+						NbRespawns = -1,
+						ZoneRank = -1,
+						CountryPath = "",
+						IsVIP = False,
+						ScoreMgrMedal = Medals::C_ScoreMgrMedal_None,
+						IsPB = False
+					});
+					Index += 1;
+				}
+			}
+		} else {
+			ScoreOrGhost.UseScoreOrGhostData = False;
+		}
+		NeedStepRankingUpdate = True;
+	}
+
+	// Get ghost display name task
+	if (Task::IsInitialized(Task_RetrieveDisplayName)) {
+		Task_RetrieveDisplayName = Task::Update(Task_RetrieveDisplayName);
+		if (!Task::IsRunning(Task_RetrieveDisplayName)) {
+			Task_RetrieveDisplayName = Task::Destroy(Task_RetrieveDisplayName);
+		}
+	}
+
+	foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Navigation::P}}}C_EventType_NavigateInput: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+					if (Event.Input == CMlScriptEvent::EMenuNavAction::Select) {
+						NeedStepRankingUpdate = Select(Event.To);
+					} else if (Event.Input == CMlScriptEvent::EMenuNavAction::Cancel) {
+						if (Event.From != Null &&
+								(
+									Event.From.HasClass("{{{C_Class_Profile_Button}}}") ||
+									Event.From.HasClass("{{{C_Class_Spectate_Button}}}") ||
+									Event.From.HasClass("{{{C_Class_Mute_Button}}}")
+								)
+							) {
+							SelectPlayer(G_Frame_CurrentlySelectedPlayer, False);
+							Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), G_Frame_CurrentScroll);
+						} else {
+							{{{ScoresTableVisibility::P}}}SetEnabledFromMenu(False);
+						}
+					} else if (SplitScreenCount <= 1 && Event.Input == CMlScriptEvent::EMenuNavAction::AppMenu) { // FindMyself option not available in SplitScreen
+						declare Integer MyKey = GetScrollKeyFromPlayerLogin(LocalUser.Login, ScoreOrGhost, Net_TMGame_ScoresTable_HideSpectators, Frame_ScrollTeam1Members, Frame_ScrollTeam2Members);
+						if (MyKey != -1) {{{Scroll::P}}}ScrollToElement(This, G_Frame_CurrentScroll, MyKey, True);
+					} else if (Event.Input == CMlScriptEvent::EMenuNavAction::Action1 && VoiceChatEnabled) {
+						MuteAll();
+					} else {
+						Focus((Event.From as CMlFrame), (Event.To as CMlFrame));
+					}
+				}
+			}
+			case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+					if (Event.Mouse == CMlScriptEvent::Type::MouseClick) {
+						NeedStepRankingUpdate = Select(Event.To);
+					} else if (
+						Event.Mouse == CMlScriptEvent::Type::MouseOver ||
+						Event.Mouse == CMlScriptEvent::Type::MouseOut
+					) {
+						Focus(Event.From, Event.To);
+					}
+				}
+			}
+		}
+	}
+
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+			if (Event.Control.HasClass("{{{Scroll::C_Class_ScrollEvent}}}")) {
+				SelectPlayer(G_Frame_CurrentlySelectedPlayer, False);
+				NeedStepRankingUpdate = True;
+			} else if (Event.ControlId == "label-info-msg") {
+				if (InfoClipboard != "") System.ClipboardSet(InfoClipboard);
+				else System.ClipboardSet(InfoMessage);
+			}
+		} else if (Event.Type == CMlScriptEvent::Type::MenuNavigation) {
+			if (Event.MenuNavAction == CMlScriptEvent::EMenuNavAction::PageDown) {
+				if (G_CurrentlySelectedPlayerUserId == "") ScrollDown(G_Frame_CurrentScroll);
+			} else if (Event.MenuNavAction == CMlScriptEvent::EMenuNavAction::PageUp) {
+				if (G_CurrentlySelectedPlayerUserId == "") ScrollUp(G_Frame_CurrentScroll);
+			}
+		}
+	}
+
+	if ({{{ScoresTableVisibility::P}}}GetPageShift() != 0) {
+		if (G_CurrentlySelectedPlayerUserId == "") {
+			declare Integer PageShift = {{{ScoresTableVisibility::P}}}GetPageShift();
+			if (PageShift < 0) {
+				ScrollUp(G_Frame_CurrentScroll);
+			} else if (PageShift > 0) {
+				ScrollDown(G_Frame_CurrentScroll);
+			}
+		}
+		{{{ScoresTableVisibility::P}}}SetPageShift(0);
+	}
+
+	if (StepRankingUpdateTime <= Now) {
+		StepRankingUpdateTime = Now + {{{C_UpdateFrequency}}};
+		NeedStepRankingUpdate = True;
+	}
+
+	if (NeedStepRankingUpdate) {
+		{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollPlayers, ScrollTeam1ElementsNb, False);
+		if (C_IsTeamMode) {
+			{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollTeam1Members, ScrollTeam1ElementsNb, False);
+			{{{Scroll::P}}}SetElementsTotal(This, Frame_ScrollTeam2Members, ScrollTeam2ElementsNb, False);
+			{{{Navigation::P}}}Lock(Frame_ScrollTeam1Members, (ScrollTeam1ElementsNb == 0));
+			{{{Navigation::P}}}Lock(Frame_ScrollTeam2Members, (ScrollTeam2ElementsNb == 0));
+		}
+		UpdateStepRanking(
+			Frame_Info,
+			Net_TMGame_ScoresTable_ScoreMode,
+			Net_TMGame_ScoresTable_CustomPoints,
+			Net_TMGame_ScoresTable_MatchPoints,
+			Net_TMGame_ScoresTable_CustomRanks,
+			Net_TMGame_ScoresTable_RoundPoints,
+			ScoreOrGhost,
+			Net_TMGame_ScoresTable_IsLocalMode,
+			Net_TMGame_ScoresTable_CustomTimes,
+			Net_TMGame_ScoresTable_HideSpectators,
+			Net_TMGame_ScoresTable_CustomNames_V2
+		);
+	}
+
+	foreach (Event in {{{Scroll::P}}}GetPendingEvents(This)) {
+		if (Event.Scroll != Null) {
+			if (
+				(!C_IsTeamMode && Event.Scroll.Id == Frame_ScrollPlayers.Id) ||
+				(C_IsTeamMode && Event.Scroll.Id == Frame_ScrollTeam1Members.Id || Event.Scroll.Id == Frame_ScrollTeam2Members.Id)
+				) {
+				switch (Event.Type) {
+					case {{{Scroll::P}}}C_EventType_Update: {
+						NeedSelectedPlayerCheck = True;
+						// Mark player scores as connected
+						foreach (Player in Players) {
+							if (Player != Null && Player.Score != Null) {
+								declare ScoresTable_PlayerLastUpdate for Player.Score = -1;
+								ScoresTable_PlayerLastUpdate = Now;
+							}
+						}
+						// Determine each Score's position in team
+						declare Integer[Integer] ScrollKeyToScoreKey = [];
+						declare Text[Text] CustomRanks = Net_TMGame_ScoresTable_CustomRanks;
+						declare Boolean CanOverrideCustomRanks = (CustomRanks.count == 0);
+						if (C_IsTeamMode) {
+							declare TeamsNb = 2;
+							declare TeamNum = 1;
+							if (Event.Scroll.Id == Frame_ScrollTeam2Members.Id) TeamNum = 2;
+							declare Integer SelectedTeamPlayersNb = 0;
+							declare Integer Rank = 1;
+							foreach (KeyInScores => Score in Scores) {
+								if (Score != Null) {
+									declare Boolean Race_ScoresTable_IsSpectator for Score = False;
+									if (!Net_TMGame_ScoresTable_HideSpectators || !Race_ScoresTable_IsSpectator) {
+										if (Score.TeamNum == TeamNum) {
+											ScrollKeyToScoreKey[SelectedTeamPlayersNb] = KeyInScores;
+											SelectedTeamPlayersNb += 1;
+											if (Net_TMGame_ScoresTable_HideSpectators && CanOverrideCustomRanks && Score.User != Null) {
+												CustomRanks[Score.User.WebServicesUserId] = ""^Rank;
+											}
+										}
+										Rank += 1;
+									}
+								}
+							}
+						} else if (Net_TMGame_ScoresTable_HideSpectators) {
+							foreach (KeyInScores => Score in Scores) {
+								if (Score != Null) {
+									declare Boolean Race_ScoresTable_IsSpectator for Score = False;
+									if (!Net_TMGame_ScoresTable_HideSpectators || !Race_ScoresTable_IsSpectator) {
+										ScrollKeyToScoreKey[ScrollKeyToScoreKey.count] = KeyInScores;
+										if (Net_TMGame_ScoresTable_HideSpectators && CanOverrideCustomRanks && Score.User != Null) {
+											CustomRanks[Score.User.WebServicesUserId] = ""^ScrollKeyToScoreKey.count;
+										}
+									}
+								}
+							}
+						}
+						foreach (Key => Frame_Element in Event.ElementsVisible) {
+							UpdatePlayer(
+								Frame_Element,
+								Key,
+								Net_TMGame_ScoresTable_ScoreMode,
+								Net_TMGame_ScoresTable_CustomPoints,
+								Net_TMGame_ScoresTable_MatchPoints,
+								CustomRanks,
+								Net_TMGame_ScoresTable_RoundPoints,
+								ScoreOrGhost,
+								Net_TMGame_ScoresTable_IsLocalMode,
+								Net_TMGame_ScoresTable_CustomTimes,
+								ScrollKeyToScoreKey,
+								{{{C_TrophyStyle}}},
+								Net_TMGame_ScoresTable_HideSpectators,
+								Net_TMGame_ScoresTable_CustomNames_V2
+							);
+						}
+						foreach (Key => Frame_Element in Event.ElementsHidden) {
+							HidePlayer(Frame_Element);
+						}
+					}
+					case {{{Scroll::P}}}C_EventType_Focus: {
+						if (Event.From != Null) {
+							declare Text PlayerWebServicesUserId for Event.From = "";
+							declare Boolean AnotherPlayerIsSelected = (G_CurrentlySelectedPlayerUserId != "" && G_CurrentlySelectedPlayerUserId != PlayerWebServicesUserId);
+							FocusPlayer(Event.From, False, AnotherPlayerIsSelected);
+						}
+						if (Event.To != Null) {
+							if (Event.IsMouse && !{{{Scroll::P}}}IsFocused(Event.Scroll)) {
+								Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), Event.Scroll);
+							}
+							FocusPlayer(Event.To, True);
+						}
+					}
+					case {{{Scroll::P}}}C_EventType_Select: {
+						if (Event.To != Null)	SelectPlayer_FromScroll(Event.To);
+					}
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	Navigation::ComponentV2(),
+	Scroll::ComponentV2(),
+	ScoresTableVisibility::Component(),
+	MenuButtonList::Component(),
+	UserStore::ComponentV2(),
+	PauseMenu_Online::Component(),
+	ExpendableButton::ComponentV2(),
+	ExpendableAsset::ComponentV2(),
+	LoadingSpinner::ComponentV2(),
+	PlayerName::ComponentV2()
+],
+[]
+	);
+}
+
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return GetML(C_PlayersPerColumn, C_ColumnsNb);
+}
+
+Text GetProfileML() {
+	return MV::Create(
+		C_IdProfile, 3,
+		"""
+<frame id="frame-global" z-index="{{{C_ZIndex_Profile}}}">
+	<frame id="frame-profile" hidden="1">
+		<frameinstance
+			modelid="{{{ProfilePlayerInfo::C_Name}}}"
+			data-enable-players-pager="1"
+			data-enable-zone-selection="0"
+			data-enable-my-access-info="0"
+		/>
+	</frame>
+</frame>
+		""",
+		"""
+#Include "Libs/Nadeo/TMGame/Modes/InputPriority.Script.txt" as InputPriority
+
+#Struct K_State {
+	CMlFrame Frame_Profile;
+	Integer ScoresCount;
+	Ident[] UserIds;
+}
+		""",
+		"""
+K_State DisplayProfile(K_State _State, Boolean _Display, Text _AccountId, Boolean _IsGhost, Text _RecordDetail, Text _RecordId) {
+	declare K_State State = _State;
+
+	if (_Display) {
+		{{{ProfilePlayerInfo::P}}}SetUserAccountId(_AccountId);
+		{{{ProfilePlayerInfo::P}}}SetUserIsGhost(_IsGhost);
+		{{{ProfilePlayerInfo::P}}}SetUserRecord(_RecordDetail, _RecordId);
+	} else {
+		State.ScoresCount = 0;
+		State.UserIds = [];
+	}
+	{{{ProfilePlayerInfo::P}}}Enable(_Display);
+	State.Frame_Profile.Visible = _Display;
+	EnableMenuNavigation(_Display, False, False, Null, InputPriority::C_InputPriority_ScoresTable_Profile);
+
+	return State;
+}
+K_State DisplayProfile(K_State _State, Boolean _Display, CUser _User) {
+	declare K_State State = _State;
+
+	if (_Display) {
+		{{{ProfilePlayerInfo::P}}}SetUser(_User);
+	} else {
+		State.ScoresCount = 0;
+		State.UserIds = [];
+	}
+	{{{ProfilePlayerInfo::P}}}Enable(_Display);
+	State.Frame_Profile.Visible = _Display;
+	EnableMenuNavigation(_Display, False, False, Null, InputPriority::C_InputPriority_ScoresTable_Profile);
+
+	return State;
+}
+K_State DisplayProfile(K_State _State, Boolean _Display) {
+	return DisplayProfile(_State, _Display, Null);
+}
+K_State OpenProfile(K_State _State, Text _Id, Boolean _IsGhost, Text _RecordDetail, Text _RecordId, Text _MatchId, Text _MatchmakingId) {
+	{{{ProfilePlayerInfo::P}}}SetMatchAndMatchmakingId(_MatchId, _MatchmakingId);
+
+	foreach (Score in Scores) {
+		if (Score.User != Null && Score.User.WebServicesUserId == _Id) {
+			return DisplayProfile(_State, True, Score.User);
+		}
+	}
+
+	return DisplayProfile(_State, True, _Id, _IsGhost, _RecordDetail, _RecordId);
+}
+
+***MainInit***
+***
+declare Text TMGame_ScoresTable_OpenProfileUserId for ClientUI = "";
+declare Text TMGame_ScoresTable_OpenProfileUserRecordDetail for ClientUI = "";
+declare Text TMGame_ScoresTable_OpenProfileUserRecordId for ClientUI = "";
+declare Text TMGame_ScoresTable_OpenProfileUserMatchId for ClientUI = "";
+declare Text TMGame_ScoresTable_OpenProfileUserMatchmakingId for ClientUI = "";
+declare Boolean TMGame_ScoresTable_OpenProfileUserIsGhost for ClientUI = False;
+
+declare K_State State;
+***
+
+***MainStart***
+***
+State.Frame_Profile <=> (Page.GetFirstChild("frame-profile") as CMlFrame);
+
+TMGame_ScoresTable_OpenProfileUserId = "";
+TMGame_ScoresTable_OpenProfileUserRecordDetail = "";
+TMGame_ScoresTable_OpenProfileUserRecordId = "";
+TMGame_ScoresTable_OpenProfileUserMatchId = "";
+TMGame_ScoresTable_OpenProfileUserMatchmakingId = "";
+TMGame_ScoresTable_OpenProfileUserIsGhost = False;
+
+State.ScoresCount = 0;
+State.UserIds = [];
+
+{{{ProfilePlayerInfo::P}}}UseLocalEvents(True);
+State = DisplayProfile(State, False);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	// Hide profile when opening the pause menu
+	if (IsInGameMenuDisplayed && State.Frame_Profile.Visible && !{{{ScoresTableVisibility::P}}}EnabledFromMenu()) {
+		State = DisplayProfile(State, False);
+	}
+
+	if (TMGame_ScoresTable_OpenProfileUserId != "") {
+		State = OpenProfile(
+			State,
+			TMGame_ScoresTable_OpenProfileUserId,
+			TMGame_ScoresTable_OpenProfileUserIsGhost,
+			TMGame_ScoresTable_OpenProfileUserRecordDetail,
+			TMGame_ScoresTable_OpenProfileUserRecordId,
+			TMGame_ScoresTable_OpenProfileUserMatchId,
+			TMGame_ScoresTable_OpenProfileUserMatchmakingId
+		);
+		TMGame_ScoresTable_OpenProfileUserId = "";
+		TMGame_ScoresTable_OpenProfileUserIsGhost = False;
+		TMGame_ScoresTable_OpenProfileUserRecordDetail = "";
+		TMGame_ScoresTable_OpenProfileUserRecordId = "";
+		TMGame_ScoresTable_OpenProfileUserMatchId = "";
+		TMGame_ScoresTable_OpenProfileUserMatchmakingId = "";
+	}
+
+	if (State.Frame_Profile.Visible) {
+		if (State.ScoresCount != Scores.count) {
+			State.ScoresCount = Scores.count;
+			if (Scores.count < State.UserIds.count) {
+				State.UserIds = [];
+			}
+			foreach (Score in Scores) {
+				if (Score.User != Null && !State.UserIds.exists(Score.User.Id)) {
+					State.UserIds.add(Score.User.Id);
+				}
+			}
+			{{{ProfilePlayerInfo::P}}}EnablePlayersPager(State.UserIds.count > 1);
+			{{{ProfilePlayerInfo::P}}}EnableGarageButton(False);
+		}
+
+		foreach (Event in {{{ProfilePlayerInfo::P}}}PendingEvents) {
+			switch (Event.Type) {
+				case {{{ProfilePlayerInfo::P}}}C_EventType_Close: {
+					State = DisplayProfile(State, False);
+				}
+				case {{{ProfilePlayerInfo::P}}}C_EventType_NextPlayer: {
+					declare Integer Key = State.UserIds.keyof(Event.CurrentUserId);
+					if (Key >= 0) {
+						declare Ident UserId = NullId;
+						if (State.UserIds.existskey(Key + 1)) {
+							UserId = State.UserIds[Key + 1];
+						} else if (State.UserIds.count > 0) {
+							UserId = State.UserIds[0];
+						}
+						if (UserId != NullId && Scores.existskey(UserId) && Scores[UserId].User != Null) {
+							{{{ProfilePlayerInfo::P}}}SetUser(Scores[UserId].User);
+						}
+					}
+				}
+				case {{{ProfilePlayerInfo::P}}}C_EventType_PrevPlayer: {
+					declare Integer Key = State.UserIds.keyof(Event.CurrentUserId);
+					if (Key >= 0) {
+						declare Ident UserId = NullId;
+						if (State.UserIds.existskey(Key - 1)) {
+							UserId = State.UserIds[Key - 1];
+						} else if (State.UserIds.count > 0) {
+							UserId = State.UserIds[State.UserIds.count - 1];
+						}
+						if (UserId != NullId && Scores.existskey(UserId) && Scores[UserId].User != Null) {
+							{{{ProfilePlayerInfo::P}}}SetUser(Scores[UserId].User);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+***
+		""",
+		[ProfilePlayerInfo::Component(), ScoresTableVisibility::Component()],
+		[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a component with helper functions related to the scores table
+Text Component() {
+	return MV::Component(
+		C_Name,
+		"""
+		""",
+		"""
+		""",
+		"""
+Boolean {{{P}}}IsDisplayed() {
+	declare Boolean TMGame_ScoresTable_IsDisplayed for UI;
+	return TMGame_ScoresTable_IsDisplayed;
+}
+
+// Use only when the default scores table is replaced by a custom one
+Void {{{P}}}SetIsDisplayed(Boolean _IsDisplayed) {
+	declare Boolean TMGame_ScoresTable_IsDisplayed for UI;
+	TMGame_ScoresTable_IsDisplayed = _IsDisplayed;
+}
+		""",
+		[],
+		[]
+	);
+}

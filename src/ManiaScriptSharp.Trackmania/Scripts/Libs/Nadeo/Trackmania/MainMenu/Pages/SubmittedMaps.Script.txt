@@ -1,0 +1,807 @@
+/**
+ * Page: SubmittedMaps
+ */
+#Const Version "1.2.2"
+#Const ScriptName "Libs/Nadeo/Trackmania/MainMenu/Pages/SubmittedMaps.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/TextToSpeech.Script.txt" as TextToSpeech
+#Include "Libs/Nadeo/CMGame/Components/ControlBlockList.Script.txt" as ControlBlockList
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Scroll.Script.txt" as Scroll
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/Trackmania/Components/PopUpMultiChoice.Script.txt" as PopUpMultiChoice
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Components/NavigationTabs.Script.txt" as NavigationTabs
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Page_SubmittedMaps"
+#Const C_NavGroupName "navgroup-page-submittedmaps"
+#Const C_Class_TrackOptions_Mouse_Navigation "class-track-focus-options-mouse-navigation"
+
+#Const C_Tab_TOTD 0
+#Const C_Tab_WeeklyTracks 1
+#Const C_TabNames [
+	//L16N [ServerReview] Button to display player's submitted tracks for track of the day
+	0 => _("Track of the day"),
+	//L16N [ServerReview] 'Weekly Tracks' is considered a proper name, so do NOT translate it unless necessary. The 'Weekly Tracks' is a UGC content comprising short (Weekly Shorts) and long (Weekly Grands) tracks released every week.
+	1 => _("Weekly Tracks")
+]
+
+#Const C_RemoveTrackPopUp_Choices [0 => _("Cancel"), 1 => _("Remove")]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the page manialink
+ *
+ *	@return														The page manialink
+ */
+Text GetManialink() {
+	declare Text Text_Retrieving = Const::C_Text_RetrievingDataPlaceholder;
+	declare Text Text_RetrievingTracks = _("Retrieving tracks");
+	//L16N [ServerReview] Message displayed in the submitted track list when there is no track.
+	declare Text Text_NoMaps = _("You haven't submitted a track yet.");
+	//L16N [ServerReview] Title of the pop-up when the player wants to remove a track from his submitted tracks
+	declare Text Text_RemoveTrack = _("Remove track");
+	//L16N [ServerReview] Text pronounced when focusing a submitted map.
+	declare Text TTS_Stars = _("%1 stars");
+
+	declare Boolean PlaformIsFromFirstParty = Platform::IsFromFirstParty(System);
+
+	/* Scroll tracks */
+	declare Vec2 Size_Header = <0., 0.>;
+	declare Vec2 Size_Footer = <0., 0.>;
+	declare Vec2 Size_TracksScrollWindow = <266., 94.>;
+	declare Integer ColumnsNb_Tracks = 6;
+	declare Integer RowsNb_Tracks = 3;
+	declare Vec2 Overflow = <0., 15.>;
+	declare Integer TracksPerPage = ColumnsNb_Tracks * RowsNb_Tracks;
+	declare Vec2 Size_TrackMargin = <0., 3.>;
+	declare Vec2 Size_Track = Scroll::GetElementSize(Size_TracksScrollWindow, Size_TrackMargin, ColumnsNb_Tracks, RowsNb_Tracks, Overflow);
+	declare Integer TracksElementsNb = Scroll::GetRequiredElementsNb(Size_TracksScrollWindow, Size_Track, Size_TrackMargin, ColumnsNb_Tracks);
+
+	declare Vec2 Size_TrackImage = MLHelpers::KeepRatioFromY(544., 412., Size_Track.Y);
+	declare Vec2 Size_Track_Adjusted = <Size_TrackImage.X - MLHelpers::SkewX(Size_TrackImage.Y, 10.),	Size_TrackImage.Y>;
+	declare Vec2 Pos_TrackNameOneLine = <Size_TrackImage.X * 0.06, Size_TrackImage.Y * -0.77>;
+	declare Vec2 Pos_TrackNameTwoLines = <Size_TrackImage.X * 0.08, Size_TrackImage.Y * -0.72>;
+	declare Vec2 Pos_TrackStars = <Size_TrackImage.X * 0.26, Size_TrackImage.Y * -0.9>;
+	declare Vec2 Pos_TrackFocusOptions = <Size_TrackImage.X * 0.9, Size_TrackImage.Y * -0.12>;
+
+	declare Text ML_Tracks = "";
+	for (I, 1, TracksElementsNb) {
+		ML_Tracks ^= """
+			<frameinstance
+				modelid="framemodel-track"
+				class="{{{Scroll::C_Class_Element}}}"
+				hidden="1"
+			/>
+		""";
+	}
+
+	return MV::Create(
+C_Name, 3,
+"""
+<stylesheet>
+	<style class="quad-base" halign="center" valign="center"/>
+	<style class="text-extra-bold" halign="left" valign="center2" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textsize="13" textcolor="FFF"/>
+	<style class="text-semi-bold" halign="center" valign="center2" textcolor="FFF" textsize="5" textprefix="$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}"/>
+	<style class="text-regular" halign="left" valign="center2" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" textsize="5" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}"/>
+</stylesheet>
+
+<!-- Frame models -->
+<framemodel id="framemodel-track">
+	<frame size="{{{Size_TrackImage.X}}} {{{Size_TrackImage.Y}}}" pos="{{{Size_TrackImage.X/2}}} {{{-Size_TrackImage.Y/2}}}" halign="center" valign="center" z-index="1">
+		<quad id="quad-hitbox" size="{{{Size_Track_Adjusted.X}}} {{{Size_Track_Adjusted.Y*1.5}}}" scriptevents="1" class="quad-base {{{Scroll::C_Class_ActivationZone}}}" rot="10"/>
+	</frame>
+	<frameinstance id="control-block-list-track-thumbnail" modelid="{{{ControlBlockList::C_Name}}}" data-type="{{{ControlBlockList::C_Type_Quad}}}" z-index="0" data-size="{{{Size_TrackImage.X}}} {{{Size_TrackImage.Y}}}" data-alphamask="{{{Const::C_ImageUrl_Common_Track_Mask}}}" />
+	<quad id="quad-gradient" z-index="1" size="{{{Size_TrackImage.X}}} {{{Size_TrackImage.Y}}}" image="{{{Const::C_ImageUrl_Common_Track_Gradient_Full}}}" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}"/>
+	<frameinstance id="control-block-list-track-name" modelid="{{{ControlBlockList::C_Name}}}" data-type="{{{ControlBlockList::C_Type_Label}}}" z-index="2" data-textsize="2" data-textsize-fitlabel-min="0.6" data-textsize-fitlabel-step="0.2" data-maxline="2" data-size="{{{Size_TrackImage.X * 0.8}}} 7" data-opacity="0.7" pos="{{{Pos_TrackNameOneLine.X}}} {{{Pos_TrackNameOneLine.Y}}}" data-filter-profanities="OnlyIfNotTranslated" data-valign="center2" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+	<frame id="frame-stars" pos="{{{Pos_TrackStars.X}}} {{{Pos_TrackStars.Y}}}" halign="left" z-index="2">
+		<label id="label-star-1" pos="-10 0" text="" class="text-regular" textsize="2."/>
+		<label id="label-star-2" pos="-5 0" text="" class="text-regular" textsize="2."/>
+		<label id="label-star-3" pos="0 0" text="" class="text-regular" textsize="2."/>
+		<label id="label-star-4" pos="5 0" text="" class="text-regular" textsize="2."/>
+		<label id="label-star-5" pos="10 0" text="" class="text-regular" textsize="2."/>
+	</frame>
+	<quad id="quad-focus" z-index="3" size="{{{Size_TrackImage.X}}} {{{Size_TrackImage.Y}}}" image="{{{Const::C_ImageUrl_Common_Track_Contour}}}" opacity="0." colorize="FFF"/>
+	<frame id="frame-track-focus-options" z-index="3" pos="{{{Pos_TrackFocusOptions.X}}} {{{Pos_TrackFocusOptions.Y}}}" halign="right" hidden="1" >
+		<quad id="button-delete" image="{{{Icons::C_Icon_128x128_Bin_Inc}}}" size="7 7" pos="0 0" class="{{{C_Class_TrackOptions_Mouse_Navigation}}}" halign="center" valign="center2" colorize="FFF" opacity="0.7" scriptevents="1"/>
+		<quad id="button-download" hidden="1" image="{{{Icons::C_Icon_128x128_Download_Inc}}}" size="7 7" pos="-8 0" class="{{{C_Class_TrackOptions_Mouse_Navigation}}}" halign="center" valign="center2" colorize="FFF" opacity="0.7" scriptevents="1"/>
+	</frame>
+</framemodel>
+
+<!-- Track options pop up-->
+<frameinstance
+	modelid="{{{PopUpMultiChoice::C_Name}}}"
+	id="popupmultichoice-remove-track"
+	data-title="{{{Text_RemoveTrack}}}"
+	data-choices="{{{TL::MLEncode(C_RemoveTrackPopUp_Choices.tojson())}}}"
+	data-styles-secondchoice="{{{ExpendableButton::C_Style_SizeExpendable}}} {{{ExpendableButton::C_Style_AlignCenter}}} {{{ExpendableButton::C_Style_ButtonSecondary}}} {{{ExpendableButton::C_Style_ButtonWarning}}}"
+	z-index="4"
+	hidden="1"
+/>
+
+<!-- Frame global -->
+<frame id="frame-global">
+	<frameinstance id="frame-loading-spinner" modelid="{{{LoadingSpinner::C_Name}}}" data-label="{{{Text_RetrievingTracks}}}" z-index="10"/>
+
+	<!-- Mode tabs (TOTD or Weekly Tracks) -->
+	<frameinstance
+		id="navigation-tabs-game-mode"
+		pos="{{{MLHelpers::Skew(-131.5, 49.7, 10.)}}}"
+		modelid="{{{NavigationTabs::C_Name}}}"
+		data-halign="left"
+		data-tabs="{{{TL::MLEncode(C_TabNames.tojson())}}}"
+	/>
+
+	<!-- Tracks scroll -->
+	<frameinstance modelid="{{{Scroll::C_Name}}}" data-scroll-parent="scroll-tracks" z-index="1" />
+	<frame
+		pos="{{{Size_TracksScrollWindow.X * -0.507}}} {{{Size_TracksScrollWindow.Y * 0.42}}}"
+		data-elements-per-line="{{{ColumnsNb_Tracks}}}"
+		data-pager-page-size="{{{TracksPerPage*2}}}"
+		data-element-size="{{{Size_Track.X}}} {{{Size_Track.Y}}}"
+		data-margin-size="{{{Size_TrackMargin.X}}} {{{Size_TrackMargin.Y}}}"
+		data-window-size="{{{Size_TracksScrollWindow.X}}} {{{Size_TracksScrollWindow.Y}}}"
+		data-header-height="{{{Size_Header.Y}}}"
+		data-footer-height="{{{Size_Footer.Y}}}"
+		data-scroll-indicator-x-offset="-4."
+		data-scroll-indicator-y-offset="-16."
+		data-scroll-indicator-image="{{{Icons::C_Icon_128x128_Arrow_Bottom_Oblique}}}"
+		data-scroll-indicator-colorize="FFFFFF"
+		data-scroll-indicator-size="12"
+		data-scrollbar-xoffset="15."
+		data-scrollpadding="17.5"
+		data-enable-prescroll="0"
+		data-skew="-10."
+		data-skew-valign="{{{Scroll::C_SkewVAlign_Center}}}"
+		data-nav-group="{{{C_NavGroupName}}}"
+		class="{{{Scroll::C_Class_Window}}} {{{Navigation::C_Class}}}"
+		id="scroll-tracks"
+	>
+		<quad z-index="-1" scriptevents="1" class="{{{Scroll::C_Class_ScrollEvent}}}" />
+		{{{ML_Tracks}}}
+	</frame>
+
+	<label id="label-no-maps" size="180 10" text="{{{Text_NoMaps}}}" class="text-semi-bold" hidden="1"/>
+
+	<!-- Footer -->
+	<frameinstance
+		id="button-back"
+		modelid="{{{ExpendableButton::C_Name}}}"
+		class="{{{Navigation::C_Class}}}"
+		pos="-151.5 -73"
+		z-index="1"
+		data-styles="{{{ExpendableButton::C_Style_SizeExpendable}}} {{{ExpendableButton::C_Style_AlignCenter}}} {{{ExpendableButton::C_Style_PageBack}}}"
+		data-nav-inputs="select;cancel;up;right"
+		data-nav-targets="_;_;scroll-tracks;scroll-tracks"
+		data-nav-group="{{{C_NavGroupName}}}"
+		data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+	/>
+
+	<label id="label-error" pos="5 -73" size="160 10" maxline="2" autonewline="1" textsize="4" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextError)}}}" class="text-semi-bold"/>
+</frame>
+""",
+"""
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/API/MapReviewAPI.Script.txt" as MapReviewAPI
+#Include "Libs/Nadeo/Trackmania/MainMenu/TitleControl.Script.txt" as TitleControl
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ControllerInfo_ML.Script.txt" as ControllerInfo
+#Include "Libs/Nadeo/Trackmania/Stores/LoadingScreen.Script.txt" as LoadingScreenStore
+
+#Const C_ModeNames {{{dump(Const::C_ModeNames)}}}
+#Const C_ModeNames_ScriptNames {{{dump(Const::C_ModeNames_ScriptNames)}}}
+
+#Const C_DelayBetweenRequest 500
+
+#Const C_Metadata_PagerOffset "PagerOffset"
+
+#Const C_Buttons ["A" => _("Select"), "B" => _("Back")]
+#Const C_Buttons_Map ["A" => _("Play"), "Y" => _("Download"), "Action1" => _("Remove"), "B" => _("Back")]
+#Const C_Buttons_Map_FirstParty ["A" => _("Play"), "Action1" => _("Remove"), "B" => _("Back")]
+#Const C_Buttons_PopUp ["A" => _("Select"), "B" => _("Back")]
+
+#Const C_PlaformIsFromFirstParty {{{dump(PlaformIsFromFirstParty)}}}
+
+//L16N [ServerReview] The player needs to confirm they want to remove this track, %1 will be replaced by the track name. e.g "Are you sure you want to remove the track 'Test 2' from your submitted tracks?"
+#Const C_RemoveTrackPopUp_Description1 _("Are you sure you want to remove '%1' from your submitted tracks?")
+//L16N [ServerReview] This track will not be on track review servers after the suppression
+#Const C_RemoveTrackPopUp_Description2 _("This track will not be on track review servers anymore")
+#Const C_RemoveTrackPopUp_ChoiceIndex_Cancel 0
+#Const C_RemoveTrackPopUp_ChoiceIndex_Remove 1
+
+#Const C_Scroll_TOTD 0
+#Const C_Scroll_WeeklyTracks 1
+
+#Const C_Star_Empty ""
+#Const C_Star_Half ""
+#Const C_Star_Full ""
+
+#Struct K_SubmittedMaps {
+	MapReviewAPI::K_SubmittedMap[Integer] Maps;
+	Integer Total;
+}
+
+#Struct K_Controls {
+	CMlFrame Frame_Global;
+	CMlFrame Frame_LoadingSpinner;
+	CMlFrame PopUpMultiChoice_RemoveTrack;
+	CMlFrame Scroll_Tracks;
+	CMlFrame Button_Back;
+	CMlLabel Label_Error;
+	CMlLabel Label_NoMaps;
+}
+
+#Struct K_State {
+	K_Controls Controls;
+	Text MapReviewUid;
+	Text MapUidToDelete;
+	Integer CurrentScroll;
+	Boolean TriggerPagerUpdate;
+	K_SubmittedMaps TOTDMaps;
+	K_SubmittedMaps WeeklyTracksMaps;
+	Http::K_Request GetSubmittedMapsRequest;
+	Http::K_Request PostRemoveSubmittedMapRequest;
+}
+""",
+"""
+declare Ident G_TTSContextIdent_Tabs;
+
+Text GetMapReviewUid(Integer _CurrentScroll) {
+	switch (_CurrentScroll) {
+		case C_Scroll_TOTD: return MapReviewAPI::C_MapReviewUid_TOTD;
+		case C_Scroll_WeeklyTracks: return MapReviewAPI::C_MapReviewUid_WeeklyTracks;
+	}
+	return "";
+}
+
+K_SubmittedMaps GetSubmittedMaps(K_State _State) {
+	switch (_State.CurrentScroll) {
+		case C_Scroll_TOTD: return _State.TOTDMaps;
+		case C_Scroll_WeeklyTracks: return _State.WeeklyTracksMaps;
+	}
+	return K_SubmittedMaps {};
+}
+
+K_State TriggerPagerUpdate(K_State _State, Boolean _ForcedUpdate) {
+	declare K_State State = _State;
+	declare K_SubmittedMaps SubmittedMaps = GetSubmittedMaps(State);
+
+	State.Controls.Label_Error.Value = "";
+	if (Http::IsInitialized(State.GetSubmittedMapsRequest)) {
+		State.GetSubmittedMapsRequest = Http::Destroy(State.GetSubmittedMapsRequest);
+	}
+
+	if (SubmittedMaps.Maps.count <= 0 || _ForcedUpdate) {
+		{{{LoadingSpinner::P}}}StartAnimation(This, State.Controls.Frame_LoadingSpinner);
+		{{{Navigation::P}}}Lock(State.Controls.Scroll_Tracks, True);
+		State.Controls.Scroll_Tracks.Hide();
+		State.Controls.Label_NoMaps.Hide();
+		State.TriggerPagerUpdate = True;
+	} else {
+		{{{Scroll::P}}}SetElementsTotal(This, State.Controls.Scroll_Tracks, SubmittedMaps.Total);
+		{{{LoadingSpinner::P}}}StopAnimation(This, State.Controls.Frame_LoadingSpinner);
+	}
+
+	return State;
+}
+
+Void UpdateControllerInfos(Boolean _FocusTracksScroll, Boolean _PopUpDisplayed) {
+	declare Text[Text] ControllerInfos = C_Buttons;
+	if (_PopUpDisplayed) {
+		ControllerInfos = C_Buttons_PopUp;
+	} else if (_FocusTracksScroll) {
+		if (C_PlaformIsFromFirstParty) ControllerInfos = C_Buttons_Map_FirstParty;
+		else ControllerInfos = C_Buttons_Map;
+	}
+	ControllerInfo::SetButtons(ControllerInfos);
+}
+
+Void PlayMap(MapReviewAPI::K_SubmittedMap _SubmittedMap, Integer _CurrentScroll) {
+	switch (_CurrentScroll) {
+		case C_Scroll_TOTD, C_Scroll_WeeklyTracks: {
+			declare Text Settings = "<root><setting name=\"S_TimeLimit\" value=\"-1\" type=\"integer\"/><setting name=\"S_ForceLapsNb\" value=\"-1\" type=\"integer\"/></root>";
+			LoadingScreenStore::UpdateTitleMenuLoadingScreen_Random(This, _SubmittedMap.Name);
+			LoadingScreenStore::StartTrackingLoadingScreen(This, LoadingScreenStore::GetCurrentTitleMenuLoadingScreen(This));
+			TitleControl::PlayMap(TitleControl, _SubmittedMap.DownloadUrl, "{{{Const::C_ModeScript_PlayMap}}}", Settings);
+			UpdateControllerInfos(True, False);
+		}
+	}
+}
+
+Void ShowTrack(CMlFrame _Frame_Track, MapReviewAPI::K_SubmittedMap _TrackInfo) {
+	declare CMlFrame ControlBlockList_TrackName <=> (_Frame_Track.GetFirstChild("control-block-list-track-name") as CMlFrame);
+	declare CMlFrame ControlBlockList_TrackThumbnail <=> (_Frame_Track.GetFirstChild("control-block-list-track-thumbnail") as CMlFrame);
+	declare CMlFrame Frame_Stars = _Frame_Track.GetFirstChild("frame-stars") as CMlFrame;
+	declare CMlQuad Button_Download = _Frame_Track.GetFirstChild("button-download") as CMlQuad;
+
+	_Frame_Track.Show();
+	Button_Download.Visible = !C_PlaformIsFromFirstParty;
+	{{{ControlBlockList::P}}}SetOwnerAndTextValue(This, ControlBlockList_TrackName, _TrackInfo.AuthorAccountId, Tools::FormatValue(_TrackInfo.Name), False);
+	{{{ControlBlockList::P}}}SetTTSAltText(
+		This,
+		ControlBlockList_TrackName,
+		TL::Compose("%2 "^TL::GetTranslatedText("{{{TTS_Stars}}}"), TL::FormatReal(_TrackInfo.NoteInfo.Average, 1, True, True), {{{ControlBlockList::P}}}GetTextValue(ControlBlockList_TrackName)),
+		TL::Compose("%2 "^TL::GetTranslatedText("{{{TTS_Stars}}}"), TL::FormatReal(_TrackInfo.NoteInfo.Average, 1, True, True), {{{ControlBlockList::P}}}C_DefaultTextValueBlocked),
+		False
+	);
+	if ({{{ControlBlockList::P}}}GetValueLineCount(This, ControlBlockList_TrackName) >= 2) {
+		ControlBlockList_TrackName.RelativePosition_V3 = {{{Pos_TrackNameTwoLines}}};
+	} else {
+		ControlBlockList_TrackName.RelativePosition_V3 = {{{Pos_TrackNameOneLine}}};
+	}
+	{{{ControlBlockList::P}}}Redraw(This, ControlBlockList_TrackName);
+	{{{ControlBlockList::P}}}SetOwnerAndImageUrl(This, ControlBlockList_TrackThumbnail, _TrackInfo.AuthorAccountId, _TrackInfo.ThumbnailUrl);
+	ControlBlockList_TrackThumbnail.Visible = True;
+
+	Frame_Stars.Show();
+	declare Real Average = _TrackInfo.NoteInfo.Average;
+	foreach (Index => Control in Frame_Stars.Controls) {
+		declare Integer CurrentStar = Index + 1;
+		if (CurrentStar - 0.25 <= Average) {
+			(Control as CMlLabel).Value = C_Star_Full;
+		} else if (CurrentStar - 0.75 <= Average) {
+			(Control as CMlLabel).Value = C_Star_Half;
+		} else {
+			(Control as CMlLabel).Value = C_Star_Empty;
+		}
+	}
+}
+
+Void ShowTrackLoading(CMlFrame _Frame_Track) {
+	declare CMlFrame ControlBlockList_TrackName <=> (_Frame_Track.GetFirstChild("control-block-list-track-name") as CMlFrame);
+	declare CMlFrame Frame_Stars = _Frame_Track.GetFirstChild("frame-stars") as CMlFrame;
+	declare CMlFrame ControlBlockList_TrackThumbnail <=> (_Frame_Track.GetFirstChild("control-block-list-track-thumbnail") as CMlFrame);
+	declare CMlFrame Frame_FocusOptions = _Frame_Track.GetFirstChild("frame-track-focus-options") as CMlFrame;
+
+	_Frame_Track.Show();
+	Frame_Stars.Hide();
+	Frame_FocusOptions.Hide();
+	{{{ControlBlockList::P}}}SetTTSAltText(This,ControlBlockList_TrackName, "", "", False);
+	{{{ControlBlockList::P}}}SetOwnerAndTextValue(This, ControlBlockList_TrackName, "", "{{{Text_Retrieving}}}", False);
+	{{{ControlBlockList::P}}}Redraw(This, ControlBlockList_TrackName);
+	{{{ControlBlockList::P}}}SetOwnerAndImageUrl(This, ControlBlockList_TrackThumbnail, "", "");
+	ControlBlockList_TrackThumbnail.Visible = False;
+}
+
+Void FocusTrack(CMlFrame _Frame_Track, Boolean _IsFocused) {
+	declare CMlQuad Quad_Focus = _Frame_Track.GetFirstChild("quad-focus") as CMlQuad;
+	declare CMlQuad Quad_Gradient = _Frame_Track.GetFirstChild("quad-gradient") as CMlQuad;
+	declare CMlFrame ControlBlockList_TrackName <=> (_Frame_Track.GetFirstChild("control-block-list-track-name") as CMlFrame);
+	declare CMlFrame Frame_FocusOptions = _Frame_Track.GetFirstChild("frame-track-focus-options") as CMlFrame;
+
+	AnimMgr.Flush(Quad_Gradient);
+	AnimMgr.Flush(Quad_Focus);
+
+	Frame_FocusOptions.Visible = _IsFocused;
+	if (_IsFocused) {
+		AnimMgr.Add(Quad_Gradient, "<anim opacity=\"0.6\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Quad_Focus, "<anim opacity=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{ControlBlockList::P}}}SetOpacity(This, ControlBlockList_TrackName, 1., 250);
+	} else {
+		AnimMgr.Add(Quad_Gradient, "<anim opacity=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Quad_Focus, "<anim opacity=\"0.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{ControlBlockList::P}}}SetOpacity(This, ControlBlockList_TrackName, 0.7, 250);
+	}
+
+	// Text to speech
+	if (_IsFocused) {
+		{{{ControlBlockList::P}}}TTS_Focus(ControlBlockList_TrackName);
+	} else {
+		{{{ControlBlockList::P}}}TTS_Unfocus(ControlBlockList_TrackName);
+	}
+}
+
+Void Focus(CMlControl _From, CMlControl _To) {
+	if ({{{Transition::P}}}IsInTransition(This)) return;
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{Scroll::P}}}IsScroll(_From)) {
+			{{{Scroll::P}}}Unfocus(This, (_From as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_From)) {
+			{{{ExpendableButton::P}}}Unfocus(This, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{Scroll::P}}}IsScroll(_To)) {
+			{{{Scroll::P}}}Focus(This, (_To as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_To)) {
+			{{{ExpendableButton::P}}}Focus(This, (_To as CMlFrame));
+		}
+		UpdateControllerInfos({{{Scroll::P}}}IsScroll(_To), False);
+	}
+}
+
+Void FocusAvailableControl(K_State _State) {
+	if (!{{{Navigation::P}}}IsLocked(_State.Controls.Button_Back)) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), _State.Controls.Button_Back);
+	}
+}
+
+K_State SwitchMode(K_State _State, Integer _ModeIndex) {
+	declare K_State State = _State;
+	State.CurrentScroll = _ModeIndex;
+	State = TriggerPagerUpdate(State, False);
+	return State;
+}
+
+K_State Select(K_State _State, CMlControl _Control) {
+	if (_Control == Null || {{{Transition::P}}}IsInTransition(This)) return _State;
+
+	declare K_State State = _State;
+
+	switch (_Control.ControlId) {
+		case "button-back": {{{Router::P}}}PushParent(This);
+	}
+
+	return State;
+}
+
+K_State DeleteMap(K_State _State, Text _MapUid, Text _MapName) {
+	declare K_State State = _State;
+
+	State.MapUidToDelete = _MapUid;
+	{{{PopUpMultiChoice::P}}}SetDescription(This,
+		_State.Controls.PopUpMultiChoice_RemoveTrack,
+		[
+			{{{PopUpMultiChoice::P}}}CreateDescriptionPart(TL::Compose(C_RemoveTrackPopUp_Description1, "$<"^Tools::FormatValue(_MapName)^"$>"), <130., 15.>, 3., "{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}", "$t$i", <1., 1., 1.>, False),
+			{{{PopUpMultiChoice::P}}}CreateDescriptionPart(C_RemoveTrackPopUp_Description2, <130., 10.>, 3., "{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}", "$t$i", {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}}, False)
+		],
+		True
+	);
+	{{{PopUpMultiChoice::P}}}Open(This, _State.Controls.PopUpMultiChoice_RemoveTrack);
+
+	return State;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame NavigationTabs_GameMode;
+
+declare K_State State;
+declare Integer NextPagerUpdate;
+
+declare Boolean HasAlreadyVisitedRoute = False;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+NavigationTabs_GameMode <=> (Frame_Global.GetFirstChild("navigation-tabs-game-mode") as CMlFrame);
+
+State = K_State {
+	Controls = K_Controls {
+		Frame_Global = Frame_Global,
+		Frame_LoadingSpinner = (Frame_Global.GetFirstChild("frame-loading-spinner") as CMlFrame),
+		PopUpMultiChoice_RemoveTrack = (Page.GetFirstChild("popupmultichoice-remove-track") as CMlFrame),
+		Scroll_Tracks = (Frame_Global.GetFirstChild("scroll-tracks") as CMlFrame),
+		Button_Back = (Frame_Global.GetFirstChild("button-back") as CMlFrame),
+		Label_Error = (Frame_Global.GetFirstChild("label-error") as CMlLabel),
+		Label_NoMaps = (Frame_Global.GetFirstChild("label-no-maps") as CMlLabel)
+	},
+	MapUidToDelete = "",
+	CurrentScroll = C_Scroll_TOTD,
+	GetSubmittedMapsRequest = Http::GetEmptyRequest(),
+	PostRemoveSubmittedMapRequest = Http::GetEmptyRequest()
+};
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Router::P}}}C_Event_EnteringRoute: {
+				{{{Scroll::P}}}LockNavigation(This, False);
+				if (!HasAlreadyVisitedRoute) {
+					HasAlreadyVisitedRoute = True;
+				} else {
+					State = TriggerPagerUpdate(State, True);
+				}
+
+				// Text to speech context
+				G_TTSContextIdent_Tabs = ParentApp.TTS_Context_Enter({{{TextToSpeech::C_ContextLevel_Page}}});
+				ParentApp.TTS_Context_Change(G_TTSContextIdent_Tabs, {{{NavigationTabs::P}}}GetCurrentTabLabel(NavigationTabs_GameMode));
+				ParentApp.TTS_Context_Read({{{TextToSpeech::C_ContextLevel_Page}}});
+				FocusAvailableControl(State);
+			}
+		}
+	}
+
+	/* Navigation events */
+	if (!State.Controls.PopUpMultiChoice_RemoveTrack.Visible) {
+		foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+			switch (Event.Type) {
+				case {{{Navigation::P}}}C_EventType_NavigateInput: {
+					if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+						if (Event.Input == CMlScriptEvent::EMenuNavAction::Select) {
+							State = Select(State, Event.To);
+						} else if (Event.Input == CMlScriptEvent::EMenuNavAction::Cancel) {
+							{{{Router::P}}}PushParent(This);
+						} else {
+							Focus(Event.From, Event.To);
+						}
+					}
+				}
+				case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+					if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+						if (Event.Mouse == CMlScriptEvent::Type::MouseClick) {
+							State = Select(State, Event.To);
+						} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+							Focus(Event.From, Event.To);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/* NavigationTabs events */
+	foreach (Event in {{{NavigationTabs::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{NavigationTabs::P}}}C_EventType_Select: {
+				if (Event.Frame_NavigationTabs.ControlId == NavigationTabs_GameMode.ControlId) {
+					State = SwitchMode(State, Event.CurrentTab);
+
+					// Text to speech context
+					ParentApp.TTS_Context_Change(G_TTSContextIdent_Tabs, {{{NavigationTabs::P}}}GetCurrentTabLabel(Event.Frame_NavigationTabs));
+					ParentApp.TTS_Context_Read({{{TextToSpeech::C_ContextLevel_Page}}});
+				}
+			}
+		}
+	}
+
+	/* Special mouse events */
+	foreach (Event in PendingEvents) {
+		switch (Event.Type) {
+			case CMlScriptEvent::Type::MouseOver: {
+				if (Event.Control != Null && Event.Control.HasClass("{{{C_Class_TrackOptions_Mouse_Navigation}}}")) {
+					{{{MenuSounds::P}}}PlaySound(This, {{{MenuSounds::P}}}C_Sound_Focus);
+					AnimMgr.Flush(Event.Control);
+					AnimMgr.Add(Event.Control, "<anim opacity=\"1.\" scale=\"1.2\"/>", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+				}
+			}
+			case CMlScriptEvent::Type::MouseOut: {
+				if (Event.Control != Null && Event.Control.HasClass("{{{C_Class_TrackOptions_Mouse_Navigation}}}")) {
+					AnimMgr.Flush(Event.Control);
+					AnimMgr.Add(Event.Control, "<anim opacity=\"0.7\" scale=\"1.\"/>", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+				}
+			}
+			case CMlScriptEvent::Type::MouseClick: {
+				if (Event.Control.Parent.Parent != Null && Event.Control.HasClass("{{{C_Class_TrackOptions_Mouse_Navigation}}}")) {
+					assert(Event.Control.Parent.Parent.HasClass("{{{Scroll::C_Class_Element}}}"), "We are not pointing to the correct frame anymore");
+					{{{MenuSounds::P}}}PlaySound(This, {{{MenuSounds::P}}}C_Sound_Select);
+
+					declare K_SubmittedMaps SubmittedMaps = GetSubmittedMaps(State);
+					declare Integer TrackScrollKey for Event.Control.Parent.Parent;
+
+					if (SubmittedMaps.Maps.existskey(TrackScrollKey)) {
+						declare SubmittedMap = SubmittedMaps.Maps[TrackScrollKey];
+						if (Event.ControlId == "button-delete") {
+							State = DeleteMap(State, SubmittedMap.Uid, SubmittedMap.Name);
+						} else if (Event.ControlId == "button-download") {
+							if (Http.IsValidUrl(SubmittedMap.DownloadUrl)) {
+								OpenLink(SubmittedMap.DownloadUrl, CMlScript::LinkType::ExternalBrowser);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/* PopUpMultiChoice events */
+	foreach (Event in {{{PopUpMultiChoice::P}}}GetPendingEvents(This)) {
+		if (Event.PopUpMultiChoice != Null && Event.PopUpMultiChoice.Id == State.Controls.PopUpMultiChoice_RemoveTrack.Id) {
+			switch (Event.Type) {
+				case {{{PopUpMultiChoice::P}}}C_EventType_Select: {
+					if (Event.SelectedIndex == C_RemoveTrackPopUp_ChoiceIndex_Remove && State.MapUidToDelete != "") {
+						State.MapReviewUid = GetMapReviewUid(State.CurrentScroll);
+						State.PostRemoveSubmittedMapRequest = Http::DestroyAndCreate(
+							State.PostRemoveSubmittedMapRequest,
+							MapReviewAPI::PostRemoveSubmittedMapRequest(State.MapReviewUid, State.MapUidToDelete)
+						);
+					}
+				}
+				case {{{PopUpMultiChoice::P}}}C_EventType_Display: {
+					{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupName}}}", !State.Controls.PopUpMultiChoice_RemoveTrack.Visible);
+					{{{NavigationTabs::P}}}LockTabs(This, NavigationTabs_GameMode, State.Controls.PopUpMultiChoice_RemoveTrack.Visible);
+					{{{Scroll::P}}}LockNavigation(State.Controls.Scroll_Tracks, State.Controls.PopUpMultiChoice_RemoveTrack.Visible);
+					UpdateControllerInfos({{{Scroll::P}}}IsFocused(State.Controls.Scroll_Tracks), State.Controls.PopUpMultiChoice_RemoveTrack.Visible);
+				}
+			}
+		}
+	}
+
+	/* Scroll events */
+	foreach (Event in {{{Scroll::P}}}GetPendingEvents(This)) {
+		if (Event.Scroll != Null && Event.Scroll.Id == State.Controls.Scroll_Tracks.Id) {
+			switch (Event.Type) {
+				case {{{Scroll::P}}}C_EventType_Select: {
+					declare K_SubmittedMaps SubmittedMaps = GetSubmittedMaps(State);
+
+					if (SubmittedMaps.Maps.existskey(Event.ToKey)) {
+						declare SubmittedMap = SubmittedMaps.Maps[Event.ToKey];
+						if (SubmittedMap.DownloadUrl != "") {
+							PlayMap(SubmittedMap, State.CurrentScroll);
+							State.Controls.Label_Error.Value = "";
+						} else {
+							//L16N %1 will be replaced by the name of the track.
+							State.Controls.Label_Error.Value = TL::Compose(_("Track '%1' is not playable."), SubmittedMap.Name);
+						}
+					}
+				}
+				case {{{Scroll::P}}}C_EventType_PagerUpdate: {
+					State.MapReviewUid = GetMapReviewUid(State.CurrentScroll);
+					State.GetSubmittedMapsRequest = MapReviewAPI::GetSubmittedMaps(State.MapReviewUid, Event.PagerOffset, Event.PagerCount);
+					State.GetSubmittedMapsRequest = Http::SetMetadata(State.GetSubmittedMapsRequest, C_Metadata_PagerOffset, ""^Event.PagerOffset);
+				}
+				case {{{Scroll::P}}}C_EventType_Update: {
+					declare K_SubmittedMaps SubmittedMaps = GetSubmittedMaps(State);
+
+					foreach (Key => Frame_Element in Event.ElementsVisible) {
+						declare Integer TrackScrollKey for Frame_Element;
+						TrackScrollKey = Key;
+						if (SubmittedMaps.Maps.existskey(Key)) {
+							ShowTrack(Frame_Element, SubmittedMaps.Maps[Key]);
+						} else {
+							ShowTrackLoading(Frame_Element);
+						}
+					}
+					foreach (Key => Frame_Element in Event.ElementsHidden) {
+						declare Integer TrackScrollKey for Frame_Element;
+						TrackScrollKey = -1;
+						Frame_Element.Hide();
+					}
+
+					State.Controls.Label_NoMaps.Visible = Event.ElementsVisible.count <= 0 && !{{{LoadingSpinner::P}}}IsLoading(State.Controls.Frame_LoadingSpinner);
+					State.Controls.Scroll_Tracks.Visible = Event.ElementsVisible.count > 0;
+					{{{Navigation::P}}}Lock(State.Controls.Scroll_Tracks, Event.ElementsVisible.count <= 0);
+					if (Event.ElementsVisible.count > 0) {
+						Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), State.Controls.Scroll_Tracks);
+					}
+				}
+				case {{{Scroll::P}}}C_EventType_Focus: {
+					if (Event.From != Null) FocusTrack(Event.From, False);
+					if (Event.To != Null && {{{Scroll::P}}}IsFocused(Event.Scroll)) FocusTrack(Event.To, True);
+					if (Event.IsMouse && Event.To != Null && !{{{Scroll::P}}}IsFocused(Event.Scroll)) {
+						Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), Event.Scroll);
+					}
+				}
+				case {{{Scroll::P}}}C_EventType_Cancel: {
+					{{{Router::P}}}PushParent(This);
+				}
+				case {{{Scroll::P}}}C_EventType_ReachLimit: {
+					if (Event.NavAction == CMlScriptEvent::EMenuNavAction::Down || Event.NavAction == CMlScriptEvent::EMenuNavAction::Left) {
+						Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), State.Controls.Button_Back);
+					}
+				}
+				case {{{Scroll::P}}}C_EventType_NavAction: {
+					declare K_SubmittedMaps SubmittedMaps = GetSubmittedMaps(State);
+
+					if (SubmittedMaps.Maps.existskey(Event.ToKey)) {
+						declare SubmittedMap = SubmittedMaps.Maps[Event.ToKey];
+						switch (Event.NavAction) {
+							case CMlScriptEvent::EMenuNavAction::Action1: {
+								State = DeleteMap(State, SubmittedMap.Uid, SubmittedMap.Name);
+							}
+							case CMlScriptEvent::EMenuNavAction::Action2: {
+								if (!C_PlaformIsFromFirstParty) {
+									declare Text Url = SubmittedMap.DownloadUrl;
+									if (Http.IsValidUrl(Url)) {
+										OpenLink(Url, CMlScript::LinkType::ExternalBrowser);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/* Get submitted maps request */
+	if (Http::IsInitialized(State.GetSubmittedMapsRequest)) {
+		State.GetSubmittedMapsRequest = Http::Update(State.GetSubmittedMapsRequest);
+		if (!Http::IsRunning(State.GetSubmittedMapsRequest)) {
+			declare K_SubmittedMaps SubmittedMaps;
+			{{{Navigation::P}}}Lock(State.Controls.Scroll_Tracks, False);
+			{{{LoadingSpinner::P}}}StopAnimation(This, State.Controls.Frame_LoadingSpinner);
+			if (Http::IsSuccess(State.GetSubmittedMapsRequest)) {
+				declare Response = MapReviewAPI::GetResponseFromGetSubmittedMaps(State.GetSubmittedMapsRequest);
+				declare Integer Offset = TL::ToInteger(Http::GetMetadata(State.GetSubmittedMapsRequest, C_Metadata_PagerOffset));
+
+				SubmittedMaps.Total = Response.ItemCount;
+				foreach (Key => Map in Response.MapList) {
+					SubmittedMaps.Maps[Offset + Key] = Map;
+				}
+
+				switch (State.MapReviewUid) {
+					case MapReviewAPI::C_MapReviewUid_TOTD: State.TOTDMaps = SubmittedMaps;
+					case MapReviewAPI::C_MapReviewUid_WeeklyTracks: State.WeeklyTracksMaps = SubmittedMaps;
+				}
+			} else {
+				//L16N [ServerReview] Message displayed when the fetch of the submitted tracks responded with an error.
+				State.Controls.Label_Error.Value = TL::Compose(_("Error while fetching your submitted tracks, please try again. (Error code: %1)"), ""^Http::GetStatusCode(State.GetSubmittedMapsRequest));
+			}
+			State.GetSubmittedMapsRequest = Http::Destroy(State.GetSubmittedMapsRequest);
+			{{{Scroll::P}}}SetElementsTotal(This, State.Controls.Scroll_Tracks, SubmittedMaps.Total);
+			State.MapReviewUid = "";
+		}
+	}
+
+	/* Remove submitted map request */
+	if (Http::IsInitialized(State.PostRemoveSubmittedMapRequest)) {
+		State.PostRemoveSubmittedMapRequest = Http::Update(State.PostRemoveSubmittedMapRequest);
+		if (!Http::IsRunning(State.PostRemoveSubmittedMapRequest)) {
+			if (Http::IsSuccess(State.PostRemoveSubmittedMapRequest)) {
+				State = TriggerPagerUpdate(State, True);
+			}
+			State.PostRemoveSubmittedMapRequest = Http::Destroy(State.PostRemoveSubmittedMapRequest);
+			State.MapReviewUid = "";
+		}
+	}
+
+	/* Trigger pager update with delay to limit requests */
+	if (State.TriggerPagerUpdate && NextPagerUpdate < Now) {
+		{{{Scroll::P}}}TriggerPagerUpdate(State.Controls.Scroll_Tracks);
+		NextPagerUpdate = Now + C_DelayBetweenRequest;
+		State.TriggerPagerUpdate = False;
+	}
+} else {
+	foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Router::P}}}C_Event_LeavingRoute: {
+				G_TTSContextIdent_Tabs = ParentApp.TTS_Context_Leave(G_TTSContextIdent_Tabs);
+			}
+		}
+	}
+}
+***
+""",
+[
+	ExpendableButton::ComponentV2(),
+	LoadingSpinner::ComponentV2(),
+	MenuSounds::ComponentV2(),
+	Navigation::ComponentV2(),
+	PopUpMultiChoice::ComponentV2(),
+	Router::ComponentV2(),
+	Scroll::ComponentV2(),
+	UserStore::ComponentV2(),
+	NavigationTabs::ComponentV2(),
+	Transition::ComponentV2(),
+	ControlBlockList::ComponentV2()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update from the ManiaApp
+Void Yield() {
+
+}

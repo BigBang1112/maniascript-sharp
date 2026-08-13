@@ -1,0 +1,823 @@
+/**
+ * Component: RaceMapInfos
+ */
+#Const Version "1.5.1"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/UIModules/RaceMapInfos.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MedalStack.Script.txt" as MedalStack
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMGame/Utils/Difficulty.Script.txt" as Difficulty
+#Include "Libs/Nadeo/TMGame/Utils/Images.Script.txt" as Images
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/Constants.Script.txt" as Consts
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_ML.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "ColorLib" as CL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-racemapinfos" //< Component name
+#Const P "ComponentRaceMapInfos_" //< Prefix used to differentiate functions/variables in the script
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+Text Component() {
+	//L16N [RaceMapInfos] Text displayed when the player did not finish the track yet and so does not have a rank in the leaderboard.
+	declare Text Text_NotRanked = _("Not ranked");
+	//L16N [RaceMapInfos] Display the rank of the player in a specific zone. %1 will be replace by the player's rank. eg: "Top 10", "Top 5", "Top 3", ...
+	declare Text Text_Top = _("Top %1");
+	//L16N [RaceMapInfos] Display the current best time driven by the player
+	declare Text Text_PB = _("Personal best");
+	//L16N [RaceMapInfos] Message to inform that the leadeboards are closed on the current map
+	declare Text Text_LeaderboardClosed = _("Leaderboards are closed");
+	//L16N [RaceMapInfos] Displayed below the name of the track. %1 will be replaced by the name of the author of the track, e.g. "by John".
+	declare Text Text_ByAuthor = _("by %1");
+	//L16N [RaceMapInfos] Display the total time of a Royal time attack race.
+	declare Text Text_TotalTime = _("Total time");
+
+	declare Real Margin = 1.; //< The space between the header and the body
+	declare Real Padding = 8.; //< The space between the border and the text inside
+	declare Vec2 RaceMenuSize = Consts::C_RaceMenu_Size;
+	declare Vec2 Size_Background = <RaceMenuSize.X + 2.5, (RaceMenuSize.X + 2.5)*244/780>;
+	declare Real SizeY_AdjustedBackground = Size_Background.Y - (2*Size_Background.Y/244); //< Remove the outer pixel of the asset
+	declare Vec2 Size_Header = <RaceMenuSize.X, RaceMenuSize.X*136/760>;
+	declare Real Trackmania_RaceMapInfos_SizeY for UI;
+	Trackmania_RaceMapInfos_SizeY = Margin + SizeY_AdjustedBackground + Size_Header.Y;
+
+	declare Vec2 Pos_FrameRankingTarget = MLHelpers::SkewX(<0., -Size_Background.Y/2 * 0.35>, 10.);
+	declare Vec2 Pos_FrameRanking2Target = MLHelpers::SkewX(<10., -Size_Background.Y/2 * 0.6>, 10.);
+	declare Vec2 Pos_FrameRanking3Target = MLHelpers::SkewX(<10., -Size_Background.Y/2 * 0.81>, 10.);
+	declare Real Scale_FrameRanking2Target = 0.75;
+
+	// Royal segment race times
+	declare Text ML_RoyalSegmentRaceTimes;
+	declare Vec2 Size_SegmentBg = MLHelpers::KeepRatioFromY(216., 40., 7.1);
+	foreach (Segment => Color in Difficulty::C_RoyalColors) {
+		ML_RoyalSegmentRaceTimes ^= """
+			<frame id="{{{P}}}frame-royal-segment-race-time-{{{Segment}}}" pos="{{{0.5 * Size_SegmentBg.X * Segment}}} {{{-Segment%2 * (Size_SegmentBg.Y + 1.3)}}}">
+				<quad id="{{{P}}}quad-background" size="{{{Size_SegmentBg.X}}} {{{Size_SegmentBg.Y}}}" class="{{{P}}}quad-default" image="{{{Images::C_ImageUrl_ModeMenu_Background_TimeDiff}}}" colorize="{{{CL::RgbToHex6(Color)}}}" opacity="0.4" z-index="0" />
+				<label id="{{{P}}}label-time" pos="0 -0.3" size="{{{0.9*Size_SegmentBg.X}}} {{{0.8*Size_SegmentBg.Y}}}" class="{{{P}}}text-default" text="{{{CampaignStruct::GetMedalScoreText(-1, MenuConst::C_MapType_Royal)}}}" textsize="4" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" z-index="1" />
+			</frame>
+		""";
+	}
+
+	return MV::Component(
+C_Name,
+"""
+<stylesheet>
+	<style class="{{{P}}}text-default" halign="center" valign="center2" textsize="4" textprefix="$t$i" textcolor="FFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+	<style class="{{{P}}}quad-default" halign="center" valign="center" />
+</stylesheet>
+
+<frame id="{{{P}}}frame-global">
+	<frame id="{{{P}}}frame-header" pos="{{{MLHelpers::Skew(0., SizeY_AdjustedBackground/2 + Margin/2, 10.)}}}">
+		<quad id="{{{P}}}quad-header-bg" z-index="-1" size="{{{Size_Header.X}}} {{{Size_Header.Y}}}" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}" image="{{{Images::C_ImageUrl_ModeMenu_Header}}}" class="{{{P}}}quad-default" />
+		<label id="{{{P}}}label-campaign-name" pos="{{{MLHelpers::Skew(-Size_Header.X/2 + Padding, 3., 10.)}}}" size="{{{RaceMenuSize.X-15.}}} 10" class="{{{P}}}text-default" textsize="7" textcolor="FFF" halign="left" italicslope=".2" filter-profanities="Always"/>
+		<label id="{{{P}}}label-map-author" pos="{{{MLHelpers::Skew(-Size_Header.X/2 + Padding, -3., 10.)}}}" size="{{{RaceMenuSize.X-15.}}} 10" class="{{{P}}}text-default" textsize="4" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" halign="left" italicslope=".2" hidden="1"/>
+		<label id="{{{P}}}label-map-name" pos="{{{MLHelpers::Skew(-Size_Header.X/2 + Padding, -5., 10.)}}}" size="{{{RaceMenuSize.X-15.}}} 10" class="{{{P}}}text-default" textsize="7" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" halign="left" italicslope=".2" filter-profanities="Always"/>
+	</frame>
+
+	<frame id="{{{P}}}frame-content" pos="{{{MLHelpers::Skew(0.5, -Size_Header.Y/2 - Margin/2, 10.)}}}">
+		<quad id="{{{P}}}quad-ranking-bg" image="{{{Images::C_ImageUrl_ModeMenu_Background}}}" size="{{{Size_Background.X}}} {{{Size_Background.Y}}}" class="{{{P}}}quad-default" z-index="-1" opacity=".9"/>
+		<label id="{{{P}}}label-closed" text="{{{Text_LeaderboardClosed}}}" pos="{{{MLHelpers::Skew(-Size_Background.X/2 + Padding, Size_Background.Y/2 * 0.7, 10.)}}}" size="{{{RaceMenuSize.X-20.}}} {{{RaceMenuSize.Y}}}" halign="left" textsize="2.5" class="{{{P}}}text-default" italicslope=".2" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" z-index="5" hidden="1" />
+
+		<frame id="{{{P}}}frame-pb" pos="{{{MLHelpers::Skew(-Size_Background.X/2 + Padding, Size_Background.Y/2 * 0.4, 10.)}}}">
+			<label id="{{{P}}}label-time-legend" textcolor="FFF" size="{{{RaceMenuSize.X/2.}}} {{{RaceMenuSize.Y}}}" halign="left" text="{{{Text_PB}}}" textsize="4" class="{{{P}}}text-default" italicslope=".2"/>
+			<label id="{{{P}}}label-pb" pos="{{{Size_Background.X - 2*Padding}}} 0" textcolor="FFF" size="{{{RaceMenuSize.X/2.}}} {{{RaceMenuSize.Y}}}" halign="right" textsize="4" class="{{{P}}}text-default" italicslope=".2"/>
+		</frame>
+
+		<frame id="{{{P}}}frame-royal-segment-race-times" pos="{{{MLHelpers::Skew(-Size_Background.X/2 + Size_SegmentBg.X/2 + Padding, -3., 10.)}}}" hidden="1">
+			{{{ML_RoyalSegmentRaceTimes}}}
+		</frame>
+
+		<frame id="{{{P}}}frame-rankings">
+			<frameinstance id="{{{P}}}spinner-rankings" modelid="{{{LoadingSpinner::C_Name}}}" pos="40. {{{-Size_Background.Y/2 * 0.35}}}" scale="0.5" />
+			<frame id="{{{P}}}frame-ranking" pos="{{{Pos_FrameRankingTarget.X}}} {{{Pos_FrameRankingTarget.Y}}}" z-index="5" hidden="1">
+				<label id="{{{P}}}label-ranking" size="23 {{{RaceMenuSize.Y}}}" halign="right" textsize="4" class="{{{P}}}text-default" italicslope=".2" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"/>
+				<label id="{{{P}}}label-zone" pos="{{{Size_Background.X/2 - Padding}}} 0." size="52 {{{RaceMenuSize.Y}}}" halign="right" valign="top" textsize="4" class="{{{P}}}text-default" italicslope=".2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" translate="1"/>
+			</frame>
+			<frame id="{{{P}}}frame-ranking-2" pos="{{{Pos_FrameRanking2Target.X}}} {{{Pos_FrameRanking2Target.Y}}}" scale="{{{Scale_FrameRanking2Target}}}" z-index="5" hidden="1">
+				<label id="{{{P}}}label-ranking" size="23 {{{RaceMenuSize.Y}}}" halign="right" textsize="4" class="{{{P}}}text-default" italicslope=".2" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"/>
+				<label id="{{{P}}}label-zone" pos="{{{Size_Background.X/2 - Padding}}} 0." size="52 {{{RaceMenuSize.Y}}}" halign="right" valign="top" textsize="4" class="{{{P}}}text-default" italicslope=".2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" translate="1"/>
+			</frame>
+			<frame id="{{{P}}}frame-ranking-3" pos="{{{Pos_FrameRanking3Target.X}}} {{{Pos_FrameRanking3Target.Y}}}" scale="{{{Scale_FrameRanking2Target}}}" z-index="5" hidden="1">
+				<label id="{{{P}}}label-ranking" size="23 {{{RaceMenuSize.Y}}}" halign="right" textsize="4" class="{{{P}}}text-default" italicslope=".2" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"/>
+				<label id="{{{P}}}label-zone" pos="{{{Size_Background.X/2 - Padding}}} 0." size="52 {{{RaceMenuSize.Y}}}" halign="right" valign="top" textsize="4" class="{{{P}}}text-default" italicslope=".2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" translate="1"/>
+			</frame>
+		</frame>
+
+		<frameinstance id="{{{P}}}frameinstance-medal-stack" modelid="{{{MedalStack::C_Name}}}" pos="{{{-Size_Background.X/2 * 0.8}}} {{{-Size_Background.Y/2 * 0.25}}}" scale="0.8" data-bigmedaldirection="{{{MedalStack::C_BigMedal_Horizontal}}}" data-iscolorize="0" data-isingame="1" data-displayshadows="1"/>
+		<frame id="{{{P}}}frame-next-medal" pos="{{{Size_Background.X/2 * 0.3}}} {{{-Size_Background.Y/2 * 0.7}}}">
+			<quad id="{{{P}}}quad-next-medal" size="6.5 6.5" class="{{{P}}}quad-default" autoscale="0" pos="0 0.5"/>
+			<label id="{{{P}}}label-next-medal-time" textcolor="FFF" pos="4 0" size="{{{RaceMenuSize.X/4.-2.}}} {{{RaceMenuSize.Y}}}" textsize="4" halign="left" class="{{{P}}}text-default" italicslope=".2"/>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/CMGame/Utils/AudioManager_ML.Script.txt" as {{{P}}}AudioManager
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as {{{P}}}MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as {{{P}}}Medals
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as {{{P}}}Tools
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as {{{P}}}MV_Utils
+#Include "Libs/Nadeo/Trackmania/MainMenu/TitleControl.Script.txt" as {{{P}}}TitleControl
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalTimeAttack/PlayerData.Script.txt" as {{{P}}}RoyalPlayerData
+#Include "Libs/Nadeo/Trackmania/Modes/UIModules/NetShare_Client.Script.txt" as {{{P}}}NetShare
+#Include "MathLib" as {{{P}}}ML
+#Include "TextLib" as {{{P}}}TL
+
+#Const {{{P}}}C_FormatLimit 10000
+
+#Const {{{P}}}C_Sound_PlacementCounter "IngamePlacementCounter"
+#Const {{{P}}}C_Sound_SecondaryPlacementCounter "IngameSecondaryPlacementCounter"
+#Const {{{P}}}C_Sound_StartPlacementCounter "StartIngamePlacementCounter"
+#Const {{{P}}}C_Sound_StartSecondaryPlacementCounter "StartIngameSecondaryPlacementCounter"
+
+#Const {{{P}}}C_Zone_Translations {{{dump(MenuConst::C_Zone_Translations)}}}
+#Const {{{P}}}C_Season_Names {{{dump(MenuConst::C_Season_Names)}}}
+
+#Struct {{{P}}}K_RankAnim {
+	CMlLabel Label_Ranking;
+	Integer IntroTime;
+	Integer StartTime;
+	Integer AnimDuration;
+	Integer InitialPosition;
+	Integer PositionDifference;
+	Integer MaxUpdateFrequency;
+	Integer NextUpdate;
+	Boolean IsSecondary;
+}
+
+#Struct {{{P}}}K_ZoneAnim {
+	Integer PunchSoundPlayTime;
+	Boolean IsSecondary;
+}
+""",
+"""
+declare Boolean {{{P}}}G_IgnoreForcedUpdate;
+declare Boolean {{{P}}}G_RequestManualUpdate;
+declare Boolean {{{P}}}G_RequestRankAnimation;
+declare Boolean {{{P}}}G_RequestStopSounds;
+declare Boolean {{{P}}}G_IsDisplayed;
+declare {{{P}}}K_RankAnim[Integer] {{{P}}}G_RankAnims;
+declare {{{P}}}K_ZoneAnim[Integer] {{{P}}}G_ZoneAnims;
+declare CMlLabel {{{P}}}G_Label_TimeLegend;
+
+Void {{{P}}}SetIgnoreForcedUpdate(Boolean _IgnoreForcedUpdate) {
+	{{{P}}}G_IgnoreForcedUpdate = _IgnoreForcedUpdate;
+}
+
+Void {{{P}}}RequestManualUpdate(Boolean _RequestRankAnimation) {
+	{{{P}}}G_RequestManualUpdate = True;
+	{{{P}}}G_RequestRankAnimation = _RequestRankAnimation;
+}
+
+Void {{{P}}}SetDisplayed(Boolean _IsDisplayed) {
+	{{{P}}}G_IsDisplayed = _IsDisplayed;
+}
+
+Void {{{P}}}PlayZoneAnimation(
+	CMlFrame _Frame_Ranking,
+	Integer _StartTime,
+	Integer _Duration,
+	Real _TargetScale,
+	Vec2 _StartingPos,
+	Vec2 _TargetPos
+) {
+	_Frame_Ranking.RelativeScale = 1.4*_TargetScale;
+	_Frame_Ranking.Hide();
+	_Frame_Ranking.RelativeRotation = {{{P}}}ML::Rand(-4.,4.);
+	_Frame_Ranking.RelativePosition_V3 = _StartingPos;
+
+	AnimMgr.Flush(_Frame_Ranking);
+	AnimMgr.Add(_Frame_Ranking, "<anim scale=\""^_TargetScale^"\" pos=\""^_TargetPos.X^" "^_TargetPos.Y^"\" hidden=\"0\" rot=\""^0^"\"/>", _StartTime, _Duration, CAnimManager::EAnimManagerEasing::QuadIn);
+}
+
+{{{P}}}K_RankAnim {{{P}}}PlayRankAnimation(
+	CMlLabel _Label_Ranking,
+	Integer _InitialPosition,
+	Integer _NewPosition,
+	Integer _StartTime,
+	Integer _MaxDuration,
+	Real _LabelRankingSizeX
+) {
+	declare {{{P}}}K_RankAnim RankAnim;
+	RankAnim.Label_Ranking = _Label_Ranking;
+
+	// Rank displayed
+	RankAnim.InitialPosition = _InitialPosition;
+	RankAnim.PositionDifference = _NewPosition - _InitialPosition;
+	_Label_Ranking.Value = {{{P}}}Tools::FormatTop(RankAnim.InitialPosition, True, {{{P}}}C_FormatLimit);
+	_Label_Ranking.Size.X = _LabelRankingSizeX;
+
+	// Duration
+	RankAnim.StartTime = _StartTime;
+	RankAnim.AnimDuration = _MaxDuration;
+	if ({{{P}}}ML::Abs(RankAnim.PositionDifference) < 3) RankAnim.AnimDuration = {{{P}}}ML::TruncInteger(_MaxDuration * 0.4);
+	RankAnim.MaxUpdateFrequency = 60;
+
+	return RankAnim;
+}
+
+Void {{{P}}}SetRanking(
+	CMlFrame _Frame_Ranking,
+	CMlFrame _Frame_Ranking2,
+	CMlFrame _Frame_Ranking3,
+	{{{CampaignStruct::P}}}K_Ranking[] _Rankings,
+	{{{CampaignStruct::P}}}K_Ranking[] _PrevRankings,
+	Boolean _PlayAnimation,
+	Integer _CurrentMedal,
+	Boolean _IsSeasonLive
+) {
+	declare CMlLabel Label_Ranking <=> (_Frame_Ranking.GetFirstChild("{{{P}}}label-ranking") as CMlLabel);
+	declare CMlLabel Label_Zone <=> (_Frame_Ranking.GetFirstChild("{{{P}}}label-zone") as CMlLabel);
+	declare CMlLabel Label_Ranking2 <=> (_Frame_Ranking2.GetFirstChild("{{{P}}}label-ranking") as CMlLabel);
+	declare CMlLabel Label_Zone2 <=> (_Frame_Ranking2.GetFirstChild("{{{P}}}label-zone") as CMlLabel);
+	declare CMlLabel Label_Ranking3 <=> (_Frame_Ranking3.GetFirstChild("{{{P}}}label-ranking") as CMlLabel);
+	declare CMlLabel Label_Zone3 <=> (_Frame_Ranking3.GetFirstChild("{{{P}}}label-zone") as CMlLabel);
+
+	declare Boolean PlayRankAnimation = _PlayAnimation;
+	declare Boolean PlayZoneAnimation = _PlayAnimation;
+	declare Integer ZonesToDisplayNb = 1;
+
+	declare {{{CampaignStruct::P}}}K_Ranking TopRank = {{{CampaignStore::P}}}GetTopRank(_Rankings);
+	declare {{{CampaignStruct::P}}}K_Ranking PrevTopRank = {{{CampaignStore::P}}}GetTopRank(_PrevRankings);
+
+	declare Text HigherZoneName;
+	declare Text LowerZoneName;
+	declare {{{CampaignStruct::P}}}K_Ranking Zone2Ranking;
+	declare {{{CampaignStruct::P}}}K_Ranking PrevZone2Ranking;
+	declare {{{CampaignStruct::P}}}K_Ranking Zone3Ranking;
+	declare {{{CampaignStruct::P}}}K_Ranking PrevZone3Ranking;
+	if (
+		InputPlayer != Null && InputPlayer.User != Null && _IsSeasonLive &&
+			(_CurrentMedal == {{{P}}}Medals::C_ScoreMgrMedal_Gold ||
+			_CurrentMedal == {{{P}}}Medals::C_ScoreMgrMedal_Author)
+	) {
+		declare Text[] UserZones = {{{P}}}TL::Split("|", InputPlayer.User.ZonePath);
+		if (UserZones.exists(TopRank.ZoneName)) {
+			declare TopRankZoneKey = UserZones.keyof(TopRank.ZoneName);
+			if (UserZones.existskey(TopRankZoneKey - 1)) {
+				HigherZoneName = UserZones[TopRankZoneKey - 1];
+				foreach (ZoneRanking in _Rankings) {
+					if (ZoneRanking.ZoneName == HigherZoneName) {
+						Zone2Ranking = ZoneRanking;
+						ZonesToDisplayNb += 1;
+						break;
+					}
+				}
+				foreach (ZoneRanking in _PrevRankings) {
+					if (ZoneRanking.ZoneName == HigherZoneName) {
+						PrevZone2Ranking = ZoneRanking;
+						break;
+					}
+				}
+			}
+			if (UserZones.existskey(TopRankZoneKey + 1)) {
+				LowerZoneName = UserZones[TopRankZoneKey + 1];
+				foreach (ZoneRanking in _Rankings) {
+					if (ZoneRanking.ZoneName == LowerZoneName) {
+						ZonesToDisplayNb += 1;
+						if (ZonesToDisplayNb == 2) Zone2Ranking = ZoneRanking;
+						else if (ZonesToDisplayNb == 3) Zone3Ranking = ZoneRanking;
+						break;
+					}
+				}
+				foreach (ZoneRanking in _PrevRankings) {
+					if (ZoneRanking.ZoneName == LowerZoneName) {
+						if (ZonesToDisplayNb == 2) PrevZone2Ranking = ZoneRanking;
+						else if (ZonesToDisplayNb == 3) PrevZone3Ranking = ZoneRanking;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	declare {{{CampaignStruct::P}}}K_Ranking CurrentZonePrevRanking;
+	foreach (PrevRanking in _PrevRankings) {
+		if (PrevRanking.ZoneName == TopRank.ZoneName) {
+			CurrentZonePrevRanking = PrevRanking;
+			break;
+		}
+	}
+
+	if (TopRank.ZoneName == PrevTopRank.ZoneName) {
+		PlayZoneAnimation = False;
+		if (CurrentZonePrevRanking.Position > 0 && TopRank.Position >= CurrentZonePrevRanking.Position) {
+			PlayRankAnimation = False;
+		}
+	}
+
+	if (TopRank.Position <= 0) {
+		Label_Ranking.Value = "{{{Text_NotRanked}}}";
+		Label_Ranking.Size.X = 50.;
+		Label_Zone.Value = "";
+		Label_Ranking2.Value = "";
+		Label_Zone2.Value = "";
+		Label_Ranking3.Value = "";
+		Label_Zone3.Value = "";
+	} else if (PrevTopRank.Position > 0 && (PlayRankAnimation || PlayZoneAnimation)) { // "PrevTopRank.Position > 0" because anim is not played the first time player plays a map
+		declare StartDelay = 250;
+		declare AfterZoneChangeDelay = 250;
+		declare RankAnimDuration = 2000;
+		if (ZonesToDisplayNb > 1) RankAnimDuration = 1250;
+		declare AfterRankAnim1Delay = 100;
+		declare RankAnim2Duration = 400;
+		declare AfterRankAnim2Delay = 100;
+		declare RankAnim3Duration = 400;
+		declare ZoneAnimDuration = 150;
+		declare FrameRankingStartingPos = {{{Pos_FrameRankingTarget}}} + <-14.,2.>;
+		declare FrameRanking2StartingPos = {{{Pos_FrameRanking2Target}}} + <-14.,2.>;
+		declare FrameRanking3StartingPos = {{{Pos_FrameRanking3Target}}} + <-14.,2.>;
+
+		Label_Zone.Value = {{{P}}}C_Zone_Translations.get(TopRank.ZoneName, {{{P}}}TL::GetTranslatedText(TopRank.ZoneName));
+		{{{P}}}Tools::FitLabelValue(Label_Zone, 3., 0.25);
+		Label_Zone.RelativePosition_V3.Y = 3. - (4. - Label_Zone.TextSizeReal) / 2.;
+		if (ZonesToDisplayNb > 1 && Zone2Ranking.ZoneName != "") {
+			Label_Zone2.Value = {{{P}}}C_Zone_Translations.get(Zone2Ranking.ZoneName, {{{P}}}TL::GetTranslatedText(Zone2Ranking.ZoneName));
+			{{{P}}}Tools::FitLabelValue(Label_Zone2, 3., 0.25);
+			Label_Zone2.RelativePosition_V3.Y = 3. - (4. - Label_Zone2.TextSizeReal) / 2.;
+		}
+		if (ZonesToDisplayNb > 2 && Zone3Ranking.ZoneName != "") {
+			Label_Zone3.Value = {{{P}}}C_Zone_Translations.get(Zone3Ranking.ZoneName, {{{P}}}TL::GetTranslatedText(Zone3Ranking.ZoneName));
+			{{{P}}}Tools::FitLabelValue(Label_Zone3, 3., 0.25);
+			Label_Zone3.RelativePosition_V3.Y = 3. - (4. - Label_Zone3.TextSizeReal) / 2.;
+		}
+
+		if (PlayRankAnimation) {
+			declare InitialPosition = CurrentZonePrevRanking.Position;
+			if (InitialPosition <= 0) InitialPosition = TopRank.Length;
+			declare StartTime = Now + StartDelay;
+			if (PlayZoneAnimation) StartTime += ZoneAnimDuration * ZonesToDisplayNb + AfterZoneChangeDelay;
+
+			declare {{{P}}}K_RankAnim RankAnim = {{{P}}}PlayRankAnimation(Label_Ranking, InitialPosition, TopRank.Position, StartTime, RankAnimDuration, 23.);
+			RankAnim.IsSecondary = False;
+			{{{P}}}G_RankAnims[1] = RankAnim;
+			if (ZonesToDisplayNb > 1 && Zone2Ranking.ZoneName != "") {
+				InitialPosition = PrevZone2Ranking.Position;
+				if (InitialPosition <= 0) InitialPosition = Zone2Ranking.Length;
+				StartTime += AfterRankAnim1Delay + RankAnim.AnimDuration; // RankAnim.AnimDuration can be shorter than RankAnimDuration if rank difference is too small
+				RankAnim = {{{P}}}PlayRankAnimation(Label_Ranking2, InitialPosition, Zone2Ranking.Position, StartTime, RankAnim2Duration, 23.);
+				RankAnim.IsSecondary = True;
+				{{{P}}}G_RankAnims[2] = RankAnim;
+			} else {
+				Label_Ranking2.Value = "";
+				Label_Zone2.Value = "";
+			}
+			if (ZonesToDisplayNb > 2 && Zone3Ranking.ZoneName != "") {
+				InitialPosition = PrevZone3Ranking.Position;
+				if (InitialPosition <= 0) InitialPosition = Zone3Ranking.Length;
+				StartTime += AfterRankAnim2Delay + RankAnim.AnimDuration;
+				RankAnim = {{{P}}}PlayRankAnimation(Label_Ranking3, InitialPosition, Zone3Ranking.Position, StartTime, RankAnim3Duration, 23.);
+				RankAnim.IsSecondary = True;
+				{{{P}}}G_RankAnims[3] = RankAnim;
+			} else {
+				Label_Ranking3.Value = "";
+				Label_Zone3.Value = "";
+			}
+		}
+		if (PlayZoneAnimation) {
+			declare StartTime = Now + StartDelay;
+			{{{P}}}G_ZoneAnims[0] = {{{P}}}K_ZoneAnim {PunchSoundPlayTime = StartTime, IsSecondary = False};
+			{{{P}}}PlayZoneAnimation(_Frame_Ranking, StartTime, ZoneAnimDuration, 1., FrameRankingStartingPos, {{{Pos_FrameRankingTarget}}});
+			if (ZonesToDisplayNb > 1 && Zone2Ranking.ZoneName != "") {
+				StartTime += ZoneAnimDuration;
+				{{{P}}}G_ZoneAnims[1] = {{{P}}}K_ZoneAnim {PunchSoundPlayTime = StartTime, IsSecondary = True};
+				{{{P}}}PlayZoneAnimation(_Frame_Ranking2, StartTime, ZoneAnimDuration, {{{Scale_FrameRanking2Target}}}, FrameRanking2StartingPos, {{{Pos_FrameRanking2Target}}});
+			}
+			if (ZonesToDisplayNb > 2 && Zone3Ranking.ZoneName != "") {
+				StartTime += ZoneAnimDuration;
+				{{{P}}}G_ZoneAnims[2] = {{{P}}}K_ZoneAnim {PunchSoundPlayTime = StartTime, IsSecondary = True};
+				{{{P}}}PlayZoneAnimation(_Frame_Ranking3, StartTime, ZoneAnimDuration, {{{Scale_FrameRanking2Target}}}, FrameRanking3StartingPos, {{{Pos_FrameRanking3Target}}});
+			}
+		}
+	} else {
+		Label_Ranking.Value = {{{P}}}Tools::FormatTop(TopRank.Position, True, {{{P}}}C_FormatLimit);
+		Label_Ranking.Size.X = 23.;
+		Label_Zone.Value = {{{P}}}C_Zone_Translations.get(TopRank.ZoneName, {{{P}}}TL::GetTranslatedText(TopRank.ZoneName));
+		{{{P}}}Tools::FitLabelValue(Label_Zone, 3., 0.25);
+		Label_Zone.RelativePosition_V3.Y = 3. - (4. - Label_Zone.TextSizeReal) / 2.;
+
+		if (ZonesToDisplayNb > 1 && Zone2Ranking.ZoneName != "") {
+			Label_Ranking2.Value = {{{P}}}Tools::FormatTop(Zone2Ranking.Position, True, {{{P}}}C_FormatLimit);
+			Label_Ranking2.Size.X = 23.;
+			Label_Zone2.Value = {{{P}}}C_Zone_Translations.get(Zone2Ranking.ZoneName, {{{P}}}TL::GetTranslatedText(Zone2Ranking.ZoneName));
+			{{{P}}}Tools::FitLabelValue(Label_Zone2, 3., 0.25);
+			Label_Zone2.RelativePosition_V3.Y = 3. - (4. - Label_Zone2.TextSizeReal) / 2.;
+		} else {
+			Label_Ranking2.Value = "";
+			Label_Zone2.Value = "";
+		}
+
+		if (ZonesToDisplayNb > 2 && Zone3Ranking.ZoneName != "") {
+			Label_Ranking3.Value = {{{P}}}Tools::FormatTop(Zone3Ranking.Position, True, {{{P}}}C_FormatLimit);
+			Label_Ranking3.Size.X = 23.;
+			Label_Zone3.Value = {{{P}}}C_Zone_Translations.get(Zone3Ranking.ZoneName, {{{P}}}TL::GetTranslatedText(Zone3Ranking.ZoneName));
+			{{{P}}}Tools::FitLabelValue(Label_Zone3, 3., 0.25);
+			Label_Zone3.RelativePosition_V3.Y = 3. - (4. - Label_Zone3.TextSizeReal) / 2.;
+		} else {
+			Label_Ranking3.Value = "";
+			Label_Zone3.Value = "";
+		}
+	}
+
+	Label_Ranking.RelativePosition_V3.X = {{{P}}}ML::Max({{{RaceMenuSize.X/2.-7.}}} - Label_Zone.ComputeWidth(Label_Zone.Value) - .5, 5.);
+	Label_Ranking2.RelativePosition_V3.X = {{{P}}}ML::Max({{{RaceMenuSize.X/2.-7.}}} - Label_Zone2.ComputeWidth(Label_Zone2.Value) - .5, 5.);
+	Label_Ranking3.RelativePosition_V3.X = {{{P}}}ML::Max({{{RaceMenuSize.X/2.-7.}}} - Label_Zone3.ComputeWidth(Label_Zone3.Value) - .5, 5.);
+}
+
+Void {{{P}}}SetNextMedal(CMlFrame _Frame_NextMedal, {{{CampaignStruct::P}}}K_Map _CurrentMap) {
+	if (_Frame_NextMedal == Null) return;
+	if (
+		(_CurrentMap.Name == "" &&
+		_CurrentMap.Uid == "") ||
+		_CurrentMap.Score <= 0
+	) {
+		_Frame_NextMedal.Hide();
+		return;
+	}
+	declare CMlLabel Label_NextMedalTime <=> (_Frame_NextMedal.GetFirstChild("{{{P}}}label-next-medal-time") as CMlLabel);
+	declare CMlQuad Quad_Medal <=> (_Frame_NextMedal.GetFirstChild("{{{P}}}quad-next-medal") as CMlQuad);
+	_Frame_NextMedal.Show();
+	switch (_CurrentMap.Medal) {
+		case {{{P}}}Medals::C_ScoreMgrMedal_None: {
+			Label_NextMedalTime.Value = {{{CampaignStruct::P}}}GetMedalScoreText(_CurrentMap.BronzeTime, _CurrentMap.Type);
+			Quad_Medal.ChangeImageUrl("{{{MenuConst::C_ImageUrl_Medal_Bronze}}}");
+		}
+		case {{{P}}}Medals::C_ScoreMgrMedal_Bronze: {
+			Label_NextMedalTime.Value = {{{CampaignStruct::P}}}GetMedalScoreText(_CurrentMap.SilverTime, _CurrentMap.Type);
+			Quad_Medal.ChangeImageUrl("{{{MenuConst::C_ImageUrl_Medal_Silver}}}");
+		}
+		case {{{P}}}Medals::C_ScoreMgrMedal_Silver: {
+			Label_NextMedalTime.Value = {{{CampaignStruct::P}}}GetMedalScoreText(_CurrentMap.GoldTime, _CurrentMap.Type);
+			Quad_Medal.ChangeImageUrl("{{{MenuConst::C_ImageUrl_Medal_Gold}}}");
+		}
+		default: {
+			_Frame_NextMedal.Hide();
+		}
+	}
+	if (Label_NextMedalTime.Value != "") {{{P}}}Tools::FitLabelValue(Label_NextMedalTime, 4., 2., 0.5);
+}
+
+Void {{{P}}}HideZoneRanking() {
+	(Page.GetFirstChild("{{{P}}}frame-ranking")).Hide();
+	(Page.GetFirstChild("{{{P}}}frame-ranking-2")).Hide();
+	(Page.GetFirstChild("{{{P}}}frame-ranking-3")).Hide();
+}
+
+Void {{{P}}}SetRankingsAreLoading(Boolean _Loading) {
+	declare Boolean IsRoyalMapType = {{{P}}}TitleControl::IsRoyalMapType({{{P}}}NetShare::GetMap(Teams[0]).Type);
+	declare Boolean IsPlatformMapType = {{{P}}}TitleControl::IsPlatformMapType({{{P}}}NetShare::GetMap(Teams[0]).Type);
+	Page.GetFirstChild("{{{P}}}frame-rankings").Visible = !_Loading && !IsRoyalMapType && !IsPlatformMapType;
+	{{{LoadingSpinner::P}}}SetIsLoading(This, Page.GetFirstChild("{{{P}}}spinner-rankings"), _Loading && !IsRoyalMapType);
+}
+
+Void {{{P}}}RequestStopSounds() {
+	{{{P}}}G_RequestStopSounds = True;
+}
+
+Void {{{P}}}SetTimeLegend(Text _Legend) {
+	if (_Legend == "") {
+		{{{P}}}G_Label_TimeLegend.Value = "{{{Text_PB}}}";
+	} else {
+		{{{P}}}G_Label_TimeLegend.Value = _Legend;
+	}
+}
+
+Text {{{P}}}Private_SetMapAuthor(CMlLabel _Label_MapAuthor, Text _AuthorLogin, Text _AuthorName) {
+	declare Text DisplayName = "";
+	declare Text RequestDisplayNameForLogin = "";
+
+	if (_AuthorLogin != "" && UserMgr != Null) {
+		DisplayName = {{{UserStore::P}}}GetUserMgrPlayerName(_AuthorLogin);
+	}
+
+	if (DisplayName != "") {
+		_Label_MapAuthor.Value = {{{P}}}TL::Compose("{{{Text_ByAuthor}}}", DisplayName);
+	} else {
+		RequestDisplayNameForLogin = _AuthorLogin;
+
+		if (_AuthorName != "") {
+			_Label_MapAuthor.Value = {{{P}}}TL::Compose("{{{Text_ByAuthor}}}", _AuthorName);
+		} else {
+			_Label_MapAuthor.Value = "";
+		}
+	}
+
+	{{{P}}}Tools::FitLabelValue(_Label_MapAuthor, 4., 1., 0.5);
+	{{{P}}}Tools::FirstPartyLogoMatchLuminance(_Label_MapAuthor);
+
+	return RequestDisplayNameForLogin;
+}
+
+***MainInit***
+***
+declare CMlFrame {{{P}}}Frame_Global;
+declare CMlFrame {{{P}}}Frame_NextMedal;
+declare CMlFrame {{{P}}}Frame_MedalStack;
+declare CMlFrame {{{P}}}Frame_Ranking;
+declare CMlFrame {{{P}}}Frame_Ranking2;
+declare CMlFrame {{{P}}}Frame_Ranking3;
+declare CMlFrame {{{P}}}Frame_RoyalSegmentRaceTimes;
+declare CMlLabel {{{P}}}Label_MapName;
+declare CMlLabel {{{P}}}Label_MapAuthor;
+declare CMlLabel {{{P}}}Label_CampaignName;
+declare CMlLabel {{{P}}}Label_PB;
+declare CMlLabel {{{P}}}Label_Ranking;
+declare CMlLabel {{{P}}}Label_Zone;
+declare CMlLabel {{{P}}}Label_Closed;
+
+declare {{{CampaignStruct::P}}}K_Campaign {{{P}}}CurrentCampaign;
+declare {{{CampaignStruct::P}}}K_Map {{{P}}}CurrentMap;
+declare {{{CampaignStruct::P}}}K_Ranking[] {{{P}}}PrevRankings;
+declare Integer {{{P}}}BestRaceTime;
+declare Integer {{{P}}}BestRacePoints;
+declare Integer {{{P}}}BestRaceRespawns;
+declare Integer {{{P}}}ForceUpdate;
+declare Text {{{P}}}RequestDisplayNameForLogin;
+declare Ident {{{P}}}TaskId_DisplayName;
+declare Boolean {{{P}}}RankingsAreLoading;
+declare Boolean {{{P}}}IsDisplayed;
+declare Integer {{{P}}}PlayerTimesEventUpdate;
+***
+
+***MainStart***
+***
+{{{P}}}Frame_Global <=> (Page.GetFirstChild("{{{P}}}frame-global") as CMlFrame);
+{{{P}}}Frame_MedalStack <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}frameinstance-medal-stack") as CMlFrame);
+{{{P}}}Frame_NextMedal <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}frame-next-medal") as CMlFrame);
+{{{P}}}Frame_Ranking <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}frame-ranking") as CMlFrame);
+{{{P}}}Frame_Ranking2 <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}frame-ranking-2") as CMlFrame);
+{{{P}}}Frame_Ranking3 <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}frame-ranking-3") as CMlFrame);
+{{{P}}}Frame_RoyalSegmentRaceTimes <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}frame-royal-segment-race-times") as CMlFrame);
+{{{P}}}Label_MapName <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}label-map-name") as CMlLabel);
+{{{P}}}Label_MapAuthor <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}label-map-author") as CMlLabel);
+{{{P}}}Label_CampaignName <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}label-campaign-name") as CMlLabel);
+{{{P}}}G_Label_TimeLegend <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}label-time-legend") as CMlLabel);
+{{{P}}}Label_PB <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}label-pb") as CMlLabel);
+{{{P}}}Label_Ranking <=> ({{{P}}}Frame_Ranking.GetFirstChild("{{{P}}}label-ranking") as CMlLabel);
+{{{P}}}Label_Zone <=> ({{{P}}}Frame_Ranking.GetFirstChild("{{{P}}}label-zone") as CMlLabel);
+{{{P}}}Label_Closed <=> ({{{P}}}Frame_Global.GetFirstChild("{{{P}}}label-closed") as CMlLabel);
+
+{{{P}}}CurrentCampaign.Id = {{{CampaignStruct::P}}}C_Campaign_NullId;
+{{{P}}}PrevRankings = {{{P}}}CurrentMap.Rankings;
+{{{P}}}BestRaceTime = -123;
+{{{P}}}BestRacePoints = -123;
+{{{P}}}BestRaceRespawns = -123;
+{{{P}}}ForceUpdate = -123;
+{{{P}}}RequestDisplayNameForLogin = "";
+{{{P}}}TaskId_DisplayName = NullId;
+{{{P}}}RankingsAreLoading = {{{P}}}NetShare::RankingsAreLoading(Teams[0]);
+
+{{{P}}}G_RequestManualUpdate = False;
+{{{P}}}G_RequestRankAnimation = False;
+
+{{{P}}}SetDisplayed(True);
+{{{P}}}SetRankingsAreLoading({{{P}}}RankingsAreLoading);
+
+{{{P}}}IsDisplayed = {{{P}}}G_IsDisplayed;
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> {{{P}}}MV_Utils::GetOwner(This);
+	switch({{{P}}}CurrentMap.Type) {
+		case "{{{MenuConst::C_MapType_Stunt}}}": {
+			// Display points for PB in Stunt mode
+			if ({{{P}}}BestRacePoints != {{{P}}}CurrentMap.Points) {
+				{{{P}}}BestRacePoints = {{{P}}}CurrentMap.Points;
+				{{{P}}}Label_PB.Value =	{{{CampaignStruct::P}}}GetMedalScoreText({{{P}}}BestRacePoints, {{{P}}}CurrentMap.Type);
+				{{{P}}}SetNextMedal({{{P}}}Frame_NextMedal, {{{P}}}CurrentMap);
+			}
+		}
+		case "{{{MenuConst::C_MapType_Platform}}}": {
+			// Display respawns for PB in Platform mode
+			if ({{{P}}}BestRaceRespawns != {{{P}}}CurrentMap.RespawnCount) {
+				{{{P}}}BestRaceRespawns = {{{P}}}CurrentMap.RespawnCount;
+				{{{P}}}Label_PB.Value =	{{{CampaignStruct::P}}}GetMedalScoreText({{{P}}}BestRaceRespawns, {{{P}}}CurrentMap.Type);
+				{{{P}}}SetNextMedal({{{P}}}Frame_NextMedal, {{{P}}}CurrentMap);
+			}
+		}
+		case "{{{MenuConst::C_MapType_Royal}}}": {
+			if ({{{P}}}PlayerTimesEventUpdate != {{{P}}}RoyalPlayerData::GetPlayerTimesEventUpdate(Owner)) {
+				{{{P}}}PlayerTimesEventUpdate = {{{P}}}RoyalPlayerData::GetPlayerTimesEventUpdate(Owner);
+				{{{P}}}BestRaceTime = {{{P}}}RoyalPlayerData::GetPlayerTimes(Owner).Total;
+				{{{P}}}SetTimeLegend("{{{Text_TotalTime}}}");
+				{{{P}}}Label_PB.Value =	{{{CampaignStruct::P}}}GetMedalScoreText({{{P}}}BestRaceTime, {{{P}}}CurrentMap.Type);
+				foreach (Index => Control in {{{P}}}Frame_RoyalSegmentRaceTimes.Controls) {
+					declare CMlLabel Label_Time = (Control as CMlFrame).GetFirstChild("{{{P}}}label-time") as CMlLabel;
+					Label_Time.SetText({{{CampaignStruct::P}}}GetMedalScoreText({{{P}}}RoyalPlayerData::GetPlayerTimes(Owner).SegmentRaceTimes.get(Index, -1), {{{P}}}CurrentMap.Type));
+				}
+			}
+		}
+		default: { // classic PB in time for other map types
+			if (
+				Owner != Null &&
+				Owner.Score != Null &&
+				Owner.Score.BestRaceTimes.count > 0 &&
+				{{{P}}}BestRaceTime != Owner.Score.BestRaceTimes[Owner.Score.BestRaceTimes.count-1]
+			) {
+				{{{P}}}BestRaceTime = Owner.Score.BestRaceTimes[Owner.Score.BestRaceTimes.count-1];
+				{{{P}}}Label_PB.Value =	{{{CampaignStruct::P}}}GetMedalScoreText({{{P}}}BestRaceTime, {{{P}}}CurrentMap.Type);
+				{{{P}}}SetNextMedal({{{P}}}Frame_NextMedal, {{{P}}}CurrentMap);
+			} else if (
+				{{{P}}}BestRaceTime != -1 &&
+				(
+					Owner == Null ||
+					Owner.Score == Null ||
+					Owner.Score.BestRaceTimes.count == 0
+				)
+			) {
+				{{{P}}}BestRaceTime = -1;
+				{{{P}}}Label_PB.Value =	{{{CampaignStruct::P}}}GetMedalScoreText({{{P}}}BestRaceTime, {{{P}}}CurrentMap.Type);
+			}
+		}
+	}
+
+	if (UserMgr != Null) {
+		if ({{{P}}}RequestDisplayNameForLogin != "" && {{{P}}}TaskId_DisplayName == NullId) {
+			declare CTaskResult_GetDisplayNameResult Task = UserMgr.RetrieveDisplayName({{{P}}}MainUser::GetMainUserId(), [{{{P}}}RequestDisplayNameForLogin]);
+			if (Task != Null) {
+				{{{P}}}TaskId_DisplayName = Task.Id;
+			}
+			{{{P}}}RequestDisplayNameForLogin = "";
+		}
+		if ({{{P}}}TaskId_DisplayName != NullId) {
+			if (UserMgr.TaskResults.existskey({{{P}}}TaskId_DisplayName)) {
+				declare Task = UserMgr.TaskResults[{{{P}}}TaskId_DisplayName];
+				if (!Task.IsProcessing) {
+					if (Task.HasSucceeded) {
+						{{{P}}}Private_SetMapAuthor(
+							{{{P}}}Label_MapAuthor,
+							{{{P}}}CurrentMap.AuthorLogin,
+							{{{P}}}CurrentMap.AuthorDisplayName
+						); //< Ignore return value, we don't want to start a new request
+					}
+					UserMgr.TaskResult_Release({{{P}}}TaskId_DisplayName);
+					{{{P}}}TaskId_DisplayName = NullId;
+				}
+			} else {
+				{{{P}}}TaskId_DisplayName = NullId;
+			}
+		}
+	}
+
+	if ({{{P}}}RankingsAreLoading != {{{P}}}NetShare::RankingsAreLoading(Teams[0])) {
+		// Rankings finished loading, request animation
+		if ({{{P}}}RankingsAreLoading && !{{{P}}}NetShare::RankingsAreLoading(Teams[0])) {
+			{{{P}}}RequestManualUpdate(True);
+		}
+		{{{P}}}RankingsAreLoading = {{{P}}}NetShare::RankingsAreLoading(Teams[0]);
+		{{{P}}}SetRankingsAreLoading({{{P}}}RankingsAreLoading);
+	}
+
+	if (
+		{{{P}}}ForceUpdate != {{{P}}}NetShare::GetForceUpdate(Teams[0]) ||
+		({{{P}}}G_IsDisplayed && {{{P}}}G_RequestManualUpdate) || //< Wait until the component is visible before processing manual update and animation
+		{{{P}}}IsDisplayed != {{{P}}}G_IsDisplayed
+	) {
+		{{{P}}}ForceUpdate = {{{P}}}NetShare::GetForceUpdate(Teams[0]);
+		{{{P}}}IsDisplayed = {{{P}}}G_IsDisplayed;
+		if ({{{P}}}CurrentMap.Uid != {{{P}}}NetShare::GetMap(Teams[0]).Uid) {
+			{{{P}}}PrevRankings = {{{P}}}NetShare::GetMap(Teams[0]).Rankings;
+			{{{P}}}SetRankingsAreLoading({{{P}}}RankingsAreLoading);
+		}
+		{{{P}}}CurrentMap = {{{P}}}NetShare::GetMap(Teams[0]);
+		{{{P}}}CurrentCampaign = {{{P}}}NetShare::GetCampaign(Teams[0]);
+
+		{{{P}}}Frame_Ranking.Visible = {{{P}}}CurrentCampaign.SeasonUid != "" || {{{P}}}CurrentCampaign.SeasonUid != "";
+		{{{P}}}Frame_Ranking2.Visible = {{{P}}}CurrentCampaign.SeasonUid != "" || {{{P}}}CurrentCampaign.SeasonUid != "";
+		{{{P}}}Frame_Ranking3.Visible = {{{P}}}CurrentCampaign.SeasonUid != "" || {{{P}}}CurrentCampaign.SeasonUid != "";
+		{{{P}}}Frame_RoyalSegmentRaceTimes.Visible = {{{P}}}TitleControl::IsRoyalMapType({{{P}}}CurrentMap.Type);
+
+		declare Text MapName = {{{P}}}CurrentMap.Name;
+		if (Map != Null) {
+			MapName = {{{P}}}Tools::TranslateOfficialMapName({{{P}}}CurrentMap.Name, Map.AuthorLogin);
+		}
+		declare Text CampaignName = {{{P}}}CurrentCampaign.Name;
+		if ({{{P}}}CurrentCampaign.Type == {{{CampaignStruct::P}}}C_CampaignType_Quarterly) {
+			declare {{{CampaignStruct::P}}}K_CampaignName CampaignNameStruct = {{{CampaignStruct::P}}}ParseCampaignName(CampaignName);
+			if (CampaignNameStruct.IsValid) CampaignName = CampaignNameStruct.TranslatedName;
+		}
+		if (CampaignName == "") {
+			{{{P}}}Label_MapName.Visible = False;
+			{{{P}}}Label_MapAuthor.Visible = True;
+			{{{P}}}RequestDisplayNameForLogin = {{{P}}}Private_SetMapAuthor(
+				{{{P}}}Label_MapAuthor,
+				{{{P}}}CurrentMap.AuthorLogin,
+				{{{P}}}CurrentMap.AuthorDisplayName
+			);
+			{{{P}}}Label_CampaignName.SetText(MapName);
+		} else {
+			{{{P}}}Label_MapName.Visible = True;
+			{{{P}}}Label_MapAuthor.Visible = False;
+			{{{P}}}Label_MapName.SetText(MapName);
+			{{{P}}}Label_CampaignName.SetText(CampaignName);
+			{{{P}}}Tools::FitLabelValue({{{P}}}Label_MapName, 7., 4., 0.5);
+		}
+		{{{P}}}Tools::FitLabelValue({{{P}}}Label_CampaignName, 7., 4., 0.5);
+
+		{{{MedalStack::P}}}SetMedalsNumber({{{P}}}Frame_MedalStack, {{{P}}}CurrentMap.Medal);
+		{{{P}}}SetNextMedal({{{P}}}Frame_NextMedal, {{{P}}}CurrentMap);
+
+		{{{P}}}Label_Closed.Visible = {{{P}}}Frame_Ranking.Visible && !{{{P}}}CurrentCampaign.IsSeasonLive;
+
+		if ({{{P}}}G_IsDisplayed && {{{P}}}Frame_Ranking.Visible) {
+			if (!{{{P}}}G_IgnoreForcedUpdate || {{{P}}}G_RequestManualUpdate) {
+				{{{P}}}SetRanking(
+					{{{P}}}Frame_Ranking,
+					{{{P}}}Frame_Ranking2,
+					{{{P}}}Frame_Ranking3,
+					{{{P}}}CurrentMap.Rankings,
+					{{{P}}}PrevRankings,
+					{{{P}}}G_RequestRankAnimation,
+					{{{P}}}CurrentMap.Medal,
+					{{{P}}}CurrentCampaign.IsSeasonLive
+				);
+				{{{P}}}PrevRankings = {{{P}}}CurrentMap.Rankings;
+			}
+		}
+
+		{{{P}}}G_RequestManualUpdate = False;
+		{{{P}}}G_RequestRankAnimation = False;
+	}
+	if ({{{P}}}G_RequestStopSounds) {
+		{{{P}}}G_RequestStopSounds = False;
+		foreach (Key => Anim in {{{P}}}G_ZoneAnims) {
+			declare SoundName = {{{P}}}C_Sound_StartPlacementCounter;
+			if (Anim.IsSecondary) SoundName = {{{P}}}C_Sound_StartSecondaryPlacementCounter;
+			{{{P}}}AudioManager::StopSound(This, SoundName);
+			{{{P}}}G_ZoneAnims.removekey(Key);
+		}
+		foreach (Key => Anim in {{{P}}}G_RankAnims) {
+			declare SoundName = {{{P}}}C_Sound_PlacementCounter;
+			if (Anim.IsSecondary) SoundName = {{{P}}}C_Sound_SecondaryPlacementCounter;
+			{{{P}}}AudioManager::StopSound(This, SoundName);
+			{{{P}}}G_RankAnims.removekey(Key);
+		}
+	}
+	foreach (Key => Anim in {{{P}}}G_RankAnims) {
+		if (Anim.StartTime > 0 && Anim.StartTime < Now) {
+			if (Anim.NextUpdate <= Now && Anim.StartTime + Anim.AnimDuration < Now) {
+				declare Text NewValue = {{{P}}}Tools::FormatTop(Anim.InitialPosition + Anim.PositionDifference, True, {{{P}}}C_FormatLimit);
+				if (Anim.Label_Ranking.Value != NewValue) {
+					Anim.Label_Ranking.Value = NewValue;
+					AnimMgr.Flush(Anim.Label_Ranking);
+					AnimMgr.Add(Anim.Label_Ranking, "<anim scale=\"1.15\"/>", Now, 20, CAnimManager::EAnimManagerEasing::Linear);
+					AnimMgr.Add(Anim.Label_Ranking, "<anim scale=\"1.\"/>", Now+20, 40, CAnimManager::EAnimManagerEasing::Linear);
+				}
+				{{{P}}}G_RankAnims.removekey(Key);
+			} else if (Anim.NextUpdate <= Now) {
+				{{{P}}}G_RankAnims[Key].NextUpdate = Now + Anim.MaxUpdateFrequency;
+				declare PositionDifference = Anim.PositionDifference;
+				// easeCubicOut y = (1 - (1 - t)^3) where y and t are normed between 0 and 1
+				// NB: AnimLib::EaseOutCubic(...) do the same
+				declare Text NewValue = {{{P}}}Tools::FormatTop(Anim.InitialPosition + {{{P}}}ML::NearestInteger(PositionDifference * (1 - {{{P}}}ML::Pow(1.-{{{P}}}ML::ToReal(Now - Anim.StartTime)/Anim.AnimDuration, 3.))), True, {{{P}}}C_FormatLimit);
+				if (NewValue != Anim.Label_Ranking.Value) {
+					Anim.Label_Ranking.Value = NewValue;
+					AnimMgr.Flush(Anim.Label_Ranking);
+					AnimMgr.Add(Anim.Label_Ranking, "<anim scale=\"1.15\"/>", Now, 20, CAnimManager::EAnimManagerEasing::Linear);
+					AnimMgr.Add(Anim.Label_Ranking, "<anim scale=\"1.\"/>", Now+20, 40, CAnimManager::EAnimManagerEasing::Linear);
+					declare SoundName = {{{P}}}C_Sound_PlacementCounter;
+					if (Anim.IsSecondary) SoundName = {{{P}}}C_Sound_SecondaryPlacementCounter;
+					{{{P}}}AudioManager::StopSound(This, SoundName);
+					{{{P}}}AudioManager::PlaySound(This, SoundName);
+				}
+			}
+		}
+	}
+	foreach (Key => Anim in {{{P}}}G_ZoneAnims) {
+		if (Anim.PunchSoundPlayTime > 0 && Anim.PunchSoundPlayTime <= Now) {
+			declare SoundName = {{{P}}}C_Sound_StartPlacementCounter;
+			if (Anim.IsSecondary) SoundName = {{{P}}}C_Sound_StartSecondaryPlacementCounter;
+			{{{P}}}AudioManager::StopSound(This, SoundName);
+			{{{P}}}AudioManager::PlaySound(This, SoundName);
+			{{{P}}}G_ZoneAnims.removekey(Key);
+		}
+	}
+}
+***
+""",
+[
+	CampaignStore::ComponentV2(),
+	CampaignStruct::Component(),
+	MedalStack::Component(),
+	UserStore::ComponentV2(),
+	LoadingSpinner::ComponentV2()
+],
+[]
+	);
+}

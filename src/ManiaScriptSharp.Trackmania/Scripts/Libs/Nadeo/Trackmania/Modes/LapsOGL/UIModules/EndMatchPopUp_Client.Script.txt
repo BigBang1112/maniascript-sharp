@@ -1,0 +1,691 @@
+/**
+ *  UI module: EndMatchPopUp client side
+ */
+#Const Version		"1.0.1"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/LapsOGL/UIModules/EndMatchPopUp_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as Button
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/Trackmania/Components/PopUpMultiChoice.Script.txt" as PopUpMultiChoice
+#Include "Libs/Nadeo/Trackmania/Components/PopUpBackground.Script.txt" as PopUpBackground
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Modes/LapsOGL/Structs.Script.txt" as Structs
+#Include "Libs/Nadeo/Trackmania/Modes/LapsCommon/Libs/Constants.Script.txt" as LapsConst
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_LapsOGL_EndMatchPopUp"
+#Const C_Type CUILayer::EUILayerType::Normal
+#Const C_NavGroupName "navgroup-endmatchpopup"
+#Const C_PopUpName "EndMatchPopUp"
+#Const C_Class_ErrorFade "error-fade"
+
+#Const C_ImgPath "file://Media/Manialinks/Nadeo/Trackmania/Modes/OGL"
+#Const C_Img_ButtonBg "/UI_OGL_Button_NextMatch.dds"
+#Const C_Img_MapNameBg "/UI_OGL_Line_Map_Name.dds"
+#Const C_Img_MapRankBg "/UI_OGL_Line_Map_Rank.dds"
+#Const C_Img_PopUpHeader "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scorestable_header.dds"
+#Const C_Img_PopUpBg "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scorestable_body.dds"
+
+// If no join link is received
+#Const C_WaitForJoinLink_TimeOutDelay 210 //secondes to wait
+#Const C_WaitForJoinLink_KickDelay 31 //secondes before being kick
+
+// When join link is received, client should auto open it. But if it fails:
+#Const C_JoinLinkReceived_OpenLinkDelay 60 //secondes
+#Const C_JoinLinkReceived_TimeOutDelay 16 //secondes
+#Const C_JoinLinkReceived_KickDelay 31 //secondes
+
+#Const C_OpenJoinLink_Retry True
+#Const C_OpenJoinLink_RetryTime 15 //secondes
+
+// Copy pasted from server side
+#Const C_ChallengeStatus_None 0
+#Const C_ChallengeStatus_Completed 1
+
+// Leave match pop-up
+#Const C_Choice_Cancel 0
+#Const C_Choice_Leave 1
+#Const C_Choices_LeaveMatch [
+	//L16N [OGL] Stay on the server and keep playing on it
+	0 => _("Cancel"),
+	//L16N [OGL] Leave the server
+	1 => _("Leave")
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	//L16N [OGL] Leave the server
+	declare Text Text_LeaveMatch = _("Leave");
+	//L16N [OGL] Stay on the server and wait for the next match
+	declare Text Text_ContinueMatch = _("Wait for next match");
+	//L16N [OGL] Message displayed when the link to connect the player to the next match server could not be retrieved
+	declare Text Text_BeforeKick_InvalidLink = _("Failed to obtain match join link, please join next match from the Event page");
+	//L16N [OGL] Message displayed when the game could not connect the player to the next match server
+	declare Text Text_BeforeKick_ValidLink = _("Failed to join server, please join next match from the Event page");
+	//L16N [OGL] Message displayed when the game could not connect the player to the next match server
+	declare Text Text_AfterKick = _("If you are not redirected, please return to the main menu and join next match from the Event page");
+
+	//L16N [OGL] Title of a pop-up displayed at the end of the placement match
+	declare Text Text_Congratulation = _("Congratulations");
+	//L16N [OGL] Subtitle of a pop-up displayed at the end of the placement match
+	declare Text Text_PlacementMatchFinished = _("Placement match finished");
+	//L16N [OGL] Message displayed while retrieving the results of the placement match
+	declare Text Text_LoadingResults = _("Loading results...");
+	//L16N [OGL] Display the rank of the player at the end of the placement match. eg: "You finished 1st in your placement match".
+	declare Text Text_PlacementRank = _("You finished $<$7FA%1$> in your placement match");
+	//L16N [OGL] Displayed when the player was not ranked on one of the track during the placement match
+	declare Text Text_NotRanked = _("Not ranked");
+	//L16N [OGL] Header of the section giving info about the league match the player will play next
+	declare Text Text_LeagueMatch = _("League match");
+	//L16N [OGL] Message displayed while the server for the next match is being prepared
+	declare Text Text_WaitingForMatch = _("Waiting for your match, this may take up to 3 minutes...");
+	//L16N [OGL] Message displayed while waiting for other qualification servers to finish their matches
+	declare Text Text_WaitingForChallengeCompletion = _("Waiting for other qualification servers to finish their matches...");
+	//L16N [OGL] Message displayed once the server for the next match is ready
+	declare Text Text_MatchReady = _("Your match is ready");
+	//L16N [OGL] Message displaying a countdown until the player is sent automatically to the next match server. eg: "Joining in 0:39".
+	declare Text Text_Joining = _("Joining in %1");
+	//L16N [OGL] Message displaying a countdown until the player is sent back to the game main menu. eg: "Return to the main menu in 1:32".
+	declare Text Text_ReturnMainMenu = _("Return to the main menu in %1");
+	//L16N [OGL] This line is the header of a section displaying the different match divisions (Top16, Gold, Silver, Bronze)
+	declare Text Text_LeagueMatchDivisions = _("League match divisions");
+	//L16N [OGL] Description of the divisions system for the league match
+	declare Text Text_DivisionsDescription = _("Each player is being placed in a division after finishing their placement match. You will find out your division when joining your league match.");
+	//L16N [OGL] Number of players in the best division. Will always be more than 1. eg: "16 players"
+	declare Text Text_PlayersNb = TL::Compose(_("%1 players"), "16");
+	//L16N [OGL] Button to leave the pop-up
+	declare Text Text_Exit = _("Exit");
+	//L16N [OGL] Button to go to the next match
+	declare Text Text_NextMatch =_("Next match");
+	// Description of the leave match pop-up
+	declare PopUpMultiChoice::K_DescriptionPart[] Description_LeaveMatch = [
+		//L16N [OGL] Question to confirm player's choice
+		PopUpMultiChoice::CreateDescriptionPart(_("Are you sure you want to leave the server? You can join your next match from the Event page."), <120., 30.>, 3., Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold), "$t$i", <1., 1., 1.>, False)
+	];
+
+	declare Vec2 Size_Background = <260., 260.>;
+
+	declare Real PlacementRankingRatio = 0.0835;
+	declare Real PlacementRankingLabelMargin = 3.;
+	declare Real SizeX_MapBgsMargin = -2.7;
+	declare Vec2 Size_MapNameBg = <896., 112.> * PlacementRankingRatio;
+	declare Vec2 Size_MapRankBg = <392., 112.> * PlacementRankingRatio;
+	declare Real PosX_MapRankBg = Size_MapNameBg.X + SizeX_MapBgsMargin;
+	declare Vec2 Size_MapNameLabel = Size_MapNameBg - <6., 1.>;
+	declare Vec2 Size_MapRankLabel = Size_MapRankBg - <6., 1.>;
+	declare Real PosX_MapNameLabel = PlacementRankingLabelMargin;
+	declare Real PosX_MapRankLabel = PosX_MapRankBg + PlacementRankingLabelMargin;
+
+	declare Text ML_PlacementRanking = "";
+	declare Integer PlacementRankingRowNb = 3;
+	for (I, 0, 5) {
+		declare Vec2 Pos = <
+			((I / PlacementRankingRowNb) * (Size_MapNameBg.X + Size_MapRankBg.X + SizeX_MapBgsMargin + 3.)) + ((I % PlacementRankingRowNb) * -1.6),
+			-(I % PlacementRankingRowNb) * (Size_MapNameBg.Y - 0.2)
+		>;
+		ML_PlacementRanking ^= """<frameinstance modelid="framemodel-placement-map" pos="{{{Pos.X}}} {{{Pos.Y}}}" />""";
+	}
+
+	return MV::Create(
+C_Id, 3,
+"""
+<stylesheet>
+	<style class="text-title" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textsize="8" textprefix="$t$i" />
+	<style class="text-subtitle" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textsize="6" textprefix="$t$i" />
+	<style class="text-header" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textsize="4" textprefix="$t$i" />
+	<style class="text-body" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textsize="2" textprefix="$t$i" />
+</stylesheet>
+
+<!-- Frame models -->
+<framemodel id="framemodel-placement-map">
+	<label id="label-map-name" class="text-body {{{C_Class_ErrorFade}}}" pos="{{{PosX_MapNameLabel}}} 0" size="{{{Size_MapNameLabel.X}}} {{{Size_MapNameLabel.Y}}}" valign="center2" />
+	<label id="label-map-rank" class="text-body {{{C_Class_ErrorFade}}}" pos="{{{PosX_MapRankLabel}}} 0" size="{{{Size_MapRankLabel.X}}} {{{Size_MapRankLabel.Y}}}" valign="center2" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+	<quad id="quad-map-name-bg" class="{{{C_Class_ErrorFade}}}" size="{{{Size_MapNameBg.X}}} {{{Size_MapNameBg.Y}}}" valign="center" keepratio="fit" opacity="0.6" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" image="{{{C_ImgPath^C_Img_MapNameBg}}}" />
+	<quad id="quad-map-rank-bg" class="{{{C_Class_ErrorFade}}}" pos="{{{PosX_MapRankBg}}} 0" size="{{{Size_MapRankBg.X}}} {{{Size_MapRankBg.Y}}}" valign="center" keepratio="fit" opacity="0.8" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" image="{{{C_ImgPath^C_Img_MapRankBg}}}" />
+</framemodel>
+
+<!-- Frame global -->
+<frame id="frame-global" z-index="{{{LapsConst::C_ZIndex_EndMatchPopUp}}}">
+	<frameinstance
+		id="popupmultichoice-leave-match" z-index="3" hidden="1"
+		modelid="{{{PopUpMultiChoice::C_Name}}}"
+		data-title="{{{Text_LeaveMatch}}}"
+		data-choices="{{{TL::MLEncode(C_Choices_LeaveMatch.tojson())}}}"
+		data-description="{{{TL::MLEncode(Description_LeaveMatch.tojson())}}}"
+		data-styles-secondchoice="{{{PopUpMultiChoice::C_ChoiceStyle_Default}}} {{{ExpendableButton::C_Style_ButtonWarning}}}"
+	/>
+
+	<frame id="frame-pop-up" z-index="12">
+		<frameinstance
+			modelid="{{{PopUpBackground::C_Name}}}"
+			z-index="-1"
+			data-pop-up-name="{{{C_PopUpName}}}"
+			data-background-url="{{{C_Img_PopUpBg}}}"
+			data-background-position="0 8.5"
+			data-background-size="{{{Size_Background.X}}} {{{Size_Background.Y}}}"
+			data-header-background-url="{{{C_Img_PopUpHeader}}}"
+			data-header-background-position="0 8.5"
+			data-header-background-size="{{{Size_Background.X}}} {{{Size_Background.Y}}}"
+			data-button-close-opacity="0"
+		/>
+		<frame pos="0 80" z-index="1">
+			<frame pos="11.5 1">
+				<label id="label-title" class="text-title" size="{{{Size_Background.X - 50}}} 10" halign="center" text="{{{Text_Congratulation}}}" />
+				<label id="label-subtitle" class="text-subtitle" pos="-1.1 -10" size="{{{Size_Background.X - 50}}} 10" halign="center" text="{{{Text_PlacementMatchFinished}}}" />
+			</frame>
+			<frame pos="7 -28">
+				<label id="label-placement-match" class="text-header {{{C_Class_ErrorFade}}}" size="{{{Size_Background.X - 50}}} 10" halign="center" />
+				<frame pos="-108 -12" id="frame-placement-ranking">
+					{{{ML_PlacementRanking}}}
+				</frame>
+				<frameinstance id="spinner-placement-match" modelid="{{{LoadingSpinner::C_Name}}}" pos="-3 -22" z-index="1" scale="0.8" />
+			</frame>
+			<frame pos="0 -66">
+				<label id="label-league-match" class="text-header" size="{{{Size_Background.X - 50}}} 10" halign="center" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" text="{{{Text_LeagueMatch}}}" />
+				<label id="label-match-state" class="text-body" pos="-1.5 -7" size="{{{Size_Background.X - 50}}} 10" halign="center" textsize="4" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" />
+				<label id="label-match-timer" class="text-body" pos="-2 -13" size="{{{Size_Background.X - 50}}} 10" halign="center" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" />
+				<frameinstance id="spinner-league-match" modelid="{{{LoadingSpinner::C_Name}}}"pos="-1 -20" z-index="1" scale="0.8" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" />
+			</frame>
+			<frame pos="-5 -94">
+				<label id="label-league-divisions" class="text-header {{{C_Class_ErrorFade}}}" size="{{{Size_Background.X - 50}}} 10" halign="center" text="{{{Text_LeagueMatchDivisions}}}" />
+				<label id="label-divisions-description" class="text-body {{{C_Class_ErrorFade}}}" pos="-1.5 -8" size="{{{Size_Background.X - 52}}} 10" halign="center" autonewline="1" maxline="2" text="{{{Text_DivisionsDescription}}}" />
+				<frame pos="-2.5 -17">
+					<frame pos="-54 0">
+						<quad class="{{{C_Class_ErrorFade}}}" size="16 16" halign="center" autoscale="0" image="{{{MenuConst::C_ImageUrl_Medal_Bronze}}}"/>
+						<label class="text-body {{{C_Class_ErrorFade}}}" pos="0 -17" size="35 6" halign="center" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" text="32%" />
+					</frame>
+					<frame pos="-18 0">
+						<quad class="{{{C_Class_ErrorFade}}}" size="16 16" halign="center" autoscale="0" image="{{{MenuConst::C_ImageUrl_Medal_Silver}}}"/>
+						<label class="text-body {{{C_Class_ErrorFade}}}" pos="0 -17" size="35 6" halign="center" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" text="48%" />
+					</frame>
+					<frame pos="18 0">
+						<quad class="{{{C_Class_ErrorFade}}}" size="16 16" halign="center" autoscale="0" image="{{{MenuConst::C_ImageUrl_Medal_Gold}}}"/>
+						<label class="text-body {{{C_Class_ErrorFade}}}" pos="0 -17" size="35 6" halign="center" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" text="20%" />
+					</frame>
+					<frame pos="54 0">
+						<quad class="{{{C_Class_ErrorFade}}}" size="16 16" halign="center" autoscale="0" image="{{{MenuConst::C_ImageUrl_Medal_Nadeo}}}"/>
+						<label class="text-body {{{C_Class_ErrorFade}}}" pos="0 -17" size="35 6" halign="center" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" text="{{{Text_PlayersNb}}}" />
+					</frame>
+				</frame>
+			</frame>
+			<frame pos="0 -151">
+				<frameinstance
+					modelid="{{{Button::C_Name}}}" id="button-exit"
+					pos="-94 0"
+					class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}}"
+					data-text="{{{Text_Exit}}}"
+					data-size="60 14"
+					data-labelsize="40 14"
+					data-textxpos="0.55"
+					data-opacityunfocus=".5"
+					data-image="{{{MenuConst::C_ImageUrl_ButtonBG_LocalMulti_Play}}}"
+					data-imagefocus="{{{MenuConst::C_ImageUrl_ButtonBG_LocalMulti_Play}}}"
+					data-bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+					data-focuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+					data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}"
+					data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}"
+					data-iconcolortype="{{{Button::C_ColorType_Colorize}}}"
+					data-iconcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_IconLight)}}}"
+					data-iconfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_IconLight)}}}"
+					data-icon="{{{Icons::C_Icon_128x128_Arrow_Left_Oblique}}}"
+					data-iconfocus="{{{Icons::C_Icon_128x128_Arrow_Left_Oblique}}}"
+					data-iconxpos=".15"
+					data-iconypos="-.49"
+					data-textsize="5"
+					data-textopacityunfocus=".5"
+					data-iconopacityunfocus=".5"
+					data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+					data-textitalicslope=".2"
+					data-halign="center"
+					data-valign="bottom"
+					data-nav-inputs="select;cancel;right"
+					data-nav-targets="_;_;button-join"
+					data-nav-group="{{{C_NavGroupName}}}"
+					data-nav-zone="{{{Button::C_NavZone}}}"
+					data-menusounds-selectsound="IngameSelectQuit"
+				/>
+				<frameinstance
+					modelid="{{{Button::C_Name}}}" id="button-join"
+					pos="52 0"
+					class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}}"
+					data-text="{{{Text_NextMatch}}}"
+					data-size="76 14"
+					data-labelsize="40 14"
+					data-textxpos="0.45"
+					data-opacityunfocus=".5"
+					data-image="{{{C_ImgPath^C_Img_ButtonBg}}}"
+					data-imagefocus="{{{C_ImgPath^C_Img_ButtonBg}}}"
+					data-bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+					data-focuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+					data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}"
+					data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}"
+					data-iconcolortype="{{{Button::C_ColorType_Colorize}}}"
+					data-iconcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_IconLight)}}}"
+					data-iconfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_IconLight)}}}"
+					data-icon="{{{Icons::C_Icon_128x128_Arrow_Right_Oblique}}}"
+					data-iconfocus="{{{Icons::C_Icon_128x128_Arrow_Right_Oblique}}}"
+					data-iconxpos="0.85"
+					data-iconypos="-.49"
+					data-textsize="5"
+					data-textopacityunfocus=".5"
+					data-iconopacityunfocus=".5"
+					data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+					data-textitalicslope=".2"
+					data-halign="center"
+					data-valign="bottom"
+					data-nav-inputs="select;cancel;left"
+					data-nav-targets="_;_;button-exit"
+					data-nav-group="{{{C_NavGroupName}}}"
+					data-nav-zone="{{{Button::C_NavZone}}}"
+					data-menusounds-selectsound="IngameSelectQuit"
+				/>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "ColorLib" as CL
+
+#Struct K_PageControls {
+	CMlFrame Frame_PopUp;
+	CMlFrame PopUpMultiChoice_LeaveMatch;
+	CMlLabel Label_PlacementMatch;
+	CMlFrame Spinner_PlacementMatch;
+	CMlFrame Frame_PlacementRanking;
+	CMlLabel Label_MatchState;
+	CMlLabel Label_MatchTimer;
+	CMlFrame Spinner_LeagueMatch;
+	CMlFrame Button_Join;
+}
+
+{{{dumptype(Structs::K_ChallengeResult)}}}
+
+#Const C_PopUpState_Hidden 0
+#Const C_PopUpState_Waiting 1
+#Const C_PopUpState_TimedOut 2
+#Const C_PopUpState_Kicked 3
+
+#Const C_ChoiceIndex_Leave 0
+#Const C_ChoiceIndex_Continue 1
+#Const C_MultiChoiceName_Exit "MultiChoiceExit"
+#Const C_Choices_Exit [0 => "{{{Text_LeaveMatch}}}", 1 => "{{{Text_ContinueMatch}}}"]
+
+#Const C_ChallengeStatus_None {{{C_ChallengeStatus_None}}}
+#Const C_ChallengeStatus_Completed {{{C_ChallengeStatus_Completed}}}
+""",
+"""
+Void ErrorFade(Boolean _Enabled) {
+	declare Real Opacity = 1.;
+	if (_Enabled) Opacity = 0.6;
+
+	Page.GetClassChildren("{{{C_Class_ErrorFade}}}", Page.MainFrame, True);
+	foreach (Control in Page.GetClassChildren_Result) {
+		switchtype (Control) {
+			case CMlLabel: (Control as CMlLabel).Opacity = Opacity;
+			case CMlQuad: {
+				switch (Control.ControlId) {
+					case "quad-map-name-bg": {
+						if (_Enabled) (Control as CMlQuad).Opacity = 0.4;
+						else (Control as CMlQuad).Opacity = 0.6;
+					}
+					case "quad-map-rank-bg": {
+						if (_Enabled) (Control as CMlQuad).Opacity = 0.6;
+						else (Control as CMlQuad).Opacity = 0.8;
+					}
+					default: {
+						(Control as CMlQuad).Opacity = Opacity;
+					}
+				}
+			}
+		}
+	}
+}
+
+Void UpdateMapResults(K_PageControls _PageControls, K_ChallengeResult[Text] _MapResults, Text[Text] _MapsInfo) {
+	declare Text[][] MapRanking;
+	declare Integer MapIndex = 1;
+	foreach (MapUid => MapResult in _MapResults) {
+		declare Text MapName = "Map "^MapIndex;
+		if (_MapsInfo.existskey(MapUid)) MapName = _MapsInfo[MapUid];
+		declare Text MapRank = "{{{Text_NotRanked}}}";
+		if (MapResult.Rank > 0) MapRank = TL::FormatRank(MapResult.Rank, False);
+		MapRanking.add([MapName, MapRank]);
+		MapIndex += 1;
+	}
+	foreach (Key => Control in _PageControls.Frame_PlacementRanking.Controls) {
+		if (MapRanking.existskey(Key)) {
+			declare CMlFrame Frame_MapResult <=> (Control as CMlFrame);
+			declare CMlLabel Label_MapName <=> (Frame_MapResult.GetFirstChild("label-map-name") as CMlLabel);
+			declare CMlLabel Label_MapRank <=> (Frame_MapResult.GetFirstChild("label-map-rank") as CMlLabel);
+			Label_MapName.Value = MapRanking[Key][0];
+			Label_MapRank.Value = MapRanking[Key][1];
+			Frame_MapResult.Visible = True;
+		} else {
+			Control.Visible = False;
+		}
+	}
+	{{{LoadingSpinner::P}}}SetIsLoading(This, _PageControls.Spinner_PlacementMatch, _MapResults.count <= 0);
+}
+
+Void UpdateResult(K_PageControls _PageControls, K_ChallengeResult _Result) {
+	if (_Result.Rank > 0) {
+		_PageControls.Label_PlacementMatch.Value = TL::Compose("{{{Text_PlacementRank}}}", TL::FormatRank(_Result.Rank, False));
+	} else {
+		_PageControls.Label_PlacementMatch.Value = "{{{Text_LoadingResults}}}";
+	}
+}
+
+Boolean JoinLinkIsValid(Text _JoinLink) {
+	return (_JoinLink != "");
+}
+
+Void JoinNextMatch(Text _JoinLink, Boolean _SkipConfirm) {
+	declare JoinLink = _JoinLink;
+	if (_SkipConfirm) {
+		JoinLink = TL::Replace(_JoinLink, "#join", "#qjoin");
+	}
+
+	if (JoinLinkIsValid(JoinLink)) {
+		OpenLink(JoinLink, CMlScript::LinkType::ManialinkBrowser);
+	}
+}
+
+Void Focus(CMlControl _From, CMlControl _To) {
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{Button::P}}}IsButton(_From)) {
+			{{{Button::P}}}Unfocus(This, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{Button::P}}}IsButton(_To)) {
+			{{{Button::P}}}Focus(This, (_To as CMlFrame));
+		}
+	}
+}
+
+Void Select(K_PageControls _PageControls, CMlControl _Control, Text _JoinLink) {
+	if (_Control == Null) return;
+
+	switch (_Control.ControlId) {
+		case "button-exit": {{{PopUpMultiChoice::P}}}Open(This, _PageControls.PopUpMultiChoice_LeaveMatch);
+		case "button-join": {
+			if (_JoinLink != "") {
+				JoinNextMatch(_JoinLink, True);
+			}
+		}
+	}
+}
+
+Void DisplayNextMatch(K_PageControls _PageControls, Text _JoinLink, Integer _ChallengeStatus) {
+	if (_JoinLink != "") {
+		_PageControls.Label_MatchState.Value = "{{{Text_MatchReady}}}";
+	} else if (_ChallengeStatus != C_ChallengeStatus_Completed) {
+		_PageControls.Label_MatchState.Value = "{{{Text_WaitingForChallengeCompletion}}}";
+	} else {
+		_PageControls.Label_MatchState.Value = "{{{Text_WaitingForMatch}}}";
+	}
+	_PageControls.Label_MatchTimer.Visible = _JoinLink != "";
+	_PageControls.Label_MatchTimer.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}};
+	_PageControls.Label_MatchState.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}};
+	{{{LoadingSpinner::P}}}SetIsLoading(This, _PageControls.Spinner_LeagueMatch, _JoinLink == "");
+	_PageControls.Button_Join.Visible = _JoinLink != "";
+	{{{Navigation::P}}}Lock(_PageControls.Button_Join, !_PageControls.Button_Join.Visible);
+	if (_PageControls.Button_Join.Visible) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), _PageControls.Button_Join);
+	}
+}
+
+***MainInit***
+***
+declare K_PageControls PageControls;
+
+declare CMlFrame Frame_Global;
+declare CMlFrame Button_Exit;
+
+declare netread Integer Net_LapsOGL_EndMatchPopUp_MapsInfo_Update for Teams[0];
+declare netread Text[Text] Net_LapsOGL_EndMatchPopUp_MapsInfo for Teams[0];
+declare netread Integer Net_LapsOGL_EndMatchPopUp_ChallengeStatus for Teams[0];
+declare netread Integer Net_LapsOGL_EndMatchPopUp_MapResults_Update for UI;
+declare netread K_ChallengeResult[Text] Net_LapsOGL_EndMatchPopUp_MapResults for UI;
+declare netread Integer Net_LapsOGL_EndMatchPopUp_JoinLink_Update for UI;
+declare netread Text Net_LapsOGL_EndMatchPopUp_JoinLink for UI;
+declare netread Integer Net_LapsOGL_EndMatchPopUp_ChallengeResult_Update for UI;
+declare netread K_ChallengeResult Net_LapsOGL_EndMatchPopUp_ChallengeResult for UI;
+
+declare Integer ChallengeResult_Update;
+declare Integer ChallengeStatus;
+declare Integer MapResults_Update;
+declare Integer MapsInfo_Update;
+declare Integer JoinLink_Update;
+declare Text JoinLink;
+declare Integer OpenLinkTime;
+declare Integer TimedOutTime;
+declare Integer KickTime;
+declare Boolean JoinLinkOpened;
+declare Integer PopUpState;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+
+PageControls = K_PageControls {
+	Frame_PopUp = (Frame_Global.GetFirstChild("frame-pop-up") as CMlFrame),
+	PopUpMultiChoice_LeaveMatch = (Frame_Global.GetFirstChild("popupmultichoice-leave-match") as CMlFrame),
+	Label_PlacementMatch = (Frame_Global.GetFirstChild("label-placement-match") as CMlLabel),
+	Spinner_PlacementMatch = (Frame_Global.GetFirstChild("spinner-placement-match") as CMlFrame),
+	Frame_PlacementRanking = (Frame_Global.GetFirstChild("frame-placement-ranking") as CMlFrame),
+	Label_MatchState = (Frame_Global.GetFirstChild("label-match-state") as CMlLabel),
+	Label_MatchTimer = (Frame_Global.GetFirstChild("label-match-timer") as CMlLabel),
+	Spinner_LeagueMatch = (Frame_Global.GetFirstChild("spinner-league-match") as CMlFrame),
+	Button_Join = (Frame_Global.GetFirstChild("button-join") as CMlFrame)
+};
+
+Button_Exit <=> (Frame_Global.GetFirstChild("button-exit") as CMlFrame);
+
+Frame_Global.Visible = False;
+PageControls.Label_MatchTimer.Visible = False;
+
+ChallengeResult_Update = -123;
+MapResults_Update = -123;
+MapsInfo_Update = -123;
+JoinLink_Update = -123;
+JoinLink = "";
+JoinLinkOpened = False;
+OpenLinkTime = -1;
+TimedOutTime = -1;
+KickTime = -1;
+PopUpState = C_PopUpState_Hidden;
+ChallengeStatus = C_ChallengeStatus_None;
+
+{{{Navigation::P}}}UseLocalEvents(This, True);
+DisplayNextMatch(PageControls, JoinLink, ChallengeStatus);
+Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), Button_Exit);
+***
+
+***MainLoop***
+***
+if (!EnableMenuNavigationInputs && PageIsVisible && Frame_Global.Visible) {
+	EnableMenuNavigation(True, False, False, Null, {{{LapsConst::C_InputPriority_EndMatchPopUp}}});
+} else if (EnableMenuNavigationInputs &&(!PageIsVisible || !Frame_Global.Visible)) {
+	EnableMenuNavigation(False, False, False, Null, {{{LapsConst::C_InputPriority_EndMatchPopUp}}});
+}
+
+if (PageIsVisible) {
+	if (InputPlayer != Null) { // InputPlayer instead of Owner because, spectators can have their own next match and should not join their target's match.
+		declare netread Boolean Net_LapsOGL_EndMatchPopUp_IsVisible for InputPlayer;
+		if (Net_LapsOGL_EndMatchPopUp_IsVisible != Frame_Global.Visible) {
+			Frame_Global.Visible = Net_LapsOGL_EndMatchPopUp_IsVisible;
+			if (Net_LapsOGL_EndMatchPopUp_IsVisible) {
+				DisplayNextMatch(PageControls, JoinLink, ChallengeStatus);
+				ErrorFade(False);
+			}
+		}
+		if (Frame_Global.Visible) {
+			if (ChallengeStatus != Net_LapsOGL_EndMatchPopUp_ChallengeStatus) {
+				ChallengeStatus = Net_LapsOGL_EndMatchPopUp_ChallengeStatus;
+				switch (ChallengeStatus) {
+					case C_ChallengeStatus_Completed: {
+						DisplayNextMatch(PageControls, JoinLink, ChallengeStatus);
+						TimedOutTime = Now + {{{C_WaitForJoinLink_TimeOutDelay*1000}}};
+						KickTime = Now + {{{C_WaitForJoinLink_TimeOutDelay*1000 + C_WaitForJoinLink_KickDelay*1000}}};
+						ErrorFade(False);
+					}
+				}
+			}
+			if (
+				MapResults_Update != Net_LapsOGL_EndMatchPopUp_MapResults_Update ||
+				MapsInfo_Update != Net_LapsOGL_EndMatchPopUp_MapsInfo_Update
+			) {
+				UpdateMapResults(PageControls, Net_LapsOGL_EndMatchPopUp_MapResults, Net_LapsOGL_EndMatchPopUp_MapsInfo);
+				MapResults_Update = Net_LapsOGL_EndMatchPopUp_MapResults_Update;
+				MapsInfo_Update = Net_LapsOGL_EndMatchPopUp_MapsInfo_Update;
+			}
+
+			if (JoinLink_Update != Net_LapsOGL_EndMatchPopUp_JoinLink_Update) {
+				JoinLink_Update = Net_LapsOGL_EndMatchPopUp_JoinLink_Update;
+				if (JoinLink != Net_LapsOGL_EndMatchPopUp_JoinLink) {
+					JoinLink = Net_LapsOGL_EndMatchPopUp_JoinLink;
+					DisplayNextMatch(PageControls, JoinLink, ChallengeStatus);
+					PopUpState = C_PopUpState_Waiting;
+					OpenLinkTime = Now + {{{C_JoinLinkReceived_OpenLinkDelay*1000}}};
+					TimedOutTime = OpenLinkTime + {{{C_JoinLinkReceived_TimeOutDelay*1000}}};
+					KickTime = TimedOutTime + {{{C_JoinLinkReceived_KickDelay*1000}}};
+				}
+			}
+
+			if (OpenLinkTime > 0 && OpenLinkTime <= Now) {
+				JoinNextMatch(JoinLink, True);
+				if ({{{C_OpenJoinLink_Retry}}}) {
+					OpenLinkTime = Now + {{{C_OpenJoinLink_RetryTime*1000}}};
+				} else {
+					OpenLinkTime = -1;
+				}
+			}
+
+			if (ChallengeResult_Update != Net_LapsOGL_EndMatchPopUp_ChallengeResult_Update) {
+				UpdateResult(PageControls, Net_LapsOGL_EndMatchPopUp_ChallengeResult);
+				ChallengeResult_Update = Net_LapsOGL_EndMatchPopUp_ChallengeResult_Update;
+			}
+
+			if (
+				(TimedOutTime > 0 && TimedOutTime <= Now && PopUpState < C_PopUpState_TimedOut) ||
+				(KickTime > 0 && KickTime <= Now && PopUpState < C_PopUpState_Kicked)
+			) {
+				PopUpState = C_PopUpState_TimedOut;
+				{{{LoadingSpinner::P}}}SetIsLoading(This, PageControls.Spinner_LeagueMatch, False);
+				if (KickTime > 0 && KickTime <= Now) {
+					PopUpState = C_PopUpState_Kicked;
+					PageControls.Label_MatchTimer.Visible = False;
+					PageControls.Label_MatchState.Value = "{{{Text_AfterKick}}}";
+					PageControls.Label_MatchState.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight))}}};
+					ErrorFade(True);
+					Playground.QuitServer(False);
+				} else {
+					PageControls.Label_MatchTimer.Visible = True;
+					PageControls.Label_MatchTimer.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight))}}};
+					PageControls.Label_MatchState.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight))}}};
+					ErrorFade(True);
+					if (JoinLinkIsValid(JoinLink)) {
+						PageControls.Label_MatchState.Value = "{{{Text_BeforeKick_ValidLink}}}";
+					} else {
+						PageControls.Label_MatchState.Value = "{{{Text_BeforeKick_InvalidLink}}}";
+					}
+				}
+			}
+
+			if (PopUpState == C_PopUpState_Waiting) {
+				PageControls.Label_MatchTimer.Value = TL::Compose("{{{Text_Joining}}}", TL::TimeToText(OpenLinkTime - Now + 1000));
+			} if (PopUpState == C_PopUpState_TimedOut) {
+				PageControls.Label_MatchTimer.Value = TL::Compose("{{{Text_ReturnMainMenu}}}", TL::TimeToText(KickTime - Now + 1000));
+			}
+
+			foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+				switch (Event.Type) {
+					case {{{Navigation::P}}}C_EventType_NavigateInput: {
+						if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+							if (Event.Input == CMlScriptEvent::EMenuNavAction::Select) {
+								Select(PageControls, Event.To, JoinLink);
+							} else if (Event.Input == CMlScriptEvent::EMenuNavAction::Cancel) {
+								{{{PopUpMultiChoice::P}}}Open(This, PageControls.PopUpMultiChoice_LeaveMatch);
+							} else {
+								Focus(Event.From, Event.To);
+							}
+						}
+					}
+					case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+						if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+							if (Event.Mouse == CMlScriptEvent::Type::MouseClick) {
+								Select(PageControls, Event.To, JoinLink);
+							} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+								Focus(Event.From, Event.To);
+							}
+						}
+					}
+				}
+			}
+
+			/* PopUpMultiChoice events */
+			foreach (Event in {{{PopUpMultiChoice::P}}}GetPendingEvents(This)) {
+				if (Event.PopUpMultiChoice != Null && Event.PopUpMultiChoice.ControlId == PageControls.PopUpMultiChoice_LeaveMatch.ControlId) {
+					switch (Event.Type) {
+						case {{{PopUpMultiChoice::P}}}C_EventType_Display: {
+							{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupName}}}", !Event.PopUpMultiChoice.Visible);
+							PageControls.Frame_PopUp.Visible = !Event.PopUpMultiChoice.Visible;
+						}
+						case {{{PopUpMultiChoice::P}}}C_EventType_Select: {
+							switch (Event.PopUpMultiChoice.ControlId) {
+								case PageControls.PopUpMultiChoice_LeaveMatch.ControlId: {
+									switch (Event.SelectedIndex) {
+										case {{{C_Choice_Leave}}}: Playground.QuitServer(False);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	Navigation::ComponentV2(),
+	Button::ComponentV2(),
+	ExpendableButton::ComponentV2(),
+	MenuSounds::ComponentV2(),
+	PopUpMultiChoice::ComponentV2(),
+	PopUpBackground::ComponentV2(),
+	LoadingSpinner::ComponentV2()
+],
+[]
+	);
+}

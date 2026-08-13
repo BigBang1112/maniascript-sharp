@@ -1,0 +1,178 @@
+/**
+ *  UI module: LapsCounter client side
+ */
+#Const Version    "1.1.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/LapsCounter_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/LapsCounter_Common.Script.txt" as UIModules_LapsCounter_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_LapsCounter_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_LapsCounter_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	//L16N Legend displayed beside the lap counter, e.g. Lap 1/3
+	declare Text_Lap = _("|Race|Lap");
+	//L16N Legend displayed beside the checkpoint counter, e.g. CP 8/50. Please keep it short.
+	declare Text_CP = _("|Race|CP");
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-default" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_IngameTime)}}}" textemboss="1" textcolor="ffffff" textsize="10" />
+</stylesheet>
+<frame z-index="-2" hidden="1" id="frame-global">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_LapsCounter_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-laps-counter">
+			<label halign="right" valign="center" class="text-default" id="label-laps-counter" />
+		</frame>
+		<frame id="frame-checkpoints-counter">
+			<label halign="right" valign="center" class="text-default" id="label-checkpoints-counter" />
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Client.Script.txt" as RaceHelpers
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+""",
+"""
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_LapsCounter;
+declare CMlLabel Label_LapsCounter;
+declare CMlFrame Frame_CheckpointsCounter;
+declare CMlLabel Label_CheckpointsCounter;
+
+declare Boolean DisplayModule;
+declare Integer LapCurrent;
+declare Integer LapsTotal;
+declare Boolean IsIndependentLaps;
+declare Integer CurrentLapWaypointPlayerCount;
+declare Integer MapCheckpointsNb;
+
+declare netread Boolean Net_Race_LapsCounter_IsCPCounterVisible for Teams[0] = True;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_LapsCounter <=> (Frame_Global.GetFirstChild("frame-laps-counter") as CMlFrame);
+Label_LapsCounter <=> (Frame_LapsCounter.GetFirstChild("label-laps-counter") as CMlLabel);
+Frame_CheckpointsCounter <=> (Frame_Global.GetFirstChild("frame-checkpoints-counter") as CMlFrame);
+Label_CheckpointsCounter <=> (Frame_CheckpointsCounter.GetFirstChild("label-checkpoints-counter") as CMlLabel);
+
+DisplayModule = Frame_Global.Visible;
+LapCurrent = -123;
+LapsTotal = -123;
+CurrentLapWaypointPlayerCount = -1;
+MapCheckpointsNb = -1;
+IsIndependentLaps = False;
+if (SplitScreenCount > 1) MV_Utils::AutoScaleSplitScreen(Frame_Global, 0.5, 1.);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_Race_LapsCounter_IsVisible for Owner;
+		if (DisplayModule != Net_Race_LapsCounter_IsVisible) {
+			DisplayModule = Net_Race_LapsCounter_IsVisible;
+			Frame_Global.Visible = Net_Race_LapsCounter_IsVisible;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (Owner != Null) {
+			if (
+				LapCurrent != RaceHelpers::GetPlayerLap(Owner) ||
+				LapsTotal != RaceHelpers::GetLapsNb(Teams[0]) ||
+				IsIndependentLaps != RaceHelpers::IsIndependentLaps(Teams[0])
+			) {
+				LapCurrent = RaceHelpers::GetPlayerLap(Owner);
+				LapsTotal = RaceHelpers::GetLapsNb(Teams[0]);
+				IsIndependentLaps = RaceHelpers::IsIndependentLaps(Teams[0]);
+				if (LapCurrent > 0 && LapsTotal > 0 && !IsIndependentLaps) {
+					Label_LapsCounter.Value = TL::Compose("%1 %2/%3", "{{{Text_Lap}}}", TL::ToText(LapCurrent), TL::ToText(LapsTotal));
+					Frame_LapsCounter.Visible = True;
+					Frame_CheckpointsCounter.RelativePosition_V3.Y = -12.;
+					if (LapCurrent > 1) {
+						AnimMgr.Add(Frame_LapsCounter, "<a scale=\"1.1\" />", 50, CAnimManager::EAnimManagerEasing::QuadOut);
+						AnimMgr.AddChain(Frame_LapsCounter, "<a scale=\"1.\" />", 50, CAnimManager::EAnimManagerEasing::QuadOut);
+					}
+				} else {
+					Frame_LapsCounter.Visible = False;
+					Frame_CheckpointsCounter.RelativePosition_V3.Y = 0.;
+				}
+			}
+
+			Frame_CheckpointsCounter.Visible = Net_Race_LapsCounter_IsCPCounterVisible && UserStore::GetUserDisplayCheckpointCounter();
+			if (
+				Frame_CheckpointsCounter.Visible && (
+					CurrentLapWaypointPlayerCount != Owner.CurrentLapWaypointTimes.count ||
+					MapCheckpointsNb != RaceHelpers::GetCheckpointsNb(Teams[0])
+				)
+			) {
+				MapCheckpointsNb = RaceHelpers::GetCheckpointsNb(Teams[0]);
+				// "CurrentLapWaypointTimes" contains the CPs crossed during this lap
+				// but also the finish so we take the min with the total count of CP
+				CurrentLapWaypointPlayerCount = Owner.CurrentLapWaypointTimes.count;
+
+				// Hide counter if there is no CP in a map
+				Label_CheckpointsCounter.Visible = MapCheckpointsNb > 0;
+
+				if (Label_CheckpointsCounter.Visible) {
+					Label_CheckpointsCounter.Value = TL::Compose("%1 %2/%3", "{{{Text_CP}}}", ""^ML::Min(CurrentLapWaypointPlayerCount, MapCheckpointsNb), ""^MapCheckpointsNb);
+					if (CurrentLapWaypointPlayerCount > 0 && CurrentLapWaypointPlayerCount <= MapCheckpointsNb) {
+						AnimMgr.Add(Label_CheckpointsCounter, "<a scale=\"1.1\" />", 50, CAnimManager::EAnimManagerEasing::QuadOut);
+						AnimMgr.AddChain(Label_CheckpointsCounter, "<a scale=\"1.\" />", 50, CAnimManager::EAnimManagerEasing::QuadOut);
+					}
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

@@ -1,0 +1,576 @@
+/**
+ *	Page: JoinSession
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/MainMenu/Pages/JoinSession.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/Trackmania/Components/PopUpBackground2.Script.txt" as PopUpBackground
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Page_JoinSession"
+#Const C_NavGroup_Main "navgroup-page-joinsession-main"
+#Const C_DelayBeforeEnablingButtonBack 30000
+
+//L16N [JoiningSession] Text displayed when the player is waiting to join a multiplayer session (eg: joining their friends in matchmaking)
+#Const C_Text_JoiningSession _("Joining session")
+//L16N [JoiningSession] Text displayed when the player is waiting to join a multiplayer session (eg: joining their friends in matchmaking)
+#Const C_Text_PleaseWait _("Please wait")
+//L16N [JoiningSession] Go back to the previous page
+#Const C_Text_Back _("Back")
+//L16N [JoiningSession] Give details of the session, the player has received an invitation from a friend, %1 will be replaced by the platform network name, e.g "You are invited by a friend from Ubisoft Connect"
+#Const C_Text_Context_Invite _("You are invited by a friend from %1")
+//L16N [JoiningSession] Give details of the session, the player is moving to join their squad leader in matchmaking menu
+#Const C_Text_Context_SquadTypeUpdated _("Joining your squad leader in matchmaking menu")
+
+// /!\ Do NOT modify these values /!\ They are used by C++
+#Const C_JoinSession_Context_FirstPartyInvite 0
+#Const C_JoinSession_Context_UbiConnectInvite 1
+#Const C_JoinSession_Context_SquadTypeUpdated 2
+
+#Const C_TextSize_Title 8.
+#Const C_TextSize_Error 4.
+#Const C_TextSize_Context 3.
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the page manialink
+ *
+ *	@return														The page manialink
+ */
+Text GetManialink() {
+	return MV::Create(
+C_Name, 3,
+"""
+<frame id="frame-global" z-index="{{{Const::C_ZIndex_JoinSession}}}">
+	<frameinstance id="popupbackground-join-session" modelid="{{{PopUpBackground::C_Name}}}" z-index="0" data-styles="{{{PopUpBackground::C_Style_SecondaryPopUp_WithHeader}}}" data-button-leave-enabled="0" data-dimmer-send-close-event="0" />
+	<label id="label-title" z-index="1" halign="center" valign="center2" textprefix="$t$i" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textsize="{{{C_TextSize_Title}}}" text="{{{C_Text_JoiningSession}}}" />
+	<frameinstance id="spinner-waiting" modelid="{{{LoadingSpinner::C_Name}}}" z-index="2" data-label-textprefix="$t$i" data-label-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-label="{{{C_Text_PleaseWait}}}" />
+	<label id="label-context" z-index="3" halign="center" valign="center2" textprefix="$t$i" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textsize="{{{C_TextSize_Context}}}" hidden="1" />
+	<label id="label-error" z-index="3" halign="center" valign="center2" textprefix="$t$i" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textsize="{{{C_TextSize_Error}}}" maxline="5" hidden="1" />
+	<frameinstance
+		id="button-back"
+		modelid="{{{ExpendableButton::C_Name}}}"
+		class="{{{Navigation::C_Class}}}"
+		z-index="4"
+		data-text="{{{C_Text_Back}}}"
+		data-styles="{{{ExpendableButton::C_Style_SizeExpendable}}} {{{ExpendableButton::C_Style_AlignCenter}}} {{{ExpendableButton::C_Style_ButtonSecondary}}}"
+		data-nav-inputs="select;cancel"
+		data-nav-targets="_;_"
+		data-nav-group="{{{C_NavGroup_Main}}}"
+		data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+		hidden="1"
+	/>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Error.Script.txt" as Error
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Privileges.Script.txt" as Privileges
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ControllerInfo_ML.Script.txt" as ControllerInfo
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+
+#Struct K_Controls {
+	CMlFrame PopUpBackground_JoinSession;
+	CMlLabel Label_Title;
+	CMlLabel Label_Context;
+	CMlLabel Label_Error;
+	CMlFrame LoadingSpinner_Waiting;
+	CMlFrame Button_Back;
+}
+#Struct K_JoinSession {
+	Boolean IsRunning;
+	Boolean IsSuccess;
+	Text ErrorMessage;
+	Privileges::K_PrivilegeCheck Privilege_PlayMultiplayerMode;
+	Text SessionId;
+	Boolean IsFirstPartySession;
+	Task::K_Task Task_JoinSession;
+}
+#Struct K_CancelSession {
+	Boolean IsRunning;
+	Boolean LeavePage;
+	Task::K_Task Task_CancelSession;
+	Task::K_Task Task_GetCurrentSquad;
+	Task::K_Task Task_LeaveCurrentSquad;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Integer ButtonBackEnableTime;
+	Boolean ButtonBackEnabled;
+	Text ContextMessage;
+	Text ErrorMessage;
+	K_JoinSession JoinSession;
+	K_CancelSession CancelSession;
+}
+
+#Const C_NavGroup_Main {{{dump(C_NavGroup_Main)}}}
+#Const C_DelayBeforeEnablingButtonBack {{{dump(C_DelayBeforeEnablingButtonBack)}}}
+
+#Const C_Text_Context_Invite {{{dump(C_Text_Context_Invite)}}}
+#Const C_Text_Context_SquadTypeUpdated {{{dump(C_Text_Context_SquadTypeUpdated)}}}
+
+#Const C_JoinSession_Context_FirstPartyInvite {{{dump(C_JoinSession_Context_FirstPartyInvite)}}}
+#Const C_JoinSession_Context_UbiConnectInvite {{{dump(C_JoinSession_Context_UbiConnectInvite)}}}
+#Const C_JoinSession_Context_SquadTypeUpdated {{{dump(C_JoinSession_Context_SquadTypeUpdated)}}}
+
+#Const C_TextSize_Title {{{dump(C_TextSize_Title)}}}
+#Const C_TextSize_Error {{{dump(C_TextSize_Error)}}}
+#Const C_TextSize_Context {{{dump(C_TextSize_Context)}}}
+
+#Const C_State_Null K_State {
+	Controls = K_Controls {},
+	ButtonBackEnableTime = -1,
+	ButtonBackEnabled = False,
+	ContextMessage = "",
+	ErrorMessage = "",
+	JoinSession = K_JoinSession {
+		IsRunning = False,
+		IsSuccess = False,
+		ErrorMessage = "",
+		SessionId = "",
+		IsFirstPartySession = False
+	},
+	CancelSession = K_CancelSession {
+		IsRunning = False,
+		LeavePage = False
+	}
+}
+""",
+"""
+Void Focus(CMlControl _From, CMlControl _To) {
+	if ({{{Transition::P}}}IsInTransition(This)) return;
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{ExpendableButton::P}}}IsButton(_From)) {
+			{{{ExpendableButton::P}}}Unfocus(This, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{ExpendableButton::P}}}IsButton(_To)) {
+			{{{ExpendableButton::P}}}Focus(This, (_To as CMlFrame));
+		}
+	}
+}
+
+Void UpdateControllerInfo(K_State _State) {
+	declare Text[Text] Buttons;
+
+	if (_State.ButtonBackEnabled) {
+		Buttons["A"] = _("Select");
+	}
+
+	ControllerInfo::SetButtons(Buttons);
+}
+
+Void UpdateDisplay(K_State _State) {
+	if (_State.ContextMessage == "") {
+		_State.Controls.Label_Context.Visible = False;
+	} else {
+		_State.Controls.Label_Context.Visible = True;
+		_State.Controls.Label_Context.Value = _State.ContextMessage;
+		Tools::FitLabelValue(_State.Controls.Label_Context, C_TextSize_Context, 1., 0.5);
+	}
+	if (_State.ErrorMessage == "") {
+		_State.Controls.Label_Error.Visible = False;
+	} else {
+		_State.Controls.Label_Error.Visible = True;
+		_State.Controls.Label_Error.Value = _State.ErrorMessage;
+		Tools::FitLabelValue(_State.Controls.Label_Error, C_TextSize_Error, 1., 0.5);
+	}
+	{{{LoadingSpinner::P}}}SetIsLoading(This, _State.Controls.LoadingSpinner_Waiting, _State.ErrorMessage == "");
+
+	_State.Controls.Button_Back.Visible = _State.ButtonBackEnabled;
+
+	UpdateControllerInfo(_State);
+}
+
+Boolean ButtonBackShouldBeEnabled(K_State _State) {
+	return _State.ButtonBackEnableTime >= 0 && Now >= _State.ButtonBackEnableTime;
+}
+
+K_State EnableButtonBack(K_State _State, Boolean _Enabled) {
+	declare K_State State = _State;
+
+	State.ButtonBackEnabled = _Enabled;
+
+	{{{Navigation::P}}}EnableGroup(This, C_NavGroup_Main, State.ButtonBackEnabled);
+	if (State.ButtonBackEnabled) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, C_NavGroup_Main), State.Controls.Button_Back);
+	}
+
+	UpdateDisplay(State);
+
+	return State;
+}
+
+K_State SetButtonBackEnableTime(K_State _State, Integer _EnableTime) {
+	declare K_State State = _State;
+
+	State.ButtonBackEnableTime = _EnableTime;
+	State = EnableButtonBack(State, ButtonBackShouldBeEnabled(State));
+
+	return State;
+}
+
+K_State CancelJoinSession(K_State _State, Boolean _LeavePage) {
+	declare K_State State = _State;
+
+	if (State.JoinSession.IsRunning) {
+		State.CancelSession.Task_CancelSession = Task::Destroy(State.CancelSession.Task_CancelSession);
+		State.CancelSession.Task_GetCurrentSquad = Task::Destroy(State.CancelSession.Task_GetCurrentSquad);
+		State.CancelSession.Task_LeaveCurrentSquad = Task::Destroy(State.CancelSession.Task_LeaveCurrentSquad);
+
+		State.JoinSession.Privilege_PlayMultiplayerMode = Privileges::Check_Destroy(State.JoinSession.Privilege_PlayMultiplayerMode);
+
+		// If the JoinSession task is already running, we need to cancel it and it will take care of leaving the squad it was joining
+		// If the JoinSession task was not running, we need to manually leave the current squad
+		if (Task::IsInitialized(State.JoinSession.Task_JoinSession)) {
+			State.CancelSession.Task_CancelSession = State.JoinSession.Task_JoinSession;
+			State.JoinSession.Task_JoinSession = Task::GetEmptyTask();
+			Task::Cancel(State.CancelSession.Task_CancelSession);
+		} else {
+			State.CancelSession.Task_GetCurrentSquad = Task::Create(
+				UserMgr,
+				UserMgr.Squad_GetCurrent(MainUser::GetMainUserId())
+			);
+		}
+
+		State.CancelSession.IsRunning = True;
+		State.CancelSession.LeavePage = _LeavePage;
+
+		State.JoinSession.IsRunning = False;
+		State.JoinSession.IsSuccess = False;
+		State.JoinSession.ErrorMessage = "";
+	}
+
+	return State;
+}
+
+K_State LeaveJoinSessionPage(K_State _State) {
+	declare K_State State = _State;
+
+	State = CancelJoinSession(State, True);
+	State = SetButtonBackEnableTime(State, -1);
+
+	if (!State.CancelSession.IsRunning) {
+		declare Text ParentPath = {{{Router::P}}}GetCurrentParentPath(This);
+		if (ParentPath != "" && ParentPath != RoutePaths::C_Path_JoinSession) {
+			{{{Router::P}}}PushParent(This);
+		} else {
+			{{{Router::P}}}Push(This, RoutePaths::C_Path_Home);
+		}
+	}
+
+	return State;
+}
+
+K_State Select(K_State _State, CMlControl _Control) {
+	if (_Control == Null || {{{Transition::P}}}IsInTransition(This)) return _State;
+
+	declare K_State State = _State;
+
+	switch (_Control.ControlId) {
+		case "button-back": {
+			if (_State.ButtonBackEnabled) {
+				State = LeaveJoinSessionPage(State);
+			}
+		}
+	}
+
+	return State;
+}
+
+K_State SetContextMessage(K_State _State, Integer _Context) {
+	declare K_State State = _State;
+
+	declare Text ContextMessage = "";
+	switch (_Context) {
+		case C_JoinSession_Context_FirstPartyInvite: {
+			ContextMessage = TL::Compose(C_Text_Context_Invite, "$<$i"^Platform::GetNetworkName(System)^"$>");
+		}
+		case C_JoinSession_Context_UbiConnectInvite: {
+			ContextMessage = TL::Compose(C_Text_Context_Invite, Platform::C_NetworkName_Ubisoft);
+		}
+		case C_JoinSession_Context_SquadTypeUpdated: {
+			ContextMessage = C_Text_Context_SquadTypeUpdated;
+		}
+	}
+	State.ContextMessage = ContextMessage;
+	UpdateDisplay(State);
+
+	return State;
+}
+
+K_State SetErrorMessage(K_State _State, Text _ErrorMessage) {
+	declare K_State State = _State;
+
+	State.ErrorMessage = _ErrorMessage;
+	UpdateDisplay(State);
+
+	return State;
+}
+
+K_State CreateJoinSession(K_State _State, Text _SessionId, Boolean _IsFirstPartySession, Integer _Context) {
+	declare K_State State = _State;
+
+	State.JoinSession.Privilege_PlayMultiplayerMode = Privileges::Check_DestroyAndCreate(
+		State.JoinSession.Privilege_PlayMultiplayerMode,
+		PrivilegeMgr,
+		MainUser::GetMainUserId(),
+		CPrivilegeMgr::EPrivilege::PlayMultiplayerMode
+	);
+	State.JoinSession.Task_JoinSession = Task::Destroy(State.JoinSession.Task_JoinSession);
+	State.JoinSession.SessionId = _SessionId;
+	State.JoinSession.IsFirstPartySession = _IsFirstPartySession;
+	State.JoinSession.IsRunning = True;
+	State.JoinSession.IsSuccess = True;
+	State.JoinSession.ErrorMessage = "";
+
+	State.CancelSession.Task_CancelSession = Task::Destroy(State.CancelSession.Task_CancelSession);
+	State.CancelSession.Task_GetCurrentSquad = Task::Destroy(State.CancelSession.Task_GetCurrentSquad);
+	State.CancelSession.Task_LeaveCurrentSquad = Task::Destroy(State.CancelSession.Task_LeaveCurrentSquad);
+	State.CancelSession.IsRunning = False;
+	State.CancelSession.LeavePage = False;
+
+	State = SetContextMessage(State, _Context);
+	State = SetErrorMessage(State, "");
+
+	return State;
+}
+
+K_State Initialize(K_State _State) {
+	declare K_State State = _State;
+
+	declare Vec2 Size_HeaderArea = {{{PopUpBackground::P}}}GetHeaderAreaSize(State.Controls.PopUpBackground_JoinSession);
+	declare Vec2 Size_ContentArea = {{{PopUpBackground::P}}}GetContentAreaSize(State.Controls.PopUpBackground_JoinSession);
+	declare Vec2 Pos_HeaderArea = {{{PopUpBackground::P}}}GetHeaderAreaPosition(State.Controls.PopUpBackground_JoinSession);
+	declare Vec2 Pos_ContentArea = {{{PopUpBackground::P}}}GetContentAreaPosition(State.Controls.PopUpBackground_JoinSession);
+
+	State.Controls.Label_Title.Size = <Size_HeaderArea.X - (6 * MLHelpers::SkewX(Size_HeaderArea.Y, {{{PopUpBackground::P}}}C_SkewAngle)), Size_HeaderArea.Y>;
+	State.Controls.Label_Title.RelativePosition_V3 = MLHelpers::SkewX(<0., Pos_HeaderArea.Y - (Size_HeaderArea.Y * 0.55)>, {{{PopUpBackground::P}}}C_SkewAngle);
+	Tools::FitLabelValue(State.Controls.Label_Title, C_TextSize_Title, 1., 0.5);
+
+	State.Controls.Label_Context.Size = <Size_ContentArea.X - MLHelpers::SkewX(Size_ContentArea.Y, {{{PopUpBackground::P}}}C_SkewAngle), Size_ContentArea.Y>;
+	State.Controls.Label_Context.RelativePosition_V3 = MLHelpers::SkewX(<0., Pos_ContentArea.Y - (Size_ContentArea.Y * 0.14)>, {{{PopUpBackground::P}}}C_SkewAngle);
+
+	State.Controls.Label_Error.Size = <Size_ContentArea.X - MLHelpers::SkewX(Size_ContentArea.Y, {{{PopUpBackground::P}}}C_SkewAngle), Size_ContentArea.Y>;
+	State.Controls.Label_Error.RelativePosition_V3 = MLHelpers::SkewX(<0., Pos_ContentArea.Y - (Size_ContentArea.Y * 0.35)>, {{{PopUpBackground::P}}}C_SkewAngle);
+
+	State.Controls.LoadingSpinner_Waiting.RelativePosition_V3 = MLHelpers::SkewX(<0., Pos_ContentArea.Y - (Size_ContentArea.Y * 0.35)>, {{{PopUpBackground::P}}}C_SkewAngle);
+	State.Controls.Button_Back.RelativePosition_V3 = MLHelpers::SkewX(<0., Pos_ContentArea.Y - (Size_ContentArea.Y * 0.82)>, {{{PopUpBackground::P}}}C_SkewAngle);
+
+	State = SetButtonBackEnableTime(State, -1);
+	State = SetContextMessage(State, -1);
+	State = SetErrorMessage(State, "");
+
+	return State;
+}
+
+***MainInit***
+***
+declare K_State State = C_State_Null;
+***
+
+***MainStart***
+***
+State.Controls = K_Controls {
+	PopUpBackground_JoinSession = (Page.GetFirstChild("popupbackground-join-session") as CMlFrame),
+	Label_Title = (Page.GetFirstChild("label-title") as CMlLabel),
+	Label_Context = (Page.GetFirstChild("label-context") as CMlLabel),
+	Label_Error = (Page.GetFirstChild("label-error") as CMlLabel),
+	LoadingSpinner_Waiting = (Page.GetFirstChild("spinner-waiting") as CMlFrame),
+	Button_Back = (Page.GetFirstChild("button-back") as CMlFrame)
+};
+
+State = Initialize(State);
+***
+
+***MainLoop***
+***
+foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+	switch (Event.Type) {
+		case {{{Router::P}}}C_Event_EnteringRoute: {
+			declare Text[Text] Query = {{{Router::P}}}GetCurrentRouteQuery(This);
+			declare Text SessionId = Query.get(RoutePaths::C_Query_SessionId, "");
+			declare Boolean IsFirstPartySession = (
+				Query.existskey(RoutePaths::C_Query_IsFirstPartySession) &&
+				Tools::TextToBoolean(Query[RoutePaths::C_Query_IsFirstPartySession])
+			);
+			declare Integer Context = TL::ToInteger(Query.get(RoutePaths::C_Query_Context, ""));
+
+			State = CreateJoinSession(State, SessionId, IsFirstPartySession, Context);
+			State = SetButtonBackEnableTime(State, Now + C_DelayBeforeEnablingButtonBack);
+		}
+	}
+}
+
+if (State.JoinSession.IsRunning) {
+	if (!Privileges::Check_IsComplete(State.JoinSession.Privilege_PlayMultiplayerMode)) {
+		State.JoinSession.Privilege_PlayMultiplayerMode = Privileges::Check_Update(State.JoinSession.Privilege_PlayMultiplayerMode);
+		if (Privileges::Check_IsComplete(State.JoinSession.Privilege_PlayMultiplayerMode)) {
+			State.JoinSession.Privilege_PlayMultiplayerMode = Privileges::Check_Destroy(State.JoinSession.Privilege_PlayMultiplayerMode);
+			if (Privileges::Check_HasPrivilege(State.JoinSession.Privilege_PlayMultiplayerMode)) {
+				State.JoinSession.Task_JoinSession = Task::DestroyAndCreate(
+					State.JoinSession.Task_JoinSession,
+					UserMgr,
+					UserMgr.Squad_JoinSession(
+						MainUser::GetMainUserId(),
+						State.JoinSession.SessionId,
+						State.JoinSession.IsFirstPartySession
+					)
+				);
+			} else {
+				// If the user does not have the privilege, a system pop-up will be displayed so we can leave immediatly.
+				State = LeaveJoinSessionPage(State);
+			}
+		}
+	}
+	if (Task::IsInitialized(State.JoinSession.Task_JoinSession)) {
+		State.JoinSession.Task_JoinSession = Task::Update(State.JoinSession.Task_JoinSession);
+		if (!Task::IsRunning(State.JoinSession.Task_JoinSession)) {
+			if (!Task::IsSuccess(State.JoinSession.Task_JoinSession)) {
+				State.JoinSession.IsSuccess = False;
+				// If it's a first party error, the system will display it so we can leave immediatly.
+				// Otherwise we need to display the error ourselves.
+				if (Task::IsFirstPartyError(State.JoinSession.Task_JoinSession)) {
+					State.JoinSession.ErrorMessage = "";
+				} else {
+					declare Error::K_Error TaskCustomError = Task::GetCustomError(State.JoinSession.Task_JoinSession);
+					State.JoinSession.ErrorMessage = Error::GetAlternativeErrorMessage(Error::C_Description_ManiaScript_JoinError, TaskCustomError);
+				}
+			}
+			State.JoinSession.Task_JoinSession = Task::Destroy(State.JoinSession.Task_JoinSession);
+		}
+	}
+
+	if (
+		State.JoinSession.IsRunning &&
+		Privileges::Check_IsComplete(State.JoinSession.Privilege_PlayMultiplayerMode) &&
+		!Task::IsInitialized(State.JoinSession.Task_JoinSession)
+	) {
+		State.JoinSession.IsRunning = False;
+		if (!State.JoinSession.IsSuccess) {
+			State = SetButtonBackEnableTime(State, Now);
+			if (State.JoinSession.ErrorMessage == "") {
+				State = LeaveJoinSessionPage(State);
+			} else {
+				State = SetErrorMessage(State, State.JoinSession.ErrorMessage);
+			}
+		}
+	}
+}
+
+if (State.CancelSession.IsRunning) {
+	if (Task::IsInitialized(State.CancelSession.Task_CancelSession)) {
+		State.CancelSession.Task_CancelSession = Task::Update(State.CancelSession.Task_CancelSession);
+		if (!Task::IsRunning(State.CancelSession.Task_CancelSession)) {
+			State.CancelSession.Task_CancelSession = Task::Destroy(State.CancelSession.Task_CancelSession);
+		}
+	}
+	if (Task::IsInitialized(State.CancelSession.Task_GetCurrentSquad)) {
+		State.CancelSession.Task_GetCurrentSquad = Task::Update(State.CancelSession.Task_GetCurrentSquad);
+		if (!Task::IsRunning(State.CancelSession.Task_GetCurrentSquad)) {
+			declare CTaskResult_Squad SourceTask <=> Task::GetSourceTask_Squad(State.CancelSession.Task_GetCurrentSquad);
+			if (
+				Task::IsSuccess(State.CancelSession.Task_GetCurrentSquad) &&
+				SourceTask != Null &&
+				SourceTask.Squad != Null &&
+				SourceTask.Squad.Id != ""
+			) {
+				State.CancelSession.Task_LeaveCurrentSquad = Task::DestroyAndCreate(
+					State.CancelSession.Task_LeaveCurrentSquad,
+					UserMgr,
+					UserMgr.Squad_Leave(MainUser::GetMainUserId(), SourceTask.Squad.Id)
+				);
+			}
+			State.CancelSession.Task_GetCurrentSquad = Task::Destroy(State.CancelSession.Task_GetCurrentSquad);
+		}
+	}
+	if (Task::IsInitialized(State.CancelSession.Task_LeaveCurrentSquad)) {
+		State.CancelSession.Task_LeaveCurrentSquad = Task::Update(State.CancelSession.Task_LeaveCurrentSquad);
+		if (!Task::IsRunning(State.CancelSession.Task_LeaveCurrentSquad)) {
+			State.CancelSession.Task_LeaveCurrentSquad = Task::Destroy(State.CancelSession.Task_LeaveCurrentSquad);
+		}
+	}
+
+	if (
+		State.CancelSession.IsRunning &&
+		!Task::IsInitialized(State.CancelSession.Task_CancelSession) &&
+		!Task::IsInitialized(State.CancelSession.Task_GetCurrentSquad) &&
+		!Task::IsInitialized(State.CancelSession.Task_LeaveCurrentSquad)
+	) {
+		State.CancelSession.IsRunning = False;
+		if (State.CancelSession.LeavePage) {
+			State = LeaveJoinSessionPage(State);
+		}
+	}
+}
+
+if ({{{Router::P}}}PageIsRunning(This, RoutePaths::C_Path_JoinSession)) {
+	if (State.ButtonBackEnabled != ButtonBackShouldBeEnabled(State)) {
+		State = EnableButtonBack(State, ButtonBackShouldBeEnabled(State));
+	}
+
+	foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Navigation::P}}}C_EventType_NavigateInput: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, C_NavGroup_Main)) {
+					if (Event.Input == CMlScriptEvent::EMenuNavAction::Select) {
+						State = Select(State, Event.To);
+					} else if (Event.Input == CMlScriptEvent::EMenuNavAction::Cancel) {
+						State = Select(State, Event.To);
+					} else {
+						Focus(Event.From, Event.To);
+					}
+				}
+			}
+			case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, C_NavGroup_Main)) {
+					if (Event.Mouse == CMlScriptEvent::Type::MouseClick) {
+						State = Select(State, Event.To);
+					} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+						Focus(Event.From, Event.To);
+					}
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	Transition::ComponentV2(),
+	Navigation::ComponentV2(),
+	MenuSounds::ComponentV2(),
+	Router::ComponentV2(),
+	PopUpBackground::ComponentV2(),
+	ExpendableButton::ComponentV2(),
+	LoadingSpinner::ComponentV2()
+],
+[]
+	);
+}

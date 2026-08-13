@@ -1,0 +1,169 @@
+/**
+ * Matchmaking related code
+ */
+#Const Version "2.0.2"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/Matchmaking.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/XmlRpc2.Script.txt" as XmlRpc
+#Include "Libs/Nadeo/CMGame/Utils/Log.Script.txt" as Log
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structure
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Method_AddPlayer {
+	Text AccountId;
+	Integer Clan;
+}
+#Struct K_Callback_EliminatedTeams {
+	Integer[] teams;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Method_AddPlayer "Club.Match.AddPlayer"
+#Const C_Method_RemovePlayer "Club.Match.RemovePlayer"
+#Const C_Method_MatchStarted "Club.Match.Start"
+#Const C_Method_MatchCompleted "Club.Match.Completed"
+
+#Const C_Callback_EliminatedTeams "Club.Match.EliminatedTeams"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the account id and clan of the player added to the match
+K_Method_AddPlayer GetEventInfo_Method_AddPlayer(CXmlRpcEvent _Event) {
+	assert(
+		(
+			_Event.Type == CXmlRpcEvent::EType::CallbackArray &&
+			_Event.ParamArray1 == C_Method_AddPlayer
+		),
+		"""Are you sure this event comes from the '{{{C_Method_AddPlayer}}}' method?"""
+	);
+
+	Log::Log("""[Matchmaking] Read '{{{C_Method_AddPlayer}}}' xmlrpc method. Params : {{{_Event.ParamArray2}}}""");
+
+	declare Text AccountId = "";
+	if (_Event.ParamArray2.count > 0) AccountId = _Event.ParamArray2[0];
+	declare Integer Clan = 0;
+	if (_Event.ParamArray2.count > 1) Clan = TL::ToInteger(_Event.ParamArray2[1]);
+
+	return K_Method_AddPlayer {
+		AccountId = AccountId,
+		Clan = Clan
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the account id of the player removed from the match
+Text GetEventInfo_Method_RemovePlayer(CXmlRpcEvent _Event) {
+	assert(
+		(
+			_Event.Type == CXmlRpcEvent::EType::CallbackArray &&
+			_Event.ParamArray1 == C_Method_RemovePlayer
+		),
+		"""Are you sure this event comes from the '{{{C_Method_RemovePlayer}}}' method?"""
+	);
+
+	Log::Log("""[Matchmaking] Read '{{{C_Method_RemovePlayer}}}' xmlrpc method. Params : {{{_Event.ParamArray2}}}""");
+
+	declare Text AccountId = "";
+	if (_Event.ParamArray2.count > 0) AccountId = _Event.ParamArray2[0];
+
+	return AccountId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send a list of newly eliminated teams to the matchmaking api
+Void SendEliminatedTeams(Integer[] _EliminatedTeamIds) {
+	declare K_Callback_EliminatedTeams Callback_EliminatedTeams = K_Callback_EliminatedTeams {
+		teams = _EliminatedTeamIds
+	};
+
+	Log::Log("""[Matchmaking] Send '{{{C_Callback_EliminatedTeams}}}' xmlrpc callback. Params: {{{Callback_EliminatedTeams}}}""");
+
+	XmlRpc::SendCallback(C_Callback_EliminatedTeams, [Callback_EliminatedTeams.tojson()]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	XmlRpc::UnregisterMethod(C_Method_AddPlayer);
+	XmlRpc::UnregisterMethod(C_Method_RemovePlayer);
+	XmlRpc::UnregisterMethod(C_Method_MatchStarted);
+	XmlRpc::UnregisterMethod(C_Method_MatchCompleted);
+
+	XmlRpc::UnregisterCallback(C_Callback_EliminatedTeams);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	XmlRpc::RegisterMethod(C_Method_AddPlayer, """
+* Name: {{{C_Method_AddPlayer}}}
+* Type: TriggerModeScriptEventArray
+* Description: Add a player to the match.
+* Data:
+	- Version >=3.6.0:
+	```
+	[
+		"accountid", //< Account id of the player to add to the match
+		"1" //< Team in which the player will be added
+	]
+	```
+	""");
+	XmlRpc::RegisterMethod(C_Method_RemovePlayer, """
+* Name: {{{C_Method_RemovePlayer}}}
+* Type: TriggerModeScriptEventArray
+* Description: Remove a player from a match.
+* Data:
+	- Version >=3.6.0:
+	```
+	[
+		"accountid" //< Account id of the player to remove from the match
+	]
+	```
+	""");
+	XmlRpc::RegisterMethod(C_Method_MatchStarted, """
+* Name: {{{C_Method_MatchStarted}}}
+* Type: TriggerModeScriptEventArray
+* Description: Start a matchmaking match.
+* Data:
+	- Version >=3.6.0:
+	```
+	[]
+	```
+	""");
+	XmlRpc::RegisterMethod(C_Method_MatchCompleted, """
+* Name: {{{C_Method_MatchCompleted}}}
+* Type: TriggerModeScriptEventArray
+* Description: Complete a matchmaking match.
+* Data:
+	- Version >=3.6.0:
+	```
+	[]
+	```
+	""");
+
+	XmlRpc::RegisterCallback(C_Callback_EliminatedTeams, """
+* Name: {{{C_Callback_EliminatedTeams}}}
+* Type: CallbackArray
+* Description: Callback sent when teams are eliminated in matchmaking.
+* Data:
+	- Version >=3.6.0:
+	```
+	[
+		"{
+			"teams": [1, 5, 10, 17] //< The teams that were eliminated. Team number starts at 1.
+		}"
+	]
+	```
+	""");
+}

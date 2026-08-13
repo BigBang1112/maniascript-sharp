@@ -1,0 +1,183 @@
+/**
+ *	Utility code for the Final TMGL mode
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/FinalTMGL/FinalTMGL.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/Trackmania/Modes/FinalTMGL/UIModules/ScoresHeader_Server.Script.txt" as UIModules_ScoresHeader
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Server.Script.txt" as UIModules_TimeGap
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Server.Script.txt" as Clans
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Team {
+	Text Name;
+	Vec3 ColorPrimary;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the clan of each player
+Integer[Text] GetPlayersClans(Text _FinalistsAccountIds) {
+	declare Integer[Text] PlayersClans;
+	declare Text[] AccountIds = TL::Split(",", _FinalistsAccountIds);
+	foreach (Key => AccountId in AccountIds) {
+		declare Text TrimmedAccountId = TL::Trim(AccountId);
+		if (TrimmedAccountId != "") {
+			PlayersClans[TrimmedAccountId] = PlayersClans.count + 1;
+		}
+	}
+	return PlayersClans;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the the number of clans in the match
+Integer GetClansNb(Integer[Text] _PlayersClans) {
+	return _PlayersClans.count;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the teams informations
+Void UpdateTeams(K_Team[] _DefaultTeams, Integer[Text] _PlayersClans) {
+	declare Text[Text] CustomNames;
+	declare Vec3[Integer] CustomClansColors;
+	declare Text[Integer] CustomClansNames;
+	foreach (AccountId => Clan in _PlayersClans) {
+		declare Integer TeamKey = Clan - 1;
+		if (AccountId != "" && PlayerProfiles::PlayerProfileExists(AccountId)) {
+			declare Profile = PlayerProfiles::GetPlayerProfile(AccountId);
+			if (Teams.existskey(TeamKey)) Teams[TeamKey].Name = "$<"^Profile.TeamTrigram^"$>";
+			CustomNames[AccountId] = Profile.Nickname;
+			CustomClansColors[Clan] = CL::Hex6ToRgb(Profile.TeamColor);
+			if (_PlayersClans.count > 2) {
+				CustomClansNames[Clan] = Profile.TeamTrigram;
+			}
+		} else if (_DefaultTeams.existskey(TeamKey)) {
+			if (Teams.existskey(TeamKey)) Teams[TeamKey].Name = _DefaultTeams[TeamKey].Name;
+			CustomClansColors[Clan] = _DefaultTeams[TeamKey].ColorPrimary;
+		} else {
+			if (Teams.existskey(TeamKey)) {
+				Teams[TeamKey].Name = "Team "^(TeamKey + 1);
+				CustomClansColors[Clan] = Teams[TeamKey].ColorPrimary;
+			}
+		}
+	}
+
+	UIModules_ScoresTable::SetCustomNames(CustomNames);
+	UIModules_ScoresHeader::SetClansColors(CustomClansColors);
+	UIModules_ScoresHeader::SetClansNames(CustomClansNames);
+	// Force the use of a neutral color for the time gap
+	UIModules_TimeGap::SetCustomTeamColors("000000", "000000");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the clan of an account id
+Integer GetAccountIdClan(Text _AccountId, Integer[Text] _PlayersClans) {
+	return _PlayersClans.get(_AccountId, 0);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the clan of a user
+Integer GetUserClan(CUser _User, Integer[Text] _PlayersClans) {
+	if (_User == Null) return 0;
+	return GetAccountIdClan(_User.WebServicesUserId, _PlayersClans);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the clan of a player
+Integer GetPlayerClan(CSmPlayer _Player, Integer[Text] _PlayersClans) {
+	if (_Player == Null) return 0;
+	return GetUserClan(_Player.User, _PlayersClans);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Place the players in the right teams
+ *	and spectating mode
+ */
+Void UpdatePlayersList(Integer[Text] _PlayersClans) {
+	if (ServerAdmin != Null) {
+		foreach (Player in AllPlayers) {
+			if (_PlayersClans.existskey(Player.User.WebServicesUserId)) {
+				ServerAdmin.ForceSpectator(Player.User, CServerAdmin::ESpecMode::PlayerForced);
+				if (Clans::ClansAreEnabled()) {
+					declare Integer PlayerClan = _PlayersClans[Player.User.WebServicesUserId];
+					if (PlayerClan > 0) {
+						ServerAdmin.ForcePlayerRequestedTeam(Player.User, PlayerClan); //< Despite the function name, it needs a clan index and not a team index
+						if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned) SetPlayerClan(Player, PlayerClan);
+					}
+				}
+			} else {
+				ServerAdmin.ForceSpectator(Player.User, CServerAdmin::ESpecMode::SpectatorForced);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the message to display at the end of the match
+Text GetWinMessage(Integer _ClanWinner, Integer[Text] _PlayersClans) {
+	declare Text Message = _("|Match|Draw");
+
+	if (_PlayersClans.exists(_ClanWinner)) {
+		declare Text WinnerAccountId = _PlayersClans.keyof(_ClanWinner);
+		if (WinnerAccountId != "" && PlayerProfiles::PlayerProfileExists(WinnerAccountId)) {
+			Message = TL::Compose(_("$<%1$> wins the match!"), PlayerProfiles::GetPlayerProfile(WinnerAccountId).Nickname);
+		} else if (Teams.existskey(_ClanWinner - 1)) {
+			Message = TL::Compose(_("$<%1$> wins the match!"), Teams[_ClanWinner - 1].ColorizedName);
+		} else {
+			Message = "";
+			foreach (Score in Scores) {
+				if (Score.User.WebServicesUserId == WinnerAccountId) {
+					Message = TL::Compose(_("$<%1$> wins the match!"), Score.User.Name);
+					break;
+				}
+			}
+		}
+	}
+
+	return Message;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the player can spawn
+Boolean CanSpawn(Integer _Clan, Integer _ClanMatchPoints, Integer _MatchPointsLimit) {
+	return (_Clan > 0 && _ClanMatchPoints < _MatchPointsLimit);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Save the last known player's clan on its score
+ *	so we can retrieve it later to prevent the
+ *	player from spawning during the warm up.
+ *	Use this function only to do that. Use
+ *	FinalTMGL::GetPlayerClan() in other situations.
+ */
+Void SaveClanOnScore(CSmPlayer _Player, Integer _Clan) {
+	declare Integer LibFinalTMGL_Clan for _Player.Score = 0;
+	LibFinalTMGL_Clan = _Clan;
+}
+Integer GetClanFromScore(CSmScore _Score) {
+	declare Integer LibFinalTMGL_Clan for _Score = 0;
+	return LibFinalTMGL_Clan;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Find the name of a player in the profiles from its score
+Text GetName(CSmScore _Score) {
+	if (_Score == Null) return "";
+	if (PlayerProfiles::PlayerProfileExists(_Score.User.WebServicesUserId)) {
+		return PlayerProfiles::GetPlayerProfile(_Score.User.WebServicesUserId).Nickname;
+	} else {
+		return _Score.User.Name;
+	}
+	return "";
+}

@@ -1,0 +1,1310 @@
+/**
+ * Page: Arcade
+ */
+#Const Version "1.9.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/MainMenu/Pages/Arcade.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/ControlBlockList.Script.txt" as ControlBlockList
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Scroll.Script.txt" as Scroll
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Privileges.Script.txt" as Privileges
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/Components/TitleBar2.Script.txt" as TitleBar
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_ML.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Stores/ClubStore_ML.Script.txt" as ClubStore
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Page_Arcade"
+#Const C_NavGroup_Default "navgroup-page-arcade"
+#Const C_Class_HeaderButton "class-page-arcade-header-button"
+#Const C_Class_Featured "class-page-arcade-featured"
+
+#Const C_Privileges [
+	CPrivilegeMgr::EPrivilege::UseUserCreatedContentRequired
+]
+
+#Const C_ScrollView_Grid "grid"
+#Const C_ScrollView_List "list"
+
+#Const Const::C_ImageUrls_Live_Campaign_Background as C_ImageUrls_Campaign_Background
+#Const Const::C_ImageUrls_Live_Campaign_Foreground as C_ImageUrls_Campaign_Foreground
+
+#Const C_Tab_AllClubs 0
+#Const C_TabNames [
+	//L16N [Page Clubs] Title of the section displaying all the clubs
+	0 => _("Club Rooms")
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the page manialink
+Text GetManialink() {
+	declare Text Text_Retrieving = Const::C_Text_RetrievingDataPlaceholder;
+	//L16N [Page Clubs] Text displayed while searching club rooms.
+	declare Text Text_RetrievingClubRooms = _("Retrieving club rooms");
+	//L16N [Page Arcade] Button to access the live campaign servers.
+	declare Text Text_Campaign = _("Live campaign");
+	//L16N [Page Arcade] Text displayed when no club rooms exists.
+	declare Text Text_NoClubRooms = _("No club rooms");
+	//L16N [Page Arcade] Text displayed when a search returns no results.
+	declare Text Text_NoSearchResult = _("Your search did not return any results");
+	//L16N [Page Arcade] Text displayed when campaigns are not available.
+	declare Text Text_Unavailable = _("Unavailable");
+	//L16N [Page Arcade] Title of the featured section.
+	declare Text Text_Featured = _("Featured");
+
+	// Scroll view commons
+	declare Vec2 Size_SearchBar = <60., 9.5>;
+	declare Scroll::K_Config ScrollConfig = Scroll::K_Config {
+		AnimEnabled = True,
+		HeaderHeight = 70.5,
+		PreScrollEnabled = True,
+		PreScrollBefore = 2,
+		PreScrollAfter = 1,
+		ScrollBarVisibility = Scroll::C_ScrollBarVisibility_DuringScroll,
+		ScrollBarXOffset = 23.,
+		ScrollGrid = <8., 8.>,
+		ScrollIndicator = True,
+		ScrollIndicatorColorize = <1., 1., 1.>,
+		ScrollIndicatorImage = Icons::C_Icon_128x128_Arrow_Bottom_Oblique,
+		ScrollIndicatorSize = 11.,
+		ScrollIndicatorXOffset = -9.5,
+		ScrollIndicatorYOffset = -10.,
+		ScrollPadding = 22.5,
+		Skew = -10.,
+		SkewHeader = True,
+		SkewVAlign = Scroll::C_SkewVAlign_Top,
+		WindowSize = <256., 120.>
+	};
+
+	// Grid scroll view
+	declare Integer Grid_ColumnsNb = 6;
+	declare Integer Grid_RowsNb = 6;
+	declare Integer Grid_ClubRoomsPerPage = Grid_ColumnsNb * Grid_RowsNb;
+	declare Vec2 Grid_Size_ClubRoomMargin = <0., 2.>;
+	declare Vec2 Grid_Size_ClubRoom = Scroll::GetElementSize(ScrollConfig.WindowSize, Grid_Size_ClubRoomMargin * 0.5, Grid_ColumnsNb, Grid_RowsNb);
+	declare Integer Grid_ElementsNb = Scroll::GetRequiredElementsNb(ScrollConfig.WindowSize, Grid_Size_ClubRoom, Grid_Size_ClubRoomMargin * 0.5, Grid_ColumnsNb);
+
+	declare Vec2 Grid_Size_ClubRoomBg = MLHelpers::KeepRatioFromY(608., 272., Grid_Size_ClubRoom.Y);
+	declare Vec2 Grid_Size_AdjustedClubRoomBg = <Grid_Size_ClubRoomBg.X - MLHelpers::SkewX(Grid_Size_ClubRoomBg.Y, 10.),	Grid_Size_ClubRoomBg.Y>;
+	declare Vec2 Grid_Size_RoomName = <Grid_Size_AdjustedClubRoomBg.X * 0.9, 10.>;
+	declare Vec2 Grid_Pos_RoomName = MLHelpers::SkewX(<5., -Grid_Size_AdjustedClubRoomBg.Y + 3.>, 10.);
+	declare TitleBar::ComponentTitleBar2_K_Actions[Integer] Grid_Actions = [
+		TitleBar::C_Action_First => TitleBar::AddAction("action1", Icons::C_Icon_128x128_List_View, <8., 8.>, 0., 0., 1., 0.6, <1., 1., 1.>, <1., 1., 1.>),
+		TitleBar::C_Action_Second => TitleBar::AddAction("action2", Icons::C_Icon_128x128_Glass, <8., 8.>, -1., 0., 1., 0.6, <1., 1., 1.>, <1., 1., 1.>)
+	];
+
+	declare Text ML_Grid_ClubRooms = "";
+	for (I, 1, Grid_ElementsNb) {
+		ML_Grid_ClubRooms ^= """
+			<frameinstance
+				modelid="framemodel-grid-club-room"
+				class="{{{Scroll::C_Class_Element}}}"
+				hidden="1"
+			/>
+		""";
+	}
+
+	// List scroll view
+	declare Integer List_ColumnsNb = 1;
+	declare Integer List_RowsNb = 11;
+	declare Integer List_ClubRoomsPerPage = List_ColumnsNb * List_RowsNb;
+	declare Vec2 List_Size_ClubRoomMargin = <0., 1.>;
+	declare Vec2 List_Size_ClubRoom = Scroll::GetElementSize(ScrollConfig.WindowSize, List_Size_ClubRoomMargin, List_ColumnsNb, List_RowsNb);
+	declare Integer List_ElementsNb = Scroll::GetRequiredElementsNb(ScrollConfig.WindowSize, List_Size_ClubRoom, List_Size_ClubRoomMargin, List_ColumnsNb);
+
+	declare Vec2 List_Size_ClubRoomBg = <List_Size_ClubRoom.X - MLHelpers::SkewX(Grid_Size_ClubRoomBg.Y/2, 10.), Grid_Size_ClubRoomBg.Y/2>;
+	declare Vec2 List_Size_RoomImage = MLHelpers::KeepRatioFromY(608., 272., List_Size_ClubRoomBg.Y);
+	declare Vec2 List_Pos_RoomImage = <0., List_Size_ClubRoomBg.Y * -0.5>;
+	declare Vec2 List_Pos_RoomName = <List_Size_ClubRoomBg.X * 0.1, List_Size_ClubRoomBg.Y * -0.55>;
+	declare Vec2 List_Pos_ClubName = <List_Size_ClubRoomBg.X * 0.43, List_Size_ClubRoomBg.Y * -0.55>;
+	declare Vec2 List_Pos_GameMode = <List_Size_ClubRoomBg.X * 0.71, List_Size_ClubRoomBg.Y * -0.55>;
+	declare Vec2 List_Pos_Population = <List_Size_ClubRoomBg.X * 0.94, List_Size_ClubRoomBg.Y * -0.55>;
+	declare Vec2 List_Pos_Popularity = <List_Size_ClubRoomBg.X * 0.965, List_Size_ClubRoomBg.Y * -0.5>;
+	declare TitleBar::ComponentTitleBar2_K_Actions[Integer] List_Actions = [
+		TitleBar::C_Action_First => TitleBar::AddAction("action1", Icons::C_Icon_128x128_Grid_View, <8., 8.>, 0., 0., 1., 0.6, <1., 1., 1.>, <1., 1., 1.>),
+		TitleBar::C_Action_Second => TitleBar::AddAction("action2", Icons::C_Icon_128x128_Glass, <8., 8.>, -1., 0., 1., 0.6, <1., 1., 1.>, <1., 1., 1.>)
+	];
+
+	declare Text ML_List_ClubRooms = "";
+	for (I, 1, List_ElementsNb) {
+		ML_List_ClubRooms ^= """
+			<frameinstance
+				modelid="framemodel-list-club-room"
+				class="{{{Scroll::C_Class_Element}}}"
+				hidden="1"
+			/>
+		""";
+	}
+
+	// Initializes header for all scrollview layouts
+	declare Text[Text] ScrollHeader_MLs;
+	declare Real SizeX_HeaderButtonMargin = 3.;
+	declare Vec2 Size_HeaderButton = MLHelpers::KeepRatioFromY(608., 272., 40.);
+	declare Vec2 Size_VisibleHeaderButtonWidth = <Size_HeaderButton.X - MLHelpers::SkewX(Size_HeaderButton.Y, 10.), Size_HeaderButton.Y>;
+
+	foreach (Layout in [C_ScrollView_Grid, C_ScrollView_List]) {
+		declare Text ScrollHeader_ML = """
+			<frame id="frame-header-{{{Layout}}}" pos="{{{-ScrollConfig.WindowSize.X/2}}} 0" z-index="1">
+				<frameinstance
+					id="frame-featured-rooms-title-{{{Layout}}}" z-index="1"
+					modelid="{{{ExpendableButton::C_Name}}}"
+					data-text="{{{Text_Featured}}}"
+					data-styles="{{{ExpendableButton::C_Style_Tabs}}}"
+				/>
+
+				<frame id="frame-header-buttons-{{{Layout}}}" pos="{{{MLHelpers::Skew(MLHelpers::SkewX(-Size_HeaderButton.Y + List_Size_ClubRoomBg.Y, 10.), -12.5, 10.)}}}" z-index="1">
+					<frameinstance
+						modelid="framemodel-header-button"
+						id="button-arcade-{{{Layout}}}"
+						pos="0 {{{-Size_HeaderButton.Y / 2}}}"
+						class="{{{Navigation::C_Class}}} {{{C_Class_HeaderButton}}} {{{C_Class_Featured}}}"
+						data-nav-inputs="select;cancel;right;down"
+						data-nav-targets="_;_;button-weekly-{{{Layout}}};scroll-club-rooms-{{{Layout}}}"
+						data-nav-group="{{{C_NavGroup_Default}}}"
+						data-nav-zone="quad-hitbox-header"
+					/>
+					<frameinstance
+						modelid="framemodel-header-button"
+						id="button-weekly-{{{Layout}}}"
+						pos="{{{Size_VisibleHeaderButtonWidth.X + SizeX_HeaderButtonMargin}}} {{{-Size_HeaderButton.Y / 2}}}"
+						class="{{{Navigation::C_Class}}} {{{C_Class_HeaderButton}}} {{{C_Class_Featured}}}"
+						data-nav-inputs="select;cancel;left;right;down"
+						data-nav-targets="_;_;button-arcade-{{{Layout}}};button-live-campaign-{{{Layout}}};scroll-club-rooms-{{{Layout}}}"
+						data-nav-group="{{{C_NavGroup_Default}}}"
+						data-nav-zone="quad-hitbox-header"
+					/>
+					<frameinstance
+						modelid="framemodel-header-button"
+						id="button-live-campaign-{{{Layout}}}"
+						pos="{{{2 * (Size_VisibleHeaderButtonWidth.X + SizeX_HeaderButtonMargin)}}} {{{-Size_HeaderButton.Y / 2}}}"
+						class="{{{Navigation::C_Class}}} {{{C_Class_HeaderButton}}} {{{C_Class_Featured}}}"
+						data-nav-inputs="select;cancel;left;down"
+						data-nav-targets="_;_;button-weekly-{{{Layout}}};scroll-club-rooms-{{{Layout}}}"
+						data-nav-group="{{{C_NavGroup_Default}}}"
+						data-nav-zone="quad-hitbox-header"
+					/>
+				</frame>
+			</frame>
+
+			<frame id="frame-clamped-controls-{{{Layout}}}" pos="0. {{{-ScrollConfig.HeaderHeight + 8.}}}" class="{{{Scroll::C_Class_ClampedControl}}}" data-clamped-control-valign="{{{Scroll::C_ClampedControlVAlign_Center}}}" data-clamped-control-height="9.6">
+				<frameinstance id="frame-search-bar" modelid="framemodel-search-bar"/>
+				<frameinstance
+					id="titlebar-{{{Layout}}}" z-index="5"
+					modelid="{{{TitleBar::C_Name}}}"
+					data-size="{{{ScrollConfig.WindowSize.X + 1.2}}} 10"
+					data-tabs="{{{TL::MLEncode(C_TabNames.tojson())}}}"
+					data-actions="{{{TL::MLEncode(Tools::Ternary(Layout == C_ScrollView_Grid, Grid_Actions.tojson(), List_Actions.tojson()))}}}"
+					data-focused="false" data-locked="true"
+					data-tabs-max-width="160"
+				/>
+			</frame>
+		""";
+
+		// Set ScrollHeader_ML of the corresponding scrollview layout
+		ScrollHeader_MLs[Layout] = ScrollHeader_ML;
+	}
+
+	return MV::Create(
+C_Name, 3,
+"""
+<stylesheet>
+	<style class="quad-default" halign="center" valign="center"/>
+	<style class="text-semibold" halign="center" valign="center2" textprefix="$t$i" textcolor="FFFFFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}"/>
+	<style class="text-extrabold" halign="center" valign="center2" textprefix="$t$i" textcolor="FFFFFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"/>
+	<style class="text-search" textsize="2" halign="center" valign="center2" textprefix="$i" textcolor="FFFFFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}"/>
+</stylesheet>
+
+<!-- Frame models -->
+<framemodel id="framemodel-header-button">
+	<quad id="quad-background" size="{{{Size_HeaderButton.X}}} {{{Size_HeaderButton.Y}}}" image="{{{Const::C_ImageUrl_ClubActivity_Bg}}}" valign="center" keepratio="clip" z-index="0"/>
+	<frameinstance id="control-block-list-image" modelid="{{{ControlBlockList::C_Name}}}" data-type="{{{ControlBlockList::C_Type_Quad}}}" data-size="{{{Size_HeaderButton.X}}} {{{Size_HeaderButton.Y}}}" data-image="{{{Const::C_ImageUrl_ClubActivity_Default}}}" data-alphamask="{{{Const::C_ImageUrl_ClubActivity_Mask}}}" data-valign="center" data-keepratio="clip" z-index="1" />
+	<quad id="quad-gradient" size="{{{Size_HeaderButton.X}}} {{{Size_HeaderButton.Y}}}" image="{{{Const::C_ImageUrl_ClubActivity_Gradient}}}" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity=".7" valign="center" z-index="2"/>
+	<frameinstance id="control-block-list-name" modelid="{{{ControlBlockList::C_Name}}}" data-type="{{{ControlBlockList::C_Type_Label}}}" data-size="{{{Size_VisibleHeaderButtonWidth.X*0.9}}} 10" pos="{{{Size_HeaderButton.X * 0.05}}} {{{-Size_HeaderButton.Y * 0.4}}}"  data-halign="left" data-valign="center2" data-textsize="4." data-opacity="0.8" data-filter-profanities="OnlyIfNotTranslated" z-index="3" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" />
+	<quad id="quad-contour" size="{{{Size_HeaderButton.X}}} {{{Size_HeaderButton.Y}}}" image="{{{Const::C_ImageUrl_ClubActivity_Contour}}}" opacity="0." colorize="FFF" valign="center" z-index="4"/>
+	<frame size="{{{Size_HeaderButton.X}}} {{{Size_HeaderButton.Y}}}" pos="{{{Size_HeaderButton.X/2}}} 0" halign="center" valign="center" z-index="5">
+		<quad id="quad-hitbox-header" size="{{{Size_VisibleHeaderButtonWidth.X * ML::Cos(ML::DegToRad(10.))}}} {{{Size_HeaderButton.Y*1.5}}}" scriptevents="1" class="{{{Navigation::C_Class_ActivationZone}}}" halign="center" valign="center" rot="10"/>
+	</frame>
+	<quad id="quad-foreground" size="{{{Size_HeaderButton.X}}} {{{Size_HeaderButton.Y}}}" valign="center" keepratio="clip" z-index="6" hidden="1"/>
+</framemodel>
+<framemodel id="framemodel-grid-club-room">
+	<quad id="quad-background" size="{{{Grid_Size_ClubRoomBg.X}}} {{{Grid_Size_ClubRoomBg.Y}}}" image="{{{Const::C_ImageUrl_ClubActivity_Bg}}}" keepratio="clip" z-index="0"/>
+	<frameinstance id="control-block-list-image" modelid="{{{ControlBlockList::C_Name}}}" data-type="{{{ControlBlockList::C_Type_Quad}}}" data-size="{{{Grid_Size_ClubRoomBg.X}}} {{{Grid_Size_ClubRoomBg.Y}}}" data-image="{{{Const::C_ImageUrl_ClubActivity_Default}}}" data-alphamask="{{{Const::C_ImageUrl_ClubActivity_Mask}}}" data-keepratio="clip" z-index="1" />
+	<quad id="quad-gradient" size="{{{Grid_Size_ClubRoomBg.X}}} {{{Grid_Size_ClubRoomBg.Y}}}" image="{{{Const::C_ImageUrl_ClubActivity_Gradient}}}" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity=".7" z-index="2"/>
+	<frameinstance id="control-block-list-name" modelid="{{{ControlBlockList::C_Name}}}" data-type="{{{ControlBlockList::C_Type_Label}}}" data-size="{{{Grid_Size_RoomName.X}}} {{{Grid_Size_RoomName.Y}}}" pos="{{{Grid_Pos_RoomName.X}}} {{{Grid_Pos_RoomName.Y}}}" data-halign="left" data-valign="center2" data-textsize="1.5" data-opacity="0.7" data-filter-profanities="OnlyIfNotTranslated" z-index="3" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" />
+	<quad id="quad-contour" size="{{{Grid_Size_ClubRoomBg.X}}} {{{Grid_Size_ClubRoomBg.Y}}}" image="{{{Const::C_ImageUrl_ClubActivity_Contour}}}" opacity="0." colorize="FFF" z-index="4"/>
+	<frame size="{{{Grid_Size_ClubRoomBg.X}}} {{{Grid_Size_ClubRoomBg.Y}}}" pos="{{{Grid_Size_ClubRoomBg.X/2}}} {{{-Grid_Size_ClubRoomBg.Y/2}}}" halign="center" valign="center" z-index="5">
+		<quad id="quad-hitbox-club" size="{{{Grid_Size_AdjustedClubRoomBg.X * ML::Cos(ML::DegToRad(10.))}}} {{{Grid_Size_AdjustedClubRoomBg.Y*1.5}}}" scriptevents="1" class="quad-default {{{Scroll::C_Class_ActivationZone}}}" rot="10"/>
+	</frame>
+</framemodel>
+<framemodel id="framemodel-list-club-room">
+	<frameinstance id="frame-background" modelid="{{{ExpendableAsset::C_Name}}}" data-width="{{{List_Size_ClubRoomBg.X}}}" data-height="{{{List_Size_ClubRoomBg.Y}}}" data-styles="{{{ExpendableAsset::C_Style_EdgesRounded}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGListDarkUnfocused)}}}" data-opacity="{{{Stylesheet::C_Opacity_BGListDarkUnfocused}}}" data-halign="left" data-valign="top" z-index="0"/>
+	<quad id="quad-background" size="{{{List_Size_RoomImage.X}}} {{{List_Size_RoomImage.Y}}}" pos="{{{List_Pos_RoomImage.X}}} {{{List_Pos_RoomImage.Y}}}" image="{{{Const::C_ImageUrl_ClubActivity_Bg}}}" halign="left" valign="center" keepratio="clip" z-index="1"/>
+	<frameinstance id="control-block-list-image" modelid="{{{ControlBlockList::C_Name}}}" data-type="{{{ControlBlockList::C_Type_Quad}}}" data-size="{{{List_Size_RoomImage.X}}} {{{List_Size_RoomImage.Y}}}" pos="{{{List_Pos_RoomImage.X}}} {{{List_Pos_RoomImage.Y}}}" data-alphamask="{{{Const::C_ImageUrl_ClubActivity_Mask}}}" data-halign="left" data-valign="center" data-keepratio="clip" z-index="2" />
+	<frameinstance id="control-block-list-name" modelid="{{{ControlBlockList::C_Name}}}" data-type="{{{ControlBlockList::C_Type_Label}}}" data-size="70 {{{List_Size_ClubRoomBg.Y}}}" pos="{{{List_Pos_RoomName.X}}} {{{List_Pos_RoomName.Y}}}" data-halign="left" data-valign="center2" data-textsize="3" data-textsize-fitlabel-min="1.5" data-textsize-fitlabel-step="0.25" data-opacity="0.6" data-filter-profanities="OnlyIfNotTranslated" z-index="2" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+	<frameinstance id="control-block-list-club-name" modelid="{{{ControlBlockList::C_Name}}}" data-type="{{{ControlBlockList::C_Type_Label}}}" data-size="60 {{{List_Size_ClubRoomBg.Y}}}" pos="{{{List_Pos_ClubName.X}}} {{{List_Pos_ClubName.Y}}}" data-halign="left" data-valign="center2" data-textsize="3" data-textsize-fitlabel-min="1.5" data-textsize-fitlabel-step="0.25" data-opacity="0.6" data-filter-profanities="OnlyIfNotTranslated" z-index="2" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-text-blocked=" " />
+	<label id="label-game-mode" size="40 {{{List_Size_ClubRoomBg.Y}}}" pos="{{{List_Pos_GameMode.X}}} {{{List_Pos_GameMode.Y}}}" class="text-semibold" halign="left" textsize="3" opacity="0.6" z-index="2"/>
+	<label id="label-population" size="12 {{{List_Size_ClubRoomBg.Y}}}" pos="{{{List_Pos_Population.X}}} {{{List_Pos_Population.Y}}}" class="text-semibold" halign="right" textsize="3" opacity="0.6" z-index="2"/>
+	<quad id="quad-popularity" size="{{{List_Size_ClubRoomBg.Y-1.5}}} {{{List_Size_ClubRoomBg.Y-1.5}}}" pos="{{{List_Pos_Popularity.X}}} {{{List_Pos_Popularity.Y}}}" class="quad-default" colorize="FFF" opacity="0.6" z-index="2"/>
+	<quad id="quad-hitbox-club" size="{{{List_Size_ClubRoomBg.X}}} {{{List_Size_ClubRoomBg.Y}}}" scriptevents="1" class="{{{Scroll::C_Class_ActivationZone}}}"/>
+</framemodel>
+<framemodel id="framemodel-search-bar">
+	<frameinstance id="asset-entry-search" modelid="{{{ExpendableAsset::C_Name}}}" data-width="0." data-height="{{{Size_SearchBar.Y}}}" data-styles="{{{ExpendableAsset::C_Style_EdgesRounded}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" data-halign="left" data-opacity="0." z-index="0"/>
+	<frameinstance id="asset-entry-search-contour" modelid="{{{ExpendableAsset::C_Name}}}" data-width="0." data-height="{{{Size_SearchBar.Y}}}" data-styles="{{{ExpendableAsset::C_Style_ContourRounded}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" data-halign="left" data-opacity="0." z-index="1"/>
+	<entry id="entry-search" class="text-search" size="{{{Size_SearchBar.X - 15.}}} {{{Size_SearchBar.Y}}}" pos="10 0" halign="left" focusareacolor1="00000000" focusareacolor2="00000000" hidden="1" z-index="2"/>
+</framemodel>
+
+<!-- Frame global -->
+<frame id="frame-global">
+	<frameinstance id="frame-loading-spinner" modelid="{{{LoadingSpinner::C_Name}}}" pos="{{{MLHelpers::Skew(0., -37., 10.)}}}" data-label="{{{Text_RetrievingClubRooms}}}" z-index="3"/>
+	<label id="label-search-result" pos="{{{MLHelpers::Skew(0., -50., 10.)}}}" size="{{{ScrollConfig.WindowSize.X}}} 10" class="text-semibold" text="{{{Text_NoClubRooms}}}" textsize="4"/>
+
+	<!-- Scrolls -->
+	<frame id="frame-scrolls" pos="{{{MLHelpers::Skew(11.-MLHelpers::SkewX(ScrollConfig.HeaderHeight, 10.), 1., 10.)}}}">
+		<!-- Common title bar -->
+		<frame id="frame-common-header" pos="{{{MLHelpers::SkewX(ScrollConfig.HeaderHeight, 10.)}}} 55.2" hidden="1" z-index="10">
+			<frameinstance id="frame-search-bar" modelid="framemodel-search-bar"/>
+			<frameinstance
+				id="titlebar-common" z-index="5"
+				modelid="{{{TitleBar::C_Name}}}"
+				data-size="{{{ScrollConfig.WindowSize.X}}} 10"
+				data-tabs="{{{TL::MLEncode(C_TabNames.tojson())}}}"
+				data-actions="{{{TL::MLEncode(List_Actions.tojson())}}}"
+				data-focused="false" data-locked="true"
+				data-tabs-max-width="160"
+			/>
+		</frame>
+
+		<!-- Scroll view grid -->
+		<frame id="frame-scroll-view-grid" z-index="1">
+			<frameinstance modelid="{{{Scroll::C_Name}}}" data-scroll-parent="scroll-club-rooms-grid" z-index="1" />
+			<frame id="frame-clip-scroll-grid" clip="1" clipsizen="320 {{{ScrollConfig.WindowSize.Y}}}" clipposn="0 0">
+				<frame
+					id="scroll-club-rooms-grid"
+					pos="{{{-ScrollConfig.WindowSize.X/2 - MLHelpers::SkewX(List_Size_ClubRoomBg.Y, 10.)}}} {{{ScrollConfig.WindowSize.Y/2}}}"
+					class="{{{Scroll::C_Class_Window}}} {{{Navigation::C_Class}}}"
+					data-config="{{{TL::MLEncode(ScrollConfig.tojson())}}}"
+					data-pager-page-size="{{{Grid_ClubRoomsPerPage}}}"
+					data-elements-per-line="{{{Grid_ColumnsNb}}}"
+					data-element-size="{{{Grid_Size_ClubRoom.X}}} {{{Grid_Size_ClubRoom.Y}}}"
+					data-margin-size="{{{Grid_Size_ClubRoomMargin.X}}} {{{Grid_Size_ClubRoomMargin.Y}}}"
+					data-scroll-indicator-x-offset="{{{ScrollConfig.ScrollIndicatorXOffset + MLHelpers::SkewX(List_Size_ClubRoomBg.Y, 10.)}}}"
+					data-scrollbar-xoffset="{{{ScrollConfig.ScrollBarXOffset + MLHelpers::SkewX(List_Size_ClubRoomBg.Y, 10.)}}}"
+					data-scroll-locked="1"
+					data-nav-inputs="down"
+					data-nav-targets="button-back"
+					data-nav-group="{{{C_NavGroup_Default}}}"
+				>
+					<quad z-index="-1" scriptevents="1" class="{{{Scroll::C_Class_ScrollEvent}}}" />
+					<frame id="frame-header" class="{{{Scroll::C_Class_Header}}}" pos="{{{ScrollConfig.WindowSize.X/2 + MLHelpers::SkewX(List_Size_ClubRoomBg.Y, 10.)}}} 0">
+						{{{ScrollHeader_MLs[C_ScrollView_Grid]}}}
+					</frame>
+					{{{ML_Grid_ClubRooms}}}
+				</frame>
+			</frame>
+		</frame>
+
+		<!-- Scroll view list -->
+		<frame id="frame-scroll-view-list" z-index="1" hidden="1">
+			<frameinstance modelid="{{{Scroll::C_Name}}}" data-scroll-parent="scroll-club-rooms-list" z-index="1" />
+			<frame id="frame-clip-scroll-list" clip="1" clipsizen="320 {{{ScrollConfig.WindowSize.Y}}}" clipposn="0 0">
+				<frame
+					id="scroll-club-rooms-list"
+					pos="{{{-ScrollConfig.WindowSize.X/2}}} {{{ScrollConfig.WindowSize.Y/2}}}"
+					class="{{{Scroll::C_Class_Window}}} {{{Navigation::C_Class}}}"
+					data-config="{{{TL::MLEncode(ScrollConfig.tojson())}}}"
+					data-pager-page-size="{{{List_ClubRoomsPerPage}}}"
+					data-elements-per-line="{{{List_ColumnsNb}}}"
+					data-element-size="{{{List_Size_ClubRoom.X}}} {{{List_Size_ClubRoom.Y}}}"
+					data-margin-size="{{{List_Size_ClubRoomMargin.X}}} {{{List_Size_ClubRoomMargin.Y}}}"
+					data-scroll-locked="1"
+					data-nav-inputs="down"
+					data-nav-targets="button-back"
+					data-nav-group="{{{C_NavGroup_Default}}}"
+				>
+					<quad z-index="-1" scriptevents="1" class="{{{Scroll::C_Class_ScrollEvent}}}" />
+					<frame id="frame-header" class="{{{Scroll::C_Class_Header}}}" pos="{{{ScrollConfig.WindowSize.X/2}}} 0">
+						{{{ScrollHeader_MLs[C_ScrollView_List]}}}
+					</frame>
+					{{{ML_List_ClubRooms}}}
+				</frame>
+			</frame>
+		</frame>
+	</frame>
+
+	<!-- Footer -->
+	<frameinstance
+		id="button-back" pos="-151.5 -73" z-index="1"
+		modelid="{{{ExpendableButton::C_Name}}}"
+		class="{{{Navigation::C_Class}}}"
+		data-styles="{{{ExpendableButton::C_Style_SizeExpendable}}} {{{ExpendableButton::C_Style_AlignCenter}}} {{{ExpendableButton::C_Style_PageBack}}}"
+		data-nav-inputs="select;cancel;up;right"
+		data-nav-targets="_;_;button-arcade-grid;scroll-club-rooms-grid"
+		data-nav-group="{{{C_NavGroup_Default}}}"
+		data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+	/>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/API/ChannelAPI.Script.txt" as ChannelAPI
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ControllerInfo_ML.Script.txt" as ControllerInfo
+
+#Struct K_ScrollView {
+	CMlEntry Entry_Search;
+	CMlFrame Asset_EntrySearch;
+	CMlFrame Asset_EntrySearchContour;
+	CMlFrame Button_ArcadeChannel;
+	CMlFrame Button_WeeklyChannel;
+	CMlFrame Button_LiveCampaign;
+	CMlFrame Frame_ClampedControls;
+	CMlFrame Frame_CommonHeader;
+	CMlFrame Frame_ScrollView_Grid;
+	CMlFrame Frame_ScrollView_List;
+	CMlFrame Frame_FeaturedRoomsTitle;
+	CMlFrame Scroll_ClubRooms;
+	CMlFrame TitleBar_Common;
+	CMlFrame TitleBar_Current;
+	CMlFrame TitleBar_Grid;
+	CMlFrame TitleBar_List;
+	Text CurrentLayout;
+}
+
+#Const C_ScrollView_Grid {{{dump(C_ScrollView_Grid)}}}
+#Const C_ScrollView_List {{{dump(C_ScrollView_List)}}}
+
+#Const C_Season_Names {{{dump(Const::C_Season_Names)}}}
+
+#Const C_ImageUrls_PopularityLevel {{{dump(Icons::C_Icons_128x128_PopularityLevel)}}}
+#Const C_ImageUrls_Campaign_Background {{{dump(C_ImageUrls_Campaign_Background)}}}
+#Const C_ImageUrls_Campaign_Foreground {{{dump(C_ImageUrls_Campaign_Foreground)}}}
+""",
+"""
+declare {{{TitleBar::P}}}K_Actions[Integer] G_Actions_Grid;
+declare {{{TitleBar::P}}}K_Actions[Integer] G_Actions_List;
+
+Void Loading(K_ScrollView _ScrollView, CMlFrame _Frame_LoadingSpinner, CMlLabel _Label_SearchResult) {
+	_Label_SearchResult.Hide();
+	{{{LoadingSpinner::P}}}StartAnimation(This, _Frame_LoadingSpinner);
+	{{{Scroll::P}}}SetElementsTotal(This, _ScrollView.Scroll_ClubRooms, 0);
+}
+
+Void LockNavigation(K_ScrollView _ScrollView, Boolean _IsLocked) {
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroup_Default}}}", !_IsLocked);
+	{{{Navigation::P}}}Lock(_ScrollView.Button_LiveCampaign, _IsLocked);
+	{{{Navigation::P}}}Lock(_ScrollView.Button_WeeklyChannel, _IsLocked);
+	{{{Navigation::P}}}Lock(_ScrollView.Button_ArcadeChannel, _IsLocked);
+	{{{TitleBar::P}}}LockNavigation(_ScrollView.TitleBar_Current, _IsLocked);
+	{{{Scroll::P}}}LockNavigation(_ScrollView.Scroll_ClubRooms, _IsLocked);
+}
+
+Void ShowClubRoom(CMlFrame _Frame_ClubRoom, {{{ClubStruct::P}}}K_Room _Room, Text _ScrollViewLayout) {
+	declare CMlFrame ControlBlockList_RoomName <=> (_Frame_ClubRoom.GetFirstChild("control-block-list-name") as CMlFrame);
+	declare CMlFrame ControlBlockList_RoomImage <=> (_Frame_ClubRoom.GetFirstChild("control-block-list-image") as CMlFrame);
+
+	// Common
+	_Frame_ClubRoom.Visible = True;
+	{{{ControlBlockList::P}}}SetOwnersAndTextValue(This, ControlBlockList_RoomName, [_Room.CreatorAccountId, _Room.LatestEditorAccountId], _Room.Name);
+	if (_Room.MediaUrl != "") {
+		{{{ControlBlockList::P}}}SetOwnersAndImageUrl(This, ControlBlockList_RoomImage, [_Room.CreatorAccountId, _Room.LatestEditorAccountId], _Room.MediaUrl);
+	} else {
+		{{{ControlBlockList::P}}}SetOwnersAndImageUrl(This, ControlBlockList_RoomImage, [], "{{{Const::C_ImageUrl_ClubActivity_Default}}}");
+	}
+	if ({{{ControlBlockList::P}}}IsBlocked(This, [_Room.CreatorAccountId, _Room.LatestEditorAccountId])) {
+		{{{MenuSounds::P}}}SetCustomSelectSound(_Frame_ClubRoom, {{{MenuSounds::P}}}C_Sound_SelectError);
+	} else {
+		{{{MenuSounds::P}}}SetCustomSelectSound(_Frame_ClubRoom, {{{MenuSounds::P}}}C_Sound_Select);
+	}
+
+	switch (_ScrollViewLayout) {
+		case C_ScrollView_List: {
+			declare CMlQuad Quad_Popularity <=> (_Frame_ClubRoom.GetFirstChild("quad-popularity") as CMlQuad);
+			declare CMlFrame ControlBlockList_ClubName <=> (_Frame_ClubRoom.GetFirstChild("control-block-list-club-name") as CMlFrame);
+			declare CMlLabel Label_GameMode <=> (_Frame_ClubRoom.GetFirstChild("label-game-mode") as CMlLabel);
+			declare CMlLabel Label_Population <=> (_Frame_ClubRoom.GetFirstChild("label-population") as CMlLabel);
+
+			{{{ControlBlockList::P}}}SetOwnersAndTextValue(This, ControlBlockList_ClubName, [_Room.CreatorAccountId, _Room.LatestEditorAccountId], _Room.ClubName);
+			Label_GameMode.SetText(Tools::GetScriptName(_Room.ScriptName, "{{{Const::C_BaseScriptName}}}", "{{{Const::C_BaseScriptName_ToReplace}}}", {{{dump(Const::C_ModeNames_ScriptNames)}}}));
+			if (_Room.ServerInfo.PlayerCount > 0) {
+				Label_Population.SetText(""^_Room.ServerInfo.PlayerCount);
+				if (!_Room.IsHostedByNadeo && !_Room.Scalable && _Room.MaxPlayers != 0) {
+					Label_Population.SetText(Label_Population.Value^"/"^_Room.MaxPlayers);
+				}
+			} else {
+				Label_Population.SetText("");
+			}
+			Quad_Popularity.Show();
+			Quad_Popularity.ChangeImageUrl(C_ImageUrls_PopularityLevel.get(_Room.PopularityLevel, ""));
+			Tools::FitLabelValue(Label_GameMode, 3., 1., 0.25);
+			Tools::FitLabelValue(Label_Population, 3., 1., 0.25);
+		}
+	}
+}
+
+Void ShowClubRoomLoading(CMlFrame _Frame_ClubRoom, Text _ScrollViewLayout) {
+	declare CMlFrame ControlBlockList_RoomName <=> (_Frame_ClubRoom.GetFirstChild("control-block-list-name") as CMlFrame);
+	declare CMlFrame ControlBlockList_RoomImage <=> (_Frame_ClubRoom.GetFirstChild("control-block-list-image") as CMlFrame);
+
+	// Common
+	{{{ControlBlockList::P}}}SetOwnersAndTextValue(This, ControlBlockList_RoomName, [], "{{{Text_Retrieving}}}");
+	{{{ControlBlockList::P}}}SetOwnersAndImageUrl(This, ControlBlockList_RoomImage, [], "{{{Const::C_ImageUrl_ClubActivity_Default}}}");
+	{{{MenuSounds::P}}}SetCustomSelectSound(_Frame_ClubRoom, {{{MenuSounds::P}}}C_Sound_SelectError);
+
+	switch (_ScrollViewLayout) {
+		case C_ScrollView_List: {
+			declare CMlQuad Quad_Popularity <=> (_Frame_ClubRoom.GetFirstChild("quad-popularity") as CMlQuad);
+			declare CMlFrame ControlBlockList_ClubName <=> (_Frame_ClubRoom.GetFirstChild("control-block-list-club-name") as CMlFrame);
+			declare CMlLabel Label_GameMode <=> (_Frame_ClubRoom.GetFirstChild("label-game-mode") as CMlLabel);
+			declare CMlLabel Label_Population <=> (_Frame_ClubRoom.GetFirstChild("label-population") as CMlLabel);
+
+			{{{ControlBlockList::P}}}SetOwnersAndTextValue(This, ControlBlockList_ClubName, [], "");
+			Label_GameMode.SetText("");
+			Label_Population.SetText("");
+			Quad_Popularity.Visible = False;
+		}
+	}
+}
+
+Void HideClubRoom(CMlFrame _Frame_ClubRoom) {
+	_Frame_ClubRoom.Visible = False;
+}
+
+Void FocusClubRoom(CMlFrame _Frame_ClubRoom, Text _ScrollViewLayout, Boolean _Focused, Boolean _IsAnimated) {
+	if (_Frame_ClubRoom == Null) return;
+	declare CMlFrame ControlBlockList_RoomName <=> (_Frame_ClubRoom.GetFirstChild("control-block-list-name") as CMlFrame);
+	declare Integer AnimDuration = Tools::Ternary(_IsAnimated, 250, 0);
+
+	switch (_ScrollViewLayout) {
+		case C_ScrollView_Grid: {
+			declare CMlQuad Quad_Contour <=> (_Frame_ClubRoom.GetFirstChild("quad-contour") as CMlQuad);
+			declare CMlQuad Quad_Gradient <=> (_Frame_ClubRoom.GetFirstChild("quad-gradient") as CMlQuad);
+
+			AnimMgr.Flush(Quad_Contour);
+			AnimMgr.Flush(Quad_Gradient);
+			if (_Focused) {
+				{{{ControlBlockList::P}}}SetOpacity(This, ControlBlockList_RoomName, 1., AnimDuration);
+				AnimMgr.Add(Quad_Contour, "<anim opacity=\"1.\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+				AnimMgr.Add(Quad_Gradient, "<anim opacity=\"0.4\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+			} else {
+				{{{ControlBlockList::P}}}SetOpacity(This, ControlBlockList_RoomName, 0.7, AnimDuration);
+				AnimMgr.Add(Quad_Contour, "<anim opacity=\"0.\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+				AnimMgr.Add(Quad_Gradient, "<anim opacity=\"0.7\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+			}
+		}
+		case C_ScrollView_List: {
+			declare CMlFrame Frame_Background <=> (_Frame_ClubRoom.GetFirstChild("frame-background") as CMlFrame);
+			declare CMlQuad Quad_Popularity <=> (_Frame_ClubRoom.GetFirstChild("quad-popularity") as CMlQuad);
+			declare CMlFrame ControlBlockList_ClubName <=> (_Frame_ClubRoom.GetFirstChild("control-block-list-club-name") as CMlFrame);
+			declare CMlLabel Label_GameMode <=> (_Frame_ClubRoom.GetFirstChild("label-game-mode") as CMlLabel);
+			declare CMlLabel Label_Population <=> (_Frame_ClubRoom.GetFirstChild("label-population") as CMlLabel);
+
+			AnimMgr.Flush(Label_GameMode);
+			AnimMgr.Flush(Label_Population);
+			AnimMgr.Flush(Quad_Popularity);
+			if (_Focused) {
+				{{{ControlBlockList::P}}}SetOpacity(This, ControlBlockList_ClubName, 1., AnimDuration);
+				{{{ControlBlockList::P}}}SetOpacity(This, ControlBlockList_RoomName, 1., AnimDuration);
+				AnimMgr.Add(Label_GameMode, "<anim opacity=\"1.\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+				AnimMgr.Add(Label_Population, "<anim opacity=\"1.\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+				AnimMgr.Add(Quad_Popularity, "<anim opacity=\"1.\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+				{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Background, {{{Stylesheet::C_Opacity_BGListDarkFocused}}}, False);
+				{{{ExpendableAsset::P}}}SetColor(This, Frame_Background, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_BGListDarkFocused)}}}, False);
+				{{{ExpendableAsset::P}}}RedrawAsset(This, Frame_Background, _IsAnimated);
+			} else {
+				{{{ControlBlockList::P}}}SetOpacity(This, ControlBlockList_ClubName, 0.6, AnimDuration);
+				{{{ControlBlockList::P}}}SetOpacity(This, ControlBlockList_RoomName, 0.6, AnimDuration);
+				AnimMgr.Add(Label_GameMode, "<anim opacity=\"0.6\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+				AnimMgr.Add(Label_Population, "<anim opacity=\"0.6\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+				AnimMgr.Add(Quad_Popularity, "<anim opacity=\"0.6\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+				{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Background, {{{Stylesheet::C_Opacity_BGListDarkUnfocused}}}, False);
+				{{{ExpendableAsset::P}}}SetColor(This, Frame_Background, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_BGListDarkUnfocused)}}}, False);
+				{{{ExpendableAsset::P}}}RedrawAsset(This, Frame_Background, _IsAnimated);
+			}
+		}
+	}
+
+	// Text to speech
+	if (_Focused) {
+		{{{ControlBlockList::P}}}TTS_Focus(ControlBlockList_RoomName);
+	} else {
+		{{{ControlBlockList::P}}}TTS_Unfocus(ControlBlockList_RoomName);
+	}
+}
+
+Void UnfocusClubRoom(CMlFrame _Frame_ClubRoomRoom, Text _ScrollViewLayout, Boolean _IsAnimated) {
+	FocusClubRoom(_Frame_ClubRoomRoom, _ScrollViewLayout, False, _IsAnimated);
+}
+
+Void FocusHeaderButton(CMlFrame _Frame_HeaderButton, Boolean _Focused) {
+	if (_Frame_HeaderButton == Null) return;
+	declare CMlFrame ControlBlockList_RoomName <=> (_Frame_HeaderButton.GetFirstChild("control-block-list-name") as CMlFrame);
+	declare CMlQuad Quad_Contour <=> (_Frame_HeaderButton.GetFirstChild("quad-contour") as CMlQuad);
+	declare CMlQuad Quad_Gradient <=> (_Frame_HeaderButton.GetFirstChild("quad-gradient") as CMlQuad);
+
+	AnimMgr.Flush(Quad_Contour);
+	AnimMgr.Flush(Quad_Gradient);
+	if (_Focused) {
+		{{{ControlBlockList::P}}}SetOpacity(This, ControlBlockList_RoomName, 1., 250);
+		AnimMgr.Add(Quad_Contour, "<anim opacity=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Quad_Gradient, "<anim opacity=\"0.4\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		{{{ControlBlockList::P}}}SetOpacity(This, ControlBlockList_RoomName, 0.8, 250);
+		AnimMgr.Add(Quad_Contour, "<anim opacity=\"0.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Quad_Gradient, "<anim opacity=\"0.7\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	// Text to speech
+	if (_Focused) {
+		{{{ControlBlockList::P}}}TTS_Focus(ControlBlockList_RoomName);
+	} else {
+		{{{ControlBlockList::P}}}TTS_Unfocus(ControlBlockList_RoomName);
+	}
+}
+
+Void Focus(CMlControl _From, CMlControl _To, K_ScrollView _ScrollView) {
+	if ({{{Transition::P}}}IsInTransition(This)) return;
+	declare Boolean IsClubRoomsFocused = _To != Null && ({{{Scroll::P}}}IsScroll(_To) || _To.ControlId == "button-back");
+
+	if ({{{TitleBar::P}}}IsFocused(_ScrollView.TitleBar_Common) != IsClubRoomsFocused) {
+		{{{TitleBar::P}}}Focus(_ScrollView.TitleBar_Common, IsClubRoomsFocused);
+		{{{TitleBar::P}}}Focus(_ScrollView.TitleBar_Grid, IsClubRoomsFocused);
+		{{{TitleBar::P}}}Focus(_ScrollView.TitleBar_List, IsClubRoomsFocused);
+	}
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{Scroll::P}}}IsScroll(_From)) {
+			{{{Scroll::P}}}Unfocus(This, (_From as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_From)) {
+			{{{ExpendableButton::P}}}Unfocus(This, (_From as CMlFrame));
+		} else if (_From.HasClass("{{{C_Class_HeaderButton}}}")) {
+			FocusHeaderButton(_From as CMlFrame, False);
+		}
+
+		if (_From.HasClass("{{{C_Class_Featured}}}") || _From.ControlId == "button-back") {
+			{{{ExpendableButton::P}}}Unfocus(This, _ScrollView.Frame_FeaturedRoomsTitle);
+		}
+
+		if (_To != Null && {{{Scroll::P}}}IsScroll(_To) && !{{{Scroll::P}}}IsScroll(_From) && _From.ControlId != "button-back") {
+			declare CMlControl ControlToFocus for _To;
+			ControlToFocus = _From;
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{Scroll::P}}}IsScroll(_To)) {
+			{{{Scroll::P}}}Focus(This, (_To as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_To)) {
+			{{{ExpendableButton::P}}}Focus(This, (_To as CMlFrame));
+		} else if (_To.HasClass("{{{C_Class_HeaderButton}}}")) {
+			FocusHeaderButton(_To as CMlFrame, True);
+			if (_From != Null && _From.ControlId == "button-back") {
+				{{{Scroll::P}}}ScrollToHeader(This, _ScrollView.Scroll_ClubRooms);
+				{{{Scroll::P}}}SetFocusedElementKey(This, _ScrollView.Scroll_ClubRooms, 0, False, False);
+			}
+		}
+
+		if (_To.HasClass("{{{C_Class_Featured}}}") || _To.ControlId == "button-back") {
+			{{{ExpendableButton::P}}}Focus(This, _ScrollView.Frame_FeaturedRoomsTitle);
+		}
+	}
+}
+
+Void FocusAvailableControl(K_ScrollView _ScrollView, CMlFrame _Button_Back) {
+	if (!{{{Navigation::P}}}IsLocked(_ScrollView.Button_ArcadeChannel)) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), _ScrollView.Button_ArcadeChannel, _ScrollView);
+	} else if (!{{{Navigation::P}}}IsLocked(_ScrollView.Button_WeeklyChannel)) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), _ScrollView.Button_WeeklyChannel, _ScrollView);
+	} else if (!{{{Navigation::P}}}IsLocked(_ScrollView.Button_LiveCampaign)) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), _ScrollView.Button_LiveCampaign, _ScrollView);
+	} else if ({{{Scroll::P}}}GetElementsTotal(_ScrollView.Scroll_ClubRooms) > 0) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), _ScrollView.Scroll_ClubRooms, _ScrollView);
+	} else if (!{{{Navigation::P}}}IsLocked(_Button_Back)) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), _Button_Back, _ScrollView);
+	}
+}
+
+Void UpdateSearchPos(CMlFrame _TitleBar_Current, CMlFrame _Frame_SearchBar, Boolean _IsAnimated) {
+	declare Vec2 Pos_SearchBar = {{{TitleBar::P}}}GetActionButtonPosition(_TitleBar_Current, {{{TitleBar::P}}}C_Action_Second) - <5.5, 0.>;
+
+	AnimMgr.Flush(_Frame_SearchBar);
+	if (_IsAnimated) {
+		AnimMgr.Add(_Frame_SearchBar, "<anim pos=\""^Pos_SearchBar.X^" "^Pos_SearchBar.Y^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		_Frame_SearchBar.RelativePosition_V3 = Pos_SearchBar;
+	}
+}
+
+Void FocusSearch(K_ScrollView _ScrollView, Boolean _Focused) {
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroup_Default}}}", !_Focused);
+	{{{Scroll::P}}}LockNavigation(_ScrollView.Scroll_ClubRooms, _Focused);
+
+	if (_Focused) {
+		{{{ExpendableAsset::P}}}SetColor(This, _ScrollView.Asset_EntrySearchContour, <1., 1., 1.>);
+	} else {
+		{{{ExpendableAsset::P}}}SetColor(This, _ScrollView.Asset_EntrySearchContour, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}});
+	}
+}
+
+Void DisplaySearch(K_ScrollView _ScrollView, Text _EntryText, Boolean _IsSearchButton, Boolean _Visible, Boolean _IsAnimated) {
+	declare {{{TitleBar::P}}}K_Actions[Integer] Actions;
+	switch (_ScrollView.CurrentLayout) {
+		case C_ScrollView_List: Actions = G_Actions_List;
+		case C_ScrollView_Grid: Actions = G_Actions_Grid;
+	}
+
+	// Update search background
+	if (_Visible) {
+		{{{ExpendableAsset::P}}}SetWidth(This, _ScrollView.Asset_EntrySearch, {{{Size_SearchBar.X}}}, False);
+		{{{ExpendableAsset::P}}}SetWidth(This, _ScrollView.Asset_EntrySearchContour, {{{Size_SearchBar.X}}}, False);
+		{{{ExpendableAsset::P}}}SetOpacity(This, _ScrollView.Asset_EntrySearch, 1., False);
+		{{{ExpendableAsset::P}}}SetOpacity(This, _ScrollView.Asset_EntrySearchContour, 1., False);
+		Actions[{{{TitleBar::P}}}C_Action_Second].ActionMargin = {{{Size_SearchBar.X}}} - 10.;
+		Actions[{{{TitleBar::P}}}C_Action_First].IconMargin = 2.;
+	} else {
+		{{{ExpendableAsset::P}}}SetWidth(This, _ScrollView.Asset_EntrySearch, 0., False);
+		{{{ExpendableAsset::P}}}SetWidth(This, _ScrollView.Asset_EntrySearchContour, 0., False);
+		{{{ExpendableAsset::P}}}SetOpacity(This, _ScrollView.Asset_EntrySearch, 0., False);
+		{{{ExpendableAsset::P}}}SetOpacity(This, _ScrollView.Asset_EntrySearchContour, 0., False);
+	}
+	{{{ExpendableAsset::P}}}RedrawAsset(This, _ScrollView.Asset_EntrySearch, _IsAnimated);
+	{{{ExpendableAsset::P}}}RedrawAsset(This, _ScrollView.Asset_EntrySearchContour, _IsAnimated);
+	{{{TitleBar::P}}}SetActions(_ScrollView.TitleBar_Current, Actions, False);
+	{{{TitleBar::P}}}RedrawTitleBar(_ScrollView.TitleBar_Current, _IsAnimated);
+
+	// Update entry
+	_ScrollView.Entry_Search.Visible = _Visible;
+	_ScrollView.Entry_Search.Value = _EntryText;
+	if (_IsSearchButton && _ScrollView.Entry_Search.Visible) {
+		_ScrollView.Entry_Search.StartEdition();
+		FocusSearch(_ScrollView, _Visible);
+	}
+}
+
+Void Select(CMlControl _Control, Text _ScrollViewLayout) {
+	if (_Control == Null || {{{Transition::P}}}IsInTransition(This)) return;
+
+	switch (_Control.ControlId) {
+		case "button-back": {{{Router::P}}}PushParent(This);
+		case "button-arcade-"^_ScrollViewLayout: {
+			{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroup_Default}}}", False);
+			{{{Router::P}}}Push(This, "{{{RoutePaths::C_Path_ArcadeChannel}}}", True);
+		}
+		case "button-weekly-"^_ScrollViewLayout: {
+			{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroup_Default}}}", False);
+			declare {{{ClubStruct::P}}}K_Room Room = {{{ClubStruct::P}}}K_Room { CampaignId = {{{CampaignStore::P}}}GetLiveWeeklyShortsCampaign().Id };
+			{{{Router::P}}}SetParentPath(This, "{{{RoutePaths::C_Path_RoomMapListDisplay}}}", "{{{RoutePaths::C_Path_Arcade}}}");
+			{{{Router::P}}}Push(
+				This,
+				"{{{RoutePaths::C_Path_RoomMapListDisplay}}}",
+				[
+					"{{{Router::C_Query_DisablePrivilege}}}" => "{{{Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::PlayMultiplayerModeWithUGC])}}}",
+					"{{{Router::C_Query_EnablePrivilege}}}" => "{{{Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::PlayMultiplayerMode])}}}",
+					"{{{RoutePaths::C_Query_Room}}}" => ""^Room.tojson()
+				],
+				True
+			);
+		}
+		case "button-live-campaign-"^_ScrollViewLayout: {
+			{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroup_Default}}}", False);
+			{{{Router::P}}}SetParentPath(This, "{{{RoutePaths::C_Path_RoomCampaignDisplay}}}", "{{{RoutePaths::C_Path_Arcade}}}");
+			{{{Router::P}}}Push(
+				This,
+				"{{{RoutePaths::C_Path_RoomCampaignDisplay}}}",
+				[
+					"{{{Router::C_Query_DisablePrivilege}}}" => "{{{Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::PlayMultiplayerModeWithUGC])}}}",
+					"{{{Router::C_Query_EnablePrivilege}}}" => "{{{Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::PlayMultiplayerMode])}}}",
+					"{{{RoutePaths::C_Query_IsArcadeLiveCampaignRoom}}}" => ""
+				],
+				True
+			);
+		}
+	}
+}
+
+Void UpdateQuarterlyCampaign(CMlFrame _Frame_Global, Boolean _IsEnteringRoute) {
+	declare Status = {{{CampaignStore::P}}}GetLiveQuarterlyCampaignStatus();
+
+	if (Status == {{{CampaignStore::P}}}C_LiveCampaignStatus_Loaded || Status == {{{CampaignStore::P}}}C_LiveCampaignStatus_NoCampaigns) {
+		declare {{{CampaignStruct::P}}}K_Campaign LiveCampaign = {{{CampaignStore::P}}}GetLiveQuarterlyCampaign();
+
+		// Update quarterly buttons
+		foreach (Layout in [C_ScrollView_Grid, C_ScrollView_List]) {
+			declare CMlFrame Button_LiveCampaign = (_Frame_Global.GetFirstChild("button-live-campaign-"^Layout) as CMlFrame);
+			declare CMlFrame ControlBlockList_RoomName <=> (Button_LiveCampaign.GetFirstChild("control-block-list-name") as CMlFrame);
+			declare CMlFrame ControlBlockList_RoomImage <=> (Button_LiveCampaign.GetFirstChild("control-block-list-image") as CMlFrame);
+			declare CMlQuad Quad_Foreground <=> (Button_LiveCampaign.GetFirstChild("quad-foreground") as CMlQuad);
+
+			declare {{{CampaignStruct::P}}}K_CampaignName CampaignName = {{{CampaignStruct::P}}}ParseCampaignName(LiveCampaign.Name);
+			if (CampaignName.IsValid) {
+				{{{ControlBlockList::P}}}SetTextValue(This, ControlBlockList_RoomName, CampaignName.TranslatedName, False);
+				{{{ControlBlockList::P}}}SetTTSAltText(This, ControlBlockList_RoomName, TL::Compose("%1 %2 %3", "{{{Text_Campaign}}}", C_Season_Names.get(CampaignName.Season, ""), CampaignName.Year), False);
+			} else {
+				{{{ControlBlockList::P}}}SetTextValue(This, ControlBlockList_RoomName, LiveCampaign.Name, False);
+				{{{ControlBlockList::P}}}SetTTSAltText(This, ControlBlockList_RoomName, TL::Compose("%1 %2", "{{{Text_Campaign}}}", LiveCampaign.Name), False);
+			}
+			{{{ControlBlockList::P}}}SetOwners(This, ControlBlockList_RoomName, [], False);
+			{{{ControlBlockList::P}}}Redraw(This, ControlBlockList_RoomName);
+
+			declare Text MediaActiveBackgroundImageUrl = {{{CampaignStore::P}}}GetMediaActive({{{CampaignStore::P}}}C_CampaignMediaType_LiveArcadeSeasonBackground).Url;
+			declare Text MediaActiveForegroundImageUrl = {{{CampaignStore::P}}}GetMediaActive({{{CampaignStore::P}}}C_CampaignMediaType_LiveArcadeSeasonForeground).Url;
+			declare Text CampaignBackgroundImageUrl = C_ImageUrls_Campaign_Background.get(CampaignName.Season, "");
+			declare Text CampaignForegroundImageUrl = C_ImageUrls_Campaign_Foreground.get(CampaignName.Season, "");
+
+			declare Text ButtonBackgroundImageUrl;
+			if (MediaActiveBackgroundImageUrl != "") {
+				ButtonBackgroundImageUrl = MediaActiveBackgroundImageUrl;
+				Quad_Foreground.ImageUrl = MediaActiveForegroundImageUrl;
+			} else if (LiveCampaign.Media.ButtonBackgroundUrl != "") {
+				ButtonBackgroundImageUrl = LiveCampaign.Media.ButtonBackgroundUrl;
+				Quad_Foreground.ImageUrl = LiveCampaign.Media.ButtonForegroundUrl;
+			} else if (CampaignBackgroundImageUrl != "") {
+				ButtonBackgroundImageUrl = CampaignBackgroundImageUrl;
+				Quad_Foreground.ImageUrl = CampaignForegroundImageUrl;
+			} else {
+				ButtonBackgroundImageUrl = "";
+				Quad_Foreground.ImageUrl = "";
+			}
+
+			{{{ControlBlockList::P}}}SetOwnersAndImageUrl(This, ControlBlockList_RoomImage, [], ButtonBackgroundImageUrl);
+			ControlBlockList_RoomImage.Visible = (ButtonBackgroundImageUrl != "");
+			Quad_Foreground.Visible = (Quad_Foreground.ImageUrl != "");
+		}
+	}
+	// Request loading only when entering the route. Otherwise it creates a loop where we try
+	// to load the campaign each frame because `Action_LoadLiveQuarterlyCampaign()` triggers
+	// a `C_Event_LiveQuarterlyCampaignUpdated` event.
+	else if (_IsEnteringRoute) {
+		{{{CampaignStore::P}}}Action_LoadLiveQuarterlyCampaign(This);
+	}
+}
+
+Void UpdateWeeklyShortsCampaign(CMlFrame _Frame_Global, Boolean _IsEnteringRoute) {
+	declare Status = {{{CampaignStore::P}}}GetLiveWeeklyShortsCampaignStatus();
+
+	if (Status == {{{CampaignStore::P}}}C_LiveCampaignStatus_Loaded || Status == {{{CampaignStore::P}}}C_LiveCampaignStatus_NoCampaigns) {
+		declare {{{CampaignStruct::P}}}K_Campaign WeeklyShortsCampaign = {{{CampaignStore::P}}}GetLiveWeeklyShortsCampaign();
+
+		// Update weekly shorts buttons
+		foreach (Layout in [C_ScrollView_Grid, C_ScrollView_List]) {
+			declare CMlFrame Button_Weekly = (_Frame_Global.GetFirstChild("button-weekly-"^Layout) as CMlFrame);
+			declare CMlFrame ControlBlockList_RoomName <=> (Button_Weekly.GetFirstChild("control-block-list-name") as CMlFrame);
+			declare CMlFrame ControlBlockList_RoomImage <=> (Button_Weekly.GetFirstChild("control-block-list-image") as CMlFrame);
+
+			{{{ControlBlockList::P}}}SetOwnersAndTextValue(This, ControlBlockList_RoomName, [], WeeklyShortsCampaign.Name);
+
+			declare Text MediaActiveImageUrl = {{{CampaignStore::P}}}GetMediaActive({{{CampaignStore::P}}}C_CampaignMediaType_LiveArcadeShorts).Url;
+
+			declare Text ButtonBackgroundImageUrl;
+			if (MediaActiveImageUrl != "") {
+				ButtonBackgroundImageUrl = MediaActiveImageUrl;
+			} else if (WeeklyShortsCampaign.Media.ButtonBackgroundUrl != "") {
+				ButtonBackgroundImageUrl = WeeklyShortsCampaign.Media.ButtonBackgroundUrl;
+			} else {
+				ButtonBackgroundImageUrl = "{{{Const::C_ImageUrl_Live_Arcade_WeeklyShorts}}}";
+			}
+
+			{{{ControlBlockList::P}}}SetOwnersAndImageUrl(This, ControlBlockList_RoomImage, [], ButtonBackgroundImageUrl);
+			ControlBlockList_RoomImage.Visible = (ButtonBackgroundImageUrl != "");
+		}
+	}
+	// Request loading only when entering the route. Otherwise it creates a loop where we try
+	// to load the campaign each frame because `Action_LoadLiveWeeklyShortsCampaign()` triggers
+	// a `C_Event_LiveWeeklyShortsCampaignUpdated` event.
+	else if (_IsEnteringRoute) {
+		{{{CampaignStore::P}}}Action_LoadLiveWeeklyShortsCampaign(This);
+	}
+}
+
+K_ScrollView UpdateScrollViewControls(K_ScrollView _ScrollView, CMlFrame _Frame_Global, CMlFrame _Button_Back) {
+	declare K_ScrollView ScrollView = _ScrollView;
+
+	ScrollView.Scroll_ClubRooms <=> (_Frame_Global.GetFirstChild("scroll-club-rooms-"^ScrollView.CurrentLayout) as CMlFrame);
+	ScrollView.Frame_ClampedControls = (_Frame_Global.GetFirstChild("frame-clamped-controls-"^ScrollView.CurrentLayout) as CMlFrame);
+	ScrollView.Frame_FeaturedRoomsTitle <=> (_Frame_Global.GetFirstChild("frame-featured-rooms-title-"^ScrollView.CurrentLayout) as CMlFrame);
+	ScrollView.Button_ArcadeChannel <=> (ScrollView.Scroll_ClubRooms.GetFirstChild("button-arcade-"^ScrollView.CurrentLayout) as CMlFrame);
+	ScrollView.Button_WeeklyChannel <=> (ScrollView.Scroll_ClubRooms.GetFirstChild("button-weekly-"^ScrollView.CurrentLayout) as CMlFrame);
+	ScrollView.Button_LiveCampaign <=> (ScrollView.Scroll_ClubRooms.GetFirstChild("button-live-campaign-"^ScrollView.CurrentLayout) as CMlFrame);
+	ScrollView.TitleBar_Current <=> (ScrollView.Scroll_ClubRooms.GetFirstChild("titlebar-"^ScrollView.CurrentLayout) as CMlFrame);
+	if (!ScrollView.TitleBar_Current.Visible) ScrollView.TitleBar_Current <=> ScrollView.TitleBar_Common;
+	ScrollView.Entry_Search <=> (ScrollView.TitleBar_Current.Parent.GetFirstChild("entry-search") as CMlEntry);
+	ScrollView.Asset_EntrySearch <=> (ScrollView.TitleBar_Current.Parent.GetFirstChild("asset-entry-search") as CMlFrame);
+	ScrollView.Asset_EntrySearchContour <=> (ScrollView.TitleBar_Current.Parent.GetFirstChild("asset-entry-search-contour") as CMlFrame);
+
+	// Update navigation for the back Button
+	{{{Navigation::P}}}ChangeControlTargets(This, _Button_Back, ["up", "right"], ["button-arcade-"^ScrollView.CurrentLayout, ScrollView.Scroll_ClubRooms.ControlId]);
+
+	return ScrollView;
+}
+
+K_ScrollView UpdateTitleBars(K_ScrollView _ScrollView, CMlFrame _Frame_Global, CMlFrame _Button_Back, Text _EntryText, Boolean _IsSearchBarVisible, Boolean _IsCurrentTitleBarClamped) {
+	declare K_ScrollView ScrollView = _ScrollView;
+
+	ScrollView.Frame_CommonHeader.Visible = _IsCurrentTitleBarClamped;
+	foreach (Layout in [C_ScrollView_Grid, C_ScrollView_List]) {
+		declare CMlFrame Frame_ClipScroll <=> (_Frame_Global.GetFirstChild("frame-clip-scroll-"^Layout) as CMlFrame);
+		declare CMlFrame TitleBar_Current <=> (_Frame_Global.GetFirstChild("titlebar-"^Layout) as CMlFrame);
+		declare CMlFrame Scroll_ClubRooms <=> (_Frame_Global.GetFirstChild("scroll-club-rooms-"^Layout) as CMlFrame);
+
+		if (_IsCurrentTitleBarClamped) {
+			Scroll_ClubRooms.RelativePosition_V3.Y = {{{ScrollConfig.WindowSize.Y/2 + 12.}}};
+			Frame_ClipScroll.RelativePosition_V3.Y = -12.;
+			TitleBar_Current.Hide();
+		} else {
+			Scroll_ClubRooms.RelativePosition_V3.Y = {{{ScrollConfig.WindowSize.Y/2}}};
+			Frame_ClipScroll.RelativePosition_V3.Y = 0.;
+			TitleBar_Current.Show();
+		}
+	}
+
+	{{{TitleBar::P}}}LockNavigation(ScrollView.TitleBar_Current, True); //< Lock previous title bar
+	ScrollView = UpdateScrollViewControls(ScrollView, _Frame_Global, _Button_Back);
+	DisplaySearch(ScrollView, _EntryText, False, _IsSearchBarVisible, False);
+	UpdateSearchPos(ScrollView.TitleBar_Current, ScrollView.Entry_Search.Parent, False);
+	{{{TitleBar::P}}}LockNavigation(ScrollView.TitleBar_Current, False); //< Unlock the current title bar
+
+	return ScrollView;
+}
+
+K_ScrollView SwitchScrollViewLayout(K_ScrollView _ScrollView, CMlFrame _Frame_Global, CMlFrame _Button_Back) {
+	declare K_ScrollView ScrollView = _ScrollView;
+	declare CMlControl FocusedControl = {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}");
+	declare CMlControl ControlToFocus for ScrollView.Scroll_ClubRooms;
+	declare Integer ScrollViewElementKey = {{{Scroll::P}}}GetFocusedElementKey(ScrollView.Scroll_ClubRooms);
+	declare Vec2 ScrollOffset = ScrollView.Scroll_ClubRooms.ScrollOffset;
+	declare Boolean IsSearchBarVisible = {{{ExpendableAsset::P}}}GetOpacity(ScrollView.Asset_EntrySearch) >= 1.;
+	declare Text EntryText = ScrollView.Entry_Search.Value;
+
+	// Lock previous scroll view
+	LockNavigation(ScrollView, True);
+
+	// Switch between ScrollView layouts
+	switch (ScrollView.CurrentLayout) {
+		case C_ScrollView_List: ScrollView.CurrentLayout = C_ScrollView_Grid;
+		case C_ScrollView_Grid: ScrollView.CurrentLayout = C_ScrollView_List;
+	}
+	ScrollView.Frame_ScrollView_Grid.Visible = ScrollView.CurrentLayout == C_ScrollView_Grid;
+	ScrollView.Frame_ScrollView_List.Visible = ScrollView.CurrentLayout == C_ScrollView_List;
+	ScrollView = UpdateScrollViewControls(ScrollView, _Frame_Global, _Button_Back);
+
+	// Unlock current scroll view
+	LockNavigation(ScrollView, False);
+
+	// Transfer FocusedControl from previous scroll to the current scroll
+	{{{Scroll::P}}}Unfocus(This, ScrollView.Scroll_ClubRooms);
+	{{{Scroll::P}}}SetFocusedElementKey(This, ScrollView.Scroll_ClubRooms, ScrollViewElementKey, False, False);
+	{{{Scroll::P}}}ScrollToPosition(This, ScrollView.Scroll_ClubRooms, ScrollOffset.Y, False);
+	if (FocusedControl != Null) {
+		switch (FocusedControl.Id) {
+			case _Button_Back.Id: {{{Scroll::P}}}ScrollToElement(This, ScrollView.Scroll_ClubRooms, ScrollViewElementKey, False);
+			default: {
+				if (TL::StartsWith("button-arcade-", FocusedControl.ControlId)) {
+					Focus(FocusedControl, ScrollView.Button_ArcadeChannel, ScrollView);
+				} else if (TL::StartsWith("button-weekly-", FocusedControl.ControlId)) {
+					Focus(FocusedControl, ScrollView.Button_WeeklyChannel, ScrollView);
+				} else if (TL::StartsWith("button-live-campaign-", FocusedControl.ControlId)) {
+					Focus(FocusedControl, ScrollView.Button_LiveCampaign, ScrollView);
+				} else if (TL::StartsWith("scroll-club-rooms-", FocusedControl.ControlId)) {
+					Focus(FocusedControl, ScrollView.Scroll_ClubRooms, ScrollView);
+					{{{Scroll::P}}}ScrollToElement(This, ScrollView.Scroll_ClubRooms, ScrollViewElementKey, True);
+					{{{ExpendableButton::P}}}Unfocus(This, ScrollView.Frame_FeaturedRoomsTitle);
+				} else {
+					Focus(FocusedControl, ScrollView.Button_ArcadeChannel, ScrollView);
+				}
+			}
+		}
+	}
+
+	// Transfert ControlToFocus from previous scroll to the current scroll
+	if (ControlToFocus != Null) {
+		if (TL::StartsWith("button-arcade-", ControlToFocus.ControlId)) {
+			declare CMlControl ControlToFocus for ScrollView.Scroll_ClubRooms;
+			ControlToFocus = ScrollView.Button_ArcadeChannel;
+		} else if (TL::StartsWith("button-weekly-", ControlToFocus.ControlId)) {
+			declare CMlControl ControlToFocus for ScrollView.Scroll_ClubRooms;
+			ControlToFocus = ScrollView.Button_WeeklyChannel;
+		} else if (TL::StartsWith("button-live-campaign-", ControlToFocus.ControlId)) {
+			declare CMlControl ControlToFocus for ScrollView.Scroll_ClubRooms;
+			ControlToFocus = ScrollView.Button_LiveCampaign;
+		}
+	}
+
+	// Update scroll
+	{{{Scroll::P}}}TriggerPagerUpdate(ScrollView.Scroll_ClubRooms);
+	ScrollView = UpdateTitleBars(ScrollView, _Frame_Global, _Button_Back, EntryText, IsSearchBarVisible, {{{Scroll::P}}}IsControlClamped(ScrollView.Scroll_ClubRooms, ScrollView.Frame_ClampedControls));
+
+	return ScrollView;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_LoadingSpinner;
+declare CMlFrame Button_Back;
+declare CMlLabel Label_SearchResult;
+
+declare persistent Text Persistent_ScrollViewLayout_ClubRooms_V2 for UserMgr.MainUser = "grid";
+
+declare K_ScrollView ScrollView;
+
+declare Http::K_Request ChannelInfoRequest;
+declare Boolean EntryWasFocused;
+declare Text SearchValue;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_LoadingSpinner <=> (Frame_Global.GetFirstChild("frame-loading-spinner") as CMlFrame);
+Button_Back <=> (Frame_Global.GetFirstChild("button-back") as CMlFrame);
+Label_SearchResult <=> (Frame_Global.GetFirstChild("label-search-result") as CMlLabel);
+
+G_Actions_Grid.fromjson({{{"\"\"\""^Grid_Actions.tojson()^"\"\"\""}}});
+G_Actions_List.fromjson({{{"\"\"\""^List_Actions.tojson()^"\"\"\""}}});
+
+ScrollView = K_ScrollView {
+	Frame_CommonHeader = (Frame_Global.GetFirstChild("frame-common-header") as CMlFrame),
+	Frame_ScrollView_Grid = (Frame_Global.GetFirstChild("frame-scroll-view-grid") as CMlFrame),
+	Frame_ScrollView_List = (Frame_Global.GetFirstChild("frame-scroll-view-list") as CMlFrame),
+	TitleBar_Common = (Frame_Global.GetFirstChild("titlebar-common") as CMlFrame),
+	TitleBar_Grid = (Frame_Global.GetFirstChild("titlebar-grid") as CMlFrame),
+	TitleBar_List = (Frame_Global.GetFirstChild("titlebar-list") as CMlFrame),
+	CurrentLayout = Persistent_ScrollViewLayout_ClubRooms_V2
+};
+
+// Init the view depending on the saved scrollview layout
+ScrollView = UpdateScrollViewControls(ScrollView, Frame_Global, Button_Back);
+ScrollView.Frame_ScrollView_Grid.Visible = Persistent_ScrollViewLayout_ClubRooms_V2 == C_ScrollView_Grid;
+ScrollView.Frame_ScrollView_List.Visible = Persistent_ScrollViewLayout_ClubRooms_V2 == C_ScrollView_List;
+
+FocusAvailableControl(ScrollView, Button_Back);
+***
+
+***MainLoop***
+***
+if ({{{Router::P}}}PageIsRunning(This, "{{{RoutePaths::C_Path_Arcade}}}")) {
+	foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Router::P}}}C_Event_EnteringRoute: {
+				ControllerInfo::SetButtons(["A" => _("Select"), "B" => _("Back")]);
+				ChannelInfoRequest = ChannelAPI::GetChannelInfo("{{{Const::C_ChannelUid_Arcade}}}");
+				UpdateQuarterlyCampaign(Frame_Global, True);
+				UpdateWeeklyShortsCampaign(Frame_Global, True);
+				LockNavigation(ScrollView, False);
+
+				// Update scroll
+				{{{Scroll::P}}}TriggerPagerUpdate(ScrollView.Scroll_ClubRooms);
+				if ({{{ClubStore::P}}}GetClubRoomsTotal() <= 0) {
+					Loading(ScrollView, Frame_LoadingSpinner, Label_SearchResult);
+				}
+
+				// Refresh current focus for TTS
+				Focus(Null, {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), ScrollView);
+			}
+		}
+	}
+
+	// Navigation events
+	foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Navigation::P}}}C_EventType_NavigateInput: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_Default}}}")) {
+					switch (Event.Input) {
+						case CMlScriptEvent::EMenuNavAction::Select: Select(Event.To, ScrollView.CurrentLayout);
+						case CMlScriptEvent::EMenuNavAction::Cancel: {{{Router::P}}}PushParent(This);
+						default: {
+							if (Event.To != Null) {
+								Focus(Event.From, Event.To, ScrollView);
+							} else {
+								FocusAvailableControl(ScrollView, Button_Back);
+							}
+						}
+					}
+				}
+			}
+			case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_Default}}}")) {
+					switch (Event.Mouse) {
+						case CMlScriptEvent::Type::MouseClick: Select(Event.To, ScrollView.CurrentLayout);
+						case CMlScriptEvent::Type::MouseOver: Focus(Event.From, Event.To, ScrollView);
+					}
+				}
+			}
+		}
+	}
+
+	// TitleBar events
+	foreach (Event in {{{TitleBar::P}}}PendingEvents) {
+		if (Event.TitleBar.Id == ScrollView.TitleBar_Current.Id) {
+			switch (Event.Type) {
+				case {{{TitleBar::P}}}C_EventType_TabUpdate: {
+					Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), ScrollView.Scroll_ClubRooms, ScrollView);
+				}
+				case {{{TitleBar::P}}}C_EventType_Update: {
+					if (Event.ActionsPos.existskey({{{TitleBar::P}}}C_Action_Second)) {
+						UpdateSearchPos(ScrollView.TitleBar_Current, ScrollView.Entry_Search.Parent, True);
+					}
+				}
+				case {{{TitleBar::P}}}C_EventType_Action: {
+					switch (Event.Action) {
+						case {{{TitleBar::P}}}C_Action_First: {
+							ScrollView = SwitchScrollViewLayout(ScrollView, Frame_Global, Button_Back);
+							Persistent_ScrollViewLayout_ClubRooms_V2 = ScrollView.CurrentLayout;
+							UserMgr.MainUser.PersistentSave();
+						}
+						case {{{TitleBar::P}}}C_Action_Second: {
+							if (ScrollView.Entry_Search.IsFocused && ScrollView.Entry_Search.Visible) {
+								DisplaySearch(ScrollView, "", False, False, True);
+							} else {
+								DisplaySearch(ScrollView, ScrollView.Entry_Search.Value, True, True, True);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Search behaviors
+	if (EntryWasFocused != ScrollView.Entry_Search.IsFocused) {
+		EntryWasFocused = ScrollView.Entry_Search.IsFocused;
+		FocusSearch(ScrollView, ScrollView.Entry_Search.IsFocused);
+		if (!ScrollView.Entry_Search.IsFocused) {
+			if (SearchValue != ScrollView.Entry_Search.Value) {
+				Loading(ScrollView, Frame_LoadingSpinner, Label_SearchResult);
+				declare CMlControl FocusedControl = {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}");
+				if (FocusedControl != Null && FocusedControl.Id == ScrollView.Scroll_ClubRooms.Id) {
+					FocusAvailableControl(ScrollView, Button_Back);
+				}
+			}
+			{{{Scroll::P}}}TriggerPagerUpdate(ScrollView.Scroll_ClubRooms);
+			if (ScrollView.Entry_Search.Value == "") {
+				DisplaySearch(ScrollView, "", False, False, True);
+			}
+		}
+	}
+
+	// Scroll events
+	foreach (Event in {{{Scroll::P}}}GetPendingEvents(This)) {
+		if (Event.Scroll != Null && Event.Scroll.Id == ScrollView.Scroll_ClubRooms.Id) {
+			switch (Event.Type) {
+				case {{{Scroll::P}}}C_EventType_Cancel: {{{Router::P}}}PushParent(This);
+				case {{{Scroll::P}}}C_EventType_Select: {
+					declare ClubRooms = {{{ClubStore::P}}}GetClubRooms();
+					if (ClubRooms.existskey(Event.ToKey)) {
+						declare Room = ClubRooms[Event.ToKey];
+						if (!{{{ControlBlockList::P}}}IsBlocked(This, [Room.CreatorAccountId, Room.LatestEditorAccountId])) {
+							LockNavigation(ScrollView, True);
+							if (Room.CampaignId != {{{CampaignStruct::P}}}C_Campaign_NullId) {
+								{{{Router::P}}}SetParentPath(This, "{{{RoutePaths::C_Path_RoomCampaignDisplay}}}", "{{{RoutePaths::C_Path_Arcade}}}");
+								{{{Router::P}}}Push(This, "{{{RoutePaths::C_Path_RoomCampaignDisplay}}}", ["{{{RoutePaths::C_Query_Room}}}" => ""^Room.tojson()], True);
+							} else {
+								// The room has a list of maps or a dedicated server
+								{{{Router::P}}}SetParentPath(This, "{{{RoutePaths::C_Path_RoomMapListDisplay}}}", "{{{RoutePaths::C_Path_Arcade}}}");
+								{{{Router::P}}}Push(This, "{{{RoutePaths::C_Path_RoomMapListDisplay}}}", ["{{{RoutePaths::C_Query_Room}}}" => ""^Room.tojson()], True);
+							}
+						}
+					}
+				}
+				case {{{Scroll::P}}}C_EventType_PagerUpdate: {
+					SearchValue = ScrollView.Entry_Search.Value;
+					{{{ClubStore::P}}}Action_LoadAllClubRoomsPage(
+						This,
+						ScrollView.Entry_Search.Value,
+						Event.PagerOffset,
+						Event.PagerCount
+					);
+				}
+				case {{{Scroll::P}}}C_EventType_Update: {
+					declare ClubRooms = {{{ClubStore::P}}}GetClubRooms();
+					declare Integer[] ClubRoomIds;
+
+					foreach (Key => Frame_Element in Event.ElementsVisible) {
+						if (ClubRooms.existskey(Key)) {
+							declare ClubRoom = ClubRooms[Key];
+							ShowClubRoom(Frame_Element, ClubRoom, ScrollView.CurrentLayout);
+							ClubRoomIds.add(ClubRoom.Id);
+						} else {
+							ShowClubRoomLoading(Frame_Element, ScrollView.CurrentLayout);
+						}
+					}
+					foreach (Key => Frame_Element in Event.ElementsHidden) {
+						HideClubRoom(Frame_Element);
+					}
+
+					{{{Navigation::P}}}Lock(ScrollView.Scroll_ClubRooms, Event.ElementsVisible.count <= 0);
+					{{{Navigation::P}}}EnableInputs(ScrollView.Scroll_ClubRooms, Event.ElementsVisible.count <= 0);
+					if (!{{{LoadingSpinner::P}}}IsLoading(Frame_LoadingSpinner)) {
+						Label_SearchResult.Visible = Event.ElementsVisible.count <= 0;
+						if (Label_SearchResult.Visible) {
+							if (ScrollView.Entry_Search.Value == "") {
+								Label_SearchResult.Value = "{{{Text_NoClubRooms}}}";
+							} else {
+								Label_SearchResult.Value = "{{{Text_NoSearchResult}}}";
+							}
+						}
+					}
+				}
+				case {{{Scroll::P}}}C_EventType_Focus: {
+					if (Event.From != Null) UnfocusClubRoom(Event.From, ScrollView.CurrentLayout, Event.PlayFocusAnimation);
+					if (Event.To != Null) {
+						if (Event.IsMouse) {
+							declare CMlControl CurrentFocus = {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}");
+							if (CurrentFocus != ScrollView.Scroll_ClubRooms) {
+								Focus(CurrentFocus, ScrollView.Scroll_ClubRooms, ScrollView);
+							}
+						}
+						if ({{{Scroll::P}}}IsFocused(ScrollView.Scroll_ClubRooms)) {
+							FocusClubRoom(Event.To, ScrollView.CurrentLayout, True, Event.PlayFocusAnimation);
+						}
+					}
+				}
+				case {{{Scroll::P}}}C_EventType_ReachLimit: {
+					if (Event.NavAction == CMlScriptEvent::EMenuNavAction::Up) {
+						declare CMlControl CurrentFocus = {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}");
+						if (CurrentFocus == ScrollView.Scroll_ClubRooms) {
+							declare CMlControl ControlToFocus for ScrollView.Scroll_ClubRooms;
+							UnfocusClubRoom(Event.From, ScrollView.CurrentLayout, True);
+							{{{MenuSounds::P}}}PlayFocusSound(This, ControlToFocus);
+							if (ControlToFocus != Null && !{{{Navigation::P}}}IsLocked(ControlToFocus)) {
+								Focus(CurrentFocus, ControlToFocus, ScrollView);
+							} else {
+								FocusAvailableControl(ScrollView, Button_Back);
+							}
+						}
+					} else if (Event.NavAction == CMlScriptEvent::EMenuNavAction::Left || Event.NavAction == CMlScriptEvent::EMenuNavAction::Down) {
+						declare CMlControl CurrentFocus = {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}");
+						if (CurrentFocus == ScrollView.Scroll_ClubRooms) {
+							Focus(CurrentFocus, Button_Back, ScrollView);
+							{{{MenuSounds::P}}}PlayFocusSound(This, Button_Back);
+						}
+					}
+				}
+				case {{{Scroll::P}}}C_EventType_ClampUpdate: {
+					ScrollView = UpdateTitleBars(
+						ScrollView,
+						Frame_Global,
+						Button_Back,
+						ScrollView.Entry_Search.Value,
+						{{{ExpendableAsset::P}}}GetOpacity(ScrollView.Asset_EntrySearch) >= 1.,
+						Event.ClampedControl.ClampedTop
+					);
+				}
+			}
+		}
+	}
+
+	// Store events
+	foreach (Event in PendingEvents) {
+		switch (Event.Type) {
+			case CMlScriptEvent::Type::PluginCustomEvent: {
+				switch (Event.CustomEventType) {
+					case {{{ClubStore::P}}}C_Event_ClubRoomsUpdated: {
+						declare ClubRoomsTotal = {{{ClubStore::P}}}GetClubRoomsTotal();
+						{{{Scroll::P}}}SetElementsTotal(This, (Frame_Global.GetFirstChild("scroll-club-rooms-grid") as CMlFrame), ClubRoomsTotal);
+						{{{Scroll::P}}}SetElementsTotal(This, (Frame_Global.GetFirstChild("scroll-club-rooms-list") as CMlFrame), ClubRoomsTotal);
+						{{{LoadingSpinner::P}}}StopAnimation(This, Frame_LoadingSpinner);
+					}
+					case {{{CampaignStore::P}}}C_Event_LiveQuarterlyCampaignUpdated: {
+						UpdateQuarterlyCampaign(Frame_Global, False);
+					}
+					case {{{CampaignStore::P}}}C_Event_LiveWeeklyShortsCampaignUpdated: {
+						UpdateWeeklyShortsCampaign(Frame_Global, False);
+					}
+				}
+			}
+		}
+	}
+
+	// Handle HTTP Requests
+	if (Http::IsInitialized(ChannelInfoRequest)) {
+		ChannelInfoRequest = Http::Update(ChannelInfoRequest);
+		if (!Http::IsRunning(ChannelInfoRequest)) {
+			if (Http::IsSuccess(ChannelInfoRequest)) {
+				declare CurrentTimeSlot = ChannelAPI::GetResponseFromGetChannelInfo(ChannelInfoRequest).CurrentTimeSlot;
+
+				// Update quarterly buttons
+				foreach (Layout in [C_ScrollView_Grid, C_ScrollView_List]) {
+					declare CMlFrame Button_Arcade = (Frame_Global.GetFirstChild("button-arcade-"^Layout) as CMlFrame);
+					declare CMlFrame ControlBlockList_RoomName <=> (Button_Arcade.GetFirstChild("control-block-list-name") as CMlFrame);
+					declare CMlFrame ControlBlockList_RoomImage <=> (Button_Arcade.GetFirstChild("control-block-list-image") as CMlFrame);
+
+					{{{ControlBlockList::P}}}SetOwnersAndTextValue(This, ControlBlockList_RoomName, [CurrentTimeSlot.CreatorAccountId, CurrentTimeSlot.LatestEditorAccountId], CurrentTimeSlot.Name);
+					if (CurrentTimeSlot.MediaUrl != "") {
+						{{{ControlBlockList::P}}}SetOwnersAndImageUrl(This, ControlBlockList_RoomImage, [CurrentTimeSlot.CreatorAccountId, CurrentTimeSlot.LatestEditorAccountId], CurrentTimeSlot.MediaUrl);
+					} else {
+						{{{ControlBlockList::P}}}SetOwnersAndImageUrl(This, ControlBlockList_RoomImage, [], "{{{Const::C_ImageUrl_ClubActivity_Default}}}");
+					}
+				}
+			}
+			Http::Destroy(ChannelInfoRequest);
+		}
+	}
+} else {
+	foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Router::P}}}C_Event_LeavingRoute: {
+				// Updates the focus when the player is leaving the page to avoid a visible focus update when entering the page
+				if ({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}") == Button_Back) {
+					FocusAvailableControl(ScrollView, Button_Back);
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	CampaignStore::ComponentV2(),
+	CampaignStruct::Component(),
+	ClubStore::ComponentV2(),
+	ClubStruct::Component(),
+	ExpendableAsset::ComponentV2(),
+	ExpendableButton::ComponentV2(),
+	LoadingSpinner::ComponentV2(),
+	MenuSounds::ComponentV2(),
+	Navigation::ComponentV2(),
+	Router::ComponentV2(),
+	Scroll::ComponentV2(),
+	TitleBar::Component(),
+	Transition::ComponentV2(),
+	UserStore::ComponentV2(),
+	ControlBlockList::ComponentV2()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update from the ManiaApp
+Void Yield() {
+
+}

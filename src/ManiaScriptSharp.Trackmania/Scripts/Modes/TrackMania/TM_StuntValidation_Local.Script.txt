@@ -1,0 +1,319 @@
+/**
+ * Stunt Validation mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Stunt,TM_Stunt"
+#Const Version "1.0.1+2024-12-05"
+#Const ScriptName "Modes/TrackMania/TM_StuntValidation_Local.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/Utils.Script.txt" as Utils
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/RespawnHelper_Server.Script.txt" as UIModules_RespawnHelper
+#Include "Libs/Nadeo/TMGame/Modes/MapGet.Script.txt" as MapGet
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/Stunt.Script.txt" as Stunt
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/FiguresFeed_Server.Script.txt" as UIModules_FiguresFeed
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/NewFigure_Server.Script.txt" as UIModules_NewFigure
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/ParkCombo_Server.Script.txt" as UIModules_ParkCombo
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/ParksPoints_Server.Script.txt" as UIModules_ParksPoints
+#Include "Libs/Nadeo/Trackmania/Modes/Stunt/UIModulesData.Script.txt" as UIModulesData
+#Include "Libs/Nadeo/Trackmania/Modes/StuntValidation/Constants.Script.txt" as StuntConst
+#Include "Libs/Nadeo/Trackmania/Modes/StuntValidation/StateManager.Script.txt" as StateMgr
+#Include "TextLib" as TL
+#Include "TimeLib" as TiL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "TM_StuntValidation"
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/StuntValidation.Script.txt" //< Url of the mania app
+
+#Const C_IsMapValidation True //< This mode is used to validate maps
+#Const C_BaseTimer 180000 //< The base timer for every stunt map
+#Const C_AdditionnalTimerPerPark 60000 //< The amount of time to add to the base timer for each park on the map
+#Const C_ParkComboDuration 12000 //< Duration of the combo triggered when entering a park
+#Const C_FigurePointsMultiplier 10 //< Score multiplier for each stunt
+#Const C_GreatLandingMultiplier 1.5 //< Stunt score multiplier after a Great landing
+#Const C_ExcellentLandingMultiplier 2.0 //< Stunt score multiplier after an Excellent landing
+#Const C_EpicLandingMultiplier 2.5 //< Stunt score multiplier after an Epic landing
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Global variables
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Task::K_Task G_Task_SaveReplay;
+declare Stunt::K_GhostInfo G_Ghost_LastStuntSession;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(MapGet::ScriptName, MapGet::Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(UIModules_FiguresFeed::ScriptName, UIModules_FiguresFeed::Version);
+Log::RegisterScript(UIModules_NewFigure::ScriptName, UIModules_NewFigure::Version);
+Log::RegisterScript(UIModules_ParkCombo::ScriptName, UIModules_ParkCombo::Version);
+Log::RegisterScript(UIModules_ParksPoints::ScriptName, UIModules_ParksPoints::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+Stunt::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+Stunt::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultIntroSequence = False; //< Intro sequence is hidden by HoldLoadingScreen
+MB_Settings_UseDefaultPodiumSequence = False;
+MB_Settings_UseDefaultTimer = False;
+MB_Settings_UseDefaultUIManagement = False;
+Race_Settings_IsLocalMode = True;
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedHidden;
+UIManager.UIAll.AltMenuNoDefaultScores = True;
+Race::SortScores(Race::C_Sort_TotalPoints);
+UIModules_Sign16x9Small::SetScoreMode(UIModules_Sign16x9Small::C_ScoreMode_Points);
+UIModules_RespawnHelper::SetPosition(UIModulesData::C_Position_RespawnHelper);
+
+// Hide SM Overlay
+UIManager.UIAll.OverlayHideSpectatorInfos = True;
+UIManager.UIAll.OverlayHideCountdown = True;
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+			CarRank::InitializePlayer(Event.Player);
+		}
+	}
+}
+
+StateMgr::Yield();
+Stunt::Yield();
+***
+
+***Match_InitServer***
+***
+declare netwrite Boolean Net_StuntEndRaceMenu_IsVisible for Teams[0] = False;
+declare netwrite Boolean Net_StuntValidation_ReplaySaved for Teams[0] = False;
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+UseStunts = True;
+CanReTriggerLatestWaypoint = True;
+Net_StuntEndRaceMenu_IsVisible = False;
+Net_StuntValidation_ReplaySaved = False;
+Clans::SetClansNb(0);
+Scores::SaveInScore(Scores::C_Points_Map);
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint);
+Race::UseCppRaceProgression(False); // To have the custom behavior in CPs
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(False);
+CarRank::Reset();
+***
+
+***Match_AfterLoadMap***
+***
+// Players are available only once the map is loaded
+// We must enforce their initialization there to avoid
+// being stuck in the start or end race menu when restarting the script
+foreach (Player in AllPlayers) {
+	StateMgr::InitializePlayer(Player);
+}
+***
+
+***Match_InitMap***
+***
+declare netwrite Integer Net_RaceValidation_AuthorScore for Teams[0] = 0;
+declare netwrite Integer Net_RaceValidation_NewScore for Teams[0] = 0;
+
+Stunt::SetModeSettings(
+	C_IsMapValidation,
+	C_ParkComboDuration,
+	C_FigurePointsMultiplier,
+	C_GreatLandingMultiplier,
+	C_ExcellentLandingMultiplier,
+	C_EpicLandingMultiplier
+);
+***
+
+***Match_StartMap***
+***
+// Initialize author data with currently saved author data
+MapGet::ShareAuthorScore(Map.TMObjective_AuthorTime);
+Net_RaceValidation_AuthorScore = MapGet::GetSharedAuthorScore();
+Net_RaceValidation_NewScore = -1;
+
+// Initialize race
+CarRank::Update(CarRank::C_SortCriteria_TotalPoints);
+***
+
+***Match_StartRound***
+***
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+MB_EnablePlayMode(True);
+
+// Initialize stunt session
+StartTime = Now + Race::C_SpawnDuration;
+EndTime = StartTime + Stunt::GetSessionTimer(C_BaseTimer, C_AdditionnalTimerPerPark);
+
+// Spawn players for the race
+Scores::ResetPlayer(Players[0].Score);
+Stunt::Start(Players[0], StartTime);
+***
+
+***Match_PlayLoop***
+***
+// Process UI events
+ProcessPauseMenuEvent();
+
+// C++ events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded || !MB_RoundIsRunning()) continue;
+	switch (Event.Type) {
+		case CSmModeEvent::EType::OnStuntFigure: {
+			Stunt::OnFigureEvent(Event.Player, Event.StuntFigure);
+			CarRank::Update(CarRank::C_SortCriteria_TotalPoints);
+		}
+		case CSmModeEvent::EType::OnPlayerTriggersWaypoint: {
+			Stunt::OnPlayerTriggersWaypoint(Event.Player, Event.Landmark);
+			if (Event.Landmark.Waypoint.IsFinish) {
+				EndPlayerStuntSession(Event.Player, Event.WaypointTime);
+			}
+			Events::Valid(Event); //< Validates that the checkpoint has been passed. This enables the checkpoints launched with the replay to work
+		}
+		case CSmModeEvent::EType::OnPlayerRequestRespawn: {
+			Stunt::OnPlayerRequestRespawn(Event.Player, Event.GiveUp);
+		}
+		default: Events::Invalid(Event);
+	}
+}
+
+// End the round when time limit is reached
+if (EndTime > 0 && Now >= EndTime) {
+	EndPlayerStuntSession(Players[0], EndTime - StartTime);
+}
+***
+
+***Match_EndRound***
+***
+// Update variables
+EndTime = -1; //< Stop the timer
+Net_RaceValidation_NewScore = Players[0].Score.Points;
+
+// Retrieve the latest ghost
+declare CGhost Ghost = Ghost_RetrieveFromPlayer(Players[0]);
+if (Ghost != Null) {
+	G_Ghost_LastStuntSession = Stunt::ReleaseGhost(G_Ghost_LastStuntSession);
+	G_Ghost_LastStuntSession = Stunt::K_GhostInfo { Ghost = Ghost };
+}
+
+// Process end race menu events
+Net_StuntEndRaceMenu_IsVisible = True;
+StateMgr::ForcePlayersStates([StateMgr::C_State_EndRaceMenu]);
+while (MB_MapIsRunning() && StateMgr::HasForcedState(StateMgr::C_State_EndRaceMenu)) {
+	ProcessEndRaceMenuEvent();
+	MB_Yield();
+}
+
+// Hide end race menu
+Net_StuntValidation_ReplaySaved = False;
+Net_StuntEndRaceMenu_IsVisible = False;
+
+// Save new score if better
+if (Net_RaceValidation_NewScore >= 0 && (Net_RaceValidation_NewScore > MapGet::GetSharedAuthorScore() || MapGet::GetSharedAuthorScore() < 0)) {
+	MapGet::ShareAuthorScore(Net_RaceValidation_NewScore);
+	Net_RaceValidation_AuthorScore = MapGet::GetSharedAuthorScore();
+}
+***
+
+***Match_EndMap***
+***
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+Race::StopSkipOutroAll();
+MB_StopMatch();
+
+// Clear variables
+G_Task_SaveReplay = Task::Destroy(G_Task_SaveReplay);
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop and validate the current stunt session
+Void EndPlayerStuntSession(CSmPlayer _Player, Integer _RaceTime) {
+	Player_SetFinishTime(_Player, _RaceTime, Race::GetPlayerDefaultStart(_Player) as CSmMapLandmark); // to register the ghost
+	Scores::UpdatePlayerPrevRace(_Player);
+	Scores::UpdatePlayerBestRaceIfBetter(_Player);
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+	MB_StopRound();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the EndRaceMenu UI has been received and apply it if needed
+Void ProcessEndRaceMenuEvent() {
+	foreach (Event in UIManager.PendingEvents) {
+		switch (Event.Type) {
+			case CUIConfigEvent::EType::OnLayerCustomEvent: {
+				switch (Event.CustomEventType) {
+					case StuntConst::C_EventType_Quit: MB_StopServer();
+					case StuntConst::C_EventType_Retry: StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+					case StuntConst::C_EventType_SaveReplay: {
+						G_Task_SaveReplay = Stunt::SaveReplay(G_Ghost_LastStuntSession.Ghost.Id, G_Task_SaveReplay);
+						while (Task::IsInitialized(G_Task_SaveReplay)) {
+							G_Task_SaveReplay = Task::Update(G_Task_SaveReplay);
+							if (!Task::IsRunning(G_Task_SaveReplay)) {
+								declare netwrite Boolean Net_StuntValidation_ReplaySaved for Teams[0] = False;
+								Net_StuntValidation_ReplaySaved = Task::IsSuccess(G_Task_SaveReplay);
+								G_Task_SaveReplay = Task::Destroy(G_Task_SaveReplay);
+							}
+							MB_Yield();
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the PauseMenu UI has been received and apply it if needed
+Void ProcessPauseMenuEvent() {
+	foreach (Event in UIManager.PendingEvents) {
+		switch (Event.Type) {
+			case CUIConfigEvent::EType::OnLayerCustomEvent: {
+				switch (Event.CustomEventType) {
+					case StuntConst::C_EventType_Retry: {
+						StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+						MB_StopRound();
+					}
+				}
+			}
+		}
+	}
+}

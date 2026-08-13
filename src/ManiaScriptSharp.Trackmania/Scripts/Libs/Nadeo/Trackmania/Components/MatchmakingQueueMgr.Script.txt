@@ -1,0 +1,333 @@
+/**
+ *	Component: MatchmakingQueueMgr
+ */
+#Const Version		"2.2.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Components/MatchmakingQueueMgr.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/Trackmania/Structures/MatchmakingStruct.Script.txt" as MatchmakingStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-matchmakingqueuemgr" //< Component name
+#Const P "ComponentMatchmakingQueueMgr_" //< Prefix used to differentiate functions/variables in the script
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	return MV::Component(
+		C_Name,
+		"""
+		""",
+		"""
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as {{{P}}}Http
+#Include "Libs/Nadeo/Trackmania/API/MatchmakingAPI.Script.txt" as {{{P}}}MatchmakingAPI
+
+#Const {{{P}}}C_Type_Heartbeat 0
+#Const {{{P}}}C_Type_PlayerStatus 1
+#Const {{{P}}}C_Type_Accept 2
+#Const {{{P}}}C_Type_Cancel 3
+#Const {{{P}}}C_Type_JoinLink 4
+#Const {{{P}}}C_Type_LocalUserRank 5
+#Const {{{P}}}C_Type_Divisions 6
+#Const {{{P}}}C_Type_SquadMembersProgressions 7
+#Const {{{P}}}C_Type_SuperRoyal 8
+
+#Const {{{P}}}C_JoinLinkRetry_MaxFrequency 5000
+
+#Const {{{P}}}C_CustomErrorType_NoJoinLink "NoJoinLink"
+
+#Struct {{{P}}}K_Error {
+	Integer ErrorCode;
+	Text CustomErrorType;
+}
+#Struct {{{P}}}K_PendingEvent {
+	Integer Type;
+	Boolean IsSuccess;
+	{{{MatchmakingStruct::P}}}K_Heartbeat Heartbeat;
+	{{{MatchmakingStruct::P}}}K_Penalty Penalty;
+	{{{MatchmakingStruct::P}}}K_Inactivity Inactivity;
+	Text JoinLink;
+	{{{P}}}K_Error Error;
+	{{{MatchmakingStruct::P}}}K_PlayerRank LocalUserRank;
+	{{{MatchmakingStruct::P}}}K_Queue Queue;
+	{{{MatchmakingStruct::P}}}K_Division[Text] Divisions;
+	Text CurrentDivision;
+	Integer CurrentProgression;
+	Text ForQueueId;
+	{{{MatchmakingStruct::P}}}K_PlayerProgression[Text] SquadMembersProgressions;
+	{{{MatchmakingStruct::P}}}K_SuperRoyal CurrentSuperRoyal;
+	Text MatchmakingStatus;
+	Integer MatchGenerationTimer;
+}
+#Struct {{{P}}}K_JoinLinkRequest {
+	Integer RetriesLeft;
+	Text MatchLid;
+	Integer NextRequestTime;
+}
+		""",
+		"""
+declare {{{P}}}Http::K_Request[Integer] {{{P}}}G_Requests;
+declare {{{P}}}K_JoinLinkRequest {{{P}}}G_JoinLinkRequest;
+declare Boolean {{{P}}}G_HasPendingRequest;
+
+Void {{{P}}}Heartbeat(Text _MatchmakingQueueId, Text[] _SquadMembersIds, Text _Code) {
+	{{{P}}}Http::Destroy({{{P}}}G_Requests[{{{P}}}C_Type_Heartbeat]);
+	{{{P}}}G_Requests[{{{P}}}C_Type_Heartbeat] = {{{P}}}Http::SetMetadata(
+		{{{P}}}MatchmakingAPI::PostMatchmakingHeartbeat(_MatchmakingQueueId, _SquadMembersIds, _Code),
+		"QueueId", _MatchmakingQueueId
+	);
+	{{{P}}}G_HasPendingRequest = True;
+}
+
+Void {{{P}}}GetPlayerStatus(Text _MatchmakingQueueId) {
+	{{{P}}}Http::Destroy({{{P}}}G_Requests[{{{P}}}C_Type_PlayerStatus]);
+	{{{P}}}G_Requests[{{{P}}}C_Type_PlayerStatus] = {{{P}}}Http::SetMetadata(
+		{{{P}}}MatchmakingAPI::GetMatchmakingPlayerStatus(_MatchmakingQueueId),
+		"QueueId", _MatchmakingQueueId
+	);
+	{{{P}}}G_HasPendingRequest = True;
+}
+
+Void {{{P}}}Accept(Text _MatchmakingQueueId) {
+	{{{P}}}Http::Destroy({{{P}}}G_Requests[{{{P}}}C_Type_Accept]);
+	{{{P}}}G_Requests[{{{P}}}C_Type_Accept] = {{{P}}}Http::SetMetadata(
+		{{{P}}}MatchmakingAPI::PostMatchmakingAccept(_MatchmakingQueueId),
+		"QueueId", _MatchmakingQueueId
+	);
+	{{{P}}}G_HasPendingRequest = True;
+}
+
+Void {{{P}}}Cancel(Text _MatchmakingQueueId) {
+	{{{P}}}Http::Destroy({{{P}}}G_Requests[{{{P}}}C_Type_Cancel]);
+	{{{P}}}G_Requests[{{{P}}}C_Type_Cancel] = {{{P}}}Http::SetMetadata(
+		{{{P}}}MatchmakingAPI::PostMatchmakingCancel(_MatchmakingQueueId),
+		"QueueId", _MatchmakingQueueId
+	);
+	{{{P}}}G_HasPendingRequest = True;
+
+	// Destroy any heartbeat request and ignore its result
+	if ({{{P}}}G_Requests.existskey({{{P}}}C_Type_Heartbeat)) {{{P}}}G_Requests[{{{P}}}C_Type_Heartbeat] = {{{P}}}Http::Destroy({{{P}}}G_Requests[{{{P}}}C_Type_Heartbeat]);
+}
+
+Void {{{P}}}GetLocalUserRank(Text _MatchmakingQueueId) {
+	if (LocalUser != Null) {
+		{{{P}}}Http::Destroy({{{P}}}G_Requests[{{{P}}}C_Type_LocalUserRank]);
+		{{{P}}}G_Requests[{{{P}}}C_Type_LocalUserRank] = {{{P}}}Http::SetMetadata(
+			{{{P}}}MatchmakingAPI::GetMyMatchmakingLeaderboard(_MatchmakingQueueId),
+			"QueueId", _MatchmakingQueueId
+		);
+		{{{P}}}G_HasPendingRequest = True;
+	}
+}
+
+Void {{{P}}}GetDivisions(Text _MatchmakingQueueId) {
+	{{{P}}}Http::Destroy({{{P}}}G_Requests[{{{P}}}C_Type_Divisions]);
+	{{{P}}}G_Requests[{{{P}}}C_Type_Divisions] = {{{P}}}Http::SetMetadata(
+		{{{P}}}MatchmakingAPI::GetMatchmakingDivisionRules(_MatchmakingQueueId),
+		"QueueId", _MatchmakingQueueId
+	);
+	{{{P}}}G_HasPendingRequest = True;
+}
+
+Void {{{P}}}GetSquadMembersDivisions(Text _MatchmakingQueueId, Text[] _SquadMembersIds) {
+	{{{P}}}Http::Destroy({{{P}}}G_Requests[{{{P}}}C_Type_SquadMembersProgressions]);
+	{{{P}}}G_Requests[{{{P}}}C_Type_SquadMembersProgressions] = {{{P}}}Http::SetMetadata(
+		{{{P}}}MatchmakingAPI::GetMatchmakingPlayersProgressions(_MatchmakingQueueId, _SquadMembersIds),
+		"QueueId", _MatchmakingQueueId
+	);
+	{{{P}}}G_HasPendingRequest = True;
+}
+
+Void {{{P}}}GetCurrentSuperRoyal() {
+	{{{P}}}Http::Destroy({{{P}}}G_Requests[{{{P}}}C_Type_SuperRoyal]);
+	{{{P}}}G_Requests[{{{P}}}C_Type_SuperRoyal] = {{{P}}}MatchmakingAPI::GetCurrentSuperRoyal();
+	{{{P}}}G_HasPendingRequest = True;
+}
+
+/* Request join link for match. Can fail easily if match is starting.
+ *
+ * @param _MatchLid					Lid of the match
+ * @param _NbOfRetries			Number of retries if request results in an empty joinlink, excluding 1st try
+ */
+Void {{{P}}}RequestJoinLink(Text _MatchLid, Integer _NbOfRetries) {
+	{{{P}}}G_JoinLinkRequest = {{{P}}}K_JoinLinkRequest {
+		RetriesLeft = _NbOfRetries + 1,
+		MatchLid = _MatchLid,
+		NextRequestTime = Now
+	};
+	{{{P}}}G_HasPendingRequest = True;
+}
+
+***MainInit***
+***
+declare {{{P}}}K_PendingEvent[] {{{P}}}PendingEvents;
+declare Boolean {{{P}}}NeedHasPendingRequestCheck;
+***
+
+***MainStart***
+***
+{{{P}}}PendingEvents = [];
+{{{P}}}G_Requests = [];
+{{{P}}}G_Requests[{{{P}}}C_Type_Heartbeat] = {{{P}}}Http::GetEmptyRequest();
+{{{P}}}G_Requests[{{{P}}}C_Type_PlayerStatus] = {{{P}}}Http::GetEmptyRequest();
+{{{P}}}G_Requests[{{{P}}}C_Type_Accept] = {{{P}}}Http::GetEmptyRequest();
+{{{P}}}G_Requests[{{{P}}}C_Type_Cancel] = {{{P}}}Http::GetEmptyRequest();
+{{{P}}}G_Requests[{{{P}}}C_Type_JoinLink] = {{{P}}}Http::GetEmptyRequest();
+{{{P}}}G_Requests[{{{P}}}C_Type_LocalUserRank] = {{{P}}}Http::GetEmptyRequest();
+{{{P}}}G_Requests[{{{P}}}C_Type_Divisions] = {{{P}}}Http::GetEmptyRequest();
+{{{P}}}G_Requests[{{{P}}}C_Type_SquadMembersProgressions] = {{{P}}}Http::GetEmptyRequest();
+{{{P}}}G_Requests[{{{P}}}C_Type_SuperRoyal] = {{{P}}}Http::GetEmptyRequest();
+
+{{{P}}}G_HasPendingRequest = False;
+{{{P}}}NeedHasPendingRequestCheck = False;
+***
+***MainLoop***
+***
+if (PageIsVisible || {{{P}}}G_HasPendingRequest) {
+	{{{P}}}PendingEvents = [];
+	if (
+		{{{P}}}G_JoinLinkRequest.NextRequestTime > 0 &&
+		{{{P}}}G_JoinLinkRequest.NextRequestTime <= Now
+	) {
+		{{{P}}}Http::Destroy({{{P}}}G_Requests[{{{P}}}C_Type_JoinLink]);
+		{{{P}}}G_Requests[{{{P}}}C_Type_JoinLink] = {{{P}}}MatchmakingAPI::GetMatchByLid({{{P}}}G_JoinLinkRequest.MatchLid);
+		{{{P}}}G_JoinLinkRequest.RetriesLeft -= 1;
+		if ({{{P}}}G_JoinLinkRequest.RetriesLeft > 0) {
+			{{{P}}}G_JoinLinkRequest.NextRequestTime = Now + {{{P}}}C_JoinLinkRetry_MaxFrequency;
+		} else {
+			{{{P}}}G_JoinLinkRequest.NextRequestTime = 0;
+		}
+	}
+
+	foreach ({{{P}}}Type => {{{P}}}Request in {{{P}}}G_Requests) {
+		if ({{{P}}}Http::IsInitialized({{{P}}}Request)) {
+			{{{P}}}G_Requests[{{{P}}}Type] = {{{P}}}Http::Update({{{P}}}Request);
+			if (!{{{P}}}Http::IsRunning({{{P}}}Request)) {
+				if ({{{P}}}Http::IsSuccess({{{P}}}Request)) {
+					declare {{{P}}}NewPendingEvent = {{{P}}}K_PendingEvent {
+						Type = {{{P}}}Type,
+						IsSuccess = True,
+						Queue = {{{MatchmakingStruct::P}}}C_MatchmakingQueue_None,
+						ForQueueId = {{{MatchmakingStruct::P}}}C_MatchmakingQueueId_None
+					};
+					declare Text ForQueueId = {{{P}}}Http::GetMetadata({{{P}}}Request, "QueueId");
+					if (ForQueueId != "") {
+						{{{P}}}NewPendingEvent.ForQueueId = ForQueueId;
+					}
+					switch ({{{P}}}Type) {
+						case {{{P}}}C_Type_Heartbeat: {
+							{{{P}}}NewPendingEvent.Heartbeat = {{{P}}}MatchmakingAPI::GetResponseFromPostMatchmakingHeartbeat({{{P}}}Request);
+							{{{P}}}PendingEvents.add({{{P}}}NewPendingEvent);
+						}
+						case {{{P}}}C_Type_PlayerStatus: {
+							declare {{{MatchmakingStruct::P}}}K_PlayerStatus PlayerStatus = {{{P}}}MatchmakingAPI::GetResponseFromGetMatchmakingPlayerStatus({{{P}}}Request);
+							{{{P}}}NewPendingEvent.Heartbeat = PlayerStatus.CurrentHeartbeat;
+							{{{P}}}NewPendingEvent.Penalty = PlayerStatus.Penalty;
+							{{{P}}}NewPendingEvent.Inactivity = PlayerStatus.Inactivity;
+							{{{P}}}NewPendingEvent.CurrentDivision = PlayerStatus.CurrentDivision;
+							{{{P}}}NewPendingEvent.CurrentProgression = PlayerStatus.CurrentProgression;
+							{{{P}}}NewPendingEvent.MatchmakingStatus = PlayerStatus.MatchmakingStatus;
+							{{{P}}}NewPendingEvent.MatchGenerationTimer = PlayerStatus.MatchGenerationTimer;
+							{{{P}}}PendingEvents.add({{{P}}}NewPendingEvent);
+						}
+						case {{{P}}}C_Type_JoinLink: {
+							{{{P}}}NewPendingEvent.JoinLink = {{{P}}}MatchmakingAPI::GetResponseFromGetMatchByLid({{{P}}}Request);
+							if ({{{P}}}NewPendingEvent.JoinLink != "") {
+								{{{P}}}G_JoinLinkRequest.NextRequestTime = 0;
+								{{{P}}}G_JoinLinkRequest.RetriesLeft = 0;
+								{{{P}}}PendingEvents.add({{{P}}}NewPendingEvent);
+							} else {
+								if ({{{P}}}G_JoinLinkRequest.RetriesLeft == 0) {
+									{{{P}}}PendingEvents.add({{{P}}}K_PendingEvent {
+										Type = {{{P}}}C_Type_JoinLink,
+										IsSuccess = False,
+										Error = {{{P}}}K_Error {
+											CustomErrorType = {{{P}}}C_CustomErrorType_NoJoinLink
+										},
+										Queue = {{{MatchmakingStruct::P}}}C_MatchmakingQueue_None,
+										ForQueueId = {{{MatchmakingStruct::P}}}C_MatchmakingQueueId_None
+									});
+								}
+							}
+						}
+						case {{{P}}}C_Type_LocalUserRank: {
+							declare Leaderboard = {{{P}}}MatchmakingAPI::GetResponseFromGetMyMatchmakingLeaderboard({{{P}}}Request);
+							{{{P}}}NewPendingEvent.LocalUserRank = {{{MatchmakingStruct::P}}}K_PlayerRank {
+								AccountId = Leaderboard.AccountId,
+								Score = Leaderboard.Score
+							};
+							{{{P}}}PendingEvents.add({{{P}}}NewPendingEvent);
+						}
+						case {{{P}}}C_Type_Divisions: {
+							{{{P}}}NewPendingEvent.Divisions = {{{P}}}MatchmakingAPI::GetResponseFromGetMatchmakingDivisionRules({{{P}}}Request);
+							{{{P}}}PendingEvents.add({{{P}}}NewPendingEvent);
+						}
+						case {{{P}}}C_Type_SquadMembersProgressions: {
+							{{{P}}}NewPendingEvent.SquadMembersProgressions = {{{P}}}MatchmakingAPI::GetResponseFromGetMatchmakingPlayersProgressions({{{P}}}Request);
+							{{{P}}}PendingEvents.add({{{P}}}NewPendingEvent);
+						}
+						case {{{P}}}C_Type_SuperRoyal: {
+							{{{P}}}NewPendingEvent.CurrentSuperRoyal = {{{P}}}MatchmakingAPI::GetResponseFromCurrentSuperRoyal({{{P}}}Request);
+							{{{P}}}PendingEvents.add({{{P}}}NewPendingEvent);
+						}
+						default: {
+							{{{P}}}PendingEvents.add({{{P}}}NewPendingEvent);
+						}
+					}
+				} else {
+					{{{P}}}PendingEvents.add({{{P}}}K_PendingEvent {
+						Type = {{{P}}}Type,
+						IsSuccess = False,
+						Error = {{{P}}}K_Error {
+							ErrorCode = {{{P}}}Request.StatusCode
+						},
+						Queue = {{{MatchmakingStruct::P}}}C_MatchmakingQueue_None,
+						ForQueueId  = {{{MatchmakingStruct::P}}}C_MatchmakingQueueId_None
+					});
+				}
+				{{{P}}}G_Requests[{{{P}}}Type] = {{{P}}}Http::Destroy({{{P}}}Request);
+				{{{P}}}NeedHasPendingRequestCheck = True;
+			}
+		}
+	}
+	if ({{{P}}}NeedHasPendingRequestCheck) {
+		{{{P}}}NeedHasPendingRequestCheck = False;
+		{{{P}}}G_HasPendingRequest = False;
+		foreach ({{{P}}}Request in {{{P}}}G_Requests) {
+			if ({{{P}}}Http::IsInitialized({{{P}}}Request)) {
+				{{{P}}}G_HasPendingRequest = True;
+			}
+		}
+		if ({{{P}}}G_JoinLinkRequest.RetriesLeft > 0) {{{P}}}G_HasPendingRequest = True;
+	}
+}
+***
+""",
+[
+	MatchmakingStruct::Component()
+],
+[]
+	);
+}
+
+/* @Changelog
+
+Version 2.0.0
+-------------
+
+- Only use text ids (instead of numeric) for matchmaking
+ */

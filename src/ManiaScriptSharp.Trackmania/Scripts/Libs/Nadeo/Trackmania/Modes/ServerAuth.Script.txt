@@ -1,0 +1,140 @@
+/**
+ *	Server Authentication
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ServerAuth.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/HttpServerAuthorizationHeader.Script.txt" as HttpServerAuthorizationHeader
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_TokenExpirationDelay 3600000 // 60min
+#Const C_TokenRefreshDelay 3300000 // 55 min
+#Const C_RetryDelays [5, 15, 30, 60, 300] // seconds
+
+#Const C_Services_Null 0
+#Const C_Services_Live 1
+// This constant is deprecated. Club API now also use the Live token for authentication.
+#Const C_Services_Club 1
+
+#Const C_ServicesPath_Live "NadeoLiveServices"
+// This constant is deprecated. Club API now also use the Live token for authentication.
+#Const C_ServicesPath_Club "NadeoLiveServices"
+
+#Struct K_AuthToken {
+	Text Token;
+	Integer ServicesId;
+	Boolean HasToken;
+	Integer NextRequest;
+	Integer RetryCount;
+	Integer Expiration;
+}
+
+declare K_AuthToken[Integer] G_AuthTokens;
+declare Integer G_RequestedTokenServices;
+
+Void Init(Integer[] _ServicesIds) {
+	foreach (ServicesId in _ServicesIds) {
+		G_AuthTokens[ServicesId] = K_AuthToken {
+			Token = "",
+			ServicesId = ServicesId,
+			HasToken = False,
+			NextRequest = Now,
+			RetryCount = 0,
+			Expiration = 0
+		};
+	}
+	G_RequestedTokenServices = C_Services_Null;
+}
+Void Init(Integer _ServicesId) {
+	Init([_ServicesId]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the library is managing a token for this service
+Boolean IsServiceActive(Integer _ServiceId) {
+	return G_AuthTokens.existskey(_ServiceId);
+}
+
+Boolean HasToken(Integer _ServicesId) {
+	return (G_AuthTokens.existskey(_ServicesId) && G_AuthTokens[_ServicesId].HasToken);
+}
+
+Text GetToken(Integer _ServicesId) {
+	declare Text Token = "";
+	if (G_AuthTokens.existskey(_ServicesId)) Token = G_AuthTokens[_ServicesId].Token;
+	return Token;
+}
+
+Void Yield() {
+	if (ServerAdmin != Null) { // Null for local modes (Hotseat, Splitscreen...)
+		// Expired Tokens
+		foreach (ServicesId => AuthToken in G_AuthTokens) {
+			if (AuthToken.Expiration > 0 && AuthToken.Expiration <= Now) {
+				G_AuthTokens[ServicesId] = K_AuthToken {
+					Token = "",
+					ServicesId = ServicesId,
+					HasToken = False,
+					NextRequest = Now,
+					RetryCount = 0,
+					Expiration = 0
+				};
+			}
+		}
+
+		// Tokens to request
+		if (G_RequestedTokenServices == C_Services_Null) {
+			declare Integer ServicesIdToRequest = C_Services_Null;
+			foreach (ServicesId => AuthToken in G_AuthTokens) {
+				if (AuthToken.NextRequest <= Now && ServicesId != C_Services_Null) {
+					ServicesIdToRequest = ServicesId;
+					break;
+				}
+			}
+			if (ServicesIdToRequest != C_Services_Null && G_AuthTokens.existskey(ServicesIdToRequest)) {
+				switch (ServicesIdToRequest) {
+					case C_Services_Live: {
+						ServerAdmin.Authentication_GetToken(NullId, C_ServicesPath_Live);
+						G_RequestedTokenServices = C_Services_Live;
+					}
+				}
+				G_AuthTokens[ServicesIdToRequest].NextRequest = Now + C_TokenRefreshDelay;
+				G_AuthTokens[ServicesIdToRequest].HasToken = False;
+				G_AuthTokens[ServicesIdToRequest].Expiration = Now + C_TokenExpirationDelay;
+			}
+		}
+
+		// Tokens to receive
+		if (
+			G_RequestedTokenServices != C_Services_Null &&
+			ServerAdmin.Authentication_GetTokenResponseReceived
+		) {
+			if (G_AuthTokens.existskey(G_RequestedTokenServices)) {
+				if (ServerAdmin.Authentication_Token != "") {
+					G_AuthTokens[G_RequestedTokenServices].Token = ServerAdmin.Authentication_Token;
+					G_AuthTokens[G_RequestedTokenServices].HasToken = True;
+					//Already set G_AuthTokens[G_RequestedTokenServices] NextRequest time when created request
+					G_AuthTokens[G_RequestedTokenServices].RetryCount = 0;
+					switch (G_RequestedTokenServices) {
+						case C_Services_Live: HttpServerAuthorizationHeader::SetLiveToken(ServerAdmin.Authentication_Token);
+					}
+				} else {
+					declare Integer RetryDelay = C_RetryDelays[C_RetryDelays.count -1];
+					if (C_RetryDelays.existskey(G_AuthTokens[G_RequestedTokenServices].RetryCount)) {
+						RetryDelay = C_RetryDelays[G_AuthTokens[G_RequestedTokenServices].RetryCount];
+					}
+					RetryDelay *= 1000;
+					G_AuthTokens[G_RequestedTokenServices].Token = "";
+					G_AuthTokens[G_RequestedTokenServices].HasToken = False;
+					G_AuthTokens[G_RequestedTokenServices].NextRequest = Now + RetryDelay;
+					G_AuthTokens[G_RequestedTokenServices].RetryCount += 1;
+				}
+			}
+			G_RequestedTokenServices = C_Services_Null;
+		}
+	}
+}

@@ -1,0 +1,108 @@
+/**
+ *	Component: Overlay history
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Components/OverlayHistory.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-overlay-history" //< Component name
+#Const P "ComponentOverlayHistory_" //< Prefix used to differentiate functions/variables in the script
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	return MV::Component(
+		C_Name,
+		"""
+		""",
+		"""
+#Struct {{{P}}}K_History_Overlay {
+	Text PathName;
+	Text Data;
+}
+		""",
+		"""
+{{{P}}}K_History_Overlay[] {{{P}}}AddToHistory({{{P}}}K_History_Overlay[] _History, Text _PathName, Text _Data) {
+	declare NewHistory = _History;
+	NewHistory.add({{{P}}}K_History_Overlay{
+		PathName = _PathName,
+		Data = _Data
+	});
+	return NewHistory;
+}
+
+{{{P}}}K_History_Overlay[] {{{P}}}RemoveHistoryLastEntry({{{P}}}K_History_Overlay[] _History) {
+	if (_History.count <= 1) return [];
+	declare NewHistory = _History;
+	NewHistory.removekey(_History.count-1);
+	return NewHistory;
+}
+
+***MainInit***
+***
+declare {{{P}}}K_History_Overlay[] {{{P}}}History;
+declare Text {{{P}}}PathName;
+declare Text[Text] {{{P}}}TempData;
+***
+
+***MainLoop***
+***
+foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+	switch (Event.Type) {
+		case "{{{Router::C_Event_OverlayUpdateData}}}": {
+			if (Event.Data.existskey("{{{Router::C_Event_OverlayUpdateData}}}") && {{{P}}}PathName != Event.Data["{{{Router::C_Event_OverlayUpdateData}}}"]) {
+				{{{P}}}PathName = Event.Data["{{{Router::C_Event_OverlayUpdateData}}}"];
+				if (
+					Event.Data.existskey("{{{RoutePaths::C_Query_GetCampaign}}}") ||
+					Event.Data.existskey("{{{RoutePaths::C_Query_GetRoom}}}") ||
+					Event.Data.existskey("{{{RoutePaths::C_Query_LeaveOverlay}}}")
+				) {
+					{{{P}}}History = {{{P}}}RemoveHistoryLastEntry({{{P}}}History);
+				} else {
+					{{{P}}}TempData = Event.Data;
+					{{{P}}}TempData.removekey("{{{Router::C_Event_OverlayUpdateData}}}");
+					{{{P}}}History = {{{P}}}AddToHistory({{{P}}}History, {{{P}}}PathName, {{{P}}}TempData.tojson());
+				}
+				if ({{{P}}}History.count > 1) {
+					{{{P}}}TempData = [];
+					{{{P}}}TempData["{{{RoutePaths::C_Query_ParentName}}}"] = {{{P}}}History[{{{P}}}History.count-2].PathName;
+					{{{P}}}TempData["{{{RoutePaths::C_Query_ParentData}}}"] = {{{P}}}History[{{{P}}}History.count-2].Data;
+					{{{Router::P}}}UpdateOverlayParent(This, {{{P}}}PathName, {{{P}}}TempData);
+				} else {
+					{{{Router::P}}}UpdateOverlayParent(This, {{{P}}}PathName, [
+						"{{{RoutePaths::C_Query_ParentName}}}" => {{{Router::P}}}GetCurrentRoute(This).URL.Path
+					]);
+				}
+			}
+		}
+		case "{{{Router::C_Event_OverlayEmptyHistory}}}": {
+			{{{P}}}History = [];
+			{{{P}}}PathName = "";
+		}
+	}
+}
+***
+
+		""",
+		[Router::ComponentV2()],
+		[]
+	);
+}

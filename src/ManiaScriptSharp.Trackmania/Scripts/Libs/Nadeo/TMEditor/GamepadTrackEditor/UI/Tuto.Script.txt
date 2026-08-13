@@ -1,0 +1,830 @@
+/**
+ * Tuto UI
+ */
+
+#Const Version		"1.0.0"
+#Const ScriptName	"Tuto.Script.txt"
+
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/Manialink3.Script.txt" as Manialink
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Legacy/Buttons.Script.txt" as Buttons2
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Legacy/UIPadButtons.Script.txt" as Buttons
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Layers.Script.txt" as Layers
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Macroblock.Script.txt" as Macroblock
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/ThemePack.Script.txt" as ThemePack
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/UI/Stylesheet.Script.txt" as Styles
+
+// ---------------------------------- //
+// Constants
+// ---------------------------------- //
+#Const C_Tuto_StopEngine	0
+#Const C_Tuto_Finish		1
+#Const C_Tuto_Checkpoint	2
+#Const C_Tuto_Multilaps		3
+#Const C_Tuto_Test			4
+#Const C_Tuto_CameraMove_Mouse	5
+#Const C_Tuto_CameraMove_Pad	6
+#Const C_Tuto_MoveBlock		7
+#Const C_Tuto_MoveBlock_Mouse 8
+#Const C_Tuto_RotateBlock_Mouse 9
+#Const C_Tuto_PlaceBlock_Mouse 10
+#Const C_Tuto_Rosaces		11
+#Const C_Tuto_ChangeMode	12
+#Const C_Tuto_Edit			13
+#Const C_Tuto_Skin			14
+#Const C_Tuto_Switch		15
+#Const C_Tuto_CameraZoom	16
+#Const C_Tuto_CutPaste		17
+#Const C_Tuto_Turbo			18
+#Const C_Tuto_Landscape		19
+#Const C_Tuto_Decoration	20
+#Const C_Tuto_EditTerrain	21
+#Const C_Tuto_ConnectMode	22
+/// Devices
+#Const C_Device_Keyboard	0
+#Const C_Device_Gamepad		1
+
+#Const C_Default_HeaderSize <154., 6.38>
+
+// ---------------------------------- //
+// Globales
+// ---------------------------------- //
+declare Integer[] G_TutosVisibilities;
+declare Integer G_TutoEnabled;
+declare Integer[Integer] G_TriggerCount;
+declare CMlPage G_Page;
+
+// Functions
+Text Private_GetTutoML() {
+	declare TutoText = [
+		C_Tuto_MoveBlock => [
+			//L16N [MapEditor] Tutorial explaining how to move the selected block
+			C_Device_Keyboard => _("Use the arrow keys to move the cursor."),
+			//L16N [MapEditor] Tutorial explaining how to move the selected block, %1 will be replaced by the name of the button
+			C_Device_Gamepad => TL::Compose(_("Use %1 to move the cursor."), Buttons::GetDirectionalButtonsName())
+		],
+		C_Tuto_ChangeMode => [
+			//L16N [MapEditor] Tutorial explaining how to switch between the different building mode
+			C_Device_Keyboard => _("Use the shift key to switch between the different building modes."),
+			//L16N [MapEditor] Tutorial explaining how to switch between the different building mode, %1 will be replaced by the name of the button
+			C_Device_Gamepad => TL::Compose(_("Press on %1 to switch between the different building modes."), Buttons::GetChangeEditorModeName())
+		],
+		C_Tuto_ConnectMode => [
+			//L16N [MapEditor] Tutorial explaining how to switch between the connection modes
+			C_Device_Keyboard => _("Use the shift key to switch between connected and disconnected modes. In connected mode the cursor is always attached to the track. In disconnected mode you can move the cursor freely."),
+			//L16N [MapEditor] Tutorial explaining how to switch between the connection modes, %1 will be replaced by the name of the button
+			C_Device_Gamepad => TL::Compose(_("Press on %1 to switch between connected and disconnected modes. In connected mode the cursor is always attached to the track. In disconnected mode you can move the cursor freely."), Buttons::GetChangeEditorModeName())
+		],
+		C_Tuto_Skin => [
+			//L16N [MapEditor] Tutorial explaining how to select a skin
+			C_Device_Keyboard => _("This block has a customizable skin. Use the mouse to select the picture you want to use."),
+			//L16N [MapEditor] Tutorial explaining how to select a skin, %1 will be replaced by the name of the button
+			C_Device_Gamepad => TL::Compose(_("This block has a customizable skin. Use %1 to select the picture you want to use."), Buttons::GetLeftStickName())
+		],
+		C_Tuto_Rosaces => [
+			//L16N [MapEditor] Tutorial explaining how to select a block
+			C_Device_Keyboard => _("Right-click to open the block selection screen. Left-click to first choose the category and then the block you want to place."),
+			//L16N [MapEditor] Tutorial explaining how to select a block, %1 and %2 will be replaced by the name of the buttons
+			C_Device_Gamepad => TL::Compose(_("Use %1 to open the block selection screen and to select a category. Then use %2 to choose the block you want to place."), Buttons::GetLeftStickName(), Buttons::GetRightStickName())
+		]
+	];
+
+	declare Page <=> Layers::Get("Tuto").LocalPage;
+	declare L_CheckpointId for Page = NullId;
+	declare L_StopEngineId for Page = NullId;
+	declare L_FinishId for Page = NullId;
+	declare L_MultilapsId for Page = NullId;
+	L_CheckpointId = NullId;
+	L_StopEngineId = NullId;
+	L_FinishId = NullId;
+	L_MultilapsId = NullId;
+	foreach (MacroblockModel in MacroblockModels) {
+		if (!ThemePack::IsAvailable(MacroblockModel)) continue;
+		if (L_CheckpointId == NullId && MacroblockModel.HasCheckpoint) {
+			L_CheckpointId = MacroblockModel.Id;
+		}
+		if (L_StopEngineId == NullId && TL::Find("StopEngine", Macroblock::GetName(MacroblockModel), False, False)) {
+			L_StopEngineId = MacroblockModel.Id;
+		}
+		if (L_FinishId == NullId && MacroblockModel.HasFinish) {
+			L_FinishId = MacroblockModel.Id;
+		}
+		if (L_MultilapsId == NullId && MacroblockModel.HasMultilap) {
+			L_MultilapsId = MacroblockModel.Id;
+		}
+		if (L_CheckpointId != NullId && L_StopEngineId != NullId && L_FinishId != NullId && L_MultilapsId != NullId) break;
+	}
+
+	declare TutoSizeX = 25.;
+	declare TutoSizeY = 5.;
+	declare TitleSizeY = 1.;
+	declare TextSizeY = 3.;
+	declare MacroblockSize = 3.;
+	declare ButtonSize = 0.9;
+	declare OptionSize = 8.;
+	declare TextMaxLine = "4";
+	declare TextLineSpacing = "0.9";
+
+	declare TutoPosY = 92 + Styles::GetSize2(<0., TutoSizeY>, Styles::CircleSize_Bottom()).Y;
+
+	return """
+<manialink version="3" name="MapEditor:Tuto">
+<stylesheet>
+	{{{Styles::Get()}}}
+</stylesheet>
+<framemodel id="Framemodel_Tuto">
+	{{{Styles::BuildSmartQuad(<0., -(C_Default_HeaderSize.Y * 0.5), 0.>, C_Default_HeaderSize.Y, -0.6, "", Styles::C_Img_TitleLeft, Styles::C_Img_TitleRight, "", False, "tm2020-text-header", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Header")}}}
+	{{{Styles::BuildQuad(<0., -1., 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), ["bgcolor" => Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "opacity" => "0.6"])}}}
+
+	{{{Styles::BuildSmartQuad(Styles::GetPosition2(<(TutoSizeX*0.5) - 2.*(OptionSize+1.), -TutoSizeY + 0.5, 2.>, Styles::CircleSize_Bottom()), 5., 0., "", "", "", "", False, "tm2020-text-button", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Button1")}}}
+	{{{Styles::BuildSmartQuad(Styles::GetPosition2(<(TutoSizeX*0.5) - (OptionSize+1.), -TutoSizeY + 0.5, 2.>, Styles::CircleSize_Bottom()), 5., 0., "", "", "", "", False, "tm2020-text-button", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Button2")}}}
+	{{{Styles::BuildSmartQuad(Styles::GetPosition2(<(TutoSizeX*0.5), -TutoSizeY + 0.5, 2.>, Styles::CircleSize_Bottom()), 5., 0., "", "", "", "", False, "tm2020-text-button", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Button3")}}}
+</framemodel>
+<frame z-index="1" id="Frame_Global">
+	<frame id="Frame_Tutos">
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_Checkpoint}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX-MacroblockSize-2., TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial about checkpoints
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("Place checkpoints to avoid shortcuts and make it easier for other players to respawn on your track.")
+				])}}}
+				{{{Styles::BuildQuad(<TutoSizeX*0.5-1., -1.-(TextSizeY*0.5), 1.>, <MacroblockSize, MacroblockSize>, Styles::CircleSize_Bottom(), Styles::Align_RightCenter(), ["id" => "Quad_Checkpoint", "keepratio" => "fit"])}}}
+			</frame>
+		</frame>
+
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_Finish}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX-MacroblockSize-2., TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial about the finish line
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("Place a finish block to end your track.")
+				])}}}
+				{{{Styles::BuildQuad(<TutoSizeX*0.5-1., -1.-(TextSizeY*0.5), 1.>, <MacroblockSize, MacroblockSize>, Styles::CircleSize_Bottom(), Styles::Align_RightCenter(), ["id" => "Quad_Finish", "keepratio" => "fit"])}}}
+			</frame>
+		</frame>
+
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_Multilaps}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX-MacroblockSize-2., TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial about race with several laps.
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("This is a multilaps start block. Players must cross all checkpoints and pass through this block to validate one lap.")
+				])}}}
+				{{{Styles::BuildQuad(<TutoSizeX*0.5-1., -1.-(TextSizeY*0.5), 1.>, <MacroblockSize, MacroblockSize>, Styles::CircleSize_Bottom(), Styles::Align_RightCenter(), ["id" => "Quad_Multilaps", "keepratio" => "fit"])}}}
+			</frame>
+		</frame>
+
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_StopEngine}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX-MacroblockSize-2., TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial about engine disabler blocks
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("Take care! This block disable your engine until you cross a new checkpoint.")
+				])}}}
+				{{{Styles::BuildQuad(<TutoSizeX*0.5-1., -1.-(TextSizeY*0.5), 1.>, <MacroblockSize, MacroblockSize>, Styles::CircleSize_Bottom(), Styles::Align_RightCenter(), ["id" => "Quad_StopEngine", "keepratio" => "fit"])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_Switch}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial about the blocks connectors and how to switch between them
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("Some blocks offer several connections possibilities. They are represented by white boxes. Press the \"switch\" button to choose the one you want to use.")
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_Test}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to test a track
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("You can test your track at any time. Select \"test\" in the pause menu.")
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_MoveBlock}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to move the selected block
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "id" => "Label_Tuto_"^C_Tuto_MoveBlock, "text" => TutoText[C_Tuto_MoveBlock][C_Device_Gamepad]
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_MoveBlock_Mouse}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to move the selected block
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("Left-click on the ground to move your cursor there.")
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_PlaceBlock_Mouse}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to place the selected block
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("Use the enter key to place the block. Alternatively left-click on the block to place it.")
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_ChangeMode}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to switch between the different building mode, %1 will be replaced by the name of the button
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "id" => "Label_Tuto_"^C_Tuto_ChangeMode, "text" => TutoText[C_Tuto_ChangeMode][C_Device_Gamepad]
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_ConnectMode}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to switch between the connection modes, %1 will be replaced by the name of the button
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "id" => "Label_Tuto_"^C_Tuto_ConnectMode, "text" => TutoText[C_Tuto_ConnectMode][C_Device_Gamepad]
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_Skin}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to select a skin
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "id" => "Label_Tuto_"^C_Tuto_Skin, "text" => TutoText[C_Tuto_Skin][C_Device_Gamepad]
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_Rosaces}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to select a block
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "id" => "Label_Tuto_"^C_Tuto_Rosaces, "text" => TutoText[C_Tuto_Rosaces][C_Device_Gamepad]
+				])}}}
+			</frame>
+		</frame>
+
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_CameraMove_Mouse}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to control the camera
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("Click on the middle mouse button and drag the mouse to rotate the camera. Use the scroll wheel to change the zoom level.")
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_CameraMove_Pad}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to control the camera, %1 and %2 will be replaced by the name of the buttons
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => TL::Compose(_("Tilt %1 to rotate the camera. Press %2 to change the zoom level."), Buttons::GetRightStickName(), Buttons::GetRightStickName())
+				])}}}
+			</frame>
+		</frame>
+
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_Edit}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to copy or automatically connect a block
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("When you move the cursor on a block you placed, you can copy it or try to automatically connect a compatible block.")
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_CutPaste}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to cut and paste a block
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("When you cut a block it is stored into your block history. You can then paste it back into your track or discard it from the history.")
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_EditTerrain}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to edit the terrain
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("Press and maintain the \"add\" or \"remove\" button. Then move the cursor to define the zone where the terraforming will be applied and release the button.")
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_Landscape}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to select a landscape before starting to build a track
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("Select a landscape and start building your track.")
+				])}}}
+			</frame>
+		</frame>
+
+		<frame pos="0 {{{TutoPosY}}}" hidden="1" id="{{{C_Tuto_Decoration}}}">
+			<frameinstance z-index="0" modelid="Framemodel_Tuto" />
+			<frame z-index="1">
+				{{{Styles::BuildLabel(<0., -1.15, 2.>, <TutoSizeX, TextSizeY>, Styles::CircleSize_Bottom(), Styles::Align_CenterTop(), [
+					//L16N [MapEditor] Tutorial explaining how to generate a random decoration
+					"autonewline" => "1", "maxline" => TextMaxLine, "linespacing" => TextLineSpacing, "class" => "tm2020-text-popup", "text" => _("Choose the proportion of each decoration style then press the \"generate\" button. When you are satisfied with your decoration you can validate your track.")
+				])}}}
+			</frame>
+		</frame>
+	</frame>
+</frame>
+<script><!--
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/UI/Stylesheet.Script.txt" as Styles
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Legacy/Buttons.Script.txt" as Buttons2
+{{{Manialink::DefaultIncludes()}}}
+
+
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: switching between several available block connectors.
+#Const C_Tuto_Switch_Text1 _("|Switch block connectors|Switch")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: launching a test race on the track.
+#Const C_Tuto_Test_Text1 _("|Playtest your new track|Test")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: moving the currently selected block.
+#Const C_Tuto_MoveBlock_Text1 _("|Move map editor cursor|Move")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: placing the currently selected block.
+#Const C_Tuto_PlaceBlock_Mouse_Text1 _("|Create a block|Place")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: switching between different building modes
+#Const C_Tuto_SwitchMode_Text1 _("|Switch building mode|Switch")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: navigating in the macroblock selection UI.
+#Const C_Tuto_Skin_Text1 _("Browse")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: selecting a block category
+#Const C_Tuto_Rosaces_Pad_Text1 _("Category")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: selecting a block
+#Const C_Tuto_Rosaces_Pad_Text2 _("|Track|Block")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: opening the block selection UI
+#Const C_Tuto_Rosaces_KB_Text1 _("|BlockSelection|Open")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: selecting a block
+#Const C_Tuto_Rosaces_KB_Text2 _("Select")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: rotating the camera.
+#Const C_Tuto_CameraMove_Text1 _("Rotate")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: zooming the camera.
+#Const C_Tuto_CameraMove_Text2 _("Zoom")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: copying a block from the track and selecting it in the block selection UI.
+#Const C_Tuto_Edit_Text1 _("Copy")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: connecting a block.
+#Const C_Tuto_Edit_Text2 _("Connect")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: pasting a block.
+#Const C_Tuto_CutPaste_Text1 _("Paste")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here : when cutting a block, it goes inside a stack. You can then paste a block from this stack or discard it.
+#Const C_Tuto_CutPaste_Text2 _("|Infinitive - throw out|Discard")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: adding a terrain block in the landscape.
+#Const C_Tuto_EditTerrain_Text1 _("Add")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: removing a terrain block in the landscape.
+#Const C_Tuto_EditTerrain_Text2 _("Remove")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: selecting a landscape style.
+#Const C_Tuto_Landscape_Text1 _("Previous style")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: selecting a landscape style.
+#Const C_Tuto_Landscape_Text2 _("Next style")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: selecting a landscape.
+#Const C_Tuto_Landscape_Text3 _("Select")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: selecting a proportion for each decoration category.
+#Const C_Tuto_Decoration_Text1 _("Less Decoration")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: selecting a proportion for each decoration category.
+#Const C_Tuto_Decoration_Text2 _("More Decoration")
+//L16N [MapEditor] Text displayed next to a button's picture describing the action of this button. Here: generating a new random decoration.
+#Const C_Tuto_Decoration_Text3 _("Generate")
+
+#Struct K_ButtonInfo {
+	Text Image;
+	Text Label;
+}
+declare K_ButtonInfo[][Integer] G_ButtonsByTuto;
+
+{{{Manialink::Animations(["EaseOutQuad"])}}}
+{{{Buttons2::ML_Functions()}}}
+
+// so I don't have to write the full thing every time...
+// I believe there was a new way to prefill structs but I can't find the syntax anymore
+K_ButtonInfo B(Text _Image, Text _Label) {
+	return K_ButtonInfo{Image = _Image, Label = _Label};
+}
+
+Void FillButtonsByTuto() {
+	declare SwitchButton = Buttons2::Editor_SelectConnector();
+	declare TestButton = Buttons2::Editor_Menu();
+	declare PlaceButton = Buttons2::Editor_PlaceBlock();
+	declare PasteButton = Buttons2::Editor_PasteBlock();
+	declare DiscardButton = Buttons2::Editor_DiscardBlock();
+	declare PrevLandscapeButton = Buttons2::Editor_PrevCategory();
+	declare NextLandscapeButton = Buttons2::Editor_NextCategory();
+	declare ValidLandscapeButton = Buttons2::Editor_Valid();
+	declare GenerateDecoButton = Buttons2::Editor_DecoGenerate();
+	declare LessButton = Buttons2::Editor_LessDeco();
+	declare MoreButton = Buttons2::Editor_MoreDeco();
+	declare ConnectButton = Buttons2::Editor_AutoConnect();
+	declare CopyButton = Buttons2::Editor_CopyBlock();
+	declare SkinButton = Buttons2::Editor_BrowseSkins();
+	declare AddButton = Buttons2::Editor_AddTerrain();
+	declare RemoveButton = Buttons2::Editor_RemoveTerrain();
+	declare MoveButton = Buttons2::Editor_MoveBlock();
+	declare SwitchModeButton = Buttons2::Editor_BuildMode();
+	declare DisconnectButton = Buttons2::Editor_Disconnect();
+	declare CameraRotate = Buttons2::Editor_CameraMove();
+	declare CameraZoom = Buttons2::Editor_CameraZoom();
+
+	G_ButtonsByTuto[{{{C_Tuto_Switch}}}]			 		= [B(SwitchButton, C_Tuto_Switch_Text1)];
+	G_ButtonsByTuto[{{{C_Tuto_Test}}}]						= [B(TestButton, C_Tuto_Test_Text1)];
+	G_ButtonsByTuto[{{{C_Tuto_MoveBlock}}}]				= [B(MoveButton, C_Tuto_MoveBlock_Text1)];
+	G_ButtonsByTuto[{{{C_Tuto_MoveBlock_Mouse}}}] = [B(MoveButton, C_Tuto_MoveBlock_Text1)];
+	G_ButtonsByTuto[{{{C_Tuto_PlaceBlock_Mouse}}}] = [B(PlaceButton, C_Tuto_PlaceBlock_Mouse_Text1)];
+	G_ButtonsByTuto[{{{C_Tuto_ChangeMode}}}]			= [B(SwitchModeButton, C_Tuto_SwitchMode_Text1)];
+	G_ButtonsByTuto[{{{C_Tuto_ConnectMode}}}]			= [B(DisconnectButton, C_Tuto_SwitchMode_Text1)];
+	G_ButtonsByTuto[{{{C_Tuto_Skin}}}]						= [B(SkinButton, C_Tuto_Skin_Text1)];
+
+	G_ButtonsByTuto[{{{C_Tuto_CameraMove_Mouse}}}] = [B(CameraRotate, C_Tuto_CameraMove_Text1), B(CameraZoom, C_Tuto_CameraMove_Text2)];
+	G_ButtonsByTuto[{{{C_Tuto_CameraMove_Pad}}}] 	= [B(CameraRotate, C_Tuto_CameraMove_Text1), B(CameraZoom, C_Tuto_CameraMove_Text2)];
+	G_ButtonsByTuto[{{{C_Tuto_Edit}}}] 						= [B(CopyButton, C_Tuto_Edit_Text1), B(ConnectButton, C_Tuto_Edit_Text2)];
+	G_ButtonsByTuto[{{{C_Tuto_CutPaste}}}] 				= [B(PasteButton, C_Tuto_CutPaste_Text1), B(DiscardButton, C_Tuto_CutPaste_Text2)];
+	G_ButtonsByTuto[{{{C_Tuto_EditTerrain}}}] 		= [B(AddButton, C_Tuto_EditTerrain_Text1), B(RemoveButton, C_Tuto_EditTerrain_Text2)];
+
+	G_ButtonsByTuto[{{{C_Tuto_Landscape}}}] 			= [B(PrevLandscapeButton, C_Tuto_Landscape_Text1),
+																										B(NextLandscapeButton, C_Tuto_Landscape_Text2),
+																										B(ValidLandscapeButton, C_Tuto_Landscape_Text3)];
+
+	G_ButtonsByTuto[{{{C_Tuto_Decoration}}}] 			= [B(LessButton, C_Tuto_Decoration_Text1),
+																										B(MoreButton, C_Tuto_Decoration_Text2),
+																										B(GenerateDecoButton, C_Tuto_Decoration_Text3)];
+}
+
+Text GetTutoTitle(Integer _TutoType) {
+	switch (_TutoType) {
+		case {{{C_Tuto_StopEngine}}}: return _("|Tuto title for engine blocks|Engine disabled");
+		case {{{C_Tuto_Finish}}}: return _("|BlockInfo|Finish");
+		case {{{C_Tuto_Checkpoint}}}: return _("|BlockInfo|Checkpoint");
+		case {{{C_Tuto_Multilaps}}}: return _("|BlockInfo|Multilaps");
+		case {{{C_Tuto_Test}}}: return _("|Tuto title showing how to test|Test the track");
+		case {{{C_Tuto_CameraMove_Mouse}}}: return _("|Tuto title showing how to move the cam|Camera controls");
+		case {{{C_Tuto_CameraMove_Pad}}}: return _("|Tuto title showing how to move the cam|Camera controls");
+		case {{{C_Tuto_MoveBlock}}}: return _("|Tuto title showing how to move a block|Move the cursor");
+		case {{{C_Tuto_MoveBlock_Mouse}}}: return _("|Tuto title showing how to move a block|Move the cursor");
+		case {{{C_Tuto_RotateBlock_Mouse}}}: return _("Tutorial"); // currently no tuto
+		case {{{C_Tuto_PlaceBlock_Mouse}}}:  return _("|Tuto title showing how to place a block|Place the block");
+		case {{{C_Tuto_Rosaces}}}: return _("|Tuto title showing how to select a block|Block selection");
+		case {{{C_Tuto_ChangeMode}}}:  return _("|Tuto title showing how to switch modes|Change the building mode");
+		case {{{C_Tuto_Edit}}}: return _("|Tuto title showing how to connect or copy a block|Copy and connect");
+		case {{{C_Tuto_Skin}}}: return _("|Tuto title showing how to select a skin|Choose a skin");
+		case {{{C_Tuto_Switch}}}: return _("|Tuto title on how to switch between sides|Connector selection");
+		case {{{C_Tuto_CameraZoom}}}: return _("Tutorial"); // currently no tuto
+		case {{{C_Tuto_CutPaste}}}: return _("|Tuto title showing how to cut/paste blocks|Cut and paste");
+		case {{{C_Tuto_Turbo}}}: return _("Tutorial"); // currently no tuto
+		case {{{C_Tuto_Landscape}}}: return _("|Tuto title showing how to generate a landscape|Landscape");
+		case {{{C_Tuto_Decoration}}}: return _("|Tuto title showing how to generate decoration|Decoration");
+		case {{{C_Tuto_EditTerrain}}}: return _("|Tuto title showing how to edit terrain|Edit terrain");
+		case {{{C_Tuto_ConnectMode}}}: return _("|Tuto title showing how to switch modes|Change the connection mode");
+	}
+	return "Error: Tuto does not exist";
+}
+
+K_ButtonInfo[] GetButtonInfo(Integer _Tuto) {
+
+	declare K_ButtonInfo[] Buttons;
+
+	if (G_ButtonsByTuto.existskey(_Tuto)) {
+		Buttons = G_ButtonsByTuto[_Tuto];
+	} else if (_Tuto == {{{C_Tuto_Rosaces}}}) { // exception for this tuto, it works differently on KB/Pad
+
+		declare LeftStick = Buttons2::Editor_RosaceLeft();
+		declare RightStick = Buttons2::Editor_RosaceRight();
+		declare LeftClick = Buttons2::Editor_LeftMouseClick();
+		declare RightClick = Buttons2::Editor_RightMouseClick();
+
+		declare InputDevice = LibButtons_GetInputDevice();
+		if (LibButtons_IsKeyboard(InputDevice)) {
+			Buttons = [B(RightClick, C_Tuto_Rosaces_KB_Text1), B(LeftClick, C_Tuto_Rosaces_KB_Text2)];
+		} else {
+			Buttons = [B(LeftStick, C_Tuto_Rosaces_Pad_Text1), B(RightStick, C_Tuto_Rosaces_Pad_Text2)];
+		}
+	}
+
+	return Buttons;
+}
+
+Void SetupButtons(CMlFrame _Frame_Tuto, Integer _Tuto) {
+	// Setup the "Buttons"/little indicators below the tuto (they're not clickable, so not quite buttons...)
+	declare CMlFrame[] SmartQuad_Buttons;
+	SmartQuad_Buttons.add(_Frame_Tuto.GetFirstChild("SmartQuad_Button1") as CMlFrame);
+	SmartQuad_Buttons.add(_Frame_Tuto.GetFirstChild("SmartQuad_Button2") as CMlFrame);
+	SmartQuad_Buttons.add(_Frame_Tuto.GetFirstChild("SmartQuad_Button3") as CMlFrame);
+
+	declare Buttons = GetButtonInfo(_Tuto);
+
+	for (I, 0, 2) {
+		declare CMlFrame SmartQuad_Button = SmartQuad_Buttons[I];
+		SmartQuad_Button.Visible = (Buttons.count > I);
+
+		if (!SmartQuad_Button.Visible) continue;
+
+		declare Label_Button <=> (SmartQuad_Button.GetFirstChild("Label_SmartQuad") as CMlLabel);
+		declare Frame_Button <=> (SmartQuad_Button.GetFirstChild("Button_SmartQuad") as CMlFrame);
+
+		Label_Button.Value = Buttons[I].Label;
+		LibButtons_SetAction(Frame_Button, Buttons[I].Image);
+	}
+
+	Styles::SetupAndAlignButtonsRightToLeft([SmartQuad_Buttons[2], SmartQuad_Buttons[1], SmartQuad_Buttons[0]], 0., 100.);
+}
+
+Void SetTuto(Integer _Tuto) {
+	declare Frame_Tutos <=> (Page.GetFirstChild("Frame_Tutos") as CMlFrame);
+	foreach (Control in Frame_Tutos.Controls) {
+		declare Frame_Tuto <=> (Control as CMlFrame);
+
+		if (Frame_Tuto.ControlId == ""^_Tuto) {
+			LibManialink_Anim(Frame_Tuto, "<frame pos=\"0 {{{Styles::Margin_Top()}}}\" hidden=\"0\" />", 500, "EaseOutQuad");
+
+			declare SmartQuad_Header <=> (Frame_Tuto.GetFirstChild("SmartQuad_Header") as CMlFrame);
+			declare Label_Title <=> (SmartQuad_Header.GetFirstChild("Label_SmartQuad") as CMlLabel);
+			Label_Title.Value = GetTutoTitle(_Tuto);
+			Styles::SetupSmartQuad(SmartQuad_Header, CMlControl::AlignHorizontal::HCenter, 0., 100.);
+
+			SetupButtons(Frame_Tuto, _Tuto);
+		} else {
+			LibManialink_Anim(Frame_Tuto, "<frame pos=\"0 "^(92+Frame_Tuto.Size.Y)^"\" hidden=\"1\" />", 500, "EaseOutQuad");
+		}
+	}
+}
+
+Void SetVisibility(Boolean _Visible) {
+	if (_Visible) {
+		LibManialink_Anim({{{Manialink::Inject("""<frame pos="0 0" hidden="0" id="Frame_Tutos" />""")}}}, 250, "EaseOutQuad");
+	} else {
+		LibManialink_Anim({{{Manialink::Inject("""<frame pos="0 {{{Styles::GetSize2(<0., TutoSizeY+2.>, Styles::CircleSize_Bottom()).Y+(92.-Styles::Margin_Top())}}}" hidden="1" id="Frame_Tutos" />""")}}}, 250, "EaseOutQuad");
+	}
+}
+
+main() {
+	declare L_Tuto for Page = -1;
+	declare L_CheckpointId for Page = NullId;
+	declare L_StopEngineId for Page = NullId;
+	declare L_FinishId for Page = NullId;
+	declare L_MultilapsId for Page = NullId;
+	declare L_Visibility for Page = False;
+	declare L_Platform for Page = -1;
+
+	declare UIMacroblockSelection_RosaceVisible for This = False;
+
+	declare PrevTuto = -1;
+	declare PrevVisibility = False;
+	declare PrevInputDevice = -1;
+
+	LibButtons_Init();
+	FillButtonsByTuto();
+
+	declare Quad_Checkpoint <=> (Page.GetFirstChild("Quad_Checkpoint") as CMlQuad);
+	declare Quad_StopEngine <=> (Page.GetFirstChild("Quad_StopEngine") as CMlQuad);
+	declare Quad_Finish <=> (Page.GetFirstChild("Quad_Finish") as CMlQuad);
+	declare Quad_Multilaps <=> (Page.GetFirstChild("Quad_Multilaps") as CMlQuad);
+	foreach (MacroblockModel in Editor.MacroblockModels) {
+		if (MacroblockModel.Id == L_CheckpointId) {
+			Quad_Checkpoint.Image = MacroblockModel.Icon;
+		}
+		if (MacroblockModel.Id == L_StopEngineId) {
+			Quad_StopEngine.Image = MacroblockModel.Icon;
+		}
+		if (MacroblockModel.Id == L_FinishId) {
+			Quad_Finish.Image = MacroblockModel.Icon;
+		}
+		if (MacroblockModel.Id == L_MultilapsId) {
+			Quad_Multilaps.Image = MacroblockModel.Icon;
+		}
+	}
+
+	declare Label_Tuto_{{{C_Tuto_MoveBlock}}} <=> (Page.GetFirstChild("Label_Tuto_{{{C_Tuto_MoveBlock}}}") as CMlLabel);
+	declare Label_Tuto_{{{C_Tuto_ChangeMode}}} <=> (Page.GetFirstChild("Label_Tuto_{{{C_Tuto_ChangeMode}}}") as CMlLabel);
+	declare Label_Tuto_{{{C_Tuto_ConnectMode}}} <=> (Page.GetFirstChild("Label_Tuto_{{{C_Tuto_ConnectMode}}}") as CMlLabel);
+	declare Label_Tuto_{{{C_Tuto_Skin}}} <=> (Page.GetFirstChild("Label_Tuto_{{{C_Tuto_Skin}}}") as CMlLabel);
+	declare Label_Tuto_{{{C_Tuto_Rosaces}}} <=> (Page.GetFirstChild("Label_Tuto_{{{C_Tuto_Rosaces}}}") as CMlLabel);
+
+	while (True) {
+		yield;
+
+		LibManialink_AnimLoop();
+		LibButtons_Loop();
+
+		declare InputDevice = LibButtons_GetInputDevice();
+		if (PrevInputDevice != InputDevice) {
+			PrevInputDevice = InputDevice;
+			L_Platform = InputDevice;
+
+			if (LibButtons_IsKeyboard(InputDevice)) {
+				Label_Tuto_{{{C_Tuto_MoveBlock}}}.Value = "{{{TutoText[C_Tuto_MoveBlock][C_Device_Keyboard]}}}";
+				Label_Tuto_{{{C_Tuto_ChangeMode}}}.Value = "{{{TutoText[C_Tuto_ChangeMode][C_Device_Keyboard]}}}";
+				Label_Tuto_{{{C_Tuto_ConnectMode}}}.Value = "{{{TutoText[C_Tuto_ConnectMode][C_Device_Keyboard]}}}";
+				Label_Tuto_{{{C_Tuto_Skin}}}.Value = "{{{TutoText[C_Tuto_Skin][C_Device_Keyboard]}}}";
+				Label_Tuto_{{{C_Tuto_Rosaces}}}.Value = "{{{TutoText[C_Tuto_Rosaces][C_Device_Keyboard]}}}";
+			} else {
+				Label_Tuto_{{{C_Tuto_MoveBlock}}}.Value = "{{{TutoText[C_Tuto_MoveBlock][C_Device_Gamepad]}}}";
+				Label_Tuto_{{{C_Tuto_ChangeMode}}}.Value = "{{{TutoText[C_Tuto_ChangeMode][C_Device_Gamepad]}}}";
+				Label_Tuto_{{{C_Tuto_ConnectMode}}}.Value = "{{{TutoText[C_Tuto_ConnectMode][C_Device_Gamepad]}}}";
+				Label_Tuto_{{{C_Tuto_Skin}}}.Value = "{{{TutoText[C_Tuto_Skin][C_Device_Gamepad]}}}";
+				Label_Tuto_{{{C_Tuto_Rosaces}}}.Value = "{{{TutoText[C_Tuto_Rosaces][C_Device_Gamepad]}}}";
+			}
+
+			if ((L_Tuto == {{{C_Tuto_Rosaces}}}) && (PrevTuto == L_Tuto)) {
+				SetTuto(L_Tuto); // re-setup the buttons
+			}
+		}
+
+		if (PrevTuto != L_Tuto) {
+			PrevTuto = L_Tuto;
+			SetTuto(L_Tuto);
+		}
+
+		if (UIMacroblockSelection_RosaceVisible && PrevVisibility != False) {
+			PrevVisibility = False;
+			SetVisibility(False);
+		} else if (!UIMacroblockSelection_RosaceVisible && PrevVisibility != L_Visibility) {
+			PrevVisibility = L_Visibility;
+			SetVisibility(L_Visibility);
+		}
+	}
+}
+--></script>
+</manialink>
+""";
+}
+
+/// Select which tuto should be displayed
+Void Private_UpdateTutoVisibility() {
+	declare Page <=> Layers::Get("Tuto").LocalPage;
+	declare L_Tuto for Page = -1;
+	declare Min = -1;
+	foreach (Priority in G_TutosVisibilities) {
+		if (Min < 0 || Priority < Min) Min = Priority;
+	}
+	L_Tuto = Min;
+	G_TutoEnabled = Min;
+}
+
+Text GetScriptVersion() { return Version; }
+Text GetScriptName() { return ScriptName; }
+
+/// Get the tuto constants
+Integer Tuto_Finish() { return C_Tuto_Finish; }
+Integer Tuto_Checkpoint() { return C_Tuto_Checkpoint; }
+Integer Tuto_Multilaps() { return C_Tuto_Multilaps; }
+Integer Tuto_Switch() { return C_Tuto_Switch; }
+Integer Tuto_MoveBlock() { return C_Tuto_MoveBlock; }
+Integer Tuto_MoveBlock_Mouse() { return C_Tuto_MoveBlock_Mouse; }
+Integer Tuto_RotateBlock_Mouse() { return C_Tuto_RotateBlock_Mouse; }
+Integer Tuto_PlaceBlock_Mouse() { return C_Tuto_PlaceBlock_Mouse; }
+Integer Tuto_Rosaces() { return C_Tuto_Rosaces; }
+Integer Tuto_ChangeMode() { return C_Tuto_ChangeMode; }
+Integer Tuto_Test() { return C_Tuto_Test; }
+Integer Tuto_Edit() { return C_Tuto_Edit; }
+Integer Tuto_Skin() { return C_Tuto_Skin; }
+Integer Tuto_CameraMove_Mouse() { return C_Tuto_CameraMove_Mouse; }
+Integer Tuto_CameraMove_Pad() { return C_Tuto_CameraMove_Pad; }
+Integer Tuto_CameraZoom() { return C_Tuto_CameraZoom; }
+Integer Tuto_CutPaste() { return C_Tuto_CutPaste; }
+Integer Tuto_Turbo() { return C_Tuto_Turbo; }
+Integer Tuto_StopEngine() { return C_Tuto_StopEngine; }
+Integer Tuto_Landscape() { return C_Tuto_Landscape; }
+Integer Tuto_Decoration() { return C_Tuto_Decoration; }
+Integer Tuto_EditTerrain() { return C_Tuto_EditTerrain; }
+Integer Tuto_ConnectMode() { return C_Tuto_ConnectMode; }
+
+// Enable a tutorial
+Void Enable(Integer _Tuto) {
+	declare persistent Integer[] LibTuto_MapEditor_Validated for LocalUser;
+	if (LibTuto_MapEditor_Validated.exists(_Tuto)) return;
+	if (G_TutosVisibilities.exists(_Tuto)) return;
+
+	G_TutosVisibilities.add(_Tuto);
+	Private_UpdateTutoVisibility();
+}
+
+// Disable a tutorial
+Void Disable(Integer _Tuto) {
+	declare Removed = G_TutosVisibilities.remove(_Tuto);
+	if (Removed) Private_UpdateTutoVisibility();
+}
+
+// ---------------------------------- //
+/// Disable all tutorials
+Void DisableAll() {
+	G_TutosVisibilities.clear();
+	Private_UpdateTutoVisibility();
+}
+
+Boolean IsEnabledAndVisible(Integer _Tuto) {
+	return (G_TutoEnabled == _Tuto);
+}
+
+Boolean IsEnabled(Integer _Tuto) {
+	return G_TutosVisibilities.exists(_Tuto);
+}
+
+// Check if any tutorial is enabled
+Boolean IsEnabled() {
+	return G_TutosVisibilities.count > 0;
+}
+
+// Validate a tutorial and disable it if it was enabled
+Void ValidateTuto(Integer _Tuto) {
+	declare persistent Integer[] LibTuto_MapEditor_Validated for LocalUser;
+	if (!LibTuto_MapEditor_Validated.exists(_Tuto)) LibTuto_MapEditor_Validated.add(_Tuto);
+	Disable(_Tuto);
+}
+
+// Check if a given tutorial is validated
+Boolean IsValidated(Integer _Tuto) {
+	declare persistent Integer[] LibTuto_MapEditor_Validated for LocalUser;
+	return LibTuto_MapEditor_Validated.exists(_Tuto);
+}
+
+// Trigger the counter of a tutorial
+Void Trigger(Integer _Tuto) {
+	if (!G_TriggerCount.existskey(_Tuto)) G_TriggerCount[_Tuto] = 0;
+	G_TriggerCount[_Tuto] += 1;
+}
+
+// Get the number of timer a tutorial was triggered
+Integer Count(Integer _Tuto) {
+	if (!G_TriggerCount.existskey(_Tuto)) return 0;
+	return G_TriggerCount[_Tuto];
+}
+
+/// Reset all validated tutorial to an unvalidated state
+Void Reset() {
+	declare persistent Integer[] LibTuto_MapEditor_Validated for LocalUser;
+	LibTuto_MapEditor_Validated.clear();
+	G_TriggerCount.clear();
+}
+
+Integer GetPlatform() {
+	if (G_Page != Null) {
+		declare L_Platform for G_Page = -1;
+		return L_Platform;
+	}
+	return -1;
+}
+
+Boolean LayerIsVisible() {
+	declare Page <=> Layers::Get("Tuto").LocalPage;
+	declare L_Visibility for Page = False;
+	return L_Visibility;
+}
+
+// Set the tuto UI visibility
+Void SetVisibility(Boolean _Visible) {
+	declare Page <=> Layers::Get("Tuto").LocalPage;
+	declare L_Visibility for Page = False;
+	L_Visibility = _Visible;
+}
+
+Void Show() {
+	SetVisibility(True);
+}
+
+Void Hide() {
+	SetVisibility(False);
+}
+
+Void Unload() {
+	Layers::Destroy("Tuto");
+
+	G_TutosVisibilities.clear();
+	G_TutoEnabled = -1;
+	G_TriggerCount.clear();
+}
+
+Void Load() {
+	Unload();
+
+	Buttons2::Load();
+	declare LayerTuto <=> Layers::Create("Tuto");
+	LayerTuto.ManialinkPage = Private_GetTutoML();
+	Buttons2::Unload();
+
+	declare Page <=> LayerTuto.LocalPage;
+	G_Page <=> Page;
+	declare L_Visibility for Page = False;
+	declare L_Tuto for Page = -1;
+	L_Visibility = False;
+	L_Tuto = -1;
+}

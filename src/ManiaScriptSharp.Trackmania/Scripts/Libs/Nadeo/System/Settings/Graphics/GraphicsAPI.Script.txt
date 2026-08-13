@@ -1,0 +1,436 @@
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Settings/SettingsStructs.Script.txt" as Structs
+
+#Const C_LibGraphicsAPI_AvailableSettings """
+<settings>
+	<!-- <setting type="Action" id="ApplyChanges" name="Apply changes" /> -->
+
+	<setting type="Enum" id="Device" 			name="Display device" 		/>
+	<setting type="Bool" id="Customize" 		name="Customize"			/>
+	<setting type="Enum" id="Preset" 			name="Preset" 				/>
+	<setting type="Enum" id="ShaderQuality" 	name="Shader quality" 		/>
+	<setting type="Enum" id="Shadows" 			name="Shadows" 				/>
+	<setting type="Enum" id="TexturesQuality" 	name="Texture quality"		/>
+	<setting type="Enum" id="DisplayMode" 		name="Display mode" 		/>
+	<setting type="Enum" id="FullscreenResolution" name="Resolution" 	/>
+	<setting type="Int" id="WindowResolutionX" name="Window width" min="0" step="1" />
+	<setting type="Int" id="WindowResolutionY" name="Window height" min="0" step="1" />
+	<setting type="Bool" id="ShowWindowBorder" name="Show the window border" />
+
+	<setting type="Bool" id="Automatic" 			name="|Quality|Automatic" 									/>
+	<setting type="Int"  id="AutomaticMinFps" 		name="Automatic Minimum Fps" min="0" step="1" 				/>
+	<setting type="Int"  id="LimitFPS" 				name="Maximum Fps" min="0" step="1" 						/>
+	<setting type="Enum" id="ForwardAntialiasing"	name="Forward antialiasing" 								/>
+	<setting type="Enum" id="DeferredAntialiasing"	name="Deferred antialiasing" 								/>
+	<setting type="Enum" id="TextureFiltering" 		name="Texture filtering" 									/>
+	<setting type="Enum" id="CarReflects" 			name="Reflections in vehicles" 								/>
+	<setting type="Enum" id="WaterReflects" 		name="Reflections on water surface" 						/>
+	<setting type="Enum" id="EverywhereReflects"	name="Other reflections"									/>
+	<setting type="Enum" id="Bloom" 				name="Bloom and lens flare" 								/>
+	<setting type="Bool" id="MotionBlurEnabled" 	name="Use motion blur" 										/>
+	<setting type="Real" id="MotionBlurIntensity" 	name="Motion blur intensity" min="0" max="1" step="0.01" 	/>
+
+	<setting type="Enum" id="DisplaySync" name="V-Sync" />
+	<setting type="Enum" id="CPUSync" name="GPU & CPU synchronisation" />
+
+</settings>
+"""
+
+declare Structs::SSettingModel[] G_LibGraphicsAPI_AvailableSettings;
+declare Boolean G_LibGraphicsAPI_PendingSettingsUpdate;
+declare Integer G_LibGraphicsAPI_PrevDirtyCounter;
+
+Structs::SSettingModel[] Private_GetSettingsList() {
+	if (G_LibGraphicsAPI_AvailableSettings.count > 0) {
+		return G_LibGraphicsAPI_AvailableSettings;
+	}
+
+	declare Document <=> Xml.Parse_Xml(C_LibGraphicsAPI_AvailableSettings);
+	declare Graphics <=> ManiaPlanet.DisplaySettings;
+	
+	foreach (Node in Document.Root.Children) {
+		declare Structs::SSettingModel Setting;
+
+		Setting.Id				= Node.GetAttributeText("id", "");
+		Setting.Type			= Node.GetAttributeText("type", "");
+		Setting.Name			= Node.GetAttributeText("name", "");
+		Setting.ValueRangeMin	= Node.GetAttributeReal("min", 0.);
+		Setting.ValueRangeMax	= Node.GetAttributeReal("max", 1.);
+		Setting.ValueStep		= Node.GetAttributeReal("step", .01);
+		Setting.Info			= Node.GetAttributeText("info", "");
+
+		switch (Setting.Id) {
+				
+			case "Device" : {
+				foreach (I => Device in Graphics.Devices) {
+					Setting.AvailableOptions.add(Device);
+					Setting.OptionsLabels[Device] = Graphics.DevicesNames[I];
+				}
+			}
+			case "Preset" : {
+				Setting.AvailableOptions = ["None", "VeryFast", "Fast", "Nice", "VeryNice"];
+				Setting.OptionsLabels = ["None" => _("|DisplayPreset|None"), "VeryFast" => _("|DisplayPreset|Very Fast"), "Fast" => _("|DisplayPreset|Fast"), "Nice" => _("|DisplayPreset|Nice"), "VeryNice" => _("|DisplayPreset|Very Nice")];
+			}
+			case "ShaderQuality" : {
+				Setting.AvailableOptions = ["VeryFast", "Fast", "Nice", "VeryNice"];
+				Setting.OptionsLabels = ["VeryFast" => _("|ShaderQuality|Very low"), "Fast" => _("|ShaderQuality|Low"), "Nice" => _("|ShaderQuality|High"), "VeryNice" => _("|ShaderQuality|Very high")];
+			}
+			case "Shadows" : {
+				Setting.AvailableOptions 	= ["Low", "High"];
+				Setting.OptionsLabels 		= ["Low" => _("|Shadows|Minimum"), "High" => _("|Shadows|High")];
+			}
+			case "TexturesQuality" : {
+				Setting.AvailableOptions	= ["VeryLow", "Low", "Medium", "High"];
+				Setting.OptionsLabels		= ["VeryLow" => _("|TexturesQuality|Very Low"), "Low" => _("|TexturesQuality|Low"), "Medium" => _("|TexturesQuality|Medium"), "High" => _("|TexturesQuality|High")];
+			}
+			
+			case "DisplayMode" : {
+				Setting.AvailableOptions = ["Window", "Borderless", "Fullscreen"];
+				Setting.OptionsLabels = ["Window" => _("|DisplayMode|Windowed"), "Borderless" => _("|DisplayMode|Windowed borderless"), "Fullscreen" => _("|DisplayMode|Fullscreen")];
+			}
+			case "FullscreenResolution" : {
+				foreach (Resolution in Graphics.FullscreenSizes) {
+					declare Key = Resolution.X^"x"^Resolution.Y;
+
+					Setting.AvailableOptions.add(Key);
+					Setting.OptionsLabels[Key] = Resolution.X ^ " x " ^ Resolution.Y;
+				}
+			}
+			case "ForwardAntialiasing" : {
+				Setting.AvailableOptions = ["None", "2x", "4x", "6x", "8x", "16x"];
+				Setting.OptionsLabels	 = ["None" => _("|Antialiasing|None"), "2x" => "MSAA 2x", "4x" => "MSAA 4x", "6x" => "MSAA 6x", "8x" => "MSAA 8x", "16x" => "MSAA 16x"];
+			}
+			case "DeferredAntialiasing" : {
+				Setting.AvailableOptions = ["None", "FXAA", "TAA"];
+				Setting.OptionsLabels	 = ["None" => _("|Antialiasing|None"), "FXAA" => "FXAA", "TAA" => "TAA"];
+			}
+			case "TextureFiltering" : {
+				Setting.AvailableOptions = ["Bilinear", "Trilinear", "Aniso2", "Aniso4", "Aniso8", "Aniso16"];
+				Setting.OptionsLabels = ["Bilinear" => _("|MaxFiltering|Bilinear"), "Trilinear" => _("|MaxFiltering|Trilinear"), "Aniso2" => _("|MaxFiltering|Anisotropic  2x"), "Aniso4" => _("|MaxFiltering|Anisotropic  4x"), "Aniso8" => _("|MaxFiltering|Anisotropic  8x"), "Aniso16" => _("|MaxFiltering|Anisotropic 16x")];
+			}
+			case "WaterReflects" : {
+				Setting.AvailableOptions = ["VeryFast", "Fast", "Nice", "VeryNice"];
+				Setting.OptionsLabels = ["VeryFast" => _("|WaterReflect|Very low"), "Fast" => _("|WaterReflect|Low"), "Nice" => _("|WaterReflect|Nice"), "VeryNice" => _("|WaterReflect|Very Nice")];
+			}
+			case "EverywhereReflects" : {
+				Setting.AvailableOptions = ["None", "Enabled"];
+				Setting.OptionsLabels = ["None" => _("|EverywhereReflect|Disabled"), "Enabled" => _("|EverywhereReflect|Enabled")];
+			}
+			case "CarReflects" : {
+				Setting.AvailableOptions = ["Low", "Replay", "High"];
+				Setting.OptionsLabels = ["Low" => _("|VehicleReflect|Low"), "Replay" => _("|VehicleReflect|High (in replays)"), "High" => _("|VehicleReflect|High")];
+			}
+			case "Bloom" : {
+				Setting.AvailableOptions = ["Off", "Medium", "High"];
+				Setting.OptionsLabels = ["Off" => _("|FxBloomHdr|None"), "Medium" => _("|FxBloomHdr|Medium"), "High" => _("|FxBloomHdr|High")];
+			}
+			case "DisplaySync" : {
+				Setting.AvailableOptions = ["Off", "Full", "Half", "Third"];
+				Setting.OptionsLabels = ["Off" => _("|VSync|None"), "Full" => _("|VSync|Full"), "Half" => _("|VSync|Half"), "Third" => _("|VSync|Third")];
+			}
+			case "CPUSync" : {
+				Setting.AvailableOptions = ["Off", "3", "2", "1", "0"];
+				Setting.OptionsLabels = ["Off" => _("|GpuSync|None"), "3" => _("|GpuSync|3 Frames"), "2" => _("|GpuSync|2 Frames"), "1" => _("|GpuSync|1 Frame"), "0" => _("|GpuSync|Immediate")];
+			}
+			case "RealtimeSSAA" : {
+				Setting.AvailableOptions = ["Disabled", "2", "3", "4", "5", "6", "7", "8", "9"];
+				Setting.OptionsLabels = ["Disabled" => _("|RealtimeSSAA|Disabled"), 
+                    "2" => _("|RealtimeSSAA|2 Renders"), 
+                    "3" => _("|RealtimeSSAA|3 Renders"), 
+                    "4" => _("|RealtimeSSAA|4 Renders"), 
+                    "5" => _("|RealtimeSSAA|5 Renders"), 
+                    "6" => _("|RealtimeSSAA|6 Renders"), 
+                    "7" => _("|RealtimeSSAA|7 Renders"), 
+                    "8" => _("|RealtimeSSAA|8 Renders"), 
+                    "9" => _("|RealtimeSSAA|9 Renders") ];
+			}
+			case "RealtimeSSAA_Motion" : {
+				Setting.AvailableOptions = ["Disabled", "1", "2", "3", "4"];
+				Setting.OptionsLabels = ["Disabled" => _("|RealtimeSSAA_Motion|Disabled"), 
+                    "1" => _("|RealtimeSSAA_Motion|1 Frame"),
+                    "2" => _("|RealtimeSSAA_Motion|2 Frames"),
+                    "3" => _("|RealtimeSSAA_Motion|3 Frames"),
+                    "4" => _("|RealtimeSSAA_Motion|4 Frames")];
+			}
+		}
+
+		G_LibGraphicsAPI_AvailableSettings.add(Setting);
+	}
+
+	Xml.Parse_Destroy(Document);
+	return G_LibGraphicsAPI_AvailableSettings;
+}
+
+Structs::SSettingModel[] GetSettingsList() {
+	declare Graphics <=> ManiaPlanet.DisplaySettings;
+	declare Structs::SSettingModel[] SettingsList;
+
+	foreach (I => SettingModel in Private_GetSettingsList()) {
+		declare Setting = SettingModel;
+
+		// Values
+		switch (Setting.Id) {
+			case "Device" : {
+				Setting.CurrentValueText = Graphics.Device_NextStart;
+			}
+			
+			case "Preset" : {
+				switch (Graphics.Preset_NextStart) {
+					case CDisplaySettings::EPreset::None			: Setting.CurrentValueText = "None";
+					case CDisplaySettings::EPreset::VeryNice		: Setting.CurrentValueText = "VeryNice";
+					case CDisplaySettings::EPreset::Nice 			: Setting.CurrentValueText = "Nice";
+					case CDisplaySettings::EPreset::Fast			: Setting.CurrentValueText = "Fast";
+					case CDisplaySettings::EPreset::VeryFast		: Setting.CurrentValueText = "VeryFast";
+				}
+			}
+			
+			case "ShaderQuality" : {
+				switch (Graphics.ShaderQuality_NextStart) {
+					case CDisplaySettings::EShaderQuality::VeryNice		: Setting.CurrentValueText = "VeryNice";
+					case CDisplaySettings::EShaderQuality::Nice 		: Setting.CurrentValueText = "Nice";
+					case CDisplaySettings::EShaderQuality::Fast			: Setting.CurrentValueText = "Fast";
+					case CDisplaySettings::EShaderQuality::VeryFast		: Setting.CurrentValueText = "VeryFast";
+				}
+			}
+			
+			case "Shadows" : {
+				switch (Graphics.Shadows_NextStart) {
+					case CDisplaySettings::EShadows::High 		: Setting.CurrentValueText = "Low";
+					case CDisplaySettings::EShadows::VeryHigh	: Setting.CurrentValueText = "High";
+				}
+			}
+			
+			case "TexturesQuality" : {
+				switch (Graphics.TexturesQuality_NextStart) {
+					case 0	: Setting.CurrentValueText = "VeryLow";
+					case 1	: Setting.CurrentValueText = "Low";
+					case 2	: Setting.CurrentValueText = "Medium";
+					case 3	: Setting.CurrentValueText = "High";
+				}
+			}
+			
+			case "DisplayMode" : {
+				switch (Graphics.DisplayMode) {
+					case CDisplaySettings::EDisplayMode::Windowed				: Setting.CurrentValueText = "Window";
+					case CDisplaySettings::EDisplayMode::WindowedFull 			: Setting.CurrentValueText = "Borderless";
+					case CDisplaySettings::EDisplayMode::FullscreenExclusive	: Setting.CurrentValueText = "Fullscreen";
+				}
+			}
+	
+			case "ForwardAntialiasing" : {
+				switch (Graphics.Antialias_Forward) {
+					case CDisplaySettings::EForwardAA::None						: Setting.CurrentValueText = "None";
+					case CDisplaySettings::EForwardAA::_2x						: Setting.CurrentValueText = "2x";
+					case CDisplaySettings::EForwardAA::_4x						: Setting.CurrentValueText = "4x";
+					case CDisplaySettings::EForwardAA::_6x						: Setting.CurrentValueText = "6x";
+					case CDisplaySettings::EForwardAA::_8x						: Setting.CurrentValueText = "8x";
+					case CDisplaySettings::EForwardAA::_16x						: Setting.CurrentValueText = "16x";
+				}
+			}
+			
+			case "DeferredAntialiasing" : {
+				switch (Graphics.Antialias_Deferred) {
+					case CDisplaySettings::EDeferredAA::None						: Setting.CurrentValueText = "None";
+					case CDisplaySettings::EDeferredAA::FXAA						: Setting.CurrentValueText = "FXAA";
+					case CDisplaySettings::EDeferredAA::UBI_TXAA					: Setting.CurrentValueText = "TAA";
+				}
+			}
+
+			case "TextureFiltering" : {
+				switch (Graphics.TextureFiltering) {
+					case CDisplaySettings::ETextureFilter::Bilinear				: Setting.CurrentValueText = "Bilinear";
+					case CDisplaySettings::ETextureFilter::Trilinear			: Setting.CurrentValueText = "Trilinear";
+					case CDisplaySettings::ETextureFilter::Aniso_2x				: Setting.CurrentValueText = "Aniso2";
+					case CDisplaySettings::ETextureFilter::Aniso_4x				: Setting.CurrentValueText = "Aniso4";
+					case CDisplaySettings::ETextureFilter::Aniso_8x				: Setting.CurrentValueText = "Aniso8";
+					case CDisplaySettings::ETextureFilter::Aniso_16x			: Setting.CurrentValueText = "Aniso16";
+					case CDisplaySettings::ETextureFilter::Aniso_16x_Everywhere	: Setting.CurrentValueText = "Aniso16E";
+				}
+			}
+
+			case "WaterReflects" : {
+				switch (Graphics.WaterReflect) {
+					case CDisplaySettings::EWaterReflect::VeryFast			: Setting.CurrentValueText = "VeryFast";
+					case CDisplaySettings::EWaterReflect::Fast				: Setting.CurrentValueText = "Fast";
+					case CDisplaySettings::EWaterReflect::Nice				: Setting.CurrentValueText = "Nice";
+					case CDisplaySettings::EWaterReflect::VeryNice			: Setting.CurrentValueText = "VeryNice";
+				}
+			}
+
+			case "EverywhereReflects" : {
+				switch (Graphics.EverywhereReflect) {
+					case CDisplaySettings::EEverywhereReflect::None			: Setting.CurrentValueText = "None";
+					case CDisplaySettings::EEverywhereReflect::Enabled		: Setting.CurrentValueText = "Enabled";
+				}
+			}
+
+			case "CarReflects" : {
+				switch (Graphics.VehicleReflect) {
+					case CDisplaySettings::EVehicleReflect::Low				: Setting.CurrentValueText = "Low";
+					case CDisplaySettings::EVehicleReflect::HighInReplay 	: Setting.CurrentValueText = "Replay";
+					case CDisplaySettings::EVehicleReflect::High			: Setting.CurrentValueText = "High";
+				}
+			}
+
+			case "Bloom" : {
+				switch (Graphics.FxBloomHdr) {
+					case CDisplaySettings::EFxBloomHdr::None	: Setting.CurrentValueText = "Off";
+					case CDisplaySettings::EFxBloomHdr::Medium	: Setting.CurrentValueText = "Medium";
+					case CDisplaySettings::EFxBloomHdr::High	: Setting.CurrentValueText = "High";
+				}
+			}
+
+			case "DisplaySync" : {
+				switch (Graphics.DisplaySync) {
+					case CDisplaySettings::EDisplaySync::None		: Setting.CurrentValueText = "Off";
+					case CDisplaySettings::EDisplaySync::VBlank1	: Setting.CurrentValueText = "Full";
+					case CDisplaySettings::EDisplaySync::VBlank2	: Setting.CurrentValueText = "Half";
+					case CDisplaySettings::EDisplaySync::VBlank3	: Setting.CurrentValueText = "Third";
+				}
+			}
+
+			case "CPUSync" : {
+				switch (Graphics.GpuSync) {
+					case CDisplaySettings::EGpuSync::None		: Setting.CurrentValueText = "Off";
+					case CDisplaySettings::EGpuSync::_3Frames	: Setting.CurrentValueText = "3";
+					case CDisplaySettings::EGpuSync::_2Frames	: Setting.CurrentValueText = "2";
+					case CDisplaySettings::EGpuSync::_1Frames	: Setting.CurrentValueText = "1";
+					case CDisplaySettings::EGpuSync::Immediate	: Setting.CurrentValueText = "0";
+				}
+            }
+			
+			case "RealtimeSSAA" : {
+				switch (Graphics.RealtimeSSAA) {
+					case CDisplaySettings::ERealtimeSSAA::Disabled	: Setting.CurrentValueText = "Disabled";
+					case CDisplaySettings::ERealtimeSSAA::_2Renders	: Setting.CurrentValueText = "2";
+					case CDisplaySettings::ERealtimeSSAA::_3Renders	: Setting.CurrentValueText = "3";
+					case CDisplaySettings::ERealtimeSSAA::_4Renders	: Setting.CurrentValueText = "4";
+					case CDisplaySettings::ERealtimeSSAA::_5Renders	: Setting.CurrentValueText = "5";
+					case CDisplaySettings::ERealtimeSSAA::_6Renders	: Setting.CurrentValueText = "6";
+					case CDisplaySettings::ERealtimeSSAA::_7Renders	: Setting.CurrentValueText = "7";
+					case CDisplaySettings::ERealtimeSSAA::_8Renders	: Setting.CurrentValueText = "8";
+					case CDisplaySettings::ERealtimeSSAA::_9Renders	: Setting.CurrentValueText = "9";
+				}
+			}
+            
+			case "RealtimeSSAA_Motion" : {
+				switch (Graphics.RealtimeSSAA_Motion) {
+					case CDisplaySettings::ERealtimeSSAA_Motion::Disabled	: Setting.CurrentValueText = "Disabled";
+					case CDisplaySettings::ERealtimeSSAA_Motion::_1Frame	: Setting.CurrentValueText = "1";
+					case CDisplaySettings::ERealtimeSSAA_Motion::_2Frames	: Setting.CurrentValueText = "2";
+					case CDisplaySettings::ERealtimeSSAA_Motion::_3Frames	: Setting.CurrentValueText = "3";
+					case CDisplaySettings::ERealtimeSSAA_Motion::_4Frames	: Setting.CurrentValueText = "4";
+				}
+			}
+			
+			case "RealtimeSSAA_MinimumFps"				: {
+			 Setting.CurrentValueInteger	= Graphics.RealtimeSSAA_MinimumFps;
+			}
+
+			case "WindowResolutionX" : {
+				if (Graphics.DisplayMode == CDisplaySettings::EDisplayMode::WindowedFull) {
+					Setting.CurrentValueInteger	= Graphics.WindowFullSize.X;
+				} else {
+					Setting.CurrentValueInteger	= Graphics.WindowSize.X;
+				}
+			}
+
+			case "WindowResolutionY" : {
+				if (Graphics.DisplayMode == CDisplaySettings::EDisplayMode::WindowedFull) {
+					Setting.CurrentValueInteger	= Graphics.WindowFullSize.Y;
+				} else {
+					Setting.CurrentValueInteger	= Graphics.WindowSize.Y;
+				}
+			}
+			
+			case "Customize"			: Setting.CurrentValueBoolean	= Graphics.Customize_NextStart;
+			case "Automatic"			: Setting.CurrentValueBoolean	= Graphics.Automatic_Enabled;
+			case "AutomaticMinFps"		: Setting.CurrentValueInteger	= Graphics.Automatic_MinFps;
+			case "FullscreenResolution"	: Setting.CurrentValueText		= Graphics.FullscreenSize.X^"x"^Graphics.FullscreenSize.Y;
+			case "ShowWindowBorder"		: Setting.CurrentValueBoolean	= !Graphics.WindowBorderless;
+			case "MotionBlurEnabled"	: Setting.CurrentValueBoolean	= Graphics.FxMotionBlur == CDisplaySettings::EFxMotionBlur::Enabled;
+			case "MotionBlurIntensity"	: Setting.CurrentValueReal		= Graphics.FxMotionBlurIntens;
+			case "AgpUseFactor"			: Setting.CurrentValueReal		= Graphics.AgpUseFactor_NextStart;
+			case "LimitFPS"				: Setting.CurrentValueInteger	= Graphics.MaxFps;
+		}
+
+		// Availability
+		switch (Setting.Id) {
+			case "FullscreenResolution"	: Setting.IsDisabled = Graphics.DisplayMode 	!= CDisplaySettings::EDisplayMode::FullscreenExclusive;
+			case "WindowResolutionX"	: Setting.IsDisabled = Graphics.DisplayMode 	!= CDisplaySettings::EDisplayMode::Windowed;
+			case "WindowResolutionY"	: Setting.IsDisabled = Graphics.DisplayMode 	!= CDisplaySettings::EDisplayMode::Windowed;
+			case "ShowWindowBorder"		: Setting.IsDisabled = Graphics.DisplayMode 	!= CDisplaySettings::EDisplayMode::Windowed;
+			
+			case "AutomaticMinFps"	    : Setting.IsDisabled = !Graphics.Automatic_Enabled;
+			
+			case "Preset"				: Setting.IsDisabled = !Graphics.Customize_NextStart;
+			case "Shadows"				: Setting.IsDisabled = !(Graphics.Customize_NextStart && Graphics.Preset_NextStart == CDisplaySettings::EPreset::None);
+			case "ShaderQuality"		: Setting.IsDisabled = !(Graphics.Customize_NextStart && Graphics.Preset_NextStart == CDisplaySettings::EPreset::None);
+			case "TexturesQuality"		: Setting.IsDisabled = !(Graphics.Customize_NextStart && Graphics.Preset_NextStart == CDisplaySettings::EPreset::None);
+			
+			case "WaterReflects"		: Setting.IsDisabled =  !(Graphics.Customize_NextStart && Graphics.Preset_NextStart == CDisplaySettings::EPreset::None)
+																|| (Graphics.ShaderQuality_NextStart == CDisplaySettings::EShaderQuality::Fast || Graphics.ShaderQuality_NextStart == CDisplaySettings::EShaderQuality::VeryFast);
+			case "EverywhereReflects"	: Setting.IsDisabled = !(Graphics.Customize_NextStart && Graphics.Preset_NextStart == CDisplaySettings::EPreset::None)
+																|| (Graphics.ShaderQuality_NextStart == CDisplaySettings::EShaderQuality::Fast || Graphics.ShaderQuality_NextStart == CDisplaySettings::EShaderQuality::VeryFast);
+			case "CarReflects"			: Setting.IsDisabled = !(Graphics.Customize_NextStart && Graphics.Preset_NextStart == CDisplaySettings::EPreset::None)
+																|| (Graphics.ShaderQuality_NextStart == CDisplaySettings::EShaderQuality::Fast || Graphics.ShaderQuality_NextStart == CDisplaySettings::EShaderQuality::VeryFast);
+																
+			case "MotionBlurEnabled"	: Setting.IsDisabled = !(Graphics.Customize_NextStart && Graphics.Preset_NextStart == CDisplaySettings::EPreset::None);
+			case "MotionBlurIntensity"	: Setting.IsDisabled = !(Graphics.Customize_NextStart && Graphics.Preset_NextStart == CDisplaySettings::EPreset::None && Graphics.FxMotionBlur == CDisplaySettings::EFxMotionBlur::Enabled);
+			case "Bloom"				: Setting.IsDisabled = !(Graphics.Customize_NextStart && Graphics.Preset_NextStart == CDisplaySettings::EPreset::None);
+			
+			case "ForwardAntialiasing"	: Setting.IsDisabled = (Graphics.IsDeferred && Graphics.Customize_NextStart == Graphics.Customize_Current && Graphics.Preset_NextStart == Graphics.Preset_Current)
+																|| (Graphics.Customize_NextStart && (Graphics.Preset_NextStart == CDisplaySettings::EPreset::Nice || Graphics.Preset_NextStart == CDisplaySettings::EPreset::VeryNice))
+																|| (Graphics.Customize_NextStart && (Graphics.Preset_NextStart == CDisplaySettings::EPreset::None && (Graphics.ShaderQuality_NextStart == CDisplaySettings::EShaderQuality::Nice || Graphics.ShaderQuality_NextStart == CDisplaySettings::EShaderQuality::VeryNice)));
+			case "DeferredAntialiasing" : Setting.IsDisabled = (!Graphics.IsDeferred && Graphics.Customize_NextStart == Graphics.Customize_Current && Graphics.Preset_NextStart == Graphics.Preset_Current)
+																|| (Graphics.Customize_NextStart && (Graphics.Preset_NextStart == CDisplaySettings::EPreset::Fast || Graphics.Preset_NextStart == CDisplaySettings::EPreset::VeryFast))
+																|| (Graphics.Customize_NextStart && (Graphics.Preset_NextStart == CDisplaySettings::EPreset::None && (Graphics.ShaderQuality_NextStart == CDisplaySettings::EShaderQuality::Fast || Graphics.ShaderQuality_NextStart == CDisplaySettings::EShaderQuality::VeryFast)));
+		}
+
+		// Require restart
+		switch (Setting.Id) {
+			case "Customize"			: Setting.NeedsRestart = Graphics.Customize_NextStart 		!= Graphics.Customize_Current;
+			case "Preset"				: Setting.NeedsRestart = Graphics.Preset_NextStart 			!= Graphics.Preset_Current;
+			case "Device"				: Setting.NeedsRestart = Graphics.Device_NextStart 			!= Graphics.Device_Current;
+			case "ShaderQuality"		: Setting.NeedsRestart = Graphics.ShaderQuality_NextStart 	!= Graphics.ShaderQuality_Current;
+			case "Shadows"				: Setting.NeedsRestart = Graphics.Shadows_NextStart			!= Graphics.Shadows_Current;
+			case "TexturesQuality"		: Setting.NeedsRestart = Graphics.TexturesQuality_NextStart != Graphics.TexturesQuality_Current;
+			case "AgpUseFactor"			: Setting.NeedsRestart = Graphics.AgpUseFactor_NextStart	!= Graphics.AgpUseFactor_Current;
+			
+		}
+		
+		SettingsList.add(Setting);
+	}
+
+	return SettingsList;
+}
+
+Structs::SSettingModel GetSetting(Text _SettingId) {
+	declare Structs::SSettingModel TargetSetting;
+
+	foreach (Setting in GetSettingsList()) {
+		if (Setting.Id == _SettingId) {
+			TargetSetting = Setting;
+			break;
+		}
+	}
+
+	return TargetSetting;
+}
+
+Void Loop() {
+	if (ManiaPlanet.DisplaySettings == Null) return;
+
+	if (G_LibGraphicsAPI_PrevDirtyCounter != ManiaPlanet.DisplaySettings.DirtyCounter) {
+		G_LibGraphicsAPI_PrevDirtyCounter = ManiaPlanet.DisplaySettings.DirtyCounter;
+		G_LibGraphicsAPI_PendingSettingsUpdate = True;
+	}
+}
+
+Boolean PendingUpdate() {
+	declare IsUpdate = G_LibGraphicsAPI_PendingSettingsUpdate;
+	G_LibGraphicsAPI_PendingSettingsUpdate = False;
+	return IsUpdate;
+}

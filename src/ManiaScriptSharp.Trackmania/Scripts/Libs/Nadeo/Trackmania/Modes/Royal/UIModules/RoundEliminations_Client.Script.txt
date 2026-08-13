@@ -1,0 +1,608 @@
+/**
+ *	UI module: RoundEliminations client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/Royal/UIModules/RoundEliminations_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as Grid
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/PlayerName.Script.txt" as PlayerName
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/RoundEliminations_Common.Script.txt" as UIModules_RoundEliminations_Common
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/Ranking_Client.Script.txt" as Ranking
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/StayLeaveButtons.Script.txt" as StayLeaveButtons
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/ZIndex.Script.txt" as ZIndex
+#Include "Libs/Nadeo/Trackmania/Modes/Royal/SuperRoyal_Client.Script.txt" as SuperRoyal
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Column_Rank 0
+#Const C_Column_KO 1
+#Const C_Column_Logo 2
+#Const C_Column_Name 3
+
+#Const C_InputPriority 2
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_RoundEliminations_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_RoundEliminations_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	//L16N [Royal] Header for the table displayed at the end of each round. It shows the eliminated teams and their final rank.
+	declare Text Text_EliminatedTeams = _("Knocked out teams");
+	//L16N [Royal] Number of teams eliminated this round.
+	declare Text Text_NoEliminations = _("No eliminations");
+	//L16N [Royal] Number of teams eliminated this round.
+	declare Text Text_OneTeamEliminated = _("1 team eliminated");
+	//L16N [Royal] Number of teams eliminated this round. %1 will be replaced by a number greater than 1. e.g. "2 teams eliminated".
+	declare Text Text_SeveralTeamsEliminated = _("%1 teams eliminated");
+	//L16N [Royal] Tell if a team is qualified for the next match of SuperRoyal
+	declare Text Text_Qualified = _("Qualified");
+
+	declare Text Img_Stamp = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal/SuperRoyal/hud_super_royal_KOsign.dds";
+	declare Text Img_KOStamp = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal/hud_royal_ingame_KOSign.dds";
+	declare Text Img_Background = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Knockout/TM_UI_HUD_02_KnockOut_Popup.dds";
+	declare Text Img_BackgroundButtons = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Knockout/TM_UI_HUD_02_KnockOut_PopupWithButtons.dds";
+	declare Text Img_TeamLogoBg = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal/hud_royal_scoretable_team_icon_bg.dds";
+
+	declare Real BgSizeX = 190.;
+	declare Real BgSizeY = BgSizeX * (624. / 1088.);
+	declare Real BgSkew = 10.;
+	declare Real OutPosX = 160. + (BgSizeX * 0.5) + 5.;
+	declare Real TitleSizeRatioY = 0.23;
+	declare Real BottomMarginSizeRatioY = 0.06;
+	declare Real SlotsZoneSizeY = BgSizeY * (1. - TitleSizeRatioY - BottomMarginSizeRatioY);
+	declare Real UsableSizeX = BgSizeX * 0.87;
+	declare Real LeftStartX = UsableSizeX * -0.5;
+
+	declare Real BgButtonsSizeX = BgSizeX + 2.;
+	declare Real BgButtonsSizeY = BgButtonsSizeX * (560. / 1072.);
+	declare Real SizeY_Button = BgButtonsSizeY * 0.185;
+	declare Vec2 Pos_Buttons = MLHelpers::SkewX(<0., BgButtonsSizeY * -0.485>, BgSkew);
+
+	declare Grid::K_GridConfig GridConfig = Grid::Create(UsableSizeX, 3., 2., Grid::C_Direction_Right);
+	GridConfig = Grid::AddColumn(GridConfig, C_Column_Rank, 15., Grid::C_Align_Right);
+	GridConfig = Grid::AddColumn(GridConfig, C_Column_Logo, 20., Grid::C_Align_Center);
+	GridConfig = Grid::AddColumn(GridConfig, C_Column_KO, 25., Grid::C_Align_Center);
+	GridConfig = Grid::AddColumn(GridConfig, C_Column_Name, 40., Grid::C_Align_Left);
+	declare Grid::K_Grid Grid = Grid::Compile(GridConfig);
+
+	declare Text ML_AllSlots = "";
+	for (SlotsNb, 1, UIModules_RoundEliminations_Common::C_SlotsNb) {
+		declare Real SlotSizeY = (SlotsZoneSizeY / SlotsNb);
+		declare Real SlotsZonePosY = (BgSizeY * 0.5) - (BgSizeY * TitleSizeRatioY) - (SlotSizeY * 0.5);
+		declare Text ML_Slots = """
+<frame id="frame-slots-{{{SlotsNb}}}" {{{MLHelpers::Pos(<MLHelpers::SkewX(SlotsZonePosY, BgSkew), SlotsZonePosY>)}}}>
+""";
+		for (Index, 0, SlotsNb - 1) {
+			declare Real PosY = -Index * SlotSizeY;
+			ML_Slots ^= """
+	<frame id="frame-slot-{{{Index}}}" {{{MLHelpers::Pos(<(LeftStartX) + MLHelpers::SkewX(PosY, BgSkew), PosY>)}}}>
+		<label id="label-rank" class="label-base" z-index="3" {{{MLHelpers::Pos(<Grid.Pos[C_Column_Rank], 0.>)}}} {{{MLHelpers::Size(<Grid.Size[C_Column_Rank], SlotSizeY * 0.9>)}}} halign="right" textsize="4" />
+		<quad id="quad-K-O" class="quad-base" z-index="1" {{{MLHelpers::Pos(<Grid.Pos[C_Column_KO], 0.>)}}} {{{MLHelpers::Size(<Grid.Size[C_Column_KO], SlotSizeY * 0.9>)}}} keepratio="fit" image="{{{Img_KOStamp}}}" />
+		<quad id="quad-stamp" hidden="1" class="quad-base" z-index="1" {{{MLHelpers::Pos(<Grid.Pos[C_Column_KO], 0.>)}}} {{{MLHelpers::Size(<Grid.Size[C_Column_KO], SlotSizeY * 0.9>)}}} keepratio="fit" image="{{{Img_Stamp}}}" />
+		<label id="label-qualified" hidden="1" class="label-base" text="{{{Text_Qualified}}}" z-index="3" {{{MLHelpers::Pos(<Grid.Pos[C_Column_KO], 0.>)}}} {{{MLHelpers::Size(<Grid.Size[C_Column_KO] * 0.85, SlotSizeY * 0.9>)}}} rot="-5" textsize="4" />
+		<label id="label-division" hidden="1" class="label-base" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" z-index="3" {{{MLHelpers::Pos(<Grid.Pos[C_Column_KO], -3.>)}}} {{{MLHelpers::Size(<Grid.Size[C_Column_KO] * 0.85, SlotSizeY * 0.9>)}}} rot="-5" textsize="2" />
+		<quad id="quad-logo-bg" class="quad-base" z-index="2" {{{MLHelpers::Pos(<Grid.Pos[C_Column_Logo], 0.>)}}} {{{MLHelpers::Size(<Grid.Size[C_Column_Logo], SlotSizeY * 0.9>)}}} colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.5" image="{{{Img_TeamLogoBg}}}" keepratio="fit" />
+		<quad id="quad-logo" class="quad-base" z-index="3" {{{MLHelpers::Pos(<Grid.Pos[C_Column_Logo], 0.>)}}} {{{MLHelpers::Size(<Grid.Size[C_Column_Logo], SlotSizeY * 0.9>)}}} scale="0.95" keepratio="fit" />
+		<frame id="frame-names" z-index="4" {{{MLHelpers::Pos(<Grid.Pos[C_Column_Name], 0.>)}}}>
+			<frameinstance modelid="{{{PlayerName::C_Name}}}" data-{{{MLHelpers::Size(<Grid.Size[C_Column_Name], SlotSizeY * 0.9>)}}} data-valign="center2" data-textsize="2.5" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-textprefix="$i$t" data-textcolor="ffffff" />
+			<frameinstance modelid="{{{PlayerName::C_Name}}}" {{{MLHelpers::Pos(MLHelpers::SkewX(<0., 5.>, 10.))}}} data-{{{MLHelpers::Size(<Grid.Size[C_Column_Name], SlotSizeY * 0.9>)}}} data-valign="center2" data-textsize="2.5" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-textprefix="$i$t" data-textcolor="ffffff" />
+			<frameinstance modelid="{{{PlayerName::C_Name}}}" {{{MLHelpers::Pos(MLHelpers::SkewX(<0., -5.>, 10.))}}} data-{{{MLHelpers::Size(<Grid.Size[C_Column_Name], SlotSizeY * 0.9>)}}} data-valign="center2" data-textsize="2.5" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-textprefix="$i$t" data-textcolor="ffffff" />
+		</frame>
+	</frame>
+""";
+		}
+		ML_Slots ^= """
+</frame>
+""";
+
+		ML_AllSlots ^= ML_Slots;
+	}
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="label-base" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$i$t" textsize="2.25" textcolor="FFF"/>
+	<style class="quad-base" halign="center" valign="center"/>
+</stylesheet>
+<frame id="frame-global" z-index="{{{ZIndex::C_ZIndex_RoundEliminations}}}" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_RoundEliminations_Common::C_UIModuleConfig)}}}>
+		<quad id="quad-black-bg" z-index="0" size="400 200" halign="center" valign="center" bgcolor="000" opacity="0" fullscreen="1" />
+		<frame id="frame-valign" z-index="1" size="320 180" halign="center" valign="center">
+			<frame id="frame-content" pos="{{{-OutPosX}}} 0">
+				<frame id="frame-shake">
+					<quad id="quad-background" z-index="0" size="{{{BgSizeX}}} {{{BgSizeY}}}" halign="center" valign="center" image="{{{Img_Background}}}" />
+					<quad id="quad-background-buttons" z-index="0" size="{{{BgButtonsSizeX}}} {{{BgButtonsSizeY}}}" halign="center" valign="center" image="{{{Img_BackgroundButtons}}}" opacity="0" hidden="1" />
+					<label z-index="1" pos="{{{((0.176 * BgSizeY) / 2.) * (1. - TitleSizeRatioY)}}} {{{(BgSizeY / 2.) * (1. - TitleSizeRatioY)}}}" size="100 12" class="label-base" textsize="7" text="{{{Text_EliminatedTeams}}}" />
+					<label id="label-eliminated-nb" z-index="1" pos="{{{0.176 * (((BgSizeY / 2.) * (1. - TitleSizeRatioY)) - 6)}}} {{{((BgSizeY / 2.) * (1.-TitleSizeRatioY)) - 6}}}" size="100 5" class="label-base" textsize="3" />
+					<frame id="frame-no-elimination" z-index="2" hidden="1">
+						<label z-index="1" pos="0 0" size="{{{BgSizeX*0.8}}} 12" class="label-base" textsize="5" text="{{{Text_NoEliminations}}}" />
+					</frame>
+					<frame id="frame-all-slots" z-index="3">
+						{{{ML_AllSlots}}}
+					</frame>
+					<frameinstance modelid="{{{StayLeaveButtons::C_Name}}}" {{{MLHelpers::Pos(Pos_Buttons)}}} />
+				</frame>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/AudioManager_ML.Script.txt" as AudioManager
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Client.Script.txt" as Clans
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PrestigeEarned_Common.Script.txt" as UIModules_PrestigeEarned_Common
+
+#Struct K_ScheduledAnimation {
+	Integer Delay;
+	Integer AnimTime;
+	Integer WaitTime;
+	Integer TotalAnimTime;
+	Integer EliminatedTeamsNb;
+	Integer[] TeamIds;
+	Integer[] TeamRanks;
+	CMlFrame Frame_Slots;
+}
+
+#Const C_SlotsNb {{{dump(UIModules_RoundEliminations_Common::C_SlotsNb)}}}
+#Const C_InputPriority {{{dump(C_InputPriority)}}}
+
+#Const C_AnimDuration_UIShow {{{dump(UIModules_RoundEliminations_Common::C_AnimDuration_UIShow)}}}
+#Const C_AnimDuration_BeforeEliminations {{{dump(UIModules_RoundEliminations_Common::C_AnimDuration_BeforeEliminations)}}}
+#Const C_AnimDuration_NoEliminations {{{dump(UIModules_RoundEliminations_Common::C_AnimDuration_NoEliminations)}}}
+#Const C_AnimDuration_Elimination {{{dump(UIModules_RoundEliminations_Common::C_AnimDuration_Elimination)}}}
+#Const C_AnimDuration_EliminationInvervalSlow {{{dump(UIModules_RoundEliminations_Common::C_AnimDuration_EliminationInvervalSlow)}}}
+#Const C_AnimDuration_EliminationInvervalFast {{{dump(UIModules_RoundEliminations_Common::C_AnimDuration_EliminationInvervalFast)}}}
+#Const C_AnimDuration_BetweenPages {{{dump(UIModules_RoundEliminations_Common::C_AnimDuration_BetweenPages)}}}
+#Const C_AnimDuration_AfterEliminations {{{dump(UIModules_RoundEliminations_Common::C_AnimDuration_AfterEliminations)}}}
+#Const C_AnimDuration_UIHide {{{dump(UIModules_RoundEliminations_Common::C_AnimDuration_UIHide)}}}
+
+#Const C_SuperRoyal_DivisionNames {{{dump(MenuConst::C_SuperRoyal_DivisionNames)}}}
+#Const C_SuperRoyal_Division_Bronze {{{dump(MenuConst::C_SuperRoyal_Division_Bronze)}}}
+#Const C_SuperRoyal_Division_Silver {{{dump(MenuConst::C_SuperRoyal_Division_Silver)}}}
+#Const C_SuperRoyal_Division_Gold {{{dump(MenuConst::C_SuperRoyal_Division_Gold)}}}
+#Const C_SuperRoyal_Division_Master {{{dump(MenuConst::C_SuperRoyal_Division_Master)}}}
+""",
+"""
+declare Text[Integer] G_ScheduledSounds;
+
+Void DisplayNoElimination(CMlFrame _Frame_NoElim, Boolean _IsVisible) {
+	if (_Frame_NoElim == Null) return;
+	_Frame_NoElim.Visible = _IsVisible;
+}
+
+Void DisplayEliminations(K_ScheduledAnimation _ScheduledAnimation, {{{PlayerName::P}}}K_UserInfo[][Integer] _PlayerUserInfos, Boolean _IsSuperRoyal, Boolean _IsSuperRoyalFinale, Integer _SuperRoyalMatchNumber) {
+	if (_ScheduledAnimation.Frame_Slots == Null) return;
+
+	declare StartTime = Now + _ScheduledAnimation.Delay;
+	declare AnimTime = _ScheduledAnimation.AnimTime;
+	declare WaitTime = _ScheduledAnimation.WaitTime;
+	declare LabelFadeInTime = 100;
+
+	declare CMlFrame Frame_Shake <=> (Page.GetFirstChild("frame-shake") as CMlFrame);
+	declare CMlLabel Label_EliminatedTeamsNb <=> (Frame_Shake.GetFirstChild("label-eliminated-nb") as CMlLabel);
+	Label_EliminatedTeamsNb.Value = "";
+	if (_ScheduledAnimation.EliminatedTeamsNb == 1) Label_EliminatedTeamsNb.Value = "{{{Text_OneTeamEliminated}}}";
+	else if (_ScheduledAnimation.EliminatedTeamsNb > 1) Label_EliminatedTeamsNb.Value = TL::Compose("{{{Text_SeveralTeamsEliminated}}}", ""^_ScheduledAnimation.EliminatedTeamsNb);
+
+	for (FrameIndex, 0, C_SlotsNb - 1) {
+		declare CMlFrame Frame_Slot <=> (_ScheduledAnimation.Frame_Slots.GetFirstChild("frame-slot-"^FrameIndex) as CMlFrame);
+		if (Frame_Slot != Null) {
+			declare CMlQuad Quad_KO <=> (Frame_Slot.GetFirstChild("quad-K-O") as CMlQuad);
+			declare CMlQuad Quad_Stamp <=> (Frame_Slot.GetFirstChild("quad-stamp") as CMlQuad);
+			declare CMlQuad Quad_Logo <=> (Frame_Slot.GetFirstChild("quad-logo") as CMlQuad);
+			declare CMlQuad Quad_LogoBg <=> (Frame_Slot.GetFirstChild("quad-logo-bg") as CMlQuad);
+			declare CMlFrame Frame_Names <=> (Frame_Slot.GetFirstChild("frame-names") as CMlFrame);
+			declare CMlLabel Label_Rank <=> (Frame_Slot.GetFirstChild("label-rank") as CMlLabel);
+			declare CMlLabel Label_Qualified <=> (Frame_Slot.GetFirstChild("label-qualified") as CMlLabel);
+			declare CMlLabel Label_Division <=> (Frame_Slot.GetFirstChild("label-division") as CMlLabel);
+
+			declare SlotAnimStartTime = StartTime + ((AnimTime + WaitTime) * FrameIndex);
+			declare Integer TeamId = -1;
+			if (_ScheduledAnimation.TeamIds.existskey(FrameIndex)) TeamId = _ScheduledAnimation.TeamIds[FrameIndex];
+			declare Integer TeamRank = -1;
+			if (_ScheduledAnimation.TeamRanks.existskey(FrameIndex)) TeamRank = _ScheduledAnimation.TeamRanks[FrameIndex];
+
+			declare Vec3 RankColor = <1.,1.,1.>;
+			declare Real BgOpacity = 0.5;
+			declare Text Rank = "";
+			declare Text Logo = "";
+			if (TeamRank > 0) {
+				if (InputPlayer != Null && InputPlayer.CurrentClan == TeamId) {
+					RankColor = {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}};
+					BgOpacity = 1.;
+				}
+				Rank = TL::FormatRank(TeamRank, False);
+				Logo = Clans::GetClanLogo(TeamId);
+
+				AnimMgr.Flush(Frame_Slot);
+				// Frame_Shake is one common frame shared by all slots
+				// We must flush the animations on it only once when
+				// starting a completely new sequence. Not for each slot.
+				// Do not do this -> AnimMgr.Flush(Frame_Shake);
+				declare Real RandRot = ML::Rand(-6., 6.);
+				Frame_Slot.RelativeRotation = RandRot;
+				Frame_Slot.RelativeScale = 1.3;
+				Frame_Slot.Visible = False;
+				declare Integer ShakeFrequency = 50;
+				declare Integer ShakeDelay = -75;
+				declare Real RandRange = 1 - ((2 * ML::Rand(0, 1)) * ML::Rand(0., 0.1));
+				G_ScheduledSounds[SlotAnimStartTime] = "{{{UIModules_RoundEliminations_Common::C_Sound_KnockOutTeam}}}";
+
+				AnimMgr.Add(Frame_Slot, "<anim scale=\"1.\" hidden=\"0\" rot=\"0\"/>", SlotAnimStartTime, AnimTime, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(Frame_Shake, "<anim rot=\""^ML::Rand(-0.75 * RandRange, -0.5 * RandRange)^"\"/>", SlotAnimStartTime + AnimTime, ShakeFrequency + ShakeDelay, CAnimManager::EAnimManagerEasing::SineInOut);
+				AnimMgr.Add(Frame_Shake, "<anim rot=\""^ML::Rand(0.5 * RandRange, 0.75 * RandRange)^"\"/>", SlotAnimStartTime + AnimTime + (2 * ShakeFrequency) + ShakeDelay, ShakeFrequency, CAnimManager::EAnimManagerEasing::SineInOut);
+				AnimMgr.Add(Frame_Shake, "<anim rot=\""^ML::Rand(-0.25 * RandRange, -0.1 * RandRange)^"\"/>", SlotAnimStartTime + AnimTime + (3 * ShakeFrequency) + ShakeDelay, ShakeFrequency, CAnimManager::EAnimManagerEasing::SineInOut);
+				AnimMgr.Add(Frame_Shake, "<anim rot=\"0\"/>", SlotAnimStartTime + AnimTime + (5 * ShakeFrequency) + ShakeDelay, ShakeFrequency, CAnimManager::EAnimManagerEasing::SineInOut);
+			}
+
+			if (_IsSuperRoyal && !_IsSuperRoyalFinale) {
+				// During Super Royal qualifications, the Top 12 will qualify in a specific division
+				if (_SuperRoyalMatchNumber == 1) {
+					Quad_Stamp.Visible = TeamId > 0 && TeamRank <= 12;
+					if (TeamRank <= 12) {
+						declare Text DivisionTranslated = "";
+						declare Text DivisionId = "";
+						if (TeamRank >= 1 && TeamRank <= 3) DivisionId = C_SuperRoyal_Division_Master;
+						else if (TeamRank >= 4 && TeamRank <= 6) DivisionId = C_SuperRoyal_Division_Gold;
+						else if (TeamRank >= 7 && TeamRank <= 9) DivisionId = C_SuperRoyal_Division_Silver;
+						else if (TeamRank >= 10 && TeamRank <= 12) DivisionId = C_SuperRoyal_Division_Bronze;
+						DivisionTranslated = C_SuperRoyal_DivisionNames.get(DivisionId, "");
+						Label_Division.Value = DivisionTranslated;
+						Label_Qualified.RelativePosition_V3.Y = 1.5;
+					}
+				// Then only the Top 3 will qualify to division's next step
+				} else {
+					Quad_Stamp.Visible = TeamId > 0 && TeamRank <= 3;
+					Label_Division.Value = "";
+					Label_Qualified.RelativePosition_V3.Y = 0.;
+				}
+				if (Quad_Stamp.Visible) {
+					Quad_Stamp.Colorize = Clans::GetClanColor(TeamId);
+					Label_Qualified.TextColor = Clans::GetClanColor(TeamId);
+					Label_Division.TextColor = Clans::GetClanColor(TeamId);
+					Tools::FitLabelValue(Label_Qualified, 4., 2., 0.25);
+					Tools::FitLabelValue(Label_Division, 2., 0.5, 0.25);
+				}
+			} else {
+				Quad_Stamp.Visible = False;
+				Label_Division.Value = "";
+			}
+			Label_Qualified.Visible = Quad_Stamp.Visible;
+			Label_Division.Visible = Label_Division.Value != "";
+
+			Quad_KO.Visible = TeamId > 0 && !Quad_Stamp.Visible;
+			if (Quad_KO.Visible) {
+				Quad_KO.Colorize = Clans::GetClanColor(TeamId);
+			}
+
+			Frame_Names.Visible = TeamId > 0;
+			if (Frame_Names.Visible) {
+				foreach (Key => Control in Frame_Names.Controls) {
+					declare CMlFrame PlayerName_Name <=> (Control as CMlFrame);
+					if (_PlayerUserInfos.existskey(TeamId) && _PlayerUserInfos[TeamId].count > Key) {
+						{{{PlayerName::P}}}SetUserInfo(This, PlayerName_Name, _PlayerUserInfos[TeamId][Key], False);
+						if (InputPlayer != Null && InputPlayer.User != Null && InputPlayer.User.WebServicesUserId == _PlayerUserInfos[TeamId][Key].AccountId) {
+							{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}}, False);
+						} else {
+							{{{PlayerName::P}}}SetTextColor(This, PlayerName_Name, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight)}}}, False);
+						}
+						{{{PlayerName::P}}}Redraw(This, PlayerName_Name);
+						PlayerName_Name.Visible = True;
+					} else {
+						PlayerName_Name.Visible = False;
+					}
+				}
+			}
+
+			Quad_Logo.Visible = (Logo != "");
+			Quad_LogoBg.Visible = Quad_Logo.Visible;
+			if (Quad_Logo.Visible) {
+				Quad_Logo.ImageUrl = Logo;
+				Quad_LogoBg.Opacity = BgOpacity;
+			}
+
+			Label_Rank.Visible = (Rank != "");
+			if (Label_Rank.Visible) {
+				Label_Rank.Value = Rank;
+				Label_Rank.TextColor = RankColor;
+				Label_Rank.Opacity = 0.;
+				AnimMgr.Flush(Label_Rank);
+				AnimMgr.Add(Label_Rank, "<anim opacity=\"1\" />", SlotAnimStartTime + AnimTime - LabelFadeInTime, LabelFadeInTime, CAnimManager::EAnimManagerEasing::Linear);
+			}
+		}
+	}
+}
+
+Void CancelEliminations(CMlFrame _Frame_Slots) {
+	DisplayEliminations(K_ScheduledAnimation { Frame_Slots = _Frame_Slots }, [], False, False, -1);
+}
+
+Void DisplayButtons(Boolean _DisplayButtons) {
+	{{{StayLeaveButtons::P}}}SetVisibility(_DisplayButtons);
+}
+
+Boolean SetButtonsAreVisible(CMlFrame _Frame_VAlign, CMlQuad _Quad_Background, CMlQuad _Quad_BackgroundButtons, Boolean _ButtonsAreVisible) {
+	EnableMenuNavigation(_ButtonsAreVisible, False, False, Null, C_InputPriority);
+
+	AnimMgr.Flush(_Frame_VAlign);
+	AnimMgr.Flush(_Quad_Background);
+	AnimMgr.Flush(_Quad_BackgroundButtons);
+	if (_ButtonsAreVisible) {
+		AnimMgr.Add(_Quad_BackgroundButtons, "<anim opacity=\"1\" hidden=\"0\" />", 100, CAnimManager::EAnimManagerEasing::QuadIn);
+		AnimMgr.Add(_Quad_Background, "<anim opacity=\"0\" hidden=\"1\" />", Now + 100, 100, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(_Frame_VAlign, "<anim pos=\"0 5\" />", Now + 200, {{{StayLeaveButtons::P}}}C_DisplayAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		AnimMgr.Add(_Frame_VAlign, "<anim pos=\"0 0\" />", {{{StayLeaveButtons::P}}}C_DisplayAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(_Quad_Background, "<anim opacity=\"1\" hidden=\"0\" />", Now + {{{StayLeaveButtons::P}}}C_DisplayAnimDuration, 100, CAnimManager::EAnimManagerEasing::QuadIn);
+		AnimMgr.Add(_Quad_BackgroundButtons, "<anim opacity=\"0\" hidden=\"1\" />", Now + {{{StayLeaveButtons::P}}}C_DisplayAnimDuration + 100, 100, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	return _ButtonsAreVisible;
+}
+
+Boolean SetVisibility(CMlFrame _Frame_Content, CMlQuad _Quad_BlackBg,	Boolean _IsVisible) {
+	AnimMgr.Flush(_Quad_BlackBg);
+	AnimMgr.Flush(_Frame_Content);
+	if (_IsVisible) {
+		_Quad_BlackBg.Opacity = 0.;
+		_Frame_Content.RelativePosition_V3.X = {{{-OutPosX}}};
+		AnimMgr.Add(_Quad_BlackBg, "<anim opacity=\"0.4\"/>", Now, C_AnimDuration_UIShow, CAnimManager::EAnimManagerEasing::Linear);
+		AnimMgr.Add(_Frame_Content, "<anim pos=\"0 0\"/>", Now, C_AnimDuration_UIShow, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		AnimMgr.Add(_Quad_BlackBg, "<anim opacity=\"0\"/>", Now, C_AnimDuration_UIHide, CAnimManager::EAnimManagerEasing::Linear);
+		AnimMgr.Add(_Frame_Content, "<anim pos=\"{{{OutPosX}}} 0\"/>", Now, C_AnimDuration_UIHide, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	return _IsVisible;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_Content;
+declare CMlFrame Frame_AllSlots;
+declare CMlFrame[] Frames_Slots;
+declare CMlFrame Frame_NoElim;
+declare CMlQuad Quad_BlackBg;
+declare CMlFrame Frame_VAlign;
+declare CMlQuad Quad_Background;
+declare CMlQuad Quad_BackgroundButtons;
+
+declare netread Integer[Integer] Net_Royal_RoundEliminations_EliminatedTeams for Teams[0];
+declare netread Integer Net_Royal_RoundEliminations_EliminatedTeamsUpdate for Teams[0];
+declare netread Boolean Net_Royal_RoundEliminations_IsVisible for UI;
+
+declare Boolean AnimationIsVisible;
+declare Integer EliminatedTeamsUpdate;
+declare K_ScheduledAnimation[] ScheduledAnimations;
+declare {{{PlayerName::P}}}K_UserInfo[][Integer] PlayerUserInfos;
+declare Integer CurrentAnimationEndTime;
+declare Boolean ButtonsAreVisible;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_Content <=> (Frame_Global.GetFirstChild("frame-content") as CMlFrame);
+Frame_AllSlots <=> (Frame_Content.GetFirstChild("frame-all-slots") as CMlFrame);
+Frame_NoElim <=> (Frame_Content.GetFirstChild("frame-no-elimination") as CMlFrame);
+Quad_BlackBg <=> (Frame_Global.GetFirstChild("quad-black-bg") as CMlQuad);
+foreach (Control in Frame_AllSlots.Controls) {
+	Frames_Slots.add((Control as CMlFrame));
+}
+Frame_VAlign <=> (Frame_Global.GetFirstChild("frame-valign") as CMlFrame);
+Quad_Background <=> (Frame_Content.GetFirstChild("quad-background") as CMlQuad);
+Quad_BackgroundButtons <=> (Frame_Content.GetFirstChild("quad-background-buttons") as CMlQuad);
+
+Frame_Global.Visible = Net_Royal_RoundEliminations_IsVisible;
+AnimationIsVisible = SetVisibility(Frame_Content, Quad_BlackBg, False);
+DisplayButtons(Frame_Global.Visible);
+EliminatedTeamsUpdate = -123;
+ScheduledAnimations = [];
+PlayerUserInfos = [];
+CurrentAnimationEndTime = -1;
+G_ScheduledSounds = [];
+ButtonsAreVisible = SetButtonsAreVisible(Frame_VAlign, Quad_Background, Quad_BackgroundButtons, False);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (Frame_Global.Visible != Net_Royal_RoundEliminations_IsVisible) {
+		Frame_Global.Visible = Net_Royal_RoundEliminations_IsVisible;
+		DisplayButtons(Frame_Global.Visible);
+		// Disable menu navigation when hiding this UI
+		if (!Frame_Global.Visible) {
+			ButtonsAreVisible = SetButtonsAreVisible(Frame_VAlign, Quad_Background, Quad_BackgroundButtons, False);
+		}
+	}
+
+	if (EliminatedTeamsUpdate != Net_Royal_RoundEliminations_EliminatedTeamsUpdate) {
+		EliminatedTeamsUpdate = Net_Royal_RoundEliminations_EliminatedTeamsUpdate;
+
+		declare Integer[] AllTeamIds;
+		declare Integer[] AllTeamRanks;
+		foreach (TeamId => TeamRank in Net_Royal_RoundEliminations_EliminatedTeams) {
+			AllTeamIds.add(TeamId);
+			AllTeamRanks.add(TeamRank);
+		}
+
+		// Reset animations
+		foreach (Frame_Slots in Frames_Slots) {
+			CancelEliminations(Frame_Slots);
+		}
+		DisplayNoElimination(Frame_NoElim, False);
+		ScheduledAnimations = [];
+		G_ScheduledSounds = [];
+		AnimMgr.Flush(Page.GetFirstChild("frame-shake"));
+
+		// Find players' names
+		PlayerUserInfos = [];
+		foreach (Score in Scores) {
+			declare Integer ScoreClan = {{{Ranking::P}}}GetScoreClan(Score);
+			if (ScoreClan > 0) {
+				if (!PlayerUserInfos.existskey(ScoreClan)) {
+					PlayerUserInfos[ScoreClan] = [{{{PlayerName::P}}}GetUserInfo(Score.User, True)];
+				} else {
+					PlayerUserInfos[ScoreClan].add({{{PlayerName::P}}}GetUserInfo(Score.User, True));
+				}
+			}
+		}
+
+		// Initialize animations
+		if (AllTeamIds.count <= 0) {
+			DisplayNoElimination(Frame_NoElim, True);
+			AnimationIsVisible = SetVisibility(Frame_Content, Quad_BlackBg, True);
+			CurrentAnimationEndTime = Now + C_AnimDuration_NoEliminations;
+		} else if (AllTeamIds.count <= C_SlotsNb) {
+			ScheduledAnimations.add(K_ScheduledAnimation {
+				Delay = C_AnimDuration_BeforeEliminations,
+				AnimTime = C_AnimDuration_Elimination,
+				WaitTime = C_AnimDuration_EliminationInvervalSlow,
+				TotalAnimTime = C_AnimDuration_BeforeEliminations + ((C_AnimDuration_Elimination + C_AnimDuration_EliminationInvervalSlow) * AllTeamIds.count) + C_AnimDuration_AfterEliminations,
+				EliminatedTeamsNb = AllTeamIds.count,
+				TeamIds = AllTeamIds,
+				TeamRanks = AllTeamRanks,
+				Frame_Slots = Frames_Slots[AllTeamIds.count - 1]
+			});
+			CurrentAnimationEndTime = Now;
+		} else {
+			declare Integer PageIndexMax = (AllTeamIds.count - 1) / C_SlotsNb;
+			for (PageIndex, 0, PageIndexMax) {
+				declare Integer[] TeamIds;
+				declare Integer[] TeamRanks;
+				for (FrameIndex, 0, C_SlotsNb - 1) {
+					declare Integer TeamIndex = (PageIndex * C_SlotsNb) + FrameIndex;
+					if (AllTeamIds.existskey(TeamIndex)) {
+						TeamIds.add(AllTeamIds[TeamIndex]);
+						if (AllTeamRanks.existskey(TeamIndex)) {
+							TeamRanks.add(AllTeamRanks[TeamIndex]);
+						} else {
+							TeamRanks.add(-1);
+						}
+					}
+				}
+				if (TeamIds.count > 0) {
+					declare Integer Delay = 0;
+					if (PageIndex == 0) Delay = C_AnimDuration_BeforeEliminations;
+					declare Integer After = C_AnimDuration_BetweenPages;
+					if (PageIndex == PageIndexMax) After = C_AnimDuration_AfterEliminations;
+					ScheduledAnimations.add(K_ScheduledAnimation {
+						Delay = Delay,
+						AnimTime = C_AnimDuration_Elimination,
+						WaitTime = C_AnimDuration_EliminationInvervalFast,
+						TotalAnimTime = Delay + ((C_AnimDuration_Elimination + C_AnimDuration_EliminationInvervalFast) * TeamIds.count) + After,
+						EliminatedTeamsNb = AllTeamIds.count,
+						TeamIds = TeamIds,
+						TeamRanks = TeamRanks,
+						Frame_Slots = Frames_Slots[C_SlotsNb - 1]
+					});
+					CurrentAnimationEndTime = Now;
+				}
+			}
+		}
+	}
+
+	if (
+		ScheduledAnimations.count > 0 &&
+		CurrentAnimationEndTime <= Now
+	) {
+		declare ScheduledAnimation = ScheduledAnimations[0];
+		CancelEliminations(ScheduledAnimation.Frame_Slots);
+		DisplayEliminations(ScheduledAnimation, PlayerUserInfos, {{{SuperRoyal::P}}}GetSuperRoyalEnabled(), {{{SuperRoyal::P}}}GetSuperRoyalFinale(), {{{SuperRoyal::P}}}GetSuperRoyalRoundNumber());
+		CurrentAnimationEndTime = Now + ScheduledAnimation.TotalAnimTime;
+		ScheduledAnimations.removekey(0);
+		if (!AnimationIsVisible) {
+			AnimationIsVisible = SetVisibility(Frame_Content, Quad_BlackBg, True);
+			UIModules_PrestigeEarned_Common::BlockPrestigeCelebration(UI, "{{{UIModules_RoundEliminations_Common::C_Id}}}");
+		}
+	}
+	if (
+		ScheduledAnimations.count <= 0 &&
+		CurrentAnimationEndTime >= 0 &&
+		CurrentAnimationEndTime <= Now
+	) {
+		CurrentAnimationEndTime = -1;
+		AnimationIsVisible = SetVisibility(Frame_Content, Quad_BlackBg, False);
+		UIModules_PrestigeEarned_Common::UnblockPrestigeCelebration(UI, "{{{UIModules_RoundEliminations_Common::C_Id}}}");
+	}
+
+	if (G_ScheduledSounds.count > 0) {
+		declare Integer[] SoundsToRemove_Key;
+		foreach (Time => SoundName in G_ScheduledSounds) {
+			if (Time <= 0) {
+				SoundsToRemove_Key.add(Time);
+			} else if (Time <= Now) {
+				AudioManager::StopSound(This, SoundName);
+				AudioManager::PlaySound(This, SoundName);
+				SoundsToRemove_Key.add(Time);
+			}
+		}
+		foreach (SoundTime in SoundsToRemove_Key) {
+			if (G_ScheduledSounds.existskey(SoundTime)) G_ScheduledSounds.removekey(SoundTime);
+		}
+	}
+
+	if (Frame_Global.Visible) {
+		if (ButtonsAreVisible != {{{StayLeaveButtons::P}}}ButtonsAreVisible()) {
+			ButtonsAreVisible = SetButtonsAreVisible(Frame_VAlign, Quad_Background, Quad_BackgroundButtons, {{{StayLeaveButtons::P}}}ButtonsAreVisible());
+		}
+
+		foreach (Event in {{{StayLeaveButtons::P}}}PendingEvents) {
+			switch (Event.Type) {
+				case {{{StayLeaveButtons::P}}}C_EventType_Selection: {
+					DisplayButtons(False);
+				}
+			}
+		}
+	}
+} else {
+	if (EnableMenuNavigationInputs) {
+		EnableMenuNavigation(False, False, False, Null, C_InputPriority);
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	Ranking::Component(),
+	UserStore::ComponentV2(),
+	PlayerName::ComponentV2(),
+	StayLeaveButtons::Component(SizeY_Button)
+],
+[]
+	);
+}

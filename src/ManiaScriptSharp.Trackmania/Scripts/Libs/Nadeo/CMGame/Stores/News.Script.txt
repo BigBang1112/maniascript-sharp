@@ -1,0 +1,400 @@
+/**
+ * A store managing news
+ */
+#Const Version "1.0.0"
+#Const ScriptName "Libs/Nadeo/CMGame/Stores/News.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Menus/Preload.Script.txt" as Preload
+#Include "Libs/Nadeo/CMGame/Utils/Task@2.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_NewsLink {
+	Text Type;
+	Text Param;
+	Text ActionName;
+}
+
+#Struct K_News {
+	Text Id;
+	Text Title;
+	Text Placement;
+	Text MediaUrl;
+	Text MediaType;
+	Boolean MediaPreloaded;
+	Integer Priority;
+	K_NewsLink[] Links;
+	Integer DisplayTime;
+}
+
+#Struct K_Private_UpdateCounter {
+	Integer Status;
+	Integer News;
+}
+#Struct K_Private_State {
+	K_Private_UpdateCounter UpdateCounter;
+	Integer Status;
+	K_News[] News;
+	Task::K_Task Task_GetProfileNewsList;
+	Task::K_Task Task_GetSpaceNewsList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_UpdateCounter_News 1
+#Const C_UpdateCounter_Status 2
+
+#Const C_Status_Unloaded 0
+#Const C_Status_ProcessingNewsTask 1
+#Const C_Status_Loaded 2
+#Const C_Status_Error 3
+
+#Const C_Placement_Null ""
+#Const C_Placement_Homepage "Homepage"
+
+#Const C_MediaType_Null ""
+#Const C_MediaType_Image "Image"
+
+#Const C_AmountAll -1
+#Const C_UpdateCounterDefaultValue 0
+
+#Const C_State_Null K_Private_State {
+	UpdateCounter = K_Private_UpdateCounter {
+		Status = 0,
+		News = 0
+	},
+	Status = 0,
+	News = [],
+	Task_GetProfileNewsList = Task::K_Task {},
+	Task_GetSpaceNewsList = Task::K_Task {}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: State management
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a `K_News` struct from a `CNews` object
+K_News Private_CreateNewsFromCNews(CNews _News) {
+	declare K_NewsLink[] Links;
+	for (Link in _News.LinkList) {
+		Links.add(K_NewsLink {
+			Type = Link.Type,
+			Param = Link.Param,
+			ActionName = Link.ActionName
+		});
+	}
+	return K_News {
+		Id = _News.Id,
+		Title = _News.Title,
+		Placement = _News.Placement,
+		MediaUrl = _News.MediaUrl,
+		MediaType = _News.MediaType,
+		Priority = _News.Priority,
+		Links = Links,
+		DisplayTime = _News.DisplayTime
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Extract the news from a task
+K_News[] Private_GetNewsFromTaskResult(CTaskResult_UserNewsList _Task) {
+	declare K_News[] NewsList;
+	for (News in _Task.NewsList) {
+		NewsList.add(Private_CreateNewsFromCNews(News));
+	}
+	return NewsList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the news from the task results into the store
+K_Private_State Private_SetNewsFromTaskResults(CManiaApp _This, K_Private_State _State) {
+	declare K_Private_State State = _State;
+
+	declare K_News[] ProfileNewsList = Private_GetNewsFromTaskResult(Task::GetTaskResult_UserNewsList(_This.UserMgr, State.Task_GetProfileNewsList));
+	declare K_News[] SpaceNewsList = Private_GetNewsFromTaskResult(Task::GetTaskResult_UserNewsList(_This.UserMgr, State.Task_GetSpaceNewsList));
+
+	// The same news (same `Id`) can be present at the same time in the profile and space news
+	// A news with different placements, will also be duplicated for each placement
+	// eg:
+	// - ProfileNews `[{Id: 1, Placement: Homepage, Priority: 2}, {Id: 1, Placement: Default, Priority: 2}, {Id: 2, Placement: Homepage, Priority: 1}]`
+	// - SpaceNews `[{Id: 2, Placement: Homepage, Priority: 1}, {Id: 3, Placement: Default, Priority: 3}]`
+	// The merged array should not contains the same news at the same placement several times
+	// The news should also be sorted by priority, 1 being the highest priority
+	// With the above examples, we want to have:
+	// `[{Id: 2, Placement: Homepage, Priority: 1}, {Id: 1, Placement: Homepage, Priority: 2}, {Id: 1, Placement: Default, Priority: 2}, {Id: 3, Placement: Default, Priority: 3}]`
+	declare K_News[][Integer] NewsToSort;
+	declare Text[] ProfileNewsIds;
+	for (News in ProfileNewsList) {
+		if (NewsToSort.existskey(News.Priority)) {
+			NewsToSort[News.Priority].add(News);
+		} else {
+			NewsToSort[News.Priority] = [News];
+		}
+		if (!ProfileNewsIds.exists(News.Id)) ProfileNewsIds.add(News.Id);
+	}
+	for (News in SpaceNewsList) {
+		// Check that the news was not already in the profile news
+		if (!ProfileNewsIds.exists(News.Id)) {
+			if (NewsToSort.existskey(News.Priority)) {
+				NewsToSort[News.Priority].add(News);
+			} else {
+				NewsToSort[News.Priority] = [News];
+			}
+		}
+	}
+
+	State.News = [];
+	NewsToSort = NewsToSort.sortkey();
+	for (NewsAtPriority in NewsToSort) {
+		for (News in NewsAtPriority) {
+			State.News.add(News);
+		}
+	}
+
+	State.UpdateCounter.News += 1;
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the status of the store
+K_Private_State Private_SetStatus(K_Private_State _State, Integer _Status) {
+	declare K_Private_State State = _State;
+	State.Status = _Status;
+	State.UpdateCounter.Status += 1;
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the news
+K_Private_State Private_LoadNews(CManiaApp _This, K_Private_State _State) {
+	// The news can only be loaded once per game execution
+	// After that the task will always return the same result
+	if (
+		_State.Status == C_Status_ProcessingNewsTask ||
+		_State.Status == C_Status_Loaded
+	) {
+		return _State;
+	}
+
+	declare K_Private_State State = _State;
+
+	State.Task_GetProfileNewsList = Task::DestroyAndCreate(
+		_This.UserMgr,
+		_This.UserMgr,
+		State.Task_GetProfileNewsList,
+		_This.UserMgr.News_GetProfileNewsList(_This.UserMgr.MainUser.Id)
+	);
+	State.Task_GetSpaceNewsList = Task::DestroyAndCreate(
+		_This.UserMgr,
+		_This.UserMgr,
+		State.Task_GetSpaceNewsList,
+		_This.UserMgr.News_GetSpaceNewsList(_This.UserMgr.MainUser.Id)
+	);
+
+	State = Private_SetStatus(State, C_Status_ProcessingNewsTask);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Preload the news media in memory
+K_Private_State Private_PreloadNewsMedia(CManiaApp _This, K_Private_State _State) {
+	declare K_Private_State State = _State;
+
+	declare Text[] ImageUrls;
+	for (Key => News in State.News) {
+		if (News.MediaUrl != "" && News.MediaType == C_MediaType_Image && !News.MediaPreloaded) {
+			if (!ImageUrls.exists(News.MediaUrl)) {
+				ImageUrls.add(News.MediaUrl);
+			}
+			State.News[Key].MediaPreloaded = True;
+		}
+	}
+
+	if (ImageUrls.count > 0) {
+		Preload::PreloadImages(_This, ImageUrls);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the tasks to load the news
+K_Private_State Private_UpdateNewsTasks(CManiaApp _This, K_Private_State _State) {
+	if (_State.Status != C_Status_ProcessingNewsTask) return _State;
+
+	declare K_Private_State State = _State;
+
+	if (Task::IsProcessing(State.Task_GetProfileNewsList)) {
+		State.Task_GetProfileNewsList = Task::Update(_This.UserMgr, _This.UserMgr, State.Task_GetProfileNewsList);
+	}
+	if (Task::IsProcessing(State.Task_GetSpaceNewsList)) {
+		State.Task_GetSpaceNewsList = Task::Update(_This.UserMgr, _This.UserMgr, State.Task_GetSpaceNewsList);
+	}
+
+	// All news tasks are complete
+	if (
+		!Task::IsProcessing(State.Task_GetProfileNewsList) &&
+		!Task::IsProcessing(State.Task_GetSpaceNewsList)
+	) {
+		// Failed to retrieve news
+		if (
+			!Task::IsSuccess(State.Task_GetProfileNewsList) ||
+			!Task::IsSuccess(State.Task_GetSpaceNewsList)
+		) {
+			State = Private_SetStatus(State, C_Status_Error);
+		}
+		// Successfully retrieved news
+		else {
+			State = Private_SetNewsFromTaskResults(_This, State);
+			State = Private_SetStatus(State, C_Status_Loaded);
+		}
+
+		State.Task_GetProfileNewsList = Task::Destroy(_This.UserMgr, _This.UserMgr, State.Task_GetProfileNewsList);
+		State.Task_GetSpaceNewsList = Task::Destroy(_This.UserMgr, _This.UserMgr, State.Task_GetSpaceNewsList);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Getters
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the store udpate counter
+Integer GetUpdateCounter(CManiaApp _This, Integer _UpdateCounter) {
+	declare K_Private_State CMGame_StoresNews_State for _This = C_State_Null;
+	switch (_UpdateCounter) {
+		case C_UpdateCounter_News: return CMGame_StoresNews_State.UpdateCounter.News;
+		case C_UpdateCounter_Status: return CMGame_StoresNews_State.UpdateCounter.Status;
+	}
+	return C_UpdateCounterDefaultValue;
+}
+Integer GetUpdateCounter(CMlScript _This, Integer _UpdateCounter) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp == Null) return C_UpdateCounterDefaultValue;
+	return GetUpdateCounter(ManiaApp, _UpdateCounter);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the status of the news
+Integer GetStatus(CManiaApp _This) {
+	declare K_Private_State CMGame_StoresNews_State for _This = C_State_Null;
+	return CMGame_StoresNews_State.Status;
+}
+Integer GetStatus(CMlScript _This) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp == Null) return C_Status_Unloaded;
+	return GetStatus(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the news are being loaded
+Boolean IsLoadingNews(CManiaApp _This) {
+	declare K_Private_State CMGame_StoresNews_State for _This = C_State_Null;
+	return CMGame_StoresNews_State.Status == C_Status_ProcessingNewsTask;
+}
+Boolean IsLoadingNews(CMlScript _This) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp == Null) return False;
+	return IsLoadingNews(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the news
+K_News[] GetNews(CManiaApp _This, Text _Placement, Integer _Amount) {
+	declare K_Private_State CMGame_StoresNews_State for _This = C_State_Null;
+
+	if (_Amount != C_AmountAll && _Amount <= 0) return [];
+
+	// Return all news if we are using the default filter values
+	if (_Placement == C_Placement_Null && _Amount == C_AmountAll) return CMGame_StoresNews_State.News;
+
+	declare K_News[] FilteredNews;
+	for (News in CMGame_StoresNews_State.News) {
+		if (_Placement == C_Placement_Null || News.Placement == _Placement) {
+			FilteredNews.add(News);
+			if (_Amount != C_AmountAll && FilteredNews.count >= _Amount) break;
+		}
+	}
+
+	return FilteredNews;
+}
+K_News[] GetNews(CManiaApp _This, Text _Placement) {
+	return GetNews(_This, _Placement, C_AmountAll);
+}
+K_News[] GetNews(CManiaApp _This) {
+	return GetNews(_This, C_Placement_Null);
+}
+
+K_News[] GetNews(CMlScript _This, Text _Placement, Integer _Amount) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp == Null) return [];
+	return GetNews(ManiaApp, _Placement, _Amount);
+}
+K_News[] GetNews(CMlScript _This, Text _Placement) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp == Null) return [];
+	return GetNews(ManiaApp, _Placement);
+}
+K_News[] GetNews(CMlScript _This) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp == Null) return [];
+	return GetNews(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Actions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the news
+Void LoadNews(CManiaApp _This) {
+	declare K_Private_State CMGame_StoresNews_State for _This = C_State_Null;
+	CMGame_StoresNews_State = Private_LoadNews(_This, CMGame_StoresNews_State);
+}
+Void LoadNews(CMlScript _This) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp != Null) LoadNews(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Preload the news media in memory
+Void PreloadNewsMedia(CManiaApp _This) {
+	declare K_Private_State CMGame_StoresNews_State for _This = C_State_Null;
+	CMGame_StoresNews_State = Private_PreloadNewsMedia(_This, CMGame_StoresNews_State);
+}
+Void PreloadNewsMedia(CMlScript _This) {
+	declare CManiaApp ManiaApp <=> Tools::GetParentApp(_This);
+	if (ManiaApp != Null) PreloadNewsMedia(ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Instance management
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the store
+Void Initialize(CManiaApp _This) {
+	declare K_Private_State CMGame_StoresNews_State for _This = C_State_Null;
+
+	Task::Destroy(_This.UserMgr, _This.UserMgr, CMGame_StoresNews_State.Task_GetProfileNewsList);
+	Task::Destroy(_This.UserMgr, _This.UserMgr, CMGame_StoresNews_State.Task_GetSpaceNewsList);
+
+	CMGame_StoresNews_State = C_State_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the store
+Void AfterYield(CManiaApp _This) {
+	declare K_Private_State CMGame_StoresNews_State for _This = C_State_Null;
+	CMGame_StoresNews_State = Private_UpdateNewsTasks(_This, CMGame_StoresNews_State);
+}

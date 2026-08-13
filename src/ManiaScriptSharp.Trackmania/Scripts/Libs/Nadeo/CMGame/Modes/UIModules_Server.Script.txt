@@ -1,0 +1,359 @@
+/**
+ *	UI modules server side
+ */
+#Const Version		"1.0.2"
+#Const ScriptName	"Libs/Nadeo/CMGame/Modes/UIModules_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Semver.Script.txt" as Semver
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/XmlRpc2.Script.txt" as XmlRpc
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Common.Script.txt" as UIModules_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_CustomizableModule_PropertiesGet {
+	Text id;
+	Vec2 position;
+	Real scale;
+	Boolean visible;
+}
+#Struct K_CustomizableModule_PropertiesGetList {
+	Text responseid;
+	K_CustomizableModule_PropertiesGet[] uimodules;
+}
+
+#Struct K_CustomizableModule_PropertiesSet {
+	Text id;
+	Vec2 position;
+	Boolean position_update;
+	Real scale;
+	Boolean scale_update;
+	Boolean visible;
+	Boolean visible_update;
+}
+#Struct K_CustomizableModule_PropertiesSetList {
+	K_CustomizableModule_PropertiesSet[] uimodules;
+}
+
+#Struct K_CustomizableModule_PropertiesResetList {
+	Text[] uimodules;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Callback_ModulesProperties "Common.UIModules.Properties"
+#Const C_Method_GetModulesProperties "Common.UIModules.GetProperties"
+#Const C_Method_SetModulesProperties "Common.UIModules.SetProperties"
+#Const C_Method_ResetModulesProperties "Common.UIModules.ResetProperties"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare UIModules_Common::K_ModuleProperties[Text] G_CustomizableModule_CustomProperties;
+declare UIModules_Common::K_ModuleProperties[Text] G_CustomizableModule_DefaultProperties;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert structures
+K_CustomizableModule_PropertiesGet Private_ConvertModuleProperties(
+	Text _ModuleId,
+	UIModules_Common::K_ModuleProperties _ModuleProperties
+) {
+	return K_CustomizableModule_PropertiesGet {
+		id = _ModuleId,
+		position = _ModuleProperties.Position,
+		scale = _ModuleProperties.Scale,
+		visible = _ModuleProperties.Visible
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the customizable properties of a module
+Void Private_CustomizableModule_SetProperties(
+	Boolean _IsInit,
+	Text _ModuleId,
+	UIModules_Common::K_ModuleProperties _ModuleProperties
+) {
+	// We do not want to send the properties to the client
+	// when initializing the module because they should
+	// already have the right values by default.
+	if (_IsInit) {
+		G_CustomizableModule_DefaultProperties[_ModuleId] = _ModuleProperties;
+	} else {
+		G_CustomizableModule_CustomProperties[_ModuleId] = _ModuleProperties;
+		declare netwrite UIModules_Common::K_ModuleProperties[Text] Net_LibUI3_CustomizableModule_Properties for Teams[0] = [];
+		declare netwrite Integer Net_LibUI3_CustomizableModule_PropertiesUpdate for Teams[0] = 0;
+		Net_LibUI3_CustomizableModule_Properties[_ModuleId] = _ModuleProperties;
+		Net_LibUI3_CustomizableModule_PropertiesUpdate += 1;
+		// We want to be able to restore the custom properties after a script restart
+		// So we save it in a declare for variable each time it is modified
+		declare UIModules_Common::K_ModuleProperties[Text] CMGame_UIModule_CustomModuleProperties for This = [];
+		CMGame_UIModule_CustomModuleProperties = G_CustomizableModule_CustomProperties;
+	}
+}
+Void Private_CustomizableModule_SetProperties(Text _ModuleId, UIModules_Common::K_ModuleProperties _ModuleProperties) {
+	Private_CustomizableModule_SetProperties(False, _ModuleId, _ModuleProperties);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset a customizable module properties to their default values
+Void Private_CustomizableModule_ResetProperties(Text _ModuleId) {
+	G_CustomizableModule_CustomProperties.removekey(_ModuleId);
+
+	// We want to be able to restore the custom properties after a script restart
+	// So we save it in a declare for variable each time it is modified
+	declare UIModules_Common::K_ModuleProperties[Text] CMGame_UIModule_CustomModuleProperties for This = [];
+	CMGame_UIModule_CustomModuleProperties = G_CustomizableModule_CustomProperties;
+
+	declare netwrite UIModules_Common::K_ModuleProperties[Text] Net_LibUI3_CustomizableModule_Properties for Teams[0] = [];
+	if (Net_LibUI3_CustomizableModule_Properties.existskey(_ModuleId)) {
+		declare netwrite Integer Net_LibUI3_CustomizableModule_PropertiesUpdate for Teams[0] = 0;
+		Net_LibUI3_CustomizableModule_Properties.removekey(_ModuleId);
+		Net_LibUI3_CustomizableModule_PropertiesUpdate += 1;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the modules properties callback
+Void Private_CustomizableModule_SendPropertiesCallback(Text _ResponseId) {
+	declare K_CustomizableModule_PropertiesGetList PropertiesGetList = K_CustomizableModule_PropertiesGetList {
+		responseid = _ResponseId
+	};
+	foreach (ModuleId => ModuleProperties in G_CustomizableModule_DefaultProperties) {
+		if (G_CustomizableModule_CustomProperties.existskey(ModuleId)) {
+			PropertiesGetList.uimodules.add(Private_ConvertModuleProperties(ModuleId, G_CustomizableModule_CustomProperties[ModuleId]));
+		} else {
+			PropertiesGetList.uimodules.add(Private_ConvertModuleProperties(ModuleId, ModuleProperties));
+		}
+	}
+	XmlRpc::SendCallback(C_Callback_ModulesProperties, [PropertiesGetList.tojson()]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize a customizable UI modules
+Void InitializeCustomizableModule(UIModules_Common::K_ModuleConfig _ModuleConfig) {
+	if (_ModuleConfig.IsCustomizable) {
+		Private_CustomizableModule_SetProperties(True, _ModuleConfig.Id, _ModuleConfig.Properties);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Load the given modules
+ *
+ *	@param	_Modules									A list of modules to load
+ *																		This modules will be added to the
+ *																		current ones, they won't replace them
+ */
+Void LoadModules(Text[] _Modules) {
+	declare netwrite Text[] Net_LibUI3_Modules for Teams[0] = [];
+	declare netwrite Integer Net_LibUI3_ModulesUpdate for Teams[0] = -1;
+	foreach (Module in _Modules) {
+		if (!Net_LibUI3_Modules.exists(Module)) Net_LibUI3_Modules.add(Module);
+	}
+	Net_LibUI3_ModulesUpdate = Now;
+}
+Void LoadModule(Text _Module) {
+	LoadModules([_Module]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Unload the given modules
+ *
+ *	@param	_Modules									A list of modules to unload
+ */
+Void UnloadModules(Text[] _Modules) {
+	declare netwrite Text[] Net_LibUI3_Modules for Teams[0] = [];
+	declare netwrite Integer Net_LibUI3_ModulesUpdate for Teams[0] = -1;
+	foreach (Module in _Modules) {
+		Net_LibUI3_Modules.remove(Module);
+	}
+	Net_LibUI3_ModulesUpdate = Now;
+}
+Void UnloadModule(Text _Module) {
+	UnloadModules([_Module]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload all modules
+Void UnloadModules() {
+	declare netwrite Text[] Net_LibUI3_Modules for Teams[0] = [];
+	UnloadModules(Net_LibUI3_Modules);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	foreach (Event in XmlRpc.PendingEvents) {
+		if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+			switch (Event.ParamArray1) {
+				case C_Method_GetModulesProperties: {
+					if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "3.2.0")) {
+						declare Text ResponseId = "";
+						if (Event.ParamArray2.count >= 1) ResponseId = Event.ParamArray2[0];
+						Private_CustomizableModule_SendPropertiesCallback(ResponseId);
+					}
+				}
+				case C_Method_SetModulesProperties: {
+					if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "3.2.0")) {
+						if (Event.ParamArray2.count >= 1) {
+							declare K_CustomizableModule_PropertiesSetList ModulesProperties;
+							ModulesProperties.fromjson(Event.ParamArray2[0]);
+							foreach (ModuleProperties in ModulesProperties.uimodules) {
+								if (
+									ModuleProperties.position_update ||
+									ModuleProperties.scale_update ||
+									ModuleProperties.visible_update
+								) {
+									declare UIModules_Common::K_ModuleProperties NewModuleProperties;
+									if (G_CustomizableModule_CustomProperties.existskey(ModuleProperties.id)) {
+										NewModuleProperties = G_CustomizableModule_CustomProperties[ModuleProperties.id];
+									} else if (G_CustomizableModule_DefaultProperties.existskey(ModuleProperties.id)) {
+										NewModuleProperties = G_CustomizableModule_DefaultProperties[ModuleProperties.id];
+									}
+									if (ModuleProperties.position_update) NewModuleProperties.Position = ModuleProperties.position;
+									if (ModuleProperties.scale_update) NewModuleProperties.Scale = ModuleProperties.scale;
+									if (ModuleProperties.visible_update) NewModuleProperties.Visible = ModuleProperties.visible;
+									Private_CustomizableModule_SetProperties(ModuleProperties.id, NewModuleProperties);
+								}
+							}
+						}
+					}
+				}
+				case C_Method_ResetModulesProperties: {
+					if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "3.2.0")) {
+						if (Event.ParamArray2.count >= 1) {
+							declare K_CustomizableModule_PropertiesResetList ModulesToReset;
+							ModulesToReset.fromjson(Event.ParamArray2[0]);
+							foreach (ModuleId in ModulesToReset.uimodules) {
+								Private_CustomizableModule_ResetProperties(ModuleId);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	UnloadModules();
+
+	// Reset all customizable modules
+	G_CustomizableModule_CustomProperties = [];
+	G_CustomizableModule_DefaultProperties = [];
+	declare netwrite UIModules_Common::K_ModuleProperties[Text] Net_LibUI3_CustomizableModule_Properties for Teams[0] = [];
+	declare netwrite Integer Net_LibUI3_CustomizableModule_PropertiesUpdate for Teams[0] = 0;
+	Net_LibUI3_CustomizableModule_Properties = [];
+	Net_LibUI3_CustomizableModule_PropertiesUpdate += 1;
+
+	// Restore custom modules properties
+	declare UIModules_Common::K_ModuleProperties[Text] CMGame_UIModule_CustomModuleProperties for This = [];
+	foreach (ModuleId => ModuleProperties in CMGame_UIModule_CustomModuleProperties) {
+		Private_CustomizableModule_SetProperties(ModuleId, ModuleProperties);
+	}
+
+	// Unregister methods
+	XmlRpc::UnregisterMethod(C_Method_GetModulesProperties);
+	XmlRpc::UnregisterMethod(C_Method_SetModulesProperties);
+	XmlRpc::UnregisterMethod(C_Method_ResetModulesProperties);
+	// Unregister callbacks
+	XmlRpc::UnregisterCallback(C_Callback_ModulesProperties);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	// Register callbacks
+	XmlRpc::RegisterCallback(C_Callback_ModulesProperties, """
+* Name: {{{C_Callback_ModulesProperties}}}
+* Type: CallbackArray
+* Description: Properties of the UI modules loaded by the mode.
+* Data:
+	- Version >=3.2.0:
+	```
+	[
+		"{
+			"responseid": "xyz" //< Facultative id passed by a script event
+			"uimodules": [ //< Array of UI modules loaded by the mode
+				{
+					"id": "IdOfTheModule", //< The id of the UI module
+					"position": [10.0, 20.0], //< The position in array format. First value is the x position and the second value is the y position.
+					"scale": 2.5,
+					"visible": true
+				}
+			]
+		}"
+	]
+	```
+	""");
+
+	// Register methods
+	XmlRpc::RegisterMethod(C_Method_GetModulesProperties, """
+* Name: {{{C_Method_GetModulesProperties}}}
+* Type: TriggerModeScriptEventArray
+* Description: Request the properties of the UI modules loaded by the mode. This method will trigger the "{{{C_Callback_ModulesProperties}}}" callback.
+* Data:
+	- Version >=3.2.0:
+	```
+	[
+		"responseid" //< Facultative id that will be passed to the "{{{C_Callback_ModulesProperties}}}" callback.
+	]
+	```
+	""");
+	XmlRpc::RegisterMethod(C_Method_SetModulesProperties, """
+* Name: {{{C_Method_SetModulesProperties}}}
+* Type: TriggerModeScriptEventArray
+* Description: Update the properties of the UI modules loaded by the mode. Each property (except `id`) has a `propertyname_update` boolean counterpart. This boolean must be set to true if you want to update the property. Otherwise the property and update fields can be omitted. For example, if you want to update only the scale you can do `{ "id" : "IdOfTheModule", "scale": 3.0, "scale_update": true }`.
+* Data:
+	- Version >=3.2.0:
+	```
+	[
+		"{
+			"uimodules": [ //< Array of UI modules to update
+				{
+					"id": "IdOfTheModule", //< The id of the UI module
+					"position": [10.0, 20.0], //< The position in array format. First value is the x position and the second value is the y position.
+					"position_update": true,
+					"scale": 2.5,
+					"scale_update": true,
+					"visible": true
+					"visible_update": true
+				}
+			]
+		}"
+	]
+	```
+	""");
+	XmlRpc::RegisterMethod(C_Method_ResetModulesProperties, """
+* Name: {{{C_Method_ResetModulesProperties}}}
+* Type: TriggerModeScriptEventArray
+* Description: Reset the properties of the UI modules loaded by the mode.
+* Data:
+	- Version >=3.2.0:
+	```
+	[
+		"{
+			"uimodules": [ //< Array of UI modules to reset
+				"IdOfModule1", "IdOfModule2", "IdOfModuleN"
+			]
+		}"
+	]
+	```
+	""");
+}

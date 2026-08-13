@@ -1,0 +1,763 @@
+/**
+ * Http requests manager
+ */
+#Const Version "3.1.2"
+#Const ScriptName "Libs/Nadeo/CMGame/Utils/Http@3.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "TimeLib" as TiL
+#Include "Libs/Nadeo/CMGame/Utils/Context.Script.txt" as Context
+#Include "Libs/Nadeo/CMGame/Utils/Error.Script.txt" as Error
+#Include "Libs/Nadeo/CMGame/Utils/Promise.Script.txt" as Promise
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_FakeResponse {
+	Boolean Enabled;
+	Integer Delay;
+	Text Result;
+	Integer StatusCode;
+}
+#Struct K_RequestOptions {
+	Integer Method;
+	Text[Text] Headers;
+	Boolean DisableAutomaticAuthorizationHeader;
+	Text Data;
+	Text File;
+	K_FakeResponse FakeResponse;
+	Text TokenAudience;
+}
+
+#Struct K_Request {
+	Text Url;
+	K_RequestOptions Options;
+	Text Result;
+	Integer ResponseStatusCode;
+	Boolean IsFake;
+	Ident Private_HttpRequestId;
+	Integer Private_Status;
+	Integer Private_DebounceTimer;
+	Integer Private_ResponseDelayEndTime;
+	Promise::K_Promise Private_Promise;
+	Ident Private_TokenRequestId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Method_Get 0
+#Const C_Method_Post 1
+#Const C_Method_Put 2
+
+#Const C_QueryFormat_Comma 0
+#Const C_QueryFormat_Bracket 1
+
+#Const C_Private_Status_Null 0
+#Const C_Private_Status_Initializing 1
+#Const C_Private_Status_WaitingSlot 2
+#Const C_Private_Status_WaitingToken 3
+#Const C_Private_Status_WaitingDebounce 4
+#Const C_Private_Status_Processing 5
+#Const C_Private_Status_WaitingExternalComplete 6
+#Const C_Private_Status_Complete 7
+#Const C_Private_Status_Destroyed 8
+
+#Const C_Private_MinimumAvailableSlotsNb 5
+#Const C_Private_EnableCppCache False //< Enable the default C++ cache for request
+#Const C_Private_DebounceDuration 2500
+#Const C_Private_HashConversionTable ["", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
+#Const C_Private_DefaultOfflineModeEnabled False
+#Const C_Private_DefaultTokenAudience "NadeoServices"
+
+#Const C_RequestOptions_Null K_RequestOptions {
+	Method = 0,
+	Headers = [],
+	DisableAutomaticAuthorizationHeader = False,
+	Data = "",
+	File = "",
+	TokenAudience = ""
+}
+#Const C_Request_Null K_Request {
+	Url = "",
+	Options = K_RequestOptions {
+		Method = 0,
+		Headers = [],
+		DisableAutomaticAuthorizationHeader = False,
+		Data = "",
+		File = ""
+	},
+	Result = "",
+	ResponseStatusCode = 0,
+	IsFake = False,
+	Private_HttpRequestId = NullId,
+	Private_Status = 0,
+	Private_DebounceTimer = 0,
+	Private_ResponseDelayEndTime = 0,
+	Private_Promise = Promise::K_Promise {},
+	Private_TokenRequestId = NullId
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if there are already too many requests
+Boolean IsSaturated(CNod _Context) {
+	return (Context::GetHttpManager(_Context).SlotsAvailable <= C_Private_MinimumAvailableSlotsNb);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an http request result status code is considered successfull
+Boolean IsHttpStatusCodeSuccess(Integer _StatusCode) {
+	return (_StatusCode >= 200 && _StatusCode < 300);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a query string from an array
+ * ["key" => "value, "key2" => "value2"]
+ * -> "?key=value&key2=value2"
+ * ["key3" => ["valueA", "valueB"], "key4" => ["valueC"]]
+ * -> "?key3=valueA,valueB&key4=valueC"
+ */
+Text CreateQueryString(Text[Text] _Query, Text[][Text] _QueryArray, Integer _QueryFormat) {
+	declare Text QueryString = "";
+
+	for (Key => Value in _Query) {
+		if (Key != "" && Value != "") {
+			if (QueryString == "") QueryString ^= "?";
+			else QueryString ^= "&";
+			QueryString ^= TL::URLEncode(Key)^"="^TL::URLEncode(Value);
+		}
+	}
+
+	switch (_QueryFormat) {
+		case C_QueryFormat_Bracket: {
+			for (Key => Values in _QueryArray) {
+				if (Key != "" && Values.count > 0 && !Values.containsonly([""])) {
+					if (QueryString == "") QueryString ^= "?";
+					else QueryString ^= "&";
+					declare Text TextValues = "";
+					for (Value in Values) {
+						if (Value != "") {
+							if (TextValues != "") TextValues ^= "&";
+							TextValues ^= TL::URLEncode(Key) ^ "[]=" ^ TL::URLEncode(Value);
+						}
+					}
+					QueryString ^= TextValues;
+				}
+			}
+		}
+		default: { //< C_QueryFormat_Comma
+			for (Key => Values in _QueryArray) {
+				if (Key != "" && Values.count > 0 && !Values.containsonly([""])) {
+					if (QueryString == "") QueryString ^= "?";
+					else QueryString ^= "&";
+					QueryString ^= TL::URLEncode(Key) ^ "=";
+					declare Text TextValues = "";
+					for (Value in Values) {
+						if (Value != "") {
+							if (TextValues != "") TextValues ^= ",";
+							TextValues ^= TL::URLEncode(Value);
+						}
+					}
+					QueryString ^= TextValues;
+				}
+			}
+		}
+	}
+
+	return QueryString;
+}
+Text CreateQueryString(Text[Text] _Query, Text[][Text] _QueryArray) {
+	return CreateQueryString(_Query, _QueryArray, C_QueryFormat_Comma);
+}
+Text CreateQueryString(Text[Text] _Query) {
+	return CreateQueryString(_Query, []);
+}
+Text CreateQueryString(Text[][Text] _QueryArray, Integer _QueryFormat) {
+	return CreateQueryString([], _QueryArray, _QueryFormat);
+}
+Text CreateQueryString(Text[][Text] _QueryArray) {
+	return CreateQueryString(_QueryArray, C_QueryFormat_Comma);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create an headers string from an array
+ * ["key" => "value", "key2" => "value2"]
+ * -> "key: value\nkey2: value2"
+ */
+Text CreateHeadersString(Text _AppendTo, Text[Text] _Headers) {
+	declare Text HeadersString = _AppendTo;
+
+	foreach (Key => Value in _Headers) {
+		if (HeadersString != "") HeadersString ^= "\n";
+		HeadersString ^= Key^": "^Value;
+	}
+
+	return HeadersString;
+}
+Text CreateHeadersString(Text[Text] _Headers) {
+	return CreateHeadersString("", _Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Inject the given parameters into the route
+ * _Route => "/path/:Param1/to/:Param2"
+ * _Parameters => ["Param1" => "aaa", "Param2" => "bbb"]
+ * => "/path/aaa/to/bbb"
+ */
+Text InjectRouteParameters(Text _Route, Text[Text] _Parameters) {
+	declare Text Route = _Route;
+	foreach (Key => Value in _Parameters) {
+		Route = TL::Replace(Route, ":"^Key, Value);
+	}
+	return Route;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add metadata on a request
+K_Request SetMetadata(K_Request _Request, Text[Text] _Metadata) {
+	declare K_Request Request = _Request;
+	Request.Private_Promise = Promise::SetMetadata(Request.Private_Promise, _Metadata);
+	return Request;
+}
+K_Request SetMetadata(K_Request _Request, Text _Key, Text _Value) {
+	declare K_Request Request = _Request;
+	Request.Private_Promise = Promise::SetMetadata(Request.Private_Promise, _Key, _Value);
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove all metadata from a request
+K_Request ResetMetadata(K_Request _Request) {
+	declare K_Request Request = _Request;
+	Request.Private_Promise = Promise::ResetMetadata(Request.Private_Promise);
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get metadata from a request
+Text[Text] GetMetadata(K_Request _Request) {
+	return Promise::GetMetadata(_Request.Private_Promise);
+}
+Text GetMetadata(K_Request _Request, Text _Key, Text _DefaultValue) {
+	return Promise::GetMetadata(_Request.Private_Promise, _Key, _DefaultValue);
+}
+Text GetMetadata(K_Request _Request, Text _Key) {
+	return Promise::GetMetadata(_Request.Private_Promise, _Key);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy a request
+K_Request Destroy(CNod _Context, K_Request _Request) {
+	if (
+		_Request.Private_Status == C_Private_Status_Null ||
+		_Request.Private_Status == C_Private_Status_Destroyed
+	) {
+		return _Request;
+	}
+
+	declare K_Request Request = _Request;
+	declare CHttpManager ContextHttp <=> Context::GetHttpManager(_Context);
+
+	if (Request.Private_HttpRequestId != NullId && ContextHttp.Requests.existskey(Request.Private_HttpRequestId)) {
+		ContextHttp.Destroy(ContextHttp.Requests[Request.Private_HttpRequestId]);
+	}
+
+	if (Request.Private_TokenRequestId != NullId) {
+		switchtype (_Context as Context) {
+			case CMode: {
+				// Waiting for the new `Authentication_GetToken_v2()` function in `CServerAdmin`
+				assert(False, "Not implemented yet");
+			}
+			default: {
+				declare CManiaPlanet ContextManiaPlanet <=> Context::GetManiaPlanet(_Context);
+				if (ContextManiaPlanet.MasterServer_MSTaskResults.existskey(Request.Private_TokenRequestId)) {
+					ContextManiaPlanet.MasterServer_ReleaseMSTaskResult(Request.Private_TokenRequestId);
+				}
+				Request.Private_TokenRequestId = NullId;
+			}
+		}
+	}
+
+	Request.Private_Status = C_Private_Status_Destroyed;
+
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get letter value for the hash function
+Integer Private_GetLetterValue(Text _Letter) {
+	if (C_Private_HashConversionTable.exists(TL::ToLowerCase(_Letter))) {
+		return C_Private_HashConversionTable.keyof(TL::ToLowerCase(_Letter)) + 1;
+	}
+	return C_Private_HashConversionTable.keyof("") + 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Combine letters for the hash function
+Text Private_CombineLetters(Text _Letter1, Text _Letter2) {
+	return C_Private_HashConversionTable.get((Private_GetLetterValue(_Letter1) + Private_GetLetterValue(_Letter2)) % (C_Private_HashConversionTable.count + 1), "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// `TL::SubText()` crash the game if `_Start` is after the end of the `_Text`
+Text Private_SafeSubText(Text _Text, Integer _Start, Integer _Length) {
+	if (_Start >= TL::Length(_Text)) return "";
+	return TL::SubText(_Text, _Start, _Length);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get an identifier for similar requests
+Text Private_GetRequestHash(Text _Url, Text _Data, Text _File, Text _Headers) {
+	// Hash the headers to avoid leaking an authentication token to other script contexts
+	// Collision is not a huge problem, so keep it simple
+	declare Text HeadersHash = "";
+	declare Integer HeadersLength = TL::Length(_Headers);
+	declare Integer Start = 0;
+	declare Integer WordLength = 128;
+	while (Start < HeadersLength) {
+		declare Text Word = Private_SafeSubText(_Headers, Start, WordLength);
+		if (HeadersHash == "") {
+			HeadersHash = Word;
+		} else {
+			declare Text CombinedHeadersHash = "";
+			for (I, 0, WordLength - 1) {
+				CombinedHeadersHash ^= Private_CombineLetters(
+					Private_SafeSubText(Word, I, 1),
+					Private_SafeSubText(HeadersHash, I, 1)
+				);
+			}
+			HeadersHash = CombinedHeadersHash;
+		}
+		Start += WordLength;
+	}
+
+	return TL::Join("|", [_Url, _Data, _File, HeadersHash]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Removed the passed timers
+Integer[Text] Private_CleanDebounceTimers(Integer[Text] _DebounceTimers, Integer _MillisecondsSinceInit) {
+	declare Integer[Text] DebounceTimers;
+	for (RequestHash => Timer in _DebounceTimers) {
+		if (Timer >= _MillisecondsSinceInit) {
+			DebounceTimers[RequestHash] = Timer;
+		}
+	}
+	return DebounceTimers;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the authorization header value for a nadeo token
+Text Private_GetHeaderAuthorizationTokenNadeo(Text _Token) {
+	return """nadeo_v1 t={{{_Token}}}""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the authorization header
+K_Request Private_SetAuthorizationHeader(CNod _Context, K_Request _Request) {
+	if (
+		_Request.Options.DisableAutomaticAuthorizationHeader ||
+		_Request.Options.Headers.existskey("Authorization")
+	) {
+		return _Request;
+	}
+
+	declare K_Request Request = _Request;
+
+	switchtype (_Context as Context) {
+		case CMode: {
+			// Waiting for the new `Authentication_GetToken_v2()` function in `CServerAdmin`
+			assert(False, "Not implemented yet");
+		}
+		default: {
+			declare CManiaPlanet ContextManiaPlanet <=> Context::GetManiaPlanet(_Context);
+			if (ContextManiaPlanet.UserMgr == Null || ContextManiaPlanet.UserMgr.MainUser == Null) {
+				Request.Private_Status = C_Private_Status_WaitingExternalComplete;
+				Request.Private_Promise = Promise::Reject(Request.Private_Promise, Error::GetError(Error::C_Type_Http, Error::C_Code_Http_TokenMainUserNotFound));
+			} else {
+				// Stop previous task
+				if (Request.Private_TokenRequestId != NullId && ContextManiaPlanet.MasterServer_MSTaskResults.existskey(Request.Private_TokenRequestId)) {
+					ContextManiaPlanet.MasterServer_ReleaseMSTaskResult(Request.Private_TokenRequestId);
+				}
+				Request.Private_TokenRequestId = NullId;
+
+				// Start new task
+				declare Text TokenAudience = C_Private_DefaultTokenAudience;
+				if (Request.Options.TokenAudience != "") {
+					TokenAudience = Request.Options.TokenAudience;
+				}
+				declare CTaskResult_String Task <=> ContextManiaPlanet.Authentication_GetToken_v2(ContextManiaPlanet.UserMgr.MainUser.Id, TokenAudience);
+				if (Task == Null) {
+					Request.Private_Status = C_Private_Status_WaitingExternalComplete;
+					Request.Private_Promise = Promise::Reject(Request.Private_Promise, Error::GetError(Error::C_Type_Http, Error::C_Code_Http_TokenTaskCreationFailed));
+				} else {
+					Request.Private_TokenRequestId = Task.Id;
+
+					if (Task.IsProcessing) {
+						Request.Private_Status = C_Private_Status_WaitingToken;
+					} else if (Task.HasSucceeded) {
+						Request.Options.Headers["Authorization"] = Private_GetHeaderAuthorizationTokenNadeo(Task.Value);
+
+						if (ContextManiaPlanet.MasterServer_MSTaskResults.existskey(Task.Id)) {
+							ContextManiaPlanet.MasterServer_ReleaseMSTaskResult(Task.Id);
+						}
+						Request.Private_TokenRequestId = NullId;
+					} else {
+						Request.Private_Status = C_Private_Status_WaitingExternalComplete;
+						Request.Private_Promise = Promise::Reject(Request.Private_Promise, Error::GetError(Error::C_Type_Http, Error::C_Code_Http_TokenTaskFailed));
+					}
+				}
+			}
+		}
+	}
+
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new request
+K_Request Private_Create(CNod _Context, Text _Url, K_RequestOptions _RequestOptions, Boolean _IgnoreDebounce) {
+	declare K_Request Request = C_Request_Null;
+	declare CSystemPlatform ContextSystem <=> Context::GetSystem(_Context);
+
+	Request.Url = _Url;
+	Request.Options = _RequestOptions;
+	Request.Private_Promise = Promise::Create();
+
+	declare Boolean CMGame_UtilsHttp3_OfflineModeEnabled for ContextSystem = C_Private_DefaultOfflineModeEnabled;
+	declare Boolean IsLocalFileSystemRequest = TL::StartsWith("file://", Request.Url);
+
+	if (CMGame_UtilsHttp3_OfflineModeEnabled && !IsLocalFileSystemRequest) {
+		Request.Private_Status = C_Private_Status_Destroyed;
+		Request.Private_Promise = Promise::Reject(Request.Private_Promise, Error::GetError(Error::C_Type_Http, Error::C_Code_Http_OfflineModeEnabled));
+	} else if (IsSaturated(_Context)) {
+		Request.Private_Status = C_Private_Status_WaitingSlot;
+	} else {
+		Request.Private_Status = C_Private_Status_Initializing;
+
+		if (Request.Private_Status == C_Private_Status_Initializing && !IsLocalFileSystemRequest) {
+			Request = Private_SetAuthorizationHeader(_Context, Request);
+		}
+
+		/** Debounce system
+		 * To prevent the same source from spamming the same request in short intervals,
+		 * delay it for a small amount of time. This way, if the same source tries
+		 * to create the same request, the previous request that was still waiting in the debounce queue
+		 * will be destroyed before it is started. Note, however, that there is no batching of debounced requests.
+		 * This means that once the debounce timer is reached, all debounced requests in the queue will fire at once.
+		 * This is important to avoid errors with non-idempotent requests (typically post requests)
+		 */
+		declare Text Headers = CreateHeadersString(Request.Options.Headers);
+		declare Integer MillisecondsSinceInit = TiL::GetMillisecondsSinceInit();
+		declare Integer[Text] CMGame_UtilsHttp3_DebounceTimers for ContextSystem = [];
+		declare Text RequestHash = Private_GetRequestHash(Request.Url, Request.Options.Data, Request.Options.File, Headers);
+		if (
+			Request.Private_Status == C_Private_Status_Initializing &&
+			!_IgnoreDebounce &&
+			!IsLocalFileSystemRequest
+		) {
+			CMGame_UtilsHttp3_DebounceTimers = Private_CleanDebounceTimers(CMGame_UtilsHttp3_DebounceTimers, MillisecondsSinceInit);
+			if (CMGame_UtilsHttp3_DebounceTimers.existskey(RequestHash)) {
+				Request.Private_Status = C_Private_Status_WaitingDebounce;
+				Request.Private_DebounceTimer = CMGame_UtilsHttp3_DebounceTimers[RequestHash];
+			}
+		}
+
+		if (Request.Private_Status == C_Private_Status_Initializing) {
+			CMGame_UtilsHttp3_DebounceTimers[RequestHash] = MillisecondsSinceInit + C_Private_DebounceDuration;
+
+			// Create the http request
+			declare CHttpRequest HttpRequest;
+			if (Request.Options.FakeResponse.Enabled) {
+				Request.IsFake = True;
+				Request.Private_ResponseDelayEndTime = Now + Request.Options.FakeResponse.Delay;
+				Request.Result = Request.Options.FakeResponse.Result;
+				Request.ResponseStatusCode = Request.Options.FakeResponse.StatusCode;
+			} else {
+				declare CHttpManager ContextHttp <=> Context::GetHttpManager(_Context);
+				switch (Request.Options.Method) {
+					case C_Method_Get: {
+						HttpRequest <=> ContextHttp.CreateGet(Request.Url, C_Private_EnableCppCache, Headers);
+					}
+					case C_Method_Post: {
+						assert(
+							Request.Options.Data == "" || Request.Options.File == "",
+							"""[Http@3] Post requests may use either `Data` or `File`, not both"""
+						);
+						if (Request.Options.File != "") {
+							HttpRequest <=> ContextHttp.CreatePostFile(Request.Url, Request.Options.File, Headers);
+						} else {
+							HttpRequest <=> ContextHttp.CreatePost(Request.Url, Request.Options.Data, Headers);
+						}
+					}
+					case C_Method_Put: {
+						HttpRequest <=> ContextHttp.CreatePut(Request.Url, Request.Options.Data, Headers);
+					}
+				}
+			}
+
+			// Setup the request struct
+			if (HttpRequest != Null) {
+				Request.Private_HttpRequestId = HttpRequest.Id;
+			}
+			Request.Private_Status = C_Private_Status_Processing;
+		}
+	}
+
+	return Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the complete status of the task
+Integer Private_GetCompleteStatus(Boolean _IsExternalUpdate) {
+	if (_IsExternalUpdate) return C_Private_Status_Complete;
+	return C_Private_Status_WaitingExternalComplete;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update a request
+K_Request Private_Update(CNod _Context, K_Request _Request, Boolean _IsExternalUpdate) {
+	if (
+		_Request.Private_Status != C_Private_Status_WaitingSlot &&
+		_Request.Private_Status != C_Private_Status_WaitingToken &&
+		_Request.Private_Status != C_Private_Status_WaitingDebounce &&
+		_Request.Private_Status != C_Private_Status_Processing &&
+		_Request.Private_Status != C_Private_Status_WaitingExternalComplete
+	) {
+		return _Request;
+	}
+
+	declare K_Request Request = _Request;
+
+	switch (Request.Private_Status) {
+		case C_Private_Status_WaitingSlot: {
+			if (!IsSaturated(_Context)) {
+				declare Text[Text] Metadata = GetMetadata(Request);
+				Request = Destroy(_Context, Request);
+				Request = Private_Create(_Context, Request.Url, Request.Options, False);
+				Request = SetMetadata(Request, Metadata);
+			}
+		}
+		case C_Private_Status_WaitingToken: {
+			switchtype (_Context as Context) {
+				case CMode: {
+					// Waiting for the new `Authentication_GetToken_v2()` function in `CServerAdmin`
+					assert(False, "Not implemented yet");
+				}
+				default: {
+					declare CManiaPlanet ContextManiaPlanet <=> Context::GetManiaPlanet(_Context);
+					if (ContextManiaPlanet.UserMgr != Null && ContextManiaPlanet.UserMgr.MainUser != Null) {
+						if (ContextManiaPlanet.MasterServer_MSTaskResults.existskey(Request.Private_TokenRequestId)) {
+							declare CTaskResult_String Task <=> (ContextManiaPlanet.MasterServer_MSTaskResults[Request.Private_TokenRequestId] as CTaskResult_String);
+							if (!Task.IsProcessing) {
+								if (Task.HasSucceeded) {
+									Request.Options.Headers["Authorization"] = Private_GetHeaderAuthorizationTokenNadeo(Task.Value);
+
+									if (ContextManiaPlanet.MasterServer_MSTaskResults.existskey(Task.Id)) {
+										ContextManiaPlanet.MasterServer_ReleaseMSTaskResult(Task.Id);
+									}
+									Request.Private_TokenRequestId = NullId;
+
+									declare Text[Text] Metadata = GetMetadata(Request);
+									Request = Destroy(_Context, Request);
+									Request = Private_Create(_Context, Request.Url, Request.Options, False);
+									Request = SetMetadata(Request, Metadata);
+								} else {
+									if (ContextManiaPlanet.MasterServer_MSTaskResults.existskey(Task.Id)) {
+										ContextManiaPlanet.MasterServer_ReleaseMSTaskResult(Task.Id);
+									}
+									Request.Private_TokenRequestId = NullId;
+
+									Request.Private_Status = Private_GetCompleteStatus(_IsExternalUpdate);
+									Request.Private_Promise = Promise::Reject(Request.Private_Promise, Error::GetError(Error::C_Type_Http, Error::C_Code_Http_TokenTaskFailed));
+								}
+							}
+						} else {
+							Request.Private_Status = Private_GetCompleteStatus(_IsExternalUpdate);
+							Request.Private_Promise = Promise::Reject(Request.Private_Promise, Error::GetError(Error::C_Type_Http, Error::C_Code_Http_TokenTaskNotFound));
+						}
+					}
+				}
+			}
+		}
+		case C_Private_Status_WaitingDebounce: {
+			if (TiL::GetMillisecondsSinceInit() >= Request.Private_DebounceTimer) {
+				declare Text[Text] Metadata = GetMetadata(Request);
+				Request = Destroy(_Context, Request);
+				Request = Private_Create(_Context, Request.Url, Request.Options, True);
+				Request = SetMetadata(Request, Metadata);
+			}
+		}
+		case C_Private_Status_Processing: {
+			if (Request.IsFake) {
+				if (Now >= Request.Private_ResponseDelayEndTime) {
+					Request.Private_Status = Private_GetCompleteStatus(_IsExternalUpdate);
+					if (IsHttpStatusCodeSuccess(Request.ResponseStatusCode)) {
+						Request.Private_Promise = Promise::Resolve(Request.Private_Promise);
+					} else {
+						Request.Private_Promise = Promise::Reject(Request.Private_Promise, Error::GetError(Error::C_Type_Http, ""^Request.ResponseStatusCode));
+					}
+				}
+			} else {
+				declare CHttpRequest HttpRequest <=> Context::GetHttpManager(_Context).Requests.get(Request.Private_HttpRequestId, Null);
+				if (HttpRequest == Null) {
+					Request.Private_Status = Private_GetCompleteStatus(_IsExternalUpdate);
+					Request.Private_Promise = Promise::Reject(Request.Private_Promise, Error::GetError(Error::C_Type_Http, Error::C_Code_Http_RequestNotFound));
+				} else if (HttpRequest.IsCompleted) {
+					Request.Private_Status = Private_GetCompleteStatus(_IsExternalUpdate);
+					Request.Result = HttpRequest.Result;
+					Request.ResponseStatusCode = HttpRequest.StatusCode;
+					if (IsHttpStatusCodeSuccess(Request.ResponseStatusCode)) {
+						Request.Private_Promise = Promise::Resolve(Request.Private_Promise);
+					} else {
+						Request.Private_Promise = Promise::Reject(Request.Private_Promise, Error::GetError(Error::C_Type_Http, ""^Request.ResponseStatusCode));
+					}
+				}
+			}
+		}
+		case C_Private_Status_WaitingExternalComplete: {
+			if (_IsExternalUpdate) {
+				Request.Private_Status = C_Private_Status_Complete;
+			}
+		}
+	}
+
+	return Request;
+}
+K_Request Update(CNod _Context, K_Request _Request) {
+	return Private_Update(_Context, _Request, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new request
+K_Request Create(CNod _Context, Text _Url, K_RequestOptions _RequestOptions) {
+	return Private_Update(_Context, Private_Create(_Context, _Url, _RequestOptions, False), False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new GET request
+K_Request CreateGet(CNod _Context, Text _Url, K_RequestOptions _RequestOptions) {
+	declare K_RequestOptions RequestOptions = _RequestOptions;
+	RequestOptions.Method = C_Method_Get;
+	return Create(_Context, _Url, RequestOptions);
+}
+K_Request CreateGet(CNod _Context, Text _Url) {
+	return CreateGet(_Context, _Url, C_RequestOptions_Null);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new POST request
+K_Request CreatePost(CNod _Context, Text _Url, K_RequestOptions _RequestOptions) {
+	declare K_RequestOptions RequestOptions = _RequestOptions;
+	RequestOptions.Method = C_Method_Post;
+	return Create(_Context, _Url, RequestOptions);
+}
+K_Request CreatePost(CNod _Context, Text _Url, Text _Data, K_RequestOptions _RequestOptions) {
+	declare K_RequestOptions RequestOptions = _RequestOptions;
+	RequestOptions.Data = _Data;
+	return CreatePost(_Context, _Url, RequestOptions);
+}
+K_Request CreatePost(CNod _Context, Text _Url, Text _Data) {
+	declare K_RequestOptions RequestOptions = C_RequestOptions_Null;
+	RequestOptions.Data = _Data;
+	return CreatePost(_Context, _Url, RequestOptions);
+}
+K_Request CreatePost(CNod _Context, Text _Url) {
+	return CreatePost(_Context, _Url, C_RequestOptions_Null);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a POST request with a file
+K_Request CreatePostFile(CNod _Context, Text _Url, Text _File, K_RequestOptions _RequestOptions) {
+	declare K_RequestOptions RequestOptions = _RequestOptions;
+	RequestOptions.File = _File;
+	return CreatePost(_Context, _Url, RequestOptions);
+}
+K_Request CreatePostFile(CNod _Context, Text _Url, Text _File) {
+	declare K_RequestOptions RequestOptions = C_RequestOptions_Null;
+	RequestOptions.File = _File;
+	return CreatePost(_Context, _Url, RequestOptions);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a new PUT request
+K_Request CreatePut(CNod _Context, Text _Url, K_RequestOptions _RequestOptions) {
+	declare K_RequestOptions RequestOptions = _RequestOptions;
+	RequestOptions.Method = C_Method_Put;
+	return Create(_Context, _Url, RequestOptions);
+}
+K_Request CreatePut(CNod _Context, Text _Url, Text _Data, K_RequestOptions _RequestOptions) {
+	declare K_RequestOptions RequestOptions = _RequestOptions;
+	RequestOptions.Data = _Data;
+	return CreatePut(_Context, _Url, RequestOptions);
+}
+K_Request CreatePut(CNod _Context, Text _Url, Text _Data) {
+	declare K_RequestOptions RequestOptions = C_RequestOptions_Null;
+	RequestOptions.Data = _Data;
+	return CreatePut(_Context, _Url, RequestOptions);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy a previous request and create a new one
+K_Request DestroyAndCreate(CNod _Context, K_Request _PreviousRequest, K_Request _NewRequest) {
+	Destroy(_Context, _PreviousRequest);
+	return _NewRequest;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the request is processing
+Boolean IsProcessing(K_Request _Request) {
+	return (
+		_Request.Private_Status == C_Private_Status_Processing ||
+		_Request.Private_Status == C_Private_Status_WaitingSlot ||
+		_Request.Private_Status == C_Private_Status_WaitingToken ||
+		_Request.Private_Status == C_Private_Status_WaitingDebounce ||
+		_Request.Private_Status == C_Private_Status_WaitingExternalComplete
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the request is a success
+Boolean IsSuccess(K_Request _Request) {
+	return Promise::IsFulfilled(_Request.Private_Promise);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the URL of a request
+Text GetURL(K_Request _Request) {
+	return _Request.Url;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the result of a request
+Text GetResult(K_Request _Request) {
+	return _Request.Result;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the error of a request
+Error::K_Error GetError(K_Request _Request) {
+	return Promise::GetError(_Request.Private_Promise);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the status code of a request
+Integer GetStatusCode(K_Request _Request) {
+	return _Request.ResponseStatusCode;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Enable or disable offline mode
+ * This function should not be used directly
+ * Instead use the `CMGame/Utils/OfflineMode` library
+ */
+Void Protected_SetOfflineMode(CSystemPlatform _System, Boolean _OfflineModeEnabled) {
+	declare Boolean CMGame_UtilsHttp3_OfflineModeEnabled for _System = C_Private_DefaultOfflineModeEnabled;
+	CMGame_UtilsHttp3_OfflineModeEnabled = _OfflineModeEnabled;
+}

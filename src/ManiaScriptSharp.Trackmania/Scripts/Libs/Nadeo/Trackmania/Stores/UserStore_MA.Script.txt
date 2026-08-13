@@ -1,0 +1,764 @@
+/**
+ * Store value for User
+ */
+#Const Version "1.5.2"
+#Const ScriptName "Libs/Nadeo/Trackmania/Stores/UserStore_MA.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Store_MA.Script.txt" as Store
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/HttpAuthorizationHeader.Script.txt" as HttpAuthorizationHeader
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/RBAC.Script.txt" as RBAC
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/Trackmania/Structures/MatchmakingStruct.Script.txt" as MatchmakingStruct
+#Include "Libs/Nadeo/Trackmania/API/MatchmakingAPI.Script.txt" as MatchmakingAPI
+#Include "Libs/Nadeo/Trackmania/API/LeaderboardAPI.Script.txt" as LeaderboardAPI
+#Include "Libs/Nadeo/Trackmania/API/CampaignAPI.Script.txt" as CampaignAPI
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const UserStore::C_StoreId as C_StoreId
+#Const UserStore::C_State_Null as C_State_Null
+
+#Const UserStore::C_Action_UpdateGameSubscriptionPlan as C_Action_UpdateGameSubscriptionPlan
+#Const UserStore::C_Action_SetOfflineMode as C_Action_SetOfflineMode
+#Const UserStore::C_Action_LoadMatchmakingInfos as C_Action_LoadMatchmakingInfos
+#Const UserStore::C_Action_SetMatchmakingDivisions as C_Action_SetMatchmakingDivisions
+#Const UserStore::C_Action_SetMatchmakingPlayerProgression as C_Action_SetMatchmakingPlayerProgression
+#Const UserStore::C_Action_LoadUserTrophyRankings as C_Action_LoadUserTrophyRankings
+#Const UserStore::C_Action_SetUserTrophyRankings as C_Action_SetUserTrophyRankings
+
+#Const UserStore::C_Event_UserPermissionsUpdated as C_Event_UserPermissionsUpdated
+#Const UserStore::C_Event_UserDataUpdated as C_Event_UserDataUpdated
+#Const UserStore::C_Event_OfflineModeUpdated as C_Event_OfflineModeUpdated
+#Const UserStore::C_Event_MatchmakingInfosUpdated as C_Event_MatchmakingInfosUpdated
+#Const UserStore::C_Event_UserTrophyRankingsUpdated as C_Event_UserTrophyRankingsUpdated
+#Const UserStore::C_Event_LoadUserTrophyRankingsComplete as C_Event_LoadUserTrophyRankingsComplete
+#Const UserStore::C_Event_LoadMatchmakingInfosComplete as C_Event_LoadMatchmakingInfosComplete
+
+#Const UserStore::C_GameSubscriptionPlan_Null as C_GameSubscriptionPlan_Null
+#Const UserStore::C_GameSubscriptionPlan_Free as C_GameSubscriptionPlan_Free
+#Const UserStore::C_GameSubscriptionPlan_Standard as C_GameSubscriptionPlan_Standard
+#Const UserStore::C_GameSubscriptionPlan_Club as C_GameSubscriptionPlan_Club
+
+#Const C_GameSubscriptionPlanCheckInterval 1000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct UserStore::K_MatchmakingInfo as K_MatchmakingInfo
+#Struct UserStore::K_LoadMatchmakingInfosProgress as K_LoadMatchmakingInfosProgress
+#Struct UserStore::K_TrackBrowserInfos as K_TrackBrowserInfos
+#Struct UserStore::K_State as K_State
+
+#Struct K_GameSubscriptionCheck {
+	Integer Time;
+	Boolean CanSubscribeToStandard;
+	Boolean CanSubscribeToClub;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Text[] G_MatchmakingModesWaitingList;
+declare Text G_CurrentAccountId;
+declare Text G_CurrentlyRequestedModeName;
+declare K_MatchmakingInfo G_CurrentlyRequestedMatchmakingInfos;
+declare K_GameSubscriptionCheck G_GameSubscriptionPlanCheck;
+declare Http::K_Request G_Request_LoadMatchmakingDivisions;
+declare Http::K_Request G_Request_GetPlayerProgression;
+declare Http::K_Request G_Request_GetUserTrophyRanking;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check permissions of the user
+Boolean HasGamePermission(CPrivilegeMgr _PrivilegeMgr, Text _Permission) {
+	return RBAC::HasGamePermission(_PrivilegeMgr, MainUser::GetMainUserId(), _Permission);
+}
+Boolean HasGamePermissions(CPrivilegeMgr _PrivilegeMgr, Text[] _Permissions) {
+	return RBAC::HasGamePermissions(_PrivilegeMgr, MainUser::GetMainUserId(), _Permissions);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the main user id
+ *
+ *	@param	_State										The current state
+ *	@param	_MainUserId								The new main user id
+ *
+ *	@return														The updated state
+ */
+K_State Mutation_SetMainUserId(K_State _State, Ident _MainUserId) {
+	declare K_State State = _State;
+
+	MainUser::SetMainUserId(_MainUserId);
+
+	Store::SendEvent(C_StoreId, C_Event_UserPermissionsUpdated);
+
+	return State;
+}
+
+Void Action_SetMainUserId(Ident _MainUserId) {
+	declare K_State Trackmania_UserStore_State for System = C_State_Null;
+	Trackmania_UserStore_State = Mutation_SetMainUserId(Trackmania_UserStore_State, _MainUserId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the user game subscription plan
+Void Action_UpdateGameSubscriptionPlan() {
+	Store::SendEvent(C_StoreId, C_Event_UserPermissionsUpdated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Force the use of a given game subscription plan
+Void ForceGameSubscriptionPlan(Integer _GameSubscriptionPlan) {
+	switch (_GameSubscriptionPlan) {
+		case C_GameSubscriptionPlan_Free: {
+			RBAC::Debug_UseFakePermissions(True);
+			RBAC::Debug_SetFakePermissions([
+				RBAC::C_GamePermission_PlayCurrentOfficialQuarterlyCampaign,
+				RBAC::C_GamePermission_PlayCurrentWeeklyShortsCampaign,
+				RBAC::C_GamePermission_PlayCurrentWeeklyGrandsCampaign,
+				RBAC::C_GamePermission_OpenSimpleMapEditor,
+				RBAC::C_GamePermission_OpenAdvancedMapEditor,
+				RBAC::C_GamePermission_ViewClub,
+				RBAC::C_GamePermission_PlayArcadeChannel,
+				RBAC::C_GamePermission_DisplayStandardAds,
+				RBAC::C_GamePermission_DisplayClubAds,
+				RBAC::C_GamePermission_GainXP,
+				RBAC::C_GamePermission_PlayHotSeat,
+				RBAC::C_GamePermission_PlaySplitscreen,
+				RBAC::C_GamePermission_PlayAgainstReplay,
+				RBAC::C_GamePermission_CanSubscribeToStandard,
+				RBAC::C_GamePermission_CanSubscribeToClub,
+				RBAC::C_GamePermission_OpenSkinEditor,
+				RBAC::C_GamePermission_CreateLocalSkin,
+				RBAC::C_GamePermission_OpenReplayEditor,
+				RBAC::C_GamePermission_FindLocalServer,
+				RBAC::C_GamePermission_CreateLocalReplay,
+				RBAC::C_GamePermission_UsePrestigeSkin,
+				RBAC::C_GamePermission_PlayMatchmaking
+			]);
+		}
+		case C_GameSubscriptionPlan_Standard: {
+			RBAC::Debug_UseFakePermissions(True);
+			RBAC::Debug_SetFakePermissions([
+				RBAC::C_GamePermission_PlayCurrentOfficialQuarterlyCampaign,
+				RBAC::C_GamePermission_PlayPastOfficialQuarterlyCampaign,
+				RBAC::C_GamePermission_PlayEntireOfficialQuarterlyCampaign,
+				RBAC::C_GamePermission_PlayCurrentOfficialMonthlyCampaign,
+				RBAC::C_GamePermission_PlayPastOfficialMonthlyCampaign,
+				RBAC::C_GamePermission_PlayCurrentOfficialTrackOfTheDay,
+				RBAC::C_GamePermission_PlayCurrentWeeklyShortsCampaign,
+				RBAC::C_GamePermission_PlayPastWeeklyShortsCampaign,
+				RBAC::C_GamePermission_PlayCurrentWeeklyGrandsCampaign,
+				RBAC::C_GamePermission_PlayPastWeeklyGrandsCampaign,
+				RBAC::C_GamePermission_PlayPublicClubCampaign,
+				RBAC::C_GamePermission_PlayPublicClubRoom,
+				RBAC::C_GamePermission_PlayArcadeChannel,
+				RBAC::C_GamePermission_PlayTOTDChannel,
+				RBAC::C_GamePermission_PlayCOTWChannel,
+				RBAC::C_GamePermission_OpenSimpleMapEditor,
+				RBAC::C_GamePermission_OpenAdvancedMapEditor,
+				RBAC::C_GamePermission_CreateLocalMap,
+				RBAC::C_GamePermission_AccessServerReview,
+				RBAC::C_GamePermission_OpenSkinEditor,
+				RBAC::C_GamePermission_CreateLocalSkin,
+				RBAC::C_GamePermission_OpenReplayEditor,
+				RBAC::C_GamePermission_CreateLocalReplay,
+				RBAC::C_GamePermission_ViewClub,
+				RBAC::C_GamePermission_CreateGameMode,
+				RBAC::C_GamePermission_CreateItemAndMod,
+				RBAC::C_GamePermission_DisplayClubAds,
+				RBAC::C_GamePermission_RemoveAds,
+				RBAC::C_GamePermission_PlayOnlineCompetition,
+				RBAC::C_GamePermission_GainXP,
+				RBAC::C_GamePermission_InGameChat,
+				RBAC::C_GamePermission_VoiceChat,
+				RBAC::C_GamePermission_ViewRecords,
+				RBAC::C_GamePermission_ViewPBGhostMultiplayer,
+				RBAC::C_GamePermission_PlayHotSeat,
+				RBAC::C_GamePermission_PlaySplitscreen,
+				RBAC::C_GamePermission_PlayLocalMap,
+				RBAC::C_GamePermission_PlayAgainstReplay,
+				RBAC::C_GamePermission_CreateLocalServer,
+				RBAC::C_GamePermission_FindLocalServer,
+				RBAC::C_GamePermission_CanSubscribeToClub,
+				RBAC::C_GamePermission_UsePrestigeSkin,
+				RBAC::C_GamePermission_PlayMatchmaking
+			]);
+		}
+		case C_GameSubscriptionPlan_Club: {
+			RBAC::Debug_UseFakePermissions(True);
+			RBAC::Debug_SetFakePermissions([
+				RBAC::C_GamePermission_PlayCurrentOfficialQuarterlyCampaign,
+				RBAC::C_GamePermission_PlayPastOfficialQuarterlyCampaign,
+				RBAC::C_GamePermission_PlayEntireOfficialQuarterlyCampaign,
+				RBAC::C_GamePermission_PlayCurrentOfficialMonthlyCampaign,
+				RBAC::C_GamePermission_PlayPastOfficialMonthlyCampaign,
+				RBAC::C_GamePermission_PlayCurrentOfficialTrackOfTheDay,
+				RBAC::C_GamePermission_PlayCurrentWeeklyShortsCampaign,
+				RBAC::C_GamePermission_PlayPastWeeklyShortsCampaign,
+				RBAC::C_GamePermission_PlayCurrentWeeklyGrandsCampaign,
+				RBAC::C_GamePermission_PlayPastWeeklyGrandsCampaign,
+				RBAC::C_GamePermission_PlayPublicClubCampaign,
+				RBAC::C_GamePermission_PlayPublicClubRoom,
+				RBAC::C_GamePermission_PlayArcadeChannel,
+				RBAC::C_GamePermission_PlayTOTDChannel,
+				RBAC::C_GamePermission_PlayCOTWChannel,
+				RBAC::C_GamePermission_OpenSimpleMapEditor,
+				RBAC::C_GamePermission_OpenAdvancedMapEditor,
+				RBAC::C_GamePermission_CreateLocalMap,
+				RBAC::C_GamePermission_CreateAndUploadMap,
+				RBAC::C_GamePermission_AccessServerReview,
+				RBAC::C_GamePermission_OpenSkinEditor,
+				RBAC::C_GamePermission_CreateLocalSkin,
+				RBAC::C_GamePermission_CreateAndUploadSkin,
+				RBAC::C_GamePermission_UseCustomSkin,
+				RBAC::C_GamePermission_UsePrestigeSkin,
+				RBAC::C_GamePermission_OpenReplayEditor,
+				RBAC::C_GamePermission_CreateLocalReplay,
+				RBAC::C_GamePermission_ViewClub,
+				RBAC::C_GamePermission_CreateClub,
+				RBAC::C_GamePermission_JoinClub,
+				RBAC::C_GamePermission_CreateClubCompetition,
+				RBAC::C_GamePermission_CreateActivity,
+				RBAC::C_GamePermission_PlayPrivateActivity,
+				RBAC::C_GamePermission_CreateGameMode,
+				RBAC::C_GamePermission_CreateItemAndMod,
+				RBAC::C_GamePermission_RemoveAds,
+				RBAC::C_GamePermission_PlayOnlineCompetition,
+				RBAC::C_GamePermission_GainXP,
+				RBAC::C_GamePermission_InGameChat,
+				RBAC::C_GamePermission_VoiceChat,
+				RBAC::C_GamePermission_ViewRecords,
+				RBAC::C_GamePermission_PlayRecords,
+				RBAC::C_GamePermission_ViewPBGhostMultiplayer,
+				RBAC::C_GamePermission_PlayHotSeat,
+				RBAC::C_GamePermission_PlaySplitscreen,
+				RBAC::C_GamePermission_PlayLocalMap,
+				RBAC::C_GamePermission_PlayAgainstReplay,
+				RBAC::C_GamePermission_CreateLocalServer,
+				RBAC::C_GamePermission_FindLocalServer,
+				RBAC::C_GamePermission_PlayMatchmaking,
+				RBAC::C_GamePermission_UseCustomCollection
+			]);
+		}
+		default: {
+			RBAC::Debug_UseFakePermissions(False);
+		}
+	}
+
+	Action_UpdateGameSubscriptionPlan();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the user game subscription plan
+Void LoadUserGameSubscriptionPlan() {
+	declare Text DefaultSubscription = TL::ToLowerCase(TL::Trim((Config::Get().DefaultSubscription)));
+	switch (DefaultSubscription) {
+		case "free": ForceGameSubscriptionPlan(C_GameSubscriptionPlan_Free);
+		case "standard": ForceGameSubscriptionPlan(C_GameSubscriptionPlan_Standard);
+		case "club": ForceGameSubscriptionPlan(C_GameSubscriptionPlan_Club);
+		default: ForceGameSubscriptionPlan(C_GameSubscriptionPlan_Null);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Load trophy rankings
+Void Action_LoadUserTrophyRankings(Text _AccountId) {
+	if (Http::IsInitialized(G_Request_GetUserTrophyRanking)) {
+		Http::Destroy(G_Request_GetUserTrophyRanking);
+	}
+	G_Request_GetUserTrophyRanking = LeaderboardAPI::GetPlayersTrophyRanking([_AccountId]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the user trophy rankings
+Void Mutation_LoadUserTrophyRankings(LeaderboardAPI::K_ResponseFromGetPlayerTrophyRanking _TrophyRankings) {
+	declare LeaderboardAPI::K_ResponseFromGetPlayerTrophyRanking Trackmania_UserStore_UserTrophyRankings for System = LeaderboardAPI::K_ResponseFromGetPlayerTrophyRanking{};
+	Trackmania_UserStore_UserTrophyRankings = _TrophyRankings;
+	Store::SendEvent(C_StoreId, C_Event_UserTrophyRankingsUpdated);
+}
+
+Void Action_SetUserTrophyRankings(LeaderboardAPI::K_ResponseFromGetPlayerTrophyRanking _TrophyRankings) {
+	Mutation_LoadUserTrophyRankings(_TrophyRankings);
+}
+
+Boolean LoadMatchmakingInfosComplete(K_LoadMatchmakingInfosProgress _LoadMatchmakingInfosProgress) {
+	return (
+		_LoadMatchmakingInfosProgress.LoadMatchmakingDivisions.count <= 0 &&
+		_LoadMatchmakingInfosProgress.GetPlayerProgression.count <= 0
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Load matchmaking infos
+Void Action_LoadMatchmakingInfos(Text _AccountId) {
+	G_MatchmakingModesWaitingList = [
+		MatchmakingStruct::GetActiveRankedMode(),
+		MatchmakingStruct::C_Mode_Royal,
+		MatchmakingStruct::C_Mode_SuperRoyal
+	];
+	G_CurrentAccountId = _AccountId;
+
+	declare K_State Trackmania_UserStore_State for System = C_State_Null;
+	Trackmania_UserStore_State.LoadMatchmakingInfosProgress = K_LoadMatchmakingInfosProgress {
+		LoadMatchmakingDivisions = G_MatchmakingModesWaitingList,
+		GetPlayerProgression = []
+	};
+	Trackmania_UserStore_State.MatchmakingInfos[MatchmakingStruct::C_Mode_Teams3v3] = K_MatchmakingInfo {
+		QueueId = MatchmakingStruct::C_Ranked3v3_QueueId,
+		Divisions = [],
+		PlayerProgression = MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression {}
+	};
+	Trackmania_UserStore_State.MatchmakingInfos[MatchmakingStruct::C_Mode_Teams2v2] = K_MatchmakingInfo {
+		QueueId = MatchmakingStruct::C_Ranked2v2_QueueId,
+		Divisions = [],
+		PlayerProgression = MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression {}
+	};
+	Trackmania_UserStore_State.MatchmakingInfos[MatchmakingStruct::C_Mode_Royal] = K_MatchmakingInfo {
+		QueueId = MatchmakingStruct::C_Royal_QueueId,
+		Divisions = [],
+		PlayerProgression = MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression {}
+	};
+	Trackmania_UserStore_State.MatchmakingInfos[MatchmakingStruct::C_Mode_SuperRoyal] = K_MatchmakingInfo {
+		QueueId = MatchmakingStruct::C_SuperRoyal_QueueId,
+		Divisions = [],
+		PlayerProgression = MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression {}
+	};
+
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the matchmaking infos
+K_State Mutation_LoadMatchmakingInfos(K_State _State, Text _ModeName, K_MatchmakingInfo _MatchmakingInfos) {
+	declare K_State State = _State;
+
+	if (_ModeName != MatchmakingStruct::C_Mode_Null) {
+		State.MatchmakingInfos[_ModeName] = _MatchmakingInfos;
+		Store::SendEvent(C_StoreId, C_Event_MatchmakingInfosUpdated);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the matchmaking infos
+Void Action_SetMatchmakingDivisions(Text _ModeName, MatchmakingStruct::LibStructuresMatchmaking_K_Division[Text] _Divisions) {
+	declare K_State Trackmania_UserStore_State for System = C_State_Null;
+
+	if (Trackmania_UserStore_State.MatchmakingInfos.existskey(_ModeName)) {
+		declare K_MatchmakingInfo NewMatchmakingInfos = Trackmania_UserStore_State.MatchmakingInfos[_ModeName];
+		NewMatchmakingInfos.Divisions = _Divisions;
+		Trackmania_UserStore_State = Mutation_LoadMatchmakingInfos(Trackmania_UserStore_State, _ModeName, NewMatchmakingInfos);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the matchmaking player progressions
+Void Action_SetMatchmakingPlayerProgression(Text _ModeName, MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression _PlayerProgression) {
+	declare K_State Trackmania_UserStore_State for System = C_State_Null;
+
+	if (Trackmania_UserStore_State.MatchmakingInfos.existskey(_ModeName)) {
+		declare K_MatchmakingInfo NewMatchmakingInfos = Trackmania_UserStore_State.MatchmakingInfos[_ModeName];
+		NewMatchmakingInfos.PlayerProgression = _PlayerProgression;
+		Trackmania_UserStore_State = Mutation_LoadMatchmakingInfos(Trackmania_UserStore_State, _ModeName, NewMatchmakingInfos);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update offline mode status
+K_State Mutation_SetOfflineMode(K_State _State, Boolean _IsOfflineMode) {
+	declare K_State State = _State;
+
+	State.IsOfflineMode = _IsOfflineMode;
+
+	if (_IsOfflineMode) {
+		HttpAuthorizationHeader::ResetForOfflineMode();
+	}
+
+	Http::SetOfflineMode(_IsOfflineMode);
+
+	if (_IsOfflineMode) {
+		ForceGameSubscriptionPlan(C_GameSubscriptionPlan_Free);
+		CampaignAPI::ClearCache();
+	} else {
+		LoadUserGameSubscriptionPlan();
+	}
+
+	Store::SendEvent(C_StoreId, C_Event_OfflineModeUpdated);
+
+	return State;
+}
+Void Action_SetOfflineMode(Boolean _IsOfflineMode) {
+	declare K_State Trackmania_UserStore_State for System = C_State_Null;
+	Trackmania_UserStore_State = Mutation_SetOfflineMode(Trackmania_UserStore_State, _IsOfflineMode);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the user is in offline mode
+Boolean IsOfflineMode() {
+	declare K_State Trackmania_UserStore_State for System = C_State_Null;
+	return Trackmania_UserStore_State.IsOfflineMode;
+}
+
+Boolean IsCrossPlayActive() {
+	return UserMgr.CrossPlay_V2_IsEnabled(MainUser::GetMainUserId()) == CUserV2Manager::ECrossPlayState::Enabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Boolean GetUserHasSeenCrossPlayWarning() {
+	declare persistent Boolean Trackmania_UserStore_HasSeenCrossPlayWarning for UserMgr.MainUser = False;
+	return Trackmania_UserStore_HasSeenCrossPlayWarning;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void SetUserHasSeenCrossPlayWarning(Boolean _HasSeenCrossPlayWarning) {
+	declare persistent Boolean Trackmania_UserStore_HasSeenCrossPlayWarning for UserMgr.MainUser = False;
+	Trackmania_UserStore_HasSeenCrossPlayWarning = _HasSeenCrossPlayWarning;
+	UserMgr.MainUser.PersistentSave();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the 3D markers display type
+Void SetPlayerInfoDisplayType(CManiaPlanet::EPlayerInfoDisplayType _PlayerInfoDisplayType) {
+	declare CManiaPlanet::EPlayerInfoDisplayType Trackmania_UserStore_PlayerInfoDisplayType for System = CManiaPlanet::EPlayerInfoDisplayType::AvatarAndName;
+	Trackmania_UserStore_PlayerInfoDisplayType = _PlayerInfoDisplayType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the 3D markers display type
+CManiaPlanet::EPlayerInfoDisplayType GetPlayerInfoDisplayType() {
+	declare CManiaPlanet::EPlayerInfoDisplayType Trackmania_UserStore_PlayerInfoDisplayType for System = CManiaPlanet::EPlayerInfoDisplayType::AvatarAndName;
+	return Trackmania_UserStore_PlayerInfoDisplayType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the 3D markers display size
+Void SetPlayerInfoDisplaySize(Integer _PlayerInfoDisplaySize) {
+	declare Integer Trackmania_UserStore_PlayerInfoDisplaySize for System = 3;
+	Trackmania_UserStore_PlayerInfoDisplaySize = _PlayerInfoDisplaySize;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the 3D markers display size
+Integer GetPlayerInfoDisplaySize() {
+	declare Integer Trackmania_UserStore_PlayerInfoDisplaySize for System = 3;
+	return Trackmania_UserStore_PlayerInfoDisplaySize;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the 3D markers visibility
+Void SetPlayerInfoHidden(Boolean _PlayerInfoHidden) {
+	declare Boolean Trackmania_UserStore_PlayerInfoHidden for System = False;
+	Trackmania_UserStore_PlayerInfoHidden = _PlayerInfoHidden;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the 3D markers visibility
+Boolean GetPlayerInfoHidden() {
+	declare Boolean Trackmania_UserStore_PlayerInfoHidden for System = False;
+	return Trackmania_UserStore_PlayerInfoHidden;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Return the formatted player name
+Text GetPlayerName(Text _UserName, Text _ClubTag, Boolean _IsFirstPartyDisplayName, Boolean _DisplayFirstPartyLogo) {
+	if (_UserName == "") return "";
+	declare Text Name = _UserName;
+
+	// Club Tag
+	if (_ClubTag != "") {
+		Name = Tools::FormatClubTag(_ClubTag)^" $<"^Name^"$>";
+	}
+
+	// If not PC and crossplay is enabled on the client, we check if the player's display name is from the same first party as the client.
+	// So if _IsFirstPartyDisplayName is True, we add the logo of the current platform, otherwise, we add the default Ubisoft Connect logo.
+	// If crossplay is disabled on the client, no platform logo is added after the display name.
+	if (_DisplayFirstPartyLogo && !Platform::IsPC(System) && IsCrossPlayActive()) {
+		if (_IsFirstPartyDisplayName) {
+			Name = Name^" "^Platform::GetFirstPartyLogo(System);
+		} else {
+			Name = Name^" "^Platform::GetFirstPartyLogo(CSystemPlatform::ESystemPlatform::None);
+		}
+	}
+
+	return Name;
+}
+Text GetPlayerName(Text _UserName, Text _ClubTag, Boolean _IsFirstPartyDisplayName) {
+	return GetPlayerName(_UserName, _ClubTag, _IsFirstPartyDisplayName, True);
+}
+Text GetPlayerName(Text _UserName, Text _ClubTag) {
+	return GetPlayerName(_UserName, _ClubTag, False);
+}
+Text GetPlayerName(Text _UserName, Boolean _IsFirstPartyDisplayName) {
+	return GetPlayerName(_UserName, "", _IsFirstPartyDisplayName);
+}
+Text GetPlayerName(Text _UserName) {
+	return GetPlayerName(_UserName, "", False);
+}
+Text GetPlayerName(CUser _User, Boolean _IsClubTagNeeded) {
+	if (_User == Null) return "";
+	//@HACK to detect fake user until Falguiere fix the bug
+	// see /trackmania-next/trackmania-console/-/issues/360
+	declare Boolean IsFakeUser = _User.IsFakeUser || TL::StartsWith("*fake", _User.Login);
+	if (_IsClubTagNeeded) return GetPlayerName(_User.Name, _User.ClubTag, _User.IsFirstPartyDisplayName, !IsFakeUser);
+	return GetPlayerName(_User.Name, "", _User.IsFirstPartyDisplayName, !IsFakeUser);
+}
+Text GetPlayerName(CUser _User) {
+	return GetPlayerName(_User, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Return the formatted player name from account id
+Text GetUserMgrPlayerName(Text _AccountId, Text _ClubTag) {
+	if (_AccountId == "") return "";
+	// In addition to its return value, `UserMgr.FindDisplayName()` will also update the value of the `IsFirstPartyDisplayName` variable.
+	declare Boolean IsFirstPartyDisplayName;
+	declare Text DisplayName = UserMgr.FindDisplayName(_AccountId, IsFirstPartyDisplayName);
+	return GetPlayerName(DisplayName, _ClubTag, IsFirstPartyDisplayName);
+}
+Text GetUserMgrPlayerName(Text _AccountId) {
+	return GetUserMgrPlayerName(_AccountId, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the User store
+Void Initialize(Boolean _ResetData) {
+	if (_ResetData) {
+		declare K_State Trackmania_UserStore_State for System = C_State_Null;
+		Trackmania_UserStore_State = K_State {
+			IsOfflineMode = False
+		};
+		// Load the user subscription plan only when resetting the data
+		// Otherwise the user permissions will be overwritten when loading a game mode in local
+		// See: /trackmania-next/tmnext/-/issues/4946
+		LoadUserGameSubscriptionPlan();
+	}
+
+	G_GameSubscriptionPlanCheck = K_GameSubscriptionCheck {
+		Time = Now + C_GameSubscriptionPlanCheckInterval,
+		CanSubscribeToStandard = True,
+		CanSubscribeToClub = True
+	};
+
+	G_MatchmakingModesWaitingList = [];
+	if (Http::IsInitialized(G_Request_LoadMatchmakingDivisions)) {
+		G_Request_LoadMatchmakingDivisions = Http::Destroy(G_Request_LoadMatchmakingDivisions);
+	}
+	G_Request_LoadMatchmakingDivisions = Http::GetEmptyRequest();
+
+	if (Http::IsInitialized(G_Request_GetPlayerProgression)) {
+		G_Request_GetPlayerProgression = Http::Destroy(G_Request_GetPlayerProgression);
+	}
+	G_Request_GetPlayerProgression = Http::GetEmptyRequest();
+
+	if (Http::IsInitialized(G_Request_GetUserTrophyRanking)) {
+		G_Request_GetUserTrophyRanking = Http::Destroy(G_Request_GetUserTrophyRanking);
+	}
+	G_Request_GetUserTrophyRanking = Http::GetEmptyRequest();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process event
+Void ProcessEvent(CManiaAppEvent _Event) {
+	switch (_Event.Type) {
+		case CManiaAppEvent::EType::LayerCustomEvent: {
+			switch (_Event.CustomEventType) {
+				case C_Action_UpdateGameSubscriptionPlan: {
+					Action_UpdateGameSubscriptionPlan();
+				}
+				case C_Action_SetOfflineMode: {
+					if (_Event.CustomEventData.count >= 1) {
+						Action_SetOfflineMode(_Event.CustomEventData[0] == "1");
+					}
+				}
+				case C_Action_LoadMatchmakingInfos: {
+					if (_Event.CustomEventData.count >= 1) {
+						Action_LoadMatchmakingInfos(_Event.CustomEventData[0]);
+					}
+				}
+				case C_Action_SetMatchmakingDivisions: {
+					if (_Event.CustomEventData.count >= 1) {
+						declare MatchmakingStruct::LibStructuresMatchmaking_K_Division[Text] Divisions;
+						Divisions.fromjson(_Event.CustomEventData[1]);
+						Action_SetMatchmakingDivisions(_Event.CustomEventData[0], Divisions);
+					}
+				}
+				case C_Action_SetMatchmakingPlayerProgression: {
+					if (_Event.CustomEventData.count >= 1) {
+						declare MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression PlayerProgression;
+						PlayerProgression.fromjson(_Event.CustomEventData[1]);
+						Action_SetMatchmakingPlayerProgression(_Event.CustomEventData[0], PlayerProgression);
+					}
+				}
+				case C_Action_LoadUserTrophyRankings: {
+					if (_Event.CustomEventData.count >= 1) {
+						Action_LoadUserTrophyRankings(_Event.CustomEventData[0]);
+					}
+				}
+				case C_Action_SetUserTrophyRankings: {
+					if (_Event.CustomEventData.count >= 1) {
+						declare LeaderboardAPI::K_ResponseFromGetPlayerTrophyRanking Rankings;
+						Rankings.fromjson(_Event.CustomEventData[0]);
+						Action_SetUserTrophyRankings(Rankings);
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process events
+Void ProcessEvents(CNod _Context) {
+	switchtype (_Context as Context) {
+		case CManiaAppTitle: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+		case CManiaAppPlayground: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the player bought a subscription
+Void CheckGameSubscriptionPlan(CNod _Context) {
+	if (_Context is CManiaApp) {
+		declare CManiaApp ManiaApp = (_Context as CManiaApp);
+		if (
+			G_GameSubscriptionPlanCheck.CanSubscribeToStandard != HasGamePermission(ManiaApp.PrivilegeMgr, RBAC::C_GamePermission_CanSubscribeToStandard) ||
+			G_GameSubscriptionPlanCheck.CanSubscribeToClub != HasGamePermission(ManiaApp.PrivilegeMgr, RBAC::C_GamePermission_CanSubscribeToClub)
+		) {
+			G_GameSubscriptionPlanCheck.CanSubscribeToStandard = HasGamePermission(ManiaApp.PrivilegeMgr, RBAC::C_GamePermission_CanSubscribeToStandard);
+			G_GameSubscriptionPlanCheck.CanSubscribeToClub = HasGamePermission(ManiaApp.PrivilegeMgr, RBAC::C_GamePermission_CanSubscribeToClub);
+			Action_UpdateGameSubscriptionPlan();
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the User store
+Void Yield() {
+	ProcessEvents(This);
+
+	if (Now >= G_GameSubscriptionPlanCheck.Time) {
+		G_GameSubscriptionPlanCheck.Time = Now + C_GameSubscriptionPlanCheckInterval;
+		CheckGameSubscriptionPlan(This);
+	}
+
+	// Get user trophy rankings
+	if (Http::IsInitialized(G_Request_GetUserTrophyRanking)) {
+		G_Request_GetUserTrophyRanking = Http::Update(G_Request_GetUserTrophyRanking);
+		if (!Http::IsRunning(G_Request_GetUserTrophyRanking)) {
+			if (Http::IsSuccess(G_Request_GetUserTrophyRanking)) {
+				declare LeaderboardAPI::K_ResponseFromGetPlayersTrophyRanking Response = LeaderboardAPI::GetResponseFromGetPlayersTrophyRanking(G_Request_GetUserTrophyRanking);
+				if (Response.Players.existskey(0)) {
+					Mutation_LoadUserTrophyRankings(Response.Players[0]);
+				}
+			}
+			G_Request_GetUserTrophyRanking = Http::Destroy(G_Request_GetUserTrophyRanking);
+			Store::SendEvent(C_StoreId, C_Event_LoadUserTrophyRankingsComplete);
+		}
+	}
+
+	// Check matchmaking modes waiting list
+	if (G_MatchmakingModesWaitingList.count > 0) {
+		if (
+			!Http::IsInitialized(G_Request_LoadMatchmakingDivisions) &&
+			!Http::IsInitialized(G_Request_GetPlayerProgression)
+		) {
+			declare K_State Trackmania_UserStore_State for System = C_State_Null;
+			G_CurrentlyRequestedModeName = G_MatchmakingModesWaitingList[0];
+			if (Trackmania_UserStore_State.MatchmakingInfos.existskey(G_CurrentlyRequestedModeName)) {
+				G_CurrentlyRequestedMatchmakingInfos.QueueId = Trackmania_UserStore_State.MatchmakingInfos[G_CurrentlyRequestedModeName].QueueId;
+				if (Http::IsInitialized(G_Request_LoadMatchmakingDivisions)) {
+					G_Request_LoadMatchmakingDivisions = Http::Destroy(G_Request_LoadMatchmakingDivisions);
+				}
+				G_Request_LoadMatchmakingDivisions = MatchmakingAPI::GetMatchmakingDivisionRules(G_CurrentlyRequestedMatchmakingInfos.QueueId);
+			} else {
+				Trackmania_UserStore_State.LoadMatchmakingInfosProgress.LoadMatchmakingDivisions.remove(G_CurrentlyRequestedModeName);
+			}
+			G_MatchmakingModesWaitingList.removekey(0);
+			if (LoadMatchmakingInfosComplete(Trackmania_UserStore_State.LoadMatchmakingInfosProgress)) {
+				Store::SendEvent(C_StoreId, C_Event_LoadMatchmakingInfosComplete);
+			}
+		}
+	}
+
+	// Load matchmaking divisions
+	if (Http::IsInitialized(G_Request_LoadMatchmakingDivisions)) {
+		G_Request_LoadMatchmakingDivisions = Http::Update(G_Request_LoadMatchmakingDivisions);
+		if (!Http::IsRunning(G_Request_LoadMatchmakingDivisions)) {
+			declare K_State Trackmania_UserStore_State for System = C_State_Null;
+			if (Http::IsSuccess(G_Request_LoadMatchmakingDivisions)) {
+				declare MatchmakingStruct::LibStructuresMatchmaking_K_Division[Text] Divisions = MatchmakingAPI::GetResponseFromGetMatchmakingDivisionRules(G_Request_LoadMatchmakingDivisions);
+				G_CurrentlyRequestedMatchmakingInfos.Divisions = Divisions;
+				Trackmania_UserStore_State = Mutation_LoadMatchmakingInfos(
+					Trackmania_UserStore_State,
+					G_CurrentlyRequestedModeName,
+					G_CurrentlyRequestedMatchmakingInfos
+				);
+
+				if (Http::IsInitialized(G_Request_GetPlayerProgression)) {
+					G_Request_GetPlayerProgression = Http::Destroy(G_Request_GetPlayerProgression);
+				}
+				G_Request_GetPlayerProgression = MatchmakingAPI::GetMatchmakingPlayersProgressions(G_CurrentlyRequestedMatchmakingInfos.QueueId, [G_CurrentAccountId]);
+				Trackmania_UserStore_State.LoadMatchmakingInfosProgress.LoadMatchmakingDivisions.remove(G_CurrentlyRequestedModeName);
+				Trackmania_UserStore_State.LoadMatchmakingInfosProgress.GetPlayerProgression.add(G_CurrentlyRequestedModeName);
+			} else {
+				G_CurrentlyRequestedMatchmakingInfos = K_MatchmakingInfo {};
+				Trackmania_UserStore_State = Mutation_LoadMatchmakingInfos(Trackmania_UserStore_State, G_CurrentlyRequestedModeName, G_CurrentlyRequestedMatchmakingInfos);
+				Trackmania_UserStore_State.LoadMatchmakingInfosProgress.LoadMatchmakingDivisions.remove(G_CurrentlyRequestedModeName);
+				G_CurrentlyRequestedModeName = MatchmakingStruct::C_Mode_Null;
+			}
+			G_Request_LoadMatchmakingDivisions = Http::Destroy(G_Request_LoadMatchmakingDivisions);
+			if (LoadMatchmakingInfosComplete(Trackmania_UserStore_State.LoadMatchmakingInfosProgress)) {
+				Store::SendEvent(C_StoreId, C_Event_LoadMatchmakingInfosComplete);
+			}
+		}
+	}
+
+	// Get player progression
+	if (Http::IsInitialized(G_Request_GetPlayerProgression)) {
+		G_Request_GetPlayerProgression = Http::Update(G_Request_GetPlayerProgression);
+		if (!Http::IsRunning(G_Request_GetPlayerProgression)) {
+			declare K_State Trackmania_UserStore_State for System = C_State_Null;
+			if (Http::IsSuccess(G_Request_GetPlayerProgression)) {
+				declare MatchmakingStruct::LibStructuresMatchmaking_K_PlayerProgression[Text] PlayerProgressions = MatchmakingAPI::GetResponseFromGetMatchmakingPlayersProgressions(G_Request_GetPlayerProgression);
+
+				if (PlayerProgressions.existskey(G_CurrentAccountId)) {
+					G_CurrentlyRequestedMatchmakingInfos.PlayerProgression = PlayerProgressions[G_CurrentAccountId];
+
+					Trackmania_UserStore_State = Mutation_LoadMatchmakingInfos(
+						Trackmania_UserStore_State,
+						G_CurrentlyRequestedModeName,
+						G_CurrentlyRequestedMatchmakingInfos
+					);
+				}
+			}
+			Trackmania_UserStore_State.LoadMatchmakingInfosProgress.GetPlayerProgression.remove(G_CurrentlyRequestedModeName);
+			G_CurrentlyRequestedModeName = MatchmakingStruct::C_Mode_Null;
+			G_CurrentlyRequestedMatchmakingInfos = K_MatchmakingInfo {};
+			G_Request_GetPlayerProgression = Http::Destroy(G_Request_GetPlayerProgression);
+			if (LoadMatchmakingInfosComplete(Trackmania_UserStore_State.LoadMatchmakingInfosProgress)) {
+				Store::SendEvent(C_StoreId, C_Event_LoadMatchmakingInfosComplete);
+			}
+		}
+	}
+}

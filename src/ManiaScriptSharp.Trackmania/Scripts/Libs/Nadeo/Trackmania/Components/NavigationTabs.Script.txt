@@ -1,0 +1,1303 @@
+/**
+ *	Component: NavigationTabs
+ *	===========================
+ *
+ *	Confluence : https://confluence.ubisoft.com/display/Nadeo/NavigationTabs
+ *	GitLab : https://gitlab.nadeo.org/utils/script-documentation/-/wikis/NavigationTabs
+ *
+ *	Info
+ *	----
+ *
+ *	Create navigation tabs with adaptative width.
+ *	In the given tabs array, keys do not have to be continuous!
+ *
+ *	Events
+ *	----------
+ *
+ *	- `C_EventType_Update`: event sent when the component is visually updated
+ *	- `C_EventType_Select`: event sent when the current tab has changed. This event is a delayed event and depends on the `data-events-delay` parameter.
+ *
+ *	Parameters
+ *	----------
+ *
+ *	- `data-halign` (`Text`): horizontal alignment of the component
+ *			Can be `left`, `center` or `right`.
+ *	- `data-valign` (`Text`): horizontal alignment of the component
+ *			Can be `top`, `center` or `bottom`.
+ *	- `data-tabs` (`Text`): Text for each tab. It must be a Text[Integer] associative array converted into a json.
+ *	- `data-max-width` (`Real`): maximum width of all tabs placed end to end
+ *	- `data-text-color` (`Text`): color of the text for all inactive tabs
+ *			Hexadecimal format, eg: `ff0000` for red.
+ *	- `data-text-color-current-tab` (`Text`): color of the text for the active tab
+ *			Hexadecimal format, eg: `ff0000` for red.
+ *	- `data-text-opacity-focused` (`Real`): opacity of the text for all focused inactive tabs
+ *	- `data-text-opacity-unfocused` (`Real`): opacity of the text for all unfocused inactive tabs
+ *	- `data-text-opacity-current-tab` (`Real`): opacity of the text for the active tab
+ *	- `data-background-color` (`Text`): color of the background behind the tabs
+ *			Hexadecimal format, eg: `ff0000` for red.
+ *	- `data-background-color-current-tab` (`Text`): color of the background for the active tab
+ *			Hexadecimal format, eg: `ff0000` for red.
+ *	- `data-background-opacity` (`Real`): opacity of the background behind the tabs
+ *	- `data-background-opacity-current-tab` (`Real`): opacity of the background for the active tab
+ *	- `data-tabs-padding` (`Vec2`): padding of the tab buttons : space between the content and the border of the buttons.
+ *				Example : `data-padding = <5., 1.>`
+ *				Add 5 pixels space at the right AND left sides of the button and 1 pixel space at the top AND bottom sides
+ *	- `data-events-delay` (`Integer`): define the delay before sending all delayed events of the component. Normal events are not impacted by this parameter.
+ *	- `data-loop-enabled` (`Boolean`): enable looping through all available tabs
+ *	- `data-styles` (`Text`): styles to apply to the navigation tab, new styles can be created with the `CreateStyle()` function
+ *			When several styles are applied to a navigation tab, the styles are merged together with the properties
+ *			of the latest style overriding the properties of the earlier ones.
+ *			For example if "style-a" is `{ A = 1, B = 2, C = 3 }`, "style-b" is `{ A = 11 , C = 33}` and
+ *			"style-c" is `{ A = 111 }` and we set the navigation tab style to `"style-a style-b style-c"`
+ *			then the applied properties will be `{ A = 111, B = 2, C = 33 }`.
+ */
+#Const Version "1.3.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Components/NavigationTabs.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/ButtonIcon2.Script.txt" as ButtonIcon
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAssetBase.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButtonBase.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset_Trackmania
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton_Trackmania
+#Include "Libs/Nadeo/CMGame/Utils/RequestRedraw.Script.txt" as RequestRedraw
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Tab {
+	Integer Id;
+	Text Name;
+	Text IconUrl;
+	Vec2 IconSize; //< The size of the asset
+}
+#Struct K_Controls {
+	CMlFrame Frame_Align;
+	CMlFrame Frame_Background;
+	CMlFrame Frame_Tabs;
+	CMlFrame ButtonIcon_NextTab;
+	CMlFrame ButtonIcon_PreviousTab;
+}
+#Struct K_Properties {
+	Integer[] Enabled;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	K_Tab[] Tabs;
+	Real MaxWidth;
+	Real Height;
+	Vec2 TabsPadding;
+	Real TextOpacityFocused;
+	Real TextOpacityUnfocused;
+	Real TextOpacityCurrentTab;
+	Vec3 TextColor;
+	Vec3 TextColorCurrentTab;
+	Vec3 BackgroundColor;
+	Vec3 BackgroundColorCurrentTab;
+	Real BackgroundOpacity;
+	Real BackgroundOpacityCurrentTab;
+	Boolean IsLoopingEnabled;
+}
+#Struct K_NavigationTabs {
+	K_Controls Controls;
+	K_Properties CustomizedProperties;
+	K_Properties MergedProperties;
+	Integer[] DirtyProperties;
+	Text[] Styles;
+	Boolean IsNavigationTabs;
+	Integer CurrentTabIndex;
+	Integer PreviousTabIndex;
+	Integer EventsDelay;
+}
+#Struct K_Event {
+	Integer Type;
+	Integer TimeStamp;
+	Integer CurrentTab; //< return the tab id and not the tab index !
+	CMlFrame Frame_NavigationTabs;
+}
+#Struct K_State {
+	Integer RedrawRequested;
+	K_Event[] PendingEvents;
+	K_Event[Integer] DelayedPendingEvents;
+	K_Properties[Text] Styles;
+	K_Properties DefaultProperties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_NavigationTabs_Null K_NavigationTabs {
+	Controls = K_Controls {},
+	CustomizedProperties =  K_Properties {
+		Enabled = []
+	},
+	MergedProperties =  K_Properties {
+		Enabled = []
+	},
+	DirtyProperties = [],
+	Styles = [],
+	IsNavigationTabs = False,
+	CurrentTabIndex = 0,
+	PreviousTabIndex = 0,
+	EventsDelay = 0
+}
+#Const C_State_Null K_State {
+	RedrawRequested = 0,
+	PendingEvents = [],
+	DelayedPendingEvents = [],
+	Styles = [],
+	DefaultProperties = K_Properties {
+		Enabled = []
+	}
+}
+
+#Const C_Name "component-navigationtabs" //< Component name
+#Const C_NavGroup_AllTabs "navgroup-component-navigationtabs-alltabs"
+#Const C_NavGroup_Tab "navgroup-component-navigationtabs-tab"
+#Const P "Trackmania_NavigationTabs::" //< Prefix used to differentiate functions/variables in the script
+#Const Q "Trackmania_NavigationTabs"
+
+#Const C_MaxTabs 7
+#Const C_SkewAngle 10.
+#Const C_Size_ButtonIcon 8.
+#Const C_Offset_ButtonIcon 5.
+#Const C_Sound_TabSelection "MainTabSelect"
+
+#Const C_Class_NavigationTabs "trackmania-navigation-tabs_container"
+#Const C_Class_ButtonTab "trackmania-navigation-tabs_buttontab"
+#Const C_Id_ButtonTabIndex "trackmania-navigation-tabs_button-tab-"
+#Const C_Id_FrameAlign "trackmania-navigation-tabs_frame-align"
+#Const C_Id_FrameNavigationContainer "trackmania-navigation-tabs_frame-navigation-container"
+#Const C_Id_FrameBackground "trackmania-navigation-tabs_frame-background"
+#Const C_Id_FrameControllerInfo "trackmania-navigation-tabs_frame-controller-info"
+#Const C_Id_ButtonIconPrevTab "trackmania-navigation-tabs_button-icon-prev-tab"
+#Const C_Id_ButtonIconNextTab "trackmania-navigation-tabs_button-icon-next-tab"
+#Const C_Id_FrameTabs "trackmania-navigation-tabs_frame-tabs"
+
+// The properties indexing must be a continuous sequence starting from 0
+// 0,1,2,3,... not 0,1,3,... for example
+#Const C_Property_HAlign 0
+#Const C_Property_VAlign 1
+#Const C_Property_Tabs 2
+#Const C_Property_MaxWidth 3
+#Const C_Property_Height 4
+#Const C_Property_TabsPadding 5
+#Const C_Property_TextOpacityFocused 6
+#Const C_Property_TextOpacityUnfocused 7
+#Const C_Property_TextOpacityCurrentTab 8
+#Const C_Property_TextColor 9
+#Const C_Property_TextColorCurrentTab 10
+#Const C_Property_BackgroundColor 11
+#Const C_Property_BackgroundColorCurrentTab 12
+#Const C_Property_BackgroundOpacity 13
+#Const C_Property_BackgroundOpacityCurrentTab 14
+#Const C_Property_IsLoopingEnabled 15
+#Const C_Property_Styles 16
+#Const C_Property_CurrentTabIndex 17
+
+#Const C_EventType_Update 0
+#Const C_EventType_Select 1
+
+//L16N [Navigation tabs] Text pronouced when a navigation tab is selected. %1 will be replaced with the name of the selected tab. e.g. "Tab Solo"
+#Const C_TTS_Tab _("Tab %1")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetManialink() {
+	// Initializes few tabs
+	declare Text ML_Tabs = "";
+	for (Index, 0, C_MaxTabs - 1) {
+		ML_Tabs ^= """
+			<frameinstance
+				id="{{{C_Id_ButtonTabIndex}}}{{{Index}}}"
+				modelid="{{{ExpendableButton_Trackmania::C_Name}}}"
+				z-index="{{{Index}}}"
+				class="{{{Navigation::C_Class}}} {{{C_Class_ButtonTab}}} {{{MenuSounds::C_Class}}}"
+				data-tabindex="{{{Index}}}"
+				data-styles="{{{ExpendableButton_Trackmania::C_Style_AlignCenter}}}"
+				data-focus-opacity-focused="0."
+				data-focus-opacity-unfocused="0."
+				data-icon-align="{{{ExpendableButton::C_IconAlign_Right}}}"
+				data-icon-keepratio="clip"
+				data-nav-inputs="select"
+				data-nav-targets="_"
+				data-nav-group="{{{C_NavGroup_Tab}}}"
+				data-nav-zone="{{{ExpendableButton_Trackmania::C_NavZone}}}"
+				data-menusounds-selectsound="{{{C_Sound_TabSelection}}}"
+				data-menusounds-playsoundonlyformouse="1"
+				data-nav-locked="1"
+				hidden="1"
+			/>
+		""";
+	}
+
+	return """
+<frame id="{{{C_Id_FrameAlign}}}" class="{{{C_Class_NavigationTabs}}}">
+	<frame id="{{{C_Id_FrameNavigationContainer}}}" class="{{{Navigation::C_Class_Container}}}">
+		<frameinstance id="{{{C_Id_FrameBackground}}}" modelid="{{{ExpendableAsset_Trackmania::C_Name}}}" data-styles="{{{ExpendableAsset_Trackmania::C_Style_EdgesRounded}}}" z-index="-1"/>
+		<frame id="{{{C_Id_FrameControllerInfo}}}" z-index="2">
+			<frameinstance id="{{{C_Id_ButtonIconPrevTab}}}" modelid="{{{ButtonIcon::C_Name}}}" data-halign="right" data-size="{{{C_Size_ButtonIcon}}} {{{C_Size_ButtonIcon}}}" data-bind="LB" data-hideformouse="1" />
+			<frameinstance id="{{{C_Id_ButtonIconNextTab}}}" modelid="{{{ButtonIcon::C_Name}}}" data-halign="left" data-size="{{{C_Size_ButtonIcon}}} {{{C_Size_ButtonIcon}}}" data-bind="RB" data-hideformouse="1" />
+		</frame>
+		<frame
+			id="{{{C_Id_FrameTabs}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-nav-inputs="pageup;pagedown"
+			data-nav-targets="_;_"
+			data-nav-group="{{{C_NavGroup_AllTabs}}}"
+		>
+			{{{ML_Tabs}}}
+		</frame>
+	</frame>
+</frame>
+	""";
+}
+
+// Check if the control is a navigation tab
+Boolean IsNavigationTabs(CMlControl _Control) {
+	if (_Control == Null) return False;
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Control = C_NavigationTabs_Null;
+	return Trackmania_NavigationTabs_NavigationTabs.IsNavigationTabs;
+}
+
+// Check if the given tab is available to select
+Boolean IsAvailableTab(CMlFrame _Frame_NavigationTabs, Integer _TabId) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	assert(Trackmania_NavigationTabs_NavigationTabs.IsNavigationTabs, "Control '"^_Frame_NavigationTabs.ControlId^"' is not a navigation tabs");
+
+	foreach (Tab in Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs) {
+		if (Tab.Id == _TabId) {
+			return True;
+		}
+	}
+
+	return False;
+}
+
+// Set the current tab style to the given tab
+Void Private_SetCurrentTabStyle(CMlScript _This, K_Properties _Properties, CMlFrame _Frame_Tab, Boolean _IsAnimated) {
+	ExpendableButton::SetTextOpacityFocused(_This, _Frame_Tab, _Properties.TextOpacityCurrentTab, False);
+	ExpendableButton::SetTextOpacityUnfocused(_This, _Frame_Tab, _Properties.TextOpacityCurrentTab, False);
+	ExpendableButton::SetTextColorFocused(_This, _Frame_Tab, _Properties.TextColorCurrentTab, False);
+	ExpendableButton::SetTextColorUnfocused(_This, _Frame_Tab, _Properties.TextColorCurrentTab, False);
+	ExpendableButton::SetBackgroundOpacityFocused(_This, _Frame_Tab, _Properties.BackgroundOpacityCurrentTab, False);
+	ExpendableButton::SetBackgroundOpacityUnfocused(_This, _Frame_Tab, _Properties.BackgroundOpacityCurrentTab, False);
+	ExpendableButton::SetBackgroundColorFocused(_This, _Frame_Tab, _Properties.BackgroundColorCurrentTab, False);
+	ExpendableButton::SetBackgroundColorUnfocused(_This, _Frame_Tab, _Properties.BackgroundColorCurrentTab, False);
+	ExpendableButton::RedrawButton(_This, _Frame_Tab, _IsAnimated);
+}
+
+// Set the default tab style to the given tab
+Void Private_SetDefaultTabStyle(CMlScript _This, K_Properties _Properties, CMlFrame _Frame_Tab, Boolean _IsAnimated) {
+	ExpendableButton::SetTextOpacityFocused(_This, _Frame_Tab, _Properties.TextOpacityFocused, False);
+	ExpendableButton::SetTextOpacityUnfocused(_This, _Frame_Tab, _Properties.TextOpacityUnfocused, False);
+	ExpendableButton::SetTextColorFocused(_This, _Frame_Tab, _Properties.TextColor, False);
+	ExpendableButton::SetTextColorUnfocused(_This, _Frame_Tab, _Properties.TextColor, False);
+	ExpendableButton::SetBackgroundOpacityFocused(_This, _Frame_Tab, 0., False);
+	ExpendableButton::SetBackgroundOpacityUnfocused(_This, _Frame_Tab, 0., False);
+	ExpendableButton::SetBackgroundColorFocused(_This, _Frame_Tab, _Properties.BackgroundColor, False);
+	ExpendableButton::SetBackgroundColorUnfocused(_This, _Frame_Tab, _Properties.BackgroundColor, False);
+	ExpendableButton::RedrawButton(_This, _Frame_Tab, _IsAnimated);
+}
+
+// Change the focus state of the component by changing the current tab style
+Void Focus(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _IsFocused) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	assert(Trackmania_NavigationTabs_NavigationTabs.IsNavigationTabs, "Control '"^_Frame_NavigationTabs.ControlId^"' is not a navigation tabs");
+
+	if (_IsFocused) {
+		Private_SetCurrentTabStyle(_This, Trackmania_NavigationTabs_NavigationTabs.MergedProperties, Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls[Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex] as CMlFrame, True);
+	} else {
+		Private_SetDefaultTabStyle(_This, Trackmania_NavigationTabs_NavigationTabs.MergedProperties, Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls[Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex] as CMlFrame, True);
+	}
+}
+Void Focus(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	Focus(_This, _Frame_NavigationTabs, True);
+}
+
+// Display the component as unfocused
+Void Unfocus(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	Focus(_This, _Frame_NavigationTabs, False);
+}
+
+// Focus or unfocus the tab
+Void Private_Focus(CMlScript _This, CMlControl _From, CMlControl _To, Boolean _IsAnimated) {
+	if (Transition::IsInTransition(_This)) return;
+
+	if (_From != Null) {
+		Navigation::Unfocus(_This, _From);
+		if (ExpendableButton::IsButton(_From)) {
+			ExpendableButton::Unfocus(_This, _From as CMlFrame);
+		}
+	}
+
+	if (_To != Null) {
+		Navigation::Focus(_This, _To);
+		if (ExpendableButton::IsButton(_To)) {
+			ExpendableButton::Focus(_This, _To as CMlFrame, True, _IsAnimated);
+		}
+	}
+}
+Void Private_Focus(CMlScript _This, CMlControl _From, CMlControl _To) {
+	Private_Focus(_This, _From, _To, True);
+}
+
+// Enable or disable a property from the `Enabled` array
+Integer[] Private_EnableProperty(Integer[] _EnabledProperties, Integer _Property, Boolean _Enabled) {
+	declare Integer[] EnabledProperties = _EnabledProperties;
+
+	if (_Enabled) {
+		if (!EnabledProperties.exists(_Property)) {
+			EnabledProperties.add(_Property);
+		}
+	} else {
+		EnabledProperties.remove(_Property);
+	}
+
+	return EnabledProperties;
+}
+
+// Set and enable a property
+K_Properties Private_SetProperty(K_Properties _TargetProperties, Integer _PropertyId, K_Properties _SourceProperties) {
+	declare K_Properties Properties = _TargetProperties;
+
+	Properties.Enabled = Private_EnableProperty(Properties.Enabled, _PropertyId, True);
+
+	switch (_PropertyId) {
+		case C_Property_HAlign: Properties.HAlign = _SourceProperties.HAlign;
+		case C_Property_VAlign: Properties.VAlign = _SourceProperties.VAlign;
+		case C_Property_Tabs: Properties.Tabs = _SourceProperties.Tabs;
+		case C_Property_MaxWidth: Properties.MaxWidth = _SourceProperties.MaxWidth;
+		case C_Property_Height: Properties.Height = _SourceProperties.Height;
+		case C_Property_TabsPadding: Properties.TabsPadding = _SourceProperties.TabsPadding;
+		case C_Property_TextOpacityFocused: Properties.TextOpacityFocused = _SourceProperties.TextOpacityFocused;
+		case C_Property_TextOpacityUnfocused: Properties.TextOpacityUnfocused = _SourceProperties.TextOpacityUnfocused;
+		case C_Property_TextOpacityCurrentTab: Properties.TextOpacityCurrentTab = _SourceProperties.TextOpacityCurrentTab;
+		case C_Property_TextColor: Properties.TextColor = _SourceProperties.TextColor;
+		case C_Property_TextColorCurrentTab: Properties.TextColorCurrentTab = _SourceProperties.TextColorCurrentTab;
+		case C_Property_BackgroundColor: Properties.BackgroundColor = _SourceProperties.BackgroundColor;
+		case C_Property_BackgroundColorCurrentTab: Properties.BackgroundColorCurrentTab = _SourceProperties.BackgroundColorCurrentTab;
+		case C_Property_BackgroundOpacity: Properties.BackgroundOpacity = _SourceProperties.BackgroundOpacity;
+		case C_Property_BackgroundOpacityCurrentTab: Properties.BackgroundOpacityCurrentTab = _SourceProperties.BackgroundOpacityCurrentTab;
+		case C_Property_IsLoopingEnabled: Properties.IsLoopingEnabled = _SourceProperties.IsLoopingEnabled;
+	}
+
+	return Properties;
+}
+
+// Merge a base properties struct with other enabled properties
+K_Properties Private_MergeProperties(K_Properties _Base, K_Properties[] _PropertiesToMerge) {
+	declare K_Properties MergedProperties = _Base;
+
+	foreach (Properties in _PropertiesToMerge) {
+		foreach (PropertyId in Properties.Enabled) {
+			MergedProperties = Private_SetProperty(MergedProperties, PropertyId, Properties);
+		}
+	}
+
+	return MergedProperties;
+}
+
+// Check if one of the given property is dirty
+Boolean Private_IsDirty(Boolean _IsInit, Integer[] _DirtyProperties, Integer[] _PropertyIds) {
+	if (_IsInit) return True;
+	return _DirtyProperties.containsoneof(_PropertyIds) || _DirtyProperties.exists(C_Property_Styles);
+}
+
+// Redraw the navigation tab (apply style, ...)
+Void RedrawNavigationTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _IsAnimated, Boolean _IsInit, Boolean _SendEvent) {
+	declare K_State Trackmania_NavigationTabs_State for _This.Page = C_State_Null;
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+
+	declare K_Properties[] PropertiesToMerge = [Trackmania_NavigationTabs_State.DefaultProperties];
+	foreach (Style in Trackmania_NavigationTabs_NavigationTabs.Styles) {
+		PropertiesToMerge.add(Trackmania_NavigationTabs_State.Styles.get(Style, K_Properties {}));
+	}
+	PropertiesToMerge.add(Trackmania_NavigationTabs_NavigationTabs.CustomizedProperties);
+
+	Trackmania_NavigationTabs_NavigationTabs.MergedProperties = Private_MergeProperties(
+		K_Properties {
+			HAlign = CMlControl::AlignHorizontal::HCenter,
+			VAlign = CMlControl::AlignVertical::VCenter,
+			MaxWidth = 260.,
+			Height = 9.5,
+			TabsPadding = <0., 0.>,
+			TextOpacityFocused = 1.,
+			TextOpacityUnfocused = 0.6,
+			TextOpacityCurrentTab = 1.,
+			TextColor = Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight),
+			TextColorCurrentTab = Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne),
+			BackgroundColor = Stylesheet::GetColorRGB(Stylesheet::C_Color_BGListDarkUnfocused),
+			BackgroundColorCurrentTab = Stylesheet::GetColorRGB(Stylesheet::C_Color_BGListDarkFocused),
+			BackgroundOpacity = Stylesheet::C_Opacity_BGListDarkUnfocused,
+			BackgroundOpacityCurrentTab = Stylesheet::C_Opacity_BGListDarkFocused,
+			IsLoopingEnabled = True
+		},
+		PropertiesToMerge
+	);
+
+	// Reset all tabs
+	foreach (Frame_Tab in Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls) {
+		ExpendableButton::HideAndLock(Frame_Tab as CMlFrame);
+	}
+
+	// Set tabs
+	declare Vec2 Size_Background = <0., 0.>;
+	Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex = ML::Clamp(Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex, 0, ML::Max(Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs.count-1, 0)); //< Ensure that the selected tab still exists
+	foreach (TabIndex => Tab in Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs) {
+		if (Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls.existskey(TabIndex)) {
+			declare CMlFrame Frame_Tab = Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls[TabIndex] as CMlFrame;
+
+			if (
+				Private_IsDirty(_IsInit, Trackmania_NavigationTabs_NavigationTabs.DirtyProperties, [
+					C_Property_Tabs,
+					C_Property_MaxWidth,
+					C_Property_Height,
+					C_Property_TabsPadding,
+					C_Property_BackgroundColor,
+					C_Property_TextOpacityCurrentTab,
+					C_Property_TextColorCurrentTab,
+					C_Property_BackgroundColorCurrentTab,
+					C_Property_TextOpacityFocused,
+					C_Property_TextOpacityUnfocused,
+					C_Property_TextColor
+				]) || (
+					Private_IsDirty(_IsInit, Trackmania_NavigationTabs_NavigationTabs.DirtyProperties, [C_Property_CurrentTabIndex]) &&
+					(TabIndex == Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex || TabIndex == Trackmania_NavigationTabs_NavigationTabs.PreviousTabIndex)
+				)
+			) {
+				ExpendableButton::SetTextToSpeech(Frame_Tab, "");
+				ExpendableButton::SetText(_This, Frame_Tab, Tab.Name, False);
+				ExpendableButton::SetIconImageUrl(_This, Frame_Tab, Tab.IconUrl, False);
+				ExpendableButton::SetHeight(_This, Frame_Tab, Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Height, False);
+				ExpendableButton::SetPadding(_This, Frame_Tab, Trackmania_NavigationTabs_NavigationTabs.MergedProperties.TabsPadding, False);
+				ExpendableButton::SetBackgroundColorFocused(_This, Frame_Tab, Trackmania_NavigationTabs_NavigationTabs.MergedProperties.BackgroundColor, False);
+				ExpendableButton::SetBackgroundColorUnfocused(_This, Frame_Tab, Trackmania_NavigationTabs_NavigationTabs.MergedProperties.BackgroundColor, False);
+				if (Tab.IconSize.Y > 0.) {
+					ExpendableButton::SetIconSize(_This, Frame_Tab, MLHelpers::KeepRatioFromY(Tab.IconSize, 0.8*Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Height), False);
+				} else {
+					ExpendableButton::SetIconSize(_This, Frame_Tab, <0., 0.>, False);
+				}
+				if (Private_IsDirty(_IsInit, Trackmania_NavigationTabs_NavigationTabs.DirtyProperties, [C_Property_MaxWidth])) {
+					ExpendableButton::ResetTextFontSize(_This, Frame_Tab, False); //< Reset text size only when max width is updated
+				}
+				if (TabIndex == Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex) {
+					Private_SetCurrentTabStyle(_This, Trackmania_NavigationTabs_NavigationTabs.MergedProperties, Frame_Tab, _IsAnimated);
+				} else {
+					Private_SetDefaultTabStyle(_This, Trackmania_NavigationTabs_NavigationTabs.MergedProperties, Frame_Tab, _IsAnimated);
+				}
+				Size_Background = <Size_Background.X + ExpendableButton::GetWidth(Frame_Tab) - MLHelpers::SkewX(ExpendableButton::GetHeight(Frame_Tab), C_SkewAngle), ML::Max(Size_Background.Y, ExpendableButton::GetHeight(Frame_Tab))>;
+			}
+		}
+	}
+
+	// Fit tabs by reducing the text size
+	declare Real TextFontSize;
+	while (Trackmania_NavigationTabs_NavigationTabs.MergedProperties.MaxWidth > 0 && Size_Background.X > Trackmania_NavigationTabs_NavigationTabs.MergedProperties.MaxWidth) {
+		declare Real TextSizeApproximation = ML::Max(0.1, (Size_Background.X - Trackmania_NavigationTabs_NavigationTabs.MergedProperties.MaxWidth)/100.);
+		Size_Background = <0., 0.>;
+		foreach (TabIndex => Tab in Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs) {
+			if (Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls.existskey(TabIndex)) {
+				declare CMlFrame Frame_Tab = Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls[TabIndex] as CMlFrame;
+				TextFontSize = ExpendableButton::GetLabel(Frame_Tab).TextSizeReal - TextSizeApproximation;
+				ExpendableButton::SetTextFontSize(_This, Frame_Tab, TextFontSize);
+				Size_Background = <Size_Background.X + ExpendableButton::GetWidth(Frame_Tab) - MLHelpers::SkewX(ExpendableButton::GetHeight(Frame_Tab), C_SkewAngle), ML::Max(Size_Background.Y, ExpendableButton::GetHeight(Frame_Tab))>;
+			}
+		}
+		if (TextFontSize <= 0.1) break;
+	}
+
+	// Update tabs position
+	declare Real SizeX_Tab;
+	declare Real RightPosX_LastUpdatedTab = 0.;
+	Size_Background = <0., 0.>;
+	foreach (TabIndex => Tab in Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs) {
+		if (Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls.existskey(TabIndex)) {
+			declare CMlFrame Frame_Tab = Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls[TabIndex] as CMlFrame;
+			SizeX_Tab = ExpendableButton::GetWidth(Frame_Tab) - MLHelpers::SkewX(ExpendableButton::GetHeight(Frame_Tab), C_SkewAngle);
+			Size_Background = <Size_Background.X + SizeX_Tab, ML::Max(Size_Background.Y, ExpendableButton::GetHeight(Frame_Tab))>;
+			Frame_Tab.RelativePosition_V3.X = RightPosX_LastUpdatedTab + SizeX_Tab/2;
+			RightPosX_LastUpdatedTab = Frame_Tab.RelativePosition_V3.X + SizeX_Tab/2;
+			ExpendableButton::ShowAndUnlock(Frame_Tab);
+		}
+	}
+
+	// Redraw background
+	ExpendableAsset::SetHeight(_This, Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Background, Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Height, False);
+	ExpendableAsset::SetWidth(_This, Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Background, Size_Background.X + MLHelpers::SkewX(Size_Background.Y, C_SkewAngle), False);
+	ExpendableAsset::SetColor(_This, Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Background, Trackmania_NavigationTabs_NavigationTabs.MergedProperties.BackgroundColor, False);
+	ExpendableAsset::SetOpacity(_This, Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Background, Trackmania_NavigationTabs_NavigationTabs.MergedProperties.BackgroundOpacity, False);
+	ExpendableAsset::RedrawAsset(_This, Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Background, _IsAnimated);
+
+	// Set controller infos
+	if (Private_IsDirty(_IsInit, Trackmania_NavigationTabs_NavigationTabs.DirtyProperties, [C_Property_Tabs])) {
+		declare Boolean ButtonIconVisible = Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs.count > 1;
+		Trackmania_NavigationTabs_NavigationTabs.Controls.ButtonIcon_NextTab.Visible = ButtonIconVisible;
+		Trackmania_NavigationTabs_NavigationTabs.Controls.ButtonIcon_PreviousTab.Visible = ButtonIconVisible;
+		if (ButtonIconVisible) {
+			Trackmania_NavigationTabs_NavigationTabs.Controls.ButtonIcon_NextTab.RelativePosition_V3.X = Size_Background.X/2 + C_Offset_ButtonIcon;
+			Trackmania_NavigationTabs_NavigationTabs.Controls.ButtonIcon_PreviousTab.RelativePosition_V3.X = -Size_Background.X/2 - C_Offset_ButtonIcon;
+		}
+	}
+
+	// Center tabs
+	Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.RelativePosition_V3.X = -Size_Background.X/2;
+
+	// Align the component
+	Tools::Align(
+		Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Align,
+		Size_Background + <MLHelpers::SkewX(Size_Background.Y, C_SkewAngle), 0.>,
+		Trackmania_NavigationTabs_NavigationTabs.MergedProperties.HAlign,
+		Trackmania_NavigationTabs_NavigationTabs.MergedProperties.VAlign
+	);
+
+	// Send a visual update event
+	if (_SendEvent && Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs.count > 0) {
+		Trackmania_NavigationTabs_State.PendingEvents.add(K_Event {
+			Type = C_EventType_Update,
+			Frame_NavigationTabs = _Frame_NavigationTabs
+		});
+	}
+
+	Trackmania_NavigationTabs_NavigationTabs.DirtyProperties = [];
+}
+Void RedrawNavigationTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _IsAnimated, Boolean _IsInit) {
+	RedrawNavigationTabs(_This, _Frame_NavigationTabs, _IsAnimated, _IsInit, True);
+}
+Void RedrawNavigationTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _IsAnimated) {
+	RedrawNavigationTabs(_This, _Frame_NavigationTabs, _IsAnimated, False);
+}
+Void RedrawNavigationTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	RedrawNavigationTabs(_This, _Frame_NavigationTabs, True);
+}
+
+// Redraw all navigation tabs
+Void RedrawNavigationTabs(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_NavigationTabs, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_NavigationTabs = (Control as CMlFrame).Parent;
+		if (IsNavigationTabs(Frame_NavigationTabs)) {
+			RedrawNavigationTabs(_This, Frame_NavigationTabs, False, True);
+		}
+	}
+}
+
+// Customize a property
+Void Private_SetCustomizedProperty(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _PropertyId, K_Properties _Properties, Boolean _Redraw) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	Trackmania_NavigationTabs_NavigationTabs.CustomizedProperties = Private_SetProperty(Trackmania_NavigationTabs_NavigationTabs.CustomizedProperties, _PropertyId, _Properties);
+	if (!Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.exists(_PropertyId)) {
+		Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.add(_PropertyId);
+	}
+	if (_Redraw) RedrawNavigationTabs(_This, _Frame_NavigationTabs);
+}
+
+// Reset a customized property
+Void Private_ResetCustomizedProperty(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _PropertyId, Boolean _Redraw) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	Trackmania_NavigationTabs_NavigationTabs.CustomizedProperties.Enabled = Private_EnableProperty(Trackmania_NavigationTabs_NavigationTabs.CustomizedProperties.Enabled, _PropertyId, False);
+	if (!Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.exists(_PropertyId)) {
+		Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.add(_PropertyId);
+	}
+	if (_Redraw) RedrawNavigationTabs(_This, _Frame_NavigationTabs);
+}
+
+// Update the horizontal alignment of the navigation tab
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_NavigationTabs, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_HAlign, K_Properties { HAlign = _HAlign }, _Redraw);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_NavigationTabs, CMlControl::AlignHorizontal _HAlign) {
+	SetHAlign(_This, _Frame_NavigationTabs, _HAlign, True);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_HAlign, _Redraw);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetHAlign(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the vertical alignment of the navigation tab
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_NavigationTabs, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_VAlign, K_Properties { VAlign = _VAlign }, _Redraw);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_NavigationTabs, CMlControl::AlignVertical _VAlign) {
+	SetVAlign(_This, _Frame_NavigationTabs, _VAlign, True);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_VAlign, _Redraw);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetVAlign(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the tabs of the component
+Void SetTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs, K_Tab[] _Tabs, Boolean _Redraw) {
+	assert(_Tabs.count <= C_MaxTabs, "The number of tabs exceeds the maximum number of tabs. Remove some tabs or update constant C_MaxTabs.");
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_Tabs, K_Properties { Tabs = _Tabs }, _Redraw);
+}
+Void SetTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs, K_Tab[] _Tabs) {
+	SetTabs(_This, _Frame_NavigationTabs, _Tabs, True);
+}
+Void ResetTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_Tabs, _Redraw);
+}
+Void ResetTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetTabs(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the tabs of the component. Array keys do not have to be continuous.
+Void SetTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs, Text[Integer] _Tabs, Boolean _Redraw) {
+	declare K_Tab[] Tabs;
+	foreach (TabId => Name in _Tabs) {
+		Tabs.add(K_Tab {
+			Id = TabId,
+			Name = Name,
+			IconSize = <0., 0.>
+		});
+	}
+	SetTabs(_This, _Frame_NavigationTabs, Tabs, _Redraw);
+}
+Void SetTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs, Text[Integer] _Tabs) {
+	SetTabs(_This, _Frame_NavigationTabs, _Tabs, True);
+}
+
+// Update the name of the given tab
+Void SetTabName(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _TabId, Text _Name, Boolean _Redraw) {
+	assert(IsAvailableTab(_Frame_NavigationTabs, _TabId), "Control '"^_Frame_NavigationTabs.ControlId^"' doesn't have a tab with the given TabId '"^_TabId^"'");
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	foreach (Index => Tab in Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs) {
+		if (Tab.Id == _TabId) {
+			Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs[Index].Name = _Name;
+			SetTabs(_This, _Frame_NavigationTabs, Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs, _Redraw);
+			break;
+		}
+	}
+}
+Void SetTabName(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _TabId, Text _Name) {
+	SetTabName(_This, _Frame_NavigationTabs, _TabId, _Name, True);
+}
+Void ResetTabName(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _TabId, Boolean _Redraw) {
+	SetTabName(_This, _Frame_NavigationTabs, _TabId, "", _Redraw);
+}
+Void ResetTabName(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _TabId) {
+	ResetTabName(_This, _Frame_NavigationTabs, _TabId, True);
+}
+
+// Update the icon image of the given tab
+// The size is the size of the image in pixels. e.g. <1920., 1080.>
+Void SetTabIcon(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _TabId, Text _Url, Vec2 _Size, Boolean _Redraw) {
+	assert(IsAvailableTab(_Frame_NavigationTabs, _TabId), "Control '"^_Frame_NavigationTabs.ControlId^"' doesn't have a tab with the given TabId '"^_TabId^"'");
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	foreach (Index => Tab in Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs) {
+		if (Tab.Id == _TabId) {
+			Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs[Index].IconUrl = _Url;
+			Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs[Index].IconSize = _Size;
+			SetTabs(_This, _Frame_NavigationTabs, Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs, _Redraw);
+			break;
+		}
+	}
+}
+Void SetTabIcon(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _TabId, Text _Url, Vec2 _Size) {
+	SetTabIcon(_This, _Frame_NavigationTabs, _TabId, _Url, _Size, True);
+}
+Void ResetTabIcon(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _TabId, Boolean _Redraw) {
+	SetTabIcon(_This, _Frame_NavigationTabs, _TabId, "", <0., 0.>, _Redraw);
+}
+Void ResetTabIcon(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _TabId) {
+	ResetTabIcon(_This, _Frame_NavigationTabs, _TabId, True);
+}
+
+// Update the maximum width of all tabs placed end to end
+Void SetMaxWidth(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _MaxWidth, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_MaxWidth, K_Properties { MaxWidth = _MaxWidth }, _Redraw);
+}
+Void SetMaxWidth(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _MaxWidth) {
+	SetMaxWidth(_This, _Frame_NavigationTabs, _MaxWidth, True);
+}
+Void ResetMaxWidth(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_MaxWidth, _Redraw);
+}
+Void ResetMaxWidth(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetMaxWidth(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the height of the navigation tabs
+Void SetHeight(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _Height, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_Height, K_Properties { Height = _Height }, _Redraw);
+}
+Void SetHeight(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _Height) {
+	SetHeight(_This, _Frame_NavigationTabs, _Height, True);
+}
+Void ResetHeight(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_Height, _Redraw);
+}
+Void ResetHeight(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetHeight(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the padding of each navigation tab
+Void SetTabsPadding(CMlScript _This, CMlFrame _Frame_NavigationTabs, Vec2 _TabsPadding, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_TabsPadding, K_Properties { TabsPadding = _TabsPadding }, _Redraw);
+}
+Void SetTabsPadding(CMlScript _This, CMlFrame _Frame_NavigationTabs, Vec2 _TabsPadding) {
+	SetTabsPadding(_This, _Frame_NavigationTabs, _TabsPadding, True);
+}
+Void ResetTabsPadding(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_TabsPadding, _Redraw);
+}
+Void ResetTabsPadding(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetTabsPadding(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the text opacity of focused inactive tabs
+Void SetTextOpacityFocused(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _TextOpacityFocused, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_TextOpacityFocused, K_Properties { TextOpacityFocused = _TextOpacityFocused }, _Redraw);
+}
+Void SetTextOpacityFocused(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _TextOpacityFocused) {
+	SetTextOpacityFocused(_This, _Frame_NavigationTabs, _TextOpacityFocused, True);
+}
+Void ResetTextOpacityFocused(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_TextOpacityFocused, _Redraw);
+}
+Void ResetTextOpacityFocused(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetTextOpacityFocused(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the text opacity of unfocused inactive tabs
+Void SetTextOpacityUnfocused(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _TextOpacityUnfocused, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_TextOpacityUnfocused, K_Properties { TextOpacityUnfocused = _TextOpacityUnfocused }, _Redraw);
+}
+Void SetTextOpacityUnfocused(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _TextOpacityUnfocused) {
+	SetTextOpacityUnfocused(_This, _Frame_NavigationTabs, _TextOpacityUnfocused, True);
+}
+Void ResetTextOpacityUnfocused(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_TextOpacityUnfocused, _Redraw);
+}
+Void ResetTextOpacityUnfocused(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetTextOpacityUnfocused(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the text opacity of the current tab
+Void SetTextOpacityCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _TextOpacityCurrentTab, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_TextOpacityCurrentTab, K_Properties { TextOpacityCurrentTab = _TextOpacityCurrentTab }, _Redraw);
+}
+Void SetTextOpacityCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _TextOpacityCurrentTab) {
+	SetTextOpacityCurrentTab(_This, _Frame_NavigationTabs, _TextOpacityCurrentTab, True);
+}
+Void ResetTextOpacityCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_TextOpacityCurrentTab, _Redraw);
+}
+Void ResetTextOpacityCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetTextOpacityCurrentTab(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the text color of inactive tabs
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_NavigationTabs, Vec3 _TextColor, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_TextColor, K_Properties { TextColor = _TextColor }, _Redraw);
+}
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_NavigationTabs, Vec3 _TextColor) {
+	SetTextColor(_This, _Frame_NavigationTabs, _TextColor, True);
+}
+Void ResetTextColor(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_TextColor, _Redraw);
+}
+Void ResetTextColor(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetTextColor(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the text color of the current tab
+Void SetTextColorCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Vec3 _TextColorCurrentTab, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_TextColorCurrentTab, K_Properties { TextColorCurrentTab = _TextColorCurrentTab }, _Redraw);
+}
+Void SetTextColorCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Vec3 _TextColorCurrentTab) {
+	SetTextColorCurrentTab(_This, _Frame_NavigationTabs, _TextColorCurrentTab, True);
+}
+Void ResetTextColorCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_TextColorCurrentTab, _Redraw);
+}
+Void ResetTextColorCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetTextColorCurrentTab(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the color of the background behind tabs
+Void SetBackgroundColor(CMlScript _This, CMlFrame _Frame_NavigationTabs, Vec3 _BackgroundColor, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_BackgroundColor, K_Properties { BackgroundColor = _BackgroundColor }, _Redraw);
+}
+Void SetBackgroundColor(CMlScript _This, CMlFrame _Frame_NavigationTabs, Vec3 _BackgroundColor) {
+	SetBackgroundColor(_This, _Frame_NavigationTabs, _BackgroundColor, True);
+}
+Void ResetBackgroundColor(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_BackgroundColor, _Redraw);
+}
+Void ResetBackgroundColor(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetBackgroundColor(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the background color of the current tab
+Void SetBackgroundColorCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Vec3 _BackgroundColorCurrentTab, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_BackgroundColorCurrentTab, K_Properties { BackgroundColorCurrentTab = _BackgroundColorCurrentTab }, _Redraw);
+}
+Void SetBackgroundColorCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Vec3 _BackgroundColorCurrentTab) {
+	SetBackgroundColorCurrentTab(_This, _Frame_NavigationTabs, _BackgroundColorCurrentTab, True);
+}
+Void ResetBackgroundColorCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_BackgroundColorCurrentTab, _Redraw);
+}
+Void ResetBackgroundColorCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetBackgroundColorCurrentTab(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the opacity of the background behind tabs
+Void SetBackgroundOpacity(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _BackgroundOpacity, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_BackgroundOpacity, K_Properties { BackgroundOpacity = _BackgroundOpacity }, _Redraw);
+}
+Void SetBackgroundOpacity(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _BackgroundOpacity) {
+	SetBackgroundOpacity(_This, _Frame_NavigationTabs, _BackgroundOpacity, True);
+}
+Void ResetBackgroundOpacity(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_BackgroundOpacity, _Redraw);
+}
+Void ResetBackgroundOpacity(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetBackgroundOpacity(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the background opacity of the current tab
+Void SetBackgroundOpacityCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _BackgroundOpacityCurrentTab, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_BackgroundOpacityCurrentTab, K_Properties { BackgroundOpacityCurrentTab = _BackgroundOpacityCurrentTab }, _Redraw);
+}
+Void SetBackgroundOpacityCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Real _BackgroundOpacityCurrentTab) {
+	SetBackgroundOpacityCurrentTab(_This, _Frame_NavigationTabs, _BackgroundOpacityCurrentTab, True);
+}
+Void ResetBackgroundOpacityCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_BackgroundOpacityCurrentTab, _Redraw);
+}
+Void ResetBackgroundOpacityCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetBackgroundOpacityCurrentTab(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the looping capability through all available tabs
+Void SetIsLoopingEnabled(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _IsLoopingEnabled, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This,_Frame_NavigationTabs, C_Property_IsLoopingEnabled, K_Properties { IsLoopingEnabled = _IsLoopingEnabled }, _Redraw);
+}
+Void SetIsLoopingEnabled(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _IsLoopingEnabled) {
+	SetIsLoopingEnabled(_This, _Frame_NavigationTabs, _IsLoopingEnabled, True);
+}
+Void ResetIsLoopingEnabled(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_NavigationTabs, C_Property_IsLoopingEnabled, _Redraw);
+}
+Void ResetIsLoopingEnabled(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	ResetIsLoopingEnabled(_This, _Frame_NavigationTabs, True);
+}
+
+// Update the styles of the navigation tab
+Void SetStyles(CMlScript _This, CMlFrame _Frame_NavigationTabs, Text[] _StyleIds, Boolean _Redraw) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	Trackmania_NavigationTabs_NavigationTabs.Styles = _StyleIds;
+	if (!Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.exists(C_Property_Styles)) {
+		Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.add(C_Property_Styles);
+	}
+	if (_Redraw) RedrawNavigationTabs(_This, _Frame_NavigationTabs);
+}
+Void SetStyles(CMlScript _This, CMlFrame _Frame_NavigationTabs, Text[] _StyleIds) {
+	SetStyles(_This, _Frame_NavigationTabs, _StyleIds, True);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Redraw) {
+	SetStyles(_This, _Frame_NavigationTabs, [], _Redraw);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	SetStyles(_This, _Frame_NavigationTabs, []);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_NavigationTabs, Text _StyleId, Boolean _Redraw) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	if (!Trackmania_NavigationTabs_NavigationTabs.Styles.exists(_StyleId)) {
+		Trackmania_NavigationTabs_NavigationTabs.Styles.add(_StyleId);
+		if (!Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.exists(C_Property_Styles)) {
+			Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.add(C_Property_Styles);
+		}
+	}
+	if (_Redraw) RedrawNavigationTabs(_This, _Frame_NavigationTabs);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_NavigationTabs, Text _StyleId) {
+	AddStyle(_This, _Frame_NavigationTabs, _StyleId, True);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_NavigationTabs, Text _StyleId, Boolean _Redraw) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	declare Boolean Removed = Trackmania_NavigationTabs_NavigationTabs.Styles.remove(_StyleId);
+	if (Removed && !Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.exists(C_Property_Styles)) {
+		Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.add(C_Property_Styles);
+	}
+	if (_Redraw) RedrawNavigationTabs(_This, _Frame_NavigationTabs);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_NavigationTabs, Text _StyleId) {
+	RemoveStyle(_This, _Frame_NavigationTabs, _StyleId, True);
+}
+
+// Set the default properties of all navigations tab
+Void SetNavigationTabsDefaultProperties(CMlScript _This, K_Properties _DefaultProperties, Boolean _Redraw) {
+	declare K_State Trackmania_NavigationTabs_State for _This.Page = C_State_Null;
+	Trackmania_NavigationTabs_State.DefaultProperties = _DefaultProperties;
+	if (_Redraw) RedrawNavigationTabs(_This);
+}
+Void SetNavigationTabsDefaultProperties(CMlScript _This, K_Properties _DefaultProperties) {
+	SetNavigationTabsDefaultProperties(_This, _DefaultProperties, True);
+}
+
+// Create a new navigation tab style
+Void CreateStyle(CMlScript _This, Text _StyleId, K_Properties _Style) {
+	declare K_State Trackmania_NavigationTabs_State for _This.Page = C_State_Null;
+	Trackmania_NavigationTabs_State.Styles[_StyleId] = _Style;
+}
+
+// Initialize navigation tabs
+Void InitializeNavigationTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	Trackmania_NavigationTabs_NavigationTabs = K_NavigationTabs {
+		IsNavigationTabs = True,
+		CurrentTabIndex = 0,
+		PreviousTabIndex = 0,
+		EventsDelay = 0,
+		DirtyProperties = []
+	};
+
+	declare CMlFrame Frame_Align <=> (_Frame_NavigationTabs.GetFirstChild(C_Id_FrameAlign) as CMlFrame);
+	declare CMlFrame Frame_Background <=> (Frame_Align.GetFirstChild(C_Id_FrameBackground) as CMlFrame);
+	declare CMlFrame Frame_Tabs <=> (Frame_Align.GetFirstChild(C_Id_FrameTabs) as CMlFrame);
+	declare CMlFrame ButtonIcon_NextTab <=> (Frame_Align.GetFirstChild(C_Id_ButtonIconNextTab) as CMlFrame);
+	declare CMlFrame ButtonIcon_PreviousTab <=> (Frame_Align.GetFirstChild(C_Id_ButtonIconPrevTab) as CMlFrame);
+	Trackmania_NavigationTabs_NavigationTabs.Controls = K_Controls {
+		Frame_Align = Frame_Align,
+		Frame_Background = Frame_Background,
+		Frame_Tabs = Frame_Tabs,
+		ButtonIcon_NextTab = ButtonIcon_NextTab,
+		ButtonIcon_PreviousTab = ButtonIcon_PreviousTab
+	};
+
+	Trackmania_NavigationTabs_NavigationTabs.CustomizedProperties = K_Properties {};
+	Trackmania_NavigationTabs_NavigationTabs.MergedProperties = K_Properties {};
+	Trackmania_NavigationTabs_NavigationTabs.Styles = [];
+
+	if (_Frame_NavigationTabs.DataAttributeExists("halign")) {
+		SetHAlign(_This, _Frame_NavigationTabs, Tools::TextToHAlign2(_Frame_NavigationTabs.DataAttributeGet("halign")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("valign")) {
+		SetVAlign(_This, _Frame_NavigationTabs, Tools::TextToVAlign2(_Frame_NavigationTabs.DataAttributeGet("valign")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("tabs")) {
+		declare Text[Integer] Tabs;
+		Tabs.fromjson(_Frame_NavigationTabs.DataAttributeGet("tabs"));
+		SetTabs(_This, _Frame_NavigationTabs, Tabs, False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("max-width")) {
+		SetMaxWidth(_This, _Frame_NavigationTabs, TL::ToReal(_Frame_NavigationTabs.DataAttributeGet("max-width")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("text-color")) {
+		SetTextColor(_This, _Frame_NavigationTabs, CL::HexToRgb(_Frame_NavigationTabs.DataAttributeGet("text-color")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("text-color-current-tab")) {
+		SetTextColorCurrentTab(_This, _Frame_NavigationTabs, CL::HexToRgb(_Frame_NavigationTabs.DataAttributeGet("text-color-current-tab")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("text-opacity-focused")) {
+		SetTextOpacityFocused(_This, _Frame_NavigationTabs, TL::ToReal(_Frame_NavigationTabs.DataAttributeGet("text-opacity-focused")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("text-opacity-unfocused")) {
+		SetTextOpacityUnfocused(_This, _Frame_NavigationTabs, TL::ToReal(_Frame_NavigationTabs.DataAttributeGet("text-opacity-unfocused")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("text-opacity-current-tab")) {
+		SetTextOpacityCurrentTab(_This, _Frame_NavigationTabs, TL::ToReal(_Frame_NavigationTabs.DataAttributeGet("text-opacity-current-tab")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("background-color")) {
+		SetBackgroundColor(_This, _Frame_NavigationTabs, CL::HexToRgb(_Frame_NavigationTabs.DataAttributeGet("background-color")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("background-color-current-tab")) {
+		SetBackgroundColorCurrentTab(_This, _Frame_NavigationTabs, CL::HexToRgb(_Frame_NavigationTabs.DataAttributeGet("background-color-current-tab")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("background-opacity")) {
+		SetBackgroundOpacity(_This, _Frame_NavigationTabs, TL::ToReal(_Frame_NavigationTabs.DataAttributeGet("background-opacity")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("background-opacity-current-tab")) {
+		SetBackgroundOpacityCurrentTab(_This, _Frame_NavigationTabs, TL::ToReal(_Frame_NavigationTabs.DataAttributeGet("background-opacity-current-tab")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("loop-enabled")) {
+		SetIsLoopingEnabled(_This, _Frame_NavigationTabs, Tools::TextToBoolean(_Frame_NavigationTabs.DataAttributeGet("loop-enabled")), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("styles")) {
+		SetStyles(_This, _Frame_NavigationTabs, TL::Split(" ", TL::Trim(_Frame_NavigationTabs.DataAttributeGet("styles"))), False);
+	}
+	if (_Frame_NavigationTabs.DataAttributeExists("tabs-padding")) {
+		SetTabsPadding(_This, _Frame_NavigationTabs, Tools::TextToVec2(_Frame_NavigationTabs.DataAttributeGet("tabs-padding")), False);
+	}
+
+	if (_Frame_NavigationTabs.DataAttributeExists("events-delay")) {
+		Trackmania_NavigationTabs_NavigationTabs.EventsDelay = TL::ToInteger(_Frame_NavigationTabs.DataAttributeGet("events-delay"));
+	}
+
+	RedrawNavigationTabs(_This, _Frame_NavigationTabs, False, True);
+}
+
+// Initialize all navigation tabs in the manialink
+Void InitializeNavigationTabs(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_NavigationTabs, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_NavigationTabs = (Control as CMlFrame).Parent;
+		InitializeNavigationTabs(_This, Frame_NavigationTabs);
+	}
+}
+
+// Update current tab index
+Void Private_UpdateCurrentTabIndex(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _TabIndex, Boolean _SendEvent) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	if (Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs.count <= 0) return;
+
+	Trackmania_NavigationTabs_NavigationTabs.PreviousTabIndex = Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex;
+	Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex = ML::Clamp(_TabIndex, 0, Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs.count-1);
+	if (!Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.exists(C_Property_CurrentTabIndex)) {
+		Trackmania_NavigationTabs_NavigationTabs.DirtyProperties.add(C_Property_CurrentTabIndex);
+	}
+	RedrawNavigationTabs(_This, _Frame_NavigationTabs);
+
+	if (_SendEvent) {
+		declare K_State Trackmania_NavigationTabs_State for _This.Page = C_State_Null;
+		Trackmania_NavigationTabs_State.DelayedPendingEvents[C_EventType_Select] = K_Event {
+			Type = C_EventType_Select,
+			TimeStamp = Now + Trackmania_NavigationTabs_NavigationTabs.EventsDelay,
+			CurrentTab = Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs[Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex].Id,
+			Frame_NavigationTabs = _Frame_NavigationTabs
+		};
+	}
+}
+
+// Update current tab (Go to tab id)
+Void UpdateCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _TabId, Boolean _SendEvent) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+
+	foreach (TabIndex => Tab in Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs) {
+		if (Tab.Id == _TabId) {
+			Private_UpdateCurrentTabIndex(_This, _Frame_NavigationTabs, TabIndex, _SendEvent);
+			break;
+		}
+	}
+}
+Void UpdateCurrentTab(CMlScript _This, CMlFrame _Frame_NavigationTabs, Integer _TabId) {
+	UpdateCurrentTab(_This, _Frame_NavigationTabs, _TabId, True);
+}
+
+// Get current tab
+Integer GetCurrentTab(CMlFrame _Frame_NavigationTabs) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	return Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs[Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex].Id;
+}
+
+// Get current tab label
+CMlLabel GetCurrentTabLabel(CMlFrame _Frame_NavigationTabs) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	declare CMlFrame Button_Tab = Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls[Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex] as CMlFrame;
+	ExpendableButton::SetTextToSpeech(Button_Tab, TL::Compose(C_TTS_Tab, Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs[Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex].Name));
+	return ExpendableButton::GetLabel(Button_Tab);
+}
+
+// Get all available tabs
+Text[Integer] GetAvailableTabs(CMlFrame _Frame_NavigationTabs) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	declare Text[Integer] Tabs;
+
+	foreach (Tab in Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs) {
+		Tabs[Tab.Id] = Tab.Name;
+	}
+
+	return Tabs;
+}
+
+Void GoToNextTab(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	if (Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs.count > 1) {
+		if (Trackmania_NavigationTabs_NavigationTabs.MergedProperties.IsLoopingEnabled) {
+			Private_UpdateCurrentTabIndex(_This, _Frame_NavigationTabs, (Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex+1) % Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs.count, True);
+		} else {
+			Private_UpdateCurrentTabIndex(_This, _Frame_NavigationTabs, Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex+1, True);
+		}
+		MenuSounds::PlaySound(_This, C_Sound_TabSelection);
+	}
+}
+
+Void GoToPreviousTab(CMlScript _This, CMlFrame _Frame_NavigationTabs) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	if (Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs.count > 1) {
+		if (Trackmania_NavigationTabs_NavigationTabs.MergedProperties.IsLoopingEnabled) {
+			Private_UpdateCurrentTabIndex(_This, _Frame_NavigationTabs, (Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex-1 + Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs.count) % Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs.count, True);
+		} else {
+			Private_UpdateCurrentTabIndex(_This, _Frame_NavigationTabs, Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex-1, True);
+		}
+		MenuSounds::PlaySound(_This, C_Sound_TabSelection);
+	}
+}
+
+// Lock the given navigation tabs
+Void LockTabs(CMlScript _This, CMlFrame _Frame_NavigationTabs, Boolean _Lock) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	assert(Trackmania_NavigationTabs_NavigationTabs.IsNavigationTabs, "Control '"^_Frame_NavigationTabs.ControlId^"' is not a navigation tabs");
+	declare CMlFrame Frame_NavigationContainer <=> (_Frame_NavigationTabs.GetFirstChild(C_Id_FrameNavigationContainer) as CMlFrame);
+
+	// Lock or unlock tab buttons
+	Navigation::EnableContainer(_This, Frame_NavigationContainer, !_Lock);
+	Navigation::Lock(Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs, _Lock);
+	foreach (Frame_Tab in Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls) {
+		Navigation::Lock(Frame_Tab, _Lock);
+	}
+
+	// Update the navigation tabs focus
+	if (!_Lock) {
+		Navigation::Focus(_This, Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs.Controls[Trackmania_NavigationTabs_NavigationTabs.CurrentTabIndex]);
+		Navigation::Focus(_This, Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Tabs);
+	}
+}
+
+// Set the events delay
+Void SetEventsDelay(CMlFrame _Frame_NavigationTabs, Integer _Delay) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	assert(Trackmania_NavigationTabs_NavigationTabs.IsNavigationTabs, "Control '"^_Frame_NavigationTabs.ControlId^"' is not a navigation tabs");
+	Trackmania_NavigationTabs_NavigationTabs.EventsDelay = _Delay;
+}
+
+// Get the width of the component
+Real GetWidth(CMlFrame _Frame_NavigationTabs, Boolean _IsLeftIconSizeIncluded, Boolean _IsRightIconSizeIncluded) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	assert(Trackmania_NavigationTabs_NavigationTabs.IsNavigationTabs, "Control '"^_Frame_NavigationTabs.ControlId^"' is not a navigation tabs");
+
+	declare Real Size = ExpendableAsset::GetWidth(Trackmania_NavigationTabs_NavigationTabs.Controls.Frame_Background);
+	if (Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Tabs.count > 1) {
+		if (_IsLeftIconSizeIncluded) Size += C_Offset_ButtonIcon + C_Size_ButtonIcon;
+		if (_IsRightIconSizeIncluded) Size += C_Offset_ButtonIcon + C_Size_ButtonIcon;
+	}
+
+	return Size;
+}
+Real GetWidth(CMlFrame _Frame_NavigationTabs) {
+	return GetWidth(_Frame_NavigationTabs, False, False);
+}
+
+// Get the height of the component
+Real GetHeight(CMlFrame _Frame_NavigationTabs) {
+	declare K_NavigationTabs Trackmania_NavigationTabs_NavigationTabs for _Frame_NavigationTabs = C_NavigationTabs_Null;
+	assert(Trackmania_NavigationTabs_NavigationTabs.IsNavigationTabs, "Control '"^_Frame_NavigationTabs.ControlId^"' is not a navigation tabs");
+	return Trackmania_NavigationTabs_NavigationTabs.MergedProperties.Height;
+}
+
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State Trackmania_NavigationTabs_State for _This.Page = C_State_Null;
+	return Trackmania_NavigationTabs_State.PendingEvents;
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State Trackmania_NavigationTabs_State for _This.Page = C_State_Null;
+	Trackmania_NavigationTabs_State = C_State_Null;
+}
+
+Void MainStart(CMlScript _This) {
+	InitializeNavigationTabs(_This);
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State Trackmania_NavigationTabs_State for _This.Page = C_State_Null;
+	Trackmania_NavigationTabs_State.PendingEvents = [];
+
+	/* Force redraw component instances */
+	if (Trackmania_NavigationTabs_State.RedrawRequested != RequestRedraw::GetComponentsRedrawCounter()) {
+		Trackmania_NavigationTabs_State.RedrawRequested = RequestRedraw::GetComponentsRedrawCounter();
+		RedrawNavigationTabs(_This);
+	}
+
+	/* Delayed pending events */
+	declare K_Event[Integer] TempEvents = Trackmania_NavigationTabs_State.DelayedPendingEvents;
+	foreach (Type => Event in TempEvents) {
+		if (Event.TimeStamp <= Now) {
+			Trackmania_NavigationTabs_State.PendingEvents.add(Event);
+			Trackmania_NavigationTabs_State.DelayedPendingEvents.removekey(Type);
+		}
+	}
+
+	/* Navigation events */
+	foreach (Event in Navigation::GetPendingEvents(_This)) {
+		switch (Event.Type) {
+			case Navigation::C_EventType_NavigateInput: {
+				if (Navigation::IsEventFromGroup(_This, Event, C_NavGroup_AllTabs)) {
+					switch (Event.Input) {
+						case CMlScriptEvent::EMenuNavAction::PageDown: { //< RB / R1
+							assert(IsNavigationTabs(Event.To.Parent.Parent.Parent), "The manialink has been modified, we do not point to the right frame anymore");
+							GoToNextTab(_This, Event.To.Parent.Parent.Parent);
+						}
+						case CMlScriptEvent::EMenuNavAction::PageUp: { //< LB / L1
+							assert(IsNavigationTabs(Event.To.Parent.Parent.Parent), "The manialink has been modified, we do not point to the right frame anymore");
+							GoToPreviousTab(_This, Event.To.Parent.Parent.Parent);
+						}
+					}
+				}
+			}
+			case Navigation::C_EventType_NavigateMouse: {
+				if (Navigation::IsEventFromGroup(_This, Event, C_NavGroup_Tab)) {
+					switch (Event.Mouse) {
+						case CMlScriptEvent::Type::MouseOver: Private_Focus(_This, Event.From, Event.To);
+						case CMlScriptEvent::Type::MouseOut: Private_Focus(_This, Event.From, Event.To);
+						case CMlScriptEvent::Type::MouseClick: {
+							if (Event.To != Null && Event.To.HasClass(C_Class_ButtonTab) && Event.To.DataAttributeExists("tabindex")) {
+								assert(IsNavigationTabs(Event.To.Parent.Parent.Parent.Parent), "The manialink has been modified, we do not point to the right frame anymore");
+								Private_UpdateCurrentTabIndex(_This, Event.To.Parent.Parent.Parent.Parent, TL::ToInteger(Event.To.DataAttributeGet("tabindex")), True);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/Trackmania/Components/NavigationTabs.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[
+			ButtonIcon::ComponentV2(),
+			ExpendableAsset_Trackmania::ComponentV2(),
+			ExpendableButton_Trackmania::ComponentV2(),
+			MenuSounds::ComponentV2(),
+			Navigation::ComponentV2(),
+			Transition::ComponentV2()
+		],
+		[]
+	);
+}

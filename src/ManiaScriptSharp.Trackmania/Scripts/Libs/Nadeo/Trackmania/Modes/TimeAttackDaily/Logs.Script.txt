@@ -1,0 +1,204 @@
+/**
+ *	Logs for Time Attack Daily server
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/Logs.Script.txt"
+
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/DailyStructs.Script.txt" as DailyStructs
+#Include "MathLib" as ML
+
+#Struct K_PlayerMatchData_Entry {
+	Text AccountId;
+	Integer LocalRegistrationTime;
+	Integer RegistrationPostTime;
+	Integer[Integer] FinishLineCrossTimes; // finish time => new record time, contains only new records
+	Integer[] PostRecordDelays; // Time between player finish cross and new record update received by server
+}
+
+#Const C_LogLevel_None 0
+#Const C_LogLevel_Error 1
+#Const C_LogLevel_Info 2
+#Const C_LogLevel_Debug 3
+
+declare Integer G_LogLevel;
+declare Boolean G_GatherMatchData;
+declare K_PlayerMatchData_Entry[Text] G_PlayerMatchData;
+
+Void SetLogLevel(Integer _LogLevel) {
+	G_LogLevel = _LogLevel;
+	G_GatherMatchData = (G_LogLevel >= C_LogLevel_Info);
+}
+
+Void SetPlayerLocalRegistrationTime(Text _AccountId, Integer _LocalRegistrationTime) {
+	if (!G_GatherMatchData) return;
+	if (!G_PlayerMatchData.existskey(_AccountId)) {
+		G_PlayerMatchData[_AccountId] = K_PlayerMatchData_Entry {
+			AccountId = _AccountId,
+			LocalRegistrationTime = _LocalRegistrationTime
+		};
+	} else {
+		G_PlayerMatchData[_AccountId].LocalRegistrationTime = _LocalRegistrationTime;
+	}
+}
+
+Void SetPlayerRegistrationPostTime(Text _AccountId, Integer _RegistrationPostTime) {
+	if (!G_GatherMatchData) return;
+	if (!G_PlayerMatchData.existskey(_AccountId)) {
+		G_PlayerMatchData[_AccountId] = K_PlayerMatchData_Entry {
+			AccountId = _AccountId,
+			RegistrationPostTime = _RegistrationPostTime
+		};
+	} else {
+		G_PlayerMatchData[_AccountId].RegistrationPostTime = _RegistrationPostTime;
+	}
+}
+
+Void AddPlayerNewRecordTime(Text _AccountId, Integer _FinishLineCrossTime, Integer _RecordTime) {
+	if (!G_GatherMatchData) return;
+	if (!G_PlayerMatchData.existskey(_AccountId)) {
+		G_PlayerMatchData[_AccountId] = K_PlayerMatchData_Entry {
+			AccountId = _AccountId,
+			FinishLineCrossTimes = [_FinishLineCrossTime => _RecordTime]
+		};
+	} else {
+		G_PlayerMatchData[_AccountId].FinishLineCrossTimes[_FinishLineCrossTime] = _RecordTime;
+	}
+}
+
+Text GetPostRecordDelay(Text _AccountId, Integer _RecordTime) {
+	declare Text_Log = "";
+	if (
+		G_GatherMatchData &&
+		G_PlayerMatchData.existskey(_AccountId)
+	) {
+		foreach (FinishLineCrossTime => RecordTime in G_PlayerMatchData[_AccountId].FinishLineCrossTimes) {
+			if (RecordTime == _RecordTime) {
+				declare LocalRegistrationTime = G_PlayerMatchData[_AccountId].LocalRegistrationTime;
+				declare PostRecordDelay = Now - ML::Max(FinishLineCrossTime, LocalRegistrationTime);
+				G_PlayerMatchData[_AccountId].PostRecordDelays.add(PostRecordDelay);
+				if (LocalRegistrationTime < FinishLineCrossTime) {
+					Text_Log ^= "Player crossed finish "^PostRecordDelay^" ms ago. ";
+				} else {
+					Text_Log ^= "Player pressed register to send this record "^PostRecordDelay^" ms ago. ";
+				}
+				if (LocalRegistrationTime <= 0) Text_Log ^= "NB Player did not register on this server. ";
+			}
+		}
+	}
+	return Text_Log;
+}
+
+
+Void Private_Log(Text _TextToLog, Boolean _TimeStamped, Integer _LogLevel) {
+	if (G_LogLevel >= _LogLevel) {
+		if (_TimeStamped) {
+			log(Now ^" >> "^_TextToLog);
+		} else {
+			log(_TextToLog);
+		}
+	}
+}
+
+Void LogInfo(Text _TextToLog, Boolean _TimeStamped) {
+	Private_Log(_TextToLog, _TimeStamped, C_LogLevel_Info);
+}
+Void LogInfo(Text _TextToLog) {
+	Private_Log(_TextToLog, True, C_LogLevel_Info);
+}
+
+Void LogError(Text _TextToLog, Boolean _TimeStamped) {
+	Private_Log(_TextToLog, _TimeStamped, C_LogLevel_Error);
+}
+Void LogError(Text _TextToLog) {
+	Private_Log(_TextToLog, True, C_LogLevel_Error);
+}
+
+Void LogDebug(Text _TextToLog, Boolean _TimeStamped) {
+	Private_Log(_TextToLog, _TimeStamped, C_LogLevel_Debug);
+}
+Void LogDebug(Text _TextToLog) {
+	Private_Log(_TextToLog, True, C_LogLevel_Debug);
+}
+
+Void LogGatheredMatchData() {
+	if (G_GatherMatchData) {
+		declare PostRecordDelay_Sum = 0;
+		declare PostRecordDelay_Count = 0;
+		foreach (PlayerData in G_PlayerMatchData) {
+			foreach (PostRecordDelay in PlayerData.PostRecordDelays) {
+				PostRecordDelay_Sum += PostRecordDelay;
+				PostRecordDelay_Count += 1;
+			}
+		}
+		declare PostRecordDelay_Mean = -1;
+		if (PostRecordDelay_Count > 0) PostRecordDelay_Mean = PostRecordDelay_Sum/PostRecordDelay_Count;
+		LogInfo("*** Match Data overview ***", False);
+		LogInfo("Average Post delay for a new record on this server: "^PostRecordDelay_Mean, False);
+	}
+	G_GatherMatchData = False;
+}
+
+Void LogLocalRegistration(Text _AccountId, Integer _NextPostTime) {
+	SetPlayerLocalRegistrationTime(_AccountId, Now);
+	LogDebug("New local registration for player "^_AccountId^". Next regular registrations Post in "^(_NextPostTime - Now));
+}
+
+Void LogPlayerEndRaceResult(CSmPlayer _Player, Boolean _Better) {
+	if (
+		_Player != Null &&
+		_Player.Score != Null &&
+		_Player.Score.BestRaceTimes.count > 0
+	) {
+		declare Text_Log = ""^_Player.User.Name^" ("^_Player.User.WebServicesUserId^") ";
+		if (_Better) {
+			Text_Log ^= "new best race is "^_Player.Score.BestRaceTimes[_Player.Score.BestRaceTimes.count-1]^" ms. ";
+			AddPlayerNewRecordTime(_Player.User.WebServicesUserId, Now, _Player.Score.BestRaceTimes[_Player.Score.BestRaceTimes.count-1]);
+		} else {
+			Text_Log ^= "finished race without improving their best time.";
+		}
+		LogDebug(Text_Log);
+	}
+}
+
+Void LogAddPlayerToPendingResults(CSmScore _Score, Integer _BestTime, Integer _NextUpdate, Boolean _Success) {
+	if (_Score != Null) {
+		declare Text_Log = ""^_Score.User.Name^" ("^_Score.User.WebServicesUserId^")'s ";
+		if (_Success) {
+			Text_Log ^= " new best time "^_BestTime^" ms will be posted in next update (in "^_NextUpdate - Now^"ms).";
+		} else {
+			Text_Log ^= " best time is "^_BestTime^" ms but local score is ";
+			if (_Score.BestRaceTimes.count > 0) {
+				Text_Log ^= _Score.BestRaceTimes[_Score.BestRaceTimes.count-1]^" ms, not added to Post.";
+			} else {
+				Text_Log ^= " Null, not added to Post.";
+			}
+		}
+		LogDebug(Text_Log);
+	}
+}
+
+Void LogPostRegisteredPlayers(DailyStructs::K_PostRegisteredPlayers _RegisteredPlayers, Text _CompetitionId) {
+	LogDebug("Posting registered players for Competition "^_CompetitionId^": ");
+	foreach (RegisteredPlayer in _RegisteredPlayers.participants) {
+		LogDebug("    participant: "^RegisteredPlayer.participant^", zone: "^RegisteredPlayer.zone, False);
+		SetPlayerRegistrationPostTime(RegisteredPlayer.participant, Now);
+	}
+}
+
+Void LogPostResultsUpdate(DailyStructs::K_PostResults _Results, Text _ChallengeId, Text _MapUid) {
+	LogDebug("Posting results update for Challenge "^_ChallengeId^" on map "^_MapUid^": ");
+	foreach (Result in _Results.records) {
+		LogDebug("    player: "^Result.player^", score: "^Result.score^", zone: "^Result.zone, False);
+	}
+}
+
+Void LogPostResultsResponse(DailyStructs::K_PostResultResponse[] _PostResultResponse) {
+	LogDebug("Response from post results request: ");
+	foreach (Response in _PostResultResponse) {
+		foreach (ZoneRank in Response.zoneRanks) {
+			if (ZoneRank.zone == "World") {
+				LogDebug("    player "^Response.player^" new rank is "^ZoneRank.rank^". "^GetPostRecordDelay(Response.player, Response.time), False);
+			}
+		}
+	}
+}

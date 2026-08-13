@@ -1,0 +1,503 @@
+/**
+ * UI module: LapMedal client side
+ */
+#Const Version "1.0.1"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/LapMedal_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Menus/Layout.Script.txt" as Layout
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Task@2.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Structures/Box.Script.txt" as Struct_Box
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/LapMedal_Common.Script.txt" as UIModules_LapMedal_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Private_Instance {
+	Text MapUid = "";
+	Text IncrementMapUid = "";
+	Integer LapCount = -1;
+	Task::K_Task Task_GetZenCount;
+	Task::K_Task Task_IncrementZenCount;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Private_Id_Frame_Global "tmgame-modes-base-uimodules-lap-medal-frame-global"
+#Const C_Private_Id_Frame_AnimVisible "tmgame-modes-base-uimodules-lap-medal-frame-anim-visible"
+#Const C_Private_Id_Label_Title "tmgame-modes-base-uimodules-lap-medal-label-title"
+#Const C_Private_Id_Label_Counter "tmgame-modes-base-uimodules-lap-medal-label-counter"
+#Const C_Private_Id_Frame_MedalIconList "tmgame-modes-base-uimodules-lap-medal-frame-medal-icon-list"
+#Const C_Private_Id_Frame_MedalLapList "tmgame-modes-base-uimodules-lap-medal-frame-medal-lap-list"
+
+#Const C_Private_UISize <50., 35.>
+#Const C_Private_MedalLineNb 3
+#Const C_Private_MedalLapInterval 5
+#Const C_Private_VisibleAnimDuration 250
+#Const C_Private_UnlockAnimDuration 250
+#Const C_Private_DisplaySpeedLimit 10.
+#Const C_Private_DisplayTimeLimit 5000
+
+#Const C_Private_TextSize_Title <3., 1.>
+#Const C_Private_TextSize_Counter <3., 1.>
+#Const C_Private_TextSize_MedalLap <2., 1.>
+
+#Const C_Private_Opacity_Unlocked 1.
+#Const C_Private_Opacity_Locked 0.4
+
+//L16N [LapMedal] These are medals given to players for completing a certain number of laps on a track
+#Const C_Private_Text_LapMedals _("Lap medals")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the manialink template
+Text Private_GetTemplate() {
+	declare Layout::K_Element[] ElementList = [
+		Layout::K_Element {
+			Id = "container-root",
+			Direction = Layout::C_Direction_TopToBottom,
+			Width = Layout::NewSizingFixed(C_Private_UISize.X),
+			Height = Layout::NewSizingFixed(C_Private_UISize.Y),
+			Padding = Struct_Box::ToPadding([1.]),
+			ChildGap = 1.
+		},
+		Layout::K_Element {
+			ParentId = "container-root",
+			Id = "title",
+			Width = Layout::NewSizingGrow(),
+			Height = Layout::NewSizingFixed(5.)
+		},
+		Layout::K_Element {
+			ParentId = "container-root",
+			Id = "counter",
+			Width = Layout::NewSizingGrow(),
+			Height = Layout::NewSizingFixed(5.)
+		},
+		Layout::K_Element {
+			ParentId = "container-root",
+			Id = "container-medal-grid",
+			Direction = Layout::C_Direction_LeftToRight,
+			Width = Layout::NewSizingGrow(),
+			Height = Layout::NewSizingGrow(),
+			ChildGap = 1.
+		}
+	];
+	for (Medal, Medals::C_ScoreMgrMedal_Bronze, Medals::C_ScoreMgrMedal_Author) {
+		ElementList.add(Layout::K_Element {
+			ParentId = "container-medal-grid",
+			Id = Layout::NewId("container-medal-column", Medal),
+			Direction = Layout::C_Direction_TopToBottom,
+			Width = Layout::NewSizingGrow(),
+			Height = Layout::NewSizingGrow(),
+			ChildGap = 1.
+		});
+		for (Line, 1, C_Private_MedalLineNb) {
+			ElementList.add(Layout::K_Element {
+				ParentId = Layout::NewId("container-medal-column", Medal),
+				Id = Layout::NewId("container-medal-line", Medal, Line),
+				Direction = Layout::C_Direction_LeftToRight,
+				Width = Layout::NewSizingGrow(),
+				Height = Layout::NewSizingGrow(),
+				ChildGap = 0.
+			});
+			ElementList.add(Layout::K_Element {
+				ParentId = Layout::NewId("container-medal-line", Medal, Line),
+				Id = Layout::NewId("medal-icon", Medal, Line),
+				Width = Layout::NewSizingGrow(),
+				Height = Layout::NewSizingGrow()
+			});
+			ElementList.add(Layout::K_Element {
+				ParentId = Layout::NewId("container-medal-line", Medal, Line),
+				Id = Layout::NewId("medal-lap", Medal, Line),
+				Width = Layout::NewSizingGrow(),
+				Height = Layout::NewSizingGrow()
+			});
+		}
+	}
+	declare Layout::K_Layout Layout = Layout::NewLayout(<320., 160.>, "container-root", ElementList);
+
+	declare Vec2 Size_Title = Layout::GetSize(Layout, "title");
+	declare Vec2 Pos_Title = Layout::GetPosition(Layout, "title") + <Size_Title.X * 0.5, Size_Title.Y * -0.5>;
+	declare Vec2 Size_Counter = Layout::GetSize(Layout, "counter");
+	declare Vec2 Pos_Counter = Layout::GetPosition(Layout, "counter") + <Size_Counter.X * 0.5, Size_Counter.Y * -0.5>;
+
+	declare Text MedalIconListML;
+	declare Text MedalLapListML;
+	declare Integer MedalZIndex;
+	for (Medal, Medals::C_ScoreMgrMedal_Bronze, Medals::C_ScoreMgrMedal_Author) {
+		for (Line, 1, C_Private_MedalLineNb) {
+			declare Vec2 Size_MedalIcon = Layout::GetSize(Layout, Layout::NewId("medal-icon", Medal, Line));
+			declare Vec2 Pos_MedalIcon = Layout::GetPosition(Layout, Layout::NewId("medal-icon", Medal, Line)) + <Size_MedalIcon.X * 0.5, Size_MedalIcon.Y * -0.5>;
+			declare Vec2 Size_MedalLap = Layout::GetSize(Layout, Layout::NewId("medal-lap", Medal, Line));
+			declare Vec2 Pos_MedalLap = Layout::GetPosition(Layout, Layout::NewId("medal-lap", Medal, Line)) + <Size_MedalLap.X * 0.5, Size_MedalLap.Y * -0.5>;
+
+			MedalIconListML ^=
+"""
+<quad pos="{{{Pos_MedalIcon.X}}} {{{Pos_MedalIcon.Y}}}" z-index="{{{MedalZIndex}}}" size="{{{Size_MedalIcon.X}}} {{{Size_MedalIcon.Y}}}" halign="center" valign="center" keepratio="fit" opacity="{{{C_Private_Opacity_Locked}}}" />
+"""
+			;
+			MedalLapListML ^=
+"""
+<label pos="{{{Pos_MedalLap.X}}} {{{Pos_MedalLap.Y}}}" z-index="{{{MedalZIndex}}}" size="{{{Size_MedalLap.X}}} {{{Size_MedalLap.Y}}}" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textprefix="$t$i" textsize="{{{C_Private_TextSize_MedalLap.X}}}" />
+"""
+			;
+		}
+	}
+
+	return
+"""
+<frame z-index="-2" id="{{{C_Private_Id_Frame_Global}}}">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_LapMedal_Common::C_UIModuleConfig)}}}>
+		<frame size="{{{C_Private_UISize.X}}} {{{C_Private_UISize.Y}}}" halign="right">
+			<frame id="{{{C_Private_Id_Frame_AnimVisible}}}">
+				<quad z-index="0" size="{{{C_Private_UISize.X}}} {{{C_Private_UISize.Y}}}" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.6" />
+				<label id="{{{C_Private_Id_Label_Title}}}" pos="{{{Pos_Title.X}}} {{{Pos_Title.Y}}}" z-index="1" size="{{{Size_Title.X}}} {{{Size_Title.Y}}}" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textprefix="$t$i" textsize="{{{C_Private_TextSize_Title.X}}}" text="{{{C_Private_Text_LapMedals}}}" />
+				<label id="{{{C_Private_Id_Label_Counter}}}" pos="{{{Pos_Counter.X}}} {{{Pos_Counter.Y}}}" z-index="2" size="{{{Size_Counter.X}}} {{{Size_Counter.Y}}}" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textprefix="$t$i" textsize="{{{C_Private_TextSize_Counter.X}}}" />
+				<frame id="{{{C_Private_Id_Frame_MedalIconList}}}" z-index="3">
+					{{{MedalIconListML}}}
+				</frame>
+				<frame id="{{{C_Private_Id_Frame_MedalLapList}}}" z-index="4">
+					{{{MedalLapListML}}}
+				</frame>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+"""
+	;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_LapMedal_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_LapMedal_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the module manialink
+Text GetML() {
+	return MV::Create(
+GetId(), 3,
+Private_GetTemplate(),
+"""
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Task@2.Script.txt" as Task
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MainMenuConst
+
+#Struct K_Private_Controls {
+	CMlFrame Frame_AnimVisible;
+	CMlLabel Label_Title;
+	CMlLabel Label_Counter;
+	CMlQuad[] QuadList_MedalIcon;
+	CMlLabel[] LabelList_MedalLap;
+}
+#Struct K_Private_Instance {
+	K_Private_Controls Controls;
+	Boolean IsModuleVisible = False;
+	Real DisplaySpeedLimit = -1.;
+	Integer DisplayTimeLimit = -1;
+	Integer LapCount = -1;
+}
+
+#Const C_Private_Id_Frame_Global {{{dump(C_Private_Id_Frame_Global)}}}
+#Const C_Private_Id_Frame_AnimVisible {{{dump(C_Private_Id_Frame_AnimVisible)}}}
+#Const C_Private_Id_Label_Title {{{dump(C_Private_Id_Label_Title)}}}
+#Const C_Private_Id_Label_Counter {{{dump(C_Private_Id_Label_Counter)}}}
+#Const C_Private_Id_Frame_MedalIconList {{{dump(C_Private_Id_Frame_MedalIconList)}}}
+#Const C_Private_Id_Frame_MedalLapList {{{dump(C_Private_Id_Frame_MedalLapList)}}}
+
+#Const C_Private_UISize {{{dump(C_Private_UISize)}}}
+#Const C_Private_MedalLineNb {{{dump(C_Private_MedalLineNb)}}}
+#Const C_Private_MedalLapInterval {{{dump(C_Private_MedalLapInterval)}}}
+#Const C_Private_LapMax {{{dump(C_Private_MedalLineNb * 4 * C_Private_MedalLapInterval)}}}
+#Const C_Private_VisibleAnimDuration {{{dump(C_Private_VisibleAnimDuration)}}}
+#Const C_Private_UnlockAnimDuration {{{dump(C_Private_UnlockAnimDuration)}}}
+#Const C_Private_DisplaySpeedLimit {{{dump(C_Private_DisplaySpeedLimit)}}}
+#Const C_Private_DisplayTimeLimit {{{dump(C_Private_DisplayTimeLimit)}}}
+
+#Const C_Private_TextSize_Title {{{dump(C_Private_TextSize_Title)}}}
+#Const C_Private_TextSize_Counter {{{dump(C_Private_TextSize_Counter)}}}
+#Const C_Private_TextSize_MedalLap {{{dump(C_Private_TextSize_MedalLap)}}}
+
+#Const C_Private_Opacity_Unlocked {{{dump(C_Private_Opacity_Unlocked)}}}
+#Const C_Private_Opacity_Locked {{{dump(C_Private_Opacity_Locked)}}}
+
+#Const C_Private_Color_Unlocked {{{dump(Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne))}}}
+#Const C_Private_Color_Locked {{{dump(Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight))}}}
+""",
+"""
+***MainInit***
+***
+declare K_Private_Instance Instance = K_Private_Instance {};
+declare Integer TMGame_ModesBaseUIModulesLapMedal_LapCount for Page = -1;
+***
+
+***MainStart***
+***
+Instance = K_Private_Instance {};
+
+declare CMlFrame Frame_Global <=> (Page.GetFirstChild(C_Private_Id_Frame_Global) as CMlFrame);
+Instance.Controls.Frame_AnimVisible <=> (Frame_Global.GetFirstChild(C_Private_Id_Frame_AnimVisible) as CMlFrame);
+Instance.Controls.Label_Title <=> (Frame_Global.GetFirstChild(C_Private_Id_Label_Title) as CMlLabel);
+Instance.Controls.Label_Counter <=> (Frame_Global.GetFirstChild(C_Private_Id_Label_Counter) as CMlLabel);
+
+declare CMlFrame Frame_MedalIconList <=> (Frame_Global.GetFirstChild(C_Private_Id_Frame_MedalIconList) as CMlFrame);
+for (Control in Frame_MedalIconList.Controls) {
+	Instance.Controls.QuadList_MedalIcon.add(Control as CMlQuad);
+}
+declare CMlFrame Frame_MedalLapList <=> (Frame_Global.GetFirstChild(C_Private_Id_Frame_MedalLapList) as CMlFrame);
+for (Control in Frame_MedalLapList.Controls) {
+	Instance.Controls.LabelList_MedalLap.add(Control as CMlLabel);
+}
+
+MLHelpers::FitLabelValue(Instance.Controls.Label_Title, C_Private_TextSize_Title);
+
+for (Key => Quad_MedalIcon in Instance.Controls.QuadList_MedalIcon) {
+	declare Integer Medal = (Key / C_Private_MedalLineNb) + 1;
+	switch (Medal) {
+		case Medals::C_ScoreMgrMedal_Author: Quad_MedalIcon.ImageUrl = MainMenuConst::C_ImageUrl_Medal_Nadeo;
+		case Medals::C_ScoreMgrMedal_Gold: Quad_MedalIcon.ImageUrl = MainMenuConst::C_ImageUrl_Medal_Gold;
+		case Medals::C_ScoreMgrMedal_Silver: Quad_MedalIcon.ImageUrl = MainMenuConst::C_ImageUrl_Medal_Silver;
+		default: Quad_MedalIcon.ImageUrl = MainMenuConst::C_ImageUrl_Medal_Bronze;
+	}
+	Quad_MedalIcon.Visible = (Quad_MedalIcon.ImageUrl != "");
+}
+
+for (Key => Label_MedalLap in Instance.Controls.LabelList_MedalLap) {
+	declare Integer LapCount = (Key + 1) * C_Private_MedalLapInterval;
+	Label_MedalLap.Value = ""^LapCount;
+	MLHelpers::FitLabelValue(Label_MedalLap, C_Private_TextSize_MedalLap);
+}
+
+if (SplitScreenCount > 1) MV_Utils::AutoScaleSplitScreen(Frame_Global, 0.5, 1.);
+
+Private_UpdateVisibility(This, Instance);
+Instance = Private_SetLapCount(This, Instance, TMGame_ModesBaseUIModulesLapMedal_LapCount);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (InputPlayer != Null) {
+		declare netread Boolean Net_Race_LapMedal_IsVisible for InputPlayer;
+		if (Instance.IsModuleVisible != Net_Race_LapMedal_IsVisible) {
+			Instance.IsModuleVisible = Net_Race_LapMedal_IsVisible;
+			Private_UpdateVisibility(This, Instance);
+		}
+
+		if (InputPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::Spawning && Instance.DisplaySpeedLimit < 0.) {
+			Instance.DisplaySpeedLimit = C_Private_DisplaySpeedLimit;
+			Instance.DisplayTimeLimit = -1;
+			Private_UpdateVisibility(This, Instance);
+		}
+
+		if (Instance.DisplaySpeedLimit >= 0. && InputPlayer.Speed > Instance.DisplaySpeedLimit) {
+			Instance.DisplaySpeedLimit = -1.;
+			Private_UpdateVisibility(This, Instance);
+		}
+	}
+
+	if (InputPlayer == Null && Instance.IsModuleVisible) {
+		Instance.IsModuleVisible = False;
+		Private_UpdateVisibility(This, Instance);
+	}
+
+	if (Instance.DisplayTimeLimit >= 0 && Now > Instance.DisplayTimeLimit) {
+		Instance.DisplayTimeLimit = -1;
+		Private_UpdateVisibility(This, Instance);
+	}
+
+	if (Instance.LapCount != TMGame_ModesBaseUIModulesLapMedal_LapCount) {
+		Instance = Private_SetLapCount(This, Instance, TMGame_ModesBaseUIModulesLapMedal_LapCount);
+	}
+}
+***
+
+Void Private_UpdateVisibility(CSmMlScriptIngame _Context, K_Private_Instance _Instance) {
+	declare Boolean IsVisible = (
+		_Instance.IsModuleVisible &&
+		_Instance.LapCount >= 0 && (
+			_Instance.DisplaySpeedLimit >= 0. ||
+			_Instance.DisplayTimeLimit >= 0
+		)
+	);
+
+	_Context.AnimMgr.Flush(_Instance.Controls.Frame_AnimVisible);
+	if (IsVisible) {
+		_Context.AnimMgr.Add(_Instance.Controls.Frame_AnimVisible, "<anim pos=\""^-C_Private_UISize.X^" 0\" hidden=\"0\" />", C_Private_VisibleAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		_Context.AnimMgr.Add(_Instance.Controls.Frame_AnimVisible, "<anim pos=\"0 0\" hidden=\"1\" />", C_Private_VisibleAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+K_Private_Instance Private_SetLapCount(CSmMlScriptIngame _Context, K_Private_Instance _Instance, Integer _LapCount) {
+	declare K_Private_Instance Instance = _Instance;
+
+
+	if (Instance.LapCount != _LapCount && Instance.LapCount < C_Private_LapMax) {
+		Instance.DisplayTimeLimit = Now + C_Private_DisplayTimeLimit;
+	}
+
+	Instance.LapCount = _LapCount;
+	Instance.Controls.Label_Counter.Value = ML::Max(0, Instance.LapCount) ^ "/" ^ C_Private_LapMax;
+	MLHelpers::FitLabelValue(Instance.Controls.Label_Counter, C_Private_TextSize_Counter);
+
+	for (Key => Quad_MedalIcon in Instance.Controls.QuadList_MedalIcon) {
+		declare Integer LapCount = (Key + 1) * C_Private_MedalLapInterval;
+
+		AnimMgr.Flush(Quad_MedalIcon);
+		if (Instance.LapCount >= LapCount) {
+			AnimMgr.Add(Quad_MedalIcon, "<anim opacity=\""^C_Private_Opacity_Unlocked^"\" />", C_Private_UnlockAnimDuration, CAnimManager::EAnimManagerEasing::Linear);
+		} else {
+			AnimMgr.Add(Quad_MedalIcon, "<anim opacity=\""^C_Private_Opacity_Locked^"\" />", C_Private_UnlockAnimDuration, CAnimManager::EAnimManagerEasing::Linear);
+		}
+	}
+
+	for (Key => Label_MedalLap in Instance.Controls.LabelList_MedalLap) {
+		declare Integer LapCount = (Key + 1) * C_Private_MedalLapInterval;
+
+		AnimMgr.Flush(Label_MedalLap);
+		if (Instance.LapCount >= LapCount) {
+			AnimMgr.Add(Label_MedalLap, "<anim textcolor=\""^C_Private_Color_Unlocked^"\" />", C_Private_UnlockAnimDuration, CAnimManager::EAnimManagerEasing::Linear);
+		} else {
+			AnimMgr.Add(Label_MedalLap, "<anim textcolor=\""^C_Private_Color_Locked^"\" />", C_Private_UnlockAnimDuration, CAnimManager::EAnimManagerEasing::Linear);
+		}
+	}
+
+	Private_UpdateVisibility(_Context, Instance);
+
+	return Instance;
+}
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the lap count to the manialink
+Void Private_SendLapCount(CManiaAppPlaygroundCommon _Context, K_Private_Instance _Instance) {
+	declare CUILayer Layer = UIModules::GetModuleLayer(GetId());
+	if (Layer != Null) {
+		declare Integer TMGame_ModesBaseUIModulesLapMedal_LapCount for Layer.LocalPage = -1;
+		TMGame_ModesBaseUIModulesLapMedal_LapCount = _Instance.LapCount;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the current map uid
+K_Private_Instance Private_SetMapUid(CManiaAppPlaygroundCommon _Context, K_Private_Instance _Instance, CMap _Map) {
+	declare K_Private_Instance Instance = _Instance;
+
+	if (_Map == Null || _Map.MapInfo == Null) {
+		Instance.MapUid = "";
+		Instance.LapCount = -1;
+	} else if (Instance.MapUid != _Map.MapInfo.MapUid) {
+		Instance.MapUid = _Map.MapInfo.MapUid;
+		Instance.LapCount = -1;
+
+		if (_Context.DataFileMgr != Null && _Context.UserMgr != Null && _Context.UserMgr.MainUser != Null) {
+			Instance.Task_GetZenCount = Task::DestroyAndCreate(
+				_Context.UserMgr,
+				_Context.DataFileMgr,
+				Instance.Task_GetZenCount,
+				_Context.DataFileMgr.Map_NadeoServices_GetZenCount(_Context.UserMgr.MainUser.Id, Instance.MapUid)
+			);
+		}
+	}
+
+	Private_SendLapCount(_Context, Instance);
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// ManiaApp update
+Void Yield(CManiaAppPlaygroundCommon _Context) {
+	declare K_Private_Instance TMGame_ModesBaseUIModulesLapMedal_Instance as Instance for _Context = K_Private_Instance {};
+
+	if (
+		(_Context.Map != Null && _Context.Map.MapInfo != Null && Instance.MapUid != _Context.Map.MapInfo.MapUid) ||
+		((_Context.Map == Null || _Context.Map.MapInfo == Null) && Instance.MapUid != "")
+	) {
+		Instance = Private_SetMapUid(_Context, Instance, _Context.Map);
+	}
+
+	if (
+		Task::IsProcessing(Instance.Task_GetZenCount) &&
+		_Context.UserMgr != Null &&
+		_Context.DataFileMgr != Null
+	) {
+		Instance.Task_GetZenCount = Task::Update(_Context.UserMgr, _Context.DataFileMgr, Instance.Task_GetZenCount);
+		if (!Task::IsProcessing(Instance.Task_GetZenCount)) {
+			declare CWebServicesTaskResult_Natural SourceTask = Task::GetTaskResult_Natural(_Context.DataFileMgr, Instance.Task_GetZenCount);
+			if (Task::IsSuccess(Instance.Task_GetZenCount) && SourceTask != Null) {
+				Instance.LapCount = SourceTask.Value;
+			} else {
+				Instance.LapCount = -1;
+			}
+			Task::Destroy(_Context.UserMgr, _Context.DataFileMgr, Instance.Task_GetZenCount);
+			Private_SendLapCount(_Context, Instance);
+		}
+	}
+
+	if (
+		Task::IsProcessing(Instance.Task_IncrementZenCount) &&
+		_Context.UserMgr != Null &&
+		_Context.DataFileMgr != Null
+	) {
+		Instance.Task_IncrementZenCount = Task::Update(_Context.UserMgr, _Context.DataFileMgr, Instance.Task_IncrementZenCount);
+		if (!Task::IsProcessing(Instance.Task_IncrementZenCount)) {
+			declare CWebServicesTaskResult_Natural SourceTask = Task::GetTaskResult_Natural(_Context.DataFileMgr, Instance.Task_IncrementZenCount);
+			if (Task::IsSuccess(Instance.Task_IncrementZenCount) && SourceTask != Null && Instance.MapUid == Instance.IncrementMapUid) {
+				Instance.LapCount = SourceTask.Value;
+			}
+			Task::Destroy(_Context.UserMgr, _Context.DataFileMgr, Instance.Task_IncrementZenCount);
+			Private_SendLapCount(_Context, Instance);
+		}
+	}
+
+	foreach (Event in _Context.PendingEvents) {
+		if (
+			Event.PlaygroundType == CManiaAppPlaygroundEvent::Type::OnPlayerTriggerWaypoint &&
+			(Event.IsNewLap || Event.IsFinish) &&
+			_Context.DataFileMgr != Null &&
+			_Context.UserMgr != Null &&
+			_Context.UserMgr.MainUser != Null &&
+			_Context.Map != Null &&
+			_Context.Map.MapInfo != Null &&
+			_Context.Map.MapInfo.MapUid != ""
+		) {
+			Instance.IncrementMapUid = _Context.Map.MapInfo.MapUid;
+			Instance.Task_IncrementZenCount = Task::DestroyAndCreate(
+				_Context.UserMgr,
+				_Context.DataFileMgr,
+				Instance.Task_IncrementZenCount,
+				_Context.DataFileMgr.Map_NadeoServices_IncrZenCount(_Context.UserMgr.MainUser.Id, _Context.Map.MapInfo.MapUid)
+			);
+		}
+	}
+}

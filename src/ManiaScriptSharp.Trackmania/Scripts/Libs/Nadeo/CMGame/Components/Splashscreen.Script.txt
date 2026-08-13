@@ -1,0 +1,322 @@
+/**
+ *	Component: Splashscreen
+ */
+#Const Version		"1.3.3"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/Splashscreen.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButtonBase.Script.txt" as ExpendableButton_Base
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Stores/SplashscreenStore_ML.Script.txt" as SplashscreenStore
+#Include "Libs/Nadeo/CMGame/Structures/SplashscreenStruct.Script.txt" as SplashscreenStruct
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/Translations.Script.txt" as Translations
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Controls {
+	CMlFrame Button_Close;
+	CMlFrame Button_Go;
+	CMlFrame Frame_Global;
+	CMlQuad Quad_Background;
+	CMlQuad Quad_Splashscreen;
+}
+
+#Struct K_Event {
+	Integer Type;
+	Text ActionType;
+	Text ActionIdentifier;
+	Boolean IsVisible;
+}
+
+#Struct K_State {
+	Integer StartViewTimestamp;
+	K_Controls Controls;
+	K_Event[] PendingEvents;
+	SplashscreenStruct::K_Splashscreen CurrentSplashscreen;
+	Ident CurrentVideoId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-splashscreen" //< Component name
+#Const P "CMGame_Splashscreen::" //< Prefix use to differentiate functions/variables in the script
+#Const Q "CMGame_Splashscreen"
+#Const C_NavGroup_Default "navgroup-splashscreen-default"
+
+// Default values
+#Const C_State_Null K_State {}
+
+// Component events
+#Const C_EventType_VisibilityUpdate 0
+#Const C_EventType_GoNow 1
+
+// Control ids
+#Const C_Id_FrameGlobal "cmgame-splashscreen_frame-global"
+#Const C_Id_QuadBackground "cmgame-splashscreen_quad-background"
+#Const C_Id_QuadSplashscreen "cmgame-splashscreen_quad-splashscreen"
+#Const C_Id_ButtonClose "cmgame-splashscreen_button-close"
+#Const C_Id_ButtonGo "cmgame-splashscreen_button-go"
+
+//L16N [Splashscreen] Button to go directly to the advertized activity (campaign, room, skin, etc.)
+#Const C_Text_GoNow _("|Splashscreen|Go now")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component's manialink
+Text GetManialink() {
+	return """
+<frame id="{{{C_Id_FrameGlobal}}}" hidden="1">
+	<quad id="{{{C_Id_QuadBackground}}}" size="320 180" halign="center" valign="center" bgcolor="000000" opacity="0." z-index="0"/>
+	<quad id="{{{C_Id_QuadSplashscreen}}}" size="320 180" halign="center" valign="center" opacity="0." z-index="1"/>
+
+	<!-- Buttons -->
+	<frame id="frame-clip-button" size="320 180" halign="center" valign="center" z-index="2">
+		<frameinstance
+			id="{{{C_Id_ButtonClose}}}"
+			modelid="{{{ExpendableButton::C_Name}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-text="{{{Translations::C_Text_ButtonClose}}}"
+			data-styles="{{{ExpendableButton::C_Style_SizeExpendable}}}"
+			data-halign="right" data-valign="center"
+			data-nav-inputs="select;left;right"
+			data-nav-targets="_;{{{C_Id_ButtonGo}}};{{{C_Id_ButtonGo}}}"
+			data-nav-group="{{{C_NavGroup_Default}}}"
+			data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+		/>
+		<frameinstance
+			id="{{{C_Id_ButtonGo}}}"
+			modelid="{{{ExpendableButton::C_Name}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-text="{{{C_Text_GoNow}}}"
+			data-styles="{{{ExpendableButton::C_Style_SizeExpendable}}}"
+			data-halign="right" data-valign="center"
+			data-nav-inputs="select;left;right"
+			data-nav-targets="_;{{{C_Id_ButtonClose}}};{{{C_Id_ButtonClose}}}"
+			data-nav-group="{{{C_NavGroup_Default}}}"
+			data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+		/>
+	</frame>
+</frame>
+	""";
+}
+
+/// Handle navigation focus
+Void Private_Focus(CMlScript _This, CMlControl _From, CMlControl _To) {
+	if (_From != Null) {
+		Navigation::Unfocus(_This, _From);
+		if (ExpendableButton_Base::IsButton(_From)) {
+			ExpendableButton_Base::Focus(_This, _From as CMlFrame, False);
+		}
+	}
+
+	if (_To != Null) {
+		Navigation::Focus(_This, _To);
+		if (ExpendableButton_Base::IsButton(_To)) {
+			ExpendableButton_Base::Focus(_This, _To as CMlFrame, True);
+		}
+	}
+}
+
+/// Show or hide the component
+Void Private_SetVisibility(CMlScript _This, SplashscreenStruct::K_Splashscreen _Splashscreen, Boolean _IsVisible, Boolean _IsAnimated) {
+	declare K_State CMGame_Splashscreen_State for _This.Page = C_State_Null;
+	CMGame_Splashscreen_State.CurrentSplashscreen = _Splashscreen;
+
+	// Update navigation
+	Navigation::EnableGroup(_This, C_NavGroup_Default, _IsVisible);
+	if (_IsVisible) {
+		ExpendableButton_Base::Unfocus(_This, CMGame_Splashscreen_State.Controls.Button_Go, False);
+		ExpendableButton_Base::Unfocus(_This, CMGame_Splashscreen_State.Controls.Button_Close, False);
+		Private_Focus(_This, Navigation::GetFocusedControl(_This, C_NavGroup_Default), CMGame_Splashscreen_State.Controls.Button_Go);
+	}
+
+	// Destroy splashscreen video
+	if (Video.Videos.existskey(CMGame_Splashscreen_State.CurrentVideoId)) {
+		Video.DestroyVideo(Video.Videos[CMGame_Splashscreen_State.CurrentVideoId]);
+	}
+
+	// Update controls
+	_This.AnimMgr.Flush(CMGame_Splashscreen_State.Controls.Frame_Global);
+	_This.AnimMgr.Flush(CMGame_Splashscreen_State.Controls.Quad_Background);
+	_This.AnimMgr.Flush(CMGame_Splashscreen_State.Controls.Quad_Splashscreen);
+	_This.AnimMgr.Flush(CMGame_Splashscreen_State.Controls.Button_Close);
+	_This.AnimMgr.Flush(CMGame_Splashscreen_State.Controls.Button_Go);
+
+	if (_IsVisible) {
+		declare Vec2 Pos_ButtonGo = <151.5, -73.>;
+		declare Vec2 Pos_ButtonClose = Pos_ButtonGo - <ExpendableButton_Base::GetWidth(CMGame_Splashscreen_State.Controls.Button_Go) + 4., 0.>;
+		declare Integer AnimDuration = Tools::Ternary(_IsAnimated, 350, 0);
+		declare Integer AnimStartTime = Now+500;
+
+		CMGame_Splashscreen_State.StartViewTimestamp = Now;
+		CMGame_Splashscreen_State.Controls.Frame_Global.Show();
+		CMGame_Splashscreen_State.Controls.Button_Go.RelativePosition_V3 = <250., -73.>;
+		CMGame_Splashscreen_State.Controls.Button_Close.RelativePosition_V3 = <250., -73.>;
+
+		if (CMGame_Splashscreen_State.CurrentSplashscreen.IsVideo) {
+			declare CVideo SplashscreenVideo <=> Video.CreateVideo(CMGame_Splashscreen_State.CurrentSplashscreen.Url, CMGame_Splashscreen_State.CurrentSplashscreen.IsLooping, True);
+			if (SplashscreenVideo != Null) {
+				SplashscreenVideo.Play();
+				CMGame_Splashscreen_State.CurrentVideoId = SplashscreenVideo.Id;
+				CMGame_Splashscreen_State.Controls.Quad_Splashscreen.Image = SplashscreenVideo.Image;
+			}
+		} else {
+			CMGame_Splashscreen_State.Controls.Quad_Splashscreen.ChangeImageUrl(CMGame_Splashscreen_State.CurrentSplashscreen.Url);
+		}
+
+		_This.AnimMgr.Add(CMGame_Splashscreen_State.Controls.Frame_Global, """<anim scale="1"/>""", AnimStartTime, AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(CMGame_Splashscreen_State.Controls.Quad_Background, """<anim opacity="1."/>""", AnimStartTime, AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(CMGame_Splashscreen_State.Controls.Quad_Splashscreen, """<anim opacity="1."/>""", AnimStartTime, AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(CMGame_Splashscreen_State.Controls.Button_Close, """<anim pos="{{{Pos_ButtonClose.X}}} {{{Pos_ButtonClose.Y}}}"/>""", AnimStartTime+500, AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(CMGame_Splashscreen_State.Controls.Button_Go, """<anim pos="{{{Pos_ButtonGo.X}}} {{{Pos_ButtonGo.Y}}}"/>""", AnimStartTime+500, AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else if (_IsAnimated) {
+		_This.AnimMgr.Add(CMGame_Splashscreen_State.Controls.Frame_Global, """<anim scale="0.95"/>""", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(CMGame_Splashscreen_State.Controls.Frame_Global, """<anim hidden="1"/>""", Now+300, 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(CMGame_Splashscreen_State.Controls.Quad_Splashscreen, """<anim opacity="0."/>""", Now+300, 350, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(CMGame_Splashscreen_State.Controls.Quad_Background, """<anim opacity="0."/>""", Now+300, 350, CAnimManager::EAnimManagerEasing::QuadOut);
+		ExpendableButton_Base::AddOpacityAnimation(_This, CMGame_Splashscreen_State.Controls.Button_Close, 0., Now+300, 350, CAnimManager::EAnimManagerEasing::QuadOut);
+		ExpendableButton_Base::AddOpacityAnimation(_This, CMGame_Splashscreen_State.Controls.Button_Go, 0., Now+300, 350, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		CMGame_Splashscreen_State.Controls.Frame_Global.Hide();
+		CMGame_Splashscreen_State.Controls.Frame_Global.RelativeScale = 0.95;
+		CMGame_Splashscreen_State.Controls.Quad_Background.Opacity = 0.;
+		CMGame_Splashscreen_State.Controls.Quad_Splashscreen.Opacity = 0.;
+		CMGame_Splashscreen_State.Controls.Quad_Splashscreen.ChangeImageUrl("");
+	}
+
+	// Send a visibility update event
+	CMGame_Splashscreen_State.PendingEvents.add(K_Event {
+		Type = C_EventType_VisibilityUpdate,
+		IsVisible = _IsVisible
+	});
+}
+
+/// Handle navigation selection
+Void Private_Select(CMlScript _This, CMlControl _Control) {
+	declare K_State CMGame_Splashscreen_State for _This.Page = C_State_Null;
+
+	switch (_Control.ControlId) {
+		case C_Id_ButtonGo: {
+			if (CMGame_Splashscreen_State.CurrentSplashscreen.ActionType != "") {
+				CMGame_Splashscreen_State.PendingEvents.add(K_Event {
+					Type = C_EventType_GoNow,
+					ActionType = CMGame_Splashscreen_State.CurrentSplashscreen.ActionType,
+					ActionIdentifier = CMGame_Splashscreen_State.CurrentSplashscreen.ActionIdentifier
+				});
+			}
+		}
+	}
+
+	// Create an impression of the splashscreen
+	SplashscreenStore::Action_CreateImpression(
+		_This,
+		CMGame_Splashscreen_State.CurrentSplashscreen.Uid,
+		Now - CMGame_Splashscreen_State.StartViewTimestamp,
+		_Control.ControlId == C_Id_ButtonGo
+	);
+
+	// Hide the splashscreen
+	Private_SetVisibility(_This, SplashscreenStruct::K_Splashscreen {}, False, True);
+}
+
+/// Show the splashscreen
+Void Show(CMlScript _This, SplashscreenStruct::K_Splashscreen _Splashscreen) {
+	Private_SetVisibility(_This, _Splashscreen, True, True);
+}
+
+/// Hide the splashscreen
+Void Hide(CMlScript _This) {
+	declare K_State CMGame_Splashscreen_State for _This.Page = C_State_Null;
+	Private_Select(_This, CMGame_Splashscreen_State.Controls.Button_Close);
+}
+
+/// Get the component pending events
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State CMGame_Splashscreen_State for _This.Page = C_State_Null;
+	return CMGame_Splashscreen_State.PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the component script
+Void MainInit(CMlScript _This) {
+	declare K_State CMGame_Splashscreen_State for _This.Page = C_State_Null;
+	declare CMlFrame Frame_Global <=> (_This.Page.GetFirstChild(C_Id_FrameGlobal) as CMlFrame);
+
+	CMGame_Splashscreen_State.Controls = K_Controls {
+		Frame_Global = Frame_Global,
+		Button_Go = (Frame_Global.GetFirstChild(C_Id_ButtonGo) as CMlFrame),
+		Button_Close = (Frame_Global.GetFirstChild(C_Id_ButtonClose) as CMlFrame),
+		Quad_Background = (Frame_Global.GetFirstChild(C_Id_QuadBackground) as CMlQuad),
+		Quad_Splashscreen = (Frame_Global.GetFirstChild(C_Id_QuadSplashscreen) as CMlQuad)
+	};
+
+	// Hide the component by default
+	Private_SetVisibility(_This, SplashscreenStruct::K_Splashscreen {}, False, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Loop of the component
+Void MainLoop(CMlScript _This) {
+	declare K_State CMGame_Splashscreen_State for _This.Page = C_State_Null;
+	CMGame_Splashscreen_State.PendingEvents.clear();
+
+	// Navigation events
+	foreach (Event in Navigation::GetPendingEvents(_This)) {
+		switch (Event.Type) {
+			case Navigation::C_EventType_NavigateInput: {
+				if (Navigation::IsEventFromGroup(_This, Event, C_NavGroup_Default)) {
+					switch (Event.Input) {
+						case CMlScriptEvent::EMenuNavAction::Cancel: Private_Select(_This, Event.To);
+						case CMlScriptEvent::EMenuNavAction::Select: Private_Select(_This, Event.To);
+						default: Private_Focus(_This, Event.From, Event.To);
+					}
+				}
+			}
+			case Navigation::C_EventType_NavigateMouse: {
+				if (Navigation::IsEventFromGroup(_This, Event, C_NavGroup_Default)) {
+					switch (Event.Mouse) {
+						case CMlScriptEvent::Type::MouseClick: Private_Select(_This, Event.To);
+						case CMlScriptEvent::Type::MouseOver: Private_Focus(_This, Event.From, Event.To);
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the code of the component
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/Splashscreen.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+""",
+[
+	ExpendableButton::ComponentV2(),
+	Navigation::ComponentV2()
+],
+[]
+	);
+}

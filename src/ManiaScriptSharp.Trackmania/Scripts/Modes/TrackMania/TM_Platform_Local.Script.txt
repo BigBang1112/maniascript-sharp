@@ -1,0 +1,549 @@
+/**
+ * TM_Platform_Local mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Platform,TM_Platform"
+#Const Version "1.3.2+2024-12-05"
+#Const ScriptName "Modes/TrackMania/TM_Platform_Local.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/GhostUpload_Server.Script.txt" as GhostUpload
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/EndRaceMenu_Server.Script.txt" as UIModules_EndRaceMenu
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/PauseMenu_Server.Script.txt" as UIModules_PauseMenu
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/StartRaceMenu_Server.Script.txt" as UIModules_StartRaceMenu
+#Include "Libs/Nadeo/Trackmania/Modes/Platform/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/Trackmania/Modes/Platform/StateManagerLocal.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/Platform/UIModules/ZIndex.Script.txt" as ZIndex
+#Include "Libs/Nadeo/Trackmania/Modes/UIModules/NetShare_Server.Script.txt" as NetShare
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_MA.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_CampaignId 0 as "<hidden>"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structure
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Private_Ghost {
+	Ident GhostId;
+	Ident GhostInstanceId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "TM_Platform_Local"
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/PlatformLocal.Script.txt" //< Url of the mania app
+
+#Const C_UploadRecord True
+#Const C_DisplayRecordGhost False
+#Const C_DisplayRecordMedal True
+#Const C_CelebrateRecordGhost True
+#Const C_CelebrateRecordMedal True
+#Const C_DisplayRecordsModule True
+#Const C_GhostUploadTimeout 60000
+#Const C_GhostLabel_PB "7FA" // GreenOne - applied with $xxx, must be hex3
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Global variables
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Task::K_Task G_Task_SaveReplay;
+declare Platform::K_GhostInfo G_Ghost_LastPlatformSession;
+declare K_Private_Ghost G_BestGhost;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(CampaignStore::ScriptName, CampaignStore::Version);
+Log::RegisterScript(CampaignStruct::ScriptName, CampaignStruct::Version);
+Log::RegisterScript(Http::ScriptName, Http::Version);
+Log::RegisterScript(ModeUtils::ScriptName, ModeUtils::Version);
+Log::RegisterScript(NetShare::ScriptName, NetShare::Version);
+Log::RegisterScript(UIModules_Checkpoint::ScriptName, UIModules_Checkpoint::Version);
+Log::RegisterScript(UIModules_EndRaceMenu::ScriptName, UIModules_EndRaceMenu::Version);
+Log::RegisterScript(UIModules_PauseMenu::ScriptName, UIModules_PauseMenu::Version);
+Log::RegisterScript(UIModules_StartRaceMenu::ScriptName, UIModules_StartRaceMenu::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultIntroSequence = False; //< Intro sequence is hidden by HoldLoadingScreen
+MB_Settings_UseDefaultPodiumSequence = False;
+MB_Settings_UseDefaultTimer = False;
+Race_Settings_IsLocalMode = True;
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+Race::SortScores(Race::C_Sort_Respawns);
+UIModules_PauseMenu::SetZIndex(ZIndex::C_ZIndex_PauseMenu);
+UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_GhostRespawns);
+UIModules_Checkpoint::SetDisplayRespawnsInsteadOfTime(True);
+UIModules_Record::SetIsGhostSpectatingEnabled(False);
+
+// Initialize scores table
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Respawns);
+UIModules_ScoresTable::SetIsLocalMode(True);
+
+// Hide SM Overlay
+UIManager.UIAll.OverlayHideSpectatorInfos = True;
+UIManager.UIAll.OverlayHideCountdown = True;
+***
+
+***Match_Yield***
+***
+StateMgr::Yield();
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+Clans::SetClansNb(0);
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint);
+Race::SetupRecord(
+	MenuConst::C_ScopeType_Season,
+	MenuConst::C_ScopeType_PersonalBest,
+	MenuConst::C_GameMode_Platform,
+	"",
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal,
+	C_DisplayRecordsModule
+);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(False);
+CarRank::Reset();
+***
+
+***Match_AfterLoadMap***
+***
+// Players are available only once the map is loaded
+// We must enforce their initialization there to avoid
+// being stuck in the start or end race menu when restarting the script
+foreach (Player in AllPlayers) {
+	StateMgr::InitializePlayer(Player);
+}
+***
+
+***Match_InitMap***
+***
+declare CampaignStruct::LibCampaignStruct_K_Campaign Map_Campaign for This;
+declare CampaignStruct::LibCampaignStruct_K_Map Map_Map for This;
+declare Integer CurrentMedal;
+***
+
+***Match_StartMap***
+***
+MB_EnablePlayMode(False);
+
+// Update variables
+Map_Campaign = CampaignStore::GetCampaignFromId(S_CampaignId);
+Map_Map = UpdateMapNetShare(Map_Campaign.Id);
+
+// Update the NetShare lib
+NetShare::SetHasNextMap(NextMapIndex != 0);
+NetShare::SetCampaign(Map_Campaign);
+
+// Init UIs
+UIModules_EndRaceMenu::SetMapChanged();
+UIModules_ScoresTable::SetGhostsForRanking(Players[0], [], [], "", [], "", 0, 0, False, False, Medals::C_ScoreMgrMedal_None);
+UIModules_Checkpoint::SetBestGhostRespawnsNbForRanking(Players[0], -1);
+***
+
+***Match_StartRound***
+***
+// Update the current medal
+CurrentMedal = Map_Map.Medal;
+
+// Reset the EndRaceMenu UIModule
+UIModules_EndRaceMenu::SetPlayerDrivingAloneState(True);
+UIModules_EndRaceMenu::SetVisibilityOfNewMedal(False);
+UIModules_EndRaceMenu::SetEarlyMedalDisplay(False);
+UIModules_EndRaceMenu::SetCanViewReplay(False);
+UIModules_EndRaceMenu::StopCurrentSounds();
+UIModules_EndRaceMenu::SetRoundChanged();
+
+// Display player in spawn with background intro
+ModeUtils::PushAndApplyUISequence(UIManager.UIAll, CUIConfig::EUISequence::RollingBackgroundIntro);
+foreach (Player in Players) {
+	if (Race::IsReadyToStart(Player)) {
+		Race::Start(Player, Map::GetStart(), 0, -1);
+	}
+}
+
+// Process start race menu events
+if (!StateMgr::HasForcedState(StateMgr::C_State_Playing)) {
+	StateMgr::ForcePlayersStates([StateMgr::C_State_StartRaceMenu]);
+	while (MB_MapIsRunning() && StateMgr::HasForcedState(StateMgr::C_State_StartRaceMenu)) {
+		ProcessStartRaceMenuEvent();
+		MB_Yield();
+	}
+}
+ModeUtils::PopAndApplyUISequence(UIManager.UIAll);
+
+// Ensure that the volume balance enters Playing state
+UIModules_StartRaceMenu::SetVolumeBalanceState_Playing();
+
+// Update play mode
+MB_EnablePlayMode(StateMgr::HasForcedState(StateMgr::C_State_Playing));
+
+// Fetch best ghost of the player
+G_BestGhost = UpdatePBGhost_Yield(G_BestGhost);
+declare CGhost[] RankingGhosts;
+if (G_BestGhost.GhostId != NullId && DataFileMgr.Ghosts.existskey(G_BestGhost.GhostId)) {
+	RankingGhosts.add(DataFileMgr.Ghosts[G_BestGhost.GhostId]);
+}
+
+// Spawn players for the race
+StartTime = Now + Race::C_SpawnDuration;
+foreach (Player in Players) {
+	UIModules_ScoresTable::SetGhostsForRanking(Player, RankingGhosts, [], "", [], GetPBName(), -1, -1, False, False, -1);
+	if (RankingGhosts.count > 0) UIModules_Checkpoint::SetBestGhostRespawnsNbForRanking(Player, RankingGhosts[0].Result.NbRespawns);
+	Race::Start(Player, StartTime);
+}
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare Events::K_RaceEvent[] RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	Race::ValidEvent(Event);
+
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		if (Event.Player != Null) {
+			if (Event.IsEndLap) {
+				Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				Scores::UpdatePlayerPrevLap(Event.Player);
+			}
+			if (Event.IsEndRace || (Event.IsEndLap && Event.IsIndependentLaps)) {
+				Race::StopSkipScoresTable(Event.Player); //< override the outro sequence duration and do not display the scores table
+				Scores::UpdatePlayerPrevRace(Event.Player);
+				GhostUpload::ForceUploadWaiting(C_GhostUploadTimeout);
+				StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+				MB_StopRound();
+			}
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Spawn players
+if (PlayersNbDead > 0 && MB_RoundIsRunning()) { //< Check for unspawned players only if at least one player is unspawned
+	foreach (Player in Players) {
+		if (Race::IsReadyToStart(Player)) {
+			Race::ResetSolo();
+			Race::Start(Player);
+		}
+	}
+}
+
+// Process UI events
+ProcessPauseMenuEvent();
+ProcessRecordsEvent();
+***
+
+***Match_EndRound***
+***
+if (!StateMgr::HasForcedState(StateMgr::C_State_Playing)) {
+	//Wait for the end of the record transmission
+	while (GhostUpload::IsUploading()) MB_Yield();
+
+	// Update variables
+	Map_Map = UpdateMapNetShare(Map_Campaign.Id);
+
+	// Retrieve the latest ghost
+	declare CGhost Ghost = Ghost_RetrieveFromPlayer(Players[0]);
+	if (Ghost != Null) {
+		G_Ghost_LastPlatformSession = Platform::ReleaseGhost(G_Ghost_LastPlatformSession);
+		G_Ghost_LastPlatformSession = Platform::K_GhostInfo { Ghost = Ghost };
+	}
+
+	// Start replay outro
+	declare Integer LastRaceReplayStartTime = Now;
+	declare Integer GhostRestartTime = -1;
+	declare Ident GhostToFollowInstanceId = NullId;
+	declare CGhost GhostToFollow = Ghost_RetrieveFromPlayer(Players[0]);
+	Ghosts_SetStartTime(LastRaceReplayStartTime);
+	if (GhostToFollow != Null) {
+		GhostRestartTime = Now + GhostToFollow.Result.Time;
+		GhostToFollowInstanceId = GhostMgr.Ghost_Add(GhostToFollow, False);
+	}
+	if (GhostToFollowInstanceId != NullId) {
+		UIManager.UIAll.Spectator_SetForcedTarget_Ghost(GhostToFollowInstanceId);
+	}
+	declare CUIConfig::EUISequence PrevUISequence = UIManager.UIAll.UISequence;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;
+	UIManager.UIAll.ForceSpectator = True;
+	UIManager.UIAll.SpectatorForceCameraType = 0;
+
+	// Process end race menu events
+	StateMgr::ForcePlayersStates([StateMgr::C_State_EndRaceMenu]);
+	UIModules_EndRaceMenu::SetEarlyMedalDisplay(CurrentMedal < Map_Map.Medal);
+	UIModules_EndRaceMenu::SetVisibilityOfNewMedal(CurrentMedal < Map_Map.Medal);
+	declare Boolean IsOutroComplete = IsOutroComplete();
+	while (MB_MapIsRunning() && StateMgr::HasForcedState(StateMgr::C_State_EndRaceMenu)) {
+		ProcessEndRaceMenuEvent();
+		MB_Yield();
+
+		// Loop ghost for replay
+		if (
+			(IsOutroComplete && GhostRestartTime >= 0 && Now >= GhostRestartTime) ||
+			(!IsOutroComplete && IsOutroComplete())
+		) {
+			IsOutroComplete = True;
+			if (GhostToFollow != Null) {
+				LastRaceReplayStartTime = Now;
+				Ghosts_SetStartTime(LastRaceReplayStartTime);
+				GhostRestartTime = LastRaceReplayStartTime + GhostToFollow.Result.Time;
+			} else {
+				GhostRestartTime = -1;
+			}
+		}
+	}
+
+	// Stop replay outro
+	Ghosts_SetStartTime(-1);
+	UIManager.UIAll.UISequence = PrevUISequence;
+	UIManager.UIAll.ForceSpectator = False;
+	UIManager.UIAll.SpectatorForceCameraType = -1;
+	UIManager.UIAll.Spectator_SetForcedTarget_Clear();
+	if (GhostToFollowInstanceId != NullId) {
+		GhostMgr.Ghost_Remove(GhostToFollowInstanceId);
+		GhostToFollowInstanceId = NullId;
+	}
+	if (GhostToFollow != Null && DataFileMgr.Ghosts.existskey(GhostToFollow.Id)) {
+		DataFileMgr.Ghost_Release(GhostToFollow.Id);
+	}
+	GhostToFollow = Null;
+}
+***
+
+***Match_EndMap***
+***
+// Ensure that we stop the match (after a vote for the next map, ...)
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+Race::StopSkipOutroAll();
+MB_StopMatch();
+
+// Clear variables
+G_Task_SaveReplay = Task::Destroy(G_Task_SaveReplay);
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the map in the NetShare component
+CampaignStruct::LibCampaignStruct_K_Map UpdateMapNetShare(Integer _CampaignId) {
+	if (Map == Null || Map.MapInfo == Null) return CampaignStruct::LibCampaignStruct_K_Map {};
+	declare CampaignStruct::LibCampaignStruct_K_Map NetShareMap;
+	declare Integer RespawnCount = -1; //< ScoreMgr will update this variable
+	declare Integer Points = -1; //< ScoreMgr will update this variable
+	declare Integer Score = -1; //< ScoreMgr will update this variable
+	declare Integer Medal;
+
+	// Update medal and full score from ScoreMgr
+	Medal = ScoreMgr.Map_GetMedal(
+		MainUser::GetMainUserId(),
+		Map.MapInfo.MapUid,
+		MenuConst::C_ScopeType_PersonalBest,
+		"",
+		MenuConst::C_GameMode_Platform,
+		""
+	);
+	ScoreMgr.Map_GetRecordFullScore(
+		MainUser::GetMainUserId(),
+		Map.MapInfo.MapUid,
+		MenuConst::C_ScopeType_PersonalBest,
+		"",
+		MenuConst::C_GameMode_Platform,
+		"",
+		Score,
+		Points,
+		RespawnCount
+	);
+
+	// Update the NetShare map
+	if (_CampaignId != CampaignStruct::C_Campaign_NullId) {
+		NetShareMap = CampaignStore::SetMapMedalAndScore(_CampaignId, Map.MapInfo.MapUid, Medal, Score, Points, RespawnCount);
+	} else { //< When playing a Platform track that is not in a campaign (e.g. using the 'Play a track' button in the 'Local' menu)
+		NetShareMap = CampaignStruct::GetMapFromMapInfo(Map.MapInfo);
+		NetShareMap.RespawnCount = RespawnCount;
+		NetShareMap.Points = Points;
+		NetShareMap.Score = Score;
+		NetShareMap.Medal = Medal;
+	}
+	NetShare::SetMap(NetShareMap);
+
+	return NetShareMap;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the colored "Personnal Best" text
+Text GetPBName() {
+	//L16N [Record] Name displayed above the ghost of the player's best score
+	return "$"^C_GhostLabel_PB^TL::GetTranslatedText(_("Personal best"));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Fetch the best ghost of the race for the player
+K_Private_Ghost UpdatePBGhost_Yield(K_Private_Ghost _PreviousGhost) {
+	declare K_Private_Ghost Ghost = _PreviousGhost;
+
+	if (Ghost.GhostInstanceId != NullId) {
+		GhostMgr.Ghost_Remove(_PreviousGhost.GhostInstanceId);
+	}
+	if (Ghost.GhostId != NullId && DataFileMgr.Ghosts.existskey(Ghost.GhostId)) {
+		DataFileMgr.Ghost_Release(Ghost.GhostId);
+	}
+	Ghost.GhostInstanceId = NullId;
+	Ghost.GhostId = NullId;
+
+	declare Task::K_Task Task_GetRecordGhost = Task::Create(ScoreMgr, ScoreMgr.Map_GetRecordGhost_v2(
+		MainUser::GetMainUserId(),
+		Map.MapInfo.MapUid,
+		MenuConst::C_ScopeType_PersonalBest,
+		"",
+		MenuConst::C_GameMode_Platform,
+		""
+	));
+
+	while (Task::IsInitialized(Task_GetRecordGhost)) {
+		Task_GetRecordGhost = Task::Update(Task_GetRecordGhost);
+		if (!Task::IsRunning(Task_GetRecordGhost)) {
+			declare CTaskResult_Ghost SourceTask = Task::GetSourceTask_Ghost(Task_GetRecordGhost);
+			if (Task::IsSuccess(Task_GetRecordGhost) && SourceTask != Null && SourceTask.Ghost != Null) {
+				//L16N [Record] Best score done by the player. PB stands for Personnal Best. The translation must be 3 or less letters because it's displayed on the back of the car (as the trigram).
+				SourceTask.Ghost.Trigram = _("|Personal best|PB");
+				SourceTask.Ghost.Nickname = GetPBName();
+				Ghost.GhostInstanceId = GhostMgr.Ghost_Add(SourceTask.Ghost, True);
+				Ghost.GhostId = SourceTask.Ghost.Id;
+			}
+			Task_GetRecordGhost = Task::Destroy(Task_GetRecordGhost);
+		}
+		MB_Yield();
+	}
+
+	return Ghost;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if all players outro are finished
+Boolean IsOutroComplete() {
+	foreach (Player in AllPlayers) {
+		if (Race::IsWatchingOutro(Player)) {
+			return False;
+		}
+	}
+	return True;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the StartRaceMenu UI has been received and apply it if needed
+Void ProcessStartRaceMenuEvent() {
+	switch (UIModules_StartRaceMenu::GetLastEventType()) {
+		case Const::C_RaceMenuEvent_MapRecordsUpdated: {
+			declare CampaignStruct::LibCampaignStruct_K_Map Map_Map for This;
+			declare CampaignStruct::LibCampaignStruct_K_Campaign Map_Campaign for This;
+			Map_Map = UpdateMapNetShare(Map_Campaign.Id);
+		}
+		case Const::C_RaceMenuEvent_Exit: MB_StopServer();
+		case Const::C_StartRaceMenuEvent_StartRace: StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the PauseMenu UI has been received and apply it if needed
+Void ProcessPauseMenuEvent() {
+	switch (UIModules_PauseMenu::GetLastEventType()) {
+		case Const::C_RaceMenuEvent_NextMap: MB_StopMap();
+		case Const::C_RaceMenuEvent_ChangeOpponents: {
+			StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+			MB_StopRound();
+		}
+	}
+}
+
+/// Check if an event from the EndRaceMenu UI has been received and apply it if needed
+Void ProcessEndRaceMenuEvent() {
+	switch (UIModules_EndRaceMenu::GetLastEventType()) {
+		case Const::C_EndRaceMenuEvent_Improve: StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+		case Const::C_RaceMenuEvent_NextMap: MB_StopMap();
+		case Const::C_RaceMenuEvent_Exit: MB_StopServer();
+		case Const::C_RaceMenuEvent_MapRecordsUpdated: {
+			declare CampaignStruct::LibCampaignStruct_K_Map Map_Map for This;
+			declare CampaignStruct::LibCampaignStruct_K_Campaign Map_Campaign for This;
+			Map_Map = UpdateMapNetShare(Map_Campaign.Id);
+		}
+		case Const::C_EndRaceMenuEvent_SaveReplay: {
+			G_Task_SaveReplay = Platform::SaveReplay(G_Ghost_LastPlatformSession.Ghost.Id, G_Task_SaveReplay);
+			while (Task::IsInitialized(G_Task_SaveReplay)) {
+				G_Task_SaveReplay = Task::Update(G_Task_SaveReplay);
+				if (!Task::IsRunning(G_Task_SaveReplay)) {
+					if (Task::IsSuccess(G_Task_SaveReplay)) UIModules_EndRaceMenu::SetReplaySaved();
+					G_Task_SaveReplay = Task::Destroy(G_Task_SaveReplay);
+				}
+				MB_Yield();
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the Records UI has been received and apply it if needed
+Void ProcessRecordsEvent() {
+	foreach (Event in UIManager.PendingEvents) {
+		if (Event.Type == CUIConfigEvent::EType::OnLayerCustomEvent) {
+			switch (Event.CustomEventType) {
+				case UIModules_Record::C_Event_UpdatePBGhostVisibility: {
+					if (UIModules_Record::PBGhostIsVisible(Event)) {
+						G_BestGhost = UpdatePBGhost_Yield(G_BestGhost);
+					} else if (G_BestGhost.GhostInstanceId != NullId) {
+						GhostMgr.Ghost_Remove(G_BestGhost.GhostInstanceId);
+						G_BestGhost.GhostInstanceId = NullId;
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,226 @@
+/**
+ *	State manager for the Time Attack mode
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TimeAttack/StateManager.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Server.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttack/UIModules/BestRaceViewer_Server.Script.txt" as UIModules_BestRaceViewer
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttack/UIModules/EndMatchTrophy_Server.Script.txt" as UIModules_EndMatchTrophy
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/*	Enabling this setting will have
+ *	a big impact on the script performances
+ *	in crowded server. The library
+ *	will do a check on every player
+ *	of the server on every frame.
+ *	If the script respect the convention
+ *	to always use MB_Yield() instead of yield;
+ *	then it should not have to enforce
+ *	the state at each frame. Any new
+ *	player will be initialized when
+ *	they join the server
+ */
+#Const C_ForceStatesEveryFrame False
+
+#Const C_State_Waiting 0
+#Const C_State_Playing 1
+#Const C_State_TrophyAnimation 2
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer[] G_ForcedStates;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Apply the given states to the given player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_States										The states to apply
+ */
+Void Private_Apply(CPlayer _Player, Integer[] _States) {
+	if (_Player == Null) return;
+
+	UIModules_BestRaceViewer::SetVisibility(_Player, False);
+	UIModules_EndMatchTrophy::SetVisibility(_Player, False);
+
+	foreach (State in _States) {
+		switch (State) {
+			case C_State_Playing: {
+				UIModules_BestRaceViewer::SetVisibility(_Player, True);
+			}
+			case C_State_TrophyAnimation: {
+				UIModules_EndMatchTrophy::SetVisibility(_Player, True);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a state to a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to add
+ */
+Void Add(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	if (!LibStateMgr_States.exists(_State)) {
+		LibStateMgr_States.add(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove a state from a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to remove
+ */
+Void Remove(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	if (LibStateMgr_States.exists(_State)) {
+		declare Removed = LibStateMgr_States.remove(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove all state from a player
+ *
+ *	@param	_Player										The player to reset
+ */
+Void Reset(CPlayer _Player) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	LibStateMgr_States = [];
+	if (G_ForcedStates.count <= 0) {
+		Private_Apply(_Player, LibStateMgr_States);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player has the given state
+ *
+ *	@param	_Player										The player to check
+ *	@param	_State										The state to find
+ *
+ *	@return														True if the player has the state
+ *																		False otherwise
+ */
+Boolean HasState(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return False;
+
+	declare Integer[] LibStateMgr_States for _Player;
+	return LibStateMgr_States.exists(_State) || G_ForcedStates.exists(_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Return current forced states
+ *
+ *	@return										The forced states
+ */
+Integer[] GetForcedStates() {
+	return G_ForcedStates;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Force the states applied to all players
+ *	To disable the forced states use an empty array
+ *
+ *	@param	_States									The states to force
+ */
+Void ForcePlayersStates(Integer[] _States) {
+	G_ForcedStates = _States;
+
+	foreach (Player in AllPlayers) {
+		declare Boolean LibStateMgr_IsForcedStates for Player = False;
+		// Enable
+		if (G_ForcedStates.count > 0) {
+			LibStateMgr_IsForcedStates = True;
+			Private_Apply(Player, G_ForcedStates);
+		}
+		// Disable
+		else {
+			LibStateMgr_IsForcedStates = False;
+			declare Integer[] LibStateMgr_States for Player;
+			Private_Apply(Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (C_ForceStatesEveryFrame && G_ForcedStates.count > 0) {
+		foreach (Player in AllPlayers) {
+			declare Boolean LibStateMgr_IsForcedStates for Player = False;
+			if (!LibStateMgr_IsForcedStates) {
+				LibStateMgr_IsForcedStates = True;
+				Private_Apply(Player, G_ForcedStates);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	UIModules_BestRaceViewer::InitializePlayer(_Player);
+	UIModules_EndMatchTrophy::InitializePlayer(_Player);
+
+	Reset(_Player);
+
+	if (G_ForcedStates.count > 0) {
+		declare Boolean LibStateMgr_IsForcedStates for _Player = False;
+		LibStateMgr_IsForcedStates = True;
+		Private_Apply(_Player, G_ForcedStates);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	ForcePlayersStates([]);
+
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+
+	UIModules_EndMatchTrophy::Unload();
+	UIModules_BestRaceViewer::Unload();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	UIModules_BestRaceViewer::Load();
+	UIModules_EndMatchTrophy::Load();
+
+	UIModules::InitializeCustomizableModule(UIModules_BestRaceViewer::GetConfig());
+
+	UIModules::LoadModules([
+		UIModules_BestRaceViewer::GetId(),
+		UIModules_EndMatchTrophy::C_Id
+	]);
+}

@@ -1,0 +1,262 @@
+/**
+ *	Page: ConnectionError
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/MainMenu/Pages/ConnectionError.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router_ML
+#Include "Libs/Nadeo/CMGame/Menus/Router_MA.Script.txt" as Router
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Components/PopUpMultiChoice.Script.txt" as PopUpMultiChoice
+#Include "Libs/Nadeo/Trackmania/MainMenu/Menu.Script.txt" as Menu
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_MA.Script.txt" as UserStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Page_ConnectionError"
+#Const C_RedirectToPressStart True //< Simply redirect to the `PressStart` page instead of reloading the whole menu
+
+#Const C_Choice_Confirm 0
+#Const C_Choices_ConnectionError [
+	//L16N [ConnectionError] Confirm that the player have been disconnected
+	0 => _("|Infinitive|Confirm")
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare CMasterServerUser::EMasterServerConnectionStatus G_ConnectionStatus;
+declare Boolean G_IsNetworkAvailable;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the page manialink
+ *
+ *	@return														The page manialink
+ */
+Text GetManialink() {
+	//L16N [ConnectionError] Title of the connection error pop-up.
+	declare Text Text_TitleConnectionError = _("Connection error");
+	//L16N [ConnectionError] Title of the connection restored pop-up.
+	declare Text Text_TitleConnectionRestored = _("Connection restored");
+	//L16N [ConnectionError] Message displayed when a player who was disconnected from Ubisoft Connect or the console network service (Xbox, Playstation, Stadia, or Luna Network) is reconnected. %1 will be replaced by the first party network name.
+	declare Text Text_ReconnectDescription = _("The connection to %1 is restored. Do you want to return to the start page to reconnect or stay offline?");
+
+	return MV::Create(
+C_Name, 3,
+"""
+<frame id="frame-global" z-index="{{{Const::C_ZIndex_ConnectionError}}}">
+	<frameinstance id="popupmultichoice-confirm" modelid="{{{PopUpMultiChoice::C_Name}}}" data-selection-required="true" z-index="1" hidden="1"/>
+	<quad id="quad-fade" size="320 180" fullscreen="1" z-index="2" halign="center" valign="center" opacity="0" bgcolor="000000" />
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Error.Script.txt" as Error
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ControllerInfo_ML.Script.txt" as ControllerInfo
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ReportSystem.Script.txt" as ReportSystem
+
+#Const C_Choice_Confirm {{{dump(C_Choice_Confirm)}}}
+#Const C_Choices_ConnectionError {{{dump(C_Choices_ConnectionError)}}}
+
+#Const C_Choice_Reconnect {{{dump(Const::C_Choice_Reconnect)}}}
+#Const C_Choice_StayOffline {{{dump(Const::C_Choice_StayOffline)}}}
+#Const C_Choices_ConnectionRestored {{{dump(Const::C_Choices_ConnectionRestored)}}}
+
+#Const C_FadeDuration 500
+#Const C_RedirectToPressStart {{{dump(C_RedirectToPressStart)}}}
+""",
+"""
+***MainInit***
+***
+declare CMlFrame PopUpMultiChoice_Confirm;
+declare CMlQuad Quad_Fade;
+declare Integer RestartTime;
+***
+
+***MainStart***
+***
+PopUpMultiChoice_Confirm <=> (Page.GetFirstChild("popupmultichoice-confirm") as CMlFrame);
+Quad_Fade <=> (Page.GetFirstChild("quad-fade") as CMlQuad);
+
+RestartTime = -1;
+***
+
+***MainLoop***
+***
+foreach (Event in {{{Router_ML::P}}}GetPendingEvents(This)) {
+	switch (Event.Type) {
+		case "{{{Router_ML::C_Event_EnteringRoute}}}": {
+			declare Text[Text] Query = {{{Router_ML::P}}}GetCurrentRouteQuery(This);
+			declare Text Network = "$<$i"^Platform::GetNetworkName(System)^"$>";
+			declare Text Title = "";
+			declare Text Description = "";
+			declare Text[Integer] Choices = [];
+			declare Text[Text] Buttons = [];
+			declare Boolean IsReconnect = (
+				Query.existskey("{{{RoutePaths::C_Query_IsReconnect}}}") &&
+				Tools::TextToBoolean(Query["{{{RoutePaths::C_Query_IsReconnect}}}"])
+			);
+
+			ReportSystem::FullReset();
+
+			Quad_Fade.Opacity = 0.;
+			if (IsReconnect) {
+				Title = "{{{Text_TitleConnectionRestored}}}";
+				Description = TL::Compose("{{{Text_ReconnectDescription}}}", Network);
+				Choices = C_Choices_ConnectionRestored;
+				Buttons = ["A" => _("Select")];
+			} else {
+				Title = "{{{Text_TitleConnectionError}}}";
+				Description = Error::GetConnectionErrorMessage(UserMgr.MainUserWebServicesInfo.LastConnectionErrorType, UserMgr.MainUserWebServicesInfo.LastConnectionErrorCode, Network);
+				Choices = C_Choices_ConnectionError;
+				Buttons = ["A" => C_Choices_ConnectionError[C_Choice_Confirm]];
+			}
+
+			{{{PopUpMultiChoice::P}}}SetTitle(This, PopUpMultiChoice_Confirm, Title, False);
+			{{{PopUpMultiChoice::P}}}SetDescription(This, PopUpMultiChoice_Confirm, [{{{PopUpMultiChoice::P}}}CreateDescriptionPart(Description, <120., 30.>, 3., "{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}", "$t$i", <1., 1., 1.>, False)], False);
+			{{{PopUpMultiChoice::P}}}SetChoices(This, PopUpMultiChoice_Confirm, Choices, True);
+			{{{PopUpMultiChoice::P}}}Open(This, PopUpMultiChoice_Confirm);
+			ControllerInfo::SetButtons(Buttons);
+		}
+	}
+}
+
+if ({{{Router_ML::P}}}PageIsRunning(This, "{{{RoutePaths::C_Path_ConnectionError}}}")) {
+	if (RestartTime >= 0 && Now >= RestartTime) {
+		RestartTime = -1;
+		SendCustomEvent("{{{Const::C_Event_ConnectionError_RequestRestart}}}", []);
+	}
+
+	/* PopUpMultiChoice events */
+	foreach (Event in {{{PopUpMultiChoice::P}}}GetPendingEvents(This)) {
+		if (Event.PopUpMultiChoice != Null && Event.PopUpMultiChoice.Id == PopUpMultiChoice_Confirm.Id) {
+			switch (Event.Type) {
+				case {{{PopUpMultiChoice::P}}}C_EventType_Select: {
+					switch (Event.PopUpMultiChoice.ControlId) {
+						case PopUpMultiChoice_Confirm.ControlId: {
+							switch (Event.SelectedIndex) {
+								case C_Choice_Confirm, C_Choice_Reconnect: {
+									if (C_RedirectToPressStart) {
+										SendCustomEvent("{{{Const::C_Event_ConnectionError_RequestRestart}}}", []);
+									} else {
+										RestartTime = Now + C_FadeDuration;
+										AnimMgr.Add(Quad_Fade, "<a opacity=\"1\" />", C_FadeDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+									}
+								}
+								case C_Choice_StayOffline: {
+									{{{Router_ML::P}}}PushParent(This);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	MenuSounds::ComponentV2(),
+	Router_ML::ComponentV2(),
+	PopUpMultiChoice::ComponentV2()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Initialize the value of `G_IsNetworkAvailable` to avoid wrong detection of network availability
+// see: /trackmania-next/tmnext/-/issues/5402
+Void InitializeIsNetworkAvailable(Boolean _IsNetworkAvailable) {
+	G_IsNetworkAvailable = _IsNetworkAvailable;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the connection error page is disabled on the current route
+Boolean ConnectionErrorPageDisabled() {
+	foreach (Route in RoutePaths::GetConnectionErrorPageDisabled()) {
+		if (Router::IsOnRoute(Route)) return True;
+	}
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update from the ManiaApp
+Void Yield() {
+	if (
+		UserMgr != Null && (
+			!(This is CManiaAppTitle) ||
+			!ConnectionErrorPageDisabled()
+		)
+	) {
+		// Detect disconnection
+		// Only do it in the menu. Ingame it is handled by ConnectionError_Client.Script.txt.
+		if (
+			This is CManiaAppTitle &&
+			UserMgr.MainUserWebServicesInfo != Null &&
+			G_ConnectionStatus != UserMgr.MainUserWebServicesInfo.ConnectionStatus &&
+			!UserStore::IsOfflineMode()
+		) {
+			G_ConnectionStatus = UserMgr.MainUserWebServicesInfo.ConnectionStatus;
+			if (G_ConnectionStatus == CMasterServerUser::EMasterServerConnectionStatus::NotConnected) {
+				Router::Push(RoutePaths::C_Path_ConnectionError);
+			}
+		}
+
+		// Detect possibility to reconnect
+		if (
+			This is CManiaAppTitle &&
+			G_IsNetworkAvailable != UserMgr.IsNetworkAvailable &&
+			UserStore::IsOfflineMode()
+		) {
+			G_IsNetworkAvailable = UserMgr.IsNetworkAvailable;
+			// Only possible on Sony and Microsoft networks
+			// See: /trackmania-next/tmnext/-/issues/3608#note_252700
+			if (
+				G_IsNetworkAvailable &&
+				(Platform::IsSony(System) || Platform::IsMicrosoft(System))
+			) {
+				Router::SetParentURL(RoutePaths::C_Path_ConnectionError, Router::GetCurrentRoute().URL);
+				Router::Push(RoutePaths::C_Path_ConnectionError, [RoutePaths::C_Query_IsReconnect => "1"]);
+			}
+		}
+	}
+
+	if (This is CManiaAppTitle) {
+		foreach (Event in PendingEvents) {
+			switch (Event.Type) {
+				case CManiaAppEvent::EType::LayerCustomEvent: {
+					if (Event.CustomEventType == Const::C_Event_ConnectionError_RequestRestart) {
+						if (C_RedirectToPressStart) {
+							Router::Push(RoutePaths::C_Path_PressStart);
+						} else {
+							Menu::RequestRestart();
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Called one time at the start of the game
+Void Load() {
+	G_ConnectionStatus = CMasterServerUser::EMasterServerConnectionStatus::NotConnected;
+	G_IsNetworkAvailable = False;
+}

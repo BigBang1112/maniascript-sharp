@@ -1,0 +1,1188 @@
+/**
+ *	Component: Slider
+ *	===========================
+ *
+ *	Confluence : https://confluence.ubisoft.com/display/Nadeo/Slider
+ *
+ *	Info
+ *	----
+ *
+ *	Allow the user to select a value in a range. Three types of value are available :
+ *	- Real
+ *	- Integer
+ *	- Color
+ *
+ *	Parameters
+ *	----------
+ *
+ *	- `data-halign` (`Text`): horizontal alignment of the slider
+ *			Can be `left`, `center` or `right`.
+ *	- `data-valign` (`Text`): vertical alignment of the slider
+ *			Can be `top`, `center` or `bottom`.
+ *	- `data-bar-size` (`Vec2`): the size of the slider bar
+ *	- `data-cursor-size` (`Vec2`): the size of the slider cursor
+ *	- `data-bar-color` (`Text`): color of the slider bar (hexadicimal format)
+ *	- `data-cursor-color` (`Text`): color of the slider cursor (hexadicimal format)
+ *	- `data-bar-color-mode` (`Integer`): color mode of the slider bar
+ *			- `C_ColorMode_Colorize` to use the `colorize` property of the quad
+ *			- `C_ColorMode_Modulate` to use the `modulatecolor` property of the quad
+ *			- `C_ColorMode_Background` to use the `bgcolor` property of the quad
+ *	- `data-cursor-color-mode` (`Integer`): color mode of the slider cursor
+ *			- `C_ColorMode_Colorize` to use the `colorize` property of the quad
+ *			- `C_ColorMode_Modulate` to use the `modulatecolor` property of the quad
+ *			- `C_ColorMode_Background` to use the `bgcolor` property of the quad
+ *	- `data-opacity` (`Real`): the opacity of the slider
+ *	- `data-rot` (`Real`): the rotation of the slider (in degrees)
+ *	- `data-range-real` (`Vec2`): the range of Real values the slider can return
+ *	- `data-range-integer` (`Int2`): the range of Integer values the slider can return
+ *	- `data-range-color` (4 `Real`): the range of color values the slider can return, 4 real values: hue start, hue end, saturation, value (HSV format)
+ *	- `data-apply-color-on-cursor` (`Boolean`): apply the color from the color range to the slider cursor
+ *	- `data-steps` (`Integer`): the number of steps available on the slider
+ *	- `data-mouse-interaction-disabled` (`Boolean`): disable the mouse interaction with the slider cursor and bar
+ *	- `data-bar-image` (`Text`): use an image for the slider bar
+ *	- `data-sound-update` (`Text`): a `MenuSounds` to play when the slider value is updated
+ *	- `data-styles` (`Text`): styles to apply to the slider, new styles can be created with the `CreateStyle()` function
+ *			When several styles are applied to a slider, the styles are merged together with the properties
+ *			of the latest style overriding the properties of the earlier ones.
+ *			For example if "style-a" is `{ A = 1, B = 2, C = 3 }`, "style-b" is `{ A = 11 , C = 33}` and
+ *			"style-c" is `{ A = 111 }` and we set the slider style to `"style-a style-b style-c"`
+ *			then the applied properties will be `{ A = 111, B = 2, C = 33 }`.
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/Slider.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-cmgame-slider" // Component name
+#Const P "CMGame_Slider_" // Prefix use to differentiate functions/variables in the script
+#Const C_NavZone "CMGame_Slider_quad-bar-left CMGame_Slider_quad-bar-right CMGame_Slider_quad-cursor"
+
+#Const C_ColorMode_None 0
+#Const C_ColorMode_Colorize 1
+#Const C_ColorMode_Modulate 2
+#Const C_ColorMode_Background 3
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text Private_GetManialink() {
+	return
+"""
+<frame id="{{{P}}}frame-counter-rot" class="{{{P}}}slider">
+	<frame id="{{{P}}}frame-slider-align">
+		<frame id="{{{P}}}frame-vcenter">
+			<frame id="{{{P}}}frame-bar">
+				<frame id="{{{P}}}frame-clip-bar-left" valign="center" size="0 0" z-index="0">
+					<quad id="{{{P}}}quad-bar-left" valign="center" bgcolor="ffffff" />
+				</frame>
+				<frame id="{{{P}}}frame-clip-bar-right" halign="right" valign="center" size="0 0" z-index="0">
+					<quad id="{{{P}}}quad-bar-right" halign="right" valign="center" bgcolor="ffffff" />
+				</frame>
+			</frame>
+			<quad id="{{{P}}}quad-bar-mouse" class="{{{Navigation::C_Class_ActivationZone}}} {{{P}}}slider-bar" z-index="1" valign="center" opacity="0" scriptevents="1" />
+			<quad id="{{{P}}}quad-cursor" class="{{{Navigation::C_Class_ActivationZone}}}" z-index="2" valign="center" bgcolor="ffffff" scriptevents="1" />
+		</frame>
+	</frame>
+</frame>
+""";
+}
+
+Text Private_GetScriptDirectives() {
+	return
+"""
+#Include "TextLib" as {{{P}}}TL
+#Include "MathLib" as {{{P}}}ML
+#Include "ColorLib" as {{{P}}}CL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as {{{P}}}Tools
+
+#Struct {{{P}}}K_Controls {
+	CMlFrame Frame_CounterRot;
+	CMlFrame Frame_SliderAlign;
+	CMlFrame Frame_VCenter;
+	CMlFrame Frame_Bar;
+	CMlFrame Frame_ClipBarLeft;
+	CMlFrame Frame_ClipBarRight;
+	CMlQuad Quad_BarLeft;
+	CMlQuad Quad_BarRight;
+	CMlQuad Quad_BarMouse;
+	CMlQuad Quad_Cursor;
+}
+#Struct {{{P}}}K_RangeColor {
+	Vec2 RangeHue;
+	Real Saturation;
+	Real Value;
+}
+#Struct {{{P}}}K_Properties {
+	Integer[] Enabled;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Vec2 BarSize;
+	Vec2 CursorSize;
+	Vec3 BarColor;
+	Vec3 CursorColor;
+	Integer BarColorMode;
+	Integer CursorColorMode;
+	Real Opacity;
+	Real Rotation;
+	Vec2 RangeReal;
+	Int2 RangeInteger;
+	{{{P}}}K_RangeColor RangeColor;
+	Boolean ApplyColorOnCursor;
+	Text BarImageUrl;
+	Text SoundUpdate;
+}
+#Struct {{{P}}}K_State {
+	{{{P}}}K_Controls Controls;
+	{{{P}}}K_Properties CustomizedProperties;
+	{{{P}}}K_Properties MergedProperties;
+	Integer[] DirtyProperties;
+	Text[] Styles;
+	Boolean IsSlider;
+	Vec2 SliderDirection;
+	Vec2 SliderDirectionNormalized;
+	Real SliderLength;
+	Vec2 BoundingBox;
+	Real Ratio;
+	Integer Steps;
+	Boolean MouseInteractionDisabled;
+}
+#Struct {{{P}}}K_MovingCursor {
+	Boolean IsMoving;
+	CMlFrame Slider;
+	Vec2 MouseShift;
+}
+#Struct {{{P}}}K_Event {
+	Integer Type;
+	CMlFrame Slider;
+}
+
+// The properties indexing must be a continuous sequence starting from 0
+// 0,1,2,3,... not 0,1,3,... for example
+#Const {{{P}}}C_Property_HAlign 0
+#Const {{{P}}}C_Property_VAlign 1
+#Const {{{P}}}C_Property_BarSize 2
+#Const {{{P}}}C_Property_CursorSize 3
+#Const {{{P}}}C_Property_Opacity 4
+#Const {{{P}}}C_Property_Rotation 5
+#Const {{{P}}}C_Property_RangeReal 6
+#Const {{{P}}}C_Property_RangeInteger 7
+#Const {{{P}}}C_Property_RangeColor 8
+#Const {{{P}}}C_Property_ApplyColorOnCursor 9
+#Const {{{P}}}C_Property_BarImageUrl 10
+#Const {{{P}}}C_Property_Styles 11
+#Const {{{P}}}C_Property_BarColor 12
+#Const {{{P}}}C_Property_CursorColor 13
+#Const {{{P}}}C_Property_BarColorMode 14
+#Const {{{P}}}C_Property_CursorColorMode 15
+#Const {{{P}}}C_Property_SoundUpdate 16
+
+#Const {{{P}}}C_EventType_CursorDragStart 0
+#Const {{{P}}}C_EventType_CursorDragStop 1
+
+#Const {{{P}}}C_ColorMode_None {{{dump(C_ColorMode_None)}}}
+#Const {{{P}}}C_ColorMode_Colorize {{{dump(C_ColorMode_Colorize)}}}
+#Const {{{P}}}C_ColorMode_Modulate {{{dump(C_ColorMode_Modulate)}}}
+#Const {{{P}}}C_ColorMode_Background {{{dump(C_ColorMode_Background)}}}
+
+#Const {{{P}}}C_Default_Colorize <-1., -1., -1.>
+#Const {{{P}}}C_Default_ModulateColor <1., 1., 1.>
+#Const {{{P}}}C_Default_BgColor <0., 0., 0.>
+
+#Const {{{P}}}C_DefaultProperties {{{P}}}K_Properties {
+	HAlign = CMlControl::AlignHorizontal::Left,
+	VAlign = CMlControl::AlignVertical::Top,
+	BarSize = <55., 1.8>,
+	CursorSize = <2.5, 6.>,
+	BarColor = <1., 1., 1.>,
+	CursorColor = <1., 1., 1.>,
+	BarColorMode = {{{C_ColorMode_Background}}},
+	CursorColorMode = {{{C_ColorMode_Background}}},
+	Opacity = 1.,
+	Rotation = 0.,
+	RangeReal = <0., 1.>,
+	RangeInteger = <0, 100>,
+	RangeColor = {{{P}}}K_RangeColor {
+		RangeHue = <0., 1.>,
+		Saturation = 1.,
+		Value = 1.
+	},
+	ApplyColorOnCursor = False,
+	BarImageUrl = "",
+	SoundUpdate = "{{{MenuSounds::C_Sound_ArrowSelect}}}"
+}
+""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	return MV::Component(
+		C_Name,
+		Private_GetManialink(),
+		Private_GetScriptDirectives(),
+		"""
+declare {{{P}}}K_Properties[Text] {{{P}}}G_Styles;
+declare {{{P}}}K_Properties {{{P}}}G_DefaultProperties;
+declare {{{P}}}K_Event[] {{{P}}}PendingEvents;
+
+// Check if the control is a slide
+Boolean {{{P}}}IsSlider(CMlControl _Control) {
+	declare {{{P}}}K_State {{{P}}}State for _Control;
+	return {{{P}}}State.IsSlider;
+}
+
+// Add or remove a property from the enabled array
+Integer[] {{{P}}}Private_EnableProperty(Integer[] _EnabledProperties, Integer _Property, Boolean _Enabled) {
+	declare Integer[] EnabledProperties = _EnabledProperties;
+
+	if (_Enabled) {
+		if (!EnabledProperties.exists(_Property)) {
+			EnabledProperties.add(_Property);
+		}
+	} else {
+		EnabledProperties.remove(_Property);
+	}
+
+	return EnabledProperties;
+}
+
+// Set and enable a property
+{{{P}}}K_Properties {{{P}}}Private_SetProperty({{{P}}}K_Properties _TargetProperties, Integer _PropertyId, {{{P}}}K_Properties _SourceProperties) {
+	declare {{{P}}}K_Properties Properties = _TargetProperties;
+
+	Properties.Enabled = {{{P}}}Private_EnableProperty(Properties.Enabled, _PropertyId, True);
+
+	switch (_PropertyId) {
+		case {{{P}}}C_Property_HAlign: Properties.HAlign = _SourceProperties.HAlign;
+		case {{{P}}}C_Property_VAlign: Properties.VAlign = _SourceProperties.VAlign;
+		case {{{P}}}C_Property_BarSize: Properties.BarSize = _SourceProperties.BarSize;
+		case {{{P}}}C_Property_CursorSize: Properties.CursorSize = _SourceProperties.CursorSize;
+		case {{{P}}}C_Property_BarColor: Properties.BarColor = _SourceProperties.BarColor;
+		case {{{P}}}C_Property_CursorColor: Properties.CursorColor = _SourceProperties.CursorColor;
+		case {{{P}}}C_Property_BarColorMode: Properties.BarColorMode = _SourceProperties.BarColorMode;
+		case {{{P}}}C_Property_CursorColorMode: Properties.CursorColorMode = _SourceProperties.CursorColorMode;
+		case {{{P}}}C_Property_Opacity: Properties.Opacity = _SourceProperties.Opacity;
+		case {{{P}}}C_Property_Rotation: Properties.Rotation = _SourceProperties.Rotation;
+		case {{{P}}}C_Property_RangeReal: Properties.RangeReal = _SourceProperties.RangeReal;
+		case {{{P}}}C_Property_RangeInteger: Properties.RangeInteger = _SourceProperties.RangeInteger;
+		case {{{P}}}C_Property_RangeColor: Properties.RangeColor = _SourceProperties.RangeColor;
+		case {{{P}}}C_Property_ApplyColorOnCursor: Properties.ApplyColorOnCursor = _SourceProperties.ApplyColorOnCursor;
+		case {{{P}}}C_Property_BarImageUrl: Properties.BarImageUrl = _SourceProperties.BarImageUrl;
+		case {{{P}}}C_Property_SoundUpdate: Properties.SoundUpdate = _SourceProperties.SoundUpdate;
+	}
+
+	return Properties;
+}
+
+// Merge a base properties struct with other enabled properties
+{{{P}}}K_Properties {{{P}}}Private_MergeProperties({{{P}}}K_Properties _Base, {{{P}}}K_Properties[] _PropertiesToMerge) {
+	declare {{{P}}}K_Properties MergedProperties = _Base;
+
+	foreach (Properties in _PropertiesToMerge) {
+		foreach (PropertyId in Properties.Enabled) {
+			MergedProperties = {{{P}}}Private_SetProperty(MergedProperties, PropertyId, Properties);
+		}
+	}
+
+	return MergedProperties;
+}
+
+// Check if one of the given property is dirty
+Boolean {{{P}}}Private_IsDirty(Boolean _IsInit, Integer[] _DirtyProperties, Integer[] _PropertyIds) {
+	if (_IsInit) return True;
+	return _DirtyProperties.containsoneof(_PropertyIds) || _DirtyProperties.exists({{{P}}}C_Property_Styles);
+}
+
+// Get the RGB color selected on the slider
+Vec3 {{{P}}}Private_GetColorValue({{{P}}}K_State _State) {
+	return {{{P}}}CL::HsvToRgb(<
+		{{{P}}}ML::Clamp(
+			_State.MergedProperties.RangeColor.RangeHue.X + (_State.Ratio * (_State.MergedProperties.RangeColor.RangeHue.Y - _State.MergedProperties.RangeColor.RangeHue.X)),
+			_State.MergedProperties.RangeColor.RangeHue.X,
+			_State.MergedProperties.RangeColor.RangeHue.Y
+		),
+		_State.MergedProperties.RangeColor.Saturation,
+		_State.MergedProperties.RangeColor.Value
+	>);
+}
+
+// Set the slider ratio
+{{{P}}}K_State {{{P}}}Private_SetRatio({{{P}}}K_State _State, Real _Ratio, Boolean _PlaySound) {
+	declare {{{P}}}K_State State = _State;
+
+	declare Real ClampedRatio = {{{P}}}ML::Clamp(_Ratio, 0., 1.);
+	declare Real OldRatio = State.Ratio;
+	if (State.Steps <= 0) {
+		State.Ratio = ClampedRatio;
+	} else if (State.Steps == 1) {
+		State.Ratio = 1.;
+	} else {
+		declare Real StepSize = (1. / (State.Steps - 1));
+		declare Real Remainder = {{{P}}}ML::Mod(ClampedRatio, 0., StepSize);
+		if (Remainder > StepSize * 0.5) {
+			State.Ratio = {{{P}}}ML::Clamp(ClampedRatio - Remainder + StepSize, 0., 1.);
+		} else {
+			State.Ratio = {{{P}}}ML::Clamp(ClampedRatio - Remainder, 0., 1.);
+		}
+	}
+	if (_PlaySound && OldRatio != State.Ratio && State.MergedProperties.SoundUpdate != "") {
+		{{{MenuSounds::P}}}PlaySound(This, State.MergedProperties.SoundUpdate);
+	}
+
+	State.Controls.Quad_Cursor.RelativePosition_V3 = State.SliderDirection * State.Ratio;
+	State.Controls.Frame_ClipBarLeft.Size = <{{{P}}}ML::Max(0., (State.SliderLength * State.Ratio) - 0.5), State.BoundingBox.Y>;
+	State.Controls.Frame_ClipBarRight.Size = <{{{P}}}ML::Max(0., State.SliderLength - (State.SliderLength * State.Ratio) - 0.5), State.BoundingBox.Y>;
+	State.Controls.Frame_ClipBarLeft.Visible = State.Controls.Frame_ClipBarLeft.Size.X > 0.;
+	State.Controls.Frame_ClipBarRight.Visible = State.Controls.Frame_ClipBarRight.Size.X > 0.;
+
+	if (State.MergedProperties.ApplyColorOnCursor) {
+		State.Controls.Quad_Cursor.BgColor = {{{P}}}Private_GetColorValue(State);
+	}
+
+	return State;
+}
+
+// Set the slider steps
+{{{P}}}K_State {{{P}}}Private_SetSteps({{{P}}}K_State _State, Integer _Steps) {
+	if (_State.Steps == _Steps) return _State;
+
+	declare {{{P}}}K_State State = _State;
+
+	State.Steps = _Steps;
+	State = {{{P}}}Private_SetRatio(State, State.Ratio, False);
+
+	return State;
+}
+
+// Disable the mouse interaction
+{{{P}}}K_State {{{P}}}Private_SetMouseInteractionDisabled({{{P}}}K_State _State, Boolean _MouseInteractionDisabled) {
+	if (_State.MouseInteractionDisabled == _MouseInteractionDisabled) return _State;
+
+	declare {{{P}}}K_State State = _State;
+	State.MouseInteractionDisabled = _MouseInteractionDisabled;
+	return State;
+}
+
+Void {{{P}}}Private_SetQuadColor(CMlQuad _Quad, Integer _ColorMode, Vec3 _Color) {
+	// Initialize all properties properly here first
+	// Modifying one of them afterward can also have an effect on the others.
+	// eg: modifying `ModulateColor` will also change the value of `Colorize`.
+	_Quad.Colorize = {{{P}}}C_Default_Colorize;
+	_Quad.ModulateColor = {{{P}}}C_Default_ModulateColor;
+	_Quad.BgColor = {{{P}}}C_Default_BgColor;
+
+	switch (_ColorMode) {
+		case {{{P}}}C_ColorMode_Colorize: {
+			_Quad.Colorize = _Color;
+		}
+		case {{{P}}}C_ColorMode_Modulate: {
+			_Quad.ModulateColor = _Color;
+		}
+		case {{{P}}}C_ColorMode_Background: {
+			_Quad.BgColor = _Color;
+		}
+	}
+}
+
+// Redraw the slider (apply style, size, ...)
+Void {{{P}}}RedrawSlider(CMlFrame _Frame_Slider, Boolean _IsInit) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+
+	declare {{{P}}}K_Properties[] PropertiesToMerge = [{{{P}}}G_DefaultProperties];
+	foreach (Style in {{{P}}}State.Styles) {
+		PropertiesToMerge.add({{{P}}}G_Styles.get(Style, {{{P}}}K_Properties {}));
+	}
+	PropertiesToMerge.add({{{P}}}State.CustomizedProperties);
+
+	{{{P}}}State.MergedProperties = {{{P}}}Private_MergeProperties({{{P}}}C_DefaultProperties, PropertiesToMerge);
+
+	// Position and size of the bar and cursor
+	if ({{{P}}}Private_IsDirty(_IsInit, {{{P}}}State.DirtyProperties, [{{{P}}}C_Property_BarSize, {{{P}}}C_Property_CursorSize])) {
+		assert({{{P}}}State.MergedProperties.CursorSize.X <= {{{P}}}State.MergedProperties.BarSize.X, "The slider cursor cannot be larger than the slider bar");
+		{{{P}}}State.BoundingBox = <
+			{{{P}}}ML::Max({{{P}}}State.MergedProperties.BarSize.X, {{{P}}}State.MergedProperties.CursorSize.X),
+			{{{P}}}ML::Max({{{P}}}State.MergedProperties.BarSize.Y, {{{P}}}State.MergedProperties.CursorSize.Y)
+		>;
+		{{{P}}}State.Controls.Quad_BarLeft.Size = {{{P}}}State.MergedProperties.BarSize;
+		{{{P}}}State.Controls.Quad_BarRight.Size = {{{P}}}State.MergedProperties.BarSize;
+		{{{P}}}State.Controls.Quad_BarMouse.Size = <{{{P}}}State.MergedProperties.BarSize.X, {{{P}}}ML::Max({{{P}}}State.MergedProperties.CursorSize.Y, {{{P}}}State.MergedProperties.BarSize.Y)>;
+		{{{P}}}State.Controls.Quad_Cursor.Size = {{{P}}}State.MergedProperties.CursorSize;
+		{{{P}}}State.Controls.Frame_VCenter.RelativePosition_V3.Y = {{{P}}}State.BoundingBox.Y * -0.5;
+		{{{P}}}State.Controls.Frame_ClipBarRight.RelativePosition_V3.X = {{{P}}}State.MergedProperties.BarSize.X;
+	}
+
+	// Rotation of the slider. We have to rotate multiple frames to keep the alignment and direction correct.
+	if ({{{P}}}Private_IsDirty(_IsInit, {{{P}}}State.DirtyProperties, [{{{P}}}C_Property_Rotation])) {
+		{{{P}}}State.Controls.Frame_CounterRot.RelativeRotation = {{{P}}}State.MergedProperties.Rotation;
+		{{{P}}}State.Controls.Frame_SliderAlign.RelativeRotation = -{{{P}}}State.MergedProperties.Rotation;
+		{{{P}}}State.Controls.Frame_Bar.RelativeRotation = {{{P}}}State.MergedProperties.Rotation;
+		{{{P}}}State.Controls.Quad_Cursor.RelativeRotation = {{{P}}}State.MergedProperties.Rotation;
+	}
+
+	// Compute direction and length of the slider
+	if ({{{P}}}Private_IsDirty(_IsInit, {{{P}}}State.DirtyProperties, [{{{P}}}C_Property_BarSize, {{{P}}}C_Property_CursorSize, {{{P}}}C_Property_Rotation])) {
+		{{{P}}}State.SliderDirection = <{{{P}}}State.BoundingBox.X - {{{P}}}State.MergedProperties.CursorSize.X, 0.>;
+		if ({{{P}}}State.MergedProperties.Rotation != 0.) {
+			declare Real RotationRad = -{{{P}}}ML::DegToRad({{{P}}}State.MergedProperties.Rotation);
+			{{{P}}}State.SliderDirection = <
+				({{{P}}}State.SliderDirection.X * {{{P}}}ML::Cos(RotationRad)) - ({{{P}}}State.SliderDirection.Y * {{{P}}}ML::Sin(RotationRad)),
+				({{{P}}}State.SliderDirection.X * {{{P}}}ML::Sin(RotationRad)) + ({{{P}}}State.SliderDirection.Y * {{{P}}}ML::Cos(RotationRad))
+			>;
+		}
+		{{{P}}}State.SliderLength = {{{P}}}ML::Distance(<0., 0.>, {{{P}}}State.SliderDirection);
+		{{{P}}}State.SliderDirectionNormalized = <{{{P}}}State.SliderDirection.X / {{{P}}}State.SliderLength, {{{P}}}State.SliderDirection.Y / {{{P}}}State.SliderLength>;
+		{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, {{{P}}}State.Ratio, False);
+	}
+
+	// Align the slider
+	if ({{{P}}}Private_IsDirty(_IsInit, {{{P}}}State.DirtyProperties, [{{{P}}}C_Property_BarSize, {{{P}}}C_Property_CursorSize, {{{P}}}C_Property_HAlign, {{{P}}}C_Property_VAlign])) {
+		{{{P}}}Tools::AlignFrame(
+			{{{P}}}State.Controls.Frame_SliderAlign,
+			{{{P}}}State.BoundingBox,
+			{{{P}}}State.MergedProperties.HAlign,
+			{{{P}}}State.MergedProperties.VAlign
+		);
+	}
+
+	// Apply opacity
+	if ({{{P}}}Private_IsDirty(_IsInit, {{{P}}}State.DirtyProperties, [{{{P}}}C_Property_Opacity])) {
+		{{{P}}}State.Controls.Quad_BarLeft.Opacity = {{{P}}}State.MergedProperties.Opacity;
+		{{{P}}}State.Controls.Quad_BarRight.Opacity = {{{P}}}State.MergedProperties.Opacity;
+		{{{P}}}State.Controls.Quad_Cursor.Opacity = {{{P}}}State.MergedProperties.Opacity;
+	}
+
+	// Apply color on cursor
+	if ({{{P}}}Private_IsDirty(_IsInit, {{{P}}}State.DirtyProperties, [{{{P}}}C_Property_ApplyColorOnCursor, {{{P}}}C_Property_CursorColor, {{{P}}}C_Property_CursorColorMode])) {
+		if ({{{P}}}State.MergedProperties.ApplyColorOnCursor) {
+			{{{P}}}Private_SetQuadColor(
+				{{{P}}}State.Controls.Quad_Cursor,
+				{{{P}}}C_ColorMode_Background,
+				{{{P}}}Private_GetColorValue({{{P}}}State)
+			);
+		} else {
+			{{{P}}}Private_SetQuadColor(
+				{{{P}}}State.Controls.Quad_Cursor,
+				{{{P}}}State.MergedProperties.CursorColorMode,
+				{{{P}}}State.MergedProperties.CursorColor
+			);
+		}
+	}
+
+	// Apply color and image on bar
+	if ({{{P}}}Private_IsDirty(_IsInit, {{{P}}}State.DirtyProperties, [{{{P}}}C_Property_BarImageUrl, {{{P}}}C_Property_BarColor, {{{P}}}C_Property_BarColorMode])) {
+		{{{P}}}State.Controls.Quad_BarLeft.ImageUrl = {{{P}}}State.MergedProperties.BarImageUrl;
+		{{{P}}}State.Controls.Quad_BarRight.ImageUrl = {{{P}}}State.MergedProperties.BarImageUrl;
+		{{{P}}}Private_SetQuadColor(
+			{{{P}}}State.Controls.Quad_BarLeft,
+			{{{P}}}State.MergedProperties.BarColorMode,
+			{{{P}}}State.MergedProperties.BarColor
+		);
+		{{{P}}}Private_SetQuadColor(
+			{{{P}}}State.Controls.Quad_BarRight,
+			{{{P}}}State.MergedProperties.BarColorMode,
+			{{{P}}}State.MergedProperties.BarColor
+		);
+	}
+
+	{{{P}}}State.DirtyProperties = [];
+}
+Void {{{P}}}RedrawSlider(CMlFrame _Frame_Slider) {
+	{{{P}}}RedrawSlider(_Frame_Slider, False);
+}
+
+// Redraw all sliders
+Void {{{P}}}RedrawSliders() {
+	Page.GetClassChildren("{{{P}}}slider", Page.MainFrame, True);
+	foreach (Control in Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_Slider = (Control as CMlFrame).Parent;
+		if ({{{P}}}IsSlider(Frame_Slider)) {
+			{{{P}}}RedrawSlider(Frame_Slider);
+		}
+	}
+}
+
+// Customize a property
+Void {{{P}}}Private_SetCustomizedProperty(CMlFrame _Frame_Slider, Integer _PropertyId, {{{P}}}K_Properties _Properties, Boolean _Redraw) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	{{{P}}}State.CustomizedProperties = {{{P}}}Private_SetProperty({{{P}}}State.CustomizedProperties, _PropertyId, _Properties);
+	if (!{{{P}}}State.DirtyProperties.exists(_PropertyId)) {
+		{{{P}}}State.DirtyProperties.add(_PropertyId);
+	}
+	if (_Redraw) {{{P}}}RedrawSlider(_Frame_Slider);
+}
+
+// Reset a customized property
+Void {{{P}}}Private_ResetCustomizedProperty(CMlFrame _Frame_Slider, Integer _PropertyId, Boolean _Redraw) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	{{{P}}}State.CustomizedProperties.Enabled = {{{P}}}Private_EnableProperty({{{P}}}State.CustomizedProperties.Enabled, _PropertyId, False);
+	if (!{{{P}}}State.DirtyProperties.exists(_PropertyId)) {
+		{{{P}}}State.DirtyProperties.add(_PropertyId);
+	}
+	if (_Redraw) {{{P}}}RedrawSlider(_Frame_Slider);
+}
+
+// Update the horizontal alignment of the slider
+Void {{{P}}}SetHAlign(CMlFrame _Frame_Slider, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_HAlign, {{{P}}}K_Properties { HAlign = _HAlign }, _Redraw);
+}
+Void {{{P}}}SetHAlign(CMlFrame _Frame_Slider, CMlControl::AlignHorizontal _HAlign) {
+	{{{P}}}SetHAlign(_Frame_Slider, _HAlign, True);
+}
+Void {{{P}}}ResetHAlign(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_HAlign, _Redraw);
+}
+Void {{{P}}}ResetHAlign(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetHAlign(_Frame_Slider, True);
+}
+
+// Update the vertical alignment of the slider
+Void {{{P}}}SetVAlign(CMlFrame _Frame_Slider, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_VAlign, {{{P}}}K_Properties { VAlign = _VAlign }, _Redraw);
+}
+Void {{{P}}}SetVAlign(CMlFrame _Frame_Slider, CMlControl::AlignVertical _VAlign) {
+	{{{P}}}SetVAlign(_Frame_Slider, _VAlign, True);
+}
+Void {{{P}}}ResetVAlign(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_VAlign, _Redraw);
+}
+Void {{{P}}}ResetVAlign(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetVAlign(_Frame_Slider, True);
+}
+
+// Update the size of the slider bar
+Void {{{P}}}SetBarSize(CMlFrame _Frame_Slider, Vec2 _BarSize, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_BarSize, {{{P}}}K_Properties { BarSize = _BarSize }, _Redraw);
+}
+Void {{{P}}}SetBarSize(CMlFrame _Frame_Slider, Vec2 _BarSize) {
+	{{{P}}}SetBarSize(_Frame_Slider, _BarSize, True);
+}
+Void {{{P}}}ResetBarSize(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_BarSize, _Redraw);
+}
+Void {{{P}}}ResetBarSize(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetBarSize(_Frame_Slider, True);
+}
+
+// Update the size of the slider cursor
+Void {{{P}}}SetCursorSize(CMlFrame _Frame_Slider, Vec2 _CursorSize, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_CursorSize, {{{P}}}K_Properties { CursorSize = _CursorSize }, _Redraw);
+}
+Void {{{P}}}SetCursorSize(CMlFrame _Frame_Slider, Vec2 _CursorSize) {
+	{{{P}}}SetCursorSize(_Frame_Slider, _CursorSize, True);
+}
+Void {{{P}}}ResetCursorSize(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_CursorSize, _Redraw);
+}
+Void {{{P}}}ResetCursorSize(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetCursorSize(_Frame_Slider, True);
+}
+
+// Update the color of the slider bar
+Void {{{P}}}SetBarColor(CMlFrame _Frame_Slider, Vec3 _BarColor, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_BarColor, {{{P}}}K_Properties { BarColor = _BarColor }, _Redraw);
+}
+Void {{{P}}}SetBarColor(CMlFrame _Frame_Slider, Text _BarColor, Boolean _Redraw) {
+	{{{P}}}SetBarColor(_Frame_Slider, {{{P}}}CL::HexToRgb(_BarColor), _Redraw);
+}
+Void {{{P}}}SetBarColor(CMlFrame _Frame_Slider, Vec3 _BarColor) {
+	{{{P}}}SetBarColor(_Frame_Slider, _BarColor, True);
+}
+Void {{{P}}}SetBarColor(CMlFrame _Frame_Slider, Text _BarColor) {
+	{{{P}}}SetBarColor(_Frame_Slider, {{{P}}}CL::HexToRgb(_BarColor));
+}
+Void {{{P}}}ResetBarColor(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_BarColor, _Redraw);
+}
+Void {{{P}}}ResetBarColor(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetBarColor(_Frame_Slider, True);
+}
+
+// Update the color of the slider cursor
+Void {{{P}}}SetCursorColor(CMlFrame _Frame_Slider, Vec3 _CursorColor, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_CursorColor, {{{P}}}K_Properties { CursorColor = _CursorColor }, _Redraw);
+}
+Void {{{P}}}SetCursorColor(CMlFrame _Frame_Slider, Text _CursorColor, Boolean _Redraw) {
+	{{{P}}}SetBarColor(_Frame_Slider, {{{P}}}CL::HexToRgb(_CursorColor), _Redraw);
+}
+Void {{{P}}}SetCursorColor(CMlFrame _Frame_Slider, Vec3 _CursorColor) {
+	{{{P}}}SetCursorColor(_Frame_Slider, _CursorColor, True);
+}
+Void {{{P}}}SetCursorColor(CMlFrame _Frame_Slider, Text _CursorColor) {
+	{{{P}}}SetBarColor(_Frame_Slider, {{{P}}}CL::HexToRgb(_CursorColor));
+}
+Void {{{P}}}ResetCursorColor(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_CursorColor, _Redraw);
+}
+Void {{{P}}}ResetCursorColor(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetCursorColor(_Frame_Slider, True);
+}
+
+// Update the color mode of the slider bar
+Void {{{P}}}SetBarColorMode(CMlFrame _Frame_Slider, Integer _BarColorMode, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_BarColorMode, {{{P}}}K_Properties { BarColorMode = _BarColorMode }, _Redraw);
+}
+Void {{{P}}}SetBarColorMode(CMlFrame _Frame_Slider, Integer _BarColorMode) {
+	{{{P}}}SetBarColorMode(_Frame_Slider, _BarColorMode, True);
+}
+Void {{{P}}}ResetBarColorMode(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_BarColorMode, _Redraw);
+}
+Void {{{P}}}ResetBarColorMode(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetBarColorMode(_Frame_Slider, True);
+}
+
+// Update the color mode of the slider cursor
+Void {{{P}}}SetCursorColorMode(CMlFrame _Frame_Slider, Integer _CursorColorMode, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_CursorColorMode, {{{P}}}K_Properties { CursorColorMode = _CursorColorMode }, _Redraw);
+}
+Void {{{P}}}SetCursorColorMode(CMlFrame _Frame_Slider, Integer _CursorColorMode) {
+	{{{P}}}SetCursorColorMode(_Frame_Slider, _CursorColorMode, True);
+}
+Void {{{P}}}ResetCursorColorMode(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_CursorColorMode, _Redraw);
+}
+Void {{{P}}}ResetCursorColorMode(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetCursorColorMode(_Frame_Slider, True);
+}
+
+// Update the opacity of the slider
+Void {{{P}}}SetOpacity(CMlFrame _Frame_Slider, Real _Opacity, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_Opacity, {{{P}}}K_Properties { Opacity = _Opacity }, _Redraw);
+}
+Void {{{P}}}SetOpacity(CMlFrame _Frame_Slider, Real _Opacity) {
+	{{{P}}}SetOpacity(_Frame_Slider, _Opacity, True);
+}
+Void {{{P}}}ResetOpacity(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_Opacity, _Redraw);
+}
+Void {{{P}}}ResetOpacity(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetOpacity(_Frame_Slider, True);
+}
+
+// Update the rotation of the slider
+Void {{{P}}}SetRotation(CMlFrame _Frame_Slider, Real _Rotation, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_Rotation, {{{P}}}K_Properties { Rotation = _Rotation }, _Redraw);
+}
+Void {{{P}}}SetRotation(CMlFrame _Frame_Slider, Real _Rotation) {
+	{{{P}}}SetRotation(_Frame_Slider, _Rotation, True);
+}
+Void {{{P}}}ResetRotation(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_Rotation, _Redraw);
+}
+Void {{{P}}}ResetRotation(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetRotation(_Frame_Slider, True);
+}
+
+// Update the range of Real values the slider can return
+Void {{{P}}}SetRangeReal(CMlFrame _Frame_Slider, Vec2 _RangeReal, Boolean _Redraw) {
+	assert(_RangeReal.X <= _RangeReal.Y, "Maximum range (Y) must be superior or equal to minimum range (X)");
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_RangeReal, {{{P}}}K_Properties { RangeReal = _RangeReal }, _Redraw);
+}
+Void {{{P}}}SetRangeReal(CMlFrame _Frame_Slider, Vec2 _RangeReal) {
+	{{{P}}}SetRangeReal(_Frame_Slider, _RangeReal, True);
+}
+Void {{{P}}}ResetRangeReal(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_RangeReal, _Redraw);
+}
+Void {{{P}}}ResetRangeReal(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetRangeReal(_Frame_Slider, True);
+}
+
+// Update the range of Integer values the slider can return
+Void {{{P}}}SetRangeInteger(CMlFrame _Frame_Slider, Int2 _RangeInteger, Boolean _Redraw) {
+	assert(_RangeInteger.X <= _RangeInteger.Y, "Maximum range (Y) must be superior or equal to minimum range (X)");
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_RangeInteger, {{{P}}}K_Properties { RangeInteger = _RangeInteger }, _Redraw);
+}
+Void {{{P}}}SetRangeInteger(CMlFrame _Frame_Slider, Int2 _RangeInteger) {
+	{{{P}}}SetRangeInteger(_Frame_Slider, _RangeInteger, True);
+}
+Void {{{P}}}ResetRangeInteger(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_RangeInteger, _Redraw);
+}
+Void {{{P}}}ResetRangeInteger(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetRangeInteger(_Frame_Slider, True);
+}
+
+// Update the range of Color values the slider can return
+Void {{{P}}}SetRangeColor(CMlFrame _Frame_Slider, Vec2 _RangeHue, Real _Saturation, Real _Value, Boolean _Redraw) {
+	assert(_RangeHue.X <= _RangeHue.Y, "Maximum range (Y) must be superior or equal to minimum range (X)");
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_RangeColor, {{{P}}}K_Properties { RangeColor = {{{P}}}K_RangeColor { RangeHue = _RangeHue, Saturation = _Saturation, Value = _Value } }, _Redraw);
+}
+Void {{{P}}}SetRangeColor(CMlFrame _Frame_Slider, Vec2 _RangeHue, Real _Saturation, Real _Value) {
+	{{{P}}}SetRangeColor(_Frame_Slider, _RangeHue, _Saturation, _Value, True);
+}
+Void {{{P}}}ResetRangeColor(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_RangeColor, _Redraw);
+}
+Void {{{P}}}ResetRangeColor(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetRangeColor(_Frame_Slider, True);
+}
+
+// Apply the the color from the color range to the cursor
+Void {{{P}}}SetApplyColorOnCursor(CMlFrame _Frame_Slider, Boolean _ApplyColorOnCursor, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_ApplyColorOnCursor, {{{P}}}K_Properties { ApplyColorOnCursor = _ApplyColorOnCursor }, _Redraw);
+}
+Void {{{P}}}SetApplyColorOnCursor(CMlFrame _Frame_Slider, Boolean _ApplyColorOnCursor) {
+	{{{P}}}SetApplyColorOnCursor(_Frame_Slider, _ApplyColorOnCursor, True);
+}
+Void {{{P}}}ResetApplyColorOnCursor(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_ApplyColorOnCursor, _Redraw);
+}
+Void {{{P}}}ResetApplyColorOnCursor(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetApplyColorOnCursor(_Frame_Slider, True);
+}
+
+// Update the bar image
+Void {{{P}}}SetBarImageUrl(CMlFrame _Frame_Slider, Text _BarImageUrl, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_BarImageUrl, {{{P}}}K_Properties { BarImageUrl = _BarImageUrl }, _Redraw);
+}
+Void {{{P}}}SetBarImageUrl(CMlFrame _Frame_Slider, Text _BarImageUrl) {
+	{{{P}}}SetBarImageUrl(_Frame_Slider, _BarImageUrl, True);
+}
+Void {{{P}}}ResetBarImageUrl(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_BarImageUrl, _Redraw);
+}
+Void {{{P}}}ResetBarImageUrl(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetBarImageUrl(_Frame_Slider, True);
+}
+
+// Update sound to play when changing the slider value
+Void {{{P}}}SetSoundUpdate(CMlFrame _Frame_Slider, Text _SoundUpdate, Boolean _Redraw) {
+	{{{P}}}Private_SetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_SoundUpdate, {{{P}}}K_Properties { SoundUpdate = _SoundUpdate }, _Redraw);
+}
+Void {{{P}}}SetSoundUpdate(CMlFrame _Frame_Slider, Text _SoundUpdate) {
+	{{{P}}}SetSoundUpdate(_Frame_Slider, _SoundUpdate, True);
+}
+Void {{{P}}}ResetSoundUpdate(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}Private_ResetCustomizedProperty(_Frame_Slider, {{{P}}}C_Property_SoundUpdate, _Redraw);
+}
+Void {{{P}}}ResetSoundUpdate(CMlFrame _Frame_Slider) {
+	{{{P}}}ResetSoundUpdate(_Frame_Slider, True);
+}
+
+// Update the styles of the slider
+Void {{{P}}}SetStyles(CMlFrame _Frame_Slider, Text[] _StyleIds, Boolean _Redraw) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	{{{P}}}State.Styles = _StyleIds;
+	if (!{{{P}}}State.DirtyProperties.exists({{{P}}}C_Property_Styles)) {
+		{{{P}}}State.DirtyProperties.add({{{P}}}C_Property_Styles);
+	}
+	if (_Redraw) {{{P}}}RedrawSlider(_Frame_Slider);
+}
+Void {{{P}}}SetStyles(CMlFrame _Frame_Slider, Text[] _StyleIds) {
+	{{{P}}}SetStyles(_Frame_Slider, _StyleIds, True);
+}
+Void {{{P}}}ResetStyles(CMlFrame _Frame_Slider, Boolean _Redraw) {
+	{{{P}}}SetStyles(_Frame_Slider, [], _Redraw);
+}
+Void {{{P}}}ResetStyles(CMlFrame _Frame_Slider) {
+	{{{P}}}SetStyles(_Frame_Slider, []);
+}
+Void {{{P}}}AddStyle(CMlFrame _Frame_Slider, Text _StyleId, Boolean _Redraw) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	if (!{{{P}}}State.Styles.exists(_StyleId)) {
+		{{{P}}}State.Styles.add(_StyleId);
+		if (!{{{P}}}State.DirtyProperties.exists({{{P}}}C_Property_Styles)) {
+			{{{P}}}State.DirtyProperties.add({{{P}}}C_Property_Styles);
+		}
+	}
+	if (_Redraw) {{{P}}}RedrawSlider(_Frame_Slider);
+}
+Void {{{P}}}AddStyle(CMlFrame _Frame_Slider, Text _StyleId) {
+	{{{P}}}AddStyle(_Frame_Slider, _StyleId, True);
+}
+Void {{{P}}}RemoveStyle(CMlFrame _Frame_Slider, Text _StyleId, Boolean _Redraw) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	declare Boolean Removed = {{{P}}}State.Styles.remove(_StyleId);
+	if (Removed && !{{{P}}}State.DirtyProperties.exists({{{P}}}C_Property_Styles)) {
+		{{{P}}}State.DirtyProperties.add({{{P}}}C_Property_Styles);
+	}
+	if (_Redraw) {{{P}}}RedrawSlider(_Frame_Slider);
+}
+Void {{{P}}}RemoveStyle(CMlFrame _Frame_Slider, Text _StyleId) {
+	{{{P}}}RemoveStyle(_Frame_Slider, _StyleId, True);
+}
+
+// Set the default properties of all sliders
+Void {{{P}}}SetSlidersDefaultProperties({{{P}}}K_Properties _DefaultProperties, Boolean _Redraw) {
+	{{{P}}}G_DefaultProperties = _DefaultProperties;
+	if (_Redraw) {{{P}}}RedrawSliders();
+}
+Void {{{P}}}SetSlidersDefaultProperties({{{P}}}K_Properties _DefaultProperties) {
+	{{{P}}}SetSlidersDefaultProperties(_DefaultProperties, True);
+}
+
+// Create a new slider style
+Void {{{P}}}CreateStyle(Text _StyleId, {{{P}}}K_Properties _Style) {
+	{{{P}}}G_Styles[_StyleId] = _Style;
+}
+
+// Initialize a slider
+Void {{{P}}}InitializeSlider(CMlFrame _Frame_Slider) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	{{{P}}}State = {{{P}}}K_State {
+		IsSlider = True,
+		SliderDirection = <0., 1.>,
+		SliderDirectionNormalized = <0., 1.>,
+		SliderLength = 1.,
+		BoundingBox = <0., 0.>,
+		Ratio = 0.,
+		Steps = 0,
+		MouseInteractionDisabled = False,
+		CustomizedProperties = {{{P}}}K_Properties {},
+		MergedProperties = {{{P}}}K_Properties {},
+		DirtyProperties = [],
+		Styles = []
+	};
+
+	if (_Frame_Slider.DataAttributeExists("steps")) {
+		{{{P}}}State = {{{P}}}Private_SetSteps({{{P}}}State, {{{P}}}TL::ToInteger(_Frame_Slider.DataAttributeGet("steps")));
+	}
+
+	if (_Frame_Slider.DataAttributeExists("mouse-interaction-disabled")) {
+		{{{P}}}State = {{{P}}}Private_SetMouseInteractionDisabled({{{P}}}State, {{{P}}}Tools::TextToBoolean(_Frame_Slider.DataAttributeGet("mouse-interaction-disabled")));
+	}
+
+	{{{P}}}State.Controls = {{{P}}}K_Controls {
+		Frame_CounterRot = (_Frame_Slider.GetFirstChild("{{{P}}}frame-counter-rot") as CMlFrame),
+		Frame_SliderAlign = (_Frame_Slider.GetFirstChild("{{{P}}}frame-slider-align") as CMlFrame),
+		Frame_VCenter = (_Frame_Slider.GetFirstChild("{{{P}}}frame-vcenter") as CMlFrame),
+		Frame_Bar = (_Frame_Slider.GetFirstChild("{{{P}}}frame-bar") as CMlFrame),
+		Frame_ClipBarLeft = (_Frame_Slider.GetFirstChild("{{{P}}}frame-clip-bar-left") as CMlFrame),
+		Frame_ClipBarRight = (_Frame_Slider.GetFirstChild("{{{P}}}frame-clip-bar-right") as CMlFrame),
+		Quad_BarLeft = (_Frame_Slider.GetFirstChild("{{{P}}}quad-bar-left") as CMlQuad),
+		Quad_BarRight = (_Frame_Slider.GetFirstChild("{{{P}}}quad-bar-right") as CMlQuad),
+		Quad_BarMouse = (_Frame_Slider.GetFirstChild("{{{P}}}quad-bar-mouse") as CMlQuad),
+		Quad_Cursor = (_Frame_Slider.GetFirstChild("{{{P}}}quad-cursor") as CMlQuad)
+	};
+
+	declare CMlFrame {{{P}}}ParentSlider as {{{P}}}ParentSliderBarMouse for {{{P}}}State.Controls.Quad_BarMouse;
+	declare CMlFrame {{{P}}}ParentSlider as {{{P}}}ParentSliderCursor for {{{P}}}State.Controls.Quad_Cursor;
+	{{{P}}}ParentSliderBarMouse = _Frame_Slider;
+	{{{P}}}ParentSliderCursor = _Frame_Slider;
+
+	if (_Frame_Slider.DataAttributeExists("halign")) {
+		{{{P}}}SetHAlign(_Frame_Slider, {{{P}}}Tools::TextToHAlign2(_Frame_Slider.DataAttributeGet("halign")), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("valign")) {
+		{{{P}}}SetVAlign(_Frame_Slider, {{{P}}}Tools::TextToVAlign2(_Frame_Slider.DataAttributeGet("valign")), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("bar-size")) {
+		{{{P}}}SetBarSize(_Frame_Slider, {{{P}}}Tools::TextToVec2(_Frame_Slider.DataAttributeGet("bar-size")), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("cursor-size")) {
+		{{{P}}}SetCursorSize(_Frame_Slider, {{{P}}}Tools::TextToVec2(_Frame_Slider.DataAttributeGet("cursor-size")), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("bar-color")) {
+		{{{P}}}SetBarColor(_Frame_Slider, _Frame_Slider.DataAttributeGet("bar-color"), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("cursor-color")) {
+		{{{P}}}SetCursorColor(_Frame_Slider, _Frame_Slider.DataAttributeGet("cursor-color"), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("bar-color-mode")) {
+		{{{P}}}SetBarColorMode(_Frame_Slider, {{{P}}}TL::ToInteger(_Frame_Slider.DataAttributeGet("bar-color-mode")), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("cursor-color-mode")) {
+		{{{P}}}SetCursorColorMode(_Frame_Slider, {{{P}}}TL::ToInteger(_Frame_Slider.DataAttributeGet("cursor-color-mode")), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("opacity")) {
+		{{{P}}}SetOpacity(_Frame_Slider, {{{P}}}TL::ToReal(_Frame_Slider.DataAttributeGet("opacity")), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("rot")) {
+		{{{P}}}SetRotation(_Frame_Slider, {{{P}}}TL::ToReal(_Frame_Slider.DataAttributeGet("rot")), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("range-real")) {
+		{{{P}}}SetRangeReal(_Frame_Slider, {{{P}}}Tools::TextToVec2(_Frame_Slider.DataAttributeGet("range-real")), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("range-integer")) {
+		{{{P}}}SetRangeInteger(_Frame_Slider, {{{P}}}Tools::TextToInt2(_Frame_Slider.DataAttributeGet("range-integer")), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("range-color")) {
+		declare Real[] RangeColor = {{{P}}}Tools::TextToRealArray(_Frame_Slider.DataAttributeGet("range-color"));
+		declare Vec2 RangeHue = <0., 1.>;
+		declare Real Saturation = 1.;
+		declare Real Value = 1.;
+		if (RangeColor.count >= 2) {
+			RangeHue = <RangeColor[0], RangeColor[1]>;
+		}
+		if (RangeColor.count >= 3) {
+			Saturation = RangeColor[2];
+		}
+		if (RangeColor.count >= 4) {
+			Value = RangeColor[3];
+		}
+		{{{P}}}SetRangeColor(_Frame_Slider, RangeHue, Saturation, Value, False);
+	}
+	if (_Frame_Slider.DataAttributeExists("apply-color-on-cursor")) {
+		{{{P}}}SetApplyColorOnCursor(_Frame_Slider, {{{P}}}Tools::TextToBoolean(_Frame_Slider.DataAttributeGet("apply-color-on-cursor")), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("bar-image")) {
+		{{{P}}}SetBarImageUrl(_Frame_Slider, _Frame_Slider.DataAttributeGet("bar-image"), False);
+	}
+	if (_Frame_Slider.DataAttributeExists("sound-update")) {
+		{{{P}}}SetSoundUpdate(_Frame_Slider, _Frame_Slider.DataAttributeGet("sound-update"), False);
+	}
+
+	{{{P}}}RedrawSlider(_Frame_Slider, True);
+}
+
+// Initialize all sliders in the manialink
+Void {{{P}}}InitializeSliders() {
+	Page.GetClassChildren("{{{P}}}slider", Page.MainFrame, True);
+	foreach (Control in Page.GetClassChildren_Result) {
+		{{{P}}}InitializeSlider((Control as CMlFrame).Parent);
+	}
+}
+
+// Compute the ratio of the slider from the position of the cursor
+Void {{{P}}}Private_SetCursorPosition(CMlFrame _Frame_Slider, Vec2 _CursorPosition) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+
+	declare Vec2 ConstrainedPosition = {{{P}}}State.SliderDirectionNormalized * {{{P}}}ML::DotProduct(<_CursorPosition.X, _CursorPosition.Y, 0.>, <{{{P}}}State.SliderDirectionNormalized.X, {{{P}}}State.SliderDirectionNormalized.Y, 0.>);
+	ConstrainedPosition = <
+		{{{P}}}ML::Clamp(ConstrainedPosition.X, {{{P}}}ML::Min(0., {{{P}}}State.SliderDirection.X), {{{P}}}ML::Max(0., {{{P}}}State.SliderDirection.X)),
+		{{{P}}}ML::Clamp(ConstrainedPosition.Y, {{{P}}}ML::Min(0., {{{P}}}State.SliderDirection.Y), {{{P}}}ML::Max(0., {{{P}}}State.SliderDirection.Y))
+	>;
+
+	{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, {{{P}}}ML::Distance(<0., 0.>, ConstrainedPosition) / {{{P}}}State.SliderLength, False);
+}
+
+{{{P}}}K_MovingCursor {{{P}}}Private_StopMovingCursor({{{P}}}K_MovingCursor _PreviousMovingCursor) {
+	{{{P}}}PendingEvents.add({{{P}}}K_Event {
+		Type = {{{P}}}C_EventType_CursorDragStop,
+		Slider = _PreviousMovingCursor.Slider
+	});
+	return {{{P}}}K_MovingCursor { IsMoving = False };
+}
+
+{{{P}}}K_MovingCursor {{{P}}}Private_StartMovingCursor({{{P}}}K_MovingCursor _PreviousMovingCursor, CMlControl _Slider, Real _MouseX, Real _MouseY, Boolean _ClickOnBar) {
+	if (_PreviousMovingCursor.IsMoving) {
+		{{{P}}}Private_StopMovingCursor(_PreviousMovingCursor);
+	}
+	if (_Slider == Null) {
+		return {{{P}}}K_MovingCursor { IsMoving = False };
+	}
+	declare {{{P}}}K_State {{{P}}}State for _Slider;
+	if ({{{P}}}State.MouseInteractionDisabled) {
+		return {{{P}}}K_MovingCursor { IsMoving = False };
+	}
+
+	// Move the cursor where the user clicked on the bar
+	declare CMlFrame Frame_Slider = (_Slider as CMlFrame);
+	declare Vec2 CursorRelativePosition = {{{P}}}State.Controls.Quad_Cursor.RelativePosition_V3;
+	if (_ClickOnBar) {
+		CursorRelativePosition -= {{{P}}}State.Controls.Quad_Cursor.AbsolutePosition_V3 - <_MouseX, _MouseY> + <{{{P}}}State.Controls.Quad_Cursor.Size.X * 0.5, 0.>;
+	}
+
+	{{{P}}}PendingEvents.add({{{P}}}K_Event {
+		Type = {{{P}}}C_EventType_CursorDragStart,
+		Slider = Frame_Slider
+	});
+
+	return {{{P}}}K_MovingCursor {
+		IsMoving = True,
+		Slider = Frame_Slider,
+		MouseShift = <_MouseX, _MouseY> - CursorRelativePosition
+	};
+}
+
+// Set the slider steps
+Void {{{P}}}SetSteps(CMlFrame _Frame_Slider, Integer _Steps) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	{{{P}}}State = {{{P}}}Private_SetSteps({{{P}}}State, _Steps);
+}
+
+// Disable mouse interaction
+Void {{{P}}}SetMouseInteractionDisabled(CMlFrame _Frame_Slider, Boolean _MouseInteractionDisabled) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	{{{P}}}State = {{{P}}}Private_SetMouseInteractionDisabled({{{P}}}State, _MouseInteractionDisabled);
+}
+
+// Get the slider ratio
+Real {{{P}}}GetRatio(CMlFrame _Frame_Slider) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	return {{{P}}}State.Ratio;
+}
+
+// Set the slider ratio
+Void {{{P}}}SetRatio(CMlFrame _Frame_Slider, Real _Ratio, Boolean _PlaySound) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, _Ratio, _PlaySound);
+}
+Void {{{P}}}SetRatio(CMlFrame _Frame_Slider, Real _Ratio) {
+	{{{P}}}SetRatio(_Frame_Slider, _Ratio, False);
+}
+Void {{{P}}}IncrementRatio(CMlFrame _Frame_Slider, Real _Ratio, Boolean _PlaySound) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, {{{P}}}State.Ratio + _Ratio, _PlaySound);
+}
+Void {{{P}}}IncrementRatio(CMlFrame _Frame_Slider, Real _Ratio) {
+	{{{P}}}IncrementRatio(_Frame_Slider, _Ratio, True);
+}
+Void {{{P}}}DecrementRatio(CMlFrame _Frame_Slider, Real _Ratio, Boolean _PlaySound) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, {{{P}}}State.Ratio - _Ratio, _PlaySound);
+}
+Void {{{P}}}DecrementRatio(CMlFrame _Frame_Slider, Real _Ratio) {
+	{{{P}}}DecrementRatio(_Frame_Slider, _Ratio, True);
+}
+Void {{{P}}}NextStep(CMlFrame _Frame_Slider, Boolean _PlaySound) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	if ({{{P}}}State.Steps > 1) {
+		{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, {{{P}}}State.Ratio + (1. / ({{{P}}}State.Steps - 1)), _PlaySound);
+	}
+}
+Void {{{P}}}NextStep(CMlFrame _Frame_Slider) {
+	{{{P}}}NextStep(_Frame_Slider, True);
+}
+Void {{{P}}}PreviousStep(CMlFrame _Frame_Slider, Boolean _PlaySound) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	if ({{{P}}}State.Steps > 1) {
+		{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, {{{P}}}State.Ratio - (1. / ({{{P}}}State.Steps - 1)), _PlaySound);
+	}
+}
+Void {{{P}}}PreviousStep(CMlFrame _Frame_Slider) {
+	{{{P}}}PreviousStep(_Frame_Slider, True);
+}
+
+// Check if the slider is at the maximum or minimum value of its range
+Boolean {{{P}}}IsAtMaximumValue(CMlFrame _Frame_Slider) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	return {{{P}}}State.Ratio >= 1.;
+}
+Boolean {{{P}}}IsAtMinimumValue(CMlFrame _Frame_Slider) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	return {{{P}}}State.Ratio <= 0.;
+}
+
+// Get the slider Real value in the defined range
+Real {{{P}}}GetValueReal(CMlFrame _Frame_Slider) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	return {{{P}}}ML::Clamp(
+		{{{P}}}State.MergedProperties.RangeReal.X + ({{{P}}}State.Ratio * ({{{P}}}State.MergedProperties.RangeReal.Y - {{{P}}}State.MergedProperties.RangeReal.X)),
+		{{{P}}}State.MergedProperties.RangeReal.X,
+		{{{P}}}State.MergedProperties.RangeReal.Y
+	);
+}
+
+// Set the slider Real value in the defined range
+Void {{{P}}}SetValueReal(CMlFrame _Frame_Slider, Real _Value, Boolean _PlaySound) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	if ({{{P}}}State.MergedProperties.RangeReal.X != {{{P}}}State.MergedProperties.RangeReal.Y) {
+		{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, ({{{P}}}ML::Clamp(_Value, {{{P}}}State.MergedProperties.RangeReal.X, {{{P}}}State.MergedProperties.RangeReal.Y) - {{{P}}}State.MergedProperties.RangeReal.X) / ({{{P}}}State.MergedProperties.RangeReal.Y - {{{P}}}State.MergedProperties.RangeReal.X), _PlaySound);
+	} else {
+		{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, 0., _PlaySound);
+	}
+}
+Void {{{P}}}SetValueReal(CMlFrame _Frame_Slider, Real _Value) {
+	{{{P}}}SetValueReal(_Frame_Slider, _Value, False);
+}
+
+// Get the slider Integer value in the defined range
+Integer {{{P}}}GetValueInteger(CMlFrame _Frame_Slider) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	return {{{P}}}ML::Clamp(
+		{{{P}}}State.MergedProperties.RangeInteger.X + {{{P}}}ML::NearestInteger({{{P}}}State.Ratio * ({{{P}}}State.MergedProperties.RangeInteger.Y - {{{P}}}State.MergedProperties.RangeInteger.X)),
+		{{{P}}}State.MergedProperties.RangeInteger.X,
+		{{{P}}}State.MergedProperties.RangeInteger.Y
+	);
+}
+
+// Set the slider Integer value in the defined range
+Void {{{P}}}SetValueInteger(CMlFrame _Frame_Slider, Integer _Value, Boolean _PlaySound) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	if ({{{P}}}State.MergedProperties.RangeInteger.X != {{{P}}}State.MergedProperties.RangeInteger.Y) {
+		{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, ({{{P}}}ML::Clamp(_Value, {{{P}}}State.MergedProperties.RangeInteger.X, {{{P}}}State.MergedProperties.RangeInteger.Y) - {{{P}}}State.MergedProperties.RangeInteger.X) / (({{{P}}}State.MergedProperties.RangeInteger.Y - {{{P}}}State.MergedProperties.RangeInteger.X) * 1.), _PlaySound);
+	} else {
+		{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, 0., _PlaySound);
+	}
+}
+Void {{{P}}}SetValueInteger(CMlFrame _Frame_Slider, Integer _Value) {
+	{{{P}}}SetValueInteger(_Frame_Slider, _Value, False);
+}
+
+// Get the slider color hue value in the defined range
+Vec3 {{{P}}}GetValueColor(CMlFrame _Frame_Slider) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	return {{{P}}}Private_GetColorValue({{{P}}}State);
+}
+
+// Set the slider Color value in the defined range
+Void {{{P}}}SetValueColor(CMlFrame _Frame_Slider, Vec3 _RGBColor, Boolean _PlaySound) {
+	declare {{{P}}}K_State {{{P}}}State for _Frame_Slider;
+	assert({{{P}}}State.IsSlider, "This control is not a slider");
+	if ({{{P}}}State.MergedProperties.RangeColor.RangeHue.X != {{{P}}}State.MergedProperties.RangeColor.RangeHue.Y) {
+		{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, ({{{P}}}ML::Clamp({{{P}}}CL::RgbToHsv(_RGBColor).X, {{{P}}}State.MergedProperties.RangeColor.RangeHue.X, {{{P}}}State.MergedProperties.RangeColor.RangeHue.Y) - {{{P}}}State.MergedProperties.RangeColor.RangeHue.X) / ({{{P}}}State.MergedProperties.RangeColor.RangeHue.Y - {{{P}}}State.MergedProperties.RangeColor.RangeHue.X), _PlaySound);
+	} else {
+		{{{P}}}State = {{{P}}}Private_SetRatio({{{P}}}State, 0., _PlaySound);
+	}
+}
+Void {{{P}}}SetValueColor(CMlFrame _Frame_Slider, Vec3 _RGBColor) {
+	{{{P}}}SetValueColor(_Frame_Slider, _RGBColor, False);
+}
+
+***MainInit***
+***
+declare {{{P}}}K_MovingCursor {{{P}}}MovingCursor;
+***
+
+***MainStart***
+***
+{{{P}}}InitializeSliders();
+***
+
+***MainLoop***
+***
+{{{P}}}PendingEvents = [];
+
+foreach (Event in PendingEvents) {
+	if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+		if (Event.ControlId == "{{{P}}}quad-cursor" && Event.Control != Null) {
+			declare CMlFrame {{{P}}}ParentSlider for Event.Control;
+			{{{P}}}MovingCursor = {{{P}}}Private_StartMovingCursor({{{P}}}MovingCursor, {{{P}}}ParentSlider, MouseX, MouseY, False);
+		} else if (Event.Control != Null && Event.Control.HasClass("{{{P}}}slider-bar")) {
+			declare CMlFrame {{{P}}}ParentSlider for Event.Control;
+			{{{P}}}MovingCursor = {{{P}}}Private_StartMovingCursor({{{P}}}MovingCursor, {{{P}}}ParentSlider, MouseX, MouseY, True);
+		}
+	}
+}
+
+if ({{{P}}}MovingCursor.IsMoving) {
+	if (MouseLeftButton) {
+		{{{P}}}Private_SetCursorPosition({{{P}}}MovingCursor.Slider, <MouseX, MouseY> - {{{P}}}MovingCursor.MouseShift);
+	} else {
+		{{{P}}}MovingCursor = {{{P}}}Private_StopMovingCursor({{{P}}}MovingCursor);
+	}
+}
+***
+		""",
+		[MenuSounds::ComponentV2()],
+		[]
+	);
+}

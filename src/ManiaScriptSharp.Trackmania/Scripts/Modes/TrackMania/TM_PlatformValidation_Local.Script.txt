@@ -1,0 +1,287 @@
+/**
+ * Platform Validation mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Platform,TM_Platform"
+#Const Version "1.0.0+2024-12-05"
+#Const ScriptName "Modes/TrackMania/TM_PlatformValidation_Local.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/MapGet.Script.txt" as MapGet
+#Include "Libs/Nadeo/Trackmania/Modes/Platform/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/Trackmania/Modes/PlatformValidation/Constants.Script.txt" as PlatformConst
+#Include "Libs/Nadeo/Trackmania/Modes/PlatformValidation/StateManager.Script.txt" as StateMgr
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "TM_PlatformValidation"
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/PlatformValidation.Script.txt" //< Url of the mania app
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Global variables
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Task::K_Task G_Task_SaveReplay;
+declare Platform::K_GhostInfo G_Ghost_LastPlatformSession;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(MapGet::ScriptName, MapGet::Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(UIModules_Checkpoint::ScriptName, UIModules_Checkpoint::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultIntroSequence = False; //< Intro sequence is hidden by HoldLoadingScreen
+MB_Settings_UseDefaultPodiumSequence = False;
+MB_Settings_UseDefaultTimer = False;
+MB_Settings_UseDefaultUIManagement = False;
+Race_Settings_IsLocalMode = True;
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedHidden;
+UIManager.UIAll.AltMenuNoDefaultScores = True;
+Race::SortScores(Race::C_Sort_Respawns);
+UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_GhostRespawns);
+UIModules_Checkpoint::SetDisplayRespawnsInsteadOfTime(True);
+
+// Hide SM Overlay
+UIManager.UIAll.OverlayHideSpectatorInfos = True;
+UIManager.UIAll.OverlayHideCountdown = True;
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+			CarRank::InitializePlayer(Event.Player);
+		}
+	}
+}
+
+StateMgr::Yield();
+***
+
+***Match_InitServer***
+***
+declare netwrite Boolean Net_PlatformEndRaceMenu_IsVisible for Teams[0] = False;
+declare netwrite Boolean Net_PlatformValidation_ReplaySaved for Teams[0] = False;
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+Net_PlatformEndRaceMenu_IsVisible = False;
+Net_PlatformValidation_ReplaySaved = False;
+Clans::SetClansNb(0);
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(False);
+CarRank::Reset();
+***
+
+***Match_AfterLoadMap***
+***
+// Players are available only once the map is loaded
+// We must enforce their initialization there to avoid
+// being stuck in the start or end race menu when restarting the script
+foreach (Player in AllPlayers) {
+	StateMgr::InitializePlayer(Player);
+}
+***
+
+***Match_InitMap***
+***
+declare netwrite Integer Net_RaceValidation_AuthorScore for Teams[0] = 0;
+declare netwrite Integer Net_RaceValidation_NewScore for Teams[0] = 0;
+***
+
+***Match_StartMap***
+***
+// Initialize author data with currently saved author data
+MapGet::ShareAuthorScore(Map.TMObjective_AuthorTime);
+Net_RaceValidation_AuthorScore = MapGet::GetSharedAuthorScore();
+Net_RaceValidation_NewScore = -1;
+
+// Initialize race
+CarRank::Update(CarRank::C_SortCriteria_BestRace);
+***
+
+***Match_InitRound***
+***
+declare Integer PlayerScore = -1;
+UIModules_Checkpoint::SetBestGhostRespawnsNbForRanking(Players[0], Net_RaceValidation_AuthorScore);
+***
+
+***Match_StartRound***
+***
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+MB_EnablePlayMode(True);
+
+// Spawn players for the race
+StartTime = Now + Race::C_SpawnDuration;
+foreach (Player in Players) {
+	if (Race::IsReadyToStart(Player)) {
+		Race::Start(Player, StartTime);
+	}
+}
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+foreach (Event in Race::GetPendingEvents()) {
+	Race::ValidEvent(Event);
+
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		if (Event.Player != Null) {
+			if (Event.IsEndLap) {
+				Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				Scores::UpdatePlayerPrevLap(Event.Player);
+			}
+			if (Event.IsEndRace || (Event.IsEndLap && Event.IsIndependentLaps)) {
+				PlayerScore = Event.Player.Score.NbRespawnsRequested;
+				Race::StopSkipScoresTable(Event.Player); //< override the outro sequence duration and do not display the scores table
+				Scores::UpdatePlayerPrevRace(Event.Player);
+
+				MB_StopRound();
+			}
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Spawn players
+if (PlayersNbDead > 0) { //< Check for unspawned players only if at least one player is unspawned
+	foreach (Player in Players) {
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned && Race::IsReadyToStart(Player)) {
+			Race::Start(Player);
+		}
+	}
+}
+
+// Process UI events
+ProcessPauseMenuEvent();
+***
+
+***Match_EndRound***
+***
+// Update variables
+Net_RaceValidation_NewScore = PlayerScore;
+
+// Retrieve the latest ghost
+declare CGhost Ghost = Ghost_RetrieveFromPlayer(Players[0]);
+if (Ghost != Null) {
+	G_Ghost_LastPlatformSession = Platform::ReleaseGhost(G_Ghost_LastPlatformSession);
+	G_Ghost_LastPlatformSession = Platform::K_GhostInfo { Ghost = Ghost };
+}
+
+// Process end race menu events
+Net_PlatformEndRaceMenu_IsVisible = True;
+StateMgr::ForcePlayersStates([StateMgr::C_State_EndRaceMenu]);
+while (MB_MapIsRunning() && StateMgr::HasForcedState(StateMgr::C_State_EndRaceMenu)) {
+	ProcessEndRaceMenuEvent();
+	MB_Yield();
+}
+
+// Hide end race menu
+Net_PlatformValidation_ReplaySaved = False;
+Net_PlatformEndRaceMenu_IsVisible = False;
+
+// Save new score if better
+if (PlayerScore >= 0 && (PlayerScore < MapGet::GetSharedAuthorScore() || MapGet::GetSharedAuthorScore() < 0)) {
+	MapGet::ShareAuthorScore(PlayerScore);
+	Net_RaceValidation_AuthorScore = MapGet::GetSharedAuthorScore();
+	UIModules_Checkpoint::SetBestGhostRespawnsNbForRanking(Players[0], Net_RaceValidation_AuthorScore);
+}
+***
+
+***Match_EndMap***
+***
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+Race::StopSkipOutroAll();
+MB_StopMatch();
+
+// Clear variables
+G_Task_SaveReplay = Task::Destroy(G_Task_SaveReplay);
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the PauseMenu UI has been received and apply it if needed
+Void ProcessPauseMenuEvent() {
+	foreach (Event in UIManager.PendingEvents) {
+		switch (Event.Type) {
+			case CUIConfigEvent::EType::OnLayerCustomEvent: {
+				switch (Event.CustomEventType) {
+					case PlatformConst::C_EventType_Retry: {
+						StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+						MB_StopRound();
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the EndRaceMenu UI has been received and apply it if needed
+Void ProcessEndRaceMenuEvent() {
+	foreach (Event in UIManager.PendingEvents) {
+		switch (Event.Type) {
+			case CUIConfigEvent::EType::OnLayerCustomEvent: {
+				switch (Event.CustomEventType) {
+					case PlatformConst::C_EventType_Quit: MB_StopServer();
+					case PlatformConst::C_EventType_Retry: StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+					case PlatformConst::C_EventType_SaveReplay: {
+						G_Task_SaveReplay = Platform::SaveReplay(G_Ghost_LastPlatformSession.Ghost.Id, G_Task_SaveReplay);
+						while (Task::IsInitialized(G_Task_SaveReplay)) {
+							G_Task_SaveReplay = Task::Update(G_Task_SaveReplay);
+							if (!Task::IsRunning(G_Task_SaveReplay)) {
+								declare netwrite Boolean Net_PlatformValidation_ReplaySaved for Teams[0] = False;
+								Net_PlatformValidation_ReplaySaved = Task::IsSuccess(G_Task_SaveReplay);
+								G_Task_SaveReplay = Task::Destroy(G_Task_SaveReplay);
+							}
+							MB_Yield();
+						}
+					}
+				}
+			}
+		}
+	}
+}

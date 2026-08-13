@@ -1,0 +1,193 @@
+/**
+ *	UI module: Sign64x10 client side
+ */
+#Const Version		"1.1.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/Sign64x10_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/Sign64x10_Common.Script.txt" as UIModules_Sign64x10_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const UIModules_Sign64x10_Common::C_AttachIds as C_AttachIds
+
+#Const UIModules_Sign64x10_Common::C_Img_Sign64x10Default as C_Img_Sign64x10Default
+
+#Const C_FadeAnimDuration 500
+
+#Const C_Id_FrameGlobal "frame-global"
+#Const C_Id_QuadNew "quad-new"
+#Const C_Id_QuadOld "quad-old"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId(Text _AttachId) {
+	return UIModules_Sign64x10_Common::GetId(_AttachId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Sign64x10_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML(Text _AttachId) {
+	return MV::Create(
+		GetId(_AttachId), 3,
+"""
+<frame id="{{{C_Id_FrameGlobal}}}" z-index="-2" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Sign64x10_Common::C_UIModuleConfig)}}}>
+		<quad id="{{{C_Id_QuadNew}}}" size="320 50" z-index="0" halign="center" valign="center" bgcolor="000000" />
+		<quad id="{{{C_Id_QuadOld}}}" size="320 50" z-index="1" halign="center" valign="center" bgcolor="000000" opacity="0" />
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/Teams.Script.txt" as Teams
+
+#Struct K_Controls {
+	CMlFrame Frame_Global;
+	CMlQuad Quad_New;
+	CMlQuad Quad_Old;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Boolean DisplayModule;
+	Text DefaultImageUrl;
+	Ident TargetPlayerId;
+	Integer TeamsUpdate;
+	Teams::K_Team[Integer] TeamsInfo;
+}
+
+#Const C_State_Null K_State {
+	Controls = K_Controls {},
+	DisplayModule = False,
+	TargetPlayerId = NullId,
+	TeamsUpdate = -1,
+	TeamsInfo = []
+}
+
+#Const C_Img_Sign64x10Default {{{dump(C_Img_Sign64x10Default)}}}
+#Const C_FadeAnimDuration {{{dump(C_FadeAnimDuration)}}}
+
+#Const C_Id_FrameGlobal {{{dump(C_Id_FrameGlobal)}}}
+#Const C_Id_QuadNew {{{dump(C_Id_QuadNew)}}}
+#Const C_Id_QuadOld {{{dump(C_Id_QuadOld)}}}
+""",
+"""
+K_State SetVisibility(K_State _State, Boolean _DisplayModule) {
+	declare K_State State = _State;
+
+	State.DisplayModule = _DisplayModule;
+
+	State.Controls.Frame_Global.Visible = State.DisplayModule;
+
+	return State;
+}
+
+K_State UpdateSign(K_State _State, CSmPlayer _TargetPlayer, Text _DefaultImageUrl) {
+	declare K_State State = _State;
+	State.DefaultImageUrl = _DefaultImageUrl;
+
+	declare Text NewImageUrl = State.Controls.Quad_New.ImageUrl;
+	if (_TargetPlayer == Null) {
+		State.TargetPlayerId = NullId;
+		NewImageUrl = State.DefaultImageUrl;
+	} else {
+		State.TargetPlayerId = _TargetPlayer.Id;
+		if (_TargetPlayer.CurrentClan == 1 || _TargetPlayer.CurrentClan == 2) {
+			NewImageUrl = Teams::GetClanSign64x10Url(State.TeamsInfo, _TargetPlayer.CurrentClan);
+			if (NewImageUrl == "" || !Http.IsValidUrl(NewImageUrl)) {
+				NewImageUrl = State.DefaultImageUrl;
+			}
+		} else {
+			NewImageUrl = State.DefaultImageUrl;
+		}
+	}
+
+	if (State.Controls.Quad_New.ImageUrl != NewImageUrl) {
+		AnimMgr.Flush(State.Controls.Quad_Old);
+		State.Controls.Quad_Old.ImageUrl = State.Controls.Quad_New.ImageUrl;
+		State.Controls.Quad_Old.Opacity = 1.;
+		State.Controls.Quad_New.ImageUrl = NewImageUrl;
+
+		// If the game is not focused when the opacity animation should be played,
+		// the opacity might change only once the sign is updated by the
+		// C++ to display the ads again. It is normal, do not worry if the
+		// animation is not played properly while testing with several game instances.
+		AnimMgr.Add(State.Controls.Quad_Old, "<anim opacity=\"0\" />", C_FadeAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	return State;
+}
+
+K_State SetTeamsInfo(K_State _State, Integer _TeamsUpdate, Teams::K_Team[Integer] _TeamsInfo) {
+	declare K_State State = _State;
+
+	State.TeamsUpdate = _TeamsUpdate;
+	State.TeamsInfo = _TeamsInfo;
+
+	return State;
+}
+
+***MainInit***
+***
+declare netread Boolean Net_TMWTCommon_Sign64x10_IsVisible for UI;
+declare netread Text Net_TMWTCommon_Sign64x10_DefaultImageUrl for Teams[0] = C_Img_Sign64x10Default;
+
+declare K_State State = C_State_Null;
+***
+
+***MainStart***
+***
+State.Controls.Frame_Global <=> (Page.GetFirstChild(C_Id_FrameGlobal) as CMlFrame);
+State.Controls.Quad_New <=> (Page.GetFirstChild(C_Id_QuadNew) as CMlQuad);
+State.Controls.Quad_Old <=> (Page.GetFirstChild(C_Id_QuadOld) as CMlQuad);
+
+State = SetVisibility(State, State.Controls.Frame_Global.Visible);
+State = SetTeamsInfo(State, Teams::GetTeamsUpdate(This), Teams::GetTeamsInfo(This));
+State = UpdateSign(State, GUIPlayer, Net_TMWTCommon_Sign64x10_DefaultImageUrl);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (State.DisplayModule != Net_TMWTCommon_Sign64x10_IsVisible) {
+		State = SetVisibility(State, Net_TMWTCommon_Sign64x10_IsVisible);
+	}
+
+	if (State.DisplayModule) {
+		if (
+			(GUIPlayer == Null && State.TargetPlayerId != NullId) ||
+			(GUIPlayer != Null && State.TargetPlayerId != GUIPlayer.Id) ||
+			State.DefaultImageUrl != Net_TMWTCommon_Sign64x10_DefaultImageUrl
+		) {
+			State = UpdateSign(State, GUIPlayer, Net_TMWTCommon_Sign64x10_DefaultImageUrl);
+		}
+		if (State.TeamsUpdate != Teams::GetTeamsUpdate(This)) {
+			State = SetTeamsInfo(State, Teams::GetTeamsUpdate(This), Teams::GetTeamsInfo(This));
+			State = UpdateSign(State, GUIPlayer, Net_TMWTCommon_Sign64x10_DefaultImageUrl);
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

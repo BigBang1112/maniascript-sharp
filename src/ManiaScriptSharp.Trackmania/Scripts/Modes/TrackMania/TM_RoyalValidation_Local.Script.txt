@@ -1,0 +1,327 @@
+/**
+ * Royal Validation mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Royal,TM_Royal"
+#Const Version "1.0.1+2024-12-05"
+#Const ScriptName "Modes/TrackMania/TM_RoyalValidation_Local.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/TMGame/Modes/MapGet.Script.txt" as MapGet
+#Include "Libs/Nadeo/CMGame/Modes/Utils.Script.txt" as Utils
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalValidation/StateManager.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalValidation/Constants.Script.txt" as RoyalConst
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Server.Script.txt" as UIModules_TimeGap
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/RoyalValidation.Script.txt" //< Url of the mania app
+#Const C_EnableAutomaticGiveUpAfterElimination True
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(MapGet::ScriptName, MapGet::Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(RoyalConst::ScriptName, RoyalConst::Version);
+Log::RegisterScript(UIModules_TimeGap::ScriptName, UIModules_TimeGap::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultPodiumSequence = False;
+MB_Settings_UseDefaultTimer = False;
+MB_Settings_UseDefaultHud = True;
+Race_Settings_IsLocalMode = True;
+Race_Settings_UseDefaultUIManagement = False;
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+UIModules_TimeGap::SetTimeGapMode(UIModules_TimeGap::C_TimeGapMode_Hidden);
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedHidden;
+UIManager.UIAll.AltMenuNoDefaultScores = True;
+UIManager.UIAll.OverlayHideGauges = True;
+UIManager.UIAll.CountdownCoord = <0., -200.>;
+UIManager.UIAll.LabelsVisibility = CUIConfig::EHudVisibility::Nothing;
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+		}
+	}
+}
+
+StateMgr::Yield();
+***
+
+***Match_InitServer***
+***
+declare netwrite Boolean Net_RoyalEndRaceMenu_IsVisible for Teams[0] = False;
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+Net_RoyalEndRaceMenu_IsVisible = False;
+Clans::SetClansNb(0);
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_Normal);
+Race::EnableAutomaticGiveUpAfterElimination(C_EnableAutomaticGiveUpAfterElimination);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+***
+
+***Match_InitMap***
+***
+declare CMapLandmark[] Map_Starts;
+declare Integer[] Map_StartOrders;
+***
+
+***Match_StartMap***
+***
+// Initialize author data with currently saved author data
+MapGet::ShareAuthorTime(Map.TMObjective_AuthorTime);
+
+// Initialize starts
+declare CMapLandmark[] Starts = Map::GetStarts();
+declare CMapLandmark[Integer] SortedStarts;
+Map_Starts = [];
+Map_StartOrders = [];
+foreach (Start in Starts) {
+	SortedStarts[Start.Order] = Start;
+	if (!Map_StartOrders.exists(Start.Order)) {
+		Map_StartOrders.add(Start.Order);
+	}
+}
+SortedStarts = SortedStarts.sortkey();
+foreach (Start in SortedStarts) {
+	Map_Starts.add(Start);
+}
+if (Map_Starts.count <= 0) {
+	//L16N [RoyalValidation] Message explaining to the player that a track has to contain at least one start line block.
+	UIManager.UIAll.QueueMessage(3000, 1, CUIConfig::EMessageDisplay::Big, _("You must place at least one starting point."));
+	MB_Sleep(3000);
+	MB_StopServer();
+} else {
+	Map::SetDefaultStart(Map_Starts[0]);
+}
+***
+
+***Match_InitRound***
+***
+declare Integer[] Round_ValidatedFinishes;
+declare Integer Round_RaceTime;
+***
+
+***Match_StartRound***
+***
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+MB_EnablePlayMode(True);
+
+Round_ValidatedFinishes = [];
+Round_RaceTime = -1;
+
+// Spawn player
+StartTime = Now + Race::C_SpawnDuration;
+Race::ResetSolo();
+foreach (Player in Players) {
+	Start(Player, Map_Starts, Round_ValidatedFinishes.count, StartTime);
+}
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+foreach (Event in Race::GetPendingEvents()) {
+	Race::ValidEvent(Event);
+
+	switch (Event.Type) {
+		case Events::C_Type_Waypoint: {
+			if (Event.Player != Null) {
+				if (Event.IsEndRace) {
+					Race::StopSkipScoresTable(Event.Player); //< override the outro sequence duration and do not display the scores table
+					if (Event.Landmark != Null && !Round_ValidatedFinishes.exists(Event.Landmark.Order)) {
+						Round_ValidatedFinishes.add(Event.Landmark.Order);
+					}
+					if (Round_RaceTime < 0) {
+						Round_RaceTime = Event.RaceTime;
+					} else {
+						Round_RaceTime += Event.RaceTime;
+					}
+					if (Map_StartOrders.containsonly(Round_ValidatedFinishes)) {
+						MB_StopRound();
+					}
+				}
+			}
+		}
+		case Events::C_Type_GiveUp: {
+			Round_ValidatedFinishes = [];
+			Round_RaceTime = -1;
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Manage UI events
+foreach (Event in UIManager.PendingEvents) {
+	if (Event.Type == CUIConfigEvent::EType::OnLayerCustomEvent) {
+		if (Event.CustomEventType == RoyalConst::C_EventType_ViewPodium) {
+			foreach (Player in Players) {
+				Race::StopSkipOutro(Player);
+			}
+			ViewRacePodium();
+		}
+	}
+}
+
+if (MB_RoundIsRunning()) {
+	foreach (Player in Players) {
+		// Spawn player
+		if (Race::IsReadyToStart(Player)) {
+			Race::ResetSolo();
+			Start(Player, Map_Starts, Round_ValidatedFinishes.count);
+		}
+	}
+}
+***
+
+
+***Match_EndRound***
+***
+// Wait for the end of the player race outro
+declare Boolean OutroFinished = False;
+while (MB_MapIsRunning() && !OutroFinished) {
+	MB_Yield();
+
+	declare Events::K_RaceEvent[] RacePendingEvents = Race::GetPendingEvents();
+	foreach (Event in RacePendingEvents) {
+		if (Event.Type == Events::C_Type_SkipOutro) {
+			Race::ValidEvent(Event);
+		} else {
+			Race::InvalidEvent(Event);
+		}
+	}
+	foreach (Event in PendingEvents) {
+		if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+		Events::Invalid(Event);
+	}
+
+	OutroFinished = True;
+	foreach (Player in Players) {
+		if (Race::IsWatchingOutro(Player)) {
+			OutroFinished = False;
+		}
+	}
+}
+
+// Unspawn players
+foreach (Player in Players) {
+	Race::StopSkipOutro(Player);
+}
+MB_Yield(); //< Sleep one frame to be sure that player is properly unspawn
+MB_EnablePlayMode(False);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+StartTime = -1;
+
+// Save new time if better
+if (Round_RaceTime >= 0 && (Round_RaceTime < MapGet::GetSharedAuthorTime() || MapGet::GetSharedAuthorTime() < 0)) {
+	MapGet::ShareAuthorTime(Round_RaceTime);
+}
+
+// Show end race menu
+Net_RoyalEndRaceMenu_IsVisible = True;
+declare CUIConfig::EUISequence UISequenceToRestore = UIManager.UIAll.UISequence;
+UIManager.UIAll.UISequence = CUIConfig::EUISequence::Podium;
+
+// Wait for player action
+declare Boolean WaitAnswer = True;
+while (WaitAnswer && MB_ServerIsRunning()) {
+	MB_Yield();
+	// Check if an event from the RaceValidationMenu UI has been received and apply it if needed
+	foreach (Event in UIManager.PendingEvents) {
+		if (Event.Type == CUIConfigEvent::EType::OnLayerCustomEvent) {
+			if (Event.CustomEventType == RoyalConst::C_EventType_Retry) {
+				WaitAnswer = False;
+			} else if (Event.CustomEventType == RoyalConst::C_EventType_Quit) {
+				WaitAnswer = False;
+				MB_StopServer();
+			}
+		}
+	}
+}
+
+// Hide end race menu
+UIManager.UIAll.UISequence = UISequenceToRestore;
+Net_RoyalEndRaceMenu_IsVisible = False;
+***
+
+***Match_EndMap***
+***
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Spawn the player at the right start line
+Void Start(CSmPlayer _Player, CMapLandmark[] _Starts, Integer _ActiveSegment, Integer _SpawnTime) {
+	if (!_Starts.existskey(_ActiveSegment)) return;
+	_Player.LandmarkOrderSelector_Race = _Starts[_ActiveSegment].Order;
+	Race::Start(_Player, _Starts[_ActiveSegment], _SpawnTime);
+}
+Void Start(CSmPlayer _Player, CMapLandmark[] _Starts, Integer _ActiveSegment) {
+	Start(_Player, _Starts, _ActiveSegment, Now + Race::C_SpawnDuration);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Display the podium sequence
+Void ViewRacePodium() {
+	declare netwrite Boolean Net_RoyalValidation_RacePodiumIsVisible for Teams[0] = False;
+	Net_RoyalValidation_RacePodiumIsVisible = True;
+	Utils::PushAndApplyUISequence(UIManager.UIAll, CUIConfig::EUISequence::Podium);
+
+	declare Boolean PodiumIsActive = True;
+	while (PodiumIsActive) {
+		MB_Yield();
+
+		foreach (Event in UIManager.PendingEvents) {
+			if (Event.Type == CUIConfigEvent::EType::OnLayerCustomEvent) {
+				if (Event.CustomEventType == RoyalConst::C_EventType_ExitPodium) {
+					PodiumIsActive = False;
+				}
+			}
+		}
+	}
+
+	Utils::PopAndApplyUISequence(UIManager.UIAll);
+	Net_RoyalValidation_RacePodiumIsVisible = False;
+}

@@ -1,0 +1,348 @@
+/**
+ *	TMGL API related functions
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionTMGL/TMGLAPI_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/TMGame/Modes/Scores.Script.txt" as Scores
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/TMGLAPI_Common.Script.txt" as TMGLAPI
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_CheersRequest {
+	Text Url;
+	Integer NextUpdateTime;
+	Http::K_Request Request;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_TMGLPlayersNb 16 //< Number of players participating in the TMGL
+#Const TMGLAPI::C_MaxHearts as C_MaxHearts
+#Const C_LeaderboardRequestRetryInterval 60000 //< Delay (milliseconds) before trying to fetch the leaderboard again after a failure
+#Const C_CheersRequestUpdateInterval 15000 //< Delay (milliseconds) between two updates of the cheers
+#Const C_CheersSampleSize 4
+#Const C_PreviouslyCheeredSize 5
+#Const C_HttpHeaders [
+	"Accept" => "application/json",
+	"Content-Type" => "application/json",
+	"Authorization" => "none" //< The TMGL API do not need any authentication
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Http::K_Request G_Request_CompetitionGetLeaderboard;
+declare K_CheersRequest G_Request_CheerGetCheers;
+declare TMGLAPI::LibChampionTMGLAPI_K_LeaderboardPlayer[] G_TMGLRanking;
+declare Integer[Text] G_CheersTotals;
+declare Integer[Text] G_CheersSpeeds;
+declare Integer[][Text] G_CheersAccelerations;
+declare Real[Text] G_CheersMeanAccelerations;
+declare Text[] G_PreviouslyCheeredPlayers;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start a new TMGL match
+Void StartMatch(Text _CompetitionAPIUrl, Text _CheersAPIUrl) {
+	G_Request_CompetitionGetLeaderboard = Http::Destroy(G_Request_CompetitionGetLeaderboard);
+	if (_CompetitionAPIUrl != "" && Http.IsValidUrl(_CompetitionAPIUrl)) {
+		G_Request_CompetitionGetLeaderboard = Http::CreateGet(
+			_CompetitionAPIUrl^"/leaderboard"^Http::CreateQueryString(["length" => ""^C_TMGLPlayersNb]),
+			C_HttpHeaders,
+			Http::C_AlwaysRetry,
+			C_LeaderboardRequestRetryInterval
+		);
+	}
+
+	G_Request_CheerGetCheers.Request = Http::Destroy(G_Request_CheerGetCheers.Request);
+	G_Request_CheerGetCheers.NextUpdateTime = 0;
+	if (_CheersAPIUrl != "" && Http.IsValidUrl(_CheersAPIUrl)) {
+		G_Request_CheerGetCheers.Url = _CheersAPIUrl^"/cheers";
+		G_Request_CheerGetCheers.Request = Http::CreateGet(
+			G_Request_CheerGetCheers.Url,
+			C_HttpHeaders
+		);
+	} else {
+		G_Request_CheerGetCheers.Url = "";
+	}
+
+	G_CheersTotals = [];
+	G_CheersSpeeds = [];
+	G_CheersAccelerations = [];
+	G_CheersMeanAccelerations = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Merge the league's ranking at the start of the match
+ *	with the scores of the match in progress.
+ *	Should be called only once the round points are
+ *	added to the match points.
+ */
+Void MergeMatchRankingIntoLeagueRanking() {
+	declare CSmScore[Text] AccountIdToScore;
+	foreach (Score in Scores) {
+		if (Score.User != Null) {
+			AccountIdToScore[Score.User.WebServicesUserId] <=> Score;
+		}
+	}
+
+	declare Integer[Text] NewPointsRanking;
+	declare Integer[Text] OldRanks;
+	declare Text[Text] PlayerZones;
+	foreach (LeaderboardPlayer in G_TMGLRanking) {
+		declare Integer Points = LeaderboardPlayer.Score;
+		if (AccountIdToScore.existskey(LeaderboardPlayer.AccountId)) {
+			// Do not add the round points to the score. The scores table
+			// on the client will display the round points beside the league points
+			// at the end of the map.
+			Points += Scores::GetPlayerMatchPoints(AccountIdToScore[LeaderboardPlayer.AccountId]);
+		}
+		NewPointsRanking[LeaderboardPlayer.AccountId] = Points;
+		OldRanks[LeaderboardPlayer.AccountId] = LeaderboardPlayer.Rank;
+		PlayerZones[LeaderboardPlayer.AccountId] = LeaderboardPlayer.Zone;
+	}
+	NewPointsRanking = NewPointsRanking.sortreverse();
+
+	declare netwrite TMGLAPI::LibChampionTMGLAPI_K_LeaderboardPlayer[] Net_ChampionTMGL_TMGLAPI_LeagueRanking for Teams[0];
+	declare netwrite Integer Net_ChampionTMGL_TMGLAPI_LeagueRankingUpdate for Teams[0];
+	declare Integer PreviousPoints = 0;
+	declare Integer PreviousRank = 1;
+	declare Integer Rank = 1;
+
+	Net_ChampionTMGL_TMGLAPI_LeagueRanking = [];
+	foreach (AccountId => Points in NewPointsRanking) {
+		// Display draws at the same rank
+		declare Integer NewRank = 1;
+		if (Points == PreviousPoints) {
+			NewRank = PreviousRank;
+		} else {
+			NewRank = Rank;
+			PreviousPoints = Points;
+			PreviousRank = Rank;
+		}
+		Rank += 1;
+
+		Net_ChampionTMGL_TMGLAPI_LeagueRanking.add(TMGLAPI::LibChampionTMGLAPI_K_LeaderboardPlayer {
+			AccountId = AccountId,
+			Score = Points,
+			Rank = NewRank,
+			RankDiff = OldRanks.get(AccountId, 1) - NewRank,
+			Zone = PlayerZones.get(AccountId, "")
+		});
+	}
+	Net_ChampionTMGL_TMGLAPI_LeagueRankingUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the cheers
+Void UpdateCheers(Integer[Text] _Cheers) {
+	declare Integer[Text] SortedCheers = _Cheers.sortreverse();
+	declare Integer CheersTotal;
+	declare Integer[Text] Hearts;
+	declare Integer HeartsNb = C_MaxHearts;
+	declare Integer[Text] CheersSpeeds;
+	declare Integer[][Text] CheersAccelerations;
+
+	foreach (AccountId => CheersNb in SortedCheers) {
+		CheersTotal += CheersNb;
+
+		if (HeartsNb > 0) {
+			Hearts[AccountId] = HeartsNb;
+			HeartsNb -= 1;
+		}
+
+		if (G_CheersTotals.existskey(AccountId)) {
+			declare Integer CheersSpeed =  CheersNb - G_CheersTotals[AccountId];
+			CheersSpeeds[AccountId] = CheersSpeed;
+
+			if (G_CheersSpeeds.existskey(AccountId)) {
+				declare Integer CheersAcceleration = CheersSpeed - G_CheersSpeeds[AccountId];
+
+				if (G_CheersAccelerations.existskey(AccountId)) {
+					declare Integer[] NewCheersAccelerations = G_CheersAccelerations[AccountId];
+					while (NewCheersAccelerations.count > C_CheersSampleSize - 1) NewCheersAccelerations.removekey(0);
+					NewCheersAccelerations.add(CheersAcceleration);
+					CheersAccelerations[AccountId] = NewCheersAccelerations;
+				} else {
+					CheersAccelerations[AccountId] = [CheersAcceleration];
+				}
+			}
+		}
+	}
+
+	G_CheersTotals = SortedCheers;
+	G_CheersSpeeds = CheersSpeeds;
+	G_CheersAccelerations = CheersAccelerations;
+
+	declare Real[Text] CheersMeanAccelerations;
+	foreach (AccountId => CheersAcceleration in G_CheersAccelerations) {
+		if (CheersAcceleration.count > 0) {
+			declare Integer Total;
+			foreach (Acceleration in CheersAcceleration) Total += Acceleration;
+			CheersMeanAccelerations[AccountId] = Total / (CheersAcceleration.count * 1.);
+		}
+	}
+	G_CheersMeanAccelerations = CheersMeanAccelerations;
+
+	declare netwrite Integer Net_ChampionTMGL_TMGLAPI_CheersTotal for Teams[0];
+	declare netwrite Integer[Text] Net_ChampionTMGL_TMGLAPI_Hearts for Teams[0];
+	declare netwrite Integer Net_ChampionTMGL_TMGLAPI_HeartsUpdate for Teams[0];
+	Net_ChampionTMGL_TMGLAPI_CheersTotal = CheersTotal;
+	Net_ChampionTMGL_TMGLAPI_Hearts = Hearts;
+	Net_ChampionTMGL_TMGLAPI_HeartsUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the account id of the player that should be cheered
+Text GetAccountIdToCheer() {
+	// Only spawned players can be cheered
+	declare Real[Text] PrimaryCandidates;
+	declare Text[] SecondaryCandidates;
+	declare Text[] TertiaryCandidates;
+	foreach (Player in Players) {
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned && Player.User != Null) {
+			if (G_PreviouslyCheeredPlayers.exists(Player.User.WebServicesUserId)) {
+				TertiaryCandidates.add(Player.User.WebServicesUserId);
+			} else if (G_CheersMeanAccelerations.existskey(Player.User.WebServicesUserId)) {
+				PrimaryCandidates[Player.User.WebServicesUserId] = G_CheersMeanAccelerations[Player.User.WebServicesUserId];
+			} else {
+				SecondaryCandidates.add(Player.User.WebServicesUserId);
+			}
+		}
+	}
+
+	declare Text[] FinalCandidates;
+	if (PrimaryCandidates.count > 0) {
+		PrimaryCandidates = PrimaryCandidates.sortreverse();
+		declare Real MaxPoints;
+		foreach (Candidate => Points in PrimaryCandidates) {
+			if (FinalCandidates.count <= 0) {
+				FinalCandidates.add(Candidate);
+				MaxPoints = Points;
+			} else if (Points == MaxPoints){
+				FinalCandidates.add(Candidate);
+			} else {
+				break;
+			}
+		}
+	} else if (SecondaryCandidates.count > 0) {
+		FinalCandidates = SecondaryCandidates;
+	} else if (TertiaryCandidates.count > 0 && G_PreviouslyCheeredPlayers.count > 0) {
+		// Select the player that was mentionned the longest time ago
+		declare Text[] MentionOrder;
+		foreach (AccountId in G_PreviouslyCheeredPlayers) {
+			if (TertiaryCandidates.exists(AccountId)) {
+				MentionOrder.remove(AccountId); //< Remove any previous mention
+				MentionOrder.add(AccountId); //< Add the latest mention at the end
+			}
+		}
+		if (MentionOrder.count > 0) {
+			FinalCandidates.add(MentionOrder[0]);
+		}
+	}
+
+	declare Text AccountIdToCheer;
+	if (FinalCandidates.count > 0) {
+		AccountIdToCheer = FinalCandidates[ML::Rand(0, FinalCandidates.count - 1)];
+	}
+
+	if (AccountIdToCheer != "") {
+		G_PreviouslyCheeredPlayers.add(AccountIdToCheer);
+		while (G_PreviouslyCheeredPlayers.count > C_PreviouslyCheeredSize) G_PreviouslyCheeredPlayers.removekey(0);
+	}
+
+	return AccountIdToCheer;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (Http::IsInitialized(G_Request_CompetitionGetLeaderboard)) {
+		G_Request_CompetitionGetLeaderboard = Http::Update(G_Request_CompetitionGetLeaderboard);
+		if (!Http::IsRunning(G_Request_CompetitionGetLeaderboard)) {
+			if (Http::IsSuccess(G_Request_CompetitionGetLeaderboard)) {
+				declare TMGLAPI::LibChampionTMGLAPI_K_HttpLeaderboardPlayer[] HttpLeadeboardPlayers;
+				HttpLeadeboardPlayers.fromjson(Http::GetResult(G_Request_CompetitionGetLeaderboard));
+
+				declare Integer PreviousPoints = 0;
+				declare Integer PreviousRank = 1;
+				declare Integer Rank = 1;
+				G_TMGLRanking = [];
+				foreach (LeaderboardPlayer in HttpLeadeboardPlayers) {
+					// Display draws at the same rank
+					declare Integer DrawRank = 1;
+					if (LeaderboardPlayer.score == PreviousPoints) {
+						DrawRank = PreviousRank;
+					} else {
+						DrawRank = Rank;
+						PreviousPoints = LeaderboardPlayer.score;
+						PreviousRank = Rank;
+					}
+					Rank += 1;
+
+					G_TMGLRanking.add(TMGLAPI::LibChampionTMGLAPI_K_LeaderboardPlayer {
+						AccountId = LeaderboardPlayer.participant,
+						Score = LeaderboardPlayer.score,
+						Rank = DrawRank,
+						Zone = LeaderboardPlayer.zone
+					});
+				}
+				MergeMatchRankingIntoLeagueRanking();
+			}
+			G_Request_CompetitionGetLeaderboard = Http::Destroy(G_Request_CompetitionGetLeaderboard);
+		}
+	}
+
+	if (Http::IsInitialized(G_Request_CheerGetCheers.Request)) {
+		G_Request_CheerGetCheers.Request = Http::Update(G_Request_CheerGetCheers.Request);
+		if (!Http::IsRunning(G_Request_CheerGetCheers.Request)) {
+			if (Http::IsSuccess(G_Request_CheerGetCheers.Request)) {
+				declare Integer[Text] Cheers;
+				Cheers.fromjson(Http::GetResult(G_Request_CheerGetCheers.Request));
+				UpdateCheers(Cheers);
+			}
+			G_Request_CheerGetCheers.Request = Http::Destroy(G_Request_CheerGetCheers.Request);
+			G_Request_CheerGetCheers.NextUpdateTime = Now + C_CheersRequestUpdateInterval;
+		}
+	}
+
+	if (G_Request_CheerGetCheers.NextUpdateTime > 0 && G_Request_CheerGetCheers.NextUpdateTime <= Now) {
+		G_Request_CheerGetCheers.NextUpdateTime = 0;
+		G_Request_CheerGetCheers.Request = Http::CreateGet(
+			G_Request_CheerGetCheers.Url,
+			C_HttpHeaders
+		);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	G_Request_CompetitionGetLeaderboard = Http::Destroy(G_Request_CompetitionGetLeaderboard);
+	G_Request_CheerGetCheers.Request = Http::Destroy(G_Request_CheerGetCheers.Request);
+	G_Request_CheerGetCheers = K_CheersRequest {};
+	G_TMGLRanking = [];
+	G_CheersTotals = [];
+	G_CheersSpeeds = [];
+	G_CheersAccelerations = [];
+	G_CheersMeanAccelerations = [];
+
+	MergeMatchRankingIntoLeagueRanking();
+	UpdateCheers([]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

@@ -1,0 +1,218 @@
+/**
+ *	Markers management (client side)
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/CMGame/Modes/Markers_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Layers.Script.txt" as Layers
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Modes/Markers_Common.Script.txt" as Markers
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Layer_Markers "LibMode_Markers"
+#Const C_ManialinkId "LibMode_Markers"
+#Const C_MarkersNb 256
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Text[Text] G_PlayerMarkerComponents;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Generate the player marker manialink
+Void Private_UpdatePlayerMarkerManialink() {
+	if (G_PlayerMarkerComponents.count > 0) {
+		declare Text[] Components;
+		declare Text ComponentsML;
+		foreach (ComponentName => Component in G_PlayerMarkerComponents) {
+			Components.add(Component);
+			ComponentsML ^= """<frameinstance modelid="{{{ComponentName}}}" />""";
+		}
+
+		declare Text MarkersML;
+		for (I, 0, C_MarkersNb - 1) {
+			// The C++ will control the z-index and visibility of the marker frame
+			// We use an outer and inner frame to keep a control on these values
+			MarkersML ^= """
+<frame z-index="{{{I}}}">
+	<frame id="{{{Markers::GetManialinkFrameId(I)}}}" hidden="1">
+		<frame id="frame-marker-content" hidden="1">{{{ComponentsML}}}</frame>
+	</frame>
+</frame>""";
+		}
+
+		Layers::Update(C_Layer_Markers, MV::Create(
+			C_ManialinkId, 3,
+			"""<frame id="frame-global" z-index="-3"><frame id="frame-markers">{{{MarkersML}}}</frame></frame>""",
+			"",
+			"""
+Text[Integer] UpdateMarkers(CMlFrame[] _Frames_PlayerMarker, Text[Integer] _LoadedMarkers, Text[Integer] _MarkerFrameIds) {
+	declare Text[Integer] LoadedMarkers = _LoadedMarkers;
+
+	// Allow only valid markers to be displayed
+	declare Text[] ValidMarkers;
+	foreach (Marker in UI.Markers) {
+		if (
+			Marker.Type != CUIConfigMarker::EAnchorType::Invalid &&
+			Marker.ManialinkFrameId != "" &&
+			!ValidMarkers.exists(Marker.ManialinkFrameId)
+		) {
+			ValidMarkers.add(Marker.ManialinkFrameId);
+		}
+	}
+
+	+++UpdateMarkers_Init+++
+
+	declare Integer MarkersFound = 0;
+	foreach (Key => Frame_Marker in _Frames_PlayerMarker) {
+		// Once we have found all the markers to display,
+		// we can hide all the others
+		if (MarkersFound < _MarkerFrameIds.count) {
+			declare Boolean MarkerExists = _MarkerFrameIds.existskey(Key);
+			if (MarkerExists) MarkersFound += 1;
+			if (MarkerExists && ValidMarkers.exists(Frame_Marker.Parent.ControlId)) {
+				declare Text AccountId = _MarkerFrameIds[Key];
+				if (
+					!LoadedMarkers.existskey(Key) ||
+					LoadedMarkers[Key] != AccountId
+				) {
+					// Executed once when the marker is initialized for a player
+					+++UpdateMarkers_CreateMarker+++
+
+					LoadedMarkers[Key] = AccountId;
+				}
+
+				// Executed each time an update is done on the markers
+				+++UpdateMarkers_UpdateMarker+++
+
+				Frame_Marker.Visible = True;
+			} else {
+				Frame_Marker.Visible = False;
+			}
+		} else {
+			Frame_Marker.Visible = False;
+		}
+	}
+
+	return LoadedMarkers;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_Markers;
+declare CMlFrame[] Frames_PlayerMarker;
+
+declare netread Text[Integer] Net_LibModeMarkers_MarkerFrameIds as Net_LibModeMarkers_MarkerFrameIds_UI for UI = [];
+declare netread Integer Net_LibModeMarkers_MarkerFrameIdsUpdate as Net_LibModeMarkers_MarkerFrameIdsUpdate_UI for UI = 0;
+declare netread Text[Integer] Net_LibModeMarkers_MarkerFrameIds as Net_LibModeMarkers_MarkerFrameIds_Team for Teams[0] = [];
+declare netread Integer Net_LibModeMarkers_MarkerFrameIdsUpdate as Net_LibModeMarkers_MarkerFrameIdsUpdate_Team for Teams[0] = 0;
+
+declare Integer MarkerFrameIdsUpdate_UI;
+declare Integer MarkerFrameIdsUpdate_Team;
+declare Text[Integer] MarkerFrameIds;
+declare Text[Integer] LoadedMarkers;
+declare Boolean NeedMarkersUpdate;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_Markers <=> (Frame_Global.GetFirstChild("frame-markers") as CMlFrame);
+foreach (Control in Frame_Markers.Controls) {
+	Frames_PlayerMarker.add(
+		((Control as CMlFrame).GetFirstChild("frame-marker-content") as CMlFrame)
+	);
+}
+
+MarkerFrameIdsUpdate_UI = -123;
+MarkerFrameIdsUpdate_Team = -123;
+MarkerFrameIds = [];
+LoadedMarkers = [];
+NeedMarkersUpdate = True;
+
+// When creating the layer, wait for the maniascript API to be
+// properly initialized before continuing. Before that we do
+// not have access to the players (`Players` array is empty).
+while (InputPlayer == Null) {
+	yield;
+}
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (MarkerFrameIdsUpdate_UI != Net_LibModeMarkers_MarkerFrameIdsUpdate_UI) {
+		MarkerFrameIdsUpdate_UI = Net_LibModeMarkers_MarkerFrameIdsUpdate_UI;
+		MarkerFrameIds = Net_LibModeMarkers_MarkerFrameIds_UI;
+		NeedMarkersUpdate = True;
+	}
+	if (MarkerFrameIdsUpdate_Team != Net_LibModeMarkers_MarkerFrameIdsUpdate_Team) {
+		MarkerFrameIdsUpdate_Team = Net_LibModeMarkers_MarkerFrameIdsUpdate_Team;
+		MarkerFrameIds = Net_LibModeMarkers_MarkerFrameIds_Team;
+		NeedMarkersUpdate = True;
+	}
+
+	if (NeedMarkersUpdate) {
+		NeedMarkersUpdate = False;
+		LoadedMarkers = UpdateMarkers(Frames_PlayerMarker, LoadedMarkers, MarkerFrameIds);
+	}
+}
+***
+			""",
+			Components,
+			[]
+		));
+	} else {
+		Layers::Update(C_Layer_Markers, "");
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add a component to the players' markers
+Void AddPlayerMarkerComponents(Text[Text] _Components) {
+	foreach (ComponentName => Component in _Components) {
+		G_PlayerMarkerComponents[ComponentName] = Component;
+	}
+	Private_UpdatePlayerMarkerManialink();
+}
+Void AddPlayerMarkerComponent(Text _ComponentName, Text _Component) {
+	AddPlayerMarkerComponents([_ComponentName => _Component]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove a component from the players' markers
+Void RemovePlayerMarkerComponents(Text[] _ComponentNames) {
+	foreach (ComponentName in _ComponentNames) {
+		G_PlayerMarkerComponents.removekey(ComponentName);
+	}
+	Private_UpdatePlayerMarkerManialink();
+}
+Void RemovePlayerMarkerComponent(Text _ComponentName) {
+	RemovePlayerMarkerComponents([_ComponentName]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	Layers::Destroy(C_Layer_Markers);
+
+	G_PlayerMarkerComponents = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	Layers::Create(C_Layer_Markers);
+	Layers::SetType(C_Layer_Markers, CUILayer::EUILayerType::Markers);
+}

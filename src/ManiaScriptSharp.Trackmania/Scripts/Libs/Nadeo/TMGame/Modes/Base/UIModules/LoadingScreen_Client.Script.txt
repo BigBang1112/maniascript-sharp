@@ -1,0 +1,202 @@
+/**
+ * UI module: LoadingScreen client side
+ * Loading screen displayed in game modes during track loading
+ *
+ * /!\ `UI` is `Null` in the loading screen layer. Can't use it for a `netread`.
+ */
+#Const Version "1.2.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/LoadingScreen_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/LoadingScreen_Common.Script.txt" as UIModules_LoadingScreen_Common
+#Include "Libs/Nadeo/Trackmania/Components/LoadingScreen.Script.txt" as LoadingScreen
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const UIModules_LoadingScreen_Common::C_Id as C_Id
+#Const UIModules_LoadingScreen_Common::C_LayerType as C_LayerType
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return MV::Create(
+		C_Id, 3,
+"""
+<frame id="frame-global" z-index="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_LoadingScreen_Common::C_UIModuleConfig)}}}>
+		<quad z-index="0" size="320 180" halign="center" valign="center" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" fullscreen="1" />
+		<frameinstance modelid="{{{LoadingScreen::C_Name}}}" id="loading-screen-main" z-index="1" />
+		<frame id="frame-server-image" z-index="2">
+			<frame id="frame-server-image-loading">
+				<quad id="quad-image" z-index="1" size="320 180" halign="center" valign="center" keepratio="fit" />
+				<quad id="quad-message-dimmer" pos="0 -80" z-index="2" size="320 20" halign="center" valign="center" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.5" />
+				<label id="label-message" pos="135 -80.6" z-index="3" size="290 20" halign="right" valign="center2" textprefix="$i$t" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textsize="8" filter-profanities="OnlyIfNotTranslated" />
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/Trackmania/Stores/LoadingScreen.Script.txt" as LoadingScreenStore
+
+#Struct K_Controls {
+	CMlFrame Frame_Global;
+	CMlFrame Frame_ServerImage;
+	CMlFrame Frame_ServerImageLoading;
+	CMlQuad Quad_Image;
+	CMlQuad Quad_MessageDimmer;
+	CMlLabel Label_Message;
+	CMlFrame LoadingScreen_Main;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Text ServerImageUrl;
+	Boolean DownloadInProgress;
+	Boolean IsLoadingScreen;
+	LoadingScreenStore::K_LoadingScreen TitleMenuLoadingScreen;
+	LoadingScreenStore::K_LoadingScreen IngameLoadingScreen;
+}
+""",
+"""
+K_State SetDownloadInProgress(K_State _State, Boolean _DownloadInProgress) {
+	declare K_State State = _State;
+
+	State.DownloadInProgress = _DownloadInProgress;
+	State.Controls.Frame_ServerImageLoading.Visible = (State.Controls.Quad_Image.ImageUrl != "" && !State.DownloadInProgress);
+
+	return State;
+}
+
+K_State SetNextLoadingScreen(K_State _State) {
+	declare K_State State = _State;
+
+	if (State.TitleMenuLoadingScreen != LoadingScreenStore::C_LoadingScreen_Null) {
+		State.Controls.Frame_ServerImage.Visible = False;
+		{{{LoadingScreen::P}}}SetIsVisible(State.Controls.LoadingScreen_Main, True);
+		State.TitleMenuLoadingScreen = LoadingScreenStore::C_LoadingScreen_Null;
+		State.IngameLoadingScreen = LoadingScreenStore::C_LoadingScreen_Null;
+	} else if (State.ServerImageUrl != "") {
+		State.Controls.Quad_Image.ImageUrl = State.ServerImageUrl;
+		State = SetDownloadInProgress(State, State.Controls.Quad_Image.DownloadInProgress);
+		State.Controls.Label_Message.Value = "";
+		State.Controls.Quad_MessageDimmer.Visible = (State.Controls.Label_Message.Value != "");
+		State.Controls.Frame_ServerImage.Visible = True;
+		{{{LoadingScreen::P}}}SetIsVisible(State.Controls.LoadingScreen_Main, False);
+		State.IngameLoadingScreen = LoadingScreenStore::C_LoadingScreen_Null;
+	} else {
+		State.Controls.Frame_ServerImage.Visible = False;
+		{{{LoadingScreen::P}}}SetIsVisible(State.Controls.LoadingScreen_Main, True);
+		LoadingScreenStore::UpdateTitleMenuLoadingScreen_Random(This, "");
+		State.IngameLoadingScreen = LoadingScreenStore::GetCurrentTitleMenuLoadingScreen(This);
+	}
+
+	return State;
+}
+
+K_State SetServerImageUrl(K_State _State, Text _ServerImageUrl) {
+	declare K_State State = _State;
+
+	State.ServerImageUrl = _ServerImageUrl;
+	if (State.ServerImageUrl != "") {
+		PreloadImage(State.ServerImageUrl);
+	}
+	State = SetNextLoadingScreen(State);
+
+	return State;
+}
+
+K_State SetIsLoadingScreen(K_State _State, Boolean _IsLoadingScreen) {
+	declare K_State State = _State;
+
+	State.IsLoadingScreen = _IsLoadingScreen;
+
+	if (State.IsLoadingScreen) {
+		LoadingScreenStore::StartTrackingLoadingScreen(This, State.IngameLoadingScreen);
+	} else {
+		LoadingScreenStore::StopTrackingLoadingScreen(This);
+		// Prepare the next image to display
+		State = SetNextLoadingScreen(State);
+	}
+
+	return State;
+}
+
+Boolean Private_IsLoadingScreen(CPlaygroundClient _Playground) {
+	return (_Playground != Null && _Playground.IsLoadingScreen);
+}
+
+***MainInit***
+***
+declare netread Text Net_Race_LoadingScreen_ImageUrl for Teams[0] = "";
+
+declare K_State State;
+***
+
+***MainStart***
+***
+State.Controls.Frame_Global = (Page.GetFirstChild("frame-global") as CMlFrame);
+State.Controls.Frame_ServerImage = (State.Controls.Frame_Global.GetFirstChild("frame-server-image") as CMlFrame);
+State.Controls.Frame_ServerImageLoading = (State.Controls.Frame_Global.GetFirstChild("frame-server-image-loading") as CMlFrame);
+State.Controls.Quad_Image = (State.Controls.Frame_Global.GetFirstChild("quad-image") as CMlQuad);
+State.Controls.Quad_MessageDimmer = (State.Controls.Frame_Global.GetFirstChild("quad-message-dimmer") as CMlQuad);
+State.Controls.Label_Message = (State.Controls.Frame_Global.GetFirstChild("label-message") as CMlLabel);
+State.Controls.LoadingScreen_Main = (State.Controls.Frame_Global.GetFirstChild("loading-screen-main") as CMlFrame);
+
+// When the user enters the game mode, the title menu loading screen stops,
+// and the game mode loading screen starts for a short time before stopping too
+LoadingScreenStore::StopTrackingLoadingScreen(This);
+State.TitleMenuLoadingScreen = LoadingScreenStore::GetCurrentTitleMenuLoadingScreen(This);
+State.IngameLoadingScreen = LoadingScreenStore::C_LoadingScreen_Null;
+State = SetServerImageUrl(State, Net_Race_LoadingScreen_ImageUrl);
+State = SetIsLoadingScreen(State, Private_IsLoadingScreen(Playground));
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (State.ServerImageUrl != Net_Race_LoadingScreen_ImageUrl) {
+		State = SetServerImageUrl(State, Net_Race_LoadingScreen_ImageUrl);
+	}
+	if (State.DownloadInProgress != State.Controls.Quad_Image.DownloadInProgress) {
+		State = SetDownloadInProgress(State, State.Controls.Quad_Image.DownloadInProgress);
+	}
+	if (State.IsLoadingScreen != Private_IsLoadingScreen(Playground)) {
+		State = SetIsLoadingScreen(State, Private_IsLoadingScreen(Playground));
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	LoadingScreen::ComponentV2()
+],
+[]
+	);
+}

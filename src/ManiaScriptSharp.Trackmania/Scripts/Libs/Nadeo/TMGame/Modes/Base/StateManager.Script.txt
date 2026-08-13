@@ -1,0 +1,431 @@
+/**
+ * State manager for the Race mode
+ */
+#Const Version "1.2.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/StateManager.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Server.Script.txt" as UIModules
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/BigMessage_Server.Script.txt" as UIModules_BigMessage
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/BlockHelper_Server.Script.txt" as UIModules_BlockHelper
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Chrono_Server.Script.txt" as UIModules_Chrono
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Countdown_Server.Script.txt" as UIModules_Countdown
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Server.Script.txt" as UIModules_DisplayMessage
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/LapMedal_Server.Script.txt" as UIModules_LapMedal
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/LapsCounter_Server.Script.txt" as UIModules_LapsCounter
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/LoadingScreen_Server.Script.txt" as UIModules_LoadingScreen
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuSplitScreen_Server.Script.txt" as UIModules_PauseMenu_SplitScreen
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PickAndBan_Server.Script.txt" as UIModules_PickAndBan
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PrestigeEarned_Server.Script.txt" as UIModules_PrestigeEarned
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Record_Server.Script.txt" as UIModules_Record
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/RespawnHelper_Server.Script.txt" as UIModules_RespawnHelper
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Sign16x9Small_Server.Script.txt" as UIModules_Sign16x9Small
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/SpectatorBase_Server.Script.txt" as UIModules_SpectatorBase
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/SquadMembers_Server.Script.txt" as UIModules_SquadMembers
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Server.Script.txt" as UIModules_TimeGap
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/VoiceChat_Server.Script.txt" as UIModules_VoiceChat
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Vote_Server.Script.txt" as UIModules_Vote
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmUp_Server.Script.txt" as UIModules_WarmUp
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/*	Enabling this setting will have
+ *	a big impact on the script performances
+ *	in crowded server. The library
+ *	will do a check on every player
+ *	of the server on every frame.
+ *	If the script respect the convention
+ *	to always use MB_Yield() instead of yield;
+ *	then it should not have to enforce
+ *	the state at each frame. Any new
+ *	player will be initialized when
+ *	they join the server
+ */
+#Const C_ForceStatesEveryFrame False
+
+#Const C_Sign16x9SmallEnabled True
+
+#Const C_State_Waiting 0
+#Const C_State_Playing 1
+#Const C_State_Podium 2
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer[] G_ForcedStates;
+declare Boolean G_PickAndBanEnabled;
+declare Boolean G_Sign16x9SmallEnabled;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Apply the given states to the given player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_States										The states to apply
+ */
+Void Private_Apply(CPlayer _Player, Integer[] _States) {
+	if (_Player == Null) return;
+
+	UIModules_Chrono::SetVisibility(_Player, False);
+	UIModules_RespawnHelper::SetVisibility(_Player, False);
+	UIModules_Checkpoint::SetVisibility(_Player, False);
+	UIModules_LapMedal::SetVisibility(_Player, False);
+	UIModules_LapsCounter::SetVisibility(_Player, False);
+	UIModules_TimeGap::SetVisibility(_Player, False);
+	UIModules_SpectatorBase::SetVisibility(_Player, False);
+	UIModules_Record::SetVisibility(_Player, False);
+	UIModules_BlockHelper::SetVisibility(_Player, False);
+
+	UIModules_PauseMenu_Online::SetVisibility(_Player, True);
+	UIModules_DisplayMessage::SetVisibility(_Player, True);
+	UIModules_ScoresTable::SetVisibility(_Player, True);
+	UIModules_Countdown::SetVisibility(_Player, True);
+	UIModules_BigMessage::SetVisibility(_Player, True);
+	UIModules_WarmUp::SetVisibility(_Player, True);
+	UIModules_VoiceChat::SetVisibility(_Player, True);
+	UIModules_PrestigeEarned::SetVisibility(_Player, True);
+	UIModules_SquadMembers::SetVisibility(_Player, True);
+	UIModules_Vote::SetVisibility(_Player, True);
+	if (G_PickAndBanEnabled) {
+		UIModules_PickAndBan::SetVisibility(_Player, True);
+	}
+
+	// We want to display the manialink only during the podium sequence
+	// Otherwise the default image must be displayed
+	// To do that we have to destroy the manialink on the client, we cannot juste hide it
+	// So we must unload the module instead of just hiding it
+	UIModules::UnloadModule(UIModules_Sign16x9Small::GetId());
+	UIModules_Sign16x9Small::SetVisibility(_Player, False);
+
+	foreach (State in _States) {
+		switch (State) {
+			case C_State_Playing: {
+				UIModules_Chrono::SetVisibility(_Player, True);
+				UIModules_RespawnHelper::SetVisibility(_Player, True);
+				UIModules_Checkpoint::SetVisibility(_Player, True);
+				UIModules_LapMedal::SetVisibility(_Player, True);
+				UIModules_LapsCounter::SetVisibility(_Player, True);
+				UIModules_TimeGap::SetVisibility(_Player, True);
+				UIModules_SpectatorBase::SetVisibility(_Player, True);
+				UIModules_Record::SetVisibility(_Player, True);
+				UIModules_BlockHelper::SetVisibility(_Player, True);
+			}
+			case C_State_Podium: {
+				if (G_Sign16x9SmallEnabled) {
+					UIModules::LoadModule(UIModules_Sign16x9Small::GetId());
+					UIModules_Sign16x9Small::SetVisibility(_Player, True);
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a state to a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to add
+ */
+Void Add(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibRaceStateMgr_States for _Player;
+	if (!LibRaceStateMgr_States.exists(_State)) {
+		LibRaceStateMgr_States.add(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibRaceStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove a state from a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to remove
+ */
+Void Remove(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibRaceStateMgr_States for _Player;
+	if (LibRaceStateMgr_States.exists(_State)) {
+		declare Removed = LibRaceStateMgr_States.remove(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibRaceStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove all state from a player
+ *
+ *	@param	_Player										The player to reset
+ */
+Void Reset(CPlayer _Player) {
+	if (_Player == Null) return;
+	declare Integer[] LibRaceStateMgr_States for _Player;
+	LibRaceStateMgr_States = [];
+	if (G_ForcedStates.count <= 0) {
+		Private_Apply(_Player, LibRaceStateMgr_States);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player has the given state
+ *
+ *	@param	_Player										The player to check
+ *	@param	_State										The state to find
+ *
+ *	@return														True if the player has the state
+ *																		False otherwise
+ */
+Boolean HasState(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return False;
+
+	declare Integer[] LibRaceStateMgr_States for _Player;
+	return LibRaceStateMgr_States.exists(_State) || G_ForcedStates.exists(_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Force the states applied to all players
+ *	To disable the forced states use an empty array
+ *
+ *	@param	_States									The states to force
+ */
+Void ForcePlayersStates(Integer[] _States) {
+	G_ForcedStates = _States;
+
+	foreach (Player in AllPlayers) {
+		declare Boolean LibRaceStateMgr_IsForcedStates for Player = False;
+		// Enable
+		if (G_ForcedStates.count > 0) {
+			LibRaceStateMgr_IsForcedStates = True;
+			Private_Apply(Player, G_ForcedStates);
+		}
+		// Disable
+		else {
+			LibRaceStateMgr_IsForcedStates = False;
+			declare Integer[] LibRaceStateMgr_States for Player;
+			Private_Apply(Player, LibRaceStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Add a state to the forced players states
+Void AddForcedPlayersStates(Integer _State) {
+	if (!G_ForcedStates.exists(_State)) {
+		G_ForcedStates.add(_State);
+		ForcePlayersStates(G_ForcedStates);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Remove a state from the forced players states
+Void RemoveForcedPlayersStates(Integer _State) {
+	declare Boolean Removed = G_ForcedStates.remove(_State);
+	if (Removed) {
+		ForcePlayersStates(G_ForcedStates);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Enable or disable the default podium screen layer
+Void EnableDefaultSign16x9Small(Boolean _Sign16x9SmallEnabled) {
+	G_Sign16x9SmallEnabled = _Sign16x9SmallEnabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (C_ForceStatesEveryFrame && G_ForcedStates.count > 0) {
+		foreach (Player in AllPlayers) {
+			declare Boolean LibRaceStateMgr_IsForcedStates for Player = False;
+			if (!LibRaceStateMgr_IsForcedStates) {
+				LibRaceStateMgr_IsForcedStates = True;
+				Private_Apply(Player, G_ForcedStates);
+			}
+		}
+	}
+	UIModules_Record::Yield();
+	UIModules_ScoresTable::Yield();
+	if (G_PickAndBanEnabled) {
+		UIModules_PickAndBan::Yield();
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	UIModules_Chrono::InitializePlayer(_Player);
+	UIModules_RespawnHelper::InitializePlayer(_Player);
+	UIModules_Checkpoint::InitializePlayer(_Player);
+	UIModules_LapMedal::InitializePlayer(_Player);
+	UIModules_LapsCounter::InitializePlayer(_Player);
+	UIModules_TimeGap::InitializePlayer(_Player);
+	UIModules_ScoresTable::InitializePlayer(_Player);
+	UIModules_DisplayMessage::InitializePlayer(_Player);
+	UIModules_Countdown::InitializePlayer(_Player);
+	UIModules_SpectatorBase::InitializePlayer(_Player);
+	UIModules_Record::InitializePlayer(_Player);
+	UIModules_PauseMenu_Online::InitializePlayer(_Player);
+	UIModules_BigMessage::InitializePlayer(_Player);
+	UIModules_BlockHelper::InitializePlayer(_Player);
+	UIModules_WarmUp::InitializePlayer(_Player);
+	UIModules_Sign16x9Small::InitializePlayer(_Player);
+	UIModules_VoiceChat::InitializePlayer(_Player);
+	UIModules_PrestigeEarned::InitializePlayer(_Player);
+	UIModules_SquadMembers::InitializePlayer(_Player);
+	UIModules_LoadingScreen::InitializePlayer(_Player);
+	UIModules_Vote::InitializePlayer(_Player);
+	if (G_PickAndBanEnabled) {
+		UIModules_PickAndBan::InitializePlayer(_Player);
+	}
+
+	Reset(_Player);
+
+	if (G_ForcedStates.count > 0) {
+		declare Boolean LibRaceStateMgr_IsForcedStates for _Player = False;
+		LibRaceStateMgr_IsForcedStates = True;
+		Private_Apply(_Player, G_ForcedStates);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+
+	// Unload even if the pick and ban is disabled
+	// To reset the UI correctly after a script restart
+	// where the setting to enable the pick and ban is set to False
+	UIModules_PickAndBan::Unload();
+
+	UIModules_PauseMenu_SplitScreen::Unload();
+	UIModules_PauseMenu_Online::Unload();
+	UIModules_Record::Unload();
+	UIModules_SpectatorBase::Unload();
+	UIModules_Countdown::Unload();
+	UIModules_DisplayMessage::Unload();
+	UIModules_ScoresTable::Unload();
+	UIModules_TimeGap::Unload();
+	UIModules_LapMedal::Unload();
+	UIModules_LapsCounter::Unload();
+	UIModules_Checkpoint::Unload();
+	UIModules_RespawnHelper::Unload();
+	UIModules_Chrono::Unload();
+	UIModules_BigMessage::Unload();
+	UIModules_BlockHelper::Unload();
+	UIModules_WarmUp::Unload();
+	UIModules_Sign16x9Small::Unload();
+	UIModules_VoiceChat::Unload();
+	UIModules_PrestigeEarned::Unload();
+	UIModules_SquadMembers::Unload();
+	UIModules_LoadingScreen::Unload();
+	UIModules_Vote::Unload();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load(Boolean _EnablePickAndBan) {
+	Unload();
+
+	G_PickAndBanEnabled = _EnablePickAndBan;
+	G_Sign16x9SmallEnabled = C_Sign16x9SmallEnabled;
+
+	UIModules_Sign16x9Small::Load();
+	UIModules_WarmUp::Load();
+	UIModules_BlockHelper::Load();
+	UIModules_BigMessage::Load();
+	UIModules_Chrono::Load();
+	UIModules_RespawnHelper::Load();
+	UIModules_Checkpoint::Load();
+	UIModules_LapMedal::Load();
+	UIModules_LapsCounter::Load();
+	UIModules_TimeGap::Load();
+	UIModules_ScoresTable::Load();
+	UIModules_DisplayMessage::Load();
+	UIModules_Countdown::Load();
+	UIModules_SpectatorBase::Load();
+	UIModules_Record::Load();
+	UIModules_PauseMenu_Online::Load();
+	UIModules_PauseMenu_SplitScreen::Load();
+	UIModules_VoiceChat::Load();
+	UIModules_PrestigeEarned::Load();
+	UIModules_SquadMembers::Load();
+	UIModules_LoadingScreen::Load();
+	UIModules_Vote::Load();
+	if (G_PickAndBanEnabled) {
+		UIModules_PickAndBan::Load();
+	}
+
+	UIModules_PauseMenu_SplitScreen::SetVisibility(True);
+
+	UIModules::InitializeCustomizableModule(UIModules_Chrono::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_RespawnHelper::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Checkpoint::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_LapMedal::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_LapsCounter::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_TimeGap::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_ScoresTable::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_DisplayMessage::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Countdown::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_SpectatorBase::GetConfig_Name());
+	UIModules::InitializeCustomizableModule(UIModules_SpectatorBase::GetConfig_Commands());
+	UIModules::InitializeCustomizableModule(UIModules_Record::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_BigMessage::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_BlockHelper::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_WarmUp::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Sign16x9Small::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_VoiceChat::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_PrestigeEarned::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_LoadingScreen::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Vote::GetConfig());
+	if (G_PickAndBanEnabled) {
+		UIModules::InitializeCustomizableModule(UIModules_PickAndBan::GetConfig());
+	}
+
+	declare Text[] Modules = [
+		UIModules_Chrono::GetId(),
+		UIModules_RespawnHelper::GetId(),
+		UIModules_Checkpoint::GetId(),
+		UIModules_LapMedal::GetId(),
+		UIModules_LapsCounter::GetId(),
+		UIModules_TimeGap::GetId(),
+		UIModules_ScoresTable::GetId(),
+		UIModules_ScoresTable::GetSplitScreenId(),
+		UIModules_DisplayMessage::GetId(),
+		UIModules_Countdown::GetId(),
+		UIModules_SpectatorBase::GetId(),
+		UIModules_Record::GetId(),
+		UIModules_PauseMenu_Online::C_Id,
+		UIModules_PauseMenu_SplitScreen::C_Id,
+		UIModules_BigMessage::GetId(),
+		UIModules_BlockHelper::GetId(),
+		UIModules_WarmUp::GetId(),
+		UIModules_VoiceChat::GetId(),
+		UIModules_PrestigeEarned::GetId(),
+		UIModules_SquadMembers::GetId(),
+		UIModules_LoadingScreen::GetId(),
+		UIModules_Vote::GetId()
+	];
+
+	if (G_PickAndBanEnabled) {
+		Modules.add(UIModules_PickAndBan::GetId());
+	}
+
+	UIModules::LoadModules(Modules);
+}

@@ -1,0 +1,706 @@
+/**
+ *  UI module: AmbientSound client side
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/AmbientSound_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/Constants.Script.txt" as ChampionConst
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Sound {
+	Text Path;
+	Text Channel;
+	Real[] VolumedB;
+	Real[] FadeDuration;
+	Real[] Pitch;
+	Vec3[] RelativePosition;
+	Vec3[] PanRadiusLfe;
+	Boolean IsMusic;
+	Boolean IsLooping;
+	Boolean IsSpatialized;
+}
+
+#Struct K_SoundAction {
+	Text Action;
+	Text Channel;
+	Real[] VolumedB;
+	Real[] FadeDuration;
+	Real[] Pitch;
+	Vec3[] RelativePosition;
+	Vec3[] PanRadiusLfe;
+	Integer[] Delay;
+	Integer[] Interval;
+	Integer[] RepeatNb;
+	Real[] PlayCursor;
+	Boolean Private_RepeatInitialized;
+	Integer Private_RemainingRepeatNb;
+	Boolean Private_Automated;
+}
+
+#Struct K_Settings {
+	Real[] VolumedB;
+}
+
+#Struct K_TriggerList {
+	K_SoundAction[] AmbientSoundStart;
+	K_SoundAction[][Text] RaceStateStop;
+	K_SoundAction[][Text] RaceStateStart;
+	K_SoundAction[][Text] Cheers;
+}
+
+#Struct K_AmbientSoundConfig {
+	K_Sound[] Sounds;
+	K_Settings Settings;
+	K_TriggerList Triggers;
+}
+
+#Struct K_Timer {
+	Integer ActivationTime;
+	K_SoundAction SoundAction;
+}
+
+#Struct K_Channel {
+	Text Id;
+	Ident[] SoundIds;
+	Ident[] RandomSoundIds;
+	Ident LastRandomSoundId;
+}
+
+#Struct K_State {
+	Boolean ForcedUpdate;
+	Integer ServerUpdate;
+	Integer CheersUpdate;
+	Boolean SoundsLoaded;
+	Boolean AmbientSoundEnabled;
+	Integer RaceState;
+	Boolean IsTrueSpectator;
+	Boolean StartAmbientSound;
+	Real VolumedB;
+	K_Channel[Text] Channels;
+	K_Timer[Text][Integer] Timers;
+}
+
+#Struct K_RandomSound {
+	CAudioSource Sound;
+	K_State State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_ChampionTMGL_AmbientSound"
+#Const C_Type CUILayer::EUILayerType::Normal
+
+#Const C_SoundAction_Stop "Stop"
+#Const C_SoundAction_Play "Play"
+#Const C_SoundAction_Repeat "Repeat"
+#Const C_SoundAction_Update "Update"
+#Const C_SoundActions [
+	"Stop",
+	"Play",
+	"Repeat",
+	"Update"
+]
+
+#Const C_Timers_Delay 0
+#Const C_Timers_Repeat 1
+
+#Const C_Repeat_Infinite -1
+#Const ChampionConst::C_RaceStates as C_RaceStates
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_State G_State;
+declare K_AmbientSoundConfig G_AmbientSoundConfig;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return MV::Create(
+C_Id, 3,
+"""
+<frame z-index="-2" hidden="1" id="frame-global">
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+""",
+"""
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+
+declare Boolean DisplayModule;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+
+DisplayModule = Frame_Global.Visible;
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_ChampionTMGL_AmbientSound_IsVisible for Owner;
+		if (DisplayModule != Net_ChampionTMGL_AmbientSound_IsVisible) {
+			DisplayModule = Net_ChampionTMGL_AmbientSound_IsVisible;
+			Frame_Global.Visible = Net_ChampionTMGL_AmbientSound_IsVisible;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+}
+***
+""",
+[],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the configuration from a file
+CHttpRequest StartLoadConfigFile(Text _FilePath) {
+	return Http.CreateGet(_FilePath, False);
+}
+Boolean IsLoadingConfigFile(CHttpRequest _RequestConfig) {
+	if (_RequestConfig == Null) return False;
+
+	if (_RequestConfig.IsCompleted && _RequestConfig.Result != "") {
+		G_AmbientSoundConfig.fromjson(_RequestConfig.Result);
+
+		// Validate config
+		declare Text[] Channels;
+		foreach (Sound in G_AmbientSoundConfig.Sounds) {
+			assert(Sound.Path != "", "You must provide a Path for each sound in the Sounds array of the ambient sound config file.");
+			assert(Sound.Channel != "", "You must provide a Channel for each sound in the Sounds array of the ambient sound config file.");
+			if (!Channels.exists(Sound.Channel)) {
+				Channels.add(Sound.Channel);
+			}
+		}
+		declare K_SoundAction[] SoundActions;
+		foreach (SoundAction in G_AmbientSoundConfig.Triggers.AmbientSoundStart) SoundActions.add(SoundAction);
+		foreach (RaceStateSoundActions in G_AmbientSoundConfig.Triggers.RaceStateStart) {
+			foreach (SoundAction in RaceStateSoundActions) {
+				SoundActions.add(SoundAction);
+			}
+		}
+		foreach (RaceStateSoundActions in G_AmbientSoundConfig.Triggers.RaceStateStop) {
+			foreach (SoundAction in RaceStateSoundActions) {
+				SoundActions.add(SoundAction);
+			}
+		}
+		foreach (RaceStateSoundActions in G_AmbientSoundConfig.Triggers.Cheers) {
+			foreach (SoundAction in RaceStateSoundActions) {
+				SoundActions.add(SoundAction);
+			}
+		}
+		foreach (SoundAction in SoundActions) {
+			assert(SoundAction.Action != "", "You must provide an Action for each action in the ambient sound config file.");
+			assert(C_SoundActions.exists(SoundAction.Action), "Unknown Action '"^SoundAction.Action^"' in the ambient sound config file.");
+			assert(SoundAction.Channel != "", "You must provide a Channel for each action in the ambient sound config file.");
+			assert(Channels.exists(SoundAction.Channel), "The Channel '"^SoundAction.Channel^"' does not exist in the Sounds section of the ambient sound config file.");
+		}
+
+		G_State.SoundsLoaded = False;
+		G_State.ForcedUpdate = True;
+	}
+
+	return !_RequestConfig.IsCompleted;
+}
+Void StopLoadConfigFile(CHttpRequest _RequestConfig) {
+	Http.Destroy(_RequestConfig);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Extract a value from a sound attribute array
+ *
+ *	@param	_SoundAttributeArray			The array to extract from
+ *
+ *	@return														If the array is empty return 0.
+ *																		If the array contains one value, return it
+ *																		If the array contains two values, return a random Real between the two values
+ *																		If the array contains three values or more, return a random Real from the array
+ */
+Real GetSoundAttribute(Real[] _SoundAttributeArray) {
+	if (_SoundAttributeArray.count == 1) {
+		return _SoundAttributeArray[0];
+	} else if (_SoundAttributeArray.count == 2) {
+		return ML::Rand(_SoundAttributeArray[0], _SoundAttributeArray[1]);
+	} else if (_SoundAttributeArray.count >= 3) {
+		return _SoundAttributeArray[ML::Rand(0, _SoundAttributeArray.count - 1)];
+	}
+	return 0.;
+}
+Integer GetSoundAttribute(Integer[] _SoundAttributeArray) {
+	if (_SoundAttributeArray.count == 1) {
+		return _SoundAttributeArray[0];
+	} else if (_SoundAttributeArray.count == 2) {
+		return ML::Rand(_SoundAttributeArray[0], _SoundAttributeArray[1]);
+	} else if (_SoundAttributeArray.count >= 3) {
+		return _SoundAttributeArray[ML::Rand(0, _SoundAttributeArray.count - 1)];
+	}
+	return 0;
+}
+Vec3 GetSoundAttribute(Vec3[] _SoundAttributeArray) {
+	if (_SoundAttributeArray.count == 1) {
+		return _SoundAttributeArray[0];
+	} else if (_SoundAttributeArray.count == 2) {
+		return <
+			ML::Rand(_SoundAttributeArray[0].X, _SoundAttributeArray[1].X),
+			ML::Rand(_SoundAttributeArray[0].Y, _SoundAttributeArray[1].Y),
+			ML::Rand(_SoundAttributeArray[0].Z, _SoundAttributeArray[1].Z)
+		>;
+	} else if (_SoundAttributeArray.count >= 3) {
+		return _SoundAttributeArray[ML::Rand(0, _SoundAttributeArray.count - 1)];
+	}
+	return <0., 0., 0.>;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the default empty array of timers
+K_Timer[Text][Integer] GetDefaultTimers() {
+	return [
+		C_Timers_Delay => [],
+		C_Timers_Repeat => []
+	];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the sounds
+K_State LoadSounds(K_State _State, K_AmbientSoundConfig _Config) {
+	declare K_State State = _State;
+
+	// Only spectators can hear ambient sound
+	if (!State.SoundsLoaded && State.AmbientSoundEnabled && State.IsTrueSpectator) {
+		// Destroy previously loaded sound
+		foreach (Channel in State.Channels) {
+			foreach (SoundId in Channel.SoundIds) {
+				if (Audio.Sounds.existskey(SoundId)) {
+					Audio.DestroySound(Audio.Sounds[SoundId]);
+				}
+			}
+		}
+		State.Channels = [];
+		State.Timers = GetDefaultTimers();
+
+		if (_Config.Settings.VolumedB.count > 0) {
+			State.VolumedB = GetSoundAttribute(_Config.Settings.VolumedB);
+		}
+
+		foreach (Sound in _Config.Sounds) {
+			declare Real VolumedB = 0.;
+			if (Sound.VolumedB.count > 0) {
+				VolumedB = GetSoundAttribute(Sound.VolumedB);
+			}
+			declare CAudioSource NewSound = Audio.CreateSound(Sound.Path, State.VolumedB + VolumedB, Sound.IsMusic, Sound.IsLooping, Sound.IsSpatialized);
+			if (NewSound != Null) {
+				if (Sound.FadeDuration.count > 0) {
+					NewSound.FadeDuration = GetSoundAttribute(Sound.FadeDuration);
+				}
+				if (Sound.Pitch.count > 0) {
+					NewSound.Pitch = GetSoundAttribute(Sound.Pitch);
+				}
+				if (Sound.RelativePosition.count > 0) {
+					NewSound.RelativePosition = GetSoundAttribute(Sound.RelativePosition);
+				}
+				if (Sound.PanRadiusLfe.count > 0) {
+					NewSound.PanRadiusLfe = GetSoundAttribute(Sound.PanRadiusLfe);
+				}
+				declare K_Channel Channel = State.Channels.get(Sound.Channel, K_Channel {
+					Id = Sound.Channel,
+					SoundIds = [],
+					RandomSoundIds = [],
+					LastRandomSoundId = NullId
+				});
+				Channel.SoundIds.add(NewSound.Id);
+				State.Channels[Sound.Channel] = Channel;
+			}
+		}
+
+		State.StartAmbientSound = True;
+		State.SoundsLoaded = True;
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the sounds loaded in a channel
+CAudioSource[] GetChannelSounds(K_State _State, Text _Channel) {
+	declare CAudioSource[] ChannelSounds;
+	declare K_Channel Channel = _State.Channels.get(_Channel, K_Channel {});
+	foreach (SoundId in Channel.SoundIds) {
+		if (Audio.Sounds.existskey(SoundId)) {
+			ChannelSounds.add(Audio.Sounds[SoundId]);
+		}
+	}
+	return ChannelSounds;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a random sound from a channel
+K_RandomSound GetChannelRandomSound(K_State _State, Text _ChannelId) {
+	declare K_RandomSound RandomSound = K_RandomSound {
+		Sound = Null,
+		State = _State
+	};
+	declare K_Channel Channel = RandomSound.State.Channels.get(_ChannelId, K_Channel {});
+	if (Channel.Id != _ChannelId) return RandomSound; //< Channel does not exist
+
+	// Select a random sound
+	if (Channel.SoundIds.count > 1) {
+		// Restore all sounds if we already played them all
+		if (Channel.RandomSoundIds.count <= 0) {
+			Channel.RandomSoundIds = Channel.SoundIds;
+			if (Channel.LastRandomSoundId != NullId) {
+				Channel.RandomSoundIds.remove(Channel.LastRandomSoundId);
+			}
+		}
+
+		// Select a random sound
+		if (Channel.RandomSoundIds.count > 0) {
+			Channel.LastRandomSoundId = Channel.RandomSoundIds[ML::Rand(0, Channel.RandomSoundIds.count - 1)];
+			Channel.RandomSoundIds.remove(Channel.LastRandomSoundId);
+			if (Audio.Sounds.existskey(Channel.LastRandomSoundId)) {
+				RandomSound.Sound = Audio.Sounds[Channel.LastRandomSoundId];
+			}
+		}
+
+		RandomSound.State.Channels[Channel.Id] = Channel;
+	}
+	// There is only one sound, play it
+	else {
+		if (Audio.Sounds.existskey(Channel.SoundIds[0])) {
+			RandomSound.Sound = Audio.Sounds[Channel.SoundIds[0]];
+		}
+	}
+
+	return RandomSound;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply a sound action
+K_State ApplySoundAction(K_State _State, K_SoundAction _SoundAction) {
+	if (
+		!C_SoundActions.exists(_SoundAction.Action) ||
+		!_State.Channels.existskey(_SoundAction.Channel)
+	) return _State;
+
+	declare K_State State = _State;
+
+	// Check if the action must be applied after an initial delay
+	declare Integer Delay = 0;
+	if (_SoundAction.Delay.count > 0) {
+		Delay = GetSoundAttribute(_SoundAction.Delay);
+	}
+
+	// Any manual action by the user will reset any
+	// delayed sound action
+	if (!_SoundAction.Private_Automated) {
+		State.Timers[C_Timers_Delay].removekey(_SoundAction.Channel);
+	}
+
+	// Delay the action ...
+	if (Delay > 0) {
+		declare K_SoundAction SoundAction = _SoundAction;
+		SoundAction.Delay = [];
+		SoundAction.Private_Automated = True;
+		State.Timers[C_Timers_Delay][_SoundAction.Channel] = K_Timer {
+			ActivationTime = Now + Delay,
+			SoundAction = SoundAction
+		};
+	}
+	// ... execute the action
+	else {
+		declare CAudioSource[] ChannelSounds = GetChannelSounds(State, _SoundAction.Channel);
+
+		// Apply sound attributes
+		if (_SoundAction.FadeDuration.count > 0) {
+			declare Real FadeDuration = GetSoundAttribute(_SoundAction.FadeDuration);
+			foreach (Sound in ChannelSounds) {
+				Sound.FadeDuration = FadeDuration;
+			}
+		}
+		if (_SoundAction.VolumedB.count > 0) {
+			declare Real VolumedB = GetSoundAttribute(_SoundAction.VolumedB);
+			foreach (Sound in ChannelSounds) {
+				Sound.VolumedB = State.VolumedB + VolumedB;
+			}
+		}
+		if (_SoundAction.Pitch.count > 0) {
+			declare Real Pitch = GetSoundAttribute(_SoundAction.Pitch);
+			foreach (Sound in ChannelSounds) {
+				Sound.Pitch = Pitch;
+			}
+		}
+		if (_SoundAction.RelativePosition.count > 0) {
+			declare Vec3 RelativePosition = GetSoundAttribute(_SoundAction.RelativePosition);
+			foreach (Sound in ChannelSounds) {
+				Sound.RelativePosition = RelativePosition;
+			}
+		}
+		if (_SoundAction.PanRadiusLfe.count > 0) {
+			declare Vec3 PanRadiusLfe = GetSoundAttribute(_SoundAction.PanRadiusLfe);
+			foreach (Sound in ChannelSounds) {
+				Sound.PanRadiusLfe = PanRadiusLfe;
+			}
+		}
+
+		// Action play
+		if (_SoundAction.Action == C_SoundAction_Play || _SoundAction.Action == C_SoundAction_Repeat) {
+			// Only one sound can be played on a channel at the same time
+			// If several sounds are loaded on the channel all previous sounds
+			// are stopped and a new one is started randomly
+			foreach (Sound in ChannelSounds) {
+				if (Sound.IsPlaying) {
+					Sound.Stop();
+				}
+			}
+			declare K_RandomSound RandomSound = GetChannelRandomSound(State, _SoundAction.Channel);
+			State = RandomSound.State;
+			declare CAudioSource Sound = RandomSound.Sound;
+			if (Sound != Null) {
+				Sound.Play();
+
+				if (_SoundAction.Action == C_SoundAction_Repeat) {
+					declare Integer RemainingRepeatNb = C_Repeat_Infinite;
+					if (_SoundAction.Private_RepeatInitialized) {
+						RemainingRepeatNb = _SoundAction.Private_RemainingRepeatNb;
+					} else if (!_SoundAction.Private_RepeatInitialized && _SoundAction.RepeatNb.count > 0) {
+						RemainingRepeatNb = GetSoundAttribute(_SoundAction.RepeatNb);
+					}
+
+					if (RemainingRepeatNb == 0) {
+						if (Sound.IsPlaying) {
+							Sound.Stop();
+						}
+					} else if (RemainingRepeatNb == C_Repeat_Infinite || RemainingRepeatNb > 1) {
+						declare Integer SoundDuration = ML::Max(0, ML::CeilingInteger(Sound.PlayLength * 1000));
+						declare Integer Interval = 0;
+						if (_SoundAction.Interval.count > 0) {
+							Interval = GetSoundAttribute(_SoundAction.Interval);
+						}
+						declare K_SoundAction SoundAction = _SoundAction;
+						SoundAction.Private_Automated = True;
+						if (RemainingRepeatNb > 0) {
+							RemainingRepeatNb -= 1;
+						}
+						SoundAction.Private_RepeatInitialized = True;
+						SoundAction.Private_RemainingRepeatNb = RemainingRepeatNb;
+						State.Timers[C_Timers_Repeat][_SoundAction.Channel] = K_Timer {
+							ActivationTime = Now + SoundDuration + Interval,
+							SoundAction = SoundAction
+						};
+					}
+				}
+			}
+		}
+
+		// Move play cursor
+		if (_SoundAction.PlayCursor.count > 0) {
+			declare Real PlayCursor = GetSoundAttribute(_SoundAction.PlayCursor);
+			foreach (Sound in ChannelSounds) {
+				Sound.PlayCursor = PlayCursor;
+			}
+		}
+
+		// Action stop
+		if (_SoundAction.Action == C_SoundAction_Stop) {
+			foreach (Sound in ChannelSounds) {
+				if (Sound.IsPlaying) {
+					Sound.Stop();
+				}
+			}
+			State.Timers[C_Timers_Repeat].removekey(_SoundAction.Channel);
+		}
+	}
+
+	return State;
+}
+K_State ApplySoundActions(K_State _State, K_SoundAction[] _SoundActions) {
+	declare K_State State = _State;
+	foreach (SoundAction in _SoundActions) {
+		State = ApplySoundAction(State, SoundAction);
+	}
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the RaceStateXXX triggers sound actions
+K_SoundAction[] GetRaceStateSoundActions(K_AmbientSoundConfig _Config, Integer _RaceState, Boolean _IsStarting) {
+	declare K_SoundAction[][Text] RaceStateList;
+	if (_IsStarting) {
+		RaceStateList = _Config.Triggers.RaceStateStart;
+	} else {
+		RaceStateList = _Config.Triggers.RaceStateStop;
+	}
+
+	if (
+		C_RaceStates.existskey(_RaceState) &&
+		RaceStateList.existskey(C_RaceStates[_RaceState])
+	) {
+		return RaceStateList[C_RaceStates[_RaceState]];
+	}
+
+	return [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the ambient sound
+K_State UpdateAmbientSound(K_State _State, K_AmbientSoundConfig _Config, Integer _NewRaceState, Integer _CheersUpdate, Text _CheersTarget) {
+	declare K_State State = _State;
+
+	// Only spectators can hear ambient sound ...
+	if (State.AmbientSoundEnabled && State.IsTrueSpectator) {
+		// Trigger AmbientSoundStart
+		if (State.StartAmbientSound) {
+			State = ApplySoundActions(State, _Config.Triggers.AmbientSoundStart);
+		}
+		if (State.StartAmbientSound || _NewRaceState != State.RaceState) {
+			// Transition between all intermediate states
+			if (C_RaceStates.existskey(_NewRaceState)) {
+				for (I, State.RaceState + 1, State.RaceState + C_RaceStates.count - 1) {
+					// Trigger RaceStateStop
+					State = ApplySoundActions(State, GetRaceStateSoundActions(_Config, State.RaceState, False));
+					// Transition to the new state
+					State.RaceState = I % C_RaceStates.count;
+					// Trigger RaceStateStart
+					State = ApplySoundActions(State, GetRaceStateSoundActions(_Config, State.RaceState, True));
+					if (State.RaceState == _NewRaceState) break;
+				}
+			}
+		}
+		if (State.StartAmbientSound) {
+			State.StartAmbientSound = False;
+		}
+		// Trigger Cheers
+		if (State.CheersUpdate != _CheersUpdate) {
+			State.CheersUpdate = _CheersUpdate;
+			if (_Config.Triggers.Cheers.existskey(_CheersTarget)) {
+				State = ApplySoundActions(State, _Config.Triggers.Cheers[_CheersTarget]);
+			}
+		}
+	}
+	// ... players cannot hear ambient sound
+	else {
+		foreach (Channel in State.Channels) {
+			State = ApplySoundAction(State, K_SoundAction {
+				Action = C_SoundAction_Stop,
+				Channel = Channel.Id,
+				Private_Automated = False
+			});
+		}
+		State.StartAmbientSound = True;
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update library
+Void Yield() {
+	declare netread Integer Net_ChampionTMGL_AmbientSound_Update for Playground.Teams[0];
+	if (
+		G_State.ForcedUpdate ||
+		G_State.ServerUpdate != Net_ChampionTMGL_AmbientSound_Update ||
+		G_State.IsTrueSpectator != (Playground != Null && Playground.IsSpectatorClient)
+	) {
+		declare netread Boolean Net_ChampionTMGL_AmbientSound_Enabled for Playground.Teams[0];
+		declare netread Integer Net_ChampionTMGL_AmbientSound_RaceState for Playground.Teams[0];
+		declare netread Integer Net_ChampionTMGL_AmbientSound_CheersUpdate for Playground.Teams[0];
+		declare netread Text Net_ChampionTMGL_AmbientSound_CheersTarget for Playground.Teams[0];
+
+		G_State.ForcedUpdate = False;
+		G_State.ServerUpdate = Net_ChampionTMGL_AmbientSound_Update;
+		G_State.AmbientSoundEnabled = Net_ChampionTMGL_AmbientSound_Enabled;
+		G_State.IsTrueSpectator = (Playground != Null && Playground.IsSpectatorClient);
+
+		G_State = LoadSounds(G_State, G_AmbientSoundConfig);
+		G_State = UpdateAmbientSound(
+			G_State,
+			G_AmbientSoundConfig,
+			Net_ChampionTMGL_AmbientSound_RaceState,
+			Net_ChampionTMGL_AmbientSound_CheersUpdate,
+			Net_ChampionTMGL_AmbientSound_CheersTarget
+		);
+	}
+
+	if (G_State.Timers[C_Timers_Delay].count > 0 || G_State.Timers[C_Timers_Repeat].count > 0) {
+		declare K_SoundAction[][Integer] SoundActionsToExecute;
+		foreach (TimerType => Timers in G_State.Timers) {
+			foreach (Timer in Timers) {
+				if (Now >= Timer.ActivationTime) {
+					if (!SoundActionsToExecute.existskey(TimerType)) {
+						SoundActionsToExecute[TimerType] = [];
+					}
+					SoundActionsToExecute[TimerType].add(Timer.SoundAction);
+				}
+			}
+		}
+		foreach (TimerType => SoundActions in SoundActionsToExecute) {
+			foreach (SoundAction in SoundActions) {
+				// Remove previous timer before executing the action
+				// because applying an action can create a new timer
+				G_State.Timers[TimerType].removekey(SoundAction.Channel);
+				G_State = ApplySoundAction(G_State, SoundAction);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload library
+Void Unload() {
+	foreach (Channel in G_State.Channels) {
+		foreach (SoundId in Channel.SoundIds) {
+			if (Audio.Sounds.existskey(SoundId)) {
+				Audio.DestroySound(Audio.Sounds[SoundId]);
+			}
+		}
+	}
+
+	G_State = K_State {
+		ForcedUpdate = True,
+		ServerUpdate = -123,
+		CheersUpdate = -123,
+		SoundsLoaded = False,
+		AmbientSoundEnabled = False,
+		RaceState = ChampionConst::C_RaceState_None,
+		IsTrueSpectator = False,
+		StartAmbientSound = True,
+		VolumedB = 0.,
+		Channels = [],
+		Timers = GetDefaultTimers()
+	};
+	G_AmbientSoundConfig = K_AmbientSoundConfig {};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load library
+Void Load() {
+	Unload();
+}

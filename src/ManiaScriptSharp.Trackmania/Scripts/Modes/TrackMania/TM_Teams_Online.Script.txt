@@ -1,0 +1,396 @@
+/**
+ * TM_Teams_Online mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaRoundsBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Race,TM_Race"
+#Const Version "1.0.2+2024-12-05"
+#Const ScriptName "Modes/TrackMania/TM_Teams_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Semver.Script.txt" as Semver
+#Include "Libs/Nadeo/Trackmania/Modes/Teams/StateManager.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConsts
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+#Include "Libs/Nadeo/TMGame/Modes/Teams/TeamsCommon.Script.txt" as TeamsCommonLib
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_PointsLimit 5 as _("Points limit")
+#Setting S_FinishTimeout -1 as _("Finish timeout")
+#Setting S_MaxPointsPerRound 6 as _("Max points :") ///< The maxium number of points attributed to the first player to cross the finish line
+#Setting S_PointsGap 1 as _("Points gap :") ///< The number of points lead a team must have to win the map
+#Setting S_UseCustomPointsRepartition False as _("Use a custom points repartition :") ///< Use a custom points repartition. Default [10, 6, 4, 3, 2, 1]
+#Setting S_CumulatePoints False as _("Cumulate team points :") ///< At the end of the round both teams win their players points
+#Setting S_RoundsPerMap -1 as _("Number of rounds per track :") ///< Number of round to play on one map before going to the next one
+#Setting S_MapsPerMatch -1 as _("Number of tracks per match :") ///< Number of maps to play before finishing the match
+#Setting S_UseTieBreak True as _("Use tie-break :") ///< Continue to play the map until the tie is broken
+#Setting S_WarmUpNb 0 as _("Number of warm up :")
+#Setting S_WarmUpDuration 0 as _("Duration of one warm up :")
+#Setting S_WarmUpTimeout -1 as _("Warm up timeout")
+#Setting S_UseAlternateRules True as _("Use alternate rules :")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "TM_Teams_Online"
+//L16N [TM_Teams_Online] Description of the mode rules
+#Const Description _("$zIn $<$t$6F9Team$> mode, you have to choose a team : $<$t$f00Red$> or $<$t$10cBlue$>.\n\nThe team mode consists of $<$t$6F9a series of races$>.\nThe goal for your team is to win a maximum number of $<$t$6F9points$>.\n\nWhen you finish a race with a good $<$t$6F9position$>, you give $<$t$6F9points$> to your team.\nThe $<$t$6F9winning team$> is the first team whose total reaches the $<$t$6F9point limit$> (5 for example).")
+
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/Teams.Script.txt" //< Url of the mania app
+
+#Const C_BlueBotsNb 0
+#Const C_RedBotsNb 0
+
+#Const C_UploadRecord True
+#Const C_DisplayRecordGhost False
+#Const C_DisplayRecordMedal False
+#Const C_CelebrateRecordGhost True
+#Const C_CelebrateRecordMedal True
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(Semver::ScriptName, Semver::Version);
+Log::RegisterScript(ModeUtils::ScriptName, ModeUtils::Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_Teams);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+Race::SortScores(Race::C_Sort_TotalPoints);
+UIModules_Checkpoint::SetVisibilityTimeDiff(False);
+UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_CurrentRace);
+UIModules_PauseMenu_Online::SetHelp(Description);
+UIModules_Sign16x9Small::SetScoreMode(UIModules_Sign16x9Small::C_ScoreMode_Points);
+// Hide SM Overlay
+UIManager.UIAll.OverlayHideSpectatorInfos = True;
+UIManager.UIAll.OverlayHideCountdown = True;
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+			CarRank::InitializePlayer(Event.Player);
+		}
+	}
+}
+
+StateMgr::Yield();
+***
+
+***Match_InitServer***
+***
+declare Integer Server_PointsLimit;
+declare Integer Server_PointsGap;
+declare Integer Server_RoundsPerMap;
+declare Integer Server_MapsPerMatch;
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+Clans::SetClansNb(2);
+Scores::SaveInScore(Scores::C_Points_Match);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(True);
+Race::SetupRecord(
+	MenuConsts::C_ScopeType_Season,
+	MenuConsts::C_ScopeType_PersonalBest,
+	MenuConsts::C_GameMode_TimeAttack,
+	"",
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal
+);
+Server_PointsLimit = S_PointsLimit - 1;
+Server_PointsGap = S_PointsGap - 1;
+Server_RoundsPerMap = S_RoundsPerMap - 1;
+Server_MapsPerMatch = S_MapsPerMatch - 1;
+***
+
+***Match_InitMap***
+***
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_PrevTime);
+UIModules_ScoresTable::DisplayRoundPoints(True);
+
+// Restore match points
+Scores::SetClanMapPoints(1, Scores::GetClanMatchPoints(1));
+Scores::SetClanMapPoints(2, Scores::GetClanMatchPoints(2));
+
+declare Integer Map_ValidRoundsNb;
+***
+
+***Match_StartMap***
+***
+// Add bot when necessary
+Users_SetNbFakeUsers(C_BlueBotsNb, C_RedBotsNb);
+
+CarRank::Reset();
+
+if (MM_IsMatchServer()) {
+	MM_SetScores([Scores::GetClanMatchPoints(1), Scores::GetClanMatchPoints(2)]);
+} else {
+	// Warm up
+	UIModules_ScoresTable::SetFooterInfo(_("Warm up"));
+	MB_WarmUp(S_WarmUpNb, S_WarmUpDuration * 1000, S_WarmUpTimeout * 1000);
+}
+
+TeamsCommonLib::UpdateScoresTableFooter(S_PointsLimit, S_PointsGap, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb, MB_GetMapCount());
+
+// Matchmaking : allow substitutes
+if (MM_IsMatchServer()) MM_AllowSubstitutes(True);
+***
+
+***Match_StartRound***
+***
+// Balance teams in splitscreen mode
+if (S_IsSplitScreen) {
+	foreach (I=>Player in AllPlayers) {
+		SetPlayerClan(Player, (I % 2+1));
+	}
+}
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+***
+
+***Rounds_PlayerSpawned***
+***
+CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRace);
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	Race::ValidEvent(Event);
+
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRace);
+		if (Event.Player != Null) {
+			if (Event.IsEndRace) {
+				declare BetterRace = Scores::UpdatePlayerBestRaceIfBetter(Event.Player);
+				declare BetterLap = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				Scores::UpdatePlayerPrevRace(Event.Player);
+				TeamsCommonLib::ComputeLatestRaceScores(S_UseCustomPointsRepartition, S_CumulatePoints, S_UseAlternateRules, S_MaxPointsPerRound);
+				Race::SortScores(Race::C_Sort_TotalPoints);
+
+				// Start the countdown if it's the first player to finish
+				if (EndTime <= 0) {
+					EndTime = TeamsCommonLib::GetFinishTimeout(S_FinishTimeout);
+				}
+			}
+			if (Event.IsEndLap) {
+				declare Better = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+			}
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Server info change
+if (
+	Server_PointsLimit != S_PointsLimit ||
+	Server_PointsGap != S_PointsGap ||
+	Server_RoundsPerMap != S_RoundsPerMap ||
+	Server_MapsPerMatch != S_MapsPerMatch
+) {
+	Server_PointsLimit = S_PointsLimit;
+	Server_PointsGap = S_PointsGap;
+	Server_RoundsPerMap = S_RoundsPerMap;
+	Server_MapsPerMatch = S_MapsPerMatch;
+
+	TeamsCommonLib::UpdateScoresTableFooter(S_PointsLimit, S_PointsGap, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb, MB_GetMapCount());
+}
+***
+
+***Match_EndRound***
+***
+Race::StopSkipOutroAll();
+EndTime = -1;
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+CarRank::Update(CarRank::C_SortCriteria_CurrentRace);
+
+if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "2.1.1")) {
+	Scores::XmlRpc_SendScores(Scores::C_Section_PreEndRound, "");
+}
+
+if (Round_ForceEndRound || Round_SkipPauseRound || Round_Skipped) {
+	// Cancel points
+	foreach (Score in Scores) {
+		Scores::SetPlayerRoundPoints(Score, 0);
+	}
+	foreach (TeamIndex => Team in Teams) {
+		declare PrevRaceDeltaPoints for Team = 0;
+		PrevRaceDeltaPoints = 0;
+	}
+	// Do not launch the forced end round sequence after a pause
+	if (!Round_SkipPauseRound) {
+		ForcedEndRoundSequence();
+	}
+	MB_SetValidRound(False);
+} else {
+	Map_ValidRoundsNb += 1;
+	// Get the last round points
+	TeamsCommonLib::ComputeLatestRaceScores(S_UseCustomPointsRepartition, S_CumulatePoints, S_UseAlternateRules, S_MaxPointsPerRound);
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;
+	MB_Sleep(3000);
+	// Add them to the total scores
+	TeamsCommonLib::ComputeScores();
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	MB_Sleep(3000);
+	UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+
+	TeamsCommonLib::UpdateScoresTableFooter(S_PointsLimit, S_PointsGap, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb, MB_GetMapCount());
+
+	if (TeamsCommonLib::MapIsOver(Map_ValidRoundsNb, S_PointsGap, S_UseTieBreak, S_PointsLimit, S_RoundsPerMap)) {
+		MB_StopMap();
+	}
+}
+
+// Set matchmaking scores
+if (MM_IsMatchServer()) {
+	MM_SetScores([Scores::GetClanMatchPoints(1), Scores::GetClanMatchPoints(2)]);
+}
+***
+
+***Match_EndMap***
+***
+if (TeamsCommonLib::MatchIsOver(S_PointsGap, S_UseTieBreak, S_PointsLimit, S_MapsPerMatch, MB_GetMapCount(), S_RoundsPerMap)) {
+	MB_StopMatch();
+}
+
+// Ranking
+declare WinningTeam = -1;
+if (Scores::GetClanMatchPoints(1) > Scores::GetClanMatchPoints(2)) {
+	WinningTeam = 1;
+} else if (Scores::GetClanMatchPoints(2) > Scores::GetClanMatchPoints(1)) {
+	WinningTeam = 2;
+}
+Scores::SetClanWinner(WinningTeam);
+
+declare MasterLogin = "";
+declare MasterPoints = 0;
+foreach (Score in Scores) {
+	if (Scores::GetPlayerMapPoints(Score) > MasterPoints) {
+		MasterLogin = Score.User.Login;
+		MasterPoints = Scores::GetPlayerMapPoints(Score);
+	}
+}
+MM_SetMasterLogin(MasterLogin);
+
+// Set scores table for podium
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_BestTime);
+UIModules_ScoresTable::DisplayRoundPoints(False);
+Race::SortScores(Race::C_Sort_TotalPoints);
+
+if (!MB_MatchIsRunning()) {
+	foreach (Player in Players) {
+		if (Player.User != Null) {
+			if (Player.CurrentClan == 1 || Player.CurrentClan == 2) {
+				if (Player.CurrentClan == WinningTeam) {
+					Tracking::SendPlayerMatchResult(UIManager, Player, 1, True);
+				} else {
+					Tracking::SendPlayerMatchResult(UIManager, Player, 2, False);
+				}
+			}
+		}
+	}
+}
+
+if (!MB_MapIsRunning() && MB_MatchIsRunning()) MB_SkipPodiumSequence();
+***
+
+***Match_BeforeCloseLadder***
+***
+// Sort players by team for the ladder ranking
+declare ClanWinner = Scores::GetClanWinner();
+foreach (Score in Scores) {
+	declare Team_PrevMapPoints for Score = 0;
+	Team_PrevMapPoints = Scores::GetPlayerMapPoints(Score);
+
+	if (ClanWinner == 1 || ClanWinner == 2) {
+		if (Score.TeamNum == ClanWinner) {
+			Scores::SetPlayerMapPoints(Score, 2);
+		} else if (Score.TeamNum == 3 - ClanWinner) {
+			Scores::SetPlayerMapPoints(Score, 1);
+		} else {
+			Scores::SetPlayerMapPoints(Score, 0);
+		}
+	} else {
+		if (Score.TeamNum == 1 || Score.TeamNum == 2) {
+			Scores::SetPlayerMapPoints(Score, 1);
+		} else {
+			Scores::SetPlayerMapPoints(Score, 0);
+		}
+	}
+}
+***
+
+***Match_AfterCloseLadder***
+***
+foreach (Score in Scores) {
+	declare Team_PrevMapPoints for Score = 0;
+	Scores::SetPlayerMapPoints(Score, Team_PrevMapPoints);
+}
+***
+
+***Match_BeforePodiumSequence***
+***
+TeamsCommonLib::BeforePodiumSequence(Scores::GetClanWinner());
+***
+
+***Match_AfterPodiumSequence***
+***
+TeamsCommonLib::AfterPodiumSequence();
+***

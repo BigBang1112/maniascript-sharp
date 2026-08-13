@@ -1,0 +1,244 @@
+/**
+ * Simple choice UI
+ */
+
+#Const Version		"1.0.0"
+#Const ScriptName	"SimpleChoice.Script.txt"
+
+#Include "Libs/Nadeo/CMGame/Modes/Legacy/Manialink3.Script.txt" as Manialink
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Legacy/Buttons.Script.txt" as Buttons2
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Legacy/MLEffects.Script.txt" as MLE
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Layers.Script.txt" as Layers
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/UI/Stylesheet.Script.txt" as Styles
+
+#Const C_NotClickable	-1	///< Not clickable option
+#Const C_BgAnim False	///< Anim button background on mouse over/out
+#Const C_Event_Click	"LibSimpleChoice_Click"
+
+Text Private_GetSimpleChoiceML() {
+	declare Default_ChoiceSizeX = Styles::GetHeaderSize2() + 4.;
+	declare Default_OptionSize = 15.;
+	declare Default_OptionSizeSmall = (Default_ChoiceSizeX - 4.) / 4.;
+	declare Compact_ChoiceSizeX = 20.;
+	declare Compact_OptionSize = 9.;
+	declare ButtonSize = 0.95;
+
+	// Note RBVDZ 2022-10-03: SimpleChoice is currently only available through RandomGenerator (not available yet) and SimpleDeco
+	// (not available in TM2020) so this didn't get the new BuildSmartQuad for the headers.
+	// TODO later when I add the random Gen: Include BuildSmartQuad headers.
+
+	return """
+<manialink version="3" name="MapEditor:SimpleChoice">
+<stylesheet>
+	{{{Styles::Get()}}}
+</stylesheet>
+<frame z-index="1" id="Frame_Global">
+	<frame pos="0 -92" hidden="1" id="Frame_SimpleChoice">
+		<frame id="Frame_Buttons" z-index="2">
+			{{{Styles::BuildSmartQuad(Styles::GetPosition2(<Default_ChoiceSizeX*0.5 - 5.54, -0.62, 0.>, Styles::CircleSize_Bottom()), 5., 0., "", "", "", "", True, "tm2020-text-button", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Small_1")}}}
+			{{{Styles::BuildSmartQuad(Styles::GetPosition2(<-Default_ChoiceSizeX*0.5 - 5.54 - Default_OptionSizeSmall-1., -0.62, 0.>, Styles::CircleSize_Bottom()), 5., 0., "", "", "", "", True, "tm2020-text-button", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Small_2")}}}
+			{{{Styles::BuildSmartQuad(Styles::GetPosition2(<-Default_ChoiceSizeX*0.5 - 5.54 - Default_OptionSizeSmall*2.-2., -0.62, 0.>, Styles::CircleSize_Bottom()), 5., 0., "", "", "", "", True, "tm2020-text-button", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Small_3")}}}
+			{{{Styles::BuildSmartQuad(Styles::GetPosition2(<-Default_ChoiceSizeX*0.5 - 5.54 - Default_OptionSizeSmall*3.-3., -0.62, 0.>, Styles::CircleSize_Bottom()), 5., 0., "", "", "", "", True, "tm2020-text-button", Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), "SmartQuad_Small_4")}}}
+		</frame>
+	</frame>
+</frame>
+<script><!--
+{{{Manialink::DefaultIncludes()}}}
+{{{MLE::ML_Includes()}}}
+
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/UI/Stylesheet.Script.txt" as Styles
+
+{{{Manialink::Animations(["EaseOutQuad"])}}}
+{{{Manialink::Function("AnimRepeat")}}}
+{{{Buttons2::ML_Functions()}}}
+{{{MLE::ML_Functions()}}}
+
+Void SetOptions(Text[Text] _Options, Integer[] _Events) {
+	declare Options = Text[];
+	declare Icons = Text[];
+	foreach (Icon => Option in _Options) {
+		Options.add(Option);
+		Icons.add(Icon);
+	}
+
+	declare CMlFrame Frame_Options <=> (Page.GetFirstChild("Frame_Buttons") as CMlFrame);
+	declare CMlFrame[] SmartQuads;
+
+	foreach (Key => Control in Frame_Options.Controls) {
+		declare Frame_Option <=> (Control as CMlFrame);
+
+		if (Options.existskey(Key) && Options[Key] != "") {
+			Frame_Option.Visible = True;
+			declare Label_Option <=> (Frame_Option.GetFirstChild("Label_SmartQuad") as CMlLabel);
+			declare Button_Option <=> (Frame_Option.GetFirstChild("Button_SmartQuad") as CMlFrame);
+
+			Label_Option.Value = Options[Key];
+			LibButtons_SetAction(Button_Option, Icons[Key]);
+
+			SmartQuads.add(Frame_Option);
+
+			declare Control_Option <=> (Frame_Option.GetFirstChild("Quad_SmartQuad")); // as CMlControl
+			declare EventKey for Control_Option = {{{C_NotClickable}}};
+			if (_Events.existskey(Key)) EventKey = _Events[Key];
+			else EventKey = {{{C_NotClickable}}};
+			LibMLEffects_EnableTriggers(Control_Option, EventKey != {{{C_NotClickable}}}); // not sure this is enough for smartquads
+
+		} else {
+			Frame_Option.Visible = False;
+		}
+	}
+
+	if (SmartQuads.count > 0)
+		Styles::SetupAndAlignButtonsRightToLeft(SmartQuads, 0., 100.);
+}
+
+Void SetVisibility(Boolean _Visible) {
+	if (_Visible) {
+		declare L_PositionY for Page = 0.;
+		LibManialink_Anim("<frame pos=\"0 "^L_PositionY^"\" hidden=\"0\" id=\"Frame_SimpleChoice\" />", 250, "EaseOutQuad");
+	} else {
+		LibManialink_Anim({{{Manialink::Inject("""<frame pos="0 -92" hidden="1" id="Frame_SimpleChoice" />""")}}}, 250, "EaseOutQuad");
+	}
+}
+
+main() {
+	declare L_OptionsUpdate for Page = -1;
+	declare L_Options for Page = Text[Text];
+	declare L_Events for Page = Integer[];
+	declare L_Visibility for Page = False;
+	declare L_PositionY for Page = 0.;
+
+	declare PrevOptionsUpdate = -1;
+	declare PrevVisibility = False;
+	declare PrevPositionY = -1.;
+
+	LibButtons_Init();
+	LibMLEffects_Init();
+
+	while (True) {
+		yield;
+
+		LibManialink_AnimLoop();
+		LibButtons_Loop();
+		LibMLEffects_Loop();
+
+		if (PrevOptionsUpdate != L_OptionsUpdate) {
+			PrevOptionsUpdate = L_OptionsUpdate;
+			SetOptions(L_Options, L_Events);
+		}
+
+		if (PrevVisibility != L_Visibility) {
+			PrevVisibility = L_Visibility;
+			SetVisibility(L_Visibility);
+		}
+
+		if (PrevPositionY != L_PositionY) {
+			PrevPositionY = L_PositionY;
+			SetVisibility(L_Visibility);
+		}
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+				if (Event.Control != Null && Event.ControlId == "Quad_SmartQuad") {
+					declare EventKey for Event.Control = {{{C_NotClickable}}};
+					SendCustomEvent("{{{C_Event_Click}}}", [""^EventKey]);
+				}
+			}
+		}
+	}
+}
+--></script>
+</manialink>
+""";
+}
+
+Text GetScriptVersion() { return Version; }
+Text GetScriptName() { return ScriptName; }
+
+// ---------------------------------- //
+/// Get the options constants
+Integer Option_NotClickable() { return C_NotClickable; }
+
+// ---------------------------------- //
+/// Get the events constants
+Text Event_Click() { return C_Event_Click; }
+
+Void SetEvents(Integer[] _Events) {
+	declare Page <=> Layers::Get("SimpleChoice").LocalPage;
+	declare L_OptionsUpdate for Page = -1;
+	declare Integer[] L_Events for Page;
+	L_Events = _Events;
+	L_OptionsUpdate = Now;
+}
+
+Void SetOptions(Text[Text] _Options, Integer[] _Events) {
+	declare Page <=> Layers::Get("SimpleChoice").LocalPage;
+	declare L_OptionsUpdate for Page = -1;
+	declare Text[Text] L_Options for Page;
+	L_Options = _Options;
+	L_OptionsUpdate = Now;
+
+	SetEvents(_Events);
+}
+
+// ---------------------------------- //
+/// Overload SetOptions()
+Void SetOptions(Text[Text] _Options) {
+	declare Integer[] Events;
+	SetOptions(_Options, Events);
+}
+
+Void SetPositionY(Real _PositionY) {
+	declare Page <=> Layers::Get("SimpleChoice").LocalPage;
+	declare L_PositionY for Page = 0.;
+	L_PositionY = _PositionY;
+}
+
+// Check if the simple choice UI is visible
+Boolean LayerIsVisible() {
+	declare Page <=> Layers::Get("SimpleChoice").LocalPage;
+	declare L_Visibility for Page = False;
+	return L_Visibility;
+}
+
+// Set the simple choice visibility
+Void SetVisibility(Boolean _Visible) {
+	declare Page <=> Layers::Get("SimpleChoice").LocalPage;
+	declare L_Visibility for Page = False;
+	L_Visibility = _Visible;
+}
+
+Void Show() {
+	SetVisibility(True);
+}
+
+Void Hide() {
+	SetVisibility(False);
+}
+
+Void Unload() {
+	Layers::Destroy("SimpleChoice");
+}
+
+Void Load() {
+	Unload();
+
+	Buttons2::Load();
+	declare LayerSimpleChoice <=> Layers::Create("SimpleChoice");
+	LayerSimpleChoice.ManialinkPage = Private_GetSimpleChoiceML();
+	Buttons2::Unload();
+
+	declare Page <=> LayerSimpleChoice.LocalPage;
+	declare L_OptionsUpdate for Page = -1;
+	declare Text[Text] L_Options for Page;
+	declare Integer[] L_Events for Page;
+	declare L_Visibility for Page = False;
+	declare L_PositionY for Page = 0.;
+
+	L_OptionsUpdate = -1;
+	L_Options.clear();
+	L_Events.clear();
+	L_Visibility = False;
+	L_PositionY = -90. + Styles::GetSize2(<0., 8.>, Styles::CircleSize_Bottom()).Y;
+}

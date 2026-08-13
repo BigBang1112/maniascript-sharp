@@ -1,0 +1,1523 @@
+/**
+ * Champion mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaRoundsBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Race,TM_Race"
+#Const Version "1.0.1+2024-12-05"
+#Const ScriptName "Modes/TrackMania/Legacy/TM_ChampionSpring2022_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Semver.Script.txt" as Semver
+#Include "Libs/Nadeo/CMGame/Utils/Utils.Script.txt" as CommonUtils
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/KOVictory.Script.txt" as KOVictory
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/Constants.Script.txt" as ChampionConst
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/StateManager.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/ChampionSpring2022.Script.txt" as ChampionSpring2022
+#Include "Libs/Nadeo/Trackmania/Modes/TMGLMarkers.Script.txt" as TMGLMarkers
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Chrono_Server.Script.txt" as UIModules_Chrono
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/AmbientSound_Server.Script.txt" as UIModules_AmbientSound
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/WinScreen_Server.Script.txt" as UIModules_WinScreen
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Countdown_Server.Script.txt" as UIModules_Countdown_Champion
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/LiveRanking_Server.Script.txt" as UIModules_LiveRanking
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/LoadSave_Server.Script.txt" as UIModules_LoadSave
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/Shared_Server.Script.txt" as NetShared
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/ScoresHeader_Server.Script.txt" as UIModules_ScoresHeader
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/MatchInfo_Server.Script.txt" as UIModules_MatchInfo
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/Sponsors_Server.Script.txt" as UIModules_Sponsors
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_MatchPointsLimit 1 as _("Match points limit")
+#Setting S_CupPointsLimit 1 as _("Cup points limit")
+#Setting S_RoundsPerMap -1 as _("Number of rounds per track")
+#Setting S_NbOfWinners 1 as _("Number of winners")
+#Setting S_StopMatchIfNotEnoughPlayers True as _("Stop match if not enough players are left")
+#Setting S_FinishTimeout -1 as _("Finish timeout")
+#Setting S_PointsRepartition "1,0"
+#Setting S_MatchStyle 0 as "<hidden>" //< 0: Cup Classic, 1: Cup Short 2: Cup Long
+#Setting S_MatchType 0 as _("Type of match") //< 0: regular, 1: head to head, 2: grand final
+#Setting S_MatchLevel 0 as _("Level of the match") //< 0: seeding, 1: bronze, 2: silver, 3: gold, 4: champion
+#Setting S_TrackNb 0 as _("Current track number")
+#Setting S_TracksTotal 0 as _("Total number of tracks")
+#Setting S_KOCheckpointNb 3 as _("Number of checkpoints in lead to validate a K.O.")
+#Setting S_KOCheckpointTime 1000 as _("Advance in milliseconds to validate a K.O.")
+#Setting S_KOValidationDelay 1000 as _("Delay in milliseconds before validating a K.O.")
+#Setting S_ChatTime 600 //< 10 minutes
+#Setting S_WarmUpNb 0	as _("Number of warm up")
+#Setting S_WarmUpDuration 0 as _("Duration of one warm up")
+#Setting S_WarmUpTimeout -1 as _("Warm up timeout")
+#Setting S_EnableAmbientSound True as _("Enable ambient sound")
+#Setting S_HideScoresHeader False as _("Hide the scores header UI")
+#Setting S_EnableWinScreen False as "<hidden>" //< Display screen announcing the winner of the current TMGL season at the end of the match
+#Setting S_EnablePreMatch False as "<hidden>" //< Enable pre match warm up on Club competition system
+#Setting S_ForceRoadSpectatorsNb -1 as "<hidden>" //< Force the number of spectators displayed on the border of the road
+#Setting S_EarlyEndMatchCallback True as "<hidden>"
+#Setting S_EndRoundPreScoreUpdateDuration 3 as "<hidden>"
+#Setting S_EndRoundPostScoreUpdateDuration 3 as "<hidden>"
+#Setting S_DecoImageUrl_Screen16x9 "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Sponsors/Default.dds"
+#Setting S_DecoImageUrl_Screen8x1 "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Stadium/Screen8x1.dds"
+#Setting S_DecoImageUrl_Screen16x1 "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Stadium/Screen16x1.dds"
+#Setting S_OverridePlayerProfiles "" as "<hidden>"
+#Setting S_LoadMatchState "" as "<hidden>"
+#Setting S_EnableTrophiesGain False as "<hidden>"
+#Setting S_CompetitionName "" as "<hidden>"
+#Setting S_StepNb 0 as "<hidden>"
+#Setting S_MapWorldRecord "" as _("World record") //< Format "Name;Time", eg: "Alex;65264"
+#Setting S_SponsorsUrl "" as _("Sponsors URL") //< URLs separated by a space "https://www.a.com/a.png file://Media/b.dds"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_MatchState {
+	Boolean WaitingLoading;
+	Int2[Text] Scores; // <MapPoints, MatchPoints>
+	Text[] PlayedMapUids;
+	Text[] WinnersAccountIds;
+	Text[] TrophiesGainAccountIds;
+	Integer PlayedRoundsNb;
+	Text BestRaceTimeAccountId;
+	Integer BestRaceTime;
+}
+
+#Struct ChampionSpring2022::K_MapBestTime as K_MapBestTime
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "Champion"
+//L16N [Champion] Description of the mode rules
+#Const Description _("""Champion game mode used since the Spring 2022 season""")
+
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/ChampionSpring2022.Script.txt" //< Url of the mania app
+#Const C_FakeUsersNb 0
+#Const C_SignLiveCameraCheckInterval 5000
+#Const C_UseEsportsProgrammation True
+#Const C_AmbiendSoundRaceStartDuration 15000
+#Const C_MatchLoadAllPlayersReadyDuration 10000
+#Const C_WorldRecordCheckInterval 1000
+
+#Const C_UploadRecord True
+#Const C_DisplayRecordGhost False
+#Const C_DisplayRecordMedal False
+#Const C_CelebrateRecordGhost False
+#Const C_CelebrateRecordMedal False
+
+#Const C_Color_FinalRank "FFFFFF"
+#Const C_Color_Finalist "FF0000"
+#Const C_Color_Winner "48DA36"
+
+#Const ChampionConst::C_MatchStyle_CupClassic as C_MatchStyle_CupClassic
+#Const ChampionConst::C_MatchStyle_CupShort as C_MatchStyle_CupShort
+#Const ChampionConst::C_MatchStyle_CupLong as C_MatchStyle_CupLong
+
+//L16N [Champion] Player has reached the finalist status
+#Const C_Finalist_Text _("|Status|Finalist")
+//L16N [Champion] Player won the match
+#Const C_Winner_Text _("|Status|Winner")
+
+#Const C_Callback_MatchSave "Trackmania.Champion.MatchSave"
+#Const C_Method_MatchLoad "Trackmania.Champion.MatchLoad"
+#Const C_Method_MatchLoadStopWaitingPlayers "Trackmania.Champion.MatchLoadStopWaitingPlayers"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(Semver::ScriptName, Semver::Version);
+Log::RegisterScript(CommonUtils::ScriptName, CommonUtils::Version);
+Log::RegisterScript(ModeUtils::ScriptName, ModeUtils::Version);
+Log::RegisterScript(MenuConst::ScriptName, MenuConst::Version);
+Log::RegisterScript(PlayerProfiles::ScriptName, PlayerProfiles::Version);
+Log::RegisterScript(ChampionConst::ScriptName, ChampionConst::Version);
+Log::RegisterScript(ChampionSpring2022::ScriptName, ChampionSpring2022::Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(KOVictory::ScriptName, KOVictory::Version);
+Log::RegisterScript(TMGLMarkers::ScriptName, TMGLMarkers::Version);
+Log::RegisterScript(UIModules_PauseMenu_Online::ScriptName, UIModules_PauseMenu_Online::Version);
+Log::RegisterScript(UIModules_ScoresTable::ScriptName, UIModules_ScoresTable::Version);
+Log::RegisterScript(UIModules_Checkpoint::ScriptName, UIModules_Checkpoint::Version);
+Log::RegisterScript(UIModules_Chrono::ScriptName, UIModules_Chrono::Version);
+Log::RegisterScript(UIModules_AmbientSound::ScriptName, UIModules_AmbientSound::Version);
+Log::RegisterScript(UIModules_WinScreen::ScriptName, UIModules_WinScreen::Version);
+Log::RegisterScript(UIModules_Countdown_Champion::ScriptName, UIModules_Countdown_Champion::Version);
+Log::RegisterScript(UIModules_LiveRanking::ScriptName, UIModules_LiveRanking::Version);
+Log::RegisterScript(UIModules_LoadSave::ScriptName, UIModules_LoadSave::Version);
+Log::RegisterScript(NetShared::ScriptName, NetShared::Version);
+Log::RegisterScript(UIModules_ScoresHeader::ScriptName, UIModules_ScoresHeader::Version);
+Log::RegisterScript(UIModules_MatchInfo::ScriptName, UIModules_MatchInfo::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+TMGLMarkers::Load();
+NetShared::Load();
+
+XmlRpc::RegisterCallback(C_Callback_MatchSave, """
+* Name: {{{C_Callback_MatchSave}}}
+* Type: CallbackArray
+* Description: Callback sent each time the match progress. It contains the data necessary to reload the match progress later (eg: after a crash).
+* Data:
+	- Version >=3.7.0:
+	```
+	[
+		"{
+			"Scores": { "account-id-1": [2, 1], "account-id-n": [0, 0] }, //< The score of each player [MapPoints, MatchPoints]
+			"PlayedMapUids": ["map-uid-1", "map-uid-n"], //< The UID of the maps already played
+			"WinnersAccountIds": ["account-id-1", "account-id-n"], //< The account id of the winners sorted by winning order
+			"TrophiesGainAccountIds": ["account-id-1", "account-id-n"], //< The account id of the players that can get trophies at the end of the match
+			"PlayedRoundsNb": 3, //< The number of rounds played on the current map
+			"BestRaceTimeAccountId": "account-id", //< The account id of the player with the best time
+			"BestRaceTime": 12345 //< The best time
+		}"
+	]
+	```
+""");
+XmlRpc::RegisterMethod(C_Method_MatchLoad, """
+* Name: {{{C_Method_MatchLoad}}}
+* Type: TriggerModeScriptEventArray
+* Description: Restore a Champion match save.
+* Data:
+	- Version >=3.7.0:
+	```
+	[
+		"{
+			"Scores": { "account-id-1": [2, 1], "account-id-n": [0, 0] }, //< The score of each player [MapPoints, MatchPoints]
+			"PlayedMapUids": ["map-uid-1", "map-uid-n"], //< The UID of the maps already played
+			"WinnersAccountIds": ["account-id-1", "account-id-n"], //< The account id of the winners sorted by winning order
+			"TrophiesGainAccountIds": ["account-id-1", "account-id-n"], //< The account id of the players that can get trophies at the end of the match
+			"PlayedRoundsNb": 3, //< The number of rounds played on the current map
+			"BestRaceTimeAccountId": "account-id", //< The account id of the player with the best time
+			"BestRaceTime": 12345 //< The best time
+		}"
+	]
+	```
+""");
+XmlRpc::RegisterMethod(C_Method_MatchLoadStopWaitingPlayers, """
+* Name: {{{C_Method_MatchLoadStopWaitingPlayers}}}
+* Type: TriggerModeScriptEventArray
+* Description: Stop waiting for ready players during match loading.
+* Data:
+	- Version >=3.7.0:
+	```
+	[]
+	```
+""");
+***
+
+***Match_UnloadLibraries***
+***
+XmlRpc::UnregisterCallback(C_Callback_MatchSave);
+XmlRpc::UnregisterMethod(C_Method_MatchLoad);
+XmlRpc::UnregisterMethod(C_Method_MatchLoadStopWaitingPlayers);
+
+NetShared::Unload();
+TMGLMarkers::Unload();
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultPodiumSequence = !S_EnableWinScreen;
+MB_Settings_UseDefaultPodiumMessage = False;
+Rounds_Settings_SpectatorCamModeAfterGiveUp = UIModules_SpectatorBase::C_CamModes_Replay;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+Race::SortScores(Race::C_Sort_TotalPoints);
+WarmUp::SetVisibleFor(WarmUp::C_VisibleFor_PlayersOnly);
+WarmUp::SetStartRoundMessage("");
+UIModules_PauseMenu_Online::SetHelp(Description);
+UIModules_Checkpoint::SetVisibilityTimeDiff(False, True);
+UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_CurrentRace);
+UIModules_Checkpoint::SetVisibleFor(UIModules_Checkpoint::C_Target_Players);
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Points);
+UIModules_ScoresTable::SetHideSpectators(True);
+UIModules_SpectatorBase::HidePlayerName(True);
+UIModules_Chrono::SetVisibleFor(UIModules_Chrono::C_VisibleFor_PlayersOnly);
+UIModules_TimeGap::HideForSpectators(True);
+UIModules_LiveRanking::SetRankingMode(UIModules_LiveRanking::C_RankingMode_CurrentRace);
+UIModules_Countdown_Champion::SetVisibleFor(UIModules_Countdown_Champion::C_VisibleFor_Everyone);
+UIModules_AmbientSound::Enable(S_EnableAmbientSound);
+
+// Markers are handled by TMGLMarkers
+UIManager.UIAll.AlliesLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+UIManager.UIAll.TeamLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+UIManager.UIAll.OpposingTeamLabelsVisibility = CUIConfig::ELabelsVisibility::Never;
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			// Initialize players when they join the server
+			StateMgr::InitializePlayer(Event.Player);
+			CarRank::InitializePlayer(Event.Player);
+			UIModules_LiveRanking::ForceUpdate();
+			UIModules_SpectatorBase::SetCamModeAndFocus(Event.Player, UIModules_SpectatorBase::C_CamModes_Replay);
+			ChampionSpring2022::UpdateScoresTableNames();
+
+			// If a warm-up is active, check if the player can spawn
+			if (WarmUp::IsActive()) {
+				declare Text[] Match_WinnerAccountIds for This;
+				if (Event.Player != Null && Event.Player.Score != Null) {
+					WarmUp::CanPlay(Event.Player.Score, Event.Player.User != Null && !Match_WinnerAccountIds.exists(Event.Player.User.WebServicesUserId));
+				}
+			}
+
+			// Enable the esports programmation in the signs
+			// see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#
+			if (Event.Player != Null) {
+				declare CUIConfig UI <=> UIManager.GetUI(Event.Player);
+				if (UI != Null && UI.DisplayControl_UseEsportsProgrammation != C_UseEsportsProgrammation) {
+					UI.DisplayControl_UseEsportsProgrammation = C_UseEsportsProgrammation;
+				}
+			}
+
+			if (S_MatchStyle == C_MatchStyle_CupLong) {
+				declare Integer[Text] Match_MatchPointsToRestore for This;
+				Match_MatchPointsToRestore = ChampionSpring2022::RestoreMatchPoints(Match_MatchPointsToRestore);
+			}
+		}
+		case CSmModeEvent::EType::OnPlayerRemoved: {
+			UIModules_LiveRanking::ForceUpdate();
+		}
+	}
+}
+
+// Manage XmlRpc events
+foreach (Event in XmlRpc.PendingEvents) {
+	if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+		if (Event.ParamArray1 == "Club.Match.Start") {
+			declare Boolean Server_IsPreMatch for This = S_EnablePreMatch;
+			Server_IsPreMatch = False;
+			NetShared::SetIsPreMatch(Server_IsPreMatch);
+		} else if (Event.ParamArray1 == "Club.Match.Completed") {
+			declare Boolean Server_IsPreMatch for This = S_EnablePreMatch;
+			Server_IsPreMatch = True;
+			NetShared::SetIsPreMatch(Server_IsPreMatch);
+		} else if (Event.ParamArray1 == C_Method_MatchLoad) {
+			if (Event.ParamArray2.count >= 1) {
+				declare Text Server_XmlRpcLoadMatchState for This = "";
+				Server_XmlRpcLoadMatchState = Event.ParamArray2[0];
+				MB_Private_RestartScript();
+			}
+		}
+	}
+}
+
+// Force the number of spectators on the border of the road
+if (S_ForceRoadSpectatorsNb >= 0) {
+	declare Integer FinalTMGL_ForceRoadSpectatorsNb for This = -1;
+	if (FinalTMGL_ForceRoadSpectatorsNb != S_ForceRoadSpectatorsNb) {
+		FinalTMGL_ForceRoadSpectatorsNb = S_ForceRoadSpectatorsNb;
+		if (ServerAdmin != Null) ServerAdmin.SetViewerCount(FinalTMGL_ForceRoadSpectatorsNb);
+	}
+}
+
+// Track trophies reward task progression
+declare Task::K_Task Task_SendCompetitionResult for This;
+if (Task::IsInitialized(Task_SendCompetitionResult)) {
+	Task_SendCompetitionResult = Task::Update(Task_SendCompetitionResult);
+	if (!Task::IsRunning(Task_SendCompetitionResult)) {
+		declare CTaskResult_AccountTrophyGainList SourceTask = Task::GetSourceTask_AccountTrophyGainList(Task_SendCompetitionResult);
+		if (Task::IsSuccess(Task_SendCompetitionResult) && SourceTask != Null) {
+			Log::Log("""[ChampionSpring2022] Trophy_CompetitionMatch_SendResultList() > Success : {{{SourceTask}}}""");
+		} else {
+			log(Now^"""> [ChampionSpring2022] Trophy_CompetitionMatch_SendResultList() > Failure : {{{SourceTask}}}"""); //< Always log error
+		}
+		Task_SendCompetitionResult = Task::Destroy(Task_SendCompetitionResult);
+	}
+}
+
+// Update map world record
+declare Integer MatchYield_NextWorldRecordUpdate for This = 0;
+if (Now >= MatchYield_NextWorldRecordUpdate) {
+	MatchYield_NextWorldRecordUpdate = Now + C_WorldRecordCheckInterval;
+	declare K_MapBestTime Map_BestTime for This;
+	Map_BestTime = ChampionSpring2022::UpdateMapBestTime_WorldRecord(Map_BestTime, S_MapWorldRecord);
+}
+
+StateMgr::Yield();
+TMGLMarkers::Yield();
+***
+
+***Match_InitServer***
+***
+declare Boolean Server_IsPreMatch for This = S_EnablePreMatch;
+declare Text Server_XmlRpcLoadMatchState for This = "";
+declare K_MatchState Server_LoadMatchState;
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+Clans::SetClansNb(0);
+if (S_MatchStyle == C_MatchStyle_CupLong) {
+	Scores::SaveInScore(Scores::C_Points_Map);
+} else {
+	Scores::SaveInScore(Scores::C_Points_Match);
+}
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(True);
+NetShared::SetIsPreMatch(Server_IsPreMatch);
+Race::SetupRecord(
+	MenuConst::C_ScopeType_Season,
+	MenuConst::C_ScopeType_PersonalBest,
+	MenuConst::C_GameMode_TimeAttack,
+	"",
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal
+);
+Race::UseAutomaticDossardColor(False);
+PlayerProfiles::OverridePlayerProfiles(Teams[0], S_OverridePlayerProfiles);
+
+// Check if we need to load a match state
+if (Server_XmlRpcLoadMatchState != "") {
+	Server_LoadMatchState.fromjson(Server_XmlRpcLoadMatchState);
+	Server_LoadMatchState.WaitingLoading = True;
+	Server_XmlRpcLoadMatchState = "";
+} else if (S_LoadMatchState != "") {
+	Server_LoadMatchState.fromjson(S_LoadMatchState);
+	Server_LoadMatchState.WaitingLoading = True;
+} else {
+	Server_LoadMatchState.WaitingLoading = False;
+}
+
+// Start the match from the first map not played yet
+if (Server_LoadMatchState.WaitingLoading) {
+	// Force map load and unload
+	// Otherwise `NextMapIndex` will be ignored the first time
+	MB_LoadMap();
+	MB_UnloadMap();
+	Log::Log("""[ChampionSpring2022] Load match state > Select map > PlayedMapUids: {{{Server_LoadMatchState.PlayedMapUids}}}""");
+
+	foreach (Index => MapInfo in MapList) {
+		Log::Log("""[ChampionSpring2022] Can play map {{{MapInfo.MapUid}}}?""");
+		if (!Server_LoadMatchState.PlayedMapUids.exists(MapInfo.MapUid)) {
+			NextMapIndex = Index;
+			Log::Log("""[ChampionSpring2022] Yes. Set `NextMapIndex` to {{{NextMapIndex}}}.""");
+			break;
+		} else {
+			Log::Log("""[ChampionSpring2022] No.""");
+		}
+	}
+}
+***
+
+***Match_InitMatch***
+***
+declare K_MatchState Match_MatchState;
+declare Text[] Match_WinnerAccountIds for This; //< Account ids of the winners sorted by winning order.
+declare Text[] Match_TrophiesGainAccountIds;
+declare Integer[Text] Match_MatchPointsToRestore for This;
+declare Task::K_Task Task_SendCompetitionResult for This;
+Match_WinnerAccountIds = [];
+Match_TrophiesGainAccountIds = [];
+Match_MatchPointsToRestore = [];
+***
+
+***Match_StartMatch***
+***
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Before);
+UIModules_LiveRanking::ResetWinners();
+***
+
+***Match_InitMap***
+***
+declare K_MapBestTime Map_BestTime for This;
+declare Integer Map_PlayedRoundsNb;
+
+Map_BestTime = ChampionSpring2022::InitMapBestTime(S_MapWorldRecord);
+
+if (S_MatchStyle == C_MatchStyle_CupLong) {
+	Match_MatchPointsToRestore = ChampionSpring2022::RestoreMatchPoints(Match_MatchPointsToRestore);
+}
+
+// Load match state
+if (Server_LoadMatchState.WaitingLoading) {
+	Log::Log("""[ChampionSpring2022] Load match state > MatchState: {{{Server_LoadMatchState}}}""");
+
+	foreach (Score in Scores) {
+		declare Boolean ChampionSpring2022_NeedToRestoreScore for Score = True;
+		ChampionSpring2022_NeedToRestoreScore = True;
+	}
+
+	Match_WinnerAccountIds = Server_LoadMatchState.WinnersAccountIds;
+	Match_TrophiesGainAccountIds = Server_LoadMatchState.TrophiesGainAccountIds;
+	Map_PlayedRoundsNb = Server_LoadMatchState.PlayedRoundsNb;
+	Map_BestTime = ChampionSpring2022::UpdateMapBestTime_Local(
+		Map_BestTime,
+		Server_LoadMatchState.BestRaceTimeAccountId,
+		Server_LoadMatchState.BestRaceTime
+	);
+
+	UIModules_LiveRanking::ResetWinners();
+	foreach (WinnerAccountId in Match_WinnerAccountIds) {
+		UIModules_LiveRanking::AddWinner(WinnerAccountId);
+	}
+
+	declare Boolean ForceEndRound;
+	declare Integer ReadyPlayersCheckTime = Now;
+	declare Integer WaitEndTime = -1;
+	StateMgr::ForcePlayersStates([StateMgr::C_State_LoadMatchState]);
+	UIModules_LoadSave::ResetReadyState();
+	UIModules_LoadSave::SetWaitEndTime(WaitEndTime);
+	while (MB_MapIsRunning() && !ForceEndRound && (WaitEndTime < 0 || Now < WaitEndTime)) {
+		MB_Yield();
+
+		// Manage XmlRpc events
+		foreach (Event in XmlRpc.PendingEvents) {
+			if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+				switch (Event.ParamArray1) {
+					case C_Method_ForceEndRound: {
+						ForceEndRound = True;
+					}
+					case C_Method_MatchLoadStopWaitingPlayers: {
+						ForceEndRound = True;
+					}
+				}
+			}
+		}
+
+		// Restore scores as players reconnect
+		foreach (Score in Scores) {
+			declare Boolean ChampionSpring2022_NeedToRestoreScore for Score = True;
+			if (ChampionSpring2022_NeedToRestoreScore) {
+				if (Score.User != Null && Server_LoadMatchState.Scores.existskey(Score.User.WebServicesUserId)) {
+					declare Int2 PlayerScores = Server_LoadMatchState.Scores[Score.User.WebServicesUserId];
+					Scores::SetPlayerMapPoints(Score, PlayerScores[0]);
+					Scores::SetPlayerMatchPoints(Score, PlayerScores[1]);
+					UpdateUIPlayersScores(S_MatchStyle, Match_WinnerAccountIds, S_MatchPointsLimit, S_CupPointsLimit, False);
+				}
+				ChampionSpring2022_NeedToRestoreScore = False;
+			}
+		}
+
+		// Check if all players are ready
+		if (Now >= ReadyPlayersCheckTime) {
+			ReadyPlayersCheckTime = Now + 1000;
+			declare Boolean AllPlayersAreReady = UIModules_LoadSave::AllPlayersAreReady();
+			if (AllPlayersAreReady && WaitEndTime < 0) {
+				WaitEndTime = Now + C_MatchLoadAllPlayersReadyDuration;
+				UIModules_LoadSave::SetWaitEndTime(WaitEndTime);
+			} else if (!AllPlayersAreReady && WaitEndTime >= 0) {
+				WaitEndTime = -1;
+				UIModules_LoadSave::SetWaitEndTime(WaitEndTime);
+			}
+		}
+	}
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+
+	// Ensure all scores are restored
+	foreach (Score in Scores) {
+		if (Score.User != Null && Server_LoadMatchState.Scores.existskey(Score.User.WebServicesUserId)) {
+			declare Int2 PlayerScores = Server_LoadMatchState.Scores[Score.User.WebServicesUserId];
+			Scores::SetPlayerMapPoints(Score, PlayerScores[0]);
+			Scores::SetPlayerMatchPoints(Score, PlayerScores[1]);
+		}
+	}
+
+	Server_LoadMatchState.WaitingLoading = False;
+	Match_MatchState = Server_LoadMatchState;
+}
+
+UpdateScoresTableFooter(S_MatchStyle, S_MatchPointsLimit, S_CupPointsLimit, False);
+UpdateUIPlayersScores(S_MatchStyle, Match_WinnerAccountIds, S_MatchPointsLimit, S_CupPointsLimit, False);
+ChampionSpring2022::UpdateScoresTableNames();
+UIModules_ScoresTable::DisplayRoundPoints(True);
+UIModules_AmbientSound::Enable(S_EnableAmbientSound);
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Before);
+UIModules_LiveRanking::ResetRace();
+UIModules_ScoresHeader::SetMatchType(S_MatchType);
+UIModules_ScoresHeader::Enable(!S_HideScoresHeader);
+UIModules_MatchInfo::SetMatchLevel(S_MatchLevel);
+UIModules_MatchInfo::SetTrackProgress(S_TrackNb, S_TracksTotal);
+UIModules_Sponsors::SetSponsorsURL(S_SponsorsUrl);
+TMGLMarkers::SetFinalists([]);
+if (S_HideScoresHeader) {
+	NetShared::SetDisplayMode(NetShared::C_DisplayMode_CupShowPoints);
+} else {
+	NetShared::SetDisplayMode(NetShared::C_DisplayMode_CupHidePoints);
+}
+
+// Sort players that already won the match at the top of the scores table
+if (S_MatchStyle == C_MatchStyle_CupLong) {
+	foreach (Score in Scores) {
+		if (Score.User != Null && Match_WinnerAccountIds.exists(Score.User.WebServicesUserId)) {
+			// Players that just won a map get (S_CupPointsLimit + 1) points
+			// So winning players must have more than that
+			SetPlayerCupPoints(
+				S_MatchStyle,
+				Score,
+				S_CupPointsLimit + 2 + Match_WinnerAccountIds.count - Match_WinnerAccountIds.keyof(Score.User.WebServicesUserId)
+			);
+		}
+	}
+}
+***
+
+***Match_StartMap***
+***
+// Add bot when necessary
+Users_SetNbFakeUsers(C_FakeUsersNb, 0);
+
+CarRank::Reset();
+EnableSignESportsMode(C_UseEsportsProgrammation);
+
+// Wait for players
+while (!HasAvailablePlayers(S_MatchStyle, S_CupPointsLimit)) MB_Sleep(1000);
+
+if (Map_PlayedRoundsNb <= 0) {
+	// Prevent players that already won to spawn during the warm up
+	foreach (Score in Scores) {
+		WarmUp::CanPlay(Score, Score.User != Null && !Match_WinnerAccountIds.exists(Score.User.WebServicesUserId));
+	}
+
+	// Warm up
+	UpdateScoresTableFooter(S_MatchStyle, S_MatchPointsLimit, S_CupPointsLimit, True);
+	EnableSignLiveCamera(True);
+	//L16N [Champion] Message displayed at the end of the warm up, just before the race start.
+	MB_WarmUp(S_WarmUpNb, S_WarmUpDuration * 1000, S_WarmUpTimeout * 1000, TL::Compose("$i%1", _("Race starting")));
+	EnableSignLiveCamera(False);
+	UpdateScoresTableFooter(S_MatchStyle, S_MatchPointsLimit, S_CupPointsLimit, False);
+}
+***
+
+***Match_StartWarmUp***
+***
+StateMgr::ForcePlayersStates([StateMgr::C_State_WarmUp]);
+UIModules_Countdown_Champion::SetVisibleFor(UIModules_Countdown_Champion::C_VisibleFor_PlayersOnly);
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_WarmUp);
+TMGLMarkers::Enable();
+***
+
+***Match_EndWarmUp***
+***
+TMGLMarkers::Disable();
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Starting);
+UIModules_Countdown_Champion::SetVisibleFor(UIModules_Countdown_Champion::C_VisibleFor_Everyone);
+UIModules_LiveRanking::ResetRace();
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+***
+
+***Match_InitRound***
+***
+declare Boolean Round_AmbientSound_IsStarting;
+declare Boolean Round_AmbientSound_IsFinished;
+declare Integer Round_AmbientSound_RaceStartEndTime;
+declare Boolean Round_AmbientSound_IsLastLap;
+declare Boolean Round_AmbientSound_IsLastCheckpoint;
+declare Integer Round_SignLiveCameraCheckTime;
+declare Ident Round_WinnerByKO;
+declare Text[] Round_SpawnedAccountIds; //< Use only for KO victory
+***
+
+***Rounds_StartPause***
+***
+RacePause::SetPauseMessage("");
+NetShared::SetIsPause(True);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Pause]);
+MB_Race_EnablePlayMode(True);
+UIModules_LiveRanking::ResetRace();
+***
+
+***Rounds_EndPause***
+***
+MB_Race_EnablePlayMode(False);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+NetShared::SetIsPause(False);
+***
+
+***Rounds_CanSpawn***
+***
+foreach (Score in Scores) {
+	// Players that already won cannot spawn
+	Rounds_SetCanSpawn(Score, (Score.User != Null && !Match_WinnerAccountIds.exists(Score.User.WebServicesUserId)));
+}
+***
+
+***Rounds_PlayerSpawned***
+***
+CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRaceProgression);
+if (Player.User != Null && !Round_SpawnedAccountIds.exists(Player.User.WebServicesUserId)) {
+	Round_SpawnedAccountIds.add(Player.User.WebServicesUserId);
+}
+// Players that spawned during at least one race can get trophies at the end of the match
+if (Player.User != Null && !Match_TrophiesGainAccountIds.exists(Player.User.WebServicesUserId)) {
+	Match_TrophiesGainAccountIds.add(Player.User.WebServicesUserId);
+}
+
+if (S_MatchStyle == C_MatchStyle_CupLong) {
+	Match_MatchPointsToRestore = ChampionSpring2022::RestoreMatchPoints(Match_MatchPointsToRestore);
+}
+
+// Color the finalists dossard in red
+if (Player.Score != Null && IsCupFinalist(S_MatchStyle, Player.Score, S_CupPointsLimit)) {
+	Player.Dossard_Color = <0.7, 0., 0.>;
+} else {
+	Player.Dossard_Color = Race::C_DossardColor_Default;
+}
+***
+
+***Match_StartRound***
+***
+// Wait for players
+while (!HasAvailablePlayers(S_MatchStyle, S_CupPointsLimit)) {
+	Round_ForceEndRound = True;
+	MB_Sleep(1000);
+}
+
+// Setup ambient sound state
+Round_AmbientSound_RaceStartEndTime = StartTime + C_AmbiendSoundRaceStartDuration;
+Round_AmbientSound_IsFinished = False;
+Round_AmbientSound_IsLastLap = False;
+Round_AmbientSound_IsLastCheckpoint = False;
+if (MB_GetRoundCount() <= 1) {
+	UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Starting);
+	Round_AmbientSound_IsStarting = True;
+} else {
+	UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Ongoing);
+	Round_AmbientSound_IsStarting = False;
+}
+
+// Update markers
+declare Text[] Finalists;
+foreach (Score in Scores) {
+	if (IsCupFinalist(S_MatchStyle, Score, S_CupPointsLimit)) {
+		Finalists.add(Score.User.WebServicesUserId);
+	}
+}
+TMGLMarkers::SetFinalists(Finalists);
+TMGLMarkers::Enable();
+
+// Enable live camera display in 16/9 screens for spectators
+Round_SignLiveCameraCheckTime = Now + C_SignLiveCameraCheckInterval;
+EnableSignLiveCamera(True);
+EnableSignESportsMode(C_UseEsportsProgrammation);
+
+// Initialize KO victory
+// `Round_SpawnedAccountIds` contains the player spawned so far
+// More can be spawned later, but it's ok to use it here
+// It will only affect the KO victory message
+Round_WinnerByKO = NullId;
+KOVictory::StartRace(S_KOCheckpointNb, S_KOCheckpointTime, S_KOValidationDelay, Round_SpawnedAccountIds);
+
+// Update UI
+UIModules_LiveRanking::ResetRace();
+UIModules_ScoresHeader::SetMatchType(S_MatchType);
+UIModules_MatchInfo::SetMatchLevel(S_MatchLevel);
+UIModules_Sponsors::SetSponsorsURL(S_SponsorsUrl);
+
+UpdateScoresTableFooter(S_MatchStyle, S_MatchPointsLimit, S_CupPointsLimit, False);
+UpdateUIPlayersScores(S_MatchStyle, Match_WinnerAccountIds, S_MatchPointsLimit, S_CupPointsLimit, False);
+ChampionSpring2022::UpdateScoresTableNames();
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	Race::ValidEvent(Event);
+
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRaceProgression);
+
+		if (Event.Player != Null) {
+			if (Event.IsEndRace) {
+				Scores::UpdatePlayerBestRaceIfBetter(Event.Player);
+				Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				Scores::UpdatePlayerPrevRace(Event.Player);
+
+				UIModules_LiveRanking::PlayerFinishRace(Event.Player);
+				ComputeLatestRaceScores(S_MatchStyle, GetPrevRaceRanking(S_MatchStyle), PointsRepartition::GetPointsRepartition(), S_CupPointsLimit);
+				Race::SortScores(Race::C_Sort_TotalPoints);
+
+				// Start the countdown if it's the first player to finish
+				if (EndTime <= 0) {
+					EndTime = GetFinishTimeout(S_FinishTimeout, Race::GetLapsNb(), Map);
+
+					if (!Round_AmbientSound_IsFinished) {
+						Round_AmbientSound_IsFinished = True;
+						Round_AmbientSound_IsStarting = False;
+						UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Finishing);
+					}
+				}
+
+				// Update the map best race time
+				if (Event.RaceTime > 0 && Event.Player.User != Null) {
+					Map_BestTime = ChampionSpring2022::UpdateMapBestTime_Local(
+						Map_BestTime,
+						Event.Player.User.WebServicesUserId,
+						Event.RaceTime
+					);
+				}
+			}
+
+			if (Event.IsEndLap) {
+				Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+			}
+
+			// Update K.O.
+			KOVictory::OnWaypoint(Event);
+
+			// The leading player starts the last lap
+			if (
+				Event.IsEndLap &&
+				!Round_AmbientSound_IsLastLap &&
+				!Round_AmbientSound_IsLastCheckpoint &&
+				!Round_AmbientSound_IsFinished &&
+				Race::GetPlayerLap(Event.Player) == Race::GetLapsNb() - 1
+			) {
+				Round_AmbientSound_IsLastLap = True;
+				Round_AmbientSound_IsStarting = False;
+				UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_LastLap);
+			}
+
+			// The leading player crosses the last checkpoint before the finish
+			if (
+				!Event.IsEndLap &&
+				!Round_AmbientSound_IsLastCheckpoint &&
+				!Round_AmbientSound_IsFinished &&
+				Race::GetPlayerLap(Event.Player) == Race::GetLapsNb() - 1 &&
+				Event.Player.LapWaypointTimes.count == Map::GetCheckpointsCount()
+			) {
+				Round_AmbientSound_IsLastCheckpoint = True;
+				Round_AmbientSound_IsStarting = False;
+				UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_LastCheckpoint);
+			}
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+
+	switch (Event.Type) {
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			UpdateUIPlayersScores(S_MatchStyle, Match_WinnerAccountIds, S_MatchPointsLimit, S_CupPointsLimit, False);
+		}
+	}
+
+	Events::Invalid(Event);
+}
+
+// Update the ambient sound
+if (Round_AmbientSound_IsStarting && Now >= Round_AmbientSound_RaceStartEndTime) {
+	Round_AmbientSound_IsStarting = False;
+	UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_Ongoing);
+}
+
+// Enable the live camera in the 16/9 sign
+if (Round_SignLiveCameraCheckTime <= Now) {
+	Round_SignLiveCameraCheckTime = Now + C_SignLiveCameraCheckInterval;
+	EnableSignLiveCamera(True);
+}
+
+// Stop the round if there is a victory by K.O.
+if (KOVictory::GetWinnerByKO() != NullId) {
+	MB_StopRound();
+	Round_Skipped = False;
+	Round_WinnerByKO = KOVictory::GetWinnerByKO();
+}
+***
+
+***Match_EndPlayLoop***
+***
+// If the round is won by KO, sleep a little
+// to let the players and spectators understand
+// what is happening
+if (Round_WinnerByKO != NullId) {
+	declare Integer SleepEndTime = Now + 1000;
+	while (Now < SleepEndTime && MB_MapIsRunning()) {
+		MB_Yield();
+		// Cancel all events
+		declare RacePendingEvents = Race::GetPendingEvents();
+		foreach (Event in RacePendingEvents) {
+			Race::InvalidEvent(Event);
+		}
+		foreach (Event in PendingEvents) {
+			if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+			Events::Invalid(Event);
+		}
+	}
+}
+
+EnableSignLiveCamera(False);
+TMGLMarkers::Disable();
+UIModules_AmbientSound::SetRaceState(ChampionConst::C_RaceState_After);
+***
+
+***Match_EndRound***
+***
+Race::StopSkipOutroAll();
+EndTime = -1;
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+CarRank::Update(CarRank::C_SortCriteria_CurrentRace);
+KOVictory::StopRace();
+
+if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "2.1.1")) {
+	Scores::XmlRpc_SendScores(Scores::C_Section_PreEndRound, "");
+}
+
+if (Round_ForceEndRound || Round_SkipPauseRound || Round_Skipped) {
+	// Cancel points
+	foreach (Score in Scores) {
+		Scores::SetPlayerRoundPoints(Score, 0);
+	}
+	// Do not launch the forced end round sequence after a pause
+	if (!Round_SkipPauseRound) {
+		ForcedEndRoundSequence();
+	}
+} else {
+	Map_PlayedRoundsNb += 1;
+
+	// Win by K.O.
+	if (Round_WinnerByKO != NullId) {
+		//L16N [Champion] Message displayed when a player wins a round by K.O.
+		declare Text Message = _("Victory by K.O.");
+		if (Scores.existskey(Round_WinnerByKO)) {
+			//L16N [Champion] Message displayed when a player wins a round by K.O.. %1 will be replaced by the name of the winning player. e.g. "Alex wins by K.O."
+			Message = TL::Compose(_("%1 wins by K.O."), "$<"^GetName(Scores[Round_WinnerByKO])^"$>");
+		}
+		ModeUtils::PushAndApplyBigMessageSound(UIManager.UIAll, CUIConfig::EUISound::EndRound, 0);
+		UIManager.UIAll.BigMessage = Message;
+		MB_Sleep(3000);
+		UIManager.UIAll.BigMessage = "";
+		ModeUtils::PopAndApplyBigMessageSound(UIManager.UIAll);
+
+		// Give points only to the winner by K.O.
+		foreach (Score in Scores) {
+			if (Score.Id == Round_WinnerByKO) {
+				declare Integer Points = 0;
+				if (!IsCupWinner(S_MatchStyle, Score, S_CupPointsLimit)) {
+					declare Integer[] PointsRepartition = PointsRepartition::GetPointsRepartition();
+					if (PointsRepartition.count > 0) {
+						Points = PointsRepartition[0];
+					}
+				}
+				Scores::SetPlayerRoundPoints(Score, Points);
+			} else {
+				Scores::SetPlayerRoundPoints(Score, 0);
+			}
+		}
+	}
+	// Standard round
+	else {
+		ComputeLatestRaceScores(S_MatchStyle, GetPrevRaceRanking(S_MatchStyle), PointsRepartition::GetPointsRepartition(), S_CupPointsLimit);
+	}
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	UIModules_LiveRanking::ForceUpdate();
+	ModeUtils::PushAndApplyScoresTableVisibility(UIManager.UIAll, CUIConfig::EVisibility::ForcedVisible);
+	ModeUtils::PushAndApplyUISequence(UIManager.UIAll, CUIConfig::EUISequence::EndRound);
+	MB_Sleep(S_EndRoundPreScoreUpdateDuration * 1000);
+
+	// Add the map scores
+	declare Ident NewCupWinnerScoreId = ComputeCupScores(S_MatchStyle, S_CupPointsLimit, Match_WinnerAccountIds);
+	Race::SortScores(Race::C_Sort_TotalPoints);
+
+	// In Cup Long, stop map if we have a new cup winner
+	// In Cup Short, stop map if we played a fixed number of rounds
+	declare CMap CompletedMap = Null;
+	if (
+		(S_MatchStyle == C_MatchStyle_CupLong && NewCupWinnerScoreId != NullId) ||
+		(S_MatchStyle != C_MatchStyle_CupLong && S_RoundsPerMap > 0 && Map_PlayedRoundsNb >= S_RoundsPerMap)
+	) {
+		MB_StopMap();
+		CompletedMap <=> Map;
+	}
+
+	// Update the match winners and check if the match is finished
+	foreach (Score in Scores) {
+		if (
+			Score.User != Null &&
+			!Match_WinnerAccountIds.exists(Score.User.WebServicesUserId) && (
+				(S_MatchStyle == C_MatchStyle_CupLong && Scores::GetPlayerMatchPoints(Score) >= S_MatchPointsLimit) ||
+				(S_MatchStyle != C_MatchStyle_CupLong && IsCupWinner(S_MatchStyle, Score, S_CupPointsLimit))
+			)
+		) {
+			Match_WinnerAccountIds.add(Score.User.WebServicesUserId);
+			UIModules_LiveRanking::AddWinner(Score.User.WebServicesUserId);
+		}
+	}
+	declare Integer PlayerWinnersNb = 0;
+	declare Text[] DebugPlayersAccountIds;
+	declare Text[] DebugPlayersWinnerAccountIds;
+	foreach (Player in Players) {
+		if (Player.User != Null && Match_WinnerAccountIds.exists(Player.User.WebServicesUserId)) {
+			PlayerWinnersNb += 1;
+			DebugPlayersWinnerAccountIds.add(Player.User.WebServicesUserId);
+		}
+		DebugPlayersAccountIds.add(Player.User.WebServicesUserId);
+	}
+
+	// If there's only one player they need to reach the points limit to win
+	// If there are more than one player then enough players or all players except one must reach the points limit
+	declare Integer PlayerWinnersLimit = ML::Max(Players.count - 1, 1);
+	declare Boolean MatchIsOver = (Match_WinnerAccountIds.count >= S_NbOfWinners || (S_StopMatchIfNotEnoughPlayers && PlayerWinnersNb >= PlayerWinnersLimit));
+	// Do not remove these logs. Check: /trackmania-next/tmnext/-/issues/3979
+	log("""[ChampionSpring2022] Match is over ? {{{MatchIsOver}}} | ({{{Match_WinnerAccountIds.count}}} >= {{{S_NbOfWinners}}} || ({{{S_StopMatchIfNotEnoughPlayers}}} && {{{PlayerWinnersNb}}} >= {{{PlayerWinnersLimit}}}))""");
+	log("""[ChampionSpring2022] DebugPlayersAccountIds : {{{DebugPlayersAccountIds}}} | Match_WinnerAccountIds : {{{Match_WinnerAccountIds}}} | DebugPlayersWinnerAccountIds : {{{DebugPlayersWinnerAccountIds}}}""");
+	if (MatchIsOver) {
+		MB_StopMatch();
+	}
+
+	// Update Qualified, Finalist & Winner status in the scores table
+	UpdateUIPlayersScores(S_MatchStyle, Match_WinnerAccountIds, S_MatchPointsLimit, S_CupPointsLimit, !MB_MatchIsRunning());
+	UIModules_LiveRanking::ForceUpdate();
+
+	Match_MatchState = UpdateMatchState(Match_MatchState, CompletedMap, Match_WinnerAccountIds, Match_TrophiesGainAccountIds, Map_PlayedRoundsNb, Map_BestTime.LocalAccountId, Map_BestTime.LocalTime);
+
+	MB_Sleep(S_EndRoundPostScoreUpdateDuration * 1000);
+	ModeUtils::PopAndApplyScoresTableVisibility(UIManager.UIAll);
+	ModeUtils::PopAndApplyUISequence(UIManager.UIAll);
+}
+***
+
+***Match_EndMap***
+***
+UIModules_ScoresTable::DisplayRoundPoints(False);
+
+Race::SortScores(Race::C_Sort_TotalPoints);
+declare CSmScore Winner <=> Scores::GetBestPlayer(Scores::C_Sort_MatchPoints);
+Scores::SetPlayerWinner(Winner);
+if (!MB_MatchIsRunning()) {
+	// Compute ranking for tracking
+	declare Integer PreviousPoints = 0;
+	declare Integer Rank = 0;
+	foreach (Key => Score in Scores) {
+		if (Key == 0 || Scores::GetPlayerMatchPoints(Score) < PreviousPoints) {
+			PreviousPoints = Scores::GetPlayerMatchPoints(Score);
+			Rank = Key + 1;
+		}
+		Tracking::SendPlayerMatchResult(UIManager, Score.User, Rank, Winner == Score && Scores.count > 1);
+	}
+}
+
+if ((!MB_MapIsRunning() && MB_MatchIsRunning()) || !MB_ScriptIsRunning()) MB_SkipPodiumSequence();
+***
+
+***Match_BeforePodiumSequence***
+***
+// Send the EndMatch callback sooner to speed up the TMGL API update
+if (S_EarlyEndMatchCallback && !MB_Private_MatchIsRunning()) {
+	Scores::EndMatch();
+	Scores::XmlRpc_SendScores(Scores::C_Section_EndMatch, ""); //< send "Trackmania.Scores"
+}
+
+if (S_EnableTrophiesGain) {
+	Log::Log("""[ChampionSpring2022] Trophies gain > CompetitionName : {{{S_CompetitionName}}} | Step : {{{S_StepNb}}} | MatchLevel : {{{S_MatchLevel}}}""");
+	Trophy_CompetitionMatch_ClearResultList();
+	foreach (Score in Scores) {
+		if (Score.User != Null) {
+			if (Match_WinnerAccountIds.exists(Score.User.WebServicesUserId)) {
+				Trophy_CompetitionMatch_AddResult(Score.User.WebServicesUserId, Match_WinnerAccountIds.keyof(Score.User.WebServicesUserId) + 1, 0);
+				Log::Log("""[ChampionSpring2022] {{{Score.User.WebServicesUserId}}} > A > Rank : {{{Match_WinnerAccountIds.keyof(Score.User.WebServicesUserId) + 1}}}""");
+			} else if (Match_TrophiesGainAccountIds.exists(Score.User.WebServicesUserId)) {
+				Trophy_CompetitionMatch_AddResult(Score.User.WebServicesUserId, Match_WinnerAccountIds.count + 1, 0);
+				Log::Log("""[ChampionSpring2022] {{{Score.User.WebServicesUserId}}} > B > Rank : {{{Match_WinnerAccountIds.count + 1}}}""");
+			} else {
+				Log::Log("""[ChampionSpring2022] {{{Score.User.WebServicesUserId}}} > C > Not ranked""");
+			}
+		}
+	}
+
+	// See : /trackmania-next/tmnext/-/issues/3458
+	declare Text CompetitionStage = "Step "^S_StepNb;
+	declare Text CompetitionStageStep = "";
+	switch (S_MatchLevel) {
+		case UIModules_MatchInfo::C_MatchLevel_Champion: CompetitionStageStep = "Champion";
+		case UIModules_MatchInfo::C_MatchLevel_Gold: CompetitionStageStep = "Gold";
+		case UIModules_MatchInfo::C_MatchLevel_Silver: CompetitionStageStep = "Silver";
+		case UIModules_MatchInfo::C_MatchLevel_Bronze: CompetitionStageStep = "Bronze";
+	}
+	declare Text CompetitionMatchInfo = "";
+	Log::Log("""[ChampionSpring2022] Trophy_CompetitionMatch_SendResultList() > CompetitionName : '{{{S_CompetitionName}}}' | CompetitionStage : '{{{CompetitionStage}}}' | CompetitionStageStep : '{{{CompetitionStageStep}}}' | CompetitionMatchInfo : '{{{CompetitionMatchInfo}}}'""");
+
+	// We don't care about the result of the `Trophy_CompetitionMatch_SendResultList()` task
+	// As long as the results are sent all is good
+	// If another match ends, we can just destroy the previous task if we had one
+	Task_SendCompetitionResult = Task::DestroyAndCreate(
+		Task_SendCompetitionResult,
+		This,
+		Trophy_CompetitionMatch_SendResultList(S_CompetitionName, CompetitionStage, CompetitionStageStep, CompetitionMatchInfo),
+		Null
+	);
+}
+
+if (!MB_Private_SkipPodiumSequence) {
+	declare Text WinnerAccountId;
+	if (Match_WinnerAccountIds.count > 0) {
+		WinnerAccountId = Match_WinnerAccountIds[0];
+	}
+	if (MB_Settings_UseDefaultPodiumSequence) {
+		if (WinnerAccountId != "" && PlayerProfiles::PlayerProfileExists(WinnerAccountId)) {
+			UIManager.UIAll.BigMessage = TL::Compose(_("$<%1$> wins the match!"), PlayerProfiles::GetPlayerProfile(WinnerAccountId).Nickname);
+		}
+	} else if (S_EnableWinScreen) {
+		UIModules_WinScreen::SetWinnerAccountId(WinnerAccountId);
+	}
+}
+***
+
+***Match_PodiumSequence***
+***
+ModeUtils::PushAndApplyUISequence(UIManager.UIAll, CUIConfig::EUISequence::Podium);
+StateMgr::ForcePlayersStates([StateMgr::C_State_WinScreen]);
+declare Integer ChatTime = S_ChatTime;
+declare Integer WinScreenStartTime = Now;
+declare Integer WinScreenStopTime = ML::Max(WinScreenStartTime, WinScreenStartTime + (ChatTime * 1000));
+while (Now < WinScreenStopTime) {
+	MB_Yield();
+	if (ChatTime != S_ChatTime) {
+		ChatTime = S_ChatTime;
+		WinScreenStopTime = ML::Max(WinScreenStartTime, WinScreenStartTime + (ChatTime * 1000));
+	}
+}
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+ModeUtils::PopAndApplyUISequence(UIManager.UIAll);
+***
+
+***Match_BeforeUnloadMap***
+***
+// Players that did not do anything during the map have their score reset
+// Prevent that for players that have at least one match points
+// see: /trackmania-next/tmnext/-/issues/3677
+if (S_MatchStyle == C_MatchStyle_CupLong) {
+	Match_MatchPointsToRestore = ChampionSpring2022::RetrieveLatestMatchPoints(Match_MatchPointsToRestore);
+}
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the cup points of a player
+Integer GetPlayerCupPoints(Integer _MatchStyle, CSmScore _Score) {
+	if (_MatchStyle == C_MatchStyle_CupLong) {
+		return Scores::GetPlayerMapPoints(_Score);
+	}
+	return Scores::GetPlayerMatchPoints(_Score);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the cup points of a player
+Void SetPlayerCupPoints(Integer _MatchStyle, CSmScore _Score, Integer _Points) {
+	if (_MatchStyle == C_MatchStyle_CupLong) {
+		Scores::SetPlayerMapPoints(_Score, _Points);
+	} else {
+		Scores::SetPlayerMatchPoints(_Score, _Points);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Give cup points to a player
+Void AddPlayerCupPoints(Integer _MatchStyle, CSmScore _Score, Integer _Points) {
+	if (_MatchStyle == C_MatchStyle_CupLong) {
+		Scores::AddPlayerMapPoints(_Score, _Points);
+	} else {
+		Scores::AddPlayerMatchPoints(_Score, _Points);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the player won the cup
+Boolean IsCupWinner(Integer _MatchStyle, CSmScore _Score, Integer _CupPointsLimit) {
+	return GetPlayerCupPoints(_MatchStyle, _Score) > _CupPointsLimit;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the player is in finalist mode
+Boolean IsCupFinalist(Integer _MatchStyle, CSmScore _Score, Integer _CupPointsLimit) {
+	return GetPlayerCupPoints(_MatchStyle, _Score) == _CupPointsLimit;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if there are players that can play
+Boolean HasAvailablePlayers(Integer _MatchStyle, Integer _CupPointsLimit) {
+	foreach (Player in Players) {
+		if (Player.Score != Null) {
+			if (!IsCupWinner(_MatchStyle, Player.Score, _CupPointsLimit)) {
+				return True;
+			}
+		}
+	}
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the scores table footer text
+ *
+ *	@param	_MatchStyle								Style of match (Short, Long, Classic)
+ *	@param	_MatchPointsLimit					The match points limit
+ *	@param	_CupPointsLimit						The cup points limit
+ *	@param	_IsWarmUp									Currently playing warm-up
+ */
+Void UpdateScoresTableFooter(Integer _MatchStyle, Integer _MatchPointsLimit, Integer _CupPointsLimit, Boolean _IsWarmUp) {
+	if (_IsWarmUp) {
+		//L16N [Champion] Currently playing the warm-up round.
+		UIModules_ScoresTable::SetFooterInfo(_("Warm up"));
+	} else if (_MatchStyle == C_MatchStyle_CupLong) {
+		// Add 1 to `_CupPointsLimit` because we only score 1 point at a time and
+		// it's easier to understand that you need 2 points to win instead of 1 point to be finalist + 1 point to win
+		//L16N [Champion] Number of points to reach to win the match and the track. %1 and %2 will be replaced by a number. e.g. "Match points limit: 5 Track points limit: 3"
+		UIModules_ScoresTable::SetFooterInfo(TL::Compose(_("Match points limit: %1\nTrack points limit: %2"), ""^_MatchPointsLimit, ""^(_CupPointsLimit+1)));
+	} else if (_MatchStyle == C_MatchStyle_CupShort) {
+		// Add 1 to `_CupPointsLimit` because we only score 1 point at a time and
+		// it's easier to understand that you need 2 points to win instead of 1 point to be finalist + 1 point to win
+		//L16N [Champion] Number of points to reach to win the match. %1 will be replaced by a number. e.g. "Points limit: 2"
+		UIModules_ScoresTable::SetFooterInfo(TL::Compose(_("Points limit: %1"), ""^(_CupPointsLimit+1)));
+	} else if (_CupPointsLimit > 0) {
+		//L16N [Champion] Number of points to reach to win the match. %1 will be replaced by a number. e.g. "Points limit: 100"
+		UIModules_ScoresTable::SetFooterInfo(TL::Compose(_("Points limit: %1"), ""^_CupPointsLimit));
+	} else {
+		UIModules_ScoresTable::SetFooterInfo("");
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the time left to the players to finish the round after the first player
+ *
+ *	@param	_FinishTimeout						Forced finish timeout duration (in seconds)
+ *	@param	_CurrentLapsNb						The current number of laps to do complete the race
+ *	@param	_Map											The map being played
+ *
+ *	@return														The time left in ms
+ */
+Integer GetFinishTimeout(Integer _FinishTimeout, Integer _CurrentLapsNb, CMap _Map) {
+	declare Integer FinishTimeout = 0;
+
+	if (_FinishTimeout >= 0) {
+		FinishTimeout = _FinishTimeout * 1000;
+	} else {
+		FinishTimeout = 5000;
+		if (_Map != Null && _Map.TMObjective_IsLapRace && _CurrentLapsNb > 0 && _Map.TMObjective_NbLaps > 0) {
+			FinishTimeout += ((_Map.TMObjective_AuthorTime / _Map.TMObjective_NbLaps) * _CurrentLapsNb) / 6;
+		} else if (_Map != Null) {
+			FinishTimeout += _Map.TMObjective_AuthorTime / 6;
+		}
+	}
+
+	return Now + FinishTimeout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Sort the scores by previous race time and map points
+CSmScore[] GetPrevRaceRanking(Integer _MatchStyle) {
+	declare Integer[][Ident] ScoreIdsToSortByWaypointTimes;
+	foreach (Score in Scores) {
+		ScoreIdsToSortByWaypointTimes[Score.Id] = CommonUtils::ToScriptArray(Score.PrevRaceTimes);
+	}
+
+	declare Ident[][Integer] ScoreIdsSortedByWaypointTimes = Scores::SortIdsByWaypointTimes(ScoreIdsToSortByWaypointTimes);
+	declare CSmScore[] SortedScores;
+	foreach (WaypointTimesScoreIds in ScoreIdsSortedByWaypointTimes) {
+		declare Ident[][] ScoreIdsSortedByPoints;
+		if (WaypointTimesScoreIds.count <= 1) {
+			ScoreIdsSortedByPoints = [WaypointTimesScoreIds];
+		} else {
+			declare Integer[Ident] ScoreIdsToSortByPoints;
+			foreach (ScoreId in WaypointTimesScoreIds) {
+				ScoreIdsToSortByPoints[ScoreId] = GetPlayerCupPoints(_MatchStyle, Scores[ScoreId]);
+			}
+			ScoreIdsSortedByPoints = Scores::SortIdsByPoints(ScoreIdsToSortByPoints, Scores::C_Order_Descending, 0);
+		}
+		foreach (PointsScoreIds in ScoreIdsSortedByPoints) {
+			foreach (ScoreId in PointsScoreIds) {
+				SortedScores.add(Scores[ScoreId]);
+			}
+		}
+	}
+
+	return SortedScores;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the latest race scores
+Void ComputeLatestRaceScores(Integer _MatchStyle, CSmScore[] _PrevRaceRanking, Integer[] _PointsRepartition, Integer _CupPointsLimit) {
+	declare Integer Rank = 0;
+	declare Boolean IsFirstPlace = True;
+	foreach (Score in _PrevRaceRanking) {
+		// The player does not get points if :
+		// - they did not finish the race
+		// - they are finalist and didn't take the first place
+		// - they already won
+		if (Scores::GetPlayerPrevRaceTime(Score) <= 0) {
+			Scores::SetPlayerRoundPoints(Score, 0);
+		} else if (
+			(IsCupFinalist(_MatchStyle, Score, _CupPointsLimit) && !IsFirstPlace) ||
+			IsCupWinner(_MatchStyle, Score, _CupPointsLimit)
+		) {
+			Scores::SetPlayerRoundPoints(Score, 0);
+			Rank += 1;
+		} else {
+			declare Integer Points = 0;
+
+			if (_PointsRepartition.count > 0) {
+				if (_PointsRepartition.existskey(Rank)) {
+					Points = _PointsRepartition[Rank];
+				} else {
+					Points = _PointsRepartition[_PointsRepartition.count - 1];
+				}
+			}
+
+			Scores::SetPlayerRoundPoints(Score, Points);
+			Rank += 1;
+		}
+		IsFirstPlace = False;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the cup scores, return the Id of any new cup winner
+Ident ComputeCupScores(Integer _MatchStyle, Integer _CupPointsLimit, Text[] _WinnerAccountIds) {
+	declare Ident NewWinnerScoreId = NullId;
+
+	Race::SortScores(Race::C_Sort_TotalPoints);
+
+	foreach (Score in Scores) {
+		// Already won
+		if (IsCupWinner(_MatchStyle, Score, _CupPointsLimit)) {
+			if (Score.User != Null && _WinnerAccountIds.exists(Score.User.WebServicesUserId)) {
+				SetPlayerCupPoints(
+					S_MatchStyle,
+					Score,
+					S_CupPointsLimit + 2 + _WinnerAccountIds.count - _WinnerAccountIds.keyof(Score.User.WebServicesUserId)
+				);
+			} else {
+				SetPlayerCupPoints(S_MatchStyle, Score, _CupPointsLimit + 2);
+			}
+		} else {
+			// New winner
+			if (
+				NewWinnerScoreId == NullId &&
+				Scores::GetPlayerRoundPoints(Score) > 0 &&
+				IsCupFinalist(_MatchStyle, Score, _CupPointsLimit) &&
+				Score.User != Null &&
+				!_WinnerAccountIds.exists(Score.User.WebServicesUserId)
+			) {
+				SetPlayerCupPoints(_MatchStyle, Score, _CupPointsLimit + 1);
+				if (_MatchStyle == C_MatchStyle_CupLong) {
+					Scores::AddPlayerMatchPoints(Score, 1);
+				}
+				NewWinnerScoreId = Score.Id;
+			}
+			// Standard round finish
+			else {
+				AddPlayerCupPoints(_MatchStyle, Score, Scores::GetPlayerRoundPoints(Score));
+				if (GetPlayerCupPoints(_MatchStyle, Score) > _CupPointsLimit) SetPlayerCupPoints(_MatchStyle, Score, _CupPointsLimit);
+			}
+		}
+
+		Scores::SetPlayerRoundPoints(Score, 0);
+	}
+
+	return NewWinnerScoreId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Toggle on/off the camera display in signs for spectators
+Void EnableSignLiveCamera(Boolean _Enabled) {
+	foreach (Spectator in Spectators) {
+		declare CUIConfig UI <=> UIManager.GetUI(Spectator);
+		if (UI != Null && UI.DisplayControl_UseLiveCamera != _Enabled) {
+			UI.DisplayControl_UseLiveCamera = _Enabled;
+		}
+	}
+	foreach (Player in Players) {
+		declare CUIConfig UI <=> UIManager.GetUI(Player);
+		if (UI != Null && UI.DisplayControl_UseLiveCamera) {
+			UI.DisplayControl_UseLiveCamera = False;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Enable the esports programmation in the signs
+ *	see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#
+ */
+Void EnableSignESportsMode(Boolean _Enabled) {
+	foreach (Player in AllPlayers) {
+		declare CUIConfig UI <=> UIManager.GetUI(Player);
+		if (UI != Null && UI.DisplayControl_UseEsportsProgrammation != _Enabled) {
+			UI.DisplayControl_UseEsportsProgrammation = _Enabled;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Find the name of a player in the profiles from its score
+Text GetName(CSmScore _Score) {
+	if (_Score == Null || _Score.User == Null) {
+		return "";
+	} else if (PlayerProfiles::PlayerProfileExists(_Score.User.WebServicesUserId)) {
+		return PlayerProfiles::GetPlayerProfile(_Score.User.WebServicesUserId).Nickname;
+	} else {
+		return _Score.User.Name;
+	}
+	return "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the players' scores in the UI
+Void UpdateUIPlayersScores(Integer _MatchStyle, Text[] _MatchWinnerAccountIds, Integer _MatchPointsLimit, Integer _CupPointsLimit, Boolean _MatchComplete) {
+	declare Text[][Text] CustomPoints;
+	declare Integer[Text] ScoresTableMatchPoints;
+	declare Integer[Text] HeaderMatchPoints;
+	declare Integer[Text] HeaderCupPoints;
+
+	foreach (Player in Players) {
+		if (Player.Score != Null && Player.User != Null) {
+			HeaderMatchPoints[Player.User.WebServicesUserId] = Scores::GetPlayerMatchPoints(Player.Score);
+			HeaderCupPoints[Player.User.WebServicesUserId] = GetPlayerCupPoints(_MatchStyle, Player.Score);
+		}
+	}
+
+	foreach (Score in Scores) {
+		declare Integer MatchPoints = Scores::GetPlayerMatchPoints(Score);
+		declare Integer CupPoints = GetPlayerCupPoints(_MatchStyle, Score);
+
+		if (_MatchWinnerAccountIds.exists(Score.User.WebServicesUserId)) {
+			CustomPoints[Score.User.WebServicesUserId] = [
+				TL::FormatRank(_MatchWinnerAccountIds.keyof(Score.User.WebServicesUserId) + 1, False),
+				C_Color_FinalRank
+			];
+		} else if (_MatchComplete) {
+			CustomPoints[Score.User.WebServicesUserId] = [
+				TL::FormatRank(_MatchWinnerAccountIds.count + 1, False),
+				C_Color_FinalRank
+			];
+		} else if (IsCupFinalist(_MatchStyle, Score, _CupPointsLimit)) {
+			CustomPoints[Score.User.WebServicesUserId] = [C_Finalist_Text, C_Color_Finalist] ;
+		} else if (IsCupWinner(_MatchStyle, Score, _CupPointsLimit)) {
+			CustomPoints[Score.User.WebServicesUserId] = [C_Winner_Text, C_Color_Winner];
+		}
+
+		// In Cup Long, do not display match points in the scores table
+		// if the match is finished or if the player is already qualified
+		if (
+			_MatchStyle == C_MatchStyle_CupLong &&
+			Score.User != Null &&
+			!_MatchComplete &&
+			!_MatchWinnerAccountIds.exists(Score.User.WebServicesUserId)
+		) {
+			ScoresTableMatchPoints[Score.User.WebServicesUserId] = MatchPoints;
+		}
+
+		// Add the scores of disconnect players if they have at least one point
+		if ((MatchPoints > 0 || CupPoints > 0) && Score.User != Null) {
+			HeaderMatchPoints[Score.User.WebServicesUserId] = MatchPoints;
+			HeaderCupPoints[Score.User.WebServicesUserId] = CupPoints;
+		}
+	}
+
+	UIModules_ScoresTable::SetCustomPoints(CustomPoints);
+	UIModules_ScoresTable::SetMatchPoints(ScoresTableMatchPoints);
+	UIModules_ScoresHeader::SetCupPoints(HeaderCupPoints);
+	UIModules_ScoresHeader::SetMatchPoints(HeaderMatchPoints);
+	UIModules_ScoresHeader::SetMatchComplete(_MatchComplete);
+	NetShared::SetMatchWinners(_MatchWinnerAccountIds);
+	NetShared::SetCupPointsLimit(_CupPointsLimit);
+	NetShared::SetMatchPointsLimit(_MatchPointsLimit);
+	NetShared::SetMatchStyle(_MatchStyle);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the match state and send it on xmlrpc
+ *
+ *	@param	_MatchState								The match state to update
+ *	@param	_CompletedMap							The map that has been completed
+ *																		Pass Null to not complete a map
+ *	@param	_WinnersAccountIds				Account id of the winners of each final round
+ *	@param	_TrophiesGainAccountIds		Account id of the players that can get trophies at the end of the match
+ *	@param	_PlayedRoundsNb						The number of rounds played on the current map
+ *	@param	_BestRaceTimeAccountId		Account id of the player with the best time on the current map
+ *	@param	_BestRaceTime							The best time on the current map
+ *
+ *	@return														The updated match state
+ */
+K_MatchState UpdateMatchState(
+	K_MatchState _MatchState,
+	CMap _CompletedMap,
+	Text[] _WinnersAccountIds,
+	Text[] _TrophiesGainAccountIds,
+	Integer _PlayedRoundsNb,
+	Text _BestRaceTimeAccountId,
+	Integer _BestRaceTime
+) {
+	declare K_MatchState MatchState = _MatchState;
+
+	MatchState.Scores = [];
+	foreach (Score in Scores) {
+		if (Score.User != Null) {
+			declare Integer MapPoints = 0;
+			if (_CompletedMap == Null) {
+				MapPoints = Scores::GetPlayerMapPoints(Score);
+			}
+			if (MapPoints > 0 || Scores::GetPlayerMatchPoints(Score) > 0) {
+				MatchState.Scores[Score.User.WebServicesUserId] = <MapPoints, Scores::GetPlayerMatchPoints(Score)>;
+			}
+		}
+	}
+
+	if (
+		_CompletedMap != Null &&
+		_CompletedMap.MapInfo != Null &&
+		!MatchState.PlayedMapUids.exists(_CompletedMap.MapInfo.MapUid)
+	) {
+		MatchState.PlayedMapUids.add(_CompletedMap.MapInfo.MapUid);
+	}
+
+	MatchState.WinnersAccountIds = _WinnersAccountIds;
+	MatchState.TrophiesGainAccountIds = _TrophiesGainAccountIds;
+
+	if (_CompletedMap == Null) {
+		MatchState.PlayedRoundsNb = _PlayedRoundsNb;
+		MatchState.BestRaceTimeAccountId = _BestRaceTimeAccountId;
+		MatchState.BestRaceTime = _BestRaceTime;
+	} else {
+		MatchState.PlayedRoundsNb = 0;
+		MatchState.BestRaceTimeAccountId = "";
+		MatchState.BestRaceTime = 0;
+	}
+
+	declare Text MatchStateJson = MatchState.tojson();
+	log("""[Champion] MatchSave : {{{MatchStateJson}}}"""); //< Always send the match state to the server log
+	XmlRpc::SendCallback(C_Callback_MatchSave, [MatchStateJson]);
+
+	return MatchState;
+}

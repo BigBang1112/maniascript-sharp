@@ -1,0 +1,171 @@
+/**
+ *  UI module: CheersCounter client side
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/UIModules/CheersCounter_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_Champion_CheersCounter"
+#Const C_Type CUILayer::EUILayerType::Normal
+
+#Const C_EnableTips False
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return MV::Create(
+C_Id, 3,
+"""
+<stylesheet>
+	<style class="text-number" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textcolor="fff" textsize="3." textprefix="$i"/>
+	<style class="text-default" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="fff" textsize="2." textprefix="$i"/>
+</stylesheet>
+<frame z-index="-2" hidden="1" id="frame-global">
+	<frame id="frame-cheers-counter" size="320 180" halign="center" valign="center">
+		<frame pos="157 45" z-index="1">
+			<quad pos="-0.5 0" size="8 8" halign="right" valign="center" image="{{{Icons::C_Icon_128x128_Settings_Favorite_Full}}}" colorize="fff"/>
+			<label id="label-cheers-counter" pos="-11 -1.5" size="11 6" halign="right" valign="center2" class="text-number" />
+
+			<label id="label-cheers-support" pos="0 -7" size="70 6" halign="right" valign="center2" class="text-default" />
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+
+#Const C_SupportShowTime 15000
+#Const C_SupportCooldown 150000
+#Const C_EnableTips {{{dump(C_EnableTips)}}}
+""",
+"""
+Text GetSupportMessage() {
+	declare PlayerName = "";
+	if (GUIPlayer != Null && {{{PlayerProfiles::P}}}GetPlayerProfiles().existskey(GUIPlayer.User.WebServicesUserId)) {
+		PlayerName = {{{PlayerProfiles::P}}}GetPlayerProfiles()[GUIPlayer.User.WebServicesUserId].Nickname;
+	} else if ({{{PlayerProfiles::P}}}GetPlayerProfiles().count > 0) {
+		declare ChoosenProfile = ML::Rand(0, {{{PlayerProfiles::P}}}GetPlayerProfiles().count - 1);
+		declare Index = 0;
+		foreach (Profile in {{{PlayerProfiles::P}}}GetPlayerProfiles()) {
+			if (Index == ChoosenProfile) {
+				PlayerName = Profile.Nickname;
+				break;
+			}
+			Index += 1;
+		}
+	} else return "";
+	declare PlayerNameUpperCase = TL::ToUpperCase(PlayerName);
+	//L16N [Champion TMGL] Message displayed during a league match to viewers. By typing "go Carl" in the chat, the viewer will send a cheer to the player. %1 and %2 will be replaced by a the name of a random league player.
+	return TL::Compose(_("support %1: \"go %2\" in chat"), PlayerNameUpperCase, PlayerNameUpperCase);
+}
+
+Void ShowSupport(Boolean _IsVisible) {
+	declare CMlLabel Label_Support <=> (Page.GetFirstChild("label-cheers-support") as CMlLabel);
+	AnimMgr.Flush(Label_Support);
+	if (_IsVisible) {
+		Label_Support.Value = GetSupportMessage();
+		AnimMgr.Add (Label_Support, "<label pos=\"0 -7\"/>", Now, 900, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		AnimMgr.Add (Label_Support, "<label pos=\"100 -7\"/>", Now, 900, CAnimManager::EAnimManagerEasing::QuadIn);
+	}
+
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_CheersCounter;
+declare CMlLabel Label_CheersCounter;
+
+declare netread Integer Net_Champion_CheersCounter_TotalCheers for Teams[0];
+
+declare Boolean DisplayModule;
+declare Integer TotalCheers;
+declare Boolean SupportDisplayed;
+declare Integer SupportDisplayTime;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_CheersCounter <=> (Frame_Global.GetFirstChild("frame-cheers-counter") as CMlFrame);
+Label_CheersCounter <=> (Frame_CheersCounter.GetFirstChild("label-cheers-counter") as CMlLabel);
+
+DisplayModule = Frame_Global.Visible;
+TotalCheers = -123;
+SupportDisplayed = False;
+if (C_EnableTips) {
+	SupportDisplayTime = Now;
+} else {
+	SupportDisplayTime = -1;
+}
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_Champion_CheersCounter_IsVisible for Owner;
+		if (DisplayModule != Net_Champion_CheersCounter_IsVisible) {
+			DisplayModule = Net_Champion_CheersCounter_IsVisible;
+			Frame_Global.Visible = DisplayModule;
+		}
+	} else if (DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (IsSpectatorClient && !Frame_CheersCounter.Visible) {
+			Frame_CheersCounter.Visible = True;
+		} else if (!IsSpectatorClient && Frame_CheersCounter.Visible) {
+			Frame_CheersCounter.Visible = False;
+		}
+		if (Frame_CheersCounter.Visible) {
+			if (TotalCheers != Net_Champion_CheersCounter_TotalCheers) {
+				TotalCheers = Net_Champion_CheersCounter_TotalCheers;
+				Label_CheersCounter.Value = TL::ToText(TotalCheers);
+			}
+			if (C_EnableTips && SupportDisplayTime <= Now) {
+				if (!SupportDisplayed) {
+					SupportDisplayed = True;
+					ShowSupport(True);
+				} else if (SupportDisplayTime + C_SupportShowTime <= Now) {
+					SupportDisplayed = False;
+					SupportDisplayTime = Now + C_SupportCooldown;
+					ShowSupport(False);
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	PlayerProfiles::Component()
+],
+[]
+	);
+}

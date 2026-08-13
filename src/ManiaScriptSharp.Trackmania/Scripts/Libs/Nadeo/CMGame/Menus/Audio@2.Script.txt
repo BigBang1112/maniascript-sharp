@@ -1,0 +1,908 @@
+/**
+ * Manage sounds in the menus
+ */
+#Const Version "2.2.6"
+#Const ScriptName "Libs/Nadeo/CMGame/Menus/Audio@2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "AnimLib" as AL
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "TimeLib" as TiL
+#Include "Libs/Nadeo/CMGame/Utils/Context.Script.txt" as Context
+#Include "Libs/Nadeo/CMGame/Utils/Http@3.Script.txt" as Http
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Private_Sound {
+	Text FileName;
+	Real[] VolumedB;
+	Real[] Pitch;
+	Integer[] FadeDuration;
+	Vec3[] RelativePosition;
+	Vec3[] PanRadiusLfe;
+	Integer[] PlayCursor;
+}
+
+#Struct K_Private_AudioItem {
+	K_Private_Sound[] Sounds;
+	Boolean IsMusic;
+	Boolean IsLooping;
+	Boolean IsSpatialized;
+	Integer LastPlayedSoundKey;
+}
+
+#Struct K_Private_LibraryLoadingRequest {
+	Text ConfigFilePath;
+	Text AudioFilePath;
+	Http::K_Request Request;
+}
+
+#Struct K_Private_ActiveAudioSource {
+	Ident AudioSourceId;
+	Integer LifetimeExpiration;
+	Integer PlaySoundTicketId;
+}
+
+#Struct K_SoundOptions {
+	Real[] VolumedB;
+	Real[] Pitch;
+	Integer[] FadeDuration;
+	Vec3[] RelativePosition;
+	Vec3[] PanRadiusLfe;
+	Integer[] PlayCursor;
+	Integer[] Delay;
+}
+
+#Struct K_Private_DelayedSound {
+	Text SoundId;
+	K_SoundOptions SoundOptions;
+	Integer PlaySoundTicketId;
+	Integer PlayTime;
+}
+
+#Struct K_SoundBalance {
+	Real Music;
+	Real SceneSound;
+	Real UiSound;
+}
+
+#Struct K_Private_SoundBalanceTransition {
+	Integer StartTime;
+	Integer Duration;
+	K_SoundBalance BaseSoundBalance;
+	K_SoundBalance DeltaSoundBalance;
+}
+
+#Struct K_Private_State {
+	K_Private_AudioItem[Text] Library;
+	K_Private_LibraryLoadingRequest[Text] LibraryLoadingRequests;
+	K_Private_ActiveAudioSource[][Text] AudioSources;
+	Integer AudioSourcesCleanUpTime;
+	Integer PlaySoundTicketIdGenerator;
+	K_Private_DelayedSound[] DelayedSounds;
+	K_Private_SoundBalanceTransition SoundBalanceTransition;
+}
+
+#Struct K_Private_PlaySoundResult {
+	K_Private_State State;
+	Integer PlaySoundTicketId;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_DefaultLibrary_Common  "file://Media/Config/Nadeo/CMGame/Utils/AudioManager/AudioCommon.json"
+#Const C_DefaultLibrary_Menu "file://Media/Config/Nadeo/CMGame/Utils/AudioManager/AudioMenu.json"
+#Const C_DefaultLibrary_Game "file://Media/Config/Nadeo/CMGame/Utils/AudioManager/AudioGame.json"
+
+#Const C_AudioPath_Common "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Common/"
+#Const C_AudioPath_Menu "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Menu/"
+#Const C_AudioPath_Game "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Game/"
+
+#Const C_SoundId_Silence "#@SILENCE@#" //< Use an id that we are sure won't be added to the sound library files
+#Const C_SoundId_Menu_Select "MenuSelect"
+#Const C_SoundId_Menu_Focus "MenuFocus"
+#Const C_SoundId_Menu_Select_BackButton "BackButtonSelect"
+#Const C_SoundId_Menu_Select_ClosePopUpButton "ClosePopUpButtonSelect"
+#Const C_SoundId_Menu_Select_PlayButton "PlayButtonSelect"
+#Const C_SoundId_Menu_Select_MainTab "MainTabSelect"
+#Const C_SoundId_Menu_Select_Arrow "ArrowSelect"
+#Const C_SoundId_Menu_Select_QuitGame "SelectQuitGame"
+#Const C_SoundId_Menu_Cancel_QuitGame "CancelQuitGame"
+#Const C_SoundId_Menu_Select_StartRace "IngameSelectStartRace"
+#Const C_SoundId_Menu_Select_NextMap "IngameSelectNextMap"
+#Const C_SoundId_Menu_Select_QuitRace "IngameSelectQuit"
+#Const C_SoundId_Menu_Select_ChangeOpponent "IngameSelectChangeOpponent"
+#Const C_SoundId_Menu_Select_SaveReplay "IngameSelectSaveReplay"
+#Const C_SoundId_Menu_GaugeUp "GaugeUp"
+#Const C_SoundId_Menu_GaugeDown "GaugeDown"
+#Const C_SoundId_Menu_RankUp "RankUp"
+#Const C_SoundId_Menu_RankDown "RankDown"
+#Const C_SoundId_Menu_MatchFound "MatchFound"
+#Const C_SoundId_Menu_SquadInvitation "SquadInvitation"
+#Const C_SoundId_Menu_LatencyTest "LatencyTest"
+#Const C_SoundId_Menu_PlacementCounter "IngamePlacementCounter"
+#Const C_SoundId_Menu_SecondaryPlacementCounter "IngameSecondaryPlacementCounter"
+#Const C_SoundId_Menu_StartPlacementCounter "StartIngamePlacementCounter"
+#Const C_SoundId_Menu_StartSecondaryPlacementCounter "StartIngameSecondaryPlacementCounter"
+#Const C_SoundId_Browser_FolderDive "BrowserFolderDive"
+#Const C_SoundId_Browser_FolderBackward "BrowserFolderBackward"
+#Const C_SoundId_Browser_Select_Refresh "SelectRefresh"
+#Const C_SoundId_Browser_Select_OpenFolderInExplorer "SelectOpenFolderInExplorer"
+#Const C_SoundId_Browser_Select_BrowserSortOption "SelectBrowserSortOption"
+#Const C_SoundId_Browser_Select_ErrorButton "SelectErrorButton"
+#Const C_SoundId_Mode_MedalIntro "SoloMedalIntro"
+#Const C_SoundId_Mode_MedalGainBronze "SoloMedalGainBronze"
+#Const C_SoundId_Mode_MedalGainSilver "SoloMedalGainSilver"
+#Const C_SoundId_Mode_MedalGainGold "SoloMedalGainGold"
+#Const C_SoundId_Mode_MedalGainAuthor "SoloMedalGainAuthor"
+#Const C_SoundId_Mode_MedalOutro "SoloMedalOutro"
+#Const C_SoundId_Mode_TrophyGainBronze "SoloTrophyGainBronze"
+#Const C_SoundId_Mode_TrophyGainBronzeNoOutro "SoloTrophyGainBronzeNoOutro"
+#Const C_SoundId_Mode_TrophyGainSilver "SoloTrophyGainSilver"
+#Const C_SoundId_Mode_TrophyGainSilverNoOutro "SoloTrophyGainSilverNoOutro"
+#Const C_SoundId_Mode_TrophyGainGold "SoloTrophyGainGold"
+#Const C_SoundId_Mode_TrophyGainGoldNoOutro "SoloTrophyGainGoldNoOutro"
+#Const C_SoundId_Mode_KnockOutPlayer "KnockOutPlayer"
+#Const C_SoundId_Mode_KnockoutEliminationAlert "KnockoutEliminationAlert"
+#Const C_SoundId_Mode_BestLap "BestLap"
+#Const C_SoundId_Mode_VSIntro "VS_Intro"
+#Const C_SoundId_Mode_Countdown "Countdown"
+#Const C_SoundId_Mode_ShowWinners "ShowWinners"
+#Const C_SoundId_Mode_RoundWin "RoundWin"
+#Const C_SoundId_Mode_ShowBestTeams1 "BestTeams1"
+#Const C_SoundId_Mode_ShowBestTeams2 "BestTeams2"
+#Const C_SoundId_Mode_ShowBestTeams3 "BestTeams3"
+#Const C_SoundId_Mode_StuntGreatLanding "StuntGreatLanding"
+#Const C_SoundId_Mode_StuntExcellentLanding "StuntExcellentLanding"
+#Const C_SoundId_Mode_StuntEpicLanding "StuntEpicLanding"
+
+#Const C_Private_PlaySoundTicketId_Preload -1
+#Const C_Private_PlaySoundTicketId_Error -2
+#Const C_Private_PlaySoundTicketId_Stop -3
+
+#Const C_Private_DefaultSoundProperty_Real 0.
+#Const C_Private_DefaultSoundProperty_Integer 0
+#Const C_Private_DefaultSoundProperty_Duration 0.
+#Const C_Private_DefaultSoundProperty_Vec3 <0., 0., 0.>
+
+#Const C_Private_NoSoundPlayedYet -1
+#Const C_Private_DefaultVolumedB 0.
+#Const C_Private_ActiveAudioSourceLifetime 10000
+#Const C_Private_UsePlaySoundTicketIdGenerator -1
+
+// -60. dB is silent
+// It will be converted to -100. by the C++ when setting it into a `LimitXXXVolumedB` variable
+// Do not use a lower value otherwise fading the sound balance
+// will add a lot of silence at the begining/end of the fade
+#Const C_SoundBalanceVolumedBMin -60.
+
+#Const C_SoundBalance_Default K_SoundBalance {
+	Music = 0.,
+	SceneSound = 0.,
+	UiSound = 0.
+}
+#Const C_SoundBalance_Mute K_SoundBalance {
+	Music = -60.,
+	SceneSound = -60.,
+	UiSound = -60.
+}
+
+#Const C_Private_State_Null K_Private_State {
+	Library = [],
+	LibraryLoadingRequests = [],
+	AudioSources = [],
+	AudioSourcesCleanUpTime = 0,
+	PlaySoundTicketIdGenerator = 0,
+	DelayedSounds = [],
+	SoundBalanceTransition = K_Private_SoundBalanceTransition {
+		StartTime = -1,
+		Duration = 0,
+		BaseSoundBalance = K_SoundBalance {
+			Music = 0.,
+			SceneSound = 0.,
+			UiSound = 0.
+		},
+		DeltaSoundBalance = K_SoundBalance {
+			Music = 0.,
+			SceneSound = 0.,
+			UiSound = 0.
+		}
+	}
+}
+#Const C_Private_AudioItem_Null K_Private_AudioItem {
+	Sounds = [],
+	IsMusic = False,
+	IsLooping = False,
+	IsSpatialized = False,
+	LastPlayedSoundKey = -1
+}
+#Const C_SoundOptions_Null K_SoundOptions {
+	VolumedB = [],
+	Pitch = [],
+	FadeDuration = [],
+	RelativePosition = [],
+	PanRadiusLfe = [],
+	PlayCursor = [],
+	Delay = []
+}
+#Const C_Private_SoundBalanceTransition_Null K_Private_SoundBalanceTransition {
+	StartTime = -1,
+	Duration = 0,
+	BaseSoundBalance = K_SoundBalance {
+		Music = 0.,
+		SceneSound = 0.,
+		UiSound = 0.
+	},
+	DeltaSoundBalance = K_SoundBalance {
+		Music = 0.,
+		SceneSound = 0.,
+		UiSound = 0.
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load an audio library configuration JSON
+K_Private_State Private_LoadLibraryJson(K_Private_State _State, Text _AudioFilePath, Text _Json) {
+	if (
+		!TL::StartsWith("{", _Json) ||
+		!TL::EndsWith("}", _Json) ||
+		TL::Length(_Json) <= 2
+	) {
+		log("WARNING [Audio@2] The library json is not valid");
+		return _State;
+	}
+
+	declare K_Private_State State = _State;
+
+	declare K_Private_AudioItem[Text] NewLibrary;
+	NewLibrary.fromjson(_Json);
+
+	declare Text Separator;
+	if (!TL::EndsWith("/", _AudioFilePath) && !TL::EndsWith("\\", _AudioFilePath)) {
+		Separator = "/";
+	}
+
+	// Update library
+	declare Text[] UsedAudioSourceFilePaths;
+	for (NewSoundId => NewAudioItem in NewLibrary) {
+		assert(
+			NewAudioItem.Sounds.count > 0,
+			"""[Audio@2] The `Sounds` array of `{{{NewSoundId}}}` in the json cannot be empty"""
+		);
+
+		declare K_Private_AudioItem AudioItem = NewAudioItem;
+		for (SoundKey => Sound in AudioItem.Sounds) {
+			declare Text FilePath = _AudioFilePath^Separator^Sound.FileName;
+			AudioItem.Sounds[SoundKey].FileName = FilePath;
+			if (!UsedAudioSourceFilePaths.exists(FilePath)) {
+				UsedAudioSourceFilePaths.add(FilePath);
+			}
+		}
+		AudioItem.LastPlayedSoundKey = C_Private_NoSoundPlayedYet;
+		State.Library[NewSoundId] = AudioItem;
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load an audio library configuration file
+K_Private_State Private_LoadLibraryFile(
+	K_Private_State _State,
+	CManiaApp _Context,
+	Text _ConfigFilePath,
+	Text _AudioFilePath
+) {
+
+	if (_State.LibraryLoadingRequests.existskey(_ConfigFilePath)) return _State; //< We already are loading this file
+
+	declare K_Private_State State = _State;
+	State.LibraryLoadingRequests[_ConfigFilePath] = K_Private_LibraryLoadingRequest {
+		ConfigFilePath = _ConfigFilePath,
+		AudioFilePath = _AudioFilePath,
+		Request = Http::CreateGet(_Context, _ConfigFilePath)
+	};
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the requests to load the library files
+K_Private_State Private_UpdateLibraryLoadingRequests(K_Private_State _State, CManiaApp _Context) {
+	declare K_Private_State State = _State;
+	declare Text[] LoadingComplete;
+
+	for (FilePath => LibraryLoadingRequest in State.LibraryLoadingRequests) {
+		declare Http::K_Request UpdatedRequest = Http::Update(_Context, LibraryLoadingRequest.Request);
+		if (!Http::IsProcessing(UpdatedRequest)) {
+			if (Http::IsSuccess(UpdatedRequest)) {
+				State = Private_LoadLibraryJson(
+					State,
+					LibraryLoadingRequest.AudioFilePath,
+					Http::GetResult(UpdatedRequest)
+				);
+			}
+			UpdatedRequest = Http::Destroy(_Context, UpdatedRequest);
+			LoadingComplete.add(FilePath);
+		}
+		State.LibraryLoadingRequests[FilePath].Request = UpdatedRequest;
+	}
+
+	for (FilePath in LoadingComplete) {
+		State.LibraryLoadingRequests.removekey(FilePath);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a new lifetime expiration date relative to now
+Integer Private_GetNewLifetimeExpiration(CAudioSource _AudioSource) {
+	declare Integer PlayLength = 0;
+	if (_AudioSource != Null) {
+		PlayLength = ML::NearestInteger(_AudioSource.PlayLength * 1000);
+	}
+	return TiL::GetMillisecondsSinceInit() + PlayLength + C_Private_ActiveAudioSourceLifetime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add a new CAudioSources to the state
+K_Private_State Private_AddAudioSource(
+	K_Private_State _State,
+	Text _SoundFileName,
+	CAudioSource _AudioSource,
+	Integer _PlaySoundTicketId
+) {
+	declare K_Private_State State = _State;
+
+	if (!State.AudioSources.existskey(_SoundFileName)) {
+		State.AudioSources[_SoundFileName] = [];
+	}
+	State.AudioSources[_SoundFileName].add(K_Private_ActiveAudioSource {
+		AudioSourceId = _AudioSource.Id,
+		LifetimeExpiration = Private_GetNewLifetimeExpiration(_AudioSource),
+		PlaySoundTicketId = _PlaySoundTicketId
+	});
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create the CAudioSource for a list of sound from the library
+K_Private_State Private_PreloadSounds(K_Private_State _State, CAudioManager _AudioMgr, Text[] _SoundIds) {
+	declare K_Private_State State = _State;
+
+	for (SoundId in _SoundIds) {
+		declare K_Private_AudioItem AudioItem = State.Library.get(SoundId, C_Private_AudioItem_Null);
+		for (Sound in AudioItem.Sounds) {
+			if (State.AudioSources.get(Sound.FileName, []).count == 0) {
+				declare CAudioSource AudioSource <=> _AudioMgr.CreateSound(
+					Sound.FileName,
+					C_Private_DefaultVolumedB,
+					AudioItem.IsMusic,
+					AudioItem.IsLooping,
+					AudioItem.IsSpatialized
+				);
+				State = Private_AddAudioSource(State, Sound.FileName, AudioSource, C_Private_PlaySoundTicketId_Preload);
+			}
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop active AudioSource and delayed sounds
+K_Private_State Private_StopSounds(K_Private_State _State, CAudioManager _AudioMgr, Integer[] _PlaySoundTicketIds) {
+	declare K_Private_State State = _State;
+
+	for (SoundFileName => ActiveAudioSources in State.AudioSources) {
+		for (ActiveAudioSourceKey => ActiveAudioSource in ActiveAudioSources) {
+			if (
+				_PlaySoundTicketIds.exists(ActiveAudioSource.PlaySoundTicketId) &&
+				_AudioMgr.Sounds.existskey(ActiveAudioSource.AudioSourceId)
+			) {
+				if (_AudioMgr.Sounds[ActiveAudioSource.AudioSourceId].IsPlaying) {
+					_AudioMgr.Sounds[ActiveAudioSource.AudioSourceId].Stop();
+					State.AudioSources[SoundFileName][ActiveAudioSourceKey].LifetimeExpiration = Private_GetNewLifetimeExpiration(Null);
+					State.AudioSources[SoundFileName][ActiveAudioSourceKey].PlaySoundTicketId = C_Private_PlaySoundTicketId_Stop;
+				}
+			}
+		}
+	}
+
+	declare Integer Key = 0;
+	while (Key < State.DelayedSounds.count) {
+		if (_PlaySoundTicketIds.exists(State.DelayedSounds[Key].PlaySoundTicketId)) {
+			State.DelayedSounds.removekey(Key);
+		} else {
+			Key += 1;
+		}
+	}
+
+	return State;
+}
+K_Private_State Private_StopSound(K_Private_State _State, CAudioManager _AudioMgr, Integer _PlaySoundTicketId) {
+	return Private_StopSounds(_State, _AudioMgr, [_PlaySoundTicketId]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Remove expired AudioSources
+K_Private_ActiveAudioSource[][Text] Private_CleanUpExpiredAudioSources(
+	K_Private_ActiveAudioSource[][Text] _AudioSources,
+	CAudioManager _AudioMgr
+) {
+	declare K_Private_ActiveAudioSource[][Text] AudioSources;
+
+	for (SoundFileName => ActiveAudioSources in _AudioSources) {
+		for (ActiveAudioSource in ActiveAudioSources) {
+			if (_AudioMgr.Sounds.existskey(ActiveAudioSource.AudioSourceId)) {
+				if (
+					ActiveAudioSource.LifetimeExpiration >= TiL::GetMillisecondsSinceInit() ||
+					AudioSources.get(SoundFileName, []).count <= 0 //< Always keep at least one copy of a file AudioSource
+				) {
+					if (AudioSources.existskey(SoundFileName)) {
+						AudioSources[SoundFileName].add(ActiveAudioSource);
+					} else {
+						AudioSources[SoundFileName] = [ActiveAudioSource];
+					}
+				} else {
+					_AudioMgr.DestroySound(_AudioMgr.Sounds[ActiveAudioSource.AudioSourceId]);
+				}
+			}
+		}
+	}
+
+	return AudioSources;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get a value from a sound property array
+Real Private_GetSoundProperty_Real(Real[] _PropertyValues) {
+	if (_PropertyValues.count >= 3) {
+		return _PropertyValues[ML::Rand(0, _PropertyValues.count - 1)];
+	} else if (_PropertyValues.count == 2) {
+		return ML::Rand(_PropertyValues[0], _PropertyValues[1]);
+	} else if (_PropertyValues.count == 1) {
+		return _PropertyValues[0];
+	}
+	return C_Private_DefaultSoundProperty_Real;
+}
+Integer Private_GetSoundProperty_Integer(Integer[] _PropertyValues) {
+	if (_PropertyValues.count >= 3) {
+		return _PropertyValues[ML::Rand(0, _PropertyValues.count - 1)];
+	} else if (_PropertyValues.count == 2) {
+		return ML::Rand(_PropertyValues[0], _PropertyValues[1]);
+	} else if (_PropertyValues.count == 1) {
+		return _PropertyValues[0];
+	}
+	return C_Private_DefaultSoundProperty_Integer;
+}
+Real Private_GetSoundProperty_Duration(Integer[] _PropertyValues) {
+	if (_PropertyValues.count >= 3) {
+		return _PropertyValues[ML::Rand(0, _PropertyValues.count - 1)] / 1000.;
+	} else if (_PropertyValues.count == 2) {
+		return ML::Rand(_PropertyValues[0], _PropertyValues[1]) / 1000.;
+	} else if (_PropertyValues.count == 1) {
+		return _PropertyValues[0] / 1000.;
+	}
+	return C_Private_DefaultSoundProperty_Duration;
+}
+Vec3 Private_GetSoundProperty_Vec3(Vec3[] _PropertyValues) {
+	if (_PropertyValues.count >= 3) {
+		return _PropertyValues[ML::Rand(0, _PropertyValues.count - 1)];
+	} else if (_PropertyValues.count == 2) {
+		return <
+			ML::Rand(_PropertyValues[0].X, _PropertyValues[1].X),
+			ML::Rand(_PropertyValues[0].Y, _PropertyValues[1].Y),
+			ML::Rand(_PropertyValues[0].Z, _PropertyValues[1].Z)
+		>;
+	} else if (_PropertyValues.count == 1) {
+		return _PropertyValues[0];
+	}
+	return C_Private_DefaultSoundProperty_Vec3;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply sound properties on an AudioSource
+Void Private_ApplySoundProperties(CAudioSource _AudioSource, K_Private_Sound _SoundSource, K_SoundOptions _SoundOverride) {
+	if (_SoundOverride.VolumedB.count > 0) {
+		_AudioSource.VolumedB = Private_GetSoundProperty_Real(_SoundOverride.VolumedB);
+	} else if (_SoundSource.VolumedB.count > 0) {
+		_AudioSource.VolumedB = Private_GetSoundProperty_Real(_SoundSource.VolumedB);
+	}
+	if (_SoundOverride.Pitch.count > 0) {
+		_AudioSource.Pitch = Private_GetSoundProperty_Real(_SoundOverride.Pitch);
+	} else if (_SoundSource.Pitch.count > 0) {
+		_AudioSource.Pitch = Private_GetSoundProperty_Real(_SoundSource.Pitch);
+	}
+	if (_SoundOverride.FadeDuration.count > 0) {
+		_AudioSource.FadeDuration = Private_GetSoundProperty_Duration(_SoundOverride.FadeDuration);
+	} else if (_SoundSource.FadeDuration.count > 0) {
+		_AudioSource.FadeDuration = Private_GetSoundProperty_Duration(_SoundSource.FadeDuration);
+	}
+	if (_SoundOverride.RelativePosition.count > 0) {
+		_AudioSource.RelativePosition = Private_GetSoundProperty_Vec3(_SoundOverride.RelativePosition);
+	} else if (_SoundSource.RelativePosition.count > 0) {
+		_AudioSource.RelativePosition = Private_GetSoundProperty_Vec3(_SoundSource.RelativePosition);
+	}
+	if (_SoundOverride.PanRadiusLfe.count > 0) {
+		_AudioSource.PanRadiusLfe = Private_GetSoundProperty_Vec3(_SoundOverride.PanRadiusLfe);
+	} else if (_SoundSource.PanRadiusLfe.count > 0) {
+		_AudioSource.PanRadiusLfe = Private_GetSoundProperty_Vec3(_SoundSource.PanRadiusLfe);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Play a sound from the library
+K_Private_PlaySoundResult Private_StartSound(
+	K_Private_State _State,
+	CAudioManager _AudioMgr,
+	Integer _Now,
+	Text _SoundId,
+	Integer _ForcePlaySoundTicketId,
+	K_SoundOptions _SoundOptions
+) {
+	declare K_Private_PlaySoundResult Result = K_Private_PlaySoundResult {
+		State = _State,
+		PlaySoundTicketId = C_Private_PlaySoundTicketId_Error
+	};
+
+	// Skip silence sound
+	if (_SoundId == C_SoundId_Silence) return Result;
+
+	if (_SoundOptions.Delay.count > 0) {
+		Result.State.PlaySoundTicketIdGenerator += 1;
+		Result.PlaySoundTicketId = Result.State.PlaySoundTicketIdGenerator;
+
+		declare K_SoundOptions SoundOptions = _SoundOptions;
+		SoundOptions.Delay = [];
+		Result.State.DelayedSounds.add(K_Private_DelayedSound {
+			SoundId = _SoundId,
+			SoundOptions = SoundOptions,
+			PlaySoundTicketId = Result.PlaySoundTicketId,
+			PlayTime = _Now + Private_GetSoundProperty_Integer(_SoundOptions.Delay)
+		});
+	} else {
+		declare K_Private_AudioItem AudioItem = Result.State.Library.get(_SoundId, C_Private_AudioItem_Null);
+
+		if (AudioItem.Sounds.count > 0) {
+			if (_ForcePlaySoundTicketId == C_Private_UsePlaySoundTicketIdGenerator) {
+				Result.State.PlaySoundTicketIdGenerator += 1;
+				Result.PlaySoundTicketId = Result.State.PlaySoundTicketIdGenerator;
+			} else {
+				Result.PlaySoundTicketId = _ForcePlaySoundTicketId;
+			}
+
+			declare K_Private_Sound SoundToPlay;
+			if (AudioItem.Sounds.count == 1) {
+				SoundToPlay = AudioItem.Sounds[0];
+			} else {
+				declare Integer SoundKey = ML::Rand(0, AudioItem.Sounds.count - 1);
+				if (SoundKey == AudioItem.LastPlayedSoundKey) {
+					SoundKey = (SoundKey + 1) % AudioItem.Sounds.count;
+				}
+				SoundToPlay = AudioItem.Sounds[SoundKey];
+				AudioItem.LastPlayedSoundKey = SoundKey;
+				Result.State.Library[_SoundId] = AudioItem;
+			}
+
+			// Try to find an available AudioSource
+			declare CAudioSource AvailableAudioSource;
+			declare K_Private_ActiveAudioSource[] ActiveAudioSources = Result.State.AudioSources.get(SoundToPlay.FileName, []);
+			for (ActiveAudioSourceKey => ActiveAudioSource in ActiveAudioSources) {
+				if (
+					_AudioMgr.Sounds.existskey(ActiveAudioSource.AudioSourceId) &&
+					!_AudioMgr.Sounds[ActiveAudioSource.AudioSourceId].IsPlaying
+				) {
+					AvailableAudioSource <=> _AudioMgr.Sounds[ActiveAudioSource.AudioSourceId];
+					Result.State.AudioSources[SoundToPlay.FileName][ActiveAudioSourceKey].LifetimeExpiration = Private_GetNewLifetimeExpiration(AvailableAudioSource);
+					Result.State.AudioSources[SoundToPlay.FileName][ActiveAudioSourceKey].PlaySoundTicketId = Result.PlaySoundTicketId;
+					break;
+				}
+			}
+
+			// We could not find an available AudioSource, create a new one
+			if (AvailableAudioSource == Null) {
+				declare CAudioSource AudioSource <=> _AudioMgr.CreateSound(
+					SoundToPlay.FileName,
+					C_Private_DefaultVolumedB,
+					AudioItem.IsMusic,
+					AudioItem.IsLooping,
+					AudioItem.IsSpatialized
+				);
+				if (AudioSource != Null) {
+					AvailableAudioSource <=> AudioSource;
+					Result.State = Private_AddAudioSource(Result.State, SoundToPlay.FileName, AvailableAudioSource, Result.PlaySoundTicketId);
+				}
+			}
+
+			// Play the AudioSource
+			if (AvailableAudioSource != Null) {
+				Private_ApplySoundProperties(AvailableAudioSource, SoundToPlay, _SoundOptions);
+				AvailableAudioSource.Play();
+				// PlayCursor must set after playing the sound
+				if (_SoundOptions.PlayCursor.count > 0) {
+					AvailableAudioSource.PlayCursor = Private_GetSoundProperty_Duration(_SoundOptions.PlayCursor);
+				} else if (SoundToPlay.PlayCursor.count > 0) {
+					AvailableAudioSource.PlayCursor = Private_GetSoundProperty_Duration(SoundToPlay.PlayCursor);
+				} else {
+					AvailableAudioSource.PlayCursor = 0.;
+				}
+			}
+
+			// Clean up the audio sources
+			if (Result.State.AudioSourcesCleanUpTime <= TiL::GetMillisecondsSinceInit()) {
+				Result.State.AudioSourcesCleanUpTime = TiL::GetMillisecondsSinceInit() + C_Private_ActiveAudioSourceLifetime;
+				Result.State.AudioSources = Private_CleanUpExpiredAudioSources(Result.State.AudioSources, _AudioMgr);
+			}
+		}
+	}
+
+	return Result;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Play the delayed sounds
+K_Private_State Private_PlayDelayedSounds(K_Private_State _State, CAudioManager _AudioMgr, Integer _Now) {
+	declare K_Private_State State = _State;
+
+	declare Integer Key = 0;
+	while (Key < State.DelayedSounds.count) {
+		if (State.DelayedSounds[Key].PlayTime <= _Now) {
+			declare K_Private_PlaySoundResult Result = Private_StartSound(
+				State,
+				_AudioMgr,
+				_Now,
+				State.DelayedSounds[Key].SoundId,
+				State.DelayedSounds[Key].PlaySoundTicketId,
+				State.DelayedSounds[Key].SoundOptions
+			);
+			State = Result.State;
+			State.DelayedSounds.removekey(Key);
+		} else {
+			Key += 1;
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the sound balance
+K_Private_State Private_SetSoundBalance(
+	K_Private_State _State,
+	CAudioManager _AudioMgr,
+	K_SoundBalance _NewSoundBalance,
+	Integer _TransitionStartTime,
+	Integer _TransitionDuration
+) {
+	declare K_Private_State State = _State;
+
+	if (_TransitionDuration > 0) {
+		declare K_SoundBalance BaseSoundBalance = K_SoundBalance {
+			Music = ML::Max(_AudioMgr.LimitMusicVolumedB, C_SoundBalanceVolumedBMin),
+			SceneSound = ML::Max(_AudioMgr.LimitSceneSoundVolumedB, C_SoundBalanceVolumedBMin),
+			UiSound = ML::Max(_AudioMgr.LimitUiSoundVolumedB, C_SoundBalanceVolumedBMin)
+		};
+		State.SoundBalanceTransition = K_Private_SoundBalanceTransition {
+			StartTime = _TransitionStartTime,
+			Duration = _TransitionDuration,
+			BaseSoundBalance = BaseSoundBalance,
+			DeltaSoundBalance = K_SoundBalance {
+				Music = ML::Max(_NewSoundBalance.Music, C_SoundBalanceVolumedBMin) - BaseSoundBalance.Music,
+				SceneSound = ML::Max(_NewSoundBalance.SceneSound, C_SoundBalanceVolumedBMin) - BaseSoundBalance.SceneSound,
+				UiSound = ML::Max(_NewSoundBalance.UiSound, C_SoundBalanceVolumedBMin) - BaseSoundBalance.UiSound
+			}
+		};
+	} else {
+		State.SoundBalanceTransition = C_Private_SoundBalanceTransition_Null;
+		_AudioMgr.LimitMusicVolumedB = ML::Max(_NewSoundBalance.Music, C_SoundBalanceVolumedBMin);
+		_AudioMgr.LimitSceneSoundVolumedB = ML::Max(_NewSoundBalance.SceneSound, C_SoundBalanceVolumedBMin);
+		_AudioMgr.LimitUiSoundVolumedB = ML::Max(_NewSoundBalance.UiSound, C_SoundBalanceVolumedBMin);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the sound balance transition
+K_Private_State Private_UpdateSoundBalanceTransition(
+	K_Private_State _State,
+	CAudioManager _AudioMgr,
+	Integer _Now
+) {
+	declare K_Private_State State = _State;
+
+	if (Now >= State.SoundBalanceTransition.StartTime) {
+		if (_Now >= State.SoundBalanceTransition.StartTime + State.SoundBalanceTransition.Duration) {
+			_AudioMgr.LimitMusicVolumedB = State.SoundBalanceTransition.BaseSoundBalance.Music + State.SoundBalanceTransition.DeltaSoundBalance.Music;
+			_AudioMgr.LimitSceneSoundVolumedB = State.SoundBalanceTransition.BaseSoundBalance.SceneSound + State.SoundBalanceTransition.DeltaSoundBalance.SceneSound;
+			_AudioMgr.LimitUiSoundVolumedB = State.SoundBalanceTransition.BaseSoundBalance.UiSound + State.SoundBalanceTransition.DeltaSoundBalance.UiSound;
+			State.SoundBalanceTransition = C_Private_SoundBalanceTransition_Null;
+		} else {
+			_AudioMgr.LimitMusicVolumedB = AL::EaseLinear(
+				_Now - State.SoundBalanceTransition.StartTime,
+				State.SoundBalanceTransition.BaseSoundBalance.Music,
+				State.SoundBalanceTransition.DeltaSoundBalance.Music,
+				State.SoundBalanceTransition.Duration
+			);
+			_AudioMgr.LimitSceneSoundVolumedB = AL::EaseLinear(
+				_Now - State.SoundBalanceTransition.StartTime,
+				State.SoundBalanceTransition.BaseSoundBalance.SceneSound,
+				State.SoundBalanceTransition.DeltaSoundBalance.SceneSound,
+				State.SoundBalanceTransition.Duration
+			);
+			_AudioMgr.LimitUiSoundVolumedB = AL::EaseLinear(
+				_Now - State.SoundBalanceTransition.StartTime,
+				State.SoundBalanceTransition.BaseSoundBalance.UiSound,
+				State.SoundBalanceTransition.DeltaSoundBalance.UiSound,
+				State.SoundBalanceTransition.Duration
+			);
+		}
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize a new state
+K_Private_State Private_InitializeState(K_Private_State _State, CManiaApp _Context, CAudioManager _AudioMgr) {
+	// Cleanup data from a previous execution before initializing the state
+	for (LibraryLoadingRequest in _State.LibraryLoadingRequests) {
+		Http::Destroy(_Context, LibraryLoadingRequest.Request);
+	}
+	for (ActiveAudioSources in _State.AudioSources) {
+		for (ActiveAudioSource in ActiveAudioSources) {
+			if (_AudioMgr.Sounds.existskey(ActiveAudioSource.AudioSourceId)) {
+				_AudioMgr.DestroySound(_AudioMgr.Sounds[ActiveAudioSource.AudioSourceId]);
+			}
+		}
+	}
+
+	return C_Private_State_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load an audio library configuration file
+Void LoadLibraryFile(CManiaApp _Context, Text _ConfigFilePath, Text _AudioFilePath) {
+	declare K_Private_State CMGame_MenusAudio_State for _Context = C_Private_State_Null;
+	CMGame_MenusAudio_State = Private_LoadLibraryFile(CMGame_MenusAudio_State, _Context, _ConfigFilePath, _AudioFilePath);
+}
+Void LoadLibraryFiles(CManiaApp _Context, Text[Text] _FilePaths) {
+	declare K_Private_State CMGame_MenusAudio_State for _Context = C_Private_State_Null;
+	for (ConfigFilePath => AudioFilePath in _FilePaths) {
+		CMGame_MenusAudio_State = Private_LoadLibraryFile(CMGame_MenusAudio_State, _Context, ConfigFilePath, AudioFilePath);
+	}
+}
+Void LoadLibraryFile(CMlScript _Context, Text _ConfigFilePath, Text _AudioFilePath) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_Context);
+	if (ManiaApp != Null) LoadLibraryFile(ManiaApp, _ConfigFilePath, _AudioFilePath);
+}
+Void LoadLibraryFiles(CMlScript _Context, Text[Text] _FilePaths) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_Context);
+	if (ManiaApp != Null) LoadLibraryFiles(ManiaApp, _FilePaths);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a library file is currently being loaded
+Boolean IsLoadingLibrary(CManiaApp _Context) {
+	declare K_Private_State CMGame_MenusAudio_State for _Context = C_Private_State_Null;
+	return CMGame_MenusAudio_State.LibraryLoadingRequests.count > 0;
+}
+Boolean IsLoadingLibrary(CMlScript _Context) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_Context);
+	if (ManiaApp != Null) return IsLoadingLibrary(ManiaApp);
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Preload a list of sounds from the library
+Void PreloadSounds(CManiaApp _Context, Text[] _SoundIds) {
+	declare K_Private_State CMGame_MenusAudio_State for _Context = C_Private_State_Null;
+	CMGame_MenusAudio_State = Private_PreloadSounds(CMGame_MenusAudio_State, _Context.Audio, _SoundIds);
+}
+Void PreloadSounds(CMlScript _Context, Text[] _SoundIds) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_Context);
+	if (ManiaApp != Null) PreloadSounds(ManiaApp, _SoundIds);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Stop a sound
+Void StopSounds(CManiaApp _Context, Integer[] _PlaySoundTicketIds) {
+	declare K_Private_State CMGame_MenusAudio_State for _Context = C_Private_State_Null;
+	CMGame_MenusAudio_State = Private_StopSounds(CMGame_MenusAudio_State, _Context.Audio, _PlaySoundTicketIds);
+}
+Void StopSound(CManiaApp _Context, Integer _PlaySoundTicketId) {
+	StopSounds(_Context, [_PlaySoundTicketId]);
+}
+Void StopSounds(CMlScript _Context, Integer[] _PlaySoundTicketIds) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_Context);
+	if (ManiaApp != Null) StopSounds(ManiaApp, _PlaySoundTicketIds);
+}
+Void StopSound(CMlScript _Context, Integer _PlaySoundTicketId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_Context);
+	if (ManiaApp != Null) StopSound(ManiaApp, _PlaySoundTicketId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Play a sound
+ * `PlaySound()` is a system function, do not use the same name
+ * to avoid a compilation warning
+ */
+Integer StartSound(CManiaApp _Context, Text _SoundId, K_SoundOptions _SoundOptions) {
+	declare K_Private_State CMGame_MenusAudio_State for _Context = C_Private_State_Null;
+	declare K_Private_PlaySoundResult Result = Private_StartSound(
+		CMGame_MenusAudio_State,
+		_Context.Audio,
+		Now,
+		_SoundId,
+		C_Private_UsePlaySoundTicketIdGenerator,
+		_SoundOptions
+	);
+	CMGame_MenusAudio_State = Result.State;
+	return Result.PlaySoundTicketId;
+}
+Integer StartSound(CManiaApp _Context, Text _SoundId) {
+	return StartSound(_Context, _SoundId, C_SoundOptions_Null);
+}
+Integer StartSound(CMlScript _Context, Text _SoundId, K_SoundOptions _SoundOptions) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_Context);
+	if (ManiaApp == Null) return C_Private_PlaySoundTicketId_Error;
+	return StartSound(ManiaApp, _SoundId, _SoundOptions);
+}
+Integer StartSound(CMlScript _Context, Text _SoundId) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_Context);
+	if (ManiaApp == Null) return C_Private_PlaySoundTicketId_Error;
+	return StartSound(ManiaApp, _SoundId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the sound balance
+Void SetSoundBalance(CManiaApp _Context, K_SoundBalance _NewSoundBalance, Integer _TransitionDuration) {
+	declare K_Private_State CMGame_MenusAudio_State for _Context = C_Private_State_Null;
+	CMGame_MenusAudio_State = Private_SetSoundBalance(CMGame_MenusAudio_State, _Context.Audio, _NewSoundBalance, Now, _TransitionDuration);
+}
+Void SetSoundBalance(CManiaApp _Context, K_SoundBalance _NewSoundBalance) {
+	SetSoundBalance(_Context, _NewSoundBalance, 0);
+}
+Void SetSoundBalance(CMlScript _Context, K_SoundBalance _NewSoundBalance, Integer _TransitionDuration) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_Context);
+	if (ManiaApp != Null) SetSoundBalance(ManiaApp, _NewSoundBalance, _TransitionDuration);
+}
+Void SetSoundBalance(CMlScript _Context, K_SoundBalance _NewSoundBalance) {
+	declare CManiaApp ManiaApp <=> Context::GetParentApp(_Context);
+	if (ManiaApp != Null) SetSoundBalance(ManiaApp, _NewSoundBalance);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the library
+Void Initialize(CManiaApp _Context) {
+	declare K_Private_State CMGame_MenusAudio_State for _Context = C_Private_State_Null;
+	CMGame_MenusAudio_State = Private_InitializeState(CMGame_MenusAudio_State, _Context, _Context.Audio);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void AfterYield(CManiaApp _Context) {
+	declare K_Private_State CMGame_MenusAudio_State for _Context = C_Private_State_Null;
+
+	if (CMGame_MenusAudio_State.LibraryLoadingRequests.count > 0) {
+		CMGame_MenusAudio_State = Private_UpdateLibraryLoadingRequests(CMGame_MenusAudio_State, _Context);
+	}
+
+	if (CMGame_MenusAudio_State.DelayedSounds.count > 0) {
+		CMGame_MenusAudio_State = Private_PlayDelayedSounds(CMGame_MenusAudio_State, _Context.Audio, Now);
+	}
+
+	if (CMGame_MenusAudio_State.SoundBalanceTransition.StartTime >= 0) {
+		CMGame_MenusAudio_State = Private_UpdateSoundBalanceTransition(CMGame_MenusAudio_State, _Context.Audio, Now);
+	}
+}

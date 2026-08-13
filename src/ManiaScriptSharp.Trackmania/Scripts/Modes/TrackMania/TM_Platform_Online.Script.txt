@@ -1,0 +1,285 @@
+/**
+ * TM_Platform_Online mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Platform,TM_Platform"
+#Const Version "1.0.5+2024-12-05"
+#Const ScriptName "Modes/TrackMania/TM_Platform_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+#Include "Libs/Nadeo/Trackmania/Modes/Platform/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/Trackmania/Modes/Platform/StateManagerOnline.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_TimeLimit 300 as _("Time limit") ///< Time limit before going to the next map
+#Setting S_WarmUpNb 0 as _("Number of warm up")
+#Setting S_WarmUpDuration 0 as _("Duration of one warm up")
+#Setting S_WarmUpTimeout -1 as _("Warm up timeout")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "TM_Platform_Online"
+//L16N [Platform] Description of the mode rules
+#Const Description _("$zIn $<$t$6F9Platform$> mode, the goal is to finish the track with as few $<$t$6F9respawns$> as possible.\n\nYou have as many tries as you want, and you can $<$t$6F9retry$> when you want by pressing the respawn button.\n\nWhen the time is up, the $<$t$6F9winner$> is the player who $<$t$6F9finished the track$> with the $<$t$6F9lowest number of respawns$>.")
+
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/PlatformOnline.Script.txt" //< Url of the mania app
+#Const C_FakeUsersNb 0
+
+#Const C_UploadRecord True
+#Const C_DisplayRecordGhost False
+#Const C_DisplayRecordMedal True
+#Const C_CelebrateRecordGhost True
+#Const C_CelebrateRecordMedal True
+#Const C_DisplayRecordsModule True
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(UIModules_Checkpoint::ScriptName, UIModules_Checkpoint::Version);
+Log::RegisterScript(UIModules_PauseMenu_Online::ScriptName, UIModules_PauseMenu_Online::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultTimer = False;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+Race::SortScores(Race::C_Sort_TotalPoints);
+UIModules_PauseMenu_Online::SetHelp(Description);
+UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_BestRespawns);
+UIModules_Checkpoint::SetDisplayRespawnsInsteadOfTime(True);
+
+// Initialize scores table
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_BestRespawns);
+
+// Hide SM Overlay
+UIManager.UIAll.OverlayHideSpectatorInfos = True;
+UIManager.UIAll.OverlayHideCountdown = True;
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+			CarRank::InitializePlayer(Event.Player);
+			// Update the scores table display of players entering the server
+			if (Event.Player != Null && Event.Player.Score != Null) {
+				declare Integer BestRespawnsNb for Event.Player.Score = -1;
+				UIModules_ScoresTable::SetBestRespawns(Event.Player.Score, BestRespawnsNb);
+				Platform::ComputeScores();
+			}
+		}
+	}
+}
+
+StateMgr::Yield();
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+Clans::SetClansNb(0);
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_GiveUpBeforeFirstCheckpoint);
+Race::SetupRecord(
+	MenuConst::C_ScopeType_Season,
+	MenuConst::C_ScopeType_PersonalBest,
+	MenuConst::C_GameMode_Platform,
+	"",
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal,
+	C_DisplayRecordsModule
+);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(True);
+CarRank::Reset();
+***
+
+***Match_InitMap***
+***
+declare Integer Map_TimeLimit;
+***
+
+***Match_StartMap***
+***
+// Add bot when necessary
+Users_SetNbFakeUsers(C_FakeUsersNb, 0);
+
+// Warm up
+UIModules_ScoresTable::SetFooterInfo(_("Warmup"));
+GiveUpBehaviour_RespawnAfter = False;
+MB_WarmUp(S_WarmUpNb, S_WarmUpDuration * 1000, S_WarmUpTimeout * 1000);
+GiveUpBehaviour_RespawnAfter = True;
+
+// Initialize race
+StartTime = Now + Race::C_SpawnDuration;
+Map_TimeLimit = S_TimeLimit;
+SetTimeLimit(StartTime, S_TimeLimit);
+ResetBestRespawnsNb();
+
+// Spawn players for the race
+foreach (Player in Players) {
+	if (Race::IsReadyToStart(Player)) {
+		Race::Start(Player, StartTime);
+	}
+}
+
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+CarRank::Update(CarRank::C_SortCriteria_TotalPoints);
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare Events::K_RaceEvent[] RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	Race::ValidEvent(Event);
+
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		if (Event.Player != Null) {
+			if (Event.IsEndLap) {
+				Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				Scores::UpdatePlayerPrevLap(Event.Player);
+			}
+			if (Event.IsEndRace || (Event.IsEndLap && Event.IsIndependentLaps)) {
+				declare Boolean Better = SetBestRespawnsNbIfBetter(Event.Player.Score);
+				Scores::UpdatePlayerPrevRace(Event.Player);
+				if (Better) Scores::UpdatePlayerBestRace(Event.Player);
+				Race::SortScores(Race::C_Sort_TotalPoints);
+				CarRank::ThrottleUpdate(CarRank::C_SortCriteria_TotalPoints);
+			}
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Spawn players
+if (PlayersNbDead > 0) { //< Check for unspawned players only if at least one player is unspawned
+	foreach (Player in Players) {
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned && Race::IsReadyToStart(Player)) {
+			Race::Start(Player);
+		}
+	}
+}
+
+// Update the map duration setting
+if (Map_TimeLimit != S_TimeLimit) {
+	Map_TimeLimit = S_TimeLimit;
+	SetTimeLimit(StartTime, S_TimeLimit);
+}
+
+// End the map when time limit is reached
+if (EndTime > 0 && Now >= EndTime) {
+	MB_StopMatch();
+}
+***
+
+***Match_EndMap***
+***
+// Ensure that we stop the match (after a vote for the next map, ...)
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+MB_StopMatch();
+EndTime = -1;
+
+Platform::ComputeScores();
+Race::SortScores(Race::C_Sort_TotalPoints);
+CarRank::Update(CarRank::C_SortCriteria_TotalPoints);
+declare CSmScore Winner <=> Scores::GetBestPlayer(Scores::C_Sort_MapPoints);
+Scores::SetPlayerWinner(Winner);
+Race::StopSkipOutroAll();
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the time limit
+ *
+ *	@param	_StartTime								The starting time of the map
+ *	@param	_NewTimeLimit							The time limit before going to the next map
+ */
+Void SetTimeLimit(Integer _StartTime, Integer _NewTimeLimit) {
+	if (_NewTimeLimit <= 0) {
+		EndTime = -1;
+		UIModules_ScoresTable::SetFooterInfo(TL::Compose("%1 -", _("Time Limit")));
+	} else {
+		EndTime = _StartTime + (_NewTimeLimit * 1000);
+		UIModules_ScoresTable::SetFooterInfo(TL::Compose("%1 "^TL::TimeToText(_NewTimeLimit*1000), _("Time Limit")));
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the best respawns for a score
+Boolean SetBestRespawnsNbIfBetter(CSmScore _Score) {
+	if (_Score == Null) return False;
+	declare Integer BestRespawnsNb for _Score = -1;
+	if (_Score.NbRespawnsRequested < BestRespawnsNb || BestRespawnsNb == -1) {
+		BestRespawnsNb = _Score.NbRespawnsRequested;
+		UIModules_ScoresTable::SetBestRespawns(_Score, BestRespawnsNb);
+		// Compute the scores when someone is improving it's best respawn number
+		Platform::ComputeScores();
+		return True;
+	}
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset best respawns on all scores
+Void ResetBestRespawnsNb() {
+	foreach (Score in Scores) {
+		declare Integer BestRespawnsNb for Score = -1;
+		BestRespawnsNb = -1;
+		UIModules_ScoresTable::SetBestRespawns(Score, BestRespawnsNb);
+	}
+	Platform::ComputeScores();
+}

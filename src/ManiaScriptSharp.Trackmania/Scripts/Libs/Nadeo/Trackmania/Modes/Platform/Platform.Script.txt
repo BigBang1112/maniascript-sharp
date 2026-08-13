@@ -1,0 +1,81 @@
+/**
+ * Platform mode helper library
+ */
+#Const Version "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/Platform/Platform.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/TMGame/Modes/Scores.Script.txt" as Scores
+#Include "TextLib" as TL
+#Include "TimeLib" as TiL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_GhostInfo {
+	CGhost Ghost;
+	Ident InstanceId;
+	Text AccountId;
+}
+#Struct K_ReplayInfo {
+	Task::K_Task Task_SaveReplay;
+	Boolean IsReplaySaved;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Save the replay of the given ghost
+Task::K_Task SaveReplay(Ident _GhostId, Task::K_Task _Task_SaveReplay) {
+	if (Players.count <= 0 || Players[0] == Null || Players[0].User == Null) return _Task_SaveReplay;
+	if (!DataFileMgr.Ghosts.existskey(_GhostId) || DataFileMgr.Ghosts[_GhostId] == Null) return _Task_SaveReplay;
+	declare Boolean ReplaySaved = False;
+	declare CGhost LastGhost = DataFileMgr.Ghosts[_GhostId];
+	declare Text Time = TiL::FormatDate(TiL::GetCurrent(), TiL::EDateFormats::Time);
+	declare Text Date = TiL::FormatDate(TiL::GetCurrent(), TiL::EDateFormats::DateShort);
+	declare Text RaceTime = TL::Replace(TL::Replace(TL::TimeToText(LastGhost.Result.Time, True, True), ":", "'"), ".", "''");
+	declare Text FullName = TL::RegexReplace("\\W", Map.MapInfo.Name^"_"^Players[0].User.Name^"_"^Date^"_"^Time, "g", "-");
+	declare Text ReplayFileName = FullName^"("^LastGhost.Result.NbRespawns^")("^RaceTime^")";
+
+	// Rename the ghost before save
+	LastGhost.Nickname = Players[0].User.Name;
+
+	// Manage the task that saves the replay
+	return Task::DestroyAndCreate(_Task_SaveReplay, DataFileMgr, DataFileMgr.Replay_Save("My Replays/"^ReplayFileName^".Replay.Gbx", Map, LastGhost));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Release ghost
+K_GhostInfo ReleaseGhost(K_GhostInfo _GhostInfo) {
+	if (_GhostInfo.InstanceId != NullId) GhostMgr.Ghost_Remove(_GhostInfo.InstanceId);
+	if (_GhostInfo.Ghost != Null && _GhostInfo.Ghost.Id != NullId && DataFileMgr.Ghosts.existskey(_GhostInfo.Ghost.Id)) {
+		DataFileMgr.Ghost_Release(_GhostInfo.Ghost.Id);
+	}
+	return K_GhostInfo {};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// FOR THE MULTI / ONLINE MODE
+// Compute the scores
+// We need to compute fake scores because the function Race::SortScores() will sort the players points in the descending order
+// But in Platform mode, it's the player with the lowest number of respawns who wins
+Void ComputeScores() {
+	// Sort the players from the worst respawn nb (the max) to the best (the min)
+	declare Integer[Ident] RespawnsNbByScoreId = [];
+	foreach (Score in Scores) {
+		declare Integer BestRespawnsNb for Score = -1;
+		RespawnsNbByScoreId[Score.Id] = BestRespawnsNb;
+	}
+	// Add fake score to create the leaderboard we want in Platform
+	declare Ident[][] SortedScoreIds = Scores::SortIdsByPoints(RespawnsNbByScoreId, Scores::C_Order_Ascending, -1);
+	for (Key => ScoreIds in SortedScoreIds) {
+		declare Integer Points = SortedScoreIds.count - Key;
+		for (ScoreId in ScoreIds) {
+			Scores::SetPlayerMapPoints(Scores[ScoreId], Points);
+		}
+	}
+}

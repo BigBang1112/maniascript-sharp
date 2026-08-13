@@ -1,0 +1,487 @@
+/**
+ * Overlay: DirectLink
+ */
+#Const Version "1.7.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/MainMenu/Overlays/DirectLink.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Privileges.Script.txt" as Privileges
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/CMGame/Menus/Router_MA.Script.txt" as Router
+#Include "Libs/Nadeo/Trackmania/API/ChannelAPI.Script.txt" as ChannelAPI
+#Include "Libs/Nadeo/Trackmania/API/MatchmakingAPI.Script.txt" as MatchmakingAPI
+#Include "Libs/Nadeo/Trackmania/Components/HomeBackground@2.Script.txt" as HomeBackground
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/MainMenu/DirectLink.Script.txt" as DirectLink
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_MA.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Stores/LoadingScreen.Script.txt" as LoadingScreenStore
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_MA.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "Libs/Nadeo/Trackmania/Structures/MatchmakingStruct.Script.txt" as MatchmakingStruct
+#Include "Libs/Nadeo/Trackmania/RBAC.Script.txt" as RBAC
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structure
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_LeaveMatchmaking {
+	Http::K_Request Request_CancelMatchmaking;
+}
+#Struct K_JoinServerRequest {
+	Boolean IsRunning;
+	Text JoinLink;
+	Text LoadingScreenText;
+	Boolean HasPrivilege;
+	Privileges::K_PrivilegeCheck PrivilegeCheck;
+	K_LeaveMatchmaking LeaveMatchmaking;
+	Task::K_Task Task_LeaveCurrentSquad;
+}
+#Struct K_JoinArcadeChannel {
+	Boolean IsRunning;
+	Boolean HasPermission;
+	Text JoinLink;
+	Http::K_Request Request_GetJoinLink;
+}
+#Struct K_GoToPageRequest {
+	Boolean IsRunning;
+	Text Path;
+	Text[Text] Query;
+	Text ParentPath;
+	Boolean CheckIsOnRoute;
+	K_LeaveMatchmaking LeaveMatchmaking;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Overlay_DirectLink"
+#Const C_ExternalRequest_Type_AutoJoinSession "AutoJoinSession"
+#Const C_JoinServerDelay 10000
+
+//L16N [DirectLink] Title of the loading screen when joining the arcade channel server
+#Const C_Text_LoadingScreenArcadeChannel _("Featured online rooms")
+//L16N [DirectLink] Title of the loading screen when joining friends through Ubisoft Connect
+#Const C_Text_LoadingScreenJoinServer _("Joining friends")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer G_BackFromServerTime;
+declare K_JoinServerRequest G_JoinServerRequest;
+declare K_JoinArcadeChannel G_JoinArcadeChannel;
+declare K_GoToPageRequest G_GoToPageRequest;
+declare Integer G_DelayedGoBackHome;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the overlay manialink
+ *
+ *	@return														The overlay manialink
+ */
+Text GetManialink() {
+	return "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the request to leave the matchmaking is still running
+Boolean Private_LeaveMatchmaking_IsRunning(K_LeaveMatchmaking _LeaveMatchmaking) {
+	return (
+		Http::IsInitialized(_LeaveMatchmaking.Request_CancelMatchmaking)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy request to leave matchmaking
+K_LeaveMatchmaking Private_LeaveMatchmaking_Destroy(K_LeaveMatchmaking _LeaveMatchmaking) {
+	declare K_LeaveMatchmaking LeaveMatchmaking = _LeaveMatchmaking;
+	LeaveMatchmaking.Request_CancelMatchmaking = Http::Destroy(LeaveMatchmaking.Request_CancelMatchmaking);
+	return LeaveMatchmaking;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy request to leave matchmaking and create a new one
+K_LeaveMatchmaking Private_LeaveMatchmaking_DestroyAndCreate(
+	K_LeaveMatchmaking _LeaveMatchmaking,
+	DirectLink::K_MatchmakingStatus _MatchmakingStatus,
+	Boolean _CancelMatchmakingQueue
+) {
+	// Destroy previous request to leave matchmaking
+	declare K_LeaveMatchmaking LeaveMatchmaking = Private_LeaveMatchmaking_Destroy(_LeaveMatchmaking);
+
+	// Check if the user is in a matchmaking queue and leave it
+	if (_CancelMatchmakingQueue && _MatchmakingStatus.IsInQueue) {
+		LeaveMatchmaking.Request_CancelMatchmaking = MatchmakingAPI::PostMatchmakingCancel(_MatchmakingStatus.QueueId);
+	}
+
+	return LeaveMatchmaking;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update request to leave matchmaking
+K_LeaveMatchmaking Private_LeaveMatchmaking_Update(K_LeaveMatchmaking _LeaveMatchmaking) {
+	declare K_LeaveMatchmaking LeaveMatchmaking = _LeaveMatchmaking;
+
+	if (Http::IsInitialized(LeaveMatchmaking.Request_CancelMatchmaking)) {
+		LeaveMatchmaking.Request_CancelMatchmaking = Http::Update(LeaveMatchmaking.Request_CancelMatchmaking);
+		if (!Http::IsRunning(LeaveMatchmaking.Request_CancelMatchmaking)) {
+			LeaveMatchmaking.Request_CancelMatchmaking = Http::Destroy(LeaveMatchmaking.Request_CancelMatchmaking);
+			// After canceling any active matchmaking queue with `MatchmakingAPI::PostMatchmakingCancel()`
+			// the matchmaking page will still automatically put the player back in the queue.
+			// We send a request to the page to not do that
+			DirectLink::RequestMatchmakingPageQueueCancel(LocalUser);
+		}
+	}
+
+	return LeaveMatchmaking;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Reset voice chat if the user is in a channel
+Void Private_ResetVoiceChat() {
+	if (VoiceChat.Manual_Channel != "") {
+		VoiceChat.Manual_Channel = "";
+		VoiceChat.Manual_ClearUsers();
+		VoiceChat.NewRemoteUser_DefaultMuteSetting = CGameUserVoiceChat::EMuteSetting::NotMuted;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Join a server
+K_JoinServerRequest JoinServer(
+	K_JoinServerRequest _JoinServerRequest,
+	Text _JoinLink,
+	Boolean _CancelMatchmaking,
+	Boolean _ResetVoiceChat,
+	Text _LoadingScreenText
+) {
+	declare K_JoinServerRequest JoinServerRequest = _JoinServerRequest;
+	JoinServerRequest.Task_LeaveCurrentSquad = Task::Destroy(JoinServerRequest.Task_LeaveCurrentSquad);
+
+	// Check that the user has the right privilege
+	JoinServerRequest.HasPrivilege = False;
+	JoinServerRequest.PrivilegeCheck = Privileges::Check_DestroyAndCreate(
+		JoinServerRequest.PrivilegeCheck,
+		PrivilegeMgr,
+		MainUser::GetMainUserId(),
+		CPrivilegeMgr::EPrivilege::PlayMultiplayerSessionWithUGC
+	);
+
+	// Cancel matchmaking if needed
+	JoinServerRequest.LeaveMatchmaking = Private_LeaveMatchmaking_DestroyAndCreate(JoinServerRequest.LeaveMatchmaking, DirectLink::GetMatchmakingStatus(LocalUser), _CancelMatchmaking);
+
+	// Reset voice chat channel if needed
+	if (_ResetVoiceChat) Private_ResetVoiceChat();
+
+	JoinServerRequest.JoinLink = _JoinLink;
+	JoinServerRequest.LoadingScreenText = _LoadingScreenText;
+	JoinServerRequest.IsRunning = True;
+
+	return JoinServerRequest;
+}
+K_JoinServerRequest JoinServer(
+	K_JoinServerRequest _JoinServerRequest,
+	Text _ServerLogin,
+	Boolean _IsSpectator,
+	Boolean _CancelMatchmaking,
+	Boolean _ResetVoiceChat,
+	Text _LoadingScreenText
+) {
+	// Generate joinlink
+	declare Text JoinType = "#qjoin=";
+	if (_IsSpectator) {
+		JoinType = "#qspectate=";
+	}
+	return JoinServer(_JoinServerRequest, JoinType^_ServerLogin, _CancelMatchmaking, _ResetVoiceChat, _LoadingScreenText);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Join the arcade channel
+K_JoinArcadeChannel JoinArcadeChannel(K_JoinArcadeChannel _JoinArcadeChannel) {
+	declare K_JoinArcadeChannel JoinArcadeChannel = _JoinArcadeChannel;
+
+	JoinArcadeChannel.Request_GetJoinLink = Http::Destroy(JoinArcadeChannel.Request_GetJoinLink);
+
+	JoinArcadeChannel.HasPermission = UserStore::HasGamePermission(PrivilegeMgr, RBAC::C_GamePermission_PlayArcadeChannel);
+	if (JoinArcadeChannel.HasPermission) {
+		JoinArcadeChannel.Request_GetJoinLink = ChannelAPI::GetJoinLink(Const::C_ChannelUid_Arcade);
+	}
+
+	JoinArcadeChannel.JoinLink = "";
+	JoinArcadeChannel.IsRunning = True;
+
+	return JoinArcadeChannel;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Go to a page
+K_GoToPageRequest GoToPage(
+	K_GoToPageRequest _GoToPageRequest,
+	Text _Path,
+	Text[Text] _Query,
+	Text _ParentPath,
+	Boolean _CheckIsOnRoute,
+	Boolean _CancelMatchmaking,
+	Boolean _ResetVoiceChat
+) {
+	// Already on the page, no need to go to it
+	if (_CheckIsOnRoute && Router::IsOnRoute(_Path)) return _GoToPageRequest;
+
+	declare K_GoToPageRequest GoToPageRequest = _GoToPageRequest;
+
+	// Cancel matchmaking if needed
+	GoToPageRequest.LeaveMatchmaking = Private_LeaveMatchmaking_DestroyAndCreate(GoToPageRequest.LeaveMatchmaking, DirectLink::GetMatchmakingStatus(LocalUser), _CancelMatchmaking);
+
+	// Reset voice chat channel if needed
+	if (_ResetVoiceChat) Private_ResetVoiceChat();
+
+	GoToPageRequest.Path = _Path;
+	GoToPageRequest.Query = _Query;
+	GoToPageRequest.ParentPath = _ParentPath;
+	GoToPageRequest.CheckIsOnRoute = _CheckIsOnRoute;
+	GoToPageRequest.IsRunning = True;
+
+	return GoToPageRequest;
+}
+K_GoToPageRequest GoToClubEditionInfoPage(
+	K_GoToPageRequest _GoToPageRequest,
+	Text _Message,
+	Text _ParentPath
+) {
+	return GoToPage(
+		_GoToPageRequest,
+		RoutePaths::C_Path_ClubEditionInfo,
+		[RoutePaths::C_Query_Message => RBAC::GetGamePermissionMessage(_Message)],
+		_ParentPath,
+		False,
+		True,
+		True
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update from the ManiaApp
+Void Yield() {
+	if (ManiaPlanet != Null && ManiaPlanet.DirectLink != Null && Router::IsOverlayDisplayed(RoutePaths::C_Path_OverlayName_DirectLink)) {
+		G_DelayedGoBackHome = 0;
+
+		switchtype (ManiaPlanet.DirectLink as TypedDirectLink) {
+			case CDirectLink_JoinSession: {
+				declare Text[Text] Query = [
+					RoutePaths::C_Query_IsFirstPartySession => ""^TypedDirectLink.IsFirstPartySession,
+					RoutePaths::C_Query_Context => ""^TypedDirectLink.Context
+				];
+				if (TypedDirectLink.SessionId != "") {
+					Query[RoutePaths::C_Query_SessionId] = TypedDirectLink.SessionId;
+				}
+				G_GoToPageRequest = GoToPage(
+					G_GoToPageRequest,
+					RoutePaths::C_Path_JoinSession,
+					Query,
+					RoutePaths::C_Path_Home,
+					False,
+					True,
+					True
+				);
+			}
+			case CDirectLink_JoinServer: {
+				if (TypedDirectLink.ServerId != "") {
+					G_JoinServerRequest = JoinServer(G_JoinServerRequest, TypedDirectLink.ServerId, TypedDirectLink.IsSpectator, True, True, C_Text_LoadingScreenJoinServer);
+				}
+			}
+			case CDirectLink_ArcadeServer: {
+				if (!UserStore::IsOfflineMode()) {
+					G_JoinArcadeChannel = JoinArcadeChannel(G_JoinArcadeChannel);
+				}
+			}
+			case CDirectLink_Garage: {
+				G_GoToPageRequest = GoToPage(G_GoToPageRequest, RoutePaths::C_Path_Garage, [], RoutePaths::C_Path_Create, True, True, True);
+			}
+			case CDirectLink_Hotseat: {
+				GoToPage(
+					G_GoToPageRequest,
+					RoutePaths::C_Path_LocalMultiSettings,
+					[RoutePaths::C_Query_LocalMultiType => ""^Const::C_LocalMultiType_HotSeat],
+					RoutePaths::C_Path_Local,
+					False,
+					True,
+					True
+				);
+			}
+			case CDirectLink_Splitscreen: {
+				GoToPage(
+					G_GoToPageRequest,
+					RoutePaths::C_Path_LocalMultiSettings,
+					[RoutePaths::C_Query_LocalMultiType => ""^Const::C_LocalMultiType_SplitScreen],
+					RoutePaths::C_Path_Local,
+					False,
+					True,
+					True
+				);
+			}
+			case CDirectLink_NewMap: {
+				G_GoToPageRequest = GoToPage(G_GoToPageRequest, RoutePaths::C_Path_MapEditorSettings, [RoutePaths::C_Query_DirectLinkNewMap => "1"], RoutePaths::C_Path_Create, True, True, True);
+			}
+			case CDirectLink_OfficialCampaign: {
+				declare CampaignStruct::LibCampaignStruct_K_Campaign Campaign = CampaignStore::GetLiveQuarterlyCampaign();
+				if (Campaign.Id != CampaignStruct::C_Campaign_NullId) {
+					G_GoToPageRequest = GoToPage(
+						G_GoToPageRequest,
+						RoutePaths::C_Path_CampaignDisplay,
+						[
+							RoutePaths::C_Query_Campaign => Campaign.tojson(),
+							Router::C_Query_DisablePrivilege => Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::UseUserCreatedContentRequired])
+						],
+						RoutePaths::C_Path_Solo,
+						False,
+						True,
+						True
+					);
+				}
+			}
+			case CDirectLink_Ranked: {
+				if (!UserStore::IsOfflineMode()) {
+					if (UserStore::HasGamePermission(PrivilegeMgr, RBAC::C_GamePermission_PlayMatchmaking)) {
+						G_GoToPageRequest = GoToPage(
+							G_GoToPageRequest,
+							RoutePaths::C_Path_MatchmakingMainPage,
+							[
+								RoutePaths::C_Query_ForceMode => MatchmakingStruct::GetActiveRankedMode(),
+								Router::C_Query_DisablePrivilege => Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::PlayMultiplayerModeWithUGC]),
+								Router::C_Query_EnablePrivilege => Privileges::PrivilegesToQuery([CPrivilegeMgr::EPrivilege::PlayMultiplayerMode])
+							],
+							"",
+							False,
+							False,
+							True
+						);
+					} else {
+						G_GoToPageRequest = GoToClubEditionInfoPage(G_GoToPageRequest, RBAC::C_GamePermissionMessage_PlayMatchmaking, RoutePaths::C_Path_Live);
+					}
+				}
+			}
+			case CDirectLink_TrackOfTheDay: {
+				if (!UserStore::IsOfflineMode()) {
+					G_GoToPageRequest = GoToPage(G_GoToPageRequest, RoutePaths::C_Path_MonthlyCampaignDisplay, [], "", True, True, True);
+				}
+			}
+		}
+		ManiaPlanet.DirectLink_Clear();
+	}
+
+	// Reload menu's camera when coming back from a server
+	if (G_BackFromServerTime > 0 && Now >= G_BackFromServerTime) {
+		G_BackFromServerTime = -1;
+		HomeBackground::ReloadCameraScene(System);
+	}
+
+	// Update the processing state, must be updated before processing requests
+	DirectLink::SetProcessingState(
+		LocalUser,
+		G_JoinServerRequest.IsRunning ||
+		G_JoinArcadeChannel.IsRunning ||
+		G_GoToPageRequest.IsRunning ||
+		G_DelayedGoBackHome > 0
+	);
+
+	// Process request to join a server
+	if (G_JoinServerRequest.IsRunning) {
+		if (!Privileges::Check_IsComplete(G_JoinServerRequest.PrivilegeCheck)) {
+			G_JoinServerRequest.PrivilegeCheck = Privileges::Check_Update(G_JoinServerRequest.PrivilegeCheck);
+			if (Privileges::Check_IsComplete(G_JoinServerRequest.PrivilegeCheck)) {
+				G_JoinServerRequest.HasPrivilege = Privileges::Check_HasPrivilege(G_JoinServerRequest.PrivilegeCheck);
+				G_JoinServerRequest.PrivilegeCheck = Privileges::Check_Destroy(G_JoinServerRequest.PrivilegeCheck);
+				// If players do not have the UGC privilege, we need to remove them from the squad (it will remove them from their First Party session, cf trackmania-next/tmnext/-/issues/6419)
+				if (!G_JoinServerRequest.HasPrivilege) {
+					G_JoinServerRequest.Task_LeaveCurrentSquad = Task::DestroyAndCreate(
+						G_JoinServerRequest.Task_LeaveCurrentSquad,
+						UserMgr,
+						UserMgr.Squad_Leave(MainUser::GetMainUserId(), "")
+					);
+				}
+			}
+		}
+
+		G_JoinServerRequest.LeaveMatchmaking = Private_LeaveMatchmaking_Update(G_JoinServerRequest.LeaveMatchmaking);
+
+		if (Task::IsInitialized(G_JoinServerRequest.Task_LeaveCurrentSquad)) {
+			G_JoinServerRequest.Task_LeaveCurrentSquad = Task::Update(G_JoinServerRequest.Task_LeaveCurrentSquad);
+			if (!Task::IsRunning(G_JoinServerRequest.Task_LeaveCurrentSquad)) {
+				G_JoinServerRequest.Task_LeaveCurrentSquad = Task::Destroy(G_JoinServerRequest.Task_LeaveCurrentSquad);
+				G_GoToPageRequest = GoToPage(G_GoToPageRequest, RoutePaths::C_Path_Home, [], "", True, True, True);
+			}
+		}
+
+		G_JoinServerRequest.IsRunning = (
+			!Privileges::Check_IsComplete(G_JoinServerRequest.PrivilegeCheck) ||
+			Private_LeaveMatchmaking_IsRunning(G_JoinServerRequest.LeaveMatchmaking) ||
+			Task::IsRunning(G_JoinServerRequest.Task_LeaveCurrentSquad)
+		);
+
+		if (!G_JoinServerRequest.IsRunning && G_JoinServerRequest.HasPrivilege && G_JoinServerRequest.JoinLink != "") {
+			if (G_JoinServerRequest.LoadingScreenText != "") {
+				LoadingScreenStore::UpdateTitleMenuLoadingScreen_Random(This, G_JoinServerRequest.LoadingScreenText);
+			}
+			OpenLink(G_JoinServerRequest.JoinLink, CManiaApp::ELinkType::ManialinkBrowser);
+			// Before receiving the `JoinServer` direct link, the user should have received a `JoinSession` direct link
+			// We must redirect the user to the home page after opening the joinlink
+			// Otherwise they will stay on the join session page when they come back from the server
+			if (Router::GetCurrentRoutePath() == RoutePaths::C_Path_JoinSession) {
+				G_DelayedGoBackHome = Now;
+			}
+			G_BackFromServerTime = Now + C_JoinServerDelay;
+		}
+	}
+
+	if (G_DelayedGoBackHome > 0 && Now > G_DelayedGoBackHome && TitleControl.IsReady) {
+		G_DelayedGoBackHome = 0;
+		if (Router::GetCurrentRoutePath() == RoutePaths::C_Path_JoinSession) {
+			Router::Push(RoutePaths::C_Path_Home);
+		}
+	}
+
+	// Process request to join the arcade channel
+	if (G_JoinArcadeChannel.IsRunning) {
+		if (Http::IsInitialized(G_JoinArcadeChannel.Request_GetJoinLink)) {
+			G_JoinArcadeChannel.Request_GetJoinLink = Http::Update(G_JoinArcadeChannel.Request_GetJoinLink);
+			if (!Http::IsRunning(G_JoinArcadeChannel.Request_GetJoinLink)) {
+				if (Http::IsSuccess(G_JoinArcadeChannel.Request_GetJoinLink)) {
+					G_JoinArcadeChannel.JoinLink = ChannelAPI::GetResponseFromGetJoinLink(G_JoinArcadeChannel.Request_GetJoinLink);
+				}
+				Http::Destroy(G_JoinArcadeChannel.Request_GetJoinLink);
+			}
+		}
+
+		G_JoinArcadeChannel.IsRunning = Http::IsInitialized(G_JoinArcadeChannel.Request_GetJoinLink);
+
+		if (!G_JoinArcadeChannel.IsRunning) {
+			if (G_JoinArcadeChannel.HasPermission) {
+				if (G_JoinArcadeChannel.JoinLink != "") {
+					G_JoinServerRequest = JoinServer(G_JoinServerRequest, G_JoinArcadeChannel.JoinLink, True, True, C_Text_LoadingScreenArcadeChannel);
+				}
+			} else {
+				G_GoToPageRequest = GoToClubEditionInfoPage(G_GoToPageRequest, RBAC::C_GamePermissionMessage_PlayArcadeChannel, RoutePaths::C_Path_Home);
+			}
+		}
+	}
+
+	// Process request to go to a page
+	if (G_GoToPageRequest.IsRunning) {
+		G_GoToPageRequest.LeaveMatchmaking = Private_LeaveMatchmaking_Update(G_GoToPageRequest.LeaveMatchmaking);
+		G_GoToPageRequest.IsRunning = Private_LeaveMatchmaking_IsRunning(G_GoToPageRequest.LeaveMatchmaking);
+		if (!G_GoToPageRequest.IsRunning) {
+			// The user could have changed page during the request, check again that we are not already on the right page.
+			if (!G_GoToPageRequest.CheckIsOnRoute || !Router::IsOnRoute(G_GoToPageRequest.Path)) {
+				if (G_GoToPageRequest.ParentPath != "") {
+					Router::SetParentPath(G_GoToPageRequest.Path, G_GoToPageRequest.ParentPath);
+				}
+				Router::Push(G_GoToPageRequest.Path, G_GoToPageRequest.Query);
+			}
+		}
+	}
+}

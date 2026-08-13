@@ -1,0 +1,175 @@
+
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Notifications/Layer_Notifications.Script.txt"	as LayerNotifications
+#Include "Libs/Nadeo/System/Notifications/NotificationStructs.Script.txt"	as Structs
+#Include "Libs/Nadeo/System/Notifications/Sender_Internal.Script.txt"		as Sender
+
+#Include "Libs/Nadeo/System/InternalEvents/Events_Producer.Script.txt"	as EventsProducer
+#Include "Libs/Nadeo/System/Styles/ColorScheme.Script.txt"				as ColorScheme
+
+// ---------------------------------- //
+// Constants
+// ---------------------------------- //
+#Const C_LibNotificationsController_MaxNbNotificationsShown		10
+
+// ---------------------------------- //
+// Global variables
+// ---------------------------------- //
+declare Structs::SNotification[] G_LibNotificationsController_PendingNotifications;	///< Notifications currently visible on the screen. 
+declare Vec3 G_LibNotificationsController_DefaultNotificationColor;
+declare Integer G_ColorScheme_PreviousChangeCount;
+
+// ---------------------------------- //
+// Functions
+// ---------------------------------- //
+
+// ---------------------------------- //
+// Private
+// ---------------------------------- //
+
+// ---------------------------------- //
+/// Trigger an update in the notifications layer.
+Void Private_TriggerLayerUpdate() {
+	LayerNotifications::SetNotificationsArray(G_LibNotificationsController_PendingNotifications);
+}
+
+// ---------------------------------- //
+// Public
+// ---------------------------------- //
+
+// ---------------------------------- //
+// Load the library.
+Void Load() {
+	LayerNotifications::Build(C_LibNotificationsController_MaxNbNotificationsShown);
+
+	declare Structs::SNotification[] LibNotificationsController_ExternalNotifications for LocalUser;
+	declare Structs::SNotification[] LibNotificationsController_InternalNotifications for ManiaPlanet;
+	declare Integer LibNotificationsController_LastNotificationId for ManiaPlanet;
+
+	LibNotificationsController_ExternalNotifications.clear();
+	LibNotificationsController_InternalNotifications.clear();
+	LibNotificationsController_LastNotificationId = 0;
+
+	yield;
+
+	Private_TriggerLayerUpdate();
+}
+
+// ---------------------------------- //
+// Library main loop.
+Void Loop() {
+	declare Integer LibNotificationsController_LastNotificationId for ManiaPlanet;
+
+	// ---------------------------------- //
+	// Color scheme change
+	declare ColorScheme_LatestChangeCount = ColorScheme::GetLatestChangeCount();
+	if (G_ColorScheme_PreviousChangeCount != ColorScheme_LatestChangeCount) {
+		G_LibNotificationsController_DefaultNotificationColor = ColorScheme::GetPrimaryColor();
+        G_ColorScheme_PreviousChangeCount = ColorScheme_LatestChangeCount;
+	}
+
+	// ---------------------------------- //
+	// Incoming notifications from ManiaPlanet apps
+	declare Structs::SNotification[] LibNotificationsController_InternalNotifications for ManiaPlanet;
+
+	while (LibNotificationsController_InternalNotifications.existskey(0)) {
+		declare Notification = LibNotificationsController_InternalNotifications[0];
+
+		if (Notification.Color == <0., 0., 0.>) {
+			Notification.Color = G_LibNotificationsController_DefaultNotificationColor;
+		}
+
+		Notification.Id = LibNotificationsController_LastNotificationId;
+
+		LibNotificationsController_LastNotificationId += 1;
+
+		G_LibNotificationsController_PendingNotifications.add(Notification);
+		declare Removed = LibNotificationsController_InternalNotifications.removekey(0);
+		Private_TriggerLayerUpdate();
+	}
+
+	// ---------------------------------- //
+	// Incoming notifications from custom apps
+	declare Structs::SNotification[] LibNotificationsController_ExternalNotifications for LocalUser;
+
+	while (LibNotificationsController_ExternalNotifications.existskey(0)) {
+		declare Notification = LibNotificationsController_ExternalNotifications[0];
+
+		if (Notification.Color == <0., 0., 0.>) {
+			Notification.Color = G_LibNotificationsController_DefaultNotificationColor;
+		}
+		
+		Notification.Id			= LibNotificationsController_LastNotificationId;
+		Notification.EndTime	= ML::Clamp(Notification.EndTime, Now, Now + 10000); ///< External must be finite
+		Notification.Action		= Sender::CreateAction("", []); ///< External can't have actions
+
+		LibNotificationsController_LastNotificationId += 1;
+
+		G_LibNotificationsController_PendingNotifications.add(Notification);
+		declare Removed = LibNotificationsController_ExternalNotifications.removekey(0);
+		Private_TriggerLayerUpdate();
+	}
+
+	declare Integer[] NotificationsToRemove;
+
+	// ---------------------------------- //
+	// Manage events
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			switch (Event.CustomEventType) {
+				case "DismissNotification" : {
+					if (!Event.CustomEventData.existskey(0)) continue;
+					declare EventNotificationId = TL::ToInteger(Event.CustomEventData[0]);
+
+					// Destroy notification
+					foreach (I => Notification in G_LibNotificationsController_PendingNotifications) {
+						if (Notification.Id == EventNotificationId && !NotificationsToRemove.existskey(I)) {
+							NotificationsToRemove.add(I);
+						}
+					}
+				}
+
+				case "TriggerNotificationAction" : {
+					if (!Event.CustomEventData.existskey(1)) continue;
+
+					declare EventNotificationId	= TL::ToInteger(Event.CustomEventData[0]);
+					declare EventActionName		= Event.CustomEventData[1];
+					declare Text[] EventActionParams;
+
+					foreach (I => Param in Event.CustomEventData) {
+						if (I > 1) EventActionParams.add(Param);
+					}
+
+					EventsProducer::SendInternalEvent(EventActionName, EventActionParams);
+
+					// Destroy notification
+					foreach (I => Notification in G_LibNotificationsController_PendingNotifications) {
+						if (Notification.Id == EventNotificationId && !NotificationsToRemove.existskey(I)) {
+							NotificationsToRemove.add(I);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Remove oldest notifications if too many are shown at once
+	while (G_LibNotificationsController_PendingNotifications.count > C_LibNotificationsController_MaxNbNotificationsShown) {
+		declare Removed = G_LibNotificationsController_PendingNotifications.removekey(0);
+		Private_TriggerLayerUpdate();
+	}
+
+	// Remove notifications when they expire
+	foreach (I => Notification in G_LibNotificationsController_PendingNotifications) {
+		if (Notification.EndTime <= 0 || Now < Notification.EndTime) continue;
+		NotificationsToRemove.add(I);
+	}
+
+	while (NotificationsToRemove.existskey(0)) {
+		declare Boolean Removed;
+		Removed = G_LibNotificationsController_PendingNotifications.removekey(NotificationsToRemove[0]);
+		Removed = NotificationsToRemove.removekey(0);
+		Private_TriggerLayerUpdate();
+	}
+}

@@ -1,0 +1,1528 @@
+/**
+ * Scroll mixin
+ * ============
+ *
+ * Scroll through a list of elements
+ *
+ * Props
+ * -----
+ *
+ * - `scroll-element-size` (`Vec2`): the size of one element
+ * - `scroll-gutter-size` (`Vec2`): the size of the verical and horizontal gutter between the elements
+ * - `scroll-line-element-nb` (`Integer`): the number of elements in a line
+ * - `scroll-window-size` (`Vec2`): the size the scroll window
+ * - `scroll-window-padding` (`Padding`): the padding of the scroll window
+ * - `scroll-mouse-step-size` (`Vec2`): the size of one step of mousewheel scroll
+ * - `scroll-direction` (`Integer`): the direction of the scroll
+ * - `scroll-previous-line-visible-ratio` (`Real`): how much of the previous line is visible when scrolling to an element
+ * - `scroll-next-line-visible-ratio` (`Real`): how much of the next line is visible when scrolling to an element
+ * - `scroll-previous-line-visible-length` (`Real`): how much content is visible before the focused element
+ * - `scroll-next-line-visible-length` (`Real`): how much content is visible after the focused element
+ * - `scroll-scrollbar-id` (`Text`): the id of the scrollbar to synchronize with the scroll
+ */
+#Const Version "0.4.3"
+#Const ScriptName "Libs/Nadeo/CMGame/Mixins/Scroll@4.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "AnimLib" as AL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Components/ScrollBar.Script.txt" as Component_ScrollBar
+#Include "Libs/Nadeo/CMGame/Menus/NavigationInputs.Script.txt" as NavigationInputs
+#Include "Libs/Nadeo/CMGame/Mixins/Navigation@3.Script.txt" as Mixin_Navigation
+#Include "Libs/Nadeo/CMGame/Structures/Box.Script.txt" as Struct_Box
+#Include "Libs/Nadeo/CMGame/Utils/Cast.Script.txt" as Cast
+#Include "Libs/Nadeo/CMGame/Utils/EventEmitter.Script.txt" as EventEmitter
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView@3.Script.txt" as MV
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Element {
+	Integer Key;
+	CMlControl Control;
+	Boolean IsFocused;
+}
+#Struct K_Event {
+	Integer Type;
+	CMlFrame Frame_Scroll;
+	K_Element[] ElementList;
+	K_Element[] UpdatedElementList;
+	K_Element From;
+	K_Element To;
+	K_Element Element;
+	Boolean IsMouse;
+	NavigationInputs::K_Input Input;
+}
+
+#Struct K_Private_FlexVec2 {
+	Real Main;
+	Real Cross;
+}
+#Struct K_Private_FlexInt2 {
+	Integer Main;
+	Integer Cross;
+}
+#Struct K_Private_FlexPadding {
+	Real MainLeft;
+	Real MainRight;
+	Real CrossTop;
+	Real CrossBottom;
+}
+#Struct K_Private_Vec2 {
+	K_Private_FlexVec2 Flex;
+	Vec2 Screen;
+}
+#Struct K_Private_Int2 {
+	K_Private_FlexInt2 Flex;
+	Int2 Screen;
+}
+#Struct K_Private_Padding {
+	K_Private_FlexPadding Flex;
+	Struct_Box::K_Padding Screen;
+}
+#Struct K_Private_Controls {
+	CMlFrame Frame_Scroll;
+	CMlQuad Quad_WindowBackground;
+	CMlFrame Frame_ScrollBar;
+}
+#Struct K_Private_Properties {
+	K_Private_Vec2 ElementSize;
+	K_Private_Vec2 GutterSize;
+	Integer LineElementNb;
+	K_Private_Vec2 WindowSize;
+	K_Private_Padding WindowPadding;
+	K_Private_Vec2 MouseStepSize;
+	Integer Direction;
+	Real PreviousLineVisibleRatio;
+	Real NextLineVisibleRatio;
+	Real PreviousLineVisibleLength;
+	Real NextLineVisibleLength;
+	Text ScrollBarId;
+}
+#Struct K_Private_ScrollAnimation {
+	Boolean IsPlaying;
+	Integer StartTime;
+	Integer Duration;
+	Vec2 OffsetStart;
+	Vec2 OffsetDelta;
+}
+#Struct K_Private_Instance {
+	K_Private_Controls Controls;
+	K_Private_Properties Properties;
+	Vec2 ScrollOffset;
+	Vec2 ScrollAnimOffset;
+	Int2 ElementKeyRange;
+	K_Element[] ElementList;
+	Integer ElementListCount;
+	Real ScrollBarFullLength;
+	Boolean IsFocused;
+	Integer FocusedElementKey;
+	K_Private_ScrollAnimation Animation;
+	Boolean IsNavigationEnabled;
+	EventEmitter::K_Listener[] NavigationListenerList;
+}
+#Struct K_Private_State {
+	CMlFrame[] Frame_Scrolls;
+	K_Event[] CollectEvents;
+	K_Event[] PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MixinName "CMGameScroll4"
+#Const C_MixinClass "cmgame-mixins-scroll-4"
+
+#Const C_Class_Element "cmgame-mixins-scroll-4-element"
+#Const C_Class_CustomControl "cmgame-mixins-scroll-4-custom-control"
+#Const C_Class_WindowBackground "cmgame-mixins-scroll-4-window-background"
+
+#Const C_Prop_ElementSize "scroll-element-size"
+#Const C_Prop_GutterSize "scroll-gutter-size"
+#Const C_Prop_LineElementNb "scroll-line-element-nb"
+#Const C_Prop_WindowSize "scroll-window-size"
+#Const C_Prop_WindowPadding "scroll-window-padding"
+#Const C_Prop_MouseStepSize "scroll-mouse-step-size"
+#Const C_Prop_Direction "scroll-direction"
+#Const C_Prop_PreviousLineVisibleRatio "scroll-previous-line-visible-ratio"
+#Const C_Prop_NextLineVisibleRatio "scroll-next-line-visible-ratio"
+#Const C_Prop_PreviousLineVisibleLength "scroll-previous-line-visible-length"
+#Const C_Prop_NextLineVisibleLength "scroll-next-line-visible-length"
+#Const C_Prop_ScrollBarId "scroll-scrollbar-id"
+#Const C_PropList [
+	"scroll-element-size",
+	"scroll-gutter-size",
+	"scroll-line-element-nb",
+	"scroll-window-size",
+	"scroll-window-padding",
+	"scroll-mouse-step-size",
+	"scroll-direction",
+	"scroll-previous-line-visible-ratio",
+	"scroll-next-line-visible-ratio",
+	"scroll-previous-line-visible-length",
+	"scroll-next-line-visible-length",
+	"scroll-scrollbar-id"
+]
+
+#Const C_EventType_ElementListUpdated 1
+#Const C_EventType_ElementFocusUpdated 2
+#Const C_EventType_ElementSelected 3
+#Const C_EventType_ElementInputRelayed 4
+#Const C_EventType_MouseScrollUp 5
+#Const C_EventType_MouseScrollDown 6
+
+#Const C_Direction_Row 0
+#Const C_Direction_Vertical 0
+#Const C_Direction_Column 1
+#Const C_Direction_Horizontal 1
+
+// Re-export input types from NavigationInputs for the ease of use of Scroll@4
+#Const NavigationInputs::C_InputType_Null as C_InputType_Null
+#Const NavigationInputs::C_InputType_Up as C_InputType_Up
+#Const NavigationInputs::C_InputType_Right as C_InputType_Right
+#Const NavigationInputs::C_InputType_Left as C_InputType_Left
+#Const NavigationInputs::C_InputType_Down as C_InputType_Down
+#Const NavigationInputs::C_InputType_Select as C_InputType_Select
+#Const NavigationInputs::C_InputType_Cancel as C_InputType_Cancel
+#Const NavigationInputs::C_InputType_PageUp as C_InputType_PageUp
+#Const NavigationInputs::C_InputType_PageDown as C_InputType_PageDown
+#Const NavigationInputs::C_InputType_AppMenu as C_InputType_AppMenu
+#Const NavigationInputs::C_InputType_Action1 as C_InputType_Action1
+#Const NavigationInputs::C_InputType_Action2 as C_InputType_Action2
+#Const NavigationInputs::C_InputType_Action3 as C_InputType_Action3
+#Const NavigationInputs::C_InputType_Action4 as C_InputType_Action4
+#Const NavigationInputs::C_InputType_ScrollUp as C_InputType_ScrollUp
+#Const NavigationInputs::C_InputType_ScrollDown as C_InputType_ScrollDown
+#Const NavigationInputs::C_InputType_MouseOver as C_InputType_MouseOver
+#Const NavigationInputs::C_InputType_MouseOut as C_InputType_MouseOut
+#Const NavigationInputs::C_InputType_MouseClick as C_InputType_MouseClick
+#Const NavigationInputs::C_InputType_MouseRightClick as C_InputType_MouseRightClick
+
+#Const C_Element_Null K_Element {
+	Key = -1,
+	Control = Null,
+	IsFocused = False
+}
+
+#Const C_Private_ElementKey_Null -1
+#Const C_Private_AnimDuration_Scroll 250
+
+#Const C_Private_Properties_Default K_Private_Properties {
+	ElementSize = K_Private_Vec2 {
+		Flex = K_Private_FlexVec2 { Main = 0., Cross = 0. },
+		Screen = <0., 0.>
+	},
+	GutterSize = K_Private_Vec2 {
+		Flex = K_Private_FlexVec2 { Main = 0., Cross = 0. },
+		Screen = <0., 0.>
+	},
+	LineElementNb = 0,
+	WindowSize = K_Private_Vec2 {
+		Flex = K_Private_FlexVec2 { Main = 0., Cross = 0. },
+		Screen = <0., 0.>
+	},
+	WindowPadding = K_Private_Padding {
+		Flex = K_Private_FlexPadding { MainLeft = 0., MainRight = 0., CrossTop = 0., CrossBottom = 0. },
+		Screen = Struct_Box::K_Padding { Left = 0., Right = 0., Top = 0., Bottom = 0. }
+	},
+	MouseStepSize = K_Private_Vec2 {
+		Flex = K_Private_FlexVec2 { Main = 8., Cross = 8. },
+		Screen = <8., 8.>
+	},
+	Direction = 0,
+	PreviousLineVisibleRatio = 0.25,
+	NextLineVisibleRatio = 0.25,
+	PreviousLineVisibleLength = 0.,
+	NextLineVisibleLength = 0.
+}
+#Const C_Private_Instance_Null K_Private_Instance {
+	Controls = K_Private_Controls {},
+	Properties = K_Private_Properties {},
+	ScrollOffset = <0., 0.>,
+	ScrollAnimOffset = <0., 0.>,
+	ElementKeyRange = <0, 0>,
+	ElementList = [],
+	ElementListCount = 0,
+	ScrollBarFullLength = 0.,
+	IsFocused = False,
+	FocusedElementKey = -1,
+	Animation = K_Private_ScrollAnimation {
+		IsPlaying = False
+	},
+	IsNavigationEnabled = True,
+	NavigationListenerList = []
+}
+#Const C_Private_State_Null K_Private_State {
+	Frame_Scrolls = [],
+	CollectEvents = [],
+	PendingEvents = []
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Convert a screen coordinate or size to a flex coordinate or size
+ * The main axis is the axis running in the direction the scroll elements are laid out in (for example, as a row across the page, or a column down the page)
+ * The cross axis is the axis running perpendicular to the direction the scroll elements are laid out in
+ * ref: CSS flexbox
+ */
+K_Private_FlexVec2 Private_GetFlexPos(Vec2 _ScreenPos, Integer _Direction) {
+	switch (_Direction) {
+		case C_Direction_Row: return K_Private_FlexVec2 { Main = _ScreenPos.X, Cross = _ScreenPos.Y };
+		case C_Direction_Column: return K_Private_FlexVec2 { Main = -_ScreenPos.Y, Cross = -_ScreenPos.X };
+	}
+	return K_Private_FlexVec2 { Main = _ScreenPos.X, Cross = _ScreenPos.Y };
+}
+K_Private_FlexVec2 Private_GetFlexSize(Vec2 _ScreenSize, Integer _Direction) {
+	switch (_Direction) {
+		case C_Direction_Row: return K_Private_FlexVec2 { Main = _ScreenSize.X, Cross = _ScreenSize.Y };
+		case C_Direction_Column: return K_Private_FlexVec2 { Main = _ScreenSize.Y, Cross = _ScreenSize.X };
+	}
+	return K_Private_FlexVec2 { Main = _ScreenSize.X, Cross = _ScreenSize.Y };
+}
+K_Private_FlexInt2 Private_GetFlexSize(Int2 _ScreenSize, Integer _Direction) {
+	switch (_Direction) {
+		case C_Direction_Row: return K_Private_FlexInt2 { Main = _ScreenSize.X, Cross = _ScreenSize.Y };
+		case C_Direction_Column: return K_Private_FlexInt2 { Main = _ScreenSize.Y, Cross = _ScreenSize.X };
+	}
+	return K_Private_FlexInt2 { Main = _ScreenSize.X, Cross = _ScreenSize.Y };
+}
+K_Private_FlexPadding Private_GetFlexPadding(Struct_Box::K_Padding _ScreenPadding, Integer _Direction) {
+	switch (_Direction) {
+		case C_Direction_Row: {
+			return K_Private_FlexPadding {
+				MainLeft = _ScreenPadding.Left,
+				MainRight = _ScreenPadding.Right,
+				CrossTop = _ScreenPadding.Top,
+				CrossBottom = _ScreenPadding.Bottom
+			};
+		}
+		case C_Direction_Column: {
+			return K_Private_FlexPadding {
+				MainLeft = _ScreenPadding.Top,
+				MainRight = _ScreenPadding.Bottom,
+				CrossTop = _ScreenPadding.Left,
+				CrossBottom = _ScreenPadding.Right
+			};
+		}
+	}
+	return K_Private_FlexPadding {
+		MainLeft = _ScreenPadding.Left,
+		MainRight = _ScreenPadding.Right,
+		CrossTop = _ScreenPadding.Top,
+		CrossBottom = _ScreenPadding.Bottom
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert a flex coordinate or size to a screen coordinate or size
+Vec2 Private_GetScreenPos(K_Private_FlexVec2 _FlexPos, Integer _Direction) {
+	switch (_Direction) {
+		case C_Direction_Row: return <_FlexPos.Main, _FlexPos.Cross>;
+		case C_Direction_Column: return <-_FlexPos.Cross, -_FlexPos.Main>;
+	}
+	return <_FlexPos.Main, _FlexPos.Cross>;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add `K_Private_FlexVec2`
+K_Private_FlexVec2 Private_Add(K_Private_FlexVec2 _FlexVec2A, K_Private_FlexVec2 _FlexVec2B) {
+	return K_Private_FlexVec2 {
+		Main = _FlexVec2A.Main + _FlexVec2B.Main,
+		Cross = _FlexVec2A.Cross + _FlexVec2B.Cross
+	};
+}
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add `K_Private_Vec2`
+K_Private_Vec2 Private_Add(K_Private_Vec2 _VecA, K_Private_Vec2 _VecB) {
+	return K_Private_Vec2 {
+		Flex = Private_Add(_VecA.Flex, _VecB.Flex),
+		Screen = _VecA.Screen + _VecB.Screen
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Find in which scroll element the given control is
+CMlControl Private_FindScrollElement(CMlControl _Control) {
+	if (_Control == Null) return Null;
+
+	declare Boolean CMGame_MixinsScroll4_ScrollElementHasCache for _Control = False;
+	declare CMlControl CMGame_MixinsScroll4_ScrollElementOwner for _Control <=> Null;
+	if (CMGame_MixinsScroll4_ScrollElementHasCache) {
+		return CMGame_MixinsScroll4_ScrollElementOwner;
+	}
+
+	declare CMlControl Control <=> _Control;
+	while (!Control.HasClass(C_Class_Element) && Control.Parent != Null) {
+		Control <=> Control.Parent;
+	}
+
+	CMGame_MixinsScroll4_ScrollElementHasCache = True;
+	if (Control.HasClass(C_Class_Element)) {
+		CMGame_MixinsScroll4_ScrollElementOwner <=> Control;
+	} else {
+		CMGame_MixinsScroll4_ScrollElementOwner <=> Null;
+	}
+
+	return CMGame_MixinsScroll4_ScrollElementOwner;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the scroll element with the requested key
+K_Element Private_GetElementWithKey(K_Private_Instance _Instance, Integer _ElementKey) {
+	for (Element in _Instance.ElementList) {
+		if (Element.Key == _ElementKey) {
+			return Element;
+		}
+	}
+	return C_Element_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the current scroll offset
+Vec2 Private_GetScrollOffset(K_Private_Instance _Instance) {
+	if (_Instance.Animation.IsPlaying && _Instance.Animation.StartTime + _Instance.Animation.Duration <= Now) {
+		return _Instance.Animation.OffsetStart + _Instance.Animation.OffsetDelta;
+	}
+	return _Instance.ScrollOffset;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the scrollbar range when the content of the scroll window change
+Void Private_UpdateScrollBarRange(K_Private_Instance _Instance) {
+	if (_Instance.Controls.Frame_ScrollBar != Null) {
+		declare K_Private_FlexVec2 ScrollOffsetFlex = Private_GetFlexPos(Private_GetScrollOffset(_Instance), _Instance.Properties.Direction);
+		declare Vec2 Range = <ML::Abs(ScrollOffsetFlex.Cross), ML::Abs(ScrollOffsetFlex.Cross) + _Instance.Properties.WindowSize.Flex.Cross>;
+		Component_ScrollBar::SetRange(_Instance.Controls.Frame_ScrollBar, Range, _Instance.ScrollBarFullLength);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an element is focused
+Boolean Private_IsElementFocused(K_Private_Instance _Instance, Integer _ElementKey) {
+	return (_Instance.IsFocused && _ElementKey == _Instance.FocusedElementKey);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the scroll focused element
+K_Private_Instance Private_SetFocusedElementKey(CMlScript _Context, K_Private_Instance _Instance, Integer _FocusedElementKey, Boolean _IsInit) {
+	declare Integer FocusedElementKey = -1;
+	if (_Instance.ElementListCount > 0) {
+		FocusedElementKey = ML::Clamp(_FocusedElementKey, 0, _Instance.ElementListCount - 1);
+	}
+
+	if (!_IsInit && _Instance.FocusedElementKey == FocusedElementKey) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	declare Integer PreviouslyFocusedElementKey = Instance.FocusedElementKey;
+	Instance.FocusedElementKey = FocusedElementKey;
+
+	declare K_Private_State CMGame_MixinsScroll4_State as State for _Context.Page = C_Private_State_Null;
+	declare K_Element From = C_Element_Null;
+	declare K_Element To = C_Element_Null;
+	for (Key => Element in Instance.ElementList) {
+		// Update focused state
+		if (Element.IsFocused != Private_IsElementFocused(Instance, Element.Key)) {
+			Instance.ElementList[Key].IsFocused = Private_IsElementFocused(Instance, Element.Key);
+		}
+		if (Element.Key == PreviouslyFocusedElementKey) {
+			From = Instance.ElementList[Key];
+		}
+		if (Element.Key == Instance.FocusedElementKey) {
+			To = Instance.ElementList[Key];
+		}
+	}
+	if (To.Control != Null && Instance.IsFocused) {
+		Mixin_Navigation::SetFocus(To.Control, Mixin_Navigation::C_ActionInput_Null);
+	}
+	State.CollectEvents.add(K_Event {
+		Type = C_EventType_ElementFocusUpdated,
+		Frame_Scroll = Instance.Controls.Frame_Scroll,
+		From = From,
+		To = To
+	});
+
+	return Instance;
+}
+K_Private_Instance Private_SetFocusedElementKey(CMlScript _Context, K_Private_Instance _Instance, Integer _FocusedElementKey) {
+	return Private_SetFocusedElementKey(_Context, _Instance, _FocusedElementKey, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Scroll from a position to another
+K_Private_Instance Private_ScrollFromOffsetToOffset(
+	K_Private_Instance _Instance,
+	K_Private_FlexVec2 _From,
+	K_Private_FlexVec2 _To,
+	Boolean _IsAnimated
+) {
+	if (_To.Cross == _From.Cross) return _Instance;
+
+	// Assigning a new value to `ScrollOffset` like that does not work here:
+	// `Instance.Controls.Frame_Scroll.ScrollOffset.Y = _To.Cross;`
+	// `ScrollOffset` will simply ignore the assignment and will keep its original value
+	// To get around this behaviour we create an animation with no duration
+	// Assigning the value in the next yield is working
+
+	declare K_Private_Instance Instance = _Instance;
+
+	declare K_Private_FlexVec2 OffsetDelta = K_Private_FlexVec2 {
+		Main = _To.Main - _From.Main,
+		Cross = _To.Cross - _From.Cross
+	};
+
+	declare Integer AnimDuration = 0;
+	if (_IsAnimated) AnimDuration = C_Private_AnimDuration_Scroll;
+
+	Instance.Animation.IsPlaying = True;
+	Instance.Animation.StartTime = Now;
+	Instance.Animation.Duration = AnimDuration;
+	Instance.Animation.OffsetStart = Private_GetScreenPos(_From, Instance.Properties.Direction);
+	Instance.Animation.OffsetDelta = Private_GetScreenPos(OffsetDelta, Instance.Properties.Direction);
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Scroll to the given scroll ratio
+K_Private_Instance Private_ScrollToRatio(K_Private_Instance _Instance, Real _Ratio, Boolean _IsAnimated) {
+	declare K_Private_Instance Instance = _Instance;
+
+	declare K_Private_FlexVec2 ScrollOffsetFlex = Private_GetFlexPos(Private_GetScrollOffset(Instance), Instance.Properties.Direction);
+	declare K_Private_FlexVec2 ScrollOffsetTargetFlex = ScrollOffsetFlex;
+	ScrollOffsetTargetFlex.Cross = Private_GetFlexPos(Instance.Controls.Frame_Scroll.ScrollMax, Instance.Properties.Direction).Cross * _Ratio;
+
+	return Private_ScrollFromOffsetToOffset(Instance, ScrollOffsetFlex, ScrollOffsetTargetFlex, _IsAnimated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Scroll to the focused elements
+K_Private_Instance Private_ScrollToFocusedElementKey(K_Private_Instance _Instance, Integer _ElementKey, Boolean _IsAnimated) {
+	declare K_Private_Instance Instance = _Instance;
+
+	declare Integer FocusedElementLineIndex = 0;
+	if (Instance.Properties.LineElementNb > 0) {
+		FocusedElementLineIndex = _ElementKey / Instance.Properties.LineElementNb;
+	}
+	declare Vec2 FocusedElementVerticalRange = <Instance.Properties.WindowPadding.Flex.CrossTop + (FocusedElementLineIndex * (Instance.Properties.ElementSize.Flex.Cross + Instance.Properties.GutterSize.Flex.Cross)), 0.>;
+	FocusedElementVerticalRange.Y = FocusedElementVerticalRange.X + Instance.Properties.ElementSize.Flex.Cross;
+
+	// Try to show a bit of the elements on the line above or below the focused element
+	declare Real PreviousLinePreviewSizeCross = 0.;
+	if (
+		Instance.Properties.PreviousLineVisibleRatio > 0. ||
+		Instance.Properties.PreviousLineVisibleLength > 0.
+	) {
+		PreviousLinePreviewSizeCross = Instance.Properties.GutterSize.Flex.Cross + (Instance.Properties.ElementSize.Flex.Cross * Instance.Properties.PreviousLineVisibleRatio) + Instance.Properties.PreviousLineVisibleLength;
+	}
+	declare Real NextLinePreviewSizeCross = 0.;
+	if (
+		Instance.Properties.NextLineVisibleRatio > 0. ||
+		Instance.Properties.NextLineVisibleLength > 0.
+	) {
+		NextLinePreviewSizeCross = Instance.Properties.GutterSize.Flex.Cross + (Instance.Properties.ElementSize.Flex.Cross * Instance.Properties.NextLineVisibleRatio) + Instance.Properties.NextLineVisibleLength;
+	}
+
+	declare K_Private_FlexVec2 ScrollOffsetFlex = Private_GetFlexPos(Private_GetScrollOffset(Instance), Instance.Properties.Direction);
+	declare K_Private_FlexVec2 ScrollOffsetTargetFlex = ScrollOffsetFlex;
+	if (FocusedElementVerticalRange.X < ScrollOffsetFlex.Cross + PreviousLinePreviewSizeCross) {
+		ScrollOffsetTargetFlex.Cross = ML::Max(0., FocusedElementVerticalRange.X - PreviousLinePreviewSizeCross);
+	} else if (FocusedElementVerticalRange.Y > ScrollOffsetFlex.Cross + Instance.Properties.WindowSize.Flex.Cross - NextLinePreviewSizeCross) {
+		ScrollOffsetTargetFlex.Cross = ML::Min(Private_GetFlexPos(Instance.Controls.Frame_Scroll.ScrollMax, Instance.Properties.Direction).Cross, FocusedElementVerticalRange.Y - Instance.Properties.WindowSize.Flex.Cross + NextLinePreviewSizeCross);
+	}
+
+	return Private_ScrollFromOffsetToOffset(Instance, ScrollOffsetFlex, ScrollOffsetTargetFlex, _IsAnimated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Scroll to the focused elements
+K_Private_Instance Private_ScrollToFocusedElement(K_Private_Instance _Instance, Boolean _IsAnimated) {
+	return Private_ScrollToFocusedElementKey(_Instance, _Instance.FocusedElementKey, _IsAnimated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Scroll from a ratio to the focused elements
+K_Private_Instance Private_ScrollFromRatioToFocusedElement(K_Private_Instance _Instance, Real _Ratio, Boolean _IsAnimated) {
+	return Private_ScrollToFocusedElement(Private_ScrollToRatio(_Instance, _Ratio, False), _IsAnimated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Scroll until the element key is at the top of the scroll window
+K_Private_Instance Private_ScrollToElementKeyTop(K_Private_Instance _Instance, Integer _ElementKey, Real _Offset, Boolean _IsAnimated) {
+	declare K_Private_Instance Instance = _Instance;
+
+	declare K_Private_FlexVec2 ScrollOffsetFlex = Private_GetFlexPos(Private_GetScrollOffset(Instance), Instance.Properties.Direction);
+
+	declare Integer LineNb = 0;
+	if (Instance.Properties.LineElementNb > 0) {
+		LineNb = _ElementKey / Instance.Properties.LineElementNb;
+	}
+	declare Real ElementSizeCross = Instance.Properties.ElementSize.Flex.Cross + Instance.Properties.GutterSize.Flex.Cross;
+	declare K_Private_FlexVec2 ScrollOffsetTargetFlex = ScrollOffsetFlex;
+	ScrollOffsetTargetFlex.Cross = Instance.Properties.WindowPadding.Flex.CrossTop + (LineNb * ElementSizeCross) - _Offset;
+
+	return Private_ScrollFromOffsetToOffset(Instance, ScrollOffsetFlex, ScrollOffsetTargetFlex, _IsAnimated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the number of lines that can be visible at the same time in the scroll window
+Integer Private_GetVisibleLinesNb(Real _WindowLength, Real _ElementLength, Real _GutterLength) {
+	declare Real ElementAndGutterSize = _ElementLength + _GutterLength;
+	if (ElementAndGutterSize == 0.) return 0;
+	return ML::CeilingInteger((_WindowLength + _GutterLength) / ElementAndGutterSize) + 1;
+}
+Integer Private_GetVisibleLinesNb(Vec2 _WindowSize, Vec2 _ElementSize, Vec2 _GutterSize, Integer _Direction) {
+	declare Integer LinesNb = 0;
+	if (_Direction == C_Direction_Row) {
+		LinesNb = Private_GetVisibleLinesNb(_WindowSize.Y, _ElementSize.Y, _GutterSize.Y);
+	} else if (_Direction == C_Direction_Column) {
+		LinesNb = Private_GetVisibleLinesNb(_WindowSize.X, _ElementSize.X, _GutterSize.X);
+	}
+	return LinesNb;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the scroll offset
+K_Private_Instance Private_SetScrollOffset(
+	CMlScript _Context,
+	K_Private_Instance _Instance,
+	Vec2 _ScrollOffset,
+	Vec2 _ScrollAnimOffset,
+	Boolean _IsInit
+) {
+	if (!_IsInit && _Instance.ScrollOffset == _ScrollOffset && _Instance.ScrollAnimOffset == _ScrollAnimOffset) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.ScrollOffset = _ScrollOffset;
+	Instance.ScrollAnimOffset = _ScrollAnimOffset;
+
+	Instance.Controls.Quad_WindowBackground.RelativePosition_V3 = -Instance.ScrollAnimOffset;
+
+	// Find the range of element keys visible in the scroll window
+	declare Int2 ElementKeyRange = <0, 0>;
+	declare K_Private_Vec2 ElementAndGutterSize = Private_Add(Instance.Properties.ElementSize, Instance.Properties.GutterSize);
+	declare K_Private_FlexVec2 ScrollAnimOffsetFlex = Private_GetFlexPos(Instance.ScrollAnimOffset, Instance.Properties.Direction);
+	if (Instance.ElementListCount > 0 && ElementAndGutterSize.Flex.Cross > 0.) {
+		ElementKeyRange.X = ML::Clamp(ML::Max(0, ML::FloorInteger(ML::Max(0., ScrollAnimOffsetFlex.Cross - Instance.Properties.WindowPadding.Flex.CrossTop) / ElementAndGutterSize.Flex.Cross)) * Instance.Properties.LineElementNb, 0, ML::Max(0, Instance.ElementListCount - 1));
+		ElementKeyRange.Y = ML::Clamp(ElementKeyRange.X + ML::Max(0, (Private_GetVisibleLinesNb(Instance.Properties.WindowSize.Flex.Cross, Instance.Properties.ElementSize.Flex.Cross, Instance.Properties.GutterSize.Flex.Cross) * Instance.Properties.LineElementNb) - 1), ElementKeyRange.X, ML::Max(0, Instance.ElementListCount - 1));
+	}
+
+	// If the range changed, update the scroll
+	if (_IsInit || Instance.ElementKeyRange != ElementKeyRange) {
+		Instance.ElementKeyRange = ElementKeyRange;
+
+		declare K_Event Event = K_Event {
+			Type = C_EventType_ElementListUpdated,
+			Frame_Scroll = Instance.Controls.Frame_Scroll
+		};
+
+		// Update the elements that left the scroll window
+		declare Integer[] UpToDateElementKeys; // Keys of the elements that are already up to date
+		declare Integer[] ReusableElementListArrayKeys; // Keys of the `Instance.ElementList` that are outside of the scroll window and can be reused to display new elements that enter the scroll window. CAUTION: This is not the element key but the key of the element in the `Instance.ElementList` array.
+		for (Key => Element in Instance.ElementList) {
+			if (
+				Instance.ElementListCount <= 0 ||
+				Element.Key == C_Private_ElementKey_Null ||
+				Element.Key < ElementKeyRange.X ||
+				Element.Key > ElementKeyRange.Y ||
+				UpToDateElementKeys.exists(Element.Key)
+			) {
+				if (Element.Key != C_Private_ElementKey_Null) {
+					declare K_Element UpdatedElement = Instance.ElementList[Key];
+					UpdatedElement.Key = C_Private_ElementKey_Null;
+					UpdatedElement.Control.Visible = False;
+
+					declare Integer CMGame_MixinsScroll4_ElementKey for UpdatedElement.Control = C_Private_ElementKey_Null;
+					CMGame_MixinsScroll4_ElementKey = UpdatedElement.Key;
+
+					Instance.ElementList[Key] = UpdatedElement;
+				}
+				ReusableElementListArrayKeys.add(Key);
+			} else if (_IsInit) {
+				ReusableElementListArrayKeys.add(Key);
+			} else {
+				UpToDateElementKeys.add(Element.Key);
+			}
+		}
+
+		// Update the elements that entered the scroll window
+		if (Instance.ElementListCount > 0) {
+			for (ElementKey, ElementKeyRange.X, ElementKeyRange.Y) {
+				if (!UpToDateElementKeys.exists(ElementKey) && ReusableElementListArrayKeys.count > 0) {
+					declare Integer ElementListArrayKey = ReusableElementListArrayKeys[0];
+					declare K_Element UpdatedElement = Instance.ElementList[ElementListArrayKey];
+					UpdatedElement.Key = ElementKey;
+					UpdatedElement.Control.Visible = True;
+					UpdatedElement.IsFocused = Private_IsElementFocused(Instance, UpdatedElement.Key);
+					if (UpdatedElement.IsFocused && Instance.IsFocused) {
+						Mixin_Navigation::SetFocus(UpdatedElement.Control, Mixin_Navigation::C_ActionInput_Null);
+					}
+
+					declare Integer CMGame_MixinsScroll4_ElementKey for UpdatedElement.Control = C_Private_ElementKey_Null;
+					CMGame_MixinsScroll4_ElementKey = UpdatedElement.Key;
+
+					declare K_Private_FlexVec2 RelativePositionFlex = K_Private_FlexVec2 { Main = 0., Cross = 0. };
+					if (Instance.Properties.LineElementNb > 0) {
+						RelativePositionFlex.Main = Instance.Properties.WindowPadding.Flex.MainLeft + ((UpdatedElement.Key % Instance.Properties.LineElementNb) * ElementAndGutterSize.Flex.Main);
+						RelativePositionFlex.Cross = -Instance.Properties.WindowPadding.Flex.CrossTop - ((UpdatedElement.Key / Instance.Properties.LineElementNb) * ElementAndGutterSize.Flex.Cross);
+					}
+					UpdatedElement.Control.RelativePosition_V3 = Private_GetScreenPos(RelativePositionFlex, Instance.Properties.Direction);
+
+					Event.UpdatedElementList.add(UpdatedElement);
+					Instance.ElementList[ElementListArrayKey] = UpdatedElement;
+					ReusableElementListArrayKeys.removekey(0);
+				}
+			}
+		}
+
+		Event.ElementList = Instance.ElementList;
+
+		declare K_Private_State CMGame_MixinsScroll4_State as State for _Context.Page = C_Private_State_Null;
+		State.CollectEvents.add(Event);
+	}
+
+	Private_UpdateScrollBarRange(Instance);
+
+	return Instance;
+}
+K_Private_Instance Private_SetScrollOffset(CMlScript _Context, K_Private_Instance _Instance, Vec2 _ScrollOffset, Vec2 _ScrollAnimOffset) {
+	return Private_SetScrollOffset(_Context, _Instance, _ScrollOffset, _ScrollAnimOffset, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the number of elements in the scroll
+K_Private_Instance Private_SetElementListNb(
+	CMlScript _Context,
+	K_Private_Instance _Instance,
+	Integer _ElementListCount,
+	Boolean _IsInit
+) {
+	if (!_IsInit && _Instance.ElementListCount == _ElementListCount) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.ElementListCount = _ElementListCount;
+	Instance.ScrollBarFullLength = 0.;
+
+	declare K_Private_FlexVec2 ScrollMaxFlex = K_Private_FlexVec2 { Main = 0., Cross = 0. };
+	declare K_Private_FlexVec2 ScrollOffsetFlex = Private_GetFlexPos(Private_GetScrollOffset(Instance), Instance.Properties.Direction);
+	if (Instance.Properties.LineElementNb > 0) {
+		declare K_Private_Vec2 ElementAndGutterSize = Private_Add(Instance.Properties.ElementSize, Instance.Properties.GutterSize);
+		declare Integer LinesNb = (Instance.ElementListCount + Instance.Properties.LineElementNb - 1) / Instance.Properties.LineElementNb;
+		Instance.ScrollBarFullLength = ML::Max(0., (LinesNb * ElementAndGutterSize.Flex.Cross) - Instance.Properties.GutterSize.Flex.Cross + Instance.Properties.WindowPadding.Flex.CrossTop + Instance.Properties.WindowPadding.Flex.CrossBottom);
+		ScrollMaxFlex.Cross = ML::Max(0., Instance.ScrollBarFullLength - Instance.Properties.WindowSize.Flex.Cross);
+	}
+	ScrollOffsetFlex.Cross = ML::Min(ScrollOffsetFlex.Cross, ScrollMaxFlex.Cross);
+	Instance.Controls.Frame_Scroll.ScrollMax = Private_GetScreenPos(ScrollMaxFlex, Instance.Properties.Direction);
+	Instance.Controls.Frame_Scroll.ScrollOffset = Private_GetScreenPos(ScrollOffsetFlex, Instance.Properties.Direction);
+
+	// Add a bit of vertical scroll to be able to detect mouse vertical scrollwheel and convert it into horizontal scroll
+	if (Instance.Properties.Direction == C_Direction_Column && Instance.Controls.Frame_Scroll.ScrollMax.Y == 0.) {
+		Instance.Controls.Frame_Scroll.ScrollMin.Y = -Instance.Properties.MouseStepSize.Flex.Cross;
+		Instance.Controls.Frame_Scroll.ScrollMax.Y = Instance.Properties.MouseStepSize.Flex.Cross;
+	} else {
+		Instance.Controls.Frame_Scroll.ScrollMin = <0., 0.>;
+	}
+
+	// Check that the currently focused element still exists
+	Instance = Private_SetFocusedElementKey(_Context, Instance, Instance.FocusedElementKey);
+
+	// When the number of elements change, we must force an initialization of the scroll offset to refresh all elements
+	Instance = Private_SetScrollOffset(_Context, Instance, Private_GetScreenPos(ScrollOffsetFlex, Instance.Properties.Direction), Instance.Controls.Frame_Scroll.ScrollAnimOffset, True);
+
+	return Instance;
+}
+K_Private_Instance Private_SetElementListNb(CMlScript _Context, K_Private_Instance _Instance, Integer _ElementListCount) {
+	return Private_SetElementListNb(_Context, _Instance, _ElementListCount, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the focus on the scroll
+K_Private_Instance Private_SetIsFocused(CMlScript _Context, K_Private_Instance _Instance, Boolean _IsFocused, Boolean _IsInit) {
+	if (!_IsInit && _Instance.IsFocused == _IsFocused) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.IsFocused = _IsFocused;
+
+	// Force an update of the focused element
+	Instance = Private_SetFocusedElementKey(_Context, Instance, Instance.FocusedElementKey, True);
+
+	return Instance;
+}
+K_Private_Instance Private_SetIsFocused(CMlScript _Context, K_Private_Instance _Instance, Boolean _IsFocused) {
+	return Private_SetIsFocused(_Context, _Instance, _IsFocused, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the state of the navigation in the scroll
+K_Private_Instance Private_SetIsNavigationEnabled(K_Private_Instance _Instance, Boolean _IsNavigationEnabled, Boolean _IsInit) {
+	if (!_IsInit && _Instance.IsNavigationEnabled == _IsNavigationEnabled) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+	Instance.IsNavigationEnabled = _IsNavigationEnabled;
+	return Instance;
+}
+K_Private_Instance Private_SetIsNavigationEnabled(K_Private_Instance _Instance, Boolean _IsNavigationEnabled) {
+	return Private_SetIsNavigationEnabled(_Instance, _IsNavigationEnabled, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the scrollbar to synchronize with the scroll
+K_Private_Instance Private_SetScrollBar(K_Private_Instance _Instance, CMlFrame _Frame_ScrollBar) {
+	declare K_Private_Instance Instance = _Instance;
+	Instance.Controls.Frame_ScrollBar <=> _Frame_ScrollBar;
+	Private_UpdateScrollBarRange(Instance);
+	return Instance;
+}
+K_Private_Instance Private_SetScrollBarId(CMlScript _Context, K_Private_Instance _Instance, Text _ControlId) {
+	return Private_SetScrollBar(_Instance, (_Context.Page.GetFirstChild(_ControlId) as CMlFrame));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus an element in the scroll
+K_Private_Instance Private_FocusElementKey(CMlScript _Context, K_Private_Instance _Instance, Integer _ElementKey) {
+	declare K_Private_Instance Instance = _Instance;
+	Instance = Private_SetFocusedElementKey(_Context, Instance, _ElementKey);
+	return Instance;
+}
+K_Private_Instance Private_FocusElement(CMlScript _Context, K_Private_Instance _Instance, CMlControl _Control) {
+	declare K_Private_Instance Instance = _Instance;
+
+	declare CMlControl ScrollElement <=> Private_FindScrollElement(_Control);
+	assert(
+		ScrollElement != Null,
+		"""[CMGame/Mixins/Scroll@4] The control `#{{{ScrollElement.ControlId}}}` is not a scroll element."""
+	);
+
+	declare Integer CMGame_MixinsScroll4_ElementKey for ScrollElement = C_Private_ElementKey_Null;
+	Instance = Private_FocusElementKey(_Context, Instance, CMGame_MixinsScroll4_ElementKey);
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Select an element in the scroll
+K_Private_Instance Private_SelectElementKey(CMlScript _Context, K_Private_Instance _Instance, Integer _ElementKey) {
+	if (_Instance.ElementListCount <= 0 || _ElementKey < 0 || _ElementKey >= _Instance.ElementListCount) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	declare K_Element SelectedElement = Private_GetElementWithKey(Instance, _ElementKey);
+	if (SelectedElement != C_Element_Null) {
+		declare K_Private_State CMGame_MixinsScroll4_State as State for _Context.Page = C_Private_State_Null;
+		State.CollectEvents.add(K_Event {
+			Type = C_EventType_ElementSelected,
+			Frame_Scroll = Instance.Controls.Frame_Scroll,
+			Element = SelectedElement
+		});
+	}
+
+	if (Instance.FocusedElementKey != _ElementKey) {
+		Instance = Private_FocusElementKey(_Context, Instance, _ElementKey);
+	}
+
+	return Instance;
+}
+K_Private_Instance Private_SelectElement(CMlScript _Context, K_Private_Instance _Instance, CMlControl _Control) {
+	declare CMlControl ScrollElement <=> Private_FindScrollElement(_Control);
+	assert(
+		ScrollElement != Null,
+		"""[CMGame/Mixins/Scroll@4] The control `#{{{ScrollElement.ControlId}}}` is not a scroll element."""
+	);
+
+	declare Integer CMGame_MixinsScroll4_ElementKey for ScrollElement = C_Private_ElementKey_Null;
+	return Private_SelectElementKey(_Context, _Instance, CMGame_MixinsScroll4_ElementKey);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Select the focused element in the scroll
+K_Private_Instance Private_SelectFocusedElement(CMlScript _Context, K_Private_Instance _Instance) {
+	return Private_SelectElementKey(_Context, _Instance, _Instance.FocusedElementKey);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Select the focused element in the scroll
+Void Private_RelayInputElementKey(CMlScript _Context, K_Private_Instance _Instance, Integer _ElementKey, NavigationInputs::K_Input _Input) {
+	if (_Instance.ElementListCount <= 0 || _ElementKey < 0 || _ElementKey >= _Instance.ElementListCount) return;
+
+	declare K_Element Element = Private_GetElementWithKey(_Instance, _ElementKey);
+	if (Element != C_Element_Null) {
+		declare K_Private_State CMGame_MixinsScroll4_State as State for _Context.Page = C_Private_State_Null;
+		State.CollectEvents.add(K_Event {
+			Type = C_EventType_ElementInputRelayed,
+			Frame_Scroll = _Instance.Controls.Frame_Scroll,
+			Element = Element,
+			IsMouse = _Input.IsFromMouse,
+			Input = _Input
+		});
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus the next element in the line
+K_Private_Instance Private_ApplyInput_NextElement(CMlScript _Context, K_Private_Instance _Instance, NavigationInputs::K_Input _Input) {
+	declare K_Private_Instance Instance = _Instance;
+
+	if (
+		Instance.Properties.LineElementNb > 0 &&
+		Instance.FocusedElementKey < Instance.ElementListCount - 1 &&
+		Instance.FocusedElementKey % Instance.Properties.LineElementNb < Instance.Properties.LineElementNb - 1
+	) {
+		Instance = Private_SetFocusedElementKey(_Context, Instance, Instance.FocusedElementKey + 1);
+		Instance = Private_ScrollToFocusedElement(Instance, True);
+	} else {
+		Mixin_Navigation::TriggerInput(Instance.Controls.Frame_Scroll, _Input.Type);
+	}
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus the previous element in the line
+K_Private_Instance Private_ApplyInput_PreviousElement(CMlScript _Context, K_Private_Instance _Instance, NavigationInputs::K_Input _Input) {
+	declare K_Private_Instance Instance = _Instance;
+
+	if (
+		Instance.Properties.LineElementNb > 0 &&
+		Instance.FocusedElementKey % Instance.Properties.LineElementNb > 0
+	) {
+		Instance = Private_SetFocusedElementKey(_Context, Instance, Instance.FocusedElementKey - 1);
+		Instance = Private_ScrollToFocusedElement(Instance, True);
+	} else {
+		Mixin_Navigation::TriggerInput(Instance.Controls.Frame_Scroll, _Input.Type);
+	}
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus the element in the next line
+K_Private_Instance Private_ApplyInput_NextLine(CMlScript _Context, K_Private_Instance _Instance, NavigationInputs::K_Input _Input) {
+	declare K_Private_Instance Instance = _Instance;
+
+	if (Instance.FocusedElementKey < Instance.ElementListCount - Instance.Properties.LineElementNb) {
+		Instance = Private_SetFocusedElementKey(_Context, Instance, Instance.FocusedElementKey + Instance.Properties.LineElementNb);
+		Instance = Private_ScrollToFocusedElement(Instance, True);
+	} else if (
+		Instance.Properties.LineElementNb > 0 &&
+		Instance.FocusedElementKey < Instance.ElementListCount - 1 &&
+		Instance.FocusedElementKey / Instance.Properties.LineElementNb < (Instance.ElementListCount - 1) / Instance.Properties.LineElementNb
+	) {
+		Instance = Private_SetFocusedElementKey(_Context, Instance, Instance.ElementListCount - 1);
+		Instance = Private_ScrollToFocusedElement(Instance, True);
+	} else {
+		// Scroll to the bottom when escaping the scroll
+		declare K_Private_FlexVec2 ScrollOffsetFlex = Private_GetFlexPos(Private_GetScrollOffset(Instance), Instance.Properties.Direction);
+		declare K_Private_FlexVec2 ScrollMaxFlex = Private_GetFlexPos(Instance.Controls.Frame_Scroll.ScrollMax, Instance.Properties.Direction);
+		if (ScrollOffsetFlex.Cross < ScrollMaxFlex.Cross) {
+			Instance = Private_ScrollToRatio(Instance, 1., True);
+		}
+		Mixin_Navigation::TriggerInput(Instance.Controls.Frame_Scroll, _Input.Type);
+	}
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus the element in the previous line
+K_Private_Instance Private_ApplyInput_PreviousLine(CMlScript _Context, K_Private_Instance _Instance, NavigationInputs::K_Input _Input) {
+	declare K_Private_Instance Instance = _Instance;
+
+	if (Instance.FocusedElementKey >= Instance.Properties.LineElementNb) {
+		Instance = Private_SetFocusedElementKey(_Context, Instance, Instance.FocusedElementKey - Instance.Properties.LineElementNb);
+		Instance = Private_ScrollToFocusedElement(Instance, True);
+	} else {
+		// Scroll to the top when escaping the scroll
+		declare K_Private_FlexVec2 ScrollOffsetFlex = Private_GetFlexPos(Private_GetScrollOffset(Instance), Instance.Properties.Direction);
+		if (ScrollOffsetFlex.Cross > 0.) {
+			Instance = Private_ScrollToRatio(Instance, 0., True);
+		}
+		Mixin_Navigation::TriggerInput(Instance.Controls.Frame_Scroll, _Input.Type);
+	}
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply a directionnal input (up, right, down, left) to the scroll
+K_Private_Instance Private_ApplyInput(CMlScript _Context, K_Private_Instance _Instance, NavigationInputs::K_Input _Input) {
+	declare K_Private_Instance Instance = _Instance;
+
+	switch (_Input.Type) {
+		case NavigationInputs::C_InputType_Up: {
+			switch (Instance.Properties.Direction) {
+				case C_Direction_Row: Instance = Private_ApplyInput_PreviousLine(_Context, Instance, _Input);
+				case C_Direction_Column: Instance = Private_ApplyInput_PreviousElement(_Context, Instance, _Input);
+			}
+		}
+		case NavigationInputs::C_InputType_Down: {
+			switch (Instance.Properties.Direction) {
+				case C_Direction_Row: Instance = Private_ApplyInput_NextLine(_Context, _Instance, _Input);
+				case C_Direction_Column: Instance = Private_ApplyInput_NextElement(_Context, Instance, _Input);
+			}
+		}
+		case NavigationInputs::C_InputType_Left: {
+			switch (Instance.Properties.Direction) {
+				case C_Direction_Row: Instance = Private_ApplyInput_PreviousElement(_Context, Instance, _Input);
+				case C_Direction_Column: Instance = Private_ApplyInput_PreviousLine(_Context, Instance, _Input);
+			}
+		}
+		case NavigationInputs::C_InputType_Right: {
+			switch (Instance.Properties.Direction) {
+				case C_Direction_Row: Instance = Private_ApplyInput_NextElement(_Context, Instance, _Input);
+				case C_Direction_Column: Instance = Private_ApplyInput_NextLine(_Context, _Instance, _Input);
+			}
+		}
+		default: {
+			if (!_Input.IsFromMouse) {
+				Private_RelayInputElementKey(_Context, Instance, Instance.FocusedElementKey, _Input);
+			}
+		}
+	}
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the scroll element size
+K_Private_Instance Private_SetElementSize(K_Private_Instance _Instance, Vec2 _ScreenElementSize, Boolean _IsInit) {
+	if (!_IsInit && _Instance.Properties.ElementSize.Screen == _ScreenElementSize) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+	Instance.Properties.ElementSize.Screen = _ScreenElementSize;
+	Instance.Properties.ElementSize.Flex = Private_GetFlexSize(Instance.Properties.ElementSize.Screen, Instance.Properties.Direction);
+	return Instance;
+}
+K_Private_Instance Private_SetElementSize(K_Private_Instance _Instance, Vec2 _ScreenElementSize) {
+	return Private_SetElementSize(_Instance, _ScreenElementSize, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the scroll gutter size
+K_Private_Instance Private_SetGutterSize(K_Private_Instance _Instance, Vec2 _ScreenGutterSize, Boolean _IsInit) {
+	if (!_IsInit && _Instance.Properties.GutterSize.Screen == _ScreenGutterSize) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+	Instance.Properties.GutterSize.Screen = _ScreenGutterSize;
+	Instance.Properties.GutterSize.Flex = Private_GetFlexSize(Instance.Properties.GutterSize.Screen, Instance.Properties.Direction);
+	return Instance;
+}
+K_Private_Instance Private_SetGutterSize(K_Private_Instance _Instance, Vec2 _ScreenGutterSize) {
+	return Private_SetGutterSize(_Instance, _ScreenGutterSize, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the scroll number of elements per line
+K_Private_Instance Private_SetLineElementNb(K_Private_Instance _Instance, Integer _LineElementNb, Boolean _IsInit) {
+	if (!_IsInit && _Instance.Properties.LineElementNb == _LineElementNb) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+	Instance.Properties.LineElementNb = _LineElementNb;
+
+	declare Integer RequiredElementListCount = Private_GetVisibleLinesNb(Instance.Properties.WindowSize.Flex.Cross, Instance.Properties.ElementSize.Flex.Cross, Instance.Properties.GutterSize.Flex.Cross) * Instance.Properties.LineElementNb;
+	assert(
+		Instance.ElementList.count >= RequiredElementListCount,
+		"""[CMGame/Mixins/Scroll@4] You must add at least {{{RequiredElementListCount}}} controls with the class `C_Class_Element` inside the scroll frame. You can use the `GetRequiredElementControlNb()` function to get this number. You currently have {{{Instance.ElementList.count}}} controls."""
+	);
+
+	return Instance;
+}
+K_Private_Instance Private_SetLineElementNb(K_Private_Instance _Instance, Integer _LineElementNb) {
+	return Private_SetLineElementNb(_Instance, _LineElementNb, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the scroll window size
+K_Private_Instance Private_SetWindowSize(K_Private_Instance _Instance, Vec2 _ScreenWindowSize, Boolean _IsInit) {
+	if (!_IsInit && _Instance.Properties.WindowSize.Screen == _ScreenWindowSize) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.Properties.WindowSize.Screen = _ScreenWindowSize;
+	Instance.Properties.WindowSize.Flex = Private_GetFlexSize(Instance.Properties.WindowSize.Screen, Instance.Properties.Direction);
+
+	Instance.Controls.Quad_WindowBackground.Size = Instance.Properties.WindowSize.Screen;
+	Instance.Controls.Frame_Scroll.Size = Instance.Properties.WindowSize.Screen;
+
+	return Instance;
+}
+K_Private_Instance Private_SetWindowSize(K_Private_Instance _Instance, Vec2 _ScreenWindowSize) {
+	return Private_SetWindowSize(_Instance, _ScreenWindowSize, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the scroll window padding
+K_Private_Instance Private_SetWindowPadding(K_Private_Instance _Instance, Struct_Box::K_Padding _ScreenWindowPadding, Boolean _IsInit) {
+	if (!_IsInit && _Instance.Properties.WindowPadding.Screen == _ScreenWindowPadding) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+	Instance.Properties.WindowPadding.Screen = _ScreenWindowPadding;
+	Instance.Properties.WindowPadding.Flex = Private_GetFlexPadding(Instance.Properties.WindowPadding.Screen, Instance.Properties.Direction);
+	return Instance;
+}
+K_Private_Instance Private_SetWindowPadding(K_Private_Instance _Instance, Struct_Box::K_Padding _ScreenWindowPadding) {
+	return Private_SetWindowPadding(_Instance, _ScreenWindowPadding, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the scroll mouse step size
+K_Private_Instance Private_SetMouseStepSize(K_Private_Instance _Instance, Vec2 _ScreenMouseStepSize, Boolean _IsInit) {
+	if (!_IsInit && _Instance.Properties.MouseStepSize.Screen == _ScreenMouseStepSize) return _Instance;
+
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.Properties.MouseStepSize.Screen = _ScreenMouseStepSize;
+	Instance.Properties.MouseStepSize.Flex = Private_GetFlexSize(Instance.Properties.MouseStepSize.Screen, Instance.Properties.Direction);
+
+	Instance.Controls.Frame_Scroll.ScrollGrid = Instance.Properties.MouseStepSize.Screen;
+
+	return Instance;
+}
+K_Private_Instance Private_SetMouseStepSize(K_Private_Instance _Instance, Vec2 _ScreenMouseStepSize) {
+	return Private_SetMouseStepSize(_Instance, _ScreenMouseStepSize, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Convert an array of prop values to a properties structure
+K_Private_Properties Private_ToProperties(Text[Text] _PropValueList) {
+	declare K_Private_Properties Properties = C_Private_Properties_Default;
+
+	for (PropName => PropValue in _PropValueList) {
+		switch (PropName) {
+			case C_Prop_ElementSize: Properties.ElementSize.Screen = Cast::ToVec2(PropValue);
+			case C_Prop_GutterSize: Properties.GutterSize.Screen = Cast::ToVec2(PropValue);
+			case C_Prop_LineElementNb: Properties.LineElementNb = Cast::ToInteger(PropValue);
+			case C_Prop_WindowSize: Properties.WindowSize.Screen = Cast::ToVec2(PropValue);
+			case C_Prop_WindowPadding: Properties.WindowPadding.Screen = Struct_Box::ToPadding(PropValue);
+			case C_Prop_MouseStepSize: Properties.MouseStepSize.Screen = Cast::ToVec2(PropValue);
+			case C_Prop_Direction: Properties.Direction = Cast::ToInteger(PropValue);
+			case C_Prop_PreviousLineVisibleRatio: Properties.PreviousLineVisibleRatio = Cast::ToReal(PropValue);
+			case C_Prop_NextLineVisibleRatio: Properties.NextLineVisibleRatio = Cast::ToReal(PropValue);
+			case C_Prop_PreviousLineVisibleLength: Properties.PreviousLineVisibleLength = Cast::ToReal(PropValue);
+			case C_Prop_NextLineVisibleLength: Properties.NextLineVisibleLength = Cast::ToReal(PropValue);
+			case C_Prop_ScrollBarId: Properties.ScrollBarId = PropValue;
+		}
+	}
+
+	return Properties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialiaze mixin instance
+K_Private_Instance Private_InitializeNavigation(K_Private_Instance _Instance) {
+	declare K_Private_Instance Instance = _Instance;
+
+	for (Listener in Instance.NavigationListenerList) {
+		EventEmitter::RemoveListener(Listener);
+	}
+	Instance.NavigationListenerList = [];
+
+	Mixin_Navigation::NewGroup(Instance.Controls.Frame_Scroll, [Instance.Controls.Quad_WindowBackground]);
+	Mixin_Navigation::NewControl_WithMouseActionList(Instance.Controls.Quad_WindowBackground, [
+		Mixin_Navigation::NewAction(Mixin_Navigation::C_ActionInput_Up, Mixin_Navigation::C_ActionType_Null, Null),
+		Mixin_Navigation::NewAction(Mixin_Navigation::C_ActionInput_Down, Mixin_Navigation::C_ActionType_Null, Null),
+		Mixin_Navigation::NewAction(Mixin_Navigation::C_ActionInput_Left, Mixin_Navigation::C_ActionType_Null, Null),
+		Mixin_Navigation::NewAction(Mixin_Navigation::C_ActionInput_Right, Mixin_Navigation::C_ActionType_Null, Null)
+	]);
+
+	declare CMlControl[] GroupControlList = [];
+	for (Element in Instance.ElementList) {
+		GroupControlList.add(Element.Control);
+		Mixin_Navigation::NewControl(Element.Control);
+		Instance.NavigationListenerList.add(
+			EventEmitter::AddListener(Element.Control, [Mixin_Navigation::C_EventType_Focus, Mixin_Navigation::C_EventType_Select])
+		);
+	}
+	if (GroupControlList.count > 0) {
+		Mixin_Navigation::NewGroup(Instance.Controls.Quad_WindowBackground, GroupControlList);
+	}
+
+	Instance.NavigationListenerList.add(
+		EventEmitter::AddListener(Instance.Controls.Frame_Scroll, [Mixin_Navigation::C_EventType_Focus, Mixin_Navigation::C_EventType_Unfocus])
+	);
+
+	Instance = Private_SetIsNavigationEnabled(Instance, Instance.IsNavigationEnabled, True);
+
+	return Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialiaze mixin instance
+Void Private_Init(CMlScript _Context, CMlControl _Control) {
+	assert(_Control is CMlFrame, """[CMGame/Mixins/Scroll@4] The scroll mixin can only be applied to a frame. `#{{{_Control.ControlId}}}` is not a frame.""");
+
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Control = C_Private_Instance_Null;
+	Instance = C_Private_Instance_Null;
+
+	Instance.Controls.Frame_Scroll <=> (_Control as CMlFrame);
+
+	// Sort the different types of controls in the scroll frame
+	for (Control in Instance.Controls.Frame_Scroll.Controls) {
+		if (Control.HasClass(C_Class_WindowBackground)) {
+			assert(Control is CMlQuad, "[CMGame/Mixins/Scroll@4] Control with class `C_Class_WindowBackground` must be a quad.");
+			assert(Instance.Controls.Quad_WindowBackground == Null, "[CMGame/Mixins/Scroll@4] You can only have one control with class `C_Class_WindowBackground` inside the scroll frame.");
+			Instance.Controls.Quad_WindowBackground <=> (Control as CMlQuad);
+		} else if (Control.HasClass(C_Class_Element)) {
+			Control.Visible = False;
+			Instance.ElementList.add(K_Element {
+				Key = C_Private_ElementKey_Null,
+				Control = Control,
+				IsFocused = False
+			});
+		} else if (!Control.HasClass(C_Class_CustomControl)) {
+			assert(False, """[CMGame/Mixins/Scroll@4] Control with id `#{{{Control.ControlId}}}` does not have a valid class. Every control in the scroll frame must use one of the following class: `C_Class_Element`, `C_Class_WindowBackground`, `C_Class_CustomControl`.""");
+		}
+	}
+	assert(Instance.Controls.Quad_WindowBackground != Null, "[CMGame/Mixins/Scroll@4] You must add a quad with the class `C_Class_WindowBackgorund` inside the scroll frame. This quad will be invisible and generate the scroll events.");
+
+	Instance.Properties = Private_ToProperties(MV::GetMixinPropValueList(Instance.Controls.Frame_Scroll, C_PropList));
+
+	Instance.Controls.Quad_WindowBackground.Opacity = 0.;
+	Instance.Controls.Frame_Scroll.ScrollActive = True;
+	Instance.Controls.Frame_Scroll.ScrollMin = <0., 0.>;
+
+	Instance = Private_InitializeNavigation(Instance);
+
+	Instance = Private_SetScrollBarId(_Context, Instance, Instance.Properties.ScrollBarId);
+	Instance = Private_SetElementSize(Instance, Instance.Properties.ElementSize.Screen, True);
+	Instance = Private_SetGutterSize(Instance, Instance.Properties.GutterSize.Screen, True);
+	Instance = Private_SetLineElementNb(Instance, Instance.Properties.LineElementNb, True);
+	Instance = Private_SetWindowSize(Instance, Instance.Properties.WindowSize.Screen, True);
+	Instance = Private_SetWindowPadding(Instance, Instance.Properties.WindowPadding.Screen, True);
+	Instance = Private_SetMouseStepSize(Instance, Instance.Properties.MouseStepSize.Screen, True);
+
+	Instance = Private_SetElementListNb(_Context, Instance, Instance.ElementListCount, True);
+	Instance = Private_SetFocusedElementKey(_Context, Instance, Instance.FocusedElementKey, True);
+	Instance = Private_SetIsFocused(_Context, Instance, Mixin_Navigation::IsFocused(Instance.Controls.Frame_Scroll), True);
+	Instance = Private_SetScrollOffset(_Context, Instance, Instance.Controls.Frame_Scroll.ScrollOffset, Instance.Controls.Frame_Scroll.ScrollAnimOffset, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the page
+Void Private_Hook_PageMainInit(CMlScript _Context) {
+	declare K_Private_State CMGame_MixinsScroll4_State as State for _Context.Page = C_Private_State_Null;
+	State = C_Private_State_Null;
+
+	_Context.Page.GetClassChildren(C_MixinClass, _Context.Page.MainFrame, True);
+	for (Control in _Context.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_Scroll = (Control as CMlFrame); //< Point to the frame instead of the array key
+		State.Frame_Scrolls.add(Frame_Scroll);
+	}
+	for (Frame_Scroll in State.Frame_Scrolls) {
+		Private_Init(_Context, Frame_Scroll);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the events
+Void Private_Hook_PageBeforeManialinkEvents(CMlScript _Context) {
+	declare K_Private_State CMGame_MixinsScroll4_State as State for _Context.Page = C_Private_State_Null;
+	State.PendingEvents = State.CollectEvents;
+	State.CollectEvents = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the page
+Void Private_Hook_PageAfterYield(CMlScript _Context) {
+	if (_Context.PageIsVisible) {
+		declare K_Private_State CMGame_MixinsScroll4_State as State for _Context.Page = C_Private_State_Null;
+		for (Frame_Scroll in State.Frame_Scrolls) {
+			declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for Frame_Scroll = C_Private_Instance_Null;
+			if (Instance.ScrollOffset != Frame_Scroll.ScrollOffset || Instance.ScrollAnimOffset != Frame_Scroll.ScrollAnimOffset) {
+				// Send vertical mouse scroll event
+				if (Instance.ScrollOffset.Y != Frame_Scroll.ScrollOffset.Y) {
+					if (Instance.ScrollOffset.Y < Frame_Scroll.ScrollOffset.Y) {
+						State.CollectEvents.add(K_Event {
+							Type = C_EventType_MouseScrollDown,
+							Frame_Scroll = Frame_Scroll,
+							IsMouse = True
+						});
+					} else {
+						State.CollectEvents.add(K_Event {
+							Type = C_EventType_MouseScrollUp,
+							Frame_Scroll = Frame_Scroll,
+							IsMouse = True
+						});
+					}
+				}
+				// Convert mousewheel vertical scroll into horizontal scroll
+				if (Instance.Properties.Direction == C_Direction_Column && Frame_Scroll.ScrollOffset.Y != 0.) {
+					Frame_Scroll.ScrollOffset.X -= Frame_Scroll.ScrollOffset.Y;
+					Frame_Scroll.ScrollOffset.Y = 0.;
+				}
+				Instance = Private_SetScrollOffset(_Context, Instance, Frame_Scroll.ScrollOffset, Frame_Scroll.ScrollAnimOffset);
+				// Abort animation if user scrolls manually
+				Instance.Animation.IsPlaying = False;
+			} else if (Instance.Animation.IsPlaying) {
+				if (
+					Now > Instance.Animation.StartTime &&
+					Now < Instance.Animation.StartTime + Instance.Animation.Duration
+				) {
+					Instance.Controls.Frame_Scroll.ScrollOffset = <
+						AL::EaseOutQuad(
+							Now - Instance.Animation.StartTime,
+							Instance.Animation.OffsetStart.X,
+							Instance.Animation.OffsetDelta.X,
+							Instance.Animation.Duration
+						),
+						AL::EaseOutQuad(
+							Now - Instance.Animation.StartTime,
+							Instance.Animation.OffsetStart.Y,
+							Instance.Animation.OffsetDelta.Y,
+							Instance.Animation.Duration
+						)
+					>;
+					Instance = Private_SetScrollOffset(_Context, Instance, Frame_Scroll.ScrollOffset, Frame_Scroll.ScrollAnimOffset);
+				} else if (Now >= Instance.Animation.StartTime + Instance.Animation.Duration) {
+					Instance.Animation.IsPlaying = False;
+					Instance.Controls.Frame_Scroll.ScrollOffset = Instance.Animation.OffsetStart + Instance.Animation.OffsetDelta;
+					Instance = Private_SetScrollOffset(_Context, Instance, Frame_Scroll.ScrollOffset, Frame_Scroll.ScrollAnimOffset);
+					Instance.Animation.IsPlaying = False;
+				}
+			}
+
+			if (Instance.Controls.Frame_ScrollBar != Null && Component_ScrollBar::IsMouseDragging(_Context, Instance.Controls.Frame_ScrollBar)) {
+				declare K_Private_FlexVec2 ScrollOffsetFlex = Private_GetFlexPos(Instance.Controls.Frame_Scroll.ScrollOffset, Instance.Properties.Direction);
+				ScrollOffsetFlex.Cross = Private_GetFlexPos(Instance.Controls.Frame_Scroll.ScrollMax, Instance.Properties.Direction).Cross * Component_ScrollBar::GetMouseDraggingScrollRatio(Instance.Controls.Frame_ScrollBar);
+				Instance.Controls.Frame_Scroll.ScrollOffset = Private_GetScreenPos(ScrollOffsetFlex, Instance.Properties.Direction);
+			}
+
+			if (Instance.IsFocused && Instance.IsNavigationEnabled) {
+				for (Input in NavigationInputs::GetInputList(_Context)) {
+					Instance = Private_ApplyInput(_Context, Instance, Input);
+				}
+			}
+
+			for (Event in Mixin_Navigation::FlushListenerList(Instance.NavigationListenerList)) {
+				if (Event.Target == Instance.Controls.Frame_Scroll) {
+					switch (Event.Type) {
+						case Mixin_Navigation::C_EventType_Focus: {
+							Instance = Private_SetIsFocused(_Context, Instance, True);
+						}
+						case Mixin_Navigation::C_EventType_Unfocus: {
+							Instance = Private_SetIsFocused(_Context, Instance, False);
+						}
+					}
+				} else if (Event.Target != Null && Event.Target.HasClass(C_Class_Element)) {
+					switch (Event.Type) {
+						case Mixin_Navigation::C_EventType_Focus: {
+							if (Event.InputType != Mixin_Navigation::C_ActionInput_Null) {
+								Instance = Private_FocusElement(_Context, Instance, Event.Target);
+							}
+						}
+						case Mixin_Navigation::C_EventType_Select: {
+							Instance = Private_SelectElement(_Context, Instance, Event.Target);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the recommended number of elements in one line of scroll
+Integer GetRequiredElementControlNb(Vec2 _WindowSize, Vec2 _ElementSize, Vec2 _GutterSize, Integer _LineElementNb, Integer _Direction) {
+	return Private_GetVisibleLinesNb(_WindowSize, _ElementSize, _GutterSize, _Direction) * _LineElementNb;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the recommended window size to display all the elements of the grid
+Vec2 GetRecommendedWindowSize(Vec2 _ElementSize, Vec2 _GutterSize, Int2 _GridSize, Struct_Box::K_Padding _WindowPadding) {
+	declare Vec2 ElementAndGutterSize = _ElementSize + _GutterSize;
+	return <
+		_WindowPadding.Left + _WindowPadding.Right + (ElementAndGutterSize.X * _GridSize.X) - _GutterSize.X,
+		_WindowPadding.Top + _WindowPadding.Bottom + (ElementAndGutterSize.Y * _GridSize.Y) - _GutterSize.Y
+	>;
+}
+Vec2 GetRecommendedWindowSize(Vec2 _ElementSize, Vec2 _GutterSize, Int2 _GridSize) {
+	return GetRecommendedWindowSize(_ElementSize, _GutterSize, _GridSize, Struct_Box::K_Padding {});
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the size of one scroll element
+Void SetElementSize(CMlFrame _Frame_Scroll, Vec2 _ElementSize) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_SetElementSize(Instance, _ElementSize);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the size of one scroll element
+Vec2 GetElementSize(CMlFrame _Frame_Scroll) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	return Instance.Properties.ElementSize.Screen;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the size of the gutter between the elements
+Void SetGutterSize(CMlFrame _Frame_Scroll, Vec2 _GutterSize) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_SetGutterSize(Instance, _GutterSize);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the size of the gutter between the elements
+Vec2 GetGutterSize(CMlFrame _Frame_Scroll) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	return Instance.Properties.GutterSize.Screen;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the number of elements in one line of scroll
+Void SetLineElementNb(CMlFrame _Frame_Scroll, Integer _LineElementNb) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_SetLineElementNb(Instance, _LineElementNb);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the size of the scroll window
+Void SetWindowSize(CMlFrame _Frame_Scroll, Vec2 _WindowSize) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_SetWindowSize(Instance, _WindowSize);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the padding of the scroll window
+Void SetWindowPadding(CMlFrame _Frame_Scroll, Struct_Box::K_Padding _WindowPadding) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_SetWindowPadding(Instance, _WindowPadding);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the size of one mouse scroll step
+Void SetMouseStepSize(CMlFrame _Frame_Scroll, Vec2 _MouseStepSize) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_SetMouseStepSize(Instance, _MouseStepSize);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Force a refresh of the scroll (size and content)
+Void Refresh(CMlScript _Context, CMlFrame _Frame_Scroll) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_SetElementListNb(_Context, Instance, Instance.ElementListCount, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the number of elements in the scroll
+Void SetElementListNb(CMlScript _Context, CMlFrame _Frame_Scroll, Integer _ElementListCount) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_SetElementListNb(_Context, Instance, _ElementListCount);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the elements displayed in the scroll
+K_Element[] GetElementList(CMlFrame _Frame_Scroll) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	return Instance.ElementList;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the focused element in the scroll
+K_Element GetFocusedElement(CMlFrame _Frame_Scroll) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	return Instance.ElementList.get(Instance.FocusedElementKey, C_Element_Null);
+}
+Integer GetFocusedElementKey(CMlFrame _Frame_Scroll) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	return Instance.FocusedElementKey;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus an element in the scroll
+Void FocusElement(CMlScript _Context, CMlFrame _Frame_Scroll, CMlControl _Control) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_FocusElement(_Context, Instance, _Control);
+}
+Void FocusElementKey(CMlScript _Context, CMlFrame _Frame_Scroll, Integer _ElementKey) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_FocusElementKey(_Context, Instance, _ElementKey);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the state of the navigation in the scroll
+Void SetIsNavigationEnabled(CMlFrame _Frame_Scroll, Boolean _IsNavigationEnabled) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_SetIsNavigationEnabled(Instance, _IsNavigationEnabled);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Scroll to the given ratio
+Void ScrollToRatio(CMlFrame _Frame_Scroll, Real _Ratio, Boolean _IsAnimated) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_ScrollToRatio(Instance, _Ratio, _IsAnimated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the current scroll ratio
+Real GetScrollRatio(CMlFrame _Frame_Scroll) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+
+	declare K_Private_FlexVec2 ScrollOffsetFlex = Private_GetFlexPos(Private_GetScrollOffset(Instance), Instance.Properties.Direction);
+	declare K_Private_FlexVec2 ScrollMaxFlex = Private_GetFlexPos(Instance.Controls.Frame_Scroll.ScrollMax, Instance.Properties.Direction);
+
+	if (ScrollMaxFlex.Cross == 0.) return 0.;
+	return ScrollOffsetFlex.Cross / ScrollMaxFlex.Cross;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Scroll to the element with the given key
+Void ScrollToElementKey(CMlFrame _Frame_Scroll, Integer _ElementKey, Boolean _IsAnimated) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_ScrollToFocusedElementKey(Instance, _ElementKey, _IsAnimated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Scroll to the focused elements
+Void ScrollToFocusedElement(CMlFrame _Frame_Scroll, Boolean _IsAnimated) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_ScrollToFocusedElement(Instance, _IsAnimated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Scroll from ratio to the focused elements
+Void ScrollFromRatioToFocusedElement(CMlFrame _Frame_Scroll, Real _Ratio, Boolean _IsAnimated) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_ScrollFromRatioToFocusedElement(Instance, _Ratio, _IsAnimated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Scroll until the element key is at the top of the scroll window
+Void ScrollToElementKeyTop(CMlFrame _Frame_Scroll, Integer _ElementKey, Real _Offset, Boolean _IsAnimated) {
+	declare K_Private_Instance CMGame_MixinsScroll4_Instance as Instance for _Frame_Scroll = C_Private_Instance_Null;
+	Instance = Private_ScrollToElementKeyTop(Instance, _ElementKey, _Offset, _IsAnimated);
+}
+Void ScrollToElementKeyTop(CMlFrame _Frame_Scroll, Integer _ElementKey, Boolean _IsAnimated) {
+	ScrollToElementKeyTop(_Frame_Scroll, _ElementKey, 0., _IsAnimated);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the events generated by the scroll
+K_Event[] GetPendingEvents(CMlScript _Context) {
+	declare K_Private_State CMGame_MixinsScroll4_State as State for _Context.Page = C_Private_State_Null;
+	return State.PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the mixin
+MV::K_Mixin Mixin() {
+	return MV::K_Mixin {
+		Name = C_MixinName,
+		Path = ScriptName,
+		Class = C_MixinClass,
+		DefineProps = C_PropList,
+		Hooks = [
+			MV::C_Hook_PageMainInit => """{{{C_MixinName}}}::Private_Hook_PageMainInit""",
+			MV::C_Hook_PageBeforeManialinkEvents => """{{{C_MixinName}}}::Private_Hook_PageBeforeManialinkEvents""",
+			MV::C_Hook_PageAfterYield => """{{{C_MixinName}}}::Private_Hook_PageAfterYield"""
+		]
+	};
+}

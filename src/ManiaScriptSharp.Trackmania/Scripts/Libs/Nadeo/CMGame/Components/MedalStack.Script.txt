@@ -1,0 +1,712 @@
+/**
+ * Component: MedalStack
+ */
+#Const Version "1.3.0"
+#Const ScriptName "Libs/Nadeo/CMGame/Components/MedalStack.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-medalstack" //< Component name
+#Const P "ComponentMedalStack_" //< Prefix used to differentiate functions/variables in the script
+
+#Const C_BigMedal_None 0
+#Const C_BigMedal_Horizontal 1
+#Const C_BigMedal_Vertical 2
+#Const C_BigMedal_VerticalSlanted 3
+#Const C_BigMedal_HCentered 4
+#Const C_BigMedal_HRight 5
+
+#Const C_Size_MinThreshold 10.
+#Const C_Size_MediumThreshold 16.
+
+#Const C_Size_MarginStack_Menu 5.
+#Const C_Scale_BigMedal_Menu 1.5
+#Const C_Offset_ToBigMedal_Menu 6.
+
+#Const C_Size_MarginStack_Ingame 9.
+#Const C_Scale_BigMedal_Ingame 1.7
+#Const C_Offset_ToBigMedal_Ingame 8.5
+
+#Const C_Offset_NoBigMedal 22.
+
+declare Text G_ImageMedalUrl;
+declare Text G_ImageMedalCuttedUrl;
+declare Text[] G_ImageUrlList_Medals;
+declare Text[] G_ImageUrlList_Medals_Small;
+declare Text[] G_ImageUrlList_Medals_VerySmall;
+declare Text[] G_ImageUrlList_MedalsWithMipmaps;
+
+declare Text G_ImageUrl_Shadow;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+
+	return MV::Component(
+C_Name,
+"""
+<stylesheet>
+	<style class="quad-medal" halign="left" valign="center" size="12 12" />
+</stylesheet>
+
+<frame id="{{{P}}}frame-align">
+	<frame id="{{{P}}}frame-global">
+		<quad pos="0 0" image="{{{G_ImageMedalCuttedUrl}}}" bgcolor="{{{Medals::GetMedalColorHex6(Medals::C_ScoreMgrMedal_Bronze)}}}" class="quad-medal" autoscale="0" z-index="0" hidden="1" />
+		<quad pos="5 0" image="{{{G_ImageMedalCuttedUrl}}}" bgcolor="{{{Medals::GetMedalColorHex6(Medals::C_ScoreMgrMedal_Silver)}}}" class="quad-medal" autoscale="0" z-index="1" hidden="1" />
+		<quad pos="10 0" image="{{{G_ImageMedalCuttedUrl}}}" bgcolor="{{{Medals::GetMedalColorHex6(Medals::C_ScoreMgrMedal_Gold)}}}" class="quad-medal" autoscale="0" z-index="2" hidden="1" />
+		<quad pos="15 0" image="{{{G_ImageMedalUrl}}}" bgcolor="{{{Medals::GetMedalColorHex6(Medals::C_ScoreMgrMedal_Author)}}}" class="quad-medal" autoscale="0" z-index="3" hidden="1" />
+	</frame>
+	<quad id="quad-shadow-stack" image="{{{G_ImageUrl_Shadow}}}" size="25 6.5" hidden="1" z-index="-1" colorize="000" opacity=".35" halign="center"/>
+	<quad id="quad-shadow-bigmedal" image="{{{G_ImageUrl_Shadow}}}" size="30 8.5" hidden="1" z-index="-1" colorize="000" opacity=".35" halign="center"/>
+</frame>
+""",
+"""
+#Include "TextLib" as {{{P}}}TL
+#Include "MathLib" as {{{P}}}ML
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as {{{P}}}Tools
+""",
+"""
+Void {{{P}}}SetMedalsNumber(CMlControl _FrameInstance_Medals, Integer _MedalsNumber) {
+	if (_FrameInstance_Medals == Null || !(_FrameInstance_Medals is CMlFrame)) return;
+
+	_FrameInstance_Medals.Visible = _MedalsNumber > 0;
+	declare CMlFrame Frame_Align <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("{{{P}}}frame-align") as CMlFrame);
+	declare CMlFrame Frame_Global <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("{{{P}}}frame-global") as CMlFrame);
+	if (Frame_Global == Null || Frame_Align == Null) return;
+
+	declare Boolean IsInit for _FrameInstance_Medals = False;
+	declare Integer BigMedalDirection for _FrameInstance_Medals = {{{C_BigMedal_None}}};
+	declare Boolean IsColorize for _FrameInstance_Medals = True;
+	declare Text[] ImageUrlList_Medals for _FrameInstance_Medals = {{{dump(G_ImageUrlList_Medals)}}};
+	declare Text[] ImageUrlList_Medals_Small for _FrameInstance_Medals = {{{dump(G_ImageUrlList_Medals_Small)}}};
+	declare Text[] ImageUrlList_Medals_VerySmall for _FrameInstance_Medals = {{{dump(G_ImageUrlList_Medals_VerySmall)}}};
+	declare Text[] ImageUrlList_MedalsWithMipmaps for _FrameInstance_Medals = {{{dump(G_ImageUrlList_MedalsWithMipmaps)}}};
+	declare Boolean IsIngame for _FrameInstance_Medals = False;
+	declare Boolean DisplayShadows for _FrameInstance_Medals = False;
+	declare Real MedalOffset for _FrameInstance_Medals = 0.;
+	declare Real BigMedalOffset for _FrameInstance_Medals = 0.;
+	declare Real BigMedalYOffset for _FrameInstance_Medals = 15.;
+	declare Real MedalSize for _FrameInstance_Medals = 12.;
+	declare Real Scale_BigMedal for _FrameInstance_Medals = -1.;
+
+	if (!IsInit) {
+		if (_FrameInstance_Medals.DataAttributeExists("bigmedaldirection")) {
+			BigMedalDirection = {{{P}}}TL::ToInteger(_FrameInstance_Medals.DataAttributeGet("bigmedaldirection"));
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("iscolorize")) {
+			IsColorize = {{{P}}}Tools::GetBooleanAttribute(_FrameInstance_Medals, "iscolorize");
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("isingame")) {
+			IsIngame = {{{P}}}Tools::GetBooleanAttribute(_FrameInstance_Medals, "isingame");
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("displayshadows")) {
+			DisplayShadows = {{{P}}}Tools::GetBooleanAttribute(_FrameInstance_Medals, "displayshadows");
+
+			declare CMlQuad Quad_ShadowStack <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("quad-shadow-stack") as CMlQuad);
+			declare CMlQuad Quad_ShadowBigMedal <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("quad-shadow-bigmedal") as CMlQuad);
+
+			Quad_ShadowStack.Visible = DisplayShadows;
+			Quad_ShadowBigMedal.Visible = DisplayShadows;
+			Quad_ShadowStack.ChangeImageUrl("{{{G_ImageUrl_Shadow}}}");
+			Quad_ShadowBigMedal.ChangeImageUrl("{{{G_ImageUrl_Shadow}}}");
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("medaloffset")) {
+			MedalOffset = {{{P}}}TL::ToReal(_FrameInstance_Medals.DataAttributeGet("medaloffset"));
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("bigmedaloffset")) {
+			BigMedalOffset = {{{P}}}TL::ToReal(_FrameInstance_Medals.DataAttributeGet("bigmedaloffset"));
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("bigmedalyoffset")) {
+			BigMedalYOffset = {{{P}}}TL::ToReal(_FrameInstance_Medals.DataAttributeGet("bigmedalyoffset"));
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("medalsize")) {
+			MedalSize = {{{P}}}TL::ToReal(_FrameInstance_Medals.DataAttributeGet("medalsize"));
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("bigmedalscale")) {
+			Scale_BigMedal = {{{P}}}TL::ToReal(_FrameInstance_Medals.DataAttributeGet("bigmedalscale"));
+		}
+	}
+
+	declare Real Offset_ToBigMedal;
+	if (IsIngame) {
+		if (MedalOffset == 0.) MedalOffset = {{{C_Size_MarginStack_Ingame}}};
+		if (Scale_BigMedal == -1.) Scale_BigMedal = {{{C_Scale_BigMedal_Ingame}}};
+		if (BigMedalOffset == 0.) Offset_ToBigMedal = {{{C_Offset_ToBigMedal_Ingame}}};
+		else Offset_ToBigMedal = BigMedalOffset;
+	} else {
+		if (MedalOffset == 0.) MedalOffset = {{{C_Size_MarginStack_Menu}}};
+		if (Scale_BigMedal == -1.) Scale_BigMedal = {{{C_Scale_BigMedal_Menu}}};
+		if (BigMedalOffset == 0.) Offset_ToBigMedal = {{{C_Offset_ToBigMedal_Menu}}};
+		else Offset_ToBigMedal = BigMedalOffset;
+	}
+
+	declare Real SizeStack;
+	if (BigMedalDirection == {{{C_BigMedal_None}}} || BigMedalDirection == {{{C_BigMedal_HCentered}}} || BigMedalDirection == {{{C_BigMedal_HRight}}}) {
+		SizeStack = _MedalsNumber * MedalSize - {{{P}}}ML::Max(0, _MedalsNumber-1) * MedalOffset;
+	} else {
+		SizeStack = (_MedalsNumber-1) * MedalSize - {{{P}}}ML::Max(0, _MedalsNumber-2) * MedalOffset;
+	}
+
+	if (DisplayShadows) {
+		declare CMlQuad Quad_ShadowStack <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("quad-shadow-stack") as CMlQuad);
+		declare CMlQuad Quad_ShadowBigMedal <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("quad-shadow-bigmedal") as CMlQuad);
+
+		Quad_ShadowStack.Visible = _MedalsNumber > 0;
+		Quad_ShadowBigMedal.Visible = (
+			_MedalsNumber > 1 &&
+			BigMedalDirection != {{{C_BigMedal_None}}} &&
+			BigMedalDirection != {{{C_BigMedal_HCentered}}} &&
+			BigMedalDirection != {{{C_BigMedal_HRight}}} &&
+			BigMedalDirection != {{{C_BigMedal_VerticalSlanted}}}
+		);
+
+		switch (BigMedalDirection) {
+			case {{{C_BigMedal_None}}}: {
+				Quad_ShadowStack.Size.X = SizeStack + MedalSize - MedalOffset * {{{P}}}ML::Clamp(_MedalsNumber-1, 0, 1);
+				declare PosX = {{{C_Offset_NoBigMedal}}} - (((_MedalsNumber-1)%2)*((MedalSize- MedalOffset)/2.) + ((_MedalsNumber-1)/2) * (MedalSize-MedalOffset) - 3.);
+				Quad_ShadowStack.RelativePosition_V3 = <PosX, -3.25>;
+			}
+			case {{{C_BigMedal_Horizontal}}}: {
+				declare PosX = (MedalSize * Scale_BigMedal) /2. - SizeStack/2. + Offset_ToBigMedal;
+				Quad_ShadowStack.RelativePosition_V3 = <PosX, -7.>;
+				Quad_ShadowBigMedal.RelativePosition_V3 = <(MedalSize * Scale_BigMedal)/2.+10., -10.>;
+			}
+			case {{{C_BigMedal_Vertical}}}: {
+				Quad_ShadowStack.RelativePosition_V3 = <0., -7.>;
+				Quad_ShadowBigMedal.RelativePosition_V3 = <-(MedalSize * Scale_BigMedal)/2., 5.>;
+			}
+			case {{{C_BigMedal_VerticalSlanted}}}: {
+				Quad_ShadowStack.RelativePosition_V3 = <0., -5.>;
+			}
+			case {{{C_BigMedal_HCentered}}}, {{{C_BigMedal_HRight}}}: {
+				Quad_ShadowStack.RelativePosition_V3 = <SizeStack/2., -5.>;
+			}
+		}
+	}
+
+	foreach (Index => Control in Frame_Global.Controls) {
+		Control.Visible = Index < _MedalsNumber;
+		declare Quad_Medal = (Control as CMlQuad);
+
+		Quad_Medal.Size = <MedalSize, MedalSize>;
+
+		if (IsInit && IsColorize) {
+			switch (Index) {
+				case 0: Quad_Medal.Colorize = {{{dump(Medals::GetMedalColorRGB(Medals::C_ScoreMgrMedal_Bronze))}}};
+				case 1: Quad_Medal.Colorize = {{{dump(Medals::GetMedalColorRGB(Medals::C_ScoreMgrMedal_Silver))}}};
+				case 2: Quad_Medal.Colorize = {{{dump(Medals::GetMedalColorRGB(Medals::C_ScoreMgrMedal_Gold))}}};
+				case 3: Quad_Medal.Colorize = {{{dump(Medals::GetMedalColorRGB(Medals::C_ScoreMgrMedal_Author))}}};
+			}
+		}
+
+		if (Index < _MedalsNumber-1) {
+			Quad_Medal.RelativeScale = 1.;
+
+			if (ImageUrlList_MedalsWithMipmaps.existskey(Index)) {
+				Quad_Medal.ChangeImageUrl(ImageUrlList_MedalsWithMipmaps[Index]);
+			} else {
+				declare Real MedalAbsoluteSize = MedalSize * Quad_Medal.AbsoluteScale;
+				if (MedalAbsoluteSize < {{{C_Size_MinThreshold}}}) {
+					if (ImageUrlList_Medals_VerySmall.count > 0) {
+						if (ImageUrlList_Medals_VerySmall.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals_VerySmall[Index]);
+					} else if (ImageUrlList_Medals_Small.count > 0) {
+						if (ImageUrlList_Medals_Small.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals_Small[Index]);
+					} else {
+						Quad_Medal.ChangeImageUrl("{{{G_ImageMedalCuttedUrl}}}");
+					}
+				} else if (MedalAbsoluteSize < {{{C_Size_MediumThreshold}}}) {
+					if ((ImageUrlList_Medals_Small.count > 0)) {
+						if (ImageUrlList_Medals_Small.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals_Small[Index]);
+					} else if (ImageUrlList_Medals.count > 0) {
+						if (ImageUrlList_Medals.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals[Index]);
+					} else {
+						Quad_Medal.ChangeImageUrl("{{{G_ImageMedalCuttedUrl}}}");
+					}
+				} else {
+					if (ImageUrlList_Medals.count > 0) {
+						if (ImageUrlList_Medals.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals[Index]);
+					} else if (ImageUrlList_Medals_Small.count > 0) {
+						if (ImageUrlList_Medals_Small.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals_Small[Index]);
+					} else {
+						Quad_Medal.ChangeImageUrl("{{{G_ImageMedalCuttedUrl}}}");
+					}
+				}
+			}
+
+			switch (BigMedalDirection) {
+				case {{{C_BigMedal_None}}}: {
+					declare PosX = - SizeStack + (Quad_Medal.Size.X * (Index)) - (MedalOffset * {{{P}}}ML::Max(Index-1, 0)) + {{{C_Offset_NoBigMedal}}};
+					if (Index == 0) PosX += Quad_Medal.Size.X - MedalOffset/4.;
+					Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+				}
+				case {{{C_BigMedal_Horizontal}}}: {
+					declare PosX = (Quad_Medal.Size.X * Scale_BigMedal) /2. - SizeStack + Quad_Medal.Size.X * Index - Index * MedalOffset + Offset_ToBigMedal;
+					Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+				}
+				case {{{C_BigMedal_Vertical}}}: {
+					declare PosX = - SizeStack/2. + Quad_Medal.Size.X * Index - Index * MedalOffset;
+					Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+				}
+				case {{{C_BigMedal_VerticalSlanted}}}: {
+					declare PosX = - SizeStack/2. + Quad_Medal.Size.X * Index - Index * MedalOffset;
+					Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+				}
+				case {{{C_BigMedal_HCentered}}}, {{{C_BigMedal_HRight}}}: {
+					declare PosX = Index * (Quad_Medal.Size.X - MedalOffset);
+					Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+				}
+			}
+		} else {
+			switch (BigMedalDirection) {
+				case {{{C_BigMedal_None}}}: {
+					declare PosX = - SizeStack + (Quad_Medal.Size.X * (Index)) - (MedalOffset * {{{P}}}ML::Max(Index-1, 0)) + {{{C_Offset_NoBigMedal}}};
+					if (Index == 0) PosX += Quad_Medal.Size.X/2.+ MedalOffset/4.;
+					Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+				}
+				case {{{C_BigMedal_Horizontal}}}: {
+					declare PosX = (Quad_Medal.Size.X * Scale_BigMedal)/2.;
+					Quad_Medal.RelativeScale = Scale_BigMedal;
+					Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+				}
+				case {{{C_BigMedal_Vertical}}}: {
+					declare PosX = (- Quad_Medal.Size.X * Scale_BigMedal) /2.;
+					Quad_Medal.RelativeScale = Scale_BigMedal;
+					Quad_Medal.RelativePosition_V3 = <PosX, BigMedalYOffset>;
+				}
+				case {{{C_BigMedal_VerticalSlanted}}}: {
+					declare PosX = (- Quad_Medal.Size.X * Scale_BigMedal) /2. + 5.;
+					Quad_Medal.RelativeScale = Scale_BigMedal;
+					Quad_Medal.RelativePosition_V3 = <PosX, BigMedalYOffset>;
+				}
+				case {{{C_BigMedal_HCentered}}}, {{{C_BigMedal_HRight}}}: {
+					declare PosX = Index * (Quad_Medal.Size.X - MedalOffset);
+					Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+				}
+			}
+
+			if (ImageUrlList_MedalsWithMipmaps.existskey(Index)) {
+				Quad_Medal.ChangeImageUrl(ImageUrlList_MedalsWithMipmaps[Index]);
+			} else {
+				declare Real MedalAbsoluteSize = MedalSize * Quad_Medal.AbsoluteScale;
+				if (MedalAbsoluteSize < {{{C_Size_MinThreshold}}}) {
+					if (ImageUrlList_Medals_VerySmall.count > 0) {
+						if (ImageUrlList_Medals_VerySmall.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals_VerySmall[Index]);
+					} else if (ImageUrlList_Medals_Small.count > 0) {
+						if (ImageUrlList_Medals_Small.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals_Small[Index]);
+					} else {
+						Quad_Medal.ChangeImageUrl("{{{G_ImageMedalUrl}}}");
+					}
+				} else if (MedalAbsoluteSize < {{{C_Size_MediumThreshold}}}) {
+					if ((ImageUrlList_Medals_Small.count > 0)) {
+						if (ImageUrlList_Medals_Small.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals_Small[Index]);
+					} else if (ImageUrlList_Medals.count > 0) {
+						if (ImageUrlList_Medals.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals[Index]);
+					} else {
+						Quad_Medal.ChangeImageUrl("{{{G_ImageMedalUrl}}}");
+					}
+				} else {
+					if (ImageUrlList_Medals.count > 0) {
+						if (ImageUrlList_Medals.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals[Index]);
+					} else if (ImageUrlList_Medals_Small.count > 0) {
+						if (ImageUrlList_Medals_Small.existskey(Index)) Quad_Medal.ChangeImageUrl(ImageUrlList_Medals_Small[Index]);
+					} else {
+						Quad_Medal.ChangeImageUrl("{{{G_ImageMedalUrl}}}");
+					}
+				}
+			}
+		}
+	}
+
+	if (BigMedalDirection == {{{C_BigMedal_HCentered}}}) {
+		Frame_Align.RelativePosition_V3.X = -SizeStack/2;
+	}
+
+	IsInit = True;
+}
+""",
+[],
+[]
+	);
+}
+
+Void Private_SetMedalPosition_ShadowStack(
+	CMlQuad _Quad_ShadowStack,
+	CMlQuad _Quad_ShadowBigMedal,
+	Real _SizeStack,
+	Real _Scale_BigMedal,
+	Real _MedalSize,
+	Real _MedalOffset,
+	Real _Offset_ToBigMedal,
+	Integer _MedalsNumber,
+	Integer _BigMedalDirection
+) {
+	switch (_BigMedalDirection) {
+		case C_BigMedal_None: {
+			_Quad_ShadowStack.Size.X = _SizeStack + _MedalSize - _MedalOffset * ML::Clamp(_MedalsNumber-1, 0, 1);
+			declare Real PosX = C_Offset_NoBigMedal - (((_MedalsNumber-1)%2)*((_MedalSize- _MedalOffset)/2.) + ((_MedalsNumber-1)/2) * (_MedalSize-_MedalOffset) - 3.);
+			_Quad_ShadowStack.RelativePosition_V3 = <PosX, -3.25>;
+		}
+		case C_BigMedal_Horizontal: {
+			declare Real PosX = (_MedalSize * _Scale_BigMedal) /2. - _SizeStack/2. + _Offset_ToBigMedal;
+			_Quad_ShadowStack.RelativePosition_V3 = <PosX, -7.>;
+			_Quad_ShadowBigMedal.RelativePosition_V3 = <(_MedalSize * _Scale_BigMedal)/2.+10., -10.>;
+		}
+		case C_BigMedal_Vertical: {
+			_Quad_ShadowStack.RelativePosition_V3 = <0., -7.>;
+			_Quad_ShadowBigMedal.RelativePosition_V3 = <-(_MedalSize * _Scale_BigMedal)/2., 5.>;
+		}
+		case C_BigMedal_VerticalSlanted: {
+			_Quad_ShadowStack.RelativePosition_V3 = <0., -5.>;
+		}
+		case C_BigMedal_HCentered, C_BigMedal_HRight: {
+			_Quad_ShadowStack.RelativePosition_V3 = <_SizeStack/2., -5.>;
+		}
+	}
+}
+
+Void Private_SetMedalPosition_Enabled(
+	CMlQuad _Quad_Medal,
+	Real _SizeStack,
+	Real _Scale_BigMedal,
+	Real _MedalOffset,
+	Real _Offset_ToBigMedal,
+	Integer _BigMedalDirection,
+	Integer _Index
+) {
+	switch (_BigMedalDirection) {
+		case C_BigMedal_None: {
+			declare Real PosX = - _SizeStack + (_Quad_Medal.Size.X * (_Index)) - (_MedalOffset * ML::Max(_Index-1, 0)) + C_Offset_NoBigMedal;
+			if (_Index == 0) PosX += _Quad_Medal.Size.X - _MedalOffset/4.;
+			_Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+		}
+		case C_BigMedal_Horizontal: {
+			declare Real PosX = (_Quad_Medal.Size.X * _Scale_BigMedal) /2. - _SizeStack + _Quad_Medal.Size.X * _Index - _Index * _MedalOffset + _Offset_ToBigMedal;
+			_Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+		}
+		case C_BigMedal_Vertical: {
+			declare Real PosX = - _SizeStack/2. + _Quad_Medal.Size.X * _Index - _Index * _MedalOffset;
+			_Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+		}
+		case C_BigMedal_VerticalSlanted: {
+			declare Real PosX = - _SizeStack/2. + _Quad_Medal.Size.X * _Index - _Index * _MedalOffset;
+			_Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+		}
+		case C_BigMedal_HCentered, C_BigMedal_HRight: {
+			declare Real PosX = _Index * (_Quad_Medal.Size.X - _MedalOffset);
+			_Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+		}
+	}
+}
+
+Void Private_SetMedalImage_Enabled(
+	CMlQuad _Quad_Medal,
+	Text[] _ImageUrlList_MedalsWithMipmaps,
+	Text[] _ImageUrlList_Medals_VerySmall,
+	Text[] _ImageUrlList_Medals_Small,
+	Text[] _ImageUrlList_Medals,
+	Real _MedalSize,
+	Integer _Index
+) {
+	if (_ImageUrlList_MedalsWithMipmaps.existskey(_Index)) {
+		_Quad_Medal.ChangeImageUrl(_ImageUrlList_MedalsWithMipmaps[_Index]);
+	} else {
+		declare Real MedalAbsoluteSize = _MedalSize * _Quad_Medal.AbsoluteScale;
+		if (MedalAbsoluteSize < C_Size_MinThreshold) {
+			if (_ImageUrlList_Medals_VerySmall.count > 0) {
+				if (_ImageUrlList_Medals_VerySmall.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals_VerySmall[_Index]);
+			} else if (_ImageUrlList_Medals_Small.count > 0) {
+				if (_ImageUrlList_Medals_Small.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals_Small[_Index]);
+			} else {
+				_Quad_Medal.ChangeImageUrl(G_ImageMedalCuttedUrl);
+			}
+		} else if (MedalAbsoluteSize < C_Size_MediumThreshold) {
+			if ((_ImageUrlList_Medals_Small.count > 0)) {
+				if (_ImageUrlList_Medals_Small.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals_Small[_Index]);
+			} else if (_ImageUrlList_Medals.count > 0) {
+				if (_ImageUrlList_Medals.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals[_Index]);
+			} else {
+				_Quad_Medal.ChangeImageUrl(G_ImageMedalCuttedUrl);
+			}
+		} else {
+			if (_ImageUrlList_Medals.count > 0) {
+				if (_ImageUrlList_Medals.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals[_Index]);
+			} else if (_ImageUrlList_Medals_Small.count > 0) {
+				if (_ImageUrlList_Medals_Small.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals_Small[_Index]);
+			} else {
+				_Quad_Medal.ChangeImageUrl(G_ImageMedalCuttedUrl);
+			}
+		}
+	}
+}
+
+Void Private_SetMedalPosition_Disabled(
+	CMlQuad _Quad_Medal,
+	Real _SizeStack,
+	Real _Scale_BigMedal,
+	Real _MedalOffset,
+	Real _BigMedalYOffset,
+	Integer _BigMedalDirection,
+	Integer _Index
+) {
+	switch (_BigMedalDirection) {
+		case C_BigMedal_None: {
+			declare Real PosX = - _SizeStack + (_Quad_Medal.Size.X * (_Index)) - (_MedalOffset * ML::Max(_Index-1, 0)) + C_Offset_NoBigMedal;
+			if (_Index == 0) PosX += _Quad_Medal.Size.X/2.+ _MedalOffset/4.;
+			_Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+		}
+		case C_BigMedal_Horizontal: {
+			declare Real PosX = (_Quad_Medal.Size.X * _Scale_BigMedal)/2.;
+			_Quad_Medal.RelativeScale = _Scale_BigMedal;
+			_Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+		}
+		case C_BigMedal_Vertical: {
+			declare Real PosX = (- _Quad_Medal.Size.X * _Scale_BigMedal) /2.;
+			_Quad_Medal.RelativeScale = _Scale_BigMedal;
+			_Quad_Medal.RelativePosition_V3 = <PosX, _BigMedalYOffset>;
+		}
+		case C_BigMedal_VerticalSlanted: {
+			declare Real PosX = (- _Quad_Medal.Size.X * _Scale_BigMedal) /2. + 5.;
+			_Quad_Medal.RelativeScale = _Scale_BigMedal;
+			_Quad_Medal.RelativePosition_V3 = <PosX, _BigMedalYOffset>;
+		}
+		case C_BigMedal_HCentered, C_BigMedal_HRight: {
+			declare Real PosX = _Index * (_Quad_Medal.Size.X - _MedalOffset);
+			_Quad_Medal.RelativePosition_V3 = <PosX, 0.>;
+		}
+	}
+}
+
+Void Private_SetMedalImage_Disabled(
+	CMlQuad _Quad_Medal,
+	Text[] _ImageUrlList_MedalsWithMipmaps,
+	Text[] _ImageUrlList_Medals_VerySmall,
+	Text[] _ImageUrlList_Medals_Small,
+	Text[] _ImageUrlList_Medals,
+	Real _MedalSize,
+	Integer _Index
+) {
+	if (_ImageUrlList_MedalsWithMipmaps.existskey(_Index)) {
+		_Quad_Medal.ChangeImageUrl(_ImageUrlList_MedalsWithMipmaps[_Index]);
+	} else {
+		declare Real MedalAbsoluteSize = _MedalSize * _Quad_Medal.AbsoluteScale;
+		if (MedalAbsoluteSize < C_Size_MinThreshold) {
+			if (_ImageUrlList_Medals_VerySmall.count > 0) {
+				if (_ImageUrlList_Medals_VerySmall.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals_VerySmall[_Index]);
+			} else if (_ImageUrlList_Medals_Small.count > 0) {
+				if (_ImageUrlList_Medals_Small.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals_Small[_Index]);
+			} else {
+				_Quad_Medal.ChangeImageUrl(G_ImageMedalUrl);
+			}
+		} else if (MedalAbsoluteSize < C_Size_MediumThreshold) {
+			if ((_ImageUrlList_Medals_Small.count > 0)) {
+				if (_ImageUrlList_Medals_Small.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals_Small[_Index]);
+			} else if (_ImageUrlList_Medals.count > 0) {
+				if (_ImageUrlList_Medals.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals[_Index]);
+			} else {
+				_Quad_Medal.ChangeImageUrl(G_ImageMedalUrl);
+			}
+		} else {
+			if (_ImageUrlList_Medals.count > 0) {
+				if (_ImageUrlList_Medals.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals[_Index]);
+			} else if (_ImageUrlList_Medals_Small.count > 0) {
+				if (_ImageUrlList_Medals_Small.existskey(_Index)) _Quad_Medal.ChangeImageUrl(_ImageUrlList_Medals_Small[_Index]);
+			} else {
+				_Quad_Medal.ChangeImageUrl(G_ImageMedalUrl);
+			}
+		}
+	}
+}
+
+Void SetMedalsNumber(CMlControl _FrameInstance_Medals, Integer _MedalsNumber) {
+	if (_FrameInstance_Medals == Null || !(_FrameInstance_Medals is CMlFrame)) return;
+
+	_FrameInstance_Medals.Visible = _MedalsNumber > 0;
+	declare CMlFrame Frame_Align <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("""{{{P}}}frame-align""") as CMlFrame);
+	declare CMlFrame Frame_Global <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("""{{{P}}}frame-global""") as CMlFrame);
+	if (Frame_Global == Null || Frame_Align == Null) return;
+
+	declare Boolean IsInit for _FrameInstance_Medals = False;
+	declare Integer BigMedalDirection for _FrameInstance_Medals = C_BigMedal_None;
+	declare Boolean IsColorize for _FrameInstance_Medals = True;
+	declare Text[] ImageUrlList_Medals for _FrameInstance_Medals = G_ImageUrlList_Medals;
+	declare Text[] ImageUrlList_Medals_Small for _FrameInstance_Medals = G_ImageUrlList_Medals_Small;
+	declare Text[] ImageUrlList_Medals_VerySmall for _FrameInstance_Medals = G_ImageUrlList_Medals_VerySmall;
+	declare Text[] ImageUrlList_MedalsWithMipmaps for _FrameInstance_Medals = G_ImageUrlList_MedalsWithMipmaps;
+	declare Boolean IsIngame for _FrameInstance_Medals = False;
+	declare Boolean DisplayShadows for _FrameInstance_Medals = False;
+	declare Real MedalOffset for _FrameInstance_Medals = 0.;
+	declare Real BigMedalOffset for _FrameInstance_Medals = 0.;
+	declare Real BigMedalYOffset for _FrameInstance_Medals = 15.;
+	declare Real MedalSize for _FrameInstance_Medals = 12.;
+	declare Real Scale_BigMedal for _FrameInstance_Medals = -1.;
+
+	if (!IsInit) {
+		if (_FrameInstance_Medals.DataAttributeExists("bigmedaldirection")) {
+			BigMedalDirection = TL::ToInteger(_FrameInstance_Medals.DataAttributeGet("bigmedaldirection"));
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("iscolorize")) {
+			IsColorize = Tools::GetBooleanAttribute(_FrameInstance_Medals, "iscolorize");
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("isingame")) {
+			IsIngame = Tools::GetBooleanAttribute(_FrameInstance_Medals, "isingame");
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("displayshadows")) {
+			DisplayShadows = Tools::GetBooleanAttribute(_FrameInstance_Medals, "displayshadows");
+
+			declare CMlQuad Quad_ShadowStack <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("quad-shadow-stack") as CMlQuad);
+			declare CMlQuad Quad_ShadowBigMedal <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("quad-shadow-bigmedal") as CMlQuad);
+
+			Quad_ShadowStack.Visible = DisplayShadows;
+			Quad_ShadowBigMedal.Visible = DisplayShadows;
+			Quad_ShadowStack.ChangeImageUrl(G_ImageUrl_Shadow);
+			Quad_ShadowBigMedal.ChangeImageUrl(G_ImageUrl_Shadow);
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("medaloffset")) {
+			MedalOffset = TL::ToReal(_FrameInstance_Medals.DataAttributeGet("medaloffset"));
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("bigmedaloffset")) {
+			BigMedalOffset = TL::ToReal(_FrameInstance_Medals.DataAttributeGet("bigmedaloffset"));
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("bigmedalyoffset")) {
+			BigMedalYOffset = TL::ToReal(_FrameInstance_Medals.DataAttributeGet("bigmedalyoffset"));
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("medalsize")) {
+			MedalSize = TL::ToReal(_FrameInstance_Medals.DataAttributeGet("medalsize"));
+		}
+		if (_FrameInstance_Medals.DataAttributeExists("bigmedalscale")) {
+			Scale_BigMedal = TL::ToReal(_FrameInstance_Medals.DataAttributeGet("bigmedalscale"));
+		}
+	}
+
+	declare Real Offset_ToBigMedal;
+	if (IsIngame) {
+		if (MedalOffset == 0.) MedalOffset = C_Size_MarginStack_Ingame;
+		if (Scale_BigMedal == -1.) Scale_BigMedal = C_Scale_BigMedal_Ingame;
+		if (BigMedalOffset == 0.) Offset_ToBigMedal = C_Offset_ToBigMedal_Ingame;
+		else Offset_ToBigMedal = BigMedalOffset;
+	} else {
+		if (MedalOffset == 0.) MedalOffset = C_Size_MarginStack_Menu;
+		if (Scale_BigMedal == -1.) Scale_BigMedal = C_Scale_BigMedal_Menu;
+		if (BigMedalOffset == 0.) Offset_ToBigMedal = C_Offset_ToBigMedal_Menu;
+		else Offset_ToBigMedal = BigMedalOffset;
+	}
+
+	declare Real SizeStack;
+	if (BigMedalDirection == C_BigMedal_None || BigMedalDirection == C_BigMedal_HCentered || BigMedalDirection == C_BigMedal_HRight) {
+		SizeStack = _MedalsNumber * MedalSize - ML::Max(0, _MedalsNumber-1) * MedalOffset;
+	} else {
+		SizeStack = (_MedalsNumber-1) * MedalSize - ML::Max(0, _MedalsNumber-2) * MedalOffset;
+	}
+
+	if (DisplayShadows) {
+		declare CMlQuad Quad_ShadowStack <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("quad-shadow-stack") as CMlQuad);
+		declare CMlQuad Quad_ShadowBigMedal <=> ((_FrameInstance_Medals as CMlFrame).GetFirstChild("quad-shadow-bigmedal") as CMlQuad);
+
+		Quad_ShadowStack.Visible = _MedalsNumber > 0;
+		Quad_ShadowBigMedal.Visible = (
+			_MedalsNumber > 1 &&
+			BigMedalDirection != C_BigMedal_None &&
+			BigMedalDirection != C_BigMedal_HCentered &&
+			BigMedalDirection != C_BigMedal_HRight &&
+			BigMedalDirection != C_BigMedal_VerticalSlanted
+		);
+
+		Private_SetMedalPosition_ShadowStack(Quad_ShadowStack, Quad_ShadowBigMedal, SizeStack, Scale_BigMedal, MedalSize, MedalOffset, Offset_ToBigMedal, _MedalsNumber, BigMedalDirection);
+	}
+
+	foreach (Index => Control in Frame_Global.Controls) {
+		Control.Visible = Index < _MedalsNumber;
+		declare CMlQuad Quad_Medal = (Control as CMlQuad);
+
+		Quad_Medal.Size = <MedalSize, MedalSize>;
+
+		if (IsInit && IsColorize) {
+			switch (Index) {
+				case 0: Quad_Medal.Colorize = Medals::GetMedalColorRGB(Medals::C_ScoreMgrMedal_Bronze);
+				case 1: Quad_Medal.Colorize = Medals::GetMedalColorRGB(Medals::C_ScoreMgrMedal_Silver);
+				case 2: Quad_Medal.Colorize = Medals::GetMedalColorRGB(Medals::C_ScoreMgrMedal_Gold);
+				case 3: Quad_Medal.Colorize = Medals::GetMedalColorRGB(Medals::C_ScoreMgrMedal_Author);
+			}
+		}
+
+		if (Index < _MedalsNumber-1) {
+			Quad_Medal.RelativeScale = 1.;
+
+			Private_SetMedalImage_Enabled(Quad_Medal, ImageUrlList_MedalsWithMipmaps, ImageUrlList_Medals_VerySmall, ImageUrlList_Medals_Small, ImageUrlList_Medals, MedalSize, Index);
+			Private_SetMedalPosition_Enabled(Quad_Medal, SizeStack, Scale_BigMedal, MedalOffset, Offset_ToBigMedal, BigMedalDirection, Index);
+		} else {
+			Private_SetMedalPosition_Disabled(Quad_Medal, SizeStack, Scale_BigMedal, MedalOffset, BigMedalYOffset, BigMedalDirection, Index);
+			Private_SetMedalImage_Disabled(Quad_Medal, ImageUrlList_MedalsWithMipmaps, ImageUrlList_Medals_VerySmall, ImageUrlList_Medals_Small, ImageUrlList_Medals, MedalSize, Index);
+		}
+	}
+
+	if (BigMedalDirection == C_BigMedal_HCentered) {
+		Frame_Align.RelativePosition_V3.X = -SizeStack/2;
+	}
+
+	IsInit = True;
+}
+
+Void Unload() {
+	G_ImageMedalUrl = "";
+	G_ImageMedalCuttedUrl = "";
+	G_ImageUrlList_Medals = [];
+	G_ImageUrlList_Medals_Small = [];
+	G_ImageUrlList_Medals_VerySmall = [];
+	G_ImageUrl_Shadow = "";
+}
+
+Void Load(Text _ImageMedalUrl, Text _ImageMedalCuttedUrl) {
+	G_ImageMedalUrl = _ImageMedalUrl;
+	G_ImageMedalCuttedUrl = _ImageMedalCuttedUrl;
+	G_ImageUrlList_Medals = [];
+}
+
+Void Load(Text _ImageMedalUrl, Text _ImageMedalCuttedUrl, Text[] _ImageUrlList_Medals) {
+	G_ImageMedalUrl = _ImageMedalUrl;
+	G_ImageMedalCuttedUrl = _ImageMedalCuttedUrl;
+	G_ImageUrlList_Medals = _ImageUrlList_Medals;
+}
+
+Void Load(Text[] _ImageUrlList_MedalsWithMipmaps, Text _ImageUrl_Shadow) {
+	G_ImageMedalUrl = "";
+	G_ImageMedalCuttedUrl = "";
+	G_ImageUrlList_MedalsWithMipmaps = _ImageUrlList_MedalsWithMipmaps;
+	G_ImageUrl_Shadow = _ImageUrl_Shadow;
+}
+
+Void Load(Text[] _ImageUrlList_Medals, Text[] _ImageUrlList_Medals_Small, Text _ImageUrl_Shadow) {
+	G_ImageMedalUrl = "";
+	G_ImageMedalCuttedUrl = "";
+	G_ImageUrlList_Medals = _ImageUrlList_Medals;
+	G_ImageUrlList_Medals_Small = _ImageUrlList_Medals_Small;
+	G_ImageUrl_Shadow = _ImageUrl_Shadow;
+}
+
+Void Load(Text[] _ImageUrlList_Medals, Text[] _ImageUrlList_Medals_Small, Text[] _ImageUrlList_Medals_VerySmall, Text _ImageUrl_Shadow) {
+	G_ImageMedalUrl = "";
+	G_ImageMedalCuttedUrl = "";
+	G_ImageUrlList_Medals = _ImageUrlList_Medals;
+	G_ImageUrlList_Medals_Small = _ImageUrlList_Medals_Small;
+	G_ImageUrlList_Medals_VerySmall = _ImageUrlList_Medals_VerySmall;
+	G_ImageUrl_Shadow = _ImageUrl_Shadow;
+}

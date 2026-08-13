@@ -1,0 +1,106 @@
+/**
+ *	Manage players' trophy ranking
+ */
+#Const Version		"1.1.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TrophyRanking.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/Trackmania/API/LeaderboardAPI.Script.txt" as LeaderboardAPI
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_NotInitialized -2
+#Const C_NotRanked -1
+#Const C_ValidRank 1
+#Const C_DefaultRank 1000000 //< See: /trackmania-next/tmnext/-/issues/5864#note_313512
+#Const C_RequestGetTrophyRankingCooldownDuration 1000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Http::K_Request G_RequestGetTrophyRanking;
+declare Integer G_RequestGetTrophyRanking_CooldownEndTime;
+declare Text[] G_RequestGetTrophyRanking_AccountIdsToRequest;
+declare Text[] G_RequestGetTrophyRanking_AccountIdsRequested;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a user is ranked
+Boolean UserIsRanked(CUser _User) {
+	declare Integer Trackmania_TrophyRanking_Rank for _User = C_NotInitialized;
+	return Trackmania_TrophyRanking_Rank >= C_ValidRank;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the trophy ranking of a user.
+ *	The return value can be negative.
+ *	It means that we did not retrieve
+ *	the rank from the API yet.
+ */
+Integer GetUserRank(CUser _User) {
+	declare Integer Trackmania_TrophyRanking_Rank for _User = C_NotInitialized;
+	return Trackmania_TrophyRanking_Rank;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initalize a user
+Void InitializeUser(CUser _User, Boolean _ForceUpdate) {
+	declare Integer Trackmania_TrophyRanking_Rank for _User = C_NotInitialized;
+	if (_ForceUpdate || Trackmania_TrophyRanking_Rank == C_NotInitialized) {
+		Trackmania_TrophyRanking_Rank = C_NotInitialized;
+		if (!G_RequestGetTrophyRanking_AccountIdsToRequest.exists(_User.WebServicesUserId)) {
+			G_RequestGetTrophyRanking_AccountIdsToRequest.add(_User.WebServicesUserId);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if we are missing a rank on a user
+Void UpdateUsersRank() {
+	foreach (User in Users) {
+		InitializeUser(User, False);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update library
+Void Yield() {
+	if (Http::IsInitialized(G_RequestGetTrophyRanking)) {
+		G_RequestGetTrophyRanking = Http::Update(G_RequestGetTrophyRanking);
+		if (!Http::IsRunning(G_RequestGetTrophyRanking)) {
+			if (Http::IsSuccess(G_RequestGetTrophyRanking)) {
+				declare Response = LeaderboardAPI::GetResponseFromGetPlayersTrophyRankingServer(G_RequestGetTrophyRanking);
+				declare Integer[Text] AccountsRank;
+				declare Integer NotRanked = C_NotRanked;
+				if (Response.Total > 0) NotRanked = Response.Total + 1;
+				foreach (AccountId in G_RequestGetTrophyRanking_AccountIdsRequested) {
+					AccountsRank[AccountId] = NotRanked;
+				}
+				foreach (Player in Response.Players) {
+					// Answer must contain only world zone
+					if (Player.Ranking.count >= 1) {
+						AccountsRank[Player.AccountId] = Player.Ranking[0].Position;
+					}
+				}
+				foreach (User in Users) {
+					declare Integer Trackmania_TrophyRanking_Rank for User = C_NotInitialized;
+					if (Trackmania_TrophyRanking_Rank == C_NotInitialized && AccountsRank.existskey(User.WebServicesUserId)) {
+						Trackmania_TrophyRanking_Rank = AccountsRank[User.WebServicesUserId];
+					}
+				}
+			}
+			G_RequestGetTrophyRanking = Http::Destroy(G_RequestGetTrophyRanking);
+		}
+	} else if (G_RequestGetTrophyRanking_AccountIdsToRequest.count > 0 && Now >= G_RequestGetTrophyRanking_CooldownEndTime) {
+		G_RequestGetTrophyRanking = LeaderboardAPI::GetPlayersTrophyRankingServer(G_RequestGetTrophyRanking_AccountIdsToRequest);
+		G_RequestGetTrophyRanking_CooldownEndTime = Now + C_RequestGetTrophyRankingCooldownDuration;
+		G_RequestGetTrophyRanking_AccountIdsRequested = G_RequestGetTrophyRanking_AccountIdsToRequest;
+		G_RequestGetTrophyRanking_AccountIdsToRequest = [];
+	}
+}

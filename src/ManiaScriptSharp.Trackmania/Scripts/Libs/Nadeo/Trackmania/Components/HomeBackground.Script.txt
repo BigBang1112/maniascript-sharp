@@ -1,0 +1,1563 @@
+/**
+ * Component: HomeBackground
+ * Background of the home menu with the car and animated sky
+ * Only one instance of this component per manialink page
+ *
+ * @deprecated Use the new `HomeBackground@2.Script.txt` component
+ * The assets for this component, including the clouds videos, cube map, and stadium images  have been deleted
+ */
+#Const Version "1.5.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Components/HomeBackground.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Menus/ShareMenuNavigation_ML.Script.txt" as ShareMenuNavigation
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-home-background" //< Component name
+#Const P "HomeBackground_" //< Prefix use to differentiate functions/variables in the script
+
+#Const C_DefaultCubeMap "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/DefaultCubeMap.dds"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Recreate the camera scene if it was destroyed automatically by the C++ at some points
+Void ReloadCameraScene(CSystemPlatform _System) {
+	declare Integer Trackmania_HomeBackground_CameraSceneReloadRequested for _System = 0;
+	Trackmania_HomeBackground_CameraSceneReloadRequested += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+Text Component() {
+	declare Vec2 PosCloudsDefault = <0., 90.>;
+	declare Vec2 SizeCloudsDefault = <320., 100.>; // HACK waiting for good clouds video size
+	declare Vec2 SizeClouds = MLHelpers::KeepRatioFromY(1920., 540., 100.);
+
+	return MV::Component(
+		C_Name,
+		"""
+<stylesheet>
+	<style class="{{{P}}}background" size="320 180" halign="center" valign="center" />
+</stylesheet>
+<frame id="{{{P}}}frame-global" class="{{{C_Name}}}-container">
+	<!--
+		Quads used to control the cube map
+		They MUST have a valid `image="file://Media/Image.dds"` parameter with a path to an existing image
+		This image won't be really used for the cube map, but it won't work without it
+	-->
+	<frame z-index="0" hidden="1">
+		<quad id="{{{P}}}quad-cube-map-sunrise" size="1 1" image="{{{C_DefaultCubeMap}}}" />
+		<quad id="{{{P}}}quad-cube-map-day" size="1 1" image="{{{C_DefaultCubeMap}}}" />
+		<quad id="{{{P}}}quad-cube-map-sunset" size="1 1" image="{{{C_DefaultCubeMap}}}" />
+		<quad id="{{{P}}}quad-cube-map-night" size="1 1" image="{{{C_DefaultCubeMap}}}" />
+	</frame>
+	<frame z-index="1">
+		<quad id="{{{P}}}quad-overflow-old" class="{{{P}}}background" z-index="0" fullscreen="1" />
+		<quad id="{{{P}}}quad-overflow-active" class="{{{P}}}background" z-index="1" fullscreen="1" />
+	</frame>
+	<frame z-index="2">
+		<frame {{{MLHelpers::Pos(PosCloudsDefault)}}} {{{MLHelpers::Size(SizeCloudsDefault)}}} valign="top" halign="center" z-index="1">
+			<quad id="{{{P}}}quad-clouds-old" pos="0 {{{-SizeClouds.Y}}}" valign="bottom" class="{{{P}}}background" {{{MLHelpers::Size(SizeClouds)}}} z-index="1" />
+			<quad id="{{{P}}}quad-clouds-active" pos="0 {{{-SizeClouds.Y}}}" valign="bottom" class="{{{P}}}background" {{{MLHelpers::Size(SizeClouds)}}} z-index="2" />
+		</frame>
+		<quad id="{{{P}}}quad-stadium-old" class="{{{P}}}background" z-index="2" />
+		<quad id="{{{P}}}quad-stadium-active" class="{{{P}}}background" z-index="3" />
+		<camera id="{{{P}}}camera-scene" z-index="4" size="320 180" halign="center" valign="center" fullscreen="1" />
+	</frame>
+	<quad id="{{{P}}}quad-bottom-gradient" pos="0 -91" size="320 20" halign="center" valign="bottom" style="Bgs1" substyle="BgGradBottom" opacity="0.5" z-index="2"/>
+	<quad id="maniaplanet.BlurContentsDivider" z-index="3" hidden="1" />
+</frame>
+		""",
+		"""
+#Include "MathLib" as {{{P}}}ML
+#Include "AnimLib" as {{{P}}}AL
+#Include "TimeLib" as {{{P}}}TiL
+#Include "Libs/Nadeo/CMGame/Utils/TimeOfDay.Script.txt" as {{{P}}}TimeOfDay
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as {{{P}}}Tools
+#Include "Libs/Nadeo/CMGame/Menus/Music.Script.txt" as {{{P}}}MenuMusic
+#Include "Libs/Nadeo/CMGame/Utils/MenuSceneManager.Script.txt" as {{{P}}}MenuSceneManager
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/Splashscreen.Script.txt" as {{{P}}}Splashscreen
+
+#Struct {{{P}}}K_Controls {
+	CMlQuad Quad_CloudsOld;
+	CMlQuad Quad_CloudsActive;
+	CMlQuad Quad_StadiumOld;
+	CMlQuad Quad_StadiumActive;
+	CMlQuad Quad_CubeMapSunrise;
+	CMlQuad Quad_CubeMapDay;
+	CMlQuad Quad_CubeMapSunset;
+	CMlQuad Quad_CubeMapNight;
+	CMlQuad Quad_OverflowActive;
+	CMlQuad Quad_OverflowOld;
+	CMlCamera Camera_Scene;
+}
+#Struct {{{P}}}K_AnimationReal {
+	Integer StartTime;
+	Integer Duration;
+	Real StartValue;
+	Real DeltaValue;
+	Real CurrentValue;
+}
+#Struct {{{P}}}K_CarState {
+	Integer SteerDirection;
+	{{{P}}}K_AnimationReal SteerAnimation;
+	Integer BoostDirection;
+	Integer BoostCooldownEndTime;
+	Integer SpecialCarCooldownEndTime;
+	Boolean SpecialCarAnimLaunched;
+	Boolean BouncingEasterEgg;
+	{{{P}}}K_AnimationReal BoostAnimation;
+	{{{P}}}K_AnimationReal FlyAnimation;
+}
+#Struct {{{P}}}K_CameraScene {
+	Ident SceneId;
+	Ident DefaultCarItemId;
+	Ident SpecialCarItemId;
+	Ident CurrentCarItemId;
+	Ident PilotItemId;
+	Ident PodiumItemId;
+	{{{P}}}K_CarState CarState;
+	Integer EmoteCooldownEndTime;
+}
+#Struct {{{P}}}K_HomeBackground {
+	{{{P}}}K_Controls Controls;
+	Integer OldDayPart;
+	Integer ActiveDayPart;
+	Integer OriginalDayPart;
+	Integer OldSeason;
+	Integer ActiveSeason;
+	Boolean Enabled;
+	Boolean InputsEnabled;
+	Ident[Integer] CloudsVideoIds;
+	Integer TransitionEndTime;
+	Integer EnableDelayEndTime;
+	Boolean EnableDelayValue;
+	{{{P}}}K_CameraScene CameraScene;
+	Integer CameraSceneReloadRequested;
+	Integer TriggerSpecialCarSwitchTime;
+	Text CurrentSpecialCarModel;
+}
+
+#Const {{{P}}}C_Clouds_Sunrise "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/Clouds_Sunrise.webm"
+#Const {{{P}}}C_Clouds_Day "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/Clouds_Day.webm"
+#Const {{{P}}}C_Clouds_Sunset "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/Clouds_Sunset.webm"
+#Const {{{P}}}C_Clouds_Night "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/Clouds_Night.webm"
+
+#Const {{{P}}}C_Mood_Sunrise 0
+#Const {{{P}}}C_Mood_Day 1
+#Const {{{P}}}C_Mood_Sunset 2
+#Const {{{P}}}C_Mood_Night 3
+
+// AltitudeDeg: 0=horizon, 90=Zenith
+// AzimutDeg: 0=North(+Z), 90=East(-X), 180=South(-Z), 270=West(+X)
+#Const {{{P}}}C_Mood_Sunrise_RGB <0.90, 0.69, 0.35>
+#Const {{{P}}}C_Mood_Sunrise_Intensity 6.0
+#Const {{{P}}}C_Mood_Sunrise_AltitudeDeg 50.0
+#Const {{{P}}}C_Mood_Sunrise_AzimuteDeg 332.0
+
+#Const {{{P}}}C_Mood_Day_RGB <1., 0.85, 0.83>
+#Const {{{P}}}C_Mood_Day_Intensity 4.0
+#Const {{{P}}}C_Mood_Day_AltitudeDeg 60.0
+#Const {{{P}}}C_Mood_Day_AzimuteDeg 182.0
+
+#Const {{{P}}}C_Mood_Sunset_RGB <0.92, 0.40, 0.15>
+#Const {{{P}}}C_Mood_Sunset_Intensity 4.0
+#Const {{{P}}}C_Mood_Sunset_AltitudeDeg 32.0
+#Const {{{P}}}C_Mood_Sunset_AzimuteDeg 73.0
+
+#Const {{{P}}}C_Mood_Night_RGB <0.95, 0.95, 1.>
+#Const {{{P}}}C_Mood_Night_Intensity 2.0
+#Const {{{P}}}C_Mood_Night_AltitudeDeg 73.0
+#Const {{{P}}}C_Mood_Night_AzimuteDeg 172.0
+
+#Const {{{P}}}C_Stadium_Sunrise [
+	0 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Spring_Morning.dds",
+	1 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Summer_Morning.dds",
+	2 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Fall_Morning.dds",
+	3 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Winter_Morning.dds"
+]
+#Const {{{P}}}C_Stadium_Day [
+	0 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Spring_Day.dds",
+	1 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Summer_Day.dds",
+	2 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Fall_Day.dds",
+	3 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Winter_Day.dds"
+]
+#Const {{{P}}}C_Stadium_Sunset [
+	0 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Spring_Sunset.dds",
+	1 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Summer_Sunset.dds",
+	2 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Fall_Sunset.dds",
+	3 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Winter_Sunset.dds"
+]
+#Const {{{P}}}C_Stadium_Night [
+	0 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Spring_Night.dds",
+	1 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Summer_Night.dds",
+	2 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Fall_Night.dds",
+	3 => "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/MenuBackground_Winter_Night.dds"
+]
+
+#Const {{{P}}}C_Overflow_Sunrise {{{dump(Const::C_ImageUrl_Menu_BG_Morning)}}}
+#Const {{{P}}}C_Overflow_Day {{{dump(Const::C_ImageUrl_Menu_BG_Day)}}}
+#Const {{{P}}}C_Overflow_Sunset {{{dump(Const::C_ImageUrl_Menu_BG_Evening)}}}
+#Const {{{P}}}C_Overflow_Night {{{dump(Const::C_ImageUrl_Menu_BG_Night)}}}
+
+// The path to the cube map images must not use the classic
+// `file://Media/Path/To/Image.dds` format but instead `Path/To/Image.dds`
+#Const {{{P}}}C_CubeMap_Sunrise [
+	0 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Spring_Morning.dds",
+	1 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Summer_Morning.dds",
+	2 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Fall_Morning.dds",
+	3 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Winter_Morning.dds"
+]
+#Const {{{P}}}C_CubeMap_Day [
+	0 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Spring_Day.dds",
+	1 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Summer_Day.dds",
+	2 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Fall_Day.dds",
+	3 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Winter_Day.dds"
+]
+#Const {{{P}}}C_CubeMap_Sunset [
+	0 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Spring_Sunset.dds",
+	1 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Summer_Sunset.dds",
+	2 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Fall_Sunset.dds",
+	3 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Winter_Sunset.dds"
+]
+#Const {{{P}}}C_CubeMap_Night [
+	0 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Spring_Night.dds",
+	1 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Summer_Night.dds",
+	2 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Fall_Night.dds",
+	3 => "Manialinks/Nadeo/Trackmania/Menus/HomeBackground/CubeMap_Winter_Night.dds"
+]
+
+#Const {{{P}}}C_TriggerSpecialCarSwitchTime 2500
+#Const {{{P}}}C_DayProgressionUpdateInterval 30000
+#Const {{{P}}}C_DayPartTransitionDuration 5000
+#Const {{{P}}}C_DayPartTransitionFadeInRatio 0.75
+#Const {{{P}}}C_DayPartTransitionFadeOutRatio 0.25
+#Const {{{P}}}C_SceneLayout "Empty" //< Check ManiaScript documentation to see all layouts
+#Const {{{P}}}C_CarModel {{{dump(Const::C_CameraSkinModel)}}}
+#Const {{{P}}}C_SnowCarModel {{{dump(Const::C_CameraSkinModelSnow)}}}
+#Const {{{P}}}C_RallyCarModel {{{dump(Const::C_CameraSkinModelRally)}}}
+#Const {{{P}}}C_DesertCarModel {{{dump(Const::C_CameraSkinModelDesert)}}}
+#Const {{{P}}}C_PilotModel {{{dump(Const::C_CameraPilotModel)}}}
+#Const {{{P}}}C_PodiumModel "/Stadium/Items/PodiumDisk.Item.Gbx" //< The leading slash is required
+#Const {{{P}}}C_CameraPosition <1.021, 1.126, -6.816>
+#Const {{{P}}}C_CameraRotation 0.35
+#Const {{{P}}}C_CameraFOV 35.5
+#Const {{{P}}}C_CarPosition <-0.3, 0.235, 0.2>
+#Const {{{P}}}C_CarPositionHiddenOnTop <-0.3, 4., 0.2>
+#Const {{{P}}}C_CarRotation 147.
+#Const {{{P}}}C_PilotPosition <-1., 0.240, -1.2>
+#Const {{{P}}}C_PilotRotation 140.
+#Const {{{P}}}C_PilotInCar False
+#Const {{{P}}}C_PodiumPosition <0., 0., 0.>
+#Const {{{P}}}C_PodiumRotation 0.
+#Const {{{P}}}C_PodiumBaseColor 0.4
+#Const {{{P}}}C_PodiumCubeReflect 0.3
+#Const {{{P}}}C_PodiumPlaneReflect 0.5
+#Const {{{P}}}C_PodiumEnabled True
+#Const {{{P}}}C_SpecialCarEnabled True
+
+#Const {{{P}}}C_CarState_SteerNeutral 0
+#Const {{{P}}}C_CarState_SteerLeft 1
+#Const {{{P}}}C_CarState_SteerRight 2
+#Const {{{P}}}C_CarState_BoostDown 3
+#Const {{{P}}}C_CarState_BoostUp 4
+
+#Const {{{P}}}C_SteerValue_Neutral 0.
+#Const {{{P}}}C_SteerValue_Left 0.7
+#Const {{{P}}}C_SteerValue_Right -0.7
+
+#Const {{{P}}}C_BoostValue_Up 0.2
+#Const {{{P}}}C_BoostValue_Up_CarUpdate 3.7
+#Const {{{P}}}C_BoostValue_Down 0.
+#Const {{{P}}}C_BoostValue_Down_SnowCar 0.185
+#Const {{{P}}}C_BoostValue_Down_RallyCar 0.035
+#Const {{{P}}}C_BoostValue_Down_DesertCar 0.
+
+#Const {{{P}}}C_BoostDirection_None 0
+#Const {{{P}}}C_BoostDirection_Down 1
+#Const {{{P}}}C_BoostDirection_Up 2
+
+#Const {{{P}}}C_TriggerSpecialCar_Null 0
+#Const {{{P}}}C_TriggerSpecialCar_Done -1
+
+#Const {{{P}}}C_PiloteEmoteAnimationCooldownDuration 6000
+
+#Const {{{P}}}C_CarStateSteerAnimationDuration 500
+#Const {{{P}}}C_CarStateBoostAnimationDuration 1000
+#Const {{{P}}}C_CarStateBoostSpecialCarAnimationDuration 1500
+#Const {{{P}}}C_CarStateSpecialCarAnimationCooldownDuration 15000
+#Const {{{P}}}C_CarStateBoostAnimationCooldownDuration 3000
+#Const {{{P}}}C_CarStateFlyAnimationFrequency 0.002
+#Const {{{P}}}C_CarStateFlyAnimationAmplitude 0.02
+		""",
+		"""
+declare {{{P}}}K_HomeBackground {{{P}}}G_HomeBackground;
+
+Text {{{P}}}GetRandomSpecialCarModel() {
+	switch ({{{P}}}ML::Rand(1, 3)) {
+		case 1:	return {{{P}}}C_SnowCarModel;
+		case 2:	return {{{P}}}C_RallyCarModel;
+		case 3:	return {{{P}}}C_DesertCarModel;
+	}
+	return {{{P}}}C_CarModel;
+}
+
+Void {{{P}}}Private_AssertOnlyOnInstance() {
+	Page.GetClassChildren("{{{C_Name}}}-container", Page.MainFrame, True);
+	assert(Page.GetClassChildren_Result.count >= 1, "You included the `HomeBackground` component but did not instanciated it.");
+	assert(Page.GetClassChildren_Result.count <= 1, "You instanciated the `HomeBackground` component several times. Only one instance per page possible.");
+}
+
+Text {{{P}}}Private_GetCloudsVideoUrl(Integer _DayPart) {
+	switch (_DayPart) {
+		case {{{P}}}TimeOfDay::C_DayPart_Sunrise: return {{{P}}}C_Clouds_Sunrise;
+		case {{{P}}}TimeOfDay::C_DayPart_Day: return {{{P}}}C_Clouds_Day;
+		case {{{P}}}TimeOfDay::C_DayPart_Sunset: return {{{P}}}C_Clouds_Sunset;
+		case {{{P}}}TimeOfDay::C_DayPart_Night: return {{{P}}}C_Clouds_Night;
+	}
+	return {{{P}}}C_Clouds_Day;
+}
+
+CVideo {{{P}}}Private_GetCloudsVideo({{{P}}}K_HomeBackground _HomeBackground, Integer _DayPart) {
+	if (_HomeBackground.CloudsVideoIds.existskey(_DayPart) && Video.Videos.existskey(_HomeBackground.CloudsVideoIds[_DayPart])) {
+		return Video.Videos[_HomeBackground.CloudsVideoIds[_DayPart]];
+	}
+	return Null;
+}
+
+Void {{{P}}}Private_StopCloudsVideo({{{P}}}K_HomeBackground _HomeBackground) {
+	declare CVideo OldCloudsVideo <=> {{{P}}}Private_GetCloudsVideo(_HomeBackground, _HomeBackground.OldDayPart);
+	if (OldCloudsVideo != Null) OldCloudsVideo.Pause();
+	declare CVideo ActiveCloudsVideo <=> {{{P}}}Private_GetCloudsVideo(_HomeBackground, _HomeBackground.ActiveDayPart);
+	if (ActiveCloudsVideo != Null) ActiveCloudsVideo.Pause();
+}
+
+Void {{{P}}}Private_StartCloudsVideo({{{P}}}K_HomeBackground _HomeBackground) {
+	declare CVideo OldCloudsVideo <=> {{{P}}}Private_GetCloudsVideo(_HomeBackground, _HomeBackground.OldDayPart);
+	if (OldCloudsVideo != Null) OldCloudsVideo.Play();
+	declare CVideo ActiveCloudsVideo <=> {{{P}}}Private_GetCloudsVideo(_HomeBackground, _HomeBackground.ActiveDayPart);
+	if (ActiveCloudsVideo != Null) ActiveCloudsVideo.Play();
+}
+
+Text {{{P}}}Private_GetStadiumImageUrl(Integer _DayPart, Integer _Season) {
+	switch (_DayPart) {
+		case {{{P}}}TimeOfDay::C_DayPart_Sunrise: return {{{P}}}C_Stadium_Sunrise.get(_Season, {{{P}}}C_Stadium_Sunrise[0]);
+		case {{{P}}}TimeOfDay::C_DayPart_Day: return {{{P}}}C_Stadium_Day.get(_Season, {{{P}}}C_Stadium_Day[0]);
+		case {{{P}}}TimeOfDay::C_DayPart_Sunset: return {{{P}}}C_Stadium_Sunset.get(_Season, {{{P}}}C_Stadium_Sunset[0]);
+		case {{{P}}}TimeOfDay::C_DayPart_Night: return {{{P}}}C_Stadium_Night.get(_Season, {{{P}}}C_Stadium_Night[0]);
+	}
+	return {{{P}}}C_Stadium_Day[0];
+}
+
+Text {{{P}}}Private_GetOverflowImageUrl(Integer _DayPart) {
+	switch (_DayPart) {
+		case {{{P}}}TimeOfDay::C_DayPart_Sunrise: return {{{P}}}C_Overflow_Sunrise;
+		case {{{P}}}TimeOfDay::C_DayPart_Day: return {{{P}}}C_Overflow_Day;
+		case {{{P}}}TimeOfDay::C_DayPart_Sunset: return {{{P}}}C_Overflow_Sunset;
+		case {{{P}}}TimeOfDay::C_DayPart_Night: return {{{P}}}C_Overflow_Night;
+	}
+	return {{{P}}}C_Overflow_Day;
+}
+
+Integer {{{P}}}Private_GetFadeInDuration(Integer _TransitionDuration) {
+	return {{{P}}}ML::NearestInteger(_TransitionDuration * {{{P}}}C_DayPartTransitionFadeInRatio);
+}
+
+Integer {{{P}}}Private_GetFadeOutDuration(Integer _TransitionDuration) {
+	return {{{P}}}ML::NearestInteger(_TransitionDuration * {{{P}}}C_DayPartTransitionFadeOutRatio);
+}
+
+Boolean {{{P}}}Private_CameraSceneIsValid({{{P}}}K_HomeBackground _HomeBackground) {
+	return (
+		_HomeBackground.CameraScene.SceneId != NullId &&
+		!{{{P}}}MenuSceneManager::PageNeedToRecreateScene(Page, LocalUser)
+	);
+}
+
+Void {{{P}}}Private_RedrawCameraSceneLight({{{P}}}K_HomeBackground _HomeBackground) {
+	if (!{{{P}}}Private_CameraSceneIsValid(_HomeBackground)) return;
+
+	// WARNING : The feature is enabled only when all 4 Moods have been set ! /!\
+	MenuSceneMgr.MoodLightDir0Set(_HomeBackground.CameraScene.SceneId,
+		{{{P}}}C_Mood_Sunrise,
+		{{{P}}}C_Mood_Sunrise_RGB,
+		{{{P}}}C_Mood_Sunrise_Intensity,
+		{{{P}}}C_Mood_Sunrise_AltitudeDeg,
+		{{{P}}}C_Mood_Sunrise_AzimuteDeg
+	);
+	MenuSceneMgr.MoodLightDir0Set(_HomeBackground.CameraScene.SceneId,
+		{{{P}}}C_Mood_Day,
+		{{{P}}}C_Mood_Day_RGB,
+		{{{P}}}C_Mood_Day_Intensity,
+		{{{P}}}C_Mood_Day_AltitudeDeg,
+		{{{P}}}C_Mood_Day_AzimuteDeg
+	);
+	MenuSceneMgr.MoodLightDir0Set(_HomeBackground.CameraScene.SceneId,
+		{{{P}}}C_Mood_Sunset,
+		{{{P}}}C_Mood_Sunset_RGB,
+		{{{P}}}C_Mood_Sunset_Intensity,
+		{{{P}}}C_Mood_Sunset_AltitudeDeg,
+		{{{P}}}C_Mood_Sunset_AzimuteDeg
+	);
+	MenuSceneMgr.MoodLightDir0Set(_HomeBackground.CameraScene.SceneId,
+		{{{P}}}C_Mood_Night,
+		{{{P}}}C_Mood_Night_RGB,
+		{{{P}}}C_Mood_Night_Intensity,
+		{{{P}}}C_Mood_Night_AltitudeDeg,
+		{{{P}}}C_Mood_Night_AzimuteDeg
+	);
+}
+
+Integer {{{P}}}Private_GetCarBoostDirection({{{P}}}K_CarState _CarState) {
+	if (_CarState.BoostDirection == {{{P}}}C_CarState_BoostUp) {
+		return {{{P}}}C_BoostDirection_Up;
+	} else if (
+		_CarState.BoostDirection == {{{P}}}C_CarState_BoostDown &&
+		_CarState.BoostAnimation.StartTime >= 0 &&
+		Now >= _CarState.BoostAnimation.StartTime &&
+		Now < _CarState.BoostAnimation.StartTime + _CarState.BoostAnimation.Duration
+	) {
+		return {{{P}}}C_BoostDirection_Down;
+	}
+	return {{{P}}}C_BoostDirection_None;
+}
+
+Boolean {{{P}}}Private_GetCarLightOn({{{P}}}K_HomeBackground _HomeBackground) {
+	return (_HomeBackground.ActiveDayPart == {{{P}}}TimeOfDay::C_DayPart_Night || _HomeBackground.ActiveDayPart == {{{P}}}TimeOfDay::C_DayPart_Sunset);
+}
+
+Void {{{P}}}Private_RedrawCarState({{{P}}}K_HomeBackground _HomeBackground) {
+	if (!{{{P}}}Private_CameraSceneIsValid(_HomeBackground) || _HomeBackground.CameraScene.CurrentCarItemId == NullId) return;
+
+	MenuSceneMgr.ItemSetVehicleState(
+		_HomeBackground.CameraScene.SceneId,
+		_HomeBackground.CameraScene.CurrentCarItemId,
+		_HomeBackground.CameraScene.CarState.SteerAnimation.CurrentValue,
+		{{{P}}}Private_GetCarLightOn(_HomeBackground),
+		{{{P}}}Private_GetCarLightOn(_HomeBackground),
+		0,
+		{{{P}}}Private_GetCarBoostDirection(_HomeBackground.CameraScene.CarState),
+		False
+	);
+
+	MenuSceneMgr.ItemSetPlayerState(_HomeBackground.CameraScene.SceneId, _HomeBackground.CameraScene.CurrentCarItemId, LocalUser);
+	if (_HomeBackground.CameraScene.PilotItemId != NullId) MenuSceneMgr.ItemSetPlayerState(_HomeBackground.CameraScene.SceneId, _HomeBackground.CameraScene.PilotItemId, LocalUser);
+
+	MenuSceneMgr.ItemSetLocation(
+		_HomeBackground.CameraScene.SceneId,
+		_HomeBackground.CameraScene.CurrentCarItemId,
+		{{{P}}}C_CarPosition + <0., _HomeBackground.CameraScene.CarState.BoostAnimation.CurrentValue + _HomeBackground.CameraScene.CarState.FlyAnimation.CurrentValue, 0.>,
+		{{{P}}}C_CarRotation,
+		False
+	);
+}
+
+Void {{{P}}}Private_RedrawCameraSceneCubeMap({{{P}}}K_HomeBackground _HomeBackground, Integer _TransitionDuration) {
+	declare Integer FadeInDuration = {{{P}}}Private_GetFadeInDuration(_TransitionDuration);
+
+	AnimMgr.Flush(_HomeBackground.Controls.Quad_CubeMapSunrise);
+	AnimMgr.Flush(_HomeBackground.Controls.Quad_CubeMapDay);
+	AnimMgr.Flush(_HomeBackground.Controls.Quad_CubeMapSunset);
+	AnimMgr.Flush(_HomeBackground.Controls.Quad_CubeMapNight);
+
+	if ({{{P}}}Private_CameraSceneIsValid(_HomeBackground)) {
+		MenuSceneMgr.CubeMapSetImage2ds(
+			_HomeBackground.CameraScene.SceneId,
+			{{{P}}}C_CubeMap_Sunrise.get(_HomeBackground.ActiveSeason, {{{P}}}C_CubeMap_Sunrise[0]),
+			{{{P}}}C_CubeMap_Day.get(_HomeBackground.ActiveSeason, {{{P}}}C_CubeMap_Day[0]),
+			{{{P}}}C_CubeMap_Sunset.get(_HomeBackground.ActiveSeason, {{{P}}}C_CubeMap_Sunset[0]),
+			{{{P}}}C_CubeMap_Night.get(_HomeBackground.ActiveSeason, {{{P}}}C_CubeMap_Night[0])
+		);
+		MenuSceneMgr.PlaneReflectRefresh();
+	}
+
+	if (FadeInDuration > 0) {
+		switch (_HomeBackground.ActiveDayPart) {
+			case {{{P}}}TimeOfDay::C_DayPart_Sunrise: {
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapSunrise, "<a opacity=\"1\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapDay, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapSunset, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapNight, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+			}
+			case {{{P}}}TimeOfDay::C_DayPart_Day: {
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapSunrise, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapDay, "<a opacity=\"1\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapSunset, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapNight, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+			}
+			case {{{P}}}TimeOfDay::C_DayPart_Sunset: {
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapSunrise, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapDay, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapSunset, "<a opacity=\"1\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapNight, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+			}
+			case {{{P}}}TimeOfDay::C_DayPart_Night: {
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapSunrise, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapDay, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapSunset, "<a opacity=\"0\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+				AnimMgr.Add(_HomeBackground.Controls.Quad_CubeMapNight, "<a opacity=\"1\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+			}
+		}
+	} else {
+		switch (_HomeBackground.ActiveDayPart) {
+			case {{{P}}}TimeOfDay::C_DayPart_Sunrise: {
+				_HomeBackground.Controls.Quad_CubeMapSunrise.Opacity = 1.;
+				_HomeBackground.Controls.Quad_CubeMapDay.Opacity = 0.;
+				_HomeBackground.Controls.Quad_CubeMapSunset.Opacity = 0.;
+				_HomeBackground.Controls.Quad_CubeMapNight.Opacity = 0.;
+			}
+			case {{{P}}}TimeOfDay::C_DayPart_Day: {
+				_HomeBackground.Controls.Quad_CubeMapSunrise.Opacity = 0.;
+				_HomeBackground.Controls.Quad_CubeMapDay.Opacity = 1.;
+				_HomeBackground.Controls.Quad_CubeMapSunset.Opacity = 0.;
+				_HomeBackground.Controls.Quad_CubeMapNight.Opacity = 0.;
+			}
+			case {{{P}}}TimeOfDay::C_DayPart_Sunset: {
+				_HomeBackground.Controls.Quad_CubeMapSunrise.Opacity = 0.;
+				_HomeBackground.Controls.Quad_CubeMapDay.Opacity = 0.;
+				_HomeBackground.Controls.Quad_CubeMapSunset.Opacity = 1.;
+				_HomeBackground.Controls.Quad_CubeMapNight.Opacity = 0.;
+			}
+			case {{{P}}}TimeOfDay::C_DayPart_Night: {
+				_HomeBackground.Controls.Quad_CubeMapSunrise.Opacity = 0.;
+				_HomeBackground.Controls.Quad_CubeMapDay.Opacity = 0.;
+				_HomeBackground.Controls.Quad_CubeMapSunset.Opacity = 0.;
+				_HomeBackground.Controls.Quad_CubeMapNight.Opacity = 1.;
+			}
+		}
+	}
+}
+
+Void {{{P}}}Private_RedrawCloudsDayPart({{{P}}}K_HomeBackground _HomeBackground, Integer _TransitionDuration) {
+	declare Integer FadeInDuration = {{{P}}}Private_GetFadeInDuration(_TransitionDuration);
+	declare Integer FadeOutDuration = {{{P}}}Private_GetFadeOutDuration(_TransitionDuration);
+
+	AnimMgr.Flush(_HomeBackground.Controls.Quad_CloudsActive);
+	declare CVideo ActiveCloudsVideo <=> {{{P}}}Private_GetCloudsVideo(_HomeBackground, _HomeBackground.ActiveDayPart);
+	if (ActiveCloudsVideo != Null) {
+		_HomeBackground.Controls.Quad_CloudsActive.Image = ActiveCloudsVideo.Image;
+	} else {
+		_HomeBackground.Controls.Quad_CloudsActive.Image = Null;
+	}
+	if (FadeInDuration > 0) {
+		_HomeBackground.Controls.Quad_CloudsActive.Opacity = 0.;
+		AnimMgr.Add(_HomeBackground.Controls.Quad_CloudsActive, "<a opacity=\"1\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+	} else {
+		_HomeBackground.Controls.Quad_CloudsActive.Opacity = 1.;
+	}
+
+	AnimMgr.Flush(_HomeBackground.Controls.Quad_CloudsOld);
+	if (FadeOutDuration > 0) {
+		declare CVideo OldCloudsVideo <=> {{{P}}}Private_GetCloudsVideo(_HomeBackground, _HomeBackground.OldDayPart);
+		if (OldCloudsVideo != Null) {
+			_HomeBackground.Controls.Quad_CloudsOld.Image = OldCloudsVideo.Image;
+		} else {
+			_HomeBackground.Controls.Quad_CloudsOld.Image = Null;
+		}
+		_HomeBackground.Controls.Quad_CloudsOld.Visible = True;
+		_HomeBackground.Controls.Quad_CloudsOld.Opacity = 1.;
+		AnimMgr.Add(_HomeBackground.Controls.Quad_CloudsOld, "<a opacity=\"0\" hidden=\"1\" />", Now + FadeInDuration, FadeOutDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+	} else {
+		_HomeBackground.Controls.Quad_CloudsOld.Image = Null;
+		_HomeBackground.Controls.Quad_CloudsOld.Visible = False;
+	}
+}
+
+Void {{{P}}}Private_RedrawStadiumDayPart({{{P}}}K_HomeBackground _HomeBackground, Integer _TransitionDuration) {
+	declare Integer FadeInDuration = {{{P}}}Private_GetFadeInDuration(_TransitionDuration);
+	declare Integer FadeOutDuration = {{{P}}}Private_GetFadeOutDuration(_TransitionDuration);
+
+	AnimMgr.Flush(_HomeBackground.Controls.Quad_StadiumActive);
+	_HomeBackground.Controls.Quad_StadiumActive.ImageUrl = {{{P}}}Private_GetStadiumImageUrl(_HomeBackground.ActiveDayPart, _HomeBackground.ActiveSeason);
+	if (FadeInDuration > 0) {
+		_HomeBackground.Controls.Quad_StadiumActive.Opacity = 0.;
+		AnimMgr.Add(_HomeBackground.Controls.Quad_StadiumActive, "<a opacity=\"1\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+	} else {
+		_HomeBackground.Controls.Quad_StadiumActive.Opacity = 1.;
+	}
+
+	AnimMgr.Flush(_HomeBackground.Controls.Quad_StadiumOld);
+	if (FadeOutDuration > 0) {
+		_HomeBackground.Controls.Quad_StadiumOld.Visible = True;
+		_HomeBackground.Controls.Quad_StadiumOld.Opacity = 1.;
+		_HomeBackground.Controls.Quad_StadiumOld.ImageUrl = {{{P}}}Private_GetStadiumImageUrl(_HomeBackground.OldDayPart, _HomeBackground.OldSeason);
+		AnimMgr.Add(_HomeBackground.Controls.Quad_StadiumOld, "<a opacity=\"0\" hidden=\"1\" />", Now + FadeInDuration, FadeOutDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+	} else {
+		_HomeBackground.Controls.Quad_StadiumOld.ImageUrl = "";
+		_HomeBackground.Controls.Quad_StadiumOld.Visible = False;
+	}
+}
+
+Void {{{P}}}Private_RedrawOverflowDayPart({{{P}}}K_HomeBackground _HomeBackground, Integer _TransitionDuration) {
+	declare Integer FadeInDuration = {{{P}}}Private_GetFadeInDuration(_TransitionDuration);
+	declare Integer FadeOutDuration = {{{P}}}Private_GetFadeOutDuration(_TransitionDuration);
+
+	AnimMgr.Flush(_HomeBackground.Controls.Quad_OverflowActive);
+	_HomeBackground.Controls.Quad_OverflowActive.ImageUrl = {{{P}}}Private_GetOverflowImageUrl(_HomeBackground.ActiveDayPart);
+	if (FadeInDuration > 0) {
+		_HomeBackground.Controls.Quad_OverflowActive.Opacity = 0.;
+		AnimMgr.Add(_HomeBackground.Controls.Quad_OverflowActive, "<a opacity=\"1\" />", FadeInDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+	} else {
+		_HomeBackground.Controls.Quad_OverflowActive.Opacity = 1.;
+	}
+
+	AnimMgr.Flush(_HomeBackground.Controls.Quad_OverflowOld);
+	if (FadeOutDuration > 0) {
+		_HomeBackground.Controls.Quad_OverflowOld.Visible = True;
+		_HomeBackground.Controls.Quad_OverflowOld.Opacity = 1.;
+		_HomeBackground.Controls.Quad_OverflowOld.ImageUrl = {{{P}}}Private_GetOverflowImageUrl(_HomeBackground.OldDayPart);
+		AnimMgr.Add(_HomeBackground.Controls.Quad_OverflowOld, "<a opacity=\"0\" hidden=\"1\" />", Now + FadeInDuration, FadeOutDuration, CAnimManager::EAnimManagerEasing::QuadIn);
+	} else {
+		_HomeBackground.Controls.Quad_OverflowOld.ImageUrl = "";
+		_HomeBackground.Controls.Quad_OverflowOld.Visible = False;
+	}
+}
+
+Void {{{P}}}Private_RedrawDayPart({{{P}}}K_HomeBackground _HomeBackground, Integer _TransitionDuration) {
+	{{{P}}}Private_RedrawCloudsDayPart(_HomeBackground, _TransitionDuration);
+	{{{P}}}Private_RedrawStadiumDayPart(_HomeBackground, _TransitionDuration);
+	{{{P}}}Private_RedrawCameraSceneCubeMap(_HomeBackground, _TransitionDuration);
+	{{{P}}}Private_RedrawOverflowDayPart(_HomeBackground, _TransitionDuration);
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_UnloadCloudsVideo({{{P}}}K_HomeBackground _HomeBackground, Integer _DayPart) {
+	if (!_HomeBackground.CloudsVideoIds.existskey(_DayPart)) return _HomeBackground;
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+	if (Video.Videos.existskey(HomeBackground.CloudsVideoIds[_DayPart])) {
+		Video.DestroyVideo(Video.Videos[HomeBackground.CloudsVideoIds[_DayPart]]);
+	}
+	HomeBackground.CloudsVideoIds.removekey(_DayPart);
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_LoadCloudsVideo({{{P}}}K_HomeBackground _HomeBackground, Integer _DayPart) {
+	if (
+		_HomeBackground.CloudsVideoIds.existskey(_DayPart) &&
+		Video.Videos.existskey(_HomeBackground.CloudsVideoIds[_DayPart])
+	) {
+		return _HomeBackground;
+	}
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+	declare Text VideoUrl = {{{P}}}Private_GetCloudsVideoUrl(_DayPart);
+	if (VideoUrl != "") {
+		declare CVideo CloudsVideo <=> Video.CreateVideo(VideoUrl, True, True);
+		if (CloudsVideo != Null) {
+			CloudsVideo.Play();
+			HomeBackground.CloudsVideoIds[_DayPart] = CloudsVideo.Id;
+		}
+	}
+
+	return HomeBackground;
+}
+
+Boolean {{{P}}}Private_CarStateIsSteer(Integer _CarState) {
+	return (
+		_CarState == {{{P}}}C_CarState_SteerNeutral ||
+		_CarState == {{{P}}}C_CarState_SteerLeft ||
+		_CarState == {{{P}}}C_CarState_SteerRight
+	);
+}
+
+Real {{{P}}}Private_GetCarSteerValue(Integer _CarState) {
+	switch (_CarState) {
+		case {{{P}}}C_CarState_SteerNeutral: return {{{P}}}C_SteerValue_Neutral;
+		case {{{P}}}C_CarState_SteerLeft: return {{{P}}}C_SteerValue_Left;
+		case {{{P}}}C_CarState_SteerRight: return {{{P}}}C_SteerValue_Right;
+	}
+	return {{{P}}}C_SteerValue_Neutral;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_SetCarStateSteer({{{P}}}K_HomeBackground _HomeBackground, Integer _CarState, Integer _TransitionDuration) {
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	HomeBackground.CameraScene.CarState.SteerDirection = _CarState;
+	if (_TransitionDuration > 0) {
+		HomeBackground.CameraScene.CarState.SteerAnimation = {{{P}}}K_AnimationReal {
+			StartTime = Now,
+			Duration = {{{P}}}C_CarStateSteerAnimationDuration,
+			StartValue = HomeBackground.CameraScene.CarState.SteerAnimation.CurrentValue,
+			DeltaValue = {{{P}}}Private_GetCarSteerValue(_CarState) - HomeBackground.CameraScene.CarState.SteerAnimation.CurrentValue
+		};
+	} else {
+		HomeBackground.CameraScene.CarState.SteerAnimation = {{{P}}}K_AnimationReal {
+			StartTime = -1,
+			CurrentValue = {{{P}}}Private_GetCarSteerValue(_CarState)
+		};
+		{{{P}}}Private_RedrawCarState(HomeBackground);
+	}
+
+	return HomeBackground;
+}
+
+Boolean {{{P}}}Private_CarStateIsBoost(Integer _CarState) {
+	return (
+		_CarState == {{{P}}}C_CarState_BoostUp ||
+		_CarState == {{{P}}}C_CarState_BoostDown
+	);
+}
+
+Real {{{P}}}Private_GetCarBoostValue({{{P}}}K_HomeBackground _HomeBackground, Integer _CarState) {
+	switch (_CarState) {
+		case {{{P}}}C_CarState_BoostUp: {
+			if (_HomeBackground.CameraScene.CarState.SpecialCarAnimLaunched) {
+				return {{{P}}}C_BoostValue_Up_CarUpdate;
+			} else {
+				return {{{P}}}C_BoostValue_Up;
+			}
+		}
+		case {{{P}}}C_CarState_BoostDown: {
+			if ({{{P}}}C_SpecialCarEnabled && _HomeBackground.CameraScene.CurrentCarItemId == _HomeBackground.CameraScene.SpecialCarItemId) {
+				switch (_HomeBackground.CurrentSpecialCarModel) {
+					case {{{P}}}C_SnowCarModel: return {{{P}}}C_BoostValue_Down_SnowCar;
+					case {{{P}}}C_RallyCarModel: return {{{P}}}C_BoostValue_Down_RallyCar;
+					case {{{P}}}C_DesertCarModel: return {{{P}}}C_BoostValue_Down_DesertCar;
+					default: return {{{P}}}C_BoostValue_Down;
+				}
+			} else {
+				return {{{P}}}C_BoostValue_Down;
+			}
+		}
+	}
+	return {{{P}}}C_BoostValue_Down;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_SetCarStateBoost({{{P}}}K_HomeBackground _HomeBackground, Integer _CarState, Integer _TransitionDuration) {
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	HomeBackground.CameraScene.CarState.BoostDirection = _CarState;
+	if (_TransitionDuration > 0) {
+		HomeBackground.CameraScene.CarState.BoostCooldownEndTime = Now + {{{P}}}C_CarStateBoostAnimationCooldownDuration;
+		HomeBackground.CameraScene.CarState.BoostAnimation = {{{P}}}K_AnimationReal {
+			StartTime = Now,
+			Duration = _TransitionDuration,
+			StartValue = HomeBackground.CameraScene.CarState.BoostAnimation.CurrentValue,
+			DeltaValue = {{{P}}}Private_GetCarBoostValue(HomeBackground, _CarState) - HomeBackground.CameraScene.CarState.BoostAnimation.CurrentValue
+		};
+		if (HomeBackground.CameraScene.CarState.BoostDirection == {{{P}}}C_CarState_BoostUp) {
+			HomeBackground.CameraScene.CarState.FlyAnimation = {{{P}}}K_AnimationReal {
+				StartTime = Now + HomeBackground.CameraScene.CarState.BoostAnimation.Duration,
+				Duration = -1,
+				StartValue = HomeBackground.CameraScene.CarState.FlyAnimation.CurrentValue
+			};
+		} else if (HomeBackground.CameraScene.CarState.BoostDirection == {{{P}}}C_CarState_BoostDown) {
+			HomeBackground.CameraScene.CarState.FlyAnimation = {{{P}}}K_AnimationReal {
+				StartTime = Now,
+				Duration = HomeBackground.CameraScene.CarState.BoostAnimation.Duration,
+				StartValue = HomeBackground.CameraScene.CarState.FlyAnimation.CurrentValue,
+				DeltaValue = -HomeBackground.CameraScene.CarState.FlyAnimation.CurrentValue
+			};
+		}
+	} else {
+		HomeBackground.CameraScene.CarState.BoostCooldownEndTime = Now;
+		HomeBackground.CameraScene.CarState.BoostAnimation = {{{P}}}K_AnimationReal {
+			StartTime = -1,
+			CurrentValue = {{{P}}}Private_GetCarBoostValue(HomeBackground, _CarState)
+		};
+		if (HomeBackground.CameraScene.CarState.BoostDirection == {{{P}}}C_CarState_BoostUp) {
+			HomeBackground.CameraScene.CarState.FlyAnimation = {{{P}}}K_AnimationReal {
+				StartTime = Now,
+				Duration = -1,
+				StartValue = HomeBackground.CameraScene.CarState.FlyAnimation.CurrentValue
+			};
+		} else if (HomeBackground.CameraScene.CarState.BoostDirection == {{{P}}}C_CarState_BoostDown) {
+			HomeBackground.CameraScene.CarState.FlyAnimation = {{{P}}}K_AnimationReal {
+				StartTime = -1,
+				CurrentValue = 0.
+			};
+		}
+		{{{P}}}Private_RedrawCarState(HomeBackground);
+	}
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_SetCarState({{{P}}}K_HomeBackground _HomeBackground, Integer _CarState, Integer _TransitionDuration) {
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	if ({{{P}}}Private_CarStateIsSteer(_CarState)) {
+		HomeBackground = {{{P}}}Private_SetCarStateSteer(HomeBackground, _CarState, _TransitionDuration);
+	} else if ({{{P}}}Private_CarStateIsBoost(_CarState)) {
+		HomeBackground = {{{P}}}Private_SetCarStateBoost(HomeBackground, _CarState, _TransitionDuration);
+	}
+
+	return HomeBackground;
+}
+
+{{{P}}}K_AnimationReal {{{P}}}Private_UpdateAnimationReal({{{P}}}K_AnimationReal _AnimationReal, Integer _CarState, Boolean _BouncingEasterEgg) {
+	if (_AnimationReal.StartTime < 0) return _AnimationReal;
+
+	declare {{{P}}}K_AnimationReal AnimationReal = _AnimationReal;
+
+	if (Now >= AnimationReal.StartTime + AnimationReal.Duration) {
+		AnimationReal.StartTime = -1;
+		AnimationReal.CurrentValue = AnimationReal.StartValue + AnimationReal.DeltaValue;
+	} else {
+		if (_CarState == {{{P}}}C_CarState_BoostDown) {
+			if (
+				(AnimationReal.Duration == {{{P}}}C_CarStateBoostAnimationDuration) ||
+				(AnimationReal.Duration == {{{P}}}C_CarStateBoostSpecialCarAnimationDuration && _BouncingEasterEgg)
+			) {
+				AnimationReal.CurrentValue = {{{P}}}AL::EaseOutBounce(
+					Now - AnimationReal.StartTime,
+					AnimationReal.StartValue,
+					AnimationReal.DeltaValue,
+					AnimationReal.Duration
+				);
+			} else {
+				AnimationReal.CurrentValue = {{{P}}}AL::EaseOutQuart(
+					Now - AnimationReal.StartTime,
+					AnimationReal.StartValue,
+					AnimationReal.DeltaValue,
+					AnimationReal.Duration
+				);
+			}
+		} else {
+			AnimationReal.CurrentValue = {{{P}}}AL::EaseInOutQuad(
+				Now - AnimationReal.StartTime,
+				AnimationReal.StartValue,
+				AnimationReal.DeltaValue,
+				AnimationReal.Duration
+			);
+		}
+	}
+
+	return AnimationReal;
+}
+
+{{{P}}}K_AnimationReal {{{P}}}Private_UpdateAnimationReal({{{P}}}K_AnimationReal _AnimationReal) {
+	return {{{P}}}Private_UpdateAnimationReal(_AnimationReal, {{{P}}}C_CarState_SteerNeutral, False);
+}
+
+{{{P}}}K_AnimationReal {{{P}}}Private_UpdateAnimationFlying({{{P}}}K_AnimationReal _AnimationReal) {
+	if (_AnimationReal.StartTime < 0) return _AnimationReal;
+
+	declare {{{P}}}K_AnimationReal AnimationReal = _AnimationReal;
+
+	if (AnimationReal.Duration >= 0) {
+		AnimationReal = {{{P}}}Private_UpdateAnimationReal(AnimationReal);
+	} else {
+		AnimationReal.CurrentValue = {{{P}}}C_CarStateFlyAnimationAmplitude * (1. + {{{P}}}ML::Sin((Now - AnimationReal.StartTime) * {{{P}}}C_CarStateFlyAnimationFrequency));
+	}
+
+	return AnimationReal;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_UpdateCarState({{{P}}}K_HomeBackground _HomeBackground) {
+	if (
+		_HomeBackground.CameraScene.CarState.SteerAnimation.StartTime < 0 &&
+		_HomeBackground.CameraScene.CarState.BoostAnimation.StartTime < 0 &&
+		_HomeBackground.CameraScene.CarState.FlyAnimation.StartTime < 0
+	) {
+		return _HomeBackground;
+	}
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	HomeBackground.CameraScene.CarState.SteerAnimation = {{{P}}}Private_UpdateAnimationReal(HomeBackground.CameraScene.CarState.SteerAnimation);
+	HomeBackground.CameraScene.CarState.BoostAnimation = {{{P}}}Private_UpdateAnimationReal(HomeBackground.CameraScene.CarState.BoostAnimation, HomeBackground.CameraScene.CarState.BoostDirection, HomeBackground.CameraScene.CarState.BouncingEasterEgg);
+	HomeBackground.CameraScene.CarState.FlyAnimation = {{{P}}}Private_UpdateAnimationFlying(HomeBackground.CameraScene.CarState.FlyAnimation);
+
+	{{{P}}}Private_RedrawCarState(HomeBackground);
+
+	// Switch car models if special car enabled
+	if (
+		{{{P}}}C_SpecialCarEnabled && HomeBackground.CameraScene.SpecialCarItemId != NullId &&
+		HomeBackground.CameraScene.CarState.SpecialCarAnimLaunched &&
+		HomeBackground.CameraScene.CarState.BoostDirection == {{{P}}}C_CarState_BoostUp &&
+		HomeBackground.CameraScene.CarState.BoostAnimation.StartTime == -1
+	) {
+		// Switch car items
+		MenuSceneMgr.ItemSetVisible(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.CurrentCarItemId, False);
+		if (HomeBackground.CameraScene.CurrentCarItemId == HomeBackground.CameraScene.SpecialCarItemId) {
+			HomeBackground.CameraScene.CurrentCarItemId = HomeBackground.CameraScene.DefaultCarItemId;
+		} else {
+			HomeBackground.CameraScene.CurrentCarItemId = HomeBackground.CameraScene.SpecialCarItemId;
+		}
+		MenuSceneMgr.ItemSetVisible(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.CurrentCarItemId, True);
+		// Put the car down on the podium after the switch
+		HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, {{{P}}}C_CarState_BoostDown, {{{P}}}C_CarStateBoostSpecialCarAnimationDuration);
+		HomeBackground.CameraScene.CarState.SpecialCarAnimLaunched = False;
+		HomeBackground.CameraScene.CarState.BouncingEasterEgg = {{{P}}}ML::Rand(1, 100) == 14;
+	}
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_CarSteer({{{P}}}K_HomeBackground _HomeBackground, CMlScriptEvent::EMenuNavAction _NavAction, Integer _TransitionDuration) {
+	if (
+		(_NavAction == CMlScriptEvent::EMenuNavAction::Left && _HomeBackground.CameraScene.CarState.SteerDirection == {{{P}}}C_CarState_SteerRight) ||
+		(_NavAction == CMlScriptEvent::EMenuNavAction::Right && _HomeBackground.CameraScene.CarState.SteerDirection == {{{P}}}C_CarState_SteerLeft)
+	) {
+		return _HomeBackground;
+	}
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	if (_NavAction == CMlScriptEvent::EMenuNavAction::Left) {
+		if (HomeBackground.CameraScene.CarState.SteerDirection == {{{P}}}C_CarState_SteerNeutral) {
+			HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, {{{P}}}C_CarState_SteerRight, _TransitionDuration);
+		} else if (HomeBackground.CameraScene.CarState.SteerDirection == {{{P}}}C_CarState_SteerLeft) {
+			HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, {{{P}}}C_CarState_SteerNeutral, _TransitionDuration);
+		}
+	} else if (_NavAction == CMlScriptEvent::EMenuNavAction::Right) {
+		if (HomeBackground.CameraScene.CarState.SteerDirection == {{{P}}}C_CarState_SteerNeutral) {
+			HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, {{{P}}}C_CarState_SteerLeft, _TransitionDuration);
+		} else if (HomeBackground.CameraScene.CarState.SteerDirection == {{{P}}}C_CarState_SteerRight) {
+			HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, {{{P}}}C_CarState_SteerNeutral, _TransitionDuration);
+		}
+	}
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_CarBoost({{{P}}}K_HomeBackground _HomeBackground, CMlScriptEvent::EMenuNavAction _NavAction) {
+	if (
+		Now < _HomeBackground.CameraScene.CarState.BoostCooldownEndTime ||
+		(_NavAction == CMlScriptEvent::EMenuNavAction::Up && _HomeBackground.CameraScene.CarState.BoostDirection == {{{P}}}C_CarState_BoostUp && Now < _HomeBackground.CameraScene.CarState.SpecialCarCooldownEndTime) ||
+		(_NavAction == CMlScriptEvent::EMenuNavAction::Down && _HomeBackground.CameraScene.CarState.BoostDirection == {{{P}}}C_CarState_BoostDown)
+	) {
+		return _HomeBackground;
+	}
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	if (_NavAction == CMlScriptEvent::EMenuNavAction::Up) {
+		if (Now >= HomeBackground.CameraScene.CarState.SpecialCarCooldownEndTime) {
+			HomeBackground.CameraScene.CarState.SpecialCarAnimLaunched = True;
+			HomeBackground.CameraScene.CarState.SpecialCarCooldownEndTime = Now + {{{P}}}C_CarStateSpecialCarAnimationCooldownDuration;
+			HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, {{{P}}}C_CarState_BoostUp, {{{P}}}C_CarStateBoostSpecialCarAnimationDuration);
+		} else {
+			HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, {{{P}}}C_CarState_BoostUp, {{{P}}}C_CarStateBoostAnimationDuration);
+		}
+	} else if (_NavAction == CMlScriptEvent::EMenuNavAction::Down) {
+		HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, {{{P}}}C_CarState_BoostDown, {{{P}}}C_CarStateBoostAnimationDuration);
+	}
+
+	return HomeBackground;
+}
+
+
+{{{P}}}K_HomeBackground {{{P}}}Private_TransitionEnd({{{P}}}K_HomeBackground _HomeBackground) {
+	if (_HomeBackground.TransitionEndTime < 0) return _HomeBackground;
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	HomeBackground.TransitionEndTime = -1;
+	if (HomeBackground.OldDayPart != HomeBackground.ActiveDayPart) {
+		HomeBackground = {{{P}}}Private_UnloadCloudsVideo(HomeBackground, HomeBackground.OldDayPart);
+	}
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_TransitionStart({{{P}}}K_HomeBackground _HomeBackground, Integer _TransitionDuration) {
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	HomeBackground.TransitionEndTime = Now + _TransitionDuration;
+	HomeBackground = {{{P}}}Private_LoadCloudsVideo(HomeBackground, HomeBackground.ActiveDayPart);
+	{{{P}}}Private_RedrawDayPart(HomeBackground, _TransitionDuration);
+	{{{P}}}Private_RedrawCameraSceneLight(HomeBackground);
+
+	if (Now >= HomeBackground.TransitionEndTime) {
+		HomeBackground = {{{P}}}Private_TransitionEnd(HomeBackground);
+	}
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_UpdateDayPartAndSeason({{{P}}}K_HomeBackground _HomeBackground, Boolean _IsInit, Integer _DayPart, Integer _Season) {
+	if (!_IsInit && _HomeBackground.ActiveDayPart == _DayPart && _HomeBackground.ActiveSeason == _Season) return _HomeBackground;
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+	HomeBackground = {{{P}}}Private_TransitionEnd(HomeBackground);
+	HomeBackground.OldDayPart = HomeBackground.ActiveDayPart;
+	HomeBackground.ActiveDayPart = _DayPart;
+	HomeBackground.OldSeason = HomeBackground.ActiveSeason;
+	HomeBackground.ActiveSeason = _Season;
+	if (_IsInit) {
+		HomeBackground = {{{P}}}Private_TransitionStart(HomeBackground, 0);
+	} else {
+		HomeBackground = {{{P}}}Private_TransitionStart(HomeBackground, {{{P}}}C_DayPartTransitionDuration);
+	}
+	{{{P}}}Private_RedrawCarState(HomeBackground);
+	{{{P}}}MenuMusic::UpdateMood();
+
+	return HomeBackground;
+}
+{{{P}}}K_HomeBackground {{{P}}}Private_UpdateDayPartAndSeason({{{P}}}K_HomeBackground _HomeBackground, Boolean _IsInit) {
+	return {{{P}}}Private_UpdateDayPartAndSeason(
+		_HomeBackground,
+		_IsInit,
+		{{{P}}}TimeOfDay::GetDayPart({{{P}}}TimeOfDay::GetDayProgression(), False),
+		{{{P}}}Tools::GetTimestampSeason({{{P}}}TiL::GetCurrent())
+	);
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_SelectDayPart({{{P}}}K_HomeBackground _HomeBackground, CMlScriptEvent::EMenuNavAction _NavAction) {
+	if (_HomeBackground.TransitionEndTime >= 0) return _HomeBackground;
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	declare Integer[] DayParts = [
+		{{{P}}}TimeOfDay::C_DayPart_Sunrise,
+		{{{P}}}TimeOfDay::C_DayPart_Day,
+		{{{P}}}TimeOfDay::C_DayPart_Sunset,
+		{{{P}}}TimeOfDay::C_DayPart_Night
+	];
+	declare Integer Key = {{{P}}}ML::Max(0, DayParts.keyof(HomeBackground.ActiveDayPart));
+	if (_NavAction == CMlScriptEvent::EMenuNavAction::PageUp) {
+		Key -= 1;
+	} else if (_NavAction == CMlScriptEvent::EMenuNavAction::PageDown) {
+		Key += 1;
+	}
+	if (Key < 0) Key = DayParts.count - 1;
+	else if (Key > DayParts.count - 1) Key = 0;
+
+	if (
+		HomeBackground.OriginalDayPart != {{{P}}}TimeOfDay::C_DayPart_Null &&
+		HomeBackground.OriginalDayPart == DayParts[Key]
+	) {
+		HomeBackground.OriginalDayPart = {{{P}}}TimeOfDay::C_DayPart_Null;
+		{{{P}}}TimeOfDay::ResetForcedDayProgression();
+	} else {
+		if (HomeBackground.OriginalDayPart == {{{P}}}TimeOfDay::C_DayPart_Null) {
+			HomeBackground.OriginalDayPart = HomeBackground.ActiveDayPart;
+		}
+		{{{P}}}TimeOfDay::SetForcedDayProgression({{{P}}}TimeOfDay::GetTimeRange(DayParts[Key]));
+	}
+
+	HomeBackground = {{{P}}}Private_UpdateDayPartAndSeason(HomeBackground, False);
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_CreateCameraSceneCar({{{P}}}K_HomeBackground _HomeBackground) {
+	if (!{{{P}}}Private_CameraSceneIsValid(_HomeBackground) || _HomeBackground.CameraScene.CurrentCarItemId != NullId) return _HomeBackground;
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	// Create default car
+	if (LocalUser != Null) {
+		HomeBackground.CameraScene.DefaultCarItemId = MenuSceneMgr.ItemCreate(
+			HomeBackground.CameraScene.SceneId,
+			{{{P}}}C_CarModel,
+			LocalUser.Model_CarSport_SkinName,
+			LocalUser.Model_CarSport_SkinUrl,
+			LocalUser.Prestige_SkinOptions
+		);
+	} else {
+		HomeBackground.CameraScene.DefaultCarItemId = MenuSceneMgr.ItemCreate(
+			HomeBackground.CameraScene.SceneId,
+			{{{P}}}C_CarModel,
+			"",
+			""
+		);
+	}
+
+	if (HomeBackground.CameraScene.DefaultCarItemId != NullId) {
+		MenuSceneMgr.ItemSetLocation(
+			HomeBackground.CameraScene.SceneId,
+			HomeBackground.CameraScene.DefaultCarItemId,
+			{{{P}}}C_CarPosition,
+			{{{P}}}C_CarRotation,
+			False
+		);
+	}
+
+	HomeBackground.CameraScene.CurrentCarItemId = HomeBackground.CameraScene.DefaultCarItemId;
+
+	// Create special car
+	if ({{{P}}}C_SpecialCarEnabled) {
+		HomeBackground.CurrentSpecialCarModel = {{{P}}}GetRandomSpecialCarModel();
+		HomeBackground.CameraScene.SpecialCarItemId = MenuSceneMgr.ItemCreate(
+			HomeBackground.CameraScene.SceneId,
+			HomeBackground.CurrentSpecialCarModel,
+			"",
+			""
+		);
+
+		if (HomeBackground.CameraScene.SpecialCarItemId != NullId) {
+			MenuSceneMgr.ItemSetLocation(
+				HomeBackground.CameraScene.SceneId,
+				HomeBackground.CameraScene.SpecialCarItemId,
+				{{{P}}}C_CarPositionHiddenOnTop,
+				{{{P}}}C_CarRotation,
+				False
+			);
+		}
+	}
+
+
+	// Only the default car should be visible at the scene creation
+	MenuSceneMgr.ItemSetVisible(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.SpecialCarItemId, False);
+	MenuSceneMgr.ItemSetVisible(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.DefaultCarItemId, True);
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_CreateCameraScenePilot({{{P}}}K_HomeBackground _HomeBackground) {
+	if (!{{{P}}}Private_CameraSceneIsValid(_HomeBackground) || _HomeBackground.CameraScene.PilotItemId != NullId) return _HomeBackground;
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	HomeBackground.CameraScene.PilotItemId = MenuSceneMgr.ItemCreate(
+		HomeBackground.CameraScene.SceneId,
+		{{{P}}}C_PilotModel,
+		LocalUser.Model_CharacterPilot_SkinName,
+		LocalUser.Model_CharacterPilot_SkinUrl,
+		LocalUser.Character_SkinOptions
+	);
+	if (HomeBackground.CameraScene.PilotItemId != NullId) {
+		MenuSceneMgr.ItemSetPlayerState(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.PilotItemId, LocalUser);
+		if ({{{P}}}C_PilotInCar && HomeBackground.CameraScene.CurrentCarItemId != NullId) {
+			MenuSceneMgr.ItemAttachTo(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.PilotItemId, HomeBackground.CameraScene.CurrentCarItemId);
+		} else {
+			MenuSceneMgr.ItemSetLocation(
+				HomeBackground.CameraScene.SceneId,
+				HomeBackground.CameraScene.PilotItemId,
+				{{{P}}}C_PilotPosition,
+				{{{P}}}C_PilotRotation,
+				False
+			);
+		}
+	}
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_CreateCameraScenePodium({{{P}}}K_HomeBackground _HomeBackground) {
+	if (!{{{P}}}Private_CameraSceneIsValid(_HomeBackground) || _HomeBackground.CameraScene.PodiumItemId != NullId || !{{{P}}}C_PodiumEnabled) return _HomeBackground;
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	HomeBackground.CameraScene.PodiumItemId = MenuSceneMgr.ItemCreate(
+		HomeBackground.CameraScene.SceneId,
+		{{{P}}}C_PodiumModel,
+		"",
+		""
+	);
+	if (HomeBackground.CameraScene.PodiumItemId != NullId) {
+		MenuSceneMgr.ItemSetLocation(
+			HomeBackground.CameraScene.SceneId,
+			HomeBackground.CameraScene.PodiumItemId,
+			{{{P}}}C_PodiumPosition,
+			{{{P}}}C_PodiumRotation,
+			False
+		);
+		MenuSceneMgr.PodiumTweakShadingSet(
+			HomeBackground.CameraScene.SceneId,
+			{{{P}}}C_PodiumBaseColor,
+			{{{P}}}C_PodiumCubeReflect,
+			{{{P}}}C_PodiumPlaneReflect
+		);
+	}
+
+	return HomeBackground;
+}
+
+Boolean {{{P}}}Private_GetUpdatedCameraSceneVisibility({{{P}}}K_HomeBackground _HomeBackground) {
+	return (
+		_HomeBackground.CameraScene.SceneId != NullId &&
+		_HomeBackground.Enabled
+	);
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_CreateCameraScene({{{P}}}K_HomeBackground _HomeBackground) {
+	if (_HomeBackground.CameraScene.SceneId != NullId) return _HomeBackground;
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+	HomeBackground.CameraScene.SceneId = MenuSceneMgr.SceneCreate({{{P}}}C_SceneLayout);
+	{{{P}}}MenuSceneManager::PageSynchronizeScene(Page, LocalUser);
+
+	if (HomeBackground.CameraScene.SceneId != NullId) {
+		MenuSceneMgr.PostFxSet(HomeBackground.CameraScene.SceneId, 0.15);
+		MenuSceneMgr.CameraSetLocation(
+			HomeBackground.CameraScene.SceneId,
+			{{{P}}}C_CameraPosition,
+			{{{P}}}C_CameraRotation,
+			{{{P}}}C_CameraFOV
+		);
+
+		// More info: /trackmania-next/tmnext/-/issues/3476#note_218262
+		MenuSceneMgr.SetBackgroundQuads(
+			HomeBackground.CameraScene.SceneId,
+			HomeBackground.Controls.Quad_CubeMapSunrise,
+			HomeBackground.Controls.Quad_CubeMapDay,
+			HomeBackground.Controls.Quad_CubeMapSunset,
+			HomeBackground.Controls.Quad_CubeMapNight
+		);
+		MenuSceneMgr.PlaneReflectRefresh();
+
+		HomeBackground = {{{P}}}Private_CreateCameraSceneCar(HomeBackground);
+		HomeBackground = {{{P}}}Private_CreateCameraScenePilot(HomeBackground);
+		HomeBackground = {{{P}}}Private_CreateCameraScenePodium(HomeBackground);
+
+		{{{P}}}Private_RedrawCameraSceneLight(HomeBackground);
+		{{{P}}}Private_RedrawCameraSceneCubeMap(HomeBackground, 0);
+	}
+
+	HomeBackground.Controls.Camera_Scene.Visible = {{{P}}}Private_GetUpdatedCameraSceneVisibility(HomeBackground);
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_DestroyCameraScene({{{P}}}K_HomeBackground _HomeBackground) {
+	if (_HomeBackground.CameraScene.SceneId == NullId) return _HomeBackground;
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	if (HomeBackground.CameraScene.PodiumItemId != NullId) {
+		MenuSceneMgr.ItemDestroy(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.PodiumItemId);
+		HomeBackground.CameraScene.PodiumItemId = NullId;
+	}
+	if (HomeBackground.CameraScene.PilotItemId != NullId) {
+		MenuSceneMgr.ItemDestroy(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.PilotItemId);
+		HomeBackground.CameraScene.PilotItemId = NullId;
+	}
+	if (HomeBackground.CameraScene.DefaultCarItemId != NullId) {
+		MenuSceneMgr.ItemDestroy(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.DefaultCarItemId);
+		HomeBackground.CameraScene.DefaultCarItemId = NullId;
+	}
+	if (HomeBackground.CameraScene.SpecialCarItemId != NullId) {
+		MenuSceneMgr.ItemDestroy(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.SpecialCarItemId);
+		HomeBackground.CameraScene.SpecialCarItemId = NullId;
+	}
+	HomeBackground.CameraScene.CurrentCarItemId = NullId;
+	MenuSceneMgr.SceneDestroy(HomeBackground.CameraScene.SceneId);
+	HomeBackground.CameraScene.SceneId = NullId;
+
+	HomeBackground.CameraScene.CarState.SteerAnimation.StartTime = -1;
+	HomeBackground.CameraScene.CarState.BoostAnimation.StartTime = -1;
+	HomeBackground.CameraScene.CarState.FlyAnimation.StartTime = -1;
+
+	HomeBackground.Controls.Camera_Scene.Visible = {{{P}}}Private_GetUpdatedCameraSceneVisibility(HomeBackground);
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_Enable({{{P}}}K_HomeBackground _HomeBackground, Boolean _IsInit, Boolean _Enabled) {
+	if (!_IsInit && _HomeBackground.EnableDelayEndTime < 0 && _HomeBackground.Enabled == _Enabled) {
+		return _HomeBackground;
+	}
+
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	if (!_IsInit && _HomeBackground.EnableDelayEndTime >= 0 && _HomeBackground.Enabled == _Enabled) {
+		HomeBackground.EnableDelayEndTime = -1;
+		return HomeBackground;
+	}
+
+	HomeBackground.Enabled = _Enabled;
+	HomeBackground.EnableDelayEndTime = -1;
+
+	AnimMgr.Flush(HomeBackground.Controls.Camera_Scene);
+	if (_IsInit || HomeBackground.Enabled) {
+		// Set or reset the timer if the animation isn't done
+		if (HomeBackground.TriggerSpecialCarSwitchTime != {{{P}}}C_TriggerSpecialCar_Done) {
+			HomeBackground.TriggerSpecialCarSwitchTime = Now + {{{P}}}C_TriggerSpecialCarSwitchTime;
+		}
+		HomeBackground.Controls.Camera_Scene.Visible = {{{P}}}Private_GetUpdatedCameraSceneVisibility(HomeBackground);
+		HomeBackground = {{{P}}}Private_UpdateDayPartAndSeason(HomeBackground, _IsInit);
+		HomeBackground = {{{P}}}Private_CreateCameraScene(HomeBackground);
+	} else {
+		declare Integer IsHidden = 1;
+		if ({{{P}}}Private_GetUpdatedCameraSceneVisibility(HomeBackground)) {
+			IsHidden = 0;
+		}
+		AnimMgr.Add(HomeBackground.Controls.Camera_Scene, "<anim hidden=\""^IsHidden^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	if (HomeBackground.Enabled) {
+		{{{P}}}Private_StartCloudsVideo(HomeBackground);
+		HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, HomeBackground.CameraScene.CarState.SteerDirection, 0);
+		HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, HomeBackground.CameraScene.CarState.BoostDirection, 0);
+		ParentApp.FillExtraSpaceWithBluredContents_Opacity = 1.;
+	} else {
+		{{{P}}}Private_StopCloudsVideo(HomeBackground);
+		ParentApp.FillExtraSpaceWithBluredContents_Opacity = 0.;
+	}
+
+	declare Integer Trackmania_HomeBackground_CameraSceneReloadRequested for System = 0;
+	HomeBackground.CameraSceneReloadRequested = Trackmania_HomeBackground_CameraSceneReloadRequested;
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_EnableWithDelay({{{P}}}K_HomeBackground _HomeBackground, Boolean _Enabled, Integer _Delay) {
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	if (_Delay <= 0) {
+		HomeBackground.EnableDelayEndTime = -1;
+		HomeBackground = {{{P}}}Private_Enable(_HomeBackground, False, _Enabled);
+	} else {
+		HomeBackground.EnableDelayEndTime = Now + _Delay;
+		HomeBackground.EnableDelayValue = _Enabled;
+	}
+
+	return HomeBackground;
+}
+
+// Recreate the camera scene if it was destroyed automatically by the C++ at some points
+{{{P}}}K_HomeBackground {{{P}}}Private_ReloadCameraScene({{{P}}}K_HomeBackground _HomeBackground, Integer _CameraSceneReloadRequested) {
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	HomeBackground.CameraSceneReloadRequested = _CameraSceneReloadRequested;
+
+	{{{P}}}Private_StopCloudsVideo(HomeBackground);
+	HomeBackground = {{{P}}}Private_DestroyCameraScene(HomeBackground);
+
+	{{{P}}}Private_StartCloudsVideo(HomeBackground);
+	HomeBackground = {{{P}}}Private_CreateCameraScene(HomeBackground);
+	HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, HomeBackground.CameraScene.CarState.SteerDirection, 0);
+	HomeBackground = {{{P}}}Private_SetCarState(HomeBackground, HomeBackground.CameraScene.CarState.BoostDirection, 0);
+
+	return HomeBackground;
+}
+
+// Refresh scene items without destroying the entire scene
+{{{P}}}K_HomeBackground {{{P}}}Private_RefreshSceneItems({{{P}}}K_HomeBackground _HomeBackground) {
+	declare {{{P}}}K_HomeBackground HomeBackground = _HomeBackground;
+
+	if (HomeBackground.CameraScene.SceneId != NullId) {
+		if (HomeBackground.CameraScene.PodiumItemId != NullId) {
+			MenuSceneMgr.ItemDestroy(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.PodiumItemId);
+			HomeBackground.CameraScene.PodiumItemId = NullId;
+		}
+		if (HomeBackground.CameraScene.PilotItemId != NullId) {
+			MenuSceneMgr.ItemDestroy(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.PilotItemId);
+			HomeBackground.CameraScene.PilotItemId = NullId;
+		}
+		if (HomeBackground.CameraScene.DefaultCarItemId != NullId) {
+			MenuSceneMgr.ItemDestroy(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.DefaultCarItemId);
+			HomeBackground.CameraScene.DefaultCarItemId = NullId;
+		}
+		if (HomeBackground.CameraScene.SpecialCarItemId != NullId) {
+			MenuSceneMgr.ItemDestroy(HomeBackground.CameraScene.SceneId, HomeBackground.CameraScene.SpecialCarItemId);
+			HomeBackground.CameraScene.SpecialCarItemId = NullId;
+		}
+		HomeBackground.CameraScene.CurrentCarItemId = NullId;
+
+		HomeBackground = {{{P}}}Private_CreateCameraSceneCar(HomeBackground);
+		HomeBackground = {{{P}}}Private_CreateCameraScenePilot(HomeBackground);
+		HomeBackground = {{{P}}}Private_CreateCameraScenePodium(HomeBackground);
+	}
+
+	return HomeBackground;
+}
+
+{{{P}}}K_HomeBackground {{{P}}}Private_Initialize({{{P}}}K_HomeBackground _HomeBackground) {
+	return {{{P}}}Private_Enable(_HomeBackground, True, False);
+}
+
+Void {{{P}}}Enable(Boolean _Enabled) {
+	{{{P}}}G_HomeBackground = {{{P}}}Private_Enable({{{P}}}G_HomeBackground, False, _Enabled);
+}
+
+Void {{{P}}}EnableWithDelay(Boolean _Enabled, Integer _Delay) {
+	{{{P}}}G_HomeBackground = {{{P}}}Private_EnableWithDelay({{{P}}}G_HomeBackground, _Enabled, _Delay);
+}
+
+Void {{{P}}}EnableInputs(Boolean _Enabled) {
+	{{{P}}}G_HomeBackground.InputsEnabled = _Enabled;
+}
+
+Void {{{P}}}RefreshSceneItems() {
+	{{{P}}}G_HomeBackground = {{{P}}}Private_RefreshSceneItems({{{P}}}G_HomeBackground);
+}
+
+***MainInit***
+***
+{{{P}}}Private_AssertOnlyOnInstance();
+
+declare CMlFrame Frame_Global;
+
+declare Integer {{{P}}}NextDayProgressionUpdateTime;
+***
+
+***MainStart***
+***
+declare Integer Trackmania_HomeBackground_CameraSceneReloadRequested for System = 0;
+Frame_Global <=> (Page.GetFirstChild("{{{P}}}frame-global") as CMlFrame);
+{{{P}}}G_HomeBackground = {{{P}}}K_HomeBackground {
+	Controls = {{{P}}}K_Controls {
+		Quad_CloudsOld = (Frame_Global.GetFirstChild("{{{P}}}quad-clouds-old") as CMlQuad),
+		Quad_CloudsActive = (Frame_Global.GetFirstChild("{{{P}}}quad-clouds-active") as CMlQuad),
+		Quad_StadiumOld = (Frame_Global.GetFirstChild("{{{P}}}quad-stadium-old") as CMlQuad),
+		Quad_StadiumActive = (Frame_Global.GetFirstChild("{{{P}}}quad-stadium-active") as CMlQuad),
+		Quad_CubeMapSunrise = (Frame_Global.GetFirstChild("{{{P}}}quad-cube-map-sunrise") as CMlQuad),
+		Quad_CubeMapDay = (Frame_Global.GetFirstChild("{{{P}}}quad-cube-map-day") as CMlQuad),
+		Quad_CubeMapSunset = (Frame_Global.GetFirstChild("{{{P}}}quad-cube-map-sunset") as CMlQuad),
+		Quad_CubeMapNight = (Frame_Global.GetFirstChild("{{{P}}}quad-cube-map-night") as CMlQuad),
+		Quad_OverflowOld = (Frame_Global.GetFirstChild("{{{P}}}quad-overflow-old") as CMlQuad),
+		Quad_OverflowActive = (Frame_Global.GetFirstChild("{{{P}}}quad-overflow-active") as CMlQuad),
+		Camera_Scene = (Frame_Global.GetFirstChild("{{{P}}}camera-scene") as CMlCamera)
+	},
+	Enabled = False,
+	InputsEnabled = True,
+	OldDayPart = {{{P}}}TimeOfDay::C_DayPart_Night,
+	ActiveDayPart = {{{P}}}TimeOfDay::C_DayPart_Night,
+	OriginalDayPart = {{{P}}}TimeOfDay::C_DayPart_Null,
+	OldSeason = {{{P}}}Tools::C_Season_Spring,
+	ActiveSeason = {{{P}}}Tools::C_Season_Spring,
+	CloudsVideoIds = [],
+	TransitionEndTime = -1,
+	EnableDelayEndTime = -1,
+	EnableDelayValue = False,
+	CameraScene = {{{P}}}K_CameraScene {
+		SceneId = NullId,
+		DefaultCarItemId = NullId,
+		SpecialCarItemId = NullId,
+		CurrentCarItemId = NullId,
+		PilotItemId = NullId,
+		PodiumItemId = NullId,
+		CarState = {{{P}}}K_CarState {
+			SteerDirection = {{{P}}}C_CarState_SteerRight,
+			SteerAnimation = {{{P}}}K_AnimationReal {
+				StartTime = -1,
+				Duration = 0,
+				StartValue = {{{P}}}C_SteerValue_Right,
+				DeltaValue = 0.,
+				CurrentValue = {{{P}}}C_SteerValue_Right
+			},
+			BoostDirection = {{{P}}}C_CarState_BoostDown,
+			BoostCooldownEndTime = 0,
+			BoostAnimation = {{{P}}}K_AnimationReal {
+				StartTime = -1,
+				Duration = 0,
+				StartValue = {{{P}}}C_BoostValue_Down,
+				DeltaValue = 0.,
+				CurrentValue = {{{P}}}C_BoostValue_Down
+			},
+			FlyAnimation = {{{P}}}K_AnimationReal {
+				StartTime = -1,
+				Duration = 0,
+				StartValue = 0.,
+				DeltaValue = 0.,
+				CurrentValue = 0.
+			}
+		},
+		EmoteCooldownEndTime = 0
+	},
+	CameraSceneReloadRequested = Trackmania_HomeBackground_CameraSceneReloadRequested,
+	TriggerSpecialCarSwitchTime = {{{P}}}C_TriggerSpecialCar_Null,
+	CurrentSpecialCarModel = ""
+};
+
+{{{P}}}NextDayProgressionUpdateTime = Now + {{{P}}}C_DayProgressionUpdateInterval;
+
+{{{P}}}G_HomeBackground = {{{P}}}Private_Initialize({{{P}}}G_HomeBackground);
+***
+
+***MainLoop***
+***
+if (
+	{{{P}}}G_HomeBackground.CameraScene.SceneId != NullId &&
+	{{{P}}}MenuSceneManager::PageNeedToRecreateScene(Page, LocalUser)
+) {
+	{{{P}}}G_HomeBackground = {{{P}}}Private_ReloadCameraScene({{{P}}}G_HomeBackground, Trackmania_HomeBackground_CameraSceneReloadRequested);
+}
+
+if (PageIsVisible && {{{P}}}G_HomeBackground.Enabled) {
+	if (Now >= {{{P}}}NextDayProgressionUpdateTime) {
+		{{{P}}}NextDayProgressionUpdateTime = Now + {{{P}}}C_DayProgressionUpdateInterval;
+		{{{P}}}G_HomeBackground = {{{P}}}Private_UpdateDayPartAndSeason({{{P}}}G_HomeBackground, False);
+	}
+
+	// Special car trigger to display it after 2.5 seconds if no input from the player
+	if ({{{P}}}G_HomeBackground.TriggerSpecialCarSwitchTime > 0 && Now >= {{{P}}}G_HomeBackground.TriggerSpecialCarSwitchTime) {
+			{{{P}}}G_HomeBackground = {{{P}}}Private_CarBoost({{{P}}}G_HomeBackground, CMlScriptEvent::EMenuNavAction::Up);
+			{{{P}}}G_HomeBackground.TriggerSpecialCarSwitchTime = {{{P}}}C_TriggerSpecialCar_Done;
+	}
+
+	/* Splashscreen events */
+	foreach (Event in {{{P}}}Splashscreen::GetPendingEvents()) {
+		switch (Event.Type) {
+			case {{{P}}}Splashscreen::C_EventType_VisibilityUpdate: {
+				// Reset special car timer if splashscreen visible
+				if ({{{P}}}G_HomeBackground.TriggerSpecialCarSwitchTime != {{{P}}}C_TriggerSpecialCar_Done) {
+					if ({{{P}}}Splashscreen::IsVisible()) {
+						{{{P}}}G_HomeBackground.TriggerSpecialCarSwitchTime = {{{P}}}C_TriggerSpecialCar_Null;
+					} else {
+						{{{P}}}G_HomeBackground.TriggerSpecialCarSwitchTime = Now + {{{P}}}C_TriggerSpecialCarSwitchTime;
+					}
+				}
+			}
+		}
+	}
+
+	if ({{{P}}}G_HomeBackground.InputsEnabled) {
+		foreach (Event in {{{ShareMenuNavigation::P}}}GetPendingEvents(This)) {
+			if (
+				Event.MenuNavAction == CMlScriptEvent::EMenuNavAction::Left ||
+				Event.MenuNavAction == CMlScriptEvent::EMenuNavAction::Right
+			) {
+				{{{P}}}G_HomeBackground = {{{P}}}Private_CarSteer({{{P}}}G_HomeBackground, Event.MenuNavAction, {{{P}}}C_CarStateSteerAnimationDuration);
+			} else if (
+				Event.MenuNavAction == CMlScriptEvent::EMenuNavAction::Up ||
+				Event.MenuNavAction == CMlScriptEvent::EMenuNavAction::Down
+			) {
+				if (
+					{{{P}}}Private_CameraSceneIsValid({{{P}}}G_HomeBackground) &&
+					{{{P}}}G_HomeBackground.CameraScene.PilotItemId != NullId &&
+					Now > {{{P}}}G_HomeBackground.CameraScene.EmoteCooldownEndTime
+				) {
+					{{{P}}}G_HomeBackground.CameraScene.EmoteCooldownEndTime = Now + {{{P}}}C_PiloteEmoteAnimationCooldownDuration;
+					MenuSceneMgr.ItemTriggerPlayerGesture({{{P}}}G_HomeBackground.CameraScene.SceneId, {{{P}}}G_HomeBackground.CameraScene.PilotItemId);
+				}
+				{{{P}}}G_HomeBackground = {{{P}}}Private_CarBoost({{{P}}}G_HomeBackground, Event.MenuNavAction);
+				// Do not need to trigger the special car switch if it was already done by the player
+				if ({{{P}}}G_HomeBackground.TriggerSpecialCarSwitchTime > 0 && Event.MenuNavAction == CMlScriptEvent::EMenuNavAction::Up) {
+					{{{P}}}G_HomeBackground.TriggerSpecialCarSwitchTime = {{{P}}}C_TriggerSpecialCar_Done;
+				}
+			} else if (
+				Event.MenuNavAction == CMlScriptEvent::EMenuNavAction::PageUp ||
+				Event.MenuNavAction == CMlScriptEvent::EMenuNavAction::PageDown
+			) {
+				{{{P}}}G_HomeBackground = {{{P}}}Private_SelectDayPart({{{P}}}G_HomeBackground, Event.MenuNavAction);
+			}
+		}
+	}
+
+	if (
+		({{{P}}}G_HomeBackground.CameraScene.CarState.SteerAnimation.StartTime >= 0 && Now >= {{{P}}}G_HomeBackground.CameraScene.CarState.SteerAnimation.StartTime) ||
+		({{{P}}}G_HomeBackground.CameraScene.CarState.BoostAnimation.StartTime >= 0 && Now >= {{{P}}}G_HomeBackground.CameraScene.CarState.BoostAnimation.StartTime) ||
+		({{{P}}}G_HomeBackground.CameraScene.CarState.FlyAnimation.StartTime >= 0 && Now >= {{{P}}}G_HomeBackground.CameraScene.CarState.FlyAnimation.StartTime)
+	) {
+		{{{P}}}G_HomeBackground = {{{P}}}Private_UpdateCarState({{{P}}}G_HomeBackground);
+	}
+
+	if ({{{P}}}G_HomeBackground.CameraSceneReloadRequested != Trackmania_HomeBackground_CameraSceneReloadRequested) {
+		{{{P}}}G_HomeBackground = {{{P}}}Private_ReloadCameraScene({{{P}}}G_HomeBackground, Trackmania_HomeBackground_CameraSceneReloadRequested);
+	}
+}
+if ({{{P}}}G_HomeBackground.TransitionEndTime >= 0) {
+	if ({{{P}}}Private_CameraSceneIsValid({{{P}}}G_HomeBackground)) {
+		MenuSceneMgr.PlaneReflectRefresh();
+	}
+	if (Now >= {{{P}}}G_HomeBackground.TransitionEndTime) {
+		{{{P}}}G_HomeBackground = {{{P}}}Private_TransitionEnd({{{P}}}G_HomeBackground);
+	}
+}
+if ({{{P}}}G_HomeBackground.EnableDelayEndTime >= 0 && Now >= {{{P}}}G_HomeBackground.EnableDelayEndTime) {
+	{{{P}}}G_HomeBackground = {{{P}}}Private_Enable({{{P}}}G_HomeBackground, False, {{{P}}}G_HomeBackground.EnableDelayValue);
+}
+***
+		""",
+		[
+			ShareMenuNavigation::ComponentV2()
+		],
+		[]
+	);
+}

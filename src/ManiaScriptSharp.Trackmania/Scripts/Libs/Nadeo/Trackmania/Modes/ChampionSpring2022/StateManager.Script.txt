@@ -1,0 +1,387 @@
+/**
+ *	State manager for the Champion mode
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/StateManager.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Server.Script.txt" as UIModules
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Countdown_Server.Script.txt" as UIModules_Countdown_Default
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Server.Script.txt" as UIModules_DisplayMessage_Default
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/RespawnHelper_Server.Script.txt" as UIModules_RespawnHelper_Default
+#Include "Libs/Nadeo/Trackmania/Modes/Rounds/UIModules/SmallScoresTable_Server.Script.txt" as UIModules_SmallScoresTable_Default
+#Include "Libs/Nadeo/Trackmania/Modes/UIModules/TMGLMarkers_Server.Script.txt" as UIModules_TMGLMarkers
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign2x3_Server.Script.txt" as UIModules_Sign2x3
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign16x9_Server.Script.txt" as UIModules_Sign16x9
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign64x10_Server.Script.txt" as UIModules_Sign64x10
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/SpectatorInfo_Server.Script.txt" as UIModules_SpectatorInfo
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Countdown_Server.Script.txt" as UIModules_Countdown
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/MapInfo_Server.Script.txt" as UIModules_MapInfo
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/LiveRanking_Server.Script.txt" as UIModules_LiveRanking
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Chat_Server.Script.txt" as UIModules_Chat
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/AmbientSound_Server.Script.txt" as UIModules_AmbientSound
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/WinScreen_Server.Script.txt" as UIModules_WinScreen
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/KOVictory_Server.Script.txt" as UIModules_KOVictory
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/LoadSave_Server.Script.txt" as UIModules_LoadSave
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/ScoresHeader_Server.Script.txt" as UIModules_ScoresHeader
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/MatchInfo_Server.Script.txt" as UIModules_MatchInfo
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/Sponsors_Server.Script.txt" as UIModules_Sponsors
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/*	Enabling this setting will have
+ *	a big impact on the script performances
+ *	in crowded server. The library
+ *	will do a check on every player
+ *	of the server on every frame.
+ *	If the script respect the convention
+ *	to always use MB_Yield() instead of yield;
+ *	then it should not have to enforce
+ *	the state at each frame. Any new
+ *	player will be initialized when
+ *	they join the server
+ */
+#Const C_ForceStatesEveryFrame False
+
+#Const C_State_Waiting 0
+#Const C_State_Playing 1
+#Const C_State_WarmUp 2
+#Const C_State_WinScreen 3
+#Const C_State_Pause 4
+#Const C_State_LoadMatchState 5
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer[] G_ForcedStates;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Apply the given states to the given player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_States										The states to apply
+ */
+Void Private_Apply(CPlayer _Player, Integer[] _States) {
+	if (_Player == Null) return;
+
+	UIModules_Chat::SetVisibility(_Player, True);
+	UIModules_AmbientSound::SetVisibility(_Player, True);
+	UIModules_Sign2x3::SetVisibility(_Player, True);
+	UIModules_Sign16x9::SetVisibility(_Player, True);
+	UIModules_Sign64x10::SetVisibility(_Player, True);
+
+	UIModules_TMGLMarkers::SetVisibility(_Player, False);
+	UIModules_SpectatorInfo::SetVisibility(_Player, False);
+	UIModules_Countdown::SetVisibility(_Player, False);
+	UIModules_MapInfo::SetVisibility(_Player, False);
+	UIModules_LiveRanking::SetVisibility(_Player, False);
+	UIModules_WinScreen::SetVisibility(_Player, False);
+	UIModules_ScoresHeader::SetVisibility(_Player, False);
+	UIModules_MatchInfo::SetVisibility(_Player, False);
+	UIModules_KOVictory::SetVisibility(_Player, False);
+	UIModules_LoadSave::SetVisibility(_Player, False);
+	UIModules_Sponsors::SetVisibility(_Player, False);
+
+	foreach (State in _States) {
+		switch (State) {
+			case C_State_Waiting: {
+				UIModules_ScoresHeader::SetVisibility(_Player, True);
+				UIModules_Sponsors::SetVisibility(_Player, True);
+			}
+			case C_State_Playing: {
+				UIModules_TMGLMarkers::SetVisibility(_Player, True);
+				UIModules_SpectatorInfo::SetVisibility(_Player, True);
+				UIModules_Countdown::SetVisibility(_Player, True);
+				UIModules_LiveRanking::SetVisibility(_Player, True);
+				UIModules_ScoresHeader::SetVisibility(_Player, True);
+				UIModules_MatchInfo::SetVisibility(_Player, True);
+				UIModules_KOVictory::SetVisibility(_Player, True);
+				UIModules_Sponsors::SetVisibility(_Player, True);
+			}
+			case C_State_WarmUp: {
+				UIModules_TMGLMarkers::SetVisibility(_Player, True);
+				UIModules_SpectatorInfo::SetVisibility(_Player, True);
+				UIModules_Countdown::SetVisibility(_Player, True);
+				UIModules_LiveRanking::SetVisibility(_Player, True);
+				UIModules_ScoresHeader::SetVisibility(_Player, True);
+				UIModules_MatchInfo::SetVisibility(_Player, True);
+				UIModules_MapInfo::SetVisibility(_Player, True);
+				UIModules_Sponsors::SetVisibility(_Player, True);
+			}
+			case C_State_WinScreen: {
+				UIModules_WinScreen::SetVisibility(_Player, True);
+			}
+			case C_State_Pause: {
+				UIModules_TMGLMarkers::SetVisibility(_Player, True);
+				UIModules_SpectatorInfo::SetVisibility(_Player, True);
+				UIModules_Countdown::SetVisibility(_Player, True);
+				UIModules_LiveRanking::SetVisibility(_Player, True);
+				UIModules_ScoresHeader::SetVisibility(_Player, True);
+				UIModules_MatchInfo::SetVisibility(_Player, True);
+				UIModules_MapInfo::SetVisibility(_Player, True);
+				UIModules_Sponsors::SetVisibility(_Player, True);
+			}
+			case C_State_LoadMatchState: {
+				UIModules_LoadSave::SetVisibility(_Player, True);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a state to a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to add
+ */
+Void Add(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	if (!LibStateMgr_States.exists(_State)) {
+		LibStateMgr_States.add(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove a state from a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to remove
+ */
+Void Remove(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	if (LibStateMgr_States.exists(_State)) {
+		declare Removed = LibStateMgr_States.remove(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove all state from a player
+ *
+ *	@param	_Player										The player to reset
+ */
+Void Reset(CPlayer _Player) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	LibStateMgr_States = [];
+	if (G_ForcedStates.count <= 0) {
+		Private_Apply(_Player, LibStateMgr_States);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player has the given state
+ *
+ *	@param	_Player										The player to check
+ *	@param	_State										The state to find
+ *
+ *	@return														True if the player has the state
+ *																		False otherwise
+ */
+Boolean HasState(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return False;
+
+	declare Integer[] LibStateMgr_States for _Player;
+	return LibStateMgr_States.exists(_State) || G_ForcedStates.exists(_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the players have the given state as forced
+ *
+ *	@param	_State										The state to find
+ *
+ *	@return														True if the players has the state
+ *																		False otherwise
+ */
+Boolean HasForcedState(Integer _State) {
+	return G_ForcedStates.exists(_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Force the states applied to all players
+ *	To disable the forced states use an empty array
+ *
+ *	@param	_States									The states to force
+ */
+Void ForcePlayersStates(Integer[] _States) {
+	G_ForcedStates = _States;
+
+	foreach (Player in AllPlayers) {
+		declare Boolean LibStateMgr_IsForcedStates for Player = False;
+		// Enable
+		if (G_ForcedStates.count > 0) {
+			LibStateMgr_IsForcedStates = True;
+			Private_Apply(Player, G_ForcedStates);
+		}
+		// Disable
+		else {
+			LibStateMgr_IsForcedStates = False;
+			declare Integer[] LibStateMgr_States for Player;
+			Private_Apply(Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (C_ForceStatesEveryFrame && G_ForcedStates.count > 0) {
+		foreach (Player in AllPlayers) {
+			declare Boolean LibStateMgr_IsForcedStates for Player = False;
+			if (!LibStateMgr_IsForcedStates) {
+				LibStateMgr_IsForcedStates = True;
+				Private_Apply(Player, G_ForcedStates);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	UIModules_TMGLMarkers::InitializePlayer(_Player);
+	UIModules_Sign2x3::InitializePlayer(_Player);
+	UIModules_Sign16x9::InitializePlayer(_Player);
+	UIModules_Sign64x10::InitializePlayer(_Player);
+	UIModules_SpectatorInfo::InitializePlayer(_Player);
+	UIModules_Countdown::InitializePlayer(_Player);
+	UIModules_MapInfo::InitializePlayer(_Player);
+	UIModules_LiveRanking::InitializePlayer(_Player);
+	UIModules_Chat::InitializePlayer(_Player);
+	UIModules_AmbientSound::InitializePlayer(_Player);
+	UIModules_WinScreen::InitializePlayer(_Player);
+	UIModules_ScoresHeader::InitializePlayer(_Player);
+	UIModules_KOVictory::InitializePlayer(_Player);
+	UIModules_LoadSave::InitializePlayer(_Player);
+	UIModules_MatchInfo::InitializePlayer(_Player);
+	UIModules_Sponsors::InitializePlayer(_Player);
+
+	Reset(_Player);
+
+	if (G_ForcedStates.count > 0) {
+		declare Boolean LibStateMgr_IsForcedStates for _Player = False;
+		LibStateMgr_IsForcedStates = True;
+		Private_Apply(_Player, G_ForcedStates);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	ForcePlayersStates([]);
+
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+
+	UIModules_Sponsors::Unload();
+	UIModules_MatchInfo::Unload();
+	UIModules_LoadSave::Unload();
+	UIModules_KOVictory::Unload();
+	UIModules_ScoresHeader::Unload();
+	UIModules_WinScreen::Unload();
+	UIModules_AmbientSound::Unload();
+	UIModules_Chat::Unload();
+	UIModules_LiveRanking::Unload();
+	UIModules_MapInfo::Unload();
+	UIModules_Countdown::Unload();
+	UIModules_SpectatorInfo::Unload();
+	UIModules_Sign2x3::Unload();
+	UIModules_Sign16x9::Unload();
+	UIModules_Sign64x10::Unload();
+	UIModules_TMGLMarkers::Unload();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	UIModules_TMGLMarkers::Load();
+	UIModules_Sign2x3::Load();
+	UIModules_Sign16x9::Load();
+	UIModules_Sign64x10::Load();
+	UIModules_SpectatorInfo::Load();
+	UIModules_Countdown::Load();
+	UIModules_MapInfo::Load();
+	UIModules_LiveRanking::Load();
+	UIModules_Chat::Load();
+	UIModules_AmbientSound::Load();
+	UIModules_WinScreen::Load();
+	UIModules_ScoresHeader::Load();
+	UIModules_KOVictory::Load();
+	UIModules_LoadSave::Load();
+	UIModules_MatchInfo::Load();
+	UIModules_Sponsors::Load();
+
+	UIModules::InitializeCustomizableModule(UIModules_WinScreen::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_ScoresHeader::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_KOVictory::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_LoadSave::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Sign2x3::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Sign16x9::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Sign64x10::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_SpectatorInfo::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Countdown::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_MapInfo::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_LiveRanking::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Chat::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_MatchInfo::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Sponsors::GetConfig());
+
+	declare Text[] Modules = [
+		UIModules_TMGLMarkers::C_Id,
+		UIModules_SpectatorInfo::GetId(),
+		UIModules_Countdown::GetId(),
+		UIModules_MapInfo::GetId(),
+		UIModules_LiveRanking::GetId(),
+		UIModules_Chat::GetId(),
+		UIModules_AmbientSound::C_Id,
+		UIModules_WinScreen::GetId(),
+		UIModules_ScoresHeader::GetId(),
+		UIModules_KOVictory::GetId(),
+		UIModules_LoadSave::GetId(),
+		UIModules_MatchInfo::GetId(),
+		UIModules_Sponsors::GetId()
+	];
+
+	// Add the layer several times to repeat it on the screen and so display it longer
+	for (I, 1, UIModules_Sign16x9::C_InstancesNb) {
+		Modules.add(UIModules_Sign16x9::GetId(I));
+	}
+	for (I, 1, UIModules_Sign2x3::C_InstancesNb) {
+		Modules.add(UIModules_Sign2x3::GetId(I));
+	}
+
+	foreach (AttachId in UIModules_Sign64x10::C_AttachIds) {
+		Modules.add(UIModules_Sign64x10::GetId(AttachId));
+	}
+
+	UIModules::LoadModules(Modules);
+
+	// Unload some default modules
+	UIModules::UnloadModules([
+		UIModules_Countdown_Default::GetId(),
+		UIModules_DisplayMessage_Default::GetId(),
+		UIModules_RespawnHelper_Default::GetId(),
+		UIModules_SmallScoresTable_Default::GetId()
+	]);
+}

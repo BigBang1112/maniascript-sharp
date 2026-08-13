@@ -1,0 +1,334 @@
+/**
+ *	State manager for the TrackMania World Championship 2023
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TMWC2023/StateManager.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Server.Script.txt" as UIModules
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Server.Script.txt" as UIModules_DisplayMessage_Default
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/RespawnHelper_Server.Script.txt" as UIModules_RespawnHelper_Default
+#Include "Libs/Nadeo/Trackmania/Modes/Rounds/UIModules/SmallScoresTable_Server.Script.txt" as UIModules_SmallScoresTable_Default
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/Chat_Server.Script.txt" as UIModules_Chat
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/EventList_Server.Script.txt" as UIModules_EventList
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/EventMessage_Server.Script.txt" as UIModules_EventMessage
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/Header_Server.Script.txt" as UIModules_Header
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/LiveRanking_Server.Script.txt" as UIModules_LiveRanking
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/PlayerInfo_Server.Script.txt" as UIModules_PlayerInfo
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/Sponsors_Server.Script.txt" as UIModules_Sponsors
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/TMWC2023Markers_Server.Script.txt" as UIModules_TMWC2023Markers
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/WorldRecord_Server.Script.txt" as UIModules_WorldRecord
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/Sign2x3_Server.Script.txt" as UIModules_Sign2x3
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/Sign16x9_Server.Script.txt" as UIModules_Sign16x9
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/Sign64x10_Server.Script.txt" as UIModules_Sign64x10
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/*	Enabling this setting will have
+ *	a big impact on the script performances
+ *	in crowded server. The library
+ *	will do a check on every player
+ *	of the server on every frame.
+ *	If the script respect the convention
+ *	to always use MB_Yield() instead of yield;
+ *	then it should not have to enforce
+ *	the state at each frame. Any new
+ *	player will be initialized when
+ *	they join the server
+ */
+#Const C_ForceStatesEveryFrame False
+
+#Const C_State_Waiting 0
+#Const C_State_Playing 1
+#Const C_State_PreMatch 2
+#Const C_State_EndRound 3
+
+#Const C_DefaultStates []
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer[] G_ForcedStates;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Apply the given states to the given player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_States										The states to apply
+ */
+Void Private_Apply(CPlayer _Player, Integer[] _States) {
+	if (_Player == Null) return;
+
+	UIModules_Chat::SetVisibility(_Player, True);
+	UIModules_Header::SetVisibility(_Player, True);
+	UIModules_EventMessage::SetVisibility(_Player, True);
+	UIModules_Sponsors::SetVisibility(_Player, True);
+	UIModules_Sign2x3::SetVisibility(_Player, True);
+	UIModules_Sign16x9::SetVisibility(_Player, True);
+	UIModules_Sign64x10::SetVisibility(_Player, True);
+
+	UIModules_EventList::SetVisibility(_Player, False);
+	UIModules_LiveRanking::SetVisibility(_Player, False);
+	UIModules_PlayerInfo::SetVisibility(_Player, False);
+	UIModules_TMWC2023Markers::SetVisibility(_Player, False);
+	UIModules_WorldRecord::SetVisibility(_Player, False);
+
+	foreach (State in _States) {
+		switch (State) {
+			case C_State_Playing: {
+				UIModules_EventList::SetVisibility(_Player, True);
+				UIModules_LiveRanking::SetVisibility(_Player, True);
+				UIModules_PlayerInfo::SetVisibility(_Player, True);
+				UIModules_TMWC2023Markers::SetVisibility(_Player, True);
+				UIModules_WorldRecord::SetVisibility(_Player, True);
+			}
+			case C_State_EndRound: {
+				UIModules_EventList::SetVisibility(_Player, True);
+				UIModules_LiveRanking::SetVisibility(_Player, True);
+				UIModules_WorldRecord::SetVisibility(_Player, True);
+			}
+			case C_State_PreMatch: {
+				UIModules_Header::SetVisibility(_Player, False);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a state to a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to add
+ */
+Void Add(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player = C_DefaultStates;
+	if (!LibStateMgr_States.exists(_State)) {
+		LibStateMgr_States.add(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove a state from a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to remove
+ */
+Void Remove(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player = C_DefaultStates;
+	if (LibStateMgr_States.exists(_State)) {
+		LibStateMgr_States.remove(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove all state from a player
+ *
+ *	@param	_Player										The player to reset
+ */
+Void Reset(CPlayer _Player) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player = C_DefaultStates;
+	LibStateMgr_States = C_DefaultStates;
+	if (G_ForcedStates.count <= 0) {
+		Private_Apply(_Player, LibStateMgr_States);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player has the given state
+ *
+ *	@param	_Player										The player to check
+ *	@param	_State										The state to find
+ *
+ *	@return														True if the player has the state
+ *																		False otherwise
+ */
+Boolean HasState(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return False;
+
+	declare Integer[] LibStateMgr_States for _Player = C_DefaultStates;
+	return LibStateMgr_States.exists(_State) || G_ForcedStates.exists(_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the players have the given state as forced
+ *
+ *	@param	_State										The state to find
+ *
+ *	@return														True if the players has the state
+ *																		False otherwise
+ */
+Boolean HasForcedState(Integer _State) {
+	return G_ForcedStates.exists(_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Force the states applied to all players
+ *	To disable the forced states use an empty array
+ *
+ *	@param	_States									The states to force
+ */
+Void ForcePlayersStates(Integer[] _States) {
+	G_ForcedStates = _States;
+
+	foreach (Player in AllPlayers) {
+		declare Boolean LibStateMgr_IsForcedStates for Player = False;
+		// Enable
+		if (G_ForcedStates.count > 0) {
+			LibStateMgr_IsForcedStates = True;
+			Private_Apply(Player, G_ForcedStates);
+		}
+		// Disable
+		else {
+			LibStateMgr_IsForcedStates = False;
+			declare Integer[] LibStateMgr_States for Player = C_DefaultStates;
+			Private_Apply(Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (C_ForceStatesEveryFrame && G_ForcedStates.count > 0) {
+		foreach (Player in AllPlayers) {
+			declare Boolean LibStateMgr_IsForcedStates for Player = False;
+			if (!LibStateMgr_IsForcedStates) {
+				LibStateMgr_IsForcedStates = True;
+				Private_Apply(Player, G_ForcedStates);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	UIModules_Chat::InitializePlayer(_Player);
+	UIModules_EventList::InitializePlayer(_Player);
+	UIModules_Header::InitializePlayer(_Player);
+	UIModules_LiveRanking::InitializePlayer(_Player);
+	UIModules_PlayerInfo::InitializePlayer(_Player);
+	UIModules_EventMessage::InitializePlayer(_Player);
+	UIModules_Sponsors::InitializePlayer(_Player);
+	UIModules_TMWC2023Markers::InitializePlayer(_Player);
+	UIModules_Sign2x3::InitializePlayer(_Player);
+	UIModules_Sign16x9::InitializePlayer(_Player);
+	UIModules_Sign64x10::InitializePlayer(_Player);
+
+	Reset(_Player);
+
+	if (G_ForcedStates.count > 0) {
+		declare Boolean LibStateMgr_IsForcedStates for _Player = False;
+		LibStateMgr_IsForcedStates = True;
+		Private_Apply(_Player, G_ForcedStates);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	ForcePlayersStates([]);
+
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+
+	UIModules_Chat::Unload();
+	UIModules_EventList::Unload();
+	UIModules_WorldRecord::Unload();
+	UIModules_Sign64x10::Unload();
+	UIModules_Sign16x9::Unload();
+	UIModules_Sign2x3::Unload();
+	UIModules_TMWC2023Markers::Unload();
+	UIModules_Sponsors::Unload();
+	UIModules_EventMessage::Unload();
+	UIModules_PlayerInfo::Unload();
+	UIModules_LiveRanking::Unload();
+	UIModules_Header::Unload();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	UIModules_Chat::Load();
+	UIModules_EventList::Load();
+	UIModules_Header::Load();
+	UIModules_LiveRanking::Load();
+	UIModules_PlayerInfo::Load();
+	UIModules_EventMessage::Load();
+	UIModules_Sponsors::Load();
+	UIModules_TMWC2023Markers::Load();
+	UIModules_Sign2x3::Load();
+	UIModules_Sign16x9::Load();
+	UIModules_Sign64x10::Load();
+	UIModules_WorldRecord::Load();
+
+	UIModules::InitializeCustomizableModule(UIModules_Chat::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_EventList::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Header::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_LiveRanking::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_PlayerInfo::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_EventMessage::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Sponsors::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_TMWC2023Markers::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Sign2x3::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Sign16x9::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_Sign64x10::GetConfig());
+	UIModules::InitializeCustomizableModule(UIModules_WorldRecord::GetConfig());
+
+	declare Text[] Modules = [
+		UIModules_Chat::GetId(),
+		UIModules_EventList::GetId(),
+		UIModules_Header::GetId(),
+		UIModules_LiveRanking::GetId(),
+		UIModules_PlayerInfo::GetId(),
+		UIModules_EventMessage::GetId(),
+		UIModules_Sponsors::GetId(),
+		UIModules_TMWC2023Markers::GetId(),
+		UIModules_WorldRecord::GetId()
+	];
+
+	// Add the layer several times to repeat it on the screen and so display it longer
+	for (I, 1, UIModules_Sign2x3::C_InstancesNb) {
+		Modules.add(UIModules_Sign2x3::GetId(I));
+	}
+	for (I, 1, UIModules_Sign16x9::C_InstancesNb) {
+		Modules.add(UIModules_Sign16x9::GetId(I));
+	}
+
+	// Attach the manialink to the starts, checkpoints and finishs screens
+	foreach (AttachId in UIModules_Sign64x10::C_AttachIds) {
+		Modules.add(UIModules_Sign64x10::GetId(AttachId));
+	}
+
+	UIModules::LoadModules(Modules);
+
+	// Unload some default modules
+	UIModules::UnloadModules([
+		UIModules_DisplayMessage_Default::GetId(),
+		UIModules_RespawnHelper_Default::GetId(),
+		UIModules_SmallScoresTable_Default::GetId()
+	]);
+}

@@ -1,0 +1,254 @@
+/**
+ *	State manager for the HotSeat mode
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/HotSeat/StateManager.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Server.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/InGame_Server.Script.txt" as UIModules_InGame
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/NextRoundPopUp_Server.Script.txt" as UIModules_NextRoundPopUp
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/EndMatch_Server.Script.txt" as UIModules_EndMatch
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/EndRound_Server.Script.txt" as UIModules_EndRound
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/PauseMenu_Server.Script.txt" as UIModules_PauseMenu
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/LapsCounter_Server.Script.txt" as UIModules_LapsCounter_Default
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Default
+/* @scaffolding ui_module_include */
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/*	Enabling this setting will have
+ *	a big impact on the script performances
+ *	in crowded server. The library
+ *	will do a check on every player
+ *	of the server on every frame.
+ *	If the script respect the convention
+ *	to always use MB_Yield() instead of yield;
+ *	then it should not have to enforce
+ *	the state at each frame. Any new
+ *	player will be initialized when
+ *	they join the server
+ */
+#Const C_ForceStatesEveryFrame False
+
+#Const C_State_Waiting 0
+#Const C_State_Playing 1
+#Const C_State_StartRound 2
+#Const C_State_EndMatch 3
+#Const C_State_EndRound 4
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer[] G_ForcedStates;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Apply the given states to the given player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_States										The states to apply
+ */
+Void Private_Apply(CPlayer _Player, Integer[] _States) {
+	if (_Player == Null) return;
+
+	UIModules_NextRoundPopUp::SetVisibility(_Player, False);
+	UIModules_InGame::SetVisibility(_Player, False);
+	UIModules_PauseMenu::SetVisibility(_Player, False);
+	UIModules_EndRound::SetVisibility(_Player, False);
+	UIModules_EndMatch::SetVisibility(_Player, False);
+
+	foreach (State in _States) {
+		switch (State) {
+			case C_State_Playing: {
+				UIModules_InGame::SetVisibility(_Player, True);
+				UIModules_PauseMenu::SetVisibility(_Player, True);
+			}
+			case C_State_StartRound: {
+				UIModules_InGame::SetVisibility(_Player, True);
+				UIModules_NextRoundPopUp::SetVisibility(_Player, True);
+				UIModules_PauseMenu::SetVisibility(_Player, True);
+			}
+			case C_State_EndMatch: {
+				UIModules_EndMatch::SetVisibility(_Player, True);
+			}
+			case C_State_EndRound: {
+				UIModules_InGame::SetVisibility(_Player, True);
+				UIModules_EndRound::SetVisibility(_Player, True);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add a state to a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to add
+ */
+Void Add(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	if (!LibStateMgr_States.exists(_State)) {
+		LibStateMgr_States.add(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove a state from a player
+ *
+ *	@param	_Player										The player to update
+ *	@param	_State										The state to remove
+ */
+Void Remove(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	if (LibStateMgr_States.exists(_State)) {
+		declare Removed = LibStateMgr_States.remove(_State);
+		if (G_ForcedStates.count <= 0) {
+			Private_Apply(_Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Remove all state from a player
+ *
+ *	@param	_Player										The player to reset
+ */
+Void Reset(CPlayer _Player) {
+	if (_Player == Null) return;
+	declare Integer[] LibStateMgr_States for _Player;
+	LibStateMgr_States = [];
+	if (G_ForcedStates.count <= 0) {
+		Private_Apply(_Player, LibStateMgr_States);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the player has the given state
+ *
+ *	@param	_Player										The player to check
+ *	@param	_State										The state to find
+ *
+ *	@return														True if the player has the state
+ *																		False otherwise
+ */
+Boolean HasState(CPlayer _Player, Integer _State) {
+	if (_Player == Null) return False;
+
+	declare Integer[] LibStateMgr_States for _Player;
+	return LibStateMgr_States.exists(_State) || G_ForcedStates.exists(_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Force the states applied to all players
+ *	To disable the forced states use an empty array
+ *
+ *	@param	_States									The states to force
+ */
+Void ForcePlayersStates(Integer[] _States) {
+	G_ForcedStates = _States;
+
+	foreach (Player in AllPlayers) {
+		declare Boolean LibStateMgr_IsForcedStates for Player = False;
+		// Enable
+		if (G_ForcedStates.count > 0) {
+			LibStateMgr_IsForcedStates = True;
+			Private_Apply(Player, G_ForcedStates);
+		}
+		// Disable
+		else {
+			LibStateMgr_IsForcedStates = False;
+			declare Integer[] LibStateMgr_States for Player;
+			Private_Apply(Player, LibStateMgr_States);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (C_ForceStatesEveryFrame && G_ForcedStates.count > 0) {
+		foreach (Player in AllPlayers) {
+			declare Boolean LibStateMgr_IsForcedStates for Player = False;
+			if (!LibStateMgr_IsForcedStates) {
+				LibStateMgr_IsForcedStates = True;
+				Private_Apply(Player, G_ForcedStates);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	UIModules_InGame::InitializePlayer(_Player);
+	UIModules_NextRoundPopUp::InitializePlayer(_Player);
+	UIModules_EndMatch::InitializePlayer(_Player);
+	UIModules_EndRound::InitializePlayer(_Player);
+	UIModules_PauseMenu::InitializePlayer(_Player);
+
+	Reset(_Player);
+
+	if (G_ForcedStates.count > 0) {
+		declare Boolean LibStateMgr_IsForcedStates for _Player = False;
+		LibStateMgr_IsForcedStates = True;
+		Private_Apply(_Player, G_ForcedStates);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	ForcePlayersStates([]);
+
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+
+	UIModules_InGame::Unload();
+	UIModules_NextRoundPopUp::Unload();
+	UIModules_EndMatch::Unload();
+	UIModules_EndRound::Unload();
+	UIModules_PauseMenu::Unload();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+
+	UIModules_InGame::Load();
+	UIModules_NextRoundPopUp::Load();
+	UIModules_EndMatch::Load();
+	UIModules_PauseMenu::Load();
+
+	/* @scaffolding ui_module_customizable */
+
+	UIModules::LoadModules([
+		UIModules_InGame::C_Id,
+		UIModules_NextRoundPopUp::C_Id,
+		UIModules_EndMatch::C_Id,
+		UIModules_EndRound::C_Id,
+		UIModules_PauseMenu::C_Id
+	]);
+
+	UIModules::UnloadModules([
+		UIModules_LapsCounter_Default::GetId(),
+		UIModules_PauseMenu_Default::C_Id
+	]);
+}

@@ -1,0 +1,71 @@
+/**
+ *	Authentication to the the Cup of the Day API
+ */
+#Const Version		"1.0.2"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/DailyServerAuth.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/DailyAPI.Script.txt" as DailyAPI
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_TokenExpirationDelay 3300000 // 55 min
+#Const C_RetryDelays [5, 15, 30, 60, 300]
+
+#Struct K_AuthToken {
+	Text Token;
+	Boolean IsValid;
+	Boolean IsRequested;
+	Integer NextRequest;
+	Integer RetryCount;
+}
+
+declare K_AuthToken G_AuthToken;
+
+Void Init() {
+	G_AuthToken = K_AuthToken {NextRequest = Now};
+}
+
+Text GetToken() {
+	return G_AuthToken.Token;
+}
+
+Void Yield() {
+	if (ServerAdmin != Null) { // Quick fix for hotseat. But the best fix would be to have separated KO and DailyKO @TODO @QG
+		if (
+			G_AuthToken.NextRequest <= Now &&
+			!G_AuthToken.IsRequested
+		) {
+			G_AuthToken.NextRequest = Now + C_TokenExpirationDelay;
+			ServerAdmin.Authentication_GetToken(NullId, "NadeoLiveServices");
+			G_AuthToken.IsValid = False;
+			G_AuthToken.IsRequested = True;
+		}
+		if (
+			!G_AuthToken.IsValid &&
+			G_AuthToken.IsRequested
+		) {
+			if (ServerAdmin.Authentication_GetTokenResponseReceived) {
+				G_AuthToken.IsRequested = False;
+				if (ServerAdmin.Authentication_Token != "") {
+					G_AuthToken.Token = ServerAdmin.Authentication_Token;
+					G_AuthToken.IsValid = True;
+					G_AuthToken.RetryCount = 0;
+					DailyAPI::UpdateMasterServerToken(G_AuthToken.Token);
+				} else {
+					declare RetryDelay = C_RetryDelays[C_RetryDelays.count -1];
+					if (C_RetryDelays.existskey(G_AuthToken.RetryCount)) {
+						RetryDelay = C_RetryDelays[G_AuthToken.RetryCount];
+					}
+					RetryDelay *= 1000;
+					G_AuthToken.Token = "";
+					G_AuthToken.NextRequest = Now + RetryDelay;
+					G_AuthToken.RetryCount += 1;
+				}
+			}
+		}
+	}
+}

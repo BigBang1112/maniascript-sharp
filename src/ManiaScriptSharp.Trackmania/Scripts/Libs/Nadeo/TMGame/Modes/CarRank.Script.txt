@@ -1,0 +1,358 @@
+/**
+ * Display the rank of the player on the back of the car
+ */
+#Const Version "1.1.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/CarRank.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Utils.Script.txt" as Utils
+#Include "Libs/Nadeo/TMGame/Modes/Race.Script.txt" as Race
+#Include "Libs/Nadeo/TMGame/Modes/Scores.Script.txt" as Scores
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Struct
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Update {
+	Integer Time;
+	Integer Cooldown;
+	Integer[] SortCriteria;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constantes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_SortCriteria_BestRace 0
+#Const C_SortCriteria_CurrentRace 1
+#Const C_SortCriteria_TotalPoints 2
+#Const C_SortCriteria_CurrentRaceProgression 3 //< Same as `C_SortCriteria_CurrentRace` but break draws (same time at the last checkpoint) by looking at the previous checkpoint time.
+#Const C_SortCriteria_Knockout 4
+
+#Const C_UpdateCooldown 1000
+
+#Const C_RankNull 0
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Integer[][] G_GhostsTimes;
+declare Integer G_NewPlayerRank;
+declare K_Update G_Update;
+declare Vec3[Integer] G_RanksColors;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// The ghosts used to compute the players' rank at the checkpoint
+Void SetGhostsForRanking(CGhost[] _Ghosts) {
+	G_GhostsTimes = [];
+	foreach (Ghost in _Ghosts) {
+		G_GhostsTimes.add(Utils::ToScriptArray(Ghost.Result.Checkpoints));
+	}
+	G_NewPlayerRank = G_GhostsTimes.count + 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/**	Give a color to the dossard of the players
+ *	at or above the given ranks
+ */
+Void SetRanksColors(Vec3[Integer] _RanksColors) {
+	// Sort by ranks to speed up color assignation later on
+	G_RanksColors = _RanksColors.sortkey();
+	// Reset dossard colors when disabling ranks colors
+	if (G_RanksColors.count <= 0) {
+		foreach (Player in AllPlayers) {
+			Player.Dossard_Color = Race::C_DossardColor_Default;
+		}
+	}
+}
+Void ResetRanksColors() {
+	SetRanksColors([]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the rank on the given player's car
+Void SetRank(CSmPlayer _Player, Integer _Rank) {
+	if (_Rank > C_RankNull) {
+		_Player.Dossard_Number = TL::FormatInteger(ML::Clamp(_Rank, 1, 99), 2);
+		if (G_RanksColors.count > 0) {
+			declare Vec3 DossardColor = Race::C_DossardColor_Default;
+			foreach (Rank => Color in G_RanksColors) {
+				if (_Rank >= Rank) {
+					DossardColor = Color;
+				} else {
+					break;
+				}
+			}
+			_Player.Dossard_Color = DossardColor;
+		}
+	} else {
+		_Player.Dossard_Number = "";
+		if (G_RanksColors.count > 0) {
+			_Player.Dossard_Color = Race::C_DossardColor_Default;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Save the best race rank of a player
+Void Private_SetBestRaceRank(CSmScore _Score, Integer _Rank) {
+	if (_Score == Null) return; //< Bot players dont have a score
+	declare Integer TMGame_CarRank_BestRaceRank for _Score = C_RankNull;
+	TMGame_CarRank_BestRaceRank = _Rank;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the best race rank of a player
+Integer Private_GetBestRaceRank(CSmScore _Score) {
+	if (_Score == Null) return C_RankNull; //< Bot players dont have a score
+	declare Integer TMGame_CarRank_BestRaceRank for _Score = C_RankNull;
+	return TMGame_CarRank_BestRaceRank;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the rank on the players' car
+Void Update(Integer _SortCriteria) {
+	declare Boolean RestoreSortCriteria = False;
+	declare CSmMode::ESmScoreSortOrder PreviousSortCriteria = Scores_SortCriteria;
+
+	switch (_SortCriteria) {
+		case C_SortCriteria_BestRace: {
+			if (Scores_SortCriteria != CSmMode::ESmScoreSortOrder::BestRace) {
+				RestoreSortCriteria = True;
+			}
+			Scores_SetSortCriteria(CSmMode::ESmScoreSortOrder::BestRace);
+			declare Integer Rank = 1;
+			foreach (Score in Scores) {
+				Private_SetBestRaceRank(Score, Rank);
+				if (Score.BestRaceTimes.count > 0) { //< Players without a time share the same rank
+					Rank += 1;
+				}
+			}
+			foreach (Player in AllPlayers) { //< Include spectators so if they join the race later, their rank is already updated
+				SetRank(Player, Private_GetBestRaceRank(Player.Score));
+			}
+			G_NewPlayerRank = Rank;
+		}
+		case C_SortCriteria_CurrentRace: {
+			declare Integer[CSmPlayer][Integer] Ranking;
+			foreach (Player in Players) {
+				if (!Ranking.existskey(Player.RaceWaypointTimes.count)) {
+					Ranking[Player.RaceWaypointTimes.count] = [];
+				}
+				if (Player.RaceWaypointTimes.count > 0) {
+					Ranking[Player.RaceWaypointTimes.count][Player] = Player.RaceWaypointTimes[Player.RaceWaypointTimes.count - 1];
+				} else {
+					Ranking[Player.RaceWaypointTimes.count][Player] = 0;
+				}
+			}
+			Ranking = Ranking.sortkeyreverse();
+			declare Integer Rank = 1;
+			foreach (CheckpointsNb => CheckpointRanking in Ranking) {
+				declare Integer[CSmPlayer] SortedCheckpointRanking = CheckpointRanking.sort();
+				foreach (Player => CheckpointTime in SortedCheckpointRanking) {
+					SetRank(Player, Rank);
+					if (CheckpointsNb > 0) {
+						Rank += 1;
+					}
+				}
+			}
+			G_NewPlayerRank = Rank;
+		}
+		case C_SortCriteria_TotalPoints: {
+			if (Scores_SortCriteria != CSmMode::ESmScoreSortOrder::TotalPoints) {
+				RestoreSortCriteria = True;
+			}
+			Scores_SetSortCriteria(CSmMode::ESmScoreSortOrder::TotalPoints);
+			declare Integer Rank = 1;
+			foreach (Score in Scores) {
+				Private_SetBestRaceRank(Score, Rank);
+				if (Score.Points > 0) { //< Players without points share the same rank
+					Rank += 1;
+				}
+			}
+			foreach (Player in AllPlayers) { //< Include spectators so if they join the race later, their rank is already updated
+				SetRank(Player, Private_GetBestRaceRank(Player.Score));
+			}
+			G_NewPlayerRank = Rank;
+		}
+		case C_SortCriteria_CurrentRaceProgression: {
+			declare Integer[][Ident] CurrentRaceTimesPlayerIds;
+			foreach (Player in Players) {
+				CurrentRaceTimesPlayerIds[Player.Id] = Utils::ToScriptArray(Player.RaceWaypointTimes);
+			}
+			declare Ident[][Integer] SortedCurrentRaceTimesPlayerIds = Scores::SortIdsByWaypointTimes(CurrentRaceTimesPlayerIds);
+			declare Integer Rank = 1;
+			foreach (PlayerIds in SortedCurrentRaceTimesPlayerIds) {
+				foreach (PlayerId in PlayerIds) {
+					declare CSmPlayer Player <=> Players[PlayerId];
+					SetRank(Player, Rank);
+					if (Player.RaceWaypointTimes.count > 0) { //< Players without a time share the same rank
+						Rank += 1;
+					}
+				}
+			}
+			G_NewPlayerRank = Rank;
+		}
+		case C_SortCriteria_Knockout: {
+			declare Integer Rank = 1;
+
+			declare Integer[][Ident] ScoreIdsToSortByWaypointTimes;
+			declare Ident[Ident] ScoreIdToPlayerId;
+			for (Player in Players) {
+				if (Player.Score != Null) {
+					ScoreIdToPlayerId[Player.Score.Id] = Player.Id;
+					if (Player.RaceWaypointTimes.count > 0) {
+						ScoreIdsToSortByWaypointTimes[Player.Score.Id] = Utils::ToScriptArray(Player.RaceWaypointTimes);
+					}
+				}
+			}
+			foreach (Score in Scores) {
+				if (!ScoreIdsToSortByWaypointTimes.existskey(Score.Id)) {
+					ScoreIdsToSortByWaypointTimes[Score.Id] = Utils::ToScriptArray(Score.PrevRaceTimes);
+				}
+			}
+
+			declare Ident[][Integer] ScoreIdsSortedByWaypointTimes = Scores::SortIdsByWaypointTimes(ScoreIdsToSortByWaypointTimes);
+			foreach (WaypointTimesScoreIds in ScoreIdsSortedByWaypointTimes) {
+				declare Ident[][] ScoreIdsSortedByPoints;
+				if (WaypointTimesScoreIds.count <= 1) {
+					ScoreIdsSortedByPoints = [WaypointTimesScoreIds];
+				} else {
+					declare Integer[Ident] ScoreIdsToSortByPoints;
+					foreach (ScoreId in WaypointTimesScoreIds) {
+						ScoreIdsToSortByPoints[ScoreId] = Scores::GetPlayerMatchPoints(Scores[ScoreId]);
+					}
+					ScoreIdsSortedByPoints = Scores::SortIdsByPoints(ScoreIdsToSortByPoints, Scores::C_Order_Descending, 0);
+				}
+				foreach (PointsScoreIds in ScoreIdsSortedByPoints) {
+					declare Ident[][] ScoreIdsSortedByName;
+					if (PointsScoreIds.count <= 1) {
+						ScoreIdsSortedByName = [PointsScoreIds];
+					} else {
+						declare Text[Ident] ScoreIdsToSortByName;
+						foreach (ScoreId in PointsScoreIds) {
+							if (Scores[ScoreId].User == Null) {
+								ScoreIdsToSortByName[ScoreId] = "";
+							} else {
+								ScoreIdsToSortByName[ScoreId] = Scores[ScoreId].User.Name;
+							}
+						}
+						ScoreIdsSortedByName = Scores::SortIdsByName(ScoreIdsToSortByName, Scores::C_Order_Ascending, "");
+					}
+
+					foreach (NameScoreIds in ScoreIdsSortedByName) {
+						foreach (ScoreId in NameScoreIds) {
+							if (ScoreIdToPlayerId.existskey(ScoreId) && Players.existskey(ScoreIdToPlayerId[ScoreId])) {
+								SetRank(Players[ScoreIdToPlayerId[ScoreId]], Rank);
+							}
+						}
+						Rank += NameScoreIds.count;
+					}
+				}
+			}
+
+			G_NewPlayerRank = Rank;
+		}
+	}
+
+	if (RestoreSortCriteria) {
+		Scores_SetSortCriteria(PreviousSortCriteria);
+	}
+	G_Update.SortCriteria.remove(_SortCriteria);
+	if (G_Update.SortCriteria.count == 0) {
+		G_Update.Time = -1;
+		G_Update.Cooldown = Now + C_UpdateCooldown;
+	}
+}
+Void ThrottleUpdate(Integer _SortCriteria) {
+	if (G_Update.Cooldown >= 0 && Now < G_Update.Cooldown) {
+		if (!G_Update.SortCriteria.exists(_SortCriteria)) {
+			G_Update.SortCriteria.add(_SortCriteria);
+		}
+		G_Update.Time = G_Update.Cooldown;
+	} else {
+		Update(_SortCriteria);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the rank of a player agains the ghosts
+Void GhostUpdate(CSmPlayer _Player) {
+	declare Integer Rank = 1;
+	if (
+		_Player.RaceWaypointTimes.count > 0 &&
+		_Player.RaceWaypointTimes[_Player.RaceWaypointTimes.count - 1] >= 0
+	) {
+		foreach (WaypointsTimes in G_GhostsTimes) {
+			if (
+				WaypointsTimes.count >= _Player.RaceWaypointTimes.count &&
+				WaypointsTimes[_Player.RaceWaypointTimes.count - 1] >= 0 &&
+				WaypointsTimes[_Player.RaceWaypointTimes.count - 1] < _Player.RaceWaypointTimes[_Player.RaceWaypointTimes.count - 1]
+			) {
+				Rank += 1;
+			}
+		}
+	}
+	SetRank(_Player, Rank);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the rank of a player that just
+ *	just joined the server
+ */
+Void InitializePlayer(CSmPlayer _Player) {
+	if (_Player == Null) return;
+
+	declare Integer BestRaceRank = Private_GetBestRaceRank(_Player.Score);
+	if (BestRaceRank > C_RankNull) {
+		SetRank(_Player, BestRaceRank);
+	} else {
+		SetRank(_Player, G_NewPlayerRank);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the rank on the players' car
+Void Reset() {
+	foreach (Score in Scores) {
+		Private_SetBestRaceRank(Score, C_RankNull);
+	}
+	foreach (Player in AllPlayers) {
+		SetRank(Player, Private_GetBestRaceRank(Player.Score));
+	}
+	G_NewPlayerRank = C_RankNull;
+	G_Update = K_Update {
+		SortCriteria = [],
+		Time = -1,
+		Cooldown = -1
+	};
+	G_GhostsTimes = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the library
+Void Yield() {
+	if (G_Update.Time >= 0 && Now >= G_Update.Time) {
+		while (G_Update.SortCriteria.count > 0) {
+			Update(G_Update.SortCriteria[0]);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	ResetRanksColors();
+	Reset();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

@@ -1,0 +1,1021 @@
+/**
+ * Rounds Bonus mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaRoundsBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Race,TM_Race"
+#Const Version "1.0.1+2024-12-05"
+#Const ScriptName "Modes/TrackMania/Legacy/TM_RoundsBonus_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Semver.Script.txt" as Semver
+#Include "Libs/Nadeo/CMGame/Modes/Utils.Script.txt" as ModeUtils
+#Include "Libs/Nadeo/Trackmania/Modes/RoundsBonus/Data.Script.txt" as Data
+#Include "Libs/Nadeo/Trackmania/Modes/RoundsBonus/StateManager.Script.txt" as StateMgr
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+#Include "Libs/Nadeo/Trackmania/Modes/RoundsBonus/UIModules/Events_Server.Script.txt" as UIModules_Events
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_PointsLimit -1 as _("Points limit")
+#Setting S_FinishTimeout 60 as _("Finish timeout")
+#Setting S_RoundsPerMap 1 as _("Number of rounds per track") ///< Number of round to play on one map before going to the next one
+#Setting S_MapsPerMatch -1 as _("Number of tracks per match") ///< Number of maps to play before finishing the match
+#Setting S_UseTieBreak True as _("Use tie-break")	///< Continue to play the map until the tie is broken
+#Setting S_WarmUpNb 0	as _("Number of warm up")
+#Setting S_WarmUpDuration 0 as _("Duration of one warm up")
+#Setting S_WarmUpTimeout -1 as _("Warm up timeout")
+#Setting S_ForceLapsNb 3
+#Setting S_EventsTimeIntervalMin 25 as _("Minimum time interval between events")
+#Setting S_EventsTimeIntervalMax 35 as _("Maximum time interval between events")
+#Setting S_EventDuration 7 as _("Duration of an event")
+#Setting S_EventAnnounceDuration 5 as _("Duration of the next event announcement")
+#Setting S_CatchUpSpeedMode 3 as _("Catch-up speed mode")
+#Setting S_CatchUpSpeedScript """{"1000": 0.5, "2000": 0.6, "3000": 0.7, "4000": 0.8, "5000": 0.9, "6000": 1.0 }""" as _("Catch-up speed in script mode")
+#Setting S_EnableBonuses False as _("Enable bonuses")
+#Setting S_TrustClientSimu False ///< Must be disabled otherwise the catch-up speed won't work
+#Setting S_EnableJoinLeaveNotifications False
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_PlayerProperties {
+	Integer[] ActiveProperties;
+	Real AdherenceCoef;
+	Real ControlCoef;
+	Real AccelCoef;
+	Real GravityCoef;
+	Real TireWear;
+	Boolean NoEngine;
+	Boolean ForceEngine;
+	Boolean NoBrakes;
+	Boolean NoSteer;
+	Boolean BoostUp;
+	Boolean BoostDown;
+	Boolean Boost2Up;
+	Boolean Boost2Down;
+	Boolean SlowMotion;
+	Boolean Fragile;
+	Boolean Cruise;
+}
+#Struct K_Event {
+	Integer Type;
+	K_PlayerProperties Properties;
+	Integer Weight;
+}
+#Struct K_EventGenerator {
+	K_Event[Integer] Events;
+	Integer[Integer] Weights;
+	Integer MaxWeight;
+	Integer[] PreviousEventsTypes;
+	K_Event Event;
+	Boolean EventAnnounced;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "Rounds Bonus"
+//L16N [Rounds Bonus] Description of the mode rules
+#Const Description _("""Rounds with bonuses to spice up the race""")
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/RoundsBonus.Script.txt" //< Url of the mania app
+#Const C_FakeUsersNb 0
+
+#Const C_PointsLimit_NotReached 0
+#Const C_PointsLimit_Reached 1
+#Const C_PointsLimit_Tie 2
+
+#Const C_Property_AdherenceCoef 1
+#Const C_Property_ControlCoef 2
+#Const C_Property_AccelCoef 3
+#Const C_Property_GravityCoef 4
+#Const C_Property_TireWear 5
+#Const C_Property_NoEngine 6
+#Const C_Property_ForceEngine 7
+#Const C_Property_NoBrakes 8
+#Const C_Property_NoSteer 9
+#Const C_Property_BoostUp 10
+#Const C_Property_BoostDown 11
+#Const C_Property_Boost2Up 12
+#Const C_Property_Boost2Down 13
+#Const C_Property_SlowMotion 14
+#Const C_Property_Fragile 15
+#Const C_Property_Cruise 16
+#Const C_Property_Reset 17
+
+#Const C_CatchUpSpeedMode_Disabled 0
+#Const C_CatchUpSpeedMode_Script 1
+#Const C_CatchUpSpeedMode_CPP_LeadingPlayer 2
+#Const C_CatchUpSpeedMode_CPP_AuthorGhost 3
+
+#Const C_CatchUpSpeedCPP_Null 0
+#Const C_CatchUpSpeedCPP_Enabled 1
+#Const C_CatchUpSpeedCPP_Disabled 2
+
+#Const C_EventDefaultWeight 100
+#Const C_EventDisabledWeight 0
+#Const C_PreviousEventsTypesNb 1
+#Const C_DefaultCatchUpSpeedScript 1.
+
+#Const C_UploadRecord False
+#Const C_DisplayRecordGhost False
+#Const C_DisplayRecordMedal False
+#Const C_CelebrateRecordGhost False
+#Const C_CelebrateRecordMedal False
+#Const C_DisplayWorldTop False
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(Semver::ScriptName, Semver::Version);
+Log::RegisterScript(ModeUtils::ScriptName, ModeUtils::Version);
+Log::RegisterScript(Data::ScriptName, Data::Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(UIModules_ScoresTable::ScriptName, UIModules_ScoresTable::Version);
+Log::RegisterScript(UIModules_Checkpoint::ScriptName, UIModules_Checkpoint::Version);
+Log::RegisterScript(UIModules_PauseMenu_Online::ScriptName, UIModules_PauseMenu_Online::Version);
+Log::RegisterScript(UIModules_Events::ScriptName, UIModules_Events::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultRespawnBehaviour = False;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+Race::SortScores(Race::C_Sort_TotalPoints);
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Points);
+UIModules_Checkpoint::SetVisibilityTimeDiff(False);
+UIModules_Checkpoint::SetRankMode(UIModules_Checkpoint::C_RankMode_CurrentRace);
+UIModules_PauseMenu_Online::SetHelp(Description);
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+			CarRank::InitializePlayer(Event.Player);
+		}
+	}
+}
+
+StateMgr::Yield();
+***
+
+***Match_InitServer***
+***
+declare Integer Server_PointsLimit;
+declare Integer Server_RoundsPerMap;
+declare Integer Server_MapsPerMatch;
+declare K_EventGenerator Server_EventGenerator;
+declare Integer[] Server_Bonuses;
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+Clans::SetClansNb(0);
+Scores::SaveInScore(Scores::C_Points_Match);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(True);
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_NeverGiveUp);
+Race::SetupRecord(
+	"",
+	"",
+	"",
+	"",
+	C_UploadRecord,
+	C_DisplayRecordGhost,
+	C_DisplayRecordMedal,
+	C_CelebrateRecordGhost,
+	C_CelebrateRecordMedal,
+	C_DisplayWorldTop
+);
+
+Server_PointsLimit = S_PointsLimit - 1;
+Server_RoundsPerMap = S_RoundsPerMap - 1;
+Server_MapsPerMatch = S_MapsPerMatch - 1;
+
+// Initialize event generator
+Server_EventGenerator = InitEventGenerator([
+	Data::C_EventType_AdherenceLossWeak => InitEvent(
+		Data::C_EventType_AdherenceLossWeak,
+		K_PlayerProperties {
+			ActiveProperties = [C_Property_AdherenceCoef],
+			AdherenceCoef = 0.75
+		},
+		C_EventDefaultWeight
+	),
+	Data::C_EventType_AdherenceLossStrong => InitEvent(
+		Data::C_EventType_AdherenceLossStrong,
+		K_PlayerProperties {
+			ActiveProperties = [C_Property_AdherenceCoef],
+			AdherenceCoef = 0.25
+		},
+		C_EventDefaultWeight
+	),
+	Data::C_EventType_LowGravityWeak => InitEvent(
+		Data::C_EventType_LowGravityWeak,
+		K_PlayerProperties {
+			ActiveProperties = [C_Property_GravityCoef],
+			GravityCoef = 0.5
+		},
+		C_EventDefaultWeight
+	),
+	Data::C_EventType_LowGravityStrong => InitEvent(
+		Data::C_EventType_LowGravityStrong,
+		K_PlayerProperties {
+			ActiveProperties = [C_Property_GravityCoef],
+			GravityCoef = 0.1
+		},
+		C_EventDefaultWeight
+	),
+	Data::C_EventType_NoEngine => InitEvent(
+		Data::C_EventType_NoEngine,
+		K_PlayerProperties {
+			ActiveProperties = [C_Property_NoEngine],
+			NoEngine = True
+		},
+		C_EventDefaultWeight
+	),
+	Data::C_EventType_NoSteer => InitEvent(
+		Data::C_EventType_NoSteer,
+		K_PlayerProperties {
+			ActiveProperties = [C_Property_NoSteer],
+			NoSteer = True
+		},
+		C_EventDefaultWeight
+	),
+	Data::C_EventType_Fragile => InitEvent(
+		Data::C_EventType_Fragile,
+		K_PlayerProperties {
+			ActiveProperties = [C_Property_Fragile],
+			Fragile = True
+		},
+		C_EventDefaultWeight
+	),
+	Data::C_EventType_NoBrakesForceEngine => InitEvent(
+		Data::C_EventType_NoBrakesForceEngine,
+		K_PlayerProperties {
+			ActiveProperties = [C_Property_NoBrakes, C_Property_ForceEngine],
+			NoBrakes = True,
+			ForceEngine = True
+		},
+		C_EventDefaultWeight
+	)
+]);
+
+// Initializes bonuses
+Server_Bonuses = [
+	Data::C_BonusType_BoostUpWeak,
+	Data::C_BonusType_BoostUpStrong,
+	Data::C_BonusType_BoostDownWeak,
+	Data::C_BonusType_BoostDownStrong
+];
+***
+
+***Match_InitMap***
+***
+declare Integer Map_ValidRoundsNb;
+declare Boolean Map_Skipped;
+
+UpdateScoresTableFooter(S_PointsLimit, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb);
+***
+
+***Match_StartMap***
+***
+// Add bot when necessary
+Users_SetNbFakeUsers(C_FakeUsersNb, 0);
+
+Map_Skipped = True;
+CarRank::Reset();
+
+// Warm up
+UIModules_ScoresTable::SetFooterInfo(_("Warm up"));
+MB_WarmUp(S_WarmUpNb, S_WarmUpDuration * 1000, S_WarmUpTimeout * 1000);
+UpdateScoresTableFooter(S_PointsLimit, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb);
+***
+
+***Match_InitRound***
+***
+declare Integer Round_NextEventStartTime;
+declare Integer Round_NextEventAnnounceTime;
+declare Integer Round_ActiveEventEndTime;
+declare K_Event Round_ActiveEvent;
+declare Integer Round_CatchUpSpeedScriptMode;
+declare Real[Integer] Round_CatchUpSpeedScript;
+declare Integer[Integer] Round_CheckpointLeaderTimes;
+
+// Initialize catch-up speed
+// Do it in `InitRound` so it can affect the first
+// spawn at the beginning of the race
+Round_CatchUpSpeedScriptMode = S_CatchUpSpeedMode;
+if (Round_CatchUpSpeedScriptMode == C_CatchUpSpeedMode_Script && S_CatchUpSpeedScript != "") {
+	Round_CatchUpSpeedScript.fromjson(S_CatchUpSpeedScript);
+}
+SetGlobalCatchUpSpeed(Round_CatchUpSpeedScriptMode == C_CatchUpSpeedMode_CPP_LeadingPlayer);
+SetCatchUpSpeedVsAuthor(Round_CatchUpSpeedScriptMode == C_CatchUpSpeedMode_CPP_AuthorGhost);
+***
+
+***Match_StartRound***
+***
+// Initialize next event activation
+Server_EventGenerator = ResetEventGeneratorPreviousEvents(Server_EventGenerator);
+Round_NextEventStartTime = UpdateNextEventStartTime(StartTime, S_EventsTimeIntervalMin, S_EventsTimeIntervalMax);
+Round_NextEventAnnounceTime = UpdateNextEventAnnounceTime(Round_NextEventStartTime, S_EventAnnounceDuration);
+Round_ActiveEventEndTime = -1;
+Round_ActiveEvent = K_Event { Type = Data::C_EventType_Null };
+UIModules_Events::UpdateEvent(Round_ActiveEvent.Type, Round_ActiveEventEndTime, Server_EventGenerator.Event.Type, Server_EventGenerator.EventAnnounced, Round_NextEventStartTime);
+
+foreach (Player in AllPlayers) {
+	ResetPlayerBonus(Player);
+}
+
+UpdateScoresTableFooter(S_PointsLimit, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+***
+
+***Rounds_PlayerSpawned***
+***
+CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRace);
+UpdatePlayerCatchUpSpeedScript(Player, Round_CheckpointLeaderTimes, Round_CatchUpSpeedScript);
+UpdatePlayerStatus(Player, Round_ActiveEvent, GetPlayerCatchUpSpeedScript(Player));
+Player_SetCatchUpSpeed(Player, Round_CatchUpSpeedScriptMode == C_CatchUpSpeedMode_CPP_LeadingPlayer || Round_CatchUpSpeedScriptMode == C_CatchUpSpeedMode_CPP_AuthorGhost);
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	Race::ValidEvent(Event);
+
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		CarRank::ThrottleUpdate(CarRank::C_SortCriteria_CurrentRace);
+		if (Event.Player != Null) {
+			if (Event.IsEndRace) {
+				Scores::UpdatePlayerBestRaceIfBetter(Event.Player);
+				Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+				Scores::UpdatePlayerPrevRace(Event.Player);
+				ComputeLatestRaceScores();
+				Race::SortScores(Race::C_Sort_TotalPoints);
+
+				// Start the countdown if it's the first player to finish
+				if (EndTime <= 0) {
+					EndTime = GetFinishTimeout(S_FinishTimeout, Race::GetLapsNb(), Map);
+				}
+			}
+			if (Event.IsEndLap) {
+				Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+			}
+
+			// Update catch-up speed
+			if (Round_CatchUpSpeedScript.count > 0 && Event.Player.RaceWaypointTimes.count > 0) {
+				declare Integer CheckpointIndex = Event.Player.RaceWaypointTimes.count - 1;
+
+				// Someone improved an already existing leader time
+				// We need to update all players catch-up speed at that checkpoint
+				if (
+					Round_CheckpointLeaderTimes.existskey(CheckpointIndex) &&
+					Event.RaceTime < Round_CheckpointLeaderTimes[CheckpointIndex]
+				) {
+					Round_CheckpointLeaderTimes[CheckpointIndex] = Event.RaceTime;
+					foreach (Player in Players) {
+						if (CheckpointIndex == Event.Player.RaceWaypointTimes.count - 1) {
+							UpdatePlayerCatchUpSpeedScript(Player, Round_CheckpointLeaderTimes, Round_CatchUpSpeedScript);
+							UpdatePlayerStatus(Event.Player, Round_ActiveEvent, GetPlayerCatchUpSpeedScript(Event.Player));
+						}
+					}
+				} else {
+					if (!Round_CheckpointLeaderTimes.existskey(CheckpointIndex)) {
+						Round_CheckpointLeaderTimes[CheckpointIndex] = Event.RaceTime;
+					}
+					UpdatePlayerCatchUpSpeedScript(Event.Player, Round_CheckpointLeaderTimes, Round_CatchUpSpeedScript);
+					UpdatePlayerStatus(Event.Player, Round_ActiveEvent, GetPlayerCatchUpSpeedScript(Event.Player));
+				}
+			}
+
+			// Give a bonus
+			if (S_EnableBonuses && !Event.IsEndRace) {
+				GivePlayerRandomBonus(Event.Player, Server_Bonuses);
+			}
+
+			// Log catch-up speed
+			if (Log::CanLog()) {
+				Log::Log("[RoundsBonus] CatchUpSpeed debug :");
+				foreach (Player in Players) {
+					declare Text Ranking;
+					if (Player.RaceWaypointTimes.count > 0) {
+						Ranking = "Checkpoints : "^Player.RaceWaypointTimes.count^" | Time : "^Player.RaceWaypointTimes[Player.RaceWaypointTimes.count - 1];
+					} else {
+						Ranking = "Checkpoints : 0 | Time : 0";
+					}
+					if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned) {
+						Log::Log("[RoundsBonus] "^Player.User.WebServicesUserId^" > IsSpawned : True | CatchUpCoef : "^Player_GetCatchUpCoef(Player)^" | Ranking : "^Ranking);
+					} else {
+						Log::Log("[RoundsBonus] "^Player.User.WebServicesUserId^" > IsSpawned : False | CatchUpCoef : "^Player_GetCatchUpCoef(Player)^" | "^Ranking);
+					}
+				}
+			}
+		}
+	} else if (Event.Type == Events::C_Type_Respawn) {
+		if (Event.Player != Null) {
+			UpdatePlayerStatus(Event.Player, Round_ActiveEvent, GetPlayerCatchUpSpeedScript(Event.Player));
+			Player_SetCatchUpSpeed(Event.Player, Round_CatchUpSpeedScriptMode == C_CatchUpSpeedMode_CPP_LeadingPlayer || Round_CatchUpSpeedScriptMode == C_CatchUpSpeedMode_CPP_AuthorGhost);
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+
+	if (S_EnableBonuses && Event.Type == CSmModeEvent::EType::OnPlayerRequestRespawn && Event.Player != Null) {
+		TriggerPlayerBonus(Event.Player);
+	}
+}
+
+// Server info change
+if (
+	Server_PointsLimit != S_PointsLimit ||
+	Server_RoundsPerMap != S_RoundsPerMap ||
+	Server_MapsPerMatch != S_MapsPerMatch
+) {
+	Server_PointsLimit = S_PointsLimit;
+	Server_RoundsPerMap = S_RoundsPerMap;
+	Server_MapsPerMatch = S_MapsPerMatch;
+
+	UpdateScoresTableFooter(S_PointsLimit, S_RoundsPerMap, S_MapsPerMatch, Map_ValidRoundsNb);
+}
+
+// Announce the next event
+if (!Server_EventGenerator.EventAnnounced && Round_NextEventAnnounceTime > 0 && Now >= Round_NextEventAnnounceTime) {
+	Server_EventGenerator = GetRandomEvent(Server_EventGenerator);
+	Server_EventGenerator.EventAnnounced = True;
+	UIModules_Events::UpdateEvent(Round_ActiveEvent.Type, Round_ActiveEventEndTime, Server_EventGenerator.Event.Type, Server_EventGenerator.EventAnnounced, Round_NextEventStartTime);
+}
+
+// Active the next event
+if (Round_NextEventStartTime > 0 && Now >= Round_NextEventStartTime) {
+	Round_NextEventStartTime = UpdateNextEventStartTime(Round_NextEventStartTime, S_EventsTimeIntervalMin, S_EventsTimeIntervalMax);
+	Round_NextEventAnnounceTime = UpdateNextEventAnnounceTime(Round_NextEventStartTime, S_EventAnnounceDuration);
+	if (Server_EventGenerator.EventAnnounced) {
+		Server_EventGenerator.EventAnnounced = False;
+	} else {
+		Server_EventGenerator = GetRandomEvent(Server_EventGenerator);
+	}
+	if (S_EventDuration > 0) {
+		Round_ActiveEventEndTime = Now + (S_EventDuration * 1000);
+	} else {
+		Round_ActiveEventEndTime = -1;
+	}
+	Round_ActiveEvent = Server_EventGenerator.Event;
+	UIModules_Events::UpdateEvent(Round_ActiveEvent.Type, Round_ActiveEventEndTime, Server_EventGenerator.Event.Type, Server_EventGenerator.EventAnnounced, Round_NextEventStartTime);
+	foreach (Player in Players) {
+		UpdatePlayerStatus(Player, Round_ActiveEvent, GetPlayerCatchUpSpeedScript(Player));
+	}
+}
+
+// Event deactivation
+if (Round_ActiveEventEndTime > 0 && Now >= Round_ActiveEventEndTime) {
+	Round_ActiveEventEndTime = -1;
+	Round_ActiveEvent = K_Event { Type = Data::C_EventType_Null };
+	UIModules_Events::UpdateEvent(Round_ActiveEvent.Type, Round_ActiveEventEndTime, Server_EventGenerator.Event.Type, Server_EventGenerator.EventAnnounced, Round_NextEventStartTime);
+	foreach (Player in Players) {
+		UpdatePlayerStatus(Player, Round_ActiveEvent, GetPlayerCatchUpSpeedScript(Player));
+	}
+}
+
+foreach (Player in Players) {
+	// Apply player properties
+	if (
+		Player.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned &&
+		!SetPlayer_DelayedIsFull(Player)
+	) {
+		declare K_PlayerProperties[] RoundsBonus_PendingProperties for Player;
+		// Apply pending properties until the buffer is full
+		while (RoundsBonus_PendingProperties.count > 0 && !SetPlayer_DelayedIsFull(Player)) {
+			declare K_PlayerProperties Properties = RoundsBonus_PendingProperties[0];
+			while (Properties.ActiveProperties.count > 0 && !SetPlayer_DelayedIsFull(Player)) {
+				ApplyProperty(Player, Properties, Properties.ActiveProperties[0]);
+				Properties.ActiveProperties.removekey(0);
+			}
+			if (Properties.ActiveProperties.count <= 0) {
+				RoundsBonus_PendingProperties.removekey(0);
+			} else {
+				RoundsBonus_PendingProperties[0] = Properties;
+			}
+		}
+	}
+}
+***
+
+***Match_EndRound***
+***
+Race::StopSkipOutroAll();
+EndTime = -1;
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+CarRank::Update(CarRank::C_SortCriteria_CurrentRace);
+
+if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "2.1.1")) {
+	Scores::XmlRpc_SendScores(Scores::C_Section_PreEndRound, "");
+}
+
+if (Round_ForceEndRound || Round_SkipPauseRound || Round_Skipped) {
+	// Cancel points
+	foreach (Score in Scores) {
+		Scores::SetPlayerRoundPoints(Score, 0);
+	}
+	// Do not launch the forced end round sequence after a pause
+	if (!Round_SkipPauseRound) {
+		ForcedEndRoundSequence();
+	}
+} else {
+	Map_ValidRoundsNb += 1;
+	// Get the last round points
+	ComputeLatestRaceScores();
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	ModeUtils::PushAndApplyScoresTableVisibility(UIManager.UIAll, CUIConfig::EVisibility::ForcedVisible);
+	ModeUtils::PushAndApplyUISequence(UIManager.UIAll, CUIConfig::EUISequence::EndRound);
+	MB_Sleep(3000);
+	// Add them to the total scores
+	ComputeScores();
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	MB_Sleep(3000);
+	ModeUtils::PopAndApplyScoresTableVisibility(UIManager.UIAll);
+	ModeUtils::PopAndApplyUISequence(UIManager.UIAll);
+
+	if (MapIsOver(S_UseTieBreak, S_PointsLimit, Map_ValidRoundsNb, S_RoundsPerMap)) {
+		Map_Skipped = False;
+		MB_StopMap();
+	}
+}
+***
+
+***Match_EndMap***
+***
+if (MatchIsOver(S_UseTieBreak, S_PointsLimit, MB_GetMapCount(), S_MapsPerMatch, S_RoundsPerMap, Map_Skipped)) MB_StopMatch();
+
+if (!MB_MapIsRunning() && MB_MatchIsRunning()) MB_SkipPodiumSequence();
+
+Race::SortScores(Race::C_Sort_TotalPoints);
+declare CSmScore Winner <=> Scores::GetBestPlayer(Scores::C_Sort_MatchPoints);
+Scores::SetPlayerWinner(Winner);
+
+if (!MB_MatchIsRunning()) {
+	// Compute ranking for tracking
+	declare Integer PreviousPoints = 0;
+	declare Integer Rank = 0;
+	foreach (Key => Score in Scores) {
+		if (Key == 0 || Scores::GetPlayerMatchPoints(Score) < PreviousPoints) {
+			PreviousPoints = Scores::GetPlayerMatchPoints(Score);
+			Rank = Key + 1;
+		}
+		Tracking::SendPlayerMatchResult(UIManager, Score.User, Rank, Winner == Score && Scores.count > 1);
+	}
+}
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Trigger and consume the bonus of a player
+Void TriggerPlayerBonus(CSmPlayer _Player) {
+	declare Integer RoundsBonus_Bonus for _Player = Data::C_BonusType_Null;
+	if (RoundsBonus_Bonus != Data::C_BonusType_Null) {
+		RoundsBonus_Bonus = Data::C_BonusType_Null;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy the bonus of a player without using it
+Void ResetPlayerBonus(CSmPlayer _Player) {
+	declare Integer RoundsBonus_Bonus for _Player = Data::C_BonusType_Null;
+	RoundsBonus_Bonus = Data::C_BonusType_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Give a random bonus to a player
+Void GivePlayerRandomBonus(CSmPlayer _Player, Integer[] _Bonuses) {
+	if (_Bonuses.count > 0) {
+		declare Integer RoundsBonus_Bonus for _Player = Data::C_BonusType_Null;
+		RoundsBonus_Bonus = _Bonuses[ML::Rand(0, _Bonuses.count - 1)];
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the player catch-up speed based on its time diff with the leader at the checkpoint
+Void UpdatePlayerCatchUpSpeedScript(CSmPlayer _Player, Integer[Integer] _CheckpointLeaderTimes, Real[Integer] _CatchUpSpeed) {
+	declare Real RoundsBonus_CatchUpSpeedScript for _Player = C_DefaultCatchUpSpeedScript;
+
+	if (_CatchUpSpeed.count <= 0) {
+		RoundsBonus_CatchUpSpeedScript = C_DefaultCatchUpSpeedScript;
+	} else if (_Player.RaceWaypointTimes.count <= 0) {
+		foreach (CatchUpSpeed in _CatchUpSpeed) {
+			RoundsBonus_CatchUpSpeedScript = CatchUpSpeed;
+			break;
+		}
+	} else {
+		declare Integer PlayerTime = _Player.RaceWaypointTimes[_Player.RaceWaypointTimes.count - 1];
+		declare Integer LeaderTime = _CheckpointLeaderTimes.get(_Player.RaceWaypointTimes.count - 1, PlayerTime);
+		declare Integer TimeDiff = PlayerTime - LeaderTime;
+		foreach (TimeDiffMax => CatchUpSpeed in _CatchUpSpeed) {
+			RoundsBonus_CatchUpSpeedScript = CatchUpSpeed;
+			if (TimeDiff <= TimeDiffMax) break;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the player's catch-up speed
+Real GetPlayerCatchUpSpeedScript(CSmPlayer _Player) {
+	declare Real RoundsBonus_CatchUpSpeedScript for _Player = C_DefaultCatchUpSpeedScript;
+	return RoundsBonus_CatchUpSpeedScript;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply the active event and catch-up speed to the player
+Void UpdatePlayerStatus(CSmPlayer _Player, K_Event _Event, Real _CatchUpSpeed) {
+	declare K_PlayerProperties[] RoundsBonus_PendingProperties for _Player;
+	// Reset the old properties
+	RoundsBonus_PendingProperties = [
+		K_PlayerProperties { ActiveProperties = [C_Property_Reset] }
+	];
+	// Apply event properties
+	if (_Event.Properties.ActiveProperties.count > 0) {
+		RoundsBonus_PendingProperties.add(_Event.Properties);
+	}
+	// Apply catch-up speed properties
+	if (_CatchUpSpeed < C_DefaultCatchUpSpeedScript) {
+		RoundsBonus_PendingProperties.add(K_PlayerProperties {
+			ActiveProperties = [C_Property_AccelCoef],
+			AccelCoef = _CatchUpSpeed
+		});
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Apply a property to a player
+Void ApplyProperty(CSmPlayer _Player, K_PlayerProperties _Properties, Integer _Property) {
+	switch (_Property) {
+		case C_Property_AdherenceCoef: SetPlayer_Delayed_AdherenceCoef(_Player, _Properties.AdherenceCoef);
+		case C_Property_ControlCoef: SetPlayer_Delayed_ControlCoef(_Player, _Properties.ControlCoef);
+		case C_Property_AccelCoef: SetPlayer_Delayed_AccelCoef(_Player, _Properties.AccelCoef);
+		case C_Property_GravityCoef: SetPlayer_Delayed_GravityCoef(_Player, _Properties.GravityCoef);
+		case C_Property_TireWear: SetPlayer_Delayed_TireWear(_Player, _Properties.TireWear);
+		case C_Property_NoEngine: SetPlayer_Delayed_NoEngine(_Player, _Properties.NoEngine);
+		case C_Property_ForceEngine: SetPlayer_Delayed_ForceEngine(_Player, _Properties.ForceEngine);
+		case C_Property_NoBrakes: SetPlayer_Delayed_NoBrakes(_Player, _Properties.NoBrakes);
+		case C_Property_NoSteer: SetPlayer_Delayed_NoSteer(_Player, _Properties.NoSteer);
+		case C_Property_BoostUp: SetPlayer_Delayed_BoostUp(_Player, _Properties.BoostUp);
+		case C_Property_BoostDown: SetPlayer_Delayed_BoostDown(_Player, _Properties.BoostDown);
+		case C_Property_Boost2Up: SetPlayer_Delayed_Boost2Up(_Player, _Properties.Boost2Up);
+		case C_Property_Boost2Down: SetPlayer_Delayed_Boost2Down(_Player, _Properties.Boost2Down);
+		case C_Property_SlowMotion: SetPlayer_Delayed_SlowMotion(_Player, _Properties.SlowMotion);
+		case C_Property_Fragile: SetPlayer_Delayed_Fragile(_Player, _Properties.Fragile);
+		case C_Property_Cruise: SetPlayer_Delayed_Cruise(_Player, _Properties.Cruise, _Player.Speed * 3.6); //< m/s -> km/h
+		case C_Property_Reset: SetPlayer_Delayed_Reset(_Player);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the next time an event must be activated
+Integer UpdateNextEventStartTime(Integer _NextEventTime, Integer _EventsTimeIntervalMin, Integer _EventsTimeIntervalMax) {
+	if (_EventsTimeIntervalMin > 0 || _EventsTimeIntervalMax > 0) {
+		declare Integer Interval;
+		if (_EventsTimeIntervalMin <= 0) {
+			Interval = _EventsTimeIntervalMax * 1000;
+		} else if (_EventsTimeIntervalMax <= 0) {
+			Interval = _EventsTimeIntervalMin * 1000;
+		} else {
+			Interval = ML::Rand(_EventsTimeIntervalMin, ML::Max(_EventsTimeIntervalMin, _EventsTimeIntervalMax)) * 1000;
+		}
+		if (_NextEventTime > 0) {
+			return _NextEventTime + Interval;
+		} else {
+			return Now + Interval;
+		}
+	}
+
+	return -1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the next event announce time
+Integer UpdateNextEventAnnounceTime(Integer _NextEventTime, Integer _EventAnnounceDuration) {
+	if (_NextEventTime > 0 && _EventAnnounceDuration > 0) {
+		return _NextEventTime - (_EventAnnounceDuration * 1000);
+	}
+
+	return _NextEventTime;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the events weight in the generator
+K_EventGenerator UpdateEventGeneratorWeights(K_EventGenerator _EventGenerator) {
+	declare K_EventGenerator EventGenerator = _EventGenerator;
+	EventGenerator.Weights = [];
+	EventGenerator.MaxWeight = 0;
+
+	foreach (EventType => Event in EventGenerator.Events) {
+		if (Event.Weight > 0 && !EventGenerator.PreviousEventsTypes.exists(EventType)) {
+			EventGenerator.MaxWeight += Event.Weight;
+			EventGenerator.Weights[EventType] = EventGenerator.MaxWeight;
+		}
+	}
+
+	return EventGenerator;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize an event generator
+K_EventGenerator InitEventGenerator(K_Event[Integer] _AvailableEvents) {
+	return UpdateEventGeneratorWeights(K_EventGenerator {
+		Events = _AvailableEvents,
+		Weights = [],
+		MaxWeight = 0,
+		PreviousEventsTypes = [],
+		Event = K_Event { Type = Data::C_EventType_Null },
+		EventAnnounced = False
+	});
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset the events generator previous events
+K_EventGenerator ResetEventGeneratorPreviousEvents(K_EventGenerator _EventGenerator) {
+	declare K_EventGenerator EventGenerator = _EventGenerator;
+	EventGenerator.PreviousEventsTypes = [];
+	return UpdateEventGeneratorWeights(EventGenerator);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize an event
+K_Event InitEvent(Integer _EventType, K_PlayerProperties _PlayerProperties, Integer _Weight) {
+	return K_Event {
+		Type = _EventType,
+		Properties = _PlayerProperties,
+		Weight = _Weight
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Generate a random event
+K_EventGenerator GetRandomEvent(K_EventGenerator _EventGenerator) {
+	declare K_EventGenerator EventGenerator = _EventGenerator;
+	EventGenerator.Event = K_Event { Type = Data::C_EventType_Null };
+
+	if (EventGenerator.Weights.count > 0) {
+		declare Integer Weight = ML::Rand(1, _EventGenerator.MaxWeight);
+		foreach (EventType => EventWeight in _EventGenerator.Weights) {
+			if (Weight <= EventWeight) {
+				EventGenerator.Event = _EventGenerator.Events[EventType];
+				break;
+			}
+		}
+	} else if (EventGenerator.PreviousEventsTypes.count > 0) {
+		EventGenerator.Event = EventGenerator.Events.get(
+			EventGenerator.PreviousEventsTypes[0],
+			K_Event { Type = Data::C_EventType_Null }
+		);
+	}
+
+	if (EventGenerator.Event.Type != Data::C_EventType_Null) {
+		while (EventGenerator.PreviousEventsTypes.count >= C_PreviousEventsTypesNb) {
+			EventGenerator.PreviousEventsTypes.removekey(0);
+		}
+		// If the event type is already in the list
+		// remove it and add it as the most recently selected event
+		// at the end of the array
+		EventGenerator.PreviousEventsTypes.remove(EventGenerator.Event.Type);
+		EventGenerator.PreviousEventsTypes.add(EventGenerator.Event.Type);
+
+		EventGenerator = UpdateEventGeneratorWeights(EventGenerator);
+	}
+
+	return EventGenerator;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update the scores table footer text
+ *
+ *	@param	_PointsLimit							The points limit
+ *	@param	_RoundsPerMap							The number of rounds per map
+ *	@param	_MapsPerMatch							The number of maps per match
+ *	@param	_ValidRoundsNb						Number of valid rounds played
+ */
+Void UpdateScoresTableFooter(Integer _PointsLimit, Integer _RoundsPerMap, Integer _MapsPerMatch, Integer _ValidRoundsNb) {
+	declare Text[] Parts;
+	declare Text Message = "";
+	if (_PointsLimit > 0) {
+		if (Parts.count > 0) Message ^= "\n";
+		Message ^= """%{{{Parts.count + 1}}}{{{_PointsLimit}}}""";
+		//L16N [Rounds Bonus] Number of points to reach to win the match.
+		Parts.add(_("Points limit : "));
+	}
+	if (_RoundsPerMap > 0) {
+		if (Parts.count > 0) Message ^= "\n";
+		Message ^= """%{{{Parts.count + 1}}}{{{ML::Min(_ValidRoundsNb+1, _RoundsPerMap)}}}/{{{_RoundsPerMap}}}""";
+		//L16N [Rounds Bonus] Number of rounds played during the track.
+		Parts.add(_("Rounds : "));
+	}
+	if (_MapsPerMatch > 0) {
+		if (Parts.count > 0) Message ^= "\n";
+		Message ^= """%{{{Parts.count + 1}}}{{{MB_GetMapCount()}}}/{{{_MapsPerMatch}}}""";
+		//L16N [Rounds Bonus] Number of tracks played during the match.
+		Parts.add(_("Tracks : "));
+	}
+
+	switch (Parts.count) {
+		case 0: UIModules_ScoresTable::SetFooterInfo(Message);
+		case 1: UIModules_ScoresTable::SetFooterInfo(TL::Compose(Message, Parts[0]));
+		case 2: UIModules_ScoresTable::SetFooterInfo(TL::Compose(Message, Parts[0], Parts[1]));
+		case 3: UIModules_ScoresTable::SetFooterInfo(TL::Compose(Message, Parts[0], Parts[1], Parts[2]));
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the time left to the players to finish the round after the first player
+ *
+ *	@param	_FinishTimeout						Forced finish timeout duration (in seconds)
+ *	@param	_CurrentLapsNb						The current number of laps to do complete the race
+ *	@param	_Map											The map being played
+ *
+ *	@return														The time left in ms
+ */
+Integer GetFinishTimeout(Integer _FinishTimeout, Integer _CurrentLapsNb, CMap _Map) {
+	declare Integer FinishTimeout = 0;
+
+	if (_FinishTimeout >= 0) {
+		FinishTimeout = _FinishTimeout * 1000;
+	} else {
+		FinishTimeout = 5000;
+		if (_Map != Null && _Map.TMObjective_IsLapRace && _CurrentLapsNb > 0 && _Map.TMObjective_NbLaps > 0) {
+			FinishTimeout += ((_Map.TMObjective_AuthorTime / _Map.TMObjective_NbLaps) * _CurrentLapsNb) / 6;
+		} else if (_Map != Null) {
+			FinishTimeout += _Map.TMObjective_AuthorTime / 6;
+		}
+	}
+
+	return Now + FinishTimeout;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the latest race scores
+Void ComputeLatestRaceScores() {
+	Race::SortScores(Race::C_Sort_PrevRaceTime);
+
+	// Points distributed between all players
+	declare Integer I = 0;
+	declare Integer[] PointsRepartition = PointsRepartition::GetPointsRepartition();
+	foreach (Score in Scores) {
+		if (Scores::GetPlayerPrevRaceTime(Score) > 0) {
+			declare Integer Points = 0;
+			if (PointsRepartition.count > 0) {
+				if (PointsRepartition.existskey(I)) {
+					Points = PointsRepartition[I];
+				} else {
+					Points = PointsRepartition[PointsRepartition.count - 1];
+				}
+			}
+			Scores::SetPlayerRoundPoints(Score, Points);
+			I += 1;
+		} else {
+			Scores::SetPlayerRoundPoints(Score, 0);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute the map scores
+Void ComputeScores() {
+	Scores::EndRound();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the points limit was reached
+ *
+ *	@param	_UseTieBreak							Prevent ties or not
+ *	@param	_PointsLimit							Number of points to get to win the match
+ *
+ *	@return														C_PointsLimit_Reached if the points limit is reached
+ *																		C_PointsLimit_Tie if there is a tie
+ *																		C_PointsLimit_NotReached if the points limit is not reached
+ */
+Integer PointsLimitReached(Boolean _UseTieBreak, Integer _PointsLimit) {
+	declare Integer MaxScore = -1;
+	declare Boolean Tie = False;
+	foreach (Score in Scores) {
+		declare Integer Points = Scores::GetPlayerMatchPoints(Score);
+		if (Points > MaxScore) {
+			MaxScore = Points;
+			Tie = False;
+		} else if (Points == MaxScore) {
+			Tie = True;
+		}
+	}
+
+	if (_UseTieBreak && Tie) return C_PointsLimit_Tie; //< There is a tie and it is not allowed
+	if (_PointsLimit > 0 && MaxScore >= _PointsLimit) return C_PointsLimit_Reached; //< There is a points limit and it is reached
+	return C_PointsLimit_NotReached; //< There is no points limit or the points limit is not reached
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if we should go to the next map
+ *
+ *	@param	_UseTieBreak							Prevent ties or not
+ *	@param	_PointsLimit							Number of points to get to win the match
+ *	@param	_ValidRoundsNb						Number of valid rounds played
+ *	@param	_RoundsPerMap							Number of rounds to play to complete the map
+ *
+ *	@return		True if it is the case, false otherwise
+ */
+Boolean MapIsOver(Boolean _UseTieBreak, Integer _PointsLimit, Integer _ValidRoundsNb, Integer _RoundsPerMap) {
+	declare Integer PointsLimitReached = PointsLimitReached(_UseTieBreak, _PointsLimit);
+
+	Log::Log("""[RoundsBonus] MapIsOver() > _UseTieBreak: {{{_UseTieBreak}}} | _PointsLimit: {{{_PointsLimit}}} | _ValidRoundsNb: {{{_ValidRoundsNb}}} | _RoundsPerMap: {{{_RoundsPerMap}}} | PointsLimitReached: {{{PointsLimitReached}}}""");
+
+	if (PointsLimitReached == C_PointsLimit_Reached) return True; //< There is a points limit and it is reached
+	if (_RoundsPerMap > 0 && _ValidRoundsNb >= _RoundsPerMap) return True; //< There is a rounds limit and it is reached
+
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if we should go to the next match
+ *
+ *	@param	_UseTieBreak							Prevent ties or not
+ *	@param	_PointsLimit							Number of points to get to win the match
+ *	@param	_MapsPerMatch							Number of maps to play to complete a match
+ *
+ *	@return		True if it is the case, false otherwise
+ */
+Boolean MatchIsOver(Boolean _UseTieBreak, Integer _PointsLimit, Integer _MapCount, Integer _MapsPerMatch, Integer _RoundsPerMap, Boolean _MapSkipped) {
+	declare Integer PointsLimitReached = PointsLimitReached(_UseTieBreak, _PointsLimit);
+
+	Log::Log("""[RoundsBonus] MatchIsOver() > _UseTieBreak: {{{_UseTieBreak}}} | _PointsLimit: {{{_PointsLimit}}} | _MapCount: {{{_MapCount}}} | _MapsPerMatch: {{{_MapsPerMatch}}} | _RoundsPerMap: {{{_RoundsPerMap}}} | PointsLimitReached: {{{PointsLimitReached}}} | _MapSkipped : {{{_MapSkipped}}}""");
+
+	// If there is a point limit and it is reached, stop the match
+	if (PointsLimitReached == C_PointsLimit_Reached) {
+		return True;
+	}
+	// If there is an explicit maps limit ...
+	else if (_MapsPerMatch >= 1) {
+		if (
+			(_MapCount >= _MapsPerMatch && PointsLimitReached != C_PointsLimit_Tie) || //< ... stop the match if the maps limit is reached and the match is not a tie
+			(_MapSkipped && _MapsPerMatch == 1 && _MapCount >= _MapsPerMatch) //< ... stop the match if the map was skipped and the match is played on only one map
+		) {
+			return True;
+		}
+	}
+	// If there is a rounds limit but no maps limit, continue to play until another limit is reached
+	else if (_RoundsPerMap >= 1) {
+		return False;
+	}
+	// If there is neither a points limit nor a rounds limit, always stop the match at the end of the first map, even if there is a tie
+	else {
+		return True;
+	}
+
+	// In all other cases continue to play
+	return False;
+}

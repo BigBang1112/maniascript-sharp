@@ -1,0 +1,263 @@
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/System/Report/Layer_Widget.Script.txt"			as LayerWidget
+#Include "Libs/Nadeo/System/Report/Layer_Report.Script.txt"			as LayerReport
+
+#Include "Libs/Nadeo/System/Auth/Auth.Script.txt" as Auth
+#Include "Libs/Nadeo/System/InternalEvents/Events_Consumer.Script.txt"	as EventsConsumer
+#Include "Libs/Nadeo/System/Styles/ColorScheme.Script.txt"				as ColorScheme
+#Include "Libs/Nadeo/System/Settings/SettingsStructs.Script.txt"		as SettingsStructs
+#Include "Libs/Nadeo/System/Report/ReportContext.Script.txt" as ReportContext
+
+#Const C_LiveAPI_RequestBaseURL	"/api/reports"
+#Const C_LiveAPI_RequestHeaders ""
+#Const C_LiveAPI_ReportDataPartHeaders "Content-Disposition: form-data; name=\"report-parameters\" \n Content-Type: application/json\n"
+#Const C_LiveAPI_RequestTimeout	8000
+
+#Struct SReportRequest {
+	Text 			type;
+	Text 			reported;
+	ReportContext::K_ReportContext context;
+}
+
+#Struct SReportContextUpdate {
+	Boolean isUpdatingReportContext;
+	SReportRequest report;
+}
+
+declare Boolean	G_LibSettingsController_ReportMenuIsVisible;
+
+declare Integer	G_LibEvents_PreviousChangeCount;
+declare Integer	G_ColorScheme_PreviousChangeCount;
+
+declare CHttpRequest 	G_PendingRequest;
+declare Integer			G_PendingRequestTimeout;
+
+//declare Integer 		G_PendingRequestType;
+
+declare SReportContextUpdate G_PendingReportContextUpdate;
+
+Void SetVisibility(Boolean _IsVisible) {
+	G_LibSettingsController_ReportMenuIsVisible = _IsVisible;
+	
+	LayerReport::SetVisibility(_IsVisible);
+	
+	if (_IsVisible) {
+		declare CManiaplanetPluginInterface IActivateKey <=> Plugins.GetInterface("ActivateKey");
+		if (IActivateKey != Null) {
+			IActivateKey.CustomEvent("Hide", []);
+		} else {
+			log("no activate key plugin");
+		}
+	}
+}
+
+Void Load() {
+	LayerWidget::Build();
+	LayerReport::Build();
+
+	yield;
+
+	G_PendingRequest = Null;
+	G_PendingReportContextUpdate = SReportContextUpdate {
+		isUpdatingReportContext = False
+	};
+
+	SetVisibility(False);
+}
+
+Text GetReportType(Integer Cat, Integer Subcat) {
+	declare Text Type = "";
+	if (Cat == LayerReport::C_Category_Game) {
+		switch (Subcat) {
+			case LayerReport::C_Subcat_Game_Menus	: Type = "menus";
+			case LayerReport::C_Subcat_Game_Gameplay: Type = "gameplay";
+			case LayerReport::C_Subcat_Game_Rooms	: Type = "rooms";
+			case LayerReport::C_Subcat_Game_Editors	: Type = "editors";
+			case LayerReport::C_Subcat_Game_Visuals	: Type = "visuals";
+		}
+	} else if (Cat == LayerReport::C_Category_Player) {
+		Type = "player";
+	} else if (Cat == LayerReport::C_Category_Content) {
+		switch (Subcat) {
+			case LayerReport::C_Subcat_Content_Clubs	: Type = "clubs";
+			case LayerReport::C_Subcat_Content_Rooms	: Type = "rooms";
+			case LayerReport::C_Subcat_Content_Maps		: Type = "maps";
+			case LayerReport::C_Subcat_Content_Profile	: Type = "player";
+			case LayerReport::C_Subcat_Content_Image	: Type = "pictures";
+		}
+	}
+	
+	return Type;
+}
+
+Text GetReportReason(Integer Cat, Integer Subcat) {
+	declare Text Reason = "";
+	if (Cat == LayerReport::C_Category_Game)
+		Reason = "game";
+	else if (Cat == LayerReport::C_Category_Content)
+		if (Subcat == LayerReport::C_Subcat_Content_Profile)
+			Reason = "profile content";
+		else
+			Reason = "content";
+	else if (Cat == LayerReport::C_Category_Player) {
+		switch (Subcat) {
+			case LayerReport::C_Subcat_Player_Unrespectful	: Reason = "unrespectful";
+			case LayerReport::C_Subcat_Player_Cheating		: Reason = "cheating";
+		}
+	}
+	
+	return Reason;
+}
+
+Text GetReportedId(Integer Cat, Integer Subcat, Text ReportedPlayer) {
+	declare Text ReportedId = "";
+	if (Cat == LayerReport::C_Category_Player)
+		ReportedId = ReportedPlayer;
+	
+	return ReportedId;
+}
+
+Void SendReport(Integer Cat, Integer Subcat, Text ReportedPlayer) {
+	if (G_PendingRequest != Null)
+		return;
+	
+	ReportContext::SetReason(System, GetReportReason(Cat, Subcat));
+	ReportContext::RequestReportContextUpdate(System);
+	G_PendingReportContextUpdate = SReportContextUpdate {
+		isUpdatingReportContext = True,
+		report = SReportRequest {
+			type = GetReportType(Cat, Subcat),
+			reported = GetReportedId(Cat, Subcat, ReportedPlayer),
+			context = ReportContext::GetReportContext(System)
+		}
+	};
+}
+
+Void UpdatePendingReport() {
+	if (G_PendingReportContextUpdate.isUpdatingReportContext) {
+		if (ReportContext::ReportContextHasBeenUpdated(System)) {
+			G_PendingReportContextUpdate.isUpdatingReportContext = False;
+			G_PendingReportContextUpdate.report.context = ReportContext::GetReportContext(System);
+			
+			G_PendingRequest = CreatePostImage(
+				SettingsStructs::GetConfig().APIMeetUrl^C_LiveAPI_RequestBaseURL,
+				G_PendingReportContextUpdate.report.tojson(),
+				C_LiveAPI_ReportDataPartHeaders,
+				Null,
+				Auth::GetHttpHeaderLive()^C_LiveAPI_RequestHeaders
+			);
+			G_PendingRequestTimeout = Now + C_LiveAPI_RequestTimeout;
+		}
+	} else if (G_PendingRequest != Null) {
+		if (!G_PendingRequest.IsCompleted && Now >= G_PendingRequestTimeout) {
+			Http.Destroy(G_PendingRequest);
+			G_PendingRequest 		= Null;
+			G_PendingRequestTimeout = -1;
+			LayerCustomEvent(LayerReport::GetLayer(), "ReportError", []);
+			return;
+		}
+		
+		if (!G_PendingRequest.IsCompleted)
+			return;
+		
+		if (G_PendingRequest.StatusCode / 100 == 2) { //success
+			LayerCustomEvent(LayerReport::GetLayer(), "ReportSuccess", []);
+		} else {
+			LayerCustomEvent(LayerReport::GetLayer(), "ReportError", []);
+		}
+		
+		Http.Destroy(G_PendingRequest);
+		G_PendingRequest 		= Null;	
+		G_PendingRequestTimeout = -1;
+	}
+}
+
+Void ShowGamepadButtons(CInputPad::EPadType _GamepadType) {
+	declare Text PadModel;
+
+	switch (_GamepadType) {
+		case CInputPad::EPadType::PlayStation	: PadModel = "PS4";
+		case CInputPad::EPadType::XBox			: PadModel = "XB1";
+		default									: PadModel = "";
+	}
+
+	LayerCustomEvent(LayerReport::GetLayer(), "ShowGamepadButtons", [PadModel]);
+}
+
+Void Loop() {
+	UpdatePendingReport();
+
+	declare ColorScheme_LatestChangeCount = ColorScheme::GetLatestChangeCount();
+	declare LibEvents_LatestChangeCount = EventsConsumer::GetLatestChangeCount();
+	
+	if(	PendingEvents.count == 0 &&
+			!G_LibSettingsController_ReportMenuIsVisible &&
+			G_LibEvents_PreviousChangeCount == LibEvents_LatestChangeCount && 
+			G_ColorScheme_PreviousChangeCount == ColorScheme_LatestChangeCount )
+			return;
+
+	// ---------------------------------- //
+	// Color scheme change
+	if (G_ColorScheme_PreviousChangeCount != ColorScheme_LatestChangeCount) {
+		declare PrimaryColor	= ColorScheme::GetPrimaryColor();
+		declare SecondaryColor	= ColorScheme::GetSecondaryColor();
+		
+		LayerWidget::SetColor(PrimaryColor);
+		G_ColorScheme_PreviousChangeCount = ColorScheme_LatestChangeCount;
+	}
+
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CManiaAppEvent::EType::ExternalCustomEvent) {
+			if (Event.ExternalEventType == "Hide") {
+				SetVisibility(False);
+			}
+		}
+		if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			switch (Event.CustomEventType) {
+				case "ToggleReportMenu" : {
+					SetVisibility(!G_LibSettingsController_ReportMenuIsVisible);
+					if (G_LibSettingsController_ReportMenuIsVisible) {
+						declare Text[] UserNames 	for LayerReport::GetLayer().LocalPage;
+						declare Text[] UserIds 		for LayerReport::GetLayer().LocalPage;
+						UserNames.clear();
+						UserIds.clear();
+						for (I, 0, CurrentServerPlayers.count - 1) {
+							if (CurrentServerPlayers[I].WebServicesUserId != LocalUser.WebServicesUserId)
+								UserNames.add(CurrentServerPlayers[I].Name);
+								UserIds.add(CurrentServerPlayers[I].WebServicesUserId);
+						}
+					}
+				}
+				case "CloseReportPopup" : {
+					SetVisibility(False);
+				}
+				case "SendReport" : {
+					declare Integer Category 		= TL::ToInteger(Event.CustomEventData[0]);
+					declare Integer Subcategory		= TL::ToInteger(Event.CustomEventData[1]);
+					declare Text	ReportedPlayer	= Event.CustomEventData[2];
+					SendReport(Category, Subcategory, ReportedPlayer);
+				}
+				case "OpenForum" : {
+					OpenLink("https://discussions.ubisoft.com/category/824/trackmania", ::ELinkType::ExternalBrowser);
+				}
+				case "OpenSupport" : {
+					OpenLink("https://support.ubisoft.com/Cases/New", ::ELinkType::ExternalBrowser);
+				}
+			}
+		}
+	}
+	
+	if (G_LibSettingsController_ReportMenuIsVisible) {
+		foreach (Event in Input.PendingEvents) {
+			if (Event.Type == CInputEvent::EType::PadButtonPress) {
+				ShowGamepadButtons(Event.Pad.Type);
+			}
+		}
+
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CManiaAppEvent::EType::KeyPress) {
+				ShowGamepadButtons(CInputPad::EPadType::Keyboard);
+			}
+		}
+	}
+}

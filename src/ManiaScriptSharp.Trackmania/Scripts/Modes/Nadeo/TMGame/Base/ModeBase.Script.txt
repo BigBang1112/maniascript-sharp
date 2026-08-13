@@ -1,0 +1,651 @@
+/**
+ *	Base for a standard Trackmania game mode
+ */
+#Extends "Modes/Nadeo/CMGame/Base/ModeMatchmaking.Script.txt"
+
+#RequireContext CSmMode
+
+#Const C_MB_TM_Version		"2.1.1"
+#Const C_MB_TM_ScriptName	"Modes/Nadeo/TMGame/Base/ModeBase.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/Utils.Script.txt" as ModeUtils
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Server.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/LocalServer.Script.txt" as LocalServer
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PickAndBan_Server.Script.txt" as UIModules_PickAndBan
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Countdown_Server.Script.txt" as UIModules_Countdown
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/BigMessage_Server.Script.txt" as UIModules_BigMessage
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Server.Script.txt" as UIModules_DisplayMessage
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Record_Server.Script.txt" as UIModules_Record
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenuOnline
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Sign16x9Small_Server.Script.txt" as UIModules_Sign16x9Small
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PrestigeEarned_Server.Script.txt" as UIModules_PrestigeEarned
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/LoadingScreen_Server.Script.txt" as UIModules_LoadingScreen
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Server.Script.txt" as UIModules_Helpers
+#Include "Libs/Nadeo/TMGame/Modes/Base/StateManager.Script.txt" as RaceStateMgr
+#Include "Libs/Nadeo/TMGame/Modes/DecoImage_Server.Script.txt" as DecoImage
+#Include "Libs/Nadeo/TMGame/Modes/CarRank.Script.txt" as CarRank
+#Include "Libs/Nadeo/TMGame/Modes/Events.Script.txt" as Events
+#Include "Libs/Nadeo/TMGame/Modes/Ghost.Script.txt" as Ghost
+#Include "Libs/Nadeo/TMGame/Modes/Map.Script.txt" as Map
+#Include "Libs/Nadeo/TMGame/Modes/Race.Script.txt" as Race
+#Include "Libs/Nadeo/TMGame/Modes/Scores.Script.txt" as Scores
+#Include "Libs/Nadeo/TMGame/Modes/WarmUp.Script.txt" as WarmUp
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_RespawnBehaviour 0 as "<hidden>" ///< 0: mode default, 1: normal, 2: do nothing, 3: give up before first CP, 4: always give up, 5 never give up
+#Setting S_ForceLapsNb -1 as _("Forced laps number") ///< -1: use laps from map validation, 0: independent laps, > 0: force number of laps
+#Setting S_InfiniteLaps False as _("Infinite laps") ///< Never end a race in laps
+#Setting S_EnableJoinLeaveNotifications True as _("Enable join and leave notifications") ///< Display a notification when a player joins or leaves the server
+#Setting S_SeasonIds "" as "<hidden>" ///< ["MapUid" => "SeasonId"] json formatted list of maps and their season id
+#Setting S_IsSplitScreen False as "<hidden>"
+#Setting S_DecoImageUrl_WhoAmIUrl "/api/club/room/:ServerLogin/whoami" as "<hidden>" ///< Url of the API route to get the deco image url
+#Setting S_DecoImageUrl_Checkpoint "" as "<hidden>" ///< Url of the image displayed on the checkpoints ground
+#Setting S_DecoImageUrl_DecalSponsor4x1 "" as "<hidden>" ///< Url of the image displayed on the block border
+#Setting S_DecoImageUrl_Screen16x9 "" as "<hidden>" ///< Url of the image displayed on the two big screens
+#Setting S_DecoImageUrl_Screen8x1 "" as "<hidden>" ///< Url of the image displayed on the bleachers
+#Setting S_DecoImageUrl_Screen16x1 "" as "<hidden>" ///< Url of the image displayed below the podium and big screen
+#Setting S_ClubId 0 as "<hidden>" ///< Id of the club
+#Setting S_ClubName "" as "<hidden>" ///< Name of the club
+#Setting S_LoadingScreenImageUrl "" as "<hidden>" ///< Url of the image displayed during the track loading screen
+#Setting S_TrustClientSimu True as "<hidden>" ///< Toggle the TrustClientSimu flag on the player. CppRaceProgression must be disabled.
+#Setting S_UseCrudeExtrapolation True as "<hidden>" ///< Toggle the UseCrudeExtrapolation flag on the player.
+#Setting S_SynchronizePlayersAtMapStart True as "<hidden>" ///< Synchronize all players at the beginning of the map during the intro sequence.
+#Setting S_DisableGoToMap False as "<hidden>" ///< Disable the "Go to map" button in the pause menu
+#Setting S_PickAndBan_Enable False as "<hidden>" ///< Enable the pick and ban UI
+#Setting S_PickAndBan_Style "" as "<hidden>" ///< Styling of the pick and ban UI
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_DefaultUseCppRaceProgression True
+#Const C_UnspawnAnimDuration 0
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Boolean MB_Settings_UseDefaultTimer;
+declare Boolean MB_Settings_UseDefaultScores;
+declare Boolean Race_Settings_UseDefaultUI;
+declare Boolean Race_Settings_UseDefaultUIManagement;
+declare Boolean Race_Settings_IsLocalMode;
+declare Boolean Race_Settings_UseDefaultDecoImage;
+declare Boolean Race_Settings_ResetPlayerRaceBetweenRounds;
+declare Boolean Race_Settings_ResetPlayerRaceBetweenTurns;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***MB_Private_LogVersions***
+***
+Log::RegisterScript(C_MB_TM_ScriptName, C_MB_TM_Version);
+Log::RegisterScript(Race::ScriptName, Race::Version);
+Log::RegisterScript(Scores::ScriptName, Scores::Version);
+Log::RegisterScript(Events::ScriptName, Events::Version);
+Log::RegisterScript(WarmUp::ScriptName, WarmUp::Version);
+Log::RegisterScript(Map::ScriptName, Map::Version);
+Log::RegisterScript(RaceStateMgr::ScriptName, RaceStateMgr::Version);
+Log::RegisterScript(Ghost::ScriptName, Ghost::Version);
+Log::RegisterScript(DecoImage::ScriptName, DecoImage::Version);
+Log::RegisterScript(CarRank::ScriptName, CarRank::Version);
+Log::RegisterScript(UIModules::ScriptName, UIModules::Version);
+***
+
+***MB_Private_Settings***
+***
+MB_Settings_UseDefaultTimer = True;
+MB_Settings_UseDefaultScores = True;
+MB_Settings_UnprocessedEventHandling = C_EventHandling_Discard; //< We must discard any unprocessed event to avoid automatic C++ handling that breaks the internal state of the Race library
+MB_Settings_UseDefaultUIManagement = False; // Override with custom management in Race
+Race_Settings_UseDefaultUI = True;
+Race_Settings_IsLocalMode = False;
+Race_Settings_UseDefaultUIManagement = True;
+Race_Settings_UseDefaultDecoImage = True;
+Race_Settings_ResetPlayerRaceBetweenRounds = False;
+Race_Settings_ResetPlayerRaceBetweenTurns = False;
+***
+
+***MB_Private_LoadLibraries***
+***
+UIModules::Load();
+CarRank::Load();
+DecoImage::Load();
+Events::Load();
+Scores::Load();
+WarmUp::Load();
+Map::Load();
+RaceStateMgr::Load(S_PickAndBan_Enable); //< Must be before Race::Load()
+Race::Load(
+	C_DefaultUseCppRaceProgression,
+	!Race_Settings_IsLocalMode && !S_IsSplitScreen && S_TrustClientSimu,
+	!Race_Settings_IsLocalMode && !S_IsSplitScreen && S_UseCrudeExtrapolation,
+	False,
+	S_EnableJoinLeaveNotifications
+);
+***
+
+***MB_Private_UnloadLibraries***
+***
+RaceStateMgr::Unload();
+Map::Unload();
+WarmUp::Unload();
+Scores::Unload();
+Events::Unload();
+DecoImage::Unload();
+CarRank::Unload();
+UIModules::Unload();
+***
+
+***MB_Private_AfterLoadHud***
+***
+if (Race_Settings_UseDefaultUI) {
+	RaceStateMgr::ForcePlayersStates([RaceStateMgr::C_State_Waiting]);
+	UIManager.UIAll.ClearMarkers();
+	Race::SetupDefaultUI(S_IsSplitScreen);
+}
+Race::SetLocalMode(Race_Settings_IsLocalMode);
+if (Race_Settings_IsLocalMode) {
+	Race::SetupLocalModeUI();
+}
+if (S_IsSplitScreen) {
+	UIManager.UIAll.AltMenuNoCustomScores = True;
+}
+Ghost::AutoGhostsMaxAlpha(Race_Settings_IsLocalMode, 0);
+UIModules_PauseMenuOnline::DisableGoToMap(S_DisableGoToMap);
+UIModules_PickAndBan::SetStyle(S_PickAndBan_Style);
+***
+
+***MB_Private_Yield***
+***
+UIModules::Yield();
+CarRank::Yield();
+DecoImage::Yield();
+Events::Yield();
+Scores::Yield();
+WarmUp::Yield_XmlRpc();
+Race::Yield();
+
+if (MB_Settings_UseDefaultRespawnBehaviour) {
+	if (Race::Private_GetRespawnBehaviourSetting() != S_RespawnBehaviour) {
+		Race::Private_SetRespawnBehaviourSetting(S_RespawnBehaviour);
+	}
+}
+
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			RaceStateMgr::InitializePlayer(Event.Player);
+			Race::PlayerAdded(Event.Player);
+		}
+		case CSmModeEvent::EType::OnPlayerRemoved: {
+			Race::PlayerRemoved(Event.User);
+		}
+	}
+}
+RaceStateMgr::Yield();
+
+declare MB_Race_PreviousEndTime for This = -123;
+if (MB_Race_PreviousEndTime != EndTime) {
+	MB_Race_PreviousEndTime = EndTime;
+	UIModules_Countdown::SetTimeLimit(EndTime);
+}
+
+declare Text MB_Race_SeasonIds for This;
+if (MB_Race_SeasonIds != S_SeasonIds) {
+	MB_Race_SeasonIds = S_SeasonIds;
+	UIModules_Record::SetSeasonIds(S_SeasonIds);
+}
+
+declare Text MB_Race_LoadingScreenImageUrl for This;
+if (MB_Race_LoadingScreenImageUrl != S_LoadingScreenImageUrl) {
+	MB_Race_LoadingScreenImageUrl = S_LoadingScreenImageUrl;
+	UIModules_LoadingScreen::SetImageUrl(S_LoadingScreenImageUrl);
+}
+***
+
+***MB_Private_InitServer***
+***
+declare Boolean MB_Race_ResetBigMessage;
+***
+
+***MB_Private_StartServer***
+***
+declare Integer MB_Race_PreviousEndTime for This;
+MB_Race_PreviousEndTime = EndTime;
+UIModules_Countdown::SetTimeLimit(EndTime);
+
+declare Text MB_Race_SeasonIds for This;
+MB_Race_SeasonIds = S_SeasonIds;
+UIModules_Record::SetSeasonIds(S_SeasonIds);
+
+
+declare Text MB_Race_LoadingScreenImageUrl for This;
+MB_Race_LoadingScreenImageUrl = S_LoadingScreenImageUrl;
+UIModules_LoadingScreen::SetImageUrl(S_LoadingScreenImageUrl);
+
+if (MB_Settings_UseDefaultRespawnBehaviour) {
+	Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_Normal);
+	GiveUpBehaviour_RespawnAfter = False;
+}
+
+Race::SetInfiniteLaps(False, False);
+Race::ResetAllPlayers();
+Race::SetUISequenceAfterOutro(CUIConfig::EUISequence::None);
+Race::SetSplitScreen(S_IsSplitScreen);
+
+// Setup spawn and unspawn
+UnspawnAnimDuration = C_UnspawnAnimDuration;
+SpawnDelayDuration = 0;
+UIManager.UIAll.DisableZoomTransitions = True;
+
+// Setup players interactions
+UsePvPWeapons = False;
+UsePvPCollisions = False; //< Collisions between players (physic must run on the server)
+UsePvECollisions = False; //< Synchronization of the obstacles with the player spawn or the server time
+
+// Disable the delay on crude physic approximation for opponents' cars
+CrudeExtrapolation_AllowDelay = False;
+
+// Load items
+ItemList_Begin();
++++MB_Private_LoadItems+++
+ItemList_End();
+
+// Reset the big message after a script restart once players are available in the `Players` array
+// See: /trackmania-next/tmnext/-/issues/3968
+MB_Race_ResetBigMessage = True;
+***
+
+***MB_Private_InitMatch***
+***
+if (MB_Settings_UseDefaultScores) {
+	Scores::StartMatch();
+}
+***
+
+***MB_Private_BeforeLoadMap***
+***
+if (Race_Settings_UseDefaultDecoImage) {
+	DecoImage::SetDecoImages(
+		LocalServer::IsLocalServer(),
+		S_DecoImageUrl_WhoAmIUrl,
+		ServerLogin,
+		S_DecoImageUrl_Checkpoint,
+		S_DecoImageUrl_DecalSponsor4x1,
+		S_DecoImageUrl_Screen16x9,
+		S_DecoImageUrl_Screen8x1,
+		S_DecoImageUrl_Screen16x1,
+		S_ClubId,
+		S_ClubName
+	);
+} else {
+	SetClubLogoUrl("");
+	SetDecoImageUrl_DecalSponsor4x1("");
+	SetDecoImageUrl_Screen16x9("");
+	SetDecoImageUrl_Screen8x1("");
+	SetDecoImageUrl_Screen16x1("");
+}
+
+Race::SetNetworkMode(
+	!Race_Settings_IsLocalMode && !S_IsSplitScreen && S_TrustClientSimu,
+	!Race_Settings_IsLocalMode && !S_IsSplitScreen && S_UseCrudeExtrapolation
+);
+***
+
+***MB_Private_AfterLoadMap***
+***
+UIModules_DisplayMessage::IsListening(True);
+Map::LoadMap();
+UIModules_Helpers::SetCheckpointsNb(Map::GetCheckpointsCount()); // After Map::LoadMap();
+Race::SetLapsSettings(S_InfiniteLaps, S_ForceLapsNb);
+Race::AfterLoadMap(Map);
+
+// Enforce delayed visuals and client simulation trust
+// Must be done after a map is loaded otherwise it will be ignored
+foreach (Player in AllPlayers) {
+	Race::ApplyNetworkMode(Player);
+}
+
+// When restarting a script on a local server
+// the players already on the server are added
+// only after the map is loaded but they won't
+// trigger a `OnPlayerAdded` event.
+if (Race_Settings_UseDefaultUI) {
+	RaceStateMgr::ForcePlayersStates([RaceStateMgr::C_State_Waiting]);
+}
+***
+
+***MB_Private_InitMap***
+***
+if (MB_Settings_UseDefaultScores) {
+	Scores::StartMap();
+}
+
+// Reset the big message after a script restart once players are available in the `Players` array
+// See: /trackmania-next/tmnext/-/issues/3968
+if (MB_Race_ResetBigMessage) {
+	MB_Race_ResetBigMessage = False;
+	UIModules_BigMessage::SetMessage("");
+}
+
+declare Boolean MB_Race_SynchronizePlayersAtMapStart = S_SynchronizePlayersAtMapStart;
+declare Integer MB_Race_SynchroBarrierId;
+if (MB_Race_SynchronizePlayersAtMapStart) {
+	MB_Race_SynchroBarrierId = Synchro_AddBarrier();
+}
+***
+
+***MB_Private_IntroSequenceYield***
+***
+foreach (Player in Players) {
+	if (Race::IsReadyToStart(Player)) {
+		Race::Start(Player, Race::GetPlayerDefaultStart(Player), Player.CurrentClan, -1);
+	}
+}
+***
+
+***MB_Private_AfterIntroSequence***
+***
+if (MB_Settings_UseDefaultIntroSequence) {
+	Race::StopSkipOutroAll();
+	MB_Yield(); //< Yield so all players are unspawned properly
+}
+***
+
+***MB_Private_StartMap***
+***
+if (MB_Race_SynchronizePlayersAtMapStart) {
+	while (!Synchro_BarrierReached(MB_Race_SynchroBarrierId)) {
+		MB_Yield();
+	}
+}
+Ghost::StartMap();
+UIModules_ScoresTable::RequestPlayersEchelons();
+***
+
+***MB_Private_InitRound***
+***
+if (MB_Settings_UseDefaultScores) {
+	Scores::StartRound();
+}
+if (Race_Settings_ResetPlayerRaceBetweenRounds) {
+	// The player's last race is reset only when we spawn them (RaceWaypointTimes, ...)
+	// We reset it manually between rounds to avoid having obsolete values on the next round
+	foreach (Player in AllPlayers) {
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned) {
+			Race::ClearPlayerWaypoints(Player);
+		}
+	}
+}
+***
+
+***MB_Private_InitTurn***
+***
+if (Race_Settings_ResetPlayerRaceBetweenTurns) {
+	// The player's last race is reset only when we spawn them (RaceWaypointTimes, ...)
+	// We reset it manually between turns to avoid having obsolete values on the next turn
+	foreach (Player in AllPlayers) {
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned) {
+			Race::ClearPlayerWaypoints(Player);
+		}
+	}
+}
+***
+
+***MB_Private_StartTurn***
+***
+if (MB_Settings_UseDefaultTimer) {
+	StartTime = Now + Race::C_SpawnDuration;
+}
+
+// Only season prestige skins can be displayed when the player has crossed the finish line
+UIModules_PrestigeEarned::EnablePrestigeMode(UIModules_PrestigeEarned::C_PrestigeMode_Season);
+***
+
+***MB_Private_StartPlayLoop***
+***
+if (Race_Settings_UseDefaultUIManagement) {
+	MB_Race_EnablePlayMode(True);
+}
+***
+
+***MB_Private_EndPlayLoop***
+***
+if (Race_Settings_UseDefaultUIManagement) {
+	MB_Race_EnablePlayMode(False);
+}
+***
+
+***MB_Private_EndTurn***
+***
+if (MB_Settings_UseDefaultTimer) {
+	StartTime = -1;
+}
+***
+
+***MB_Private_AfterEndRound***
+***
+if (MB_Settings_UseDefaultScores) {
+	Scores::EndRound();
+}
+
+Scores::XmlRpc_SendScores(Scores::C_Section_EndRound, "");
+***
+
+***MB_Private_EndMap***
+***
+Ghost::EndMap();
+***
+
+***MB_Private_AfterEndMap***
+***
+if (MB_Settings_UseDefaultScores) {
+	Scores::EndMap();
+}
+
+Scores::XmlRpc_SendScores(Scores::C_Section_EndMap, "");
+if (!MB_Private_MatchIsRunning()) {
+	Scores::XmlRpc_SendScores(Scores::C_Section_EndMatchEarly, "");
+}
+***
+
+***MB_Private_BeforeUnloadMap***
+***
+// The player's last race is reset only when we spawn them (RaceWaypointTimes, ...)
+// We reset it manually between maps to avoid having obsolete values on the next map
+foreach (Player in AllPlayers) {
+	Race::ClearPlayerWaypoints(Player);
+}
+Map::UnloadMap();
+UIModules_DisplayMessage::IsListening(False);
+***
+
+***MB_Private_BeforePodiumSequence***
+***
+if (MB_Settings_UseDefaultPodiumMessage && MB_Settings_UseDefaultPodiumSequence && !MB_Private_SkipPodiumSequence) {
+	ModeUtils::PlaySound(CUIConfig::EUISound::EndRound, 0);
+
+	declare Text AccountId;
+	declare Text MB_Private_Message = _("|Match|Draw");
+	if (Clans::ClansAreEnabled()) {
+		declare MB_Private_TeamId = Scores::GetClanWinner() - 1;
+		if (Teams.existskey(MB_Private_TeamId)) {
+			if (!MB_Private_MatchIsRunning()) MB_Private_Message = MM_TL::Compose(_("$<%1$> wins the match!"), Teams[MB_Private_TeamId].ColorizedName);
+			else MB_Private_Message = MM_TL::Compose(_("$<%1$> wins the track!"), Teams[MB_Private_TeamId].ColorizedName);
+		}
+	} else {
+		declare MB_Private_Score <=> Scores::GetPlayerWinner();
+		if (MB_Private_Score != Null) {
+			AccountId = MB_Private_Score.User.WebServicesUserId;
+			if (!MB_Private_MatchIsRunning()) MB_Private_Message = _("$<%1$> wins the match!");
+			else MB_Private_Message = _("$<%1$> wins the track!");
+		}
+	}
+
+	UIModules_BigMessage::SetMessage(MB_Private_Message, AccountId);
+}
+
+if (Race_Settings_UseDefaultUI && !MB_Private_SkipPodiumSequence) {
+	RaceStateMgr::AddForcedPlayersStates(RaceStateMgr::C_State_Podium);
+}
+UIModules_Sign16x9Small::RequestPlayersUpdate();
+***
+
+***MB_Private_AfterPodiumSequence***
+***
+if (MB_Settings_UseDefaultPodiumMessage && MB_Settings_UseDefaultPodiumSequence && !MB_Private_SkipPodiumSequence) {
+	UIModules_BigMessage::SetMessage("");
+}
+
+if (Race_Settings_UseDefaultUI && !MB_Private_SkipPodiumSequence) {
+	RaceStateMgr::RemoveForcedPlayersStates(RaceStateMgr::C_State_Podium);
+}
+***
+
+***MB_Private_AfterEndMatch***
+***
+if (MB_Settings_UseDefaultScores) {
+	Scores::EndMatch();
+}
+
+Scores::XmlRpc_SendScores(Scores::C_Section_EndMatch, "");
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Setup the UI to enable or disable
+ *	the players spawning, the notifications,
+ *	or the mouse cursor for example.
+ *
+ *	@param	_Enabled									True to let players spawn,
+ *																		False otherwise
+ */
+Void MB_Race_EnablePlayMode(Boolean _Enabled) {
+	if (_Enabled) {
+		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+		if (Race_Settings_UseDefaultUI) {
+			RaceStateMgr::ForcePlayersStates([RaceStateMgr::C_State_Playing]);
+		}
+	} else {
+		if (Race_Settings_UseDefaultUI) {
+			RaceStateMgr::ForcePlayersStates([RaceStateMgr::C_State_Waiting]);
+		}
+		UIManager.UIAll.UISequence = CUIConfig::EUISequence::UIInteraction;
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Launch a warm up phase
+ *
+ *	@param	_NbOfWarmUp									The number of warm up rounds to play
+ *	@param	_TimeLimit									The time limit of one warm up round in ms
+ *																			If it is negative, the warm up will be played in round mode.
+ *																			If it is 0 the warm up will be played in time attack with a
+ *																			time limit calculated automatically from the author time of the map.
+ *																			If it is positive the warm up will be played in time attack
+ *																			with the given time limit.
+ *	@param	_FinishTimeOut							The timeout when the first player crosses the finish line
+ *	@param	_CustomEndOfWarmupMessage		Message displayed at the end of warmup
+ *	@param	_UseEndRoundSequence				Use the end round UI sequence to display the warmp-up ending message
+ */
+Void MB_Private_WarmUp(Integer _NbOfWarmUp, Integer _TimeLimit, Integer _FinishTimeOut, Text _CustomEndOfWarmupMessage, Boolean _UseEndRoundSequence) {
+	if (_NbOfWarmUp <= 0) return;
+
+	declare TimeLimit = _TimeLimit;
+	if (TimeLimit == 0) {
+		declare ObjectiveNbLaps = Map.TMObjective_NbLaps;
+		if (ObjectiveNbLaps <= 0 || !Map.TMObjective_IsLapRace) ObjectiveNbLaps = 1;
+		declare MaxTime = Map.TMObjective_AuthorTime / ObjectiveNbLaps;
+		TimeLimit = 5000 + MaxTime + (MaxTime / 6);
+	}
+
+	Race::StopSkipOutroAll();
+	MB_Private_Yield();
+
+	declare PrevUISequence = UIManager.UIAll.UISequence;
+
+	WarmUp::Start();
+	declare WarmUpPlayedNb = 0;
+
+	+++MB_Private_StartWarmUp+++
+
+	while (!WarmUp::Finished() && WarmUpPlayedNb < _NbOfWarmUp && MB_Private_MapIsRunning()) {
+		WarmUp::StartRound(WarmUpPlayedNb + 1, _NbOfWarmUp, TimeLimit, _FinishTimeOut);
+		if (Race_Settings_UseDefaultUIManagement) {
+			MB_Race_EnablePlayMode(True);
+		}
+
+		+++MB_Private_StartWarmUpRound+++
+
+		while (!WarmUp::Finished() && !WarmUp::RoundFinished() && MB_Private_MapIsRunning()) {
+			MB_Private_Yield();
+			+++MB_Private_WarmUpLoop+++
+
+			// Manage race events
+			declare RacePendingEvents = Race::GetPendingEvents();
+			foreach (Event in RacePendingEvents) {
+				Race::ValidEvent(Event);
+			}
+
+			// Manage mode events
+			foreach (Event in PendingEvents) {
+				if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+				Events::Invalid(Event);
+			}
+
+			WarmUp::Yield();
+		}
+		if (Race_Settings_UseDefaultUIManagement) {
+			MB_Race_EnablePlayMode(False);
+		}
+		WarmUp::EndRound();
+		WarmUpPlayedNb += 1;
+
+		+++MB_Private_EndWarmUpRound+++
+
+		MB_Private_Yield(); //< Yield between XmlRpc EndRound and next StartRound callbacks
+	}
+
+	if (_UseEndRoundSequence) {
+		UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;
+	}
+	if (_CustomEndOfWarmupMessage != "") {
+		UIManager.UIAll.BigMessage = _CustomEndOfWarmupMessage;
+	} else {
+		UIManager.UIAll.BigMessage = _("End of warmup, match starting...");
+	}
+	EndTime = Now + 4000;
+
+	+++MB_Private_EndWarmUp+++
+
+	while (Now < EndTime && MB_Private_MapIsRunning()) {
+		MB_Private_Yield();
+	}
+
+	WarmUp::End();
+	MB_Private_Yield();
+
+	EndTime = -1;
+	UIManager.UIAll.BigMessage = "";
+	UIManager.UIAll.UISequence = PrevUISequence;
+}
+Void MB_Private_WarmUp(Integer _NbOfWarmUp, Integer _TimeLimit, Integer _FinishTimeOut, Text _CustomEndOfWarmupMessage) {
+	MB_Private_WarmUp(_NbOfWarmUp, _TimeLimit, _FinishTimeOut, _CustomEndOfWarmupMessage, True);
+}
+
+/* @Changelog
+
+Version 2.0.0
+-------------
+
+- Moved from script `Modes/TrackMania/Nadeo/TMGame/Base/ModeBase.Script.txt` to `Modes/Nadeo/TMGame/Base/ModeBase.Script.txt`
+
+ */

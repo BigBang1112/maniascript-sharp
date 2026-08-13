@@ -1,0 +1,793 @@
+/**
+ *	UI module: EventMessage client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/EventMessage_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/Shared.Script.txt" as Shared
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/EventMessage_Common.Script.txt" as UIModules_EventMessage_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+//L16N [TrackMania World Tour - Teams] Message displayed when both teams score a point in the round
+#Const C_Text_Draw _("|TMWT|Draw")
+
+#Const C_Size_TopLine <170., 12.>
+#Const C_Size_BottomLine <170., 12.>
+#Const C_Size_MultiLines <170., 36.>
+
+#Const C_Anim_FrameVideoMessageSizeY 24.
+#Const C_Anim_LabelVideoMessagePosY -17.5
+
+#Const C_TextSize_TextMessage 10.
+#Const C_TextSize_VideoMessage 4.
+
+#Const C_Id_FrameGlobal "frame-global"
+#Const C_Id_QuadVideo "quad-video"
+#Const C_Id_FrameVideoMessage "frame-video-message"
+#Const C_Id_LabelVideoMessage "label-video-message"
+#Const C_Id_LabelTopLine "label-top-line"
+#Const C_Id_LabelBottomLine "label-bottom-line"
+#Const C_Id_LabelMultiLines "label-multi-lines"
+
+#Const C_Event_PlaySound "TMWTCommon_EventMessage_PlaySound"
+#Const C_Event_StopSound "TMWTCommon_EventMessage_StopSound"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Ident[Text] G_SoundIdsCache;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_EventMessage_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_EventMessage_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML(Integer _Theme) {
+	return MV::Create(
+GetId(), 3,
+"""
+{{{Stylesheet::Get(_Theme)}}}
+<frame id="{{{C_Id_FrameGlobal}}}" z-index="{{{Shared::C_ZIndex_EventMessage}}}" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_EventMessage_Common::C_UIModuleConfig)}}}>
+		<quad id="{{{C_Id_QuadVideo}}}" z-index="0" halign="center" hidden="1" />
+		<frame id="{{{C_Id_FrameVideoMessage}}}" pos="0 -0.5" z-index="1" size="72 {{{C_Anim_FrameVideoMessageSizeY}}}" halign="center" hidden="1">
+			<label id="{{{C_Id_LabelVideoMessage}}}" class="{{{Stylesheet::C_Class_Text_ExtraBold}}}" pos="0 {{{C_Anim_LabelVideoMessagePosY}}}" size="72 10" halign="center" valign="center" textsize="{{{C_TextSize_VideoMessage}}}" hidden="1" />
+		</frame>
+		<label id="{{{C_Id_LabelTopLine}}}" class="{{{Stylesheet::C_Class_Text_ExtraBold}}}" z-index="2" {{{MLHelpers::Size(C_Size_TopLine)}}} halign="center" textsize="{{{C_TextSize_TextMessage}}}" hidden="1" />
+		<label id="{{{C_Id_LabelBottomLine}}}" class="{{{Stylesheet::C_Class_Text_ExtraBold}}}" pos="0 {{{-C_Size_TopLine.Y}}}" z-index="3" {{{MLHelpers::Size(C_Size_TopLine)}}} halign="center" textsize="{{{C_TextSize_TextMessage}}}" hidden="1" />
+		<label id="{{{C_Id_LabelMultiLines}}}" class="{{{Stylesheet::C_Class_Text_ExtraBold}}}" z-index="4" {{{MLHelpers::Size(C_Size_TopLine)}}} halign="center" textsize="{{{C_TextSize_TextMessage}}}" maxline="3" hidden="1" />
+	</frame>
+</frame>
+""",
+"""
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/Stylesheet.Script.txt" as TMWTStylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/Teams.Script.txt" as Teams
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/EventMessage_Common.Script.txt" as UIModules_EventMessage_Common
+
+#Struct K_Controls {
+	CMlQuad Quad_Video;
+	CMlFrame Frame_VideoMessage;
+	CMlLabel Label_VideoMessage;
+	CMlLabel Label_TopLine;
+	CMlLabel Label_BottomLine;
+	CMlLabel Label_MultiLines;
+}
+#Struct K_Video {
+	Text Url;
+	Int2 Resolution;
+	Vec2 Size;
+	Integer Duration;
+	Integer Delay;
+	Ident Id;
+}
+#Struct K_Sound {
+	Text Url;
+	Integer Duration;
+	Integer Delay;
+	Ident Id;
+}
+#Struct K_Text {
+	Text TopLine;
+	Text BottomLine;
+	Text MultiLines;
+	Integer Duration;
+	Integer Delay;
+}
+#Struct K_Message {
+	K_Video Video;
+	K_Sound Sound;
+	K_Text Message;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Boolean DisplayModule;
+	Integer EventUpdate;
+	// The `XXXEndTime` values use the server timer `GameTime`
+	Integer MessageEndTime;
+	Integer TextEndTime;
+	Integer VideoEndTime;
+	Integer SoundEndTime;
+	// The `XXXStartTime` values use the client timer `Now`
+	Integer VideoStartTime;
+	Integer SoundStartTime;
+	Boolean VideoNeedSynchro;
+	K_Message[Integer] DefaultMessages;
+	K_Message[Integer][Integer] ClansMessages;
+	Ident PlayingVideoId;
+	Ident PlayingSoundId;
+	Integer TeamsUpdate;
+}
+
+#Const C_Video_Null K_Video {}
+#Const C_Sound_Null K_Sound {}
+#Const C_Text_Null K_Text {}
+#Const C_Message_Null K_Message {}
+#Const C_State_Null K_State {
+	Controls = K_Controls {},
+	DisplayModule = False,
+	EventUpdate = 0,
+	MessageEndTime = -1,
+	TextEndTime = -1,
+	VideoEndTime = -1,
+	SoundEndTime = -1,
+	VideoStartTime = -1,
+	SoundStartTime = -1,
+	VideoNeedSynchro = False,
+	DefaultMessages = [],
+	ClansMessages = [1 => [], 2 => []],
+	PlayingVideoId = NullId,
+	PlayingSoundId = NullId,
+	TeamsUpdate = -1
+}
+
+#Const C_TextMessageAnimDuration 250
+
+#Const C_Text_Draw {{{dump(C_Text_Draw)}}}
+
+#Const C_Anim_FrameVideoMessageSizeY {{{dump(C_Anim_FrameVideoMessageSizeY)}}}
+#Const C_Anim_LabelVideoMessagePosY {{{dump(C_Anim_LabelVideoMessagePosY)}}}
+
+#Const C_TextSize_VideoMessage {{{dump(C_TextSize_VideoMessage)}}}
+
+#Const C_Id_FrameGlobal {{{dump(C_Id_FrameGlobal)}}}
+#Const C_Id_QuadVideo {{{dump(C_Id_QuadVideo)}}}
+#Const C_Id_FrameVideoMessage {{{dump(C_Id_FrameVideoMessage)}}}
+#Const C_Id_LabelVideoMessage {{{dump(C_Id_LabelVideoMessage)}}}
+#Const C_Id_LabelTopLine {{{dump(C_Id_LabelTopLine)}}}
+#Const C_Id_LabelBottomLine {{{dump(C_Id_LabelBottomLine)}}}
+#Const C_Id_LabelMultiLines {{{dump(C_Id_LabelMultiLines)}}}
+
+#Const C_Event_PlaySound {{{dump(C_Event_PlaySound)}}}
+#Const C_Event_StopSound {{{dump(C_Event_StopSound)}}}
+
+#Const UIModules_EventMessage_Common::C_Type_Reset as C_Type_Reset
+#Const UIModules_EventMessage_Common::C_Type_Ace as C_Type_Ace
+#Const UIModules_EventMessage_Common::C_Type_Victory as C_Type_Victory
+#Const UIModules_EventMessage_Common::C_Type_Draw as C_Type_Draw
+#Const UIModules_EventMessage_Common::C_Type_Overtime as C_Type_Overtime
+#Const UIModules_EventMessage_Common::C_Type_TrackPoint as C_Type_TrackPoint
+#Const UIModules_EventMessage_Common::C_Type_MatchPoint as C_Type_MatchPoint
+#Const UIModules_EventMessage_Common::C_Type_TrackWin as C_Type_TrackWin
+#Const UIModules_EventMessage_Common::C_Type_MatchWin as C_Type_MatchWin
+#Const UIModules_EventMessage_Common::C_Types as C_Types
+
+#Const C_Messages [
+	{{{UIModules_EventMessage_Common::C_Type_Ace}}} => K_Message {
+		Video = K_Video {
+			Url = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/EventMessage/Ace/Ace.webm",
+			Resolution = <1400, 80>
+		},
+		Sound = K_Sound {
+			Url = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/EventMessage/Ace/Ace.wav"
+		}
+	},
+	{{{UIModules_EventMessage_Common::C_Type_Victory}}} => K_Message {
+		Video = K_Video {
+			Url = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/EventMessage/Victory/Victory.webm",
+			Resolution = <1200, 58>
+		},
+		Sound = K_Sound {
+			Url = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/EventMessage/Victory/Victory.wav"
+		}
+	},
+	{{{UIModules_EventMessage_Common::C_Type_Draw}}} => K_Message {
+		Sound = K_Sound {
+			Url = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/EventMessage/Draw/Draw.wav"
+		},
+		Message = K_Text {
+			MultiLines = {{{dump(C_Text_Draw)}}},
+			Duration = 5000
+		}
+	},
+	{{{UIModules_EventMessage_Common::C_Type_Overtime}}} => K_Message {
+		Sound = K_Sound {
+			Url = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/EventMessage/Overtime/Overtime.wav"
+		},
+		Message = K_Text {
+			MultiLines = {{{dump(Shared::C_Text_Overtime)}}},
+			Duration = 5000,
+			Delay = 200
+		}
+	},
+	{{{UIModules_EventMessage_Common::C_Type_TrackPoint}}} => K_Message {
+		Message = K_Text {
+			MultiLines = {{{dump(Shared::C_Text_TrackPoint)}}},
+			Duration = 5000
+		}
+	},
+	{{{UIModules_EventMessage_Common::C_Type_MatchPoint}}} => K_Message {
+		Message = K_Text {
+			MultiLines = {{{dump(Shared::C_Text_MatchPoint)}}},
+			Duration = 5000
+		}
+	},
+	{{{UIModules_EventMessage_Common::C_Type_TrackWin}}} => K_Message {
+		Video = K_Video {
+			Url = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/EventMessage/TrackWin/TrackWin.webm",
+			Resolution = <460, 144>
+		}
+	},
+	{{{UIModules_EventMessage_Common::C_Type_MatchWin}}} => K_Message {
+		Video = K_Video {
+			Url = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/EventMessage/MatchWin/MatchWin.webm",
+			Resolution = <460, 144>,
+			Delay = 1900
+		},
+		Sound = K_Sound {
+			Url = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/EventMessage/MatchWin/MatchWin.wav"
+		}
+	}
+]
+""",
+"""
+Void Private_SynchroVideoAnim(K_State _State, Integer _AnimStartTime) {
+	AnimMgr.Flush(_State.Controls.Frame_VideoMessage);
+	AnimMgr.Flush(_State.Controls.Label_VideoMessage);
+	_State.Controls.Frame_VideoMessage.Size.Y = 0.;
+	_State.Controls.Frame_VideoMessage.Visible = True;
+	_State.Controls.Label_VideoMessage.RelativePosition_V3.Y = C_Anim_LabelVideoMessagePosY;
+	_State.Controls.Label_VideoMessage.Visible = True;
+	AnimMgr.Add(_State.Controls.Frame_VideoMessage, "<frame size=\""^_State.Controls.Frame_VideoMessage.Size.X^" "^C_Anim_FrameVideoMessageSizeY^"\" />", _AnimStartTime + 1510, 250, CAnimManager::EAnimManagerEasing::Linear);
+	AnimMgr.Add(_State.Controls.Label_VideoMessage, "<label pos=\""^_State.Controls.Label_VideoMessage.RelativePosition_V3.X^" 4\" hidden=\"1\" />", _AnimStartTime + 3550, 320, CAnimManager::EAnimManagerEasing::QuadOut);
+}
+K_State Private_PlayVideo(K_State _State, K_Video _VideoStruct, Integer _MessageType, Integer _Clan) {
+	declare K_State State = _State;
+
+	State.VideoStartTime = -1;
+	State.VideoEndTime = GameTime;
+	State.VideoNeedSynchro = False;
+
+	if (
+		_VideoStruct.Id != NullId &&
+		Video.Videos.existskey(_VideoStruct.Id)
+	) {
+		declare CVideo VideoObj = Video.Videos[_VideoStruct.Id];
+
+		if (_VideoStruct.Delay > 0) {
+			State.VideoStartTime = Now + _VideoStruct.Delay;
+		} else {
+			State.VideoStartTime = -1;
+			VideoObj.Play();
+		}
+
+		State.VideoEndTime = GameTime + _VideoStruct.Delay + _VideoStruct.Duration;
+		State.PlayingVideoId = VideoObj.Id;
+
+		State.Controls.Quad_Video.Image = VideoObj.Image;
+		State.Controls.Quad_Video.Size = _VideoStruct.Size;
+		if (_Clan == 1) {
+			State.Controls.Quad_Video.Colorize = TMWTStylesheet::C_ColorRGB_TMWT_BlueTeam;
+		} else if (_Clan == 2) {
+			State.Controls.Quad_Video.Colorize = TMWTStylesheet::C_ColorRGB_TMWT_RedTeam;
+		} else {
+			State.Controls.Quad_Video.Colorize = <-1., -1., -1.>;
+		}
+		State.Controls.Quad_Video.Visible = True;
+
+		if (_MessageType == C_Type_TrackWin || _MessageType == C_Type_MatchWin) {
+			State.VideoNeedSynchro = True;
+			Private_SynchroVideoAnim(State, ML::Max(Now, State.VideoStartTime));
+			State.Controls.Label_VideoMessage.Value = Teams::GetClanName(This, Teams::GetTeamsInfo(This), _Clan);
+			Tools::FitLabelValue(State.Controls.Label_VideoMessage, C_TextSize_VideoMessage, 1., 0.5);
+		} else {
+			State.Controls.Frame_VideoMessage.Visible = False;
+		}
+	}
+
+	return State;
+}
+
+// If a manialink is hidden (by pressing `*` to hide the whole interface for example)
+// then sounds played by its script will be disabled. We have to go through the ManiaApp
+// to be sure that the sounds will be played in this case.
+Void Private_PlaySound(CAudioSource _Sound) {
+	if (PageIsVisible) {
+		_Sound.Play();
+	} else {
+		SendCustomEvent(C_Event_PlaySound, [""^_Sound.Id]);
+	}
+}
+Void Private_StopSound(CAudioSource _Sound) {
+	if (PageIsVisible) {
+		_Sound.Stop();
+	} else {
+		SendCustomEvent(C_Event_StopSound, [""^_Sound.Id]);
+	}
+}
+
+K_State Private_PlaySound(K_State _State, K_Sound _SoundStruct) {
+	declare K_State State = _State;
+
+	State.SoundStartTime = -1;
+	State.SoundEndTime = GameTime;
+
+	if (
+		_SoundStruct.Id != NullId &&
+		ParentApp.Audio.Sounds.existskey(_SoundStruct.Id)
+	) {
+		declare CAudioSource SoundObj = ParentApp.Audio.Sounds[_SoundStruct.Id];
+
+		if (_SoundStruct.Delay > 0) {
+			State.SoundStartTime = Now + _SoundStruct.Delay;
+		} else {
+			State.SoundStartTime = -1;
+			Private_PlaySound(SoundObj);
+		}
+
+		State.SoundEndTime = GameTime + _SoundStruct.Delay + _SoundStruct.Duration;
+		State.PlayingSoundId = SoundObj.Id;
+	}
+
+	return State;
+}
+
+K_State Private_PlayText(K_State _State, K_Text _TextStruct) {
+	declare K_State State = _State;
+
+	State.TextEndTime = GameTime + _TextStruct.Delay + _TextStruct.Duration;
+
+	AnimMgr.Flush(State.Controls.Label_TopLine);
+	AnimMgr.Flush(State.Controls.Label_BottomLine);
+	AnimMgr.Flush(State.Controls.Label_MultiLines);
+	if (_TextStruct.MultiLines != "") {
+		State.Controls.Label_MultiLines.Value = _TextStruct.MultiLines;
+		State.Controls.Label_MultiLines.RelativeScale = 1.4;
+		State.Controls.Label_MultiLines.Opacity = 0.;
+		State.Controls.Label_TopLine.Visible = False;
+		State.Controls.Label_BottomLine.Visible = False;
+		State.Controls.Label_MultiLines.Visible = True;
+		declare Integer AnimStartTime = Now +  _TextStruct.Delay;
+		AnimMgr.Add(State.Controls.Label_MultiLines, "<label scale=\"1\" opacity=\"1\" />", AnimStartTime, C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Label_MultiLines, "<label scale=\"0.6\" opacity=\"0\" hidden=\"1\" />", AnimStartTime + (State.TextEndTime - GameTime), C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else if (_TextStruct.TopLine != "" || _TextStruct.BottomLine != "") {
+		State.Controls.Label_TopLine.Value = _TextStruct.TopLine;
+		State.Controls.Label_BottomLine.Value = _TextStruct.BottomLine;
+		State.Controls.Label_TopLine.RelativeScale = 1.4;
+		State.Controls.Label_BottomLine.RelativeScale = 1.4;
+		State.Controls.Label_TopLine.Opacity = 0.;
+		State.Controls.Label_BottomLine.Opacity = 0.;
+		State.Controls.Label_TopLine.Visible = True;
+		State.Controls.Label_BottomLine.Visible = True;
+		State.Controls.Label_MultiLines.Visible = False;
+		declare Integer AnimStartTime = Now + _TextStruct.Delay;
+		AnimMgr.Add(State.Controls.Label_TopLine, "<label scale=\"1\" opacity=\"1\" />", AnimStartTime, C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Label_BottomLine, "<label scale=\"1\" opacity=\"1\" />", AnimStartTime, C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Label_TopLine, "<label scale=\"0.6\" opacity=\"0\" hidden=\"1\" />", AnimStartTime + (State.TextEndTime - GameTime), C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Label_BottomLine, "<label scale=\"0.6\" opacity=\"0\" hidden=\"1\" />", AnimStartTime + (State.TextEndTime - GameTime), C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		AnimMgr.Add(State.Controls.Label_TopLine, "<label scale=\"0.6\" opacity=\"0\" hidden=\"1\" />", C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Label_BottomLine, "<label scale=\"0.6\" opacity=\"0\" hidden=\"1\" />", C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(State.Controls.Label_MultiLines, "<label scale=\"0.6\" opacity=\"0\" hidden=\"1\" />", C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	return State;
+}
+
+K_State HideMessage(K_State _State) {
+	declare K_State State = _State;
+
+	if (State.PlayingVideoId != NullId && Video.Videos.existskey(State.PlayingVideoId)) {
+		Video.Videos[State.PlayingVideoId].Stop();
+	}
+	if (State.PlayingSoundId != NullId && ParentApp.Audio.Sounds.existskey(State.PlayingSoundId)) {
+		Private_StopSound(ParentApp.Audio.Sounds[State.PlayingSoundId]);
+	}
+
+	State.MessageEndTime = -1;
+	State.TextEndTime = -1;
+	State.VideoEndTime = -1;
+	State.SoundEndTime = -1;
+	State.VideoStartTime = -1;
+	State.SoundStartTime = -1;
+	State.PlayingVideoId = NullId;
+	State.PlayingSoundId = NullId;
+
+	AnimMgr.Flush(State.Controls.Label_TopLine);
+	AnimMgr.Flush(State.Controls.Label_BottomLine);
+	AnimMgr.Flush(State.Controls.Label_MultiLines);
+	AnimMgr.Add(State.Controls.Label_TopLine, "<label scale=\"0.6\" opacity=\"0\" hidden=\"1\" />", C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(State.Controls.Label_BottomLine, "<label scale=\"0.6\" opacity=\"0\" hidden=\"1\" />", C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+	AnimMgr.Add(State.Controls.Label_MultiLines, "<label scale=\"0.6\" opacity=\"0\" hidden=\"1\" />", C_TextMessageAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+
+	AnimMgr.Flush(State.Controls.Frame_VideoMessage);
+	AnimMgr.Flush(State.Controls.Label_VideoMessage);
+	State.Controls.Quad_Video.Visible = False;
+	State.Controls.Frame_VideoMessage.Visible = False;
+
+	return State;
+}
+
+K_State ShowMessage(K_State _State, Integer _MessageType, Integer _Clan, Integer _ForcedEndTime) {
+	declare K_State State = HideMessage(_State);
+
+	declare K_Message MessageStruct = C_Message_Null;
+	if (State.ClansMessages.existskey(_Clan) && State.ClansMessages[_Clan].existskey(_MessageType)) {
+		MessageStruct = State.ClansMessages[_Clan][_MessageType];
+	} else if (State.DefaultMessages.existskey(_MessageType)) {
+		MessageStruct = State.DefaultMessages[_MessageType];
+	}
+
+	State = Private_PlayVideo(State, MessageStruct.Video, _MessageType, _Clan);
+	State = Private_PlaySound(State, MessageStruct.Sound);
+	State = Private_PlayText(State, MessageStruct.Message);
+
+	declare Integer[] EndTimes = [State.VideoEndTime, State.SoundEndTime, State.TextEndTime];
+	State.MessageEndTime = EndTimes.sortreverse()[0];
+
+	if (_ForcedEndTime > 0) {
+		State.MessageEndTime = ML::Min(State.MessageEndTime, _ForcedEndTime);
+	}
+
+	return State;
+}
+
+K_State TriggerEvent(K_State _State, Integer _EventUpdate, Int3 _EventData) {
+	declare K_State State = _State;
+
+	State.EventUpdate = _EventUpdate;
+
+	declare Integer Type = _EventData.X;
+	declare Integer Clan = _EventData.Y;
+	declare Integer ForcedEndTime = _EventData.Z;
+
+	if (Type == C_Type_Reset) {
+		State = HideMessage(State);
+	} else {
+		State = ShowMessage(State, Type, Clan, ForcedEndTime);
+	}
+
+	return State;
+}
+
+Vec2 ConvertVideoResolutionToSize(Int2 _VideoResolution) {
+	return <
+		(_VideoResolution.X / 1920.) * 320.,
+		(_VideoResolution.Y / 1080.) * 180.
+	>;
+}
+
+K_Video LoadVideo(K_Video _VideoStruct) {
+	declare K_Video VideoStruct = _VideoStruct;
+
+	if (VideoStruct.Url != "" && Http.IsValidUrl(VideoStruct.Url)) {
+		declare CVideo VideoObj <=> Video.CreateVideo(VideoStruct.Url, False, True);
+		if (VideoObj != Null) {
+			VideoObj.Stop();
+			VideoStruct.Size = ConvertVideoResolutionToSize(VideoStruct.Resolution);
+			VideoStruct.Duration = ML::FloorInteger(VideoObj.PlayLength * 1000);
+			VideoStruct.Id = VideoObj.Id;
+		}
+	}
+
+	return VideoStruct;
+}
+Void UnloadVideo(K_Video _VideoStruct) {
+	if (_VideoStruct.Id != NullId && Video.Videos.existskey(_VideoStruct.Id)) {
+		Video.DestroyVideo(Video.Videos[_VideoStruct.Id]);
+	}
+}
+
+K_Sound LoadSound(K_Sound _SoundStruct) {
+	declare K_Sound SoundStruct = _SoundStruct;
+
+	if (SoundStruct.Url != "" && Http.IsValidUrl(SoundStruct.Url)) {
+		declare CAudioSource SoundObj <=> ParentApp.Audio.CreateSound(SoundStruct.Url, 0., False, False, False);
+		if (SoundObj != Null) {
+			Private_StopSound(SoundObj);
+			SoundStruct.Duration = ML::FloorInteger(SoundObj.PlayLength * 1000);
+			SoundStruct.Id = SoundObj.Id;
+		}
+	}
+
+	return SoundStruct;
+}
+Void UnloadSound(K_Sound _SoundStruct) {
+	if (_SoundStruct.Id != NullId && ParentApp.Audio.Sounds.existskey(_SoundStruct.Id)) {
+		ParentApp.Audio.DestroySound(ParentApp.Audio.Sounds[_SoundStruct.Id]);
+	}
+}
+
+K_Message LoadMessage(K_Message _MessageStruct) {
+	return K_Message {
+		Video = LoadVideo(_MessageStruct.Video),
+		Sound = LoadSound(_MessageStruct.Sound),
+		Message = _MessageStruct.Message
+	};
+}
+
+K_State LoadDefaultMessage(K_State _State, Integer _MessageType, K_Message _MessageStruct) {
+	assert(!_State.DefaultMessages.existskey(_MessageType), "Default message already loaded for this type");
+	declare K_State State = _State;
+	State.DefaultMessages[_MessageType] = LoadMessage(_MessageStruct);
+	return State;
+}
+
+K_State LoadClanMessage(K_State _State, Integer _MessageType, Integer _Clan, K_Message _MessageStruct) {
+	assert(
+		!_State.ClansMessages.existskey(_Clan) || !_State.ClansMessages[_Clan].existskey(_MessageType),
+		"Clan message already loaded for this type"
+	);
+	declare K_State State = _State;
+
+	if (State.ClansMessages.existskey(_Clan)) {
+		State.ClansMessages[_Clan][_MessageType] = LoadMessage(_MessageStruct);
+	} else {
+		State.ClansMessages[_Clan] = [_MessageType => LoadMessage(_MessageStruct)];
+	}
+
+	return State;
+}
+
+K_State UnloadClanMessage(K_State _State, Integer _MessageType, Integer _Clan) {
+	declare K_State State = _State;
+
+	if (State.ClansMessages.existskey(_Clan) && State.ClansMessages[_Clan].existskey(_MessageType)) {
+		declare K_Message ClanMessage = State.ClansMessages[_Clan][_MessageType];
+		UnloadVideo(ClanMessage.Video);
+		UnloadSound(ClanMessage.Sound);
+		State.ClansMessages[_Clan].removekey(_MessageType);
+	}
+
+	return State;
+}
+
+Boolean MessagesAreDifferent(Teams::K_Message _NewMessage, K_Message _CurrentMessage) {
+	return (
+		(_NewMessage.Customize.exists(Teams::C_Property_VideoUrl) && _CurrentMessage.Video.Url != _NewMessage.VideoUrl) ||
+		(_NewMessage.Customize.exists(Teams::C_Property_VideoResolution) && _CurrentMessage.Video.Resolution != _NewMessage.VideoResolution) ||
+		(_NewMessage.Customize.exists(Teams::C_Property_VideoDelay) && _CurrentMessage.Video.Delay != _NewMessage.VideoDelay) ||
+		(_NewMessage.Customize.exists(Teams::C_Property_SoundUrl) && _CurrentMessage.Sound.Url != _NewMessage.SoundUrl) ||
+		(_NewMessage.Customize.exists(Teams::C_Property_SoundDelay) && _CurrentMessage.Sound.Delay != _NewMessage.SoundDelay) ||
+		(_NewMessage.Customize.exists(Teams::C_Property_Message) && _CurrentMessage.Message.MultiLines != _NewMessage.Message) ||
+		(_NewMessage.Customize.exists(Teams::C_Property_MessageDuration) && _CurrentMessage.Message.Duration != _NewMessage.MessageDuration) ||
+		(_NewMessage.Customize.exists(Teams::C_Property_MessageDelay) && _CurrentMessage.Message.Delay != _NewMessage.MessageDelay)
+	);
+}
+
+K_Message MergeClanMessageWithDefaultMessage(Teams::K_Message _ClanMessage, K_Message _DefaultMessage) {
+	declare K_Message Message = _DefaultMessage;
+
+	if (_ClanMessage.Customize.exists(Teams::C_Property_VideoUrl)) {
+		Message.Video.Url = _ClanMessage.VideoUrl;
+	}
+	if (_ClanMessage.Customize.exists(Teams::C_Property_VideoResolution)) {
+		Message.Video.Resolution = _ClanMessage.VideoResolution;
+	}
+	if (_ClanMessage.Customize.exists(Teams::C_Property_VideoDelay)) {
+		Message.Video.Delay = _ClanMessage.VideoDelay;
+	}
+	if (_ClanMessage.Customize.exists(Teams::C_Property_SoundUrl)) {
+		Message.Sound.Url = _ClanMessage.SoundUrl;
+	}
+	if (_ClanMessage.Customize.exists(Teams::C_Property_SoundDelay)) {
+		Message.Sound.Delay = _ClanMessage.SoundDelay;
+	}
+	if (_ClanMessage.Customize.exists(Teams::C_Property_Message)) {
+		Message.Message.MultiLines = _ClanMessage.Message;
+	}
+	if (_ClanMessage.Customize.exists(Teams::C_Property_MessageDuration)) {
+		Message.Message.Duration = _ClanMessage.MessageDuration;
+	}
+	if (_ClanMessage.Customize.exists(Teams::C_Property_MessageDelay)) {
+		Message.Message.Delay = _ClanMessage.MessageDelay;
+	}
+
+	return Message;
+}
+
+K_State UpdateTeams(K_State _State, Integer _TeamsUpdate, Teams::K_Team[Integer] _TeamsInfo) {
+	declare K_State State = _State;
+
+	State.TeamsUpdate = _TeamsUpdate;
+
+	for (Clan, 1, 2) {
+		declare Teams::K_Team Team = _TeamsInfo.get(Clan, Teams::C_Team_Null);
+		if (Team.Id == Teams::C_Team_NullId) {
+			// The clan has no team info
+			// Unload previously loaded data if any
+			if (State.ClansMessages.existskey(Clan)) {
+				declare K_Message[Integer] ClanMessages = State.ClansMessages[Clan];
+				foreach (MessageType => Message in ClanMessages) {
+					State = UnloadClanMessage(State, MessageType, Clan);
+				}
+			}
+		} else {
+			foreach (MessageType in C_Types) {
+				declare Teams::K_Message MessageStruct;
+				switch (MessageType) {
+					case C_Type_Ace: MessageStruct = Team.Messages.Ace;
+					case C_Type_Victory: MessageStruct = Team.Messages.Victory;
+					case C_Type_Draw: MessageStruct = Team.Messages.Draw;
+					case C_Type_Overtime: MessageStruct = Team.Messages.Overtime;
+					case C_Type_TrackPoint: MessageStruct = Team.Messages.TrackPoint;
+					case C_Type_MatchPoint: MessageStruct = Team.Messages.MatchPoint;
+					case C_Type_TrackWin: MessageStruct = Team.Messages.TrackWin;
+					case C_Type_MatchWin: MessageStruct = Team.Messages.MatchWin;
+				}
+				if (MessageStruct.Customize.count > 0 && MessagesAreDifferent(MessageStruct, State.ClansMessages.get(Clan, []).get(MessageType, C_Message_Null))) {
+					State = UnloadClanMessage(State, MessageType, Clan);
+					State = LoadClanMessage(
+						State,
+						MessageType,
+						Clan,
+						MergeClanMessageWithDefaultMessage(MessageStruct, State.DefaultMessages.get(MessageType, C_Message_Null))
+					);
+				} else if (MessageStruct.Customize.count <= 0) {
+					State = UnloadClanMessage(State, MessageType, Clan);
+				}
+			}
+		}
+	}
+
+	return State;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+
+declare netread Boolean Net_TMWTCommon_EventMessage_IsVisible for UI;
+declare netread Integer Net_TMWTCommon_EventMessage_EventUpdate for Teams[0] = 0;
+declare netread Int3 Net_TMWTCommon_EventMessage_EventData for Teams[0] = <0, 0, 0>;
+
+declare K_State State = C_State_Null;
+declare Integer TMWTCommon_EventMessage_LastEventUpdate for UI = Net_TMWTCommon_EventMessage_EventUpdate;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild(C_Id_FrameGlobal) as CMlFrame);
+State.Controls.Quad_Video <=> (Frame_Global.GetFirstChild(C_Id_QuadVideo) as CMlQuad);
+State.Controls.Frame_VideoMessage <=> (Frame_Global.GetFirstChild(C_Id_FrameVideoMessage) as CMlFrame);
+State.Controls.Label_VideoMessage <=> (Frame_Global.GetFirstChild(C_Id_LabelVideoMessage) as CMlLabel);
+State.Controls.Label_TopLine <=> (Frame_Global.GetFirstChild(C_Id_LabelTopLine) as CMlLabel);
+State.Controls.Label_BottomLine <=> (Frame_Global.GetFirstChild(C_Id_LabelBottomLine) as CMlLabel);
+State.Controls.Label_MultiLines <=> (Frame_Global.GetFirstChild(C_Id_LabelMultiLines) as CMlLabel);
+
+// Do not trigger the last message when joining the server or restarting the scripts
+State.EventUpdate = TMWTCommon_EventMessage_LastEventUpdate;
+
+foreach (MessageType => Message in C_Messages) {
+	State = LoadDefaultMessage(State, MessageType, Message);
+}
+State = UpdateTeams(State, Teams::GetTeamsUpdate(This), Teams::GetTeamsInfo(This));
+
+State.DisplayModule = Frame_Global.Visible;
+***
+
+***MainLoop***
+***
+// The loop must not be in an `if (PageIsVisible)` condition
+// We want to play messages even if they are not visible
+// because they also play sound. Playing the last triggered
+// message once the UI become visible again would also not make sense.
+if (State.DisplayModule != Net_TMWTCommon_EventMessage_IsVisible) {
+	State.DisplayModule = Net_TMWTCommon_EventMessage_IsVisible;
+	Frame_Global.Visible = State.DisplayModule;
+}
+
+if (State.DisplayModule) {
+	// Teams info should be updated first so that messages that depends on these info are played with the correct data
+	if (State.TeamsUpdate != Teams::GetTeamsUpdate(This)) {
+		State = UpdateTeams(State, Teams::GetTeamsUpdate(This), Teams::GetTeamsInfo(This));
+	}
+	if (State.EventUpdate != Net_TMWTCommon_EventMessage_EventUpdate) {
+		State = TriggerEvent(State, Net_TMWTCommon_EventMessage_EventUpdate, Net_TMWTCommon_EventMessage_EventData);
+		TMWTCommon_EventMessage_LastEventUpdate = State.EventUpdate;
+	}
+	if (State.MessageEndTime > 0 && GameTime >= State.MessageEndTime) {
+		State = HideMessage(State);
+	}
+	if (State.VideoStartTime > 0 && Now >= State.VideoStartTime) {
+		if (State.PlayingVideoId != NullId && Video.Videos.existskey(State.PlayingVideoId)) {
+			// Stopping the video before playing it help synchronizing the text animation with the video
+			Video.Videos[State.PlayingVideoId].Stop();
+			Video.Videos[State.PlayingVideoId].Play();
+			if (State.VideoNeedSynchro) {
+				Private_SynchroVideoAnim(State, Now);
+			}
+		}
+		State.VideoStartTime = -1;
+	}
+	if (State.SoundStartTime > 0 && Now >= State.SoundStartTime) {
+		if (State.PlayingSoundId != NullId && ParentApp.Audio.Sounds.existskey(State.PlayingSoundId)) {
+			Private_PlaySound(ParentApp.Audio.Sounds[State.PlayingSoundId]);
+		}
+		State.SoundStartTime = -1;
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}
+
+// Events can only send Text data
+// We must convert the sound id from Text to Ident to retrieve the sound
+CAudioSource GetSound(Text _SoundId) {
+	declare Ident SoundId = G_SoundIdsCache.get(_SoundId, NullId);
+	if (SoundId == NullId || !Audio.Sounds.existskey(SoundId)) {
+		G_SoundIdsCache.removekey(_SoundId);
+		foreach (Sound in Audio.Sounds) {
+			if (""^Sound.Id == _SoundId) {
+				G_SoundIdsCache[_SoundId] = Sound.Id;
+				SoundId = Sound.Id;
+				break;
+			}
+		}
+	}
+	if (SoundId != NullId && Audio.Sounds.existskey(SoundId)) {
+		return Audio.Sounds[SoundId];
+	}
+	return Null;
+}
+
+Void Yield() {
+	foreach (Event in PendingEvents) {
+		if (Event.PlaygroundType == CManiaAppPlaygroundEvent::Type::LayerCustomEvent) {
+			// If a manialink is hidden (by pressing `*` to hide the whole interface for example)
+			// then sounds played by its script will be disabled. We have to go through the ManiaApp
+			// to be sure that the sounds will be played no matter what.
+			if (Event.CustomEventType == C_Event_PlaySound && Event.CustomEventData.count > 0) {
+				declare CAudioSource Sound = GetSound(Event.CustomEventData[0]);
+				if (Sound != Null) {
+					Sound.Play();
+				}
+			} else if (Event.CustomEventType == C_Event_StopSound && Event.CustomEventData.count > 0) {
+				declare CAudioSource Sound = GetSound(Event.CustomEventData[0]);
+				if (Sound != Null) {
+					Sound.Stop();
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,127 @@
+/**
+ * Base for plugins
+ */
+#RequireContext CManiaplanetPlugin
+#Const C_CMPlugins_Version "1.6.0"
+#Const C_CMPlugins_ScriptName "Plugins/Nadeo/CMPlugins/Common/PluginBase.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Menus/Audio@2.Script.txt" as CMPlugins_Audio
+#Include "Libs/Nadeo/CMGame/Menus/NavigationInputs.Script.txt" as CMPlugins_NavigationInputs
+#Include "Libs/Nadeo/CMGame/Utils/Synchro.Script.txt" as CMPlugins_Synchro
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_CMPlugins_State {
+	Integer CurrentNow;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_CMPlugins_WaitForMenuInitialization False
+
+#Const C_CMPlugins_State_Null K_CMPlugins_State {
+	CurrentNow = 0
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_CMPlugins_State CMPlugins_G_State;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***CMPlugins_Synchronization***
+***
+declare Boolean CMPlugins_WaitForMenuInitialization = C_CMPlugins_WaitForMenuInitialization;
++++CMPlugins_Synchronization_SetWaitForMenuInitialization+++
+if (CMPlugins_WaitForMenuInitialization) {
+	while (!CMPlugins_Synchro::IsTitleMenuInitialized(System)) CMPlugins_Yield();
+}
+***
+
+***CMPlugins_AudioInit***
+***
+CMPlugins_Audio::Initialize(This);
+CMPlugins_Audio::LoadLibraryFiles(
+	This, [
+		CMPlugins_Audio::C_DefaultLibrary_Common => CMPlugins_Audio::C_AudioPath_Common,
+		CMPlugins_Audio::C_DefaultLibrary_Menu => CMPlugins_Audio::C_AudioPath_Menu
+	]
+);
+while (CMPlugins_Audio::IsLoadingLibrary(This)) CMPlugins_Yield();
+***
+
+***CMPlugins_AfterYield***
+***
+CMPlugins_Audio::AfterYield(This);
+***
+
+***CMPlugins_PluginStart***
+***
+CMPlugins_NavigationInputs::Initialize(This);
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** `yield` the plugin script
+ * It should be the only place that directly calls the `yield` instruction
+ * Everywhere else this `CMPlugins_Yield()` function must be called instead
+ */
+Void CMPlugins_Yield() {
+	+++CMPlugins_BeforeYield+++
+	if (CMPlugins_G_State.CurrentNow > 0 && Now > CMPlugins_G_State.CurrentNow) {
+		log("WARNING: [PluginBase] A frame was skipped with `yield`, `sleep()` or `wait()` ("^CMPlugins_G_State.CurrentNow^" > "^Now^"). This is considered bad practice. Always use `CMPlugins_Yield()` to advance to the next frame.");
+	}
+	yield;
+	CMPlugins_G_State.CurrentNow = Now;
+	+++CMPlugins_AfterYield+++
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Sleep for a given duration
+Void CMPlugins_Sleep(Integer _Duration) {
+	declare Integer SleepEndTime = Now + _Duration;
+	while (Now < SleepEndTime) CMPlugins_Yield();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Main
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+main() {
+	CMPlugins_G_State = C_CMPlugins_State_Null;
+	CMPlugins_G_State.CurrentNow = Now;
+
+	LayersDefaultManialinkVersion = 3;
+
+	// First wait for the main user
+	while (UserMgr == Null || UserMgr.MainUser == Null) CMPlugins_Yield();
+	// Then wait for the persistent variables to be ready to read and write
+	while (!UserMgr.MainUser.PersistentIsReady) CMPlugins_Yield();
+	+++CMPlugins_Synchronization+++
+
+	---CMPlugins_AudioInit---
+
+	+++CMPlugins_LibrariesLoad+++
+
+	+++CMPlugins_PluginStart+++
+
+	while(True) {
+		CMPlugins_Yield();
+		+++CMPlugins_PluginLoop+++
+	}
+
+	+++CMPlugins_PluginEnd+++
+
+	+++CMPlugins_LibrariesUnload+++
+
+	// yield one last time to allow any remaining log to be sent
+	CMPlugins_Yield();
+}

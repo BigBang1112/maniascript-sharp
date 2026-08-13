@@ -1,0 +1,292 @@
+/**
+ *	Champion OGL mode
+ */
+#Extends "Modes/TrackMania/Deprecated/TM_Champion_Online.Script.txt"
+
+#Const C_ChampionOGL_Version		"1.0.0+2020-10-23"
+#Const C_ChampionOGL_ScriptName	"Modes/TrackMania/Deprecated/TM_ChampionOGL_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionOGL/Constants.Script.txt" as OGLConsts
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionOGL/StateManager.Script.txt" as ChampionOGL_StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionOGL/UIModules/EndMatchPopUp_Server.Script.txt" as UIModules_EndMatchPopUp
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionOGL/UIModules/WelcomePopUp_Server.Script.txt" as UIModules_WelcomePopUp
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_StepNb 1 as "<hidden>"
+#Setting S_StepMax 6 as "<hidden>"
+#Setting S_Division "Challenger" as "<hidden>" // Challenger/Gold/Silver/Bronze
+#Setting S_MatchRankToPoints "10000,9000,8000,7000,6000,5000,4500,4000,3500,3000,2500,2000,1500,1000,500,100" as "<hidden>"
+#Setting S_ChatTime 300 // Override of Champion setting
+#Setting S_CompetitionName "OGL Fall2020"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ChampionOGL_ModeName "Champion OGL"
+#Const C_ChampionOGL_Description _("Champion mode")
+#Const C_ChampionOGL_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/ChampionOGL.Script.txt" //< Url of the mania app
+
+#Const C_TrophyTaskTimeout 5000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(C_ChampionOGL_ScriptName, C_ChampionOGL_Version);
+Log::RegisterScript(ChampionOGL_StateMgr::ScriptName, ChampionOGL_StateMgr::Version);
+***
+
+***Match_LoadLibraries***
+***
+ChampionOGL_StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+ChampionOGL_StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+Champion_Settings_UseDefaultWinnerBigMessage = False; // This setting is overridden anyway since Match_PodiumSequence is overridden
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ChampionOGL_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(C_ChampionOGL_Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ChampionOGL_ManiaAppUrl;
+UIModules_ScoresTable_Champion::SetLeagueRankingVisibility(False);
+declare Boolean ChampionOGL_MatchIsOngoing for This = False;
+UIModules_MapInfo::SetSpecialVisibility(ChampionOGL_MatchIsOngoing); // In OGL mode, MapInfo is hidden during prematch warmup because Club plugin info are displayed
+UpdateWelcomePopUp(S_Division, S_MatchRankToPoints);
+***
+
+***Match_InitMatch***
+***
+declare Ident Match_TrophyTaskId;
+declare Integer Match_TrophyTaskEndTime;
+declare Text Match_CompetitionStage;
+declare Integer[Integer][Integer][Text] Match_PlayerTrophies; // [AccountId => [RoundNb => [TrophyNb => TrophyCount]]]
+***
+
+***Match_StartMatch***
+***
+Match_CompetitionStage = ""^S_StepNb;
+Match_PlayerTrophies = [];
+UIModules_EndMatchPopUp::ResetPlayersList();
+***
+
+***Match_InitMap***
+***
+UpdateWelcomePopUp(S_Division, S_MatchRankToPoints);
+***
+
+***Match_InitMap***
+***
+foreach (Score in Scores) {
+	if (Score != Null) {
+		declare Boolean ChampionOGL_PlayedRace for Score = False;
+		ChampionOGL_PlayedRace = False;
+	}
+}
+***
+
+***Match_PlayLoop***
+***
+foreach (Event in RacePendingEvents) {
+	if (Event.Type == Events::C_Type_Waypoint || Event.IsEndLap || Event.IsEndRace) {
+		if (Event.Player != Null) {
+			declare Boolean ChampionOGL_PlayedRace for Event.Player.Score = False;
+			ChampionOGL_PlayedRace = True;
+			UIModules_EndMatchPopUp::RegisterPlayer(Event.Player.User.WebServicesUserId);
+		}
+	}
+}
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	if (Event.Type == CSmModeEvent::EType::OnPlayerAdded) {
+		ChampionOGL_StateMgr::InitializePlayer(Event.Player);
+	}
+}
+
+// Apply Champion_StateMgr states to ChampionOGL_StateMgr
+if (
+	StateMgr::GetForcedStates().count != ChampionOGL_StateMgr::GetForcedStates().count ||
+	!StateMgr::GetForcedStates().containsonly(ChampionOGL_StateMgr::GetForcedStates()) ||
+	!ChampionOGL_StateMgr::GetForcedStates().containsonly(StateMgr::GetForcedStates())
+) {
+	ChampionOGL_StateMgr::ForcePlayersStates(StateMgr::GetForcedStates());
+}
+ChampionOGL_StateMgr::Yield();
+
+// Manage XmlRpc events
+foreach (Event in XmlRpc.PendingEvents) {
+	if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+		if (Event.ParamArray1 == "Club.Match.Start") {
+			declare Boolean ChampionOGL_MatchIsOngoing for This = False;
+			ChampionOGL_MatchIsOngoing = True;
+			UIModules_MapInfo::SetSpecialVisibility(ChampionOGL_MatchIsOngoing);
+		} else if (Event.ParamArray1 == "Club.Match.Completed") {
+			declare Boolean ChampionOGL_MatchIsOngoing for This = False;
+			ChampionOGL_MatchIsOngoing = False;
+			UIModules_MapInfo::SetSpecialVisibility(ChampionOGL_MatchIsOngoing);
+		}
+	}
+}
+***
+
+***Match_EndRound_AfterComputeScores***
+***
+// Send match results to trophies API
+Trophy_CompetitionMatch_ClearResultList();
+Race::SortScores(Race::C_Sort_BestRaceCheckpointsProgress);
+declare ChampionOGLRound_ScoreRank = 1;
+foreach (Score in Scores) {
+	if (Score == Null) continue;
+	declare Boolean ChampionOGL_PlayedRace for Score;
+	if (ChampionOGL_PlayedRace) {
+		Trophy_CompetitionMatch_AddResult(Score.User.WebServicesUserId, ChampionOGLRound_ScoreRank, 0); // 3rd argument is player's world trophy ranking rank (not used for now). See trophyranking lib if needed.
+		ChampionOGLRound_ScoreRank += 1;
+	}
+}
+{ // context used to limit variables scope
+	declare Text CompetitionMatchInfo = ""^Match_RoundsNb;
+	if (Map != Null) CompetitionMatchInfo = Map.MapInfo.MapUid;
+	declare TrophyTask = Trophy_CompetitionMatch_SendResultList(S_CompetitionName, Match_CompetitionStage, S_Division, CompetitionMatchInfo);
+	if (TrophyTask != Null) Match_TrophyTaskId = TrophyTask.Id;
+	else Match_TrophyTaskId = NullId;
+}
+Match_TrophyTaskEndTime = Now + C_TrophyTaskTimeout;
+
+***
+
+***Match_EndRound*** // Executed after regular Champion EndRound
+***
+// Wait until the trophy task is complete, note that there is at least S_EndRoundPostScoreUpdateDuration seconds between Match_EndRound_AfterComputeScores and Match_EndRound
+while (TaskResults.existskey(Match_TrophyTaskId) && TaskResults[Match_TrophyTaskId] != Null && TaskResults[Match_TrophyTaskId].IsProcessing && Now < Match_TrophyTaskEndTime) {
+	MB_Yield();
+}
+if (TaskResults.existskey(Match_TrophyTaskId)) {
+	declare TrophyTask = (TaskResults[Match_TrophyTaskId] as CTaskResult_AccountTrophyGainList);
+	if (TrophyTask != Null) {
+		if (!TrophyTask.IsProcessing && TrophyTask.HasSucceeded) {
+			foreach (AccountTrophyGain in TrophyTask.AccountTrophyGainList) {
+				if (!(Match_PlayerTrophies.existskey(AccountTrophyGain.WebServicesUserId))) {
+					Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId] = [];
+				}
+				Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][Match_RoundsNb] = [];
+				if (AccountTrophyGain.T1Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][Match_RoundsNb][1] = AccountTrophyGain.T1Count;
+				if (AccountTrophyGain.T2Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][Match_RoundsNb][2] = AccountTrophyGain.T2Count;
+				if (AccountTrophyGain.T3Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][Match_RoundsNb][3] = AccountTrophyGain.T3Count;
+				if (AccountTrophyGain.T4Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][Match_RoundsNb][4] = AccountTrophyGain.T4Count;
+				if (AccountTrophyGain.T5Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][Match_RoundsNb][5] = AccountTrophyGain.T5Count;
+				if (AccountTrophyGain.T6Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][Match_RoundsNb][6] = AccountTrophyGain.T6Count;
+				if (AccountTrophyGain.T7Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][Match_RoundsNb][7] = AccountTrophyGain.T7Count;
+				if (AccountTrophyGain.T8Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][Match_RoundsNb][8] = AccountTrophyGain.T8Count;
+				if (AccountTrophyGain.T9Count > 0) Match_PlayerTrophies[AccountTrophyGain.WebServicesUserId][Match_RoundsNb][9] = AccountTrophyGain.T9Count;
+			}
+		}
+		TaskResult_Release(TrophyTask.Id);
+	}
+}
+***
+
+***Champion_PodiumSequence*** // override Champion_PodiumSequence
+***
+UIManager.UIAll.BigMessageSound = CUIConfig::EUISound::EndRound;
+UIManager.UIAll.BigMessageSoundVariant = 0;
+
+//L16N %1 is a marker to apply typography
+declare Message = TL::Compose(_("|Match|%1Draw"), "$i");
+declare WinnerScore <=> Scores::GetPlayerWinner();
+if (WinnerScore != Null) {
+	//L16N %1 is a marker to apply typography, %2 is a player's name, %3 is the step number
+	declare Text_WinnerMessage = _("%1$<%2$> wins step %3");
+	Message = TL::Compose(Text_WinnerMessage, "$i", WinnerScore.User.Name, TL::ToText(S_StepNb));
+}
+UIManager.UIAll.BigMessage = Message;
+
+// Set players OGL score
+declare MatchRankToPoints = TL::Split(",", S_MatchRankToPoints);
+declare Integer DrawPoints = -1;
+declare Integer DrawKey = -1;
+foreach (Key => Score in Scores) {
+	declare Integer Points = Scores::GetPlayerMatchPoints(Score);
+	declare Integer Rank = Key;
+	if (Points == DrawPoints) {
+		Rank = DrawKey;
+	} else {
+		DrawKey = Key;
+		DrawPoints = Points;
+	}
+	if (MatchRankToPoints.existskey(Rank)) {
+		Scores::SetPlayerMatchPoints(Score, TL::ToInteger(MatchRankToPoints[Rank]));
+	} else if (MatchRankToPoints.count > 0) {
+		Scores::SetPlayerMatchPoints(Score, TL::ToInteger(MatchRankToPoints[MatchRankToPoints.count - 1]));
+	}
+}
+
+// Send the EndMatch callback sooner to speed up the OGL update via club plugin
+if (S_EarlyEndMatchCallback) {
+	Scores::EndMatch();
+	Scores::XmlRpc_SendScores(Scores::C_Section_EndMatch, ""); // send "Trackmania.Scores"
+}
+
+UIModules_EndMatchPopUp::SetDivision(S_Division);
+UIModules_EndMatchPopUp::SetStep(S_StepNb, S_StepMax);
+foreach (Key => Score in Scores) {
+	declare Integer[Integer] Trophies;
+	if (Match_PlayerTrophies.existskey(Score.User.WebServicesUserId)) {
+		foreach (RoundNb => RoundTrophies in Match_PlayerTrophies[Score.User.WebServicesUserId]) {
+			foreach (TrophyNb => TrophyCount in RoundTrophies) {
+				if (!Trophies.existskey(TrophyNb)) Trophies[TrophyNb] = 0;
+				Trophies[TrophyNb] += TrophyCount;
+			}
+		}
+	}
+	UIModules_EndMatchPopUp::SaveResult(Score, Key + 1, Scores::GetPlayerMatchPoints(Score), Trophies);
+}
+foreach (Player in AllPlayers) {
+	UIModules_EndMatchPopUp::SendResult(Player);
+}
+
+declare PrevUISequence = UIManager.UIAll.UISequence;
+UIManager.UIAll.UISequence = CUIConfig::EUISequence::Podium;
+MB_Private_Sleep(4000);
+UIManager.UIAll.BigMessage = "";
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
+MB_Private_Sleep(8000);
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+UIModules_EndMatchPopUp::Show();
+MB_Private_Sleep((S_ChatTime*1000));
+UIManager.UIAll.UISequence = PrevUISequence;
+UIModules_EndMatchPopUp::Hide();
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the info in the welcome pop-up
+Void UpdateWelcomePopUp(Text _Division, Text _PointsDistribution) {
+	declare Text[] TextPointsDistribution = TL::Split(",", _PointsDistribution);
+	declare Integer[] PointsDistribution;
+	foreach (TextPoints in TextPointsDistribution) {
+		PointsDistribution.add(TL::ToInteger(TextPoints));
+	}
+	UIModules_WelcomePopUp::SetDivision(_Division);
+	UIModules_WelcomePopUp::SetPointsDistribution(PointsDistribution);
+}

@@ -1,0 +1,1261 @@
+/**
+ *	Component: ButtonIcon
+ *	=====================
+ *
+ *	Info
+ *	----
+ *
+ *	Display a gamepad button or keyboard key icon.
+ *	Automatically update the icon displayed based on the last used controller.
+ *
+ *	Parameters
+ *	----------
+ *
+ *	- `data-bind` (`Text`): button to display
+ *	- `data-size` (`Vec2`): size of the button icon
+ *	- `data-halign` (`Text`): horizontal alignment of the button icon
+ *			Can be `left`, `center` or `right`.
+ *	- `data-valign` (`Text`): vertical alignment of the button icon
+ *			Can be `top`, `center` or `bottom`.
+ *	- `data-color` (`Text`): color of the keyboard key (quad and label)
+ *			Hexadecimal format, eg: `ff0000` for red.
+ *	- `data-opacity` (`Real`): opacity of the keyboard key (quad and label)
+ *	- `data-hideformouse` (`Boolean`): hide the button icon when using a mouse to navigate in the game
+ *
+ *	Binds
+ *	-----
+ *
+ *	valid `data-bind` values are:
+ *
+ *	"left", "right", "up", "down",
+ *	"a", "b", "x", "y", "cross", "circle", "square", "triangle",
+ *	"l1", "r1", "lb", "rb", "l2", "r2", "lt", "rt",
+ *	"leftstick", "leftstick_left", "leftstick_right", "leftstick_up", "leftstick_down",
+ *	"rightstick", "rightstick_left", "rightstick_right", "rightstick_up", "rightstick_down",
+ *	"menu", "view", "options", "touchpad"
+ *
+ *	"select", "cancel", "action1", "action2", "action3", "action4",
+ *	"pageup", "pagedown", "scrollup", "scrolldown",
+ *	"appmenu"
+ */
+#Const Version		"1.0.3"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/ButtonIcon2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "ColorLib" as CL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Controls {
+	CMlFrame Frame_ButtonIcon;
+	CMlFrame Frame_MouseVisibility;
+	CMlFrame Frame_Gamepad;
+	CMlQuad Quad_ButtonIcon;
+	CMlFrame Frame_Keyboard;
+	CMlQuad Quad_KeyIcon;
+	CMlLabel Label_KeyboardKeyName;
+	CMlLabel Label_KeyboardKeyEnter;
+}
+#Struct K_Properties {
+	CInputManager::EButton Bind;
+	Text KeyboardKeyName;
+	Text KeyboardKeyNameRaw;
+	Vec2 Size;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Vec3 Color;
+	Real Opacity;
+	Boolean HideForMouse;
+}
+#Struct K_ButtonIcon {
+	Ident Id;
+	K_Controls Controls;
+	K_Properties Properties;
+	Integer[] DirtyProperties;
+}
+#Struct K_ActivePad {
+	Ident Id;
+	Integer Type;
+	Boolean IsGamepad;
+}
+#Struct K_Event {
+	Integer Type;
+	Ident PadId;
+	Integer PadType;
+	Boolean HideForMouse;
+}
+#Struct K_State {
+	K_ActivePad ActivePad;
+	Ident KeyboardId;
+	Boolean IsUsingMouse;
+	Ident[] HideForMouseIds;
+	K_Event[] PendingEvents;
+	Boolean ActivePadCheckEnabled;
+	Boolean HideForMouseEnabled;
+	Integer NextActivePadCheckTime;
+	Boolean PageWasVisible;
+	Boolean EnableMenuNavigationInputs;
+	Boolean PendingMenuNavigationUpdate;
+	Boolean JapanStylePadButtons;
+}
+#Struct K_Result {
+	K_State State;
+	K_ButtonIcon ButtonIcon;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-button-icon-2" //< Component name
+#Const P "ButtonIcon2_ButtonIcon2::" //< Prefix use to differentiate functions/variables in the script
+#Const Q "ButtonIcon2_ButtonIcon2" //< Prefix use to differentiate functions/variables in the script
+
+#Const C_ActivePad_Null K_ActivePad {
+	Id = NullId,
+	Type = 0,
+	IsGamepad = False
+}
+#Const C_ButtonIcon_Null K_ButtonIcon {
+	Id = NullId,
+	Controls = K_Controls {},
+	Properties = K_Properties {},
+	DirtyProperties = []
+}
+#Const C_State_Null K_State {
+	ActivePad = K_ActivePad {
+		Id = NullId,
+		Type = 0,
+		IsGamepad = False
+	},
+	KeyboardId = NullId,
+	IsUsingMouse = False,
+	HideForMouseIds = [],
+	ActivePadCheckEnabled = False,
+	HideForMouseEnabled = False,
+	NextActivePadCheckTime = 0,
+	PageWasVisible = False,
+	EnableMenuNavigationInputs = False,
+	PendingMenuNavigationUpdate = False,
+	JapanStylePadButtons = False
+}
+
+#Const C_KeyboardKeyNameRawToIcon [
+	"left" => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Arrow_Left.dds",
+	"right" => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Arrow_Right.dds",
+	"up" => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Arrow_Up.dds",
+	"down" => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Arrow_Down.dds",
+	"return" => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Enter.dds",
+	"prior" => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_PageUp.dds",
+	"next" => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_PageDown.dds",
+	"appmenu" => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Menu.dds",
+	"f1" => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_F1.dds",
+	"f2" => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_F2.dds"
+]
+
+#Const C_PadButtonIcons_PC [
+	CInputManager::EButton::Left => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Arrow_Left.dds",
+	CInputManager::EButton::Right => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Arrow_Right.dds",
+	CInputManager::EButton::Up => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Arrow_Up.dds",
+	CInputManager::EButton::Down => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Arrow_Down.dds",
+	CInputManager::EButton::A => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Enter.dds",
+	CInputManager::EButton::L1 => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_PageUp.dds",
+	CInputManager::EButton::R1 => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_PageDown.dds",
+	CInputManager::EButton::Menu => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Menu.dds",
+	CInputManager::EButton::L2 => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_F1.dds",
+	CInputManager::EButton::R2 => "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_F2.dds"
+]
+
+#Const C_PadButtonIcons_PlayStation4 [
+	CInputManager::EButton::Left => "file://Media/Manialinks/Common/PadButtons/PS4/DPadLeft.dds",
+	CInputManager::EButton::Right => "file://Media/Manialinks/Common/PadButtons/PS4/DPadRight.dds",
+	CInputManager::EButton::Up => "file://Media/Manialinks/Common/PadButtons/PS4/DPadUp.dds",
+	CInputManager::EButton::Down => "file://Media/Manialinks/Common/PadButtons/PS4/DPadDown.dds",
+	CInputManager::EButton::A => "file://Media/Manialinks/Common/PadButtons/PS4/Cross.dds",
+	CInputManager::EButton::B => "file://Media/Manialinks/Common/PadButtons/PS4/Circle.dds",
+	CInputManager::EButton::X => "file://Media/Manialinks/Common/PadButtons/PS4/Square.dds",
+	CInputManager::EButton::Y => "file://Media/Manialinks/Common/PadButtons/PS4/Triangle.dds",
+	CInputManager::EButton::L1 => "file://Media/Manialinks/Common/PadButtons/PS4/L1.dds",
+	CInputManager::EButton::R1 => "file://Media/Manialinks/Common/PadButtons/PS4/R1.dds",
+	CInputManager::EButton::LeftStick => "file://Media/Manialinks/Common/PadButtons/PS4/LStickClick.dds",
+	CInputManager::EButton::RightStick => "file://Media/Manialinks/Common/PadButtons/PS4/RStickClick.dds",
+	CInputManager::EButton::Menu => "file://Media/Manialinks/Common/PadButtons/PS4/Options.dds",
+	CInputManager::EButton::View => "file://Media/Manialinks/Common/PadButtons/PS4/TouchPad.dds",
+	CInputManager::EButton::LeftStick_Left => "file://Media/Manialinks/Common/PadButtons/PS4/LStickLeft.dds",
+	CInputManager::EButton::LeftStick_Right => "file://Media/Manialinks/Common/PadButtons/PS4/LStickRight.dds",
+	CInputManager::EButton::LeftStick_Up => "file://Media/Manialinks/Common/PadButtons/PS4/LStickUp.dds",
+	CInputManager::EButton::LeftStick_Down => "file://Media/Manialinks/Common/PadButtons/PS4/LStickDown.dds",
+	CInputManager::EButton::RightStick_Left => "file://Media/Manialinks/Common/PadButtons/PS4/RStickLeft.dds",
+	CInputManager::EButton::RightStick_Right => "file://Media/Manialinks/Common/PadButtons/PS4/RStickRight.dds",
+	CInputManager::EButton::RightStick_Up => "file://Media/Manialinks/Common/PadButtons/PS4/RStickUp.dds",
+	CInputManager::EButton::RightStick_Down => "file://Media/Manialinks/Common/PadButtons/PS4/RStickDown.dds",
+	CInputManager::EButton::L2 => "file://Media/Manialinks/Common/PadButtons/PS4/L2.dds",
+	CInputManager::EButton::R2 => "file://Media/Manialinks/Common/PadButtons/PS4/R2.dds"
+]
+
+#Const C_PadButtonIcons_PlayStation5 [
+	CInputManager::EButton::Left => "file://Media/Manialinks/Common/PadButtons/PS5/DPadLeft.dds",
+	CInputManager::EButton::Right => "file://Media/Manialinks/Common/PadButtons/PS5/DPadRight.dds",
+	CInputManager::EButton::Up => "file://Media/Manialinks/Common/PadButtons/PS5/DPadUp.dds",
+	CInputManager::EButton::Down => "file://Media/Manialinks/Common/PadButtons/PS5/DPadDown.dds",
+	CInputManager::EButton::A => "file://Media/Manialinks/Common/PadButtons/PS5/Cross.dds",
+	CInputManager::EButton::B => "file://Media/Manialinks/Common/PadButtons/PS5/Circle.dds",
+	CInputManager::EButton::X => "file://Media/Manialinks/Common/PadButtons/PS5/Square.dds",
+	CInputManager::EButton::Y => "file://Media/Manialinks/Common/PadButtons/PS5/Triangle.dds",
+	CInputManager::EButton::L1 => "file://Media/Manialinks/Common/PadButtons/PS5/L1.dds",
+	CInputManager::EButton::R1 => "file://Media/Manialinks/Common/PadButtons/PS5/R1.dds",
+	CInputManager::EButton::LeftStick => "file://Media/Manialinks/Common/PadButtons/PS5/LStickClick.dds",
+	CInputManager::EButton::RightStick => "file://Media/Manialinks/Common/PadButtons/PS5/RStickClick.dds",
+	CInputManager::EButton::Menu => "file://Media/Manialinks/Common/PadButtons/PS5/Options.dds",
+	CInputManager::EButton::View => "file://Media/Manialinks/Common/PadButtons/PS4/TouchPad.dds",
+	CInputManager::EButton::LeftStick_Left => "file://Media/Manialinks/Common/PadButtons/PS5/LStickLeft.dds",
+	CInputManager::EButton::LeftStick_Right => "file://Media/Manialinks/Common/PadButtons/PS5/LStickRight.dds",
+	CInputManager::EButton::LeftStick_Up => "file://Media/Manialinks/Common/PadButtons/PS5/LStickUp.dds",
+	CInputManager::EButton::LeftStick_Down => "file://Media/Manialinks/Common/PadButtons/PS5/LStickDown.dds",
+	CInputManager::EButton::RightStick_Left => "file://Media/Manialinks/Common/PadButtons/PS5/RStickLeft.dds",
+	CInputManager::EButton::RightStick_Right => "file://Media/Manialinks/Common/PadButtons/PS5/RStickRight.dds",
+	CInputManager::EButton::RightStick_Up => "file://Media/Manialinks/Common/PadButtons/PS5/RStickUp.dds",
+	CInputManager::EButton::RightStick_Down => "file://Media/Manialinks/Common/PadButtons/PS5/RStickDown.dds",
+	CInputManager::EButton::L2 => "file://Media/Manialinks/Common/PadButtons/PS5/L2.dds",
+	CInputManager::EButton::R2 => "file://Media/Manialinks/Common/PadButtons/PS5/R2.dds"
+]
+
+#Const C_PadButtonIcons_XBox [
+	CInputManager::EButton::Left => "file://Media/Manialinks/Common/PadButtons/XB1/DPadLeft.dds",
+	CInputManager::EButton::Right => "file://Media/Manialinks/Common/PadButtons/XB1/DPadRight.dds",
+	CInputManager::EButton::Up => "file://Media/Manialinks/Common/PadButtons/XB1/DPadUp.dds",
+	CInputManager::EButton::Down => "file://Media/Manialinks/Common/PadButtons/XB1/DPadDown.dds",
+	CInputManager::EButton::A => "file://Media/Manialinks/Common/PadButtons/XB1/A.dds",
+	CInputManager::EButton::B => "file://Media/Manialinks/Common/PadButtons/XB1/B.dds",
+	CInputManager::EButton::X => "file://Media/Manialinks/Common/PadButtons/XB1/X.dds",
+	CInputManager::EButton::Y => "file://Media/Manialinks/Common/PadButtons/XB1/Y.dds",
+	CInputManager::EButton::L1 => "file://Media/Manialinks/Common/PadButtons/XB1/LB.dds",
+	CInputManager::EButton::R1 => "file://Media/Manialinks/Common/PadButtons/XB1/RB.dds",
+	CInputManager::EButton::LeftStick => "file://Media/Manialinks/Common/PadButtons/XB1/LStickClick.dds",
+	CInputManager::EButton::RightStick => "file://Media/Manialinks/Common/PadButtons/XB1/RStickClick.dds",
+	CInputManager::EButton::Menu => "file://Media/Manialinks/Common/PadButtons/XB1/Menu.dds",
+	CInputManager::EButton::View => "file://Media/Manialinks/Common/PadButtons/XB1/View.dds",
+	CInputManager::EButton::LeftStick_Left => "file://Media/Manialinks/Common/PadButtons/XB1/LStickLeft.dds",
+	CInputManager::EButton::LeftStick_Right => "file://Media/Manialinks/Common/PadButtons/XB1/LStickRight.dds",
+	CInputManager::EButton::LeftStick_Up => "file://Media/Manialinks/Common/PadButtons/XB1/LStickUp.dds",
+	CInputManager::EButton::LeftStick_Down => "file://Media/Manialinks/Common/PadButtons/XB1/LStickDown.dds",
+	CInputManager::EButton::RightStick_Left => "file://Media/Manialinks/Common/PadButtons/XB1/RStickLeft.dds",
+	CInputManager::EButton::RightStick_Right => "file://Media/Manialinks/Common/PadButtons/XB1/RStickRight.dds",
+	CInputManager::EButton::RightStick_Up => "file://Media/Manialinks/Common/PadButtons/XB1/RStickUp.dds",
+	CInputManager::EButton::RightStick_Down => "file://Media/Manialinks/Common/PadButtons/XB1/RStickDown.dds",
+	CInputManager::EButton::L2 => "file://Media/Manialinks/Common/PadButtons/XB1/LT.dds",
+	CInputManager::EButton::R2 => "file://Media/Manialinks/Common/PadButtons/XB1/RT.dds"
+]
+
+#Const C_PadButtonIcons_Stadia [
+	CInputManager::EButton::Left => "file://Media/Manialinks/Common/PadButtons/Stadia/DPadLeft.dds",
+	CInputManager::EButton::Right => "file://Media/Manialinks/Common/PadButtons/Stadia/DPadRight.dds",
+	CInputManager::EButton::Up => "file://Media/Manialinks/Common/PadButtons/Stadia/DPadUp.dds",
+	CInputManager::EButton::Down => "file://Media/Manialinks/Common/PadButtons/Stadia/DPadDown.dds",
+	CInputManager::EButton::A => "file://Media/Manialinks/Common/PadButtons/Stadia/A.dds",
+	CInputManager::EButton::B => "file://Media/Manialinks/Common/PadButtons/Stadia/B.dds",
+	CInputManager::EButton::X => "file://Media/Manialinks/Common/PadButtons/Stadia/X.dds",
+	CInputManager::EButton::Y => "file://Media/Manialinks/Common/PadButtons/Stadia/Y.dds",
+	CInputManager::EButton::L1 => "file://Media/Manialinks/Common/PadButtons/Stadia/L1.dds",
+	CInputManager::EButton::R1 => "file://Media/Manialinks/Common/PadButtons/Stadia/R1.dds",
+	CInputManager::EButton::LeftStick => "file://Media/Manialinks/Common/PadButtons/Stadia/LStickClick.dds",
+	CInputManager::EButton::RightStick => "file://Media/Manialinks/Common/PadButtons/Stadia/RStickClick.dds",
+	CInputManager::EButton::Menu => "file://Media/Manialinks/Common/PadButtons/Stadia/Menu.dds",
+	CInputManager::EButton::View => "file://Media/Manialinks/Common/PadButtons/Stadia/Options.dds",
+	CInputManager::EButton::LeftStick_Left => "file://Media/Manialinks/Common/PadButtons/Stadia/LStickLeft.dds",
+	CInputManager::EButton::LeftStick_Right => "file://Media/Manialinks/Common/PadButtons/Stadia/LStickRight.dds",
+	CInputManager::EButton::LeftStick_Up => "file://Media/Manialinks/Common/PadButtons/Stadia/LStickUp.dds",
+	CInputManager::EButton::LeftStick_Down => "file://Media/Manialinks/Common/PadButtons/Stadia/LStickDown.dds",
+	CInputManager::EButton::RightStick_Left => "file://Media/Manialinks/Common/PadButtons/Stadia/RStickLeft.dds",
+	CInputManager::EButton::RightStick_Right => "file://Media/Manialinks/Common/PadButtons/Stadia/RStickRight.dds",
+	CInputManager::EButton::RightStick_Up => "file://Media/Manialinks/Common/PadButtons/Stadia/RStickUp.dds",
+	CInputManager::EButton::RightStick_Down => "file://Media/Manialinks/Common/PadButtons/Stadia/RStickDown.dds",
+	CInputManager::EButton::L2 => "file://Media/Manialinks/Common/PadButtons/Stadia/L2.dds",
+	CInputManager::EButton::R2 => "file://Media/Manialinks/Common/PadButtons/Stadia/R2.dds"
+]
+
+#Const C_PadButtonIcons_Luna [
+	CInputManager::EButton::Left => "file://Media/Manialinks/Common/PadButtons/Luna/DPadLeft.dds",
+	CInputManager::EButton::Right => "file://Media/Manialinks/Common/PadButtons/Luna/DPadRight.dds",
+	CInputManager::EButton::Up => "file://Media/Manialinks/Common/PadButtons/Luna/DPadUp.dds",
+	CInputManager::EButton::Down => "file://Media/Manialinks/Common/PadButtons/Luna/DPadDown.dds",
+	CInputManager::EButton::A => "file://Media/Manialinks/Common/PadButtons/Luna/A.dds",
+	CInputManager::EButton::B => "file://Media/Manialinks/Common/PadButtons/Luna/B.dds",
+	CInputManager::EButton::X => "file://Media/Manialinks/Common/PadButtons/Luna/X.dds",
+	CInputManager::EButton::Y => "file://Media/Manialinks/Common/PadButtons/Luna/Y.dds",
+	CInputManager::EButton::L1 => "file://Media/Manialinks/Common/PadButtons/Luna/LB.dds",
+	CInputManager::EButton::R1 => "file://Media/Manialinks/Common/PadButtons/Luna/RB.dds",
+	CInputManager::EButton::LeftStick => "file://Media/Manialinks/Common/PadButtons/Luna/LStickClick.dds",
+	CInputManager::EButton::RightStick => "file://Media/Manialinks/Common/PadButtons/Luna/RStickClick.dds",
+	CInputManager::EButton::Menu => "file://Media/Manialinks/Common/PadButtons/Luna/Menu.dds",
+	CInputManager::EButton::View => "file://Media/Manialinks/Common/PadButtons/Luna/Action.dds",
+	CInputManager::EButton::LeftStick_Left => "file://Media/Manialinks/Common/PadButtons/Luna/LStickLeft.dds",
+	CInputManager::EButton::LeftStick_Right => "file://Media/Manialinks/Common/PadButtons/Luna/LStickRight.dds",
+	CInputManager::EButton::LeftStick_Up => "file://Media/Manialinks/Common/PadButtons/Luna/LStickUp.dds",
+	CInputManager::EButton::LeftStick_Down => "file://Media/Manialinks/Common/PadButtons/Luna/LStickDown.dds",
+	CInputManager::EButton::RightStick_Left => "file://Media/Manialinks/Common/PadButtons/Luna/RStickLeft.dds",
+	CInputManager::EButton::RightStick_Right => "file://Media/Manialinks/Common/PadButtons/Luna/RStickRight.dds",
+	CInputManager::EButton::RightStick_Up => "file://Media/Manialinks/Common/PadButtons/Luna/RStickUp.dds",
+	CInputManager::EButton::RightStick_Down => "file://Media/Manialinks/Common/PadButtons/Luna/RStickDown.dds",
+	CInputManager::EButton::L2 => "file://Media/Manialinks/Common/PadButtons/Luna/LT.dds",
+	CInputManager::EButton::R2 => "file://Media/Manialinks/Common/PadButtons/Luna/RT.dds"
+]
+
+#Const C_PadButtonIconUnknown "file://Media/Manialinks/Common/PadButtons/Default/Default.dds"
+#Const C_DefaultKeyIcon "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Base.dds"
+#Const C_EnterKeyIcon "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Enter.dds"
+
+// Pad button icons from the font
+#Const C_TextIcon_A ""
+#Const C_TextIcon_B ""
+#Const C_TextIcon_X ""
+#Const C_TextIcon_Y ""
+#Const C_TextIcon_Cross ""
+#Const C_TextIcon_Square ""
+#Const C_TextIcon_Circle ""
+#Const C_TextIcon_Triangle ""
+#Const C_TextIcon_LStickClick ""
+#Const C_TextIcon_RStickClick ""
+#Const C_TextIcon_LB ""
+#Const C_TextIcon_RB ""
+#Const C_TextIcon_LT ""
+#Const C_TextIcon_RT ""
+#Const C_TextIcon_L1 ""
+#Const C_TextIcon_L2 ""
+#Const C_TextIcon_R1 ""
+#Const C_TextIcon_R2 ""
+#Const C_TextIcon_DPad ""
+#Const C_TextIcon_DPadUp ""
+#Const C_TextIcon_DPadRight ""
+#Const C_TextIcon_DPadDown ""
+#Const C_TextIcon_DPadLeft ""
+
+#Const C_PropertyId_Bind 0
+#Const C_PropertyId_Size 1
+#Const C_PropertyId_HAlign 2
+#Const C_PropertyId_VAlign 3
+#Const C_PropertyId_Color 4
+#Const C_PropertyId_Opacity 5
+#Const C_PropertyId_HideForMouse 6
+#Const C_PropertyId_KeyboardKeyName 7
+#Const C_PropertyId_KeyboardKeyNameRaw 8
+
+#Const C_PadType_Null 0
+#Const C_PadType_PadPlayStation 1
+#Const C_PadType_PadXBox 2
+#Const C_PadType_PadGeneric 3
+#Const C_PadType_KeyboardMouse 4
+
+#Const C_EventType_PadTypeUpdate 1
+#Const C_EventType_HideForMouse 2
+#Const C_EventType_ActivePadUpdate 3
+
+#Const C_Class_ButtonIcon "button-icon-2_button-icon"
+
+#Const C_Id_FrameMouseVisibility "button-icon-2_frame-mouse-visibility"
+#Const C_Id_FrameGamePad "button-icon-2_frame-gamepad"
+#Const C_Id_QuadButtonIcon "button-icon-2_quad-button-icon"
+#Const C_Id_FrameKeyboard "button-icon-2_frame-keyboard"
+#Const C_Id_QuadKeyIcon "button-icon-2_quad-key-icon"
+#Const C_Id_LabelKeyboardKeyName "button-icon-2_label-keyboard-key-name"
+#Const C_Id_LabelKeyboardKeyEnter "button-icon-2_label-keyboard-key-enter"
+
+#Const C_KeyboardKeyScale 0.9
+#Const C_KeyboardKeyNameTextSizeMin 0.5
+#Const Platform::C_FirstPartiesWithForcedButtonIcon as C_FirstPartiesWithForcedButtonIcon
+#Const C_ActivePadCheckInterval 250
+#Const C_ActivePadGracePeriodDuration 500
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetManialink() {
+	//L16N [ButtonIcon2] Name of the enter key on the keyboard
+	declare Text Text_Enter = _("|Keyboard|Enter");
+
+	return """
+<frame id="{{{C_Id_FrameMouseVisibility}}}" class="{{{C_Class_ButtonIcon}}}">
+	<frame id="{{{C_Id_FrameGamePad}}}" z-index="1">
+		<quad id="{{{C_Id_QuadButtonIcon}}}" keepratio="fit" />
+	</frame>
+	<frame id="{{{C_Id_FrameKeyboard}}}" z-index="2">
+		<quad id="{{{C_Id_QuadKeyIcon}}}" z-index="1" />
+		<label id="{{{C_Id_LabelKeyboardKeyName}}}" z-index="2" halign="center" valign="center2" textsize="8" textcolor="ffffff" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$t" />
+		<label id="{{{C_Id_LabelKeyboardKeyEnter}}}" z-index="3" halign="center" valign="center2" textsize="8" textcolor="ffffff" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$t" text="{{{Text_Enter}}}" hidden="1" />
+	</frame>
+</frame>
+		""";
+}
+
+CInputManager::EButton Private_ConvertTextToEButton(Text _Button) {
+	switch (TL::ToLowerCase(_Button)) {
+		// For MenuNavAction
+		case "select": return CInputManager::EButton::A;
+		case "cancel": return CInputManager::EButton::B;
+		case "action1": return CInputManager::EButton::X;
+		case "action2": return CInputManager::EButton::Y;
+		case "action3": return CInputManager::EButton::L2;
+		case "action4": return CInputManager::EButton::R2;
+		case "pageup": return CInputManager::EButton::L1;
+		case "pagedown": return CInputManager::EButton::R1;
+		case "appmenu": return CInputManager::EButton::Menu;
+		case "scrollup": return CInputManager::EButton::RightStick_Up;
+		case "scrolldown": return CInputManager::EButton::RightStick_Down;
+		// For button name
+		case "left", "dpadleft", C_TextIcon_DPadLeft: return CInputManager::EButton::Left;
+		case "right", "dpadright", C_TextIcon_DPadRight: return CInputManager::EButton::Right;
+		case "up", "dpadup", C_TextIcon_DPadUp: return CInputManager::EButton::Up;
+		case "down", "dpaddown", C_TextIcon_DPadDown: return CInputManager::EButton::Down;
+		case "a", "cross", C_TextIcon_A, C_TextIcon_Cross: return CInputManager::EButton::A;
+		case "b", "circle", C_TextIcon_B, C_TextIcon_Circle: return CInputManager::EButton::B;
+		case "x", "square", C_TextIcon_X, C_TextIcon_Square: return CInputManager::EButton::X;
+		case "y", "triangle", C_TextIcon_Y, C_TextIcon_Triangle: return CInputManager::EButton::Y;
+		case "lb", "l1", C_TextIcon_LB, C_TextIcon_L1: return CInputManager::EButton::L1;
+		case "rb", "r1", C_TextIcon_RB, C_TextIcon_R1: return CInputManager::EButton::R1;
+		case "lt", "l2", C_TextIcon_LT, C_TextIcon_L2: return CInputManager::EButton::L2;
+		case "rt", "r2", C_TextIcon_RT, C_TextIcon_R2: return CInputManager::EButton::R2;
+		case "menu", "options": return CInputManager::EButton::Menu;
+		case "view", "touchpad", "action": return CInputManager::EButton::View;
+		case "leftstick", "lstickclick", C_TextIcon_LStickClick: return CInputManager::EButton::LeftStick;
+		case "leftstick_left", "lstickleft": return CInputManager::EButton::LeftStick_Left;
+		case "leftstick_right", "lstickright": return CInputManager::EButton::LeftStick_Right;
+		case "leftstick_up", "lstickup": return CInputManager::EButton::LeftStick_Up;
+		case "leftstick_down", "lstickdown": return CInputManager::EButton::LeftStick_Down;
+		case "rightstick", "rstickclick", C_TextIcon_RStickClick: return CInputManager::EButton::RightStick;
+		case "rightstick_left", "rstickleft": return CInputManager::EButton::RightStick_Left;
+		case "rightstick_right", "rstickright": return CInputManager::EButton::RightStick_Right;
+		case "rightstick_up", "rstickup": return CInputManager::EButton::RightStick_Up;
+		case "rightstick_down", "rstickdown": return CInputManager::EButton::RightStick_Down;
+	}
+
+	return CInputManager::EButton::None;
+}
+
+Void Private_FlushAnimations(CMlScript _This, K_ButtonIcon _ButtonIcon) {
+	_This.AnimMgr.Flush(_ButtonIcon.Controls.Quad_ButtonIcon);
+	_This.AnimMgr.Flush(_ButtonIcon.Controls.Quad_KeyIcon);
+	_This.AnimMgr.Flush(_ButtonIcon.Controls.Label_KeyboardKeyName);
+	_This.AnimMgr.Flush(_ButtonIcon.Controls.Label_KeyboardKeyEnter);
+}
+
+Void Private_RedrawMouseVisibility(K_State _State, K_ButtonIcon _ButtonIcon, Integer _FirstParty) {
+	if (_ButtonIcon.Controls.Frame_MouseVisibility == Null) return;
+
+	_ButtonIcon.Controls.Frame_MouseVisibility.Visible = !(
+		_ButtonIcon.Properties.HideForMouse &&
+		_State.IsUsingMouse &&
+		!C_FirstPartiesWithForcedButtonIcon.exists(_FirstParty)
+	);
+}
+
+Void Private_RedrawKeyboardKeyName(K_ButtonIcon _ButtonIcon, Text _KeyName) {
+	_ButtonIcon.Controls.Label_KeyboardKeyName.Value = _KeyName;
+	if (_KeyName != "") {
+		declare Real InitialTextSize = ML::Max(C_KeyboardKeyNameTextSizeMin, _ButtonIcon.Controls.Label_KeyboardKeyName.Size.Y * 0.8);
+		Tools::FitLabelValue(_ButtonIcon.Controls.Label_KeyboardKeyName, InitialTextSize, C_KeyboardKeyNameTextSizeMin, InitialTextSize * 0.2);
+	}
+}
+
+Void Private_RedrawKeyboardKeyAlign(K_ButtonIcon _ButtonIcon) {
+	Tools::AlignFrame(
+		_ButtonIcon.Controls.Frame_Keyboard,
+		_ButtonIcon.Properties.Size * C_KeyboardKeyScale,
+		_ButtonIcon.Properties.HAlign,
+		_ButtonIcon.Properties.VAlign
+	);
+}
+
+Void Private_RedrawKeyboardKeySize(K_ButtonIcon _ButtonIcon) {
+	declare Vec2 KeyboardKeySize = _ButtonIcon.Properties.Size * C_KeyboardKeyScale;
+
+	_ButtonIcon.Controls.Quad_KeyIcon.Size = KeyboardKeySize;
+	_ButtonIcon.Controls.Label_KeyboardKeyName.Size = KeyboardKeySize * 0.65;
+	_ButtonIcon.Controls.Label_KeyboardKeyName.RelativePosition_V3 = <KeyboardKeySize.X * 0.51, KeyboardKeySize.Y * -0.5>;
+	Private_RedrawKeyboardKeyName(_ButtonIcon, _ButtonIcon.Controls.Label_KeyboardKeyName.Value);
+
+	_ButtonIcon.Controls.Label_KeyboardKeyEnter.Size = KeyboardKeySize * 0.65;
+	_ButtonIcon.Controls.Label_KeyboardKeyEnter.RelativePosition_V3 = <KeyboardKeySize.X * 0.51, KeyboardKeySize.Y * -0.35>;
+	declare Real InitialTextSize = ML::Max(C_KeyboardKeyNameTextSizeMin, _ButtonIcon.Controls.Label_KeyboardKeyEnter.Size.Y * 0.3);
+	Tools::FitLabelValue(_ButtonIcon.Controls.Label_KeyboardKeyEnter, InitialTextSize, C_KeyboardKeyNameTextSizeMin, InitialTextSize * 0.2);
+
+	Private_RedrawKeyboardKeyAlign(_ButtonIcon);
+}
+
+Void Private_RedrawKeyboardKeyColor(K_ButtonIcon _ButtonIcon) {
+	_ButtonIcon.Controls.Label_KeyboardKeyName.TextColor = _ButtonIcon.Properties.Color;
+}
+
+Void Private_RedrawOpacity(K_ButtonIcon _ButtonIcon) {
+	_ButtonIcon.Controls.Quad_ButtonIcon.Opacity = _ButtonIcon.Properties.Opacity;
+	_ButtonIcon.Controls.Quad_KeyIcon.Opacity = _ButtonIcon.Properties.Opacity;
+	_ButtonIcon.Controls.Label_KeyboardKeyName.Opacity = _ButtonIcon.Properties.Opacity;
+	_ButtonIcon.Controls.Label_KeyboardKeyEnter.Opacity = _ButtonIcon.Properties.Opacity;
+}
+
+Void Private_RedrawPadButtonIcon(K_ButtonIcon _ButtonIcon, Text[CInputManager::EButton] _PadButtonIcons, Boolean _JapanStyle) {
+	// Invert confirm and cancel buttons in the Japanese build
+	// see: https://gitlab.nadeo.org/trackmania-next/trackmania-console/-/issues/470
+	declare CInputManager::EButton Bind = _ButtonIcon.Properties.Bind;
+	if (_JapanStyle) {
+		if (Bind == CInputManager::EButton::A) {
+			Bind = CInputManager::EButton::B;
+		} else if (Bind == CInputManager::EButton::B) {
+			Bind = CInputManager::EButton::A;
+		}
+	}
+	_ButtonIcon.Controls.Quad_ButtonIcon.ImageUrl = _PadButtonIcons.get(Bind, C_PadButtonIconUnknown);
+	_ButtonIcon.Controls.Frame_Keyboard.Visible = False;
+	_ButtonIcon.Controls.Frame_Gamepad.Visible = True;
+}
+
+Void Private_RedrawKeyboardKeyIcon(K_State _State, K_ButtonIcon _ButtonIcon) {
+	if (
+		_ButtonIcon.Properties.KeyboardKeyNameRaw != "" &&
+		_ButtonIcon.Properties.KeyboardKeyName != ""
+	) {
+		if (C_KeyboardKeyNameRawToIcon.existskey(TL::ToLowerCase(_ButtonIcon.Properties.KeyboardKeyNameRaw))) {
+			_ButtonIcon.Controls.Label_KeyboardKeyEnter.Visible = False;
+			_ButtonIcon.Controls.Quad_KeyIcon.ImageUrl = C_KeyboardKeyNameRawToIcon[TL::ToLowerCase(_ButtonIcon.Properties.KeyboardKeyNameRaw)];
+			Private_RedrawKeyboardKeyName(_ButtonIcon, "");
+		} else {
+			_ButtonIcon.Controls.Label_KeyboardKeyEnter.Visible = False;
+			_ButtonIcon.Controls.Quad_KeyIcon.ImageUrl = C_DefaultKeyIcon;
+			Private_RedrawKeyboardKeyName(_ButtonIcon, _ButtonIcon.Properties.KeyboardKeyName);
+		}
+	} else if (_ButtonIcon.Properties.Bind == CInputManager::EButton::A) {
+		_ButtonIcon.Controls.Label_KeyboardKeyEnter.Visible = True;
+		_ButtonIcon.Controls.Quad_KeyIcon.ImageUrl = C_EnterKeyIcon;
+		Private_RedrawKeyboardKeyName(_ButtonIcon, "");
+	} else if (C_PadButtonIcons_PC.existskey(_ButtonIcon.Properties.Bind)) {
+		_ButtonIcon.Controls.Label_KeyboardKeyEnter.Visible = False;
+		_ButtonIcon.Controls.Quad_KeyIcon.ImageUrl = C_PadButtonIcons_PC[_ButtonIcon.Properties.Bind];
+		Private_RedrawKeyboardKeyName(_ButtonIcon, "");
+	} else {
+		declare Text KeyboardKeyName;
+		if (_State.KeyboardId != NullId && Input.Pads.existskey(_State.KeyboardId)) {
+			KeyboardKeyName = Input.GetPadButtonCurrentBinding(Input.Pads[_State.KeyboardId], _ButtonIcon.Properties.Bind);
+		}
+
+		if (KeyboardKeyName == "") {
+			KeyboardKeyName = "...";
+		}
+
+		_ButtonIcon.Controls.Label_KeyboardKeyEnter.Visible = False;
+		_ButtonIcon.Controls.Quad_KeyIcon.ImageUrl = C_DefaultKeyIcon;
+		Private_RedrawKeyboardKeyName(_ButtonIcon, KeyboardKeyName);
+	}
+
+	_ButtonIcon.Controls.Frame_Gamepad.Visible = False;
+	_ButtonIcon.Controls.Frame_Keyboard.Visible = True;
+}
+
+Text[CInputManager::EButton] Private_GetPadButtonIcons(K_ActivePad _ActivePad, Integer _FirstParty, CSystemPlatform::ESystemPlatform _Platform) {
+	switch (_ActivePad.Type) {
+		case C_PadType_PadPlayStation: {
+			if (_Platform == CSystemPlatform::ESystemPlatform::PS5) {
+				return C_PadButtonIcons_PlayStation5;
+			} else {
+				return C_PadButtonIcons_PlayStation4;
+			}
+		}
+		case C_PadType_PadXBox: {
+			return C_PadButtonIcons_XBox;
+		}
+		case C_PadType_PadGeneric: {
+			if (_FirstParty == Platform::C_FirstParty_Google) {
+				return C_PadButtonIcons_Stadia;
+			} else if (_FirstParty == Platform::C_FirstParty_Amazon) {
+				return C_PadButtonIcons_Luna;
+			} else if (_FirstParty == Platform::C_FirstParty_Sony) {
+				if (_Platform == CSystemPlatform::ESystemPlatform::PS5) {
+					return C_PadButtonIcons_PlayStation5;
+				} else {
+					return C_PadButtonIcons_PlayStation4;
+				}
+			} else {
+				return C_PadButtonIcons_XBox;
+			}
+		}
+	}
+
+	return C_PadButtonIcons_XBox;
+}
+
+Void Private_RedrawIcon(
+	K_State _State,
+	K_ButtonIcon _ButtonIcon,
+	Integer _FirstParty,
+	CSystemPlatform::ESystemPlatform _Platform
+) {
+	if (C_FirstPartiesWithForcedButtonIcon.exists(_FirstParty)) {
+		switch (_FirstParty) {
+			case Platform::C_FirstParty_Sony: {
+				if (_Platform == CSystemPlatform::ESystemPlatform::PS5) {
+					Private_RedrawPadButtonIcon(_ButtonIcon, C_PadButtonIcons_PlayStation5, Input.JapanStylePadButtons);
+				} else {
+					Private_RedrawPadButtonIcon(_ButtonIcon, C_PadButtonIcons_PlayStation4, Input.JapanStylePadButtons);
+				}
+			}
+			case Platform::C_FirstParty_Microsoft: {
+				Private_RedrawPadButtonIcon(_ButtonIcon, C_PadButtonIcons_XBox, Input.JapanStylePadButtons);
+			}
+			default: {
+				assert(False, "Unsupported first party. You must add a new `case`.");
+			}
+		}
+	} else if (_State.ActivePad.IsGamepad) {
+		Private_RedrawPadButtonIcon(_ButtonIcon, Private_GetPadButtonIcons(_State.ActivePad, _FirstParty, _Platform), Input.JapanStylePadButtons);
+	} else {
+		Private_RedrawKeyboardKeyIcon(_State, _ButtonIcon);
+	}
+}
+
+Boolean Private_PropertyIsDirty(Boolean _IsInit, Integer[] _DirtyProperties, Integer[] _PropertyIds) {
+	return _IsInit || _DirtyProperties.containsoneof(_PropertyIds);
+}
+Boolean Private_PropertyIsDirty(K_ButtonIcon _ButtonIcon, Integer _PropertyId, K_Properties _Properties) {
+	switch (_PropertyId) {
+		case C_PropertyId_Bind: return _ButtonIcon.Properties.Bind != _Properties.Bind;
+		case C_PropertyId_Size: return _ButtonIcon.Properties.Size != _Properties.Size;
+		case C_PropertyId_HAlign: return _ButtonIcon.Properties.HAlign != _Properties.HAlign;
+		case C_PropertyId_VAlign: return _ButtonIcon.Properties.VAlign != _Properties.VAlign;
+		case C_PropertyId_Color: return _ButtonIcon.Properties.Color != _Properties.Color;
+		case C_PropertyId_Opacity: return _ButtonIcon.Properties.Opacity != _Properties.Opacity;
+		case C_PropertyId_HideForMouse: return _ButtonIcon.Properties.HideForMouse != _Properties.HideForMouse;
+		case C_PropertyId_KeyboardKeyName: return _ButtonIcon.Properties.KeyboardKeyName != _Properties.KeyboardKeyName;
+		case C_PropertyId_KeyboardKeyNameRaw: return _ButtonIcon.Properties.KeyboardKeyNameRaw != _Properties.KeyboardKeyNameRaw;
+	}
+
+	return False;
+}
+
+K_ButtonIcon Private_Redraw(CMlScript _This, K_State _State, K_ButtonIcon _ButtonIcon, Boolean _IsInit) {
+	declare K_ButtonIcon ButtonIcon = _ButtonIcon;
+
+	Private_FlushAnimations(_This, _ButtonIcon);
+
+	if (Private_PropertyIsDirty(_IsInit, ButtonIcon.DirtyProperties, [C_PropertyId_Size])) {
+		ButtonIcon.Controls.Quad_ButtonIcon.Size = ButtonIcon.Properties.Size;
+		Private_RedrawKeyboardKeySize(ButtonIcon);
+	}
+
+	if (Private_PropertyIsDirty(_IsInit, ButtonIcon.DirtyProperties, [C_PropertyId_HAlign, C_PropertyId_VAlign])) {
+		ButtonIcon.Controls.Quad_ButtonIcon.HorizontalAlign = ButtonIcon.Properties.HAlign;
+		ButtonIcon.Controls.Quad_ButtonIcon.VerticalAlign = ButtonIcon.Properties.VAlign;
+		Private_RedrawKeyboardKeyAlign(ButtonIcon);
+	}
+
+	if (Private_PropertyIsDirty(_IsInit, ButtonIcon.DirtyProperties, [C_PropertyId_Color])) {
+		Private_RedrawKeyboardKeyColor(ButtonIcon);
+	}
+
+	if (Private_PropertyIsDirty(_IsInit, ButtonIcon.DirtyProperties, [C_PropertyId_Opacity])) {
+		Private_RedrawOpacity(ButtonIcon);
+	}
+
+	if (Private_PropertyIsDirty(_IsInit, ButtonIcon.DirtyProperties, [C_PropertyId_Bind, C_PropertyId_KeyboardKeyName, C_PropertyId_KeyboardKeyNameRaw])) {
+		Private_RedrawIcon(_State, ButtonIcon, Platform::GetFirstParty(System), Platform::GetPlatform(System));
+	}
+
+	if (Private_PropertyIsDirty(_IsInit, ButtonIcon.DirtyProperties, [C_PropertyId_HideForMouse])) {
+		Private_RedrawMouseVisibility(_State, ButtonIcon, Platform::GetFirstParty(System));
+	}
+
+	ButtonIcon.DirtyProperties = [];
+
+	return ButtonIcon;
+}
+Void Redraw(CMlScript _This, CMlFrame _Frame_ButtonIcon) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+	CMGame_ButtonIcon2_ButtonIcon = Private_Redraw(_This, CMGame_ButtonIcon2_State, CMGame_ButtonIcon2_ButtonIcon, False);
+}
+
+K_ButtonIcon Private_SetProperty(K_ButtonIcon _ButtonIcon, Integer _PropertyId, K_Properties _Properties) {
+	declare K_ButtonIcon ButtonIcon = _ButtonIcon;
+
+	if (Private_PropertyIsDirty(ButtonIcon, _PropertyId, _Properties)) {
+		switch (_PropertyId) {
+			case C_PropertyId_Bind: ButtonIcon.Properties.Bind = _Properties.Bind;
+			case C_PropertyId_Size: ButtonIcon.Properties.Size = _Properties.Size;
+			case C_PropertyId_HAlign: ButtonIcon.Properties.HAlign = _Properties.HAlign;
+			case C_PropertyId_VAlign: ButtonIcon.Properties.VAlign = _Properties.VAlign;
+			case C_PropertyId_Color: ButtonIcon.Properties.Color = _Properties.Color;
+			case C_PropertyId_Opacity: ButtonIcon.Properties.Opacity = _Properties.Opacity;
+			case C_PropertyId_HideForMouse: ButtonIcon.Properties.HideForMouse = _Properties.HideForMouse;
+			case C_PropertyId_KeyboardKeyName: ButtonIcon.Properties.KeyboardKeyName = _Properties.KeyboardKeyName;
+			case C_PropertyId_KeyboardKeyNameRaw: ButtonIcon.Properties.KeyboardKeyNameRaw = _Properties.KeyboardKeyNameRaw;
+		}
+
+		if (!ButtonIcon.DirtyProperties.exists(_PropertyId)) {
+			ButtonIcon.DirtyProperties.add(_PropertyId);
+		}
+	}
+
+	return ButtonIcon;
+}
+
+K_ButtonIcon Private_SetBind(CMlScript _This, K_State _State, K_ButtonIcon _ButtonIcon, CInputManager::EButton _Bind, Boolean _Redraw) {
+	declare K_ButtonIcon ButtonIcon = _ButtonIcon;
+	ButtonIcon = Private_SetProperty(ButtonIcon, C_PropertyId_Bind, K_Properties { Bind = _Bind });
+	if (_Redraw) ButtonIcon = Private_Redraw(_This, _State, ButtonIcon, False);
+
+	return ButtonIcon;
+}
+Void SetBind(CMlScript _This, CMlFrame _Frame_ButtonIcon, CInputManager::EButton _Bind, Boolean _Redraw) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+	CMGame_ButtonIcon2_ButtonIcon = Private_SetBind(_This, CMGame_ButtonIcon2_State, CMGame_ButtonIcon2_ButtonIcon, _Bind, _Redraw);
+}
+Void SetBind(CMlScript _This, CMlFrame _Frame_ButtonIcon, CInputManager::EButton _Bind) {
+	SetBind(_This, _Frame_ButtonIcon, _Bind, True);
+}
+Void SetBind(CMlScript _This, CMlFrame _Frame_ButtonIcon, Text _Bind, Boolean _Redraw) {
+	SetBind(_This, _Frame_ButtonIcon, Private_ConvertTextToEButton(_Bind), _Redraw);
+}
+Void SetBind(CMlScript _This, CMlFrame _Frame_ButtonIcon, Text _Bind) {
+	SetBind(_This, _Frame_ButtonIcon, Private_ConvertTextToEButton(_Bind));
+}
+
+K_ButtonIcon Private_SetKeyboardKeyName(CMlScript _This, K_State _State, K_ButtonIcon _ButtonIcon, Text _KeyboardKeyNameRaw, Text _KeyboardKeyName, Boolean _Redraw) {
+	declare K_ButtonIcon ButtonIcon = _ButtonIcon;
+	ButtonIcon = Private_SetProperty(ButtonIcon, C_PropertyId_KeyboardKeyNameRaw, K_Properties { KeyboardKeyNameRaw = _KeyboardKeyNameRaw });
+	ButtonIcon = Private_SetProperty(ButtonIcon, C_PropertyId_KeyboardKeyName, K_Properties { KeyboardKeyName = _KeyboardKeyName });
+	if (_Redraw) ButtonIcon = Private_Redraw(_This, _State, ButtonIcon, False);
+
+	return ButtonIcon;
+}
+Void SetKeyboardKeyName(CMlScript _This, CMlFrame _Frame_ButtonIcon, Text _KeyboardKeyNameRaw, Text _KeyboardKeyName, Boolean _Redraw) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+	CMGame_ButtonIcon2_ButtonIcon = Private_SetKeyboardKeyName(_This, CMGame_ButtonIcon2_State, CMGame_ButtonIcon2_ButtonIcon, _KeyboardKeyNameRaw, _KeyboardKeyName, _Redraw);
+}
+Void SetKeyboardKeyName(CMlScript _This, CMlFrame _Frame_ButtonIcon, Text _KeyboardKeyNameRaw, Text _KeyboardKeyName) {
+	SetKeyboardKeyName(_This, _Frame_ButtonIcon, _KeyboardKeyNameRaw, _KeyboardKeyName, True);
+}
+
+K_ButtonIcon Private_SetSize(CMlScript _This, K_State _State, K_ButtonIcon _ButtonIcon, Vec2 _Size, Boolean _Redraw) {
+	declare K_ButtonIcon ButtonIcon = _ButtonIcon;
+	ButtonIcon = Private_SetProperty(ButtonIcon, C_PropertyId_Size, K_Properties { Size = _Size });
+	if (_Redraw) ButtonIcon = Private_Redraw(_This, _State, ButtonIcon, False);
+
+	return ButtonIcon;
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_ButtonIcon, Vec2 _Size, Boolean _Redraw) {
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	CMGame_ButtonIcon2_ButtonIcon = Private_SetSize(_This, CMGame_ButtonIcon2_State, CMGame_ButtonIcon2_ButtonIcon, _Size, _Redraw);
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_ButtonIcon, Vec2 _Size) {
+	SetSize(_This, _Frame_ButtonIcon, _Size, True);
+}
+
+K_ButtonIcon Private_SetHAlign(CMlScript _This, K_State _State, K_ButtonIcon _ButtonIcon, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	declare K_ButtonIcon ButtonIcon = _ButtonIcon;
+	ButtonIcon = Private_SetProperty(ButtonIcon, C_PropertyId_HAlign, K_Properties { HAlign = _HAlign });
+	if (_Redraw) ButtonIcon = Private_Redraw(_This, _State, ButtonIcon, False);
+
+	return ButtonIcon;
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_ButtonIcon, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+	CMGame_ButtonIcon2_ButtonIcon = Private_SetHAlign(_This, CMGame_ButtonIcon2_State, CMGame_ButtonIcon2_ButtonIcon, _HAlign, _Redraw);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_ButtonIcon, CMlControl::AlignHorizontal _HAlign) {
+	SetHAlign(_This, _Frame_ButtonIcon, _HAlign, True);
+}
+
+K_ButtonIcon Private_SetVAlign(CMlScript _This, K_State _State, K_ButtonIcon _ButtonIcon, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	declare K_ButtonIcon ButtonIcon = _ButtonIcon;
+	ButtonIcon = Private_SetProperty(ButtonIcon, C_PropertyId_VAlign, K_Properties { VAlign = _VAlign });
+	if (_Redraw) ButtonIcon = Private_Redraw(_This, _State, ButtonIcon, False);
+
+	return ButtonIcon;
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_ButtonIcon, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+	CMGame_ButtonIcon2_ButtonIcon = Private_SetVAlign(_This, CMGame_ButtonIcon2_State, CMGame_ButtonIcon2_ButtonIcon, _VAlign, _Redraw);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_ButtonIcon, CMlControl::AlignVertical _VAlign) {
+	SetVAlign(_This, _Frame_ButtonIcon, _VAlign, True);
+}
+
+K_ButtonIcon Private_SetColor(CMlScript _This, K_State _State, K_ButtonIcon _ButtonIcon, Vec3 _Color, Boolean _Redraw) {
+	declare K_ButtonIcon ButtonIcon = _ButtonIcon;
+	ButtonIcon = Private_SetProperty(ButtonIcon, C_PropertyId_Color, K_Properties { Color = _Color });
+	if (_Redraw) ButtonIcon = Private_Redraw(_This, _State, ButtonIcon, False);
+
+	return ButtonIcon;
+}
+Void SetColor(CMlScript _This, CMlFrame _Frame_ButtonIcon, Vec3 _Color, Boolean _Redraw) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+	CMGame_ButtonIcon2_ButtonIcon = Private_SetColor(_This, CMGame_ButtonIcon2_State, CMGame_ButtonIcon2_ButtonIcon, _Color, _Redraw);
+}
+Void SetColor(CMlScript _This, CMlFrame _Frame_ButtonIcon, Vec3 _Color) {
+	SetColor(_This, _Frame_ButtonIcon, _Color, True);
+}
+Void SetColor(CMlScript _This, CMlFrame _Frame_ButtonIcon, Text _Color, Boolean _Redraw) {
+	SetColor(_This, _Frame_ButtonIcon, CL::HexToRgb(_Color), _Redraw);
+}
+Void SetColor(CMlScript _This, CMlFrame _Frame_ButtonIcon, Text _Color) {
+	SetColor(_This, _Frame_ButtonIcon, CL::HexToRgb(_Color));
+}
+
+K_ButtonIcon Private_SetOpacity(CMlScript _This, K_State _State, K_ButtonIcon _ButtonIcon, Real _Opacity, Boolean _Redraw) {
+	declare K_ButtonIcon ButtonIcon = _ButtonIcon;
+	ButtonIcon = Private_SetProperty(ButtonIcon, C_PropertyId_Opacity, K_Properties { Opacity = _Opacity });
+	if (_Redraw) ButtonIcon = Private_Redraw(_This, _State, ButtonIcon, False);
+
+	return ButtonIcon;
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ButtonIcon, Real _Opacity, Boolean _Redraw) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+	CMGame_ButtonIcon2_ButtonIcon = Private_SetOpacity(_This, CMGame_ButtonIcon2_State, CMGame_ButtonIcon2_ButtonIcon, _Opacity, _Redraw);
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ButtonIcon, Real _Opacity) {
+	SetOpacity(_This, _Frame_ButtonIcon, _Opacity, True);
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ButtonIcon, Text _Opacity, Boolean _Redraw) {
+	SetOpacity(_This, _Frame_ButtonIcon, _Opacity, _Redraw);
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ButtonIcon, Text _Opacity) {
+	SetOpacity(_This, _Frame_ButtonIcon, _Opacity);
+}
+
+K_Result Private_SetHideForMouse(CMlScript _This, K_State _State, K_ButtonIcon _ButtonIcon, Boolean _HideForMouse, Boolean _Redraw) {
+	declare K_Result Result = K_Result {
+		State = _State,
+		ButtonIcon = _ButtonIcon
+	};
+
+	if (_HideForMouse && !Result.State.HideForMouseIds.exists(Result.ButtonIcon.Id)) {
+		Result.State.HideForMouseIds.add(Result.ButtonIcon.Id);
+	} else if (!_HideForMouse) {
+		Result.State.HideForMouseIds.remove(Result.ButtonIcon.Id);
+	}
+
+	Result.ButtonIcon = Private_SetProperty(Result.ButtonIcon, C_PropertyId_HideForMouse, K_Properties { HideForMouse = _HideForMouse });
+	if (_Redraw) Result.ButtonIcon = Private_Redraw(_This, _State, Result.ButtonIcon, False);
+
+	return Result;
+}
+Void SetHideForMouse(CMlScript _This, CMlFrame _Frame_ButtonIcon, Boolean _HideForMouse, Boolean _Redraw) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+	declare K_Result Result = Private_SetHideForMouse(_This, CMGame_ButtonIcon2_State, CMGame_ButtonIcon2_ButtonIcon, _HideForMouse, _Redraw);
+	CMGame_ButtonIcon2_State = Result.State;
+	CMGame_ButtonIcon2_ButtonIcon = Result.ButtonIcon;
+}
+Void SetHideForMouse(CMlScript _This, CMlFrame _Frame_ButtonIcon, Boolean _HideForMouse) {
+	SetHideForMouse(_This, _Frame_ButtonIcon, _HideForMouse, True);
+}
+
+Void InitializeButtonIcon(CMlScript _This, CMlFrame _Frame_ButtonIcon) {
+	assert(
+		_Frame_ButtonIcon.Controls.count == 1 &&
+		_Frame_ButtonIcon.Controls[0].HasClass(C_Class_ButtonIcon),
+		"Control '"^_Frame_ButtonIcon.ControlId^"' is not a valid `ButtonIcon` instance"
+	);
+
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+
+	CMGame_ButtonIcon2_ButtonIcon = K_ButtonIcon {
+		Id = _Frame_ButtonIcon.Id,
+		Controls = K_Controls {
+			Frame_ButtonIcon = _Frame_ButtonIcon,
+			Frame_MouseVisibility = (_Frame_ButtonIcon.GetFirstChild(C_Id_FrameMouseVisibility) as CMlFrame),
+			Frame_Gamepad = (_Frame_ButtonIcon.GetFirstChild(C_Id_FrameGamePad) as CMlFrame),
+			Quad_ButtonIcon = (_Frame_ButtonIcon.GetFirstChild(C_Id_QuadButtonIcon) as CMlQuad),
+			Frame_Keyboard = (_Frame_ButtonIcon.GetFirstChild(C_Id_FrameKeyboard) as CMlFrame),
+			Quad_KeyIcon = (_Frame_ButtonIcon.GetFirstChild(C_Id_QuadKeyIcon) as CMlQuad),
+			Label_KeyboardKeyName = (_Frame_ButtonIcon.GetFirstChild(C_Id_LabelKeyboardKeyName) as CMlLabel),
+			Label_KeyboardKeyEnter = (_Frame_ButtonIcon.GetFirstChild(C_Id_LabelKeyboardKeyEnter) as CMlLabel)
+		},
+		Properties = K_Properties {
+			Bind = CInputManager::EButton::None,
+			KeyboardKeyName = "",
+			KeyboardKeyNameRaw = "",
+			Size = <10., 10.>,
+			HAlign = CMlControl::AlignHorizontal::HCenter,
+			VAlign = CMlControl::AlignVertical::VCenter,
+			Color = <1., 1., 1.>,
+			Opacity = 1.,
+			HideForMouse = False
+		},
+		DirtyProperties = []
+	};
+
+	if (CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeExists("bind")) {
+		CMGame_ButtonIcon2_ButtonIcon = Private_SetBind(
+			_This,
+			CMGame_ButtonIcon2_State,
+			CMGame_ButtonIcon2_ButtonIcon,
+			Private_ConvertTextToEButton(CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeGet("bind")),
+			False
+		);
+	}
+
+	if (CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeExists("size")) {
+		CMGame_ButtonIcon2_ButtonIcon = Private_SetSize(
+			_This,
+			CMGame_ButtonIcon2_State,
+			CMGame_ButtonIcon2_ButtonIcon,
+			Tools::TextToVec2(CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeGet("size")),
+			False
+		);
+	}
+
+	if (CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeExists("halign")) {
+		CMGame_ButtonIcon2_ButtonIcon = Private_SetHAlign(
+			_This,
+			CMGame_ButtonIcon2_State,
+			CMGame_ButtonIcon2_ButtonIcon,
+			Tools::TextToHAlign2(CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeGet("halign")),
+			False
+		);
+	}
+
+	if (CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeExists("valign")) {
+		CMGame_ButtonIcon2_ButtonIcon = Private_SetVAlign(
+			_This,
+			CMGame_ButtonIcon2_State,
+			CMGame_ButtonIcon2_ButtonIcon,
+			Tools::TextToVAlign2(CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeGet("valign")),
+			False
+		);
+	}
+
+	if (CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeExists("color")) {
+		CMGame_ButtonIcon2_ButtonIcon = Private_SetColor(
+			_This,
+			CMGame_ButtonIcon2_State,
+			CMGame_ButtonIcon2_ButtonIcon,
+			CL::HexToRgb(CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeGet("color")),
+			False
+		);
+	}
+
+	if (CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeExists("opacity")) {
+		CMGame_ButtonIcon2_ButtonIcon = Private_SetOpacity(
+			_This,
+			CMGame_ButtonIcon2_State,
+			CMGame_ButtonIcon2_ButtonIcon,
+			TL::ToReal(CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeGet("opacity")),
+			False
+		);
+	}
+
+	if (CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeExists("hideformouse")) {
+		declare K_Result Result = Private_SetHideForMouse(
+			_This,
+			CMGame_ButtonIcon2_State,
+			CMGame_ButtonIcon2_ButtonIcon,
+			Tools::TextToBoolean(CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_ButtonIcon.DataAttributeGet("hideformouse")),
+			False
+		);
+		CMGame_ButtonIcon2_State = Result.State;
+		CMGame_ButtonIcon2_ButtonIcon = Result.ButtonIcon;
+	}
+
+	CMGame_ButtonIcon2_ButtonIcon = Private_Redraw(_This, CMGame_ButtonIcon2_State, CMGame_ButtonIcon2_ButtonIcon, True);
+}
+
+Void InitializeButtonIcons(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_ButtonIcon, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_ButtonIcon = (Control as CMlFrame).Parent;
+		InitializeButtonIcon(_This, Frame_ButtonIcon);
+	}
+}
+
+Void Private_RedrawAllIcons(CMlScript _This, K_State _State, Integer _FirstParty, CSystemPlatform::ESystemPlatform _Platform) {
+	_This.Page.GetClassChildren(C_Class_ButtonIcon, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for Control.Parent = C_ButtonIcon_Null;
+		Private_RedrawIcon(_State, CMGame_ButtonIcon2_ButtonIcon, _FirstParty, _Platform);
+	}
+}
+Void RedrawAllIcons(CMlScript _This) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	Private_RedrawAllIcons(_This, CMGame_ButtonIcon2_State, Platform::GetFirstParty(_This.System), Platform::GetPlatform(_This.System));
+}
+
+K_ActivePad Private_CreateActivePad(CInputPad _Pad) {
+	declare K_ActivePad ActivePad = C_ActivePad_Null;
+
+	ActivePad.Id = _Pad.Id;
+
+	switch (_Pad.Type) {
+		case CInputPad::EPadType::PlayStation: {
+			ActivePad.Type = C_PadType_PadPlayStation;
+		}
+		case CInputPad::EPadType::XBox: {
+			ActivePad.Type = C_PadType_PadXBox;
+		}
+		case CInputPad::EPadType::Generic: {
+			ActivePad.Type = C_PadType_PadGeneric;
+		}
+		default: {
+			ActivePad.Type = C_PadType_KeyboardMouse;
+		}
+	}
+
+	ActivePad.IsGamepad = (
+		ActivePad.Type == C_PadType_PadPlayStation ||
+		ActivePad.Type == C_PadType_PadXBox ||
+		ActivePad.Type == C_PadType_PadGeneric
+	);
+
+	return ActivePad;
+}
+
+K_ActivePad Private_FindActivePad(K_ActivePad _ActivePad) {
+	// We want to avoid swapping between pads if several ones are used at the same time
+	// To avoid that, even if another pad was used more recently, we keep the active one
+	// until it stops being used for more than `C_ActivePadGracePeriodDuration` milliseconds
+	if (
+		_ActivePad.Id != NullId &&
+		Input.Pads.existskey(_ActivePad.Id) &&
+		Tools::GetPadIdleDuration(Input.Pads[_ActivePad.Id]) <= C_ActivePadGracePeriodDuration
+	) {
+		return _ActivePad;
+	}
+
+	declare K_ActivePad ActivePad = C_ActivePad_Null;
+	declare Integer SmallestIdleDuration = 0;
+	foreach (Pad in Input.Pads) {
+		if (
+			ActivePad.Id == NullId ||
+			ActivePad.Type == C_PadType_Null ||
+			Tools::GetPadIdleDuration(Pad) < SmallestIdleDuration
+		) {
+			declare K_ActivePad TmpActivePad = Private_CreateActivePad(Pad);
+			if (TmpActivePad.Id != NullId && TmpActivePad.Type != C_PadType_Null) {
+				ActivePad = TmpActivePad;
+				SmallestIdleDuration = Tools::GetPadIdleDuration(Pad);
+			}
+		}
+	}
+
+	return ActivePad;
+}
+
+Ident Private_FindKeyboardId(Ident _KeyboardId) {
+	if (_KeyboardId != NullId && Input.Pads.existskey(_KeyboardId)) return _KeyboardId;
+
+	foreach (Pad in Input.Pads) {
+		if (Pad.Type == CInputPad::EPadType::Keyboard) {
+			return Pad.Id;
+		}
+	}
+
+	return NullId;
+}
+
+K_State Private_UpdateActivePadAndKeyboardId(CMlScript _This, K_State _State) {
+	declare K_State State = _State;
+
+	State.ActivePad = Private_FindActivePad(State.ActivePad);
+	State.KeyboardId = Private_FindKeyboardId(State.KeyboardId);
+
+	// We need to redraw the icons only if the type of input device
+	// used to navigate in the game changed. eg: going from gamepad to keyboard or
+	// from an XBox gamepad to a PlayStation gamepad
+	// If the input device changed but has the same type than the previous one
+	// there's no need to redraw. eg: from an XBox gamepad to another XBox gamepad
+	if (
+		State.ActivePad.Type != _State.ActivePad.Type ||
+		State.KeyboardId != _State.KeyboardId
+	) {
+		Private_RedrawAllIcons(_This, State, Platform::GetFirstParty(_This.System), Platform::GetPlatform(_This.System));
+
+		State.PendingEvents.add(K_Event {
+			Type = C_EventType_PadTypeUpdate,
+			PadType = State.ActivePad.Type
+		});
+	}
+
+	if (State.ActivePad.Id != _State.ActivePad.Id) {
+		State.PendingEvents.add(K_Event {
+			Type = C_EventType_ActivePadUpdate,
+			PadId = State.ActivePad.Id
+		});
+	}
+
+	return State;
+}
+
+Void Private_RedrawAllMouseVisibility(CMlScript _This, K_State _State, Integer _FirstParty) {
+	_This.Page.GetClassChildren(C_Class_ButtonIcon, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for Control.Parent = C_ButtonIcon_Null;
+		Private_RedrawMouseVisibility(_State, CMGame_ButtonIcon2_ButtonIcon, _FirstParty);
+	}
+}
+
+K_State Private_UpdateIsUsingMouse(CMlScript _This, K_State _State) {
+	if (_State.IsUsingMouse == Tools::IsUsingMouse(Input)) return _State;
+
+	declare K_State State = _State;
+	State.IsUsingMouse = Tools::IsUsingMouse(Input);
+	State = Private_UpdateActivePadAndKeyboardId(_This, State);
+	Private_RedrawAllMouseVisibility(_This, State, Platform::GetFirstParty(_This.System));
+
+	State.PendingEvents.add(K_Event {
+		Type = C_EventType_HideForMouse,
+		HideForMouse = State.IsUsingMouse
+	});
+
+	return State;
+}
+
+Boolean IsVisible(CMlFrame _Frame_ButtonIcon) {
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+	return CMGame_ButtonIcon2_ButtonIcon.Controls.Frame_MouseVisibility.Visible;
+}
+
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	return CMGame_ButtonIcon2_State.PendingEvents;
+}
+
+// Animate opacity
+Void AddOpacityAnimation(CMlScript _This, CMlFrame _Frame_ButtonIcon, Real _Opacity, Integer _StartTime, Integer _Duration, CAnimManager::EAnimManagerEasing _EasingFunc) {
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+
+	// Animations
+	_This.AnimMgr.Add(CMGame_ButtonIcon2_ButtonIcon.Controls.Quad_ButtonIcon, "<anim opacity=\""^_Opacity^"\"/>", _StartTime, _Duration, _EasingFunc);
+	_This.AnimMgr.Add(CMGame_ButtonIcon2_ButtonIcon.Controls.Quad_KeyIcon, "<anim opacity=\""^_Opacity^"\"/>", _StartTime, _Duration, _EasingFunc);
+	_This.AnimMgr.Add(CMGame_ButtonIcon2_ButtonIcon.Controls.Label_KeyboardKeyName, "<anim opacity=\""^_Opacity^"\"/>", _StartTime, _Duration, _EasingFunc);
+	_This.AnimMgr.Add(CMGame_ButtonIcon2_ButtonIcon.Controls.Label_KeyboardKeyEnter, "<anim opacity=\""^_Opacity^"\"/>", _StartTime, _Duration, _EasingFunc);
+
+	// Set opacity property as dirty to enable a future redraw
+	if (!CMGame_ButtonIcon2_ButtonIcon.DirtyProperties.exists(C_PropertyId_Opacity)) {
+		CMGame_ButtonIcon2_ButtonIcon.DirtyProperties.add(C_PropertyId_Opacity);
+	}
+}
+Void AddOpacityAnimation(CMlScript _This, CMlFrame _Frame_ButtonIcon, Real _Opacity, Integer _Duration, CAnimManager::EAnimManagerEasing _EasingFunc) {
+	AddOpacityAnimation(_This, _Frame_ButtonIcon, _Opacity, Now, _Duration, _EasingFunc);
+}
+
+// Flush animations
+Void FlushAnimations(CMlScript _This, CMlFrame _Frame_ButtonIcon) {
+	declare K_ButtonIcon CMGame_ButtonIcon2_ButtonIcon for _Frame_ButtonIcon = C_ButtonIcon_Null;
+	Private_FlushAnimations(_This, CMGame_ButtonIcon2_ButtonIcon);
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	CMGame_ButtonIcon2_State = C_State_Null;
+	InitializeButtonIcons(_This);
+}
+
+Void MainStart(CMlScript _This) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	CMGame_ButtonIcon2_State = Private_UpdateActivePadAndKeyboardId(_This, CMGame_ButtonIcon2_State);
+	CMGame_ButtonIcon2_State = Private_UpdateIsUsingMouse(_This, CMGame_ButtonIcon2_State);
+
+	CMGame_ButtonIcon2_State.ActivePadCheckEnabled = !C_FirstPartiesWithForcedButtonIcon.exists(Platform::GetFirstParty(_This.System));
+	CMGame_ButtonIcon2_State.HideForMouseEnabled = !C_FirstPartiesWithForcedButtonIcon.exists(Platform::GetFirstParty(_This.System));
+	CMGame_ButtonIcon2_State.NextActivePadCheckTime = Now + C_ActivePadCheckInterval;
+	CMGame_ButtonIcon2_State.PageWasVisible = _This.PageIsVisible;
+	CMGame_ButtonIcon2_State.EnableMenuNavigationInputs = _This.EnableMenuNavigationInputs;
+	CMGame_ButtonIcon2_State.PendingMenuNavigationUpdate = False;
+	CMGame_ButtonIcon2_State.JapanStylePadButtons = _This.Input.JapanStylePadButtons;
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State CMGame_ButtonIcon2_State for _This.Page = C_State_Null;
+	CMGame_ButtonIcon2_State.PendingEvents = [];
+
+	if (CMGame_ButtonIcon2_State.PageWasVisible != _This.PageIsVisible) {
+		CMGame_ButtonIcon2_State.PageWasVisible = _This.PageIsVisible;
+		CMGame_ButtonIcon2_State.NextActivePadCheckTime = Now;
+	}
+
+	if (_This.PageIsVisible) {
+		if (CMGame_ButtonIcon2_State.ActivePadCheckEnabled && Now >= CMGame_ButtonIcon2_State.NextActivePadCheckTime) {
+			CMGame_ButtonIcon2_State.NextActivePadCheckTime = Now + C_ActivePadCheckInterval;
+			CMGame_ButtonIcon2_State = Private_UpdateActivePadAndKeyboardId(_This, CMGame_ButtonIcon2_State);
+		}
+
+		if (CMGame_ButtonIcon2_State.HideForMouseEnabled && CMGame_ButtonIcon2_State.HideForMouseIds.count > 0) {
+			CMGame_ButtonIcon2_State = Private_UpdateIsUsingMouse(_This, CMGame_ButtonIcon2_State);
+		}
+
+		if (CMGame_ButtonIcon2_State.JapanStylePadButtons != _This.Input.JapanStylePadButtons) {
+			CMGame_ButtonIcon2_State.JapanStylePadButtons = _This.Input.JapanStylePadButtons;
+			Private_RedrawAllIcons(_This, CMGame_ButtonIcon2_State, Platform::GetFirstParty(_This.System), Platform::GetPlatform(_This.System));
+		}
+
+		// When the menu navigation is enabled or disabled, the bindings change (menu or gameplay)
+		// So we must refrest all icons to reflect that
+		// But only one frame after the change, otherwise the new bindings are not available yet
+		if (CMGame_ButtonIcon2_State.PendingMenuNavigationUpdate) {
+			CMGame_ButtonIcon2_State.PendingMenuNavigationUpdate = False;
+			Private_RedrawAllIcons(_This, CMGame_ButtonIcon2_State, Platform::GetFirstParty(_This.System), Platform::GetPlatform(_This.System));
+		}
+		if (CMGame_ButtonIcon2_State.EnableMenuNavigationInputs != _This.EnableMenuNavigationInputs) {
+			CMGame_ButtonIcon2_State.EnableMenuNavigationInputs = _This.EnableMenuNavigationInputs;
+			CMGame_ButtonIcon2_State.PendingMenuNavigationUpdate = True;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/ButtonIcon2.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[],
+		[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if we can get the button icons for this kind of pad
+Boolean CanGetPadButtonIcon(CInputPad _Pad) {
+	return Private_CreateActivePad(_Pad).IsGamepad;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the button icon for a given pad button
+Text GetPadButtonIcon(CSystemPlatform _System, CInputPad _Pad, Text _Button) {
+	return Private_GetPadButtonIcons(Private_CreateActivePad(_Pad), Platform::GetFirstParty(_System), Platform::GetPlatform(_System)).get(Private_ConvertTextToEButton(_Button), C_PadButtonIconUnknown);
+}

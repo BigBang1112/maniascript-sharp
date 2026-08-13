@@ -1,0 +1,228 @@
+/**
+ *	Component for Online Services Status Card
+ */
+#Const Version		"1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Components/OnlineServicesStatusCard.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/Trackmania/Stores/OnlineServicesStatusStore_ML.Script.txt" as OnlineServicesStatusStore
+#Include "Libs/Nadeo/Trackmania/API/OnlineServicesStatusAPI.Script.txt" as OnlineServicesStatusAPI
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-onlineservicescard" //< Component name
+#Const P "ComponentOnlineServicesStatusCard_" //< Prefix use to differentiate functions/variables in the script
+
+#Const C_Class_OnlineServicesStatusCard "class-component-onlineservicescard"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text Component() {
+	//L16N [Online Services Status Card] Display the Trackmania online services status (operational or in maintenance or degraded)
+	declare Text Text_OnlineServicesStatus = _("Online services status");
+
+	return MV::Component(
+		C_Name,
+		"""
+<stylesheet>
+	<style class="{{{P}}}text-bold" textsize="4" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textcolor="ffffff" halign="center" valign="center2" />
+	<style class="{{{P}}}text-semibold" textsize="2" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="ffffff" halign="center" valign="center2" />
+	<style class="{{{P}}}text-regular" textsize="2" textprefix="$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textcolor="ffffff" halign="center" valign="center2" />
+</stylesheet>
+
+<!-- Online Services status card -->
+<frame id="{{{P}}}frame-global" class="{{{C_Class_OnlineServicesStatusCard}}}" hidden="1">
+	<frameinstance
+		id="{{{P}}}expendable-bg-online-services-status"
+		modelid="{{{ExpendableAsset::C_Name}}}"
+		z-index="-1"
+		data-width="80"
+		data-height="25"
+		data-halign="center"
+		data-valign="center"
+		data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}"
+		data-opacity="0.6"
+		data-styles="{{{ExpendableAsset::C_Style_EdgesRounded}}}"
+	/>
+	<frameinstance
+		id="{{{P}}}expendable-contour-online-services-status"
+		modelid="{{{ExpendableAsset::C_Name}}}"
+		z-index="1"
+		data-width="80"
+		data-height="25"
+		data-halign="center"
+		data-valign="center"
+		data-color="FFF"
+		data-opacity="1."
+		data-styles="{{{ExpendableAsset::C_Style_ContourRounded}}}"
+	/>
+	<label class="{{{P}}}text-semibold" text="{{{Text_OnlineServicesStatus}}}" {{{MLHelpers::Pos(MLHelpers::SkewX(<0., 8.>, 10.))}}} size="70 8" />
+	<label id="{{{P}}}label-online-services-status-name" class="{{{P}}}text-bold" {{{MLHelpers::Pos(MLHelpers::SkewX(<0., 3.>, 10.))}}} size="70 10" />
+	<label id="{{{P}}}label-online-services-status-details" class="{{{P}}}text-regular" maxline="3" {{{MLHelpers::Pos(MLHelpers::SkewX(<0., -5.>, 10.))}}} size="70 20" />
+</frame>
+		""",
+		"""
+#Include "TextLib" as {{{P}}}TL
+#Include "TimeLib" as {{{P}}}TiL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as {{{P}}}Tools
+
+#Struct {{{P}}}K_Controls {
+	CMlFrame Frame_Global;
+	CMlFrame Contour_OnlineServicesStatusCard;
+	CMlLabel Label_OnlineServicesStatusName;
+	CMlLabel Label_OnlineServicesStatusDetails;
+}
+
+#Const {{{P}}}C_OneDay_InSecs 86400
+		""",
+		"""
+// Update the info displayed in the online services status card
+Void {{{P}}}DisplayOnlineServicesStatus({{{OnlineServicesStatusAPI::P}}}K_OnlineServiceOverview _OnlineServicesStatus, CMlFrame _Frame_OnlineServicesStatusCard) {
+	declare {{{P}}}K_Controls {{{P}}}Controls for _Frame_OnlineServicesStatusCard;
+	switch (_OnlineServicesStatus.Event.Type) {
+		case {{{OnlineServicesStatusStore::P}}}C_OnlineServicesStatus_None, {{{OnlineServicesStatusStore::P}}}C_OnlineServicesStatus_FailedRequest: {
+			{{{P}}}Controls.Frame_Global.Visible = False;
+		}
+		case {{{OnlineServicesStatusStore::P}}}C_OnlineServicesStatus_Maintenance, {{{OnlineServicesStatusStore::P}}}C_OnlineServicesStatus_Outage: {
+			{{{P}}}Controls.Label_OnlineServicesStatusName.Value = {{{OnlineServicesStatusStore::P}}}GetCurrentStatusNameAndIconColorized();
+			{{{ExpendableAsset::P}}}SetColor(This, {{{P}}}Controls.Contour_OnlineServicesStatusCard, {{{OnlineServicesStatusStore::P}}}GetCurrentStatusColor(), False);
+			{{{ExpendableAsset::P}}}RedrawAsset(This, {{{P}}}Controls.Contour_OnlineServicesStatusCard, False);
+
+			declare Text EventTimeFrame = "";
+			if (_OnlineServicesStatus.Event.StartTimestamp != -1) {
+				declare Text StartTimestamp = {{{P}}}TL::ToText(_OnlineServicesStatus.Event.StartTimestamp);
+				if (_OnlineServicesStatus.Event.EndTimestamp != -1) { // event has an end time
+					declare Text EndTimestamp = {{{P}}}TL::ToText(_OnlineServicesStatus.Event.EndTimestamp);
+					// Start and end timestamp are on differents days
+					if (
+						{{{P}}}TiL::GetDelta(EndTimestamp, StartTimestamp) > {{{P}}}C_OneDay_InSecs || // more than 24h of difference
+						{{{P}}}TiL::Clamp01TZDay(StartTimestamp) > {{{P}}}TiL::Clamp01TZDay(EndTimestamp) // or less than 24h diff but EndTimeStamp hour smaller than StartTimestamp (for ex starts at 23:30 on 1st and ends at 1:30 on 2nd)
+					) {
+						declare Text StartDate = {{{P}}}TiL::FormatDate(StartTimestamp, {{{P}}}TiL::EDateFormats::DateShort);
+						declare Text StartHour = {{{P}}}TiL::FormatDate(StartTimestamp, {{{P}}}TiL::EDateFormats::TimeShort);
+						declare Text EndDate = {{{P}}}TiL::FormatDate(EndTimestamp, {{{P}}}TiL::EDateFormats::DateShort);
+						declare Text EndHour = {{{P}}}TiL::FormatDate(EndTimestamp, {{{P}}}TiL::EDateFormats::TimeShort);
+
+						EventTimeFrame = {{{P}}}TL::Compose(
+							//L16N The timeframe of an event (eg. maintenance, outage), %1 for the start date, %2 for the start time, %3 for the end date, %4 for the end time. The text must be on two lines. eg: "From 2022/11/11 at 10:00pm to 2022/11/13 at 12:00am"
+							_("|Online Services Status|From %1 at %2\nto %3 at %4"),
+							StartDate,
+							StartHour,
+							EndDate,
+							EndHour
+						);
+					} else { // Same day but different hours
+						declare Text Date = {{{P}}}TiL::FormatDate(StartTimestamp, {{{P}}}TiL::EDateFormats::DateShort);
+						declare Text StartHour = {{{P}}}TiL::FormatDate(StartTimestamp, {{{P}}}TiL::EDateFormats::TimeShort);
+						declare Text EndHour = {{{P}}}TiL::FormatDate(EndTimestamp, {{{P}}}TiL::EDateFormats::TimeShort);
+
+						EventTimeFrame = {{{P}}}TL::Compose(
+							//L16N The timeframe of an event (eg. maintenance, outage), %1 for the start time, %2 for the end time, %3 for the date. eg: "From 10:00am to 11:00pm on 2022/02/11"
+							_("|Online Services Status|From %1 to %2 on %3"),
+							StartHour,
+							EndHour,
+							Date
+						);
+					}
+				} else { // event has only a start time
+					declare Text Date = {{{P}}}TiL::FormatDate(StartTimestamp, {{{P}}}TiL::EDateFormats::DateShort);
+					declare Text StartHour = {{{P}}}TiL::FormatDate(StartTimestamp, {{{P}}}TiL::EDateFormats::TimeShort);
+
+					if ({{{P}}}TiL::GetDelta(StartTimestamp, {{{P}}}TiL::GetCurrent()) >= 0) {
+						EventTimeFrame = {{{P}}}TL::Compose(
+							//L16N An event that will start soon (eg. maintenance, outage), %1 for the start time, %2 for the date. eg: "Starts at 10:30am on 2022/02/11"
+							_("|Online Services Status|Starts at %1 on %2"),
+							StartHour,
+							Date
+						);
+					} else {
+						EventTimeFrame = {{{P}}}TL::Compose(
+							//L16N An event already started (eg. maintenance, outage), %1 for the started time, %2 for the date. eg: "Started at 09:00pm on 2022/01/11"
+							_("|Online Services Status|Started at %1 on %2"),
+							StartHour,
+							Date
+						);
+					}
+				}
+			}
+			{{{P}}}Controls.Label_OnlineServicesStatusDetails.Value = EventTimeFrame;
+			{{{P}}}Tools::FitLabelValue({{{P}}}Controls.Label_OnlineServicesStatusDetails, 2., 1., 0.25);
+			{{{P}}}Controls.Frame_Global.Visible = True;
+		}
+		case {{{OnlineServicesStatusStore::P}}}C_OnlineServicesStatus_Degraded: {
+			{{{P}}}Controls.Label_OnlineServicesStatusName.Value = {{{OnlineServicesStatusStore::P}}}GetCurrentStatusNameAndIconColorized();
+			{{{ExpendableAsset::P}}}SetColor(This, {{{P}}}Controls.Contour_OnlineServicesStatusCard, {{{OnlineServicesStatusStore::P}}}GetCurrentStatusColor(), False);
+			{{{ExpendableAsset::P}}}RedrawAsset(This, {{{P}}}Controls.Contour_OnlineServicesStatusCard, False);
+
+			//L16N The list of services impacted by a degradation, will be followed by the services names, e.g "Services impacted : Live, Core"
+			declare Text ServicesImpacted = _("|Online Services Status|Impacted services: ");
+			declare Text[] ServicesNames = [];
+			foreach (ServiceGroup in _OnlineServicesStatus.ServicesGroups) {
+				foreach (Service in ServiceGroup.Services) {
+					if (Service.StatusCode < 200 || Service.StatusCode >= 400) {
+						ServicesNames.add(Service.Name);
+					}
+				}
+			}
+			declare Text ServicesNamesList = {{{P}}}TL::Join(", ", ServicesNames);
+			{{{P}}}Controls.Label_OnlineServicesStatusDetails.Value = {{{P}}}TL::Compose("%1 %2", ServicesImpacted, ServicesNamesList);
+			{{{P}}}Tools::FitLabelValue({{{P}}}Controls.Label_OnlineServicesStatusDetails, 2., 1., 0.25);
+			{{{P}}}Controls.Frame_Global.Visible = True;
+		}
+		default: {{{P}}}Controls.Frame_Global.Visible = False;
+	}
+}
+
+Void {{{P}}}HideOnlineServicesStatus(CMlFrame _Frame_OnlineServicesStatusCard) {
+	declare {{{P}}}K_Controls {{{P}}}Controls for _Frame_OnlineServicesStatusCard;
+	{{{P}}}Controls.Frame_Global.Visible = False;
+}
+
+// Initialize online services status card
+Void {{{P}}}InitializeOnlineServicesStatusCard(CMlFrame _Frame_OnlineServicesStatusCard) {
+	declare {{{P}}}K_Controls {{{P}}}Controls for _Frame_OnlineServicesStatusCard;
+
+	declare CMlFrame Frame_Global <=> (_Frame_OnlineServicesStatusCard.GetFirstChild("{{{P}}}frame-global") as CMlFrame);
+	declare CMlFrame Contour_OnlineServicesStatusCard <=> (_Frame_OnlineServicesStatusCard.GetFirstChild("{{{P}}}expendable-contour-online-services-status") as CMlFrame);
+	declare CMlLabel Label_OnlineServicesStatusName <=> (_Frame_OnlineServicesStatusCard.GetFirstChild("{{{P}}}label-online-services-status-name") as CMlLabel);
+	declare CMlLabel Label_OnlineServicesStatusDetails <=> (_Frame_OnlineServicesStatusCard.GetFirstChild("{{{P}}}label-online-services-status-details") as CMlLabel);
+	{{{P}}}Controls = {{{P}}}K_Controls {
+		Frame_Global = Frame_Global,
+		Contour_OnlineServicesStatusCard = Contour_OnlineServicesStatusCard,
+		Label_OnlineServicesStatusName = Label_OnlineServicesStatusName,
+		Label_OnlineServicesStatusDetails = Label_OnlineServicesStatusDetails
+	};
+}
+
+// Initialize all online services status cards in the manialink
+Void {{{P}}}InitializeOnlineServicesStatusCards() {
+	Page.GetClassChildren("{{{C_Class_OnlineServicesStatusCard}}}", Page.MainFrame, True);
+	foreach (Control in Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_OnlineServicesStatusCard = (Control as CMlFrame).Parent;
+		{{{P}}}InitializeOnlineServicesStatusCard(Frame_OnlineServicesStatusCard);
+	}
+}
+
+***MainStart***
+***
+{{{P}}}InitializeOnlineServicesStatusCards();
+***
+""",
+[
+	ExpendableAsset::ComponentV2(),
+	OnlineServicesStatusStore::ComponentV2(),
+	OnlineServicesStatusAPI::Component()
+],
+[]
+	);
+}

@@ -1,0 +1,365 @@
+/**
+ * UI module: EventList client side
+ */
+#Const Version "1.0.1"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/EventList_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/Shared.Script.txt" as Shared
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/EventList_Common.Script.txt" as UIModules_EventList_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MaxEventsDisplayed 5
+
+#Const C_EventAnimDuration 250
+
+#Const C_Size_Event <60., 6.5>
+#Const C_Size_TeamLogo <6.5, 6.5>
+#Const C_Size_EventListBg <60., 50.>
+
+#Const C_TextSize_LabelEvent 3.
+
+#Const C_ModelId_Event "modelid-event"
+#Const C_Id_FrameGlobal "frame-global"
+#Const C_Id_FrameEvents "frame-events"
+
+#Const C_Id_QuadTeamLogoBg "quad-team-logo-bg"
+#Const C_Id_QuadTeamLogo "quad-team-logo"
+#Const C_Id_LabelEvent "label-event"
+
+#Const UIModules_EventList_Common::C_UIModuleConfig as C_UIModuleConfig
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_EventList_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_EventList_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	declare Vec2 Pos_Sony = <
+		ML::Clamp(C_UIModuleConfig.Properties.Position.X, -144., 144.),
+		ML::Clamp(C_UIModuleConfig.Properties.Position.Y, -81., 81.)
+	>;
+
+	declare Text ML_Events = "";
+	// Add one more frame for the animations
+	for (I, 1, C_MaxEventsDisplayed + 1) {
+		ML_Events ^= """<frameinstance modelid="{{{C_ModelId_Event}}}" z-index="{{{I * -1}}}" hidden="1" />""";
+	}
+
+	return MV::Create(
+GetId(), 3,
+"""
+{{{Stylesheet::Get()}}}
+<framemodel id="{{{C_ModelId_Event}}}">
+	<frame>
+		<quad id="{{{C_Id_QuadTeamLogoBg}}}" {{{MLHelpers::Size(C_Size_TeamLogo)}}}/>
+		<quad id="{{{C_Id_QuadTeamLogo}}}" class="{{{Stylesheet::C_Class_BackgroundColorize_Accent}}}" pos="{{{C_Size_TeamLogo.X / 2.}}} {{{C_Size_TeamLogo.Y / -2.}}}" z-index="1" {{{MLHelpers::Size(C_Size_TeamLogo - <2., 2.>)}}} valign="center" halign="center" keepratio="fit" />
+	</frame>
+	<frame pos="{{{C_Size_TeamLogo.X}}} 0">
+		<quad class="{{{Stylesheet::C_Class_BackgroundBgColor_Accent}}}" {{{MLHelpers::Size(C_Size_Event - <C_Size_TeamLogo.X, 0.>)}}} />
+		<label id="{{{C_Id_LabelEvent}}}" class="{{{Stylesheet::C_Class_Text_Default}}}" pos="2 {{{C_Size_Event.Y / -2. - 0.3}}}" z-index="1" size="{{{C_Size_Event.X - C_Size_TeamLogo.X - 4.}}} {{{C_Size_Event.Y}}}" valign="center2" textsize="{{{C_TextSize_LabelEvent}}}" textcolor="{{{Stylesheet::C_Color_TMWC2023_BlueTeam_Primary}}}"/>
+	</frame>
+</framemodel>
+<frame id="{{{C_Id_FrameGlobal}}}" z-index="{{{Shared::C_ZIndex_EventList}}}">
+	<frame {{{MLHelpers::Size(C_Size_EventListBg)}}} halign="right" {{{UIModules::CustomizableUIModule(UIModules_EventList_Common::C_UIModuleConfig)}}}>
+		<frame id="{{{C_Id_FrameEvents}}}">
+			{{{ML_Events}}}
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/Shared.Script.txt" as Shared
+#Include "Libs/Nadeo/Trackmania/Modes/TMWTCommon/Teams.Script.txt" as Teams
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/Events.Script.txt" as Events
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/Structs.Script.txt" as Structs
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/Stylesheet.Script.txt" as Stylesheet
+
+#Struct K_Controls {
+	CMlFrame Frame_Global;
+	CMlFrame[] Frames_Events;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Boolean IsVisible;
+	Boolean IsSpectating;
+	Boolean DisplayModule;
+	Integer QueueUpdate;
+	Integer AnimationCooldown;
+	Integer LastEventSerial;
+	Structs::K_Event[Integer] DisplayedEvents;
+}
+
+#Const C_State_Null K_State {
+	Controls = K_Controls {},
+	IsVisible = False,
+	IsSpectating = False,
+	DisplayModule = False,
+	QueueUpdate = -1,
+	AnimationCooldown = -1,
+	DisplayedEvents = []
+}
+#Const C_MaxEventsDisplayed {{{dump(C_MaxEventsDisplayed)}}}
+
+#Const C_EventAnimDuration {{{dump(C_EventAnimDuration)}}}
+
+#Const C_Size_Event {{{dump(C_Size_Event)}}}
+
+#Const C_TextSize_LabelEvent {{{dump(C_TextSize_LabelEvent)}}}
+
+#Const C_Id_FrameGlobal {{{dump(C_Id_FrameGlobal)}}}
+#Const C_Id_FrameEvents {{{dump(C_Id_FrameEvents)}}}
+
+#Const C_Id_QuadTeamLogoBg {{{dump(C_Id_QuadTeamLogoBg)}}}
+#Const C_Id_QuadTeamLogo {{{dump(C_Id_QuadTeamLogo)}}}
+#Const C_Id_LabelEvent {{{dump(C_Id_LabelEvent)}}}
+
+#Const C_DefaultClan1Logo "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWC2023/UI/DefaultClanLogo_1.dds"
+#Const C_DefaultClan2Logo "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWC2023/UI/DefaultClanLogo_2.dds"
+""",
+"""
+Vec2 GetPosOfEventFromKey(Integer _Key) {
+	if (_Key == 0) return <0., 0.>;
+	return <-C_Size_Event.X, (C_Size_Event.Y + 1.) * (_Key - 1.) * -1.>;
+}
+
+Void UpdateEventLineContent(CMlFrame _Frame, Structs::K_Event _Event) {
+	declare Integer TMWC2023_EventSerial for _Frame = -1;
+	TMWC2023_EventSerial = _Event.Serial;
+
+	declare Teams::K_Team[Integer] TeamsInfo = Teams::GetTeamsInfo(This);
+
+	declare CMlQuad Quad_TeamLogo <=> (_Frame.GetFirstChild(C_Id_QuadTeamLogo) as CMlQuad);
+	declare Text TeamLogo = Teams::GetClanLogoUrl(This, TeamsInfo, _Event.ClanId);
+	if (TeamLogo == "") {
+		Quad_TeamLogo.Colorize = <1., 1., 1.>;
+		if (_Event.ClanId == 1) Quad_TeamLogo.ImageUrl = C_DefaultClan1Logo;
+		else Quad_TeamLogo.ImageUrl = C_DefaultClan2Logo;
+	} else {
+		Quad_TeamLogo.Colorize = MLHelpers::C_DefaultColorize;
+		Quad_TeamLogo.ImageUrl = TeamLogo;
+	}
+
+	declare CMlLabel Label <=> (_Frame.GetFirstChild(C_Id_LabelEvent) as CMlLabel);
+	declare CMlQuad Quad_TeamLogoBg <=> (_Frame.GetFirstChild(C_Id_QuadTeamLogoBg) as CMlQuad);
+	if (_Event.ClanId == 1) {
+		Quad_TeamLogoBg.BgColor = Stylesheet::C_Color_Vec3_TMWC2023_BlueTeam_Primary;
+		Label.TextColor = Stylesheet::C_Color_Vec3_TMWC2023_BlueTeam_Primary;
+	} else if (_Event.ClanId == 2) {
+		Quad_TeamLogoBg.BgColor = Stylesheet::C_Color_Vec3_TMWC2023_RedTeam_Primary;
+		Label.TextColor = Stylesheet::C_Color_Vec3_TMWC2023_RedTeam_Primary;
+	} else {
+		Quad_TeamLogoBg.BgColor = Stylesheet::C_Color_Vec3_TMWC2023_Default;
+		Label.TextColor = Stylesheet::C_Color_Vec3_TMWC2023_Default;
+		Quad_TeamLogo.ImageUrl = "";
+	}
+
+	declare Text PlayerName;
+	if (_Event.WebServicesUserId != "") {
+		// In addition to its return value, `UserMgr.FindDisplayName()` will also update the value of the `IsFirstPartyDisplayName` variable.
+		declare Boolean IsFirstPartyDisplayName;
+		PlayerName = Teams::GetPlayerName(Teams::GetPlayersInfo(This), _Event.WebServicesUserId,  UserMgr.FindDisplayName(_Event.WebServicesUserId, IsFirstPartyDisplayName), IsFirstPartyDisplayName);
+		if (PlayerName == "") { // Should never happen except for fake player. Also the FirstParty logo will not be displayed for them
+			foreach (Score in Scores) {
+				if (Score.User.WebServicesUserId != _Event.WebServicesUserId) continue;
+				PlayerName = Score.User.Name;
+				break;
+			}
+		}
+	}
+
+	switch (_Event.Type) {
+		case Structs::C_EventType_Respawn: Label.Value = TL::Compose("%1 respawns", PlayerName);
+		case Structs::C_EventType_WorldRecord: Label.Value = TL::Compose("%1 sets a new WR (%2)", PlayerName, _Event.Value);
+		case Structs::C_EventType_PersonalBest: Label.Value = TL::Compose("%1 sets a new PB (%2)", PlayerName, _Event.Value);
+		case Structs::C_EventType_Points: {
+			if (_Event.Value == "1") Label.Value = TL::Compose("+1 point for %1", Teams::GetClanName(This, TeamsInfo, _Event.ClanId));
+			else Label.Value = TL::Compose("+%1 points for %2", _Event.Value, Teams::GetClanName(This, TeamsInfo, _Event.ClanId));
+		}
+		default: Label.Value = _Event.Serial ^ " - " ^ _Event.Value;
+	}
+	Tools::FirstPartyLogoMatchLuminance(Label);
+	Tools::FitLabelValue(Label, C_TextSize_LabelEvent, 1.5, 0.1);
+}
+
+Void CopyEventLineContent(CMlFrame _FrameSrc, CMlFrame _FrameDst) {
+	declare Integer TMWC2023_EventSerial as TMWC2023_EventSerial_Src for _FrameSrc = -1;
+	declare Integer TMWC2023_EventSerial as TMWC2023_EventSerial_Dst for _FrameDst = -1;
+	TMWC2023_EventSerial_Dst = TMWC2023_EventSerial_Src;
+
+	declare CMlQuad Quad_TeamLogoBg_Src <=> (_FrameSrc.GetFirstChild(C_Id_QuadTeamLogoBg) as CMlQuad);
+	declare CMlQuad Quad_TeamLogoBg_Dst <=> (_FrameDst.GetFirstChild(C_Id_QuadTeamLogoBg) as CMlQuad);
+	Quad_TeamLogoBg_Dst.BgColor = Quad_TeamLogoBg_Src.BgColor;
+
+	declare CMlQuad Quad_TeamLogo_Src <=> (_FrameSrc.GetFirstChild(C_Id_QuadTeamLogo) as CMlQuad);
+	declare CMlQuad Quad_TeamLogo_Dst <=> (_FrameDst.GetFirstChild(C_Id_QuadTeamLogo) as CMlQuad);
+	Quad_TeamLogo_Dst.ImageUrl = Quad_TeamLogo_Src.ImageUrl;
+
+	declare CMlLabel Label_Src <=> (_FrameSrc.GetFirstChild(C_Id_LabelEvent) as CMlLabel);
+	declare CMlLabel Label_Dst <=> (_FrameDst.GetFirstChild(C_Id_LabelEvent) as CMlLabel);
+	Label_Dst.Value = Label_Src.Value;
+	Label_Dst.TextColor = Label_Src.TextColor;
+}
+
+Void UpdateEventLinePosition(CMlFrame _Frame, Integer _Key) {
+	AnimMgr.Flush(_Frame);
+	_Frame.Visible = True;
+	_Frame.RelativePosition_V3 = GetPosOfEventFromKey(_Key);
+	AnimMgr.Add(_Frame, "<a " ^ MLHelpers::Pos(GetPosOfEventFromKey(_Key + 1)) ^" />", C_EventAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+}
+
+K_State UpdateEvents(K_State _State, Integer _QueueUpdate, Structs::K_Event[Integer] _Queue) {
+	declare K_State State = _State;
+	State.QueueUpdate = _QueueUpdate;
+	declare Boolean NewAnimation;
+
+	declare Integer NextEventSerialToDisplay = -1;
+	if (_Queue.count > 0) {
+		foreach (Serial => Event in _Queue) {
+			if (!State.DisplayedEvents.existskey(Serial)) {
+				NextEventSerialToDisplay = Serial;
+				break;
+			}
+		}
+	}
+
+	foreach (Key => Frame in State.Controls.Frames_Events reverse) {
+		// Previous in the order the frames, but not in the order of the loop
+		declare CMlFrame PreviousFrame = State.Controls.Frames_Events[Key - 1];
+		declare Integer TMWC2023_EventSerial as TMWC2023_EventSerial_PreviousFrame for PreviousFrame = -1;
+
+		if (NextEventSerialToDisplay > -1 && TMWC2023_EventSerial_PreviousFrame >= 0 && Key > 0) {
+			NewAnimation = True;
+			CopyEventLineContent(PreviousFrame, Frame);
+			UpdateEventLinePosition(Frame, Key);
+		}
+
+		declare Integer TMWC2023_EventSerial for Frame = -1;
+
+		if (TMWC2023_EventSerial >= 0 && (!_Queue.existskey(TMWC2023_EventSerial) || Key == C_MaxEventsDisplayed)) {
+			TMWC2023_EventSerial = -1;
+			NewAnimation = True;
+
+			AnimMgr.Flush(Frame);
+			AnimMgr.Add(Frame, "<a pos=\"0 "^ Frame.RelativePosition_V3.Y ^"\" hidden=\"1\"/>", C_EventAnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	}
+
+	if (NextEventSerialToDisplay > -1) {
+		State.DisplayedEvents[NextEventSerialToDisplay] = _Queue[NextEventSerialToDisplay];
+		State.LastEventSerial = NextEventSerialToDisplay;
+
+		NewAnimation = True;
+
+		UpdateEventLineContent(State.Controls.Frames_Events[0], _Queue[NextEventSerialToDisplay]);
+		UpdateEventLinePosition(State.Controls.Frames_Events[0], 0);
+	}
+
+	if (NewAnimation) {
+		State.AnimationCooldown = Now + C_EventAnimDuration;
+	} else {
+		State.AnimationCooldown = -1;
+	}
+
+	return State;
+}
+
+
+K_State SetVisibility(K_State _State, Boolean _DisplayModule, Boolean _IsSpectating) {
+	declare K_State State = _State;
+
+	State.DisplayModule = _DisplayModule;
+	State.IsSpectating = _IsSpectating;
+	State.IsVisible = (
+		State.DisplayModule &&
+		State.IsSpectating
+	);
+
+	State.Controls.Frame_Global.Visible = State.IsVisible;
+	return State;
+}
+
+***MainInit***
+***
+declare netread Boolean Net_TMWC2023_EventList_IsVisible for UI;
+
+declare netread Structs::K_Event[Integer] Net_TMWC2023_EventList_Queue for Teams[0] = [];
+declare netread Integer Net_TMWC2023_EventList_QueueUpdate for Teams[0] = 0;
+
+declare K_State State = C_State_Null;
+***
+
+***MainStart***
+***
+State.Controls.Frame_Global <=> (Page.GetFirstChild(C_Id_FrameGlobal) as CMlFrame);
+
+declare CMlFrame Frame_Events = (State.Controls.Frame_Global.GetFirstChild(C_Id_FrameEvents) as CMlFrame);
+
+foreach (Control in Frame_Events.Controls) {
+	State.Controls.Frames_Events.add(Control as CMlFrame);
+}
+
+State = SetVisibility(State, State.Controls.Frame_Global.Visible, Shared::IsSpectating(This));
+
+// On Sony consoles every player names must be in the safe area
+// see: /trackmania-next/tmnext/-/issues/4660
+if (Platform::IsSony(System)) {
+	State.Controls.Frame_Global.GetFirstChild("{{{UIModules::GetCustomizableUIModuleFrameId(C_UIModuleConfig)}}}").RelativePosition_V3 = {{{dump(Pos_Sony)}}};
+}
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (State.DisplayModule != Net_TMWC2023_EventList_IsVisible) {
+		State = SetVisibility(State, Net_TMWC2023_EventList_IsVisible, State.IsSpectating);
+	}
+
+	if (State.DisplayModule) {
+		if (State.IsSpectating != Shared::IsSpectating(This)) {
+			State = SetVisibility(State, State.DisplayModule, Shared::IsSpectating(This));
+		}
+
+		if (State.IsVisible) {
+			if ((State.AnimationCooldown < 0 && State.QueueUpdate != Net_TMWC2023_EventList_QueueUpdate) || (State.AnimationCooldown > 0 && State.AnimationCooldown <= Now)) {
+				State = UpdateEvents(State, Net_TMWC2023_EventList_QueueUpdate, Net_TMWC2023_EventList_Queue);
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

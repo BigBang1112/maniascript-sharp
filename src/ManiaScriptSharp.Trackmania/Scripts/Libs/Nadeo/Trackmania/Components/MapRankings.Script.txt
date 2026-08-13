@@ -1,0 +1,1075 @@
+/**
+ * Component: MapRankings
+ */
+#Const Version "1.3.3"
+#Const ScriptName "Libs/Nadeo/Trackmania/Components/MapRankings.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/CMGame/Utils/Grid.Script.txt" as Grid
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/ControlBlockList.Script.txt" as ControlBlockList
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAssetBase.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/PlayerName.Script.txt" as PlayerName
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset_Trackmania
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton_Trackmania
+#Include "Libs/Nadeo/Trackmania/Components/RankingSelection.Script.txt" as RankingSelection
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_ML.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ReportSystem.Script.txt" as ReportSystem
+#Include "Libs/Nadeo/Trackmania/Structures/ReportStruct.Script.txt" as ReportStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Rankings {
+	CampaignStruct::LibCampaignStruct_K_MapTopRanking[] TopRankings;
+	CampaignStruct::LibCampaignStruct_K_TopScore[] ClubTopRankings;
+}
+#Struct K_MapRankings {
+	Text HAlign;
+	Text VAlign;
+	Boolean IsMapRankings;
+	Boolean IsLocked;
+	Boolean IsFocused;
+	CMlControl LastControlFocused;
+	Vec2 Size_Thumbnail;
+	Vec2 Size_Footer;
+	Grid::K_GridConfig GridConfig;
+}
+#Struct K_Event {
+	Integer Type;
+	Text AccountId;
+}
+#Struct K_State {
+	K_Event[] PendingEvents;
+	CMlFrame[] MapRankings;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_MapRankings_Null K_MapRankings {
+	HAlign = "left",
+	VAlign = "top",
+	IsMapRankings = False,
+	IsLocked = False,
+	IsFocused = False,
+	Size_Thumbnail = <0., 0.>,
+	Size_Footer = <0., 0.>,
+	GridConfig = Grid::K_GridConfig {}
+}
+#Const C_State_Null K_State {
+	PendingEvents = [],
+	MapRankings = []
+}
+
+#Const C_Name "component-maprankings" //< Component name
+#Const P "Trackmania_MapRankings::" //< Prefix used to differentiate functions/variables in the script
+#Const Q "Trackmania_MapRankings"
+#Const C_NavZone "ComponentMapRankings_quad-activation"
+#Const C_NavGroupName "ComponentMapRankings_NavGroup"
+
+#Const C_NumberOf_RanksInList 5
+#Const C_NumberOf_Rankings 4
+
+#Const C_EventType_Select 0
+
+//L16N Next medal winable by the player
+#Const C_Text_NextMedal _("Next medal")
+//L16N Label displayed when the thumbnail of the track couldn't be display
+#Const C_Text_NoThumbnail _("No preview available")
+//L16N Will be used to tell who made the content. %1 will be the name of the creator. (e.g "By Oscar")
+#Const C_Text_AuthorName _("By %1")
+
+#Const C_Class_QuadDefault "trackmania-map-rankings_quad-default"
+#Const C_Class_TextRegular "trackmania-map-rankings_text-regular"
+#Const C_Class_TextSemibold "trackmania-map-rankings_text-semibold"
+#Const C_Class_TextExtrabold "trackmania-map-rankings_text-extrabold"
+#Const C_Class_FrameContainerMapRankings "trackmania-map-rankings_frame-container-map-rankings"
+#Const C_ModelId_MapRanking "trackmania-map-rankings_framemodel-map-ranking"
+#Const C_Id_FrameMapRankingIndex "trackmania-map-rankings_frame-map-ranking-"
+#Const C_Id_FrameBackground "trackmania-map-rankings_frame-background"
+#Const C_Id_QuadActivationRanking "trackmania-map-rankings_quad-activation-ranking"
+#Const C_Id_LabelRank "trackmania-map-rankings_label-rank"
+#Const C_Id_PlayerNameName "trackmania-map-rankings_playername-name"
+#Const C_Id_LabelTime "trackmania-map-rankings_label-time"
+#Const C_Id_FrameMapRankingsAlign "trackmania-map-rankings_frame-map-rankings-align"
+#Const C_Id_FrameNavigationContainer "trackmania-map-rankings_frame-navigation-container"
+#Const C_Id_FrameLoadingSpinner "trackmania-map-rankings_frame-loading-spinner"
+#Const C_Id_FrameHitboxClip "trackmania-map-rankings_frame-hitbox-clip"
+#Const C_Id_ControlBlockListMapThumbnail "trackmania-map-rankings_control-block-list-map-thumbnail"
+#Const C_Id_QuadOverlay "trackmania-map-rankings_quad-overlay"
+#Const C_Id_QuadContour "trackmania-map-rankings_quad-contour"
+#Const C_Id_QuadLock "trackmania-map-rankings_quad-lock"
+#Const C_Id_LabelNoThumbnail "trackmania-map-rankings_label-no-thumbnail"
+#Const C_Id_FrameContent "trackmania-map-rankings_frame-content"
+#Const C_Id_ControlBlockListMapName "trackmania-map-rankings_control-block-list-map-name"
+#Const C_Id_LabelMapAuthorname "trackmania-map-rankings_label-map-authorname"
+#Const C_Id_FrameRankings "trackmania-map-rankings_frame-rankings"
+#Const C_Id_FrameMapRankingPersonnal "trackmania-map-rankings_frame-map-ranking-personnal"
+#Const C_Id_FrameMedal "trackmania-map-rankings_frame-medal"
+#Const C_Id_LabelPlayerTime "trackmania-map-rankings_label-player-time"
+#Const C_Id_FrameNextMedal "trackmania-map-rankings_frame-next-medal"
+#Const C_Id_QuadFooter "trackmania-map-rankings_quad-footer"
+#Const C_Id_LabelNextMedal "trackmania-map-rankings_label-next-medal"
+#Const C_Id_LabelMedalTime "trackmania-map-rankings_label-medal-time"
+#Const C_Id_QuadMedal "trackmania-map-rankings_quad-medal"
+#Const C_Id_LabelCampaignLocked "trackmania-map-rankings_label-campaign-locked"
+#Const C_Id_QuadMedalLocked "trackmania-map-rankings_quad-medal-locked"
+
+#Const RankingSelection::C_Display_Null as C_Display_Null
+#Const RankingSelection::C_Display_Medals as C_Display_Medals
+#Const RankingSelection::C_Display_ZoneRankings as C_Display_ZoneRankings
+#Const RankingSelection::C_Display_ClubRankings as C_Display_ClubRankings
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Text GetManialink() {
+	/* map rankings list */
+	declare Text ML_Rankings = "";
+	declare Real PersonnalRankSpacing = 5.5;
+	declare Vec2 Size_Thumbnail = MLHelpers::KeepRatioFromY(544., 412., 69.);
+	declare Vec2 Size_Background = <Size_Thumbnail.X-MLHelpers::SkewX(Size_Thumbnail.Y, 10.) - 1., 7.>;
+	declare Vec2 Size_Footer = MLHelpers::KeepRatioFromX(956., 96., Size_Thumbnail.X-MLHelpers::SkewX(Size_Thumbnail.Y, 10.) + 1.);
+	declare Grid::K_GridConfig GridConfig = Grid::Create(0., 0., 0., Grid::C_Direction_Bottom);
+	for (RankingIndex, 0, C_NumberOf_RanksInList-1) {
+		GridConfig = Grid::AddRow(GridConfig, RankingIndex, Size_Background.Y, Grid::C_Align_Center);
+		declare Text UpTarget = C_Id_FrameMapRankingIndex^ML::Clamp(RankingIndex-1, 0, C_NumberOf_RanksInList-1);
+		declare Text DownTarget = C_Id_FrameMapRankingIndex^ML::Clamp(RankingIndex+1, 0, C_NumberOf_RanksInList-1);
+		ML_Rankings ^= """
+			<frameinstance
+				id="{{{C_Id_FrameMapRankingIndex}}}{{{RankingIndex}}}"
+				modelid="{{{C_ModelId_MapRanking}}}"
+				class="{{{Grid::C_Class_Element}}} {{{Navigation::C_Class}}}"
+				data-grid-row="{{{RankingIndex}}}"
+				data-nav-inputs="select;cancel;down;up"
+				data-nav-targets="_;_;{{{DownTarget}}};{{{UpTarget}}}"
+				data-nav-group="{{{C_NavGroupName}}}"
+				data-nav-zone="{{{C_Id_QuadActivationRanking}}}"
+				data-nav-locked="1"
+				hidden="1"
+			/>
+		""";
+	}
+	GridConfig = Grid::SetSize(GridConfig, Size_Background.Y * GridConfig.Columns.count);
+
+	return """
+<stylesheet>
+	<style class="{{{C_Class_QuadDefault}}}" halign="center" valign="center" />
+	<style class="{{{C_Class_TextRegular}}}" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textcolor="FFF" textprefix="$i"/>
+	<style class="{{{C_Class_TextSemibold}}}" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="FFF" textprefix="$i"/>
+	<style class="{{{C_Class_TextExtrabold}}}" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textcolor="FFF" textprefix="$i"/>
+</stylesheet>
+
+<framemodel id="{{{C_ModelId_MapRanking}}}">
+	<frameinstance id="{{{C_Id_FrameBackground}}}" modelid="{{{ExpendableAsset_Trackmania::C_Name}}}" data-width="{{{Size_Background.X}}}" data-height="{{{Size_Background.Y}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" data-opacity="0." data-halign="left" z-index="0"/>
+	<quad id="{{{C_Id_QuadActivationRanking}}}" size="{{{Size_Background.X}}} {{{Size_Background.Y}}}" class="{{{Navigation::C_Class_ActivationZone}}} {{{C_Class_QuadDefault}}}" opacity="0." halign="left" scriptevents="1" z-index="10"/>
+	<label id="{{{C_Id_LabelRank}}}" class="{{{C_Class_TextExtrabold}}}" pos="11 -0.3" size="8 {{{Size_Background.Y}}}" textsize="3" halign="right" z-index="1"/>
+	<frameinstance id="{{{C_Id_PlayerNameName}}}" modelid="{{{PlayerName::C_Name}}}" pos="13 0" data-size="35 {{{Size_Background.Y}}}" data-valign="center" data-textprefix="$t$i" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" data-textsize="3" z-index="1" />
+	<label id="{{{C_Id_LabelTime}}}" class="{{{C_Class_TextSemibold}}}" pos="74 -0.3" size="25 {{{Size_Background.Y}}}" textprefix="$t$i" textsize="2.5" halign="right" z-index="1"/>
+</framemodel>
+
+<frame
+	id="{{{C_Id_FrameMapRankingsAlign}}}"
+	class="{{{C_Class_FrameContainerMapRankings}}}"
+	data-size-thumbnail="{{{Size_Thumbnail.X}}} {{{Size_Thumbnail.Y}}}"
+	data-size-footer="{{{Size_Footer.X}}} {{{Size_Footer.Y}}}"
+	data-grid-config="{{{TL::MLEncode(GridConfig.tojson())}}}"
+>
+	<frame z-index="1" id="{{{C_Id_FrameNavigationContainer}}}" class="{{{Navigation::C_Class_Container}}}">
+		<frameinstance id="{{{C_Id_FrameLoadingSpinner}}}" modelid="{{{LoadingSpinner::C_Name}}}" pos="{{{MLHelpers::Skew(32.5, 27., 10.)}}}" z-index="1" scale="0.6" halign="right" valign="top"/>
+		<frame id="{{{C_Id_FrameHitboxClip}}}" size="{{{Size_Thumbnail.X}}} {{{Size_Thumbnail.Y}}}" halign="center" valign="center" z-index="10" >
+			<quad id="{{{C_NavZone}}}" class="{{{Navigation::C_Class_ActivationZone}}}" size="{{{Size_Thumbnail.X - MLHelpers::SkewX(Size_Thumbnail.Y, 10.)}}} {{{Size_Thumbnail.Y*1.5}}}" rot="10" halign="center" valign="center" opacity="0" scriptevents="1"/>
+		</frame>
+
+		<frame id="{{{C_Id_FrameBackground}}}" z-index="-2">
+			<frameinstance id="{{{C_Id_ControlBlockListMapThumbnail}}}" modelid="{{{ControlBlockList::C_Name}}}" data-type="{{{ControlBlockList::C_Type_Quad}}}" data-halign="center" data-valign="center" data-size="{{{Size_Thumbnail.X}}} {{{Size_Thumbnail.Y}}}" data-alphamask="{{{Const::C_ImageUrl_Common_Track_Mask}}}" z-index="0" />
+			<quad id="{{{C_Id_QuadOverlay}}}" class="{{{C_Class_QuadDefault}}}" size="{{{Size_Thumbnail.X}}} {{{Size_Thumbnail.Y}}}" image="{{{Const::C_ImageUrl_Common_Track_Overlay}}}" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.6" z-index="1"/>
+			<quad id="{{{C_Id_QuadContour}}}" class="{{{C_Class_QuadDefault}}}" size="{{{Size_Thumbnail.X}}} {{{Size_Thumbnail.Y}}}" image="{{{Const::C_ImageUrl_Common_Track_Contour}}}" colorize="FFF" z-index="2"/>
+			<quad id="{{{C_Id_QuadLock}}}" class="{{{C_Class_QuadDefault}}}" image="{{{Icons::C_Icon_256x256_Lock_1_Oblique}}}" colorize="FFF" size="20 20" hidden="1" z-index="2" />
+			<label id="{{{C_Id_LabelNoThumbnail}}}" text="{{{C_Text_NoThumbnail}}}" size="{{{Size_Thumbnail.X-30.}}} {{{Size_Thumbnail.Y-4.}}}" class="{{{C_Class_TextRegular}}}" textsize="2.5" maxline="3" z-index="3" hidden="1"/>
+		</frame>
+
+		<frame id="{{{C_Id_FrameContent}}}">
+			<frameinstance id="{{{C_Id_ControlBlockListMapName}}}" modelid="{{{ControlBlockList::C_Name}}}" data-type="{{{ControlBlockList::C_Type_Label}}}" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" data-size="{{{Size_Thumbnail.X*0.75}}} 8" data-textcolor="FFF" pos="{{{MLHelpers::Skew(-Size_Thumbnail.X*0.38, Size_Thumbnail.Y*0.39, 10.)}}}" data-halign="left" data-valign="center2" data-textsize="5" data-textsize-fitlabel-min="3" data-textsize-fitlabel-step="0.25" data-textprefix="$i$t" data-filter-profanities="Always" />
+			<label id="{{{C_Id_LabelMapAuthorname}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" size="{{{Size_Thumbnail.X*0.75}}} 8" textcolor="FFF" pos="{{{MLHelpers::Skew(-Size_Thumbnail.X*0.38, Size_Thumbnail.Y*0.32, 10.)}}}" halign="left" valign="center2" textsize="3" textprefix="$i$t"/>
+
+			<frame id="{{{C_Id_FrameRankings}}}" class="{{{Grid::C_Class_Container}}}" pos="{{{MLHelpers::Skew(-Size_Background.X/2., 13.5, 10.)}}}" hidden="1">
+				{{{ML_Rankings}}}
+				<frameinstance
+					id="{{{C_Id_FrameMapRankingPersonnal}}}"
+					pos="{{{MLHelpers::Skew(0., -GridConfig.Size - Size_Background.Y/2 - PersonnalRankSpacing, 10.)}}}"
+					modelid="{{{C_ModelId_MapRanking}}}"
+					hidden="1"
+				/>
+			</frame>
+
+			<label id="{{{C_Id_LabelCampaignLocked}}}" z-index="1" pos="{{{MLHelpers::Skew(-18., -20., 10.)}}}" halign="left" size="{{{Size_Thumbnail.X * 0.55}}} 10" class="{{{C_Class_TextSemibold}}}" textsize="3.5" textprefix="$i$t"/>
+			<quad id="{{{C_Id_QuadMedalLocked}}}" z-index="1" pos="{{{MLHelpers::Skew(-19., -19.5, 10.)}}}" halign="right" size="8 8" class="{{{C_Class_QuadDefault}}}" />
+
+			<frame id="{{{C_Id_FrameMedal}}}" hidden="1">
+				<label id="{{{C_Id_LabelPlayerTime}}}" size="60 10" class="{{{C_Class_TextSemibold}}}" textsize="6" textprefix="$i$t"/>
+				<frame id="{{{C_Id_FrameNextMedal}}}" pos="{{{MLHelpers::Skew(0., -Size_Thumbnail.Y/2 + Size_Footer.Y/2 + 0.4, 10.)}}}" hidden="0">
+					<quad id="{{{C_Id_QuadFooter}}}" size="{{{Size_Footer.X}}} {{{Size_Footer.Y}}}" image="{{{Const::C_ImageUrl_Common_Track_Footer}}}" class="{{{C_Class_QuadDefault}}}" colorize="FFF" z-index="0"/>
+					<label id="{{{C_Id_LabelNextMedal}}}" pos="{{{MLHelpers::Skew(-Size_Footer.X/2 + 5., 7.2, 10.)}}}" size="{{{Size_Footer.X}}} 10" text="{{{C_Text_NextMedal}}}" class="{{{C_Class_TextSemibold}}}" textsize="4" halign="left" textprefix="$i$t" z-index="1"/>
+					<label id="{{{C_Id_LabelMedalTime}}}" pos="{{{MLHelpers::Skew(-Size_Footer.X/2 + 14., 0., 10.)}}}" size="{{{Size_Footer.X}}} 10" class="{{{C_Class_TextSemibold}}}" textsize="4." textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" halign="left" textprefix="$i$t" z-index="1"/>
+					<quad id="{{{C_Id_QuadMedal}}}" pos="{{{MLHelpers::Skew(-Size_Footer.X/2 + 5.5, 1., 10.)}}}" size="{{{Size_Footer.Y}}} {{{Size_Footer.Y}}}" class="{{{C_Class_QuadDefault}}}" halign="left" z-index="1"/>
+				</frame>
+			</frame>
+		</frame>
+	</frame>
+</frame>
+	""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Lock the navigation inside the component
+Void LockNavigation(CMlScript _This, CMlFrame _Frame_MapRankings, Boolean _IsMapUnavailable) {
+	if (_Frame_MapRankings == Null) return;
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+
+	Navigation::EnableContainer(_This, _Frame_MapRankings.GetFirstChild(C_Id_FrameNavigationContainer) as CMlFrame, !_IsMapUnavailable);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Handle the focus inside the component
+Void Private_FocusMapRanking(CMlScript _This, K_MapRankings _Properties, CMlFrame _Frame_MapRanking, Boolean _IsFocused) {
+	if (_Frame_MapRanking == Null || !Navigation::IsNavigationControl(_Frame_MapRanking)) return;
+
+	declare CMlFrame Frame_Background = (_Frame_MapRanking.GetFirstChild(C_Id_FrameBackground) as CMlFrame);
+	declare CMlLabel Label_Rank <=> (_Frame_MapRanking.GetFirstChild(C_Id_LabelRank) as CMlLabel);
+	declare CMlFrame PlayerName_Name <=> (_Frame_MapRanking.GetFirstChild(C_Id_PlayerNameName) as CMlFrame);
+	declare CMlLabel Label_Time <=> (_Frame_MapRanking.GetFirstChild(C_Id_LabelTime) as CMlLabel);
+
+	_This.AnimMgr.Flush(Label_Rank);
+	_This.AnimMgr.Flush(Label_Time);
+
+	if (!_Properties.IsFocused) {
+		PlayerName::SetOpacity(_This, PlayerName_Name, 1., 250);
+		_This.AnimMgr.Add(Label_Rank, "<anim opacity=\"1.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(Label_Time, "<anim opacity=\"1.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		ExpendableAsset::SetOpacity(_This, Frame_Background, 0.);
+	} else if (_IsFocused) {
+		PlayerName::SetOpacity(_This, PlayerName_Name, 1., 250);
+		_This.AnimMgr.Add(Label_Rank, "<anim opacity=\"1.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(Label_Time, "<anim opacity=\"1.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		ExpendableAsset::SetOpacity(_This, Frame_Background, 0.6);
+	} else {
+		PlayerName::SetOpacity(_This, PlayerName_Name, 0.8, 250);
+		_This.AnimMgr.Add(Label_Rank, "<anim opacity=\"0.8\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.Add(Label_Time, "<anim opacity=\"0.8\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		ExpendableAsset::SetOpacity(_This, Frame_Background, 0.);
+	}
+
+	// Text to speech
+	if (_IsFocused) PlayerName::TTS_Focus(PlayerName_Name);
+	else PlayerName::TTS_Unfocus(PlayerName_Name);
+}
+Void Private_FocusMapRankings(CMlScript _This, K_MapRankings _Properties, CMlFrame _Frame_MapRankings, Boolean _IsFocused) {
+	foreach (Control_MapRanking in _Frame_MapRankings.Controls) {
+		Private_FocusMapRanking(_This, _Properties, Control_MapRanking as CMlFrame, _IsFocused);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Handle the focus inside the component
+Void Private_InnerFocus(CMlScript _This, CMlFrame _Frame_MapRankings, CMlControl _From, CMlControl _To) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+	if (Trackmania_MapRankings_MapRankings.IsLocked) return;
+
+	if (_From != Null) {
+		Navigation::Unfocus(_This, _From);
+		Private_FocusMapRanking(_This, Trackmania_MapRankings_MapRankings, _From as CMlFrame, False);
+	}
+
+	if (_To != Null) {
+		Navigation::Focus(_This, _To);
+		Private_FocusMapRanking(_This, Trackmania_MapRankings_MapRankings, _To as CMlFrame, True);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	The component is focused by the Navigation component
+Void Focus(CMlScript _This, CMlFrame _Frame_MapRankings) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+	if (Trackmania_MapRankings_MapRankings.IsLocked) return;
+
+	if (Trackmania_MapRankings_MapRankings.IsFocused == False) {
+		declare CMlQuad Quad_Activation <=> (_Frame_MapRankings.GetFirstChild(C_NavZone) as CMlQuad);
+		declare CMlFrame Frame_NavigationContainer <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameNavigationContainer) as CMlFrame);
+		declare CMlFrame Frame_Rankings <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameRankings) as CMlFrame);
+
+		// Enable navigation
+		Trackmania_MapRankings_MapRankings.IsFocused = True;
+		Quad_Activation.Visible = !Trackmania_MapRankings_MapRankings.IsFocused;
+		Navigation::EnableContainer(_This, Frame_NavigationContainer, Trackmania_MapRankings_MapRankings.IsFocused);
+
+		// Entering counter component - focus the default button if possible
+		_This.AnimMgr.Flush(_Frame_MapRankings);
+		_This.AnimMgr.Add(_Frame_MapRankings, "<anim scale=\"1.05\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		Private_FocusMapRankings(_This, Trackmania_MapRankings_MapRankings, Frame_Rankings, False);
+		if (Trackmania_MapRankings_MapRankings.LastControlFocused != Null && !Navigation::IsLocked(Trackmania_MapRankings_MapRankings.LastControlFocused)) {
+			Private_InnerFocus(_This, _Frame_MapRankings, Navigation::GetFocusedControl(_This, C_NavGroupName), Trackmania_MapRankings_MapRankings.LastControlFocused);
+		} else {
+			Private_InnerFocus(_This, _Frame_MapRankings, Navigation::GetFocusedControl(_This, C_NavGroupName), Frame_Rankings.Controls[0]);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	The component is unfocused by the Navigation component
+Void Unfocus(CMlScript _This, CMlFrame _Frame_MapRankings) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+	if (Trackmania_MapRankings_MapRankings.IsLocked) return;
+
+	if (Trackmania_MapRankings_MapRankings.IsFocused == True) {
+		declare CMlQuad Quad_Activation <=> (_Frame_MapRankings.GetFirstChild(C_NavZone) as CMlQuad);
+		declare CMlFrame Frame_NavigationContainer <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameNavigationContainer) as CMlFrame);
+		declare CMlFrame Frame_Rankings <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameRankings) as CMlFrame);
+
+		// Disable navigation
+		Trackmania_MapRankings_MapRankings.IsFocused = False;
+		Trackmania_MapRankings_MapRankings.LastControlFocused = Navigation::GetFocusedControl(_This, C_NavGroupName);
+		Quad_Activation.Visible = !Trackmania_MapRankings_MapRankings.IsFocused;
+		Navigation::EnableContainer(_This, Frame_NavigationContainer, Trackmania_MapRankings_MapRankings.IsFocused);
+
+		// Leaving counter component - unfocus buttons
+		_This.AnimMgr.Flush(_Frame_MapRankings);
+		_This.AnimMgr.Add(_Frame_MapRankings, "<anim scale=\"1.\"/>", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		Private_InnerFocus(_This, _Frame_MapRankings, Trackmania_MapRankings_MapRankings.LastControlFocused, Null);
+		Private_FocusMapRankings(_This, Trackmania_MapRankings_MapRankings, Frame_Rankings, False);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Visibility of the component
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void Private_ShowNoThumbnail(CMlFrame _Frame_MapRankings) {
+	declare CMlFrame Frame_Medals <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameMedal) as CMlFrame);
+	declare CMlFrame Frame_Rankings <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameRankings) as CMlFrame);
+	declare CMlLabel Label_NoThumbnail <=> (_Frame_MapRankings.GetFirstChild(C_Id_LabelNoThumbnail) as CMlLabel);
+	declare CMlFrame ControlBlockList_Thumbnail <=> (_Frame_MapRankings.GetFirstChild(C_Id_ControlBlockListMapThumbnail) as CMlFrame);
+
+	Label_NoThumbnail.Visible = !Frame_Medals.Visible && !Frame_Rankings.Visible && ControlBlockList::GetImageUrl(ControlBlockList_Thumbnail) == "";
+	if (Navigation::IsNavigationControl(_Frame_MapRankings)) {
+		Navigation::Lock(_Frame_MapRankings, !Frame_Rankings.Visible);
+	}
+}
+
+Void ShowMedal(CMlFrame _Frame_MapRankings, Boolean _IsVisible) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+	declare CMlFrame Frame_Medal <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameMedal) as CMlFrame);
+
+	Frame_Medal.Visible = _IsVisible;
+	Private_ShowNoThumbnail(_Frame_MapRankings);
+}
+
+Void ShowRanking(CMlFrame _Frame_MapRankings, Boolean _IsVisible) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+	declare CMlFrame Frame_Rankings <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameRankings) as CMlFrame);
+	declare CMlQuad Quad_Overlay <=> (_Frame_MapRankings.GetFirstChild(C_Id_QuadOverlay) as CMlQuad);
+
+	Frame_Rankings.Visible = _IsVisible;
+	Private_ShowNoThumbnail(_Frame_MapRankings);
+	if (_IsVisible) { //< Always display the full overlay when rankings are visible
+		Quad_Overlay.ChangeImageUrl(Const::C_ImageUrl_Common_Track_Overlay);
+	}
+}
+
+Void ShowRankingAndMedals(CMlFrame _Frame_MapRankings, Boolean _ShowRanking, Boolean _ShowMedals) {
+	ShowRanking(_Frame_MapRankings, _ShowRanking);
+	ShowMedal(_Frame_MapRankings, _ShowMedals);
+}
+
+Void ShowAuthorDisplayName(CMlFrame _Frame_MapRankings, Boolean _IsVisible) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+	declare CMlLabel Label_MapAuthorName <=> (_Frame_MapRankings.GetFirstChild(C_Id_LabelMapAuthorname) as CMlLabel);
+
+	Label_MapAuthorName.Visible = _IsVisible;
+}
+
+Boolean IsMapAuthorNameDisplayed(CMlFrame _Frame_MapRankings) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+	declare CMlLabel Label_MapAuthorName <=> (_Frame_MapRankings.GetFirstChild(C_Id_LabelMapAuthorname) as CMlLabel);
+
+	return Label_MapAuthorName.Visible && Label_MapAuthorName.Value != "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Getters
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Boolean IsMapRankings(CMlControl _Frame_MapRankings) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	return Trackmania_MapRankings_MapRankings.IsMapRankings;
+}
+
+Boolean IsFocused(CMlControl _Frame_MapRankings) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	return Trackmania_MapRankings_MapRankings.IsFocused;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Update the given player ranking
+Void Private_UpdatePlayerRanking(CMlScript _This, CampaignStruct::LibCampaignStruct_K_Map _MapData, Integer _Position, Integer _Score, CMlFrame _Frame_MapRanking, Text _AccountId) {
+	declare CMlLabel Label_Rank <=> (_Frame_MapRanking.GetFirstChild(C_Id_LabelRank) as CMlLabel);
+	declare CMlFrame PlayerName_Name <=> (_Frame_MapRanking.GetFirstChild(C_Id_PlayerNameName) as CMlFrame);
+	declare CMlLabel Label_Time <=> (_Frame_MapRanking.GetFirstChild(C_Id_LabelTime) as CMlLabel);
+	declare Text Trackmania_MapRankings_AccountId for _Frame_MapRanking = "";
+	Trackmania_MapRankings_AccountId = _AccountId;
+
+	if (_Position <= 0) {
+		Label_Rank.Value = "-";
+	} else {
+		Label_Rank.Value = Tools::FormatTop(_Position, False, 10000);
+		Tools::FitLabelValue(Label_Rank, 3., 2., 0.1);
+	}
+
+	if (_AccountId == "") {
+		PlayerName_Name.Visible = False;
+	} else {
+		PlayerName_Name.Visible = True;
+		PlayerName::SetAccountId(_This, PlayerName_Name, _AccountId, False);
+	}
+
+	declare CampaignStruct::K_ScoreTextOptions Options = CampaignStruct::C_ScoreTextOptions_Null;
+	Options.EnableAbbreviation = True;
+	Options.EnableHiddenScore = _Frame_MapRanking.ControlId != C_Id_FrameMapRankingPersonnal;
+	Label_Time.Value = CampaignStruct::GetMedalScoreText(_Score, _MapData.Type, Options);
+
+	if (_Frame_MapRanking.ControlId != C_Id_FrameMapRankingPersonnal) {
+		if (_AccountId == LocalUser.WebServicesUserId) {
+			Label_Rank.TextColor = Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne);
+			PlayerName::SetTextColor(_This, PlayerName_Name, Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne));
+			Label_Time.TextColor = Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne);
+		} else {
+			Label_Rank.TextColor = <1., 1., 1.>;
+			PlayerName::SetTextColor(_This, PlayerName_Name, <1., 1., 1.>);
+			Label_Time.TextColor = <1., 1., 1.>;
+		}
+	}
+
+	_Frame_MapRanking.Show();
+	if (Navigation::IsNavigationControl(_Frame_MapRanking)) {
+		Navigation::Lock(_Frame_MapRanking, False);
+	}
+}
+Void Private_UpdatePlayerRanking(CMlScript _This, CampaignStruct::LibCampaignStruct_K_Map _MapData, CampaignStruct::LibCampaignStruct_K_TopScore _NewPlayerTop, CMlFrame _Frame_MapRanking) {
+	Private_UpdatePlayerRanking(_This, _MapData, _NewPlayerTop.Position, _NewPlayerTop.Score, _Frame_MapRanking, _NewPlayerTop.AccountId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Clear rankings
+Void Private_ClearRankings(CMlScript _This, CampaignStruct::LibCampaignStruct_K_Map _MapData, CMlFrame _Frame_MapRankings) {
+	declare CMlFrame Frame_Rankings <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameRankings) as CMlFrame);
+
+	foreach (Control_MapRanking in Frame_Rankings.Controls) {
+		if (Control_MapRanking.ControlId == C_Id_FrameMapRankingPersonnal) {
+			Private_UpdatePlayerRanking(_This, _MapData, 0, -1, Control_MapRanking as CMlFrame, LocalUser.WebServicesUserId);
+		} else {
+			Private_UpdatePlayerRanking(_This, _MapData, CampaignStruct::LibCampaignStruct_K_TopScore {}, Control_MapRanking as CMlFrame);
+		}
+	}
+}
+
+Void UpdateMapInfoDisplayed(
+	CMlScript _This,
+	CMlFrame _Frame_MapRankings,
+	CampaignStruct::LibCampaignStruct_K_Map _MapData,
+	Boolean _TranslateOfficialMapName,
+	Boolean _IsMapLocked, // Boolean for maps locked (in official campaign category for example)
+	Integer _MapCategory,
+	Integer _MapMedalsForCategory
+) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+
+	declare CMlFrame Frame_Medal <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameMedal) as CMlFrame);
+	declare CMlFrame Frame_Rankings <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameRankings) as CMlFrame);
+	declare CMlFrame Frame_NextMedal <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameNextMedal) as CMlFrame);
+	declare CMlLabel Label_MapAuthorName <=> (_Frame_MapRankings.GetFirstChild(C_Id_LabelMapAuthorname) as CMlLabel);
+	declare CMlFrame ControlBlockList_MapName <=> (_Frame_MapRankings.GetFirstChild(C_Id_ControlBlockListMapName) as CMlFrame);
+	declare CMlLabel Label_Time <=> (Frame_Medal.GetFirstChild(C_Id_LabelPlayerTime) as CMlLabel);
+	declare CMlQuad Quad_Medal <=> (Frame_Medal.GetFirstChild(C_Id_QuadMedal) as CMlQuad);
+	declare CMlLabel Label_CampaignLocked <=> (_Frame_MapRankings.GetFirstChild(C_Id_LabelCampaignLocked) as CMlLabel);
+	declare CMlQuad Quad_MedalLocked <=> (_Frame_MapRankings.GetFirstChild(C_Id_QuadMedalLocked) as CMlQuad);
+	declare CMlFrame ControlBlockList_Thumbnail <=> (_Frame_MapRankings.GetFirstChild(C_Id_ControlBlockListMapThumbnail) as CMlFrame);
+	declare CMlQuad Quad_Overlay <=> (_Frame_MapRankings.GetFirstChild(C_Id_QuadOverlay) as CMlQuad);
+
+	ControlBlockList::SetOwnerAndTextValue(
+		_This,
+		ControlBlockList_MapName,
+		_MapData.AuthorLogin,
+		Tools::TranslateOfficialMapName(_MapData.Name, "", _TranslateOfficialMapName)
+	);
+
+	if (Label_MapAuthorName != Null && Label_MapAuthorName.Visible) {
+		if (_MapData.AuthorDisplayName == "") {
+			Label_MapAuthorName.Value = "";
+		} else {
+			Label_MapAuthorName.Value = TL::Compose(C_Text_AuthorName, UserStore::GetPlayerName(_MapData.AuthorDisplayName, _MapData.AuthorIsFirstPartyDisplayName));
+			Tools::FitLabelValue(Label_MapAuthorName, 3., 2., 0.25);
+			Tools::FirstPartyLogoMatchLuminance(Label_MapAuthorName);
+		}
+	}
+
+	if (_MapData.Score > 0 && !_IsMapLocked) {
+		declare CMlLabel Label_MedalTime <=> (Frame_Medal.GetFirstChild(C_Id_LabelMedalTime) as CMlLabel);
+		Label_Time.Value = CampaignStruct::GetMedalScoreText(_MapData.Score, _MapData.Points, _MapData.RespawnCount, _MapData.Type, False);
+		Frame_NextMedal.Show();
+		switch (_MapData.Medal) {
+			case Medals::C_ScoreMgrMedal_None: {
+				Label_MedalTime.Value = CampaignStruct::GetMedalScoreText(_MapData.BronzeTime, _MapData.Type);
+				Quad_Medal.ChangeImageUrl(Const::C_ImageUrl_Medal_Bronze);
+			}
+			case Medals::C_ScoreMgrMedal_Bronze: {
+				Label_MedalTime.Value = CampaignStruct::GetMedalScoreText(_MapData.SilverTime, _MapData.Type);
+				Quad_Medal.ChangeImageUrl(Const::C_ImageUrl_Medal_Silver);
+			}
+			case Medals::C_ScoreMgrMedal_Silver: {
+				Label_MedalTime.Value = CampaignStruct::GetMedalScoreText(_MapData.GoldTime, _MapData.Type);
+				Quad_Medal.ChangeImageUrl(Const::C_ImageUrl_Medal_Gold);
+			}
+			default: Frame_NextMedal.Hide();
+		}
+	} else {
+		Label_Time.Value = "";
+		Frame_NextMedal.Hide();
+	}
+
+	if (_IsMapLocked && !Frame_Rankings.Visible) {
+		declare Text[Integer] CategoriesToMedalsNames = CampaignStruct::C_CategoriesToMedalsNames;
+		//L16N [MapRankings] Text to indicate the number of medals needed to unlock a category, %3 will be replaced by a medal name e.g "6/10 bronze medals"
+		Label_CampaignLocked.Value = TL::Compose(_("%1/%2 %3 medals"), ""^_MapMedalsForCategory, ""^CampaignStruct::GetMedalsMinToUnlockCategory(_MapCategory), CategoriesToMedalsNames.get(_MapCategory, ""));
+		Tools::FitLabelValue(Label_CampaignLocked, 3., 2., 0.25);
+		Quad_MedalLocked.ImageUrl = CampaignStruct::GetCurrentMedalUrlForCategory(_MapCategory);
+		Quad_MedalLocked.Show();
+	} else {
+		Label_CampaignLocked.Value = "";
+		Quad_MedalLocked.Hide();
+	}
+
+	if (_MapData.ThumbnailUrl == "") {
+		ControlBlockList::SetOwnerAndImageUrl(_This, ControlBlockList_Thumbnail, _MapData.AuthorLogin, Const::C_ImageUrl_Common_Track_Overlay, False);
+		ControlBlockList::SetColorize(_This, ControlBlockList_Thumbnail, Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark), False);
+	} else {
+		ControlBlockList::SetOwnerAndImageUrl(_This, ControlBlockList_Thumbnail, _MapData.AuthorLogin, _MapData.ThumbnailUrl, False);
+		ControlBlockList::SetColorize(_This, ControlBlockList_Thumbnail, ControlBlockList::C_DefaultColorize, False);
+	}
+	ControlBlockList::Redraw(_This, ControlBlockList_Thumbnail);
+
+	if (_MapData.Uid == "" || Frame_Rankings.Visible || (Frame_Medal.Visible && _MapData.Score > 0) || _IsMapLocked) {
+		Quad_Overlay.ChangeImageUrl(Const::C_ImageUrl_Common_Track_Overlay);
+	} else {
+		Quad_Overlay.ChangeImageUrl(Const::C_ImageUrl_Common_Track_Gradient_Top);
+	}
+}
+Void UpdateMapInfoDisplayed(CMlScript _This, CMlFrame _Frame_MapRankings, CampaignStruct::LibCampaignStruct_K_Map _MapData) {
+	return UpdateMapInfoDisplayed(_This, _Frame_MapRankings, _MapData, False, False, -1, -1);
+}
+
+Void UpdateRankingForClub(
+	CMlScript _This,
+	CampaignStruct::LibCampaignStruct_K_TopScore[] _PlayerTopList,
+	CMlFrame _Frame_MapRankings,
+	CampaignStruct::LibCampaignStruct_K_Map _MapData,
+	Text _SeasonId,
+	Integer _ClubId
+) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+
+	declare CMlFrame Frame_Rankings <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameRankings) as CMlFrame);
+	declare CMlFrame Frame_MapRankingPersonnal <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameMapRankingPersonnal) as CMlFrame);
+
+	declare Text[] ReportDetails;
+	declare Text[] ReportIds;
+
+	Private_ClearRankings(_This, _MapData, _Frame_MapRankings);
+	foreach (Index => Top in _PlayerTopList) {
+		if (Frame_Rankings.Controls.existskey(Index)) {
+			declare CMlFrame Frame_MapRanking = Frame_Rankings.Controls[Index] as CMlFrame;
+			Private_UpdatePlayerRanking(_This, _MapData, Top, Frame_MapRanking);
+			Private_FocusMapRanking(_This, Trackmania_MapRankings_MapRankings, Frame_MapRanking, Navigation::IsFocused(_This, Frame_MapRanking, C_NavGroupName));
+
+			ReportDetails.add(ReportStruct::FormatRecordDetail(Top.DisplayName, Top.Score, _MapData.Type));
+			ReportIds.add(ReportStruct::FormatRecordId(Top.AccountId, _SeasonId, _MapData.Uid));
+		}
+	}
+
+	// Set data to the report system
+	if (ReportDetails.count > 0) {
+		ReportSystem::AddData(
+			ReportStruct::C_ReportTarget_Record,
+			ReportStruct::LibStructuresReport_K_ReportData {
+				Details = ReportDetails,
+				Ids = ReportIds,
+				Contexts = [["From" => "Menu MapRankings"]]
+			}
+		);
+	}
+
+	if (_MapData.ClubRankings.existskey(_ClubId)) {
+		declare Integer Score = _MapData.ScoreBySeason.get(_SeasonId, -1);
+		Private_UpdatePlayerRanking(_This, _MapData, _MapData.ClubRankings[_ClubId], Score, Frame_MapRankingPersonnal, LocalUser.WebServicesUserId);
+		Private_FocusMapRanking(_This, Trackmania_MapRankings_MapRankings, Frame_MapRankingPersonnal, Navigation::IsFocused(_This, Frame_MapRankingPersonnal, C_NavGroupName));
+	}
+}
+
+Void UpdateRankingWithTopRanking(
+	CMlScript _This,
+	CampaignStruct::LibCampaignStruct_K_MapTopRanking _NewRanking,
+	CMlFrame _Frame_MapRankings,
+	CampaignStruct::LibCampaignStruct_K_Map _MapData,
+	Text _SeasonId,
+	Integer _ZoneLevel,
+	Boolean _ShowMedals
+) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+
+	declare CMlFrame Frame_Rankings <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameRankings) as CMlFrame);
+	declare CMlFrame Frame_MapRankingPersonnal <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameMapRankingPersonnal) as CMlFrame);
+
+	declare Text[] ReportDetails;
+	declare Text[] ReportIds;
+
+	Private_ClearRankings(_This, _MapData, _Frame_MapRankings);
+	foreach (Index => Top in _NewRanking.Tops) {
+		if (Frame_Rankings.Controls.existskey(Index)) {
+			declare CMlFrame Frame_MapRanking = Frame_Rankings.Controls[Index] as CMlFrame;
+			Private_UpdatePlayerRanking(_This, _MapData, Top, Frame_MapRanking);
+			Private_FocusMapRanking(_This, Trackmania_MapRankings_MapRankings, Frame_MapRanking, Navigation::IsFocused(_This, Frame_MapRanking, C_NavGroupName));
+
+			ReportDetails.add(ReportStruct::FormatRecordDetail(Top.DisplayName, Top.Score, _MapData.Type));
+			ReportIds.add(ReportStruct::FormatRecordId(Top.AccountId, _SeasonId, _MapData.Uid));
+		}
+	}
+
+	// Set data to the report system
+	if (!_ShowMedals && ReportDetails.count > 0) {
+		ReportSystem::AddData(
+			ReportStruct::C_ReportTarget_Record,
+			ReportStruct::LibStructuresReport_K_ReportData {
+				Details = ReportDetails,
+				Ids = ReportIds,
+				Contexts = [["From" => "Menu MapRankings"]]
+			}
+		);
+	}
+
+	if (_MapData.Rankings.existskey(_ZoneLevel)) {
+		declare Integer Score = _MapData.ScoreBySeason.get(_SeasonId, -1);
+		Private_UpdatePlayerRanking(_This, _MapData, _MapData.Rankings[_ZoneLevel].Position, Score, Frame_MapRankingPersonnal, LocalUser.WebServicesUserId);
+		Private_FocusMapRanking(_This, Trackmania_MapRankings_MapRankings, Frame_MapRankingPersonnal, Navigation::IsFocused(_This, Frame_MapRankingPersonnal, C_NavGroupName));
+	}
+}
+
+K_Rankings UpdateMapRankingData(Integer _CampaignId, Text _MapUid, Integer _ClubId) {
+	declare K_Rankings Rankings;
+
+	if (_ClubId == ClubStruct::C_ClubNullId) {
+		Rankings.ClubTopRankings = [];
+	} else {
+		Rankings.ClubTopRankings = CampaignStore::GetMapTopRankingsInClub(_CampaignId, _MapUid, _ClubId);
+	}
+	Rankings.TopRankings = CampaignStore::GetMapTopRankings(_CampaignId, _MapUid);
+
+	declare Text[] Zones;
+	foreach (TopRanking in Rankings.TopRankings) {
+		Zones.add(TopRanking.ZoneName);
+	}
+
+	return Rankings;
+}
+
+Void SetIsLoading(CMlScript _This, CMlFrame _Frame_MapRankings, Boolean _IsLoading) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+
+	LoadingSpinner::SetIsLoading(_This, _Frame_MapRankings.GetFirstChild(C_Id_FrameLoadingSpinner), _IsLoading);
+	declare CMlFrame ControlBlockList_MapName <=> (_Frame_MapRankings.GetFirstChild(C_Id_ControlBlockListMapName) as CMlFrame);
+	if (_IsLoading) {
+		ControlBlockList::SetSize(
+			_This,
+			ControlBlockList_MapName,
+			<Trackmania_MapRankings_MapRankings.Size_Thumbnail.X*0.65, ControlBlockList::GetSize(ControlBlockList_MapName).Y>
+		);
+	} else {
+		ControlBlockList::SetSize(
+			_This,
+			ControlBlockList_MapName,
+			<Trackmania_MapRankings_MapRankings.Size_Thumbnail.X*0.75, ControlBlockList::GetSize(ControlBlockList_MapName).Y>
+		);
+	}
+
+	declare CMlLabel Label_MapAuthorName <=> (_Frame_MapRankings.GetFirstChild(C_Id_LabelMapAuthorname) as CMlLabel);
+	if (_IsLoading) Label_MapAuthorName.Size.X = Trackmania_MapRankings_MapRankings.Size_Thumbnail.X*0.65;
+	else Label_MapAuthorName.Size.X = Trackmania_MapRankings_MapRankings.Size_Thumbnail.X*0.75;
+	Tools::FitLabelValue(Label_MapAuthorName, 3., 2., 0.25);
+}
+
+K_Rankings UpdateMapRanking(
+	CMlScript _This,
+	CMlFrame _Frame_MapRankings,
+	Integer _ClubId,
+	Integer _CampaignId,
+	Text _SeasonId,
+	CampaignStruct::LibCampaignStruct_K_Map _Map,
+	Integer _ZoneLevel,
+	Integer _DisplayType,
+	// The two following booleans are not meant not be used at the same time /!\
+	Boolean _IsMapUnavailable, // Boolean for maps not available yet (TOTD for example)
+	Boolean _IsMapLocked, // Boolean for maps locked (in official campaign category for example)
+	Integer _MapCategory,
+	Integer _MapMedalsForCategory,
+	Boolean _TranslateOfficialMapName,
+	Boolean _IsLoading
+) {
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	assert(Trackmania_MapRankings_MapRankings.IsMapRankings, "Control '"^_Frame_MapRankings.ControlId^"' is not a MapRankings component.");
+
+	declare CMlFrame Frame_Rankings <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameRankings) as CMlFrame);
+	declare CMlLabel Label_NoThumbnail <=> (_Frame_MapRankings.GetFirstChild(C_Id_LabelNoThumbnail) as CMlLabel);
+	declare CMlQuad Quad_Overlay <=> (_Frame_MapRankings.GetFirstChild(C_Id_QuadOverlay) as CMlQuad);
+	declare CMlQuad Quad_Lock <=> (_Frame_MapRankings.GetFirstChild(C_Id_QuadLock) as CMlQuad);
+	declare K_Rankings Rankings = UpdateMapRankingData(_CampaignId, _Map.Uid, _ClubId);
+
+	Quad_Lock.Visible = _IsMapUnavailable || (_IsMapLocked && _DisplayType == RankingSelection::C_Display_Medals);
+	Quad_Overlay.Visible = !_IsMapUnavailable;
+	Label_NoThumbnail.Visible = !_IsMapUnavailable && _Map.ThumbnailUrl == "";
+	SetIsLoading(_This, _Frame_MapRankings, _IsLoading);
+	ReportSystem::RemoveData(ReportStruct::C_ReportTarget_Record); // reset report data
+	if (_IsMapUnavailable) {
+		ShowRankingAndMedals(_Frame_MapRankings, False, False);
+		UpdateMapInfoDisplayed(_This, _Frame_MapRankings, CampaignStruct::LibCampaignStruct_K_Map {});
+	} else {
+		if (_DisplayType == RankingSelection::C_Display_ClubRankings) {
+			UpdateRankingForClub(_This, Rankings.ClubTopRankings, _Frame_MapRankings, _Map, _SeasonId, _ClubId);
+		} else if (Rankings.TopRankings.existskey(_ZoneLevel)) {
+			UpdateRankingWithTopRanking(_This, Rankings.TopRankings[_ZoneLevel], _Frame_MapRankings, _Map, _SeasonId, _ZoneLevel, _DisplayType == RankingSelection::C_Display_Medals);
+		} else {
+			UpdateRankingWithTopRanking(_This, CampaignStruct::LibCampaignStruct_K_MapTopRanking {}, _Frame_MapRankings, _Map, _SeasonId, _ZoneLevel, (_DisplayType == RankingSelection::C_Display_Medals && !_IsMapLocked));
+		}
+
+		if (_DisplayType == RankingSelection::C_Display_Medals) {
+			if (_Map.Uid == "" || _Map.Score <= 0 || _IsMapLocked) {
+				ShowRankingAndMedals(_Frame_MapRankings, False, False);
+			} else {
+				ShowRankingAndMedals(_Frame_MapRankings, False, _DisplayType == RankingSelection::C_Display_Medals);
+			}
+		}
+
+		UpdateMapInfoDisplayed(_This, _Frame_MapRankings, _Map, _TranslateOfficialMapName, _IsMapLocked, _MapCategory, _MapMedalsForCategory);
+	}
+
+	Grid::Update(Trackmania_MapRankings_MapRankings.GridConfig, _This.AnimMgr, Frame_Rankings, 10., False, False);
+
+	return Rankings;
+}
+K_Rankings UpdateMapRanking(
+	CMlScript _This,
+	CMlFrame _Frame_MapRankings,
+	Integer _ClubId,
+	Integer _CampaignId,
+	Text _SeasonId,
+	CampaignStruct::LibCampaignStruct_K_Map _Map,
+	Integer _ZoneLevel,
+	Integer _DisplayType,
+	Boolean _IsMapUnavailable,
+	Boolean _IsMapLocked,
+	Integer _MapCategory,
+	Integer _MapMedalsForCategory,
+	Boolean _TranslateOfficialMapName
+) {
+	return UpdateMapRanking(
+		_This,
+		_Frame_MapRankings,
+		_ClubId,
+		_CampaignId,
+		_SeasonId,
+		_Map,
+		_ZoneLevel,
+		_DisplayType,
+		_IsMapUnavailable,
+		_IsMapLocked,
+		_MapCategory,
+		_MapMedalsForCategory,
+		_TranslateOfficialMapName,
+		False
+	);
+}
+
+K_Rankings UpdateMapRanking(
+	CMlScript _This,
+	CMlFrame _Frame_MapRankings,
+	Integer _ClubId,
+	Integer _CampaignId,
+	Text _SeasonId,
+	CampaignStruct::LibCampaignStruct_K_Map _Map,
+	Integer _ZoneLevel,
+	Integer _DisplayType,
+	Boolean _IsMapUnavailable,
+	Boolean _TranslateOfficialMapName,
+	Boolean _IsLoading
+) {
+	return UpdateMapRanking(
+		_This,
+		_Frame_MapRankings,
+		_ClubId,
+		_CampaignId,
+		_SeasonId,
+		_Map,
+		_ZoneLevel,
+		_DisplayType,
+		_IsMapUnavailable,
+		False,
+		-1,
+		-1,
+		_TranslateOfficialMapName,
+		_IsLoading
+	);
+}
+
+K_Rankings UpdateMapRanking(
+	CMlScript _This,
+	CMlFrame _Frame_MapRankings,
+	Integer _ClubId,
+	Integer _CampaignId,
+	Text _SeasonId,
+	CampaignStruct::LibCampaignStruct_K_Map _Map,
+	Integer _ZoneLevel,
+	Integer _DisplayType,
+	Boolean _IsMapUnavailable,
+	Boolean _TranslateOfficialMapName
+) {
+	return UpdateMapRanking(
+		_This,
+		_Frame_MapRankings,
+		_ClubId,
+		_CampaignId,
+		_SeasonId,
+		_Map,
+		_ZoneLevel,
+		_DisplayType,
+		_IsMapUnavailable,
+		False,
+		-1,
+		-1,
+		_TranslateOfficialMapName,
+		False
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Initialize the component
+Void InitMapRankings(CMlScript _This, CMlFrame _Frame_MapRankings)	{
+	if (_Frame_MapRankings == Null) return;
+
+	declare CMlFrame Frame_Align <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameMapRankingsAlign) as CMlFrame);
+	declare CMlFrame Frame_Rankings <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameRankings) as CMlFrame);
+	declare CMlFrame Frame_MapRankingPersonnal <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameMapRankingPersonnal) as CMlFrame);
+
+	declare Vec2 Size_Thumbnail = Tools::TextToVec2(Frame_Align.DataAttributeGet("size-thumbnail"));
+	declare Vec2 Size_Footer = Tools::TextToVec2(Frame_Align.DataAttributeGet("size-footer"));
+	declare Grid::K_GridConfig GridConfig;
+	GridConfig.fromjson(Frame_Align.DataAttributeGet("grid-config"));
+
+	declare K_MapRankings Trackmania_MapRankings_MapRankings for _Frame_MapRankings = C_MapRankings_Null;
+	Trackmania_MapRankings_MapRankings = K_MapRankings {
+		IsMapRankings = True,
+		IsLocked = False,
+		IsFocused = False,
+		LastControlFocused = Frame_Rankings.Controls[0],
+		HAlign = Tools::C_HAlign_Center,
+		VAlign = Tools::C_VAlign_Center,
+		Size_Thumbnail = Size_Thumbnail,
+		Size_Footer = Size_Footer,
+		GridConfig = GridConfig
+	};
+
+	/* Initialize personnal map ranking */
+	declare CMlFrame Frame_Background = (Frame_MapRankingPersonnal.GetFirstChild(C_Id_FrameBackground) as CMlFrame);
+	(Frame_MapRankingPersonnal.GetFirstChild(C_Id_LabelRank) as CMlLabel).TextColor = Stylesheet::GetColorRGB(Stylesheet::C_Color_BGDark);
+	PlayerName::SetTextColor(_This, (Frame_MapRankingPersonnal.GetFirstChild(C_Id_PlayerNameName) as CMlFrame), Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark));
+	(Frame_MapRankingPersonnal.GetFirstChild(C_Id_LabelTime) as CMlLabel).TextColor = Stylesheet::GetColorRGB(Stylesheet::C_Color_BGDark);
+	Frame_Background.RelativePosition_V3 = Frame_Background.RelativePosition_V3 + <-0.9, 0.4>;
+	ExpendableAsset::SetHeight(_This, Frame_Background, Trackmania_MapRankings_MapRankings.Size_Footer.Y, False);
+	ExpendableAsset::SetWidth(_This, Frame_Background, Trackmania_MapRankings_MapRankings.Size_Footer.X, False);
+	ExpendableAsset::SetColor(_This, Frame_Background, <1., 1., 1.>, False);
+	ExpendableAsset::SetOpacity(_This, Frame_Background, 1., False);
+	ExpendableAsset::SetImages(_This, Frame_Background, [
+		ExpendableAsset::C_Position_Left => ExpendableAsset::K_Image {},
+		ExpendableAsset::C_Position_Middle => ExpendableAsset::K_Image {
+			Url = Const::C_ImageUrl_Common_Track_Footer,
+			Size = <956., 96.>,
+			ColorMode = ExpendableAsset::C_ColorMode_Colorize
+		},
+		ExpendableAsset::C_Position_Right => ExpendableAsset::K_Image {}
+	], False);
+	ExpendableAsset::RedrawAsset(_This, Frame_Background, False);
+
+	/* Nav inputs */
+	if (Navigation::IsNavigationControl(_Frame_MapRankings)) {
+		declare CMlFrame Frame_NavigationContainer <=> (_Frame_MapRankings.GetFirstChild(C_Id_FrameNavigationContainer) as CMlFrame);
+		foreach (Row_MapRanking in Frame_Rankings.Controls) {
+			if (Navigation::IsNavigationControl(Row_MapRanking)) {
+				foreach (NavAction => Control in Navigation::GetControlTargets(_Frame_MapRankings)) {
+					if (Control != Null) {
+						Navigation::ChangeControlTarget(_This, Frame_NavigationContainer, Row_MapRanking, Tools::MenuNavActionToText(NavAction), "_");
+					}
+				}
+			}
+		}
+		Navigation::EnableInputs(_Frame_MapRankings, False);
+	}
+
+	// Initialize the MapRankings state
+	if (_Frame_MapRankings.DataAttributeExists("halign")) {
+		Trackmania_MapRankings_MapRankings.HAlign = _Frame_MapRankings.DataAttributeGet("halign");
+	}
+	if (_Frame_MapRankings.DataAttributeExists("valign")) {
+		Trackmania_MapRankings_MapRankings.VAlign = _Frame_MapRankings.DataAttributeGet("valign");
+	}
+
+	Tools::Align(Frame_Align, Trackmania_MapRankings_MapRankings.Size_Thumbnail, Trackmania_MapRankings_MapRankings.HAlign, Trackmania_MapRankings_MapRankings.VAlign);
+	Unfocus(_This, _Frame_MapRankings);
+}
+
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State Trackmania_MapRankings_State for _This.Page = C_State_Null;
+	return Trackmania_MapRankings_State.PendingEvents;
+}
+
+Void MainInit(CMlScript _This) {
+	declare K_State Trackmania_MapRankings_State for _This.Page = C_State_Null;
+	Trackmania_MapRankings_State = C_State_Null;
+}
+
+Void MainStart(CMlScript _This) {
+	declare K_State Trackmania_MapRankings_State for _This.Page = C_State_Null;
+	_This.Page.GetClassChildren(C_Class_FrameContainerMapRankings, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_MapRankingsContainer = (Control as CMlFrame);
+		InitMapRankings(_This, Frame_MapRankingsContainer.Parent);
+		Trackmania_MapRankings_State.MapRankings.add(Frame_MapRankingsContainer.Parent);
+	}
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_State Trackmania_MapRankings_State for _This.Page = C_State_Null;
+	Trackmania_MapRankings_State.PendingEvents = [];
+
+	/* Navigation events */
+	foreach (Event in Navigation::GetPendingEvents(_This)) {
+		switch (Event.Type) {
+			case Navigation::C_EventType_NavigateInput: {
+				if (Navigation::IsEventFromNestedContainer(_This, Event.Container) && Event.Container.ControlId == C_Id_FrameNavigationContainer) {
+					assert(IsMapRankings(Event.Container.Parent.Parent), "The manialink has been modified, we do not point to the right frame anymore");
+					declare CMlFrame Frame_MapRankings = Event.Container.Parent.Parent;
+					if (IsFocused(Frame_MapRankings)) {
+						if (Event.Input == CMlScriptEvent::EMenuNavAction::Select && Event.To != Null) {
+							declare Text Trackmania_MapRankings_AccountId for Event.To = "";
+							Trackmania_MapRankings_State.PendingEvents.add(K_Event {
+								Type = C_EventType_Select,
+								AccountId = Trackmania_MapRankings_AccountId
+							});
+						} else if (Event.From != Null && Event.From == Event.To) {
+							Navigation::EnableInputs(Frame_MapRankings, True);
+							Navigation::ApplyInput(_This, Frame_MapRankings, Event.Input, Event.UserIndex, []);
+							Navigation::EnableInputs(Frame_MapRankings, False);
+						} else {
+							Private_InnerFocus(_This, Frame_MapRankings, Event.From, Event.To);
+						}
+					}
+				}
+			}
+			case Navigation::C_EventType_NavigateMouse: {
+				if (Navigation::IsEventFromNestedContainer(_This, Event.Container) && Event.Container.ControlId == C_Id_FrameNavigationContainer) {
+					assert(IsMapRankings(Event.Container.Parent.Parent), "The manialink has been modified, we do not point to the right frame anymore");
+					declare CMlFrame Frame_MapRankings = Event.Container.Parent.Parent;
+					if (IsFocused(Frame_MapRankings)) {
+						if (Event.Mouse == CMlScriptEvent::Type::MouseClick && Event.To != Null) {
+							declare Text Trackmania_MapRankings_AccountId for Event.To = "";
+							Trackmania_MapRankings_State.PendingEvents.add(K_Event {
+								Type = C_EventType_Select,
+								AccountId = Trackmania_MapRankings_AccountId
+							});
+						} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+							Private_InnerFocus(_This, Frame_MapRankings, Event.From, Event.To);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/Trackmania/Components/MapRankings.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+""",
+		[
+			CampaignStore::ComponentV2(),
+			ClubStruct::Component(),
+			ControlBlockList::ComponentV2(),
+			ExpendableAsset_Trackmania::ComponentV2(),
+			ExpendableButton_Trackmania::ComponentV2(),
+			LoadingSpinner::ComponentV2(),
+			MenuSounds::ComponentV2(),
+			Navigation::ComponentV2(),
+			RankingSelection::ComponentV2(),
+			Transition::ComponentV2(),
+			PlayerName::ComponentV2()
+		],
+		[]
+	);
+}

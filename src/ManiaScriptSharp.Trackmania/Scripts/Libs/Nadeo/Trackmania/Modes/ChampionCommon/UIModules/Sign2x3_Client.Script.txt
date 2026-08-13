@@ -1,0 +1,156 @@
+/**
+ *	UI module: Sign2x3 client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign2x3_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign2x3_Common.Script.txt" as UIModules_Sign2x3_Common
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/Shared_Client.Script.txt" as Shared
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/ZIndex.Script.txt" as ZIndex
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const UIModules_Sign2x3_Common::C_InstancesNb as C_InstancesNb
+#Const UIModules_Sign2x3_Common::C_AttachId as C_AttachId
+#Const C_ImagePlayersPath "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Players"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId(Integer _InstanceNb) {
+	return UIModules_Sign2x3_Common::C_Id^"_"^_InstanceNb;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_Sign2x3_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML(Integer _InstanceNb) {
+	return MV::Create(
+GetId(_InstanceNb), 3,
+"""
+<frame id="frame-global" z-index="{{{ZIndex::C_ZIndex_Sign2x3}}}" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_Sign2x3_Common::C_UIModuleConfig)}}}>
+		<quad id="quad-best-player" image="{{{C_ImagePlayersPath}}}/Default.dds" size="120 180" z-index="0" halign="center" valign="center"/>
+		<quad id="quad-crossfade" size="120 180" z-index="1" halign="center" valign="center" opacity="0"/>
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmupHelpers_Client.Script.txt" as WarmupHelpers
+
+#Const C_ImagePlayersPath {{{dump(C_ImagePlayersPath)}}}
+""",
+"""
+Void UpdateSign(CMlQuad _Quad_BestPlayer, CMlQuad _Quad_Crossfade, Boolean _IsWarmUp) {
+	declare Text NewImageUrl = _Quad_BestPlayer.ImageUrl;
+
+	if (_IsWarmUp) {
+		NewImageUrl = C_ImagePlayersPath^"/WarmUp.dds";
+	} else {
+		declare Text LeaderWebservicesUserId;
+		foreach (Score in Scores) {
+			if ({{{Shared::P}}}GetLiveRank(Score).Rank == 1) {
+				if (Score.User != Null) {
+					LeaderWebservicesUserId = Score.User.WebServicesUserId;
+				}
+				break;
+			}
+		}
+
+		declare Text Sign = {{{PlayerProfiles::P}}}GetPlayerProfiles().get(LeaderWebservicesUserId, {{{PlayerProfiles::P}}}K_PlayerProfile {}).Sign2x3;
+		if (Sign != "") {
+			NewImageUrl = C_ImagePlayersPath^"/"^Sign;
+		} else {
+			NewImageUrl = C_ImagePlayersPath^"/Race.dds";
+		}
+	}
+
+	if (_Quad_BestPlayer.ImageUrl != NewImageUrl) {
+		_Quad_Crossfade.ImageUrl = _Quad_BestPlayer.ImageUrl;
+		_Quad_Crossfade.Opacity = 1.;
+		_Quad_BestPlayer.ImageUrl = NewImageUrl;
+
+		// If the game is not focused when the opacity animation should be played,
+		// the opacity might change only once the sign is updated by the
+		// C++ to display the ads again. It is normal, do not worry if the
+		// animation is not played properly while testing with several game instances.
+		AnimMgr.Flush(_Quad_Crossfade);
+		AnimMgr.Add(_Quad_Crossfade, "<anim opacity=\"0\" />", 500, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlQuad Quad_BestPlayer;
+declare CMlQuad Quad_Crossfade;
+
+declare netread Boolean Net_ChampionCup_Sign2x3_IsVisible for UI;
+
+declare Boolean DisplayModule;
+declare Boolean IsWarmUp;
+declare Integer LiveRankingUpdate;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Quad_BestPlayer <=> (Frame_Global.GetFirstChild("quad-best-player") as CMlQuad);
+Quad_Crossfade <=> (Frame_Global.GetFirstChild("quad-crossfade") as CMlQuad);
+
+DisplayModule = Frame_Global.Visible;
+IsWarmUp = WarmupHelpers::IsWarmupActive(Teams[0]);
+LiveRankingUpdate = {{{Shared::P}}}GetLiveRankingUpdate();
+
+UpdateSign(Quad_BestPlayer, Quad_Crossfade, IsWarmUp);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	if (DisplayModule != Net_ChampionCup_Sign2x3_IsVisible) {
+		DisplayModule = Net_ChampionCup_Sign2x3_IsVisible;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (
+			IsWarmUp != WarmupHelpers::IsWarmupActive(Teams[0]) ||
+			LiveRankingUpdate != {{{Shared::P}}}GetLiveRankingUpdate()
+		) {
+			IsWarmUp = WarmupHelpers::IsWarmupActive(Teams[0]);
+			LiveRankingUpdate = {{{Shared::P}}}GetLiveRankingUpdate();
+			UpdateSign(Quad_BestPlayer, Quad_Crossfade, IsWarmUp);
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component(),
+	PlayerProfiles::Component(),
+	Shared::Component()
+],
+[]
+	);
+}

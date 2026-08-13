@@ -1,0 +1,144 @@
+/**
+ * Script environment library
+ */
+#Const Version "1.1.0"
+#Const ScriptName "Libs/Nadeo/CMGame/Utils/PrestigeNotificationObserver.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "TimeLib" as TiL
+#Include "Libs/Nadeo/CMGame/Utils/Log.Script.txt" as Log
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Notification {
+	Text CategoryType;
+	Integer CategoryLevel;
+	NWebServicesPrestige::EPrestigeMode Mode;
+	Text PrestigeId;
+	Integer PrestigeLevel;
+	Text RewardDisplayName;
+	Text RewardFileUrl;
+	Text RewardThumbnailUrl;
+	Text RewardType;
+	Text SkinOptions;
+	Integer StatCurrentValue;
+	Integer StatValueForNextLevel;
+	Integer TimeStamp;
+	Integer Year;
+}
+
+#Struct K_State {
+	K_Notification[] PrestigeNotifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_NotificationLifeTime 3600 // in sec, after this duration we remove the notification from our state array
+
+#Const C_State_Null K_State {
+	PrestigeNotifications = []
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+
+// Add new notification to our state array and check if we can remove old ones
+Void AddNotification(K_Notification _Notification) {
+	declare K_State LibCommonPrestigeNotificationObserver_State for System = C_State_Null;
+
+	// Check to remove old notifications if array contains more than 10 elements
+	declare Integer[] ToRemove = [];
+	if (LibCommonPrestigeNotificationObserver_State.PrestigeNotifications.count > 10) {
+		foreach (Key => Notif in LibCommonPrestigeNotificationObserver_State.PrestigeNotifications) {
+			if (TiL::GetDelta(TiL::GetCurrent(), ""^Notif.TimeStamp) > C_NotificationLifeTime) ToRemove.add(Key);
+		}
+		foreach (Key in ToRemove) {
+			LibCommonPrestigeNotificationObserver_State.PrestigeNotifications.removekey(Key);
+		}
+	}
+
+	// Then add new notification
+	LibCommonPrestigeNotificationObserver_State.PrestigeNotifications.add(_Notification);
+}
+
+// Get the oldest notification and remove it from our state array
+K_Notification GetNextNotification() {
+	declare K_State LibCommonPrestigeNotificationObserver_State for System = C_State_Null;
+	declare K_Notification Notif;
+	if (LibCommonPrestigeNotificationObserver_State.PrestigeNotifications.count > 0) {
+		Notif = LibCommonPrestigeNotificationObserver_State.PrestigeNotifications[0];
+		LibCommonPrestigeNotificationObserver_State.PrestigeNotifications.removekey(0);
+	}
+	return Notif;
+}
+
+// Get the latest notification and clear old notifications
+K_Notification GetLastNotification() {
+	declare K_State LibCommonPrestigeNotificationObserver_State for System = C_State_Null;
+	declare K_Notification Notif;
+	if (LibCommonPrestigeNotificationObserver_State.PrestigeNotifications.count > 0) {
+		Notif = LibCommonPrestigeNotificationObserver_State.PrestigeNotifications[LibCommonPrestigeNotificationObserver_State.PrestigeNotifications.count-1];
+		LibCommonPrestigeNotificationObserver_State.PrestigeNotifications.clear();
+	}
+	return Notif;
+}
+
+// Check if prestige notifications are available
+Boolean IsNotificationAvailable() {
+	declare K_State LibCommonPrestigeNotificationObserver_State for System = C_State_Null;
+	return (LibCommonPrestigeNotificationObserver_State.PrestigeNotifications.count > 0);
+}
+
+// Function used in NotificationManager to parse the notification and stock it in our state array
+Void OnEvent(CTaskResult_WSNotification _NotificationTask) {
+	switchtype (_NotificationTask.Notification as Notification) {
+		case CNotification_PrestigeEarned: {
+			if (Notification.PrestigeId != "") {
+				AddNotification(K_Notification {
+					CategoryType = Notification.CategoryType,
+					CategoryLevel = Notification.CategoryLevel,
+					Mode = Notification.Mode,
+					PrestigeId = Notification.PrestigeId,
+					PrestigeLevel = Notification.PrestigeLevel,
+					RewardDisplayName = Notification.RewardDisplayName,
+					RewardFileUrl = Notification.RewardFileUrl,
+					RewardThumbnailUrl = Notification.RewardThumbnailUrl,
+					RewardType = Notification.RewardType,
+					SkinOptions = Notification.SkinOptions,
+					StatCurrentValue = Notification.StatCurrentValue,
+					StatValueForNextLevel = Notification.StatValueForNextLevel,
+					TimeStamp = Notification.TimeStamp,
+					Year = Notification.Year
+				});
+			}
+		}
+		default: Log::Log("Unknown notification class for type : " ^ _NotificationTask.Notification.Type);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a debug `PrestigeEarned` notification for season prestige
+Void Protected_Debug_CreateNotificationPrestigeEarned_Season() {
+	AddNotification(K_Notification {
+		CategoryType = "",
+		CategoryLevel = 2, //< Silver
+		Mode = NWebServicesPrestige::EPrestigeMode::Season,
+		PrestigeId = "8ea6de20-5d90-4b5d-b16c-63f3e6aa09a6",
+		PrestigeLevel = 5, //< Level 5/13
+		RewardDisplayName = "",
+		RewardFileUrl = "",
+		RewardThumbnailUrl = "",
+		RewardType = "",
+		SkinOptions = "Prestige=Yes&Level=5&Year=2025&Mode=Season&Season=Spring&Medal=Silver",
+		StatCurrentValue = 15,
+		StatValueForNextLevel = 17,
+		TimeStamp = TL::ToInteger(TiL::GetCurrent()),
+		Year = 2025
+	});
+}

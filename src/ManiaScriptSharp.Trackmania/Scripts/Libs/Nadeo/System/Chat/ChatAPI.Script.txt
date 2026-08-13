@@ -1,0 +1,625 @@
+
+#Include "TextLib" as TL
+#Include "TimeLib" as Time
+
+#Const C_ImgBase "file://Media/Manialinks/Common/Chat/"
+
+#Struct SListGroup {
+	Text Name;
+	Integer Size;
+}
+
+declare CChatManager::EPresenceShow	G_LibChatAPI_TargetPresenceShow;
+declare Text						G_LibChatAPI_TargetStatusText;
+
+declare SListGroup[] G_LibChatAPI_Groups_Contacts;
+declare SListGroup[] G_LibChatAPI_Groups_Invites;
+
+Text Private_StripName(Text _Name) {
+	return TL::ToLowerCase(TL::StripFormatting(_Name));
+}
+
+Integer GetNow() {
+	return TL::ToInteger(Time::GetCurrent());
+}
+
+Boolean IsGameFocused() {
+	return Input.MousePos != <-1000., -1000.>;
+}
+
+Void SetConnected(Boolean _Connected) {
+	if (_Connected) {
+		ManiaPlanet.ChatManager.DesiredConnectionStatus = CChatManager::EDesiredConnectionStatus::Online;
+	} else {
+		ManiaPlanet.ChatManager.DesiredConnectionStatus = CChatManager::EDesiredConnectionStatus::Offline;
+	}
+}
+
+Integer GetConnectionStatus() {
+	switch (ManiaPlanet.ChatManager.CurrentConnectionStatus) {
+		case CChatManager::EConnectionStatus::Offline		: return 0;
+		case CChatManager::EConnectionStatus::Online		: return 1;
+		case CChatManager::EConnectionStatus::Connecting	: return 2;
+	}
+	return 0;
+}
+
+Void SetPresence(CChatManager::EPresenceShow _Presence) {
+	G_LibChatAPI_TargetPresenceShow = _Presence;
+	ManiaPlanet.ChatManager.PresenceSet(G_LibChatAPI_TargetPresenceShow, G_LibChatAPI_TargetStatusText);
+}
+
+CChatManager::EPresenceShow GetPresence() {
+	return G_LibChatAPI_TargetPresenceShow;
+}
+
+Void SetStatusText(Text _StatusText) {
+	G_LibChatAPI_TargetStatusText = _StatusText;
+	ManiaPlanet.ChatManager.PresenceSet(G_LibChatAPI_TargetPresenceShow, G_LibChatAPI_TargetStatusText);
+}
+
+Text GetStatusText() {
+	return ManiaPlanet.ChatManager.Presence_Status;
+}
+
+Void SetContactMuted(Text _Login, Boolean _Muted) {
+	if (_Login == "") return;
+
+	declare persistent Text[] Persistent_ChatMP4_MutedContactsLogins for This;
+	declare IsMuted = Persistent_ChatMP4_MutedContactsLogins.exists(_Login);
+
+	if (_Muted && !IsMuted) {
+		Persistent_ChatMP4_MutedContactsLogins.add(_Login);
+	}
+
+	else if (!_Muted && IsMuted) {
+		declare Removed = Persistent_ChatMP4_MutedContactsLogins.remove(_Login);
+	}
+}
+
+Boolean IsMuted(Text _Login) {
+	declare persistent Text[] Persistent_ChatMP4_MutedContactsLogins for This;
+	return Persistent_ChatMP4_MutedContactsLogins.exists(_Login);
+}
+
+Void AddUnread(Text _Login) {
+	if (_Login == "" || IsMuted(_Login)) return;
+
+	declare persistent Integer[Text] Persistent_ChatMP4_UnreadsCounter for This;
+
+	if (!Persistent_ChatMP4_UnreadsCounter.existskey(_Login)) {
+		Persistent_ChatMP4_UnreadsCounter[_Login] = 0;
+	}
+
+	Persistent_ChatMP4_UnreadsCounter[_Login] += 1;
+}
+
+Void AddUnread(CChatContact _Contact) {
+	if (_Contact == Null) return;
+	AddUnread(_Contact.Login);
+}
+
+Void AddUnread(CChatRoom _ChatRoom) {
+	if (_ChatRoom == Null) return;
+	AddUnread(_ChatRoom.RoomId);
+}
+
+Void MarkAsRead(Text _Login) {
+	if (_Login == "") return;
+	declare persistent Integer[Text] Persistent_ChatMP4_UnreadsCounter for This;
+	if (!Persistent_ChatMP4_UnreadsCounter.existskey(_Login)) return;
+	declare Removed = Persistent_ChatMP4_UnreadsCounter.removekey(_Login);
+}
+
+Integer GetNbUnreads(CChatContact _Contact) {
+	if (_Contact == Null) return 0;
+
+	declare persistent Integer[Text] Persistent_ChatMP4_UnreadsCounter for This;
+	if (!Persistent_ChatMP4_UnreadsCounter.existskey(_Contact.Login)) return 0;
+	return Persistent_ChatMP4_UnreadsCounter[_Contact.Login];
+}
+
+Integer GetNbUnreads() {
+	declare persistent Integer[Text] Persistent_ChatMP4_UnreadsCounter for This;
+	declare TotalNbUnreads = 0;
+	foreach (Login => Unreads in Persistent_ChatMP4_UnreadsCounter) TotalNbUnreads += Unreads;
+	return TotalNbUnreads;
+}
+
+Integer[Text] GetUnreadsArray() {
+	declare persistent Integer[Text] Persistent_ChatMP4_UnreadsCounter for This;
+	return Persistent_ChatMP4_UnreadsCounter;
+}
+
+Integer GetNbChatsOnline() {
+	declare Nb = ManiaPlanet.ChatManager.OnlineBuddies.count + ManiaPlanet.ChatManager.Channels.count;
+	if (ManiaPlanet.ChatManager.Squad != Null) Nb += 1;
+	return Nb;
+}
+
+CChatContact GetContactFromLogin(Text _Login) {
+	return ManiaPlanet.ChatManager.GetContactFromLogin(_Login);
+}
+
+CChatRoom GetRoomFromLogin(Text _Login) {
+	foreach (Channel in ManiaPlanet.ChatManager.Channels) {
+		if (Channel.RoomId == _Login) return Channel;
+	}
+
+	if (ManiaPlanet.ChatManager.Squad != Null && _Login == ManiaPlanet.ChatManager.Squad.RoomId) {
+		return ManiaPlanet.ChatManager.Squad;
+	}
+
+	return Null;
+}
+
+Text GetRoomName(Text _Login) {
+	if (TL::Find("@squad", _Login, False, False)) return _("Squad");
+
+	switch (TL::Split("@", _Login)[0]) {
+		case "trackmania" : return "TrackMania channel";
+		case "shootmania" : return "ShootMania channel";
+	}
+
+	return _Login;
+}
+
+Text GetRoomIcon(Text _Login) {
+	switch (TL::Split("@", _Login)[0]) {
+		case "trackmania" : return C_ImgBase ^ "channel-trackmania.dds";
+		case "shootmania" : return C_ImgBase ^ "channel-shootmania.dds";
+	}
+	
+	return C_ImgBase ^ "squad.dds";
+}
+
+Text GetAvatarURL(CChatContact _Contact) {
+	if (_Contact == Null) return C_ImgBase ^ "default-avatar.dds";
+	return _Contact.AvatarUrl;
+}
+
+Text[] GetRoomContacts(Text _Login) {
+	declare Room <=> GetRoomFromLogin(_Login);
+	if (Room == Null) return [];
+
+	declare Text[] SortedContacts;
+
+	declare Text[    ] Sorting_OnServer;
+	declare Text[Text] Sorting_Online;
+
+	declare Text[Text][Text] ContactsServers;
+
+	foreach (Contact in Room.Members) {
+		if (Contact.CurrentServerLogin == "") continue;
+
+		if (!ContactsServers.existskey(Contact.CurrentServerLogin)) {
+			ContactsServers[Contact.CurrentServerLogin] = [];
+		}
+
+		ContactsServers[Contact.CurrentServerLogin][Contact.Login] = Private_StripName(Contact.Name);
+	}
+
+	foreach (ServerLogin => Players in ContactsServers) {
+		foreach (ContactLogin => ContactName in Players.sort()) {
+			Sorting_OnServer.add(ContactLogin);
+		}
+	}
+
+	foreach (Contact in Room.Members) {
+		if (Sorting_OnServer.exists(Contact.Login)) continue;
+
+		Sorting_Online[Contact.Login] = Private_StripName(Contact.Name);
+	}
+
+	Sorting_Online = Sorting_Online.sort();
+
+	SortedContacts.add(LocalUser.Login); // Always list local user on top
+
+	foreach (Login in Sorting_OnServer)			SortedContacts.add(Login);
+	foreach (Login => Name in Sorting_Online)	SortedContacts.add(Login);
+
+	return SortedContacts;
+}
+
+/** Get the contacts list sorted by presence and names.
+ *
+ *	@return		Sorted contacts list.
+ */
+Text[] GetContactsList() {
+	declare Text[] SortedContacts;
+
+	/*
+	declare Text[Text] Sorting_Unread;
+	declare Text[    ] Sorting_Rooms;
+	declare Text[    ] Sorting_OnServer;
+	declare Text[Text] Sorting_W2Chat;
+	declare Text[Text] Sorting_Online;
+	declare Text[Text] Sorting_Away;
+	declare Text[Text] Sorting_Busy;
+	declare Text[Text] Sorting_Offline;
+	*/
+
+	declare Text[] Sorting_Unread;
+	declare Text[] Sorting_Rooms;
+	declare Text[] Sorting_OnServer;
+	declare Text[] Sorting_W2Chat;
+	declare Text[] Sorting_Online;
+	declare Text[] Sorting_Away;
+	declare Text[] Sorting_Busy;
+	declare Text[] Sorting_Offline;
+
+	foreach (Login => NbUnreads in GetUnreadsArray()) {
+		Sorting_Unread.add(Login);
+	}
+
+	foreach (Channel in ManiaPlanet.ChatManager.Channels) {
+		Sorting_Rooms.add(Channel.RoomId);
+	}
+
+	if (ManiaPlanet.ChatManager.Squad != Null) {
+		Sorting_Rooms.add(ManiaPlanet.ChatManager.Squad.RoomId);
+	}
+
+	declare Text[Text][Text] ContactsServers;
+
+	foreach (Contact in ManiaPlanet.ChatManager.OnlineBuddies) {
+		//if (Sorting_Unread.existskey(Contact.Login)) continue;
+		if (Sorting_Unread.exists(Contact.Login)) continue;
+
+		if (Contact.CurrentServerLogin == "") continue;
+
+		if (!ContactsServers.existskey(Contact.CurrentServerLogin)) {
+			ContactsServers[Contact.CurrentServerLogin] = [];
+		}
+
+		ContactsServers[Contact.CurrentServerLogin][Contact.Login] = Private_StripName(Contact.Name);
+	}
+
+	foreach (ServerLogin => Players in ContactsServers) {
+		//if (Players.count <= 1) continue;
+		if (Players.count <= 0) continue;
+
+		foreach (ContactLogin => ContactName in Players.sort()) {
+			//if (Sorting_Unread.existskey(ContactLogin)) continue;
+			if (Sorting_Unread.exists(ContactLogin)) continue;
+			Sorting_OnServer.add(ContactLogin);
+		}
+	}
+
+	foreach (Contact in ManiaPlanet.ChatManager.OnlineBuddies) {
+		//if (Sorting_Unread.existskey(Contact.Login) || Sorting_OnServer.exists(Contact.Login)) continue;
+		if (Sorting_Unread.exists(Contact.Login) || Sorting_OnServer.exists(Contact.Login)) continue;
+
+		switch (Contact.PresenceShow) {
+			case CChatContact::EPresenceShow::WantToChat : {
+				//Sorting_W2Chat[Contact.Login] = Private_StripName(Contact.Name);
+				Sorting_W2Chat.add(Contact.Login);
+			}
+			case CChatContact::EPresenceShow::Away : {
+				//Sorting_Away[Contact.Login] = Private_StripName(Contact.Name);
+				Sorting_Away.add(Contact.Login);
+			}
+			case CChatContact::EPresenceShow::ExtendedAway : {
+				//Sorting_Away[Contact.Login] = Private_StripName(Contact.Name);
+				Sorting_Away.add(Contact.Login);
+			}
+			case CChatContact::EPresenceShow::DoNotDisturb : {
+				//Sorting_Busy[Contact.Login] = Private_StripName(Contact.Name);
+				Sorting_Busy.add(Contact.Login);
+			}
+			default : {
+				//Sorting_Online[Contact.Login] = Private_StripName(Contact.Name);
+				Sorting_Online.add(Contact.Login);
+			}
+		}
+	}
+
+	/*
+	foreach (Contact in ManiaPlanet.ChatManager.OfflineBuddies) {
+		//if (Sorting_Unread.existskey(Contact.Login)) continue;
+		if (Sorting_Unread.exists(Contact.Login)) continue;
+
+		//Sorting_Offline[Contact.Login] = Private_StripName(Contact.Name);
+		Sorting_Offline.add(Contact.Login);
+	}
+	*/
+
+	/*
+	Sorting_Unread	= Sorting_Unread.sort();
+	Sorting_W2Chat	= Sorting_W2Chat.sort();
+	Sorting_Online	= Sorting_Online.sort();
+	Sorting_Away	= Sorting_Away.sort();
+	Sorting_Busy	= Sorting_Busy.sort();
+	Sorting_Offline	= Sorting_Offline.sort();
+
+	foreach (Login => Name in Sorting_Unread)	SortedContacts.add(Login);
+	foreach (RoomId in Sorting_Rooms)			SortedContacts.add(RoomId);
+	foreach (Login in Sorting_OnServer)			SortedContacts.add(Login);
+	foreach (Login => Name in Sorting_W2Chat)	SortedContacts.add(Login);
+	foreach (Login => Name in Sorting_Online)	SortedContacts.add(Login);
+	foreach (Login => Name in Sorting_Away)		SortedContacts.add(Login);
+	foreach (Login => Name in Sorting_Busy)		SortedContacts.add(Login);
+	foreach (Login => Name in Sorting_Offline)	SortedContacts.add(Login);
+	*/
+
+	foreach (Login in Sorting_Unread)	SortedContacts.add(Login);
+	foreach (RoomId in Sorting_Rooms)	SortedContacts.add(RoomId);
+	foreach (Login in Sorting_OnServer)	SortedContacts.add(Login);
+	foreach (Login in Sorting_W2Chat)	SortedContacts.add(Login);
+	foreach (Login in Sorting_Online)	SortedContacts.add(Login);
+	foreach (Login in Sorting_Away)		SortedContacts.add(Login);
+	foreach (Login in Sorting_Busy)		SortedContacts.add(Login);
+	//foreach (Login in Sorting_Offline)	SortedContacts.add(Login);
+
+	foreach (Contact in ManiaPlanet.ChatManager.OfflineBuddies) {
+		if (SortedContacts.exists(Contact.Login)) continue;
+		SortedContacts.add(Contact.Login);
+	}
+
+	G_LibChatAPI_Groups_Contacts.clear();
+
+	if (Sorting_Unread.count > 0) G_LibChatAPI_Groups_Contacts.add(SListGroup {
+		Name = _("Unread messages"),
+		Size = Sorting_Unread.count
+	});
+
+	if (Sorting_Rooms.count > 0) G_LibChatAPI_Groups_Contacts.add(SListGroup {
+		Name = _("Group chats"),
+		Size = Sorting_Rooms.count
+	});
+
+	if (Sorting_OnServer.count > 0) G_LibChatAPI_Groups_Contacts.add(SListGroup {
+		Name = _("|Presence|Playing online"),
+		Size = Sorting_OnServer.count
+	});
+
+	if (Sorting_W2Chat.count > 0) G_LibChatAPI_Groups_Contacts.add(SListGroup {
+		Name = _("|Presence|Want to chat"),
+		Size = Sorting_W2Chat.count
+	});
+
+	if (Sorting_Online.count > 0) G_LibChatAPI_Groups_Contacts.add(SListGroup {
+		Name = _("|Presence|Available"),
+		Size = Sorting_Online.count
+	});
+
+	if (Sorting_Away.count > 0) G_LibChatAPI_Groups_Contacts.add(SListGroup {
+		Name = _("|Presence|Away"),
+		Size = Sorting_Away.count
+	});
+
+	if (Sorting_Busy.count > 0) G_LibChatAPI_Groups_Contacts.add(SListGroup {
+		Name = _("|Presence|Busy"),
+		Size = Sorting_Busy.count
+	});
+
+	if (ManiaPlanet.ChatManager.OfflineBuddies.count > 0) G_LibChatAPI_Groups_Contacts.add(SListGroup {
+		Name = _("|Presence|Offline"),
+		Size = ManiaPlanet.ChatManager.OfflineBuddies.count
+	});
+
+	return SortedContacts;
+}
+
+SListGroup[] GetContactsGroups() {
+	return G_LibChatAPI_Groups_Contacts;
+}
+
+Text[] GetSquadMembers() {
+	declare Logins = [LocalUser.Login];
+
+	if (ManiaPlanet.ChatManager.Squad != Null) {
+		foreach (Contact in ManiaPlanet.ChatManager.Squad.Members) {
+			if (!Logins.exists(Contact.Login)) Logins.add(Contact.Login);
+		}
+	}
+
+	return Logins;
+}
+
+Text[] GetOnlineContactsNotInSquad() {
+	declare SquadMembers = GetSquadMembers();
+	declare Text[] OnlineNotInSquad;
+
+	foreach (Contact in ManiaPlanet.ChatManager.OnlineBuddies) {
+		if (!SquadMembers.exists(Contact.Login)) {
+			OnlineNotInSquad.add(Contact.Login);
+		}
+	}
+
+	return OnlineNotInSquad.sort();
+}
+
+Text[] SearchContacts(Text _SearchPhrase) {
+	declare Text[] SearchResults;
+	declare Text[Text] Sort_Results;
+
+	foreach (Contact in ManiaPlanet.ChatManager.Contacts) {
+		if (
+			TL::Find(_SearchPhrase, Contact.Login, False, False) ||
+			TL::Find(_SearchPhrase, Contact.Name, False, False)
+		) {
+			Sort_Results[Contact.Login] = Private_StripName(Contact.Name);
+		}
+	}
+
+	Sort_Results = Sort_Results.sort();
+	foreach (Login => Name in Sort_Results) SearchResults.add(Login);
+	return SearchResults;
+}
+
+Text[] GetInvitesList() {
+	declare Text[] SortedContacts;
+
+	declare Text[Text] Sort_Squads;
+	declare Text[Text] Sort_Incoming;
+	declare Text[Text] Sort_Outgoing;
+	declare Text[Text] Sort_Suggested;
+
+	foreach (Contact in ManiaPlanet.ChatManager.IncomingBuddyRequests) {
+		Sort_Incoming[Contact.Login] = Private_StripName(Contact.Name);
+	}
+
+	foreach (Invite in ManiaPlanet.ChatManager.Squad_Invitations) {
+		Sort_Squads["squad:" ^ Invite.Sender.Login] = Private_StripName(Invite.Sender.Name);
+	}
+
+	foreach (Contact in ManiaPlanet.ChatManager.OutgoingBuddyRequests) {
+		Sort_Outgoing[Contact.Login] = Private_StripName(Contact.Name);
+	}
+
+	foreach (User in ManiaPlanet.CurrentServerPlayers) {
+		if (User.Login == LocalUser.Login) continue;
+
+		declare Contact <=> GetContactFromLogin(User.Login);
+		if (Contact != Null && Contact.Subscription_From == CChatContact::ESubscription::Accepted) continue;
+
+		Sort_Suggested[User.Login] = Private_StripName(User.Name);
+	}
+
+	Sort_Squads		= Sort_Squads.sort();
+	Sort_Incoming	= Sort_Incoming.sort();
+	Sort_Outgoing	= Sort_Outgoing.sort();
+	Sort_Suggested	= Sort_Suggested.sort();
+
+	foreach (Login => Name in Sort_Squads)		SortedContacts.add(Login);
+	foreach (Login => Name in Sort_Incoming)	SortedContacts.add(Login);
+	foreach (Login => Name in Sort_Outgoing)	SortedContacts.add(Login);
+	foreach (Login => Name in Sort_Suggested)	SortedContacts.add(Login);
+
+	G_LibChatAPI_Groups_Invites.clear();
+
+	if (Sort_Squads.count > 0) G_LibChatAPI_Groups_Invites.add(SListGroup{
+		Name = _("Squad invites"),
+		Size = Sort_Squads.count
+	});
+
+	if (Sort_Incoming.count > 0) G_LibChatAPI_Groups_Invites.add(SListGroup{
+		Name = _("Incoming requests"),
+		Size = Sort_Incoming.count
+	});
+
+	if (Sort_Outgoing.count > 0) G_LibChatAPI_Groups_Invites.add(SListGroup{
+		Name = _("Outgoing requests"),
+		Size = Sort_Outgoing.count
+	});
+
+	if (Sort_Suggested.count > 0) G_LibChatAPI_Groups_Invites.add(SListGroup{
+		Name = _("On this server"),
+		Size = Sort_Suggested.count
+	});
+
+	return SortedContacts;
+}
+
+SListGroup[] GetInvitesGroups() {
+	return G_LibChatAPI_Groups_Invites;
+}
+
+Integer GetNbIncomingInvites() {
+	return ManiaPlanet.ChatManager.IncomingBuddyRequests.count;
+}
+
+Void AddNewContact(Text _Login) {
+	if (_Login == "") return;
+	ManiaPlanet.ChatManager.AddBuddy(_Login);
+}
+
+Void AcceptInvite(Text _Login) {
+	if (_Login == "") return;
+
+	declare Contact <=> GetContactFromLogin(_Login);
+
+	if (Contact != Null) {
+		ManiaPlanet.ChatManager.AcceptBuddy(Contact);
+		return;
+	}
+	
+	foreach (Invite in ManiaPlanet.ChatManager.Squad_Invitations) {
+		if (_Login == "squad:" ^ Invite.Sender.Login) {
+			ManiaPlanet.ChatManager.Squad_Invitation_Accept(Invite);
+			return;
+		}
+	}
+}
+
+Void RemoveContact(Text _Login) {
+	if (_Login == "") return;
+	declare Contact <=> GetContactFromLogin(_Login);
+
+	if (Contact != Null) {
+		ManiaPlanet.ChatManager.RemoveBuddy(Contact);
+		return;
+	}
+	
+	foreach (Invite in ManiaPlanet.ChatManager.Squad_Invitations) {
+		if (_Login == "squad:" ^ Invite.Sender.Login) {
+			ManiaPlanet.ChatManager.Squad_Invitation_Decline(Invite);
+			return;
+		}
+	}
+}
+
+Void InviteToSquad(Text _Login) {
+	if (_Login == "") return;
+	ManiaPlanet.ChatManager.Squad_Invite(_Login);
+}
+
+Void LeaveSquad() {
+	if (ManiaPlanet.ChatManager.Squad == Null) return;
+	ManiaPlanet.ChatManager.Squad_Leave();
+}
+
+Void SendMessage(Text _Conversation, Text _MessageBody, Text _URL, Text _EmbedXML) {
+	if (_Conversation == "") return; 
+
+	declare Recipient <=> GetContactFromLogin(_Conversation);
+
+	if (Recipient != Null) {
+		ManiaPlanet.ChatManager.SendMessage(Recipient, _MessageBody, _URL, _EmbedXML);
+		return;
+	}
+	
+	declare ChatRoom <=> GetRoomFromLogin(_Conversation);
+
+	if (ChatRoom != Null) {
+		ManiaPlanet.ChatManager.Room_SendMessage(ChatRoom, _MessageBody);
+		return;
+	}
+}
+
+Void SendMessage(Text _Conversation, Text _MessageBody) {
+	SendMessage(_Conversation, _MessageBody, "", "");
+}
+
+Ident GetConversationHistoryId(CChatRoom _Room) {
+	return ManiaPlanet.ChatManager.History_Create_Room(_Room).Id;
+}
+
+Ident GetConversationHistoryId(CChatContact _Contact) {
+	return ManiaPlanet.ChatManager.History_Create_Contact(_Contact).Id;
+}
+
+Ident GetConversationHistoryId(Text _Login) {
+	declare Contact <=> GetContactFromLogin(_Login);
+
+	if (Contact != Null) {
+		return GetConversationHistoryId(Contact);
+	}
+
+	declare Room <=> GetRoomFromLogin(_Login);
+
+	if (Room != Null) {
+		return GetConversationHistoryId(Room);
+	}
+
+	return NullId;
+}
+
+Boolean DeleteMessage(Ident _MessageId) {
+	return False;
+}
+
+Boolean DeleteChatHistory(Text _ConversationLogin) {
+	return False;
+}

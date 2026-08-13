@@ -1,0 +1,492 @@
+/**
+ * Role-Base Access Control
+ */
+#Const Version "2.8.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/RBAC.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Role_ClubNone ""
+#Const C_Role_ClubApply "Apply" //< When a player applies to be a member of a club. This is not a real role, but an API role.
+#Const C_Role_ClubMember "Member"
+#Const C_Role_ClubAdmin "Admin"
+#Const C_Role_ClubCreator "Creator"
+#Const C_Role_ClubContentCreator "Content_Creator"
+#Const C_RoleList ["Admin", "Content_Creator", "Member", "Creator"]
+#Const C_RoleList_Translations [
+	//L16N [Club] Role of a member who is asking to join the club.
+	"Apply" => _("|Role|Applicant"),
+	//L16N [Club] Role of a member in a club. Here, they are an administrator of the club.
+	"Admin" => _("|Role|Admin"),
+	//L16N [Club] Role of a member in a club. Here, they are a simple member of the club.
+	"Member" => _("|Role|Member"),
+	//L16N [Club] Role of a member in a club. Here, they are a content (tracks, skins, video, etc) creator of the club.
+	"Content_Creator" => _("|Role|Content creator"),
+	//L16N [Club] Role of a member in a club. Here, they are the creator of the club.
+	"Creator" => _("|Role|Creator")
+]
+
+#Const C_RoleList_Set_Translations [
+	//L16N [Club] Set the role of a member in a club. Here, they are an administrator of the club.
+	"Admin" => _("|Role|Set admin"),
+	//L16N [Club] Set the role of a member in a club. Here, they are a content (tracks, skins, video, etc) creator of the club.
+	"Content_Creator" => _("|Role|Set content creator"),
+	//L16N [Club] Set the role of a member in a club. Here, they are a simple member of the club.
+	"Member" => _("|Role|Set member")
+]
+
+#Const C_ClubPermission_Administration 1
+#Const C_ClubPermission_EditSubscription 2
+#Const C_ClubPermission_DeleteClub 3
+#Const C_ClubPermission_HandleMapUploads 4
+#Const C_ClubPermission_UseMapUploads 5
+#Const C_ClubPermission_IsClubMember 6
+#Const C_ClubPermission_HandleSkinUploads 7
+#Const C_ClubPermission_UseSkinUploads 8
+#Const C_ClubPermission_HandleMembers 9
+#Const C_ClubPermission_FeatureClub 10
+#Const C_ClubPermission_CreateActivity 11
+
+#Const C_ClubPermissions [
+	"Apply" => [2, 10], //< EditSubscription
+	"Member" => [2, 5, 6, 8, 10], //< EditSubscription, UseMapUploads, IsClubMember, UseSkinUploads, FeatureClub
+	"Content_Creator" => [2, 4, 5, 6, 7, 8, 10, 11], //< EditSubscription, HandleMapUploads, UseMapUploads, IsClubMember, HandleSkinUploads, UseSkinUploads, FeatureClub, CreateActivity
+	"Admin" => [1, 2, 4, 5, 6, 7, 8, 9, 10, 11], //< Administration, EditSubscription, HandleMapUploads, UseMapUploads, IsClubMember, HandleSkinUploads, UseSkinUploads, FeatureClub, CreateActivity
+	"Creator" => [1, 3, 4, 5, 6, 7, 8, 9, 11] //< Administration, HandleMapUploads, UseMapUploads, IsClubMember, HandleSkinUploads, UseSkinUploads, CreateActivity
+]
+
+//!\\ DO NOT modifiy thoses values, they must be the same in the C++ //!\\
+#Const C_GamePermission_PlayCurrentOfficialQuarterlyCampaign "client_PlayCurrentOfficialQuarterlyCampaign" //< User can play the current official quarterly campaign
+#Const C_GamePermission_PlayPastOfficialQuarterlyCampaign "client_PlayPastOfficialQuarterlyCampaign" //< User can play the past official quarterly campaigns
+#Const C_GamePermission_PlayEntireOfficialQuarterlyCampaign "client_PlayEntireOfficialQuarterlyCampaign" //< User can play the entire official quarterly campaign
+#Const C_GamePermission_PlayCurrentOfficialMonthlyCampaign "client_PlayCurrentOfficialMonthlyCampaign" //< User can play the current official monthly campaign
+#Const C_GamePermission_PlayPastOfficialMonthlyCampaign "client_PlayPastOfficialMonthlyCampaign" //< User can play the past official monthly campaigns
+#Const C_GamePermission_PlayCurrentOfficialTrackOfTheDay "client_PlayCurrentOfficialTrackOfTheDay" //< User can play the current Track of the Day
+#Const C_GamePermission_PlayCurrentWeeklyShortsCampaign "client_PlayCurrentWeeklyShortsCampaign" //< User can play the current official weekly shorts campaign
+#Const C_GamePermission_PlayPastWeeklyShortsCampaign "client_PlayPastWeeklyShortsCampaign" //< User can play the past official weekly shorts campaigns
+#Const C_GamePermission_PlayCurrentWeeklyGrandsCampaign "client_PlayCurrentWeeklyGrandsCampaign" //< User can play the current official weekly grands campaign
+#Const C_GamePermission_PlayPastWeeklyGrandsCampaign "client_PlayPastWeeklyGrandsCampaign" //< User can play the past official weekly grands campaigns
+#Const C_GamePermission_PlayPublicClubCampaign "client_PlayPublicClubCampaign" //< User can play public club campaigns
+#Const C_GamePermission_PlayPublicClubRoom "client_PlayPublicClubRoom" //< User can play on the public club rooms
+#Const C_GamePermission_PlayArcadeChannel "client_PlayArcadeChannel" //< User can play on the arcade channel
+#Const C_GamePermission_PlayTOTDChannel "client_PlayTOTDChannel" //< User can play the TOTD channel and COTD
+#Const C_GamePermission_PlayCOTWChannel "client_PlayCupOfTheWeekChannel" //< User can play on the Cup of the Week channel
+#Const C_GamePermission_PlayMatchmaking "client_PlayMatchmaking" //< User can play matchmaking
+
+#Const C_GamePermission_OpenSimpleMapEditor "client_OpenSimpleMapEditor" //< User can open the simple map editor
+#Const C_GamePermission_OpenAdvancedMapEditor "client_OpenAdvancedMapEditor" //< User can open the advanced map editor
+#Const C_GamePermission_CreateLocalMap "client_CreateLocalMap" //< User can create a map locally
+#Const C_GamePermission_CreateAndUploadMap "map_Create" //< User can upload a map to server review
+#Const C_GamePermission_AccessServerReview "map_AccessServerReview" //< User can access the server review
+#Const C_GamePermission_OpenSkinEditor "client_OpenSkinEditor" //< User can open the skin editor
+#Const C_GamePermission_CreateLocalSkin "client_CreateLocalSkin" //< User can create a skin locally
+#Const C_GamePermission_CreateAndUploadSkin "skin_Create" //< User can save a skin (upload)
+#Const C_GamePermission_UseCustomSkin "skin_UseCustomSkin" //< User can use a custom skin
+#Const C_GamePermission_UsePrestigeSkin "skin_UsePrestigeSkin" //< User can use a prestige skin
+#Const C_GamePermission_OpenReplayEditor "client_OpenReplayEditor" //< User can open the replay editor
+#Const C_GamePermission_CreateLocalReplay "client_CreateLocalReplay" //< User can save a video in the replay editor
+#Const C_GamePermission_UseCustomCollection "item_UseCustomCollection" //< User can use a custom item collection
+
+#Const C_GamePermission_ViewClub "club_DisplayInfo" //< User can display a club page
+#Const C_GamePermission_CreateClub "club_Create" //< User can create a club
+#Const C_GamePermission_JoinClub "club_Join" //< User can join a club
+#Const C_GamePermission_CreateGameMode "mapRecord_CreateGameMode" //< User can create game modes
+#Const C_GamePermission_CreateClubCompetition "club_CreateCompetition" //< User can create a competition in a club
+#Const C_GamePermission_CreateItemAndMod "client_CreateItemAndMod" //< User can create items and mods
+// Do NOT use thoses permissions, there are only usable with a club reference, see #1584
+#Const C_GamePermission_CreateActivity "club_CreateActivity" //< User can create a club activity
+#Const C_GamePermission_PlayPrivateActivity "club_PlayPrivateActivity" //< User can play a private club activity
+
+#Const C_GamePermission_DisplayStandardAds "ads_DisplayStandardAds" //< User can see ads about standard edition
+#Const C_GamePermission_DisplayClubAds "ads_DisplayClubAds" //< User can see ads about club edition
+#Const C_GamePermission_RemoveAds "ads_Remove" //< User can remove ads
+#Const C_GamePermission_PlayOnlineCompetition "client_PlayOnlineCompetition" //< User can play online competitions
+#Const C_GamePermission_GainXP "xp_Gain" //< User can play gain experience points
+#Const C_GamePermission_InGameChat "client_InGameChat" //< User can chat ingame
+#Const C_GamePermission_VoiceChat "client_InGameChat" //< User can use voice chat
+#Const C_GamePermission_ViewRecords "client_DisplayMapRecordLeaderboard" //< User can view the map's records
+#Const C_GamePermission_PlayRecords "client_DisplayMapRecordGhost" //< User can play against map's records
+#Const C_GamePermission_ViewPBGhostMultiplayer "client_DisplayPlayerPBGhostOnLive" //< User can view their PB ghost when playing in multiplayer modes
+
+#Const C_GamePermission_PlayHotSeat "client_PlayHotSeat" //< User can play the HotSeat mode
+#Const C_GamePermission_PlaySplitscreen "client_PlaySplitscreen" //< User can play the splitscreen mode
+#Const C_GamePermission_PlayLocalMap "client_PlayLocalMap" //< User can play a local map
+#Const C_GamePermission_PlayAgainstReplay "client_PlayAgainstReplay" //< User can play against a replay
+#Const C_GamePermission_CreateLocalServer "client_CreateLocalServer" //< User can create a local server
+#Const C_GamePermission_FindLocalServer "client_FindLocalServer" //< User can find a local server
+
+#Const C_GamePermission_CanSubscribeToStandard "subscription_CanSubscribeToStandard" //< User can upgrade its game to the standard edition
+#Const C_GamePermission_CanSubscribeToClub "subscription_CanSubscribeToClub" //< User can upgrade its game to the club edition
+
+//L16N [Permissions] The player must subscribe to be able to play the live quarterly campaign. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayCurrentOfficialQuarterlyCampaign _("Subscribe to Trackmania %1 to play the live quarterly campaign.")
+//L16N [Permissions] The player must subscribe to be able to play past quarterly campaigns. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayPastOfficialQuarterlyCampaign _("Subscribe to Trackmania %1 to play past quarterly campaigns.")
+//L16N [Permissions] The player must subscribe in order to play the entire quarterly campaign. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayEntireOfficialQuarterlyCampaign _("Subscribe to Trackmania %1 to play the full official quarterly campaign.")
+//L16N [Permissions] The player must subscribe to be able to play the live monthly campaign. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayCurrentOfficialMonthlyCampaign _("Subscribe to Trackmania %1 to play the live monthly campaign.")
+//L16N [Permissions] The player must subscribe to be able to play the current Track of the Day. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayCurrentOfficialTrackOfTheDay _("Subscribe to Trackmania %1 to play the current Track of the Day.")
+//L16N [Permissions] The player must subscribe to be able to play past monthly campaigns. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayPastOfficialMonthlyCampaign _("Subscribe to Trackmania %1 to play past monthly campaigns.")
+//L16N [Permissions] The player must subscribe to be able to play the live weekly shorts campaign. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayCurrentWeeklyShortsCampaign _("Subscribe to Trackmania %1 to play the live weekly shorts campaign.")
+//L16N [Permissions] The player must subscribe to be able to play past weekly shorts campaigns. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayPastWeeklyShortsCampaign _("Subscribe to Trackmania %1 to play past weekly shorts campaigns.")
+//L16N [Permissions] The player must subscribe to be able to play the live weekly grands campaign. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayCurrentWeeklyGrandsCampaign _("Subscribe to Trackmania %1 to play the live Weekly Grands campaign.")
+//L16N [Permissions] The player must subscribe to be able to play past weekly grands campaigns. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayPastWeeklyGrandsCampaign _("Subscribe to Trackmania %1 to play past Weekly Grands campaigns.")
+//L16N [Permissions] The player must subscribe to be able to play club's campaigns. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayPublicClubCampaign _("Subscribe to Trackmania %1 to play club's campaigns.")
+//L16N [Permissions] The player must subscribe to be able to join club's rooms. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayPublicClubRoom _("Subscribe to Trackmania %1 to join club's rooms.")
+//L16N [Permissions] The player must subscribe to be able to join the arcade channel. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayArcadeChannel _("Subscribe to Trackmania %1 to join the arcade channel.")
+//L16N [Permissions] The player must subscribe to be able to join the Track of the Day servers. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayTOTDChannel _("Subscribe to Trackmania %1 to join the Track of the Day channel.")
+//L16N [Permissions] The player must subscribe to be able to join the Cup of the Week servers. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayCOTWChannel _("Subscribe to Trackmania %1 to join the Cup of the Week channel.")
+//L16N [Permissions] The player must subscribe to be able to join the matchmaking channel. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayMatchmaking _("Subscribe to Trackmania %1 to join the matchmaking.")
+//L16N [Permissions] The player must subscribe to be able to play the Royal tracks. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayRoyalTracks _("Subscribe to Trackmania %1 to play Royal tracks.")
+
+//L16N [Permissions] The player must subscribe to be able to open the simple track editor. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_OpenSimpleMapEditor _("Subscribe to Trackmania %1 to open the simple track editor.")
+//L16N [Permissions] The player must subscribe to be able to open the advanced track editor. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_OpenAdvancedMapEditor _("Subscribe to Trackmania %1 to edit advanced tracks.")
+//L16N [Permissions] The player must subscribe to be able to create a track locally. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_CreateLocalMap _("Subscribe to Trackmania %1 to create a track.")
+//L16N [Permissions] The player must subscribe to be able to save a track (upload). %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_CreateAndUploadMap _("Subscribe to Trackmania %1 to upload a track.")
+//L16N [Permissions] The player must subscribe to be able to edit a club track. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_EditClubMap _("Subscribe to Trackmania %1 to edit club tracks.")
+//L16N [Permissions] The player must subscribe to be able to access the server review. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_AccessServerReview _("Subscribe to Trackmania %1 to access the server review.")
+//L16N [Permissions] The player must subscribe to be able to open the skin editor. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_OpenSkinEditor _("Subscribe to Trackmania %1 to open the skin editor")
+//L16N [Permissions] The player must subscribe to be able to create a skin locally. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_CreateLocalSkin _("Subscribe to Trackmania %1 to create a skin")
+//L16N [Permissions] The player must subscribe to be able to save a skin (upload). %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_CreateAndUploadSkin _("Subscribe to Trackmania %1 to upload a skin")
+//L16N [Permissions] The player must subscribe to be able to use a custom skin. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_UseCustomSkin _("Subscribe to Trackmania %1 to use a custom skin")
+//L16N [Permissions] The player must subscribe to be able to use a prestige skin. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_UsePrestigeSkin _("Subscribe to Trackmania %1 to use a prestige skin")
+//L16N [Permissions] The player must subscribe to be able to open the replay editor. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_OpenReplayEditor _("Subscribe to Trackmania %1 to open the replay editor")
+//L16N [Permissions] The player must subscribe to be able to save a video in the replay editor. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_CreateLocalReplay _("Subscribe to Trackmania %1 to save a video in the replay editor")
+
+//L16N [Permissions] The player must subscribe to be able to display a club page. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_ViewClub _("Subscribe to Trackmania %1 to display a club page.")
+//L16N [Permissions] The player must subscribe to be able to create a club. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_CreateClub _("Subscribe to Trackmania %1 to create a club.")
+//L16N [Permissions] The player must subscribe to be able to join a club. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_JoinClub _("Subscribe to Trackmania %1 to join a club.")
+//L16N [Permissions] The player must subscribe to be able to create a club activity. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_CreateActivity _("Subscribe to Trackmania %1 to create a club activity.")
+//L16N [Permissions] The player must subscribe to be able to play a private club activity. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayPrivateActivity _("Subscribe to Trackmania %1 to play a private club activity.")
+//L16N [Permissions] The player must subscribe to be able to play a track review club activity. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayMapReviewActivity _("Subscribe to Trackmania %1 to play a track review club activity.")
+//L16N [Permissions] The player must subscribe to be able to create game modes. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_CreateGameMode _("Subscribe to Trackmania %1 to create game modes.")
+//L16N [Permissions] The player must subscribe to be able to create items and mods. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_CreateItemAndMod _("Subscribe to Trackmania %1 to create items and mods.")
+//L16N [Permissions] The player must subscribe to be able to add item collections in favorite. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_AddFavoriteItemCollections _("Subscribe to Trackmania %1 to add item collections in favorite.")
+
+//L16N [Permissions] The player must subscribe to be able to play online competitions. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayOnlineCompetition _("Subscribe to Trackmania %1 to play online competitions.")
+
+//L16N [Permissions] The player must subscribe to be able to play the HotSeat mode. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayHotSeat _("Subscribe to Trackmania %1 to play the HotSeat mode.")
+//L16N [Permissions] The player must subscribe to be able to play the splitscreen mode. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlaySplitscreen _("Subscribe to Trackmania %1 to play the splitscreen mode.")
+//L16N [Permissions] The player must subscribe to be able to play a local track. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayLocalMap _("Subscribe to Trackmania %1 to play a local track.")
+//L16N [Permissions] The player must subscribe to be able to play against a replay. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_PlayAgainstReplay _("Subscribe to Trackmania %1 to play against a replay.")
+//L16N [Permissions] The player must subscribe to be able to create a local server. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_CreateLocalServer _("Subscribe to Trackmania %1 to create a local server.")
+//L16N [Permissions] The player must subscribe to be able to find a local server. %1 is the name of the necessary subscription
+#Const C_GamePermissionMessage_FindLocalServer _("Subscribe to Trackmania %1 to find a local server.")
+
+// Texts of the different versions to translate and use in other sentences
+//L16N [Permissions] Name of the free access to TM
+#Const C_Text_StarterAccess _("starter access")
+//L16N [Permissions] Name of the standard access to TM, it includes more content
+#Const C_Text_StandardAccess _("standard access")
+//L16N [Permissions] Name of the club access to TM, it includes club features
+#Const C_Text_ClubAccess _("club access")
+
+// Starter access can play the quarterly campaign up to this track number (from track 1 to n)
+#Const C_StarterAccesQuarterlyCampaignTrackLimit 10
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a someone has permission to do something in a club
+Boolean HasClubPermission(ClubStruct::LibStructuresClub_K_Member _Member, Integer _Permission) {
+	return C_ClubPermissions.get(_Member.Role, []).exists(_Permission);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the message to display when a user doesn't have a given permission
+Text GetGamePermissionMessage(Text _GamePermissionMessage) {
+	switch (_GamePermissionMessage) {
+		case C_GamePermissionMessage_PlayCurrentOfficialQuarterlyCampaign: {
+			return TL::Compose(C_GamePermissionMessage_PlayCurrentOfficialQuarterlyCampaign, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_PlayPastOfficialQuarterlyCampaign: {
+			return TL::Compose(C_GamePermissionMessage_PlayPastOfficialQuarterlyCampaign, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayEntireOfficialQuarterlyCampaign: {
+			return TL::Compose(C_GamePermissionMessage_PlayEntireOfficialQuarterlyCampaign, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayCurrentOfficialMonthlyCampaign: {
+			return TL::Compose(C_GamePermissionMessage_PlayCurrentOfficialMonthlyCampaign, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayPastOfficialMonthlyCampaign: {
+			return TL::Compose(C_GamePermissionMessage_PlayPastOfficialMonthlyCampaign, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayCurrentOfficialTrackOfTheDay: {
+			return TL::Compose(C_GamePermissionMessage_PlayCurrentOfficialTrackOfTheDay, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayCurrentWeeklyShortsCampaign: {
+			return TL::Compose(C_GamePermissionMessage_PlayCurrentWeeklyShortsCampaign, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_PlayPastWeeklyShortsCampaign: {
+			return TL::Compose(C_GamePermissionMessage_PlayPastWeeklyShortsCampaign, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayCurrentWeeklyGrandsCampaign: {
+			return TL::Compose(C_GamePermissionMessage_PlayCurrentWeeklyGrandsCampaign, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_PlayPastWeeklyGrandsCampaign: {
+			return TL::Compose(C_GamePermissionMessage_PlayPastWeeklyGrandsCampaign, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayPublicClubCampaign: {
+			return TL::Compose(C_GamePermissionMessage_PlayPublicClubCampaign, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayPublicClubRoom: {
+			return TL::Compose(C_GamePermissionMessage_PlayPublicClubRoom, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayArcadeChannel: {
+			return TL::Compose(C_GamePermissionMessage_PlayArcadeChannel, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayTOTDChannel: {
+			return TL::Compose(C_GamePermissionMessage_PlayTOTDChannel, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayCOTWChannel: {
+			return TL::Compose(C_GamePermissionMessage_PlayCOTWChannel, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayMatchmaking: {
+			return TL::Compose(C_GamePermissionMessage_PlayMatchmaking, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_PlayRoyalTracks: {
+			return TL::Compose(C_GamePermissionMessage_PlayRoyalTracks, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_OpenSimpleMapEditor: {
+			return TL::Compose(C_GamePermissionMessage_OpenSimpleMapEditor, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_OpenAdvancedMapEditor: {
+			return TL::Compose(C_GamePermissionMessage_OpenAdvancedMapEditor, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_CreateLocalMap: {
+			return TL::Compose(C_GamePermissionMessage_CreateLocalMap, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_CreateAndUploadMap: {
+			return TL::Compose(C_GamePermissionMessage_CreateAndUploadMap, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_EditClubMap: {
+			return TL::Compose(C_GamePermissionMessage_EditClubMap, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_AccessServerReview: {
+			return TL::Compose(C_GamePermissionMessage_AccessServerReview, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_OpenSkinEditor: {
+			return TL::Compose(C_GamePermissionMessage_OpenSkinEditor, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_CreateLocalSkin: {
+			return TL::Compose(C_GamePermissionMessage_CreateLocalSkin, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_CreateAndUploadSkin: {
+			return TL::Compose(C_GamePermissionMessage_CreateAndUploadSkin, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_UseCustomSkin: {
+			return TL::Compose(C_GamePermissionMessage_UseCustomSkin, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_UsePrestigeSkin: {
+			return TL::Compose(C_GamePermissionMessage_UsePrestigeSkin, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_OpenReplayEditor: {
+			return TL::Compose(C_GamePermissionMessage_OpenReplayEditor, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_CreateLocalReplay: {
+			return TL::Compose(C_GamePermissionMessage_CreateLocalReplay, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_ViewClub: {
+			return TL::Compose(C_GamePermissionMessage_ViewClub, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_CreateClub: {
+			return TL::Compose(C_GamePermissionMessage_CreateClub, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_JoinClub: {
+			return TL::Compose(C_GamePermissionMessage_JoinClub, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_CreateActivity: {
+			return TL::Compose(C_GamePermissionMessage_CreateActivity, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayPrivateActivity: {
+			return TL::Compose(C_GamePermissionMessage_PlayPrivateActivity, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayMapReviewActivity: {
+			return TL::Compose(C_GamePermissionMessage_PlayMapReviewActivity, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_CreateGameMode: {
+			return TL::Compose(C_GamePermissionMessage_CreateGameMode, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_CreateItemAndMod: {
+			return TL::Compose(C_GamePermissionMessage_CreateItemAndMod, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_AddFavoriteItemCollections: {
+			return TL::Compose(C_GamePermissionMessage_AddFavoriteItemCollections, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayOnlineCompetition: {
+			return TL::Compose(C_GamePermissionMessage_PlayOnlineCompetition, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayHotSeat: {
+			return TL::Compose(C_GamePermissionMessage_PlayHotSeat, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_PlaySplitscreen: {
+			return TL::Compose(C_GamePermissionMessage_PlaySplitscreen, C_Text_StarterAccess);
+		}
+		case C_GamePermissionMessage_PlayLocalMap: {
+			return TL::Compose(C_GamePermissionMessage_PlayLocalMap, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_PlayAgainstReplay: {
+			return TL::Compose(C_GamePermissionMessage_PlayAgainstReplay, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_CreateLocalServer: {
+			return TL::Compose(C_GamePermissionMessage_CreateLocalServer, C_Text_ClubAccess);
+		}
+		case C_GamePermissionMessage_FindLocalServer: {
+			return TL::Compose(C_GamePermissionMessage_FindLocalServer, C_Text_ClubAccess);
+		}
+	}
+	return "";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a user has permission
+ *	to do something in the game
+ *
+ *	@param	_PrivilegeMgr						We must pass the PrivilegeMgr as parameter to make the library work in all contexts
+ *	@param	_UserId									Come from a CUserV2 (UserMgr.MainUser.Id) not a CUser
+ *	@param	_Permission							The permission to check
+ *
+ *	@return													True if the user has the permission
+ *																	False otherwise
+ */
+Boolean HasGamePermission(CPrivilegeMgr _PrivilegeMgr, Ident _UserId, Text _Permission, Text _SeasonId) {
+	declare Boolean LibRBAC_Debug_UseFakePermissions for System = False;
+	if (LibRBAC_Debug_UseFakePermissions) {
+		declare Text[] LibRBAC_Debug_FakePermissions for System = [];
+		return LibRBAC_Debug_FakePermissions.exists(_Permission);
+	}
+
+	return (
+		_PrivilegeMgr != Null && (
+			_PrivilegeMgr.IsPermissionEnabled(_UserId, _Permission) ||
+			(_SeasonId != "" && _PrivilegeMgr.IsSeasonPlayable(_UserId, _SeasonId))
+		)
+	);
+}
+Boolean HasGamePermission(CPrivilegeMgr _PrivilegeMgr, Ident _UserId, Text _Permission) {
+	return HasGamePermission(_PrivilegeMgr, _UserId, _Permission, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if a user has all permissions to do something in the game
+ *
+ *	@param	_PrivilegeMgr						We must pass the PrivilegeMgr as parameter to make the library work in all contexts
+ *	@param	_UserId									Come from a CUserV2 (UserMgr.MainUser.Id) not a CUser
+ *	@param	_Permissions						The permissions to check
+ *
+ *	@return													True if the user has all the permissions
+ *																	False otherwise
+ */
+Boolean HasGamePermissions(CPrivilegeMgr _PrivilegeMgr, Ident _UserId, Text[] _Permissions) {
+	declare Boolean LibRBAC_Debug_UseFakePermissions for System = False;
+	if (LibRBAC_Debug_UseFakePermissions) {
+		declare Text[] LibRBAC_Debug_FakePermissions for System = [];
+		return _Permissions.containsonly(LibRBAC_Debug_FakePermissions);
+	}
+
+	if (_PrivilegeMgr == Null) return False;
+	foreach (Permission in _Permissions) {
+		if (!_PrivilegeMgr.IsPermissionEnabled(_UserId, Permission)) {
+			return False;
+		}
+	}
+
+	return True;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Used to test permissions
+Void Debug_UseFakePermissions(Boolean _UseFakePermissions) {
+	declare Boolean LibRBAC_Debug_UseFakePermissions for System = False;
+	LibRBAC_Debug_UseFakePermissions = _UseFakePermissions;
+}
+Void Debug_SetFakePermissions(Text[] _FakePermissions) {
+	declare Text[] LibRBAC_Debug_FakePermissions for System = [];
+	LibRBAC_Debug_FakePermissions = _FakePermissions;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the tracks limit for Starter Access is active for the campaign
+Boolean Private_CampaignAccessIsRestricted(CampaignStruct::LibCampaignStruct_K_Campaign _Campaign) {
+	return _Campaign.Type == CampaignStruct::C_CampaignType_Quarterly;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the track requires access to the entire campaign to be played
+Boolean TrackRequiresEntireCampaignAccess(CampaignStruct::LibCampaignStruct_K_Campaign _Campaign, Text _TrackUid) {
+	if (!Private_CampaignAccessIsRestricted(_Campaign)) return False;
+
+	for (Track in _Campaign.Playlist) {
+		if (Track.Uid == _TrackUid) {
+			// Track.Position is 0 based
+			return Track.Position >= C_StarterAccesQuarterlyCampaignTrackLimit;
+		}
+	}
+
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the tracks that require access to the entire campaign to be played
+Text[] GetTrackUidsRequiringEntireCampaignAccess(CampaignStruct::LibCampaignStruct_K_Campaign _Campaign) {
+	if (!Private_CampaignAccessIsRestricted(_Campaign)) return [];
+
+	declare Text[] TrackUids;
+
+	for (Track in _Campaign.Playlist) {
+		// Track.Position is 0 based
+		if (Track.Position >= C_StarterAccesQuarterlyCampaignTrackLimit) {
+			TrackUids.add(Track.Uid);
+		}
+	}
+
+	return TrackUids;
+}

@@ -1,0 +1,540 @@
+/**
+ *	Manage music in the menu
+ */
+#Const Version "1.0.1"
+#Const ScriptName "Libs/Nadeo/CMGame/Menus/Music.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TimeLib" as TiL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/TimeOfDay.Script.txt" as TimeOfDay
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Filter {
+	Integer Section;
+	Integer Season;
+	Integer Mood;
+}
+#Struct K_Music {
+	Text Url;
+	Real VolumedB;
+	K_Filter Filter;
+}
+#Struct K_CurrentMusic {
+	Ident SoundId;
+	Text Url;
+	Integer FilteredPlaylistKey;
+}
+#Struct K_State {
+	K_Music[] Playlist;
+	K_Music[] FilteredPlaylist;
+	K_Filter Filter;
+	Integer SeasonWatchTime;
+	Integer MoodWatchTime;
+	K_CurrentMusic CurrentMusic;
+	Ident[Text] MusicCache;
+	Real[Text] PlayCursorCache;
+	Text[Text] FilteredPlaylistCurrentMusicCache;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Section_All 0
+#Const C_Section_Menu 1
+#Const C_Section_Royal 2
+
+#Const C_Season_All 0
+#Const C_Season_Spring 1
+#Const C_Season_Summer 2
+#Const C_Season_Fall 3
+#Const C_Season_Winter 4
+
+#Const C_Mood_All 0
+#Const C_Mood_Sunrise 1
+#Const C_Mood_Day 2
+#Const C_Mood_Sunset 3
+#Const C_Mood_Night 4
+
+#Const C_SeasonWatchInterval 10000
+#Const C_SeasonWatchDisabled -1
+#Const C_MoodWatchInterval 10000
+#Const C_MoodWatchDisabled -1
+#Const C_NoMusic -1
+#Const C_IsMusic True
+#Const C_IsLooping False
+#Const C_IsSpatialized False
+#Const C_FadeDuration 0.5 //< Seconds
+#Const C_MusicCacheSize 2 //< Should always be at least two to allow crossfade between musics but not too high because it keeps all cached musics in memory
+#Const C_PlayCursorCacheSize 50
+#Const C_FilteredPlaylistCurrentMusicCacheSize 50
+
+#Const C_State_Null K_State {
+	Playlist = [],
+	FilteredPlaylist = [],
+	Filter = K_Filter {
+		Section = 0,
+		Season = 0,
+		Mood = 0
+	},
+	SeasonWatchTime = -1,
+	MoodWatchTime = -1,
+	CurrentMusic = K_CurrentMusic {
+		SoundId = NullId,
+		Url = "",
+		FilteredPlaylistKey = -1
+	},
+	MusicCache = [],
+	PlayCursorCache = [],
+	FilteredPlaylistCurrentMusicCache = []
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Get the root mania app instance shared by all contexts
+CManiaApp Private_GetManiaAppInstance(CNod _Context) {
+	switchtype(_Context as Context) {
+		case CManiaAppTitleLayer: {
+			assert(Context.ParentApp != Null, """The `{{{ScriptName}}}` library cannot be used in this context.""");
+			return Context.ParentApp;
+		}
+		case CManiaApp: {
+			return Context;
+		}
+		default: {
+			assert(False, """The `{{{ScriptName}}}` library cannot be used in this context.""");
+		}
+	}
+	return Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Create a new music filter
+K_Filter CreateFilter(Integer _Section, Integer _Season, Integer _Mood) {
+	return K_Filter {
+		Section = _Section,
+		Season = _Season,
+		Mood = _Mood
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Create a new music track
+K_Music CreateMusic(Text _Url, Real _VolumedB, K_Filter _Filter) {
+	return K_Music {
+		Url = _Url,
+		VolumedB = _VolumedB,
+		Filter = _Filter
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Check if `_FilterB` matches the requirements of `_FilterA`
+Boolean Private_FiltersMatch(K_Filter _FilterA, K_Filter _FilterB) {
+	if (_FilterA.Section != _FilterB.Section && _FilterA.Section != C_Section_All && _FilterB.Section != C_Section_All) {
+		return False;
+	}
+	if (_FilterA.Season != _FilterB.Season && _FilterA.Season != C_Season_All && _FilterB.Season != C_Season_All) {
+		return False;
+	}
+	if (_FilterA.Mood != _FilterB.Mood && _FilterA.Mood != C_Mood_All && _FilterB.Mood != C_Mood_All) {
+		return False;
+	}
+	return True;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Add the play cursor of the given audio source to the cache
+K_State Private_UpdatePlayCursorCache(K_State _State, CAudioSource _AudioSource) {
+	declare K_State State = _State;
+
+	// Add play cursor to cache if the music is being played and at least 3 seconds is remaining
+	if (_AudioSource.IsPlaying && (_AudioSource.PlayLength - _AudioSource.PlayCursor > 3.)) {
+		State.PlayCursorCache[State.CurrentMusic.Url] = _AudioSource.PlayCursor;
+	}
+	// Otherwise it means that the music that was playing just reached its end
+	// In this case it sounds better to restart all futur musics from the beginning, so we clear the cache.
+	else {
+		State.PlayCursorCache = [];
+	}
+
+	// Trim cache if there are too many musics inside
+	while (State.PlayCursorCache.count >= C_PlayCursorCacheSize) {
+		declare Text UrlToRemove;
+		foreach (Url => PlayCursor in State.PlayCursorCache) {
+			UrlToRemove = Url;
+			break;
+		}
+		State.PlayCursorCache.removekey(UrlToRemove);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set the current music
+K_State Private_SetCurrentMusic(K_State _State, Integer _FilteredPlaylistKey) {
+	declare K_State State = _State;
+	declare CManiaApp ManiaApp <=> Private_GetManiaAppInstance(This);
+	declare K_Music NewMusic = K_Music {};
+
+	// Find the new music to play
+	if (_FilteredPlaylistKey != C_NoMusic && State.FilteredPlaylist.existskey(_FilteredPlaylistKey)) {
+		NewMusic = State.FilteredPlaylist[_FilteredPlaylistKey];
+		State.CurrentMusic.FilteredPlaylistKey = _FilteredPlaylistKey;
+	} else {
+		State.CurrentMusic.FilteredPlaylistKey = C_NoMusic;
+	}
+
+	// If we need to start a new music file
+	if (State.CurrentMusic.Url != NewMusic.Url) {
+		// Stop the previous music file
+		if (State.CurrentMusic.SoundId != NullId && ManiaApp.Audio.Sounds.existskey(State.CurrentMusic.SoundId)) {
+			declare CAudioSource AudioSource <=> ManiaApp.Audio.Sounds[State.CurrentMusic.SoundId];
+			State = Private_UpdatePlayCursorCache(State, AudioSource);
+			AudioSource.Stop();
+		}
+
+		// Find the new music file
+		declare CAudioSource AudioSource;
+		if (NewMusic.Url != "") {
+			// If the music is already in cache, reuse it ...
+			if (
+				State.MusicCache.existskey(NewMusic.Url) &&
+				ManiaApp.Audio.Sounds.existskey(State.MusicCache[NewMusic.Url])
+			) {
+				AudioSource <=> ManiaApp.Audio.Sounds[State.MusicCache[NewMusic.Url]];
+			}
+			// ... otherwise load it and add it to the cache
+			else {
+				// If the cache reached its size limit, trim it
+				while (State.MusicCache.count >= C_MusicCacheSize) {
+					declare Text UrlToRemove;
+					foreach (Url => SoundId in State.MusicCache) {
+						UrlToRemove = Url;
+						break;
+					}
+					if (ManiaApp.Audio.Sounds.existskey(State.MusicCache[UrlToRemove])) {
+						ManiaApp.Audio.DestroySound(ManiaApp.Audio.Sounds[State.MusicCache[UrlToRemove]]);
+					}
+					State.MusicCache.removekey(UrlToRemove);
+				}
+				AudioSource <=> ManiaApp.Audio.CreateSound(NewMusic.Url, NewMusic.VolumedB, C_IsMusic, C_IsLooping, C_IsSpatialized);
+				if (AudioSource != Null) {
+					AudioSource.FadeDuration = C_FadeDuration;
+					State.MusicCache[NewMusic.Url] = AudioSource.Id;
+				}
+			}
+		}
+
+		// Play the new music
+		if (AudioSource != Null) {
+			State.CurrentMusic.Url = NewMusic.Url;
+			State.CurrentMusic.SoundId = AudioSource.Id;
+			AudioSource.Play();
+			AudioSource.PlayCursor = State.PlayCursorCache.get(State.CurrentMusic.Url, 0.);
+		} else {
+			State.CurrentMusic.Url = "";
+			State.CurrentMusic.SoundId = NullId;
+		}
+	}
+	// If we want to play the same music file
+	// Start it if it was not already playing
+	else if (
+		State.CurrentMusic.SoundId != NullId &&
+		ManiaApp.Audio.Sounds.existskey(State.CurrentMusic.SoundId) &&
+		!ManiaApp.Audio.Sounds[State.CurrentMusic.SoundId].IsPlaying
+	) {
+		ManiaApp.Audio.Sounds[State.CurrentMusic.SoundId].Play();
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Play the next track in the filtered playlist
+K_State Private_PlayNextMusic(K_State _State) {
+	declare K_State State = _State;
+	if (State.FilteredPlaylist.count > 0) {
+		if (
+			State.CurrentMusic.FilteredPlaylistKey != C_NoMusic &&
+			State.FilteredPlaylist.existskey(State.CurrentMusic.FilteredPlaylistKey + 1)
+		) {
+			State = Private_SetCurrentMusic(State, State.CurrentMusic.FilteredPlaylistKey + 1);
+		} else {
+			State = Private_SetCurrentMusic(State, 0);
+		}
+	}
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Filter the tracks of the playlist matching a specific filter set
+K_Music[] Private_FilterPlaylist(K_Music[] _Playlist, K_Filter _Filter) {
+	declare K_Music[] FilteredPlaylist;
+	foreach (Music in _Playlist) {
+		if (Private_FiltersMatch(_Filter, Music.Filter)) {
+			FilteredPlaylist.add(Music);
+		}
+	}
+	return FilteredPlaylist;
+}
+K_State Private_UpdateFilteredPlaylist(K_State _State) {
+	declare K_State State = _State;
+	State.FilteredPlaylist = Private_FilterPlaylist(State.Playlist, State.Filter);
+
+	// If the currently played music is in the new filtered playlist, continue to play it.
+	// Else if we have the previously played music for the given filtered playlist in cache, restart from it.
+	// Otherwise start from the beginning of the playlist.
+	if (
+		!State.FilteredPlaylist.existskey(State.CurrentMusic.FilteredPlaylistKey) ||
+		State.FilteredPlaylist[State.CurrentMusic.FilteredPlaylistKey].Url != State.CurrentMusic.Url
+	) {
+		// Search currently played music in the new filtered playlist
+		declare Boolean MusicFound = False;
+		foreach (Key => Music in State.FilteredPlaylist) {
+			if (Music.Url == State.CurrentMusic.Url) {
+				MusicFound = True;
+				State.CurrentMusic.FilteredPlaylistKey = Key;
+				break;
+			}
+		}
+
+		// We did not find it, search in the cache instead
+		declare Text CachedMusicUrl = State.FilteredPlaylistCurrentMusicCache.get(State.Filter.tojson(), "");
+		if (CachedMusicUrl != "") {
+			foreach (Key => Music in State.FilteredPlaylist) {
+				if (Music.Url == CachedMusicUrl) {
+					MusicFound = True;
+					State = Private_SetCurrentMusic(State, Key);
+					break;
+				}
+			}
+		}
+
+		// We did not find it either, starts from the beginning
+		if (!MusicFound) {
+			if (State.FilteredPlaylist.count > 0) {
+				State = Private_SetCurrentMusic(State, 0);
+			} else {
+				State = Private_SetCurrentMusic(State, C_NoMusic);
+			}
+		}
+	}
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set the musics playlist
+K_State Private_SetPlaylist(K_State _State, K_Music[] _Playlist) {
+	declare K_State State = _State;
+	State.Playlist = _Playlist;
+	State = Private_UpdateFilteredPlaylist(State);
+	return State;
+}
+Void SetPlaylist(K_Music[] _Playlist) {
+	declare K_State CMGame_Music_State for Private_GetManiaAppInstance(This) = C_State_Null;
+	CMGame_Music_State = Private_SetPlaylist(CMGame_Music_State, _Playlist);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Update filtered playlist current music cache
+K_State Private_UpdateFilteredPlaylistCurrentMusicCache(K_State _State) {
+	declare K_State State = _State;
+
+	if (State.CurrentMusic.Url == "") {
+		State.FilteredPlaylistCurrentMusicCache.removekey(State.Filter.tojson());
+	} else {
+		State.FilteredPlaylistCurrentMusicCache[State.Filter.tojson()] = State.CurrentMusic.Url;
+	}
+
+	while (State.FilteredPlaylistCurrentMusicCache.count > C_FilteredPlaylistCurrentMusicCacheSize) {
+		declare Text KeyToRemove;
+		foreach (Key => MusicUrl in State.FilteredPlaylistCurrentMusicCache) {
+			KeyToRemove = Key;
+			break;
+		}
+		State.FilteredPlaylistCurrentMusicCache.removekey(KeyToRemove);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set the active filter
+K_State Private_SetFilter(K_State _State, Integer _Section, Integer _Season, Integer _Mood) {
+	declare K_State State = _State;
+
+	// Remember the music that was played in the current playlist before updating it
+	State = Private_UpdateFilteredPlaylistCurrentMusicCache(State);
+
+	State.Filter.Section = _Section;
+	State.Filter.Season = _Season;
+	State.Filter.Mood = _Mood;
+
+	State = Private_UpdateFilteredPlaylist(State);
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set the active section filter
+K_State Private_SetSection(K_State _State, Integer _Section) {
+	if (_State.Filter.Section == _Section) return _State;
+	declare K_State State = _State;
+	State = Private_SetFilter(State, _Section, State.Filter.Season, State.Filter.Mood);
+	return State;
+}
+Void SetSection(Integer _Section) {
+	declare K_State CMGame_Music_State for Private_GetManiaAppInstance(This) = C_State_Null;
+	CMGame_Music_State = Private_SetSection(CMGame_Music_State, _Section);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set the active season filter
+K_State Private_SetSeason(K_State _State, Integer _Season) {
+	if (_State.Filter.Season == _Season) return _State;
+	declare K_State State = _State;
+	State = Private_SetFilter(State, State.Filter.Section, _Season, State.Filter.Mood);
+	return State;
+}
+Void SetSeason(Integer _Season) {
+	declare K_State CMGame_Music_State for Private_GetManiaAppInstance(This) = C_State_Null;
+	CMGame_Music_State = Private_SetSeason(CMGame_Music_State, _Season);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Set the active mood filter
+K_State Private_SetMood(K_State _State, Integer _Mood) {
+	if (_State.Filter.Mood == _Mood) return _State;
+	declare K_State State = _State;
+	State = Private_SetFilter(State, State.Filter.Section, State.Filter.Season, _Mood);
+	return State;
+}
+Void SetMood(Integer _Mood) {
+	declare K_State CMGame_Music_State for Private_GetManiaAppInstance(This) = C_State_Null;
+	CMGame_Music_State = Private_SetMood(CMGame_Music_State, _Mood);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Trigger a season update without waiting for the next watch mode update
+K_State Private_UpdateSeason(K_State _State) {
+	declare K_State State = _State;
+	switch (Tools::GetTimestampSeason(TiL::GetCurrent())) {
+		case Tools::C_Season_Spring: State = Private_SetSeason(State, C_Season_Spring);
+		case Tools::C_Season_Summer: State = Private_SetSeason(State, C_Season_Summer);
+		case Tools::C_Season_Fall: State = Private_SetSeason(State, C_Season_Fall);
+		case Tools::C_Season_Winter: State = Private_SetSeason(State, C_Season_Winter);
+	}
+	return State;
+}
+Void UpdateSeason() {
+	declare K_State CMGame_Music_State for Private_GetManiaAppInstance(This) = C_State_Null;
+	CMGame_Music_State = Private_UpdateSeason(CMGame_Music_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Instead of relying on a manual update of the season filter
+// Automatically check at a regular interval if the season needs to be updated
+K_State Private_WatchSeason(K_State _State, Boolean _WatchSeason) {
+	declare K_State State = _State;
+	if (_WatchSeason) {
+		State.SeasonWatchTime = Now + C_SeasonWatchInterval;
+		State = Private_UpdateSeason(State);
+	} else {
+		State.SeasonWatchTime = C_SeasonWatchDisabled;
+	}
+	return State;
+}
+Void WatchSeason(Boolean _WatchSeason) {
+	declare K_State CMGame_Music_State for Private_GetManiaAppInstance(This) = C_State_Null;
+	CMGame_Music_State = Private_WatchSeason(CMGame_Music_State, _WatchSeason);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Trigger a mood update without waiting for the next watch mode update
+K_State Private_UpdateMood(K_State _State) {
+	declare K_State State = _State;
+	switch (TimeOfDay::GetDayPart(TimeOfDay::GetDayProgression(), False)) {
+		case TimeOfDay::C_DayPart_Sunrise: State = Private_SetMood(State, C_Mood_Sunrise);
+		case TimeOfDay::C_DayPart_Day: State = Private_SetMood(State, C_Mood_Day);
+		case TimeOfDay::C_DayPart_Sunset: State = Private_SetMood(State, C_Mood_Sunset);
+		case TimeOfDay::C_DayPart_Night: State = Private_SetMood(State, C_Mood_Night);
+	}
+	return State;
+}
+Void UpdateMood() {
+	declare K_State CMGame_Music_State for Private_GetManiaAppInstance(This) = C_State_Null;
+	CMGame_Music_State = Private_UpdateMood(CMGame_Music_State);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Instead of relying on a manual update of the mood filter
+// Automatically check at a regular interval if the mood needs to be updated
+K_State Private_WatchMood(K_State _State, Boolean _WatchMood) {
+	declare K_State State = _State;
+	if (_WatchMood) {
+		State.MoodWatchTime = Now + C_MoodWatchInterval;
+		State = Private_UpdateMood(State);
+	} else {
+		State.MoodWatchTime = C_MoodWatchDisabled;
+	}
+	return State;
+}
+Void WatchMood(Boolean _WatchMood) {
+	declare K_State CMGame_Music_State for Private_GetManiaAppInstance(This) = C_State_Null;
+	CMGame_Music_State = Private_WatchMood(CMGame_Music_State, _WatchMood);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Restart the ongoing music from the beginning
+Void Private_RestartMusicFromBeginning(K_State _State, CManiaApp _ManiaApp) {
+	if (
+		_State.CurrentMusic.SoundId != NullId &&
+		_ManiaApp != Null &&
+		_ManiaApp.Audio.Sounds.existskey(_State.CurrentMusic.SoundId)
+	) {
+		declare CAudioSource AudioSource <=> _ManiaApp.Audio.Sounds[_State.CurrentMusic.SoundId];
+		AudioSource.Play();
+		AudioSource.PlayCursor = 0.;
+	}
+}
+Void RestartMusicFromBeginning() {
+	declare CManiaApp ManiaApp <=> Private_GetManiaAppInstance(This);
+	declare K_State CMGame_Music_State for ManiaApp = C_State_Null;
+	Private_RestartMusicFromBeginning(CMGame_Music_State, ManiaApp);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Update the library state
+// Call this function only once per yield in the main mania app.
+Void Yield() {
+	declare CManiaApp ManiaApp <=> Private_GetManiaAppInstance(This);
+	declare K_State CMGame_Music_State for ManiaApp = C_State_Null;
+
+	if (CMGame_Music_State.SeasonWatchTime != C_SeasonWatchDisabled && Now >= CMGame_Music_State.SeasonWatchTime) {
+		CMGame_Music_State.SeasonWatchTime = Now + C_SeasonWatchInterval;
+		CMGame_Music_State = Private_UpdateSeason(CMGame_Music_State);
+	}
+	if (CMGame_Music_State.MoodWatchTime != C_MoodWatchDisabled && Now >= CMGame_Music_State.MoodWatchTime) {
+		CMGame_Music_State.MoodWatchTime = Now + C_MoodWatchInterval;
+		CMGame_Music_State = Private_UpdateMood(CMGame_Music_State);
+	}
+
+	if (
+		CMGame_Music_State.CurrentMusic.SoundId != NullId &&
+		ManiaApp.Audio.Sounds.existskey(CMGame_Music_State.CurrentMusic.SoundId)
+	) {
+		// Play the next music when the current one is finished
+		declare CAudioSource AudioSource <=> ManiaApp.Audio.Sounds[CMGame_Music_State.CurrentMusic.SoundId];
+		if (!AudioSource.IsPlaying) {
+			CMGame_Music_State = Private_PlayNextMusic(CMGame_Music_State);
+		}
+	}
+}

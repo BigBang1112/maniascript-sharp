@@ -1,0 +1,193 @@
+/**
+ * UI module: BigMessage client side
+ */
+#Const Version "1.1.0"
+#Const ScriptName "Libs/Nadeo/TMGame/Modes/Base/UIModules/BigMessage_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/BigMessage_Common.Script.txt" as UIModules_BigMessage_Common
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_TextSize 10.
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_BigMessage_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_BigMessage_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the module manialink
+Text GetML() {
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-default" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textcolor="FFFFFF" textsize="{{{C_TextSize}}}" textemboss="1" />
+</stylesheet>
+
+<frame id="frame-global" z-index="-2" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_BigMessage_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-message" hidden="1">
+			<label id="label-message" pos="0 -0.3" size="200 30" class="text-default" halign="center" valign="center2" z-index="1"/>
+			<frameinstance id="asset-background" modelid="{{{ExpendableAsset::C_Name}}}" data-height="14" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" data-opacity="0.7" data-halign="center" data-valign="center" z-index="0" />
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+#Struct K_Controls {
+	CMlFrame Asset_Background;
+	CMlFrame Frame_Global;
+	CMlFrame Frame_Message;
+	CMlLabel Label_Message;
+}
+""",
+"""
+/// Update the message visibility
+Boolean SetMessageVisibility(K_Controls _Controls, Boolean _IsVisible) {
+	AnimMgr.Flush(_Controls.Label_Message);
+	AnimMgr.Flush(_Controls.Frame_Message);
+
+	// Prepare controls for the upcoming animation
+	if (_IsVisible) {
+		_Controls.Frame_Message.Hide();
+		_Controls.Label_Message.Opacity = 0.;
+		_Controls.Frame_Message.RelativeScale = 1.2;
+		Tools::FirstPartyLogoMatchLuminance(_Controls.Label_Message);
+		Tools::FitLabelValue(_Controls.Label_Message, {{{C_TextSize}}}, 3., 0.5);
+		{{{ExpendableAsset::P}}}SetWidth(This, _Controls.Asset_Background, ML::Min(_Controls.Label_Message.Size.X, _Controls.Label_Message.ComputeWidth(_Controls.Label_Message.Value)) + 24., False);
+		{{{ExpendableAsset::P}}}SetOpacity(This, _Controls.Asset_Background, 0., False);
+		{{{ExpendableAsset::P}}}RedrawAsset(This, _Controls.Asset_Background, False);
+	}
+
+	// Animations
+	if (_IsVisible) {
+		AnimMgr.Add(_Controls.Label_Message, "<anim opacity=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(_Controls.Frame_Message, "<anim scale=\"1.\" hidden=\"0\" />", 250, CAnimManager::EAnimManagerEasing::BackOut);
+		{{{ExpendableAsset::P}}}SetOpacity(This, _Controls.Asset_Background, 0.7);
+	} else {
+		AnimMgr.Add(_Controls.Label_Message, "<anim opacity=\"0.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(_Controls.Frame_Message, "<anim scale=\"1.2\" hidden=\"1\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{ExpendableAsset::P}}}SetOpacity(This, _Controls.Asset_Background, 0.);
+	}
+
+	return _IsVisible;
+}
+
+***MainInit***
+***
+declare K_Controls Controls;
+
+declare netread Text Net_BigMessage_Message for UI;
+declare netread Text Net_BigMessage_AccountId for UI;
+declare netread Text[] Net_BigMessage_TextList for UI;
+declare netread Integer Net_BigMessage_MessageUpdate for UI;
+declare netread Vec2 Net_BigMessage_Position for Teams[0];
+declare netread Integer Net_BigMessage_EndTime for UI;
+
+declare Boolean DisplayModule;
+declare Boolean IsMessageVisible;
+declare Integer MessageUpdate;
+declare Vec2 Position;
+***
+
+***MainStart***
+***
+Controls.Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Controls.Frame_Message <=> (Controls.Frame_Global.GetFirstChild("frame-message") as CMlFrame);
+Controls.Label_Message <=> (Controls.Frame_Global.GetFirstChild("label-message") as CMlLabel);
+Controls.Asset_Background <=> (Controls.Frame_Global.GetFirstChild("asset-background") as CMlFrame);
+
+DisplayModule = Controls.Frame_Global.Visible;
+MessageUpdate = -123;
+Position = Controls.Frame_Message.RelativePosition_V3;
+if (SplitScreenCount > 1) MV_Utils::AutoScaleSplitScreen(Controls.Frame_Global, 0.5, 1.);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_Cup_BigMessage_IsVisible for Owner;
+		if (DisplayModule != Net_Cup_BigMessage_IsVisible) {
+			DisplayModule = Net_Cup_BigMessage_IsVisible;
+			Controls.Frame_Global.Visible = Net_Cup_BigMessage_IsVisible;
+		}
+	}
+
+	if (Position != Net_BigMessage_Position) {
+		Position = Net_BigMessage_Position;
+		Controls.Frame_Message.RelativePosition_V3 = Net_BigMessage_Position;
+	}
+
+	if (MessageUpdate != Net_BigMessage_MessageUpdate) {
+		MessageUpdate = Net_BigMessage_MessageUpdate;
+		declare Text[] TextList = Net_BigMessage_TextList;
+
+		if (Net_BigMessage_AccountId != "") {
+			foreach (Index => Score in Scores) {
+				if (Score.User.WebServicesUserId == Net_BigMessage_AccountId) {
+					TextList.addfirst({{{UserStore::P}}}GetPlayerName(Score.User));
+					break;
+				} else if (Index >= Scores.count-1) {
+					TextList.addfirst(Net_BigMessage_AccountId); //< Display the account id if we do not find the player
+				}
+			}
+		}
+
+		switch (TextList.count) {
+			case 1: Controls.Label_Message.Value = TL::Compose(Net_BigMessage_Message, TextList[0]);
+			case 2: Controls.Label_Message.Value = TL::Compose(Net_BigMessage_Message, TextList[0], TextList[1]);
+			case 3: Controls.Label_Message.Value = TL::Compose(Net_BigMessage_Message, TextList[0], TextList[1], TextList[2]);
+			case 4: Controls.Label_Message.Value = TL::Compose(Net_BigMessage_Message, TextList[0], TextList[1], TextList[2], TextList[3]);
+			case 5: Controls.Label_Message.Value = TL::Compose(Net_BigMessage_Message, TextList[0], TextList[1], TextList[2], TextList[3], TextList[4]);
+			default: Controls.Label_Message.Value = Net_BigMessage_Message;
+		}
+
+		IsMessageVisible = SetMessageVisibility(Controls, Controls.Label_Message.Value != "");
+	}
+
+	if (IsMessageVisible && Net_BigMessage_EndTime > 0 && Net_BigMessage_EndTime < GameTime) {
+		IsMessageVisible = SetMessageVisibility(Controls, False);
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Controls.Frame_Global.Visible = DisplayModule;
+	}
+}
+***
+""",
+[
+	UserStore::ComponentV2(),
+	ExpendableAsset::ComponentV2(),
+	UIModules::Component()
+],
+[]
+	);
+}

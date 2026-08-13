@@ -1,0 +1,1051 @@
+/**
+ *	Component: Selector
+ *	===========================
+ *
+ *	Parameters
+ *	----------
+ *
+ *	- `data-height` (`Real`): height of the selector
+ *	- `data-width` (`Real`): width of the selector
+ *	- `data-halign` (`Text`): horizontal alignment of the selector
+ *			Can be `left`, `center` or `right`.
+ *	- `data-valign` (`Text`): vertical alignment of the selector
+ *			Can be `top`, `center` or `bottom`.
+ *	- `data-choices` (`Text`): Text for each choice. It must be a Text[Text] associative array converted into a json.
+ *	- `data-choices-loop` (`Boolean`): `true` to loop infinitely through choices, `false` otherwise (default)
+ *	- `data-text-textsize` (`Real`): size of the font of the text displayed in the selector
+ *	- `data-buttons-opacity-focused` (`Real`): opacity of buttons when focused
+ *	- `data-buttons-opacity-unfocused` (`Real`): opacity of buttons when unfocused
+ *	- `data-hitbox-debug` (`Boolean`): display the selector hitbox for debug purpose
+ *	- `data-styles` (`Text`): styles to apply to the selector, new styles can be created with the `CreateStyle()` function
+ *			When several styles are applied to a selector, the styles are merged together with the properties
+ *			of the latest style overriding the properties of the earlier ones.
+ *			For example if "style-a" is `{ A = 1, B = 2, C = 3 }`, "style-b" is `{ A = 11 , C = 33}` and
+ *			"style-c" is `{ A = 111 }` and we set the selector style to `"style-a style-b style-c"`
+ *			then the applied properties will be `{ A = 111, B = 2, C = 33 }`.
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/Selector.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Choice {
+	Text Id;
+	Text Name;
+}
+#Struct K_Event {
+	CMlFrame Selector;
+	Integer Type;
+	K_Choice SelectedChoice;
+}
+#Struct K_Controls {
+	CMlFrame Frame_SelectorAlign;
+	CMlFrame Frame_SelectorFocus;
+	CMlLabel Label_Value;
+	CMlQuad Button_Next;
+	CMlQuad Button_Previous;
+	CMlQuad Quad_NavZone;
+}
+#Struct K_Properties {
+	Integer[] Enabled;
+	Real Height;
+	Real Width;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Boolean HitboxDebug;
+	K_Choice[] Choices;
+	Boolean ChoicesLoop;
+	Real TextFontSize;
+	Real ButtonsOpacityFocused;
+	Real ButtonsOpacityUnfocused;
+}
+#Struct K_Selector {
+	Text[] Styles;
+	Boolean IsLocked;
+	Boolean IsFocused;
+	Boolean IsSelector;
+	Integer SelectedChoiceIndex;
+	K_Choice SelectedChoice;
+	K_Controls Controls;
+	K_Properties CustomizedProperties;
+	K_Properties MergedProperties;
+}
+#Struct K_State {
+	Boolean IsMouse;
+	K_Properties[Text] Styles;
+	K_Properties DefaultProperties;
+	K_Event[] DelayedPendingEvents;
+	K_Event[] PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Selector_Null K_Selector {
+	Controls = K_Controls {},
+	CustomizedProperties = K_Properties {
+		Enabled = []
+	},
+	MergedProperties = K_Properties {
+		Enabled = []
+	},
+	Styles = [],
+	IsSelector = False,
+	IsLocked = False,
+	IsFocused = False
+}
+#Const C_State_Null K_State {
+	Styles = [],
+	DefaultProperties = K_Properties {
+		Enabled = []
+	}
+}
+
+#Const C_Name "component-cmgame-selector" // Component name
+#Const P "CMGame_Selector::" // Prefix use to differentiate functions/variables in the script
+#Const Q "CMGame_Selector"
+#Const C_NavZone "CMGame_Selector_quad-nav-zone" // Id of the quad used to trigger mouse event for the navigation
+#Const C_NavGroup_Default "CMGame_Selector_NavGroup"
+#Const C_Class_ChoiceButton "CMGame_Selector_Class_ChoiceButton"
+
+#Const C_Choices_Previous -1
+#Const C_Choices_Refresh 0
+#Const C_Choices_Next 1
+
+#Const C_EventType_Update 0
+
+// The properties indexing must be a continuous sequence starting from 0
+// 0,1,2,3,... not 0,1,3,... for example
+#Const C_Property_Height 0
+#Const C_Property_Width 1
+#Const C_Property_HAlign 2
+#Const C_Property_VAlign 3
+#Const C_Property_HitboxDebug 4
+#Const C_Property_Choices 5
+#Const C_Property_ChoicesLoop 6
+#Const C_Property_TextFontSize 7
+#Const C_Property_ButtonsOpacityFocused 8
+#Const C_Property_ButtonsOpacityUnfocused 9
+
+#Const C_FocusFadeInDuration 200
+#Const C_FocusFadeOutDuration 200
+
+#Const C_Class_Selector "menu-libs-selector_selector"
+#Const C_Id_FrameNavigationContainer "menu-libs-selector_frame-navigation-container"
+#Const C_Id_FrameSelectorAlign "menu-libs-selector_frame-selector-align"
+#Const C_Id_FrameSelectorFocus "menu-libs-selector_frame-selector-focus"
+#Const C_Id_FrameHitboxClip "menu-libs-selector_frame-hitbox-clip"
+#Const C_Id_ButtonPrevious "menu-libs-selector_button-previous"
+#Const C_Id_ButtonNext "menu-libs-selector_button-next"
+#Const C_Id_LabelValue "menu-libs-selector_label-value"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the manialink of the component
+Text GetManialink() {
+	return """
+<frame id="{{{C_Id_FrameSelectorAlign}}}" class="{{{C_Class_Selector}}}">
+	<frame id="{{{C_Id_FrameNavigationContainer}}}" class="{{{Navigation::C_Class_Container}}}" z-index="1" >
+		<quad id="{{{C_NavZone}}}" class="{{{Navigation::C_Class_ActivationZone}}}" halign="center" valign="center" bgcolor="ff0000" scriptevents="1" z-index="10"/>
+		<frame
+			id="{{{C_Id_FrameSelectorFocus}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-nav-group="{{{C_NavGroup_Default}}}"
+			data-nav-inputs="left;right"
+			data-nav-targets="_;_"
+		>
+			<quad id="{{{C_Id_ButtonPrevious}}}" class="{{{C_Class_ChoiceButton}}}" image="{{{Icons::C_Icon_128x128_Arrow_Left_Oblique}}}" colorize="FFFFFF" opacity="0.6" halign="left" valign="center" scriptevents="1" z-index="0"/>
+			<label id="{{{C_Id_LabelValue}}}" pos="0 -0.3" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" textcolor="FFFFFF" textprefix="$i$t" opacity="0.6" halign="center" valign="center2" z-index="1"/>
+			<quad id="{{{C_Id_ButtonNext}}}" class="{{{C_Class_ChoiceButton}}}" image="{{{Icons::C_Icon_128x128_Arrow_Right_Oblique}}}" colorize="FFFFFF" opacity="0.6" halign="right" valign="center" scriptevents="1" z-index="0"/>
+		</frame>
+	</frame>
+</frame>
+	""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the control is a selector
+Boolean IsSelector(CMlControl _Frame_Selector) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	return CMGame_Selector_Selector.IsSelector;
+}
+
+/// Check if the selector is focused
+Boolean IsFocused(CMlControl _Frame_Selector) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	return CMGame_Selector_Selector.IsFocused;
+}
+
+/// Check if the selector is locked
+Boolean IsLocked(CMlControl _Frame_Selector) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	return CMGame_Selector_Selector.IsLocked;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Anim the opacity of the given control depending on the focus state
+Void Private_AnimTextOpacity(CMlScript _This, CMlLabel _LabelToAnim, Boolean _IsFocused) {
+	if (_LabelToAnim != Null) {
+		_This.AnimMgr.Flush(_LabelToAnim);
+		if (_IsFocused) {
+			_This.AnimMgr.Add(_LabelToAnim, "<anim opacity=\"1.\" />", C_FocusFadeInDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			_This.AnimMgr.Add(_LabelToAnim, "<anim opacity=\"0.6\" />", C_FocusFadeOutDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	}
+}
+Void Private_AnimButtonsOpacity(CMlScript _This, K_Properties _Properties, CMlQuad _ButtonToAnim, Boolean _IsFocused) {
+	if (_ButtonToAnim != Null) {
+		_This.AnimMgr.Flush(_ButtonToAnim);
+		if (_IsFocused) {
+			_This.AnimMgr.Add(_ButtonToAnim, "<anim opacity=\""^_Properties.ButtonsOpacityFocused^"\" />", C_FocusFadeInDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			_This.AnimMgr.Add(_ButtonToAnim, "<anim opacity=\""^_Properties.ButtonsOpacityUnfocused^"\" />", C_FocusFadeOutDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Handle the focus inside the component
+Void Private_InnerFocus(CMlScript _This, CMlFrame _Frame_Selector, CMlControl _From, CMlControl _To) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	assert(CMGame_Selector_Selector.IsSelector, "Control '"^_Frame_Selector.ControlId^"' is not a Selector component.");
+
+	if (_From != Null) {
+		if (_From.HasClass(C_Class_ChoiceButton)) {
+			Private_AnimButtonsOpacity(_This, CMGame_Selector_Selector.MergedProperties, _From as CMlQuad, False);
+		}
+	}
+
+	if (_To != Null) {
+		if (_To.HasClass(C_Class_ChoiceButton)) {
+			Private_AnimButtonsOpacity(_This, CMGame_Selector_Selector.MergedProperties, _To as CMlQuad, True);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	The component is focused by the Navigation component
+Void Private_Focus(CMlScript _This, CMlFrame _Frame_Selector, Boolean _IsAnimated, Boolean _Redraw) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	assert(CMGame_Selector_Selector.IsSelector, "Control '"^_Frame_Selector.ControlId^"' is not a Selector component.");
+	declare K_State CMGame_Selector_State for _This.Page = C_State_Null;
+
+	if (!CMGame_Selector_Selector.IsFocused || _Redraw) {
+		declare CMlQuad Quad_Activation <=> (_Frame_Selector.GetFirstChild(C_NavZone) as CMlQuad);
+		declare CMlFrame Frame_NavigationContainer <=> (_Frame_Selector.GetFirstChild(C_Id_FrameNavigationContainer) as CMlFrame);
+
+		// Enable navigation
+		CMGame_Selector_Selector.IsFocused = True;
+		Quad_Activation.Visible = !CMGame_Selector_Selector.IsFocused;
+		Navigation::EnableContainer(_This, Frame_NavigationContainer, CMGame_Selector_Selector.IsFocused);
+
+		// Entering counter component - focus label
+		Navigation::Focus(_This, CMGame_Selector_Selector.Controls.Frame_SelectorFocus);
+		if (_IsAnimated) {
+			Private_AnimTextOpacity(_This, CMGame_Selector_Selector.Controls.Label_Value, True);
+			Private_AnimButtonsOpacity(_This, CMGame_Selector_Selector.MergedProperties, CMGame_Selector_Selector.Controls.Button_Next, !CMGame_Selector_State.IsMouse);
+			Private_AnimButtonsOpacity(_This, CMGame_Selector_Selector.MergedProperties, CMGame_Selector_Selector.Controls.Button_Previous, !CMGame_Selector_State.IsMouse);
+		} else {
+			CMGame_Selector_Selector.Controls.Label_Value.Opacity = 1.;
+			if (!CMGame_Selector_State.IsMouse) {
+				CMGame_Selector_Selector.Controls.Button_Next.Opacity = CMGame_Selector_Selector.MergedProperties.ButtonsOpacityFocused;
+				CMGame_Selector_Selector.Controls.Button_Previous.Opacity = CMGame_Selector_Selector.MergedProperties.ButtonsOpacityFocused;
+			} else {
+				CMGame_Selector_Selector.Controls.Button_Next.Opacity = CMGame_Selector_Selector.MergedProperties.ButtonsOpacityUnfocused;
+				CMGame_Selector_Selector.Controls.Button_Previous.Opacity = CMGame_Selector_Selector.MergedProperties.ButtonsOpacityUnfocused;
+			}
+		}
+	}
+}
+Void Focus(CMlScript _This, CMlFrame _Frame_Selector, Boolean _IsAnimated) {
+	Private_Focus(_This, _Frame_Selector, _IsAnimated, False);
+}
+Void Focus(CMlScript _This, CMlFrame _Frame_Selector) {
+	Focus(_This, _Frame_Selector, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	The component is unfocused by the Navigation component
+Void Private_Unfocus(CMlScript _This, CMlFrame _Frame_Selector, Boolean _IsAnimated, Boolean _Redraw) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	assert(CMGame_Selector_Selector.IsSelector, "Control '"^_Frame_Selector.ControlId^"' is not a Selector component.");
+
+	if (CMGame_Selector_Selector.IsFocused || _Redraw) {
+		declare CMlQuad Quad_Activation <=> (_Frame_Selector.GetFirstChild(C_NavZone) as CMlQuad);
+		declare CMlFrame Frame_NavigationContainer <=> (_Frame_Selector.GetFirstChild(C_Id_FrameNavigationContainer) as CMlFrame);
+
+		// Disable navigation
+		CMGame_Selector_Selector.IsFocused = False;
+		Quad_Activation.Visible = !CMGame_Selector_Selector.IsFocused;
+		Navigation::EnableContainer(_This, Frame_NavigationContainer, CMGame_Selector_Selector.IsFocused);
+
+		// Leaving counter component - unfocus label and focused control
+		Navigation::Unfocus(_This, Navigation::GetFocusedControl(_This, C_NavGroup_Default));
+		if (_IsAnimated) {
+			Private_AnimTextOpacity(_This, CMGame_Selector_Selector.Controls.Label_Value, False);
+			Private_AnimButtonsOpacity(_This, CMGame_Selector_Selector.MergedProperties, CMGame_Selector_Selector.Controls.Button_Next, False);
+			Private_AnimButtonsOpacity(_This, CMGame_Selector_Selector.MergedProperties, CMGame_Selector_Selector.Controls.Button_Previous, False);
+		} else {
+			CMGame_Selector_Selector.Controls.Label_Value.Opacity = 0.6;
+			CMGame_Selector_Selector.Controls.Button_Next.Opacity = CMGame_Selector_Selector.MergedProperties.ButtonsOpacityUnfocused;
+			CMGame_Selector_Selector.Controls.Button_Previous.Opacity = CMGame_Selector_Selector.MergedProperties.ButtonsOpacityUnfocused;
+		}
+	}
+}
+Void Unfocus(CMlScript _This, CMlFrame _Frame_Selector, Boolean _IsAnimated) {
+	Private_Unfocus(_This, _Frame_Selector, _IsAnimated, False);
+}
+Void Unfocus(CMlScript _This, CMlFrame _Frame_Selector) {
+	Unfocus(_This, _Frame_Selector, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Focus or unfocus the selector
+Void Private_SetFocusState(CMlScript _This, CMlFrame _Frame_Selector, Boolean _IsFocused, Boolean _IsAnimated, Boolean _Redraw) {
+	if (_IsFocused) Private_Focus(_This, _Frame_Selector, _IsAnimated, _Redraw);
+	else Private_Unfocus(_This, _Frame_Selector, _IsAnimated, _Redraw);
+}
+Void SetFocusState(CMlScript _This, CMlFrame _Frame_Selector, Boolean _IsFocused, Boolean _IsAnimated) {
+	Private_SetFocusState(_This, _Frame_Selector, _IsFocused, _IsAnimated, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Update the grid of available choices
+Void Private_UpdateChoices(CMlScript _This, CMlFrame _Frame_Selector, Integer _Shift, Boolean _IsEventSent) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+
+	// Update selected choice
+	if (!CMGame_Selector_Selector.MergedProperties.ChoicesLoop) {
+		CMGame_Selector_Selector.SelectedChoiceIndex = ML::Clamp(CMGame_Selector_Selector.SelectedChoiceIndex + _Shift, 0, CMGame_Selector_Selector.MergedProperties.Choices.count-1);
+	} else {
+		CMGame_Selector_Selector.SelectedChoiceIndex += _Shift;
+		if (CMGame_Selector_Selector.SelectedChoiceIndex >= CMGame_Selector_Selector.MergedProperties.Choices.count) {
+			CMGame_Selector_Selector.SelectedChoiceIndex = 0;
+		} else if (CMGame_Selector_Selector.SelectedChoiceIndex < 0) {
+			CMGame_Selector_Selector.SelectedChoiceIndex = CMGame_Selector_Selector.MergedProperties.Choices.count-1;
+		}
+	}
+	if (CMGame_Selector_Selector.MergedProperties.Choices.existskey(CMGame_Selector_Selector.SelectedChoiceIndex)) {
+		CMGame_Selector_Selector.SelectedChoice = CMGame_Selector_Selector.MergedProperties.Choices[CMGame_Selector_Selector.SelectedChoiceIndex];
+	} else {
+		CMGame_Selector_Selector.SelectedChoice = K_Choice {};
+	}
+
+	// Update label
+	CMGame_Selector_Selector.Controls.Label_Value.SetText(CMGame_Selector_Selector.SelectedChoice.Name);
+	Tools::FitLabelValue(
+		CMGame_Selector_Selector.Controls.Label_Value,
+		CMGame_Selector_Selector.MergedProperties.TextFontSize,
+		CMGame_Selector_Selector.MergedProperties.TextFontSize / Tools::C_FitLabelMaxSteps,
+		CMGame_Selector_Selector.MergedProperties.TextFontSize / Tools::C_FitLabelMaxSteps
+	);
+
+	// Update buttons
+	CMGame_Selector_Selector.Controls.Button_Previous.Visible = (CMGame_Selector_Selector.MergedProperties.ChoicesLoop && CMGame_Selector_Selector.MergedProperties.Choices.count > 1) || CMGame_Selector_Selector.SelectedChoiceIndex > 0;
+	CMGame_Selector_Selector.Controls.Button_Next.Visible = (CMGame_Selector_Selector.MergedProperties.ChoicesLoop && CMGame_Selector_Selector.MergedProperties.Choices.count > 1) || CMGame_Selector_Selector.SelectedChoiceIndex < CMGame_Selector_Selector.MergedProperties.Choices.count-1;
+
+	// Send an event if needed
+	if (_IsEventSent) {
+		declare K_State CMGame_Selector_State for _This.Page = C_State_Null;
+		CMGame_Selector_State.PendingEvents.add(K_Event {
+			Type = C_EventType_Update,
+			Selector = _Frame_Selector,
+			SelectedChoice = CMGame_Selector_Selector.SelectedChoice
+		});
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Handle selection on buttons
+Void Private_Select(CMlScript _This, CMlFrame _Frame_Selector, CMlControl _Control) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	assert(CMGame_Selector_Selector.IsSelector, "Control '"^_Frame_Selector.ControlId^"' is not a Selector component.");
+
+	if (_Control != Null) {
+		switch (_Control.ControlId) {
+			case C_Id_ButtonPrevious: Private_UpdateChoices(_This, _Frame_Selector, C_Choices_Previous, True);
+			case C_Id_ButtonNext: Private_UpdateChoices(_This, _Frame_Selector, C_Choices_Next, True);
+		}
+	}
+
+	// Anim button selection
+	if (_Control.HasClass(C_Class_ChoiceButton)) {
+		_Control.RelativeScale = 1.;
+		_This.AnimMgr.Flush(_Control);
+		_This.AnimMgr.Add(_Control, "<anim scale=\"1.05\" />", 100, CAnimManager::EAnimManagerEasing::QuadOut);
+		_This.AnimMgr.AddChain(_Control, "<anim scale=\"1.\" />", 100, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable a property
+Integer[] Private_EnableProperty(Integer[] _EnabledProperties, Integer _Property, Boolean _Enabled) {
+	declare Integer[] EnabledProperties = _EnabledProperties;
+
+	if (_Enabled) {
+		if (!EnabledProperties.exists(_Property)) {
+			EnabledProperties.add(_Property);
+		}
+	} else {
+		EnabledProperties.remove(_Property);
+	}
+
+	return EnabledProperties;
+}
+
+/// Set and enable a property
+K_Properties Private_SetProperty(K_Properties _TargetProperties, Integer _PropertyId, K_Properties _SourceProperties) {
+	declare K_Properties Properties = _TargetProperties;
+
+	Properties.Enabled = Private_EnableProperty(Properties.Enabled, _PropertyId, True);
+
+	switch (_PropertyId) {
+		case C_Property_Height: Properties.Height = _SourceProperties.Height;
+		case C_Property_Width: Properties.Width = _SourceProperties.Width;
+		case C_Property_HAlign: Properties.HAlign = _SourceProperties.HAlign;
+		case C_Property_VAlign: Properties.VAlign = _SourceProperties.VAlign;
+		case C_Property_HitboxDebug: Properties.HitboxDebug = _SourceProperties.HitboxDebug;
+		case C_Property_Choices: Properties.Choices = _SourceProperties.Choices;
+		case C_Property_ChoicesLoop: Properties.ChoicesLoop = _SourceProperties.ChoicesLoop;
+		case C_Property_TextFontSize: Properties.TextFontSize = _SourceProperties.TextFontSize;
+		case C_Property_ButtonsOpacityFocused: Properties.ButtonsOpacityFocused = _SourceProperties.ButtonsOpacityFocused;
+		case C_Property_ButtonsOpacityUnfocused: Properties.ButtonsOpacityUnfocused = _SourceProperties.ButtonsOpacityUnfocused;
+	}
+
+	return Properties;
+}
+
+/// Merge a base properties struct with other enabled properties
+K_Properties Private_MergeProperties(K_Properties _Base, K_Properties[] _PropertiesToMerge) {
+	declare K_Properties MergedProperties = _Base;
+
+	foreach (Properties in _PropertiesToMerge) {
+		foreach (PropertyId in Properties.Enabled) {
+			MergedProperties = Private_SetProperty(MergedProperties, PropertyId, Properties);
+		}
+	}
+
+	return MergedProperties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw the selector (apply style, size, ...)
+Void RedrawSelector(CMlScript _This, CMlFrame _Frame_Selector, Boolean _IsAnimated) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+
+	declare K_State CMGame_Selector_State for _This.Page = C_State_Null;
+	declare K_Properties[] PropertiesToMerge = [CMGame_Selector_State.DefaultProperties];
+	foreach (Style in CMGame_Selector_Selector.Styles) {
+		PropertiesToMerge.add(CMGame_Selector_State.Styles.get(Style, K_Properties {}));
+	}
+	PropertiesToMerge.add(CMGame_Selector_Selector.CustomizedProperties);
+
+	CMGame_Selector_Selector.MergedProperties = Private_MergeProperties(
+		K_Properties {
+			Height = 10.,
+			Width = 60.,
+			HAlign = CMlControl::AlignHorizontal::Left,
+			VAlign = CMlControl::AlignVertical::Top,
+			HitboxDebug = False,
+			Choices = [],
+			ChoicesLoop = False,
+			TextFontSize = 2.,
+			ButtonsOpacityFocused = 1.,
+			ButtonsOpacityUnfocused = 0.6
+		},
+		PropertiesToMerge
+	);
+
+	// Update the component hitbox
+	CMGame_Selector_Selector.Controls.Quad_NavZone.Size = <CMGame_Selector_Selector.MergedProperties.Width, CMGame_Selector_Selector.MergedProperties.Height>;
+	if (CMGame_Selector_Selector.MergedProperties.HitboxDebug) {
+		CMGame_Selector_Selector.Controls.Quad_NavZone.Opacity = 0.5;
+	} else {
+		CMGame_Selector_Selector.Controls.Quad_NavZone.Opacity = 0.;
+	}
+
+	// Update label
+	CMGame_Selector_Selector.Controls.Label_Value.Size = <CMGame_Selector_Selector.MergedProperties.Width-2*CMGame_Selector_Selector.MergedProperties.Height, CMGame_Selector_Selector.MergedProperties.Height*0.8>;
+	CMGame_Selector_Selector.Controls.Label_Value.TextSizeReal = CMGame_Selector_Selector.MergedProperties.TextFontSize;
+
+	// Update buttons
+	CMGame_Selector_Selector.Controls.Button_Previous.RelativePosition_V3 = <-CMGame_Selector_Selector.Controls.Quad_NavZone.Size.X*0.5, 0.>;
+	CMGame_Selector_Selector.Controls.Button_Next.RelativePosition_V3 = <CMGame_Selector_Selector.Controls.Quad_NavZone.Size.X*0.5, 0.>;
+	CMGame_Selector_Selector.Controls.Button_Previous.Size = <CMGame_Selector_Selector.MergedProperties.Height, CMGame_Selector_Selector.MergedProperties.Height>;
+	CMGame_Selector_Selector.Controls.Button_Next.Size = <CMGame_Selector_Selector.MergedProperties.Height, CMGame_Selector_Selector.MergedProperties.Height>;
+
+	// Set choices
+	Private_UpdateChoices(_This, _Frame_Selector, C_Choices_Refresh, False);
+
+	// Align the selector
+	Tools::Align(
+		CMGame_Selector_Selector.Controls.Frame_SelectorAlign,
+		CMGame_Selector_Selector.Controls.Quad_NavZone.Size,
+		CMGame_Selector_Selector.MergedProperties.HAlign,
+		CMGame_Selector_Selector.MergedProperties.VAlign
+	);
+
+	// Update focus
+	Private_SetFocusState(_This, _Frame_Selector, CMGame_Selector_Selector.IsFocused, _IsAnimated, True);
+}
+Void RedrawSelector(CMlScript _This, CMlFrame _Frame_Selector) {
+	RedrawSelector(_This, _Frame_Selector, True);
+}
+
+/// Redraw all selectors
+Void RedrawSelectors(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_Selector, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_Selector = (Control as CMlFrame).Parent;
+		if (IsSelector(Frame_Selector)) {
+			RedrawSelector(_This, Frame_Selector);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the default properties of all selectors
+Void SetSelectorsDefaultProperties(CMlScript _This, K_Properties _DefaultProperties, Boolean _Redraw) {
+	declare K_State CMGame_Selector_State for _This.Page = C_State_Null;
+	CMGame_Selector_State.DefaultProperties = _DefaultProperties;
+	if (_Redraw) RedrawSelectors(_This);
+}
+Void SetSelectorsDefaultProperties(CMlScript _This, K_Properties _DefaultProperties) {
+	SetSelectorsDefaultProperties(_This, _DefaultProperties, True);
+}
+
+/// Customize a property
+Void Private_SetCustomizedProperty(CMlScript _This, CMlFrame _Frame_Selector, Integer _PropertyId, K_Properties _Properties, Boolean _Redraw) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	CMGame_Selector_Selector.CustomizedProperties = Private_SetProperty(CMGame_Selector_Selector.CustomizedProperties, _PropertyId, _Properties);
+	if (_Redraw) RedrawSelector(_This, _Frame_Selector);
+}
+
+/// Reset a customized property
+Void Private_ResetCustomizedProperty(CMlScript _This, CMlFrame _Frame_Selector, Integer _PropertyId, Boolean _Redraw) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	CMGame_Selector_Selector.CustomizedProperties.Enabled = Private_EnableProperty(CMGame_Selector_Selector.CustomizedProperties.Enabled, _PropertyId, False);
+	if (_Redraw) RedrawSelector(_This, _Frame_Selector);
+}
+
+/// Update the height of the selector
+Void SetHeight(CMlScript _This, CMlFrame _Frame_Selector, Real _Height, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_Selector, C_Property_Height, K_Properties { Height = _Height }, _Redraw);
+}
+Void SetHeight(CMlScript _This, CMlFrame _Frame_Selector, Real _Height) {
+	SetHeight(_This, _Frame_Selector, _Height, True);
+}
+Void ResetHeight(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_Selector, C_Property_Height, _Redraw);
+}
+Void ResetHeight(CMlScript _This, CMlFrame _Frame_Selector) {
+	ResetHeight(_This, _Frame_Selector, True);
+}
+
+/// Force the width of the selector
+Void SetWidth(CMlScript _This, CMlFrame _Frame_Selector, Real _Width, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_Selector, C_Property_Width, K_Properties { Width = _Width }, _Redraw);
+}
+Void SetWidth(CMlScript _This, CMlFrame _Frame_Selector, Real _Width) {
+	SetWidth(_This, _Frame_Selector, _Width, True);
+}
+Void ResetWidth(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_Selector, C_Property_Width, _Redraw);
+}
+Void ResetWidth(CMlScript _This, CMlFrame _Frame_Selector) {
+	ResetWidth(_This, _Frame_Selector, True);
+}
+
+/// Update the horizontal alignment of the selector
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_Selector, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_Selector, C_Property_HAlign, K_Properties { HAlign = _HAlign }, _Redraw);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_Selector, CMlControl::AlignHorizontal _HAlign) {
+	SetHAlign(_This, _Frame_Selector, _HAlign, True);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_Selector, C_Property_HAlign, _Redraw);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_Selector) {
+	ResetHAlign(_This, _Frame_Selector, True);
+}
+
+/// Update the vertical alignment of the selector
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_Selector, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_Selector, C_Property_VAlign, K_Properties { VAlign = _VAlign }, _Redraw);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_Selector, CMlControl::AlignVertical _VAlign) {
+	SetVAlign(_This, _Frame_Selector, _VAlign, True);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_Selector, C_Property_VAlign, _Redraw);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_Selector) {
+	ResetVAlign(_This, _Frame_Selector, True);
+}
+
+/// Enable hitbox debug
+Void SetHitboxDebug(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Enabled, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_Selector, C_Property_HitboxDebug, K_Properties { HitboxDebug = _Enabled }, _Redraw);
+}
+Void SetHitboxDebug(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Enabled) {
+	SetHitboxDebug(_This, _Frame_Selector, _Enabled, True);
+}
+Void ResetHitboxDebug(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_Selector, C_Property_HitboxDebug, _Redraw);
+}
+Void ResetHitboxDebug(CMlScript _This, CMlFrame _Frame_Selector) {
+	ResetHitboxDebug(_This, _Frame_Selector, True);
+}
+
+/// Update the choices of the component. Array keys do not have to be continuous.
+Void SetChoices(CMlScript _This, CMlFrame _Frame_Selector, Text[Text] _Choices, Boolean _Redraw) {
+	declare K_Choice[] Choices;
+	foreach (ChoiceId => Name in _Choices) {
+		Choices.add(K_Choice {
+			Id = ChoiceId,
+			Name = Name
+		});
+	}
+	Private_SetCustomizedProperty(_This,_Frame_Selector, C_Property_Choices, K_Properties { Choices = Choices }, _Redraw);
+}
+Void SetChoices(CMlScript _This, CMlFrame _Frame_Selector, Text[Text] _Choices) {
+	SetChoices(_This, _Frame_Selector, _Choices, True);
+}
+Void ResetChoices(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_Selector, C_Property_Choices, _Redraw);
+}
+Void ResetChoices(CMlScript _This, CMlFrame _Frame_Selector) {
+	ResetChoices(_This, _Frame_Selector, True);
+}
+
+/// Enable looping through choices
+Void SetChoicesLoop(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Enabled, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_Selector, C_Property_ChoicesLoop, K_Properties { ChoicesLoop = _Enabled }, _Redraw);
+}
+Void SetChoicesLoop(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Enabled) {
+	SetChoicesLoop(_This, _Frame_Selector, _Enabled, True);
+}
+Void ResetChoicesLoop(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_Selector, C_Property_ChoicesLoop, _Redraw);
+}
+Void ResetChoicesLoop(CMlScript _This, CMlFrame _Frame_Selector) {
+	ResetChoicesLoop(_This, _Frame_Selector, True);
+}
+
+/// Update the size of the text displayed in the selector
+Void SetTextFontSize(CMlScript _This, CMlFrame _Frame_Selector, Real _Size, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_Selector, C_Property_TextFontSize, K_Properties { TextFontSize = _Size }, _Redraw);
+}
+Void SetTextFontSize(CMlScript _This, CMlFrame _Frame_Selector, Real _Size) {
+	SetTextFontSize(_This, _Frame_Selector, _Size, True);
+}
+Void ResetTextFontSize(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_Selector, C_Property_TextFontSize, _Redraw);
+}
+Void ResetTextFontSize(CMlScript _This, CMlFrame _Frame_Selector) {
+	ResetTextFontSize(_This, _Frame_Selector, True);
+}
+
+/// Update the opacity of the buttons displayed in the selector
+Void SetButtonsOpacityFocused(CMlScript _This, CMlFrame _Frame_Selector, Real _Opacity, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_Selector, C_Property_ButtonsOpacityFocused, K_Properties { ButtonsOpacityFocused = _Opacity }, _Redraw);
+}
+Void SetButtonsOpacityFocused(CMlScript _This, CMlFrame _Frame_Selector, Real _Opacity) {
+	SetButtonsOpacityFocused(_This, _Frame_Selector, _Opacity, True);
+}
+Void ResetButtonsOpacityFocused(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_Selector, C_Property_ButtonsOpacityFocused, _Redraw);
+}
+Void ResetButtonsOpacityFocused(CMlScript _This, CMlFrame _Frame_Selector) {
+	ResetButtonsOpacityFocused(_This, _Frame_Selector, True);
+}
+
+/// Update the opacity of the buttons displayed in the selector
+Void SetButtonsOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Selector, Real _Opacity, Boolean _Redraw) {
+	Private_SetCustomizedProperty(_This, _Frame_Selector, C_Property_ButtonsOpacityUnfocused, K_Properties { ButtonsOpacityUnfocused = _Opacity }, _Redraw);
+}
+Void SetButtonsOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Selector, Real _Opacity) {
+	SetButtonsOpacityUnfocused(_This, _Frame_Selector, _Opacity, True);
+}
+Void ResetButtonsOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Redraw) {
+	Private_ResetCustomizedProperty(_This, _Frame_Selector, C_Property_ButtonsOpacityUnfocused, _Redraw);
+}
+Void ResetButtonsOpacityUnfocused(CMlScript _This, CMlFrame _Frame_Selector) {
+	ResetButtonsOpacityUnfocused(_This, _Frame_Selector, True);
+}
+
+/// Update the styles of the selector
+Void SetStyles(CMlScript _This, CMlFrame _Frame_Selector, Text[] _StyleIds, Boolean _Redraw) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	CMGame_Selector_Selector.Styles = _StyleIds;
+	if (_Redraw) RedrawSelector(_This, _Frame_Selector);
+}
+Void SetStyles(CMlScript _This, CMlFrame _Frame_Selector, Text[] _StyleIds) {
+	SetStyles(_This, _Frame_Selector, _StyleIds, True);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_Selector, Boolean _Redraw) {
+	SetStyles(_This, _Frame_Selector, [], _Redraw);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_Selector) {
+	SetStyles(_This, _Frame_Selector, []);
+}
+Boolean HasStyle(CMlFrame _Frame_Selector, Text _StyleId) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	return CMGame_Selector_Selector.Styles.exists(_StyleId);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_Selector, Text _StyleId, Boolean _Redraw) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	if (!CMGame_Selector_Selector.Styles.exists(_StyleId)) {
+		CMGame_Selector_Selector.Styles.add(_StyleId);
+	}
+	if (_Redraw) RedrawSelector(_This, _Frame_Selector);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_Selector, Text _StyleId) {
+	AddStyle(_This, _Frame_Selector, _StyleId, True);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_Selector, Text _StyleId, Boolean _Redraw) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	CMGame_Selector_Selector.Styles.remove(_StyleId);
+	if (_Redraw) RedrawSelector(_This, _Frame_Selector);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_Selector, Text _StyleId) {
+	RemoveStyle(_This, _Frame_Selector, _StyleId, True);
+}
+
+// Create a new selector style
+Void CreateStyle(CMlScript _This, Text _StyleId, K_Properties _Style) {
+	declare K_State CMGame_Selector_State for _This.Page = C_State_Null;
+	CMGame_Selector_State.Styles[_StyleId] = _Style;
+}
+
+// Create a new selector style from existing styles
+Void CreateStyle(CMlScript _This, Text _StyleId, Text[] _ExistingStyleIds) {
+	declare K_State CMGame_Selector_State for _This.Page = C_State_Null;
+	declare K_Properties[] PropertiesToMerge = [];
+
+	foreach (StyleId in _ExistingStyleIds) {
+		PropertiesToMerge.add(CMGame_Selector_State.Styles.get(StyleId, K_Properties {}));
+	}
+
+	CMGame_Selector_State.Styles[_StyleId] = Private_MergeProperties(CMGame_Selector_State.DefaultProperties, PropertiesToMerge);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the data attributes related to the selector's dimension
+Void Private_InitializeDimensionDataAttributes(CMlScript _This, CMlFrame _Frame_Selector) {
+	if (_Frame_Selector.DataAttributeExists("height")) {
+		SetHeight(_This, _Frame_Selector, TL::ToReal(_Frame_Selector.DataAttributeGet("height")), False);
+	}
+	if (_Frame_Selector.DataAttributeExists("width")) {
+		SetWidth(_This, _Frame_Selector, TL::ToReal(_Frame_Selector.DataAttributeGet("width")), False);
+	}
+	if (_Frame_Selector.DataAttributeExists("halign")) {
+		SetHAlign(_This, _Frame_Selector, Tools::TextToHAlign2(_Frame_Selector.DataAttributeGet("halign")), False);
+	}
+	if (_Frame_Selector.DataAttributeExists("valign")) {
+		SetVAlign(_This, _Frame_Selector, Tools::TextToVAlign2(_Frame_Selector.DataAttributeGet("valign")), False);
+	}
+}
+
+/// Initialize the data attributes related to the selector's hitbox
+Void Private_InitializeHitboxDataAttributes(CMlScript _This, CMlFrame _Frame_Selector) {
+	if (_Frame_Selector.DataAttributeExists("hitbox-debug")) {
+		SetHitboxDebug(_This, _Frame_Selector, Tools::TextToBoolean(_Frame_Selector.DataAttributeGet("hitbox-debug")), False);
+	}
+}
+
+/// Initialize the data attributes related to the selector's text
+Void Private_InitializeTextDataAttributes(CMlScript _This, CMlFrame _Frame_Selector) {
+	if (_Frame_Selector.DataAttributeExists("text-textsize")) {
+		SetTextFontSize(_This, _Frame_Selector, TL::ToReal(_Frame_Selector.DataAttributeGet("text-textsize")), False);
+	}
+}
+
+/// Initialize the data attributes related to the selector buttons
+Void Private_InitializeButtonsDataAttributes(CMlScript _This, CMlFrame _Frame_Selector) {
+	if (_Frame_Selector.DataAttributeExists("buttons-opacity-focused")) {
+		SetButtonsOpacityFocused(_This, _Frame_Selector, TL::ToReal(_Frame_Selector.DataAttributeGet("buttons-opacity-focused")), False);
+	}
+	if (_Frame_Selector.DataAttributeExists("buttons-opacity-unfocused")) {
+		SetButtonsOpacityUnfocused(_This, _Frame_Selector, TL::ToReal(_Frame_Selector.DataAttributeGet("buttons-opacity-unfocused")), False);
+	}
+}
+
+/// Initialize choices data attributes of the selector
+Void Private_InitializeChoicesDataAttributes(CMlScript _This, CMlFrame _Frame_Selector) {
+	if (_Frame_Selector.DataAttributeExists("choices")) {
+		declare Text[Text] Choices;
+		Choices.fromjson(_Frame_Selector.DataAttributeGet("choices"));
+		SetChoices(_This, _Frame_Selector, Choices, False);
+	}
+	if (_Frame_Selector.DataAttributeExists("choices-loop")) {
+		SetChoicesLoop(_This, _Frame_Selector, Tools::TextToBoolean(_Frame_Selector.DataAttributeGet("choices-loop")), False);
+	}
+}
+
+/// Initialize miscellaneous data attributes of the selector
+Void Private_InitializeMiscDataAttributes(CMlScript _This, CMlFrame _Frame_Selector) {
+	if (_Frame_Selector.DataAttributeExists("styles")) {
+		SetStyles(_This, _Frame_Selector, TL::Split(" ", TL::Trim(_Frame_Selector.DataAttributeGet("styles"))), False);
+	}
+}
+
+/// Initialize a selector
+Void InitializeSelector(CMlScript _This, CMlFrame _Frame_Selector) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+
+	CMGame_Selector_Selector = K_Selector {
+		Styles = [],
+		IsFocused = False,
+		IsLocked = False,
+		IsSelector = True,
+		CustomizedProperties = K_Properties {},
+		MergedProperties = K_Properties {},
+		Controls = K_Controls {
+			Frame_SelectorAlign = (_Frame_Selector.GetFirstChild(C_Id_FrameSelectorAlign) as CMlFrame),
+			Frame_SelectorFocus = (_Frame_Selector.GetFirstChild(C_Id_FrameSelectorFocus) as CMlFrame),
+			Button_Next = (_Frame_Selector.GetFirstChild(C_Id_ButtonNext) as CMlQuad),
+			Button_Previous = (_Frame_Selector.GetFirstChild(C_Id_ButtonPrevious) as CMlQuad),
+			Label_Value = (_Frame_Selector.GetFirstChild(C_Id_LabelValue) as CMlLabel),
+			Quad_NavZone = (_Frame_Selector.GetFirstChild(C_NavZone) as CMlQuad)
+		}
+	};
+
+	Private_InitializeDimensionDataAttributes(_This, _Frame_Selector);
+	Private_InitializeHitboxDataAttributes(_This, _Frame_Selector);
+	Private_InitializeChoicesDataAttributes(_This, _Frame_Selector);
+	Private_InitializeTextDataAttributes(_This, _Frame_Selector);
+	Private_InitializeButtonsDataAttributes(_This, _Frame_Selector);
+	Private_InitializeMiscDataAttributes(_This, _Frame_Selector);
+	RedrawSelector(_This, _Frame_Selector, False);
+
+	/* Nav inputs */
+	if (Navigation::IsNavigationControl(_Frame_Selector)) {
+		declare CMlFrame Frame_NavigationContainer <=> (_Frame_Selector.GetFirstChild(C_Id_FrameNavigationContainer) as CMlFrame);
+		foreach (NavAction => Control in Navigation::GetControlTargets(_Frame_Selector)) {
+			if (Control != Null && NavAction != CMlScriptEvent::EMenuNavAction::Select && NavAction != CMlScriptEvent::EMenuNavAction::Cancel) {
+				Navigation::ChangeControlTarget(_This, Frame_NavigationContainer, CMGame_Selector_Selector.Controls.Frame_SelectorFocus, Tools::MenuNavActionToText(NavAction), "_");
+			}
+		}
+		Navigation::EnableInputs(_Frame_Selector, False);
+	}
+}
+
+/// Initialize all selectors in the manialink
+Void InitializeSelectors(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_Selector, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_Selector = (Control as CMlFrame).Parent;
+		InitializeSelector(_This, Frame_Selector);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get pending events of the component
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State CMGame_Selector_State for _This.Page = C_State_Null;
+	return CMGame_Selector_State.PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update selector visibility
+Void ShowAndUnlock(CMlFrame _Frame_Selector) {
+	Navigation::Lock(_Frame_Selector, False);
+	_Frame_Selector.Show();
+}
+Void HideAndLock(CMlFrame _Frame_Selector) {
+	Navigation::Lock(_Frame_Selector, True);
+	_Frame_Selector.Hide();
+}
+Void SetVisibilityAndNavigation(CMlFrame _Frame_Selector, Boolean _IsVisible) {
+	Navigation::Lock(_Frame_Selector, !_IsVisible);
+	_Frame_Selector.Visible = _IsVisible;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Lock the navigation of the selector
+Void LockNavigation(CMlFrame _Frame_Selector, Boolean _IsLocked) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	CMGame_Selector_Selector.IsLocked = _IsLocked;
+	Navigation::Lock(CMGame_Selector_Selector.Controls.Frame_SelectorFocus, _IsLocked);
+	if (_IsLocked) {
+		CMGame_Selector_Selector.Controls.Button_Previous.ScriptEvents_Disable();
+		CMGame_Selector_Selector.Controls.Button_Next.ScriptEvents_Disable();
+	} else {
+		CMGame_Selector_Selector.Controls.Button_Previous.ScriptEvents_Restore();
+		CMGame_Selector_Selector.Controls.Button_Next.ScriptEvents_Restore();
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Select the given choice in the selector
+Void SelectChoice(CMlScript _This, CMlFrame _Frame_Selector, Text _ChoiceId, Boolean _IsEventSent) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	assert(CMGame_Selector_Selector.IsSelector, "Control '"^_Frame_Selector.ControlId^"' is not a Selector component.");
+
+	foreach (ChoiceIndex => Choice in CMGame_Selector_Selector.MergedProperties.Choices) {
+		if (Choice.Id == _ChoiceId) {
+			CMGame_Selector_Selector.SelectedChoiceIndex = ChoiceIndex;
+			Private_UpdateChoices(_This, _Frame_Selector, C_Choices_Refresh, False);
+
+			// Send a delayed event if needed
+			if (_IsEventSent) {
+				declare K_State CMGame_Selector_State for _This.Page = C_State_Null;
+				CMGame_Selector_State.DelayedPendingEvents.add(K_Event {
+					Type = C_EventType_Update,
+					Selector = _Frame_Selector,
+					SelectedChoice = CMGame_Selector_Selector.SelectedChoice
+				});
+			}
+
+			break;
+		}
+	}
+}
+Void SelectChoice(CMlScript _This, CMlFrame _Frame_Selector, Text _ChoiceId) {
+	SelectChoice(_This, _Frame_Selector, _ChoiceId, True);
+}
+
+/// Get the current choice of the selector
+K_Choice GetSelectedChoice(CMlFrame _Frame_Selector) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	return CMGame_Selector_Selector.SelectedChoice;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the CMlLabel of the selector
+CMlLabel GetLabel(CMlFrame _Frame_Selector) {
+	declare K_Selector CMGame_Selector_Selector for _Frame_Selector = C_Selector_Null;
+	return CMGame_Selector_Selector.Controls.Label_Value;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the component script
+Void MainInit(CMlScript _This) {
+	declare K_State CMGame_Selector_State for _This.Page = C_State_Null;
+	CMGame_Selector_State = C_State_Null;
+}
+
+/// Initialize all component instances
+Void MainStart(CMlScript _This) {
+	InitializeSelectors(_This);
+}
+
+/// Loop of the component
+Void MainLoop(CMlScript _This) {
+	declare K_State CMGame_Selector_State for _This.Page = C_State_Null;
+	CMGame_Selector_State.PendingEvents = CMGame_Selector_State.DelayedPendingEvents;
+	CMGame_Selector_State.DelayedPendingEvents = [];
+
+	/* Navigation events */
+	foreach (Event in Navigation::GetPendingEvents(_This)) {
+		switch (Event.Type) {
+			case Navigation::C_EventType_NavigateInput: {
+				if (Navigation::IsEventFromNestedContainer(_This, Event.Container) && Event.Container.ControlId == C_Id_FrameNavigationContainer) {
+					assert(IsSelector(Event.Container.Parent.Parent), "The manialink has been modified, we do not point to the right frame anymore");
+					declare CMlFrame Frame_Selector = Event.Container.Parent.Parent;
+					if (IsFocused(Frame_Selector)) {
+						declare K_Selector CMGame_Selector_Selector for Frame_Selector = C_Selector_Null;
+						if (Event.Input == CMlScriptEvent::EMenuNavAction::Left && CMGame_Selector_Selector.Controls.Button_Previous.Visible) {
+							Private_Select(_This, Frame_Selector, CMGame_Selector_Selector.Controls.Button_Previous);
+						} else if (Event.Input == CMlScriptEvent::EMenuNavAction::Right && CMGame_Selector_Selector.Controls.Button_Next.Visible) {
+							Private_Select(_This, Frame_Selector, CMGame_Selector_Selector.Controls.Button_Next);
+						} else if (Navigation::IsNavigationControl(Frame_Selector) && Event.From != Null && Event.From == Event.To) {
+							Navigation::EnableInputs(Frame_Selector, True);
+							Navigation::ApplyInput(_This, Frame_Selector, Event.Input, Event.UserIndex, []);
+							Navigation::EnableInputs(Frame_Selector, False);
+						} else {
+							Private_InnerFocus(_This, Frame_Selector, Event.From, Event.To);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/* Mouse events */
+	foreach (Event in _This.PendingEvents) {
+		switch (Event.Type) {
+			case CMlScriptEvent::Type::MouseClick: {
+				if (Event.Control != Null && Event.Control.HasClass(C_Class_ChoiceButton)) {
+					assert(IsSelector(Event.Control.Parent.Parent.Parent.Parent), "The manialink has been modified, we do not point to the right frame anymore");
+					Private_Select(_This, Event.Control.Parent.Parent.Parent.Parent, Event.Control);
+				}
+			}
+			case CMlScriptEvent::Type::MouseOver:  {
+				if (Event.Control != Null && Event.Control.HasClass(C_Class_ChoiceButton)) {
+					assert(IsSelector(Event.Control.Parent.Parent.Parent.Parent), "The manialink has been modified, we do not point to the right frame anymore");
+					Private_InnerFocus(_This, Event.Control.Parent.Parent.Parent.Parent, Null, Event.Control);
+				}
+			}
+			case CMlScriptEvent::Type::MouseOut:  {
+				if (Event.Control != Null && Event.Control.HasClass(C_Class_ChoiceButton)) {
+					assert(IsSelector(Event.Control.Parent.Parent.Parent.Parent), "The manialink has been modified, we do not point to the right frame anymore");
+					Private_InnerFocus(_This, Event.Control.Parent.Parent.Parent.Parent, Event.Control, Null);
+				}
+			}
+		}
+	}
+
+	/* Change buttons opacity depending on the current controller */
+	if (CMGame_Selector_State.IsMouse != Tools::IsUsingMouse(Input)) {
+		CMGame_Selector_State.IsMouse = Tools::IsUsingMouse(Input);
+
+		_This.Page.GetClassChildren(C_Class_Selector, _This.Page.MainFrame, True);
+		foreach (Control in _This.Page.GetClassChildren_Result) {
+			declare CMlFrame Frame_Selector = (Control as CMlFrame).Parent;
+			declare K_Selector CMGame_Selector_Selector for Frame_Selector = C_Selector_Null;
+			if (CMGame_Selector_Selector.IsFocused) {
+				Private_AnimButtonsOpacity(_This, CMGame_Selector_Selector.MergedProperties, CMGame_Selector_Selector.Controls.Button_Next, !CMGame_Selector_State.IsMouse);
+				Private_AnimButtonsOpacity(_This, CMGame_Selector_Selector.MergedProperties, CMGame_Selector_Selector.Controls.Button_Previous, !CMGame_Selector_State.IsMouse);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/Selector.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainStart***
+***
+{{{P}}}MainStart(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[
+			Navigation::ComponentV2()
+		],
+		[]
+	);
+}

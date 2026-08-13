@@ -1,0 +1,897 @@
+/**
+ * Component ExpendableAsset
+ * =========================
+ *
+ * Info
+ * ----
+ *
+ * Create quad with custom left and right edges
+ * Used to create the slanted design of all UI elements
+ *
+ * Props
+ * -----
+ *
+ * - `size` (`Vec2`): the size of the asset
+ * - `color` (`Hex6`): the color of the asset
+ * - `halign` (`Text`): horizontal alignment of the asset, can be `left`, `center` or `right`
+ * - `valign` (`Text`): vertical alignment of the asset, can be `top`, `center` or `bottom`
+ * - `opacity` (`Real`): the opacity of the asset
+ * - `supersample` (`Real`): enable supersample on the asset quads when they are colorized to reduce aliasing
+ * - `transition-duration` (`Integer`): duration of the props update transition animation
+ * - `image-left` (`Text`): url of the image displayed in the left part of the asset
+ * - `image-middle` (`Text`): url of the image displayed in the middle part of the asset
+ * - `image-right` (`Text`): url of the image displayed in the right part of the asset
+ * - `size-left` (`Vec2`): size of the image displayed in the left part of the asset
+ * - `size-middle` (`Vec2`): size of the image displayed in the middle part of the asset
+ * - `size-right` (`Vec2`): size of the image displayed in the right part of the asset
+ * - `colormode-left` (`Text`): color mode of the image displayed in the left part of the asset
+ * - `colormode-middle` (`Text`): color mode of the image displayed in the middle part of the asset
+ * - `colormode-right` (`Text`): color mode of the image displayed in the right part of the asset
+ * - `styles` (`Text`): styles to apply to the asset, new styles can be created with the `CreateStyle()` function
+ *      When several styles are applied to an asset, the styles are merged together with the properties
+ *      of the latest style overriding the properties of the earlier ones.
+ *      For example if "style-a" is `{ A = 1, B = 2, C = 3 }`, "style-b" is `{ A = 11 , C = 33}` and
+ *      "style-c" is `{ A = 111 }` and we set the asset style to `"style-a style-b style-c"`
+ *      then the applied properties will be `{ A = 111, B = 2, C = 33 }`.
+ */
+#Const Version "2.0.5"
+#Const ScriptName "Libs/Nadeo/CMGame/Components/ExpendableAsset@2.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "ColorLib" as CL
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView@3.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/RequestRedraw.Script.txt" as RequestRedraw
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Controls {
+	CMlFrame Frame_ExpendableAsset;
+	CMlFrame Frame_Align;
+	CMlQuad[Integer] Quads;
+}
+#Struct K_Image {
+	Text Url;
+	Vec2 Size;
+	Integer ColorMode;
+}
+#Struct K_Properties {
+	Integer[] Enabled;
+	K_Image[Integer] Images;
+	Vec2 Size;
+	Vec3 Color;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Real Opacity;
+	Boolean SuperSample;
+	Integer TransitionDuration;
+}
+#Struct K_Instance {
+	K_Controls Controls;
+	K_Properties LocalProperties;
+	K_Properties MergedProperties;
+	Text[] Styles;
+}
+#Struct K_Global {
+	K_Properties BaseProperties;
+	K_Properties[Text] StylesProperties;
+	Integer RedrawRequestCounter;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ComponentName "CMGameExpendableAsset2"
+#Const C_ComponentClass "cmgame-components-expendable-asset-2"
+
+#Const C_Id_FrameAlign "cmgame-components-expendable-asset-2-frame-align"
+#Const C_Id_QuadLeft "cmgame-components-expendable-asset-2-quad-left"
+#Const C_Id_QuadCenter "cmgame-components-expendable-asset-2-quad-center"
+#Const C_Id_QuadRight "cmgame-components-expendable-asset-2-quad-right"
+
+#Const C_Position_Left 0
+#Const C_Position_Middle 1
+#Const C_Position_Right 2
+#Const C_Positions [0, 1, 2]
+
+#Const C_ColorMode_None 0
+#Const C_ColorMode_Colorize 1
+#Const C_ColorMode_Modulate 2
+#Const C_ColorMode_Background 3
+
+#Const C_Property_Images 0
+#Const C_Property_Size 1
+#Const C_Property_Color 2
+#Const C_Property_HAlign 3
+#Const C_Property_VAlign 4
+#Const C_Property_Opacity 5
+#Const C_Property_SuperSample 6
+#Const C_Property_TransitionDuration 7
+
+#Const C_RedrawTag_Null ""
+#Const C_RedrawTag_Init "init"
+#Const C_RedrawTag_BaseProperties "baseproperties"
+#Const C_RedrawTag_Styles "styles"
+#Const C_RedrawTag_Images "images"
+#Const C_RedrawTag_Size "size"
+#Const C_RedrawTag_Color "color"
+#Const C_RedrawTag_Align "align"
+#Const C_RedrawTag_Opacity "opacity"
+#Const C_RedrawTag_SuperSample "supersample"
+#Const C_RedrawTag_SkipTransition "skip-transition"
+
+#Const C_Prop_Size "size"
+#Const C_Prop_Color "color"
+#Const C_Prop_HAlign "halign"
+#Const C_Prop_VAlign "valign"
+#Const C_Prop_Opacity "opacity"
+#Const C_Prop_SuperSample "supersample"
+#Const C_Prop_TransitionDuration "transition-duration"
+#Const C_Prop_ImageLeft "image-left"
+#Const C_Prop_ImageMiddle "image-middle"
+#Const C_Prop_ImageRight "image-right"
+#Const C_Prop_SizeLeft "size-left"
+#Const C_Prop_SizeMiddle "size-middle"
+#Const C_Prop_SizeRight "size-right"
+#Const C_Prop_ColorModeLeft "colormode-left"
+#Const C_Prop_ColorModeMiddle "colormode-middle"
+#Const C_Prop_ColorModeRight "colormode-right"
+#Const C_Prop_Styles "styles"
+
+#Const C_Default_Colorize <-1., -1., -1.>
+#Const C_Default_ModulateColor <1., 1., 1.>
+#Const C_Default_BgColor <0., 0., 0.>
+
+#Const C_Image_Null K_Image {
+	Url = "",
+	Size = <0., 0.>,
+	ColorMode = 0
+}
+#Const C_Instance_Null K_Instance {
+	Controls = K_Controls {},
+	LocalProperties = K_Properties {},
+	MergedProperties = K_Properties {},
+	Styles = []
+}
+#Const C_Global_Null K_Global {
+	BaseProperties = K_Properties {},
+	StylesProperties = [],
+	RedrawRequestCounter = 0
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the template of the component
+Text Private_GetTemplate() {
+	return
+"""
+<frame id="{{{C_Id_FrameAlign}}}">
+	<quad id="{{{C_Id_QuadLeft}}}" />
+	<quad id="{{{C_Id_QuadCenter}}}" />
+	<quad id="{{{C_Id_QuadRight}}}" />
+</frame>
+"""
+	;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable a property
+Integer[] Private_EnableProperty(Integer[] _EnabledProperties, Integer _Property, Boolean _Enabled) {
+	declare Integer[] EnabledProperties = _EnabledProperties;
+
+	if (_Enabled) {
+		if (!EnabledProperties.exists(_Property)) {
+			EnabledProperties.add(_Property);
+		}
+	} else {
+		EnabledProperties.remove(_Property);
+	}
+
+	return EnabledProperties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set and enable a property
+K_Properties Private_SetProperty(K_Properties _TargetProperties, Integer _PropertyId, K_Properties _SourceProperties) {
+	declare K_Properties Properties = _TargetProperties;
+
+	Properties.Enabled = Private_EnableProperty(Properties.Enabled, _PropertyId, True);
+
+	switch (_PropertyId) {
+		case C_Property_Images: {
+			for (Position => Image in _SourceProperties.Images) {
+				Properties.Images[Position] = Image;
+			}
+		}
+		case C_Property_Size: Properties.Size = _SourceProperties.Size;
+		case C_Property_Color: Properties.Color = _SourceProperties.Color;
+		case C_Property_HAlign: Properties.HAlign = _SourceProperties.HAlign;
+		case C_Property_VAlign: Properties.VAlign = _SourceProperties.VAlign;
+		case C_Property_Opacity: Properties.Opacity = _SourceProperties.Opacity;
+		case C_Property_SuperSample: Properties.SuperSample = _SourceProperties.SuperSample;
+		case C_Property_TransitionDuration: Properties.TransitionDuration = _SourceProperties.TransitionDuration;
+	}
+
+	return Properties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Merge a base properties struct with other enabled properties
+K_Properties Private_MergeProperties(K_Properties _Base, K_Properties[] _PropertiesToMerge) {
+	declare K_Properties MergedProperties = _Base;
+
+	for (Properties in _PropertiesToMerge) {
+		for (PropertyId in Properties.Enabled) {
+			MergedProperties = Private_SetProperty(MergedProperties, PropertyId, Properties);
+		}
+	}
+
+	return MergedProperties;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given property was modified
+Boolean Private_IsPropertyModified(Integer _PropertyId, K_Properties _PrevProperties, K_Properties _NewProperties) {
+	if (!_PrevProperties.Enabled.exists(_PropertyId)) return True;
+
+	switch (_PropertyId) {
+		case C_Property_Images: {
+			for (Position in C_Positions) {
+				if (_PrevProperties.Images.get(Position, C_Image_Null) != _NewProperties.Images.get(Position, C_Image_Null)) {
+					return True;
+				}
+			}
+		}
+		case C_Property_Size: return _PrevProperties.Size != _NewProperties.Size;
+		case C_Property_Color: return _PrevProperties.Color != _NewProperties.Color;
+		case C_Property_HAlign: return _PrevProperties.HAlign != _NewProperties.HAlign;
+		case C_Property_VAlign: return _PrevProperties.VAlign != _NewProperties.VAlign;
+		case C_Property_Opacity: return _PrevProperties.Opacity != _NewProperties.Opacity;
+		case C_Property_SuperSample: return _PrevProperties.SuperSample != _NewProperties.SuperSample;
+		case C_Property_TransitionDuration: return _PrevProperties.TransitionDuration != _NewProperties.TransitionDuration;
+	}
+
+	return False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Merge the base, styles and local properties of a component
+K_Properties Private_ComputeMergedProperties(K_Instance _Instance, K_Global _Global) {
+	declare K_Properties[] InstanceProperties = [_Instance.LocalProperties];
+	for (Style in reverse _Instance.Styles) {
+		if (Style != "" && _Global.StylesProperties.existskey(Style)) {
+			InstanceProperties.addfirst(_Global.StylesProperties[Style]);
+		}
+	}
+	return Private_MergeProperties(_Global.BaseProperties, InstanceProperties);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the redraw tags to trigger when modifying the given property
+Text[] Private_GetPropertyRedrawTags(Integer _PropertyId) {
+	switch (_PropertyId) {
+		case C_Property_Images: return [C_RedrawTag_Images];
+		case C_Property_Size: return [C_RedrawTag_Size];
+		case C_Property_Color: return [C_RedrawTag_Color];
+		case C_Property_HAlign: return [C_RedrawTag_Align];
+		case C_Property_VAlign: return [C_RedrawTag_Align];
+		case C_Property_Opacity: return [C_RedrawTag_Opacity];
+		case C_Property_SuperSample: return [C_RedrawTag_SuperSample];
+		case C_Property_TransitionDuration: return [C_RedrawTag_Null];
+	}
+	return [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set a property of the component
+K_Instance Private_SetLocalProperty(K_Instance _Instance, Integer _PropertyId, K_Properties _Properties) {
+	if (!Private_IsPropertyModified(_PropertyId, _Instance.LocalProperties, _Properties)) return _Instance;
+
+	declare K_Instance Instance = _Instance;
+	Instance.LocalProperties = Private_SetProperty(Instance.LocalProperties, _PropertyId, _Properties);
+	// We know that the local properties will always override the base and styles properties
+	// So we don't need to spend time recomputing the whole merged properties structure
+	// We can just write the new value directly
+	Instance.MergedProperties = Private_SetProperty(Instance.MergedProperties, _PropertyId, _Properties);
+	MV::MarkForRedraw(Instance.Controls.Frame_ExpendableAsset, Private_GetPropertyRedrawTags(_PropertyId));
+	return Instance;
+}
+Void Private_SetLocalProperty(CMlFrame _Frame_ExpendableAsset, Integer _PropertyId, K_Properties _Properties) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	CMGame_ComponentsExpendableAsset2_Instance = Private_SetLocalProperty(CMGame_ComponentsExpendableAsset2_Instance, _PropertyId, _Properties);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Reset a property of the component
+K_Instance Private_ResetLocalProperty(K_Instance _Instance, K_Global _Global, Integer _PropertyId) {
+	if (!_Instance.LocalProperties.Enabled.exists(_PropertyId)) return _Instance;
+
+	declare K_Instance Instance = _Instance;
+	Instance.LocalProperties.Enabled = Private_EnableProperty(Instance.LocalProperties.Enabled, _PropertyId, False);
+	Instance.MergedProperties = Private_ComputeMergedProperties(Instance, _Global);
+	MV::MarkForRedraw(Instance.Controls.Frame_ExpendableAsset, Private_GetPropertyRedrawTags(_PropertyId));
+	return Instance;
+}
+Void Private_ResetLocalProperty(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Integer _PropertyId) {
+	declare K_Global CMGame_ComponentsExpendableAsset2_Global for _This.Page = C_Global_Null;
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	CMGame_ComponentsExpendableAsset2_Instance = Private_ResetLocalProperty(CMGame_ComponentsExpendableAsset2_Instance, CMGame_ComponentsExpendableAsset2_Global, _PropertyId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the color of a quad taking its color mode into account
+Text[Text] Private_SetQuadColor(
+	CMlQuad _Quad,
+	Integer _ColorMode,
+	Vec3 _Color,
+	Boolean _IsAnimated,
+	Text[Text] _QuadsAnimAttributes
+) {
+	declare Text[Text] QuadsAnimAttributes = _QuadsAnimAttributes;
+	declare Vec3 PrevColor;
+
+	switch (_ColorMode) {
+		case C_ColorMode_Colorize: PrevColor = _Quad.Colorize;
+		case C_ColorMode_Modulate: PrevColor = _Quad.ModulateColor;
+		case C_ColorMode_Background: PrevColor = _Quad.BgColor;
+	}
+
+	// Initialize all properties properly here first
+	// Modifying one of them afterward can also have an effect on the others.
+	// eg: modifying `ModulateColor` will also change the value of `Colorize`.
+	_Quad.Colorize = C_Default_Colorize;
+	_Quad.ModulateColor = C_Default_ModulateColor;
+	_Quad.BgColor = C_Default_BgColor;
+
+	switch (_ColorMode) {
+		case C_ColorMode_Colorize: {
+			if (_IsAnimated) {
+				_Quad.Colorize = PrevColor;
+				QuadsAnimAttributes["colorize"] = CL::RgbToHex6(_Color);
+			} else {
+				_Quad.Colorize = _Color;
+			}
+		}
+		case C_ColorMode_Modulate: {
+			if (_IsAnimated) {
+				_Quad.ModulateColor = PrevColor;
+				QuadsAnimAttributes["modulatecolor"] = CL::RgbToHex6(_Color);
+			} else {
+				_Quad.ModulateColor = _Color;
+			}
+		}
+		case C_ColorMode_Background: {
+			if (_IsAnimated) {
+				_Quad.BgColor = PrevColor;
+				QuadsAnimAttributes["bgcolor"] = CL::RgbToHex6(_Color);
+			} else {
+				_Quad.BgColor = _Color;
+			}
+		}
+	}
+
+	return QuadsAnimAttributes;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the size of the left or right quad
+Vec2 Private_GetLeftRightQuadSize(K_Image _Image, K_Properties _AssetProperties) {
+	if (_Image.Size.Y == 0.) return <0., 0.>;
+	return <_AssetProperties.Size.Y * _Image.Size.X / _Image.Size.Y, _AssetProperties.Size.Y>;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw the component
+Void Private_Hook_ComponentDraw(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text[] _Tags) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance as Instance for _Frame_ExpendableAsset = C_Instance_Null;
+
+	declare Boolean IsAnimated = (
+		Instance.MergedProperties.TransitionDuration > 0 &&
+		!MV::HasRedrawTag(_Tags, [C_RedrawTag_Init, C_RedrawTag_BaseProperties, C_RedrawTag_Styles, C_RedrawTag_Images, C_RedrawTag_SkipTransition])
+	);
+	declare Text[Text][Integer] QuadsAnimAttributes;
+	for (Position in C_Positions) {
+		QuadsAnimAttributes[Position] = [];
+	}
+	for (Quad in Instance.Controls.Quads) {
+		_This.AnimMgr.Flush(Quad);
+	}
+
+	if (MV::HasRedrawTag(_Tags, [C_RedrawTag_Init, C_RedrawTag_BaseProperties, C_RedrawTag_Styles, C_RedrawTag_Images, C_RedrawTag_Size])) {
+		declare CMlQuad Quad_Left <=> Instance.Controls.Quads[C_Position_Left];
+		declare CMlQuad Quad_Middle <=> Instance.Controls.Quads[C_Position_Middle];
+		declare CMlQuad Quad_Right <=> Instance.Controls.Quads[C_Position_Right];
+
+		declare Vec2 QuadLeftSize = Private_GetLeftRightQuadSize(
+			Instance.MergedProperties.Images.get(C_Position_Left, C_Image_Null),
+			Instance.MergedProperties
+		);
+		declare Vec2 QuadRightSize = Private_GetLeftRightQuadSize(
+			Instance.MergedProperties.Images.get(C_Position_Right, C_Image_Null),
+			Instance.MergedProperties
+		);
+		declare Vec2 QuadMiddleSize = <
+			ML::Max(0., Instance.MergedProperties.Size.X - QuadLeftSize.X - QuadRightSize.X),
+			Instance.MergedProperties.Size.Y
+		>;
+		declare Vec2 QuadMiddlePos = <QuadLeftSize.X, Quad_Left.RelativePosition_V3.Y>;
+		declare Vec2 QuadRightPos = <QuadLeftSize.X + QuadMiddleSize.X, Quad_Right.RelativePosition_V3.Y>;
+
+		if (IsAnimated) {
+			QuadsAnimAttributes[C_Position_Left]["size"] = QuadLeftSize.X^" "^QuadLeftSize.Y;
+			QuadsAnimAttributes[C_Position_Right]["size"] = QuadRightSize.X^" "^QuadRightSize.Y;
+			QuadsAnimAttributes[C_Position_Middle]["size"] = QuadMiddleSize.X^" "^QuadMiddleSize.Y;
+			QuadsAnimAttributes[C_Position_Middle]["pos"] = QuadMiddlePos.X^" "^QuadMiddlePos.Y;
+			QuadsAnimAttributes[C_Position_Right]["pos"] = QuadRightPos.X^" "^QuadRightPos.Y;
+		} else {
+			Quad_Left.Size = QuadLeftSize;
+			Quad_Right.Size = QuadRightSize;
+			Quad_Middle.Size = QuadMiddleSize;
+			Quad_Middle.RelativePosition_V3 = QuadMiddlePos;
+			Quad_Right.RelativePosition_V3 = QuadRightPos;
+		}
+	}
+
+	if (MV::HasRedrawTag(_Tags, [C_RedrawTag_Init, C_RedrawTag_BaseProperties, C_RedrawTag_Styles, C_RedrawTag_Images, C_RedrawTag_Size, C_RedrawTag_Color, C_RedrawTag_Opacity, C_RedrawTag_SuperSample])) {
+		foreach (Position in C_Positions) {
+			declare CMlQuad Quad <=> Instance.Controls.Quads.get(Position, Null);
+			if (Quad != Null) {
+				declare K_Image Image = Instance.MergedProperties.Images.get(Position, C_Image_Null);
+
+				if (MV::HasRedrawTag(_Tags, [C_RedrawTag_Init, C_RedrawTag_BaseProperties, C_RedrawTag_Styles, C_RedrawTag_Images])) {
+					if (Image.Url != "" || Image.ColorMode == C_ColorMode_Background) {
+						Quad.ImageUrl = Image.Url;
+						Quad.Visible = True;
+					} else {
+						Quad.Visible = False;
+					}
+				}
+
+				if (Quad.Visible) {
+					if (MV::HasRedrawTag(_Tags, [C_RedrawTag_Init, C_RedrawTag_BaseProperties, C_RedrawTag_Styles, C_RedrawTag_Images, C_RedrawTag_Color])) {
+						QuadsAnimAttributes[Position] = Private_SetQuadColor(Quad, Image.ColorMode, Instance.MergedProperties.Color, IsAnimated, QuadsAnimAttributes[Position]);
+					}
+
+					if (MV::HasRedrawTag(_Tags, [C_RedrawTag_Init, C_RedrawTag_BaseProperties, C_RedrawTag_Styles, C_RedrawTag_Images, C_RedrawTag_SuperSample])) {
+						Quad.SuperSample = (Instance.MergedProperties.SuperSample && Image.Url != "" && Image.ColorMode == C_ColorMode_Colorize);
+					}
+
+					if (MV::HasRedrawTag(_Tags, [C_RedrawTag_Init, C_RedrawTag_BaseProperties, C_RedrawTag_Styles, C_RedrawTag_Opacity])) {
+						if (IsAnimated) {
+							QuadsAnimAttributes[Position]["opacity"] = ""^Instance.MergedProperties.Opacity;
+						} else {
+							Quad.Opacity = Instance.MergedProperties.Opacity;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (MV::HasRedrawTag(_Tags, [C_RedrawTag_Init, C_RedrawTag_BaseProperties, C_RedrawTag_Styles, C_RedrawTag_Size, C_RedrawTag_Align])) {
+		declare Vec2 AlignPosition = Tools::GetAlignPosition(Instance.MergedProperties.Size, Instance.MergedProperties.HAlign, Instance.MergedProperties.VAlign);
+		_This.AnimMgr.Flush(Instance.Controls.Frame_Align);
+		if (IsAnimated) {
+			_This.AnimMgr.Add(Instance.Controls.Frame_Align, """<anim pos="{{{AlignPosition.X}}} {{{AlignPosition.Y}}}" />""", Instance.MergedProperties.TransitionDuration, CAnimManager::EAnimManagerEasing::Linear);
+		} else {
+			Instance.Controls.Frame_Align.RelativePosition_V3 = AlignPosition;
+		}
+	}
+
+	if (IsAnimated) {
+		for (Position => QuadAnimAttributes in QuadsAnimAttributes) {
+			if (QuadAnimAttributes.count > 0) {
+				declare CMlQuad Quad <=> Instance.Controls.Quads.get(Position, Null);
+				if (Quad != Null) {
+					_This.AnimMgr.Add(Quad, Tools::CreateXmlNode("anim", QuadAnimAttributes), Instance.MergedProperties.TransitionDuration, CAnimManager::EAnimManagerEasing::Linear);
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the component
+Void Private_Hook_ComponentInit(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance as Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	Instance = C_Instance_Null;
+
+	Instance.Controls.Frame_ExpendableAsset <=> _Frame_ExpendableAsset;
+	Instance.Controls.Frame_Align <=> (Instance.Controls.Frame_ExpendableAsset.GetFirstChild(C_Id_FrameAlign) as CMlFrame);
+	Instance.Controls.Quads = [
+		C_Position_Left => (Instance.Controls.Frame_ExpendableAsset.GetFirstChild(C_Id_QuadLeft) as CMlQuad),
+		C_Position_Middle => (Instance.Controls.Frame_ExpendableAsset.GetFirstChild(C_Id_QuadCenter) as CMlQuad),
+		C_Position_Right => (Instance.Controls.Frame_ExpendableAsset.GetFirstChild(C_Id_QuadRight) as CMlQuad)
+	];
+
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_Size)) {
+		Instance = Private_SetLocalProperty(Instance, C_Property_Size, K_Properties { Size = MV::GetProp_Vec2(Instance.Controls.Frame_ExpendableAsset, C_Prop_Size, <0., 0.>) });
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_Color)) {
+		Instance = Private_SetLocalProperty(Instance, C_Property_Color, K_Properties { Color = MV::GetProp_Color(Instance.Controls.Frame_ExpendableAsset, C_Prop_Color, <0., 0., 0.>) });
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_HAlign)) {
+		Instance = Private_SetLocalProperty(Instance, C_Property_HAlign, K_Properties { HAlign = MV::GetProp_HAlign(Instance.Controls.Frame_ExpendableAsset, C_Prop_HAlign, CMlControl::AlignHorizontal::Left) });
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_VAlign)) {
+		Instance = Private_SetLocalProperty(Instance, C_Property_VAlign, K_Properties { VAlign = MV::GetProp_VAlign(Instance.Controls.Frame_ExpendableAsset, C_Prop_VAlign, CMlControl::AlignVertical::Top) });
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_Opacity)) {
+		Instance = Private_SetLocalProperty(Instance, C_Property_Opacity, K_Properties { Opacity = MV::GetProp_Real(Instance.Controls.Frame_ExpendableAsset, C_Prop_Opacity, 1.) });
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_SuperSample)) {
+		Instance = Private_SetLocalProperty(Instance, C_Property_SuperSample, K_Properties { SuperSample = MV::GetProp_Boolean(Instance.Controls.Frame_ExpendableAsset, C_Prop_SuperSample, False) });
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_TransitionDuration)) {
+		Instance = Private_SetLocalProperty(Instance, C_Property_TransitionDuration, K_Properties { TransitionDuration = MV::GetProp_Integer(Instance.Controls.Frame_ExpendableAsset, C_Prop_TransitionDuration, 0) });
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_Styles)) {
+		Instance.Styles = TL::Split(" ", TL::Trim(MV::GetProp_Text(Instance.Controls.Frame_ExpendableAsset, C_Prop_Styles, "")));
+	}
+
+	declare K_Image[Integer] PropImages;
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_ImageLeft)) {
+		if (!PropImages.existskey(C_Position_Left)) PropImages[C_Position_Left] = C_Image_Null;
+		PropImages[C_Position_Left].Url = MV::GetProp_Text(Instance.Controls.Frame_ExpendableAsset, C_Prop_ImageLeft, "");
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_ImageMiddle)) {
+		if (!PropImages.existskey(C_Position_Middle)) PropImages[C_Position_Middle] = C_Image_Null;
+		PropImages[C_Position_Middle].Url = MV::GetProp_Text(Instance.Controls.Frame_ExpendableAsset, C_Prop_ImageMiddle, "");
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_ImageRight)) {
+		if (!PropImages.existskey(C_Position_Right)) PropImages[C_Position_Right] = C_Image_Null;
+		PropImages[C_Position_Right].Url = MV::GetProp_Text(Instance.Controls.Frame_ExpendableAsset, C_Prop_ImageRight, "");
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_SizeLeft)) {
+		if (!PropImages.existskey(C_Position_Left)) PropImages[C_Position_Left] = C_Image_Null;
+		PropImages[C_Position_Left].Size = MV::GetProp_Vec2(Instance.Controls.Frame_ExpendableAsset, C_Prop_SizeLeft, <0., 0.>);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_SizeMiddle)) {
+		if (!PropImages.existskey(C_Position_Middle)) PropImages[C_Position_Middle] = C_Image_Null;
+		PropImages[C_Position_Middle].Size = MV::GetProp_Vec2(Instance.Controls.Frame_ExpendableAsset, C_Prop_SizeMiddle, <0., 0.>);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_SizeRight)) {
+		if (!PropImages.existskey(C_Position_Right)) PropImages[C_Position_Right] = C_Image_Null;
+		PropImages[C_Position_Right].Size = MV::GetProp_Vec2(Instance.Controls.Frame_ExpendableAsset, C_Prop_SizeRight, <0., 0.>);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_ColorModeLeft)) {
+		if (!PropImages.existskey(C_Position_Left)) PropImages[C_Position_Left] = C_Image_Null;
+		PropImages[C_Position_Left].ColorMode = MV::GetProp_Integer(Instance.Controls.Frame_ExpendableAsset, C_Prop_ColorModeLeft, C_ColorMode_None);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_ColorModeMiddle)) {
+		if (!PropImages.existskey(C_Position_Middle)) PropImages[C_Position_Middle] = C_Image_Null;
+		PropImages[C_Position_Middle].ColorMode = MV::GetProp_Integer(Instance.Controls.Frame_ExpendableAsset, C_Prop_ColorModeMiddle, C_ColorMode_None);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_ExpendableAsset, C_Prop_ColorModeRight)) {
+		if (!PropImages.existskey(C_Position_Right)) PropImages[C_Position_Right] = C_Image_Null;
+		PropImages[C_Position_Right].ColorMode = MV::GetProp_Integer(Instance.Controls.Frame_ExpendableAsset, C_Prop_ColorModeRight, C_ColorMode_None);
+	}
+	if (PropImages.count > 0) {
+		Instance = Private_SetLocalProperty(Instance, C_Property_Images, K_Properties { Images = PropImages });
+	}
+
+	declare K_Global CMGame_ComponentsExpendableAsset2_Global for _This.Page = C_Global_Null;
+	Instance.MergedProperties = Private_ComputeMergedProperties(Instance, CMGame_ComponentsExpendableAsset2_Global);
+
+	MV::MarkForRedraw(Instance.Controls.Frame_ExpendableAsset, C_RedrawTag_Init);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the page
+Void Private_Hook_PageMainInit(CMlScript _This) {
+	declare K_Global CMGame_ComponentsExpendableAsset2_Global as Global for _This.Page = C_Global_Null;
+	Global = C_Global_Null;
+
+	Global.BaseProperties = K_Properties {
+		Enabled = [
+			C_Property_Images,
+			C_Property_Size,
+			C_Property_Color,
+			C_Property_HAlign,
+			C_Property_VAlign,
+			C_Property_Opacity,
+			C_Property_SuperSample,
+			C_Property_TransitionDuration
+		],
+		Images = [
+			C_Position_Left => C_Image_Null,
+			C_Position_Middle => C_Image_Null,
+			C_Position_Right => C_Image_Null
+		],
+		Size = <0., 0.>,
+		Color = <1., 1., 1.>,
+		HAlign = CMlControl::AlignHorizontal::Left,
+		VAlign = CMlControl::AlignVertical::Top,
+		Opacity = 1.,
+		SuperSample = False,
+		TransitionDuration = 0
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the page
+Void Private_Hook_PageAfterYield(CMlScript _This) {
+	declare K_Global CMGame_ComponentsExpendableAsset2_Global as Global for _This.Page = C_Global_Null;
+
+	// Global redraw requested
+	if (Global.RedrawRequestCounter != RequestRedraw::GetComponentsRedrawCounter()) {
+		Global.RedrawRequestCounter = RequestRedraw::GetComponentsRedrawCounter();
+
+		_This.Page.GetClassChildren(C_ComponentClass, _This.Page.MainFrame, True);
+		for (Control in _This.Page.GetClassChildren_Result) {
+			MV::MarkForRedraw(Control as CMlFrame, C_RedrawTag_Init);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the images of the component
+Void SetImages(CMlFrame _Frame_ExpendableAsset, K_Image[Integer] _Images) {
+	Private_SetLocalProperty(_Frame_ExpendableAsset, C_Property_Images, K_Properties { Images = _Images });
+}
+Void ResetImages(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	Private_ResetLocalProperty(_This, _Frame_ExpendableAsset, C_Property_Images);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the size of the component
+Void SetSize(CMlFrame _Frame_ExpendableAsset, Vec2 _Size) {
+	Private_SetLocalProperty(_Frame_ExpendableAsset, C_Property_Size, K_Properties { Size = _Size });
+}
+Void ResetSize(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	Private_ResetLocalProperty(_This, _Frame_ExpendableAsset, C_Property_Size);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the color of the component
+Void SetColor(CMlFrame _Frame_ExpendableAsset, Vec3 _Color) {
+	Private_SetLocalProperty(_Frame_ExpendableAsset, C_Property_Color, K_Properties { Color = _Color });
+}
+Void ResetColor(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	Private_ResetLocalProperty(_This, _Frame_ExpendableAsset, C_Property_Color);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the horizontal alignment of the component
+Void SetHAlign(CMlFrame _Frame_ExpendableAsset, CMlControl::AlignHorizontal _HAlign) {
+	Private_SetLocalProperty(_Frame_ExpendableAsset, C_Property_HAlign, K_Properties { HAlign = _HAlign });
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	Private_ResetLocalProperty(_This, _Frame_ExpendableAsset, C_Property_HAlign);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the vertical alignment of the component
+Void SetVAlign(CMlFrame _Frame_ExpendableAsset, CMlControl::AlignVertical _VAlign) {
+	Private_SetLocalProperty(_Frame_ExpendableAsset, C_Property_VAlign, K_Properties { VAlign = _VAlign });
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	Private_ResetLocalProperty(_This, _Frame_ExpendableAsset, C_Property_VAlign);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the opacity of the component
+Void SetOpacity(CMlFrame _Frame_ExpendableAsset, Real _Opacity) {
+	Private_SetLocalProperty(_Frame_ExpendableAsset, C_Property_Opacity, K_Properties { Opacity = _Opacity });
+}
+Void ResetOpacity(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	Private_ResetLocalProperty(_This, _Frame_ExpendableAsset, C_Property_Opacity);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the supersample on the component
+Void SetSuperSample(CMlFrame _Frame_ExpendableAsset, Boolean _SuperSample) {
+	Private_SetLocalProperty(_Frame_ExpendableAsset, C_Property_SuperSample, K_Properties { SuperSample = _SuperSample });
+}
+Void ResetSuperSample(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	Private_ResetLocalProperty(_This, _Frame_ExpendableAsset, C_Property_SuperSample);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the transition duration on the component
+Void SetTransitionDuration(CMlFrame _Frame_ExpendableAsset, Integer _TransitionDuration) {
+	Private_SetLocalProperty(_Frame_ExpendableAsset, C_Property_TransitionDuration, K_Properties { TransitionDuration = _TransitionDuration });
+}
+Void ResetTransitionDuration(CMlScript _This, CMlFrame _Frame_ExpendableAsset) {
+	Private_ResetLocalProperty(_This, _Frame_ExpendableAsset, C_Property_TransitionDuration);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the styles of the component
+Void SetStyles(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text[] _Styles) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance as Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	if (Instance.Styles != _Styles) {
+		Instance.Styles = _Styles;
+		declare K_Global CMGame_ComponentsExpendableAsset2_Global for _This.Page = C_Global_Null;
+		Instance.MergedProperties = Private_ComputeMergedProperties(Instance, CMGame_ComponentsExpendableAsset2_Global);
+		MV::MarkForRedraw(_Frame_ExpendableAsset, C_RedrawTag_Styles);
+	}
+}
+Void AddStyles(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text[] _Styles) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance as Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	declare Boolean Added = False;
+	for (Style in _Styles) {
+		if (!Instance.Styles.exists(Style)) {
+			Instance.Styles.add(Style);
+			Added = True;
+		}
+	}
+	if (Added) {
+		declare K_Global CMGame_ComponentsExpendableAsset2_Global for _This.Page = C_Global_Null;
+		Instance.MergedProperties = Private_ComputeMergedProperties(Instance, CMGame_ComponentsExpendableAsset2_Global);
+		MV::MarkForRedraw(_Frame_ExpendableAsset, C_RedrawTag_Styles);
+	}
+}
+Void RemoveStyles(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text[] _Styles) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance as Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	declare Boolean Removed = False;
+	for (Style in _Styles) {
+		if (Instance.Styles.exists(Style)) {
+			Instance.Styles.remove(Style);
+			Removed = True;
+		}
+	}
+	if (Removed) {
+		declare K_Global CMGame_ComponentsExpendableAsset2_Global for _This.Page = C_Global_Null;
+		Instance.MergedProperties = Private_ComputeMergedProperties(Instance, CMGame_ComponentsExpendableAsset2_Global);
+		MV::MarkForRedraw(_Frame_ExpendableAsset, C_RedrawTag_Styles);
+	}
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text _Style) {
+	AddStyles(_This, _Frame_ExpendableAsset, [_Style]);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_ExpendableAsset, Text _Style) {
+	RemoveStyles(_This, _Frame_ExpendableAsset, [_Style]);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Recompute the merged properties of all components
+Void Private_ComputeAllComponentsMergedProperties(CMlScript _This, K_Global _Global, Text _RedrawTag) {
+	_This.Page.GetClassChildren(C_ComponentClass, _This.Page.MainFrame, True);
+	for (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame ComponentInstance = (Control as CMlFrame);
+		declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for ComponentInstance = C_Instance_Null;
+		CMGame_ComponentsExpendableAsset2_Instance.MergedProperties = Private_ComputeMergedProperties(CMGame_ComponentsExpendableAsset2_Instance, _Global);
+		MV::MarkForRedraw(ComponentInstance, _RedrawTag);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the base properties of all components
+Void SetBaseProperties(CMlScript _This, K_Properties _BaseProperties, Boolean _ComputeMergedProperties) {
+	declare K_Global CMGame_ComponentsExpendableAsset2_Global for _This.Page = C_Global_Null;
+	CMGame_ComponentsExpendableAsset2_Global.BaseProperties = Private_MergeProperties(
+		CMGame_ComponentsExpendableAsset2_Global.BaseProperties,
+		[_BaseProperties]
+	);
+
+	if (_ComputeMergedProperties) {
+		Private_ComputeAllComponentsMergedProperties(_This, CMGame_ComponentsExpendableAsset2_Global, C_RedrawTag_BaseProperties);
+	}
+}
+Void SetBaseProperties(CMlScript _This, K_Properties _BaseProperties) {
+	SetBaseProperties(_This, _BaseProperties, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Create a new style
+Void CreateStyle(CMlScript _This, Text _StyleId, K_Properties _StyleProperties, Boolean _ComputeMergedProperties) {
+	declare K_Global CMGame_ComponentsExpendableAsset2_Global for _This.Page = C_Global_Null;
+	CMGame_ComponentsExpendableAsset2_Global.StylesProperties[_StyleId] = _StyleProperties;
+
+	if (_ComputeMergedProperties) {
+		Private_ComputeAllComponentsMergedProperties(_This, CMGame_ComponentsExpendableAsset2_Global, C_RedrawTag_Styles);
+	}
+}
+Void CreateStyle(CMlScript _This, Text _StyleId, K_Properties _StyleProperties) {
+	CreateStyle(_This, _StyleId, _StyleProperties, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the images of the component
+K_Image[Integer] GetImages(CMlFrame _Frame_ExpendableAsset) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	return CMGame_ComponentsExpendableAsset2_Instance.MergedProperties.Images;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the size of the component
+Vec2 GetSize(CMlFrame _Frame_ExpendableAsset) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	return CMGame_ComponentsExpendableAsset2_Instance.MergedProperties.Size;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the color of the component
+Vec3 GetColor(CMlFrame _Frame_ExpendableAsset) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	return CMGame_ComponentsExpendableAsset2_Instance.MergedProperties.Color;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the horizontal alignment of the component
+CMlControl::AlignHorizontal GetHAlign(CMlFrame _Frame_ExpendableAsset) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	return CMGame_ComponentsExpendableAsset2_Instance.MergedProperties.HAlign;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the vertical alignment of the component
+CMlControl::AlignVertical GetVAlign(CMlFrame _Frame_ExpendableAsset) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	return CMGame_ComponentsExpendableAsset2_Instance.MergedProperties.VAlign;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the opacity of the component
+Real GetOpacity(CMlFrame _Frame_ExpendableAsset) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	return CMGame_ComponentsExpendableAsset2_Instance.MergedProperties.Opacity;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the supersample on the component
+Boolean GetSuperSample(CMlFrame _Frame_ExpendableAsset) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	return CMGame_ComponentsExpendableAsset2_Instance.MergedProperties.SuperSample;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the transition duration on the component
+Integer GetTransitionDuration(CMlFrame _Frame_ExpendableAsset) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	return CMGame_ComponentsExpendableAsset2_Instance.MergedProperties.TransitionDuration;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the styles of the component
+Text[] GetStyles(CMlFrame _Frame_ExpendableAsset) {
+	declare K_Instance CMGame_ComponentsExpendableAsset2_Instance for _Frame_ExpendableAsset = C_Instance_Null;
+	return CMGame_ComponentsExpendableAsset2_Instance.Styles;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+MV::K_Component Component() {
+	return MV::K_Component {
+		Name = C_ComponentName,
+		Path = ScriptName,
+		Class = C_ComponentClass,
+		Template = Private_GetTemplate(),
+		Hooks = [
+			MV::C_Hook_PageMainInit => """{{{C_ComponentName}}}::Private_Hook_PageMainInit""",
+			MV::C_Hook_ComponentInit => """{{{C_ComponentName}}}::Private_Hook_ComponentInit""",
+			MV::C_Hook_PageAfterYield => """{{{C_ComponentName}}}::Private_Hook_PageAfterYield""",
+			MV::C_Hook_ComponentDraw => """{{{C_ComponentName}}}::Private_Hook_ComponentDraw"""
+		],
+		DefineProps = [
+			C_Prop_Size,
+			C_Prop_Color,
+			C_Prop_HAlign,
+			C_Prop_VAlign,
+			C_Prop_Opacity,
+			C_Prop_SuperSample,
+			C_Prop_TransitionDuration,
+			C_Prop_ImageLeft,
+			C_Prop_ImageMiddle,
+			C_Prop_ImageRight,
+			C_Prop_SizeLeft,
+			C_Prop_SizeMiddle,
+			C_Prop_SizeRight,
+			C_Prop_ColorModeLeft,
+			C_Prop_ColorModeMiddle,
+			C_Prop_ColorModeRight,
+			C_Prop_Styles
+		]
+	};
+}

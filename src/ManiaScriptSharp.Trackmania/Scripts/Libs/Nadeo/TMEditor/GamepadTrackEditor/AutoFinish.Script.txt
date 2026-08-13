@@ -1,0 +1,133 @@
+/**
+ * Auto-finish library
+ */
+
+#Const Version		"1.0.0"
+#Const ScriptName	"AutoFinish.Script.txt"
+
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/Macroblock.Script.txt" as Macroblock
+#Include "Libs/Nadeo/TMEditor/GamepadTrackEditor/ThemePack.Script.txt" as ThemePack
+
+declare Text[] G_FinishesClips;
+declare Text[][Text] G_ClipsConnectivity;
+declare Integer[Text] G_ClipsPenalties;
+
+Integer Private_GetFinishDepth(Text _ClipName) {
+	declare MaxDepth = 0;
+	declare Text[] Tested;
+	declare Integer[Text] ToTest;
+
+	ToTest = [_ClipName => 0];
+
+	while (ToTest.count > 0) {
+		yield(1);
+		ToTest = ToTest.sort();
+		declare ClipName = "";
+		foreach (Clip => Depth in ToTest) {
+			ClipName = Clip;
+			break;
+		}
+		Tested.add(ClipName);
+
+		declare ConnectableClipsNames = Macroblock::GetConnectableClips(ClipName);
+
+		if (G_FinishesClips.containsoneof(ConnectableClipsNames)) return ToTest[ClipName];
+
+		foreach (ConnectableClipName in ConnectableClipsNames) {
+			if (!G_ClipsConnectivity.existskey(ConnectableClipName)) continue;
+
+			declare ConnectedClips = G_ClipsConnectivity[ConnectableClipName];
+			foreach (ConnectedClip in ConnectedClips) {
+				if (Tested.exists(ConnectedClip) || ToTest.existskey(ConnectedClip)) continue;
+				declare Depth = ToTest[ClipName] + 1;
+				if (Depth > MaxDepth) MaxDepth = Depth;
+				ToTest[ConnectedClip] = Depth;
+			}
+		}
+
+		declare Removed = ToTest.removekey(ClipName);
+	}
+
+	// If the clip can't be connected to a finish, return the greatest depth
+	return MaxDepth;
+}
+
+Text GetScriptVersion() { return Version; }
+Text GetScriptName() { return ScriptName; }
+
+// Get the penalty associated to a clip
+Integer GetClipPenalty(Text _ClipName, Int3 _Coord) {
+	declare Penalty = 0;
+
+	switch (Map.CollectionName) {
+		case "Lagoon": {
+			/* If we are on a flipped (upside-down) road theme park
+			 * near the ground without enough space for a demiloop
+			 * then increase the penalty to switch in priority
+			 * to a RoadThemeParkWall clip
+			 */
+			if (_ClipName == "RoadThemeParkFlipClip") {
+				declare Height = _Coord.Y - GetGroundHeight(_Coord.X, _Coord.Z);
+				if (Height <= 12) Penalty += 10;
+			}
+		}
+	}
+
+	if (!G_ClipsPenalties.existskey(_ClipName)) return Penalty;
+
+	return G_ClipsPenalties[_ClipName] + Penalty;
+}
+
+/// Recompute the clips connectivity and penalties
+Void Private_Compute() {
+	G_ClipsConnectivity.clear();
+	G_ClipsPenalties.clear();
+
+	foreach (MacroblockModel in MacroblockModels) {
+
+		if (!Macroblock::GetValidity(MacroblockModel)) continue;
+		if (!ThemePack::IsListed(MacroblockModel)) continue;
+		if (Macroblock::IsTerrain(MacroblockModel)) continue;
+		if (Macroblock::IsDeco(MacroblockModel)) continue;
+		declare ClipNames = Macroblock::GetClipNames(MacroblockModel);
+
+		foreach (ClipId => ClipName in ClipNames) {
+			// Save clip connectivity
+			if (!G_ClipsConnectivity.existskey(ClipName)) {
+				G_ClipsConnectivity[ClipName] = [];
+			}
+			foreach (ConnectClipId => ConnectClipName in ClipNames) {
+				yield(5);
+				if (ConnectClipId == ClipId) continue;
+				if (!G_ClipsConnectivity[ClipName].exists(ConnectClipName)) {
+					G_ClipsConnectivity[ClipName].add(ConnectClipName);
+				}
+			}
+		}
+	}
+
+	foreach (StartingClip => ConnectingClips in G_ClipsConnectivity) {
+		G_ClipsPenalties[StartingClip] = Private_GetFinishDepth(StartingClip);
+	}
+}
+
+Void Unload() {
+	G_FinishesClips.clear();
+	G_ClipsConnectivity.clear();
+	G_ClipsPenalties.clear();
+}
+
+Void Load() {
+	Unload();
+
+	// Save finish clip name
+	foreach (MacroblockModel in MacroblockModels) {
+		if (!MacroblockModel.HasFinish || !Macroblock::GetValidity(MacroblockModel)) continue;
+		if (!ThemePack::IsListed(MacroblockModel)) continue;
+		declare ClipNames = Macroblock::GetClipNames(MacroblockModel);
+		foreach (ClipId => ClipName in ClipNames) {
+			if (!G_FinishesClips.exists(ClipName)) G_FinishesClips.add(ClipName);
+		}
+	}
+	Private_Compute();
+}

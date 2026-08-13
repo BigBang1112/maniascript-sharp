@@ -1,0 +1,1142 @@
+/**
+ * Page: ClubMembers
+ */
+#Const Version "1.1.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/MainMenu/Pages/ClubMembers.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/ClubName.Script.txt" as ClubName
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAsset.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Components/LoadingSpinner.Script.txt" as LoadingSpinner
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Scroll.Script.txt" as Scroll
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "Libs/Nadeo/Trackmania/Components/PopUpMultiChoice.Script.txt" as PopUpMultiChoice
+#Include "Libs/Nadeo/Trackmania/Components/ProfilePlayerInfo.Script.txt" as ProfilePlayerInfo
+#Include "Libs/Nadeo/Trackmania/Components/TitleBar2.Script.txt" as TitleBar
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+#Include "Libs/Nadeo/Trackmania/Stores/ClubStore_ML.Script.txt" as ClubStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Page_ClubMembers"
+#Const C_NavGroupName "navgroup-page-clubmembers"
+
+#Const C_TabNames [
+	//L16N [Page Club Members] Title of the section displaying all the club members
+	0 => _("|Club|Members")
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the page manialink
+ *
+ *	@return														The page manialink
+ */
+Text GetManialink() {
+	declare Text Text_Retrieving = Const::C_Text_RetrievingDataPlaceholder;
+	//L16N [Page Club Members] Number of members in a club when there is only one member (singular). %1 is the number of players. (e.g. "1 Member")
+	declare Text Text_Members_Singular = _("|Club|%1 Member");
+	//L16N [Page Club Members] Number of members in a club. %1 is the number of players. (e.g. "5 Members")
+	declare Text Text_Members_Plural = _("|Club|%1 Members");
+	//L16N [Page Club Members] Number of requests in a club when there is only one request (singular). %1 is the number of players. (e.g. "1 Request")
+	declare Text Text_Requests_Singular = _("|Club|%1 Request");
+	//L16N [Page Club Members] Number of requests in a club. %1 is the number of players. (e.g. "5 Requests")
+	declare Text Text_Requests_Plural = _("|Club|%1 Requests");
+	//L16N [Page Club Members] Text of the loading spinner displayed while loading club members.
+	declare Text Text_RetrievingMembers	= _("Retrieving members");
+	//L16N [Page Club Members] Text displayed when there are no visible members in a club.
+	declare Text Text_NoMembers	= _("Not all members are visible due to your cross-network settings.");
+	//L16N [Page Club Members] Text displayed when there are no pending requests to join a club.
+	declare Text Text_NoPendingRequests	= _("No pending requests.");
+	//L16N [Page Club Members] Text displayed when a search returns no results.
+	declare Text Text_NoSearchResult = _("Your search did not return any results.\\nPlease enter the exact name of the member you are looking for.");
+	//L16N [Page Club Members] Special distinction within a club.
+	declare Text Text_VIP	= _("|Club|VIP");
+	//L16N [Page Club Members] To set a special distinction to a member (within a club)
+	declare Text Text_SetVIP	= _("|Club|Set VIP");
+	//L16N [Page Club Members] To set a special distinction to a member (within a club)
+	declare Text Text_UnsetVIP	= _("|Club|Unset VIP");
+	//L16N [Page Club Members] To access to the member player profile
+	declare Text Text_ViewProfile	= _("|Club|View profile");
+	//L16N [Page Club Members] To exclude a player from a club
+	declare Text Text_Exclude	= _("|Club|Exclude");
+
+	/* Scroll config */
+	declare Vec2 Size_SearchBar = <60., 9.5>;
+	declare ScrollConfig = Scroll::K_Config {
+		AnimEnabled = True,
+		PreScrollEnabled = True,
+		PreScrollBefore = 1,
+		PreScrollAfter = 1,
+		ScrollBarVisibility = Scroll::C_ScrollBarVisibility_DuringScroll,
+		ScrollGrid = <8., 8.>,
+		ScrollIndicator = True,
+		ScrollIndicatorColorize = <1., 1., 1.>,
+		ScrollIndicatorImage = Icons::C_Icon_128x128_Arrow_Bottom_Oblique,
+		ScrollIndicatorSize = 12.,
+		ScrollIndicatorYOffset = -15.,
+		ScrollPadding = 27.5,
+		Skew = -10.,
+		SkewVAlign = Scroll::C_SkewVAlign_Top,
+		WindowSize = <265., 88.>
+	};
+
+
+	/* Members list scroll view */
+	declare Integer List_ColumnsNb = 1;
+	declare Integer List_RowsNb = 8;
+	declare Integer List_MembersPerPage = List_ColumnsNb * List_RowsNb;
+	declare Vec2 List_Size_MemberMargin = <0., 2.>;
+	declare Vec2 FakeWindowSize = <264., 93.>;
+	declare Vec2 List_Size_Member = Scroll::GetElementSize(FakeWindowSize, List_Size_MemberMargin, List_ColumnsNb, List_RowsNb);
+	declare Integer List_ElementsNb = Scroll::GetRequiredElementsNb(FakeWindowSize, List_Size_Member, List_Size_MemberMargin, List_ColumnsNb);
+	declare TitleBar::ComponentTitleBar2_K_Actions[Integer] List_Actions_Members = [
+		TitleBar::C_Action_First => TitleBar::AddAction("action2", Icons::C_Icon_128x128_Glass, <8., 8.>, -1., 0., 1., 0.6, <1., 1., 1.>, <1., 1., 1.>)
+	];
+
+	declare Vec2 List_Pos_MemberName = <List_Size_Member.X * 0.02, List_Size_Member.Y * -0.55>;
+	declare Vec2 List_Pos_MemberRole = <List_Size_Member.X * 0.6, List_Size_Member.Y * -0.55>;
+	declare Vec2 List_Pos_MemberJoinDate = <List_Size_Member.X * 0.97, List_Size_Member.Y * -0.55>;
+	declare Real Offset_OneIcon = 2.;
+
+	declare Text ML_List_Members = "";
+	for (I, 1, List_ElementsNb) {
+		ML_List_Members ^= """
+		<frameinstance
+			modelid="framemodel-list-member"
+			class="{{{Scroll::C_Class_Element}}}"
+			hidden="1"
+		/>
+		""";
+	}
+
+	declare Vec2 Pos_ClubInfos_Default = <-149., 79.>;
+	declare Vec2 Pos_ClubInfos_WithoutIcon = <-170., 79.>;
+	declare Vec2 ClubIconSize = MLHelpers::KeepRatioFromY(608., 272., 23.);
+
+	return MV::Create(
+C_Name, 3,
+"""
+<stylesheet>
+	<style class="quad-default" halign="center" valign="center"/>
+	<style class="text-regular" halign="center" valign="center2" textsize="5" textcolor="FFFFFF" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}"/>
+	<style class="text-semibold" textsize="3" halign="center" valign="center2" textcolor="FFFFFF" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}"/>
+	<style class="text-bold" textsize="3" halign="center" valign="center2" textcolor="FFFFFF" textprefix="$t$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"/>
+	<style class="text-search" textsize="2" halign="center" valign="center2" textcolor="FFFFFF" textprefix="$i" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}"/>
+</stylesheet>
+
+<!-- Frame models -->
+<framemodel id="framemodel-list-member">
+	<frameinstance id="frame-background" modelid="{{{ExpendableAsset::C_Name}}}" data-width="{{{List_Size_Member.X}}}" data-height="{{{List_Size_Member.Y}}}" data-styles="{{{ExpendableAsset::C_Style_EdgesRounded}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGListDarkUnfocused)}}}" data-opacity="{{{Stylesheet::C_Opacity_BGListDarkUnfocused}}}" data-halign="left" data-valign="top" z-index="0"/>
+	<label id="label-name" translate="1" size="{{{List_Size_Member.X * 0.4}}} {{{List_Size_Member.Y}}}" pos="{{{List_Pos_MemberName.X}}} {{{List_Pos_MemberName.Y}}}" class="text-bold" halign="left" opacity="0.6" z-index="2"/>
+	<label id="label-role" size="{{{List_Size_Member.X * 0.3}}} {{{List_Size_Member.Y}}}" pos="{{{List_Pos_MemberRole.X}}} {{{List_Pos_MemberRole.Y}}}" class="text-semibold" opacity="0.6" z-index="2"/>
+	<label id="label-join-date" size="{{{List_Size_Member.X * 0.2}}} {{{List_Size_Member.Y}}}" pos="{{{List_Pos_MemberJoinDate.X}}} {{{List_Pos_MemberJoinDate.Y}}}" class="text-semibold" halign="right" opacity="0.6" z-index="2"/>
+	<quad id="quad-vip" size="7 7" halign="left" pos="{{{List_Pos_MemberName.X + Offset_OneIcon}}} {{{-List_Size_Member.Y*0.5}}}" image="{{{Icons::C_Icon_128x128_VIP}}}" colorize="FFF" class="quad-default" opacity="0.6" hidden="1" z-index="2"/>
+	<quad id="quad-hitbox" size="{{{List_Size_Member.X}}} {{{List_Size_Member.Y}}}" scriptevents="1" class="{{{Scroll::C_Class_ActivationZone}}}"/>
+</framemodel>
+<framemodel id="framemodel-search-bar">
+	<frameinstance id="asset-entry-search" modelid="{{{ExpendableAsset::C_Name}}}" data-width="0." data-height="{{{Size_SearchBar.Y}}}" data-styles="{{{ExpendableAsset::C_Style_EdgesRounded}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" data-halign="left" data-opacity="0." z-index="0"/>
+	<frameinstance id="asset-entry-search-contour" modelid="{{{ExpendableAsset::C_Name}}}" data-width="0." data-height="{{{Size_SearchBar.Y}}}" data-styles="{{{ExpendableAsset::C_Style_ContourRounded}}}" data-color="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" data-halign="left" data-opacity="0." z-index="1"/>
+	<entry id="entry-search" class="text-search" size="{{{Size_SearchBar.X - 15.}}} {{{Size_SearchBar.Y}}}" pos="10 0" halign="left" focusareacolor1="00000000" focusareacolor2="00000000" hidden="1" z-index="2"/>
+</framemodel>
+
+<!-- Frame global -->
+<frame id="frame-global" z-index="{{{Const::C_ZIndex_ClubMembers}}}">
+	<quad id="quad-page-background" image="{{{Const::C_ImageUrl_Club_Background_Default}}}" z-index="-1" size="320 180" fullscreen="1" class="quad-default" scriptevents="1"/>
+	<frameinstance id="frame-loading-spinner" modelid="{{{LoadingSpinner::C_Name}}}" z-index="5" />
+
+	<!-- Member options pop up-->
+	<frameinstance
+		modelid="{{{PopUpMultiChoice::C_Name}}}"
+		id="frame-multichoice"
+		z-index="2"
+		data-styles-secondchoice="{{{ExpendableButton::C_Style_SizeExpendable}}} {{{ExpendableButton::C_Style_AlignCenter}}} {{{ExpendableButton::C_Style_ButtonSecondary}}} {{{ExpendableButton::C_Style_ButtonWarning}}}"
+		data-close-after-selection="0"
+		hidden="1"
+	/>
+
+	<!-- Player profile -->
+	<frame id="frame-profile" hidden="1" z-index="5">
+		<frameinstance modelid="{{{ProfilePlayerInfo::C_Name}}}" data-enable-players-pager="0" data-enable-zone-selection="0" data-enable-my-access-info="0"/>
+	</frame>
+
+	<!-- Frame Content -->
+	<frame id="frame-content" z-index="1">
+		<!-- Frame Club Infos (name, icon, privacy) -->
+		<frame id="frame-club-infos-left-corner" pos="{{{Pos_ClubInfos_Default.X}}} {{{Pos_ClubInfos_Default.Y}}}" z-index="2">
+			<quad id="quad-club-icon" pos="-2 0" size="{{{ClubIconSize.X}}} {{{ClubIconSize.Y}}}" alphamask="{{{Const::C_ImageUrl_ClubActivity_Mask}}}" keepratio="clip"/>
+			<frameinstance id="clubname-club-name" modelid="{{{ClubName::C_Name}}}" pos="51.5 -5" data-size="150 12" data-halign="left" data-valign="center" data-textsize="10" data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" data-textprefix="$t$i" />
+			<label id="label-privacy-type" pos="51.25 -12" halign="left" size="70 10" class="text-bold"/>
+		</frame>
+
+		<!-- Members and Requests title bar -->
+		<frame id="frame-title-bar-and-search" pos="8.75 38.5" >
+			<frameinstance
+				id="frame-titlebar" z-index="5"
+				modelid="{{{TitleBar::C_Name}}}"
+				data-size="{{{ScrollConfig.WindowSize.X}}} 10"
+				data-tabs="{{{TL::MLEncode(C_TabNames.tojson())}}}"
+				data-actions="{{{TL::MLEncode(List_Actions_Members.tojson())}}}"
+				data-tabs-max-width="160"
+			/>
+			<frameinstance id="frame-search-bar" modelid="framemodel-search-bar"/>
+		</frame>
+
+		<!-- Scroll view members -->
+		<frame id="frame-members">
+			<label id="label-scrollviews-infos" size="150 10" textsize="4" textprefix="$i" class="text-semibold" autonewline="1" hidden="1"/>
+			<frameinstance modelid="{{{Scroll::C_Name}}}" data-scroll-parent="frame-scroll-members" z-index="1" />
+			<frame
+				id="frame-scroll-members"
+				pos="{{{- 0.476 * ScrollConfig.WindowSize.X}}} 31"
+				class="{{{Scroll::C_Class_Window}}} {{{Navigation::C_Class}}}"
+				data-config="{{{TL::MLEncode(ScrollConfig.tojson())}}}"
+				data-pager-page-size="{{{List_MembersPerPage*2}}}"
+				data-elements-per-line="{{{List_ColumnsNb}}}"
+				data-element-size="{{{List_Size_Member.X}}} {{{List_Size_Member.Y}}}"
+				data-margin-size="{{{List_Size_MemberMargin.X}}} {{{List_Size_MemberMargin.Y}}}"
+				data-scroll-indicator-x-offset="-15"
+				data-scrollbar-xoffset="3"
+				data-scroll-locked="1"
+				data-nav-inputs="down;left"
+				data-nav-targets="button-back;button-back"
+				data-nav-group="{{{C_NavGroupName}}}"
+			>
+				<quad z-index="-1" scriptevents="1" class="{{{Scroll::C_Class_ScrollEvent}}}" />
+				{{{ML_List_Members}}}
+			</frame>
+		</frame>
+
+		<!-- Footer -->
+		<frameinstance
+			id="button-back"
+			modelid="{{{ExpendableButton::C_Name}}}"
+			class="{{{Navigation::C_Class}}}"
+			pos="-151.5 -73"
+			z-index="2"
+			data-styles="{{{ExpendableButton::C_Style_SizeExpendable}}} {{{ExpendableButton::C_Style_AlignCenter}}} {{{ExpendableButton::C_Style_PageBack}}}"
+			data-nav-inputs="select;cancel;up;right"
+			data-nav-targets="_;_;frame-scroll-members;frame-scroll-members"
+			data-nav-group="{{{C_NavGroupName}}}"
+			data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+		/>
+	</frame>
+</frame>
+""",
+"""
+#Include "ColorLib" as CL
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+#Include "TimeLib" as TiL
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/RBAC.Script.txt" as RBAC
+#Include "Libs/Nadeo/Trackmania/API/ClubAPI.Script.txt" as ClubAPI
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ControllerInfo_ML.Script.txt" as ControllerInfo
+#Include "Libs/Nadeo/CMGame/Utils/Platform.Script.txt" as Platform
+
+#Const C_TabNames {{{dump(C_TabNames)}}}
+
+#Const C_MemberMenu_Members 0
+#Const C_MemberMenu_Requests 1
+
+#Const C_MemberOption_VIP "VIP"
+#Const C_MemberOption_Profile "Profile"
+#Const C_MemberOption_Exclude "Exclude"
+
+//L16N The admin players need to confirm they want to exclude a member from the club, %1 will be replaced by the club name. e.g "Are you sure you want to exclude this player from the club 'Unicorn'?"
+#Const C_ExcludeMemberPopUp_Description1 _("Are you sure you want to exclude this player from the club '%1'?")
+#Const C_ExcludeMemberPopUp_Choices [0 => _("Cancel"), 1 => _("Exclude")]
+#Const C_ExcludeMemberPopUp_ChoiceIndex_Cancel 0
+#Const C_ExcludeMemberPopUp_ChoiceIndex_Exclude 1
+
+#Const C_RequestPopUp_Choices [
+	//L16N [Page Club Members] To accept the member request of a player within a club
+	0 => _("|Club|Accept"),
+	//L16N [Page Club Members] To decline the member request of a player within a club
+	1 => _("|Club|Decline"),
+	//L16N [Page Club Members] To access to the member player profile
+	2 => _("|Club|View profile"),
+	3 => _("Cancel")
+]
+#Const C_RequestPopUp_ChoiceIndex_Accept 0
+#Const C_RequestPopUp_ChoiceIndex_Decline 1
+#Const C_RequestPopUp_ChoiceIndex_ViewProfile 2
+#Const C_RequestPopUp_ChoiceIndex_Cancel 3
+
+#Const C_PopUpMemberOptionsIndex 0
+#Const C_PopUpExcludeMemberIndex 1
+#Const C_PopUpRequestOptionsIndex 2
+
+#Const C_DelayBetweenMembersRequests 500
+
+#Const RBAC::C_RoleList_Translations as C_RoleList_Translations
+#Const RBAC::C_RoleList_Set_Translations as C_RoleList_Set_Translations
+
+#Struct K_Controls {
+	CMlFrame Frame_TitleBar;
+	CMlFrame Button_Back;
+	CMlFrame Frame_Global;
+	CMlFrame Frame_LoadingSpinner;
+	CMlFrame Frame_MultiChoice;
+	CMlFrame Frame_Members;
+	CMlFrame Frame_ScrollMembers;
+	CMlFrame ClubName_ClubName;
+	CMlLabel Label_ScrollViewInfos;
+	CMlQuad Quad_ClubBackground;
+	CMlFrame Frame_ClubInfos_Left;
+	CMlQuad Quad_ClubIcon;
+	CMlLabel Label_Privacy;
+	CMlFrame Frame_Profile;
+	CMlEntry Entry_Search;
+	CMlFrame Asset_EntrySearch;
+	CMlFrame Asset_EntrySearchContour;
+}
+
+#Struct K_State {
+	{{{TitleBar::P}}}K_Actions[Integer] MembersActions;
+	{{{ClubStruct::P}}}K_Member CurrentMember;
+	Text[] MemberOptions;
+	Integer CurrentMemberMenu;
+	Integer LastScrollUpdateTime;
+	Boolean NeedScrollUpdate;
+	Http::K_Request AcceptOrDeclineRequest;
+	K_Controls Controls;
+}
+""",
+"""
+Void LockNavigation(K_State _State, Boolean _IsLocked) {
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupName}}}", !_IsLocked);
+	{{{Scroll::P}}}LockNavigation(_State.Controls.Frame_ScrollMembers, _IsLocked);
+	{{{TitleBar::P}}}LockNavigation(_State.Controls.Frame_TitleBar, _IsLocked);
+}
+
+Void StartLoading(K_State _State) {
+	LockNavigation(_State, True);
+	_State.Controls.Frame_Members.Visible = False;
+	{{{Scroll::P}}}SetElementsTotal(This, _State.Controls.Frame_ScrollMembers, 0);
+	{{{LoadingSpinner::P}}}StartAnimation(This, _State.Controls.Frame_LoadingSpinner, "{{{Text_RetrievingMembers}}}");
+	{{{LoadingSpinner::P}}}Fade(This, _State.Controls.Frame_LoadingSpinner, 1., 200);
+}
+
+Void StopLoading(K_State _State) {
+	LockNavigation(_State, False);
+	{{{Scroll::P}}}ScrollToHeader(This, _State.Controls.Frame_ScrollMembers);
+	{{{Scroll::P}}}SetFocusedElementKey(This, _State.Controls.Frame_ScrollMembers, 0, False, True);
+	{{{LoadingSpinner::P}}}StopAnimation(This, _State.Controls.Frame_LoadingSpinner);
+	{{{LoadingSpinner::P}}}Fade(This, _State.Controls.Frame_LoadingSpinner, 0., 200);
+	_State.Controls.Frame_Members.Visible = True;
+}
+
+Void Focus(CMlControl _From, CMlControl _To) {
+	if ({{{Transition::P}}}IsInTransition(This)) return;
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{Scroll::P}}}IsScroll(_From)) {
+			{{{Scroll::P}}}Unfocus(This, (_From as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_From)) {
+			{{{ExpendableButton::P}}}Unfocus(This, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{Scroll::P}}}IsScroll(_To)) {
+			{{{Scroll::P}}}Focus(This, (_To as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_To)) {
+			{{{ExpendableButton::P}}}Focus(This, (_To as CMlFrame));
+		}
+	}
+}
+
+Void FocusMember(CMlFrame _Frame_Member, Boolean _Focused, Boolean _IsAnimated) {
+	declare CMlFrame Frame_Background <=> (_Frame_Member.GetFirstChild("frame-background") as CMlFrame);
+	declare CMlLabel Label_Name <=> (_Frame_Member.GetFirstChild("label-name") as CMlLabel);
+	declare CMlLabel Label_Role <=> (_Frame_Member.GetFirstChild("label-role") as CMlLabel);
+	declare CMlLabel Label_JoinDate <=> (_Frame_Member.GetFirstChild("label-join-date") as CMlLabel);
+	declare CMlQuad Quad_VIP <=> (_Frame_Member.GetFirstChild("quad-vip") as CMlQuad);
+
+	declare Integer AnimDuration = Tools::Ternary(_IsAnimated, 250, 0);
+
+	AnimMgr.Flush(Label_Name);
+	AnimMgr.Flush(Label_Role);
+	AnimMgr.Flush(Label_JoinDate);
+	AnimMgr.Flush(Quad_VIP);
+	if (_Focused) {
+		AnimMgr.Add(Label_Name, "<anim opacity=\"1.\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Label_Role, "<anim opacity=\"1.\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Label_JoinDate, "<anim opacity=\"1.\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Quad_VIP, "<anim opacity=\"1.\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Background, {{{Stylesheet::C_Opacity_BGListDarkFocused}}}, False);
+		{{{ExpendableAsset::P}}}SetColor(This, Frame_Background, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_BGListDarkFocused)}}}, False);
+		{{{ExpendableAsset::P}}}RedrawAsset(This, Frame_Background, _IsAnimated);
+	} else {
+		AnimMgr.Add(Label_Name, "<anim opacity=\"0.6\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Label_Role, "<anim opacity=\"0.6\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Label_JoinDate, "<anim opacity=\"0.6\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Quad_VIP, "<anim opacity=\"0.6\" />", AnimDuration, CAnimManager::EAnimManagerEasing::QuadOut);
+		{{{ExpendableAsset::P}}}SetOpacity(This, Frame_Background, {{{Stylesheet::C_Opacity_BGListDarkUnfocused}}}, False);
+		{{{ExpendableAsset::P}}}SetColor(This, Frame_Background, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_BGListDarkUnfocused)}}}, False);
+		{{{ExpendableAsset::P}}}RedrawAsset(This, Frame_Background, _IsAnimated);
+	}
+
+	// Text to speech
+	if (_Focused) Label_Name.TTS_Focus();
+	else Label_Name.TTS_Unfocus();
+}
+
+Void UnfocusMember(CMlFrame _Frame_Member, Boolean _IsAnimated) {
+	FocusMember(_Frame_Member, False, _IsAnimated);
+}
+
+Void FocusAvailableControl(K_State _State) {
+	if ({{{Scroll::P}}}GetElementsTotal(_State.Controls.Frame_ScrollMembers) > 0) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), _State.Controls.Frame_ScrollMembers);
+	} else if (!{{{Navigation::P}}}IsLocked(_State.Controls.Button_Back)) {
+		Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), _State.Controls.Button_Back);
+	}
+}
+
+Void ShowMember(CMlFrame _Frame_Member, {{{ClubStruct::P}}}K_Member _Member, K_State _State) {
+	declare CMlLabel Label_Name <=> (_Frame_Member.GetFirstChild("label-name") as CMlLabel);
+	declare CMlLabel Label_Role <=> (_Frame_Member.GetFirstChild("label-role") as CMlLabel);
+	declare CMlLabel Label_JoinDate <=> (_Frame_Member.GetFirstChild("label-join-date") as CMlLabel);
+	declare CMlQuad Quad_VIP <=> (_Frame_Member.GetFirstChild("quad-vip") as CMlQuad);
+
+	declare Text Role = C_RoleList_Translations.get(_Member.Role, _Member.Role);
+
+	Label_Name.SetText(_Member.DisplayName);
+	Tools::FitLabelValue(Label_Name, 3., 1., 0.25);
+	Label_JoinDate.SetText(TiL::FormatDate(TL::ToText(_Member.JoinDate), TiL::EDateFormats::DateShort));
+	if (_Member.VIP) {
+		Label_Name.TTS_AltText = TL::Compose("%1 - %2 - %3", _Member.DisplayName, Role, "{{{Text_VIP}}}");
+		Label_Role.SetText(TL::Compose("%1 - %2", Role, "{{{Text_VIP}}}"));
+	} else {
+		Label_Name.TTS_AltText = TL::Compose("%1 - %2", _Member.DisplayName, Role);
+		Label_Role.SetText(Role);
+	}
+	Label_Role.Visible = _State.CurrentMemberMenu == C_MemberMenu_Members;
+	Quad_VIP.Visible = _State.CurrentMemberMenu == C_MemberMenu_Members && _Member.VIP;
+
+	if (Quad_VIP.Visible) {
+		declare Real LabelWidth = ML::Min(Label_Name.ComputeWidth(Label_Name.Value, True), Label_Name.Size.X);
+		Quad_VIP.RelativePosition_V3.X = LabelWidth + {{{List_Pos_MemberName.X}}} + {{{Offset_OneIcon}}};
+	}
+
+	if (_Member.AccountId == LocalUser.WebServicesUserId) {
+		Label_Name.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}};
+		Label_Role.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}};
+		Label_JoinDate.TextColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}};
+		Quad_VIP.Colorize = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne))}}};
+	} else {
+		Label_Name.TextColor = <1., 1., 1.>;
+		Label_Role.TextColor = <1., 1., 1.>;
+		Label_JoinDate.TextColor = <1., 1., 1.>;
+		Quad_VIP.Colorize = <1., 1., 1.>;
+	}
+	Tools::FirstPartyLogoMatchLuminance(Label_Name);
+
+	_Frame_Member.Show();
+}
+
+Void ShowMemberLoading(CMlFrame _Frame_Member) {
+	declare CMlLabel Label_Name <=> (_Frame_Member.GetFirstChild("label-name") as CMlLabel);
+	declare CMlLabel Label_Role <=> (_Frame_Member.GetFirstChild("label-role") as CMlLabel);
+	declare CMlLabel Label_JoinDate <=> (_Frame_Member.GetFirstChild("label-join-date") as CMlLabel);
+	declare CMlQuad Quad_VIP <=> (_Frame_Member.GetFirstChild("quad-vip") as CMlQuad);
+
+	Quad_VIP.Hide();
+	Label_Role.SetText("");
+	Label_JoinDate.SetText("");
+	Label_Name.SetText("{{{Text_Retrieving}}}");
+	Label_Name.TextColor = <1., 1., 1.>;
+	Tools::FitLabelValue(Label_Name, 3., 1., 0.25);
+	Label_Role.TextColor = <1., 1., 1.>;
+	Label_JoinDate.TextColor = <1., 1., 1.>;
+	Quad_VIP.Colorize = <1., 1., 1.>;
+	_Frame_Member.Show();
+}
+
+Void HideMember(CMlFrame _Frame_Member) {
+	_Frame_Member.Visible = False;
+}
+
+Void UpdateClubInfos(K_State _State) {
+	declare CurrentClub = {{{ClubStore::P}}}GetUserCurrentClub();
+
+	{{{ClubName::P}}}SetName(This, _State.Controls.ClubName_ClubName, CurrentClub.Name, CurrentClub.IsVerified);
+	if (Http.IsValidUrl(CurrentClub.IconUrl)) {
+		_State.Controls.Quad_ClubIcon.ChangeImageUrl(CurrentClub.IconUrl);
+		_State.Controls.Frame_ClubInfos_Left.RelativePosition_V3.X = {{{Pos_ClubInfos_Default.X}}};
+	} else {
+		_State.Controls.Quad_ClubIcon.ChangeImageUrl("");
+		_State.Controls.Frame_ClubInfos_Left.RelativePosition_V3.X = {{{Pos_ClubInfos_WithoutIcon.X}}};
+	}
+	if (CurrentClub.BgUrl != "" && _State.Controls.Quad_ClubBackground.ImageUrl != CurrentClub.BgUrl) {
+		_State.Controls.Quad_ClubBackground.ChangeImageUrl(CurrentClub.BgUrl);
+	} else if (CurrentClub.BgUrl == "" && _State.Controls.Quad_ClubBackground.ImageUrl != "{{{Const::C_ImageUrl_Club_Background_Default}}}") {
+		_State.Controls.Quad_ClubBackground.ChangeImageUrl("{{{Const::C_ImageUrl_Club_Background_Default}}}");
+	}
+	switch (CurrentClub.PrivacyState) {
+		case {{{ClubStruct::P}}}C_ClubState_Public: {
+			//L16N [Club Members] Club privacy. Here everyone can join the club.
+			_State.Controls.Label_Privacy.Value = _("|ClubPrivacy|Public club");
+		}
+		case {{{ClubStruct::P}}}C_ClubState_PrivateOpen: {
+			//L16N [Club Members] Club privacy. Here players can send a request to join the club.
+			_State.Controls.Label_Privacy.Value = _("|ClubPrivacy|Private club");
+		}
+		case {{{ClubStruct::P}}}C_ClubState_PrivateClosed: {
+			//L16N [Club Members] Club privacy. Here nobody can join or ask to join the club.
+			_State.Controls.Label_Privacy.Value = _("|ClubPrivacy|Closed club");
+		}
+	}
+}
+
+Void UpdateMembers(K_State _State) {
+	declare TotalMembers = {{{ClubStore::P}}}GetUserCurrentClubMembersPager().Total;
+	declare TotalRequests = {{{ClubStore::P}}}GetUserCurrentClubMemberRequestsPager().Total;
+
+	if (_State.CurrentMemberMenu == C_MemberMenu_Members) {
+		{{{Scroll::P}}}SetElementsTotal(This, _State.Controls.Frame_ScrollMembers, TotalMembers);
+	} else if (_State.CurrentMemberMenu == C_MemberMenu_Requests)  {
+		{{{Scroll::P}}}SetElementsTotal(This, _State.Controls.Frame_ScrollMembers, TotalRequests);
+	}
+
+	declare Boolean CanHandleMembers = RBAC::HasClubPermission({{{ClubStore::P}}}GetUserCurrentClubMembership(), RBAC::C_ClubPermission_HandleMembers);
+	declare Text FirstTabName = "";
+	declare Text SecondTabName = "";
+	declare Text[Integer] Tabs;
+	if (TotalMembers <= 1) FirstTabName = TL::Compose("{{{Text_Members_Singular}}}", ""^TotalMembers);
+	else FirstTabName = TL::Compose("{{{Text_Members_Plural}}}", ""^TotalMembers);
+	Tabs[0] = FirstTabName;
+	if (CanHandleMembers) {
+		if (TotalRequests <= 1) SecondTabName = TL::Compose("{{{Text_Requests_Singular}}}", ""^TotalRequests);
+		else SecondTabName = TL::Compose("{{{Text_Requests_Plural}}}", ""^TotalRequests);
+		Tabs[1] = SecondTabName;
+	}
+	{{{TitleBar::P}}}SetTabs(_State.Controls.Frame_TitleBar, Tabs, False);
+	{{{TitleBar::P}}}RedrawTitleBar(_State.Controls.Frame_TitleBar, False);
+}
+
+K_State Cancel(K_State _State) {
+	declare K_State State = _State;
+
+	if (!RBAC::HasClubPermission({{{ClubStore::P}}}GetUserCurrentClubMembership(), RBAC::C_ClubPermission_Administration)) {
+		{{{ClubStore::P}}}Action_UpdateUserCurrentClubMembership(This, {{{ClubStore::P}}}GetUserCurrentClub().Id);
+	}
+	{{{Router::P}}}PushParent(This, ["{{{RoutePaths::C_Query_ClubMembers}}}" => ""]);
+
+	return State;
+}
+
+Text[] GetPossibleRoleList() {
+	declare Text[] PossibleRoleList = RBAC::C_RoleList;
+	declare Text[] TmpList = PossibleRoleList;
+	// We keep only the translated roles
+	foreach (Index => Role in TmpList) {
+		if (!C_RoleList_Set_Translations.existskey(Role)) {
+			PossibleRoleList.removekey(Index);
+		}
+	}
+	return PossibleRoleList;
+}
+
+K_State OpenMemberPopUp(K_State _State, {{{ClubStruct::P}}}K_Member _Member) {
+	declare K_State State = _State;
+	declare Text[Integer] TranslatedMemberOptions;
+
+	State.CurrentMember = _Member;
+	State.MemberOptions.clear();
+
+	declare Integer Index = 0;
+	// Role member options (member, content_creator, admin) except the club_creator
+	// On Sony platforms, there is only a creator role meaning you cannot switch the role of a member
+	// see /trackmania-next/tmnext/-/issues/5471
+	if (!Platform::IsSony(System) && _Member.Role != RBAC::C_Role_ClubCreator) {
+		foreach (I => Role in GetPossibleRoleList()) {
+			if (C_RoleList_Set_Translations.existskey(Role) && _Member.Role != Role) {
+				TranslatedMemberOptions[Index] = C_RoleList_Set_Translations[Role];
+				State.MemberOptions.add(Role);
+				Index += 1;
+			}
+		}
+	}
+
+	// VIP option
+	if (_Member.VIP) TranslatedMemberOptions[Index] = "{{{Text_UnsetVIP}}}";
+	else TranslatedMemberOptions[Index] = "{{{Text_SetVIP}}}";
+	State.MemberOptions.add(C_MemberOption_VIP);
+	Index += 1;
+
+	// View player profile option
+	TranslatedMemberOptions[Index] = "{{{Text_ViewProfile}}}";
+	State.MemberOptions.add(C_MemberOption_Profile);
+
+	// Exclude member option
+	if (_Member.Role != RBAC::C_Role_ClubCreator) {
+		Index += 1;
+		TranslatedMemberOptions[Index] = "{{{Text_Exclude}}}";
+		State.MemberOptions.add(C_MemberOption_Exclude);
+	}
+
+	{{{PopUpMultiChoice::P}}}SetTitle(This, State.Controls.Frame_MultiChoice, _Member.DisplayName, False);
+	{{{PopUpMultiChoice::P}}}SetChoices(This, State.Controls.Frame_MultiChoice, TranslatedMemberOptions, False);
+	{{{PopUpMultiChoice::P}}}SetForceScrollView(This, _State.Controls.Frame_MultiChoice, True, False);
+	{{{PopUpMultiChoice::P}}}RedrawPopUpMultiChoice(This, _State.Controls.Frame_MultiChoice, False);
+	declare Integer PopUpType for _State.Controls.Frame_MultiChoice;
+	PopUpType = C_PopUpMemberOptionsIndex;
+	{{{PopUpMultiChoice::P}}}Open(This, _State.Controls.Frame_MultiChoice);
+
+	return State;
+}
+
+Void OpenExcludeMemberPopUp(K_State _State) {
+	{{{PopUpMultiChoice::P}}}SetTitle(This, _State.Controls.Frame_MultiChoice, _State.CurrentMember.DisplayName, False);
+	{{{PopUpMultiChoice::P}}}SetDescription(This,
+		_State.Controls.Frame_MultiChoice,
+		[
+			{{{PopUpMultiChoice::P}}}CreateDescriptionPart(TL::Compose(C_ExcludeMemberPopUp_Description1, "$<"^{{{ClubStore::P}}}GetUserCurrentClub().Name^"$>"), <130., 15.>, 3., "{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}", "$t$i", <1., 1., 1.>, False)
+		],
+		False
+	);
+	{{{PopUpMultiChoice::P}}}SetChoices(This, _State.Controls.Frame_MultiChoice, C_ExcludeMemberPopUp_Choices, False);
+	{{{PopUpMultiChoice::P}}}SetForceScrollView(This, _State.Controls.Frame_MultiChoice, False, False);
+	{{{PopUpMultiChoice::P}}}RedrawPopUpMultiChoice(This, _State.Controls.Frame_MultiChoice, False);
+	declare Integer PopUpType for _State.Controls.Frame_MultiChoice;
+	PopUpType = C_PopUpExcludeMemberIndex;
+	{{{PopUpMultiChoice::P}}}Open(This, _State.Controls.Frame_MultiChoice);
+}
+
+K_State OpenRequestPopUp(K_State _State, {{{ClubStruct::P}}}K_Member _Member) {
+	declare K_State State = _State;
+	State.CurrentMember = _Member;
+
+	{{{PopUpMultiChoice::P}}}SetTitle(This, State.Controls.Frame_MultiChoice, _Member.DisplayName, False);
+	{{{PopUpMultiChoice::P}}}SetChoices(This, State.Controls.Frame_MultiChoice, C_RequestPopUp_Choices, False);
+	{{{PopUpMultiChoice::P}}}SetForceScrollView(This, _State.Controls.Frame_MultiChoice, True, False);
+	{{{PopUpMultiChoice::P}}}RedrawPopUpMultiChoice(This, _State.Controls.Frame_MultiChoice, False);
+	declare Integer PopUpType for _State.Controls.Frame_MultiChoice;
+	PopUpType = C_PopUpRequestOptionsIndex;
+	{{{PopUpMultiChoice::P}}}Open(This, _State.Controls.Frame_MultiChoice);
+
+	return State;
+}
+
+Void DisplayProfile(K_State _State, Text _AccountId, Boolean _Display) {
+	if (_Display && _AccountId == "") return;
+
+	_State.Controls.Frame_Profile.Visible = _Display;
+	LockNavigation(_State, _Display);
+	if (_Display) {
+		{{{ProfilePlayerInfo::P}}}SetUserAccountId(_AccountId);
+		{{{ProfilePlayerInfo::P}}}Enable(True);
+		{{{ProfilePlayerInfo::P}}}EnableGarageButton(False);
+	} else {
+		{{{ProfilePlayerInfo::P}}}Enable(False);
+		ControllerInfo::SetButtons(["A" => _("Select"), "B" => _("Back")]);
+	}
+}
+
+Void FocusSearch(K_State _State, Boolean _Focused) {
+	{{{Navigation::P}}}EnableGroup(This, "{{{C_NavGroupName}}}", !_Focused);
+	{{{Scroll::P}}}LockNavigation(_State.Controls.Frame_ScrollMembers, _Focused);
+
+	if (_Focused) {
+		{{{ExpendableAsset::P}}}SetColor(This, _State.Controls.Asset_EntrySearchContour, <1., 1., 1.>);
+	} else {
+		{{{ExpendableAsset::P}}}SetColor(This, _State.Controls.Asset_EntrySearchContour, {{{Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentOne)}}});
+	}
+}
+
+Void DisplaySearch(K_State _State, Text _EntryText, Boolean _IsSearchButton, Boolean _Visible, Boolean _IsAnimated) {
+	declare {{{TitleBar::P}}}K_Actions[Integer] Actions;
+	if (_State.CurrentMemberMenu == C_MemberMenu_Members) {
+		Actions = _State.MembersActions;
+		if (_Visible) Actions[{{{TitleBar::P}}}C_Action_First].ActionMargin = {{{Size_SearchBar.X}}} - 10.;
+	}
+
+	// Update search background
+	if (_Visible) {
+		{{{ExpendableAsset::P}}}SetWidth(This, _State.Controls.Asset_EntrySearch, {{{Size_SearchBar.X}}}, False);
+		{{{ExpendableAsset::P}}}SetWidth(This, _State.Controls.Asset_EntrySearchContour, {{{Size_SearchBar.X}}}, False);
+		{{{ExpendableAsset::P}}}SetOpacity(This, _State.Controls.Asset_EntrySearch, 1., False);
+		{{{ExpendableAsset::P}}}SetOpacity(This, _State.Controls.Asset_EntrySearchContour, 1., False);
+	} else {
+		{{{ExpendableAsset::P}}}SetWidth(This, _State.Controls.Asset_EntrySearch, 0., False);
+		{{{ExpendableAsset::P}}}SetWidth(This, _State.Controls.Asset_EntrySearchContour, 0., False);
+		{{{ExpendableAsset::P}}}SetOpacity(This, _State.Controls.Asset_EntrySearch, 0., False);
+		{{{ExpendableAsset::P}}}SetOpacity(This, _State.Controls.Asset_EntrySearchContour, 0., False);
+	}
+	{{{ExpendableAsset::P}}}RedrawAsset(This, _State.Controls.Asset_EntrySearch, _IsAnimated);
+	{{{ExpendableAsset::P}}}RedrawAsset(This, _State.Controls.Asset_EntrySearchContour, _IsAnimated);
+	{{{TitleBar::P}}}SetActions(_State.Controls.Frame_TitleBar, Actions, False);
+	{{{TitleBar::P}}}RedrawTitleBar(_State.Controls.Frame_TitleBar, _IsAnimated);
+
+	// Update entry
+	_State.Controls.Entry_Search.Visible = _Visible;
+	_State.Controls.Entry_Search.Value = _EntryText;
+	if (_IsSearchButton && _State.Controls.Entry_Search.Visible) {
+		_State.Controls.Entry_Search.StartEdition();
+		FocusSearch(_State, _Visible);
+	}
+}
+
+K_State DisplayMemberMenu(K_State _State, Integer _MemberMenu) {
+	declare K_State State = _State;
+
+	State.CurrentMemberMenu = _MemberMenu;
+	DisplaySearch(State, "", False, False, False);
+	State.NeedScrollUpdate = True;
+
+	return State;
+}
+
+K_State Select(CMlControl _Control, K_State _State) {
+	if (_Control == Null || {{{Transition::P}}}IsInTransition(This)) return _State;
+
+	declare K_State State = _State;
+
+	switch (_Control.ControlId) {
+		case "button-back": State = Cancel(State);
+	}
+
+	return State;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+
+declare K_State State;
+
+declare Text SearchValue;
+declare Boolean EntryWasFocused;
+declare Boolean WaitMembersUpdate;
+declare Boolean WaitRequestsUpdate;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+
+State = K_State {
+	CurrentMember = {{{ClubStruct::P}}}GetEmptyMember(),
+	MemberOptions = [],
+	LastScrollUpdateTime = -1,
+	NeedScrollUpdate = False,
+	CurrentMemberMenu = -1,
+	AcceptOrDeclineRequest = Http::GetEmptyRequest(),
+	Controls = K_Controls {
+		Frame_TitleBar = (Frame_Global.GetFirstChild("frame-titlebar") as CMlFrame),
+		Frame_Global = Frame_Global,
+		Frame_LoadingSpinner = (Frame_Global.GetFirstChild("frame-loading-spinner") as CMlFrame),
+		Frame_MultiChoice = (Frame_Global.GetFirstChild("frame-multichoice") as CMlFrame),
+		Frame_Members = (Frame_Global.GetFirstChild("frame-members") as CMlFrame),
+		Frame_ScrollMembers = (Frame_Global.GetFirstChild("frame-scroll-members") as CMlFrame),
+		Button_Back = (Frame_Global.GetFirstChild("button-back") as CMlFrame),
+		ClubName_ClubName = (Frame_Global.GetFirstChild("clubname-club-name") as CMlFrame),
+		Label_ScrollViewInfos = (Frame_Global.GetFirstChild("label-scrollviews-infos") as CMlLabel),
+		Quad_ClubBackground = (Frame_Global.GetFirstChild("quad-page-background") as CMlQuad),
+		Frame_ClubInfos_Left = (Frame_Global.GetFirstChild("frame-club-infos-left-corner") as CMlFrame),
+		Quad_ClubIcon = (Frame_Global.GetFirstChild("quad-club-icon") as CMlQuad),
+		Label_Privacy = (Frame_Global.GetFirstChild("label-privacy-type") as CMlLabel),
+		Frame_Profile = (Frame_Global.GetFirstChild("frame-profile") as CMlFrame),
+		Entry_Search = (Frame_Global.GetFirstChild("entry-search") as CMlEntry),
+		Asset_EntrySearch = (Frame_Global.Parent.GetFirstChild("asset-entry-search") as CMlFrame),
+		Asset_EntrySearchContour = (Frame_Global.Parent.GetFirstChild("asset-entry-search-contour") as CMlFrame)
+	}
+};
+
+State.MembersActions.fromjson({{{"\"\"\""^List_Actions_Members.tojson()^"\"\"\""}}});
+***
+
+***MainLoop***
+***
+if ({{{Router::P}}}PageIsRunning(This, "{{{RoutePaths::C_Path_ClubMembers}}}")) {
+	foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Router::P}}}C_Event_EnteringRoute: {
+				UpdateClubInfos(State);
+				declare Text[Integer] Tabs = C_TabNames;
+				{{{TitleBar::P}}}SetTabs(State.Controls.Frame_TitleBar, Tabs, False);
+				{{{Scroll::P}}}TriggerPagerUpdate(State.Controls.Frame_ScrollMembers, [""^C_MemberMenu_Requests]); //< Trigger the pager update for requests nb in title bar
+				State = DisplayMemberMenu(State, C_MemberMenu_Members);
+				WaitMembersUpdate = True;
+				WaitRequestsUpdate = True;
+				StartLoading(State);
+				ControllerInfo::SetButtons(["A" => _("Select"), "B" => _("Back")]);
+			}
+		}
+	}
+
+	/* Handle delay between scroll updates */
+	if (State.NeedScrollUpdate && State.LastScrollUpdateTime + C_DelayBetweenMembersRequests <= Now) {
+		{{{Scroll::P}}}TriggerPagerUpdate(State.Controls.Frame_ScrollMembers, [""^State.CurrentMemberMenu]);
+		State.NeedScrollUpdate = False;
+	}
+
+	/* Handle accept or decline member request */
+	if (Http::IsInitialized(State.AcceptOrDeclineRequest)) {
+		State.AcceptOrDeclineRequest = Http::Update(State.AcceptOrDeclineRequest);
+		if (!Http::IsRunning(State.AcceptOrDeclineRequest)) {
+			{{{Scroll::P}}}TriggerPagerUpdate(State.Controls.Frame_ScrollMembers, [""^C_MemberMenu_Members, ""^C_MemberMenu_Requests]);
+			if (RBAC::HasClubPermission({{{ClubStore::P}}}GetUserCurrentClubMembership(), RBAC::C_ClubPermission_EditSubscription)) {
+				{{{ClubStore::P}}}Action_UpdateUserCurrentClubMembership(This, {{{ClubStore::P}}}GetUserCurrentClub().Id);
+			}
+			State.AcceptOrDeclineRequest = Http::Destroy(State.AcceptOrDeclineRequest);
+		}
+	}
+
+	/* TitleBar events */
+	foreach (Event in {{{TitleBar::P}}}PendingEvents) {
+		if (Event.TitleBar.Id == State.Controls.Frame_TitleBar.Id) {
+			switch (Event.Type) {
+				case {{{TitleBar::P}}}C_EventType_TabUpdate: {
+					if (Event.CurrentTab == C_MemberMenu_Members || Event.CurrentTab ==  C_MemberMenu_Requests) {
+						State = DisplayMemberMenu(State, Event.CurrentTab);
+					}
+				}
+				case {{{TitleBar::P}}}C_EventType_Update: {
+					if (Event.ActionsPos.existskey({{{TitleBar::P}}}C_Action_First)) {
+						declare Vec2 Pos_SearchBar = Event.ActionsPos[{{{TitleBar::P}}}C_Action_First] - <5.5, 0.>;
+						AnimMgr.Flush(State.Controls.Entry_Search.Parent);
+						AnimMgr.Add(State.Controls.Entry_Search.Parent, "<anim pos=\""^Pos_SearchBar.X^" "^Pos_SearchBar.Y^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+					}
+				}
+				case {{{TitleBar::P}}}C_EventType_Action: {
+					switch (Event.Action) {
+						case {{{TitleBar::P}}}C_Action_First: {
+							if (State.Controls.Entry_Search.IsFocused && State.Controls.Entry_Search.Visible) {
+								DisplaySearch(State, "", False, False, True);
+							} else {
+								DisplaySearch(State, State.Controls.Entry_Search.Value, True, True, True);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/* Search behaviors */
+	if (EntryWasFocused != State.Controls.Entry_Search.IsFocused) {
+		EntryWasFocused = State.Controls.Entry_Search.IsFocused;
+		FocusSearch(State, State.Controls.Entry_Search.IsFocused);
+		if (!State.Controls.Entry_Search.IsFocused) {
+			if (SearchValue != State.Controls.Entry_Search.Value) {
+				StartLoading(State);
+				WaitMembersUpdate = True;
+			}
+			{{{Scroll::P}}}TriggerPagerUpdate(State.Controls.Frame_ScrollMembers, [""^C_MemberMenu_Members]);
+			if (State.Controls.Entry_Search.Value == "") {
+				DisplaySearch(State, "", False, False, True);
+			}
+		}
+	}
+
+	/* Navigation events */
+	if (!State.Controls.Frame_MultiChoice.Visible) {
+		foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+			if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+				switch (Event.Type) {
+					case {{{Navigation::P}}}C_EventType_NavigateInput: {
+						if (Event.Input == CMlScriptEvent::EMenuNavAction::Select) {
+							State = Select(Event.To, State);
+						} else if (
+							Event.Input == CMlScriptEvent::EMenuNavAction::Cancel &&
+							Event.From != State.Controls.Frame_ScrollMembers
+						) {
+							State = Cancel(State);
+						} else {
+							Focus(Event.From, Event.To);
+						}
+					}
+					case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+						if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+							if (Event.Mouse == CMlScriptEvent::Type::MouseClick) {
+								State = Select(Event.To, State);
+							} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+								Focus(Event.From, Event.To);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/* Pop up multi choice events */
+	foreach (Event in {{{PopUpMultiChoice::P}}}GetPendingEvents(This)) {
+		if (Event.PopUpMultiChoice != Null && Event.PopUpMultiChoice.Id == State.Controls.Frame_MultiChoice.Id) {
+			declare Integer PopUpType for State.Controls.Frame_MultiChoice;
+			switch (Event.Type) {
+				case {{{PopUpMultiChoice::P}}}C_EventType_Select: {
+					if (PopUpType == C_PopUpMemberOptionsIndex && State.CurrentMember.AccountId != "" && State.MemberOptions.existskey(Event.SelectedIndex)) {
+						switch (State.MemberOptions[Event.SelectedIndex]) {
+							case RBAC::C_Role_ClubAdmin, RBAC::C_Role_ClubContentCreator, RBAC::C_Role_ClubMember: {
+								{{{PopUpMultiChoice::P}}}Close(This, State.Controls.Frame_MultiChoice);
+								declare UserCurrentClub = {{{ClubStore::P}}}GetUserCurrentClub();
+								{{{ClubStore::P}}}Action_EditClubMember(This, UserCurrentClub.Id, State.CurrentMember.AccountId, State.MemberOptions[Event.SelectedIndex]);
+								State.CurrentMember = {{{ClubStruct::P}}}GetEmptyMember();
+							}
+							case C_MemberOption_VIP: {
+								{{{PopUpMultiChoice::P}}}Close(This, State.Controls.Frame_MultiChoice);
+								{{{ClubStore::P}}}Action_UpdateClubVIP(This, {{{ClubStore::P}}}GetUserCurrentClub().Id, State.CurrentMember.AccountId , !State.CurrentMember.VIP);
+								State.CurrentMember = {{{ClubStruct::P}}}GetEmptyMember();
+							}
+							case C_MemberOption_Profile: {
+								{{{PopUpMultiChoice::P}}}Close(This, State.Controls.Frame_MultiChoice, False);
+								DisplayProfile(State, State.CurrentMember.AccountId, True);
+								State.CurrentMember = {{{ClubStruct::P}}}GetEmptyMember();
+							}
+							case C_MemberOption_Exclude: {
+								OpenExcludeMemberPopUp(State);
+							}
+						}
+					} else if (PopUpType == C_PopUpExcludeMemberIndex) {
+						{{{PopUpMultiChoice::P}}}Close(This, State.Controls.Frame_MultiChoice);
+						if (Event.SelectedIndex == C_ExcludeMemberPopUp_ChoiceIndex_Exclude) {
+							{{{ClubStore::P}}}Action_DeleteClubMember(This, {{{ClubStore::P}}}GetUserCurrentClub().Id, State.CurrentMember.AccountId);
+						}
+						State.CurrentMember = {{{ClubStruct::P}}}GetEmptyMember();
+					} else if (PopUpType == C_PopUpRequestOptionsIndex) {
+						switch (Event.SelectedIndex) {
+							case C_RequestPopUp_ChoiceIndex_Accept: {
+								{{{PopUpMultiChoice::P}}}Close(This, State.Controls.Frame_MultiChoice);
+								if (Http::IsInitialized(State.AcceptOrDeclineRequest)) {
+									State.AcceptOrDeclineRequest = Http::Destroy(State.AcceptOrDeclineRequest);
+								}
+								State.AcceptOrDeclineRequest = ClubAPI::PostAcceptMemberRequest({{{ClubStore::P}}}GetUserCurrentClub().Id, State.CurrentMember.AccountId);
+							}
+							case C_RequestPopUp_ChoiceIndex_Decline: {
+								{{{PopUpMultiChoice::P}}}Close(This, State.Controls.Frame_MultiChoice);
+								if (Http::IsInitialized(State.AcceptOrDeclineRequest)) {
+									State.AcceptOrDeclineRequest = Http::Destroy(State.AcceptOrDeclineRequest);
+								}
+								State.AcceptOrDeclineRequest = ClubAPI::PostDeclineMemberRequest({{{ClubStore::P}}}GetUserCurrentClub().Id, State.CurrentMember.AccountId);
+							}
+							case C_RequestPopUp_ChoiceIndex_ViewProfile: {
+								{{{PopUpMultiChoice::P}}}Close(This, State.Controls.Frame_MultiChoice, False);
+								DisplayProfile(State, State.CurrentMember.AccountId, True);
+							}
+							case C_RequestPopUp_ChoiceIndex_Cancel: {
+								{{{PopUpMultiChoice::P}}}Close(This, State.Controls.Frame_MultiChoice);
+							}
+						}
+						State.CurrentMember = {{{ClubStruct::P}}}GetEmptyMember();
+					}
+				}
+				case {{{PopUpMultiChoice::P}}}C_EventType_Display: {
+					LockNavigation(State, State.Controls.Frame_MultiChoice.Visible);
+				}
+			}
+		}
+	}
+
+	/* Profile player info events */
+	foreach (Event in {{{ProfilePlayerInfo::P}}}PendingEvents) {
+		switch (Event.Type) {
+			case {{{ProfilePlayerInfo::P}}}C_EventType_Close: {
+				DisplayProfile(State, "", False);
+			}
+		}
+	}
+
+	/* Scroll events */
+	foreach (Event in {{{Scroll::P}}}GetPendingEvents(This)) {
+		if (Event.Scroll != Null && Event.Scroll.Id == State.Controls.Frame_ScrollMembers.Id) {
+			if (Event.Type == {{{Scroll::P}}}C_EventType_PagerUpdate) {
+				State.LastScrollUpdateTime = Now;
+
+				declare UserCurrentClub = {{{ClubStore::P}}}GetUserCurrentClub();
+
+				if (UserCurrentClub.Id != {{{ClubStruct::P}}}C_ClubNullId) {
+					SearchValue = State.Controls.Entry_Search.Value;
+					if (Event.CustomData.count <= 0) { //< There is no custom data when the update is triggered by a scroll
+						switch (State.CurrentMemberMenu) {
+							case C_MemberMenu_Members: {{{ClubStore::P}}}Action_LoadUserCurrentClubMembersPage(This, UserCurrentClub.Id, Event.PagerOffset, Event.PagerCount, State.Controls.Entry_Search.Value);
+							case C_MemberMenu_Requests: {{{ClubStore::P}}}Action_LoadUserCurrentClubMemberRequestsPage(This, UserCurrentClub.Id, Event.PagerOffset, Event.PagerCount);
+						}
+					} else {
+						foreach (Key => CustomData in Event.CustomData) {
+							foreach (MemberMenu in CustomData) {
+								switch (TL::ToInteger(MemberMenu)) {
+									case C_MemberMenu_Members: {{{ClubStore::P}}}Action_LoadUserCurrentClubMembersPage(This, UserCurrentClub.Id, Event.PagerOffset, Event.PagerCount, State.Controls.Entry_Search.Value);
+									case C_MemberMenu_Requests: {{{ClubStore::P}}}Action_LoadUserCurrentClubMemberRequestsPage(This, UserCurrentClub.Id, Event.PagerOffset, Event.PagerCount);
+								}
+							}
+						}
+					}
+				}
+			} else if (!State.Controls.Frame_MultiChoice.Visible) {
+				switch (Event.Type) {
+					case {{{Scroll::P}}}C_EventType_Update: {
+						declare Text[] MemberIds;
+						declare {{{ClubStore::P}}}K_MembersPager MembersPager;
+						switch (State.CurrentMemberMenu) {
+							case C_MemberMenu_Members: MembersPager = {{{ClubStore::P}}}GetUserCurrentClubMembersPager();
+							case C_MemberMenu_Requests: MembersPager = {{{ClubStore::P}}}GetUserCurrentClubMemberRequestsPager();
+						}
+
+						foreach (Key => Frame_Element in Event.ElementsVisible) {
+							declare Integer MemberKey for Frame_Element;
+							MemberKey = Key;
+							if (MembersPager.Members.existskey(Key)) {
+								declare Member = MembersPager.Members[Key];
+								ShowMember(Frame_Element, Member, State);
+								MemberIds.add(Member.AccountId);
+							} else {
+								ShowMemberLoading(Frame_Element);
+							}
+						}
+						foreach (Key => Frame_Element in Event.ElementsHidden) {
+							declare Integer MemberKey for Frame_Element;
+							MemberKey = -1;
+							HideMember(Frame_Element);
+						}
+
+						{{{Navigation::P}}}Lock(Event.Scroll, Event.ElementsVisible.count <= 0);
+						{{{Navigation::P}}}EnableInputs(Event.Scroll, Event.ElementsVisible.count <= 0);
+						State.Controls.Frame_ScrollMembers.Visible = Event.ElementsVisible.count > 0;
+						State.Controls.Label_ScrollViewInfos.Visible = Event.ElementsVisible.count <= 0;
+						if (State.Controls.Label_ScrollViewInfos.Visible) {
+							if (State.CurrentMemberMenu == C_MemberMenu_Members) {
+								if (State.Controls.Entry_Search.Value != "") State.Controls.Label_ScrollViewInfos.SetText("{{{Text_NoSearchResult}}}");
+								else State.Controls.Label_ScrollViewInfos.SetText("{{{Text_NoMembers}}}");
+							} else {
+								State.Controls.Label_ScrollViewInfos.SetText("{{{Text_NoPendingRequests}}}");
+							}
+						}
+						FocusAvailableControl(State);
+					}
+					case {{{Scroll::P}}}C_EventType_Cancel: State = Cancel(State);
+					case {{{Scroll::P}}}C_EventType_Select: {
+						declare {{{ClubStruct::P}}}K_Member[Integer] Members;
+						switch (State.CurrentMemberMenu) {
+							case C_MemberMenu_Members: Members = {{{ClubStore::P}}}GetUserCurrentClubMembersPager().Members;
+							case C_MemberMenu_Requests: Members = {{{ClubStore::P}}}GetUserCurrentClubMemberRequestsPager().Members;
+						}
+
+						declare Integer MemberKey for Event.To;
+						if (Members.existskey(MemberKey)) {
+							declare Boolean CanHandleMembers = RBAC::HasClubPermission({{{ClubStore::P}}}GetUserCurrentClubMembership(), RBAC::C_ClubPermission_HandleMembers);
+							if (CanHandleMembers) {
+								if (State.CurrentMemberMenu == C_MemberMenu_Members) {
+									State = OpenMemberPopUp(State, Members[MemberKey]);
+								}	else {
+									State = OpenRequestPopUp(State, Members[MemberKey]);
+								}
+							} else {
+								DisplayProfile(State, Members[MemberKey].AccountId, True);
+							}
+						}
+					}
+					case {{{Scroll::P}}}C_EventType_Focus: {
+						if (Event.Scroll != Null) {
+							if (Event.From != Null) {
+								UnfocusMember(Event.From, Event.PlayFocusAnimation);
+							}
+							if (Event.To != Null) {
+								if (Event.IsMouse && !{{{Scroll::P}}}IsFocused(Event.Scroll)) {
+									Focus({{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroupName}}}"), Event.Scroll);
+								}
+								if ({{{Scroll::P}}}IsFocused(State.Controls.Frame_ScrollMembers)) {
+									FocusMember(Event.To, True, Event.PlayFocusAnimation);
+								}
+							}
+						}
+					}
+					case {{{Scroll::P}}}C_EventType_ReachLimit: {
+						if (Event.NavAction == CMlScriptEvent::EMenuNavAction::Down || Event.NavAction == CMlScriptEvent::EMenuNavAction::Left) {
+							Focus(Event.Scroll, State.Controls.Button_Back);
+							{{{MenuSounds::P}}}PlayFocusSound(This, State.Controls.Button_Back);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/* ClubStore events */
+	foreach (Event in PendingEvents) {
+		switch (Event.Type) {
+			case CMlScriptEvent::Type::PluginCustomEvent: {
+				switch (Event.CustomEventType) {
+					case {{{ClubStore::P}}}C_Event_UserCurrentClubMembersUpdated: {
+						WaitMembersUpdate = False;
+						if (!WaitRequestsUpdate) UpdateMembers(State);
+					}
+					case {{{ClubStore::P}}}C_Event_UserCurrentClubMemberRequestsUpdated, {{{ClubStore::P}}}C_Event_UserCurrentClubMemberRequestsUpdateFailed: {
+						WaitRequestsUpdate = False;
+						if (!WaitMembersUpdate) UpdateMembers(State);
+					}
+					case {{{ClubStore::P}}}C_Event_UserCurrentClubMembersUpdateFailed: {
+						WaitMembersUpdate = False;
+						if (State.Controls.Entry_Search.Value  != "") {
+							{{{Scroll::P}}}SetElementsTotal(This, State.Controls.Frame_ScrollMembers, 0);
+						}	else {
+							UpdateMembers(State);
+						}
+					}
+					case {{{ClubStore::P}}}C_Event_ClubMemberUpdated, {{{ClubStore::P}}}C_Event_ClubVIPUpdated, {{{ClubStore::P}}}C_Event_ClubMemberUpdateFailed: {
+						{{{Scroll::P}}}TriggerPagerUpdate(State.Controls.Frame_ScrollMembers, [""^C_MemberMenu_Members]);
+					}
+				}
+			}
+		}
+	}
+
+	/* Display club members when all data have been loaded */
+	if (
+		!State.Controls.Frame_Members.Visible &&
+		!WaitMembersUpdate &&
+		!WaitRequestsUpdate
+	) {
+		StopLoading(State);
+	}
+}
+***
+""",
+[
+	ExpendableButton::ComponentV2(),
+	ClubName::ComponentV2(),
+	ClubStore::ComponentV2(),
+	ClubStruct::Component(),
+	LoadingSpinner::ComponentV2(),
+	MenuSounds::ComponentV2(),
+	Navigation::ComponentV2(),
+	PopUpMultiChoice::ComponentV2(),
+	Router::ComponentV2(),
+	Scroll::ComponentV2(),
+	TitleBar::Component(),
+	Transition::ComponentV2(),
+	ProfilePlayerInfo::Component(),
+	ExpendableAsset::ComponentV2()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update from the ManiaApp
+Void Yield() {
+
+}

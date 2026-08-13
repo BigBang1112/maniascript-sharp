@@ -1,0 +1,273 @@
+/**
+ *  UI module: TMGLMarkers client side
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/UIModules/TMGLMarkers_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_ChampionTMGL_TMGLMarkers"
+#Const C_Type CUILayer::EUILayerType::Markers
+#Const C_MarkersMaxNb 32
+#Const C_PlayerNameMaxWidth 50.
+#Const C_ImgMarkerSide "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/hud_marker_side.dds"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	declare Text MarkersML = "";
+	for (I, 0, C_MarkersMaxNb - 1) {
+		MarkersML ^= """<frame z-index="{{{I}}}"><frameinstance modelid="framemodel-marker-player" id="marker-player-{{{I}}}" /></frame>""";
+	}
+
+	return MV::Create(
+C_Id, 3,
+"""
+<frame z-index="-2" hidden="1" id="frame-global">
+	<framemodel id="framemodel-marker-player">
+		<frame id="frame-marker-content" hidden="1">
+			<quad id="quad-side-left" z-index="0" size="1 4" halign="right" valign="bottom" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.6" image="{{{C_ImgMarkerSide}}}" />
+			<quad id="quad-background" z-index="1" size="30 4" halign="center" valign="bottom" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.6" />
+			<quad id="quad-side-right" z-index="0" pos="0 4" rot="180" size="1 4" halign="right" valign="bottom" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.6" image="{{{C_ImgMarkerSide}}}" />
+			<quad id="quad-team-logo" pos="-14.5 2" z-index="2" size="3 3" valign="center" bgcolor="000000" />
+			<label id="label-name" pos="-9 2" z-index="3" size="23 3" valign="center2" textprefix="$t$i" italicslope="0.2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textsize="1" />
+		</frame>
+	</framemodel>
+	<frame id="frame-markers">
+		{{{MarkersML}}}
+	</frame>
+</frame>
+""",
+"""
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+
+#Struct K_Marker {
+	Text AccountId;
+	Boolean IsFinalist;
+}
+#Struct K_State {
+	K_Marker[Integer] LoadedMarkers;
+}
+
+#Const C_PlayerNameMaxWidth {{{dump(C_PlayerNameMaxWidth)}}}
+""",
+"""
+K_State UpdateMarkers(K_State _State, CMlFrame[] _Frames_MarkerPlayer, Text[Integer] _MarkerFrameIds, Text[] _Finalists) {
+	declare K_State State = _State;
+
+	// Allow only valid markers to be displayed
+	declare Text[] ValidMarkers;
+	foreach (Marker in UI.Markers) {
+		if (
+			Marker.Type != CUIConfigMarker::EAnchorType::Invalid &&
+			Marker.ManialinkFrameId != "" &&
+			!ValidMarkers.exists(Marker.ManialinkFrameId)
+		) {
+			ValidMarkers.add(Marker.ManialinkFrameId);
+		}
+	}
+
+	// Link an account id to a present user
+	declare CUser[Text] AccountIdToUser;
+	foreach (Score in Scores) {
+		if (Score.User != Null) {
+			AccountIdToUser[Score.User.WebServicesUserId] <=> Score.User;
+		}
+	}
+
+	declare PlayerProfiles = {{{PlayerProfiles::P}}}GetPlayerProfiles();
+	foreach (Key => Frame_Marker in _Frames_MarkerPlayer) {
+		if (
+			_MarkerFrameIds.existskey(Key) &&
+			ValidMarkers.exists(Frame_Marker.Parent.ControlId)
+		) {
+			declare Text AccountId = _MarkerFrameIds[Key];
+			if (
+				!State.LoadedMarkers.existskey(Key) ||
+				State.LoadedMarkers[Key].AccountId != AccountId ||
+				State.LoadedMarkers[Key].IsFinalist != _Finalists.exists(AccountId)
+			) {
+				declare Text PlayerName;
+				declare Text TeamLogoUrl;
+				declare CUser User <=> AccountIdToUser.get(AccountId, Null);
+
+				if (PlayerProfiles.existskey(AccountId)) {
+					declare PlayerProfile = PlayerProfiles[AccountId];
+					PlayerName = PlayerProfile.MarkerName;
+					if (PlayerProfile.TeamLogoWhite != "") {
+						TeamLogoUrl = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/TeamsLogo/"^PlayerProfile.TeamLogoWhite;
+					} else if (PlayerProfile.TeamLogo != "") {
+						TeamLogoUrl = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/TeamsLogo/"^PlayerProfile.TeamLogo;
+					} else if (User != Null) {
+						TeamLogoUrl = User.CountryFlagUrl;
+					}
+				} else if (User != Null) {
+					PlayerName = User.Name;
+					TeamLogoUrl = User.CountryFlagUrl;
+				}
+
+				declare CMlQuad Quad_Background <=> (Frame_Marker.GetFirstChild("quad-background") as CMlQuad);
+				declare CMlQuad Quad_SideLeft <=> (Frame_Marker.GetFirstChild("quad-side-left") as CMlQuad);
+				declare CMlQuad Quad_SideRight <=> (Frame_Marker.GetFirstChild("quad-side-right") as CMlQuad);
+				declare CMlQuad Quad_TeamLogo <=> (Frame_Marker.GetFirstChild("quad-team-logo") as CMlQuad);
+				declare CMlLabel Label_Name <=> (Frame_Marker.GetFirstChild("label-name") as CMlLabel);
+
+				Quad_TeamLogo.ImageUrl = TeamLogoUrl;
+				Quad_TeamLogo.Visible = (Quad_TeamLogo.ImageUrl != "");
+				Label_Name.Value = PlayerName;
+
+				Label_Name.Size.X = ML::Min(Label_Name.ComputeWidth(Label_Name.Value), C_PlayerNameMaxWidth);
+				if (Quad_TeamLogo.Visible) {
+					Quad_Background.Size.X = 0.5 + Quad_TeamLogo.Size.X + 0.5 + Label_Name.Size.X + 0.5;
+					Quad_TeamLogo.RelativePosition_V3.X = (Quad_Background.Size.X * -0.5) + 0.5;
+					Label_Name.RelativePosition_V3.X = Quad_TeamLogo.RelativePosition_V3.X + Quad_TeamLogo.Size.X + 0.5;
+				} else {
+					Quad_Background.Size.X = 0.5 + Label_Name.Size.X + 0.5;
+					Label_Name.RelativePosition_V3.X = (Quad_Background.Size.X * -0.5) + 0.5;
+				}
+				Quad_SideLeft.RelativePosition_V3.X = Quad_Background.Size.X * -0.5;
+				Quad_SideRight.RelativePosition_V3.X = Quad_Background.Size.X * 0.5;
+
+				declare Boolean IsFinalist = _Finalists.exists(AccountId);
+				if (IsFinalist) {
+					Quad_Background.BgColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_CupFinalist))}}};
+					Quad_SideLeft.Colorize = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_CupFinalist))}}};
+					Quad_SideRight.Colorize = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_CupFinalist))}}};
+				} else {
+					Quad_Background.BgColor = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_BGDark))}}};
+					Quad_SideLeft.Colorize = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_BGDark))}}};
+					Quad_SideRight.Colorize = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_BGDark))}}};
+				}
+
+				State.LoadedMarkers[Key] = K_Marker {
+					AccountId = AccountId,
+					IsFinalist = IsFinalist
+				};
+			}
+			Frame_Marker.Visible = True;
+		} else {
+			Frame_Marker.Visible = False;
+		}
+	}
+
+	return State;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_Marker;
+declare CMlFrame[] Frames_MarkerPlayer;
+
+declare netread Text[Integer] Net_ChampionTMGL_TMGLMarkers_MarkerFrameIds as Net_ChampionTMGL_TMGLMarkers_MarkerFrameIds_UI for UI = [];
+declare netread Integer Net_ChampionTMGL_TMGLMarkers_MarkerFrameIdsUpdate as Net_ChampionTMGL_TMGLMarkers_MarkerFrameIdsUpdate_UI for UI = 0;
+declare netread Text[Integer] Net_ChampionTMGL_TMGLMarkers_MarkerFrameIds as Net_ChampionTMGL_TMGLMarkers_MarkerFrameIds_Team for Teams[0] = [];
+declare netread Integer Net_ChampionTMGL_TMGLMarkers_MarkerFrameIdsUpdate as Net_ChampionTMGL_TMGLMarkers_MarkerFrameIdsUpdate_Team for Teams[0] = 0;
+declare netread Text[] Net_ChampionTMGL_TMGLMarkers_Finalists for Teams[0] = [];
+declare netread Integer Net_ChampionTMGL_TMGLMarkers_FinalistsUpdate for Teams[0] = 0;
+
+declare Boolean DisplayModule;
+declare Integer MarkerFrameIdsUpdate_UI;
+declare Integer MarkerFrameIdsUpdate_Team;
+declare Text[Integer] MarkerFrameIds;
+declare Integer FinalistsUpdate;
+declare K_State State;
+declare Ident GUIPlayerId;
+declare Boolean NeedMarkersUpdate;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_Marker <=> (Frame_Global.GetFirstChild("frame-markers") as CMlFrame);
+foreach (Control in Frame_Marker.Controls) {
+	Frames_MarkerPlayer.add(
+		((Control as CMlFrame).GetFirstChild("frame-marker-content") as CMlFrame)
+	);
+}
+
+DisplayModule = Frame_Global.Visible;
+MarkerFrameIdsUpdate_UI = -123;
+MarkerFrameIdsUpdate_Team = -123;
+FinalistsUpdate = -123;
+State = K_State {
+	LoadedMarkers = []
+};
+GUIPlayerId = NullId;
+NeedMarkersUpdate = True;
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_ChampionTMGL_TMGLMarkers_IsVisible for Owner;
+		if (DisplayModule != Net_ChampionTMGL_TMGLMarkers_IsVisible) {
+			DisplayModule = Net_ChampionTMGL_TMGLMarkers_IsVisible;
+			Frame_Global.Visible = Net_ChampionTMGL_TMGLMarkers_IsVisible;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (MarkerFrameIdsUpdate_UI != Net_ChampionTMGL_TMGLMarkers_MarkerFrameIdsUpdate_UI) {
+			MarkerFrameIdsUpdate_UI = Net_ChampionTMGL_TMGLMarkers_MarkerFrameIdsUpdate_UI;
+			MarkerFrameIds = Net_ChampionTMGL_TMGLMarkers_MarkerFrameIds_UI;
+			NeedMarkersUpdate = True;
+		}
+		if (MarkerFrameIdsUpdate_Team != Net_ChampionTMGL_TMGLMarkers_MarkerFrameIdsUpdate_Team) {
+			MarkerFrameIdsUpdate_Team = Net_ChampionTMGL_TMGLMarkers_MarkerFrameIdsUpdate_Team;
+			MarkerFrameIds = Net_ChampionTMGL_TMGLMarkers_MarkerFrameIds_Team;
+			NeedMarkersUpdate = True;
+		}
+		if (FinalistsUpdate != Net_ChampionTMGL_TMGLMarkers_FinalistsUpdate) {
+			FinalistsUpdate = Net_ChampionTMGL_TMGLMarkers_FinalistsUpdate;
+			NeedMarkersUpdate = True;
+		}
+
+		if (GUIPlayer == Null && GUIPlayerId != NullId) {
+			GUIPlayerId = NullId;
+			NeedMarkersUpdate = True;
+		} else if (GUIPlayer != Null && GUIPlayerId != GUIPlayer.Id) {
+			GUIPlayerId = GUIPlayer.Id;
+			NeedMarkersUpdate = True;
+		}
+
+		if (NeedMarkersUpdate) {
+			NeedMarkersUpdate = False;
+			State = UpdateMarkers(State, Frames_MarkerPlayer, MarkerFrameIds, Net_ChampionTMGL_TMGLMarkers_Finalists);
+		}
+	}
+}
+***
+""",
+[
+	PlayerProfiles::Component()
+],
+[]
+	);
+}

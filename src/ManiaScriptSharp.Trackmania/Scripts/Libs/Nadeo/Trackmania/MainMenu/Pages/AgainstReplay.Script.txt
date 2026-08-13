@@ -1,0 +1,184 @@
+/**
+ * Page: AgainstReplay
+ */
+#Const Version "1.1.2"
+#Const ScriptName "Libs/Nadeo/Trackmania/MainMenu/Pages/AgainstReplay.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Components/Transition.Script.txt" as Transition
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/Trackmania/API/BrowserAPI.Script.txt" as BrowserAPI
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Page_AgainstReplay"
+#Const C_NavGroupName "navgroup-page-againstreplay"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the page manialink
+ *
+ *	@return														The page manialink
+ */
+Text GetManialink() {
+	//L16N [PlayMap] Title of a page where the player can select a replay and play against it
+	declare Text Text_PlayAgaintReplay = _("Play against a replay");
+
+	return MV::Create(
+C_Name, 3,
+"""
+<frameinstance modelid="{{{BrowserAPI::C_Name}}}" id="frame-browser" z-index="{{{Const::C_ZIndex_BrowserAPI}}}"/>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/Trackmania/MainMenu/TitleControl.Script.txt" as TitleControl
+#Include "Libs/Nadeo/Trackmania/MainMenu/Overlays/ControllerInfo_ML.Script.txt" as ControllerInfo
+#Include "Libs/Nadeo/Trackmania/Stores/LoadingScreen.Script.txt" as LoadingScreenStore
+""",
+"""
+Void Focus(CMlControl _From, CMlControl _To) {
+	if ({{{Transition::P}}}IsInTransition(This)) return;
+
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+	}
+}
+
+Void Select(CMlControl _Control) {
+	if (_Control == Null || {{{Transition::P}}}IsInTransition(This)) return;
+
+
+}
+
+***MainLoop***
+***
+if ({{{Router::P}}}PageIsRunning(This, "{{{RoutePaths::C_Path_AgainstReplay}}}")) {
+	foreach (Event in {{{Router::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Router::P}}}C_Event_EnteringRoute: {
+				declare {{{BrowserAPI::P}}}K_Settings BrowserSettings = {{{BrowserAPI::P}}}GetDefaultSettings();
+				BrowserSettings.ListMultiSelect = True;
+				BrowserSettings.IsPlayAgainstReplay = True;
+				{{{BrowserAPI::P}}}SetCurrentBrowser(This, {{{BrowserAPI::C_BrowserType_List}}}, "{{{Text_PlayAgaintReplay}}}", [{{{BrowserAPI::C_DataType_Replay}}}], "My Replays/", BrowserSettings);
+				{{{BrowserAPI::P}}}FocusBrowser(This, True);
+				ControllerInfo::SetButtons(["A" => _("Select"), "B" => _("Back")]);
+			}
+		}
+	}
+
+	foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{Navigation::P}}}C_EventType_NavigateInput: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+					if (Event.Input == CMlScriptEvent::EMenuNavAction::Select) {
+						Select(Event.To);
+					} else {
+						Focus(Event.From, Event.To);
+					}
+				}
+			}
+			case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroupName}}}")) {
+					if (Event.Mouse == CMlScriptEvent::Type::MouseClick) {
+						Select(Event.To);
+					} else if (Event.Mouse == CMlScriptEvent::Type::MouseOver) {
+						Focus(Event.From, Event.To);
+					}
+				}
+			}
+		}
+	}
+
+	foreach (Event in {{{BrowserAPI::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{BrowserAPI::P}}}C_EventType_Select: {
+				if (Event.DataType == {{{BrowserAPI::P}}}C_DataType_Replay) {
+					declare {{{BrowserAPI::P}}}K_ReplayInfo ReplayInfo;
+					ReplayInfo.fromjson(Event.Data);
+					if (ReplayInfo.FileName != "") {
+						declare Text Settings = TL::Join("", [
+							"<root>",
+								"<setting name=\"S_TimeLimit\" value=\"-1\" type=\"integer\"/>",
+								"<setting name=\"S_ForceLapsNb\" value=\"-1\" type=\"integer\"/>",
+								// "*vsreplayopponents*" is a C++ path that allows DataFileMgr.Replay_Load() to load the replay passed to TitleControl.PlayAgainstReplay()
+								"<setting name=\"S_AgainstReplay\" value=\"*vsreplayopponents*\" type=\"text\" />",
+							"</root>"
+						]);
+						LoadingScreenStore::UpdateTitleMenuLoadingScreen_Random(This, "{{{Text_PlayAgaintReplay}}}");
+						LoadingScreenStore::StartTrackingLoadingScreen(This, LoadingScreenStore::GetCurrentTitleMenuLoadingScreen(This));
+						TitleControl::PlayAgainstReplay(TitleControl, ReplayInfo.FileName, "{{{Const::C_ModeScript_PlayMap}}}", Settings);
+						ControllerInfo::SetButtons(["A" => _("Select"), "B" => _("Back")]);
+					}
+				}
+			}
+			case {{{BrowserAPI::P}}}C_EventType_MultiSelect: {
+				if (Event.DataType == {{{BrowserAPI::P}}}C_DataType_Replay) {
+					declare {{{BrowserAPI::P}}}K_ReplayInfo[] ReplayInfoList;
+					ReplayInfoList.fromjson(Event.Data);
+					if (ReplayInfoList.count > 0) {
+						declare {{{BrowserAPI::P}}}K_ReplayInfo PrimaryReplayInfo = ReplayInfoList[0];
+						if (PrimaryReplayInfo.FileName != "") {
+							declare Text[] AdditionalReplayInfo;
+							ReplayInfoList.removekey(0);
+							foreach (ReplayInfo in ReplayInfoList) {
+								if (ReplayInfo.FileName != "" && ReplayInfo.MapUid == PrimaryReplayInfo.MapUid) {
+									AdditionalReplayInfo.add(ReplayInfo.FileName);
+								}
+							}
+
+							declare Text Settings = TL::Join("", [
+								"<root>",
+									"<setting name=\"S_TimeLimit\" value=\"-1\" type=\"integer\"/>",
+									"<setting name=\"S_ForceLapsNb\" value=\"-1\" type=\"integer\"/>",
+									// "*vsreplayopponents*" is a C++ path that allows DataFileMgr.Replay_Load() to load the replay passed to TitleControl.PlayAgainstReplay()
+									"<setting name=\"S_AgainstReplay\" value=\"*vsreplayopponents*\" type=\"text\" />",
+									"<setting name=\"S_AdditionalReplays\" value=\""^TL::MLEncode(AdditionalReplayInfo.tojson())^"\" type=\"text\" />",
+								"</root>"
+							]);
+							LoadingScreenStore::UpdateTitleMenuLoadingScreen_Random(This, "{{{Text_PlayAgaintReplay}}}");
+							LoadingScreenStore::StartTrackingLoadingScreen(This, LoadingScreenStore::GetCurrentTitleMenuLoadingScreen(This));
+							TitleControl::PlayAgainstReplay(TitleControl, PrimaryReplayInfo.FileName, "{{{Const::C_ModeScript_PlayMap}}}", Settings);
+							ControllerInfo::SetButtons(["A" => _("Select"), "B" => _("Back")]);
+						}
+					}
+				}
+			}
+			case {{{BrowserAPI::P}}}C_EventType_Cancel: {
+				{{{BrowserAPI::P}}}FocusBrowser(This, False);
+				{{{Router::P}}}PushParent(This);
+			}
+		}
+	}
+}
+***
+""",
+[
+	Transition::ComponentV2(),
+	Navigation::ComponentV2(),
+	Router::ComponentV2(),
+	MenuSounds::ComponentV2(),
+	BrowserAPI::ComponentV2()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update from the ManiaApp
+Void Yield() {
+
+}

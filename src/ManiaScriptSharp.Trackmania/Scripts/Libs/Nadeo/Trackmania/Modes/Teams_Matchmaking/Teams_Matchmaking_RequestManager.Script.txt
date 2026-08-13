@@ -1,0 +1,303 @@
+/**
+ * Teams Matchmaking request manager
+ */
+#Const Version "1.1.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/Teams_Matchmaking_RequestManager.Script.txt"
+
+#Include "Libs/Nadeo/Trackmania/API/MatchmakingAPI.Script.txt" as MatchmakingAPI
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/Trackmania/Structures/MatchmakingStruct.Script.txt" as MatchmakingStruct
+#Include "Libs/Nadeo/Trackmania/Modes/ServerAuth.Script.txt" as ServerAuth
+#Include "Libs/Nadeo/CMGame/Utils/Log.Script.txt" as Log
+#Include "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/NetShare_Teams_Server.Script.txt" as UIModules_NetShare_Teams
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Server.Script.txt" as Clans
+
+#Const C_Request_MatchParticipants_RetryCooldown 2000
+#Const C_Request_Top10_RetryCooldown 2000
+#Const C_Request_MatchmakingDivisions_RetryCooldown 3000
+#Const C_Request_WaitBeforeFirstRequest 1000
+
+#Const C_Debug_MatchmakingApiUrl "http://localhost:3000"
+
+#Struct K_MatchmakingRequest {
+	Http::K_Request Request;
+	Integer RequestTime;
+}
+#Struct K_PlayersPBTask {
+	Task::K_Task Task;
+	Boolean WasRequestedOnce; //< The players PBs were requested at least once
+	Text MapUid;
+	Text[] AccountIds;
+	Text ScopeType;
+	Text ScopeId;
+	Text GameMode;
+	Text GameModeCustomData;
+	Integer[Text] PlayersPB;
+}
+#Struct K_PlayerResult {
+	Integer Rank;
+	Integer Score;
+}
+
+declare K_MatchmakingRequest G_Request_GetMatchmakingDivisions;
+declare K_MatchmakingRequest G_Request_MatchParticipants;
+declare K_MatchmakingRequest G_Request_Top10;
+declare K_PlayersPBTask G_Task_PlayersPB;
+
+declare Text G_MatchId;
+declare Text G_MatchmakingId;
+declare Boolean G_UseLocalAPI;
+declare Boolean G_MatchMustBeCompleted;
+
+Void RequestGetMatchmakingDivisions(Integer _RequestTimer) { // RequestTimer in ms
+	if (G_Request_GetMatchmakingDivisions.RequestTime <= 0) G_Request_GetMatchmakingDivisions.RequestTime = Now + _RequestTimer;
+}
+
+Void RequestPlayersMatchParticipants(Integer _RequestTimer, Boolean _MatchMustBeCompleted) { // RequestTimer in ms
+	if (G_Request_MatchParticipants.RequestTime <= 0) G_Request_MatchParticipants.RequestTime = Now + _RequestTimer;
+	G_MatchMustBeCompleted = _MatchMustBeCompleted;
+}
+
+Void RequestGetTop10(Integer _RequestTimer) { // RequestTimer in ms
+	if (G_Request_Top10.RequestTime <= 0) G_Request_Top10.RequestTime = Now + _RequestTimer;
+}
+
+Void RequestPlayersPB(
+	CMap _Map,
+	Text[] _AccountIds,
+	Text _ScopeType,
+	Text _ScopeId,
+	Text _GameMode,
+	Text _GameModeCustomData
+) {
+	if (
+		_Map != Null &&
+		_Map.MapInfo != Null &&
+		_Map.MapInfo.MapUid != "" &&
+		_AccountIds.count > 0 && (
+			!Task::IsInitialized(G_Task_PlayersPB.Task) ||
+			G_Task_PlayersPB.MapUid != _Map.MapInfo.MapUid ||
+			G_Task_PlayersPB.AccountIds != _AccountIds ||
+			G_Task_PlayersPB.ScopeType != _ScopeType ||
+			G_Task_PlayersPB.ScopeId != _ScopeId ||
+			G_Task_PlayersPB.GameMode != _GameMode ||
+			G_Task_PlayersPB.GameModeCustomData != _GameModeCustomData
+		)
+	) {
+		G_Task_PlayersPB.WasRequestedOnce = True;
+		G_Task_PlayersPB.MapUid = _Map.MapInfo.MapUid;
+		G_Task_PlayersPB.AccountIds = _AccountIds;
+		G_Task_PlayersPB.ScopeType = _ScopeType;
+		G_Task_PlayersPB.ScopeId = _ScopeId;
+		G_Task_PlayersPB.GameMode = _GameMode;
+		G_Task_PlayersPB.GameModeCustomData = _GameModeCustomData;
+		G_Task_PlayersPB.PlayersPB = [];
+		G_Task_PlayersPB.Task = Task::DestroyAndCreate(
+			G_Task_PlayersPB.Task,
+			This,
+			This.MapRecord_GetListByMapAndPlayerList(
+				NullId,
+				G_Task_PlayersPB.AccountIds,
+				G_Task_PlayersPB.MapUid,
+				G_Task_PlayersPB.ScopeType,
+				G_Task_PlayersPB.ScopeId,
+				G_Task_PlayersPB.GameMode,
+				G_Task_PlayersPB.GameModeCustomData
+			)
+		);
+	}
+	Log::Log("[Ranked][Bots] Request players PB : "^G_Task_PlayersPB);
+}
+
+Boolean HasRequestedPlayersPB() {
+	return G_Task_PlayersPB.WasRequestedOnce;
+}
+
+Boolean IsGettingPlayersPB() {
+	return Task::IsInitialized(G_Task_PlayersPB.Task);
+}
+
+Integer[Text] GetPlayersPB() {
+	return G_Task_PlayersPB.PlayersPB;
+}
+
+Void StartActivity(Text _ActivityId, Integer _TeamsNb, Integer[Text] _Players) {
+	declare Text[Integer] TeamNames;
+	for (Clan, 1, _TeamsNb) {
+		TeamNames[Clan] = Clans::GetClanName(Clan, False);
+	}
+	foreach (Clan in _Players) {
+		if (!TeamNames.existskey(Clan))	{
+			TeamNames[Clan] = Clans::GetClanName(Clan, False);
+		}
+	}
+
+	Activity_Match_Create_Begin(_ActivityId);
+	foreach (TeamName in TeamNames) {
+		Activity_Match_Create_AddTeam(TeamName);
+	}
+	foreach (AccountId => Clan in _Players) {
+		Activity_Match_Create_AddPlayer(AccountId, TeamNames[Clan]);
+	}
+	Activity_Match_Create_End();
+}
+
+Void StopActivity(Integer[Integer] _TeamScores, K_PlayerResult[Text] _PlayerResults) {
+	Activity_Match_ReportResult_Begin();
+	declare Integer[Integer] TeamScores = _TeamScores.sortreverse();
+	declare Integer Rank = 1;
+	foreach (Clan => Score in TeamScores) {
+		Activity_Match_ReportResult_SetTeamResult(Clans::GetClanName(Clan, False), Rank, Score);
+		Rank += 1;
+	}
+	foreach (AccountId => PlayerResult in _PlayerResults) {
+		Activity_Match_ReportResult_SetPlayerResult(AccountId, PlayerResult.Rank, PlayerResult.Score);
+	}
+	Activity_Match_ReportResult_End();
+}
+
+Void Init(Text _MatchId, Text _MatchmakingId, Boolean _UseLocalAPI) {
+	G_MatchId = _MatchId;
+	G_MatchmakingId = _MatchmakingId;
+	G_UseLocalAPI = _UseLocalAPI;
+
+	G_Request_MatchParticipants.Request = Http::GetEmptyRequest();
+	G_Request_GetMatchmakingDivisions.Request = Http::GetEmptyRequest();
+	G_Request_Top10.Request = Http::GetEmptyRequest();
+	G_Request_MatchParticipants.RequestTime = -1;
+	G_Request_GetMatchmakingDivisions.RequestTime = -1;
+	G_Request_Top10.RequestTime = -1;
+
+	G_Task_PlayersPB = K_PlayersPBTask {
+		Task = Task::Destroy(G_Task_PlayersPB.Task),
+		WasRequestedOnce = False,
+		MapUid = "",
+		AccountIds = [],
+		ScopeType = "",
+		ScopeId = "",
+		GameMode = "",
+		GameModeCustomData = "",
+		PlayersPB = []
+	};
+
+	G_MatchMustBeCompleted = False;
+	ServerAuth::Init([ServerAuth::C_Services_Live]);
+}
+Void Init(Text _MatchId, Text _MatchmakingId) {
+	Init(_MatchId, _MatchmakingId, False);
+}
+
+Void Yield() {
+	if (ServerAuth::HasToken(ServerAuth::C_Services_Live)) {
+		// Matchmaking Divisions
+		if (G_Request_GetMatchmakingDivisions.RequestTime > 0 && G_Request_GetMatchmakingDivisions.RequestTime <= Now) {
+			Http::Destroy(G_Request_GetMatchmakingDivisions.Request);
+			if (G_UseLocalAPI) {
+				G_Request_GetMatchmakingDivisions.Request = MatchmakingAPI::Server_GetMatchmakingDivisionRules(C_Debug_MatchmakingApiUrl, G_MatchmakingId);
+			} else {
+				G_Request_GetMatchmakingDivisions.Request = MatchmakingAPI::Server_GetMatchmakingDivisionRules(G_MatchmakingId);
+			}
+			G_Request_GetMatchmakingDivisions.RequestTime = -1;
+			Log::Log("Request Matchmaking Divisions"); //@remove when matchmaking divisions fully tested in Teams MM
+		}
+		if (Http::IsInitialized(G_Request_GetMatchmakingDivisions.Request)) {
+			G_Request_GetMatchmakingDivisions.Request = Http::Update(G_Request_GetMatchmakingDivisions.Request);
+			if (!Http::IsProcessing(G_Request_GetMatchmakingDivisions.Request)) {
+				if (Http::IsSuccess(G_Request_GetMatchmakingDivisions.Request)) {
+					declare MatchmakingStruct::LibStructuresMatchmaking_K_Division[Text] Divisions = MatchmakingAPI::GetResponseFromGetMatchmakingDivisionRules(G_Request_GetMatchmakingDivisions.Request);
+					Log::Log("Matchmaking Divisions request success : " ^G_Request_GetMatchmakingDivisions.Request.Result); //@remove when matchmaking divisions fully tested in Teams MM
+					UIModules_NetShare_Teams::SetDivisions(Divisions);
+				} else {
+					Log::Log("Matchmaking Divisions request error "^G_Request_GetMatchmakingDivisions.Request.StatusCode^": "^G_Request_GetMatchmakingDivisions.Request.Result); //@remove when matchmaking divisions fully tested in Teams MM
+					// Try again after cooldown
+					G_Request_GetMatchmakingDivisions.RequestTime = Now + C_Request_MatchmakingDivisions_RetryCooldown;
+				}
+				G_Request_GetMatchmakingDivisions.Request = Http::Destroy(G_Request_GetMatchmakingDivisions.Request);
+			}
+		}
+		// Players Scores (skill level and score delta)
+		if (G_Request_MatchParticipants.RequestTime > 0 && G_Request_MatchParticipants.RequestTime <= Now) {
+			Http::Destroy(G_Request_MatchParticipants.Request);
+			if (G_UseLocalAPI) {
+				G_Request_MatchParticipants.Request = MatchmakingAPI::Server_GetMatchParticipants(C_Debug_MatchmakingApiUrl, G_MatchId);
+			} else {
+				G_Request_MatchParticipants.Request = MatchmakingAPI::Server_GetMatchParticipants(G_MatchId);
+			}
+			G_Request_MatchParticipants.RequestTime = -1;
+			Log::Log("Request Match Participants"); //@remove when leaderboard and score delta request fully tested in Teams MM
+		}
+		if (Http::IsInitialized(G_Request_MatchParticipants.Request)) {
+			G_Request_MatchParticipants.Request = Http::Update(G_Request_MatchParticipants.Request);
+			if (!Http::IsProcessing(G_Request_MatchParticipants.Request)) {
+				if (Http::IsSuccess(G_Request_MatchParticipants.Request)) {
+					declare MatchmakingStruct::LibStructuresMatchmaking_K_MatchParticipants MatchParticipants = MatchmakingAPI::GetResponseFromGetMatchParticipants(G_Request_MatchParticipants.Request);
+					if (!G_MatchMustBeCompleted || (G_MatchMustBeCompleted && MatchParticipants.IsCompleted)) {
+						Log::Log("Match Participants request success : " ^G_Request_MatchParticipants.Request.Result); //@remove when leaderboard and score delta request fully tested in Teams MM
+						UIModules_NetShare_Teams::SetMatchParticipants(MatchParticipants);
+						RequestGetTop10(0);
+					} else {
+						Log::Log("Match Participants request not completed "^G_Request_MatchParticipants.Request.StatusCode^": "^G_Request_MatchParticipants.Request.Result); //@remove when leaderboard and score delta request fully tested in Teams MM
+						// Try again after cooldown
+						G_Request_MatchParticipants.RequestTime = Now + C_Request_MatchParticipants_RetryCooldown;
+					}
+				} else {
+					Log::Log("Match Participants request error "^G_Request_MatchParticipants.Request.StatusCode^": "^G_Request_MatchParticipants.Request.Result); //@remove when leaderboard and score delta request fully tested in Teams MM
+					// Try again after cooldown
+					G_Request_MatchParticipants.RequestTime = Now + C_Request_MatchParticipants_RetryCooldown;
+				}
+				G_Request_MatchParticipants.Request = Http::Destroy(G_Request_MatchParticipants.Request);
+			}
+		}
+
+		// Matchmaking Top 10
+		if (G_Request_Top10.RequestTime > 0 && G_Request_Top10.RequestTime <= Now) {
+			Http::Destroy(G_Request_Top10.Request);
+			if (G_UseLocalAPI) {
+				G_Request_Top10.Request = MatchmakingAPI::Server_GetMatchmakingLeaderboard(C_Debug_MatchmakingApiUrl, G_MatchmakingId);
+			} else {
+				G_Request_Top10.Request = MatchmakingAPI::Server_GetMatchmakingLeaderboard(G_MatchmakingId);
+			}
+			G_Request_Top10.RequestTime = -1;
+			Log::Log("Request Matchmaking Top 10"); //@remove when matchmaking Top 10 fully tested in Teams MM
+		}
+		if (Http::IsInitialized(G_Request_Top10.Request)) {
+			G_Request_Top10.Request = Http::Update(G_Request_Top10.Request);
+			if (!Http::IsProcessing(G_Request_Top10.Request)) {
+				if (Http::IsSuccess(G_Request_Top10.Request)) {
+					declare MatchmakingStruct::LibStructuresMatchmaking_K_PlayerLeaderboard[] Top10 = MatchmakingAPI::GetResponseFromGetMatchmakingLeaderboard(G_Request_Top10.Request);
+					Log::Log("Matchmaking Top 10 request success : " ^G_Request_Top10.Request.Result); //@remove when matchmaking Top 10 fully tested in Teams MM
+					UIModules_NetShare_Teams::SetTop10(Top10);
+				} else {
+					Log::Log("Matchmaking Top 10 request error "^G_Request_Top10.Request.StatusCode^": "^G_Request_Top10.Request.Result); //@remove when matchmaking Top 10 fully tested in Teams MM
+					// Try again after cooldown
+					G_Request_Top10.RequestTime = Now + C_Request_Top10_RetryCooldown;
+				}
+				G_Request_Top10.Request = Http::Destroy(G_Request_Top10.Request);
+			}
+		}
+	}
+
+	if (Task::IsInitialized(G_Task_PlayersPB.Task)) {
+		G_Task_PlayersPB.Task = Task::Update(G_Task_PlayersPB.Task);
+		if (!Task::IsRunning(G_Task_PlayersPB.Task)) {
+			declare CTaskResult_MapRecordList SourceTask <=> Task::GetSourceTask_MapRecordList(G_Task_PlayersPB.Task);
+			if (Task::IsSuccess(G_Task_PlayersPB.Task) && SourceTask != Null) {
+				foreach (MapRecord in SourceTask.MapRecordList) {
+					G_Task_PlayersPB.PlayersPB[MapRecord.WebServicesUserId] = MapRecord.Time;
+				}
+				foreach (AccountId in G_Task_PlayersPB.AccountIds) {
+					if (!G_Task_PlayersPB.PlayersPB.existskey(AccountId)) {
+						G_Task_PlayersPB.PlayersPB[AccountId] = -1;
+					}
+				}
+				Log::Log("[Ranked][Bots] Successfully retrieved players PB : "^G_Task_PlayersPB.PlayersPB);
+			} else {
+				Log::Log("[Ranked][Bots] Failed to get players PB > SourceTask : "^SourceTask);
+			}
+			G_Task_PlayersPB.Task = Task::Destroy(G_Task_PlayersPB.Task);
+		}
+	}
+
+	ServerAuth::Yield();
+}

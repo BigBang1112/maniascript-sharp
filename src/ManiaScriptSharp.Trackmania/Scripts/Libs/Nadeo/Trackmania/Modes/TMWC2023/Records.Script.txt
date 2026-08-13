@@ -1,0 +1,269 @@
+/**
+ *	World Record and Personal Best manager for the TrackMania World Championship 2023
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TMWC2023/Records.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/Trackmania/API/LeaderboardAPI.Script.txt" as LeaderboardAPI
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/LiveRanking_Server.Script.txt" as UIModules_LiveRanking
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/PlayerInfo_Server.Script.txt" as UIModules_PlayerInfo
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/WorldRecord_Server.Script.txt" as UIModules_WorldRecord
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/Events.Script.txt" as TMWC2023Events
+#Include "Libs/Nadeo/Trackmania/Modes/TMWC2023/Structs.Script.txt" as Structs
+#Include "Libs/Nadeo/Trackmania/Modes/ServerAuth.Script.txt" as ServerAuth
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_State {
+	Text MapUid;
+	Text[] PersonalBestsToFetch;
+	Boolean FetchWorldRecord;
+	Http::K_Request Request_WorldRecord;
+	Task::K_Task Task_PersonalBests;
+	Structs::K_Record WorldRecord;
+	Structs::K_Record[Text] PersonalBests; // WebServicesUserId as key
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare K_State G_State;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the time is better than the Record
+ *
+ *	@param	_Record								  Record to check
+ *	@param	_Time									  The Time of the race
+ *
+ *  @return													If Beaten
+ */
+Boolean BeatTheRecord(Structs::K_Record _Record, Integer _Time) {
+	return _Record.Time <= 0 || _Record.Time > _Time;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the time is better than their Personal Best Time
+ *
+ *	@param	_Player									The Player to update if needed
+ *	@param	_Time									  The Time of the player race
+ *
+ *  @return													If Beaten
+ */
+Boolean BeatTheirPersonalRecord(CSmPlayer _Player, Integer _Time) {
+	return (
+		!G_State.PersonalBests.existskey(_Player.User.WebServicesUserId) ||
+		G_State.PersonalBests[_Player.User.WebServicesUserId].Time > _Time
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Update WR and / or PB if the Player improved it
+ *
+ *	@param	_Player									The Player to update if needed
+ *	@param	_Time									  The Time of the player race
+ */
+Void UpdateRecordsIfBetter(CSmPlayer _Player, Integer _Time) {
+	if (_Player == Null || _Player.User == Null || _Player.Score == Null) return;
+
+	declare Boolean BeatTheWorldRecord = BeatTheRecord(G_State.WorldRecord, _Time);
+
+	if (BeatTheWorldRecord) {
+		declare Integer PreviousTime = G_State.WorldRecord.Time;
+
+		G_State.WorldRecord = Structs::K_Record {
+			WebServicesUserId = _Player.User.WebServicesUserId,
+			Time = _Time
+		};
+		UIModules_WorldRecord::SetWorldRecord(G_State.WorldRecord);
+
+		// Send notification if there was a record
+		if (PreviousTime > 0) {
+			UIModules_LiveRanking::PlayerBeatTheWorldRecord(_Player.User.WebServicesUserId);
+			TMWC2023Events::SendWorldRecordEvent(_Player, _Time - PreviousTime);
+		}
+	}
+
+	if (BeatTheirPersonalRecord(_Player, _Time)) {
+		declare Integer PreviousTime = G_State.PersonalBests.get(_Player.User.WebServicesUserId, Structs::K_Record {}).Time;
+
+		G_State.PersonalBests[_Player.User.WebServicesUserId] = Structs::K_Record {
+			WebServicesUserId = _Player.User.WebServicesUserId,
+			Time = _Time
+		};
+		UIModules_PlayerInfo::SetPersonalBest(_Player.Score, _Time);
+
+		// Send notification if they already had a record and they didn't beat the WR
+		if (!BeatTheWorldRecord && PreviousTime > 0) {
+			UIModules_LiveRanking::PlayerBeatTheirPersonalBest(_Player.User.WebServicesUserId);
+			TMWC2023Events::SendPersonalBestEvent(_Player, _Time - PreviousTime);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the Personal Best of each Score to them
+Void SendAllPersonalsBest() {
+	foreach (Score in Scores) {
+		if (Score.User == Null) continue;
+		UIModules_PlayerInfo::SetPersonalBest(Score, G_State.PersonalBests.get(Score.User.WebServicesUserId, Structs::K_Record {}).Time);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Add Account Id to the Personal Bests fetching queue
+ *
+ *	@param	_AccountId							The AccountId to add if needed
+ */
+Void AddToQueueIfNeeded(Text _AccountId) {
+	if (!G_State.PersonalBests.existskey(_AccountId) && !G_State.PersonalBestsToFetch.exists(_AccountId)) {
+		G_State.PersonalBestsToFetch.add(_AccountId);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Check if the Request or the Task is pending
+ *
+ *  @return													If a request is pending
+ */
+Boolean RequestsInProgress() {
+	return (Http::IsInitialized(G_State.Request_WorldRecord) || Task::IsInitialized(G_State.Task_PersonalBests));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start Personal Best Task
+Void InitRequest_WorldRecord() {
+	// Start task for the Personal Bests
+	if (!ServerAuth::HasToken(ServerAuth::C_Services_Live)) return;
+
+	G_State.Request_WorldRecord = LeaderboardAPI::ServerToken_GetMapWorldRecord(LeaderboardAPI::C_GroupUid_PersonalBest, Map.MapInfo.MapUid);
+
+	G_State.FetchWorldRecord = False;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start Personal Best Task
+Void InitPersonalBestTask() {
+	// Start task for the Personal Bests
+	if (G_State.PersonalBestsToFetch.count > 0) {
+		declare Text[] PersonalBestsToFetch;
+		foreach (AccountId in G_State.PersonalBestsToFetch) {
+			if (G_State.PersonalBests.existskey(AccountId)) continue;
+			PersonalBestsToFetch.add(AccountId);
+		}
+		G_State.PersonalBestsToFetch = [];
+
+		G_State.Task_PersonalBests = Task::DestroyAndCreate(
+			G_State.Task_PersonalBests,
+			This,
+			This.MapRecord_GetListByMapAndPlayerList(
+				NullId,
+				PersonalBestsToFetch,
+				Map.MapInfo.MapUid,
+				Const::C_ScopeType_PersonalBest,
+				"",
+				Const::C_GameMode_TimeAttack,
+				""
+			)
+		);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update library
+Void Yield() {
+	if (Map != Null && G_State.MapUid != Map.MapInfo.MapUid) {
+		G_State.MapUid = Map.MapInfo.MapUid;
+		G_State.WorldRecord = Structs::K_Record {};
+		G_State.PersonalBests = [];
+
+		// Destroy pending task / request
+		G_State.Request_WorldRecord = Http::Destroy(G_State.Request_WorldRecord);
+		G_State.Task_PersonalBests = Task::Destroy(G_State.Task_PersonalBests);
+
+		G_State.FetchWorldRecord = True;
+
+		G_State.PersonalBestsToFetch = [];
+		foreach (Score in Scores) {
+			if (Score.User == Null) continue;
+			G_State.PersonalBestsToFetch.add(Score.User.WebServicesUserId);
+		}
+	}
+
+	if (G_State.FetchWorldRecord && !RequestsInProgress()) {
+		InitRequest_WorldRecord();
+	}
+	if (G_State.PersonalBestsToFetch.count > 0 && !RequestsInProgress()) {
+		InitPersonalBestTask();
+	}
+
+	if (Http::IsInitialized(G_State.Request_WorldRecord)) {
+		G_State.Request_WorldRecord = Http::Update(G_State.Request_WorldRecord);
+		if (!Http::IsProcessing(G_State.Request_WorldRecord)) {
+			G_State.WorldRecord = Structs::K_Record {};
+			if (Http::IsSuccess(G_State.Request_WorldRecord)) {
+				declare LeaderboardAPI::K_ResponseFromGetMapTopRankings ResponseMapTopRankings = LeaderboardAPI::GetResponseFromGetMapTopRankings(G_State.Request_WorldRecord);
+				// Run through the entire structure just in case the API doesn't give the right number/order of zones/records.
+				// It should stop after the first iteration of each loop if the API response is good.
+				foreach (TopRanking in ResponseMapTopRankings.TopRankings) {
+					if (TopRanking.ZoneName == "World") {
+						foreach (Top in TopRanking.Tops) {
+							if (Top.Position == 1) {
+								G_State.WorldRecord = Structs::K_Record {
+									WebServicesUserId = Top.AccountId,
+									Time = Top.Score
+								};
+								break;
+							}
+						}
+						break;
+					}
+				}
+			}
+			G_State.Request_WorldRecord = Http::Destroy(G_State.Request_WorldRecord);
+			UIModules_WorldRecord::SetWorldRecord(G_State.WorldRecord);
+		}
+	}
+
+	if (Task::IsInitialized(G_State.Task_PersonalBests)) {
+		G_State.Task_PersonalBests = Task::Update(G_State.Task_PersonalBests);
+		if (!Task::IsRunning(G_State.Task_PersonalBests)) {
+			declare CTaskResult_MapRecordList SourceTask <=> Task::GetSourceTask_MapRecordList(G_State.Task_PersonalBests);
+			if (Task::IsSuccess(G_State.Task_PersonalBests) && SourceTask != Null) {
+				foreach (MapRecord in SourceTask.MapRecordList) {
+					G_State.PersonalBests[MapRecord.WebServicesUserId] = Structs::K_Record {
+						WebServicesUserId = MapRecord.WebServicesUserId,
+						Time = MapRecord.Time
+					};
+				}
+				SendAllPersonalsBest();
+			}
+			G_State.Task_PersonalBests = Task::Destroy(G_State.Task_PersonalBests);
+		}
+	}
+
+	ServerAuth::Yield();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Unload() {
+	G_State = K_State {};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Load() {
+	Unload();
+
+	ServerAuth::Init([ServerAuth::C_Services_Live]);
+}

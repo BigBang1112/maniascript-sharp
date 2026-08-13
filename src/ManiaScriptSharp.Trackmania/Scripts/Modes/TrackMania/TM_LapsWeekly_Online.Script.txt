@@ -1,0 +1,232 @@
+/**
+ * Laps Weekly mode
+ */
+#Extends "Modes/TrackMania/TM_Laps_Online.Script.txt"
+
+#Const C_LapsWeekly_Version "1.0.0+2025-12-17"
+#Const C_LapsWeekly_ScriptName "Modes/TrackMania/TM_LapsWeekly_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Task.Script.txt" as Task
+#Include "Libs/Nadeo/Trackmania/Modes/LapsWeekly/StateManager.Script.txt" as LapsWeekly_StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/LapsWeekly/UIModules/WelcomePopUp_Server.Script.txt" as UIModules_WelcomePopUp
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_DisableGiveUp True
+#Setting S_EnableJoinLeaveNotifications False
+#Setting S_ChatTime 120
+#Setting S_CompetitionName ""
+#Setting S_Division "1"
+#Setting S_RankedCompetitionType "GrandRace" as "<hidden>"
+#Setting S_CompetitionTitle "Grand Race" as "<hidden>"
+#Setting S_EarlyEndMatchCallback True as "<hidden>"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_LapsWeekly_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/LapsWeekly.Script.txt" //< Url of the mania app
+#Const C_CheckpointImageFolder "file://Media/Manialinks/Nadeo/Trackmania/Modes/KnockoutDaily"
+#Const C_TrophyTaskTimeout 5000
+#Const C_CompetitionStage "1"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(C_LapsWeekly_ScriptName, C_LapsWeekly_Version);
+Log::RegisterScript(LapsWeekly_StateMgr::ScriptName, LapsWeekly_StateMgr::Version);
+***
+
+***Match_LoadLibraries***
+***
+LapsWeekly_StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+LapsWeekly_StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultPodiumSequence = False;
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_LapsWeekly_ManiaAppUrl;
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	if (Event.Type == CSmModeEvent::EType::OnPlayerAdded) {
+		LapsWeekly_StateMgr::InitializePlayer(Event.Player);
+	}
+}
+
+foreach (Event in XmlRpc.PendingEvents) {
+	if (Event.Type == CXmlRpcEvent::EType::CallbackArray) {
+		if (Event.ParamArray1 == "Club.Match.Start") {
+			declare Boolean Match_SkipWarmup for This = False;
+			Match_SkipWarmup = True;
+		} else if (Event.ParamArray1 == "Club.Match.Completed") {
+			declare Boolean Match_SkipWarmup for This = False;
+			Match_SkipWarmup = False;
+		}
+	}
+}
+
+// Apply Laps_StateMgr states to LapsWeekly_StateMgr
+if (
+	StateMgr::GetForcedStates().count != LapsWeekly_StateMgr::GetForcedStates().count ||
+	!StateMgr::GetForcedStates().containsonly(LapsWeekly_StateMgr::GetForcedStates()) ||
+	!LapsWeekly_StateMgr::GetForcedStates().containsonly(StateMgr::GetForcedStates())
+) {
+	LapsWeekly_StateMgr::ForcePlayersStates(StateMgr::GetForcedStates());
+}
+LapsWeekly_StateMgr::Yield();
+***
+
+***Match_InitMatch***
+***
+declare Boolean Match_SkipWarmup for This = False; // Must survive CServerPlugin.RestartMap()
+declare Task::K_Task Match_TrophyTask;
+declare Integer Match_TrophyTaskEndTime;
+***
+
+***Match_StartMatch***
+***
+UIModules_WelcomePopUp::SetDivision(S_Division);
+UIModules_WelcomePopUp::SetCompetitionType(S_RankedCompetitionType);
+UIModules_WelcomePopUp::SetCompetitionName(S_CompetitionTitle);
+***
+
+***Match_BeforeLoadMap***
+***
+switch (S_Division) {
+	case "1": SetClubLogoUrl(C_CheckpointImageFolder^"/Decal_COTD_Gold.dds");
+	case "2": SetClubLogoUrl(C_CheckpointImageFolder^"/Decal_COTD_Silver.dds");
+	case "3": SetClubLogoUrl(C_CheckpointImageFolder^"/Decal_COTD_Bronze.dds");
+	case "4": SetClubLogoUrl(C_CheckpointImageFolder^"/Decal_COTD_Bronze.dds");
+	case "5": SetClubLogoUrl(C_CheckpointImageFolder^"/Decal_COTD_Bronze.dds");
+	default: SetClubLogoUrl("");
+}
+***
+
+***Laps_Warmup***
+***
+if (!Match_SkipWarmup) { // Warmup only before daily match starts
+	Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_Normal);
+	MB_WarmUp(S_WarmUpNb, S_WarmUpDuration * 1000, S_WarmUpTimeout * 1000);
+}
+***
+
+***Match_EndMap_AfterComputeRanking***
+***
+// Send match results to trophies API
+Trophy_CompetitionMatch_ClearResultList();
+for (Score in Scores) {
+	if (PlayerRanking.existskey(Score.User.WebServicesUserId)) {
+		Trophy_CompetitionMatch_AddResult(Score.User.WebServicesUserId, PlayerRanking[Score.User.WebServicesUserId], 0); // 3rd argument is player's world trophy ranking rank (not used for now). See trophyranking lib if needed.
+	}
+}
+Match_TrophyTask = Task::DestroyAndCreate(Match_TrophyTask, This, Trophy_CompetitionMatch_SendResultList(S_CompetitionName, C_CompetitionStage, S_Division, ""));
+Match_TrophyTaskEndTime = Now + C_TrophyTaskTimeout;
+UIModules_ScoresTable::ResetTrophies();
+***
+
+***Match_BeforePodiumSequence***
+***
+// Send the EndMatch callback sooner to speed up the API update
+if (S_EarlyEndMatchCallback) {
+	Scores::EndMatch();
+	Scores::XmlRpc_SendScores(Scores::C_Section_EndMatch, ""); //< send "Trackmania.Scores"
+}
+
+declare CSmScore WinnerScore <=> Scores::GetPlayerWinner();
+if (WinnerScore != Null) {
+	UIModules_BigMessage::SetMessage(_("$<%1$> wins the match!"), WinnerScore.User.WebServicesUserId);
+} else {
+	UIModules_BigMessage::SetMessage(_("|Match|Draw"));
+}
+***
+
+***Match_PodiumSequence***
+***
+declare CUIConfig::EUISequence PrevUISequence = UIManager.UIAll.UISequence;
+UIManager.UIAll.UISequence = CUIConfig::EUISequence::Podium;
+MB_Private_Sleep(10000);
+
+// Wait until the trophy task is complete
+Match_TrophyTask = Task::Update(Match_TrophyTask);
+while (Task::IsInitialized(Match_TrophyTask) && Task::IsRunning(Match_TrophyTask) && Now < Match_TrophyTaskEndTime) {
+	MB_Yield();
+	Match_TrophyTask = Task::Update(Match_TrophyTask);
+}
+declare Integer[Integer][Text] LapsWeekly_PlayerTrophies; // [AccountId => [Trophy => TrophyCount]]
+if (Task::IsInitialized(Match_TrophyTask)) {
+	if (!Task::IsRunning(Match_TrophyTask)) {
+		declare CTaskResult_AccountTrophyGainList SourceTask = Task::GetSourceTask_AccountTrophyGainList(Match_TrophyTask);
+		if (Task::IsSuccess(Match_TrophyTask) && SourceTask != Null) {
+			foreach (AccountTrophyGain in SourceTask.AccountTrophyGainList) {
+				LapsWeekly_PlayerTrophies[AccountTrophyGain.WebServicesUserId] = [];
+				if (AccountTrophyGain.T1Count > 0) LapsWeekly_PlayerTrophies[AccountTrophyGain.WebServicesUserId][1] = AccountTrophyGain.T1Count;
+				if (AccountTrophyGain.T2Count > 0) LapsWeekly_PlayerTrophies[AccountTrophyGain.WebServicesUserId][2] = AccountTrophyGain.T2Count;
+				if (AccountTrophyGain.T3Count > 0) LapsWeekly_PlayerTrophies[AccountTrophyGain.WebServicesUserId][3] = AccountTrophyGain.T3Count;
+				if (AccountTrophyGain.T4Count > 0) LapsWeekly_PlayerTrophies[AccountTrophyGain.WebServicesUserId][4] = AccountTrophyGain.T4Count;
+				if (AccountTrophyGain.T5Count > 0) LapsWeekly_PlayerTrophies[AccountTrophyGain.WebServicesUserId][5] = AccountTrophyGain.T5Count;
+				if (AccountTrophyGain.T6Count > 0) LapsWeekly_PlayerTrophies[AccountTrophyGain.WebServicesUserId][6] = AccountTrophyGain.T6Count;
+				if (AccountTrophyGain.T7Count > 0) LapsWeekly_PlayerTrophies[AccountTrophyGain.WebServicesUserId][7] = AccountTrophyGain.T7Count;
+				if (AccountTrophyGain.T8Count > 0) LapsWeekly_PlayerTrophies[AccountTrophyGain.WebServicesUserId][8] = AccountTrophyGain.T8Count;
+				if (AccountTrophyGain.T9Count > 0) LapsWeekly_PlayerTrophies[AccountTrophyGain.WebServicesUserId][9] = AccountTrophyGain.T9Count;
+			}
+		}
+	}
+}
+Match_TrophyTask = Task::Destroy(Match_TrophyTask);
+UIModules_ScoresTable::SetTrophies(LapsWeekly_PlayerTrophies);
+
+foreach (Score in Scores) {
+	declare Integer[Integer] Trophies;
+	if (
+		Score != Null &&
+		LapsWeekly_PlayerTrophies.existskey(Score.User.WebServicesUserId)
+	) {
+		Trophies = LapsWeekly_PlayerTrophies[Score.User.WebServicesUserId];
+	}
+	if (Trophies.count > 0) {
+		Tracking::SendPlayerTrophiesEarned(UIManager, Score.User, Trophies);
+	}
+}
+
+// Alternate between race time and trophies
+declare Integer SwitchDisplayDuration = ML::Min((S_ChatTime * 1000) / 2, 10000);
+declare Integer PrevScoresTableScoreMode = UIModules_ScoresTable::GetScoreMode();
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Laps);
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
+declare Integer RemainingChatTime = S_ChatTime * 1000;
+while (RemainingChatTime > 0) {
+	RemainingChatTime -= SwitchDisplayDuration;
+	MB_Sleep(SwitchDisplayDuration);
+	if (UIModules_ScoresTable::GetScoreMode() == UIModules_ScoresTable::C_Mode_Trophy) {
+		UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Laps);
+	} else {
+		UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_Trophy);
+	}
+}
+UIModules_ScoresTable::SetScoreMode(PrevScoresTableScoreMode);
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+UIManager.UIAll.UISequence = PrevUISequence;
+***
+
+***Match_AfterPodiumSequence***
+***
+UIModules_BigMessage::SetMessage("");
+UIModules_ScoresTable::ResetTrophies();
+***

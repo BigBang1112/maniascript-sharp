@@ -1,0 +1,753 @@
+/**
+ * Component: ClubName
+ * =====================
+ *
+ * Confluence : https://confluence.ubisoft.com/display/Nadeo/ClubName
+ *
+ * Info
+ * ----
+ *
+ * Display the name of a club with the verified icon
+ *
+ * Parameters
+ * ----------
+ *
+ * - `data-size` (`Vec2`): size of the component bounding box
+ * - `data-halign` (`Text`): horizontal alignment of the component. Can be `left`, `center` or `right`.
+ * - `data-valign` (`Text`): vertical alignment of the component. Can be `top`, `center`, `center2` or `bottom`.
+ * - `data-opacity` (`Real`): opacity of the component
+ * - `data-textsize` (`Real`): textsize of the labels displaying the name and verified icon
+ * - `data-textfont` (`Text`): font of the label displaying the name
+ * - `data-textprefix` (`Text`): prefix of the label displaying the name
+ * - `data-textcolor` (`Text`): color of the label displaying the name
+ * - `data-textcompose` (`Text`): add a text to compose with the club name, works only with one compose for now ! Used to indicate track authors for example, e.g _("By %1") will display "By ClubName",
+ */
+#Const Version "1.1.1"
+#Const ScriptName "Libs/Nadeo/CMGame/Components/ClubName.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet@2.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Controls {
+	CMlFrame ClubName_Component;
+	CMlFrame Frame_Align;
+	CMlFrame Frame_VerifiedIcon;
+	CMlLabel Label_Name;
+	CMlQuad Quad_VerifiedIcon;
+	CMlQuad Quad_VerifiedIconShadow;
+}
+#Struct K_ClubInfo {
+	Text Name;
+	Boolean IsVerified;
+}
+#Struct K_ClubName {
+	K_Controls Controls;
+	Boolean IsInitialized;
+	Boolean RecommandedWidthWarningDisplayed;
+	Vec2 Size;
+	K_ClubInfo ClubInfo;
+	Real TextSize;
+	Text TextFont;
+	Text TextPrefix;
+	Vec3 TextColor;
+	Real Opacity;
+	Integer OpacityAnimDuration;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Text TextCompose;
+	Real Width;
+	Integer[] Dirty;
+}
+#Struct K_Event {
+	Integer Type;
+	CMlFrame ClubName;
+}
+#Struct K_State {
+	K_Event[] DelayedPendingEvents;
+	K_Event[] PendingEvents;
+}
+#Struct K_Result {
+	K_State State;
+	K_ClubName ClubName;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-cmgame-club-name" // Component name
+#Const P "CMGame_ClubName::" // Prefix use to differentiate functions/variables in the script
+#Const Q "CMGame_ClubName"
+
+// Debug values
+#Const C_Debug_EnableLongName False
+#Const C_Debug_LongName_Name "WWWWWWWWWWWWWWWWWWWWI" //< The I character should be visible at the end of the name
+
+// Events
+#Const C_EventType_Null 0
+#Const C_EventType_WidthUpdate 1
+
+// Animations
+#Const C_Anim_Null -1
+#Const C_Anim_Instant 0
+
+// Control ids and classes
+#Const C_Class_ClubName "cmgame-club-name_club-name"
+#Const C_Id_FrameAlign "cmgame-club-name_frame-align"
+#Const C_Id_FrameVerifiedIcon "cmgame-club-name_frame-verified-icon"
+#Const C_Id_LabelName "cmgame-club-name_label-name"
+#Const C_Id_QuadVerifiedIcon "cmgame-club-quad-verified-icon"
+#Const C_Id_QuadVerifiedIconShadow "cmgame-club-quad-verified-icon-shadow"
+
+// Properties
+#Const C_Property_Size 1
+#Const C_Property_HAlign 2
+#Const C_Property_VAlign 3
+#Const C_Property_Name 4
+#Const C_Property_Opacity 5
+#Const C_Property_TextSize 6
+#Const C_Property_TextFont 7
+#Const C_Property_TextPrefix 8
+#Const C_Property_TextColor 9
+#Const C_Property_TextCompose 10
+
+// Default values
+#Const C_NameTextSizeMin 0.1
+#Const C_MarginBetweenNameAndLogo 1.
+#Const C_EnableRecommandedWidthWarning True
+#Const C_MinimumRecommandedWidth 23. //< The badge size will be computed and added to this value
+#Const C_ClubInfo_Null K_ClubInfo {
+	Name = "",
+	IsVerified = False
+}
+#Const C_ClubName_Null K_ClubName {
+	Controls = K_Controls {},
+	IsInitialized = False,
+	RecommandedWidthWarningDisplayed = False,
+	Size = <0., 0.>,
+	ClubInfo = K_ClubInfo {},
+	TextSize = 2.,
+	TextFont = "",
+	TextPrefix = "",
+	TextColor = <1., 1., 1.>,
+	Opacity = 1.,
+	OpacityAnimDuration = 0,
+	HAlign = CMlControl::AlignHorizontal::Left,
+	VAlign = CMlControl::AlignVertical::Top,
+	TextCompose = "",
+	Width = 0.,
+	Dirty = []
+}
+#Const C_State_Null K_State {
+	DelayedPendingEvents = [],
+	PendingEvents = []
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the manialink of the component
+Text GetManialink() {
+	return """
+<frame class="{{{C_Class_ClubName}}}">
+	<frame id="{{{C_Id_FrameAlign}}}">
+		<!--
+		We MUST initialize the label with a textprefix value.
+		Otherwise the `TextPrefix` property initialization in the
+		script will be bugged. The latest `TextPrefix` applied
+		will also be applied to all other labels that had their
+		`TextPrefix` updated.
+		-->
+		<label id="{{{C_Id_LabelName}}}" valign="center2" textprefix="$z" filter-profanities="OnlyIfNotTranslated"/>
+		<frame id="{{{C_Id_FrameVerifiedIcon}}}">
+			<quad id="{{{C_Id_QuadVerifiedIconShadow}}}" image="{{{Icons::C_Icon_128x128_Badge}}}" colorize="{{{Stylesheet::C_ColorHex6_Black}}}" opacity="0.2" scale="1.05" z-index="0"/>
+			<quad id="{{{C_Id_QuadVerifiedIcon}}}" valign="center" image="{{{Icons::C_Icon_128x128_Badge}}}" colorize="{{{Stylesheet::C_ColorHex6_AzureRadiance}}}" z-index="1"/>
+		</frame>
+	</frame>
+</frame>
+	""";
+}
+
+/// Check that the component is initialized
+Void Private_AssertValidComponent(CMlFrame _Frame_ClubName, K_ClubName _ClubName) {
+	assert(_ClubName.IsInitialized, "The control '"^_Frame_ClubName.ControlId^_Frame_ClubName.Id^"' is not a valid ClubName component");
+}
+
+/// Redraw the component (apply size, color...)
+K_Result Private_Redraw(CMlScript _This, K_State _State, K_ClubName _ClubName) {
+	declare K_Result Result = K_Result { State = _State, ClubName = _ClubName };
+	declare Integer AnimDuration = C_Anim_Null;
+	declare Boolean SizeUpdated = False;
+
+	if (
+		Result.ClubName.Dirty.exists(C_Property_Name) ||
+		Result.ClubName.Dirty.exists(C_Property_Size) ||
+		Result.ClubName.Dirty.exists(C_Property_TextSize) ||
+		Result.ClubName.Dirty.exists(C_Property_TextFont) ||
+		Result.ClubName.Dirty.exists(C_Property_TextPrefix) ||
+		Result.ClubName.Dirty.exists(C_Property_TextCompose)
+	) {
+		SizeUpdated = True;
+
+		// Check if there is something to display in the name part of the component
+		declare Boolean HasNamePart = TL::Trim(Result.ClubName.ClubInfo.Name) != "" || TL::StripFormatting(TL::Trim(Result.ClubName.TextPrefix)) != "";
+
+		// Display the verified icon
+		Result.ClubName.Controls.Frame_VerifiedIcon.Visible = HasNamePart && _ClubName.ClubInfo.IsVerified;
+		Result.ClubName.Controls.Quad_VerifiedIcon.Size = <Result.ClubName.Size.Y, Result.ClubName.Size.Y>;
+		Result.ClubName.Controls.Quad_VerifiedIconShadow.Size = Result.ClubName.Controls.Quad_VerifiedIcon.Size;
+		Result.ClubName.Controls.Quad_VerifiedIconShadow.RelativePosition_V3.Y = 0.5*Result.ClubName.Controls.Quad_VerifiedIcon.Size.Y;
+
+		// Display the club name
+		if (!HasNamePart) {
+			Result.ClubName.Controls.Label_Name.Visible = False;
+		} else {
+			Result.ClubName.Controls.Label_Name.Visible = True;
+			Result.ClubName.Controls.Label_Name.Value = Result.ClubName.ClubInfo.Name;
+			Result.ClubName.Controls.Label_Name.TextSizeReal = Result.ClubName.TextSize;
+			Result.ClubName.Controls.Label_Name.TextFont = Result.ClubName.TextFont;
+			Result.ClubName.Controls.Label_Name.TextPrefix = Result.ClubName.TextPrefix;
+			Result.ClubName.Controls.Label_Name.Size = Result.ClubName.Size;
+			if (Result.ClubName.Controls.Frame_VerifiedIcon.Visible) {
+				Result.ClubName.Controls.Label_Name.Size.X = ML::Max(0., Result.ClubName.Size.X - C_MarginBetweenNameAndLogo - Result.ClubName.Controls.Quad_VerifiedIcon.Size.X);
+			}
+
+			if (C_Debug_EnableLongName) {
+				if (Result.ClubName.TextCompose == "") {
+					Result.ClubName.Controls.Label_Name.Value = C_Debug_LongName_Name;
+				} else {
+					Result.ClubName.Controls.Label_Name.Value = TL::Compose(Result.ClubName.TextCompose, C_Debug_LongName_Name);
+				}
+			} else if (Result.ClubName.TextCompose != "") {
+				Result.ClubName.Controls.Label_Name.Value = TL::Compose(Result.ClubName.TextCompose, Result.ClubName.ClubInfo.Name);
+			} else {
+				Result.ClubName.Controls.Label_Name.Value = Result.ClubName.ClubInfo.Name;
+			}
+			if (
+				C_EnableRecommandedWidthWarning &&
+				!Result.ClubName.RecommandedWidthWarningDisplayed &&
+				Result.ClubName.Size.X < C_MinimumRecommandedWidth + C_MarginBetweenNameAndLogo + Result.ClubName.Controls.Quad_VerifiedIcon.Size.X
+			) {
+				Result.ClubName.RecommandedWidthWarningDisplayed = True;
+				log("WARNING "^Result.ClubName.Controls.ClubName_Component.ControlId^Result.ClubName.Controls.ClubName_Component.Id^" is too narrow to display the longest club names. A width of at least "^C_MinimumRecommandedWidth + C_MarginBetweenNameAndLogo + Result.ClubName.Controls.Quad_VerifiedIcon.Size.X^" is recommanded (currently: "^Result.ClubName.Size.X^").");
+			}
+
+			Result.ClubName.Controls.Label_Name.RelativePosition_V3.Y = Result.ClubName.Size.Y * -0.5;
+
+			declare Real StepSize = (Result.ClubName.TextSize - C_NameTextSizeMin) / Tools::C_FitLabelMaxSteps;
+			Tools::FitLabelValue(Result.ClubName.Controls.Label_Name, Result.ClubName.TextSize, C_NameTextSizeMin, StepSize);
+		}
+		declare Boolean Translated = (Result.ClubName.TextCompose != ""); // label needs to be translated only if we have a text compose
+		declare Real NameWidth = ML::Min(
+			Result.ClubName.Controls.Label_Name.Size.X,
+			Result.ClubName.Controls.Label_Name.ComputeWidth(Result.ClubName.Controls.Label_Name.Value, Translated)
+		);
+
+		// Align the verified icon at the end of the club name
+		Result.ClubName.Controls.Frame_VerifiedIcon.RelativePosition_V3 = <NameWidth + C_MarginBetweenNameAndLogo, Result.ClubName.Size.Y * -0.5>;
+
+		// Send a width update event
+		if (Result.ClubName.Controls.Frame_VerifiedIcon.Visible) {
+			Result.ClubName.Width = NameWidth + C_MarginBetweenNameAndLogo + Result.ClubName.Controls.Quad_VerifiedIcon.Size.X;
+		} else {
+			Result.ClubName.Width = NameWidth;
+		}
+		Result.State.DelayedPendingEvents.add(K_Event {
+			Type = C_EventType_WidthUpdate,
+			ClubName = Result.ClubName.Controls.ClubName_Component
+		});
+	}
+
+	if (
+		SizeUpdated ||
+		Result.ClubName.Dirty.exists(C_Property_HAlign) ||
+		Result.ClubName.Dirty.exists(C_Property_VAlign)
+	) {
+		Tools::AlignFrame(
+			Result.ClubName.Controls.Frame_Align,
+			<Result.ClubName.Width, Result.ClubName.Size.Y>,
+			Result.ClubName.HAlign,
+			Result.ClubName.VAlign
+		);
+	}
+
+	if (
+		Result.ClubName.Dirty.exists(C_Property_TextColor) ||
+		Result.ClubName.Dirty.exists(C_Property_Name)
+	) {
+		Result.ClubName.Controls.Label_Name.TextColor = Result.ClubName.TextColor;
+	}
+
+	if (Result.ClubName.Dirty.exists(C_Property_Opacity)) {
+		if (Result.ClubName.OpacityAnimDuration > 0) {
+			AnimDuration = ML::Max(C_Anim_Instant, Result.ClubName.OpacityAnimDuration);
+		} else {
+			AnimDuration = C_Anim_Instant;
+		}
+	}
+
+	if (AnimDuration == C_Anim_Instant) {
+		_This.AnimMgr.Flush(Result.ClubName.Controls.Label_Name);
+		Result.ClubName.Controls.Label_Name.Opacity = Result.ClubName.Opacity;
+	} else if (AnimDuration > C_Anim_Instant) {
+		_This.AnimMgr.Flush(Result.ClubName.Controls.Label_Name);
+		_This.AnimMgr.Add(
+			Result.ClubName.Controls.Label_Name,
+			"""<a opacity="{{{Result.ClubName.Opacity}}}"/>""",
+			AnimDuration,
+			CAnimManager::EAnimManagerEasing::QuadOut
+		);
+	}
+
+	Result.ClubName.Dirty = [];
+
+	return Result;
+}
+
+/// Set the size of the component
+K_ClubName Private_SetSize(K_ClubName _ClubName, Vec2 _Size) {
+	declare Vec2 NewSize = <ML::Max(0., _Size.X), ML::Max(0., _Size.Y)>;
+	if (NewSize == _ClubName.Size) return _ClubName;
+	declare K_ClubName ClubName = _ClubName;
+	ClubName.Size = NewSize;
+	ClubName.RecommandedWidthWarningDisplayed = False;
+	if (!ClubName.Dirty.exists(C_Property_Size)) {
+		ClubName.Dirty.add(C_Property_Size);
+	}
+	return ClubName;
+}
+
+/// Set horizontal alignment
+K_ClubName Private_SetHAlign(K_ClubName _ClubName, CMlControl::AlignHorizontal _HAlign) {
+	if (_HAlign == _ClubName.HAlign) return _ClubName;
+	declare K_ClubName ClubName = _ClubName;
+	ClubName.HAlign = _HAlign;
+	if (!ClubName.Dirty.exists(C_Property_HAlign)) {
+		ClubName.Dirty.add(C_Property_HAlign);
+	}
+	return ClubName;
+}
+
+/// Set vertical alignment
+K_ClubName Private_SetVAlign(K_ClubName _ClubName, CMlControl::AlignVertical _VAlign) {
+	if (_VAlign == _ClubName.VAlign) return _ClubName;
+	declare K_ClubName ClubName = _ClubName;
+	ClubName.VAlign = _VAlign;
+	if (!ClubName.Dirty.exists(C_Property_VAlign)) {
+		ClubName.Dirty.add(C_Property_VAlign);
+	}
+	return ClubName;
+}
+
+/// Set the name of the club
+K_ClubName Private_SetName(K_ClubName _ClubName, Text _Name, Boolean _IsVerified) {
+	declare K_ClubName ClubName = _ClubName;
+
+	ClubName.ClubInfo = K_ClubInfo {
+		Name = _Name,
+		IsVerified = _IsVerified
+	};
+
+	if (!ClubName.Dirty.exists(C_Property_Name)) {
+		ClubName.Dirty.add(C_Property_Name);
+	}
+	return ClubName;
+}
+
+/// Set labels opacity
+K_ClubName Private_SetOpacity(K_ClubName _ClubName, Real _Opacity, Integer _AnimDuration) {
+	if (_Opacity == _ClubName.Opacity) return _ClubName;
+	declare K_ClubName ClubName = _ClubName;
+	ClubName.Opacity = _Opacity;
+	ClubName.OpacityAnimDuration = _AnimDuration;
+	if (!ClubName.Dirty.exists(C_Property_Opacity)) {
+		ClubName.Dirty.add(C_Property_Opacity);
+	}
+	return ClubName;
+}
+
+/// Set labels text size
+K_ClubName Private_SetTextSize(K_ClubName _ClubName, Real _TextSize) {
+	if (_TextSize == _ClubName.TextSize) return _ClubName;
+	declare K_ClubName ClubName = _ClubName;
+	ClubName.TextSize = ML::Max(C_NameTextSizeMin, _TextSize);
+	if (!ClubName.Dirty.exists(C_Property_TextSize)) {
+		ClubName.Dirty.add(C_Property_TextSize);
+	}
+	return ClubName;
+}
+
+/// Set labels text font
+K_ClubName Private_SetTextFont(K_ClubName _ClubName, Text _TextFont) {
+	if (_TextFont == _ClubName.TextFont) return _ClubName;
+	declare K_ClubName ClubName = _ClubName;
+	ClubName.TextFont = _TextFont;
+	if (!ClubName.Dirty.exists(C_Property_TextFont)) {
+		ClubName.Dirty.add(C_Property_TextFont);
+	}
+	return ClubName;
+}
+
+/// Set the prefix of the club name's label
+K_ClubName Private_SetTextPrefix(K_ClubName _ClubName, Text _TextPrefix) {
+	if (_TextPrefix == _ClubName.TextPrefix) return _ClubName;
+	declare K_ClubName ClubName = _ClubName;
+	ClubName.TextPrefix = _TextPrefix;
+	if (!ClubName.Dirty.exists(C_Property_TextPrefix)) {
+		ClubName.Dirty.add(C_Property_TextPrefix);
+	}
+	return ClubName;
+}
+
+/// Set labels color
+K_ClubName Private_SetTextColor(K_ClubName _ClubName, Vec3 _TextColor) {
+	if (_TextColor == _ClubName.TextColor) return _ClubName;
+	declare K_ClubName ClubName = _ClubName;
+	ClubName.TextColor = _TextColor;
+	if (!ClubName.Dirty.exists(C_Property_TextColor)) {
+		ClubName.Dirty.add(C_Property_TextColor);
+	}
+	return ClubName;
+}
+
+///  Set the club name with a text compose
+K_ClubName Private_SetTextCompose(K_ClubName _ClubName, Text _TextCompose) {
+	if (_TextCompose == _ClubName.TextCompose) return _ClubName;
+	declare K_ClubName ClubName = _ClubName;
+	ClubName.TextCompose = _TextCompose;
+	if (!ClubName.Dirty.exists(C_Property_TextCompose)) {
+		ClubName.Dirty.add(C_Property_TextCompose);
+	}
+	return ClubName;
+}
+
+/// Initialize the component
+Void Private_InitializeClubName(CMlScript _This, CMlFrame _Frame_ClubName) {
+	assert(_Frame_ClubName.DataAttributeExists("size"), "The ClubName component '"^_Frame_ClubName.ControlId^_Frame_ClubName.Id^"' must have its 'data-size' attribute set");
+
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	CMGame_ClubName_ClubName = C_ClubName_Null;
+
+	CMGame_ClubName_ClubName.Controls = K_Controls {
+		ClubName_Component = _Frame_ClubName,
+		Frame_Align = (_Frame_ClubName.GetFirstChild(C_Id_FrameAlign) as CMlFrame),
+		Frame_VerifiedIcon = (_Frame_ClubName.GetFirstChild(C_Id_FrameVerifiedIcon) as CMlFrame),
+		Label_Name = (_Frame_ClubName.GetFirstChild(C_Id_LabelName) as CMlLabel),
+		Quad_VerifiedIcon = (_Frame_ClubName.GetFirstChild(C_Id_QuadVerifiedIcon) as CMlQuad),
+		Quad_VerifiedIconShadow = (_Frame_ClubName.GetFirstChild(C_Id_QuadVerifiedIconShadow) as CMlQuad)
+	};
+
+	CMGame_ClubName_ClubName = Private_SetSize(CMGame_ClubName_ClubName, Tools::TextToVec2(_Frame_ClubName.DataAttributeGet("size")));
+	if (_Frame_ClubName.DataAttributeExists("halign")) {
+		CMGame_ClubName_ClubName = Private_SetHAlign(CMGame_ClubName_ClubName, Tools::TextToHAlign2(_Frame_ClubName.DataAttributeGet("halign")));
+	}
+	if (_Frame_ClubName.DataAttributeExists("valign")) {
+		CMGame_ClubName_ClubName = Private_SetVAlign(CMGame_ClubName_ClubName, Tools::TextToVAlign2(_Frame_ClubName.DataAttributeGet("valign")));
+	}
+	if (_Frame_ClubName.DataAttributeExists("opacity")) {
+		CMGame_ClubName_ClubName = Private_SetOpacity(CMGame_ClubName_ClubName, TL::ToReal(_Frame_ClubName.DataAttributeGet("opacity")), 0);
+	}
+	if (_Frame_ClubName.DataAttributeExists("textsize")) {
+		CMGame_ClubName_ClubName = Private_SetTextSize(CMGame_ClubName_ClubName, TL::ToReal(_Frame_ClubName.DataAttributeGet("textsize")));
+	}
+	if (_Frame_ClubName.DataAttributeExists("textfont")) {
+		CMGame_ClubName_ClubName = Private_SetTextFont(CMGame_ClubName_ClubName, _Frame_ClubName.DataAttributeGet("textfont"));
+	}
+	if (_Frame_ClubName.DataAttributeExists("textprefix")) {
+		CMGame_ClubName_ClubName = Private_SetTextPrefix(CMGame_ClubName_ClubName, _Frame_ClubName.DataAttributeGet("textprefix"));
+	}
+	if (_Frame_ClubName.DataAttributeExists("textcolor")) {
+		CMGame_ClubName_ClubName = Private_SetTextColor(CMGame_ClubName_ClubName, CL::HexToRgb(_Frame_ClubName.DataAttributeGet("textcolor")));
+	}
+	if (_Frame_ClubName.DataAttributeExists("textcompose")) {
+		CMGame_ClubName_ClubName = Private_SetTextCompose(CMGame_ClubName_ClubName, _Frame_ClubName.DataAttributeGet("textcompose"));
+	}
+
+	CMGame_ClubName_ClubName.IsInitialized = True;
+
+	declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+	declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+	CMGame_ClubName_State = Result.State;
+	CMGame_ClubName_ClubName = Result.ClubName;
+}
+
+/// Initialize the component script
+Void Private_MainInit(CMlScript _This) {
+	declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+	CMGame_ClubName_State = C_State_Null;
+	_This.Page.GetClassChildren(C_Class_ClubName, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_ClubName = (Control as CMlFrame).Parent;
+		Private_InitializeClubName(_This, Frame_ClubName);
+	}
+}
+
+/// Loop of the component
+Void Private_MainLoop(CMlScript _This) {
+	declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+	CMGame_ClubName_State.PendingEvents = CMGame_ClubName_State.DelayedPendingEvents;
+	CMGame_ClubName_State.DelayedPendingEvents = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/ClubName.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}Private_MainInit(This);
+***
+
+***MainLoop***
+***
+{{{P}}}Private_MainLoop(This);
+***
+		""",
+		[],
+		[]
+	);
+}
+
+/// Check that the component is initialized
+Boolean IsClubName(CMlControl _Control) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Control = C_ClubName_Null;
+	return CMGame_ClubName_ClubName.IsInitialized;
+}
+
+/// Create a club info object from the given parameters
+K_ClubInfo GetClubInfo(Text _Name, Boolean _IsVerified) {
+	return K_ClubInfo {
+		Name = _Name,
+		IsVerified = _IsVerified
+	};
+}
+
+/// Get component pending events
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+	return CMGame_ClubName_State.PendingEvents;
+}
+
+/// Read the club name if the TTS feature is enabled
+Void TTS_Focus(CMlFrame _Frame_ClubName) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName.Controls.Label_Name.TTS_Focus();
+}
+Void TTS_Unfocus(CMlFrame _Frame_ClubName) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName.Controls.Label_Name.TTS_Unfocus();
+}
+
+/// Redraw the component (apply style, size, ...)
+Void Redraw(CMlScript _This, CMlFrame _Frame_ClubName) {
+	declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+	CMGame_ClubName_State = Result.State;
+	CMGame_ClubName_ClubName = Result.ClubName;
+}
+
+/// Set the size of the component
+Void SetSize(CMlScript _This, CMlFrame _Frame_ClubName, Vec2 _Size, Boolean _Redraw) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName = Private_SetSize(CMGame_ClubName_ClubName, _Size);
+	if (_Redraw) {
+		declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+		declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+		CMGame_ClubName_State = Result.State;
+		CMGame_ClubName_ClubName = Result.ClubName;
+	}
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_ClubName, Vec2 _Size) {
+	SetSize(_This, _Frame_ClubName, _Size, True);
+}
+
+/// Set horizontal alignment
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_ClubName, CMlControl::AlignHorizontal _HAlign, Boolean _Redraw) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName = Private_SetHAlign(CMGame_ClubName_ClubName, _HAlign);
+	if (_Redraw) {
+		declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+		declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+		CMGame_ClubName_State = Result.State;
+		CMGame_ClubName_ClubName = Result.ClubName;
+	}
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_ClubName, CMlControl::AlignHorizontal _HAlign) {
+	SetHAlign(_This, _Frame_ClubName, _HAlign, True);
+}
+
+/// Set vertical alignment
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_ClubName, CMlControl::AlignVertical _VAlign, Boolean _Redraw) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName = Private_SetVAlign(CMGame_ClubName_ClubName, _VAlign);
+	if (_Redraw) {
+		declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+		declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+		CMGame_ClubName_State = Result.State;
+		CMGame_ClubName_ClubName = Result.ClubName;
+	}
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_ClubName, CMlControl::AlignVertical _VAlign) {
+	SetVAlign(_This, _Frame_ClubName, _VAlign, True);
+}
+
+/// Set club information
+Void SetClubInfo(CMlScript _This, CMlFrame _Frame_ClubName, K_ClubInfo _ClubInfo, Boolean _Redraw) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName = Private_SetName(CMGame_ClubName_ClubName, _ClubInfo.Name, _ClubInfo.IsVerified);
+	if (_Redraw) {
+		declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+		declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+		CMGame_ClubName_State = Result.State;
+		CMGame_ClubName_ClubName = Result.ClubName;
+	}
+}
+Void SetClubInfo(CMlScript _This, CMlFrame _Frame_ClubName, K_ClubInfo _ClubInfo) {
+	SetClubInfo(_This, _Frame_ClubName, _ClubInfo, True);
+}
+
+/// Set the name of the club
+Void SetName(CMlScript _This, CMlFrame _Frame_ClubName, Text _Name, Boolean _IsVerified, Boolean _Redraw) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName = Private_SetName(CMGame_ClubName_ClubName, _Name, _IsVerified);
+	if (_Redraw) {
+		declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+		declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+		CMGame_ClubName_State = Result.State;
+		CMGame_ClubName_ClubName = Result.ClubName;
+	}
+}
+Void SetName(CMlScript _This, CMlFrame _Frame_ClubName, Text _Name, Boolean _IsVerified) {
+	SetName(_This, _Frame_ClubName, _Name, _IsVerified, True);
+}
+
+/// Set labels opacity
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ClubName, Real _Opacity, Integer _AnimDuration, Boolean _Redraw) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName = Private_SetOpacity(CMGame_ClubName_ClubName, _Opacity, _AnimDuration);
+	if (_Redraw) {
+		declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+		declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+		CMGame_ClubName_State = Result.State;
+		CMGame_ClubName_ClubName = Result.ClubName;
+	}
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ClubName, Real _Opacity, Integer _AnimDuration) {
+	SetOpacity(_This, _Frame_ClubName, _Opacity, _AnimDuration, True);
+}
+Void SetOpacity(CMlScript _This, CMlFrame _Frame_ClubName, Real _Opacity) {
+	SetOpacity(_This, _Frame_ClubName, _Opacity, 0, True);
+}
+
+/// Set labels text size
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_ClubName, Real _TextSize, Boolean _Redraw) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName = Private_SetTextSize(CMGame_ClubName_ClubName, _TextSize);
+	if (_Redraw) {
+		declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+		declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+		CMGame_ClubName_State = Result.State;
+		CMGame_ClubName_ClubName = Result.ClubName;
+	}
+}
+Void SetTextSize(CMlScript _This, CMlFrame _Frame_ClubName, Real _TextSize) {
+	SetTextSize(_This, _Frame_ClubName, _TextSize, True);
+}
+
+/// Set labels text font
+Void SetTextFont(CMlScript _This, CMlFrame _Frame_ClubName, Text _TextFont, Boolean _Redraw) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName = Private_SetTextFont(CMGame_ClubName_ClubName, _TextFont);
+	if (_Redraw) {
+		declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+		declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+		CMGame_ClubName_State = Result.State;
+		CMGame_ClubName_ClubName = Result.ClubName;
+	}
+}
+Void SetTextFont(CMlScript _This, CMlFrame _Frame_ClubName, Text _TextFont) {
+	SetTextFont(_This, _Frame_ClubName, _TextFont, True);
+}
+
+/// Set the prefix of the club name's label
+Void SetTextPrefix(CMlScript _This, CMlFrame _Frame_ClubName, Text _TextPrefix, Boolean _Redraw) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName = Private_SetTextPrefix(CMGame_ClubName_ClubName, _TextPrefix);
+	if (_Redraw) {
+		declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+		declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+		CMGame_ClubName_State = Result.State;
+		CMGame_ClubName_ClubName = Result.ClubName;
+	}
+}
+Void SetTextPrefix(CMlScript _This, CMlFrame _Frame_ClubName, Text _TextPrefix) {
+	SetTextPrefix(_This, _Frame_ClubName, _TextPrefix, True);
+}
+
+/// Set labels color
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_ClubName, Vec3 _TextColor, Boolean _Redraw) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName = Private_SetTextColor(CMGame_ClubName_ClubName, _TextColor);
+	if (_Redraw) {
+		declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+		declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+		CMGame_ClubName_State = Result.State;
+		CMGame_ClubName_ClubName = Result.ClubName;
+	}
+}
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_ClubName, Text _TextColor, Boolean _Redraw) {
+	SetTextColor(_This, _Frame_ClubName, CL::HexToRgb(_TextColor), _Redraw);
+}
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_ClubName, Vec3 _TextColor) {
+	SetTextColor(_This, _Frame_ClubName, _TextColor, True);
+}
+Void SetTextColor(CMlScript _This, CMlFrame _Frame_ClubName, Text _TextColor) {
+	SetTextColor(_This, _Frame_ClubName, CL::HexToRgb(_TextColor));
+}
+
+/// Set the club name with a text compose
+Void SetTextCompose(CMlScript _This, CMlFrame _Frame_ClubName, Text _TextCompose, Boolean _Redraw) {
+	declare K_ClubName CMGame_ClubName_ClubName for _Frame_ClubName = C_ClubName_Null;
+	Private_AssertValidComponent(_Frame_ClubName, CMGame_ClubName_ClubName);
+	CMGame_ClubName_ClubName = Private_SetTextCompose(CMGame_ClubName_ClubName, _TextCompose);
+	if (_Redraw) {
+		declare K_State CMGame_ClubName_State for _This.Page = C_State_Null;
+		declare K_Result Result = Private_Redraw(_This, CMGame_ClubName_State, CMGame_ClubName_ClubName);
+		CMGame_ClubName_State = Result.State;
+		CMGame_ClubName_ClubName = Result.ClubName;
+	}
+}
+Void SetTextCompose(CMlScript _This, CMlFrame _Frame_ClubName, Text _TextCompose) {
+	SetTextCompose(_This, _Frame_ClubName, _TextCompose, True);
+}

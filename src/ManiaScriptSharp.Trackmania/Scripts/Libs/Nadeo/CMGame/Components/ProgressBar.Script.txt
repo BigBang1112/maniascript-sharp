@@ -1,0 +1,779 @@
+/**
+ * Component: ProgressBar
+ * ======================
+ *
+ * Parameters
+ * ----------
+ * - `data-size` (`Vec2`): size of the progress bar.
+ * - `data-halign` (`Text`): horizontal alignment of the component.
+ *      Can be `left`, `center` or `right`.
+ * - `data-valign` (`Text`): vertical alignment of the component.
+ *      Can be `top`, `center` or `bottom`.
+ * - `data-levels-info` (`Text`): define leveling information.
+ * - `data-levels-offset` (`Vec2`): add a two dimensionnal offset to the default position of the current and next levels frames.
+ * - `data-levels-textcolor` (`Text`): text color of the current and next levels labels.
+ * - `data-levels-textsize` (`Real`): text size of the current and next levels labels.
+ * - `data-ratio-offset` (`Real`): add a two dimensionnal offset to the default position of the ratio label.
+ * - `data-ratio-textcolor` (`Text`): text color of the ratio label.
+ * - `data-ratio-textsize` (`Real`): text size of the ratio label.
+ * - `data-styles` (`Text`): styles to apply to the component, new styles can be created with the `CreateStyle()` function.
+ *      When several styles are applied to a component, the styles are merged together with the properties.
+ *      of the latest style overriding the properties of the earlier ones.
+ *      For example if "style-a" is `{ A = 1, B = 2, C = 3 }`, "style-b" is `{ A = 11 , C = 33}` and
+ *      "style-c" is `{ A = 111 }` and we set the component style to `"style-a style-b style-c"`
+ *      then the applied properties will be `{ A = 111, B = 2, C = 33 }`.
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/ProgressBar.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "ColorLib" as CL
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Event {
+	Integer Type;
+	Boolean IsVisible;
+}
+
+#Struct K_Level {
+	Integer RequiredXP;
+	Text ImageUrl;
+}
+
+#Struct K_Controls {
+	CMlFrame Frame_Align;
+	CMlFrame Frame_CurrentLevel;
+	CMlFrame Frame_NextLevel;
+	CMlFrame Frame_ProgressBar;
+	CMlFrame Frame_ProgressBarClip;
+	CMlLabel Label_CurrentLevel;
+	CMlLabel Label_Level;
+	CMlLabel Label_NextLevel;
+	CMlLabel Label_RatioXP;
+	CMlQuad Quad_CurrentLevel;
+	CMlQuad Quad_Level;
+	CMlQuad Quad_NextLevel;
+	CMlQuad Quad_ProgressBarBackground;
+	CMlQuad Quad_ProgressBarXP;
+}
+
+#Struct K_Properties {
+	Integer[] Enabled;
+	Vec2 Size;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	K_Level[] LevelsInfo;
+	Vec2 LevelsOffset;
+	Vec3 LevelsTextColor;
+	Real LevelsTextSize;
+	Vec2 RatioOffset;
+	Vec3 RatioTextColor;
+	Real RatioTextSize;
+	Integer CurrentXP;
+}
+
+#Struct K_ProgressBar {
+	K_Controls Controls;
+	K_Properties CustomizedProperties;
+	K_Properties MergedProperties;
+	Text[] Styles;
+}
+
+#Struct K_State {
+	K_Event[] PendingEvents;
+	K_Properties DefaultProperties;
+	K_Properties[Text] Styles;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "component-cmgame-progress-bar" // Component name
+#Const C_Class_ProgressBar "class-cmgame-progress-bar"
+#Const P "CMGame_ProgressBar::" // Prefix use to differentiate functions/variables in the script
+#Const Q "CMGame_ProgressBar"
+
+#Const C_ProgressBar_Null K_ProgressBar {
+	Controls = K_Controls {},
+	CustomizedProperties = K_Properties {
+		Enabled = []
+	},
+	MergedProperties = K_Properties {
+		Enabled = []
+	},
+	Styles = []
+}
+#Const C_State_Null K_State {
+	PendingEvents = [],
+	DefaultProperties = K_Properties {
+		Enabled = []
+	},
+	Styles = []
+}
+
+#Const C_Properties_Default K_Properties {
+	Size = <70., 6.>,
+	HAlign = CMlControl::AlignHorizontal::HCenter,
+	VAlign = CMlControl::AlignVertical::VCenter,
+	LevelsInfo = [ K_Level { RequiredXP = 200 } ],
+	LevelsTextColor = <1., 1., 1.>,
+	LevelsTextSize = 3.,
+	LevelsOffset = <2., -0.5>,
+	RatioTextColor = <1., 1., 1.>,
+	RatioTextSize = 2.,
+	RatioOffset = <0., -0.5>,
+	CurrentXP = 0
+}
+
+// Event types
+#Const C_EventType_VisibilityUpdate 0
+
+// The properties indexing must be a continuous sequence starting from 0
+// 0,1,2,3,... not 0,1,3,... for example
+#Const C_Property_Size 0
+#Const C_Property_HAlign 1
+#Const C_Property_VAlign 2
+#Const C_Property_CurrentXP 3
+#Const C_Property_LevelsInfo 4
+#Const C_Property_LevelsOffset 5
+#Const C_Property_LevelsTextColor 6
+#Const C_Property_LevelsTextSize 7
+#Const C_Property_RatioOffset 8
+#Const C_Property_RatioTextColor 9
+#Const C_Property_RatioTextSize 10
+
+// Control ids
+#Const C_Id_FramemodelLevel "cmgame-progress-bar_framemodel-level"
+#Const C_Id_FrameAlign "cmgame-progress-bar_frame-align"
+#Const C_Id_FrameNextLevel "cmgame-progress-bar_frame-next-level"
+#Const C_Id_FrameCurrentLevel "cmgame-progress-bar_frame-Current-level"
+#Const C_Id_FrameProgressBar "cmgame-progress-bar_frame-progress-bar"
+#Const C_Id_FrameProgressBarClip "cmgame-progress-bar_frame-progress-bar-clip"
+#Const C_Id_LabelLevel "cmgame-progress-bar_label-level"
+#Const C_Id_LabelRatioXP "cmgame-progress-bar_label-ratio-xp"
+#Const C_Id_QuadLevel "cmgame-progress-bar_quad-level"
+#Const C_Id_QuadProgressBarBackground "cmgame-progress-bar_quad-progress-bar-background"
+#Const C_Id_QuadProgressBarXP "cmgame-progress-bar_quad-progress-bar-xp"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component's manialink
+Text Private_GetManialink() {
+		return """
+<frame id="{{{C_Id_FrameAlign}}}" class="{{{C_Class_ProgressBar}}}">
+	<frame id="{{{C_Id_FrameCurrentLevel}}}" z-index="1">
+		<label id="{{{C_Id_LabelLevel}}}" halign="right" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textsize="3" z-index="0"/>
+		<quad id="{{{C_Id_QuadLevel}}}" halign="center" valign="center" keepratio="clip" z-index="1"/>
+	</frame>
+	<frame id="{{{C_Id_FrameProgressBar}}}" z-index="0">
+		<frame id="{{{C_Id_FrameProgressBarClip}}}" size="70 6" halign="center" valign="center" z-index="1">
+			<quad id="{{{C_Id_QuadProgressBarBackground}}}" size="70 6" halign="center" valign="center" bgcolor="CCCCCC" z-index="0"/>
+			<quad id="{{{C_Id_QuadProgressBarXP}}}" pos="-30 0" size="70 6" halign="center" valign="center" bgcolor="FFFFFF"/>
+		</frame>
+	</frame>
+	<frame id="{{{C_Id_FrameNextLevel}}}" z-index="1">
+		<label id="{{{C_Id_LabelLevel}}}" halign="left" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textsize="3" z-index="0"/>
+		<quad id="{{{C_Id_QuadLevel}}}" halign="center" valign="center" keepratio="clip" z-index="1"/>
+	</frame>
+	<label id="{{{C_Id_LabelRatioXP}}}" size="70 6" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textsize="2"/>
+</frame>
+""";
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the given frame is an instance of the componnet
+Void Private_AssertValidComponent(CMlFrame _Frame_ProgressBar) {
+	assert(
+		_Frame_ProgressBar != Null && _Frame_ProgressBar.Controls.count > 0 && _Frame_ProgressBar.Controls[0].HasClass(C_Class_ProgressBar),
+		"The control '"^_Frame_ProgressBar.ControlId^_Frame_ProgressBar.Id^"' is not a valid ProgressBar component"
+	);
+}
+
+/// Check if the given levels info are correct
+Void Private_AssertValidLevelsInfo(K_Level[] _LevelsInfo) {
+	foreach (Level => LevelInfo in _LevelsInfo) {
+		if (Level < _LevelsInfo.count-1) {
+			assert(
+				LevelInfo.RequiredXP <= _LevelsInfo.get(Level+1, K_Level {}).RequiredXP,
+				"The XP required to reach the level "^Level+2^" must be superior or equal to the XP required to reach the level "^Level+1^"."
+			);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable a property
+Integer[] Private_EnableProperty(Integer[] _EnabledProperties, Integer _Property, Boolean _IsEnabled) {
+	declare Integer[] EnabledProperties = _EnabledProperties;
+
+	if (_IsEnabled) {
+		if (!EnabledProperties.exists(_Property)) {
+			EnabledProperties.add(_Property);
+		}
+	} else {
+		EnabledProperties.remove(_Property);
+	}
+
+	return EnabledProperties;
+}
+
+/// Set and enable a property
+K_Properties Private_SetProperty(K_Properties _TargetProperties, Integer _PropertyId, K_Properties _SourceProperties) {
+	declare K_Properties Properties = _TargetProperties;
+
+	Properties.Enabled = Private_EnableProperty(Properties.Enabled, _PropertyId, True);
+
+	switch (_PropertyId) {
+		case C_Property_Size: Properties.Size = _SourceProperties.Size;
+		case C_Property_HAlign: Properties.HAlign = _SourceProperties.HAlign;
+		case C_Property_VAlign: Properties.VAlign = _SourceProperties.VAlign;
+		case C_Property_CurrentXP: Properties.CurrentXP = _SourceProperties.CurrentXP;
+		case C_Property_LevelsInfo: Properties.LevelsInfo = _SourceProperties.LevelsInfo;
+		case C_Property_LevelsOffset: Properties.LevelsOffset = _SourceProperties.LevelsOffset;
+		case C_Property_LevelsTextColor: Properties.LevelsTextColor = _SourceProperties.LevelsTextColor;
+		case C_Property_LevelsTextSize: Properties.LevelsTextSize = _SourceProperties.LevelsTextSize;
+		case C_Property_RatioOffset: Properties.RatioOffset = _SourceProperties.RatioOffset;
+		case C_Property_RatioTextColor: Properties.RatioTextColor = _SourceProperties.RatioTextColor;
+		case C_Property_RatioTextSize: Properties.RatioTextSize = _SourceProperties.RatioTextSize;
+	}
+
+	return Properties;
+}
+
+/// Merge a base properties struct with other enabled properties
+K_Properties Private_MergeProperties(K_Properties _Base, K_Properties[] _PropertiesToMerge) {
+	declare K_Properties MergedProperties = _Base;
+
+	foreach (Properties in _PropertiesToMerge) {
+		foreach (PropertyId in Properties.Enabled) {
+			MergedProperties = Private_SetProperty(MergedProperties, PropertyId, Properties);
+		}
+	}
+
+	return MergedProperties;
+}
+
+/// Redraw the component (apply style, size, ...)
+K_ProgressBar Private_RedrawProgressBar(CMlScript _This, K_ProgressBar _ProgressBar) {
+	declare K_ProgressBar ProgressBar = _ProgressBar;
+	declare K_State CMGame_ProgressBar_State for _This.Page = C_State_Null;
+
+	// Merge properties
+	declare K_Properties[] PropertiesToMerge = [CMGame_ProgressBar_State.DefaultProperties];
+	foreach (Style in ProgressBar.Styles) {
+		PropertiesToMerge.add(CMGame_ProgressBar_State.Styles.get(Style, K_Properties {}));
+	}
+	PropertiesToMerge.add(ProgressBar.CustomizedProperties);
+	ProgressBar.MergedProperties = Private_MergeProperties(C_Properties_Default, PropertiesToMerge);
+
+	// Update levels info
+	declare Real LevelRatio = 1.;
+	foreach (NextLevel => NextLevelInfo in ProgressBar.MergedProperties.LevelsInfo) {
+		if (ProgressBar.MergedProperties.CurrentXP < NextLevelInfo.RequiredXP || NextLevel == ProgressBar.MergedProperties.LevelsInfo.count-1) {
+			declare K_Level CurrentLevelInfo = ProgressBar.MergedProperties.LevelsInfo.get(Tools::Ternary(NextLevel > 0, NextLevel-1, ProgressBar.MergedProperties.LevelsInfo.count), K_Level {});
+			ProgressBar.Controls.Label_CurrentLevel.SetText(""^NextLevel);
+			ProgressBar.Controls.Label_NextLevel.SetText(""^NextLevel+1);
+			ProgressBar.Controls.Label_CurrentLevel.Visible = CurrentLevelInfo.ImageUrl == "";
+			ProgressBar.Controls.Label_NextLevel.Visible = NextLevelInfo.ImageUrl == "";
+			ProgressBar.Controls.Quad_CurrentLevel.ChangeImageUrl(CurrentLevelInfo.ImageUrl);
+			ProgressBar.Controls.Quad_NextLevel.ChangeImageUrl(NextLevelInfo.ImageUrl);
+			ProgressBar.Controls.Label_RatioXP.SetText(TL::Compose("%1/%2", ""^ProgressBar.MergedProperties.CurrentXP, ""^NextLevelInfo.RequiredXP));
+			if (NextLevelInfo.RequiredXP - CurrentLevelInfo.RequiredXP != 0) {
+				LevelRatio = ML::Clamp(ML::ToReal(ProgressBar.MergedProperties.CurrentXP - CurrentLevelInfo.RequiredXP) / ML::ToReal(NextLevelInfo.RequiredXP - CurrentLevelInfo.RequiredXP), 0., 1.);
+			}
+			break;
+		}
+	}
+
+	// Update positions
+	ProgressBar.Controls.Frame_CurrentLevel.RelativePosition_V3 = <-0.5*ProgressBar.MergedProperties.Size.X - ProgressBar.MergedProperties.LevelsOffset.X, ProgressBar.MergedProperties.LevelsOffset.Y>;
+	ProgressBar.Controls.Frame_NextLevel.RelativePosition_V3 = <0.5*ProgressBar.MergedProperties.Size.X + ProgressBar.MergedProperties.LevelsOffset.X, ProgressBar.MergedProperties.LevelsOffset.Y>;
+	ProgressBar.Controls.Label_RatioXP.RelativePosition_V3 = ProgressBar.MergedProperties.RatioOffset;
+	ProgressBar.Controls.Quad_ProgressBarXP.RelativePosition_V3 = <(LevelRatio-1)*ProgressBar.MergedProperties.Size.X, 0.>;
+
+	// Update sizes
+	ProgressBar.Controls.Label_RatioXP.Size = ProgressBar.MergedProperties.Size;
+	ProgressBar.Controls.Frame_ProgressBarClip.Size = ProgressBar.MergedProperties.Size;
+	ProgressBar.Controls.Quad_ProgressBarBackground.Size = ProgressBar.MergedProperties.Size;
+	ProgressBar.Controls.Quad_ProgressBarXP.Size = ProgressBar.MergedProperties.Size;
+	ProgressBar.Controls.Quad_NextLevel.Size = <ProgressBar.MergedProperties.Size.Y, ProgressBar.MergedProperties.Size.Y>;
+	ProgressBar.Controls.Quad_CurrentLevel.Size = <ProgressBar.MergedProperties.Size.Y, ProgressBar.MergedProperties.Size.Y>;
+
+	// Update other text properties
+	ProgressBar.Controls.Label_CurrentLevel.TextColor = ProgressBar.MergedProperties.LevelsTextColor;
+	ProgressBar.Controls.Label_CurrentLevel.TextSizeReal = ProgressBar.MergedProperties.LevelsTextSize;
+	ProgressBar.Controls.Label_NextLevel.TextColor = ProgressBar.MergedProperties.LevelsTextColor;
+	ProgressBar.Controls.Label_NextLevel.TextSizeReal = ProgressBar.MergedProperties.LevelsTextSize;
+	ProgressBar.Controls.Label_RatioXP.TextColor = ProgressBar.MergedProperties.RatioTextColor;
+	ProgressBar.Controls.Label_RatioXP.TextSizeReal = ProgressBar.MergedProperties.RatioTextSize;
+
+	// Align the component
+	Tools::Align(
+		ProgressBar.Controls.Frame_Align,
+		ProgressBar.MergedProperties.Size,
+		ProgressBar.MergedProperties.HAlign,
+		ProgressBar.MergedProperties.VAlign
+	);
+
+	return ProgressBar;
+}
+
+/// Customize a property
+K_ProgressBar Private_SetCustomizedProperty(CMlScript _This, K_ProgressBar _ProgressBar, Integer _PropertyId, K_Properties _Properties, Boolean _IsRedrawRequired) {
+	declare K_ProgressBar ProgressBar = _ProgressBar;
+	ProgressBar.CustomizedProperties = Private_SetProperty(ProgressBar.CustomizedProperties, _PropertyId, _Properties);
+	if (_IsRedrawRequired) ProgressBar = Private_RedrawProgressBar(_This, ProgressBar);
+	return ProgressBar;
+}
+
+/// Reset a customized property
+K_ProgressBar Private_ResetCustomizedProperty(CMlScript _This, K_ProgressBar _ProgressBar, Integer _PropertyId, Boolean _IsRedrawRequired) {
+	declare K_ProgressBar ProgressBar = _ProgressBar;
+	ProgressBar.CustomizedProperties.Enabled = Private_EnableProperty(ProgressBar.CustomizedProperties.Enabled, _PropertyId, False);
+	if (_IsRedrawRequired) ProgressBar = Private_RedrawProgressBar(_This, ProgressBar);
+	return ProgressBar;
+}
+
+/// Initialize the component
+Void Private_InitializeProgressBar(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	declare CMlFrame Frame_CurrentLevel = (_Frame_ProgressBar.GetFirstChild(C_Id_FrameCurrentLevel) as CMlFrame);
+	declare CMlFrame Frame_NextLevel = (_Frame_ProgressBar.GetFirstChild(C_Id_FrameNextLevel) as CMlFrame);
+
+	CMGame_ProgressBar = K_ProgressBar {
+		Controls = K_Controls {
+			Frame_Align = (_Frame_ProgressBar.GetFirstChild(C_Id_FrameAlign) as CMlFrame),
+			Frame_CurrentLevel = Frame_CurrentLevel,
+			Frame_NextLevel = Frame_NextLevel,
+			Frame_ProgressBar = (_Frame_ProgressBar.GetFirstChild(C_Id_FrameProgressBar) as CMlFrame),
+			Frame_ProgressBarClip = (_Frame_ProgressBar.GetFirstChild(C_Id_FrameProgressBarClip) as CMlFrame),
+			Label_CurrentLevel = (Frame_CurrentLevel.GetFirstChild(C_Id_LabelLevel) as CMlLabel),
+			Label_Level = (_Frame_ProgressBar.GetFirstChild(C_Id_LabelLevel) as CMlLabel),
+			Label_NextLevel = (Frame_NextLevel.GetFirstChild(C_Id_LabelLevel) as CMlLabel),
+			Label_RatioXP = (_Frame_ProgressBar.GetFirstChild(C_Id_LabelRatioXP) as CMlLabel),
+			Quad_CurrentLevel = (Frame_CurrentLevel.GetFirstChild(C_Id_QuadLevel) as CMlQuad),
+			Quad_Level = (_Frame_ProgressBar.GetFirstChild(C_Id_QuadLevel) as CMlQuad),
+			Quad_NextLevel = (Frame_NextLevel.GetFirstChild(C_Id_QuadLevel) as CMlQuad),
+			Quad_ProgressBarBackground = (_Frame_ProgressBar.GetFirstChild(C_Id_QuadProgressBarBackground) as CMlQuad),
+			Quad_ProgressBarXP = (_Frame_ProgressBar.GetFirstChild(C_Id_QuadProgressBarXP) as CMlQuad)
+		}
+	};
+
+	// Set custom properties from data attributes
+	if (_Frame_ProgressBar.DataAttributeExists("size")) {
+		CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_Size, K_Properties { Size = Tools::TextToVec2(_Frame_ProgressBar.DataAttributeGet("size")) }, False);
+	}
+	if (_Frame_ProgressBar.DataAttributeExists("halign")) {
+		CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_HAlign, K_Properties { HAlign = Tools::TextToHAlign2(_Frame_ProgressBar.DataAttributeGet("halign")) }, False);
+	}
+	if (_Frame_ProgressBar.DataAttributeExists("valign")) {
+		CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_VAlign, K_Properties { VAlign = Tools::TextToVAlign2(_Frame_ProgressBar.DataAttributeGet("valign")) }, False);
+	}
+	if (_Frame_ProgressBar.DataAttributeExists("current-xp")) {
+		CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_CurrentXP, K_Properties { CurrentXP = TL::ToInteger(_Frame_ProgressBar.DataAttributeGet("current-xp")) }, False);
+	}
+	if (_Frame_ProgressBar.DataAttributeExists("levels-info")) {
+		declare K_Level[] LevelsInfo;
+		LevelsInfo.fromjson(_Frame_ProgressBar.DataAttributeGet("levels-info"));
+		Private_AssertValidLevelsInfo(LevelsInfo);
+		CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsInfo, K_Properties { LevelsInfo = LevelsInfo }, False);
+	}
+	if (_Frame_ProgressBar.DataAttributeExists("levels-offset")) {
+		CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsOffset, K_Properties { LevelsOffset = Tools::TextToVec2(_Frame_ProgressBar.DataAttributeGet("levels-offset")) }, False);
+	}
+	if (_Frame_ProgressBar.DataAttributeExists("levels-textcolor")) {
+		CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsTextColor, K_Properties { LevelsTextColor = CL::Hex6ToRgb(_Frame_ProgressBar.DataAttributeGet("levels-textcolor")) }, False);
+	}
+	if (_Frame_ProgressBar.DataAttributeExists("levels-textsize")) {
+		CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsTextSize, K_Properties { LevelsTextSize = TL::ToReal(_Frame_ProgressBar.DataAttributeGet("levels-textsize")) }, False);
+	}
+	if (_Frame_ProgressBar.DataAttributeExists("ratio-offset")) {
+		CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_RatioOffset, K_Properties { RatioOffset = Tools::TextToVec2(_Frame_ProgressBar.DataAttributeGet("ratio-offset")) }, False);
+	}
+	if (_Frame_ProgressBar.DataAttributeExists("ratio-textcolor")) {
+		CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_RatioTextColor, K_Properties { RatioTextColor = CL::Hex6ToRgb(_Frame_ProgressBar.DataAttributeGet("ratio-textcolor")) }, False);
+	}
+	if (_Frame_ProgressBar.DataAttributeExists("ratio-textsize")) {
+		CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_RatioTextSize, K_Properties { RatioTextSize = TL::ToReal(_Frame_ProgressBar.DataAttributeGet("ratio-textsize")) }, False);
+	}
+
+	// Redraw the component
+	CMGame_ProgressBar = Private_RedrawProgressBar(_This, CMGame_ProgressBar);
+}
+
+/// Initialize the component script
+Void Private_MainInit(CMlScript _This) {
+	_This.Page.GetClassChildren(C_Class_ProgressBar, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlFrame Frame_ProgressBar = (Control as CMlFrame).Parent;
+		Private_InitializeProgressBar(_This, Frame_ProgressBar);
+	}
+}
+
+/// Loop of the component
+Void Private_MainLoop(CMlScript _This) {
+	declare K_State CMGame_ProgressBar_State for _This.Page = C_State_Null;
+	CMGame_ProgressBar_State.PendingEvents = [];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		Private_GetManialink(),
+		"""
+#Include "Libs/Nadeo/CMGame/Components/ProgressBar.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}Private_MainInit(This);
+***
+
+***MainLoop***
+***
+{{{P}}}Private_MainLoop(This);
+***
+""",
+		[],
+		[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get pending events of the component
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State CMGame_ProgressBar_State for _This.Page = C_State_Null;
+	return CMGame_ProgressBar_State.PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the progress bar is visible or not
+Boolean IsVisible(CMlFrame _Frame_ProgressBar) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	return CMGame_ProgressBar.Controls.Frame_Align.Visible;
+}
+
+/// Show or hide the progress bar
+Void SetVisibility(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsVisible) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	declare K_State CMGame_ProgressBar_State for _This.Page = C_State_Null;
+
+	CMGame_ProgressBar.Controls.Frame_Align.Visible = _IsVisible;
+
+	// Send visibility update event
+	CMGame_ProgressBar_State.PendingEvents.add(K_Event {
+		Type = C_EventType_VisibilityUpdate,
+		IsVisible = CMGame_ProgressBar.Controls.Frame_Align.Visible
+	});
+}
+Void Show(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	SetVisibility(_This, _Frame_ProgressBar, True);
+}
+Void Hide(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	SetVisibility(_This, _Frame_ProgressBar, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the default properties of all progress bars
+Void SetDefaultProperties(CMlScript _This, K_Properties _DefaultProperties, Boolean _IsRedrawRequired) {
+	declare K_State CMGame_ProgressBar_State for _This.Page = C_State_Null;
+	CMGame_ProgressBar_State.DefaultProperties = _DefaultProperties;
+	if (_IsRedrawRequired) {
+		_This.Page.GetClassChildren(C_Class_ProgressBar, _This.Page.MainFrame, True);
+		foreach (Control in _This.Page.GetClassChildren_Result) {
+			declare CMlFrame Frame_ProgressBar = (Control as CMlFrame).Parent;
+			declare K_ProgressBar CMGame_ProgressBar for Frame_ProgressBar = C_ProgressBar_Null;
+			CMGame_ProgressBar = Private_RedrawProgressBar(_This, CMGame_ProgressBar);
+		}
+	}
+}
+Void SetDefaultProperties(CMlScript _This, K_Properties _DefaultProperties) {
+	SetDefaultProperties(_This, _DefaultProperties, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the size of the progress bar
+Void SetSize(CMlScript _This, CMlFrame _Frame_ProgressBar, Vec2 _Size, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_Size, K_Properties { Size = _Size }, _IsRedrawRequired);
+}
+Void SetSize(CMlScript _This, CMlFrame _Frame_ProgressBar, Vec2 _Size) {
+	SetSize(_This, _Frame_ProgressBar, _Size, True);
+}
+Void ResetSize(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_ResetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_Size, _IsRedrawRequired);
+}
+Void ResetSize(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	ResetSize(_This, _Frame_ProgressBar, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the horizontal alignment of the component
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_ProgressBar, CMlControl::AlignHorizontal _HAlign, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_HAlign, K_Properties { HAlign = _HAlign }, _IsRedrawRequired);
+}
+Void SetHAlign(CMlScript _This, CMlFrame _Frame_ProgressBar, CMlControl::AlignHorizontal _HAlign) {
+	SetHAlign(_This, _Frame_ProgressBar, _HAlign, True);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_ResetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_HAlign, _IsRedrawRequired);
+}
+Void ResetHAlign(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	ResetHAlign(_This, _Frame_ProgressBar, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the vertical alignment of the component
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_ProgressBar, CMlControl::AlignVertical _VAlign, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_VAlign, K_Properties { VAlign = _VAlign }, _IsRedrawRequired);
+}
+Void SetVAlign(CMlScript _This, CMlFrame _Frame_ProgressBar, CMlControl::AlignVertical _VAlign) {
+	SetVAlign(_This, _Frame_ProgressBar, _VAlign, True);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_ResetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_VAlign, _IsRedrawRequired);
+}
+Void ResetVAlign(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	ResetVAlign(_This, _Frame_ProgressBar, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the current xp in the progress bar
+Void SetCurrentXP(CMlScript _This, CMlFrame _Frame_ProgressBar, Integer _CurrentXP, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_CurrentXP, K_Properties { CurrentXP = _CurrentXP }, _IsRedrawRequired);
+}
+Void SetCurrentXP(CMlScript _This, CMlFrame _Frame_ProgressBar, Integer _CurrentXP) {
+	SetCurrentXP(_This, _Frame_ProgressBar, _CurrentXP, True);
+}
+Void ResetCurrentXP(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_ResetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_CurrentXP, _IsRedrawRequired);
+}
+Void ResetCurrentXP(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	ResetCurrentXP(_This, _Frame_ProgressBar, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update leveling information
+Void SetLevelsInfo(CMlScript _This, CMlFrame _Frame_ProgressBar, K_Level[] _LevelsInfo, Boolean _IsRedrawRequired) {
+	Private_AssertValidLevelsInfo(_LevelsInfo);
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsInfo, K_Properties { LevelsInfo = _LevelsInfo }, _IsRedrawRequired);
+}
+Void SetLevelsInfo(CMlScript _This, CMlFrame _Frame_ProgressBar, K_Level[] _LevelsInfo) {
+	SetLevelsInfo(_This, _Frame_ProgressBar, _LevelsInfo, True);
+}
+Void ResetLevelsInfo(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_ResetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsInfo, _IsRedrawRequired);
+}
+Void ResetLevelsInfo(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	ResetLevelsInfo(_This, _Frame_ProgressBar, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the offset added to level positions
+Void SetLevelsOffset(CMlScript _This, CMlFrame _Frame_ProgressBar, Vec2 _LevelsOffset, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsOffset, K_Properties { LevelsOffset = _LevelsOffset }, _IsRedrawRequired);
+}
+Void SetLevelsOffset(CMlScript _This, CMlFrame _Frame_ProgressBar, Vec2 _LevelsOffset) {
+	SetLevelsOffset(_This, _Frame_ProgressBar, _LevelsOffset, True);
+}
+Void ResetLevelsOffset(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_ResetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsOffset, _IsRedrawRequired);
+}
+Void ResetLevelsOffset(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	ResetLevelsOffset(_This, _Frame_ProgressBar, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the text color of the ratio label
+Void SetLevelsTextColor(CMlScript _This, CMlFrame _Frame_ProgressBar, Vec3 _LevelsTextColor, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsTextColor, K_Properties { LevelsTextColor = _LevelsTextColor }, _IsRedrawRequired);
+}
+Void SetLevelsTextColor(CMlScript _This, CMlFrame _Frame_ProgressBar, Vec3 _LevelsTextColor) {
+	SetLevelsTextColor(_This, _Frame_ProgressBar, _LevelsTextColor, True);
+}
+Void ResetLevelsTextColor(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_ResetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsTextColor, _IsRedrawRequired);
+}
+Void ResetLevelsTextColor(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	ResetLevelsTextColor(_This, _Frame_ProgressBar, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the text size of the ratio label
+Void SetLevelsTextSize(CMlScript _This, CMlFrame _Frame_ProgressBar, Real _LevelsTextSize, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsTextSize, K_Properties { LevelsTextSize = _LevelsTextSize }, _IsRedrawRequired);
+}
+Void SetLevelsTextSize(CMlScript _This, CMlFrame _Frame_ProgressBar, Real _LevelsTextSize) {
+	SetLevelsTextSize(_This, _Frame_ProgressBar, _LevelsTextSize, True);
+}
+Void ResetLevelsTextSize(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_ResetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_LevelsTextSize, _IsRedrawRequired);
+}
+Void ResetLevelsTextSize(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	ResetLevelsTextSize(_This, _Frame_ProgressBar, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the vertical offset of the ratio label
+Void SetRatioOffset(CMlScript _This, CMlFrame _Frame_ProgressBar, Vec2 _RatioOffset, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_RatioOffset, K_Properties { RatioOffset = _RatioOffset }, _IsRedrawRequired);
+}
+Void SetRatioOffset(CMlScript _This, CMlFrame _Frame_ProgressBar, Vec2 _RatioOffset) {
+	SetRatioOffset(_This, _Frame_ProgressBar, _RatioOffset, True);
+}
+Void ResetRatioOffset(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_ResetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_RatioOffset, _IsRedrawRequired);
+}
+Void ResetRatioOffset(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	ResetRatioOffset(_This, _Frame_ProgressBar, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the text color of the ratio label
+Void SetRatioTextColor(CMlScript _This, CMlFrame _Frame_ProgressBar, Vec3 _RatioTextColor, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_RatioTextColor, K_Properties { RatioTextColor = _RatioTextColor }, _IsRedrawRequired);
+}
+Void SetRatioTextColor(CMlScript _This, CMlFrame _Frame_ProgressBar, Vec3 _RatioTextColor) {
+	SetRatioTextColor(_This, _Frame_ProgressBar, _RatioTextColor, True);
+}
+Void ResetRatioTextColor(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_ResetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_RatioTextColor, _IsRedrawRequired);
+}
+Void ResetRatioTextColor(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	ResetRatioTextColor(_This, _Frame_ProgressBar, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the text size of the ratio label
+Void SetRatioTextSize(CMlScript _This, CMlFrame _Frame_ProgressBar, Real _RatioTextSize, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_SetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_RatioTextSize, K_Properties { RatioTextSize = _RatioTextSize }, _IsRedrawRequired);
+}
+Void SetRatioTextSize(CMlScript _This, CMlFrame _Frame_ProgressBar, Real _RatioTextSize) {
+	SetRatioTextSize(_This, _Frame_ProgressBar, _RatioTextSize, True);
+}
+Void ResetRatioTextSize(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar = Private_ResetCustomizedProperty(_This, CMGame_ProgressBar, C_Property_RatioTextSize, _IsRedrawRequired);
+}
+Void ResetRatioTextSize(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	ResetRatioTextSize(_This, _Frame_ProgressBar, True);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the styles of the component
+Void SetStyles(CMlScript _This, CMlFrame _Frame_ProgressBar, Text[] _StyleIds, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar.Styles = _StyleIds;
+	if (_IsRedrawRequired) CMGame_ProgressBar = Private_RedrawProgressBar(_This, CMGame_ProgressBar);
+}
+Void SetStyles(CMlScript _This, CMlFrame _Frame_ProgressBar, Text[] _StyleIds) {
+	SetStyles(_This, _Frame_ProgressBar, _StyleIds, True);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_ProgressBar, Boolean _IsRedrawRequired) {
+	SetStyles(_This, _Frame_ProgressBar, [], _IsRedrawRequired);
+}
+Void ResetStyles(CMlScript _This, CMlFrame _Frame_ProgressBar) {
+	SetStyles(_This, _Frame_ProgressBar, []);
+}
+Boolean HasStyle(CMlFrame _Frame_ProgressBar, Text _StyleId) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	return CMGame_ProgressBar.Styles.exists(_StyleId);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_ProgressBar, Text _StyleId, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	if (!CMGame_ProgressBar.Styles.exists(_StyleId)) CMGame_ProgressBar.Styles.add(_StyleId);
+	if (_IsRedrawRequired) CMGame_ProgressBar = Private_RedrawProgressBar(_This, CMGame_ProgressBar);
+}
+Void AddStyle(CMlScript _This, CMlFrame _Frame_ProgressBar, Text _StyleId) {
+	AddStyle(_This, _Frame_ProgressBar, _StyleId, True);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_ProgressBar, Text _StyleId, Boolean _IsRedrawRequired) {
+	Private_AssertValidComponent(_Frame_ProgressBar);
+	declare K_ProgressBar CMGame_ProgressBar for _Frame_ProgressBar = C_ProgressBar_Null;
+	CMGame_ProgressBar.Styles.remove(_StyleId);
+	if (_IsRedrawRequired) CMGame_ProgressBar = Private_RedrawProgressBar(_This, CMGame_ProgressBar);
+}
+Void RemoveStyle(CMlScript _This, CMlFrame _Frame_ProgressBar, Text _StyleId) {
+	RemoveStyle(_This, _Frame_ProgressBar, _StyleId, True);
+}
+
+/// Create a new component style
+Void CreateStyle(CMlScript _This, Text _StyleId, K_Properties _Style) {
+	declare K_State CMGame_ProgressBar_State for _This.Page = C_State_Null;
+	CMGame_ProgressBar_State.Styles[_StyleId] = _Style;
+}
+
+/// Create a new component style from existing styles
+Void CreateStyle(CMlScript _This, Text _StyleId, Text[] _ExistingStyleIds) {
+	declare K_State CMGame_ProgressBar_State for _This.Page = C_State_Null;
+	declare K_Properties[] PropertiesToMerge = [];
+
+	foreach (StyleId in _ExistingStyleIds) {
+		PropertiesToMerge.add(CMGame_ProgressBar_State.Styles.get(StyleId, K_Properties {}));
+	}
+
+	CMGame_ProgressBar_State.Styles[_StyleId] = Private_MergeProperties(CMGame_ProgressBar_State.DefaultProperties, PropertiesToMerge);
+}

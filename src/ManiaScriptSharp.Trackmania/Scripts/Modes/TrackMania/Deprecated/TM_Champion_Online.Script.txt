@@ -1,0 +1,998 @@
+/**
+ * Champion mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaRoundsBase.Script.txt"
+
+#Const	CompatibleMapTypes	"TrackMania\\TM_Race,TM_Race"
+#Const	Version "1.0.2+2024-12-05"
+#Const	ScriptName "Modes/TrackMania/Deprecated/TM_Champion_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/StateManager.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/Constants.Script.txt" as LibChampion_Constants
+#Include "Libs/Nadeo/CMGame/Utils/Semver.Script.txt" as Semver
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint_Default
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/NetShareChampion_Server.Script.txt" as UIModules_NetShare_Champion
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/ScoresTable_Server.Script.txt" as UIModules_ScoresTable_Champion
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/LapsCounter_Server.Script.txt" as UIModules_LapsCounter
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/SpectatorInfo_Server.Script.txt" as UIModules_SpectatorInfo
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/PausePopUp_Server.Script.txt" as UIModules_PausePopUp
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/CountDown_Server.Script.txt" as UIModules_CountDown
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/BestLap_Server.Script.txt" as UIModules_BestLap
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/TimeDiffToPoints_Server.Script.txt" as UIModules_TimeDiffToPoints
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/MapInfo_Server.Script.txt" as UIModules_MapInfo
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/LiveRankingChampion_Server.Script.txt" as UIModules_LiveRanking
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Mode Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_PointsLimit -1
+#Setting S_RoundsPerMap 1 as "<hidden>"
+#Setting S_ForceLapsNb 3 // extends from round
+#Setting S_RoundsLimit 6 as _("Number of rounds played") ///< Number of rounds to play before finding a winner
+#Setting S_PauseBeforeRoundNb 0 as _("Round with a pause before its start")
+#Setting S_PauseDuration 360 as _("Pause time in seconds")
+//L16N [Champion] Ratio of players that can win points at the end of the round
+#Setting S_WinnersRatio 0.5 as _("Round winners ratio")
+#Setting S_ForceWinnersNb 0 as _("Force the number of winners")
+#Setting S_TimeOutPlayersNumber 0 as _("Players crossing finish line before timeout") // When S_TimeOutPlayersNumber players have finished the race, timeout begins
+#Setting S_FinishTimeout 5 as _("Time to finish the race after the winners")
+#Setting S_TimeLimit -1 as _("Time limit")
+#Setting S_WarmUpNb 0	as _("Number of warm up")
+#Setting S_WarmUpDuration 0 as _("Duration of one warm up")
+#Setting S_WarmUpTimeout -1 as _("Warm up timeout")
+#Setting S_PointsRepartition "20,14,12,10,8,7,6,5,5,4,4,3,3,2,2,1"
+#Setting S_DisableGiveUp False as _("Disable give up")
+#Setting S_UseTieBreak False	as _("Use tie-break")	///< Continue to play the map until the tie is broken
+#Setting S_BestLapBonusPoints 2	as _("Best lap bonus points")
+//L16N [Champion] A phase is a part of the match, for example "Opening Phase". When a round in this list starts, the match enters the next phase.
+#Setting S_RoundsWithAPhaseChange "3,5" as _("Rounds with a phase change") ///< NB: Can skip a phase with multiple occurrences of a round nb, ex "3,3" will skip phase 2
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Competition Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_EarlyEndMatchCallback True as "<hidden>"
+#Setting S_ChatTime 30
+#Setting S_EndRoundPreScoreUpdateDuration 5 as "<hidden>"
+#Setting S_EndRoundPostScoreUpdateDuration 5 as "<hidden>"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Commands
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Command Command_StartNewMatch (Boolean) as _("Start a new match")
+#Command Command_SetRoundNb (Integer) as _("Set round number")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Callback_ScoresPlayerRankPoints {
+	Integer rank;
+	Integer points;
+}
+#Struct K_Callback_ScoresPlayer {
+	Text login;
+	Text accountid;
+	K_Callback_ScoresPlayerRankPoints round;
+	K_Callback_ScoresPlayerRankPoints step;
+	Integer bestlaptime;
+}
+#Struct K_Callback_Scores {
+	Text mapuid;
+	K_Callback_ScoresPlayer[] players;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "Champion"
+#Const Description _("Champion mode")
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/Champion.Script.txt" //< Url of the mania app
+#Const C_BotsNb 0
+#Const C_MaxPlayers 16
+#Const C_Callback_Scores "Trackmania.Champion.Scores"
+
+#Const C_Limit_NotReached 0
+#Const C_Limit_Reached 1
+#Const C_Limit_Tie 2
+
+declare Integer G_BestLapTime;
+declare Text G_BestLapPlayer;
+
+declare Boolean Champion_Settings_UseDefaultWinnerBigMessage; ///< Use the default message when displaying match winner
+
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+***
+
+***Match_LoadLibraries***
+***
+XmlRpc::RegisterCallback(C_Callback_Scores, """
+* Name: {{{C_Callback_Scores}}}
+* Type: CallbackArray
+* Description: Callback sent at the end of each round with the points and rank of the players.
+* Data:
+	- Version >=2.0.0:
+	```
+	[
+		"{
+			"mapuid": "4dNDBnxvcwDaXmQz4Qf5khJUSOd", //< Unique id of the map
+			"players": [ //< Scores of the players
+				{
+					"login": "eole",
+					"accountid": "45b9cf1e-3c97-4753-ac63-ac61b48b4bb7",
+					"round": {
+						"rank": 1,
+						"points": 20
+					},
+					"step": {
+						"rank": 5,
+						"points": 28
+					}
+				}
+			]
+		}"
+	]
+	```
+""");
+
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+StateMgr::Unload();
+
+XmlRpc::UnregisterCallback(C_Callback_Scores);
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = False;
+MB_Settings_UseDefaultTimer = False;
+MB_Settings_UseDefaultPodiumSequence = False;
+Champion_Settings_UseDefaultWinnerBigMessage = True;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+UIManager.UIAll.ScoreTableOnlyManialink = True;
+UIManager.UIAll.OverlayHideEndMapLadderRecap = True;
+UIModules_PauseMenu_Online::SetHelp(Description);
+// Hide SM Overlay
+UIManager.UIAll.OverlayHideSpectatorInfos = True;
+UIManager.UIAll.OverlayHideCountdown = True; // this only hide countdown during warm-ups
+Race::SortScores(Race::C_Sort_BestRaceCheckpointsProgress);
+UIModules_SpectatorBase::HidePlayerName(True);
+foreach (Player in AllPlayers) {
+	UIModules_SpectatorBase::SetCamModeAndFocus(Player, UIModules_SpectatorBase::C_CamModes_Replay);
+}
+UIModules_TimeGap::HideForSpectators(True);
+UIModules_ScoresTable_Champion::SetLeagueRankingVisibility(False);
+***
+
+***Match_Yield***
+***
+// Manage command
+foreach (Event in PendingEvents) {
+	if (Event.Type == CSmModeEvent::EType::OnCommand) {
+		switch (Event.CommandName) {
+			case "Command_StartNewMatch": {
+				if (Event.CommandValueBoolean) {
+					MB_Private_StopMatch();
+					// Force warmup to stop
+					if (WarmUp::IsActive()) {
+						MatchEndRequested = True;
+					}
+					declare Boolean Match_NewMatchRequested for This;
+					Match_NewMatchRequested = True;
+				}
+			}
+			case "Command_SetRoundNb": {
+				if (Event.CommandValueInteger >= 1) {
+					declare Integer Match_RoundsNb for This;
+					Match_RoundsNb = Event.CommandValueInteger;
+				}
+			}
+		}
+	} else if (Event.Type == CSmModeEvent::EType::OnPlayerAdded) {
+		StateMgr::InitializePlayer(Event.Player);
+		CarRank::InitializePlayer(Event.Player);
+		UIModules_LiveRanking::TriggerUIUpdate();
+		UIModules_SpectatorBase::SetCamModeAndFocus(Event.Player, UIModules_SpectatorBase::C_CamModes_Replay);
+		declare PlayerUI = UIManager.GetUI(Event.Player);
+		if (PlayerUI != Null) PlayerUI.OverlayHideCountdown = True;
+	} else if (Event.Type == CSmModeEvent::EType::OnPlayerRemoved) {
+		UIModules_LiveRanking::TriggerUIUpdate();
+	}
+}
+
+StateMgr::Yield();
+
+declare Integer PrevEndTime for This = -123;
+if (PrevEndTime != EndTime) {
+	PrevEndTime = EndTime;
+	UIModules_CountDown::SetTimeLimit(EndTime);
+	UIModules_MapInfo::SetCutOffTimeLimit(EndTime);
+}
+***
+
+***Match_InitServer***
+***
+declare Integer Server_PointsLimit;
+declare Integer Server_RoundsLimit;
+declare Integer Server_RoundsPerMap;
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+WarmUp::SetAvailability(True);
+StateMgr::ForcePlayersStates([LibChampion_Constants::C_State_Waiting]);
+Clans::SetClansNb(0);
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_Normal);
+Race::UseAutomaticDossardColor(False);
+
+Scores::SaveInScore(Scores::C_Points_Match);
+Scores::EnablePlayerNegativePoints(True, False, False);
+
+Server_PointsLimit = S_PointsLimit - 1;
+Server_RoundsLimit = S_RoundsLimit - 1;
+Server_RoundsPerMap = S_RoundsPerMap - 1;
+***
+
+***Match_InitMatch***
+***
+declare Integer Match_RoundsNb for This;
+declare Integer Match_PhaseNb;
+declare Boolean Match_NewMatchRequested for This;
+***
+
+***Match_StartMatch***
+***
+Match_RoundsNb = 1;
+Match_NewMatchRequested = False;
+
+UIModules_ScoresTable_Champion::SetSequence(UIModules_ScoresTable_Champion::C_Sequence_Race);
+UIModules_NetShare_Champion::SetRoundsNb(Match_RoundsNb);
+UIModules_NetShare_Champion::SetRoundsTotal(S_RoundsLimit);
+UIModules_NetShare_Champion::SetRoundsPerMap(S_RoundsPerMap);
+
+UIModules_CountDown::SetVisibleFor(UIModules_CountDown::C_Target_Everyone);
+UIModules_Checkpoint_Default::SetVisibleFor(UIModules_Checkpoint_Default::C_Target_Players);
+UIModules_Checkpoint_Default::SetVisibilityTimeDiff(False, True);
+***
+
+***Champion_EnablePause***
+***
+Map_PauseBeforeStart = Map_PauseDuration > 0 && S_PauseBeforeRoundNb > 0 && Match_RoundsNb == S_PauseBeforeRoundNb;
+***
+
+***Match_InitMap***
+***
+declare Integer Map_TimeLimit for This;
+declare Integer Map_TimeOut for This;
+declare Boolean Map_RoundSkipped;
+declare Boolean Map_PauseBeforeStart;
+declare Integer Map_PauseDuration = S_PauseDuration;
+
+CarRank::Reset();
+UpdateScoresTableFooter(Match_RoundsNb, S_RoundsLimit, -1, Match_PhaseNb, False);
+
+UIModules_ScoresTable_Champion::SetSequence(UIModules_ScoresTable_Champion::C_Sequence_Race);
+UIModules_NetShare_Champion::SetRoundsNb(Match_RoundsNb);
+UIModules_NetShare_Champion::SetRoundsTotal(S_RoundsLimit);
+UIModules_NetShare_Champion::SetRoundsPerMap(S_RoundsPerMap);
+
++++Champion_EnablePause+++
+if (Map_PauseBeforeStart) {
+	foreach (Player in AllPlayers) {
+		declare PlayerUI = UIManager.GetUI(Player);
+		if (PlayerUI != Null && Player.RequestsSpectate) PlayerUI.UISequence = CUIConfig::EUISequence::UIInteraction;
+	}
+	UIModules_PausePopUp::StartPauseTimer(Map_PauseDuration * 1000);
+	StateMgr::ForcePlayersStates([LibChampion_Constants::C_State_Playing, LibChampion_Constants::C_State_WarmUp, LibChampion_Constants::C_State_Pause]);
+	UpdateScoresTableFooter(Match_RoundsNb, S_RoundsLimit, -1, Match_PhaseNb, True);
+}
+***
+
+***Match_StartMap***
+***
+Map_RoundSkipped = True;
+Map_TimeOut = -1;
+
+foreach (Player in AllPlayers) {
+	declare PlayerUI = UIManager.GetUI(Player);
+	if (PlayerUI != Null) PlayerUI.OverlayHideCountdown = True;
+}
+
+UIModules_NetShare_Champion::SetWinningPlayersNb(C_MaxPlayers);
+G_BestLapPlayer = "";
+G_BestLapTime = 0;
+UIModules_ScoresTable_Champion::SetBestLapPlayer(G_BestLapPlayer, S_BestLapBonusPoints);
+UIModules_LapsCounter::SetBestLapPlayer(G_BestLapPlayer, G_BestLapTime);
+
+// Add bot when necessary
+Users_SetNbFakeUsers(C_BotsNb, 0);
+
+// Determines current phase before warmup
+Match_PhaseNb = UpdatePhaseNb(S_RoundsWithAPhaseChange, Match_RoundsNb);
+
+// Warm up
+declare WarmUpDuration = S_WarmUpDuration * 1000;
+declare WarmUpNb = S_WarmUpNb;
+
++++Champion_BeforeWarmUp+++
+
+if (Map_PauseBeforeStart) {
+	WarmUpDuration = Map_PauseDuration * 1000;
+	WarmUpNb = 1;
+	if (S_WarmUpNb > 0 && S_WarmUpDuration * 1000 > WarmUpDuration) {
+		WarmUpNb = S_WarmUpNb;
+		WarmUpDuration = S_WarmUpDuration * 1000;
+	}
+	if (WarmUpDuration < 0) WarmUpDuration = 0;
+	// NB: ForcePlayersStates already done in InitMap
+} else {
+	StateMgr::ForcePlayersStates([LibChampion_Constants::C_State_Playing, LibChampion_Constants::C_State_WarmUp]);
+}
+
+
+UIModules_CountDown::SetVisibleFor(UIModules_CountDown::C_Target_Players);
+UIModules_CountDown::SetTimeLimit(EndTime);
+
+UIModules_NetShare_Champion::SetWarmUpIsActive(True);
+WarmUp::SetUIVisibility(False);
+WarmUp::SetUIPosition(<153., 13., 0.>);
+
+declare EndOfWarmupMessage = "";
+switch (Match_PhaseNb) {
+	//L16N %1 is a marker to apply typography
+	case 0: EndOfWarmupMessage = _("|Champion|%1End of warmup, Opening phase starting");
+	//L16N %1 is a marker to apply typography
+	case 1: EndOfWarmupMessage = _("|Champion|%1End of warmup, Semi-Final phase starting");
+	//L16N %1 is a marker to apply typography
+	case 2: EndOfWarmupMessage = _("|Champion|%1End of warmup, Final phase starting");
+}
+EndOfWarmupMessage = TL::Compose(EndOfWarmupMessage, "$i");
+MB_WarmUp(WarmUpNb, WarmUpDuration, S_WarmUpTimeout * 1000, EndOfWarmupMessage);
+
+UIModules_NetShare_Champion::SetWarmUpIsActive(False);
+UIModules_CountDown::SetVisibleFor(UIModules_CountDown::C_Target_Everyone);
+UIModules_PausePopUp::StartPauseTimer(0);
+
+StateMgr::ForcePlayersStates([LibChampion_Constants::C_State_Waiting]);
+
+foreach (Player in AllPlayers) {
+	declare PlayerUI = UIManager.GetUI(Player);
+	if (PlayerUI != Null) {
+		PlayerUI.UISequence = CUIConfig::EUISequence::None;
+		PlayerUI.ScoreTableVisibility = CUIConfig::EVisibility::None;
+	}
+}
+***
+
+***Match_InitRound***
+***
+declare Integer Round_WinningPlayersNb; //< Number of players that will receive points
+declare Integer Round_TimeOutPlayersNb; //< Number of players that must finish the race before the timeout starts
+declare Integer Round_RaceFinishedNb; //< Number of players that finished the race
+declare Integer Round_RoundsNb; //< The round number at the start of the round
+declare Integer[Integer] Round_BestTimeAtCheckpoint; //< The best time at each checkpoint
+declare Integer[Ident][Integer] Round_BestLapTimes; //< The lap time of each player
+declare Integer Round_BestLapTarget; //< Search the best time for this lap
+declare Text[] Round_PlayerFinishedRace; //< List of players who finished race
+***
+
+***Match_StartRound***
+***
+// Set round status variables
+Round_RoundsNb = Match_RoundsNb;
+Round_RaceFinishedNb = 0;
+Round_BestLapTimes = [];
+Round_BestLapTarget = 1;
+Round_PlayerFinishedRace = [];
+
+// Determines current phase each time a round starts
+Match_PhaseNb = UpdatePhaseNb(S_RoundsWithAPhaseChange, Match_RoundsNb);
+
+//UI
+UIModules_ScoresTable_Champion::SetSequence(UIModules_ScoresTable_Champion::C_Sequence_Race);
+UIModules_ScoresTable_Champion::ResetAllRacePoints();
+UIModules_ScoresTable_Champion::ResetAllLostPoints();
+G_BestLapPlayer = "";
+G_BestLapTime = 0;
+UIModules_ScoresTable_Champion::SetBestLapPlayer(G_BestLapPlayer, S_BestLapBonusPoints);
+UIModules_LapsCounter::SetBestLapPlayer(G_BestLapPlayer, G_BestLapTime);
+UIModules_NetShare_Champion::SetRoundsNb(Match_RoundsNb);
+UIModules_NetShare_Champion::SetRoundsTotal(S_RoundsLimit);
+UIModules_NetShare_Champion::SetRoundsPerMap(S_RoundsPerMap);
+UIModules_LiveRanking::SetBestTimeAtCheckpoint(Round_BestTimeAtCheckpoint);
+UIModules_LiveRanking::StartNewRace();
+
+// Time
+Map_TimeLimit = S_TimeLimit;
+SetTimeLimit(StartTime, S_TimeLimit);
+
+// Count the number of players who started the round (not counted if joining after start)
+declare Integer StartingPlayersNb = 0;
+foreach (Player in Players) {
+	if (Race::IsRacing(Player)) {
+		StartingPlayersNb += 1;
+	}
+}
+
+// Determine the number of players who can win points at the end of the round
+if (S_ForceWinnersNb > 0) {
+	Round_WinningPlayersNb = S_ForceWinnersNb;
+} else {
+	Round_WinningPlayersNb = ML::NearestInteger(StartingPlayersNb * S_WinnersRatio);
+	if (Round_WinningPlayersNb <= 0) {
+		Round_WinningPlayersNb = 1;
+	} else if (StartingPlayersNb > 1 && Round_WinningPlayersNb >= StartingPlayersNb) {
+		Round_WinningPlayersNb = StartingPlayersNb - 1;
+	}
+}
+
+Round_TimeOutPlayersNb = S_TimeOutPlayersNumber;
+if (Round_TimeOutPlayersNb <= 0) Round_TimeOutPlayersNb = Round_WinningPlayersNb;
+
+if (Match_PhaseNb <= 0) {
+	Round_WinningPlayersNb = C_MaxPlayers;
+}
+
+UIModules_NetShare_Champion::SetWinningPlayersNb(Round_WinningPlayersNb);
+UIModules_LiveRanking::TriggerUIUpdate();
+
+UpdateScoresTableFooter(Match_RoundsNb, S_RoundsLimit, Round_WinningPlayersNb, Match_PhaseNb, False);
+
+//L16N [Champion] %1 is a marker to apply typography. Announce the number of players that can win points at the end of the round. The player must be in the top n players to win points. eg: Be in the top 10
+declare ObjectiveMessage = TL::Compose(_("%1Be in the top %2"), "$i", TL::ToText(Round_WinningPlayersNb));
+---Champion_ObjectiveMessage---
+if (ObjectiveMessage != "") UIManager.UIAll.QueueMessage(5000, 1, CUIConfig::EMessageDisplay::Big, ObjectiveMessage);
+
+// Reset players finish state
+foreach (Score in Scores) {
+	declare Boolean Champion_FinishedRace for Score = False;
+	declare Integer Champion_DelayRoundPoints for Score = 0;
+	declare Integer Champion_CallbackScores_RoundRank for Score = 0;
+	declare Integer Champion_CallbackScores_RoundPoints for Score = 0;
+	Champion_FinishedRace = False;
+	Champion_DelayRoundPoints = 0;
+	Champion_CallbackScores_RoundRank = 1;
+	Champion_CallbackScores_RoundPoints = 0;
+}
+
+UIModules_SpectatorInfo::ForceUpdate();
+UIModules_TimeDiffToPoints::ForceUpdate();
+Race::SortScores(Race::C_Sort_TotalPoints);
+CarRank::SetRanksColors([1 => Race::C_DossardColor_Default, Round_WinningPlayersNb + 1 => <0.7, 0., 0.>]);
+CarRank::Update(CarRank::C_SortCriteria_BestRace);
+StateMgr::ForcePlayersStates([LibChampion_Constants::C_State_Playing]);
+
+G_BestLapTime = 0;
+G_BestLapPlayer = "";
+***
+
+***Rounds_PlayerSpawned***
+***
+// Reset spawned player finish state
+if (Player.Score !=  Null) {
+	declare Boolean Champion_FinishedRace for Player.Score = False;
+	Champion_FinishedRace = False;
+}
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	if (S_DisableGiveUp && Event.Type == Events::C_Type_GiveUp) {
+		Race::InvalidEvent(Event);
+	} else {
+		Race::ValidEvent(Event);
+
+		// Waypoint
+		if (Event.Type == Events::C_Type_Waypoint) {
+			if (Event.Player != Null) {
+				// Update best checkpoint time
+				if (
+					!Round_BestTimeAtCheckpoint.existskey(Event.Player.RaceWaypointTimes.count) ||
+					Round_BestTimeAtCheckpoint[Event.Player.RaceWaypointTimes.count] > Event.RaceTime
+				) {
+					Round_BestTimeAtCheckpoint[Event.Player.RaceWaypointTimes.count] = Event.RaceTime;
+					UIModules_LiveRanking::SetBestTimeAtCheckpoint(Round_BestTimeAtCheckpoint);
+				}
+
+				// Update the best race and prev race at each waypoint like in Laps mode
+				// and use the CheckpointsProgress sorting criteria for the scores
+				// Do this before computing the latest race scores
+				if (Event.Player.Score !=  Null) {
+					Scores::UpdatePlayerBestRace(Event.Player);
+					Scores::UpdatePlayerPrevRace(Event.Player);
+					// Do not use ThrottleUpdate() here because we want the update
+					// to be as fast as possible. We know that there won't be more
+					// than 16 players, so it won't impact performance.
+					CarRank::Update(CarRank::C_SortCriteria_BestRace);
+
+					if (Event.IsEndLap) {
+						declare Better = Scores::UpdatePlayerBestLapIfBetter(Event.Player);
+						declare Integer CurrentNbLaps = Race::GetPlayerLap(Event.Player);
+
+						if (!Round_BestLapTimes.existskey(CurrentNbLaps)) {
+							Round_BestLapTimes[CurrentNbLaps] = [];
+						}
+						if (Event.Player.LapWaypointTimes.count > 0) Round_BestLapTimes[CurrentNbLaps][Event.Player.Score.Id] = Event.Player.LapWaypointTimes[Event.Player.LapWaypointTimes.count - 1];
+
+						if (CurrentNbLaps >= Round_BestLapTarget && (Round_BestLapTimes[CurrentNbLaps].count >= PlayersNbAlive || Round_BestLapTimes[CurrentNbLaps].count >= 12)) {
+							Round_BestLapTarget = CurrentNbLaps + 1;
+							declare SortedBestLapTimes = Round_BestLapTimes[CurrentNbLaps].sort();
+							declare Integer[Ident] Top3;
+							foreach (ScoreId => LapTime in SortedBestLapTimes) {
+								Top3[ScoreId] = LapTime;
+								if (Top3.count >= 3) break;
+							}
+							UIModules_BestLap::SetTop3(Top3, CurrentNbLaps);
+						}
+						// Saves the best lap time of the round
+						if (G_BestLapTime <= 0 || G_BestLapTime > Event.LapTime) {
+							G_BestLapTime = Event.LapTime;
+							G_BestLapPlayer = Event.Player.User.WebServicesUserId;
+							UIModules_ScoresTable_Champion::SetBestLapPlayer(G_BestLapPlayer, S_BestLapBonusPoints); // (_AccountId, _BonusPoints)
+							UIModules_LapsCounter::SetBestLapPlayer(G_BestLapPlayer, G_BestLapTime); // (_AccountId, _Time)
+						}
+					}
+				}
+
+				if (Event.IsEndRace) {
+					// Update finish state before computing latest race scores
+					if (Event.Player.Score !=  Null) {
+						declare Boolean Champion_FinishedRace for Event.Player.Score = False;
+						Champion_FinishedRace = True;
+						Round_PlayerFinishedRace.add(Event.Player.Score.User.Login);
+						UIModules_LiveRanking::SetPlayerFinishedRace(Round_PlayerFinishedRace);
+						UIModules_ScoresTable_Champion::SetSequence(UIModules_ScoresTable_Champion::C_Sequence_PlayerFinishedRace);
+					}
+
+					ComputeLatestRaceScores(Round_WinningPlayersNb, False, Match_PhaseNb);
+					Race::Stop(Event.Player);
+
+					// Start the countdown if all players in the winner bracket finished
+					Round_RaceFinishedNb += 1;
+					if (Map_TimeOut <= 0 && Round_RaceFinishedNb >= Round_TimeOutPlayersNb) {
+						Map_TimeOut = S_FinishTimeout;
+						SetTimeLimit(Now, Map_TimeOut);
+						UIModules_MapInfo::SetCutOffTimeLimit(Map_TimeOut);
+					}
+
+					+++Champion_PlayerFinishedRace+++
+				}
+			}
+		}
+		// Give Up
+		else if (Event.Type == Events::C_Type_GiveUp) {
+			if (Event.Player != Null) Race::StopSkipOutro(Event.Player);
+		}
+
+		// Update live ranking
+		UIModules_LiveRanking::TriggerUIUpdate();
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Server info change
+if (
+	Server_PointsLimit != S_PointsLimit ||
+	Server_RoundsLimit != S_RoundsLimit ||
+	Server_RoundsPerMap != S_RoundsPerMap
+) {
+	Server_PointsLimit = S_PointsLimit;
+	Server_RoundsLimit = S_RoundsLimit;
+	Server_RoundsPerMap = S_RoundsPerMap;
+
+	UpdateScoresTableFooter(Match_RoundsNb, S_RoundsLimit, Round_WinningPlayersNb, Match_PhaseNb, False);
+	UIModules_NetShare_Champion::SetRoundsNb(Match_RoundsNb);
+	UIModules_NetShare_Champion::SetRoundsTotal(S_RoundsLimit);
+	UIModules_NetShare_Champion::SetRoundsPerMap(S_RoundsPerMap);
+}
+
+// Update the map duration setting
+if (Map_TimeLimit != S_TimeLimit && Map_TimeOut <= 0) {
+	Map_TimeLimit = S_TimeLimit;
+	SetTimeLimit(StartTime, S_TimeLimit);
+	UIModules_MapInfo::SetCutOffTimeLimit(S_TimeLimit);
+}
+
+// End the map when time limit is reached
+if (EndTime > 0 && Now >= EndTime) {
+	Round_Skipped = False;
+	MB_StopRound();
+}
+
+// If the round number (Match_RoundsNb) was updated
+// Skip the current round
+if (Round_RoundsNb != Match_RoundsNb) {
+	Round_ForceEndRound = True;
+	Round_Skipped = False;
+	MB_StopRound();
+}
+***
+
+***Match_EndRound***
+***
+Race::StopSkipOutroAll();
+Map_TimeOut = -1;
+StateMgr::ForcePlayersStates([LibChampion_Constants::C_State_Waiting]);
+
+if (Semver::Compare(XmlRpc::GetApiVersion(), ">=", "2.1.1")) {
+	Scores::XmlRpc_SendScores(Scores::C_Section_PreEndRound, ""); // send "Trackmania.Scores"
+}
+
+if (Round_ForceEndRound || Round_SkipPauseRound || MatchEndRequested || Match_NewMatchRequested) {
+	Map_RoundSkipped = True;
+	// Cancel points
+	foreach (Score in Scores) {
+		Scores::SetPlayerRoundPoints(Score, 0);
+		declare Integer Champion_DelayRoundPoints for Score = 0;
+		declare Integer Champion_CallbackScores_RoundRank for Score = 0;
+		declare Integer Champion_CallbackScores_RoundPoints for Score = 0;
+		Champion_DelayRoundPoints = 0;
+		Champion_CallbackScores_RoundRank = 1;
+		Champion_CallbackScores_RoundPoints = 0;
+	}
+
+	// Do not launch the forced end round sequence after a pause
+	if (!Round_SkipPauseRound) {
+		ForcedEndRoundSequence();
+	}
+
+} else {
+	Map_RoundSkipped = False;
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	CarRank::Update(CarRank::C_SortCriteria_BestRace);
+	UIModules_ScoresTable_Champion::SetSequence(UIModules_ScoresTable_Champion::C_Sequence_BeforeResult);
+	UIModules_ScoresTable_Champion::ResetRankDiff(); //< Scores must be sorted by total points
+
+	+++Match_EndRound_BeforeComputeScores+++
+	// Get the last round points
+	ComputeLatestRaceScores(Round_WinningPlayersNb, True, Match_PhaseNb);
+	Race::SortScores(Race::C_Sort_BestRaceCheckpointsProgress);
+	UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;
+	MB_Sleep(ML::Max(0, S_EndRoundPreScoreUpdateDuration * 1000));
+	// Add them to the total scores
+	ComputeScores();
+	+++Match_EndRound_AfterComputeScores+++
+
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	UIModules_ScoresTable_Champion::SetSequence(UIModules_ScoresTable_Champion::C_Sequence_AfterResult);
+	UIModules_ScoresTable_Champion::ComputeRankDiff(); //< Scores must be sorted by total points
+	UIModules_LiveRanking::TriggerUIUpdate();
+	MB_Sleep(ML::Max(0, S_EndRoundPostScoreUpdateDuration * 1000));
+	UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+
+	if (MapIsOver(S_UseTieBreak, Match_RoundsNb, S_RoundsPerMap, S_RoundsLimit, S_PointsLimit)) {
+		MB_StopMap();
+	} else {
+		Match_RoundsNb += 1;
+	}
+}
+
+EndTime = -1;
+***
+
+***Match_EndMap***
+***
+declare Boolean Match_NewMatchRequested for This;
+if (MatchIsOver(S_UseTieBreak, Match_RoundsNb, S_RoundsLimit, S_PointsLimit) || Match_NewMatchRequested) {
+	MB_StopMatch();
+} else if (!Map_RoundSkipped) {
+	Match_RoundsNb += 1;
+}
+
+if ((!MB_MapIsRunning() && MB_MatchIsRunning()) || Match_NewMatchRequested) {
+	MB_SkipPodiumSequence();
+}
+
+Race::SortScores(Race::C_Sort_TotalPoints);
+Scores::SetPlayerWinner(Scores::GetBestPlayer(Scores::C_Sort_MatchPoints, Scores::C_Order_Descending));
+***
+
+***Match_PodiumSequence***
+***
+---Champion_PodiumSequence---
+***
+
+***Champion_PodiumSequence***
+***
++++Match_PodiumSequence_EnterPodium+++
+if (Champion_Settings_UseDefaultWinnerBigMessage) {
+	UIManager.UIAll.BigMessageSound = CUIConfig::EUISound::EndRound;
+	UIManager.UIAll.BigMessageSoundVariant = 0;
+
+	//L16N %1 is a marker to apply typography
+	declare Message = TL::Compose(_("|Match|%1Draw"), "$i");
+	declare WinnerScore <=> Scores::GetPlayerWinner();
+	if (WinnerScore != Null) {
+		//L16N %1 is a marker to apply typography, %2 is a player's name
+		Message = TL::Compose(_("%1$<%2$> wins the match!"), "$i", WinnerScore.User.Name);
+	}
+	UIManager.UIAll.BigMessage = Message;
+}
+
+// Send the EndMatch callback sooner to speed up the TMGL API update
+if (S_EarlyEndMatchCallback) {
+	Scores::EndMatch();
+	Scores::XmlRpc_SendScores(Scores::C_Section_EndMatch, ""); // send "Trackmania.Scores"
+}
+
+declare PrevUISequence = UIManager.UIAll.UISequence;
+UIManager.UIAll.UISequence = CUIConfig::EUISequence::Podium;
+MB_Private_Sleep(6000);
+UIManager.UIAll.BigMessage = "";
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
+MB_Private_Sleep((S_ChatTime*1000));
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+UIManager.UIAll.UISequence = PrevUISequence;
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+
+/** Compute the latest race scores
+ *
+ *	@param	_WinningPlayersNb					Number of players that can win points in the round
+ *	@param	_IsRoundFinished					Is the round finished or are there players racing
+ */
+Void ComputeLatestRaceScores(Integer _WinningPlayersNb, Boolean _IsRoundFinished, Integer _PhaseNb) {
+	Race::SortScores(Race::C_Sort_BestRaceCheckpointsProgress);
+
+	declare PointsLossCoefficient = 1.;
+	{
+		declare PointsLossCoefficients = LibChampion_Constants::C_Phase_PointsLossCoefficients;
+		if (PointsLossCoefficients.existskey(_PhaseNb)) PointsLossCoefficient = PointsLossCoefficients[_PhaseNb];
+	}
+	// Points distributed between all players
+	declare I = 0;
+	declare PlayersNb = 1;
+	declare Text[] Text_PointsRepartition = TL::Split(",", S_PointsRepartition);
+	declare Integer[] PointsRepartition;
+	foreach (Text_Point in Text_PointsRepartition) {
+		PointsRepartition.add(TL::ToInteger(Text_Point));
+	}
+
+	foreach (Score in Scores) {
+		declare BonusPoints = 0;
+		if (_IsRoundFinished && Score.User.WebServicesUserId == G_BestLapPlayer) {
+			BonusPoints = S_BestLapBonusPoints;
+			UIModules_ScoresTable_Champion::SetBestLapPlayer(G_BestLapPlayer, BonusPoints);
+			UIModules_LapsCounter::SetBestLapPlayer(G_BestLapPlayer, G_BestLapTime);
+		}
+
+		declare Boolean Champion_FinishedRace for Score = False;
+		declare Integer Champion_DelayRoundPoints for Score = 0;
+		declare Integer Champion_CallbackScores_RoundRank for Score = 0;
+		declare Integer Champion_CallbackScores_RoundPoints for Score = 0;
+		if (Champion_FinishedRace) {
+			declare Points = 0;
+
+			if (PointsRepartition.count > 0) {
+				if (PointsRepartition.existskey(I)) {
+					Points = PointsRepartition[I];
+				} else {
+					Points = PointsRepartition[PointsRepartition.count - 1];
+				}
+			}
+
+			if (PlayersNb <= _WinningPlayersNb) {
+				Champion_DelayRoundPoints = Points + BonusPoints;
+				UIModules_ScoresTable_Champion::SetRacePoints(Score.User, Points);
+				UIModules_ScoresTable_Champion::SetLostPoints(Score.User, 0);
+				Champion_CallbackScores_RoundPoints = Points + BonusPoints;
+			} else {
+				declare LostPoints = ML::FloorInteger(Scores::GetPlayerMatchPoints(Score) * PointsLossCoefficient);
+				Champion_DelayRoundPoints = Points - LostPoints + BonusPoints;
+				UIModules_ScoresTable_Champion::SetRacePoints(Score.User, Points);
+				UIModules_ScoresTable_Champion::SetLostPoints(Score.User, LostPoints);
+				Champion_CallbackScores_RoundPoints = Points + BonusPoints;
+			}
+
+			I += 1;
+		} else if (_IsRoundFinished) {
+			declare LostPoints = ML::FloorInteger(Scores::GetPlayerMatchPoints(Score) * PointsLossCoefficient);
+			Champion_DelayRoundPoints = -LostPoints + BonusPoints;
+			UIModules_ScoresTable_Champion::SetRacePoints(Score.User, 0);
+			UIModules_ScoresTable_Champion::SetLostPoints(Score.User, LostPoints);
+			Champion_CallbackScores_RoundPoints = BonusPoints;
+		} else {
+			Champion_DelayRoundPoints = 0;
+			UIModules_ScoresTable_Champion::SetRacePoints(Score.User, 0);
+			UIModules_ScoresTable_Champion::SetLostPoints(Score.User, 0);
+			Champion_CallbackScores_RoundPoints = 0;
+		}
+
+		Champion_CallbackScores_RoundRank = PlayersNb;
+		PlayersNb += 1;
+	}
+
+	Race::SortScores(Race::C_Sort_TotalPoints);
+}
+
+/// Compute the map scores
+Void ComputeScores() {
+	// Update map/match score
+	foreach (Score in Scores) {
+		declare Integer Champion_DelayRoundPoints for Score = 0;
+		Scores::SetPlayerRoundPoints(Score, Champion_DelayRoundPoints);
+		Champion_DelayRoundPoints = 0;
+	}
+	Scores::EndRound();
+	UIModules_ScoresTable_Champion::ResetAllRacePoints();
+	UIModules_ScoresTable_Champion::ResetAllLostPoints();
+
+	// Send scores to xmlrpc
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	declare K_Callback_ScoresPlayer[] Callback_ScoresPlayer;
+	foreach (Key => Score in Scores) {
+		declare Integer Champion_CallbackScores_RoundRank for Score = 0;
+		declare Integer Champion_CallbackScores_RoundPoints for Score = 0;
+
+		declare Integer BestLapTime = -1;
+		if (Score.BestLapTimes.count > 0) {
+			BestLapTime = Score.BestLapTimes[Score.BestLapTimes.count - 1];
+		}
+
+		declare Player = K_Callback_ScoresPlayer {
+			login = Score.User.Login,
+			accountid = Score.User.WebServicesUserId,
+			round = K_Callback_ScoresPlayerRankPoints {
+				rank = Champion_CallbackScores_RoundRank,
+				points = Champion_CallbackScores_RoundPoints
+			},
+			step = K_Callback_ScoresPlayerRankPoints {
+				rank = Key + 1,
+				points = Score.Points
+			},
+			bestlaptime = BestLapTime
+		};
+		Callback_ScoresPlayer.add(Player);
+
+		Champion_CallbackScores_RoundRank = 1;
+		Champion_CallbackScores_RoundPoints = 0;
+	}
+	declare K_Callback_Scores Callback_Scores = K_Callback_Scores {
+		mapuid = Map.MapInfo.MapUid,
+		players = Callback_ScoresPlayer
+	};
+	XmlRpc::SendCallback(C_Callback_Scores, [Callback_Scores.tojson()]); // send "Trackmania.Champion.Scores"
+}
+
+/** Check if the rounds or points limit was reached
+ *
+ *	@param	_UseTieBreak							Prevent ties or not
+ *	@param	_RoundsNb									Number of rounds played since the beginning of the match
+ *	@param	_RoundsLimit							Number of rounds to play to complete the match
+ *	@param	_PointsLimit							Number of points to get to win the match
+ *
+ *	@return														C_Limit_Reached if the rounds or points limit is reached
+ *																		C_Limit_Tie if there is a tie
+ *																		C_Limit_NotReached if the rounds and points limit are not reached
+ */
+Integer MatchRoundsOrPointsLimitReached(Boolean _UseTieBreak, Integer _RoundsNb, Integer _RoundsLimit, Integer _PointsLimit) {
+	declare MaxScore = -1;
+	declare Tie = False;
+	foreach (Score in Scores) {
+		declare Points = Scores::GetPlayerMatchPoints(Score);
+		if (Points > MaxScore) {
+			MaxScore = Points;
+			Tie = False;
+		} else if (Points == MaxScore) {
+			Tie = True;
+		}
+	}
+
+	if (_UseTieBreak && Tie) return C_Limit_Tie; //< There is a tie and it is not allowed
+	if (_RoundsLimit > 0 && _RoundsNb >= _RoundsLimit) return C_Limit_Reached; //< There is a rounds limit and it is reached
+	if (_PointsLimit > 0 && MaxScore >= _PointsLimit) return C_Limit_Reached; //< There is a points limit and it is reached
+	return C_Limit_NotReached; //< There is no limit or the limits are not reached
+}
+
+/** Check if we should go to the next map
+ *
+ *	@param	_UseTieBreak							Prevent ties or not
+ *	@param	_RoundsNb									Number of rounds played since the beginning of the match
+ *	@param	_RoundsPerMap							Number of rounds to play to complete the map
+ *	@param	_RoundsLimit							Number of rounds to play to complete the match
+ *	@param	_PointsLimit							Number of points to get to win the match
+ *
+ *	@return		True if it is the case, false otherwise
+ */
+Boolean MapIsOver(Boolean _UseTieBreak, Integer _RoundsNb, Integer _RoundsPerMap, Integer _RoundsLimit, Integer _PointsLimit) {
+	if (MatchRoundsOrPointsLimitReached(_UseTieBreak, _RoundsNb, _RoundsLimit, _PointsLimit) == C_Limit_Reached) return True; //< There is a rounds or points limit and it is reached
+	if (_RoundsNb > 0 && _RoundsPerMap > 0 && (_RoundsNb % _RoundsPerMap) == 0) return True; //< There is a map rounds limit and it is reached
+
+	return False;
+}
+
+/** Check if we should go to the next match
+ *
+ *	@param	_UseTieBreak							Prevent ties or not
+ *	@param	_RoundsNb									Number of rounds played since the beginning of the match
+ *	@param	_RoundsLimit							Number of rounds to play to complete the match
+ *	@param	_PointsLimit							Number of points to get to win the match
+ *
+ *	@return		True if it is the case, false otherwise
+ */
+Boolean MatchIsOver(Boolean _UseTieBreak, Integer _RoundsNb, Integer _RoundsLimit, Integer _PointsLimit) {
+	declare LimitReached = MatchRoundsOrPointsLimitReached(_UseTieBreak, _RoundsNb, _RoundsLimit, _PointsLimit);
+	if (LimitReached == C_Limit_Tie) return False; //< There is a tie and it is not allowed
+	if (LimitReached == C_Limit_Reached) return True; //< There is a rounds or points limit and it is reached
+
+	return False;
+}
+
+/** Update the time limit
+ *
+ *	@param	_StartTime								The starting time of the map
+ *	@param	_NewTimeLimit							The time limit before going to the next map
+ */
+Void SetTimeLimit(Integer _StartTime, Integer _NewTimeLimit) {
+	if (_NewTimeLimit <= 0) {
+		EndTime = -1;
+	} else {
+		EndTime = _StartTime + (_NewTimeLimit * 1000);
+	}
+}
+
+/** Update the scores table footer text
+ *
+ *	@param	_RoundsNb									Number of rounds played since the beginning of the match
+ *	@param	_RoundsLimit							The rounds limit
+ *	@param	_WinningNb								Number of players that can win points
+ *	@param	_Phase										Phase Number
+ *	@param	_IsPaused									True if the match is paused
+ */
+Void UpdateScoresTableFooter(Integer _RoundsNb, Integer _RoundsLimit, Integer _WinningNb, Integer _Phase, Boolean _IsPaused) {
+	UIModules_NetShare_Champion::SetRoundsNb(_RoundsNb);
+	UIModules_NetShare_Champion::SetRoundsTotal(_RoundsLimit);
+	UIModules_NetShare_Champion::SetRoundsPerMap(S_RoundsPerMap);
+	UIModules_NetShare_Champion::SetWinningPlayersNb(_WinningNb);
+	UIModules_NetShare_Champion::SetPhase(_Phase);
+	UIModules_ScoresTable_Champion::UpdateScoresTableFooter(_IsPaused);
+}
+
+Integer UpdatePhaseNb(Text _RoundsWithAPhaseChange, Integer _RoundsNb) {
+	declare PhaseNb = 0;
+	foreach (Text_RoundsNb in TL::Split(",", TL::Replace(_RoundsWithAPhaseChange, " ", ""))) {
+		if (_RoundsNb >= TL::ToInteger(Text_RoundsNb)) PhaseNb += 1;
+	}
+	UIModules_NetShare_Champion::SetPhase(PhaseNb);
+
+	return PhaseNb;
+}

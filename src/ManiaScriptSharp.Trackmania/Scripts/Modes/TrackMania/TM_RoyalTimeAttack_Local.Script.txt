@@ -1,0 +1,304 @@
+/**
+ * Royal Time Attack mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Royal,TM_Royal"
+#Const Version "1.2.0+2025-04-22"
+#Const ScriptName "Modes/TrackMania/TM_RoyalTimeAttack_Local.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Medals.Script.txt" as Medals
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConst
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/EndRaceMenu_Server.Script.txt" as UIModules_EndRaceMenu
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/PauseMenu_Server.Script.txt" as UIModules_PauseMenu
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/UIModules/StartRaceMenu_Server.Script.txt" as UIModules_StartRaceMenu
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalTimeAttack/PlayerData.Script.txt" as PlayerData
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalTimeAttack/RoyalTimeAttack.Script.txt" as RoyalTimeAttack
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalTimeAttack/StateManagerSolo.Script.txt" as StateMgr
+#Include "Libs/Nadeo/Trackmania/Modes/UIModules/NetShare_Server.Script.txt" as NetShare
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_MA.Script.txt" as CampaignStore
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_CampaignId 0 as "<hidden>"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "TM_RoyalTimeAttack_Local"
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/RoyalTimeAttackSolo.Script.txt" //< Url of the mania app
+
+#Const C_DelayBeforeStartingNextSegment 1000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(UIModules_Checkpoint::ScriptName, UIModules_Checkpoint::Version);
+Log::RegisterScript(UIModules_ScoresTable::ScriptName, UIModules_ScoresTable::Version);
+Log::RegisterScript(RoyalTimeAttack::ScriptName, RoyalTimeAttack::Version);
+***
+
+***Match_LoadLibraries***
+***
+RoyalTimeAttack::Load();
+StateMgr::Load();
+***
+
+***Match_UnloadLibraries***
+***
+RoyalTimeAttack::Unload();
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultIntroSequence = False; //< Intro sequence is hidden by HoldLoadingScreen
+MB_Settings_UseDefaultPodiumSequence = False;
+MB_Settings_UseDefaultTimer = False;
+MB_Settings_UseDefaultUIManagement = False;
+Race_Settings_IsLocalMode = True;
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+Race::SortScores(Race::C_Sort_BestRaceTime);
+UIModules_Checkpoint::SetVisibleFor(UIModules_Checkpoint::C_Target_None);
+
+// Initialize scores table
+UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+UIModules_ScoresTable::SetIsLocalMode(True);
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+			RoyalTimeAttack::InitializePlayer(Event.Player);
+			PlayerData::InitializePlayer(Event.Player);
+		}
+	}
+}
+
+RoyalTimeAttack::Yield();
+StateMgr::Yield();
+***
+
+***Match_StartServer***
+***
+Clans::SetClansNb(0);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(False);
+CarRank::Reset();
+***
+
+***Match_AfterLoadMap***
+***
+// Players are available only once the map is loaded
+// We must enforce their initialization there to avoid
+// being stuck in the start or end race menu when restarting the script
+foreach (Player in AllPlayers) {
+	StateMgr::InitializePlayer(Player);
+}
+***
+
+***Match_InitMap***
+***
+declare CMapLandmark[] Map_Starts;
+declare Integer Map_SessionBestRaceTime;
+
+// Find start blocks
+if (Map::GetStartsCount() > 0) {
+	declare CMapLandmark[Integer] Starts;
+	foreach (Start in Map::GetStarts()) Starts[Start.Order] = Start;
+	foreach (Start in Starts.sortkey()) Map_Starts.add(Start);
+	Map::SetDefaultStart(Map_Starts[0]);
+}
+***
+
+***Match_StartMap***
+***
+MB_EnablePlayMode(False);
+
+// Update variables
+Map_SessionBestRaceTime = 0;
+
+// Update the NetShare lib
+NetShare::SetHasNextMap(NextMapIndex != 0);
+NetShare::SetCampaign(CampaignStore::GetCampaignFromId(S_CampaignId));
+NetShare::SetMap(CampaignStruct::GetMapFromMapInfo(Map.MapInfo));
+***
+
+***Match_StartRound***
+***
+// Reset the EndRaceMenu UIModule
+UIModules_EndRaceMenu::SetPlayerDrivingAloneState(True);
+UIModules_EndRaceMenu::SetVisibilityOfNewMedal(False);
+UIModules_EndRaceMenu::SetEarlyMedalDisplay(False);
+UIModules_EndRaceMenu::SetSaveReplayDisabled(True);
+UIModules_EndRaceMenu::SetCanViewReplay(False);
+UIModules_EndRaceMenu::StopCurrentSounds();
+UIModules_EndRaceMenu::SetRoundChanged();
+
+// Display player in spawn with background intro
+ModeUtils::PushAndApplyUISequence(UIManager.UIAll, CUIConfig::EUISequence::RollingBackgroundIntro);
+foreach (Player in Players) {
+	if (Race::IsReadyToStart(Player)) {
+		Race::Start(Player, Map::GetStart(), 0, -1);
+	}
+}
+
+// Process start race menu events
+if (!StateMgr::HasForcedState(StateMgr::C_State_Playing)) {
+	StateMgr::ForcePlayersStates([StateMgr::C_State_StartRaceMenu]);
+	while (MB_MapIsRunning() && StateMgr::HasForcedState(StateMgr::C_State_StartRaceMenu)) {
+		ProcessStartRaceMenuEvent();
+		MB_Yield();
+	}
+}
+ModeUtils::PopAndApplyUISequence(UIManager.UIAll);
+
+// Ensure that the volume balance enters Playing state
+UIModules_StartRaceMenu::SetVolumeBalanceState_Playing();
+
+// Update play mode
+MB_EnablePlayMode(StateMgr::HasForcedState(StateMgr::C_State_Playing));
+
+// Spawn players for the race
+StartTime = Now + Race::C_SpawnDuration;
+RoyalTimeAttack::ResetSegmentTimes(Scores[0]);
+RoyalTimeAttack::Start(Map_Starts, Players[0], StartTime, False);
+***
+
+***Match_PlayLoop***
+***
+// Process pause menu events
+ProcessPauseMenuEvent();
+
+// Manage race events
+foreach (Event in Race::GetPendingEvents()) {
+	if (Event.Type != Events::C_Type_SkipOutro) Race::ValidEvent(Event);
+	switch (Event.Type) {
+		case Events::C_Type_SkipOutro: Race::InvalidEvent(Event); //< Prevent the players from pressing respawn/give up to cut the finish outro and respawn faster
+		case Events::C_Type_GiveUp: {
+			RoyalTimeAttack::ResetSegmentTimes(Scores[0]);
+			StartTime = Now + Race::C_SpawnDuration;
+		}
+		case Events::C_Type_Waypoint: {
+			if (Event.IsEndRace && Event.Player != Null) {
+				Race::Stop(Event.Player, C_DelayBeforeStartingNextSegment, -1);
+				RoyalTimeAttack::CompleteSegment(Event.Player, Event.RaceTime, StartTime + RoyalTimeAttack::GetSegmentTimes(Event.Player.Score).get(-1, 0), StartTime, Map_Starts.count);
+				if (RoyalTimeAttack::GetCompletedSegmentsNb(Event.Player.Score) >= Map_Starts.count) {
+					declare PlayerData::K_Times Times = PlayerData::K_Times {
+						SegmentRaceTimes = RoyalTimeAttack::GetSegmentRaceTimes(Event.Player.Score),
+						Total = RoyalTimeAttack::GetSegmentTimes(Event.Player.Score)[-1]
+					};
+					StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+					PlayerData::SendPlayerTimesEvent(Event.Player, Times);
+					if (Map_SessionBestRaceTime > Times.Total || UIModules_ScoresTable::GetCustomTimes().count <= 0) {
+						UIModules_ScoresTable::SetCustomTimes([Event.Player.User.WebServicesUserId => Times.Total]);
+						Map_SessionBestRaceTime = Times.Total;
+					}
+					MB_StopRound();
+				}
+			}
+		}
+	}
+}
+
+// Manage C++ events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Spawn players
+if (PlayersNbDead > 0 && MB_RoundIsRunning()) {
+	foreach (Player in Players) {
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned && Race::IsReadyToStart(Player)) {
+			RoyalTimeAttack::Start(Map_Starts, Player, StartTime + RoyalTimeAttack::GetSegmentTimes(Player.Score).get(-1, 0), StartTime, False);
+		}
+	}
+}
+***
+
+***Match_EndRound***
+***
+MB_EnablePlayMode(False);
+MB_Sleep(C_DelayBeforeStartingNextSegment);
+
+// Special case for Royal achievements now that the Royal matchmaking mode is removed
+// see: https://gitlab.nadeo.org/trackmania-next/tmnext/-/issues/6556
+for (Score in Scores) {
+	Tracking::SendPlayerMatchResult(UIManager, Score.User, 1, False);
+}
+
+// Process end race menu events
+if (!StateMgr::HasForcedState(StateMgr::C_State_Playing)) {
+	StateMgr::ForcePlayersStates([StateMgr::C_State_EndRaceMenu]);
+	while (MB_MapIsRunning() && StateMgr::HasForcedState(StateMgr::C_State_EndRaceMenu)) {
+		ProcessEndRaceMenuEvent();
+		MB_Yield();
+	}
+}
+***
+
+***Match_EndMap***
+***
+// Ensure that we stop the match (after a vote for the next map, ...)
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+Race::StopSkipOutroAll();
+MB_StopMatch();
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Check if an event from the StartRaceMenu UI has been received and apply it if needed
+Void ProcessStartRaceMenuEvent() {
+	switch (UIModules_StartRaceMenu::GetLastEventType()) {
+		case Const::C_StartRaceMenuEvent_StartRace: StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+		case Const::C_RaceMenuEvent_Exit: MB_StopServer();
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+///	Check if an event from the PauseMenu UI has been received and apply it if needed
+Void ProcessPauseMenuEvent() {
+	switch (UIModules_PauseMenu::GetLastEventType()) {
+		case Const::C_RaceMenuEvent_NextMap: MB_StopMap();
+		case Const::C_RaceMenuEvent_ChangeOpponents: {
+			StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+			MB_StopRound();
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if an event from the EndRaceMenu UI has been received and apply it if needed
+Void ProcessEndRaceMenuEvent() {
+	switch (UIModules_EndRaceMenu::GetLastEventType()) {
+		case Const::C_EndRaceMenuEvent_Improve: StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+		case Const::C_RaceMenuEvent_NextMap: MB_StopMap();
+		case Const::C_RaceMenuEvent_Exit: MB_StopServer();
+	}
+}

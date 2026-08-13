@@ -1,0 +1,153 @@
+/**
+ *  UI module: InfoPanels_16x9 client side
+ */
+#Const Version    "1.0.2"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/UIModules/InfoPanels_16x9_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_ChampionTMGL_InfoPanels_16x9"
+#Const C_LayersCount 4
+#Const C_Type CUILayer::EUILayerType::ScreenIn3d
+#Const C_AttachId "155"
+
+#Const C_ImageSponsorsPath "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Sponsors/"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML(Text _Id) {
+	return MV::Create(
+_Id, 3,
+"""
+<stylesheet>
+	<style class="text-base" halign="center" valign="center2" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textsize="23" textcolor="FFF" textprefix="$i"/>
+</stylesheet>
+
+<frame z-index="-2" hidden="1" id="frame-global">
+	<quad id="quad-target-player" image="{{{C_ImageSponsorsPath}}}Default.dds" size="320 180" z-index="0" halign="center" valign="center"/>
+	<quad id="quad-crossfade" size="320 180" z-index="1" halign="center" valign="center" opacity="0."/>
+	<label id="label-lap-number" size="320 30" pos="0 -60" class="text-base" z-index="3" textprefix="$t$i" />
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Client.Script.txt" as RaceHelpers
+
+#Const C_ImageSponsorsPath {{{dump(C_ImageSponsorsPath)}}}
+""",
+"""
+Void UpdateSign(CMlQuad _Quad_TargetPlayer, CMlQuad _Quad_Crossfade, Text _TargetPlayerWebServicesUserId) {
+	_Quad_Crossfade.ImageUrl = _Quad_TargetPlayer.ImageUrl;
+	_Quad_Crossfade.Opacity = 1.;
+
+	declare Text Sign = {{{PlayerProfiles::P}}}GetPlayerProfiles().get(_TargetPlayerWebServicesUserId, {{{PlayerProfiles::P}}}K_PlayerProfile {}).Sign16x9;
+	if (Sign != "") _Quad_TargetPlayer.ImageUrl = C_ImageSponsorsPath^Sign;
+	else _Quad_TargetPlayer.ImageUrl = C_ImageSponsorsPath^"Default.dds";
+
+	AnimMgr.Flush(_Quad_Crossfade);
+	AnimMgr.AddChain(_Quad_Crossfade, "<anim opacity=\"0.\"/>", 500, CAnimManager::EAnimManagerEasing::QuadOut);
+}
+
+Void UpdateLap(CMlLabel _Label_LapNumber, Integer _CurrentLap, Integer _TotalLap) {
+	AnimMgr.Flush(_Label_LapNumber);
+	if (_TotalLap > 0) {
+		//L16N [TMGL] The lap number. eg : "Lap 3/6"
+		_Label_LapNumber.Value = TL::Compose(_("Lap %1/%2"), ""^_CurrentLap, ""^_TotalLap);
+		AnimMgr.AddChain(_Label_LapNumber, "<anim opacity=\"1.\"/>", 500, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		_Label_LapNumber.Value = "";
+		AnimMgr.AddChain(_Label_LapNumber, "<anim opacity=\"0.\"/>", 500, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlQuad Quad_TargetPlayer;
+declare CMlQuad Quad_Crossfade;
+declare CMlLabel Label_LapNumber;
+
+declare Boolean DisplayModule;
+declare Integer CurrentLap;
+declare Integer TotalLap;
+declare Text TargetPlayerWebServicesUserId;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Quad_TargetPlayer <=> (Frame_Global.GetFirstChild("quad-target-player") as CMlQuad);
+Quad_Crossfade <=> (Frame_Global.GetFirstChild("quad-crossfade") as CMlQuad);
+Label_LapNumber <=> (Frame_Global.GetFirstChild("label-lap-number") as CMlLabel);
+
+DisplayModule = Frame_Global.Visible;
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_ChampionTMGL_InfoPanels_16x9_IsVisible for Owner;
+		if (DisplayModule != Net_ChampionTMGL_InfoPanels_16x9_IsVisible) {
+			DisplayModule = Net_ChampionTMGL_InfoPanels_16x9_IsVisible;
+			Frame_Global.Visible = Net_ChampionTMGL_InfoPanels_16x9_IsVisible;
+		}
+
+		if (GUIPlayer != Null && GUIPlayer.User != Null) {
+			/* Lap Update */
+			if (CurrentLap != RaceHelpers::GetPlayerLap(GUIPlayer) || TotalLap != RaceHelpers::GetLapsNb(Teams[0])) {
+				CurrentLap = RaceHelpers::GetPlayerLap(GUIPlayer);
+				TotalLap = RaceHelpers::GetLapsNb(Teams[0]);
+				UpdateLap(Label_LapNumber, CurrentLap, TotalLap);
+			}
+
+			/* Sign Update */
+			if (GUIPlayer.User.WebServicesUserId != TargetPlayerWebServicesUserId) {
+				TargetPlayerWebServicesUserId = GUIPlayer.User.WebServicesUserId;
+				UpdateSign(Quad_TargetPlayer, Quad_Crossfade, TargetPlayerWebServicesUserId);
+			}
+		} else if (GUIPlayer == Null && (TargetPlayerWebServicesUserId != "" || CurrentLap > 0 || TotalLap > 0)) {
+			TargetPlayerWebServicesUserId = "";
+			CurrentLap = -1;
+			TotalLap = -1;
+			UpdateSign(Quad_TargetPlayer, Quad_Crossfade, TargetPlayerWebServicesUserId);
+			UpdateLap(Label_LapNumber, CurrentLap, TotalLap);
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+}
+***
+""",
+[
+	PlayerProfiles::Component()
+],
+[]
+	);
+}
+
+Text GetML() {
+	return GetML(C_Id);
+}

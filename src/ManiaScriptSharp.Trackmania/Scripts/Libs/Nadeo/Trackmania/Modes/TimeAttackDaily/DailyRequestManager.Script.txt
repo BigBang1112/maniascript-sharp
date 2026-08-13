@@ -1,0 +1,736 @@
+/**
+ *	Manage Cup of the Day requests
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/DailyRequestManager.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/DailyStructs.Script.txt" as DailyStructs
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/DailyAPI.Script.txt" as DailyAPI
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/Constants.Script.txt" as DailyConst
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/UIModules/NextMatchTracker_Server.Script.txt" as UIModules_NextMatchTracker
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/DailyFakeData.Script.txt" as FakeData
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/DailyServerAuth.Script.txt" as ServerAuth //@daily utiliser serverauth classique
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/UIModules/DailyTrackerTA_Server.Script.txt" as UIModules_DailyTracker
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/UIModules/NetShare_Server.Script.txt" as UIModules_NetShare
+#Include "Libs/Nadeo/Trackmania/Modes/TimeAttackDaily/Logs.Script.txt" as DailyLogs
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/BigMessage_Server.Script.txt" as UIModules_BigMessage
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu
+
+#Include "TimeLib" as TiL
+#Include "TextLib" as TL
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "lib-daily-request-manager" //< Component name
+#Const P "LibDailyRequestManager_" //< Prefix use to differentiate functions/variables in the script
+
+#Const C_Request_MatchStatus 0
+#Const C_Request_RanksUpdate 1
+#Const C_Request_LeaderboardUpdate 2
+#Const C_Request_PostResults 3
+#Const C_Request_PlayerMatches 4
+#Const C_Request_PostRegisteredPlayers 5
+#Const C_Request_GetRegisteredPlayers 6
+
+// All frequencies in ms
+#Const C_UpdateFrequency_Ranks 7000
+#Const C_UpdateFrequency_MatchStatus 15000
+#Const C_UpdateFrequency_PlayerMatches 20000
+#Const C_UpdateFrequency_LocalRegisteredPlayers 1000
+#Const C_MaxUpdateFrequency_PlayerResults 1000
+#Const C_UpdateFrequency_UnregisteredPlayersResults 15000
+#Const C_CheckRegisteredPlayers_UpdateFrequency 1000
+#Const C_RegisterPlayers_MaxFrequency 30000
+
+#Const C_DisplayFinalRank False
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globals
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// From API
+declare Http::K_Request[Integer] G_DailyRequests;
+declare DailyStructs::K_MatchStatus G_MatchStatus;
+
+// For script use
+declare Boolean G_RanksUpdate_IsListening;
+declare Integer G_RanksUpdate_NextUpdate;
+declare Boolean G_MatchStatus_IsListening;
+declare Integer G_MatchStatus_NextUpdate;
+declare Boolean G_PlayerMatches_IsListening;
+declare Integer G_PlayerMatches_NextUpdate;
+declare Integer G_LocalRegisteredPlayers_NextUpdate;
+declare Text[] G_PostPlayerResults_PendingResults;
+declare Integer G_PostPlayerResults_PostTime;
+declare Text[] G_CheckRegisteredPlayers_AccountIds;
+declare Integer G_CheckRegisteredPlayers_NextUpdate;
+declare Integer G_RegisterPlayers_NextUpdate;
+
+// Data from mode
+declare Text G_CurrentMapUid;
+declare Integer G_IntroMaxDuration;
+declare Integer G_TimeLimit;
+declare Integer G_QualificationsEndTime_MinMargin;
+declare Boolean G_IsFakeCup;
+declare Boolean G_RegistrationsOpen;
+declare Text G_CompetitionType;
+declare Text G_PlayerPartition;
+
+// Store Data from API
+declare Integer[Text] G_Daily_Leaderboard;
+
+Void Init(Text _BasicAuthHeader, Integer _IntroMaxDuration, Integer _TimeLimit, Integer _QualificationsEndTime_MinMargin, Boolean _IsFakeCup) {
+	ServerAuth::Init();
+	DailyAPI::Init(_BasicAuthHeader);
+	G_IntroMaxDuration = _IntroMaxDuration;
+	G_TimeLimit = _TimeLimit;
+	G_QualificationsEndTime_MinMargin = _QualificationsEndTime_MinMargin;
+	G_DailyRequests = [];
+	G_MatchStatus = DailyStructs::K_MatchStatus {};
+	G_CurrentMapUid = "";
+	G_IsFakeCup = _IsFakeCup;
+
+	G_RanksUpdate_IsListening = False;
+	G_RanksUpdate_NextUpdate = -1;
+	G_MatchStatus_IsListening = False;
+	G_MatchStatus_NextUpdate = -1;
+	G_PlayerMatches_IsListening = False;
+	G_PlayerMatches_NextUpdate = -1;
+	G_LocalRegisteredPlayers_NextUpdate = -1;
+	G_RegisterPlayers_NextUpdate = Now + C_RegisterPlayers_MaxFrequency;
+	G_RegistrationsOpen = False;
+
+	G_Daily_Leaderboard = [];
+
+	if (G_IsFakeCup) log("WARNING Daily request manager FakeData is ON.");
+
+	G_MatchStatus.FinalRanksReceived = False;
+	UIModules_NextMatchTracker::FinalRanksReceived(G_MatchStatus.FinalRanksReceived);
+}
+
+Void SetRegistrationsState(Boolean _AreOpen) {
+	G_RegistrationsOpen = _AreOpen;
+}
+
+Void DisplayFinalRanks() {
+	UIModules_BigMessage::SetOffset(<0., -33.>);
+	foreach (Player in AllPlayers) {
+		if (
+			Player != Null &&
+			G_MatchStatus.DailyResults.existskey(Player.User.WebServicesUserId) &&
+			G_MatchStatus.DailyResults[Player.User.WebServicesUserId].Rank > 0
+		) {
+			//L16N [Time Attack Daily] Message displayed after qualifications end. %1 should be at the start of the message (used to apply typography), %2 is the player's rank "Your qualifications rank is: 26".
+			UIModules_BigMessage::SetMessage(Player, TL::Compose(_("%1Your qualifications rank is: %2"), "$i$t", ""^G_MatchStatus.DailyResults[Player.User.WebServicesUserId].Rank), 8000);
+		}
+	}
+}
+
+Void SetCurrentMapUid(Text _MapUid) {
+	G_CurrentMapUid = _MapUid;
+}
+
+Void SetEndTime(Integer _EndTime) {
+	G_MatchStatus.EndTime = _EndTime;
+}
+
+/* Qualifications end time, comparable to Now,
+ * can be already over.
+ *
+ * @return					Qualifications End Time
+ */
+Integer QualificationsEndTime() {
+	if (G_MatchStatus.MatchesGeneration_Date != "") {
+		declare TimeLeft = (TiL::GetDelta(G_MatchStatus.MatchesGeneration_Date, TiL::GetCurrent()) - 1)*1000 - G_QualificationsEndTime_MinMargin;
+		return Now + TimeLeft;
+	}
+	return -1;
+}
+
+Boolean QualificationsOver() {
+	declare QualificationsEndTime = QualificationsEndTime();
+	if (QualificationsEndTime <= 0) return False;
+	return QualificationsEndTime < Now;
+}
+
+Boolean LocalMatchIsOver() {
+	return (G_MatchStatus.EndTime > 0 && G_MatchStatus.EndTime < Now);
+}
+
+// Mode command functions
+Void CheckPlayerRegistration(Text _AccountId) {
+	if (!G_CheckRegisteredPlayers_AccountIds.exists(_AccountId)) G_CheckRegisteredPlayers_AccountIds.add(_AccountId);
+}
+
+Void PostBetterResult(CSmScore _Score) { // please do not post result if it's not better
+	if (_Score == Null) return;
+	if (!G_MatchStatus.DailyResults.existskey(_Score.User.WebServicesUserId)) {
+		G_MatchStatus.DailyResults[_Score.User.WebServicesUserId] = DailyStructs::K_Result {
+			MapUid = G_CurrentMapUid,
+			AccountId = _Score.User.WebServicesUserId
+		};
+	}
+	if (
+		_Score.BestRaceTimes.count > 0 &&
+		(
+			G_MatchStatus.DailyResults[_Score.User.WebServicesUserId].BestTime > _Score.BestRaceTimes[_Score.BestRaceTimes.count-1] ||
+			G_MatchStatus.DailyResults[_Score.User.WebServicesUserId].BestTime <= 0 ||
+			G_MatchStatus.DailyResults[_Score.User.WebServicesUserId].MapUid != G_CurrentMapUid
+		)
+	) {
+		G_MatchStatus.DailyResults[_Score.User.WebServicesUserId].BestTime = _Score.BestRaceTimes[_Score.BestRaceTimes.count-1];
+		G_MatchStatus.DailyResults[_Score.User.WebServicesUserId].MapUid = G_CurrentMapUid;
+		if (!G_PostPlayerResults_PendingResults.exists(_Score.User.WebServicesUserId)) G_PostPlayerResults_PendingResults.add(_Score.User.WebServicesUserId);
+		if (
+			G_PostPlayerResults_PostTime <= 0 ||
+			G_PostPlayerResults_PostTime > Now + C_MaxUpdateFrequency_PlayerResults
+		) {
+			G_PostPlayerResults_PostTime = Now + C_MaxUpdateFrequency_PlayerResults;
+		}
+		DailyLogs::LogAddPlayerToPendingResults(_Score, G_MatchStatus.DailyResults[_Score.User.WebServicesUserId].BestTime, G_PostPlayerResults_PostTime, True);
+		G_MatchStatus.NeedResultsUpdate = True;
+		G_MatchStatus.DailyResults[_Score.User.WebServicesUserId].WaitingForNewRank = True;
+	} else {
+		DailyLogs::LogAddPlayerToPendingResults(_Score, G_MatchStatus.DailyResults[_Score.User.WebServicesUserId].BestTime, G_PostPlayerResults_PostTime, False);
+	}
+}
+
+Void ListenToMatchStatus(Boolean _IsListening) {
+	G_MatchStatus_IsListening = _IsListening;
+}
+
+Void ListenToRanksUpdate(Boolean _IsListening) {
+	G_RanksUpdate_IsListening = _IsListening;
+	if (!_IsListening) {
+		G_Daily_Leaderboard = [];
+	}
+	UIModules_DailyTracker::SetLeaderboard(G_Daily_Leaderboard);
+}
+
+Void ListenToPlayerMatches(Boolean _IsListening) {
+	G_PlayerMatches_IsListening = _IsListening;
+}
+
+Text MatchStartDate() {
+	return G_MatchStatus.StartDate;
+}
+
+/* Match Start time, comparable to Now,
+ * can be already over.
+ *
+ * @return					Match Start Time
+ */
+Integer MatchStartTime() {
+	if (G_MatchStatus.StartDate != "") {
+		declare TimeLeft = (TiL::GetDelta(G_MatchStatus.StartDate, TiL::GetCurrent()))*1000;
+		return Now + TimeLeft;
+	}
+	return -1;
+}
+
+// API funtions
+Void DestroyPreviousRequest(Integer _Request_Type) {
+	if (
+		G_DailyRequests.existskey(_Request_Type) &&
+		Http::IsInitialized(G_DailyRequests[_Request_Type])
+	) {
+		G_DailyRequests[_Request_Type] = Http::Destroy(G_DailyRequests[_Request_Type]);
+	}
+}
+
+Text GetRequestNameFromType(Integer _Request_Type) {
+	declare Text_Type = "";
+	switch (_Request_Type) {
+		case C_Request_MatchStatus: Text_Type = "MatchStatus";
+		case C_Request_RanksUpdate: Text_Type = "RanksUpdate";
+		case C_Request_LeaderboardUpdate: Text_Type = "LeaderboardUpdate";
+		case C_Request_PostResults: Text_Type = "PostResults";
+		case C_Request_PlayerMatches: Text_Type = "PlayerMatches";
+		case C_Request_PostRegisteredPlayers: Text_Type = "PostRegisteredPlayers";
+		case C_Request_GetRegisteredPlayers: Text_Type = "GetRegisteredPlayers";
+	}
+	return Text_Type;
+}
+
+Void Destroy(Http::K_Request _Request, Integer _Type) {
+	DailyLogs::LogInfo("[Daily] "^GetRequestNameFromType(_Type)^" result: "^_Request.Result);
+
+	Http::Destroy(_Request);
+	G_DailyRequests.removekey(_Type);
+}
+
+Void GetMatchStatus(Text _Partition) {
+	DestroyPreviousRequest(C_Request_MatchStatus);
+	G_DailyRequests[C_Request_MatchStatus] = DailyAPI::GetMatchStatus(_Partition);
+}
+
+Void GetRanksUpdate(Text[] _AccountIds) {
+	DestroyPreviousRequest(C_Request_RanksUpdate);
+	if (_AccountIds.count != 0) G_DailyRequests[C_Request_RanksUpdate] = DailyAPI::GetRanksUpdate(_AccountIds, G_MatchStatus.ChallengeId, G_CurrentMapUid);
+}
+Void GetRanksUpdate() { // get update for all registered players
+	declare Text[] AccountIds;
+	foreach (Result in G_MatchStatus.DailyResults) {
+		if (Result.IsRegistered) {
+			AccountIds.add(Result.AccountId);
+		}
+	}
+	GetRanksUpdate(AccountIds);
+}
+
+Void GetLeaderboardUpdate() {
+	DestroyPreviousRequest(C_Request_LeaderboardUpdate);
+	G_DailyRequests[C_Request_LeaderboardUpdate] = DailyAPI::GetLeaderboard(G_MatchStatus.ChallengeId, G_CurrentMapUid);
+}
+
+Void PostResultsUpdate(DailyStructs::K_PostResults _Results, Text _MapUid) {
+	DestroyPreviousRequest(C_Request_PostResults);
+	G_DailyRequests[C_Request_PostResults] = DailyAPI::PostResultsUpdate(_Results, G_MatchStatus.ChallengeId, _MapUid);
+	DailyLogs::LogPostResultsUpdate(_Results, G_MatchStatus.ChallengeId, _MapUid);
+}
+
+Void PostRegisteredPlayers(DailyStructs::K_PostRegisteredPlayers _RegisteredPlayers) {
+	DestroyPreviousRequest(C_Request_PostRegisteredPlayers);
+	G_DailyRequests[C_Request_PostRegisteredPlayers] = DailyAPI::PostRegisteredPlayers(_RegisteredPlayers, G_MatchStatus.CompetitionId);
+	DailyLogs::LogPostRegisteredPlayers(_RegisteredPlayers, G_MatchStatus.CompetitionId);
+}
+
+Void GetRegisteredPlayers(Text[] _AccountIds) {
+	DestroyPreviousRequest(C_Request_GetRegisteredPlayers);
+	G_DailyRequests[C_Request_GetRegisteredPlayers] = DailyAPI::GetRegisteredPlayers(_AccountIds, G_MatchStatus.CompetitionId);
+}
+
+Void GetPlayerMatches(Text[] _AccountIds) {
+	DestroyPreviousRequest(C_Request_PlayerMatches);
+	if (_AccountIds.count != 0) G_DailyRequests[C_Request_PlayerMatches] = DailyAPI::GetPlayerMatches(_AccountIds, G_MatchStatus.CompetitionLiveId);
+}
+Void GetPlayerMatches() {
+	declare Text[] AccountIds;
+	foreach (Score in Scores) {
+		if (Score != Null) AccountIds.add(Score.User.WebServicesUserId);
+	}
+	GetPlayerMatches(AccountIds);
+}
+
+Void SendJoinlinks(Text[Text] _PlayerMatches) {
+	UIModules_NextMatchTracker::SetJoinlinks(_PlayerMatches);
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null && _PlayerMatches.existskey(Player.User.WebServicesUserId)) {
+			//L16N [Cup of the Day time attack] The user can click on this button to join the server on which their match will be played
+			UIModules_PauseMenu::SetPersonalJoinlink(Player, _PlayerMatches[Player.User.WebServicesUserId], _("Join your match"));
+		} else {
+			UIModules_PauseMenu::ResetPersonalJoinlink(Player);
+		}
+	}
+}
+
+Void SetCompetitionType(Text _CompetitionType) {
+	G_CompetitionType = _CompetitionType;
+}
+
+Void SetPlayerPartition(Text _PlayerPartition) {
+	G_PlayerPartition = _PlayerPartition;
+}
+
+Integer[Integer] GetTrophiesEarnedForRank(Text _CompetitionType, Integer _Rank) {
+	if (_Rank <= 0) return [];
+
+	declare Integer[Integer] EarnedTrophies;
+	declare Integer[Integer][Integer] RankToTrophies = DailyConst::C_RankToTrophies_Official;
+	if (_CompetitionType == DailyConst::C_Daily_Competition_Rerun) RankToTrophies = DailyConst::C_RankToTrophies_Rerun;
+	foreach (Rank => Rewards in RankToTrophies) {
+		if (_Rank <= Rank) {
+			EarnedTrophies = Rewards;
+		} else {
+			break;
+		}
+	}
+	return EarnedTrophies;
+}
+
+Void Yield() {
+	declare NeedRegistrationConfirmationUpdate = False;
+
+	// Post player new records every seconds if a new record is registered
+	if (
+		!QualificationsOver() &&
+		G_PostPlayerResults_PendingResults.count > 0 &&
+		(
+			(
+				!G_MatchStatus.LastResultsSent &&
+				G_MatchStatus.LastRegistrationsReceived &&
+				LocalMatchIsOver()
+			) || (
+				G_PostPlayerResults_PostTime > 0 &&
+				G_PostPlayerResults_PostTime <= Now &&
+				G_MatchStatus.EndTime > Now
+			)
+		)
+	) {
+		if (LocalMatchIsOver()) {
+			G_MatchStatus.LastResultsSent = True;
+			DailyLogs::LogDebug("Sending last results.");
+		}
+		declare DailyStructs::K_PostResults[Text] MapsPostResults = [];
+		declare Text[] UnregisteredPlayers;
+		foreach (AccountId in G_PostPlayerResults_PendingResults) {
+			if (G_MatchStatus.DailyResults.existskey(AccountId)) {
+				declare DailyStructs::K_Result Result = G_MatchStatus.DailyResults[AccountId];
+				if (
+					Result.MapUid != "" &&
+					Result.IsRegistered
+				) {
+					if (!MapsPostResults.existskey(Result.MapUid)) MapsPostResults[Result.MapUid] = DailyStructs::K_PostResults {};
+					MapsPostResults[Result.MapUid].records.add(
+						DailyStructs::K_PostResult {
+							player = Result.AccountId,
+							score = Result.BestTime,
+							zone = Result.ZonePath
+						}
+					);
+				} else if (!Result.IsRegistered) {
+					UnregisteredPlayers.add(Result.AccountId);
+				}
+			}
+		}
+		if (MapsPostResults.count > 1) {
+			log("WARNING Daily Request Manager has been requested to post results for more than one map");
+		}
+		foreach (MapUid => PostResults in MapsPostResults) {
+			PostResultsUpdate(PostResults, MapUid);
+		}
+
+		G_PostPlayerResults_PendingResults = UnregisteredPlayers;
+		if (G_PostPlayerResults_PendingResults.count <= 0) {
+			G_PostPlayerResults_PostTime = -1;
+		} else {
+			G_PostPlayerResults_PostTime = Now + C_UpdateFrequency_UnregisteredPlayersResults;
+		}
+	}
+
+	// Listen to ranks update from api
+	if (
+		!G_MatchStatus.Results_Requested && // Get final results even if server is not listening anymore
+		LocalMatchIsOver()
+	) {
+		G_MatchStatus.Results_Requested = True;
+		G_RanksUpdate_NextUpdate = Now + C_UpdateFrequency_Ranks;
+		declare Text[] AccountIds = [];
+		foreach (Score in Scores) {
+			if (Score != Null) {
+				AccountIds.add(Score.User.WebServicesUserId);
+			}
+		}
+		GetRanksUpdate(AccountIds); // request Results also for unregistered players to avoid missing a registered player that is not localy tagged as registered
+		GetLeaderboardUpdate();
+	} else if (
+		G_RanksUpdate_IsListening &&
+		G_RanksUpdate_NextUpdate <= Now
+	) {
+		G_RanksUpdate_NextUpdate = Now + C_UpdateFrequency_Ranks;
+		GetRanksUpdate();
+		GetLeaderboardUpdate();
+	}
+
+	// Listen to match status
+	if (
+		G_MatchStatus_IsListening &&
+		G_MatchStatus_NextUpdate <= Now
+	) {
+		G_MatchStatus_NextUpdate = Now + C_UpdateFrequency_MatchStatus;
+		GetMatchStatus(G_PlayerPartition);
+	}
+
+	/// Listeners linked to players registration to Knockout
+	// Update local registered players list (keep track of a player even if they leave before registration post to api)
+	if (
+		G_RegistrationsOpen &&
+		G_LocalRegisteredPlayers_NextUpdate <= Now &&
+		!QualificationsOver()
+	) {
+		G_LocalRegisteredPlayers_NextUpdate = Now + C_UpdateFrequency_LocalRegisteredPlayers;
+		declare TmpPlayerZones = UIModules_NextMatchTracker::GetRegisteredPlayersZones();
+		foreach (AccountId => Zone in TmpPlayerZones) {
+			if (
+				!G_MatchStatus.DailyResults.existskey(AccountId) ||
+				!G_MatchStatus.DailyResults[AccountId].IsRegistered
+			) {
+				DailyLogs::LogLocalRegistration(AccountId, G_RegisterPlayers_NextUpdate);
+				if (!G_MatchStatus.DailyResults.existskey(AccountId)) {
+					G_MatchStatus.DailyResults[AccountId] = DailyStructs::K_Result {
+						AccountId = AccountId,
+						ZonePath = Zone,
+						IsRegistered = True
+					};
+				} else {
+					G_MatchStatus.DailyResults[AccountId].ZonePath = Zone;
+					G_MatchStatus.DailyResults[AccountId].IsRegistered = True;
+					G_MatchStatus.DailyResults[AccountId].RegistrationPosted = False;
+					if ( // if player has a pending result, post it asap
+						G_PostPlayerResults_PendingResults.exists(AccountId) &&
+						(
+							G_PostPlayerResults_PostTime <= 0 ||
+							G_PostPlayerResults_PostTime > Now + C_MaxUpdateFrequency_PlayerResults
+						)
+					) {
+						G_PostPlayerResults_PostTime = Now + C_MaxUpdateFrequency_PlayerResults;
+						DailyLogs::LogDebug("    -> player "^AccountId^" has a pending result, next regular Results Post in "^(G_PostPlayerResults_PostTime - Now));
+					}
+				}
+			}
+		}
+	}
+
+	// Check if player is registered every second if a new check is needed
+	if (
+		G_CheckRegisteredPlayers_NextUpdate <= Now &&
+		G_CheckRegisteredPlayers_AccountIds.count > 0
+	) {
+		G_CheckRegisteredPlayers_NextUpdate = Now + C_CheckRegisteredPlayers_UpdateFrequency;
+		GetRegisteredPlayers(G_CheckRegisteredPlayers_AccountIds);
+		G_CheckRegisteredPlayers_AccountIds = [];
+	}
+
+	// Post registered players
+	declare Boolean NeedToPostRegisteredPlayers = False;
+	if (
+		!G_MatchStatus.LastRegistrationsSent &&
+		(LocalMatchIsOver() || !G_RegistrationsOpen)
+	) {
+		NeedToPostRegisteredPlayers = True;
+		G_MatchStatus.LastRegistrationsSent = True;
+		G_RegisterPlayers_NextUpdate = 0;
+		DailyLogs::LogDebug("Last registrations sent.");
+	} else if (
+		G_RegisterPlayers_NextUpdate <= Now &&
+		!QualificationsOver() &&
+		!G_RegistrationsOpen
+	) {
+		NeedToPostRegisteredPlayers = True;
+		G_RegisterPlayers_NextUpdate = Now + C_RegisterPlayers_MaxFrequency;
+	}
+	if (NeedToPostRegisteredPlayers) {
+		declare DailyStructs::K_PostRegisteredPlayers RegisteredPlayers;
+		declare TmpPlayerZones = UIModules_NextMatchTracker::GetRegisteredPlayersZones();
+		foreach (AccountId => Zone in TmpPlayerZones) {
+			if (
+				!G_MatchStatus.DailyResults.existskey(AccountId) ||
+				!G_MatchStatus.DailyResults[AccountId].RegistrationPosted
+			) {
+				RegisteredPlayers.participants.add(
+					DailyStructs::K_PostRegisteredPlayers_Entry {
+						participant = AccountId,
+						zone = Zone
+					}
+				);
+				if (!G_MatchStatus.DailyResults.existskey(AccountId)) {
+					G_MatchStatus.DailyResults[AccountId] = DailyStructs::K_Result {
+						AccountId = AccountId,
+						ZonePath = Zone,
+						IsRegistered = True,
+						RegistrationPosted = True
+					};
+				} else {
+					G_MatchStatus.DailyResults[AccountId].ZonePath = Zone;
+					G_MatchStatus.DailyResults[AccountId].IsRegistered = True;
+					G_MatchStatus.DailyResults[AccountId].RegistrationPosted = True;
+				}
+			}
+		}
+		if (RegisteredPlayers.participants.count > 0) {
+			PostRegisteredPlayers(RegisteredPlayers);
+		} else if (LocalMatchIsOver()) {
+			G_MatchStatus.LastRegistrationsReceived = True;
+		}
+	}
+
+	// Listen to players next matches
+	if (
+		G_PlayerMatches_IsListening &&
+		G_PlayerMatches_NextUpdate <= Now
+	) {
+		G_PlayerMatches_NextUpdate = Now + C_UpdateFrequency_PlayerMatches;
+		GetPlayerMatches(); // Request joinlink for ALL Scores because players may have registered on another server
+	}
+
+	/// HTTP requests
+	// Update all pending requests
+	foreach (Type => Request in G_DailyRequests) {
+		if (Http::IsInitialized(Request)) {
+			G_DailyRequests[Type] = Http::Update(Request);
+		}
+	}
+
+	// Manage successful requests :)
+	foreach (Type => Request in G_DailyRequests) {
+		if (Http::IsSuccess(Request)) {
+			switch (Type) {
+				case C_Request_PostResults: {
+					declare DailyStructs::K_PostResultResponse[] PostResultResponse;
+					PostResultResponse.fromjson(Http::GetResult(Request));
+					DailyLogs::LogPostResultsResponse(PostResultResponse);
+					foreach (Response in PostResultResponse) {
+						foreach (ZoneRank in Response.zoneRanks) {
+							if (ZoneRank.zone == "World") {
+								declare Integer NewRank = ZoneRank.rank;
+								foreach (Player in AllPlayers) {
+									if (
+										Player != Null &&
+										Player.User.WebServicesUserId == Response.player
+									) {
+										if (!G_MatchStatus.DailyResults.existskey(Player.User.WebServicesUserId)) {
+											G_MatchStatus.DailyResults[Player.User.WebServicesUserId] = DailyStructs::K_Result {
+												AccountId = Response.player,
+												BestTime = Response.time,
+												Rank = NewRank,
+												MapUid = Response.uid,
+												IsRegistered = False
+											};
+											NeedRegistrationConfirmationUpdate = True;
+										} else if (
+											(
+												Response.time > 0 &&
+												Response.time < G_MatchStatus.DailyResults[Player.User.WebServicesUserId].BestTime
+											) ||
+											G_MatchStatus.DailyResults[Player.User.WebServicesUserId].MapUid != Response.uid
+										) {
+											G_MatchStatus.DailyResults[Player.User.WebServicesUserId].BestTime = Response.time;
+											G_MatchStatus.DailyResults[Player.User.WebServicesUserId].MapUid = Response.uid;
+										}
+										G_MatchStatus.DailyResults[Player.User.WebServicesUserId].Rank = NewRank;
+										G_MatchStatus.DailyResults[Player.User.WebServicesUserId].WaitingForNewRank = False;
+										G_MatchStatus.NeedResultsUpdate = True;
+										break;
+									}
+								}
+							}
+						}
+					}
+				}
+				case C_Request_RanksUpdate: {
+					G_MatchStatus.NeedResultsUpdate = True;
+					declare DailyStructs::K_MapRecordsFromAPI MapRecordsFromApi;
+					MapRecordsFromApi.fromjson(Http::GetResult(Request));
+					foreach (Record in MapRecordsFromApi.records) {
+						if (MapRecordsFromApi.uid == G_CurrentMapUid) {
+							if (Record.score > 0 && Record.rank > 0) {
+								if (!G_MatchStatus.DailyResults.existskey(Record.player)) {
+									G_MatchStatus.DailyResults[Record.player] = DailyStructs::K_Result {
+										AccountId = Record.player,
+										BestTime = Record.score,
+										Rank = Record.rank,
+										IsRegistered = False
+									};
+									NeedRegistrationConfirmationUpdate = True;
+								} else {
+									if (
+										G_MatchStatus.DailyResults[Record.player].BestTime <= 0 ||
+										G_MatchStatus.DailyResults[Record.player].BestTime > Record.score
+									) {
+										G_MatchStatus.DailyResults[Record.player].BestTime = Record.score;
+									}
+									G_MatchStatus.DailyResults[Record.player].Rank = Record.rank;
+								}
+							}
+						}
+					}
+					if (
+						G_MatchStatus.Results_Requested &&
+						!G_MatchStatus.FinalRanksReceived
+					) {
+						G_MatchStatus.FinalRanksReceived = True;
+						UIModules_NextMatchTracker::FinalRanksReceived(G_MatchStatus.FinalRanksReceived);
+						if (C_DisplayFinalRank) {
+							DisplayFinalRanks();
+						}
+						foreach (Player in AllPlayers) {
+							if (
+								Player.User != Null &&
+								G_MatchStatus.DailyResults.existskey(Player.User.WebServicesUserId)
+							) {
+								declare Integer[Integer] TrophiesEarned = GetTrophiesEarnedForRank(G_CompetitionType, G_MatchStatus.DailyResults[Player.User.WebServicesUserId].Rank);
+								if (TrophiesEarned.count > 0) {
+									Tracking::SendPlayerTrophiesEarned(UIManager, Player, TrophiesEarned);
+								}
+							}
+						}
+					}
+				}
+				case C_Request_LeaderboardUpdate: {
+					declare DailyStructs::K_LeaderboardFromApiEntry[] Leaderboard;
+					Leaderboard.fromjson(Http::GetResult(Request));
+					G_Daily_Leaderboard = [];
+					foreach (Entry in Leaderboard) {
+						G_Daily_Leaderboard[Entry.player] = Entry.time; // AccountId => Time
+					}
+					UIModules_DailyTracker::SetLeaderboard(G_Daily_Leaderboard);
+				}
+				case C_Request_MatchStatus: {
+					declare DailyStructs::K_DailyCup DailyCupFromApi;
+					if (G_IsFakeCup) DailyCupFromApi.fromjson(FakeData::DailyCup(G_TimeLimit));
+					else DailyCupFromApi.fromjson(Http::GetResult(Request));
+					if (DailyCupFromApi.startDate != "") {
+						G_MatchStatus.ChallengeId = ""^DailyCupFromApi.challenge.id;
+						G_MatchStatus.CompetitionId = ""^DailyCupFromApi.competition.id;
+						G_MatchStatus.CompetitionLiveId = ""^DailyCupFromApi.competition.liveId;
+						G_MatchStatus.StartDate = DailyCupFromApi.startDate;
+						G_MatchStatus.MatchesGeneration_Date = DailyCupFromApi.competition.matchesGenerationDate;
+						// Do not override other params
+					}
+				}
+				case C_Request_PlayerMatches: {
+					declare Text[Text] PlayerMatches;
+					PlayerMatches.fromjson(Http::GetResult(Request));
+					SendJoinlinks(PlayerMatches);
+				}
+				case C_Request_PostRegisteredPlayers: {
+					NeedRegistrationConfirmationUpdate = True;
+					if (LocalMatchIsOver()) {
+						G_MatchStatus.LastRegistrationsReceived = True;
+						DailyLogs::LogDebug("Last registrations received.");
+					}
+				}
+				case C_Request_GetRegisteredPlayers: {
+					NeedRegistrationConfirmationUpdate = True;
+					declare DailyStructs::K_GetRegisteredPlayers RegisteredPlayers;
+					RegisteredPlayers.fromjson(Http::GetResult(Request));
+					foreach (Entry in RegisteredPlayers.participants) {
+						if (!G_MatchStatus.DailyResults.existskey(Entry.participant)) {
+							G_MatchStatus.DailyResults[Entry.participant] = DailyStructs::K_Result {
+								AccountId = Entry.participant,
+								IsRegistered = True
+							};
+						} else {
+							G_MatchStatus.DailyResults[Entry.participant].IsRegistered = True;
+						}
+					}
+				}
+			}
+			Destroy(Request, Type);
+		} else if (
+			Http::IsInitialized(Request) &&
+			!Http::IsProcessing(Request)
+		) {
+			DailyLogs::LogError(GetRequestNameFromType(Type)^" error "^Http::GetStatusCode(Request)^": "^Http::GetResult(Request));
+			Destroy(Request, Type);
+		}
+	}
+
+	if (G_MatchStatus.NeedResultsUpdate) {
+		G_MatchStatus.NeedResultsUpdate = False;
+		UIModules_NetShare::SetPlayerResults(G_MatchStatus.DailyResults);
+	}
+	if (NeedRegistrationConfirmationUpdate) {
+		declare Boolean[Text] ConfirmRegistrations = [];
+		foreach (Result in G_MatchStatus.DailyResults) {
+			ConfirmRegistrations[Result.AccountId] = Result.IsRegistered;
+		}
+		UIModules_NextMatchTracker::ConfirmRegistrations(ConfirmRegistrations);
+	}
+
+	ServerAuth::Yield();
+}

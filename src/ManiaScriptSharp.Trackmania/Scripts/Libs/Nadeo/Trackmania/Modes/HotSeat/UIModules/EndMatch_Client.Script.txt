@@ -1,0 +1,577 @@
+/**
+ * UI module: EndMatch client side
+ */
+#Const Version "1.2.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/EndMatch_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Components/Button.Script.txt" as Button
+#Include "Libs/Nadeo/CMGame/Components/ExpendableButton.Script.txt" as ExpendableButton
+#Include "Libs/Nadeo/CMGame/Components/MenuButtonList.Script.txt" as MenuButtonList
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as Navigation
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMGame/Utils/Images.Script.txt" as Images
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as MenuConsts
+#Include "Libs/Nadeo/Trackmania/Modes/Campaign/Constants.Script.txt" as CampaignConsts
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/Components/NetShare_Client.Script.txt" as NetShare
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/Consts.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModules_HotSeat_EndMatch"
+#Const C_NavGroup_Default "navgroup-hotseat-endmatchmenu-default"
+#Const C_Type CUILayer::EUILayerType::Normal
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the module manialink
+Text GetML() {
+	//L16N [EndMatch HotSeat] Title of the pause menu pop up
+	declare Text Text_HotSeat = _("HotSeat");
+	//L16N [EndMatch HotSeat] Restart the track from the beginning
+	declare Text Text_Restart =_("Restart track");
+	//L16N [EndMatch HotSeat] Play the next track
+	declare Text Text_NextMap = _("Next");
+	//L16N [EndMatch HotSeat] Exit the race
+	declare Text Text_Exit = _("Exit");
+	//L16N [EndMatch HotSeat] %1 will be replaced by the name of the author of the track, e.g. "by Darrek"
+	declare Text By_Text = _("by %1");
+	//L16N [HotSeat] %1 is the name of the player that won the match. eg: "Someone won the match!"
+	declare Text Text_WinnerName = _("$<%1$> won the match!");
+	//L16N [HotSeat] Message displayed at the end of the match if players have the same race time
+	declare Text Text_PlayersTied = _("Players are tied!");
+
+	declare Real Margin = 1.;
+	declare Vec2 RaceMenuSize = CampaignConsts::C_RaceMenu_Size;
+	declare Vec2 Size_ListButton = <RaceMenuSize.X*1.2-3.5, RaceMenuSize.Y>;
+	declare Real SizeY_AdjustedListButton = Size_ListButton.Y - (4*Size_ListButton.Y/64); //< Remove the outer pixel of the asset
+	declare Vec2 Size_FooterButton = <0.5*(Size_ListButton.X + MLHelpers::SkewX(2*14.5 - SizeY_AdjustedListButton, 10.) - Margin), 14.5>;
+	declare Vec2 Size_VoteButton = <0.13*Size_ListButton.X, Size_FooterButton.Y>;
+	declare Vec2 Size_SmallerFooterButton = <Size_FooterButton.X - Size_VoteButton.X - Margin + MLHelpers::SkewX(Size_FooterButton.Y, 10.), Size_FooterButton.Y>;
+	declare Vec2 Pos_ExitButton = <-0.5*(Size_ListButton.X + MLHelpers::SkewX(Size_FooterButton.Y - SizeY_AdjustedListButton, 10.)), 0.>;
+	declare Vec2 Pos_VoteDislikeButton = <Pos_ExitButton.X + Size_SmallerFooterButton.X - MLHelpers::SkewX(Size_FooterButton.Y, 10.) + Margin, 0.>;
+	declare Vec2 Pos_VoteLikeButton = <Pos_VoteDislikeButton.X + Size_VoteButton.X - MLHelpers::SkewX(Size_VoteButton.Y, 10.) + Margin, 0.>;
+	declare Vec2 Pos_NextMapButton = <Pos_VoteLikeButton.X + Size_VoteButton.X - MLHelpers::SkewX(Size_VoteButton.Y, 10.) + Margin, 0.>;
+
+	declare Text ML_Rankings = "";
+	declare Real PosY = 0.;
+	for (I, 0, Const::C_MaxPlayersNb-1) {
+		declare Real PosX = -40. - (I * 1.5);
+		if (I >= Const::C_MaxPlayersNb / 2) PosX = 40. - (I * 1.5);
+		if (I == Const::C_MaxPlayersNb / 2) PosY = 0.;
+		PosY -= 8.;
+		ML_Rankings ^= """<frameinstance modelid="framemodel-player" pos="{{{PosX}}} {{{PosY}}}" />""";
+	}
+
+	return MV::Create(
+C_Id, 3,
+"""
+<stylesheet>
+	<style class="text-default" halign="center" valign="center2" textsize="4" textprefix="$t$i" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_TextLight)}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+	<style class="quad-default" halign="center" valign="center" />
+</stylesheet>
+
+<framemodel id="framemodel-player">
+	<label id="label-rank" pos="-28.5 -0.4" size="{{{RaceMenuSize.X/2.}}} 5" textsize="3" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" class="text-default" />
+	<quad id="quad-player-rank" pos="-33.5 0" size="10 7" image="{{{MenuConsts::C_ImageUrl_HotSeat_Player_Rank}}}" z-index="-1" halign="left" class="quad-default" colorize="000"/>
+	<label id="label-player-name" pos="-11.5 -0.4" size="25 5" textsize="3" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" halign="center" class="text-default" />
+	<quad id="quad-player-name" pos="-26.5 0" size="30 7" image="{{{MenuConsts::C_ImageUrl_HotSeat_Player_Name}}}" z-index="-1" halign="left" class="quad-default"/>
+	<label id="label-time" pos="31 -0.4" size="{{{RaceMenuSize.X/2.}}} 5" textsize="3" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" halign="right" class="text-default" />
+</framemodel>
+
+<frame id="frame-global" z-index="{{{Const::C_ZIndex_EndMatch}}}" hidden="1">
+	<quad bgcolor="000" size="320 180" fullscreen="1" halign="center" valign="center" z-index="-3" opacity=".3"/>
+	<frameinstance id="menubuttonlist-end-match-menu-hotseat" modelid="{{{MenuButtonList::C_Name}}}" z-index="1" />
+
+	<frame id="frame-menu" hidden="1">
+		<frame id="frame-header" pos="{{{MLHelpers::Skew(-9., 45., 10.)}}}" z-index="-2">
+			<frame id="frame-map-infos" pos="8 0">
+				<quad z-index="-1" size="{{{RaceMenuSize.X *1.2}}} 23.5" colorize="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFive)}}}" image="{{{Images::C_ImageUrl_ModeMenu_Header}}}" class="quad-default" pos="0.25 -2."/>
+				<label pos="{{{RaceMenuSize.X/2.+6.}}} -9" z-index="1" size="{{{RaceMenuSize.X/2.}}} 10" text="{{{Text_HotSeat}}}" class="text-default" textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}" halign="right" textsize="8" italicslope="0.2" />
+				<label id="label-map-name" pos="{{{MLHelpers::Skew(-RaceMenuSize.X/2. - 3., 2., 10.)}}}" z-index="1" size="{{{RaceMenuSize.X/2.}}} 10"  halign="left" class="text-default" textsize="6" italicslope="0.2" filter-profanities="Always"/>
+				<label id="label-map-author" pos="{{{MLHelpers::Skew(-RaceMenuSize.X/2. - 3., -4., 10.)}}}" z-index="1" size="{{{RaceMenuSize.X/2.}}} 10"  halign="left" class="text-default"  textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_Regular)}}}" italicslope="0.2"/>
+			</frame>
+			<quad pos="2 -39" image="{{{Images::C_ImageUrl_ModeMenu_Background}}}" size="{{{RaceMenuSize.X*1.2 + 3.}}} 50" class="quad-default" z-index="-1" opacity=".9"/>
+			<frame id="frame-race-infos" pos="5 -22">
+				<label z-index="2" id="label-winner" pos="0 1" size="{{{RaceMenuSize.X * 0.75}}} {{{RaceMenuSize.Y}}}" textsize="4" class="text-default" italicslope=".2"/>
+				<quad z-index="1" id="quad-winner" halign="center" valign="center" pos="0.1 1.5" size="{{{RaceMenuSize.X * 1.2 -2.5}}} 14" image="{{{MenuConsts::C_ImageUrl_HotSeat_Victory}}}"/>
+			</frame>
+
+			<frame id="frame-rankings" pos="8 -25">
+				{{{ML_Rankings}}}
+			</frame>
+		</frame>
+
+		<frameinstance
+			modelid="{{{Button::C_Name}}}" id="button-restart-map"
+			pos="{{{MLHelpers::Skew(-0.3, -23.5, 10.)}}}"
+			class="{{{Navigation::C_Class}}}"
+			data-text="{{{Text_Restart}}}"
+			data-size="{{{RaceMenuSize.X*1.2-3.5}}} {{{RaceMenuSize.Y}}}"
+			data-textcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentOne)}}}"
+			data-textfocuscolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFour)}}}"
+			data-image="{{{Images::C_ImageUrl_ModeMenu_Button_Round_Corner}}}"
+			data-imagefocus="{{{Images::C_ImageUrl_ModeMenu_Button_Round_Corner_Focus}}}"
+			data-backgroundcolortype="{{{Button::C_ColorType_None}}}"
+			data-textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}"
+			data-opacityunfocus=".95"
+			data-textsize="4"
+			data-textopacityunfocus=".4"
+			data-textitalicslope=".2"
+			data-halign="center"
+			data-valign="center"
+			data-nav-inputs="select;cancel;appmenu;up;down;pageup;pagedown"
+			data-nav-targets="_;_;_;button-exit;button-exit;_;_"
+			data-nav-group="{{{C_NavGroup_Default}}}"
+			data-nav-zone="{{{Button::C_NavZone}}}"
+			z-index="2"
+		/>
+
+		<frame id="frame-footer" pos="{{{MLHelpers::Skew(0., -36.5, 10.)}}}">
+			<frameinstance
+				id="button-exit" pos="{{{Pos_ExitButton.X}}} {{{Pos_ExitButton.Y}}}" z-index="1"
+				modelid="{{{ExpendableButton::C_Name}}}"
+				class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}}"
+				data-text="{{{Text_Exit}}}"
+				data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_PagePrevious}}} {{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"
+				data-width="{{{Size_SmallerFooterButton.X}}}" data-height="{{{Size_SmallerFooterButton.Y}}}"
+				data-icon-size="10 10" data-icon-offset="-5 0"
+				data-icon-align="{{{ExpendableButton::C_IconAlign_Left}}}"
+				data-text-size="{{{0.7*Size_SmallerFooterButton.X}}} {{{Size_SmallerFooterButton.Y}}}"
+				data-text-offset="-7 -0.4"
+				data-halign="left" data-valign="center"
+				data-nav-inputs="select;cancel;appmenu;up;down;right;pageup;pagedown"
+				data-nav-targets="_;_;_;button-restart-map;button-restart-map;button-vote-dislike;_;_"
+				data-nav-group="{{{C_NavGroup_Default}}}"
+				data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+				data-menusounds-selectsound="IngameSelectQuit"
+			/>
+			<frameinstance
+				id="button-vote-dislike" pos="{{{Pos_VoteDislikeButton.X}}} {{{Pos_VoteDislikeButton.Y}}}" z-index="1"
+				modelid="{{{ExpendableButton::C_Name}}}"
+				class="{{{Navigation::C_Class}}}"
+				data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"
+				data-width="{{{Size_VoteButton.X}}}" data-height="{{{Size_VoteButton.Y}}}"
+				data-text-size="{{{Size_VoteButton.X}}} {{{Size_VoteButton.Y}}}"
+				data-text-textsize="7"
+				data-text-offset="-7 -1"
+				data-halign="left" data-valign="center"
+				data-nav-inputs="select;cancel;appmenu;up;down;left;right;pageup;pagedown"
+				data-nav-targets="_;_;_;button-restart-map;button-restart-map;button-exit;button-vote-like;_;_"
+				data-nav-group="{{{C_NavGroup_Default}}}"
+				data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+			/>
+			<frameinstance
+				id="button-vote-like" pos="{{{Pos_VoteLikeButton.X}}} {{{Pos_VoteLikeButton.Y}}}" z-index="1"
+				modelid="{{{ExpendableButton::C_Name}}}"
+				class="{{{Navigation::C_Class}}}"
+				data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"
+				data-width="{{{Size_VoteButton.X}}}" data-height="{{{Size_VoteButton.Y}}}"
+				data-text-size="{{{Size_VoteButton.X}}} {{{Size_VoteButton.Y}}}"
+				data-text-offset="-7 -1"
+				data-text-textsize="7"
+				data-halign="left" data-valign="center"
+				data-nav-inputs="select;cancel;appmenu;up;down;left;right;pageup;pagedown"
+				data-nav-targets="_;_;_;button-restart-map;button-restart-map;button-vote-dislike;button-next-map;_;_"
+				data-nav-group="{{{C_NavGroup_Default}}}"
+				data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+			/>
+			<frameinstance
+				id="button-next-map" pos="{{{Pos_NextMapButton.X}}} {{{Pos_NextMapButton.Y}}}" z-index="1" hidden="1"
+				modelid="{{{ExpendableButton::C_Name}}}"
+				class="{{{Navigation::C_Class}}} {{{MenuSounds::C_Class}}}"
+				data-text="{{{Text_NextMap}}}"
+				data-styles="{{{ExpendableButton::C_Style_Stack}}} {{{ExpendableButton::C_Style_StackBottom}}} {{{ExpendableButton::C_Style_PageNext}}} {{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"
+				data-width="{{{Size_SmallerFooterButton.X}}}" data-height="{{{Size_SmallerFooterButton.Y}}}"
+				data-icon-size="10 10" data-icon-offset="-4.5 0"
+				data-icon-align="{{{ExpendableButton::C_IconAlign_Right}}}"
+				data-text-size="{{{0.7*Size_SmallerFooterButton.X}}} {{{Size_SmallerFooterButton.Y}}}"
+				data-text-offset="-4.5 -0.4"
+				data-halign="left" data-valign="center"
+				data-nav-inputs="select;cancel;appmenu;up;left;down;pageup;pagedown"
+				data-nav-targets="_;_;_;button-restart-map;button-vote-like;button-restart-map;_;_"
+				data-nav-group="{{{C_NavGroup_Default}}}"
+				data-nav-zone="{{{ExpendableButton::C_NavZone}}}"
+				data-nav-locked="1"
+				data-menusounds-selectsound="IngameSelectNextMap"
+			/>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/CMGame/Modes/Clans_Client.Script.txt" as Clans
+#Include "Libs/Nadeo/CMGame/Utils/MainUser.Script.txt" as MainUser
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/TMGame/Modes/TrackVote.Script.txt" as TrackVote
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/Consts.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/Modes/HotSeat/Structs.Script.txt" as Struct
+#Include "ColorLib" as CL
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+#Struct K_Controls {
+	CMlFrame Frame_Menu;
+	CMlFrame Button_Exit;
+	CMlFrame Button_NextMap;
+	CMlFrame Button_RestartMap;
+	CMlFrame Button_VoteDislike;
+	CMlFrame Button_VoteLike;
+}
+
+#Struct K_State {
+	K_Controls Controls;
+}
+
+#Const C_Color_TextLight {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_TextLight))}}}
+""",
+"""
+Void Focus(K_State _State, CMlControl _From, CMlControl _To) {
+	if (_From != Null) {
+		{{{Navigation::P}}}Unfocus(This, _From);
+		if ({{{Button::P}}}IsButton(_From)) {
+			{{{Button::P}}}Unfocus(This, (_From as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_From)) {
+			{{{ExpendableButton::P}}}Unfocus(This, (_From as CMlFrame));
+		}
+	}
+
+	if (_To != Null) {
+		{{{Navigation::P}}}Focus(This, _To);
+		if ({{{Button::P}}}IsButton(_To)) {
+			{{{Button::P}}}Focus(This, (_To as CMlFrame));
+		} else if ({{{ExpendableButton::P}}}IsButton(_To)) {
+			{{{ExpendableButton::P}}}Focus(This, (_To as CMlFrame));
+			if (_To.Parent != Null && _To.Parent.ControlId == "frame-footer") {
+				{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_RestartMap, "down", _To.ControlId);
+				{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_RestartMap, "up", _To.ControlId);
+			}
+		}
+	}
+}
+
+Void CloseMenu(K_State _State, Text _EventName) {
+	Focus(_State, {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), Null);
+	_State.Controls.Frame_Menu.Hide();
+	if (_EventName != "") SendCustomEvent(_EventName, []);
+	EnableMenuNavigation(False, False, Null, Const::C_InputsPriority_EndMatch);
+}
+
+Void Select(K_State _State, CMlControl _Control) {
+	if (_Control == Null) return;
+
+	switch (_Control.ControlId) {
+		case "button-restart-map": CloseMenu(_State, Const::C_EndMatchMenu_RestartMap);
+		case "button-next-map": CloseMenu(_State, Const::C_EndMatchMenu_NextMap);
+		case "button-exit": CloseMenu(_State, Const::C_EndMatchMenu_Quit);
+		case "button-vote-like": TrackVote::LikeTrack(This, Map, _State.Controls.Button_VoteLike, _State.Controls.Button_VoteDislike);
+		case "button-vote-dislike": TrackVote::DislikeTrack(This, Map, _State.Controls.Button_VoteLike, _State.Controls.Button_VoteDislike);
+	}
+}
+
+Void RefreshHotSeatPlayers(CMlFrame _Frame_Rankings, CMlLabel _Label_Winner, CMlQuad _Quad_Winner, Struct::K_HotSeatPlayer[Integer] _HotSeatPlayers) {
+	declare Integer[Integer] SortedByRank;
+	declare Integer BestTime = -1;
+	foreach (PlayerId => Player in _HotSeatPlayers) {
+		SortedByRank[PlayerId] = Player.Rank;
+		if (Player.Rank == 0) {
+			BestTime = Player.BestTime;
+		}
+	}
+	SortedByRank = SortedByRank.sort();
+	declare Struct::K_HotSeatPlayer[Integer] HotSeatPlayers;
+	declare Integer Key = 0;
+	foreach (PlayerId => Rank in SortedByRank) {
+		HotSeatPlayers[Key] = _HotSeatPlayers[PlayerId];
+		Key += 1;
+	}
+
+	if (Key <= 4) _Frame_Rankings.RelativePosition_V3.X = 48.;
+	else _Frame_Rankings.RelativePosition_V3.X = 8.;
+
+	if (BestTime <= 0) {
+		// No one finished
+		_Label_Winner.SetText("{{{Text_PlayersTied}}}");
+		_Quad_Winner.Colorize = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentFive))}}};
+	}
+
+	foreach (Rank => Control in _Frame_Rankings.Controls) {
+		if (HotSeatPlayers.existskey(Rank)) {
+			declare Player = HotSeatPlayers[Rank];
+			declare Frame_Player = (Control as CMlFrame);
+			declare Label_Rank <=> (Frame_Player.GetFirstChild("label-rank") as CMlLabel);
+			declare Label_PlayerName <=> (Frame_Player.GetFirstChild("label-player-name") as CMlLabel);
+			declare Quad_PlayerName <=> (Frame_Player.GetFirstChild("quad-player-name") as CMlQuad);
+			declare Label_Time <=> (Frame_Player.GetFirstChild("label-time") as CMlLabel);
+			Label_Rank.Value = ""^(Player.Rank + 1);
+			Label_PlayerName.Value = Player.PlayerName;
+			Quad_PlayerName.Colorize = Clans::GetClanColor(Player.Clan);
+			Label_PlayerName.TextColor = Clans::GetClanForegroundColor(Player.Clan);
+			if (Player.BestTime <= 0) {
+				//L16N acronym of the term Did Not Finish (https://en.wikipedia.org/wiki/Did_Not_Finish)
+				Label_Time.Value = _("|DidNotFinish|DNF");
+			} else if (Player.Rank == 0) {
+				Label_Time.Value = TL::TimeToText(Player.BestTime, True, True);
+				_Label_Winner.SetText(TL::Compose("{{{Text_WinnerName}}}", Player.PlayerName));
+				_Quad_Winner.Colorize = Clans::GetClanColor(Player.Clan);
+				_Label_Winner.TextColor = Clans::GetClanForegroundColor(Player.Clan);
+			} else {
+				if ((Player.BestTime - BestTime) == 0) {
+					_Label_Winner.SetText("{{{Text_PlayersTied}}}");
+					_Label_Winner.TextColor = C_Color_TextLight;
+					_Quad_Winner.Colorize = {{{dump(Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentFive))}}};
+				}
+				Label_Time.Value = "+"^TL::TimeToText(Player.BestTime - BestTime, True, True);
+			}
+			Frame_Player.Visible = True;
+		} else {
+			Control.Visible = False;
+		}
+	}
+}
+
+Void SetMapAuthorName(CMlLabel _Label_MapAuthor, Text _AuthorName) {
+	//L16N [EndMatch HotSeat] %1 will be replaced by the name of the author of the track, e.g. "by Darrek"
+	_Label_MapAuthor.Value = TL::Compose("{{{By_Text}}}", _AuthorName);
+	Tools::FitLabelValue(_Label_MapAuthor, 4., 1., 0.5);
+	Tools::FirstPartyLogoMatchLuminance(_Label_MapAuthor);
+}
+
+Void UpdateNextMapButton(K_State _State) {
+	_State.Controls.Button_NextMap.Visible = {{{NetShare::P}}}GetMapsCount() > 1;
+	{{{Navigation::P}}}Lock(_State.Controls.Button_NextMap, !_State.Controls.Button_NextMap.Visible);
+	if (_State.Controls.Button_NextMap.Visible) {
+		{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_RestartMap, "up", _State.Controls.Button_NextMap.ControlId);
+		{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_RestartMap, "down", _State.Controls.Button_NextMap.ControlId);
+		{{{Button::P}}}SetImage(This, _State.Controls.Button_RestartMap, "{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner}}}");
+		{{{Button::P}}}SetImageFocus(This, _State.Controls.Button_RestartMap, "{{{Images::C_ImageUrl_ModeMenu_Button_Obtuse_Corner_Focus}}}");
+		{{{ExpendableButton::P}}}SetWidth(This, _State.Controls.Button_Exit, {{{Size_SmallerFooterButton.X}}}, False);
+		{{{ExpendableButton::P}}}SetTextSize(This, _State.Controls.Button_Exit, {{{0.7*Size_SmallerFooterButton}}});
+		{{{ExpendableButton::P}}}SetStyles(This, _State.Controls.Button_VoteLike, ["{{{ExpendableButton::C_Style_Stack}}}", "{{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"]);
+		_State.Controls.Button_VoteDislike.RelativePosition_V3 = {{{Pos_VoteDislikeButton}}};
+		_State.Controls.Button_VoteLike.RelativePosition_V3 = {{{Pos_VoteLikeButton}}};
+		_State.Controls.Button_NextMap.RelativePosition_V3 = {{{Pos_NextMapButton}}};
+	} else {
+		{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_RestartMap, "up", _State.Controls.Button_Exit.ControlId);
+		{{{Navigation::P}}}ChangeControlTarget(This, _State.Controls.Button_RestartMap, "down", _State.Controls.Button_Exit.ControlId);
+		{{{Button::P}}}SetImage(This, _State.Controls.Button_RestartMap, "{{{Images::C_ImageUrl_ModeMenu_Button_Round_Corner}}}");
+		{{{Button::P}}}SetImageFocus(This, _State.Controls.Button_RestartMap, "{{{Images::C_ImageUrl_ModeMenu_Button_Round_Corner_Focus}}}");
+		{{{ExpendableButton::P}}}SetWidth(This, _State.Controls.Button_Exit, {{{Size_FooterButton.X}}}, False);
+		{{{ExpendableButton::P}}}SetTextSize(This, _State.Controls.Button_Exit, {{{0.7*Size_FooterButton}}});
+		{{{ExpendableButton::P}}}SetStyles(This, _State.Controls.Button_VoteLike, ["{{{ExpendableButton::C_Style_Stack}}}", "{{{ExpendableButton::C_Style_StackBottom}}}", "{{{ExpendableButton::C_Style_InGameMenuFooterButton}}}"]);
+		_State.Controls.Button_VoteDislike.RelativePosition_V3.X = {{{Pos_ExitButton.X + Size_FooterButton.X - MLHelpers::SkewX(Size_FooterButton.Y, 10.) + Margin}}};
+		_State.Controls.Button_VoteLike.RelativePosition_V3.X = _State.Controls.Button_VoteDislike.RelativePosition_V3.X + {{{Size_VoteButton.X - MLHelpers::SkewX(Size_VoteButton.Y, 10.) + Margin}}};
+	}
+	{{{ExpendableButton::P}}}Unfocus(This, _State.Controls.Button_Exit);
+	{{{Button::P}}}Unfocus(This, _State.Controls.Button_RestartMap);
+	declare FocusedControl = {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}");
+	if ((FocusedControl is CMlFrame) && {{{Button::P}}}IsButton(FocusedControl as CMlFrame)) {
+		{{{Button::P}}}Focus(This, FocusedControl as CMlFrame);
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_Menu;
+declare CMlLabel Label_MapName;
+declare CMlLabel Label_MapAuthor;
+declare CMlLabel Label_Winner;
+declare CMlQuad Quad_Winner;
+declare CMlFrame Frame_Rankings;
+declare CMlFrame MenuButtonList_EndMatchHotSeat;
+
+declare netread Boolean Net_HotSeat_EndMatch_MenuOpen for Teams[0];
+
+declare K_State State;
+declare Boolean DisplayModule;
+declare Text AuthorName;
+declare Text MapUid;
+declare Boolean NeedAuthorDisplayNameUpdate;
+declare Text AuthorId;
+declare Ident Task_GetDisplayNameId;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_Menu <=> (Frame_Global.GetFirstChild("frame-menu") as CMlFrame);
+Label_MapName <=> (Frame_Menu.GetFirstChild("label-map-name") as CMlLabel);
+Label_MapAuthor <=> (Frame_Menu.GetFirstChild("label-map-author") as CMlLabel);
+Label_Winner <=> (Frame_Menu.GetFirstChild("label-winner") as CMlLabel);
+Quad_Winner <=> (Frame_Menu.GetFirstChild("quad-winner") as CMlQuad);
+Frame_Rankings <=> (Frame_Menu.GetFirstChild("frame-rankings") as CMlFrame);
+MenuButtonList_EndMatchHotSeat <=> (Frame_Global.GetFirstChild("menubuttonlist-end-match-menu-hotseat") as CMlFrame);
+
+State = K_State {
+	Controls = K_Controls {
+		Frame_Menu = Frame_Menu,
+		Button_Exit = (Frame_Menu.GetFirstChild("button-exit") as CMlFrame),
+		Button_NextMap = (Frame_Menu.GetFirstChild("button-next-map") as CMlFrame),
+		Button_RestartMap = (Frame_Menu.GetFirstChild("button-restart-map") as CMlFrame),
+		Button_VoteDislike = (Frame_Menu.GetFirstChild("button-vote-dislike") as CMlFrame),
+		Button_VoteLike = (Frame_Menu.GetFirstChild("button-vote-like") as CMlFrame)
+	}
+};
+
+DisplayModule = Frame_Global.Visible;
+AuthorName = "";
+MapUid = "";
+NeedAuthorDisplayNameUpdate = False;
+AuthorId = "";
+
+UpdateNextMapButton(State);
+{{{Navigation::P}}}UseLocalEvents(This, True);
+{{{MenuButtonList::P}}}SetButtons(MenuButtonList_EndMatchHotSeat, ["A" => _("Select"), "PageUp" => TrackVote::C_Text_DislikeTrack, "PageDown" => TrackVote::C_Text_LikeTrack, "B" => _("Back")]);
+Focus(State, {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), State.Controls.Button_RestartMap);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_HotSeat_EndMatch_IsVisible for Owner;
+		if (DisplayModule != Net_HotSeat_EndMatch_IsVisible) {
+			DisplayModule = Net_HotSeat_EndMatch_IsVisible;
+			Frame_Global.Visible = DisplayModule;
+		}
+		if (State.Controls.Button_NextMap.Visible != ({{{NetShare::P}}}GetMapsCount() > 1)) {
+			UpdateNextMapButton(State);
+		}
+	}
+
+	if (Frame_Global.Visible) {
+		if (Map != Null) {
+			if (MapUid != Map.MapInfo.MapUid)  {
+				MapUid = Map.MapInfo.MapUid;
+				Label_MapName.Value = Tools::TranslateOfficialMapName(Map.MapName, Map.AuthorLogin);
+				AuthorId = Map.AuthorLogin;
+				if (Map.AuthorNickName != "") SetMapAuthorName(Label_MapAuthor, Map.AuthorNickName);
+				else Label_MapAuthor.Value = "";
+				NeedAuthorDisplayNameUpdate = True;
+
+				// Update like and dislike buttons from API
+				TrackVote::UpdateLikeAndDislikeButtonsWithLastestVote(This, Map, State.Controls.Button_VoteLike, State.Controls.Button_VoteDislike);
+			}
+		}
+
+		if (NeedAuthorDisplayNameUpdate) {
+			if (Task_GetDisplayNameId != NullId) {
+				DataFileMgr.TaskResult_Release(Task_GetDisplayNameId);
+			}
+			NeedAuthorDisplayNameUpdate = False;
+			declare Text DisplayName = {{{UserStore::P}}}GetUserMgrPlayerName(AuthorId);
+			if (DisplayName == "") {
+				declare CTaskResult_GetDisplayNameResult Task <=> UserMgr.RetrieveDisplayName(MainUser::GetMainUserId(), [AuthorId]);
+				if (Task != Null) Task_GetDisplayNameId = Task.Id;
+			} else {
+				SetMapAuthorName(Label_MapAuthor, DisplayName);
+			}
+		}
+
+		//Open menu with winner => Here to only open the menu when frame-global is visible
+		if (Net_HotSeat_EndMatch_MenuOpen && !Frame_Menu.Visible) {
+			Focus(State, {{{Navigation::P}}}GetFocusedControl(This, "{{{C_NavGroup_Default}}}"), State.Controls.Button_RestartMap);
+			RefreshHotSeatPlayers(Frame_Rankings, Label_Winner, Quad_Winner, {{{NetShare::P}}}GetHotSeatPlayers());
+			EnableMenuNavigation(True, False, Null, Const::C_InputsPriority_EndMatch);
+			Frame_Menu.Show();
+		}
+
+		//Manage inputs
+		if (Frame_Menu.Visible) {
+			foreach (Event in {{{Navigation::P}}}GetPendingEvents(This)) {
+				if ({{{Navigation::P}}}IsEventFromGroup(This, Event, "{{{C_NavGroup_Default}}}")) {
+					switch (Event.Type) {
+						case {{{Navigation::P}}}C_EventType_NavigateInput: {
+							switch (Event.Input) {
+								case CMlScriptEvent::EMenuNavAction::Select: Select(State, Event.To);
+								case CMlScriptEvent::EMenuNavAction::PageUp: if (!Event.IsActionAutoRepeat) Select(State, State.Controls.Button_VoteDislike);
+								case CMlScriptEvent::EMenuNavAction::PageDown: if (!Event.IsActionAutoRepeat) Select(State, State.Controls.Button_VoteLike);
+								case CMlScriptEvent::EMenuNavAction::Cancel, CMlScriptEvent::EMenuNavAction::AppMenu: {
+									CloseMenu(State, Const::C_EndMatchMenu_Quit);
+								}
+								default: Focus(State, Event.From, Event.To);
+							}
+						}
+						case {{{Navigation::P}}}C_EventType_NavigateMouse: {
+							switch (Event.Mouse) {
+								case CMlScriptEvent::Type::MouseClick: Select(State, Event.To);
+								case CMlScriptEvent::Type::MouseOver: Focus(State, Event.From, Event.To);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (Owner == Null && DisplayModule) {
+			DisplayModule = False;
+			Frame_Global.Visible = DisplayModule;
+		}
+	}
+
+	//Close menu => Here to be sure to always detect the close request
+	if (!Net_HotSeat_EndMatch_MenuOpen && Frame_Menu.Visible) {
+		CloseMenu(State, "");
+	}
+
+	if (Task_GetDisplayNameId != NullId) {
+		if (UserMgr.TaskResults.existskey(Task_GetDisplayNameId) && (UserMgr.TaskResults[Task_GetDisplayNameId] is CTaskResult_GetDisplayNameResult)) {
+			declare CTaskResult_GetDisplayNameResult Task_GetDisplayName = (UserMgr.TaskResults[Task_GetDisplayNameId] as CTaskResult_GetDisplayNameResult);
+			if (
+				Task_GetDisplayName != Null &&
+				!Task_GetDisplayName.IsProcessing
+			) {
+				if (Task_GetDisplayName.HasSucceeded) {
+					declare Text DisplayName = {{{UserStore::P}}}GetUserMgrPlayerName(AuthorId);
+					if (DisplayName != "") SetMapAuthorName(Label_MapAuthor, DisplayName);
+				}
+				UserMgr.TaskResult_Release(Task_GetDisplayNameId);
+				Task_GetDisplayNameId = NullId;
+			}
+		}
+	}
+}
+***
+""",
+[
+	Button::ComponentV2(),
+	ExpendableButton::ComponentV2(),
+	Navigation::ComponentV2(),
+	MenuButtonList::Component(),
+	NetShare::Component(),
+	UserStore::ComponentV2()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update library
+Void Yield() {
+	foreach (Event in PendingEvents) {
+		if (Event.Type == CManiaAppEvent::EType::LayerCustomEvent) {
+			declare Text[] ModeEvents = Const::C_EndMatchMenuEvents;
+			if (ModeEvents.exists(Event.CustomEventType)) {
+				declare Text[] EventData;
+				foreach (Value in Event.CustomEventData) EventData.add(Value);
+				SendCustomEvent(Event.CustomEventType, EventData);
+			}
+		}
+	}
+}

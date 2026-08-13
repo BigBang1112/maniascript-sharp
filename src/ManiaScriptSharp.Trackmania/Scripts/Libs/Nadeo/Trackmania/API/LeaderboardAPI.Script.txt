@@ -1,0 +1,1433 @@
+/**
+ * Component : LeaderboardAPI
+ */
+#Const Version "1.3.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/API/LeaderboardAPI.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/HttpServerAuthorizationHeader.Script.txt" as HttpServerAuthorizationHeader
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_GroupUid_PersonalBest "Personal_Best" //< Used in leaderboards to get the personal best instead of the seasonal best
+
+#Const C_API_Leaderboard "/api/token/leaderboard/group"
+#Const C_API_LeaderboardBasicAuth "/api/basic-auth/leaderboard/group"
+#Const C_API_LeaderboardPublic "/api/leaderboard/group"
+#Const C_API_Trophy "/api/token/leaderboard/trophy"
+#Const C_API_TrophyServer "/api/leaderboard/trophy"
+#Const C_API_Ranked "/api/token/leaderboard/ranked"
+#Const C_API_ServerSurrounding "/api/leaderboard/group/:GroupUid/map/:MapUid/surround/:NbBefore/:NbAfter"
+
+#Const C_RouteParameter_GroupUid "GroupUid"
+#Const C_RouteParameter_ClubId "ClubId"
+#Const C_RouteParameter_MapUid "MapUid"
+#Const C_RouteParameter_NbBefore "NbBefore"
+#Const C_RouteParameter_NbAfter "NbAfter"
+
+#Const C_QueryParameter_Score "score"
+#Const C_QueryParameter_Scores "scores"
+#Const C_QueryParameter_Offset "offset"
+#Const C_QueryParameter_Length "length"
+#Const C_QueryParameter_OnlyWorld "onlyWorld"
+#Const C_QueryParameter_AccountId "accountId"
+#Const C_QueryParameter_AccountIds "accountIds"
+
+#Const C_Route_GetPlayerRankings "/:GroupUid"
+#Const C_Route_GetTopRankings "/:GroupUid/top"
+#Const C_Route_GetPlayerRankingInClub "/:GroupUid/club/:ClubId"
+#Const C_Route_GetTopRankingsInClub "/:GroupUid/club/:ClubId/top"
+#Const C_Route_GetPlayerAllMapsRankings "/:GroupUid/map"
+#Const C_Route_GetPlayerAllMapsRankingsInClub "/:GroupUid/map/club/:ClubId"
+#Const C_Route_GetPlayerAllMapsRankingsMultiGroups "/map"
+#Const C_Route_GetPlayerAllMapsRankingsInClubMultiGroups "/map/club/:ClubId"
+#Const C_Route_GetPlayerMapRankings "/:GroupUid/map/:MapUid"
+#Const C_Route_GetMapTopRankings "/:GroupUid/map/:MapUid/top"
+#Const C_Route_GetPlayersCloseToMedals "/:GroupUid/map/:MapUid/medals"
+#Const C_Route_GetPlayersRecord "/:GroupUid/map/:MapUid/records"
+#Const C_Route_GetSurroundingRankings "/:GroupUid/map/:MapUid/surround/:NbBefore/:NbAfter"
+#Const C_Route_GetPlayerMapRankingInClub "/:GroupUid/map/:MapUid/club/:ClubId"
+#Const C_Route_GetMapTopRankingsInClub "/:GroupUid/map/:MapUid/club/:ClubId/top"
+#Const C_Route_GetMapSurroundingRankingsInClub "/:GroupUid/map/:MapUid/club/:ClubId/surround/:NbBefore/:NbAfter"
+#Const C_Route_GetMapLevels "/:GroupUid/map/:MapUid/level"
+#Const C_Route_GetMyTrophyRanking ""
+#Const C_Route_GetPlayersTrophyRanking "/player"
+#Const C_Route_GetPlayersTrophyRankingServer "/player"
+#Const C_Route_GetPlayerRankInRankedLeaderboard ""
+#Const C_Route_GetTopPlayersInRankedLeaderboard "/top"
+
+#Const C_Headers [
+	"Accept" => "application/json",
+	"Content-Type" => "application/json"
+]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structs
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_HttpScore {
+	Integer score;
+}
+
+#Struct K_HttpRank {
+	Integer position;
+	Integer length;
+}
+
+#Struct K_HttpRankZone {
+	Text zoneId;
+	Text zoneName;
+	K_HttpRank ranking;
+}
+
+#Struct K_HttpTop {
+	Text accountId;
+	Text zoneId;
+	Text zoneName;
+	Integer position;
+	Text sp;
+}
+
+#Struct K_HttpPlayerScore {
+	Text groupUid;
+	Integer clubId;
+	Text sp;
+	Integer position;
+}
+
+#Struct K_HttpTopLeaderboard {
+	Text zoneId;
+	Text zoneName;
+	K_HttpTop[] top;
+}
+
+#Struct K_HttpTopScore {
+	Text accountId;
+	Text zoneId;
+	Text zoneName;
+	Integer position;
+	Integer score;
+}
+
+#Struct K_HttpTopScoreLeaderboard {
+	Text zoneId;
+	Text zoneName;
+	K_HttpTopScore[] top;
+}
+
+#Struct K_HttpLevel {
+	Text zoneId;
+	Text zoneName;
+	K_HttpTopScore[] level;
+}
+
+#Struct K_MapGroupUid {
+	Text mapUid;
+	Text groupUid;
+}
+#Struct K_MapGroupUidList {
+	K_MapGroupUid[] maps;
+}
+
+// ~~~~~~~~~~~~~~~~ //
+// Request responses
+// ~~~~~~~~~~~~~~~~ //
+#Struct K_HttpGetPlayerRankings {
+	Text groupUid;
+	Text sp;
+	K_HttpRankZone[] zones;
+}
+
+#Struct K_HttpGetTopRankings {
+	Text groupUid;
+	K_HttpTopLeaderboard[] tops;
+}
+
+#Struct K_HttpGetTopRankingsInClub {
+	Text groupUid;
+	Integer clubId;
+	Integer length;
+	K_HttpTop[] top;
+}
+
+#Struct K_HttpGetPlayerMapRankings {
+	Text groupUid;
+	Text mapUid;
+	Integer score;
+	K_HttpRankZone[] zones;
+}
+
+#Struct K_HttpGetMapTopRankings {
+	Text groupUid;
+	Text mapUid;
+	K_HttpTopScoreLeaderboard[] tops;
+}
+
+#Struct K_HttpPlayerCloseToMedal {
+	Text medal;
+	Text accountId;
+	Text zoneId;
+	Text zoneName;
+	Integer score;
+}
+
+#Struct K_HttpGetPlayersCloseToMedals {
+	Text groupUid;
+	Text mapUid;
+	K_HttpPlayerCloseToMedal[] medals;
+}
+
+#Struct K_HttpGetSurroundingRankings {
+	Text groupUid;
+	Text mapUid;
+	K_HttpTopScoreLeaderboard[] tops;
+}
+
+#Struct K_HttpGetPlayerMapRankingInClub {
+	Text groupUid;
+	Text mapUid;
+	Integer clubId;
+	Integer score;
+	Integer position;
+}
+
+#Struct K_HttpGetMapTopRankingsInClub {
+	Text groupUid;
+	Text mapUid;
+	Integer clubId;
+	Integer length;
+	K_HttpTopScore[] top;
+}
+
+#Struct K_HttpGetMapSurroundingRankingsInClub {
+	Text groupUid;
+	Text mapUid;
+	Integer clubId;
+	K_HttpTopScore[] top;
+}
+
+#Struct K_HttpGetMapLevels {
+	Text groupUid;
+	Text mapUid;
+	K_HttpLevel[] levels;
+}
+
+#Struct K_HttpGetPlayerTrophyRanking {
+	Integer countPoint;
+	Text accountId;
+	Integer echelon;
+	K_HttpRankZone[] zones;
+}
+#Struct K_HttpGetPlayersTrophyRanking {
+	K_HttpGetPlayerTrophyRanking[] rankings;
+	Integer length;
+}
+
+#Struct K_HttpGetPlayerRankInRankedLeaderboard {
+	Integer countPoint;
+	Text accountId;
+	K_HttpRankZone[] zones;
+}
+
+#Struct K_HttpGetTopPlayersInRankedLeaderboard {
+	K_HttpTopScoreLeaderboard[] tops;
+}
+
+#Struct K_HttpPlayerPB {
+	Text accountId;
+	Integer score;
+}
+
+// ~~~~~~~~~~~~~~~~ //
+// Processed responses
+// ~~~~~~~~~~~~~~~~ //
+#Struct K_ResponseFromGetTopRankingsInClub {
+	Integer ClubId;
+	Integer Length;
+	CampaignStruct::LibCampaignStruct_K_Top[] TopRankings;
+}
+
+#Struct K_ResponseFromGetPlayerMapRankings {
+	Text SeasonUid;
+	Text MapUid;
+	Integer Score;
+	CampaignStruct::LibCampaignStruct_K_Ranking[] Rankings;
+}
+
+#Struct K_ResponseFromGetPlayerMapRankingsInClub {
+	Text SeasonUid;
+	Text MapUid;
+	Integer ClubId;
+	Integer Score;
+	Integer Position;
+}
+
+#Struct K_ResponseFromGetMapTopRankings {
+	Text SeasonUid;
+	CampaignStruct::LibCampaignStruct_K_MapTopRanking[] TopRankings;
+}
+
+#Struct K_ResponseFromGetPlayersCloseToMedals {
+	Text SeasonUid;
+	Text MapUid;
+	CampaignStruct::LibCampaignStruct_K_PlayerCloseToMedal[] Medals;
+}
+
+#Struct K_ResponseFromGetSurroundingRankings {
+	Text SeasonUid;
+	CampaignStruct::LibCampaignStruct_K_TopScore[][Text] TopsByZone;
+}
+
+#Struct K_ResponseFromGetMapLevels {
+	Text SeasonUid;
+	Text MapUid;
+	CampaignStruct::LibCampaignStruct_K_TopScore[][Text] LevelsByZone;
+}
+
+#Struct K_ResponseFromGetMapTopRankingsInClub {
+	Text SeasonUid;
+	Integer Length;
+	CampaignStruct::LibCampaignStruct_K_TopScore[] Tops;
+}
+
+#Struct K_ResponseFromGetMapSurroundingRankingsInClub {
+	Text SeasonUid;
+	CampaignStruct::LibCampaignStruct_K_TopScore[] Tops;
+}
+
+// Serveur surrouding API
+#Struct K_BodyGetServerSurroundingPlayer {
+	Text accountId;
+	Integer score;
+}
+#Struct K_BodyGetServerSurrounding {
+	K_BodyGetServerSurroundingPlayer[] listPlayer;
+}
+#Struct K_HttpSurround {
+	Text accountId;
+	K_HttpTopScore[] surround;
+}
+#Struct K_HttpResponseFromGetServerSurrounding {
+	Text groupUid;
+	Text mapUid;
+	K_HttpTopScore[] top;
+	K_HttpSurround[] surround;
+}
+#Struct K_Top {
+	Integer Position;
+	Text AccountId;
+	Integer Score;
+}
+#Struct K_ResponseFromGetServerSurrounding {
+	Text MapUid;
+	K_Top[] WorldTops;
+	K_Top[][Text] PlayersTops;
+}
+
+#Struct K_TrophyPlayer {
+	Text accountId;
+}
+#Struct K_BodyGetPlayersTrophyRanking {
+	K_TrophyPlayer[] listPlayer;
+	Boolean onlyWorld;
+}
+#Struct K_ResponseFromGetPlayerTrophyRanking {
+	Text AccountId;
+	Integer Points;
+	Integer Echelon;
+	CampaignStruct::LibCampaignStruct_K_Ranking[] Ranking;
+}
+#Struct K_ResponseFromGetPlayersTrophyRanking {
+	K_ResponseFromGetPlayerTrophyRanking[] Players;
+	Integer Total;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the basic auth header for the requests to the leaderboard API
+Text[Text] Private_GetBasicAuthHeader(Text[Text] _BaseHeaders, Text _BasicAuthHeader) {
+	declare Text[Text] Headers = _BaseHeaders;
+	if (_BasicAuthHeader != "") {
+		Headers["Authorization"] = _BasicAuthHeader;
+	}
+	return Headers;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the rankings of the player in a group
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_AccountId						Account id of the player to fetch, can be empty to fetch the local user
+ *
+ *	@return												The request
+ */
+Http::K_Request GetPlayerRankings(Text _GroupUid, Text _AccountId) {
+	declare Text QueryString;
+	if (_AccountId != "") {
+		QueryString = Http::CreateQueryString([C_QueryParameter_AccountId => _AccountId]);
+	}
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayerRankings, [C_RouteParameter_GroupUid => _GroupUid]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^QueryString, C_Headers);
+}
+Http::K_Request GetPlayerRankings(Text _GroupUid) {
+	return GetPlayerRankings(_GroupUid, "");
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayerRankings request
+CampaignStruct::LibCampaignStruct_K_CampaignRanking GetResponseFromGetPlayerRankings(Http::K_Request _Request) {
+	declare K_HttpGetPlayerRankings HttpGetPlayerRankings;
+	declare Text Result = Http::GetResult(_Request);
+	if (Result != "" && Result != "[]") HttpGetPlayerRankings.fromjson(Result);
+
+	declare CampaignStruct::LibCampaignStruct_K_CampaignRanking CampaignRanking;
+	CampaignRanking.SP = HttpGetPlayerRankings.sp;
+
+	declare CampaignStruct::LibCampaignStruct_K_Ranking[] PlayerRankings;
+	foreach (RankZone in HttpGetPlayerRankings.zones) {
+		PlayerRankings.add(
+			CampaignStruct::LibCampaignStruct_K_Ranking {
+				ZoneId = RankZone.zoneId,
+				ZoneName = RankZone.zoneName,
+				Position = RankZone.ranking.position,
+				Length = RankZone.ranking.length
+			}
+		);
+	}
+	CampaignRanking.Rankings = PlayerRankings;
+
+	return CampaignRanking;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the top rankings of a group
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *
+ *	@return												The request
+ */
+Http::K_Request GetTopRankings(Text _GroupUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetTopRankings, [C_RouteParameter_GroupUid => _GroupUid]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetTopRankings request
+CampaignStruct::LibCampaignStruct_K_TopRanking[] GetResponseFromGetTopRankings(Http::K_Request _Request) {
+	declare K_HttpGetTopRankings HttpGetTopRankings;
+	HttpGetTopRankings.fromjson(Http::GetResult(_Request));
+
+	declare CampaignStruct::LibCampaignStruct_K_TopRanking[] TopRankings;
+	foreach (TopLeaderboard in HttpGetTopRankings.tops) {
+		declare CampaignStruct::LibCampaignStruct_K_Top[] Tops = [];
+		foreach (Top in TopLeaderboard.top) {
+			Tops.add(
+				CampaignStruct::LibCampaignStruct_K_Top {
+					AccountId = Top.accountId,
+					ZoneId = Top.zoneId,
+					Position = Top.position,
+					SP = Top.sp
+				}
+			);
+		}
+
+		TopRankings.add(
+			CampaignStruct::LibCampaignStruct_K_TopRanking {
+				ZoneName = TopLeaderboard.zoneName,
+				Tops = Tops
+			}
+		);
+	}
+
+	return TopRankings;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the top rankings of a group for a specific club
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_ClubId								The club Id to fetch
+ *	@param	_Offset								The offset to start the ranking
+ *	@param	_Length								The length of the ranking
+ *
+ *	@return												The request
+ */
+Http::K_Request GetTopRankingsInClub(Text _GroupUid, Integer _ClubId, Integer _Offset, Integer _Length) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetTopRankingsInClub,
+		[C_RouteParameter_GroupUid => _GroupUid, C_RouteParameter_ClubId => ""^_ClubId]
+	);
+	declare Text QueryString = Http::CreateQueryString([
+		C_QueryParameter_Offset => ""^_Offset,
+		C_QueryParameter_Length => ""^_Length
+	]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^QueryString, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetTopRankingsInClub request
+K_ResponseFromGetTopRankingsInClub GetResponseFromGetTopRankingsInClub(Http::K_Request _Request) {
+	declare K_HttpGetTopRankingsInClub HttpGetTopRankingsInClub;
+	HttpGetTopRankingsInClub.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetTopRankingsInClub TopRankingsInClub;
+	TopRankingsInClub.ClubId = HttpGetTopRankingsInClub.clubId;
+	TopRankingsInClub.Length = HttpGetTopRankingsInClub.length;
+	foreach (Top in HttpGetTopRankingsInClub.top) {
+		TopRankingsInClub.TopRankings.add(
+			CampaignStruct::LibCampaignStruct_K_Top {
+				AccountId = Top.accountId,
+				ZoneId = Top.zoneId,
+				Position = Top.position,
+				SP = Top.sp
+			}
+		);
+	}
+
+	return TopRankingsInClub;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the ranking of the player of a group for a specific club
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_ClubId								The club Id to fetch
+ *
+ *	@return												The request
+ */
+Http::K_Request GetPlayerRankingInClub(Text _GroupUid, Integer _ClubId) {
+	declare Text Route = Http::InjectRouteParameters(
+		C_Route_GetPlayerRankingInClub,
+		[C_RouteParameter_GroupUid => _GroupUid, C_RouteParameter_ClubId => ""^_ClubId]
+	);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayerRankingInClub request
+CampaignStruct::LibCampaignStruct_K_Top GetResponseFromGetPlayerRankingInClub(Http::K_Request _Request) {
+	declare K_HttpPlayerScore HttpPlayerScore;
+	HttpPlayerScore.fromjson(Http::GetResult(_Request));
+
+	return CampaignStruct::LibCampaignStruct_K_Top {
+		Position = HttpPlayerScore.position,
+		SP = HttpPlayerScore.sp
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the rankings of the player in every maps of a group
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *
+ *	@return												The request
+ */
+Http::K_Request GetPlayerAllMapsRankings(Text _GroupUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayerAllMapsRankings, [C_RouteParameter_GroupUid => _GroupUid]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the rankings of the player in every maps of a group
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_CurrentScores					New player's score to estimate current player's rank (MapUid => Score)
+ *
+ *	@return												The request
+ */
+Http::K_Request GetPlayerAllMapsRankings(Text _GroupUid, Integer[Text] _CurrentScores) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayerAllMapsRankings, [C_RouteParameter_GroupUid => _GroupUid]);
+	declare Text QueryString = Http::CreateQueryString(C_QueryParameter_Scores, _CurrentScores);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^QueryString, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayerAllMapsRankings request
+K_ResponseFromGetPlayerMapRankings[Text] GetResponseFromGetPlayerAllMapsRankings(Http::K_Request _Request) {
+	declare K_HttpGetPlayerMapRankings[Text] HttpGetPlayerAllMapsRankings;
+	HttpGetPlayerAllMapsRankings.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetPlayerMapRankings[Text] PlayerAllMapsRankings;
+	foreach (MapUid => HttpGetPlayerMapRankings in HttpGetPlayerAllMapsRankings) {
+		declare CampaignStruct::LibCampaignStruct_K_Ranking[] Rankings;
+		foreach (RankZone in HttpGetPlayerMapRankings.zones) {
+			Rankings.add(
+				CampaignStruct::LibCampaignStruct_K_Ranking {
+					ZoneId = RankZone.zoneId,
+					ZoneName = RankZone.zoneName,
+					Position = RankZone.ranking.position,
+					Length = RankZone.ranking.length
+				}
+			);
+		}
+		PlayerAllMapsRankings[MapUid] = K_ResponseFromGetPlayerMapRankings {
+			SeasonUid = HttpGetPlayerMapRankings.groupUid,
+			MapUid = HttpGetPlayerMapRankings.mapUid,
+			Score = HttpGetPlayerMapRankings.score,
+			Rankings = Rankings
+		};
+	}
+
+	return PlayerAllMapsRankings;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the rankings of the player in every maps of several groups
+ *
+ *	@param	_MapGroupUidList				The group and map uid of each map
+ *	@param	_CurrentScores					New player's score to estimate current player's rank (MapUid => Score)
+ *
+ *	@return													The request
+ */
+Http::K_Request GetPlayerMapGroupUidListRankings(Text[Text] _MapGroupUidList, Integer[Text] _CurrentScores) {
+	declare Text QueryString = Http::CreateQueryString(C_QueryParameter_Scores, _CurrentScores);
+	declare K_MapGroupUidList MapGroupUidList;
+	foreach (MapUid => GroupUid in _MapGroupUidList) {
+		if (MapUid != "" && GroupUid != "") {
+			MapGroupUidList.maps.add(K_MapGroupUid {
+				mapUid = MapUid,
+				groupUid = GroupUid
+			});
+		}
+	}
+	return Http::CreatePost(Config::Get().APIBaseUrl^C_API_Leaderboard^C_Route_GetPlayerAllMapsRankingsMultiGroups^QueryString, MapGroupUidList.tojson(), C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayerMapGroupUidListRankings request
+K_ResponseFromGetPlayerMapRankings[] GetResponseFromGetPlayerMapGroupUidListRankings(Http::K_Request _Request) {
+	declare K_HttpGetPlayerMapRankings[] HttpGetPlayerAllMapsRankings;
+	HttpGetPlayerAllMapsRankings.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetPlayerMapRankings[] PlayerAllMapsRankings;
+	foreach (HttpGetPlayerMapRankings in HttpGetPlayerAllMapsRankings) {
+		declare CampaignStruct::LibCampaignStruct_K_Ranking[] Rankings;
+		foreach (RankZone in HttpGetPlayerMapRankings.zones) {
+			Rankings.add(
+				CampaignStruct::LibCampaignStruct_K_Ranking {
+					ZoneId = RankZone.zoneId,
+					ZoneName = RankZone.zoneName,
+					Position = RankZone.ranking.position,
+					Length = RankZone.ranking.length
+				}
+			);
+		}
+		PlayerAllMapsRankings.add(K_ResponseFromGetPlayerMapRankings {
+			SeasonUid = HttpGetPlayerMapRankings.groupUid,
+			MapUid = HttpGetPlayerMapRankings.mapUid,
+			Score = HttpGetPlayerMapRankings.score,
+			Rankings = Rankings
+		});
+	}
+
+	return PlayerAllMapsRankings;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the rankings of the player in a club for every maps of a group
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_ClubId								The club Id to fetch
+ *	@param	_Scores								Player's score to estimate current player's rank (MapUid => Score)
+ *
+ *	@return												The request
+ */
+Http::K_Request GetPlayerAllMapsRankingsInAClub(Text _GroupUid, Integer _ClubId, Integer[Text] _Scores) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayerAllMapsRankingsInClub, [C_RouteParameter_GroupUid => _GroupUid,	C_RouteParameter_ClubId => ""^_ClubId]);
+	declare Text QueryString = Http::CreateQueryString(C_QueryParameter_Scores, _Scores);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^QueryString, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayerAllMapsRankingsInAClub request
+K_ResponseFromGetPlayerMapRankingsInClub[Text] GetResponseFromGetPlayerAllMapsRankingsInAClub(Http::K_Request _Request) {
+	declare K_HttpGetPlayerMapRankingInClub[Text] HttpGetPlayerAllMapsRankingsInClub;
+	HttpGetPlayerAllMapsRankingsInClub.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetPlayerMapRankingsInClub[Text] PlayerAllMapsRankingsInClub;
+	foreach (MapUid => HttpGetPlayerMapRankings in HttpGetPlayerAllMapsRankingsInClub) {
+		PlayerAllMapsRankingsInClub[MapUid] = K_ResponseFromGetPlayerMapRankingsInClub {
+			SeasonUid = HttpGetPlayerMapRankings.groupUid,
+			MapUid = HttpGetPlayerMapRankings.mapUid,
+			ClubId = HttpGetPlayerMapRankings.clubId,
+			Score = HttpGetPlayerMapRankings.score,
+			Position = HttpGetPlayerMapRankings.position
+		};
+	}
+
+	return PlayerAllMapsRankingsInClub;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the rankings of the player in a club for every maps of several group
+ *
+ *	@param	_MapGroupUidList				The group and map uid of each map
+ *	@param	_ClubId									The club Id to fetch
+ *	@param	_Scores									Player's score to estimate current player's rank (MapUid => Score)
+ *
+ *	@return													The request
+ */
+Http::K_Request GetPlayerMapGroupUidListRankingsInAClub(Text[Text] _MapGroupUidList, Integer _ClubId, Integer[Text] _Scores) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayerAllMapsRankingsInClubMultiGroups, [C_RouteParameter_ClubId => ""^_ClubId]);
+	declare Text QueryString = Http::CreateQueryString(C_QueryParameter_Scores, _Scores);
+	declare K_MapGroupUidList MapGroupUidList;
+	foreach (MapUid => GroupUid in _MapGroupUidList) {
+		if (MapUid != "" && GroupUid != "") {
+			MapGroupUidList.maps.add(K_MapGroupUid {
+				mapUid = MapUid,
+				groupUid = GroupUid
+			});
+		}
+	}
+	return Http::CreatePost(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^QueryString, MapGroupUidList.tojson(), C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayerMapGroupUidListRankingsInAClub request
+K_ResponseFromGetPlayerMapRankingsInClub[] GetResponseFromGetPlayerMapGroupUidListRankingsInAClub(Http::K_Request _Request) {
+	declare K_HttpGetPlayerMapRankingInClub[] HttpGetPlayerAllMapsRankingsInClub;
+	HttpGetPlayerAllMapsRankingsInClub.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetPlayerMapRankingsInClub[] PlayerAllMapsRankingsInClub;
+	foreach (HttpGetPlayerMapRankings in HttpGetPlayerAllMapsRankingsInClub) {
+		PlayerAllMapsRankingsInClub.add(K_ResponseFromGetPlayerMapRankingsInClub {
+			SeasonUid = HttpGetPlayerMapRankings.groupUid,
+			MapUid = HttpGetPlayerMapRankings.mapUid,
+			ClubId = HttpGetPlayerMapRankings.clubId,
+			Score = HttpGetPlayerMapRankings.score,
+			Position = HttpGetPlayerMapRankings.position
+		});
+	}
+
+	return PlayerAllMapsRankingsInClub;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the rankings of the player on a single map of a group
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_MapUid								The uid of the map
+ *	@param	_Score								Find the estimated ranking of the player if they do this score
+ *
+ *	@return												The request
+ */
+Http::K_Request GetPlayerMapRankings(Text _GroupUid, Text _MapUid, Integer _Score) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayerMapRankings, [C_RouteParameter_GroupUid => _GroupUid, C_RouteParameter_MapUid => _MapUid]);
+	declare Text QueryString = Http::CreateQueryString([
+		C_QueryParameter_Score => ""^_Score
+	]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^QueryString, C_Headers);
+}
+Http::K_Request GetPlayerMapRankings(Text _GroupUid, Text _MapUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayerMapRankings, [C_RouteParameter_GroupUid => _GroupUid, C_RouteParameter_MapUid => _MapUid]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route, C_Headers);
+}
+Http::K_Request Server_GetPlayerMapRankings(Text[Text] _ServerHeaders, Text _GroupUid, Text _MapUid, Integer _Score) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayerMapRankings, [C_RouteParameter_GroupUid => _GroupUid, C_RouteParameter_MapUid => _MapUid]);
+	declare Text QueryString = Http::CreateQueryString([
+		C_QueryParameter_Score => ""^_Score
+	]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^QueryString, _ServerHeaders);
+}
+Http::K_Request Server_GetPlayerMapRankings(Text[Text] _ServerHeaders, Text _GroupUid, Text _MapUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayerMapRankings, [C_RouteParameter_GroupUid => _GroupUid, C_RouteParameter_MapUid => _MapUid]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route, _ServerHeaders);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayerMapRankings request
+K_ResponseFromGetPlayerMapRankings GetResponseFromGetPlayerMapRankings(Http::K_Request _Request) {
+	declare K_HttpGetPlayerMapRankings HttpGetPlayerMapRankings;
+	HttpGetPlayerMapRankings.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetPlayerMapRankings MapRankings;
+	foreach (RankZone in HttpGetPlayerMapRankings.zones) {
+		MapRankings.Rankings.add(
+			CampaignStruct::LibCampaignStruct_K_Ranking {
+				ZoneId = RankZone.zoneId,
+				ZoneName = RankZone.zoneName,
+				Position = RankZone.ranking.position,
+				Length = RankZone.ranking.length
+			}
+		);
+	}
+	MapRankings.SeasonUid = HttpGetPlayerMapRankings.groupUid;
+	MapRankings.MapUid = HttpGetPlayerMapRankings.mapUid;
+	MapRankings.Score = HttpGetPlayerMapRankings.score;
+
+	return MapRankings;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get top rankings of a map
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_MapUid								The map to fetch
+ *	@param	_Score								The current score on the map
+ *
+ *	@return												The request
+ */
+Http::K_Request GetMapTopRankings(Text _GroupUid, Text _MapUid, Integer _Score, Text[Text] _Headers) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetMapTopRankings, [
+		C_RouteParameter_GroupUid => _GroupUid,
+		C_RouteParameter_MapUid => _MapUid
+	]);
+	declare Text[Text] QueryArray;
+	if (_Score > 0) {
+		QueryArray[C_QueryParameter_Score] = ""^_Score;
+	}
+	declare Text Query = Http::CreateQueryString(QueryArray);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^Query, _Headers);
+}
+Http::K_Request GetMapTopRankings(Text _GroupUid, Text _MapUid, Integer _Score) {
+	return GetMapTopRankings( _GroupUid, _MapUid, _Score, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the world record of a map
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_MapUid								The map to fetch
+ *
+ *	@return												The request
+ */
+Http::K_Request ServerToken_GetMapWorldRecord(Text _GroupUid, Text _MapUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetMapTopRankings, [
+		C_RouteParameter_GroupUid => _GroupUid,
+		C_RouteParameter_MapUid => _MapUid
+	]);
+	declare Text[Text] QueryArray = [
+		C_QueryParameter_Offset => "0",
+		C_QueryParameter_Length => "1",
+		C_QueryParameter_OnlyWorld => "1"
+	];
+	declare Text Query = Http::CreateQueryString(QueryArray);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^Query, HttpServerAuthorizationHeader::GetHeadersWithLiveAuthorization(C_Headers));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetMapTopRankings request
+K_ResponseFromGetMapTopRankings GetResponseFromGetMapTopRankings(Http::K_Request _Request) {
+	declare K_HttpGetMapTopRankings HttpGetMapTopRankings;
+	HttpGetMapTopRankings.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetMapTopRankings MapTopRankings;
+	foreach (MapTopLeaderboard in HttpGetMapTopRankings.tops) {
+		declare CampaignStruct::LibCampaignStruct_K_TopScore[] MapTops = [];
+		foreach (MapTop in MapTopLeaderboard.top) {
+			MapTops.add(
+				CampaignStruct::LibCampaignStruct_K_TopScore {
+					AccountId = MapTop.accountId,
+					ZoneId = MapTop.zoneId,
+					Position = MapTop.position,
+					Score = MapTop.score
+				}
+			);
+		}
+
+		MapTopRankings.TopRankings.add(
+			CampaignStruct::LibCampaignStruct_K_MapTopRanking {
+				ZoneName = MapTopLeaderboard.zoneName,
+				Tops = MapTops
+			}
+		);
+	}
+	MapTopRankings.SeasonUid = HttpGetMapTopRankings.groupUid;
+
+	return MapTopRankings;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to retrieve players near map's medals
+ *
+ *	@param	_HttpManager					The Http manager that will handle the request
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_MapUid								The map to fetch
+ *
+ *	@return												The request
+ */
+Http::K_Request GetPlayersCloseToMedals(CHttpManager _HttpManager, Text _GroupUid, Text _MapUid) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayersCloseToMedals, [
+		C_RouteParameter_GroupUid => _GroupUid,
+		C_RouteParameter_MapUid => _MapUid
+	]);
+	return Http::CreateGet(_HttpManager, Config::Get().APIBaseUrl^C_API_Leaderboard^Route, C_Headers);
+}
+Http::K_Request GetPlayersCloseToMedals(Text _GroupUid, Text _MapUid) {
+	return GetPlayersCloseToMedals(This.Http, _GroupUid, _MapUid);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayersCloseToMedals request
+K_ResponseFromGetPlayersCloseToMedals GetResponseFromGetPlayersCloseToMedals(Http::K_Request _Request) {
+	declare K_HttpGetPlayersCloseToMedals HttpGetPlayersCloseToMedals;
+	HttpGetPlayersCloseToMedals.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetPlayersCloseToMedals PlayersCloseToMedals;
+	foreach (PlayerCloseToMedal in HttpGetPlayersCloseToMedals.medals) {
+		PlayersCloseToMedals.Medals.add(CampaignStruct::LibCampaignStruct_K_PlayerCloseToMedal {
+			Medal = PlayerCloseToMedal.medal,
+			AccountId = PlayerCloseToMedal.accountId,
+			ZoneId = PlayerCloseToMedal.zoneId,
+			ZoneName = PlayerCloseToMedal.zoneName,
+			Score = PlayerCloseToMedal.score
+		});
+	}
+	PlayersCloseToMedals.SeasonUid = HttpGetPlayersCloseToMedals.groupUid;
+	PlayersCloseToMedals.MapUid = HttpGetPlayersCloseToMedals.mapUid;
+
+	return PlayersCloseToMedals;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the rankings surrounding the player in a map
+ * @ADV This is replaced by C_Route_GetMapLevels, but I leave it here, just in case.
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_MapUid								The Uid of the map to fetch
+ *	@param	_NbBefore							The number of rankings to get before the player's rank
+ *	@param	_NbAfter							The number of rankings to get after the player's rank
+ *	@param	_Score								The current score on the map
+ *
+ *	@return												The request
+ */
+Http::K_Request GetSurroundingRankings(Text _GroupUid, Text _MapUid, Integer _NbBefore, Integer _NbAfter, Integer _Score) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetSurroundingRankings, [
+		C_RouteParameter_GroupUid => _GroupUid,
+		C_RouteParameter_MapUid => _MapUid,
+		C_RouteParameter_NbBefore => ""^_NbBefore,
+		C_RouteParameter_NbAfter => ""^_NbAfter
+	]);
+	declare Text[Text] QueryArray;
+	if (_Score > 0) {
+		QueryArray[C_QueryParameter_Score] = ""^_Score;
+	}
+	declare Text Query = Http::CreateQueryString(QueryArray);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^Query, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetSurroundingRankings request
+K_ResponseFromGetSurroundingRankings GetResponseFromGetSurroundingRankings(Http::K_Request _Request) {
+	declare K_HttpGetSurroundingRankings HttpGetSurroundingRankings;
+	declare Text Result = Http::GetResult(_Request);
+	if (Result != "" && Result != "[]") HttpGetSurroundingRankings.fromjson(Result);
+
+	declare K_ResponseFromGetSurroundingRankings SurroundingRankings;
+	SurroundingRankings.SeasonUid = HttpGetSurroundingRankings.groupUid;
+	foreach (TopZone in HttpGetSurroundingRankings.tops) {
+		if (!SurroundingRankings.TopsByZone.existskey(TopZone.zoneName)) {
+			SurroundingRankings.TopsByZone[TopZone.zoneName] = [];
+		}
+		foreach (Top in TopZone.top) {
+			SurroundingRankings.TopsByZone[TopZone.zoneName].add(
+				CampaignStruct::LibCampaignStruct_K_TopScore {
+					AccountId = Top.accountId,
+					ZoneId = Top.zoneId,
+					Position = Top.position,
+					Score = Top.score
+				}
+			);
+		}
+	}
+
+	return SurroundingRankings;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the levels of the player in a map
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_MapUid								The Uid of the map to fetch
+ *	@param	_Score								The current score on the map
+ *
+ *	@return												The request
+ */
+Http::K_Request GetMapLevels(Text _GroupUid, Text _MapUid, Integer _Score) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetMapLevels, [
+		C_RouteParameter_GroupUid => _GroupUid,
+		C_RouteParameter_MapUid => _MapUid
+	]);
+	declare Text[Text] QueryArray;
+	if (_Score > 0) {
+		QueryArray[C_QueryParameter_Score] = ""^_Score;
+	}
+	declare Text Query = Http::CreateQueryString(QueryArray);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^Query, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetMapLevels request
+K_ResponseFromGetMapLevels GetResponseFromGetMapLevels(Http::K_Request _Request) {
+	declare K_HttpGetMapLevels HttpGetMapLevels;
+	HttpGetMapLevels.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetMapLevels ResponseMapLevels;
+	ResponseMapLevels.SeasonUid = HttpGetMapLevels.groupUid;
+	ResponseMapLevels.MapUid = HttpGetMapLevels.mapUid;
+	foreach (Level in HttpGetMapLevels.levels) {
+		if (!ResponseMapLevels.LevelsByZone.existskey(Level.zoneName)) {
+			ResponseMapLevels.LevelsByZone[Level.zoneName] = [];
+		}
+		foreach (TopLevel in Level.level) {
+			ResponseMapLevels.LevelsByZone[Level.zoneName].add(
+				CampaignStruct::LibCampaignStruct_K_TopScore {
+					AccountId = TopLevel.accountId,
+					Position = TopLevel.position,
+					Score = TopLevel.score
+				}
+			);
+		}
+	}
+
+	return ResponseMapLevels;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the ranking of a player in a map for a specific club
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_MapUid								The map to fetch
+ *	@param	_ClubId								The club Id to fetch
+ *	@param	_Score								Find the estimated ranking of the player if they do this score
+ *
+ *	@return												The request
+ */
+Http::K_Request GetPlayerMapRankingInClub(Text _GroupUid, Integer _ClubId, Text _MapUid, Integer _Score) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayerMapRankingInClub, [
+		C_RouteParameter_GroupUid => _GroupUid,
+		C_RouteParameter_MapUid => _MapUid,
+		C_RouteParameter_ClubId => ""^_ClubId
+	]);
+	declare Text QueryString = Http::CreateQueryString([
+		C_QueryParameter_Score => ""^_Score
+	]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^QueryString, C_Headers);
+}
+Http::K_Request GetPlayerMapRankingInClub(Text _GroupUid, Text _MapUid, Integer _ClubId) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayerMapRankingInClub, [
+		C_RouteParameter_GroupUid => _GroupUid,
+		C_RouteParameter_MapUid => _MapUid,
+		C_RouteParameter_ClubId => ""^_ClubId
+	]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayerMapRankingInClub request
+K_ResponseFromGetPlayerMapRankingsInClub GetResponseFromGetPlayerMapRankingInClub(Http::K_Request _Request) {
+	declare K_HttpGetPlayerMapRankingInClub HttpGetPlayerMapRankingInClub;
+	HttpGetPlayerMapRankingInClub.fromjson(Http::GetResult(_Request));
+	return K_ResponseFromGetPlayerMapRankingsInClub {
+		SeasonUid = HttpGetPlayerMapRankingInClub.groupUid,
+		MapUid = HttpGetPlayerMapRankingInClub.mapUid,
+		ClubId = HttpGetPlayerMapRankingInClub.clubId,
+		Score = HttpGetPlayerMapRankingInClub.score,
+		Position = HttpGetPlayerMapRankingInClub.position
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the top rankings of a map for a specific club
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_MapUid								The map to fetch
+ *	@param	_ClubId								The club Id to fetch
+ *	@param	_Score								The current score on the map
+ *
+ *	@return												The request
+ */
+Http::K_Request GetMapTopRankingsInClub(Text _GroupUid, Text _MapUid, Integer _ClubId, Integer _Score) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetMapTopRankingsInClub, [
+		C_RouteParameter_GroupUid => _GroupUid,
+		C_RouteParameter_MapUid => _MapUid,
+		C_RouteParameter_ClubId => ""^_ClubId
+	]);
+	declare Text[Text] QueryArray;
+	if (_Score > 0) {
+		QueryArray[C_QueryParameter_Score] = ""^_Score;
+	}
+	declare Text Query = Http::CreateQueryString(QueryArray);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^Query, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetMapTopRankingsInClub request
+K_ResponseFromGetMapTopRankingsInClub GetResponseFromGetMapTopRankingsInClub(Http::K_Request _Request) {
+	declare K_HttpGetMapTopRankingsInClub HttpGetMapTopRankingsInClub;
+	HttpGetMapTopRankingsInClub.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetMapTopRankingsInClub MapTopRankingsInClub;
+	foreach (Top in HttpGetMapTopRankingsInClub.top) {
+		MapTopRankingsInClub.Tops.add(
+			CampaignStruct::LibCampaignStruct_K_TopScore {
+				AccountId = Top.accountId,
+				ZoneId = Top.zoneId,
+				Position = Top.position,
+				Score = Top.score
+			}
+		);
+	}
+	MapTopRankingsInClub.SeasonUid = HttpGetMapTopRankingsInClub.groupUid;
+	MapTopRankingsInClub.Length = HttpGetMapTopRankingsInClub.length;
+
+	return MapTopRankingsInClub;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the rankings from a club surrounding the player in a map
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_MapUid								The Uid of the map to fetch
+ *	@param	_ClubId								The id of the club to fetch
+ *	@param	_NbBefore							The number of rankings to get before the player's rank
+ *	@param	_NbAfter							The number of rankings to get after the player's rank
+ *	@param	_Score								The current score on the map
+ *
+ *	@return												The request
+ */
+Http::K_Request GetMapSurroundingRankingsInClub(Text _GroupUid, Text _MapUid, Integer _ClubId, Integer _NbBefore, Integer _NbAfter, Integer _Score) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetMapSurroundingRankingsInClub, [
+		C_RouteParameter_GroupUid => _GroupUid,
+		C_RouteParameter_MapUid => _MapUid,
+		C_RouteParameter_ClubId => ""^_ClubId,
+		C_RouteParameter_NbBefore => ""^_NbBefore,
+		C_RouteParameter_NbAfter => ""^_NbAfter
+	]);
+	declare Text[Text] QueryArray;
+	if (_Score > 0) {
+		QueryArray[C_QueryParameter_Score] = ""^_Score;
+	}
+	declare Text Query = Http::CreateQueryString(QueryArray);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^Query, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetSurroundingRankings request
+K_ResponseFromGetMapSurroundingRankingsInClub GetResponseFromGetMapSurroundingRankingsInClub(Http::K_Request _Request) {
+	declare K_HttpGetMapSurroundingRankingsInClub HttpGetMapSurroundingRankingsInClub;
+	declare Text Result = Http::GetResult(_Request);
+	if (Result != "" && Result != "[]") HttpGetMapSurroundingRankingsInClub.fromjson(Result);
+
+	declare K_ResponseFromGetMapSurroundingRankingsInClub MapSurroundingRankingsInClub;
+	foreach (Top in HttpGetMapSurroundingRankingsInClub.top) {
+		MapSurroundingRankingsInClub.Tops.add(
+			CampaignStruct::LibCampaignStruct_K_TopScore {
+				AccountId = Top.accountId,
+				ZoneId = Top.zoneId,
+				Position = Top.position,
+				Score = Top.score
+			}
+		);
+	}
+	MapSurroundingRankingsInClub.SeasonUid = HttpGetMapSurroundingRankingsInClub.groupUid;
+
+	return MapSurroundingRankingsInClub;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the world and players tops on a map
+ *
+ *	@param	_MapUid								The uid of the map to check
+ *	@param	_PlayerAccountIds			The account id of the players to get
+ *
+ *	@return												The request
+ */
+Http::K_Request GetServerSurrounding(Text _MapUid, Integer _NbBefore, Integer _NbAfter, Integer[Text] _PlayerAccountIds) {
+	declare Text Route = Http::InjectRouteParameters(C_API_ServerSurrounding, [
+		C_RouteParameter_GroupUid => C_GroupUid_PersonalBest,
+		C_RouteParameter_MapUid => _MapUid,
+		C_RouteParameter_NbBefore => ""^_NbBefore,
+		C_RouteParameter_NbAfter => ""^_NbAfter
+	]);
+	declare K_BodyGetServerSurrounding Body;
+	foreach(AccountId => Score in _PlayerAccountIds) {
+		Body.listPlayer.add(K_BodyGetServerSurroundingPlayer {
+			accountId = AccountId,
+			score = Score
+		});
+	}
+	return Http::CreatePost(Config::Get().APIBaseUrl^Route, Body.tojson(), C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetServerSurrounding request
+K_ResponseFromGetServerSurrounding GetResponseFromGetServerSurrounding(Http::K_Request _Request) {
+	declare K_HttpResponseFromGetServerSurrounding HttpResponseFromGetServerSurrounding;
+	HttpResponseFromGetServerSurrounding.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetServerSurrounding ResponseFromGetServerSurrounding;
+	ResponseFromGetServerSurrounding.MapUid = HttpResponseFromGetServerSurrounding.mapUid;
+	foreach (Top in HttpResponseFromGetServerSurrounding.top) {
+		ResponseFromGetServerSurrounding.WorldTops.add(K_Top {
+			Position = Top.position,
+			AccountId = Top.accountId,
+			Score = Top.score
+		});
+	}
+	foreach (PlayerSurrounding in HttpResponseFromGetServerSurrounding.surround) {
+		declare K_Top[] Surrounding;
+		foreach (Top in PlayerSurrounding.surround) {
+			Surrounding.add(K_Top {
+				Position = Top.position,
+				AccountId = Top.accountId,
+				Score = Top.score
+			});
+		}
+		ResponseFromGetServerSurrounding.PlayersTops[PlayerSurrounding.accountId] = Surrounding;
+	}
+
+	return ResponseFromGetServerSurrounding;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the player's trophy ranking
+ *
+ *	@return														The request
+ */
+Http::K_Request GetMyTrophyRanking() {
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Trophy^C_Route_GetMyTrophyRanking, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetMyTrophyRanking request
+K_ResponseFromGetPlayerTrophyRanking GetResponseFromGetMyTrophyRanking(Http::K_Request _Request) {
+	declare K_HttpGetPlayerTrophyRanking HttpGetPlayerTrophyRanking;
+	HttpGetPlayerTrophyRanking.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetPlayerTrophyRanking Response;
+	Response.AccountId = HttpGetPlayerTrophyRanking.accountId;
+	Response.Points = HttpGetPlayerTrophyRanking.countPoint;
+	Response.Echelon = HttpGetPlayerTrophyRanking.echelon;
+
+	declare CampaignStruct::LibCampaignStruct_K_Ranking[] Ranking;
+	foreach (Zone in HttpGetPlayerTrophyRanking.zones) {
+		Ranking.add(
+			CampaignStruct::LibCampaignStruct_K_Ranking {
+				ZoneId = Zone.zoneId,
+				ZoneName = Zone.zoneName,
+				Position = Zone.ranking.position,
+				Length = Zone.ranking.length
+			}
+		);
+	}
+	Response.Ranking = Ranking;
+
+	return Response;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the players' trophy ranking
+ *
+ *	@param	_AccountIds								Ids of the accounts to retrieve
+ *	@param	_OnlyWorldRanking					Retrieve only the world ranking and not the sub-zones (continent, country, ...)
+ *
+ *	@return														The request
+ */
+Http::K_Request GetPlayersTrophyRanking(Text[] _AccountIds, Boolean _OnlyWorldRanking) {
+	declare K_BodyGetPlayersTrophyRanking Body;
+	foreach (AccountId in _AccountIds) {
+		Body.listPlayer.add(K_TrophyPlayer {
+			accountId = AccountId
+		});
+		Body.onlyWorld = _OnlyWorldRanking;
+	}
+	return Http::CreatePost(Config::Get().APIBaseUrl^C_API_Trophy^C_Route_GetPlayersTrophyRanking, Body.tojson(), C_Headers);
+}
+Http::K_Request GetPlayersTrophyRanking(Text[] _AccountIds) {
+	return GetPlayersTrophyRanking(_AccountIds, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayersTrophyRanking request
+K_ResponseFromGetPlayersTrophyRanking GetResponseFromGetPlayersTrophyRanking(Http::K_Request _Request) {
+	declare K_HttpGetPlayersTrophyRanking HttpGetPlayersTrophyRanking;
+	HttpGetPlayersTrophyRanking.fromjson(Http::GetResult(_Request));
+
+	declare K_ResponseFromGetPlayersTrophyRanking Response;
+	foreach (Player in HttpGetPlayersTrophyRanking.rankings) {
+		declare K_ResponseFromGetPlayerTrophyRanking PlayerRanking;
+		PlayerRanking.AccountId = Player.accountId;
+		PlayerRanking.Points = Player.countPoint;
+		PlayerRanking.Echelon = Player.echelon;
+
+		declare CampaignStruct::LibCampaignStruct_K_Ranking[] Ranking;
+		foreach (Zone in Player.zones) {
+			Ranking.add(
+				CampaignStruct::LibCampaignStruct_K_Ranking {
+					ZoneId = Zone.zoneId,
+					ZoneName = Zone.zoneName,
+					Position = Zone.ranking.position,
+					Length = Zone.ranking.length
+				}
+			);
+		}
+		PlayerRanking.Ranking = Ranking;
+
+		Response.Players.add(PlayerRanking);
+	}
+
+	Response.Total = HttpGetPlayersTrophyRanking.length;
+
+	return Response;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the players' trophy ranking
+ *
+ *	@param	_AccountIds								Ids of the accounts to retrieve
+ *	@param	_OnlyWorldRanking					Retrieve only the world ranking and not the sub-zones (continent, country, ...)
+ *																		For the time being, the API ignore this value and always return only the world ranking
+ *
+ *	@return														The request
+ */
+Http::K_Request GetPlayersTrophyRankingServer(Text[] _AccountIds, Boolean _OnlyWorldRanking) {
+	declare K_BodyGetPlayersTrophyRanking Body;
+	foreach (AccountId in _AccountIds) {
+		Body.listPlayer.add(K_TrophyPlayer {
+			accountId = AccountId
+		});
+		Body.onlyWorld = _OnlyWorldRanking;
+	}
+	return Http::CreatePost(Config::Get().APIBaseUrl^C_API_TrophyServer^C_Route_GetPlayersTrophyRankingServer, Body.tojson(), C_Headers);
+}
+Http::K_Request GetPlayersTrophyRankingServer(Text[] _AccountIds) {
+	return GetPlayersTrophyRankingServer(_AccountIds, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayersTrophyRanking request
+K_ResponseFromGetPlayersTrophyRanking GetResponseFromGetPlayersTrophyRankingServer(Http::K_Request _Request) {
+	return GetResponseFromGetPlayersTrophyRanking(_Request);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the top rankings of a map for a specific club
+ *
+ *	@param	_GroupUid							The group Uid to fetch
+ *	@param	_MapUid								The map to fetch
+ *	@param	_ClubId								The club Id to fetch
+ *	@param	_Offset								The offset to start the ranking
+ *	@param	_Length								The length of the ranking
+ *
+ *	@return												The request
+ */
+Http::K_Request GetMapTopRankingsInClub(Text _GroupUid, Text _MapUid, Integer _ClubId, Integer _Offset, Integer _Length) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetMapTopRankingsInClub, [
+		C_RouteParameter_GroupUid => _GroupUid,
+		C_RouteParameter_MapUid => _MapUid,
+		C_RouteParameter_ClubId => ""^_ClubId
+	]);
+	declare Text QueryString = Http::CreateQueryString([
+		C_QueryParameter_Offset => ""^_Offset,
+		C_QueryParameter_Length => ""^_Length
+	]);
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Leaderboard^Route^QueryString, C_Headers);
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the rank of the player in the leaderboard of the ranked mode
+ *
+ *	@return												The request
+ */
+Http::K_Request GetPlayerRankInRankedLeaderboard() {
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Ranked^C_Route_GetPlayerRankInRankedLeaderboard, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetPlayerRankInRankedLeaderboard request
+CampaignStruct::LibCampaignStruct_K_TopScore[Text] GetResponseFromGetPlayerRankInRankedLeaderboard(Http::K_Request _Request) {
+	declare K_HttpGetPlayerRankInRankedLeaderboard HttpGetPlayerRankInRankedLeaderboard;
+	HttpGetPlayerRankInRankedLeaderboard.fromjson(Http::GetResult(_Request));
+
+	declare CampaignStruct::LibCampaignStruct_K_TopScore[Text] PlayerRankInRankedLeaderboard;
+	foreach (Zone in HttpGetPlayerRankInRankedLeaderboard.zones) {
+		PlayerRankInRankedLeaderboard[Zone.zoneName] = CampaignStruct::LibCampaignStruct_K_TopScore {
+			ZoneId = Zone.zoneId,
+			Position = Zone.ranking.position,
+			Score = HttpGetPlayerRankInRankedLeaderboard.countPoint
+		};
+	}
+
+	return PlayerRankInRankedLeaderboard;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Start a request to get the top 10 players in the leaderboard of the ranked mode
+ *
+ *	@return												The request
+ */
+Http::K_Request GetTopPlayersInRankedLeaderboard() {
+	return Http::CreateGet(Config::Get().APIBaseUrl^C_API_Ranked^C_Route_GetTopPlayersInRankedLeaderboard, C_Headers);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Parse the response to the GetTopPlayersInRankedLeaderboard request
+CampaignStruct::LibCampaignStruct_K_TopScore[][Text] GetResponseFromGetTopPlayersInRankedLeaderboard(Http::K_Request _Request) {
+	declare K_HttpGetTopPlayersInRankedLeaderboard HttpGetTopPlayersInRankedLeaderboard;
+	HttpGetTopPlayersInRankedLeaderboard.fromjson(Http::GetResult(_Request));
+
+	declare CampaignStruct::LibCampaignStruct_K_TopScore[][Text] TopPlayersInRankedLeaderboard;
+	foreach (TopZone in HttpGetTopPlayersInRankedLeaderboard.tops) {
+		if (!TopPlayersInRankedLeaderboard.existskey(TopZone.zoneName)) {
+			TopPlayersInRankedLeaderboard[TopZone.zoneName] = [];
+		}
+		foreach (Top in TopZone.top) {
+			TopPlayersInRankedLeaderboard[TopZone.zoneName].add(
+				CampaignStruct::LibCampaignStruct_K_TopScore {
+					AccountId = Top.accountId,
+					ZoneId = Top.zoneId,
+					Position = Top.position,
+					Score = Top.score
+				}
+			);
+		}
+	}
+
+	return TopPlayersInRankedLeaderboard;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Start a request to get players PB on the track
+Http::K_Request Server_GetPlayersPB(Text[Text] _Headers, Text _API, Text _MapUid, Text[] _AccountIds) {
+	declare Text Route = Http::InjectRouteParameters(C_Route_GetPlayersRecord, [
+		C_RouteParameter_GroupUid => C_GroupUid_PersonalBest,
+		C_RouteParameter_MapUid => _MapUid
+	]);
+	declare Text QueryString;
+	if (_AccountIds.count > 0) {
+		QueryString = Http::CreateQueryString([C_QueryParameter_AccountIds => _AccountIds]);
+	}
+	return Http::CreateGet(Config::Get().APIBaseUrl^_API^Route^QueryString, _Headers);
+}
+Http::K_Request ServerToken_GetPlayersPB(Text _MapUid, Text[] _AccountIds) {
+	return Server_GetPlayersPB(HttpServerAuthorizationHeader::GetHeadersWithLiveAuthorization(C_Headers), C_API_Leaderboard, _MapUid, _AccountIds);
+}
+Http::K_Request ServerBasicAuth_GetPlayersPB(Text _BasicAuthHeader, Text _MapUid, Text[] _AccountIds) {
+	return Server_GetPlayersPB(Private_GetBasicAuthHeader(C_Headers, _BasicAuthHeader), C_API_LeaderboardBasicAuth, _MapUid, _AccountIds);
+}
+Http::K_Request ServerPublic_GetPlayersPB(Text _MapUid, Text[] _AccountIds) {
+	return Server_GetPlayersPB(C_Headers, C_API_LeaderboardPublic, _MapUid, _AccountIds);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Parse the response to the GetPlayersPB request
+Integer[Text] GetResponseFromGetPlayersPB(Http::K_Request _Request) {
+	declare K_HttpPlayerPB[] HttpPlayersPB;
+	HttpPlayersPB.fromjson(Http::GetResult(_Request));
+
+	declare Integer[Text] PlayersPB;
+	foreach (PlayerPB in HttpPlayersPB) {
+		PlayersPB[PlayerPB.accountId] = PlayerPB.score;
+	}
+
+	return PlayersPB;
+}

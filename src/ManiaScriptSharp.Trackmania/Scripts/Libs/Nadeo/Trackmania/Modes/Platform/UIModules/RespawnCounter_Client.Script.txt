@@ -1,0 +1,180 @@
+/**
+ * UI module: RespawnCounter client side
+ */
+#Const Version "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/Platform/UIModules/RespawnCounter_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/Platform/UIModules/RespawnCounter_Common.Script.txt" as UIModules_RespawnCounter_Common
+#Include "Libs/Nadeo/Trackmania/Modes/Platform/UIModules/ZIndex.Script.txt" as ZIndex
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+//L16N Display the number of respaws of the player, e.g "Respawns 15"
+#Const C_Text_Respawns _("Respawns")
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_RespawnCounter_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_RespawnCounter_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-default" halign="center" valign="top" textprefix="$t$i" textcolor="FFFFFF" textsize="4" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_SemiBold)}}}" />
+	<style class="text-number" halign="center" valign="top" textprefix="$t$i" textcolor="FFFFFF" textsize="10" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+	<style class="quad-default" halign="center" valign="top" />
+</stylesheet>
+<frame z-index="{{{ZIndex::C_ZIndex_RespawnCounter}}}" hidden="1" id="frame-global">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_RespawnCounter_Common::C_UIModuleConfig)}}}>
+		<frame hidden="1" id="frame-respawn-counter">
+			<quad id="quad-background" size="50 17" class="quad-default" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.6" z-index="0"/>
+			<label id="label-respawn-text" z-index="1" pos="0 -1" class="text-default" text="{{{C_Text_Respawns}}}" size="50 10" />
+			<label id="label-respawn-number" z-index="1" pos="0 -6" class="text-number" size="50 10" />
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+
+#Const C_VisibleFor_Everyone {{{dump(UIModules_RespawnCounter_Common::C_VisibleFor_Everyone)}}}
+#Const C_VisibleFor_PlayersOnly {{{dump(UIModules_RespawnCounter_Common::C_VisibleFor_PlayersOnly)}}}
+#Const C_VisibleFor_SpectatorsOnly {{{dump(UIModules_RespawnCounter_Common::C_VisibleFor_SpectatorsOnly)}}}
+
+""",
+"""
+Boolean CanSeeCounter(
+	CSmPlayer _TargetPlayer,
+	CSmPlayer _InputPlayer,
+	Integer _VisibleFor
+) {
+	if (_TargetPlayer == Null) return False;
+	if (_TargetPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned) return False;
+	if (_VisibleFor == C_VisibleFor_PlayersOnly && (_InputPlayer == Null || _InputPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)) return False;
+	if (_VisibleFor == C_VisibleFor_SpectatorsOnly && (_InputPlayer == Null || _InputPlayer.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned)) return False;
+
+	return True;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_RespawnCounter;
+declare CMlLabel Label_RespawnText;
+declare CMlLabel Label_RespawnNumber;
+
+declare netread Integer Net_Race_RespawnCounter_VisibleFor for Teams[0];
+
+declare Boolean DisplayModule;
+declare CSmPlayer::ESpawnStatus SpawnStatus;
+declare Integer VisibleFor;
+declare Ident OwnerId;
+declare Ident InputPlayerId;
+declare Integer RespawnsCount;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_RespawnCounter <=> (Frame_Global.GetFirstChild("frame-respawn-counter") as CMlFrame);
+Label_RespawnText <=> (Frame_RespawnCounter.GetFirstChild("label-respawn-text") as CMlLabel);
+Label_RespawnNumber <=> (Frame_RespawnCounter.GetFirstChild("label-respawn-number") as CMlLabel);
+
+DisplayModule = Frame_Global.Visible;
+SpawnStatus = CSmPlayer::ESpawnStatus::NotSpawned;
+VisibleFor = C_VisibleFor_Everyone;
+OwnerId = NullId;
+InputPlayerId = NullId;
+if (SplitScreenCount > 1) MV_Utils::AutoScaleSplitScreen(Frame_Global, 1., 0.5);
+Frame_RespawnCounter.Visible = CanSeeCounter(MV_Utils::GetOwner(This), InputPlayer, VisibleFor);
+RespawnsCount = -1;
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_Race_RespawnCounter_IsVisible for Owner;
+		if (DisplayModule != Net_Race_RespawnCounter_IsVisible) {
+			DisplayModule = Net_Race_RespawnCounter_IsVisible;
+			Frame_Global.Visible = Net_Race_RespawnCounter_IsVisible;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (Owner != Null) {
+			if (
+				(InputPlayer != Null && SpawnStatus != InputPlayer.SpawnStatus) ||
+				VisibleFor != Net_Race_RespawnCounter_VisibleFor ||
+				(InputPlayer != Null && InputPlayerId != InputPlayer.Id) ||
+				(InputPlayer == Null && InputPlayerId != NullId) ||
+				(Owner != Null && OwnerId != Owner.Id) ||
+				(Owner == Null && OwnerId != NullId)
+			) {
+				VisibleFor = Net_Race_RespawnCounter_VisibleFor;
+				if (Owner == Null) OwnerId = NullId;
+				else OwnerId = Owner.Id;
+				if (InputPlayer == Null) {
+					InputPlayerId = NullId;
+					SpawnStatus = CSmPlayer::ESpawnStatus::NotSpawned;
+				} else {
+					InputPlayerId = InputPlayer.Id;
+					SpawnStatus = InputPlayer.SpawnStatus;
+				}
+				Frame_RespawnCounter.Visible = CanSeeCounter(Owner, InputPlayer, VisibleFor);
+			}
+
+			if (Frame_RespawnCounter.Visible) {
+				if (Owner.Score != Null && RespawnsCount != Owner.Score.NbRespawnsRequested) {
+					RespawnsCount = Owner.Score.NbRespawnsRequested;
+					Label_RespawnNumber.Value = TL::ToText(RespawnsCount);
+				} else if (Owner.Score == Null && RespawnsCount != 0) {
+					RespawnsCount = 0;
+					Label_RespawnNumber.Value = TL::ToText(RespawnsCount);
+				}
+			}
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

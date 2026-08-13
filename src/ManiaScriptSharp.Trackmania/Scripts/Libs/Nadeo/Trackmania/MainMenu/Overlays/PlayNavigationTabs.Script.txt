@@ -1,0 +1,162 @@
+/**
+ * Overlay: PlayNavigationTabs
+ */
+#Const Version "1.2.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/MainMenu/Overlays/PlayNavigationTabs.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Menus/Router_ML.Script.txt" as Router
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/TextToSpeech.Script.txt" as TextToSpeech
+#Include "Libs/Nadeo/Trackmania/Components/NavigationTabs.Script.txt" as NavigationTabs
+#Include "Libs/Nadeo/Trackmania/MainMenu/Constants.Script.txt" as Const
+#Include "Libs/Nadeo/Trackmania/MainMenu/RoutePaths.Script.txt" as RoutePaths
+#Include "Libs/Nadeo/Trackmania/Stores/UserStore_ML.Script.txt" as UserStore
+#Include "TextLib" as TL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Name "Overlay_PlayNavigationTabs"
+#Const P "OverlayPlayNavigationTabs_" //< Prefix used to differentiate functions/variables in the script
+
+#Const Const::C_TabNames as C_TabNames
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the page manialink
+Text GetManialink() {
+	return MV::Create(
+C_Name, 3,
+"""
+<frame id="{{{P}}}frame-global" pos="-122.6 49.7" z-index="{{{Const::C_ZIndex_NavigationTabs}}}">
+	<frameinstance
+		id="{{{P}}}frame-play-navigation-tabs"
+		modelid="{{{NavigationTabs::C_Name}}}"
+		data-tabs="{{{TL::MLEncode(C_TabNames.tojson())}}}"
+		data-halign="left"
+	/>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/Trackmania/API/CampaignAPI.Script.txt" as CampaignAPI
+#Include "Libs/Nadeo/Trackmania/Stores/CampaignStore_ML.Script.txt" as CampaignStore
+#Include "TextLib" as TL
+
+#Const C_TabIndex_None {{{dump(Const::C_TabIndex_None)}}}
+#Const C_TabIndex_Solo {{{dump(Const::C_TabIndex_Solo)}}}
+#Const C_TabIndex_Live {{{dump(Const::C_TabIndex_Live)}}}
+#Const C_TabIndex_Local {{{dump(Const::C_TabIndex_Local)}}}
+#Const C_TabNames {{{dump(Const::C_TabNames)}}}
+""",
+"""
+declare Ident G_TTSContextIdent_Tabs;
+
+Void {{{P}}}Private_TTSContextUpdate(CMlFrame _Frame_PlayNavigationTabs) {
+	if (G_TTSContextIdent_Tabs == NullId) G_TTSContextIdent_Tabs = ParentApp.TTS_Context_Enter({{{TextToSpeech::C_ContextLevel_Page}}});
+	ParentApp.TTS_Context_Change(G_TTSContextIdent_Tabs, {{{NavigationTabs::P}}}GetCurrentTabLabel(_Frame_PlayNavigationTabs));
+	ParentApp.TTS_Context_Read({{{TextToSpeech::C_ContextLevel_Page}}});
+}
+
+Text {{{P}}}UpdateCurrentRoutePath(CMlFrame _Frame_PlayNavigationTabs, Text _CurrentRoutePath) {
+	declare Integer TabIndex = C_TabIndex_None;
+
+	switch (_CurrentRoutePath) {
+		case "{{{RoutePaths::C_Path_Solo}}}": TabIndex = C_TabIndex_Solo;
+		case "{{{RoutePaths::C_Path_Live}}}": TabIndex = C_TabIndex_Live;
+		case "{{{RoutePaths::C_Path_Local}}}": TabIndex = C_TabIndex_Local;
+	}
+
+	if (TabIndex != C_TabIndex_None) {
+		{{{UserStore::P}}}SetCurrentPlayTabIndex(TabIndex);
+		if ({{{NavigationTabs::P}}}GetCurrentTab(_Frame_PlayNavigationTabs) != TabIndex) {
+			{{{NavigationTabs::P}}}UpdateCurrentTab(This, _Frame_PlayNavigationTabs, TabIndex, False);
+		}
+		{{{P}}}Private_TTSContextUpdate(_Frame_PlayNavigationTabs);
+	}
+
+	return _CurrentRoutePath;
+}
+
+Void {{{P}}}GoToTab(Integer _TabIndex) {
+	if (!C_TabNames.existskey(_TabIndex)) return;
+
+	switch (_TabIndex) {
+		case C_TabIndex_Solo: {{{Router::P}}}Push(This, "{{{RoutePaths::C_Path_Solo}}}");
+		case C_TabIndex_Live: {{{Router::P}}}Push(This, "{{{RoutePaths::C_Path_Live}}}");
+		case C_TabIndex_Local: {{{Router::P}}}Push(This, "{{{RoutePaths::C_Path_Local}}}");
+	}
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_PlayNavigationTabs;
+
+declare Integer MenuMediaUpdate;
+declare Text CurrentRoutePath;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("{{{P}}}frame-global") as CMlFrame);
+Frame_PlayNavigationTabs <=> (Frame_Global.GetFirstChild("{{{P}}}frame-play-navigation-tabs") as CMlFrame);
+
+CurrentRoutePath = {{{P}}}UpdateCurrentRoutePath(Frame_PlayNavigationTabs, {{{Router::P}}}GetCurrentRoutePath(This));
+***
+
+***MainLoop***
+***
+if ({{{Router::P}}}PageIsRunning(This)) {
+	if (CurrentRoutePath != {{{Router::P}}}GetCurrentRoutePath(This)) {
+		CurrentRoutePath = {{{P}}}UpdateCurrentRoutePath(Frame_PlayNavigationTabs, {{{Router::P}}}GetCurrentRoutePath(This));
+	}
+
+	// Update media in tabs
+	if (MenuMediaUpdate != CampaignStore::GetMenuMediaUpdate()) {
+		MenuMediaUpdate = CampaignStore::GetMenuMediaUpdate();
+		{{{NavigationTabs::P}}}SetTabIcon(This, Frame_PlayNavigationTabs, C_TabIndex_Solo, CampaignStore::GetMediaActive(CampaignStore::C_CampaignMediaType_PlaySolo).Url, CampaignAPI::C_CampaignMediaSize_PlaySolo, False);
+		{{{NavigationTabs::P}}}SetTabIcon(This, Frame_PlayNavigationTabs, C_TabIndex_Live, CampaignStore::GetMediaActive(CampaignStore::C_CampaignMediaType_PlayLive).Url, CampaignAPI::C_CampaignMediaSize_PlayLive, False);
+		{{{NavigationTabs::P}}}SetTabIcon(This, Frame_PlayNavigationTabs, C_TabIndex_Local, CampaignStore::GetMediaActive(CampaignStore::C_CampaignMediaType_PlayLocal).Url, CampaignAPI::C_CampaignMediaSize_PlayLocal, False);
+		{{{NavigationTabs::P}}}RedrawNavigationTabs(This, Frame_PlayNavigationTabs, False, False);
+	}
+
+	// Text to speech context
+	if (G_TTSContextIdent_Tabs == NullId) {
+		{{{P}}}Private_TTSContextUpdate(Frame_PlayNavigationTabs);
+	}
+
+	// Events NavigationTabs
+	foreach (Event in {{{NavigationTabs::P}}}GetPendingEvents(This)) {
+		switch (Event.Type) {
+			case {{{NavigationTabs::P}}}C_EventType_Select: {
+				if (Event.Frame_NavigationTabs.ControlId == Frame_PlayNavigationTabs.ControlId) {
+					{{{P}}}GoToTab(Event.CurrentTab);
+				}
+			}
+		}
+	}
+
+} else if (G_TTSContextIdent_Tabs != NullId) {
+	G_TTSContextIdent_Tabs = ParentApp.TTS_Context_Leave(G_TTSContextIdent_Tabs);
+}
+***
+""",
+[
+	Router::ComponentV2(),
+	NavigationTabs::ComponentV2(),
+	UserStore::ComponentV2()
+],
+[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update from the ManiaApp
+Void Yield() {
+
+}

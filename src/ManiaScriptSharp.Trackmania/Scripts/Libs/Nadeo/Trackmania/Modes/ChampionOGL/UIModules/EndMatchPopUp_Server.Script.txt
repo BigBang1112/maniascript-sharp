@@ -1,0 +1,156 @@
+/**
+ *  UI module: EndMatchPopUp server side
+ */
+#Const Version    "1.0.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Modes/ChampionOGL/UIModules/EndMatchPopUp_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Id "UIModule_ChampionOGL_EndMatchPopUp"
+
+declare Text[] G_PlayersAccountIds;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the division of the server
+Void SetDivision(Text _Division) {
+	declare netwrite Text Net_ChampionOGL_EndMatchPopUp_Division for Teams[0];
+	Net_ChampionOGL_EndMatchPopUp_Division = _Division;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the step
+Void SetStep(Integer _StepCurrent, Integer _StepMax) {
+	declare netwrite Integer Net_ChampionOGL_EndMatchPopUp_StepCurrent for Teams[0];
+	declare netwrite Integer Net_ChampionOGL_EndMatchPopUp_StepMax for Teams[0];
+	Net_ChampionOGL_EndMatchPopUp_StepCurrent = _StepCurrent;
+	Net_ChampionOGL_EndMatchPopUp_StepMax = _StepMax;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the match result
+Void SendResult(CSmPlayer _Player) {
+	declare CUIConfig UI <=> UIManager.GetUI(_Player);
+	if (UI == Null) return;
+
+	declare netwrite Integer Net_ChampionOGL_EndMatchPopUp_Rank for UI;
+	declare netwrite Integer Net_ChampionOGL_EndMatchPopUp_Points for UI;
+	declare netwrite Integer[Integer] Net_ChampionOGL_EndMatchPopUp_Trophies for UI;
+	declare netwrite Integer Net_ChampionOGL_EndMatchPopUp_ResultUpdate for UI;
+	if (_Player.Score != Null) {
+		declare Integer ChampionOGL_EndMatchPopUp_Rank for _Player.Score = 0;
+		declare Integer ChampionOGL_EndMatchPopUp_Points for _Player.Score = 0;
+		declare Integer[Integer] ChampionOGL_EndMatchPopUp_Trophies for _Player.Score = [];
+		Net_ChampionOGL_EndMatchPopUp_Rank = ChampionOGL_EndMatchPopUp_Rank;
+		Net_ChampionOGL_EndMatchPopUp_Points = ChampionOGL_EndMatchPopUp_Points;
+		Net_ChampionOGL_EndMatchPopUp_Trophies = ChampionOGL_EndMatchPopUp_Trophies;
+	} else {
+		Net_ChampionOGL_EndMatchPopUp_Rank = 0;
+		Net_ChampionOGL_EndMatchPopUp_Points = 0;
+		Net_ChampionOGL_EndMatchPopUp_Trophies = [];
+	}
+	Net_ChampionOGL_EndMatchPopUp_ResultUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Save the result in the player's score
+ *	to be able to restore it if the player
+ *	leaves and reconnects later
+ */
+Void SaveResult(CScore _Score, Integer _Rank, Integer _Points, Integer[Integer] _Trophies) {
+	declare Integer ChampionOGL_EndMatchPopUp_Rank for _Score = 0;
+	declare Integer ChampionOGL_EndMatchPopUp_Points for _Score = 0;
+	declare Integer[Integer] ChampionOGL_EndMatchPopUp_Trophies for _Score = [];
+	ChampionOGL_EndMatchPopUp_Rank = _Rank;
+	ChampionOGL_EndMatchPopUp_Points = _Points;
+	ChampionOGL_EndMatchPopUp_Trophies = _Trophies;
+}
+Void ResetResult(CScore _Score) {
+	SaveResult(_Score, 0, 0, []);
+}
+
+Void ResetPlayersList() {
+	G_PlayersAccountIds = [];
+}
+
+Void RegisterPlayer(Text _AccountId) {
+	if (!G_PlayersAccountIds.exists(_AccountId)) G_PlayersAccountIds.add(_AccountId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Defines time when UI should be shown for players (not spectators)
+Void Show() {
+	foreach (Player in AllPlayers) {
+		if (Player != Null) {
+			declare PlayerUI = UIManager.GetUI(Player);
+			if (PlayerUI != Null) {
+				declare netwrite Boolean Net_ChampionOGL_EndMatchPopUp_DisplayContent for PlayerUI;
+				Net_ChampionOGL_EndMatchPopUp_DisplayContent = G_PlayersAccountIds.exists(Player.User.WebServicesUserId);
+			}
+		}
+	}
+}
+Void Hide() {
+	foreach (Player in AllPlayers) {
+		if (Player != Null) {
+			declare PlayerUI = UIManager.GetUI(Player);
+			if (PlayerUI != Null) {
+				declare netwrite Boolean Net_ChampionOGL_EndMatchPopUp_DisplayContent for PlayerUI;
+				Net_ChampionOGL_EndMatchPopUp_DisplayContent = False;
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Show or hide the UI
+ *
+ *	@param	_Player										The player to update
+ *	@param	_Display									True to show
+ *																		False to hide
+ */
+Void SetVisibility(CPlayer _Player, Boolean _Display) {
+	if (_Player == Null) return;
+
+	declare netwrite Boolean Net_ChampionOGL_EndMatchPopUp_IsVisible for _Player;
+	Net_ChampionOGL_EndMatchPopUp_IsVisible = _Display;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	SetVisibility(_Player, False);
+	if (_Player is CSmPlayer) SendResult(_Player as CSmPlayer);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	ResetPlayersList();
+	Hide();
+	SetDivision("");
+	SetStep(0, 0);
+	foreach (Score in Scores) {
+		ResetResult(Score);
+	}
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

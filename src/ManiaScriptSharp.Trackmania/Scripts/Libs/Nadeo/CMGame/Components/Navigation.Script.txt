@@ -1,0 +1,1323 @@
+/**
+ *	Component: Navigation
+ *	Handle the navigation with a keyboard or pad in the menu
+ *
+ *	Available attributes are :
+ *	- data-nav
+ *	- data-nav-inputs
+ *	- data-nav-targets
+ *	- data-nav-zone
+ *	- data-nav-selected
+ *	- data-nav-group
+ *	- data-nav-locked
+ *
+ *	Valid data-nav-inputs :
+ *	- up
+ *	- right
+ *	- left
+ *	- down
+ *	- select
+ *	- cancel
+ *	- pageup
+ *	- pagedown
+ *	- appmenu
+ *	- action1
+ *	- action2
+ *	- action3
+ *	- action4
+ *	- scrollup
+ *	- scrolldown
+ *
+ *	The _ character used in data-nav-targets is equivalent to the current control ControlId
+ */
+#Const Version		"1.0.2"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/Navigation.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Menus/ShareMenuNavigation_ML.Script.txt" as ShareMenuNavigation
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_NavigationSettings {
+	Text[Text] InputTargets;
+	Text Group;
+	Text Zone;
+	Boolean Focused;
+	Boolean Locked;
+}
+#Struct K_NavigationProperties {
+	Boolean IsInitialized;
+	CMlControl[CMlScriptEvent::EMenuNavAction] Actions;
+	CMlControl[CMlScriptEvent::EMenuNavAction] SavedActions;
+	Text Group;
+	Boolean IsLocked;
+}
+#Struct K_NavigationEvent {
+	Integer Type;
+	CMlControl From;
+	CMlControl To;
+	CMlFrame Container;
+	CMlScriptEvent::EMenuNavAction Input;
+	CMlScriptEvent::Type Mouse;
+	Integer UserIndex;
+	Boolean IsFromMouse;
+	Boolean IsActionAutoRepeat;
+}
+#Struct K_NavigationState {
+	CMlControl[Text][Ident] NavigationControls;
+	CMlControl[][Text] GroupControls;
+	Text[Text] GroupParent;
+	CMlControl[Text] Focus;
+	CMlControl[Text] DefaultFocus;
+	Text[] DisabledGroups;
+	Ident[] DisabledContainers;
+	K_NavigationEvent[] PendingEvents;
+	Boolean UseLocalEvents;
+	Text[] NavigationDisabledBy;
+	Integer MouseSleepDelay;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_NavigationProperties_Null K_NavigationProperties {
+	IsInitialized = False,
+	Actions = [],
+	SavedActions = [],
+	Group = "",
+	IsLocked = False
+}
+#Const C_NavigationState_Null K_NavigationState {
+	NavigationControls = [NullId => []],
+	GroupControls = [],
+	GroupParent = [],
+	Focus = [],
+	DefaultFocus = [],
+	DisabledGroups = [],
+	DisabledContainers = [],
+	PendingEvents = [],
+	UseLocalEvents = False,
+	NavigationDisabledBy = [],
+	MouseSleepDelay = 0
+}
+
+#Const C_Name "component-navigation" //< Component name
+#Const P "ComponentNavigation_ComponentNavigation::" //< Prefix use to differentiate functions/variables in the script
+#Const Q "ComponentNavigation_ComponentNavigation"
+
+#Const C_Class "component-navigation-item"
+#Const C_Class_Container "component-navigation-container"
+#Const C_Class_ActivationZone "component-navigation-item-zone"
+
+#Const C_EventType_NavigateInput 0
+#Const C_EventType_NavigateMouse 1
+
+#Const C_MainUserIndex 0
+#Const C_UserIndexError -1
+#Const C_MouseSleepDelay 5000
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Ident G_ResetGlobalSoloGroupsLayerId;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Containers
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+
+/**
+ * Get the closest container of a given control
+ *
+ * @param _Container	the control
+ * @return the closest container
+ *
+ */
+CMlFrame FindClosestContainer(CMlControl _Control) {
+	if (_Control != Null && _Control.Parent != Null) {
+		if (_Control.Parent.HasClass(C_Class_Container)) {
+			return _Control.Parent;
+		} else {
+			return FindClosestContainer(_Control.Parent);
+		}
+	}
+	return Null;
+}
+
+/**
+ * Get the ident of the closest container of a given control
+ *
+ * @param _Container	the control
+ * @return the id of the closest container
+ *
+ */
+Ident Private_FindClosestContainerId(CMlControl _Control) {
+	declare CMlFrame Container = FindClosestContainer(_Control);
+	if (Container == Null) return NullId;
+	return Container.Id;
+}
+
+/**
+ * Check if the incoming event is from a nested container (and not the global container)
+ *
+ * @param _ContainerId 	the container id
+ * @return 	True if the container is nested, False otherwise (global)
+ *
+ */
+Boolean IsEventFromNestedContainer(CMlScript _This, CMlFrame _Container) {
+	if (_Container == Null) return False;
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	assert(CMGame_Navigation_State.NavigationControls.existskey(_Container.Id), "[Navigation] The container you provided does not exist");
+	return _Container.Id != NullId;
+}
+
+/**
+ * Check if the given container is enabled or not
+ *
+ * @param _ContainerId 	the container id
+ * @return 	True if the container is enabled, False otherwise
+ *
+ */
+Boolean IsContainerEnabled(CMlScript _This, CMlFrame _Container) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	assert(CMGame_Navigation_State.NavigationControls.existskey(_Container.Id), "[Navigation] The container you provided does not exist");
+	return !CMGame_Navigation_State.DisabledContainers.exists(_Container.Id);
+}
+
+/**
+ * Enable or disable the given navigation container
+ *
+ * @param _Container 	the navigation container
+ * @param _Enable 		the boolean to enable or disable the navigation container
+ *
+ */
+Void EnableContainer(CMlScript _This, CMlFrame _Container, Boolean _Enable) {
+	if (_Container == Null) return;
+
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	assert(CMGame_Navigation_State.NavigationControls.existskey(_Container.Id), "[Navigation] The container you provided does not exist");
+
+	if (_Enable && CMGame_Navigation_State.DisabledContainers.exists(_Container.Id)) {
+		CMGame_Navigation_State.DisabledContainers.remove(_Container.Id);
+	} else if (!_Enable && !CMGame_Navigation_State.DisabledContainers.exists(_Container.Id)) {
+		CMGame_Navigation_State.DisabledContainers.add(_Container.Id);
+	}
+}
+
+/**
+ * Get all navigation controls inside a given container
+ * A Null container will return all current page navigation controls
+ *
+ * @param _Container 	the container
+ * @return An array containing controls inside of the given container
+ *
+ */
+CMlControl[Text] GetContainerControls(CMlScript _This, CMlFrame _Container) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	return CMGame_Navigation_State.NavigationControls.get(_Container.Id, []);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Groups
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+
+// Get all the controls of a group
+CMlControl[] GetGroupControls(CMlScript _This, Text _GroupName, CMlControl[] _GroupControls) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	declare CMlControl[] GroupControls = _GroupControls;
+	if (CMGame_Navigation_State.GroupControls.existskey(_GroupName)) {
+		foreach (Control in CMGame_Navigation_State.GroupControls[_GroupName]) {
+			if (!GroupControls.exists(Control)) GroupControls.add(Control);
+		}
+	}
+	if (CMGame_Navigation_State.GroupParent.exists(_GroupName)) {
+		foreach (Child => Parent in CMGame_Navigation_State.GroupParent) {
+			if (Parent == _GroupName) {
+				declare CMlControl[] ChildControls = GetGroupControls(_This, Child, GroupControls);
+				foreach (Control in ChildControls) {
+					if (!GroupControls.exists(Control)) GroupControls.add(Control);
+				}
+			}
+		}
+	}
+	return GroupControls;
+}
+CMlControl[] GetGroupControls(CMlScript _This, Text _GroupName) {
+	return GetGroupControls(_This, _GroupName, []);
+}
+CMlControl[] GetGroupControls(CMlScript _This) {
+	return GetGroupControls(_This, "");
+}
+
+// Get the group name of a control
+Text GetControlGroupName(CMlControl _Control) {
+	if (_Control == Null) return "";
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+
+	return CMGame_Navigation_Properties.Group;
+}
+
+// Get the group hierarchy of a control
+Text[] Private_GetGroupHierarchy(CMlScript _This, Text _Group, Text[] _Groups, Boolean _AssertCircularRelationship) {
+	declare Text[] Groups = _Groups;
+	if (_AssertCircularRelationship) {
+		assert(!Groups.exists(_Group), "[Navigation] You are creating a circular relationship. Hierarchy: "^Groups^" | Add: "^_Group);
+	}
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	Groups.add(_Group);
+	if (CMGame_Navigation_State.GroupParent.existskey(_Group)) {
+		Groups = Private_GetGroupHierarchy(_This, CMGame_Navigation_State.GroupParent[_Group], Groups, _AssertCircularRelationship);
+	}
+	return Groups;
+}
+Text[] GetGroupHierarchy(CMlScript _This, Text _Group) {
+	return Private_GetGroupHierarchy(_This, _Group, [], False);
+}
+Text[] GetControlGroups(CMlScript _This, CMlControl _Control) {
+	if (_Control == Null) return [];
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	return GetGroupHierarchy(_This, CMGame_Navigation_Properties.Group);
+}
+Text[] AssertNoCircularRelationship(CMlScript _This, Text _Group) {
+	return Private_GetGroupHierarchy(_This, _Group, [], True);
+}
+Text GetGroupRoot(CMlScript _This, Text _Group) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	declare Text Group = _Group;
+	if (CMGame_Navigation_State.GroupParent.existskey(Group)) {
+		Group = GetGroupRoot(_This, CMGame_Navigation_State.GroupParent[Group]);
+	}
+	return Group;
+}
+
+// Check if a control is in a group or its parents
+Boolean Private_GroupIsDescendantFrom(CMlScript _This, Text _Group, Text _TargetGroup) {
+	if (_Group == _TargetGroup) {
+		return True;
+	} else {
+		declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+		if (CMGame_Navigation_State.GroupParent.existskey(_Group)) {
+			return Private_GroupIsDescendantFrom(_This, CMGame_Navigation_State.GroupParent[_Group], _TargetGroup);
+		}
+	}
+	return False;
+}
+Boolean ControlIsInGroup(CMlScript _This, CMlControl _Control, Text _Group) {
+	if (_Control == Null) return False;
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	return Private_GroupIsDescendantFrom(_This, CMGame_Navigation_Properties.Group, _Group);
+}
+
+Void SetControlGroupName(CMlScript _This, CMlControl _Control, Text _GroupName) {
+	if (_Control == Null) return;
+
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	if (CMGame_Navigation_State.GroupControls.existskey(CMGame_Navigation_Properties.Group) && CMGame_Navigation_State.GroupControls[CMGame_Navigation_Properties.Group].exists(_Control)) {
+		CMGame_Navigation_State.GroupControls[CMGame_Navigation_Properties.Group].remove(_Control);
+		if (CMGame_Navigation_State.GroupControls[CMGame_Navigation_Properties.Group].count <= 0) {
+			CMGame_Navigation_State.GroupControls.removekey(CMGame_Navigation_Properties.Group);
+			if (CMGame_Navigation_State.Focus.existskey(CMGame_Navigation_Properties.Group)) {
+				CMGame_Navigation_State.Focus.removekey(CMGame_Navigation_Properties.Group);
+			}
+			if (CMGame_Navigation_State.DefaultFocus.existskey(CMGame_Navigation_Properties.Group)) {
+				CMGame_Navigation_State.DefaultFocus.removekey(CMGame_Navigation_Properties.Group);
+			}
+		} else {
+			if (CMGame_Navigation_State.DefaultFocus[CMGame_Navigation_Properties.Group] == _Control) {
+				CMGame_Navigation_State.DefaultFocus[CMGame_Navigation_Properties.Group] = CMGame_Navigation_State.GroupControls[CMGame_Navigation_Properties.Group][0];
+			}
+			if (CMGame_Navigation_State.Focus[CMGame_Navigation_Properties.Group] == _Control) {
+				CMGame_Navigation_State.Focus[CMGame_Navigation_Properties.Group] = CMGame_Navigation_State.DefaultFocus[CMGame_Navigation_Properties.Group];
+			}
+		}
+	}
+
+	if (!CMGame_Navigation_State.GroupControls.existskey(_GroupName)) {
+		CMGame_Navigation_State.GroupControls[_GroupName] = [];
+		CMGame_Navigation_State.Focus[_GroupName] = Null;
+		CMGame_Navigation_State.DefaultFocus[_GroupName] = _Control;
+	}
+	CMGame_Navigation_State.GroupControls[_GroupName].add(_Control);
+	CMGame_Navigation_Properties.Group = _GroupName;
+}
+
+Boolean IsEventFromGroup(CMlScript _This, K_NavigationEvent _Event, Text _GroupName) {
+	return ControlIsInGroup(_This, _Event.From, _GroupName) || ControlIsInGroup(_This, _Event.To, _GroupName);
+}
+
+// Create/destroy a group hierarchy
+Void UnsetGroupParent(CMlScript _This, Text _Child) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	if (!CMGame_Navigation_State.GroupParent.existskey(_Child)) return;
+
+	declare Text OldParent = CMGame_Navigation_State.GroupParent[_Child];
+	CMGame_Navigation_State.GroupParent.removekey(_Child);
+
+	// The old parent does not have any children left and it is not associated to any controls
+	if (!CMGame_Navigation_State.GroupParent.exists(OldParent) && !CMGame_Navigation_State.GroupControls.existskey(OldParent)) {
+		CMGame_Navigation_State.DefaultFocus.removekey(OldParent);
+		CMGame_Navigation_State.Focus.removekey(OldParent);
+	}
+}
+Void SetGroupParent(CMlScript _This, Text _Child, Text _Parent) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	if (CMGame_Navigation_State.GroupParent.existskey(_Child) && CMGame_Navigation_State.GroupParent[_Child] == _Parent) return;
+
+	// Destroy previous parent => child relationship
+	UnsetGroupParent(_This, _Child);
+
+	// Create new parent => child relationship
+	CMGame_Navigation_State.GroupParent[_Child] = _Parent;
+	AssertNoCircularRelationship(_This, _Child);
+
+	if (!CMGame_Navigation_State.DefaultFocus.existskey(_Parent)) {
+		CMGame_Navigation_State.DefaultFocus[_Parent] = Null;
+	}
+	if (
+		CMGame_Navigation_State.DefaultFocus[_Parent] == Null &&
+		CMGame_Navigation_State.DefaultFocus.existskey(_Child)
+	) {
+		CMGame_Navigation_State.DefaultFocus[_Parent] = CMGame_Navigation_State.DefaultFocus[_Child];
+	}
+	if (!CMGame_Navigation_State.Focus.existskey(_Parent)) {
+		CMGame_Navigation_State.Focus[_Parent] = Null;
+	}
+	if (CMGame_Navigation_State.Focus[_Parent] == Null) {
+		CMGame_Navigation_State.Focus[_Parent] = CMGame_Navigation_State.DefaultFocus[_Parent];
+	}
+}
+
+Void SetChildrenGroupParent(CMlScript _This, Text[] _Children, Text _Parent) {
+	foreach (Child in _Children) {
+		SetGroupParent(_This, Child, _Parent);
+	}
+}
+
+// Enable or disable the events generated
+// by the given navigation group
+CMlControl[] EnableGroup(CMlScript _This, Text _GroupName, Boolean _Enabled) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	if (_Enabled && CMGame_Navigation_State.DisabledGroups.exists(_GroupName)) {
+		CMGame_Navigation_State.DisabledGroups.remove(_GroupName);
+	} else if (!_Enabled && !CMGame_Navigation_State.DisabledGroups.exists(_GroupName)) {
+		CMGame_Navigation_State.DisabledGroups.add(_GroupName);
+	}
+	return GetGroupControls(_This, _GroupName);
+}
+CMlControl[] EnableGroup(CMlScript _This, Boolean _Enabled) {
+	return EnableGroup(_This, "", _Enabled);
+}
+
+// Check if group is disabled
+Boolean GroupIsEnabled(CMlScript _This, Text _GroupName) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	return !CMGame_Navigation_State.DisabledGroups.containsoneof(GetGroupHierarchy(_This, _GroupName));
+}
+
+// Globally (all pages!) discard events
+// coming from navigation groups other
+// than the given groups
+Void SetGlobalSoloGroups(CMlScript _This, Text[] _Groups) {
+	declare Text[] CMGame_Navigation_SoloGroups for _This = [];
+	CMGame_Navigation_SoloGroups = _Groups;
+}
+Void ResetGlobalSoloGroups(CMlScript _This) {
+	SetGlobalSoloGroups(_This, []);
+}
+Void AddToGlobalSoloGroups(CMlScript _This, Text[] _GroupList) {
+	declare Text[] CMGame_Navigation_SoloGroups for _This = [];
+	foreach(Group in _GroupList) {
+		CMGame_Navigation_SoloGroups.add(Group);
+	}
+}
+Void AddToGlobalSoloGroups(CMlScript _This, Text _Group) {
+	AddToGlobalSoloGroups(_This, [_Group]);
+}
+Void RemoveFromGlobalSoloGroups(CMlScript _This, Text[] _GroupList) {
+	declare Text[] CMGame_Navigation_SoloGroups for _This = [];
+	foreach(Group in _GroupList) {
+		CMGame_Navigation_SoloGroups.remove(Group);
+	}
+}
+Void RemoveFromGlobalSoloGroups(CMlScript _This, Text _Group) {
+	RemoveFromGlobalSoloGroups(_This, [_Group]);
+}
+Boolean IsGlobalSoloGroup(CMlScript _This, Text _Group) {
+	declare Text[] CMGame_Navigation_SoloGroups for _This = [];
+	return (CMGame_Navigation_SoloGroups.count <= 0 || CMGame_Navigation_SoloGroups.containsoneof(GetGroupHierarchy(_This, _Group)));
+}
+Text[] GetGlobalSoloGroups(CMlScript _This) {
+	declare Text[] CMGame_Navigation_SoloGroups for _This = [];
+	return CMGame_Navigation_SoloGroups;
+}
+Boolean IsInGlobalSoloGroups(CMlScript _This, Text _Group) {
+	declare Text[] CMGame_Navigation_SoloGroups for _This = [];
+	return CMGame_Navigation_SoloGroups.exists(_Group);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Navigation
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Create a navigation structure
+ *	than can be passed to the
+ *	data-nav attribute
+ *
+ *	@param	_InputTargets							The controls targeted by each input
+ *	@param	_Group										The navigation group
+ *	@param	_Zone											The ControlId of the quads that can trigger mouse events
+ *	@param	_Focused									Is this control focused by default
+ *	@param	_Locked										Is this control locked by default
+ */
+Text Inject(Text[Text] _InputTargets, Text _Group, Text _Zone, Boolean _Focused, Boolean _Locked) {
+	declare K_NavigationSettings NavigationSettings;
+	NavigationSettings.InputTargets = _InputTargets;
+	NavigationSettings.Group = _Group;
+	NavigationSettings.Zone = _Zone;
+	NavigationSettings.Focused = _Focused;
+	NavigationSettings.Locked = _Locked;
+	return TL::MLEncode(NavigationSettings.tojson());
+}
+Text Inject(Text[Text] _InputTargets, Text _Group, Text _Zone, Boolean _Focused) {
+	return Inject(_InputTargets, _Group, _Zone, _Focused, False);
+}
+
+/**	Use the local menu navigation events
+ *	instead of the events shared by the
+ *	ShareMenuNavigation component
+ */
+Void UseLocalEvents(CMlScript _This, Boolean _Enable) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	CMGame_Navigation_State.UseLocalEvents = _Enable;
+}
+
+// Disable all events generated by the navigation
+Void EnableNavigation(CMlScript _This, Boolean _Enabled, Text _Key) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	if (_Enabled) {
+		CMGame_Navigation_State.NavigationDisabledBy.remove(_Key);
+	} else if (!CMGame_Navigation_State.NavigationDisabledBy.exists(_Key)) {
+		CMGame_Navigation_State.NavigationDisabledBy.add(_Key);
+	}
+}
+// The navigation remains disabled until there are no key left in the array
+Boolean NavigationIsEnabled(CMlScript _This) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	return CMGame_Navigation_State.NavigationDisabledBy.count <= 0;
+}
+
+Boolean IsNavigationControl(CMlControl _Control) {
+	if (_Control == Null) return False;
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	return CMGame_Navigation_Properties.IsInitialized;
+}
+
+// Get the control currently focused
+// in the given navigation group
+CMlControl GetFocusedControl(CMlScript _This, Text _GroupName) {
+	declare Text GroupRoot = GetGroupRoot(_This, _GroupName);
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	if (CMGame_Navigation_State.Focus.existskey(GroupRoot)) {
+		return CMGame_Navigation_State.Focus[GroupRoot];
+	}
+	return Null;
+}
+CMlControl GetFocusedControl(CMlScript _This) {
+	return GetFocusedControl(_This, "");
+}
+
+// Return true if the control is focused
+// in the given navigation group
+Boolean IsFocused(CMlScript _This, CMlControl _Control, Text _GroupName) {
+	return _Control == GetFocusedControl(_This, _GroupName);
+}
+
+// Reset the focus of a group
+Void ResetFocus(CMlScript _This, Text _GroupName) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	CMGame_Navigation_State.Focus[GetGroupRoot(_This, _GroupName)] = Null;
+}
+Void ResetFocus(CMlScript _This) {
+	ResetFocus(_This, "");
+}
+
+// Focus the given control
+Void Focus(CMlScript _This, CMlControl _Control) {
+	if (_Control == Null) return;
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	assert(CMGame_Navigation_Properties.IsInitialized, "[Navigation] You are trying to focus control \""^_Control.ControlId^"\" but it is not a navigation control");
+
+	if (CMGame_Navigation_Properties.IsLocked) return;
+
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	CMGame_Navigation_State.Focus[GetGroupRoot(_This, CMGame_Navigation_Properties.Group)] = _Control;
+}
+
+// Unfocus the given control
+Void Unfocus(CMlScript _This, CMlControl _Control) {
+	if (_Control == Null) return;
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	assert(CMGame_Navigation_Properties.IsInitialized, "[Navigation] You are trying to unfocus control \""^_Control.ControlId^"\" but it is not a navigation control");
+
+	ResetFocus(_This, GetGroupRoot(_This, CMGame_Navigation_Properties.Group));
+}
+
+// Lock/Unlock the given control
+Void Lock(CMlControl _Control, Boolean _Lock) {
+	if (_Control == Null) return;
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	assert(CMGame_Navigation_Properties.IsInitialized, "[Navigation] You are trying to lock control \""^_Control.ControlId^"\" but it is not a navigation control");
+
+	CMGame_Navigation_Properties.IsLocked = _Lock;
+}
+
+Boolean IsLocked(CMlControl _Control) {
+	if (_Control == Null) return False;
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	assert(CMGame_Navigation_Properties.IsInitialized, "[Navigation] You are trying to see if \""^_Control.ControlId^"\" is locked but it is not a navigation control");
+
+	return CMGame_Navigation_Properties.IsLocked;
+}
+
+Boolean IsFocusedControlLocked(CMlScript _This, Text _GroupName) {
+	return IsLocked(GetFocusedControl(_This, _GroupName));
+}
+
+// Apply an input navigation to a control
+Void ApplyInput(CMlScript _This, CMlControl _Control, CMlScriptEvent::EMenuNavAction _Action, Integer _UserIndex, CMlControl[] _ControlChain, Boolean _IsFromMouse, Boolean _IsActionAutoRepeat) {
+	if (_Control == Null) return;
+	declare K_NavigationProperties CMGame_Navigation_Properties as FromProperties for _Control = C_NavigationProperties_Null;
+	assert(FromProperties.IsInitialized, "[Navigation] You are trying to apply an action on control \""^_Control.ControlId^"\" but it is not a navigation control");
+
+	if (FromProperties.Actions.existskey(_Action)) {
+		declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+		declare CMlControl Target = FromProperties.Actions[_Action];
+
+		declare Boolean CanApplyInput = IsGlobalSoloGroup(_This, FromProperties.Group);
+		if (Target != Null) {
+			declare K_NavigationProperties CMGame_Navigation_Properties as ToProperties for Target = C_NavigationProperties_Null;
+			if (CMGame_Navigation_State.DisabledGroups.containsoneof(GetGroupHierarchy(_This, ToProperties.Group))) {
+				CanApplyInput = False;
+			} else if (!IsGlobalSoloGroup(_This, ToProperties.Group)) {
+				CanApplyInput = False;
+			} else if (CMGame_Navigation_State.DisabledContainers.count > 0 && CMGame_Navigation_State.DisabledContainers.exists(Private_FindClosestContainerId(_Control))) {
+				CanApplyInput = False;
+			}
+
+			if (CanApplyInput && ToProperties.IsLocked && (!_ControlChain.exists(Target) || Target == _Control)) {
+				CanApplyInput = False;
+				if (Target != _Control) {
+					declare CMlControl[] ControlChain = _ControlChain;
+					ControlChain.add(Target);
+					ApplyInput(_This, Target, _Action, _UserIndex, ControlChain, _IsFromMouse, _IsActionAutoRepeat);
+				}
+			}
+		}
+
+		if (CanApplyInput) {
+			declare CMlControl OriginalFromControl = _Control;
+			if (_ControlChain.existskey(0)) OriginalFromControl = _ControlChain[0];
+
+			if (!IsLocked(Target)) { // Target Locked here means that the input cannot be applied to any controls in the target's control chain.
+				declare K_NavigationEvent NavigationEvent = K_NavigationEvent {
+					Type = C_EventType_NavigateInput,
+					From = OriginalFromControl,
+					To = Target,
+					Input = _Action,
+					UserIndex = _UserIndex,
+					Container = FindClosestContainer(Target),
+					IsFromMouse = _IsFromMouse,
+					IsActionAutoRepeat = _IsActionAutoRepeat
+				};
+				CMGame_Navigation_State.PendingEvents.add(NavigationEvent);
+			}
+		}
+	}
+}
+Void ApplyInput(CMlScript _This, CMlControl _Control, CMlScriptEvent::EMenuNavAction _Action, Integer _UserIndex, CMlControl[] _ControlChain) {
+	ApplyInput(_This, _Control, _Action, _UserIndex, _ControlChain, False, False);
+}
+
+// Apply a mouse navigation to a control
+Void ApplyMouse(CMlScript _This, CMlControl _Control, CMlScriptEvent::Type _Type, Integer _UserIndex) {
+	if (_Control == Null) return;
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	if (!CMGame_Navigation_Properties.IsInitialized) return;
+
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	declare CMlControl FromControl;
+	declare Text FromGroupRoot = GetGroupRoot(_This, CMGame_Navigation_Properties.Group);
+	if (CMGame_Navigation_State.Focus.existskey(FromGroupRoot)) {
+		FromControl = CMGame_Navigation_State.Focus[FromGroupRoot];
+	}
+
+	declare CMlControl ToControl;
+	if (_Type == CMlScriptEvent::Type::MouseClick || _Type == CMlScriptEvent::Type::MouseOver) {
+		if (CMGame_Navigation_Properties.IsInitialized) {
+			ToControl = _Control;
+		}
+	}
+
+	declare Boolean CanApplyMouse = IsGlobalSoloGroup(_This, CMGame_Navigation_Properties.Group) && !IsLocked(ToControl);
+	if (ToControl != Null) {
+		declare K_NavigationProperties CMGame_Navigation_Properties as ToProperties for ToControl = C_NavigationProperties_Null;
+		if (CMGame_Navigation_State.DisabledGroups.containsoneof(GetGroupHierarchy(_This, ToProperties.Group))) {
+			CanApplyMouse = False;
+		} else if (!IsGlobalSoloGroup(_This, ToProperties.Group)) {
+			CanApplyMouse = False;
+		} else if (CMGame_Navigation_State.DisabledContainers.count > 0 && CMGame_Navigation_State.DisabledContainers.exists(Private_FindClosestContainerId(_Control))) {
+			CanApplyMouse = False;
+		}
+	}
+
+	if (CanApplyMouse) {
+		declare K_NavigationEvent NavigationEvent = K_NavigationEvent {
+			Type = C_EventType_NavigateMouse,
+			From = FromControl,
+			To = ToControl,
+			Mouse = _Type,
+			UserIndex = _UserIndex,
+			Container = FindClosestContainer(ToControl),
+			IsFromMouse = True,
+			IsActionAutoRepeat = False
+		};
+		CMGame_Navigation_State.PendingEvents.add(NavigationEvent);
+	}
+}
+
+// Trigger a navigation event to the default
+// focused control of a group
+Void ApplyDefaultFocus(CMlScript _This, Text _GroupName, CMlScriptEvent::EMenuNavAction _Action, Integer _UserIndex, Boolean _IsFromMouse, Boolean _IsActionAutoRepeat) {
+	declare Text GroupRoot = GetGroupRoot(_This, _GroupName);
+	declare Text[] GroupHierarchy = GetGroupHierarchy(_This, _GroupName);
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	if (CMGame_Navigation_State.DisabledGroups.containsoneof(GroupHierarchy)) return;
+	if (!CMGame_Navigation_State.DefaultFocus.existskey(GroupRoot)) return;
+	if (!IsGlobalSoloGroup(_This, _GroupName)) return;
+
+	declare CMlControl ToControl;
+	ToControl = CMGame_Navigation_State.DefaultFocus[GroupRoot];
+	if (IsLocked(ToControl)) return;
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for ToControl = C_NavigationProperties_Null;
+	if (!CMGame_Navigation_Properties.IsInitialized || !CMGame_Navigation_Properties.Actions.existskey(_Action)) return;
+
+	declare CMlControl FromControl;
+	if (CMGame_Navigation_State.Focus.existskey(GroupRoot)) {
+		FromControl = CMGame_Navigation_State.Focus[GroupRoot];
+	}
+
+	declare K_NavigationEvent NavigationEvent = K_NavigationEvent {
+		Type = C_EventType_NavigateInput,
+		From = FromControl,
+		To = ToControl,
+		Input = _Action,
+		UserIndex = _UserIndex,
+		Container = FindClosestContainer(ToControl),
+		IsFromMouse = _IsFromMouse,
+		IsActionAutoRepeat = _IsActionAutoRepeat
+	};
+	CMGame_Navigation_State.PendingEvents.add(NavigationEvent);
+}
+Void ApplyDefaultFocus(CMlScript _This, Text _GroupName, CMlScriptEvent::EMenuNavAction _Action, Integer _UserIndex, Boolean _IsFromMouse) {
+	ApplyDefaultFocus(_This, _GroupName, _Action, _UserIndex, _IsFromMouse, False);
+}
+Void ApplyDefaultFocus(CMlScript _This, Text _GroupName, CMlScriptEvent::EMenuNavAction _Action, Integer _UserIndex) {
+	ApplyDefaultFocus(_This, _GroupName, _Action, _UserIndex, False);
+}
+Void ApplyDefaultFocus(CMlScript _This, Text _GroupName, Integer _UserIndex, Boolean _IsFromMouse) {
+	ApplyDefaultFocus(_This, _GroupName, CMlScriptEvent::EMenuNavAction::Down, _UserIndex, _IsFromMouse);
+}
+Void ApplyDefaultFocus(CMlScript _This, Text _GroupName, Integer _UserIndex) {
+	ApplyDefaultFocus(_This, _GroupName, _UserIndex, False);
+}
+Void ApplyDefaultFocuses(CMlScript _This, CMlScriptEvent::EMenuNavAction _Action, Integer _UserIndex, Boolean _IsFromMouse) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	foreach (GroupName => Control in CMGame_Navigation_State.DefaultFocus) {
+		ApplyDefaultFocus(_This, GroupName, _Action, _UserIndex, _IsFromMouse);
+	}
+}
+Void ApplyDefaultFocuses(CMlScript _This, CMlScriptEvent::EMenuNavAction _Action, Integer _UserIndex) {
+	ApplyDefaultFocuses(_This, _Action, _UserIndex, False);
+}
+Void ApplyDefaultFocuses(CMlScript _This, Integer _UserIndex) {
+	ApplyDefaultFocuses(_This, CMlScriptEvent::EMenuNavAction::Down, _UserIndex);
+}
+
+CMlControl Private_GetActivationZoneParent(CMlControl _Control) {
+	if (_Control == Null) return _Control;
+
+	declare CMlControl CMGame_Navigation_ParentNavigationControl for _Control = Null;
+	if (CMGame_Navigation_ParentNavigationControl == Null) {
+		return _Control;
+	}
+
+	return CMGame_Navigation_ParentNavigationControl;
+}
+
+CMlScriptEvent::EMenuNavAction Private_TextToAction(Text _Text) {
+	switch (TL::ToLowerCase(_Text)) {
+		case "up": return CMlScriptEvent::EMenuNavAction::Up;
+		case "right": return CMlScriptEvent::EMenuNavAction::Right;
+		case "left": return CMlScriptEvent::EMenuNavAction::Left;
+		case "down": return CMlScriptEvent::EMenuNavAction::Down;
+		case "select": return CMlScriptEvent::EMenuNavAction::Select;
+		case "cancel": return CMlScriptEvent::EMenuNavAction::Cancel;
+		case "pageup": return CMlScriptEvent::EMenuNavAction::PageUp;
+		case "pagedown": return CMlScriptEvent::EMenuNavAction::PageDown;
+		case "appmenu": return CMlScriptEvent::EMenuNavAction::AppMenu;
+		case "action1": return CMlScriptEvent::EMenuNavAction::Action1;
+		case "action2": return CMlScriptEvent::EMenuNavAction::Action2;
+		case "action3": return CMlScriptEvent::EMenuNavAction::Action3;
+		case "action4": return CMlScriptEvent::EMenuNavAction::Action4;
+		case "scrollup": return CMlScriptEvent::EMenuNavAction::ScrollUp;
+		case "scrolldown": return CMlScriptEvent::EMenuNavAction::ScrollDown;
+	}
+
+	return CMlScriptEvent::EMenuNavAction::Select;
+}
+
+/**
+ * Get the opposite directionnal input of the given action
+ *
+ * @param _Action 	The action to invert
+ */
+CMlScriptEvent::EMenuNavAction InvertInput(CMlScriptEvent::EMenuNavAction _Action) {
+	switch (_Action) {
+		case CMlScriptEvent::EMenuNavAction::Up: return CMlScriptEvent::EMenuNavAction::Down;
+		case CMlScriptEvent::EMenuNavAction::Down: return CMlScriptEvent::EMenuNavAction::Up;
+		case CMlScriptEvent::EMenuNavAction::Left: return CMlScriptEvent::EMenuNavAction::Right;
+		case CMlScriptEvent::EMenuNavAction::Right: return CMlScriptEvent::EMenuNavAction::Left;
+	}
+
+	return _Action;
+}
+
+/**
+ * Enable or disable all navigation inputs on a given CMlControl
+ *
+ * @param _Control 	the given CMlControl
+ * @param _Enable 	the boolean to enable or disable all navigation inputs
+ */
+Void EnableInputs(CMlControl _Control, Boolean _Enable) {
+	if (_Control == Null) return;
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	assert(CMGame_Navigation_Properties.IsInitialized, "[Navigation] You are trying to get \""^_Control.ControlId^"\" target but it is not a navigation control");
+
+	if (_Enable) {
+		CMGame_Navigation_Properties.Actions = CMGame_Navigation_Properties.SavedActions;
+	} else {
+		CMGame_Navigation_Properties.Actions = [];
+	}
+}
+
+/**
+ * Enable or disable given navigation inputs on a given CMlControl
+ * Disabled inputs are inputs not present in the `Actions` array and therefore cannot be executed
+ * Both enabled and disabled inputs are saved in the `SavedActions` array
+ *
+ * @param _Control 	the given CMlControl
+ * @param _Actions	the navigation actions list (CMlScriptEvent::EMenuNavAction::Right, etc.)
+ * @param _Enable 	the boolean to enable or disable given navigation inputs
+ */
+Void EnableInputs(CMlControl _Control, CMlScriptEvent::EMenuNavAction[] _Actions, Boolean _Enable) {
+	if (_Control == Null) return;
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	assert(CMGame_Navigation_Properties.IsInitialized, "[Navigation] You are trying to get \""^_Control.ControlId^"\" target but it is not a navigation control");
+
+	foreach (Action in _Actions) {
+		if (_Enable && CMGame_Navigation_Properties.SavedActions.existskey(Action)) {
+			CMGame_Navigation_Properties.Actions[Action] = CMGame_Navigation_Properties.SavedActions[Action];
+		} else if (!_Enable && CMGame_Navigation_Properties.Actions.existskey(Action)) {
+			CMGame_Navigation_Properties.Actions.removekey(Action);
+		}
+	}
+}
+
+/**
+ * Enable or disable given navigation inputs on a given CMlControl
+ * Disabled inputs are inputs not present in the `Actions` array and therefore cannot be executed
+ * Both enabled and disabled inputs are saved in the `SavedActions` array
+ *
+ * @param _Control 	the given CMlControl
+ * @param _Inputs		the inputs list ("right", "left", etc.)
+ * @param _Enable 	the boolean to enable or disable given navigation inputs
+ */
+Void EnableInputs(CMlControl _Control, Text[] _Inputs, Boolean _Enable) {
+	declare CMlScriptEvent::EMenuNavAction[] Actions;
+	foreach (Input in _Inputs) {
+		Actions.add(Private_TextToAction(Input));
+	}
+	EnableInputs(_Control, Actions, _Enable);
+}
+
+CMlControl GetControlTarget(CMlControl _Control, CMlScriptEvent::EMenuNavAction _Action) {
+	if (_Control == Null) return Null;
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	assert(CMGame_Navigation_Properties.IsInitialized, "[Navigation] You are trying to get \""^_Control.ControlId^"\" target but it is not a navigation control");
+
+	if (!CMGame_Navigation_Properties.Actions.existskey(_Action)) return Null;
+
+	return CMGame_Navigation_Properties.Actions[_Action];
+}
+CMlControl GetControlTarget(CMlControl _Control, Text _Action) {
+	return GetControlTarget(_Control, Private_TextToAction(_Action));
+}
+CMlControl[CMlScriptEvent::EMenuNavAction] GetControlTargets(CMlControl _Control) {
+	if (_Control == Null) return [];
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	assert(CMGame_Navigation_Properties.IsInitialized, "[Navigation] You are trying to get \""^_Control.ControlId^"\" target but it is not a navigation control");
+	return CMGame_Navigation_Properties.Actions;
+}
+
+Void ChangeControlTarget(CMlScript _This, CMlControl _Container, CMlControl _Control, CMlScriptEvent::EMenuNavAction _Action, Text _TargetControlId) {
+	if (_Control == Null) return;
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	assert(CMGame_Navigation_Properties.IsInitialized, "[Navigation] You are trying to change \""^_Control.ControlId^"\" target but it is not a navigation control");
+
+	declare Ident ContainerId = NullId;
+	if (_Container != Null) ContainerId = _Container.Id;
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	assert(CMGame_Navigation_State.NavigationControls.existskey(ContainerId), "[Navigation] The container you provided does not exist");
+
+	// We need to enable all inputs before changing the control's target
+	// Disabled inputs are inputs not present in the `Actions` array and therefore cannot be executed
+	// Both enabled and disabled inputs are saved in the `SavedActions` array
+	// If all inputs are not enabled prior to this operation, disabled inputs will be completly erased
+	declare CMlScriptEvent::EMenuNavAction[] DisabledActions;
+	if (CMGame_Navigation_Properties.SavedActions.count != CMGame_Navigation_Properties.Actions.count) {
+		foreach (NavAction => Control in CMGame_Navigation_Properties.SavedActions) {
+			if (!CMGame_Navigation_Properties.Actions.existskey(NavAction)) {
+				DisabledActions.add(NavAction);
+			}
+		}
+		EnableInputs(_Control, DisabledActions, True);
+	}
+
+	if (CMGame_Navigation_State.NavigationControls[ContainerId].existskey(_TargetControlId)) {
+		CMGame_Navigation_Properties.Actions[_Action] = CMGame_Navigation_State.NavigationControls[ContainerId][_TargetControlId];
+	} else if (_TargetControlId == "_" || _TargetControlId == "") {
+		CMGame_Navigation_Properties.Actions[_Action] = CMGame_Navigation_State.NavigationControls[ContainerId][_Control.ControlId];
+	}
+
+	CMGame_Navigation_Properties.SavedActions = CMGame_Navigation_Properties.Actions;
+	EnableInputs(_Control, DisabledActions, False); //< Disable inputs that were previously disabled before this operation
+}
+Void ChangeControlTarget(CMlScript _This, CMlControl _Container, CMlControl _Control, Text _Action, Text _TargetControlId) {
+	ChangeControlTarget(_This, _Container, _Control, Private_TextToAction(_Action), _TargetControlId);
+}
+Void ChangeControlTarget(CMlScript _This, CMlControl _Control, Text _Action, Text _TargetControlId) {
+	ChangeControlTarget(_This, Null, _Control, _Action, _TargetControlId);
+}
+Void ChangeControlTargets(CMlScript _This, CMlControl _Container, CMlControl _Control, Text[] _Actions, Text[] _TargetsControlId) {
+	assert(_Actions.count == _TargetsControlId.count, "[Navigation] You must set the same number of actions and targets for control \""^_Control.ControlId^"\"");
+	foreach (Index => Action in _Actions) {
+		ChangeControlTarget(_This, _Container, _Control, Action, _TargetsControlId[Index]);
+	}
+}
+Void ChangeControlTargets(CMlScript _This, CMlControl _Control, Text[] _Actions, Text[] _TargetsControlId) {
+	ChangeControlTargets(_This, Null, _Control, _Actions, _TargetsControlId);
+}
+Void ChangeControlTargets(CMlScript _This, CMlControl _Container, CMlControl _Control, CMlControl[CMlScriptEvent::EMenuNavAction] _Actions) {
+	foreach (NavAction => Control in _Actions) {
+		ChangeControlTarget(_This, _Container, _Control, NavAction, Control.ControlId);
+	}
+}
+
+Void Private_InitNavigationControl(CMlScript _This, Ident _ContainerId, CMlControl _Control) {
+	if (_Control == Null) return;
+
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	assert(CMGame_Navigation_State.NavigationControls.existskey(_ContainerId), "[Navigation] Invalid container id '"^_ContainerId^"'");
+
+	declare K_NavigationProperties CMGame_Navigation_Properties for _Control = C_NavigationProperties_Null;
+	declare Boolean UseNavigationSettings = _Control.DataAttributeExists("nav");
+	declare K_NavigationSettings NavigationSettings;
+	declare CMlScriptEvent::EMenuNavAction[] Actions;
+	declare CMlControl[] Targets;
+
+	if (UseNavigationSettings) {
+		declare Text NavigationSettingsJson = _Control.DataAttributeGet("nav");
+		NavigationSettings.fromjson(NavigationSettingsJson);
+
+		foreach (ActionText => TargetControlId in NavigationSettings.InputTargets) {
+			Actions.add(Private_TextToAction(ActionText));
+			if ((TargetControlId == "" || TargetControlId == "_") && CMGame_Navigation_State.NavigationControls[_ContainerId].existskey(_Control.ControlId)) {
+				Targets.add(CMGame_Navigation_State.NavigationControls[_ContainerId][_Control.ControlId]);
+			} else if (CMGame_Navigation_State.NavigationControls[_ContainerId].existskey(TargetControlId)) {
+				Targets.add(CMGame_Navigation_State.NavigationControls[_ContainerId][TargetControlId]);
+			} else {
+				Targets.add(Null);
+			}
+		}
+	} else {
+		if (_Control.DataAttributeExists("nav-inputs")) {
+			declare Text ActionsText = _Control.DataAttributeGet("nav-inputs");
+			declare Text[] ActionsTextSplit = TL::Split(";", ActionsText);
+			foreach (ActionText in ActionsTextSplit) {
+				Actions.add(Private_TextToAction(ActionText));
+			}
+		}
+
+		if (_Control.DataAttributeExists("nav-targets")) {
+			declare Text TargetControlIds = _Control.DataAttributeGet("nav-targets");
+			declare Text[] TargetControlIdsSplit = TL::Split(";", TargetControlIds);
+			foreach (TargetControlId in TargetControlIdsSplit) {
+				if (TargetControlId == "_" && CMGame_Navigation_State.NavigationControls[_ContainerId].existskey(_Control.ControlId)) {
+					Targets.add(CMGame_Navigation_State.NavigationControls[_ContainerId][_Control.ControlId]);
+				} else if (CMGame_Navigation_State.NavigationControls[_ContainerId].existskey(TargetControlId)) {
+					Targets.add(CMGame_Navigation_State.NavigationControls[_ContainerId][TargetControlId]);
+				} else {
+					Targets.add(Null);
+				}
+			}
+		}
+	}
+
+	assert(Actions.count == Targets.count, "[Navigation] You must set the same number of actions and targets in the data attributes of control \""^_Control.ControlId^"\"");
+
+	CMGame_Navigation_Properties.IsInitialized = True;
+
+	CMGame_Navigation_Properties.Actions = [];
+	foreach (Key => Action in Actions) {
+		if (Targets.existskey(Key)) {
+			CMGame_Navigation_Properties.Actions[Action] = Targets[Key];
+		}
+	}
+	CMGame_Navigation_Properties.SavedActions = CMGame_Navigation_Properties.Actions;
+
+	declare Boolean IsDefaultFocus = False;
+	if (UseNavigationSettings) {
+		IsDefaultFocus = NavigationSettings.Focused;
+		CMGame_Navigation_Properties.IsLocked = NavigationSettings.Locked;
+	} else {
+		if (_Control.DataAttributeExists("nav-selected")) {
+			declare Text SelectedText = _Control.DataAttributeGet("nav-selected");
+			if (SelectedText != "" && SelectedText != "0" && TL::ToLowerCase(SelectedText) != "false") {
+				IsDefaultFocus = True;
+			}
+		}
+		if (_Control.DataAttributeExists("nav-locked")) {
+			declare Text LockedText = _Control.DataAttributeGet("nav-locked");
+			if (LockedText != "" && LockedText != "0" && TL::ToLowerCase(LockedText) != "false") {
+				CMGame_Navigation_Properties.IsLocked = True;
+			}
+		}
+	}
+
+	if (_Control is CMlFrame) {
+		declare Boolean UseZone = False;
+		declare Text[] ZoneControlIds;
+		if (UseNavigationSettings) {
+			ZoneControlIds = [NavigationSettings.Zone];
+			UseZone = True;
+		} else if (_Control.DataAttributeExists("nav-zone")) {
+			ZoneControlIds = TL::Split(" ", TL::Trim(_Control.DataAttributeGet("nav-zone")));
+			UseZone = True;
+		}
+		if (UseZone) {
+			_This.Page.GetClassChildren(C_Class_ActivationZone, (_Control as CMlFrame), True);
+			foreach (ActivationZone in _This.Page.GetClassChildren_Result) {
+				if (ZoneControlIds.exists(ActivationZone.ControlId)) {
+					declare CMlControl CMGame_Navigation_ParentNavigationControl for ActivationZone = Null;
+					CMGame_Navigation_ParentNavigationControl = _Control;
+				}
+			}
+		}
+	}
+
+	CMGame_Navigation_Properties.Group = "";
+	if (UseNavigationSettings) {
+		CMGame_Navigation_Properties.Group = NavigationSettings.Group;
+	} else if (_Control.DataAttributeExists("nav-group")) {
+		CMGame_Navigation_Properties.Group = _Control.DataAttributeGet("nav-group");
+	}
+
+	if (!CMGame_Navigation_State.GroupControls.existskey(CMGame_Navigation_Properties.Group)) {
+		CMGame_Navigation_State.GroupControls[CMGame_Navigation_Properties.Group] = [];
+		CMGame_Navigation_State.Focus[CMGame_Navigation_Properties.Group] = Null;
+		CMGame_Navigation_State.DefaultFocus[CMGame_Navigation_Properties.Group] = _Control;
+	}
+	CMGame_Navigation_State.GroupControls[CMGame_Navigation_Properties.Group].add(_Control);
+	if (IsDefaultFocus) {
+		CMGame_Navigation_State.DefaultFocus[CMGame_Navigation_Properties.Group] = _Control;
+	}
+}
+
+Void Initialize(CMlScript _This) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	CMGame_Navigation_State = C_NavigationState_Null;
+
+	UseLocalEvents(_This, False);
+
+	_This.Page.GetClassChildren(C_Class_ActivationZone, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlControl CMGame_Navigation_ParentNavigationControl for Control = Null;
+		CMGame_Navigation_ParentNavigationControl = Null;
+	}
+
+	// Find containers
+	declare CMlFrame[] Containers;
+	_This.Page.GetClassChildren(C_Class_Container, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		assert(Control is CMlFrame, """Navigation container #{{{Control.ControlId}}} must be a frame""");
+		declare CMlFrame TrueControlHandle = (Control as CMlFrame);
+		Containers.add(TrueControlHandle);
+		CMGame_Navigation_State.NavigationControls[TrueControlHandle.Id] = [];
+	}
+	foreach (Container in Containers) {
+		_This.Page.GetClassChildren(C_Class, Container, True);
+		foreach (Control in _This.Page.GetClassChildren_Result) {
+			declare Boolean CMGame_Navigation_IsInsideContainer for Control = False;
+			CMGame_Navigation_IsInsideContainer = True;
+		}
+	}
+
+	// Find navigation controls
+	_This.Page.GetClassChildren(C_Class, _This.Page.MainFrame, True);
+	foreach (Control in _This.Page.GetClassChildren_Result) {
+		declare CMlControl TrueControlHandle = Control;
+		assert(Control.ControlId != "", "[Navigation] A navigation control must have an id");
+
+		// Find container id
+		declare Boolean CMGame_Navigation_IsInsideContainer for TrueControlHandle = False;
+		declare Ident ContainerId = NullId;
+		if (CMGame_Navigation_IsInsideContainer) {
+			ContainerId = Private_FindClosestContainerId(TrueControlHandle);
+		}
+
+		assert(!CMGame_Navigation_State.NavigationControls[ContainerId].existskey(TrueControlHandle.ControlId), "[Navigation] Two navigation controls cannot share the same id '"^TrueControlHandle.ControlId^"' in the same container '"^ContainerId^"'");
+		CMGame_Navigation_State.NavigationControls[ContainerId][TrueControlHandle.ControlId] = TrueControlHandle;
+	}
+	foreach (ContainerId => Controls in CMGame_Navigation_State.NavigationControls) {
+		foreach (Control in Controls) {
+			Private_InitNavigationControl(_This, ContainerId, Control);
+		}
+	}
+}
+
+/**
+ * Change the navigation container for a specific set of controls
+ *
+ * @param _Control 			the controls to apply the container modification
+ * @param _ContainerId 	the container id
+ *
+ */
+Void ChangeNavigationContainers(CMlScript _This, CMlControl[] _Controls, Ident _ContainerId) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	assert(CMGame_Navigation_State.NavigationControls.existskey(_ContainerId), "[Navigation] The container you provided does not exist");
+
+	// Remove the control from it's old container and add it to the new one
+	foreach (Control in _Controls) {
+		if (Control != Null) {
+			declare Ident ClosestContainerId = Private_FindClosestContainerId(Control);
+			if (CMGame_Navigation_State.NavigationControls.existskey(ClosestContainerId)) {
+				CMGame_Navigation_State.NavigationControls[ClosestContainerId].removekey(Control.ControlId);
+			}
+			CMGame_Navigation_State.NavigationControls[_ContainerId][Control.ControlId] = Control;
+		}
+	}
+
+	// Controls must be resetted in order to handle container modification
+	// This reset can only be done after changing the container on each control
+	foreach (Control in _Controls) {
+		Private_InitNavigationControl(_This, _ContainerId, Control);
+	}
+}
+
+Void UpdateNavigationSettings(CMlScript _This, CMlControl _Control, Text _NavigationSettings) {
+	if (_Control == Null || !_Control.DataAttributeExists("nav")) return;
+
+	_Control.DataAttributeSet("nav", _NavigationSettings);
+	Initialize(_This);
+}
+
+Boolean MouseIsSleeping(CMlScript _This) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	return (CMGame_Navigation_State.MouseSleepDelay >= 0 && _This.Input.TimeSinceLatestMouseActivity >= CMGame_Navigation_State.MouseSleepDelay);
+}
+
+// Use a negative value to disable
+Void SetMouseSleepDelay(CMlScript _This, Integer _Delay) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	CMGame_Navigation_State.MouseSleepDelay = _Delay;
+}
+
+Integer GetMouseSleepDelay(CMlScript _This) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	return CMGame_Navigation_State.MouseSleepDelay;
+}
+
+K_NavigationEvent[] GetPendingEvents(CMlScript _This) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	return CMGame_Navigation_State.PendingEvents;
+}
+
+Void MainInit(CMlScript _This) {
+	Initialize(_This);
+	SetMouseSleepDelay(_This, C_MouseSleepDelay);
+}
+
+Void MainLoop(CMlScript _This) {
+	declare K_NavigationState CMGame_Navigation_State for _This.Page = C_NavigationState_Null;
+	CMGame_Navigation_State.PendingEvents = [];
+
+	if (_This.PageIsVisible && NavigationIsEnabled(_This)) {
+		foreach (Event in _This.PendingEvents) {
+			switch (Event.Type) {
+				case CMlScriptEvent::Type::MouseClick: {
+					ApplyMouse(_This, Private_GetActivationZoneParent(Event.Control), Event.Type, C_MainUserIndex);
+				}
+				case CMlScriptEvent::Type::MouseRightClick: {
+					ApplyMouse(_This, Private_GetActivationZoneParent(Event.Control), Event.Type, C_MainUserIndex);
+				}
+				case CMlScriptEvent::Type::MouseOver: {
+					if (!MouseIsSleeping(_This)) {
+						ApplyMouse(_This, Private_GetActivationZoneParent(Event.Control), Event.Type, C_MainUserIndex);
+					}
+				}
+				case CMlScriptEvent::Type::MouseOut: {
+					if (!MouseIsSleeping(_This)) {
+						ApplyMouse(_This, Private_GetActivationZoneParent(Event.Control), Event.Type, C_MainUserIndex);
+					}
+				}
+				case CMlScriptEvent::Type::MenuNavigation: {
+					if (CMGame_Navigation_State.UseLocalEvents) {
+						foreach (GroupName => Control in CMGame_Navigation_State.Focus) {
+							// Only the group root can be focused and generate events
+							if (!CMGame_Navigation_State.GroupParent.existskey(GroupName)) {
+								// The mouse scrollwheel creates the same event than the L2:R2/LT:RT buttons on the gamepad
+								// We want to be able to distinguish them
+								declare Boolean IsFromMouse = (_This.Input != Null && _This.Input.TimeSinceLatestActivity == _This.Input.TimeSinceLatestMouseActivity);
+								// If no control in the group was focus, then focus the default one
+								if (Control == Null) {
+									ApplyDefaultFocus(_This, GroupName, Event.MenuNavAction, C_MainUserIndex, IsFromMouse, Event.IsActionAutoRepeat);
+								} else {
+									// Only apply one input per yield to each control
+									declare Integer CMGame_Navigation_PreviousInputTime for Control = 0;
+									if (CMGame_Navigation_PreviousInputTime != Now) {
+										CMGame_Navigation_PreviousInputTime = Now;
+										ApplyInput(_This, Control, Event.MenuNavAction, C_MainUserIndex, [Control], IsFromMouse, Event.IsActionAutoRepeat);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (!CMGame_Navigation_State.UseLocalEvents) {
+			foreach (Event in ShareMenuNavigation::GetPendingEvents(_This)) {
+				foreach (GroupName => Control in CMGame_Navigation_State.Focus) {
+					// Only the group root can be focused and generate events
+					if (!CMGame_Navigation_State.GroupParent.existskey(GroupName)) {
+						// If no control in the group was focus, then focus the default one
+						if (Control == Null) {
+							ApplyDefaultFocus(_This, GroupName, Event.MenuNavAction, Event.UserIndex, Event.IsFromMouse, Event.IsActionAutoRepeat);
+						} else {
+							// Only apply one input per yield to each control
+							declare Integer CMGame_Navigation_PreviousInputTime for Control = 0;
+							if (CMGame_Navigation_PreviousInputTime != Now) {
+								CMGame_Navigation_PreviousInputTime = Now;
+								ApplyInput(_This, Control, Event.MenuNavAction, Event.UserIndex, [Control], Event.IsFromMouse, Event.IsActionAutoRepeat);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		"""
+		""",
+		"""
+#Include "Libs/Nadeo/CMGame/Components/Navigation.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+		""",
+		[ShareMenuNavigation::ComponentV2()],
+		[]
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Use this function to reset the
+ *	global solo groups one time at the
+ *	initialization of the ManiaApp
+ *
+ *	You must do that in game modes
+ *	because the SoloGroups array is not
+ *	emptied when the script is rebooted
+ */
+Void ManiaApp_ResetGlobalSoloGroups(CManiaApp _This) {
+	if (G_ResetGlobalSoloGroupsLayerId != NullId && _This.UILayers.existskey(G_ResetGlobalSoloGroupsLayerId)) {
+		_This.UILayerDestroy(_This.UILayers[G_ResetGlobalSoloGroupsLayerId]);
+		G_ResetGlobalSoloGroupsLayerId = NullId;
+	}
+
+	declare CUILayer ResetLayer <=> _This.UILayerCreate();
+	if (ResetLayer != Null) {
+		G_ResetGlobalSoloGroupsLayerId = ResetLayer.Id;
+		ResetLayer.ManialinkPage = MV::Create(
+"Navigation:ResetGlobalSoloGroups", 3,
+"",
+"",
+"""
+***MainStart***
+***
+declare Text[] CMGame_Navigation_SoloGroups for This;
+CMGame_Navigation_SoloGroups = [];
+***
+""",
+[],
+[]
+		);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload(CManiaApp _This) {
+	ManiaApp_ResetGlobalSoloGroups(_This);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load(CManiaApp _This) {
+	Unload(_This);
+}

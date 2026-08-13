@@ -1,0 +1,1164 @@
+/**
+ * Follow progress of the COTD qualifications
+ */
+#Const Version "2.2.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/COTDQualifications/COTD.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "MathLib" as ML
+#Include "TimeLib" as TiL
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/Trackmania/Modes/COTDQualifications/Constants.Script.txt" as COTDConst
+#Include "Libs/Nadeo/Trackmania/Modes/COTDQualifications/NetShare.Script.txt" as NetShare
+#Include "Libs/Nadeo/Trackmania/Modes/ServerAuth.Script.txt" as ServerAuth
+#Include "Libs/Nadeo/CMGame/Utils/Config.Script.txt" as Config
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu
+#Include "Libs/Nadeo/Trackmania/Modes/COTDQualifications/UIModules/QualificationsProgress_Server.Script.txt" as UIModules_QualificationsProgress
+#Include "Libs/Nadeo/Trackmania/Modes/COTDQualifications/UIModules/Ranking_Server.Script.txt" as UIModules_Ranking
+#Include "Libs/Nadeo/Trackmania/Modes/Competition.Script.txt" as Competition
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structure
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Player {
+	Text Id;
+	Text Zone;
+	Integer QualificationsJoinTime;
+	Integer LocalRaceTime;
+	Integer APIRaceTime;
+	Integer Rank;
+	Text KnockoutJoinLink;
+	Boolean NeedFinalRecordRequest;
+}
+#Struct K_Request {
+	Integer CooldownEndTime;
+	Http::K_Request Request;
+}
+#Struct K_Qualifications {
+	Integer Progress;
+	Text CupType;
+	Text CrossplayPartition;
+	Text CompetitionAuthHeader;
+	K_Request GetCurrentCOTD;
+	K_Request PostRecords;
+	K_Request GetPlayersMatches;
+	K_Request PostGetPlayersAndTopsRecords;
+	K_Request PostGetPlayersFinalRecords;
+	Integer QualificationsStartTime;
+	Integer QualificationsEndTime;
+	Integer QualificationsMaxJoinTime;
+	Integer KnockoutMatchesGenerationTime;
+	Integer KnockoutTooLateToJoinTime;
+	Integer KnockoutAutoJoinTime;
+	Integer ServerDutyIsOverTime;
+	Integer ChallengeId;
+	Text CompetitionLiveId;
+	Text MapUid;
+	K_Player[Text] Players;
+	Boolean HasPendingPlayersRecords;
+	Boolean FinalRankingReceived;
+	Boolean HasPendingPlayersFinalRecords;
+	Text CompetitionType;
+	Text CompetitionName;
+	Boolean IsDebug;
+}
+#Struct K_HttpCompetition {
+	Text liveId;
+	Text matchesGenerationDate;
+}
+#Struct K_HttpChallenge {
+	Integer id;
+	Text startDate;
+	Text endDate;
+}
+#Struct K_HttpCOTD {
+	K_HttpCompetition competition; //< Contains info about the knockout
+	K_HttpChallenge challenge; //< Contains info about the qualifications
+}
+#Struct K_HttpRecord {
+	Text player;
+	Integer score;
+	Text zone;
+}
+#Struct K_HttpRecords {
+	K_HttpRecord[] records;
+}
+#Struct K_HttpZoneRank {
+	Text zone;
+	Integer rank;
+}
+#Struct K_HttpRecordUpdate {
+	Integer time;
+	Text uid;
+	Text player;
+	K_HttpZoneRank[] zoneRanks;
+}
+#Struct K_HttpPlayers {
+	Text[] players;
+}
+#Struct K_HttpRankingItem {
+	Text player;
+	Integer score;
+	Integer rank;
+}
+#Struct K_HttpPlayersTopsRanking {
+	Text uid;
+	Integer cardinal;
+	K_HttpRankingItem[] topRecords;
+	K_HttpRankingItem[] playerRecords;
+}
+#Struct K_HttpPlayersRanking {
+	Text uid;
+	Integer cardinal;
+	K_HttpRankingItem[] records;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_Headers [
+	"Accept" => "application/json",
+	"Content-Type" => "application/json"
+]
+#Const C_CompetitionAPIDebugUrl "http://localhost:3000/competition"
+#Const C_BordeauxClubAPIDebugUrl "http://localhost:3000/club"
+#Const C_DelayBeforeMaxJoinTime 300000 // 5 minutes before the end of the qualifications
+#Const C_DelaySecurityBeforeMatchesGeneration 5000 // Stop qualifications at least 5 seconds before the matches generation
+#Const C_DelayBeforeAutoJoinTime 30000 // Wait 30 seconds after the matches have been generated before attempting to join the knockout automatically. Player can still try to join manually by clicking a button.
+#Const C_DelayBeforeTooLateToJoinKnockout 300000 // Stop trying to join the knockout 5 minutes after the matches have been generated
+#Const C_DelayBeforeServerDutyIsOver 540000 // 9 minutes after the matches have been generated the server has completed all COTD related actions
+#Const C_MaxSimultaneousJoinLinksAccountIds 128
+#Const C_TopRecordsNumber 10
+
+//L16N [COTD qualifications] The player can select this button to be sent to their match server
+#Const C_Text_JoinMatch _("Join your match")
+
+#Const C_RouteParam_ChallengeId "ChallengeId"
+#Const C_RouteParam_MapUid "MapUid"
+
+#Const C_Route_GetCurrentCOTD "/api/cup-of-the-day/current"
+#Const C_Route_PostRecords "/api/challenges/:ChallengeId/records/maps/:MapUid"
+#Const C_Route_GetPlayersMatches "/api/join/players"
+#Const C_Route_PostGetPlayersAndTopsRecords "/api/challenges/:ChallengeId/records/maps/:MapUid/get-players-and-top"
+#Const C_Route_PostGetPlayersRecords "/api/challenges/:ChallengeId/records/maps/:MapUid/get-players"
+
+#Const C_QueryParameter_Partition "partition"
+#Const C_QueryParameter_CupType "type"
+#Const C_QueryParameter_Group "group"
+#Const C_QueryParameter_Players "players"
+#Const C_QueryParameter_Length "length"
+#Const C_QueryParameter_Offset "offset"
+
+#Const C_Metadata_IsFinalRankingRequest "IsFinalRankingRequest"
+
+#Const C_RequestInterval_GetCurrentCOTD 15000
+#Const C_RequestInterval_PostRecords 1000
+#Const C_RequestInterval_GetPlayersMatches 15000
+#Const C_RequestInterval_PostGetPlayersAndTopsRecords 7000
+#Const C_RequestInterval_PostGetPlayersFinalRecords 1000
+
+#Const C_Qualifications_Null K_Qualifications {
+	Progress = 0,
+	CupType = "",
+	CrossplayPartition = "",
+	CompetitionAuthHeader = "",
+	GetCurrentCOTD = K_Request { CooldownEndTime = 0 },
+	PostRecords = K_Request { CooldownEndTime = 0 },
+	GetPlayersMatches = K_Request { CooldownEndTime = 0 },
+	PostGetPlayersAndTopsRecords = K_Request { CooldownEndTime = 0 },
+	PostGetPlayersFinalRecords = K_Request { CooldownEndTime = 0 },
+	QualificationsStartTime = 0,
+	QualificationsEndTime = 0,
+	QualificationsMaxJoinTime = 0,
+	KnockoutMatchesGenerationTime = 0,
+	KnockoutTooLateToJoinTime = 0,
+	KnockoutAutoJoinTime = 0,
+	ServerDutyIsOverTime = 0,
+	ChallengeId = 0,
+	CompetitionLiveId = "",
+	MapUid = "",
+	Players = [],
+	HasPendingPlayersRecords = False,
+	FinalRankingReceived = False,
+	HasPendingPlayersFinalRecords = False,
+	CompetitionType = "",
+	CompetitionName = "",
+	IsDebug = False
+}
+#Const C_Player_Null K_Player {
+	Id = "",
+	Zone = "",
+	QualificationsJoinTime = 0,
+	LocalRaceTime = 0,
+	APIRaceTime = 0,
+	Rank = 0,
+	KnockoutJoinLink = "",
+	NeedFinalRecordRequest = False
+}
+#Const C_Player_NullId ""
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the headers for the requests to the competition API
+Text[Text] Private_GetCompetitionHeaders(Text _CompetitionAuthHeader) {
+	declare Text[Text] Headers = C_Headers;
+	if (_CompetitionAuthHeader != "") {
+		Headers["Authorization"] = _CompetitionAuthHeader;
+	}
+	return Headers;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the headers for the requests to the club API
+Text[Text] Private_GetClubHeaders() {
+	declare Text[Text] Headers = C_Headers;
+	Headers["Authorization"] = "nadeo_v1 t="^ServerAuth::GetToken(ServerAuth::C_Services_Live);
+	return Headers;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the progress of the COTD qualifications
+K_Qualifications Private_SetQualificationsProgress(K_Qualifications _Qualifications, Integer _Progress) {
+	// Qualifications can only progress forward
+	if (_Progress < _Qualifications.Progress) return _Qualifications;
+
+	declare K_Qualifications Qualifications = _Qualifications;
+	Qualifications.Progress = _Progress;
+	NetShare::SetQualificationsProgress(Teams[0], Qualifications.Progress);
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Request the current COTD info from the API
+Http::K_Request Private_GetCurrentCOTD(K_Qualifications _Qualifications) {
+	declare Text Host = Config::Get().APIMeetUrl;
+	if (_Qualifications.IsDebug) {
+		Host = C_CompetitionAPIDebugUrl;
+	}
+	declare Text Query;
+	declare Text[Text] QueryArray;
+	if (_Qualifications.CrossplayPartition != "") {
+		QueryArray[C_QueryParameter_Partition] = _Qualifications.CrossplayPartition;
+	}
+	if (_Qualifications.CupType != "") {
+		QueryArray[C_QueryParameter_CupType] = _Qualifications.CupType;
+	}
+	if (QueryArray.count > 0) {
+		Query = Http::CreateQueryString(QueryArray);
+	}
+	return Http::CreateGet(Host^C_Route_GetCurrentCOTD^Query, Private_GetCompetitionHeaders(_Qualifications.CompetitionAuthHeader));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the current COTD with the info from the API
+K_Qualifications Private_SetCurrentCOTD(K_Qualifications _Qualifications, K_HttpCOTD _HttpCOTD) {
+	declare K_Qualifications Qualifications = _Qualifications;
+
+	if (
+		_HttpCOTD.challenge.startDate != "" &&
+		_HttpCOTD.challenge.endDate != "" &&
+		_HttpCOTD.competition.matchesGenerationDate != ""
+	) {
+		Qualifications.QualificationsStartTime = Now + (TiL::GetDelta(_HttpCOTD.challenge.startDate, TiL::GetCurrent()) * 1000);
+		Qualifications.KnockoutMatchesGenerationTime = Now + (TiL::GetDelta(_HttpCOTD.competition.matchesGenerationDate, TiL::GetCurrent()) * 1000);
+		Qualifications.KnockoutAutoJoinTime = Qualifications.KnockoutMatchesGenerationTime + C_DelayBeforeAutoJoinTime;
+		Qualifications.KnockoutTooLateToJoinTime = Qualifications.KnockoutMatchesGenerationTime + C_DelayBeforeTooLateToJoinKnockout;
+		Qualifications.ServerDutyIsOverTime = Qualifications.KnockoutMatchesGenerationTime + C_DelayBeforeServerDutyIsOver;
+		Qualifications.QualificationsEndTime = ML::Min(
+			Now + (TiL::GetDelta(_HttpCOTD.challenge.endDate, TiL::GetCurrent()) * 1000),
+			Qualifications.KnockoutMatchesGenerationTime - C_DelaySecurityBeforeMatchesGeneration
+		);
+		Qualifications.QualificationsMaxJoinTime = ML::Max(
+			Qualifications.QualificationsStartTime,
+			Qualifications.QualificationsEndTime - C_DelayBeforeMaxJoinTime
+		);
+		Qualifications.ChallengeId = _HttpCOTD.challenge.id;
+		Qualifications.CompetitionLiveId = _HttpCOTD.competition.liveId;
+		if (Qualifications.Progress <= COTDConst::C_Progress_RequestNextCOTD) {
+			Qualifications = Private_SetQualificationsProgress(Qualifications, COTDConst::C_Progress_WaitNextCOTD);
+		}
+
+		UIModules_QualificationsProgress::SetQualificationsStartTime(Qualifications.QualificationsStartTime);
+		UIModules_QualificationsProgress::SetQualificationsMaxJoinTime(Qualifications.QualificationsMaxJoinTime);
+		UIModules_QualificationsProgress::SetKnockoutAutoJoinTime(Qualifications.KnockoutAutoJoinTime);
+	}
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Post players records to the API
+Http::K_Request Private_PostRecords(K_Qualifications _Qualifications, K_HttpRecords _Records) {
+	declare Text Host = Config::Get().APIMeetUrl;
+	if (_Qualifications.IsDebug) {
+		Host = C_CompetitionAPIDebugUrl;
+	}
+	declare Text Route = Http::InjectRouteParameters(C_Route_PostRecords, [
+		C_RouteParam_ChallengeId => ""^_Qualifications.ChallengeId,
+		C_RouteParam_MapUid => _Qualifications.MapUid
+	]);
+	return Http::CreatePost(Host^Route, _Records.tojson(), Private_GetCompetitionHeaders(_Qualifications.CompetitionAuthHeader));
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if a player can send a new record to the API
+Boolean Private_PlayerCanSendRecord(K_Qualifications _Qualifications, K_Player _Player) {
+	return (
+		_Player.LocalRaceTime > 0 && (
+			// Player joined before the time limit or has already sent a time from another server
+			_Player.QualificationsJoinTime <= _Qualifications.QualificationsMaxJoinTime ||
+			_Player.APIRaceTime > 0
+		) && (
+			_Player.APIRaceTime <= 0 ||
+			_Player.LocalRaceTime < _Player.APIRaceTime
+		)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send the players records to the API
+K_Qualifications SendPlayersRecords(K_Qualifications _Qualifications) {
+	declare K_Qualifications Qualifications = _Qualifications;
+
+	// Find records that need to be sent
+	declare K_HttpRecords HttpRecords;
+	foreach (Player in Qualifications.Players) {
+		if (Private_PlayerCanSendRecord(Qualifications, Player)) {
+			HttpRecords.records.add(K_HttpRecord {
+				player = Player.Id,
+				score = Player.LocalRaceTime,
+				zone = Player.Zone
+			});
+		}
+	}
+
+	// Post the records if any
+	if (HttpRecords.records.count > 0) {
+		Qualifications.PostRecords.CooldownEndTime = Now + C_RequestInterval_PostRecords;
+		Qualifications.PostRecords.Request = Http::DestroyAndCreate(
+			Qualifications.PostRecords.Request,
+			Private_PostRecords(Qualifications, HttpRecords)
+		);
+	}
+
+	Qualifications.HasPendingPlayersRecords = False;
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the latest players and top records from the API
+Http::K_Request Private_PostGetPlayersAndTopsRecords(
+	K_Qualifications _Qualifications,
+	Text[] _AccountIds,
+	Boolean _IsFinalRankingRequest
+) {
+	declare Text Host = Config::Get().APIMeetUrl;
+	if (_Qualifications.IsDebug) {
+		Host = C_CompetitionAPIDebugUrl;
+	}
+	declare Text Route = Http::InjectRouteParameters(C_Route_PostGetPlayersAndTopsRecords, [
+		C_RouteParam_ChallengeId => ""^_Qualifications.ChallengeId,
+		C_RouteParam_MapUid => _Qualifications.MapUid
+	]);
+	declare Text Query = Http::CreateQueryString([
+		C_QueryParameter_Length => ""^C_TopRecordsNumber
+	]);
+	declare K_HttpPlayers AccountIds;
+	foreach (AccountId in _AccountIds) {
+		AccountIds.players.add(AccountId);
+	}
+
+	return Http::SetMetadata(
+		Http::CreatePost(
+			Host^Route^Query,
+			AccountIds.tojson(),
+			Private_GetCompetitionHeaders(_Qualifications.CompetitionAuthHeader)
+		),
+		C_Metadata_IsFinalRankingRequest,
+		""^_IsFinalRankingRequest
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the players and tops records from the API
+K_Qualifications GetConnectedPlayersAndTopsRecords(
+	K_Qualifications _Qualifications,
+	Boolean _ForceRequest,
+	Boolean _IsFinalRankingRequest
+) {
+	declare K_Qualifications Qualifications = _Qualifications;
+
+	// Get the account ids of all connected players regardless of if they have a `LocalTime` or not
+	// They could have an `APITime` from another server were they played previously
+	declare Text[] AccountIds;
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null) {
+			declare K_Player COTDPlayer = Qualifications.Players.get(Player.User.WebServicesUserId, C_Player_Null);
+			if (COTDPlayer.Id != C_Player_NullId) {
+				AccountIds.add(COTDPlayer.Id);
+			}
+		}
+	}
+
+	Qualifications.PostGetPlayersAndTopsRecords.CooldownEndTime = Now + C_RequestInterval_PostGetPlayersAndTopsRecords;
+	// If we can't find one connected player, then there's no need to get the top records either since there's no one to see them anyway
+	// Unless we are doing it at the end of the qualifications, then we can force one last request.
+	if (AccountIds.count > 0 || _ForceRequest || _IsFinalRankingRequest) {
+		Qualifications.PostGetPlayersAndTopsRecords.Request = Http::DestroyAndCreate(
+			Qualifications.PostGetPlayersAndTopsRecords.Request,
+			Private_PostGetPlayersAndTopsRecords(Qualifications, AccountIds, _IsFinalRankingRequest)
+		);
+	}
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the final players records from the API
+Http::K_Request Private_PostGetPlayersFinalRecords(
+	K_Qualifications _Qualifications,
+	Text[] _AccountIds
+) {
+	declare Text Host = Config::Get().APIMeetUrl;
+	if (_Qualifications.IsDebug) {
+		Host = C_CompetitionAPIDebugUrl;
+	}
+	declare Text Route = Http::InjectRouteParameters(C_Route_PostGetPlayersRecords, [
+		C_RouteParam_ChallengeId => ""^_Qualifications.ChallengeId,
+		C_RouteParam_MapUid => _Qualifications.MapUid
+	]);
+	declare K_HttpPlayers AccountIds;
+	foreach (AccountId in _AccountIds) {
+		AccountIds.players.add(AccountId);
+	}
+
+	return Http::CreatePost(
+		Host^Route,
+		AccountIds.tojson(),
+		Private_GetCompetitionHeaders(_Qualifications.CompetitionAuthHeader)
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the final records of the connected players once the qualifications ended
+K_Qualifications GetConnectedPlayersFinalRecords(K_Qualifications _Qualifications) {
+	declare K_Qualifications Qualifications = _Qualifications;
+
+	// Find players for which we don't have a record yet
+	declare Text[] AccountIds;
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null) {
+			declare K_Player COTDPlayer = Qualifications.Players.get(Player.User.WebServicesUserId, C_Player_Null);
+			if (
+				COTDPlayer.Id != C_Player_NullId &&
+				COTDPlayer.NeedFinalRecordRequest
+			) {
+				AccountIds.add(COTDPlayer.Id);
+				COTDPlayer.NeedFinalRecordRequest = False;
+				Qualifications.Players[COTDPlayer.Id] = COTDPlayer;
+			}
+		}
+	}
+
+	Qualifications.HasPendingPlayersFinalRecords = False;
+	Qualifications.PostGetPlayersFinalRecords.CooldownEndTime = Now + C_RequestInterval_PostGetPlayersFinalRecords;
+	if (AccountIds.count > 0) {
+		Qualifications.PostGetPlayersFinalRecords.Request = Http::DestroyAndCreate(
+			Qualifications.PostGetPlayersFinalRecords.Request,
+			Private_PostGetPlayersFinalRecords(Qualifications, AccountIds)
+		);
+	}
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the number of trophies earned for a given rank in the qualifications
+Integer[Integer] GetTrophiesEarnedForRank(Text _CompetitionType, Integer _Rank) {
+	if (_Rank <= 0) return [];
+
+	declare Competition::K_TrophyReward TrophyReward = Competition::GetQualifiersTrophyReward(_CompetitionType, _Rank);
+	if (TrophyReward.Level <= 0 || TrophyReward.Count <= 0) return [];
+
+	return [TrophyReward.Level => TrophyReward.Count];
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the rank in the "World" zone
+Integer Private_GetWorldRank(K_HttpZoneRank[] _HttpZoneRanks) {
+	foreach (ZoneRank in _HttpZoneRanks) {
+		if (ZoneRank.zone == "World") {
+			return ZoneRank.rank;
+		}
+	}
+	return 0;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the players records returned by the API
+K_Qualifications Private_CheckPendingPlayersRecords(K_Qualifications _Qualifications, K_Player _Player) {
+	if (_Qualifications.HasPendingPlayersRecords) return _Qualifications;
+	declare K_Qualifications Qualifications = _Qualifications;
+	Qualifications.HasPendingPlayersRecords = Private_PlayerCanSendRecord(Qualifications, _Player);
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the players records returned by the API
+K_Qualifications Private_CheckPendingPlayersFinalRecords(K_Qualifications _Qualifications, K_Player _Player) {
+	if (_Qualifications.HasPendingPlayersFinalRecords) return _Qualifications;
+	declare K_Qualifications Qualifications = _Qualifications;
+	Qualifications.HasPendingPlayersFinalRecords = _Player.NeedFinalRecordRequest;
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Send the players records to their client UI
+Void Private_SendAllPlayersRecords(K_Qualifications _Qualifications) {
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null) {
+			declare K_Player COTDPlayer = _Qualifications.Players.get(Player.User.WebServicesUserId, C_Player_Null);
+			if (COTDPlayer.Id != C_Player_NullId) {
+				NetShare::SetPlayerAPIRaceTime(UIManager, Player, COTDPlayer.APIRaceTime);
+				NetShare::SetPlayerRank(UIManager, Player, COTDPlayer.Rank);
+			}
+			NetShare::SetPlayerIsSynchronizingRecord(UIManager, Player, False);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Update the record of a player
+K_Qualifications Private_SetPlayerRecord(
+	K_Qualifications _Qualifications,
+	Text _AccountId,
+	Integer _NewAPIRaceTime,
+	Integer _NewRank
+) {
+	if (_AccountId == C_Player_NullId) return _Qualifications;
+	declare K_Qualifications Qualifications = _Qualifications;
+
+	declare K_Player COTDPlayer = Qualifications.Players.get(_AccountId, C_Player_Null);
+	if (COTDPlayer.Id != C_Player_NullId) {
+		declare Boolean PlayerUpdated = False;
+		if (_NewAPIRaceTime > 0 && (COTDPlayer.APIRaceTime <= 0 || COTDPlayer.APIRaceTime > _NewAPIRaceTime)) {
+			PlayerUpdated = True;
+			COTDPlayer.APIRaceTime = _NewAPIRaceTime;
+		}
+		if (_NewRank > 0 && COTDPlayer.Rank != _NewRank) {
+			PlayerUpdated = True;
+			COTDPlayer.Rank = _NewRank;
+		}
+		if (PlayerUpdated) {
+			COTDPlayer.NeedFinalRecordRequest = False;
+			Qualifications.Players[COTDPlayer.Id] = COTDPlayer;
+			Qualifications = Private_CheckPendingPlayersRecords(Qualifications, COTDPlayer);
+			Qualifications = Private_CheckPendingPlayersFinalRecords(Qualifications, COTDPlayer);
+		}
+	}
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the players records returned by the API
+K_Qualifications Private_SetPlayersRecords(K_Qualifications _Qualifications, K_HttpRecordUpdate[] _HttpRecordsUpdates) {
+	if (_HttpRecordsUpdates.count <= 0) return _Qualifications;
+
+	declare K_Qualifications Qualifications = _Qualifications;
+
+	// Update records
+	foreach (HttpRecordUpdate in _HttpRecordsUpdates) {
+		if (
+			HttpRecordUpdate.uid == Qualifications.MapUid &&
+			HttpRecordUpdate.player != C_Player_NullId &&
+			HttpRecordUpdate.time > 0
+		) {
+			Qualifications = Private_SetPlayerRecord(
+				Qualifications,
+				HttpRecordUpdate.player,
+				HttpRecordUpdate.time,
+				Private_GetWorldRank(HttpRecordUpdate.zoneRanks)
+			);
+		}
+	}
+
+	// Send the new records to the UI
+	Private_SendAllPlayersRecords(Qualifications);
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the players and tops records returned by the API
+K_Qualifications Private_SetPlayersAndTopsRecords(
+	K_Qualifications _Qualifications,
+	K_HttpPlayersTopsRanking _HttpRanking,
+	Boolean _IsFinalRanking
+) {
+	// Check that the ranking update is for the currently played track
+	if (_HttpRanking.uid != _Qualifications.MapUid) return _Qualifications;
+
+	declare K_Qualifications Qualifications = _Qualifications;
+
+	// Update connected players records
+	foreach (Record in _HttpRanking.playerRecords) {
+		Qualifications = Private_SetPlayerRecord(
+			Qualifications,
+			Record.player,
+			Record.score,
+			Record.rank
+		);
+	}
+
+	// Send the new records to the UI
+	Private_SendAllPlayersRecords(Qualifications);
+
+	// Send the tops records to the UI
+	declare Integer[Text] Leaderboard;
+	foreach (Record in _HttpRanking.topRecords) {
+		Leaderboard[Record.player] = Record.score;
+	}
+	UIModules_Ranking::SetLeaderboard(Leaderboard);
+
+	// Check if final ranking received
+	if (!Qualifications.FinalRankingReceived) {
+		Qualifications.FinalRankingReceived = _IsFinalRanking;
+
+		// Final ranking received
+		if (Qualifications.FinalRankingReceived) {
+			// Send the trophies earned by the players based on their final qualification rank to the tracking
+			foreach (Player in AllPlayers) {
+				if (Player.User != Null) {
+					declare K_Player COTDPlayer = _Qualifications.Players.get(Player.User.WebServicesUserId, C_Player_Null);
+					if (COTDPlayer.Id != C_Player_NullId) {
+						declare Integer[Integer] TrophiesEarned = GetTrophiesEarnedForRank(
+							Qualifications.CompetitionType,
+							COTDPlayer.Rank
+						);
+						if (TrophiesEarned.count > 0) {
+							Tracking::SendPlayerTrophiesEarned(UIManager, Player, TrophiesEarned);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the players final records returned by the API
+K_Qualifications Private_SetPlayersFinalRecords(
+	K_Qualifications _Qualifications,
+	K_HttpPlayersRanking _HttpRanking
+) {
+	// Check that the ranking update is for the currently played track
+	if (_HttpRanking.uid != _Qualifications.MapUid) return _Qualifications;
+
+	declare K_Qualifications Qualifications = _Qualifications;
+
+	// Update connected players records
+	foreach (Record in _HttpRanking.records) {
+		Qualifications = Private_SetPlayerRecord(
+			Qualifications,
+			Record.player,
+			Record.score,
+			Record.rank
+		);
+	}
+
+	// Send the new records to the UI
+	Private_SendAllPlayersRecords(Qualifications);
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get players joinlinks to knockout match
+Http::K_Request Private_GetJoinLinks(K_Qualifications _Qualifications, Text[] _AccountIds) {
+	declare Text Host = Config::Get().APIMeetUrl;
+	if (_Qualifications.IsDebug) {
+		Host = C_BordeauxClubAPIDebugUrl;
+	}
+	declare Text Query = Http::CreateQueryString(
+		[C_QueryParameter_Group => _Qualifications.CompetitionLiveId],
+		[C_QueryParameter_Players => _AccountIds]
+	);
+	return Http::CreateGet(Host^C_Route_GetPlayersMatches^Query, Private_GetClubHeaders());
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the joinlinks of the knockount match for the players connected to the server
+K_Qualifications GetConnectedPlayersMatches(K_Qualifications _Qualifications) {
+	declare K_Qualifications Qualifications = _Qualifications;
+
+	// Get the account ids of the players without a joinlink
+	declare Text[] AccountIds;
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null) {
+			declare K_Player COTDPlayer = Qualifications.Players.get(Player.User.WebServicesUserId, C_Player_Null);
+			if (COTDPlayer.Id != C_Player_NullId && COTDPlayer.KnockoutJoinLink == "") {
+				AccountIds.add(COTDPlayer.Id);
+				// Limit the number of joinlinks that can be requested at once
+				// The accounts ids are sent as a query string in a get request
+				// Requesting too many at the same time would generate a "414 URI Too Long" error
+				// Similar to: /trackmania-next/tmnext/-/issues/2927
+				if (AccountIds.count >= C_MaxSimultaneousJoinLinksAccountIds) break;
+			}
+		}
+	}
+
+	Qualifications.GetPlayersMatches.CooldownEndTime = Now + C_RequestInterval_GetPlayersMatches;
+	if (AccountIds.count > 0) {
+		Qualifications.GetPlayersMatches.Request = Http::DestroyAndCreate(
+			Qualifications.GetPlayersMatches.Request,
+			Private_GetJoinLinks(Qualifications, AccountIds)
+		);
+	}
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Send a joinlink to a player
+Void Private_SendJoinLink(CSmPlayer _Player, Text _JoinLink) {
+	UIModules_QualificationsProgress::SetJoinLink(_Player, _JoinLink);
+	if (_JoinLink == "") {
+		UIModules_PauseMenu::ResetPersonalJoinlink(_Player);
+	} else {
+		UIModules_PauseMenu::SetPersonalJoinlink(_Player, _JoinLink, C_Text_JoinMatch);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the players' joinlinks to the knockount match
+K_Qualifications Private_SetPlayersMatches(K_Qualifications _Qualifications, Text[Text] _PlayersJoinLinks) {
+	if (_PlayersJoinLinks.count <= 0) return _Qualifications;
+	declare K_Qualifications Qualifications = _Qualifications;
+
+	// Update the joinlink locally
+	foreach (AccountId => JoinLink in _PlayersJoinLinks) {
+		if (Qualifications.Players.existskey(AccountId)) {
+			Qualifications.Players[AccountId].KnockoutJoinLink = JoinLink;
+		}
+	}
+
+	// Send it to the players
+	foreach (Player in AllPlayers) {
+		if (Player.User != Null) {
+			declare K_Player COTDPlayer = Qualifications.Players.get(Player.User.WebServicesUserId, C_Player_Null);
+			if (COTDPlayer.Id != C_Player_NullId) {
+				Private_SendJoinLink(Player, COTDPlayer.KnockoutJoinLink);
+			}
+		}
+	}
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Cleanup the previous qualifications
+Void Private_CleanupPreviousQualifications(K_Qualifications _PreviousQualifications) {
+	Http::Destroy(_PreviousQualifications.GetCurrentCOTD.Request);
+	Http::Destroy(_PreviousQualifications.PostRecords.Request);
+	Http::Destroy(_PreviousQualifications.GetPlayersMatches.Request);
+	Http::Destroy(_PreviousQualifications.PostGetPlayersAndTopsRecords.Request);
+	Http::Destroy(_PreviousQualifications.PostGetPlayersFinalRecords.Request);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// Initialize UI
+Void Private_InitializeUI(K_Qualifications _Qualifications) {
+	UIModules_QualificationsProgress::ResetJoinLinks();
+	UIModules_QualificationsProgress::SetQualificationsStartTime(_Qualifications.QualificationsStartTime);
+	UIModules_QualificationsProgress::SetQualificationsMaxJoinTime(_Qualifications.QualificationsMaxJoinTime);
+	UIModules_QualificationsProgress::SetKnockoutAutoJoinTime(_Qualifications.KnockoutAutoJoinTime);
+	UIModules_QualificationsProgress::SetCompetitionType(_Qualifications.CompetitionType);
+	UIModules_QualificationsProgress::SetCompetitionName(_Qualifications.CompetitionName);
+	UIModules_Ranking::ResetLeaderboard();
+	UIModules_Ranking::SetCompetitionName(_Qualifications.CompetitionName);
+	NetShare::SetQualificationsProgress(Teams[0], _Qualifications.Progress);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create new COTD qualifications
+K_Qualifications NewQualifications(
+	K_Qualifications _PreviousQualifications,
+	Text _CompetitionAuthHeader,
+	Text _CupType,
+	Text _CrossplayPartition,
+	Text _CompetitionType,
+	Text _CompetitionName,
+	Boolean _IsDebug,
+	CMap _Map
+) {
+	Private_CleanupPreviousQualifications(_PreviousQualifications);
+
+	// Initialiaze new qualifications
+	declare Text MapUid;
+	if (_Map != Null && _Map.MapInfo != Null) {
+		MapUid = _Map.MapInfo.MapUid;
+	}
+
+	declare K_Qualifications Qualifications = K_Qualifications {
+		Progress = COTDConst::C_Progress_RequestNextCOTD,
+		CupType = _CupType,
+		CrossplayPartition = _CrossplayPartition,
+		CompetitionAuthHeader = _CompetitionAuthHeader,
+		GetCurrentCOTD = K_Request {
+			CooldownEndTime = Now,
+			Request = Http::GetEmptyRequest()
+		},
+		PostRecords = K_Request {
+			CooldownEndTime = Now,
+			Request = Http::GetEmptyRequest()
+		},
+		GetPlayersMatches = K_Request {
+			CooldownEndTime = Now,
+			Request = Http::GetEmptyRequest()
+		},
+		PostGetPlayersAndTopsRecords = K_Request {
+			CooldownEndTime = Now,
+			Request = Http::GetEmptyRequest()
+		},
+		PostGetPlayersFinalRecords = K_Request {
+			CooldownEndTime = Now,
+			Request = Http::GetEmptyRequest()
+		},
+		QualificationsStartTime = 0,
+		QualificationsEndTime = 0,
+		QualificationsMaxJoinTime = 0,
+		KnockoutMatchesGenerationTime = 0,
+		KnockoutTooLateToJoinTime = 0,
+		KnockoutAutoJoinTime = 0,
+		ServerDutyIsOverTime = 0,
+		ChallengeId = 0,
+		CompetitionLiveId = "",
+		MapUid = MapUid,
+		Players = [],
+		HasPendingPlayersRecords = False,
+		FinalRankingReceived = False,
+		HasPendingPlayersFinalRecords = False,
+		CompetitionType = _CompetitionType,
+		CompetitionName = _CompetitionName,
+		IsDebug = _IsDebug
+	};
+
+	Private_InitializeUI(Qualifications);
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Destroy active qualifications
+K_Qualifications DestroyQualifications(K_Qualifications _PreviousQualifications) {
+	Private_CleanupPreviousQualifications(_PreviousQualifications);
+	Private_InitializeUI(C_Qualifications_Null);
+	return C_Qualifications_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the COTD is in progress
+Boolean IsInProgress(K_Qualifications _Qualifications) {
+	return (
+		_Qualifications.Progress > COTDConst::C_Progress_Null &&
+		_Qualifications.Progress < COTDConst::C_Progress_ServerDutyIsOver
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if we should wait for the qualifications start
+Boolean WaitQualificationsStart(K_Qualifications _Qualifications) {
+	return (
+		IsInProgress(_Qualifications) &&
+		_Qualifications.Progress <= COTDConst::C_Progress_WaitNextCOTD
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the qualifications are over
+Boolean QualificationsAreOver(K_Qualifications _Qualifications) {
+	return (
+		IsInProgress(_Qualifications) &&
+		_Qualifications.Progress > COTDConst::C_Progress_PlayQualifications
+	);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check if the qualifications are ongoing
+Boolean QualificationsAreOngoing(K_Qualifications _Qualifications) {
+	return _Qualifications.Progress == COTDConst::C_Progress_PlayQualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Create a default player from a user
+K_Player Private_GetDefaultPlayerFromUser(K_Qualifications _Qualifications, CUser _User) {
+	return K_Player {
+		Id = _User.WebServicesUserId,
+		Zone = _User.ZonePath,
+		QualificationsJoinTime = Now,
+		LocalRaceTime = 0,
+		APIRaceTime = 0,
+		Rank = 0,
+		KnockoutJoinLink = "",
+		NeedFinalRecordRequest = _Qualifications.Progress > COTDConst::C_Progress_PlayQualifications
+	};
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Add a player to the qualifications
+K_Qualifications InitializePlayer(K_Qualifications _Qualifications, CSmPlayer _Player) {
+	if (!IsInProgress(_Qualifications) || _Player == Null || _Player.User == Null) return _Qualifications;
+	declare K_Qualifications Qualifications = _Qualifications;
+	declare K_Player COTDPlayer = Qualifications.Players.get(_Player.User.WebServicesUserId, C_Player_Null);
+
+	// Add the player to the participants list if they are not in yet
+	if (COTDPlayer.Id == C_Player_NullId) {
+		COTDPlayer = Private_GetDefaultPlayerFromUser(Qualifications, _Player.User);
+		Qualifications.Players[_Player.User.WebServicesUserId] = COTDPlayer;
+		Qualifications = Private_CheckPendingPlayersRecords(Qualifications, COTDPlayer);
+		Qualifications = Private_CheckPendingPlayersFinalRecords(Qualifications, COTDPlayer);
+	}
+
+	NetShare::SetPlayerLocalRaceTime(UIManager, _Player, COTDPlayer.LocalRaceTime);
+	NetShare::SetPlayerAPIRaceTime(UIManager, _Player, COTDPlayer.APIRaceTime);
+	NetShare::SetPlayerRank(UIManager, _Player, COTDPlayer.Rank);
+	NetShare::SetPlayerQualificationsJoinTime(UIManager, _Player, COTDPlayer.QualificationsJoinTime);
+	NetShare::SetPlayerIsSynchronizingRecord(UIManager, _Player, _Qualifications.Progress >= COTDConst::C_Progress_PlayQualifications);
+	Private_SendJoinLink(_Player, COTDPlayer.KnockoutJoinLink);
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update a player record
+K_Qualifications SetPlayerRecord(K_Qualifications _Qualifications, CSmPlayer _Player, Integer _Time) {
+	// Players can only improve their time during the qualifications
+	if (_Qualifications.Progress != COTDConst::C_Progress_PlayQualifications || _Player == Null || _Player.User == Null || _Time <= 0) return _Qualifications;
+
+	// Update the player record
+	declare K_Qualifications Qualifications = _Qualifications;
+	declare K_Player COTDPlayer = Qualifications.Players.get(_Player.User.WebServicesUserId, Private_GetDefaultPlayerFromUser(Qualifications, _Player.User));
+	if (COTDPlayer.LocalRaceTime <= 0 || COTDPlayer.LocalRaceTime > _Time) {
+		COTDPlayer.LocalRaceTime = _Time;
+		Qualifications.Players[COTDPlayer.Id] = COTDPlayer;
+		Qualifications = Private_CheckPendingPlayersRecords(Qualifications, COTDPlayer);
+		NetShare::SetPlayerLocalRaceTime(UIManager, _Player, COTDPlayer.LocalRaceTime);
+		NetShare::SetPlayerAPIRaceTime(UIManager, _Player, COTDPlayer.APIRaceTime);
+		NetShare::SetPlayerRank(UIManager, _Player, COTDPlayer.Rank);
+		NetShare::SetPlayerQualificationsJoinTime(UIManager, _Player, COTDPlayer.QualificationsJoinTime);
+	}
+
+	return Qualifications;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the qualifications progress
+K_Qualifications Yield(K_Qualifications _Qualifications) {
+	declare K_Qualifications Qualifications = _Qualifications;
+
+	// Request the next COTD info until we get them
+	if (Qualifications.Progress == COTDConst::C_Progress_RequestNextCOTD) {
+		if (
+			Qualifications.GetCurrentCOTD.CooldownEndTime <= Now &&
+			!Http::IsInitialized(Qualifications.GetCurrentCOTD.Request)
+		) {
+			Qualifications.GetCurrentCOTD.CooldownEndTime = Now + C_RequestInterval_GetCurrentCOTD;
+			Qualifications.GetCurrentCOTD.Request = Http::DestroyAndCreate(
+				Qualifications.GetCurrentCOTD.Request,
+				Private_GetCurrentCOTD(Qualifications)
+			);
+		}
+	}
+
+	// Process next COTD request
+	if (Http::IsInitialized(Qualifications.GetCurrentCOTD.Request)) {
+		Qualifications.GetCurrentCOTD.Request = Http::Update(Qualifications.GetCurrentCOTD.Request);
+		if (!Http::IsRunning(Qualifications.GetCurrentCOTD.Request)) {
+			// The API return an HTTP code 204 when there are no active COTD
+			if (
+				Http::IsSuccess(Qualifications.GetCurrentCOTD.Request) &&
+				Http::GetStatusCode(Qualifications.GetCurrentCOTD.Request) != 204
+			) {
+				declare K_HttpCOTD HttpCOTD;
+				HttpCOTD.fromjson(Http::GetResult(Qualifications.GetCurrentCOTD.Request));
+				Qualifications = Private_SetCurrentCOTD(Qualifications, HttpCOTD);
+			}
+			Qualifications.GetCurrentCOTD.Request = Http::Destroy(Qualifications.GetCurrentCOTD.Request);
+			Qualifications.GetCurrentCOTD.CooldownEndTime = Now + C_RequestInterval_GetCurrentCOTD;
+		}
+	}
+
+	// Wait until qualifications start
+	if (
+		Qualifications.Progress == COTDConst::C_Progress_WaitNextCOTD &&
+		Now >= Qualifications.QualificationsStartTime
+	) {
+		Qualifications = Private_SetQualificationsProgress(Qualifications, COTDConst::C_Progress_PlayQualifications);
+	}
+
+	// Qualifications are ongoing
+	if (Qualifications.Progress == COTDConst::C_Progress_PlayQualifications) {
+		// Regularly post new players records
+		if (
+			Qualifications.HasPendingPlayersRecords &&
+			Qualifications.PostRecords.CooldownEndTime <= Now &&
+			Qualifications.QualificationsEndTime > Now &&
+			!Http::IsInitialized(Qualifications.PostRecords.Request)
+		) {
+			Qualifications = SendPlayersRecords(Qualifications);
+		}
+
+		// Regularly get new players and tops records
+		if (
+			Qualifications.PostGetPlayersAndTopsRecords.CooldownEndTime <= Now &&
+			Qualifications.QualificationsEndTime > Now &&
+			!Http::IsInitialized(Qualifications.PostGetPlayersAndTopsRecords.Request)
+		) {
+			Qualifications = GetConnectedPlayersAndTopsRecords(Qualifications, False, False);
+		}
+
+		// Play until qualifications end
+		if (Now >= Qualifications.QualificationsEndTime) {
+			Qualifications = Private_SetQualificationsProgress(Qualifications, COTDConst::C_Progress_WaitMatchesGeneration);
+			// Force the sending of the latest records when the qualifications end
+			Qualifications = SendPlayersRecords(Qualifications);
+			Qualifications = GetConnectedPlayersAndTopsRecords(Qualifications, True, False);
+		}
+	}
+
+	// Process post records request
+	if (Http::IsInitialized(Qualifications.PostRecords.Request)) {
+		Qualifications.PostRecords.Request = Http::Update(Qualifications.PostRecords.Request);
+		if (!Http::IsRunning(Qualifications.PostRecords.Request)) {
+			if (Http::IsSuccess(Qualifications.PostRecords.Request)) {
+				declare K_HttpRecordUpdate[] HttpRecordsUpdates;
+				HttpRecordsUpdates.fromjson(Http::GetResult(Qualifications.PostRecords.Request));
+				Qualifications = Private_SetPlayersRecords(Qualifications, HttpRecordsUpdates);
+			}
+			Qualifications.PostRecords.Request = Http::Destroy(Qualifications.PostRecords.Request);
+			Qualifications.PostRecords.CooldownEndTime = Now + C_RequestInterval_PostRecords;
+		}
+	}
+
+	// Process post get players records request
+	if (Http::IsInitialized(Qualifications.PostGetPlayersAndTopsRecords.Request)) {
+		Qualifications.PostGetPlayersAndTopsRecords.Request = Http::Update(Qualifications.PostGetPlayersAndTopsRecords.Request);
+		if (!Http::IsRunning(Qualifications.PostGetPlayersAndTopsRecords.Request)) {
+			if (Http::IsSuccess(Qualifications.PostGetPlayersAndTopsRecords.Request)) {
+				declare K_HttpPlayersTopsRanking HttpRanking;
+				HttpRanking.fromjson(Http::GetResult(Qualifications.PostGetPlayersAndTopsRecords.Request));
+				Qualifications = Private_SetPlayersAndTopsRecords(
+					Qualifications,
+					HttpRanking,
+					Tools::TextToBoolean(
+						Http::GetMetadata(
+							Qualifications.PostGetPlayersAndTopsRecords.Request,
+							C_Metadata_IsFinalRankingRequest
+						)
+					)
+				);
+			}
+			Qualifications.PostGetPlayersAndTopsRecords.Request = Http::Destroy(Qualifications.PostGetPlayersAndTopsRecords.Request);
+			Qualifications.PostGetPlayersAndTopsRecords.CooldownEndTime = Now + C_RequestInterval_PostGetPlayersAndTopsRecords;
+		}
+	}
+
+	// Wait until matches are generated
+	if (
+		Qualifications.Progress == COTDConst::C_Progress_WaitMatchesGeneration &&
+		Now >= Qualifications.KnockoutMatchesGenerationTime
+	) {
+		Qualifications = Private_SetQualificationsProgress(Qualifications, COTDConst::C_Progress_TransferPlayersToKnockout);
+		// Now that the matches are generated, we can retrieve the final qualifications ranking for sure
+		Qualifications = GetConnectedPlayersAndTopsRecords(Qualifications, True, True);
+	}
+
+	// Transfer the players to their knockout matches
+	if (Qualifications.Progress == COTDConst::C_Progress_TransferPlayersToKnockout) {
+		// Request the players matches joinlinks
+		if (
+			Qualifications.GetPlayersMatches.CooldownEndTime <= Now &&
+			Qualifications.KnockoutTooLateToJoinTime > Now &&
+			!Http::IsInitialized(Qualifications.GetPlayersMatches.Request)
+		) {
+			Qualifications = GetConnectedPlayersMatches(Qualifications);
+		}
+
+		// Stop transfering players once it's too late to join the knockout matches
+		if (Now >= Qualifications.KnockoutTooLateToJoinTime) {
+			Qualifications = Private_SetQualificationsProgress(Qualifications, COTDConst::C_Progress_TooLateToJoinKnockout);
+			// Force one last retrieval of players matches
+			Qualifications = GetConnectedPlayersMatches(Qualifications);
+		}
+	}
+
+	// Process player matches request
+	if (Http::IsInitialized(Qualifications.GetPlayersMatches.Request)) {
+		Qualifications.GetPlayersMatches.Request = Http::Update(Qualifications.GetPlayersMatches.Request);
+		if (!Http::IsRunning(Qualifications.GetPlayersMatches.Request)) {
+			if (Http::IsSuccess(Qualifications.GetPlayersMatches.Request)) {
+				declare Text[Text] PlayersJoinLinks;
+				PlayersJoinLinks.fromjson(Http::GetResult(Qualifications.GetPlayersMatches.Request));
+				Qualifications = Private_SetPlayersMatches(Qualifications, PlayersJoinLinks);
+			}
+			Qualifications.GetPlayersMatches.Request = Http::Destroy(Qualifications.GetPlayersMatches.Request);
+			Qualifications.GetPlayersMatches.CooldownEndTime = Now + C_RequestInterval_GetPlayersMatches;
+		}
+	}
+
+	// Request records of players that join the server after the end of the qualifications
+	// but before it's too late to join the knockcount
+	if (
+		Qualifications.HasPendingPlayersFinalRecords &&
+		Qualifications.Progress > COTDConst::C_Progress_PlayQualifications &&
+		Qualifications.Progress < COTDConst::C_Progress_TooLateToJoinKnockout &&
+		Qualifications.PostGetPlayersFinalRecords.CooldownEndTime <= Now &&
+		!Http::IsInitialized(Qualifications.PostGetPlayersFinalRecords.Request)
+	) {
+		Qualifications = GetConnectedPlayersFinalRecords(Qualifications);
+	}
+	if (Http::IsInitialized(Qualifications.PostGetPlayersFinalRecords.Request)) {
+		Qualifications.PostGetPlayersFinalRecords.Request = Http::Update(Qualifications.PostGetPlayersFinalRecords.Request);
+		if (!Http::IsRunning(Qualifications.PostGetPlayersFinalRecords.Request)) {
+			if (Http::IsSuccess(Qualifications.PostGetPlayersFinalRecords.Request)) {
+				declare K_HttpPlayersRanking HttpRanking;
+				HttpRanking.fromjson(Http::GetResult(Qualifications.PostGetPlayersFinalRecords.Request));
+				Qualifications = Private_SetPlayersFinalRecords(
+					Qualifications,
+					HttpRanking
+				);
+			}
+			Qualifications.PostGetPlayersFinalRecords.Request = Http::Destroy(Qualifications.PostGetPlayersFinalRecords.Request);
+			Qualifications.PostGetPlayersFinalRecords.CooldownEndTime = Now + C_RequestInterval_PostGetPlayersFinalRecords;
+		}
+	}
+
+	// Server completed all COTD related actions and will be shut down soon
+	if (
+		Qualifications.Progress == COTDConst::C_Progress_TooLateToJoinKnockout &&
+		Now >= Qualifications.ServerDutyIsOverTime
+	) {
+		Qualifications = Private_SetQualificationsProgress(Qualifications, COTDConst::C_Progress_ServerDutyIsOver);
+	}
+
+	return Qualifications;
+}
+
+/* @Changelog
+
+Version 2.0.0
+-------------
+
+- Removed `APICompetitionUrl` and `APIMatchmakingUrl` from `K_Config` to use only `APIMeetUrl` (replacing `APIBordeauxClubUrl`) with the new API
+
+ */

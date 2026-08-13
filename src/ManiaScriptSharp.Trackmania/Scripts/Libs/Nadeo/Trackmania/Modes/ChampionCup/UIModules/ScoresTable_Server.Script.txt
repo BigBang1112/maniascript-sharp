@@ -1,0 +1,181 @@
+/**
+ *	UI module: ScoresTable server side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionCup/UIModules/ScoresTable_Server.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Includes
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Common.Script.txt" as UIModules_Common
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCup/UIModules/ScoresTable_Common.Script.txt" as UIModules_ScoresTable_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const UIModules_ScoresTable_Common::C_Sequence_Null as C_Sequence_Null
+#Const UIModules_ScoresTable_Common::C_Sequence_Race as C_Sequence_Race
+#Const UIModules_ScoresTable_Common::C_Sequence_PlayerFinishedRace as C_Sequence_PlayerFinishedRace
+#Const UIModules_ScoresTable_Common::C_Sequence_BeforeResult as C_Sequence_BeforeResult
+#Const UIModules_ScoresTable_Common::C_Sequence_AfterResult as C_Sequence_AfterResult
+
+#Const UIModules_ScoresTable_Common::C_Tab_StepRanking as C_Tab_StepRanking
+#Const UIModules_ScoresTable_Common::C_Tab_LeagueRanking as C_Tab_LeagueRanking
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_ScoresTable_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the configuration of the UI module
+UIModules_Common::K_ModuleConfig GetConfig() {
+	return UIModules_ScoresTable_Common::C_UIModuleConfig;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the best lap author and points
+Void SetBestLap(Text _AccountId, Integer _Time, Integer _BonusPoints) {
+	declare netwrite Text Net_ChampionCup_ScoresTable_BestLapPlayer for Teams[0];
+	declare netwrite Integer Net_ChampionCup_ScoresTable_BestLapTime for Teams[0];
+	declare netwrite Integer Net_ChampionCup_ScoresTable_BestLapBonus for Teams[0];
+	Net_ChampionCup_ScoresTable_BestLapPlayer = _AccountId;
+	Net_ChampionCup_ScoresTable_BestLapTime = _Time;
+	Net_ChampionCup_ScoresTable_BestLapBonus = _BonusPoints;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the current ongoing sequence
+Void SetSequence(Integer _Sequence) {
+	declare netwrite Integer Net_ChampionCup_ScoresTable_Sequence for Teams[0];
+	Net_ChampionCup_ScoresTable_Sequence = _Sequence;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the players' rank diff
+Void ComputeRankDiff(CSmScore[] _MatchRanking) {
+	declare netwrite Integer[Text] Net_ChampionCup_ScoresTable_RankDiff for Teams[0];
+	declare netwrite Integer Net_ChampionCup_ScoresTable_RankDiffUpdate for Teams[0];
+	Net_ChampionCup_ScoresTable_RankDiff = [];
+	foreach (Key => Score in Scores) {
+		declare Integer NewRank = _MatchRanking.count + 1;
+		declare Integer ChampionCup_ScoresTable_Rank for Score = _MatchRanking.count + 1;
+		if (_MatchRanking.exists(Score)) {
+			NewRank = _MatchRanking.keyof(Score) + 1;
+		}
+		declare Integer Diff = ChampionCup_ScoresTable_Rank - NewRank;
+		// Not being in the array is the same as being in the array with a `Diff` of 0.
+		// So it's better to not add the diff in the array to save some bandwidth when it's 0.
+		if (Diff != 0) Net_ChampionCup_ScoresTable_RankDiff[Score.User.WebServicesUserId] = Diff;
+	}
+	Net_ChampionCup_ScoresTable_RankDiffUpdate += 1;
+}
+Void InitRankDiff(CSmScore[] _MatchRanking) {
+	foreach (Score in Scores) {
+		declare Integer ChampionCup_ScoresTable_Rank for Score;
+		if (_MatchRanking.exists(Score)) {
+			ChampionCup_ScoresTable_Rank = _MatchRanking.keyof(Score) + 1;
+		} else {
+			ChampionCup_ScoresTable_Rank = _MatchRanking.count + 1;
+		}
+	}
+	declare netwrite Integer[Text] Net_ChampionCup_ScoresTable_RankDiff for Teams[0];
+	declare netwrite Integer Net_ChampionCup_ScoresTable_RankDiffUpdate for Teams[0];
+	Net_ChampionCup_ScoresTable_RankDiff = [];
+	Net_ChampionCup_ScoresTable_RankDiffUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Enable or disable the league ranking tab
+Void EnableLeagueRankingTab(Boolean _Enabled) {
+	declare netwrite Boolean Net_ChampionCup_ScoresTable_LeagueRankingEnabled for Teams[0];
+	Net_ChampionCup_ScoresTable_LeagueRankingEnabled = _Enabled;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Select which tab to display
+Void DisplayTab(Integer _Tab) {
+	declare netwrite Integer Net_ChampionCup_ScoresTable_Tab for Teams[0];
+	declare netwrite Integer Net_ChampionCup_ScoresTable_TabUpdate for Teams[0];
+	Net_ChampionCup_ScoresTable_Tab = _Tab;
+	Net_ChampionCup_ScoresTable_TabUpdate += 1;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Force the scores table to sort the scores
+ *	in the order given by the array
+ *
+ *	@param	_Ranking									The sorted account id of the players
+ */
+Void ForceStepRanking(Text[] _Ranking) {
+	declare netwrite Text[] Net_ChampionCup_ScoresTable_ForceStepRanking for Teams[0];
+	declare netwrite Integer Net_ChampionCup_ScoresTable_ForceStepRankingUpdate for Teams[0];
+	Net_ChampionCup_ScoresTable_ForceStepRanking = _Ranking;
+	Net_ChampionCup_ScoresTable_ForceStepRankingUpdate += 1;
+}
+Void ForceStepRanking(CSmScore[] _Ranking) {
+	declare Text[] AccountIdsRanking;
+	foreach (Score in _Ranking) {
+		if (Score.User != Null) {
+			AccountIdsRanking.add(Score.User.WebServicesUserId);
+		} else {
+			AccountIdsRanking.add("");
+		}
+	}
+	ForceStepRanking(AccountIdsRanking);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Show or hide the UI
+ *
+ *	@param	_Player										The player to update
+ *	@param	_Display									True to show
+ *																		False to hide
+ */
+Void SetVisibility(CPlayer _Player, Boolean _Display) {
+	if (_Player == Null) return;
+	declare CUIConfig UI <=> UIManager.GetUI(_Player);
+	if (UI == Null) return;
+
+	declare netwrite Boolean Net_ChampionCup_ScoresTable_IsVisible for UI;
+	Net_ChampionCup_ScoresTable_IsVisible = _Display;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Initialize a player
+ *
+ *	@param	_Player										The player to initialize
+ */
+Void InitializePlayer(CPlayer _Player) {
+	if (_Player == Null) return;
+
+	SetVisibility(_Player, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Unload the library
+Void Unload() {
+	SetBestLap("", 0, 0);
+	SetSequence(C_Sequence_Null);
+	InitRankDiff([]);
+	EnableLeagueRankingTab(False);
+	DisplayTab(C_Tab_StepRanking);
+	ForceStepRanking([]);
+
+	foreach (Player in AllPlayers) {
+		InitializePlayer(Player);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Load the library
+Void Load() {
+	Unload();
+}

@@ -1,0 +1,186 @@
+/**
+ *  UI module: WarmUp client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmUp_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmUp_Common.Script.txt" as UIModules_WarmUp_Common
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_WarmUp_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_WarmUp_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	// L16 [Trackmania UI] Legend displayed above the label indicating the remaining number of warm up races
+	declare Text Text_WarmUp = _("Warm up");
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-default" halign="center" valign="center2" textsize="3.5" textprefix="$t$i" textcolor="FFF" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+	<style class="text-number" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_IngameTime)}}}" textemboss="1" textcolor="ffffff" textsize="2" />
+</stylesheet>
+<frame id="frame-global" z-index="0" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_WarmUp_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-warm-up" hidden="1">
+			<frame z-index="0">
+				<quad size="32 8" z-index="0" halign="right" valign="center2" bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_WarmUp)}}}" opacity="0.7"/>
+				<label id="label-warm-up" class="text-default" pos="-16." z-index="1" size="31 6" halign="center" valign="center2" text="{{{Text_WarmUp}}}" textprefix="$t"/>
+			</frame>
+			<label id="label-warm-up-progression" class="text-number" pos="-5 -6" z-index="1" size="40 10" halign="right" textsize="8" text="1 / 1" />
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt" as MV_Utils
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmupHelpers_Client.Script.txt" as WarmupHelpers
+
+#Const C_VisibleFor_Everyone {{{dump(UIModules_WarmUp_Common::C_VisibleFor_Everyone)}}}
+#Const C_VisibleFor_PlayersOnly {{{dump(UIModules_WarmUp_Common::C_VisibleFor_PlayersOnly)}}}
+#Const C_VisibleFor_SpectatorsOnly {{{dump(UIModules_WarmUp_Common::C_VisibleFor_SpectatorsOnly)}}}
+""",
+"""
+Boolean CanSeeWarmUp(
+	CSmPlayer _InputPlayer,
+	Boolean _WarmUpIsActive,
+	Boolean _LayerIsVisible,
+	Integer _VisibleFor
+) {
+	if (!_WarmUpIsActive || !_LayerIsVisible) return False;
+	if (_VisibleFor == C_VisibleFor_PlayersOnly && (_InputPlayer == Null || _InputPlayer.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)) return False;
+	if (_VisibleFor == C_VisibleFor_SpectatorsOnly && (_InputPlayer == Null || _InputPlayer.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned)) return False;
+
+	return True;
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_WarmUp;
+declare CMlLabel Label_WarmUpProgression;
+
+declare netread Integer Net_LibRaceWarmUp_WarmUpPlayedNb for Teams[0];
+declare netread Integer Net_LibRaceWarmUp_WarmUpDuration for Teams[0];
+declare netread Integer Net_LibRaceWarmUp_LayerPositionUpdate for Teams[0];
+declare netread Vec3 Net_LibRaceWarmUp_LayerPosition for Teams[0];
+declare netread Boolean Net_LibRaceWarmUp_LayerVisibility for Teams[0];
+declare netread Integer Net_TMGame_WarmUp_VisibleFor for Teams[0];
+
+declare Boolean DisplayModule;
+declare Integer PrevWarmUpPlayedNb;
+declare Integer PrevWarmUpDuration;
+declare Integer PrevLayerPositionUpdate;
+declare Ident InputPlayerId;
+declare CSmPlayer::ESpawnStatus InputPlayerSpawnStatus;
+declare Boolean IsWarmupActive;
+declare Boolean LayerVisibility;
+declare Integer VisibleFor;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_WarmUp <=> (Frame_Global.GetFirstChild("frame-warm-up") as CMlFrame);
+Label_WarmUpProgression <=> (Frame_WarmUp.GetFirstChild("label-warm-up-progression") as CMlLabel);
+
+Tools::FitLabelValue((Frame_WarmUp.GetFirstChild("label-warm-up") as CMlLabel), 3.5, 2., 0.25);
+if (SplitScreenCount > 1) MV_Utils::AutoScaleSplitScreen(Frame_Global, 0.5, 1.);
+
+DisplayModule = Frame_Global.Visible;
+PrevWarmUpPlayedNb = -1;
+PrevWarmUpDuration = -1;
+PrevLayerPositionUpdate = -1;
+IsWarmupActive = WarmupHelpers::IsWarmupActive(Teams[0]);
+LayerVisibility = Net_LibRaceWarmUp_LayerVisibility;
+VisibleFor = Net_TMGame_WarmUp_VisibleFor;
+Frame_WarmUp.Visible = CanSeeWarmUp(InputPlayer, IsWarmupActive, LayerVisibility, VisibleFor);
+***
+
+***MainLoop***
+***
+if (PageIsVisible) {
+	declare Owner <=> MV_Utils::GetOwner(This);
+	if (Owner != Null) {
+		declare netread Boolean Net_TMGame_WarmUp_IsVisible for Owner;
+		if (DisplayModule != Net_TMGame_WarmUp_IsVisible) {
+			DisplayModule = Net_TMGame_WarmUp_IsVisible;
+			Frame_Global.Visible = Net_TMGame_WarmUp_IsVisible;
+		}
+	}
+
+	if (Owner == Null && DisplayModule) {
+		DisplayModule = False;
+		Frame_Global.Visible = DisplayModule;
+	}
+
+	if (Frame_Global.Visible) {
+		if (PrevWarmUpPlayedNb != Net_LibRaceWarmUp_WarmUpPlayedNb || PrevWarmUpDuration != Net_LibRaceWarmUp_WarmUpDuration) {
+			PrevWarmUpPlayedNb = Net_LibRaceWarmUp_WarmUpPlayedNb;
+			PrevWarmUpDuration = Net_LibRaceWarmUp_WarmUpDuration;
+
+			Label_WarmUpProgression.Value = Net_LibRaceWarmUp_WarmUpPlayedNb^" / "^Net_LibRaceWarmUp_WarmUpDuration;
+			Tools::FitLabelValue(Label_WarmUpProgression, 8., 4., 0.5);
+		}
+
+		if (PrevLayerPositionUpdate != Net_LibRaceWarmUp_LayerPositionUpdate) {
+			PrevLayerPositionUpdate = Net_LibRaceWarmUp_LayerPositionUpdate;
+			Frame_WarmUp.RelativePosition_V3 = <Net_LibRaceWarmUp_LayerPosition.X, Net_LibRaceWarmUp_LayerPosition.Y>;
+			Frame_Global.ZIndex = Net_LibRaceWarmUp_LayerPosition.Z;
+		}
+
+		if (
+			IsWarmupActive != WarmupHelpers::IsWarmupActive(Teams[0]) ||
+			LayerVisibility != Net_LibRaceWarmUp_LayerVisibility ||
+			VisibleFor != Net_TMGame_WarmUp_VisibleFor ||
+			(InputPlayer == Null && InputPlayerId != NullId) ||
+			(InputPlayer != Null && (InputPlayerId != InputPlayer.Id || InputPlayerSpawnStatus != InputPlayer.SpawnStatus))
+		) {
+			IsWarmupActive = WarmupHelpers::IsWarmupActive(Teams[0]);
+			LayerVisibility = Net_LibRaceWarmUp_LayerVisibility;
+			VisibleFor = Net_TMGame_WarmUp_VisibleFor;
+			if (InputPlayer != Null) {
+				InputPlayerId = InputPlayer.Id;
+				InputPlayerSpawnStatus = InputPlayer.SpawnStatus;
+			} else {
+				InputPlayerId = NullId;
+			}
+			Frame_WarmUp.Visible = CanSeeWarmUp(InputPlayer, IsWarmupActive, LayerVisibility, VisibleFor);
+		}
+	}
+}
+***
+""",
+[
+	UIModules::Component()
+],
+[]
+	);
+}

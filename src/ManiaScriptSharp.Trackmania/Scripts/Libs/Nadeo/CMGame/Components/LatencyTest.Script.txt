@@ -1,0 +1,399 @@
+/**
+ *	Component: LatencyTest
+ */
+#Const Version		"1.0.1"
+#Const ScriptName	"Libs/Nadeo/CMGame/Components/LatencyTest.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Components/ButtonIcon2.Script.txt" as ButtonIcon
+#Include "Libs/Nadeo/CMGame/Components/ExpendableAssetBase.Script.txt" as ExpendableAsset
+#Include "Libs/Nadeo/CMGame/Components/MenuSounds.Script.txt" as MenuSounds
+#Include "Libs/Nadeo/CMGame/API/PlayerAPI.Script.txt" as PlayerAPI
+#Include "MathLib" as ML
+#Include "TextLib" as TL
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Event {
+	Integer Type;
+	CMlFrame LatencyTest;
+}
+#Struct K_Controls {
+	CMlFrame Asset_Background;
+	CMlFrame ButtonIcon_Input;
+	CMlLabel Label_LatencyMS;
+	CMlLabel Label_LatencyText;
+	CMlLabel Label_RemainingInputs;
+}
+#Struct K_LatencyTest {
+	Boolean CurrentInputReceived;
+	Integer InputsToTake;
+	Integer LastQuarterPeriod;
+	Integer StartTime;
+	Integer[] Latencies;
+	K_Controls Controls;
+}
+#Struct K_State {
+	CMlFrame[] RunningTests;
+	Http::K_Request GetLatencyResultRequest;
+	Http::K_Request PostSaveLatencyResultRequest;
+	Integer AverageLatency;
+	Integer PersonalBest;
+	K_Event[] DelayedPendingEvents;
+	K_Event[] PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_LatencyTest_Null K_LatencyTest {
+	CurrentInputReceived = False,
+	InputsToTake = -1,
+	LastQuarterPeriod = -1,
+	StartTime = -1,
+	Latencies = [],
+	Controls = K_Controls {}
+}
+#Const C_State_Null K_State {
+	RunningTests = [],
+	GetLatencyResultRequest = Http::K_Request {},
+	PostSaveLatencyResultRequest = Http::K_Request {},
+	AverageLatency = -1,
+	PersonalBest = -1,
+	DelayedPendingEvents = [],
+	PendingEvents = []
+}
+
+#Const C_Name "component-latency-test" //< Component name
+#Const P "CMGame_LatencyTest::" //< Prefix used to differentiate functions/variables in the script
+#Const Q "CMGame_LatencyTest"
+
+#Const C_Period	1000
+#Const C_InputsToTake 20
+#Const C_Sound_LatencyTest "LatencyTest"
+
+#Const C_EventType_TryAgain 0
+
+#Const C_InputLagFactor_VeryAccurate 1.725
+#Const C_InputLagFactor_Accurate 1.325
+#Const C_InputLagFactor_RatherAccurate 1.064
+#Const C_InputLagFactor_NotVeryAccurate 0.860
+#Const C_InputLagFactor_Inacurrate 0.687
+
+#Const C_Id_FrameLatencyTest "menu-libs-latency-test_frame-latency-test"
+#Const C_Id_AssetBackground "menu-libs-latency-test_asset-background"
+#Const C_Id_ButtonIconInput "menu-libs-latency-buttonicon-input"
+#Const C_Id_LabelLatencyMs "menu-libs-latency-test_label-latency-ms"
+#Const C_Id_LabelLatencyText "menu-libs-latency-test_label-latency-text"
+#Const C_Id_LabelRemainingInputs "menu-libs-latency-test_label-remaining-inputs"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+Void Private_Update(CMlScript _This, CMlFrame _Frame_LatencyTest) {
+	declare K_LatencyTest CMGame_LatencyTest_LatencyTest for _Frame_LatencyTest = C_LatencyTest_Null;
+
+	if (CMGame_LatencyTest_LatencyTest.InputsToTake != 0 && CMGame_LatencyTest_LatencyTest.StartTime >= 0) {
+		declare Integer DeltaFromStart = Now - CMGame_LatencyTest_LatencyTest.StartTime;
+		declare Integer PeriodsCount = DeltaFromStart / C_Period;
+		declare Integer TimeInPeriod = DeltaFromStart - PeriodsCount * C_Period;
+		declare Integer QuarterPeriodsCount = (TimeInPeriod * 4) / C_Period;
+
+		if (QuarterPeriodsCount != CMGame_LatencyTest_LatencyTest.LastQuarterPeriod) {
+			CMGame_LatencyTest_LatencyTest.LastQuarterPeriod = QuarterPeriodsCount;
+			if (QuarterPeriodsCount == 0) CMGame_LatencyTest_LatencyTest.CurrentInputReceived = False;
+
+			// Display a flash every even quarter period
+			// 0 => flash | 1 => no flash | 2 => flash with input icon | 3 => no flash
+			if (QuarterPeriodsCount % 2 == 0) {
+				_This.AnimMgr.Flush(CMGame_LatencyTest_LatencyTest.Controls.Label_RemainingInputs);
+				ButtonIcon::FlushAnimations(_This, CMGame_LatencyTest_LatencyTest.Controls.ButtonIcon_Input);
+				ExpendableAsset::FlushAnimations(_This, CMGame_LatencyTest_LatencyTest.Controls.Asset_Background);
+				if (QuarterPeriodsCount == 2) { //< Display the input icon for the last flash in the period
+					_This.AnimMgr.Add(CMGame_LatencyTest_LatencyTest.Controls.Label_RemainingInputs, "<anim textcolor=\""^Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentFive)^"\" />", Now, 0, CAnimManager::EAnimManagerEasing::QuadOut);
+					_This.AnimMgr.Add(CMGame_LatencyTest_LatencyTest.Controls.Label_RemainingInputs, "<anim textcolor=\"FFFFFF\" />", ML::FloorInteger(Now+C_Period*0.25), 250, CAnimManager::EAnimManagerEasing::QuadOut);
+					ButtonIcon::AddOpacityAnimation(_This, CMGame_LatencyTest_LatencyTest.Controls.ButtonIcon_Input, 1., Now, 0, CAnimManager::EAnimManagerEasing::QuadOut);
+					ButtonIcon::AddOpacityAnimation(_This, CMGame_LatencyTest_LatencyTest.Controls.ButtonIcon_Input, 0., ML::FloorInteger(Now+C_Period*0.25), 250, CAnimManager::EAnimManagerEasing::QuadOut);
+					ExpendableAsset::AddColorAnimation(_This, CMGame_LatencyTest_LatencyTest.Controls.Asset_Background, <1., 1., 1.>, Now, 0, CAnimManager::EAnimManagerEasing::QuadOut);
+					ExpendableAsset::AddColorAnimation(_This, CMGame_LatencyTest_LatencyTest.Controls.Asset_Background, Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentTwo), ML::FloorInteger(Now+C_Period*0.25), 250, CAnimManager::EAnimManagerEasing::QuadOut);
+					MenuSounds::PlaySound(_This, C_Sound_LatencyTest, 1.);
+				} else {
+					ExpendableAsset::AddColorAnimation(_This, CMGame_LatencyTest_LatencyTest.Controls.Asset_Background, Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentThree), Now, 0, CAnimManager::EAnimManagerEasing::QuadOut);
+					ExpendableAsset::AddColorAnimation(_This, CMGame_LatencyTest_LatencyTest.Controls.Asset_Background, Stylesheet::GetColorRGB(Stylesheet::C_Color_AccentTwo), ML::FloorInteger(Now+C_Period*0.25), 250, CAnimManager::EAnimManagerEasing::QuadOut);
+					MenuSounds::PlaySound(_This, C_Sound_LatencyTest, 0.95);
+				}
+			}
+		}
+	}
+}
+
+Boolean IsRunning(CMlFrame _Frame_LatencyTest) {
+	declare K_LatencyTest CMGame_LatencyTest_LatencyTest for _Frame_LatencyTest = C_LatencyTest_Null;
+	return CMGame_LatencyTest_LatencyTest.StartTime > 0;
+}
+
+Integer GetAverageLatency(CMlScript _This) {
+	declare K_State CMGame_LatencyTest_State for _This.Page = C_State_Null;
+	return CMGame_LatencyTest_State.AverageLatency;
+}
+
+Integer GetPersonalBest(CMlScript _This) {
+	declare K_State CMGame_LatencyTest_State for _This.Page = C_State_Null;
+	return CMGame_LatencyTest_State.PersonalBest;
+}
+
+Void RetrieveLatencyResults(CMlScript _This) {
+	declare K_State CMGame_LatencyTest_State for _This.Page = C_State_Null;
+	CMGame_LatencyTest_State.GetLatencyResultRequest = Http::DestroyAndCreate(
+		CMGame_LatencyTest_State.GetLatencyResultRequest,
+		PlayerAPI::GetLatencyResult()
+	);
+}
+
+Void SetFocusState(CMlScript _This, CMlFrame _Frame_LatencyTest, Boolean _IsFocused) {
+	declare K_LatencyTest CMGame_LatencyTest_LatencyTest for _Frame_LatencyTest = C_LatencyTest_Null;
+
+	if (CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS != Null) {
+		_This.AnimMgr.Flush(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS);
+		_This.AnimMgr.Flush(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText);
+		if (_IsFocused) {
+			_This.AnimMgr.Add(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS, "<anim opacity=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			_This.AnimMgr.Add(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText, "<anim opacity=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			_This.AnimMgr.Add(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS, "<anim opacity=\"0.6\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			_This.AnimMgr.Add(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText, "<anim opacity=\"0.6\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	}
+}
+
+Void Reset(CMlScript _This, CMlFrame _Frame_LatencyTest) {
+	declare K_State CMGame_LatencyTest_State for _This.Page = C_State_Null;
+	declare K_LatencyTest CMGame_LatencyTest_LatencyTest for _Frame_LatencyTest = C_LatencyTest_Null;
+
+	// Reset controls
+	if (CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS != Null) {
+		CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS.SetText("");
+		CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.SetText("");
+		CMGame_LatencyTest_LatencyTest.Controls.Label_RemainingInputs.SetText("");
+		ButtonIcon::SetOpacity(_This, CMGame_LatencyTest_LatencyTest.Controls.ButtonIcon_Input, 0.);
+	}
+
+	// Remove from running tests
+	if (CMGame_LatencyTest_State.RunningTests.remove(_Frame_LatencyTest)) {
+		CMGame_LatencyTest_LatencyTest.StartTime = -1;
+	}
+}
+
+Void Start(CMlScript _This, CMlFrame _Frame_LatencyTest, CMlFrame _Frame_Background) {
+	declare K_State CMGame_LatencyTest_State for _This.Page = C_State_Null;
+	declare K_LatencyTest CMGame_LatencyTest_LatencyTest for _Frame_LatencyTest = C_LatencyTest_Null;
+
+	CMGame_LatencyTest_LatencyTest = K_LatencyTest {
+		CurrentInputReceived = False,
+		InputsToTake = C_InputsToTake,
+		LastQuarterPeriod = -1,
+		StartTime = Now,
+		Latencies = [],
+		Controls = K_Controls {
+			Asset_Background = _Frame_Background,
+			ButtonIcon_Input = (_Frame_LatencyTest.GetFirstChild(C_Id_ButtonIconInput) as CMlFrame),
+			Label_LatencyMS = (_Frame_LatencyTest.GetFirstChild(C_Id_LabelLatencyMs) as CMlLabel),
+			Label_LatencyText = (_Frame_LatencyTest.GetFirstChild(C_Id_LabelLatencyText) as CMlLabel),
+			Label_RemainingInputs = (_Frame_LatencyTest.GetFirstChild(C_Id_LabelRemainingInputs) as CMlLabel)
+		}
+	};
+
+	// Check controls
+	assert(ExpendableAsset::IsAsset(CMGame_LatencyTest_LatencyTest.Controls.Asset_Background), "The control '"^C_Id_AssetBackground^"' is not an expendanble asset");
+	assert(CMGame_LatencyTest_LatencyTest.Controls.ButtonIcon_Input != Null, "The control '"^C_Id_ButtonIconInput^"' is missing from the frame.");
+	assert(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS != Null, "The control '"^C_Id_LabelLatencyMs^"' is missing from the frame.");
+	assert(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText != Null, "The control '"^C_Id_LabelLatencyText^"' is missing from the frame.");
+	assert(CMGame_LatencyTest_LatencyTest.Controls.Label_RemainingInputs != Null, "The control '"^C_Id_LabelRemainingInputs^"' is missing from the frame.");
+
+	// Reset controls before starting the test
+	Reset(_This, _Frame_LatencyTest);
+
+	// Add to running tests
+	CMGame_LatencyTest_State.RunningTests.add(_Frame_LatencyTest);
+}
+
+Void End(CMlScript _This, CMlFrame _Frame_LatencyTest) {
+	declare K_State CMGame_LatencyTest_State for _This.Page = C_State_Null;
+
+	if (CMGame_LatencyTest_State.RunningTests.remove(_Frame_LatencyTest)) {
+		declare K_LatencyTest CMGame_LatencyTest_LatencyTest for _Frame_LatencyTest = C_LatencyTest_Null;
+		CMGame_LatencyTest_LatencyTest.StartTime = -1;
+
+		declare Integer[] SortedLatencies = CMGame_LatencyTest_LatencyTest.Latencies.sort();
+		SortedLatencies.removekey(0);
+		SortedLatencies.removekey(SortedLatencies.count - 1);
+
+		if (SortedLatencies.count > 0) {
+			declare Real Average = 0.;
+			for (I, 0, SortedLatencies.count - 1) Average += SortedLatencies[I];
+			Average = Average / SortedLatencies.count;
+
+			declare Real Variance = 0.;
+			for (I, 0, SortedLatencies.count - 1) Variance += (SortedLatencies[I] - Average) * (SortedLatencies[I] - Average);
+			Variance = Variance / SortedLatencies.count;
+
+			declare Integer Error = ML::FloorInteger(5. + ML::Abs(Average / 10.));
+			declare Real Factor = Error / (ML::Sqrt(Variance) / ML::Sqrt(1. * SortedLatencies.count));
+			if (Factor >= C_InputLagFactor_VeryAccurate) {
+				Error = ML::FloorInteger(C_InputLagFactor_VeryAccurate * (ML::Sqrt(Variance) / ML::Sqrt(1. * SortedLatencies.count)));
+			}
+
+			if (Average >= -10. && Factor >= C_InputLagFactor_RatherAccurate) {
+				CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS.SetText(TL::ToText(ML::FloorInteger(Average))^"±"^Error^" ms");
+				if (Average < 10.) {
+					CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS.SetText("< 10 ms");
+					CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.SetText(TL::Compose("%1\t%2", _("|Latency|Excellent"), "$z$0F0⏺"));
+				} else if (Average < 100.) {
+					CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.SetText(TL::Compose("%1\t%2", _("|Latency|Good"), "$z$8F0⏺"));
+				} else if (Average < 150.) {
+					CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.SetText(TL::Compose("%1\t%2", _("|Latency|Acceptable"), "$z$FF0⏺"));
+				} else if (Average < 200.) {
+					CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.SetText(TL::Compose("%1\t%2", _("|Latency|Quite bad"), "$z$F80⏺"));
+				} else {
+					CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.SetText(TL::Compose("%1\t%2", _("|Latency|Bad"), "$z$F00⏺"));
+				}
+
+				// Save latency result
+				CMGame_LatencyTest_State.PostSaveLatencyResultRequest = Http::DestroyAndCreate(
+					CMGame_LatencyTest_State.PostSaveLatencyResultRequest,
+					PlayerAPI::PostSaveLatencyResult(ML::Max(0, ML::FloorInteger(Average)))
+				);
+			} else {
+				CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.SetText(_("Try Again"));
+				CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS.SetText("");
+				CMGame_LatencyTest_State.DelayedPendingEvents.add(K_Event {
+					Type = C_EventType_TryAgain,
+					LatencyTest = _Frame_LatencyTest
+				});
+			}
+
+			CMGame_LatencyTest_LatencyTest.Controls.Label_RemainingInputs.SetText("");
+			if (CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS.Value == "") {
+				CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.RelativePosition_V3.X = 0.;
+				CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.HorizontalAlign = CMlControl::AlignHorizontal::HCenter;
+			} else {
+				declare Real SizeX_Spacing = (
+					ExpendableAsset::GetWidth(CMGame_LatencyTest_LatencyTest.Controls.Asset_Background) -
+					ML::Min(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS.Size.X, CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS.ComputeWidth(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS.Value)) -
+					ML::Min(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.Size.X, CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.ComputeWidth(CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.Value))
+				);
+				CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyMS.RelativePosition_V3.X = -ExpendableAsset::GetWidth(CMGame_LatencyTest_LatencyTest.Controls.Asset_Background)*0.5 + SizeX_Spacing/3.;
+				CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.RelativePosition_V3.X = ExpendableAsset::GetWidth(CMGame_LatencyTest_LatencyTest.Controls.Asset_Background)*0.5 - SizeX_Spacing/3.;
+				CMGame_LatencyTest_LatencyTest.Controls.Label_LatencyText.HorizontalAlign = CMlControl::AlignHorizontal::Right;
+			}
+		}
+	}
+}
+
+Void OnInput(CMlScript _This, CMlFrame _Frame_LatencyTest) {
+	declare K_LatencyTest CMGame_LatencyTest_LatencyTest for _Frame_LatencyTest = C_LatencyTest_Null;
+
+	if (!CMGame_LatencyTest_LatencyTest.CurrentInputReceived && CMGame_LatencyTest_LatencyTest.InputsToTake > 0) {
+		declare Integer DeltaFromStart = Now - CMGame_LatencyTest_LatencyTest.StartTime;
+		declare Integer PeriodsCount = DeltaFromStart / C_Period;
+		declare Integer TimeInPeriod = DeltaFromStart - PeriodsCount * C_Period;
+		declare Integer Latency = TimeInPeriod - ML::FloorInteger(C_Period * 0.5);
+
+		CMGame_LatencyTest_LatencyTest.Latencies.add(Latency);
+		CMGame_LatencyTest_LatencyTest.InputsToTake -= 1;
+		CMGame_LatencyTest_LatencyTest.CurrentInputReceived = True;
+		CMGame_LatencyTest_LatencyTest.Controls.Label_RemainingInputs.SetText(""^CMGame_LatencyTest_LatencyTest.InputsToTake);
+
+		if (CMGame_LatencyTest_LatencyTest.InputsToTake <= 0) {
+			End(_This, _Frame_LatencyTest);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get component pending events
+K_Event[] GetPendingEvents(CMlScript _This) {
+	declare K_State CMGame_LatencyTest_State for _This.Page = C_State_Null;
+	return CMGame_LatencyTest_State.PendingEvents;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the component script
+Void MainInit(CMlScript _This) {
+	declare K_State CMGame_LatencyTest_State for _This.Page = C_State_Null;
+	CMGame_LatencyTest_State = C_State_Null;
+}
+
+/// Loop of the component
+Void MainLoop(CMlScript _This) {
+	declare K_State CMGame_LatencyTest_State for _This.Page = C_State_Null;
+	CMGame_LatencyTest_State.PendingEvents = CMGame_LatencyTest_State.DelayedPendingEvents;
+	CMGame_LatencyTest_State.DelayedPendingEvents = [];
+
+	/* Update all running tests */
+	foreach (Frame_LatencyTest in CMGame_LatencyTest_State.RunningTests) {
+		Private_Update(_This, Frame_LatencyTest);
+	}
+
+	/* Get latency result request */
+	if (Http::IsInitialized(CMGame_LatencyTest_State.GetLatencyResultRequest)) {
+		CMGame_LatencyTest_State.GetLatencyResultRequest = Http::Update(CMGame_LatencyTest_State.GetLatencyResultRequest);
+		if (!Http::IsRunning(CMGame_LatencyTest_State.GetLatencyResultRequest)) {
+			if (Http::IsSuccess(CMGame_LatencyTest_State.GetLatencyResultRequest)) {
+				declare PlayerAPI::K_ResponseFromGetLatencyResult Response = PlayerAPI::GetResponseFromGetLatencyResult(CMGame_LatencyTest_State.GetLatencyResultRequest);
+				CMGame_LatencyTest_State.AverageLatency = Response.Average;
+				CMGame_LatencyTest_State.PersonalBest = Response.PersonalBest;
+			}
+			CMGame_LatencyTest_State.GetLatencyResultRequest = Http::Destroy(CMGame_LatencyTest_State.GetLatencyResultRequest);
+		}
+	}
+
+	/* Save latency result request */
+	if (Http::IsInitialized(CMGame_LatencyTest_State.PostSaveLatencyResultRequest)) {
+		CMGame_LatencyTest_State.PostSaveLatencyResultRequest = Http::Update(CMGame_LatencyTest_State.PostSaveLatencyResultRequest);
+		if (!Http::IsRunning(CMGame_LatencyTest_State.PostSaveLatencyResultRequest)) {
+			if (Http::IsSuccess(CMGame_LatencyTest_State.PostSaveLatencyResultRequest)) {
+				RetrieveLatencyResults(_This);
+			}
+			CMGame_LatencyTest_State.PostSaveLatencyResultRequest = Http::Destroy(CMGame_LatencyTest_State.PostSaveLatencyResultRequest);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the component
+ *
+ *	@return														The component id
+ */
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_Name,
+		"",
+		"""
+#Include "Libs/Nadeo/CMGame/Components/LatencyTest.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+
+***MainLoop***
+***
+{{{P}}}MainLoop(This);
+***
+""",
+[
+	ButtonIcon::ComponentV2(),
+	ExpendableAsset::ComponentV2(),
+	MenuSounds::ComponentV2()
+],
+[]
+	);
+}

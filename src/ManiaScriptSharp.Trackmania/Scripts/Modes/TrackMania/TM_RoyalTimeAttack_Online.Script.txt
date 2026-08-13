@@ -1,0 +1,274 @@
+/**
+ * Royal Time Attack mode
+ */
+#Extends "Modes/Nadeo/Trackmania/Base/TrackmaniaBase.Script.txt"
+
+#Const CompatibleMapTypes "TrackMania\\TM_Royal,TM_Royal"
+#Const Version "1.1.0+2025-04-22"
+#Const ScriptName "Modes/TrackMania/TM_RoyalTimeAttack_Online.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalTimeAttack/RoyalTimeAttack.Script.txt" as RoyalTimeAttack
+#Include "Libs/Nadeo/Trackmania/Modes/RoyalTimeAttack/StateManagerMulti.Script.txt" as StateMgr
+#Include "Libs/Nadeo/TMGame/Utils/Tracking.Script.txt" as Tracking
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Server.Script.txt" as UIModules_Checkpoint
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/PauseMenuOnline_Server.Script.txt" as UIModules_PauseMenu_Online
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Settings
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Setting S_TimeLimit 150 as _("Time limit") //< Time limit before going to the next map
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ModeName "Royal Time Attack"
+//L16N [Royal Time Attack] Description of the mode rules
+#Const Description _("""Players must complete as many segments as possible as quickly as possible.""")
+
+
+#Const C_ManiaAppUrl "file://Media/ManiaApps/Nadeo/Trackmania/Modes/RoyalTimeAttack.Script.txt" //< Url of the mania app
+#Const C_FakeUsersNb 0
+#Const C_EnableAutomaticGiveUpAfterElimination True
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Extends
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+***Match_LogVersions***
+***
+Log::RegisterScript(ScriptName, Version);
+Log::RegisterScript(StateMgr::ScriptName, StateMgr::Version);
+Log::RegisterScript(UIModules_Checkpoint::ScriptName, UIModules_Checkpoint::Version);
+Log::RegisterScript(UIModules_PauseMenu_Online::ScriptName, UIModules_PauseMenu_Online::Version);
+Log::RegisterScript(UIModules_ScoresTable::ScriptName, UIModules_ScoresTable::Version);
+Log::RegisterScript(RoyalTimeAttack::ScriptName, RoyalTimeAttack::Version);
+***
+
+***Match_LoadLibraries***
+***
+StateMgr::Load();
+RoyalTimeAttack::Load();
+***
+
+***Match_UnloadLibraries***
+***
+RoyalTimeAttack::Unload();
+StateMgr::Unload();
+***
+
+***Match_Settings***
+***
+MB_Settings_UseDefaultHud = True;
+MB_Settings_UseDefaultTimer = False;
+***
+
+***Match_Rules***
+***
+ModeInfo::SetName(C_ModeName);
+ModeInfo::SetType(ModeInfo::C_Type_FreeForAll);
+ModeInfo::SetRules(Description);
+ModeInfo::SetStatusMessage("");
+***
+
+***Match_AfterLoadHud***
+***
+ClientManiaAppUrl = C_ManiaAppUrl;
+Race::SortScores(Race::C_Sort_TotalPoints);
+UIModules_PauseMenu_Online::SetHelp(Description);
+UIModules_ScoresTable::SetScoreMode(UIModules_ScoresTable::C_Mode_RaceProgression);
+UIModules_Checkpoint::SetVisibleFor(UIModules_Checkpoint::C_Target_None);
+***
+
+***Match_Yield***
+***
+foreach (Event in PendingEvents) {
+	switch (Event.Type) {
+		// Initialize players when they join the server
+		case CSmModeEvent::EType::OnPlayerAdded: {
+			StateMgr::InitializePlayer(Event.Player);
+			RoyalTimeAttack::InitializePlayer(Event.Player);
+		}
+	}
+}
+
+StateMgr::Yield();
+RoyalTimeAttack::Yield();
+***
+
+***Match_StartServer***
+***
+// Initialize mode
+Clans::SetClansNb(0);
+Race::SetRespawnBehaviour(Race::C_RespawnBehaviour_AlwaysGiveUp);
+Race::EnableAutomaticGiveUpAfterElimination(C_EnableAutomaticGiveUpAfterElimination);
+StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+WarmUp::SetAvailability(False);
+CarRank::Reset();
+
+// Initialize network
+CrudeExtrapolation_AllowDelay = True; //< Allow a delay on the opponents position to get a better extrapolation
+***
+
+***Match_InitMap***
+***
+declare CMapLandmark[] Map_Starts;
+declare Integer Map_TimeLimit;
+
+// Find start blocks
+{
+	declare CMapLandmark[] Starts = Map::GetStarts();
+	declare CMapLandmark[Integer] SortedStarts;
+	foreach (Start in Starts) {
+		SortedStarts[Start.Order] = Start;
+	}
+	SortedStarts = SortedStarts.sortkey();
+	foreach (Start in SortedStarts) {
+		Map_Starts.add(Start);
+	}
+
+	if (Map_Starts.count > 0) {
+		Map::SetDefaultStart(Map_Starts[0]);
+	}
+}
+
+CarRank::Reset();
+***
+
+***Match_StartMap***
+***
+// Add bot when necessary
+Users_SetNbFakeUsers(C_FakeUsersNb, 0);
+
+// Reset race progression
+foreach (Score in Scores) {
+	RoyalTimeAttack::ResetSegmentTimes(Score);
+}
+
+if (Map_Starts.count > 0) {
+	// Initialize race
+	// `Player.StartTime` will always be rounded to the next tenth of a second (9627 -> 9700)
+	// For the first spawn of the map we do this to the `StartTime` too, so both values are synchronized
+	StartTime = ((Now + Race::C_SpawnDuration) / 100 * 100) + 100;
+	Map_TimeLimit = S_TimeLimit;
+	EndTime = GetEndTime(StartTime, Map_TimeLimit);
+	UpdateScoresTableHeader(S_TimeLimit);
+
+	// Spawn players for the race
+	foreach (Player in Players) {
+		if (Race::IsReadyToStart(Player)) {
+			RoyalTimeAttack::Start(Map_Starts, Player, StartTime, StartTime);
+		}
+	}
+
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Playing]);
+	RoyalTimeAttack::UpdateRanking();
+} else {
+	StartTime = -1;
+	EndTime = -1;
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+	RoyalTimeAttack::UpdateRanking();
+
+	//L16N [Royal Time Attack] The current track is not valid, it will be skipped.
+	UIManager.UIAll.QueueMessage(3000, 1, CUIConfig::EMessageDisplay::Big, _("This track is not valid"));
+	MB_Sleep(3000);
+	MB_StopMap();
+}
+***
+
+***Match_PlayLoop***
+***
+// Manage race events
+declare RacePendingEvents = Race::GetPendingEvents();
+foreach (Event in RacePendingEvents) {
+	Race::ValidEvent(Event);
+
+	// Waypoint
+	if (Event.Type == Events::C_Type_Waypoint) {
+		if (Event.Player != Null) {
+			if (Event.IsEndRace) {
+				RoyalTimeAttack::CompleteSegment(Event.Player, Event.RaceTime, StartTime, Map_Starts.count);
+				RoyalTimeAttack::ThrottleUpdateRanking();
+				Race::StopSkipScoresTable(Event.Player);
+			}
+		}
+	}
+}
+
+// Manage mode events
+foreach (Event in PendingEvents) {
+	if (Event.HasBeenPassed || Event.HasBeenDiscarded) continue;
+	Events::Invalid(Event);
+}
+
+// Spawn players
+if (PlayersNbDead > 0) { //< Check for unspawned players only if at least one player is unspawned
+	foreach (Player in Players) {
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned && Race::IsReadyToStart(Player)) {
+			RoyalTimeAttack::Start(Map_Starts, Player, StartTime);
+		}
+	}
+}
+
+// Update time limit
+if (Map_TimeLimit != S_TimeLimit) {
+	Map_TimeLimit = S_TimeLimit;
+	EndTime = GetEndTime(StartTime, Map_TimeLimit);
+	UpdateScoresTableHeader(S_TimeLimit);
+}
+
+// Stop map if time limit is reached
+if (EndTime > 0 && Now >= EndTime) MB_StopMap();
+***
+
+***Match_EndMap***
+***
+if (Map_Starts.count > 0) {
+	// Ensure that we stop the match (after a vote for the next map, ...)
+	MB_StopMatch();
+	Race::StopSkipOutroAll();
+	EndTime = -1;
+
+	StateMgr::ForcePlayersStates([StateMgr::C_State_Waiting]);
+
+	RoyalTimeAttack::UpdateRanking();
+	Race::SortScores(Race::C_Sort_TotalPoints);
+	declare CSmScore Winner <=> Scores::GetBestPlayer(Scores::C_Sort_MatchPoints);
+	Scores::SetPlayerWinner(Winner);
+	// Compute ranking for tracking
+	declare Integer PreviousPoints = 0;
+	declare Integer Rank = 0;
+	foreach (Key => Score in Scores) {
+		if (Key == 0 || Scores::GetPlayerMatchPoints(Score) < PreviousPoints) {
+			PreviousPoints = Scores::GetPlayerMatchPoints(Score);
+			Rank = Key + 1;
+		}
+		Tracking::SendPlayerMatchResult(UIManager, Score.User, Rank, Winner == Score && Scores.count > 1);
+	}
+} else {
+	MB_SkipPodiumSequence();
+}
+***
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the info in the scores table header
+Void UpdateScoresTableHeader(Integer _TimeLimit) {
+	if (_TimeLimit > 0) {
+		//L16N [Royal Time Attack] The duration of one track. %1 will be replaced by a duration in minutes and seconds. eg: "Time limit 2:30".
+		UIModules_ScoresTable::SetFooterInfo(TL::Compose(_("Time limit %1"), TL::TimeToText(_TimeLimit * 1000)));
+	} else {
+		UIModules_ScoresTable::SetFooterInfo("");
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Compute map end time
+Integer GetEndTime(Integer _StartTime, Integer _TimeLimit) {
+	if (_TimeLimit <= 0) return -1;
+	return _StartTime + (_TimeLimit * 1000);
+}

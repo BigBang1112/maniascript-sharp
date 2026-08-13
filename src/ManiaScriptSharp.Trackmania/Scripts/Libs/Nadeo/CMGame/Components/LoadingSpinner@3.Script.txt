@@ -1,0 +1,416 @@
+/**
+ * Loading spinner component
+ * =========================
+ *
+ * Display an image that rotates on itself to indicate that something is loading
+ *
+ * Props
+ * -----
+ *
+ * - `size` (`Vec2`): the size of the spinner
+ * - `halign` (`Text`): horizontal alignment of the spinner, can be `left`, `center` or `right`
+ * - `valign` (`Text`): vertical alignment of the spinner, can be `top`, `center` or `bottom`
+ * - `image` (`Text`): url of the spinner image
+ * - `color` (`Hex6`): color of the spinner image
+ * - `color-mode` (`Integer`): how to apply the spinner image color (bgcolor, colorize, modulate)
+ * - `opacity` (`Real`): opacity of the spinner
+ * - `is-loading` (`Boolean`): the loading status of the spinner
+ * - `start-delay` (`Integer`): delay before displaying a loading spinner
+ * - `fade-duration` (`Integer`): duration of the fade when the loading spinner start and stop
+ */
+#Const Version "3.0.2"
+#Const ScriptName "Libs/Nadeo/CMGame/Components/LoadingSpinner@3.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView@3.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_Private_ActiveSpinner {
+	Integer Status;
+	CMlQuad Quad_LoadingSpinner;
+	Integer StartTime;
+	Integer EndTime;
+	Integer FadeDuration;
+	Real Opacity;
+}
+#Struct K_Private_Controls {
+	CMlFrame Frame_LoadingSpinner;
+	CMlFrame Frame_Align;
+	CMlQuad Quad_LoadingSpinner;
+}
+#Struct K_Private_Properties {
+	Vec2 Size;
+	CMlControl::AlignHorizontal HAlign;
+	CMlControl::AlignVertical VAlign;
+	Text ImageUrl;
+	Vec3 Color;
+	Integer ColorMode;
+	Real Opacity;
+	Boolean IsLoading;
+	Integer StartDelay;
+	Integer FadeDuration;
+}
+#Struct K_Private_DrawCache {
+	Vec2 BoundingBoxSize;
+}
+#Struct K_Private_Instance {
+	K_Private_Controls Controls;
+	K_Private_Properties Properties;
+	K_Private_DrawCache DrawCache;
+}
+#Struct K_Private_State {
+	K_Private_ActiveSpinner[Ident] ActiveSpinners;
+}
+#Struct K_Private_Result {
+	K_Private_State State;
+	K_Private_Instance Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_ComponentName "CMGameLoadingSpinner3"
+#Const C_ComponentClass "cmgame-components-loading-spinner-3"
+
+#Const C_Prop_Size "size"
+#Const C_Prop_HAlign "halign"
+#Const C_Prop_VAlign "valign"
+#Const C_Prop_ImageUrl "image"
+#Const C_Prop_Color "color"
+#Const C_Prop_ColorMode "color-mode"
+#Const C_Prop_Opacity "opacity"
+#Const C_Prop_IsLoading "is-loading"
+#Const C_Prop_StartDelay "start-delay"
+#Const C_Prop_FadeDuration "fade-duration"
+
+#Const MLHelpers::C_ColorMode_None as C_ColorMode_None
+#Const MLHelpers::C_ColorMode_Colorize as C_ColorMode_Colorize
+#Const MLHelpers::C_ColorMode_Modulate as C_ColorMode_Modulate
+#Const MLHelpers::C_ColorMode_Background as C_ColorMode_Background
+
+#Const C_Private_RedrawTag_Init "init"
+#Const C_Private_RedrawTag_Size "size"
+#Const C_Private_RedrawTag_Align "align"
+#Const C_Private_RedrawTag_Image "image"
+
+#Const C_Private_Id_FrameAlign "cmgame-components-loading-spinner-3-frame-align"
+#Const C_Private_Id_QuadLoadingSpinner "cmgame-components-loading-spinner-3-quad-loading-spinner"
+
+#Const C_Private_Status_InitializeShowing 0
+#Const C_Private_Status_WaitShowing 1
+#Const C_Private_Status_Showing 2
+#Const C_Private_Status_InitializeHiding 3
+#Const C_Private_Status_WaitHiding 4
+#Const C_Private_Status_Hiding 5
+
+#Const C_Private_SpinningSpeedDivider 5
+
+#Const C_Private_Instance_Null K_Private_Instance {
+	Controls = K_Private_Controls {},
+	Properties = K_Private_Properties {
+		Size = <15., 15.>,
+		HAlign = CMlControl::AlignHorizontal::Left,
+		VAlign = CMlControl::AlignVertical::Top,
+		ImageUrl = "file://Media/Manialinks/Nadeo/CMGame/Components/LoadingSpinner/LoadingSpinner.dds",
+		Color = <-1., -1., -1.>,
+		ColorMode = 0,
+		Opacity = 1.,
+		IsLoading = False,
+		StartDelay = 0,
+		FadeDuration = 0
+	},
+	DrawCache = K_Private_DrawCache {}
+}
+#Const C_Private_State_Null K_Private_State {
+	ActiveSpinners = []
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Private functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component template
+Text Private_Template() {
+	return
+"""
+<frame id="{{{C_Private_Id_FrameAlign}}}">
+	<quad id="{{{C_Private_Id_QuadLoadingSpinner}}}" z-index="1" halign="center" valign="center" opacity="0" hidden="1" />
+</frame>
+"""
+	;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the current spinner rotation
+Real Private_GetSpinnerRotation() {
+	// Cast Integer to Real with the smallest possible number to avoid losing precision
+	// when `Now` is big. It would result in a choppy spinning animation otherwise.
+	return (Now % (360 * C_Private_SpinningSpeedDivider)) * -(1. / C_Private_SpinningSpeedDivider);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the visibility of the loading spinner image
+Void Private_UpdateActiveQuadVisibility(CMlScript _This, K_Private_ActiveSpinner _ActiveSpinner, Boolean _IsVisible) {
+	_This.AnimMgr.Flush(_ActiveSpinner.Quad_LoadingSpinner);
+
+	if (_IsVisible) {
+		if (_ActiveSpinner.FadeDuration > 0) {
+			_This.AnimMgr.Add(
+				_ActiveSpinner.Quad_LoadingSpinner,
+				"""<anim opacity="{{{_ActiveSpinner.Opacity}}}" hidden="0" />""",
+				_ActiveSpinner.FadeDuration,
+				CAnimManager::EAnimManagerEasing::Linear
+			);
+		} else {
+			_ActiveSpinner.Quad_LoadingSpinner.Opacity = _ActiveSpinner.Opacity;
+			_ActiveSpinner.Quad_LoadingSpinner.Visible = True;
+		}
+	} else {
+		if (_ActiveSpinner.FadeDuration > 0) {
+			_This.AnimMgr.Add(
+				_ActiveSpinner.Quad_LoadingSpinner,
+				"""<anim opacity="0" hidden="1" />""",
+				_ActiveSpinner.FadeDuration,
+				CAnimManager::EAnimManagerEasing::Linear
+			);
+		} else {
+			_ActiveSpinner.Quad_LoadingSpinner.Opacity = 0.;
+			_ActiveSpinner.Quad_LoadingSpinner.Visible = False;
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the loading status of the spinner
+K_Private_Result Private_SetIsLoading(
+	K_Private_State _State,
+	K_Private_Instance _Instance,
+	Boolean _IsLoading,
+	Boolean _IsInit
+) {
+	if (!_IsInit && _Instance.Properties.IsLoading == _IsLoading) {
+		return K_Private_Result {
+			State = _State,
+			Instance = _Instance
+		};
+	}
+
+	declare K_Private_State State = _State;
+	declare K_Private_Instance Instance = _Instance;
+
+	Instance.Properties.IsLoading = _IsLoading;
+
+	if (Instance.Properties.IsLoading) {
+		State.ActiveSpinners[Instance.Controls.Frame_LoadingSpinner.Id] = K_Private_ActiveSpinner {
+			Status = C_Private_Status_InitializeShowing,
+			Quad_LoadingSpinner = Instance.Controls.Quad_LoadingSpinner,
+			StartTime = Now + Instance.Properties.StartDelay,
+			EndTime = Now + Instance.Properties.StartDelay + Instance.Properties.FadeDuration,
+			FadeDuration = Instance.Properties.FadeDuration,
+			Opacity = Instance.Properties.Opacity
+		};
+	} else {
+		State.ActiveSpinners[Instance.Controls.Frame_LoadingSpinner.Id] = K_Private_ActiveSpinner {
+			Status = C_Private_Status_InitializeHiding,
+			Quad_LoadingSpinner = Instance.Controls.Quad_LoadingSpinner,
+			StartTime = Now,
+			EndTime = Now + Instance.Properties.FadeDuration,
+			FadeDuration = Instance.Properties.FadeDuration,
+			Opacity = 0.
+		};
+	}
+
+	return K_Private_Result {
+		State = State,
+		Instance = Instance
+	};
+}
+K_Private_Result Private_SetIsLoading(K_Private_State _State, K_Private_Instance _Instance, Boolean _IsLoading) {
+	return Private_SetIsLoading(_State, _Instance, _IsLoading, False);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Redraw the component
+Void Private_Hook_ComponentDraw(CMlFrame _Frame_LoadingSpinner, Text[] _Tags) {
+	declare K_Private_Instance CMGame_ComponentsLoadingSpinner3_Instance as Instance for _Frame_LoadingSpinner = C_Private_Instance_Null;
+
+	if (MV::HasRedrawTag(_Tags, [C_Private_RedrawTag_Init, C_Private_RedrawTag_Size])) {
+		Instance.DrawCache.BoundingBoxSize = Instance.Properties.Size;
+		Instance.Controls.Quad_LoadingSpinner.Size = Instance.Properties.Size;
+		Instance.Controls.Quad_LoadingSpinner.RelativePosition_V3 = <Instance.Properties.Size.X * 0.5, Instance.Properties.Size.Y * -0.5>;
+	}
+
+	if (MV::HasRedrawTag(_Tags, [C_Private_RedrawTag_Init, C_Private_RedrawTag_Size, C_Private_RedrawTag_Align])) {
+		MLHelpers::AlignContent(Instance.Controls.Frame_Align, Instance.DrawCache.BoundingBoxSize, Instance.Properties.HAlign, Instance.Properties.VAlign);
+	}
+
+	if (MV::HasRedrawTag(_Tags, [C_Private_RedrawTag_Init, C_Private_RedrawTag_Image])) {
+		Instance.Controls.Quad_LoadingSpinner.ImageUrl = Instance.Properties.ImageUrl;
+		MLHelpers::SetQuadColor(Instance.Controls.Quad_LoadingSpinner, Instance.Properties.ColorMode, Instance.Properties.Color);
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the page
+Void Private_Hook_PageMainInit(CMlScript _This) {
+	declare K_Private_State CMGame_ComponentsLoadingSpinner3_State as State for _This.Page = C_Private_State_Null;
+	State = C_Private_State_Null;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the component
+Void Private_Hook_ComponentInit(CMlScript _This, CMlFrame _Frame_LoadingSpinner) {
+	declare K_Private_State CMGame_ComponentsLoadingSpinner3_State as State for _This.Page = C_Private_State_Null;
+	declare K_Private_Instance CMGame_ComponentsLoadingSpinner3_Instance as Instance for _Frame_LoadingSpinner = C_Private_Instance_Null;
+	Instance = C_Private_Instance_Null;
+
+	Instance.Controls.Frame_LoadingSpinner <=> _Frame_LoadingSpinner;
+	Instance.Controls.Frame_Align <=> (Instance.Controls.Frame_LoadingSpinner.GetFirstChild(C_Private_Id_FrameAlign) as CMlFrame);
+	Instance.Controls.Quad_LoadingSpinner <=> (Instance.Controls.Frame_LoadingSpinner.GetFirstChild(C_Private_Id_QuadLoadingSpinner) as CMlQuad);
+
+	if (MV::HasProp(Instance.Controls.Frame_LoadingSpinner, C_Prop_Size)) {
+		Instance.Properties.Size = MV::GetProp_Vec2(Instance.Controls.Frame_LoadingSpinner, C_Prop_Size, Instance.Properties.Size);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_LoadingSpinner, C_Prop_HAlign)) {
+		Instance.Properties.HAlign = MV::GetProp_HAlign(Instance.Controls.Frame_LoadingSpinner, C_Prop_HAlign, Instance.Properties.HAlign);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_LoadingSpinner, C_Prop_VAlign)) {
+		Instance.Properties.VAlign = MV::GetProp_VAlign(Instance.Controls.Frame_LoadingSpinner, C_Prop_VAlign, Instance.Properties.VAlign);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_LoadingSpinner, C_Prop_ImageUrl)) {
+		Instance.Properties.ImageUrl = MV::GetProp_Text(Instance.Controls.Frame_LoadingSpinner, C_Prop_ImageUrl, Instance.Properties.ImageUrl);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_LoadingSpinner, C_Prop_Color)) {
+		Instance.Properties.Color = MV::GetProp_Color(Instance.Controls.Frame_LoadingSpinner, C_Prop_Color, Instance.Properties.Color);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_LoadingSpinner, C_Prop_ColorMode)) {
+		Instance.Properties.ColorMode = MV::GetProp_Integer(Instance.Controls.Frame_LoadingSpinner, C_Prop_ColorMode, Instance.Properties.ColorMode);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_LoadingSpinner, C_Prop_Opacity)) {
+		Instance.Properties.Opacity = MV::GetProp_Real(Instance.Controls.Frame_LoadingSpinner, C_Prop_Opacity, Instance.Properties.Opacity);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_LoadingSpinner, C_Prop_IsLoading)) {
+		Instance.Properties.IsLoading = MV::GetProp_Boolean(Instance.Controls.Frame_LoadingSpinner, C_Prop_IsLoading, Instance.Properties.IsLoading);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_LoadingSpinner, C_Prop_StartDelay)) {
+		Instance.Properties.StartDelay = MV::GetProp_Integer(Instance.Controls.Frame_LoadingSpinner, C_Prop_StartDelay, Instance.Properties.StartDelay);
+	}
+	if (MV::HasProp(Instance.Controls.Frame_LoadingSpinner, C_Prop_FadeDuration)) {
+		Instance.Properties.FadeDuration = MV::GetProp_Integer(Instance.Controls.Frame_LoadingSpinner, C_Prop_FadeDuration, Instance.Properties.FadeDuration);
+	}
+
+	declare K_Private_Result Result = Private_SetIsLoading(State, Instance, Instance.Properties.IsLoading, True);
+	State = Result.State;
+	Instance = Result.Instance;
+
+	MV::MarkForRedraw(Instance.Controls.Frame_LoadingSpinner, C_Private_RedrawTag_Init);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the page
+Void Private_Hook_PageAfterYield(CMlScript _This) {
+	declare K_Private_State CMGame_ComponentsLoadingSpinner3_State as State for _This.Page = C_Private_State_Null;
+
+	if (State.ActiveSpinners.count > 0) {
+		declare Ident[] RemoveActiveSpinnerIds;
+		for (ActiveSpinnerId => ActiveSpinner in State.ActiveSpinners) {
+			ActiveSpinner.Quad_LoadingSpinner.RelativeRotation = Private_GetSpinnerRotation();
+
+			switch (ActiveSpinner.Status) {
+				case C_Private_Status_InitializeShowing: {
+					if (Now >= ActiveSpinner.StartTime) {
+						State.ActiveSpinners[ActiveSpinnerId].Status = C_Private_Status_Showing;
+						Private_UpdateActiveQuadVisibility(_This, ActiveSpinner, True);
+					} else {
+						State.ActiveSpinners[ActiveSpinnerId].Status = C_Private_Status_WaitShowing;
+						Private_UpdateActiveQuadVisibility(_This, ActiveSpinner, False);
+					}
+				}
+				case C_Private_Status_WaitShowing: {
+					if (Now >= ActiveSpinner.StartTime) {
+						State.ActiveSpinners[ActiveSpinnerId].Status = C_Private_Status_Showing;
+						Private_UpdateActiveQuadVisibility(_This, ActiveSpinner, True);
+					}
+				}
+				case C_Private_Status_InitializeHiding: {
+					if (Now >= ActiveSpinner.StartTime) {
+						State.ActiveSpinners[ActiveSpinnerId].Status = C_Private_Status_Hiding;
+						Private_UpdateActiveQuadVisibility(_This, ActiveSpinner, False);
+					} else {
+						State.ActiveSpinners[ActiveSpinnerId].Status = C_Private_Status_WaitHiding;
+						Private_UpdateActiveQuadVisibility(_This, ActiveSpinner, True);
+					}
+				}
+				case C_Private_Status_WaitHiding: {
+					if (Now >= ActiveSpinner.StartTime) {
+						State.ActiveSpinners[ActiveSpinnerId].Status = C_Private_Status_Hiding;
+						Private_UpdateActiveQuadVisibility(_This, ActiveSpinner, False);
+					}
+				}
+				case C_Private_Status_Hiding: {
+					if (Now >= ActiveSpinner.EndTime) {
+						RemoveActiveSpinnerIds.add(ActiveSpinnerId);
+					}
+				}
+			}
+		}
+
+		for (ActiveSpinnerId in RemoveActiveSpinnerIds) {
+			State.ActiveSpinners.removekey(ActiveSpinnerId);
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Set the loading status of the spinner
+Void SetIsLoading(CMlScript _This, CMlFrame _Frame_LoadingSpinner, Boolean _IsLoading) {
+	declare K_Private_State CMGame_ComponentsLoadingSpinner3_State as State for _This.Page = C_Private_State_Null;
+	declare K_Private_Instance CMGame_ComponentsLoadingSpinner3_Instance as Instance for _Frame_LoadingSpinner = C_Private_Instance_Null;
+	declare K_Private_Result Result = Private_SetIsLoading(State, Instance, _IsLoading);
+	State = Result.State;
+	Instance = Result.Instance;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Check the loading status of the spinner
+Boolean IsLoading(CMlFrame _Frame_LoadingSpinner) {
+	declare K_Private_Instance CMGame_ComponentsLoadingSpinner3_Instance as Instance for _Frame_LoadingSpinner = C_Private_Instance_Null;
+	return Instance.Properties.IsLoading;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the component
+MV::K_Component Component() {
+	return MV::K_Component {
+		Name = C_ComponentName,
+		Path = ScriptName,
+		Class = C_ComponentClass,
+		Template = Private_Template(),
+		DefineProps = [
+			C_Prop_Size,
+			C_Prop_HAlign,
+			C_Prop_VAlign,
+			C_Prop_ImageUrl,
+			C_Prop_Color,
+			C_Prop_ColorMode,
+			C_Prop_Opacity,
+			C_Prop_IsLoading,
+			C_Prop_StartDelay,
+			C_Prop_FadeDuration
+		],
+		Hooks = [
+			MV::C_Hook_PageMainInit => """{{{C_ComponentName}}}::Private_Hook_PageMainInit""",
+			MV::C_Hook_ComponentInit => """{{{C_ComponentName}}}::Private_Hook_ComponentInit""",
+			MV::C_Hook_ComponentDraw => """{{{C_ComponentName}}}::Private_Hook_ComponentDraw(ComponentInstance, Tags)""",
+			MV::C_Hook_PageAfterYield => """{{{C_ComponentName}}}::Private_Hook_PageAfterYield"""
+		]
+	};
+}

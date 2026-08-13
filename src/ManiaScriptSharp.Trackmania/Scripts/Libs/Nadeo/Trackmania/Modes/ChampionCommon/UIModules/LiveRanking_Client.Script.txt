@@ -1,0 +1,1396 @@
+/**
+ *	UI module: LiveRanking client side
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/LiveRanking_Client.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Utils/MLHelpers.Script.txt" as MLHelpers
+#Include "Libs/Nadeo/CMGame/Utils/Icons.Script.txt" as Icons
+#Include "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt" as Stylesheet
+#Include "Libs/Nadeo/CMGame/Modes/UIModules_Client.Script.txt" as UIModules
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCup/Constants.Script.txt" as ChampionCupConst
+#Include "Libs/Nadeo/Trackmania/Modes/Champion/ColorPalette.Script.txt" as ChampionColorPalette
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/TMGLAPI_Client.Script.txt" as TMGLAPI
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/PlayerProfiles.Script.txt" as PlayerProfiles
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/LiveRanking_Common.Script.txt" as UIModules_LiveRanking_Common
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCup/UIModules/FinalistLevel_Common.Script.txt" as UIModules_FinalistLevel_Common
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/Shared_Client.Script.txt" as Shared
+#Include "Libs/Nadeo/Trackmania/Modes/ChampionCommon/ZIndex.Script.txt" as ZIndex
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_PlayersNb 16
+#Const C_DisplayTeamName True
+#Const C_DisplayTeamBackgroundColor False
+#Const C_DisplayTeamTrigramColor True
+#Const ChampionCupConst::C_DisplayGapAfter as C_DisplayGapAfter
+#Const ChampionCupConst::C_FinalRankThreshold as C_FinalRankThreshold
+#Const C_ImgFolder "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Public
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the id of the UI module
+Text GetId() {
+	return UIModules_LiveRanking_Common::C_Id;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the type of layer of the UI module
+CUILayer::EUILayerType GetLayerType() {
+	return UIModules_LiveRanking_Common::C_LayerType;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Get the module manialink
+ *
+ *  @return                           The module manialink
+ */
+Text GetML() {
+	//L16N [ChampionCup] UI displaying the ranking of the ongoing race
+	declare Text Text_LiveRanking = _("Live Ranking");
+	//L16N [ChampionCup] Text displayed beside players that retired from the race
+	declare Text Text_DNF = _("|DidNotFinish|DNF");
+	//L16N [ChampionCup] List of players who won the race
+	declare Text Text_Winners = _("Winners");
+	//L16N [ChampionCup] List of players currently in the race
+	declare Text Text_Race = _("Race");
+	//L16N [ChampionCup] Give the time interval between the player and another player in front of them. eg: "from 8th". stands for "Interval from 8th position".
+	declare Text Text_IntervalFrom = TL::Compose(_("from %1"), TL::FormatRank(C_DisplayGapAfter, False));
+	//L16N [ChampionCup] Finalist level. %1 will be replaced by a number. Lvl is the abbreviation for level, try to keep it as short as possible during translation. eg: "Lvl 3"
+	declare Text Text_Lvl = _("|Level|Lvl %1");
+
+	declare Text Color_Text = ChampionColorPalette::C_White;
+	declare Text Color_Base = "000000";
+	declare Text Color_Down = ChampionColorPalette::C_Loss;
+	declare Text Color_Up = Stylesheet::GetColorHex6(Stylesheet::C_Color_AccentTwo);
+	declare Text Color_WarmUp = Stylesheet::GetColorHex6(Stylesheet::C_Color_WarmUp);
+
+	declare Text Img_ButtonToggleClosed = Icons::C_Icon_128x128_Arrow_Right_Oblique;
+	declare Text Img_ButtonToggleOpened = Icons::C_Icon_128x128_Arrow_Left_Oblique;
+	declare Text Img_Hearts = C_ImgFolder^"/Hearts/TMGL2020_Hearts";
+
+	declare Vec2 Size_Background = <60., 99.5>;
+	declare Vec2 Size_Heart = <3.75 * (408. / 192.), 3.75>;
+	declare Vec2 Size_FinalistLevel = <3.75, 3.75>;
+	declare Vec2 Size_ThresholdLine = <Size_Background.X, 0.5>;
+	declare Real SizeY_PlayerLine = 4.66;
+
+	declare Vec2 Pos_QuadToggleOpened = <60., -8.>;
+	declare Vec2 Pos_QuadToggleClosed = <0., -8.>;
+	declare Vec2 Pos_FramePlayers = <0.7, -13.5>;
+
+	declare Real SizeX_PlayerName = 20.;
+	declare Real SizeX_PlayerScore = 6.5;
+	declare Real PosX_RankProgress = 34.;
+
+	declare Text ML_Players = "";
+	for (I, 0, C_PlayersNb - 1) {
+		ML_Players ^= """<frameinstance pos="0 {{{I * -SizeY_PlayerLine}}}" modelid="framemodel-player" />""";
+	}
+
+	return MV::Create(
+GetId(), 3,
+"""
+<stylesheet>
+	<style class="text-bold" textsize="1" textcolor="{{{Color_Text}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" textprefix="$t$i" />
+	<style class="number-bold" textsize="1" textcolor="{{{Color_Text}}}" textfont="{{{Stylesheet::GetFont(Stylesheet::C_Font_Weight_ExtraBold)}}}" />
+</stylesheet>
+<framemodel id="framemodel-player">
+	<frame z-index="1" id="frame-data">
+		<label id="label-rank" pos="2.5 -0.25" size="6 4" halign="center" valign="center2" textsize="1.25" class="number-bold" />
+		<quad id="quad-flag" pos="5.25 0" size="4 3" valign="center" opacity="1" />
+		<label id="label-name" pos="11 0" size="{{{SizeX_PlayerName}}} 4" valign="center2" textsize="1.25" class="text-bold" />
+		<label id="label-score" pos="43.5 -0.12" size="{{{SizeX_PlayerScore}}} 4" halign="right" valign="center2" textsize="1.25" class="number-bold" textprefix="$t$i" />
+		<label id="label-time" pos="58.83 0" size="14 4" halign="right" valign="center2" textsize="1.12" class="number-bold" textprefix="$t$i" />
+		<quad id="quad-heart" pos="52 0" {{{MLHelpers::Size(Size_Heart)}}} halign="center" valign="center" colorize="fff" />
+		<frame id="frame-finalist-level" pos="52 0">
+			<quad id="quad-finalist-level" pos="0 0.2" {{{MLHelpers::Size(Size_FinalistLevel)}}} halign="center" valign="center" colorize="fff" />
+			<label id="label-finalist-level" z-index="1" size="10 4" halign="center" valign="center2" text="Lvl 2" textsize="1.12" class="text-bold" />
+		</frame>
+		<label id="label-rank-progress" pos="{{{PosX_RankProgress}}} 0.5" size="4 4" halign="center" valign="center2" textsize="5" opacity="0" />
+		<frame id="frame-round-points" pos="66.8 0" hidden="1">
+			<quad size="7.5 {{{SizeY_PlayerLine}}}" halign="right" valign="center2" bgcolor="000000" opacity="0.5" />
+			<label id="label-round-points" pos="-0.5 0" z-index="1" size="6.5 4" halign="right" valign="center2" textsize="1.25" class="number-bold" textprefix="$t$i" />
+		</frame>
+	</frame>
+	<frame z-index="0" id="frame-player-background">
+		<quad id="button-name" pos="-0.7 0" size="45 {{{SizeY_PlayerLine}}}" valign="center" opacity="0" bgcolor="000000" scriptevents="1" />
+		<quad id="quad-mouse-focus" pos="-0.7 0" z-index="1" size="45 {{{SizeY_PlayerLine}}}" valign="center" opacity="0" bgcolor="000000" />
+		<quad id="quad-spectator-focus" pos="-0.7 0" z-index="2" size="45 {{{SizeY_PlayerLine}}}" valign="center" opacity="0" bgcolor="000000" />
+		<quad id="quad-team-color" pos="-0.7 0" z-index="3" size="45 {{{SizeY_PlayerLine}}}" valign="center" opacity="0.4" bgcolor="000000" hidden="1" />
+		<quad id="quad-time" pos="44.33 0" z-index="4" size="15 {{{SizeY_PlayerLine}}}" valign="center" opacity="0.5" bgcolor="{{{Color_Up}}}" />
+		<quad id="quad-blink" pos="-0.7 0" z-index="5" size="45 {{{SizeY_PlayerLine}}}" valign="center" opacity="0" bgcolor="{{{Color_Down}}}" />
+	</frame>
+</framemodel>
+<frame id="frame-global" z-index="{{{ZIndex::C_ZIndex_LiveRanking}}}" size="320 180" halign="center" valign="center" hidden="1">
+	<frame {{{UIModules::CustomizableUIModule(UIModules_LiveRanking_Common::C_UIModuleConfig)}}}>
+		<frame id="frame-live-ranking">
+			<quad z-index="1" {{{MLHelpers::Pos(Pos_QuadToggleOpened)}}} size="7 7" valign="bottom" opacity="0.9" colorize="fff" image="{{{Img_ButtonToggleOpened}}}" scriptevents="1" id="button-toggle" />
+			<frame z-index="0" id="frame-background">
+				<quad id="quad-live-ranking-background" pos="0 0.25" {{{MLHelpers::Size(Size_Background)}}} bgcolor="{{{Stylesheet::GetColorHex6(Stylesheet::C_Color_BGDark)}}}" opacity="0.7" />
+				<label pos="{{{Size_Background.X * 0.5}}} -5" z-index="1" size="{{{Size_Background.X - 4}}} 5" halign="center" valign="center2" textsize="2.75" text="{{{Text_LiveRanking}}}" class="text-bold" />
+			</frame>
+			<frame {{{MLHelpers::Pos(Pos_FramePlayers)}}} z-index="2" id="frame-players">
+				{{{ML_Players}}}
+			</frame>
+			<frame pos="0 {{{Pos_FramePlayers.Y}}}" z-index="3" id="frame-misc">
+				<quad id="quad-threshold-line" z-index="1" {{{MLHelpers::Size(Size_ThresholdLine)}}} bgcolor="{{{Color_Down}}}" opacity="0.8" />
+				<label id="label-winners" pos="{{{Size_Background.X * 0.5}}} 0" z-index="2" size="{{{Size_Background.X - 4}}} 5" halign="center" valign="center2" textsize="1.5" text="{{{Text_Winners}}}" class="text-bold" hidden="1" />
+				<label id="label-race" pos="{{{Size_Background.X * 0.5}}} 0" z-index="3" size="{{{Size_Background.X - 4}}} 5" halign="center" valign="center2" textsize="1.5" text="{{{Text_Race}}}" class="text-bold" hidden="1" />
+				<label id="label-race-message" pos="{{{Size_Background.X * 0.5}}} 0" z-index="3" size="{{{Size_Background.X - 4}}} 5" halign="center" valign="center2" textsize="1.5" class="text-bold" hidden="1" />
+				<label id="label-interval-from" pos="{{{Size_Background.X - 1}}} 0" z-index="4" size="{{{Size_Background.X - 2}}} 2.75" halign="right" valign="center2" textsize="0.5" text="{{{Text_IntervalFrom}}}" class="text-bold" />
+			</frame>
+		</frame>
+	</frame>
+</frame>
+""",
+"""
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "ColorLib" as CL
+#Include "Libs/Nadeo/CMGame/Utils/Tools.Script.txt" as Tools
+#Include "Libs/Nadeo/TMGame/Modes/ScoresSort.Script.txt" as ScoresSort
+#Include "Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmupHelpers_Client.Script.txt" as WarmupHelpers
+
+#Struct K_Controls {
+	CMlQuad Button_Toggle;
+	CMlFrame Frame_Background;
+	CMlQuad Quad_LiveRankingBackground;
+	CMlFrame Frame_Players;
+	CMlFrame Frame_Misc;
+	CMlQuad Quad_ThresholdLine;
+	CMlLabel Label_Winners;
+	CMlLabel Label_Race;
+	CMlLabel Label_RaceMessage;
+	CMlLabel Label_IntervalFrom;
+}
+#Struct K_State {
+	K_Controls Controls;
+	Boolean LiveRankingIsVisible;
+	Integer[CMlQuad] BlinkingControls;
+	Integer[Text] BlinkingLogins;
+	Integer[][Text] LostPlaces;
+}
+#Struct K_PlayerInfo {
+	Text Login;
+	Text WebServicesUserId;
+	Text Name;
+	Integer Points;
+	Integer RoundPoints;
+	Integer Interval;
+	Boolean Eliminated;
+	Integer PrevRank;
+	Integer CurRank;
+	Boolean WasWinner;
+	Boolean IsWinner;
+	Integer FinalistLevel;
+}
+
+#Const C_UpdateMaxFrequency 250
+#Const C_CheckpointUpdateFrequency 250
+#Const C_DisplayTeamName {{{dump(C_DisplayTeamName)}}}
+#Const C_DisplayTeamBackgroundColor {{{dump(C_DisplayTeamBackgroundColor)}}}
+#Const C_DisplayTeamTrigramColor {{{dump(C_DisplayTeamTrigramColor)}}}
+#Const C_FinalRankThreshold {{{dump(C_FinalRankThreshold)}}}
+#Const C_RankIconDisplayDuration 10000
+#Const C_RankBlinkDuration 10000
+#Const C_PlaceLostDeltaTime 3000
+#Const C_BlinkingMaxOpacity 0.5
+#Const C_DisplayGapAfter {{{dump(C_DisplayGapAfter)}}}
+
+#Const C_NextRank 0
+#Const C_PreviousRank 1
+
+#Const C_RankingMode_BestRace {{{dump(UIModules_LiveRanking_Common::C_RankingMode_BestRace)}}}
+#Const C_RankingMode_CurrentRace {{{dump(UIModules_LiveRanking_Common::C_RankingMode_CurrentRace)}}}
+
+#Const C_FinalistLevel_Colors {{{dump(UIModules_FinalistLevel_Common::C_FinalistLevel_Colors)}}}
+#Const C_FinalistLevel_Images {{{dump(UIModules_FinalistLevel_Common::C_FinalistLevel_Images)}}}
+""",
+"""
+Void ResetDelayedAnim(K_State _State) {
+	foreach (Key => Control in _State.Controls.Frame_Players.Controls) {
+		declare CMlFrame Frame_Player <=> (Control as CMlFrame);
+		declare CMlLabel Label_RankProgress <=> (Frame_Player.GetFirstChild("label-rank-progress") as CMlLabel);
+		declare CMlQuad Button_Name <=> (Frame_Player.GetFirstChild("button-name") as CMlQuad);
+
+		AnimMgr.Flush(Label_RankProgress);
+		AnimMgr.Flush(Button_Name);
+		AnimMgr.Add(Label_RankProgress, "<label textcolor=\"{{{Color_Text}}}\" opacity=\"0\" />", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Button_Name, "<quad bgcolor=\"{{{Color_Base}}}\" opacity=\"0\" />", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+}
+
+Boolean UserWantToDisplayLiveRanking() {
+	declare persistent Boolean Persistent_ChampionCup_LiveRanking_UserWantToDisplay for UserMgr.MainUser = True;
+	return Persistent_ChampionCup_LiveRanking_UserWantToDisplay;
+}
+
+K_State SetVisibility(K_State _State, Boolean _IsSpectatorClient, Boolean _UserWantToDisplay, Boolean _DisplayModule, Boolean _PlayAnim) {
+	declare K_State State = _State;
+
+	declare persistent Boolean Persistent_ChampionCup_LiveRanking_UserWantToDisplay for UserMgr.MainUser = True;
+	if (Persistent_ChampionCup_LiveRanking_UserWantToDisplay != _UserWantToDisplay) {
+		Persistent_ChampionCup_LiveRanking_UserWantToDisplay = _UserWantToDisplay;
+		UserMgr.MainUser.PersistentSave();
+	}
+
+	// Only players can toggle the live ranking
+	// It's always visible for spectators
+	State.LiveRankingIsVisible = _DisplayModule &&  (_IsSpectatorClient || _UserWantToDisplay);
+	State.Controls.Button_Toggle.Visible = !_IsSpectatorClient;
+
+	// Share live ranking visibility with other UI
+	{{{Shared::P}}}SetLiveRankingIsVisible(State.LiveRankingIsVisible);
+
+	AnimMgr.Flush(State.Controls.Button_Toggle);
+	AnimMgr.Flush(State.Controls.Frame_Background);
+	AnimMgr.Flush(State.Controls.Frame_Players);
+	AnimMgr.Flush(State.Controls.Frame_Misc);
+
+	if (State.LiveRankingIsVisible) {
+		State.Controls.Button_Toggle.ImageUrl ="{{{Img_ButtonToggleOpened}}}";
+
+		if (_PlayAnim) {
+			AnimMgr.Add(State.Controls.Frame_Background, "<frame pos=\"0 "^State.Controls.Frame_Background.RelativePosition_V3.Y^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			AnimMgr.Add(State.Controls.Frame_Players, "<frame pos=\"{{{Pos_FramePlayers.X}}} {{{Pos_FramePlayers.Y}}}\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			AnimMgr.Add(State.Controls.Frame_Misc, "<frame pos=\"0 "^State.Controls.Frame_Misc.RelativePosition_V3.Y^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			AnimMgr.Add(State.Controls.Button_Toggle, "<frame pos=\"{{{Pos_QuadToggleOpened.X}}} {{{Pos_QuadToggleOpened.Y}}}\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			State.Controls.Frame_Background.RelativePosition_V3.X = 0.;
+			State.Controls.Frame_Players.RelativePosition_V3.X = {{{Pos_FramePlayers.X}}};
+			State.Controls.Frame_Misc.RelativePosition_V3.X = 0.;
+			State.Controls.Button_Toggle.RelativePosition_V3.X = {{{Pos_QuadToggleOpened.X}}};
+		}
+	} else {
+		State.Controls.Button_Toggle.ImageUrl = "{{{Img_ButtonToggleClosed}}}";
+
+		if (_PlayAnim) {
+			AnimMgr.Add(State.Controls.Frame_Background, "<frame pos=\"-224 "^State.Controls.Frame_Background.RelativePosition_V3.Y^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			AnimMgr.Add(State.Controls.Frame_Players, "<frame pos=\"-224 "^State.Controls.Frame_Players.RelativePosition_V3.Y^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			AnimMgr.Add(State.Controls.Frame_Misc, "<frame pos=\"-224 "^State.Controls.Frame_Misc.RelativePosition_V3.Y^"\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+			AnimMgr.Add(State.Controls.Button_Toggle, "<frame pos=\"{{{Pos_QuadToggleClosed.X}}} {{{Pos_QuadToggleClosed.Y}}}\" />", 250, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			State.Controls.Frame_Background.RelativePosition_V3.X = -224.;
+			State.Controls.Frame_Players.RelativePosition_V3.X = -224.;
+			State.Controls.Frame_Misc.RelativePosition_V3.X = -224.;
+			State.Controls.Button_Toggle.RelativePosition_V3.X = {{{Pos_QuadToggleClosed.X}}};
+		}
+	}
+
+	return State;
+}
+K_State SetVisibility(K_State _State, Boolean _IsSpectatorClient, Boolean _UserWantToDisplay, Boolean _DisplayModule) {
+	return SetVisibility(_State, _IsSpectatorClient, _UserWantToDisplay, _DisplayModule, True);
+}
+
+Integer[] ToScriptArray(Integer[] _Array) {
+	return _Array;
+}
+
+Real GetRankPosY(
+	Integer _Rank,
+	Integer _MaxRank,
+	Integer _WinnerThreshold,
+	Boolean _IsWinner,
+	Boolean _IsFinal,
+	Boolean _WarmUpIsActive,
+	Boolean _IsPause,
+	Integer _DisplayMode,
+	Text _RaceMessage
+) {
+	declare Real Shift = 0.;
+
+	if (_WinnerThreshold > 0) {
+		Shift += {{{SizeY_PlayerLine}}};
+		if (!_IsWinner) {
+			Shift += (_WinnerThreshold + 1) * {{{SizeY_PlayerLine}}};
+		}
+	}
+
+	if (_IsFinal && !_WarmUpIsActive && !_IsPause && !_IsWinner && _Rank > C_FinalRankThreshold) {
+		Shift += {{{Size_ThresholdLine.Y}}};
+	}
+
+	if (_DisplayMode == {{{Shared::P}}}C_DisplayMode_ChampionCup && !_IsFinal && C_DisplayGapAfter > 0) {
+		if (_Rank > C_DisplayGapAfter) {
+			Shift += {{{SizeY_PlayerLine}}};
+		}
+	}
+
+	if (_RaceMessage != "" && (_WinnerThreshold <= 0 || !_IsWinner)) {
+		Shift += {{{SizeY_PlayerLine}}};
+	}
+
+	return ((ML::Clamp(_Rank, 1, _MaxRank) - 1) * {{{-SizeY_PlayerLine}}}) - Shift;
+}
+
+K_State UpdateLayout(
+	K_State _State,
+	Text[] _WinnerAccountIds,
+	Boolean _IsFinal,
+	Boolean _WarmUpIsActive,
+	Boolean _IsPause,
+	Boolean _IsClashTime,
+	Integer _DisplayMode,
+	Text _RaceMessage
+) {
+	declare K_State State = _State;
+
+	// Place the threshold line
+	AnimMgr.Flush(State.Controls.Quad_ThresholdLine);
+	if (_IsFinal && !_WarmUpIsActive && !_IsPause) {
+		declare Real PosY = GetRankPosY(
+			C_FinalRankThreshold,
+			State.Controls.Frame_Players.Controls.count,
+			_WinnerAccountIds.count,
+			False,
+			_IsFinal,
+			_WarmUpIsActive,
+			_IsPause,
+			_DisplayMode,
+			_RaceMessage
+		) - {{{SizeY_PlayerLine * 0.5}}};
+		AnimMgr.Add(State.Controls.Quad_ThresholdLine, "<frame pos=\"0 "^PosY^"\" />", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+		State.Controls.Quad_ThresholdLine.Visible = True;
+	} else {
+		State.Controls.Quad_ThresholdLine.Visible = False;
+	}
+
+	// Toggle the winners/race categories
+	AnimMgr.Flush(State.Controls.Label_Race);
+	if (_WinnerAccountIds.count > 0) {
+		State.Controls.Label_Winners.Visible = True;
+		State.Controls.Label_Race.Visible = True;
+		declare Real PosY = (_WinnerAccountIds.count + 1) * {{{-SizeY_PlayerLine}}};
+		AnimMgr.Add(State.Controls.Label_Race, "<frame pos=\""^State.Controls.Label_Race.RelativePosition_V3.X^" "^PosY^"\" />", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		State.Controls.Label_Winners.Visible = False;
+		State.Controls.Label_Race.Visible = False;
+	}
+
+	// Display the race message
+	State.Controls.Label_RaceMessage.Visible = (_RaceMessage != "");
+	if (State.Controls.Label_RaceMessage.Visible) {
+		declare Real PosY = (_WinnerAccountIds.count) * {{{-SizeY_PlayerLine}}};
+		if (_WinnerAccountIds.count > 0) PosY += 2 * {{{-SizeY_PlayerLine}}};
+		State.Controls.Label_RaceMessage.RelativePosition_V3.Y = PosY;
+		State.Controls.Label_RaceMessage.Value = _RaceMessage;
+	}
+
+	foreach (Key => Control in State.Controls.Frame_Players.Controls) {
+		// Update time background color
+		declare CMlQuad Quad_Time <=> ((Control as CMlFrame).GetFirstChild("quad-time") as CMlQuad);
+		if (_WarmUpIsActive || _IsPause) {
+			Quad_Time.BgColor = CL::Hex6ToRgb("{{{Color_WarmUp}}}");
+		} else if (
+			_DisplayMode == {{{Shared::P}}}C_DisplayMode_ChampionCup && (
+				(_IsFinal && Key >= _WinnerAccountIds.count + C_FinalRankThreshold) ||
+				(!_IsFinal && Key >= C_DisplayGapAfter)
+			)
+		) {
+			Quad_Time.BgColor = CL::Hex6ToRgb("{{{Color_Down}}}");
+		} else {
+			Quad_Time.BgColor = CL::Hex6ToRgb("{{{Color_Up}}}");
+		}
+	}
+
+	return State;
+}
+
+K_State UpdateRankingPlayer(
+	CMlFrame _Frame_Player,
+	K_PlayerInfo _PlayerInfo,
+	K_State _State,
+	Boolean _IsFinal,
+	Boolean _WarmUpIsActive,
+	Boolean _IsPause,
+	Boolean _ClashTimeIsActive,
+	Integer _HeartsNb,
+	Integer _WinnerThreshold,
+	Boolean _IsNewRace,
+	Integer _CupPointsLimit,
+	Text[] _WinnerAccountIds,
+	Integer _DisplayMode,
+	Text _RaceMessage
+) {
+	declare K_State State = _State;
+
+	declare CMlFrame Frame_Data <=> (_Frame_Player.GetFirstChild("frame-data") as CMlFrame);
+	declare CMlLabel Label_Rank <=> (Frame_Data.GetFirstChild("label-rank") as CMlLabel);
+	declare CMlQuad Quad_Flag <=> (Frame_Data.GetFirstChild("quad-flag") as CMlQuad);
+	declare CMlLabel Label_Name <=> (Frame_Data.GetFirstChild("label-name") as CMlLabel);
+	declare CMlLabel Label_Score <=> (Frame_Data.GetFirstChild("label-score") as CMlLabel);
+	declare CMlLabel Label_Time <=> (Frame_Data.GetFirstChild("label-time") as CMlLabel);
+	declare CMlQuad Quad_Time <=> (_Frame_Player.GetFirstChild("quad-time") as CMlQuad);
+	declare CMlQuad Quad_Heart <=> (Frame_Data.GetFirstChild("quad-heart") as CMlQuad);
+	declare CMlFrame Frame_FinalistLevel <=> (Frame_Data.GetFirstChild("frame-finalist-level") as CMlFrame);
+	declare CMlQuad Quad_FinalistLevel <=> (Frame_FinalistLevel.GetFirstChild("quad-finalist-level") as CMlQuad);
+	declare CMlLabel Label_FinalistLevel <=> (Frame_FinalistLevel.GetFirstChild("label-finalist-level") as CMlLabel);
+	declare CMlLabel Label_RankProgress <=> (Frame_Data.GetFirstChild("label-rank-progress") as CMlLabel);
+	declare CMlFrame Frame_RoundPoints <=> (Frame_Data.GetFirstChild("frame-round-points") as CMlFrame);
+	declare CMlFrame Frame_Background <=> (_Frame_Player.GetFirstChild("frame-player-background") as CMlFrame);
+	declare CMlQuad Quad_TeamColor <=> (Frame_Background.GetFirstChild("quad-team-color") as CMlQuad);
+	declare CMlQuad Quad_Blink <=> (Frame_Background.GetFirstChild("quad-blink") as CMlQuad);
+	declare CMlQuad Button_Name <=> (Frame_Background.GetFirstChild("button-name") as CMlQuad);
+	declare CMlQuad Quad_MouseFocus <=> (Frame_Background.GetFirstChild("quad-mouse-focus") as CMlQuad);
+
+	if (_PlayerInfo.IsWinner) {
+		Label_Rank.Visible = False;
+	} else {
+		Label_Rank.Value = ""^_PlayerInfo.CurRank;
+		Label_Rank.Visible = True;
+	}
+	Quad_Flag.ImageUrl = "file://ZoneFlags/Login/"^_PlayerInfo.Login^"/country";
+
+	if (Button_Name.IsFocused) {
+		Quad_MouseFocus.Opacity = 0.5;
+	} else {
+		Quad_MouseFocus.Opacity = 0.;
+	}
+
+	// Get the info of the TMGL players
+	declare {{{PlayerProfiles::P}}}K_PlayerProfile PlayerProfile = {{{PlayerProfiles::P}}}GetPlayerProfiles().get(_PlayerInfo.WebServicesUserId, {{{PlayerProfiles::P}}}K_PlayerProfile {});
+	if (PlayerProfile.WebServicesUserId != "") {
+		if (C_DisplayTeamName) {
+			if (C_DisplayTeamTrigramColor) {
+				Label_Name.Value = PlayerProfile.MarkerName;
+			} else {
+				Label_Name.Value = TL::StripFormatting(PlayerProfile.MarkerName);
+			}
+		} else {
+			Label_Name.Value = PlayerProfile.Nickname;
+		}
+		if (PlayerProfile.Flag != "") {
+			Quad_Flag.ImageUrl = PlayerProfile.Flag;
+		}
+		if (C_DisplayTeamBackgroundColor && PlayerProfile.TeamColor != "") {
+			Quad_TeamColor.BgColor = CL::Hex6ToRgb(PlayerProfile.TeamColor);
+			Quad_TeamColor.Visible = True;
+		} else {
+			Quad_TeamColor.Visible = False;
+		}
+	} else {
+		Label_Name.Value = _PlayerInfo.Name;
+		Quad_TeamColor.Visible = False;
+	}
+
+	// Match points
+	declare Boolean ScoreIsVisible = !(
+		_ClashTimeIsActive ||
+		_DisplayMode == {{{Shared::P}}}C_DisplayMode_CupHidePoints ||
+		(_DisplayMode == {{{Shared::P}}}C_DisplayMode_CupShowPoints && _PlayerInfo.IsWinner)
+	);
+	if (Label_Score.Visible != ScoreIsVisible) {
+		if (ScoreIsVisible) {
+			Label_Name.Size.X = {{{SizeX_PlayerName}}};
+			Label_RankProgress.RelativePosition_V3.X = {{{PosX_RankProgress}}};
+		} else {
+			Label_Name.Size.X = {{{SizeX_PlayerName + 1. + SizeX_PlayerScore}}};
+			Label_RankProgress.RelativePosition_V3.X = {{{PosX_RankProgress + 1. + SizeX_PlayerScore}}};
+		}
+		Label_Score.Visible = ScoreIsVisible;
+	}
+	if (Label_Score.Visible) {
+		if (_DisplayMode == {{{Shared::P}}}C_DisplayMode_CupShowPoints || _DisplayMode == {{{Shared::P}}}C_DisplayMode_CupHidePoints) {
+			Label_Score.Value = {{{Shared::P}}}FormatPoints(_PlayerInfo.Points, _CupPointsLimit, _WinnerAccountIds, _PlayerInfo.WebServicesUserId, True);
+		} else {
+			Label_Score.Value = ""^_PlayerInfo.Points;
+		}
+	}
+
+	// Round points
+	Frame_RoundPoints.Visible = _PlayerInfo.RoundPoints > 0;
+	if (Frame_RoundPoints.Visible) {
+		(Frame_RoundPoints.GetFirstChild("label-round-points") as CMlLabel).Value = "+"^_PlayerInfo.RoundPoints;
+	}
+
+	// Display the hearts during the warm-up
+	// The finalist level or time during the race
+	if (_WarmUpIsActive || _IsPause) {
+		declare Integer HeartsNb = ML::Clamp(0, _HeartsNb, {{{TMGLAPI::P}}}C_MaxHearts);
+		if (HeartsNb <= 0) {
+			Quad_Heart.Visible = False;
+		} else {
+			Quad_Heart.ImageUrl = "{{{Img_Hearts}}}"^HeartsNb^"_inc.dds";
+			Quad_Heart.Visible = True;
+		}
+		Label_Time.Visible = False;
+		Frame_FinalistLevel.Visible = False;
+		Quad_Time.Visible = !_PlayerInfo.IsWinner;
+	} else if (_PlayerInfo.IsWinner) {
+		if (_DisplayMode == {{{Shared::P}}}C_DisplayMode_ChampionCup && C_FinalistLevel_Images.existskey(_PlayerInfo.FinalistLevel)) {
+			declare Vec3 FinalistColor = C_FinalistLevel_Colors.get(_PlayerInfo.FinalistLevel, <1., 1., 1.>);
+			Quad_FinalistLevel.ImageUrl = C_FinalistLevel_Images[_PlayerInfo.FinalistLevel];
+			Quad_FinalistLevel.Colorize = FinalistColor;
+			Label_FinalistLevel.Value = TL::Compose("{{{Text_Lvl}}}", ""^_PlayerInfo.FinalistLevel);
+			Tools::FitLabelValue(Label_FinalistLevel, 1.12, 0.5, 0.1);
+			Label_FinalistLevel.TextColor = FinalistColor;
+			Quad_FinalistLevel.RelativePosition_V3.X = (ML::Min(Label_FinalistLevel.Size.X, Label_FinalistLevel.ComputeWidth(Label_FinalistLevel.Value)) * -0.5) - 0.25;
+			Label_FinalistLevel.RelativePosition_V3.X = (Quad_FinalistLevel.Size.X * 0.5) + 0.25;
+			Frame_FinalistLevel.Visible = True;
+		} else {
+			Frame_FinalistLevel.Visible = False;
+		}
+		if (_DisplayMode == {{{Shared::P}}}C_DisplayMode_CupShowPoints || _DisplayMode == {{{Shared::P}}}C_DisplayMode_CupHidePoints) {
+			Label_Time.Value = {{{Shared::P}}}FormatPoints(_PlayerInfo.Points, _CupPointsLimit, _WinnerAccountIds, _PlayerInfo.WebServicesUserId, True);
+			Label_Time.Visible = True;
+		} else {
+			Label_Time.Visible = False;
+		}
+		Quad_Heart.Visible = False;
+		Quad_Time.Visible = False;
+	} else {
+		if (_PlayerInfo.Eliminated) {
+			Label_Time.Value = "{{{Text_DNF}}}";
+		} else if (_PlayerInfo.CurRank == 1) {
+			Label_Time.Value = {{{Shared::P}}}GetShortTime(_PlayerInfo.Interval, True);
+		} else if (_PlayerInfo.CurRank > 1) {
+			Label_Time.Value = "+"^{{{Shared::P}}}GetShortTime(_PlayerInfo.Interval, False);
+		} else {
+			Label_Time.Value = "";
+		}
+		Quad_Heart.Visible = False;
+		Label_Time.Visible = True;
+		Frame_FinalistLevel.Visible = False;
+		Quad_Time.Visible = True;
+	}
+
+	// Update and animate rank changes
+	if (!_IsNewRace && !_PlayerInfo.IsWinner && _PlayerInfo.PrevRank > 0 && _PlayerInfo.PrevRank != _PlayerInfo.CurRank) {
+		// Animate position in the ranking
+		_Frame_Player.RelativePosition_V3.Y = GetRankPosY(
+			_PlayerInfo.PrevRank,
+			State.Controls.Frame_Players.Controls.count,
+			_WinnerThreshold,
+			_PlayerInfo.WasWinner,
+			_IsFinal,
+			_WarmUpIsActive,
+			_IsPause,
+			_DisplayMode,
+			_RaceMessage
+		);
+		declare Real NewRankPosY = GetRankPosY(
+			_PlayerInfo.CurRank,
+			State.Controls.Frame_Players.Controls.count,
+			_WinnerThreshold,
+			_PlayerInfo.IsWinner,
+			_IsFinal,
+			_WarmUpIsActive,
+			_IsPause,
+			_DisplayMode,
+			_RaceMessage
+		);
+		AnimMgr.Flush(_Frame_Player);
+		AnimMgr.Add(_Frame_Player, "<frame pos=\"0 "^NewRankPosY^"\" />", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+
+		// Animation rank change icon
+		declare Text Color;
+		if (_PlayerInfo.PrevRank > _PlayerInfo.CurRank) {
+			Label_RankProgress.Value = "⏶";
+			Color = "{{{Color_Up}}}";
+		} else {
+			Label_RankProgress.Value = "⏷";
+			Color = "{{{Color_Down}}}";
+		}
+		AnimMgr.Flush(Label_RankProgress);
+		AnimMgr.Add(Label_RankProgress, "<label opacity=\"1\" textcolor=\""^Color^"\" />", Now, 200, CAnimManager::EAnimManagerEasing::QuadOut);
+		AnimMgr.Add(Label_RankProgress, "<label opacity=\"0\" textcolor=\""^Color^"\" />", Now + C_RankIconDisplayDuration, 200, CAnimManager::EAnimManagerEasing::QuadOut);
+
+		// Make the players that cross the threshold blink
+		// In final taking or losing the first place
+		if (_IsFinal) {
+			if (_PlayerInfo.PrevRank > C_FinalRankThreshold && _PlayerInfo.CurRank <= C_FinalRankThreshold) {
+				AnimMgr.Flush(Button_Name);
+				AnimMgr.Add(Button_Name, "<quad bgcolor=\"{{{Color_Up}}}\" opacity=\"0.5\" />", Now, 200, CAnimManager::EAnimManagerEasing::QuadOut);
+				AnimMgr.Add(Button_Name, "<quad bgcolor=\"{{{Color_Base}}}\" opacity=\"0\" />", Now + C_RankIconDisplayDuration, 200, CAnimManager::EAnimManagerEasing::QuadOut);
+			} else if (_PlayerInfo.PrevRank <= C_FinalRankThreshold && _PlayerInfo.CurRank > C_FinalRankThreshold) {
+				AnimMgr.Flush(Button_Name);
+				AnimMgr.Add(Button_Name, "<quad bgcolor=\"{{{Color_Down}}}\" opacity=\"0.5\" />", Now, 200, CAnimManager::EAnimManagerEasing::QuadOut);
+				AnimMgr.Add(Button_Name, "<quad bgcolor=\"{{{Color_Base}}}\" opacity=\"0\" />", Now + C_RankIconDisplayDuration, 200, CAnimManager::EAnimManagerEasing::QuadOut);
+			} else {
+				AnimMgr.Flush(Button_Name);
+				AnimMgr.Add(Button_Name, "<quad bgcolor=\"{{{Color_Base}}}\" opacity=\"0\" />", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+			}
+
+			declare Integer NumberOfPlacesLost = _PlayerInfo.CurRank - _PlayerInfo.PrevRank;
+			if (NumberOfPlacesLost > 0) {
+				// Save the lost places in an array so if the player
+				// loses several places over a short time we can
+				// track it. eg: the player loses 2 places then 1 second
+				// later they lose 3 places, we know that in the last `C_PlaceLostDeltaTime` milliseconds
+				// the player lost 5 places.
+				if (!State.LostPlaces.existskey(_PlayerInfo.Login)) {
+					State.LostPlaces[_PlayerInfo.Login] = [];
+				}
+				for (I, 1, NumberOfPlacesLost) {
+					State.LostPlaces[_PlayerInfo.Login].add(Now + C_PlaceLostDeltaTime);
+				}
+				// If the player loses more than 2 places and ends up below the players that earn points
+				if (
+					State.LostPlaces[_PlayerInfo.Login].count > 2 &&
+					_PlayerInfo.PrevRank <= C_FinalRankThreshold &&
+					_PlayerInfo.CurRank > C_FinalRankThreshold
+				) {
+					State.BlinkingControls[Quad_Blink] = Now + C_RankBlinkDuration;
+					State.BlinkingLogins[_PlayerInfo.Login] = Now + C_RankBlinkDuration;
+				}
+			} else if (NumberOfPlacesLost < 0) {
+				State.LostPlaces.removekey(_PlayerInfo.Login);
+				State.BlinkingLogins.removekey(_PlayerInfo.Login);
+			}
+		}
+	} else {
+		AnimMgr.Flush(_Frame_Player);
+		_Frame_Player.RelativePosition_V3.Y = GetRankPosY(
+			_PlayerInfo.CurRank,
+			State.Controls.Frame_Players.Controls.count,
+			_WinnerThreshold,
+			_PlayerInfo.IsWinner,
+			_IsFinal,
+			_WarmUpIsActive,
+			_IsPause,
+			_DisplayMode,
+			_RaceMessage
+		);
+		if (_IsNewRace || _PlayerInfo.IsWinner) {
+			AnimMgr.Flush(Label_RankProgress);
+			AnimMgr.Add(Label_RankProgress, "<label opacity=\"0\" />", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+			AnimMgr.Flush(Button_Name);
+			AnimMgr.Add(Button_Name, "<quad bgcolor=\"{{{Color_Base}}}\" opacity=\"0\" />", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	}
+
+	// Stop blinking
+	if (
+		State.BlinkingControls.existskey(Quad_Blink) &&
+		!State.BlinkingLogins.existskey(_PlayerInfo.Login)
+	) {
+		State.BlinkingControls[Quad_Blink] = Now;
+	}
+
+	return State;
+}
+
+K_State UpdateRanking(
+	K_State _State,
+	Integer _RankingMode,
+	Boolean _IsFinal,
+	Text[] _RaceFinished,
+	Boolean _WarmUpIsActive,
+	Boolean _IsPause,
+	Boolean _ClashTimeIsActive,
+	Integer[Text] _Hearts,
+	Text[] _WinnerAccountIds,
+	Integer[] _WinnerLevels,
+	Boolean _IsNewRace,
+	Integer _CupPointsLimit,
+	Integer _DisplayMode,
+	Text _RaceMessage
+) {
+	declare K_State State = _State;
+
+	declare Ident[Ident] ScoreIdToPlayerId;
+	foreach (Player in Players) {
+		if (Player.Score != Null) {
+			ScoreIdToPlayerId[Player.Score.Id] = Player.Id;
+
+			// Check if the player is still spawned
+			declare Integer ChampionCup_LiveRanking_LastUpdate for Player.Score = -1;
+			if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned && Player.StartTime > 0) {
+				ChampionCup_LiveRanking_LastUpdate = Now;
+			}
+
+			// On the client, the `Players` array contains the players and the spectators
+			declare Boolean ChampionCup_LiveRanking_IsSpectator for Player.Score = False;
+			ChampionCup_LiveRanking_IsSpectator = Player.RequestsSpectate;
+
+			// Reset the player's rank
+			declare Integer ChampionCup_LiveRanking_Rank for Player = -1;
+			ChampionCup_LiveRanking_Rank = -1;
+		}
+	}
+	declare CSmScore[Text] WinnerAccountIdToScore;
+	foreach (Score in Scores) {
+		{{{Shared::P}}}SetLiveRank(Score, Scores.count, 0);
+		if (Score.User != Null && _WinnerAccountIds.exists(Score.User.WebServicesUserId)) {
+			WinnerAccountIdToScore[Score.User.WebServicesUserId] <=> Score;
+		}
+	}
+
+	// Sort the players by race progression
+	declare Integer[][Ident] ScoreIdsToSortByWaypointTimes;
+	declare Integer LatestCheckpointTime = 0;
+	switch (_RankingMode) {
+		case C_RankingMode_BestRace: {
+			foreach (Score in Scores) {
+				if (Score.User != Null && !_WinnerAccountIds.exists(Score.User.WebServicesUserId)) {
+					declare Boolean ChampionCup_LiveRanking_IsSpectator for Score = False;
+					if (!ChampionCup_LiveRanking_IsSpectator) {
+						if (_WarmUpIsActive || _IsPause) {
+							ScoreIdsToSortByWaypointTimes[Score.Id] = [];
+						} else {
+							ScoreIdsToSortByWaypointTimes[Score.Id] = ToScriptArray(Score.BestRaceTimes);
+						}
+						declare Integer ChampionCup_LiveRanking_CheckpointKey for Score;
+						declare Integer ChampionCup_LiveRanking_CheckpointTime for Score;
+						ChampionCup_LiveRanking_CheckpointKey = Score.BestRaceTimes.count;
+						if (Score.BestRaceTimes.count > 0) {
+							ChampionCup_LiveRanking_CheckpointTime = Score.BestRaceTimes[Score.BestRaceTimes.count - 1];
+							if (ChampionCup_LiveRanking_CheckpointTime > LatestCheckpointTime) {
+								LatestCheckpointTime = ChampionCup_LiveRanking_CheckpointTime;
+							}
+						} else {
+							ChampionCup_LiveRanking_CheckpointTime = -1;
+						}
+					}
+				}
+			}
+		}
+		case C_RankingMode_CurrentRace: {
+			foreach (Player in Players) {
+				if (Player.Score != Null && Player.User != Null && !_WinnerAccountIds.exists(Player.User.WebServicesUserId)) {
+					declare Boolean ChampionCup_LiveRanking_IsSpectator for Player.Score = False;
+					if (!ChampionCup_LiveRanking_IsSpectator) {
+						if (_WarmUpIsActive || _IsPause) {
+							ScoreIdsToSortByWaypointTimes[Player.Score.Id] = [];
+						} else {
+							ScoreIdsToSortByWaypointTimes[Player.Score.Id] = ToScriptArray(Player.RaceWaypointTimes);
+						}
+						declare Integer ChampionCup_LiveRanking_CheckpointKey for Player.Score;
+						declare Integer ChampionCup_LiveRanking_CheckpointTime for Player.Score;
+						ChampionCup_LiveRanking_CheckpointKey = Player.RaceWaypointTimes.count;
+						if (Player.RaceWaypointTimes.count > 0) {
+							ChampionCup_LiveRanking_CheckpointTime = Player.RaceWaypointTimes[Player.RaceWaypointTimes.count - 1];
+							if (ChampionCup_LiveRanking_CheckpointTime > LatestCheckpointTime) {
+								LatestCheckpointTime = ChampionCup_LiveRanking_CheckpointTime;
+							}
+						} else {
+							ChampionCup_LiveRanking_CheckpointTime = -1;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Create the winners ranking
+	declare K_PlayerInfo[] Ranking;
+	declare Integer Rank = 1;
+	declare Integer Increment = -1;
+	if (_DisplayMode == {{{Shared::P}}}C_DisplayMode_CupShowPoints || _DisplayMode == {{{Shared::P}}}C_DisplayMode_CupHidePoints) {
+		Increment = 1;
+	}
+	for (I, 0, _WinnerAccountIds.count - 1, Increment) {
+		declare Text AccountId = _WinnerAccountIds[I];
+		declare Integer FinalistLevel = 1;
+		if (_WinnerLevels.existskey(I)) {
+			FinalistLevel = _WinnerLevels[I];
+		}
+		declare K_PlayerInfo PlayerInfo = K_PlayerInfo {
+			WebServicesUserId = "",
+			CurRank = Rank,
+			IsWinner = True,
+			FinalistLevel = FinalistLevel
+		};
+		if (WinnerAccountIdToScore.existskey(AccountId)) {
+			declare CSmScore Score <=> WinnerAccountIdToScore[AccountId];
+			declare Integer ChampionCup_LiveRanking_PrevRank for Score = 0;
+			declare Boolean ChampionCup_LiveRanking_WasWinner for Score = False;
+			if (Score.User != Null) {
+				PlayerInfo.Login = Score.User.Login;
+				PlayerInfo.WebServicesUserId = AccountId;
+				PlayerInfo.Name = Score.User.Name;
+				PlayerInfo.Points = Score.Points;
+				PlayerInfo.RoundPoints = Score.RoundPoints;
+				PlayerInfo.PrevRank = ChampionCup_LiveRanking_PrevRank;
+				PlayerInfo.WasWinner = ChampionCup_LiveRanking_WasWinner;
+			}
+			ChampionCup_LiveRanking_PrevRank = Rank;
+			ChampionCup_LiveRanking_WasWinner = True;
+			// Place the winners at the end of the current race ranking
+			// This ranking is used by the signs in the corner of
+			// the stadium to display the leader of the current race
+			// We do not want to display the winner of the previous round
+			{{{Shared::P}}}SetLiveRank(Score, Scores.count, 0);
+		} else {
+			PlayerInfo.Name = "-";
+		}
+		Ranking.add(PlayerInfo);
+		Rank += 1;
+	}
+
+	// Create the race ranking
+	Rank = 1;
+	declare Boolean IsLeader = True;
+	declare Ident LeaderId = NullId;
+	declare Integer MinTimeDiff = 0;
+	declare Integer RankingPlayersNbMax = State.Controls.Frame_Players.Controls.count;
+	declare Ident[][Integer] ScoreIdsSortedByWaypointTimes = ScoresSort::SortIdsByWaypointTimes(ScoreIdsToSortByWaypointTimes);
+	declare Boolean HasGap = False;
+	foreach (WaypointTimesScoreIds in ScoreIdsSortedByWaypointTimes) {
+		declare Ident[][] ScoreIdsSortedByPoints;
+		if (WaypointTimesScoreIds.count <= 1) {
+			ScoreIdsSortedByPoints = [WaypointTimesScoreIds];
+		} else {
+			declare Integer[Ident] ScoreIdsToSortByPoints;
+			foreach (ScoreId in WaypointTimesScoreIds) {
+				ScoreIdsToSortByPoints[ScoreId] = Scores[ScoreId].Points;
+			}
+			ScoreIdsSortedByPoints = ScoresSort::SortIdsByPoints(ScoreIdsToSortByPoints, ScoresSort::C_Order_Descending, 0);
+		}
+		foreach (PointsScoreIds in ScoreIdsSortedByPoints) {
+			foreach (ScoreId in PointsScoreIds) {
+				declare CSmScore Score <=> Scores[ScoreId];
+				declare Integer ChampionCup_LiveRanking_CheckpointKey for Score = 0;
+				declare Integer ChampionCup_LiveRanking_CheckpointTime for Score = -1;
+				declare Integer ChampionCup_LiveRanking_LastUpdate for Score = -1;
+				declare Integer ChampionCup_LiveRanking_PrevRank for Score = 0;
+				declare Boolean ChampionCup_LiveRanking_WasWinner for Score = False;
+				declare Integer TimeDiff = 0;
+
+				if (!_WarmUpIsActive && !_IsPause) {
+					// Save the checkpoint times of the leader
+					if (IsLeader) {
+						LeaderId = ScoreId;
+						MinTimeDiff = 0;
+						if (ChampionCup_LiveRanking_CheckpointTime >= 0) {
+							TimeDiff = ChampionCup_LiveRanking_CheckpointTime;
+						}
+					}
+					// Compute the time diff with the leader
+					else {
+						switch (_RankingMode) {
+							case C_RankingMode_BestRace: {
+								if (LeaderId != NullId && Scores[LeaderId].BestRaceTimes.existskey(ChampionCup_LiveRanking_CheckpointKey-1)) {
+									declare CSmScore LeaderScore <=> Scores[LeaderId];
+									declare Integer LeaderTimeAtCheckpoint = LeaderScore.BestRaceTimes[ChampionCup_LiveRanking_CheckpointKey-1];
+									if (LeaderScore.BestRaceTimes.existskey(ChampionCup_LiveRanking_CheckpointKey)) {
+										TimeDiff = ML::Max(ChampionCup_LiveRanking_CheckpointTime - LeaderTimeAtCheckpoint, LatestCheckpointTime - LeaderScore.BestRaceTimes[ChampionCup_LiveRanking_CheckpointKey]);
+									} else {
+										TimeDiff = ChampionCup_LiveRanking_CheckpointTime - LeaderTimeAtCheckpoint;
+									}
+								} else {
+									TimeDiff = 0;
+								}
+							}
+							case C_RankingMode_CurrentRace: {
+								if (
+									LeaderId != NullId &&
+									ScoreIdToPlayerId.existskey(LeaderId) &&
+									Players.existskey(ScoreIdToPlayerId[LeaderId]) &&
+									Players[ScoreIdToPlayerId[LeaderId]].RaceWaypointTimes.existskey(ChampionCup_LiveRanking_CheckpointKey - 1)
+								) {
+									declare CSmPlayer LeaderPlayer <=> Players[ScoreIdToPlayerId[LeaderId]];
+									declare Integer LeaderTimeAtCheckpoint = LeaderPlayer.RaceWaypointTimes[ChampionCup_LiveRanking_CheckpointKey-1];
+									if (LeaderPlayer.RaceWaypointTimes.existskey(ChampionCup_LiveRanking_CheckpointKey)) {
+										TimeDiff = ML::Max(ChampionCup_LiveRanking_CheckpointTime - LeaderTimeAtCheckpoint, LatestCheckpointTime - LeaderPlayer.RaceWaypointTimes[ChampionCup_LiveRanking_CheckpointKey]);
+									} else {
+										TimeDiff = ChampionCup_LiveRanking_CheckpointTime - LeaderTimeAtCheckpoint;
+									}
+								} else {
+									TimeDiff = 0;
+								}
+							}
+						}
+
+						if (TimeDiff > MinTimeDiff) {
+							MinTimeDiff = TimeDiff;
+						} else {
+							TimeDiff = MinTimeDiff;
+						}
+					}
+				}
+
+				// Add the player to the ranking
+				Ranking.add(K_PlayerInfo {
+					Login = Score.User.Login,
+					WebServicesUserId = Score.User.WebServicesUserId,
+					Name = Score.User.Name,
+					Points = Score.Points,
+					RoundPoints = Score.RoundPoints,
+					Interval = TimeDiff,
+					Eliminated = (UI.UISequence == CUIConfig::EUISequence::Playing && Now != ChampionCup_LiveRanking_LastUpdate && !_RaceFinished.exists(Score.User.WebServicesUserId)),
+					PrevRank = ChampionCup_LiveRanking_PrevRank,
+					CurRank = Rank,
+					WasWinner = ChampionCup_LiveRanking_WasWinner,
+					IsWinner = False,
+					FinalistLevel = -1
+				});
+				ChampionCup_LiveRanking_PrevRank = Rank;
+				ChampionCup_LiveRanking_WasWinner = False;
+				{{{Shared::P}}}SetLiveRank(Score, Rank, TimeDiff);
+
+				// Update time diff reference
+				if (_DisplayMode == {{{Shared::P}}}C_DisplayMode_ChampionCup && !_IsFinal && C_DisplayGapAfter > 0 && Ranking.count == C_DisplayGapAfter) {
+					LeaderId = ScoreId;
+					MinTimeDiff = 0;
+					HasGap = True;
+				}
+
+				Rank += 1;
+				IsLeader = False;
+
+				// Stop adding players to the ranking once we cannot display them
+				if (Ranking.count >= RankingPlayersNbMax) break;
+			}
+			if (Ranking.count >= RankingPlayersNbMax) break;
+		}
+		if (Ranking.count >= RankingPlayersNbMax) break;
+	}
+
+	// Update background size
+	State.Controls.Quad_LiveRankingBackground.Size.Y = 20. + ML::Abs(GetRankPosY(
+		(Rank - 1), RankingPlayersNbMax, _WinnerAccountIds.count, False, _IsFinal, _WarmUpIsActive, _IsPause, _DisplayMode, _RaceMessage
+	));
+
+	// Display the gap
+	if (_DisplayMode == {{{Shared::P}}}C_DisplayMode_ChampionCup && !_IsFinal && C_DisplayGapAfter > 0 && HasGap) {
+		_State.Controls.Label_IntervalFrom.Visible = True;
+		_State.Controls.Label_IntervalFrom.RelativePosition_V3.Y = C_DisplayGapAfter * {{{-SizeY_PlayerLine}}};
+	} else {
+		_State.Controls.Label_IntervalFrom.Visible = False;
+	}
+
+	// Update players list
+	// The ranking must be updated even if the live ranking UI is not visible
+	// because other UI rely on this ranking. However we do not need to update
+	// the visual of the live ranking UI if it is not visible.
+	if (State.LiveRankingIsVisible) {
+		foreach (Key => Control in State.Controls.Frame_Players.Controls) {
+			declare CMlFrame Frame_Player <=> (Control as CMlFrame);
+			declare CMlQuad Button_Name <=> (Frame_Player.GetFirstChild("button-name") as CMlQuad);
+
+			declare ChampionCup_LiveRanking_Login for Button_Name = "";
+
+			if (Ranking.existskey(Key)) {
+				declare K_PlayerInfo PlayerInfo = Ranking[Key];
+				State = UpdateRankingPlayer(
+					Frame_Player,
+					PlayerInfo,
+					State,
+					_IsFinal,
+					_WarmUpIsActive,
+					_IsPause,
+					_ClashTimeIsActive,
+					_Hearts.get(PlayerInfo.WebServicesUserId, 0),
+					_WinnerAccountIds.count,
+					_IsNewRace,
+					_CupPointsLimit,
+					_WinnerAccountIds,
+					_DisplayMode,
+					_RaceMessage
+				);
+				ChampionCup_LiveRanking_Login = PlayerInfo.Login;
+				Frame_Player.Visible = True;
+			} else {
+				ChampionCup_LiveRanking_Login = "";
+				Frame_Player.Visible = False;
+			}
+		}
+	}
+
+	return State;
+}
+
+Ident SetSpecTarget(K_State _State, CSmPlayer _Target) {
+	foreach (Control in _State.Controls.Frame_Players.Controls) {
+		declare CMlFrame Frame_Player <=> (Control as CMlFrame);
+		declare CMlQuad Button_Name <=> (Frame_Player.GetFirstChild("button-name") as CMlQuad);
+		declare CMlQuad Quad_SpectatorFocus <=> (Frame_Player.GetFirstChild("quad-spectator-focus") as CMlQuad);
+
+		declare ChampionCup_LiveRanking_Login for Button_Name = "";
+		if (_Target != Null && _Target.User != Null && ChampionCup_LiveRanking_Login == _Target.User.Login) {
+			AnimMgr.Flush(Quad_SpectatorFocus);
+			AnimMgr.Add(Quad_SpectatorFocus, "<quad opacity=\"0.5\" />", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+		} else {
+			AnimMgr.Flush(Quad_SpectatorFocus);
+			AnimMgr.Add(Quad_SpectatorFocus, "<quad opacity=\"0\" />", 200, CAnimManager::EAnimManagerEasing::QuadOut);
+		}
+	}
+
+	if (_Target == Null) return NullId;
+	return _Target.Id;
+}
+
+Void SpectateNavigateInRanking(CSmPlayer _CurrentTarget, Integer _Direction) {
+	if (_CurrentTarget == Null) return;
+	declare Integer CurrentRank = 0;
+	if (_CurrentTarget.Score != Null) {
+		declare Integer ChampionCup_LiveRanking_PrevRank for _CurrentTarget.Score = 0;
+		CurrentRank = ChampionCup_LiveRanking_PrevRank;
+	}
+	declare Integer NewRank = -1;
+	declare Text NewTargetLogin = "";
+	foreach (Player in Players) {
+		if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned) {
+			declare Integer Rank = 0;
+			if (Player.Score != Null) {
+				declare Integer ChampionCup_LiveRanking_PrevRank for Player.Score = 0;
+				Rank = ChampionCup_LiveRanking_PrevRank;
+			}
+			if (Rank > 0) {
+				if (
+					(
+						_Direction == C_PreviousRank &&
+						Rank < CurrentRank &&
+						(NewRank == -1 || Rank > NewRank)
+					) || (
+						_Direction == C_NextRank &&
+						Rank > CurrentRank &&
+						(NewRank == -1 || Rank < NewRank)
+					)
+				) {
+					NewRank = Rank;
+					NewTargetLogin = Player.User.Login;
+				}
+			}
+		}
+	}
+
+	if (NewTargetLogin != "") {
+		{{{Shared::P}}}SpectateLogin(NewTargetLogin);
+	}
+}
+Void SpectatePreviousRank(CSmPlayer _CurrentTarget) {
+	SpectateNavigateInRanking(_CurrentTarget, C_PreviousRank);
+}
+Void SpectateNextRank(CSmPlayer _CurrentTarget) {
+	SpectateNavigateInRanking(_CurrentTarget, C_NextRank);
+}
+
+***MainInit***
+***
+declare CMlFrame Frame_Global;
+declare CMlFrame Frame_LiveRanking;
+
+declare netread Boolean Net_ChampionCup_LiveRanking_IsVisible for UI;
+declare netread Integer Net_ChampionCup_LiveRanking_UpdateRanking for Teams[0];
+declare netread Integer Net_ChampionCup_LiveRanking_RankingMode for Teams[0];
+declare netread Text[] Net_ChampionCup_LiveRanking_FinishedRacePlayers for Teams[0];
+declare netread Integer Net_ChampionCup_LiveRanking_RaceIndex for Teams[0];
+declare netread Text[] Net_ChampionCup_LiveRanking_WinnerAccountIds for Teams[0];
+declare netread Integer[] Net_ChampionCup_LiveRanking_WinnerLevels for Teams[0];
+declare netread Integer Net_ChampionCup_LiveRanking_WinnerUpdate for Teams[0];
+declare netread Text Net_ChampionCup_LiveRanking_RaceMessage for Teams[0];
+
+declare K_State State;
+declare Boolean PrevPageIsVisible;
+declare Boolean PrevIsSpectator;
+declare Boolean DisplayModule;
+declare Integer NextRankingUpdate;
+declare Integer NextCheckpointUpdate;
+declare Integer ServerRequestRankingUpdate;
+declare Integer RaceIndex;
+declare Ident SpecTargetId;
+declare Boolean IsWarmUp;
+declare Boolean IsPause;
+declare Boolean IsClashTime;
+declare Boolean IsFinal;
+declare Integer HeartsUpdate;
+declare Integer WinnerUpdate;
+declare Boolean IsNewRace;
+declare Integer DisplayMode;
+declare Integer CupPointsLimit;
+declare Text RaceMessage;
+***
+
+***MainStart***
+***
+Frame_Global <=> (Page.GetFirstChild("frame-global") as CMlFrame);
+Frame_LiveRanking <=> (Frame_Global.GetFirstChild("frame-live-ranking") as CMlFrame);
+State.Controls.Button_Toggle <=> (Frame_LiveRanking.GetFirstChild("button-toggle") as CMlQuad);
+State.Controls.Frame_Background <=> (Frame_LiveRanking.GetFirstChild("frame-background") as CMlFrame);
+State.Controls.Quad_LiveRankingBackground <=> (State.Controls.Frame_Background.GetFirstChild("quad-live-ranking-background") as CMlQuad);
+State.Controls.Frame_Players <=> (Frame_LiveRanking.GetFirstChild("frame-players") as CMlFrame);
+State.Controls.Frame_Misc <=> (Frame_LiveRanking.GetFirstChild("frame-misc") as CMlFrame);
+State.Controls.Quad_ThresholdLine <=> (State.Controls.Frame_Misc.GetFirstChild("quad-threshold-line") as CMlQuad);
+State.Controls.Label_Winners <=> (State.Controls.Frame_Misc.GetFirstChild("label-winners") as CMlLabel);
+State.Controls.Label_Race <=> (State.Controls.Frame_Misc.GetFirstChild("label-race") as CMlLabel);
+State.Controls.Label_RaceMessage <=> (State.Controls.Frame_Misc.GetFirstChild("label-race-message") as CMlLabel);
+State.Controls.Label_IntervalFrom <=> (State.Controls.Frame_Misc.GetFirstChild("label-interval-from") as CMlLabel);
+
+PrevPageIsVisible = PageIsVisible;
+PrevIsSpectator = IsSpectatorClient;
+DisplayModule = Frame_Global.Visible;
+NextRankingUpdate = Now;
+NextCheckpointUpdate = Now;
+ServerRequestRankingUpdate = -123;
+RaceIndex = -123;
+IsWarmUp = WarmupHelpers::IsWarmupActive(Teams[0]);
+IsPause = {{{Shared::P}}}IsPause();
+IsClashTime = {{{Shared::P}}}IsClashTime();
+IsFinal = {{{Shared::P}}}IsFinal();
+HeartsUpdate = {{{TMGLAPI::P}}}GetHeartsUpdate();
+WinnerUpdate = Net_ChampionCup_LiveRanking_WinnerUpdate;
+IsNewRace = False;
+DisplayMode = {{{Shared::P}}}GetDisplayMode();
+CupPointsLimit = {{{Shared::P}}}GetCupPointsLimit();
+RaceMessage = Net_ChampionCup_LiveRanking_RaceMessage;
+
+State = SetVisibility(State, IsSpectatorClient, UserWantToDisplayLiveRanking(), DisplayModule, False);
+SpecTargetId = SetSpecTarget(State, GUIPlayer);
+State = UpdateLayout(State, Net_ChampionCup_LiveRanking_WinnerAccountIds, {{{Shared::P}}}IsFinal(), WarmupHelpers::IsWarmupActive(Teams[0]), {{{Shared::P}}}IsPause(), {{{Shared::P}}}IsClashTime(), DisplayMode, RaceMessage);
+***
+
+***MainLoop***
+***
+if (PrevPageIsVisible != PageIsVisible) {
+	PrevPageIsVisible = PageIsVisible;
+	// Force an update to apply animations that were skipped while the UI was hidden
+	if (PrevPageIsVisible) ResetDelayedAnim(State);
+}
+
+if (PrevIsSpectator != IsSpectatorClient) {
+	PrevIsSpectator = IsSpectatorClient;
+	State = SetVisibility(State, IsSpectatorClient, UserWantToDisplayLiveRanking(), DisplayModule);
+}
+
+if (PageIsVisible) {
+	if (DisplayModule != Net_ChampionCup_LiveRanking_IsVisible) {
+		DisplayModule = Net_ChampionCup_LiveRanking_IsVisible;
+		Frame_Global.Visible = DisplayModule;
+		State = SetVisibility(State, IsSpectatorClient, UserWantToDisplayLiveRanking(), DisplayModule);
+	}
+
+	if (State.LiveRankingIsVisible) {
+		// The server request an update of the ranking
+		if (
+			ServerRequestRankingUpdate != Net_ChampionCup_LiveRanking_UpdateRanking ||
+			IsWarmUp != WarmupHelpers::IsWarmupActive(Teams[0]) ||
+			IsPause != {{{Shared::P}}}IsPause() ||
+			IsClashTime != {{{Shared::P}}}IsClashTime() ||
+			IsFinal != {{{Shared::P}}}IsFinal() ||
+			WinnerUpdate != Net_ChampionCup_LiveRanking_WinnerUpdate ||
+			DisplayMode != {{{Shared::P}}}GetDisplayMode() ||
+			RaceMessage != Net_ChampionCup_LiveRanking_RaceMessage
+		) {
+			ServerRequestRankingUpdate = Net_ChampionCup_LiveRanking_UpdateRanking;
+			IsWarmUp = WarmupHelpers::IsWarmupActive(Teams[0]);
+			IsPause = {{{Shared::P}}}IsPause();
+			IsClashTime = {{{Shared::P}}}IsClashTime();
+			IsFinal = {{{Shared::P}}}IsFinal();
+			WinnerUpdate = Net_ChampionCup_LiveRanking_WinnerUpdate;
+			DisplayMode = {{{Shared::P}}}GetDisplayMode();
+			RaceMessage = Net_ChampionCup_LiveRanking_RaceMessage;
+
+			State = UpdateLayout(State, Net_ChampionCup_LiveRanking_WinnerAccountIds, {{{Shared::P}}}IsFinal(), WarmupHelpers::IsWarmupActive(Teams[0]), {{{Shared::P}}}IsPause(), {{{Shared::P}}}IsClashTime(), DisplayMode, RaceMessage);
+
+			// We need to update the ranking immediatly after a layout update
+			NextRankingUpdate = Now;
+		}
+
+		if (HeartsUpdate != {{{TMGLAPI::P}}}GetHeartsUpdate()) {
+			HeartsUpdate = {{{TMGLAPI::P}}}GetHeartsUpdate();
+			if (NextRankingUpdate < 0) NextRankingUpdate = Now + C_UpdateMaxFrequency;
+		}
+
+		if (CupPointsLimit != {{{Shared::P}}}GetCupPointsLimit()) {
+			CupPointsLimit = {{{Shared::P}}}GetCupPointsLimit();
+			if (NextRankingUpdate < 0) NextRankingUpdate = Now + C_UpdateMaxFrequency;
+		}
+
+		// Update spectator focus
+		if (
+			(GUIPlayer == Null && SpecTargetId != NullId) ||
+			(GUIPlayer != Null && SpecTargetId != GUIPlayer.Id)
+		) {
+			SpecTargetId = SetSpecTarget(State, GUIPlayer);
+		}
+
+		// Update blinking players
+		declare CMlQuad[] QuadsToRemove;
+		foreach (Quad_Blink => BlinkingEndTime in State.BlinkingControls) {
+			if (Now >= BlinkingEndTime) {
+				QuadsToRemove.add(Quad_Blink);
+				Quad_Blink.Opacity = 0.;
+			} else {
+				Quad_Blink.Opacity = C_BlinkingMaxOpacity * ML::Abs(ML::Cos(Now * 0.15 * (ML::PI() / 180.)));
+			}
+		}
+		foreach (Quad_Blink in QuadsToRemove) {
+			State.BlinkingControls.removekey(Quad_Blink);
+		}
+		declare Text[] LoginsToRemove;
+		foreach (Login => BlinkingEndTime in State.BlinkingLogins) {
+			if (Now >= BlinkingEndTime) {
+				LoginsToRemove.add(Login);
+			}
+		}
+		foreach (Login in LoginsToRemove) {
+			State.BlinkingLogins.removekey(Login);
+		}
+		declare Integer[][Text] LostPlacesToRemove;
+		foreach (Login => LostPlaces in State.LostPlaces) {
+			foreach (LostPlaceEndTime in LostPlaces) {
+				if (Now >= LostPlaceEndTime) {
+					if (!LostPlacesToRemove.existskey(Login)) {
+						LostPlacesToRemove[Login] = [];
+					}
+					LostPlacesToRemove[Login].add(LostPlaceEndTime);
+				}
+			}
+		}
+		foreach (Login => LostPlaces in LostPlacesToRemove) {
+			foreach (LostPlaceEndTime in LostPlaces) {
+				State.LostPlaces[Login].remove(LostPlaceEndTime);
+			}
+			if (State.LostPlaces[Login].count <= 0) {
+				State.LostPlaces.removekey(Login);
+			}
+		}
+	}
+
+	if (DisplayModule) {
+		foreach (Event in PendingEvents) {
+			switch (Event.Type) {
+				case CMlScriptEvent::Type::MouseClick : {
+					if (Event.ControlId == "button-name") {
+						declare ChampionCup_LiveRanking_Login for Event.Control = "";
+						if (ChampionCup_LiveRanking_Login != "") {
+							{{{Shared::P}}}SpectateLogin(ChampionCup_LiveRanking_Login);
+						}
+					} else if (Event.ControlId == "button-toggle") {
+						State = SetVisibility(State, IsSpectatorClient, !UserWantToDisplayLiveRanking(), DisplayModule);
+						if (State.LiveRankingIsVisible && NextRankingUpdate < 0) NextRankingUpdate = Now + C_UpdateMaxFrequency;
+					}
+				}
+				case CMlScriptEvent::Type::MouseOver: {
+					if (Event.ControlId == "button-name") {
+						(Event.Control.Parent.GetFirstChild("quad-mouse-focus") as CMlQuad).Opacity = 0.5;
+					}
+				}
+				case CMlScriptEvent::Type::MouseOut: {
+					if (Event.ControlId == "button-name") {
+						(Event.Control.Parent.GetFirstChild("quad-mouse-focus") as CMlQuad).Opacity = 0.;
+					}
+				}
+				case CMlScriptEvent::Type::KeyPress: {
+					// Only check keypress if player is spectator
+					if (IsSpectatorClient) {
+						if (Event.KeyName == "Down") {
+							SpectateNextRank(GUIPlayer);
+						} else if (Event.KeyName == "Up") {
+							SpectatePreviousRank(GUIPlayer);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// Other UIs rely on the ranking computed by this UI
+// So even if the live ranking is not visible, we have to
+// continue to update the ranking
+
+// A new race started
+if (RaceIndex != Net_ChampionCup_LiveRanking_RaceIndex) {
+	RaceIndex = Net_ChampionCup_LiveRanking_RaceIndex;
+	IsNewRace = True;
+	if (NextRankingUpdate < 0) NextRankingUpdate = Now + C_UpdateMaxFrequency;
+
+	// Reset the last checkpoint times tracking
+	foreach (Score in Scores) {
+		declare Integer ChampionCup_LiveRanking_BestRaceLastTime for Score;
+		declare Integer ChampionCup_LiveRanking_PrevRank for Score;
+		declare Boolean ChampionCup_LiveRanking_WasWinner for Score;
+		ChampionCup_LiveRanking_BestRaceLastTime = -1;
+		ChampionCup_LiveRanking_PrevRank = 0;
+		ChampionCup_LiveRanking_WasWinner = False;
+	}
+	foreach (Player in Players) {
+		declare Integer ChampionCup_LiveRanking_CurrentRaceLastTime for Player;
+		declare Integer ChampionCup_LiveRanking_RaceStartTime for Player;
+		declare CSmPlayer::ESpawnStatus ChampionCup_LiveRanking_SpawnStatus for Player;
+		ChampionCup_LiveRanking_CurrentRaceLastTime = -1;
+		ChampionCup_LiveRanking_RaceStartTime = -1;
+		ChampionCup_LiveRanking_SpawnStatus = CSmPlayer::ESpawnStatus::NotSpawned;
+	}
+}
+
+// check if a player crossed a checkpoint or spawned/unspawned
+if (NextCheckpointUpdate <= Now) {
+	NextCheckpointUpdate = Now + C_CheckpointUpdateFrequency;
+
+	if (Net_ChampionCup_LiveRanking_RankingMode == C_RankingMode_BestRace) {
+		foreach (Score in Scores) {
+			declare Integer ChampionCup_LiveRanking_BestRaceLastTime for Score;
+			declare Integer BestRaceLastTime = -1;
+			if (Score.BestRaceTimes.count > 0) BestRaceLastTime = Score.BestRaceTimes[Score.BestRaceTimes.count - 1];
+			if (ChampionCup_LiveRanking_BestRaceLastTime != BestRaceLastTime) {
+				ChampionCup_LiveRanking_BestRaceLastTime = BestRaceLastTime;
+				if (NextRankingUpdate < 0) NextRankingUpdate = Now + C_UpdateMaxFrequency;
+			}
+		}
+	}
+
+	foreach (Player in Players) {
+		if (Net_ChampionCup_LiveRanking_RankingMode == C_RankingMode_CurrentRace) {
+			declare Integer ChampionCup_LiveRanking_CurrentRaceLastTime for Player;
+			declare Integer CurrentRaceLastTime = -1;
+			if (Player.RaceWaypointTimes.count > 0) CurrentRaceLastTime = Player.RaceWaypointTimes[Player.RaceWaypointTimes.count - 1];
+			if (ChampionCup_LiveRanking_CurrentRaceLastTime != CurrentRaceLastTime) {
+				ChampionCup_LiveRanking_CurrentRaceLastTime = CurrentRaceLastTime;
+				if (NextRankingUpdate < 0) NextRankingUpdate = Now + C_UpdateMaxFrequency;
+			}
+		}
+
+		declare Integer ChampionCup_LiveRanking_RaceStartTime for Player;
+		if (ChampionCup_LiveRanking_RaceStartTime != Player.StartTime) {
+			ChampionCup_LiveRanking_RaceStartTime = Player.StartTime;
+			if (NextRankingUpdate < 0) NextRankingUpdate = Now + C_UpdateMaxFrequency;
+		}
+
+		declare CSmPlayer::ESpawnStatus ChampionCup_LiveRanking_SpawnStatus for Player;
+		if (ChampionCup_LiveRanking_SpawnStatus != Player.SpawnStatus) {
+			ChampionCup_LiveRanking_SpawnStatus = Player.SpawnStatus;
+			if (NextRankingUpdate < 0) NextRankingUpdate = Now + C_UpdateMaxFrequency;
+		}
+	}
+}
+
+// Update the ranking
+if (NextRankingUpdate > 0 && Now >= NextRankingUpdate) {
+	NextRankingUpdate = -1;
+	State = UpdateRanking(
+		State,
+		Net_ChampionCup_LiveRanking_RankingMode,
+		{{{Shared::P}}}IsFinal(),
+		Net_ChampionCup_LiveRanking_FinishedRacePlayers,
+		WarmupHelpers::IsWarmupActive(Teams[0]),
+		{{{Shared::P}}}IsPause(),
+		{{{Shared::P}}}IsClashTime(),
+		{{{TMGLAPI::P}}}GetHearts(),
+		Net_ChampionCup_LiveRanking_WinnerAccountIds,
+		Net_ChampionCup_LiveRanking_WinnerLevels,
+		IsNewRace,
+		CupPointsLimit,
+		DisplayMode,
+		RaceMessage
+	);
+	IsNewRace = False;
+	SpecTargetId = SetSpecTarget(State, GUIPlayer); //< We need to update the spec target if they moved up or down the ranking
+}
+***
+""",
+[
+	UIModules::Component(),
+	Shared::Component(),
+	PlayerProfiles::Component(),
+	TMGLAPI::Component()
+],
+[]
+	);
+}

@@ -1,0 +1,230 @@
+/**
+ *	Store for Events
+ */
+#Const Version		"1.0.0"
+#Const ScriptName	"Libs/Nadeo/Trackmania/Stores/EventStore_MA.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/CMGame/Utils/Store_MA.Script.txt" as Store
+#Include "Libs/Nadeo/CMGame/Utils/Http.Script.txt" as Http
+#Include "Libs/Nadeo/Trackmania/API/CompetitionAPI.Script.txt" as CompetitionAPI
+#Include "Libs/Nadeo/Trackmania/Structures/CompetitionStruct.Script.txt" as CompetitionStruct
+#Include "Libs/Nadeo/Trackmania/Stores/EventStore_ML.Script.txt" as EventStore
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct EventStore::K_EventsPager as K_EventsPager
+#Struct EventStore::K_State as K_State
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const EventStore::C_State_Null as C_State_Null
+#Const EventStore::C_StoreId as C_StoreId
+
+#Const EventStore::C_Section_AllEvents as C_Section_AllEvents
+#Const EventStore::C_Section_MyCurrentEvents as C_Section_MyCurrentEvents
+#Const EventStore::C_Section_AllMyEvents as C_Section_AllMyEvents
+
+#Const EventStore::C_Action_LoadEventsPage as C_Action_LoadEventsPage
+
+#Const EventStore::C_Event_MyCurrentEventsUpdated as C_Event_MyCurrentEventsUpdated
+#Const EventStore::C_Event_AllEventsUpdated as C_Event_AllEventsUpdated
+#Const EventStore::C_Event_AllMyEventsUpdated as C_Event_AllMyEventsUpdated
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Globales
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+declare Http::K_Request[Integer] G_Request_EventsPaging;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+
+
+/** Update the events array
+ *
+ *	@param	_State										The current state
+ *	@param	_Section									The pager section (all events or my events)
+ *	@param	_Offset										The event list starting offset
+ *	@param	_EventsTotal								The total number of events in the database
+ *	@param	_Events										The events to set in the array
+ *
+ *	@return														The updated state
+ */
+K_State Mutation_SetEvents(
+	K_State _State,
+	Integer _Section,
+	Integer _Offset,
+	Integer _EventsTotal,
+	CompetitionStruct::LibStructuresCompetition_K_ClubCompetitionShort[] _Events
+) {
+	declare K_State State = _State;
+
+	State.EventsPager[_Section].Events = [];
+	foreach (Key => Event in _Events) {
+		State.EventsPager[_Section].Events[_Offset + Key] = Event;
+	}
+	State.EventsPager[_Section].Total = _EventsTotal;
+
+	if (_Section == C_Section_MyCurrentEvents) {
+		Store::SendEvent(C_StoreId, C_Event_MyCurrentEventsUpdated);
+	} else if (_Section == C_Section_AllEvents) {
+		Store::SendEvent(C_StoreId, C_Event_AllEventsUpdated);
+	} else if (_Section == C_Section_AllMyEvents) {
+		Store::SendEvent(C_StoreId, C_Event_AllMyEventsUpdated);
+	}
+
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the events offset
+K_State Mutation_SetEventsOffset(K_State _State, Integer _Section, Integer _Offset) {
+	declare K_State State = _State;
+	State.EventsPager[_Section].Offset = _Offset;
+	return State;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/** Request new events
+ *	The previous and next page will be
+ *	requested at the same time
+ */
+Void Action_LoadEventsPage(Text _FilterName, Integer _Section, Integer _Offset, Integer _Length) {
+	// Abort previous request if any
+	if (G_Request_EventsPaging.existskey(_Section) && Http::IsInitialized(G_Request_EventsPaging[_Section])) {
+		G_Request_EventsPaging[_Section] = Http::Destroy(G_Request_EventsPaging[_Section]);
+	}
+	// Create new request
+	G_Request_EventsPaging[_Section] = CompetitionAPI::GetClubCompetitions(_FilterName, _Section, _Offset, _Length);
+
+	declare K_State Trackmania_EventStore_State for System = C_State_Null;
+	Trackmania_EventStore_State = Mutation_SetEventsOffset(Trackmania_EventStore_State, _Section, _Offset);
+}
+Void Action_LoadAllEventsPage(Text _FilterName, Integer _Offset, Integer _Length) {
+	Action_LoadEventsPage(_FilterName, C_Section_AllEvents, _Offset, _Length);
+}
+
+Void Action_LoadAllMyEventsPage(Text _FilterName, Integer _Offset, Integer _Length) {
+	Action_LoadEventsPage(_FilterName, C_Section_AllMyEvents, _Offset, _Length);
+}
+
+Void Action_LoadMyCurrentEventsPage(Integer _Offset, Integer _Length) {
+	Action_LoadEventsPage("", C_Section_MyCurrentEvents, _Offset, _Length);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Initialize the Event store
+Void Initialize(Boolean _ResetData) {
+	declare K_State Trackmania_EventStore_State for System = C_State_Null;
+
+	declare Integer[] Sections = [C_Section_AllEvents, C_Section_MyCurrentEvents, C_Section_AllMyEvents];
+	foreach (Section in Sections) {
+		if (G_Request_EventsPaging.existskey(Section) && Http::IsInitialized(G_Request_EventsPaging[Section])) {
+			Http::Destroy(G_Request_EventsPaging[Section]);
+		}
+		G_Request_EventsPaging[Section] = Http::GetEmptyRequest();
+	}
+
+	if (_ResetData) {
+		Trackmania_EventStore_State = K_State {
+			EventsPager = [
+				C_Section_MyCurrentEvents => K_EventsPager {
+					Events = [],
+					Offset = 0,
+					Total = 0
+				},
+				C_Section_AllEvents => K_EventsPager {
+					Events = [],
+					Offset = 0,
+					Total = 0
+				},
+				C_Section_AllMyEvents => K_EventsPager {
+					Events = [],
+					Offset = 0,
+					Total = 0
+				}
+			]
+		};
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process event
+Void ProcessEvent(CManiaAppEvent _Event) {
+	switch (_Event.Type) {
+		case CManiaAppEvent::EType::LayerCustomEvent: {
+			switch(_Event.CustomEventType) {
+				case C_Action_LoadEventsPage: {
+					if (_Event.CustomEventData.count >= 4) {
+						Action_LoadEventsPage(
+							_Event.CustomEventData[0],
+							TL::ToInteger(_Event.CustomEventData[1]),
+							TL::ToInteger(_Event.CustomEventData[2]),
+							TL::ToInteger(_Event.CustomEventData[3])
+						);
+					}
+				}
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Process events
+Void ProcessEvents(CNod _Context) {
+	switchtype (_Context as Context) {
+		case CManiaAppTitle: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+		case CManiaAppPlayground: {
+			foreach (Event in Context.PendingEvents) {
+				ProcessEvent(Event);
+			}
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Update the Event store
+Void Yield() {
+	// Events paging request
+	declare Http::K_Request[Integer] TmpEventsPagingRequests = G_Request_EventsPaging;
+	foreach (Section => Request_ReadOnly in TmpEventsPagingRequests) {
+		if (Http::IsInitialized(G_Request_EventsPaging[Section])) {
+			declare Http::K_Request Request = Http::Update(G_Request_EventsPaging[Section]);
+			if (!Http::IsRunning(Request)) {
+				if (Http::IsSuccess(Request)) {
+					declare CompetitionAPI::K_ResponseGetClubCompetitions Response;
+					if (Section == C_Section_AllEvents) {
+						Response = CompetitionAPI::GetResponseFromGetClubCompetitions(Request);
+					} else if (Section == C_Section_MyCurrentEvents) {
+						Response = CompetitionAPI::GetResponseFromGetMyClubCompetitions(Request);
+					} else if (Section == C_Section_AllMyEvents) {
+						Response = CompetitionAPI::GetResponseFromGetMyClubCompetitions(Request);
+					}
+					declare K_State Trackmania_EventStore_State for System = C_State_Null;
+					Trackmania_EventStore_State = Mutation_SetEvents(
+						Trackmania_EventStore_State,
+						Section,
+						Trackmania_EventStore_State.EventsPager[Section].Offset,
+						Response.ClubCompetitionsTotal,
+						Response.ClubCompetitions
+					);
+				}
+				Request = Http::Destroy(Request);
+			}
+			G_Request_EventsPaging[Section] = Request;
+		}
+	}
+
+	ProcessEvents(This);
+}

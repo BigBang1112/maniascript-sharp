@@ -1,0 +1,718 @@
+/**
+ * Component for the ClubStore
+ */
+#Const Version "1.4.0"
+#Const ScriptName "Libs/Nadeo/Trackmania/Stores/ClubStore_ML.Script.txt"
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Libraries
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Include "Libs/Nadeo/CMGame/Utils/Store_ML.Script.txt" as Store
+#Include "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt" as MV
+#Include "Libs/Nadeo/CMGame/Structures/ClubStruct.Script.txt" as ClubStruct
+#Include "Libs/Nadeo/Trackmania/Structures/CampaignStruct.Script.txt" as CampaignStruct
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Structures
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Struct K_ClubsPager {
+	ClubStruct::LibStructuresClub_K_Club[Integer] Clubs;
+	Integer Offset;
+	Integer Total;
+}
+
+#Struct K_MembersPager {
+	ClubStruct::LibStructuresClub_K_Member[Integer] Members;
+	Integer Offset;
+	Integer Total;
+}
+
+#Struct K_ClubRoomsPager {
+	ClubStruct::LibStructuresClub_K_Room[Integer] Rooms;
+	Integer Offset;
+	Integer Total;
+}
+
+#Struct K_ClubActivitiesPager {
+	ClubStruct::LibStructuresClub_K_Activity[Integer] Activities;
+	Integer Offset;
+	Integer Total;
+}
+
+#Struct K_BucketActivitiesPager {
+	ClubStruct::LibStructuresClub_K_BucketActivity[Integer] BucketActivities;
+	Integer Offset;
+	Integer Total;
+}
+
+#Struct K_MapReviewsPager {
+	ClubStruct::LibStructuresClub_K_MapReview[Integer] MapReviews;
+	Integer Offset;
+	Integer Total;
+}
+
+#Struct K_ClubDetails {
+	ClubStruct::LibStructuresClub_K_Club Club;
+	ClubStruct::LibStructuresClub_K_Member Membership;
+	K_MembersPager MembersPager;
+	K_MembersPager MemberRequestsPager;
+}
+
+#Struct K_State {
+	K_ClubsPager[Integer] ClubsPager;
+	K_ClubsPager BrowserClubsPager;
+	ClubStruct::LibStructuresClub_K_Club[Integer] UserClubs;
+	K_ClubDetails CurrentClub; //< Club used in club details and all pages within a club, no need to be a member
+	K_ClubDetails PinnedClub; //< Club pinned in NavigationTabs and used outside of the club details, need to be a member of the club
+	Integer PinnedClubStatus;
+	Integer TaggedClubId;
+	Text TaggedClubTag;
+	Integer ClubTagStatus;
+	K_ClubRoomsPager AllClubRoomsPager;
+	K_ClubRoomsPager[Integer] ClubRoomsPager; //< Key is the Id of the club
+	K_ClubActivitiesPager[Integer] ClubActivitiesPagers; //< Key is the Id of the club
+	K_ClubActivitiesPager[Integer] InactiveClubActivitiesPagers; //< Key is the Id of the club
+	ClubStruct::LibStructuresClub_K_Activity[Integer] ClubsFeaturedActivity; //< Key is the Id of the club
+	K_BucketActivitiesPager SkinUploadsPager;
+	K_BucketActivitiesPager ItemUploadsPager;
+	K_MapReviewsPager MapReviewsPager;
+	ClubStruct::LibStructuresClub_K_Member[][Text][Text] GlobalVIPList; //< First key is the season Uid, the second key the Map Uid
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Constants
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+#Const C_State_Null K_State {
+	ClubsPager = [],
+	BrowserClubsPager = K_ClubsPager {
+		Clubs = [],
+		Offset = 0,
+		Total = 0
+	},
+	UserClubs = [],
+	CurrentClub = K_ClubDetails {},
+	PinnedClub = K_ClubDetails {},
+	PinnedClubStatus = 0,
+	TaggedClubId = 0,
+	TaggedClubTag = "",
+	ClubTagStatus = 0,
+	AllClubRoomsPager = K_ClubRoomsPager {
+		Rooms = [],
+		Offset = 0,
+		Total = 0
+	},
+	ClubRoomsPager = [],
+	ClubActivitiesPagers = [],
+	InactiveClubActivitiesPagers = [],
+	ClubsFeaturedActivity = [],
+	SkinUploadsPager = K_BucketActivitiesPager {
+		BucketActivities = [],
+		Offset = 0,
+		Total = 0
+	},
+	ItemUploadsPager = K_BucketActivitiesPager {
+		BucketActivities = [],
+		Offset = 0,
+		Total = 0
+	},
+	MapReviewsPager = K_MapReviewsPager {
+		MapReviews = [],
+		Offset = 0,
+		Total = 0
+	},
+	GlobalVIPList = []
+}
+
+#Const C_ComponentName "lib-store-club"
+#Const P "Trackmania_ClubStore::"
+#Const Q "Trackmania_ClubStore"
+#Const C_StoreId "club"
+
+#Const C_Section_AllClubs 0
+#Const C_Section_MyClubs 1
+
+#Const C_PinnedClubStatus_OK 0
+#Const C_PinnedClubStatus_Updating 1
+#Const C_PinnedClubStatus_Error 2
+
+#Const C_ClubTagStatus_OK 0
+#Const C_ClubTagStatus_Updating 1
+#Const C_ClubTagStatus_Error 2
+
+#Const C_Action_LoadClubsPage "Trackmania_ClubStore_Action_LoadClubsPage"
+#Const C_Action_LoadBrowserClubs "Trackmania_ClubStore_Action_LoadBrowserClubs"
+#Const C_Action_LoadUserClubs "Trackmania_ClubStore_Action_LoadUserClubs"
+#Const C_Action_LoadCreatedClub "Trackmania_ClubStore_Action_LoadCreatedClub"
+#Const C_Action_SetUserCurrentClub "Trackmania_ClubStore_Action_SetUserCurrentClub"
+#Const C_Action_LoadPinAndTagClub "Trackmania_ClubStore_Action_LoadPinAndTagClub"
+#Const C_Action_PinClub "Trackmania_ClubStore_Action_PinClub"
+#Const C_Action_PinCurrentClub "Trackmania_ClubStore_Action_PinCurrentClub"
+#Const C_Action_UnpinClub "Trackmania_ClubStore_Action_UnpinClub"
+#Const C_Action_ApplyClubTag "Trackmania_ClubStore_Action_ApplyClubTag"
+#Const C_Action_RemoveClubTag "Trackmania_ClubStore_Action_RemoveClubTag"
+#Const C_Action_LoadUserCurrentClubMembersPage "Trackmania_ClubStore_Action_LoadUserCurrentClubMembersPage"
+#Const C_Action_LoadUserCurrentClubMemberRequestsPage "Trackmania_ClubStore_Action_LoadUserCurrentClubMemberRequestsPage"
+#Const C_Action_GetClubMemberFromLogin "Trackmania_ClubStore_Action_GetClubMemberFromLogin"
+#Const C_Action_CreateClub "Trackmania_ClubStore_Action_CreateClub"
+#Const C_Action_DeleteClubMember "Trackmania_ClubStore_Action_DeleteClubMember"
+#Const C_Action_EditClubMember "Trackmania_ClubStore_Action_EditClubMember"
+#Const C_Action_CreateClubMember "Trackmania_ClubStore_Action_CreateClubMember"
+#Const C_Action_LoadAllClubRoomsPage "Trackmania_ClubStore_Action_LoadAllClubRoomsPage"
+#Const C_Action_LoadClubActivitiesPage "Trackmania_ClubStore_Action_LoadClubActivitiesPage"
+#Const C_Action_LoadInactiveClubActivitiesPage "Trackmania_ClubStore_Action_LoadInactiveClubActivitiesPage"
+#Const C_Action_LoadClubsFeaturedActivity "Trackmania_ClubStore_Action_LoadClubsFeaturedActivity"
+#Const C_Action_MoveActivity "Trackmania_ClubStore_Action_MoveActivity"
+#Const C_Action_DeleteActivity "Trackmania_ClubStore_Action_DeleteActivity"
+#Const C_Action_CreateCampaign "Trackmania_ClubStore_Action_CreateCampaign"
+#Const C_Action_EditCampaign "Trackmania_ClubStore_Action_EditCampaign"
+#Const C_Action_ActivateActivity "Trackmania_ClubStore_Action_ActivateActivity"
+#Const C_Action_ActivityUpdatePrivacy "Trackmania_ClubStore_Action_ActivityUpdatePrivacy"
+#Const C_Action_UpdateFeaturedActivity "Trackmania_ClubStore_Action_UpdateFeaturedActivity"
+#Const C_Action_CreateClubRoom "Trackmania_ClubStore_Action_CreateClubRoom"
+#Const C_Action_EditClubRoom "Trackmania_ClubStore_Action_EditClubRoom"
+#Const C_Action_UpdateUserCurrentClubMembership "Trackmania_ClubStore_Action_UpdateUserCurrentClubMembership"
+#Const C_Action_EditClub "Trackmania_ClubStore_Action_EditClub"
+#Const C_Action_DeleteClub "Trackmania_ClubStore_Action_DeleteClub"
+#Const C_Action_UpdateClubVIP "Trackmania_ClubStore_Action_UpdateClubVIP"
+#Const C_Action_GetVIPListOnMap "Trackmania_ClubStore_Action_GetVIPListOnMap"
+#Const C_Action_CreateBucketActivity "Trackmania_ClubStore_Action_CreateBucketActivity"
+#Const C_Action_EditBucketActivity "Trackmania_ClubStore_Action_EditBucketActivity"
+#Const C_Action_CreateOrEditMapReviewActivity "Trackmania_ClubStore_Action_CreateOrEditMapReviewActivity"
+#Const C_Action_CreateOrEditNewsActivity "Trackmania_ClubStore_Action_CreateOrEditNewsActivity"
+#Const C_Action_CreateOrEditItemCollectionActivity "Trackmania_ClubStore_Action_CreateOrEditItemCollectionActivity"
+#Const C_Action_CreateOrEditRankingsActivity "Trackmania_ClubStore_Action_CreateOrEditRankingsActivity"
+#Const C_Action_LoadAllSkinUploadsPage "Trackmania_ClubStore_Action_LoadAllSkinUploadsPage"
+#Const C_Action_LoadAllItemUploadsPage "Trackmania_ClubStore_Action_LoadAllItemUploadsPage"
+#Const C_Action_LoadMapReviewActivities "Trackmania_ClubStore_Action_LoadMapReviewActivities"
+
+#Const C_Event_MyClubsUpdated "Trackmania_ClubStore_Event_MyClubsUpdated"
+#Const C_Event_BrowserClubsUpdated "Trackmania_ClubStore_Event_BrowserClubsUpdated"
+#Const C_Event_BrowserClubsError "Trackmania_ClubStore_Event_BrowserClubsError"
+#Const C_Event_AllClubsUpdated "Trackmania_ClubStore_Event_AllClubsUpdated"
+#Const C_Event_ClubTagUpdated "Trackmania_ClubStore_Event_ClubTagUpdated"
+#Const C_Event_ClubTagStatusUpdated "Trackmania_ClubStore_Event_ClubTagStatusUpdated"
+#Const C_Event_UserClubsUpdated "Trackmania_ClubStore_Event_UserClubsUpdated"
+#Const C_Event_UserClubsUpdateError "Trackmania_ClubStore_Event_UserClubsUpdateError"
+#Const C_Event_UserCurrentClubUpdated "Trackmania_ClubStore_Event_UserCurrentClubUpdated"
+#Const C_Event_UserCurrentClubMembershipUpdated "Trackmania_ClubStore_Event_UserCurrentClubMembershipUpdated"
+#Const C_Event_UserCurrentClubMembershipUpdateFailed "Trackmania_ClubStore_Event_UserCurrentClubMembershipUpdateFailed"
+#Const C_Event_UserCurrentClubMembersUpdated "Trackmania_ClubStore_Event_UserCurrentClubMembersUpdated"
+#Const C_Event_UserCurrentClubMembersUpdateFailed "Trackmania_ClubStore_Event_UserCurrentClubMembersUpdateFailed"
+#Const C_Event_UserCurrentClubMemberRequestsUpdated "Trackmania_ClubStore_Event_UserCurrentClubMemberRequestsUpdated"
+#Const C_Event_UserCurrentClubMemberRequestsUpdateFailed "Trackmania_ClubStore_Event_UserCurrentClubMemberRequestsUpdateFailed"
+#Const C_Event_ClubCreated "Trackmania_ClubStore_Event_ClubCreated"
+#Const C_Event_ClubCreationFailed "Trackmania_ClubStore_Event_ClubCreationFailed"
+#Const C_Event_CreatedClubUpdateError "Trackmania_ClubStore_Event_CreatedClubUpdateError"
+#Const C_Event_ClubMemberUpdated "Trackmania_ClubStore_Event_ClubMemberUpdated"
+#Const C_Event_ClubMemberUpdateFailed "Trackmania_ClubStore_Event_ClubMemberUpdateFailed"
+#Const C_Event_ClubRoomsUpdated "Trackmania_ClubStore_Event_ClubRoomsUpdated"
+#Const C_Event_ClubActivitiesUpdated "Trackmania_ClubStore_Event_ClubActivitiesUpdated"
+#Const C_Event_ClubActivitiesUpdateError "Trackmania_ClubStore_Event_ClubActivitiesUpdateError"
+#Const C_Event_ClubsFeaturedActivityListUpdated "Trackmania_ClubStore_Event_ClubsFeaturedActivityListUpdated"
+#Const C_Event_ClubsFeaturedActivityUpdateError "Trackmania_ClubStore_Event_ClubsFeaturedActivityUpdateError"
+#Const C_Event_ClubActivityMoved "Trackmania_ClubStore_Event_ClubActivityMoved"
+#Const C_Event_ClubActivityNotMoved "Trackmania_ClubStore_Event_ClubActivityNotMoved"
+#Const C_Event_ClubActivityDeleted "Trackmania_ClubStore_Event_ClubActivityDeleted"
+#Const C_Event_ClubActivityNotDeleted "Trackmania_ClubStore_Event_ClubActivityNotDeleted"
+#Const C_Event_ActivityActivatedOrDeactivated "Trackmania_ClubStore_Event_ActivityActivatedOrDeactivated"
+#Const C_Event_ActivityValidationFailed "Trackmania_ClubStore_Event_CampaignValidation"
+#Const C_Event_ClubCampaignCreatedOrEdited "Trackmania_ClubStore_Event_ClubCampaignCreatedOrEdited"
+#Const C_Event_ClubCampaignCreationOrEditionFailed "Trackmania_ClubStore_Event_ClubCampaignCreationOrEditionFailed"
+#Const C_Event_ClubMediaActivityUploaded "Trackmania_ClubStore_Event_ClubMediaActivityUploaded"
+#Const C_Event_ClubActivityPrivacyUpdated "Trackmania_ClubStore_Event_ClubActivityPrivacyUpdated"
+#Const C_Event_ClubActivityPrivacyUpdateFailed "Trackmania_ClubStore_Event_ClubActivityPrivacyUpdateFailed"
+#Const C_Event_ClubActivityFeaturedUpdated "Trackmania_ClubStore_Event_ClubActivityFeaturedUpdated"
+#Const C_Event_ClubActivityFeaturedUpdateFailed "Trackmania_ClubStore_Event_ClubActivityFeaturedUpdateFailed"
+#Const C_Event_ClubRoomCreatedOrEdited "Trackmania_ClubStore_Event_ClubRoomCreatedOrEdited"
+#Const C_Event_ClubRoomCreationOrEditionFailed "Trackmania_ClubStore_Event_ClubRoomCreationOrEditonFailed"
+#Const C_Event_ClubRoomDeleted "Trackmania_ClubStore_Event_ClubRoomDeleted"
+#Const C_Event_ClubRoomDeletionFailed "Trackmania_ClubStore_Event_ClubRoomDeletionFailed"
+#Const C_Event_ClubUpdated "Trackmania_ClubStore_Event_ClubUpdated"
+#Const C_Event_ClubUpdateFailed "Trackmania_ClubStore_Event_ClubUpdateFailed"
+#Const C_Event_ClubDeleted "Trackmania_ClubStore_Event_ClubDeleted"
+#Const C_Event_ClubDeleteFailed "Trackmania_ClubStore_Event_ClubDeleteFailed"
+#Const C_Event_ClubVIPUpdated "Trackmania_ClubStore_Event_ClubVIPUpdated"
+#Const C_Event_ClubVIPListOnMapUpdated "Trackmania_ClubStore_Event_ClubVIPListOnMapUpdated"
+#Const C_Event_ClubVIPListOnMapFailed "Trackmania_ClubStore_Event_ClubVIPListOnMapFailed"
+#Const C_Event_GlobalVIPListOnMapUpdated "Trackmania_ClubStore_Event_GlobalVIPListOnMapUpdated"
+#Const C_Event_GlobalVIPListOnMapFailed "Trackmania_ClubStore_Event_GlobalVIPListOnMapFailed"
+#Const C_Event_BucketActivityCreatedOrEdited "Trackmania_ClubStore_Event_BucketActivityCreatedOrEdited"
+#Const C_Event_BucketActivityCreationOrEditionFailed "Trackmania_ClubStore_Event_BucketActivityCreationOrEditionFailed"
+#Const C_Event_MapReviewActivityCreatedOrEdited "Trackmania_ClubStore_Event_MapReviewActivityCreatedOrEdited"
+#Const C_Event_MapReviewActivityCreationOrEditionFailed "Trackmania_ClubStore_Event_MapReviewActivityCreationOrEditionFailed"
+#Const C_Event_ItemCollectionActivityCreatedOrEdited "Trackmania_ClubStore_Event_ItemCollectionActivityCreatedOrEdited"
+#Const C_Event_ItemCollectionActivityCreationOrEditionFailed "Trackmania_ClubStore_Event_ItemCollectionActivityCreationOrEditionFailed"
+#Const C_Event_NewsActivityCreatedOrEdited "Trackmania_ClubStore_Event_NewsActivityCreatedOrEdited"
+#Const C_Event_NewsActivityCreationOrEditionFailed "Trackmania_ClubStore_Event_NewsActivityCreationOrEditionFailed"
+#Const C_Event_RankingsActivityCreatedOrEdited "Trackmania_ClubStore_Event_RankingsActivityCreatedOrEdited"
+#Const C_Event_RankingsActivityCreationOrEditionFailed "Trackmania_ClubStore_Event_RankingsActivityCreationOrEditionFailed"
+#Const C_Event_SkinUploadsUpdated "Trackmania_ClubStore_Event_SkinUploadsUpdated"
+#Const C_Event_SkinUploadsPagingFailed "Trackmania_ClubStore_Event_SkinUploadsPagingFailed"
+#Const C_Event_ItemUploadsUpdated "Trackmania_ClubStore_Event_ItemUploadsUpdated"
+#Const C_Event_ItemUploadsPagingFailed "Trackmania_ClubStore_Event_ItemUploadsPagingFailed"
+#Const C_Event_MapReviewsUpdated "Trackmania_ClubStore_Event_MapReviewsUpdated"
+#Const C_Event_LoadAllClubsPageComplete "Trackmania_ClubStore_Event_LoadAllClubsPageComplete"
+#Const C_Event_LoadMyClubsPageComplete "Trackmania_ClubStore_Event_LoadMyClubsPageComplete"
+#Const C_Event_PinnedClubUpdate "Trackmania_ClubStore_Event_PinnedClubUpdate"
+#Const C_Event_PinnedClubError "Trackmania_ClubStore_Event_PinnedClubError"
+#Const C_Event_PinnedClubStatusUpdated "Trackmania_ClubStore_Event_PinnedClubStatusUpdated"
+#Const C_Event_LoadPinAndTagClubUpdate "Trackmania_ClubStore_Event_LoadPinAndTagClubUpdate"
+
+#Const ClubStruct::C_MediaType_Icon as C_MediaType_Icon
+#Const ClubStruct::C_MediaType_Decal as C_MediaType_Decal
+#Const ClubStruct::C_MediaType_Bg as C_MediaType_Bg
+#Const ClubStruct::C_MediaType_Vertical as C_MediaType_Vertical
+#Const ClubStruct::C_MediaType_DecalSponsor as C_MediaType_DecalSponsor
+#Const ClubStruct::C_MediaType_Screen16x9 as C_MediaType_Screen16x9
+#Const ClubStruct::C_MediaType_Screen8x1 as C_MediaType_Screen8x1
+#Const ClubStruct::C_MediaType_Screen16x1 as C_MediaType_Screen16x1
+#Const ClubStruct::C_MediaType_Translations as C_MediaType_Translations
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// MARK: Functions
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+
+K_State GetState() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State;
+}
+
+ClubStruct::LibStructuresClub_K_Club[Integer] GetMyClubs() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ClubsPager[C_Section_MyClubs].Clubs;
+}
+
+Integer GetMyClubsTotal() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ClubsPager[C_Section_MyClubs].Total;
+}
+
+ClubStruct::LibStructuresClub_K_Club[Integer] GetBrowserClubs() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.BrowserClubsPager.Clubs;
+}
+
+Integer GetBrowserClubsTotal() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.BrowserClubsPager.Total;
+}
+
+ClubStruct::LibStructuresClub_K_Club[Integer] GetAllClubs() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ClubsPager[C_Section_AllClubs].Clubs;
+}
+
+Integer GetAllClubsTotal() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ClubsPager[C_Section_AllClubs].Total;
+}
+
+ClubStruct::LibStructuresClub_K_Club[Integer] GetUserClubs() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.UserClubs;
+}
+
+ClubStruct::LibStructuresClub_K_Club GetUserCurrentClub() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.CurrentClub.Club;
+}
+
+ClubStruct::LibStructuresClub_K_Member GetUserCurrentClubMembership() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.CurrentClub.Membership;
+}
+
+Integer GetUserTaggedClubId() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.TaggedClubId;
+}
+Integer GetUserClubTagStatus() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ClubTagStatus;
+}
+
+ClubStruct::LibStructuresClub_K_Club GetUserPinnedClub() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.PinnedClub.Club;
+}
+
+Integer GetUserPinnedClubStatus() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.PinnedClubStatus;
+}
+
+ClubStruct::LibStructuresClub_K_Member GetUserPinnedClubMembership() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.PinnedClub.Membership;
+}
+
+K_MembersPager GetUserCurrentClubMembersPager() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.CurrentClub.MembersPager;
+}
+
+K_MembersPager GetUserCurrentClubMemberRequestsPager() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.CurrentClub.MemberRequestsPager;
+}
+
+ClubStruct::LibStructuresClub_K_Room[Integer] GetClubRooms() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.AllClubRoomsPager.Rooms;
+}
+
+ClubStruct::LibStructuresClub_K_Room[Integer] GetClubRooms(Integer _ClubId) {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ClubRoomsPager.get(_ClubId, K_ClubRoomsPager {}).Rooms;
+}
+
+Integer GetClubRoomsTotal() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.AllClubRoomsPager.Total;
+}
+
+Integer GetClubRoomsTotal(Integer _ClubId) {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ClubRoomsPager.get(_ClubId, K_ClubRoomsPager {}).Total;
+}
+
+ClubStruct::LibStructuresClub_K_Activity[Integer] GetClubActivities(Integer _ClubId) {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ClubActivitiesPagers.get(_ClubId, K_ClubActivitiesPager {}).Activities;
+}
+
+Integer GetClubActivitiesTotal(Integer _ClubId) {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ClubActivitiesPagers.get(_ClubId, K_ClubActivitiesPager {}).Total;
+}
+
+ClubStruct::LibStructuresClub_K_Activity[Integer] GetInactiveClubActivities(Integer _ClubId) {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.InactiveClubActivitiesPagers.get(_ClubId, K_ClubActivitiesPager {}).Activities;
+}
+
+Integer GetInactiveClubActivitiesTotal(Integer _ClubId) {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.InactiveClubActivitiesPagers.get(_ClubId, K_ClubActivitiesPager {}).Total;
+}
+
+ClubStruct::LibStructuresClub_K_Activity GetClubsFeaturedActivities(Integer _ClubId) {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ClubsFeaturedActivity.get(_ClubId, ClubStruct::LibStructuresClub_K_Activity {});
+}
+
+Boolean IsGettingVIPListOnMap() {
+	declare Boolean Trackmania_ClubStore_IsGettingVIPListOnMap for System = False;
+	return Trackmania_ClubStore_IsGettingVIPListOnMap;
+}
+
+ClubStruct::LibStructuresClub_K_Member[] GetVIPListOnMap(Integer _ClubId, Text _SeasonUid, Text _MapUid) {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+
+	if (Trackmania_ClubStore_State.PinnedClub.Club.Id == _ClubId &&
+		Trackmania_ClubStore_State.PinnedClub.Club.VIPListOnMap.existskey(_SeasonUid) &&
+		Trackmania_ClubStore_State.PinnedClub.Club.VIPListOnMap[_SeasonUid].existskey(_MapUid)
+	) {
+		return Trackmania_ClubStore_State.PinnedClub.Club.VIPListOnMap[_SeasonUid][_MapUid];
+	}
+
+	foreach (ClubIndex => Club in Trackmania_ClubStore_State.ClubsPager[C_Section_AllClubs].Clubs) {
+		if (Club.Id == _ClubId && Club.VIPListOnMap.existskey(_SeasonUid) && Club.VIPListOnMap[_SeasonUid].existskey(_MapUid)) {
+			return Trackmania_ClubStore_State.ClubsPager[C_Section_AllClubs].Clubs[ClubIndex].VIPListOnMap[_SeasonUid][_MapUid];
+		}
+	}
+
+	return [];
+}
+
+ClubStruct::LibStructuresClub_K_Member[] GetGlobalVIPListOnMap(Text _MapUid, Text _SeasonUid) {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.GlobalVIPList.get(_SeasonUid, []).get(_MapUid, []);
+}
+
+ClubStruct::LibStructuresClub_K_BucketActivity[Integer] GetSkinUploads() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.SkinUploadsPager.BucketActivities;
+}
+
+Integer GetSkinUploadsTotal() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.SkinUploadsPager.Total;
+}
+
+ClubStruct::LibStructuresClub_K_BucketActivity[Integer] GetItemUploads() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ItemUploadsPager.BucketActivities;
+}
+
+Integer GetItemUploadsTotal() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.ItemUploadsPager.Total;
+}
+
+ClubStruct::LibStructuresClub_K_MapReview[Integer] GetMapReviewActivities() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.MapReviewsPager.MapReviews;
+}
+
+Integer GetMapReviewActivitiesTotal() {
+	declare K_State Trackmania_ClubStore_State for System = C_State_Null;
+	return Trackmania_ClubStore_State.MapReviewsPager.Total;
+}
+
+Void Action_LoadClubsBrowser(CMlScript _This, Integer _Offset, Integer _Length) {
+	_This.SendCustomEvent(C_Action_LoadBrowserClubs, [""^_Offset, ""^_Length]);
+}
+
+Void Action_LoadMyClubsPage(CMlScript _This, Integer _Offset, Integer _Length) {
+	_This.SendCustomEvent(C_Action_LoadClubsPage, ["", ""^C_Section_MyClubs, ""^_Offset, ""^_Length]);
+}
+
+Void Action_LoadAllClubsPage(CMlScript _This, Text _FilterName, Integer _Offset, Integer _Length) {
+	_This.SendCustomEvent(C_Action_LoadClubsPage, [_FilterName, ""^C_Section_AllClubs, ""^_Offset, ""^_Length]);
+}
+
+Void Action_LoadUserClubs(CMlScript _This, Integer _Offset, Integer _Length) {
+	_This.SendCustomEvent(C_Action_LoadUserClubs, [""^_Offset, ""^_Length]);
+}
+
+Void Action_LoadCreatedClub(CMlScript _This, Integer _ClubId) {
+	_This.SendCustomEvent(C_Action_LoadCreatedClub, [""^_ClubId]);
+}
+
+Void Action_LoadUserCurrentClubMembersPage(CMlScript _This, Integer _ClubId, Integer _Offset, Integer _Length, Text _Login) {
+	_This.SendCustomEvent(C_Action_LoadUserCurrentClubMembersPage, [""^_ClubId, ""^_Offset, ""^_Length, _Login]);
+}
+
+Void Action_LoadUserCurrentClubMemberRequestsPage(CMlScript _This, Integer _ClubId, Integer _Offset, Integer _Length) {
+	_This.SendCustomEvent(C_Action_LoadUserCurrentClubMemberRequestsPage, [""^_ClubId, ""^_Offset, ""^_Length]);
+}
+
+Void Action_GetClubMemberFromLogin(CMlScript _This, Integer _ClubId, Text _Login) {
+	_This.SendCustomEvent(C_Action_GetClubMemberFromLogin, [""^_ClubId, _Login]);
+}
+
+Void Action_SetUserCurrentClub(CMlScript _This, ClubStruct::LibStructuresClub_K_Club _Club) {
+	_This.SendCustomEvent(C_Action_SetUserCurrentClub, [_Club.tojson()]);
+}
+
+Void Action_LoadPinAndTagClub(CMlScript _This, Text _CurrentClubTag) {
+	_This.SendCustomEvent(C_Action_LoadPinAndTagClub, [""^_CurrentClubTag]);
+}
+Void Action_LoadPinAndTagClub(CMlScript _This) {
+	_This.SendCustomEvent(C_Action_LoadPinAndTagClub, []);
+}
+
+Void Action_PinClub(CMlScript _This, ClubStruct::LibStructuresClub_K_Club _Club, ClubStruct::LibStructuresClub_K_Member _Membership) {
+	_This.SendCustomEvent(C_Action_PinClub, [_Club.tojson(), _Membership.tojson()]);
+}
+
+Void Action_PinCurrentClub(CMlScript _This) {
+	_This.SendCustomEvent(C_Action_PinCurrentClub, []);
+}
+
+Void Action_UnpinClub(CMlScript _This) {
+	_This.SendCustomEvent(C_Action_UnpinClub, []);
+}
+
+Void Action_ApplyClubTag(CMlScript _This, ClubStruct::LibStructuresClub_K_Club _Club) {
+	_This.SendCustomEvent(C_Action_ApplyClubTag, [_Club.tojson()]);
+}
+
+Void Action_RemoveClubTag(CMlScript _This) {
+	_This.SendCustomEvent(C_Action_RemoveClubTag, []);
+}
+
+Void Action_CreateClub(CMlScript _This, ClubStruct::LibStructuresClub_K_Club _Club) {
+	_This.SendCustomEvent(C_Action_CreateClub, [_Club.tojson()]);
+}
+
+Void Action_DeleteClubMember(CMlScript _This, Integer _ClubId, Text _AccountId) {
+	_This.SendCustomEvent(C_Action_DeleteClubMember, [""^_ClubId, _AccountId]);
+}
+
+Void Action_EditClubMember(CMlScript _This, Integer _ClubId, Text _AccountId, Text _Role) {
+	_This.SendCustomEvent(C_Action_EditClubMember, [""^_ClubId, _AccountId, _Role]);
+}
+
+Void Action_CreateClubMember(CMlScript _This, Integer _ClubId) {
+	_This.SendCustomEvent(C_Action_CreateClubMember, [""^_ClubId]);
+}
+
+Void Action_LoadAllClubRoomsPage(CMlScript _This, Text _FilterName, Integer _Offset, Integer _Length) {
+	_This.SendCustomEvent(C_Action_LoadAllClubRoomsPage, [_FilterName, ""^_Offset, ""^_Length]);
+}
+
+Void Action_LoadClubActivitiesPage(CMlScript _This, Integer _ClubId, Integer _FolderId, Integer _Offset, Integer _Length) {
+	_This.SendCustomEvent(C_Action_LoadClubActivitiesPage, [""^_ClubId, ""^_FolderId, ""^_Offset, ""^_Length]);
+}
+Void Action_LoadClubActivitiesPage(CMlScript _This, Integer _ClubId, Integer _Offset, Integer _Length) {
+	Action_LoadClubActivitiesPage(_This, _ClubId, ClubStruct::C_FolderNullId, _Offset, _Length);
+}
+
+Void Action_LoadInactiveClubActivitiesPage(CMlScript _This, Integer _ClubId, Integer _FolderId, Integer _Offset, Integer _Length) {
+	_This.SendCustomEvent(C_Action_LoadInactiveClubActivitiesPage, [""^_ClubId, ""^_FolderId, ""^_Offset, ""^_Length]);
+}
+Void Action_LoadInactiveClubActivitiesPage(CMlScript _This, Integer _ClubId, Integer _Offset, Integer _Length) {
+	Action_LoadInactiveClubActivitiesPage(_This, _ClubId, ClubStruct::C_FolderNullId, _Offset, _Length);
+}
+
+Void Action_LoadClubsFeaturedActivity(CMlScript _This, Integer[] _ClubIds) {
+	_This.SendCustomEvent(C_Action_LoadClubsFeaturedActivity, [_ClubIds.tojson()]);
+}
+
+Void Action_MoveActivity(CMlScript _This, Integer _ClubId, Integer _ActivityId, Integer _Position) {
+	_This.SendCustomEvent(C_Action_MoveActivity, [""^_ClubId, ""^_ActivityId, ""^_Position]);
+}
+
+Void Action_DeleteActivity(CMlScript _This, Integer _ClubId, Integer _ActivityId) {
+	_This.SendCustomEvent(C_Action_DeleteActivity, [""^_ClubId, ""^_ActivityId]);
+}
+
+Void Action_CreateCampaign(CMlScript _This, CampaignStruct::LibCampaignStruct_K_Campaign _Campaign, Integer _FolderId) {
+	_This.SendCustomEvent(C_Action_CreateCampaign, [_Campaign.tojson(), ""^_FolderId]);
+}
+Void Action_CreateCampaign(CMlScript _This, CampaignStruct::LibCampaignStruct_K_Campaign _Campaign) {
+	Action_CreateCampaign(_This, _Campaign, ClubStruct::C_FolderNullId);
+}
+
+Void Action_EditCampaign(CMlScript _This, CampaignStruct::LibCampaignStruct_K_Campaign _Campaign) {
+	_This.SendCustomEvent(C_Action_EditCampaign, [_Campaign.tojson()]);
+}
+
+Void Action_ActivateActivity(CMlScript _This, Integer _ClubId, Integer _ActivityId, Boolean _Active) {
+	declare Text Active = "0";
+	if (_Active) Active = "1";
+	_This.SendCustomEvent(C_Action_ActivateActivity, [""^_ClubId, ""^_ActivityId, Active]);
+}
+
+Void Action_ActivityUpdatePrivacy(CMlScript _This, Integer _ClubId, Integer _ActivityId, Boolean _Public) {
+	declare Text Public = "0";
+	if (_Public) Public = "1";
+	_This.SendCustomEvent(C_Action_ActivityUpdatePrivacy, [""^_ClubId, ""^_ActivityId, Public]);
+}
+
+Void Action_UpdateFeaturedActivity(CMlScript _This, Integer _ClubId, Integer _ActivityId, Boolean _Featured) {
+	declare Text Featured = "0";
+	if (_Featured) Featured = "1";
+	_This.SendCustomEvent(C_Action_UpdateFeaturedActivity, [""^_ClubId, ""^_ActivityId, Featured]);
+}
+
+Void Action_CreateClubRoom(CMlScript _This, ClubStruct::LibStructuresClub_K_Room _Room, Integer _FolderId) {
+	_This.SendCustomEvent(C_Action_CreateClubRoom, [_Room.tojson(), ""^_FolderId]);
+}
+Void Action_CreateClubRoom(CMlScript _This, ClubStruct::LibStructuresClub_K_Room _Room) {
+	Action_CreateClubRoom(_This, _Room, ClubStruct::C_FolderNullId);
+}
+
+Void Action_EditClubRoom(CMlScript _This, ClubStruct::LibStructuresClub_K_Room _Room) {
+	_This.SendCustomEvent(C_Action_EditClubRoom, [_Room.tojson()]);
+}
+
+Void Action_UpdateUserCurrentClubMembership(CMlScript _This, Integer _ClubId) {
+	_This.SendCustomEvent(C_Action_UpdateUserCurrentClubMembership, [""^_ClubId]);
+}
+
+Void Action_EditClub(CMlScript _This, ClubStruct::LibStructuresClub_K_Club _Club, Boolean _RemoveDecalSponsor4x1) {
+	declare Text RemoveDecalSponsor4x1 = "0";
+	if (_RemoveDecalSponsor4x1) RemoveDecalSponsor4x1 = "1";
+	_This.SendCustomEvent(C_Action_EditClub, [_Club.tojson(), RemoveDecalSponsor4x1]);
+}
+
+Void Action_DeleteClub(CMlScript _This, Integer _ClubId) {
+	_This.SendCustomEvent(C_Action_DeleteClub, [""^_ClubId]);
+}
+
+Void Action_UpdateClubVIP(CMlScript _This, Integer _ClubId, Text _AccountId, Boolean _SetVIP) {
+	declare Text SetVIP = "0";
+	if (_SetVIP) SetVIP = "1";
+	_This.SendCustomEvent(C_Action_UpdateClubVIP, [""^_ClubId, _AccountId, SetVIP]);
+}
+
+Void Action_GetVIPListOnMap(CMlScript _This, Integer _ClubId, Text _MapUid, Text _SeasonUid) {
+	_This.SendCustomEvent(C_Action_GetVIPListOnMap, [""^_ClubId, _MapUid, _SeasonUid]);
+}
+
+Void Action_CreateBucketActivity(CMlScript _This, Integer _ClubId, Integer _FolderId, Text _Name, Text _MediaUrl, Text _BucketType) {
+	_This.SendCustomEvent(C_Action_CreateBucketActivity, [""^_ClubId, ""^_FolderId, _Name, _MediaUrl, _BucketType]);
+}
+Void Action_CreateBucketActivity(CMlScript _This, Integer _ClubId, Text _Name, Text _MediaUrl, Text _BucketType) {
+	Action_CreateBucketActivity(_This, _ClubId, ClubStruct::C_FolderNullId, _Name, _MediaUrl, _BucketType);
+}
+
+Void Action_EditBucketActivity(CMlScript _This, Integer _ClubId, Integer _ActivityId, Text _Name, Text _MediaUrl) {
+	_This.SendCustomEvent(C_Action_EditBucketActivity, [""^_ClubId, ""^_ActivityId, _Name, _MediaUrl]);
+}
+
+Void Action_CreateOrEditMapReviewActivity(CMlScript _This, ClubStruct::LibStructuresClub_K_MapReview _MapReview, Integer _FolderId, Boolean _IsEditing) {
+	declare Text IsEditing = "0";
+	if (_IsEditing) IsEditing = "1";
+	_This.SendCustomEvent(C_Action_CreateOrEditMapReviewActivity, [_MapReview.tojson(), ""^_FolderId, IsEditing]);
+}
+Void Action_CreateOrEditMapReviewActivity(CMlScript _This, ClubStruct::LibStructuresClub_K_MapReview _MapReview, Boolean _IsEditing) {
+	Action_CreateOrEditMapReviewActivity(_This, _MapReview, ClubStruct::C_FolderNullId, _IsEditing);
+}
+
+Void Action_CreateOrEditItemCollectionActivity(CMlScript _This, ClubStruct::LibStructuresClub_K_BucketItem _ItemCollection, Integer _ClubId, Integer _FolderId, Integer _ActivityId, Text _Name, Text _MediaUrl, Boolean _IsEditing, ClubStruct::LibStructuresClub_K_BucketItem _OldItemCollection) {
+	declare Text IsEditing = "0";
+	if (_IsEditing) IsEditing = "1";
+	_This.SendCustomEvent(C_Action_CreateOrEditItemCollectionActivity, [_ItemCollection.tojson(), ""^_ClubId, ""^_FolderId, ""^_ActivityId, _Name, _MediaUrl, IsEditing, _OldItemCollection.tojson()]);
+}
+Void Action_CreateOrEditItemCollectionActivity(CMlScript _This, ClubStruct::LibStructuresClub_K_BucketItem _ItemCollection, Integer _ClubId, Integer _ActivityId, Text _Name, Text _MediaUrl, Boolean _IsEditing, ClubStruct::LibStructuresClub_K_BucketItem _OldItemCollection) {
+	Action_CreateOrEditItemCollectionActivity(_This, _ItemCollection, _ClubId, ClubStruct::C_FolderNullId, _ActivityId, _Name, _MediaUrl, _IsEditing, _OldItemCollection);
+}
+
+Void Action_CreateOrEditNewsActivity(CMlScript _This, ClubStruct::LibStructuresClub_K_News _News, Text _ActivityMediaUrl, Integer _FolderId, Boolean _IsEditing) {
+	declare Text IsEditing = "0";
+	if (_IsEditing) IsEditing = "1";
+	_This.SendCustomEvent(C_Action_CreateOrEditNewsActivity, [_News.tojson(), _ActivityMediaUrl, ""^_FolderId,  IsEditing]);
+}
+Void Action_CreateOrEditNewsActivity(CMlScript _This, ClubStruct::LibStructuresClub_K_News _News, Text _ActivityMediaUrl, Boolean _IsEditing) {
+	Action_CreateOrEditNewsActivity(_This, _News, _ActivityMediaUrl, ClubStruct::C_FolderNullId, _IsEditing);
+}
+
+Void Action_CreateOrEditRankingsActivity(CMlScript _This, ClubStruct::LibStructuresClub_K_Activity _Activity, Integer _FolderId, Boolean _IsEditing) {
+	declare Text IsEditing = "0";
+	if (_IsEditing) IsEditing = "1";
+	_This.SendCustomEvent(C_Action_CreateOrEditRankingsActivity, [_Activity.tojson(), ""^_FolderId, IsEditing]);
+}
+Void Action_CreateOrEditRankingsActivity(CMlScript _This, ClubStruct::LibStructuresClub_K_Activity _Activity, Boolean _IsEditing) {
+	Action_CreateOrEditRankingsActivity(_This, _Activity, ClubStruct::C_FolderNullId, _IsEditing);
+}
+
+Void Action_LoadAllSkinUploadsPage(CMlScript _This, Text _Sort, Text _Order, Text _FilterName, Integer _Offset, Integer _Length) {
+	_This.SendCustomEvent(C_Action_LoadAllSkinUploadsPage, [_Sort, _Order, _FilterName, ""^_Offset, ""^_Length]);
+}
+
+Void Action_LoadAllItemUploadsPage(CMlScript _This, Text _Sort, Text _Order, Text _FilterName, Integer _Offset, Integer _Length) {
+	_This.SendCustomEvent(C_Action_LoadAllItemUploadsPage, [_Sort, _Order, _FilterName, ""^_Offset, ""^_Length]);
+}
+
+Void Action_LoadMapReviewActivities(CMlScript _This, Integer _Offset, Integer _Length, Text _FilterName) {
+	_This.SendCustomEvent(C_Action_LoadMapReviewActivities, [""^_Offset, ""^_Length, _FilterName]);
+}
+
+Void MainInit(CMlScript _This) {
+	Store::Subscribe(_This, C_StoreId);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+/// Get the store manialink component
+Text ComponentV2() {
+	return MV::ComponentV2(
+		C_ComponentName,
+		"""
+		""",
+		"""
+#Include "Libs/Nadeo/Trackmania/Stores/ClubStore_ML.Script.txt" as {{{Q}}}
+		""",
+		"""
+***MainInit***
+***
+{{{P}}}MainInit(This);
+***
+		""",
+[ClubStruct::Component(), CampaignStruct::Component()],
+[]
+	);
+}
