@@ -1,6 +1,5 @@
 ﻿using Microsoft.CodeAnalysis;
 using System.Diagnostics;
-using System.IO.Abstractions;
 using System.Xml;
 using System.Xml.Schema;
 
@@ -63,16 +62,15 @@ public class ManiaScriptGenerator : ISourceGenerator
         
         var outputDir = buildSettings?.OutputDir ?? Path.Combine(projectDir, "out");
 
-        var fileSystem = new FileSystem();
         //fileSystem.Directory.Delete(outputDir, true);
-        fileSystem.Directory.CreateDirectory(outputDir);
+        Directory.CreateDirectory(outputDir);
         
         var xmlSchema = xmlSchemaXsd is null ? null : XmlSchema.Read(new StringReader(xmlSchemaXsd), (sender, args) =>
         {
             // HANDLE VALIDATION FAILED
         });
 
-        var helper = new GeneratorHelper(context, fileSystem, projectDir, outputDir, rootNamespace, xmlSchema, buildSettings);
+        var helper = new GeneratorHelper(context, projectDir, outputDir, rootNamespace, xmlSchema, buildSettings);
         
         var receiver = (SyntaxReceiver)context.SyntaxReceiver!;
 
@@ -189,8 +187,8 @@ public class ManiaScriptGenerator : ISourceGenerator
             var path = Path.Combine(pathList.Append(helper.OutputDir).Reverse().ToArray());
             var dirPath = Path.GetDirectoryName(path)!;
             
-            helper.FileSystem.Directory.CreateDirectory(dirPath);
-            helper.FileSystem.File.WriteAllText(path, content);
+            Directory.CreateDirectory(dirPath);
+            File.WriteAllText(path, content);
         }
     }
 
@@ -255,6 +253,6 @@ public class ManiaScriptGenerator : ISourceGenerator
             throw new Exception("XML is missing for " + scriptSymbol.Name);
         }
 
-        return helper.FileSystem.File.OpenRead(xmlPath);
+        return File.OpenRead(xmlPath);
     }
 }
