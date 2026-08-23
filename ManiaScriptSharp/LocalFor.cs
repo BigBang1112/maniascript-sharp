@@ -2,5 +2,7 @@
 
 public enum LocalFor
 {
-    This
+    This,
+    LocalUser,
+    Users0
 }
