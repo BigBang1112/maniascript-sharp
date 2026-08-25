@@ -30,4 +30,9 @@ public class Persistent<T>
     {
         return new Persistent<T>(default!, user);
     }
+
+    public static Persistent<T> For(CMap map)
+    {
+        return new Persistent<T>(default!, map);
+    }
 }
