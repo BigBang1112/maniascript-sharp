@@ -407,6 +407,7 @@ public class ManiaScriptHeadBuilder
             }
 
             var asValue = default(string);
+            var hidden = false;
             var translated = true;
 
             foreach (var namedArg in settingAttribute.NamedArguments)
@@ -419,10 +420,17 @@ public class ManiaScriptHeadBuilder
                     case "Translated":
                         translated = (bool) namedArg.Value.Value!;
                         break;
+                    case "Hidden":
+                        hidden = (bool) namedArg.Value.Value!;
+                        break;
                 }
             }
 
-            if (asValue is not null)
+            if (hidden)
+            {
+                Writer.Write(" as \"<hidden>\"");
+            }
+            else if (asValue is not null)
             {
                 Writer.Write(" as ");
 

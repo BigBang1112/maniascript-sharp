@@ -120,6 +120,8 @@ Read-only fields are allowed to support types that are not allowed to be a C# co
 
 Translation of setting names is attempted automatically by default. You can turn this off by setting `Translated = false` on the `SettingAttribute`.
 
+Set `Hidden = true` to emit `as "<hidden>"` for a setting, hiding it from the in-game settings interface.
+
 C#:
 ```cs
 [Setting]
