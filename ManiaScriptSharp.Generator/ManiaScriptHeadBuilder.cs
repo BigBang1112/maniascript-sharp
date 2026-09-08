@@ -318,7 +318,7 @@ public class ManiaScriptHeadBuilder
                      !x.GetAttributes().Any(y => y.AttributeClass?.Name == "SettingAttribute")))
         {
             Writer.Write("#Const ");
-            Writer.Write(Standardizer.StandardizeConstName(constSymbol.Name));
+            Writer.Write(Standardizer.StandardizeConstName(constSymbol));
             Writer.Write(' ');
 
             var isStr = constSymbol.ConstantValue is string;

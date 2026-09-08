@@ -21,7 +21,7 @@ public class IdentifierNameExpressionWriter : ExpressionWriter<IdentifierNameSyn
             // May be slow
             if (BodyBuilder.Head.Consts.Contains(symbol, SymbolEqualityComparer.Default))
             {
-                text = Standardizer.StandardizeConstName(symbol.Name);
+                text = Standardizer.StandardizeConstName((IFieldSymbol)symbol);
             }
             else if (BodyBuilder.Head.Settings.Contains(symbol, SymbolEqualityComparer.Default))
             {

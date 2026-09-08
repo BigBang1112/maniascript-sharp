@@ -52,9 +52,34 @@ public static class Standardizer
         return prefix + "_" + char.ToUpper(name[0]) + name.Substring(1);
     }
     
-    public static string StandardizeConstName(string name)
+    public static string StandardizeConstName(IFieldSymbol constSymbol)
     {
-        return StandardizeUnderscorePrefixName(name, 'C');
+        var includePrefix = true;
+        var attribute = constSymbol.GetAttributes()
+            .FirstOrDefault(x => x.AttributeClass?.Name == "ConstantAttribute");
+
+        if (attribute is not null)
+        {
+            foreach (var argument in attribute.NamedArguments)
+            {
+                if (argument.Key == "IncludePrefix" && argument.Value.Value is false)
+                {
+                    includePrefix = false;
+                }
+            }
+        }
+
+        if (includePrefix)
+        {
+            return StandardizeUnderscorePrefixName(constSymbol.Name, 'C');
+        }
+
+        if (constSymbol.Name.StartsWith("C_"))
+        {
+            return constSymbol.Name.Substring(2);
+        }
+
+        return char.ToUpper(constSymbol.Name[0]) + constSymbol.Name.Substring(1);
     }
     
     public static string StandardizeSettingName(string name)
