@@ -3,8 +3,6 @@ using static ManiaScriptSharp.ManiaScript;
 
 namespace MyManialink;
 
-// Building this project emits ManiaScript/MyManialink.Script.txt next to it, merged with
-// MyManialink.xml (auto-detected by matching file name) into the final manialink markup.
 #if (UseCSmMode)
 public class MyManialink : CSmMlScriptIngame, IContext
 #else

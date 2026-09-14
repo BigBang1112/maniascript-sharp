@@ -3,7 +3,6 @@ using static ManiaScriptSharp.ManiaScript;
 
 namespace MyGamemode;
 
-// Building this project emits ManiaScript/MyGamemode.Script.txt next to it.
 #if (UseCSmMode)
 public class MyGamemode : CSmMode, IContext
 #else

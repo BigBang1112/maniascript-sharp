@@ -3,7 +3,6 @@ using static ManiaScriptSharp.ManiaScript;
 
 namespace MyMapType;
 
-// Building this project emits ManiaScript/MyMapType.Script.txt next to it.
 #if (UseCSmMapType)
 public class MyMapType : CSmMapType, IContext
 #else
