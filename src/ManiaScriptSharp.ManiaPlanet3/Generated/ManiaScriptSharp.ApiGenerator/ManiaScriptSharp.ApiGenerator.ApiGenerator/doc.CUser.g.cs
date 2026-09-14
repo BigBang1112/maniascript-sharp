@@ -79,12 +79,12 @@ public partial class CUser : CNod, ILocalProvider, IPersistentProvider
     public int RequestedClan { get; }
     public bool RequestsSpectate { get; }
     public bool IsFakeUser { get; }
-    public int[] Tags_Favored_Indices { get; }
-    public string[] Tags_Id { get; }
-    public ETagType[] Tags_Type { get; }
-    public string[] Tags_Comments { get; }
-    public string[] Tags_Deliverer { get; }
-    public string[] AlliesConnected { get; }
+    public System.Collections.Generic.List<int> Tags_Favored_Indices { get; }
+    public System.Collections.Generic.List<string> Tags_Id { get; }
+    public System.Collections.Generic.List<ETagType> Tags_Type { get; }
+    public System.Collections.Generic.List<string> Tags_Comments { get; }
+    public System.Collections.Generic.List<string> Tags_Deliverer { get; }
+    public System.Collections.Generic.List<string> AlliesConnected { get; }
     public EStereoDisplayMode StereoDisplayMode { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

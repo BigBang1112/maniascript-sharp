@@ -13,7 +13,7 @@ public partial class CParsingNode : CNod
     public string TextContents { get; }
     public string TextRawContents { get; }
     public string TextRecursiveContents { get; }
-    public CParsingNode[] Children { get; }
+    public System.Collections.Generic.List<CParsingNode> Children { get; }
     public string GetAttributeText(string Name, string DefaultValue) => default!;
     public int GetAttributeInteger(string Name, int DefaultValue) => default!;
     public float GetAttributeReal(string Name, float DefaultValue) => default!;

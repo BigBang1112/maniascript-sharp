@@ -38,9 +38,9 @@ public partial class CEditorSkin : CEditorPluginAPI
         SubObjects,
     }
 
-    public CImage[] AllIcons { get; set; }
-    public CEditorEvent[] PendingEvents { get; set; }
-    public Vec3[] CustomColors { get; set; }
+    public System.Collections.Generic.List<CImage> AllIcons { get; set; }
+    public System.Collections.Generic.List<CEditorEvent> PendingEvents { get; set; }
+    public System.Collections.Generic.List<Vec3> CustomColors { get; set; }
     public CEditorSkin.EPainterMode PainterMode { get; set; }
     public CEditorSkin.EPainterSolidType PainterSolidType { get; set; }
     public bool IsTextEnabled { get; set; }
@@ -49,15 +49,15 @@ public partial class CEditorSkin : CEditorPluginAPI
     public bool IsUsingShininessOnly { get; set; }
     public bool IsBrushNormal { get; set; }
     public bool IsTextSymmetry { get; set; }
-    public int[] SubObjectsSelected { get; set; }
+    public System.Collections.Generic.List<int> SubObjectsSelected { get; set; }
     public int SubObjectsCount { get; set; }
-    public int[] LayersSelected { get; set; }
+    public System.Collections.Generic.List<int> LayersSelected { get; set; }
     public int LayersCount { get; set; }
-    public int[] StickersSelected { get; set; }
+    public System.Collections.Generic.List<int> StickersSelected { get; set; }
     public int StickersCount { get; set; }
-    public int[] BrushsSelected { get; set; }
+    public System.Collections.Generic.List<int> BrushsSelected { get; set; }
     public int BrushsCount { get; set; }
-    public int[] SubFolderElemSelected { get; set; }
+    public System.Collections.Generic.List<int> SubFolderElemSelected { get; set; }
     public int CurSubFolderElemCount { get; set; }
     public float Transparency { get; set; }
     public float Scale { get; set; }
@@ -68,7 +68,7 @@ public partial class CEditorSkin : CEditorPluginAPI
     public bool IsEditingLayer { get; set; }
     public int EditionLayerSelected { get; set; }
     public int SubObjectHovered { get; set; }
-    public int[] CurrentLayerSubObjectsSelected { get; set; }
+    public System.Collections.Generic.List<int> CurrentLayerSubObjectsSelected { get; set; }
     public bool CanUndo { get; set; }
     public bool CanRedo { get; set; }
     public string TextToCreateBitmap { get; set; }

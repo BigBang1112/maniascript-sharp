@@ -11,5 +11,5 @@ public partial class CXmlRpc
 
     [ManiaScriptEvent(nameof(PendingEvents))]
     public delegate void CallbackArrayEventHandler([MemberName("ParamArray1")] string method,
-        [MemberName("ParamArray2")] string[] parameters);
+        [MemberName("ParamArray2")] List<string> parameters);
 }

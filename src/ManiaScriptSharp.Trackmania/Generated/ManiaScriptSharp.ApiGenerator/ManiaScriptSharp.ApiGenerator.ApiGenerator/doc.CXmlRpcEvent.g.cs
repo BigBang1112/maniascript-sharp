@@ -21,6 +21,6 @@ public partial class CXmlRpcEvent : CBaseConstEvent, ILocalProvider
     public string Param1 { get; }
     public string Param2 { get; }
     public string ParamArray1 { get; }
-    public string[] ParamArray2 { get; set; }
+    public System.Collections.Generic.List<string> ParamArray2 { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

@@ -14,6 +14,6 @@ public partial class CMlGraph : CMlControl, ILocalProvider
     public Vec2 CoordsMax { get; set; }
     public CMlGraphCurve AddCurve() => default!;
     public void RemoveCurve(CMlGraphCurve Curve) { }
-    public CMlGraphCurve[] Curves { get; set; }
+    public System.Collections.Generic.List<CMlGraphCurve> Curves { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

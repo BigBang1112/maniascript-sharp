@@ -19,11 +19,11 @@ public partial class CEditorEditor : CEditorBase, IMetadataProvider
     public void Bindings_SetBindingScriptId(string ContextName, string BindingScriptId, string NewBindingScriptId) { }
     public void Bindings_SetBindingDisplayName(string ContextName, string BindingScriptId, string BindingDisplayName) { }
     public void Bindings_SetContextName(string ContextName, string NewContextName) { }
-    public string[] BindingContexts { get; set; }
+    public System.Collections.Generic.List<string> BindingContexts { get; set; }
     public void Bindings_GetContextBindings(string ContextName) { }
-    public string[] RequestedContextBindings { get; set; }
+    public System.Collections.Generic.List<string> RequestedContextBindings { get; set; }
     public string Bindings_GetBindingActionName(string ContextName, string BindingName) => default!;
     public string Bindings_GetBindingDisplayName(string ContextName, string BindingName) => default!;
-    public CEditorEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<CEditorEvent> PendingEvents { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
 }

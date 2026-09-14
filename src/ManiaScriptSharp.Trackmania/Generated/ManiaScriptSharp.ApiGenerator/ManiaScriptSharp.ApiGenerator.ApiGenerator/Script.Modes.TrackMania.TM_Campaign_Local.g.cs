@@ -155,9 +155,9 @@ public partial class TM_Campaign_Local : ILib
     public void ProcessEndRaceMenuEvent() { }
 
     /// <summary>Add ghosts to the race</summary>
-    public K_GhostInfo[] AddGhostsToRaceFromAccountIdList(string _SeasonId, string[] _AccountIds, int _Type, int _Medal, string _RecordModeName) => default!;
+    public global::System.Collections.Generic.List<K_GhostInfo> AddGhostsToRaceFromAccountIdList(string _SeasonId, global::System.Collections.Generic.List<string> _AccountIds, int _Type, int _Medal, string _RecordModeName) => default!;
 
-    public K_GhostInfo[] AddGhostsToRaceFromAccountIdList(string _SeasonId, string[] _AccountIds, int _Type, string _RecordModeName) => default!;
+    public global::System.Collections.Generic.List<K_GhostInfo> AddGhostsToRaceFromAccountIdList(string _SeasonId, global::System.Collections.Generic.List<string> _AccountIds, int _Type, string _RecordModeName) => default!;
 
     /// <summary>Add medal ghosts with &quot;personal best&quot; records</summary>
     public K_GhostInfo AddMedalGhostToRaceFromAccountId(string _AccountId, int _Type, int _Medal, string _RecordModeName) => default!;

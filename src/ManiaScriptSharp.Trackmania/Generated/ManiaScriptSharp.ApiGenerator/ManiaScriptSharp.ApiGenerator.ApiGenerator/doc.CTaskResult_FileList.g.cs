@@ -15,8 +15,8 @@ public partial class CTaskResult_FileList : CTaskResult, ILocalProvider
     /// <summary>Path of the current zone.</summary>
     public string Path { get; }
     /// <summary>List of files. Array of string.</summary>
-    public string[] Files { get; set; }
+    public System.Collections.Generic.List<string> Files { get; set; }
     /// <summary>List of the sub folders. Array of string.</summary>
-    public string[] SubFolders { get; set; }
+    public System.Collections.Generic.List<string> SubFolders { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

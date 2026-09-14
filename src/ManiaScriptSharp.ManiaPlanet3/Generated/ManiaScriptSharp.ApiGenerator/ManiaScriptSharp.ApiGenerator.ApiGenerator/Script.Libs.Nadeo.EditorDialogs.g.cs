@@ -11,7 +11,7 @@ namespace ManiaScriptSharp.Scripts.Libs.Nadeo;
 
 public partial class EditorDialogs : ILib
 {
-    public int Display_Common(string _Message, string[] _ButtonLabels, bool _DisplayTextInput, string _DefaultTextInput) => default!;
+    public int Display_Common(string _Message, global::System.Collections.Generic.List<string> _ButtonLabels, bool _DisplayTextInput, string _DefaultTextInput) => default!;
 
     public void Display_Message(string _Message) { }
 
@@ -21,7 +21,7 @@ public partial class EditorDialogs : ILib
 
     public string Display_YesNoCancel(string _Message) => default!;
 
-    public string Display_Custom(string _Message, string[] _ButtonLabels) => default!;
+    public string Display_Custom(string _Message, global::System.Collections.Generic.List<string> _ButtonLabels) => default!;
 
     public string Display_TextInput(string _Message, string _ResultOnCancel, string _DefaultText) => default!;
 

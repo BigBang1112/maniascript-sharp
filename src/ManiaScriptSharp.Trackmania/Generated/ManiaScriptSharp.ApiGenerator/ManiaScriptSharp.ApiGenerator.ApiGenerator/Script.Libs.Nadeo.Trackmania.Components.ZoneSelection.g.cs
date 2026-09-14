@@ -67,10 +67,10 @@ public partial class ZoneSelection : ILib
     {
         public K_Controls Controls;
         public int CurrentZone;
-        public string[] CurrentZoneList;
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<string> CurrentZoneList;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
         public bool UsesDefaultList;
-        public string[] DefaultZoneList;
+        public global::System.Collections.Generic.List<string> DefaultZoneList;
         public string ZonePath;
         public int PrevCurrentZone;
         public bool IsMouse;

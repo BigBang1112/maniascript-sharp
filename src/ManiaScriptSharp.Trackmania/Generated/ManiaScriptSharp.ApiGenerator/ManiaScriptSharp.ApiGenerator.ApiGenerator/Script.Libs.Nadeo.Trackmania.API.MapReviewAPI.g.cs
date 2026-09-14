@@ -106,7 +106,7 @@ public partial class MapReviewAPI : ILib
 
     public struct K_HttpSubmittedMaps
     {
-        public K_HttpSubmittedMap[] submittedMaps;
+        public global::System.Collections.Generic.List<K_HttpSubmittedMap> submittedMaps;
         public int itemCount;
     }
 
@@ -130,7 +130,7 @@ public partial class MapReviewAPI : ILib
 
     public struct K_SubmittedMaps
     {
-        public K_SubmittedMap[] MapList;
+        public global::System.Collections.Generic.List<K_SubmittedMap> MapList;
         public int ItemCount;
     }
 }

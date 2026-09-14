@@ -77,7 +77,7 @@ public partial class Layers : ILib
     /// <param name="LayersName">The layers to check</param>
     /// <param name="PlayerId">The player to check</param>
     /// <returns>An array containing the names of the missing layers (if any)</returns>
-    public string[] IsMissing(string[] _LayersName, Ident _PlayerId) => default!;
+    public global::System.Collections.Generic.List<string> IsMissing(global::System.Collections.Generic.List<string> _LayersName, Ident _PlayerId) => default!;
 
     /// <summary>Layers garbage collector Destroys layers that are not used in any UI.UILayers array</summary>
     public void Clean() { }

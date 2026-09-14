@@ -13,7 +13,7 @@ public partial class CMapEditorInventory : CNod
     public CMapEditorInventoryDirectory CurrentRootNode { get; }
     public CMapEditorInventoryDirectory CurrentDirectory { get; }
     public CMapEditorInventoryNode CurrentSelectedNode { get; }
-    public CMapEditorInventoryNode[] RootNodes { get; set; }
+    public System.Collections.Generic.List<CMapEditorInventoryNode> RootNodes { get; set; }
     public void EnterDirectory() { }
     public void LeaveDirectory() { }
     public void SelectArticle(CMapEditorInventoryArticle NodeArticle) { }

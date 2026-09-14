@@ -15,7 +15,7 @@ public partial class CTaskResult_MapList : CTaskResult
     /// <summary>Path of the current zone.</summary>
     public string Path { get; }
     /// <summary>List of the map info. Array of CMapInfo objects.</summary>
-    public CMapInfo[] MapInfos { get; }
+    public System.Collections.Generic.List<CMapInfo> MapInfos { get; }
     /// <summary>List of the sub folders. Array of string.</summary>
-    public string[] SubFolders { get; }
+    public System.Collections.Generic.List<string> SubFolders { get; }
 }

@@ -33,7 +33,7 @@ public partial class Transition : ILib
     {
         public int InDuration;
         public int OutDuration;
-        public string[] FilterRequestId;
+        public global::System.Collections.Generic.List<string> FilterRequestId;
     }
 
     public struct K_ActiveTransition

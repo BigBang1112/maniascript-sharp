@@ -88,7 +88,7 @@ public partial class Cast : ILib
     public string ToText(Int3 _Source) => default!;
 
     /// <summary>Cast a Text to a Real[]</summary>
-    public float[] ToRealArray(string _Source) => default!;
+    public global::System.Collections.Generic.List<float> ToRealArray(string _Source) => default!;
 
     /// <summary>Cast an hexadecimal color to a Vec3</summary>
     public Vec3 ToColorRgb(string _Source) => default!;

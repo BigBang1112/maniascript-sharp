@@ -173,7 +173,7 @@ public partial class CampaignStore_ML : ILib
 
     public int GetAllClubCampaignsTotal() => default!;
 
-    public string[] GetCampaignsMedia(int _CampaignType) => default!;
+    public global::System.Collections.Generic.List<string> GetCampaignsMedia(int _CampaignType) => default!;
 
     public int GetMenuMediaUpdate() => default!;
 

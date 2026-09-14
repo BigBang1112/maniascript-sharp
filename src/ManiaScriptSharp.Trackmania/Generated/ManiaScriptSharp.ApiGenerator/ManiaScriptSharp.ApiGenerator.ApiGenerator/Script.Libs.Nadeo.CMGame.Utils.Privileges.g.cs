@@ -46,18 +46,18 @@ public partial class Privileges : ILib
         public int Status;
         public Ident UserId;
         public Ident TaskId;
-        public string[] TargetedUsersAccountIds;
+        public global::System.Collections.Generic.List<string> TargetedUsersAccountIds;
     }
 
     public struct K_PrivilegesCheck
     {
         public int Status;
         public int CheckKey;
-        public K_PrivilegeCheck[] Checks;
+        public global::System.Collections.Generic.List<K_PrivilegeCheck> Checks;
     }
 
     /// <summary>Group several privilege checks into one group</summary>
-    public K_PrivilegesCheck Check_Group(K_PrivilegeCheck[] _Checks) => default!;
+    public K_PrivilegesCheck Check_Group(global::System.Collections.Generic.List<K_PrivilegeCheck> _Checks) => default!;
 
     /// <summary>Check if the privilege check is complete</summary>
     public bool Check_IsComplete(int _Status) => default!;

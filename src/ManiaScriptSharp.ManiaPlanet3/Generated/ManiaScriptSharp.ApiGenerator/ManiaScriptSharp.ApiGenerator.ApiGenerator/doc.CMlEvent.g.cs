@@ -42,5 +42,5 @@ public partial class CMlEvent : CNod
     public CMlControl Control { get; }
     public EMenuNavAction MenuNavAction { get; }
     public string CustomEventType { get; }
-    public string[] CustomEventData { get; }
+    public System.Collections.Generic.List<string> CustomEventData { get; }
 }

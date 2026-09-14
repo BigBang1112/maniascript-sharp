@@ -49,23 +49,23 @@ public partial class ChatAPI : ILib
 
     public string GetRoomIcon(string _Login) => default!;
 
-    public string[] GetRoomContacts(string _Login) => default!;
+    public global::System.Collections.Generic.List<string> GetRoomContacts(string _Login) => default!;
 
     /// <summary>Get the contacts list sorted by presence and names.</summary>
     /// <returns>Sorted contacts list.</returns>
-    public string[] GetContactsList() => default!;
+    public global::System.Collections.Generic.List<string> GetContactsList() => default!;
 
-    public SListGroup[] GetContactsGroups() => default!;
+    public global::System.Collections.Generic.List<SListGroup> GetContactsGroups() => default!;
 
-    public string[] GetSquadMembers() => default!;
+    public global::System.Collections.Generic.List<string> GetSquadMembers() => default!;
 
-    public string[] GetOnlineContactsNotInSquad() => default!;
+    public global::System.Collections.Generic.List<string> GetOnlineContactsNotInSquad() => default!;
 
-    public string[] SearchContacts(string _SearchPhrase) => default!;
+    public global::System.Collections.Generic.List<string> SearchContacts(string _SearchPhrase) => default!;
 
-    public string[] GetInvitesList() => default!;
+    public global::System.Collections.Generic.List<string> GetInvitesList() => default!;
 
-    public SListGroup[] GetInvitesGroups() => default!;
+    public global::System.Collections.Generic.List<SListGroup> GetInvitesGroups() => default!;
 
     public int GetNbIncomingInvites() => default!;
 

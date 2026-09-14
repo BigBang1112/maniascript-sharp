@@ -19,23 +19,23 @@ public partial class Binary : ILib
     /// <summary>Convert a positive Integer to a binary number</summary>
     /// <param name="Int">The positive Integer to convert</param>
     /// <returns>The binary number</returns>
-    public int[] ToBinary(int _Int) => default!;
+    public global::System.Collections.Generic.List<int> ToBinary(int _Int) => default!;
 
     /// <summary>Convert a binary number to an Integer</summary>
     /// <param name="Binary">The bonary number to convert</param>
     /// <returns>The Integer</returns>
-    public int ToInteger(int[] _Binary) => default!;
+    public int ToInteger(global::System.Collections.Generic.List<int> _Binary) => default!;
 
     /// <summary>Cut a slice of binary number</summary>
     /// <param name="Binary">The binary number to cut</param>
     /// <param name="Start">The starting point of the cut</param>
     /// <param name="Count">The number of bits to cut</param>
     /// <returns>The slice of binary number</returns>
-    public int[] Slice(int[] _Binary, int _Start, int _Count) => default!;
+    public global::System.Collections.Generic.List<int> Slice(global::System.Collections.Generic.List<int> _Binary, int _Start, int _Count) => default!;
 
     /// <summary>Concatenate two binary number</summary>
     /// <param name="Binary1">The first binary number</param>
     /// <param name="Binary2">The second binary number</param>
     /// <returns>The concatenated binary number</returns>
-    public int[] Concat(int[] _Binary1, int[] _Binary2) => default!;
+    public global::System.Collections.Generic.List<int> Concat(global::System.Collections.Generic.List<int> _Binary1, global::System.Collections.Generic.List<int> _Binary2) => default!;
 }

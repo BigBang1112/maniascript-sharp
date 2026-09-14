@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Asynchronous task result. Supported declare modes : - Local</summary>
 public partial class CWebServicesTaskResult_GhostDriver_Download : CTaskResult, ILocalProvider
 {
-    public CTaskResult_GhostDriverDownload_Team[] Teams { get; set; }
+    public System.Collections.Generic.List<CTaskResult_GhostDriverDownload_Team> Teams { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

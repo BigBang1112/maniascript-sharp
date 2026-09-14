@@ -32,7 +32,7 @@ public partial class XmlRpc : ILib
 
     public bool IsEnabled() => default!;
 
-    public void SendCallbackArray(string _Name, string[] _Data) { }
+    public void SendCallbackArray(string _Name, global::System.Collections.Generic.List<string> _Data) { }
 
     public void SendCallback(string _Name, string _Data) { }
 
@@ -44,7 +44,7 @@ public partial class XmlRpc : ILib
 
     public bool CallbackIsAllowed(string _Name) => default!;
 
-    public string[] ListCallbacks(bool _SendCallback) => default!;
+    public global::System.Collections.Generic.List<string> ListCallbacks(bool _SendCallback) => default!;
 
     public string CallbackHelp(string _Name, bool _SendCallback) => default!;
 
@@ -56,7 +56,7 @@ public partial class XmlRpc : ILib
 
     public void UnblockAllCallbacks() { }
 
-    public string[] GetBlockedCallbacks(bool _SendCallback) => default!;
+    public global::System.Collections.Generic.List<string> GetBlockedCallbacks(bool _SendCallback) => default!;
 
     /// <summary>Unload the library</summary>
     public void Unload() { }
@@ -272,7 +272,7 @@ public partial class XmlRpc : ILib
 
     /// <summary>Callback sent at the beginning of the turn in Elite Data : [attackerlogin, defenderlogin1, defenderloginx, ...]</summary>
     /// <param name="Players">The players to send</param>
-    public void Elite_BeginTurn(CSmPlayer[] _AtkPlayers, CSmPlayer[] _DefPlayers) { }
+    public void Elite_BeginTurn(global::System.Collections.Generic.List<CSmPlayer> _AtkPlayers, global::System.Collections.Generic.List<CSmPlayer> _DefPlayers) { }
 
     /// <summary>Callback sent at the end of the turn in Elite Data : [1] 1 -&gt; Time limit 2 -&gt; Capture 3 -&gt; Attacker eliminated 4 -&gt; Defenders eliminated</summary>
     /// <param name="WinType">The type of win</param>

@@ -492,16 +492,16 @@ public partial class Scores : ILib
 
     /// <summary>Setup how the points will be distributed at the end of the round [10, 6, 4, 3, 2, 1] =&gt; 1st will get 10 points, 2nd 6 points, 3rd 4 points, etc ...</summary>
     /// <param name="Points">The points repartition</param>
-    public void SetPointsRepartition(int[] _Points) { }
+    public void SetPointsRepartition(global::System.Collections.Generic.List<int> _Points) { }
 
     /// <summary>Get the current points repartition</summary>
     /// <returns>The points repartition</returns>
-    public int[] GetPointsRepartition() => default!;
+    public global::System.Collections.Generic.List<int> GetPointsRepartition() => default!;
 
     /// <summary>Convert the points repartition Text to an Integer array</summary>
     /// <param name="PointsRepartition">The Text points repartition</param>
     /// <returns>The Integer[] points repartition</returns>
-    public int[] ConvertPointsRepartition(string _PointsRepartition) => default!;
+    public global::System.Collections.Generic.List<int> ConvertPointsRepartition(string _PointsRepartition) => default!;
 
     /// <summary>Send teams and players scores</summary>
     /// <param name="Section">The section in which the callback was sent</param>

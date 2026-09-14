@@ -68,9 +68,9 @@ public partial class LocalServer : ILib
         public string ModeName;
         public string ServerLogin;
         public string ServerName;
-        public string[] ChallengeIds;
-        public string[] ChallengeNames;
-        public string[] PlayerNames;
+        public global::System.Collections.Generic.List<string> ChallengeIds;
+        public global::System.Collections.Generic.List<string> ChallengeNames;
+        public global::System.Collections.Generic.List<string> PlayerNames;
     }
 
     public struct K_JoinSettings
@@ -108,11 +108,11 @@ public partial class LocalServer : ILib
         public K_Controls Controls;
         public K_JoinSettings JoinSettings;
         public K_ServerInfo CurrentServer;
-        public K_ServerInfo[] ServerList;
+        public global::System.Collections.Generic.List<K_ServerInfo> ServerList;
         public K_ServerSettings ServerSettings;
         public global::System.Collections.Generic.Dictionary<int, string> MapFilesToFetch;
         public global::System.Collections.Generic.Dictionary<int, string> ModeNames;
-        public string[] SelectedMaps_LocalFileName;
+        public global::System.Collections.Generic.List<string> SelectedMaps_LocalFileName;
     }
 
     /// <summary>Get the page manialink</summary>

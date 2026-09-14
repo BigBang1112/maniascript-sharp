@@ -39,7 +39,7 @@ public partial class Sponsors_Client : ILib
         public bool IsSpectating;
         public bool DisplayModule;
         public int SponsorsURLUpdate;
-        public string[] SponsorsURL;
+        public global::System.Collections.Generic.List<string> SponsorsURL;
         public int NextSponsorKey;
         public int NextSponsorTime;
     }

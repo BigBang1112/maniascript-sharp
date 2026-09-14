@@ -33,7 +33,7 @@ public partial class ServerAPI : ILib
 
     public struct K_HttpResponseGetPlayerServerAccounts
     {
-        public K_HttpPlayerServerAccount[] playerServerAccount;
+        public global::System.Collections.Generic.List<K_HttpPlayerServerAccount> playerServerAccount;
         public int itemCount;
     }
 

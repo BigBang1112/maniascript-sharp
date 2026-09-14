@@ -92,7 +92,7 @@ public partial class CSmPlayer : CPlayer, ILocalProvider, INetreadProvider, INet
     public int NbActiveAttractors { get; }
     public bool IsCapturing { get; }
     public CSmMapLandmark CapturedLandmark { get; }
-    public CSmObject[] Objects { get; }
+    public System.Collections.Generic.List<CSmObject> Objects { get; }
     public CModeVehicle Vehicle { get; }
     public bool IsFakePlayer { get; }
     public bool IsBot { get; }

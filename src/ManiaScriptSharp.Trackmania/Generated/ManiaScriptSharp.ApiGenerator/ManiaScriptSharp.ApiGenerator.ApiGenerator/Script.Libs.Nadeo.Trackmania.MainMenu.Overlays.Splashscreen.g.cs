@@ -48,7 +48,7 @@ public partial class Splashscreen : ILib
     public void ShowIfPossible() { }
 
     /// <summary>Get overlay pending events</summary>
-    public K_Event[] GetPendingEvents() => default!;
+    public global::System.Collections.Generic.List<K_Event> GetPendingEvents() => default!;
 
     /// <summary>Get the overlay's manialink</summary>
     public string GetManialink() => default!;

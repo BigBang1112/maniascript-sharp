@@ -72,7 +72,7 @@ public partial class ShadowMenu : ILib
     public void Prev() { }
 
     /// <summary>Select the options displayed in the menu</summary>
-    public void SetOptions(int[] _Options) { }
+    public void SetOptions(global::System.Collections.Generic.List<int> _Options) { }
 
     /// <summary>Check if the menu is visible</summary>
     public bool LayerIsVisible() => default!;

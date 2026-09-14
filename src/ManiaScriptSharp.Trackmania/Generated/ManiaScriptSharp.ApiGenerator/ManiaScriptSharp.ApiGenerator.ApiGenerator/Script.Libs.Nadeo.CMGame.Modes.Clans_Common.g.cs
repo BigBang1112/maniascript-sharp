@@ -30,7 +30,7 @@ public partial class Clans_Common : ILib
         public string Skin;
         public string SkinOptions;
         public string Trigram;
-        public int[] SimilarTeamsInColor;
+        public global::System.Collections.Generic.List<int> SimilarTeamsInColor;
     }
 
     /// <summary>Get the teams existing in a clan style</summary>
@@ -60,8 +60,8 @@ public partial class Clans_Common : ILib
     public Vec3 GetClanTrigramColor(int _ClanStyle, int _Clan) => default!;
 
     /// <summary>Get the ids of the similar teams in color of the given clan</summary>
-    public int[] GetClanSimilarTeamsInColor(int _ClanStyle, int _Clan) => default!;
+    public global::System.Collections.Generic.List<int> GetClanSimilarTeamsInColor(int _ClanStyle, int _Clan) => default!;
 
     /// <summary>Get a list of distinct teams (in color)</summary>
-    public int[] GetRandomDistinctTeams(int _ClanStyle, int _TeamsNb) => default!;
+    public global::System.Collections.Generic.List<int> GetRandomDistinctTeams(int _ClanStyle, int _TeamsNb) => default!;
 }

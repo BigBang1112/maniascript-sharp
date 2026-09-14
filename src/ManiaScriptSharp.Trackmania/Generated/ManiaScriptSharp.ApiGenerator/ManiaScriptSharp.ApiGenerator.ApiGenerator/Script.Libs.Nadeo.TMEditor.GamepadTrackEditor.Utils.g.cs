@@ -41,7 +41,7 @@ public partial class Utils : ILib
     public int ManhattanDistance(Int3 _Start, Int3 _End) => default!;
 
     /// <summary>Return the neighbor coordinates of a coordinate</summary>
-    public Int3[] GetNeighbors(Int3 _Coord) => default!;
+    public global::System.Collections.Generic.List<Int3> GetNeighbors(Int3 _Coord) => default!;
 
     /// <summary>Get Null coord</summary>
     public Int3 NullCoord() => default!;

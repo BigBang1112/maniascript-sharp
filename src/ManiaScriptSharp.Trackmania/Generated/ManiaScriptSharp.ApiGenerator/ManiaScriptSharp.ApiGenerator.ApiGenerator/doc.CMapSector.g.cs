@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMapSector</summary>
 public partial class CMapSector : CNod
 {
-    public Ident[] PlayersIds { get; set; }
+    public System.Collections.Generic.List<Ident> PlayersIds { get; set; }
     public string Tag { get; }
 }

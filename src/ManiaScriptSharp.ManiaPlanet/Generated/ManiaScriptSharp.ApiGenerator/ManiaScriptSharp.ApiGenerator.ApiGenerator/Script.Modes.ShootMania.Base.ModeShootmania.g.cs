@@ -224,13 +224,13 @@ public partial class ModeShootmania : global::ManiaScriptSharp.Scripts.Modes.Sho
     public bool MM_IsLobbyServer() => default!;
 
     /// <summary>Set how many teams and how many players per team a match should have to be played. Eg: a 1vs1 match use this format [1, 1] a 1vs3 match [1, 3], a 3vs3vs3 [3, 3, 3] This function shoud be called once inside ***MM_SetupMatchmaking***</summary>
-    public void MM_SetFormat(int[] _Format) { }
+    public void MM_SetFormat(global::System.Collections.Generic.List<int> _Format) { }
 
     /// <summary>Utility function to generate progressive matchmaking formats automatically. Eg: if you pass a format of [1, 1, 1] a minimum number of players of 3 and a maximum of 5, the function  will generate the following formats : [[3, 3, 3], [4, 4, 4], [5, 5, 5]] This function shoud be called once inside ***MM_SetupMatchmaking***</summary>
     /// <param name="Format">The base format</param>
     /// <param name="MinPlayersNb">Minimum number of players</param>
     /// <param name="MaxPlayersNb">Maximum number of players</param>
-    public void MM_SetProgressiveFormats(int[] _Format, int _MinPlayersNb, int _MaxPlayersNb) { }
+    public void MM_SetProgressiveFormats(global::System.Collections.Generic.List<int> _Format, int _MinPlayersNb, int _MaxPlayersNb) { }
 
     /// <summary>Open a matchmaking match session and prepare the map for it. You can either create a new session or continue the previous one. Starting a new session will request the match info to the api, wait for the players and start a map vote when everyone is ready. Continuing the current session will conserve the current match info, wait for the players and start the new map when they are ready. This function shoud be called once inside ***Match_StartMap***. If MB_Settings_UseDefaultMatchmaking is True, this function is already called automatically for you. or continue the previous one</summary>
     /// <param name="NewSession">Start a new matchmaking session</param>
@@ -262,7 +262,7 @@ public partial class ModeShootmania : global::ManiaScriptSharp.Scripts.Modes.Sho
 
     /// <summary>Send the map score to the matchmaking API. It will be displayed in the lobby to the players that are offered to join a match as a substitute as an indication of the match progress.</summary>
     /// <param name="Scores">The scores to send</param>
-    public void MM_SetScores(int[] _Scores) { }
+    public void MM_SetScores(global::System.Collections.Generic.List<int> _Scores) { }
 
     /// <summary>When a player leaves an ongoing match, the matchmaking will search a substitute to take its place. However it's not always desired to received a substitute. By example if the match is nearly finished. This function allow you to turn on or off the requests for substitutes players. False to disable it.</summary>
     /// <param name="AllowSubstitutes">True to allow the search for a subsitute,</param>

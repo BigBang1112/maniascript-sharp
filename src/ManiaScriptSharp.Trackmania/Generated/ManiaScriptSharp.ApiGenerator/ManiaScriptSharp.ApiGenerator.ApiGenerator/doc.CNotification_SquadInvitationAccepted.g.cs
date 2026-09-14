@@ -16,7 +16,7 @@ public partial class CNotification_SquadInvitationAccepted : CNotification_Squad
     public bool InvitedIsCommunicationRestricted { get; }
     public bool InvitedIsFirstPartyDisplayName { get; }
     public string InvitedSkinOptions { get; }
-    public CSkinInfo[] InvitedSkinList { get; set; }
+    public System.Collections.Generic.List<CSkinInfo> InvitedSkinList { get; set; }
     public string InvitedWebServicesUserId { get; }
     public string SquadId { get; }
     public string SquadType { get; }

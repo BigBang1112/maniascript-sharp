@@ -35,7 +35,7 @@ public partial class WeaponSelection : ILib
 
     /// <summary>Start the weapon selection for the given players if _PlayersIds is empty, start for all players</summary>
     /// <param name="PlayersIds">The players ids</param>
-    public void Start(Ident[] _PlayersIds) { }
+    public void Start(global::System.Collections.Generic.List<Ident> _PlayersIds) { }
 
     /// <summary>Start the weapon selection for the given player</summary>
     /// <param name="PlayerId">The player id</param>
@@ -46,7 +46,7 @@ public partial class WeaponSelection : ILib
 
     /// <summary>Stop the weapon selection for the given players if _PlayersIds is empty, stop for all players</summary>
     /// <param name="PlayersIds">The players ids</param>
-    public void Stop(Ident[] _PlayersIds) { }
+    public void Stop(global::System.Collections.Generic.List<Ident> _PlayersIds) { }
 
     /// <summary>Stop the weapon selection for all players</summary>
     public void StopAll() { }

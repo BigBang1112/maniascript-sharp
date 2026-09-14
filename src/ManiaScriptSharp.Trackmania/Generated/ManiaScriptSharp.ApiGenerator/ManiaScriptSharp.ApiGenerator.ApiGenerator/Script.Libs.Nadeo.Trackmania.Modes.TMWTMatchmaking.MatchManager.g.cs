@@ -87,5 +87,5 @@ public partial class MatchManager : ILib
     public K_Match RemoveAllBots(K_Match _Match) => default!;
 
     /// <summary>Get the match player account ids</summary>
-    public string[] GetPlayerAccountIds(K_Match _Match) => default!;
+    public global::System.Collections.Generic.List<string> GetPlayerAccountIds(K_Match _Match) => default!;
 }

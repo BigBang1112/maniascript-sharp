@@ -34,11 +34,11 @@ public partial class Json : ILib
 
     /// <summary>Merge multiple Json string together</summary>
     /// <param name="Strings">The strings to merge</param>
-    public string Merge(string[] _Strings) => default!;
+    public string Merge(global::System.Collections.Generic.List<string> _Strings) => default!;
 
     /// <summary>Create a Json object from merged strings</summary>
     /// <param name="Strings">The strings to merge</param>
-    public string ObjectMerge(string _Name, string[] _Strings) => default!;
+    public string ObjectMerge(string _Name, global::System.Collections.Generic.List<string> _Strings) => default!;
 
     /// <summary>Stringify an Integer</summary>
     /// <param name="Name">The name of the stringified object</param>

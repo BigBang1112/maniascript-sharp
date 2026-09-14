@@ -64,9 +64,9 @@ public partial class ProgressBar : ILib
 
     public struct K_Properties
     {
-        public int[] Enabled;
+        public global::System.Collections.Generic.List<int> Enabled;
         public Vec2 Size;
-        public K_Level[] LevelsInfo;
+        public global::System.Collections.Generic.List<K_Level> LevelsInfo;
         public Vec2 LevelsOffset;
         public Vec3 LevelsTextColor;
         public float LevelsTextSize;
@@ -81,12 +81,12 @@ public partial class ProgressBar : ILib
         public K_Controls Controls;
         public K_Properties CustomizedProperties;
         public K_Properties MergedProperties;
-        public string[] Styles;
+        public global::System.Collections.Generic.List<string> Styles;
     }
 
     public struct K_State
     {
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
         public K_Properties DefaultProperties;
         public global::System.Collections.Generic.Dictionary<string, K_Properties> Styles;
     }

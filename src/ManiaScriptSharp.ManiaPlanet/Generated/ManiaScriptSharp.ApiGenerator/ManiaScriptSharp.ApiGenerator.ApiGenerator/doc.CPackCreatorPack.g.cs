@@ -16,5 +16,5 @@ public partial class CPackCreatorPack : CNod
     public bool IsTitlePack { get; }
     public void Recipients_Add(string Login, int UseCost, int GetCost) { }
     public void Recipients_Remove(string Login) { }
-    public CPackCreatorRecipient[] Recipients { get; }
+    public System.Collections.Generic.List<CPackCreatorRecipient> Recipients { get; }
 }

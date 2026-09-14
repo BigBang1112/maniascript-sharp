@@ -162,11 +162,11 @@ public partial class Scroll : ILib
         public bool IsInitialized;
         public float ScrollBarWidth;
         public int ScrollBarHideTime;
-        public K_ClampedControl[] ClampedControls;
+        public global::System.Collections.Generic.List<K_ClampedControl> ClampedControls;
         public bool ScrollLocked;
         public Vec2 ScrollLockPosition;
         public K_Pager Pager;
-        public int[] LockedElements;
+        public global::System.Collections.Generic.List<int> LockedElements;
     }
 
     public struct K_ScrollBar
@@ -207,8 +207,8 @@ public partial class Scroll : ILib
 
     public struct K_State
     {
-        public K_Event[] DelayedPendingEvents;
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> DelayedPendingEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
         public bool UseLocalEvents;
     }
 

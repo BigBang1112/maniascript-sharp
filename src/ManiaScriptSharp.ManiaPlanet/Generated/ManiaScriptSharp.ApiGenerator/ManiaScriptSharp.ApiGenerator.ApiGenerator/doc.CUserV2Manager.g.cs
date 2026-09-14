@@ -11,7 +11,7 @@ namespace ManiaScriptSharp;
 public partial class CUserV2Manager : CNod
 {
     public CUserV2Profile MainUserProfile { get; }
-    public CTaskResult[] TaskResults { get; }
+    public System.Collections.Generic.List<CTaskResult> TaskResults { get; }
     public void TaskResult_Release(Ident TaskId) { }
     /// <summary>NullId for the mainuser.</summary>
     public CTaskResult_StringIntList GetGroups(Ident UserId) => default!;

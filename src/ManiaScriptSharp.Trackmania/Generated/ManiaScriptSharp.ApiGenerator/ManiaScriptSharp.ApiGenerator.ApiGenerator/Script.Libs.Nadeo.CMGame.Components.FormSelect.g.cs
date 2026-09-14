@@ -72,7 +72,7 @@ public partial class FormSelect : ILib
         public global::System.Collections.Generic.Dictionary<Ident, int> Selected;
         public global::System.Collections.Generic.Dictionary<Ident, int> PreSelected;
         public int TimerClickDetection;
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
     }
 
     public string GetManialink() => default!;

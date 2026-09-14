@@ -30,7 +30,7 @@ public partial class Settings : ILib
         public bool IsVisibleUser;
         public bool IsVisible;
         public int ConfigDirtyCounter;
-        public string[] Route;
+        public global::System.Collections.Generic.List<string> Route;
         public global::System.Collections.Generic.Dictionary<string, string> RouteData;
         public Ident ToggleLayerId;
     }

@@ -67,7 +67,7 @@ public partial class ClubDetails : ILib
         public bool BgDownloadInProgress;
         public K_Controls Controls;
         public K_ScrollView ScrollView;
-        public string[] ActivityCreationOptions;
+        public global::System.Collections.Generic.List<string> ActivityCreationOptions;
     }
 
     /// <summary>Get the page manialink</summary>

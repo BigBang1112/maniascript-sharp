@@ -63,7 +63,7 @@ public partial class Clublink : ILib
     /// <summary>Get the sponsors list of a clan</summary>
     /// <param name="Team">The team to check</param>
     /// <returns>The sponsors with their logos</returns>
-    public string[] GetTeamSponsors(int _Team) => default!;
+    public global::System.Collections.Generic.List<string> GetTeamSponsors(int _Team) => default!;
 
     /// <summary>Manage HTTP requests (asynchrone)</summary>
     public void Update() { }

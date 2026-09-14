@@ -43,7 +43,7 @@ public partial class Layout : ILib
     {
         public string RootElementId;
         public global::System.Collections.Generic.Dictionary<string, K_Element> ElementList;
-        public string[] AspectRatioElementIdList;
+        public global::System.Collections.Generic.List<string> AspectRatioElementIdList;
     }
 
     public struct K_Private_ExternalElement
@@ -83,7 +83,7 @@ public partial class Layout : ILib
     public K_Private_Sizing NewSizingPercent(float _Value) => default!;
 
     /// <summary>Create a new layout `void Clay__CalculateFinalLayout(void)`</summary>
-    public K_Layout NewLayout(Vec2 _LayoutSize, string _RootElementId, K_Element[] _ElementList) => default!;
+    public K_Layout NewLayout(Vec2 _LayoutSize, string _RootElementId, global::System.Collections.Generic.List<K_Element> _ElementList) => default!;
 
     /// <summary>Get the size of an element in the layout</summary>
     public Vec2 GetSize(K_Layout _Layout, string _ElementId) => default!;

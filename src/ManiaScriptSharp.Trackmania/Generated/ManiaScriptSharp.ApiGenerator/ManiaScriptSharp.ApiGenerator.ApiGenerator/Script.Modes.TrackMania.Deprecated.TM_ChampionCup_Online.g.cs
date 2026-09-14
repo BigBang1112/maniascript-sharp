@@ -68,14 +68,14 @@ public partial class TM_ChampionCup_Online : ILib
     {
         public string mapuid;
         public bool isfinal;
-        public K_Callback_PlayerScore[] players;
+        public global::System.Collections.Generic.List<K_Callback_PlayerScore> players;
     }
 
     public struct K_MatchState
     {
         public bool WaitingLoading;
         public global::System.Collections.Generic.Dictionary<string, int> Scores;
-        public string[] PlayedMapUids;
+        public global::System.Collections.Generic.List<string> PlayedMapUids;
         public int QualificationMapsPlayed;
         public global::System.Collections.Generic.Dictionary<int, string> WinnersAccountIds;
         public bool HasPlayedClashTime;
@@ -132,7 +132,7 @@ public partial class TM_ChampionCup_Online : ILib
     public int GetFinishTimeout(int _QualificationFinishTimeout, int _FinalFinishTimeout, bool _IsFinal) => default!;
 
     /// <summary>Compute the qualification race scores</summary>
-    public void ComputeFinalRaceScores(Ident _RoundWinnerId, int _RoundKey, int[] _FinalistLevels) { }
+    public void ComputeFinalRaceScores(Ident _RoundWinnerId, int _RoundKey, global::System.Collections.Generic.List<int> _FinalistLevels) { }
 
     /// <summary>Compute the match scores</summary>
     public void ComputeMatchScores() { }
@@ -144,8 +144,8 @@ public partial class TM_ChampionCup_Online : ILib
     public void EnableSignESportsMode(bool _Enabled) { }
 
     /// <summary>Convert the finalist levels from a Text to an Integer[]</summary>
-    public int[] ConvertFinalistLevels(string _FinalistLevels) => default!;
+    public global::System.Collections.Generic.List<int> ConvertFinalistLevels(string _FinalistLevels) => default!;
 
     /// <summary>Get the current finalist level</summary>
-    public int GetFinalistLevel(int[] _FinalistLevels, global::System.Collections.Generic.Dictionary<int, string> _WinnersAccountIds) => default!;
+    public int GetFinalistLevel(global::System.Collections.Generic.List<int> _FinalistLevels, global::System.Collections.Generic.Dictionary<int, string> _WinnersAccountIds) => default!;
 }

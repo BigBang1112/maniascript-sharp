@@ -15,7 +15,7 @@ public partial class CTaskResult_FileList : CTaskResult
     /// <summary>Path of the current zone.</summary>
     public string Path { get; }
     /// <summary>List of files. Array of string.</summary>
-    public string[] Files { get; }
+    public System.Collections.Generic.List<string> Files { get; }
     /// <summary>List of the sub folders. Array of string.</summary>
-    public string[] SubFolders { get; }
+    public System.Collections.Generic.List<string> SubFolders { get; }
 }

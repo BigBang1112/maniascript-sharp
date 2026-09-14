@@ -21,7 +21,7 @@ public partial class KOVictory : ILib
 
     public struct K_KOValidation
     {
-        public int[] CheckpointTimes;
+        public global::System.Collections.Generic.List<int> CheckpointTimes;
         public Ident PlayerId;
         public Ident ScoreId;
         public string AccountId;
@@ -32,7 +32,7 @@ public partial class KOVictory : ILib
     /// <param name="KOCheckpointTime">The advance in milliseconds the player must have at the checkpoints</param>
     /// <param name="KOValidationDelay">The delay in milliseconds before running the K.O. check</param>
     /// <param name="KOTargets">The accounts ids of the players that can be knocked out</param>
-    public void StartRace(int _KOCheckpointNb, int _KOCheckpointTime, int _KOValidationDelay, string[] _KOTargets) { }
+    public void StartRace(int _KOCheckpointNb, int _KOCheckpointTime, int _KOValidationDelay, global::System.Collections.Generic.List<string> _KOTargets) { }
 
     public void StartRace(int _KOCheckpointNb, int _KOCheckpointTime, int _KOValidationDelay) { }
 

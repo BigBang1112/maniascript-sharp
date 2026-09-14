@@ -135,7 +135,7 @@ public partial class UI2 : ILib
 
     /// <summary>Load several modules</summary>
     /// <param name="ModulesIds">A list of modules to load with the library</param>
-    public void LoadModules(string[] _ModulesIds) { }
+    public void LoadModules(global::System.Collections.Generic.List<string> _ModulesIds) { }
 
     /// <summary>Unload a module</summary>
     /// <param name="ModuleId">The name of the module to unload</param>
@@ -149,5 +149,5 @@ public partial class UI2 : ILib
 
     /// <summary>(Overload) Load the library with some modules</summary>
     /// <param name="AutoLoadModules">A list of modules to load with the library</param>
-    public void Load(string[] _AutoLoadModules) { }
+    public void Load(global::System.Collections.Generic.List<string> _AutoLoadModules) { }
 }

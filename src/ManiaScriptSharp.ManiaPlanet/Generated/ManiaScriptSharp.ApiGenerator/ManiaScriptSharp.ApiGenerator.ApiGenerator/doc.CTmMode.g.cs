@@ -46,20 +46,20 @@ public partial class CTmMode : CMode, ILocalProvider, IPersistentProvider
         FastestRace,
     }
 
-    public CTmPlayer[] AllPlayers { get; }
-    public CTmPlayer[] Spectators { get; }
-    public CTmPlayer[] Players { get; }
-    public CTmPlayer[] PlayersRacing { get; }
-    public CTmPlayer[] PlayersWaiting { get; }
+    public System.Collections.Generic.List<CTmPlayer> AllPlayers { get; }
+    public System.Collections.Generic.List<CTmPlayer> Spectators { get; }
+    public System.Collections.Generic.List<CTmPlayer> Players { get; }
+    public System.Collections.Generic.List<CTmPlayer> PlayersRacing { get; }
+    public System.Collections.Generic.List<CTmPlayer> PlayersWaiting { get; }
     public CTmPlayer GetPlayer(CUIConfig UI) => default!;
     public CTmPlayer GetPlayer(string Login) => default!;
-    public CTmScore[] Scores { get; }
+    public System.Collections.Generic.List<CTmScore> Scores { get; }
     public int Clan1Score { get; set; }
     public int Clan2Score { get; set; }
-    public int[] ClanScores { get; set; }
+    public System.Collections.Generic.List<int> ClanScores { get; set; }
     public int ClansNbTotal { get; }
-    public int[] ClansNbPlayers { get; }
-    public CTmModeEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<int> ClansNbPlayers { get; }
+    public System.Collections.Generic.List<CTmModeEvent> PendingEvents { get; }
     public bool PassOn(CTmModeEvent Event) => default!;
     public void Discard(CTmModeEvent Event) { }
     public void SpawnPlayer(CTmPlayer Player, int ClanNum, int RaceStartTime) { }
@@ -119,8 +119,8 @@ public partial class CTmMode : CMode, ILocalProvider, IPersistentProvider
     public bool RaceGhost_IsReplayOver(Ident GhostInstId) => default!;
     public Vec3 MapStartLinePos { get; }
     /// <summary>You can use MapCheckpointPos.count to get the number of checkpoints.</summary>
-    public Vec3[] MapCheckpointPos { get; }
-    public Vec3[] MapFinishLinePos { get; }
+    public System.Collections.Generic.List<Vec3> MapCheckpointPos { get; }
+    public System.Collections.Generic.List<Vec3> MapFinishLinePos { get; }
     public bool MapIsLapRace { get; }
     public int MapNbLaps { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

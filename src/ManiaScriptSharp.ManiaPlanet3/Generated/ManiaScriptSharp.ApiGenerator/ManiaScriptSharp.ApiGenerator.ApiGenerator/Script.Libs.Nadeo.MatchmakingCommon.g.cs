@@ -57,19 +57,19 @@ public partial class MatchmakingCommon : ILib
 
     /// <summary>Set the current matchmaking format It's the current format that can be modified by the progressive matchmaking function</summary>
     /// <param name="Format">The new format</param>
-    public void SetCurrentMatchFormat(int[] _Format) { }
+    public void SetCurrentMatchFormat(global::System.Collections.Generic.List<int> _Format) { }
 
     /// <summary>Get the current matchmaking format It's the current format that can be modified by the progressive matchmaking function [NbPlayersTeam1, NbPlayersTeam2, ..., NbPlayersTeamN]</summary>
     /// <returns>The current format</returns>
-    public int[] GetCurrentMatchFormat() => default!;
+    public global::System.Collections.Generic.List<int> GetCurrentMatchFormat() => default!;
 
     /// <summary>Set the matchmaking format It's the desired format [NbPlayersTeam1, NbPlayersTeam2, ..., NbPlayersTeamN]</summary>
     /// <param name="Format">The new format</param>
-    public void SetMatchFormat(int[] _Format) { }
+    public void SetMatchFormat(global::System.Collections.Generic.List<int> _Format) { }
 
     /// <summary>Get the matchmaking format It's the desired format [NbPlayersTeam1, NbPlayersTeam2, ..., NbPlayersTeamN]</summary>
     /// <returns>The current format</returns>
-    public int[] GetMatchFormat() => default!;
+    public global::System.Collections.Generic.List<int> GetMatchFormat() => default!;
 
     /// <summary>Set the maximum number of players in a clan</summary>
     /// <param name="MaxPlayers">The new maximum number of players</param>

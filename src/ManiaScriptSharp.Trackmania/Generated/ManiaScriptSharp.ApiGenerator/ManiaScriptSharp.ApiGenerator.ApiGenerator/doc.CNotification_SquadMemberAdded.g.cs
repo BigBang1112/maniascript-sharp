@@ -16,7 +16,7 @@ public partial class CNotification_SquadMemberAdded : CNotification_Squad
     public bool MemberIsCommunicationRestricted { get; }
     public bool MemberIsFirstPartyDisplayName { get; }
     public string MemberSkinOptions { get; }
-    public CSkinInfo[] MemberSkinList { get; set; }
+    public System.Collections.Generic.List<CSkinInfo> MemberSkinList { get; set; }
     public string MemberWebServicesUserId { get; }
     public string SquadId { get; }
     public string SquadType { get; }

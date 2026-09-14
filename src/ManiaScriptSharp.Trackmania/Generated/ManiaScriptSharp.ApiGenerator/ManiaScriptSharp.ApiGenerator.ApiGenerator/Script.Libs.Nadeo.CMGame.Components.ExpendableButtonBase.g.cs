@@ -113,7 +113,7 @@ public partial class ExpendableButtonBase : ILib
 
     public struct K_Properties
     {
-        public int[] Enabled;
+        public global::System.Collections.Generic.List<int> Enabled;
         public string TextValue;
         public bool TextFitLabelEnabled;
         public bool TextAutoNewLineEnabled;
@@ -161,7 +161,7 @@ public partial class ExpendableButtonBase : ILib
         public K_Controls Controls;
         public K_Properties CustomizedProperties;
         public K_Properties MergedProperties;
-        public string[] Styles;
+        public global::System.Collections.Generic.List<string> Styles;
         public bool IsButton;
         public bool IsFocused;
     }

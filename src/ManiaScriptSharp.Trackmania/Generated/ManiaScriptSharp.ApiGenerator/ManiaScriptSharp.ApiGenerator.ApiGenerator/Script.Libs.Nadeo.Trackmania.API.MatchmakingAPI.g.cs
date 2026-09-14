@@ -51,7 +51,7 @@ public partial class MatchmakingAPI : ILib
 
     public struct K_HttpHeartbeatBody
     {
-        public string[] playWith;
+        public global::System.Collections.Generic.List<string> playWith;
         public string code;
     }
 
@@ -110,7 +110,7 @@ public partial class MatchmakingAPI : ILib
     public struct K_HttpMatchParticipants
     {
         public bool isCompleted;
-        public K_HttpParticipant[] participants;
+        public global::System.Collections.Generic.List<K_HttpParticipant> participants;
     }
 
     public struct K_HttpOfficialQueueSummary
@@ -132,7 +132,7 @@ public partial class MatchmakingAPI : ILib
 
     public struct K_HttpDisplayDivisionRules
     {
-        public K_HttpDivisionRules[] divisions;
+        public global::System.Collections.Generic.List<K_HttpDivisionRules> divisions;
     }
 
     public struct K_HttpPlayerProgression
@@ -144,7 +144,7 @@ public partial class MatchmakingAPI : ILib
 
     public struct K_HttpProgressions
     {
-        public K_HttpPlayerProgression[] progressions;
+        public global::System.Collections.Generic.List<K_HttpPlayerProgression> progressions;
     }
 
     public struct K_HttpCode
@@ -195,7 +195,7 @@ public partial class MatchmakingAPI : ILib
     {
         public string matchmakingId;
         public int cardinal;
-        public K_HttpPlayerLeaderboard[] results;
+        public global::System.Collections.Generic.List<K_HttpPlayerLeaderboard> results;
     }
 
     public global::System.Collections.Generic.Dictionary<string, string> GetHeadersWithLiveAuth() => default!;

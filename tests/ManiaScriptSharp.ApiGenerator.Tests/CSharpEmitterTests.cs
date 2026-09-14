@@ -152,11 +152,19 @@ struct CFoo : public CNod {
     }
 
     [Fact]
-    public void Emit_ArrayField_GeneratesArrayProperty()
+    public void Emit_ArrayField_GeneratesListProperty()
     {
         var input = @"struct CFoo : public CNod { Integer[] Scores; };";
         var files = EmitAll(input);
-        Assert.Contains("public int[] Scores", files["CFoo.g.cs"]);
+        Assert.Contains("public System.Collections.Generic.List<int> Scores", files["CFoo.g.cs"]);
+    }
+
+    [Fact]
+    public void Emit_ArrayParameter_GeneratesListParameter()
+    {
+        var input = @"struct CFoo : public CNod { Void SetScores(Integer[] Scores); };";
+        var files = EmitAll(input);
+        Assert.Contains("public void SetScores(System.Collections.Generic.List<int> scores)", files["CFoo.g.cs"]);
     }
 
     [Fact]
@@ -332,11 +340,11 @@ public :
     }
 
     [Fact]
-    public void Emit_Namespace_ArrayReturnType_UsesArray()
+    public void Emit_Namespace_ArrayReturnType_UsesList()
     {
         var input = "namespace TextLib { Text[Void] Split(Text Separators, Text Text_); };";
         var files = EmitAll(input);
-        Assert.Contains("public static string[] Split", files["TextLib.g.cs"]);
+        Assert.Contains("public static System.Collections.Generic.List<string> Split", files["TextLib.g.cs"]);
     }
 
     [Fact]

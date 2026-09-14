@@ -55,8 +55,8 @@ public partial class UserStore_ML : ILib
     public struct K_LoadMatchmakingInfosProgress
     {
         public bool GetMatchmakingOfficialQueueSummary;
-        public string[] LoadMatchmakingDivisions;
-        public string[] GetPlayerProgression;
+        public global::System.Collections.Generic.List<string> LoadMatchmakingDivisions;
+        public global::System.Collections.Generic.List<string> GetPlayerProgression;
     }
 
     public struct K_TrackBrowserInfos

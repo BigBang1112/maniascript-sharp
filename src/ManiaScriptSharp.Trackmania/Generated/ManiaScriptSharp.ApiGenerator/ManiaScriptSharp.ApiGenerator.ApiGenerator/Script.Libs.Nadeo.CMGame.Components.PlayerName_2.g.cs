@@ -99,22 +99,22 @@ public partial class PlayerName_2 : ILib
         public int OpacityAnimDuration;
         public string TextCompose;
         public float Width;
-        public int[] Dirty;
+        public global::System.Collections.Generic.List<int> Dirty;
     }
 
     public struct K_Names
     {
         public int CooldownEndTime;
-        public string[] Pending;
-        public string[] Requesting;
+        public global::System.Collections.Generic.List<string> Pending;
+        public global::System.Collections.Generic.List<string> Requesting;
     }
 
     public struct K_ClubTags
     {
         public int CooldownEndTime;
         public global::System.Collections.Generic.Dictionary<string, string> ClubTags;
-        public string[] Pending;
-        public string[] Requesting;
+        public global::System.Collections.Generic.List<string> Pending;
+        public global::System.Collections.Generic.List<string> Requesting;
     }
 
     public struct K_Event
@@ -126,8 +126,8 @@ public partial class PlayerName_2 : ILib
     {
         public K_Names Names;
         public K_ClubTags ClubTags;
-        public K_Event[] DelayedPendingEvents;
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> DelayedPendingEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
     }
 
     public struct K_Result

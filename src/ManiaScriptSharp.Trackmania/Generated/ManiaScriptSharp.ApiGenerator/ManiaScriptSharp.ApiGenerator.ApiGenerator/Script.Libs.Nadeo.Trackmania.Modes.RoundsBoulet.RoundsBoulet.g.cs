@@ -30,8 +30,8 @@ public partial class RoundsBoulet : ILib
     public struct K_Team
     {
         public int Id;
-        public string[] Members;
-        public int[] WaypointTimes;
+        public global::System.Collections.Generic.List<string> Members;
+        public global::System.Collections.Generic.List<int> WaypointTimes;
         public bool FinishedRace;
         public int FinishedNb;
         public int Rank;
@@ -46,12 +46,12 @@ public partial class RoundsBoulet : ILib
     public struct K_Json_Team
     {
         public string name;
-        public string[] players;
+        public global::System.Collections.Generic.List<string> players;
     }
 
     public struct K_Json_Teams
     {
-        public K_Json_Team[] teams;
+        public global::System.Collections.Generic.List<K_Json_Team> teams;
     }
 
     /// <summary>Check if a team is &quot;Null&quot;</summary>
@@ -79,7 +79,7 @@ public partial class RoundsBoulet : ILib
     public int GetTeamsNb() => default!;
 
     /// <summary>Update the teams ranking</summary>
-    public K_Team[] UpdateRaceRanking() => default!;
+    public global::System.Collections.Generic.List<K_Team> UpdateRaceRanking() => default!;
 
     /// <summary>Update the current map ranking</summary>
     public void ThrottleUpdateRaceRanking() { }
@@ -88,7 +88,7 @@ public partial class RoundsBoulet : ILib
     public void ResetRaces() { }
 
     /// <summary>Compute the points earned for the current race</summary>
-    public void UpdateTeamsRoundPoints(int[] _PointsDistribution) { }
+    public void UpdateTeamsRoundPoints(global::System.Collections.Generic.List<int> _PointsDistribution) { }
 
     /// <summary>Transfert the round points to the map/match points</summary>
     public void UpdateTeamsMatchPoints() { }

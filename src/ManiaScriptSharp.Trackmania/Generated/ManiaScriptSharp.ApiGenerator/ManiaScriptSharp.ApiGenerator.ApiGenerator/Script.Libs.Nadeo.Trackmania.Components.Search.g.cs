@@ -45,7 +45,7 @@ public partial class Search : ILib
 
     public struct Trackmania_Search_K_Widget_Select
     {
-        public string[] Options;
+        public global::System.Collections.Generic.List<string> Options;
         public int SelectedIndex;
         public int DefaultIndex;
     }
@@ -96,7 +96,7 @@ public partial class Search : ILib
     public Trackmania_Search_K_Widgets NewWidgetsList() => default!;
 
     /// <summary>Add a select widget</summary>
-    public Trackmania_Search_K_Widgets AddWidgetSelect(Trackmania_Search_K_Widgets _Widgets, int _WidgetId, string _Label, string[] _Options, int _SelectedIndex) => default!;
+    public Trackmania_Search_K_Widgets AddWidgetSelect(Trackmania_Search_K_Widgets _Widgets, int _WidgetId, string _Label, global::System.Collections.Generic.List<string> _Options, int _SelectedIndex) => default!;
 
     /// <summary>Add an entry widget</summary>
     public Trackmania_Search_K_Widgets AddWidgetInput(Trackmania_Search_K_Widgets _Widgets, int _WidgetId, string _Label, string _Value) => default!;

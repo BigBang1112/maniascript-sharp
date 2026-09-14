@@ -35,27 +35,27 @@ public partial class ChannelProgression : ILib
 
     public void SetSeasonEpisode(int _SeasonNumber, int _SeasonEpisode, CMlLabel _Label_Season) { }
 
-    public void UpdateRanking(string[] _Names, int[] _Scores, int _MyRank, bool _IsTime, CMlFrame _Frame) { }
+    public void UpdateRanking(global::System.Collections.Generic.List<string> _Names, global::System.Collections.Generic.List<int> _Scores, int _MyRank, bool _IsTime, CMlFrame _Frame) { }
 
-    public void UpdateBestScores(CMlFrame _Frame, int[] _OldBestScores, string[] _OldBestDates, int[] _NewBestScores, string[] _NewBestDates, int _AnimStartTime, CAudioSource _AnimSound) { }
+    public void UpdateBestScores(CMlFrame _Frame, global::System.Collections.Generic.List<int> _OldBestScores, global::System.Collections.Generic.List<string> _OldBestDates, global::System.Collections.Generic.List<int> _NewBestScores, global::System.Collections.Generic.List<string> _NewBestDates, int _AnimStartTime, CAudioSource _AnimSound) { }
 
-    public void SetEmblem(string[] _EmblemsLogo, int _Level, CMlFrame _Frame_Emblem, CAudioSource _SoundUp) { }
+    public void SetEmblem(global::System.Collections.Generic.List<string> _EmblemsLogo, int _Level, CMlFrame _Frame_Emblem, CAudioSource _SoundUp) { }
 
-    public void SetEmblems(string[] _EmblemsLogo, int _CurrentLevel, int _NextLevel, CMlFrame _Frame_CurrentEmblem, CMlFrame _Frame_NextEmblem, CAudioSource _SoundUp) { }
+    public void SetEmblems(global::System.Collections.Generic.List<string> _EmblemsLogo, int _CurrentLevel, int _NextLevel, CMlFrame _Frame_CurrentEmblem, CMlFrame _Frame_NextEmblem, CAudioSource _SoundUp) { }
 
-    public void SetXP(int[] _EmblemsXP, string[] _EmblemsLogo, int _XP, CMlFrame _Frame_CurrentEmblem, CMlFrame _Frame_NextEmblem, CMlQuad _Quad_ProgressBar, CAudioSource _SoundUp) { }
+    public void SetXP(global::System.Collections.Generic.List<int> _EmblemsXP, global::System.Collections.Generic.List<string> _EmblemsLogo, int _XP, CMlFrame _Frame_CurrentEmblem, CMlFrame _Frame_NextEmblem, CMlQuad _Quad_ProgressBar, CAudioSource _SoundUp) { }
 
     public void SetXPProgression(int _OldXP, int _NewXP, CMlLabel _Label_Points, CMlLabel _Label_Gain) { }
 
-    public int GetXPAnimDuration(int[] _EmblemsXP, int _OldXP, int _NewXP) => default!;
+    public int GetXPAnimDuration(global::System.Collections.Generic.List<int> _EmblemsXP, int _OldXP, int _NewXP) => default!;
 
-    public bool SetReward(string[] _Rewards, int _Reward, CMlFrame _Frame_RewardUnavailable, CMlFrame _Frame_RewardAvailable, CMlQuad _Quad_Result) => default!;
+    public bool SetReward(global::System.Collections.Generic.List<string> _Rewards, int _Reward, CMlFrame _Frame_RewardUnavailable, CMlFrame _Frame_RewardAvailable, CMlQuad _Quad_Result) => default!;
 
-    public void SetRewards(string[] _Rewards, int _Reward, int _Index, int _AnimSteps, CMlFrame _Frame_RouletteContent) { }
+    public void SetRewards(global::System.Collections.Generic.List<string> _Rewards, int _Reward, int _Index, int _AnimSteps, CMlFrame _Frame_RouletteContent) { }
 
     public float CustomEaseOutElastic(int _T, float _B, float _C, int _D) => default!;
 
-    public void PreloadEmblems(string[] _Emblems) { }
+    public void PreloadEmblems(global::System.Collections.Generic.List<string> _Emblems) { }
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>
@@ -73,7 +73,7 @@ public partial class ChannelProgression : ILib
     /// <summary>Update the players ranking</summary>
     /// <param name="Names">The ordered names</param>
     /// <param name="Scores">The ordered scores</param>
-    public void SetRanking(string[] _Names, int[] _Scores) { }
+    public void SetRanking(global::System.Collections.Generic.List<string> _Names, global::System.Collections.Generic.List<int> _Scores) { }
 
     /// <summary>Set the player rank in the ranking</summary>
     /// <param name="Score">The player's score</param>
@@ -96,35 +96,35 @@ public partial class ChannelProgression : ILib
     /// <param name="OldDates">The dates of the previous best scores</param>
     /// <param name="NewBestPoints">The player's new best points</param>
     /// <param name="NewDates">The dates of the new best scores</param>
-    public void SetBestScores(CScore _Score, int[] _OldBestPoints, string[] _OldDates, int[] _NewBestPoints, string[] _NewDates) { }
+    public void SetBestScores(CScore _Score, global::System.Collections.Generic.List<int> _OldBestPoints, global::System.Collections.Generic.List<string> _OldDates, global::System.Collections.Generic.List<int> _NewBestPoints, global::System.Collections.Generic.List<string> _NewDates) { }
 
     /// <summary>Get the points from a player's new best scores</summary>
     /// <param name="Score">The player's score</param>
     /// <returns>The player's best scores</returns>
-    public int[] GetNewBestScoresPoints(CScore _Score) => default!;
+    public global::System.Collections.Generic.List<int> GetNewBestScoresPoints(CScore _Score) => default!;
 
     /// <summary>Get the dates from a player's new best scores</summary>
     /// <param name="Score">The player's score</param>
     /// <returns>The player's best scores dates</returns>
-    public string[] GetNewBestScoresDates(CScore _Score) => default!;
+    public global::System.Collections.Generic.List<string> GetNewBestScoresDates(CScore _Score) => default!;
 
     /// <summary>Get the points from a player's old best scores</summary>
     /// <param name="Score">The player's score</param>
     /// <returns>The player's best scores</returns>
-    public int[] GetOldBestScoresPoints(CScore _Score) => default!;
+    public global::System.Collections.Generic.List<int> GetOldBestScoresPoints(CScore _Score) => default!;
 
     /// <summary>Get the dates from a player's old best scores</summary>
     /// <param name="Score">The player's score</param>
     /// <returns>The player's best scores dates</returns>
-    public string[] GetOldBestScoresDates(CScore _Score) => default!;
+    public global::System.Collections.Generic.List<string> GetOldBestScoresDates(CScore _Score) => default!;
 
     /// <summary>Update the channel cumulated XP per level</summary>
     /// <param name="EmblemsXP">XP cumulated to reach each level</param>
-    public void SetEmblemsXP(int[] _EmblemsXP) { }
+    public void SetEmblemsXP(global::System.Collections.Generic.List<int> _EmblemsXP) { }
 
     /// <summary>Update the emblems' logo</summary>
     /// <param name="EmblemsLogo">Path to the emblems' logo</param>
-    public void SetEmblemsLogo(string[] _BigLogo, string[] _SmallLogo) { }
+    public void SetEmblemsLogo(global::System.Collections.Generic.List<string> _BigLogo, global::System.Collections.Generic.List<string> _SmallLogo) { }
 
     /// <summary>Update the player's score (points)</summary>
     /// <param name="Score">The player's score</param>
@@ -135,7 +135,7 @@ public partial class ChannelProgression : ILib
     /// <param name="Score">The player's score</param>
     /// <param name="Rewards">The rewards available</param>
     /// <param name="Reward">The key of the reward in the _Rewards array</param>
-    public void SetReward(CScore _Score, string[] _Rewards, int _Reward) { }
+    public void SetReward(CScore _Score, global::System.Collections.Generic.List<string> _Rewards, int _Reward) { }
 
     /// <summary>Play the reveral animation when the season progression window is displayed</summary>
     public void PlayRevealAnimation() { }
@@ -145,12 +145,12 @@ public partial class ChannelProgression : ILib
 
     /// <summary>Request the map info from the live API</summary>
     /// <param name="PlayersLogins">The logins for which we want to retrieve info</param>
-    public void RequestMapInfo(string[] _PlayersLogins) { }
+    public void RequestMapInfo(global::System.Collections.Generic.List<string> _PlayersLogins) { }
 
     /// <summary>Request the match info from the live API</summary>
     /// <param name="PlayersLogins">The logins for which we want to retrieve info</param>
     /// <param name="PlayersScores">The scores of the players</param>
-    public void RequestMatchInfo(string[] _PlayersLogins, int[] _PlayersScores) { }
+    public void RequestMatchInfo(global::System.Collections.Generic.List<string> _PlayersLogins, global::System.Collections.Generic.List<int> _PlayersScores) { }
 
     /// <summary>Parse the server info response</summary>
     /// <param name="Xml">The server info response</param>

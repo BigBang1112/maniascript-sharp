@@ -57,7 +57,7 @@ public partial class ExpendableAssetBase : ILib
 
     public struct K_Properties
     {
-        public int[] Enabled;
+        public global::System.Collections.Generic.List<int> Enabled;
         public float Height;
         public float Width;
         public global::System.Collections.Generic.Dictionary<int, K_Image> Images;
@@ -71,8 +71,8 @@ public partial class ExpendableAssetBase : ILib
         public K_Controls Controls;
         public K_Properties CustomizedProperties;
         public K_Properties MergedProperties;
-        public int[] DirtyProperties;
-        public string[] Styles;
+        public global::System.Collections.Generic.List<int> DirtyProperties;
+        public global::System.Collections.Generic.List<string> Styles;
         public bool IsAsset;
     }
 

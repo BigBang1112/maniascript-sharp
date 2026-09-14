@@ -27,7 +27,7 @@ public partial class StuntsResult_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Get last pending events received by the server</summary>
-    public K_Event[] GetPendingEvents() => default!;
+    public global::System.Collections.Generic.List<K_Event> GetPendingEvents() => default!;
 
     /// <summary>Unload the library</summary>
     public void Unload() { }

@@ -80,7 +80,7 @@ public partial class Chase : ILib
     /// <param name="RelaySuccess">Was the relay successful at this checkpoint?</param>
     /// <param name="IsRelayer">This player is the relayer</param>
     /// <param name="Score">The score of the player at the checkpoint</param>
-    public void ComputeCheckpointGrade(int[] _CheckpointScores, string[] _CheckpointGrades, Vec3[] _CheckpointColors, string _CheckpointRelayGrade, Vec3 _CheckpointRelayColor, int _PerfLow, int _PerfHigh, CTmPlayer _Player, bool _RelaySuccess, bool _IsRelayer, int _Score) { }
+    public void ComputeCheckpointGrade(global::System.Collections.Generic.List<int> _CheckpointScores, global::System.Collections.Generic.List<string> _CheckpointGrades, global::System.Collections.Generic.List<Vec3> _CheckpointColors, string _CheckpointRelayGrade, Vec3 _CheckpointRelayColor, int _PerfLow, int _PerfHigh, CTmPlayer _Player, bool _RelaySuccess, bool _IsRelayer, int _Score) { }
 
     /// <summary>Unload the library</summary>
     public void Unload() { }

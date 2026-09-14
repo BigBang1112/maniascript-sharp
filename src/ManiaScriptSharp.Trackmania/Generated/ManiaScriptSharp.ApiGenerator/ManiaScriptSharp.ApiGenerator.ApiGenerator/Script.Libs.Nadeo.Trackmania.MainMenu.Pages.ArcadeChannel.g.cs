@@ -58,7 +58,7 @@ public partial class ArcadeChannel : ILib
     {
         public K_ProgramInfo ProgramNow;
         public K_ProgramInfo ProgramNext;
-        public K_ProgramInfo[] ProgramGrid;
+        public global::System.Collections.Generic.List<K_ProgramInfo> ProgramGrid;
         public bool NeedProgramUpdate;
         public bool NeedScheduleUpdate;
         public int CurrentDay;

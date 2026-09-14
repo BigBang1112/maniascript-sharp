@@ -15,5 +15,5 @@ public partial class CTaskResult_ModeInfo : CNod
     public string Path { get; }
     public string Description { get; }
     public string Version { get; }
-    public string[] CompatibleMapTypes { get; set; }
+    public System.Collections.Generic.List<string> CompatibleMapTypes { get; set; }
 }

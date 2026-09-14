@@ -18,10 +18,10 @@ public partial class CSmScore : CScore, ILocalProvider, INetreadProvider, INetwr
     public int NbEliminationsTaken { get; }
     public int DamageInflicted { get; }
     public int DamageTaken { get; }
-    public int[] BestRaceTimes { get; set; }
-    public int[] PrevRaceTimes { get; set; }
-    public int[] BestLapTimes { get; set; }
-    public int[] PrevLapTimes { get; set; }
+    public System.Collections.Generic.List<int> BestRaceTimes { get; set; }
+    public System.Collections.Generic.List<int> PrevRaceTimes { get; set; }
+    public System.Collections.Generic.List<int> BestLapTimes { get; set; }
+    public System.Collections.Generic.List<int> PrevLapTimes { get; set; }
     public int BestRaceNbRespawns { get; set; }
     public int PrevRaceNbRespawns { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

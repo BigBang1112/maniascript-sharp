@@ -71,7 +71,7 @@ public partial class BucketItemUploads : ILib
 
     public struct K_TracksFavoriteStatus
     {
-        public string[] FavoritesTracksUids;
+        public global::System.Collections.Generic.List<string> FavoritesTracksUids;
         public string CurrentTrackUid;
         public string CurrentTrackName;
     }

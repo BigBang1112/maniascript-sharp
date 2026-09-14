@@ -11,14 +11,14 @@ namespace ManiaScriptSharp;
 public partial class CAchievementsManager : CNod
 {
     /// <summary>List of events for current frame.</summary>
-    public CAchievementsEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<CAchievementsEvent> PendingEvents { get; }
     /// <summary>Achievements descriptions.</summary>
-    public CAchievementsAchievement[] Achievements { get; }
+    public System.Collections.Generic.List<CAchievementsAchievement> Achievements { get; }
     /// <summary>Stats descriptions.</summary>
-    public CAchievementsStat[] Stats { get; }
+    public System.Collections.Generic.List<CAchievementsStat> Stats { get; }
     /// <summary>Achievements descriptions.</summary>
-    public CAchievementsAchievementDesc[] AchievementDescriptions { get; }
+    public System.Collections.Generic.List<CAchievementsAchievementDesc> AchievementDescriptions { get; }
     /// <summary>Stats descriptions.</summary>
-    public CAchievementsStatDesc[] StatDescriptions { get; }
-    public void SendEvent(Ident UserId, string Mnemo, int[] Params) { }
+    public System.Collections.Generic.List<CAchievementsStatDesc> StatDescriptions { get; }
+    public void SendEvent(Ident UserId, string Mnemo, System.Collections.Generic.List<int> Params) { }
 }

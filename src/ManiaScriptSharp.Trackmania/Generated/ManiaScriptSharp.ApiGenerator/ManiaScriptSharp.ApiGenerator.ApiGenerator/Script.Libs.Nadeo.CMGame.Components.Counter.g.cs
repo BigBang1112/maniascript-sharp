@@ -72,7 +72,7 @@ public partial class Counter : ILib
 
     public struct K_State
     {
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
     }
 
     /// <summary>Get the component</summary>

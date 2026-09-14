@@ -64,7 +64,7 @@ public partial class ControlBlockList : ILib
 
     public struct K_Properties
     {
-        public int[] Dirty;
+        public global::System.Collections.Generic.List<int> Dirty;
         public int Type;
         public Vec2 Size;
         public string TextValue;
@@ -82,7 +82,7 @@ public partial class ControlBlockList : ILib
         public bool AutoNewLine;
         public float Opacity;
         public int OpacityAnimDuration;
-        public string[] Owners;
+        public global::System.Collections.Generic.List<string> Owners;
         public Vec3 BgColor;
         public Vec3 Colorize;
         public Vec3 ModulateColor;

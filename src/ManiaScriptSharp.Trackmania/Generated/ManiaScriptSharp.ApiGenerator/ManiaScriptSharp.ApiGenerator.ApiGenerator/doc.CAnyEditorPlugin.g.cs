@@ -17,7 +17,7 @@ public partial class CAnyEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         Aborted,
     }
 
-    public CManiaAppEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<CManiaAppEvent> PendingEvents { get; }
     public CEditorModule ModuleEditor { get; }
     public CEditorMesh MeshEditor { get; }
     public CEditorEditor EditorEditor { get; }

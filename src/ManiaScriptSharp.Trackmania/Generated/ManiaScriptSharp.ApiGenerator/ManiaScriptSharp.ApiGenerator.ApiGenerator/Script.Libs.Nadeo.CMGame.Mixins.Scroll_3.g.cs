@@ -55,8 +55,8 @@ public partial class Scroll_3 : ILib
     {
         public int Type;
         public int Private_RelayType;
-        public K_Element[] Elements;
-        public K_Element[] UpdatedElements;
+        public global::System.Collections.Generic.List<K_Element> Elements;
+        public global::System.Collections.Generic.List<K_Element> UpdatedElements;
         public K_Element From;
         public K_Element To;
         public K_Element Element;
@@ -115,7 +115,7 @@ public partial class Scroll_3 : ILib
         public int Direction;
         public float PreviousLineVisibleRatio;
         public float NextLineVisibleRatio;
-        public string[] ElementZoneClasses;
+        public global::System.Collections.Generic.List<string> ElementZoneClasses;
     }
 
     public struct K_Private_ScrollAnimation
@@ -135,7 +135,7 @@ public partial class Scroll_3 : ILib
         public Vec2 ScrollOffset;
         public Vec2 ScrollAnimOffset;
         public Int2 ElementKeyRange;
-        public K_Element[] Elements;
+        public global::System.Collections.Generic.List<K_Element> Elements;
         public int ElementsNb;
         public float ScrollBarFullLength;
         public bool IsFocused;
@@ -146,8 +146,8 @@ public partial class Scroll_3 : ILib
 
     public struct K_Private_State
     {
-        public K_Event[] CollectEvents;
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> CollectEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
     }
 
     /// <summary>Get the required number of elements to put in the scroll frame for the given grid size</summary>

@@ -138,5 +138,5 @@ public partial class RoutePaths : ILib
     public bool IsClubAndProfileOverlaysNavEnabled(string _Path) => default!;
 
     /// <summary>Get the list of paths where the connection error pop-up is disabled</summary>
-    public string[] GetConnectionErrorPageDisabled() => default!;
+    public global::System.Collections.Generic.List<string> GetConnectionErrorPageDisabled() => default!;
 }

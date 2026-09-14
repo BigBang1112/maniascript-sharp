@@ -56,7 +56,7 @@ public partial class HttpStruct : ILib
         public int publicationTimestamp;
         public int editionTimestamp;
         public string mediaUrl;
-        public LibHttpStruct_K_HttpMap[] playlist;
+        public global::System.Collections.Generic.List<LibHttpStruct_K_HttpMap> playlist;
     }
 
     public struct LibHttpStruct_K_HttpDailyMap
@@ -77,7 +77,7 @@ public partial class HttpStruct : ILib
         public int year;
         public int month;
         public int lastDay;
-        public LibHttpStruct_K_HttpDailyMap[] days;
+        public global::System.Collections.Generic.List<LibHttpStruct_K_HttpDailyMap> days;
         public LibHttpStruct_K_HttpMedia media;
     }
 

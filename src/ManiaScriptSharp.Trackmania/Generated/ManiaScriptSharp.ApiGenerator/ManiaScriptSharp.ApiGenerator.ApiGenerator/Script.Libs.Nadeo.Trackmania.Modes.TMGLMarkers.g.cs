@@ -20,7 +20,7 @@ public partial class TMGLMarkers : ILib
     public const bool C_UseUIAll = true;
 
     /// <summary>Set the account ids of the finalists in Cup mode</summary>
-    public void SetFinalists(string[] _AccountIds) { }
+    public void SetFinalists(global::System.Collections.Generic.List<string> _AccountIds) { }
 
     /// <summary>Update library</summary>
     public void Yield() { }

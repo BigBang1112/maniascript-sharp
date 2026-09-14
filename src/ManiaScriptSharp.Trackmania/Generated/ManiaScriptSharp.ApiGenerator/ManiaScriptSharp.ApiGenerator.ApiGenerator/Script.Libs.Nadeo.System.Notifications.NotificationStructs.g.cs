@@ -20,7 +20,7 @@ public partial class NotificationStructs : ILib
     public struct SAction
     {
         public string Name;
-        public string[] Params;
+        public global::System.Collections.Generic.List<string> Params;
     }
 
     public struct SNotification

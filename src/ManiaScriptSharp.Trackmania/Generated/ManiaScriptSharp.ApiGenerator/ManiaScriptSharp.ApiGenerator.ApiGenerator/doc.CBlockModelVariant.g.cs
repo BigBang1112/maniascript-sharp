@@ -16,5 +16,5 @@ public partial class CBlockModelVariant : CNod
     public Int3 Size { get; }
     public Int3 OffsetBoundingBoxMin { get; }
     public Int3 OffsetBoundingBoxMax { get; }
-    public CBlockUnitModel[] BlockUnitModels { get; }
+    public System.Collections.Generic.List<CBlockUnitModel> BlockUnitModels { get; }
 }

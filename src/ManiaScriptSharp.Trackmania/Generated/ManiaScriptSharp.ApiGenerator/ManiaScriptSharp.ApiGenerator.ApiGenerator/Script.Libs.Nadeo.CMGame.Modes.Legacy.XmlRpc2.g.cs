@@ -31,7 +31,7 @@ public partial class XmlRpc2 : ILib
     /// <summary>Convert an array of Text in a JSON string</summary>
     /// <param name="TextArray">The array of Text to convert</param>
     /// <returns>The converted array of Text</returns>
-    public string JsonGetTextArray(string[] _TextArray) => default!;
+    public string JsonGetTextArray(global::System.Collections.Generic.List<string> _TextArray) => default!;
 
     /// <summary>Convert a Real into a JSON string</summary>
     /// <param name="Real">The Real to convert</param>
@@ -96,7 +96,7 @@ public partial class XmlRpc2 : ILib
 
     /// <summary>Get all versions of the XmlRpc API</summary>
     /// <returns>All XmlRpc API versions</returns>
-    public string[] GetAllApiVersions() => default!;
+    public global::System.Collections.Generic.List<string> GetAllApiVersions() => default!;
 
     /// <summary>Register a new callback A callback must be registered to be sent with the SendCallback function If the callback name already exists the registring is cancelled and the old callback conserved</summary>
     /// <param name="CallbackName">The name of the callback</param>
@@ -142,19 +142,19 @@ public partial class XmlRpc2 : ILib
     /// <summary>Send a callback with an array of Text as data A callback must have been registered beforehand to be sent</summary>
     /// <param name="CallbackName">The name of the callback</param>
     /// <param name="CallbackData">The callback data</param>
-    public void SendCallback(string _CallbackName, string[] _CallbackData) { }
+    public void SendCallback(string _CallbackName, global::System.Collections.Generic.List<string> _CallbackData) { }
 
     /// <summary>Get a list of all registered callbacks</summary>
     /// <returns>An array with the names of all registered callbacks</returns>
-    public string[] GetCallbacks() => default!;
+    public global::System.Collections.Generic.List<string> GetCallbacks() => default!;
 
     /// <summary>Get a list of all enabled callbacks</summary>
     /// <returns>An array with the names of all enabled callbacks</returns>
-    public string[] GetEnabledCallbacks() => default!;
+    public global::System.Collections.Generic.List<string> GetEnabledCallbacks() => default!;
 
     /// <summary>Get a list of all disabled callbacks</summary>
     /// <returns>An array with the names of all disabled callbacks</returns>
-    public string[] GetDisabledCallbacks() => default!;
+    public global::System.Collections.Generic.List<string> GetDisabledCallbacks() => default!;
 
     /// <summary>Get help for a given callback</summary>
     /// <param name="CallbackName">The name of the callback to get help for</param>
@@ -177,7 +177,7 @@ public partial class XmlRpc2 : ILib
 
     /// <summary>Get a list of all registered methods</summary>
     /// <returns>An array with the names of all registered methods</returns>
-    public string[] GetMethods() => default!;
+    public global::System.Collections.Generic.List<string> GetMethods() => default!;
 
     /// <summary>Get help for a given method</summary>
     /// <param name="MethodName">The name of the method to get help for</param>

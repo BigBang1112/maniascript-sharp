@@ -31,11 +31,11 @@ public partial class Matchmaking : ILib
 
     public struct K_Callback_EliminatedTeams
     {
-        public int[] teams;
+        public global::System.Collections.Generic.List<int> teams;
     }
 
     /// <summary>Send a list of newly eliminated teams to the matchmaking api</summary>
-    public void SendEliminatedTeams(int[] _EliminatedTeamIds) { }
+    public void SendEliminatedTeams(global::System.Collections.Generic.List<int> _EliminatedTeamIds) { }
 
     /// <summary>Unload the library</summary>
     public void Unload() { }

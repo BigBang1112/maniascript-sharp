@@ -24,8 +24,8 @@ public partial class EventEmitter : ILib
     public struct K_Listener
     {
         public int Id;
-        public string[] FilterEventTypeList;
-        public K_Event[] EventList;
+        public global::System.Collections.Generic.List<string> FilterEventTypeList;
+        public global::System.Collections.Generic.List<K_Event> EventList;
     }
 
     /// <summary>Remove a listener from an event emitter</summary>
@@ -35,8 +35,8 @@ public partial class EventEmitter : ILib
     /// <summary>Get the list of events emitted in the listener and clear it afterward</summary>
     /// <param name="Listener">- The listener to flush</param>
     /// <returns>A list of events</returns>
-    public K_Event[] FlushListener(K_Listener _Listener) => default!;
+    public global::System.Collections.Generic.List<K_Event> FlushListener(K_Listener _Listener) => default!;
 
     /// <summary>Flush several listeners at the same time</summary>
-    public K_Event[] FlushListenerList(K_Listener[] _ListenerList) => default!;
+    public global::System.Collections.Generic.List<K_Event> FlushListenerList(global::System.Collections.Generic.List<K_Listener> _ListenerList) => default!;
 }

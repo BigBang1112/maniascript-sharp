@@ -154,7 +154,7 @@ public partial class ClubAPI : ILib
 
     public struct K_HttpResponseGetClubs
     {
-        public K_HttpClub[] clubList;
+        public global::System.Collections.Generic.List<K_HttpClub> clubList;
         public int maxPage;
         public int clubCount;
     }
@@ -183,7 +183,7 @@ public partial class ClubAPI : ILib
 
     public struct K_HttpResponseGetClubMembers
     {
-        public K_HttpClubMember[] clubMemberList;
+        public global::System.Collections.Generic.List<K_HttpClubMember> clubMemberList;
         public int maxPage;
         public int itemCount;
     }
@@ -206,7 +206,7 @@ public partial class ClubAPI : ILib
         public string region;
         public int maxPlayersPerServer;
         public string script;
-        public K_HttpSetting[] settings;
+        public global::System.Collections.Generic.List<K_HttpSetting> settings;
         public int campaignId;
         public int scalable;
         public int password;
@@ -220,8 +220,8 @@ public partial class ClubAPI : ILib
         public string region;
         public int maxPlayersPerServer;
         public string script;
-        public K_HttpSetting[] settings;
-        public string[] maps;
+        public global::System.Collections.Generic.List<K_HttpSetting> settings;
+        public global::System.Collections.Generic.List<string> maps;
         public int scalable;
         public int password;
         public int shufflePlaylist;
@@ -238,7 +238,7 @@ public partial class ClubAPI : ILib
     public struct K_HttpRoomModel
     {
         public int id;
-        public string[] maps;
+        public global::System.Collections.Generic.List<string> maps;
         public string script;
     }
 
@@ -266,7 +266,7 @@ public partial class ClubAPI : ILib
         public string serverAccountId;
         public int maxPlayers;
         public int playerCount;
-        public string[] maps;
+        public global::System.Collections.Generic.List<string> maps;
         public string script;
         public bool scalable;
         public bool shufflePlaylist;
@@ -297,7 +297,7 @@ public partial class ClubAPI : ILib
 
     public struct K_HttpResponseGetClubRooms
     {
-        public K_HttpClubRoom[] clubRoomList;
+        public global::System.Collections.Generic.List<K_HttpClubRoom> clubRoomList;
         public int maxPage;
         public int itemCount;
     }
@@ -331,7 +331,7 @@ public partial class ClubAPI : ILib
 
     public struct K_HttpResponseGetClubCampaignList
     {
-        public K_HttpClubCampaign[] clubCampaignList;
+        public global::System.Collections.Generic.List<K_HttpClubCampaign> clubCampaignList;
         public int maxPage;
         public int itemCount;
     }
@@ -362,7 +362,7 @@ public partial class ClubAPI : ILib
 
     public struct K_HttpResponseGetClubActivities
     {
-        public K_HttpActivity[] activityList;
+        public global::System.Collections.Generic.List<K_HttpActivity> activityList;
         public int maxPage;
         public int itemCount;
     }
@@ -421,7 +421,7 @@ public partial class ClubAPI : ILib
     public struct K_HttpCampaignCreation
     {
         public string name;
-        public K_HttpMapCreation[] playlist;
+        public global::System.Collections.Generic.List<K_HttpMapCreation> playlist;
         public int folderId;
     }
 
@@ -455,7 +455,7 @@ public partial class ClubAPI : ILib
 
     public struct K_HttpResponseFromGetVIPListOnMap
     {
-        public string[] accountIdList;
+        public global::System.Collections.Generic.List<string> accountIdList;
     }
 
     public struct K_HttpCreateBucket
@@ -475,12 +475,12 @@ public partial class ClubAPI : ILib
         public string itemId;
         public int position;
         public string description;
-        public string[] mediaUrls;
+        public global::System.Collections.Generic.List<string> mediaUrls;
     }
 
     public struct K_HttpBucketItemList
     {
-        public string[] itemIdList;
+        public global::System.Collections.Generic.List<string> itemIdList;
     }
 
     public struct K_HttpBucketItemDesc
@@ -492,7 +492,7 @@ public partial class ClubAPI : ILib
     public struct K_HttpBucketActivity
     {
         public string type;
-        public K_HttpBucketItem[] bucketItemList;
+        public global::System.Collections.Generic.List<K_HttpBucketItem> bucketItemList;
         public int bucketItemCount;
         public int popularityLevel;
         public int popularityValue;
@@ -549,7 +549,7 @@ public partial class ClubAPI : ILib
 
     public struct K_HttpResponseGetMapReviews
     {
-        public K_HttpMapReviewActivity[] clubMapReviewList;
+        public global::System.Collections.Generic.List<K_HttpMapReviewActivity> clubMapReviewList;
         public int maxPage;
         public int itemCount;
     }
@@ -593,7 +593,7 @@ public partial class ClubAPI : ILib
 
     public struct K_HttpResponseFromGetAllBucketActivities
     {
-        public K_HttpBucketActivity[] clubBucketList;
+        public global::System.Collections.Generic.List<K_HttpBucketActivity> clubBucketList;
         public int maxPage;
         public int itemCount;
     }
@@ -731,7 +731,7 @@ public partial class ClubAPI : ILib
 
     public struct K_Private_Response_GetFolderList
     {
-        public K_Private_HttpFolderActivity[] activityList;
+        public global::System.Collections.Generic.List<K_Private_HttpFolderActivity> activityList;
         public int itemCount;
     }
 

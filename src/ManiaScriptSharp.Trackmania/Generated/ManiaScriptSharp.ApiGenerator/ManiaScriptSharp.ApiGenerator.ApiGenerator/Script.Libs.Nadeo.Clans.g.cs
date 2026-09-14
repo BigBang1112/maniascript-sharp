@@ -32,7 +32,7 @@ public partial class Clans : ILib
 
     /// <summary>List all clans with at least one player</summary>
     /// <returns>A list of all clans with at least one player</returns>
-    public int[] List() => default!;
+    public global::System.Collections.Generic.List<int> List() => default!;
 
     /// <summary>Get the number of clans with at least one player</summary>
     /// <returns>The number of clans with at least one player</returns>

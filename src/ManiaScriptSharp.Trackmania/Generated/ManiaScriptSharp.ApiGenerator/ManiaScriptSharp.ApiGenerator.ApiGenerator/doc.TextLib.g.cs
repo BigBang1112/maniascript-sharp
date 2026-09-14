@@ -75,19 +75,19 @@ public sealed partial class TextLib : ILib
     public string URLEncode(string _Argument1) => default!;
     public string StripFormatting(string _Argument1) => default!;
     /// <summary>Splits a given text based on a given separators set. \param _Separators : The separators to use \param _Text : The text to split.</summary>
-    public string[] Split(string _Separators, string _Text) => default!;
+    public System.Collections.Generic.List<string> Split(string _Separators, string _Text) => default!;
     /// <summary>Splits a given text based on a given separators set. \param _Separators : The separators to use \param _Text : The text to split. \param _MergeSeparators : Separator may be repeated between values (default = true)</summary>
-    public string[] Split(string _Separators, string _Text, bool _MergeSeparators) => default!;
+    public System.Collections.Generic.List<string> Split(string _Separators, string _Text, bool _MergeSeparators) => default!;
     /// <summary>Joins a set of texts with the given separator \param _Separator : The separator to use \param _Texts : The texts to join.</summary>
-    public string Join(string _Separator, string[] _Texts) => default!;
+    public string Join(string _Separator, System.Collections.Generic.List<string> _Texts) => default!;
     public string Trim(string _Argument1) => default!;
     public string ReplaceChars(string _Argument1, string _Argument2, string _Argument3) => default!;
     /// <summary>Replaces occurences of _ToReplace in _Text with _Replacement \param _Text : The text you search in \param _ToReplace : The text you want to replace \param _Replacement : The text you want to insert</summary>
     public string Replace(string _Text, string _ToReplace, string _Replacement) => default!;
     /// <summary>Find occurences of the _Pattern in the _Text. \param _Pattern : Pattern is a regular expression, similar to javascript syntax. \param _Text :  \param _Flags : Flags can be 'g' to find all occurences, 'i' to ignore case, 'm' for multiline mode.</summary>
-    public string[] RegexFind(string _Pattern, string _Text, string _Flags) => default!;
+    public System.Collections.Generic.List<string> RegexFind(string _Pattern, string _Text, string _Flags) => default!;
     /// <summary>Captures the groups of the _Pattern in the matching _Text. group[0] is the whole pattern match. \param _Pattern : Pattern is a regular expression, similar to javascript syntax. \param _Text :  \param _Flags : Flags can be 'i' to ignore case, 'm' for multiline mode.</summary>
-    public string[] RegexMatch(string _Pattern, string _Text, string _Flags) => default!;
+    public System.Collections.Generic.List<string> RegexMatch(string _Pattern, string _Text, string _Flags) => default!;
     /// <summary>Replace the _Pattern in the matching text with _Replacement. \param _Pattern : Pattern is a regular expression, similar to javascript syntax. \param _Text :  \param _Flags : Flags can be 'g' to find all occurences, 'i' to ignore case, 'm' for multiline mode. \param _Replacement : </summary>
     public string RegexReplace(string _Pattern, string _Text, string _Flags, string _Replacement) => default!;
     /// <summary>Lookup the text in the current translation dictionary. Lookup the text in the current translation dictionary, and returns the translation, or returns the original text if not found.</summary>

@@ -31,7 +31,7 @@ public partial class Sponsors_Client : ILib
         public K_Controls Controls;
         public bool IsVisible;
         public bool IsSpectating;
-        public string[] SponsorsURL;
+        public global::System.Collections.Generic.List<string> SponsorsURL;
         public int NextSponsorKey;
         public int NextSponsorTime;
     }

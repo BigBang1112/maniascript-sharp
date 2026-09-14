@@ -35,7 +35,7 @@ public partial class AFK_Server : ILib
 
     public struct K_XmlRpc_AFK_Players
     {
-        public string[] accountIds;
+        public global::System.Collections.Generic.List<string> accountIds;
     }
 
     public struct K_XmlRpc_AFK_Properties

@@ -51,12 +51,12 @@ public partial class PrestigeProgression : ILib
 
     public struct K_Private_ControlPrestigeBlock
     {
-        public K_Private_ControlPrestigeStat[] PrestigeStatList;
+        public global::System.Collections.Generic.List<K_Private_ControlPrestigeStat> PrestigeStatList;
     }
 
     public struct K_Private_Controls
     {
-        public K_Private_ControlPrestigeBlock[] PrestigeBlockList;
+        public global::System.Collections.Generic.List<K_Private_ControlPrestigeBlock> PrestigeBlockList;
     }
 
     public struct K_Private_Component

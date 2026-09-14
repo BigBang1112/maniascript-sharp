@@ -126,7 +126,7 @@ public partial class ManiaView_3 : ILib
         public string Path;
         public string Class;
         public global::System.Collections.Generic.Dictionary<string, K_EventDefinition> DefineEvents;
-        public string[] DefineProps;
+        public global::System.Collections.Generic.List<string> DefineProps;
         public K_Script Script;
         public global::System.Collections.Generic.Dictionary<string, string> Hooks;
         public global::System.Collections.Generic.Dictionary<string, string> Slots;
@@ -138,13 +138,13 @@ public partial class ManiaView_3 : ILib
         public string Path;
         public string Class;
         public global::System.Collections.Generic.Dictionary<string, K_EventDefinition> DefineEvents;
-        public string[] DefineProps;
+        public global::System.Collections.Generic.List<string> DefineProps;
         public string Template;
         public K_Script Script;
         public global::System.Collections.Generic.Dictionary<string, string> Hooks;
         public global::System.Collections.Generic.Dictionary<string, string> Slots;
-        public K_Component[] Components;
-        public K_Mixin[] Mixins;
+        public global::System.Collections.Generic.List<K_Component> Components;
+        public global::System.Collections.Generic.List<K_Mixin> Mixins;
     }
 
     public struct K_ComponentCompilation
@@ -184,7 +184,7 @@ public partial class ManiaView_3 : ILib
 
     public struct K_Redraw
     {
-        public string[] Tags;
+        public global::System.Collections.Generic.List<string> Tags;
     }
 
     public struct K_MatchedComponent
@@ -213,13 +213,13 @@ public partial class ManiaView_3 : ILib
     public void ResetComponentInstancesToRedraw() { }
 
     /// <summary>Check if one of the given redraw tag is present</summary>
-    public bool HasRedrawTag(string[] _TagsInWhichToSearch, string _InitTag, string[] _TagsToFind) => default!;
+    public bool HasRedrawTag(global::System.Collections.Generic.List<string> _TagsInWhichToSearch, string _InitTag, global::System.Collections.Generic.List<string> _TagsToFind) => default!;
 
-    public bool HasRedrawTag(string[] _TagsInWhichToSearch, string _InitTag, string _TagToFind) => default!;
+    public bool HasRedrawTag(global::System.Collections.Generic.List<string> _TagsInWhichToSearch, string _InitTag, string _TagToFind) => default!;
 
-    public bool HasRedrawTag(string[] _TagsInWhichToSearch, string[] _TagsToFind) => default!;
+    public bool HasRedrawTag(global::System.Collections.Generic.List<string> _TagsInWhichToSearch, global::System.Collections.Generic.List<string> _TagsToFind) => default!;
 
-    public bool HasRedrawTag(string[] _TagsInWhichToSearch, string _TagToFind) => default!;
+    public bool HasRedrawTag(global::System.Collections.Generic.List<string> _TagsInWhichToSearch, string _TagToFind) => default!;
 
     /// <summary>Build a component as a manialink page</summary>
     public string ManialinkPage(K_Component _PageComponent, int _ManialinkVersion, float _ZIndex) => default!;

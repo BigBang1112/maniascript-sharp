@@ -20,7 +20,7 @@ public partial class EndMatchPopUp_Server : ILib
     public const int C_ChallengeStatus_Completed = 1;
     public const string C_Id = "UIModule_LapsOGL_EndMatchPopUp";
 
-    public string[] SetPlayerJoinLinks(global::System.Collections.Generic.Dictionary<string, string> _JoinLinks) => default!;
+    public global::System.Collections.Generic.List<string> SetPlayerJoinLinks(global::System.Collections.Generic.Dictionary<string, string> _JoinLinks) => default!;
 
     public void SetMapsInfoFromMapList() { }
 

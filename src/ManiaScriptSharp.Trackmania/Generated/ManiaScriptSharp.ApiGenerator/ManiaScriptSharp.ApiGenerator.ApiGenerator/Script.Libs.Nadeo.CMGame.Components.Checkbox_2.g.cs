@@ -89,7 +89,7 @@ public partial class Checkbox_2 : ILib
 
     public struct K_Properties
     {
-        public int[] Enabled;
+        public global::System.Collections.Generic.List<int> Enabled;
         public float OpacityFocused;
         public float OpacityUnfocused;
         public string TextValue;

@@ -51,20 +51,20 @@ public partial class CTitleControl : CNod
     /// <summary>Result of the latest command issued.</summary>
     public EResult LatestResult { get; }
     public string CustomResultType { get; }
-    public string[] CustomResultData { get; }
+    public System.Collections.Generic.List<string> CustomResultData { get; }
     public void PlayMap(string Map, string Mode, string SettingsXml) { }
     public void PlayCampaign(CCampaign Campaign, CMapInfo MapInfo, string Mode, string SettingsXml) { }
-    public void PlayMapList(string[] MapList, string Mode, string SettingsXml) { }
+    public void PlayMapList(System.Collections.Generic.List<string> MapList, string Mode, string SettingsXml) { }
     public void PlayMatchSettings(CMatchSettings MatchSettings, string OverrideMode, string OverrideSettingsXml) { }
-    public void PlaySplitScreen(ESplitScreenLayout LayoutType, string[] MapList, string Mode, string SettingsXml) { }
-    public void PlayMultiOnSameScreen(string[] MapList, string Mode, string SettingsXml) { }
+    public void PlaySplitScreen(ESplitScreenLayout LayoutType, System.Collections.Generic.List<string> MapList, string Mode, string SettingsXml) { }
+    public void PlayMultiOnSameScreen(System.Collections.Generic.List<string> MapList, string Mode, string SettingsXml) { }
     public void PlaySplitScreen(ESplitScreenLayout LayoutType, CMatchSettings MatchSettings) { }
     public void PlayMultiOnSameScreen(CMatchSettings MatchSettings) { }
     public void ViewReplay(string Replay) { }
     public void OpenEditor(string EditorName, string MainPluginSettings) { }
     public void OpenEditor(EEditorType EditorType) { }
     public void EditSkins() { }
-    public void EditReplay(string[] ReplayList) { }
+    public void EditReplay(System.Collections.Generic.List<string> ReplayList) { }
     public void EditGhosts(string Map) { }
     public void EditAsset(string EditorName, string MainPluginSettingsXml, string RelativeFileName) { }
     public void EditMap(string Map, string EditorPluginScript, string EditorPluginArgument) { }
@@ -76,8 +76,8 @@ public partial class CTitleControl : CNod
     /// <summary>Set FileName='' to open a file select dialog.</summary>
     public void PublishFile(string FileName) { }
     public void ProcessManiaCodeXml(string ManiaCodeXml) { }
-    public CServerInfo[] LocalServers { get; }
-    public CServerInfo[] LocalServers_CurrentTitle { get; }
+    public System.Collections.Generic.List<CServerInfo> LocalServers { get; }
+    public System.Collections.Generic.List<CServerInfo> LocalServers_CurrentTitle { get; }
     public void DiscoverLocalServers() { }
     public void CreateServer(string ServerName, string ServerComment, int MaxPlayerCount, string Password, CMatchSettings MatchSettings, string PasswordSpectators) { }
     public void CreateServer(string ServerName, string ServerComment, int MaxPlayerCount, string Password, string PasswordSpectators, CMatchSettings MatchSettings, bool LocalOnly) { }

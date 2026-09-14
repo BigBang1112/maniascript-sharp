@@ -100,19 +100,19 @@ public partial class PopUpMultiChoice : ILib
     {
         public bool IsDescriptionDebugEnabled;
         public bool TitleFitLabelEnabled;
-        public int[] Enabled;
+        public global::System.Collections.Generic.List<int> Enabled;
         public float TitleFontSize;
         public float Width;
         public string TitleFont;
         public string TitlePrefix;
         public string TitleValue;
         public global::System.Collections.Generic.Dictionary<int, string> Choices;
-        public string[] NavigationInputs;
-        public string[] NavigationTargets;
-        public string[] StylesFirstChoice;
-        public string[] StylesScrollChoice;
-        public string[] StylesSecondChoice;
-        public K_DescriptionPart[] Description;
+        public global::System.Collections.Generic.List<string> NavigationInputs;
+        public global::System.Collections.Generic.List<string> NavigationTargets;
+        public global::System.Collections.Generic.List<string> StylesFirstChoice;
+        public global::System.Collections.Generic.List<string> StylesScrollChoice;
+        public global::System.Collections.Generic.List<string> StylesSecondChoice;
+        public global::System.Collections.Generic.List<K_DescriptionPart> Description;
         public bool ForceScrollView;
         public bool ForceHideChoices;
         public int ScrollFocusedChoiceKey;
@@ -124,7 +124,7 @@ public partial class PopUpMultiChoice : ILib
         public bool IsClosedAfterSelection;
         public bool IsPopUpMultiChoice;
         public bool IsSelectionRequired;
-        public string[] Styles;
+        public global::System.Collections.Generic.List<string> Styles;
         public K_Controls Controls;
         public K_Properties CustomizedProperties;
         public K_Properties MergedProperties;
@@ -142,9 +142,9 @@ public partial class PopUpMultiChoice : ILib
         public int RedrawRequested;
         public global::System.Collections.Generic.Dictionary<string, K_Properties> Styles;
         public K_Properties DefaultProperties;
-        public K_Event[] DelayedPendingEvents;
-        public K_Event[] PendingEvents;
-        public Ident[] TTSContextIdentList;
+        public global::System.Collections.Generic.List<K_Event> DelayedPendingEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
+        public global::System.Collections.Generic.List<Ident> TTSContextIdentList;
     }
 
     /// <summary>Create a description line with custom properties</summary>

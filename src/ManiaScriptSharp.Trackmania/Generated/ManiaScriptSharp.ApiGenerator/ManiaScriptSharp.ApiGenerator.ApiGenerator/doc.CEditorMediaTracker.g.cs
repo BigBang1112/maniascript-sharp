@@ -116,7 +116,7 @@ public partial class CEditorMediaTracker : CEditorPluginAPI
     public void RemoveAllTracks() { }
     public CMediaTrackerClip Clip { get; }
     public CMediaTrackerClipGroup ClipGroup { get; }
-    public CEditorEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<CEditorEvent> PendingEvents { get; }
     public string PopUpMessage { get; }
     public CEditorMediaTracker.EMediaTrackerBlockType EditMode { get; }
     public void SetClip(CMediaTrackerClip Clip) { }

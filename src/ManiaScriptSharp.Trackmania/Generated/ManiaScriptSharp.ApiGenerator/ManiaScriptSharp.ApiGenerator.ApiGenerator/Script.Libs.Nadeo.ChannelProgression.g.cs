@@ -33,11 +33,11 @@ public partial class ChannelProgression : ILib
 
     public string TimeToText(int _Time) => default!;
 
-    public int GetXPAnimDuration(int[] _EmblemsXP, int _OldXP, int _NewXP) => default!;
+    public int GetXPAnimDuration(global::System.Collections.Generic.List<int> _EmblemsXP, int _OldXP, int _NewXP) => default!;
 
     public float CustomEaseOutElastic(int _T, float _B, float _C, int _D) => default!;
 
-    public void PreloadEmblems(string[] _Emblems) { }
+    public void PreloadEmblems(global::System.Collections.Generic.List<string> _Emblems) { }
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>
@@ -55,7 +55,7 @@ public partial class ChannelProgression : ILib
     /// <summary>Update the players ranking</summary>
     /// <param name="Names">The ordered names</param>
     /// <param name="Scores">The ordered scores</param>
-    public void SetRanking(string[] _Names, int[] _Scores) { }
+    public void SetRanking(global::System.Collections.Generic.List<string> _Names, global::System.Collections.Generic.List<int> _Scores) { }
 
     /// <summary>Select if the ranking displays a time or a score False if it must display scores</summary>
     /// <param name="Boolean">_IsTime						True if the ranking must display times</param>
@@ -63,11 +63,11 @@ public partial class ChannelProgression : ILib
 
     /// <summary>Update the channel cumulated XP per level</summary>
     /// <param name="EmblemsXP">XP cumulated to reach each level</param>
-    public void SetEmblemsXP(int[] _EmblemsXP) { }
+    public void SetEmblemsXP(global::System.Collections.Generic.List<int> _EmblemsXP) { }
 
     /// <summary>Update the emblems' logo</summary>
     /// <param name="EmblemsLogo">Path to the emblems' logo</param>
-    public void SetEmblemsLogo(string[] _BigLogo, string[] _SmallLogo) { }
+    public void SetEmblemsLogo(global::System.Collections.Generic.List<string> _BigLogo, global::System.Collections.Generic.List<string> _SmallLogo) { }
 
     /// <summary>Play the reveral animation when the season progression window is displayed</summary>
     public void PlayRevealAnimation() { }
@@ -77,12 +77,12 @@ public partial class ChannelProgression : ILib
 
     /// <summary>Request the map info from the live API</summary>
     /// <param name="PlayersLogins">The logins for which we want to retrieve info</param>
-    public void RequestMapInfo(string[] _PlayersLogins) { }
+    public void RequestMapInfo(global::System.Collections.Generic.List<string> _PlayersLogins) { }
 
     /// <summary>Request the match info from the live API</summary>
     /// <param name="PlayersLogins">The logins for which we want to retrieve info</param>
     /// <param name="PlayersScores">The scores of the players</param>
-    public void RequestMatchInfo(string[] _PlayersLogins, int[] _PlayersScores) { }
+    public void RequestMatchInfo(global::System.Collections.Generic.List<string> _PlayersLogins, global::System.Collections.Generic.List<int> _PlayersScores) { }
 
     /// <summary>Parse the server info response</summary>
     /// <param name="Xml">The server info response</param>

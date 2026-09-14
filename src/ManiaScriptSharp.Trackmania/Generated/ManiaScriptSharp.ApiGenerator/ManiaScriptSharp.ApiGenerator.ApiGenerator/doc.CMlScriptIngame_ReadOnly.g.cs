@@ -20,7 +20,7 @@ public partial class CMlScriptIngame_ReadOnly : CMlScript_ReadOnly
     public bool UseClans { get; set; }
     public bool UseForcedClans { get; set; }
     public CMap Map { get; }
-    public CTeam[] Teams { get; }
+    public System.Collections.Generic.List<CTeam> Teams { get; }
     public bool IsInGameMenuDisplayed { get; set; }
     public string CurrentServerLogin { get; set; }
     public string CurrentServerName { get; set; }

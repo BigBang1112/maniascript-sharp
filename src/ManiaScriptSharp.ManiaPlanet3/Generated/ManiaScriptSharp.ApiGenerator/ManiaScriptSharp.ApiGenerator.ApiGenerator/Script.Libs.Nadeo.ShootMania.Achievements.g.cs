@@ -37,7 +37,7 @@ public partial class Achievements : ILib
 
     public void Insert(string _Top, int _LongTimeCumul, string _PlayerName, float _Score) { }
 
-    public void InitSettings(string[] _UseTop) { }
+    public void InitSettings(global::System.Collections.Generic.List<string> _UseTop) { }
 
     public void SendNotice(CSmPlayer _Player, string _Message, bool DisplayBigMessage) { }
 
@@ -69,7 +69,7 @@ public partial class Achievements : ILib
 
     public global::System.Collections.Generic.Dictionary<string, string> Get_PlayerByRank(int _Rank, string _Top) => default!;
 
-    public string[] Get_InfoByPlayer(string _PlayerName, string _Top) => default!;
+    public global::System.Collections.Generic.List<string> Get_InfoByPlayer(string _PlayerName, string _Top) => default!;
 
     public string Get_LayerPlayerInfo(int PosX, int PosY) => default!;
 

@@ -81,7 +81,7 @@ public partial class CSmPlayer : CPlayer, ILocalProvider, INetreadProvider, INet
     public bool IsInOffZone { get; }
     public bool IsCapturing { get; }
     public CSmMapLandmark CapturedLandmark { get; }
-    public CSmObject[] Objects { get; }
+    public System.Collections.Generic.List<CSmObject> Objects { get; }
     public bool IsFakePlayer { get; }
     public bool IsBot { get; }
     public CSmPlayerDriver Driver { get; }

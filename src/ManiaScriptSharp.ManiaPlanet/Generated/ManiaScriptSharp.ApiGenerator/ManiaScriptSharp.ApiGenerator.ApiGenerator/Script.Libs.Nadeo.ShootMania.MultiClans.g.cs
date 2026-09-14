@@ -59,7 +59,7 @@ public partial class MultiClans : ILib
 
     /// <summary>Get the list of the existing clans</summary>
     /// <returns>An array containing the numbers of the existing clans</returns>
-    public int[] GetClans() => default!;
+    public global::System.Collections.Generic.List<int> GetClans() => default!;
 
     /// <summary>Get the total number of clans</summary>
     /// <returns>The total number of clans</returns>
@@ -76,7 +76,7 @@ public partial class MultiClans : ILib
     /// <summary>Get the players of a clan</summary>
     /// <param name="ClanNb">The clan to get</param>
     /// <returns>The players of the requested clan</returns>
-    public CSmPlayer[] GetClanPlayers(int _ClanNb) => default!;
+    public global::System.Collections.Generic.List<CSmPlayer> GetClanPlayers(int _ClanNb) => default!;
 
     /// <summary>Get the number of players in a clan</summary>
     /// <param name="ClanNb">The clan to check</param>

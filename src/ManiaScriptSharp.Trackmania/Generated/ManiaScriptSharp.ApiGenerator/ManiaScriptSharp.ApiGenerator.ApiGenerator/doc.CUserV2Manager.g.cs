@@ -26,7 +26,7 @@ public partial class CUserV2Manager : CNod
     }
 
     public CUserV2Profile MainUserProfile { get; }
-    public CTaskResult[] TaskResults { get; }
+    public System.Collections.Generic.List<CTaskResult> TaskResults { get; }
     public void TaskResult_Release(Ident TaskId) { }
     public CTaskResult TaskError_ShowSystemDialog(Ident UserId, string ErrorCode) => default!;
     /// <summary>NullId for the mainuser.</summary>
@@ -80,22 +80,22 @@ public partial class CUserV2Manager : CNod
     public void Squad_SetLocked(Ident UserId, string SquadId, bool Locked) { }
     public void Squad_SetType(Ident UserId, string SquadId, string Type) { }
     public void Squad_SetEnabled(Ident UserId, bool Enabled) { }
-    public CVoiceChatEvent[] VoiceChat_Events { get; }
+    public System.Collections.Generic.List<CVoiceChatEvent> VoiceChat_Events { get; }
     public bool VoiceChat_DisplayUI { get; }
     public bool VoiceChat_Mute_Myself { get; set; }
     public void VoiceChat_MuteAll() { }
     public void VoiceChat_UnmuteAll() { }
-    public CGameUserVoiceChat[] VoiceChat_Users { get; }
-    public CGameUserVoiceChat[] VoiceChat_Users_Local { get; }
-    public CGameUserVoiceChat[] VoiceChat_Users_Remote { get; }
+    public System.Collections.Generic.List<CGameUserVoiceChat> VoiceChat_Users { get; }
+    public System.Collections.Generic.List<CGameUserVoiceChat> VoiceChat_Users_Local { get; }
+    public System.Collections.Generic.List<CGameUserVoiceChat> VoiceChat_Users_Remote { get; }
     /// <summary>List of users currently speaking. Sorted with local users first.</summary>
-    public CGameUserVoiceChat[] VoiceChat_Users_Speaking { get; }
-    public CGameUserVoiceChat[] VoiceChat_Users_Muted { get; }
-    public CGameUserVoiceChat[] VoiceChat_Users_Remote_Muted { get; }
+    public System.Collections.Generic.List<CGameUserVoiceChat> VoiceChat_Users_Speaking { get; }
+    public System.Collections.Generic.List<CGameUserVoiceChat> VoiceChat_Users_Muted { get; }
+    public System.Collections.Generic.List<CGameUserVoiceChat> VoiceChat_Users_Remote_Muted { get; }
     public CGameUserVoiceChat VoiceChat_FindUserFromWebServicesUserId(string WebServicesUserId) => default!;
     public int Subscription_GetEndTimeStamp(Ident UserId, string SubscriptionName) => default!;
     public bool Subscription_IsRefreshingInfo(Ident UserId) => default!;
     public CTaskResult_StringInt Tag_GetClubTag(Ident UserId) => default!;
-    public CTaskResult_ClubTagList Tag_GetClubTagList(Ident UserId, string[] WebServicesUserIdList) => default!;
+    public CTaskResult_ClubTagList Tag_GetClubTagList(Ident UserId, System.Collections.Generic.List<string> WebServicesUserIdList) => default!;
     public CTaskResult Tag_SetClubTag(Ident UserId, string ClubTag) => default!;
 }

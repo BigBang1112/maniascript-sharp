@@ -278,7 +278,7 @@ internal sealed class ScriptApiEmitter
         if (msType.EndsWith("[]", StringComparison.Ordinal))
         {
             var elem = msType.Substring(0, msType.Length - 2);
-            return MapStructFieldSimpleType(elem) + "[]";
+            return $"global::System.Collections.Generic.List<{MapStructFieldSimpleType(elem)}>";
         }
 
         var bracket = msType.IndexOf('[');
@@ -372,7 +372,7 @@ internal sealed class ScriptApiEmitter
         if (msType.EndsWith("[]", StringComparison.Ordinal))
         {
             var elem = msType.Substring(0, msType.Length - 2);
-            return MapSimpleType(elem) + "[]";
+            return $"global::System.Collections.Generic.List<{MapSimpleType(elem)}>";
         }
 
         // Associative array: Value[Key]

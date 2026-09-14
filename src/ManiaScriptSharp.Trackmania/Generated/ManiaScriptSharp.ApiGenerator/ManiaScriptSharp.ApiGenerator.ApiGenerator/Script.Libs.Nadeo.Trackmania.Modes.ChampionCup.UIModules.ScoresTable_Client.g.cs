@@ -51,9 +51,9 @@ public partial class ScoresTable_Client : ILib
     public struct K_State
     {
         public K_Controls Controls;
-        public string[] PendingDisplayNames;
-        public string[] RetrievingDisplayNames;
-        public string[] FailedDisplayNames;
+        public global::System.Collections.Generic.List<string> PendingDisplayNames;
+        public global::System.Collections.Generic.List<string> RetrievingDisplayNames;
+        public global::System.Collections.Generic.List<string> FailedDisplayNames;
         public int CurrentTab;
         public bool NeedStepRankingUpdate;
         public bool NeedLeagueRankingUpdate;

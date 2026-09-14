@@ -60,7 +60,7 @@ public partial class PopUpClubThemes : ILib
     {
         public string SelectedThemeName;
         public K_Controls Controls;
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
     }
 
     /// <summary>Get the manialink of the component</summary>

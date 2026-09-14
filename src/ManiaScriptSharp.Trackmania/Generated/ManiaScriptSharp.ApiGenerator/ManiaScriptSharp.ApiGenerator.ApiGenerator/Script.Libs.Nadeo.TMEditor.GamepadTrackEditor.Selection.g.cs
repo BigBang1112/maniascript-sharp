@@ -51,7 +51,7 @@ public partial class Selection : ILib
     public void Hide() { }
 
     /// <summary>Get the starting and end point of the latest selection if any</summary>
-    public Int3[] Get() => default!;
+    public global::System.Collections.Generic.List<Int3> Get() => default!;
 
     public Int3 GetStart() => default!;
 

@@ -41,7 +41,7 @@ public partial class Clans : ILib
 
     /// <summary>List all clans with at least one player</summary>
     /// <returns>A list of all clans with at least one player</returns>
-    public int[] List() => default!;
+    public global::System.Collections.Generic.List<int> List() => default!;
 
     /// <summary>Get the number of clans with at least one player</summary>
     /// <returns>The number of clans with at least one player</returns>
@@ -55,7 +55,7 @@ public partial class Clans : ILib
     /// <summary>Get the players of the given clan</summary>
     /// <param name="Clan">The clan to get</param>
     /// <returns>The players of the given clan</returns>
-    public CPlayer[] GetPlayers(int _Clan) => default!;
+    public global::System.Collections.Generic.List<CPlayer> GetPlayers(int _Clan) => default!;
 
     /// <summary>Get the number of players in the given clan</summary>
     /// <param name="Clan">The clan to check</param>

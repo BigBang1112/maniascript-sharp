@@ -91,7 +91,7 @@ public partial class ThemePack : ILib
     public string GetDecoStyleName() => default!;
 
     /// <summary>Get the name of all categories available in the theme pack</summary>
-    public string[] GetAllCategories() => default!;
+    public global::System.Collections.Generic.List<string> GetAllCategories() => default!;
 
     /// <summary>Get the indexes and names of all styles</summary>
     public global::System.Collections.Generic.Dictionary<int, string> GetTrackStyles() => default!;
@@ -115,9 +115,9 @@ public partial class ThemePack : ILib
     public int GetDecoStylesCount() => default!;
 
     /// <summary>Get the names of the styles</summary>
-    public string[] GetTrackStylesNames() => default!;
+    public global::System.Collections.Generic.List<string> GetTrackStylesNames() => default!;
 
-    public string[] GetLandStylesNames() => default!;
+    public global::System.Collections.Generic.List<string> GetLandStylesNames() => default!;
 
     public string GetTrackStyleNameFromId(int _TrackStyleId) => default!;
 

@@ -48,7 +48,7 @@ public partial class CUser : CNod, ILocalProvider, IPersistentProvider
     public string ZoneFlagUrl { get; }
     public string CountryFlagUrl { get; }
     public string CountryPath { get; }
-    public string[] ZoneIdPath { get; set; }
+    public System.Collections.Generic.List<string> ZoneIdPath { get; set; }
     public string Language { get; }
     public string Description { get; }
     public Vec3 Color { get; }
@@ -67,11 +67,11 @@ public partial class CUser : CNod, ILocalProvider, IPersistentProvider
     public string LadderZoneFlagUrl { get; }
     public float ReferenceScore { get; }
     public bool IsFakeUser { get; }
-    public int[] Tags_Favored_Indices { get; set; }
-    public string[] Tags_Id { get; set; }
-    public CUser.ETagType[] Tags_Type { get; set; }
-    public string[] Tags_Comments { get; set; }
-    public string[] Tags_Deliverer { get; set; }
+    public System.Collections.Generic.List<int> Tags_Favored_Indices { get; set; }
+    public System.Collections.Generic.List<string> Tags_Id { get; set; }
+    public System.Collections.Generic.List<CUser.ETagType> Tags_Type { get; set; }
+    public System.Collections.Generic.List<string> Tags_Comments { get; set; }
+    public System.Collections.Generic.List<string> Tags_Deliverer { get; set; }
     public string ClubTag { get; }
     public CUser.EStereoDisplayMode StereoDisplayMode { get; }
     public bool ColorblindModeEnabled { get; }
@@ -86,7 +86,7 @@ public partial class CUser : CNod, ILocalProvider, IPersistentProvider
     public string Character_SkinOptions { get; }
     public CGameUserVoiceChat VoiceChat { get; }
     public bool IsConnectedToMasterServer { get; }
-    public string[] AlliesConnected { get; set; }
+    public System.Collections.Generic.List<string> AlliesConnected { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

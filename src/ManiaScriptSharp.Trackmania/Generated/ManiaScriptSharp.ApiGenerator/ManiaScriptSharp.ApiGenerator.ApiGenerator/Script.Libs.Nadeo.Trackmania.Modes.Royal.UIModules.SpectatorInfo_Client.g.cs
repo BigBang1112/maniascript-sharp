@@ -35,7 +35,7 @@ public partial class SpectatorInfo_Client : ILib
 
     public struct K_Controls
     {
-        public K_SpectatorInfo[] SpectatorInfo;
+        public global::System.Collections.Generic.List<K_SpectatorInfo> SpectatorInfo;
     }
 
     public struct K_State

@@ -44,7 +44,7 @@ public partial class TM_Knockout_Online : ILib
 
     public struct K_Callback_Elimination
     {
-        public string[] accountids;
+        public global::System.Collections.Generic.List<string> accountids;
     }
 
     public virtual void Match_LogVersions() { }
@@ -115,9 +115,9 @@ public partial class TM_Knockout_Online : ILib
 
     /// <summary>Eliminate players and assign them their final ranks according to the _ScoreIds list order. 1st player is the best ranked</summary>
     /// <param name="ScoreIds">Score Ids of Players to Eliminate</param>
-    public void EliminatePlayers(Ident[] _ScoreIds) { }
+    public void EliminatePlayers(global::System.Collections.Generic.List<Ident> _ScoreIds) { }
 
-    public int[] GetEliminationsMilestones() => default!;
+    public global::System.Collections.Generic.List<int> GetEliminationsMilestones() => default!;
 
     /// <summary>Players Nb at which Emilinations Nb per round decreases</summary>
     /// <param name="AlivePlayers">Number of players still playing</param>
@@ -136,7 +136,7 @@ public partial class TM_Knockout_Online : ILib
     /// <summary>Player rank in match</summary>
     /// <param name="AccountIds">Account Ids</param>
     /// <returns>Ranks in same order</returns>
-    public int[] GetPlayerRanks(string[] _AccountIds) => default!;
+    public global::System.Collections.Generic.List<int> GetPlayerRanks(global::System.Collections.Generic.List<string> _AccountIds) => default!;
 
     /// <summary>Update the Scores Table with hidden custom points</summary>
     public void UpdateCustomRanking() { }

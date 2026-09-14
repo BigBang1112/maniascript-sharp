@@ -11,7 +11,7 @@ namespace ManiaScriptSharp;
 public partial class CCampaign : CNod
 {
     public string CampaignId { get; }
-    public CMapGroup[] MapGroups { get; set; }
+    public System.Collections.Generic.List<CMapGroup> MapGroups { get; set; }
     public int GetMapGroupCount() => default!;
     public CMapGroup GetMapGroup(int Index) => default!;
     public CMapInfo GetNextMap(CMapInfo CurrentMapInfo) => default!;

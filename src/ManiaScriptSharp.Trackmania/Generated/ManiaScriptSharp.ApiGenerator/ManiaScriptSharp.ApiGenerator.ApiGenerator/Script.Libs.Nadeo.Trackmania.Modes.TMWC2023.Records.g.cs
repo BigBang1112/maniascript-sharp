@@ -28,7 +28,7 @@ public partial class Records : ILib
     public struct K_State
     {
         public string MapUid;
-        public string[] PersonalBestsToFetch;
+        public global::System.Collections.Generic.List<string> PersonalBestsToFetch;
         public bool FetchWorldRecord;
     }
 

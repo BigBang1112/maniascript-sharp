@@ -20,9 +20,9 @@ public partial class Layer_StoreList : ILib
 
     public void SetColors(Vec3 _Primary, Vec3 _Secondary) { }
 
-    public void SetPageDetailsTarget(int _CurrentOffset, string _SortingOrder, string[] _ActiveFilters) { }
+    public void SetPageDetailsTarget(int _CurrentOffset, string _SortingOrder, global::System.Collections.Generic.List<string> _ActiveFilters) { }
 
-    public void SetPageDetailsResult(int _CurrentOffset, string _SortingOrder, string[] _ActiveFilters) { }
+    public void SetPageDetailsResult(int _CurrentOffset, string _SortingOrder, global::System.Collections.Generic.List<string> _ActiveFilters) { }
 
     public void SetRequestStatus(int _StatusCode) { }
 }

@@ -49,7 +49,7 @@ public partial class TabsFlat : ILib
 
     public struct K_Private_Controls
     {
-        public K_Private_ControlTab[] Tabs;
+        public global::System.Collections.Generic.List<K_Private_ControlTab> Tabs;
     }
 
     public struct K_Private_Properties
@@ -80,9 +80,9 @@ public partial class TabsFlat : ILib
         public K_Private_Controls Controls;
         public K_Private_Properties Properties;
         public K_Private_DrawCache DrawCache;
-        public K_Private_Tab[] Tabs;
+        public global::System.Collections.Generic.List<K_Private_Tab> Tabs;
         public int SelectedTabId;
         public int SelectedTabKey;
-        public int[] FocusedTabKeys;
+        public global::System.Collections.Generic.List<int> FocusedTabKeys;
     }
 }

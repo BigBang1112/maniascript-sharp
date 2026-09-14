@@ -65,7 +65,7 @@ public partial class CreateClub : ILib
         public string MediaInfo;
         public Vec2 MediaSize;
         public string MediaType;
-        public string[] MediaFormat;
+        public global::System.Collections.Generic.List<string> MediaFormat;
         public global::System.Collections.Generic.Dictionary<string, string> Choices;
     }
 

@@ -128,7 +128,7 @@ public partial class COTD : ILib
 
     public struct K_HttpRecords
     {
-        public K_HttpRecord[] records;
+        public global::System.Collections.Generic.List<K_HttpRecord> records;
     }
 
     public struct K_HttpZoneRank
@@ -142,12 +142,12 @@ public partial class COTD : ILib
         public int time;
         public string uid;
         public string player;
-        public K_HttpZoneRank[] zoneRanks;
+        public global::System.Collections.Generic.List<K_HttpZoneRank> zoneRanks;
     }
 
     public struct K_HttpPlayers
     {
-        public string[] players;
+        public global::System.Collections.Generic.List<string> players;
     }
 
     public struct K_HttpRankingItem
@@ -161,15 +161,15 @@ public partial class COTD : ILib
     {
         public string uid;
         public int cardinal;
-        public K_HttpRankingItem[] topRecords;
-        public K_HttpRankingItem[] playerRecords;
+        public global::System.Collections.Generic.List<K_HttpRankingItem> topRecords;
+        public global::System.Collections.Generic.List<K_HttpRankingItem> playerRecords;
     }
 
     public struct K_HttpPlayersRanking
     {
         public string uid;
         public int cardinal;
-        public K_HttpRankingItem[] records;
+        public global::System.Collections.Generic.List<K_HttpRankingItem> records;
     }
 
     /// <summary>Send the players records to the API</summary>

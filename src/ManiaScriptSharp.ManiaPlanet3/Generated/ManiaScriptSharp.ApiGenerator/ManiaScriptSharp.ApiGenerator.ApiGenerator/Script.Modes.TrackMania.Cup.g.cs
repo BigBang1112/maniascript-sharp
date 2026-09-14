@@ -47,7 +47,7 @@ public partial class Cup : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Rou
     /// <summary>Get matchmaking format</summary>
     /// <param name="PlayersNb">The number of players</param>
     /// <returns>The format with the given number of players</returns>
-    public int[] GetMatchmakingFormat(int _PlayersNb) => default!;
+    public global::System.Collections.Generic.List<int> GetMatchmakingFormat(int _PlayersNb) => default!;
 
     /// <summary>Set the cup points limit</summary>
     /// <param name="PointsLimit">The new points limit</param>

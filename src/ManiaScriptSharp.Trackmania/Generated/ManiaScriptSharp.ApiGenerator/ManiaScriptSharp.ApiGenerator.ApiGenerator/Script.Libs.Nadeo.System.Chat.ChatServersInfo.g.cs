@@ -18,7 +18,7 @@ public partial class ChatServersInfo : ILib
         public string JoinLink;
         public string GameMode;
         public string ModeStatus;
-        public string[] Contacts;
+        public global::System.Collections.Generic.List<string> Contacts;
         public int NbPlayers;
         public int NbPlayersMax;
         public bool IsLobby;
@@ -29,7 +29,7 @@ public partial class ChatServersInfo : ILib
 
     public void Loop() { }
 
-    public SServerInfo[] GetServersList() => default!;
+    public global::System.Collections.Generic.List<SServerInfo> GetServersList() => default!;
 
     public SServerInfo GetServerInfo(string _Login) => default!;
 

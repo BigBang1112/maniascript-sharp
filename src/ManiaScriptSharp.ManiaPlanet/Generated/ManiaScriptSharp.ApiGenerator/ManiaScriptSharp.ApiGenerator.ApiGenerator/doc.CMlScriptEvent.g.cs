@@ -48,6 +48,6 @@ public partial class CMlScriptEvent : CBaseConstEvent, ILocalProvider
     public EMenuNavAction MenuNavAction { get; }
     public bool IsActionAutoRepeat { get; }
     public string CustomEventType { get; }
-    public string[] CustomEventData { get; }
+    public System.Collections.Generic.List<string> CustomEventData { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

@@ -94,7 +94,7 @@ public partial class CreateRoom : ILib
         public int PagerOffset;
         public int Step;
         public string ToMoveMapUid;
-        public string[] ModeNames;
+        public global::System.Collections.Generic.List<string> ModeNames;
     }
 
     /// <summary>Get the page manialink</summary>

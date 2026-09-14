@@ -93,10 +93,10 @@ public partial class CompetitionAPI : ILib
         public int nbPlayersPerMatch;
         public int nbPlayers;
         public string mode;
-        public K_Map[] competitionMaps;
-        public K_ClubCompetitionScriptSettingsType[] scriptSettings;
+        public global::System.Collections.Generic.List<K_Map> competitionMaps;
+        public global::System.Collections.Generic.List<K_ClubCompetitionScriptSettingsType> scriptSettings;
         public int qualifierDuration;
-        public K_Map[] qualifierMaps;
+        public global::System.Collections.Generic.List<K_Map> qualifierMaps;
     }
 
     public struct K_PlayerChallengeServer
@@ -112,7 +112,7 @@ public partial class CompetitionAPI : ILib
         public string startDate;
         public string endDate;
         public bool isCompleted;
-        public K_PlayerChallengeServer[] servers;
+        public global::System.Collections.Generic.List<K_PlayerChallengeServer> servers;
     }
 
     public struct K_HttpCompetitionRound
@@ -170,13 +170,13 @@ public partial class CompetitionAPI : ILib
     {
         public int competitionId;
         public string zone;
-        public K_CompetitionPlayerLeaderBoard[] results;
+        public global::System.Collections.Generic.List<K_CompetitionPlayerLeaderBoard> results;
     }
 
     public struct K_PlayerClubCompetition
     {
         public K_ClubCompetition clubCompetition;
-        public K_HttpCompetitionRound[] rounds;
+        public global::System.Collections.Generic.List<K_HttpCompetitionRound> rounds;
         public K_Participant participant;
         public string currentMatchLiveId;
         public K_PlayerChallenge currentQualifierChallenge;
@@ -210,7 +210,7 @@ public partial class CompetitionAPI : ILib
     public struct K_PlayerChallengeMapResult
     {
         public string player;
-        public K_PlayerChallengeMapResult_Entry[] records;
+        public global::System.Collections.Generic.List<K_PlayerChallengeMapResult_Entry> records;
     }
 
     public struct K_ChallengeResults
@@ -218,7 +218,7 @@ public partial class CompetitionAPI : ILib
         public int challengeId;
         public int cardinal;
         public string scoreUnit;
-        public K_PlayerChallengeResult[] results;
+        public global::System.Collections.Generic.List<K_PlayerChallengeResult> results;
     }
 
     public struct K_Match
@@ -231,7 +231,7 @@ public partial class CompetitionAPI : ILib
 
     public struct K_MatchList
     {
-        public K_Match[] matches;
+        public global::System.Collections.Generic.List<K_Match> matches;
     }
 
     public struct K_MatchParticipant
@@ -246,7 +246,7 @@ public partial class CompetitionAPI : ILib
     {
         public string matchLiveId;
         public int roundPosition;
-        public K_MatchParticipant[] results;
+        public global::System.Collections.Generic.List<K_MatchParticipant> results;
         public string scoreUnit;
     }
 
@@ -265,7 +265,7 @@ public partial class CompetitionAPI : ILib
 
     public struct K_HttpResponseGetMyClubCompetitions
     {
-        public K_HttpMyClubCompetitionShort[] clubCompetitions;
+        public global::System.Collections.Generic.List<K_HttpMyClubCompetitionShort> clubCompetitions;
         public int clubCompetitionsCount;
     }
 
@@ -282,7 +282,7 @@ public partial class CompetitionAPI : ILib
 
     public struct K_HttpResponseGetClubCompetitions
     {
-        public K_HttpClubCompetitionShort[] clubCompetitionList;
+        public global::System.Collections.Generic.List<K_HttpClubCompetitionShort> clubCompetitionList;
         public int itemCount;
     }
 
@@ -304,7 +304,7 @@ public partial class CompetitionAPI : ILib
 
     public struct K_PlayerNextMatches
     {
-        public K_PlayerNextMatch[] matches;
+        public global::System.Collections.Generic.List<K_PlayerNextMatch> matches;
     }
 
     public global::System.Collections.Generic.Dictionary<string, string> GetHeaders() => default!;

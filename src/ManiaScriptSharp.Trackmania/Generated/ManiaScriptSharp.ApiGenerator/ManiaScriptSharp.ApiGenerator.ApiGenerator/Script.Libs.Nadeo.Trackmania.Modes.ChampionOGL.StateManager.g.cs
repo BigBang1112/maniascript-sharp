@@ -22,7 +22,7 @@ public partial class StateManager : ILib
     public const int C_State_Waiting = 0;
     public const int C_State_Playing = 1;
 
-    public int[] GetForcedStates() => default!;
+    public global::System.Collections.Generic.List<int> GetForcedStates() => default!;
 
     /// <summary>Check if the players have the given state as forced False otherwise</summary>
     /// <param name="State">The state to find</param>
@@ -31,7 +31,7 @@ public partial class StateManager : ILib
 
     /// <summary>Force the states applied to all players To disable the forced states use an empty array</summary>
     /// <param name="States">The states to force</param>
-    public void ForcePlayersStates(int[] _States) { }
+    public void ForcePlayersStates(global::System.Collections.Generic.List<int> _States) { }
 
     /// <summary>Update the library</summary>
     public void Yield() { }

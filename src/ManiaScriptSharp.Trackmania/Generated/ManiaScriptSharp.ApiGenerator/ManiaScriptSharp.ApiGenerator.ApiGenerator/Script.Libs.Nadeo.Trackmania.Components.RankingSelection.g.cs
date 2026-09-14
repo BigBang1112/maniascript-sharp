@@ -60,7 +60,7 @@ public partial class RankingSelection : ILib
     {
         public K_Controls Controls;
         public int DisplayType;
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
         public int CurrentDisplayType;
         public int CurrentZone;
     }

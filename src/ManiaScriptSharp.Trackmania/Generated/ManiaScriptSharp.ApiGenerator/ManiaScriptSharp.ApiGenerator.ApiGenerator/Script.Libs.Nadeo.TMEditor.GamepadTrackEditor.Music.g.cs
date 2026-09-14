@@ -24,7 +24,7 @@ public partial class Music : ILib
     public void Reset(bool _Play) { }
 
     /// <summary>Select the track to play in the music</summary>
-    public void SetTracks(int[] _Tracks) { }
+    public void SetTracks(global::System.Collections.Generic.List<int> _Tracks) { }
 
     public void Unload() { }
 

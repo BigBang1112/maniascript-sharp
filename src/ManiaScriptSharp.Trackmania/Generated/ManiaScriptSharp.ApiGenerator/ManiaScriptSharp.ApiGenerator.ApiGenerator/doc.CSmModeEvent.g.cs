@@ -96,7 +96,7 @@ public partial class CSmModeEvent : CBaseEvent, ILocalProvider
     public CSmModeEvent.EActionInput ActionInput { get; }
     public string ActionId { get; }
     public string Param1 { get; }
-    public string[] Param2 { get; set; }
+    public System.Collections.Generic.List<string> Param2 { get; set; }
     public CSmObject Object { get; }
     public int WaypointTime { get; }
     public int WaypointLapTime { get; }

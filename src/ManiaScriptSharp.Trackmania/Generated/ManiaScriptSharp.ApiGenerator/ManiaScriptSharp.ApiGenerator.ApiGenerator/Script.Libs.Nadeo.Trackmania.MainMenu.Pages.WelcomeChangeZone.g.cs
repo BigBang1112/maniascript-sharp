@@ -70,8 +70,8 @@ public partial class WelcomeChangeZone : ILib
         public int MorphologyCurrentIndex;
         public K_Controls Controls;
         public K_Scene Scene;
-        public K_Zone[] CurrentZoneList;
-        public K_Zone[] ScrollZoneList;
+        public global::System.Collections.Generic.List<K_Zone> CurrentZoneList;
+        public global::System.Collections.Generic.List<K_Zone> ScrollZoneList;
     }
 
     /// <summary>Get the page manialink</summary>

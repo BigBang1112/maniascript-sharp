@@ -27,7 +27,7 @@ public partial class PlayerStats : ILib
         public string AuthorizationHeader;
         public string Url;
         public string CompetitionUid;
-        public string[] PlayerStatsToFetch;
+        public global::System.Collections.Generic.List<string> PlayerStatsToFetch;
     }
 
     /// <summary>Set the url of the player stats API</summary>

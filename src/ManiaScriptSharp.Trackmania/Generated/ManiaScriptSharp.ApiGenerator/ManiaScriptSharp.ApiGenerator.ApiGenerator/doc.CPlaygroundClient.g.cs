@@ -55,11 +55,11 @@ public partial class CPlaygroundClient : CNod, ILocalProvider, IPersistentProvid
     public bool IsLoadingScreen { get; }
     public bool IsServerOrSolo { get; }
     public void QuitServer(bool Silent) { }
-    public void QuitServerAndSetResult(bool Silent, string Type, string[] Data) { }
+    public void QuitServerAndSetResult(bool Silent, string Type, System.Collections.Generic.List<string> Data) { }
     public bool IsInGameMenuDisplayed { get; }
     public void JoinTeam1() { }
     public void JoinTeam2() { }
-    public CTeam[] Teams { get; }
+    public System.Collections.Generic.List<CTeam> Teams { get; }
     /// <summary>Request change of IsSpectatorClient (not immediate, and it may be refused). Caveat: will not set Request_Success</summary>
     public void RequestSpectatorClient(bool Spectator) { }
     public void SetSpectateTarget(string Player) { }
@@ -74,8 +74,8 @@ public partial class CPlaygroundClient : CNod, ILocalProvider, IPersistentProvid
     public CPlaygroundClient.ESpectatorTargetType GetSpectatorTargetType() => default!;
     public void SetWantedSpectatorCameraType(CPlaygroundClient.ESpectatorCameraType CameraType) { }
     public bool MapList_IsInProgress { get; }
-    public string[] MapList_Names { get; set; }
-    public string[] MapList_MapUids { get; set; }
+    public System.Collections.Generic.List<string> MapList_Names { get; set; }
+    public System.Collections.Generic.List<string> MapList_MapUids { get; set; }
     public bool Request_IsInProgress { get; }
     public bool Request_Success { get; }
     public void RequestRestartMap() { }

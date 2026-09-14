@@ -34,5 +34,5 @@ public partial class CModeVehicleManager : CNod
     public void Vehicle_SetTrailVisible(CModeVehicle Vehicle, bool IsVisible) { }
     public void Vehicle_SetShieldVisible(CModeVehicle Vehicle, bool IsVisible) { }
     public int VehicleModel_GetSlotsCount(Ident ModelId, ESlotType SlotType) => default!;
-    public CModeVehicle[] Vehicles { get; set; }
+    public System.Collections.Generic.List<CModeVehicle> Vehicles { get; set; }
 }

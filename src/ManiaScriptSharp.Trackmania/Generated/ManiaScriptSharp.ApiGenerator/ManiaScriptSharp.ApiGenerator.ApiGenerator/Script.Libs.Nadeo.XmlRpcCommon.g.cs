@@ -37,7 +37,7 @@ public partial class XmlRpcCommon : ILib
     /// <summary>Wrapper for the SendCallbackArray() method</summary>
     /// <param name="Name">The name of the callback</param>
     /// <param name="Data">The data to send</param>
-    public void SendCallbackArray(string _Name, string[] _Data) { }
+    public void SendCallbackArray(string _Name, global::System.Collections.Generic.List<string> _Data) { }
 
     /// <summary>Wrapper for the SendCallback() method</summary>
     /// <param name="Name">The name of the callback</param>
@@ -66,7 +66,7 @@ public partial class XmlRpcCommon : ILib
     /// <summary>Get a list of all registered callbacks</summary>
     /// <param name="SendCallback">Send a callback with the help</param>
     /// <returns>The list of callbacks</returns>
-    public string[] ListCallbacks(bool _SendCallback) => default!;
+    public global::System.Collections.Generic.List<string> ListCallbacks(bool _SendCallback) => default!;
 
     /// <summary>Get help about a callback</summary>
     /// <param name="Name">Name of the callback to check</param>
@@ -91,7 +91,7 @@ public partial class XmlRpcCommon : ILib
     /// <summary>Get the list of all blocked callbacks</summary>
     /// <param name="SendCallback">Send a callback with the help</param>
     /// <returns>An array with the name of the blocked callbacks</returns>
-    public string[] GetBlockedCallbacks(bool _SendCallback) => default!;
+    public global::System.Collections.Generic.List<string> GetBlockedCallbacks(bool _SendCallback) => default!;
 
     /// <summary>Unload the library</summary>
     public void Unload() { }

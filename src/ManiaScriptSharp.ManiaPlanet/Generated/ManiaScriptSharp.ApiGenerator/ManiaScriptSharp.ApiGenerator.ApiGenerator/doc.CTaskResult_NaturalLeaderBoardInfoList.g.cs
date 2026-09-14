@@ -15,5 +15,5 @@ public partial class CTaskResult_NaturalLeaderBoardInfoList
     /// <summary>Number of item contained.</summary>
     public new int Count { get; }
     /// <summary>List of the ranking info. Array of CNaturalLeaderBoardInfo objects.</summary>
-    public new CNaturalLeaderBoardInfo[] LeaderBoardInfo { get; }
+    public new System.Collections.Generic.List<CNaturalLeaderBoardInfo> LeaderBoardInfo { get; }
 }

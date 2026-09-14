@@ -231,18 +231,18 @@ public partial class BrowserAPI : ILib
     {
         public bool ShowOnlyUserMaps;
         public bool ShowOnlyPlayableMaps;
-        public string[] FilterByEnvironment;
+        public global::System.Collections.Generic.List<string> FilterByEnvironment;
         public bool DisplayCreateMapButton;
         public bool ListMultiSelect;
         public bool DisplayEditorSettingsButton;
-        public string[] FilterByExtension;
+        public global::System.Collections.Generic.List<string> FilterByExtension;
         public bool IsBrowsingForEdition;
         public bool DisableCloudFolder;
         public bool DisplayFileNameTooltip;
         public int PositionFileNameTooltip;
-        public string[] FilterByMapType;
+        public global::System.Collections.Generic.List<string> FilterByMapType;
         public bool ShowFavoriteUserMaps;
-        public string[] FilterClubThemeByMediaType;
+        public global::System.Collections.Generic.List<string> FilterClubThemeByMediaType;
         public bool IsPlayAgainstReplay;
     }
 
@@ -251,7 +251,7 @@ public partial class BrowserAPI : ILib
         public int Type;
         public string Name;
         public string SubTitle;
-        public int[] DataTypes;
+        public global::System.Collections.Generic.List<int> DataTypes;
         public bool IsFocused;
         public string BasePath;
         public string ParentPath;
@@ -299,7 +299,7 @@ public partial class BrowserAPI : ILib
         public K_Controls Controls;
         public global::System.Collections.Generic.Dictionary<int, K_Browser> Browsers;
         public int Type_CurrentBrowser;
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
         public K_RequestsManager RequestsManager;
         public K_MapBrowserData PreSelectedMapBrowserData;
         public K_MapBrowserData FavoriteMapToRemove;
@@ -317,7 +317,7 @@ public partial class BrowserAPI : ILib
 
     public global::System.Collections.Generic.Dictionary<int, K_MapBrowserData> GetFavoriteMapsData() => default!;
 
-    public void CheckSettings(int _BrowserType, K_Settings _Settings, int[] _DataTypes) { }
+    public void CheckSettings(int _BrowserType, K_Settings _Settings, global::System.Collections.Generic.List<int> _DataTypes) { }
 
     /// <summary>Get the component</summary>
     /// <returns>The component id</returns>

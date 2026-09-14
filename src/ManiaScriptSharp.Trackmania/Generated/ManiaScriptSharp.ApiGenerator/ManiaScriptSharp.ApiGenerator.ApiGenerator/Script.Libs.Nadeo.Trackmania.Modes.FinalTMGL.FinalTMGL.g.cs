@@ -34,7 +34,7 @@ public partial class FinalTMGL : ILib
     public int GetClansNb(global::System.Collections.Generic.Dictionary<string, int> _PlayersClans) => default!;
 
     /// <summary>Update the teams informations</summary>
-    public void UpdateTeams(K_Team[] _DefaultTeams, global::System.Collections.Generic.Dictionary<string, int> _PlayersClans) { }
+    public void UpdateTeams(global::System.Collections.Generic.List<K_Team> _DefaultTeams, global::System.Collections.Generic.Dictionary<string, int> _PlayersClans) { }
 
     /// <summary>Get the clan of an account id</summary>
     public int GetAccountIdClan(string _AccountId, global::System.Collections.Generic.Dictionary<string, int> _PlayersClans) => default!;

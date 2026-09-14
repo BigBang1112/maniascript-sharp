@@ -499,7 +499,7 @@ internal sealed class CSharpEmitter
         if (isDict)
             return $"System.Collections.Generic.Dictionary<{MapName(dictKey ?? "Integer")}, {mapped}>";
         if (isArray)
-            return mapped + "[]";
+            return $"System.Collections.Generic.List<{mapped}>";
         return mapped;
     }
 

@@ -11,6 +11,6 @@ public partial class CXmlDocument : CNod
 {
     public string TextContents { get; }
     public CXmlNode Root { get; }
-    public CXmlNode[] Nodes { get; }
+    public System.Collections.Generic.List<CXmlNode> Nodes { get; }
     public CXmlNode GetFirstChild(string Name) => default!;
 }

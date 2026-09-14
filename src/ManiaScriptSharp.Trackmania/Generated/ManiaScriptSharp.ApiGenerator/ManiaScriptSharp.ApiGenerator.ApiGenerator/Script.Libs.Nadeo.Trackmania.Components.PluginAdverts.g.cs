@@ -37,7 +37,7 @@ public partial class PluginAdverts : ILib
 
     public struct K_PluginAdverts_AdHistory
     {
-        public K_PluginAdverts_AdLink[] AdLinks;
+        public global::System.Collections.Generic.List<K_PluginAdverts_AdLink> AdLinks;
         public int UpdateCount;
     }
 
@@ -51,7 +51,7 @@ public partial class PluginAdverts : ILib
     }
 
     /// <summary>Get the number of ads to display</summary>
-    public K_Maniapub[] GetManiapubs() => default!;
+    public global::System.Collections.Generic.List<K_Maniapub> GetManiapubs() => default!;
 
     /// <summary>Get the link of the advertising campaign to open in it the web browser</summary>
     public string GetManiapubLink(K_Maniapub _Maniapub) => default!;

@@ -53,14 +53,14 @@ public partial class CTitleControl : CNod
     /// <summary>Result of the latest command issued.</summary>
     public CTitleControl.EResult LatestResult { get; }
     public string CustomResultType { get; }
-    public string[] CustomResultData { get; set; }
+    public System.Collections.Generic.List<string> CustomResultData { get; set; }
     public void PlayMap(string Map, string Mode, string SettingsXml) { }
     public void PlayCampaign(CCampaign Campaign, CMapInfo MapInfo, string Mode, string SettingsXml) { }
-    public void PlayMapList(string[] MapList, string Mode, string SettingsXml) { }
+    public void PlayMapList(System.Collections.Generic.List<string> MapList, string Mode, string SettingsXml) { }
     public void PlayMatchSettings(CMatchSettings MatchSettings, string OverrideMode, string OverrideSettingsXml) { }
     public void PlayAgainstReplay(string Replay, string Mode, string SettingsXml) { }
-    public void PlaySplitScreen(CTitleControl.ESplitScreenLayout LayoutType, string[] MapList, string Mode, string SettingsXml) { }
-    public void PlayMultiOnSameScreen(string[] MapList, string Mode, string SettingsXml) { }
+    public void PlaySplitScreen(CTitleControl.ESplitScreenLayout LayoutType, System.Collections.Generic.List<string> MapList, string Mode, string SettingsXml) { }
+    public void PlayMultiOnSameScreen(System.Collections.Generic.List<string> MapList, string Mode, string SettingsXml) { }
     public void PlaySplitScreen(CTitleControl.ESplitScreenLayout LayoutType, CMatchSettings MatchSettings) { }
     public void PlayMultiOnSameScreen(CMatchSettings MatchSettings) { }
     public void ViewReplay(string Replay) { }
@@ -68,28 +68,28 @@ public partial class CTitleControl : CNod
     public void OpenEditor(CTitleControl.EEditorType EditorType) { }
     public void EditSkins() { }
     public void EditSkinsFromFileName(string SkinFilePath) { }
-    public void EditReplay(string[] ReplayList) { }
-    public void EditReplay(string[] ReplayList, CTitleControl.EReplayEditType EditType) { }
+    public void EditReplay(System.Collections.Generic.List<string> ReplayList) { }
+    public void EditReplay(System.Collections.Generic.List<string> ReplayList, CTitleControl.EReplayEditType EditType) { }
     public void EditGhosts(string Map) { }
     public void EditAsset(string EditorName, string MainPluginSettingsXml, string RelativeFileName) { }
     public void EditMap(string Map, string EditorPluginScript, string EditorPluginArgument) { }
     public void EditMap(string Map, string Decoration, string ModNameOrUrl, string PlayerModel, string EditorPluginScript, string EditorPluginArgument) { }
     public void EditMap(string Map, string Decoration, string ModNameOrUrl, string PlayerModel, string EditorPluginScript, string EditorPluginArgument, bool UpgradeToAdvancedEditor) { }
-    public void EditMap(string Map, string Decoration, string ModNameOrUrl, string PlayerModel, string[] EditorPluginsScripts, string[] EditorPluginsArguments, bool UpgradeToAdvancedEditor) { }
-    public void EditMap(string Map, string Decoration, string ModNameOrUrl, string PlayerModel, string[] EditorPluginsScripts, string[] EditorPluginsArguments, bool UpgradeToAdvancedEditor, bool OnlyUseForcedPlugins) { }
+    public void EditMap(string Map, string Decoration, string ModNameOrUrl, string PlayerModel, System.Collections.Generic.List<string> EditorPluginsScripts, System.Collections.Generic.List<string> EditorPluginsArguments, bool UpgradeToAdvancedEditor) { }
+    public void EditMap(string Map, string Decoration, string ModNameOrUrl, string PlayerModel, System.Collections.Generic.List<string> EditorPluginsScripts, System.Collections.Generic.List<string> EditorPluginsArguments, bool UpgradeToAdvancedEditor, bool OnlyUseForcedPlugins) { }
     public void EditNewMap(string Environment, string Decoration, string ModNameOrUrl, string PlayerModel, string MapType, string EditorPluginScript, string EditorPluginArgument) { }
     public void EditNewMap(string Environment, string Decoration, string ModNameOrUrl, string PlayerModel, string MapType, bool UseSimpleEditor, string EditorPluginScript, string EditorPluginArgument) { }
-    public void EditNewMap(string Environment, string Decoration, string ModNameOrUrl, string PlayerModel, string MapType, bool UseSimpleEditor, string[] EditorPluginsScripts, string[] EditorPluginsArguments) { }
-    public void EditNewMap(string Environment, string Decoration, string ModNameOrUrl, string PlayerModel, string MapType, bool UseSimpleEditor, string[] EditorPluginsScripts, string[] EditorPluginsArguments, bool OnlyUseForcedPlugins) { }
+    public void EditNewMap(string Environment, string Decoration, string ModNameOrUrl, string PlayerModel, string MapType, bool UseSimpleEditor, System.Collections.Generic.List<string> EditorPluginsScripts, System.Collections.Generic.List<string> EditorPluginsArguments) { }
+    public void EditNewMap(string Environment, string Decoration, string ModNameOrUrl, string PlayerModel, string MapType, bool UseSimpleEditor, System.Collections.Generic.List<string> EditorPluginsScripts, System.Collections.Generic.List<string> EditorPluginsArguments, bool OnlyUseForcedPlugins) { }
     public void EditNewMapFromBaseMap(string BaseMapName, string ModNameOrUrl, string PlayerModel, string MapType, string EditorPluginScript, string EditorPluginArgument) { }
     public void EditNewMapFromBaseMap(string BaseMapName, string Decoration, string ModNameOrUrl, string PlayerModel, string MapType, string EditorPluginScript, string EditorPluginArgument) { }
-    public void EditNewMapFromBaseMap(string BaseMapName, string Decoration, string ModNameOrUrl, string PlayerModel, string MapType, string[] EditorPluginsScripts, string[] EditorPluginsArguments, bool OnlyUseForcedPlugins) { }
+    public void EditNewMapFromBaseMap(string BaseMapName, string Decoration, string ModNameOrUrl, string PlayerModel, string MapType, System.Collections.Generic.List<string> EditorPluginsScripts, System.Collections.Generic.List<string> EditorPluginsArguments, bool OnlyUseForcedPlugins) { }
     public bool CanPublishFiles { get; }
     /// <summary>Set FileName='' to open a file select dialog.</summary>
     public void PublishFile(string FileName) { }
     public void ProcessManiaCodeXml(string ManiaCodeXml) { }
-    public CServerInfo[] LocalServers { get; }
-    public CServerInfo[] LocalServers_CurrentTitle { get; }
+    public System.Collections.Generic.List<CServerInfo> LocalServers { get; }
+    public System.Collections.Generic.List<CServerInfo> LocalServers_CurrentTitle { get; }
     public void DiscoverLocalServers() { }
     public void CreateServer(string ServerName, string ServerComment, int MaxPlayerCount, string Password, string PasswordSpectators, CMatchSettings MatchSettings) { }
     public void CreateServer(string ServerName, string ServerComment, int MaxPlayerCount, string Password, string PasswordSpectators, CMatchSettings MatchSettings, bool LocalOnly) { }

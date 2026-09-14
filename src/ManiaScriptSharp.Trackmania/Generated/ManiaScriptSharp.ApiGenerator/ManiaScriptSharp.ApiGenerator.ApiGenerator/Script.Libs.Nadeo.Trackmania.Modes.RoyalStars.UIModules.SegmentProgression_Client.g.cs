@@ -45,7 +45,7 @@ public partial class SegmentProgression_Client : ILib
     {
         public Ident Id;
         public int Clan;
-        public int[] Stars;
+        public global::System.Collections.Generic.List<int> Stars;
     }
 
     public struct K_State
@@ -56,13 +56,13 @@ public partial class SegmentProgression_Client : ILib
         public bool DisplayModule;
         public int PlayerSynchronizationPoint;
         public int RaceFinishEventUpdate;
-        public K_AnimStep[] AnimSteps;
+        public global::System.Collections.Generic.List<K_AnimStep> AnimSteps;
         public int SegmentStarTimesUpdate;
         public int StarRewardsUpdate;
         public int TeamsProgressUpdate;
         public int StarsPreviewUpdateTimestamp;
         public int PossibleStarTimeIndex;
-        public int[] PossibleStarTimes;
+        public global::System.Collections.Generic.List<int> PossibleStarTimes;
         public K_Target Target;
     }
 

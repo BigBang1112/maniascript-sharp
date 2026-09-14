@@ -12,7 +12,7 @@ public partial class CSmAction : CAction, ILocalProvider
 {
     public int Now { get; }
     public int Variant { get; }
-    public CSmPlayer[] Players { get; }
+    public System.Collections.Generic.List<CSmPlayer> Players { get; }
     public CSmPlayer Owner { get; }
     public CModeVehicle OwnerVehicle { get; }
     public bool IsActive { get; }
@@ -26,7 +26,7 @@ public partial class CSmAction : CAction, ILocalProvider
     public int State_Integer1 { get; set; }
     public int State_Integer2 { get; set; }
     public bool State_Boolean1 { get; set; }
-    public CSmActionEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<CSmActionEvent> PendingEvents { get; }
     public bool IsJumping { get; set; }
     public bool IsGliding { get; set; }
     public bool IsAttractor { get; set; }
@@ -37,7 +37,7 @@ public partial class CSmAction : CAction, ILocalProvider
     public bool IsSneaking { get; set; }
     public bool IsFreeLooking { get; set; }
     public bool HasNoPlayerCollision { get; set; }
-    public void SendRulesEvent(string Param1, string[] Param2, CEntity Shooter, CEntity Victim) { }
+    public void SendRulesEvent(string Param1, System.Collections.Generic.List<string> Param2, CEntity Shooter, CEntity Victim) { }
     public Ident Anim_GetModelId(string ModelName) => default!;
     public Ident Anim_PlayAtLocation(Ident AnimModelId, Vec3 Position, Vec3 Direction) => default!;
     public Ident Anim_PlayOnPlayer(Ident AnimModelId, CSmPlayer Player) => default!;

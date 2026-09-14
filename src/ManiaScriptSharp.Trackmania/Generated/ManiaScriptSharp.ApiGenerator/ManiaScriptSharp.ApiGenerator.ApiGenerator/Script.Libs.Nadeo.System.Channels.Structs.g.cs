@@ -62,7 +62,7 @@ public partial class Structs : ILib
         public string JoinLink;
         public int PlayersLastWeek;
         public int PlaytimeLastWeek;
-        public SEpisode[] Episodes;
+        public global::System.Collections.Generic.List<SEpisode> Episodes;
     }
 
     public struct SProgramInfo
@@ -80,7 +80,7 @@ public partial class Structs : ILib
         public int Program_PlayersLast7Days;
         public int Program_PlaytimeLast7Days;
         public string Program_FeedbackURL;
-        public SEpisode[] Episodes;
+        public global::System.Collections.Generic.List<SEpisode> Episodes;
     }
 
     public struct STitleOnlineInfo
@@ -95,9 +95,9 @@ public partial class Structs : ILib
         public string LogoURL;
         public string CardURL;
         public string BackgroundURL;
-        public string[] ScreenshotsURLs;
-        public string[] YouTubeURLs;
-        public string[] ExternalURLs;
+        public global::System.Collections.Generic.List<string> ScreenshotsURLs;
+        public global::System.Collections.Generic.List<string> YouTubeURLs;
+        public global::System.Collections.Generic.List<string> ExternalURLs;
         public int PlanetsCost;
         public string AuthorLogin;
         public string AuthorNickName;

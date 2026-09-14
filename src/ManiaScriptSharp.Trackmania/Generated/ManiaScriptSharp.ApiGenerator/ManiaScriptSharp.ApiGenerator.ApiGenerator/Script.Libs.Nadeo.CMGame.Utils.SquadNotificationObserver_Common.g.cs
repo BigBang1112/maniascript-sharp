@@ -42,6 +42,6 @@ public partial class SquadNotificationObserver_Common : ILib
 
     public struct K_State
     {
-        public K_Notification[] SquadNotifications;
+        public global::System.Collections.Generic.List<K_Notification> SquadNotifications;
     }
 }

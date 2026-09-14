@@ -85,26 +85,26 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public int ClansNbTotal { get; }
     public int ClansNbAlive { get; }
     public int ClansNbDead { get; }
-    public int[] ClansNbPlayers { get; }
-    public int[] ClansNbPlayersAlive { get; }
-    public CSmPlayer[] Players { get; }
-    public CSmPlayer[] BotPlayers { get; }
-    public CSmPlayer[] Spectators { get; }
-    public CSmPlayer[] AllPlayers { get; }
-    public CSmModeEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<int> ClansNbPlayers { get; }
+    public System.Collections.Generic.List<int> ClansNbPlayersAlive { get; }
+    public System.Collections.Generic.List<CSmPlayer> Players { get; }
+    public System.Collections.Generic.List<CSmPlayer> BotPlayers { get; }
+    public System.Collections.Generic.List<CSmPlayer> Spectators { get; }
+    public System.Collections.Generic.List<CSmPlayer> AllPlayers { get; }
+    public System.Collections.Generic.List<CSmModeEvent> PendingEvents { get; }
     public CSmPlayer GetPlayer(CUIConfig UI) => default!;
     public CSmPlayer GetPlayer(string Login) => default!;
-    public CSmMapBase[] MapBases { get; }
-    public CSmMapLandmark[] MapLandmarks { get; }
-    public CSmMapLandmark[] MapLandmarks_PlayerSpawn { get; }
-    public CSmMapLandmark[] MapLandmarks_Gauge { get; }
-    public CSmMapLandmark[] MapLandmarks_Sector { get; }
-    public CSmMapLandmark[] MapLandmarks_BotPath { get; }
-    public CSmMapLandmark[] MapLandmarks_BotSpawn { get; }
-    public CSmMapLandmark[] MapLandmarks_ObjectAnchor { get; }
-    public CSmMapLandmark[] MapLandmarks_Gate { get; }
-    public CSmScore[] Scores { get; }
-    public int[] ClanScores { get; set; }
+    public System.Collections.Generic.List<CSmMapBase> MapBases { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_PlayerSpawn { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_Gauge { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_Sector { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_BotPath { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_BotSpawn { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_ObjectAnchor { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_Gate { get; }
+    public System.Collections.Generic.List<CSmScore> Scores { get; }
+    public System.Collections.Generic.List<int> ClanScores { get; set; }
     public void PassOn(CSmModeEvent Event) { }
     public void Discard(CSmModeEvent Event) { }
     public void SpawnPlayer(CSmPlayer Player, int ClanNum, int Armor, CMapSpawn PlayerSpawn, int ActivationDate) { }
@@ -150,7 +150,7 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public void ActionBind(CSmPlayer Player, EActionSlot ActionSlot, EActionInput ActionInput) { }
     public void ActionSetVariant(CSmPlayer Player, EActionSlot ActionSlot, int ActionVariant) { }
     public void SetNbFakePlayers(int NbClan1, int NbClan2) { }
-    public CSmObject[] Objects { get; }
+    public System.Collections.Generic.List<CSmObject> Objects { get; }
     public CSmObject ObjectCreate(Ident ModelId) => default!;
     public void ObjectDestroy(CSmObject Object) { }
     public void ObjectDestroyAll() { }

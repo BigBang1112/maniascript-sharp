@@ -23,6 +23,6 @@ public partial class ValidationEvents : ILib
     public struct K_ValidationEvent
     {
         public string Type;
-        public string[] Data;
+        public global::System.Collections.Generic.List<string> Data;
     }
 }

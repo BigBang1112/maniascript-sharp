@@ -65,7 +65,7 @@ public partial class Event : ILib
     /// <summary>Subscribe to several events (see the Subscribe() function above for more info)</summary>
     /// <param name="StreamId">The name of the stream</param>
     /// <param name="EventsIds">The events to subscribe</param>
-    public void Subscribe(string _StreamId, string[] _EventsIds) { }
+    public void Subscribe(string _StreamId, global::System.Collections.Generic.List<string> _EventsIds) { }
 
     /// <summary>Unsubscribe from an event.</summary>
     /// <param name="StreamId">Id of the stream</param>
@@ -75,7 +75,7 @@ public partial class Event : ILib
     /// <summary>Unsubscribe from several events.</summary>
     /// <param name="StreamId">Id of the stream</param>
     /// <param name="EventId">The event to unsubscribe</param>
-    public void Unsubscribe(string _StreamId, string[] _EventsIds) { }
+    public void Unsubscribe(string _StreamId, global::System.Collections.Generic.List<string> _EventsIds) { }
 
     /// <summary>Unsubscribe from all events.</summary>
     /// <param name="StreamId">Id of the stream</param>

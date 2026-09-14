@@ -44,7 +44,7 @@ public partial class NewsStruct : ILib
         public string MediaType;
         public bool MediaPreloaded;
         public int Priority;
-        public LibNewsStruct_K_NewsLink[] Links;
+        public global::System.Collections.Generic.List<LibNewsStruct_K_NewsLink> Links;
         public int DisplayTime;
         public int Source;
         public string ActionType;

@@ -228,10 +228,10 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public void Anchor_Remove(Ident Id) { }
     public bool IsUsingPhysicMatLib { get; set; }
     public int MaterialsUpdateId { get; }
-    public Ident[] MaterialIds { get; }
-    public Ident[] MaterialPhysicsIds { get; }
-    public string[] MaterialNames { get; }
-    public string[] MaterialPhysicsNames { get; }
+    public System.Collections.Generic.List<Ident> MaterialIds { get; }
+    public System.Collections.Generic.List<Ident> MaterialPhysicsIds { get; }
+    public System.Collections.Generic.List<string> MaterialNames { get; }
+    public System.Collections.Generic.List<string> MaterialPhysicsNames { get; }
     public Ident Material_GetMaterialIdSelected() => default!;
     public void Material_SetMaterialIdSelected(Ident MaterialEditorId) { }
     public int Material_GetSubTexIndexSelected() => default!;
@@ -376,7 +376,7 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public void SetOfFaces_ApplyMaterial(Ident SetHandle, Ident MaterialId) { }
     public void SetOfFaces_PlanarExpand(Ident FacesSetHandle) { }
     public void SetOfFaces_ChangeOrientation(Ident FacesSetHandle) { }
-    public string[] PrefabNames { get; }
+    public System.Collections.Generic.List<string> PrefabNames { get; }
     public int PrefabNamesUpdateId { get; }
     public int PrefabListCurrentPage { get; set; }
     public int Prefab_TotalNb { get; set; }
@@ -394,7 +394,7 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public void Copy() { }
     public void AddUndoState() { }
     public bool AutoSave(string FileName) => default!;
-    public CEditorEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<CEditorEvent> PendingEvents { get; }
     public bool MustClearLastSaveBuffer { get; set; }
     public bool IsExperimental { get; }
     public ETitleCoreType GetTitleCoreType() => default!;

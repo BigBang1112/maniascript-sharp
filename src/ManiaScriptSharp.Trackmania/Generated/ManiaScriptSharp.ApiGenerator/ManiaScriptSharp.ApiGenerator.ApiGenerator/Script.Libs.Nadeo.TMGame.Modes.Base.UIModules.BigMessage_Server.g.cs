@@ -20,15 +20,15 @@ public partial class BigMessage_Server : ILib
     /// <summary>Get the id of the UI module</summary>
     public string GetId() => default!;
 
-    public void SetMessage(string _Message, string _AcountId, string[] _TextList, int _Duration) { }
+    public void SetMessage(string _Message, string _AcountId, global::System.Collections.Generic.List<string> _TextList, int _Duration) { }
 
-    public void SetMessage(string _Message, string _AcountId, string[] _TextList) { }
+    public void SetMessage(string _Message, string _AcountId, global::System.Collections.Generic.List<string> _TextList) { }
 
     public void SetMessage(string _Message, string _AcountId, int _Duration) { }
 
     public void SetMessage(string _Message, int _Duration) { }
 
-    public void SetMessage(string _Message, string[] _TextList) { }
+    public void SetMessage(string _Message, global::System.Collections.Generic.List<string> _TextList) { }
 
     public void SetMessage(string _Message, string _AcountId) { }
 

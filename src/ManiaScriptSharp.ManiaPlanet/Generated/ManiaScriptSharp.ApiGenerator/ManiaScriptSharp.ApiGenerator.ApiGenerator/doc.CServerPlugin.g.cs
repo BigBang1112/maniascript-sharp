@@ -15,29 +15,29 @@ public partial class CServerPlugin : CNod, ILocalProvider, IPersistentProvider
     public CClient GetClient(string Login) => default!;
     public CClient GetClient(CUIConfig UI) => default!;
     /// <summary>Currently connected Users.</summary>
-    public CClient[] Clients { get; }
+    public System.Collections.Generic.List<CClient> Clients { get; }
     /// <summary>Users connected as spectators.</summary>
-    public CClient[] Spectators { get; }
+    public System.Collections.Generic.List<CClient> Spectators { get; }
     /// <summary>Users connected as players.</summary>
-    public CClient[] Players { get; }
+    public System.Collections.Generic.List<CClient> Players { get; }
     /// <summary>Sorted scores.</summary>
-    public CScore[] Scores { get; }
-    public CUser[] Users { get; }
-    public CTeam[] Teams { get; }
+    public System.Collections.Generic.List<CScore> Scores { get; }
+    public System.Collections.Generic.List<CUser> Users { get; }
+    public System.Collections.Generic.List<CTeam> Teams { get; }
     public string NeutralEmblemUrl { get; set; }
     public string ForcedClubLinkUrl1 { get; set; }
     public string ForcedClubLinkUrl2 { get; set; }
     public void TweakTeamColorsToAvoidHueOverlap() { }
     public int Now { get; }
-    public CServerPluginEvent[] PendingEvents { get; }
-    public void TriggerModeScriptEvent(string Type, string[] Data) { }
+    public System.Collections.Generic.List<CServerPluginEvent> PendingEvents { get; }
+    public void TriggerModeScriptEvent(string Type, System.Collections.Generic.List<string> Data) { }
     public void SendModeScriptCommand(string CommandName, bool BoolVal) { }
     public void SendModeScriptCommand(string CommandName, int IntVal) { }
     public void SendModeScriptCommand(string CommandName, float RealVal) { }
     public void SendModeScriptCommand(string CommandName, string TextVal) { }
     public bool MapLoaded { get; }
     public bool MapUnloadRequested { get; }
-    public CMapInfo[] MapList { get; }
+    public System.Collections.Generic.List<CMapInfo> MapList { get; }
     public int CurMapIndex { get; }
     public int NextMapIndex { get; set; }
     public void RestartMap() { }

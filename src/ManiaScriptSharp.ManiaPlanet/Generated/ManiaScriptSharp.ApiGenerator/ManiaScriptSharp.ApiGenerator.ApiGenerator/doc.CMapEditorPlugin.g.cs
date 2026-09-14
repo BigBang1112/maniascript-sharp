@@ -90,7 +90,7 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         Validated,
     }
 
-    public CMapEditorPluginEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<CMapEditorPluginEvent> PendingEvents { get; }
     public CMap Map { get; }
     public string MapName { get; }
     public string MapFileName { get; }
@@ -108,8 +108,8 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public void AutoSave() { }
     public void Quit() { }
     public void QuickQuit() { }
-    public void QuitAndSetResult(string Type, string[] Data) { }
-    public void QuickQuitAndSetResult(string Type, string[] Data) { }
+    public void QuitAndSetResult(string Type, System.Collections.Generic.List<string> Data) { }
+    public void QuickQuitAndSetResult(string Type, System.Collections.Generic.List<string> Data) { }
     public void TestMapFromStart() { }
     public void TestMapFromCoord(Int3 Coord, CardinalDirections Dir) { }
     public void TestMapWithMode(string RulesModeName) { }
@@ -237,22 +237,22 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public Vec3 GetVec3FromCoord(Int3 Coord) => default!;
     public CMapEditorCamera Camera { get; }
     public CMapEditorCursor Cursor { get; }
-    public CItemAnchor[] Items { get; }
-    public string[] MediatrackIngameClips { get; }
+    public System.Collections.Generic.List<CItemAnchor> Items { get; }
+    public System.Collections.Generic.List<string> MediatrackIngameClips { get; }
     public int MediatrackIngameEditedClipIndex { get; set; }
-    public CBlock[] Blocks { get; }
-    public CBlockModel[] BlockModels { get; }
-    public CBlockModel[] TerrainBlockModels { get; }
-    public CMacroblockModel[] MacroblockModels { get; }
-    public CBlock[] ClassicBlocks { get; }
-    public CBlock[] TerrainBlocks { get; }
-    public CBlockClipList[] FixedClipLists { get; }
-    public CBlockClipList[] FrameClipLists { get; }
-    public CBlockClipList[] MacroblockInstanceClipLists { get; }
-    public CMacroblockInstance[] MacroblockInstances { get; }
-    public CMapEditorConnectResults[] ConnectResults { get; }
-    public CAnchorData[] AnchorData { get; }
-    public Int3[] CustomSelectionCoords { get; set; }
+    public System.Collections.Generic.List<CBlock> Blocks { get; }
+    public System.Collections.Generic.List<CBlockModel> BlockModels { get; }
+    public System.Collections.Generic.List<CBlockModel> TerrainBlockModels { get; }
+    public System.Collections.Generic.List<CMacroblockModel> MacroblockModels { get; }
+    public System.Collections.Generic.List<CBlock> ClassicBlocks { get; }
+    public System.Collections.Generic.List<CBlock> TerrainBlocks { get; }
+    public System.Collections.Generic.List<CBlockClipList> FixedClipLists { get; }
+    public System.Collections.Generic.List<CBlockClipList> FrameClipLists { get; }
+    public System.Collections.Generic.List<CBlockClipList> MacroblockInstanceClipLists { get; }
+    public System.Collections.Generic.List<CMacroblockInstance> MacroblockInstances { get; }
+    public System.Collections.Generic.List<CMapEditorConnectResults> ConnectResults { get; }
+    public System.Collections.Generic.List<CAnchorData> AnchorData { get; }
+    public System.Collections.Generic.List<Int3> CustomSelectionCoords { get; set; }
     public Vec3 CustomSelectionRGB { get; set; }
     public bool EnableEditorInputsCustomProcessing { get; set; }
     public bool EnableCursorShowingWhenInterfaceIsFocused { get; set; }

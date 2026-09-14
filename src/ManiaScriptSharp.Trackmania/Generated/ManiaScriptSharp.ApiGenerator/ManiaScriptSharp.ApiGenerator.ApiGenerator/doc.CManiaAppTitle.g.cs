@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>API for a Title main menu. Supported declare modes : - Local - Persistent</summary>
 public partial class CManiaAppTitle : CManiaApp, ILocalProvider, IPersistentProvider
 {
-    public CManiaAppEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<CManiaAppEvent> PendingEvents { get; }
     public void Menu_Quit() { }
     public void Menu_Home() { }
     public void Menu_Solo() { }
@@ -27,7 +27,7 @@ public partial class CManiaAppTitle : CManiaApp, ILocalProvider, IPersistentProv
     public CTitleEdition TitleEdition { get; }
     public CNotificationsConsumer Notifications { get; }
     public string ExternalRequest_Type { get; }
-    public string[] ExternalRequest_Data { get; set; }
+    public System.Collections.Generic.List<string> ExternalRequest_Data { get; set; }
     /// <summary>Call as soon as the request has been consumed and is being processed.</summary>
     public void ExternalRequest_Clear() { }
     public void LogToSessionTrace(string Text) { }

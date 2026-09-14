@@ -30,7 +30,7 @@ public partial class CMlControl : CNod, ILocalProvider
 
     public CMlFrame Parent { get; }
     public string ControlId { get; }
-    public string[] ControlClasses { get; }
+    public System.Collections.Generic.List<string> ControlClasses { get; }
     public bool HasClass(string Class) => default!;
     public Vec2 Size { get; set; }
     public AlignHorizontal HorizontalAlign { get; set; }

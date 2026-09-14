@@ -26,7 +26,7 @@ public partial class Layer_SquadInviting : ILib
 
     public void SetColorScheme(Vec3 _Background, Vec3 _Highlights) { }
 
-    public void SetContactsList(string[] _Contacts) { }
+    public void SetContactsList(global::System.Collections.Generic.List<string> _Contacts) { }
 
     public void SetActiveConversation(string _Login) { }
 

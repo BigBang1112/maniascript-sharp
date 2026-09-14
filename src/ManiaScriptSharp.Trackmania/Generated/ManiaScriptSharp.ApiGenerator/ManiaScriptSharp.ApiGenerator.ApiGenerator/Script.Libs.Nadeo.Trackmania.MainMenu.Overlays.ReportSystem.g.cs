@@ -43,7 +43,7 @@ public partial class ReportSystem : ILib
     /// <summary>Remove the report data associated to report target type</summary>
     public void RemoveData(int _ReportTargetType) { }
 
-    public K_Event[] GetPendingEvents() => default!;
+    public global::System.Collections.Generic.List<K_Event> GetPendingEvents() => default!;
 
     /// <summary>! Doing it while navigating in the menu could create inconsistencies in the data</summary>
     public void FullReset() { }

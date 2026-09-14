@@ -11,7 +11,7 @@ namespace ManiaScriptSharp;
 public partial class CScoreMgr : CNod
 {
     /// <summary>Array of task results.</summary>
-    public CTaskResult[] TaskResults { get; }
+    public System.Collections.Generic.List<CTaskResult> TaskResults { get; }
     /// <summary>Release a task result no more used.</summary>
     public void TaskResult_Release(Ident TaskId) { }
     /// <summary>Returns the ghost currently being recorded for a player on the current playground. (or the latest ghost if the player is not playing.)</summary>
@@ -32,24 +32,24 @@ public partial class CScoreMgr : CNod
     public int Map_GetMultiAsyncLevelRecord_v2(string MapUid, string ScopeType, string ScopeId, string GameMode, string GameModeCustomData, int MultiAsyncLevel) => default!;
     /// <summary>Returns the record ghost of the medal for a map.</summary>
     public CTaskResult_Ghost Map_GetMultiAsyncLevelRecordGhost_v2(string MapUid, string ScopeType, string ScopeId, string GameMode, string GameModeCustomData, int MultiAsyncLevel) => default!;
-    public CTaskResult_MapRecordList Map_GetPlayerListRecordList(Ident UserId, string[] WebServicesUserIdList, string MapUid, string ScopeType, string ScopeId, string GameMode, string GameModeCustomData) => default!;
+    public CTaskResult_MapRecordList Map_GetPlayerListRecordList(Ident UserId, System.Collections.Generic.List<string> WebServicesUserIdList, string MapUid, string ScopeType, string ScopeId, string GameMode, string GameModeCustomData) => default!;
     /// <summary>Loads and synchronizes scores for a list of map.</summary>
-    public CTaskResult Map_LoadPBScoreList(Ident UserId, string[] MapUidList, string GameMode, string GameModeCustomData) => default!;
+    public CTaskResult Map_LoadPBScoreList(Ident UserId, System.Collections.Generic.List<string> MapUidList, string GameMode, string GameModeCustomData) => default!;
     /// <summary>Creates a new season.</summary>
-    public CTaskResult_Season Season_Create(Ident UserId, string SeasonName, string GameMode, string GameModeCustomData, string MapRecordType, int StartTimeStamp, int EndTimeStamp, string[] MapUidList) => default!;
-    public CTaskResult_Season Season_Update(Ident UserId, string SeasonId, string SeasonName, string GameMode, string GameModeCustomData, string MapRecordType, int StartTimeStamp, int EndTimeStamp, string[] MapUidList) => default!;
-    public CTaskResult_Season Season_AddMapList(Ident UserId, string SeasonId, string[] MapUidList) => default!;
-    public CTaskResult_Season Season_RemoveMapList(Ident UserId, string SeasonId, string[] MapUidList) => default!;
+    public CTaskResult_Season Season_Create(Ident UserId, string SeasonName, string GameMode, string GameModeCustomData, string MapRecordType, int StartTimeStamp, int EndTimeStamp, System.Collections.Generic.List<string> MapUidList) => default!;
+    public CTaskResult_Season Season_Update(Ident UserId, string SeasonId, string SeasonName, string GameMode, string GameModeCustomData, string MapRecordType, int StartTimeStamp, int EndTimeStamp, System.Collections.Generic.List<string> MapUidList) => default!;
+    public CTaskResult_Season Season_AddMapList(Ident UserId, string SeasonId, System.Collections.Generic.List<string> MapUidList) => default!;
+    public CTaskResult_Season Season_RemoveMapList(Ident UserId, string SeasonId, System.Collections.Generic.List<string> MapUidList) => default!;
     /// <summary>Returns the season info from a season id.</summary>
     public CTaskResult_Season Season_Get(Ident UserId, string SeasonId) => default!;
     /// <summary>Returns a list of season info from a list of season id.</summary>
-    public CTaskResult_SeasonList Season_GetList(Ident UserId, string[] SeasonIdList) => default!;
+    public CTaskResult_SeasonList Season_GetList(Ident UserId, System.Collections.Generic.List<string> SeasonIdList) => default!;
     /// <summary>Returns the list of created season from a webservices user id.</summary>
     public CTaskResult_SeasonList Season_GetListFromUser(Ident UserId, string WebServicesUserId) => default!;
     /// <summary>Loads and synchronizes season scores.</summary>
     public CTaskResult Season_LoadScore(Ident UserId, string SeasonId) => default!;
     /// <summary>Loads and synchronizes scores for a list of season.</summary>
-    public CTaskResult Season_LoadScoreList(Ident UserId, string[] SeasonIdList) => default!;
+    public CTaskResult Season_LoadScoreList(Ident UserId, System.Collections.Generic.List<string> SeasonIdList) => default!;
     /// <summary>Returns the account trophy history.</summary>
     public CTaskResult_AccountTrophyGainHistory Trophy_GetGainHistory(Ident UserId, int Offset, int Count) => default!;
     /// <summary>Returns the account trophy history filtered by the specified type.</summary>

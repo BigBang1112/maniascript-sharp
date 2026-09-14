@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 public partial class CSmMapBotPath : CNod
 {
     public int Clan { get; }
-    public Vec3[] Path { get; }
+    public System.Collections.Generic.List<Vec3> Path { get; }
     public bool IsFlying { get; }
 }

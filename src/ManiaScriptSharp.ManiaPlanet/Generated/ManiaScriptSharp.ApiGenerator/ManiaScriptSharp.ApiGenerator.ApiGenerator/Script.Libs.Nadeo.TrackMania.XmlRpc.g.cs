@@ -32,7 +32,7 @@ public partial class XmlRpc : ILib
 
     public bool IsEnabled() => default!;
 
-    public void SendCallbackArray(string _Name, string[] _Data) { }
+    public void SendCallbackArray(string _Name, global::System.Collections.Generic.List<string> _Data) { }
 
     public void SendCallback(string _Name, string _Data) { }
 
@@ -44,7 +44,7 @@ public partial class XmlRpc : ILib
 
     public bool CallbackIsAllowed(string _Name) => default!;
 
-    public string[] ListCallbacks(bool _SendCallback) => default!;
+    public global::System.Collections.Generic.List<string> ListCallbacks(bool _SendCallback) => default!;
 
     public string CallbackHelp(string _Name, bool _SendCallback) => default!;
 
@@ -56,7 +56,7 @@ public partial class XmlRpc : ILib
 
     public void UnblockAllCallbacks() { }
 
-    public string[] GetBlockedCallbacks(bool _SendCallback) => default!;
+    public global::System.Collections.Generic.List<string> GetBlockedCallbacks(bool _SendCallback) => default!;
 
     /// <summary>Unload the library</summary>
     public void Unload() { }

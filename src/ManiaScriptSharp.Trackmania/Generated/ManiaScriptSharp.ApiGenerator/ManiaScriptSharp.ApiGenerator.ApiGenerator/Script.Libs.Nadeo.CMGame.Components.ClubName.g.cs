@@ -73,7 +73,7 @@ public partial class ClubName : ILib
         public int OpacityAnimDuration;
         public string TextCompose;
         public float Width;
-        public int[] Dirty;
+        public global::System.Collections.Generic.List<int> Dirty;
     }
 
     public struct K_Event
@@ -83,8 +83,8 @@ public partial class ClubName : ILib
 
     public struct K_State
     {
-        public K_Event[] DelayedPendingEvents;
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> DelayedPendingEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
     }
 
     public struct K_Result

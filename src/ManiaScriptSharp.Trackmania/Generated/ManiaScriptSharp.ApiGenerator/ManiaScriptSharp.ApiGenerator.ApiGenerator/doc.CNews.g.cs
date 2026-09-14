@@ -21,5 +21,5 @@ public partial class CNews : CNod
     public string PublicationDate { get; }
     public int Priority { get; }
     public int DisplayTime { get; }
-    public CNewsLink[] LinkList { get; set; }
+    public System.Collections.Generic.List<CNewsLink> LinkList { get; set; }
 }

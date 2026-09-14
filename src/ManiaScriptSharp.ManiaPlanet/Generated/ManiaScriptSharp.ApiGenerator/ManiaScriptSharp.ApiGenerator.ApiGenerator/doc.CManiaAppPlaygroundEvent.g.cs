@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CManiaAppPlaygroundEvent : CManiaAppEvent, ILocalProvider
 {
     public string PlaygroundScriptEventType { get; }
-    public string[] PlaygroundScriptEventData { get; }
+    public System.Collections.Generic.List<string> PlaygroundScriptEventData { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

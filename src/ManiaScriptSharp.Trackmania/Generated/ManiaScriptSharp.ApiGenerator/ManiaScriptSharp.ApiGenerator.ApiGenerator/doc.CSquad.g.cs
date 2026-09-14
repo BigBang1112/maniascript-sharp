@@ -19,6 +19,6 @@ public partial class CSquad : CNod
     public int Size { get; }
     public string Type { get; }
     public int UpdateTimeStamp { get; }
-    public CSquadInvitation[] InvitationList { get; set; }
-    public CSquadMember[] MemberList { get; set; }
+    public System.Collections.Generic.List<CSquadInvitation> InvitationList { get; set; }
+    public System.Collections.Generic.List<CSquadMember> MemberList { get; set; }
 }

@@ -14,6 +14,6 @@ public partial class CModulePlaygroundInventory : CModulePlayground
     public int RemoveInventoryItem(CPlayer Player, string Url, int Quantity) => default!;
     public int GetInventoryItemQuantity(CPlayer Player, string Url) => default!;
     public bool IsInventoryItemStored(CPlayer Player, string Url) => default!;
-    public string[] GetStoredItemsList(CPlayer Player) => default!;
-    public string[] GetStoredActionsList(CPlayer Player) => default!;
+    public System.Collections.Generic.List<string> GetStoredItemsList(CPlayer Player) => default!;
+    public System.Collections.Generic.List<string> GetStoredActionsList(CPlayer Player) => default!;
 }

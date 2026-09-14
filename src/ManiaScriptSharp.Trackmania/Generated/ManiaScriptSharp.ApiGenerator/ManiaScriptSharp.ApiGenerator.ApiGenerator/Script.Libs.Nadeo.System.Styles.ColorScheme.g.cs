@@ -18,7 +18,7 @@ public partial class ColorScheme : ILib
 
     public Vec3 GetSecondaryColor() => default!;
 
-    public string[] GetSchemesList() => default!;
+    public global::System.Collections.Generic.List<string> GetSchemesList() => default!;
 
     public int GetLatestChangeCount() => default!;
 }

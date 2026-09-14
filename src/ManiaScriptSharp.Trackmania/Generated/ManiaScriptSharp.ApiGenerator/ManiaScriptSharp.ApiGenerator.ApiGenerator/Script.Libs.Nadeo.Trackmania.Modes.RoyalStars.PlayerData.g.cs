@@ -37,9 +37,9 @@ public partial class PlayerData : ILib
     {
         public K_Segment OldSegment;
         public K_Segment NewSegment;
-        public int[] OldStars;
-        public int[] NewStars;
-        public int[] EarnedStars;
+        public global::System.Collections.Generic.List<int> OldStars;
+        public global::System.Collections.Generic.List<int> NewStars;
+        public global::System.Collections.Generic.List<int> EarnedStars;
         public int Time;
     }
 }

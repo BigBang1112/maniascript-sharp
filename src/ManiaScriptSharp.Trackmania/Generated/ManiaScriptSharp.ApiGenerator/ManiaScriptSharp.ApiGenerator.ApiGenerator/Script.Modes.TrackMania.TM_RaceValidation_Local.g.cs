@@ -29,7 +29,7 @@ public partial class TM_RaceValidation_Local : ILib
     {
         public Ident AuthorGhostId;
         public Ident AuthorGhostAddId;
-        public int[] CheckpointTimes;
+        public global::System.Collections.Generic.List<int> CheckpointTimes;
     }
 
     public virtual void Match_LogVersions() { }

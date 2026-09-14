@@ -47,7 +47,7 @@ public partial class News : ILib
         public string MediaType;
         public bool MediaPreloaded;
         public int Priority;
-        public K_NewsLink[] Links;
+        public global::System.Collections.Generic.List<K_NewsLink> Links;
         public int DisplayTime;
     }
 
@@ -61,6 +61,6 @@ public partial class News : ILib
     {
         public K_Private_UpdateCounter UpdateCounter;
         public int Status;
-        public K_News[] News;
+        public global::System.Collections.Generic.List<K_News> News;
     }
 }

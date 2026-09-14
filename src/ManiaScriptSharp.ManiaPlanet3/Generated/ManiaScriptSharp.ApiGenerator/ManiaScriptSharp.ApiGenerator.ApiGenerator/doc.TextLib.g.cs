@@ -58,8 +58,8 @@ public sealed partial class TextLib : ILib
     public string MLEncode(string Argument1) => default!;
     public string URLEncode(string Argument1) => default!;
     public string StripFormatting(string Argument1) => default!;
-    public string[] Split(string Argument1, string Argument2) => default!;
-    public string Join(string Argument1, string[] Argument2) => default!;
+    public System.Collections.Generic.List<string> Split(string Argument1, string Argument2) => default!;
+    public string Join(string Argument1, System.Collections.Generic.List<string> Argument2) => default!;
     public string SmartSplit(string Argument1, int Argument2, int Argument3, int Argument4) => default!;
     public string Trim(string Argument1) => default!;
     public string ReplaceChars(string Argument1, string Argument2, string Argument3) => default!;

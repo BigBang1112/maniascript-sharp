@@ -32,9 +32,9 @@ public partial class CManiaAppEvent : CNod
     public EType Type { get; }
     public CUILayer CustomEventLayer { get; }
     public string CustomEventType { get; }
-    public string[] CustomEventData { get; }
+    public System.Collections.Generic.List<string> CustomEventData { get; }
     public string ExternalEventType { get; }
-    public string[] ExternalEventData { get; }
+    public System.Collections.Generic.List<string> ExternalEventData { get; }
     public EMenuNavAction MenuNavAction { get; }
     public int KeyCode { get; }
     public string KeyName { get; }

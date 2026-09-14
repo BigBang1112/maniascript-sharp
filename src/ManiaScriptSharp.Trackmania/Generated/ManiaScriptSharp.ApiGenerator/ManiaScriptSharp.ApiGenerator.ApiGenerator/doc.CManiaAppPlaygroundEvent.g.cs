@@ -63,7 +63,7 @@ public partial class CManiaAppPlaygroundEvent : CManiaAppEvent, ILocalProvider
 
     public CManiaAppPlaygroundEvent.Type PlaygroundType { get; }
     public string PlaygroundScriptEventType { get; }
-    public string[] PlaygroundScriptEventData { get; set; }
+    public System.Collections.Generic.List<string> PlaygroundScriptEventData { get; set; }
     public CGhost Ghost { get; }
     public CManiaAppPlaygroundEvent.GameplaySpecialType GameplaySpecialType_ { get; }
     public CManiaAppPlaygroundEvent.GameplayTurboRoulette GameplayTurboRoulette_ { get; }

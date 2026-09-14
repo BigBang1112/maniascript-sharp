@@ -18,7 +18,7 @@ public partial class KnockedOutPlayers_Server : ILib
 
     /// <summary>Show or hide the UI content False to hide</summary>
     /// <param name="Display">True to show</param>
-    public void DisplayEliminatedPlayer(string[] _AccountIds, int[] _Ranks) { }
+    public void DisplayEliminatedPlayer(global::System.Collections.Generic.List<string> _AccountIds, global::System.Collections.Generic.List<int> _Ranks) { }
 
     /// <summary>Show or hide the UI content False to hide</summary>
     /// <param name="Display">True to show</param>

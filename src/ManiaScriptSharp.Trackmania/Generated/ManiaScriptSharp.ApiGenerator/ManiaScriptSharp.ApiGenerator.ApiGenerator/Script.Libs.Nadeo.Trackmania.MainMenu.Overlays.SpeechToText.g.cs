@@ -34,7 +34,7 @@ public partial class SpeechToText : ILib
 
     public struct K_Message
     {
-        public string[] Words;
+        public global::System.Collections.Generic.List<string> Words;
     }
 
     public struct K_Controls
@@ -44,8 +44,8 @@ public partial class SpeechToText : ILib
     public struct K_SpeechToText
     {
         public K_Controls Controls;
-        public K_Line[] DisplayedLines;
-        public K_Message[] Messages;
+        public global::System.Collections.Generic.List<K_Line> DisplayedLines;
+        public global::System.Collections.Generic.List<K_Message> Messages;
     }
 
     /// <summary>Get the overlay manialink page</summary>

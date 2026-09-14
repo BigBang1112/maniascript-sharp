@@ -53,9 +53,9 @@ public partial class Sound : ILib
 
     /// <summary>Preload some custom sounds to a specific player with delay and volume attenuation</summary>
     /// <param name="SoundUrl">Custom Sounds URL</param>
-    public void PreloadSounds(string[] _SoundsToPreloadUrl, CPlayer _Player) { }
+    public void PreloadSounds(global::System.Collections.Generic.List<string> _SoundsToPreloadUrl, CPlayer _Player) { }
 
-    public void PreloadSounds(string[] _SoundsToPreloadUrl) { }
+    public void PreloadSounds(global::System.Collections.Generic.List<string> _SoundsToPreloadUrl) { }
 
     /// <summary>Play a custom sound to a specific player with delay and volume attenuation</summary>
     /// <param name="SoundUrl">Custom Sound URL</param>

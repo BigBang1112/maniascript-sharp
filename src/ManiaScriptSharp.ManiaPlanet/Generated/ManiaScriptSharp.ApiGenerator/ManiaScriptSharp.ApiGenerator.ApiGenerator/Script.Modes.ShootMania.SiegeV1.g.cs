@@ -180,7 +180,7 @@ public partial class SiegeV1 : global::ManiaScriptSharp.Scripts.Modes.ShootMania
 
     public string UpdateEndSequenceLayer() => default!;
 
-    public void SetSpawnablePlayers(CSmPlayer[] _ClanPlayers, int _SpawnablesCount) { }
+    public void SetSpawnablePlayers(global::System.Collections.Generic.List<CSmPlayer> _ClanPlayers, int _SpawnablesCount) { }
 
     public void CheckMaxPlayers() { }
 

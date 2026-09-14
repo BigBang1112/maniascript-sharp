@@ -361,7 +361,7 @@ public partial class ScoresTable2 : ILib
 
     /// <summary>Filter the players displayed by logins</summary>
     /// <param name="Logins">The logins of the players to display</param>
-    public void FilterLogins(string[] _Logins) { }
+    public void FilterLogins(global::System.Collections.Generic.List<string> _Logins) { }
 
     /// <summary>Use a predefined style for the scores table Available styles are: - LibST_Base, add basic columns: avatar, name, ManiaStars and tools - LibST_Reset, remove all the previous styles - LibST_TMBaseSolo, basic free for all scores table for TrackMania - LibST_TMBaseTeam, basic teams scores table for TrackMania - LibST_TMWithLegends, add a space for columns legends in the header - LibST_SMBaseSolo, basic free for all scores table for ShootMania - LibST_SMBaseTeams, basic teams scores table for ShootMania - LibST_SMBaseOneColumn, same as LibST_SMBaseSolo but with only one players column - LibST_SMBasePoints, add the RoundPoints and Points columns - LibST_SMWithLegends, add a space for columns legends in the header</summary>
     /// <param name="Style">The name of the style to use</param>

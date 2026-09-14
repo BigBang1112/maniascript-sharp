@@ -10,11 +10,11 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CRankingsZoneMgr</summary>
 public partial class CRankingsZoneMgr : CNod
 {
-    public CTaskResult[] TaskResults { get; }
+    public System.Collections.Generic.List<CTaskResult> TaskResults { get; }
     public void TaskResult_Release(Ident TaskId) { }
     public void GetPathAndName(string ZoneFullPath, string ZonePath, string ZoneName) { }
-    public CTaskResult_ZoneList GetZoneList(string[] ZoneIdList) => default!;
+    public CTaskResult_ZoneList GetZoneList(System.Collections.Generic.List<string> ZoneIdList) => default!;
     public CTaskResult_ZoneList GetChildZoneList(string ZoneFullPath) => default!;
-    public CTaskResult_UserZoneList RetrieveUserZoneList(Ident UserId, string[] WebServicesUserIdList) => default!;
+    public CTaskResult_UserZoneList RetrieveUserZoneList(Ident UserId, System.Collections.Generic.List<string> WebServicesUserIdList) => default!;
     public CTaskResult SetUserZone(Ident UserId, string ZoneFullPath) => default!;
 }

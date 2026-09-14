@@ -17,8 +17,8 @@ public partial class CModulePlaygroundHudModel : CNod
     public Ident ContextAdd(string ContextName) => default!;
     public Ident ContextSetId(Ident ContextId, string NewContextName) => default!;
     public void ContextRemove(Ident ContextId) { }
-    public Ident[] ContextsIds { get; }
-    public Ident[] SubModuleIds { get; }
+    public System.Collections.Generic.List<Ident> ContextsIds { get; }
+    public System.Collections.Generic.List<Ident> SubModuleIds { get; }
     public void SubModuleRetrieve(Ident ModuleId) { }
     public SHudModule SubModule { get; set; }
     public int EditorContextIndex { get; }

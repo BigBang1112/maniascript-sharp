@@ -98,7 +98,7 @@ public partial class Garage : ILib
     public struct K_Scene
     {
         public Ident SceneId;
-        public Ident[] CurrentItemIds;
+        public global::System.Collections.Generic.List<Ident> CurrentItemIds;
     }
 
     public struct K_Filters
@@ -107,8 +107,8 @@ public partial class Garage : ILib
         public int CategoryTypeCurrentIndex;
         public int ModeCurrentIndex;
         public int YearCurrentIndex;
-        public int[] YearList;
-        public string[] CategoryTypeList;
+        public global::System.Collections.Generic.List<int> YearList;
+        public global::System.Collections.Generic.List<string> CategoryTypeList;
     }
 
     public struct K_Options

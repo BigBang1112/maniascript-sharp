@@ -25,5 +25,5 @@ public partial class CNadeoServicesItemCollection : CNod
     public string Name { get; }
     public string Type { get; }
     public int UpdateTimeStamp { get; }
-    public CNadeoServicesItemCollectionVersion[] VersionList { get; set; }
+    public System.Collections.Generic.List<CNadeoServicesItemCollectionVersion> VersionList { get; set; }
 }

@@ -55,7 +55,7 @@ public partial class Button_4 : ILib
 
     public struct K_Private_Properties
     {
-        public string[] EnabledPropList;
+        public global::System.Collections.Generic.List<string> EnabledPropList;
         public string TextValue;
         public bool IsTranslated;
         public float WidthMin;
@@ -63,12 +63,12 @@ public partial class Button_4 : ILib
         public float Width;
         public float Height;
         public bool IsVisible;
-        public string[] TextDefaultStyleList;
-        public string[] TextFocusStyleList;
-        public string[] BackgroundDefaultStyleList;
-        public string[] BackgroundFocusStyleList;
-        public string[] ForegroundDefaultStyleList;
-        public string[] ForegroundFocusStyleList;
+        public global::System.Collections.Generic.List<string> TextDefaultStyleList;
+        public global::System.Collections.Generic.List<string> TextFocusStyleList;
+        public global::System.Collections.Generic.List<string> BackgroundDefaultStyleList;
+        public global::System.Collections.Generic.List<string> BackgroundFocusStyleList;
+        public global::System.Collections.Generic.List<string> ForegroundDefaultStyleList;
+        public global::System.Collections.Generic.List<string> ForegroundFocusStyleList;
     }
 
     public struct K_Private_Instance
@@ -79,7 +79,7 @@ public partial class Button_4 : ILib
         public K_Private_Properties Properties;
         public bool IsPropertiesDirty;
         public bool IsBoxDirty;
-        public int[] ModifierList;
+        public global::System.Collections.Generic.List<int> ModifierList;
         public bool IsModifierListDirty;
     }
 }

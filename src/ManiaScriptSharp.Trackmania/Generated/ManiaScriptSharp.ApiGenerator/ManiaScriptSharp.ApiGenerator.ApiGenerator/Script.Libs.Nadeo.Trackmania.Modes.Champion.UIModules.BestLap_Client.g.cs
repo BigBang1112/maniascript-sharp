@@ -23,11 +23,11 @@ public partial class BestLap_Client : ILib
     public struct K_BestLapTimes
     {
         public int Lap;
-        public string[] Names;
-        public string[] Logins;
-        public string[] WebServicesIds;
-        public int[] Times;
-        public int[] Points;
+        public global::System.Collections.Generic.List<string> Names;
+        public global::System.Collections.Generic.List<string> Logins;
+        public global::System.Collections.Generic.List<string> WebServicesIds;
+        public global::System.Collections.Generic.List<int> Times;
+        public global::System.Collections.Generic.List<int> Points;
     }
 
     /// <summary>Get the module manialink</summary>

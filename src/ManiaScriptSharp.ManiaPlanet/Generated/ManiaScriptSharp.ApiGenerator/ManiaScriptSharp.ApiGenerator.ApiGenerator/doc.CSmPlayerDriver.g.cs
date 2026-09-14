@@ -69,5 +69,5 @@ public partial class CSmPlayerDriver : CNod
     public float Saunter_Radius { get; set; }
     public bool Scripted_ForceAimInMoveDir { get; set; }
     public CSmPlayer ForcedTarget { get; set; }
-    public CSmPlayer[] TargetsToAvoid { get; set; }
+    public System.Collections.Generic.List<CSmPlayer> TargetsToAvoid { get; set; }
 }

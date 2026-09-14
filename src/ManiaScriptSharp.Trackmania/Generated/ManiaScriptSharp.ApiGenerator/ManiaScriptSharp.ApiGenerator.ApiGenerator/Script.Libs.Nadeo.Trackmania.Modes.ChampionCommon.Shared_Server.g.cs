@@ -38,7 +38,7 @@ public partial class Shared_Server : ILib
     public void SetMatchPointsLimit(int _MatchPointsLimit) { }
 
     /// <summary>Update the match winners (sorted by winning order)</summary>
-    public void SetMatchWinners(string[] _MatchWinners) { }
+    public void SetMatchWinners(global::System.Collections.Generic.List<string> _MatchWinners) { }
 
     /// <summary>Set the match style</summary>
     public void SetMatchStyle(int _MatchStyle) { }

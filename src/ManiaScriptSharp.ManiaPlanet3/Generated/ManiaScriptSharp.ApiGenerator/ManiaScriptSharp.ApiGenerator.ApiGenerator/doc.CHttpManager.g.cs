@@ -14,6 +14,6 @@ public partial class CHttpManager : CNod
     public CHttpRequest CreatePost(string Url, string Resource) => default!;
     public void Destroy(CHttpRequest Request) { }
     public bool IsValidUrl(string Url) => default!;
-    public CHttpRequest[] Requests { get; }
+    public System.Collections.Generic.List<CHttpRequest> Requests { get; }
     public int SlotsAvailable { get; }
 }

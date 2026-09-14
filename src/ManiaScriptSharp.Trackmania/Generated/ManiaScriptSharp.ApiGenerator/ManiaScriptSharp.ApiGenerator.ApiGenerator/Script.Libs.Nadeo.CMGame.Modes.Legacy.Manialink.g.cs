@@ -31,17 +31,17 @@ public partial class Manialink : ILib
 
     /// <summary>Insert several functions inside your maniascript</summary>
     /// <returns>The functions</returns>
-    public string Functions(string[] _FunctionsNames) => default!;
+    public string Functions(global::System.Collections.Generic.List<string> _FunctionsNames) => default!;
 
     /// <summary>Insert the tween module inside your maniascript</summary>
     /// <param name="Easings">An array of easing functions to insert in the tween module</param>
     /// <returns>The tween module with the given easing functions</returns>
-    public string Tweens(string[] _Easings) => default!;
+    public string Tweens(global::System.Collections.Generic.List<string> _Easings) => default!;
 
     /// <summary>Insert the animation module inside your maniascript</summary>
     /// <param name="Easings">An array of easing functions to insert in the animation module</param>
     /// <returns>The animation module with the given easing functions</returns>
-    public string Animations(string[] _Easings) => default!;
+    public string Animations(global::System.Collections.Generic.List<string> _Easings) => default!;
 
     /// <summary>Insert the animation module inside your maniascript</summary>
     /// <returns>The animation module without any easing function</returns>

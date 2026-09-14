@@ -141,7 +141,7 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         Black,
     }
 
-    public CMapEditorPluginEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<CMapEditorPluginEvent> PendingEvents { get; }
     public CMap Map { get; }
     public string MapName { get; }
     public string MapFileName { get; }
@@ -162,8 +162,8 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public void AutoSave() { }
     public void Quit() { }
     public void QuickQuit() { }
-    public void QuitAndSetResult(string Type, string[] Data) { }
-    public void QuickQuitAndSetResult(string Type, string[] Data) { }
+    public void QuitAndSetResult(string Type, System.Collections.Generic.List<string> Data) { }
+    public void QuickQuitAndSetResult(string Type, System.Collections.Generic.List<string> Data) { }
     public void TestMapFromStart() { }
     public void TestMapFromCoord(Int3 Coord, CMapEditorPlugin.CardinalDirections Dir) { }
     public void TestMapFromMacroblockInstance(CMacroblockInstance MbInstance) { }
@@ -182,7 +182,7 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public CMapEditorPlugin.MapElemColorPalette MapElemColorPalette_ { get; set; }
     public void SetNextMapElemColorPalette() { }
     public bool IsColorBlindModeActive { get; }
-    public CMapEditorPlugin.MapElemColorPalette[] MapElemColorPalettes { get; set; }
+    public System.Collections.Generic.List<CMapEditorPlugin.MapElemColorPalette> MapElemColorPalettes { get; set; }
     public bool ForceMacroblockColor { get; set; }
     public CMapEditorPlugin.MapElemColor GetMapElemColor(CBlock Block) => default!;
     public CMapEditorPlugin.MapElemColor GetMapElemColor(CItemAnchor AnchoredObject) => default!;
@@ -295,7 +295,7 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public bool CopyPaste_SetSelectionPhaseOffset(CMapEditorPlugin.PhaseOffset Offset) => default!;
     public bool CopyPaste_ApplyLightmapQualityToSelection(CMapEditorPlugin.MapElemLightmapQuality LightmapQuality) => default!;
     public void CopyPaste_GetLightmapQualityInSelection() { }
-    public CMapEditorPlugin.MapElemLightmapQuality[] CopyPaste_GetLightmapQualityInSelection_Results { get; set; }
+    public System.Collections.Generic.List<CMapEditorPlugin.MapElemLightmapQuality> CopyPaste_GetLightmapQualityInSelection_Results { get; set; }
     public CMacroblockModel GetMacroblockModelFromFilePath(string MacroblockModelFilePath) => default!;
     public CBlockModel GetTerrainBlockModelFromName(string TerrainBlockModelName) => default!;
     public CBlockModel GetBlockModelFromName(string BlockModelName) => default!;
@@ -308,7 +308,7 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public bool PlaceMacroblock_NoTerrain_NoUnvalidate(CMacroblockModel MacroblockModel, Int3 Coord, CMapEditorPlugin.CardinalDirections Dir) => default!;
     public void ResetAutoRepeat() { }
     public void ComputeItemsForMacroblockInstance(CMacroblockInstance MacroBlockInstance) { }
-    public CItemAnchor[] MacroblockInstanceItemsResults { get; }
+    public System.Collections.Generic.List<CItemAnchor> MacroblockInstanceItemsResults { get; }
     public void GetConnectResults(CBlock ExistingBlock, CBlockModel NewBlock) { }
     public void GetConnectResults(CBlock ExistingBlock, CMacroblockModel NewBlock) { }
     public void GetConnectResults(CMacroblockInstance ExistingBlock, CBlockModel NewBlock) { }
@@ -318,7 +318,7 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public int GetMultilapBlockCount() => default!;
     public int GetCheckpointBlockCount() => default!;
     public int GetItemsCountResult() => default!;
-    public string[] GetItemsCountRequest { get; set; }
+    public System.Collections.Generic.List<string> GetItemsCountRequest { get; set; }
     public CMacroblockInstance CreateMacroblockInstance(CMacroblockModel MacroblockModel, Int3 Coord, CMapEditorPlugin.CardinalDirections Dir, CMapEditorPlugin.MapElemColor Color, bool ForceMacroblockColor) => default!;
     public CMacroblockInstance CreateMacroblockInstance(CMacroblockModel MacroblockModel, Int3 Coord, CMapEditorPlugin.CardinalDirections Dir, CMapEditorPlugin.MapElemColor Color, bool ForceMacroblockColor, int UserData) => default!;
     public CMacroblockInstance CreateMacroblockInstance(CMacroblockModel MacroblockModel, Int3 Coord, CMapEditorPlugin.CardinalDirections Dir, CBlockClipList DefaultClipList, CMapEditorPlugin.MapElemColor Color, bool ForceMacroblockColor) => default!;
@@ -343,24 +343,24 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public Vec3 GetVec3FromCoord(Int3 Coord) => default!;
     public CMapEditorCamera Camera { get; }
     public CMapEditorCursor Cursor { get; }
-    public CItemAnchor[] Items { get; }
-    public string[] MediatrackIngameClips { get; set; }
+    public System.Collections.Generic.List<CItemAnchor> Items { get; }
+    public System.Collections.Generic.List<string> MediatrackIngameClips { get; set; }
     public int MediatrackIngameEditedClipIndex { get; set; }
-    public CBlock[] Blocks { get; }
-    public CBlockModel[] BlockModels { get; }
-    public CBlockModel[] TerrainBlockModels { get; }
-    public CMacroblockModel[] MacroblockModels { get; }
-    public CBlock[] ClassicBlocks { get; }
-    public CBlock[] TerrainBlocks { get; }
-    public CBlock[] GhostBlocks { get; }
-    public CBlockClipList[] FixedClipLists { get; }
-    public CBlockClipList[] FrameClipLists { get; }
-    public CBlockClipList[] MacroblockInstanceClipLists { get; }
-    public CMacroblockInstance[] MacroblockInstances { get; }
-    public CMapEditorConnectResults[] ConnectResults { get; }
-    public CAnchorData[] AnchorData { get; }
+    public System.Collections.Generic.List<CBlock> Blocks { get; }
+    public System.Collections.Generic.List<CBlockModel> BlockModels { get; }
+    public System.Collections.Generic.List<CBlockModel> TerrainBlockModels { get; }
+    public System.Collections.Generic.List<CMacroblockModel> MacroblockModels { get; }
+    public System.Collections.Generic.List<CBlock> ClassicBlocks { get; }
+    public System.Collections.Generic.List<CBlock> TerrainBlocks { get; }
+    public System.Collections.Generic.List<CBlock> GhostBlocks { get; }
+    public System.Collections.Generic.List<CBlockClipList> FixedClipLists { get; }
+    public System.Collections.Generic.List<CBlockClipList> FrameClipLists { get; }
+    public System.Collections.Generic.List<CBlockClipList> MacroblockInstanceClipLists { get; }
+    public System.Collections.Generic.List<CMacroblockInstance> MacroblockInstances { get; }
+    public System.Collections.Generic.List<CMapEditorConnectResults> ConnectResults { get; }
+    public System.Collections.Generic.List<CAnchorData> AnchorData { get; }
     public bool DoesAnchorHaveSpawn(CAnchorData Anchor) => default!;
-    public Int3[] CustomSelectionCoords { get; set; }
+    public System.Collections.Generic.List<Int3> CustomSelectionCoords { get; set; }
     public Vec3 CustomSelectionRGB { get; set; }
     public bool EnableEditorInputsCustomProcessing { get; set; }
     public bool EnableCursorShowingWhenInterfaceIsFocused { get; set; }

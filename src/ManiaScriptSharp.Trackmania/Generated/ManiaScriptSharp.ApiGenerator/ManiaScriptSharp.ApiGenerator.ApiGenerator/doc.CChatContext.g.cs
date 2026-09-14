@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CChatContext</summary>
 public partial class CChatContext
 {
-    public CChatHistory[] Histories { get; set; }
+    public System.Collections.Generic.List<CChatHistory> Histories { get; set; }
     public CChatHistory History_Create(string Filter, int MaxSize) => default!;
     public void History_Destroy(CChatHistory History) { }
 }

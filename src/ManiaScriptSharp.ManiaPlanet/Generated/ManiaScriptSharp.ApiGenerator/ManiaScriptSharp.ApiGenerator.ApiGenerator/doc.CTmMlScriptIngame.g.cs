@@ -12,19 +12,19 @@ public partial class CTmMlScriptIngame : CMlScriptIngame, ILocalProvider, IPersi
 {
     public CTmMlPlayer InputPlayer { get; }
     public CTmMlPlayer GUIPlayer { get; }
-    public CTmRaceClientEvent[] RaceEvents { get; }
+    public System.Collections.Generic.List<CTmRaceClientEvent> RaceEvents { get; }
     public int NbLaps { get; }
     public bool IndependantLaps { get; }
-    public CTmMlPlayer[] Players { get; }
-    public CTmScore[] Scores { get; }
-    public int[] ClanScores { get; }
+    public System.Collections.Generic.List<CTmMlPlayer> Players { get; }
+    public System.Collections.Generic.List<CTmScore> Scores { get; }
+    public System.Collections.Generic.List<int> ClanScores { get; }
     public int CurPlayerCamera { get; set; }
     /// <summary>When in spectator mode, show the scene as it was in the past to enable doing 'instant replays'.</summary>
     public int SpectatorTimeshift { get; set; }
     public Vec3 MapStartLinePos { get; }
     /// <summary>You can use MapCheckpointPos.count to get the number of checkpoints.</summary>
-    public Vec3[] MapCheckpointPos { get; }
-    public Vec3[] MapFinishLinePos { get; }
+    public System.Collections.Generic.List<Vec3> MapCheckpointPos { get; }
+    public System.Collections.Generic.List<Vec3> MapFinishLinePos { get; }
     public bool MapIsLapRace { get; }
     public int MapNbLaps { get; }
     public bool ValidationGhost_IsVisible() => default!;

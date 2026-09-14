@@ -71,7 +71,7 @@ public partial class Clublink2 : ILib
     /// <summary>Get the sponsors of a team</summary>
     /// <param name="Clan">The clan to check</param>
     /// <returns>The sponsors of the team</returns>
-    public string[] GetTeamSponsors(int _Clan) => default!;
+    public global::System.Collections.Generic.List<string> GetTeamSponsors(int _Clan) => default!;
 
     /// <summary>Update the library</summary>
     /// <param name="Enabled">Are Clublinks enabled in the mode?</param>

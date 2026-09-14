@@ -16,7 +16,7 @@ public partial class CMacroblockInstance : CNod
     public Int3 Coord { get; }
     public int Order { get; set; }
     public int UserData { get; set; }
-    public Int3[] UnitCoords { get; set; }
+    public System.Collections.Generic.List<Int3> UnitCoords { get; set; }
     public CMapEditorPlugin.MapElemColor Color { get; }
     public bool ForceMacroblockColor { get; }
     public Int3 GetSize() => default!;

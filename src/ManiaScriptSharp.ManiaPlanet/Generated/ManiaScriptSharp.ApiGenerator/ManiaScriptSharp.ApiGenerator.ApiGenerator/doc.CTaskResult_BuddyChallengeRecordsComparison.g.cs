@@ -15,9 +15,9 @@ public partial class CTaskResult_BuddyChallengeRecordsComparison : CTaskResult
     /// <summary>Buddy login.</summary>
     public string BuddyLogin { get; }
     /// <summary>List of best challenge records for user. Array of CHighScoreComparison objects.</summary>
-    public CHighScoreComparison[] PlayerBestRecordsComparison { get; }
+    public System.Collections.Generic.List<CHighScoreComparison> PlayerBestRecordsComparison { get; }
     /// <summary>List of best challenge records for buddy. Array of CHighScoreComparison objects.</summary>
-    public CHighScoreComparison[] BuddyBestRecordsComparison { get; }
+    public System.Collections.Generic.List<CHighScoreComparison> BuddyBestRecordsComparison { get; }
     /// <summary>Sort the results by map name.</summary>
     public void SortByMapName() { }
     /// <summary>Sort the results by record time.</summary>

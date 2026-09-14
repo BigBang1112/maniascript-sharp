@@ -9,7 +9,7 @@ namespace ManiaScriptSharp;
 
 public partial class CMapEditorInventoryDirectory : CMapEditorInventoryNode
 {
-    public CMapEditorInventoryNode[] Children { get; }
+    public System.Collections.Generic.List<CMapEditorInventoryNode> Children { get; }
     public bool HasChildDirectory { get; }
     public bool HasChildArticle { get; }
 }

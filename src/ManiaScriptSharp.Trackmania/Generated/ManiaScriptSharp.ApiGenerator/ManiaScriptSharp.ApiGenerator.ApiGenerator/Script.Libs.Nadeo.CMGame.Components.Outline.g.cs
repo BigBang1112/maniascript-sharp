@@ -48,7 +48,7 @@ public partial class Outline : ILib
 
     public struct K_Properties
     {
-        public int[] Dirty;
+        public global::System.Collections.Generic.List<int> Dirty;
         public Vec2 Size;
         public float Thickness;
         public int OpacityAnimDuration;

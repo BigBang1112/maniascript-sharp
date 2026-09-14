@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_GameModeList : CTaskResult, ILocalProvider
 {
     /// <summary>Description of the GameMode</summary>
-    public CTaskResult_ModeInfo[] GameModes { get; }
+    public System.Collections.Generic.List<CTaskResult_ModeInfo> GameModes { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

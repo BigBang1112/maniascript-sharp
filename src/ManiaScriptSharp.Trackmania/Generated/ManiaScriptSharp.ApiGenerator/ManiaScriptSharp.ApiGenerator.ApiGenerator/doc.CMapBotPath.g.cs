@@ -11,7 +11,7 @@ namespace ManiaScriptSharp;
 public partial class CMapBotPath : CNod
 {
     public int Clan { get; }
-    public Vec3[] Path { get; set; }
+    public System.Collections.Generic.List<Vec3> Path { get; set; }
     public bool IsFlying { get; }
     public Ident BotModelId { get; }
 }

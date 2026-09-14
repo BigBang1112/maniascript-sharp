@@ -16,6 +16,6 @@ public partial class EventsStructs : ILib
         public int EventId;
         public string Action;
         public string Param;
-        public string[] Params;
+        public global::System.Collections.Generic.List<string> Params;
     }
 }

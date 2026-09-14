@@ -27,7 +27,7 @@ public partial class Logs : ILib
         public int LocalRegistrationTime;
         public int RegistrationPostTime;
         public global::System.Collections.Generic.Dictionary<int, int> FinishLineCrossTimes;
-        public int[] PostRecordDelays;
+        public global::System.Collections.Generic.List<int> PostRecordDelays;
     }
 
     public void SetLogLevel(int _LogLevel) { }

@@ -70,7 +70,7 @@ public partial class Header : ILib
     public void SetTitle(string _Title) { }
 
     /// <summary>Set the modes in the header</summary>
-    public void SetModes(string[] _Modes) { }
+    public void SetModes(global::System.Collections.Generic.List<string> _Modes) { }
 
     /// <summary>Select a mode in the header</summary>
     public void SelectMode(string _Mode) { }

@@ -243,7 +243,7 @@ public partial class ScoresTable : ILib
 
     /// <summary>Filter the players displayed in the scores table by logins</summary>
     /// <param name="Logins">The logins to display</param>
-    public void FilterLogins(string[] _Logins) { }
+    public void FilterLogins(global::System.Collections.Generic.List<string> _Logins) { }
 
     /// <summary>Filter the players displayed in the scores table by status - All - Playing - Alive - Spectators</summary>
     /// <param name="Status">The status to display:</param>

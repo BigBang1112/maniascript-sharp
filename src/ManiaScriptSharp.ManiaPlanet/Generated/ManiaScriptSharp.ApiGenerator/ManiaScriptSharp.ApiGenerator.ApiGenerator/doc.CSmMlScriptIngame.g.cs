@@ -13,20 +13,20 @@ public partial class CSmMlScriptIngame : CMlScriptIngame, ILocalProvider, IPersi
     public int ArenaNow { get; }
     public CSmPlayer InputPlayer { get; }
     public CSmPlayer GUIPlayer { get; }
-    public CSmPlayer[] Players { get; }
-    public CModeVehicle[] Vehicles { get; }
-    public CSmScore[] Scores { get; }
-    public int[] ClanScores { get; }
+    public System.Collections.Generic.List<CSmPlayer> Players { get; }
+    public System.Collections.Generic.List<CModeVehicle> Vehicles { get; }
+    public System.Collections.Generic.List<CSmScore> Scores { get; }
+    public System.Collections.Generic.List<int> ClanScores { get; }
     public bool HideResumePlayingButton { get; set; }
-    public CSmMapBase[] MapBases { get; }
-    public CSmMapLandmark[] MapLandmarks { get; }
-    public CSmMapLandmark[] MapLandmarks_PlayerSpawn { get; }
-    public CSmMapLandmark[] MapLandmarks_Gauge { get; }
-    public CSmMapLandmark[] MapLandmarks_Sector { get; }
-    public CSmMapLandmark[] MapLandmarks_BotPath { get; }
-    public CSmMapLandmark[] MapLandmarks_BotSpawn { get; }
-    public CSmMapLandmark[] MapLandmarks_ObjectAnchor { get; }
-    public CSmMapLandmark[] MapLandmarks_Gate { get; }
+    public System.Collections.Generic.List<CSmMapBase> MapBases { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_PlayerSpawn { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_Gauge { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_Sector { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_BotPath { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_BotSpawn { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_ObjectAnchor { get; }
+    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_Gate { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

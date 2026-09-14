@@ -12,15 +12,15 @@ public partial class CSmAction : CNod, ILocalProvider
 {
     public int Now { get; }
     public int Variant { get; }
-    public CSmPlayer[] Players { get; set; }
+    public System.Collections.Generic.List<CSmPlayer> Players { get; set; }
     public CSmPlayer Owner { get; set; }
     public bool IsActive { get; }
     public int Energy { get; set; }
     public int EnergyMax { get; set; }
     public int EnergyCost { get; set; }
     public bool EnergyReload { get; set; }
-    public CSmActionEvent[] PendingEvents { get; }
-    public void SendRulesEvent(string Param1, string[] Param2, CSmPlayer Shooter, CSmPlayer Victim) { }
+    public System.Collections.Generic.List<CSmActionEvent> PendingEvents { get; }
+    public void SendRulesEvent(string Param1, System.Collections.Generic.List<string> Param2, CSmPlayer Shooter, CSmPlayer Victim) { }
     public Ident GetAnimModelId(string ModelName) => default!;
     public void PlayAnimOnPlayer(Ident AnimModelId, CSmPlayer Player) { }
     public void PlayAnimAtPosition(Ident AnimModelId, Vec3 Position, Vec3 Direction) { }

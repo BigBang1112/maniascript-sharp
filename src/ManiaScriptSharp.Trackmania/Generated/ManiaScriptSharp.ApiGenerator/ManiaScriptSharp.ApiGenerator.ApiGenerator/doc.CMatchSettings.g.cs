@@ -17,7 +17,7 @@ public partial class CMatchSettings : CNod
     public bool ScriptModeName_Check(string ScriptModeName) => default!;
     public void ScriptModeName_Set(string ScriptModeName) { }
     public void ScriptSettings_SetToDefault() { }
-    public CMatchSettingsPlaylistItem[] Playlist { get; }
+    public System.Collections.Generic.List<CMatchSettingsPlaylistItem> Playlist { get; }
     public bool Playlist_FileExists(string File) => default!;
     public bool Playlist_FileMatchesMode(string File) => default!;
     public void Playlist_Add(string File) { }

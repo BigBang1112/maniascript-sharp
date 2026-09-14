@@ -28,7 +28,7 @@ public partial class Sign16x9Small_Client : ILib
 
     public struct K_Controls
     {
-        public K_ControlPlayerCard[] PlayerCards;
+        public global::System.Collections.Generic.List<K_ControlPlayerCard> PlayerCards;
     }
 
     public struct K_State
@@ -40,7 +40,7 @@ public partial class Sign16x9Small_Client : ILib
         public int DisplayMode;
         public string PodiumPlayersWin;
         public string PodiumPlayersLose;
-        public string[] Top3Logins;
+        public global::System.Collections.Generic.List<string> Top3Logins;
         public int WinningClan;
         public string MVPAccountId;
     }

@@ -23,9 +23,9 @@ public partial class TitleInfoStructs : ILib
         public string LogoURL;
         public string CardURL;
         public string BackgroundURL;
-        public string[] ScreenshotsURLs;
-        public string[] YouTubeURLs;
-        public string[] ExternalURLs;
+        public global::System.Collections.Generic.List<string> ScreenshotsURLs;
+        public global::System.Collections.Generic.List<string> YouTubeURLs;
+        public global::System.Collections.Generic.List<string> ExternalURLs;
         public int PlanetsCost;
         public string AuthorLogin;
         public string AuthorNickName;

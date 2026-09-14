@@ -11,5 +11,5 @@ namespace ManiaScriptSharp;
 public partial class CModuleMenuPage : CNod
 {
     public string Name { get; }
-    public CModuleMenuComponent[] Components { get; }
+    public System.Collections.Generic.List<CModuleMenuComponent> Components { get; }
 }

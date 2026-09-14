@@ -43,10 +43,10 @@ public partial class CUIConfigEvent : CBaseEvent, ILocalProvider
     public CUIConfig UI { get; }
     public EModuleType ModuleType { get; }
     public string Param1 { get; }
-    public string[] Param2 { get; }
+    public System.Collections.Generic.List<string> Param2 { get; }
     public CUILayer CustomEventLayer { get; }
     public string CustomEventType { get; }
-    public string[] CustomEventData { get; }
+    public System.Collections.Generic.List<string> CustomEventData { get; }
     public string ItemUrl { get; }
     public int Quantity { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

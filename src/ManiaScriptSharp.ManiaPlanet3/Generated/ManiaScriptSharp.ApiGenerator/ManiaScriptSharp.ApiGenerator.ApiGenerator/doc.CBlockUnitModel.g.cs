@@ -29,5 +29,5 @@ public partial class CBlockUnitModel : CNod
     }
 
     public Int3 Offset { get; }
-    public CBlockModelClip[] Clips { get; }
+    public System.Collections.Generic.List<CBlockModelClip> Clips { get; }
 }

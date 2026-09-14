@@ -71,6 +71,6 @@ public partial class Button_3 : ILib
         public K_Private_Controls Controls;
         public K_Private_Properties Properties;
         public K_Private_DrawCache DrawCache;
-        public int[] Modifiers;
+        public global::System.Collections.Generic.List<int> Modifiers;
     }
 }

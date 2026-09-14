@@ -23,6 +23,6 @@ public partial class CBlock : CNod
     public void UseCustomAnchor() { }
     public Int3 Coord { get; }
     public CardinalDirections Direction { get; }
-    public CBlockUnit[] BlockUnits { get; }
+    public System.Collections.Generic.List<CBlockUnit> BlockUnits { get; }
     public CBlockModel BlockModel { get; }
 }

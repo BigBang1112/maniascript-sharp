@@ -51,7 +51,7 @@ public partial class PlayerData : ILib
 
     public struct K_ParkEvent
     {
-        public K_ParkData[] Parks;
+        public global::System.Collections.Generic.List<K_ParkData> Parks;
         public bool IsParksInitialisation;
     }
 
@@ -65,7 +65,7 @@ public partial class PlayerData : ILib
     public struct K_FinishEvent
     {
         public int TotalScore;
-        public K_ParkData[] Parks;
+        public global::System.Collections.Generic.List<K_ParkData> Parks;
         public K_Stats Stats;
     }
 }

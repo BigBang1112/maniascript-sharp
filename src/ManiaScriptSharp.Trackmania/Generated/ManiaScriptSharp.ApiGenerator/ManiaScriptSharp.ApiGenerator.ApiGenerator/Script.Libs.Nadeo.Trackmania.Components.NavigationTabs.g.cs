@@ -83,8 +83,8 @@ public partial class NavigationTabs : ILib
 
     public struct K_Properties
     {
-        public int[] Enabled;
-        public K_Tab[] Tabs;
+        public global::System.Collections.Generic.List<int> Enabled;
+        public global::System.Collections.Generic.List<K_Tab> Tabs;
         public float MaxWidth;
         public float Height;
         public Vec2 TabsPadding;
@@ -105,8 +105,8 @@ public partial class NavigationTabs : ILib
         public K_Controls Controls;
         public K_Properties CustomizedProperties;
         public K_Properties MergedProperties;
-        public int[] DirtyProperties;
-        public string[] Styles;
+        public global::System.Collections.Generic.List<int> DirtyProperties;
+        public global::System.Collections.Generic.List<string> Styles;
         public bool IsNavigationTabs;
         public int CurrentTabIndex;
         public int PreviousTabIndex;
@@ -123,7 +123,7 @@ public partial class NavigationTabs : ILib
     public struct K_State
     {
         public int RedrawRequested;
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
         public global::System.Collections.Generic.Dictionary<int, K_Event> DelayedPendingEvents;
         public global::System.Collections.Generic.Dictionary<string, K_Properties> Styles;
         public K_Properties DefaultProperties;

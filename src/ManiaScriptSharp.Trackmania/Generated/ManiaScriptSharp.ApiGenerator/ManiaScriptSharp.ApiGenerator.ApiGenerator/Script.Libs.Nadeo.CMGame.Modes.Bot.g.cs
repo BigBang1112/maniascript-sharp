@@ -21,9 +21,9 @@ public partial class Bot : ILib
     public const int C_NameStyle_Nickname = 1;
 
     /// <summary>Get all available names of a given style</summary>
-    public string[] GetNames(int _Style) => default!;
+    public global::System.Collections.Generic.List<string> GetNames(int _Style) => default!;
 
-    public string[] GetNames() => default!;
+    public global::System.Collections.Generic.List<string> GetNames() => default!;
 
     /// <summary>Get a random bot name</summary>
     public string GetRandomName(int _Style) => default!;

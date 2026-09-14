@@ -43,31 +43,31 @@ public partial class Promise : ILib
     public bool IsPending(K_Promise _Promise) => default!;
 
     /// <summary>Check if all promises are pending</summary>
-    public bool AreAllPending(K_Promise[] _Promises) => default!;
+    public bool AreAllPending(global::System.Collections.Generic.List<K_Promise> _Promises) => default!;
 
     /// <summary>Check if the promise is settled (fulfilled or rejected)</summary>
     public bool IsSettled(K_Promise _Promise) => default!;
 
     /// <summary>Check if all promises are settled (fulfilled or rejected)</summary>
-    public bool AreAllSettled(K_Promise[] _Promises) => default!;
+    public bool AreAllSettled(global::System.Collections.Generic.List<K_Promise> _Promises) => default!;
 
     /// <summary>Check if the promise is fulfilled</summary>
     public bool IsFulfilled(K_Promise _Promise) => default!;
 
     /// <summary>Check if all promises are fulfilled</summary>
-    public bool AreAllFulfilled(K_Promise[] _Promises) => default!;
+    public bool AreAllFulfilled(global::System.Collections.Generic.List<K_Promise> _Promises) => default!;
 
     /// <summary>Check if the promise is rejected</summary>
     public bool IsRejected(K_Promise _Promise) => default!;
 
     /// <summary>Check if all promises are rejected</summary>
-    public bool AreAllRejected(K_Promise[] _Promises) => default!;
+    public bool AreAllRejected(global::System.Collections.Generic.List<K_Promise> _Promises) => default!;
 
     /// <summary>Get the resolved value</summary>
     public string GetValue(K_Promise _Promise) => default!;
 
     /// <summary>Get the resolved values of several promises</summary>
-    public string[] GetValues(K_Promise[] _Promises) => default!;
+    public global::System.Collections.Generic.List<string> GetValues(global::System.Collections.Generic.List<K_Promise> _Promises) => default!;
 
     /// <summary>Add metadata on a promise</summary>
     public K_Promise SetMetadata(K_Promise _Promise, global::System.Collections.Generic.Dictionary<string, string> _Metadata) => default!;

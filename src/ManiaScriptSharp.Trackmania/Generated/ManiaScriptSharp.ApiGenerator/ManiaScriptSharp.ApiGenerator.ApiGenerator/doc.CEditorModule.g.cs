@@ -42,7 +42,7 @@ public partial class CEditorModule : CEditorBase, IMetadataProvider
     public void FileBrowser_Save() { }
     public bool FileBrowser_IsRunning { get; }
     public string FileBrowser_FilePath { get; }
-    public CEditorPluginModuleEvent[] PendingEvents { get; }
+    public System.Collections.Generic.List<CEditorPluginModuleEvent> PendingEvents { get; }
     public bool IsPreviewMode { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IMetadataProvider.Metadata { get; } = [];
 }

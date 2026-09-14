@@ -20,5 +20,5 @@ public partial class CSeason : CNod
     public int CreationTimeStamp { get; }
     public int StartTimeStamp { get; }
     public int EndTimeStamp { get; }
-    public CSeasonMapInfo[] MapInfoList { get; set; }
+    public System.Collections.Generic.List<CSeasonMapInfo> MapInfoList { get; set; }
 }

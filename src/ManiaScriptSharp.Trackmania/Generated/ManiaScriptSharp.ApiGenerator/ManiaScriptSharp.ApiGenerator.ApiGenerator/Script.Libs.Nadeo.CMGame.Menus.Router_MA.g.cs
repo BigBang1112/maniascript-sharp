@@ -64,7 +64,7 @@ public partial class Router_MA : ILib
 
     public struct K_SquadConfig
     {
-        public string[] EnabledPathList;
+        public global::System.Collections.Generic.List<string> EnabledPathList;
         public string QueryParameterMode;
         public global::System.Collections.Generic.Dictionary<string, string> ModeSquadTypeList;
     }
@@ -137,17 +137,17 @@ public partial class Router_MA : ILib
     /// <returns>True if the path is valid</returns>
     public bool PathIsValid(string _Path) => default!;
 
-    public void CreateRoute(string _Path, string _ParentPath, string _ManialinkPage, string[] _Overlays, string[] _ExcludedOverlays, int _TransitionIn, int _TransitionOut) { }
+    public void CreateRoute(string _Path, string _ParentPath, string _ManialinkPage, global::System.Collections.Generic.List<string> _Overlays, global::System.Collections.Generic.List<string> _ExcludedOverlays, int _TransitionIn, int _TransitionOut) { }
 
-    public void CreateRoute(string _Path, string _ParentPath, string _ManialinkPage, string[] _Overlays, int _TransitionIn, int _TransitionOut) { }
+    public void CreateRoute(string _Path, string _ParentPath, string _ManialinkPage, global::System.Collections.Generic.List<string> _Overlays, int _TransitionIn, int _TransitionOut) { }
 
-    public void CreateRoute(string _Path, string _ParentPath, string _ManialinkPage, string[] _Overlays) { }
+    public void CreateRoute(string _Path, string _ParentPath, string _ManialinkPage, global::System.Collections.Generic.List<string> _Overlays) { }
 
-    public void CreateRoute(string _Path, string _ManialinkPage, string[] _Overlays, string[] _ExcludedOverlays, int _TransitionIn, int _TransitionOut) { }
+    public void CreateRoute(string _Path, string _ManialinkPage, global::System.Collections.Generic.List<string> _Overlays, global::System.Collections.Generic.List<string> _ExcludedOverlays, int _TransitionIn, int _TransitionOut) { }
 
-    public void CreateRoute(string _Path, string _ManialinkPage, string[] _Overlays, int _TransitionIn, int _TransitionOut) { }
+    public void CreateRoute(string _Path, string _ManialinkPage, global::System.Collections.Generic.List<string> _Overlays, int _TransitionIn, int _TransitionOut) { }
 
-    public void CreateRoute(string _Path, string _ManialinkPage, string[] _Overlays) { }
+    public void CreateRoute(string _Path, string _ManialinkPage, global::System.Collections.Generic.List<string> _Overlays) { }
 
     public bool IsOnRoute(string _URL) => default!;
 
@@ -218,7 +218,7 @@ public partial class Router_MA : ILib
     /// <param name="Paths">- The paths on which the squadding system will be enabled</param>
     /// <param name="QueryParameterMode">- The query parameter used to select the game mode to play</param>
     /// <param name="ModeSquadTypeList">- The squad type to use for each mode</param>
-    public void SetSquadConfig(string[] _EnabledPathList, string _QueryParameterMode, global::System.Collections.Generic.Dictionary<string, string> _ModeSquadTypeList) { }
+    public void SetSquadConfig(global::System.Collections.Generic.List<string> _EnabledPathList, string _QueryParameterMode, global::System.Collections.Generic.Dictionary<string, string> _ModeSquadTypeList) { }
 
     /// <summary>Update the router at each frame</summary>
     public void Yield() { }

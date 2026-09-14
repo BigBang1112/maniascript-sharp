@@ -22,7 +22,7 @@ public partial class RespawnHelper_Server : ILib
 
     /// <summary>Set the checkpoint times that will be used to determine if the player is too late and must see the respawn helper</summary>
     /// <param name="Times">The checkpoint times</param>
-    public void SetCheckpointTimes(int[] _Times) { }
+    public void SetCheckpointTimes(global::System.Collections.Generic.List<int> _Times) { }
 
     public void ResetCheckpointTimes() { }
 

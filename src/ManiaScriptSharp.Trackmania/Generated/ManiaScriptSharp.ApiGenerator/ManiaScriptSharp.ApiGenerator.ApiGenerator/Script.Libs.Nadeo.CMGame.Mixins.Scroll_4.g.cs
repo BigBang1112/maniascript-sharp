@@ -59,8 +59,8 @@ public partial class Scroll_4 : ILib
     public struct K_Event
     {
         public int Type;
-        public K_Element[] ElementList;
-        public K_Element[] UpdatedElementList;
+        public global::System.Collections.Generic.List<K_Element> ElementList;
+        public global::System.Collections.Generic.List<K_Element> UpdatedElementList;
         public K_Element From;
         public K_Element To;
         public K_Element Element;
@@ -140,7 +140,7 @@ public partial class Scroll_4 : ILib
         public Vec2 ScrollOffset;
         public Vec2 ScrollAnimOffset;
         public Int2 ElementKeyRange;
-        public K_Element[] ElementList;
+        public global::System.Collections.Generic.List<K_Element> ElementList;
         public int ElementListCount;
         public float ScrollBarFullLength;
         public bool IsFocused;
@@ -151,8 +151,8 @@ public partial class Scroll_4 : ILib
 
     public struct K_Private_State
     {
-        public K_Event[] CollectEvents;
-        public K_Event[] PendingEvents;
+        public global::System.Collections.Generic.List<K_Event> CollectEvents;
+        public global::System.Collections.Generic.List<K_Event> PendingEvents;
     }
 
     /// <summary>Get the recommended number of elements in one line of scroll</summary>

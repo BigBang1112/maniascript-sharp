@@ -74,8 +74,8 @@ public partial class PickAndBan_Client : ILib
 
     public struct K_Controls
     {
-        public K_ControlsStep[] StepsPlayer;
-        public K_ControlsStep[] StepsSpectator;
+        public global::System.Collections.Generic.List<K_ControlsStep> StepsPlayer;
+        public global::System.Collections.Generic.List<K_ControlsStep> StepsSpectator;
     }
 
     public struct K_State
@@ -88,14 +88,14 @@ public partial class PickAndBan_Client : ILib
         public string TopRightLogoUrl;
         public string BottomLogoUrl;
         public int TeamsCheckTime;
-        public K_Team[] Teams;
+        public global::System.Collections.Generic.List<K_Team> Teams;
         public string MatchInfo;
         public string PickAndBanOrder;
         public bool IsSpectator;
         public bool IsSpectatorDisplay;
         public bool MapListRequestIsInProgress;
         public global::System.Collections.Generic.Dictionary<string, K_Map> MapList;
-        public string[] ScrollMapList;
+        public global::System.Collections.Generic.List<string> ScrollMapList;
         public bool IsRunning;
         public bool IsVisible;
         public int CurrentStepKey;
@@ -105,8 +105,8 @@ public partial class PickAndBan_Client : ILib
         public bool CanSelectATrack;
         public bool IsInGameMenuDisplayed;
         public bool ConfirmationPopUpDisplayed;
-        public string[] LockedMapUids;
-        public int[] LockedScrollKeys;
+        public global::System.Collections.Generic.List<string> LockedMapUids;
+        public global::System.Collections.Generic.List<int> LockedScrollKeys;
     }
 
     /// <summary>Get the id of the UI module</summary>

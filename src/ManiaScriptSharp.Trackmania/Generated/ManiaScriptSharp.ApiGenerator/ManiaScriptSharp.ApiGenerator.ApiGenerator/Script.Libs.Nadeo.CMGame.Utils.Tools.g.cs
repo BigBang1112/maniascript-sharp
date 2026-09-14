@@ -115,7 +115,7 @@ public partial class Tools : ILib
     /// <summary>Remove completly the given tags in a given string</summary>
     /// <param name="Source">The text to clean</param>
     /// <param name="ForbiddenTags">The tags to remove in the source text</param>
-    public string RemoveForbiddenTags(string _Source, string[] _ForbiddenTags) => default!;
+    public string RemoveForbiddenTags(string _Source, global::System.Collections.Generic.List<string> _ForbiddenTags) => default!;
 
     public string FormatClubTag(string _ClubTag) => default!;
 
@@ -141,7 +141,7 @@ public partial class Tools : ILib
 
     public Int2 TextToInt2(string _Source) => default!;
 
-    public float[] TextToRealArray(string _Source) => default!;
+    public global::System.Collections.Generic.List<float> TextToRealArray(string _Source) => default!;
 
     public Vec3 TextToVec3(string _Source) => default!;
 
@@ -152,13 +152,13 @@ public partial class Tools : ILib
     public string Int3ToText(Int3 _Source) => default!;
 
     /// <summary>Convert a real array to a margin struct following css syntax rule</summary>
-    public K_Margin RealArrayToMargin(float[] _Source) => default!;
+    public K_Margin RealArrayToMargin(global::System.Collections.Generic.List<float> _Source) => default!;
 
     /// <summary>Convert a margin text property to a struct following css syntax rule</summary>
     public K_Margin TextToMargin(string _Source) => default!;
 
     /// <summary>Convert a real array to a padding struct following css syntax rule</summary>
-    public K_Padding RealArrayToPadding(float[] _Source) => default!;
+    public K_Padding RealArrayToPadding(global::System.Collections.Generic.List<float> _Source) => default!;
 
     /// <summary>Convert a padding text property to a struct following css syntax rule</summary>
     public K_Padding TextToPadding(string _Source) => default!;
@@ -203,7 +203,7 @@ public partial class Tools : ILib
     public string GetRankSuffix(int _Rank) => default!;
 
     /// <summary>Get the list of all keys in an array</summary>
-    public string[] GetListOfKeys(global::System.Collections.Generic.Dictionary<string, string> _Array) => default!;
+    public global::System.Collections.Generic.List<string> GetListOfKeys(global::System.Collections.Generic.Dictionary<string, string> _Array) => default!;
 
     /// <summary>Ternary operator polyfill</summary>
     public string Ternary(bool _IsTrue, string _ValueA, string _ValueB) => default!;

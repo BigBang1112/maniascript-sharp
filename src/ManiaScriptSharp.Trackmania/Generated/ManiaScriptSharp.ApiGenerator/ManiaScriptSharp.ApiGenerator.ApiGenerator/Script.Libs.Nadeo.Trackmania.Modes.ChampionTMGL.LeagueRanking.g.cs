@@ -25,7 +25,7 @@ public partial class LeagueRanking : ILib
 
     public struct K_LeagueRankingFromAPI
     {
-        public K_LeagueRankingPlayer[] ranking;
+        public global::System.Collections.Generic.List<K_LeagueRankingPlayer> ranking;
     }
 
     public struct K_LeagueRanking

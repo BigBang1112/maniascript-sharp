@@ -24,7 +24,7 @@ public partial class Top : ILib
     /// <returns>The name of the script</returns>
     public string GetScriptName() => default!;
 
-    public void MergeTops(int _TopSize, int[] _Points1, string[] _Names1, int[] _Points2, string[] _Names2) { }
+    public void MergeTops(int _TopSize, global::System.Collections.Generic.List<int> _Points1, global::System.Collections.Generic.List<string> _Names1, global::System.Collections.Generic.List<int> _Points2, global::System.Collections.Generic.List<string> _Names2) { }
 
     public void MergeTopAndCurrent(string _TopIdent) { }
 

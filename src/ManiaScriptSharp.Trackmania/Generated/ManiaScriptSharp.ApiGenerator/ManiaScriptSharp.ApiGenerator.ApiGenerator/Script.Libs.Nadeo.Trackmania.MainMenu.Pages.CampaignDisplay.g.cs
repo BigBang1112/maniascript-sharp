@@ -91,9 +91,9 @@ public partial class CampaignDisplay : ILib
         public int ZoneLevel;
         public bool HasLeaderboardPrivilege;
         public K_Controls Controls;
-        public int[] LockedCategories;
+        public global::System.Collections.Generic.List<int> LockedCategories;
         public global::System.Collections.Generic.Dictionary<int, int> CurrentMedalsToUnlockCategory;
-        public K_MapToUnlock[] MapsToUnlock;
+        public global::System.Collections.Generic.List<K_MapToUnlock> MapsToUnlock;
         public int NavigationUnlockTime;
         public int AnimMapUnlockTime;
         public global::System.Collections.Generic.Dictionary<string, string> LastQuery;

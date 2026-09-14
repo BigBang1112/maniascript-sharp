@@ -17,7 +17,7 @@ public partial class MapSet : ILib
 
     /// <summary>Save waypoint times of the author validation run</summary>
     /// <param name="RaceWaypointTimes">The waypoint times</param>
-    public void SetAuthorRaceWaypointTimes(int[] _RaceWaypointTimes) { }
+    public void SetAuthorRaceWaypointTimes(global::System.Collections.Generic.List<int> _RaceWaypointTimes) { }
 
     public void ResetAuthorRaceWaypointTimes() { }
 }

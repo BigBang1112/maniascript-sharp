@@ -31,7 +31,7 @@ public partial class TimeGap_Client : ILib
         public string Nickname;
         public string AccountId;
         public int Time;
-        public int[] Checkpoints;
+        public global::System.Collections.Generic.List<int> Checkpoints;
         public bool IsPersonalBest;
     }
 

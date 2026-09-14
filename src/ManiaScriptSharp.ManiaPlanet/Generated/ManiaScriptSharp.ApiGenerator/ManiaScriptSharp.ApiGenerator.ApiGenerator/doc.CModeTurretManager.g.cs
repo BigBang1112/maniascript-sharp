@@ -26,5 +26,5 @@ public partial class CModeTurretManager : CNod
     public CEntity Turret_Auto_GetTarget(CModeTurret Turret) => default!;
     public void Turret_Manual_SetTargetPos(CModeTurret Turret, Vec3 TargetPos) { }
     public void Turret_Manual_Fire(CModeTurret Turret) { }
-    public CModeTurret[] Turrets { get; set; }
+    public System.Collections.Generic.List<CModeTurret> Turrets { get; set; }
 }

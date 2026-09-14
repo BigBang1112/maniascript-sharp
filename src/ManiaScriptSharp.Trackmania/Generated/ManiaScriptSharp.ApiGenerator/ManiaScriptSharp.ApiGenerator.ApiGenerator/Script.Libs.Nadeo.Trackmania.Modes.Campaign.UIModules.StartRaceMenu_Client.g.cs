@@ -64,7 +64,7 @@ public partial class StartRaceMenu_Client : ILib
         public bool MoreOpponentsListIsVisible;
         public int NbVisibleControls;
         public string CurrentSectionDisplayName;
-        public string[] TmpFollowerListToSend;
+        public global::System.Collections.Generic.List<string> TmpFollowerListToSend;
     }
 
     /// <summary>Get the module manialink</summary>

@@ -43,7 +43,7 @@ public partial class AdvertStore : ILib
     public struct SAdCat
     {
         public int AdType;
-        public int[] AdIndexes;
+        public global::System.Collections.Generic.List<int> AdIndexes;
         public int NextAdLastChangeTime;
         public int NextAdIndex;
         public int CurAdIndex;
@@ -62,7 +62,7 @@ public partial class AdvertStore : ILib
 
     public struct K_PluginAdverts_AdHistory
     {
-        public K_PluginAdverts_AdLink[] AdLinks;
+        public global::System.Collections.Generic.List<K_PluginAdverts_AdLink> AdLinks;
         public int UpdateCount;
     }
 
@@ -76,7 +76,7 @@ public partial class AdvertStore : ILib
 
     public void PushAdLink(int AdUid) { }
 
-    public void SetActiveAds(SAd[] Ads) { }
+    public void SetActiveAds(global::System.Collections.Generic.List<SAd> Ads) { }
 
     public SAd GetNextAd(int AdType) => default!;
 
@@ -85,7 +85,7 @@ public partial class AdvertStore : ILib
     public void Reports_AddDisplayDuration(int Uid, float DisplayDuration) { }
 
     /// <summary>Il faut appeler Reports_SetSuccess pour confirmer que l'envoie d'impressions a réussi (et clear LatestSentImpressions)</summary>
-    public SImpression[] Reports_GetImpressionsToSend() => default!;
+    public global::System.Collections.Generic.List<SImpression> Reports_GetImpressionsToSend() => default!;
 
     public void Reports_SetSuccess(bool Success) { }
 }

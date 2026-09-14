@@ -25,10 +25,10 @@ public partial class CampaignAPI : ILib
     {
         public int officialYear;
         public int season;
-        public string[] officialMaps;
+        public global::System.Collections.Generic.List<string> officialMaps;
         public int totdYear;
         public int week;
-        public string[] totdMaps;
+        public global::System.Collections.Generic.List<string> totdMaps;
     }
 
     public struct LibCampaignAPI_K_ResponseGetMapInfo
@@ -37,9 +37,9 @@ public partial class CampaignAPI : ILib
         public bool IsCampaignMonthly;
         public int OfficialYear;
         public int OfficialSeason;
-        public string[] OfficialMapsUids;
+        public global::System.Collections.Generic.List<string> OfficialMapsUids;
         public int MonthlyYear;
         public int MonthlyWeek;
-        public string[] MonthlyMapsUids;
+        public global::System.Collections.Generic.List<string> MonthlyMapsUids;
     }
 }

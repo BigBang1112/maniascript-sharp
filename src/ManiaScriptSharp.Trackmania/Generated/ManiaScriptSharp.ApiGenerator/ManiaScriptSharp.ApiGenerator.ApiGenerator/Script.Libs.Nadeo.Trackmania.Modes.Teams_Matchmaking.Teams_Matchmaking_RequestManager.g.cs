@@ -37,7 +37,7 @@ public partial class Teams_Matchmaking_RequestManager : ILib
     {
         public bool WasRequestedOnce;
         public string MapUid;
-        public string[] AccountIds;
+        public global::System.Collections.Generic.List<string> AccountIds;
         public string ScopeType;
         public string ScopeId;
         public string GameMode;

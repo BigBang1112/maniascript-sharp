@@ -96,12 +96,12 @@ public partial class TextField_2 : ILib
 
     public struct K_Properties
     {
-        public int[] Enabled;
+        public global::System.Collections.Generic.List<int> Enabled;
         public Vec2 Size;
         public float Skew;
         public string Tooltip;
         public int Type;
-        public string[] ButtonStyles;
+        public global::System.Collections.Generic.List<string> ButtonStyles;
         public Vec3 BackgroundColorFocused;
         public Vec3 BackgroundColorUnfocused;
         public bool BackgroundEmptyEnabled;
