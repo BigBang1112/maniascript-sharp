@@ -585,6 +585,91 @@ public class StatementEmitterTests : EmitterTestBase
         Assert.Equal("declare netwrite Text Net_Score for Provider;", output);
     }
 
+    // ────────── Declare-for with explicit name (`as` alias form) ──────────
+
+    [Fact]
+    public void Emit_LocalFor_ExplicitName_EmitsAsAlias()
+    {
+        // Local<int>.For(provider, out var myVar, name: "MyLib_MyVar") → declare Integer MyLib_MyVar as MyVar for Provider;
+        var members = "ILocalProvider provider = null!;";
+        var output = TranslateStmtMs("Local<int>.For(provider, out var myVar, name: \"MyLib_MyVar\");", members);
+        Assert.Equal("declare Integer MyLib_MyVar as MyVar for Provider;", output);
+    }
+
+    [Fact]
+    public void Emit_LocalFor_ExplicitNamePositional_EmitsAsAlias()
+    {
+        // The merged `name` parameter can also be passed positionally.
+        var members = "ILocalProvider provider = null!;";
+        var output = TranslateStmtMs("Local<int>.For(provider, out var myVar, \"MyLib_MyVar\");", members);
+        Assert.Equal("declare Integer MyLib_MyVar as MyVar for Provider;", output);
+    }
+
+    [Fact]
+    public void Emit_LocalFor_EmptyName_FallsBackToDefault()
+    {
+        // An explicitly empty name is skipped (the auto-filled caller expression is not an
+        // object-side name) — falls back to the plain declare-for form.
+        var members = "ILocalProvider provider = null!;";
+        var output = TranslateStmtMs("Local<int>.For(provider, out var myVar, name: \"\");", members);
+        Assert.Equal("declare Integer MyVar for Provider;", output);
+    }
+
+    [Fact]
+    public void Emit_PersistentFor_ExplicitName_EmitsAsAlias()
+    {
+        var members = "IPersistentProvider provider = null!;";
+        var output = TranslateStmtMs("Persistent<int>.For(provider, out var myVar, name: \"MyLib_MyVar\");", members);
+        Assert.Equal("declare persistent Integer MyLib_MyVar as MyVar for Provider;", output);
+    }
+
+    [Fact]
+    public void Emit_MetadataFor_ExplicitName_EmitsAsAlias()
+    {
+        var members = "IMetadataProvider provider = null!;";
+        var output = TranslateStmtMs("Metadata<int>.For(provider, out var myVar, name: \"MyLib_MyVar\");", members);
+        Assert.Equal("declare metadata Integer MyLib_MyVar as MyVar for Provider;", output);
+    }
+
+    [Fact]
+    public void Emit_NetwriteFor_ExplicitName_EmitsAsAlias()
+    {
+        // The explicit name is used as-is (no Net_ prefix injection) —
+        // mirroring Nadeo's `declare netwrite Boolean Net_Lobby_Ready as ReadyForPlayer for Player;`.
+        var output = TranslateStmtMs("Netwrite<int>.For(provider, out var readyForPlayer, name: \"Net_Lobby_Ready\");", "INetwriteProvider provider = null!;");
+        Assert.Equal("declare netwrite Integer Net_Lobby_Ready as ReadyForPlayer for Provider;", output);
+    }
+
+    [Fact]
+    public void Emit_NetreadFor_ExplicitName_EmitsAsAlias()
+    {
+        var output = TranslateStmtMs("Netread<int>.For(provider, out var readyForPlayer, name: \"Net_Lobby_Ready\");", "INetreadProvider provider = null!;");
+        Assert.Equal("declare netread Integer Net_Lobby_Ready as ReadyForPlayer for Provider;", output);
+    }
+
+    [Fact]
+    public void Emit_LocalFor_ExplicitName_UsageUsesAlias()
+    {
+        // After the alias declare, the rest of the script references the alias name.
+        const string members = "ILocalProvider provider = null!;";
+        var output = TranslateBodyMs(
+            "Local<int>.For(provider, out var myVar, name: \"MyLib_MyVar\"); myVar.Value = 42;",
+            members);
+        Assert.Contains("declare Integer MyLib_MyVar as MyVar for Provider;", output);
+        Assert.Contains("MyVar = 42;", output);
+    }
+
+    [Fact]
+    public void Emit_NetwriteFor_ExplicitName_UsageUsesAlias()
+    {
+        const string members = "INetwriteProvider provider = null!;";
+        var output = TranslateBodyMs(
+            "Netwrite<bool>.For(provider, out var readyForPlayer, name: \"Net_Lobby_Ready\"); readyForPlayer.Value = true;",
+            members);
+        Assert.Contains("declare netwrite Boolean Net_Lobby_Ready as ReadyForPlayer for Provider;", output);
+        Assert.Contains("ReadyForPlayer = True;", output);
+    }
+
     // ────────── Declare-for variable usage keeps prefix ──────────
 
     [Fact]

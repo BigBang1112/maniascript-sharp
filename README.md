@@ -276,6 +276,26 @@ SomeVar = 42;
 > `someVar` is a `StrongBox<int>` — read/write through `.Value`; the generator strips
 > `.Value` since the declared ManiaScript variable itself holds the value.
 
+**Aliasing** — pass `name:` to store the variable under an explicit object-side name while
+the out variable becomes the alias used by the rest of the script
+(`declare X as Y for Z`, where X is the declared-for name on the object side and Y is the
+name used in the script). This is required when two objects of the same type share a
+variable name, e.g. declaring the same netwrite for two different receivers:
+
+C#:
+```cs
+Netwrite<bool>.For(player, out var ready, name: "Net_Lobby_Ready");
+ready.Value = true;
+```
+ManiaScript:
+```
+declare netwrite Boolean Net_Lobby_Ready as Ready for Player;
+Ready = True;
+```
+
+> With `name:`, the explicit name is emitted as-is — no `Net_`/`Persistent_`/`Metadata_`
+> prefix is injected, so include any prefix the object side expects.
+
 ---
 
 ## Constants
@@ -1772,7 +1792,8 @@ log("" ^ Net_NetScore);
 
 > `Netwrite<T>.For` yields a `StrongBox<T>` — read/write through `.Value` (stripped by the
 > generator). `Netread<T>.For` yields a plain `T` instead — read-only, no `.Value`, since the
-> client can't write network variables back.
+> client can't write network variables back. Pass `name:` to declare under an explicit
+> object-side name with the out variable as the alias (`declare netwrite T X as Y for Z`).
 
 ## Persistent Variables
 
@@ -1792,6 +1813,8 @@ Persistent_SavedSetting = "some value";
 ```
 
 > Limited storage per object. Type cannot be changed once set — you must use a new name.
+> Pass `name:` to declare under an explicit object-side name with the out variable as the
+> alias (`declare persistent T X as Y for Z`).
 
 ## Metadata Variables
 
@@ -1809,6 +1832,9 @@ ManiaScript:
 declare metadata Integer Metadata_Difficulty for Block;
 Metadata_Difficulty = 3;
 ```
+
+> Pass `name:` to declare under an explicit object-side name with the out variable as the
+> alias (`declare metadata T X as Y for Z`).
 
 ## Pattern Matching
 
@@ -2026,6 +2052,7 @@ log(Score);
 | `Persistent<T>.For(provider, out var x)` | `declare persistent` |
 | `Metadata<T>.For(provider, out var x)` | `declare metadata` |
 | `Local<T>.For(provider, out var x)` | `declare ... for provider` (extension var) |
+| `Xxx<T>.For(provider, out var y, name: "x")` | `declare ... X as Y for provider` (alias) |
 | `struct` | `#Struct` |
 | `Vector2` / `Vector3` | `Vec2` / `Vec3` |
 | `for (i = a; i <= b; i++)` | `for (I, a, b)` |

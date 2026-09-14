@@ -104,11 +104,20 @@ declare Integer CustomScore for Players[0];
 declare Integer CustomScore for Players[1];
 ```
 
+An explicit `as` clause gives the variable two distinct names: the one before `as` is the
+object-side storage name, the one after `as` is the alias the rest of the script references:
+
+```
+declare Integer SomeObject_Name as SomeAlias for Object;
+SomeAlias = 42; // writes to SomeObject_Name on the object side
+```
+
 **`declare for` variants:**
 
 | Form | Description |
 |------|-------------|
 | `declare Type Name for Object` | Local extension variable (no special behaviour) |
+| `declare Type Name as Alias for Object` | Aliased — `Alias` is used in the script, `Name` is stored on the object |
 | `declare metadata Type Name for Object` | Metadata variable (stored in map/replay metadata) |
 | `declare persistent Type Name for Object` | Persistent variable (stored on profile) |
 | `declare netwrite Type Name for Object` | Network-synchronized output variable (sender side) |

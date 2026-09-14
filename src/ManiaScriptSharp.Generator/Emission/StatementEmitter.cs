@@ -868,6 +868,9 @@ internal sealed class StatementEmitter
     /// Detects <c>Persistent&lt;T&gt;.For(provider, out var x)</c>,
     /// <c>Local&lt;T&gt;.For(...)</c>, and <c>Metadata&lt;T&gt;.For(...)</c>
     /// and emits the ManiaScript <c>declare [keyword] Type [Prefix_]VarName for provider;</c> form.
+    /// With an explicit <c>name:</c> argument, emits the alias form
+    /// <c>declare [keyword] Type Name as VarName for provider;</c> instead — the object-side
+    /// name comes from <c>name:</c> and the out variable is the alias used by the rest of the script.
     /// Returns <c>true</c> when the statement was consumed.
     /// </summary>
     private bool TryEmitDeclareFor(InvocationExpressionSyntax inv)
@@ -887,7 +890,7 @@ internal sealed class StatementEmitter
         var ns = sym?.ContainingType?.ContainingNamespace?.ToDisplayString();
         if (ns is not null && ns != "ManiaScriptSharp") return false;
 
-        // Args: For(provider, out var x [, callerExpression])
+        // Args: For(provider, out var x [, name])
         var args = inv.ArgumentList.Arguments;
         if (args.Count < 2) return false;
 
@@ -915,6 +918,40 @@ internal sealed class StatementEmitter
             "Netread"    => ("netread ",    "Net_"),
             _            => ("",             ""),           // Local
         };
+
+        // Explicit object-side name (`name: "..."` or positional third argument) → alias form
+        // `declare ... X as Y for Z`, where X is the object-side storage name and Y (the out
+        // variable) is the alias the rest of the script references.
+        // Skipped when empty: [CallerArgumentExpression] backfills it with the out-var's
+        // expression, which isn't an object-side name but the default script-side one.
+        string? declaredName = null;
+        foreach (var a in args)
+        {
+            if (a.NameColon?.Name.Identifier.Text != "name") continue;
+            if (a.Expression is not LiteralExpressionSyntax nameLit
+                || !nameLit.IsKind(SyntaxKind.StringLiteralExpression)) continue;
+            var text = nameLit.Token.ValueText;
+            if (text.Length > 0) declaredName = text;
+            break;
+        }
+        if (declaredName is null && args.Count >= 3 && args[2].NameColon is null
+            && args[2].Expression is LiteralExpressionSyntax posLit
+            && posLit.IsKind(SyntaxKind.StringLiteralExpression))
+        {
+            var posText = posLit.Token.ValueText;
+            if (posText.Length > 0) declaredName = posText;
+        }
+
+        if (declaredName is not null)
+        {
+            // Explicit `name:` is used as-is — it may carry any prefix the object side expects.
+            var aliasName = NameMangler.Local(desig.Identifier.Text);
+            _ctx.W.Line($"declare {keyword}{msType} {declaredName} as {aliasName} for {provider};");
+            // The rest of the script references the alias, not the declared-for name.
+            _ctx.DeclareForLocals[desig.Identifier.Text] = aliasName;
+            return true;
+        }
+
         // For Netwrite/Netread, strip any existing net_ prefix the user may have typed
         // to avoid double-prefixing (e.g. net_Score → Net_Score, not Net_Net_Score).
         if (outerName is "Netwrite" or "Netread"
