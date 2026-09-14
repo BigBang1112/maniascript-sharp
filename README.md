@@ -253,7 +253,15 @@ main() {
 }
 ```
 
-> For library scripts, inline field initialization is not supported at all.
+Library fields are also emitted as top-level globals in the generated library script. These
+globals are private implementation state: library functions reference them directly, but a
+consuming script cannot access them through an include alias (`Alias::G_Field` is not legal
+ManiaScript). Expose mutable state as a property or through methods instead.
+
+Library scripts have no generated `main()` in which to apply arbitrary field initializers.
+They permit only `new()` (for an empty struct, list, or dictionary) and the empty string (`""`)
+inline. Other initializers report `MSS012`; initialize the field from a library function instead.
+Accessing a library field from a consuming script reports `MSS013`.
 
 ### Extension Variables (`for` keyword)
 
@@ -1191,6 +1199,35 @@ main() {
 }
 ```
 
+When a struct is nested in an included library, declare it through that library's nested C# type.
+The generator imports it using `#Struct Alias::Type as Type`, making the type available in the
+consuming script:
+
+```cs
+public class StateLib : ILib<CManiaApp>
+{
+    public required CManiaApp Context { get; init; }
+
+    public struct Snapshot
+    {
+        public int Count;
+    }
+}
+
+public class MyMode : CTmMode, IContext
+{
+    public required StateLib State;
+    public StateLib.Snapshot Current;
+}
+```
+ManiaScript:
+```
+#Include "StateLib.Script.txt" as State
+#Struct State::Snapshot as Snapshot
+
+declare Snapshot G_Current;
+```
+
 ## Vectors
 
 C#:
@@ -1445,7 +1482,11 @@ main() {
 }
 ```
 
-> Note: C# uses `.` for member access on the lib field, ManiaScript uses `::` on the alias.
+> Note: C# uses `.` for exported member access on the lib field, ManiaScript uses `::` on the
+> alias. Include aliases expose functions, `#Const`, and `#Setting` values, but not top-level
+> `declare` globals. Public properties are exported as `Get*`/`Set*` functions. User-defined
+> library constants/settings are emitted with `C_`/`S_` prefixes; generated wrappers for
+> official libraries preserve their original names, such as `Message::Version`.
 > The `[Include]` attribute only emits a raw `#Include` directive — it does not give you a
 > callable/accessible member in C#. Use a lib-typed field for anything you actually call
 > into from code.

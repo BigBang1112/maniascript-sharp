@@ -22,6 +22,9 @@ internal sealed class GlobalEmitter
         var any = false;
         foreach (var f in _ctx.Info.Symbol.GetMembers().OfType<IFieldSymbol>())
         {
+            // Auto-property backing fields are compiler-generated. The property pass below
+            // emits their intended ManiaScript backing declaration with a stable name.
+            if (f.IsImplicitlyDeclared) continue;
             if (f.IsConst) continue;
             if (f.HasAttr("SettingAttribute")) continue;
             if (IsLibField(f)) continue;
@@ -37,6 +40,7 @@ internal sealed class GlobalEmitter
         foreach (var p in _ctx.Info.Symbol.GetMembers().OfType<IPropertySymbol>())
         {
             if (p.HasAttr("ManialinkControlAttribute")) continue;
+            if (p.IsLibContextProperty()) continue;
             if (!IsUserDefinedAutoProperty(p)) continue;
             var msType = TypeMapper.Map(p.Type);
             var backing = p.DeclaredAccessibility == Accessibility.Public
@@ -73,7 +77,21 @@ internal sealed class GlobalEmitter
         var msType = TypeMapper.Map(f.Type);
 
         var initSyntax = TryGetInitializerSyntax(f);
-        if (initSyntax is not null && f.DeclaredAccessibility == Accessibility.Public)
+        if (initSyntax is not null && _ctx.IsLib)
+        {
+            if (IsSupportedLibInitializer(initSyntax))
+            {
+                _ctx.W.Line($"declare {msType} {name} = {_expr.Translate(initSyntax)};");
+            }
+            else
+            {
+                // Lib scripts have no main(), so unsupported initializers would be dropped.
+                _ctx.Report(Diagnostics.LibFieldInitializer, f.Locations.FirstOrDefault(),
+                    $"{_ctx.Info.Symbol.Name}.{f.Name}");
+                _ctx.W.Line($"declare {msType} {name};");
+            }
+        }
+        else if (initSyntax is not null && f.DeclaredAccessibility == Accessibility.Public)
         {
             // Public field initialisers move into main() per spec.
             _ctx.DeferredInits.Add(new DeferredInit(name, initSyntax));
@@ -129,4 +147,8 @@ internal sealed class GlobalEmitter
             return v.Initializer.Value;
         return null;
     }
+
+    private static bool IsSupportedLibInitializer(ExpressionSyntax initializer)
+        => initializer is ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0 }
+            or LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression, Token.ValueText: "" };
 }

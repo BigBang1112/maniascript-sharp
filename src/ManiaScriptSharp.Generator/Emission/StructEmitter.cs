@@ -26,6 +26,13 @@ internal sealed class StructEmitter
 
     private void EmitOne(INamedTypeSymbol t)
     {
+        // A nested struct owned by another context/lib is imported through its include
+        // alias by DirectivesEmitter, not redeclared in this script.
+        if (t.ContainingType is { } owner
+            && !SymbolEqualityComparer.Default.Equals(owner, _ctx.Info.Symbol)
+            && TypeMapper.IsContextOrLibType(owner))
+            return;
+
         _ctx.W.Line($"#Struct {t.Name} {{");
         _ctx.W.Push();
         foreach (var f in t.GetMembers().OfType<IFieldSymbol>())

@@ -227,13 +227,63 @@ internal sealed class ExpressionEmitter
         }
 
         // ILib field access uses :: (namespace-scoped in ManiaScript).
-        // In manialink mode, user-defined lib functions are inlined — strip the field receiver entirely.
         var leftIsLib = leftSym is IFieldSymbol libField && libField.IsLibImplementation();
+        var leftLibType = leftSym switch
+        {
+            IFieldSymbol field when field.IsLibImplementation() => field.Type as INamedTypeSymbol,
+            INamedTypeSymbol type when IsLibType(type) => type,
+            _ => null,
+        };
+        var leftIsUserLib = IsUserDefinedLibType(leftLibType);
+
+        if (leftIsUserLib && leftSym is INamedTypeSymbol && memberSym is IFieldSymbol staticLibField)
+        {
+            if (staticLibField.HasAttr("SettingAttribute"))
+                return $"{lhs}::{NameMangler.Setting(staticLibField)}";
+            if (staticLibField.IsConst)
+                return $"{lhs}::{NameMangler.Const(staticLibField)}";
+        }
+
+        // In manialink mode, user-defined libs are inlined into the host script. Their
+        // members become top-level names in the SAME script, so the field receiver is
+        // stripped. Consts keep their C_* name; fields use their mangled global name
+        // (the inlined lib declared them as top-level `declare G_*`); user-defined
+        // properties go through their inlined Get*/Set* functions.
         if (leftIsLib && _ctx.IsManialink)
         {
-            var libType = ((IFieldSymbol)leftSym!).Type as INamedTypeSymbol;
-            var isUserLib = libType?.ContainingNamespace?.ToDisplayString() != "ManiaScriptSharp";
-            if (isUserLib) return m.Name.Identifier.Text;
+            if (leftIsUserLib)
+            {
+                if (memberSym is IFieldSymbol inlField)
+                {
+                    if (inlField.HasAttr("SettingAttribute")) return NameMangler.Setting(inlField);
+                    if (inlField.IsConst) return NameMangler.Const(inlField);
+                    return NameMangler.Global(inlField);
+                }
+                if (memberSym is IPropertySymbol inlProp && !inlProp.HasAttr("ManialinkControlAttribute")
+                    && inlProp.GetMethod is not null && IsUserDefinedProperty(inlProp))
+                    return NameMangler.Getter(inlProp) + "()";
+                return m.Name.Identifier.Text;
+            }
+        }
+
+        // Non-manialink script accessing a user-defined lib's members through the include
+        // alias. ManiaScript aliases only expose functions and #Const/#Setting constants —
+        // global variables are NOT reachable, so instance fields are an error.
+        // (Official Nadeo stubs live in the ManiaScriptSharp namespace and expose no
+        // instance fields; their const member names are already the C_*/S_* forms, used as-is.)
+        if (leftIsLib && memberSym is IFieldSymbol libMember)
+        {
+            if (leftIsUserLib)
+            {
+                if (libMember.HasAttr("SettingAttribute"))
+                    return $"{lhs}::{NameMangler.Setting(libMember)}";
+                if (libMember.IsConst)
+                    return $"{lhs}::{NameMangler.Const(libMember)}";
+                // Instance field (a G_* global in the lib) — not reachable via the alias.
+                _ctx.Report(Diagnostics.LibFieldAccess, m.GetLocation(),
+                    libMember.Name, leftLibType!.Name);
+                return "Null";
+            }
         }
 
         var leftIsType = leftSym is INamedTypeSymbol;
@@ -483,6 +533,8 @@ internal sealed class ExpressionEmitter
                 var recvSym = _ctx.Model.GetSymbolInfo(lma.Expression).Symbol;
                 var recvIsLib = recvSym is IFieldSymbol recvField && recvField.IsLibImplementation();
                 var recvIsType = recvSym is INamedTypeSymbol;
+                if (_ctx.IsManialink && recvIsLib)
+                    return $"{NameMangler.Setter(lp)}({valueText})";
                 var sep = (recvIsLib || recvIsType) ? "::" : ".";
                 return $"{recv}{sep}{NameMangler.Setter(lp)}({valueText})";
             }
@@ -752,6 +804,14 @@ internal sealed class ExpressionEmitter
 
     private static bool IsLinqMethod(IMethodSymbol m)
         => (m.ReducedFrom ?? m).ContainingType?.ToDisplayString() == "System.Linq.Enumerable";
+
+    private static bool IsLibType(INamedTypeSymbol type)
+        => type.AllInterfaces.Any(i => i.Name == "ILib"
+            && i.ContainingNamespace?.ToDisplayString() == "ManiaScriptSharp");
+
+    private static bool IsUserDefinedLibType(INamedTypeSymbol? type)
+        => type?.DeclaringSyntaxReferences.Any(r =>
+            !r.SyntaxTree.FilePath.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase)) == true;
 
     private static bool IsListLikeType(INamedTypeSymbol? t)
     {

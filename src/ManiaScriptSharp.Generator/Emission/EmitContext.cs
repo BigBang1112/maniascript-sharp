@@ -85,6 +85,8 @@ internal sealed class EmitContext
 
     private readonly bool _hasSpc;
 
+    internal bool HasSourceProductionContext => _hasSpc;
+
     public EmitContext(ContextClassInfo info, SourceProductionContext spc, BuildSettings settings)
     {
         Info = info;

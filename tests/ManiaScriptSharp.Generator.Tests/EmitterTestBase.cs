@@ -377,6 +377,22 @@ class Test {{
         return new EventCollector(ctx).Collect().Count;
     }
 
+    /// <summary>Runs the complete top-level script emitter for a class in a source snippet.</summary>
+    protected static (string Output, IReadOnlyList<Diagnostic> Diagnostics) EmitScript(
+        string code, string className, bool isManialink = false)
+    {
+        var compilation = Compile(code);
+        var classDecl = compilation.SyntaxTrees
+            .SelectMany(tree => tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>())
+            .First(c => c.Identifier.Text == className);
+        var model = compilation.GetSemanticModel(classDecl.SyntaxTree);
+        var symbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecl)!;
+        var info = new ContextClassInfo(classDecl, symbol, model, isManialink);
+        var emitter = new ScriptEmitter(info, BuildSettings.Default);
+        var output = emitter.Emit().ReplaceLineEndings("\n").Trim();
+        return (output, emitter.ReportedDiagnostics);
+    }
+
     /// <summary>
     /// Translates a C# pattern (everything after the subject in <c>x is …</c>)
     /// with a pre-supplied lhs string.  Uses a stub compilation; safe as long as

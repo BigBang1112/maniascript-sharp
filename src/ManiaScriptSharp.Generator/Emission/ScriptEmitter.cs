@@ -12,12 +12,19 @@ internal sealed class ScriptEmitter
     /// <summary>Manialink control bindings collected during <see cref="Emit"/>. Available after emit completes.</summary>
     public IReadOnlyList<ManialinkBinding> ManialinkBindings => _ctx.ManialinkBindings;
 
+    internal IReadOnlyList<Microsoft.CodeAnalysis.Diagnostic> ReportedDiagnostics => _ctx.ReportedDiagnostics;
+
     public ScriptEmitter(ContextClassInfo info, Microsoft.CodeAnalysis.SourceProductionContext spc, BuildSettings settings)
     {
         _ctx = new EmitContext(info, spc, settings);
     }
 
-    /// <summary>Emits only the function/label bodies into an external writer (used for lib inlining).</summary>
+    internal ScriptEmitter(ContextClassInfo info, BuildSettings settings)
+    {
+        _ctx = new EmitContext(info, settings);
+    }
+
+    /// <summary>Emits declarations and function/label bodies into an external writer (used for lib inlining).</summary>
     internal void EmitFunctionsOnly(IndentedWriter targetWriter)
     {
         var lit = new LiteralEmitter();
@@ -27,7 +34,12 @@ internal sealed class ScriptEmitter
         expr.Bind(pat);
         stmt.Bind(pat);
         var functions = new FunctionEmitter(_ctx, stmt, expr);
+
+        new StructEmitter(_ctx).Emit();
+        new ConstSettingEmitter(_ctx, lit).Emit();
         functions.CollectLabels();
+        new OnChangeCollector(_ctx).Collect();
+        new GlobalEmitter(_ctx, expr).Emit();
         functions.Emit();
         targetWriter.Raw(_ctx.W.ToString());
     }
@@ -53,9 +65,23 @@ internal sealed class ScriptEmitter
 
         if (_ctx.IsLib)
         {
-            // Lib scripts only need: #RequireContext T, #Include for nested libs, and functions.
+            // Lib scripts need directives, structs, constants/settings, top-level declares,
+            // and functions. Include aliases cannot expose globals to consumers, but lib
+            // functions use these globals internally.
+            var libStructs = new StructEmitter(_ctx);
+            var libConstsSettings = new ConstSettingEmitter(_ctx, lit);
+            var libGlobals = new GlobalEmitter(_ctx, expr);
+
             directives.Emit();
+            libStructs.Emit();
+            libConstsSettings.Emit();
+
+            // Two-pass, mirroring the context path: collect labels and OnChange backing
+            // globals before any body is translated, then declare, then emit functions.
             functions.CollectLabels();
+            new OnChangeCollector(_ctx).Collect();
+
+            libGlobals.Emit();
             functions.Emit();
             return _ctx.W.ToString();
         }
@@ -76,7 +102,7 @@ internal sealed class ScriptEmitter
         constsSettings.Emit();
 
         // In manialink mode, user-defined ILib fields cannot be #Include'd;
-        // emit their functions inline right after the directives section.
+        // emit their declarations and functions inline after the directives section.
         if (_ctx.IsManialink)
             InlineLibFunctions();
 
@@ -106,7 +132,10 @@ internal sealed class ScriptEmitter
             if (syntaxRef?.GetSyntax() is not Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax classDecl) continue;
             var model = _ctx.Info.Model.Compilation.GetSemanticModel(syntaxRef.SyntaxTree);
             var libInfo = new ContextClassInfo(classDecl, libType, model);
-            yield return (libType.Name, libInfo, new ScriptEmitter(libInfo, _ctx.Spc, _ctx.Settings));
+            var emitter = _ctx.HasSourceProductionContext
+                ? new ScriptEmitter(libInfo, _ctx.Spc, _ctx.Settings)
+                : new ScriptEmitter(libInfo, _ctx.Settings);
+            yield return (libType.Name, libInfo, emitter);
         }
     }
 
@@ -117,7 +146,7 @@ internal sealed class ScriptEmitter
             emitter.EmitDirectivesOnly(_ctx.W, _ctx.EmittedIncludes);
     }
 
-    /// <summary>Emits the functions from each inlined lib into the parent output (called near the top, after directives).</summary>
+    /// <summary>Emits declarations and functions from each inlined lib into the parent output.</summary>
     private void InlineLibFunctions()
     {
         foreach (var (name, _, emitter) in UserLibEmitters())

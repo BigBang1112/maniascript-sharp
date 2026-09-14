@@ -91,4 +91,20 @@ internal static class Diagnostics
         category: "ManiaScriptSharp",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor LibFieldInitializer = new(
+        id: "MSS012",
+        title: "Field initializer not supported in libs",
+        messageFormat: "Field '{0}' has an initializer, but library scripts have no main() to run it in - the value would be dropped. Initialize the field through a library function instead.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor LibFieldAccess = new(
+        id: "MSS013",
+        title: "ILib field not accessible from consuming script",
+        messageFormat: "Field '{0}' on library '{1}' cannot be accessed from the consuming script: ManiaScript include aliases only expose functions and #Const/#Setting constants, not global variables. Expose it as a property (Get*/Set* functions) or a const/setting instead.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

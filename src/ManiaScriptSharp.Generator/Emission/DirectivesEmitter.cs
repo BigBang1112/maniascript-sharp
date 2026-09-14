@@ -1,4 +1,5 @@
 using ManiaScriptSharp.Generator.Naming;
+using Microsoft.CodeAnalysis;
 
 namespace ManiaScriptSharp.Generator.Emission;
 
@@ -12,6 +13,7 @@ internal sealed class DirectivesEmitter
     {
         EmitBase();
         EmitIncludes(_ctx.EmittedIncludes);
+        EmitStructImports();
     }
 
     /// <summary>Emits only the <c>#Include</c> lines — used when inlining a lib into a manialink script.</summary>
@@ -124,4 +126,38 @@ internal sealed class DirectivesEmitter
 
         if (any) _ctx.W.Line();
     }
+
+    private void EmitStructImports()
+    {
+        var aliases = new Dictionary<Microsoft.CodeAnalysis.INamedTypeSymbol, string>(
+            Microsoft.CodeAnalysis.SymbolEqualityComparer.Default);
+        foreach (var field in _ctx.Info.Symbol.GetMembers().OfType<Microsoft.CodeAnalysis.IFieldSymbol>())
+        {
+            if (field.Type is not Microsoft.CodeAnalysis.INamedTypeSymbol type || !IsLib(type)) continue;
+            if (_ctx.IsManialink && IsUserDefined(type)) continue;
+            if (!aliases.ContainsKey(type))
+                aliases.Add(type, NameMangler.PascalCase(field.Name));
+        }
+
+        var imported = new HashSet<Microsoft.CodeAnalysis.INamedTypeSymbol>(
+            Microsoft.CodeAnalysis.SymbolEqualityComparer.Default);
+        foreach (var typeSyntax in _ctx.Info.Declaration.DescendantNodes()
+                     .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeSyntax>())
+        {
+            if (_ctx.Model.GetTypeInfo(typeSyntax).Type is not Microsoft.CodeAnalysis.INamedTypeSymbol
+                { TypeKind: Microsoft.CodeAnalysis.TypeKind.Struct, ContainingType: { } owner } type) continue;
+            if (!aliases.TryGetValue(owner, out var alias) || !imported.Add(type)) continue;
+            _ctx.W.Line($"#Struct {alias}::{type.Name} as {type.Name}");
+        }
+
+        if (imported.Count > 0) _ctx.W.Line();
+    }
+
+    private static bool IsLib(Microsoft.CodeAnalysis.INamedTypeSymbol type)
+        => type.AllInterfaces.Any(static i =>
+            i.Name == "ILib" && i.ContainingNamespace?.ToDisplayString() == "ManiaScriptSharp");
+
+    private static bool IsUserDefined(Microsoft.CodeAnalysis.INamedTypeSymbol type)
+        => type.DeclaringSyntaxReferences.Any(r =>
+            !r.SyntaxTree.FilePath.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase));
 }
