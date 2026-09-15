@@ -72,8 +72,9 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
             {
                 var emitter = new ScriptEmitter(info, spc, proj.Settings);
                 var script = emitter.Emit();
-                var outputPath = ResolveOutputPath(info, proj.Settings, proj.Dir, proj.Name);
-                WriteScriptFile(outputPath, script, spc);
+                var outputPath = ResolveOutputPath(
+                    info.Symbol.Name, proj.Settings.OutputDir, proj.Dir, ".Script.txt");
+                WriteScriptFiles(info, proj.Settings, proj.Dir, script, spc);
 
                 spc.AddSource(
                     $"{info.Symbol.Name}.lib.g.cs",
@@ -115,14 +116,12 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
                         return;
                     }
                     ValidateManialinkBindings(xmlTemplate, emitter.ManialinkBindings, spc, info);
-                    var outputPath = ResolveOutputPath(info, proj.Settings, proj.Dir, proj.Name, ".xml");
                     var merged = MergeIntoManialink(xmlTemplate, script, info.Symbol.Name);
-                    WriteScriptFile(outputPath, merged, spc);
+                    WriteScriptFiles(info, proj.Settings, proj.Dir, merged, spc, ".xml");
                 }
                 else
                 {
-                    var outputPath = ResolveOutputPath(info, proj.Settings, proj.Dir, proj.Name);
-                    WriteScriptFile(outputPath, script, spc);
+                    WriteScriptFiles(info, proj.Settings, proj.Dir, script, spc);
                 }
 
                 spc.AddSource(
@@ -159,13 +158,61 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
         return false;
     }
 
-    private static string ResolveOutputPath(ContextClassInfo info, BuildSettings settings, string projectDir, string projectName, string extension = ".Script.txt")
+    internal static IReadOnlyList<string> ResolveOutputPaths(
+        string scriptName,
+        BuildSettings settings,
+        string projectDir,
+        string extension = ".Script.txt",
+        Action<string, Exception>? onAdditionalError = null)
     {
-        var root = settings.OutputDir;
-        if (!Path.IsPathRooted(root)) root = Path.Combine(projectDir, root);
+        var paths = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var primaryPath = ResolveOutputPath(scriptName, settings.OutputDir, projectDir, extension);
+        paths.Add(primaryPath);
+        seen.Add(primaryPath);
 
-        var fileName = info.Symbol.Name + extension;
-        return Path.Combine(root, fileName);
+        foreach (var root in settings.AdditionalOutputDirs)
+        {
+            try
+            {
+                var path = ResolveOutputPath(scriptName, root, projectDir, extension);
+                if (seen.Add(path)) paths.Add(path);
+            }
+            catch (Exception ex)
+            {
+                onAdditionalError?.Invoke(root, ex);
+            }
+        }
+        return paths;
+    }
+
+    private static string ResolveOutputPath(
+        string scriptName,
+        string root,
+        string projectDir,
+        string extension)
+    {
+        var resolvedRoot = Path.IsPathRooted(root) ? root : Path.Combine(projectDir, root);
+        return Path.GetFullPath(Path.Combine(resolvedRoot, scriptName + extension));
+    }
+
+    private static void WriteScriptFiles(
+        ContextClassInfo info,
+        BuildSettings settings,
+        string projectDir,
+        string contents,
+        SourceProductionContext spc,
+        string extension = ".Script.txt")
+    {
+        var paths = ResolveOutputPaths(
+            info.Symbol.Name,
+            settings,
+            projectDir,
+            extension,
+            (root, ex) => spc.ReportDiagnostic(Diagnostic.Create(
+                Diagnostics.FileWriteFailed, Location.None, root, ex.Message)));
+        foreach (var path in paths)
+            WriteScriptFile(path, contents, spc);
     }
 
     /// <summary>

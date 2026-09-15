@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Xunit;
 
@@ -21,6 +22,7 @@ public class BuildSettingsTests
     public void Default_OutputDir_IsManiaScript()
     {
         Assert.Equal("ManiaScript", BuildSettings.Default.OutputDir);
+        Assert.Empty(BuildSettings.Default.AdditionalOutputDirs);
     }
 
     [Fact]
@@ -56,6 +58,77 @@ public class BuildSettingsTests
     {
         var s = FromDict(new() { ["build_property.ManiaScriptOutputDir"] = "   " });
         Assert.Equal("ManiaScript", s.OutputDir);
+    }
+
+    [Fact]
+    public void FromOptions_AdditionalOutputDirs_AreOrderedTrimmedAndDeduplicated()
+    {
+        var s = FromDict(new()
+        {
+            ["build_property.ManiaScriptAdditionalOutputDirs"] = " ../Server/Scripts ; ;../Client/Scripts;../server/scripts "
+        });
+
+        Assert.Equal(["../Server/Scripts", "../Client/Scripts"], s.AdditionalOutputDirs);
+    }
+
+    [Fact]
+    public void FromOptions_WhitespaceAdditionalOutputDirs_IsEmpty()
+    {
+        var s = FromDict(new() { ["build_property.ManiaScriptAdditionalOutputDirs"] = " ;  ; " });
+
+        Assert.Empty(s.AdditionalOutputDirs);
+    }
+
+    [Fact]
+    public void ResolveOutputPaths_PrimaryComesFirstAndMirrorsUseSameFileName()
+    {
+        var settings = FromDict(new()
+        {
+            ["build_property.ManiaScriptOutputDir"] = "Primary",
+            ["build_property.ManiaScriptAdditionalOutputDirs"] = "../Mirror;Primary"
+        });
+        var projectDir = Path.Combine(Path.GetTempPath(), "ManiaScriptSharp", "Project");
+
+        var paths = ManiaScriptGenerator.ResolveOutputPaths("MyMode", settings, projectDir);
+
+        Assert.Equal(2, paths.Count);
+        Assert.Equal(Path.GetFullPath(Path.Combine(projectDir, "Primary", "MyMode.Script.txt")), paths[0]);
+        Assert.Equal(Path.GetFullPath(Path.Combine(projectDir, "../Mirror", "MyMode.Script.txt")), paths[1]);
+    }
+
+    [Fact]
+    public void ResolveOutputPaths_UsesRequestedExtensionForEveryDestination()
+    {
+        var settings = FromDict(new()
+        {
+            ["build_property.ManiaScriptAdditionalOutputDirs"] = "Mirror"
+        });
+
+        var paths = ManiaScriptGenerator.ResolveOutputPaths("MyManialink", settings, Path.GetTempPath(), ".xml");
+
+        Assert.All(paths, path => Assert.EndsWith("MyManialink.xml", path));
+    }
+
+    [Fact]
+    public void ResolveOutputPaths_InvalidMirrorReportsErrorAndKeepsPrimary()
+    {
+        var settings = FromDict(new()
+        {
+            ["build_property.ManiaScriptOutputDir"] = "Primary",
+            ["build_property.ManiaScriptAdditionalOutputDirs"] = "\0invalid"
+        });
+        var errors = new List<(string Path, System.Exception Exception)>();
+
+        var paths = ManiaScriptGenerator.ResolveOutputPaths(
+            "MyMode",
+            settings,
+            Path.GetTempPath(),
+            onAdditionalError: (path, exception) => errors.Add((path, exception)));
+
+        Assert.Single(paths);
+        Assert.EndsWith(Path.Combine("Primary", "MyMode.Script.txt"), paths[0]);
+        Assert.Single(errors);
+        Assert.Equal("\0invalid", errors[0].Path);
     }
 
     [Fact]

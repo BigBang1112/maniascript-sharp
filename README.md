@@ -53,6 +53,25 @@ Optionally configure the build properties in your `.csproj`. These are the defau
 </PropertyGroup>
 ```
 
+`ManiaScriptOutputDir` is the primary output directory. Additional destinations are intended as
+machine-local deployment/debug mirrors, so configure them in `<project>.csproj.user` rather than
+the source-controlled project file. The repository's `*.user` ignore rule keeps this file out of
+source control:
+
+```xml
+<!-- MyMode.csproj.user -->
+<Project>
+<PropertyGroup>
+    <ManiaScriptAdditionalOutputDirs>../Server/Scripts;../Client/Scripts</ManiaScriptAdditionalOutputDirs>
+</PropertyGroup>
+</Project>
+```
+
+The value is a semicolon-separated list. Relative paths are resolved from the project directory;
+absolute paths are also supported. The primary output is always written first and duplicate
+destinations are ignored. A mirror path that cannot be resolved, created, or written reports an
+`MSS002` warning and does not stop primary output or other mirrors.
+
 Then write a class implementing [`IContext`](src/ManiaScriptSharp/IContext.cs):
 
 ```cs
