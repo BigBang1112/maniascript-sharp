@@ -40,9 +40,9 @@ public partial class CManiaAppEvent : CBaseConstEvent, ILocalProvider
     public CManiaAppEvent.EType Type { get; }
     public CUILayer CustomEventLayer { get; }
     public string CustomEventType { get; }
-    public System.Collections.Generic.List<string> CustomEventData { get; set; }
+    public System.Collections.Generic.IList<string> CustomEventData { get; set; }
     public string ExternalEventType { get; }
-    public System.Collections.Generic.List<string> ExternalEventData { get; set; }
+    public System.Collections.Generic.IList<string> ExternalEventData { get; set; }
     public CManiaAppEvent.EMenuNavAction MenuNavAction { get; }
     public bool IsActionAutoRepeat { get; }
     public int KeyCode { get; }

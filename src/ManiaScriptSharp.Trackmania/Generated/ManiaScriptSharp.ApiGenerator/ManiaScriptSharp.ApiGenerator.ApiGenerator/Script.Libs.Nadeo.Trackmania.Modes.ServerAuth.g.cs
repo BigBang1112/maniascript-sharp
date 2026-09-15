@@ -34,7 +34,7 @@ public partial class ServerAuth : ILib
         public int Expiration;
     }
 
-    public void Init(global::System.Collections.Generic.List<int> _ServicesIds) { }
+    public void Init(global::System.Collections.Generic.IList<int> _ServicesIds) { }
 
     public void Init(int _ServicesId) { }
 

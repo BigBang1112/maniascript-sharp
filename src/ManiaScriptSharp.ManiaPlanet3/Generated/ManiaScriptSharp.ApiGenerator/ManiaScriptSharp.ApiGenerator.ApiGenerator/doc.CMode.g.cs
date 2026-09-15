@@ -29,8 +29,8 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public string MapName { get; }
     public CMap Map { get; }
     public string MapPlayerModelName { get; }
-    public System.Collections.Generic.List<CUser> Users { get; }
-    public System.Collections.Generic.List<CTeam> Teams { get; }
+    public System.Collections.Generic.IList<CUser> Users { get; }
+    public System.Collections.Generic.IList<CTeam> Teams { get; }
     public string NeutralEmblemUrl { get; set; }
     public string ForcedClubLinkUrl1 { get; }
     public string ForcedClubLinkUrl2 { get; }
@@ -42,7 +42,7 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public bool MapLoaded { get; }
     public void RequestLoadMap() { }
     public void RequestUnloadMap() { }
-    public System.Collections.Generic.List<CMapInfo> MapList { get; }
+    public System.Collections.Generic.IList<CMapInfo> MapList { get; }
     public int NextMapIndex { get; set; }
     public CUIConfigMgr UIManager { get; }
     public void Ladder_OpenMatch_Request() { }

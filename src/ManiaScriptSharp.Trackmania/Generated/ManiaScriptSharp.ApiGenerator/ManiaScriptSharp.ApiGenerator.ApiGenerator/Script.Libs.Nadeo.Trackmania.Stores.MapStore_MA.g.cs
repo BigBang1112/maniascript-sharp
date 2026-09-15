@@ -28,7 +28,7 @@ public partial class MapStore_MA : ILib
     public void Action_GetMap(string _MapUid) { }
 
     /// <summary>Load player's favorite maps</summary>
-    public void Action_LoadFavoriteMapList(global::System.Collections.Generic.List<string> _MapTypeList, bool _SortByNameElseByDate, bool _SortOrderAsc, bool _OnlyPlayable, bool _OnlyMine) { }
+    public void Action_LoadFavoriteMapList(global::System.Collections.Generic.IList<string> _MapTypeList, bool _SortByNameElseByDate, bool _SortOrderAsc, bool _OnlyPlayable, bool _OnlyMine) { }
 
     /// <summary>Remove the specified map from player's favorite maps</summary>
     /// <param name="MapUid">The id of the map to remove</param>

@@ -28,7 +28,7 @@ public partial class CMapType : CEditorPlugin, ILocalProvider, IPersistentProvid
     public void RequestLeavePlayground() { }
     public bool IsSwitchedToPlayground { get; }
     public CUIConfigMgr UIManager { get; }
-    public System.Collections.Generic.List<CUser> Users { get; }
+    public System.Collections.Generic.IList<CUser> Users { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

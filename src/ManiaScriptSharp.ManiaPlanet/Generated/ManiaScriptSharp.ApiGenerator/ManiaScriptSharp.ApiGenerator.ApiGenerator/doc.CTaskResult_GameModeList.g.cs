@@ -11,5 +11,5 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_GameModeList : CTaskResult
 {
     /// <summary>Description of the GameMode</summary>
-    public System.Collections.Generic.List<CTaskResult_ModeInfo> GameModes { get; }
+    public System.Collections.Generic.IList<CTaskResult_ModeInfo> GameModes { get; }
 }

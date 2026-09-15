@@ -147,24 +147,24 @@ public partial class MapContent : ILib
     public Int3 GetMapBarycentre() => default!;
 
     /// <summary>Get the track bounding box minimum and maximum points</summary>
-    public global::System.Collections.Generic.List<Int3> GetMapBoundingBox(int _Type) => default!;
+    public global::System.Collections.Generic.IList<Int3> GetMapBoundingBox(int _Type) => default!;
 
     /// <summary>Get the track bounding box minimum and maximum points</summary>
-    public global::System.Collections.Generic.List<Int3> GetMapBoundingBox() => default!;
+    public global::System.Collections.Generic.IList<Int3> GetMapBoundingBox() => default!;
 
     /// <summary>Get all of the macroblocks coordinates for one given type</summary>
-    public global::System.Collections.Generic.List<Int3> GetMacroblocksCoords(int _Type) => default!;
+    public global::System.Collections.Generic.IList<Int3> GetMacroblocksCoords(int _Type) => default!;
 
     /// <summary>Get a coord of any unit of every MBInstance with a given type</summary>
-    public global::System.Collections.Generic.List<Int3> GetMacroblocksUnitCoords(int _Type) => default!;
+    public global::System.Collections.Generic.IList<Int3> GetMacroblocksUnitCoords(int _Type) => default!;
 
     /// <summary>Get the coordinates of one finish macroblock unit</summary>
     public Int3 GetFinishUnitCoord() => default!;
 
     /// <summary>Get the coordinates of one macroblock unit of all finishes</summary>
-    public global::System.Collections.Generic.List<Int3> GetFinishesUnitCoord(int _Type) => default!;
+    public global::System.Collections.Generic.IList<Int3> GetFinishesUnitCoord(int _Type) => default!;
 
-    public global::System.Collections.Generic.List<Ident> GetSpecialMacroblockIds(int _Type) => default!;
+    public global::System.Collections.Generic.IList<Ident> GetSpecialMacroblockIds(int _Type) => default!;
 
     /// <summary>Get the distance since the last special macroblock. Note : Only works in Beginner and Advanced (ordered blocks), never called in Expert</summary>
     public float GetDistanceTo(int _Special) => default!;

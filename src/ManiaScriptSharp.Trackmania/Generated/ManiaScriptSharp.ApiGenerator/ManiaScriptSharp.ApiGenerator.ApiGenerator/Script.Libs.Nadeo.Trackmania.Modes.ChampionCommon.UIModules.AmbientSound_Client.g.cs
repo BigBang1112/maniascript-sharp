@@ -29,11 +29,11 @@ public partial class AmbientSound_Client : ILib
     {
         public string Path;
         public string Channel;
-        public global::System.Collections.Generic.List<float> VolumedB;
-        public global::System.Collections.Generic.List<float> FadeDuration;
-        public global::System.Collections.Generic.List<float> Pitch;
-        public global::System.Collections.Generic.List<Vec3> RelativePosition;
-        public global::System.Collections.Generic.List<Vec3> PanRadiusLfe;
+        public global::System.Collections.Generic.IList<float> VolumedB;
+        public global::System.Collections.Generic.IList<float> FadeDuration;
+        public global::System.Collections.Generic.IList<float> Pitch;
+        public global::System.Collections.Generic.IList<Vec3> RelativePosition;
+        public global::System.Collections.Generic.IList<Vec3> PanRadiusLfe;
         public bool IsMusic;
         public bool IsLooping;
         public bool IsSpatialized;
@@ -43,15 +43,15 @@ public partial class AmbientSound_Client : ILib
     {
         public string Action;
         public string Channel;
-        public global::System.Collections.Generic.List<float> VolumedB;
-        public global::System.Collections.Generic.List<float> FadeDuration;
-        public global::System.Collections.Generic.List<float> Pitch;
-        public global::System.Collections.Generic.List<Vec3> RelativePosition;
-        public global::System.Collections.Generic.List<Vec3> PanRadiusLfe;
-        public global::System.Collections.Generic.List<int> Delay;
-        public global::System.Collections.Generic.List<int> Interval;
-        public global::System.Collections.Generic.List<int> RepeatNb;
-        public global::System.Collections.Generic.List<float> PlayCursor;
+        public global::System.Collections.Generic.IList<float> VolumedB;
+        public global::System.Collections.Generic.IList<float> FadeDuration;
+        public global::System.Collections.Generic.IList<float> Pitch;
+        public global::System.Collections.Generic.IList<Vec3> RelativePosition;
+        public global::System.Collections.Generic.IList<Vec3> PanRadiusLfe;
+        public global::System.Collections.Generic.IList<int> Delay;
+        public global::System.Collections.Generic.IList<int> Interval;
+        public global::System.Collections.Generic.IList<int> RepeatNb;
+        public global::System.Collections.Generic.IList<float> PlayCursor;
         public bool Private_RepeatInitialized;
         public int Private_RemainingRepeatNb;
         public bool Private_Automated;
@@ -59,17 +59,17 @@ public partial class AmbientSound_Client : ILib
 
     public struct K_Settings
     {
-        public global::System.Collections.Generic.List<float> VolumedB;
+        public global::System.Collections.Generic.IList<float> VolumedB;
     }
 
     public struct K_TriggerList
     {
-        public global::System.Collections.Generic.List<K_SoundAction> AmbientSoundStart;
+        public global::System.Collections.Generic.IList<K_SoundAction> AmbientSoundStart;
     }
 
     public struct K_AmbientSoundConfig
     {
-        public global::System.Collections.Generic.List<K_Sound> Sounds;
+        public global::System.Collections.Generic.IList<K_Sound> Sounds;
         public K_Settings Settings;
         public K_TriggerList Triggers;
     }
@@ -83,8 +83,8 @@ public partial class AmbientSound_Client : ILib
     public struct K_Channel
     {
         public string Id;
-        public global::System.Collections.Generic.List<Ident> SoundIds;
-        public global::System.Collections.Generic.List<Ident> RandomSoundIds;
+        public global::System.Collections.Generic.IList<Ident> SoundIds;
+        public global::System.Collections.Generic.IList<Ident> RandomSoundIds;
         public Ident LastRandomSoundId;
     }
 
@@ -114,11 +114,11 @@ public partial class AmbientSound_Client : ILib
     /// <summary>Extract a value from a sound attribute array If the array contains one value, return it If the array contains two values, return a random Real between the two values If the array contains three values or more, return a random Real from the array</summary>
     /// <param name="SoundAttributeArray">The array to extract from</param>
     /// <returns>If the array is empty return 0.</returns>
-    public float GetSoundAttribute(global::System.Collections.Generic.List<float> _SoundAttributeArray) => default!;
+    public float GetSoundAttribute(global::System.Collections.Generic.IList<float> _SoundAttributeArray) => default!;
 
-    public int GetSoundAttribute(global::System.Collections.Generic.List<int> _SoundAttributeArray) => default!;
+    public int GetSoundAttribute(global::System.Collections.Generic.IList<int> _SoundAttributeArray) => default!;
 
-    public Vec3 GetSoundAttribute(global::System.Collections.Generic.List<Vec3> _SoundAttributeArray) => default!;
+    public Vec3 GetSoundAttribute(global::System.Collections.Generic.IList<Vec3> _SoundAttributeArray) => default!;
 
     /// <summary>Load the sounds</summary>
     public K_State LoadSounds(K_State _State, K_AmbientSoundConfig _Config) => default!;
@@ -129,10 +129,10 @@ public partial class AmbientSound_Client : ILib
     /// <summary>Apply a sound action</summary>
     public K_State ApplySoundAction(K_State _State, K_SoundAction _SoundAction) => default!;
 
-    public K_State ApplySoundActions(K_State _State, global::System.Collections.Generic.List<K_SoundAction> _SoundActions) => default!;
+    public K_State ApplySoundActions(K_State _State, global::System.Collections.Generic.IList<K_SoundAction> _SoundActions) => default!;
 
     /// <summary>Get the RaceStateXXX triggers sound actions</summary>
-    public global::System.Collections.Generic.List<K_SoundAction> GetRaceStateSoundActions(K_AmbientSoundConfig _Config, int _RaceState, bool _IsStarting) => default!;
+    public global::System.Collections.Generic.IList<K_SoundAction> GetRaceStateSoundActions(K_AmbientSoundConfig _Config, int _RaceState, bool _IsStarting) => default!;
 
     /// <summary>Update the ambient sound</summary>
     public K_State UpdateAmbientSound(K_State _State, K_AmbientSoundConfig _Config, int _NewRaceState, int _CheersUpdate, string _CheersTarget) => default!;

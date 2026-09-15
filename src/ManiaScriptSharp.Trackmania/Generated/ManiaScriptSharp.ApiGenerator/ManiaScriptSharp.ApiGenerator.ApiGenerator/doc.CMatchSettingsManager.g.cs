@@ -27,7 +27,7 @@ public partial class CMatchSettingsManager : CNod
     /// <summary>Remove a matchsetting file (or only the matchsetting for temp ones).</summary>
     public void MatchSettings_Remove(CMatchSettings MatchSettings) { }
     /// <summary>Array of the matchsettings</summary>
-    public System.Collections.Generic.List<CMatchSettings> MatchSettings { get; }
-    public System.Collections.Generic.List<CMatchSettings> MatchSettings_File { get; }
-    public System.Collections.Generic.List<CMatchSettings> MatchSettings_Temp { get; }
+    public System.Collections.Generic.IList<CMatchSettings> MatchSettings { get; }
+    public System.Collections.Generic.IList<CMatchSettings> MatchSettings_File { get; }
+    public System.Collections.Generic.IList<CMatchSettings> MatchSettings_Temp { get; }
 }

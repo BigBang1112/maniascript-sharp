@@ -9,6 +9,6 @@ namespace ManiaScriptSharp;
 
 public partial class CMapSector : CNod
 {
-    public System.Collections.Generic.List<Ident> PlayersIds { get; }
+    public System.Collections.Generic.IList<Ident> PlayersIds { get; }
     public string Tag { get; }
 }

@@ -23,7 +23,7 @@ public partial class CTmRaceResultNod : CNod
     public int Score { get; set; }
     public int NbRespawns { get; set; }
     public Ident SpawnLandmarkId { get; set; }
-    public System.Collections.Generic.List<int> Checkpoints { get; set; }
-    public System.Collections.Generic.List<Ident> CheckpointLandmarkIds { get; set; }
+    public System.Collections.Generic.IList<int> Checkpoints { get; set; }
+    public System.Collections.Generic.IList<Ident> CheckpointLandmarkIds { get; set; }
     public int Compare(CTmRaceResultNod Other, CTmRaceResultNod.ETmRaceResultCriteria Criteria) => default!;
 }

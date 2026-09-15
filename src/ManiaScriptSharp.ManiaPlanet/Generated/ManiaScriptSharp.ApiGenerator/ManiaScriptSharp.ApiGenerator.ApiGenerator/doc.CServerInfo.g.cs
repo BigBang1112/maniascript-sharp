@@ -26,8 +26,8 @@ public partial class CServerInfo : CNod
     public string ModeName { get; }
     public float LadderServerLimitMax { get; }
     public float LadderServerLimitMin { get; }
-    public System.Collections.Generic.List<string> PlayerNames { get; }
-    public System.Collections.Generic.List<string> ChallengeNames { get; }
+    public System.Collections.Generic.IList<string> PlayerNames { get; }
+    public System.Collections.Generic.IList<string> ChallengeNames { get; }
     public int NbChallenges { get; }
     public bool HasBuddies { get; }
     public bool IsFavourite { get; }

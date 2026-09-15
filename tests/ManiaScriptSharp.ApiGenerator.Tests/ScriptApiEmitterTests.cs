@@ -31,7 +31,7 @@ public class ScriptApiEmitterTests
         var source = new ScriptApiEmitter(
             "Test", "test.Script.txt", "TestScript", script, ApiGeneratorSettings.ForTesting()).Emit();
 
-        Assert.Contains("public global::System.Collections.Generic.List<bool> Flags;", source);
-        Assert.Contains("public static global::System.Collections.Generic.List<string> GetNames(global::System.Collections.Generic.List<int> ids)", source);
+        Assert.Contains("public global::System.Collections.Generic.IList<bool> Flags;", source);
+        Assert.Contains("public static global::System.Collections.Generic.IList<string> GetNames(global::System.Collections.Generic.IList<int> ids)", source);
     }
 }

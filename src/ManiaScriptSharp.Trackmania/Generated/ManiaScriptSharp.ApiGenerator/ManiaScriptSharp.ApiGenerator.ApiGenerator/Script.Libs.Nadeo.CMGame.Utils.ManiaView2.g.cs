@@ -27,7 +27,7 @@ public partial class ManiaView2 : ILib
     /// <param name="Components">Other components used by the instance</param>
     /// <param name="Plugins">Plugins used by the instance</param>
     /// <returns>Return the ManiaView instance unique id</returns>
-    public string New(string _Template, string _Directives, string _Script, global::System.Collections.Generic.List<string> _Components, global::System.Collections.Generic.List<string> _Plugins) => default!;
+    public string New(string _Template, string _Directives, string _Script, global::System.Collections.Generic.IList<string> _Components, global::System.Collections.Generic.IList<string> _Plugins) => default!;
 
     /// <summary>Create a component If a component with the same name already exists, then return its id immediatly without creating a new component</summary>
     /// <param name="Name">Unique name of the component</param>
@@ -37,7 +37,7 @@ public partial class ManiaView2 : ILib
     /// <param name="Components">Other components used by the component</param>
     /// <param name="Plugins">Plugins used by the component</param>
     /// <returns>Return the component unique id</returns>
-    public string Component(string _Name, global::System.Collections.Generic.Dictionary<string, string> _Templates, string _Directives, string _Script, global::System.Collections.Generic.List<string> _Components, global::System.Collections.Generic.List<string> _Plugins) => default!;
+    public string Component(string _Name, global::System.Collections.Generic.Dictionary<string, string> _Templates, string _Directives, string _Script, global::System.Collections.Generic.IList<string> _Components, global::System.Collections.Generic.IList<string> _Plugins) => default!;
 
     /// <summary>Create a component If a component with the same name already exists, then return its id immediatly without creating a new component</summary>
     /// <param name="Name">Unique name of the component</param>
@@ -47,10 +47,10 @@ public partial class ManiaView2 : ILib
     /// <param name="Components">Other components used by the component</param>
     /// <param name="Plugins">Plugins used by the component</param>
     /// <returns>Return the component unique id</returns>
-    public string Component(string _Name, string _Template, string _Directives, string _Script, global::System.Collections.Generic.List<string> _Components, global::System.Collections.Generic.List<string> _Plugins) => default!;
+    public string Component(string _Name, string _Template, string _Directives, string _Script, global::System.Collections.Generic.IList<string> _Components, global::System.Collections.Generic.IList<string> _Plugins) => default!;
 
     /// <summary>to library to included in manialink</summary>
-    public string ComponentV2(string _Name, string _Template, string _Directives, string _Script, global::System.Collections.Generic.List<string> _Components, global::System.Collections.Generic.List<string> _Plugins) => default!;
+    public string ComponentV2(string _Name, string _Template, string _Directives, string _Script, global::System.Collections.Generic.IList<string> _Components, global::System.Collections.Generic.IList<string> _Plugins) => default!;
 
     /// <summary>Compile the given ManiaView instance into a Manialink</summary>
     /// <param name="MVId">Id of the ManiaView instance to compile</param>
@@ -68,7 +68,7 @@ public partial class ManiaView2 : ILib
     /// <param name="Components">Other components used by the instance</param>
     /// <param name="Plugins">Plugins used by the instance</param>
     /// <returns>The Manialink</returns>
-    public string Create(string _Name, int _Version, string _Template, string _Directives, string _Script, global::System.Collections.Generic.List<string> _Components, global::System.Collections.Generic.List<string> _Plugins) => default!;
+    public string Create(string _Name, int _Version, string _Template, string _Directives, string _Script, global::System.Collections.Generic.IList<string> _Components, global::System.Collections.Generic.IList<string> _Plugins) => default!;
 
     /// <summary>Unload the library</summary>
     public void Unload() { }

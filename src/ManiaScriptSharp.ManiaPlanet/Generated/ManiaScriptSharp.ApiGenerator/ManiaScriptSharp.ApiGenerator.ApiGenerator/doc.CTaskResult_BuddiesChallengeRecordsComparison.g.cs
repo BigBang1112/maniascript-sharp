@@ -13,7 +13,7 @@ public partial class CTaskResult_BuddiesChallengeRecordsComparison : CTaskResult
     /// <summary>Login of the user who has launched the task.</summary>
     public string Login { get; }
     /// <summary>List of comparison summary between user records and buddy records. Array of CHighScoreComparisonSummary objects.</summary>
-    public System.Collections.Generic.List<CHighScoreComparisonSummary> BuddiesComparison { get; }
+    public System.Collections.Generic.IList<CHighScoreComparisonSummary> BuddiesComparison { get; }
     /// <summary>Sort the results by user best record count.</summary>
     public void SortByPlayerCount() { }
     /// <summary>Sort the results by opponent login.</summary>

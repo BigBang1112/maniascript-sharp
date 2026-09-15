@@ -21,7 +21,7 @@ public partial class RaceRanking_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Create a rank for the teams ranking</summary>
-    public global::System.Collections.Generic.List<int> CreateTeamRank(int _TeamId, int _Rank) => default!;
+    public global::System.Collections.Generic.IList<int> CreateTeamRank(int _TeamId, int _Rank) => default!;
 
     /// <summary>Send the teams finish to the clients</summary>
     public void SetTeamFinish(int _TeamId, int _FinishedNb, int _MembersNb) { }

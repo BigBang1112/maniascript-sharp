@@ -80,7 +80,7 @@ public partial class ClubStore_MA : ILib
         public string MediaUrl;
         public bool IsEditing;
         public int CurrentMediaIndex;
-        public global::System.Collections.Generic.List<int> DeleteMediaPositions;
+        public global::System.Collections.Generic.IList<int> DeleteMediaPositions;
         public bool ErrorHasOccurred;
     }
 
@@ -190,7 +190,7 @@ public partial class ClubStore_MA : ILib
     public void Action_LoadInactiveClubActivitiesPage(int _ClubId, int _Offset, int _Length) { }
 
     /// <summary>Request to load clubs featured activity</summary>
-    public void Action_LoadClubsFeaturedActivity(global::System.Collections.Generic.List<int> _ClubIds) { }
+    public void Action_LoadClubsFeaturedActivity(global::System.Collections.Generic.IList<int> _ClubIds) { }
 
     /// <summary>Request to move an activity</summary>
     public void Action_MoveActivity(int _ClubId, int _ActivityId, int _Position) { }

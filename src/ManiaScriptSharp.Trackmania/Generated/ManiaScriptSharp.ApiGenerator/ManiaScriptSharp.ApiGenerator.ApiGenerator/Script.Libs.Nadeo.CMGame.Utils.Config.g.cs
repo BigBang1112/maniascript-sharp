@@ -55,7 +55,7 @@ public partial class Config : ILib
         public string OfflineCampaignJsonName;
         public int MinBronzeMedalNbToPlayRanked;
         public string RankedMode;
-        public global::System.Collections.Generic.List<string> Features;
+        public global::System.Collections.Generic.IList<string> Features;
     }
 
     /// <summary>Get the configuration object</summary>

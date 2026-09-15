@@ -70,7 +70,7 @@ public partial class Markers : ILib
 
     /// <summary>Add several attributes to the valid attributes array</summary>
     /// <param name="Attributes">The attributes to add</param>
-    public void AddAttributes(global::System.Collections.Generic.List<string> _Attributes) { }
+    public void AddAttributes(global::System.Collections.Generic.IList<string> _Attributes) { }
 
     /// <summary>Remove an attribute from the valid attributes array</summary>
     /// <param name="Attribute">The attribute to remove</param>
@@ -78,11 +78,11 @@ public partial class Markers : ILib
 
     /// <summary>Remove several attributes from the valid attributes array</summary>
     /// <param name="Attributes">The attributes to remove</param>
-    public void RemoveAttributes(global::System.Collections.Generic.List<string> _Attributes) { }
+    public void RemoveAttributes(global::System.Collections.Generic.IList<string> _Attributes) { }
 
     /// <summary>Get the valid attributes</summary>
     /// <returns>The valid attributes array</returns>
-    public global::System.Collections.Generic.List<string> GetAttributes() => default!;
+    public global::System.Collections.Generic.IList<string> GetAttributes() => default!;
 
     /// <summary>Display an image at a given position</summary>
     /// <param name="Id">Id of this point</param>

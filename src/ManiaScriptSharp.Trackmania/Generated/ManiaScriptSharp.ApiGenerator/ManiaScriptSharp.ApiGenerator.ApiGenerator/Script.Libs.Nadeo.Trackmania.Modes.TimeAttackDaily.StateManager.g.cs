@@ -27,11 +27,11 @@ public partial class StateManager : ILib
 
     /// <summary>Return current forced states</summary>
     /// <returns>The forced states</returns>
-    public global::System.Collections.Generic.List<int> GetForcedStates() => default!;
+    public global::System.Collections.Generic.IList<int> GetForcedStates() => default!;
 
     /// <summary>Force the states applied to all players To disable the forced states use an empty array</summary>
     /// <param name="States">The states to force</param>
-    public void ForcePlayersStates(global::System.Collections.Generic.List<int> _States) { }
+    public void ForcePlayersStates(global::System.Collections.Generic.IList<int> _States) { }
 
     /// <summary>Update the library</summary>
     public void Yield() { }

@@ -72,7 +72,7 @@ public partial class PopUpBackground2 : ILib
 
     public struct K_Properties
     {
-        public global::System.Collections.Generic.List<int> Enabled;
+        public global::System.Collections.Generic.IList<int> Enabled;
         public Vec2 Position;
         public float Width;
         public Vec3 BackgroundColor;
@@ -90,7 +90,7 @@ public partial class PopUpBackground2 : ILib
         public K_Controls Controls;
         public K_Properties CustomizedProperties;
         public K_Properties MergedProperties;
-        public global::System.Collections.Generic.List<string> Styles;
+        public global::System.Collections.Generic.IList<string> Styles;
         public bool IsPopUpBackground;
         public K_Area HeaderArea;
         public K_Area ContentArea;
@@ -103,7 +103,7 @@ public partial class PopUpBackground2 : ILib
 
     public struct K_State
     {
-        public global::System.Collections.Generic.List<K_Event> PendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> PendingEvents;
         public global::System.Collections.Generic.Dictionary<string, K_Properties> Styles;
         public K_Properties DefaultProperties;
     }

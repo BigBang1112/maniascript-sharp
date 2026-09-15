@@ -34,7 +34,7 @@ public partial class EventPoints_Client : ILib
 
     public struct K_Controls
     {
-        public global::System.Collections.Generic.List<K_ControlsClanPoints> ClansPoints;
+        public global::System.Collections.Generic.IList<K_ControlsClanPoints> ClansPoints;
     }
 
     public struct K_State

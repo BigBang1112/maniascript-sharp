@@ -50,7 +50,7 @@ public partial class Collection : ILib
     /// <param name="Billboards">Get billboards skins</param>
     /// <param name="RoadPaints">Get road paints skins</param>
     /// <returns>An array of available skins</returns>
-    public global::System.Collections.Generic.List<string> GetEnviroSkins(string _Enviro, bool _Billboards, bool _RoadPaints) => default!;
+    public global::System.Collections.Generic.IList<string> GetEnviroSkins(string _Enviro, bool _Billboards, bool _RoadPaints) => default!;
 
     /// <summary>Check if the block model is a Stadium inflatable @retun							True if the block model is an inflatable, False otherwise</summary>
     /// <param name="BlockModelName">The name of the block model to check</param>

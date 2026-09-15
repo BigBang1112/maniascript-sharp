@@ -46,7 +46,7 @@ public partial class ClubItemsActivity : ILib
         public bool IsMediaControllerNavigationEnabled;
         public bool IsUsingMouse;
         public int CurrentMediaIndex;
-        public global::System.Collections.Generic.List<string> FavoriteListIds;
+        public global::System.Collections.Generic.IList<string> FavoriteListIds;
         public K_Controls Controls;
     }
 

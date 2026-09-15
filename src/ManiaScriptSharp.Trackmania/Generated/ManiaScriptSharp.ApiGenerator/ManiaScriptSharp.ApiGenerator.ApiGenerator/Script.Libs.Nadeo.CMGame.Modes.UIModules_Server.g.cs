@@ -34,7 +34,7 @@ public partial class UIModules_Server : ILib
     public struct K_CustomizableModule_PropertiesGetList
     {
         public string responseid;
-        public global::System.Collections.Generic.List<K_CustomizableModule_PropertiesGet> uimodules;
+        public global::System.Collections.Generic.IList<K_CustomizableModule_PropertiesGet> uimodules;
     }
 
     public struct K_CustomizableModule_PropertiesSet
@@ -50,23 +50,23 @@ public partial class UIModules_Server : ILib
 
     public struct K_CustomizableModule_PropertiesSetList
     {
-        public global::System.Collections.Generic.List<K_CustomizableModule_PropertiesSet> uimodules;
+        public global::System.Collections.Generic.IList<K_CustomizableModule_PropertiesSet> uimodules;
     }
 
     public struct K_CustomizableModule_PropertiesResetList
     {
-        public global::System.Collections.Generic.List<string> uimodules;
+        public global::System.Collections.Generic.IList<string> uimodules;
     }
 
     /// <summary>Load the given modules This modules will be added to the current ones, they won't replace them</summary>
     /// <param name="Modules">A list of modules to load</param>
-    public void LoadModules(global::System.Collections.Generic.List<string> _Modules) { }
+    public void LoadModules(global::System.Collections.Generic.IList<string> _Modules) { }
 
     public void LoadModule(string _Module) { }
 
     /// <summary>Unload the given modules</summary>
     /// <param name="Modules">A list of modules to unload</param>
-    public void UnloadModules(global::System.Collections.Generic.List<string> _Modules) { }
+    public void UnloadModules(global::System.Collections.Generic.IList<string> _Modules) { }
 
     public void UnloadModule(string _Module) { }
 

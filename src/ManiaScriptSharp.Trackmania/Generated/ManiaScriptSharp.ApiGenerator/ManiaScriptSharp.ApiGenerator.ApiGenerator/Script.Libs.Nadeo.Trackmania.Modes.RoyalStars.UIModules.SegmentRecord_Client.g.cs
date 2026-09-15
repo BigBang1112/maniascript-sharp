@@ -47,7 +47,7 @@ public partial class SegmentRecord_Client : ILib
         public float TeamScoreHeight;
         public int UpdateSegmentRecordTime;
         public int PossibleRecordIndex;
-        public global::System.Collections.Generic.List<int> PossibleRecords;
+        public global::System.Collections.Generic.IList<int> PossibleRecords;
     }
 
     /// <summary>Get the id of the UI module</summary>

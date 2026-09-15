@@ -56,7 +56,7 @@ public partial class TM_Champion_Online : ILib
     public struct K_Callback_Scores
     {
         public string mapuid;
-        public global::System.Collections.Generic.List<K_Callback_ScoresPlayer> players;
+        public global::System.Collections.Generic.IList<K_Callback_ScoresPlayer> players;
     }
 
     public virtual void Match_LogVersions() { }

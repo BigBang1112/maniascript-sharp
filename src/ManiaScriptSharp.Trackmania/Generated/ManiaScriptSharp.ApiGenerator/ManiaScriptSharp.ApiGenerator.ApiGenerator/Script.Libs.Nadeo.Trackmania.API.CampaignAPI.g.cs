@@ -105,23 +105,23 @@ public partial class CampaignAPI : ILib
 
     public struct LibCampaignAPI_K_HttpResponseFromGetMedia
     {
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> weeklyShortsMedias;
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> weeklyGrandsMedias;
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> officialMedias;
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> totdMedias;
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> clubMedias;
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> arcadeMedias;
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> homePlayMedias;
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> homeClubsMedias;
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> homeCreationMedias;
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> playSoloMedias;
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> playLiveMedias;
-        public global::System.Collections.Generic.List<LibCampaignAPI_K_HttpCampaignMedia> playLocalMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> weeklyShortsMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> weeklyGrandsMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> officialMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> totdMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> clubMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> arcadeMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> homePlayMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> homeClubsMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> homeCreationMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> playSoloMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> playLiveMedias;
+        public global::System.Collections.Generic.IList<LibCampaignAPI_K_HttpCampaignMedia> playLocalMedias;
     }
 
     public struct LibCampaignAPI_K_CacheCampaign
     {
-        public global::System.Collections.Generic.List<int> CampaignKeys;
+        public global::System.Collections.Generic.IList<int> CampaignKeys;
         public int CampaignsTotal;
         public int NewCampaignTimestamp;
         public int NewCampaignRelativeTime;
@@ -130,7 +130,7 @@ public partial class CampaignAPI : ILib
 
     public struct LibCampaignAPI_K_CacheCampaignMonthly
     {
-        public global::System.Collections.Generic.List<int> CampaignKeys;
+        public global::System.Collections.Generic.IList<int> CampaignKeys;
         public int CampaignsTotal;
         public int NewCampaignTimestamp;
         public int NewCampaignRelativeTime;
@@ -146,7 +146,7 @@ public partial class CampaignAPI : ILib
 
     public struct K_HttpMediaActiveResponse
     {
-        public global::System.Collections.Generic.List<K_HttpMediaActive> mediaList;
+        public global::System.Collections.Generic.IList<K_HttpMediaActive> mediaList;
     }
 
     public struct K_MediaActive

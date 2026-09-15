@@ -49,23 +49,23 @@ public partial class ChatAPI : ILib
 
     public string GetRoomIcon(string _Login) => default!;
 
-    public global::System.Collections.Generic.List<string> GetRoomContacts(string _Login) => default!;
+    public global::System.Collections.Generic.IList<string> GetRoomContacts(string _Login) => default!;
 
     /// <summary>Get the contacts list sorted by presence and names.</summary>
     /// <returns>Sorted contacts list.</returns>
-    public global::System.Collections.Generic.List<string> GetContactsList() => default!;
+    public global::System.Collections.Generic.IList<string> GetContactsList() => default!;
 
-    public global::System.Collections.Generic.List<SListGroup> GetContactsGroups() => default!;
+    public global::System.Collections.Generic.IList<SListGroup> GetContactsGroups() => default!;
 
-    public global::System.Collections.Generic.List<string> GetSquadMembers() => default!;
+    public global::System.Collections.Generic.IList<string> GetSquadMembers() => default!;
 
-    public global::System.Collections.Generic.List<string> GetOnlineContactsNotInSquad() => default!;
+    public global::System.Collections.Generic.IList<string> GetOnlineContactsNotInSquad() => default!;
 
-    public global::System.Collections.Generic.List<string> SearchContacts(string _SearchPhrase) => default!;
+    public global::System.Collections.Generic.IList<string> SearchContacts(string _SearchPhrase) => default!;
 
-    public global::System.Collections.Generic.List<string> GetInvitesList() => default!;
+    public global::System.Collections.Generic.IList<string> GetInvitesList() => default!;
 
-    public global::System.Collections.Generic.List<SListGroup> GetInvitesGroups() => default!;
+    public global::System.Collections.Generic.IList<SListGroup> GetInvitesGroups() => default!;
 
     public int GetNbIncomingInvites() => default!;
 

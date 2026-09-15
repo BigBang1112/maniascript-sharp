@@ -21,6 +21,6 @@ public partial class CTmResult : CNod
     public int Time { get; set; }
     public int StuntsScore { get; set; }
     public int NbRespawns { get; set; }
-    public System.Collections.Generic.List<int> Checkpoints { get; set; }
+    public System.Collections.Generic.IList<int> Checkpoints { get; set; }
     public int Compare(CTmResult Other, ETmRaceResultCriteria Criteria) => default!;
 }

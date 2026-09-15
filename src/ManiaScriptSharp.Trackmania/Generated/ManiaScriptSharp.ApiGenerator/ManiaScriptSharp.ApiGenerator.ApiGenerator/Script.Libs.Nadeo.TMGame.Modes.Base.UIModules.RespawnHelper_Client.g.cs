@@ -35,7 +35,7 @@ public partial class RespawnHelper_Client : ILib
 
     public struct K_BindHelper
     {
-        public global::System.Collections.Generic.List<K_Bind> Binds;
+        public global::System.Collections.Generic.IList<K_Bind> Binds;
         public string ActionName;
         public bool NeedLaunchedCheckpoint;
     }

@@ -42,13 +42,13 @@ public partial class AudioManager_MA : ILib
     public struct K_Sound
     {
         public string FileName;
-        public global::System.Collections.Generic.List<float> VolumedB;
-        public global::System.Collections.Generic.List<float> Pitch;
+        public global::System.Collections.Generic.IList<float> VolumedB;
+        public global::System.Collections.Generic.IList<float> Pitch;
     }
 
     public struct K_Audio
     {
-        public global::System.Collections.Generic.List<K_Sound> Sounds;
+        public global::System.Collections.Generic.IList<K_Sound> Sounds;
         public bool IsMusic;
         public bool IsLooping;
         public bool IsSpatialized;
@@ -113,9 +113,9 @@ public partial class AudioManager_MA : ILib
     /// <summary>Check if a sound exists in the sounds library</summary>
     public bool SoundExistsInLibrary(string _SoundId) => default!;
 
-    public void AddSoundToLibrary(string _SoundId, string _FilePath, string _FileName, global::System.Collections.Generic.List<float> _VolumedB, global::System.Collections.Generic.List<float> _Pitch, bool _IsMusic, bool _IsLooping, bool _IsSpatialized, string _Description) { }
+    public void AddSoundToLibrary(string _SoundId, string _FilePath, string _FileName, global::System.Collections.Generic.IList<float> _VolumedB, global::System.Collections.Generic.IList<float> _Pitch, bool _IsMusic, bool _IsLooping, bool _IsSpatialized, string _Description) { }
 
-    public void OverrideSoundInLibrary(string _SoundId, string _FilePath, string _FileName, global::System.Collections.Generic.List<float> _VolumedB, global::System.Collections.Generic.List<float> _Pitch, bool _IsMusic, bool _IsLooping, bool _IsSpatialized, string _Description) { }
+    public void OverrideSoundInLibrary(string _SoundId, string _FilePath, string _FileName, global::System.Collections.Generic.IList<float> _VolumedB, global::System.Collections.Generic.IList<float> _Pitch, bool _IsMusic, bool _IsLooping, bool _IsSpatialized, string _Description) { }
 
     /// <summary>Get the component</summary>
     /// <returns>The component id</returns>

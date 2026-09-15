@@ -9,7 +9,7 @@ namespace ManiaScriptSharp;
 
 public partial class CMlGraphCurve : CNod
 {
-    public System.Collections.Generic.List<Vec2> Points { get; set; }
+    public System.Collections.Generic.IList<Vec2> Points { get; set; }
     public Vec3 Color { get; set; }
     public void SortPoints() { }
     public string Style { get; set; }

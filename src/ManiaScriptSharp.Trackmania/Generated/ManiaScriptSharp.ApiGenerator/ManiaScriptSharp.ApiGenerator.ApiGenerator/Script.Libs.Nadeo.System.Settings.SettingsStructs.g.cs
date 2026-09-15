@@ -26,10 +26,10 @@ public partial class SettingsStructs : ILib
         public string ImageURL;
         public bool IsDevice;
         public int CurrentValueInteger;
-        public global::System.Collections.Generic.List<string> CurrentBindings;
+        public global::System.Collections.Generic.IList<string> CurrentBindings;
         public bool CurrentValueBoolean;
         public bool UpcomingValueBoolean;
-        public global::System.Collections.Generic.List<string> AvailableOptions;
+        public global::System.Collections.Generic.IList<string> AvailableOptions;
         public global::System.Collections.Generic.Dictionary<string, string> OptionsLabels;
         public string CurrentValueText;
         public string UpcomingValueText;
@@ -71,7 +71,7 @@ public partial class SettingsStructs : ILib
         public string DefaultMasterZone;
         public string OfflineCampaignJsonName;
         public int MinBronzeMedalNbToPlayRanked;
-        public global::System.Collections.Generic.List<string> Features;
+        public global::System.Collections.Generic.IList<string> Features;
     }
 
     public string IntoManialink() => default!;

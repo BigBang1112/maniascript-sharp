@@ -155,28 +155,28 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public int ClansNbTotal { get; }
     public int ClansNbAlive { get; }
     public int ClansNbDead { get; }
-    public System.Collections.Generic.List<int> ClansNbPlayers { get; set; }
-    public System.Collections.Generic.List<int> ClansNbPlayersAlive { get; set; }
-    public System.Collections.Generic.List<CSmPlayer> Players { get; }
-    public System.Collections.Generic.List<CSmPlayer> BotPlayers { get; }
-    public System.Collections.Generic.List<CSmPlayer> Spectators { get; }
-    public System.Collections.Generic.List<CSmPlayer> AllPlayers { get; }
-    public System.Collections.Generic.List<CSmModeEvent> PendingEvents { get; }
+    public System.Collections.Generic.IList<int> ClansNbPlayers { get; set; }
+    public System.Collections.Generic.IList<int> ClansNbPlayersAlive { get; set; }
+    public System.Collections.Generic.IList<CSmPlayer> Players { get; }
+    public System.Collections.Generic.IList<CSmPlayer> BotPlayers { get; }
+    public System.Collections.Generic.IList<CSmPlayer> Spectators { get; }
+    public System.Collections.Generic.IList<CSmPlayer> AllPlayers { get; }
+    public System.Collections.Generic.IList<CSmModeEvent> PendingEvents { get; }
     public CSmPlayer GetPlayer(CUIConfig UI) => default!;
     public CSmPlayer GetPlayer(string Login) => default!;
-    public System.Collections.Generic.List<CSmMapBase> MapBases { get; }
-    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks { get; }
-    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_PlayerSpawn { get; }
-    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_Gauge { get; }
-    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_Sector { get; }
-    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_BotPath { get; }
-    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_BotSpawn { get; }
-    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_ObjectAnchor { get; }
-    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_Gate { get; }
-    public System.Collections.Generic.List<CSmMapLandmark> MapLandmarks_Foundation { get; }
+    public System.Collections.Generic.IList<CSmMapBase> MapBases { get; }
+    public System.Collections.Generic.IList<CSmMapLandmark> MapLandmarks { get; }
+    public System.Collections.Generic.IList<CSmMapLandmark> MapLandmarks_PlayerSpawn { get; }
+    public System.Collections.Generic.IList<CSmMapLandmark> MapLandmarks_Gauge { get; }
+    public System.Collections.Generic.IList<CSmMapLandmark> MapLandmarks_Sector { get; }
+    public System.Collections.Generic.IList<CSmMapLandmark> MapLandmarks_BotPath { get; }
+    public System.Collections.Generic.IList<CSmMapLandmark> MapLandmarks_BotSpawn { get; }
+    public System.Collections.Generic.IList<CSmMapLandmark> MapLandmarks_ObjectAnchor { get; }
+    public System.Collections.Generic.IList<CSmMapLandmark> MapLandmarks_Gate { get; }
+    public System.Collections.Generic.IList<CSmMapLandmark> MapLandmarks_Foundation { get; }
     public int UiScoresPointsLimit { get; set; }
-    public System.Collections.Generic.List<CSmScore> Scores { get; }
-    public System.Collections.Generic.List<int> ClanScores { get; set; }
+    public System.Collections.Generic.IList<CSmScore> Scores { get; }
+    public System.Collections.Generic.IList<int> ClanScores { get; set; }
     public void Save_Request(string FileName) { }
     public void Load_Request(string FileName) { }
     public bool SetPlayer_DelayedIsFull(CSmPlayer Player) => default!;
@@ -294,7 +294,7 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public void ActionSetVariant1(CSmPlayer Player, CSmMode.EActionSlot ActionSlot, int ActionVariant) { }
     public void ActionSetVariant2(CSmPlayer Player, CSmMode.EActionSlot ActionSlot, int ActionVariant) { }
     public void ActionSetVariant3(CSmPlayer Player, CSmMode.EActionSlot ActionSlot, int ActionVariant) { }
-    public System.Collections.Generic.List<CSmObject> Objects { get; }
+    public System.Collections.Generic.IList<CSmObject> Objects { get; }
     public CSmObject ObjectCreate(Ident ModelId) => default!;
     public void ObjectDestroy(CSmObject Object) { }
     public void ObjectDestroyAll() { }
@@ -330,7 +330,7 @@ public partial class CSmMode : CMode, ILocalProvider, IPersistentProvider
     public void GhostRecorder_SetEnabled(CSmPlayer Player, bool Value) { }
     public void GhostRecorder_Ghosts_Select(CSmPlayer Player) { }
     public void GhostRecorder_Clear(CSmPlayer Player) { }
-    public System.Collections.Generic.List<CGhost> GhostRecorder_Ghosts { get; }
+    public System.Collections.Generic.IList<CGhost> GhostRecorder_Ghosts { get; }
     public CSmMapLandmark GhostDriver_Playlist_GetNextSpawn(CPlayer Player) => default!;
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

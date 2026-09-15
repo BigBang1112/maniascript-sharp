@@ -15,5 +15,5 @@ public partial class CSquadInvitation : CNod
     public string DisplayName { get; }
     public bool IsFirstPartyDisplayName { get; }
     public string PrestigeSkinOptions { get; }
-    public System.Collections.Generic.List<CSkinInfo> SkinList { get; set; }
+    public System.Collections.Generic.IList<CSkinInfo> SkinList { get; set; }
 }

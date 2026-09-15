@@ -64,7 +64,7 @@ public partial class MenuOutro : ILib
     public int Selection_SaveAndQuit() => default!;
 
     /// <summary>Get the available menu selection</summary>
-    public global::System.Collections.Generic.List<int> GetMenuSelection() => default!;
+    public global::System.Collections.Generic.IList<int> GetMenuSelection() => default!;
 
     /// <summary>Select a button in the menu outro</summary>
     public void Select(int _Selection, bool _PlaySound) { }

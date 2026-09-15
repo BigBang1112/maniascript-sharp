@@ -24,17 +24,17 @@ public partial class OGLRequestManager : ILib
     public const int C_Request_ChallengeRefreshCooldown = 20000;
     public const int C_Request_ResultsWaitBeforeFirstRequest = 3000;
 
-    public void RequestPlayersJoinLinks(global::System.Collections.Generic.List<string> _AccountIds, int _RequestTimer) { }
+    public void RequestPlayersJoinLinks(global::System.Collections.Generic.IList<string> _AccountIds, int _RequestTimer) { }
 
-    public void RequestChallengeResults(global::System.Collections.Generic.List<string> _AccountIds, int _RequestTimer) { }
+    public void RequestChallengeResults(global::System.Collections.Generic.IList<string> _AccountIds, int _RequestTimer) { }
 
-    public void RequestMapResults(global::System.Collections.Generic.List<string> _AccountIds, int _RequestTimer) { }
+    public void RequestMapResults(global::System.Collections.Generic.IList<string> _AccountIds, int _RequestTimer) { }
 
     public void Init(string _ChallengeId, string _CompetitionId) { }
 
-    public global::System.Collections.Generic.List<string> GetAllPlayersAccountIds() => default!;
+    public global::System.Collections.Generic.IList<string> GetAllPlayersAccountIds() => default!;
 
-    public void RequestResults(global::System.Collections.Generic.List<string> _AccountIds) { }
+    public void RequestResults(global::System.Collections.Generic.IList<string> _AccountIds) { }
 
     public void RequestResults() { }
 

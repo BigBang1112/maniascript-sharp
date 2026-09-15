@@ -49,7 +49,7 @@ public partial class RoyalStars : ILib
         public string AccountId;
         public Ident PlayerId;
         public int CurrentSegment;
-        public global::System.Collections.Generic.List<int> Stars;
+        public global::System.Collections.Generic.IList<int> Stars;
         public int LastStarTime;
     }
 
@@ -57,8 +57,8 @@ public partial class RoyalStars : ILib
     {
         public int Id;
         public global::System.Collections.Generic.Dictionary<string, K_Member> Members;
-        public global::System.Collections.Generic.List<int> SegmentTimes;
-        public global::System.Collections.Generic.List<int> SegmentMinSpawnTimes;
+        public global::System.Collections.Generic.IList<int> SegmentTimes;
+        public global::System.Collections.Generic.IList<int> SegmentMinSpawnTimes;
         public int SegmentPoints;
         public int RecordsPoints;
         public int BestMembersStarsNb;
@@ -77,8 +77,8 @@ public partial class RoyalStars : ILib
 
     public struct K_LastTeams
     {
-        public global::System.Collections.Generic.List<int> Eliminated;
-        public global::System.Collections.Generic.List<int> Tie;
+        public global::System.Collections.Generic.IList<int> Eliminated;
+        public global::System.Collections.Generic.IList<int> Tie;
     }
 
     public struct K_RankingUpdate
@@ -143,7 +143,7 @@ public partial class RoyalStars : ILib
     public int GetTeamBotLevel(int _TeamId, Int2 _MaxRange, Int2 _MaxDeviation) => default!;
 
     /// <summary>Get the stars reward for a given level</summary>
-    public global::System.Collections.Generic.List<int> GetStarsReward(K_StarsSettings _StarsSettings, int _StarLevel) => default!;
+    public global::System.Collections.Generic.IList<int> GetStarsReward(K_StarsSettings _StarsSettings, int _StarLevel) => default!;
 
     /// <summary>Start the bonus time session False otherwise</summary>
     /// <returns>True if at least one team has bonus time</returns>
@@ -175,9 +175,9 @@ public partial class RoyalStars : ILib
     public int GetTeamPoints(K_Team _Team) => default!;
 
     /// <summary>Update the teams ranking</summary>
-    public global::System.Collections.Generic.List<K_Team> UpdateRanking(bool _UpdateScoresTable) => default!;
+    public global::System.Collections.Generic.IList<K_Team> UpdateRanking(bool _UpdateScoresTable) => default!;
 
-    public global::System.Collections.Generic.List<K_Team> UpdateRanking() => default!;
+    public global::System.Collections.Generic.IList<K_Team> UpdateRanking() => default!;
 
     /// <summary>Update the current map ranking</summary>
     public void ThrottleUpdateRanking() { }
@@ -188,12 +188,12 @@ public partial class RoyalStars : ILib
     public int GetEliminationsNb(int _TargetRoundsNb, int _PlayedRoundsNb) => default!;
 
     /// <summary>Eliminate the last teams</summary>
-    public global::System.Collections.Generic.List<K_Team> EliminateLastTeams(int _EliminatedTeamsNb) => default!;
+    public global::System.Collections.Generic.IList<K_Team> EliminateLastTeams(int _EliminatedTeamsNb) => default!;
 
     /// <summary>Eliminate the last teams</summary>
     /// <param name="TargetRoundsNb">The number of rounds that should be played in a complete match</param>
     /// <param name="PlayedRoundsNb">The number of rounds played since the beginning of the match</param>
-    public global::System.Collections.Generic.List<K_Team> EliminateLastTeams(int _TargetRoundsNb, int _PlayedRoundsNb) => default!;
+    public global::System.Collections.Generic.IList<K_Team> EliminateLastTeams(int _TargetRoundsNb, int _PlayedRoundsNb) => default!;
 
     /// <summary>Save the current rank in the previous map rank</summary>
     public void UpdatePreviousMapRank() { }

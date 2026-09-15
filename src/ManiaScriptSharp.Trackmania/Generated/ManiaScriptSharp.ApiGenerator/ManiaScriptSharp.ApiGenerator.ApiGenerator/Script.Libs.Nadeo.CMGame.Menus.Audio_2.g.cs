@@ -79,17 +79,17 @@ public partial class Audio_2 : ILib
     public struct K_Private_Sound
     {
         public string FileName;
-        public global::System.Collections.Generic.List<float> VolumedB;
-        public global::System.Collections.Generic.List<float> Pitch;
-        public global::System.Collections.Generic.List<int> FadeDuration;
-        public global::System.Collections.Generic.List<Vec3> RelativePosition;
-        public global::System.Collections.Generic.List<Vec3> PanRadiusLfe;
-        public global::System.Collections.Generic.List<int> PlayCursor;
+        public global::System.Collections.Generic.IList<float> VolumedB;
+        public global::System.Collections.Generic.IList<float> Pitch;
+        public global::System.Collections.Generic.IList<int> FadeDuration;
+        public global::System.Collections.Generic.IList<Vec3> RelativePosition;
+        public global::System.Collections.Generic.IList<Vec3> PanRadiusLfe;
+        public global::System.Collections.Generic.IList<int> PlayCursor;
     }
 
     public struct K_Private_AudioItem
     {
-        public global::System.Collections.Generic.List<K_Private_Sound> Sounds;
+        public global::System.Collections.Generic.IList<K_Private_Sound> Sounds;
         public bool IsMusic;
         public bool IsLooping;
         public bool IsSpatialized;
@@ -111,13 +111,13 @@ public partial class Audio_2 : ILib
 
     public struct K_SoundOptions
     {
-        public global::System.Collections.Generic.List<float> VolumedB;
-        public global::System.Collections.Generic.List<float> Pitch;
-        public global::System.Collections.Generic.List<int> FadeDuration;
-        public global::System.Collections.Generic.List<Vec3> RelativePosition;
-        public global::System.Collections.Generic.List<Vec3> PanRadiusLfe;
-        public global::System.Collections.Generic.List<int> PlayCursor;
-        public global::System.Collections.Generic.List<int> Delay;
+        public global::System.Collections.Generic.IList<float> VolumedB;
+        public global::System.Collections.Generic.IList<float> Pitch;
+        public global::System.Collections.Generic.IList<int> FadeDuration;
+        public global::System.Collections.Generic.IList<Vec3> RelativePosition;
+        public global::System.Collections.Generic.IList<Vec3> PanRadiusLfe;
+        public global::System.Collections.Generic.IList<int> PlayCursor;
+        public global::System.Collections.Generic.IList<int> Delay;
     }
 
     public struct K_Private_DelayedSound
@@ -149,7 +149,7 @@ public partial class Audio_2 : ILib
         public global::System.Collections.Generic.Dictionary<string, K_Private_LibraryLoadingRequest> LibraryLoadingRequests;
         public int AudioSourcesCleanUpTime;
         public int PlaySoundTicketIdGenerator;
-        public global::System.Collections.Generic.List<K_Private_DelayedSound> DelayedSounds;
+        public global::System.Collections.Generic.IList<K_Private_DelayedSound> DelayedSounds;
         public K_Private_SoundBalanceTransition SoundBalanceTransition;
     }
 

@@ -30,7 +30,7 @@ public partial class Ladder : ILib
 
     /// <summary>Create a new match and register the given scores Remember to close any open match before</summary>
     /// <param name="Scores">The scores to register in the match</param>
-    public void Request_OpenMatch(global::System.Collections.Generic.List<CScore> _Scores) { }
+    public void Request_OpenMatch(global::System.Collections.Generic.IList<CScore> _Scores) { }
 
     /// <summary>Create a new match and register all available scores Remember to close any open match before</summary>
     public void Request_OpenMatch() { }

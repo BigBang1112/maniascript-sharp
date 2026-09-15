@@ -244,11 +244,11 @@ public partial class TrackBrowser : ILib
     public struct K_MyTracks
     {
         public bool NeedRefresh;
-        public global::System.Collections.Generic.List<K_LocalTrack> LocalTracks;
+        public global::System.Collections.Generic.IList<K_LocalTrack> LocalTracks;
         public string CurrentPath;
         public string CurrentParentPath;
         public bool FocusParentFolder;
-        public global::System.Collections.Generic.List<int> LastFolderSelected_Keys;
+        public global::System.Collections.Generic.IList<int> LastFolderSelected_Keys;
         public K_DeleteTrack DeleteLocalTrack;
         public K_UploadTrack UploadLocalTrack;
     }
@@ -359,8 +359,8 @@ public partial class TrackBrowser : ILib
     {
         public bool ShowOnlyUserTracks;
         public bool ShowOnlyPlayableTracks;
-        public global::System.Collections.Generic.List<string> FilterByEnvironment;
-        public global::System.Collections.Generic.List<string> FilterByMapType;
+        public global::System.Collections.Generic.IList<string> FilterByEnvironment;
+        public global::System.Collections.Generic.IList<string> FilterByMapType;
     }
 
     public struct K_TracksFavoriteStatus
@@ -368,8 +368,8 @@ public partial class TrackBrowser : ILib
         public int CheckRequestTime;
         public int LastAddOrRemoveRequestTime;
         public bool FirstHeartIconDisplay;
-        public global::System.Collections.Generic.List<string> UidsToCheck;
-        public global::System.Collections.Generic.List<string> KnownedFavoritesTracksUids;
+        public global::System.Collections.Generic.IList<string> UidsToCheck;
+        public global::System.Collections.Generic.IList<string> KnownedFavoritesTracksUids;
         public string CurrentTrackUid;
         public string CurrentTrackName;
     }
@@ -407,8 +407,8 @@ public partial class TrackBrowser : ILib
         public bool HasFilteredTracks;
         public bool CanViewUGC;
         public K_ManialinkProps ManialinkProps;
-        public global::System.Collections.Generic.List<K_Event> PendingEvents;
-        public global::System.Collections.Generic.List<K_Event> DelayedPendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> PendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> DelayedPendingEvents;
         public int LastSelectAllInputTime;
         public bool LastIsSortingByNameElseByDate;
         public bool LastIsSortingFromAscendingOrder;

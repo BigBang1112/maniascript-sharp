@@ -40,7 +40,7 @@ public partial class Mode : ILib
 
     /// <summary>Create a new match on the ladder and register a list of scores @deprecated		Use the MB_Ladder_OpenMatch() function from ModeBase.Script.txt instead</summary>
     /// <param name="Scores">The list of scores to register on the ladder</param>
-    public void Ladder_OpenMatch(global::System.Collections.Generic.List<CScore> _Scores) { }
+    public void Ladder_OpenMatch(global::System.Collections.Generic.IList<CScore> _Scores) { }
 
     /// <summary>Close the current match on the ladder @deprecated		Use the MB_Ladder_CloseMatch() function from ModeBase.Script.txt instead</summary>
     public void Ladder_CloseMatch() { }

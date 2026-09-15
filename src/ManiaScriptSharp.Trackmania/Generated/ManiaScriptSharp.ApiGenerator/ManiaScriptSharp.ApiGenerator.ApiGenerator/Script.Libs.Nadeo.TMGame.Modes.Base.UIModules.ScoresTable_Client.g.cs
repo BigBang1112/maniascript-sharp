@@ -99,7 +99,7 @@ public partial class ScoresTable_Client : ILib
     public struct K_ScoreOrGhost
     {
         public bool UseScoreOrGhostData;
-        public global::System.Collections.Generic.List<K_ScoreOrGhostEntry> ScoreOrGhostData;
+        public global::System.Collections.Generic.IList<K_ScoreOrGhostEntry> ScoreOrGhostData;
     }
 
     public struct K_Trophy
@@ -111,7 +111,7 @@ public partial class ScoresTable_Client : ILib
     public struct K_State
     {
         public int ScoresCount;
-        public global::System.Collections.Generic.List<Ident> UserIds;
+        public global::System.Collections.Generic.IList<Ident> UserIds;
     }
 
     /// <summary>Get the id of the UI module</summary>

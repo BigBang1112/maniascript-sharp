@@ -160,8 +160,8 @@ public partial class PauseMenuOnline_Client : ILib
 
     public struct K_PageState
     {
-        public global::System.Collections.Generic.List<string> Team1MembersNames;
-        public global::System.Collections.Generic.List<string> Team2MembersNames;
+        public global::System.Collections.Generic.IList<string> Team1MembersNames;
+        public global::System.Collections.Generic.IList<string> Team2MembersNames;
         public bool MapDownloadAllowed;
         public bool PrevReplayAllowed;
         public bool ReplaySaved;

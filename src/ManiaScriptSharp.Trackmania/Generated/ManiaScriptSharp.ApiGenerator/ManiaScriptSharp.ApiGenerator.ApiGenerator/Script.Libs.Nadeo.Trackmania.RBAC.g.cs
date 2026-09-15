@@ -96,5 +96,5 @@ public partial class RBAC : ILib
     /// <summary>Used to test permissions</summary>
     public void Debug_UseFakePermissions(bool _UseFakePermissions) { }
 
-    public void Debug_SetFakePermissions(global::System.Collections.Generic.List<string> _FakePermissions) { }
+    public void Debug_SetFakePermissions(global::System.Collections.Generic.IList<string> _FakePermissions) { }
 }

@@ -16,9 +16,9 @@ public partial class Ranking_Server : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Royal/Ranking_Server.Script.txt";
 
     /// <summary>Create a rank for the ranking array</summary>
-    public global::System.Collections.Generic.List<int> CreateRank(int _TeamId, global::System.Collections.Generic.List<int> _SegmentTimes, int _TimeDiff, bool _Eliminated, int _StarsNb, int _Points) => default!;
+    public global::System.Collections.Generic.IList<int> CreateRank(int _TeamId, global::System.Collections.Generic.IList<int> _SegmentTimes, int _TimeDiff, bool _Eliminated, int _StarsNb, int _Points) => default!;
 
-    public global::System.Collections.Generic.List<int> CreateRank(int _TeamId, global::System.Collections.Generic.List<int> _SegmentTimes, int _TimeDiff, bool _Eliminated, int _StarsNb) => default!;
+    public global::System.Collections.Generic.IList<int> CreateRank(int _TeamId, global::System.Collections.Generic.IList<int> _SegmentTimes, int _TimeDiff, bool _Eliminated, int _StarsNb) => default!;
 
-    public global::System.Collections.Generic.List<int> CreateRank(int _TeamId, global::System.Collections.Generic.List<int> _SegmentTimes, int _TimeDiff, bool _Eliminated) => default!;
+    public global::System.Collections.Generic.IList<int> CreateRank(int _TeamId, global::System.Collections.Generic.IList<int> _SegmentTimes, int _TimeDiff, bool _Eliminated) => default!;
 }

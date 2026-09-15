@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CBlockClipList</summary>
 public partial class CBlockClipList : CNod
 {
-    public System.Collections.Generic.List<CBlockClip> Clips { get; }
+    public System.Collections.Generic.IList<CBlockClip> Clips { get; }
     public Int3 Size { get; }
     public bool SetClipListFromMacroblock(CMacroblockModel MacroBlockModel, Int3 Coord, CMapEditorPlugin.CardinalDirections Dir) => default!;
     public bool SetClipListFromMacroblock(CMacroblockModel MacroBlockModel) => default!;

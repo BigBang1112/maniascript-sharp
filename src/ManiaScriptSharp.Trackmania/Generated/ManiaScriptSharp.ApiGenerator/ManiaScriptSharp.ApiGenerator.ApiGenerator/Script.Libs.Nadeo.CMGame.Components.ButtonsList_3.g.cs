@@ -45,7 +45,7 @@ public partial class ButtonsList_3 : ILib
 
     public struct K_Controls
     {
-        public global::System.Collections.Generic.List<K_Control_Button> Buttons;
+        public global::System.Collections.Generic.IList<K_Control_Button> Buttons;
     }
 
     public struct K_Instance

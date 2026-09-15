@@ -109,7 +109,7 @@ public partial class MacroblockSelection : ILib
     public void ShiftRightPage(int _Shift) { }
 
     /// <summary>Get all available macroblocks ids</summary>
-    public global::System.Collections.Generic.List<Ident> GetAllMacroblocksIds() => default!;
+    public global::System.Collections.Generic.IList<Ident> GetAllMacroblocksIds() => default!;
 
     /// <summary>Find and select a macroblock in the currently available ones</summary>
     public void FindMacroblock(Ident _MacroblockModelId, int _MacroblockPlacement) { }

@@ -104,7 +104,7 @@ public partial class Routes : ILib
 
     public struct K_Loading
     {
-        public global::System.Collections.Generic.List<string> PagesToLoad;
+        public global::System.Collections.Generic.IList<string> PagesToLoad;
         public Ident LoadingLayerId;
         public int PagesTotalNb;
         public bool DisplayPreloadProgression;

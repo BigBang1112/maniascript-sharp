@@ -28,7 +28,7 @@ public partial class CManiaApp : CNod, ILocalProvider, IPersistentProvider
     public CUILayer UILayerCreate() => default!;
     public void UILayerDestroy(CUILayer Layer) { }
     public void UILayerDestroyAll() { }
-    public void LayerCustomEvent(CUILayer Layer, string Type, System.Collections.Generic.List<string> Data) { }
+    public void LayerCustomEvent(CUILayer Layer, string Type, System.Collections.Generic.IList<string> Data) { }
     public void OpenLink(string Url, ELinkType LinkType) { }
     /// <summary>Explore to given file or folder. Returns False if it does not exist on the filesystem. (may be because it is in a pack)</summary>
     public bool OpenFileInExplorer(string FileName) => default!;

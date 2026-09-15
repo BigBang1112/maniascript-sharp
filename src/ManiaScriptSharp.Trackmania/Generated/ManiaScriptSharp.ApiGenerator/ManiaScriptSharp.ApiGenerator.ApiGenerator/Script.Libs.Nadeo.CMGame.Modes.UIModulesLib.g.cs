@@ -41,7 +41,7 @@ public partial class UIModulesLib : ILib
     public struct K_Module
     {
         public string Id;
-        public global::System.Collections.Generic.List<Ident> LayerIds;
+        public global::System.Collections.Generic.IList<Ident> LayerIds;
         public bool IsVisible;
         public int HideDelay;
     }

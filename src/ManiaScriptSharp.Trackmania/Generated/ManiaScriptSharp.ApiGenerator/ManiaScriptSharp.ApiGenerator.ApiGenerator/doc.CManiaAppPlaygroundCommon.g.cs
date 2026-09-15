@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>API for game interface client scripts Supported declare modes : - Local - Persistent</summary>
 public partial class CManiaAppPlaygroundCommon : CManiaApp, ILocalProvider, IPersistentProvider
 {
-    public System.Collections.Generic.List<CManiaAppPlaygroundEvent> PendingEvents { get; }
+    public System.Collections.Generic.IList<CManiaAppPlaygroundEvent> PendingEvents { get; }
     public CPlaygroundClient Playground { get; }
     public CMap Map { get; }
     public CGhostManager GhostMgr { get; }

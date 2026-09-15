@@ -156,7 +156,7 @@ struct CFoo : public CNod {
     {
         var input = @"struct CFoo : public CNod { Integer[] Scores; };";
         var files = EmitAll(input);
-        Assert.Contains("public System.Collections.Generic.List<int> Scores", files["CFoo.g.cs"]);
+        Assert.Contains("public System.Collections.Generic.IList<int> Scores", files["CFoo.g.cs"]);
     }
 
     [Fact]
@@ -164,7 +164,7 @@ struct CFoo : public CNod {
     {
         var input = @"struct CFoo : public CNod { Void SetScores(Integer[] Scores); };";
         var files = EmitAll(input);
-        Assert.Contains("public void SetScores(System.Collections.Generic.List<int> scores)", files["CFoo.g.cs"]);
+        Assert.Contains("public void SetScores(System.Collections.Generic.IList<int> scores)", files["CFoo.g.cs"]);
     }
 
     [Fact]
@@ -344,7 +344,7 @@ public :
     {
         var input = "namespace TextLib { Text[Void] Split(Text Separators, Text Text_); };";
         var files = EmitAll(input);
-        Assert.Contains("public static System.Collections.Generic.List<string> Split", files["TextLib.g.cs"]);
+        Assert.Contains("public static System.Collections.Generic.IList<string> Split", files["TextLib.g.cs"]);
     }
 
     [Fact]

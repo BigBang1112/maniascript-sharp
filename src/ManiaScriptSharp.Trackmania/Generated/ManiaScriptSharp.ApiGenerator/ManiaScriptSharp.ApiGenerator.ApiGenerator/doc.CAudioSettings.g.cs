@@ -11,12 +11,12 @@ namespace ManiaScriptSharp;
 public partial class CAudioSettings : CNod
 {
     public int DirtyCounter { get; set; }
-    public System.Collections.Generic.List<string> Devices { get; set; }
+    public System.Collections.Generic.IList<string> Devices { get; set; }
     public string Device_Current { get; set; }
     public string Device_NextApply { get; set; }
     public int VoiceChat_Devices_DirtyCounter { get; }
-    public System.Collections.Generic.List<string> VoiceChat_Devices_In { get; set; }
-    public System.Collections.Generic.List<string> VoiceChat_Devices_Out { get; set; }
+    public System.Collections.Generic.IList<string> VoiceChat_Devices_In { get; set; }
+    public System.Collections.Generic.IList<string> VoiceChat_Devices_Out { get; set; }
     public string VoiceChat_Device_In_Current { get; }
     public string VoiceChat_Device_Out_Current { get; }
     public string VoiceChat_Device_In_NextApply { get; set; }

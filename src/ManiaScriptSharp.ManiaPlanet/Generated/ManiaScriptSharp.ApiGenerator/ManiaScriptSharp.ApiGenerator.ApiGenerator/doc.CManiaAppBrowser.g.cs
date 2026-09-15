@@ -10,7 +10,7 @@ namespace ManiaScriptSharp;
 /// <summary>Supported declare modes : Local  Persistent  API for Maniaplanet client scripts.</summary>
 public partial class CManiaAppBrowser : CManiaApp, ILocalProvider, IPersistentProvider
 {
-    public System.Collections.Generic.List<CManiaAppEvent> PendingEvents { get; }
+    public System.Collections.Generic.IList<CManiaAppEvent> PendingEvents { get; }
     public void BrowserBack() { }
     public void BrowserQuit() { }
     public void BrowserHome() { }

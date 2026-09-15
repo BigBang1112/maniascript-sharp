@@ -58,7 +58,7 @@ public partial class StyleSelection : ILib
     public void ShowLandscapeButtons(bool _Select, bool _Camera, bool _Cancel) { }
 
     /// <summary>Set the styles</summary>
-    public void SetStyles(global::System.Collections.Generic.List<string> _Styles) { }
+    public void SetStyles(global::System.Collections.Generic.IList<string> _Styles) { }
 
     /// <summary>Select a style</summary>
     public void SelectStyle(string _Style) { }

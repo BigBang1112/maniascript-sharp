@@ -68,7 +68,7 @@ public partial class MapAPI : ILib
 
     public struct K_HttpMapList
     {
-        public global::System.Collections.Generic.List<K_HttpMapInfo> mapList;
+        public global::System.Collections.Generic.IList<K_HttpMapInfo> mapList;
         public int itemCount;
     }
 

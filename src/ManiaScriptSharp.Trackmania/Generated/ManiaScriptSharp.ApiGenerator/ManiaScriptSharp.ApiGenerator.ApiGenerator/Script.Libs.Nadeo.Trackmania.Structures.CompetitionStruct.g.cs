@@ -51,12 +51,12 @@ public partial class CompetitionStruct : ILib
         public int MaxPlayersPerMatch;
         public int MaxPlayers_Total;
         public string ScriptName;
-        public global::System.Collections.Generic.List<LibStructuresCompetition_K_Map> MapUrl;
+        public global::System.Collections.Generic.IList<LibStructuresCompetition_K_Map> MapUrl;
         public string LogoUrl;
         public string LogoVerticalUrl;
-        public global::System.Collections.Generic.List<LibStructuresCompetition_K_ScriptSetting> ScriptSettings;
+        public global::System.Collections.Generic.IList<LibStructuresCompetition_K_ScriptSetting> ScriptSettings;
         public int QualifierDuration;
-        public global::System.Collections.Generic.List<LibStructuresCompetition_K_Map> MapsQualify;
+        public global::System.Collections.Generic.IList<LibStructuresCompetition_K_Map> MapsQualify;
     }
 
     public struct LibStructuresCompetition_K_Participant
@@ -91,7 +91,7 @@ public partial class CompetitionStruct : ILib
         public string StartDate;
         public string EndDate;
         public bool IsCompleted;
-        public global::System.Collections.Generic.List<LibStructuresCompetition_K_ClubCompetitionPlayerChallengeServer> Servers;
+        public global::System.Collections.Generic.IList<LibStructuresCompetition_K_ClubCompetitionPlayerChallengeServer> Servers;
     }
 
     public struct LibStructuresCompetition_K_ClubCompetitionRound
@@ -119,7 +119,7 @@ public partial class CompetitionStruct : ILib
     {
         public int CompetitionId;
         public string Zone;
-        public global::System.Collections.Generic.List<LibStructuresCompetition_K_ParticipantResult> Results;
+        public global::System.Collections.Generic.IList<LibStructuresCompetition_K_ParticipantResult> Results;
     }
 
     public struct LibStructuresCompetition_K_ClubCompetition
@@ -142,7 +142,7 @@ public partial class CompetitionStruct : ILib
         public string CurrentMatchId;
         public string LiveId;
         public string MatchGenerationDate;
-        public global::System.Collections.Generic.List<LibStructuresCompetition_K_ClubCompetitionRound> Rounds;
+        public global::System.Collections.Generic.IList<LibStructuresCompetition_K_ClubCompetitionRound> Rounds;
         public LibStructuresCompetition_K_ClubCompetitionPlayerChallenge CurrentQualifierChallenge;
         public string Type;
         public bool IsRegistrationOngoing;
@@ -153,7 +153,7 @@ public partial class CompetitionStruct : ILib
         public int ChallengeId;
         public int Cardinal;
         public string ScoreUnit;
-        public global::System.Collections.Generic.List<LibStructuresCompetition_K_ParticipantResult> Results;
+        public global::System.Collections.Generic.IList<LibStructuresCompetition_K_ParticipantResult> Results;
     }
 
     public struct LibStructuresCompetition_K_Match
@@ -167,14 +167,14 @@ public partial class CompetitionStruct : ILib
 
     public struct LibStructuresCompetition_K_MatchList
     {
-        public global::System.Collections.Generic.List<LibStructuresCompetition_K_Match> Matches;
+        public global::System.Collections.Generic.IList<LibStructuresCompetition_K_Match> Matches;
     }
 
     public struct LibStructuresCompetition_K_MatchResults
     {
         public string MatchLiveId;
         public int RoundPosition;
-        public global::System.Collections.Generic.List<LibStructuresCompetition_K_ParticipantResult> Results;
+        public global::System.Collections.Generic.IList<LibStructuresCompetition_K_ParticipantResult> Results;
         public string ScoreUnit;
     }
 

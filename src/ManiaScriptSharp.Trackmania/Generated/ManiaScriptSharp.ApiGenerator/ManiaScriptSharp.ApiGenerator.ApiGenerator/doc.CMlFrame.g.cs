@@ -17,7 +17,7 @@ public partial class CMlFrame : CMlControl, ILocalProvider
         NonInteractive,
     }
 
-    public System.Collections.Generic.List<CMlControl> Controls { get; }
+    public System.Collections.Generic.IList<CMlControl> Controls { get; }
     public CMlControl GetFirstChild(string ControlId) => default!;
     public bool ScrollActive { get; set; }
     public CMlFrame.EScrollWheel ScrollWheel { get; set; }

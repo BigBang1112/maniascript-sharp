@@ -75,11 +75,11 @@ public partial class Scores : ILib
         public int mappoints;
         public int matchpoints;
         public int bestracetime;
-        public global::System.Collections.Generic.List<int> bestracecheckpoints;
+        public global::System.Collections.Generic.IList<int> bestracecheckpoints;
         public int bestlaptime;
-        public global::System.Collections.Generic.List<int> bestlapcheckpoints;
+        public global::System.Collections.Generic.IList<int> bestlapcheckpoints;
         public int prevracetime;
-        public global::System.Collections.Generic.List<int> prevracecheckpoints;
+        public global::System.Collections.Generic.IList<int> prevracecheckpoints;
     }
 
     public struct K_XmlRpc_Scores
@@ -89,8 +89,8 @@ public partial class Scores : ILib
         public bool useteams;
         public int winnerteam;
         public string winnerplayer;
-        public global::System.Collections.Generic.List<K_XmlRpc_Team> teams;
-        public global::System.Collections.Generic.List<K_XmlRpc_Player> players;
+        public global::System.Collections.Generic.IList<K_XmlRpc_Team> teams;
+        public global::System.Collections.Generic.IList<K_XmlRpc_Player> players;
     }
 
     public struct K_XmlRpc_BestPlayer

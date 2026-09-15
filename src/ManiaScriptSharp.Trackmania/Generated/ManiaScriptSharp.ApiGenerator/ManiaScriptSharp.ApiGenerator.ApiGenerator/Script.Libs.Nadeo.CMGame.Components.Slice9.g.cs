@@ -121,7 +121,7 @@ public partial class Slice9 : ILib
 
     public struct K_Private_Properties
     {
-        public global::System.Collections.Generic.List<string> EnabledPropList;
+        public global::System.Collections.Generic.IList<string> EnabledPropList;
         public Vec2 Size;
         public bool IsVisible;
         public int BorderResize;

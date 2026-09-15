@@ -59,9 +59,9 @@ public partial class TM_ChampionSpring2022_Online : ILib
     {
         public bool WaitingLoading;
         public global::System.Collections.Generic.Dictionary<string, Int2> Scores;
-        public global::System.Collections.Generic.List<string> PlayedMapUids;
-        public global::System.Collections.Generic.List<string> WinnersAccountIds;
-        public global::System.Collections.Generic.List<string> TrophiesGainAccountIds;
+        public global::System.Collections.Generic.IList<string> PlayedMapUids;
+        public global::System.Collections.Generic.IList<string> WinnersAccountIds;
+        public global::System.Collections.Generic.IList<string> TrophiesGainAccountIds;
         public int PlayedRoundsNb;
         public string BestRaceTimeAccountId;
         public int BestRaceTime;
@@ -134,7 +134,7 @@ public partial class TM_ChampionSpring2022_Online : ILib
     public void UpdateScoresTableFooter(int _MatchStyle, int _MatchPointsLimit, int _CupPointsLimit, bool _IsWarmUp) { }
 
     /// <summary>Compute the cup scores, return the Id of any new cup winner</summary>
-    public Ident ComputeCupScores(int _MatchStyle, int _CupPointsLimit, global::System.Collections.Generic.List<string> _WinnerAccountIds) => default!;
+    public Ident ComputeCupScores(int _MatchStyle, int _CupPointsLimit, global::System.Collections.Generic.IList<string> _WinnerAccountIds) => default!;
 
     /// <summary>Toggle on/off the camera display in signs for spectators</summary>
     public void EnableSignLiveCamera(bool _Enabled) { }
@@ -143,5 +143,5 @@ public partial class TM_ChampionSpring2022_Online : ILib
     public void EnableSignESportsMode(bool _Enabled) { }
 
     /// <summary>Update the players' scores in the UI</summary>
-    public void UpdateUIPlayersScores(int _MatchStyle, global::System.Collections.Generic.List<string> _MatchWinnerAccountIds, int _MatchPointsLimit, int _CupPointsLimit, bool _MatchComplete) { }
+    public void UpdateUIPlayersScores(int _MatchStyle, global::System.Collections.Generic.IList<string> _MatchWinnerAccountIds, int _MatchPointsLimit, int _CupPointsLimit, bool _MatchComplete) { }
 }

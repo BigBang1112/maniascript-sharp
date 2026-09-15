@@ -72,11 +72,11 @@ public partial class UI_Manager : ILib
     /// <summary>We probably won't want to show everything but showing everything followed by hiding a few things is a nice alternative to hiding everything followed by showing a lot</summary>
     public void ShowAll() { }
 
-    public void ShowOnly(global::System.Collections.Generic.List<int> _Files) { }
+    public void ShowOnly(global::System.Collections.Generic.IList<int> _Files) { }
 
     public void ShowOnly(int _File) { }
 
-    public void HideOnly(global::System.Collections.Generic.List<int> _Files) { }
+    public void HideOnly(global::System.Collections.Generic.IList<int> _Files) { }
 
     public void HideOnly(int _File) { }
 

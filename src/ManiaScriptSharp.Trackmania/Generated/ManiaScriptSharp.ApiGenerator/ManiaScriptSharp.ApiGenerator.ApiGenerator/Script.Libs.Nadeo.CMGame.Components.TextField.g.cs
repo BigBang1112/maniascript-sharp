@@ -97,8 +97,8 @@ public partial class TextField : ILib
     public struct K_State
     {
         public bool IsTextFieldFocused;
-        public global::System.Collections.Generic.List<K_TextFieldEvent> PendingEvents;
-        public global::System.Collections.Generic.List<K_TextFieldEvent> DelayedPendingEvents;
+        public global::System.Collections.Generic.IList<K_TextFieldEvent> PendingEvents;
+        public global::System.Collections.Generic.IList<K_TextFieldEvent> DelayedPendingEvents;
     }
 
     public string GetManialink() => default!;

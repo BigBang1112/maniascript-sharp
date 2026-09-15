@@ -103,7 +103,7 @@ public partial class TeamsCommon : ILib
     public void AddClanMember(string _AccountId, int _ClanId) { }
 
     /// <summary>Get the account id of all clans members</summary>
-    public global::System.Collections.Generic.List<string> GetClansMembers() => default!;
+    public global::System.Collections.Generic.IList<string> GetClansMembers() => default!;
 
     /// <summary>Reset clans</summary>
     public void ResetClans() { }

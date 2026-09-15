@@ -53,7 +53,7 @@ public partial class VoteMap : ILib
 
     /// <summary>Begin the vote with a specific list of maps</summary>
     /// <param name="Maps">An array with the maps the players can vote for</param>
-    public void Begin(global::System.Collections.Generic.List<CMapInfo> _Maps, int _VoteDuration, int _ResultDuration) { }
+    public void Begin(global::System.Collections.Generic.IList<CMapInfo> _Maps, int _VoteDuration, int _ResultDuration) { }
 
     /// <summary>Begin the vote with all the maps of the server</summary>
     public void Begin() { }

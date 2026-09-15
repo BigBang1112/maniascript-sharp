@@ -12,6 +12,6 @@ public partial class CParsingDocument : CNod
 {
     public string TextContents { get; }
     public CParsingNode Root { get; }
-    public System.Collections.Generic.List<CParsingNode> Nodes { get; }
+    public System.Collections.Generic.IList<CParsingNode> Nodes { get; }
     public CParsingNode GetFirstChild(string Name) => default!;
 }

@@ -29,7 +29,7 @@ public partial class CMlControl : CNod, ILocalProvider
     }
 
     public string ControlId { get; }
-    public System.Collections.Generic.List<string> ControlClasses { get; }
+    public System.Collections.Generic.IList<string> ControlClasses { get; }
     public bool HasClass(string Class) => default!;
     public Vec2 Size { get; set; }
     public AlignHorizontal HorizontalAlign { get; set; }

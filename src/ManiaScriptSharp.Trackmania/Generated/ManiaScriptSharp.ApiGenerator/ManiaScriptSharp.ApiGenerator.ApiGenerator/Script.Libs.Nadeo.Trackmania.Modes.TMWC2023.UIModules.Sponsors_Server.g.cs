@@ -22,7 +22,7 @@ public partial class Sponsors_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the sponsors URL to the clients</summary>
-    public void SetSponsorsURL(global::System.Collections.Generic.List<string> _SponsorsURL) { }
+    public void SetSponsorsURL(global::System.Collections.Generic.IList<string> _SponsorsURL) { }
 
     public void SetSponsorsURL(string _SponsorsURL) { }
 

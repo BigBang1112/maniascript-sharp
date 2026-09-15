@@ -41,10 +41,10 @@ public partial class CServerPluginEvent : CBaseConstEvent, ILocalProvider
     public string ChatText { get; }
     public CServerPluginEvent.EChatOption ChatOption { get; }
     public string ChatCommandType { get; }
-    public System.Collections.Generic.List<string> ChatCommandData { get; set; }
+    public System.Collections.Generic.IList<string> ChatCommandData { get; set; }
     public string ModeCallbackType { get; }
-    public System.Collections.Generic.List<string> ModeCallbackData { get; set; }
-    public System.Collections.Generic.List<CScore> EndMatchScores { get; }
-    public System.Collections.Generic.List<int> EndMatchRanks { get; set; }
+    public System.Collections.Generic.IList<string> ModeCallbackData { get; set; }
+    public System.Collections.Generic.IList<CScore> EndMatchScores { get; }
+    public System.Collections.Generic.IList<int> EndMatchRanks { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

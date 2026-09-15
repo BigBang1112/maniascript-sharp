@@ -65,11 +65,11 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Sh
 
     /// <summary>Set the new matchmaking format on this server</summary>
     /// <param name="NewFormat">The new format</param>
-    public void MM_SetFormat(global::System.Collections.Generic.List<int> _NewFormat) { }
+    public void MM_SetFormat(global::System.Collections.Generic.IList<int> _NewFormat) { }
 
     /// <summary>Initialize the match server for matchmaking</summary>
     /// <param name="Format">The  match format</param>
-    public void MM_Init(global::System.Collections.Generic.List<int> _Format) { }
+    public void MM_Init(global::System.Collections.Generic.IList<int> _Format) { }
 
     /// <summary>Check if a server is in match mode</summary>
     /// <returns>True if it's a match server, false otherwise</returns>
@@ -97,7 +97,7 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Sh
 
     /// <summary>Set the scores to send to the api</summary>
     /// <param name="Scores">The scores to send</param>
-    public void MM_SetScores(global::System.Collections.Generic.List<int> _Scores) { }
+    public void MM_SetScores(global::System.Collections.Generic.IList<int> _Scores) { }
 
     /// <summary>Send the match id to the ladder server to validate 100K matches</summary>
     public void MM_SetLadderMatchId() { }

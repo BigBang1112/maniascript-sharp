@@ -145,7 +145,7 @@ public partial class MatchmakingMainPage : ILib
     public struct K_Scene
     {
         public Ident SceneId;
-        public global::System.Collections.Generic.List<K_Vehicle> Vehicles;
+        public global::System.Collections.Generic.IList<K_Vehicle> Vehicles;
     }
 
     public struct K_SquadMember
@@ -169,7 +169,7 @@ public partial class MatchmakingMainPage : ILib
         public bool InSquad;
         public bool WantToLeave;
         public global::System.Collections.Generic.Dictionary<string, K_SquadMember> Members;
-        public global::System.Collections.Generic.List<string> MembersIds;
+        public global::System.Collections.Generic.IList<string> MembersIds;
     }
 
     public struct K_SuperRoyalState

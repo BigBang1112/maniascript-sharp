@@ -32,7 +32,7 @@ public partial class Ghost : ILib
     {
         public Ident Id;
         public int Time;
-        public global::System.Collections.Generic.List<int> Checkpoints;
+        public global::System.Collections.Generic.IList<int> Checkpoints;
     }
 
     public bool AreSameRace(Ident _GhostIdA, Ident _GhostIdB) => default!;
@@ -47,7 +47,7 @@ public partial class Ghost : ILib
 
     public void AvoidDuplicate_Remove(Ident _GhostId) { }
 
-    public void AvoidDuplicate(global::System.Collections.Generic.List<Ident> _GhostIds) { }
+    public void AvoidDuplicate(global::System.Collections.Generic.IList<Ident> _GhostIds) { }
 
     /// <summary>Remove a ghost from the best ghosts</summary>
     public void RemoveBestGhost(Ident _GhostId) { }

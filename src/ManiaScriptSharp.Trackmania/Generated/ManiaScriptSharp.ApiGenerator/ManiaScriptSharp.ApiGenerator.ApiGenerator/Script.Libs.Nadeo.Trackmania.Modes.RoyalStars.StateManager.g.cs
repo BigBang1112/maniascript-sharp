@@ -63,7 +63,7 @@ public partial class StateManager : ILib
 
     /// <summary>Force the states applied to all players To disable the forced states use an empty array</summary>
     /// <param name="States">The states to force</param>
-    public void ForcePlayersStates(global::System.Collections.Generic.List<int> _States) { }
+    public void ForcePlayersStates(global::System.Collections.Generic.IList<int> _States) { }
 
     /// <summary>Update the library</summary>
     public void Yield() { }

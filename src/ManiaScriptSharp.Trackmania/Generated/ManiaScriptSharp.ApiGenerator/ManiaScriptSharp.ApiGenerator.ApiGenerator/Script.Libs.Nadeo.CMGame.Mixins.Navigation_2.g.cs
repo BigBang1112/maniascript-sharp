@@ -40,7 +40,7 @@ public partial class Navigation_2 : ILib
         public bool IsInitialized;
         public string Group;
         public bool IsLocked;
-        public global::System.Collections.Generic.List<int> CapturedInputs;
+        public global::System.Collections.Generic.IList<int> CapturedInputs;
     }
 
     public struct K_Event
@@ -61,11 +61,11 @@ public partial class Navigation_2 : ILib
     public struct K_State
     {
         public global::System.Collections.Generic.Dictionary<string, string> GroupParent;
-        public global::System.Collections.Generic.List<string> DisabledGroups;
-        public global::System.Collections.Generic.List<Ident> DisabledContainers;
-        public global::System.Collections.Generic.List<K_Event> PendingEvents;
-        public global::System.Collections.Generic.List<K_EscapeInput> PendingEscapeInputs;
-        public global::System.Collections.Generic.List<string> NavigationDisabledBy;
+        public global::System.Collections.Generic.IList<string> DisabledGroups;
+        public global::System.Collections.Generic.IList<Ident> DisabledContainers;
+        public global::System.Collections.Generic.IList<K_Event> PendingEvents;
+        public global::System.Collections.Generic.IList<K_EscapeInput> PendingEscapeInputs;
+        public global::System.Collections.Generic.IList<string> NavigationDisabledBy;
         public int MouseSleepDelay;
     }
 

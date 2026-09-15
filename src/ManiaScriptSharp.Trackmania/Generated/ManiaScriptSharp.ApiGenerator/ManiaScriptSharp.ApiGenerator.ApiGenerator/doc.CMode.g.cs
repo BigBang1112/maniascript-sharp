@@ -20,7 +20,7 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
         Author,
     }
 
-    public System.Collections.Generic.List<CTaskResult> TaskResults { get; }
+    public System.Collections.Generic.IList<CTaskResult> TaskResults { get; }
     public void TaskResult_Release(Ident TaskId) { }
     public string ModeStatusMessage { get; set; }
     public CTitle LoadedTitle { get; }
@@ -31,8 +31,8 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public CMap Map { get; }
     public string MapPlayerModelName { get; }
     public bool HasPodium { get; }
-    public System.Collections.Generic.List<CUser> Users { get; }
-    public System.Collections.Generic.List<CTeam> Teams { get; }
+    public System.Collections.Generic.IList<CUser> Users { get; }
+    public System.Collections.Generic.IList<CTeam> Teams { get; }
     public string NeutralEmblemUrl { get; set; }
     public string ForcedClubLinkUrl1 { get; }
     public string ForcedClubLinkUrl2 { get; }
@@ -45,7 +45,7 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public bool MapLoaded { get; }
     public void RequestLoadMap() { }
     public void RequestUnloadMap() { }
-    public System.Collections.Generic.List<CMapInfo> MapList { get; }
+    public System.Collections.Generic.IList<CMapInfo> MapList { get; }
     public int NextMapIndex { get; set; }
     public CUIConfigMgr UIManager { get; }
     public void Hud_Load(string ModuleName) { }
@@ -119,7 +119,7 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public void Activity_Match_ReportResult_SetTeamResult(string TeamName, int Rank, int Score) { }
     public void Activity_Match_ReportResult_End() { }
     public bool EnableGhostRecording { get; set; }
-    public System.Collections.Generic.List<CGhost> Ghosts { get; }
+    public System.Collections.Generic.IList<CGhost> Ghosts { get; }
     public void Ghost_Release(Ident GhostId) { }
     public void GhostDriver_Playlist_Clear(CPlayer Player) { }
     public void GhostDriver_Playlist_Add(CPlayer Player, CGhost Ghost) { }
@@ -134,7 +134,7 @@ public partial class CMode : CNod, ILocalProvider, IPersistentProvider
     public void GhostDriver_Download_Begin() { }
     public void GhostDriver_Download_AddRange(int TeamLevelMin, int TeamLevelMax, int Count) { }
     public CWebServicesTaskResult_GhostDriver_Download GhostDriver_Download_End() => default!;
-    public CTaskResult_MapRecordList MapRecord_GetListByMapAndPlayerList(Ident UserId, System.Collections.Generic.List<string> WebServicesUserIdList, string MapUid, string ScopeType, string ScopeId, string GameMode, string GameModeCustomData) => default!;
+    public CTaskResult_MapRecordList MapRecord_GetListByMapAndPlayerList(Ident UserId, System.Collections.Generic.IList<string> WebServicesUserIdList, string MapUid, string ScopeType, string ScopeId, string GameMode, string GameModeCustomData) => default!;
     public void GameScene_ResetAll() { }
     public string Dbg_DumpDeclareForVariables(CNod Nod, bool StatsOnly) => default!;
     public int UiUpdatePeriod { get; }

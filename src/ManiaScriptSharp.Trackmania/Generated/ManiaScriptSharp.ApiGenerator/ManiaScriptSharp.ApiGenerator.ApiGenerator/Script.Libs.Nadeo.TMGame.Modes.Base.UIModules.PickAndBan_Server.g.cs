@@ -34,7 +34,7 @@ public partial class PickAndBan_Server : ILib
         public int ResultDuration;
         public int ResultEndTime;
         public Ident ActiveUserId;
-        public global::System.Collections.Generic.List<Ident> NextUserIds;
+        public global::System.Collections.Generic.IList<Ident> NextUserIds;
         public global::System.Collections.Generic.Dictionary<int, Ident> LastUserIds;
         public string ActiveUserAccountId;
         public string PreSelectedTrackUid;
@@ -48,7 +48,7 @@ public partial class PickAndBan_Server : ILib
 
     public struct K_Config
     {
-        public global::System.Collections.Generic.List<K_ConfigStep> steps;
+        public global::System.Collections.Generic.IList<K_ConfigStep> steps;
         public int stepDuration;
         public int resultDuration;
     }
@@ -61,7 +61,7 @@ public partial class PickAndBan_Server : ILib
 
     public struct K_Playlist
     {
-        public global::System.Collections.Generic.List<K_PlaylistItem> playlist;
+        public global::System.Collections.Generic.IList<K_PlaylistItem> playlist;
     }
 
     /// <summary>Get the id of the UI module</summary>
@@ -90,7 +90,7 @@ public partial class PickAndBan_Server : ILib
     /// <param name="Steps">The steps of the pick and ban sequence</param>
     /// <param name="StepDuration">The duration of one pick or ban step</param>
     /// <param name="ResultDuration">The duration of the result display at the end of the pick and ban sequence</param>
-    public K_PickAndBan Start(global::System.Collections.Generic.List<K_ConfigStep> _Steps, int _StepDuration, int _ResultDuration) => default!;
+    public K_PickAndBan Start(global::System.Collections.Generic.IList<K_ConfigStep> _Steps, int _StepDuration, int _ResultDuration) => default!;
 
     public K_PickAndBan Start(K_Config _Config) => default!;
 

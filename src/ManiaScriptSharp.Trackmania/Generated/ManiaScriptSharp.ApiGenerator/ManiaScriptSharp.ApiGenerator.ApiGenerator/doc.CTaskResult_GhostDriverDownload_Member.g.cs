@@ -10,5 +10,5 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CTaskResult_GhostDriverDownload_Member</summary>
 public partial class CTaskResult_GhostDriverDownload_Member
 {
-    public System.Collections.Generic.List<CTaskResult_GhostDriverDownload_Ghost> Ghosts { get; set; }
+    public System.Collections.Generic.IList<CTaskResult_GhostDriverDownload_Ghost> Ghosts { get; set; }
 }

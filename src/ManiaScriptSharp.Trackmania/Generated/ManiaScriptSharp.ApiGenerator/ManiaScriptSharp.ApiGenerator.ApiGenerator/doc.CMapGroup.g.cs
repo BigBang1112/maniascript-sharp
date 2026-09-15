@@ -10,5 +10,5 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CMapGroup</summary>
 public partial class CMapGroup : CNod
 {
-    public System.Collections.Generic.List<CMapInfo> MapInfos { get; }
+    public System.Collections.Generic.IList<CMapInfo> MapInfos { get; }
 }

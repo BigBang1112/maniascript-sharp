@@ -15,7 +15,7 @@ public partial class CManiaAppStation : CManiaAppBase, ILocalProvider, IPersiste
     public void Maker_EditTitle(string EditedTitleId) { }
     /// <summary>A new title id will be derived from the EditedTitleName.</summary>
     public void Maker_EditNewTitle(string EditedTitleName) { }
-    public System.Collections.Generic.List<CPackCreatorTitleInfo> Maker_EditedTitles { get; }
+    public System.Collections.Generic.IList<CPackCreatorTitleInfo> Maker_EditedTitles { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

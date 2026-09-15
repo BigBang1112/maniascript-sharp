@@ -30,7 +30,7 @@ public partial class CMlScript : CNod, ILocalProvider, IPersistentProvider
     /// <summary>Local user structure.</summary>
     public CUser LocalUser { get; }
     public CTitle LoadedTitle { get; }
-    public System.Collections.Generic.List<CMlScriptEvent> PendingEvents { get; }
+    public System.Collections.Generic.IList<CMlScriptEvent> PendingEvents { get; }
     public void Dbg_SetProcessed(CMlScriptEvent Event) { }
     public bool Dbg_WarnOnDroppedEvents { get; set; }
     public float MouseX { get; }
@@ -62,7 +62,7 @@ public partial class CMlScript : CNod, ILocalProvider, IPersistentProvider
     public CAnimManager AnimMgr { get; }
     public CSystemPlatform System { get; }
     /// <summary>Send a custom event to the owner of the layer.</summary>
-    public void SendCustomEvent(string Type, System.Collections.Generic.List<string> Data) { }
+    public void SendCustomEvent(string Type, System.Collections.Generic.IList<string> Data) { }
     public void PreloadImage(string ImageUrl) { }
     public void PreloadAll() { }
     public string Dbg_DumpDeclareForVariables(CNod Nod, bool StatsOnly) => default!;

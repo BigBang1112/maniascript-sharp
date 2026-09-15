@@ -49,17 +49,17 @@ public partial class CInputManager : CNod
         Vive,
     }
 
-    public System.Collections.Generic.List<CInputEvent> PendingEvents { get; }
+    public System.Collections.Generic.IList<CInputEvent> PendingEvents { get; }
     public int Now { get; }
     public int Period { get; }
-    public System.Collections.Generic.List<CInputPad> Pads { get; }
+    public System.Collections.Generic.IList<CInputPad> Pads { get; }
     public Vec2 MousePos { get; }
     public Vec2 MouseKineticScrollVel { get; }
     public bool MouseLeftButton { get; }
     public bool MouseRightButton { get; }
     public bool MouseMiddleButton { get; }
-    public System.Collections.Generic.List<Vec2> TouchPoints_Cur { get; set; }
-    public System.Collections.Generic.List<Vec2> TouchPoints_Init { get; set; }
+    public System.Collections.Generic.IList<Vec2> TouchPoints_Cur { get; set; }
+    public System.Collections.Generic.IList<Vec2> TouchPoints_Init { get; set; }
     public string GetPadButtonPlaygroundBinding(CInputPad Pad, CInputManager.EButton Button) => default!;
     public string GetPadButtonCurrentBinding(CInputPad Pad, CInputManager.EButton Button) => default!;
     public string GetActionBindingRaw(CInputPad Pad, string ActionMap, string ActionId) => default!;

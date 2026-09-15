@@ -34,7 +34,7 @@ public partial class CModuleMenuFileBrowser : CModuleMenuComponent
     }
 
     public bool HasFinished { get; }
-    public System.Collections.Generic.List<string> Selection { get; set; }
+    public System.Collections.Generic.IList<string> Selection { get; set; }
     public void SetFileType(CModuleMenuFileBrowser.EFileType FileType) { }
     public void SetFileAction(CModuleMenuFileBrowser.EFileAction FileAction) { }
 }

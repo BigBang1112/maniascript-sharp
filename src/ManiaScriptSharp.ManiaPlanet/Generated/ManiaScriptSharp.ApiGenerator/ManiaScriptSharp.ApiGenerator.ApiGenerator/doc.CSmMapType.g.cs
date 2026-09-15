@@ -11,8 +11,8 @@ namespace ManiaScriptSharp;
 public partial class CSmMapType : CMapType, ILocalProvider, IPersistentProvider
 {
     public CSmMode Mode { get; }
-    public System.Collections.Generic.List<CSmPlayer> AllPlayers { get; }
-    public System.Collections.Generic.List<CSmPlayer> Players { get; }
+    public System.Collections.Generic.IList<CSmPlayer> AllPlayers { get; }
+    public System.Collections.Generic.IList<CSmPlayer> Players { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

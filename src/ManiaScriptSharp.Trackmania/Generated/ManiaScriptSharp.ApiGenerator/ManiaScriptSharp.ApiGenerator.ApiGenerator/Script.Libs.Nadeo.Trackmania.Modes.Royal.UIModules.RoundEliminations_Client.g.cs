@@ -38,8 +38,8 @@ public partial class RoundEliminations_Client : ILib
         public int WaitTime;
         public int TotalAnimTime;
         public int EliminatedTeamsNb;
-        public global::System.Collections.Generic.List<int> TeamIds;
-        public global::System.Collections.Generic.List<int> TeamRanks;
+        public global::System.Collections.Generic.IList<int> TeamIds;
+        public global::System.Collections.Generic.IList<int> TeamRanks;
     }
 
     /// <summary>Get the id of the UI module</summary>

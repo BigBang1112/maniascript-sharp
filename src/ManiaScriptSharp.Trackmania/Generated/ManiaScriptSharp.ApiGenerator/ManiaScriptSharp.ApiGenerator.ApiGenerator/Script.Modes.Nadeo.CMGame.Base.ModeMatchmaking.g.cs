@@ -134,13 +134,13 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Na
 
     /// <summary>Set the new matchmaking format on this server</summary>
     /// <param name="NewFormat">The new format</param>
-    public void MM_Private_SetFormat(global::System.Collections.Generic.List<int> _NewFormat) { }
+    public void MM_Private_SetFormat(global::System.Collections.Generic.IList<int> _NewFormat) { }
 
     /// <summary>Set the progressive matchmaking formats on this server</summary>
     /// <param name="Format">The base format</param>
     /// <param name="MinPlayersNb">Minimum number of players</param>
     /// <param name="MaxPlayersNb">Maximum number of players</param>
-    public void MM_Private_SetProgressiveFormats(global::System.Collections.Generic.List<int> _Format, int _MinPlayersNb, int _MaxPlayersNb) { }
+    public void MM_Private_SetProgressiveFormats(global::System.Collections.Generic.IList<int> _Format, int _MinPlayersNb, int _MaxPlayersNb) { }
 
     /// <summary>Check if a server is in match mode</summary>
     /// <returns>True if it's a match server, false otherwise</returns>
@@ -168,7 +168,7 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Na
 
     /// <summary>Set the scores to send to the api</summary>
     /// <param name="Scores">The scores to send</param>
-    public void MM_Private_SetScores(global::System.Collections.Generic.List<int> _Scores) { }
+    public void MM_Private_SetScores(global::System.Collections.Generic.IList<int> _Scores) { }
 
     /// <summary>Send the match id to the ladder server to validate 100K matches</summary>
     public void MM_Private_SetLadderMatchId() { }

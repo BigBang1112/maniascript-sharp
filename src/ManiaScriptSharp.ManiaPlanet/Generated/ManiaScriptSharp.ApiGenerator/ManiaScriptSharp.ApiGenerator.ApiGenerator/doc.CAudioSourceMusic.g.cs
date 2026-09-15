@@ -17,10 +17,10 @@ public partial class CAudioSourceMusic : CAudioSource
         OnNextBeat,
     }
 
-    public System.Collections.Generic.List<float> Tracks_Volume { get; set; }
-    public System.Collections.Generic.List<float> Tracks_VolumedB { get; set; }
-    public System.Collections.Generic.List<string> Tracks_Name { get; }
-    public System.Collections.Generic.List<float> Tracks_Length { get; }
+    public System.Collections.Generic.IList<float> Tracks_Volume { get; set; }
+    public System.Collections.Generic.IList<float> Tracks_VolumedB { get; set; }
+    public System.Collections.Generic.IList<string> Tracks_Name { get; }
+    public System.Collections.Generic.IList<float> Tracks_Length { get; }
     public int Tracks_Count { get; }
     public float BeatsPerMinute { get; }
     public float BeatDuration { get; }

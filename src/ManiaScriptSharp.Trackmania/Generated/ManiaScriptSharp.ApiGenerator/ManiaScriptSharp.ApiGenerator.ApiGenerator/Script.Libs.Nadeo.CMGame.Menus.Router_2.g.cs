@@ -34,13 +34,13 @@ public partial class Router_2 : ILib
         public int Type;
         public int PushMode;
         public string FromLeafRouteId;
-        public global::System.Collections.Generic.List<string> FromRouteIds;
+        public global::System.Collections.Generic.IList<string> FromRouteIds;
         public string ToLeafRouteId;
-        public global::System.Collections.Generic.List<string> ToRouteIds;
-        public global::System.Collections.Generic.List<string> AddFragmentIds;
-        public global::System.Collections.Generic.List<string> EnableFragmentIds;
-        public global::System.Collections.Generic.List<string> RemoveFragmentIds;
-        public global::System.Collections.Generic.List<string> DisableFragmentIds;
+        public global::System.Collections.Generic.IList<string> ToRouteIds;
+        public global::System.Collections.Generic.IList<string> AddFragmentIds;
+        public global::System.Collections.Generic.IList<string> EnableFragmentIds;
+        public global::System.Collections.Generic.IList<string> RemoveFragmentIds;
+        public global::System.Collections.Generic.IList<string> DisableFragmentIds;
         public global::System.Collections.Generic.Dictionary<string, string> Data;
         public string ForceMenuSection;
     }
@@ -50,7 +50,7 @@ public partial class Router_2 : ILib
         public int PushMode;
         public string ForceMenuSection;
         public global::System.Collections.Generic.Dictionary<string, string> Data;
-        public global::System.Collections.Generic.List<string> FallbackRouteIds;
+        public global::System.Collections.Generic.IList<string> FallbackRouteIds;
     }
 
     public struct K_Private_Fragment
@@ -62,12 +62,12 @@ public partial class Router_2 : ILib
     public struct K_Private_Route
     {
         public string Id;
-        public global::System.Collections.Generic.List<string> FragmentIds;
+        public global::System.Collections.Generic.IList<string> FragmentIds;
     }
 
     public struct K_Private_PendingTransition
     {
-        public global::System.Collections.Generic.List<string> ToRouteIds;
+        public global::System.Collections.Generic.IList<string> ToRouteIds;
         public int PushMode;
         public string ForceMenuSection;
         public global::System.Collections.Generic.Dictionary<string, string> Data;
@@ -76,15 +76,15 @@ public partial class Router_2 : ILib
     public struct K_Private_ActiveTransition
     {
         public string FromLeafRouteId;
-        public global::System.Collections.Generic.List<string> FromRouteIds;
+        public global::System.Collections.Generic.IList<string> FromRouteIds;
         public string ToLeafRouteId;
-        public global::System.Collections.Generic.List<string> ToRouteIds;
-        public global::System.Collections.Generic.List<string> RemoveRouteIds;
-        public global::System.Collections.Generic.List<string> RemoveFragmentIds;
-        public global::System.Collections.Generic.List<string> DisableFragmentIds;
-        public global::System.Collections.Generic.List<string> AddRouteIds;
-        public global::System.Collections.Generic.List<string> AddFragmentIds;
-        public global::System.Collections.Generic.List<string> EnableFragmentIds;
+        public global::System.Collections.Generic.IList<string> ToRouteIds;
+        public global::System.Collections.Generic.IList<string> RemoveRouteIds;
+        public global::System.Collections.Generic.IList<string> RemoveFragmentIds;
+        public global::System.Collections.Generic.IList<string> DisableFragmentIds;
+        public global::System.Collections.Generic.IList<string> AddRouteIds;
+        public global::System.Collections.Generic.IList<string> AddFragmentIds;
+        public global::System.Collections.Generic.IList<string> EnableFragmentIds;
         public int PushMode;
         public string ForceMenuSection;
         public global::System.Collections.Generic.Dictionary<string, string> Data;
@@ -100,13 +100,13 @@ public partial class Router_2 : ILib
     {
         public global::System.Collections.Generic.Dictionary<string, K_Private_Fragment> Fragments;
         public global::System.Collections.Generic.Dictionary<string, K_Private_Route> Routes;
-        public global::System.Collections.Generic.List<string> CurrentRouteIds;
+        public global::System.Collections.Generic.IList<string> CurrentRouteIds;
         public global::System.Collections.Generic.Dictionary<string, string> CurrentRouteData;
-        public global::System.Collections.Generic.List<string> CurrentFragmentIds;
-        public global::System.Collections.Generic.List<string> CurrentLeafFragmentIds;
+        public global::System.Collections.Generic.IList<string> CurrentFragmentIds;
+        public global::System.Collections.Generic.IList<string> CurrentLeafFragmentIds;
         public global::System.Collections.Generic.Dictionary<string, Ident> FragmentLayerIds;
         public Ident TTSContextId;
-        public global::System.Collections.Generic.List<K_Event> PendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> PendingEvents;
         public K_Private_PendingTransition PendingTransition;
         public K_Private_ActiveTransition ActiveTransition;
     }

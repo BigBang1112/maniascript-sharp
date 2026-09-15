@@ -66,8 +66,8 @@ public partial class Music : ILib
 
     public struct K_State
     {
-        public global::System.Collections.Generic.List<K_Music> Playlist;
-        public global::System.Collections.Generic.List<K_Music> FilteredPlaylist;
+        public global::System.Collections.Generic.IList<K_Music> Playlist;
+        public global::System.Collections.Generic.IList<K_Music> FilteredPlaylist;
         public K_Filter Filter;
         public int SeasonWatchTime;
         public int MoodWatchTime;
@@ -83,7 +83,7 @@ public partial class Music : ILib
     /// <summary>Create a new music track</summary>
     public K_Music CreateMusic(string _Url, float _VolumedB, K_Filter _Filter) => default!;
 
-    public void SetPlaylist(global::System.Collections.Generic.List<K_Music> _Playlist) { }
+    public void SetPlaylist(global::System.Collections.Generic.IList<K_Music> _Playlist) { }
 
     public void SetSection(int _Section) { }
 

@@ -43,8 +43,8 @@ public partial class TitleControl_2 : ILib
         public string PlayerModel;
         public string MapType;
         public bool UseSimpleEditor;
-        public global::System.Collections.Generic.List<string> EditorPluginsScripts;
-        public global::System.Collections.Generic.List<string> EditorPluginsArguments;
+        public global::System.Collections.Generic.IList<string> EditorPluginsScripts;
+        public global::System.Collections.Generic.IList<string> EditorPluginsArguments;
         public bool OnlyUseForcedPlugins;
     }
 

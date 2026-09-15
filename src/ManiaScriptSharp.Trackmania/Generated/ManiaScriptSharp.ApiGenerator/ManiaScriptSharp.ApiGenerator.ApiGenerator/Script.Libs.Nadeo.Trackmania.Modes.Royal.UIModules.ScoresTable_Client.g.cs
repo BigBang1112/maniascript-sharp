@@ -72,7 +72,7 @@ public partial class ScoresTable_Client : ILib
         public Ident TargetPlayerId;
         public int TargetPlayerClan;
         public int CurrentSelectedTeamId;
-        public global::System.Collections.Generic.List<Ident> CurrentTeamUserIds;
+        public global::System.Collections.Generic.IList<Ident> CurrentTeamUserIds;
     }
 
     /// <summary>Get the id of the UI module</summary>

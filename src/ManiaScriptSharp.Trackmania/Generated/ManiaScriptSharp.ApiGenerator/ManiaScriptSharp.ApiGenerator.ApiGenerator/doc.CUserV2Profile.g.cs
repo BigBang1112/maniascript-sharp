@@ -182,7 +182,7 @@ public partial class CUserV2Profile : CNod
     public float Inputs_MouseSensitivityLaser { get; set; }
     public float Inputs_MouseSensitivityDefault_Raw { get; set; }
     public float Inputs_MouseSensitivityLaser_Raw { get; set; }
-    public System.Collections.Generic.List<CVehicleSettings> Inputs_Vehicles { get; set; }
+    public System.Collections.Generic.IList<CVehicleSettings> Inputs_Vehicles { get; set; }
     public bool Adverts_Enabled { get; set; }
     public bool Adverts_UsePersonnalData { get; set; }
     public bool TTS_Enabled { get; set; }

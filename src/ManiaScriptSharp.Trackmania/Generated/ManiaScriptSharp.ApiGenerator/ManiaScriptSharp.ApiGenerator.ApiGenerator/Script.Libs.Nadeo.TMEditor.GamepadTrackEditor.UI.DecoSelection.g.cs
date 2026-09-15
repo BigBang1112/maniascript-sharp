@@ -81,7 +81,7 @@ public partial class DecoSelection : ILib
     public void SelectFamily(string _Family) { }
 
     /// <summary>Set the deco families</summary>
-    public void SetFamilies(global::System.Collections.Generic.List<string> _Families) { }
+    public void SetFamilies(global::System.Collections.Generic.IList<string> _Families) { }
 
     /// <summary>Set the deco selection visibility</summary>
     public void SetVisibility(bool _Visible) { }

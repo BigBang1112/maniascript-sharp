@@ -44,11 +44,11 @@ public partial class MedalStack : ILib
 
     public void Load(string _ImageMedalUrl, string _ImageMedalCuttedUrl) { }
 
-    public void Load(string _ImageMedalUrl, string _ImageMedalCuttedUrl, global::System.Collections.Generic.List<string> _ImageUrlList_Medals) { }
+    public void Load(string _ImageMedalUrl, string _ImageMedalCuttedUrl, global::System.Collections.Generic.IList<string> _ImageUrlList_Medals) { }
 
-    public void Load(global::System.Collections.Generic.List<string> _ImageUrlList_MedalsWithMipmaps, string _ImageUrl_Shadow) { }
+    public void Load(global::System.Collections.Generic.IList<string> _ImageUrlList_MedalsWithMipmaps, string _ImageUrl_Shadow) { }
 
-    public void Load(global::System.Collections.Generic.List<string> _ImageUrlList_Medals, global::System.Collections.Generic.List<string> _ImageUrlList_Medals_Small, string _ImageUrl_Shadow) { }
+    public void Load(global::System.Collections.Generic.IList<string> _ImageUrlList_Medals, global::System.Collections.Generic.IList<string> _ImageUrlList_Medals_Small, string _ImageUrl_Shadow) { }
 
-    public void Load(global::System.Collections.Generic.List<string> _ImageUrlList_Medals, global::System.Collections.Generic.List<string> _ImageUrlList_Medals_Small, global::System.Collections.Generic.List<string> _ImageUrlList_Medals_VerySmall, string _ImageUrl_Shadow) { }
+    public void Load(global::System.Collections.Generic.IList<string> _ImageUrlList_Medals, global::System.Collections.Generic.IList<string> _ImageUrlList_Medals_Small, global::System.Collections.Generic.IList<string> _ImageUrlList_Medals_VerySmall, string _ImageUrl_Shadow) { }
 }

@@ -77,7 +77,7 @@ public partial class Layers : ILib
     /// <param name="LayersName">The layers to check</param>
     /// <param name="PlayerId">The player to check</param>
     /// <returns>An array containing the names of the missing layers (if any)</returns>
-    public global::System.Collections.Generic.List<string> IsMissing(global::System.Collections.Generic.List<string> _LayersName, Ident _PlayerId) => default!;
+    public global::System.Collections.Generic.IList<string> IsMissing(global::System.Collections.Generic.IList<string> _LayersName, Ident _PlayerId) => default!;
 
     /// <summary>Get the layer object from his name</summary>
     /// <param name="LayerName">The name of the layer to get</param>

@@ -74,7 +74,7 @@ public partial class SplashscreenAPI : ILib
 
     public struct K_Private_HttpResponseGetSplashscreenList
     {
-        public global::System.Collections.Generic.List<K_Private_Splashscreen> list;
+        public global::System.Collections.Generic.IList<K_Private_Splashscreen> list;
         public int relativeNextRequest;
     }
 }

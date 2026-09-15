@@ -39,7 +39,7 @@ public partial class ChannelAPI : ILib
     {
         public int startTimestamp;
         public int endTimestamp;
-        public global::System.Collections.Generic.List<string> maps;
+        public global::System.Collections.Generic.IList<string> maps;
         public string name;
         public string currentMap;
         public int relativeStart;
@@ -59,7 +59,7 @@ public partial class ChannelAPI : ILib
         public int state;
         public string dataPackUid;
         public string script;
-        public global::System.Collections.Generic.List<string> maps;
+        public global::System.Collections.Generic.IList<string> maps;
         public int maxPlayersPerServer;
         public string mediaUrl;
         public bool channel;
@@ -83,12 +83,12 @@ public partial class ChannelAPI : ILib
     public struct K_HttpChannelGridDays
     {
         public int day;
-        public global::System.Collections.Generic.List<K_HttpChannelGridHours> hours;
+        public global::System.Collections.Generic.IList<K_HttpChannelGridHours> hours;
     }
 
     public struct K_HttpChannelGrid
     {
-        public global::System.Collections.Generic.List<K_HttpChannelGridDays> days;
+        public global::System.Collections.Generic.IList<K_HttpChannelGridDays> days;
     }
 
     public struct K_ChannelProgram
@@ -97,7 +97,7 @@ public partial class ChannelAPI : ILib
         public int RoomId;
         public int StartTimestamp;
         public int EndTimestamp;
-        public global::System.Collections.Generic.List<string> Maps;
+        public global::System.Collections.Generic.IList<string> Maps;
         public string Name;
         public string CurrentMap;
         public int RelativeStart;
@@ -125,11 +125,11 @@ public partial class ChannelAPI : ILib
     public struct K_ChannelGridDays
     {
         public int Day;
-        public global::System.Collections.Generic.List<K_ChannelGridHours> Hours;
+        public global::System.Collections.Generic.IList<K_ChannelGridHours> Hours;
     }
 
     public struct K_ChannelGrid
     {
-        public global::System.Collections.Generic.List<K_ChannelGridDays> Days;
+        public global::System.Collections.Generic.IList<K_ChannelGridDays> Days;
     }
 }

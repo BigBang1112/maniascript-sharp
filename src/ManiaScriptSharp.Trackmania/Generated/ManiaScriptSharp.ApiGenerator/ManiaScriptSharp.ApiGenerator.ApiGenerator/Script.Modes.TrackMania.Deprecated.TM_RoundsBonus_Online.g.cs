@@ -66,7 +66,7 @@ public partial class TM_RoundsBonus_Online : ILib
 
     public struct K_PlayerProperties
     {
-        public global::System.Collections.Generic.List<int> ActiveProperties;
+        public global::System.Collections.Generic.IList<int> ActiveProperties;
         public float AdherenceCoef;
         public float ControlCoef;
         public float AccelCoef;
@@ -97,7 +97,7 @@ public partial class TM_RoundsBonus_Online : ILib
         public global::System.Collections.Generic.Dictionary<int, K_Event> Events;
         public global::System.Collections.Generic.Dictionary<int, int> Weights;
         public int MaxWeight;
-        public global::System.Collections.Generic.List<int> PreviousEventsTypes;
+        public global::System.Collections.Generic.IList<int> PreviousEventsTypes;
         public K_Event Event;
         public bool EventAnnounced;
     }

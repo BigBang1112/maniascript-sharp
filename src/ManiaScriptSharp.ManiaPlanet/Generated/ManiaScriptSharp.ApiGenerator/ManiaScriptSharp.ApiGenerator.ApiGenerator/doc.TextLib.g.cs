@@ -69,17 +69,17 @@ public sealed partial class TextLib : ILib
     public partial string URLEncode(string Argument1);
     public partial string StripFormatting(string Argument1);
     /// <summary>Splits a given text based on a given separators set. \param _Separators : The separators to use \param _Text : The text to split.</summary>
-    public partial System.Collections.Generic.List<string> Split(string _Separators, string _Text);
+    public partial System.Collections.Generic.IList<string> Split(string _Separators, string _Text);
     /// <summary>Joins a set of texts with the given separator \param _Separator : The separator to use \param _Texts : The texts to join.</summary>
-    public partial string Join(string _Separator, System.Collections.Generic.List<string> _Texts);
+    public partial string Join(string _Separator, System.Collections.Generic.IList<string> _Texts);
     public partial string Trim(string Argument1);
     public partial string ReplaceChars(string Argument1, string Argument2, string Argument3);
     /// <summary>Replaces occurences of _ToReplace in _Text with _Replacement \param _Text : The text you search in \param _ToReplace : The text you want to replace \param _Replacement : The text you want to insert</summary>
     public partial string Replace(string _Text, string _ToReplace, string _Replacement);
     /// <summary>Find occurences of the _Pattern in the _Text. \param _Pattern : Pattern is a regular expression, similar to javascript syntax. \param _Text :  \param _Flags : Flags can be 'g' to find all occurences, 'i' to ignore case, 'm' for multiline mode.</summary>
-    public partial System.Collections.Generic.List<string> RegexFind(string _Pattern, string _Text, string _Flags);
+    public partial System.Collections.Generic.IList<string> RegexFind(string _Pattern, string _Text, string _Flags);
     /// <summary>Captures the groups of the _Pattern in the matching _Text. group[0] is the whole pattern match. \param _Pattern : Pattern is a regular expression, similar to javascript syntax. \param _Text :  \param _Flags : Flags can be 'i' to ignore case, 'm' for multiline mode.</summary>
-    public partial System.Collections.Generic.List<string> RegexMatch(string _Pattern, string _Text, string _Flags);
+    public partial System.Collections.Generic.IList<string> RegexMatch(string _Pattern, string _Text, string _Flags);
     /// <summary>Replace the _Pattern in the matching text with _Replacement. \param _Pattern : Pattern is a regular expression, similar to javascript syntax. \param _Text :  \param _Flags : Flags can be 'g' to find all occurences, 'i' to ignore case, 'm' for multiline mode. \param _Replacement : </summary>
     public partial string RegexReplace(string _Pattern, string _Text, string _Flags, string _Replacement);
     /// <summary>Lookup the text in the current translation dictionary. Lookup the text in the current translation dictionary, and returns the translation, or returns the original text if not found.</summary>

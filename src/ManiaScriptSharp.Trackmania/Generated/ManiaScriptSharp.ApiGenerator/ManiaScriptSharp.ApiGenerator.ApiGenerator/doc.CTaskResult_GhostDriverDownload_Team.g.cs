@@ -11,5 +11,5 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_GhostDriverDownload_Team
 {
     public int TeamLevel { get; set; }
-    public System.Collections.Generic.List<CTaskResult_GhostDriverDownload_Member> Members { get; set; }
+    public System.Collections.Generic.IList<CTaskResult_GhostDriverDownload_Member> Members { get; set; }
 }

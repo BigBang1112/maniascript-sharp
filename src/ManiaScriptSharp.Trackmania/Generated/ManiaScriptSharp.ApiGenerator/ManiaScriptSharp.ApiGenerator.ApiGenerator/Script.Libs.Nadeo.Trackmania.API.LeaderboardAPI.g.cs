@@ -101,7 +101,7 @@ public partial class LeaderboardAPI : ILib
     {
         public string zoneId;
         public string zoneName;
-        public global::System.Collections.Generic.List<K_HttpTop> top;
+        public global::System.Collections.Generic.IList<K_HttpTop> top;
     }
 
     public struct K_HttpTopScore
@@ -117,14 +117,14 @@ public partial class LeaderboardAPI : ILib
     {
         public string zoneId;
         public string zoneName;
-        public global::System.Collections.Generic.List<K_HttpTopScore> top;
+        public global::System.Collections.Generic.IList<K_HttpTopScore> top;
     }
 
     public struct K_HttpLevel
     {
         public string zoneId;
         public string zoneName;
-        public global::System.Collections.Generic.List<K_HttpTopScore> level;
+        public global::System.Collections.Generic.IList<K_HttpTopScore> level;
     }
 
     public struct K_MapGroupUid
@@ -135,20 +135,20 @@ public partial class LeaderboardAPI : ILib
 
     public struct K_MapGroupUidList
     {
-        public global::System.Collections.Generic.List<K_MapGroupUid> maps;
+        public global::System.Collections.Generic.IList<K_MapGroupUid> maps;
     }
 
     public struct K_HttpGetPlayerRankings
     {
         public string groupUid;
         public string sp;
-        public global::System.Collections.Generic.List<K_HttpRankZone> zones;
+        public global::System.Collections.Generic.IList<K_HttpRankZone> zones;
     }
 
     public struct K_HttpGetTopRankings
     {
         public string groupUid;
-        public global::System.Collections.Generic.List<K_HttpTopLeaderboard> tops;
+        public global::System.Collections.Generic.IList<K_HttpTopLeaderboard> tops;
     }
 
     public struct K_HttpGetTopRankingsInClub
@@ -156,7 +156,7 @@ public partial class LeaderboardAPI : ILib
         public string groupUid;
         public int clubId;
         public int length;
-        public global::System.Collections.Generic.List<K_HttpTop> top;
+        public global::System.Collections.Generic.IList<K_HttpTop> top;
     }
 
     public struct K_HttpGetPlayerMapRankings
@@ -164,14 +164,14 @@ public partial class LeaderboardAPI : ILib
         public string groupUid;
         public string mapUid;
         public int score;
-        public global::System.Collections.Generic.List<K_HttpRankZone> zones;
+        public global::System.Collections.Generic.IList<K_HttpRankZone> zones;
     }
 
     public struct K_HttpGetMapTopRankings
     {
         public string groupUid;
         public string mapUid;
-        public global::System.Collections.Generic.List<K_HttpTopScoreLeaderboard> tops;
+        public global::System.Collections.Generic.IList<K_HttpTopScoreLeaderboard> tops;
     }
 
     public struct K_HttpPlayerCloseToMedal
@@ -187,14 +187,14 @@ public partial class LeaderboardAPI : ILib
     {
         public string groupUid;
         public string mapUid;
-        public global::System.Collections.Generic.List<K_HttpPlayerCloseToMedal> medals;
+        public global::System.Collections.Generic.IList<K_HttpPlayerCloseToMedal> medals;
     }
 
     public struct K_HttpGetSurroundingRankings
     {
         public string groupUid;
         public string mapUid;
-        public global::System.Collections.Generic.List<K_HttpTopScoreLeaderboard> tops;
+        public global::System.Collections.Generic.IList<K_HttpTopScoreLeaderboard> tops;
     }
 
     public struct K_HttpGetPlayerMapRankingInClub
@@ -212,7 +212,7 @@ public partial class LeaderboardAPI : ILib
         public string mapUid;
         public int clubId;
         public int length;
-        public global::System.Collections.Generic.List<K_HttpTopScore> top;
+        public global::System.Collections.Generic.IList<K_HttpTopScore> top;
     }
 
     public struct K_HttpGetMapSurroundingRankingsInClub
@@ -220,14 +220,14 @@ public partial class LeaderboardAPI : ILib
         public string groupUid;
         public string mapUid;
         public int clubId;
-        public global::System.Collections.Generic.List<K_HttpTopScore> top;
+        public global::System.Collections.Generic.IList<K_HttpTopScore> top;
     }
 
     public struct K_HttpGetMapLevels
     {
         public string groupUid;
         public string mapUid;
-        public global::System.Collections.Generic.List<K_HttpLevel> levels;
+        public global::System.Collections.Generic.IList<K_HttpLevel> levels;
     }
 
     public struct K_HttpGetPlayerTrophyRanking
@@ -235,12 +235,12 @@ public partial class LeaderboardAPI : ILib
         public int countPoint;
         public string accountId;
         public int echelon;
-        public global::System.Collections.Generic.List<K_HttpRankZone> zones;
+        public global::System.Collections.Generic.IList<K_HttpRankZone> zones;
     }
 
     public struct K_HttpGetPlayersTrophyRanking
     {
-        public global::System.Collections.Generic.List<K_HttpGetPlayerTrophyRanking> rankings;
+        public global::System.Collections.Generic.IList<K_HttpGetPlayerTrophyRanking> rankings;
         public int length;
     }
 
@@ -248,12 +248,12 @@ public partial class LeaderboardAPI : ILib
     {
         public int countPoint;
         public string accountId;
-        public global::System.Collections.Generic.List<K_HttpRankZone> zones;
+        public global::System.Collections.Generic.IList<K_HttpRankZone> zones;
     }
 
     public struct K_HttpGetTopPlayersInRankedLeaderboard
     {
-        public global::System.Collections.Generic.List<K_HttpTopScoreLeaderboard> tops;
+        public global::System.Collections.Generic.IList<K_HttpTopScoreLeaderboard> tops;
     }
 
     public struct K_HttpPlayerPB
@@ -325,21 +325,21 @@ public partial class LeaderboardAPI : ILib
 
     public struct K_BodyGetServerSurrounding
     {
-        public global::System.Collections.Generic.List<K_BodyGetServerSurroundingPlayer> listPlayer;
+        public global::System.Collections.Generic.IList<K_BodyGetServerSurroundingPlayer> listPlayer;
     }
 
     public struct K_HttpSurround
     {
         public string accountId;
-        public global::System.Collections.Generic.List<K_HttpTopScore> surround;
+        public global::System.Collections.Generic.IList<K_HttpTopScore> surround;
     }
 
     public struct K_HttpResponseFromGetServerSurrounding
     {
         public string groupUid;
         public string mapUid;
-        public global::System.Collections.Generic.List<K_HttpTopScore> top;
-        public global::System.Collections.Generic.List<K_HttpSurround> surround;
+        public global::System.Collections.Generic.IList<K_HttpTopScore> top;
+        public global::System.Collections.Generic.IList<K_HttpSurround> surround;
     }
 
     public struct K_Top
@@ -352,7 +352,7 @@ public partial class LeaderboardAPI : ILib
     public struct K_ResponseFromGetServerSurrounding
     {
         public string MapUid;
-        public global::System.Collections.Generic.List<K_Top> WorldTops;
+        public global::System.Collections.Generic.IList<K_Top> WorldTops;
     }
 
     public struct K_TrophyPlayer
@@ -362,7 +362,7 @@ public partial class LeaderboardAPI : ILib
 
     public struct K_BodyGetPlayersTrophyRanking
     {
-        public global::System.Collections.Generic.List<K_TrophyPlayer> listPlayer;
+        public global::System.Collections.Generic.IList<K_TrophyPlayer> listPlayer;
         public bool onlyWorld;
     }
 
@@ -375,7 +375,7 @@ public partial class LeaderboardAPI : ILib
 
     public struct K_ResponseFromGetPlayersTrophyRanking
     {
-        public global::System.Collections.Generic.List<K_ResponseFromGetPlayerTrophyRanking> Players;
+        public global::System.Collections.Generic.IList<K_ResponseFromGetPlayerTrophyRanking> Players;
         public int Total;
     }
 }

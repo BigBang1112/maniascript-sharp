@@ -35,9 +35,9 @@ public partial class SimpleChoice : ILib
     /// <summary>Get the events constants</summary>
     public string Event_Click() => default!;
 
-    public void SetEvents(global::System.Collections.Generic.List<int> _Events) { }
+    public void SetEvents(global::System.Collections.Generic.IList<int> _Events) { }
 
-    public void SetOptions(global::System.Collections.Generic.Dictionary<string, string> _Options, global::System.Collections.Generic.List<int> _Events) { }
+    public void SetOptions(global::System.Collections.Generic.Dictionary<string, string> _Options, global::System.Collections.Generic.IList<int> _Events) { }
 
     /// <summary>Overload SetOptions()</summary>
     public void SetOptions(global::System.Collections.Generic.Dictionary<string, string> _Options) { }

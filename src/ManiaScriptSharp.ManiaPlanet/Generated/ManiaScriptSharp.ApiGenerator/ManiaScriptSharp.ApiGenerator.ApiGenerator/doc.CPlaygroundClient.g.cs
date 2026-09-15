@@ -25,11 +25,11 @@ public partial class CPlaygroundClient : CNod, ILocalProvider, IPersistentProvid
     public bool UseForcedClans { get; }
     public bool IsLoadingScreen { get; }
     public void QuitServer(bool Silent) { }
-    public void QuitServerAndSetResult(bool Silent, string Type, System.Collections.Generic.List<string> Data) { }
+    public void QuitServerAndSetResult(bool Silent, string Type, System.Collections.Generic.IList<string> Data) { }
     public bool IsInGameMenuDisplayed { get; }
     public void JoinTeam1() { }
     public void JoinTeam2() { }
-    public System.Collections.Generic.List<CTeam> Teams { get; }
+    public System.Collections.Generic.IList<CTeam> Teams { get; }
     /// <summary>Request change of IsSpectatorClient (not immediate, and it may be refused).</summary>
     public void RequestSpectatorClient(bool Spectator) { }
     public void SetSpectateTarget(string Player) { }

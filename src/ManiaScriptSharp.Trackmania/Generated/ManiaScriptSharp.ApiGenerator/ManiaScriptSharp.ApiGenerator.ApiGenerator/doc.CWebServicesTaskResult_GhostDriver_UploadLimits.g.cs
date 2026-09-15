@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Asynchronous task result. Supported declare modes : - Local</summary>
 public partial class CWebServicesTaskResult_GhostDriver_UploadLimits : CTaskResult, ILocalProvider
 {
-    public System.Collections.Generic.List<CTaskResult_GhostDriver_UploadLimit> Limits { get; set; }
+    public System.Collections.Generic.IList<CTaskResult_GhostDriver_UploadLimit> Limits { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

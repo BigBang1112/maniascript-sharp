@@ -235,15 +235,15 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public bool IsUsingPhysicMatLib { get; set; }
     public int MaterialGameplayIdNumber { get; }
     public int MaterialsUpdateId { get; }
-    public System.Collections.Generic.List<Ident> MaterialIds { get; set; }
-    public System.Collections.Generic.List<Ident> MaterialPhysicsIds { get; set; }
-    public System.Collections.Generic.List<Ident> MaterialDynaIds { get; set; }
-    public System.Collections.Generic.List<string> MaterialNames { get; set; }
-    public System.Collections.Generic.List<string> MaterialPhysicsNames { get; set; }
-    public System.Collections.Generic.List<int> MaterialPhysics_GameplayRemap { get; set; }
-    public System.Collections.Generic.List<string> MaterialDynaNames { get; set; }
-    public System.Collections.Generic.List<Vec3> MaterialLastUsedColors { get; set; }
-    public System.Collections.Generic.List<Vec3> MaterialBaseColors { get; set; }
+    public System.Collections.Generic.IList<Ident> MaterialIds { get; set; }
+    public System.Collections.Generic.IList<Ident> MaterialPhysicsIds { get; set; }
+    public System.Collections.Generic.IList<Ident> MaterialDynaIds { get; set; }
+    public System.Collections.Generic.IList<string> MaterialNames { get; set; }
+    public System.Collections.Generic.IList<string> MaterialPhysicsNames { get; set; }
+    public System.Collections.Generic.IList<int> MaterialPhysics_GameplayRemap { get; set; }
+    public System.Collections.Generic.IList<string> MaterialDynaNames { get; set; }
+    public System.Collections.Generic.IList<Vec3> MaterialLastUsedColors { get; set; }
+    public System.Collections.Generic.IList<Vec3> MaterialBaseColors { get; set; }
     public Vec3 CurrentColorForSpecialMaterials { get; set; }
     public Ident Material_GetMaterialIdSelected() => default!;
     public void Material_SetMaterialIdSelected(Ident MaterialEditorId) { }
@@ -400,7 +400,7 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public void SetOfFaces_ApplyMaterial(Ident SetHandle, Ident MaterialId) { }
     public void SetOfFaces_PlanarExpand(Ident FacesSetHandle) { }
     public void SetOfFaces_ChangeOrientation(Ident FacesSetHandle) { }
-    public System.Collections.Generic.List<string> PrefabNames { get; set; }
+    public System.Collections.Generic.IList<string> PrefabNames { get; set; }
     public int PrefabNamesUpdateId { get; }
     public int PrefabListCurrentPage { get; set; }
     public int Prefab_TotalNb { get; set; }
@@ -418,7 +418,7 @@ public partial class CEditorMesh : CEditorAsset, IMetadataProvider
     public void Copy() { }
     public void AddUndoState() { }
     public bool AutoSave(string FileName) => default!;
-    public System.Collections.Generic.List<CEditorEvent> PendingEvents { get; }
+    public System.Collections.Generic.IList<CEditorEvent> PendingEvents { get; }
     public bool MustClearLastSaveBuffer { get; set; }
     public bool IsExperimental { get; }
     public CEditorMesh.ETitleCoreType GetTitleCoreType() => default!;

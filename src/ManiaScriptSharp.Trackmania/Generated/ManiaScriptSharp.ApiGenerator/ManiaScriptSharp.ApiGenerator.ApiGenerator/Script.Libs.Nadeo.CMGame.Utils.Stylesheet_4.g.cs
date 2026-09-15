@@ -62,8 +62,8 @@ public partial class Stylesheet_4 : ILib
     public void CreateStyle(string _Style, global::System.Collections.Generic.Dictionary<string, string> _PropertyList) { }
 
     /// <summary>Inject a style list in the control manialink xml</summary>
-    public string StyleList(global::System.Collections.Generic.List<string> _StyleList) => default!;
+    public string StyleList(global::System.Collections.Generic.IList<string> _StyleList) => default!;
 
     /// <summary>Inject a disabled property list in the control manialink xml</summary>
-    public string DisabledPropertyList(global::System.Collections.Generic.List<string> _DisabledPropertyList) => default!;
+    public string DisabledPropertyList(global::System.Collections.Generic.IList<string> _DisabledPropertyList) => default!;
 }

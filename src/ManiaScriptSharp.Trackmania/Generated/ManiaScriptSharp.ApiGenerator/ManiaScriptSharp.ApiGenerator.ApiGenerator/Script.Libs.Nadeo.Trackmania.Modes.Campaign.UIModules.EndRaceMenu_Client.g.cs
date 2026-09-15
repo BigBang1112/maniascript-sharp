@@ -96,7 +96,7 @@ public partial class EndRaceMenu_Client : ILib
         public int DisplayMenuTime;
         public Vec2 MousePos;
         public K_Controls Controls;
-        public global::System.Collections.Generic.List<K_SoundToPlay> SoundsToPlay;
+        public global::System.Collections.Generic.IList<K_SoundToPlay> SoundsToPlay;
         public K_Animation MedalsAnimation;
         public K_Animation TrophyAnimation;
         public K_Animation BannerSlideAnimation;

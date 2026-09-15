@@ -18,7 +18,7 @@ public partial class PlayerData : ILib
 
     public struct K_Times
     {
-        public global::System.Collections.Generic.List<int> SegmentRaceTimes;
+        public global::System.Collections.Generic.IList<int> SegmentRaceTimes;
         public int Total;
     }
 }

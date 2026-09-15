@@ -37,13 +37,13 @@ public partial class LiveRanking_Server : ILib
 
     /// <summary>Update the list of players that finished race</summary>
     /// <param name="PlayerFinishedRace">List of players that finished race</param>
-    public void SetPlayerFinishedRace(global::System.Collections.Generic.List<string> _PlayerFinishedRace) { }
+    public void SetPlayerFinishedRace(global::System.Collections.Generic.IList<string> _PlayerFinishedRace) { }
 
     /// <summary>Set the ranking mode</summary>
     public void SetRankingMode(int _RankingMode) { }
 
     /// <summary>Send the Points Repartition of the match</summary>
-    public void SetPointsRepartition(global::System.Collections.Generic.List<int> _PointsRepartition) { }
+    public void SetPointsRepartition(global::System.Collections.Generic.IList<int> _PointsRepartition) { }
 
     /// <summary>Unload the library</summary>
     public void Unload() { }

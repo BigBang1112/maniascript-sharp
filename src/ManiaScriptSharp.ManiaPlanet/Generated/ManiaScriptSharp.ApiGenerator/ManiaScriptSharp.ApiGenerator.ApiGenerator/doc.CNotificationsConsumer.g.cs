@@ -19,9 +19,9 @@ public partial class CNotificationsConsumer : CNod
     }
 
     /// <summary>Events</summary>
-    public System.Collections.Generic.List<CNotificationsConsumerEvent> Events { get; }
+    public System.Collections.Generic.IList<CNotificationsConsumerEvent> Events { get; }
     /// <summary>List of the Notifications.</summary>
-    public System.Collections.Generic.List<CNotificationsConsumerNotification> Notifications { get; }
-    public System.Collections.Generic.List<CNotificationsConsumerNotification> FilteredNotifications { get; }
+    public System.Collections.Generic.IList<CNotificationsConsumerNotification> Notifications { get; }
+    public System.Collections.Generic.IList<CNotificationsConsumerNotification> FilteredNotifications { get; }
     public EFilterPriority Filter_Priority { get; set; }
 }

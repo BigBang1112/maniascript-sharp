@@ -106,7 +106,7 @@ public partial class CSmPlayerDriver : CNod
     public CSmPlayer Follow_Leader { get; set; }
     public Vec3 Follow_AnchorPoint { get; set; }
     public CSmPlayer ForcedTarget { get; set; }
-    public System.Collections.Generic.List<CSmPlayer> TargetsToAvoid { get; set; }
+    public System.Collections.Generic.IList<CSmPlayer> TargetsToAvoid { get; set; }
     public bool PredictJump { get; set; }
     public bool UsePathFinding { get; set; }
     public CSmMode.EActionInput OnStuckInput { get; set; }
@@ -118,7 +118,7 @@ public partial class CSmPlayerDriver : CNod
     /// <summary>How long the driver will try to chase its target after it can't see it, 0 to disable.</summary>
     public int LostTargetChaseDuration { get; set; }
     /// <summary>Flocking is a work in progress. You need to fill this array and define a default behaviour for each member of the flock.</summary>
-    public System.Collections.Generic.List<CSmPlayerDriver> FlockPartners { get; set; }
+    public System.Collections.Generic.IList<CSmPlayerDriver> FlockPartners { get; set; }
     /// <summary>Flocking is a work in progress. How far the driver see its neighbours.</summary>
     public float FlockRadius { get; set; }
     /// <summary>Flocking is a work in progress. The field of view angle the driver uses to see its neighbours. Value in degrees.Values in range (0.000000-360.000000)</summary>

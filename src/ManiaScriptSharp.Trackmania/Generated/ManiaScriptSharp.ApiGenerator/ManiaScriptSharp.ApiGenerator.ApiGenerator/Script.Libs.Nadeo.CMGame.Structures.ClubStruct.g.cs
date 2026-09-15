@@ -142,14 +142,14 @@ public partial class ClubStruct : ILib
         public int MaxPlayers;
         public string ScriptName;
         public int CampaignId;
-        public global::System.Collections.Generic.List<string> MapUids;
+        public global::System.Collections.Generic.IList<string> MapUids;
         public string MediaUrl;
         public int PopularityLevel;
         public int CreationTimestamp;
         public bool Scalable;
         public bool ShufflePlaylist;
         public bool HasPassword;
-        public global::System.Collections.Generic.List<LibStructuresClub_K_ScriptSetting> ScriptSettings;
+        public global::System.Collections.Generic.IList<LibStructuresClub_K_ScriptSetting> ScriptSettings;
         public LibStructuresClub_K_ServerInfo ServerInfo;
         public string CreatorAccountId;
         public string LatestEditorAccountId;
@@ -160,7 +160,7 @@ public partial class ClubStruct : ILib
         public string ItemId;
         public int Position;
         public string Description;
-        public global::System.Collections.Generic.List<string> MediaUrls;
+        public global::System.Collections.Generic.IList<string> MediaUrls;
     }
 
     public struct LibStructuresClub_K_BucketActivity
@@ -172,7 +172,7 @@ public partial class ClubStruct : ILib
         public string MediaUrl;
         public int ClubId;
         public int CreationTimestamp;
-        public global::System.Collections.Generic.List<LibStructuresClub_K_BucketItem> BucketItemList;
+        public global::System.Collections.Generic.IList<LibStructuresClub_K_BucketItem> BucketItemList;
         public int BucketItemCount;
         public int PopularityLevel;
         public int PopularityValue;

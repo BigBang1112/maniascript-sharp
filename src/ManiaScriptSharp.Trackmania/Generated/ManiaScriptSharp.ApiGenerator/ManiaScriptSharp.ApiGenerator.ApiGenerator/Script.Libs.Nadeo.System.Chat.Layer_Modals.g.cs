@@ -17,5 +17,5 @@ public partial class Layer_Modals : ILib
 
     public void SetColorScheme(Vec3 _Background, Vec3 _Highlights) { }
 
-    public void ShowModal(string _Title, string _Text, string _ImageURL, bool _IsTransfer, global::System.Collections.Generic.List<string> _Actions) { }
+    public void ShowModal(string _Title, string _Text, string _ImageURL, bool _IsTransfer, global::System.Collections.Generic.IList<string> _Actions) { }
 }

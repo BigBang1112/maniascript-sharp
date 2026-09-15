@@ -30,7 +30,7 @@ public partial class LoadingScreen : ILib
 
     public struct K_LoadingScreen
     {
-        public global::System.Collections.Generic.List<K_LoadingScreenImage> ImageList;
+        public global::System.Collections.Generic.IList<K_LoadingScreenImage> ImageList;
         public string TrackingUid;
         public string DefaultMessage;
     }
@@ -47,7 +47,7 @@ public partial class LoadingScreen : ILib
     {
         public K_LoadingScreen TitleMenuLoadingScreen;
         public int TitleMenuLoadingScreenUpdate;
-        public global::System.Collections.Generic.List<int> AdBag;
+        public global::System.Collections.Generic.IList<int> AdBag;
         public K_Private_TOTDScreen TOTDScreen;
         public string TrackingUid;
         public int TrackingStartViewTime;

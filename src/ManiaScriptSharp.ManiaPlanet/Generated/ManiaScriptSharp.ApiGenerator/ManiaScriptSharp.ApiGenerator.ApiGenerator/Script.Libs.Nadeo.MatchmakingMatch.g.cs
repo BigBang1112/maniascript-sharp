@@ -129,7 +129,7 @@ public partial class MatchmakingMatch : ILib
 
     /// <summary>Get the list of kicked players</summary>
     /// <returns>A list of kicked players</returns>
-    public global::System.Collections.Generic.List<string> GetKickedPlayers() => default!;
+    public global::System.Collections.Generic.IList<string> GetKickedPlayers() => default!;
 
     /// <summary>Check if a login is in the list of kicked players</summary>
     /// <param name="Login">The login to check</param>
@@ -138,11 +138,11 @@ public partial class MatchmakingMatch : ILib
 
     /// <summary>Set the clans scores</summary>
     /// <param name="Scores">The new scores</param>
-    public void SetScores(global::System.Collections.Generic.List<int> _Scores) { }
+    public void SetScores(global::System.Collections.Generic.IList<int> _Scores) { }
 
     /// <summary>Get the clans scores</summary>
     /// <returns>An array containing the scores of the clas</returns>
-    public global::System.Collections.Generic.List<int> GetScores() => default!;
+    public global::System.Collections.Generic.IList<int> GetScores() => default!;
 
     /// <summary>Clear the clans scores</summary>
     public void ResetScores() { }

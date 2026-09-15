@@ -35,7 +35,7 @@ public partial class WebServicesAPI : ILib
 
     public int ChannelGridRequestStatus() => default!;
 
-    public void GetTitlesList(int _Offset, int _Length, string _Order, global::System.Collections.Generic.List<string> _Filters) { }
+    public void GetTitlesList(int _Offset, int _Length, string _Order, global::System.Collections.Generic.IList<string> _Filters) { }
 
     public bool PendingStoreListRequest() => default!;
 
@@ -55,7 +55,7 @@ public partial class WebServicesAPI : ILib
 
     public string LastStoreSortingOrder() => default!;
 
-    public global::System.Collections.Generic.List<string> LastStoreActiveFilters() => default!;
+    public global::System.Collections.Generic.IList<string> LastStoreActiveFilters() => default!;
 
     public void NewProgramInfoRequest(int _ProgramId) { }
 

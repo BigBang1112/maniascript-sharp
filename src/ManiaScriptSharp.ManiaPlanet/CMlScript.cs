@@ -31,7 +31,7 @@ public partial class CMlScript
     [ManiaScriptEvent(nameof(PendingEvents))]
     public delegate void PluginCustomEventEventHandler(
         [MemberName(nameof(CMlScriptEvent.CustomEventType))] string type,
-        [MemberName(nameof(CMlScriptEvent.CustomEventData))] List<string> data);
+        [MemberName(nameof(CMlScriptEvent.CustomEventData))] IList<string> data);
 
     // Subscribe to these with += in the constructor or Main().
     // The generator consumes the subscription and emits a foreach/switch in the

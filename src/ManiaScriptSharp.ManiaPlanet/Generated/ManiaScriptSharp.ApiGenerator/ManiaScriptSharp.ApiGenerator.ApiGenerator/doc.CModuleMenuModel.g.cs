@@ -9,7 +9,7 @@ namespace ManiaScriptSharp;
 
 public partial class CModuleMenuModel : CNod
 {
-    public System.Collections.Generic.List<CModuleMenuPageModel> Pages { get; set; }
+    public System.Collections.Generic.IList<CModuleMenuPageModel> Pages { get; set; }
     public CModuleMenuPageModel AddPage(string PageUrl) => default!;
     public void AddLink(CModuleMenuPageModel ParentPage, CModuleMenuPageModel ChildPage) { }
     public string MenuScript { get; set; }

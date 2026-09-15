@@ -51,8 +51,8 @@ public partial class Royal : ILib
     {
         public int Id;
         public global::System.Collections.Generic.Dictionary<string, K_Member> Members;
-        public global::System.Collections.Generic.List<int> SegmentTimes;
-        public global::System.Collections.Generic.List<int> SegmentMinSpawnTimes;
+        public global::System.Collections.Generic.IList<int> SegmentTimes;
+        public global::System.Collections.Generic.IList<int> SegmentMinSpawnTimes;
         public bool Eliminated;
         public int Rank;
         public int PreviousMapRank;
@@ -66,8 +66,8 @@ public partial class Royal : ILib
 
     public struct K_LastTeams
     {
-        public global::System.Collections.Generic.List<int> Eliminated;
-        public global::System.Collections.Generic.List<int> Tie;
+        public global::System.Collections.Generic.IList<int> Eliminated;
+        public global::System.Collections.Generic.IList<int> Tie;
     }
 
     public struct K_RankingUpdate
@@ -131,9 +131,9 @@ public partial class Royal : ILib
     public void SetEliminationRank(int _Rank) { }
 
     /// <summary>Update the teams ranking</summary>
-    public global::System.Collections.Generic.List<K_Team> UpdateRanking(bool _UpdateScoresTable) => default!;
+    public global::System.Collections.Generic.IList<K_Team> UpdateRanking(bool _UpdateScoresTable) => default!;
 
-    public global::System.Collections.Generic.List<K_Team> UpdateRanking() => default!;
+    public global::System.Collections.Generic.IList<K_Team> UpdateRanking() => default!;
 
     /// <summary>Update the current map ranking</summary>
     public void ThrottleUpdateRanking() { }
@@ -144,12 +144,12 @@ public partial class Royal : ILib
     public int GetEliminationsNb(int _TargetRoundsNb, int _PlayedRoundsNb) => default!;
 
     /// <summary>Eliminate the last teams</summary>
-    public global::System.Collections.Generic.List<K_Team> EliminateLastTeams(int _EliminatedTeamsNb) => default!;
+    public global::System.Collections.Generic.IList<K_Team> EliminateLastTeams(int _EliminatedTeamsNb) => default!;
 
     /// <summary>Eliminate the last teams</summary>
     /// <param name="TargetRoundsNb">The number of rounds that should be played in a complete match</param>
     /// <param name="PlayedRoundsNb">The number of rounds played since the beginning of the match</param>
-    public global::System.Collections.Generic.List<K_Team> EliminateLastTeams(int _TargetRoundsNb, int _PlayedRoundsNb) => default!;
+    public global::System.Collections.Generic.IList<K_Team> EliminateLastTeams(int _TargetRoundsNb, int _PlayedRoundsNb) => default!;
 
     /// <summary>Save the current rank in the previous map rank</summary>
     public void UpdatePreviousMapRank() { }

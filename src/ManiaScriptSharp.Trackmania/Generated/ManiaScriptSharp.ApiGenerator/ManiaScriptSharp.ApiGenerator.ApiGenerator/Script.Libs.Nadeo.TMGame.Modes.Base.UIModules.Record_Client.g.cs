@@ -151,10 +151,10 @@ public partial class Record_Client : ILib
         public int RecordsSelectedZone;
         public int RecordsPlayerTime;
         public int RecordsServerUpdate;
-        public global::System.Collections.Generic.List<int> RecordsAreDirty;
-        public global::System.Collections.Generic.List<int> RecordsNeedInit;
+        public global::System.Collections.Generic.IList<int> RecordsAreDirty;
+        public global::System.Collections.Generic.IList<int> RecordsNeedInit;
         public bool RequestRecordsInProgress;
-        public global::System.Collections.Generic.List<int> RecordsErrorCodes;
+        public global::System.Collections.Generic.IList<int> RecordsErrorCodes;
         public global::System.Collections.Generic.Dictionary<string, int> ResponseClubVIPRecords;
         public global::System.Collections.Generic.Dictionary<string, int> ResponseGlobalVIPRecords;
         public bool LoadingRecords;

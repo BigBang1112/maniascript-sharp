@@ -94,7 +94,7 @@ public partial class ButtonIcon2 : ILib
         public Ident Id;
         public K_Controls Controls;
         public K_Properties Properties;
-        public global::System.Collections.Generic.List<int> DirtyProperties;
+        public global::System.Collections.Generic.IList<int> DirtyProperties;
     }
 
     public struct K_ActivePad
@@ -117,8 +117,8 @@ public partial class ButtonIcon2 : ILib
         public K_ActivePad ActivePad;
         public Ident KeyboardId;
         public bool IsUsingMouse;
-        public global::System.Collections.Generic.List<Ident> HideForMouseIds;
-        public global::System.Collections.Generic.List<K_Event> PendingEvents;
+        public global::System.Collections.Generic.IList<Ident> HideForMouseIds;
+        public global::System.Collections.Generic.IList<K_Event> PendingEvents;
         public bool ActivePadCheckEnabled;
         public bool HideForMouseEnabled;
         public int NextActivePadCheckTime;

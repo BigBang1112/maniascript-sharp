@@ -24,5 +24,5 @@ public partial class Layer_Inputs : ILib
 
     public void SetColor(Vec3 _Color) { }
 
-    public void SetInputCategories(global::System.Collections.Generic.List<int> _Sizes, global::System.Collections.Generic.List<string> _Names) { }
+    public void SetInputCategories(global::System.Collections.Generic.IList<int> _Sizes, global::System.Collections.Generic.IList<string> _Names) { }
 }

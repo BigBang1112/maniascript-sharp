@@ -38,7 +38,7 @@ public partial class Teams : ILib
 
     public struct K_Message
     {
-        public global::System.Collections.Generic.List<string> Customize;
+        public global::System.Collections.Generic.IList<string> Customize;
         public string VideoUrl;
         public Int2 VideoResolution;
         public int VideoDelay;
@@ -79,13 +79,13 @@ public partial class Teams : ILib
         public string Sign16x9Url;
         public string Sign64x10Url;
         public K_Messages Messages;
-        public global::System.Collections.Generic.List<K_Player> Players;
+        public global::System.Collections.Generic.IList<K_Player> Players;
     }
 
     public struct K_TeamsLoading
     {
         public bool IsLoading;
-        public global::System.Collections.Generic.List<K_Team> Teams;
+        public global::System.Collections.Generic.IList<K_Team> Teams;
     }
 
     public struct K_TeamSelection
@@ -104,7 +104,7 @@ public partial class Teams : ILib
     public K_TeamsLoading UpdateLoading(K_TeamsLoading _TeamsLoading) => default!;
 
     /// <summary>Set teams on the server and send them to the clients</summary>
-    public void SetTeamsInfo(global::System.Collections.Generic.List<K_Team> _Teams) { }
+    public void SetTeamsInfo(global::System.Collections.Generic.IList<K_Team> _Teams) { }
 
     /// <summary>Reset the clans associated to the players by the matchmaking</summary>
     public void ResetMatchmakingClans() { }

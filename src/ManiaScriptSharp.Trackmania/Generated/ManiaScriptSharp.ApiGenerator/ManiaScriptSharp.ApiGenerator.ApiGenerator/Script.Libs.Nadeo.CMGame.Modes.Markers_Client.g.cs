@@ -28,7 +28,7 @@ public partial class Markers_Client : ILib
     public void AddPlayerMarkerComponent(string _ComponentName, string _Component) { }
 
     /// <summary>Remove a component from the players' markers</summary>
-    public void RemovePlayerMarkerComponents(global::System.Collections.Generic.List<string> _ComponentNames) { }
+    public void RemovePlayerMarkerComponents(global::System.Collections.Generic.IList<string> _ComponentNames) { }
 
     public void RemovePlayerMarkerComponent(string _ComponentName) { }
 

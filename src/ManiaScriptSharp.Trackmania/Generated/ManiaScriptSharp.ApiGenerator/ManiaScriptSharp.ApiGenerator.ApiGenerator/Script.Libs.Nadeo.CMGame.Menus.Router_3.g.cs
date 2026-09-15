@@ -40,19 +40,19 @@ public partial class Router_3 : ILib
         public int Type;
         public int PushMode;
         public K_RoutePath FromRoutePathLeaf;
-        public global::System.Collections.Generic.List<K_RoutePath> FromRoutePathList;
+        public global::System.Collections.Generic.IList<K_RoutePath> FromRoutePathList;
         public K_RoutePath ToRoutePathLeaf;
-        public global::System.Collections.Generic.List<K_RoutePath> ToRoutePathList;
-        public global::System.Collections.Generic.List<string> AddFragmentIdList;
-        public global::System.Collections.Generic.List<string> EnableFragmentIdList;
-        public global::System.Collections.Generic.List<string> RemoveFragmentIdList;
-        public global::System.Collections.Generic.List<string> DisableFragmentIdList;
+        public global::System.Collections.Generic.IList<K_RoutePath> ToRoutePathList;
+        public global::System.Collections.Generic.IList<string> AddFragmentIdList;
+        public global::System.Collections.Generic.IList<string> EnableFragmentIdList;
+        public global::System.Collections.Generic.IList<string> RemoveFragmentIdList;
+        public global::System.Collections.Generic.IList<string> DisableFragmentIdList;
     }
 
     public struct K_PushOptions
     {
         public int PushMode;
-        public global::System.Collections.Generic.List<K_RoutePath> FallbackRoutePathList;
+        public global::System.Collections.Generic.IList<K_RoutePath> FallbackRoutePathList;
     }
 
     public struct K_Private_Fragment
@@ -64,27 +64,27 @@ public partial class Router_3 : ILib
     public struct K_Private_Route
     {
         public string Id;
-        public global::System.Collections.Generic.List<string> FragmentIdList;
+        public global::System.Collections.Generic.IList<string> FragmentIdList;
     }
 
     public struct K_Private_PendingTransition
     {
-        public global::System.Collections.Generic.List<K_RoutePath> ToRoutePathList;
+        public global::System.Collections.Generic.IList<K_RoutePath> ToRoutePathList;
         public K_PushOptions PushOptions;
     }
 
     public struct K_Private_ActiveTransition
     {
         public K_RoutePath FromRoutePathLeaf;
-        public global::System.Collections.Generic.List<K_RoutePath> FromRoutePathList;
+        public global::System.Collections.Generic.IList<K_RoutePath> FromRoutePathList;
         public K_RoutePath ToRoutePathLeaf;
-        public global::System.Collections.Generic.List<K_RoutePath> ToRoutePathList;
-        public global::System.Collections.Generic.List<string> RemoveRouteIdList;
-        public global::System.Collections.Generic.List<string> RemoveFragmentIdList;
-        public global::System.Collections.Generic.List<string> DisableFragmentIdList;
-        public global::System.Collections.Generic.List<string> AddRouteIdList;
-        public global::System.Collections.Generic.List<string> AddFragmentIdList;
-        public global::System.Collections.Generic.List<string> EnableFragmentIdList;
+        public global::System.Collections.Generic.IList<K_RoutePath> ToRoutePathList;
+        public global::System.Collections.Generic.IList<string> RemoveRouteIdList;
+        public global::System.Collections.Generic.IList<string> RemoveFragmentIdList;
+        public global::System.Collections.Generic.IList<string> DisableFragmentIdList;
+        public global::System.Collections.Generic.IList<string> AddRouteIdList;
+        public global::System.Collections.Generic.IList<string> AddFragmentIdList;
+        public global::System.Collections.Generic.IList<string> EnableFragmentIdList;
         public K_PushOptions PushOptions;
         public int Progress;
         public bool NeedPrivilegeListCheck;
@@ -98,18 +98,18 @@ public partial class Router_3 : ILib
     {
         public global::System.Collections.Generic.Dictionary<string, K_Private_Fragment> FragmentList;
         public global::System.Collections.Generic.Dictionary<string, K_Private_Route> RouteList;
-        public global::System.Collections.Generic.List<K_RoutePath> CurrentRoutePathList;
+        public global::System.Collections.Generic.IList<K_RoutePath> CurrentRoutePathList;
         public K_PushOptions CurrentPushOptions;
-        public global::System.Collections.Generic.List<string> CurrentFragmentIdList;
-        public global::System.Collections.Generic.List<string> CurrentLeafFragmentIdList;
+        public global::System.Collections.Generic.IList<string> CurrentFragmentIdList;
+        public global::System.Collections.Generic.IList<string> CurrentLeafFragmentIdList;
         public global::System.Collections.Generic.Dictionary<string, Ident> FragmentLayerIdList;
-        public global::System.Collections.Generic.List<K_Event> PendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> PendingEvents;
         public K_Private_PendingTransition PendingTransition;
         public K_Private_ActiveTransition ActiveTransition;
     }
 
     /// <summary>Check if a route id exists in a list of route path</summary>
-    public bool RouteIdExistsInRoutePathList(string _RouteId, global::System.Collections.Generic.List<K_RoutePath> _RoutePathList) => default!;
+    public bool RouteIdExistsInRoutePathList(string _RouteId, global::System.Collections.Generic.IList<K_RoutePath> _RoutePathList) => default!;
 
     /// <summary>Check if we are leaving the given route in the event</summary>
     public bool IsLeavingRoute(K_Event _Event, string _RouteId, bool _CheckLeafOnly) => default!;

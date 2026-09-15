@@ -83,14 +83,14 @@ public partial class SkinSelection : ILib
 
     public void ToggleBgFg() { }
 
-    public global::System.Collections.Generic.List<Int3> GetBlockCoords() => default!;
+    public global::System.Collections.Generic.IList<Int3> GetBlockCoords() => default!;
 
     /// <summary>Note, if we have G_SkinnableBlockCoords &gt; 1, this may be false even though we may have items (perf reasons)</summary>
     public bool HasSkinnableItems() => default!;
 
     public int GetMultiSkinIndex(string _SkinPreviewName) => default!;
 
-    public global::System.Collections.Generic.List<string> GetAcceptableSkinsForMultiSkin(int _MultiSkinIndex) => default!;
+    public global::System.Collections.Generic.IList<string> GetAcceptableSkinsForMultiSkin(int _MultiSkinIndex) => default!;
 
     public int GetMultiSkinsCount() => default!;
 

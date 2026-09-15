@@ -14,13 +14,13 @@ public partial class CTmMlScriptIngame : CMlScriptIngame, ILocalProvider, IPersi
     public CTmMlPlayer GUIPlayer { get; }
     public int NbLaps { get; }
     public bool IndependantLaps { get; }
-    public System.Collections.Generic.List<CTmMlPlayer> Players { get; }
-    public System.Collections.Generic.List<CTmScore> Scores { get; }
-    public System.Collections.Generic.List<int> ClanScores { get; }
+    public System.Collections.Generic.IList<CTmMlPlayer> Players { get; }
+    public System.Collections.Generic.IList<CTmScore> Scores { get; }
+    public System.Collections.Generic.IList<int> ClanScores { get; }
     public Vec3 MapStartLinePos { get; }
     /// <summary>You can use MapCheckpointPos.count to get the number of checkpoints.</summary>
-    public System.Collections.Generic.List<Vec3> MapCheckpointPos { get; }
-    public System.Collections.Generic.List<Vec3> MapFinishLinePos { get; }
+    public System.Collections.Generic.IList<Vec3> MapCheckpointPos { get; }
+    public System.Collections.Generic.IList<Vec3> MapFinishLinePos { get; }
     public bool MapIsLapRace { get; }
     public int MapNbLaps { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];

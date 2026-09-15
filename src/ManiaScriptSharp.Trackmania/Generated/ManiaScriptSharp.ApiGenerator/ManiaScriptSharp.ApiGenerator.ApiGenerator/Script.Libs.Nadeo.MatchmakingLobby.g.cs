@@ -143,7 +143,7 @@ public partial class MatchmakingLobby : ILib
     /// <summary>Add several players to the masters list</summary>
     /// <param name="Player">The player to add</param>
     /// <param name="Timestamp">The last time this player was a master</param>
-    public void AddMasters(global::System.Collections.Generic.List<string> _Logins) { }
+    public void AddMasters(global::System.Collections.Generic.IList<string> _Logins) { }
 
     /// <summary>Parse the matches XML and send player to their match server</summary>
     /// <param name="MatchesXML">The XML containing the matches</param>
@@ -158,11 +158,11 @@ public partial class MatchmakingLobby : ILib
     /// <summary>Find a free slot in the room</summary>
     /// <param name="Id">Id of the room to scan</param>
     /// <returns>An array with the clan and free slot numbers [Clan, Slot]</returns>
-    public global::System.Collections.Generic.List<int> GetRoomFreeSlot(int _Id) => default!;
+    public global::System.Collections.Generic.IList<int> GetRoomFreeSlot(int _Id) => default!;
 
     /// <summary>Update the format currently used in the lobby</summary>
     /// <param name="Format">The format to set</param>
-    public void UpdateMatchFormat(global::System.Collections.Generic.List<int> _Format) { }
+    public void UpdateMatchFormat(global::System.Collections.Generic.IList<int> _Format) { }
 
     /// <summary>Update the maximum number of players in a team</summary>
     /// <param name="MaxPlayers">The maximum number of players</param>
@@ -213,7 +213,7 @@ public partial class MatchmakingLobby : ILib
 
     /// <summary>Manage XmlRpx events for the lobby</summary>
     /// <returns>An array of actions to execute</returns>
-    public global::System.Collections.Generic.List<string> MM_ManageXmlRpcEvents() => default!;
+    public global::System.Collections.Generic.IList<string> MM_ManageXmlRpcEvents() => default!;
 
     /// <summary>Update the UI</summary>
     public void UpdateUI() { }

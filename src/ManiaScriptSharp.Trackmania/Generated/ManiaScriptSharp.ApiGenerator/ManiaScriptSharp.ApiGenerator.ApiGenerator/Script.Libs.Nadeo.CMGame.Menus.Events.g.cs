@@ -22,7 +22,7 @@ public partial class Events : ILib
     /// <summary>Send an event from the ManiaApp that will be relayed back to the ManiaApp through a manialink. This allow to create an event communication bus between between different parts of the ManiaApp</summary>
     /// <param name="Type">A unique identifier for the event</param>
     /// <param name="Data">The data to transmit with the event</param>
-    public void Send(string _Type, global::System.Collections.Generic.List<string> _Data) { }
+    public void Send(string _Type, global::System.Collections.Generic.IList<string> _Data) { }
 
     /// <summary>Get the manialink that will relay the events sent by the mania app back to the mania app itself</summary>
     public string GetEventRelayML() => default!;

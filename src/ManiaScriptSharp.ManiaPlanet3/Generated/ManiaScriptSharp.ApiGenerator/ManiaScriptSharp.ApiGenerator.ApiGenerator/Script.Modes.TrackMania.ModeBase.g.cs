@@ -108,7 +108,7 @@ public partial class ModeBase : ILib
 
     /// <summary>Create a new match on the ladder and register a list of scores</summary>
     /// <param name="Scores">The list of scores to register on the ladder</param>
-    public void MB_Ladder_OpenMatch(global::System.Collections.Generic.List<CScore> _Scores) { }
+    public void MB_Ladder_OpenMatch(global::System.Collections.Generic.IList<CScore> _Scores) { }
 
     /// <summary>Close the current match on the ladder</summary>
     public void MB_Ladder_CloseMatch() { }

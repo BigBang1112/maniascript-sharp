@@ -41,7 +41,7 @@ public partial class AdvertController : ILib
 
     public struct SAdCampaignsList
     {
-        public global::System.Collections.Generic.List<SAd> displayList;
+        public global::System.Collections.Generic.IList<SAd> displayList;
     }
 
     public struct SImpressionReport
@@ -52,7 +52,7 @@ public partial class AdvertController : ILib
 
     public struct SImpressionReportsList
     {
-        public global::System.Collections.Generic.List<SImpressionReport> campaignImpressions;
+        public global::System.Collections.Generic.IList<SImpressionReport> campaignImpressions;
     }
 
     public void Load() { }

@@ -81,7 +81,7 @@ public partial class ExpendableAsset_2 : ILib
 
     public struct K_Properties
     {
-        public global::System.Collections.Generic.List<int> Enabled;
+        public global::System.Collections.Generic.IList<int> Enabled;
         public global::System.Collections.Generic.Dictionary<int, K_Image> Images;
         public Vec2 Size;
         public Vec3 Color;
@@ -95,7 +95,7 @@ public partial class ExpendableAsset_2 : ILib
         public K_Controls Controls;
         public K_Properties LocalProperties;
         public K_Properties MergedProperties;
-        public global::System.Collections.Generic.List<string> Styles;
+        public global::System.Collections.Generic.IList<string> Styles;
     }
 
     public struct K_Global

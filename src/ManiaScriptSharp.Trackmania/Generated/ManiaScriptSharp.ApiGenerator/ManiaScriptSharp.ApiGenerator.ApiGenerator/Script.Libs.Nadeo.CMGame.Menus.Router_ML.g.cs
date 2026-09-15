@@ -53,8 +53,8 @@ public partial class Router_ML : ILib
         public K_Router_URL URL;
         public K_Router_URL ParentURL;
         public Ident LayerId;
-        public global::System.Collections.Generic.List<string> Overlays;
-        public global::System.Collections.Generic.List<string> ExcludedOverlays;
+        public global::System.Collections.Generic.IList<string> Overlays;
+        public global::System.Collections.Generic.IList<string> ExcludedOverlays;
         public int TransitionIn;
         public int TransitionOut;
         public int PreloadStatus;
@@ -67,7 +67,7 @@ public partial class Router_ML : ILib
         public bool KeepPreviousPagesDisplayed;
         public bool HidePreviousPage;
         public bool ShowParentPage;
-        public global::System.Collections.Generic.List<string> ExcludeOverlays;
+        public global::System.Collections.Generic.IList<string> ExcludeOverlays;
     }
 
     public struct K_RouterEvent

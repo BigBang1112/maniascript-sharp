@@ -11,13 +11,13 @@ public partial class CUIConfigMgr : CNod
 {
     public void ResetAll() { }
     public CUIConfig UIAll { get; }
-    public System.Collections.Generic.List<CUIConfig> UI { get; }
+    public System.Collections.Generic.IList<CUIConfig> UI { get; }
     public CUIConfig GetUI(CPlayer Player) => default!;
     public CUIConfig GetUI(CUser User) => default!;
-    public System.Collections.Generic.List<CUILayer> UILayers { get; }
+    public System.Collections.Generic.IList<CUILayer> UILayers { get; }
     public CUILayer UILayerCreate() => default!;
     public void UILayerDestroy(CUILayer Layer) { }
     public void UILayerDestroyAll() { }
-    public System.Collections.Generic.List<CUILayer> UIReplayLayers { get; }
+    public System.Collections.Generic.IList<CUILayer> UIReplayLayers { get; }
     public int UISequenceMaxDuration { get; set; }
 }

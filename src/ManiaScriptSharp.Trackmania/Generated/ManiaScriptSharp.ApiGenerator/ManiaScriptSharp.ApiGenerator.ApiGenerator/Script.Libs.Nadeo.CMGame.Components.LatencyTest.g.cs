@@ -56,7 +56,7 @@ public partial class LatencyTest : ILib
         public int InputsToTake;
         public int LastQuarterPeriod;
         public int StartTime;
-        public global::System.Collections.Generic.List<int> Latencies;
+        public global::System.Collections.Generic.IList<int> Latencies;
         public K_Controls Controls;
     }
 
@@ -64,8 +64,8 @@ public partial class LatencyTest : ILib
     {
         public int AverageLatency;
         public int PersonalBest;
-        public global::System.Collections.Generic.List<K_Event> DelayedPendingEvents;
-        public global::System.Collections.Generic.List<K_Event> PendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> DelayedPendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> PendingEvents;
     }
 
     /// <summary>Get the component</summary>

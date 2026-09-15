@@ -24,8 +24,8 @@ public partial class History2 : ILib
     {
         public int Action;
         public int Mode;
-        public global::System.Collections.Generic.List<Ident> MacroblockModelsIds;
-        public global::System.Collections.Generic.List<Int3> MacroblocksCoords;
+        public global::System.Collections.Generic.IList<Ident> MacroblockModelsIds;
+        public global::System.Collections.Generic.IList<Int3> MacroblocksCoords;
     }
 
     public string GetScriptVersion() => default!;
@@ -63,16 +63,16 @@ public partial class History2 : ILib
     public int GetMode() => default!;
 
     /// <summary>Get the macroblocks models ids at the given cursor</summary>
-    public global::System.Collections.Generic.List<Ident> GetMacroblockModelsIds(int _Cursor) => default!;
+    public global::System.Collections.Generic.IList<Ident> GetMacroblockModelsIds(int _Cursor) => default!;
 
     /// <summary>Get the macroblocks models ids at the current cursor</summary>
-    public global::System.Collections.Generic.List<Ident> GetMacroblockModelsIds() => default!;
+    public global::System.Collections.Generic.IList<Ident> GetMacroblockModelsIds() => default!;
 
     /// <summary>Get the macroblocks coordinates at the given cursor</summary>
-    public global::System.Collections.Generic.List<Int3> GetMacroblocksCoords(int _Cursor) => default!;
+    public global::System.Collections.Generic.IList<Int3> GetMacroblocksCoords(int _Cursor) => default!;
 
     /// <summary>Get the macroblocks coordinates at the current cursor</summary>
-    public global::System.Collections.Generic.List<Int3> GetMacroblocksCoords() => default!;
+    public global::System.Collections.Generic.IList<Int3> GetMacroblocksCoords() => default!;
 
     /// <summary>Move the cursor backward in the history</summary>
     public bool UndoAction() => default!;

@@ -15,8 +15,8 @@ public partial class CTaskResult_MapList : CTaskResult, ILocalProvider
     /// <summary>Path of the current zone.</summary>
     public string Path { get; }
     /// <summary>List of the map info. Array of CMapInfo objects.</summary>
-    public System.Collections.Generic.List<CMapInfo> MapInfos { get; }
+    public System.Collections.Generic.IList<CMapInfo> MapInfos { get; }
     /// <summary>List of the sub folders. Array of string.</summary>
-    public System.Collections.Generic.List<string> SubFolders { get; set; }
+    public System.Collections.Generic.IList<string> SubFolders { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

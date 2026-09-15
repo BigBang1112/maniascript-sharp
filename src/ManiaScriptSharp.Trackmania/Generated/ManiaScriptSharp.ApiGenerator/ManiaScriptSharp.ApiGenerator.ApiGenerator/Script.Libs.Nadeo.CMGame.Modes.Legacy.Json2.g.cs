@@ -29,7 +29,7 @@ public partial class Json2 : ILib
     /// <summary>Convert an array of Text in a JSON string</summary>
     /// <param name="TextArray">The array of Text to convert</param>
     /// <returns>The converted array of Text</returns>
-    public string GetTextArray(global::System.Collections.Generic.List<string> _TextArray) => default!;
+    public string GetTextArray(global::System.Collections.Generic.IList<string> _TextArray) => default!;
 
     /// <summary>Convert a Real into a JSON string</summary>
     /// <param name="Real">The Real to convert</param>

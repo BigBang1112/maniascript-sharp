@@ -44,7 +44,7 @@ public partial class MatchIntro_Client : ILib
 
     public struct K_ControlsClan
     {
-        public global::System.Collections.Generic.List<K_ControlsPlayer> Players;
+        public global::System.Collections.Generic.IList<K_ControlsPlayer> Players;
     }
 
     public struct K_Controls

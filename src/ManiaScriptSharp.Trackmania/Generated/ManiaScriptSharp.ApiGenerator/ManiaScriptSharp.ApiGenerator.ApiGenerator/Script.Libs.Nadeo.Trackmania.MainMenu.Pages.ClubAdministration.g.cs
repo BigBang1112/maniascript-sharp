@@ -81,10 +81,10 @@ public partial class ClubAdministration : ILib
         public Ident Task_ResetActivityIdForItemCollectionId;
         public int ActivityIdToDelete;
         public bool IsMovingActivities;
-        public global::System.Collections.Generic.List<string> PopUpActivityOptions;
+        public global::System.Collections.Generic.IList<string> PopUpActivityOptions;
         public K_ScrollView ScrollView;
         public K_Controls Controls;
-        public global::System.Collections.Generic.List<int> FolderIdList;
+        public global::System.Collections.Generic.IList<int> FolderIdList;
     }
 
     /// <summary>Get the page manialink</summary>

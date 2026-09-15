@@ -20,5 +20,5 @@ public partial class CXmlRpcEvent : CNod
     public string Param1 { get; }
     public string Param2 { get; }
     public string ParamArray1 { get; }
-    public System.Collections.Generic.List<string> ParamArray2 { get; }
+    public System.Collections.Generic.IList<string> ParamArray2 { get; }
 }

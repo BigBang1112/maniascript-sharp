@@ -14,7 +14,7 @@ public partial class CMlPage : CNod, ILocalProvider, IPersistentProvider
     public CMlControl GetFirstChild(string ControlId) => default!;
     public bool LinksInhibited { get; set; }
     public void GetClassChildren(string Class, CMlFrame Frame, bool Recursive) { }
-    public System.Collections.Generic.List<CMlControl> GetClassChildren_Result { get; }
+    public System.Collections.Generic.IList<CMlControl> GetClassChildren_Result { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

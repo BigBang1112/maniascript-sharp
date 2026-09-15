@@ -20,5 +20,5 @@ public partial class CMatchSettingsManager : CNod
     public void MatchSettings_EditScriptSettings(CMatchSettings MatchSettings) { }
     public bool MatchSettings_EditScriptSettings_Ongoing { get; }
     /// <summary>Array of the matchsettings</summary>
-    public System.Collections.Generic.List<CMatchSettings> MatchSettings { get; }
+    public System.Collections.Generic.IList<CMatchSettings> MatchSettings { get; }
 }

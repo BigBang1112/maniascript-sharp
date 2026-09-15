@@ -22,17 +22,17 @@ public partial class CDataFileMgr : CNod
     }
 
     /// <summary>Array of task results.</summary>
-    public System.Collections.Generic.List<CTaskResult> TaskResults { get; }
+    public System.Collections.Generic.IList<CTaskResult> TaskResults { get; }
     /// <summary>Release a task result no more used.</summary>
     public void TaskResult_Release(Ident TaskId) { }
     /// <summary>Array of campaigns.</summary>
-    public System.Collections.Generic.List<CCampaign> Campaigns { get; }
+    public System.Collections.Generic.IList<CCampaign> Campaigns { get; }
     /// <summary>Get a campaign from its id.</summary>
     public CCampaign Campaign_Get(string CampaignId) => default!;
     public CTaskResult_NSItemCollection ItemCollection_Create(Ident UserId, string ClubId, string DisplayName, string FileName) => default!;
     public CTaskResult_NSItemCollection ItemCollection_CreateVersion(Ident UserId, string ItemCollectionId, string FileName) => default!;
     public CTaskResult_NSItemCollection ItemCollection_Get(Ident UserId, string ItemCollectionId) => default!;
-    public CTaskResult_NSItemCollectionList ItemCollection_GetList(Ident UserId, System.Collections.Generic.List<string> ItemCollectionIdList) => default!;
+    public CTaskResult_NSItemCollectionList ItemCollection_GetList(Ident UserId, System.Collections.Generic.IList<string> ItemCollectionIdList) => default!;
     public CTaskResult_NSItemCollectionList ItemCollection_GetListByUser(Ident UserId, string WebServicesUserId) => default!;
     public CTaskResult_NSItemCollection ItemCollection_SetActivityId(Ident UserId, string ItemCollectionId, string ActivityId) => default!;
     public CTaskResult_NSItemCollection ItemCollection_Update(Ident UserId, string ItemCollectionId, string DisplayName) => default!;
@@ -49,22 +49,22 @@ public partial class CDataFileMgr : CNod
     public CGhost Map_GetAuthorGhost(CMap Map) => default!;
     public CTaskResult_NSMap Map_NadeoServices_Get(Ident UserId, string MapId) => default!;
     public CTaskResult_NSMap Map_NadeoServices_GetFromUid(Ident UserId, string MapUid) => default!;
-    public CTaskResult_NSMapList Map_NadeoServices_GetList(Ident UserId, System.Collections.Generic.List<string> MapIdList) => default!;
-    public CTaskResult_NSMapList Map_NadeoServices_GetListFromUid(Ident UserId, System.Collections.Generic.List<string> MapUidList) => default!;
+    public CTaskResult_NSMapList Map_NadeoServices_GetList(Ident UserId, System.Collections.Generic.IList<string> MapIdList) => default!;
+    public CTaskResult_NSMapList Map_NadeoServices_GetListFromUid(Ident UserId, System.Collections.Generic.IList<string> MapUidList) => default!;
     public CTaskResult_NSMapList Map_NadeoServices_GetListFromUser(Ident UserId, string WebServicesUserId) => default!;
     public int Map_NadeoServices_GetVote(Ident UserId, string MapUid) => default!;
     public CTaskResult_NSMap Map_NadeoServices_Register(Ident UserId, string MapUid) => default!;
     public void Map_NadeoServices_Vote(Ident UserId, string MapUid, int Vote) { }
     public CTaskResult Map_NadeoServices_AddFavorite(Ident UserId, string MapUid) => default!;
-    public CTaskResult_NSMapList Map_NadeoServices_GetFavoriteList(Ident UserId, System.Collections.Generic.List<string> MapTypeList, bool SortByDateElseByName, bool SortOrderAsc, bool OnlyPlayable, bool OnlyMine) => default!;
-    public CTaskResult_NSMapList Map_NadeoServices_GetFavoriteListByUid(Ident UserId, System.Collections.Generic.List<string> MapUidList) => default!;
+    public CTaskResult_NSMapList Map_NadeoServices_GetFavoriteList(Ident UserId, System.Collections.Generic.IList<string> MapTypeList, bool SortByDateElseByName, bool SortOrderAsc, bool OnlyPlayable, bool OnlyMine) => default!;
+    public CTaskResult_NSMapList Map_NadeoServices_GetFavoriteListByUid(Ident UserId, System.Collections.Generic.IList<string> MapUidList) => default!;
     public CTaskResult Map_NadeoServices_RemoveFavorite(Ident UserId, string MapUid) => default!;
     public CWebServicesTaskResult_Natural Map_NadeoServices_GetZenCount(Ident UserId, string MapUid) => default!;
     public CWebServicesTaskResult_Natural Map_NadeoServices_IncrZenCount(Ident UserId, string MapUid) => default!;
     public CTaskResult_NSSkin Skin_NadeoServices_Get(Ident UserId, string SkinId) => default!;
     public CTaskResult_NSSkin Skin_NadeoServices_GetFromChecksum(Ident UserId, string SkinChecksum) => default!;
-    public CTaskResult_NSSkinList Skin_NadeoServices_GetList(Ident UserId, System.Collections.Generic.List<string> SkinIdList) => default!;
-    public CTaskResult_NSSkinList Skin_NadeoServices_GetListFromChecksum(Ident UserId, System.Collections.Generic.List<string> SkinChecksumList) => default!;
+    public CTaskResult_NSSkinList Skin_NadeoServices_GetList(Ident UserId, System.Collections.Generic.IList<string> SkinIdList) => default!;
+    public CTaskResult_NSSkinList Skin_NadeoServices_GetListFromChecksum(Ident UserId, System.Collections.Generic.IList<string> SkinChecksumList) => default!;
     public CTaskResult_NSSkinList Skin_NadeoServices_GetListFromUser(Ident UserId, string WebServicesUserId) => default!;
     public CTaskResult_NSSkin Skin_NadeoServices_Register(Ident UserId, string SkinDisplayName, string SkinFileName) => default!;
     public CTaskResult AccountSkin_NadeoServices_AddFavorite(Ident UserId, string SkinId) => default!;
@@ -75,7 +75,7 @@ public partial class CDataFileMgr : CNod
     public CTaskResult_NSSkin AccountSkin_NadeoServices_Set(Ident UserId, string SkinId) => default!;
     public CTaskResult AccountSkin_NadeoServices_Unset(Ident UserId, string SkinType) => default!;
     /// <summary>Array of ghosts.</summary>
-    public System.Collections.Generic.List<CGhost> Ghosts { get; }
+    public System.Collections.Generic.IList<CGhost> Ghosts { get; }
     /// <summary>Release a downloaded ghost no longer needed.</summary>
     public void Ghost_Release(Ident GhostId) { }
     public CTaskResult_Ghost Ghost_Download(string FileName, string Url) => default!;

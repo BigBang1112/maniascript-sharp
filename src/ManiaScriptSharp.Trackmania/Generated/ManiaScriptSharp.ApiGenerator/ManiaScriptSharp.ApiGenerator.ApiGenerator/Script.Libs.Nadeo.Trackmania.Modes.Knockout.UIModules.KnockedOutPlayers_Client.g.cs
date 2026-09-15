@@ -29,8 +29,8 @@ public partial class KnockedOutPlayers_Client : ILib
         public int WaitTime;
         public int TotalAnimTime;
         public int EliminatedPlayersNb;
-        public global::System.Collections.Generic.List<string> AccountIds;
-        public global::System.Collections.Generic.List<int> Ranks;
+        public global::System.Collections.Generic.IList<string> AccountIds;
+        public global::System.Collections.Generic.IList<int> Ranks;
     }
 
     /// <summary>Get the module manialink</summary>

@@ -43,7 +43,7 @@ public partial class Sound : ILib
     /// <summary>To re-attach layers in case of UI ResetAll</summary>
     public void Attach() { }
 
-    public void PreloadSounds(global::System.Collections.Generic.List<string> _SoundsToPreloadUrl) { }
+    public void PreloadSounds(global::System.Collections.Generic.IList<string> _SoundsToPreloadUrl) { }
 
     /// <summary>Overload : Play a custom sound to all players on the server</summary>
     public void PlaySound(string _SoundUrl) { }

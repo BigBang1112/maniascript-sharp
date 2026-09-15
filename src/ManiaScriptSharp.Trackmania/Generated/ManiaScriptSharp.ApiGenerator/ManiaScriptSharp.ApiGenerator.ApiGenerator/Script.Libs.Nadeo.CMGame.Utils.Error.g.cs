@@ -251,23 +251,23 @@ public partial class Error : ILib
     public K_Error GetDefaultError() => default!;
 
     /// <summary>Get a custom error</summary>
-    public K_Error GetError(string _Type, string _Code, string _Context, global::System.Collections.Generic.List<string> _ComposeElements, bool _DisplayWarning) => default!;
+    public K_Error GetError(string _Type, string _Code, string _Context, global::System.Collections.Generic.IList<string> _ComposeElements, bool _DisplayWarning) => default!;
 
     public K_Error GetError(string _Type, string _Code, string _Context, bool _DisplayWarning) => default!;
 
-    public K_Error GetError(string _Type, string _Code, string _Context, global::System.Collections.Generic.List<string> _ComposeElements) => default!;
+    public K_Error GetError(string _Type, string _Code, string _Context, global::System.Collections.Generic.IList<string> _ComposeElements) => default!;
 
     public K_Error GetError(string _Type, string _Code, string _Context) => default!;
 
-    public K_Error GetError(string _Type, string _Code, global::System.Collections.Generic.List<string> _ComposeElements) => default!;
+    public K_Error GetError(string _Type, string _Code, global::System.Collections.Generic.IList<string> _ComposeElements) => default!;
 
     public K_Error GetError(string _Type, string _Code) => default!;
 
-    public K_Error GetError(string _Type, global::System.Collections.Generic.List<string> _ComposeElements) => default!;
+    public K_Error GetError(string _Type, global::System.Collections.Generic.IList<string> _ComposeElements) => default!;
 
     public K_Error GetError(string _Type) => default!;
 
-    public K_Error GetError(global::System.Collections.Generic.List<string> _ComposeElements) => default!;
+    public K_Error GetError(global::System.Collections.Generic.IList<string> _ComposeElements) => default!;
 
     public K_Error GetError() => default!;
 
@@ -281,24 +281,24 @@ public partial class Error : ILib
     public bool HasExactError() => default!;
 
     /// <summary>Get an error message</summary>
-    public string GetErrorMessage(string _Type, string _Code, string _Context, global::System.Collections.Generic.List<string> _ComposeElements) => default!;
+    public string GetErrorMessage(string _Type, string _Code, string _Context, global::System.Collections.Generic.IList<string> _ComposeElements) => default!;
 
     public string GetErrorMessage(string _Type, string _Code, string _Context) => default!;
 
-    public string GetErrorMessage(string _Type, string _Code, global::System.Collections.Generic.List<string> _ComposeElements) => default!;
+    public string GetErrorMessage(string _Type, string _Code, global::System.Collections.Generic.IList<string> _ComposeElements) => default!;
 
     public string GetErrorMessage(string _Type, string _Code) => default!;
 
-    public string GetErrorMessage(string _Type, global::System.Collections.Generic.List<string> _ComposeElements) => default!;
+    public string GetErrorMessage(string _Type, global::System.Collections.Generic.IList<string> _ComposeElements) => default!;
 
     public string GetErrorMessage(string _Type) => default!;
 
-    public string GetErrorMessage(global::System.Collections.Generic.List<string> _ComposeElements) => default!;
+    public string GetErrorMessage(global::System.Collections.Generic.IList<string> _ComposeElements) => default!;
 
     public string GetErrorMessage() => default!;
 
     /// <summary>Return the original error message if we have an exact match or the alternative message otherwise</summary>
-    public string GetAlternativeErrorMessage(string _AlternativeMessage, global::System.Collections.Generic.List<string> _ComposeElements, K_Error _Error) => default!;
+    public string GetAlternativeErrorMessage(string _AlternativeMessage, global::System.Collections.Generic.IList<string> _ComposeElements, K_Error _Error) => default!;
 
     public string GetAlternativeErrorMessage(string _AlternativeMessage, K_Error _Error) => default!;
 

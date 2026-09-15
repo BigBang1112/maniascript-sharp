@@ -50,7 +50,7 @@ public partial class Splashscreen : ILib
     {
         public int StartViewTimestamp;
         public K_Controls Controls;
-        public global::System.Collections.Generic.List<K_Event> PendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> PendingEvents;
         public Ident CurrentVideoId;
     }
 

@@ -65,7 +65,7 @@ public partial class SpawnSelection : ILib
     public int GetSpawnUpdate() => default!;
 
     /// <summary>Set the spawns to display</summary>
-    public void SetSpawns(global::System.Collections.Generic.List<Ident> _SpawnMacroblockInstanceIdents) { }
+    public void SetSpawns(global::System.Collections.Generic.IList<Ident> _SpawnMacroblockInstanceIdents) { }
 
     /// <summary>Set the position of the UI</summary>
     public void SetPositionY(float _PositionY) { }

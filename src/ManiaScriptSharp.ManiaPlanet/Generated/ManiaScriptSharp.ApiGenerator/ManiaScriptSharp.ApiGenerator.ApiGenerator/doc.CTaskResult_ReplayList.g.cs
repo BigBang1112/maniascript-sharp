@@ -15,7 +15,7 @@ public partial class CTaskResult_ReplayList : CTaskResult
     /// <summary>Path of the current zone.</summary>
     public string Path { get; }
     /// <summary>List of the replay info. Array of CReplayInfo objects.</summary>
-    public System.Collections.Generic.List<CReplayInfo> ReplayInfos { get; }
+    public System.Collections.Generic.IList<CReplayInfo> ReplayInfos { get; }
     /// <summary>List of the sub folders. Array of string.</summary>
-    public System.Collections.Generic.List<string> SubFolders { get; }
+    public System.Collections.Generic.IList<string> SubFolders { get; }
 }

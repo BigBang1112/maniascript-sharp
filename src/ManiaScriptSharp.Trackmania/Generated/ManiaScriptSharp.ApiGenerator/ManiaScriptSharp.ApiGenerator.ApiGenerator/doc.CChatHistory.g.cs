@@ -10,9 +10,9 @@ namespace ManiaScriptSharp;
 /// <summary>Documentation for class CChatHistory</summary>
 public partial class CChatHistory
 {
-    public System.Collections.Generic.List<CChatEntry> Entries { get; }
+    public System.Collections.Generic.IList<CChatEntry> Entries { get; }
     public int Window_Size { get; set; }
     public int Window_Offset { get; set; }
     public int Window_OffsetMax { get; }
-    public System.Collections.Generic.List<CChatEvent> PendingEvents { get; set; }
+    public System.Collections.Generic.IList<CChatEvent> PendingEvents { get; set; }
 }

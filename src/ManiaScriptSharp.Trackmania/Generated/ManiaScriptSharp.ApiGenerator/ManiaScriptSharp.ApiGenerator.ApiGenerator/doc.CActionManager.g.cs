@@ -25,5 +25,5 @@ public partial class CActionManager : CNod
     public CActionInterface Action_GetState(CPlayer Player, CActionManager.EActionSlot Slot) => default!;
     public CActionInterface Action_GetState(CModeVehicle Vehicle, int VehicleSlotIndex, CActionManager.EActionSlot Slot) => default!;
     public CActionInterface Action_GetState(CModeTurret Turret, CActionManager.EActionSlot Slot) => default!;
-    public System.Collections.Generic.List<CActionInterface> Actions { get; set; }
+    public System.Collections.Generic.IList<CActionInterface> Actions { get; set; }
 }

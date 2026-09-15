@@ -56,11 +56,11 @@ public partial class Navigation : ILib
     public struct K_NavigationState
     {
         public global::System.Collections.Generic.Dictionary<string, string> GroupParent;
-        public global::System.Collections.Generic.List<string> DisabledGroups;
-        public global::System.Collections.Generic.List<Ident> DisabledContainers;
-        public global::System.Collections.Generic.List<K_NavigationEvent> PendingEvents;
+        public global::System.Collections.Generic.IList<string> DisabledGroups;
+        public global::System.Collections.Generic.IList<Ident> DisabledContainers;
+        public global::System.Collections.Generic.IList<K_NavigationEvent> PendingEvents;
         public bool UseLocalEvents;
-        public global::System.Collections.Generic.List<string> NavigationDisabledBy;
+        public global::System.Collections.Generic.IList<string> NavigationDisabledBy;
         public int MouseSleepDelay;
     }
 

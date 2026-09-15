@@ -10,6 +10,6 @@ namespace ManiaScriptSharp;
 /// <summary>Asynchronous task result. Supported declare modes : - Local</summary>
 public partial class CTaskResult_PrestigeList : CWebServicesTaskResult_WSPrestigeList, ILocalProvider
 {
-    public System.Collections.Generic.List<CPrestige> PrestigeList { get; }
+    public System.Collections.Generic.IList<CPrestige> PrestigeList { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

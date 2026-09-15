@@ -11,6 +11,6 @@ namespace ManiaScriptSharp;
 public partial class CTaskResult_FriendList : CWebServicesTaskResult_WSFriendList, ILocalProvider
 {
     /// <summary>List of friend info contained by this result.</summary>
-    public System.Collections.Generic.List<CFriend> FriendList { get; }
+    public System.Collections.Generic.IList<CFriend> FriendList { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

@@ -82,15 +82,15 @@ public partial class DailyRequestManager : ILib
 
     public void GetMatchStatus(string _Partition) { }
 
-    public void GetRanksUpdate(global::System.Collections.Generic.List<string> _AccountIds) { }
+    public void GetRanksUpdate(global::System.Collections.Generic.IList<string> _AccountIds) { }
 
     public void GetRanksUpdate() { }
 
     public void GetLeaderboardUpdate() { }
 
-    public void GetRegisteredPlayers(global::System.Collections.Generic.List<string> _AccountIds) { }
+    public void GetRegisteredPlayers(global::System.Collections.Generic.IList<string> _AccountIds) { }
 
-    public void GetPlayerMatches(global::System.Collections.Generic.List<string> _AccountIds) { }
+    public void GetPlayerMatches(global::System.Collections.Generic.IList<string> _AccountIds) { }
 
     public void GetPlayerMatches() { }
 

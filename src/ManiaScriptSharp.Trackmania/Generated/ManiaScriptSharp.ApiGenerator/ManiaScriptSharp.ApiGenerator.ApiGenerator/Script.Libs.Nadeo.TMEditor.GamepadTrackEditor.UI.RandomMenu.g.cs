@@ -59,7 +59,7 @@ public partial class RandomMenu : ILib
 
     public void Prev() { }
 
-    public void SetOptions(global::System.Collections.Generic.List<int> _Options) { }
+    public void SetOptions(global::System.Collections.Generic.IList<int> _Options) { }
 
     /// <summary>Check if the menu is visible</summary>
     public bool LayerIsVisible() => default!;

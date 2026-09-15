@@ -24,7 +24,7 @@ public partial class CBlock : CNod
     public Int3 Coord { get; }
     public CMapEditorPlugin.CardinalDirections Dir { get; }
     public CBlock.CardinalDirections Direction { get; }
-    public System.Collections.Generic.List<CBlockUnit> BlockUnits { get; }
+    public System.Collections.Generic.IList<CBlockUnit> BlockUnits { get; }
     public CBlockModel BlockModel { get; }
     public bool IsGhostBlock() => default!;
 }

@@ -47,7 +47,7 @@ public partial class CEditorPlugin : CManiaApp, ILocalProvider, IPersistentProvi
         SelectionRemove,
     }
 
-    public System.Collections.Generic.List<CEditorPluginEvent> PendingEvents { get; }
+    public System.Collections.Generic.IList<CEditorPluginEvent> PendingEvents { get; }
     public CMap Map { get; }
     public string MapName { get; }
     public void ComputeShadows() { }
@@ -114,16 +114,16 @@ public partial class CEditorPlugin : CManiaApp, ILocalProvider, IPersistentProvi
     public CMacroblockModel GetMacroblockModelFromName(string MacroblockModelName) => default!;
     public CBlockModel GetTerrainBlockModelFromName(string TerrainBlockModelName) => default!;
     public CBlockModel GetBlockModelFromName(string BlockModelName) => default!;
-    public System.Collections.Generic.List<CItemAnchor> Items { get; }
-    public System.Collections.Generic.List<string> MediatrackIngameClips { get; }
-    public System.Collections.Generic.List<string> MediatrackIngameIsScriptClips { get; }
+    public System.Collections.Generic.IList<CItemAnchor> Items { get; }
+    public System.Collections.Generic.IList<string> MediatrackIngameClips { get; }
+    public System.Collections.Generic.IList<string> MediatrackIngameIsScriptClips { get; }
     public int MediatrackIngameEditedClipIndex { get; set; }
-    public System.Collections.Generic.List<CBlock> Blocks { get; }
-    public System.Collections.Generic.List<CBlockModel> BlockModels { get; }
-    public System.Collections.Generic.List<CBlockModel> TerrainBlockModels { get; }
-    public System.Collections.Generic.List<CMacroblockModel> MacroblockModels { get; }
-    public System.Collections.Generic.List<CAnchorData> AnchorData { get; }
-    public System.Collections.Generic.List<Int3> CustomSelectionCoords { get; set; }
+    public System.Collections.Generic.IList<CBlock> Blocks { get; }
+    public System.Collections.Generic.IList<CBlockModel> BlockModels { get; }
+    public System.Collections.Generic.IList<CBlockModel> TerrainBlockModels { get; }
+    public System.Collections.Generic.IList<CMacroblockModel> MacroblockModels { get; }
+    public System.Collections.Generic.IList<CAnchorData> AnchorData { get; }
+    public System.Collections.Generic.IList<Int3> CustomSelectionCoords { get; set; }
     public Vec3 CustomSelectionRGB { get; set; }
     public bool EnableEditorInputsCustomProcessing { get; set; }
     public bool EditorInputIsDown_Menu { get; }

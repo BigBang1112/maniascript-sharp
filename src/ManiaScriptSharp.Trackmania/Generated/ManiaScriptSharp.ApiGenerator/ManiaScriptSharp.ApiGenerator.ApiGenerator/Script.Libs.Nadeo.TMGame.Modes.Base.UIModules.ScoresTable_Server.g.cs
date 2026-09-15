@@ -64,7 +64,7 @@ public partial class ScoresTable_Server : ILib
 
     public void DisplayRoundPoints(bool _ShowRoundPoints) { }
 
-    public void DisplayOnly(global::System.Collections.Generic.List<string> _AccountIds) { }
+    public void DisplayOnly(global::System.Collections.Generic.IList<string> _AccountIds) { }
 
     /// <summary>Update the scores table footer info</summary>
     /// <param name="Message">The message to display</param>

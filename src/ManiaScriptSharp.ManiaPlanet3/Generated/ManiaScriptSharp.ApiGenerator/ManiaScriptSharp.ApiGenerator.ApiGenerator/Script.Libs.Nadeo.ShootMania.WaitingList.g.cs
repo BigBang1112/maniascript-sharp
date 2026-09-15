@@ -67,9 +67,9 @@ public partial class WaitingList : ILib
     /// <param name="TeamId">The Team Id</param>
     /// <param name="TeamPos">The Team position in the WaitingList</param>
     /// <returns>Team			The array with id of players</returns>
-    public global::System.Collections.Generic.List<Ident> FillTeam(Ident _TeamId) => default!;
+    public global::System.Collections.Generic.IList<Ident> FillTeam(Ident _TeamId) => default!;
 
-    public global::System.Collections.Generic.List<Ident> FillTeam(int _TeamPos) => default!;
+    public global::System.Collections.Generic.IList<Ident> FillTeam(int _TeamPos) => default!;
 
     /// <summary>go to the end of the WaitingList</summary>
     /// <param name="TeamPos">The position of the team in the WaitingList</param>

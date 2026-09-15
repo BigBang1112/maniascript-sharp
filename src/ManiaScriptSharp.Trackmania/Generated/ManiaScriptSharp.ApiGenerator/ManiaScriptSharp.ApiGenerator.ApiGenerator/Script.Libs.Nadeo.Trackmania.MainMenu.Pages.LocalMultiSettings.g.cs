@@ -72,9 +72,9 @@ public partial class LocalMultiSettings : ILib
     {
         public int LocalMultiType;
         public int NbPlayers;
-        public global::System.Collections.Generic.List<int> PlayersNbPossibilities;
-        public global::System.Collections.Generic.List<string> ModeNames;
-        public global::System.Collections.Generic.List<int> ModeNamesIndexes;
+        public global::System.Collections.Generic.IList<int> PlayersNbPossibilities;
+        public global::System.Collections.Generic.IList<string> ModeNames;
+        public global::System.Collections.Generic.IList<int> ModeNamesIndexes;
         public int ModeIndex;
         public string ModeScriptName;
     }

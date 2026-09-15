@@ -116,7 +116,7 @@ Available events (from `CMlScript`):
 | `MouseOut`          | `MouseOutEventHandler(CMlControl control, string controlId)`        | `MouseOut`               |
 | `EntrySubmit`       | `EntrySubmitEventHandler(CMlControl control, string controlId)`     | `EntrySubmit`            |
 | `MenuNavigation`    | `MenuNavigationEventHandler(CMlScriptEvent.EMenuNavAction action)`  | `MenuNavigation`         |
-| `PluginCustomEvent` | `PluginCustomEventEventHandler(string type, List<string> data)`     | `LayerCustomEvent`       |
+| `PluginCustomEvent` | `PluginCustomEventEventHandler(string type, IList<string> data)`    | `LayerCustomEvent`       |
 
 ### Typed handler — method group
 

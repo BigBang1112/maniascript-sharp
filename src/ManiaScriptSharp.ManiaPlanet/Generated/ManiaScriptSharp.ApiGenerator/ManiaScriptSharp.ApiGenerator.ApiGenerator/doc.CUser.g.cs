@@ -70,11 +70,11 @@ public partial class CUser : CNod, ILocalProvider, IPersistentProvider
     public string LadderZoneFlagUrl { get; }
     public float ReferenceScore { get; }
     public bool IsFakeUser { get; }
-    public System.Collections.Generic.List<int> Tags_Favored_Indices { get; }
-    public System.Collections.Generic.List<string> Tags_Id { get; }
-    public System.Collections.Generic.List<ETagType> Tags_Type { get; }
-    public System.Collections.Generic.List<string> Tags_Comments { get; }
-    public System.Collections.Generic.List<string> Tags_Deliverer { get; }
+    public System.Collections.Generic.IList<int> Tags_Favored_Indices { get; }
+    public System.Collections.Generic.IList<string> Tags_Id { get; }
+    public System.Collections.Generic.IList<ETagType> Tags_Type { get; }
+    public System.Collections.Generic.IList<string> Tags_Comments { get; }
+    public System.Collections.Generic.IList<string> Tags_Deliverer { get; }
     public EStereoDisplayMode StereoDisplayMode { get; }
     public bool HackCamHmdDisabled { get; set; }
     public string AvatarDisplayName { get; }
@@ -84,7 +84,7 @@ public partial class CUser : CNod, ILocalProvider, IPersistentProvider
     public bool VoiceChat_IsSpeaking { get; }
     public bool VoiceChat_IsMuted { get; }
     public bool IsConnectedToMasterServer { get; }
-    public System.Collections.Generic.List<string> AlliesConnected { get; }
+    public System.Collections.Generic.IList<string> AlliesConnected { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

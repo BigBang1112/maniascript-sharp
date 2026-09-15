@@ -68,11 +68,11 @@ public partial class Selector : ILib
 
     public struct K_Properties
     {
-        public global::System.Collections.Generic.List<int> Enabled;
+        public global::System.Collections.Generic.IList<int> Enabled;
         public float Height;
         public float Width;
         public bool HitboxDebug;
-        public global::System.Collections.Generic.List<K_Choice> Choices;
+        public global::System.Collections.Generic.IList<K_Choice> Choices;
         public bool ChoicesLoop;
         public float TextFontSize;
         public float ButtonsOpacityFocused;
@@ -81,7 +81,7 @@ public partial class Selector : ILib
 
     public struct K_Selector
     {
-        public global::System.Collections.Generic.List<string> Styles;
+        public global::System.Collections.Generic.IList<string> Styles;
         public bool IsLocked;
         public bool IsFocused;
         public bool IsSelector;
@@ -97,8 +97,8 @@ public partial class Selector : ILib
         public bool IsMouse;
         public global::System.Collections.Generic.Dictionary<string, K_Properties> Styles;
         public K_Properties DefaultProperties;
-        public global::System.Collections.Generic.List<K_Event> DelayedPendingEvents;
-        public global::System.Collections.Generic.List<K_Event> PendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> DelayedPendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> PendingEvents;
     }
 
     /// <summary>Get the manialink of the component</summary>

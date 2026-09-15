@@ -30,7 +30,7 @@ public partial class CarRank : ILib
     {
         public int Time;
         public int Cooldown;
-        public global::System.Collections.Generic.List<int> SortCriteria;
+        public global::System.Collections.Generic.IList<int> SortCriteria;
     }
 
     /// <summary>Give a color to the dossard of the players at or above the given ranks</summary>

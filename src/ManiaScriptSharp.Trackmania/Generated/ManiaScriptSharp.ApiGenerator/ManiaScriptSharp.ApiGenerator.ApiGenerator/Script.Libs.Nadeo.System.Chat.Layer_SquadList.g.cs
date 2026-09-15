@@ -19,5 +19,5 @@ public partial class Layer_SquadList : ILib
 
     public void SetColor(Vec3 _Color) { }
 
-    public void SetSquadPlayers(global::System.Collections.Generic.List<string> _Logins) { }
+    public void SetSquadPlayers(global::System.Collections.Generic.IList<string> _Logins) { }
 }

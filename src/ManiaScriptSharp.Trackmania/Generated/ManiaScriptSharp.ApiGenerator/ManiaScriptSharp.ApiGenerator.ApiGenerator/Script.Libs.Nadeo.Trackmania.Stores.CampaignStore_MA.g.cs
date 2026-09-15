@@ -38,7 +38,7 @@ public partial class CampaignStore_MA : ILib
 
     public struct K_LoadingMonthlyCampaignRequest
     {
-        public global::System.Collections.Generic.List<string> LoadedMapUids;
+        public global::System.Collections.Generic.IList<string> LoadedMapUids;
         public bool MapsLoadingSucceed;
     }
 

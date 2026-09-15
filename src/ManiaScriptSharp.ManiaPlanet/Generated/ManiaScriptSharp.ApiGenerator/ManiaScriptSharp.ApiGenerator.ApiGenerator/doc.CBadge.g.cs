@@ -14,5 +14,5 @@ public partial class CBadge : CNod
     public string StickerSlot_Get(string Slot) => default!;
     public void StickerSlot_Set(string Slot, string Sticker) { }
     public void StickerSlot_Clear() { }
-    public System.Collections.Generic.List<string> Layers { get; set; }
+    public System.Collections.Generic.IList<string> Layers { get; set; }
 }

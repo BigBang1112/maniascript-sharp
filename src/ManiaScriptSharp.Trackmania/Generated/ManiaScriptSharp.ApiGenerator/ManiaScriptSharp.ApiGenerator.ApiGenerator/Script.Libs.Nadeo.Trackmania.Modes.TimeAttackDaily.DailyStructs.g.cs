@@ -36,7 +36,7 @@ public partial class DailyStructs : ILib
 
     public struct K_PostResults
     {
-        public global::System.Collections.Generic.List<K_PostResult> records;
+        public global::System.Collections.Generic.IList<K_PostResult> records;
     }
 
     public struct K_ZoneRanksFromApi
@@ -51,7 +51,7 @@ public partial class DailyStructs : ILib
         public string uid;
         public string player;
         public int score;
-        public global::System.Collections.Generic.List<K_ZoneRanksFromApi> zoneRanks;
+        public global::System.Collections.Generic.IList<K_ZoneRanksFromApi> zoneRanks;
     }
 
     public struct K_MapRecordsFromAPI_Entry
@@ -65,7 +65,7 @@ public partial class DailyStructs : ILib
     {
         public string uid;
         public int cardinal;
-        public global::System.Collections.Generic.List<K_MapRecordsFromAPI_Entry> records;
+        public global::System.Collections.Generic.IList<K_MapRecordsFromAPI_Entry> records;
     }
 
     public struct K_MatchStatus
@@ -93,7 +93,7 @@ public partial class DailyStructs : ILib
 
     public struct K_PostRegisteredPlayers
     {
-        public global::System.Collections.Generic.List<K_PostRegisteredPlayers_Entry> participants;
+        public global::System.Collections.Generic.IList<K_PostRegisteredPlayers_Entry> participants;
     }
 
     public struct K_GetRegisteredPlayers_Entry
@@ -104,7 +104,7 @@ public partial class DailyStructs : ILib
 
     public struct K_GetRegisteredPlayers
     {
-        public global::System.Collections.Generic.List<K_GetRegisteredPlayers_Entry> participants;
+        public global::System.Collections.Generic.IList<K_GetRegisteredPlayers_Entry> participants;
     }
 
     public struct K_Competition

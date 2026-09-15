@@ -23,7 +23,7 @@ public partial class Layer_ServerInfo : ILib
         public string JoinLink;
         public string GameMode;
         public string ModeStatus;
-        public global::System.Collections.Generic.List<string> Contacts;
+        public global::System.Collections.Generic.IList<string> Contacts;
         public int NbPlayers;
         public int NbPlayersMax;
         public bool IsLobby;

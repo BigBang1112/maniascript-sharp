@@ -18,7 +18,7 @@ public partial class Store_MA : ILib
     public const string ScriptName = "Libs/Nadeo/CMGame/Utils/Store_MA.Script.txt";
     public const int C_IntervalBetweenAutoCleanUp = 10;
 
-    public void SendEvent(string _StoreId, string _Type, global::System.Collections.Generic.List<string> _Data) { }
+    public void SendEvent(string _StoreId, string _Type, global::System.Collections.Generic.IList<string> _Data) { }
 
     public void SendEvent(string _StoreId, string _Type) { }
 

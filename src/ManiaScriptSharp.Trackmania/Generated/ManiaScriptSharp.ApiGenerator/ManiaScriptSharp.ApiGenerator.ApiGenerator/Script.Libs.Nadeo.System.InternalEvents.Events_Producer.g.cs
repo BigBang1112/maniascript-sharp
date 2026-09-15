@@ -17,5 +17,5 @@ public partial class Events_Producer : ILib
 
     public void SendInternalEvent(string _Action, string _Param) { }
 
-    public void SendInternalEvent(string _Action, global::System.Collections.Generic.List<string> _Params) { }
+    public void SendInternalEvent(string _Action, global::System.Collections.Generic.IList<string> _Params) { }
 }

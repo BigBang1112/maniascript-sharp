@@ -81,10 +81,10 @@ public partial class Clans_Server : ILib
     public Vec3 GetClanTrigramColor(int _Clan) => default!;
 
     /// <summary>Get the ids of the similar teams in color of the given clan</summary>
-    public global::System.Collections.Generic.List<int> GetClanSimilarTeamsInColor(int _Clan) => default!;
+    public global::System.Collections.Generic.IList<int> GetClanSimilarTeamsInColor(int _Clan) => default!;
 
     /// <summary>Get a list of distinct teams (in color)</summary>
-    public global::System.Collections.Generic.List<int> GetRandomDistinctTeams(int _ClansNb) => default!;
+    public global::System.Collections.Generic.IList<int> GetRandomDistinctTeams(int _ClansNb) => default!;
 
     /// <summary>Unload the library</summary>
     public void Unload() { }

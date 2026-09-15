@@ -16,5 +16,5 @@ public partial class Utils : ILib
     public const string ScriptName = "Libs/Nadeo/CMGame/Utils/Utils.Script.txt";
 
     /// <summary>Convert a C++ array to a script array</summary>
-    public global::System.Collections.Generic.List<int> ToScriptArray(global::System.Collections.Generic.List<int> _Array) => default!;
+    public global::System.Collections.Generic.IList<int> ToScriptArray(global::System.Collections.Generic.IList<int> _Array) => default!;
 }

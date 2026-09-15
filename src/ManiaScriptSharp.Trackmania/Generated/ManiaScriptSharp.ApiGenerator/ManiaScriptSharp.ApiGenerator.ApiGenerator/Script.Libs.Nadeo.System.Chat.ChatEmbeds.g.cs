@@ -49,8 +49,8 @@ public partial class ChatEmbeds : ILib
         public string RecipientLogin;
         public string MessageBody;
         public string EmbedsJSON;
-        public global::System.Collections.Generic.List<Ident> RequestsIds;
-        public global::System.Collections.Generic.List<SChatMessageEmbed> ReadyEmbeds;
+        public global::System.Collections.Generic.IList<Ident> RequestsIds;
+        public global::System.Collections.Generic.IList<SChatMessageEmbed> ReadyEmbeds;
     }
 
     /// <summary>Insert embed struct into manialink.</summary>
@@ -68,5 +68,5 @@ public partial class ChatEmbeds : ILib
 
     /// <summary>List of messages with embeds ready to be sent.</summary>
     /// <returns>List of processed message structs.</returns>
-    public global::System.Collections.Generic.List<SPendingChatMessage> MessagesReadyForDelivery() => default!;
+    public global::System.Collections.Generic.IList<SPendingChatMessage> MessagesReadyForDelivery() => default!;
 }

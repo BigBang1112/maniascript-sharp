@@ -21,11 +21,11 @@ public partial class CSmPlayer : CPlayer, ILocalProvider, INetreadProvider, INet
     public CSmPlayer.ESpawnStatus SpawnStatus { get; }
     public int StartTime { get; }
     public int EndTime { get; set; }
-    public System.Collections.Generic.List<int> RaceWaypointTimes { get; set; }
+    public System.Collections.Generic.IList<int> RaceWaypointTimes { get; set; }
     /// <summary>Equals CurrentLapWaypointTimes when not empty. If it is empty (i.e. before the 1st CP of a new lap), equals PreviousLapWaypointTimes.</summary>
-    public System.Collections.Generic.List<int> LapWaypointTimes { get; set; }
-    public System.Collections.Generic.List<int> CurrentLapWaypointTimes { get; set; }
-    public System.Collections.Generic.List<int> PreviousLapWaypointTimes { get; set; }
+    public System.Collections.Generic.IList<int> LapWaypointTimes { get; set; }
+    public System.Collections.Generic.IList<int> CurrentLapWaypointTimes { get; set; }
+    public System.Collections.Generic.IList<int> PreviousLapWaypointTimes { get; set; }
     public int CurrentLapNumber { get; }
     public int CurrentRaceTime { get; }
     public int CurrentLapTime { get; }
@@ -106,7 +106,7 @@ public partial class CSmPlayer : CPlayer, ILocalProvider, INetreadProvider, INet
     public int NbActiveAttractors { get; }
     public bool IsCapturing { get; }
     public CSmMapLandmark CapturedLandmark { get; }
-    public System.Collections.Generic.List<CSmObject> Objects { get; }
+    public System.Collections.Generic.IList<CSmObject> Objects { get; }
     public CModeVehicle Vehicle { get; }
     public bool IsFakePlayer { get; }
     public bool IsBot { get; }

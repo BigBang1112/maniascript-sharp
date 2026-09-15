@@ -83,8 +83,8 @@ public partial class MonthlyCampaignDisplay : ILib
     {
         public int ZoneLevel;
         public int DisplayType;
-        public global::System.Collections.Generic.List<string> LoadingGlobalSeasonIds;
-        public global::System.Collections.Generic.List<string> LoadingClubSeasonIds;
+        public global::System.Collections.Generic.IList<string> LoadingGlobalSeasonIds;
+        public global::System.Collections.Generic.IList<string> LoadingClubSeasonIds;
         public K_DelayedRankings DelayedRankings;
     }
 

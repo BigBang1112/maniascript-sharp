@@ -47,7 +47,7 @@ public partial class Manialink3WPrevAnims : ILib
 
     /// <summary>Insert several functions inside your maniascript</summary>
     /// <returns>The functions</returns>
-    public string Functions(global::System.Collections.Generic.List<string> _FunctionsNames) => default!;
+    public string Functions(global::System.Collections.Generic.IList<string> _FunctionsNames) => default!;
 
     /// <summary>Insert the animation module inside your maniascript</summary>
     /// <param name="Easings">An array of easing functions to insert in the animation module</param>

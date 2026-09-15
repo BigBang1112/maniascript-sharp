@@ -32,7 +32,7 @@ public partial class Layer_Contacts : ILib
 
     public void SetColorScheme(Vec3 _Background, Vec3 _Highlights) { }
 
-    public void SetContactsList(global::System.Collections.Generic.List<string> _Contacts) { }
+    public void SetContactsList(global::System.Collections.Generic.IList<string> _Contacts) { }
 
     public void SetContactsListMode(int _Mode) { }
 

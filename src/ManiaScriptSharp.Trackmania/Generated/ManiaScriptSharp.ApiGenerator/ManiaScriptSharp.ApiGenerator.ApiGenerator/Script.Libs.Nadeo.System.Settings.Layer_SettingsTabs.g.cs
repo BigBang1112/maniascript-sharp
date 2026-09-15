@@ -25,9 +25,9 @@ public partial class Layer_SettingsTabs : ILib
 
     public void CreateTab(string _TabId, string _Name, string _IconURL) { }
 
-    public global::System.Collections.Generic.List<string> GetTabsList() => default!;
+    public global::System.Collections.Generic.IList<string> GetTabsList() => default!;
 
-    public global::System.Collections.Generic.List<SMenuTab> GetTabsArray() => default!;
+    public global::System.Collections.Generic.IList<SMenuTab> GetTabsArray() => default!;
 
     public void Build() { }
 

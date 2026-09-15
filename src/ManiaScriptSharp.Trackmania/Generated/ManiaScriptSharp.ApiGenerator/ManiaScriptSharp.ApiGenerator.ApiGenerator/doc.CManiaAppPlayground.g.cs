@@ -11,7 +11,7 @@ namespace ManiaScriptSharp;
 public partial class CManiaAppPlayground : CManiaAppPlaygroundCommon, ILocalProvider, IPersistentProvider
 {
     /// <summary>Send a custom event to the CMode script.</summary>
-    public void SendCustomEvent(string Type, System.Collections.Generic.List<string> Data) { }
+    public void SendCustomEvent(string Type, System.Collections.Generic.IList<string> Data) { }
     public bool HoldLoadingScreen { get; set; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

@@ -81,7 +81,7 @@ public partial class CInputPad : CNod
     public float L2 { get; }
     /// <summary>Values in range (0.000000-1.000000)</summary>
     public float R2 { get; }
-    public System.Collections.Generic.List<EButton> ButtonEvents { get; }
+    public System.Collections.Generic.IList<EButton> ButtonEvents { get; }
     public void ClearRumble() { }
     /// <summary>Duration = 0 --&gt; forever.</summary>
     public void AddRumble(int Duration, float LargeMotor, float SmallMotor) { }

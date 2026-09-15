@@ -30,7 +30,7 @@ public partial class LoadingScreen : ILib
 
     public struct K_Private_ControlFourScreens
     {
-        public global::System.Collections.Generic.List<K_Private_ControlLoadingScreen> LoadingScreenList;
+        public global::System.Collections.Generic.IList<K_Private_ControlLoadingScreen> LoadingScreenList;
     }
 
     public struct K_Private_Controls

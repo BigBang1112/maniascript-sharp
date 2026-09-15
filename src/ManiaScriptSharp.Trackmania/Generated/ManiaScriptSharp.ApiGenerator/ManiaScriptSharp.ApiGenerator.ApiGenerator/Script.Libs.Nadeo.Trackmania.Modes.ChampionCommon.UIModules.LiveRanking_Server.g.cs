@@ -27,7 +27,7 @@ public partial class LiveRanking_Server : ILib
     public void ResetRace() { }
 
     /// <summary>Add a winner to the match</summary>
-    public void AddWinner(string _RoundWinnerAccountId, int _RoundKey, global::System.Collections.Generic.List<int> _FinalistLevels) { }
+    public void AddWinner(string _RoundWinnerAccountId, int _RoundKey, global::System.Collections.Generic.IList<int> _FinalistLevels) { }
 
     public void AddWinner(string _RoundWinnerAccountId) { }
 

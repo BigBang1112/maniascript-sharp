@@ -77,8 +77,8 @@ public partial class PopUpReportSystem : ILib
         public int CurrentTargetDetailIndex;
         public int CurrentTargetReasonIndex;
         public global::System.Collections.Generic.Dictionary<int, int> FirstChoicesIndexesToTargetTypes;
-        public global::System.Collections.Generic.List<string> FirstChoices;
-        public global::System.Collections.Generic.List<string> SecondChoices;
+        public global::System.Collections.Generic.IList<string> FirstChoices;
+        public global::System.Collections.Generic.IList<string> SecondChoices;
     }
 
     public struct K_Event
@@ -88,7 +88,7 @@ public partial class PopUpReportSystem : ILib
 
     public struct K_State
     {
-        public global::System.Collections.Generic.List<K_Event> PendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> PendingEvents;
         public bool ReportStatusAvailable;
         public bool ReportStatusSuccess;
         public string ReportStatusErrorCode;

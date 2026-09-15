@@ -97,7 +97,7 @@ public partial class Layers2 : ILib
     /// <param name="LayersName">The layers to check</param>
     /// <param name="Player">The player to check</param>
     /// <returns>An array containing the names of the missing layers (if any)</returns>
-    public global::System.Collections.Generic.List<string> IsMissing(global::System.Collections.Generic.List<string> _LayersName) => default!;
+    public global::System.Collections.Generic.IList<string> IsMissing(global::System.Collections.Generic.IList<string> _LayersName) => default!;
 
     /// <summary>Layers garbage collector Destroys layers that are not used in any UI.UILayers array</summary>
     /// <param name="Full">Clean all the layers even the ones not created by the lib</param>

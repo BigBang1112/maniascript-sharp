@@ -17,25 +17,25 @@ public partial class CServerPlugin : CNod, ILocalProvider, IPersistentProvider
     public CClient GetClient(CUser Login) => default!;
     public CClient GetClientFromWebServicesUserId(string WebServicesUserId) => default!;
     /// <summary>Currently connected Users.</summary>
-    public System.Collections.Generic.List<CClient> Clients { get; }
+    public System.Collections.Generic.IList<CClient> Clients { get; }
     /// <summary>Users connected as spectators.</summary>
-    public System.Collections.Generic.List<CClient> Spectators { get; }
+    public System.Collections.Generic.IList<CClient> Spectators { get; }
     /// <summary>Users connected as players.</summary>
-    public System.Collections.Generic.List<CClient> Players { get; }
+    public System.Collections.Generic.IList<CClient> Players { get; }
     public CPlayer GetPlaygroundPlayer(string Login) => default!;
     /// <summary>Sorted scores.</summary>
-    public System.Collections.Generic.List<CScore> Scores { get; }
-    public System.Collections.Generic.List<CUser> Users { get; }
-    public System.Collections.Generic.List<CTeam> Teams { get; }
+    public System.Collections.Generic.IList<CScore> Scores { get; }
+    public System.Collections.Generic.IList<CUser> Users { get; }
+    public System.Collections.Generic.IList<CTeam> Teams { get; }
     public string NeutralEmblemUrl { get; set; }
     public string ForcedClubLinkUrl1 { get; set; }
     public string ForcedClubLinkUrl2 { get; set; }
     public void TweakTeamColorsToAvoidHueOverlap() { }
-    public System.Collections.Generic.List<int> ClansNbPlayers { get; set; }
-    public System.Collections.Generic.List<int> ClanScores { get; set; }
+    public System.Collections.Generic.IList<int> ClansNbPlayers { get; set; }
+    public System.Collections.Generic.IList<int> ClanScores { get; set; }
     public int Now { get; }
-    public System.Collections.Generic.List<CServerPluginEvent> PendingEvents { get; }
-    public void TriggerModeScriptEvent(string Type, System.Collections.Generic.List<string> Data) { }
+    public System.Collections.Generic.IList<CServerPluginEvent> PendingEvents { get; }
+    public void TriggerModeScriptEvent(string Type, System.Collections.Generic.IList<string> Data) { }
     public void SendModeScriptCommand(string CommandName, bool BoolVal) { }
     public void SendModeScriptCommand(string CommandName, int IntVal) { }
     public void SendModeScriptCommand(string CommandName, float RealVal) { }
@@ -46,7 +46,7 @@ public partial class CServerPlugin : CNod, ILocalProvider, IPersistentProvider
     public void SendModeScriptCommand(string CommandName, Int3 Int3Val) { }
     public bool MapLoaded { get; }
     public bool MapUnloadRequested { get; }
-    public System.Collections.Generic.List<CMapInfo> MapList { get; }
+    public System.Collections.Generic.IList<CMapInfo> MapList { get; }
     public int CurMapIndex { get; }
     public int NextMapIndex { get; set; }
     public void RestartMap() { }
@@ -61,9 +61,9 @@ public partial class CServerPlugin : CNod, ILocalProvider, IPersistentProvider
     public CHttpManager Http { get; }
     public CSystemPlatform System { get; }
     public string Dbg_DumpDeclareForVariables(CNod Nod, bool StatsOnly) => default!;
-    public System.Collections.Generic.List<CTaskResult> TaskResults { get; }
+    public System.Collections.Generic.IList<CTaskResult> TaskResults { get; }
     public void TaskResult_Release(Ident TaskResultId) { }
-    public System.Collections.Generic.List<CGhost> Ghosts { get; }
+    public System.Collections.Generic.IList<CGhost> Ghosts { get; }
     public CTaskResult_Ghost Ghost_Download(string Url) => default!;
     public void GhostDriver_Playlist_Clear(CPlayer Player) { }
     public void GhostDriver_Playlist_Add(CPlayer Player, CGhost Ghost) { }

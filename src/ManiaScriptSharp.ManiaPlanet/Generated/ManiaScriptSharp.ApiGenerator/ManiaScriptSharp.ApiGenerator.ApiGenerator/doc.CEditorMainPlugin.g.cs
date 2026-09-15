@@ -26,13 +26,13 @@ public partial class CEditorMainPlugin : CAnyEditorPlugin, ILocalProvider, IPers
     public void Help_Open() { }
     public void Help_Close() { }
     public CEditorPluginHandle GetPluginHandle(string Name) => default!;
-    public void SendPluginEvent(CEditorPluginHandle Handle, string Type, System.Collections.Generic.List<string> Data) { }
+    public void SendPluginEvent(CEditorPluginHandle Handle, string Type, System.Collections.Generic.IList<string> Data) { }
     public void Context_SetActive(string ContextName, bool IsActive) { }
     public bool Context_IsActive(string ContextName) => default!;
     public bool Binding_IsActive(string BindingName) => default!;
     public bool Binding_IsActive(string ContextName, string BindingName) => default!;
     public void Plugin_SetClearance(CEditorPluginHandle Handle, EMeshEditorAPI API, bool IsAllowed) { }
-    public System.Collections.Generic.List<CEditorPluginHandle> Plugins { get; }
+    public System.Collections.Generic.IList<CEditorPluginHandle> Plugins { get; }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];
 }

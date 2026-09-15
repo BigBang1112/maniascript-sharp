@@ -38,6 +38,6 @@ public partial class Record_Common : ILib
         public int WorstScore;
         public bool IsFull;
         public int Type;
-        public global::System.Collections.Generic.List<K_TMGame_Record_Record> Records;
+        public global::System.Collections.Generic.IList<K_TMGame_Record_Record> Records;
     }
 }

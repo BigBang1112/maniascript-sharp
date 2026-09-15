@@ -20,7 +20,7 @@ public partial class WelcomePopUp_Server : ILib
     public void SetDivision(string _Division) { }
 
     /// <summary>Send the points distribution</summary>
-    public void SetPointsDistribution(global::System.Collections.Generic.List<int> _PointsDistribution) { }
+    public void SetPointsDistribution(global::System.Collections.Generic.IList<int> _PointsDistribution) { }
 
     /// <summary>Unload the library</summary>
     public void Unload() { }

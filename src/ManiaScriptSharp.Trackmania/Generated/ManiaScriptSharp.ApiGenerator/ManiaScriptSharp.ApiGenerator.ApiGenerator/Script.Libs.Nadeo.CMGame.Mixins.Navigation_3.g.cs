@@ -54,9 +54,9 @@ public partial class Navigation_3 : ILib
     public struct K_Private_Context
     {
         public string Uid;
-        public global::System.Collections.Generic.List<Ident> ControlIdList;
+        public global::System.Collections.Generic.IList<Ident> ControlIdList;
         public Ident FocusedControlId;
-        public global::System.Collections.Generic.List<Ident> FocusedControlIdList;
+        public global::System.Collections.Generic.IList<Ident> FocusedControlIdList;
         public global::System.Collections.Generic.Dictionary<Ident, Ident> Memory;
         public bool IsEnabled;
         public bool IsForcedFocusEnabled;
@@ -67,7 +67,7 @@ public partial class Navigation_3 : ILib
         public global::System.Collections.Generic.Dictionary<Ident, K_Private_Control> ControlList;
         public global::System.Collections.Generic.Dictionary<Ident, Ident> ParentList;
         public global::System.Collections.Generic.Dictionary<string, K_Private_Context> ContextList;
-        public global::System.Collections.Generic.List<int> ListenToActionInputList;
+        public global::System.Collections.Generic.IList<int> ListenToActionInputList;
         public bool IsMouseSleeping;
     }
 

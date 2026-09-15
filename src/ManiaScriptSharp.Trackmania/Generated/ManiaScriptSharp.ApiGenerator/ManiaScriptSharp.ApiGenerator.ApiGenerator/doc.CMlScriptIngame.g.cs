@@ -72,7 +72,7 @@ public partial class CMlScriptIngame : CMlScript, ILocalProvider, IPersistentPro
     public void CopyServerLinkToClipBoard() { }
     public void JoinTeam1() { }
     public void JoinTeam2() { }
-    public System.Collections.Generic.List<CTeam> Teams { get; }
+    public System.Collections.Generic.IList<CTeam> Teams { get; }
     /// <summary>Request change of IsSpectatorClient (not immediate, and it may be refused).</summary>
     public void RequestSpectatorClient(bool Spectator) { }
     /// <summary>Set the spectated player, but do not switch to spectator mode automatically. Equivalent to numpad1/2/3/4</summary>

@@ -24,11 +24,11 @@ public partial class CManiaApp : CNod, ILocalProvider, IPersistentProvider
     public bool EnableMenuNavigationInputs { get; set; }
     public float MouseX { get; }
     public float MouseY { get; }
-    public System.Collections.Generic.List<CUILayer> UILayers { get; }
+    public System.Collections.Generic.IList<CUILayer> UILayers { get; }
     public CUILayer UILayerCreate() => default!;
     public void UILayerDestroy(CUILayer Layer) { }
     public void UILayerDestroyAll() { }
-    public void LayerCustomEvent(CUILayer Layer, string Type, System.Collections.Generic.List<string> Data) { }
+    public void LayerCustomEvent(CUILayer Layer, string Type, System.Collections.Generic.IList<string> Data) { }
     public void OpenLink(string Url, ELinkType LinkType) { }
     public CXmlManager Xml { get; }
     public CHttpManager Http { get; }

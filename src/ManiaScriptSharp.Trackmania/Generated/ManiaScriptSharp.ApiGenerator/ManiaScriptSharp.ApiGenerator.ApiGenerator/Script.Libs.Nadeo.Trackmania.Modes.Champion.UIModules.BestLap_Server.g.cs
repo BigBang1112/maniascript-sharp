@@ -19,11 +19,11 @@ public partial class BestLap_Server : ILib
     public struct K_BestLapTimes
     {
         public int Lap;
-        public global::System.Collections.Generic.List<string> Names;
-        public global::System.Collections.Generic.List<string> Logins;
-        public global::System.Collections.Generic.List<string> WebServicesIds;
-        public global::System.Collections.Generic.List<int> Times;
-        public global::System.Collections.Generic.List<int> Points;
+        public global::System.Collections.Generic.IList<string> Names;
+        public global::System.Collections.Generic.IList<string> Logins;
+        public global::System.Collections.Generic.IList<string> WebServicesIds;
+        public global::System.Collections.Generic.IList<int> Times;
+        public global::System.Collections.Generic.IList<int> Points;
     }
 
     /// <summary>Send the top 3 of a given lap</summary>

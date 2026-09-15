@@ -140,10 +140,10 @@ public sealed partial class TextLib
         return Regex.Replace(Argument1, @"\$(?:(\$)|[0-9a-fA-F]{2,3}|[lhLH]\[.*?\]|[lhLH]\[|.)", "");
     }
 
-    public partial List<string> Split(string _Separators, string _Text) =>
+    public partial IList<string> Split(string _Separators, string _Text) =>
         _Text?.Split(_Separators.ToCharArray(), StringSplitOptions.None).ToList() ?? [];
 
-    public partial string Join(string _Separator, List<string> _Texts) => string.Join(_Separator, _Texts);
+    public partial string Join(string _Separator, IList<string> _Texts) => string.Join(_Separator, _Texts);
 
     public partial string Trim(string Argument1) => Argument1?.Trim() ?? string.Empty;
 
@@ -173,14 +173,14 @@ public sealed partial class TextLib
         return options;
     }
 
-    public partial List<string> RegexFind(string _Pattern, string _Text, string _Flags)
+    public partial IList<string> RegexFind(string _Pattern, string _Text, string _Flags)
     {
         if (string.IsNullOrEmpty(_Pattern) || string.IsNullOrEmpty(_Text)) return [];
         var matches = Regex.Matches(_Text, _Pattern, GetRegexOptions(_Flags));
         return matches.Cast<Match>().Select(m => m.Value).ToList();
     }
 
-    public partial List<string> RegexMatch(string _Pattern, string _Text, string _Flags)
+    public partial IList<string> RegexMatch(string _Pattern, string _Text, string _Flags)
     {
         if (string.IsNullOrEmpty(_Pattern) || string.IsNullOrEmpty(_Text)) return [];
         var match = Regex.Match(_Text, _Pattern, GetRegexOptions(_Flags));

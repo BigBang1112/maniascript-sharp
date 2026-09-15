@@ -32,7 +32,7 @@ public partial class OnlineServicesStatusAPI : ILib
     public struct K_Http_OnlineServiceGroup
     {
         public string type;
-        public global::System.Collections.Generic.List<K_Http_OnlineService> services;
+        public global::System.Collections.Generic.IList<K_Http_OnlineService> services;
     }
 
     public struct K_Http_OnlineServiceEvent
@@ -44,7 +44,7 @@ public partial class OnlineServicesStatusAPI : ILib
 
     public struct K_Http_OnlineServiceOverview
     {
-        public global::System.Collections.Generic.List<K_Http_OnlineServiceGroup> servicesGroups;
+        public global::System.Collections.Generic.IList<K_Http_OnlineServiceGroup> servicesGroups;
         public K_Http_OnlineServiceEvent @event;
     }
 
@@ -58,7 +58,7 @@ public partial class OnlineServicesStatusAPI : ILib
     public struct OnlineServicesStatusAPI_K_OnlineServiceGroup
     {
         public string Type;
-        public global::System.Collections.Generic.List<OnlineServicesStatusAPI_K_OnlineService> Services;
+        public global::System.Collections.Generic.IList<OnlineServicesStatusAPI_K_OnlineService> Services;
     }
 
     public struct OnlineServicesStatusAPI_K_OnlineServiceEvent
@@ -70,7 +70,7 @@ public partial class OnlineServicesStatusAPI : ILib
 
     public struct OnlineServicesStatusAPI_K_OnlineServiceOverview
     {
-        public global::System.Collections.Generic.List<OnlineServicesStatusAPI_K_OnlineServiceGroup> ServicesGroups;
+        public global::System.Collections.Generic.IList<OnlineServicesStatusAPI_K_OnlineServiceGroup> ServicesGroups;
         public OnlineServicesStatusAPI_K_OnlineServiceEvent Event;
     }
 

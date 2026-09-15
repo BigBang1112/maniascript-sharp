@@ -67,7 +67,7 @@ public partial class Stylesheet_3 : ILib
     {
         public int Combinator;
         public string Control;
-        public global::System.Collections.Generic.List<string> Classes;
+        public global::System.Collections.Generic.IList<string> Classes;
         public string Id;
     }
 
@@ -80,7 +80,7 @@ public partial class Stylesheet_3 : ILib
 
     public struct K_Rule
     {
-        public global::System.Collections.Generic.List<K_Selector> Selectors;
+        public global::System.Collections.Generic.IList<K_Selector> Selectors;
         public global::System.Collections.Generic.Dictionary<string, string> Properties;
         public K_Private_Specificity Private_Specificity;
     }
@@ -88,7 +88,7 @@ public partial class Stylesheet_3 : ILib
     public struct K_Stylesheet
     {
         public string Uid;
-        public global::System.Collections.Generic.List<K_Rule> Rules;
+        public global::System.Collections.Generic.IList<K_Rule> Rules;
         public int UpdateCounter;
     }
 
@@ -100,23 +100,23 @@ public partial class Stylesheet_3 : ILib
     }
 
     /// <summary>Create a new stylesheet</summary>
-    public K_Stylesheet New(string _Uid, global::System.Collections.Generic.List<K_Rule> _Rules) => default!;
+    public K_Stylesheet New(string _Uid, global::System.Collections.Generic.IList<K_Rule> _Rules) => default!;
 
     /// <summary>Create a new selector</summary>
-    public K_Selector New_Selector(int _Combinator, string _Control, global::System.Collections.Generic.List<string> _Classes, string _Id) => default!;
+    public K_Selector New_Selector(int _Combinator, string _Control, global::System.Collections.Generic.IList<string> _Classes, string _Id) => default!;
 
-    public K_Selector New_Selector(string _Control, global::System.Collections.Generic.List<string> _Classes, string _Id) => default!;
+    public K_Selector New_Selector(string _Control, global::System.Collections.Generic.IList<string> _Classes, string _Id) => default!;
 
     /// <summary>Create a new rule</summary>
-    public K_Rule New_Rule(global::System.Collections.Generic.List<K_Selector> _Selectors, global::System.Collections.Generic.Dictionary<string, string> _Properties) => default!;
+    public K_Rule New_Rule(global::System.Collections.Generic.IList<K_Selector> _Selectors, global::System.Collections.Generic.Dictionary<string, string> _Properties) => default!;
 
     public K_Rule New_Rule(K_Selector _Selector, global::System.Collections.Generic.Dictionary<string, string> _Properties) => default!;
 
     /// <summary>Set the control classes in the manialink xml</summary>
-    public string Class(global::System.Collections.Generic.List<string> _Classes) => default!;
+    public string Class(global::System.Collections.Generic.IList<string> _Classes) => default!;
 
     /// <summary>Don't let the stylesheet override these control properties</summary>
-    public string KeepControlProperties(global::System.Collections.Generic.List<string> _Properties) => default!;
+    public string KeepControlProperties(global::System.Collections.Generic.IList<string> _Properties) => default!;
 
     /// <summary>Check if a specific property is present in a control properties</summary>
     public bool HasProp(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName) => default!;

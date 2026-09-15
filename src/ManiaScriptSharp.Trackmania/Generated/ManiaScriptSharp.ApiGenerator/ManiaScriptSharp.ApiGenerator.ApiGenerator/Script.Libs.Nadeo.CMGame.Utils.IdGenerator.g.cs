@@ -23,7 +23,7 @@ public partial class IdGenerator : ILib
         public string Prefix;
         public string Id;
         public int Private_Format;
-        public global::System.Collections.Generic.List<string> Private_Generator;
+        public global::System.Collections.Generic.IList<string> Private_Generator;
     }
 
     public struct K_Options

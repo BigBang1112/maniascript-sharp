@@ -37,7 +37,7 @@ public partial class PrestigeNotificationObserver : ILib
 
     public struct K_State
     {
-        public global::System.Collections.Generic.List<K_Notification> PrestigeNotifications;
+        public global::System.Collections.Generic.IList<K_Notification> PrestigeNotifications;
     }
 
     /// <summary>Add new notification to our state array and check if we can remove old ones</summary>

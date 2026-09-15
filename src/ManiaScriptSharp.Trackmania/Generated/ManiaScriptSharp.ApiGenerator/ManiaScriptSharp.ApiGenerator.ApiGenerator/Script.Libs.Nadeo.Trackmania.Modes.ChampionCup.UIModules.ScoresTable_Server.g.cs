@@ -34,7 +34,7 @@ public partial class ScoresTable_Server : ILib
 
     /// <summary>Force the scores table to sort the scores in the order given by the array</summary>
     /// <param name="Ranking">The sorted account id of the players</param>
-    public void ForceStepRanking(global::System.Collections.Generic.List<string> _Ranking) { }
+    public void ForceStepRanking(global::System.Collections.Generic.IList<string> _Ranking) { }
 
     /// <summary>Unload the library</summary>
     public void Unload() { }

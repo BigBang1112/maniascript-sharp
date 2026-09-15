@@ -98,8 +98,8 @@ public partial class PressStart : ILib
         public int ConnectionTimeOut;
         public int LeavePageAnimationEndTime;
         public string ErrorMessage;
-        public global::System.Collections.Generic.List<int> PreloadingOnlineData;
-        public global::System.Collections.Generic.List<int> PreloadingOfflineData;
+        public global::System.Collections.Generic.IList<int> PreloadingOnlineData;
+        public global::System.Collections.Generic.IList<int> PreloadingOfflineData;
         public string RedirectPath;
         public bool GoToZoneSelection;
         public bool CanSwitchProfile;

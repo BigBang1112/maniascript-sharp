@@ -131,10 +131,10 @@ public partial class TM_Final42TMGL_Online : ILib
     public void EnableSignESportsMode(bool _Enabled) { }
 
     /// <summary>Update the players' scores in the scores table</summary>
-    public void UpdateScoresTablePlayersScores(int _NbOfWinners, global::System.Collections.Generic.List<string> _QualifiedPlayers) { }
+    public void UpdateScoresTablePlayersScores(int _NbOfWinners, global::System.Collections.Generic.IList<string> _QualifiedPlayers) { }
 
     /// <summary>Update the clans' scores in the scores table</summary>
-    public void UpdateScoresTableClansScores(global::System.Collections.Generic.Dictionary<string, int> _PlayersClans, int _ClansNb, global::System.Collections.Generic.List<string> _QualifiedPlayers, int _MatchPointsLimit) { }
+    public void UpdateScoresTableClansScores(global::System.Collections.Generic.Dictionary<string, int> _PlayersClans, int _ClansNb, global::System.Collections.Generic.IList<string> _QualifiedPlayers, int _MatchPointsLimit) { }
 
     /// <summary>Update live ranking info message</summary>
     public void UpdateLiveRankingInfoMessage(int _MapPointsLimit) { }

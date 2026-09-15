@@ -90,7 +90,7 @@ public partial class PopUpPrestigeCompletion : ILib
 
     public struct K_State
     {
-        public global::System.Collections.Generic.List<K_Event> PendingEvents;
+        public global::System.Collections.Generic.IList<K_Event> PendingEvents;
     }
 
     public string GetManialink() => default!;

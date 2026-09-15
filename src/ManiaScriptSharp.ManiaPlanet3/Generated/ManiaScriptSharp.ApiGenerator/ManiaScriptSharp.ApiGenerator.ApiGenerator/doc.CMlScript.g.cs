@@ -31,7 +31,7 @@ public partial class CMlScript : CNod, ILocalProvider, IPersistentProvider
     /// <summary>Local user structure.</summary>
     public CUser LocalUser { get; }
     public CTitle LoadedTitle { get; }
-    public System.Collections.Generic.List<CMlEvent> PendingEvents { get; }
+    public System.Collections.Generic.IList<CMlEvent> PendingEvents { get; }
     public float MouseX { get; }
     public float MouseY { get; }
     public bool MouseLeftButton { get; }
@@ -54,7 +54,7 @@ public partial class CMlScript : CNod, ILocalProvider, IPersistentProvider
     public CHttpManager Http { get; }
     public CAudioManager Audio { get; }
     /// <summary>Send a custom event to the ManiaApp owning the layer, no-op otherwise.</summary>
-    public void SendCustomEvent(string Type, System.Collections.Generic.List<string> Data) { }
+    public void SendCustomEvent(string Type, System.Collections.Generic.IList<string> Data) { }
     public void PreloadImage(string ImageUrl) { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> IPersistentProvider.Persistent { get; } = [];

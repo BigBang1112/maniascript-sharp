@@ -13,7 +13,7 @@ public partial class CXmlNode : CNod
     public string TextContents { get; }
     public string TextRawContents { get; }
     public string TextRecursiveContents { get; }
-    public System.Collections.Generic.List<CXmlNode> Children { get; }
+    public System.Collections.Generic.IList<CXmlNode> Children { get; }
     public string GetAttributeText(string Name, string DefaultValue) => default!;
     public int GetAttributeInteger(string Name, int DefaultValue) => default!;
     public float GetAttributeReal(string Name, float DefaultValue) => default!;

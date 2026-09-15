@@ -33,7 +33,7 @@ public partial class StartRaceMenu_Server : ILib
     public string GetLastEventType() => default!;
 
     /// <summary>Set the list of account IDs for the selected ghosts</summary>
-    public void SetGhostChoiceAccountIdList(global::System.Collections.Generic.List<string> _GhostChoiceAccountIdList) { }
+    public void SetGhostChoiceAccountIdList(global::System.Collections.Generic.IList<string> _GhostChoiceAccountIdList) { }
 
     /// <summary>Get the player's ghost choice</summary>
     /// <returns>The player's ghost choice</returns>
@@ -45,7 +45,7 @@ public partial class StartRaceMenu_Server : ILib
 
     /// <summary>Get the player's followers list</summary>
     /// <returns>The list of account Id of followers</returns>
-    public global::System.Collections.Generic.List<string> GetFollowersAccountIdList() => default!;
+    public global::System.Collections.Generic.IList<string> GetFollowersAccountIdList() => default!;
 
     public void SetVolumeBalanceState_Playing() { }
 

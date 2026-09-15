@@ -159,8 +159,8 @@ public partial class CUIConfig : CNod, ILocalProvider, INetreadProvider, INetwri
     public string MarkersXML { get; set; }
     /// <summary>If True, the markers of this UI config overrides the markers of more generic UI configs. If False they are merged.</summary>
     public bool OverrideMarkers { get; set; }
-    public System.Collections.Generic.List<CUIConfigMarker> Markers { get; }
-    public System.Collections.Generic.List<CUILayer> UILayers { get; }
+    public System.Collections.Generic.IList<CUIConfigMarker> Markers { get; }
+    public System.Collections.Generic.IList<CUILayer> UILayers { get; }
     public bool OverlayHideNotices { get; set; }
     public bool OverlayHideMapInfo { get; set; }
     public bool OverlayHideChat { get; set; }

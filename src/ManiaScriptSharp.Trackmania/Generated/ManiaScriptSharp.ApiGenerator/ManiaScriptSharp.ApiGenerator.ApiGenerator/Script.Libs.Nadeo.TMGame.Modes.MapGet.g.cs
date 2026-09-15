@@ -17,13 +17,13 @@ public partial class MapGet : ILib
 
     /// <summary>Get the waypoint times of the author validation run</summary>
     /// <returns>The waypoint times</returns>
-    public global::System.Collections.Generic.List<int> GetAuthorRaceWaypointTimes() => default!;
+    public global::System.Collections.Generic.IList<int> GetAuthorRaceWaypointTimes() => default!;
 
     /// <summary>Share waypoint times of the author validation run with the map type</summary>
     /// <param name="RaceWaypointTimes">The waypoint times</param>
-    public void ShareAuthorRaceWaypointTimes(global::System.Collections.Generic.List<int> _RaceWaypointTimes) { }
+    public void ShareAuthorRaceWaypointTimes(global::System.Collections.Generic.IList<int> _RaceWaypointTimes) { }
 
-    public global::System.Collections.Generic.List<int> GetSharedAuthorRaceWaypointTimes() => default!;
+    public global::System.Collections.Generic.IList<int> GetSharedAuthorRaceWaypointTimes() => default!;
 
     /// <summary>Share time of the author</summary>
     /// <param name="Time">The author map time</param>

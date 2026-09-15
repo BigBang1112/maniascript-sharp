@@ -71,13 +71,13 @@ public partial class CampaignStruct : ILib
     public struct LibCampaignStruct_K_TopRanking
     {
         public string ZoneName;
-        public global::System.Collections.Generic.List<LibCampaignStruct_K_Top> Tops;
+        public global::System.Collections.Generic.IList<LibCampaignStruct_K_Top> Tops;
     }
 
     public struct LibCampaignStruct_K_MapTopRanking
     {
         public string ZoneName;
-        public global::System.Collections.Generic.List<LibCampaignStruct_K_TopScore> Tops;
+        public global::System.Collections.Generic.IList<LibCampaignStruct_K_TopScore> Tops;
     }
 
     public struct LibCampaignStruct_K_Ranking
@@ -90,7 +90,7 @@ public partial class CampaignStruct : ILib
 
     public struct LibCampaignStruct_K_CampaignRanking
     {
-        public global::System.Collections.Generic.List<LibCampaignStruct_K_Ranking> Rankings;
+        public global::System.Collections.Generic.IList<LibCampaignStruct_K_Ranking> Rankings;
         public string SP;
     }
 
@@ -128,9 +128,9 @@ public partial class CampaignStruct : ILib
         public int Points;
         public int RespawnCount;
         public global::System.Collections.Generic.Dictionary<string, int> ScoreBySeason;
-        public global::System.Collections.Generic.List<LibCampaignStruct_K_Ranking> Rankings;
+        public global::System.Collections.Generic.IList<LibCampaignStruct_K_Ranking> Rankings;
         public global::System.Collections.Generic.Dictionary<int, int> ClubRankings;
-        public global::System.Collections.Generic.List<LibCampaignStruct_K_MapTopRanking> TopRankings;
+        public global::System.Collections.Generic.IList<LibCampaignStruct_K_MapTopRanking> TopRankings;
         public int UpdateTime_Rankings;
         public global::System.Collections.Generic.Dictionary<int, int> UpdateTime_ClubRankings;
         public int UpdateTime_TopRankings;
@@ -178,9 +178,9 @@ public partial class CampaignStruct : ILib
         public bool IsFetched;
         public bool FailedToGetMapUrl;
         public bool IsPrivate;
-        public global::System.Collections.Generic.List<LibCampaignStruct_K_Map> Playlist;
+        public global::System.Collections.Generic.IList<LibCampaignStruct_K_Map> Playlist;
         public LibCampaignStruct_K_CampaignRanking CampaignRanking;
-        public global::System.Collections.Generic.List<LibCampaignStruct_K_TopRanking> TopRankings;
+        public global::System.Collections.Generic.IList<LibCampaignStruct_K_TopRanking> TopRankings;
         public global::System.Collections.Generic.Dictionary<int, LibCampaignStruct_K_Top> ClubPlayerRanking;
         public int UpdateTime_CampaignRanking;
         public int UpdateTime_TopRankings;

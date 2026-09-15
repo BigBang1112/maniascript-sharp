@@ -32,13 +32,13 @@ public partial class LiveRankingChampion_Server : ILib
 
     /// <summary>Update the list of players that finished race</summary>
     /// <param name="PlayerFinishedRace">List of players that finished race</param>
-    public void SetPlayerFinishedRace(global::System.Collections.Generic.List<string> _PlayerFinishedRace) { }
+    public void SetPlayerFinishedRace(global::System.Collections.Generic.IList<string> _PlayerFinishedRace) { }
 
     /// <summary>Update the points limit used to displayed finalist and winner status Cup mode</summary>
     public void SetPointsLimit(int _PointsLimit) { }
 
     /// <summary>Update the list of players qualified for the next final step</summary>
-    public void SetQualifiedPlayers(global::System.Collections.Generic.List<string> _QualifiedPlayersAccountIds) { }
+    public void SetQualifiedPlayers(global::System.Collections.Generic.IList<string> _QualifiedPlayersAccountIds) { }
 
     /// <summary>Set the ranking mode</summary>
     public void SetRankingMode(int _RankingMode) { }

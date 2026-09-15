@@ -96,17 +96,17 @@ public partial class Tracking : ILib
         public bool IsCampaignMonthly;
         public int OfficialYear;
         public int OfficialSeason;
-        public global::System.Collections.Generic.List<string> OfficialMapsUids;
+        public global::System.Collections.Generic.IList<string> OfficialMapsUids;
         public int MonthlyYear;
         public int MonthlyWeek;
-        public global::System.Collections.Generic.List<string> MonthlyMapsUids;
+        public global::System.Collections.Generic.IList<string> MonthlyMapsUids;
     }
 
     public struct K_Campaign
     {
         public int Year;
         public int Week;
-        public global::System.Collections.Generic.List<string> MapUids;
+        public global::System.Collections.Generic.IList<string> MapUids;
     }
 
     public struct K_State
@@ -121,7 +121,7 @@ public partial class Tracking : ILib
         public int CurrentTrackMedal;
         public int CurrentTrackRecord;
         public global::System.Collections.Generic.Dictionary<int, K_Campaign> OfficialCampaigns;
-        public global::System.Collections.Generic.List<string> TOTDMapUids;
+        public global::System.Collections.Generic.IList<string> TOTDMapUids;
         public string ServerMapUid;
         public K_MapInfo ServerMapInfo;
         public string MenuPageId;

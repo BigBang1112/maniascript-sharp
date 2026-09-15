@@ -171,7 +171,7 @@ public partial class ExpendableButton_2 : ILib
 
     public struct K_Properties
     {
-        public global::System.Collections.Generic.List<int> Enabled;
+        public global::System.Collections.Generic.IList<int> Enabled;
         public float WidthMin;
         public float WidthMax;
         public float Width;
@@ -193,10 +193,10 @@ public partial class ExpendableButton_2 : ILib
         public Vec3 TextColorFocus;
         public float TextOpacityDefault;
         public float TextOpacityFocus;
-        public global::System.Collections.Generic.List<string> BgStylesDefault;
-        public global::System.Collections.Generic.List<string> BgStylesFocus;
-        public global::System.Collections.Generic.List<string> FgStylesDefault;
-        public global::System.Collections.Generic.List<string> FgStylesFocus;
+        public global::System.Collections.Generic.IList<string> BgStylesDefault;
+        public global::System.Collections.Generic.IList<string> BgStylesFocus;
+        public global::System.Collections.Generic.IList<string> FgStylesDefault;
+        public global::System.Collections.Generic.IList<string> FgStylesFocus;
         public float HitboxSkew;
         public int TransitionDuration;
         public string IconImageUrl;
@@ -224,7 +224,7 @@ public partial class ExpendableButton_2 : ILib
         public K_Controls Controls;
         public K_Properties LocalProperties;
         public K_Properties MergedProperties;
-        public global::System.Collections.Generic.List<string> Styles;
+        public global::System.Collections.Generic.IList<string> Styles;
         public bool IsButton;
         public bool IsFocused;
     }

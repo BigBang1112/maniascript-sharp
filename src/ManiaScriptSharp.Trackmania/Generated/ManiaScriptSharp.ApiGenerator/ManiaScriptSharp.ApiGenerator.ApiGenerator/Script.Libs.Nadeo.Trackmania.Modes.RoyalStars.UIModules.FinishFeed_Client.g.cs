@@ -47,7 +47,7 @@ public partial class FinishFeed_Client : ILib
     public struct K_State
     {
         public K_Controls Controls;
-        public global::System.Collections.Generic.List<K_NotificationDisplay> DisplayedNotifications;
+        public global::System.Collections.Generic.IList<K_NotificationDisplay> DisplayedNotifications;
         public int NotificationsUpdate;
         public int PrevNotificationsCount;
         public bool DisplayModule;

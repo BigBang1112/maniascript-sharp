@@ -37,7 +37,7 @@ public partial class Objects : ILib
     public string GetObjectName(CSmObject _Object) => default!;
 
     /// <summary>Set a list of objects allowed to be spawned on the anchors /!\ Call this function before map load or it will be ignored /!\</summary>
-    public void SetAllowedObjects(global::System.Collections.Generic.List<string> _ItemNames) { }
+    public void SetAllowedObjects(global::System.Collections.Generic.IList<string> _ItemNames) { }
 
     /// <summary>Destroy all existing anchor object</summary>
     public void DestroyAnchorsObjects() { }

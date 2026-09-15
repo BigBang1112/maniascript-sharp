@@ -35,11 +35,11 @@ public partial class RandomStyles : ILib
 
     public float GetCheckpointsSpacing() => default!;
 
-    public global::System.Collections.Generic.List<string> GetClipsPriority() => default!;
+    public global::System.Collections.Generic.IList<string> GetClipsPriority() => default!;
 
-    public global::System.Collections.Generic.List<string> GetThemes() => default!;
+    public global::System.Collections.Generic.IList<string> GetThemes() => default!;
 
-    public global::System.Collections.Generic.List<string> GetAllowedMultiSkins() => default!;
+    public global::System.Collections.Generic.IList<string> GetAllowedMultiSkins() => default!;
 
     public float GetMultiplier(string _Type) => default!;
 
@@ -53,15 +53,15 @@ public partial class RandomStyles : ILib
 
     public void ReadStyles(string _Xml, bool _Reset) { }
 
-    public void ApplyStyles(global::System.Collections.Generic.List<string> _Styles, bool _Reset) { }
+    public void ApplyStyles(global::System.Collections.Generic.IList<string> _Styles, bool _Reset) { }
 
     public void ApplyTheme(string _Theme, bool _Reset) { }
 
-    public global::System.Collections.Generic.List<string> GetMapLengths() => default!;
+    public global::System.Collections.Generic.IList<string> GetMapLengths() => default!;
 
-    public global::System.Collections.Generic.List<string> GetMapSpeeds() => default!;
+    public global::System.Collections.Generic.IList<string> GetMapSpeeds() => default!;
 
-    public global::System.Collections.Generic.List<string> GetMapStyles() => default!;
+    public global::System.Collections.Generic.IList<string> GetMapStyles() => default!;
 
     public void LoadDefaultStyles() { }
 

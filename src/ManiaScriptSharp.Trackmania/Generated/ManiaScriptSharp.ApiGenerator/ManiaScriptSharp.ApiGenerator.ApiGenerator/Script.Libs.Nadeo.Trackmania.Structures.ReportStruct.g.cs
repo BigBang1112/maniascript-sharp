@@ -47,8 +47,8 @@ public partial class ReportStruct : ILib
 
     public struct LibStructuresReport_K_ReportData
     {
-        public global::System.Collections.Generic.List<string> Details;
-        public global::System.Collections.Generic.List<string> Ids;
+        public global::System.Collections.Generic.IList<string> Details;
+        public global::System.Collections.Generic.IList<string> Ids;
     }
 
     /// <summary>Format the record player name and score for the detail question of the report pop up _PlayerScore								The score of the player (in time) _MapType										The map type of the map where the record was driven</summary>

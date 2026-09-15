@@ -44,7 +44,7 @@ public partial class WeeklyTracks : ILib
 
     public struct K_Private_SeasonInfo
     {
-        public global::System.Collections.Generic.List<int> List;
+        public global::System.Collections.Generic.IList<int> List;
         public int Current;
         public bool IsFocused;
         public bool CanRefresh;

@@ -38,16 +38,16 @@ public partial class Macroblock : ILib
         public bool IsTurning;
         public bool IsRising;
         public global::System.Collections.Generic.Dictionary<int, string> Variants;
-        public global::System.Collections.Generic.List<bool> ClipCustoms;
-        public global::System.Collections.Generic.List<string> DisabledClipsNames;
-        public global::System.Collections.Generic.List<Int3> DisabledClipsOffsets;
-        public global::System.Collections.Generic.List<int> DisabledClipsDirs;
-        public global::System.Collections.Generic.List<string> ClipNames;
-        public global::System.Collections.Generic.List<Int3> ClipOffsets;
-        public global::System.Collections.Generic.List<Int3> ClipConnections;
-        public global::System.Collections.Generic.List<int> ClipDirs;
+        public global::System.Collections.Generic.IList<bool> ClipCustoms;
+        public global::System.Collections.Generic.IList<string> DisabledClipsNames;
+        public global::System.Collections.Generic.IList<Int3> DisabledClipsOffsets;
+        public global::System.Collections.Generic.IList<int> DisabledClipsDirs;
+        public global::System.Collections.Generic.IList<string> ClipNames;
+        public global::System.Collections.Generic.IList<Int3> ClipOffsets;
+        public global::System.Collections.Generic.IList<Int3> ClipConnections;
+        public global::System.Collections.Generic.IList<int> ClipDirs;
         public Vec3 ClipsCenter;
-        public global::System.Collections.Generic.List<Int3> CollisionsOffsets;
+        public global::System.Collections.Generic.IList<Int3> CollisionsOffsets;
         public int SignatureKey;
         public float Length;
         public int GroundOffset;
@@ -106,7 +106,7 @@ public partial class Macroblock : ILib
     public bool IsOutClip(string _ClipName) => default!;
 
     /// <summary>Get the names of the clips that can be connected to the provided clip</summary>
-    public global::System.Collections.Generic.List<string> GetConnectableClips(string _ClipName) => default!;
+    public global::System.Collections.Generic.IList<string> GetConnectableClips(string _ClipName) => default!;
 
     public bool IsMapAStadiumVariant() => default!;
 

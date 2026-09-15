@@ -63,9 +63,9 @@ public partial class RoomMapListDisplay : ILib
         public bool IsFetched;
         public bool IsPrivateForPlayer;
         public bool IsPrivateForSpectator;
-        public global::System.Collections.Generic.List<string> MapNames;
-        public global::System.Collections.Generic.List<string> MapUids;
-        public global::System.Collections.Generic.List<string> PlayerNames;
+        public global::System.Collections.Generic.IList<string> MapNames;
+        public global::System.Collections.Generic.IList<string> MapUids;
+        public global::System.Collections.Generic.IList<string> PlayerNames;
     }
 
     public struct K_Controls
