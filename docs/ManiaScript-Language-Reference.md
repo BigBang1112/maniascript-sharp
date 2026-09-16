@@ -14,14 +14,14 @@
 10. [Labels](#labels)
 11. [Timing Instructions](#timing-instructions)
 12. [Conventions](#conventions)
-13. [Game Mode Script Structure](#game-mode-script-structure)
+13. [Script Contexts and Host Structure](#script-contexts-and-host-structure)
 14. [Reference Card](#reference-card)
 
 ---
 
 ## Syntax Basics
 
-A script is a text composed of lines (instructions). Instructions are separated by semicolons, as in C/C++:
+A script is text composed of instructions. Ordinary instructions are separated by semicolons, as in C/C++:
 
 ```
 declare MyVar = 12;
@@ -30,6 +30,19 @@ DoSomething(MyVar);
 ```
 
 > **Beware:** Case is important, always!
+
+Curly braces delimit blocks. `if`, `else`, and loop bodies may also contain a single unbraced instruction:
+
+```
+if (Player == Null) return;
+else if (Player.IsBot) Player.Score += 1;
+```
+
+Use braces for multi-instruction bodies and whenever it makes the scope clearer.
+
+### Templates and Manialink Content
+
+Some hosts use a composition/template layer in addition to ManiaScript, including labels and placeholders such as `{{{P}}}` in identifiers or embedded Manialink XML. Such placeholders are expanded before the resulting script runs; they are not general-purpose expression delimiters. Inside a triple-quoted `Text`, `{{{ Expression }}}` interpolates an expression (see [Text Literals](#text-literals)).
 
 ---
 
@@ -41,13 +54,48 @@ DoSomething(MyVar);
 | `Integer` | Numbers such as `2`, `-5`, or `31337` |
 | `Real` | Decimal numbers such as `-4.2` or `99.` (the trailing dot is required — `99` is an Integer) |
 | `Text` | Any character sequence between double quotes: `"plop"`, `"gouzi"`, `"456.32"` |
+| `Ident` | An engine object identifier; its empty value is `NullId` |
+| `Vec2` / `Vec3` | Two- and three-component real vectors |
+| `Int2` / `Int3` | Two- and three-component integer vectors |
+
+`Void` is a function return type, not a variable type. Engine-provided class types (normally named with a `C` prefix, such as `CSmPlayer` or `CMlFrame`) refer to existing engine objects and use `Null` as their empty value.
+
+### Literal Forms
+
+```
+declare Integer Count = 42;
+declare Real Ratio = .5;
+declare Real WholeReal = 99.;
+declare Boolean Enabled = True;
+declare Ident PlayerId = NullId;
+declare Vec2 Position = <10., -4.5>;
+declare Vec3 Color = <1., .5, 0.>;
+declare Int2 Range = <0, 10>;
+```
+
+Enum values from the engine and libraries are qualified with `::`:
+
+```
+declare Direction = CBlock::CardinalDirections::North;
+```
+
+### Text Literals
 
 **Protips:**
 
 - Inside a `Text`, the usual escape sequences such as `"\n"` or `"\\"` are supported.
-- You can declare a `Text` value between triple double quotes. No escaping is needed, and it can span multiple lines:
+- You can declare a `Text` value between triple double quotes; it is useful for longer text and can span multiple lines:
   ```
   """plop="452.12.22" toto"""
+  ```
+- Triple-quoted text supports expression interpolation. This form is used throughout the Trackmania scripts:
+  ```
+  declare Summary = """Player: {{{Player.Login}}} — score: {{{Player.Score}}}""";
+  ```
+- `_()` marks a text literal for localization and is used in settings, commands, and UI text:
+  ```
+  #Setting S_TimeLimit 600 as _("Time limit")
+  declare Caption = _("Waiting for players");
   ```
 
 ---
@@ -119,11 +167,18 @@ SomeAlias = 42; // writes to SomeObject_Name on the object side
 | `declare Type Name for Object` | Local extension variable (no special behaviour) |
 | `declare Type Name as Alias for Object` | Aliased — `Alias` is used in the script, `Name` is stored on the object |
 | `declare metadata Type Name for Object` | Metadata variable (stored in map/replay metadata) |
-| `declare persistent Type Name for Object` | Persistent variable (stored on profile) |
+| `declare persistent Type Name [for Object]` | Persistent variable; it may be script-scoped or attached to an object |
 | `declare netwrite Type Name for Object` | Network-synchronized output variable (sender side) |
 | `declare netread Type Name for Object` | Network-synchronized input variable (receiver side) |
 
-> **Important:** The modifiers `metadata`, `persistent`, `netwrite`, and `netread` **always** require a `for` clause — they cannot be declared without a target object. A plain `declare netwrite Integer X;` without `for` is invalid.
+`persistent` does **not** always require `for`; script-scoped declarations are used extensively:
+
+```
+declare persistent Boolean Persistent_MapRestarted = False;
+declare persistent Boolean[Text] Persistent_ModuleVisibilities;
+```
+
+`metadata`, `netwrite`, and `netread` use a `for` target. As with ordinary declarations, the type can be inferred from an initializer when the initializer has an unambiguous type.
 
 ### Network Variables (`netwrite` / `netread`)
 
@@ -251,6 +306,21 @@ MyVar = """Hello {{{NameOfThePlayer}}}, how are you? Five = {{{2+3}}}.""";
 | `-=` | Subtract from current |
 | `*=` | Multiply current |
 | `/=` | Divide current |
+| `%=` | Apply remainder to current |
+
+### Members, Namespaces, and Class Casts
+
+Use `.` for a member or property and `::` to qualify a library, class, enum, struct, or constant. Use `as` to narrow a class reference before accessing class-specific members:
+
+```
+declare Frame <=> (Control as CMlFrame);
+if (Frame != Null) {
+    declare Label <=> (Frame.GetFirstChild("title") as CMlLabel);
+    if (Label != Null) Label.Value = "Ready";
+}
+```
+
+Test class references against `Null` before dereferencing them. `NullId` is only for `Ident` values.
 
 ---
 
@@ -313,11 +383,15 @@ while (ItemCount > 0) {
 
 ### For
 
-The loop variable takes all values from `FirstValue` to `LastValue` (inclusive):
+The range form takes all values from `FirstValue` to `LastValue` (inclusive). It accepts an optional step, including a negative step for reverse numeric traversal:
 
 ```
 for (I, 2, 5) {
     log(I); // logs 2, 3, 4, 5
+}
+
+for (I, Players.count - 1, 0, -1) {
+    log(Players[I].Login);
 }
 ```
 
@@ -339,6 +413,24 @@ foreach (Index => Item in MyArray) {
 }
 ```
 
+`for` also supports collection iteration, including key/value and reverse forms:
+
+```
+for (Player in Players) {
+    log(Player.Login);
+}
+
+for (Id => Player in reverse PlayersById) {
+    log(Id ^ ": " ^ Player.Login);
+}
+
+foreach (Id => Player in PlayersById reverse) {
+    log(Player.Login);
+}
+```
+
+The exact labels, collection types, and preferred `for`/`foreach` spelling vary across engine generations and libraries. Follow the conventions of the base script or library you are extending.
+
 Use `break;` to exit a loop early and `continue;` to skip to the next iteration.
 
 ---
@@ -354,6 +446,7 @@ Integer Sum(Integer _A, Integer _B) {
 ```
 
 - Return type `Void` means no value is returned.
+- `return;` exits early from a `Void` function; `return Expression;` returns a value from a typed function.
 - A function must be defined before it is called.
 - Functions may call themselves recursively, but circular calls between functions are not allowed.
 
@@ -424,9 +517,12 @@ List.remove(Value);
 declare Exists = List.existskey(Index);
 declare Exists2 = List.exists(Value);
 declare Index = List.keyof(Value);
+declare ValueOrDefault = List.get(Index, DefaultValue);
 
 List.clear();
 ```
+
+`get(Key, DefaultValue)` safely looks up a value in both lists and keyed arrays. It returns the supplied fallback rather than indexing a missing key.
 
 ### Arrays
 
@@ -452,6 +548,8 @@ UsersData = [
 log(UsersData[0]["login"]); // me
 ```
 
+Collection suffixes can be composed: `Ident[][]` is a nested list, while `Ident[][Integer]` is an `Integer`-keyed array of identifier lists.
+
 ### Structs
 
 ```
@@ -474,6 +572,25 @@ main() {
     log(MyCopy.MyMember); // 1
 }
 ```
+
+Struct values can be built with named fields; omitted fields retain their default value. This is the predominant initialization style in the newer scripts:
+
+```
+declare MyStruct Value = MyStruct {
+    MyMember = 1,
+    MyTextMember = "ready"
+};
+
+declare MyStruct Empty = MyStruct {};
+```
+
+An included library's struct can be made available under a local name:
+
+```
+#Struct SomeLibrary::K_Result as K_Result
+```
+
+This aliases the imported struct type; it does not define a new struct.
 
 ### Vectors
 
@@ -507,6 +624,14 @@ log(BestPlayer.Login); // Still logs Alice
 
 > When in doubt, use `=`.
 
+Rebind an existing alias with `<=>`, including to `Null` when clearing a class reference:
+
+```
+CurrentLayer <=> UIManager.UILayerCreate();
+// ...
+CurrentLayer <=> Null;
+```
+
 ---
 
 ## Directives
@@ -515,12 +640,17 @@ Directives appear at the top of a script and begin with `#`. They do **not** end
 
 | Directive | Description |
 |-----------|-------------|
-| `#RequireContext XXX` | Declares the required script context (e.g., GameMode, EditorPlugin) |
-| `#Const XXX YYYY` | Declares a constant `XXX` with value `YYYY` (immutable) |
+| `#RequireContext ContextType` | Declares the required host context |
+| `#Const Name Value` | Declares an immutable constant |
+| `#Const Namespace::Name as LocalName` | Imports a constant under a local name |
 | `#Setting XXX YYYY` | Like `#Const`, but can be modified externally |
+| `#Command Name (Type) as _("Description")` | Declares a host-exposed command, used by game-mode scripts |
 | `#Include "XXX" as YYYY` | Loads a library or file and binds it to namespace `YYYY` |
-| `#Extends "XXX"` | Extends a base script (used for game modes) |
+| `#Extends "XXX"` | Extends a base script and its host-defined labels |
 | `#Struct Name { }` | Declares a struct type |
+| `#Struct Namespace::Name as LocalName` | Imports a struct type under a local name |
+
+Common context types include `CManiaApp`, `CManiaAppPlayground`, `CManiaAppTitle`, `CManiaplanetPlugin`, `CMap`, `CSmMapType`, `CSmMode`, and `CTmMode`. The context controls which engine objects, events, labels, and API members are available.
 
 **Include example:**
 
@@ -536,19 +666,27 @@ MyLib1::Function1();
 #Setting S_PointLimit 25  as _("Points limit") ///<  Points limit on a map
 ```
 
+**Command example:**
+
+```
+#Command Command_SetPause (Boolean) as _("Pause the game")
+```
+
 ---
 
 ## Labels
 
-Labels are extension points in a script.
+Labels are extension points supplied by a base or extended script. They are host-defined, not a universal list of language events.
 
-- `+++ MyLabel +++` — Can be extended multiple times.
-- `--- MyLabel ---` — Only the latest extension applies.
+- `+++MyLabel+++` — an additive hook; multiple extensions may contribute code.
+- `---MyLabel---` — an override hook; only one implementation (the selected/latest extension) applies.
+
+Write label markers without inner spaces. Label names range from general lifecycle hooks such as `MainInit`, `MainStart`, and `MainLoop` to host-specific names such as `Match_StartMap` and `CMPlugins_AfterYield`.
 
 **Defining label code:**
 
 ```
-*** MyLabel ***
+***MyLabel***
 ***
 // code to run at this label
 ***
@@ -559,9 +697,11 @@ Labels share the scope of the insertion point. It is good practice to wrap the i
 ```
 Void fn1() {
     declare V = 3;
-    {+++ MyLabel +++}
+    {+++MyLabel+++}
 }
 ```
+
+Templates can parameterize label names, for example `+++{{{HookName}}}+++`; this is template expansion, not a runtime label lookup.
 
 ---
 
@@ -611,7 +751,7 @@ assert(MyVariable == 3);            // Halts the script if the condition is Fals
 
 ### Files
 
-- **Line endings:** LF only
+- **Line endings:** Preserve the project's existing convention.
 - **Encoding:** UTF-8 without BOM
 - **Naming:** PascalCase
 - **Extension:** `.Script.txt`
@@ -669,54 +809,46 @@ Text DoSomething(Integer _Id) {
 
 ---
 
-## Game Mode Script Structure
+## Script Contexts and Host Structure
 
-### Common Directives
+ManiaScript supports several host families, including game modes, ManiaApps, Manialink/UI layers, plugins, map types, and libraries. `#RequireContext` selects the engine context; `#Extends` selects a base script and the labels it exposes. A valid lifecycle label in one family is not necessarily valid in another.
+
+### Typical Mode Directives
 
 ```
-#Const CompatibleMapTypes "ObstacleArena,TimeAttackArena"
+#RequireContext CSmMode
 #Const Version            "1.2"
-#Const ScriptName         "Modes/ShootMania/Obstacle.Script.txt"
+#Const ScriptName         "Modes/ShootMania/Example.Script.txt"
 
 #Include "Libs/Nadeo/Message.Script.txt" as Message
 #Include "TextLib" as TextLib
 
 #Extends "Modes/ShootMania/Base/ModeShootmania.Script.txt"
-// or
-#Extends "Modes/Trackmania/Base/ModeTrackmania.Script.txt"
+// A Trackmania mode instead uses `#RequireContext CTmMode` and:
+// #Extends "Modes/Trackmania/Base/ModeTrackmania.Script.txt"
 ```
 
-Using a library:
+Use an included library through its namespace:
 
 ```
 declare One = TextLib::ToInteger("1");
 declare MessageVersion = Message::Version;
 ```
 
-### Script Execution Hierarchy
+### Context-specific Lifecycle Labels
 
-```
-Server → Match → Map → Round → Turn → PlayLoop
-```
+Mode bases commonly organize work around server, match, map, round, turn, and play-loop stages. But the exact label names are supplied by the selected base script:
 
-### Available Labels
+| Host family | Typical label families |
+|-------------|-------------------------|
+| Game modes | `Match_InitServer`, `Match_StartMap`, `Match_PlayLoop`, `Match_EndRound`; older bases also expose unprefixed lifecycle labels |
+| Matchmaking mode bases | `Lobby_...`, `Match_...`, and `MB_Private_...` hooks |
+| ManiaApps and UI modules | `MainInit`, `MainStart`, `MainLoop`; app-specific labels such as `InitApp` and `AppLoop` |
+| Plugins | `CMPlugins_PluginStart`, `CMPlugins_AfterYield`, and synchronization hooks |
 
-| Label | Triggered |
-|-------|-----------|
-| `Yield` | Every tick |
-| `InitServer` / `StartServer` / `EndServer` | Server lifecycle |
-| `InitMatch` / `StartMatch` / `EndMatch` | Match lifecycle |
-| `InitMap` / `StartMap` / `EndMap` | Map lifecycle |
-| `InitRound` / `StartRound` / `EndRound` | Round lifecycle |
-| `InitTurn` / `StartTurn` / `EndTurn` | Turn lifecycle |
-| `PlayLoop` | Every frame during play |
-| `Settings` | When settings are loaded |
-| `LoadLibraries` / `LogVersions` | Initialization |
-| `Rules` | Rules display |
+Read the extended base script before implementing a label. In particular, do not assume a `Lobby_`/`Match_` pair, an `InitServer` label, or a server-to-round hierarchy is available in every context.
 
-> Labels exist in two versions: `Lobby_` and `Match_`. Use `Match_` when not using matchmaking.
-
-**Example:**
+**Example mode extension:**
 
 ```
 ***Match_StartMap***
@@ -739,6 +871,7 @@ ModeStatusMessage = "Current map: " ^ Map.MapInfo.Name;
 | `Text` | String of characters | `""` |
 | `Vec2` | 2D vector `<X, Y>` | `<0., 0.>` |
 | `Vec3` | 3D vector `<X, Y, Z>` | `<0., 0., 0.>` |
+| `Int2` | 2D integer vector `<X, Y>` | `<0, 0>` |
 | `Int3` | 3D integer vector `<X, Y, Z>` | `<0, 0, 0>` |
 | `Ident` | Object identifier | `NullId` |
 | `Void` | No value (function return only) | — |
@@ -755,6 +888,10 @@ Class types (e.g., `CSmPlayer`, `CMlLabel`) are composite types whose names star
 | `Real` | `123789.` or `.12312` |
 | `Vec2` | `<Real1, Real2>` |
 | `Vec3` | `<Real1, Real2, Real3>` |
+| `Int2` | `<Integer1, Integer2>` |
 | `Int3` | `<Integer1, Integer2, Integer3>` |
 | `Ident` | `NullId` |
 | Class | `Null` |
+| List | `[]`, `[Value1, Value2]` |
+| Keyed array | `[Key1 => Value1, Key2 => Value2]` |
+| Struct | `MyStruct { Member = Value }` |
