@@ -23,15 +23,14 @@ internal sealed class DirectivesEmitter
     {
         if (_ctx.IsLib)
         {
-            // For a lib class, emit #RequireContext from the ILib<T> type parameter.
-            var t = _ctx.Info.LibContextType;
-            if (t is not null)
-            {
-                _ctx.W.Line($"#RequireContext {t.Name}");
-                _ctx.W.Line();
-            }
+            // A library runs in the context of its consumer. ILib<T> is C# typing only;
+            // an ILib that inherits its context type needs no ManiaScript directive either.
             return;
         }
+
+        // #RequireContext belongs only to executable IContext scripts. Ordinary helper
+        // classes and libraries must not turn their C# base type into a script directive.
+        if (!_ctx.Info.IsContext) return;
 
         var bt = _ctx.Info.Symbol.BaseType;
         if (bt is null || bt.SpecialType == Microsoft.CodeAnalysis.SpecialType.System_Object) return;

@@ -66,14 +66,14 @@ internal static class TypeMapper
         };
     }
 
-    /// <summary>Returns <see langword="true"/> when <paramref name="type"/> implements <c>IContext</c> or <c>ILib&lt;T&gt;</c>.</summary>
+    /// <summary>Returns <see langword="true"/> when <paramref name="type"/> implements <c>IContext</c> or <c>ILib</c>.</summary>
     internal static bool IsContextOrLibType(INamedTypeSymbol type)
     {
         foreach (var i in type.AllInterfaces)
         {
             if (i.ContainingNamespace?.ToDisplayString() != "ManiaScriptSharp") continue;
             if (i.Name == "IContext") return true;
-            if (i.Name == "ILib" && i.IsGenericType) return true;
+            if (i.Name == "ILib") return true;
         }
         return false;
     }

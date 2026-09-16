@@ -9,8 +9,8 @@ using Microsoft.CodeAnalysis.Text;
 namespace ManiaScriptSharp.Generator;
 
 /// <summary>
-/// Incremental source generator that translates classes implementing <c>IContext</c> into
-/// ManiaScript (.Script.txt) files on disk in real time.
+/// Incremental source generator that translates <c>IContext</c> scripts and <c>ILib</c>
+/// libraries into ManiaScript (.Script.txt) files on disk in real time.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class ManiaScriptGenerator : IIncrementalGenerator
@@ -51,7 +51,7 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
             .Collect();
         // ─────────────────────────────────────────────────────────────────────────────
 
-        // ── ILib<T> pipeline: generate a .Script.txt for each lib class ──────────────
+        // ── ILib pipeline: generate a .Script.txt for each lib class ─────────────────
         var libClasses = context.SyntaxProvider
             .CreateSyntaxProvider(
                 predicate: static (node, _) => node is ClassDeclarationSyntax c && c.BaseList is not null,
@@ -151,9 +151,8 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
     private static bool ImplementsILib(INamedTypeSymbol symbol)
     {
         foreach (var i in symbol.AllInterfaces)
-            if (i.IsGenericType && i.Name == "ILib"
-                && i.ContainingNamespace?.ToDisplayString() == "ManiaScriptSharp"
-                && i.TypeArguments.Length == 1)
+            if (i.Name == "ILib"
+                && i.ContainingNamespace?.ToDisplayString() == "ManiaScriptSharp")
                 return true;
         return false;
     }
@@ -396,11 +395,11 @@ internal sealed class ContextClassInfo
     public INamedTypeSymbol Symbol { get; }
     public SemanticModel Model { get; }
 
-    /// <summary>The <c>T</c> type from <c>ILib&lt;T&gt;</c> when the class implements it; otherwise <see langword="null"/>.</summary>
-    public ITypeSymbol? LibContextType { get; }
+    /// <summary>Whether this class is a ManiaScript lib (implements <c>ILib</c> or <c>ILib&lt;T&gt;</c>).</summary>
+    public bool IsLib { get; }
 
-    /// <summary>Whether this class is a ManiaScript lib (implements <c>ILib&lt;T&gt;</c>).</summary>
-    public bool IsLib => LibContextType is not null;
+    /// <summary>Whether this class is a ManiaScript context script (implements <c>IContext</c>).</summary>
+    public bool IsContext { get; }
 
     /// <summary>Whether the output is a Manialink XML file (affects lib inlining vs. #Include).</summary>
     public bool IsManialink { get; }
@@ -412,18 +411,18 @@ internal sealed class ContextClassInfo
         Symbol = symbol;
         Model = model;
         IsManialink = isManialink;
-        LibContextType = ResolveLibContextType(symbol);
+        IsLib = ImplementsILib(symbol);
+        IsContext = ImplementsIContext(symbol);
     }
 
-    private static ITypeSymbol? ResolveLibContextType(INamedTypeSymbol symbol)
-    {
-        foreach (var iface in symbol.AllInterfaces)
-        {
-            if (iface.IsGenericType && iface.Name == "ILib"
-                && iface.ContainingNamespace?.ToDisplayString() == "ManiaScriptSharp"
-                && iface.TypeArguments.Length == 1)
-                return iface.TypeArguments[0];
-        }
-        return null;
-    }
+    private static bool ImplementsILib(INamedTypeSymbol symbol)
+        => symbol.AllInterfaces.Any(static iface =>
+            iface.Name == "ILib"
+            && iface.ContainingNamespace?.ToDisplayString() == "ManiaScriptSharp");
+
+    private static bool ImplementsIContext(INamedTypeSymbol symbol)
+        => symbol.AllInterfaces.Any(static iface =>
+            iface.Name == "IContext"
+            && iface.ContainingNamespace?.ToDisplayString() == "ManiaScriptSharp");
+
 }

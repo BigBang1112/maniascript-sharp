@@ -85,6 +85,34 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Contains("return G_Counter;", output);
         Assert.Equal(1, output.Split("declare Integer G_Score;").Length - 1);
         Assert.DoesNotContain("G_Context", output);
+        Assert.DoesNotContain("#RequireContext", output);
+    }
+
+    [Fact]
+    public void Emit_Lib_CanInheritItsContextWithoutEmittingDirectives()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class CMap
+            {
+                public string AuthorNickName => "";
+            }
+
+            public class MapDetails : CMap, ILib
+            {
+                public string GetAuthor() => AuthorNickName;
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MapDetails");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("Text GetAuthor() {", output);
+        Assert.Contains("return AuthorNickName;", output);
+        Assert.DoesNotContain("#RequireContext", output);
+        Assert.DoesNotContain("#Extends", output);
+        Assert.DoesNotContain("main()", output);
     }
 
     [Fact]

@@ -4,7 +4,7 @@ Write **C#** in your IDE, get **ManiaScript** `.Script.txt` files on disk in rea
 
 The project ships as a Roslyn incremental source generator plus a runtime/attributes library and a stub API surface. Every time you save (or even type) a C# file, the generator re-runs inside the IDE, re-translates your code, and overwrites the matching `.Script.txt` next to your project.
 
-### 4 reasons why ManiaScriptSharp exists
+## Why ManiaScriptSharp?
 
 1. Easier syntax
 2. Accurate auto-complete
@@ -155,42 +155,42 @@ Building from source, running the sample project, and running the test suite are
 
 ---
 
-## Table of Contents
+## Table of contents
 
-1. [Type Mappings](#type-mappings)
+1. [Type mappings](#type-mappings)
 2. [Variables](#variables)
 3. [Constants](#constants)
 4. [Settings](#settings)
-5. [Operators](#operators)
-6. [String Handling](#string-handling)
-7. [Control Flow](#control-flow)
-8. [Functions](#functions)
-9. [Collections (Lists & Arrays)](#collections-lists--arrays)
-10. [LINQ Queries](#linq-queries)
-11. [Structs](#structs)
-12. [Vectors](#vectors)
-13. [Classes and Aliases](#classes-and-aliases)
+5. [Host commands](#host-commands)
+6. [Operators](#operators)
+7. [String handling](#string-handling)
+8. [Control flow](#control-flow)
+9. [Functions](#functions)
+10. [Collections (lists & arrays)](#collections-lists--arrays)
+11. [LINQ queries](#linq-queries)
+12. [Structs](#structs)
+13. [Vectors](#vectors)
 14. [Contexts](#contexts)
-15. [Inheritance (RequireContext & Extends)](#inheritance-requirecontext--extends)
-16. [Library Inclusions](#library-inclusions)
+15. [Inheritance (`RequireContext` & `Extends`)](#inheritance-requirecontext--extends)
+16. [Library inclusions](#library-inclusions)
 17. [Labels](#labels)
-18. [Timing Instructions](#timing-instructions)
-19. [Event Handling](#event-handling)
-20. [Change Detection (OnChange)](#change-detection-onchange)
-21. [Manialink Bindings](#manialink-bindings)
-22. [Netwrites & Netreads](#netwrites--netreads)
-23. [Persistent Variables](#persistent-variables)
-24. [Metadata Variables](#metadata-variables)
-25. [Pattern Matching](#pattern-matching)
-26. [Log & Assertions](#log--assertions)
-27. [Game Mode Structure](#game-mode-structure)
-28. [Quick Reference Table](#quick-reference-table)
+18. [Timing instructions](#timing-instructions)
+19. [Event handling](#event-handling)
+20. [Change detection (`OnChange`)](#change-detection-onchange)
+21. [Manialink bindings](#manialink-bindings)
+22. [Netwrites & netreads](#netwrites--netreads)
+23. [Persistent variables](#persistent-variables)
+24. [Metadata variables](#metadata-variables)
+25. [Pattern matching](#pattern-matching)
+26. [Log & assertions](#log--assertions)
+27. [Quick reference table](#quick-reference-table)
+28. [Conclusion](#conclusion)
 
 ---
 
-## Type Mappings
+## Type mappings
 
-### Primitive Types
+### Primitive types
 
 | C# | ManiaScript | Notes |
 |---|---|---|
@@ -201,7 +201,7 @@ Building from source, running the sample project, and running the test suite are
 | `bool` | `Boolean` | `true`/`false` → `True`/`False` |
 | `string` | `Text` | Double-quoted strings |
 
-### Collection Types
+### Collection types
 
 | C# | ManiaScript | Notes |
 |---|---|---|
@@ -211,7 +211,7 @@ Building from source, running the sample project, and running the test suite are
 | `Dictionary<string, int>` | `Integer[Text]` | Associative array |
 | `Dictionary<int, string>` | `Text[Integer]` | Associative array |
 
-### Vector Types
+### Vector types
 
 | C# | ManiaScript | Notes |
 |---|---|---|
@@ -227,7 +227,7 @@ Building from source, running the sample project, and running the test suite are
 | `null` (in an `Ident` context) | `NullId` | e.g. `Ident? x = null;` or `x == null` |
 | `Ident.NullId` | `NullId` | Static field on the generated `Ident` struct (itself typed `Ident?`) |
 
-### Boolean Literals
+### Boolean literals
 
 | C# | ManiaScript |
 |---|---|
@@ -238,31 +238,31 @@ Building from source, running the sample project, and running the test suite are
 
 ## Variables
 
-### Local Variables
+### Local variables
 
-C#:
+**C#**
 ```cs
 string name;                  // declaration with type
 int count = 42;               // declaration with initializer
 var inferred = "hello";       // type inferred
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Text Name;
 declare Integer Count = 42;
 declare Inferred = "hello";
 ```
 
-### Global Variables
+### Global variables
 
 Public fields become globals with `G_` prefix.
 
-C#:
+**C#**
 ```cs
 public int PreviousTime = -1;
 public string ServerName;
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Integer G_PreviousTime;
 declare Text G_ServerName;
@@ -282,19 +282,19 @@ They permit only `new()` (for an empty struct, list, or dictionary) and the empt
 inline. Other initializers report `MSS012`; initialize the field from a library function instead.
 Accessing a library field from a consuming script reports `MSS013`.
 
-### Extension Variables (`for` keyword)
+### Extension variables (`for` keyword)
 
 Attach a variable to an existing object with `Local<T>.For(provider, out var name)` — the
 generator recognizes this call and emits a `declare ... for provider;` statement instead of a
 real method call. `provider` must implement `ILocalProvider` (most API classes do, e.g.
 `CSmPlayer`, `CMap`, `CMlControl`).
 
-C#:
+**C#**
 ```cs
 Local<int>.For(LocalUser, out var someVar);
 someVar.Value = 42;
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Integer SomeVar for LocalUser;
 SomeVar = 42;
@@ -309,12 +309,12 @@ the out variable becomes the alias used by the rest of the script
 name used in the script). This is required when two objects of the same type share a
 variable name, e.g. declaring the same netwrite for two different receivers:
 
-C#:
+**C#**
 ```cs
 Netwrite<bool>.For(player, out var ready, name: "Net_Lobby_Ready");
 ready.Value = true;
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare netwrite Boolean Net_Lobby_Ready as Ready for Player;
 Ready = True;
@@ -327,13 +327,13 @@ Ready = True;
 
 ## Constants
 
-C#:
+**C#**
 ```cs
 const int MaxPlayers = 16;
 const string ScriptVersion = "1.2";
 const bool EnableDebug = false;
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #Const C_MaxPlayers 16
 #Const C_ScriptVersion "1.2"
@@ -346,7 +346,7 @@ ManiaScript:
 
 Settings are decorated using the `SettingAttribute`. They can be constants or read-only fields.
 
-C#:
+**C#**
 ```cs
 [Setting]
 const string AdminLogin = "bigbang1112";
@@ -360,7 +360,7 @@ const int HiddenSetting = 25;
 [Setting(Translated = false)]
 const int PointLimit = 25;
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #Setting S_AdminLogin "bigbang1112"
 #Setting S_ChatTime 50 as _("Chat time")
@@ -373,13 +373,13 @@ ManiaScript:
 
 ---
 
-## Host Commands
+## Host commands
 
 Apply `[Command]` to a context class to emit a host-exposed `#Command` directive. The
 attribute's type arguments describe the command value; `As` supplies the visible label.
 Command handling remains normal event handling through the context API.
 
-C#:
+**C#**
 ```cs
 [Command("Command_SetPause", typeof(bool), As = "Pause the game")]
 public class MyMode : CTmMode, IContext
@@ -387,7 +387,7 @@ public class MyMode : CTmMode, IContext
 }
 ```
 
-ManiaScript:
+**ManiaScript**
 ```
 #Command Command_SetPause (Boolean) as _("Pause the game")
 ```
@@ -454,41 +454,41 @@ ManiaScript's `as` cast syntax, with the target type mapped through the same
 
 ---
 
-## String Handling
+## String handling
 
 ### Concatenation
 
 ManiaScript uses `^` for string concatenation. C# string concatenation and interpolation map to this:
 
-C#:
+**C#**
 ```cs
 string result = "Hello " + "world!";
 string greeting = name + " has " + score + " points.";
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Text Result = "Hello " ^ "world!";
 declare Text Greeting = Name ^ " has " ^ Score ^ " points.";
 ```
 
-### String Interpolation → Multiline Strings
+### String interpolation → multiline strings
 
-C#:
+**C#**
 ```cs
 string msg = $"Hello {playerName}, score = {2 + 3}";
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Text Msg = """Hello {{{PlayerName}}}, score = {{{2 + 3}}}""";
 ```
 
-### Verbatim / Raw Strings → Multiline Strings
+### Verbatim / raw strings → multiline strings
 
-C#:
+**C#**
 ```cs
 string raw = @"no need to escape ""quotes"" or paths\here";
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Text Raw = """no need to escape "quotes" or paths\here""";
 ```
@@ -498,7 +498,7 @@ C# verbatim or raw strings are split into byte-safe fragments joined with
 `^`. Literal `"""` and `{{{` sequences are also emitted as ordinary quoted fragments so they
 remain text rather than being parsed as a delimiter or interpolation.
 
-### Escape Sequences
+### Escape sequences
 
 | C# | ManiaScript |
 |---|---|
@@ -506,22 +506,22 @@ remain text rather than being parsed as a delimiter or interpolation.
 | `"\\"` | `"\\"` |
 | `"\""` | Not needed in `"""..."""` |
 
-### `ToString()` on Any Type
+### `ToString()` on any type
 
 Calling `.ToString()` on any value — numeric, `bool`, `Ident`, `Vec2`/`Vec3`/`Int2`/`Int3`,
 or a class reference like `CSmPlayer` — converts to `Text` via ManiaScript's auto-coercing
 `^` operator instead of a `TextLib` call:
 
-C#:
+**C#**
 ```cs
 string s = score.ToString();
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Text S = "" ^ Score;
 ```
 
-### Automatic `string` Method Mapping (TextLib)
+### Automatic `string` method mapping (TextLib)
 
 Common `System.String` instance/static methods and `int.Parse`/`float.Parse` translate
 directly to `TextLib::` calls — no explicit `TextLib.Method(...)` call is required:
@@ -552,11 +552,11 @@ directly to `TextLib::` calls — no explicit `TextLib.Method(...)` call is requ
 
 ---
 
-## Control Flow
+## Control flow
 
-### If / Else If / Else
+### If / else if / else
 
-C#:
+**C#**
 ```cs
 if (list.Count > 2)
 {
@@ -571,7 +571,7 @@ else
     Log("Too few items");
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 if (List.count > 2) {
     DoSomething(List);
@@ -582,9 +582,9 @@ if (List.count > 2) {
 }
 ```
 
-### Switch Statement
+### Switch statement
 
-C#:
+**C#**
 ```cs
 switch (block.Direction)
 {
@@ -599,7 +599,7 @@ switch (block.Direction)
         break;
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 switch (Block.Direction) {
     case CBlock::CardinalDirections::North: {
@@ -616,13 +616,13 @@ switch (Block.Direction) {
 
 > Note: ManiaScript uses `::` for enum/class member access, C# uses `.`.
 
-### Switchtype (Type Checking)
+### Switchtype (type checking)
 
 `switchtype` is only emitted for an actual C# `switch` statement whose case labels are
 type patterns. An `if`/`else if` chain using `is T t` stays an `if`/`else if` chain (see
 [Pattern Matching](#pattern-matching)) — it is never rewritten into `switchtype`.
 
-C#:
+**C#**
 ```cs
 switch (control)
 {
@@ -637,7 +637,7 @@ switch (control)
         break;
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 switchtype (Control) {
     case CMlEntry: {
@@ -654,9 +654,9 @@ switchtype (Control) {
 }
 ```
 
-### While Loop
+### While loop
 
-C#:
+**C#**
 ```cs
 int itemCount = 10;
 while (itemCount > 0)
@@ -664,7 +664,7 @@ while (itemCount > 0)
     itemCount -= 1;
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Integer ItemCount = 10;
 while (ItemCount > 0) {
@@ -672,16 +672,16 @@ while (ItemCount > 0) {
 }
 ```
 
-### For Loop
+### For loop
 
-C#:
+**C#**
 ```cs
 for (int i = 2; i <= 5; i++)
 {
     Log(i.ToString());
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 for (I, 2, 5) {
     log("" ^ I);
@@ -694,7 +694,7 @@ compares that counter with `<`, `<=`, `>`, or `>=`. It supports `++`, `--`, `+=`
 increments; exclusive C# bounds are adjusted by one because ManiaScript's final value is
 inclusive:
 
-C#:
+**C#**
 ```cs
 for (int i = 0; i < 10; i++)      // exclusive upper bound
 {
@@ -711,7 +711,7 @@ for (int i = 0; i < 10; i += 1)   // += 1 — same canonical shape
     Log(i.ToString());
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 for (I, 0, 10 - 1) {
     log("" ^ I);
@@ -726,12 +726,12 @@ for (I, 0, 10 - 1) {
 }
 ```
 
-#### Stepped and Reverse Loops
+#### Stepped and reverse loops
 
 Negative and non-unit integer steps are emitted natively. This also preserves C# `continue`
 semantics, since the ManiaScript loop performs its step after every iteration:
 
-C#:
+**C#**
 ```cs
 // Descending
 for (int i = 10; i > 0; i--)
@@ -739,14 +739,14 @@ for (int i = 10; i > 0; i--)
     Log(i.ToString());
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 for (I, 10, 0 + 1, -1) {
     log("" ^ I);
 }
 ```
 
-C#:
+**C#**
 ```cs
 // Custom step
 for (int i = 0; i < 10; i += 2)
@@ -754,7 +754,7 @@ for (int i = 0; i < 10; i += 2)
     Log(i.ToString());
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 for (I, 0, 10 - 1, 2) {
     log("" ^ I);
@@ -764,7 +764,7 @@ for (I, 0, 10 - 1, 2) {
 Non-integer counters, loop variables declared outside the loop, omitted conditions, and
 multiple counters still fall back to an equivalent `while` loop:
 
-C#:
+**C#**
 ```cs
 // Non-integer counter
 for (float f = 0f; f < 1f; f += 0.5f)
@@ -772,7 +772,7 @@ for (float f = 0f; f < 1f; f += 0.5f)
     Log(f.ToString());
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Real F = 0.;
 while (F < 1.) {
@@ -781,7 +781,7 @@ while (F < 1.) {
 }
 ```
 
-C#:
+**C#**
 ```cs
 // Loop variable declared outside — reused, not redeclared
 int i;
@@ -790,7 +790,7 @@ for (i = 0; i < 10; i++)
     Log(i.ToString());
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Integer I;
 I = 0;
@@ -800,7 +800,7 @@ while (I < 10) {
 }
 ```
 
-C#:
+**C#**
 ```cs
 // Omitted condition — infinite loop, exited via break
 for (int i = 0; ; i++)
@@ -809,7 +809,7 @@ for (int i = 0; ; i++)
     Log(i.ToString());
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Integer I = 0;
 while (True) {
@@ -822,16 +822,16 @@ while (True) {
 > Multiple declared loop variables (`for (int i = 0, j = 10; ...; ...)`) also fall back to
 > `while`, since ManiaScript's `for` only has room for a single counter.
 
-### Foreach Loop
+### Foreach loop
 
-C#:
+**C#**
 ```cs
 foreach (var item in myList)
 {
     Log(item);
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 foreach (Item in MyList) {
     log(Item);
@@ -839,14 +839,14 @@ foreach (Item in MyList) {
 ```
 
 With index/key:
-C#:
+**C#**
 ```cs
 foreach (var (index, item) in myArray)
 {
     Log($"{index}: {item}");
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 foreach (Index => Item in MyArray) {
     log(Index ^ ": " ^ Item);
@@ -856,14 +856,14 @@ foreach (Index => Item in MyArray) {
 `.Index()` (System.Linq) works on any list, not just plain ordered arrays, so it can't reuse
 the native key — it desugars into a manually incremented counter instead:
 
-C#:
+**C#**
 ```cs
 foreach (var (index, item) in myArray.Index())
 {
     Log($"{index}: {item}");
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Integer Index = 0;
 foreach (Item in MyArray) {
@@ -872,9 +872,9 @@ foreach (Item in MyArray) {
 }
 ```
 
-### Break and Continue
+### Break and continue
 
-C#:
+**C#**
 ```cs
 foreach (var control in Page.MainFrame.Controls)
 {
@@ -889,7 +889,7 @@ foreach (var control in Page.MainFrame.Controls)
     }
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 foreach (Control in Page.MainFrame.Controls) {
     if (!(Control is CMlLabel))
@@ -906,9 +906,9 @@ foreach (Control in Page.MainFrame.Controls) {
 
 ## Functions
 
-### Basic Function Definition
+### Basic function definition
 
-C#:
+**C#**
 ```cs
 int Minimum(int a, int b)
 {
@@ -916,7 +916,7 @@ int Minimum(int a, int b)
     return b;
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 Integer Minimum(Integer _A, Integer _B) {
     if (_A < _B) return _A;
@@ -924,7 +924,7 @@ Integer Minimum(Integer _A, Integer _B) {
 }
 ```
 
-### Conventions Applied Automatically
+### Conventions applied automatically
 
 | C# Convention | ManiaScript Output |
 |---|---|
@@ -934,71 +934,71 @@ Integer Minimum(Integer _A, Integer _B) {
 | `static` keyword | Ignored (use for unit testing) |
 | `virtual` keyword | Becomes a label |
 
-### Void Functions
+### Void functions
 
-C#:
+**C#**
 ```cs
 void DoNothing()
 {
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 Void DoNothing() {
 }
 ```
 
-### Private Functions
+### Private functions
 
-C#:
+**C#**
 ```cs
 private static string TimeToTextWithMilli(int time)
 {
     return $"{TextLib.TimeToText(time, true)}{MathLib.Abs(time % 10)}";
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 Text Private_TimeToTextWithMilli(Integer _Time) {
     return TextLib::TimeToText(_Time, True) ^ MathLib::Abs(_Time % 10);
 }
 ```
 
-### Function Overloading (Polymorphism)
+### Function overloading (polymorphism)
 
 ManiaScript supports overloading by argument types:
 
-C#:
+**C#**
 ```cs
 int Sum(int a, int b) => a + b;
 float Sum(float a, float b) => a + b;
 ```
-ManiaScript:
+**ManiaScript**
 ```
 Integer Sum(Integer _A, Integer _B) { return _A + _B; }
 Real Sum(Real _A, Real _B) { return _A + _B; }
 ```
 
-### Named Arguments
+### Named arguments
 
 C# named arguments are preserved as inline comments, since ManiaScript has no equivalent syntax:
 
-C#:
+**C#**
 ```cs
 DoSomething(enabled: true, count: 5);
 ```
-ManiaScript:
+**ManiaScript**
 ```
 DoSomething(/* enabled: */ True, /* count: */ 5);
 ```
 
-### Properties (Get/Set Functions)
+### Properties (Get/Set functions)
 
 Properties with accessor bodies (or auto-properties) become `Get`/`Set` functions, since
 ManiaScript has no property syntax. Reading the property calls the getter; assigning to it
 calls the setter.
 
-C#:
+**C#**
 ```cs
 public int Score { get; set; }              // auto-property
 
@@ -1011,7 +1011,7 @@ public int Custom
     set { _x = value / 2; }
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Integer G_Score;
 
@@ -1028,15 +1028,15 @@ Void SetCustom(Integer _Value) { X = _Value / 2; }
 > body do not — the body decides what to read/write. `private` properties get
 > `Private_Get`/`Private_Set` prefixes, same as private methods.
 
-### The `main()` Function
+### The `main()` function
 
 The `Main()` method in `IContext` generates `main()`. If simple enough, the entire script can omit the function header.
 
-## Collections (Lists & Arrays)
+## Collections (lists & arrays)
 
 ### Lists
 
-C#:
+**C#**
 ```cs
 List<string> myList = new() { "Alpha", "Beta", "Gamma" };
 
@@ -1057,7 +1057,7 @@ int idx = myList.IndexOf("Alpha");
 // Sort
 myList.Sort();
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Text[] MyList = ["Alpha", "Beta", "Gamma"];
 
@@ -1079,7 +1079,7 @@ declare Idx = MyList.keyof("Alpha");
 declare SortedList = MyList.sort();
 ```
 
-#### Full List API Mapping
+#### Full list API mapping
 
 | C# | ManiaScript |
 |---|---|
@@ -1097,9 +1097,9 @@ declare SortedList = MyList.sort();
 | JSON serialize | `.tojson()` |
 | JSON deserialize | `.fromjson(json)` |
 
-### Associative Arrays (Dictionaries)
+### Associative arrays (dictionaries)
 
-C#:
+**C#**
 ```cs
 var scores = new Dictionary<string, float>
 {
@@ -1110,7 +1110,7 @@ var scores = new Dictionary<string, float>
 scores["Leet"] = 13.37f;
 var pi = scores["Pi"];
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Real[Text] Scores = ["Pi" => 3.14, "Tau" => 6.28];
 
@@ -1120,12 +1120,12 @@ declare Pi = Scores["Pi"];
 
 `TryGetValue` (in an `if`/`if (!...)` condition) is translated using `.existskey()` plus an indexer read, since ManiaScript has no out-parameter equivalent:
 
-C#:
+**C#**
 ```cs
 if (scores.TryGetValue("Pi", out var pi)) { /* use pi */ }
 if (!scores.TryGetValue("Pi", out var pi)) { return; } // use pi below
 ```
-ManiaScript:
+**ManiaScript**
 ```
 if (Scores.existskey("Pi")) {
     declare Real Pi = Scores["Pi"];
@@ -1140,9 +1140,9 @@ if (!Scores.existskey("Pi")) {
 // use Pi below
 ```
 
-### Nested Collections
+### Nested collections
 
-C#:
+**C#**
 ```cs
 var usersData = new List<Dictionary<string, string>>
 {
@@ -1151,7 +1151,7 @@ var usersData = new List<Dictionary<string, string>>
 };
 var login = usersData[0]["login"];
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Text[Text][] UsersData = [
     ["login" => "me", "name" => "still me"],
@@ -1160,33 +1160,33 @@ declare Text[Text][] UsersData = [
 declare Login = UsersData[0]["login"];
 ```
 
-### Collection Expressions (C# 12)
+### Collection expressions (C# 12)
 
 C# collection expression syntax (`[...]`) produces the same array/list literal:
 
-C#:
+**C#**
 ```cs
 int[] nums = [1, 2, 3, 4, 5];
 int[] empty = [];
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Integer[] Nums = [1, 2, 3, 4, 5];
 declare Integer[] Empty = [];
 ```
 
-## LINQ Queries
+## LINQ queries
 
 LINQ chains on local variables are desugared into `foreach` loops at compile time — see
 [linq-translation.md](docs/linq-translation.md) for the full reference (every supported stage
 and terminal, composition rules, and partially-supported patterns like `GroupBy`/`Zip`).
 
-C#:
+**C#**
 ```cs
 var result = nums.Where(x => x > 0).Select(x => x * 2).ToList();
 var cnt = nums.Where(x => x > 5).Count();
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Integer[] Result;
 foreach (X in Nums) {
@@ -1211,7 +1211,7 @@ foreach (X in Nums) {
 
 ManiaScript `#Struct` maps to C# structs or classes with a special attribute:
 
-C#:
+**C#**
 ```cs
 public struct MyStruct
 {
@@ -1228,7 +1228,7 @@ var copy = myVar;                  // value copy
 myVar.MyMember = 2;
 Log(copy.MyMember.ToString());     // still 1
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #Struct MyStruct {
     Integer MyMember;
@@ -1280,7 +1280,7 @@ public class MyMode : CTmMode, IContext
     public StateLib.Snapshot Current;
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #Include "StateLib.Script.txt" as State
 #Struct State::Snapshot as Snapshot
@@ -1290,7 +1290,7 @@ declare Snapshot G_Current;
 
 ## Vectors
 
-C#:
+**C#**
 ```cs
 var v2 = new Vec2(1.0f, 2.0f);
 var v3 = new Vec3(1.0f, 2.0f, 3.0f);
@@ -1303,7 +1303,7 @@ float z = v3.Z;
 // or by index
 float first = v3[0];
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Vec2 V2 = <1.0, 2.0>;
 declare Vec3 V3 = <1.0, 2.0, 3.0>;
@@ -1317,31 +1317,31 @@ declare Real Z = V3.Z;
 declare Real First = V3[0];
 ```
 
-### Null Checks
+### Null checks
 
-C#:
+**C#**
 ```cs
 if (player == null)
 {
     Log("No player");
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 if (Player == Null) {
     log("No player");
 }
 ```
 
-### Id Comparison
+### Id comparison
 
-C#:
+**C#**
 ```cs
 var playerId = Players[0].Id;  // Store Ident
 // Later...
 var player = Players[playerId]; // Retrieve by Id
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare PlayerId = Players[0].Id;
 // Later...
@@ -1354,7 +1354,7 @@ declare Player <=> Players[PlayerId];
 
 ManiaScript only requires a `main()` entry point when the script also declares other functions — bare top-level statements aren't allowed alongside function definitions. So when the class defines nothing besides `Main()`/`Loop()`, the code is emitted directly at the top level, with no `main()` wrapper:
 
-C#:
+**C#**
 ```cs
 public class MyMode : CTmMode, IContext
 {
@@ -1369,7 +1369,7 @@ public class MyMode : CTmMode, IContext
     }
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #RequireContext CTmMode
 
@@ -1383,7 +1383,7 @@ while (True) {
 
 Once the class declares any other function, the generator wraps `Main()`/`Loop()` in `main()` so ManiaScript accepts the file:
 
-C#:
+**C#**
 ```cs
 public class MyMode : CTmMode, IContext
 {
@@ -1400,7 +1400,7 @@ public class MyMode : CTmMode, IContext
     void Setup() { }
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #RequireContext CTmMode
 
@@ -1416,11 +1416,11 @@ main() {
 }
 ```
 
-### One-off Scripts (`NoLoopAttribute`)
+### One-off scripts (`NoLoopAttribute`)
 
 Add `NoLoopAttribute` on your class to suppress the generated `while(True) { yield; ... }` wrapper entirely. `Loop()` is never emitted, even if it has a body — useful for scripts that only need `Main()` to run once and then end.
 
-C#:
+**C#**
 ```cs
 [NoLoop]
 public class MyOneOffScript : CTmMode, IContext
@@ -1436,52 +1436,52 @@ public class MyOneOffScript : CTmMode, IContext
     }
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #RequireContext CTmMode
 
 // Main() contents here
 ```
 
-## Inheritance (RequireContext & Extends)
+## Inheritance (`RequireContext` & `Extends`)
 
-### API Class → `#RequireContext`
+### API class → `#RequireContext`
 
-C#:
+**C#**
 ```cs
 public class MyMode : CTmMode, IContext { }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #RequireContext CTmMode
 ```
 
-### Custom Class → `#Extends`
+### Custom class → `#Extends`
 
 The namespace becomes the directory path, class name becomes the file name:
 
-C#:
+**C#**
 ```cs
 namespace Modes.TrackMania;
 
 public class MyNextMode : MyMode { }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #Extends "Modes/TrackMania/MyMode.Script.txt"
 ```
 
-## Library Inclusions
+## Library inclusions
 
-### Standard Libraries (hardcoded)
+### Standard libraries (hardcoded)
 
-C#:
+**C#**
 ```cs
 // Using TextLib, MathLib, TimeLib, AnimLib, MapUnits is automatic
 var number = TextLib.ToInteger("1");
 var abs = MathLib.Abs(-5);
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #Include "TextLib" as TextLib
 #Include "MathLib" as MathLib
@@ -1490,7 +1490,7 @@ declare Number = TextLib::ToInteger("1");
 declare Abs = MathLib::Abs(-5);
 ```
 
-### Automatic Math Mapping (`System.Math` / `MathF`)
+### Automatic math mapping (`System.Math` / `MathF`)
 
 `System.Math`/`System.MathF` calls also translate directly to `MathLib::` — no explicit
 `MathLib.Method(...)` call is required (same caveat as `TextLib` above: a `MathLib` field
@@ -1515,13 +1515,36 @@ must exist for `#Include "MathLib" as MathLib` to be emitted):
 > `Math.Sign`/`Cosh`/`Sinh`/`Tanh` expand to inline ternary/exponential expressions since
 > ManiaScript's `MathLib` has no direct equivalents.
 
-### Custom Libraries
+### Custom libraries
 
-A custom library is a class implementing `ILib` (or `ILib<T>` when it needs the calling
-context). Add it as a field on the consuming class — any public/internal field whose type
+A custom library implements `ILib`. When it needs a host context, it can inherit that context and
+use its members directly:
+
+```cs
+public class MapDetails : CMap, ILib
+{
+    public string GetAuthor() => AuthorNickName;
+}
+```
+
+The existing `ILib<T>` form remains available when a `Context` property is more appropriate:
+
+```cs
+public class MapDetails : ILib<CMap>
+{
+    public required CMap Context { get; init; }
+
+    public string GetAuthor() => Context.AuthorNickName;
+}
+```
+
+Neither library form emits `#RequireContext`; that directive is only emitted for `IContext`
+scripts.
+
+Add either form as a field on the consuming class. Any public/internal field whose type
 implements `ILib` is auto-`#Include`d, using the field name (PascalCase) as the alias:
 
-C#:
+**C#**
 ```cs
 public class MyMode : CTmMode, IContext
 {
@@ -1533,7 +1556,7 @@ public class MyMode : CTmMode, IContext
     }
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #Include "Libs/Nadeo/Message.Script.txt" as Message
 
@@ -1551,7 +1574,7 @@ main() {
 > callable/accessible member in C#. Use a lib-typed field for anything you actually call
 > into from code.
 
-### Pre-Built Libraries per game
+### Pre-built libraries per game
 
 Each game-specific package (`ManiaScriptSharp.ManiaPlanet`, `ManiaScriptSharp.ManiaPlanet3`,
 `ManiaScriptSharp.Trackmania`) ships ready-made `ILib` wrapper classes for Nadeo's own official
@@ -1575,7 +1598,7 @@ These classes are pure API stubs (their bodies never run) — the real implement
 matching `Libs/Nadeo/*.Script.txt` file, resolved by the game at the `#Include` path shown
 above.
 
-### Libraries in Manialink Scripts (Inlining)
+### Libraries in Manialink scripts (inlining)
 
 Manialink ManiaScript can't `#Include` arbitrary library files — only the handful of truly
 built-in globals (`TextLib`, `MathLib`, `TimeLib`, `AnimLib`, `MapUnits`) get a real
@@ -1585,7 +1608,7 @@ libraries above or your own custom class — has its functions copied directly i
 manialink script instead, and call sites drop the `Alias::` prefix, since no alias/`#Include`
 exists anymore:
 
-C#:
+**C#**
 ```cs
 public class MyManialink : CTmMlScriptIngame, IContext
 {
@@ -1597,7 +1620,7 @@ public class MyManialink : CTmMlScriptIngame, IContext
     }
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 // Inlined lib: Layers2
 Void DestroyAll() {
@@ -1617,9 +1640,9 @@ main() {
 
 The closest C# feature to ManiaScript labels is virtual/override methods.
 
-### Defining a Label (Virtual Method)
+### Defining a label (virtual method)
 
-C#:
+**C#**
 ```cs
 public class MyMode : CTmMode, IContext
 {
@@ -1636,7 +1659,7 @@ public class MyMode : CTmMode, IContext
     public void Loop() { }
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #RequireContext CTmMode
 
@@ -1650,9 +1673,9 @@ main() {
 }
 ```
 
-### Overriding a Label
+### Overriding a label
 
-C#:
+**C#**
 ```cs
 public class MyNextMode : MyMode
 {
@@ -1662,7 +1685,7 @@ public class MyNextMode : MyMode
     }
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 #Extends "Modes/TrackMania/MyMode.Script.txt"
 
@@ -1674,66 +1697,66 @@ log("I do something");
 
 > `base` calls are unused — ManiaScript always runs the inherited mode first.
 
-### Label Types
+### Label types
 
 | ManiaScript | Behavior |
 |---|---|
 | `+++ Label +++` | Can be extended multiple times |
 | `--- Label ---` | Only the latest definition applies |
 
-## Timing Instructions
+## Timing instructions
 
 ### Yield
 
-C#:
+**C#**
 ```cs
 Yield(); // Pause for one frame
 ```
-ManiaScript:
+**ManiaScript**
 ```
 yield;
 ```
 
 ### Sleep
 
-C#:
+**C#**
 ```cs
 Sleep(1000); // Pause for 1000ms
 ```
-ManiaScript:
+**ManiaScript**
 ```
 sleep(1000);
 ```
 
 ### Wait
 
-C#:
+**C#**
 ```cs
 Wait(() => SomeCondition); // Pause until condition is true
 ```
-ManiaScript:
+**ManiaScript**
 ```
 wait(SomeCondition);
 ```
 
-### Practical Pattern (timeout with early exit)
+### Practical pattern (timeout with early exit)
 
-C#:
+**C#**
 ```cs
 var start = Now;
 Wait(() => Now > start + 1000);
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Start = Now;
 wait(Now > Start + 1000);
 ```
 
-## Event Handling
+## Event handling
 
 Use C# event handlers to generate ManiaScript event loops:
 
-C#:
+**C#**
 ```cs
 public class MyManialink : CTmMlScriptIngame, IContext
 {
@@ -1754,7 +1777,7 @@ public class MyManialink : CTmMlScriptIngame, IContext
     }
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare CMlQuad QuadMapName;
 declare CMlEntry EntryInput;
@@ -1789,14 +1812,14 @@ main() {
 
 > Delegates, lambdas, and method references are all supported. Referencing a named method will call it rather than inlining contents. Subscriptions must be registered inside `Main()` — the generator only scans `Main()` for `+=` registrations.
 
-## Change Detection (OnChange)
+## Change detection (`OnChange`)
 
 `CNod.OnChange` (available on any `CNod`-derived context, e.g. inside `Loop()`) detects when a
 field/property's value changes between calls and runs a callback with the previous value.
 ManiaScript has no equivalent runtime mechanism, so the generator translates it statically into
 a backing global plus an `if` check.
 
-C#:
+**C#**
 ```cs
 private int _score;
 
@@ -1808,7 +1831,7 @@ public void Loop()
     });
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare Integer Score;
 declare Integer OldScore;
@@ -1824,11 +1847,11 @@ while (True) {
 
 The first argument must be a direct field/property reference — that's what names the generated backing global (`_score` → `OldScore`).
 
-## Manialink Bindings
+## Manialink bindings
 
 Binding retrieves manialink elements by ID in a validated, strongly-typed way.
 
-C#:
+**C#**
 ```cs
 public class MyManialink : CTmMlScriptIngame, IContext
 {
@@ -1842,7 +1865,7 @@ public class MyManialink : CTmMlScriptIngame, IContext
     public required CMlFrame DynamicFrame;
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare CMlLabel LabelCountdown;
 declare CMlQuad SomeQuad;
@@ -1858,7 +1881,7 @@ main() {
 - If no ID is given on the attribute, the field name is used as the XML `id`.
 - Set `IgnoreValidation = true` for dynamically-built manialinks.
 
-## Netwrites & Netreads
+## Netwrites & netreads
 
 Network-synchronized variables for communication between server and client scripts, declared
 with `Netwrite<T>.For(provider, out var name)` / `Netread<T>.For(provider, out var name)` — the
@@ -1867,12 +1890,12 @@ generator recognizes these calls and emits a `declare netwrite`/`declare netread
 
 ### Netwrite (server → client)
 
-C#:
+**C#**
 ```cs
 Netwrite<int>.For(player, out var netScore);
 netScore.Value = 5;
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare netwrite Integer Net_NetScore for Player;
 Net_NetScore = 5;
@@ -1880,12 +1903,12 @@ Net_NetScore = 5;
 
 ### Netread (client ← server)
 
-C#:
+**C#**
 ```cs
 Netread<int>.For(player, out var netScore);
 Log(netScore.ToString());
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare netread Integer Net_NetScore for Player;
 log("" ^ Net_NetScore);
@@ -1896,18 +1919,18 @@ log("" ^ Net_NetScore);
 > client can't write network variables back. Pass `name:` to declare under an explicit
 > object-side name with the out variable as the alias (`declare netwrite T X as Y for Z`).
 
-## Persistent Variables
+## Persistent variables
 
 Variables that survive across script restarts (like cookies), declared with
 `Persistent<T>.For(provider, out var name)` — `provider` must implement `IPersistentProvider`
 (e.g. `CMap`, `CUser`, `CTmMode`).
 
-C#:
+**C#**
 ```cs
 Persistent<string>.For(LocalUser, out var savedSetting);
 savedSetting.Value = "some value";
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare persistent Text Persistent_SavedSetting for LocalUser;
 Persistent_SavedSetting = "some value";
@@ -1917,18 +1940,18 @@ Persistent_SavedSetting = "some value";
 > Pass `name:` to declare under an explicit object-side name with the out variable as the
 > alias (`declare persistent T X as Y for Z`).
 
-## Metadata Variables
+## Metadata variables
 
 Variables attached to a `CNod`-derived object's metadata store, declared with
 `Metadata<T>.For(provider, out var name)` — `provider` must implement `IMetadataProvider`
 (e.g. `CMap`, `CSmBlock`, `CEditorAsset`).
 
-C#:
+**C#**
 ```cs
 Metadata<int>.For(block, out var difficulty);
 difficulty.Value = 3;
 ```
-ManiaScript:
+**ManiaScript**
 ```
 declare metadata Integer Metadata_Difficulty for Block;
 Metadata_Difficulty = 3;
@@ -1937,20 +1960,20 @@ Metadata_Difficulty = 3;
 > Pass `name:` to declare under an explicit object-side name with the out variable as the
 > alias (`declare metadata T X as Y for Z`).
 
-## Pattern Matching
+## Pattern matching
 
 ManiaScript's `is` keyword only tests — it does not bind a variable. Every C# pattern that introduces a variable therefore expands into an explicit `declare` cast. More complex C# patterns (`and`, `or`, `{ }`) have no direct equivalent and must be decomposed into separate `if` / `switch` blocks.
 
 ### `x is T` → type test
 
-C#:
+**C#**
 ```cs
 if (control is CMlLabel label)
 {
     Log(label.Value);
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 if (Control is CMlLabel) {
     declare Label = (Control as CMlLabel);
@@ -1960,12 +1983,12 @@ if (Control is CMlLabel) {
 
 ### `x is not T` → negated type test
 
-C#:
+**C#**
 ```cs
 if (control is not CMlLabel)
     continue;
 ```
-ManiaScript:
+**ManiaScript**
 ```
 if (!(Control is CMlLabel))
     continue;
@@ -1975,14 +1998,14 @@ if (!(Control is CMlLabel))
 
 C# property patterns have no equivalent in ManiaScript. They expand into a type check followed by a value check:
 
-C#:
+**C#**
 ```cs
 if (control is CMlLabel { Value: "target" })
 {
     DoSomething();
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 if (Control is CMlLabel) {
     declare Label = (Control as CMlLabel);
@@ -1996,14 +2019,14 @@ if (Control is CMlLabel) {
 
 C# `and` inside `is` must be split into a type check block containing a separate condition:
 
-C#:
+**C#**
 ```cs
 if (control is CMlLabel label and { Value: not "" })
 {
     Log(label.Value);
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 if (Control is CMlLabel) {
     declare Label = (Control as CMlLabel);
@@ -2017,14 +2040,14 @@ if (Control is CMlLabel) {
 
 C# `or` inside `is` expands into two separate `is` checks joined with `||`:
 
-C#:
+**C#**
 ```cs
 if (control is CMlEntry or CMlTextEdit)
 {
     Log("input element");
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 if (Control is CMlEntry || Control is CMlTextEdit) {
     log("input element");
@@ -2037,7 +2060,7 @@ When the body needs the cast, use `switchtype` instead (see below).
 
 When branching on multiple types, C# type-switch patterns map to `switchtype`:
 
-C#:
+**C#**
 ```cs
 switch (control)
 {
@@ -2052,7 +2075,7 @@ switch (control)
         break;
 }
 ```
-ManiaScript:
+**ManiaScript**
 ```
 switchtype (Control) {
     case CMlEntry: {
@@ -2091,14 +2114,14 @@ switchtype (Control) {
 | `x is T1 or T2` | `X is T1 \|\| X is T2` |
 | `switch(x) { case T t: }` | `switchtype (X) { case T: { declare t = (X as T); } }` |
 
-## Log & Assertions
+## Log & assertions
 
-C#:
+**C#**
 ```cs
 Log("Something went wrong!");       // prints to debug console (Ctrl+~)
 Assert(myVariable == 3);            // halts script if false
 ```
-ManiaScript:
+**ManiaScript**
 ```
 log("Something went wrong!");
 assert(MyVariable == 3);
@@ -2107,16 +2130,16 @@ assert(MyVariable == 3);
 `Console.Write`/`Console.WriteLine` are also mapped to `log(...)`, for code that's shared
 with regular .NET tests:
 
-C#:
+**C#**
 ```cs
 Console.WriteLine(score);
 ```
-ManiaScript:
+**ManiaScript**
 ```
 log(Score);
 ```
 
-## Quick Reference Table
+## Quick reference table
 
 | C# Feature | ManiaScript Equivalent |
 |---|---|

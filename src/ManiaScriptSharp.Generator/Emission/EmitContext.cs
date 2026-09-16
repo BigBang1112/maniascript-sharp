@@ -15,7 +15,7 @@ internal sealed class EmitContext
     public BuildSettings Settings { get; }
     public SemanticModel Model => Info.Model;
 
-    /// <summary>Whether we are emitting a lib class (implements <c>ILib&lt;T&gt;</c>) rather than an <c>IContext</c> script.</summary>
+    /// <summary>Whether we are emitting a lib class (implements <c>ILib</c> or <c>ILib&lt;T&gt;</c>) rather than an <c>IContext</c> script.</summary>
     public bool IsLib => Info.IsLib;
 
     /// <summary>Whether the output is a Manialink XML file; ILib fields are inlined rather than #Include'd.</summary>
