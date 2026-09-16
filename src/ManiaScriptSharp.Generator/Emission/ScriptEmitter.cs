@@ -88,6 +88,7 @@ internal sealed class ScriptEmitter
 
         var structs = new StructEmitter(_ctx);
         var constsSettings = new ConstSettingEmitter(_ctx, lit);
+        var commands = new CommandEmitter(_ctx);
         var globals = new GlobalEmitter(_ctx, expr);
         var events = new EventCollector(_ctx);
         var main = new MainEmitter(_ctx, stmt, expr, events);
@@ -100,6 +101,7 @@ internal sealed class ScriptEmitter
 
         structs.Emit();
         constsSettings.Emit();
+        commands.Emit();
 
         // In manialink mode, user-defined ILib fields cannot be #Include'd;
         // emit their declarations and functions inline after the directives section.

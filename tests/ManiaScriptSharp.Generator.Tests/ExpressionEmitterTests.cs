@@ -146,6 +146,32 @@ public class ExpressionEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Translate_LongVerbatimString_SplitsTripleQuotedFragments()
+    {
+        var text = new string('x', 49_001);
+
+        var output = TranslateExpr("@\"" + text + "\"");
+
+        Assert.Equal("\"\"\"" + new string('x', 49_000) + "\"\"\" ^ \"\"\"x\"\"\"", output);
+    }
+
+    [Fact]
+    public void Translate_VerbatimString_WithTripleQuotes_ComposesSafeFragments()
+    {
+        var output = TranslateExpr("@\"Before \"\"\"\"\"\" after\"");
+
+        Assert.Equal("\"\"\"Before \"\"\" ^ \"\\\"\\\"\\\"\" ^ \"\"\" after\"\"\"", output);
+    }
+
+    [Fact]
+    public void Translate_VerbatimString_WithInterpolationMarker_ComposesSafeFragments()
+    {
+        var output = TranslateExpr("@\"Before {{{ after\"");
+
+        Assert.Equal("\"\"\"Before \"\"\" ^ \"{{{\" ^ \"\"\" after\"\"\"", output);
+    }
+
+    [Fact]
     public void Translate_CharLiteral_AsString()
     {
         Assert.Equal("\"A\"", TranslateExpr("'A'"));
@@ -428,6 +454,32 @@ public class ExpressionEmitterTests : EmitterTestBase
     {
         // new List<T>() with collection initialiser → "[]"
         Assert.Equal("[1, 2]", TranslateExpr("new System.Collections.Generic.List<int> { 1, 2 }"));
+    }
+
+    [Fact]
+    public void Translate_StructObjectInitializer_UsesNamedFields()
+    {
+        var output = TranslateExpr(
+            "new MyStruct { MyMember = 1, MyTextMember = \"ready\" }",
+            "struct MyStruct { public int MyMember; public string MyTextMember; }");
+
+        Assert.Equal("MyStruct { MyMember = 1, MyTextMember = \"ready\" }", output);
+    }
+
+    [Fact]
+    public void Translate_EmptyStructObjectInitializer_UsesEmptyStructLiteral()
+    {
+        var output = TranslateExpr("new MyStruct { }", "struct MyStruct { public int MyMember; }");
+
+        Assert.Equal("MyStruct {}", output);
+    }
+
+    [Fact]
+    public void Translate_Int2Construction_UsesVectorLiteral()
+    {
+        var output = TranslateExpr("new Int2(0, 10)", "struct Int2 { public Int2(int x, int y) { } }");
+
+        Assert.Equal("<0, 10>", output);
     }
 
     // ────────── Interpolated strings ──────────

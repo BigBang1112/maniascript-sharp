@@ -370,6 +370,29 @@ ManiaScript:
 
 ---
 
+## Host Commands
+
+Apply `[Command]` to a context class to emit a host-exposed `#Command` directive. The
+attribute's type arguments describe the command value; `As` supplies the visible label.
+Command handling remains normal event handling through the context API.
+
+C#:
+```cs
+[Command("Command_SetPause", typeof(bool), As = "Pause the game")]
+public class MyMode : CTmMode, IContext
+{
+}
+```
+
+ManiaScript:
+```
+#Command Command_SetPause (Boolean) as _("Pause the game")
+```
+
+Set `Translated = false` to emit the label without `_()`.
+
+---
+
 ## Operators
 
 All basic operators are supported.
@@ -466,6 +489,11 @@ ManiaScript:
 ```
 declare Text Raw = """no need to escape "quotes" or paths\here""";
 ```
+
+Generated triple-quoted literals are kept below the practical 50,000-character limit. Longer
+C# verbatim or raw strings are split into approximately 49,000-character fragments joined with
+`^`. Literal `"""` and `{{{` sequences are also emitted as ordinary quoted fragments so they
+remain text rather than being parsed as a delimiter or interpolation.
 
 ### Escape Sequences
 
@@ -657,11 +685,11 @@ for (I, 2, 5) {
 }
 ```
 
-ManiaScript's `for` only expresses one shape: `for (Var, Low, High)`, stepping by exactly 1
-and including both bounds. The generator recognizes this shape — a single declared loop
-variable, a condition comparing that *same* variable with `<` or `<=`, and an incrementor of
-`i++`, `++i`, or `i += 1` — and rewrites it into `for (...)`. `<` bounds are translated as
-`High - 1` since ManiaScript's upper bound is inclusive:
+ManiaScript's `for` uses an inclusive range and accepts an optional fourth `Step` argument.
+The generator emits the native form for a single declared integer counter whose condition
+compares that counter with `<`, `<=`, `>`, or `>=`. It supports `++`, `--`, `+=`, and `-=`
+increments; exclusive C# bounds are adjusted by one because ManiaScript's final value is
+inclusive:
 
 C#:
 ```cs
@@ -695,12 +723,10 @@ for (I, 0, 10 - 1) {
 }
 ```
 
-#### Falling Back to `while`
+#### Stepped and Reverse Loops
 
-Every shape ManiaScript's `for` *can't* express — decrementing, a step other than 1, a
-non-integer counter, a condition on a different variable, a loop variable declared outside
-the loop, or an omitted condition — is rewritten as an equivalent `while` loop instead of
-being forced into (or silently misinterpreted as) `for (...)`:
+Negative and non-unit integer steps are emitted natively. This also preserves C# `continue`
+semantics, since the ManiaScript loop performs its step after every iteration:
 
 C#:
 ```cs
@@ -712,10 +738,8 @@ for (int i = 10; i > 0; i--)
 ```
 ManiaScript:
 ```
-declare Integer I = 10;
-while (I > 0) {
+for (I, 10, 0 + 1, -1) {
     log("" ^ I);
-    I -= 1;
 }
 ```
 
@@ -729,12 +753,13 @@ for (int i = 0; i < 10; i += 2)
 ```
 ManiaScript:
 ```
-declare Integer I = 0;
-while (I < 10) {
+for (I, 0, 10 - 1, 2) {
     log("" ^ I);
-    I += 2;
 }
 ```
+
+Non-integer counters, loop variables declared outside the loop, omitted conditions, and
+multiple counters still fall back to an equivalent `while` loop:
 
 C#:
 ```cs
@@ -1216,6 +1241,19 @@ main() {
     MyVar.MyMember = 2;
     log("" ^ MyCopy.MyMember); // 1
 }
+```
+
+A C# object initializer maps to a ManiaScript struct literal; fields that are not specified
+keep their default values:
+
+```cs
+var value = new MyStruct { MyMember = 1, MyTextMember = "ready" };
+var empty = new MyStruct { };
+```
+
+```
+declare MyStruct Value = MyStruct { MyMember = 1, MyTextMember = "ready" };
+declare MyStruct Empty = MyStruct {};
 ```
 
 When a struct is nested in an included library, declare it through that library's nested C# type.
@@ -2086,6 +2124,7 @@ log(Score);
 | `Loop()` method | Code inside `while` loop |
 | `const` field | `#Const C_Name` |
 | `[Setting]` attribute | `#Setting S_Name` |
+| `[Command("Name", typeof(T))]` | `#Command Name (T)` |
 | `public` field | `declare G_Name` (global) |
 | `private` method | `Private_FunctionName()` |
 | Method parameters | PascalCased with `_` prefix |

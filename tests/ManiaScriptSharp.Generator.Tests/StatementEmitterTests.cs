@@ -222,23 +222,25 @@ public class StatementEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_For_FallbackToWhile_DescendingLoop()
+    public void Emit_For_DescendingLoop_UsesNegativeStep()
     {
-        // Descending for loop: non-canonical → while fallback
-        var output = TranslateStmt("for (int i = 10; i > 0; i--) { }");
-        Assert.StartsWith("declare Integer I = 10;", output);
-        Assert.Contains("while (", output);
-        Assert.Contains("I -= 1;", output);
+        // An exclusive lower bound is adjusted because ManiaScript's range is inclusive.
+        Assert.Equal("for (I, 10, 0 + 1, -1) {\n}", TranslateStmt("for (int i = 10; i > 0; i--) { }"));
     }
 
     [Fact]
-    public void Emit_For_FallbackToWhile_CustomStep()
+    public void Emit_For_CustomStep_UsesNativeStep()
     {
-        // ManiaScript's for() has no step parameter — i += 2 must stay a while loop.
-        var output = TranslateStmt("for (int i = 0; i < 10; i += 2) { }");
-        Assert.StartsWith("declare Integer I = 0;", output);
-        Assert.Contains("while (I < 10) {", output);
-        Assert.Contains("I += 2;", output);
+        // The fourth ManiaScript range argument preserves a non-unit step.
+        Assert.Equal("for (I, 0, 10 - 1, 2) {\n}", TranslateStmt("for (int i = 0; i < 10; i += 2) { }"));
+    }
+
+    [Fact]
+    public void Emit_For_NativeStep_PreservesContinueSemantics()
+    {
+        var output = TranslateStmt("for (int i = 6; i >= 0; i -= 2) { if (i == 2) continue; }");
+
+        Assert.Equal("for (I, 6, 0, -(2)) {\n    if (I == 2) {\n        continue;\n    }\n}", output);
     }
 
     [Fact]

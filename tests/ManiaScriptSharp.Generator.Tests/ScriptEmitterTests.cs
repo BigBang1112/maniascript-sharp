@@ -6,6 +6,26 @@ namespace ManiaScriptSharp.Generator.Tests;
 public class ScriptEmitterTests : EmitterTestBase
 {
     [Fact]
+    public void Emit_CommandAttributes_EmitTypedCommandDirectives()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            [Command("Command_SetPause", typeof(bool), As = "Pause the game")]
+            [Command("Command_SetRound", typeof(int), Translated = false)]
+            public class Commands
+            {
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "Commands");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Command Command_SetPause (Boolean) as _(\"Pause the game\")", output);
+        Assert.Contains("#Command Command_SetRound (Integer) as \"Command_SetRound\"", output);
+    }
+
+    [Fact]
     public void Emit_Lib_DeclaresFieldsAutoPropertiesConstantsAndStructs()
     {
         const string code = """

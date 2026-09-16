@@ -675,17 +675,18 @@ internal sealed class StatementEmitter
 
     private void EmitFor(ForStatementSyntax fs)
     {
-        // Canonical for(int i = lo; i (<|<=) hi; i++) → ManiaScript for(I, lo, hi-or-hi-1)
-        if (TryCanonicalFor(fs, out var name, out var lo, out var hi))
+        // Native ManiaScript ranges preserve integer steps and reverse traversal.
+        if (TryNativeFor(fs, out var name, out var lo, out var hi, out var step))
         {
-            _ctx.W.Line($"for ({name}, {lo}, {hi}) {{");
+            var stepSuffix = step is null ? "" : $", {step}";
+            _ctx.W.Line($"for ({name}, {lo}, {hi}{stepSuffix}) {{");
             _ctx.W.Push(); EmitInline(fs.Statement); _ctx.W.Pop();
             _ctx.W.Line("}");
             return;
         }
 
-        // Fallback while form — covers descending loops, custom steps, multiple declared
-        // variables, and loop variables reused from an outer scope (no fresh `declare`).
+        // Fallback while form covers non-integer counters, multiple declared variables,
+        // and loop variables reused from an outer scope (no fresh `declare`).
         if (fs.Declaration is not null)
         {
             var typeSym = _ctx.Model.GetTypeInfo(fs.Declaration.Type).Type;
@@ -713,21 +714,22 @@ internal sealed class StatementEmitter
     }
 
     /// <summary>
-    /// Matches the only shape ManiaScript's <c>for(Var, Low, High)</c> can express: a single
-    /// declared variable, a condition comparing that same variable against a bound, and an
-    /// incrementor that steps it by exactly 1 (<c>i++</c>, <c>++i</c>, or <c>i += 1</c>).
-    /// Everything else (descending loops, custom steps, multiple variables, reused variables,
-    /// non-matching condition subject) falls back to a <c>while</c> loop in <see cref="EmitFor"/>.
+    /// Matches an integer C# loop that ManiaScript can express as
+    /// <c>for(Var, First, Last[, Step])</c>. ManiaScript's final value is inclusive, so C#'s
+    /// exclusive <c>&lt;</c> and <c>&gt;</c> bounds are adjusted by one. Multiple variables,
+    /// reused variables, and conditions on another variable fall back to <c>while</c>.
     /// </summary>
-    private bool TryCanonicalFor(ForStatementSyntax fs, out string name, out string lo, out string hi)
+    private bool TryNativeFor(ForStatementSyntax fs, out string name, out string lo, out string hi, out string? step)
     {
         name = lo = hi = "";
+        step = null;
         if (fs.Declaration is null || fs.Declaration.Variables.Count != 1) return false;
         var v = fs.Declaration.Variables[0];
         if (v.Initializer is null) return false;
         if (fs.Condition is not BinaryExpressionSyntax cond) return false;
         if (cond.Left is not IdentifierNameSyntax condVar || condVar.Identifier.Text != v.Identifier.Text) return false;
-        if (!IsUnitIncrement(fs.Incrementors, v.Identifier.Text)) return false;
+        if (!IsManiaScriptInteger(_ctx.Model.GetTypeInfo(fs.Declaration.Type).Type)) return false;
+        if (!TryGetForStep(fs.Incrementors, v.Identifier.Text, out step)) return false;
 
         name = NameMangler.Local(v.Identifier.Text);
         lo = _expr.Translate(v.Initializer.Value);
@@ -736,26 +738,54 @@ internal sealed class StatementEmitter
         {
             "<" => $"{bound} - 1",
             "<=" => bound,
+            ">" => $"{bound} + 1",
+            ">=" => bound,
             _ => "",
         };
         return hi.Length > 0;
     }
 
-    /// <summary>True when the sole incrementor increases <paramref name="varName"/> by exactly 1.</summary>
-    private static bool IsUnitIncrement(SeparatedSyntaxList<ExpressionSyntax> incrementors, string varName)
+    /// <summary>Whether a C# integer type maps to ManiaScript's <c>Integer</c> type.</summary>
+    private static bool IsManiaScriptInteger(ITypeSymbol? type) => type?.SpecialType is
+        SpecialType.System_Byte or SpecialType.System_SByte or
+        SpecialType.System_Int16 or SpecialType.System_UInt16 or
+        SpecialType.System_Int32 or SpecialType.System_UInt32 or
+        SpecialType.System_Int64 or SpecialType.System_UInt64;
+
+    /// <summary>Translates the sole C# incrementor into ManiaScript's optional loop step.</summary>
+    private bool TryGetForStep(SeparatedSyntaxList<ExpressionSyntax> incrementors, string varName, out string? step)
     {
+        step = null;
         if (incrementors.Count != 1) return false;
-        return incrementors[0] switch
+        switch (incrementors[0])
         {
-            PostfixUnaryExpressionSyntax post when post.IsKind(SyntaxKind.PostIncrementExpression)
-                => post.Operand is IdentifierNameSyntax id && id.Identifier.Text == varName,
-            PrefixUnaryExpressionSyntax pre when pre.IsKind(SyntaxKind.PreIncrementExpression)
-                => pre.Operand is IdentifierNameSyntax id && id.Identifier.Text == varName,
-            AssignmentExpressionSyntax asg when asg.IsKind(SyntaxKind.AddAssignmentExpression)
-                => asg.Left is IdentifierNameSyntax id && id.Identifier.Text == varName
-                   && asg.Right is LiteralExpressionSyntax { Token.ValueText: "1" },
-            _ => false,
-        };
+            case PostfixUnaryExpressionSyntax post when post.Operand is IdentifierNameSyntax postId
+                                                       && postId.Identifier.Text == varName:
+                if (post.IsKind(SyntaxKind.PostIncrementExpression)) return true;
+                if (post.IsKind(SyntaxKind.PostDecrementExpression)) { step = "-1"; return true; }
+                break;
+            case PrefixUnaryExpressionSyntax pre when pre.Operand is IdentifierNameSyntax preId
+                                                     && preId.Identifier.Text == varName:
+                if (pre.IsKind(SyntaxKind.PreIncrementExpression)) return true;
+                if (pre.IsKind(SyntaxKind.PreDecrementExpression)) { step = "-1"; return true; }
+                break;
+            case AssignmentExpressionSyntax asg when asg.Left is IdentifierNameSyntax assignmentId
+                                                    && assignmentId.Identifier.Text == varName:
+                if (asg.IsKind(SyntaxKind.AddAssignmentExpression))
+                {
+                    if (asg.Right is LiteralExpressionSyntax { Token.ValueText: "1" }) return true;
+                    step = _expr.Translate(asg.Right);
+                    return true;
+                }
+                if (asg.IsKind(SyntaxKind.SubtractAssignmentExpression))
+                {
+                    if (asg.Right is LiteralExpressionSyntax { Token.ValueText: "1" }) { step = "-1"; return true; }
+                    step = $"-({_expr.Translate(asg.Right)})";
+                    return true;
+                }
+                break;
+        }
+        return false;
     }
 
     private void EmitSwitch(SwitchStatementSyntax sws)

@@ -38,7 +38,7 @@ internal sealed class ExpressionEmitter
             InterpolatedStringExpressionSyntax istr => TranslateInterpolatedString(istr),
             CastExpressionSyntax cast => TranslateCast(cast),
             IsPatternExpressionSyntax isp when _patterns is not null => _patterns.TranslateAsExpression(isp),
-            ObjectCreationExpressionSyntax oc => TranslateObjectCreation(oc.Type, oc.ArgumentList, oc.Initializer),
+            ObjectCreationExpressionSyntax oc => TranslateObjectCreation(oc),
             ImplicitObjectCreationExpressionSyntax ioc => TranslateImplicitObjectCreation(ioc),
             CollectionExpressionSyntax ce => TranslateCollectionExpr(ce),
             InitializerExpressionSyntax init => TranslateInitializer(init),
@@ -84,15 +84,11 @@ internal sealed class ExpressionEmitter
         return type?.Name == "Ident" ? "NullId" : "Null";
     }
 
-    private static string TranslateStringLiteral(LiteralExpressionSyntax lit)
+    private string TranslateStringLiteral(LiteralExpressionSyntax lit)
     {
         var raw = lit.Token.Text;
-        // Verbatim strings @"..." become triple-quoted to avoid escape conversion.
-        if (raw.StartsWith("@\""))
-        {
-            var inner = lit.Token.ValueText.Replace("\"\"", "\"");
-            return "\"\"\"" + inner + "\"\"\"";
-        }
+        if (raw.StartsWith("@\"") || raw.StartsWith("\"\"\""))
+            return FormatTripleQuotedText(lit.Token.ValueText);
         return raw;
     }
 
@@ -670,25 +666,46 @@ internal sealed class ExpressionEmitter
     {
         // Raw string literals ($"""...""") → ManiaScript triple-quoted with {{{expr}}} placeholders.
         // Regular interpolated strings ($"...") → "literal" ^ expr ^ "continuation" concatenation.
-        bool isRaw = istr.StringStartToken.Text.Contains("\"\"\"");
+        bool isRaw = istr.StringStartToken.Text.Contains("\"\"\"")
+                     || istr.StringStartToken.Text.Contains("@");
 
         if (isRaw)
         {
-            var sb = new StringBuilder("\"\"\"");
+            var content = new StringBuilder();
             foreach (var c in istr.Contents)
             {
                 switch (c)
                 {
                     case InterpolatedStringTextSyntax t:
-                        sb.Append(t.TextToken.ValueText);
+                        content.Append(t.TextToken.ValueText);
                         break;
                     case InterpolationSyntax i:
-                        sb.Append("{{{").Append(Translate(i.Expression)).Append("}}}");
+                        content.Append("{{{").Append(Translate(i.Expression)).Append("}}}");
                         break;
                 }
             }
-            sb.Append("\"\"\"");
-            return sb.ToString();
+
+            if (content.Length <= MaxTripleQuotedTextLength
+                && content.ToString().IndexOf("\"\"\"", StringComparison.Ordinal) < 0
+                && !istr.Contents.OfType<InterpolatedStringTextSyntax>()
+                    .Any(t => t.TextToken.ValueText.IndexOf("{{{", StringComparison.Ordinal) >= 0)
+                && (content.Length == 0 || content[content.Length - 1] != '"'))
+                return "\"\"\"" + content + "\"\"\"";
+
+            var parts = new List<string>();
+            foreach (var c in istr.Contents)
+            {
+                switch (c)
+                {
+                    case InterpolatedStringTextSyntax t when t.TextToken.ValueText.Length > 0:
+                        parts.Add(FormatTripleQuotedText(t.TextToken.ValueText));
+                        break;
+                    case InterpolationSyntax i:
+                        parts.Add("\"\"\"{{{" + Translate(i.Expression) + "}}}\"\"\"");
+                        break;
+                }
+            }
+            return parts.Count == 0 ? FormatTripleQuotedText("") : string.Join(" ^ ", parts);
         }
         else
         {
@@ -726,12 +743,76 @@ internal sealed class ExpressionEmitter
         }
     }
 
+    private const int MaxTripleQuotedTextLength = 49_000;
+
+    /// <summary>
+    /// Emits a ManiaScript triple-quoted text expression without exceeding the practical
+    /// per-literal limit. Sequences that would be parsed as a delimiter or interpolation are
+    /// represented by ordinary quoted fragments instead.
+    /// </summary>
+    private static string FormatTripleQuotedText(string text)
+    {
+        if (text.Length == 0) return "\"\"\"\"\"\"";
+
+        var parts = new List<string>();
+        var literal = new StringBuilder();
+
+        void FlushLiteral()
+        {
+            if (literal.Length == 0) return;
+
+            // A quote immediately before the closing delimiter would form an ambiguous quote
+            // run. Keep trailing quotes in a regular literal, where they are unambiguous.
+            var trailingQuotes = 0;
+            while (literal.Length > 0 && literal[literal.Length - 1] == '"')
+            {
+                literal.Length--;
+                trailingQuotes++;
+            }
+
+            if (literal.Length > 0)
+                parts.Add("\"\"\"" + literal + "\"\"\"");
+            if (trailingQuotes > 0)
+                parts.Add(QuoteText(new string('"', trailingQuotes)));
+            literal.Clear();
+        }
+
+        for (var index = 0; index < text.Length;)
+        {
+            if (index + 3 <= text.Length
+                && (string.Compare(text, index, "\"\"\"", 0, 3, StringComparison.Ordinal) == 0
+                    || string.Compare(text, index, "{{{", 0, 3, StringComparison.Ordinal) == 0))
+            {
+                FlushLiteral();
+                parts.Add(QuoteText(text.Substring(index, 3)));
+                index += 3;
+                continue;
+            }
+
+            literal.Append(text[index++]);
+            if (literal.Length == MaxTripleQuotedTextLength)
+                FlushLiteral();
+        }
+        FlushLiteral();
+
+        return string.Join(" ^ ", parts);
+    }
+
+    private static string QuoteText(string text) => "\"" + text
+        .Replace("\\", "\\\\")
+        .Replace("\"", "\\\"")
+        .Replace("\r", "\\r")
+        .Replace("\n", "\\n")
+        .Replace("\t", "\\t") + "\"";
+
     // ------- new ... -------
 
-    private string TranslateObjectCreation(TypeSyntax typeSyntax, ArgumentListSyntax? args, InitializerExpressionSyntax? init)
+    private string TranslateObjectCreation(ObjectCreationExpressionSyntax creation)
     {
-        var typeSym = _ctx.Model.GetTypeInfo(typeSyntax).Type;
-        return TranslateNew(typeSym, args, init, typeSyntax.ToString());
+        // TypeInfo is attached to the construction expression. Looking it up on the TypeSyntax
+        // loses the symbol for nested/user-defined structs in some semantic-model contexts.
+        var typeSym = _ctx.Model.GetTypeInfo(creation).Type;
+        return TranslateNew(typeSym, creation.ArgumentList, creation.Initializer, creation.Type.ToString());
     }
 
     private string TranslateImplicitObjectCreation(ImplicitObjectCreationExpressionSyntax ioc)
@@ -752,10 +833,14 @@ internal sealed class ExpressionEmitter
             return "";
         }
 
-        if (name is "Vec2" or "Vec3" or "Int3" or "Vector2" or "Vector3" && args is not null && args.Arguments.Count > 0)
+        if (name is "Vec2" or "Vec3" or "Int2" or "Int3" or "Vector2" or "Vector3" && args is not null && args.Arguments.Count > 0)
             return "<" + string.Join(", ", args.Arguments.Select(a => Translate(a.Expression))) + ">";
 
         // Collection initializer → [a, b]; dictionary initializer → ["k" => v]
+        if (typeSym is INamedTypeSymbol { TypeKind: TypeKind.Struct } structType
+            && init?.IsKind(SyntaxKind.ObjectInitializerExpression) == true)
+            return TranslateStructInitializer(structType, init);
+
         if (init is not null)
             return TranslateInitializer(init);
 
@@ -770,6 +855,28 @@ internal sealed class ExpressionEmitter
 
         // Bare new T() — usually used for struct construction; emit empty placeholder.
         return "";
+    }
+
+    private string TranslateStructInitializer(INamedTypeSymbol type, InitializerExpressionSyntax init)
+    {
+        var fields = init.Expressions.Select(TranslateStructInitializerField);
+        var contents = string.Join(", ", fields);
+        return contents.Length == 0
+            ? $"{TypeMapper.Map(type)} {{}}"
+            : $"{TypeMapper.Map(type)} {{ {contents} }}";
+    }
+
+    private string TranslateStructInitializerField(ExpressionSyntax expression)
+    {
+        if (expression is not AssignmentExpressionSyntax assignment
+            || !assignment.IsKind(SyntaxKind.SimpleAssignmentExpression))
+            return Unsupported(expression, "struct initializer entry");
+
+        var member = _ctx.Model.GetSymbolInfo(assignment.Left).Symbol;
+        var name = member is IFieldSymbol or IPropertySymbol
+            ? NameMangler.PascalCase(member.Name)
+            : assignment.Left.ToString();
+        return $"{name} = {Translate(assignment.Right)}";
     }
 
     private string TranslateInitializer(InitializerExpressionSyntax init)

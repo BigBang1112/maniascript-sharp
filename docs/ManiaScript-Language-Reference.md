@@ -1,8 +1,10 @@
 # ManiaScript Language Reference
 
+ManiaScript is the scripting language used across ManiaPlanet-based games. It lets you create game modes, map editor plugins, server plugins, and build more interactive manialinks and user interfaces.
+
 ## Table of Contents
 
-1. [Syntax Basics](#syntax-basics)
+1. [Syntax basics](#syntax-basics)
 2. [Simple Data Types](#simple-data-types)
 3. [Variables](#variables)
 4. [Comments](#comments)
@@ -19,7 +21,7 @@
 
 ---
 
-## Syntax Basics
+## Syntax basics
 
 A script is text composed of instructions. Ordinary instructions are separated by semicolons, as in C/C++:
 
@@ -28,8 +30,6 @@ declare MyVar = 12;
 MyVar += 1;
 DoSomething(MyVar);
 ```
-
-> **Beware:** Case is important, always!
 
 Curly braces delimit blocks. `if`, `else`, and loop bodies may also contain a single unbraced instruction:
 
@@ -95,10 +95,7 @@ A triple-quoted literal is a `Text` value that begins and ends with three double
 
 Between the delimiters, ordinary double quotes do not end the literal, backslashes are kept as text, and physical line breaks are preserved. This makes triple-quoted text suitable for content whose readability would suffer from escaping, such as markup and regular expressions. Whitespace is significant: indentation and newlines between the delimiters become part of the resulting value.
 
-Triple-quoted text has two kinds of content:
-
-- Literal text is appended unchanged.
-- An interpolation `{{{ Expression }}}` evaluates `Expression` when the surrounding statement executes and appends its text representation.
+Triple-quoted text can include interpolation. The syntax `{{{ Expression }}}` evaluates `Expression` when the surrounding statement executes and appends its text representation.
 
 For example, this creates one `Text` value from literal segments and two runtime expressions:
 
@@ -541,13 +538,18 @@ foreach (Index => Item in MyArray) {
 }
 ```
 
-`for` also supports collection iteration, including key/value and reverse forms:
+`for` also supports collection iteration, including key/value forms.
 
 ```
 for (Player in Players) {
     log(Player.Login);
 }
 
+```
+
+The `reverse` forms below are available only in Trackmania (2020) script contexts:
+
+```
 for (Id => Player in reverse PlayersById) {
     log(Id ^ ": " ^ Player.Login);
 }
@@ -557,7 +559,7 @@ foreach (Id => Player in PlayersById reverse) {
 }
 ```
 
-The exact labels, collection types, and preferred `for`/`foreach` spelling vary across engine generations and libraries. Follow the conventions of the base script or library you are extending.
+Do not use `reverse` in ManiaPlanet scripts.
 
 Use `break;` to exit a loop early and `continue;` to skip to the next iteration.
 
@@ -833,6 +835,8 @@ MyLib1::Function1();
 ```
 #Command Command_SetPause (Boolean) as _("Pause the game")
 ```
+
+It adds a command section in the "Manage server" menu of the pause menu.
 
 ---
 
