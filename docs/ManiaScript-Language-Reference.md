@@ -81,22 +81,87 @@ declare Direction = CBlock::CardinalDirections::North;
 
 ### Text Literals
 
-**Protips:**
+Use ordinary double-quoted text for short, fixed values. Common escape sequences include `\n` for a newline, `\"` for a quote, and `\\` for a backslash:
 
-- Inside a `Text`, the usual escape sequences such as `"\n"` or `"\\"` are supported.
-- You can declare a `Text` value between triple double quotes; it is useful for longer text and can span multiple lines:
-  ```
-  """plop="452.12.22" toto"""
-  ```
-- Triple-quoted text supports expression interpolation. This form is used throughout the Trackmania scripts:
-  ```
-  declare Summary = """Player: {{{Player.Login}}} — score: {{{Player.Score}}}""";
-  ```
-- `_()` marks a text literal for localization and is used in settings, commands, and UI text:
-  ```
-  #Setting S_TimeLimit 600 as _("Time limit")
-  declare Caption = _("Waiting for players");
-  ```
+```
+declare Greeting = "Welcome";
+declare Message = "First line\nSecond line";
+declare Quoted = "The button is named \"Start\".";
+```
+
+#### Triple-Quoted Text
+
+A triple-quoted literal is a `Text` value that begins and ends with three double quotes: `"""..."""`. It is still a `Text`, not a separate string, XML, or template type.
+
+Between the delimiters, ordinary double quotes do not end the literal, backslashes are kept as text, and physical line breaks are preserved. This makes triple-quoted text suitable for content whose readability would suffer from escaping, such as markup and regular expressions. Whitespace is significant: indentation and newlines between the delimiters become part of the resulting value.
+
+Triple-quoted text has two kinds of content:
+
+- Literal text is appended unchanged.
+- An interpolation `{{{ Expression }}}` evaluates `Expression` when the surrounding statement executes and appends its text representation.
+
+For example, this creates one `Text` value from literal segments and two runtime expressions:
+
+```
+declare Text PlayerName = "Alice";
+declare Integer FinishTime = 65321;
+declare Summary = """Player: {{{PlayerName}}}
+Time: {{{FinishTime / 1000.}}} seconds""";
+```
+
+The delimiters and interpolation marker are syntax, not content. A triple-quoted literal cannot contain an unbroken `"""` delimiter, and `{{{` begins interpolation. When either sequence must appear literally, compose it from smaller text values:
+
+```
+declare Quote = "\"";
+declare ThreeQuotes = Quote ^ Quote ^ Quote;
+declare OpenInterpolation = "{{" ^ "{";
+```
+
+For practical compatibility, keep each triple-quoted literal below roughly 50,000 source characters. This is a practical split point rather than a formally specified language limit. Larger Manialink documents can be divided into fragments and joined with `^`; no character is added at the join. For generated text, splitting at about 49,000 characters leaves a small margin:
+
+```
+declare PageXml =
+    """<manialink>
+    <label id="status" text="Loading" />
+""" ^
+    """    <label id="detail" text="Please wait" />
+</manialink>""";
+```
+
+Use ordinary quoted text for short values and triple-quoted text when its literal-content rules are helpful.
+
+**Multiline Manialink/XML:**
+
+```
+declare Manialink = """<manialink>
+    <label id="status" text="Waiting for players" />
+</manialink>""";
+```
+
+**Formatted status or log message:**
+
+```
+declare Status = """Player: {{{Player.Login}}}
+Score: {{{Player.Score}}}""";
+log(Status);
+```
+
+**Regular expression:**
+
+```
+declare TagPattern = """<\s*{{{TagName}}}\b[^>]*\/?>""";
+```
+
+The same pattern in an ordinary double-quoted string would require doubled backslashes, such as `"<\\s*...\\b...\\/?>"`.
+
+#### Localized Text
+
+`_()` marks a text literal for localization and is used in settings, commands, and UI text:
+
+```
+#Setting S_TimeLimit 600 as _("Time limit")
+declare Caption = _("Waiting for players");
+```
 
 ---
 
@@ -126,12 +191,37 @@ log(ServerName ^ " has currently " ^ Planets ^ "p.");
 
 Scope is defined by matching curly brackets `{ }`. Variable visibility is limited to the enclosing scope following the declaration.
 
+```
+main() {
+    declare Text Status = "Waiting";
+
+    if (True) {
+        declare Integer RetryCount = 0;
+        RetryCount += 1;
+        Status = "Retry " ^ RetryCount;
+    }
+
+    log(Status); // available here
+    // RetryCount is no longer in scope here
+}
+```
+
 ### Global Variables
 
 Defined outside all functions. Cannot be initialized with a value inline in the global scope (explicit type is required):
 
 ```
 declare Text G_GlobalVariable;
+```
+
+Globals are available to functions declared in the same script:
+
+```
+declare Integer G_CompletedRounds;
+
+Void RecordCompletedRound() {
+    G_CompletedRounds += 1;
+}
 ```
 
 ### Extension Variables (`declare for`)
@@ -179,6 +269,14 @@ declare persistent Boolean[Text] Persistent_ModuleVisibilities;
 ```
 
 `metadata`, `netwrite`, and `netread` use a `for` target. As with ordinary declarations, the type can be inferred from an initializer when the initializer has an unambiguous type.
+
+**Storage modifier examples:**
+
+```
+declare metadata Text AuthorNote for Map = "";
+declare persistent Boolean HasSeenIntro = False;
+declare netwrite Boolean Net_IsPaused for UI;
+```
 
 ### Network Variables (`netwrite` / `netread`)
 
@@ -232,6 +330,18 @@ SomeVar = "bar";
 
 No implicit type conversion — types must match.
 
+**Common declaration patterns:**
+
+```
+declare Integer RoundCount = 0;      // explicit type and initial value
+declare IsWarmUp = True;             // type inferred as Boolean
+declare Text[] PendingMessages = []; // empty list with an explicit element type
+declare Integer[Text] ScoresByLogin = [];
+
+ScoresByLogin["Alice"] = 42;
+declare AliceScore = ScoresByLogin.get("Alice", 0);
+```
+
 ---
 
 ## Comments
@@ -262,6 +372,15 @@ Var = 2 /* This is an inline comment */ + 5;
 | `%` | Remainder |
 
 Mixing `Real` and `Integer` produces a `Real`.
+
+```
+declare Integer Checkpoints = 3;
+declare Real Bonus = 0.5;
+declare Total = Checkpoints + Bonus; // Real: 3.5
+
+Checkpoints *= 2; // 6
+Checkpoints %= 4; // 2
+```
 
 ### String Concatenation
 
@@ -297,6 +416,15 @@ MyVar = """Hello {{{NameOfThePlayer}}}, how are you? Five = {{{2+3}}}.""";
 | `>=` | Greater or equal |
 
 > Greater/lower comparisons do not work with `Boolean`.
+
+```
+declare Boolean HasEnoughPlayers = Players.count >= 2;
+declare Boolean CanStart = HasEnoughPlayers && !GameIsPaused;
+
+if (CanStart || IsLocalMode) {
+    log("Starting race");
+}
+```
 
 ### Increment / Decrement
 
@@ -433,6 +561,16 @@ The exact labels, collection types, and preferred `for`/`foreach` spelling vary 
 
 Use `break;` to exit a loop early and `continue;` to skip to the next iteration.
 
+```
+declare Integer[] Scores = [0, 12, 0, 25];
+foreach (Score in Scores) {
+    if (Score == 0) continue; // ignore unfinished entries
+
+    log("Score: " ^ Score);
+    if (Score >= 25) break;   // first qualifying score is enough
+}
+```
+
 ---
 
 ## Functions
@@ -454,6 +592,18 @@ Integer Sum(Integer _A, Integer _B) {
 
 ```
 declare Result = Sum(23, 19);
+```
+
+Use a `Void` function for an action. An early `return;` is useful for guard clauses:
+
+```
+Void SetLabel(CMlLabel _Label, Text _Value) {
+    if (_Label == Null) return;
+
+    _Label.Value = _Value;
+}
+
+SetLabel(TitleLabel, "Ready");
 ```
 
 ### Overloading (Polymorphism)
@@ -651,6 +801,18 @@ Directives appear at the top of a script and begin with `#`. They do **not** end
 | `#Struct Namespace::Name as LocalName` | Imports a struct type under a local name |
 
 Common context types include `CManiaApp`, `CManiaAppPlayground`, `CManiaAppTitle`, `CManiaplanetPlugin`, `CMap`, `CSmMapType`, `CSmMode`, and `CTmMode`. The context controls which engine objects, events, labels, and API members are available.
+
+**Constants and struct declaration:**
+
+```
+#Const C_MaxPlayers 16
+#Const C_DefaultColor <1., 1., 1.>
+
+#Struct K_PlayerResult {
+    Text Login;
+    Integer Score;
+}
+```
 
 **Include example:**
 
