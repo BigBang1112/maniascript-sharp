@@ -21,7 +21,7 @@ feature. Any change to translation behavior (new mapping, new syntax support, ne
 diagnostic) must update the matching README table/section in the same change — including
 small mapping fixes, where the shown example output must match the corrected behavior.
 
-For event, LINQ, and ManiaScript language details, link to existing docs instead of duplicating them: [event translation](../docs/event-translation.md), [LINQ translation](../docs/linq-translation.md), and [language reference](../docs/ManiaScript-Language-Reference.md).
+For event, LINQ, and ManiaScript language details, link to existing docs instead of duplicating them: [event translation](../docs/event-translation.md), [LINQ translation](../docs/linq-translation.md), and [language reference](../docs/ManiaScriptReference.md).
 
 # Caveman Mode
 * Drop: articles (a/an/the), filler (just/really/basically), pleasantries, hedging.
