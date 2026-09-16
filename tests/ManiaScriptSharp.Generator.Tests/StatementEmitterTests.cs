@@ -502,11 +502,11 @@ public class StatementEmitterTests : EmitterTestBase
     // ────────── Label calls ──────────
 
     [Fact]
-    public void Emit_LabelCall_NoSemicolon()
+    public void Emit_LabelCall_UsesScopedBlock()
     {
-        // Virtual method calls become +++Name+++  (no trailing semicolon)
+        // Virtual method calls become a scoped +++Name+++ insertion (no trailing semicolon).
         var output = TranslateStmtWithLabel("MyLoop", "MyLoop();");
-        Assert.Equal("+++MyLoop+++", output);
+        Assert.Equal("{+++MyLoop+++}", output);
     }
 
     // ────────── Block ──────────

@@ -10,7 +10,7 @@ namespace ManiaScriptSharp.Generator.Emission;
 /// Translates a C# expression tree into a ManiaScript expression string.
 /// Owns: identifier resolution (G_/S_/C_/Net_/Persistent_, _Param, PascalCase locals),
 /// "." → "::" for static/enum members, list/dict API mapping, string interpolation
-/// → triple-quoted form, `^` concatenation, vector/list/dict literals, casts, patterns,
+/// → multiline-string form, `^` concatenation, vector/list/dict literals, casts, patterns,
 /// label call rewrite (`Foo()` → `+++Foo+++`).
 /// </summary>
 internal sealed class ExpressionEmitter
@@ -88,7 +88,7 @@ internal sealed class ExpressionEmitter
     {
         var raw = lit.Token.Text;
         if (raw.StartsWith("@\"") || raw.StartsWith("\"\"\""))
-            return FormatTripleQuotedText(lit.Token.ValueText);
+            return FormatMultilineString(lit.Token.ValueText);
         return raw;
     }
 
@@ -431,7 +431,13 @@ internal sealed class ExpressionEmitter
 
     private string? MapListMethod(IMethodSymbol m, MemberAccessExpressionSyntax ma, ArgumentListSyntax args)
     {
-        if (!IsListLikeType(m.ContainingType) && !IsDictionaryType(m.ContainingType)) return null;
+        // Dictionary.GetValueOrDefault is an extension method, so its declaring type is not
+        // the dictionary. Detect that one special case from the receiver without intercepting
+        // unrelated LINQ extension methods.
+        var receiverType = _ctx.Model.GetTypeInfo(ma.Expression).Type as INamedTypeSymbol;
+        var isDictionaryGetValueOrDefault = m.Name == "GetValueOrDefault" && IsDictionaryType(receiverType);
+        if (!IsListLikeType(m.ContainingType) && !IsDictionaryType(m.ContainingType)
+            && !isDictionaryGetValueOrDefault) return null;
         var recv = Translate(ma.Expression);
         var a = Args(args);
         return m.Name switch
@@ -445,6 +451,7 @@ internal sealed class ExpressionEmitter
             "ContainsKey" => $"{recv}.existskey({a})",
             "ContainsValue" => $"{recv}.exists({a})",
             "IndexOf" => $"{recv}.keyof({a})",
+            "GetValueOrDefault" when IsDictionaryType(receiverType) && args.Arguments.Count == 2 => $"{recv}.get({a})",
             "Sort" or "OrderBy" => $"{recv}.sort()",
             "Reverse" or "OrderByDescending" => $"{recv}.sortreverse()",
             _ => null,
@@ -664,7 +671,7 @@ internal sealed class ExpressionEmitter
 
     private string TranslateInterpolatedString(InterpolatedStringExpressionSyntax istr)
     {
-        // Raw string literals ($"""...""") → ManiaScript triple-quoted with {{{expr}}} placeholders.
+        // Raw string literals ($"""...""") → ManiaScript multiline strings with {{{expr}}} placeholders.
         // Regular interpolated strings ($"...") → "literal" ^ expr ^ "continuation" concatenation.
         bool isRaw = istr.StringStartToken.Text.Contains("\"\"\"")
                      || istr.StringStartToken.Text.Contains("@");
@@ -685,8 +692,9 @@ internal sealed class ExpressionEmitter
                 }
             }
 
-            if (content.Length <= MaxTripleQuotedTextLength
-                && content.ToString().IndexOf("\"\"\"", StringComparison.Ordinal) < 0
+            var contentText = content.ToString();
+            if (Encoding.UTF8.GetByteCount(contentText) <= MaxMultilineStringBytes
+                && contentText.IndexOf("\"\"\"", StringComparison.Ordinal) < 0
                 && !istr.Contents.OfType<InterpolatedStringTextSyntax>()
                     .Any(t => t.TextToken.ValueText.IndexOf("{{{", StringComparison.Ordinal) >= 0)
                 && (content.Length == 0 || content[content.Length - 1] != '"'))
@@ -698,14 +706,14 @@ internal sealed class ExpressionEmitter
                 switch (c)
                 {
                     case InterpolatedStringTextSyntax t when t.TextToken.ValueText.Length > 0:
-                        parts.Add(FormatTripleQuotedText(t.TextToken.ValueText));
+                        parts.Add(FormatMultilineString(t.TextToken.ValueText));
                         break;
                     case InterpolationSyntax i:
                         parts.Add("\"\"\"{{{" + Translate(i.Expression) + "}}}\"\"\"");
                         break;
                 }
             }
-            return parts.Count == 0 ? FormatTripleQuotedText("") : string.Join(" ^ ", parts);
+            return parts.Count == 0 ? FormatMultilineString("") : string.Join(" ^ ", parts);
         }
         else
         {
@@ -743,19 +751,20 @@ internal sealed class ExpressionEmitter
         }
     }
 
-    private const int MaxTripleQuotedTextLength = 49_000;
+    private const int MaxMultilineStringBytes = 65_535;
 
     /// <summary>
-    /// Emits a ManiaScript triple-quoted text expression without exceeding the practical
-    /// per-literal limit. Sequences that would be parsed as a delimiter or interpolation are
-    /// represented by ordinary quoted fragments instead.
+    /// Emits a ManiaScript multiline string expression whose UTF-8 content does not exceed the
+    /// 65,535-byte per-literal limit. Sequences that would be parsed as a delimiter or
+    /// interpolation are represented by ordinary quoted fragments instead.
     /// </summary>
-    private static string FormatTripleQuotedText(string text)
+    private static string FormatMultilineString(string text)
     {
         if (text.Length == 0) return "\"\"\"\"\"\"";
 
         var parts = new List<string>();
         var literal = new StringBuilder();
+        var literalByteCount = 0;
 
         void FlushLiteral()
         {
@@ -775,6 +784,7 @@ internal sealed class ExpressionEmitter
             if (trailingQuotes > 0)
                 parts.Add(QuoteText(new string('"', trailingQuotes)));
             literal.Clear();
+            literalByteCount = 0;
         }
 
         for (var index = 0; index < text.Length;)
@@ -789,9 +799,16 @@ internal sealed class ExpressionEmitter
                 continue;
             }
 
-            literal.Append(text[index++]);
-            if (literal.Length == MaxTripleQuotedTextLength)
+            var charCount = char.IsHighSurrogate(text[index])
+                && index + 1 < text.Length
+                && char.IsLowSurrogate(text[index + 1]) ? 2 : 1;
+            var nextByteCount = Encoding.UTF8.GetByteCount(text.Substring(index, charCount));
+            if (literalByteCount > 0 && literalByteCount + nextByteCount > MaxMultilineStringBytes)
                 FlushLiteral();
+
+            literal.Append(text, index, charCount);
+            literalByteCount += nextByteCount;
+            index += charCount;
         }
         FlushLiteral();
 

@@ -10,6 +10,12 @@ public sealed class SettingAttribute : Attribute
     /// <summary>If true (default), the display name is wrapped in <c>_()</c> for translation.</summary>
     public bool Translated { get; set; } = true;
 
+    /// <summary>
+    /// Hides the setting in the menus. This takes precedence
+    /// over <see cref="As"/> and <see cref="Translated"/>.
+    /// </summary>
+    public bool Hidden { get; set; }
+
     /// <summary>When changed, sets a <c>Reload</c> field to true. Requires a <c>bool Reload</c> field on the class.</summary>
     public bool ReloadOnChange { get; set; }
 

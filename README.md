@@ -354,7 +354,7 @@ const string AdminLogin = "bigbang1112";
 [Setting(As = "Chat time")]
 const int ChatTime = 50;
 
-[Setting(As = "<hidden>")]
+[Setting(As = "Visible name", Translated = true, Hidden = true)]
 const int HiddenSetting = 25;
 
 [Setting(Translated = false)]
@@ -367,6 +367,9 @@ ManiaScript:
 #Setting S_HiddenSetting 25 as "<hidden>"
 #Setting S_PointLimit 25
 ```
+
+`Hidden = true` takes precedence over `As` and `Translated`, and always emits
+`as "<hidden>"` without `_()`.
 
 ---
 
@@ -468,7 +471,7 @@ declare Text Result = "Hello " ^ "world!";
 declare Text Greeting = Name ^ " has " ^ Score ^ " points.";
 ```
 
-### String Interpolation → Triple-Quote Expressions
+### String Interpolation → Multiline Strings
 
 C#:
 ```cs
@@ -479,7 +482,7 @@ ManiaScript:
 declare Text Msg = """Hello {{{PlayerName}}}, score = {{{2 + 3}}}""";
 ```
 
-### Verbatim / Raw Strings → Triple-Quoted Text
+### Verbatim / Raw Strings → Multiline Strings
 
 C#:
 ```cs
@@ -490,8 +493,8 @@ ManiaScript:
 declare Text Raw = """no need to escape "quotes" or paths\here""";
 ```
 
-Generated triple-quoted literals are kept below the practical 50,000-character limit. Longer
-C# verbatim or raw strings are split into approximately 49,000-character fragments joined with
+Generated multiline strings are kept within ManiaScript's 65,535-byte UTF-8 limit. Longer
+C# verbatim or raw strings are split into byte-safe fragments joined with
 `^`. Literal `"""` and `{{{` sequences are also emitted as ordinary quoted fragments so they
 remain text rather than being parsed as a delimiter or interpolation.
 
@@ -1643,7 +1646,7 @@ UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
 ***
 
 main() {
-    +++OnMapIntroEnd+++
+    {+++OnMapIntroEnd+++}
 }
 ```
 
@@ -2133,7 +2136,7 @@ log(Score);
 | `[ManialinkControl]` field | `Page.GetFirstChild()` binding |
 | Event handler (`+=`) | `foreach (Event in PendingEvents)` |
 | `OnChange(value, old => { ... })` | Backing global + `if (Value != OldValue) { ...; OldValue = Value; }` |
-| String interpolation `$""` | Triple-quote `"""..{{{expr}}}..."""` |
+| String interpolation `$""` | Multiline string `"""..{{{expr}}}..."""` |
 | String concatenation `+` | `^` operator |
 | `IList<T>` / `List<T>` | `T[]` list |
 | `Dictionary<K,V>` | `V[K]` associative array |

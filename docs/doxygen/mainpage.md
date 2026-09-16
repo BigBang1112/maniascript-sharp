@@ -24,7 +24,7 @@ The generated classes live under the `Generated/` folders of each API project �
 
 - [Event translation](event-translation.md) — how `+=` subscriptions become the event loop
 - [LINQ translation](linq-translation.md) — how LINQ chains desugar into `foreach` loops
-- [ManiaScript language reference](ManiaScript-Language-Reference.md) — the target language in depth
+- [ManiaScript language reference](ManiaScriptReference.md) — the target language in depth
 
 ## Getting started
 

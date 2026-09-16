@@ -6,6 +6,27 @@ namespace ManiaScriptSharp.Generator.Tests;
 public class ScriptEmitterTests : EmitterTestBase
 {
     [Fact]
+    public void Emit_HiddenSetting_OverridesDisplayAndTranslation()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class Settings
+            {
+                [Setting(As = "Visible name", Translated = true, Hidden = true)]
+                public const int InternalValue = 25;
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "Settings");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Setting S_InternalValue 25 as \"<hidden>\"", output);
+        Assert.DoesNotContain("Visible name", output);
+        Assert.DoesNotContain("_(\"<hidden>\")", output);
+    }
+
+    [Fact]
     public void Emit_CommandAttributes_EmitTypedCommandDirectives()
     {
         const string code = """

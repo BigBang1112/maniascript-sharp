@@ -45,7 +45,7 @@ internal sealed class FunctionEmitter
 
         // Plain functions and property accessors must be textually defined before any sibling
         // that calls them (ManiaScript has no forward declarations and disallows circular calls
-        // between distinct functions — see docs/ManiaScript-Language-Reference.md "Functions").
+        // between distinct functions — see docs/ManiaScriptReference.md "Functions").
         // Sort by call dependency (callees before callers) instead of raw C# declaration order.
         var methods = _ctx.Info.Symbol.GetMembers().OfType<IMethodSymbol>()
             .Where(m => m.MethodKind == MethodKind.Ordinary && !m.IsVirtual && !m.IsOverride

@@ -30,7 +30,9 @@ internal sealed class ConstSettingEmitter
 
             var display = attr.Named<string>("As") ?? Humanize(NameMangler.PascalCase(f.Name));
             var translated = attr.Named<bool?>("Translated") ?? true;
-            var labelExpr = translated ? $"_(\"{display}\")" : $"\"{display}\"";
+            var hidden = attr.Named<bool?>("Hidden") ?? false;
+            var labelExpr = hidden ? "\"<hidden>\""
+                : translated ? $"_(\"{display}\")" : $"\"{display}\"";
 
             _ctx.W.Line($"#Setting {NameMangler.Setting(f)} {_lit.OfField(f)} as {labelExpr}");
             any = true;

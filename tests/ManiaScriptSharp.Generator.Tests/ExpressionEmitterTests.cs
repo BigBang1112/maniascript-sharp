@@ -146,13 +146,23 @@ public class ExpressionEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Translate_LongVerbatimString_SplitsTripleQuotedFragments()
+    public void Translate_LongVerbatimString_SplitsMultilineStringFragmentsAtByteLimit()
     {
-        var text = new string('x', 49_001);
+        var text = new string('x', 65_536);
 
         var output = TranslateExpr("@\"" + text + "\"");
 
-        Assert.Equal("\"\"\"" + new string('x', 49_000) + "\"\"\" ^ \"\"\"x\"\"\"", output);
+        Assert.Equal("\"\"\"" + new string('x', 65_535) + "\"\"\" ^ \"\"\"x\"\"\"", output);
+    }
+
+    [Fact]
+    public void Translate_MultibyteVerbatimString_SplitsByUtf8Bytes()
+    {
+        var text = new string('\u00E9', 32_768); // 65,536 UTF-8 bytes
+
+        var output = TranslateExpr("@\"" + text + "\"");
+
+        Assert.Equal("\"\"\"" + new string('\u00E9', 32_767) + "\"\"\" ^ \"\"\"\u00E9\"\"\"", output);
     }
 
     [Fact]
@@ -416,6 +426,12 @@ public class ExpressionEmitterTests : EmitterTestBase
     public void Translate_DictionaryContainsKey_MapsToExistsKey()
     {
         Assert.Equal("Map.existskey(\"a\")", TranslateExpr("map.ContainsKey(\"a\")", "Dictionary<string, int> map = new();"));
+    }
+
+    [Fact]
+    public void Translate_DictionaryGetValueOrDefault_MapsToGet()
+    {
+        Assert.Equal("Map.get(\"a\", 0)", TranslateExpr("map.GetValueOrDefault(\"a\", 0)", "Dictionary<string, int> map = new();"));
     }
 
     [Fact]

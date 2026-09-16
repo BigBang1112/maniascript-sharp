@@ -79,9 +79,10 @@ internal sealed class StatementEmitter
                     break;
                 }
                 var text = _expr.Translate(es.Expression);
-                // Label calls already form a complete statement (+++Name+++) — no trailing ';'.
+                // Label calls share the insertion-point scope. Wrap every invocation in a block
+                // so declarations inside the label cannot leak into the caller.
                 if (text.StartsWith("+++") && text.EndsWith("+++"))
-                    _ctx.W.Line(text);
+                    _ctx.W.Line("{" + text + "}");
                 else
                     _ctx.W.Line(text + ";");
                 break;
