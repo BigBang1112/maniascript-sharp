@@ -107,4 +107,20 @@ internal static class Diagnostics
         category: "ManiaScriptSharp",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor InvalidLabelSignature = new(
+        id: "MSS014",
+        title: "Invalid ManiaScript label signature",
+        messageFormat: "Virtual or override method '{0}' cannot be a ManiaScript label: labels must be parameterless, non-generic, and return void.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor BaseLabelCallMustBeFirst = new(
+        id: "MSS015",
+        title: "Base label call must be first",
+        messageFormat: "'{0}' is a ManiaScript label, so its base call is only allowed as the first statement of an override method.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

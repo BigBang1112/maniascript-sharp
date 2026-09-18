@@ -139,7 +139,7 @@ internal sealed class ExpressionEmitter
                 }
                 return NameMangler.Local(l.Name);
             case IMethodSymbol m:
-                if (_ctx.LabelMethods.Contains(m.Name)) return $"+++{m.Name}+++";
+                if (_ctx.IsLabelMethod(m)) return $"+++{m.Name}+++";
                 return NameMangler.Method(m);
             // Enum type used bare (e.g. `MyState` as the receiver of `MyState.Idle`) →
             // route through TypeMapper so context-nested enums get the leading `::`.
@@ -423,7 +423,7 @@ internal sealed class ExpressionEmitter
         }
 
         // Label call site → +++Name+++
-        if (sym is not null && _ctx.LabelMethods.Contains(sym.Name) && callee is IdentifierNameSyntax)
+        if (sym is not null && _ctx.IsLabelMethod(sym) && callee is IdentifierNameSyntax)
             return $"+++{sym.Name}+++";
 
         return $"{Translate(callee)}({Args(inv.ArgumentList)})";

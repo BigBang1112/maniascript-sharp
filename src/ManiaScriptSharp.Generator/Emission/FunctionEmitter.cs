@@ -19,16 +19,27 @@ internal sealed class FunctionEmitter
     { _ctx = ctx; _stmt = stmt; _expr = expr; }
 
     /// <summary>
-    /// Pre-pass: register every virtual / override method as a label so call sites are
-    /// rewritten to <c>+++Name+++</c> by ExpressionEmitter.
+    /// Pre-pass: register every valid virtual / override method as a label so call sites are
+    /// rewritten to <c>+++Name+++</c> by ExpressionEmitter. Labels are insertion points rather
+    /// than functions, so they cannot accept parameters or return a value.
     /// </summary>
     public void CollectLabels()
     {
         foreach (var m in _ctx.Info.Symbol.GetMembers().OfType<IMethodSymbol>())
         {
             if (m.MethodKind != MethodKind.Ordinary) continue;
-            if (m.IsVirtual || m.IsOverride)
-                _ctx.LabelMethods.Add(m.Name);
+            if (!IsLabelCandidate(m)) continue;
+            if (m.Name is "Main" or "Loop" or "Settings" or "UpdateSettings") continue;
+            if (!HasValidLabelSignature(m))
+            {
+                _ctx.Report(Diagnostics.InvalidLabelSignature, m.Locations.FirstOrDefault(), m.Name);
+                continue;
+            }
+
+            // Register overridden declarations as well so `base.Label()` is recognised as
+            // an already-assembled label contribution.
+            for (var label = m; label is not null; label = label.OverriddenMethod)
+                _ctx.LabelMethods.Add(label);
         }
     }
 
@@ -38,9 +49,9 @@ internal sealed class FunctionEmitter
         foreach (var m in _ctx.Info.Symbol.GetMembers().OfType<IMethodSymbol>())
         {
             if (m.MethodKind != MethodKind.Ordinary) continue;
-            if (!m.IsVirtual && !m.IsOverride) continue;
+            if (!IsLabelCandidate(m) || !HasValidLabelSignature(m)) continue;
             if (m.Name is "Main" or "Loop" or "Settings" or "UpdateSettings") continue;
-            EmitLabel(m);
+            if (!m.IsAbstract) EmitLabel(m);
         }
 
         // Plain functions and property accessors must be textually defined before any sibling
@@ -269,12 +280,19 @@ internal sealed class FunctionEmitter
         _ctx.W.Line();
     }
 
+    private static bool IsLabelCandidate(IMethodSymbol method)
+        => method.IsVirtual || method.IsOverride;
+
+    private static bool HasValidLabelSignature(IMethodSymbol method)
+        => method.ReturnsVoid && method.Parameters.Length == 0 && method.Arity == 0;
+
     private void EmitBody(IMethodSymbol m)
     {
         var syntaxRef = m.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxRef?.GetSyntax() is not MethodDeclarationSyntax decl) return;
         if (decl.Body is { } body)
         {
+            ValidateBaseLabelCalls(body);
             foreach (var s in body.Statements) _stmt.Emit(s);
         }
         else if (decl.ExpressionBody is { } eb)
@@ -283,4 +301,32 @@ internal sealed class FunctionEmitter
             else _ctx.W.Line($"return {_expr.Translate(eb.Expression)};");
         }
     }
+
+    /// <summary>
+    /// A base-label call has no emitted call form: the parent label contribution is already
+    /// present at the insertion point. Permit the familiar C# idiom only as the first direct
+    /// statement of an override; all other placements would imply a call ordering ManiaScript
+    /// cannot express.
+    /// </summary>
+    private void ValidateBaseLabelCalls(BlockSyntax body)
+    {
+        var permitted = body.Statements.FirstOrDefault() is ExpressionStatementSyntax first
+            ? GetBaseLabelInvocation(first.Expression)
+            : null;
+
+        foreach (var invocation in body.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (invocation == permitted || !IsBaseLabelInvocation(invocation)) continue;
+            _ctx.Report(Diagnostics.BaseLabelCallMustBeFirst, invocation.GetLocation(), invocation.Expression);
+        }
+    }
+
+    private InvocationExpressionSyntax? GetBaseLabelInvocation(ExpressionSyntax expression)
+        => expression is InvocationExpressionSyntax invocation && IsBaseLabelInvocation(invocation)
+            ? invocation
+            : null;
+
+    private bool IsBaseLabelInvocation(InvocationExpressionSyntax invocation)
+        => invocation.Expression is MemberAccessExpressionSyntax { Expression: BaseExpressionSyntax }
+           && _ctx.IsLabelMethod(_ctx.Model.GetSymbolInfo(invocation).Symbol as IMethodSymbol);
 }

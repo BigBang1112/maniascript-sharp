@@ -198,7 +198,8 @@ class Test {{
     void M() {{ {csharpStmt} }}
 }}";
         var (ctx, _, stmt, _) = CreateEmitters(code);
-        ctx.LabelMethods.Add(labelName);
+        var labelMethod = ctx.Info.Symbol.GetMembers(labelName).OfType<IMethodSymbol>().Single();
+        ctx.LabelMethods.Add(labelMethod);
         var firstStmt = ctx.Info.Model.SyntaxTree.GetRoot()
             .DescendantNodes().OfType<MethodDeclarationSyntax>()
             .First(m => m.Identifier.Text == "M").Body!.Statements.First();

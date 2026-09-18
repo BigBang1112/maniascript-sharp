@@ -1640,6 +1640,9 @@ main() {
 
 The closest C# feature to ManiaScript labels is virtual/override methods.
 
+Only parameterless `void` virtual and override methods can become labels. A label is inserted at
+its marker, so it cannot receive arguments or return a value.
+
 ### Defining a label (virtual method)
 
 **C#**
@@ -1695,14 +1698,15 @@ log("I do something");
 ***
 ```
 
-> `base` calls are unused — ManiaScript always runs the inherited mode first.
+> Do not call `base.OnMapIntroEnd()` from an override. The base label contribution is assembled
+> automatically; the generator omits such calls.
 
 ### Label types
 
 | ManiaScript | Behavior |
 |---|---|
-| `+++ Label +++` | Can be extended multiple times |
-| `--- Label ---` | Only the latest definition applies |
+| `+++Label+++` | Can be extended multiple times |
+| `---Label---` | Only the latest definition applies |
 
 ## Timing instructions
 

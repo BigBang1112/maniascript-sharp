@@ -47,6 +47,65 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_LabelOverride_OmitsBaseCallBecauseTheLabelIsAlreadyAssembled()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class BaseMode : IContext
+            {
+                public virtual void AfterStart() { }
+                public void Main() { }
+                public void Loop() { }
+            }
+
+            public class ExtendedMode : BaseMode
+            {
+                public override void AfterStart()
+                {
+                    base.AfterStart();
+                    int updateCount = 1;
+                }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "ExtendedMode");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("***AfterStart***", output);
+        Assert.Contains("declare Integer UpdateCount = 1;", output);
+        Assert.DoesNotContain("AfterStart();", output);
+    }
+
+    [Fact]
+    public void Emit_LabelOverride_BaseCallAfterAnotherStatement_ReportsDiagnostic()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class BaseMode : IContext
+            {
+                public virtual void AfterStart() { }
+                public void Main() { }
+                public void Loop() { }
+            }
+
+            public class ExtendedMode : BaseMode
+            {
+                public override void AfterStart()
+                {
+                    int updateCount = 1;
+                    base.AfterStart();
+                }
+            }
+            """;
+
+        var (_, diagnostics) = EmitScript(code, "ExtendedMode");
+
+        Assert.Contains(diagnostics, d => d.Id == "MSS015");
+    }
+
+    [Fact]
     public void Emit_Lib_DeclaresFieldsAutoPropertiesConstantsAndStructs()
     {
         const string code = """

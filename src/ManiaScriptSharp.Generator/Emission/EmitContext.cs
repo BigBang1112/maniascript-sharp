@@ -23,7 +23,15 @@ internal sealed class EmitContext
     public IndentedWriter W { get; }
 
     /// <summary>Methods recognised as labels (virtual / override) — calls become <c>+++Name+++</c>.</summary>
-    public HashSet<string> LabelMethods { get; } = [];
+    public HashSet<IMethodSymbol> LabelMethods { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>Returns whether <paramref name="method"/> is a registered label or overrides one.</summary>
+    public bool IsLabelMethod(IMethodSymbol? method)
+    {
+        for (var current = method; current is not null; current = current.OverriddenMethod)
+            if (LabelMethods.Contains(current)) return true;
+        return false;
+    }
 
     /// <summary>Tracks <c>#Include</c> paths already emitted — shared across the consuming class and all inlined libs to prevent duplicates.</summary>
     public HashSet<string> EmittedIncludes { get; } = [];

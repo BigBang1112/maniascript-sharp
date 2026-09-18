@@ -78,6 +78,10 @@ internal sealed class StatementEmitter
                 {
                     break;
                 }
+                // A label contribution is inserted automatically at its marker. An override
+                // therefore must not call base.Label(): ManiaScript has no corresponding
+                // function call, and the base contribution is already assembled there.
+                if (IsBaseLabelCall(es.Expression)) break;
                 var text = _expr.Translate(es.Expression);
                 // Label calls share the insertion-point scope. Wrap every invocation in a block
                 // so declarations inside the label cannot leak into the caller.
@@ -135,6 +139,20 @@ internal sealed class StatementEmitter
                 _ctx.W.Line($"// unsupported: {stmt.Kind()}");
                 break;
         }
+    }
+
+    private bool IsBaseLabelCall(ExpressionSyntax expression)
+    {
+        if (expression is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Expression: BaseExpressionSyntax
+                }
+            } invocation)
+            return false;
+
+        return _ctx.IsLabelMethod(_ctx.Model.GetSymbolInfo(invocation).Symbol as IMethodSymbol);
     }
 
     private void EmitLocalDecl(LocalDeclarationStatementSyntax local)

@@ -68,4 +68,25 @@ public class FunctionEmitterTests : EmitterTestBase
             "void A() { B(); } void B() { A(); }");
         Assert.Contains(diagnostics, d => d.Id == "MSS011");
     }
+
+    [Fact]
+    public void Emit_Labels_UseDefinitionBlocksAndScopedAdditiveCalls()
+    {
+        var output = EmitFunctions(
+            "public virtual void AfterStart() { string message = \"Started\"; } void Run() { AfterStart(); }");
+
+        Assert.Contains("***AfterStart***", output);
+        Assert.Contains("declare Text Message = \"Started\";", output);
+        Assert.Contains("Void Private_Run() {\n    {+++AfterStart+++}\n}", output);
+    }
+
+    [Fact]
+    public void Emit_Labels_WithParametersOrReturnValues_ReportDiagnostic()
+    {
+        var (output, diagnostics) = EmitFunctionsWithDiagnostics(
+            "public virtual int Compute(int value) => value;");
+
+        Assert.Contains(diagnostics, d => d.Id == "MSS014");
+        Assert.DoesNotContain("***Compute***", output);
+    }
 }
