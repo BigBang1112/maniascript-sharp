@@ -39,9 +39,7 @@ internal sealed class GlobalEmitter
             if (p.HasAttr("ManialinkControlAttribute")) continue;
             if (p.IsLibContextProperty()) continue;
             if (!IsUserDefinedAutoProperty(p)) continue;
-            var msType = TypeMapper.Map(p.Type);
-            _ctx.W.Line($"declare {msType} {NameMangler.Global(p)};");
-            any = true;
+            if (EmitAutoProperty(p)) any = true;
         }
         // Backing globals for OnChange(value, oldValue => { ... }) call sites (collected up-front).
         foreach (var kvp in _ctx.OnChangeGlobals)
@@ -87,10 +85,11 @@ internal sealed class GlobalEmitter
         }
         else if (initSyntax is not null && _ctx.IsLib)
         {
-            // Library scripts have no main(), and global declarations must be bare even for
-            // collection and empty-text values that ManiaScript allows to be initialized inline.
-            _ctx.Report(Diagnostics.LibFieldInitializer, f.Locations.FirstOrDefault(),
-                $"{_ctx.Info.Symbol.Name}.{f.Name}");
+            // Libraries have no main(), so C# initializers are never emitted into ManiaScript.
+            // Empty text/collections are accepted as harmless defaults; other values are errors.
+            if (!CanUseInitializerInLib(f.Type, initSyntax))
+                _ctx.Report(Diagnostics.LibFieldInitializer, f.Locations.FirstOrDefault(),
+                    $"{_ctx.Info.Symbol.Name}.{f.Name}");
             _ctx.W.Line($"declare {msType} {name};");
         }
         else if (initSyntax is not null)
@@ -118,9 +117,71 @@ internal sealed class GlobalEmitter
         return true;
     }
 
+    private bool EmitAutoProperty(IPropertySymbol p)
+    {
+        var name = NameMangler.Global(p);
+        var msType = TypeMapper.Map(p.Type);
+        var initSyntax = TryGetInitializerSyntax(p);
+        var assignmentInInitializer = initSyntax?.DescendantNodesAndSelf()
+            .OfType<AssignmentExpressionSyntax>()
+            .FirstOrDefault(assignment => !AssignmentSyntax.IsInitializerEntry(assignment));
+
+        if (assignmentInInitializer is not null)
+        {
+            _ctx.Report(Diagnostics.NestedAssignment, assignmentInInitializer.GetLocation());
+            _ctx.W.Line($"declare {msType} {name};");
+        }
+        else if (initSyntax is not null && _ctx.IsLib)
+        {
+            if (!CanUseInitializerInLib(p.Type, initSyntax))
+                _ctx.Report(Diagnostics.LibFieldInitializer, p.Locations.FirstOrDefault(),
+                    $"{_ctx.Info.Symbol.Name}.{p.Name}");
+            _ctx.W.Line($"declare {msType} {name};");
+        }
+        else if (initSyntax is not null)
+        {
+            // Context globals cannot have declaration initializers; run these at the top of main().
+            _ctx.DeferredInits.Add(new DeferredInit(name, initSyntax));
+            _ctx.W.Line($"declare {msType} {name};");
+        }
+        else
+        {
+            _ctx.W.Line($"declare {msType} {name};");
+        }
+
+        return true;
+    }
+
     private static string ResolveGlobalName(IFieldSymbol f) => NameMangler.Global(f);
 
     private static bool IsLibField(IFieldSymbol f) => f.IsLibImplementation();
+
+    /// <summary>
+    /// Empty text, lists, and maps are permitted C# defaults in a library, but libraries have
+    /// no <c>main()</c>, so none of their initializer expressions are emitted to ManiaScript.
+    /// </summary>
+    private static bool CanUseInitializerInLib(ITypeSymbol type, ExpressionSyntax initializer)
+    {
+        if ((TypeMapper.Map(type).EndsWith("[]", System.StringComparison.Ordinal)
+             || ExpressionEmitter.IsDictionaryType(type as INamedTypeSymbol))
+            && IsEmptyCollectionInitializer(initializer))
+            return true;
+
+        return type.SpecialType == SpecialType.System_String
+            && initializer is LiteralExpressionSyntax { Token.ValueText.Length: 0 };
+    }
+
+    private static bool IsEmptyCollectionInitializer(ExpressionSyntax initializer) => initializer switch
+    {
+        CollectionExpressionSyntax { Elements.Count: 0 } => true,
+        ObjectCreationExpressionSyntax creation
+            when (creation.ArgumentList?.Arguments.Count ?? 0) == 0
+                 && (creation.Initializer?.Expressions.Count ?? 0) == 0 => true,
+        ImplicitObjectCreationExpressionSyntax creation
+            when creation.ArgumentList.Arguments.Count == 0
+                 && (creation.Initializer?.Expressions.Count ?? 0) == 0 => true,
+        _ => false,
+    };
 
     /// <summary>
     /// Returns true for user-defined auto-properties (declared in non-generated source, no accessor bodies).
@@ -143,6 +204,14 @@ internal sealed class GlobalEmitter
     {
         if (f.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is VariableDeclaratorSyntax v && v.Initializer is not null)
             return v.Initializer.Value;
+        return null;
+    }
+
+    private static ExpressionSyntax? TryGetInitializerSyntax(IPropertySymbol p)
+    {
+        if (p.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is PropertyDeclarationSyntax property
+            && property.Initializer is not null)
+            return property.Initializer.Value;
         return null;
     }
 

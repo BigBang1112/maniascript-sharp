@@ -265,7 +265,7 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_Lib_FieldInitializersAreNeverEmittedInline()
+    public void Emit_Lib_AllowedFieldInitializersAreNotEmittedInline()
     {
         const string code = """
             using System.Collections.Generic;
@@ -275,7 +275,9 @@ public class ScriptEmitterTests : EmitterTestBase
             {
                 public object Context => null!;
                 private readonly Dictionary<string, Ident> ByName = new();
+                private readonly IList<Ident> Events = [];
                 public string Empty = "";
+                private string NonEmpty = "value";
                 public int Number = 3;
             }
             """;
@@ -283,11 +285,14 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "StateLib");
 
         Assert.Contains("declare Ident[Text] G_ByName;", output);
+        Assert.Contains("declare Ident[] G_Events;", output);
         Assert.Contains("declare Text G_Empty;", output);
+        Assert.Contains("declare Text G_NonEmpty;", output);
         Assert.Contains("declare Integer G_Number;", output);
         Assert.DoesNotContain("G_ByName = []", output);
+        Assert.DoesNotContain("G_Events = []", output);
         Assert.DoesNotContain("G_Empty = \"\"", output);
-        Assert.Equal(3, diagnostics.Count(d => d.Id == "MSS012"));
+        Assert.Equal(2, diagnostics.Count(d => d.Id == "MSS012"));
         Assert.Equal(2, diagnostics.Count(d => d.Id == "MSS016"));
     }
 
@@ -302,6 +307,7 @@ public class ScriptEmitterTests : EmitterTestBase
             {
                 private readonly Dictionary<string, Ident> ByName = new();
                 private string Empty = "";
+                private string Banner { get; set; } = "";
             }
             """;
 
@@ -310,9 +316,10 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Empty(diagnostics);
         Assert.Contains("declare Ident[Text] G_ByName;", output);
         Assert.Contains("declare Text G_Empty;", output);
+        Assert.Contains("declare Text G_Banner;", output);
         Assert.DoesNotContain("declare Ident[Text] G_ByName = [];", output);
         Assert.DoesNotContain("declare Text G_Empty = \"\";", output);
-        Assert.Contains("main() {\n    G_ByName = [];\n    G_Empty = \"\";\n}", output);
+        Assert.Contains("main() {\n    G_ByName = [];\n    G_Empty = \"\";\n    G_Banner = \"\";\n}", output);
     }
 
     [Fact]
