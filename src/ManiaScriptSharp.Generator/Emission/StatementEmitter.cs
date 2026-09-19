@@ -92,7 +92,12 @@ internal sealed class StatementEmitter
                 break;
 
             case ReturnStatementSyntax rs:
-                if (_ctx.ReturnIsContinue && rs.Expression is null)
+                var assignmentInReturn = rs.Expression?.DescendantNodesAndSelf()
+                    .OfType<AssignmentExpressionSyntax>()
+                    .FirstOrDefault();
+                if (assignmentInReturn is not null)
+                    _ctx.Report(Diagnostics.AssignmentInReturn, assignmentInReturn.GetLocation());
+                else if (_ctx.ReturnIsContinue && rs.Expression is null)
                     _ctx.W.Line("continue;");
                 else if (rs.Expression is ConditionalExpressionSyntax or SwitchExpressionSyntax)
                     EmitTernaryAsIfElse(rs.Expression, v => _ctx.W.Line($"return {_expr.Translate(v)};"));

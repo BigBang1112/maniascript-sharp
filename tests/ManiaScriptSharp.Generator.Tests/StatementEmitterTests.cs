@@ -19,6 +19,16 @@ public class StatementEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_Return_AssignmentReportsErrorAndIsNotEmitted()
+    {
+        var (output, diagnostics) = TranslateStmtWithDiagnostics("return x = 5;", "int x;");
+
+        Assert.Empty(output);
+        Assert.Contains(diagnostics, d => d.Id == "MSS017"
+            && d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void Emit_Break()
     {
         // break is only valid inside a loop/switch; wrap in while to parse correctly

@@ -131,4 +131,12 @@ internal static class Diagnostics
         category: "ManiaScriptSharp",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor AssignmentInReturn = new(
+        id: "MSS017",
+        title: "Assignment expression cannot be returned",
+        messageFormat: "Return expressions must not contain assignments. Assign the value in a separate statement before returning it.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }
