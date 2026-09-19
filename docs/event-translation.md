@@ -17,7 +17,7 @@ Subscribe with `+=` in `Main()`.
 ```csharp
 public class MyManialink : CTmMlScriptIngame, IContext
 {
-    [ManialinkControl] public required CMlQuad QuadMapName;
+    [ManialinkControl] private CMlQuad QuadMapName = null!;
 
     public void Main()
     {
@@ -29,7 +29,7 @@ public class MyManialink : CTmMlScriptIngame, IContext
 ```
 
 ```maniascript
-declare CMlQuad QuadMapName; // Bound to "QuadMapName"
+declare CMlQuad G_QuadMapName; // Bound to "QuadMapName"
 
 main() {
     QuadMapName = (Page.GetFirstChild("QuadMapName") as CMlQuad);
@@ -289,7 +289,7 @@ separate foreach.
 ```csharp
 public class MyManialink : CTmMlScriptIngame, IContext
 {
-    [ManialinkControl] public required CMlQuad QuadMapName;
+    [ManialinkControl] private CMlQuad QuadMapName = null!;
 
     public MyManialink()
     {

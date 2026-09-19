@@ -283,7 +283,7 @@ class MyControl {
 
         Assert.Contains("case CMlScriptEvent::Type::MouseClick: {", output);
         Assert.Contains("switch (Event.Control) {", output);
-        Assert.Contains("case MyControl: {", output);
+        Assert.Contains("case G_MyControl: {", output);
         Assert.Contains("OnClick();", output);
     }
 
@@ -301,7 +301,7 @@ class MyControl {
             void Main() { myControl.Click += () => { Foo(); }; }",
             extraCode);
 
-        Assert.Contains("case MyControl: {", output);
+        Assert.Contains("case G_MyControl: {", output);
         Assert.Contains("Foo();", output);
     }
 
@@ -323,8 +323,8 @@ class MyControl {
         // Only one switch(Event.Type) block
         Assert.Equal(1, CountOccurrences(output, "case CMlScriptEvent::Type::MouseClick: {"));
         // Both controls appear in the switch(Event.Control) block
-        Assert.Contains("case Ctrl1: {", output);
-        Assert.Contains("case Ctrl2: {", output);
+        Assert.Contains("case G_Ctrl1: {", output);
+        Assert.Contains("case G_Ctrl2: {", output);
     }
 
     // ────────── Mixed class-level + control-specific ──────────

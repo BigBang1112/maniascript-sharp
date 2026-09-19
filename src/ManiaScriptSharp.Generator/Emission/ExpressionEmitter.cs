@@ -113,7 +113,7 @@ internal sealed class ExpressionEmitter
             case IFieldSymbol f:
                 if (f.HasAttr("SettingAttribute")) return NameMangler.Setting(f);
                 if (f.IsConst) return NameMangler.Const(f);
-                if (f.HasAttr("ManialinkControlAttribute")) return NameMangler.PascalCase(f.Name);
+                if (f.HasAttr("ManialinkControlAttribute")) return NameMangler.Global(f);
                 if (f.IsLibImplementation()) return NameMangler.PascalCase(f.Name);
                 return NameMangler.Global(f);
             case IPropertySymbol p:

@@ -27,12 +27,8 @@ internal static class NameMangler
 
     public static string Persistent(ISymbol s) => "Persistent_" + PascalCase(s.Name);
 
-    /// <summary>Public fields become <c>G_</c>-prefixed globals; private fields stay plain (PascalCased).</summary>
-    public static string Global(IFieldSymbol f)
-    {
-        var p = PascalCase(f.Name);
-        return f.DeclaredAccessibility == Accessibility.Public ? "G_" + p : p;
-    }
+    /// <summary>Fields emitted as globals always use the <c>G_</c> prefix.</summary>
+    public static string Global(IFieldSymbol f) => "G_" + PascalCase(f.Name);
 
     public static string Parameter(IParameterSymbol p) => "_" + PascalCase(p.Name);
 

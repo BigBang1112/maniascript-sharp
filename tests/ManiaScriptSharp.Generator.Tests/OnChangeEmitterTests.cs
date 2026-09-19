@@ -21,7 +21,7 @@ public class OnChangeEmitterTests : EmitterTestBase
             OnChangeStub + " public void Log(int x) {}");
 
         Assert.Equal(
-            "if (Score != OldScore) {\n    Log(OldScore);\n    Log(Score);\n    OldScore = Score;\n}",
+            "if (G_Score != OldScore) {\n    Log(OldScore);\n    Log(G_Score);\n    OldScore = G_Score;\n}",
             output);
     }
 
@@ -33,7 +33,7 @@ public class OnChangeEmitterTests : EmitterTestBase
             OnChangeStub + " public void Log(int x) {}");
 
         Assert.Equal(
-            "if (Score != OldScore) {\n    Log(OldScore);\n    OldScore = Score;\n}",
+            "if (G_Score != OldScore) {\n    Log(OldScore);\n    OldScore = G_Score;\n}",
             output);
     }
 
@@ -44,7 +44,7 @@ public class OnChangeEmitterTests : EmitterTestBase
             "OnChange(_score, (int oldScore) => { });",
             OnChangeStub);
 
-        Assert.StartsWith("if (Score != OldScore) {", output);
+        Assert.StartsWith("if (G_Score != OldScore) {", output);
     }
 
     [Fact]

@@ -237,7 +237,7 @@ internal sealed class FunctionEmitter
 
     /// <summary>
     /// Returns the ManiaScript backing variable name for an auto-property.
-    /// Mirrors <see cref="NameMangler.Global"/> convention: public → <c>G_Name</c>, others → <c>Name</c>.
+    /// Properties keep their existing backing-name convention: public → <c>G_Name</c>, others → <c>Name</c>.
     /// </summary>
     private static string AutoPropBacking(IPropertySymbol p)
     {

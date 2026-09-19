@@ -123,4 +123,12 @@ internal static class Diagnostics
         category: "ManiaScriptSharp",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor PublicField = new(
+        id: "MSS016",
+        title: "Public field emitted as a global",
+        messageFormat: "Field '{0}' is public and is emitted as a global. Prefer a private, protected, or protected internal field and expose it through a property instead.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
 }

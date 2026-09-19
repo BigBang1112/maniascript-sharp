@@ -60,6 +60,11 @@ internal sealed class GlobalEmitter
 
     private bool EmitOne(IFieldSymbol f)
     {
+        if (f.DeclaredAccessibility == Accessibility.Public)
+        {
+            _ctx.Report(Diagnostics.PublicField, f.Locations.FirstOrDefault(), f.Name);
+        }
+
         // ManialinkControl — declare bare global, defer Page.GetFirstChild wiring to main().
         if (f.HasAttr("ManialinkControlAttribute"))
         {
@@ -68,8 +73,9 @@ internal sealed class GlobalEmitter
             var type = TypeMapper.Map(f.Type);
             var ignoreValidation = attr.Named<bool>("IgnoreValidation");
             var loc = f.Locations.FirstOrDefault();
-            _ctx.W.Line($"declare {type} {NameMangler.PascalCase(f.Name)};");
-            _ctx.ManialinkBindings.Add(new ManialinkBinding(NameMangler.PascalCase(f.Name), xmlId, type, ignoreValidation, loc));
+            var controlName = ResolveGlobalName(f);
+            _ctx.W.Line($"declare {type} {controlName};");
+            _ctx.ManialinkBindings.Add(new ManialinkBinding(controlName, xmlId, type, ignoreValidation, loc));
             return true;
         }
 

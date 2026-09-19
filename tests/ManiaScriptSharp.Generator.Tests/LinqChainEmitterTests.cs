@@ -23,7 +23,7 @@ public class LinqChainEmitterTests : EmitterTestBase
     public void Where_Materialize_EmitsForeachWithGuard()
     {
         var output = StmtWithLinq("var filtered = nums.Where(x => x > 0).ToList();");
-        Assert.Contains("foreach (X in Nums) {", output);
+        Assert.Contains("foreach (X in G_Nums) {", output);
         Assert.Contains("if (X > 0) {", output);
         Assert.Contains("Filtered.add(X);", output);
     }
@@ -41,7 +41,7 @@ public class LinqChainEmitterTests : EmitterTestBase
     public void Select_Materialize_EmitsForeachWithProjection()
     {
         var output = StmtWithLinq("var doubled = nums.Select(x => x * 2).ToList();");
-        Assert.Contains("foreach (X in Nums) {", output);
+        Assert.Contains("foreach (X in G_Nums) {", output);
         Assert.Contains("Doubled.add(X * 2);", output);
     }
 
@@ -58,7 +58,7 @@ public class LinqChainEmitterTests : EmitterTestBase
     public void Where_Select_EmitsFilterThenProject()
     {
         var output = StmtWithLinq("var result = nums.Where(x => x > 0).Select(x => x * 2).ToList();");
-        Assert.Contains("foreach (X in Nums) {", output);
+        Assert.Contains("foreach (X in G_Nums) {", output);
         Assert.Contains("if (X > 0) {", output);
         Assert.Contains("Result.add(X * 2);", output);
     }
@@ -80,7 +80,7 @@ public class LinqChainEmitterTests : EmitterTestBase
     {
         var output = StmtWithLinq("var cnt = nums.Count(x => x > 0);");
         Assert.Contains("declare Integer Cnt = 0;", output);
-        Assert.Contains("foreach (X in Nums) {", output);
+        Assert.Contains("foreach (X in G_Nums) {", output);
         Assert.Contains("if (X > 0) {", output);
         Assert.Contains("Cnt += 1;", output);
     }
@@ -140,7 +140,7 @@ public class LinqChainEmitterTests : EmitterTestBase
     public void First_WithPredicate_EmitsBreakOnMatch()
     {
         var output = StmtWithLinq("var first = nums.First(x => x > 5);");
-        Assert.Contains("foreach (X in Nums) {", output);
+        Assert.Contains("foreach (X in G_Nums) {", output);
         Assert.Contains("if (X > 5) {", output);
         Assert.Contains("First = X;", output);
         Assert.Contains("break;", output);
@@ -250,7 +250,7 @@ public class LinqChainEmitterTests : EmitterTestBase
         Assert.DoesNotContain("Evens", output);
         // The foreach is emitted for "result".
         Assert.Contains("declare Integer[] Result;", output);
-        Assert.Contains("foreach (X in Nums) {", output);
+        Assert.Contains("foreach (X in G_Nums) {", output);
         Assert.Contains("if (X % 2 == 0) {", output);
         Assert.Contains("Result.add(X);", output);
     }
@@ -323,7 +323,7 @@ public class LinqChainEmitterTests : EmitterTestBase
         var output = TranslateBodyMs(
             "var map = items.ToDictionary(x => x.Key, x => x.Value);",
             "System.Collections.Generic.List<(int Key, int Value)> items = new();");
-        Assert.Contains("foreach (X in Items) {", output);
+        Assert.Contains("foreach (X in G_Items) {", output);
         Assert.Contains("assert(!Map.existskey(", output);
         Assert.Contains("Map[", output);
     }
@@ -344,7 +344,7 @@ public class LinqChainEmitterTests : EmitterTestBase
         // Direct List<T>.Contains resolves to the List<T> instance method, not LINQ —
         // ExpressionEmitter maps it to .exists(), which is the correct ManiaScript form.
         var output = StmtWithLinq("var has = nums.Contains(42);");
-        Assert.Contains("Nums.exists(42)", output);
+        Assert.Contains("G_Nums.exists(42)", output);
     }
 
     [Fact]
@@ -365,7 +365,7 @@ public class LinqChainEmitterTests : EmitterTestBase
     {
         var output = StmtWithLinq("var product = nums.Aggregate(1, (acc, x) => acc * x);");
         Assert.Contains("declare Integer Product = 1;", output);
-        Assert.Contains("foreach (X in Nums) {", output);
+        Assert.Contains("foreach (X in G_Nums) {", output);
         Assert.Contains("Product = Product * X;", output);
     }
 
@@ -373,10 +373,10 @@ public class LinqChainEmitterTests : EmitterTestBase
     public void Aggregate_NoSeed_EmitsForLoopWithAssert()
     {
         var output = StmtWithLinq("var product = nums.Aggregate((acc, x) => acc + x);");
-        Assert.Contains("assert(Nums.count > 0);", output);
-        Assert.Contains("declare Integer Product = Nums[0];", output);
-        Assert.Contains("for (AggI, 1, Nums.count - 1) {", output);
-        Assert.Contains("Product = Product + Nums[AggI];", output);
+        Assert.Contains("assert(G_Nums.count > 0);", output);
+        Assert.Contains("declare Integer Product = G_Nums[0];", output);
+        Assert.Contains("for (AggI, 1, G_Nums.count - 1) {", output);
+        Assert.Contains("Product = Product + G_Nums[AggI];", output);
     }
 
     // ── Min / Max ─────────────────────────────────────────────────────────────
@@ -385,18 +385,18 @@ public class LinqChainEmitterTests : EmitterTestBase
     public void Min_NoSelector_EmitsForLoopWithAssert()
     {
         var output = StmtWithLinq("var min = nums.Min();");
-        Assert.Contains("assert(Nums.count > 0);", output);
-        Assert.Contains("declare Integer Min = Nums[0];", output);
-        Assert.Contains("for (MinMaxI, 1, Nums.count - 1) {", output);
-        Assert.Contains("if (Nums[MinMaxI] < Min) Min = Nums[MinMaxI];", output);
+        Assert.Contains("assert(G_Nums.count > 0);", output);
+        Assert.Contains("declare Integer Min = G_Nums[0];", output);
+        Assert.Contains("for (MinMaxI, 1, G_Nums.count - 1) {", output);
+        Assert.Contains("if (G_Nums[MinMaxI] < Min) Min = G_Nums[MinMaxI];", output);
     }
 
     [Fact]
     public void Max_WithSelector_EmitsForLoopWithAssert()
     {
         var output = StmtWithLinq("var max = nums.Max(x => x * 2);");
-        Assert.Contains("assert(Nums.count > 0);", output);
-        Assert.Contains("for (MinMaxI, 1, Nums.count - 1) {", output);
+        Assert.Contains("assert(G_Nums.count > 0);", output);
+        Assert.Contains("for (MinMaxI, 1, G_Nums.count - 1) {", output);
         Assert.Contains("if (Val > Max) Max = Val;", output);
     }
 
@@ -419,7 +419,7 @@ public class LinqChainEmitterTests : EmitterTestBase
         var output = TranslateBodyMs(
             "var flat = items.SelectMany(x => x);",
             "System.Collections.Generic.List<System.Collections.Generic.List<int>> items = new();");
-        Assert.Contains("foreach (X in Items) {", output);
+        Assert.Contains("foreach (X in G_Items) {", output);
         Assert.Contains("foreach (", output);
         Assert.Contains(".add(", output);
     }
@@ -432,10 +432,10 @@ public class LinqChainEmitterTests : EmitterTestBase
         var output = TranslateBodyMs(
             "var pairs = nums.Zip(strs, (n, s) => n + \": \" + s).ToList();",
             "System.Collections.Generic.List<int> nums = new(); System.Collections.Generic.List<string> strs = new();");
-        Assert.Contains("declare ZipCount = Nums.count;", output);
-        Assert.Contains("if (Strs.count < ZipCount) ZipCount = Strs.count;", output);
+        Assert.Contains("declare ZipCount = G_Nums.count;", output);
+        Assert.Contains("if (G_Strs.count < ZipCount) ZipCount = G_Strs.count;", output);
         Assert.Contains("for (ZipI, 0, ZipCount - 1) {", output);
-        Assert.Contains("Pairs.add(Nums[ZipI]", output);
-        Assert.Contains("Strs[ZipI]", output);
+        Assert.Contains("Pairs.add(G_Nums[ZipI]", output);
+        Assert.Contains("G_Strs[ZipI]", output);
     }
 }

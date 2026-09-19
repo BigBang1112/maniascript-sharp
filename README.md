@@ -255,7 +255,9 @@ declare Inferred = "hello";
 
 ### Global variables
 
-Public fields become globals with `G_` prefix.
+Fields become globals with a `G_` prefix, regardless of their C# accessibility. Public fields
+produce warning `MSS016`; prefer a `private`, `protected`, or `protected internal` field and
+expose it through a property instead.
 
 **C#**
 ```cs
@@ -1764,8 +1766,8 @@ Use C# event handlers to generate ManiaScript event loops:
 ```cs
 public class MyManialink : CTmMlScriptIngame, IContext
 {
-    [ManialinkControl] public required CMlQuad QuadMapName;
-    [ManialinkControl] public required CMlEntry EntryInput;
+    [ManialinkControl] private CMlQuad QuadMapName = null!;
+    [ManialinkControl] private CMlEntry EntryInput = null!;
 
     public void Main()
     {
@@ -1783,8 +1785,8 @@ public class MyManialink : CTmMlScriptIngame, IContext
 ```
 **ManiaScript**
 ```
-declare CMlQuad QuadMapName;
-declare CMlEntry EntryInput;
+declare CMlQuad G_QuadMapName;
+declare CMlEntry G_EntryInput;
 
 main() {
     QuadMapName = (Page.GetFirstChild("QuadMapName") as CMlQuad);
@@ -1860,25 +1862,25 @@ Binding retrieves manialink elements by ID in a validated, strongly-typed way.
 public class MyManialink : CTmMlScriptIngame, IContext
 {
     [ManialinkControl]
-    public required CMlLabel LabelCountdown;
+    private CMlLabel LabelCountdown = null!;
 
     [ManialinkControl("CustomId")]
-    public required CMlQuad SomeQuad;
+    private CMlQuad SomeQuad = null!;
 
     [ManialinkControl(IgnoreValidation = true)]
-    public required CMlFrame DynamicFrame;
+    private CMlFrame DynamicFrame = null!;
 }
 ```
 **ManiaScript**
 ```
-declare CMlLabel LabelCountdown;
-declare CMlQuad SomeQuad;
-declare CMlFrame DynamicFrame;
+declare CMlLabel G_LabelCountdown;
+declare CMlQuad G_SomeQuad;
+declare CMlFrame G_DynamicFrame;
 
 main() {
-    LabelCountdown = (Page.GetFirstChild("LabelCountdown") as CMlLabel);
-    SomeQuad = (Page.GetFirstChild("CustomId") as CMlQuad);
-    DynamicFrame = (Page.GetFirstChild("DynamicFrame") as CMlFrame);
+    G_LabelCountdown = (Page.GetFirstChild("LabelCountdown") as CMlLabel);
+    G_SomeQuad = (Page.GetFirstChild("CustomId") as CMlQuad);
+    G_DynamicFrame = (Page.GetFirstChild("DynamicFrame") as CMlFrame);
 }
 ```
 
@@ -2155,7 +2157,7 @@ log(Score);
 | `const` field | `#Const C_Name` |
 | `[Setting]` attribute | `#Setting S_Name` |
 | `[Command("Name", typeof(T))]` | `#Command Name (T)` |
-| `public` field | `declare G_Name` (global) |
+| field | `declare G_Name` (global; public fields warn with `MSS016`) |
 | `private` method | `Private_FunctionName()` |
 | Method parameters | PascalCased with `_` prefix |
 | `virtual` method | Label (`***LabelName***`) |

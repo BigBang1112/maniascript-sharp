@@ -27,13 +27,13 @@ public class ExpressionEmitterTests : EmitterTestBase
     [Fact]
     public void Translate_NullLiteral_ForIdentField_BecomesNullId()
     {
-        Assert.Equal("X = NullId", TranslateExpr("x = null", "public struct Ident {} Ident? x;"));
+        Assert.Equal("G_X = NullId", TranslateExpr("x = null", "public struct Ident {} Ident? x;"));
     }
 
     [Fact]
     public void Translate_NullLiteral_ForNonIdentField_StaysNull()
     {
-        Assert.Equal("X = Null", TranslateExpr("x = null", "public class Foo {} Foo? x;"));
+        Assert.Equal("G_X = Null", TranslateExpr("x = null", "public class Foo {} Foo? x;"));
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class ExpressionEmitterTests : EmitterTestBase
         // them must stay a plain `Obj.Field = value` and not become a `Obj::SetField(value)` call.
         var extra = "class CUILayer { public bool IsVisible { get; set; } } CUILayer layer = new CUILayer();";
         var output = TranslateExprFromGeneratedSource("layer.IsVisible = true", extra);
-        Assert.Equal("Layer.IsVisible = True", output);
+        Assert.Equal("G_Layer.IsVisible = True", output);
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class ExpressionEmitterTests : EmitterTestBase
         // real user-defined properties.
         var extra = "class CMlBrowser { public object CurMap { get; } } CMlBrowser browser = new CMlBrowser();";
         var output = TranslateExpr("browser.CurMap == null", extra);
-        Assert.Equal("Browser.CurMap == Null", output);
+        Assert.Equal("G_Browser.CurMap == Null", output);
     }
 
     [Fact]
@@ -204,13 +204,13 @@ public class ExpressionEmitterTests : EmitterTestBase
     [Fact]
     public void Translate_PostfixIncrement_BecomesPlusEquals()
     {
-        Assert.Equal("X += 1", TranslateExpr("x++", "int x;"));
+        Assert.Equal("G_X += 1", TranslateExpr("x++", "int x;"));
     }
 
     [Fact]
     public void Translate_PostfixDecrement_BecomesMinusEquals()
     {
-        Assert.Equal("X -= 1", TranslateExpr("x--", "int x;"));
+        Assert.Equal("G_X -= 1", TranslateExpr("x--", "int x;"));
     }
 
     // ────────── Binary operators ──────────
@@ -243,7 +243,7 @@ public class ExpressionEmitterTests : EmitterTestBase
     [Fact]
     public void Translate_StringPlusIdentifier_UsesCaretOperator()
     {
-        Assert.Equal("\"prefix\" ^ S", TranslateExpr("\"prefix\" + s", "string s;"));
+        Assert.Equal("\"prefix\" ^ G_S", TranslateExpr("\"prefix\" + s", "string s;"));
     }
 
     // ────────── Compound expressions ──────────
@@ -259,7 +259,7 @@ public class ExpressionEmitterTests : EmitterTestBase
     {
         // (int)x → cast emits as `(X as Integer)` because x is a private field (mangled to X)
         // and the target type is mapped through TypeMapper, not emitted verbatim.
-        Assert.Equal("(X as Integer)", TranslateExpr("(int)x", "object x;"));
+        Assert.Equal("(G_X as Integer)", TranslateExpr("(int)x", "object x;"));
     }
 
      // ────────── Basic-type casts ──────────
@@ -267,28 +267,28 @@ public class ExpressionEmitterTests : EmitterTestBase
     [Fact]
     public void Translate_Cast_IntToFloat_UsesMathLibToReal()
     {
-        Assert.Equal("MathLib::ToReal(X)", TranslateExpr("(float)x", "int x;"));
+        Assert.Equal("MathLib::ToReal(G_X)", TranslateExpr("(float)x", "int x;"));
     }
 
     [Fact]
     public void Translate_Cast_FloatToInt_UsesMathLibTruncInteger()
     {
         // Explicit cast truncates toward zero, matching C# semantics.
-        Assert.Equal("MathLib::TruncInteger(X)", TranslateExpr("(int)x", "float x;"));
+        Assert.Equal("MathLib::TruncInteger(G_X)", TranslateExpr("(int)x", "float x;"));
     }
 
     [Fact]
     public void Translate_Cast_LongToInt_IsNoOp()
     {
         // Both map to ManiaScript's single Integer type.
-        Assert.Equal("X", TranslateExpr("(int)x", "long x;"));
+        Assert.Equal("G_X", TranslateExpr("(int)x", "long x;"));
     }
 
     [Fact]
     public void Translate_Cast_DoubleToFloat_IsNoOp()
     {
         // Both map to ManiaScript's single Real type.
-        Assert.Equal("X", TranslateExpr("(float)x", "double x;"));
+        Assert.Equal("G_X", TranslateExpr("(float)x", "double x;"));
     }
 
     [Fact]
@@ -301,31 +301,31 @@ public class ExpressionEmitterTests : EmitterTestBase
     [Fact]
     public void Translate_Cast_IntToBool_ComparesNotEqualZero()
     {
-        Assert.Equal("(X != 0)", TranslateExpr("(bool)x", "int x;"));
+        Assert.Equal("(G_X != 0)", TranslateExpr("(bool)x", "int x;"));
     }
 
     [Fact]
     public void Translate_Cast_StringToInt_UsesTextLibToInteger()
     {
-        Assert.Equal("TextLib::ToInteger(X)", TranslateExpr("(int)x", "string x;"));
+        Assert.Equal("TextLib::ToInteger(G_X)", TranslateExpr("(int)x", "string x;"));
     }
 
     [Fact]
     public void Translate_Cast_StringToFloat_UsesTextLibToReal()
     {
-        Assert.Equal("TextLib::ToReal(X)", TranslateExpr("(float)x", "string x;"));
+        Assert.Equal("TextLib::ToReal(G_X)", TranslateExpr("(float)x", "string x;"));
     }
 
     [Fact]
     public void Translate_Cast_IntToString_UsesTextLibToText()
     {
-        Assert.Equal("TextLib::ToText(X)", TranslateExpr("(string)x", "int x;"));
+        Assert.Equal("TextLib::ToText(G_X)", TranslateExpr("(string)x", "int x;"));
     }
 
     [Fact]
     public void Translate_Cast_StringToBool_ComparesToTrueLiteral()
     {
-        Assert.Equal("(X == \"True\")", TranslateExpr("(bool)x", "string x;"));
+        Assert.Equal("(G_X == \"True\")", TranslateExpr("(bool)x", "string x;"));
     }
 
     // ────────── Convert.To* methods ──────────
@@ -334,25 +334,25 @@ public class ExpressionEmitterTests : EmitterTestBase
     public void Translate_ConvertToInt32_FromFloat_UsesMathLibNearestInteger()
     {
         // Convert.ToInt32 rounds (unlike an explicit cast, which truncates).
-        Assert.Equal("MathLib::NearestInteger(X)", TranslateExpr("Convert.ToInt32(x)", "float x;"));
+        Assert.Equal("MathLib::NearestInteger(G_X)", TranslateExpr("Convert.ToInt32(x)", "float x;"));
     }
 
     [Fact]
     public void Translate_ConvertToInt32_FromString_UsesTextLibToInteger()
     {
-        Assert.Equal("TextLib::ToInteger(X)", TranslateExpr("Convert.ToInt32(x)", "string x;"));
+        Assert.Equal("TextLib::ToInteger(G_X)", TranslateExpr("Convert.ToInt32(x)", "string x;"));
     }
 
     [Fact]
     public void Translate_ConvertToDouble_FromInt_UsesMathLibToReal()
     {
-        Assert.Equal("MathLib::ToReal(X)", TranslateExpr("Convert.ToDouble(x)", "int x;"));
+        Assert.Equal("MathLib::ToReal(G_X)", TranslateExpr("Convert.ToDouble(x)", "int x;"));
     }
 
     [Fact]
     public void Translate_ConvertToString_FromBool_UsesTextLibToText()
     {
-        Assert.Equal("TextLib::ToText(X)", TranslateExpr("Convert.ToString(x)", "bool x;"));
+        Assert.Equal("TextLib::ToText(G_X)", TranslateExpr("Convert.ToString(x)", "bool x;"));
     }
 
     [Fact]
@@ -364,13 +364,13 @@ public class ExpressionEmitterTests : EmitterTestBase
     [Fact]
     public void Translate_ConvertToBoolean_FromInt_ComparesNotEqualZero()
     {
-        Assert.Equal("(X != 0)", TranslateExpr("Convert.ToBoolean(x)", "int x;"));
+        Assert.Equal("(G_X != 0)", TranslateExpr("Convert.ToBoolean(x)", "int x;"));
     }
 
     [Fact]
     public void Translate_ConvertToInt32_FromInt_IsNoOp()
     {
-        Assert.Equal("X", TranslateExpr("Convert.ToInt32(x)", "int x;"));
+        Assert.Equal("G_X", TranslateExpr("Convert.ToInt32(x)", "int x;"));
     }
 
     // ────────── Instance .ToString() ──────────
@@ -378,31 +378,31 @@ public class ExpressionEmitterTests : EmitterTestBase
     [Fact]
     public void Translate_ToString_OnNumeric_UsesConcatWithEmptyString()
     {
-        Assert.Equal("\"\" ^ X", TranslateExpr("x.ToString()", "int x;"));
+        Assert.Equal("\"\" ^ G_X", TranslateExpr("x.ToString()", "int x;"));
     }
 
     [Fact]
     public void Translate_ToString_OnIdent_UsesConcatWithEmptyString()
     {
-        Assert.Equal("\"\" ^ X", TranslateExpr("x.ToString()", "public struct Ident {} Ident x;"));
+        Assert.Equal("\"\" ^ G_X", TranslateExpr("x.ToString()", "public struct Ident {} Ident x;"));
     }
 
     [Fact]
     public void Translate_ToString_OnVec2_UsesConcatWithEmptyString()
     {
-        Assert.Equal("\"\" ^ X", TranslateExpr("x.ToString()", "public struct Vec2 {} Vec2 x;"));
+        Assert.Equal("\"\" ^ G_X", TranslateExpr("x.ToString()", "public struct Vec2 {} Vec2 x;"));
     }
 
     [Fact]
     public void Translate_ToString_OnVec3_UsesConcatWithEmptyString()
     {
-        Assert.Equal("\"\" ^ X", TranslateExpr("x.ToString()", "public struct Vec3 {} Vec3 x;"));
+        Assert.Equal("\"\" ^ G_X", TranslateExpr("x.ToString()", "public struct Vec3 {} Vec3 x;"));
     }
 
     [Fact]
     public void Translate_ToString_OnInt3_UsesConcatWithEmptyString()
     {
-        Assert.Equal("\"\" ^ X", TranslateExpr("x.ToString()", "public struct Int3 {} Int3 x;"));
+        Assert.Equal("\"\" ^ G_X", TranslateExpr("x.ToString()", "public struct Int3 {} Int3 x;"));
     }
 
     [Fact]
@@ -410,7 +410,7 @@ public class ExpressionEmitterTests : EmitterTestBase
     {
         // Any ManiaScript type — including class references — auto-converts via `^`.
         var (output, diagnostics) = TranslateExprWithDiagnostics("x.ToString()", "public class CFoo {} CFoo x = new CFoo();");
-        Assert.Equal("\"\" ^ X", output);
+        Assert.Equal("\"\" ^ G_X", output);
         Assert.Empty(diagnostics);
     }
 
@@ -419,19 +419,19 @@ public class ExpressionEmitterTests : EmitterTestBase
     [Fact]
     public void Translate_DictionaryContainsValue_MapsToExists()
     {
-        Assert.Equal("Map.exists(5)", TranslateExpr("map.ContainsValue(5)", "Dictionary<string, int> map = new();"));
+        Assert.Equal("G_Map.exists(5)", TranslateExpr("map.ContainsValue(5)", "Dictionary<string, int> map = new();"));
     }
 
     [Fact]
     public void Translate_DictionaryContainsKey_MapsToExistsKey()
     {
-        Assert.Equal("Map.existskey(\"a\")", TranslateExpr("map.ContainsKey(\"a\")", "Dictionary<string, int> map = new();"));
+        Assert.Equal("G_Map.existskey(\"a\")", TranslateExpr("map.ContainsKey(\"a\")", "Dictionary<string, int> map = new();"));
     }
 
     [Fact]
     public void Translate_DictionaryGetValueOrDefault_MapsToGet()
     {
-        Assert.Equal("Map.get(\"a\", 0)", TranslateExpr("map.GetValueOrDefault(\"a\", 0)", "Dictionary<string, int> map = new();"));
+        Assert.Equal("G_Map.get(\"a\", 0)", TranslateExpr("map.GetValueOrDefault(\"a\", 0)", "Dictionary<string, int> map = new();"));
     }
 
     [Fact]
@@ -504,7 +504,7 @@ public class ExpressionEmitterTests : EmitterTestBase
     public void Translate_InterpolatedString_Regular_ConcatenatesWithCaret()
     {
         // $"Hello {name}" → "Hello " ^ Name
-        Assert.Equal("\"Hello \" ^ Name", TranslateExpr("$\"Hello {name}\"", "string name;"));
+        Assert.Equal("\"Hello \" ^ G_Name", TranslateExpr("$\"Hello {name}\"", "string name;"));
     }
 
     [Fact]
@@ -518,21 +518,21 @@ public class ExpressionEmitterTests : EmitterTestBase
     public void Translate_InterpolatedString_Regular_MultipleInterpolations()
     {
         // $"{a} and {b}" → A ^ " and " ^ B
-        Assert.Equal("A ^ \" and \" ^ B", TranslateExpr("$\"{a} and {b}\"", "string a; string b;"));
+        Assert.Equal("G_A ^ \" and \" ^ G_B", TranslateExpr("$\"{a} and {b}\"", "string a; string b;"));
     }
 
     [Fact]
     public void Translate_InterpolatedString_Regular_OnlyInterpolation()
     {
         // $"{name}" → Name (no surrounding quotes needed)
-        Assert.Equal("Name", TranslateExpr("$\"{name}\"", "string name;"));
+        Assert.Equal("G_Name", TranslateExpr("$\"{name}\"", "string name;"));
     }
 
     [Fact]
     public void Translate_InterpolatedString_Raw_TripleQuotedWithBraces()
     {
         // $"""Hello {name}""" → """Hello {{{Name}}}"""
-        Assert.Equal("\"\"\"Hello {{{Name}}}\"\"\"", TranslateExpr("$\"\"\"Hello {name}\"\"\"", "string name;"));
+        Assert.Equal("\"\"\"Hello {{{G_Name}}}\"\"\"", TranslateExpr("$\"\"\"Hello {name}\"\"\"", "string name;"));
     }
 
     [Fact]
@@ -556,13 +556,13 @@ public class ExpressionEmitterTests : EmitterTestBase
     [Fact]
     public void Translate_ElementAccess()
     {
-        Assert.Equal("Arr[0]", TranslateExpr("arr[0]", "int[] arr;"));
+        Assert.Equal("G_Arr[0]", TranslateExpr("arr[0]", "int[] arr;"));
     }
 
     [Fact]
     public void Translate_ElementAccess_VariableIndex()
     {
-        Assert.Equal("Arr[I]", TranslateExpr("arr[i]", "int[] arr; int i;"));
+        Assert.Equal("G_Arr[G_I]", TranslateExpr("arr[i]", "int[] arr; int i;"));
     }
 
     // ────────── ManiaScript.Now ──────────
@@ -631,7 +631,7 @@ public class ExpressionEmitterTests : EmitterTestBase
     public void Translate_PrivateField_PascalCased()
     {
         // Private field `_count` → `Count`
-        Assert.Equal("Count", TranslateExpr("_count", "int _count;"));
+        Assert.Equal("G_Count", TranslateExpr("_count", "int _count;"));
     }
 
     [Fact]
@@ -648,7 +648,7 @@ public class ExpressionEmitterTests : EmitterTestBase
     {
         // myVar.Value (read) on a StrongBox<int> local → just myVar name in ManiaScript
         var extra = "System.Runtime.CompilerServices.StrongBox<int> myVar;";
-        Assert.Equal("MyVar", TranslateExpr("myVar.Value", extra));
+        Assert.Equal("G_MyVar", TranslateExpr("myVar.Value", extra));
     }
 
     [Fact]
@@ -656,7 +656,7 @@ public class ExpressionEmitterTests : EmitterTestBase
     {
         // myVar.Value = 42 → MyVar = 42 in ManiaScript
         var extra = "System.Runtime.CompilerServices.StrongBox<int> myVar;";
-        Assert.Equal("MyVar = 42", TranslateExpr("myVar.Value = 42", extra));
+        Assert.Equal("G_MyVar = 42", TranslateExpr("myVar.Value = 42", extra));
     }
 
     // ────────── IContext.Main()/Loop() direct-call restriction ──────────

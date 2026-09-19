@@ -49,17 +49,19 @@ public class NameManglerTests
     }
 
     [Fact]
-    public void Global_PublicField_AddsGPrefix()
+    public void Global_Field_AddsGPrefixRegardlessOfAccessibility()
     {
-        var field = SymbolHelper.CreateField("count", accessibility: Microsoft.CodeAnalysis.Accessibility.Public);
-        Assert.Equal("G_Count", NameMangler.Global(field));
-    }
-
-    [Fact]
-    public void Global_PrivateField_NoPrefixJustPascalCase()
-    {
-        var field = SymbolHelper.CreateField("_count", accessibility: Microsoft.CodeAnalysis.Accessibility.Private);
-        Assert.Equal("Count", NameMangler.Global(field));
+        foreach (var accessibility in new[]
+                 {
+                     Microsoft.CodeAnalysis.Accessibility.Public,
+                     Microsoft.CodeAnalysis.Accessibility.Private,
+                     Microsoft.CodeAnalysis.Accessibility.Protected,
+                     Microsoft.CodeAnalysis.Accessibility.ProtectedOrInternal,
+                 })
+        {
+            var field = SymbolHelper.CreateField("_count", accessibility: accessibility);
+            Assert.Equal("G_Count", NameMangler.Global(field));
+        }
     }
 
     [Fact]

@@ -15,7 +15,7 @@ public class PropertyEmitterTests : EmitterTestBase
     {
         var output = EmitFunctions("int _x; public int Score { get { return _x; } }");
         Assert.Contains("Integer GetScore() {", output);
-        Assert.Contains("return X;", output);
+        Assert.Contains("return G_X;", output);
     }
 
     [Fact]
@@ -24,7 +24,7 @@ public class PropertyEmitterTests : EmitterTestBase
         // `get => expr`
         var output = EmitFunctions("int _x; public int Score { get => _x; }");
         Assert.Contains("Integer GetScore() {", output);
-        Assert.Contains("return X;", output);
+        Assert.Contains("return G_X;", output);
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class PropertyEmitterTests : EmitterTestBase
         // `int Score => expr` (whole property is expression-bodied)
         var output = EmitFunctions("int _x; public int Score => _x;");
         Assert.Contains("Integer GetScore() {", output);
-        Assert.Contains("return X;", output);
+        Assert.Contains("return G_X;", output);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class PropertyEmitterTests : EmitterTestBase
     {
         var output = EmitFunctions("int _x; public int Score { set { _x = value; } }");
         Assert.Contains("Void SetScore(Integer _Value) {", output);
-        Assert.Contains("X = _Value;", output);
+        Assert.Contains("G_X = _Value;", output);
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public class PropertyEmitterTests : EmitterTestBase
     {
         var output = EmitFunctions("int _x; public int Score { set => _x = value; }");
         Assert.Contains("Void SetScore(Integer _Value) {", output);
-        Assert.Contains("X = _Value;", output);
+        Assert.Contains("G_X = _Value;", output);
     }
 
     // ──────────── Both getter and setter ────────────
@@ -75,9 +75,9 @@ public class PropertyEmitterTests : EmitterTestBase
     {
         var output = EmitFunctions("int _x; public int Score { get { return _x; } set { _x = value; } }");
         Assert.Contains("Integer GetScore() {", output);
-        Assert.Contains("return X;", output);
+        Assert.Contains("return G_X;", output);
         Assert.Contains("Void SetScore(Integer _Value) {", output);
-        Assert.Contains("X = _Value;", output);
+        Assert.Contains("G_X = _Value;", output);
     }
 
     // ──────────── Auto-property: generates getter/setter with backing variable ────────────
