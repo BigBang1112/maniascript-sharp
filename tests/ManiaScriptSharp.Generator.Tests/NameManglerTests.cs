@@ -64,6 +64,14 @@ public class NameManglerTests
         }
     }
 
+    [Theory]
+    [InlineData("camelCase", "G_CamelCase")]
+    [InlineData("_case", "G_Case")]
+    public void Global_Property_AddsGPrefixAndPascalCasesName(string propertyName, string expected)
+    {
+        Assert.Equal(expected, NameMangler.Global(SymbolHelper.CreateProperty(propertyName)));
+    }
+
     [Fact]
     public void Parameter_AddsUnderscorePrefix()
     {

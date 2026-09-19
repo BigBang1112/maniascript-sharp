@@ -102,13 +102,24 @@ public class PropertyEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_AutoProperty_Private_NoBacking_G_Prefix()
+    public void Emit_AutoProperty_Private_UsesGlobalBacking()
     {
         var output = EmitFunctions("private int Score { get; set; }");
         Assert.Contains("Integer Private_GetScore() {", output);
-        Assert.Contains("return Score;", output);
+        Assert.Contains("return G_Score;", output);
         Assert.Contains("Void Private_SetScore(Integer _Value) {", output);
-        Assert.Contains("Score = _Value;", output);
+        Assert.Contains("G_Score = _Value;", output);
+    }
+
+    [Fact]
+    public void Emit_AutoProperty_CamelAndUnderscoreNames_UsePascalCasedGlobalBacking()
+    {
+        var output = EmitFunctions("private int camelCase { get; set; } private int _case { get; set; }");
+
+        Assert.Contains("return G_CamelCase;", output);
+        Assert.Contains("G_CamelCase = _Value;", output);
+        Assert.Contains("return G_Case;", output);
+        Assert.Contains("G_Case = _Value;", output);
     }
 
     // ──────────── Private accessor uses Private_ prefix ────────────
@@ -136,6 +147,15 @@ public class PropertyEmitterTests : EmitterTestBase
         // Assigning `score = 5` → `SetScore(5)`
         var output = TranslateStmt("score = 5;", "int _x; public int score { get { return _x; } set { _x = value; } }");
         Assert.Equal("SetScore(5);", output);
+    }
+
+    [Fact]
+    public void Translate_PrivatePropertyAccess_UsesPrivateGetterAndSetter()
+    {
+        const string property = "private int score { get; set; }";
+
+        Assert.Equal("Private_GetScore()", TranslateExpr("score", property));
+        Assert.Equal("Private_SetScore(5);", TranslateStmt("score = 5;", property));
     }
 
     [Fact]

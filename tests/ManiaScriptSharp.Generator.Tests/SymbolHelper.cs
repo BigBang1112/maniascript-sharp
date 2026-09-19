@@ -31,6 +31,13 @@ internal static class SymbolHelper
         return param;
     }
 
+    public static IPropertySymbol CreateProperty(string name)
+    {
+        var property = Substitute.For<IPropertySymbol>();
+        property.Name.Returns(name);
+        return property;
+    }
+
     public static IMethodSymbol CreateMethod(string name, Accessibility accessibility)
     {
         var method = Substitute.For<IMethodSymbol>();

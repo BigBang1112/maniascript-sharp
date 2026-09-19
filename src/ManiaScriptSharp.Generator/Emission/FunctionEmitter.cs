@@ -237,13 +237,9 @@ internal sealed class FunctionEmitter
 
     /// <summary>
     /// Returns the ManiaScript backing variable name for an auto-property.
-    /// Properties keep their existing backing-name convention: public → <c>G_Name</c>, others → <c>Name</c>.
+    /// Every property backing variable is a global-style <c>G_Name</c> identifier.
     /// </summary>
-    private static string AutoPropBacking(IPropertySymbol p)
-    {
-        var pascal = NameMangler.PascalCase(p.Name);
-        return p.DeclaredAccessibility == Accessibility.Public ? "G_" + pascal : pascal;
-    }
+    private static string AutoPropBacking(IPropertySymbol p) => NameMangler.Global(p);
 
     private void EmitAccessorBody(AccessorDeclarationSyntax accessor, bool returnsVoid)
     {

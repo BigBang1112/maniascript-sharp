@@ -30,6 +30,9 @@ internal static class NameMangler
     /// <summary>Fields emitted as globals always use the <c>G_</c> prefix.</summary>
     public static string Global(IFieldSymbol f) => "G_" + PascalCase(f.Name);
 
+    /// <summary>Property backing variables are emitted as globals and use the <c>G_</c> prefix.</summary>
+    public static string Global(IPropertySymbol p) => "G_" + PascalCase(p.Name);
+
     public static string Parameter(IParameterSymbol p) => "_" + PascalCase(p.Name);
 
     /// <summary>Locals (and `var` declarations) are PascalCased per ManiaScript convention.</summary>

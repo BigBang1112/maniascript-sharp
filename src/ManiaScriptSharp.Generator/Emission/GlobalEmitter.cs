@@ -43,10 +43,7 @@ internal sealed class GlobalEmitter
             if (p.IsLibContextProperty()) continue;
             if (!IsUserDefinedAutoProperty(p)) continue;
             var msType = TypeMapper.Map(p.Type);
-            var backing = p.DeclaredAccessibility == Accessibility.Public
-                ? "G_" + NameMangler.PascalCase(p.Name)
-                : NameMangler.PascalCase(p.Name);
-            _ctx.W.Line($"declare {msType} {backing};");
+            _ctx.W.Line($"declare {msType} {NameMangler.Global(p)};");
             any = true;
         }
         // Backing globals for OnChange(value, oldValue => { ... }) call sites (collected up-front).
