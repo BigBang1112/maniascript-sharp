@@ -277,6 +277,7 @@ public class ScriptEmitterTests : EmitterTestBase
                 private readonly Dictionary<string, Ident> ByName = new();
                 private readonly IList<Ident> Events = [];
                 public string Empty = "";
+                private string EmptyFromStatic = string.Empty;
                 private string NonEmpty = "value";
                 public int Number = 3;
             }
@@ -287,6 +288,7 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Contains("declare Ident[Text] G_ByName;", output);
         Assert.Contains("declare Ident[] G_Events;", output);
         Assert.Contains("declare Text G_Empty;", output);
+        Assert.Contains("declare Text G_EmptyFromStatic;", output);
         Assert.Contains("declare Text G_NonEmpty;", output);
         Assert.Contains("declare Integer G_Number;", output);
         Assert.DoesNotContain("G_ByName = []", output);

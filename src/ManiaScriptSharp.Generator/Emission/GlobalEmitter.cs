@@ -160,7 +160,7 @@ internal sealed class GlobalEmitter
     /// Empty text, lists, and maps are permitted C# defaults in a library, but libraries have
     /// no <c>main()</c>, so none of their initializer expressions are emitted to ManiaScript.
     /// </summary>
-    private static bool CanUseInitializerInLib(ITypeSymbol type, ExpressionSyntax initializer)
+    private bool CanUseInitializerInLib(ITypeSymbol type, ExpressionSyntax initializer)
     {
         if ((TypeMapper.Map(type).EndsWith("[]", System.StringComparison.Ordinal)
              || ExpressionEmitter.IsDictionaryType(type as INamedTypeSymbol))
@@ -168,7 +168,19 @@ internal sealed class GlobalEmitter
             return true;
 
         return type.SpecialType == SpecialType.System_String
-            && initializer is LiteralExpressionSyntax { Token.ValueText.Length: 0 };
+            && IsEmptyTextInitializer(initializer);
+    }
+
+    private bool IsEmptyTextInitializer(ExpressionSyntax initializer)
+    {
+        if (initializer is LiteralExpressionSyntax { Token.ValueText.Length: 0 }) return true;
+
+        return _ctx.Model.GetSymbolInfo(initializer).Symbol is IFieldSymbol
+        {
+            Name: "Empty",
+            IsStatic: true,
+            ContainingType.SpecialType: SpecialType.System_String,
+        };
     }
 
     private static bool IsEmptyCollectionInitializer(ExpressionSyntax initializer) => initializer switch
