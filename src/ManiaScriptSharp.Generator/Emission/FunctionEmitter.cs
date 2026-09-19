@@ -191,7 +191,8 @@ internal sealed class FunctionEmitter
                 // `=> expr` — whole property is a getter expression body.
                 _ctx.W.Line($"{msType} {getName}() {{");
                 _ctx.W.Push();
-                _ctx.W.Line($"return {_expr.Translate(eb.Expression)};");
+                if (!ReportInvalidExpressionBody(eb.Expression, returnsVoid: false))
+                    _ctx.W.Line($"return {_expr.Translate(eb.Expression)};");
                 _ctx.W.Pop();
                 _ctx.W.Line("}");
                 _ctx.W.Line();
@@ -249,8 +250,11 @@ internal sealed class FunctionEmitter
         }
         else if (accessor.ExpressionBody is { } eb)
         {
-            if (returnsVoid) _ctx.W.Line(_expr.Translate(eb.Expression) + ";");
-            else _ctx.W.Line($"return {_expr.Translate(eb.Expression)};");
+            if (!ReportInvalidExpressionBody(eb.Expression, returnsVoid))
+            {
+                if (returnsVoid) _ctx.W.Line(_expr.Translate(eb.Expression) + ";");
+                else _ctx.W.Line($"return {_expr.Translate(eb.Expression)};");
+            }
         }
     }
 
@@ -293,9 +297,28 @@ internal sealed class FunctionEmitter
         }
         else if (decl.ExpressionBody is { } eb)
         {
-            if (m.ReturnsVoid) _ctx.W.Line(_expr.Translate(eb.Expression) + ";");
-            else _ctx.W.Line($"return {_expr.Translate(eb.Expression)};");
+            if (!ReportInvalidExpressionBody(eb.Expression, m.ReturnsVoid))
+            {
+                if (m.ReturnsVoid) _ctx.W.Line(_expr.Translate(eb.Expression) + ";");
+                else _ctx.W.Line($"return {_expr.Translate(eb.Expression)};");
+            }
         }
+    }
+
+    private bool ReportInvalidExpressionBody(ExpressionSyntax expression, bool returnsVoid)
+    {
+        var assignment = expression.DescendantNodesAndSelf()
+            .OfType<AssignmentExpressionSyntax>()
+            .FirstOrDefault(candidate => !AssignmentSyntax.IsInitializerEntry(candidate));
+        if (assignment is null) return false;
+
+        // A void expression body may be a single standalone assignment (e.g. `set => x = value`).
+        if (returnsVoid && assignment == expression) return false;
+
+        _ctx.Report(
+            returnsVoid ? Diagnostics.NestedAssignment : Diagnostics.AssignmentInReturn,
+            assignment.GetLocation());
+        return true;
     }
 
     /// <summary>

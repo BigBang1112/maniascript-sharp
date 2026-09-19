@@ -77,7 +77,15 @@ internal sealed class GlobalEmitter
         var msType = TypeMapper.Map(f.Type);
 
         var initSyntax = TryGetInitializerSyntax(f);
-        if (initSyntax is not null && _ctx.IsLib)
+        var assignmentInInitializer = initSyntax?.DescendantNodesAndSelf()
+            .OfType<AssignmentExpressionSyntax>()
+            .FirstOrDefault(assignment => !AssignmentSyntax.IsInitializerEntry(assignment));
+        if (assignmentInInitializer is not null)
+        {
+            _ctx.Report(Diagnostics.NestedAssignment, assignmentInInitializer.GetLocation());
+            _ctx.W.Line($"declare {msType} {name};");
+        }
+        else if (initSyntax is not null && _ctx.IsLib)
         {
             // Library scripts have no main(), and global declarations must be bare even for
             // collection and empty-text values that ManiaScript allows to be initialized inline.

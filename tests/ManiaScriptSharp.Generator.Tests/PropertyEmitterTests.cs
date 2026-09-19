@@ -37,6 +37,16 @@ public class PropertyEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_Getter_ExpressionBodyAssignmentReportsErrorAndIsNotEmitted()
+    {
+        var (output, diagnostics) = EmitFunctionsWithDiagnostics("int _x; public int Score => _x = 1;");
+
+        Assert.DoesNotContain("return G_X = 1;", output);
+        Assert.Contains(diagnostics, d => d.Id == "MSS017"
+            && d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void Emit_Getter_StringType()
     {
         var output = EmitFunctions("string _name = \"\"; public string Name { get { return _name; } }");

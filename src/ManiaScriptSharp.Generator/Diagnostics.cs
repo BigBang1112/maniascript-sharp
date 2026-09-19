@@ -139,4 +139,12 @@ internal static class Diagnostics
         category: "ManiaScriptSharp",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor NestedAssignment = new(
+        id: "MSS018",
+        title: "Assignment expression cannot be nested",
+        messageFormat: "An assignment cannot be used as another expression's value. Split chained assignments into separate statements.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

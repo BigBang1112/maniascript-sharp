@@ -86,6 +86,57 @@ public class StatementEmitterTests : EmitterTestBase
         Assert.Equal("G_X = 5;", TranslateStmt("x = 5;", "int x;"));
     }
 
+    [Fact]
+    public void Emit_ExprStatement_ChainedAssignmentReportsErrorAndIsNotEmitted()
+    {
+        var (output, diagnostics) = TranslateStmtWithDiagnostics("x = y = 1;", "int x; int y;");
+
+        Assert.Empty(output);
+        Assert.Contains(diagnostics, d => d.Id == "MSS018"
+            && d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Emit_LocalDecl_AssignmentInitializerReportsErrorAndIsNotEmitted()
+    {
+        var (output, diagnostics) = TranslateStmtWithDiagnostics("var x = y = [];", "int[] y;");
+
+        Assert.Empty(output);
+        Assert.Contains(diagnostics, d => d.Id == "MSS018"
+            && d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Emit_LocalDecl_DictionaryInitializerRemainsSupported()
+    {
+        var (output, diagnostics) = TranslateStmtWithDiagnostics(
+            "var scores = new Dictionary<string, int> { [\"alpha\"] = 10, [\"beta\"] = 20 };");
+
+        Assert.Equal("declare Scores = [\"alpha\" => 10, \"beta\" => 20];", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Emit_AssignmentInConditionReportsErrorAndIsNotEmitted()
+    {
+        var (output, diagnostics) = TranslateStmtWithDiagnostics("if (isReady = true) { }", "bool isReady;");
+
+        Assert.Empty(output);
+        Assert.Contains(diagnostics, d => d.Id == "MSS018"
+            && d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Emit_ForInitializer_ChainedAssignmentReportsErrorAndIsNotEmitted()
+    {
+        var (output, diagnostics) = TranslateStmtWithDiagnostics(
+            "for (x = y = 0; x < 1; x++) { }", "int x; int y;");
+
+        Assert.Empty(output);
+        Assert.Contains(diagnostics, d => d.Id == "MSS018"
+            && d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+    }
+
     // ────────── Ternary / ??= (no inline conditional in ManiaScript) ──────────
 
     [Fact]

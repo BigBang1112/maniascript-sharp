@@ -316,6 +316,30 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_ContextDictionaryInitializer_RemainsSupported()
+    {
+        const string code = """
+            using System.Collections.Generic;
+            using ManiaScriptSharp;
+
+            public class StateContext : IContext
+            {
+                private readonly Dictionary<string, int> Scores = new()
+                {
+                    ["alpha"] = 10,
+                    ["beta"] = 20,
+                };
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "StateContext");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("declare Integer[Text] G_Scores;", output);
+        Assert.Contains("G_Scores = [\"alpha\" => 10, \"beta\" => 20];", output);
+    }
+
+    [Fact]
     public void Emit_Consumer_ImportsNestedLibraryStruct()
     {
         const string code = """

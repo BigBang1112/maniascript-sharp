@@ -27,6 +27,8 @@ internal sealed class StatementEmitter
 
     public void Emit(StatementSyntax stmt)
     {
+        if (ReportInvalidAssignment(stmt)) return;
+
         switch (stmt)
         {
             case BlockSyntax block:
@@ -92,12 +94,7 @@ internal sealed class StatementEmitter
                 break;
 
             case ReturnStatementSyntax rs:
-                var assignmentInReturn = rs.Expression?.DescendantNodesAndSelf()
-                    .OfType<AssignmentExpressionSyntax>()
-                    .FirstOrDefault();
-                if (assignmentInReturn is not null)
-                    _ctx.Report(Diagnostics.AssignmentInReturn, assignmentInReturn.GetLocation());
-                else if (_ctx.ReturnIsContinue && rs.Expression is null)
+                if (_ctx.ReturnIsContinue && rs.Expression is null)
                     _ctx.W.Line("continue;");
                 else if (rs.Expression is ConditionalExpressionSyntax or SwitchExpressionSyntax)
                     EmitTernaryAsIfElse(rs.Expression, v => _ctx.W.Line($"return {_expr.Translate(v)};"));
@@ -214,6 +211,48 @@ internal sealed class StatementEmitter
             else
                 _ctx.W.Line($"declare {msType} {name}{init};");
         }
+    }
+
+    /// <summary>
+    /// Reports assignment expressions that are used as a value. A bare assignment statement
+    /// (and a bare for-loop initializer/incrementor) is supported; every other placement is
+    /// invalid ManiaScript, including chained assignments such as <c>x = y = value</c>.
+    /// </summary>
+    private bool ReportInvalidAssignment(StatementSyntax stmt)
+    {
+        // Else-if conditions are emitted directly by EmitIf rather than recursively through
+        // Emit(), so validate the entire else-if chain before writing its outer statement.
+        for (var current = stmt; ;)
+        {
+            var invalidAssignment = current.DescendantNodes()
+                .OfType<AssignmentExpressionSyntax>()
+                .FirstOrDefault(assignment =>
+                    assignment.Ancestors().OfType<StatementSyntax>().FirstOrDefault() == current
+                    && !AssignmentSyntax.IsInitializerEntry(assignment)
+                    && !IsStandaloneAssignment(assignment));
+            if (invalidAssignment is not null)
+            {
+                _ctx.Report(
+                    current is ReturnStatementSyntax
+                        ? Diagnostics.AssignmentInReturn
+                        : Diagnostics.NestedAssignment,
+                    invalidAssignment.GetLocation());
+                return true;
+            }
+
+            if (current is not IfStatementSyntax { Else.Statement: IfStatementSyntax elseIf })
+                return false;
+            current = elseIf;
+        }
+    }
+
+    private static bool IsStandaloneAssignment(AssignmentExpressionSyntax assignment)
+    {
+        if (assignment.Parent is ExpressionStatementSyntax) return true;
+        if (assignment.Parent is not ForStatementSyntax forStatement) return false;
+
+        return forStatement.Initializers.Any(initializer => initializer == assignment)
+            || forStatement.Incrementors.Any(incrementor => incrementor == assignment);
     }
 
     /// <summary>
