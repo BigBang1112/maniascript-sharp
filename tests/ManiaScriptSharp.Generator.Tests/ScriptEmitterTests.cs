@@ -17,6 +17,8 @@ public class ScriptEmitterTests : EmitterTestBase
                 protected int protectedState;
                 protected internal int sharedState;
                 public int publicState;
+                [ManialinkControl(IgnoreValidation = true)]
+                public object Control;
                 public int Exposed { get; set; }
                 private int camelCase { get; set; }
                 private int _case { get; set; }
@@ -32,11 +34,13 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Contains("declare Integer G_ProtectedState;", output);
         Assert.Contains("declare Integer G_SharedState;", output);
         Assert.Contains("declare Integer G_PublicState;", output);
+        Assert.Contains("declare Text G_Control;", output);
         Assert.Contains("declare Integer G_Exposed;", output);
         Assert.Contains("declare Integer G_CamelCase;", output);
         Assert.Contains("declare Integer G_Case;", output);
         Assert.Contains("Integer GetExposed() {", output);
         Assert.Contains(diagnostics, d => d.Id == "MSS016" && d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Warning);
+        Assert.DoesNotContain(diagnostics, d => d.Id == "MSS016" && d.GetMessage().Contains("Control"));
         Assert.DoesNotContain(diagnostics, d => d.Id == "MSS016" && d.GetMessage().Contains("Exposed"));
     }
 

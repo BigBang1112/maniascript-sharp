@@ -52,7 +52,7 @@ internal sealed class GlobalEmitter
 
     private bool EmitOne(IFieldSymbol f)
     {
-        if (f.DeclaredAccessibility == Accessibility.Public)
+        if (f.DeclaredAccessibility == Accessibility.Public && !f.HasAttr("ManialinkControlAttribute"))
         {
             _ctx.Report(Diagnostics.PublicField, f.Locations.FirstOrDefault(), f.Name);
         }

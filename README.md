@@ -1766,8 +1766,8 @@ Use C# event handlers to generate ManiaScript event loops:
 ```cs
 public class MyManialink : CTmMlScriptIngame, IContext
 {
-    [ManialinkControl] private CMlQuad QuadMapName = null!;
-    [ManialinkControl] private CMlEntry EntryInput = null!;
+    [ManialinkControl] public required CMlQuad QuadMapName;
+    [ManialinkControl] public required CMlEntry EntryInput;
 
     public void Main()
     {
