@@ -32,6 +32,13 @@ public class EmitterTestBase
         if (!string.IsNullOrEmpty(msLocation) && refs.All(r => r.Display != msLocation))
             refs.Add(MetadataReference.CreateFromFile(msLocation));
 
+        // The test snippets use JsonPropertyNameAttribute to verify per-field generated
+        // names. Reference its assembly explicitly because it need not already be loaded by
+        // the test runner when this in-memory Roslyn compilation is created.
+        var jsonLocation = typeof(System.Text.Json.Serialization.JsonPropertyNameAttribute).Assembly.Location;
+        if (!string.IsNullOrEmpty(jsonLocation) && refs.All(r => r.Display != jsonLocation))
+            refs.Add(MetadataReference.CreateFromFile(jsonLocation));
+
         return refs;
     }
 
@@ -259,7 +266,7 @@ class Test {{
 }}";
         var (ctx, expr, _, _) = CreateEmitters(code);
         new OnChangeCollector(ctx).Collect();
-        new GlobalEmitter(ctx, expr).Emit();
+        new GlobalEmitter(ctx).Emit();
         return ctx.W.ToString().ReplaceLineEndings("\n").Trim();
     }
 

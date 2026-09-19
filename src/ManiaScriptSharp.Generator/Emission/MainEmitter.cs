@@ -43,7 +43,7 @@ internal sealed class MainEmitter
         var hasFunctions = _ctx.Info.Symbol.GetMembers().OfType<IMethodSymbol>()
             .Any(m => m.MethodKind == MethodKind.Ordinary
                    && m.Name is not ("Main" or "Loop"));
-        var needsMainWrapper = hasFunctions;
+        var needsMainWrapper = hasFunctions || deferred.Count > 0;
 
         if (needsMainWrapper)
         {
@@ -51,7 +51,7 @@ internal sealed class MainEmitter
             _ctx.W.Push();
         }
 
-        // 1. Deferred public-field initialisers.
+        // 1. Deferred global-field initialisers.
         foreach (var d in deferred)
             _ctx.W.Line($"{d.Name} = {_expr.Translate(d.Value)};");
         if (deferred.Count > 0 && (bindings.Count > 0 || main is not null || anyLoopBody))

@@ -41,6 +41,40 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_StructFieldNaming_UsesConfiguredCasing()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            [StructFieldNaming(StructFieldNameStyle.CamelCase)]
+            public struct CamelState { public int TotalScore; }
+
+            [StructFieldNaming(StructFieldNameStyle.SnakeCase)]
+            public struct SnakeState { public int PlayerURL; }
+
+            [StructFieldNaming(StructFieldNameStyle.SnakeCase)]
+            public struct JsonNamedState
+            {
+                [System.Text.Json.Serialization.JsonPropertyName("score")]
+                public int TotalScore;
+            }
+
+            public class StructFieldNamingContext : IContext
+            {
+                public void Main() { }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "StructFieldNamingContext");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Struct CamelState {\n    Integer totalScore;\n}", output);
+        Assert.Contains("#Struct SnakeState {\n    Integer player_url;\n}", output);
+        Assert.Contains("#Struct JsonNamedState {\n    Integer score;\n}", output);
+    }
+
+    [Fact]
     public void Emit_HiddenSetting_OverridesDisplayAndTranslation()
     {
         const string code = """
@@ -231,7 +265,7 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_Lib_OnlyAllowsNewAndEmptyStringFieldInitializers()
+    public void Emit_Lib_FieldInitializersAreNeverEmittedInline()
     {
         const string code = """
             using System.Collections.Generic;
@@ -248,12 +282,37 @@ public class ScriptEmitterTests : EmitterTestBase
 
         var (output, diagnostics) = EmitScript(code, "StateLib");
 
-        Assert.Contains("declare Ident[Text] G_ByName = [];", output);
-        Assert.Contains("declare Text G_Empty = \"\";", output);
+        Assert.Contains("declare Ident[Text] G_ByName;", output);
+        Assert.Contains("declare Text G_Empty;", output);
         Assert.Contains("declare Integer G_Number;", output);
-        Assert.Contains(diagnostics, d => d.Id == "MSS012");
-        Assert.Equal(1, diagnostics.Count(d => d.Id == "MSS012"));
+        Assert.DoesNotContain("G_ByName = []", output);
+        Assert.DoesNotContain("G_Empty = \"\"", output);
+        Assert.Equal(3, diagnostics.Count(d => d.Id == "MSS012"));
         Assert.Equal(2, diagnostics.Count(d => d.Id == "MSS016"));
+    }
+
+    [Fact]
+    public void Emit_ContextFieldInitializers_AreDeferredFromBareGlobalDeclarations()
+    {
+        const string code = """
+            using System.Collections.Generic;
+            using ManiaScriptSharp;
+
+            public class StateContext : IContext
+            {
+                private readonly Dictionary<string, Ident> ByName = new();
+                private string Empty = "";
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "StateContext");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("declare Ident[Text] G_ByName;", output);
+        Assert.Contains("declare Text G_Empty;", output);
+        Assert.DoesNotContain("declare Ident[Text] G_ByName = [];", output);
+        Assert.DoesNotContain("declare Text G_Empty = \"\";", output);
+        Assert.Contains("main() {\n    G_ByName = [];\n    G_Empty = \"\";\n}", output);
     }
 
     [Fact]

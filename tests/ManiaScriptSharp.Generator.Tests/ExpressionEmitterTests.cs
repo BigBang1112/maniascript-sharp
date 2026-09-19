@@ -490,6 +490,37 @@ public class ExpressionEmitterTests : EmitterTestBase
         Assert.Equal("MyStruct {}", output);
     }
 
+    [Theory]
+    [InlineData("CamelCase", "totalScore")]
+    [InlineData("SnakeCase", "total_score")]
+    public void Translate_StructFieldNaming_UsesConfiguredNamesInInitializersAndAccess(string style, string expectedName)
+    {
+        var members =
+            "[ManiaScriptSharp.StructFieldNaming(ManiaScriptSharp.StructFieldNameStyle." + style + ")]\n" +
+            "struct State { public int TotalScore; }\n" +
+            "State state;";
+
+        Assert.Equal($"State {{ {expectedName} = 1 }}", TranslateExpr("new State { TotalScore = 1 }", members));
+        Assert.Equal($"G_State.{expectedName}", TranslateExpr("state.TotalScore", members));
+    }
+
+    [Fact]
+    public void Translate_StructFieldJsonPropertyName_OverridesStructNaming()
+    {
+        const string members = """
+            [ManiaScriptSharp.StructFieldNaming(ManiaScriptSharp.StructFieldNameStyle.SnakeCase)]
+            struct State
+            {
+                [System.Text.Json.Serialization.JsonPropertyName("score")]
+                public int TotalScore;
+            }
+            State state;
+            """;
+
+        Assert.Equal("State { score = 1 }", TranslateExpr("new State { TotalScore = 1 }", members));
+        Assert.Equal("G_State.score", TranslateExpr("state.TotalScore", members));
+    }
+
     [Fact]
     public void Translate_Int2Construction_UsesVectorLiteral()
     {

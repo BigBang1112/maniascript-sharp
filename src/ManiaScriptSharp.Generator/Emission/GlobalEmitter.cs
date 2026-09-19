@@ -1,21 +1,18 @@
 using ManiaScriptSharp.Generator.Naming;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ManiaScriptSharp.Generator.Emission;
 
 /// <summary>
 /// Emits top-level <c>declare</c> globals (incl. <c>netwrite</c>/<c>netread</c>/<c>persistent</c>/<c>for</c>)
-/// and registers any public-field initialisers into the deferred main()-init list.
+/// and registers field initialisers into the deferred main()-init list.
 /// Also collects <c>[ManialinkControl]</c> fields for later wiring.
 /// </summary>
 internal sealed class GlobalEmitter
 {
     private readonly EmitContext _ctx;
-    private readonly ExpressionEmitter _expr;
-
-    public GlobalEmitter(EmitContext ctx, ExpressionEmitter expr) { _ctx = ctx; _expr = expr; }
+    public GlobalEmitter(EmitContext ctx) { _ctx = ctx; }
 
     public void Emit()
     {
@@ -82,27 +79,17 @@ internal sealed class GlobalEmitter
         var initSyntax = TryGetInitializerSyntax(f);
         if (initSyntax is not null && _ctx.IsLib)
         {
-            if (IsSupportedLibInitializer(initSyntax))
-            {
-                _ctx.W.Line($"declare {msType} {name} = {_expr.Translate(initSyntax)};");
-            }
-            else
-            {
-                // Lib scripts have no main(), so unsupported initializers would be dropped.
-                _ctx.Report(Diagnostics.LibFieldInitializer, f.Locations.FirstOrDefault(),
-                    $"{_ctx.Info.Symbol.Name}.{f.Name}");
-                _ctx.W.Line($"declare {msType} {name};");
-            }
-        }
-        else if (initSyntax is not null && f.DeclaredAccessibility == Accessibility.Public)
-        {
-            // Public field initialisers move into main() per spec.
-            _ctx.DeferredInits.Add(new DeferredInit(name, initSyntax));
+            // Library scripts have no main(), and global declarations must be bare even for
+            // collection and empty-text values that ManiaScript allows to be initialized inline.
+            _ctx.Report(Diagnostics.LibFieldInitializer, f.Locations.FirstOrDefault(),
+                $"{_ctx.Info.Symbol.Name}.{f.Name}");
             _ctx.W.Line($"declare {msType} {name};");
         }
         else if (initSyntax is not null)
         {
-            _ctx.W.Line($"declare {msType} {name} = {_expr.Translate(initSyntax)};");
+            // Global declarations must be bare; initialize context fields from main().
+            _ctx.DeferredInits.Add(new DeferredInit(name, initSyntax));
+            _ctx.W.Line($"declare {msType} {name};");
         }
         else
         {
@@ -151,7 +138,4 @@ internal sealed class GlobalEmitter
         return null;
     }
 
-    private static bool IsSupportedLibInitializer(ExpressionSyntax initializer)
-        => initializer is ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0 }
-            or LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression, Token.ValueText: "" };
 }

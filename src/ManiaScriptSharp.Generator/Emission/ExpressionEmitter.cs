@@ -209,7 +209,9 @@ internal sealed class ExpressionEmitter
         }
 
         var lhs = Translate(m.Expression);
-        var name = m.Name.Identifier.Text;
+        var name = memberSym is IFieldSymbol { IsStatic: false, ContainingType: { TypeKind: TypeKind.Struct } } structField
+            ? NameMangler.StructField(structField)
+            : m.Name.Identifier.Text;
 
         // Ident.NullId → ManiaScript's bare `NullId` constant (not namespace-qualified).
         if (name == "NullId" && memberSym is IFieldSymbol { IsStatic: true, ContainingType.Name: "Ident" })
@@ -890,9 +892,13 @@ internal sealed class ExpressionEmitter
             return Unsupported(expression, "struct initializer entry");
 
         var member = _ctx.Model.GetSymbolInfo(assignment.Left).Symbol;
-        var name = member is IFieldSymbol or IPropertySymbol
-            ? NameMangler.PascalCase(member.Name)
-            : assignment.Left.ToString();
+        var name = member switch
+        {
+            IFieldSymbol { IsStatic: false, ContainingType: { TypeKind: TypeKind.Struct } } structField
+                => NameMangler.StructField(structField),
+            IFieldSymbol or IPropertySymbol => NameMangler.PascalCase(member.Name),
+            _ => assignment.Left.ToString(),
+        };
         return $"{name} = {Translate(assignment.Right)}";
     }
 
