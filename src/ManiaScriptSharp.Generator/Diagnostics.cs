@@ -147,4 +147,12 @@ internal static class Diagnostics
         category: "ManiaScriptSharp",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor InvalidRazorTemplate = new(
+        id: "MSS019",
+        title: "Invalid Razor Manialink template",
+        messageFormat: "The Razor template '{0}' is invalid: {1}",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }
