@@ -29,7 +29,7 @@ public partial class Ladder : ILib
     public bool RequestInProgress() => default!;
 
     /// <summary>Create a new match and register the given scores Remember to close any open match before</summary>
-    /// <param name="Scores">The scores to register in the match</param>
+    /// <param name="_Scores">The scores to register in the match</param>
     public void Request_OpenMatch(global::System.Collections.Generic.IList<CScore> _Scores) { }
 
     /// <summary>Create a new match and register all available scores Remember to close any open match before</summary>
@@ -45,19 +45,19 @@ public partial class Ladder : ILib
     public void Request_CancelMatch() { }
 
     /// <summary>Add a player to the currently opened match</summary>
-    /// <param name="Score">The score of the player to add</param>
+    /// <param name="_Score">The score of the player to add</param>
     public void AddPlayer(CScore _Score) { }
 
     /// <summary>Select the version used to calculate the ladder points reward of the currently opened match</summary>
-    /// <param name="Version">The version to use</param>
+    /// <param name="_Version">The version to use</param>
     public void SetResultsVersion(int _Version) { }
 
     /// <summary>Associate a matchmaking match id to the currently opened match</summary>
-    /// <param name="MatchId">The match id</param>
+    /// <param name="_MatchId">The match id</param>
     public void SetMatchmakingMatchId(int _MatchId) { }
 
     /// <summary>Enable of disable the challenge mode for the currently opened match</summary>
-    /// <param name="Enable">True to enable the challenge mode, False to disable it</param>
+    /// <param name="_Enable">True to enable the challenge mode, False to disable it</param>
     public void EnableChallengeMode(bool _Enable) { }
 
     /// <summary>Unload the library</summary>

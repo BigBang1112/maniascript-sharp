@@ -60,14 +60,14 @@ public partial class TimeAttack : global::ManiaScriptSharp.Scripts.Modes.ShootMa
     public string CreateLayerTimeDiff() => default!;
 
     /// <summary>Update the timediff manialink</summary>
-    /// <param name="Player">The player to update</param>
-    /// <param name="Time1">The first time to compare (reference time)</param>
-    /// <param name="Time2">The second time to compare</param>
+    /// <param name="_Player">The player to update</param>
+    /// <param name="_Time1">The first time to compare (reference time)</param>
+    /// <param name="_Time2">The second time to compare</param>
     public void UpdateLayerTimeDiff(CSmPlayer _Player, int _Time1, int _Time2) { }
 
     /// <summary>Generate the top times manialink</summary>
-    /// <param name="Name">The name of the player who made a time</param>
-    /// <param name="Time">The new time</param>
+    /// <param name="_Name">The name of the player who made a time</param>
+    /// <param name="_Time">The new time</param>
     /// <returns>The manialink Text</returns>
     public string UpdateLayerTopTimes(string _Name, int _Time) => default!;
 
@@ -75,19 +75,19 @@ public partial class TimeAttack : global::ManiaScriptSharp.Scripts.Modes.ShootMa
     public void InitPlayers() { }
 
     /// <summary>Disable player weapons</summary>
-    /// <param name="Player">Disable the weapons of this player</param>
+    /// <param name="_Player">Disable the weapons of this player</param>
     public void DisableWeapon(CSmPlayer _Player) { }
 
     /// <summary>Restart a player</summary>
-    /// <param name="PlayerId">The player to restart</param>
+    /// <param name="_Player" />
     public void RestartPlayer(CSmPlayer _Player) { }
 
     /// <summary>A player touch a checkpoint</summary>
-    /// <param name="Player">The player who touched the checkpoint</param>
-    /// <param name="CheckpointId">The touched checkpoint id</param>
+    /// <param name="_Player">The player who touched the checkpoint</param>
+    /// <param name="_CheckpointId">The touched checkpoint id</param>
     public void ActiveCheckpoint(CSmPlayer _Player, Ident _CheckpointId) { }
 
     /// <summary>A player touch the goal</summary>
-    /// <param name="PlayerId">The if of the player who touched the goal</param>
+    /// <param name="_Player" />
     public void ActiveFinish(CSmPlayer _Player) { }
 }

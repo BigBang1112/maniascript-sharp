@@ -29,12 +29,12 @@ public partial class ModeBase : ILib
     public virtual void MapIntro() { }
 
     /// <summary>Log the version of a script</summary>
-    /// <param name="Name">Name of the script</param>
-    /// <param name="Version">Version of the script</param>
+    /// <param name="_Name">Name of the script</param>
+    /// <param name="_Version">Version of the script</param>
     public void MB_LogVersion(string _Name, string _Version) { }
 
     /// <summary>Custom log function</summary>
-    /// <param name="Message">The message to log</param>
+    /// <param name="_Message">The message to log</param>
     public void MB_Log(string _Message) { }
 
     /// <summary>Check the status of the script callbacks</summary>
@@ -47,17 +47,18 @@ public partial class ModeBase : ILib
     public void MB_Yield() { }
 
     /// <summary>Custom sleep function</summary>
-    /// <param name="Duration">The time to spend sleeping in ms</param>
+    /// <param name="_Duration">The time to spend sleeping in ms</param>
     public void MB_Sleep(int _Duration) { }
 
     /// <summary>Do the player presentation sequence (aka versus screen)</summary>
+    /// <param name="_Duration" />
     public void MB_PlayersPresentationSequence(int _Duration) { }
 
     /// <summary>Overload of the MB_PlayersPresentationSequence() function</summary>
     public void MB_PlayersPresentationSequence() { }
 
     /// <summary>Load a scores table style from an XML file</summary>
-    /// <param name="Path">Path to the XML file</param>
+    /// <param name="_Path">Path to the XML file</param>
     public void MB_SetScoresTableStyleFromXml(string _Path) { }
 
     /// <summary>Stop the server at the end of the frame</summary>
@@ -94,7 +95,7 @@ public partial class ModeBase : ILib
     public void MB_Ladder_OpenMatch_All() { }
 
     /// <summary>Create a new match on the ladder and register a list of scores</summary>
-    /// <param name="Scores">The list of scores to register on the ladder</param>
+    /// <param name="_Scores">The list of scores to register on the ladder</param>
     public void MB_Ladder_OpenMatch(global::System.Collections.Generic.IList<CScore> _Scores) { }
 
     /// <summary>Close the current match on the ladder</summary>

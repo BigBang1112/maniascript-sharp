@@ -27,16 +27,17 @@ public partial class Objects : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the name of an object</summary>
-    /// <param name="Object">The object to name</param>
-    /// <param name="Name">The name of the object</param>
+    /// <param name="_Object">The object to name</param>
+    /// <param name="_Name">The name of the object</param>
     public void SetObjectName(CSmObject _Object, string _Name) { }
 
     /// <summary>Get the name of an object</summary>
-    /// <param name="Object">The object to check</param>
+    /// <param name="_Object">The object to check</param>
     /// <returns>The namer of the object</returns>
     public string GetObjectName(CSmObject _Object) => default!;
 
     /// <summary>Set a list of objects allowed to be spawned on the anchors /!\ Call this function before map load or it will be ignored /!\</summary>
+    /// <param name="_ItemNames" />
     public void SetAllowedObjects(global::System.Collections.Generic.IList<string> _ItemNames) { }
 
     /// <summary>Destroy all existing anchor object</summary>
@@ -52,20 +53,20 @@ public partial class Objects : ILib
     public void UnspawnAnchorsObjects() { }
 
     /// <summary>Get the anchor used by the library to spawn the object Null otherwise</summary>
-    /// <param name="Object">The object to check</param>
+    /// <param name="_Object">The object to check</param>
     /// <returns>The anchor if found,</returns>
     public CMapObjectAnchor GetSpawnAnchor(CSmObject _Object) => default!;
 
     /// <summary>Update the respawn time of object automatically spawned on anchors</summary>
-    /// <param name="Time">The new respawn time</param>
+    /// <param name="_Time">The new respawn time</param>
     public void SetAnchorsObjectsRespawnTime(int _Time) { }
 
     /// <summary>Enable of disable the auto pick up of object spawned on anchors by the library False to disable</summary>
-    /// <param name="AutoPickUp">True to enable</param>
+    /// <param name="_AutoPickUp">True to enable</param>
     public void SetAutoPickUp(bool _AutoPickUp) { }
 
     /// <summary>Pick up an object and mark it for respawn if necessary</summary>
-    /// <param name="Object">The object to pick up</param>
+    /// <param name="_Object">The object to pick up</param>
     public void PickUp(CSmObject _Object) { }
 
     /// <summary>Update the library</summary>

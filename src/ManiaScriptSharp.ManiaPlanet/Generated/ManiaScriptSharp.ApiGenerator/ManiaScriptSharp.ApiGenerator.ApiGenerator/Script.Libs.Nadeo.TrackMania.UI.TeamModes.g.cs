@@ -26,7 +26,7 @@ public partial class TeamModes : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Create the manialink for the clan info panel</summary>
-    /// <param name="Result">The result to display in the UI</param>
+    /// <param name="_Result">The result to display in the UI</param>
     /// <returns>The manialink</returns>
     public string GetMLClanInfo(string _Result) => default!;
 

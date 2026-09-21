@@ -29,14 +29,14 @@ public partial class Sound : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Clear all volumes in case of a restart server or other unexpected events for a specific player</summary>
-    /// <param name="Player">The specific player</param>
+    /// <param name="_Player">The specific player</param>
     public void ClearVolumes(CPlayer _Player) { }
 
     /// <summary>Overload : Clear all volumes in case of a restart server or other unexpected events for all players on the server</summary>
     public void ClearVolumes() { }
 
     /// <summary>Clear all sounds in case of a restart server or other unexpected events for a specific player</summary>
-    /// <param name="Player">The specific player</param>
+    /// <param name="_Player">The specific player</param>
     public void ClearSounds(CPlayer _Player) { }
 
     /// <summary>Overload : Clear all sounds in case of a restart server or other unexpected events for all players on the server</summary>
@@ -52,76 +52,111 @@ public partial class Sound : ILib
     public void Attach() { }
 
     /// <summary>Preload some custom sounds to a specific player with delay and volume attenuation</summary>
-    /// <param name="SoundUrl">Custom Sounds URL</param>
+    /// <param name="_SoundsToPreloadUrl" />
+    /// <param name="_Player" />
     public void PreloadSounds(global::System.Collections.Generic.IList<string> _SoundsToPreloadUrl, CPlayer _Player) { }
 
     public void PreloadSounds(global::System.Collections.Generic.IList<string> _SoundsToPreloadUrl) { }
 
     /// <summary>Play a custom sound to a specific player with delay and volume attenuation</summary>
-    /// <param name="SoundUrl">Custom Sound URL</param>
-    /// <param name="Volume">Volume in dB : from -oo (min) to 0. dB (max) Example : -6.</param>
-    /// <param name="Delay">Delay before playing the sound (After the client received the event)</param>
-    /// <param name="Player">The specific player</param>
+    /// <param name="_SoundUrl">Custom Sound URL</param>
+    /// <param name="_Volume">Volume in dB : from -oo (min) to 0. dB (max) Example : -6.</param>
+    /// <param name="_Delay">Delay before playing the sound (After the client received the event)</param>
+    /// <param name="_Player">The specific player</param>
     public void PlaySound(string _SoundUrl, float _Volume, int _Delay, CPlayer _Player) { }
 
     /// <summary>Overload : Play a custom sound to a specific player with volume attenuation</summary>
+    /// <param name="_SoundUrl" />
+    /// <param name="_Volume" />
+    /// <param name="_Player" />
     public void PlaySound(string _SoundUrl, float _Volume, CPlayer _Player) { }
 
     /// <summary>Overload : Play a custom sound to a specific player</summary>
+    /// <param name="_SoundUrl" />
+    /// <param name="_Player" />
     public void PlaySound(string _SoundUrl, CPlayer _Player) { }
 
     /// <summary>Overload : Play a custom sound to all players on the server</summary>
+    /// <param name="_SoundUrl" />
     public void PlaySound(string _SoundUrl) { }
 
     /// <summary>Overload : Play a custom sound to all the players on the server with volume attenuation and delay</summary>
+    /// <param name="_SoundUrl" />
+    /// <param name="_Volume" />
+    /// <param name="_Delay" />
     public void PlaySound(string _SoundUrl, float _Volume, int _Delay) { }
 
     /// <summary>Overload : Play a custom sound to all the players on the server with volume attenuation</summary>
+    /// <param name="_SoundUrl" />
+    /// <param name="_Volume" />
     public void PlaySound(string _SoundUrl, float _Volume) { }
 
     /// <summary>Overload : Play a custom sound to all the players on the server with delay</summary>
+    /// <param name="_SoundUrl" />
+    /// <param name="_Delay" />
     public void PlaySound(string _SoundUrl, int _Delay) { }
 
     /// <summary>Set the limit music volume for a specific player</summary>
-    /// <param name="Delay">Delay before setting this new volume value (After the client received the event)</param>
-    /// <param name="Volume">Volume in dB : from -oo (min) to 0. dB (max) Example : -6.</param>
-    /// <param name="Player">The specific player</param>
+    /// <param name="_Volume">Volume in dB : from -oo (min) to 0. dB (max) Example : -6.</param>
+    /// <param name="_Delay">Delay before setting this new volume value (After the client received the event)</param>
+    /// <param name="_Fade" />
+    /// <param name="_Player">The specific player</param>
     public void SetLimitMusicVolumedB(float _Volume, int _Delay, int _Fade, CPlayer _Player) { }
 
     /// <summary>Overload : Set the limit music volume for a specific player on the server without any delay or fade</summary>
+    /// <param name="_Volume" />
+    /// <param name="_Player" />
     public void SetLimitMusicVolumedB(float _Volume, CPlayer _Player) { }
 
     /// <summary>Overload : Set the limit music volume for all players on the server without any delay</summary>
+    /// <param name="_Volume" />
     public void SetLimitMusicVolumedB(float _Volume) { }
 
     /// <summary>Overload : Set the limit music volume for all players on the server without any delay</summary>
+    /// <param name="_Volume" />
+    /// <param name="_Delay" />
+    /// <param name="_Fade" />
     public void SetLimitMusicVolumedB(float _Volume, int _Delay, int _Fade) { }
 
     /// <summary>Set the limit music volume for a specific player on the server after a specific delay</summary>
+    /// <param name="_Volume" />
+    /// <param name="_Delay" />
+    /// <param name="_Player" />
     public void SetLimitMusicVolumedBDelay(float _Volume, int _Delay, CPlayer _Player) { }
 
     /// <summary>Set the limit music volume for all players on the server after a specific delay</summary>
+    /// <param name="_Volume" />
+    /// <param name="_Delay" />
     public void SetLimitMusicVolumedBDelay(float _Volume, int _Delay) { }
 
     /// <summary>Set the limit music volume for a specific player on the server after a fade</summary>
+    /// <param name="_Volume" />
+    /// <param name="_Fade" />
+    /// <param name="_Player" />
     public void SetLimitMusicVolumedBFade(float _Volume, int _Fade, CPlayer _Player) { }
 
     /// <summary>Set the limit music volume for all players on the server after a fade</summary>
+    /// <param name="_Volume" />
+    /// <param name="_Fade" />
     public void SetLimitMusicVolumedBFade(float _Volume, int _Fade) { }
 
     /// <summary>Set the limit music volume for a specific player for a certain duration (goes back to the previous volume)</summary>
-    /// <param name="Volume">The desired volume</param>
-    /// <param name="FadeIn">Duration to fade to the desired volume</param>
-    /// <param name="Duration">Duration to stay with the desired volume</param>
-    /// <param name="FadeOut">Duration to fade back to the previous volume</param>
-    /// <param name="Player">The specific player</param>
+    /// <param name="_Volume">The desired volume</param>
+    /// <param name="_FadeIn">Duration to fade to the desired volume</param>
+    /// <param name="_Duration">Duration to stay with the desired volume</param>
+    /// <param name="_FadeOut">Duration to fade back to the previous volume</param>
+    /// <param name="_Player">The specific player</param>
     public void SetLimitMusicVolumedBTemporary(float _Volume, int _FadeIn, int _Duration, int _FadeOut, CPlayer _Player) { }
 
     /// <summary>Set the limit music volume for for all players on the server for a certain duration (goes back to the previous volume)</summary>
+    /// <param name="_Volume" />
+    /// <param name="_FadeIn" />
+    /// <param name="_Duration" />
+    /// <param name="_FadeOut" />
     public void SetLimitMusicVolumedBTemporary(float _Volume, int _FadeIn, int _Duration, int _FadeOut) { }
 
     /// <summary>Bring the limit music volume back to the maximum (for a specific player)</summary>
-    /// <param name="Player">The specific player</param>
+    /// <param name="_Player">The specific player</param>
     public void SetLimitMusicVolumedBFull(CPlayer _Player) { }
 
     /// <summary>Bring the limit music volume back to the maximum for all players on the server</summary>

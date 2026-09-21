@@ -30,13 +30,13 @@ public partial class Pause : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Send a callback with the pause status</summary>
-    /// <param name="ResponseId">The response id to pass to the callback</param>
-    /// <param name="IsLoaded">Is the library loaded or not</param>
-    /// <param name="IsActive">Is there an ongoing pause or not</param>
+    /// <param name="_ResponseId">The response id to pass to the callback</param>
+    /// <param name="_IsLoaded">Is the library loaded or not</param>
+    /// <param name="_IsActive">Is there an ongoing pause or not</param>
     public void SendStatusCallback(string _ResponseId, bool _IsLoaded, bool _IsActive) { }
 
     /// <summary>Set the availabality of the pause system in the game mode False otherwise</summary>
-    /// <param name="IsAvailable">True if the pause system is available</param>
+    /// <param name="_IsAvailable">True if the pause system is available</param>
     public void SetAvailability(bool _IsAvailable) { }
 
     /// <summary>Check if the pause system is available False otherwise</summary>
@@ -44,11 +44,12 @@ public partial class Pause : ILib
     public bool IsAvailable() => default!;
 
     /// <summary>Set the current status of the pause False otherwise</summary>
-    /// <param name="IsActive">True if a pause is ongoing</param>
-    /// <param name="ResponseId">ResponseId to pass to the C_Callback_Pause_Status callback</param>
+    /// <param name="_IsActive">True if a pause is ongoing</param>
+    /// <param name="_ResponseId">ResponseId to pass to the C_Callback_Pause_Status callback</param>
     public void SetActive(bool _IsActive, string _ResponseId) { }
 
     /// <summary>Overload SetActive()</summary>
+    /// <param name="_IsActive" />
     public void SetActive(bool _IsActive) { }
 
     /// <summary>Check if there is an active pause False otherwise</summary>

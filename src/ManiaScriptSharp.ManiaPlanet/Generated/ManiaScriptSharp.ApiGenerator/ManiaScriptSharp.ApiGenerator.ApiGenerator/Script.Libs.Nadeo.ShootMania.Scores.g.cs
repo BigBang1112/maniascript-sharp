@@ -94,203 +94,203 @@ public partial class Scores : ILib
     public string Section_EndMatch() => default!;
 
     /// <summary>Decide which type of points to save in the score</summary>
-    /// <param name="PointsType">The type of points to save in the score</param>
+    /// <param name="_PointsType">The type of points to save in the score</param>
     public void SaveInScore(int _PointsType) { }
 
     /// <summary>Set a player round points</summary>
-    /// <param name="Score">The player's score to update</param>
-    /// <param name="RoundPoints">The number of points to set</param>
+    /// <param name="_Score">The player's score to update</param>
+    /// <param name="_RoundPoints">The number of points to set</param>
     public void SetPlayerRoundPoints(CSmScore _Score, int _RoundPoints) { }
 
     /// <summary>Get the round points of a player</summary>
-    /// <param name="Score">The player's score to check</param>
+    /// <param name="_Score">The player's score to check</param>
     /// <returns>The player's round points</returns>
     public int GetPlayerRoundPoints(CSmScore _Score) => default!;
 
     /// <summary>Add points to a player round points</summary>
-    /// <param name="Score">The player's score to update</param>
-    /// <param name="RoundPoints">The number of points to add</param>
+    /// <param name="_Score">The player's score to update</param>
+    /// <param name="_RoundPoints">The number of points to add</param>
     public void AddPlayerRoundPoints(CSmScore _Score, int _RoundPoints) { }
 
     /// <summary>Remove points from a player round points</summary>
-    /// <param name="Score">The player's score to update</param>
-    /// <param name="RoundPoints">The number of points to remove</param>
+    /// <param name="_Score">The player's score to update</param>
+    /// <param name="_RoundPoints">The number of points to remove</param>
     public void RemovePlayerRoundPoints(CSmScore _Score, int _RoundPoints) { }
 
     /// <summary>Set a player map points</summary>
-    /// <param name="Score">The player's score to update</param>
-    /// <param name="MapPoints">The number of points to set</param>
+    /// <param name="_Score">The player's score to update</param>
+    /// <param name="_MapPoints">The number of points to set</param>
     public void SetPlayerMapPoints(CSmScore _Score, int _MapPoints) { }
 
     /// <summary>Get the map points of a player</summary>
-    /// <param name="Score">The player's score to check</param>
+    /// <param name="_Score">The player's score to check</param>
     /// <returns>The player's map points</returns>
     public int GetPlayerMapPoints(CSmScore _Score) => default!;
 
     /// <summary>Add points to a player map points</summary>
-    /// <param name="Score">The player's score to update</param>
-    /// <param name="MapPoints">The number of points to add</param>
+    /// <param name="_Score">The player's score to update</param>
+    /// <param name="_MapPoints">The number of points to add</param>
     public void AddPlayerMapPoints(CSmScore _Score, int _MapPoints) { }
 
     /// <summary>Remove points from a player map points</summary>
-    /// <param name="Score">The player's score to update</param>
-    /// <param name="MapPoints">The number of points to remove</param>
+    /// <param name="_Score">The player's score to update</param>
+    /// <param name="_MapPoints">The number of points to remove</param>
     public void RemovePlayerMapPoints(CSmScore _Score, int _MapPoints) { }
 
     /// <summary>Set a player match points</summary>
-    /// <param name="Score">The player's score to update</param>
-    /// <param name="MatchPoints">The number of points to set</param>
+    /// <param name="_Score">The player's score to update</param>
+    /// <param name="_MatchPoints">The number of points to set</param>
     public void SetPlayerMatchPoints(CSmScore _Score, int _MatchPoints) { }
 
     /// <summary>Get the match points of a player</summary>
-    /// <param name="Score">The player's score to check</param>
+    /// <param name="_Score">The player's score to check</param>
     /// <returns>The player's match points</returns>
     public int GetPlayerMatchPoints(CSmScore _Score) => default!;
 
     /// <summary>Add points to a player match points</summary>
-    /// <param name="Score">The player's score to update</param>
-    /// <param name="MatchPoints">The number of points to add</param>
+    /// <param name="_Score">The player's score to update</param>
+    /// <param name="_MatchPoints">The number of points to add</param>
     public void AddPlayerMatchPoints(CSmScore _Score, int _MatchPoints) { }
 
     /// <summary>Remove points from a player match points</summary>
-    /// <param name="Score">The player's score to update</param>
-    /// <param name="MatchPoints">The number of points to remove</param>
+    /// <param name="_Score">The player's score to update</param>
+    /// <param name="_MatchPoints">The number of points to remove</param>
     public void RemovePlayerMatchPoints(CSmScore _Score, int _MatchPoints) { }
 
     /// <summary>Add the round points to the map and match points and reset the round points to 0</summary>
-    /// <param name="Score">The player's score to update</param>
+    /// <param name="_Score">The player's score to update</param>
     public void AffectPlayerRoundToMapPoints(CSmScore _Score) { }
 
     /// <summary>Apply AffectPlayerRoundToMapPoints() to all scores</summary>
     public void AffectPlayersRoundToMapPoints() { }
 
     /// <summary>Get the best score for a given type of points</summary>
-    /// <param name="Type">The type of points</param>
-    /// <param name="Order">The order of the points</param>
+    /// <param name="_Type">The type of points</param>
+    /// <param name="_Order">The order of the points</param>
     /// <returns>The best score if any, Null if draw</returns>
     public CSmScore GetBestPlayerScore(int _Type, int _Order) => default!;
 
     /// <summary>Get the player's score with the best round points Can be Null if there is a draw</summary>
-    /// <param name="Order">The order in which the round points are sorted</param>
+    /// <param name="_Order">The order in which the round points are sorted</param>
     /// <returns>The score with the best round points</returns>
     public CSmScore GetBestPlayerRoundPoints(int _Order) => default!;
 
     /// <summary>Get the player's score with the best map points Can be Null if there is a draw</summary>
-    /// <param name="Order">The order in which the map points are sorted</param>
+    /// <param name="_Order">The order in which the map points are sorted</param>
     /// <returns>The score with the best map points</returns>
     public CSmScore GetBestPlayerMapPoints(int _Order) => default!;
 
     /// <summary>Get the player's score with the best match points Can be Null if there is a draw</summary>
-    /// <param name="Order">The order in which the match points are sorted</param>
+    /// <param name="_Order">The order in which the match points are sorted</param>
     /// <returns>The score with the best match points</returns>
     public CSmScore GetBestPlayerMatchPoints(int _Order) => default!;
 
     /// <summary>Update a player contribution to a clan Player contribution to a clan is used to automatically select in which LadderClan the player should be</summary>
-    /// <param name="Score">The player's score</param>
-    /// <param name="Clan">The clan that received the points</param>
-    /// <param name="Points">The amount of points contributed</param>
+    /// <param name="_Score">The player's score</param>
+    /// <param name="_Clan">The clan that received the points</param>
+    /// <param name="_Points">The amount of points contributed</param>
     public void AddClanContribution(CSmScore _Score, int _Clan, int _Points) { }
 
     /// <summary>Get the clans contribution of a player</summary>
-    /// <param name="Score">The player's score</param>
+    /// <param name="_Score">The player's score</param>
     /// <returns>The player's clans contribution</returns>
     public global::System.Collections.Generic.Dictionary<int, int> GetClansContribution(CSmScore _Score) => default!;
 
     /// <summary>Get the contribution of a player to a given clan</summary>
-    /// <param name="Score">The player's score</param>
-    /// <param name="Clan">The clan to check</param>
+    /// <param name="_Score">The player's score</param>
+    /// <param name="_Clan">The clan to check</param>
     public int GetClanContribution(CSmScore _Score, int _Clan) => default!;
 
     /// <summary>Get the clan a player most contributed to If both clans contributions are equal then this function return 0</summary>
-    /// <param name="Score">The player's score</param>
+    /// <param name="_Score">The player's score</param>
     /// <returns>The most contributed clan, or 0 if there is a draw</returns>
     public int GetMostContributedClan(CSmScore _Score) => default!;
 
     /// <summary>Reset the clans contribution of a player</summary>
-    /// <param name="Score">The player's score</param>
+    /// <param name="_Score">The player's score</param>
     public void ResetClansContribution(CSmScore _Score) { }
 
     /// <summary>Reset the clans contribution of all players</summary>
     public void ResetClansContributions() { }
 
     /// <summary>Set a clan round points</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="RoundPoints">The number of points to set</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_RoundPoints">The number of points to set</param>
     public void SetClanRoundPoints(int _Clan, int _RoundPoints) { }
 
     /// <summary>Get the round points of a clan</summary>
-    /// <param name="Clan">The clan to check</param>
+    /// <param name="_Clan">The clan to check</param>
     /// <returns>The clan's round points</returns>
     public int GetClanRoundPoints(int _Clan) => default!;
 
     /// <summary>Add points to a clan round points</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="RoundPoints">The number of points to add</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_RoundPoints">The number of points to add</param>
     public void AddClanRoundPoints(int _Clan, int _RoundPoints) { }
 
     /// <summary>Remove points from a clan round points</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="RoundPoints">The number of points to remove</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_RoundPoints">The number of points to remove</param>
     public void RemoveClanRoundPoints(int _Clan, int _RoundPoints) { }
 
     /// <summary>Set a clan map points</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="MapPoints">The number of points to set</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_MapPoints">The number of points to set</param>
     public void SetClanMapPoints(int _Clan, int _MapPoints) { }
 
     /// <summary>Get the map points of a clan</summary>
-    /// <param name="Clan">The clan to check</param>
+    /// <param name="_Clan">The clan to check</param>
     /// <returns>The clan's map points</returns>
     public int GetClanMapPoints(int _Clan) => default!;
 
     /// <summary>Add points to a clan map points</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="MapPoints">The number of points to add</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_MapPoints">The number of points to add</param>
     public void AddClanMapPoints(int _Clan, int _MapPoints) { }
 
     /// <summary>Remove points from a clan map points</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="MapPoints">The number of points to remove</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_MapPoints">The number of points to remove</param>
     public void RemoveClanMapPoints(int _Clan, int _MapPoints) { }
 
     /// <summary>Set a clan match points</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="MatchPoints">The number of points to set</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_MatchPoints">The number of points to set</param>
     public void SetClanMatchPoints(int _Clan, int _MatchPoints) { }
 
     /// <summary>Get the match points of a clan</summary>
-    /// <param name="Clan">The clan to check</param>
+    /// <param name="_Clan">The clan to check</param>
     /// <returns>The clan's match points</returns>
     public int GetClanMatchPoints(int _Clan) => default!;
 
     /// <summary>Add points to a clan match points</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="MatchPoints">The number of points to add</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_MatchPoints">The number of points to add</param>
     public void AddClanMatchPoints(int _Clan, int _MatchPoints) { }
 
     /// <summary>Remove points from a clan match points</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="MatchPoints">The number of points to remove</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_MatchPoints">The number of points to remove</param>
     public void RemoveClanMatchPoints(int _Clan, int _MatchPoints) { }
 
     /// <summary>Get the clan with the best points Can be 0 if there is a draw</summary>
-    /// <param name="Type">The type of points to check</param>
-    /// <param name="Order">The order in which the points are sorted</param>
+    /// <param name="_Type">The type of points to check</param>
+    /// <param name="_Order">The order in which the points are sorted</param>
     /// <returns>The clan with the best points</returns>
     public int GetBestClanPoints(int _Type, int _Order) => default!;
 
     /// <summary>Get the clan with the best round points Can be 0 if there is a draw</summary>
-    /// <param name="Order">The order in which the round points are sorted</param>
+    /// <param name="_Order">The order in which the round points are sorted</param>
     /// <returns>The clan with the best round points</returns>
     public int GetBestClanRoundPoints(int _Order) => default!;
 
     /// <summary>Get the clan with the best map points Can be 0 if there is a draw</summary>
-    /// <param name="Order">The order in which the map points are sorted</param>
+    /// <param name="_Order">The order in which the map points are sorted</param>
     /// <returns>The clan with the best map points</returns>
     public int GetBestClanMapPoints(int _Order) => default!;
 
     /// <summary>Get the clan with the best match points Can be 0 if there is a draw</summary>
-    /// <param name="Order">The order in which the match points are sorted</param>
+    /// <param name="_Order">The order in which the match points are sorted</param>
     /// <returns>The clan with the best match points</returns>
     public int GetBestClanMatchPoints(int _Order) => default!;
 
@@ -298,23 +298,23 @@ public partial class Scores : ILib
     public void UpdateClansScoresUI() { }
 
     /// <summary>Enable or disable the score summary at the top of the screen</summary>
-    /// <param name="Enable">True to enable, False to disable</param>
+    /// <param name="_Enable">True to enable, False to disable</param>
     public void EnableClansScoresUI(bool _Enable) { }
 
     /// <summary>Set which score summary points are update in the UI</summary>
-    /// <param name="RoundPoints">True to update the round points</param>
-    /// <param name="MapPoints">True to update the map points</param>
-    /// <param name="MatchPoints">True to update the match points</param>
+    /// <param name="_RoundPoints">True to update the round points</param>
+    /// <param name="_MapPoints">True to update the map points</param>
+    /// <param name="_MatchPoints">True to update the match points</param>
     public void SetupClansScoresUI(bool _RoundPoints, bool _MapPoints, bool _MatchPoints) { }
 
     /// <summary>Enable or disable the possiblity to have a negative amount of map points or round points for the player</summary>
-    /// <param name="RoundPoints">Set for round points</param>
-    /// <param name="MapPoints">Set for map points</param>
-    /// <param name="MatchPoints">Set for match points</param>
+    /// <param name="_RoundPoints">Set for round points</param>
+    /// <param name="_MapPoints">Set for map points</param>
+    /// <param name="_MatchPoints">Set for match points</param>
     public void EnablePlayerNegativePoints(bool _RoundPoints, bool _MapPoints, bool _MatchPoints) { }
 
     /// <summary>Save the score's id of the winner</summary>
-    /// <param name="Score">The score of the winner</param>
+    /// <param name="_Score">The score of the winner</param>
     public void SetPlayerWinner(CSmScore _Score) { }
 
     /// <summary>Get the score of the winner</summary>
@@ -329,7 +329,7 @@ public partial class Scores : ILib
     public void ResetPlayerWinner() { }
 
     /// <summary>Save which clan won</summary>
-    /// <param name="Clan">The clan that won</param>
+    /// <param name="_Clan">The clan that won</param>
     public void SetClanWinner(int _Clan) { }
 
     /// <summary>Get the clan that won</summary>
@@ -346,48 +346,49 @@ public partial class Scores : ILib
     public void UnspawnWinners() { }
 
     /// <summary>Get the amount of LP awarded after the closing of the ladder match</summary>
+    /// <param name="_Score" />
     /// <returns>Amount of LP won</returns>
     public float GetLP(CSmScore _Score) => default!;
 
     /// <summary>Set the ladder match score value of a score</summary>
-    /// <param name="Score">The score to update</param>
-    /// <param name="Value">The value of the ladder score</param>
+    /// <param name="_Score">The score to update</param>
+    /// <param name="_Value">The value of the ladder score</param>
     public void SetLadderScore(CSmScore _Score, float _Value) { }
 
     /// <summary>Get the ladder match score value of a score</summary>
-    /// <param name="Score">The score to check</param>
+    /// <param name="_Score">The score to check</param>
     /// <returns>The value of the ladder score</returns>
     public float GetLadderScore(CSmScore _Score) => default!;
 
     /// <summary>Set the ladder clan of a score</summary>
-    /// <param name="Score">The score to update</param>
-    /// <param name="Clan">The clan to assign</param>
+    /// <param name="_Score">The score to update</param>
+    /// <param name="_Clan">The clan to assign</param>
     public void SetLadderClan(CSmScore _Score, int _Clan) { }
 
     /// <summary>Get the ladder clan of a score</summary>
-    /// <param name="Score">The score to check</param>
+    /// <param name="_Score">The score to check</param>
     /// <returns>The clan</returns>
     public int GetLadderClan(CSmScore _Score) => default!;
 
     /// <summary>Assign a ladder rank sort value to the given score</summary>
-    /// <param name="Score">The score to update</param>
-    /// <param name="Value">The sort value</param>
+    /// <param name="_Score">The score to update</param>
+    /// <param name="_Value">The sort value</param>
     public void SetLadderRank(CSmScore _Score, int _Value) { }
 
     /// <summary>Get the ladder rank sort value of the given score</summary>
-    /// <param name="Score">The score to check</param>
+    /// <param name="_Score">The score to check</param>
     /// <returns>The sort value</returns>
     public int GetLadderRank(CSmScore _Score) => default!;
 
     public void SetupLadder(CSmScore _Score, int _LadderRank, int _LadderClan, float _LadderScore) { }
 
     /// <summary>Compute ranking for ladder points Similar to the Ladder_ComputeRank() function from CTmMode</summary>
-    /// <param name="SortCriteria">The criteria used to sort the ranking</param>
-    /// <param name="Order">&lt; 0 Descending order, &gt;= 0 ascending order</param>
+    /// <param name="_SortCriteria">The criteria used to sort the ranking</param>
+    /// <param name="_Order">&lt; 0 Descending order, &gt;= 0 ascending order</param>
     public void ComputeLadder(int _SortCriteria, int _Order) { }
 
     /// <summary>Reset all scores</summary>
-    /// <param name="Level">The level of reset</param>
+    /// <param name="_Level">The level of reset</param>
     public void Clear(int _Level) { }
 
     /// <summary>Reset all scores</summary>
@@ -412,8 +413,8 @@ public partial class Scores : ILib
     public void EndRound() { }
 
     /// <summary>Send teams and players scores</summary>
-    /// <param name="Section">The section in which the callback was sent</param>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_Section">The section in which the callback was sent</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void XmlRpc_SendScores(string _Section, string _ResponseId) { }
 
     public void XmlRpc_SendScores() { }

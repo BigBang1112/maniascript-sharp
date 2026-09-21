@@ -46,14 +46,15 @@ public partial class Laps : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Ba
     public int GetFinishTimeout() => default!;
 
     /// <summary>Update the scores table footer text</summary>
+    /// <param name="_StartTime" />
     public void UpdateScoresTableFooter(int _StartTime) { }
 
     /// <summary>Set the time limit</summary>
-    /// <param name="StartTime">The time at which the race started</param>
+    /// <param name="_StartTime">The time at which the race started</param>
     public void SetTimeLimit(int _StartTime) { }
 
     /// <summary>Set the number of laps</summary>
-    /// <param name="LapsNb">The number of laps</param>
-    /// <param name="StartTime">The time at which the race started</param>
+    /// <param name="_LapsNb">The number of laps</param>
+    /// <param name="_StartTime">The time at which the race started</param>
     public void SetLapsNb(int _LapsNb, int _StartTime) { }
 }

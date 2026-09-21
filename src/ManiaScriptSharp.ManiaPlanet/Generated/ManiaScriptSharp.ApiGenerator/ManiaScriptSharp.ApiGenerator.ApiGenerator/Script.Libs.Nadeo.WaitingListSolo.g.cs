@@ -25,6 +25,8 @@ public partial class WaitingListSolo : ILib
     public string GetScriptName() => default!;
 
     /// <summary>_PlayerId Player to replace</summary>
+    /// <param name="_PlayerId" />
+    /// <param name="_ClanNb" />
     public Ident SubstitutePlayer(Ident _PlayerId, int _ClanNb) => default!;
 
     public void AddWaiting(Ident _PlayerId) { }

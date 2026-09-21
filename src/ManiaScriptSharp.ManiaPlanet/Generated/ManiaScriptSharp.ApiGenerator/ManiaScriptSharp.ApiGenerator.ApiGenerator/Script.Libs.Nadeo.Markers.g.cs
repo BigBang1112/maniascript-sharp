@@ -31,93 +31,93 @@ public partial class Markers : ILib
     public void Load() { }
 
     /// <summary>Add a marker to an UI</summary>
-    /// <param name="Marker">The marker to add</param>
-    /// <param name="UI">The UI that will receive the marker</param>
+    /// <param name="_Marker">The marker to add</param>
+    /// <param name="_UI">The UI that will receive the marker</param>
     public void Add(string _Marker, CUIConfig _UI) { }
 
     /// <summary>Add a marker to the global UI</summary>
-    /// <param name="Marker">The marker to add</param>
+    /// <param name="_Marker">The marker to add</param>
     public void Add(string _Marker) { }
 
     /// <summary>Add a marker to a player</summary>
-    /// <param name="Marker">The marker to add</param>
-    /// <param name="Player">The player that will receive the marker</param>
+    /// <param name="_Marker">The marker to add</param>
+    /// <param name="_Player">The player that will receive the marker</param>
     public void Add(string _Marker, CPlayer _Player) { }
 
     /// <summary>Create a marker associated with a manialink from the Markers layer The &lt;marker /&gt; must contain a valid &quot;manialinkframeid&quot; parameter as well as the manialink.</summary>
-    /// <param name="Marker">The marker to add</param>
-    /// <param name="Manialink">The manialink to associate</param>
+    /// <param name="_Marker">The marker to add</param>
+    /// <param name="_Manialink">The manialink to associate</param>
     public void Add(string _Marker, string _Manialink) { }
 
     /// <summary>Add a manialink in the layer Markers with the given manialinkframeid</summary>
-    /// <param name="Id">The manialinkframeid</param>
-    /// <param name="Manialink">The manialink to add</param>
+    /// <param name="_Id">The manialinkframeid</param>
+    /// <param name="_Manialink">The manialink to add</param>
     public void AddManialink(string _Id, string _Manialink) { }
 
     /// <summary>Remove a marker from an UI</summary>
-    /// <param name="Marker">The marker to remove</param>
-    /// <param name="UI">The UI from which the marker will be removed</param>
+    /// <param name="_Marker">The marker to remove</param>
+    /// <param name="_UI">The UI from which the marker will be removed</param>
     public void Remove(string _Marker, CUIConfig _UI) { }
 
     /// <summary>Remove a marker from the global UI</summary>
-    /// <param name="Marker">The marker to remove</param>
+    /// <param name="_Marker">The marker to remove</param>
     public void Remove(string _Marker) { }
 
     /// <summary>Remove a marker from a player</summary>
-    /// <param name="Marker">The marker to remove</param>
-    /// <param name="Player">The player from which the marker will be removed</param>
+    /// <param name="_Marker">The marker to remove</param>
+    /// <param name="_Player">The player from which the marker will be removed</param>
     public void Remove(string _Marker, CPlayer _Player) { }
 
     /// <summary>Remove all markers containing an attribute with the specified value from an UI</summary>
-    /// <param name="Attribute">The attribute to scan</param>
-    /// <param name="Value">The value to remove</param>
-    /// <param name="UI">The UI from which the markers will be removed</param>
+    /// <param name="_Attribute">The attribute to scan</param>
+    /// <param name="_Value">The value to remove</param>
+    /// <param name="_UI">The UI from which the markers will be removed</param>
     public void Remove(string _Attribute, string _Value, CUIConfig _UI) { }
 
     /// <summary>Remove all markers containing an attribute with the specified value from the global UI</summary>
-    /// <param name="Attribute">The attribute to scan</param>
-    /// <param name="Value">The value to remove</param>
+    /// <param name="_Attribute">The attribute to scan</param>
+    /// <param name="_Value">The value to remove</param>
     public void Remove(string _Attribute, string _Value) { }
 
     /// <summary>Remove all markers containing an attribute with the specified value from a player</summary>
-    /// <param name="Attribute">The attribute to scan</param>
-    /// <param name="Value">The value to remove</param>
-    /// <param name="Player">The player from which the markers will be removed</param>
+    /// <param name="_Attribute">The attribute to scan</param>
+    /// <param name="_Value">The value to remove</param>
+    /// <param name="_Player">The player from which the markers will be removed</param>
     public void Remove(string _Attribute, string _Value, CPlayer _Player) { }
 
     /// <summary>Remove a manialink from the layer Markers with the given manialinkframeid</summary>
-    /// <param name="Id">The manialinkframeid to remove</param>
+    /// <param name="_Id">The manialinkframeid to remove</param>
     public void RemoveManialink(string _Id) { }
 
     /// <summary>Remove all markers from an UI</summary>
-    /// <param name="UI">The UI from which the markers will be removed</param>
+    /// <param name="_UI">The UI from which the markers will be removed</param>
     public void Clear(CUIConfig _UI) { }
 
     /// <summary>Remove all markers from the global UI</summary>
     public void Clear() { }
 
     /// <summary>Remove all markers from a player</summary>
-    /// <param name="Player">The player from which the markers will be removed</param>
+    /// <param name="_Player">The player from which the markers will be removed</param>
     public void Clear(CPlayer _Player) { }
 
     /// <summary>Set the manialink script of the marker layer</summary>
-    /// <param name="Script">The script to set in the manialink</param>
+    /// <param name="_Script">The script to set in the manialink</param>
     public void SetManialinkScript(string _Script) { }
 
     /// <summary>Add an attribute to the valid attributes array Any attribute not present in this array will be removed from the marker</summary>
-    /// <param name="Attribute">The attribute to add</param>
+    /// <param name="_Attribute">The attribute to add</param>
     public void AddAttribute(string _Attribute) { }
 
     /// <summary>Add several attributes to the valid attributes array</summary>
-    /// <param name="Attributes">The attributes to add</param>
+    /// <param name="_Attributes">The attributes to add</param>
     public void AddAttributes(global::System.Collections.Generic.IList<string> _Attributes) { }
 
     /// <summary>Remove an attribute from the valid attributes array</summary>
-    /// <param name="Attribute">The attribute to remove</param>
+    /// <param name="_Attribute">The attribute to remove</param>
     public void RemoveAttribute(string _Attribute) { }
 
     /// <summary>Remove several attributes from the valid attributes array</summary>
-    /// <param name="Attributes">The attributes to remove</param>
+    /// <param name="_Attributes">The attributes to remove</param>
     public void RemoveAttributes(global::System.Collections.Generic.IList<string> _Attributes) { }
 
     /// <summary>Get the valid attributes</summary>
@@ -125,59 +125,59 @@ public partial class Markers : ILib
     public global::System.Collections.Generic.IList<string> GetAttributes() => default!;
 
     /// <summary>Display an image at a given position</summary>
-    /// <param name="Id">Id of this point</param>
-    /// <param name="Pos">Position of the point on the minimap</param>
-    /// <param name="HudVisibility">Visibility of the point on the HUD</param>
-    /// <param name="MiniMapVisibility">Visibility of the point on the minimap</param>
-    /// <param name="ImgUrl">URL to the point image</param>
-    /// <param name="Player">The player who'll see the point (if null, global UI)</param>
+    /// <param name="_Id">Id of this point</param>
+    /// <param name="_Pos">Position of the point on the minimap</param>
+    /// <param name="_HudVisibility">Visibility of the point on the HUD</param>
+    /// <param name="_MiniMapVisibility">Visibility of the point on the minimap</param>
+    /// <param name="_ImgUrl">URL to the point image</param>
+    /// <param name="_Player">The player who'll see the point (if null, global UI)</param>
     public void MiniMap_Add(string _Id, Vec3 _Pos, string _HudVisibility, string _MiniMapVisibility, string _ImgUrl, CPlayer _Player) { }
 
     /// <summary>Display an image at a given position</summary>
-    /// <param name="Id">Id of this point</param>
-    /// <param name="Pos">Position of the point on the minimap</param>
-    /// <param name="Player">The player who'll see the point (if null, global UI)</param>
+    /// <param name="_Id">Id of this point</param>
+    /// <param name="_Pos">Position of the point on the minimap</param>
+    /// <param name="_Player">The player who'll see the point (if null, global UI)</param>
     public void MiniMap_Add(string _Id, Vec3 _Pos, CPlayer _Player) { }
 
     /// <summary>Display an image at a given position</summary>
-    /// <param name="Id">Id of this point</param>
-    /// <param name="Pos">Position of the point on the minimap</param>
+    /// <param name="_Id">Id of this point</param>
+    /// <param name="_Pos">Position of the point on the minimap</param>
     public void MiniMap_Add(string _Id, Vec3 _Pos) { }
 
     /// <summary>Display an image following a player</summary>
-    /// <param name="Id">Id of this point</param>
-    /// <param name="PlayerOnMiniMap">The player to follow</param>
-    /// <param name="ShowDir">Show the orientation of the player</param>
-    /// <param name="HudVisibility">Visibility of the point on the HUD (Never, Always, WhenInFrustum, WhenVisible or WhenInMiddleOfScreen)</param>
-    /// <param name="MiniMapVisibility">Visibility of the point on the minimap (Never, Always or WhenInFrame)</param>
-    /// <param name="ImgUrl">URL to the point image</param>
-    /// <param name="Player">The player who'll see the point (if null, global UI)</param>
+    /// <param name="_Id">Id of this point</param>
+    /// <param name="_PlayerOnMiniMap">The player to follow</param>
+    /// <param name="_ShowDir">Show the orientation of the player</param>
+    /// <param name="_HudVisibility">Visibility of the point on the HUD (Never, Always, WhenInFrustum, WhenVisible or WhenInMiddleOfScreen)</param>
+    /// <param name="_MiniMapVisibility">Visibility of the point on the minimap (Never, Always or WhenInFrame)</param>
+    /// <param name="_ImgUrl">URL to the point image</param>
+    /// <param name="_Player">The player who'll see the point (if null, global UI)</param>
     public void MiniMap_Add(string _Id, CPlayer _PlayerOnMiniMap, bool _ShowDir, string _HudVisibility, string _MiniMapVisibility, string _ImgUrl, CPlayer _Player) { }
 
     /// <summary>Display an image following a player</summary>
-    /// <param name="Id">Id of this point</param>
-    /// <param name="PlayerOnMiniMap">The player to follow</param>
-    /// <param name="Player">The player who'll see the point (if null, global UI)</param>
+    /// <param name="_Id">Id of this point</param>
+    /// <param name="_PlayerOnMiniMap">The player to follow</param>
+    /// <param name="_Player">The player who'll see the point (if null, global UI)</param>
     public void MiniMap_Add(string _Id, CPlayer _PlayerOnMiniMap, CPlayer _Player) { }
 
     /// <summary>Display an image following a player</summary>
-    /// <param name="Id">Id of this point</param>
-    /// <param name="PlayerOnMiniMap">The player to follow</param>
+    /// <param name="_Id">Id of this point</param>
+    /// <param name="_PlayerOnMiniMap">The player to follow</param>
     public void MiniMap_Add(string _Id, CPlayer _PlayerOnMiniMap) { }
 
     /// <summary>Remove one minimap point</summary>
-    /// <param name="Id">Id of the point to remove</param>
+    /// <param name="_Id">Id of the point to remove</param>
     public void MiniMap_Remove(string _Id) { }
 
     /// <summary>Remove one minimap point from a player</summary>
-    /// <param name="Id">Id of the point to remove</param>
-    /// <param name="Player">The player who'll loose the point</param>
+    /// <param name="_Id">Id of the point to remove</param>
+    /// <param name="_Player">The player who'll loose the point</param>
     public void MiniMap_Remove(string _Id, CPlayer _Player) { }
 
     /// <summary>Remove all minimap points</summary>
     public void MiniMap_Clear() { }
 
     /// <summary>Remove all minimap points from a player</summary>
-    /// <param name="Player">The player who'll loose the points</param>
+    /// <param name="_Player">The player who'll loose the points</param>
     public void MiniMap_Clear(CPlayer _Player) { }
 }

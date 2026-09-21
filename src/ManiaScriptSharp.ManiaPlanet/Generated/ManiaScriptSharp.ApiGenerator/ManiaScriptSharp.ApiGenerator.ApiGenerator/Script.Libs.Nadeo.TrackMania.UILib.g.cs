@@ -29,47 +29,47 @@ public partial class UILib : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Display a module</summary>
-    /// <param name="ModuleName">The name of the module to set</param>
-    /// <param name="Display">Show or not the module</param>
+    /// <param name="_ModuleName">The name of the module to set</param>
+    /// <param name="_Display">Show or not the module</param>
     public void SetModuleVisibility(string _ModuleName, bool _Display) { }
 
     /// <summary>Get the visibility of a module</summary>
-    /// <param name="ModuleName">The name of the module to get</param>
+    /// <param name="_ModuleName">The name of the module to get</param>
     /// <returns>True if the module is visible, False otherwise</returns>
     public bool GetModuleVisibility(string _ModuleName) => default!;
 
     /// <summary>Set the position of a module</summary>
-    /// <param name="ModuleName">The name of the module to set</param>
-    /// <param name="Pos">The new position of the module</param>
+    /// <param name="_ModuleName">The name of the module to set</param>
+    /// <param name="_Pos">The new position of the module</param>
     public void SetModulePosition(string _ModuleName, Vec3 _Pos) { }
 
     /// <summary>Get the position of a module</summary>
-    /// <param name="ModuleName">The name of the module to get</param>
+    /// <param name="_ModuleName">The name of the module to get</param>
     /// <returns>The position of the module</returns>
     public Vec3 GetModulePosition(string _ModuleName) => default!;
 
     /// <summary>Set the time gap mode for the TM time gap module - BestRace: compare the best time of the players - CurRace: compare the times of the current race of the players</summary>
-    /// <param name="Mode">The mode to use between &quot;BestRace&quot; and &quot;CurRace&quot;</param>
+    /// <param name="_Mode">The mode to use between &quot;BestRace&quot; and &quot;CurRace&quot;</param>
     public void SetTimeGapMode(string _Mode) { }
 
     /// <summary>Set the time gap mode for the TM time gap module - BestRace: compare the best time of the players - CurRace: compare the times of the current race of the players</summary>
-    /// <param name="Mode">The mode to use between &quot;BestRace&quot; and &quot;CurRace&quot;</param>
+    /// <param name="_Mode">The mode to use between &quot;BestRace&quot; and &quot;CurRace&quot;</param>
     public void SetCheckpointTimeMode(string _Mode) { }
 
     /// <summary>Display the time diff in the checkpoint time module</summary>
-    /// <param name="Display">Show or not the time diff</param>
+    /// <param name="_Display">Show or not the time diff</param>
     public void DisplayTimeDiff(bool _Display) { }
 
     /// <summary>Set if the mode has IndependantLaps or not</summary>
-    /// <param name="IndependantLaps">True if the mode has IndependantLaps, false otherwise</param>
+    /// <param name="_IndependantLaps">True if the mode has IndependantLaps, false otherwise</param>
     public void SetIndependantLaps(bool _IndependantLaps) { }
 
     /// <summary>Set the CutOffTimeLimit</summary>
-    /// <param name="CutOffTimeLimit">The new value of CutOffTimeLimit</param>
+    /// <param name="_CutOffTimeLimit">The new value of CutOffTimeLimit</param>
     public void SetCutOffTimeLimit(int _CutOffTimeLimit) { }
 
     /// <summary>Set the number of lines of the chat</summary>
-    /// <param name="LineCount">The number of lines of the chat</param>
+    /// <param name="_LineCount">The number of lines of the chat</param>
     public void SetChatLineCount(int _LineCount) { }
 
     /// <summary>Get the number of lines of the chat</summary>
@@ -83,15 +83,15 @@ public partial class UILib : ILib
     public void Loop() { }
 
     /// <summary>Load a module</summary>
-    /// <param name="ModuleId">The name of the module to load</param>
+    /// <param name="_ModuleId">The name of the module to load</param>
     public void LoadModule(string _ModuleId) { }
 
     /// <summary>Load several modules</summary>
-    /// <param name="ModulesIds">A list of modules to load with the library</param>
+    /// <param name="_ModulesIds">A list of modules to load with the library</param>
     public void LoadModules(global::System.Collections.Generic.IList<string> _ModulesIds) { }
 
     /// <summary>Unload a module</summary>
-    /// <param name="ModuleId">The name of the module to unload</param>
+    /// <param name="_ModuleId">The name of the module to unload</param>
     public void UnloadModule(string _ModuleId) { }
 
     /// <summary>Unload the library</summary>
@@ -101,6 +101,6 @@ public partial class UILib : ILib
     public void Load() { }
 
     /// <summary>(Overload) Load the library with some modules</summary>
-    /// <param name="AutoLoadModules">A list of modules to load with the library</param>
+    /// <param name="_AutoLoadModules">A list of modules to load with the library</param>
     public void Load(global::System.Collections.Generic.IList<string> _AutoLoadModules) { }
 }

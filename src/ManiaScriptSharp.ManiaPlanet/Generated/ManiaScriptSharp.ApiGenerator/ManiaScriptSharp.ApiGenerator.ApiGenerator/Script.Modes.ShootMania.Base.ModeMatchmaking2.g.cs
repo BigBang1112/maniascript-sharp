@@ -40,7 +40,7 @@ public partial class ModeMatchmaking2 : global::ManiaScriptSharp.Scripts.Modes.S
     public virtual void MM_Private_GetEndTime() { }
 
     /// <summary>Reset the combo of a player</summary>
-    /// <param name="Player">The player to reset</param>
+    /// <param name="_Player">The player to reset</param>
     public void Lobby_Private_ResetBestCombo(CPlayer _Player) { }
 
     /// <summary>Reinitialize all the players</summary>
@@ -53,11 +53,11 @@ public partial class ModeMatchmaking2 : global::ManiaScriptSharp.Scripts.Modes.S
     public void Lobby_Private_UnspawnPlayers() { }
 
     /// <summary>Display a message to a player when he beats his best combo</summary>
-    /// <param name="Player">The player who'll receive the message</param>
+    /// <param name="_Player">The player who'll receive the message</param>
     public void Lobby_Private_ShowScore(CSmPlayer _Player) { }
 
     /// <summary>Count points and display an hit notice to the shooter</summary>
-    /// <param name="Shooter">The player who shot and hit</param>
+    /// <param name="_Shooter">The player who shot and hit</param>
     /// <returns>The number of points earned on this hit</returns>
     public int Lobby_Private_NotifyHit(CSmPlayer _Shooter) => default!;
 

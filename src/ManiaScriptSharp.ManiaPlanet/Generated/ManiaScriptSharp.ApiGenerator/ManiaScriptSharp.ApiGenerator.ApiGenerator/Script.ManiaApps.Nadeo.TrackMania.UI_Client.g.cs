@@ -67,11 +67,11 @@ public partial class UI_Client : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Load a module</summary>
-    /// <param name="ModuleId">The id of the module to load</param>
+    /// <param name="_ModuleId">The id of the module to load</param>
     public void LoadModule(string _ModuleId) { }
 
     /// <summary>Unload a module</summary>
-    /// <param name="ModuleId">The id of the module to unload</param>
+    /// <param name="_ModuleId">The id of the module to unload</param>
     public void UnloadModule(string _ModuleId) { }
 
     /// <summary>Update the library</summary>

@@ -34,7 +34,7 @@ public partial class Env : ILib
     public string Env_Development() => default!;
 
     /// <summary>Set the environment</summary>
-    /// <param name="Env">The environment</param>
+    /// <param name="_Env">The environment</param>
     public void Set(string _Env) { }
 
     /// <summary>Get the environment</summary>

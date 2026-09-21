@@ -43,7 +43,7 @@ public partial class WarmUp3 : ILib
     public void DetachUI() { }
 
     /// <summary>Set the visibility of the layer on the screen</summary>
-    /// <param name="Visibility">The new visibility</param>
+    /// <param name="_Visibility">The new visibility</param>
     public void SetUIVisibility(bool _Visibility) { }
 
     /// <summary>Get the visibility of the layer on the screen</summary>
@@ -51,7 +51,7 @@ public partial class WarmUp3 : ILib
     public bool GetUIVisibility() => default!;
 
     /// <summary>Set the position of the layer on the screen</summary>
-    /// <param name="Pos">The new position</param>
+    /// <param name="_Pos">The new position</param>
     public void SetUIPosition(Vec3 _Pos) { }
 
     /// <summary>Get the position of the layer on the screen</summary>
@@ -59,12 +59,12 @@ public partial class WarmUp3 : ILib
     public Vec3 GetUIPosition() => default!;
 
     /// <summary>Decide if a player can play during the warm up or not False otherwise</summary>
-    /// <param name="Score">The player's score</param>
-    /// <param name="CanPlay">True if the player can play</param>
+    /// <param name="_Score">The player's score</param>
+    /// <param name="_CanPlay">True if the player can play</param>
     public void CanPlay(CTmScore _Score, bool _CanPlay) { }
 
     /// <summary>Check if a player can play during the warm up False otherwise</summary>
-    /// <param name="Score">The player's score</param>
+    /// <param name="_Score">The player's score</param>
     /// <returns>True if the player can play</returns>
     public bool CanPlay(CTmScore _Score) => default!;
 
@@ -76,9 +76,9 @@ public partial class WarmUp3 : ILib
     public bool Finished() => default!;
 
     /// <summary>Initialize the warm up round</summary>
-    /// <param name="RoundsPlayed">The number of warm up rounds played</param>
-    /// <param name="RoundsToPlay">The number of warm up rounds to play</param>
-    /// <param name="TimeLimit">Time limit of the round in milliseconds</param>
+    /// <param name="_RoundsPlayed">The number of warm up rounds played</param>
+    /// <param name="_RoundsToPlay">The number of warm up rounds to play</param>
+    /// <param name="_TimeLimit">Time limit of the round in milliseconds</param>
     public void StartRound(int _RoundsPlayed, int _RoundsToPlay, int _TimeLimit) { }
 
     /// <summary>Return if the warm up round is finished or not</summary>
@@ -95,13 +95,13 @@ public partial class WarmUp3 : ILib
     public void End() { }
 
     /// <summary>Send a callback with the warm up status</summary>
-    /// <param name="ResponseId">The responseid of the callback</param>
-    /// <param name="IsLoaded">Is the warm up available or not</param>
-    /// <param name="IsActive">Is there an ongoing warm up or not</param>
+    /// <param name="_ResponseId">The responseid of the callback</param>
+    /// <param name="_IsLoaded">Is the warm up available or not</param>
+    /// <param name="_IsActive">Is there an ongoing warm up or not</param>
     public void SendStatusCallback(string _ResponseId, bool _IsLoaded, bool _IsActive) { }
 
     /// <summary>Set the availabality of the warmup in the game mode False otherwise</summary>
-    /// <param name="IsAvailable">True if the warmup is available</param>
+    /// <param name="_IsAvailable">True if the warmup is available</param>
     public void SetAvailability(bool _IsAvailable) { }
 
     /// <summary>Check if the warmup is available False otherwise</summary>

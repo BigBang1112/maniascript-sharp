@@ -29,27 +29,27 @@ public partial class Semver : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Compare two identifiers</summary>
-    /// <param name="A">The first identifier</param>
-    /// <param name="B">The second identifier</param>
+    /// <param name="_A">The first identifier</param>
+    /// <param name="_B">The second identifier</param>
     /// <returns>1 if _A &gt; _B, -1 if _A &lt; _B, 0 otherwise</returns>
     public int CompareIdentifiers(string _A, string _B) => default!;
 
     /// <summary>Compare the main part of the version</summary>
-    /// <param name="VersionA">The first version to compare</param>
-    /// <param name="VersionB">The second version to compare</param>
+    /// <param name="_VersionA">The first version to compare</param>
+    /// <param name="_VersionB">The second version to compare</param>
     /// <returns>1 if _VersionA &gt; _VersionB, -1 if _VersionA &lt; _VersionB, 0 otherwise</returns>
     public int CompareMain(string _VersionA, string _VersionB) => default!;
 
     /// <summary>Compare the prerelease part of the version</summary>
-    /// <param name="VersionA">The first version to compare</param>
-    /// <param name="VersionB">The second version to compare</param>
+    /// <param name="_VersionA">The first version to compare</param>
+    /// <param name="_VersionB">The second version to compare</param>
     /// <returns>1 if _VersionA &gt; _VersionB, -1 if _VersionA &lt; _VersionB, 0 otherwise</returns>
     public int ComparePre(string _VersionA, string _VersionB) => default!;
 
     /// <summary>Compare two versions</summary>
-    /// <param name="VersionA">The first version to compare</param>
-    /// <param name="Operator">The comparison to do</param>
-    /// <param name="VersionB">The second version to compare</param>
+    /// <param name="_VersionA">The first version to compare</param>
+    /// <param name="_Operator">The comparison to do</param>
+    /// <param name="_VersionB">The second version to compare</param>
     /// <returns>The result of the comparison</returns>
     public bool Compare(string _VersionA, string _Operator, string _VersionB) => default!;
 }

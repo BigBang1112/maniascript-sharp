@@ -24,11 +24,16 @@ public partial class UIFieldsServer : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Called by the server. Declare a field; so that it can be used in both server and UI.</summary>
+    /// <param name="Player" />
+    /// <param name="FieldIndex" />
     public void DeclareServerUIField(CSmPlayer Player, int FieldIndex) { }
 
     public void LogEvents(CSmPlayer Player) { }
 
     /// <summary>Called by the server. Thus, this value is &gt; 0 iff the UI is asking for a value to change.</summary>
+    /// <param name="Player" />
+    /// <param name="UI" />
+    /// <param name="FieldIndex" />
     /// <returns>The number of times the player has clicked on a UI button during the last UI step.</returns>
     public int IsUIRequestingChange(CSmPlayer Player, CUIConfig UI, int FieldIndex) => default!;
 
@@ -37,6 +42,8 @@ public partial class UIFieldsServer : ILib
     public void FlushUIEvents(CSmPlayer Player) { }
 
     /// <summary>Called by the server.</summary>
+    /// <param name="Player" />
+    /// <param name="FieldIndex" />
     /// <returns>A value set in the UI, presumably when IsUIRequestingChange() returned sthing &gt; 0.</returns>
     public float GetNewValueFromUI(CSmPlayer Player, int FieldIndex) => default!;
 }

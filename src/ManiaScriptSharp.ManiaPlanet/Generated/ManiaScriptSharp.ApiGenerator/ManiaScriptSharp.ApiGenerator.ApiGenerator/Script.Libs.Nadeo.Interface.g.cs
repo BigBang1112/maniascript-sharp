@@ -29,7 +29,7 @@ public partial class Interface : ILib
     public void UpdateVisibility() { }
 
     /// <summary>Deprecated - Use the rank functions instead Update a player position UI</summary>
-    /// <param name="Player">The player to update</param>
+    /// <param name="_Player">The player to update</param>
     public void UpdatePosition(CPlayer _Player) { }
 
     /// <summary>Destroy the rank UI</summary>
@@ -57,36 +57,39 @@ public partial class Interface : ILib
     public void DetachSlider() { }
 
     /// <summary>Add a slide to the slider Three types of slide are allowed: - Top  -&gt; you have to use the Top2 library for this type to work when creating a top slide you have to give the top id in the _Content parameter - Text -&gt; A simple text, give the text to display in the _Content parameter - Img  -&gt; An image, give the URL of the image to display in the _Content parameter</summary>
-    /// <param name="Id">An integer to use as identifier for the slide</param>
-    /// <param name="Type">Three types allowed: Top, Text, Img</param>
-    /// <param name="Title">The title of the slide</param>
-    /// <param name="Content">The content of the slide</param>
+    /// <param name="_Id">An integer to use as identifier for the slide</param>
+    /// <param name="_Type">Three types allowed: Top, Text, Img</param>
+    /// <param name="_Title">The title of the slide</param>
+    /// <param name="_Content">The content of the slide</param>
     public void AddSlide(int _Id, string _Type, string _Title, string _Content) { }
 
     /// <summary>Remove a slide</summary>
-    /// <param name="Id">The id of the slide to remove</param>
+    /// <param name="_Id">The id of the slide to remove</param>
     public void RemoveSlide(int _Id) { }
 
     /// <summary>Update a slide The add slide function overwrite a slide with the same id that the one passed in parameter See the AddSlide() documentation for more info</summary>
+    /// <param name="_Id" />
+    /// <param name="_Title" />
+    /// <param name="_Content" />
     public void UpdateSlide(int _Id, string _Title, string _Content) { }
 
     /// <summary>Display the slider for a player</summary>
-    /// <param name="Player">The player who'll see the slider</param>
-    /// <param name="Delay">The delay before the display of the slider</param>
+    /// <param name="_Player">The player who'll see the slider</param>
+    /// <param name="_Delay">The delay before the display of the slider</param>
     public void ShowSlider(CPlayer _Player, int _Delay) { }
 
     /// <summary>Hide the slider for a player</summary>
-    /// <param name="Player">The player who'll see the slider</param>
-    /// <param name="Delay">The delay before the display of the slider</param>
+    /// <param name="_Player">The player who'll see the slider</param>
+    /// <param name="_Delay">The delay before the display of the slider</param>
     public void HideSlider(CPlayer _Player, int _Delay) { }
 
     /// <summary>Change the pause duration on slides</summary>
-    /// <param name="Player">The affected player</param>
-    /// <param name="Duration">The new duration of the pause</param>
+    /// <param name="_Player">The affected player</param>
+    /// <param name="_Duration">The new duration of the pause</param>
     public void SetSliderPause(CPlayer _Player, int _Duration) { }
 
     /// <summary>Set the hide and show position of the animation</summary>
-    /// <param name="HidePos">The new hide position</param>
-    /// <param name="ShowPos">The new show position</param>
+    /// <param name="_HidePos">The new hide position</param>
+    /// <param name="_ShowPos">The new show position</param>
     public void SetSliderAnimation(Vec2 _HidePos, Vec2 _ShowPos) { }
 }

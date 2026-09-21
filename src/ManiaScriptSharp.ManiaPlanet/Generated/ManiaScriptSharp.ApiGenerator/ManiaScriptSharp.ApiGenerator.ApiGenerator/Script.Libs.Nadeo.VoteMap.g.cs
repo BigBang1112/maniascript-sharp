@@ -40,7 +40,7 @@ public partial class VoteMap : ILib
     public void Load() { }
 
     /// <summary>Select a style for the UI</summary>
-    /// <param name="Style">The style to use, can be &quot;&quot; (automatic), &quot;MP&quot;, or &quot;SM&quot;</param>
+    /// <param name="_Style">The style to use, can be &quot;&quot; (automatic), &quot;MP&quot;, or &quot;SM&quot;</param>
     public void SetStyle(string _Style) { }
 
     /// <summary>Get the selected style of UI</summary>
@@ -48,11 +48,13 @@ public partial class VoteMap : ILib
     public string GetStyle() => default!;
 
     /// <summary>Use animations to show/hide the vote UI</summary>
-    /// <param name="UseAnimations">True to use animations, False otherwise</param>
+    /// <param name="_UseAnimations">True to use animations, False otherwise</param>
     public void UseAnimations(bool _UseAnimations) { }
 
     /// <summary>Begin the vote with a specific list of maps</summary>
-    /// <param name="Maps">An array with the maps the players can vote for</param>
+    /// <param name="_Maps">An array with the maps the players can vote for</param>
+    /// <param name="_VoteDuration" />
+    /// <param name="_ResultDuration" />
     public void Begin(global::System.Collections.Generic.IList<CMapInfo> _Maps, int _VoteDuration, int _ResultDuration) { }
 
     /// <summary>Begin the vote with all the maps of the server</summary>

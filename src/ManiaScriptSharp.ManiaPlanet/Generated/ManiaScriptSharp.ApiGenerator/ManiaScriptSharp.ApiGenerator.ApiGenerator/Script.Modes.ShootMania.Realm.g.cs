@@ -64,31 +64,35 @@ public partial class Realm : global::ManiaScriptSharp.Scripts.Modes.ShootMania.B
     public virtual void EndServer() { }
 
     /// <summary>Get the time formatted turn score string</summary>
+    /// <param name="_Clan1Score" />
+    /// <param name="_Clan2Score" />
+    /// <param name="_Majority" />
+    /// <param name="_Winner" />
     /// <returns>The formatted score</returns>
     public string GetScoresString(int _Clan1Score, int _Clan2Score, int _Majority, global::System.Collections.Generic.Dictionary<int, bool> _Winner) => default!;
 
     /// <summary>Convert a number in letter</summary>
-    /// <param name="Number">The number to convert</param>
+    /// <param name="_Number">The number to convert</param>
     /// <returns>The corresponding letter</returns>
     public string GetLetterFromNumber(int _Number) => default!;
 
     /// <summary>Update the scores header</summary>
-    /// <param name="Points">The round scores of the clans</param>
+    /// <param name="_Points">The round scores of the clans</param>
     public void UpdateScoresHeader(global::System.Collections.Generic.Dictionary<int, int> _Points) { }
 
     /// <summary>End map timer for MatchMaking</summary>
     public void UpdateBasesColors() { }
 
     /// <summary>Send the round score to the interface</summary>
-    /// <param name="RoundScores">The round scores</param>
+    /// <param name="_RoundScores">The round scores</param>
     public void UpdateRoundScores(global::System.Collections.Generic.Dictionary<int, int> _RoundScores) { }
 
     /// <summary>Send the status of the poles to the interface</summary>
-    /// <param name="BaseClanList">The owners of each poles</param>
+    /// <param name="_BaseClanList">The owners of each poles</param>
     public void UpdatePolesStatus(global::System.Collections.Generic.Dictionary<int, int> _BaseClanList) { }
 
     /// <summary>Send the spawn status of a player to the interface</summary>
-    /// <param name="Player">Tee player to update</param>
+    /// <param name="_Player">Tee player to update</param>
     public void UpdateSpawnStatus(CSmPlayer _Player) { }
 
     /// <summary>Create the rules in the spawn screen</summary>

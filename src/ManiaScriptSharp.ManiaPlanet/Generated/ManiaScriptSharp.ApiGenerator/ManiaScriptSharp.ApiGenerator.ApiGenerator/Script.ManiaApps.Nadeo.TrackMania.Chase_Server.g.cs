@@ -24,78 +24,78 @@ public partial class Chase_Server : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Send the login of the next relay player to the UI</summary>
-    /// <param name="Clan">Clan of the next relay player</param>
-    /// <param name="Login">The login of the next relay player</param>
+    /// <param name="_Clan">Clan of the next relay player</param>
+    /// <param name="_Login">The login of the next relay player</param>
     public void SetRelayPlayer(int _Clan, string _Login) { }
 
     public void ResetRelayPlayers() { }
 
     /// <summary>Set the visibility of the whole Chase UI for a player</summary>
-    /// <param name="Visible">The UI visibility</param>
-    /// <param name="Player">The player to update</param>
+    /// <param name="_Visible">The UI visibility</param>
+    /// <param name="_Player">The player to update</param>
     public void SetVisibility(bool _Visible, CTmPlayer _Player) { }
 
     /// <summary>Enable or disable the display of the header False to hide</summary>
-    /// <param name="Enable">True to display</param>
+    /// <param name="_Enable">True to display</param>
     public void SetHeaderVisibility(bool _Enable) { }
 
     /// <summary>Set the penalties visibility in the UI</summary>
-    /// <param name="Visible">The penalties visibility</param>
+    /// <param name="_Visible">The penalties visibility</param>
     public void SetPenaltiesVisibility(bool _Visible) { }
 
     /// <summary>Set the finish visibility in the UI</summary>
-    /// <param name="Visible">The finish visibility</param>
+    /// <param name="_Visible">The finish visibility</param>
     public void SetFinishVisibility(bool _Visible) { }
 
     /// <summary>Update the number of penalties a player has</summary>
-    /// <param name="Penalties">The number of penalties</param>
-    /// <param name="Player">The player to update</param>
+    /// <param name="_Penalties">The number of penalties</param>
+    /// <param name="_Player">The player to update</param>
     public void SetPenalties(int _Penalties, CTmPlayer _Player) { }
 
     /// <summary>Update the finish time of a player</summary>
-    /// <param name="Time">The finish time</param>
-    /// <param name="Player">The player to update</param>
+    /// <param name="_Finish" />
+    /// <param name="_Player">The player to update</param>
     public void SetFinishTime(int _Finish, CTmPlayer _Player) { }
 
     /// <summary>Send the checkpoint grade of a player to his UI</summary>
-    /// <param name="Player">The recipient</param>
-    /// <param name="Grade">The grade</param>
-    /// <param name="Color">Color of the grade</param>
-    /// <param name="Combo">Combo counter</param>
-    /// <param name="Score">The score of the player</param>
+    /// <param name="_Player">The recipient</param>
+    /// <param name="_Grade">The grade</param>
+    /// <param name="_Color">Color of the grade</param>
+    /// <param name="_Combo">Combo counter</param>
+    /// <param name="_Score">The score of the player</param>
     public void SendCheckpointGrade(CTmPlayer _Player, string _Grade, Vec3 _Color, int _Combo, int _Score) { }
 
     /// <summary>Send relay info to the UI the next checkpoint for each clan [PlayerId =&gt; Clan] Use Null when in Chase, a player when in Chase Attack</summary>
-    /// <param name="NextCheckpointPlayerId">Id of the player that must cross</param>
-    /// <param name="MarkersPlayers">Players associated to each marker</param>
-    /// <param name="Player">The player to update</param>
+    /// <param name="_NextCheckpointPlayerId">Id of the player that must cross</param>
+    /// <param name="_MarkersPlayers">Players associated to each marker</param>
+    /// <param name="_Player">The player to update</param>
     public void SendRelayInfo(global::System.Collections.Generic.Dictionary<int, Ident> _NextCheckpointPlayerId, global::System.Collections.Generic.Dictionary<CTmPlayer, int> _MarkersPlayers, CTmPlayer _Player) { }
 
     /// <summary>Send relay info to the UI the next checkpoint for each clan [Clan =&gt; PlayerId]</summary>
-    /// <param name="NextCheckpointPlayerId">Id of the player that must cross</param>
-    /// <param name="MarkersPlayers">Players associated to each marker</param>
+    /// <param name="_NextCheckpointPlayerId">Id of the player that must cross</param>
+    /// <param name="_MarkersPlayers">Players associated to each marker</param>
     public void SendRelayInfo(global::System.Collections.Generic.Dictionary<int, Ident> _NextCheckpointPlayerId, global::System.Collections.Generic.Dictionary<CTmPlayer, int> _MarkersPlayers) { }
 
     /// <summary>Update the round points limit</summary>
-    /// <param name="The">round points limit</param>
+    /// <param name="_RoundPointsLimit" />
     public void SetRoundPointsLimit(int _RoundPointsLimit) { }
 
     /// <summary>Force an update in the UI displaying the next checkpoint player</summary>
     public void UpdateNextCheckpointPlayer() { }
 
     /// <summary>Send the Chase Attack clan of a player to the UI</summary>
-    /// <param name="Clan">The clan</param>
-    /// <param name="Player">The player to update</param>
+    /// <param name="_Clan">The clan</param>
+    /// <param name="_Player">The player to update</param>
     public void SetChaseAttackClan(int _Clan, CTmPlayer _Player) { }
 
     /// <summary>Get the clan a cpectator is spectating -1 if no clan</summary>
-    /// <param name="Spectator">The spectator to check</param>
+    /// <param name="_Spectator">The spectator to check</param>
     /// <returns>The clan they are spectating</returns>
     public int GetSpectatingClan(CTmPlayer _Spectator) => default!;
 
     /// <summary>Set the &quot;waiting players&quot; status of a player False otherwise</summary>
-    /// <param name="IsWaiting">True if the player is waiting</param>
-    /// <param name="Player">The player to update</param>
+    /// <param name="_IsWaiting">True if the player is waiting</param>
+    /// <param name="_Player">The player to update</param>
     public void SetWaitingPlayers(bool _IsWaiting, CTmPlayer _Player) { }
 
     /// <summary>Unload the library</summary>

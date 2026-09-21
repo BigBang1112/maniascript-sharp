@@ -31,63 +31,67 @@ public partial class Settings : ILib
     public void Load() { }
 
     /// <summary>Load the settings from an url</summary>
-    /// <param name="Url">The url to get</param>
+    /// <param name="_Url">The url to get</param>
     /// <returns>True if the settings have been loaded, false if an error happened</returns>
     public bool LoadFromUrl(string _Url) => default!;
 
     /// <summary>Check if the given setting exists in the Text array</summary>
-    /// <param name="Name">The name of the setting to check</param>
+    /// <param name="_Name">The name of the setting to check</param>
     /// <returns>True if the setting exists, false otherwise</returns>
     public bool ExistsText(string _Name) => default!;
 
     /// <summary>Check if the given setting exists in the Integer array</summary>
-    /// <param name="Name">The name of the setting to check</param>
+    /// <param name="_Name">The name of the setting to check</param>
     /// <returns>True if the setting exists, false otherwise</returns>
     public bool ExistsInteger(string _Name) => default!;
 
     /// <summary>Check if the given setting exists in the Real array</summary>
-    /// <param name="Name">The name of the setting to check</param>
+    /// <param name="_Name">The name of the setting to check</param>
     /// <returns>True if the setting exists, false otherwise</returns>
     public bool ExistsReal(string _Name) => default!;
 
     /// <summary>Check if the given setting exists in the Boolean array</summary>
-    /// <param name="Name">The name of the setting to check</param>
+    /// <param name="_Name">The name of the setting to check</param>
     /// <returns>True if the setting exists, false otherwise</returns>
     public bool ExistsBoolean(string _Name) => default!;
 
     /// <summary>Get a setting in the Text array</summary>
-    /// <param name="Name">The name of the setting to get</param>
-    /// <param name="Default">The value to return if the setting is not found</param>
+    /// <param name="_Name">The name of the setting to get</param>
+    /// <param name="_Default">The value to return if the setting is not found</param>
     /// <returns>The setting value if found, default value otherwise</returns>
     public string GetText(string _Name, string _Default) => default!;
 
     /// <summary>GetText() overload</summary>
+    /// <param name="_Name" />
     public string GetText(string _Name) => default!;
 
     /// <summary>Get a setting in the Integer array</summary>
-    /// <param name="Name">The name of the setting to get</param>
-    /// <param name="Default">The value to return if the setting is not found</param>
+    /// <param name="_Name">The name of the setting to get</param>
+    /// <param name="_Default">The value to return if the setting is not found</param>
     /// <returns>The setting value if found, default value otherwise</returns>
     public int GetInteger(string _Name, int _Default) => default!;
 
     /// <summary>GetInteger overload</summary>
+    /// <param name="_Name" />
     public int GetInteger(string _Name) => default!;
 
     /// <summary>Get a setting in the Real array</summary>
-    /// <param name="Name">The name of the setting to get</param>
-    /// <param name="Default">The value to return if the setting is not found</param>
+    /// <param name="_Name">The name of the setting to get</param>
+    /// <param name="_Default">The value to return if the setting is not found</param>
     /// <returns>The setting value if found, default value otherwise</returns>
     public float GetReal(string _Name, float _Default) => default!;
 
     /// <summary>GetReal overload</summary>
+    /// <param name="_Name" />
     public float GetReal(string _Name) => default!;
 
     /// <summary>Get a setting in the Boolean array</summary>
-    /// <param name="Name">The name of the setting to get</param>
-    /// <param name="Default">The value to return if the setting is not found</param>
+    /// <param name="_Name">The name of the setting to get</param>
+    /// <param name="_Default">The value to return if the setting is not found</param>
     /// <returns>The setting value if found, default value otherwise</returns>
     public bool GetBoolean(string _Name, bool _Default) => default!;
 
     /// <summary>GetBoolean overload</summary>
+    /// <param name="_Name" />
     public bool GetBoolean(string _Name) => default!;
 }

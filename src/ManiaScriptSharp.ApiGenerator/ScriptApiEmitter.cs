@@ -345,11 +345,14 @@ internal sealed class ScriptApiEmitter
                 sb.AppendLine($"    /// <summary>{summary}</summary>");
         }
 
-        foreach (var (name, desc) in doc.Params)
+        foreach (var parameter in func.Parameters)
         {
-            var paramCsName = ParamIdentifier(name);
-            if (desc.Length > 0)
-                sb.AppendLine($"    /// <param name=\"{EscapeXml(paramCsName)}\">{EscapeXml(desc)}</param>");
+            var documentedParameter = doc.Params.FirstOrDefault(x =>
+                string.Equals(NormalizeParameterName(x.Name), NormalizeParameterName(parameter.Name), StringComparison.OrdinalIgnoreCase));
+            var paramCsName = ParamIdentifier(parameter.Name);
+
+            if (documentedParameter.Desc?.Length > 0)
+                sb.AppendLine($"    /// <param name=\"{EscapeXml(paramCsName)}\">{EscapeXml(documentedParameter.Desc)}</param>");
             else
                 sb.AppendLine($"    /// <param name=\"{EscapeXml(paramCsName)}\" />");
         }
@@ -587,6 +590,8 @@ internal sealed class ScriptApiEmitter
 
         return Reserved.Contains(s) ? "@" + s : s;
     }
+
+    private static string NormalizeParameterName(string name) => name.TrimStart('_', '@');
 
     private static string EscapeIdentifier(string name)
     {

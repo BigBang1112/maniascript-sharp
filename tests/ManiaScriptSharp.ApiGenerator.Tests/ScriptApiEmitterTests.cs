@@ -5,6 +5,35 @@ namespace ManiaScriptSharp.ApiGenerator.Tests;
 public class ScriptApiEmitterTests
 {
     [Fact]
+    public void Emit_MethodDocumentation_UsesTheGeneratedParameterName()
+    {
+        var script = new ParsedScript
+        {
+            Functions =
+            [
+                new ScriptFunction
+                {
+                    ReturnType = "Void",
+                    Name = "SetTag",
+                    Parameters = [new ScriptParameter { Type = "Text", Name = "_Tag" }],
+                    Doc = new ScriptDocComment
+                    {
+                        Params = [("Tag", "The tag to set")],
+                    },
+                },
+            ],
+        };
+
+        var source = new ScriptApiEmitter(
+            "Test", "test.Script.txt", "TestScript", script,
+            ApiGeneratorSettings.ForTesting(standardizeParamNames: false)).Emit();
+
+        Assert.Contains("public static void SetTag(string _Tag)", source);
+        Assert.Contains("<param name=\"_Tag\">The tag to set</param>", source);
+        Assert.DoesNotContain("<param name=\"Tag\">", source);
+    }
+
+    [Fact]
     public void Emit_Arrays_UsesListsForMethodsAndStructFields()
     {
         var script = new ParsedScript

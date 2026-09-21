@@ -28,12 +28,12 @@ public partial class Toss : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Get the Toss interface</summary>
-    /// <param name="Spectator">Create the UI for spectators</param>
+    /// <param name="_Spectator">Create the UI for spectators</param>
     /// <returns>The Toss manialink interface</returns>
     public string GetTossUI(bool _Spectator) => default!;
 
     /// <summary>Get the Vote interface</summary>
-    /// <param name="ClanNb">The clan who'll choose its side</param>
+    /// <param name="_ClanNb">The clan who'll choose its side</param>
     /// <returns>The Vote manialink interface</returns>
     public string GetVoteUI(int _ClanNb) => default!;
 
@@ -42,7 +42,7 @@ public partial class Toss : ILib
     public int Toss_() => default!;
 
     /// <summary>One clan vote to decide if it will attack or defend first</summary>
-    /// <param name="ClanNb">The number of the clan who'll vote</param>
+    /// <param name="_ClanNb">The number of the clan who'll vote</param>
     /// <returns>The side the clan choosed 1 = attack and 2 = defend</returns>
     public int SelectSide(int _ClanNb) => default!;
 }

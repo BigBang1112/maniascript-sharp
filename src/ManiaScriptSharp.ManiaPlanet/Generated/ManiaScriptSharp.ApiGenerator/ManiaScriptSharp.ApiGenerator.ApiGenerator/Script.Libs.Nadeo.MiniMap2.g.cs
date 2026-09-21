@@ -41,57 +41,57 @@ public partial class MiniMap2 : ILib
     public void Detach() { }
 
     /// <summary>Set the position of the minimap in the HUD</summary>
-    /// <param name="Pos">The new position</param>
+    /// <param name="_Pos">The new position</param>
     public void Pos(Vec3 _Pos) { }
 
     /// <summary>Set the size of the minimap</summary>
-    /// <param name="Size">The new size</param>
+    /// <param name="_Size">The new size</param>
     public void Size(Vec2 _Size) { }
 
     /// <summary>Set the scale of the minimap</summary>
-    /// <param name="Scale">The new size</param>
+    /// <param name="_Scale">The new size</param>
     public void Scale(float _Scale) { }
 
     /// <summary>Set the visibility of the minimap by default</summary>
-    /// <param name="Visible">True to show the minimap</param>
+    /// <param name="_Visible">True to show the minimap</param>
     public void Visibility(bool _Visible) { }
 
     /// <summary>Set the visibility of the minimap for one player This setting will override the default one</summary>
-    /// <param name="Player">The player to update</param>
-    /// <param name="Visible">True to show the minimap</param>
+    /// <param name="_Player">The player to update</param>
+    /// <param name="_Visible">True to show the minimap</param>
     public void Visibility(CPlayer _Player, bool _Visible) { }
 
     /// <summary>Reset the visibility of the minimap at the player level to the default</summary>
-    /// <param name="Player">The player to reset</param>
+    /// <param name="_Player">The player to reset</param>
     public void ResetVisibility(CPlayer _Player) { }
 
     /// <summary>Set the properties of the overlay on the minimap</summary>
-    /// <param name="ImgPath">The path to the image</param>
-    /// <param name="Pos">The position of the overlay</param>
-    /// <param name="Size">The size of the overlay</param>
+    /// <param name="_ImgPath">The path to the image</param>
+    /// <param name="_Pos">The position of the overlay</param>
+    /// <param name="_Size">The size of the overlay</param>
     public void Overlay(string _ImgPath, Vec2 _Pos, Vec2 _Size) { }
 
     /// <summary>Set the zoom of the minimap</summary>
-    /// <param name="Zoom">The new zoom</param>
+    /// <param name="_Zoom">The new zoom</param>
     public void Zoom(float _Zoom) { }
 
     /// <summary>Set the world position of the minimap</summary>
-    /// <param name="Pos">The new world position</param>
+    /// <param name="_Pos">The new world position</param>
     public void WorldPosition(Vec3 _Pos) { }
 
     /// <summary>The world position is equal to the GUIPlayer position + the default world position</summary>
-    /// <param name="Follow">The map follow the player position or not</param>
+    /// <param name="_Follow">The map follow the player position or not</param>
     public void WorldPositionFollow(bool _Follow) { }
 
     /// <summary>Set the map position of the minimap</summary>
-    /// <param name="Pos">The new map position</param>
+    /// <param name="_Pos">The new map position</param>
     public void MapPosition(Vec2 _Pos) { }
 
     /// <summary>Set the map yaw of the minimap</summary>
-    /// <param name="Yaw">The new yaw</param>
+    /// <param name="_Yaw">The new yaw</param>
     public void MapYaw(float _Yaw) { }
 
     /// <summary>The map yaw is equal to the GUIPlayer yaw + the default yaw</summary>
-    /// <param name="Follow">The map follow the player yaw or not</param>
+    /// <param name="_Follow">The map follow the player yaw or not</param>
     public void MapYawFollow(bool _Follow) { }
 }

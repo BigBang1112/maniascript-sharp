@@ -27,23 +27,25 @@ public partial class SpawnScreen : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the name of the mode (written in the header)</summary>
+    /// <param name="_ModeName" />
     public void SetModeName(string _ModeName) { }
 
     /// <summary>Reset all previously written pretty rules.</summary>
     public void ResetRulesSection() { }
 
     /// <summary>Add a subsection, with one highlighted text, to a given Y offset.</summary>
-    /// <param name="Title">text and identifier of the subsection</param>
-    /// <param name="MainText">a text displayed in this subsection</param>
-    /// <param name="YOffset">Y position of the subsection</param>
+    /// <param name="_Title">text and identifier of the subsection</param>
+    /// <param name="_MainText">a text displayed in this subsection</param>
+    /// <param name="_YOffset">Y position of the subsection</param>
     public void AddSubsection(string _Title, string _MainText, float _YOffset) { }
 
     /// <summary>Add an empty subsection to a given Y offset.</summary>
-    /// <param name="Title">text and identifier of the subsection</param>
-    /// <param name="YOffset">Y position of the subsection</param>
+    /// <param name="_Title">text and identifier of the subsection</param>
+    /// <param name="_YOffset">Y position of the subsection</param>
     public void AddSubsection(string _Title, float _YOffset) { }
 
     /// <summary>Set a default color for colorized elements of the pretty rules. Caution : no check is performed on the format of this text. e.g. Set _ModeColor to &quot;f00&quot; for &quot;pure red&quot;.</summary>
+    /// <param name="_ModeColor" />
     public void SetModeColor(string _ModeColor) { }
 
     /// <summary>Get the default color for colorized elements of the pretty rules.</summary>
@@ -53,15 +55,19 @@ public partial class SpawnScreen : ILib
     public void DestroyRules() { }
 
     /// <summary>Create the rules in the spawn screen</summary>
-    /// <param name="Name">The name of the mode</param>
-    /// <param name="Rules">The rules of the mode</param>
-    /// <param name="StartHidden">Start with the rules hidden</param>
+    /// <param name="_Name">The name of the mode</param>
+    /// <param name="_Rules">The rules of the mode</param>
+    /// <param name="_StartHidden">Start with the rules hidden</param>
     public void CreateRules(string _Name, string _Rules, bool _StartHidden) { }
 
     /// <summary>Create Overload</summary>
+    /// <param name="_Name" />
+    /// <param name="_Rules" />
     public void CreateRules(string _Name, string _Rules) { }
 
     /// <summary>Create Overload</summary>
+    /// <param name="_Name" />
+    /// <param name="_StartHidden" />
     public void CreatePrettyRules(string _Name, bool _StartHidden) { }
 
     public void CreatePrettyRules(string _Name) { }
@@ -90,7 +96,7 @@ public partial class SpawnScreen : ILib
     public void DestroyScores() { }
 
     /// <summary>Create the scores in the spawn screen</summary>
-    /// <param name="ScoreStyle">How to calculate the score</param>
+    /// <param name="_ScoreStyle">How to calculate the score</param>
     public void CreateScores(string _ScoreStyle) { }
 
     /// <summary>Overload of CreateScores()</summary>

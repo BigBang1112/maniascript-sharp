@@ -43,7 +43,7 @@ public partial class Melee : global::ManiaScriptSharp.Scripts.Modes.ShootMania.B
     public virtual void Match_EndServer() { }
 
     /// <summary>Play a sound and notice if someone is close to win</summary>
-    /// <param name="Player">The player who scored a point</param>
-    /// <param name="PointsLimit">The points limit to reach to win</param>
+    /// <param name="_Player">The player who scored a point</param>
+    /// <param name="_PointsLimit">The points limit to reach to win</param>
     public void PlayAnnouncer(CSmPlayer _Player, int _PointsLimit) { }
 }

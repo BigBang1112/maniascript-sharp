@@ -31,12 +31,12 @@ public partial class ModeBase : ILib
     public virtual void SequencePodium() { }
 
     /// <summary>Log the version of a script</summary>
-    /// <param name="Name">Name of the script</param>
-    /// <param name="Version">Version of the script</param>
+    /// <param name="_Name">Name of the script</param>
+    /// <param name="_Version">Version of the script</param>
     public void MB_LogVersion(string _Name, string _Version) { }
 
     /// <summary>Custom log function</summary>
-    /// <param name="Message">The message to log</param>
+    /// <param name="_Message">The message to log</param>
     public void MB_Log(string _Message) { }
 
     /// <summary>Check the status of the script callbacks</summary>
@@ -49,29 +49,31 @@ public partial class ModeBase : ILib
     public void MB_Yield() { }
 
     /// <summary>Custom sleep function</summary>
-    /// <param name="Duration">The time to spend sleeping in ms</param>
+    /// <param name="_Duration">The time to spend sleeping in ms</param>
     public void MB_Sleep(int _Duration) { }
 
     /// <summary>Launch a warm up &lt;= 0 : no time limit &gt; 0 : time limit in seconds</summary>
-    /// <param name="TimeLimit">Set a time limit for the warm up</param>
+    /// <param name="_TimeLimit">Set a time limit for the warm up</param>
     public void MB_WarmUp(int _TimeLimit) { }
 
     /// <summary>Do the player presentation sequence (aka versus screen)</summary>
+    /// <param name="_Duration" />
     public void MB_PlayersPresentationSequence(int _Duration) { }
 
     /// <summary>Overload of the MB_PlayersPresentationSequence() function</summary>
     public void MB_PlayersPresentationSequence() { }
 
     /// <summary>Set the number of laps on a map _LapsNb		The number of laps &lt;= 0 : Ignore _LapsNb and set the number of laps from the maps parameters &gt; 0 : Force the number of laps to _LapsNb</summary>
+    /// <param name="_LapsNb" />
     public void MB_SetLapsNb(int _LapsNb) { }
 
     /// <summary>Load a scores table style from an XML file</summary>
-    /// <param name="Path">Path to the XML file</param>
-    /// <param name="Secure">Disable script injection in the scores table</param>
+    /// <param name="_Path">Path to the XML file</param>
+    /// <param name="_Secure">Disable script injection in the scores table</param>
     public void MB_SetScoresTableStyleFromXml(string _Path, bool _Secure) { }
 
     /// <summary>Overload MB_SetScoresTableStyleFromXml(), load a scores table style from an XML file</summary>
-    /// <param name="Path">Path to the XML file</param>
+    /// <param name="_Path">Path to the XML file</param>
     public void MB_SetScoresTableStyleFromXml(string _Path) { }
 
     /// <summary>Stop the server at the end of the frame</summary>
@@ -108,7 +110,7 @@ public partial class ModeBase : ILib
     public void MB_Ladder_OpenMatch_All() { }
 
     /// <summary>Create a new match on the ladder and register a list of scores</summary>
-    /// <param name="Scores">The list of scores to register on the ladder</param>
+    /// <param name="_Scores">The list of scores to register on the ladder</param>
     public void MB_Ladder_OpenMatch(global::System.Collections.Generic.IList<CScore> _Scores) { }
 
     /// <summary>Close the current match on the ladder</summary>

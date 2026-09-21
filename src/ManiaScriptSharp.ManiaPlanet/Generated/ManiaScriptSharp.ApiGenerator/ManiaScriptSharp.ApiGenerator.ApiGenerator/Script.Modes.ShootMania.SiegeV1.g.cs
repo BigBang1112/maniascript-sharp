@@ -97,8 +97,8 @@ public partial class SiegeV1 : global::ManiaScriptSharp.Scripts.Modes.ShootMania
     public virtual void EndServer() { }
 
     /// <summary>Display the distance between the shooter and the victim</summary>
-    /// <param name="Shooter">The shooter</param>
-    /// <param name="Victim">The Victim</param>
+    /// <param name="_Shooter">The shooter</param>
+    /// <param name="_Victim">The Victim</param>
     public void DisplayHitDistance(CSmPlayer _Shooter, CSmPlayer _Victim) { }
 
     /// <summary>Initialize the landmarks</summary>
@@ -134,12 +134,12 @@ public partial class SiegeV1 : global::ManiaScriptSharp.Scripts.Modes.ShootMania
     public string UpdateLayerRespawn() => default!;
 
     /// <summary>Update the spawn screen UI</summary>
-    /// <param name="Objective">The objective to display</param>
+    /// <param name="_Objective">The objective to display</param>
     /// <returns>The manialink string</returns>
     public string UpdateLayerSpawnScreen(string _Objective) => default!;
 
     /// <summary>Update UI</summary>
-    /// <param name="Forced">Force the update</param>
+    /// <param name="_Forced">Force the update</param>
     public void UpdateUI(bool _Forced) { }
 
     /// <summary>Manage the spectators Watch the nearest capturing player to the goal</summary>
@@ -148,6 +148,7 @@ public partial class SiegeV1 : global::ManiaScriptSharp.Scripts.Modes.ShootMania
     public void HideEndRoundUI() { }
 
     /// <summary>Wait for enough players to play</summary>
+    /// <param name="_MinimumNbPlayers" />
     /// <returns>Return true if we had to wait, false otherwise</returns>
     public bool WaitForPlayers(int _MinimumNbPlayers) => default!;
 

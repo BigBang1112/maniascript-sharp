@@ -45,25 +45,25 @@ public partial class Events : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Pass on an event</summary>
-    /// <param name="Event">The event to pass on</param>
+    /// <param name="_Event">The event to pass on</param>
     public void Valid(CSmModeEvent _Event) { }
 
     /// <summary>Discard an event</summary>
-    /// <param name="Event">The event to discard</param>
+    /// <param name="_Event">The event to discard</param>
     public void Invalid(CSmModeEvent _Event) { }
 
     /// <summary>Check if the PassOn() function was called on the given event False otherwise</summary>
-    /// <param name="Event">The event to check</param>
+    /// <param name="_Event">The event to check</param>
     /// <returns>True if the event was passed on,</returns>
     public bool Validated(CSmModeEvent _Event) => default!;
 
     /// <summary>Check if the Discard() function was called on the given event False otherwise</summary>
-    /// <param name="Event">The event to check</param>
+    /// <param name="_Event">The event to check</param>
     /// <returns>True if the event was discarded,</returns>
     public bool Invalidated(CSmModeEvent _Event) => default!;
 
     /// <summary>Check if an event was processed</summary>
-    /// <param name="Event">The event to check</param>
+    /// <param name="_Event">The event to check</param>
     /// <returns>True if the event was already processed, False otherwise</returns>
     public bool Processed(CSmModeEvent _Event) => default!;
 

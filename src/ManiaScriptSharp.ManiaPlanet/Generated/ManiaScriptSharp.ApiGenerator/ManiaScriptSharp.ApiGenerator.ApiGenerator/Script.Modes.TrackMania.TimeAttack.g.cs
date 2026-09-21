@@ -40,7 +40,7 @@ public partial class TimeAttack : global::ManiaScriptSharp.Scripts.Modes.TrackMa
     public virtual void Match_BeforeCloseLadder() { }
 
     /// <summary>Update the time limit</summary>
-    /// <param name="StartTime">The starting time of the map</param>
-    /// <param name="NewTimeLimit">The time limit before going to the next map</param>
+    /// <param name="_StartTime">The starting time of the map</param>
+    /// <param name="_NewTimeLimit">The time limit before going to the next map</param>
     public void SetTimeLimit(int _StartTime, int _NewTimeLimit) { }
 }

@@ -33,6 +33,7 @@ public partial class WaitingList : ILib
     public void InitSettings(int _NbPlayers) { }
 
     /// <summary>Accesseurs Be sure that array is updated</summary>
+    /// <param name="_PlayerId" />
     public CSmPlayer GetPlayerIdTab(Ident _PlayerId) => default!;
 
     public int WaitingListLength() => default!;
@@ -44,8 +45,7 @@ public partial class WaitingList : ILib
     public string GetTeamName(int _TeamPos) => default!;
 
     /// <summary>Manually lock a team (during playing phase for instance)</summary>
-    /// <param name="TeamId">The Id of the team</param>
-    /// <param name="TeamPos">The position of the team in the WaitingList</param>
+    /// <param name="_TeamId">The Id of the team</param>
     public void LockTeam(Ident _TeamId) { }
 
     public void LockTeam(int _TeamPos) { }
@@ -64,15 +64,14 @@ public partial class WaitingList : ILib
     public bool UpdateLockedTeam() => default!;
 
     /// <summary>Fill the array with PlayersId in the _TeamId</summary>
-    /// <param name="TeamId">The Team Id</param>
-    /// <param name="TeamPos">The Team position in the WaitingList</param>
+    /// <param name="_TeamId">The Team Id</param>
     /// <returns>Team			The array with id of players</returns>
     public global::System.Collections.Generic.IList<Ident> FillTeam(Ident _TeamId) => default!;
 
     public global::System.Collections.Generic.IList<Ident> FillTeam(int _TeamPos) => default!;
 
     /// <summary>go to the end of the WaitingList</summary>
-    /// <param name="TeamPos">The position of the team in the WaitingList</param>
+    /// <param name="_TeamPos">The position of the team in the WaitingList</param>
     public void GoToEnd(int _TeamPos) { }
 
     public void GoToEndSaveColor(int _TeamPos) { }
@@ -92,16 +91,16 @@ public partial class WaitingList : ILib
     public void UpdateBot(int _a, int _b) { }
 
     /// <summary>the text is hexadecimal</summary>
-    /// <param name="T">The text</param>
+    /// <param name="_T">The text</param>
     public bool IsHexa(string _T) => default!;
 
     /// <summary>Parse the PlayerName to find the team tag</summary>
-    /// <param name="PlayerName">PlayerName</param>
+    /// <param name="_PlayerName">PlayerName</param>
     /// <returns>Tag of the team</returns>
     public string TeamTag(string _PlayerName) => default!;
 
     /// <summary>Check if a team name is valid</summary>
-    /// <param name="TeamName">The new TeamName</param>
+    /// <param name="_TeamName">The new TeamName</param>
     /// <returns>is valid or not</returns>
     public bool IsValidTeamName(string _TeamName) => default!;
 
@@ -132,8 +131,8 @@ public partial class WaitingList : ILib
     public void EndMap() { }
 
     /// <summary>Update Score after a match</summary>
-    /// <param name="TeamId">The Id of the team</param>
-    /// <param name="TeamPos">The position of the team in the WaitingList</param>
+    /// <param name="_TeamIdWin" />
+    /// <param name="_TeamIdLoose" />
     public void EndMatch(Ident _TeamIdWin, Ident _TeamIdLoose) { }
 
     public void EndMatch(int _TeamWinPos, int _TeamLoosePos) { }
@@ -143,7 +142,7 @@ public partial class WaitingList : ILib
     public string UpdateLayerWaitingList() => default!;
 
     /// <summary>Manialink to choose and create a team</summary>
-    /// <param name="PlayerId">The id of the player</param>
+    /// <param name="_PlayerId">The id of the player</param>
     /// <returns>The manialink</returns>
     public string UpdateLayerChooseTeam(Ident _PlayerId) => default!;
 }

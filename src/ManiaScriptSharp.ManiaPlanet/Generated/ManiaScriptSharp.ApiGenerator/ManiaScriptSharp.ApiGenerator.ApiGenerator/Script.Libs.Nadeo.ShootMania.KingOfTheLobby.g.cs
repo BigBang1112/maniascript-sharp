@@ -64,5 +64,8 @@ public partial class KingOfTheLobby : ILib
     public void StartLobbyMode() { }
 
     /// <summary>Deprecated : param _NbHitsToCombo not used</summary>
+    /// <param name="_NbHitsToCombo" />
+    /// <param name="_RoundDuration" />
+    /// <param name="_UseAllies" />
     public void StartLobbyMode(int _NbHitsToCombo, int _RoundDuration, bool _UseAllies) { }
 }

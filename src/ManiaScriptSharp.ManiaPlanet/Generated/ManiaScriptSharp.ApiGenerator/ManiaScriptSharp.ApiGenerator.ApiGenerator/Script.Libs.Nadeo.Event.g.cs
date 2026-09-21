@@ -27,7 +27,7 @@ public partial class Event : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the event queue size</summary>
-    /// <param name="Size">The event queue size</param>
+    /// <param name="_Size">The event queue size</param>
     public void SetEventsQueueSize(int _Size) { }
 
     /// <summary>Get the event queue size</summary>
@@ -39,50 +39,51 @@ public partial class Event : ILib
     public string GetUniqueStreamId() => default!;
 
     /// <summary>Flush the events of a stream</summary>
-    /// <param name="StreamId">Id of the stream to flush</param>
+    /// <param name="_StreamId">Id of the stream to flush</param>
     public void Flush(string _StreamId) { }
 
     /// <summary>Publish an event. It will be received only by streams that subscribed to this event.</summary>
-    /// <param name="EventId">Id of the event</param>
-    /// <param name="EventData">Data of the event</param>
-    /// <param name="NetSend">Send the event to the clients</param>
+    /// <param name="_EventId">Id of the event</param>
+    /// <param name="_EventData">Data of the event</param>
+    /// <param name="_NetSend">Send the event to the clients</param>
+    /// <param name="_Emitter" />
     public void Publish(string _EventId, global::System.Collections.Generic.Dictionary<string, string> _EventData, bool _NetSend, string _Emitter) { }
 
     /// <summary>Publish an event. (see the Publish() function above for more info)</summary>
-    /// <param name="EventId">Id of the event</param>
-    /// <param name="EventData">Data of the event</param>
+    /// <param name="_EventId">Id of the event</param>
+    /// <param name="_EventData">Data of the event</param>
     public void Publish(string _EventId, global::System.Collections.Generic.Dictionary<string, string> _EventData) { }
 
     /// <summary>Publish an event without data. (see the Publish() function above for more info)</summary>
-    /// <param name="EventId">Id of the event</param>
+    /// <param name="_EventId">Id of the event</param>
     public void Publish(string _EventId) { }
 
     /// <summary>Subscribe to an event. When you subscribe, always call the Flush() function regularly afterwards. If you don't the events queue will grow and slow down your script.</summary>
-    /// <param name="StreamId">Id of the stream</param>
-    /// <param name="EventId">The event to subscribe</param>
+    /// <param name="_StreamId">Id of the stream</param>
+    /// <param name="_EventId">The event to subscribe</param>
     public void Subscribe(string _StreamId, string _EventId) { }
 
     /// <summary>Subscribe to several events (see the Subscribe() function above for more info)</summary>
-    /// <param name="StreamId">The name of the stream</param>
-    /// <param name="EventsIds">The events to subscribe</param>
+    /// <param name="_StreamId">The name of the stream</param>
+    /// <param name="_EventsIds">The events to subscribe</param>
     public void Subscribe(string _StreamId, global::System.Collections.Generic.IList<string> _EventsIds) { }
 
     /// <summary>Unsubscribe from an event.</summary>
-    /// <param name="StreamId">Id of the stream</param>
-    /// <param name="EventId">The event to unsubscribe</param>
+    /// <param name="_StreamId">Id of the stream</param>
+    /// <param name="_EventId">The event to unsubscribe</param>
     public void Unsubscribe(string _StreamId, string _EventId) { }
 
     /// <summary>Unsubscribe from several events.</summary>
-    /// <param name="StreamId">Id of the stream</param>
-    /// <param name="EventId">The event to unsubscribe</param>
+    /// <param name="_StreamId">Id of the stream</param>
+    /// <param name="_EventsIds" />
     public void Unsubscribe(string _StreamId, global::System.Collections.Generic.IList<string> _EventsIds) { }
 
     /// <summary>Unsubscribe from all events.</summary>
-    /// <param name="StreamId">Id of the stream</param>
+    /// <param name="_StreamId">Id of the stream</param>
     public void Unsubscribe(string _StreamId) { }
 
     /// <summary>Close a stream</summary>
-    /// <param name="StreamId">Id of the stream</param>
+    /// <param name="_StreamId">Id of the stream</param>
     public void Close(string _StreamId) { }
 
     /// <summary>Update the library</summary>
