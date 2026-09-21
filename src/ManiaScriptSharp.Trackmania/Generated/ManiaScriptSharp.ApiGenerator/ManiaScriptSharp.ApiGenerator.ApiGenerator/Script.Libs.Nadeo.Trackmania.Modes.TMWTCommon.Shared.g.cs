@@ -31,5 +31,7 @@ public partial class Shared : ILib
     public const double C_ZIndex_EventMessage = -4.0;
 
     /// <summary>Format a time</summary>
+    /// <param name="_Time" />
+    /// <param name="_Full" />
     public string GetShortTime(int _Time, bool _Full) => default!;
 }

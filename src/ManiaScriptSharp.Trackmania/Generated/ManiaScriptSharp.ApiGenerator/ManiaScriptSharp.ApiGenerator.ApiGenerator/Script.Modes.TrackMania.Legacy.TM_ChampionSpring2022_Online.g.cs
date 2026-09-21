@@ -37,6 +37,7 @@ public partial class TM_ChampionSpring2022_Online : ILib
     public const string Version = "1.0.1+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/Legacy/TM_ChampionSpring2022_Online.Script.txt";
     public const string C_ModeName = "Champion";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/ChampionSpring2022.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const int C_SignLiveCameraCheckInterval = 5000;
     public const bool C_UseEsportsProgrammation = true;
@@ -124,24 +125,36 @@ public partial class TM_ChampionSpring2022_Online : ILib
     public virtual void Match_BeforeUnloadMap() { }
 
     /// <summary>Check if there are players that can play</summary>
+    /// <param name="_MatchStyle" />
+    /// <param name="_CupPointsLimit" />
     public bool HasAvailablePlayers(int _MatchStyle, int _CupPointsLimit) => default!;
 
     /// <summary>Update the scores table footer text</summary>
-    /// <param name="MatchStyle">Style of match (Short, Long, Classic)</param>
-    /// <param name="MatchPointsLimit">The match points limit</param>
-    /// <param name="CupPointsLimit">The cup points limit</param>
-    /// <param name="IsWarmUp">Currently playing warm-up</param>
+    /// <param name="_MatchStyle">Style of match (Short, Long, Classic)</param>
+    /// <param name="_MatchPointsLimit">The match points limit</param>
+    /// <param name="_CupPointsLimit">The cup points limit</param>
+    /// <param name="_IsWarmUp">Currently playing warm-up</param>
     public void UpdateScoresTableFooter(int _MatchStyle, int _MatchPointsLimit, int _CupPointsLimit, bool _IsWarmUp) { }
 
     /// <summary>Compute the cup scores, return the Id of any new cup winner</summary>
+    /// <param name="_MatchStyle" />
+    /// <param name="_CupPointsLimit" />
+    /// <param name="_WinnerAccountIds" />
     public Ident ComputeCupScores(int _MatchStyle, int _CupPointsLimit, global::System.Collections.Generic.IList<string> _WinnerAccountIds) => default!;
 
     /// <summary>Toggle on/off the camera display in signs for spectators</summary>
+    /// <param name="_Enabled" />
     public void EnableSignLiveCamera(bool _Enabled) { }
 
     /// <summary>Enable the esports programmation in the signs see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#</summary>
+    /// <param name="_Enabled" />
     public void EnableSignESportsMode(bool _Enabled) { }
 
     /// <summary>Update the players' scores in the UI</summary>
+    /// <param name="_MatchStyle" />
+    /// <param name="_MatchWinnerAccountIds" />
+    /// <param name="_MatchPointsLimit" />
+    /// <param name="_CupPointsLimit" />
+    /// <param name="_MatchComplete" />
     public void UpdateUIPlayersScores(int _MatchStyle, global::System.Collections.Generic.IList<string> _MatchWinnerAccountIds, int _MatchPointsLimit, int _CupPointsLimit, bool _MatchComplete) { }
 }

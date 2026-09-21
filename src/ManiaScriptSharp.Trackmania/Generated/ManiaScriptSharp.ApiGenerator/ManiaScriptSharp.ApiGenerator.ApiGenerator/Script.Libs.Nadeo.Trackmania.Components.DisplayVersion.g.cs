@@ -24,5 +24,7 @@ public partial class DisplayVersion : ILib
     public string Component() => default!;
 
     /// <summary>Update the version number and text that will be copied in the user clipboard when clicking on the label</summary>
+    /// <param name="_BuildInfo" />
+    /// <param name="_ClipboardText" />
     public void SetVersion(string _BuildInfo, string _ClipboardText) { }
 }

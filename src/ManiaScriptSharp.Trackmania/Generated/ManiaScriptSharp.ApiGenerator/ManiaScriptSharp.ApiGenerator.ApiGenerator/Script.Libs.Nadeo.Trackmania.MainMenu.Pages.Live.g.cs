@@ -43,9 +43,12 @@ public partial class Live : ILib
     public const int C_Index_Arcade = 2;
     public const int C_Index_TOTD = 3;
     public const int C_Index_Events = 4;
+    public const string C_ChannelImagePath_COTD = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageLive/Menu_Play_Live_COTD.dds";
+    public const string C_COTD_AnnouncementLine = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageLive/Menu_Play_Live_COTD_banner.dds";
+    public const string C_ChannelImagePath_Starter_Ranked = "file://Media/Manialinks/Nadeo/Trackmania/Menus/Icons/Matchmaking_Ranks/Starter.dds";
+    /// <summary>Ranked advise pop up</summary>
     public const int C_Choice_GoRanked = 0;
     public const int C_Choice_GoSolo = 1;
-    public const int C_COTDStatus_Check_Frequency = 30000;
 
     public struct K_Controls
     {

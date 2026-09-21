@@ -51,24 +51,44 @@ public partial class DecoImage_Server : ILib
     public string GetClubName() => default!;
 
     /// <summary>Retrieve club infos</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_ClubName" />
+    /// <param name="_IsLocalServer" />
+    /// <param name="_WhoAmIUrl" />
+    /// <param name="_ServerLogin" />
     public void GetClubInfos(int _ClubId, string _ClubName, bool _IsLocalServer, string _WhoAmIUrl, string _ServerLogin) { }
 
     /// <summary>Update deco images with local data</summary>
+    /// <param name="_IsLocalServer" />
+    /// <param name="_WhoAmIUrl" />
+    /// <param name="_ServerLogin" />
+    /// <param name="_DecoImageUrl_Checkpoint" />
+    /// <param name="_DecoImageUrl_DecalSponsor4x1" />
+    /// <param name="_DecoImageUrl_Screen16x9" />
+    /// <param name="_DecoImageUrl_Screen8x1" />
+    /// <param name="_DecoImageUrl_Screen16x1" />
+    /// <param name="_ClubId" />
+    /// <param name="_ClubName" />
     public void SetDecoImages(bool _IsLocalServer, string _WhoAmIUrl, string _ServerLogin, string _DecoImageUrl_Checkpoint, string _DecoImageUrl_DecalSponsor4x1, string _DecoImageUrl_Screen16x9, string _DecoImageUrl_Screen8x1, string _DecoImageUrl_Screen16x1, int _ClubId, string _ClubName) { }
 
     /// <summary>Update the local checkpoint deco image</summary>
+    /// <param name="_DecoImageUrl_Checkpoint" />
     public void SetDecoImage_Checkpoint(string _DecoImageUrl_Checkpoint) { }
 
     /// <summary>Update the local DecalSponsor4x1 deco image</summary>
+    /// <param name="_DecoImageUrl_DecalSponsor4x1" />
     public void SetDecoImage_DecalSponsor4x1(string _DecoImageUrl_DecalSponsor4x1) { }
 
     /// <summary>Update the local Screen16x9 deco image</summary>
+    /// <param name="_DecoImageUrl_Screen16x9" />
     public void SetDecoImage_Screen16x9(string _DecoImageUrl_Screen16x9) { }
 
     /// <summary>Update the local Screen8x1 deco image</summary>
+    /// <param name="_DecoImageUrl_Screen8x1" />
     public void SetDecoImage_Screen8x1(string _DecoImageUrl_Screen8x1) { }
 
     /// <summary>Update the local Screen16x1 deco image</summary>
+    /// <param name="_DecoImageUrl_Screen16x1" />
     public void SetDecoImage_Screen16x1(string _DecoImageUrl_Screen16x1) { }
 
     /// <summary>Update the library</summary>

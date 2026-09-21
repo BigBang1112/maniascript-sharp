@@ -52,40 +52,9 @@ public partial class PressStart : ILib
     public const int C_LeavePageAnimationDuration = 250;
     public const string C_Event_LoadTrophyRewards = "Page_PressStart_LoadTrophyRewards";
     public const string C_Event_InitializeIsNetworkAvailable = "Page_PressStart_InitializeIsNetworkAvailable";
+    /// <summary>their login and password which can take an undetermined amount of time</summary>
     public const bool C_TimeOutTaskConnectUser = false;
     public const string C_ExpendableButtonStyle_StackPressStart = "expendable-button-style-stack-press-start";
-    public const int C_ConnectionTimeOut = 10000;
-    public const int C_ConnectionTimeOut_PreloadOnline = 30000;
-    public const int C_ConnectionProgress_Check_OnlineServicesStatus = 0;
-    public const int C_ConnectionProgress_MenuStart = 1;
-    public const int C_ConnectionProgress_MenuOffline = 2;
-    public const int C_ConnectionProgress_MenuUbiConnect = 3;
-    public const int C_ConnectionProgress_MenuWelcomeBack = 4;
-    public const int C_ConnectionProgress_Check_TaskConnectUser = 5;
-    public const int C_ConnectionProgress_WaitUbiConnectOverlay = 6;
-    public const int C_ConnectionProgress_Check_ConnectionStatus = 7;
-    public const int C_ConnectionProgress_Check_HttpHeaders = 8;
-    public const int C_ConnectionProgress_PreloadOnline = 9;
-    public const int C_ConnectionProgress_Result = 10;
-    public const int C_ConnectionProgress_PreloadOffline = 11;
-    public const int C_ConnectionProgress_Redirect = 12;
-    public const int C_ConnectionProgress_Check_TaskConnectUserOffline = 13;
-    public const int C_ConnectionProgress_Check_MainUserLogged = 14;
-    public const int C_PreloadData_LoadUserTrophyRankings = 0;
-    public const int C_PreloadData_LoadMatchmakingInfos = 1;
-    public const int C_PreloadData_LoadTrophyRewards = 2;
-    public const int C_PreloadData_LoadAllClubsPage = 3;
-    public const int C_PreloadData_LoadOfflineCampaign = 4;
-    public const int C_PreloadData_LoadMediaActive = 5;
-    public const int C_PreloadData_LoadLiveQuarterlyCampaign = 6;
-    public const int C_PreloadData_LoadLiveMonthlyCampaign = 7;
-    public const int C_PreloadData_LoadLiveWeeklyShortsCampaign = 8;
-    public const int C_PreloadData_LoadLiveWeeklyGrandsCampaign = 9;
-    public const int C_PreloadData_LoadLiveCupOfTheWeekCampaign = 10;
-    public const int C_PreloadData_LoadPinAndTagClub = 11;
-    public const int C_PreloadData_LoadNews = 12;
-    public const int C_PreloadData_EnableOfflineMode = 13;
-    public const int C_PreloadData_RetrieveSplashscreen = 14;
 
     public struct K_Controls
     {

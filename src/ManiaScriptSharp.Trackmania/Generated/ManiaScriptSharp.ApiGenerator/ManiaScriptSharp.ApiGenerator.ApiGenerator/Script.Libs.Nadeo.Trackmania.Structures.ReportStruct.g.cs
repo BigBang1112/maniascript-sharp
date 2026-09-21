@@ -19,6 +19,7 @@ public partial class ReportStruct : ILib
     public const string C_ComponentName = "structures-report";
     public const string P = "LibStructuresReport_";
     public const string C_PB = "Personal_Best";
+    /// <summary>! These values must correspond to the indexes of the array C_ReportTargets, C_ReportTargetsDisplayNames and C_ReportTargetDetailsQuestion</summary>
     public const int C_ReportTarget_PlayerName = 0;
     public const int C_ReportTarget_Player = 1;
     public const int C_ReportTarget_ClubTag = 2;
@@ -29,6 +30,7 @@ public partial class ReportStruct : ILib
     public const int C_ReportTarget_Activity = 7;
     public const int C_ReportTarget_Room = 8;
     public const int C_ReportTarget_Track = 9;
+    /// <summary>! These values must correspond to the indexes of the array C_ReportTypes_Player, C_ReportTypes_Player_DisplayNames, C_ReportTypes_PlayerAttributes_DisplayNames and C_ReportTypes_Record_DisplayNames</summary>
     public const int C_ReportType_CopyrightInfringement = 0;
     public const int C_ReportType_Flaming = 1;
     public const int C_ReportType_Spamming = 2;
@@ -40,6 +42,7 @@ public partial class ReportStruct : ILib
     public const int C_ReportType_BotUse = 8;
     public const int C_ReportType_CompetitionSmurfing = 9;
     public const int C_ReportType_BugAdvertising = 10;
+    /// <summary>! These values must correspond to the indexes of the array C_ReportTypes_UGC and C_ReportTypes_UGC_DisplayNames</summary>
     public const int C_ReportType_UGC_CopyrightInfringement = 0;
     public const int C_ReportType_UGC_HatredIncitement = 1;
     public const int C_ReportType_UGC_DiscriminationContent = 2;
@@ -52,14 +55,18 @@ public partial class ReportStruct : ILib
     }
 
     /// <summary>Format the record player name and score for the detail question of the report pop up _PlayerScore								The score of the player (in time) _MapType										The map type of the map where the record was driven</summary>
-    /// <param name="PlayerName">The name of the player who establish the record</param>
+    /// <param name="_PlayerName">The name of the player who establish the record</param>
+    /// <param name="_PlayerScore" />
+    /// <param name="_MapType" />
     /// <returns>A text with this format &quot;PlayerName - 00:21:474&quot;</returns>
     public string FormatRecordDetail(string _PlayerName, int _PlayerScore, string _MapType) => default!;
 
     public string FormatRecordDetail(string _PlayerName, int _PlayerScore) => default!;
 
     /// <summary>Format the record ids for the report API _SeasonId												The Season Id of the specified record (if empty, will be replaced by &quot;Personal_Best&quot;) _MapUid													The Map Uid of the specified record</summary>
-    /// <param name="PlayerAccountId">The account id of the player who establish the record</param>
+    /// <param name="_PlayerAccountId">The account id of the player who establish the record</param>
+    /// <param name="_SeasonId" />
+    /// <param name="_MapUid" />
     /// <returns>A text with this format &quot;PlayerAccountId::SeasonId::MapUid&quot;</returns>
     public string FormatRecordId(string _PlayerAccountId, string _SeasonId, string _MapUid) => default!;
 }

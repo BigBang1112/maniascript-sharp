@@ -23,8 +23,6 @@ public partial class LoadSave_Client : ILib
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/LoadSave_Client.Script.txt";
     public const string C_NavGroupName = "navgroup-championcup-loadsave";
-    public const string C_Color_Ready = "003228";
-    public const string C_Color_NotReady = "E07603";
 
     public struct K_Controls
     {

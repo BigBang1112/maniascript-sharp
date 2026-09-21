@@ -21,19 +21,25 @@ public partial class ScoresTable_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Update the best lap author and points</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_Time" />
+    /// <param name="_BonusPoints" />
     public void SetBestLap(string _AccountId, int _Time, int _BonusPoints) { }
 
     /// <summary>Update the current ongoing sequence</summary>
+    /// <param name="_Sequence" />
     public void SetSequence(int _Sequence) { }
 
     /// <summary>Enable or disable the league ranking tab</summary>
+    /// <param name="_Enabled" />
     public void EnableLeagueRankingTab(bool _Enabled) { }
 
     /// <summary>Select which tab to display</summary>
+    /// <param name="_Tab" />
     public void DisplayTab(int _Tab) { }
 
     /// <summary>Force the scores table to sort the scores in the order given by the array</summary>
-    /// <param name="Ranking">The sorted account id of the players</param>
+    /// <param name="_Ranking">The sorted account id of the players</param>
     public void ForceStepRanking(global::System.Collections.Generic.IList<string> _Ranking) { }
 
     /// <summary>Unload the library</summary>

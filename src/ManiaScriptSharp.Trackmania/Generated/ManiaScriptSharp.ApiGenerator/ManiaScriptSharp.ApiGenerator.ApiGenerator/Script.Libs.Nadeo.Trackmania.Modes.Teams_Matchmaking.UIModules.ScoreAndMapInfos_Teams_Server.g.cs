@@ -21,15 +21,19 @@ public partial class ScoreAndMapInfos_Teams_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the current round number of the match</summary>
+    /// <param name="_RoundNumber" />
     public void SetRoundNumber(int _RoundNumber) { }
 
     /// <summary>Send the points limit of the match</summary>
+    /// <param name="_PointsLimit" />
     public void SetPointsLimit(int _PointsLimit) { }
 
     /// <summary>Send the end round anim duration of the UI</summary>
+    /// <param name="_DisplayDuration" />
     public void SetEndRoundAnimDuration(int _DisplayDuration) { }
 
     /// <summary>Send the round winning team of the match</summary>
+    /// <param name="_RoundWinningClan" />
     public void SetRoundWinningClan(int _RoundWinningClan) { }
 
     /// <summary>Unload the library</summary>

@@ -32,18 +32,29 @@ public partial class EndRaceMenu_Client : ILib
     public const string C_Id = "UIModule_Campaign_EndRaceMenu";
     public const string C_NavGroup_Default = "navgroup-endracemenu-default";
     public const int C_DelayBeforeAutoHide = 9000;
+    /// <summary>Variables for Sound design.</summary>
     public const int C_SoundFadeTime_AutoHide = 1000;
     public const int C_SoundFadeTime_EnterMenu = 1500;
     public const int C_SoundFadeTime_ForceEnterMenu = 100;
+    /// <summary>Time after menu shows before anim starts. NB End of outro is at 3000</summary>
     public const int C_Animation_MedalGain_Delay = 800;
+    /// <summary>Duration of the background introduction</summary>
     public const int C_Animation_MedalGain_BackgroundIntroDuration = 150;
+    /// <summary>Wait duration between BG intro end and Medal animation start</summary>
     public const int C_Animation_MedalGain_TransitionDuration = 250;
+    /// <summary>Duration of the medal animation</summary>
     public const int C_Animation_MedalGain_MedalAnimDuration = 125;
+    /// <summary>Wait duration between medals animation</summary>
     public const int C_Animation_MedalGain_DelayBetweenMedals = 650;
+    /// <summary>Wait duration between the gold and the author medal animation, just to tease the player</summary>
     public const int C_Animation_MedalGain_GoldToAuthorTeaser = 1200;
+    /// <summary>Wait duration between animation and shift to menu</summary>
     public const int C_Animation_MedalGain_Transition2Duration = 1200;
+    /// <summary>Travel time to shift to menu</summary>
     public const int C_Animation_MedalGain_Transition2TravelTime = 125;
+    /// <summary>Wait duration before the glowing loop behind the new medal</summary>
     public const int C_Animation_MedalGain_DelayBeforeGlowLoop = 1000;
+    /// <summary>Delay to adjust sound for medal anim. Can be less than 0 but not less than C_Animation_MedalGain_Delay</summary>
     public const int C_Sound_MedalAnim_Delay = 0;
     public const int C_Sound_MaxCountPerFrame = 5;
     public const string C_Sound_MedalIntro = "SoloMedalIntro";
@@ -61,9 +72,6 @@ public partial class EndRaceMenu_Client : ILib
     public const int C_Row_Replay = 3;
     public const int C_Row_Margin = 4;
     public const int C_Row_Footer = 5;
-    public const int C_NewTrophy_Timeout = 6000;
-    public const int C_Animation_ShakeFrequency = 60;
-    public const int C_Animation_ShakeDelay = -50;
 
     public struct K_SoundToPlay
     {

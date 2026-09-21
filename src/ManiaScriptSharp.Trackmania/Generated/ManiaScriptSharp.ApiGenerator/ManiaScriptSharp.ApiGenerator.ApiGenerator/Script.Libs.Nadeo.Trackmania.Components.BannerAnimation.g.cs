@@ -25,14 +25,14 @@ public partial class BannerAnimation : ILib
     public string Component() => default!;
 
     /// <summary>Get the manialink of the frame instance component</summary>
-    /// <param name="ManiaLinkToInject">The manialink to animate (Careful do not add an id to your control, it will be duplicated in the component)</param>
-    /// <param name="Id">Id of the frame instance</param>
-    /// <param name="FrameSizeX">Size (in X) of the frame instance</param>
-    /// <param name="FrameSizeY">Size (in Y) of the frame instance</param>
-    /// <param name="FramePosX">Pos (in X) of the frame instance</param>
-    /// <param name="FramePosY">Pos (in Y) of the frame instance</param>
-    /// <param name="VAlign">Vertical align of the frame instance</param>
-    /// <param name="HAlign">Horizontal align of the frame instance</param>
+    /// <param name="_ManiaLinkToInject">The manialink to animate (Careful do not add an id to your control, it will be duplicated in the component)</param>
+    /// <param name="_Id">Id of the frame instance</param>
+    /// <param name="_FrameSizeX">Size (in X) of the frame instance</param>
+    /// <param name="_FrameSizeY">Size (in Y) of the frame instance</param>
+    /// <param name="_FramePosX">Pos (in X) of the frame instance</param>
+    /// <param name="_FramePosY">Pos (in Y) of the frame instance</param>
+    /// <param name="_VAlign">Vertical align of the frame instance</param>
+    /// <param name="_HAlign">Horizontal align of the frame instance</param>
     /// <returns>The manialink of the frame instance component</returns>
     public string InjectML(string _ManiaLinkToInject, string _Id, float _FrameSizeX, float _FrameSizeY, float _FramePosX, float _FramePosY, string _VAlign, string _HAlign) => default!;
 }

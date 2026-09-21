@@ -38,7 +38,6 @@ public partial class ArcadeChannel : ILib
     public const int C_Schedule_ElementsTotal = 384;
     public const int C_Tab_CurrentProgram = 0;
     public const int C_Tab_Schedule = 1;
-    public const int C_DelayBetweenTimeUpdate = 10000;
 
     public struct K_ProgramInfo
     {

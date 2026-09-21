@@ -21,17 +21,21 @@ public partial class MatchResult_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Update the teams rank after their elimination</summary>
+    /// <param name="_TeamsRank" />
     public void SetTeamsRank(global::System.Collections.Generic.Dictionary<int, int> _TeamsRank) { }
 
     public void ResetTeamsRank() { }
 
     /// <summary>Update a team rank after its elimination</summary>
+    /// <param name="_TeamId" />
+    /// <param name="_TeamRank" />
     public void SetTeamRank(int _TeamId, int _TeamRank) { }
 
     /// <summary>Reset the fact that the player clicked on the stay button</summary>
     public void ResetClickedOnStay() { }
 
     /// <summary>Tell if this is the last round of the match</summary>
+    /// <param name="_IsLastRound" />
     public void SetLastRound(bool _IsLastRound) { }
 
     /// <summary>Unload the library</summary>

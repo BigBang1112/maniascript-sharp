@@ -41,15 +41,15 @@ public partial class Ladder : ILib
     public void Request_CancelMatch() { }
 
     /// <summary>Select the version used to calculate the ladder points reward of the currently opened match</summary>
-    /// <param name="Version">The version to use</param>
+    /// <param name="_Version">The version to use</param>
     public void SetResultsVersion(int _Version) { }
 
     /// <summary>Associate a matchmaking match id to the currently opened match</summary>
-    /// <param name="MatchId">The match id</param>
+    /// <param name="_MatchId">The match id</param>
     public void SetMatchmakingMatchId(int _MatchId) { }
 
     /// <summary>Enable of disable the challenge mode for the currently opened match</summary>
-    /// <param name="Enable">True to enable the challenge mode, False to disable it</param>
+    /// <param name="_Enable">True to enable the challenge mode, False to disable it</param>
     public void EnableChallengeMode(bool _Enable) { }
 
     /// <summary>Unload the library</summary>

@@ -27,5 +27,6 @@ public partial class StayLeaveButtons : ILib
     public const string C_NavGroup_Buttons = "navgroup-royal-stay-leave-buttons";
 
     /// <summary>Get the component</summary>
+    /// <param name="_SizeY_Button" />
     public string Component(float _SizeY_Button) => default!;
 }

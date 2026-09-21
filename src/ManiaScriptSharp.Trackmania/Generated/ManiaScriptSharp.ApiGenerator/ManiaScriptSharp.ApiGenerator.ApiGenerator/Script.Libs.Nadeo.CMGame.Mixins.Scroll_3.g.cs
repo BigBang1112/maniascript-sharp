@@ -151,6 +151,8 @@ public partial class Scroll_3 : ILib
     }
 
     /// <summary>Get the required number of elements to put in the scroll frame for the given grid size</summary>
+    /// <param name="_GridSize" />
+    /// <param name="_Direction" />
     public int GetRequiredElementsNb(Int2 _GridSize, int _Direction) => default!;
 
     public Vec2 GetRecommendedWindowSize(Vec2 _ElementSize, Vec2 _GutterSize, Int2 _GridSize) => default!;

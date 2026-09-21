@@ -33,18 +33,17 @@ public partial class PrestigeEarned_Client : ILib
     public const int C_Delay_BeforeLights = 1000;
     public const int C_Delay_BeforeGemstones = 1000;
     public const int C_MaxGemstones = 13;
-    public const string C_Sound_NewPrestige = "ShowWinners";
-    public const string C_Sound_Gemstone = "RankUp";
-    public const string C_SceneLayout = "Empty";
-    public const string C_PodiumBaseModel = "/Stadium/Items/PodiumBase.Item.Gbx";
-    public const double C_CameraRotation = 7.0;
-    public const double C_CameraFOV = 35.0;
-    public const double C_CarRotation = 142.0;
-    public const double C_PodiumRotation = 40.0;
-    public const double C_PodiumBaseColor = 0.4;
-    public const double C_PodiumCubeReflect = 0.3;
-    public const double C_PodiumPlaneReflect = 0.5;
-    public const int C_FlareLightAnimationDuration = 400;
+    public const string C_ImageUrl_Prestige_Backgroud = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Background.dds";
+    public const string C_ImageUrl_Prestige_Season_On = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Season_On.dds";
+    public const string C_ImageUrl_Prestige_Season_Off = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Season_Off.dds";
+    public const string C_ImageUrl_Prestige_Royal_On = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Royal_On.dds";
+    public const string C_ImageUrl_Prestige_Royal_Off = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Royal_Off.dds";
+    public const string C_ImageUrl_Prestige_Ranked_On = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Ranked_On.dds";
+    public const string C_ImageUrl_Prestige_Ranked_Off = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Ranked_Off.dds";
+    public const string C_ImageUrl_Prestige_Light_Flare_Bg1 = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Flare_Background1.dds";
+    public const string C_ImageUrl_Prestige_Light_Flare_Bg2 = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Flare_Background2.dds";
+    public const string C_ImageUrl_Prestige_Light_Flare1 = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Flare1.dds";
+    public const string C_ImageUrl_Prestige_Light_Flare2 = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Prestige/Prestige_Flare2.dds";
 
     public struct K_Scene
     {

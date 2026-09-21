@@ -14,6 +14,8 @@ public partial class Layer_TitleLinks : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Links.TitleInfoStructs Structs;
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Links/";
+
     public void Build() { }
 
     public void SetVisibility(bool _IsVisible) { }

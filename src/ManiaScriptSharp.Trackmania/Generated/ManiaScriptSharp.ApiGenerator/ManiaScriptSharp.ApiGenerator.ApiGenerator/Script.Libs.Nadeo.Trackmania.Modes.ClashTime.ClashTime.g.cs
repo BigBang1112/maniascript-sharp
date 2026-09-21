@@ -88,6 +88,7 @@ public partial class ClashTime : ILib
     public void Stop() { }
 
     /// <summary>Start the Clash Time intro</summary>
+    /// <param name="_IntroDuration" />
     public void StartIntro(int _IntroDuration) { }
 
     /// <summary>Check if the Clash Time intro is running</summary>
@@ -97,6 +98,8 @@ public partial class ClashTime : ILib
     public void StopIntro() { }
 
     /// <summary>Start the Clash Time race</summary>
+    /// <param name="_TimeLimit" />
+    /// <param name="_ControlAPIUrl" />
     public void StartRace(int _TimeLimit, string _ControlAPIUrl) { }
 
     /// <summary>Check if the Clash Time race is running</summary>
@@ -106,12 +109,17 @@ public partial class ClashTime : ILib
     public void UpdateRace() { }
 
     /// <summary>Stop the Clash Time race</summary>
+    /// <param name="_InfiniteLaps" />
+    /// <param name="_ForceLapsNb" />
     public int StopRace(bool _InfiniteLaps, int _ForceLapsNb) => default!;
 
     /// <summary>Genarate the win message</summary>
+    /// <param name="_WinnerName" />
     public string GetWinMessage(string _WinnerName) => default!;
 
     /// <summary>Start the Clash Time outro</summary>
+    /// <param name="_OutroDuration" />
+    /// <param name="_Message" />
     public void StartOutro(int _OutroDuration, string _Message) { }
 
     public void StartOutro(int _OutroDuration) { }

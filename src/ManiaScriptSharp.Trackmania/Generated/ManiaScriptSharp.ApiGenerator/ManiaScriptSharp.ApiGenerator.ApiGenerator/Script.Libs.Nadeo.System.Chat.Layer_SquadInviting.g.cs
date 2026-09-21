@@ -15,6 +15,7 @@ public partial class Layer_SquadInviting : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
 
     public const int C_NbContactsDisplayedInList = 6;
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Chat/";
 
     public void Build() { }
 

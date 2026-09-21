@@ -23,13 +23,21 @@ public partial class PopUp : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "PopUp.Script.txt";
+    /// <summary>No mode</summary>
     public const int C_Mode_Null = 0;
+    /// <summary>Confirm mode</summary>
     public const int C_Mode_Confirm = 1;
+    /// <summary>Alert mode</summary>
     public const int C_Mode_Alert = 2;
+    /// <summary>Pop up mode</summary>
     public const int C_Mode_PopUp = 3;
+    /// <summary>Loading mode</summary>
     public const int C_Mode_Loading = 4;
+    /// <summary>Anim button background on mouse over/out</summary>
     public const bool C_BgAnim = false;
+    /// <summary>Default visibility</summary>
     public const bool C_DefaultVisibility = false;
+    /// <summary>Events</summary>
     public const string C_Event_Confirm = "LibPopUp_Confirm";
     public const string C_Event_Cancel = "LibPopUp_Cancel";
 
@@ -38,42 +46,64 @@ public partial class PopUp : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Ask for a confirmation</summary>
+    /// <param name="_Title" />
+    /// <param name="_Message" />
+    /// <param name="_Yes" />
+    /// <param name="_No" />
     public void Confirm(string _Title, string _Message, string _Yes, string _No) { }
 
     /// <summary>Confirm overload</summary>
+    /// <param name="_Message" />
     public void Confirm(string _Message) { }
 
     /// <summary>Open an alert pop up</summary>
+    /// <param name="_Title" />
+    /// <param name="_Message" />
+    /// <param name="_Answer" />
     public void Alert(string _Title, string _Message, string _Answer) { }
 
     /// <summary>Alert overload</summary>
+    /// <param name="_Message" />
     public void Alert(string _Message) { }
 
     /// <summary>Waiting for an answer</summary>
     public bool Wait() => default!;
 
     /// <summary>Open a simple pop up</summary>
+    /// <param name="_Title" />
+    /// <param name="_Message" />
     public void Open(string _Title, string _Message) { }
 
     /// <summary>Close the currently open pop up</summary>
     public void Close() { }
 
     /// <summary>Enable or disable the loading UI</summary>
+    /// <param name="_IsLoading" />
+    /// <param name="_Message" />
+    /// <param name="_SetMode" />
+    /// <param name="_Animate" />
     public void Loading(bool _IsLoading, string _Message, bool _SetMode, bool _Animate) { }
 
     /// <summary>Overload Loading()</summary>
+    /// <param name="_IsLoading" />
+    /// <param name="_Message" />
+    /// <param name="_SetMode" />
     public void Loading(bool _IsLoading, string _Message, bool _SetMode) { }
 
     /// <summary>Set the loading progression percentage</summary>
+    /// <param name="_Progress" />
     public void SetLoadingProgress(int _Progress) { }
 
     /// <summary>Get the answer to the confirmation</summary>
     public bool Answer() => default!;
 
     /// <summary>Display or hide the disconnected pad window</summary>
+    /// <param name="_Disconnected" />
     public void PadDisconnected(bool _Disconnected) { }
 
     /// <summary>Display a progress message</summary>
+    /// <param name="_Message" />
+    /// <param name="_Progress" />
     public void SetProgress(string _Message, int _Progress) { }
 
     /// <summary>Current state we're in</summary>

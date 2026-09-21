@@ -18,6 +18,7 @@ public partial class WinScreen_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/WinScreen_Client.Script.txt";
+    public const string C_Img_WinScreen = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/WinScreen";
 
     /// <summary>Get the id of the UI module</summary>
     public string GetId() => default!;

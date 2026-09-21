@@ -23,13 +23,12 @@ public partial class StyleSelection : ILib
     public const string ScriptName = "StyleSelection.Script.txt";
     public const int C_MaxStyles = 5;
     public const int C_MinStyles = 4;
+    /// <summary>Events</summary>
     public const string C_Event_StyleHover = "LibStyleSelection_StyleHover";
     public const string C_Event_StyleClick = "LibStyleSelection_StyleClick";
     public const string C_Event_StyleNext = "LibStyleSelection_StyleNext";
     public const string C_Event_StylePrev = "LibStyleSelection_StylePrev";
     public const string C_Event_StyleSelectLandscape = "LibStyleSelection_StylePrevSelectLandscape";
-    public const int C_ClickTick = 100;
-    public const int C_InitTick = 500;
 
     public string GetScriptVersion() => default!;
 
@@ -47,26 +46,33 @@ public partial class StyleSelection : ILib
     public string Event_StyleSelectLandscape() => default!;
 
     /// <summary>Enable a style</summary>
+    /// <param name="_Style" />
     public void Enable(string _Style) { }
 
     /// <summary>Disable a style</summary>
+    /// <param name="_Style" />
     public void Disable(string _Style) { }
 
     /// <summary>Check if a style is disabled</summary>
+    /// <param name="_Style" />
     public bool IsDisabled(string _Style) => default!;
 
     public void ShowLandscapeButtons(bool _Select, bool _Camera, bool _Cancel) { }
 
     /// <summary>Set the styles</summary>
+    /// <param name="_Styles" />
     public void SetStyles(global::System.Collections.Generic.IList<string> _Styles) { }
 
     /// <summary>Select a style</summary>
+    /// <param name="_Style" />
     public void SelectStyle(string _Style) { }
 
     /// <summary>Set the position of the UI</summary>
+    /// <param name="_PositionY" />
     public void SetPositionY(float _PositionY) { }
 
     /// <summary>Set the style selection visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }

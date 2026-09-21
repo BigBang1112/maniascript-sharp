@@ -45,16 +45,19 @@ public partial class StateManager : ILib
     public const int C_State_Podium = 2;
 
     /// <summary>Force the states applied to all players To disable the forced states use an empty array</summary>
-    /// <param name="States">The states to force</param>
+    /// <param name="_States">The states to force</param>
     public void ForcePlayersStates(global::System.Collections.Generic.IList<int> _States) { }
 
     /// <summary>Add a state to the forced players states</summary>
+    /// <param name="_State" />
     public void AddForcedPlayersStates(int _State) { }
 
     /// <summary>Remove a state from the forced players states</summary>
+    /// <param name="_State" />
     public void RemoveForcedPlayersStates(int _State) { }
 
     /// <summary>Enable or disable the default podium screen layer</summary>
+    /// <param name="_Sign16x9SmallEnabled" />
     public void EnableDefaultSign16x9Small(bool _Sign16x9SmallEnabled) { }
 
     /// <summary>Update the library</summary>
@@ -64,5 +67,6 @@ public partial class StateManager : ILib
     public void Unload() { }
 
     /// <summary>Load the library</summary>
+    /// <param name="_EnablePickAndBan" />
     public void Load(bool _EnablePickAndBan) { }
 }

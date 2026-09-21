@@ -16,57 +16,64 @@ public partial class ManiaView2 : ILib
 
     public const string Version = "1.0.2";
     public const string ScriptName = "Libs/Nadeo/CMGame/Utils/ManiaView2.Script.txt";
+    /// <summary>Targets for the component concat function</summary>
     public const int C_Target_Template = 0;
     public const int C_Target_Directive = 1;
     public const int C_Target_Script = 2;
 
     /// <summary>Create a new ManiaView instance</summary>
-    /// <param name="Template">Manialink of the instance</param>
-    /// <param name="Directives">Directives of the instance</param>
-    /// <param name="Script">Script of the instance</param>
-    /// <param name="Components">Other components used by the instance</param>
-    /// <param name="Plugins">Plugins used by the instance</param>
+    /// <param name="_Template">Manialink of the instance</param>
+    /// <param name="_Directives">Directives of the instance</param>
+    /// <param name="_Script">Script of the instance</param>
+    /// <param name="_Components">Other components used by the instance</param>
+    /// <param name="_Plugins">Plugins used by the instance</param>
     /// <returns>Return the ManiaView instance unique id</returns>
     public string New(string _Template, string _Directives, string _Script, global::System.Collections.Generic.IList<string> _Components, global::System.Collections.Generic.IList<string> _Plugins) => default!;
 
     /// <summary>Create a component If a component with the same name already exists, then return its id immediatly without creating a new component</summary>
-    /// <param name="Name">Unique name of the component</param>
-    /// <param name="Template">Manialink of the component</param>
-    /// <param name="Directives">Directives of the component</param>
-    /// <param name="Script">Script of the component</param>
-    /// <param name="Components">Other components used by the component</param>
-    /// <param name="Plugins">Plugins used by the component</param>
+    /// <param name="_Name">Unique name of the component</param>
+    /// <param name="_Templates" />
+    /// <param name="_Directives">Directives of the component</param>
+    /// <param name="_Script">Script of the component</param>
+    /// <param name="_Components">Other components used by the component</param>
+    /// <param name="_Plugins">Plugins used by the component</param>
     /// <returns>Return the component unique id</returns>
     public string Component(string _Name, global::System.Collections.Generic.Dictionary<string, string> _Templates, string _Directives, string _Script, global::System.Collections.Generic.IList<string> _Components, global::System.Collections.Generic.IList<string> _Plugins) => default!;
 
     /// <summary>Create a component If a component with the same name already exists, then return its id immediatly without creating a new component</summary>
-    /// <param name="Name">Unique name of the component</param>
-    /// <param name="Template">Manialink of the component</param>
-    /// <param name="Directives">Directives of the component</param>
-    /// <param name="Script">Script of the component</param>
-    /// <param name="Components">Other components used by the component</param>
-    /// <param name="Plugins">Plugins used by the component</param>
+    /// <param name="_Name">Unique name of the component</param>
+    /// <param name="_Template">Manialink of the component</param>
+    /// <param name="_Directives">Directives of the component</param>
+    /// <param name="_Script">Script of the component</param>
+    /// <param name="_Components">Other components used by the component</param>
+    /// <param name="_Plugins">Plugins used by the component</param>
     /// <returns>Return the component unique id</returns>
     public string Component(string _Name, string _Template, string _Directives, string _Script, global::System.Collections.Generic.IList<string> _Components, global::System.Collections.Generic.IList<string> _Plugins) => default!;
 
     /// <summary>to library to included in manialink</summary>
+    /// <param name="_Name" />
+    /// <param name="_Template" />
+    /// <param name="_Directives" />
+    /// <param name="_Script" />
+    /// <param name="_Components" />
+    /// <param name="_Plugins" />
     public string ComponentV2(string _Name, string _Template, string _Directives, string _Script, global::System.Collections.Generic.IList<string> _Components, global::System.Collections.Generic.IList<string> _Plugins) => default!;
 
     /// <summary>Compile the given ManiaView instance into a Manialink</summary>
-    /// <param name="MVId">Id of the ManiaView instance to compile</param>
-    /// <param name="Name">Name of the compiled manialink</param>
-    /// <param name="Version">Version of the compiled manialink</param>
+    /// <param name="_MVId">Id of the ManiaView instance to compile</param>
+    /// <param name="_Name">Name of the compiled manialink</param>
+    /// <param name="_Version">Version of the compiled manialink</param>
     /// <returns>The Manialink</returns>
     public string Compile(string _MVId, string _Name, int _Version) => default!;
 
     /// <summary>Create a new ManiaView instance and compile it to a Manialink immediatly</summary>
-    /// <param name="Name">Name of the compiled manialink</param>
-    /// <param name="Version">Version of the compiled manialink</param>
-    /// <param name="Template">Manialink of the instance</param>
-    /// <param name="Directives">Directives of the instance</param>
-    /// <param name="Script">Script of the instance</param>
-    /// <param name="Components">Other components used by the instance</param>
-    /// <param name="Plugins">Plugins used by the instance</param>
+    /// <param name="_Name">Name of the compiled manialink</param>
+    /// <param name="_Version">Version of the compiled manialink</param>
+    /// <param name="_Template">Manialink of the instance</param>
+    /// <param name="_Directives">Directives of the instance</param>
+    /// <param name="_Script">Script of the instance</param>
+    /// <param name="_Components">Other components used by the instance</param>
+    /// <param name="_Plugins">Plugins used by the instance</param>
     /// <returns>The Manialink</returns>
     public string Create(string _Name, int _Version, string _Template, string _Directives, string _Script, global::System.Collections.Generic.IList<string> _Components, global::System.Collections.Generic.IList<string> _Plugins) => default!;
 

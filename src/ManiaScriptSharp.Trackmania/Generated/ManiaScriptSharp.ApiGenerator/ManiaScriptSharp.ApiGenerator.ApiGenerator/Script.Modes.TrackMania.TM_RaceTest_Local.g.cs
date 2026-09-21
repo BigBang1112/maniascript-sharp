@@ -14,6 +14,7 @@ public partial class TM_RaceTest_Local : ILib
 {
     public const string Version = "1.0.2+2023-09-01";
     public const string ScriptName = "Modes/TrackMania/TM_RaceTest_Local.Script.txt";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/RaceTest.Script.txt";
     public const int C_GhostUpdateInterval = 1000;
     public const int C_UnspawnAnimDuration = 0;
 
@@ -27,14 +28,17 @@ public partial class TM_RaceTest_Local : ILib
     }
 
     /// <summary>Remove the ghost of the player</summary>
+    /// <param name="_Ghost" />
     public K_Ghost RemoveGhost(K_Ghost _Ghost) => default!;
 
     public void RemoveGhost() { }
 
     /// <summary>Hide the ghost of the player last run</summary>
+    /// <param name="_Ghost" />
     public K_Ghost HideGhost(K_Ghost _Ghost) => default!;
 
     /// <summary>Display the ghost of the player last run</summary>
+    /// <param name="_Ghost" />
     public K_Ghost ShowGhost(K_Ghost _Ghost) => default!;
 
     /// <summary>Start the test mode</summary>

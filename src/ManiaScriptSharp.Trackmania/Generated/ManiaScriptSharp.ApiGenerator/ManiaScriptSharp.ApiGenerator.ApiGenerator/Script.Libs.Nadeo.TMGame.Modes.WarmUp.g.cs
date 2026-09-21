@@ -22,6 +22,7 @@ public partial class WarmUp : ILib
 
     public const string Version = "1.2.0";
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/WarmUp.Script.txt";
+    /// <summary>XmlRpc</summary>
     public const string C_Callback_WarmUpStart = "Trackmania.WarmUp.Start";
     public const string C_Callback_WarmUpStartRound = "Trackmania.WarmUp.StartRound";
     public const string C_Callback_WarmUpEnd = "Trackmania.WarmUp.End";
@@ -33,7 +34,7 @@ public partial class WarmUp : ILib
     public const string C_Method_WarmUpGetStatus = "Trackmania.WarmUp.GetStatus";
 
     /// <summary>Set the visibility of the layer on the screen</summary>
-    /// <param name="Visibility">The new visibility</param>
+    /// <param name="_Visibility">The new visibility</param>
     public void SetUIVisibility(bool _Visibility) { }
 
     /// <summary>Get the visibility of the layer on the screen</summary>
@@ -41,7 +42,7 @@ public partial class WarmUp : ILib
     public bool GetUIVisibility() => default!;
 
     /// <summary>Set the position of the layer on the screen</summary>
-    /// <param name="Pos">The new position</param>
+    /// <param name="_Pos">The new position</param>
     public void SetUIPosition(Vec3 _Pos) { }
 
     /// <summary>Get the position of the layer on the screen</summary>
@@ -49,9 +50,11 @@ public partial class WarmUp : ILib
     public Vec3 GetUIPosition() => default!;
 
     /// <summary>Set who can see the warm up UI (players/spectators/everyone)</summary>
+    /// <param name="_VisibleFor" />
     public void SetVisibleFor(int _VisibleFor) { }
 
     /// <summary>Set the message that will be displayed at the beginning of the round</summary>
+    /// <param name="_Message" />
     public void SetStartRoundMessage(string _Message) { }
 
     /// <summary>Start the warm up sequence</summary>
@@ -62,10 +65,10 @@ public partial class WarmUp : ILib
     public bool Finished() => default!;
 
     /// <summary>Initialize the warm up round</summary>
-    /// <param name="RoundsPlayed">The number of warm up rounds played</param>
-    /// <param name="RoundsToPlay">The number of warm up rounds to play</param>
-    /// <param name="TimeLimit">Time limit of the round in milliseconds</param>
-    /// <param name="FinishTimeOut">The timeout in milliseconds when the first player crosses the finish line</param>
+    /// <param name="_RoundsPlayed">The number of warm up rounds played</param>
+    /// <param name="_RoundsToPlay">The number of warm up rounds to play</param>
+    /// <param name="_TimeLimit">Time limit of the round in milliseconds</param>
+    /// <param name="_FinishTimeout">The timeout in milliseconds when the first player crosses the finish line</param>
     public void StartRound(int _RoundsPlayed, int _RoundsToPlay, int _TimeLimit, int _FinishTimeout) { }
 
     public void StartRound(int _RoundsPlayed, int _RoundsToPlay, int _TimeLimit) { }
@@ -84,13 +87,13 @@ public partial class WarmUp : ILib
     public void End() { }
 
     /// <summary>Send a callback with the warm up status</summary>
-    /// <param name="ResponseId">The responseid of the callback</param>
-    /// <param name="IsLoaded">Is the warm up available or not</param>
-    /// <param name="IsActive">Is there an ongoing warm up or not</param>
+    /// <param name="_ResponseId">The responseid of the callback</param>
+    /// <param name="_IsLoaded">Is the warm up available or not</param>
+    /// <param name="_IsActive">Is there an ongoing warm up or not</param>
     public void SendStatusCallback(string _ResponseId, bool _IsLoaded, bool _IsActive) { }
 
     /// <summary>Set the availabality of the warmup in the game mode False otherwise</summary>
-    /// <param name="IsAvailable">True if the warmup is available</param>
+    /// <param name="_IsAvailable">True if the warmup is available</param>
     public void SetAvailability(bool _IsAvailable) { }
 
     /// <summary>Check if the warmup is available False otherwise</summary>
@@ -102,6 +105,7 @@ public partial class WarmUp : ILib
     public bool IsActive() => default!;
 
     /// <summary>Allow or not the warm up to spawn the players in their requested clan</summary>
+    /// <param name="_SpawnInRequestedClan" />
     public void SetSpawnInRequestedClan(bool _SpawnInRequestedClan) { }
 
     /// <summary>Catch XmlRpc methods call</summary>

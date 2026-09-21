@@ -70,6 +70,6 @@ public partial class Navigation_2 : ILib
     }
 
     /// <summary>Get the opposite directionnal input of the given input</summary>
-    /// <param name="Input">The input to invert</param>
+    /// <param name="_InputType" />
     public int InvertInput(int _InputType) => default!;
 }

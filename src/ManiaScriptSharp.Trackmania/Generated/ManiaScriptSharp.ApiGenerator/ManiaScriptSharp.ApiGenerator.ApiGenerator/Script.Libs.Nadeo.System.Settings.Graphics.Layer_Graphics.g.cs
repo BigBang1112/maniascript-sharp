@@ -14,6 +14,8 @@ public partial class Layer_Graphics : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Settings.SettingsStructs Structs;
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Settings.Layer_CommonBase LayerBase;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Settings/";
+
     public void Build() { }
 
     public void SetVisibility(bool _Visible) { }

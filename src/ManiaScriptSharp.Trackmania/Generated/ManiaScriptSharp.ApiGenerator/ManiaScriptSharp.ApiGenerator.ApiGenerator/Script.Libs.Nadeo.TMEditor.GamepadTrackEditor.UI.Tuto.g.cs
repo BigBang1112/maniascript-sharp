@@ -46,6 +46,7 @@ public partial class Tuto : ILib
     public const int C_Tuto_Decoration = 20;
     public const int C_Tuto_EditTerrain = 21;
     public const int C_Tuto_ConnectMode = 22;
+    /// <summary>Devices</summary>
     public const int C_Device_Keyboard = 0;
     public const int C_Device_Gamepad = 1;
 
@@ -107,9 +108,11 @@ public partial class Tuto : ILib
     public int Tuto_ConnectMode() => default!;
 
     /// <summary>Enable a tutorial</summary>
+    /// <param name="_Tuto" />
     public void Enable(int _Tuto) { }
 
     /// <summary>Disable a tutorial</summary>
+    /// <param name="_Tuto" />
     public void Disable(int _Tuto) { }
 
     /// <summary>Disable all tutorials</summary>
@@ -123,15 +126,19 @@ public partial class Tuto : ILib
     public bool IsEnabled() => default!;
 
     /// <summary>Validate a tutorial and disable it if it was enabled</summary>
+    /// <param name="_Tuto" />
     public void ValidateTuto(int _Tuto) { }
 
     /// <summary>Check if a given tutorial is validated</summary>
+    /// <param name="_Tuto" />
     public bool IsValidated(int _Tuto) => default!;
 
     /// <summary>Trigger the counter of a tutorial</summary>
+    /// <param name="_Tuto" />
     public void Trigger(int _Tuto) { }
 
     /// <summary>Get the number of timer a tutorial was triggered</summary>
+    /// <param name="_Tuto" />
     public int Count(int _Tuto) => default!;
 
     /// <summary>Reset all validated tutorial to an unvalidated state</summary>
@@ -142,6 +149,7 @@ public partial class Tuto : ILib
     public bool LayerIsVisible() => default!;
 
     /// <summary>Set the tuto UI visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }

@@ -17,8 +17,11 @@ public partial class ThemePack : ILib
 
     public const string Version = "1.0.2";
     public const string ScriptName = "ThemePack.Script.txt";
+    /// <summary>Modes Track mode</summary>
     public const int C_Mode_Track = 0;
+    /// <summary>Terrain mode</summary>
     public const int C_Mode_Terrain = 1;
+    /// <summary>Decoration mode</summary>
     public const int C_Mode_Decoration = 2;
 
     public string GetScriptVersion() => default!;
@@ -40,21 +43,27 @@ public partial class ThemePack : ILib
     public int GetLayersCount() => default!;
 
     /// <summary>Get the type of a given terrain layer</summary>
+    /// <param name="_Layer" />
     public string GetType(int _Layer) => default!;
 
     /// <summary>Get the frequency of a given terrain layer</summary>
+    /// <param name="_Layer" />
     public float GetFrequency(int _Layer) => default!;
 
     /// <summary>Get the octaves of a given terrain layer</summary>
+    /// <param name="_Layer" />
     public float GetOctaves(int _Layer) => default!;
 
     /// <summary>Get the terrains height intervals of a given terrain layer</summary>
+    /// <param name="_Layer" />
     public global::System.Collections.Generic.Dictionary<float, string> GetTerrainsIntervals(int _Layer) => default!;
 
     /// <summary>Check if a ratio exists for a given decoration category</summary>
+    /// <param name="_Category" />
     public bool ExistsDecorationRatio(string _Category) => default!;
 
     /// <summary>Get the ratio of a given decoration category</summary>
+    /// <param name="_Category" />
     public float GetDecorationRatio(string _Category) => default!;
 
     /// <summary>Get the currently selected style filter</summary>

@@ -28,7 +28,7 @@ public partial class ScoresTable_Server : ILib
     public void SetBestLapPlayer(string _AccountId, int _BonusPoints) { }
 
     /// <summary>Update the scores table footer text</summary>
-    /// <param name="IsPaused">True if the match is paused</param>
+    /// <param name="_IsPaused">True if the match is paused</param>
     public void UpdateScoresTableFooter(bool _IsPaused) { }
 
     public void SetSequence(int _Sequence) { }
@@ -42,14 +42,15 @@ public partial class ScoresTable_Server : ILib
     public void ComputeRankDiff() { }
 
     /// <summary>Update the number of hearts</summary>
-    /// <param name="Hearts">The number of hearts of each player</param>
+    /// <param name="_Hearts">The number of hearts of each player</param>
     public void SetHearts(global::System.Collections.Generic.Dictionary<string, int> _Hearts) { }
 
     /// <summary>Switch the scores table to the given tab</summary>
-    /// <param name="Tab">The tab to display</param>
+    /// <param name="_Tab">The tab to display</param>
     public void SetTab(int _Tab) { }
 
     /// <summary>Update the points limit used to displayed finalist and winner status Cup mode</summary>
+    /// <param name="_PointsLimit" />
     public void SetPointsLimit(int _PointsLimit) { }
 
     /// <summary>Unload the library</summary>

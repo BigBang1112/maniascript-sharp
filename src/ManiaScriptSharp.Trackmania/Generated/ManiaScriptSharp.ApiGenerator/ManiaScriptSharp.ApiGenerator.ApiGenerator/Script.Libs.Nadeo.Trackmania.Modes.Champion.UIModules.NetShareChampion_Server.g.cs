@@ -20,26 +20,27 @@ public partial class NetShareChampion_Server : ILib
     public void SetPhase(int _Phase) { }
 
     /// <summary>Set the number of rounds remaining</summary>
-    /// <param name="RoundsNb">The number of rounds remaining</param>
+    /// <param name="_RoundsNb">The number of rounds remaining</param>
     public void SetRoundsNb(int _RoundsNb) { }
 
     /// <summary>Set the total number of rounds</summary>
-    /// <param name="RoundsNb">The total number of rounds</param>
+    /// <param name="_RoundsTotal" />
     public void SetRoundsTotal(int _RoundsTotal) { }
 
     /// <summary>Set the number of rounds to play on one map</summary>
+    /// <param name="_RoundsPerMap" />
     public void SetRoundsPerMap(int _RoundsPerMap) { }
 
     /// <summary>Set the number of players that can win points at the end of the round</summary>
-    /// <param name="WinningPlayersNb">The number of players that can win points</param>
+    /// <param name="_WinningPlayersNb">The number of players that can win points</param>
     public void SetWinningPlayersNb(int _WinningPlayersNb) { }
 
     /// <summary>Update the Clash Time status False otherwise</summary>
-    /// <param name="ClashTimeIsActive">True if Clash Time is active</param>
+    /// <param name="_ClashTimeIsActive">True if Clash Time is active</param>
     public void SetClashTimeIsActive(bool _ClashTimeIsActive) { }
 
     /// <summary>Update the warm up status False otherwise</summary>
-    /// <param name="WarmUpIsActive">True if the warm up is active</param>
+    /// <param name="_WarmUpIsActive">True if the warm up is active</param>
     public void SetWarmUpIsActive(bool _WarmUpIsActive) { }
 
     /// <summary>Unload the library</summary>

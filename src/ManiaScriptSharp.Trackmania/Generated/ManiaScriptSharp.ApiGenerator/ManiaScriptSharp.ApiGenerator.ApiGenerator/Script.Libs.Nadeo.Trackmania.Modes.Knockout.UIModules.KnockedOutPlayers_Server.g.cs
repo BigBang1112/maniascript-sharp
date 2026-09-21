@@ -17,11 +17,12 @@ public partial class KnockedOutPlayers_Server : ILib
     public const string C_Id = "UIModule_Knockout_KnockedOutPlayers";
 
     /// <summary>Show or hide the UI content False to hide</summary>
-    /// <param name="Display">True to show</param>
+    /// <param name="_AccountIds" />
+    /// <param name="_Ranks" />
     public void DisplayEliminatedPlayer(global::System.Collections.Generic.IList<string> _AccountIds, global::System.Collections.Generic.IList<int> _Ranks) { }
 
     /// <summary>Show or hide the UI content False to hide</summary>
-    /// <param name="Display">True to show</param>
+    /// <param name="_Display">True to show</param>
     public void DisplayContent(bool _Display) { }
 
     /// <summary>Unload the library</summary>

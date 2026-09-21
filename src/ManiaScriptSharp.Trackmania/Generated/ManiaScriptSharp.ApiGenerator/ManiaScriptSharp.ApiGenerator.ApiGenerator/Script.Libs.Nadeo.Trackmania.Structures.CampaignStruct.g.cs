@@ -26,6 +26,7 @@ public partial class CampaignStruct : ILib
     public const int C_Campaign_NullId = 0;
     public const int C_MonthlyCampaign_NullId = 0;
     public const string C_Season_NullId = "";
+    /// <summary>! These values must be the same in the API from LIVE !</summary>
     public const int C_CampaignType_None = -1;
     public const int C_CampaignType_Quarterly = 0;
     public const int C_CampaignType_Monthly = 1;
@@ -38,6 +39,7 @@ public partial class CampaignStruct : ILib
     public const int C_LoadStatus_NotLoaded = 0;
     public const int C_LoadStatus_Loaded = 1;
     public const int C_LoadStatus_Error = 2;
+    /// <summary>Map categories in official campaign</summary>
     public const int C_CategoryWhite = 0;
     public const int C_CategoryGreen = 1;
     public const int C_CategoryBlue = 2;
@@ -236,9 +238,11 @@ public partial class CampaignStruct : ILib
     }
 
     /// <summary>Find the season name in the campaign name</summary>
+    /// <param name="_CampaignName" />
     public int GetSeasonNameInCampaignName(string _CampaignName) => default!;
 
     /// <summary>Find the year in the campaign name</summary>
+    /// <param name="_CampaignName" />
     public int GetYearInCampaignName(string _CampaignName) => default!;
 
     /// <summary>Get an empty campaign structure</summary>
@@ -248,17 +252,20 @@ public partial class CampaignStruct : ILib
     public LibCampaignStruct_K_MonthlyCampaign GetEmptyMonthlyCampaign() => default!;
 
     /// <summary>Parse a campaign name into a struct containing its season (see Const::C_Season_Names) and its year</summary>
-    /// <param name="CampaignName">The name of the campaign to parse</param>
+    /// <param name="_CampaignName">The name of the campaign to parse</param>
     /// <returns>A struct LibCampaignStruct_K_CampaignName</returns>
     public LibCampaignStruct_K_CampaignName ParseCampaignName(string _CampaignName) => default!;
 
     /// <summary>Get the minimum medals needed to unlock this category</summary>
+    /// <param name="_CategoryIndex" />
     public int GetMedalsMinToUnlockCategory(int _CategoryIndex) => default!;
 
     /// <summary>Get the current medal image url to unlock this category</summary>
+    /// <param name="_CategoryIndex" />
     public string GetCurrentMedalUrlForCategory(int _CategoryIndex) => default!;
 
     /// <summary>Check if a daily map's leaderboard is closed</summary>
+    /// <param name="_DailyMap" />
     public bool LeaderboardIsClosed(LibCampaignStruct_K_DailyMap _DailyMap) => default!;
 
     public string GetMedalScoreText(int _Time, int _Points, int _Respawns, string _MapType, bool _EnableAbbreviation) => default!;
@@ -268,6 +275,7 @@ public partial class CampaignStruct : ILib
     public string GetMedalScoreText(int _Score, string _MapType) => default!;
 
     /// <summary>Determine the map's category in official campaigns from its position in the playlist</summary>
+    /// <param name="_MapPosition" />
     public int GetCategoryFromMapPosition(int _MapPosition) => default!;
 
     /// <summary>Get the manialink component</summary>

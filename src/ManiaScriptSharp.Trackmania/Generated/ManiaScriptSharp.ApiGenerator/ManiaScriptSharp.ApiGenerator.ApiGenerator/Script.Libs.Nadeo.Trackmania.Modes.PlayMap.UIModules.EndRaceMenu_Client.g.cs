@@ -36,7 +36,6 @@ public partial class EndRaceMenu_Client : ILib
     public const int C_Row_Replay = 1;
     public const int C_Row_Margin = 2;
     public const int C_Row_Footer = 3;
-    public const int C_DelayBeforeAutoHide = 9000;
 
     public struct K_Controls
     {

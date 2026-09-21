@@ -9,6 +9,7 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.System.InternalEvents;
 
+/// <summary>Still a better producer than Miss ECKS FUCKING DEE</summary>
 public partial class Events_Producer : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.InternalEvents.EventsStructs Structs;

@@ -20,6 +20,7 @@ public partial class Tools : ILib
     public const int C_TagMaxLength = 64;
     public const int C_LiveApiRankRoundingStart = 100000;
     public const int C_DefaultMouseActivationDelay = 1000;
+    /// <summary>WCAG constants for contrast ratio : https: www.w3.org TR WCAG20 TECHS G17.html</summary>
     public const double C_WACG_Gamma = 2.2;
     public const double C_WACG_RedRatio = 0.2126;
     public const double C_WACG_GreenRatio = 0.7152;
@@ -88,38 +89,48 @@ public partial class Tools : ILib
     }
 
     /// <summary>Convert a Text to a Boolean</summary>
+    /// <param name="_Source" />
     public bool TextToBoolean(string _Source) => default!;
 
     public bool TextToBoolean2(string _Source) => default!;
 
     /// <summary>Convert a Vec3 to a Text</summary>
+    /// <param name="_Vec" />
     public string Vec3ToText(Vec3 _Vec) => default!;
 
     /// <summary>Convert a Vec2 to a Text</summary>
+    /// <param name="_Vec" />
     public string Vec2ToText(Vec2 _Vec) => default!;
 
     /// <summary>Modify a color so it is visible on the given background color</summary>
+    /// <param name="_BackgroundColor" />
+    /// <param name="_TargetColor" />
+    /// <param name="_Threshold" />
     public Vec3 GetVisibleColorOnBackground(Vec3 _BackgroundColor, Vec3 _TargetColor, float _Threshold) => default!;
 
     public Vec3 GetVisibleColorOnBackground(Vec3 _BackgroundColor, Vec3 _TargetColor) => default!;
 
     /// <summary>Parse a joinlink in Text format and return a structure containing all the joinlink parts</summary>
+    /// <param name="_JoinLink" />
     public K_JoinLink ParseJoinLink(string _JoinLink) => default!;
 
     /// <summary>Update the full joinlink inside a joinlink structure</summary>
+    /// <param name="_JoinLink" />
     public K_JoinLink UpdateJoinLink(K_JoinLink _JoinLink) => default!;
 
     /// <summary>Generate a Text joinlink from a joinlink structure</summary>
+    /// <param name="_JoinLink" />
     public string GenerateJoinLink(K_JoinLink _JoinLink) => default!;
 
     /// <summary>Remove completly the given tags in a given string</summary>
-    /// <param name="Source">The text to clean</param>
-    /// <param name="ForbiddenTags">The tags to remove in the source text</param>
+    /// <param name="_Source">The text to clean</param>
+    /// <param name="_ForbiddenTags">The tags to remove in the source text</param>
     public string RemoveForbiddenTags(string _Source, global::System.Collections.Generic.IList<string> _ForbiddenTags) => default!;
 
     public string FormatClubTag(string _ClubTag) => default!;
 
     /// <summary>Return the day of the current month depending on timezone</summary>
+    /// <param name="_Timestamp" />
     public int GetMonthDay(int _Timestamp) => default!;
 
     public int GetMonthDay() => default!;
@@ -128,13 +139,14 @@ public partial class Tools : ILib
     public int GetYear() => default!;
 
     /// <summary>Return the season of the given timestamp</summary>
+    /// <param name="_CurrentTimestamp" />
     public int GetTimestampSeason(string _CurrentTimestamp) => default!;
 
     /// <summary>Get the formatted name of the given script name</summary>
-    /// <param name="ScriptName">The script name to format</param>
-    /// <param name="DefaultScriptPath">The default path of a script name. e.g. &quot;TrackMania/{ScriptName}.Script.txt&quot;</param>
-    /// <param name="ToReplaceInDefaultScriptPath">The text to replace in the default script path. e.g. &quot;{ScriptName}&quot;</param>
-    /// <param name="ModeNames">An array with script names associated with their script path</param>
+    /// <param name="_ScriptName">The script name to format</param>
+    /// <param name="_DefaultScriptPath">The default path of a script name. e.g. &quot;TrackMania/{ScriptName}.Script.txt&quot;</param>
+    /// <param name="_ToReplaceInDefaultScriptPath">The text to replace in the default script path. e.g. &quot;{ScriptName}&quot;</param>
+    /// <param name="_ModeNames">An array with script names associated with their script path</param>
     public string GetScriptName(string _ScriptName, string _DefaultScriptPath, string _ToReplaceInDefaultScriptPath, global::System.Collections.Generic.Dictionary<string, string> _ModeNames) => default!;
 
     public Vec2 TextToVec2(string _Source) => default!;
@@ -152,18 +164,27 @@ public partial class Tools : ILib
     public string Int3ToText(Int3 _Source) => default!;
 
     /// <summary>Convert a real array to a margin struct following css syntax rule</summary>
+    /// <param name="_Source" />
     public K_Margin RealArrayToMargin(global::System.Collections.Generic.IList<float> _Source) => default!;
 
     /// <summary>Convert a margin text property to a struct following css syntax rule</summary>
+    /// <param name="_Source" />
     public K_Margin TextToMargin(string _Source) => default!;
 
     /// <summary>Convert a real array to a padding struct following css syntax rule</summary>
+    /// <param name="_Source" />
     public K_Padding RealArrayToPadding(global::System.Collections.Generic.IList<float> _Source) => default!;
 
     /// <summary>Convert a padding text property to a struct following css syntax rule</summary>
+    /// <param name="_Source" />
     public K_Padding TextToPadding(string _Source) => default!;
 
     /// <summary>Create a box</summary>
+    /// <param name="_Size" />
+    /// <param name="_MarginAbsolute" />
+    /// <param name="_MarginRatio" />
+    /// <param name="_PaddingAbsolute" />
+    /// <param name="_PaddingRatio" />
     public K_Box CreateBox(Vec2 _Size, K_Margin _MarginAbsolute, K_Margin _MarginRatio, K_Padding _PaddingAbsolute, K_Padding _PaddingRatio) => default!;
 
     public Vec3 GetBlinkingRed(int _BlinkingEndTime) => default!;
@@ -173,13 +194,14 @@ public partial class Tools : ILib
     public Vec3 GetBlinkingColor(int _BlinkingEndTime, int _BlinkingFrequency, Vec3 _BaseColor, Vec3 _BlinkColor) => default!;
 
     /// <summary>Get the luminance of an RGB color</summary>
+    /// <param name="_RGBColor" />
     public float GetColorLuminance(Vec3 _RGBColor) => default!;
 
     /// <summary>Format a rank into a top</summary>
-    /// <param name="Rank">The rank to format</param>
-    /// <param name="PrefixWithTop">Prefix the rank with top or not</param>
-    /// <param name="FormatLimit">Above this limit, format the rank with &quot;K&quot; when above the thousands</param>
-    /// <param name="IsFromLiveApi">Is the ranking coming from the Live API ?</param>
+    /// <param name="_Rank">The rank to format</param>
+    /// <param name="_PrefixWithTop">Prefix the rank with top or not</param>
+    /// <param name="_FormatLimit">Above this limit, format the rank with &quot;K&quot; when above the thousands</param>
+    /// <param name="_IsFromLiveApi">Is the ranking coming from the Live API ?</param>
     /// <returns>&quot;Top 123&quot;, &quot;Top 5K&quot;, &quot;123&quot;, &quot;5K&quot;</returns>
     public string FormatTop(int _Rank, bool _PrefixWithTop, int _FormatLimit, bool _IsFromLiveApi) => default!;
 
@@ -190,22 +212,30 @@ public partial class Tools : ILib
     public string FormatTop(int _Rank) => default!;
 
     /// <summary>Format a time diff to show the least number possible</summary>
+    /// <param name="_TimeDiff" />
     public string FormatTimeDiff(int _TimeDiff) => default!;
 
     /// <summary>Remove all $h, $l, \n and \r in the given text First, the Regex will remove all the $h[] and $l[] tags, as well as the control characters \n and \r Then it will remove the remaining forbidden tags and control characters</summary>
-    /// <param name="ToFormat">The text to clean</param>
+    /// <param name="_ToFormat">The text to clean</param>
     public string FormatValue(string _ToFormat) => default!;
 
     /// <summary>Use to get only the CountryPath without the region</summary>
+    /// <param name="_ZonePath" />
+    /// <param name="_DefaultMasterZone" />
     public string GetCountryPath(string _ZonePath, string _DefaultMasterZone) => default!;
 
     /// <summary>Get the suffix of a rank</summary>
+    /// <param name="_Rank" />
     public string GetRankSuffix(int _Rank) => default!;
 
     /// <summary>Get the list of all keys in an array</summary>
+    /// <param name="_Array" />
     public global::System.Collections.Generic.IList<string> GetListOfKeys(global::System.Collections.Generic.Dictionary<string, string> _Array) => default!;
 
     /// <summary>Ternary operator polyfill</summary>
+    /// <param name="_IsTrue" />
+    /// <param name="_ValueA" />
+    /// <param name="_ValueB" />
     public string Ternary(bool _IsTrue, string _ValueA, string _ValueB) => default!;
 
     public int Ternary(bool _IsTrue, int _ValueA, int _ValueB) => default!;
@@ -223,16 +253,20 @@ public partial class Tools : ILib
     public Vec3 Ternary(bool _IsTrue, Vec3 _ValueA, Vec3 _ValueB) => default!;
 
     /// <summary>Translate map's name if it's an official map</summary>
-    /// <param name="MapName">The name of the map to translate</param>
-    /// <param name="ForceTranslation">Force the translation of the map name</param>
+    /// <param name="_MapName">The name of the map to translate</param>
+    /// <param name="_AuthorLogin" />
+    /// <param name="_ForceTranslation">Force the translation of the map name</param>
     /// <returns>The translated name</returns>
     public string TranslateOfficialMapName(string _MapName, string _AuthorLogin, bool _ForceTranslation) => default!;
 
     public string TranslateOfficialMapName(string _MapName, string _AuthorLogin) => default!;
 
     /// <summary>Create an xml node</summary>
+    /// <param name="_Name" />
+    /// <param name="_Attributes" />
     public string CreateXmlNode(string _Name, global::System.Collections.Generic.Dictionary<string, string> _Attributes) => default!;
 
     /// <summary>Check if the text is translated</summary>
+    /// <param name="_Text" />
     public bool IsTranslatedText(string _Text) => default!;
 }

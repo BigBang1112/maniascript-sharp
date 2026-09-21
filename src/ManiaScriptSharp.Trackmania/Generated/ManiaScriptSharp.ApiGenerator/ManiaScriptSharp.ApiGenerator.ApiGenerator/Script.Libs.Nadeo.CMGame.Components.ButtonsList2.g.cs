@@ -25,7 +25,7 @@ public partial class ButtonsList2 : ILib
     public const double C_ButtonMaxWidth = 100.0;
 
     /// <summary>Create a buttons structure than can be passed to the data-settings attribute [&quot;ButtonName&quot; =&gt; &quot;ButtonAction&quot;]</summary>
-    /// <param name="ButtonActions">The buttons and their actions</param>
+    /// <param name="_ButtonActions">The buttons and their actions</param>
     public string InjectButtons(global::System.Collections.Generic.Dictionary<string, string> _ButtonActions) => default!;
 
     /// <summary>Get the component</summary>

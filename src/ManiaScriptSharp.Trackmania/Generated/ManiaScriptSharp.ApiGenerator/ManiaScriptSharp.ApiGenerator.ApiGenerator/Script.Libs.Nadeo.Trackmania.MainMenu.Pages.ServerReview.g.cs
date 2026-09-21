@@ -41,12 +41,6 @@ public partial class ServerReview : ILib
     public const string C_Class_PageMapConfirmation = "page-map-confirmation";
     public const string C_Class_PageReviewType = "page-review-type";
     public const string C_Class_PageMainMenu = "page-main-menu";
-    public const int C_Page_Hidden = -1;
-    public const int C_Page_MainMenu = 0;
-    public const int C_Page_ReviewType = 1;
-    public const int C_Page_ReviewTypeForSubmission = 2;
-    public const int C_Page_BrowseMap = 3;
-    public const int C_Page_MapConfirmation = 4;
 
     public struct K_Controls
     {

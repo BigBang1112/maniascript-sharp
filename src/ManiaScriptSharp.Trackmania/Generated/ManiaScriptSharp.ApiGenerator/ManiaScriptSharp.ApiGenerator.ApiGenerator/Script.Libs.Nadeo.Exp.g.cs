@@ -28,7 +28,7 @@ public partial class Exp : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Enable or disable the Exp mode</summary>
-    /// <param name="Enabled">True to enable, False to disable</param>
+    /// <param name="_Enabled">True to enable, False to disable</param>
     public void Enable(bool _Enabled) { }
 
     /// <summary>Check if the Exp mode is enabled or disabled False otherwise</summary>
@@ -36,8 +36,8 @@ public partial class Exp : ILib
     public bool Enabled() => default!;
 
     /// <summary>Setup the game</summary>
-    /// <param name="SessionsNb">The number of sessions in the game</param>
-    /// <param name="SessionDuration">The durations of one session in seconds</param>
+    /// <param name="_SessionsNb">The number of sessions in the game</param>
+    /// <param name="_SessionDuration">The durations of one session in seconds</param>
     public void SetupGame(int _SessionsNb, int _SessionDuration) { }
 
     /// <summary>Check if a session is opened and finished False otherwise</summary>
@@ -45,7 +45,6 @@ public partial class Exp : ILib
     public bool IsFinishedSession() => default!;
 
     /// <summary>Open a session</summary>
-    /// <param name="Duration">The duration of the session in seconds</param>
     public void OpenSession() { }
 
     /// <summary>Close a session</summary>

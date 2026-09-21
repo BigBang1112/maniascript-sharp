@@ -20,12 +20,14 @@ public partial class TMGLMarkers : ILib
     public const bool C_UseUIAll = true;
 
     /// <summary>Set the account ids of the finalists in Cup mode</summary>
+    /// <param name="_AccountIds" />
     public void SetFinalists(global::System.Collections.Generic.IList<string> _AccountIds) { }
 
     /// <summary>Update library</summary>
     public void Yield() { }
 
     /// <summary>Enable or disable the markers</summary>
+    /// <param name="_Enabled" />
     public void Enable(bool _Enabled) { }
 
     public void Enable() { }

@@ -19,7 +19,6 @@ public partial class Chrono_Client : ILib
 
     public const string Version = "1.1.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/Chrono_Client.Script.txt";
-    public const int C_AnimDuration_ShowHideModule = 250;
 
     public struct K_Controls
     {

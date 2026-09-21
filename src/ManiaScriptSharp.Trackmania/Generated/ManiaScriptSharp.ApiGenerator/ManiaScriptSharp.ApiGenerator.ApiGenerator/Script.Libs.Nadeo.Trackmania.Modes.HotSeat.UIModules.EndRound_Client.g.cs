@@ -21,8 +21,6 @@ public partial class EndRound_Client : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/EndRound_Client.Script.txt";
     public const string C_Id = "UIModules_HotSeat_EndRound";
     public const string C_NavGroupName = "navgroup-hotseat-endround";
-    public const int C_Notification_AnimDuration = 1000;
-    public const int C_Notification_PostAnimDuration = 2000;
 
     /// <summary>Get the module manialink</summary>
     /// <returns>The module manialink</returns>

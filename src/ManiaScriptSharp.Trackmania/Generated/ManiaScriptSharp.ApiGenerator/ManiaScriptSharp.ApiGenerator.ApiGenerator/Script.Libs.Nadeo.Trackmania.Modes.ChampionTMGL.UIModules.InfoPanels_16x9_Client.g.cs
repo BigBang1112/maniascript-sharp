@@ -21,8 +21,10 @@ public partial class InfoPanels_16x9_Client : ILib
     public const string C_Id = "UIModule_ChampionTMGL_InfoPanels_16x9";
     public const int C_LayersCount = 4;
     public const string C_AttachId = "155";
+    public const string C_ImageSponsorsPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Sponsors/";
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_Id" />
     /// <returns>The module manialink</returns>
     public string GetML(string _Id) => default!;
 

@@ -17,32 +17,58 @@ public partial class MatchmakingLobby : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.CMGame.Modes.Legacy.XmlRpc2 XmlRpc;
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.CMGame.Modes.Legacy.MatchmakingCommon MMCommon;
 
+    /// <summary>@mslint disable next line max lines per file This is a legacy script, for backward compatibility reasons we cannot reduce the number of statements in the main function</summary>
     public const string Version = "1.0.3";
     public const string ScriptName = "Libs/Nadeo/CMGame/Modes/Legacy/MatchmakingLobby.Script.txt";
+    /// <summary>Lobby phases Playing phase</summary>
     public const int C_Lobby_Playing = 0;
+    /// <summary>Matchmaking phase</summary>
     public const int C_Lobby_Matchmaking = 1;
+    /// <summary>Masters Number of masters displayed</summary>
     public const int C_Master_Numbers = 20;
+    /// <summary>Name of the master</summary>
     public const int C_Master_Name = 0;
+    /// <summary>Country of the master</summary>
     public const int C_Master_Country = 1;
+    /// <summary>Echelon of the master</summary>
     public const int C_Master_Echelon = 2;
+    /// <summary>Ally status Ally validated</summary>
     public const int C_AllyStatus_Validated = 0;
+    /// <summary>Ally request sent to this player</summary>
     public const int C_AllyStatus_Sent = 1;
+    /// <summary>Ally disconnected</summary>
     public const int C_AllyStatus_Disconnected = 2;
+    /// <summary>Ally info Current status of the user in the room</summary>
     public const int C_AllyInfo_Status = 0;
+    /// <summary>Current clan of the user in the room</summary>
     public const int C_AllyInfo_Clan = 1;
+    /// <summary>Current slot of the user in the room</summary>
     public const int C_AllyInfo_Slot = 2;
+    /// <summary>Default room properties Default clan when creating a room</summary>
     public const int C_Lobby_DefaultClan = 0;
+    /// <summary>Default slot when creating a room</summary>
     public const int C_Lobby_DefaultSlot = 0;
+    /// <summary>Cancellation configuration Legacy : Allow match cancel</summary>
     public const bool C_AllowMatchCancel = true;
+    /// <summary>Legacy : -1: infinite cancel, 0 or more: number of cancellations allowed</summary>
     public const int C_LimitMatchCancel = 0;
+    /// <summary>Legacy : Penalize players canceling a replacement</summary>
     public const bool C_PenalizeSubstituteCancel = false;
+    /// <summary>Warn player that they will be penalize if they cancel</summary>
     public const bool C_WarnPenalty = false;
+    /// <summary>Misc Duration before sending back a player to the match they left</summary>
     public const int C_ReconnectDuration = 5000;
+    /// <summary>Minimum time after a transfert before a player can be listed as ready</summary>
     public const int C_TransfertSafeTime = 40000;
+    /// <summary>Time since the last ping before considering the player as disconnected</summary>
     public const int C_TimeOutDuration = 20000;
+    /// <summary>Random time margin applied to the live request of the match and lobby server</summary>
     public const int C_RequestRandomDeviation = 500;
+    /// <summary>Common http headers</summary>
     public const string C_HttpHeaders = "Content-Type: application/json\nAccept: application/xml";
+    /// <summary>XmlRpc callbacks</summary>
     public const string C_Callback_Matchmaking_ReadyState = "Maniaplanet.Matchmaking.ReadyState";
+    /// <summary>XmlRpc methods</summary>
     public const string C_Method_Matchmaking_Start = "Maniaplanet.Matchmaking.Start";
     public const string C_Method_Matchmaking_Stop = "Maniaplanet.Matchmaking.Stop";
     public const string C_Method_Matchmaking_Force = "Maniaplanet.Matchmaking.Force";
@@ -51,19 +77,19 @@ public partial class MatchmakingLobby : ILib
     public const string C_Method_Matchmaking_SetMastersListDisabledFor = "Maniaplanet.Matchmaking.SetMastersListDisabledFor";
 
     /// <summary>Set the list of servers that will be used for the matches</summary>
-    /// <param name="Logins">A comma separated list of server logins</param>
+    /// <param name="_Logins">A comma separated list of server logins</param>
     public void SetMatchServers(string _Logins) { }
 
     /// <summary>Disable the UI of the lobby</summary>
-    /// <param name="DisableUI">Disable the UI or not</param>
+    /// <param name="_DisableUI">Disable the UI or not</param>
     public void DisableUI(bool _DisableUI) { }
 
     /// <summary>Kick timed out players</summary>
-    /// <param name="Kick">Kick timed out players or not</param>
+    /// <param name="_Kick">Kick timed out players or not</param>
     public void KickTimedOutPlayers(bool _Kick) { }
 
     /// <summary>Reconnect players to match servers</summary>
-    /// <param name="Reconnect">Reconnect players to matches or not</param>
+    /// <param name="_Reconnect">Reconnect players to matches or not</param>
     public void EnableMatchReconnect(bool _Reconnect) { }
 
     /// <summary>Check if the match reconnect is enabled in the lobby</summary>
@@ -71,7 +97,7 @@ public partial class MatchmakingLobby : ILib
     public bool MatchReconnectEnabled() => default!;
 
     /// <summary>Enable or disable the matchmaking in the lobby</summary>
-    /// <param name="Enable">True to enable, False to disable</param>
+    /// <param name="_Enable">True to enable, False to disable</param>
     public void EnableMatchmaking(bool _Enable) { }
 
     /// <summary>Check if the matchmaking is enable in the lobby</summary>
@@ -79,7 +105,8 @@ public partial class MatchmakingLobby : ILib
     public bool MatchmakingIsEnabled() => default!;
 
     /// <summary>Set the duration of one round of matchmaking @para	_Post		Duration of the post matchmaking sequence</summary>
-    /// <param name="Pre">Duration of the pre matchmaking sequence</param>
+    /// <param name="_Pre">Duration of the pre matchmaking sequence</param>
+    /// <param name="_Post" />
     public void SetMatchmakingDuration(int _Pre, int _Post) { }
 
     /// <summary>Get the duration of the pre matchmaking sequence</summary>
@@ -91,7 +118,7 @@ public partial class MatchmakingLobby : ILib
     public int GetPostMatchmakingDuration() => default!;
 
     /// <summary>Set the lobby start time</summary>
-    /// <param name="StartTime">The new lobby start time</param>
+    /// <param name="_StartTime">The new lobby start time</param>
     public void SetLobbyStartTime(int _StartTime) { }
 
     /// <summary>Get the lobby start time</summary>
@@ -99,7 +126,7 @@ public partial class MatchmakingLobby : ILib
     public int GetLobbyStartTime() => default!;
 
     /// <summary>Set the lobby end time</summary>
-    /// <param name="EndTime">The new lobby end time</param>
+    /// <param name="_EndTime">The new lobby end time</param>
     public void SetLobbyEndTime(int _EndTime) { }
 
     /// <summary>Get the lobby end time</summary>
@@ -107,7 +134,7 @@ public partial class MatchmakingLobby : ILib
     public int GetLobbyEndTime() => default!;
 
     /// <summary>Set the lobby phase</summary>
-    /// <param name="Phase">The new lobby phase</param>
+    /// <param name="_Phase">The new lobby phase</param>
     public void SetLobbyPhase(int _Phase) { }
 
     /// <summary>Get the lobby phase</summary>
@@ -128,12 +155,11 @@ public partial class MatchmakingLobby : ILib
     public void ClearMasters() { }
 
     /// <summary>Add several players to the masters list</summary>
-    /// <param name="Player">The player to add</param>
-    /// <param name="Timestamp">The last time this player was a master</param>
+    /// <param name="_Logins" />
     public void AddMasters(global::System.Collections.Generic.IList<string> _Logins) { }
 
     /// <summary>Parse the matches XML and send player to their match server</summary>
-    /// <param name="MatchesXML">The XML containing the matches</param>
+    /// <param name="_MatchesXML">The XML containing the matches</param>
     public void GetMatches(string _MatchesXML) { }
 
     /// <summary>Agressively retry to transfert the players for the whole duration of the safe transfert time</summary>
@@ -143,20 +169,20 @@ public partial class MatchmakingLobby : ILib
     public void SendToMatches() { }
 
     /// <summary>Find a free slot in the room</summary>
-    /// <param name="Id">Id of the room to scan</param>
+    /// <param name="_Id">Id of the room to scan</param>
     /// <returns>An array with the clan and free slot numbers [Clan, Slot]</returns>
     public global::System.Collections.Generic.IList<int> GetRoomFreeSlot(int _Id) => default!;
 
     /// <summary>Update the format currently used in the lobby</summary>
-    /// <param name="Format">The format to set</param>
+    /// <param name="_Format">The format to set</param>
     public void UpdateMatchFormat(global::System.Collections.Generic.IList<int> _Format) { }
 
     /// <summary>Update the maximum number of players in a team</summary>
-    /// <param name="MaxPlayers">The maximum number of players</param>
+    /// <param name="_MaxPlayers">The maximum number of players</param>
     public void MM_UpdateMaxPlayers(int _MaxPlayers) { }
 
     /// <summary>Parse the player request response and setup the player accordingly</summary>
-    /// <param name="PlayerXml">Xml containing the player info</param>
+    /// <param name="_PlayerXml">Xml containing the player info</param>
     public void SetupPlayer(string _PlayerXml) { }
 
     /// <summary>Load the allies of the users from a backup</summary>
@@ -169,12 +195,12 @@ public partial class MatchmakingLobby : ILib
     public void UpdateTimers() { }
 
     /// <summary>Revert the timers</summary>
-    /// <param name="Duration">Duration of the reversal</param>
+    /// <param name="_Duration">Duration of the reversal</param>
     public void SetTimersAutoDown(int _Duration) { }
 
     /// <summary>Start the matchmaker</summary>
-    /// <param name="ProgressiveActivationWaitingTime">Time before the activation of the progressive matchmaking</param>
-    /// <param name="ProgressiveActivationPlayersNbRatio">Number of players before the activation of the progressive matchmaking</param>
+    /// <param name="_ProgressiveActivationWaitingTime">Time before the activation of the progressive matchmaking</param>
+    /// <param name="_ProgressiveActivationPlayersNbRatio">Number of players before the activation of the progressive matchmaking</param>
     public void MatchmakerStart(int _ProgressiveActivationWaitingTime, int _ProgressiveActivationPlayersNbRatio) { }
 
     /// <summary>Run the MatchMaker</summary>
@@ -185,17 +211,17 @@ public partial class MatchmakingLobby : ILib
     public void MatchmakerStop() { }
 
     /// <summary>Start server in lobby mode</summary>
-    /// <param name="DisableUI">Disable the lobby UI</param>
-    /// <param name="KickTimedOutPlayers">Kick timed out player</param>
+    /// <param name="_DisableUI">Disable the lobby UI</param>
+    /// <param name="_KickTimedOutPlayers">Kick timed out player</param>
     public void MM_StartServer(bool _DisableUI, bool _KickTimedOutPlayers) { }
 
     /// <summary>Start map in lobby mode</summary>
     public void MM_StartMap() { }
 
     /// <summary>Start round in lobby mode</summary>
-    /// <param name="PreDuration">Duration of the pre matchmaking sequence</param>
-    /// <param name="PostDuration">Duration of the post matchmaking sequence</param>
-    /// <param name="RoundPerMap">Number of rounds played on a map</param>
+    /// <param name="_PreDuration">Duration of the pre matchmaking sequence</param>
+    /// <param name="_PostDuration">Duration of the post matchmaking sequence</param>
+    /// <param name="_RoundPerMap">Number of rounds played on a map</param>
     public void MM_StartRound(int _PreDuration, int _PostDuration, int _RoundPerMap) { }
 
     /// <summary>Manage XmlRpx events for the lobby</summary>
@@ -219,11 +245,11 @@ public partial class MatchmakingLobby : ILib
     public void MM_EndServer() { }
 
     /// <summary>Inject the rules visibility variable into a manialink script with the given variable name</summary>
-    /// <param name="VariableName">The name to give to the variable</param>
+    /// <param name="_VariableName">The name to give to the variable</param>
     public string InjectMLRulesVisibilityVariable(string _VariableName) => default!;
 
     /// <summary>Use a custom manialink instead of the one available by default False to disable and use the default one</summary>
-    /// <param name="UseCustom">True to enable custom rules manialink</param>
+    /// <param name="_UseCustom">True to enable custom rules manialink</param>
     public void UseCustomRulesML(bool _UseCustom) { }
 
     /// <summary>Create the header manialink</summary>
@@ -235,7 +261,7 @@ public partial class MatchmakingLobby : ILib
     public string GetMLGaugeTimer() => default!;
 
     /// <summary>Create the send to server manialink</summary>
-    /// <param name="Rules">The rules to display</param>
+    /// <param name="_Rules">The rules to display</param>
     /// <returns>The manialink</returns>
     public string GetMLRules(string _Rules) => default!;
 
@@ -248,7 +274,7 @@ public partial class MatchmakingLobby : ILib
     public string GetMLMastersList() => default!;
 
     /// <summary>Create the waiting screen manialink</summary>
-    /// <param name="DisplayRules">Allow to display a manialink with the rules of the mode</param>
+    /// <param name="_DisplayRules">Allow to display a manialink with the rules of the mode</param>
     /// <returns>The manialink</returns>
     public string GetMLWaitingScreen(bool _DisplayRules) => default!;
 
@@ -257,7 +283,7 @@ public partial class MatchmakingLobby : ILib
     public string GetMLRooms() => default!;
 
     /// <summary>Select the right manialink depending on the king of lobby</summary>
-    /// <param name="DisplayRules">Allow to display a manialink with the rules of the mode</param>
+    /// <param name="_DisplayRules">Allow to display a manialink with the rules of the mode</param>
     /// <returns>The manialink</returns>
     public string GetMLLobbyScreen(bool _DisplayRules) => default!;
 

@@ -31,17 +31,6 @@ public partial class NextMatchTracker_Client : ILib
     public const string C_NavGroup_Center = "navgroup-timeattack-daily-center";
     public const string C_NavGroup_ShowInGameMenu = "navgroup-timeattack-daily-showingamemenu";
     public const int C_InputPriority = 1;
-    public const int C_State_Hidden = 0;
-    public const int C_State_BeforeMatch = 1;
-    public const int C_State_BeforeMatch_Registered = 2;
-    public const int C_State_MatchStarted_NoResult = 4;
-    public const int C_State_MatchStarted_Registering = 5;
-    public const int C_State_MatchOver_WaitJoinLink = 8;
-    public const int C_State_MatchOver_WaitServerReady = 9;
-    public const int C_State_MatchOver_JoinLinkReady = 10;
-    public const int C_State_MatchOver_RegistrationsOver = 11;
-    public const int C_State_MatchOver_MatchNotJoinableAnymore = 12;
-    public const int C_JoinLinkValidDelay = 30000;
 
     public struct K_ContentControls
     {

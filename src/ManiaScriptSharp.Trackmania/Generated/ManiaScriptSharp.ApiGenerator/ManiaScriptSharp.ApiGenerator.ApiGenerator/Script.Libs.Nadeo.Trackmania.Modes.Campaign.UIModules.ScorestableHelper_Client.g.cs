@@ -22,9 +22,6 @@ public partial class ScorestableHelper_Client : ILib
     public const double C_TextMargin = 3.0;
     public const double C_MaxWidth = 78.0;
     public const double C_HelperHeight = 7.0;
-    public const int C_MaxDisplayCount = 50;
-    public const int C_DisplayDuration = 5000;
-    public const int C_ActivePadUpdateInterval = 500;
 
     /// <summary>Get the module manialink</summary>
     /// <returns>The module manialink</returns>

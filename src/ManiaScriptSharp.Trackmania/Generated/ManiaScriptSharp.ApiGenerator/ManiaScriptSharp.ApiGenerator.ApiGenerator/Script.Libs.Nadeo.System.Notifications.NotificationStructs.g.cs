@@ -9,6 +9,7 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.System.Notifications;
 
+/// <summary>Data structures</summary>
 public partial class NotificationStructs : ILib
 {
     public struct SImage

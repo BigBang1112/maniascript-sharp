@@ -27,9 +27,11 @@ public partial class StateManager : ILib
     public const int C_State_EndRaceMenu = 2;
 
     /// <summary>Check if the players have the given state as forced</summary>
+    /// <param name="_State" />
     public bool HasForcedState(int _State) => default!;
 
     /// <summary>Force the states applied to all players To disable the forced states use an empty array</summary>
+    /// <param name="_States" />
     public void ForcePlayersStates(global::System.Collections.Generic.IList<int> _States) { }
 
     /// <summary>Update the library</summary>

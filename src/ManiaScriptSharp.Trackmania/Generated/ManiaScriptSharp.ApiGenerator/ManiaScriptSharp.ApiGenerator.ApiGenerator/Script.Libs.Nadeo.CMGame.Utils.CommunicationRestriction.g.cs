@@ -23,6 +23,7 @@ public partial class CommunicationRestriction : ILib
     public bool ChatIsRestricted(int _CommunicationRestrictionLevel) => default!;
 
     /// <summary>Get the message to display when a teammate's chat is restricted</summary>
+    /// <param name="_TeammateName" />
     public string GetTeammateChatRestrictedMessage(string _TeammateName) => default!;
 
     public string GetOwnChatRestrictedMessage(int _CommunicationRestrictionLevel) => default!;

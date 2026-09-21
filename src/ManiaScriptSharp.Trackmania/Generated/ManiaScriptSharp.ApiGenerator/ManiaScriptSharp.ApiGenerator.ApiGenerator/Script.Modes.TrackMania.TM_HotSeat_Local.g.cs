@@ -30,7 +30,9 @@ public partial class TM_HotSeat_Local : ILib
     public const string Version = "1.5.0+2024-03-06";
     public const string ScriptName = "Modes/TrackMania/TM_HotSeat_Local.Script.txt";
     public const string C_ModeName = "HotSeat";
+    /// <summary>L16N [HotSeat] Description of the mode rules</summary>
     public const string Description = "";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/HotSeat.Script.txt";
     public const int C_ModeState_StartMatch = 0;
     public const int C_ModeState_MatchLoop = 1;
     public const int C_ModeState_EndMatch = 2;
@@ -89,8 +91,10 @@ public partial class TM_HotSeat_Local : ILib
     public bool ApplyPauseMenuEvent() => default!;
 
     /// <summary>Increase the brightness of the color to have readable markers</summary>
+    /// <param name="_PlayerClan" />
     public Vec3 GetCustomMarkerColor(int _PlayerClan) => default!;
 
     /// <summary>Release a ghost and reset its Id</summary>
+    /// <param name="_GhostId" />
     public Ident ReleaseGhost(Ident _GhostId) => default!;
 }

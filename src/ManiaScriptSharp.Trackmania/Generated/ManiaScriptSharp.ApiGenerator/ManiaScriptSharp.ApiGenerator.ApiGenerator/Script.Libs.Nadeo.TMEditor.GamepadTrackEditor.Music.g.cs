@@ -16,14 +16,20 @@ public partial class Music : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Music.Script.txt";
+    /// <summary>Path to the music</summary>
+    public const string C_MusicPath_Random = "file://Media/Manialinks/Nadeo/TMEditor/GamepadTrackEditor/Sounds/RandomGeneration.zip";
+    public const string C_MusicPath_Normal = "file://Media/Musics/Stadium/Editor/TrackEditor-Infusion.ogg";
 
     /// <summary>Get a track index from its name</summary>
+    /// <param name="_TrackName" />
     public int GetTrack(string _TrackName) => default!;
 
     /// <summary>Reset the music</summary>
+    /// <param name="_Play" />
     public void Reset(bool _Play) { }
 
     /// <summary>Select the track to play in the music</summary>
+    /// <param name="_Tracks" />
     public void SetTracks(global::System.Collections.Generic.IList<int> _Tracks) { }
 
     public void Unload() { }

@@ -28,10 +28,10 @@ public partial class KOVictory : ILib
     }
 
     /// <summary>Initialize a new race 0 or a negative value will disable victory by K.O.</summary>
-    /// <param name="KOCheckpointNb">The number of checkpoints where the player must be in the lead</param>
-    /// <param name="KOCheckpointTime">The advance in milliseconds the player must have at the checkpoints</param>
-    /// <param name="KOValidationDelay">The delay in milliseconds before running the K.O. check</param>
-    /// <param name="KOTargets">The accounts ids of the players that can be knocked out</param>
+    /// <param name="_KOCheckpointNb">The number of checkpoints where the player must be in the lead</param>
+    /// <param name="_KOCheckpointTime">The advance in milliseconds the player must have at the checkpoints</param>
+    /// <param name="_KOValidationDelay">The delay in milliseconds before running the K.O. check</param>
+    /// <param name="_KOTargets">The accounts ids of the players that can be knocked out</param>
     public void StartRace(int _KOCheckpointNb, int _KOCheckpointTime, int _KOValidationDelay, global::System.Collections.Generic.IList<string> _KOTargets) { }
 
     public void StartRace(int _KOCheckpointNb, int _KOCheckpointTime, int _KOValidationDelay) { }

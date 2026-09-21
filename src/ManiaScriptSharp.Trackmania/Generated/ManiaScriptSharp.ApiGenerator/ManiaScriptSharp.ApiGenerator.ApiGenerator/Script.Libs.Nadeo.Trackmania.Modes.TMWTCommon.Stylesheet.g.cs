@@ -46,12 +46,17 @@ public partial class Stylesheet : ILib
     public const int C_Theme_Classic = 1;
 
     /// <summary>Get the class color in vector format</summary>
+    /// <param name="_Class" />
+    /// <param name="_Theme" />
     public Vec3 GetVec3Color(string _Class, int _Theme) => default!;
 
     /// <summary>Get the class color in hexadecimal format</summary>
+    /// <param name="_Class" />
+    /// <param name="_Theme" />
     public string GetHexColor(string _Class, int _Theme) => default!;
 
     /// <summary>Get the stylesheet to inject in the manialink</summary>
+    /// <param name="_Theme" />
     public string Get(int _Theme) => default!;
 
     public string Get() => default!;

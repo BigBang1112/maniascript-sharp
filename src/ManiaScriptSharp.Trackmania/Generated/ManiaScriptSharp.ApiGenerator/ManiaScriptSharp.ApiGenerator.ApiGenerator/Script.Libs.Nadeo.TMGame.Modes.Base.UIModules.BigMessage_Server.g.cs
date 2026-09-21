@@ -35,7 +35,7 @@ public partial class BigMessage_Server : ILib
     public void SetMessage(string _Message) { }
 
     /// <summary>Update the message offset to the default position</summary>
-    /// <param name="Offset">New offset</param>
+    /// <param name="_Offset">New offset</param>
     public void SetOffset(Vec2 _Offset) { }
 
     /// <summary>Unload the library</summary>

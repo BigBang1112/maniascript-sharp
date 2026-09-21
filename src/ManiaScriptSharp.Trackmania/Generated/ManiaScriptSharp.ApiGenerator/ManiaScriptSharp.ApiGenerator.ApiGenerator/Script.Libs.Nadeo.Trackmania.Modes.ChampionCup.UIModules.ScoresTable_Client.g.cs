@@ -25,6 +25,8 @@ public partial class ScoresTable_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCup/UIModules/ScoresTable_Client.Script.txt";
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion";
+    public const string C_TeamLogoPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/TeamsLogo";
     public const int C_PlayersPerColumn = 8;
     public const int C_ColumnsNb = 2;
     public const int C_DisplayNamesUpdateInterval = 1000;

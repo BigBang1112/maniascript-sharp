@@ -18,7 +18,7 @@ public partial class PauseMenu_Server : ILib
     public const string C_Id = "UIModule_HotSeat_PauseMenu";
 
     /// <summary>Inform the UI of the time to beat</summary>
-    /// <param name="TimeToBeat">Time to beat for the current player</param>
+    /// <param name="_TimeToBeat">Time to beat for the current player</param>
     public void SetTimeToBeat(int _TimeToBeat) { }
 
     /// <summary>Unload the library</summary>

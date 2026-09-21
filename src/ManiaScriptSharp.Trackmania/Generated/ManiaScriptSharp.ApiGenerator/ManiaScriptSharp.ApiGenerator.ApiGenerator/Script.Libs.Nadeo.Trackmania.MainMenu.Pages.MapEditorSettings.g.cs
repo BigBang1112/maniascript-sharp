@@ -44,8 +44,11 @@ public partial class MapEditorSettings : ILib
     public const int C_Difficulty_Simple = 0;
     public const int C_Difficulty_Advanced = 1;
     public const int C_Difficulty_Expert = 2;
-    public const int C_Controller_Mouse = 0;
-    public const int C_Controller_Gamepad = 1;
+    public const string C_ImageUrl_Enviro_BlueBay = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageTrackEditor/Menu_Create_TrackEditor_BlueBay.dds";
+    public const string C_ImageUrl_Enviro_GreenCoast = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageTrackEditor/Menu_Create_TrackEditor_GreenCoast.dds";
+    public const string C_ImageUrl_Enviro_RedIsland = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageTrackEditor/Menu_Create_TrackEditor_RedIsland.dds";
+    public const string C_ImageUrl_Enviro_Stadium = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageTrackEditor/Menu_Create_TrackEditor_Stadium.dds";
+    public const string C_ImageUrl_Enviro_WhiteShore = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageTrackEditor/Menu_Create_TrackEditor_WhiteShore.dds";
 
     public struct K_LaunchParams
     {

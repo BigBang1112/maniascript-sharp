@@ -21,20 +21,26 @@ public partial class ClashTime_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the vehicle top speed</summary>
+    /// <param name="_TopSpeed" />
     public void SetTopSpeed(float _TopSpeed) { }
 
     /// <summary>Set the end time of the intro</summary>
+    /// <param name="_EndTime" />
     public void SetIntroEndTime(int _EndTime) { }
 
     /// <summary>Enable or disable the intro UI</summary>
+    /// <param name="_IsIntro" />
     public void SetIsIntro(bool _IsIntro) { }
 
     /// <summary>Setup the intro</summary>
+    /// <param name="_IsIntro" />
+    /// <param name="_EndTime" />
     public void SetIntro(bool _IsIntro, int _EndTime) { }
 
     public void SetIntro(bool _IsIntro) { }
 
     /// <summary>Enable or disable the race UI</summary>
+    /// <param name="_IsRace" />
     public void SetIsRace(bool _IsRace) { }
 
     /// <summary>Make the streamers spectate the right player</summary>

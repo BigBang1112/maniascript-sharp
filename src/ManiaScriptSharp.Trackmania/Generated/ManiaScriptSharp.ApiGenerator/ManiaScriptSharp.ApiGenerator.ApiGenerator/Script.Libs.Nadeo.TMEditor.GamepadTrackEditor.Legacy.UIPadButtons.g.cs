@@ -24,9 +24,11 @@ public partial class UIPadButtons : ILib
     public int GetPlatform() => default!;
 
     /// <summary>Get platform name from index</summary>
+    /// <param name="_PlatformIndex" />
     public string GetPlatformName(int _PlatformIndex) => default!;
 
     /// <summary>Get the folder stocking the images for the given platform</summary>
+    /// <param name="_Platform" />
     public string GetPlatformFolder(int _Platform) => default!;
 
     /// <summary>Unload the library</summary>

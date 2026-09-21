@@ -19,15 +19,19 @@ public partial class Clans_Server : ILib
     public const int C_MultiClansMax = 30;
 
     /// <summary>Turn on/off clans</summary>
+    /// <param name="_UseClans" />
     public void SetUseClans(bool _UseClans) { }
 
     /// <summary>Turn on/off multiclans `UseMultiClans` used to be the only way to have more than 2 teams in a game mode But nowadays `UseClans` already creates 20 teams so `UseMultiClans` is not useful in this case anymore The only benefit of `UseMultiClans` is that it enables the 20 teams but ignore their C++ style (color, logo, ...)</summary>
+    /// <param name="_UseMultiClans" />
     public void SetUseMultiClans(bool _UseMultiClans) { }
 
     /// <summary>Turn on/off forced clans</summary>
+    /// <param name="_UseForcedClans" />
     public void SetUseForcedClans(bool _UseForcedClans) { }
 
     /// <summary>Set the number of clans in the mode</summary>
+    /// <param name="_ClansNb" />
     public void SetClansNb(int _ClansNb) { }
 
     /// <summary>Get the number of clans in the mode</summary>
@@ -37,6 +41,7 @@ public partial class Clans_Server : ILib
     public bool ClansAreEnabled() => default!;
 
     /// <summary>Select a clan style</summary>
+    /// <param name="_ClanStyle" />
     public void SetClanStyle(int _ClanStyle) { }
 
     /// <summary>Select a random clan style</summary>
@@ -49,41 +54,53 @@ public partial class Clans_Server : ILib
     public void LoadClanStyleSkins() { }
 
     /// <summary>Automatically apply the clan skin on the players</summary>
+    /// <param name="_Enabled" />
     public void EnableClanSkins(bool _Enabled) { }
 
     /// <summary>Check if the clans skins are enabled</summary>
     public bool ClanSkinsAreEnabled() => default!;
 
     /// <summary>Get the model id associated to the loaded clan skin</summary>
+    /// <param name="_Clan" />
     public Ident GetClanModelId(int _Clan) => default!;
 
     /// <summary>Get the color of the given clan</summary>
+    /// <param name="_Clan" />
     public Vec3 GetClanColor(int _Clan) => default!;
 
     /// <summary>Get the foreground color of the given clan</summary>
+    /// <param name="_Clan" />
     public Vec3 GetClanForegroundColor(int _Clan) => default!;
 
     /// <summary>Get the name of the given clan</summary>
+    /// <param name="_Clan" />
+    /// <param name="_UseColor" />
     public string GetClanName(int _Clan, bool _UseColor) => default!;
 
     public string GetClanName(int _Clan) => default!;
 
     /// <summary>Get the logo of the given clan</summary>
+    /// <param name="_Clan" />
     public string GetClanLogo(int _Clan) => default!;
 
     /// <summary>Get the skin of the given clan</summary>
+    /// <param name="_Clan" />
     public string GetClanSkin(int _Clan) => default!;
 
     /// <summary>Get the trigram of the given clan</summary>
+    /// <param name="_Clan" />
     public string GetClanTrigram(int _Clan) => default!;
 
     /// <summary>Get the trigram color of the given clan</summary>
+    /// <param name="_Clan" />
     public Vec3 GetClanTrigramColor(int _Clan) => default!;
 
     /// <summary>Get the ids of the similar teams in color of the given clan</summary>
+    /// <param name="_Clan" />
     public global::System.Collections.Generic.IList<int> GetClanSimilarTeamsInColor(int _Clan) => default!;
 
     /// <summary>Get a list of distinct teams (in color)</summary>
+    /// <param name="_ClansNb" />
     public global::System.Collections.Generic.IList<int> GetRandomDistinctTeams(int _ClansNb) => default!;
 
     /// <summary>Unload the library</summary>

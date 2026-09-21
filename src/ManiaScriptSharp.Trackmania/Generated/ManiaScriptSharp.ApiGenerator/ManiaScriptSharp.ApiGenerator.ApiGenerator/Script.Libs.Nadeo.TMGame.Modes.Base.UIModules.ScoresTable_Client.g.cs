@@ -51,20 +51,6 @@ public partial class ScoresTable_Client : ILib
     public const string C_Class_Spectate_Button = "class-scorestable-spectate-button";
     public const string C_Class_Mute_Button = "class-scorestable-mute-button";
     public const string C_Class_Mute_Loading = "class-scorestable-mute-loading-spinner";
-    public const int C_ClanScrollElementsTotalUpdate_Frequency = 1000;
-    public const int C_SpectatorsUpdateInterval = 1000;
-    public const string C_IsPersonalBestId = "IsPB";
-    public const int C_Echelon_Bronze1 = 1;
-    public const int C_Echelon_Bronze2 = 2;
-    public const int C_Echelon_Bronze3 = 3;
-    public const int C_Echelon_Silver1 = 4;
-    public const int C_Echelon_Silver2 = 5;
-    public const int C_Echelon_Silver3 = 6;
-    public const int C_Echelon_Gold1 = 7;
-    public const int C_Echelon_Gold2 = 8;
-    public const int C_Echelon_Gold3 = 9;
-    public const string C_BlueTeamColorBg = "040D7C";
-    public const string C_RedTeamColorBg = "540404";
 
     public struct K_Net_GhostData
     {
@@ -125,6 +111,8 @@ public partial class ScoresTable_Client : ILib
     public Int2 GetForcedFormat() => default!;
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_PlayersPerColumn" />
+    /// <param name="_ColumnsNb" />
     /// <returns>The module manialink</returns>
     public string GetML(int _PlayersPerColumn, int _ColumnsNb) => default!;
 

@@ -23,12 +23,6 @@ public partial class SegmentRecord_Client : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/SegmentRecord_Client.Script.txt";
     public const int C_RecordSizeX = 10;
     public const string C_ClassRecord = "trackmania-class-segmentrecord-royal-stars-record";
-    public const int C_AnimDuration_ShowHideModule = 250;
-    public const int C_AnimDuration_NewRecord_FadeIn = 250;
-    public const int C_AnimDuration_NewRecord_DisplayTime = 2500;
-    public const int C_DelayBetweenSegments = 1000;
-    public const double C_MarginWithTeamScore = 1.0;
-    public const int C_TenMinutes = 600000;
 
     public struct K_Controls
     {

@@ -16,12 +16,13 @@ public partial class PointsRepartition : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/PointsRepartition.Script.txt";
+    /// <summary>XmlRpc</summary>
     public const string C_Callback_PointsRepartition = "Trackmania.PointsRepartition";
     public const string C_Method_GetPointsRepartition = "Trackmania.GetPointsRepartition";
     public const string C_Method_SetPointsRepartition = "Trackmania.SetPointsRepartition";
 
     /// <summary>Setup how the points will be distributed at the end of the round [10, 6, 4, 3, 2, 1] =&gt; 1st will get 10 points, 2nd 6 points, 3rd 4 points, etc ...</summary>
-    /// <param name="Points">The points repartition</param>
+    /// <param name="_Points">The points repartition</param>
     public void SetPointsRepartition(global::System.Collections.Generic.IList<int> _Points) { }
 
     /// <summary>Get the current points repartition</summary>
@@ -29,12 +30,12 @@ public partial class PointsRepartition : ILib
     public global::System.Collections.Generic.IList<int> GetPointsRepartition() => default!;
 
     /// <summary>Convert the points repartition Text to an Integer array</summary>
-    /// <param name="PointsRepartition">The Text points repartition</param>
+    /// <param name="_PointsRepartition">The Text points repartition</param>
     /// <returns>The Integer[] points repartition</returns>
     public global::System.Collections.Generic.IList<int> ConvertPointsRepartition(string _PointsRepartition) => default!;
 
     /// <summary>Send teams and players scores</summary>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void XmlRpc_SendPointsRepartition(string _ResponseId) { }
 
     /// <summary>Function to call at each yield to update the library</summary>

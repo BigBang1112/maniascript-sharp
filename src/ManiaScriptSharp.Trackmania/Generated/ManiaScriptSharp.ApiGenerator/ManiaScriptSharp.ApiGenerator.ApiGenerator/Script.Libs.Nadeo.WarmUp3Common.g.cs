@@ -17,14 +17,15 @@ public partial class WarmUp3Common : ILib
 
     public const string Version = "2017-04-18";
     public const string ScriptName = "Libs/Nadeo/WarmUp3Common.Script.txt";
+    /// <summary>XmlRpc callbacks</summary>
     public const string C_Callback_WarmUp_Start = "Maniaplanet.WarmUp.Start";
     public const string C_Callback_WarmUp_End = "Maniaplanet.WarmUp.End";
     public const string C_Callback_WarmUp_Status = "Maniaplanet.WarmUp.Status";
+    /// <summary>XmlRpc methods</summary>
     public const string C_Method_WarmUp_Extend = "Maniaplanet.WarmUp.Extend";
     public const string C_Method_WarmUp_Stop = "Maniaplanet.WarmUp.ForceStop";
     public const string C_Method_WarmUp_GetStatus = "Maniaplanet.WarmUp.GetStatus";
     public const string C_Method_WarmUp_BlockEndWarmUp = "Maniaplanet.WarmUp.BlockEndWarmUp";
-    public const int C_UpdateInterval = 250;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>
@@ -35,33 +36,33 @@ public partial class WarmUp3Common : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Enable the order selection for a group</summary>
-    /// <param name="GroupName">The name of the group to enable</param>
+    /// <param name="_GroupName">The name of the group to enable</param>
     public void Enable(string _GroupName) { }
 
     /// <summary>Disable the order selection for a group</summary>
-    /// <param name="GroupName">The name of the group to disable</param>
+    /// <param name="_GroupName">The name of the group to disable</param>
     public void Disable(string _GroupName) { }
 
     /// <summary>Rebuild the warm up UI</summary>
     public void RebuildUI() { }
 
     /// <summary>Display the clan selection buttons</summary>
-    /// <param name="Display">The new display status of the clan selection buttons</param>
+    /// <param name="_Display">The new display status of the clan selection buttons</param>
     public void DisplayClanSelection(bool _Display) { }
 
     /// <summary>Set the position of the warm up layer</summary>
-    /// <param name="Pos">The new position</param>
+    /// <param name="_Pos">The new position</param>
     public void SetLayerPosition(Vec2 _Pos) { }
 
     /// <summary>Display an icon in one slot of a group</summary>
-    /// <param name="GroupName">The name of the group to set</param>
-    /// <param name="Slot">The number of the slot to set</param>
-    /// <param name="Icon">The path to the icon to display</param>
+    /// <param name="_GroupName">The name of the group to set</param>
+    /// <param name="_Slot">The number of the slot to set</param>
+    /// <param name="_Icon">The path to the icon to display</param>
     public void SetSlotIcon(string _GroupName, int _Slot, string _Icon) { }
 
     /// <summary>Display an icon in all the slots of a group</summary>
-    /// <param name="GroupName">The name of the group to set</param>
-    /// <param name="Icon">The path to the icon to display</param>
+    /// <param name="_GroupName">The name of the group to set</param>
+    /// <param name="_Icon">The path to the icon to display</param>
     public void SetAllSlotsIcons(string _GroupName, string _Icon) { }
 
     /// <summary>Check if the order or ready state was updated since the last time we called this function</summary>
@@ -69,62 +70,62 @@ public partial class WarmUp3Common : ILib
     public bool Updated() => default!;
 
     /// <summary>Check if a player is ready</summary>
-    /// <param name="PlayerId">The id of the player to check</param>
+    /// <param name="_PlayerId">The id of the player to check</param>
     /// <returns>True if the player is ready, false otherwise</returns>
     public bool IsReady(Ident _PlayerId) => default!;
 
     /// <summary>Get the content of a slot</summary>
-    /// <param name="GroupName">The group to check</param>
-    /// <param name="Slot">The slot to check</param>
+    /// <param name="_GroupName">The group to check</param>
+    /// <param name="_Slot">The slot to check</param>
     /// <returns>The id of the player in the slot if there is one, NullId otherwise</returns>
     public Ident GetSlot(string _GroupName, int _Slot) => default!;
 
     /// <summary>Unset a player from a slot</summary>
-    /// <param name="GroupName">The name of the group where the slot must be unset</param>
-    /// <param name="Slot">The slot to unset</param>
+    /// <param name="_GroupName">The name of the group where the slot must be unset</param>
+    /// <param name="_Slot">The slot to unset</param>
     public void UnsetSlot(string _GroupName, int _Slot) { }
 
     /// <summary>Check if a group exists</summary>
-    /// <param name="GroupName">The name of the group</param>
+    /// <param name="_GroupName">The name of the group</param>
     /// <returns>True if the gorup exists, False otherwise</returns>
     public bool GroupExists(string _GroupName) => default!;
 
     /// <summary>Create a new warm up group</summary>
-    /// <param name="GroupName">The name of the group</param>
-    /// <param name="SlotsNb">The number of slots in the group</param>
+    /// <param name="_GroupName">The name of the group</param>
+    /// <param name="_SlotsNb">The number of slots in the group</param>
     public void CreateGroup(string _GroupName, int _SlotsNb) { }
 
     /// <summary>Destroy a warm up group</summary>
-    /// <param name="GroupName">The name of the group to destroy</param>
+    /// <param name="_GroupName">The name of the group to destroy</param>
     public void DestroyGroup(string _GroupName) { }
 
     /// <summary>Manually set the players ids in a group</summary>
-    /// <param name="GroupName">The name of the group to set</param>
-    /// <param name="PlayersIds">The players ids to add</param>
+    /// <param name="_GroupName">The name of the group to set</param>
+    /// <param name="_PlayersIds">The players ids to add</param>
     public void SetGroup(string _GroupName, global::System.Collections.Generic.Dictionary<int, Ident> _PlayersIds) { }
 
     /// <summary>Get the players ids of a group</summary>
-    /// <param name="GroupName">The name of the group to get</param>
+    /// <param name="_GroupName">The name of the group to get</param>
     /// <returns>The ordered players ids</returns>
     public global::System.Collections.Generic.Dictionary<int, Ident> GetGroup(string _GroupName) => default!;
 
     /// <summary>Update the number of slots available in a group</summary>
-    /// <param name="GroupName">The name of the group to update</param>
-    /// <param name="SlotsNb">The new number  of slots</param>
+    /// <param name="_GroupName">The name of the group to update</param>
+    /// <param name="_SlotsNb">The new number  of slots</param>
     public void SetSlotsNb(string _GroupName, int _SlotsNb) { }
 
     /// <summary>Get the number of slots in a group</summary>
-    /// <param name="GroupName">The name of the group to check</param>
+    /// <param name="_GroupName">The name of the group to check</param>
     /// <returns>The number of slot in the group if this group exist, 0 otherwise</returns>
     public int GetSlotsNb(string _GroupName) => default!;
 
     /// <summary>Get the number of ready players in a group</summary>
-    /// <param name="GroupName">The name of the group to check</param>
+    /// <param name="_GroupName">The name of the group to check</param>
     /// <returns>The number of ready players</returns>
     public int GetReadyPlayersNb(string _GroupName) => default!;
 
     /// <summary>Get the number of players in a group</summary>
-    /// <param name="GroupName">The name of the group to check</param>
+    /// <param name="_GroupName">The name of the group to check</param>
     /// <returns>The number of players</returns>
     public int GetPlayersNb(string _GroupName) => default!;
 
@@ -147,7 +148,7 @@ public partial class WarmUp3Common : ILib
     public void End() { }
 
     /// <summary>Warm up loop</summary>
-    /// <param name="EndTime">The current end time</param>
+    /// <param name="_EndTime">The current end time</param>
     /// <returns>The new end time</returns>
     public int Loop(int _EndTime) => default!;
 
@@ -164,9 +165,9 @@ public partial class WarmUp3Common : ILib
     public bool IsActive() => default!;
 
     /// <summary>Send a callback with the warm up status</summary>
-    /// <param name="ResponseId">The responseid of the callback</param>
-    /// <param name="IsLoaded">Is the library loaded or not</param>
-    /// <param name="IsActive">Is there an ongoing warm up or not</param>
+    /// <param name="_ResponseId">The responseid of the callback</param>
+    /// <param name="_IsLoaded">Is the library loaded or not</param>
+    /// <param name="_IsActive">Is there an ongoing warm up or not</param>
     public void SendStatusCallback(string _ResponseId, bool _IsLoaded, bool _IsActive) { }
 
     /// <summary>Library update</summary>

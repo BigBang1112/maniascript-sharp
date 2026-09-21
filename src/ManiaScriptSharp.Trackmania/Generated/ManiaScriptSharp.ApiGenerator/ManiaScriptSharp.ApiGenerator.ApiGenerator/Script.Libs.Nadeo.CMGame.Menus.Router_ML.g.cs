@@ -19,6 +19,7 @@ public partial class Router_ML : ILib
     public const string C_Name = "router";
     public const string P = "Router_Router::";
     public const string Q = "Router_Router";
+    /// <summary>Event types</summary>
     public const string C_Event_Push = "Router_Push";
     public const string C_Event_PushParent = "Router_PushParent";
     public const string C_Event_Go = "Router_Go";

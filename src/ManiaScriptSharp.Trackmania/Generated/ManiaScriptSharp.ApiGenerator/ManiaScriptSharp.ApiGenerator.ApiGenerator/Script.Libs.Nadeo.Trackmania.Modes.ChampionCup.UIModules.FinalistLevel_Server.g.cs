@@ -21,9 +21,11 @@ public partial class FinalistLevel_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Update the finalist level</summary>
+    /// <param name="_FinalistLevel" />
     public void SetFinalistLevel(int _FinalistLevel) { }
 
     /// <summary>Update the number of spots left</summary>
+    /// <param name="_SpotsLeft" />
     public void SetSpotsLeft(int _SpotsLeft) { }
 
     /// <summary>Unload the library</summary>

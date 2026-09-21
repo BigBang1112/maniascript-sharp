@@ -21,16 +21,19 @@ public partial class ScoresTable_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the message that the player can copy to their clipboard by clicking on it</summary>
-    /// <param name="DisplayedMessage">The message that is displayed</param>
-    /// <param name="ClibpboardValue">The value that will be copied to the clipboard</param>
+    /// <param name="_DisplayedMessage">The message that is displayed</param>
+    /// <param name="_ClipboardValue" />
     public void SetClipboardMessage(string _DisplayedMessage, string _ClipboardValue) { }
 
     public void ResetClipboardMessage() { }
 
     /// <summary>Display a message in the scores table header</summary>
+    /// <param name="_Message" />
     public void SetHeaderMessage(string _Message) { }
 
     /// <summary>Display the map progression in the scores table header</summary>
+    /// <param name="_Current" />
+    /// <param name="_Max" />
     public void SetMapsProgression(int _Current, int _Max) { }
 
     /// <summary>Unload the library</summary>

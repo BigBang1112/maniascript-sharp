@@ -9,8 +9,10 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.System.Settings;
 
+/// <summary>Do not forget to update `Trackmania Scripts Libs Nadeo Trackmania MainMenu Overlays PluginEvents.Script.txt` if you're editing this struct or the event types !</summary>
 public partial class SettingsStructs : ILib
 {
+    /// <summary>`Trackmania Scripts Libs Nadeo Trackmania MainMenu Overlays PluginEvents.Script.txt`</summary>
     public const int C_PluginEventType_PushRoute = 0;
     public const int C_PluginEventType_MenuLoadFinished = 1;
     public const int C_PluginEventType_HideSystemLoadingScreen = 2;

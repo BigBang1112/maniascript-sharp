@@ -14,6 +14,7 @@ public partial class Layer_ServerInfo : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Chat.ChatServersInfo ChatServersInfo;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Chat/";
     public const int C_LibLayerServerInfo_NbFriendsCards = 32;
 
     public struct SServerInfo

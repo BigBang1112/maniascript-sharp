@@ -50,6 +50,15 @@ public partial class TitleBar2 : ILib
     }
 
     /// <summary>Add an action to the component</summary>
+    /// <param name="_Input" />
+    /// <param name="_ImageUrl" />
+    /// <param name="_ButtonSize" />
+    /// <param name="_ActionMargin" />
+    /// <param name="_IconMargin" />
+    /// <param name="_OpacityFocused" />
+    /// <param name="_OpacityUnfocused" />
+    /// <param name="_ColorFocused" />
+    /// <param name="_ColorUnfocused" />
     public ComponentTitleBar2_K_Actions AddAction(string _Input, string _ImageUrl, Vec2 _ButtonSize, float _ActionMargin, float _IconMargin, float _OpacityFocused, float _OpacityUnfocused, Vec3 _ColorFocused, Vec3 _ColorUnfocused) => default!;
 
     /// <summary>Get the component</summary>

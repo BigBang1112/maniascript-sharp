@@ -22,6 +22,7 @@ public partial class StartMatch_Teams_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the display duration of the UI</summary>
+    /// <param name="_DisplayDuration" />
     public void SetDisplayDuration(int _DisplayDuration) { }
 
     /// <summary>Send a message in the chat to explain that some players are not allowed to write in the chat</summary>

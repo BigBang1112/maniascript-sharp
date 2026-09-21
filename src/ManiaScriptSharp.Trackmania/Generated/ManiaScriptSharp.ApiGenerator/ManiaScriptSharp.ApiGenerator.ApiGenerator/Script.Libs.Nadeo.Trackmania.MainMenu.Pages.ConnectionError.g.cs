@@ -28,13 +28,13 @@ public partial class ConnectionError : ILib
     public const string C_Name = "Page_ConnectionError";
     public const bool C_RedirectToPressStart = true;
     public const int C_Choice_Confirm = 0;
-    public const int C_FadeDuration = 500;
 
     /// <summary>Get the page manialink</summary>
     /// <returns>The page manialink</returns>
     public string GetManialink() => default!;
 
     /// <summary>see: trackmania next tmnext issues 5402</summary>
+    /// <param name="_IsNetworkAvailable" />
     public void InitializeIsNetworkAvailable(bool _IsNetworkAvailable) { }
 
     /// <summary>Check if the connection error page is disabled on the current route</summary>

@@ -29,8 +29,6 @@ public partial class EditReplay : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/MainMenu/Pages/EditReplay.Script.txt";
     public const string C_Name = "Page_EditReplay";
     public const string C_NavGroup_Page = "navgroup-page-editreplay";
-    public const int C_Page_Browser = 0;
-    public const int C_Page_Menu = 1;
 
     public struct K_Button
     {

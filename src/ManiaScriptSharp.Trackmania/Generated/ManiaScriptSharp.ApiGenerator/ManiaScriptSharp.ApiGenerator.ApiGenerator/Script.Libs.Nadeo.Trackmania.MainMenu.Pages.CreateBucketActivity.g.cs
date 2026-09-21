@@ -36,7 +36,6 @@ public partial class CreateBucketActivity : ILib
     public const string C_Name = "Page_CreateBucketActivity";
     public const string C_NavGroup_Default = "navgroup-page-create-bucket-activity-default";
     public const string C_NavGroup_Global = "navgroup-page-create-bucket-activity-global";
-    public const int C_Name_MaxChar = 20;
 
     public struct K_Controls
     {

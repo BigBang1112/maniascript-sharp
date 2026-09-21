@@ -26,6 +26,7 @@ public partial class LoadingSpinner : ILib
     public const int C_LabelSide_Right = 1;
     public const int C_FadeInDuration = 200;
     public const int C_FadeOutDuration = 200;
+    public const string C_ImageURL_Loading = "file://Media/Manialinks/Nadeo/CMGame/Components/LoadingSpinner/LoadingSpinner.dds";
     public const string C_Id_QuadDimmer = "menu-libs-loading-spinner_quad-dimmer";
     public const string C_Id_QuadLoading = "menu-libs-loading-spinner_quad-loading";
     public const string C_Id_LabelLoading = "menu-libs-loading-spinner_label-loading";

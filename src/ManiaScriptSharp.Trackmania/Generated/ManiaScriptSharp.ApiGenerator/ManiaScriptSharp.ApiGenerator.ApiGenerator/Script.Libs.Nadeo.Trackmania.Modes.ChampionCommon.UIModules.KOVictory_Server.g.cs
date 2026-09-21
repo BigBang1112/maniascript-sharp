@@ -21,10 +21,10 @@ public partial class KOVictory_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Update the knockout progression Leave empty if several players are being knocked out</summary>
-    /// <param name="SourceAccountId">The account id of the player doing the knock out</param>
-    /// <param name="TargetAccountId">The account id of the player being knocked out</param>
-    /// <param name="Current">The number of validated checkpoint</param>
-    /// <param name="Max">The number of checkpoints needed to validate the knock out</param>
+    /// <param name="_SourceAccountId">The account id of the player doing the knock out</param>
+    /// <param name="_TargetAccountId">The account id of the player being knocked out</param>
+    /// <param name="_Current">The number of validated checkpoint</param>
+    /// <param name="_Max">The number of checkpoints needed to validate the knock out</param>
     public void SetKOProgression(string _SourceAccountId, string _TargetAccountId, int _Current, int _Max) { }
 
     public void ResetKOProgression() { }

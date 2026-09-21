@@ -15,6 +15,7 @@ public partial class Layer_Messages : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Chat.ChatAPI ChatAPI;
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Chat.ChatEmbeds ChatEmbeds;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Chat/";
     public const int C_LibLayerMessages_NbMessageModels = 32;
     public const int C_LibLayerMessages_NbEmbedsModels = 2;
     public const int C_LibLayerMessages_NbRightMenuItems = 10;

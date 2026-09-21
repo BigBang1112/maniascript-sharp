@@ -20,8 +20,6 @@ public partial class BlockHelp : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "BlockHelp.Script.txt";
-    public const int C_SideKey = 18;
-    public const double C_Radius = 32.0;
 
     public string GetScriptVersion() => default!;
 
@@ -30,18 +28,22 @@ public partial class BlockHelp : ILib
     public void SetOptions(global::System.Collections.Generic.Dictionary<string, string> _Options) { }
 
     /// <summary>Set the ratio to apply to the help radius</summary>
+    /// <param name="_Ratio" />
     public void SetRadius(float _Ratio) { }
 
     /// <summary>Display a notification above the block</summary>
+    /// <param name="_Notification" />
     public void Notify(string _Notification) { }
 
     /// <summary>Set if the block help UI can be visible or not</summary>
+    /// <param name="_CanBeVisible" />
     public void CanBeVisible(bool _CanBeVisible) { }
 
     /// <summary>Check if the block help UI can be visible</summary>
     public bool CanBeVisible() => default!;
 
     /// <summary>Set the block help visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     /// <summary>Check if the block help UI is visible</summary>

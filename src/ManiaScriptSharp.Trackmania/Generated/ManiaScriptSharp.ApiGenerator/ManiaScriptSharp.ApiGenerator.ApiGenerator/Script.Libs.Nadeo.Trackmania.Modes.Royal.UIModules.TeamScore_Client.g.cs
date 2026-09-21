@@ -24,6 +24,8 @@ public partial class TeamScore_Client : ILib
 
     public const string Version = "1.1.2";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/TeamScore_Client.Script.txt";
+    public const string C_Img_PointsBackground = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal/hud_royal_ingame_team_points_bg.dds";
+    public const string C_Img_MVP = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Matchmaking/icons_128_settings_top_inc.dds";
     public const int C_UpdateInterval = 100;
     public const int C_ScoresUpdateInterval = 1000;
     public const bool C_DisplayTotalPoints = false;
@@ -35,10 +37,6 @@ public partial class TeamScore_Client : ILib
     public const int C_Column_MVP = 5;
     public const int C_Column_BonusTimeLegend = 6;
     public const int C_Column_BonusTimeValue = 7;
-    public const int C_DisplayAnimDuration = 125;
-    public const bool C_HighlightPlayer = true;
-    public const int C_MembersAnimDuration = 250;
-    public const int C_BonusTimeAnimDuration = 500;
 
     public struct K_Controls
     {

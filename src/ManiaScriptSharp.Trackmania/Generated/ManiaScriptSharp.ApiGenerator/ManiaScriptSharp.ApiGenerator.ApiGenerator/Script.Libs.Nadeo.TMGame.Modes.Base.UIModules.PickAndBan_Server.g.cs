@@ -68,42 +68,51 @@ public partial class PickAndBan_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the url of the image to use as background</summary>
+    /// <param name="_BackgroundUrl" />
     public void SetBackground(string _BackgroundUrl) { }
 
     /// <summary>Set the url of the image to use for the top left logo</summary>
+    /// <param name="_TopLeftLogoUrl" />
     public void SetTopLeftLogo(string _TopLeftLogoUrl) { }
 
     /// <summary>Set the url of the image to use for the top right logo</summary>
+    /// <param name="_TopRightLogoUrl" />
     public void SetTopRightLogo(string _TopRightLogoUrl) { }
 
     /// <summary>Set the url of the image to use for the bottom logo</summary>
+    /// <param name="_BottomLogoUrl" />
     public void SetBottomLogo(string _BottomLogoUrl) { }
 
     /// <summary>Set style of the pick and ban screen { &quot;Background&quot;: &quot;https://example.com/background.dds&quot;, &quot;TopLeftLogo&quot;: &quot;https://example.com/Logo1.dds&quot;, &quot;TopRightLogo&quot;: &quot;https://example.com/Logo2.dds&quot;, &quot;BottomLogo&quot;: &quot;https://example.com/Logo3.dds&quot; } Each value is optional</summary>
-    /// <param name="Style">A json string with the following format:</param>
+    /// <param name="_Style">A json string with the following format:</param>
     public void SetStyle(string _Style) { }
 
     /// <summary>Set the match info message</summary>
+    /// <param name="_MatchInfo" />
     public void SetMatchInfo(string _MatchInfo) { }
 
     /// <summary>Start the pick and ban sequence</summary>
-    /// <param name="Steps">The steps of the pick and ban sequence</param>
-    /// <param name="StepDuration">The duration of one pick or ban step</param>
-    /// <param name="ResultDuration">The duration of the result display at the end of the pick and ban sequence</param>
+    /// <param name="_Steps">The steps of the pick and ban sequence</param>
+    /// <param name="_StepDuration">The duration of one pick or ban step</param>
+    /// <param name="_ResultDuration">The duration of the result display at the end of the pick and ban sequence</param>
     public K_PickAndBan Start(global::System.Collections.Generic.IList<K_ConfigStep> _Steps, int _StepDuration, int _ResultDuration) => default!;
 
     public K_PickAndBan Start(K_Config _Config) => default!;
 
     /// <summary>Check if the pick and ban sequence is ongoing</summary>
+    /// <param name="_PickAndBan" />
     public bool IsRunning(K_PickAndBan _PickAndBan) => default!;
 
     /// <summary>Check if the pick and ban sequence is initialized</summary>
+    /// <param name="_PickAndBan" />
     public bool IsInitialized(K_PickAndBan _PickAndBan) => default!;
 
     /// <summary>Update the pick and ban sequence</summary>
+    /// <param name="_PickAndBan" />
     public K_PickAndBan Update(K_PickAndBan _PickAndBan) => default!;
 
     /// <summary>Stop the pick and ban sequence</summary>
+    /// <param name="_PickAndBan" />
     public K_PickAndBan Stop(K_PickAndBan _PickAndBan) => default!;
 
     public void Yield() { }

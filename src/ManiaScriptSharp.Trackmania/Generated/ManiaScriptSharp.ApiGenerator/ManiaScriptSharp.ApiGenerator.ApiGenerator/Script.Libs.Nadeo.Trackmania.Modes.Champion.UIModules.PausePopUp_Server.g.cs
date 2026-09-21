@@ -17,6 +17,7 @@ public partial class PausePopUp_Server : ILib
     public const string C_Id = "UIModule_Champion_PausePopUp";
 
     /// <summary>Displays and starts the pause timer</summary>
+    /// <param name="_Duration" />
     public void StartPauseTimer(int _Duration) { }
 
     /// <summary>Unload the library</summary>

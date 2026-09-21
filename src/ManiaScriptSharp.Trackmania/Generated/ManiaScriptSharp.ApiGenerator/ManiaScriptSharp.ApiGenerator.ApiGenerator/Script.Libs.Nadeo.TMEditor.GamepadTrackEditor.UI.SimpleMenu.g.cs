@@ -20,7 +20,9 @@ public partial class SimpleMenu : ILib
 
     public const string Version = "1.1.0";
     public const string ScriptName = "SimpleMenu.Script.txt";
+    /// <summary>Default visibility</summary>
     public const bool C_DefaultVisibility = false;
+    /// <summary>Selection</summary>
     public const int C_Selection_Null = 0;
     public const int C_Selection_AutoFinish = 1;
     public const int C_Selection_Test = 2;
@@ -32,6 +34,7 @@ public partial class SimpleMenu : ILib
     public const int C_Selection_Tuto = 8;
     public const int C_Selection_Back = 9;
     public const int C_Selection_Quit = 10;
+    /// <summary>Events</summary>
     public const string C_Event_Hover = "LibSimpleMenu_Hover";
     public const string C_Event_Click = "LibSimpleMenu_Click";
 
@@ -66,12 +69,16 @@ public partial class SimpleMenu : ILib
     public int Selection_Back() => default!;
 
     /// <summary>Select a button in the simple menu</summary>
+    /// <param name="_Selection" />
+    /// <param name="_PlaySound" />
     public void Select(int _Selection, bool _PlaySound) { }
 
     /// <summary>Overload Select()</summary>
+    /// <param name="_Selection" />
     public void Select(int _Selection) { }
 
     /// <summary>Select the next or the previous button in the simple menu</summary>
+    /// <param name="_Shift" />
     public void Shift(int _Shift) { }
 
     /// <summary>Go to the next entry in the simple menu</summary>
@@ -84,6 +91,7 @@ public partial class SimpleMenu : ILib
     public bool LayerIsVisible() => default!;
 
     /// <summary>Set the simple menu visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }
@@ -94,6 +102,7 @@ public partial class SimpleMenu : ILib
     public int Valid() => default!;
 
     /// <summary>Display or not the auto finish option</summary>
+    /// <param name="_DisplayAutoFinish" />
     public void DisplayAutoFinish(bool _DisplayAutoFinish) { }
 
     public void Unload() { }

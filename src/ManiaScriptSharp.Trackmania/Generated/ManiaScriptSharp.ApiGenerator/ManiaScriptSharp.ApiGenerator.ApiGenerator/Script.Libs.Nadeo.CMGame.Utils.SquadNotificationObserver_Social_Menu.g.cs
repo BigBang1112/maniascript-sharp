@@ -23,11 +23,22 @@ public partial class SquadNotificationObserver_Social_Menu : ILib
     public bool IsNotificationAvailable() => default!;
 
     /// <summary>Create a debug `SquadUpdated` notification</summary>
+    /// <param name="_SquadId" />
+    /// <param name="_SquadLeaderId" />
+    /// <param name="_SquadType" />
     public void Protected_Debug_CreateNotificationSquadUpdated(string _SquadId, string _SquadLeaderId, string _SquadType) { }
 
     /// <summary>Create a debug `SquadMemberAdded` notification</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_DisplayName" />
+    /// <param name="_SquadId" />
+    /// <param name="_SquadType" />
     public void Protected_Debug_CreateNotificationSquadMemberAdded(string _AccountId, string _DisplayName, string _SquadId, string _SquadType) { }
 
     /// <summary>Create a debug `SquadMemberRemoved` notification</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_DisplayName" />
+    /// <param name="_SquadId" />
+    /// <param name="_SquadType" />
     public void Protected_Debug_CreateNotificationSquadMemberRemoved(string _AccountId, string _DisplayName, string _SquadId, string _SquadType) { }
 }

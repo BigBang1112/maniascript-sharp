@@ -20,7 +20,14 @@ public partial class Sign16x9Small_Client : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/Base/UIModules/Sign16x9Small_Client.Script.txt";
-    public const int C_ScoresUpdateCheckInterval = 1000;
+    public const string C_Image_PodiumBgDefault = "file://Media/Manialinks/Nadeo/TMGame/Modes/Podium/PodiumScreen_classic.dds";
+    public const string C_Image_PodiumBgRanked = "file://Media/Manialinks/Nadeo/TMGame/Modes/Podium/PodiumScreen_ranked.dds";
+    public const string C_Image_PodiumBgRoyal = "file://Media/Manialinks/Nadeo/TMGame/Modes/Podium/PodiumScreen_royal.dds";
+    public const string C_Image_PodiumBgDimmer = "file://Media/Manialinks/Nadeo/TMGame/Modes/Podium/Ranked_PodiumScene_Gradient.dds";
+    public const string C_Image_PodiumStripes = "file://Media/Manialinks/Nadeo/TMGame/Modes/Podium/PodiumScreen_PodiumLines.dds";
+    public const string C_Image_PlayerLight = "file://Media/Manialinks/Nadeo/TMGame/Modes/Podium/PodiumScreen_PlayerLight.dds";
+    public const string C_Image_WorldFlag = "file://ZoneFlags/Path/World";
+    public const string C_Image_Confetti = "file://Media/Manialinks/Nadeo/TMGame/Modes/Podium/CommonConfetti.webm";
 
     public struct K_ControlPlayerCard
     {

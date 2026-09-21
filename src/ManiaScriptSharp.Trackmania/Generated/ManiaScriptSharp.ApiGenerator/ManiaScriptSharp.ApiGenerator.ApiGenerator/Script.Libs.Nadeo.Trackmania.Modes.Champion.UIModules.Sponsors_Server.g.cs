@@ -17,7 +17,7 @@ public partial class Sponsors_Server : ILib
     public const string C_Id = "UIModule_Champion_Sponsors";
 
     /// <summary>Update the url of the sponsors Use an underscore to display an empty image</summary>
-    /// <param name="Sponsors">Comma separated list of url</param>
+    /// <param name="_Sponsors">Comma separated list of url</param>
     public void SetSponsorsUrl(string _Sponsors) { }
 
     /// <summary>Unload the library</summary>

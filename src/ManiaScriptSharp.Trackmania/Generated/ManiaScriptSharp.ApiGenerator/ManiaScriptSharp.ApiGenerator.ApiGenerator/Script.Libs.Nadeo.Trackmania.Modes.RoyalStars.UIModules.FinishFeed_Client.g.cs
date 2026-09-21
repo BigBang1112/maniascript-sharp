@@ -28,11 +28,6 @@ public partial class FinishFeed_Client : ILib
     public const int C_Column_TeamLogo = 1;
     public const int C_Column_PlayerName = 2;
     public const int C_Column_Flag = 3;
-    public const int C_UpdateInterval = 250;
-    public const int C_NotificationDisplayDuration = 10000;
-    public const int C_NotificationSlideDuration = 250;
-    public const int C_DisplayAnimDuration = 125;
-    public const double C_MarginWithLiveRanking = 1.5;
 
     public struct K_NotificationDisplay
     {

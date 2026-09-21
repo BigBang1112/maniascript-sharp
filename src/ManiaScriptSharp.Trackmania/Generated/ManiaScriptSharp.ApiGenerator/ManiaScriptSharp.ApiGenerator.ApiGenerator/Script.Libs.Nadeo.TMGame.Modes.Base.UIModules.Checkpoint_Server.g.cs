@@ -22,37 +22,43 @@ public partial class Checkpoint_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Module visibility</summary>
-    /// <param name="Target">Group that must display the module</param>
+    /// <param name="_Target">Group that must display the module</param>
     public void SetVisibleFor(int _Target) { }
 
     /// <summary>Checkpoint race time diff visibility False to hide</summary>
-    /// <param name="Display">True to show</param>
+    /// <param name="_Display">True to show</param>
     public void SetVisibilityTimeDiff(bool _Display) { }
 
     /// <summary>Overload the legacy `SetVisibilityTimeDiff(Boolean _Display)` function with a name that better reflects its use</summary>
+    /// <param name="_Display" />
     public void SetVisibilityRaceTimeDiff(bool _Display) { }
 
     /// <summary>Checkpoint lap time diff visibility False to hide</summary>
-    /// <param name="Display">True to show</param>
+    /// <param name="_Display">True to show</param>
     public void SetVisibilityLapTimeDiff(bool _Display) { }
 
     /// <summary>Update both race and lap time diff visibility</summary>
+    /// <param name="_RaceTimeDiff" />
+    /// <param name="_LapTimeDiff" />
     public void SetVisibilityTimeDiff(bool _RaceTimeDiff, bool _LapTimeDiff) { }
 
     /// <summary>Select how the checkpoint ranking will be computed - C_RankMode_BestRace: compared to the other players best race - C_RankMode_CurrentRace: compared to the other players current race - C_RankMode_Self: compared to the player's best race - C_RankMode_Ghost: compared to the ghosts' best race</summary>
-    /// <param name="RankMode">The mode to use</param>
+    /// <param name="_RankMode">The mode to use</param>
     public void SetRankMode(int _RankMode) { }
 
     /// <summary>Get the current rank mode</summary>
     public int GetRankMode() => default!;
 
     /// <summary>Switch automatically to the Finish UISequence on the client when they crosses the finish line to avoid the delay from the server</summary>
+    /// <param name="_Enabled" />
     public void SetAutoUISequenceFinish(bool _Enabled) { }
 
     /// <summary>Use the waypoint event or the RaceWaypointTimes array as source for the checkpoint time</summary>
+    /// <param name="_UseWaypointEvent" />
     public void SetUseWaypointEvent(bool _UseWaypointEvent) { }
 
     /// <summary>Display the respawn number of the players instead of their time</summary>
+    /// <param name="_DisplayRespawnsInsteadOfTime" />
     public void SetDisplayRespawnsInsteadOfTime(bool _DisplayRespawnsInsteadOfTime) { }
 
     /// <summary>Unload the library</summary>

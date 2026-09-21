@@ -24,17 +24,8 @@ public partial class KnockoutInfo_Client : ILib
     public const double C_SizeTime = 14.5;
     public const int C_PlayerSlots_Nb = 10;
     public const double C_PlayerSlots_Margin = 5.5;
+    /// <summary>Priority order: Leader, Eliminated players, Last players, Top players</summary>
     public const int C_PlayerSlots_LastPlayersNb = 6;
-    public const int C_PlayerSlots_Leader = 0;
-    public const int C_PlayerSlots_LastPlayers = 1;
-    public const int C_PlayerSlots_TopPlayers = 2;
-    public const int C_PlayerStatus_Ok = 0;
-    public const int C_PlayerStatus_NearEliminated = 1;
-    public const int C_PlayerStatus_VeryNearEliminated = 2;
-    public const int C_PlayerStatus_Eliminated = 3;
-    public const int C_PlayerStatus_NearEliminatedThreshold = 1;
-    public const int C_PlayerStatus_VeryNearEliminatedThreshold = 1;
-    public const int C_Frequency_AutoRankingUpdate = 250;
 
     public struct K_PlayerInfo
     {

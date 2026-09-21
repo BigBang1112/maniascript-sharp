@@ -21,7 +21,7 @@ public partial class SmallScoresTable_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Display a custom time for some scores instead of the `PrevRaceTime`. The scores will be sorted by this custom time instead of the `Score.PrevRaceTimes`. [&quot;acount-id&quot; =&gt; 1234, &quot;aaaa-bbbb-cccc-dddd&quot; =&gt; 63859, ...]</summary>
-    /// <param name="CustomTimes">The custom time for each account id</param>
+    /// <param name="_CustomTimes">The custom time for each account id</param>
     public void SetCustomTimes(global::System.Collections.Generic.Dictionary<string, int> _CustomTimes) { }
 
     public void ResetCustomTimes() { }
@@ -30,7 +30,7 @@ public partial class SmallScoresTable_Server : ILib
     public global::System.Collections.Generic.Dictionary<string, int> GetCustomTimes() => default!;
 
     /// <summary>Display a custom string for some scores instead of the `Score.PrevRaceTimes` or custom time. [&quot;acount-id&quot; =&gt; &quot;custom text&quot;, &quot;aaaa-bbbb-cccc-dddd&quot; =&gt; &quot;another custom text&quot;, ...]</summary>
-    /// <param name="CustomResults">The custom text for each account id</param>
+    /// <param name="_CustomResults">The custom text for each account id</param>
     public void SetCustomResults(global::System.Collections.Generic.Dictionary<string, string> _CustomResults) { }
 
     public void ResetCustomResults() { }

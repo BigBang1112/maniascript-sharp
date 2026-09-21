@@ -18,28 +18,33 @@ public partial class Manialink : ILib
     public const int C_DefaultDuration = 500;
 
     /// <summary>Insert the #Include statement at the beginning of your maniascript</summary>
+    /// <param name="_Path" />
+    /// <param name="_Namespace" />
     /// <returns>One include</returns>
     public string Include(string _Path, string _Namespace) => default!;
 
     /// <summary>Insert the #Include statements at the beginning of your maniascript</summary>
+    /// <param name="_Libs" />
     /// <returns>Several includes</returns>
     public string Includes(global::System.Collections.Generic.Dictionary<string, string> _Libs) => default!;
 
     /// <summary>Insert a function inside your maniascript</summary>
+    /// <param name="_FunctionName" />
     /// <returns>The function</returns>
     public string Function(string _FunctionName) => default!;
 
     /// <summary>Insert several functions inside your maniascript</summary>
+    /// <param name="_FunctionsNames" />
     /// <returns>The functions</returns>
     public string Functions(global::System.Collections.Generic.IList<string> _FunctionsNames) => default!;
 
     /// <summary>Insert the tween module inside your maniascript</summary>
-    /// <param name="Easings">An array of easing functions to insert in the tween module</param>
+    /// <param name="_Easings">An array of easing functions to insert in the tween module</param>
     /// <returns>The tween module with the given easing functions</returns>
     public string Tweens(global::System.Collections.Generic.IList<string> _Easings) => default!;
 
     /// <summary>Insert the animation module inside your maniascript</summary>
-    /// <param name="Easings">An array of easing functions to insert in the animation module</param>
+    /// <param name="_Easings">An array of easing functions to insert in the animation module</param>
     /// <returns>The animation module with the given easing functions</returns>
     public string Animations(global::System.Collections.Generic.IList<string> _Easings) => default!;
 
@@ -48,19 +53,19 @@ public partial class Manialink : ILib
     public string Animations() => default!;
 
     /// <summary>Inject a Text between &quot;&quot;&quot; &quot;&quot;&quot; in your manialink</summary>
-    /// <param name="In">The Text to inject</param>
+    /// <param name="_In">The Text to inject</param>
     /// <returns>The Text</returns>
     public string Inject(string _In) => default!;
 
     /// <summary>Create a tooltip frame</summary>
-    /// <param name="Id">The id of the tooltip</param>
-    /// <param name="Size">The size of the tooltip</param>
-    /// <param name="LinesNb">The number of text lines in the tooltip</param>
+    /// <param name="_Id">The id of the tooltip</param>
+    /// <param name="_Size">The size of the tooltip</param>
+    /// <param name="_LinesNb">The number of text lines in the tooltip</param>
     /// <returns>The tooltip manialink frame</returns>
     public string Tooltip(string _Id, Vec2 _Size, int _LinesNb) => default!;
 
     /// <summary>Create the default tooltip frame</summary>
-    /// <param name="Id">The id of the tooltip</param>
+    /// <param name="_Id">The id of the tooltip</param>
     /// <returns>The tooltip manialink frame</returns>
     public string Tooltip(string _Id) => default!;
 

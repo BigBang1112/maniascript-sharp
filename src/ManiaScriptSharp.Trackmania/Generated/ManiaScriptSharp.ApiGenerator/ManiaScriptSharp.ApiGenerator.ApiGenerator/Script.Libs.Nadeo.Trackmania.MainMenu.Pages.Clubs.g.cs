@@ -39,6 +39,7 @@ public partial class Clubs : ILib
     public const string C_NavGroup_Corpus = "navgroup-page-clubs-corpus";
     public const string C_NavGroup_MouseOnly = "navgroup-page-clubs-mouse-only";
     public const string C_NavGroup_Global = "navgroup-page-clubs-global";
+    /// <summary>n for the current page, n for the previous page and n for the next page</summary>
     public const int C_DelayBetweenRequest = 500;
     public const int C_EventsDelay = 150;
     public const int C_MyClubs_ClubsTotal = 15;

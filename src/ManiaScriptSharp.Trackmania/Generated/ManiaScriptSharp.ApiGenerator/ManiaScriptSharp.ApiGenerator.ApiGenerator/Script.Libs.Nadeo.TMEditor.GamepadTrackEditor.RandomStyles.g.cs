@@ -19,10 +19,15 @@ public partial class RandomStyles : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "RandomStyles.Script.txt";
+    /// <summary>Default values Default length</summary>
     public const double C_LibRandomStyles_Length = 1200.0;
+    /// <summary>Default checkpoints spacing</summary>
     public const double C_LibRandomStyles_CheckpointsSpacing = 250.0;
+    /// <summary>Default multipliers</summary>
     public const double C_LibRandomStyles_Multiplier = 1.0;
+    /// <summary>Default decoration multiplier</summary>
     public const double C_LibRandomStyles_DecoMultiplier = 0.5;
+    /// <summary>Values for IsTurning, IsShifting, IsRising and IsTransfert selectors</summary>
     public const int C_LibRandomStyles_True = 1;
     public const int C_LibRandomStyles_False = 0;
     public const int C_LibRandomStyles_Null = -1;

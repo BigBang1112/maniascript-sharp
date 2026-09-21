@@ -16,12 +16,16 @@ public partial class MouseControl : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "MouseControl.Script.txt";
+    /// <summary>Initial time between selection update activation</summary>
     public const int C_InitialTick_SelectionUpdate = 500;
+    /// <summary>Time between selection update activation</summary>
     public const int C_Tick_SelectionUpdate = 250;
+    /// <summary>Events</summary>
     public const string C_Event_GetCoordinates = "LibMouseControl_GetCoordinates";
     public const string C_Event_SelectionStart = "LibMouseControl_SelectionStart";
     public const string C_Event_SelectionUpdate = "LibMouseControl_SelectionUpdate";
     public const string C_Event_SelectionStop = "LibMouseControl_SelectionStop";
+    /// <summary>Mouse modes</summary>
     public const int C_MouseMode_Click = 0;
     public const int C_MouseMode_Selection = 1;
     public const int C_MouseMode_Move = 2;
@@ -51,7 +55,7 @@ public partial class MouseControl : ILib
     public int MouseMode_Move() => default!;
 
     /// <summary>Set the mouse mode to use</summary>
-    /// <param name="MouseMode">The mouse mode to use</param>
+    /// <param name="_MouseMode">The mouse mode to use</param>
     public void SetMouseMode(int _MouseMode) { }
 
     /// <summary>Check if the left mouse button is pressed</summary>

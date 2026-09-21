@@ -24,18 +24,23 @@ public partial class Sign16x9Small_Server : ILib
     public void RequestPlayersUpdate() { }
 
     /// <summary>Select the type of score to display in the podium screen</summary>
+    /// <param name="_ScoreMode" />
     public void SetScoreMode(int _ScoreMode) { }
 
     /// <summary>Select what to display in the podium screen</summary>
+    /// <param name="_DisplayMode" />
     public void SetDisplayMode(int _DisplayMode) { }
 
     /// <summary>Set the clan that won the match</summary>
+    /// <param name="_WinningClan" />
     public void SetWinningClan(int _WinningClan) { }
 
     /// <summary>Set the match MVP</summary>
+    /// <param name="_MVPAccountId" />
     public void SetMVPAccountId(string _MVPAccountId) { }
 
     /// <summary>Set custom names for players to use instead of their default ones</summary>
+    /// <param name="_PlayersNames" />
     public void SetPlayersNames(global::System.Collections.Generic.Dictionary<string, string> _PlayersNames) { }
 
     /// <summary>Unload the library</summary>

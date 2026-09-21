@@ -88,12 +88,15 @@ public partial class Race : ILib
     }
 
     /// <summary>Turn on/off the automatic players' dossard color selection</summary>
+    /// <param name="_Enable" />
     public void UseAutomaticDossardColor(bool _Enable) { }
 
     /// <summary>Check if the automatic players' dossard color selection is turned on/off</summary>
     public bool IsUsingAutomaticDossardColor() => default!;
 
     /// <summary>Set the network mode to use</summary>
+    /// <param name="_TrustClientSimulation" />
+    /// <param name="_UseCrudeExtrapolation" />
     public void SetNetworkMode(bool _TrustClientSimulation, bool _UseCrudeExtrapolation) { }
 
     /// <summary>Check if infinite laps are enabled False otherwise</summary>
@@ -105,8 +108,8 @@ public partial class Race : ILib
     public bool IsIndependentLaps() => default!;
 
     /// <summary>Enable or disable infinite laps</summary>
-    /// <param name="IsInfiniteLaps">Never ends a laps race</param>
-    /// <param name="IsIndependentLaps">Independent laps (use best lap instead of best race)</param>
+    /// <param name="_IsInfiniteLaps">Never ends a laps race</param>
+    /// <param name="_IsIndependentLaps">Independent laps (use best lap instead of best race)</param>
     public void SetInfiniteLaps(bool _IsInfiniteLaps, bool _IsIndependentLaps) { }
 
     public void SetInfiniteLaps(bool _IsInfiniteLaps) { }
@@ -117,6 +120,7 @@ public partial class Race : ILib
     public void SetRespawnBehaviour(int _Respawnbehaviour) { }
 
     /// <summary>Toggle the race progression management by the C++</summary>
+    /// <param name="_Enabled" />
     public void UseCppRaceProgression(bool _Enabled) { }
 
     public bool IsUsingCppRaceProgression() => default!;
@@ -130,21 +134,25 @@ public partial class Race : ILib
     public void StopWinners() { }
 
     /// <summary>Setup the game mode</summary>
+    /// <param name="_ModeName" />
+    /// <param name="_CustomData_Leaderboard" />
+    /// <param name="_CustomData_GhostDriver" />
+    /// <param name="_ScopeMedal" />
     public void SetupGameModeNameCustomDataAndMedalScope(string _ModeName, string _CustomData_Leaderboard, string _CustomData_GhostDriver, string _ScopeMedal) { }
 
     /// <summary>Setup how the records are going to be managed</summary>
-    /// <param name="ScopeSeason">Scope of the ghost on the nadeoservices when playing on a season map</param>
-    /// <param name="ScopeNotSeason">Scope of the ghost on the nadeoservices when playing on a map outside of a season</param>
-    /// <param name="ModeName">The name of the mode on the nadeoservices</param>
-    /// <param name="CustomData_Leaderboard">Mode's custom data for the leaderboards on the nadeoservices</param>
-    /// <param name="CustomData_GhostDriver">Mode's custom data for the `GhostDriver` features on the nadeoservices</param>
-    /// <param name="UploadGhost">Upload the player's ghost to the nadeoservices at the end of each race</param>
-    /// <param name="DisplayPBGhost">Display the player's PB ghost on the client</param>
-    /// <param name="DisplayMedal">Display the best medal unlocked by the player</param>
-    /// <param name="CelebratePB">Celebrate the a new PB</param>
-    /// <param name="CelebrateMedal">Celebrate a new medal</param>
-    /// <param name="DisplayWorldTop">Display the world best times on the map</param>
-    /// <param name="EnableGhostDriver">Enable `GhostDriver` features (upload and download of ghosts for bots)</param>
+    /// <param name="_ScopeSeason">Scope of the ghost on the nadeoservices when playing on a season map</param>
+    /// <param name="_ScopeNotSeason">Scope of the ghost on the nadeoservices when playing on a map outside of a season</param>
+    /// <param name="_ModeName">The name of the mode on the nadeoservices</param>
+    /// <param name="_CustomData_Leaderboard">Mode's custom data for the leaderboards on the nadeoservices</param>
+    /// <param name="_CustomData_GhostDriver">Mode's custom data for the `GhostDriver` features on the nadeoservices</param>
+    /// <param name="_UploadGhost">Upload the player's ghost to the nadeoservices at the end of each race</param>
+    /// <param name="_DisplayPBGhost">Display the player's PB ghost on the client</param>
+    /// <param name="_DisplayMedal">Display the best medal unlocked by the player</param>
+    /// <param name="_CelebratePB">Celebrate the a new PB</param>
+    /// <param name="_CelebrateMedal">Celebrate a new medal</param>
+    /// <param name="_DisplayWorldTop">Display the world best times on the map</param>
+    /// <param name="_EnableGhostDriver">Enable `GhostDriver` features (upload and download of ghosts for bots)</param>
     public void SetupRecord(string _ScopeSeason, string _ScopeNotSeason, string _ModeName, string _CustomData_Leaderboard, string _CustomData_GhostDriver, bool _UploadGhost, bool _DisplayPBGhost, bool _DisplayMedal, bool _CelebratePB, bool _CelebrateMedal, bool _DisplayWorldTop, bool _EnableGhostDriver) { }
 
     public void SetupRecord(K_GhostConfig _Config) { }
@@ -157,7 +165,7 @@ public partial class Race : ILib
     public K_GhostConfig GetRecordSettings() => default!;
 
     /// <summary>Update the number of laps to play on the map Setting it to 0 or less create an infinite lap race</summary>
-    /// <param name="LapsNb">The number of laps</param>
+    /// <param name="_LapsNb">The number of laps</param>
     public void SetLapsNb(int _LapsNb) { }
 
     /// <summary>Get the number of laps to play on the map</summary>
@@ -165,14 +173,16 @@ public partial class Race : ILib
     public int GetLapsNb() => default!;
 
     /// <summary>Setup the laps number and infinite laps mode from the settings values</summary>
+    /// <param name="_InfiniteLaps" />
+    /// <param name="_ForceLapsNb" />
     public void SetLapsSettings(bool _InfiniteLaps, int _ForceLapsNb) { }
 
     /// <summary>Enable or disable local mode False to disable</summary>
-    /// <param name="IsLocalMode">True to enable local mode</param>
+    /// <param name="_IsLocalMode">True to enable local mode</param>
     public void SetLocalMode(bool _IsLocalMode) { }
 
     /// <summary>Enable or disable splitscreen mode False to disable</summary>
-    /// <param name="IsSplitScreen">True to enable splitscreen mode</param>
+    /// <param name="_IsSplitScreen">True to enable splitscreen mode</param>
     public void SetSplitScreen(bool _IsSplitScreen) { }
 
     /// <summary>Reset a solo race</summary>
@@ -181,10 +191,11 @@ public partial class Race : ILib
     public void ResetAllPlayers() { }
 
     /// <summary>Allow the players to see the intro when they join during a match instead of only at map start</summary>
+    /// <param name="_Enabled" />
     public void EnableIntroDuringMatch(bool _Enabled) { }
 
     /// <summary>Select upon which criteria the scores will be sorted</summary>
-    /// <param name="SortOrder">The sorting criteria</param>
+    /// <param name="_SortOrder">The sorting criteria</param>
     public void SortScores(int _SortOrder) { }
 
     /// <summary>Get upon which criteria the scores are sorted</summary>
@@ -192,18 +203,22 @@ public partial class Race : ILib
     public int GetScoresSortOrder() => default!;
 
     /// <summary>Set the default visibility for UI elements</summary>
+    /// <param name="_IsSplitScreen" />
     public void SetupDefaultUI(bool _IsSplitScreen) { }
 
     /// <summary>Set the visibility of UI elements for a local mode</summary>
     public void SetupLocalModeUI() { }
 
     /// <summary>Enable or disable the notification when a player joins or leaves the server</summary>
+    /// <param name="_Enabled" />
     public void EnableJoinLeaveNotification(bool _Enabled) { }
 
     /// <summary>Enable or disable the notification when a player joins or leaves the server</summary>
+    /// <param name="_Enabled" />
     public void EnableJoinLeaveNotificationForFakeUser(bool _Enabled) { }
 
     /// <summary>Enable or disable automatic unspawn of the player's car after being eliminated by an obstacle</summary>
+    /// <param name="_Enabled" />
     public void EnableAutomaticGiveUpAfterElimination(bool _Enabled) { }
 
     /// <summary>Update the library</summary>
@@ -213,5 +228,10 @@ public partial class Race : ILib
     public void Unload() { }
 
     /// <summary>Load the library</summary>
+    /// <param name="_UseCppRaceProgression" />
+    /// <param name="_TrustClientSimu" />
+    /// <param name="_UseCrudeExtrapolation" />
+    /// <param name="_CanViewIntroDuringMatch" />
+    /// <param name="_EnableJoinLeaveNotification" />
     public void Load(bool _UseCppRaceProgression, bool _TrustClientSimu, bool _UseCrudeExtrapolation, bool _CanViewIntroDuringMatch, bool _EnableJoinLeaveNotification) { }
 }

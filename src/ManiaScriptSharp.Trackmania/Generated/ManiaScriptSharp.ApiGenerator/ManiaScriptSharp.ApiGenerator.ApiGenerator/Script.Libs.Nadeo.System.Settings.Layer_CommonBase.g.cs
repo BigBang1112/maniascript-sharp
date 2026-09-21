@@ -14,6 +14,7 @@ public partial class Layer_CommonBase : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Settings.SettingsStructs Structs;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Settings/";
     public const double C_CommonBase_ScrollBarVisibleHeight = 138.0;
 
     public string CreateLayerMaialink(string _Name, string _XML, string _Consts, string _Main, string _Yield, string _Functions) => default!;

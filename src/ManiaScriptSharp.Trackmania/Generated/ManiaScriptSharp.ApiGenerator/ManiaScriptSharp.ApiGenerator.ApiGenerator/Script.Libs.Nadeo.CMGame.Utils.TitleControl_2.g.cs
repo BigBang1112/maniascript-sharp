@@ -75,26 +75,35 @@ public partial class TitleControl_2 : ILib
     }
 
     /// <summary>Destroy the request</summary>
+    /// <param name="_Request" />
     public K_Request Destroy(K_Request _Request) => default!;
 
     /// <summary>Destroy a previous request and create a new one</summary>
+    /// <param name="_PreviousRequest" />
+    /// <param name="_NewRequest" />
     public K_Request DestroyAndCreate(K_Request _PreviousRequest, K_Request _NewRequest) => default!;
 
     /// <summary>Check if the request is processing</summary>
+    /// <param name="_Request" />
     public bool IsProcessing(K_Request _Request) => default!;
 
     /// <summary>Check if the request is a success</summary>
+    /// <param name="_Request" />
     public bool IsSuccess(K_Request _Request) => default!;
 
     /// <summary>Add metadata on a request</summary>
+    /// <param name="_Request" />
+    /// <param name="_Metadata" />
     public K_Request SetMetadata(K_Request _Request, global::System.Collections.Generic.Dictionary<string, string> _Metadata) => default!;
 
     public K_Request SetMetadata(K_Request _Request, string _Key, string _Value) => default!;
 
     /// <summary>Remove all metadata from a request</summary>
+    /// <param name="_Request" />
     public K_Request ResetMetadata(K_Request _Request) => default!;
 
     /// <summary>Get metadata from a request</summary>
+    /// <param name="_Request" />
     public global::System.Collections.Generic.Dictionary<string, string> GetMetadata(K_Request _Request) => default!;
 
     public string GetMetadata(K_Request _Request, string _Key, string _DefaultValue) => default!;

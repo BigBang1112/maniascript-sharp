@@ -30,16 +30,20 @@ public partial class Toolbox : ILib
     public const string C_NavGroup_Default = "navgroup-toolbox-default";
     public const string C_Class_TextSemiBold = "cmgame-toolbox_class-text-semibold";
     public const string C_Class_TextExtraBold = "cmgame-toolbox_class-text-extrabold";
+    public const string C_Path_Guide = "file://Media/.debug/UI_Grid.png";
     public const double C_Opacity_Default = 1.0;
+    /// <summary>ZIndex for Controls on Page level</summary>
     public const double C_ZIndex_Guide = 0.0;
     public const double C_ZIndex_SafeArea = 1.0;
     public const double C_ZIndex_PopUp = 2.0;
     public const double C_ZIndex_MousePos = 3.0;
+    /// <summary>Text</summary>
     public const string C_Text_DescriptionMoveable = "Maintain 'Right Click' to move control\nAdd 'Y' key to move the control's parent";
     public const string C_Text_DescriptionMousePos = "Display the current mouse position.\n'Right Click' to draw a line & 'TAB' for 10° steps";
     public const string C_Text_DescriptionHitboxesVisibility = "Show Navigation class or Scroll class hitboxes\n(May create strange behaviors when activated)";
     public const string C_Text_DescriptionSafeArea = "Show an overlay to see the 90% safe area on screen";
     public const string C_Text_DescriptionFastBoot = "Load the game with the minimum required pages";
+    /// <summary>Control ids</summary>
     public const string C_Id_ButtonClose = "cmgame-toolbox_buton-close";
     public const string C_Id_ButtonResetGuide = "cmgame-toolbox_button-reset-guide";
     public const string C_Id_ButtonReturn = "cmgame-toolbox_button-return";

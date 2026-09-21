@@ -41,6 +41,7 @@ public partial class PrestigeNotificationObserver : ILib
     }
 
     /// <summary>Add new notification to our state array and check if we can remove old ones</summary>
+    /// <param name="_Notification" />
     public void AddNotification(K_Notification _Notification) { }
 
     /// <summary>Get the oldest notification and remove it from our state array</summary>

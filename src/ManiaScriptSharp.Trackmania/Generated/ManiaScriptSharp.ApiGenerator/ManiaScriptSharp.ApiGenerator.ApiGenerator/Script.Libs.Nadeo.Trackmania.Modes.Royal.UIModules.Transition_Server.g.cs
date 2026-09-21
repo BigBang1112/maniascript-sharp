@@ -21,6 +21,8 @@ public partial class Transition_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Start a UI transition animation on the client</summary>
+    /// <param name="_StartTime" />
+    /// <param name="_EndTime" />
     public void SetTransition(int _StartTime, int _EndTime) { }
 
     /// <summary>Unload the library</summary>

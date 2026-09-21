@@ -36,6 +36,7 @@ public partial class DailyRequestManager : ILib
     public const int C_Request_PlayerMatches = 4;
     public const int C_Request_PostRegisteredPlayers = 5;
     public const int C_Request_GetRegisteredPlayers = 6;
+    /// <summary>All frequencies in ms</summary>
     public const int C_UpdateFrequency_Ranks = 7000;
     public const int C_UpdateFrequency_MatchStatus = 15000;
     public const int C_UpdateFrequency_PlayerMatches = 20000;
@@ -63,6 +64,7 @@ public partial class DailyRequestManager : ILib
     public bool LocalMatchIsOver() => default!;
 
     /// <summary>Mode command functions</summary>
+    /// <param name="_AccountId" />
     public void CheckPlayerRegistration(string _AccountId) { }
 
     public void ListenToMatchStatus(bool _IsListening) { }
@@ -76,6 +78,7 @@ public partial class DailyRequestManager : ILib
     public int MatchStartTime() => default!;
 
     /// <summary>API funtions</summary>
+    /// <param name="_Request_Type" />
     public void DestroyPreviousRequest(int _Request_Type) { }
 
     public string GetRequestNameFromType(int _Request_Type) => default!;

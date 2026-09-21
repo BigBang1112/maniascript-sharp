@@ -101,9 +101,6 @@ public partial class Record_Client : ILib
     public const int C_Row_Action1 = 1;
     public const int C_Row_Action2 = 2;
     public const int C_Row_Cancel = 3;
-    public const double C_RecordsOffsetY = 10.0;
-    public const double C_RecordsScale = 1.0;
-    public const int C_DelayBeforeAutoHide = 6000;
 
     public struct K_Celebration
     {
@@ -191,78 +188,111 @@ public partial class Record_Client : ILib
     public string GetML() => default!;
 
     /// <summary>Get the scope of the current state</summary>
+    /// <param name="_State" />
     public K_Scope GetScope(K_State _State) => default!;
 
     public K_State AddRecordsError(K_State _State, int _ErrorCode) => default!;
 
     /// <summary>Send the records to the manialink UI</summary>
+    /// <param name="_State" />
     public void SendRecordsToML(K_State _State) { }
 
     /// <summary>Send the records status to the manialink UI</summary>
+    /// <param name="_State" />
     public void SendRecordsStatusToML(K_State _State) { }
 
     /// <summary>Send the spectator target account id the manialink UI</summary>
+    /// <param name="_State" />
     public void SendSpectatorTargetAccountIdToML(K_State _State) { }
 
     /// <summary>Variable used by the game modes that manage the PB ghost themselves to check if they have to display the PB ghost or not.</summary>
+    /// <param name="_State" />
     public void SendPBGhostVisibilityToModeAndML(K_State _State) { }
 
     /// <summary>Show/hide the PB ghost on the client</summary>
+    /// <param name="_State" />
+    /// <param name="_DisplayPBGhost" />
     public K_State DisplayPBGhost(K_State _State, bool _DisplayPBGhost) => default!;
 
     /// <summary>Release record ghost data</summary>
+    /// <param name="_State" />
+    /// <param name="_AccountId" />
     public K_State ReleaseRecordGhost(K_State _State, string _AccountId) => default!;
 
     public K_State ReleaseAllRecordGhosts(K_State _State) => default!;
 
     /// <summary>Retrieve a player record ghost</summary>
+    /// <param name="_State" />
+    /// <param name="_AccountId" />
+    /// <param name="_Medal" />
     public K_State RetrieveRecordGhost(K_State _State, string _AccountId, int _Medal) => default!;
 
     /// <summary>Check if we can retrieve the records</summary>
+    /// <param name="_State" />
     public bool CanRetrieveRecords(K_State _State) => default!;
 
     /// <summary>Check if the records are dirty and we should update them</summary>
+    /// <param name="_State" />
     public bool RecordsAreDirty(K_State _State) => default!;
 
     /// <summary>Mark all types of records as dirty</summary>
+    /// <param name="_State" />
     public K_State SetAllRecordsDirty(K_State _State) => default!;
 
     /// <summary>Check if the given type of records must be requested or not</summary>
+    /// <param name="_State" />
+    /// <param name="_RecordType" />
     public bool IsRecordRequested(K_State _State, int _RecordType) => default!;
 
     public K_State RetrieveRecords(K_State _State, int _RaceTime) => default!;
 
     /// <summary>Update the records</summary>
+    /// <param name="_State" />
     public K_State SetRecordsFromResponses(K_State _State) => default!;
 
     /// <summary>Reset all records</summary>
+    /// <param name="_State" />
     public K_State ResetRecords(K_State _State) => default!;
 
     /// <summary>Start a task to retrieve the display name of the records</summary>
+    /// <param name="_State" />
     public K_State RetrieveDisplayName(K_State _State) => default!;
 
     /// <summary>Update the display names in the records</summary>
+    /// <param name="_State" />
     public K_State UpdateDisplayName(K_State _State) => default!;
 
     /// <summary>Remove the client PB ghost</summary>
+    /// <param name="_State" />
     public K_State ResetPBGhost(K_State _State) => default!;
 
     /// <summary>Get the PB Ghost of the client on the given map</summary>
+    /// <param name="_State" />
     public K_State RetrievePBGhost(K_State _State) => default!;
 
     /// <summary>Set the client medal</summary>
+    /// <param name="_State" />
+    /// <param name="_Medal" />
+    /// <param name="_CanCelebrate" />
     public K_State SetMedal(K_State _State, int _Medal, bool _CanCelebrate) => default!;
 
     /// <summary>Reset the client medal</summary>
+    /// <param name="_State" />
     public K_State ResetMedal(K_State _State) => default!;
 
     /// <summary>Get the medal of the client on the given map</summary>
+    /// <param name="_State" />
+    /// <param name="_CanCelebrate" />
     public K_State RetrieveMedal(K_State _State, bool _CanCelebrate) => default!;
 
     /// <summary>Update the uid of currently played map</summary>
+    /// <param name="_State" />
+    /// <param name="_MapUid" />
     public K_State SetCurrentMapUid(K_State _State, string _MapUid) => default!;
 
     /// <summary>Check if the records can be enabled</summary>
+    /// <param name="_DisplayRecords" />
+    /// <param name="_CanViewLeaderboards" />
     public bool UpdateRecordsEnabled(bool _DisplayRecords, bool _CanViewLeaderboards) => default!;
 
     /// <summary>Update the library</summary>

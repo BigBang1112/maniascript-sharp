@@ -25,9 +25,11 @@ public partial class LiveRanking_Server : ILib
     public void ResetRace() { }
 
     /// <summary>A player beated their Personal best</summary>
+    /// <param name="_AccountId" />
     public void PlayerBeatTheirPersonalBest(string _AccountId) { }
 
     /// <summary>A player beated the world record</summary>
+    /// <param name="_AccountId" />
     public void PlayerBeatTheWorldRecord(string _AccountId) { }
 
     /// <summary>Force an update of the live ranking on the client</summary>

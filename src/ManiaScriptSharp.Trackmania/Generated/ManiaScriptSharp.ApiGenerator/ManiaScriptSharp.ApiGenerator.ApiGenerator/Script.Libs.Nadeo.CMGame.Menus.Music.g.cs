@@ -78,9 +78,15 @@ public partial class Music : ILib
     }
 
     /// <summary>Create a new music filter</summary>
+    /// <param name="_Section" />
+    /// <param name="_Season" />
+    /// <param name="_Mood" />
     public K_Filter CreateFilter(int _Section, int _Season, int _Mood) => default!;
 
     /// <summary>Create a new music track</summary>
+    /// <param name="_Url" />
+    /// <param name="_VolumedB" />
+    /// <param name="_Filter" />
     public K_Music CreateMusic(string _Url, float _VolumedB, K_Filter _Filter) => default!;
 
     public void SetPlaylist(global::System.Collections.Generic.IList<K_Music> _Playlist) { }

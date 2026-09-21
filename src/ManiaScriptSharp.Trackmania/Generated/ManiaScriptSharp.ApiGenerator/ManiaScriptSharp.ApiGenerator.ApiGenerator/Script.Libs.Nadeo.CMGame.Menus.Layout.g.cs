@@ -58,11 +58,16 @@ public partial class Layout : ILib
     }
 
     /// <summary>New indexed element id Useful in `for` loops to create sequential element ids</summary>
+    /// <param name="_Id" />
+    /// <param name="_IndexedA" />
+    /// <param name="_IndexedB" />
     public string NewId(string _Id, int _IndexedA, int _IndexedB) => default!;
 
     public string NewId(string _Id, int _Indexed) => default!;
 
     /// <summary>New fit sizing The element will be sized to fit its children (plus padding and gaps), up to max. If max is left unspecified, it will default to `C_Private_MaxSize`. When elements are compressed to fit into a smaller parent, this element will not shrink below min.</summary>
+    /// <param name="_Min" />
+    /// <param name="_Max" />
     public K_Private_Sizing NewSizingFit(float _Min, float _Max) => default!;
 
     public K_Private_Sizing NewSizingFit(float _Min) => default!;
@@ -70,9 +75,12 @@ public partial class Layout : ILib
     public K_Private_Sizing NewSizingFit() => default!;
 
     /// <summary>New fixed sizing The final size will always be exactly the provided fixed value. Shorthand for NewSizingFixed(_Value, _Value)</summary>
+    /// <param name="_Value" />
     public K_Private_Sizing NewSizingFixed(float _Value) => default!;
 
     /// <summary>New grow sizing The element will grow to fill available space in its parent, up to max. If max is left unspecified, it will default to `C_Private_MaxSize`. When elements are compressed to fit into a smaller parent, this element will not shrink below min.</summary>
+    /// <param name="_Min" />
+    /// <param name="_Max" />
     public K_Private_Sizing NewSizingGrow(float _Min, float _Max) => default!;
 
     public K_Private_Sizing NewSizingGrow(float _Min) => default!;
@@ -80,14 +88,22 @@ public partial class Layout : ILib
     public K_Private_Sizing NewSizingGrow() => default!;
 
     /// <summary>New percentage sizing Final size will be a percentage of parent size, minus padding and child gaps. `_Value` is assumed to be a `Real` between 0 and 1.</summary>
+    /// <param name="_Value" />
     public K_Private_Sizing NewSizingPercent(float _Value) => default!;
 
     /// <summary>Create a new layout `void Clay__CalculateFinalLayout(void)`</summary>
+    /// <param name="_LayoutSize" />
+    /// <param name="_RootElementId" />
+    /// <param name="_ElementList" />
     public K_Layout NewLayout(Vec2 _LayoutSize, string _RootElementId, global::System.Collections.Generic.IList<K_Element> _ElementList) => default!;
 
     /// <summary>Get the size of an element in the layout</summary>
+    /// <param name="_Layout" />
+    /// <param name="_ElementId" />
     public Vec2 GetSize(K_Layout _Layout, string _ElementId) => default!;
 
     /// <summary>Get the position of an element in the layout</summary>
+    /// <param name="_Layout" />
+    /// <param name="_ElementId" />
     public Vec2 GetPosition(K_Layout _Layout, string _ElementId) => default!;
 }

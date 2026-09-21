@@ -24,6 +24,7 @@ public partial class TM_Cup_Online : ILib
     public const string Version = "1.1.1+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/TM_Cup_Online.Script.txt";
     public const string C_ModeName = "TM_Cup_Online";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/Cup.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const bool C_UploadRecord = true;
     public const bool C_DisplayRecordGhost = false;
@@ -73,9 +74,9 @@ public partial class TM_Cup_Online : ILib
     public virtual void Match_EndMap() { }
 
     /// <summary>Update the scores table footer text</summary>
-    /// <param name="PointsLimit">The points limit</param>
-    /// <param name="RoundsPerMap">The number of rounds per map</param>
-    /// <param name="ValidRoundsNb">Number of valid rounds played</param>
+    /// <param name="_PointsLimit">The points limit</param>
+    /// <param name="_RoundsPerMap">The number of rounds per map</param>
+    /// <param name="_ValidRoundsNb">Number of valid rounds played</param>
     public void UpdateScoresTableFooter(int _PointsLimit, int _RoundsPerMap, int _ValidRoundsNb) { }
 
     /// <summary>Get the time left to the players to finish the round after the first player</summary>

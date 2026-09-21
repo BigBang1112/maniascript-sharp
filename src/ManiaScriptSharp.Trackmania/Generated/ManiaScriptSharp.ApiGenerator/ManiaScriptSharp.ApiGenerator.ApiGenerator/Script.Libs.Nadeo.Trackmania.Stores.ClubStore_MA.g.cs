@@ -120,6 +120,10 @@ public partial class ClubStore_MA : ILib
     public int GetUserClubTagStatus() => default!;
 
     /// <summary>Request new clubs The previous and next page will be requested at the same time</summary>
+    /// <param name="_FilterName" />
+    /// <param name="_Section" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadClubsPage(string _FilterName, int _Section, int _Offset, int _Length) { }
 
     public void Action_LoadAllClubsPage(string _FilterName, int _Offset, int _Length) { }
@@ -127,24 +131,32 @@ public partial class ClubStore_MA : ILib
     public void Action_LoadMyClubsPage(int _Offset, int _Length) { }
 
     /// <summary>Request new clubs for the browser The previous and next page will be requested at the same time</summary>
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadClubsBrowser(int _Offset, int _Length) { }
 
     /// <summary>Request new clubs of the user</summary>
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadUserClubs(int _Offset, int _Length) { }
 
     /// <summary>Request created club of the user</summary>
+    /// <param name="_ClubId" />
     public void Action_LoadCreatedClub(int _ClubId) { }
 
     /// <summary>Update the user current club membership</summary>
+    /// <param name="_ClubId" />
     public void Action_UpdateUserCurrentClubMembership(int _ClubId) { }
 
     /// <summary>Delete the club</summary>
+    /// <param name="_ClubId" />
     public void Action_DeleteClub(int _ClubId) { }
 
     /// <summary>Check if the store is loading the pinned club and club's tag</summary>
     public bool IsLoadingPinAndTagClub() => default!;
 
     /// <summary>Load the pinned club and club's tag</summary>
+    /// <param name="_CurrentClubTag" />
     public void Action_LoadPinAndTagClub(string _CurrentClubTag) { }
 
     public void Action_LoadPinAndTagClub() { }
@@ -159,75 +171,143 @@ public partial class ClubStore_MA : ILib
     public void Action_RemoveClubTag() { }
 
     /// <summary>Request club members</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
+    /// <param name="_Login" />
     public void Action_LoadUserCurrentClubMembersPage(int _ClubId, int _Offset, int _Length, string _Login) { }
 
     /// <summary>Request new club member requests The previous and next page will be requested at the same time</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadUserCurrentClubMemberRequestsPage(int _ClubId, int _Offset, int _Length) { }
 
     /// <summary>Delete the given member from the club</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_AccountId" />
     public void Action_DeleteClubMember(int _ClubId, string _AccountId) { }
 
     /// <summary>Change the role of the given member from the club</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_AccountId" />
+    /// <param name="_Role" />
     public void Action_EditClubMember(int _ClubId, string _AccountId, string _Role) { }
 
     /// <summary>Create a member with the current user to the given club</summary>
+    /// <param name="_ClubId" />
     public void Action_CreateClubMember(int _ClubId) { }
 
     /// <summary>Update a member as VIP or not in the club</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_AccountId" />
+    /// <param name="_SetVIP" />
     public void Action_UpdateClubVIP(int _ClubId, string _AccountId, bool _SetVIP) { }
 
     /// <summary>Request new club rooms The previous and next page will be requested at the same time</summary>
+    /// <param name="_FilterName" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadAllClubRoomsPage(string _FilterName, int _Offset, int _Length) { }
 
     /// <summary>Request new active activities of a specific club The previous and next page will be requested at the same time</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_FolderId" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadClubActivitiesPage(int _ClubId, int _FolderId, int _Offset, int _Length) { }
 
     public void Action_LoadClubActivitiesPage(int _ClubId, int _Offset, int _Length) { }
 
     /// <summary>Request new Inactive activities of a specific club The previous and next page will be requested at the same time</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_FolderId" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadInactiveClubActivitiesPage(int _ClubId, int _FolderId, int _Offset, int _Length) { }
 
     public void Action_LoadInactiveClubActivitiesPage(int _ClubId, int _Offset, int _Length) { }
 
     /// <summary>Request to load clubs featured activity</summary>
+    /// <param name="_ClubIds" />
     public void Action_LoadClubsFeaturedActivity(global::System.Collections.Generic.IList<int> _ClubIds) { }
 
     /// <summary>Request to move an activity</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_ActivityId" />
+    /// <param name="_Position" />
     public void Action_MoveActivity(int _ClubId, int _ActivityId, int _Position) { }
 
     /// <summary>Request to delete an activity</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_ActivityId" />
     public void Action_DeleteActivity(int _ClubId, int _ActivityId) { }
 
     /// <summary>Request to validate an activity</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_ActivityId" />
+    /// <param name="_Active" />
     public void Action_ActivateActivity(int _ClubId, int _ActivityId, bool _Active) { }
 
     /// <summary>Request to update the privacy of an activity</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_ActivityId" />
+    /// <param name="_Public" />
     public void Action_ActivityUpdatePrivacy(int _ClubId, int _ActivityId, bool _Public) { }
 
     /// <summary>Request to update the featured activity</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_ActivityId" />
+    /// <param name="_Featured" />
     public void Action_UpdateFeaturedActivity(int _ClubId, int _ActivityId, bool _Featured) { }
 
     /// <summary>Request to get the list of VIP on a map</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_MapUid" />
+    /// <param name="_SeasonUid" />
     public void Action_GetVIPListOnMap(int _ClubId, string _MapUid, string _SeasonUid) { }
 
     /// <summary>Request to create a bucket activity</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_ActivityId" />
+    /// <param name="_Name" />
+    /// <param name="_MediaUrl" />
     public void Action_EditBucketActivity(int _ClubId, int _ActivityId, string _Name, string _MediaUrl) { }
 
     /// <summary>Request to create a bucket activity</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_FolderId" />
+    /// <param name="_Name" />
+    /// <param name="_MediaUrl" />
+    /// <param name="_BucketType" />
     public void Action_CreateBucketActivity(int _ClubId, int _FolderId, string _Name, string _MediaUrl, string _BucketType) { }
 
     public void Action_CreateBucketActivity(int _ClubId, string _Name, string _MediaUrl, string _BucketType) { }
 
     /// <summary>Request new skin uploads The previous and next page will be requested at the same time</summary>
+    /// <param name="_Sort" />
+    /// <param name="_Order" />
+    /// <param name="_FilterName" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadAllSkinUploadsPage(string _Sort, string _Order, string _FilterName, int _Offset, int _Length) { }
 
     /// <summary>Request new item uploads The previous and next page will be requested at the same time</summary>
+    /// <param name="_Sort" />
+    /// <param name="_Order" />
+    /// <param name="_FilterName" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadAllItemUploadsPage(string _Sort, string _Order, string _FilterName, int _Offset, int _Length) { }
 
     /// <summary>Request to retrieve the map review activities</summary>
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
+    /// <param name="_FilterName" />
     public void Action_LoadMapReviewActivities(int _Offset, int _Length, string _FilterName) { }
 
     /// <summary>Initialize the Club store</summary>
+    /// <param name="_ResetData" />
     public void Initialize(bool _ResetData) { }
 
     /// <summary>Update the Club store</summary>

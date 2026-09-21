@@ -21,7 +21,6 @@ public partial class SpectatorInfo_Client : ILib
     public const string C_Id = "UIModule_Champion_SpectatorInfo";
     public const int C_RankingMode_BestRace = 0;
     public const int C_RankingMode_CurrentRace = 1;
-    public const int C_UpdateMaxFrequency = 250;
 
     /// <summary>Get the module manialink</summary>
     /// <returns>The module manialink</returns>

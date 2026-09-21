@@ -21,9 +21,11 @@ public partial class NetShare_Server : ILib
     public void ForceUpdate() { }
 
     /// <summary>Inform the UI that the there is a next map</summary>
+    /// <param name="_HasNextMap" />
     public void SetHasNextMap(bool _HasNextMap) { }
 
     /// <summary>Are the rankings currently loading ?</summary>
+    /// <param name="_Loading" />
     public void SetRankingsAreLoading(bool _Loading) { }
 
     /// <summary>Unload the library</summary>

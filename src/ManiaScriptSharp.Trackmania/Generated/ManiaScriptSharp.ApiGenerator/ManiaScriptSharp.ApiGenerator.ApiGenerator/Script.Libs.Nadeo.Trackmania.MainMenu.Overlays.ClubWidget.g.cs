@@ -34,8 +34,6 @@ public partial class ClubWidget : ILib
     public const string C_Class_LabelClubActivity = "class-label-club-activity";
     public const int C_Size_LabelClubActivity = 100;
     public const double C_Size_FrameClubActivity = 58.0;
-    public const int C_PopularClubUpdateFrequency = 600000;
-    public const int C_PopularClubDisplayDuration = 8000;
 
     /// <summary>Get the page manialink</summary>
     /// <returns>The page manialink</returns>

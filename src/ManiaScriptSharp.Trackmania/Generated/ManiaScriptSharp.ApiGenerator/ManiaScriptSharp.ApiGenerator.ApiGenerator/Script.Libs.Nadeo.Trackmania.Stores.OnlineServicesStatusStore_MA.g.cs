@@ -24,6 +24,7 @@ public partial class OnlineServicesStatusStore_MA : ILib
     public void Action_GetStatus() { }
 
     /// <summary>Initialize the Online Services Status store</summary>
+    /// <param name="_ResetData" />
     public void Initialize(bool _ResetData) { }
 
     /// <summary>Update the Online Services Status store</summary>

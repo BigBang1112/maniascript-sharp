@@ -20,9 +20,11 @@ public partial class Layers : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Destroy the layer with the specified id</summary>
+    /// <param name="_Id" />
     public void Destroy(Ident _Id) { }
 
     /// <summary>Destroy the layer with the specified name</summary>
+    /// <param name="_Name" />
     public void Destroy(string _Name) { }
 
     /// <summary>Destroy all the layers created by the plugin</summary>

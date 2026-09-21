@@ -28,6 +28,8 @@ public partial class Credits : ILib
     public const string P = "ComponentCredits_";
     public const string C_NavGroup_Global = "navgroup-component-credits-global";
     public const string C_NavGroup_Main = "navgroup-component-credits-main";
+    public const string C_CreditsJsonPath = "file://Media/Config/Nadeo/Trackmania/Credits/Credits.json";
+    public const string C_LicensesTextPath = "file://Media/Config/Nadeo/Trackmania/Credits/Licenses.txt";
 
     /// <summary>Get the component</summary>
     /// <returns>The component id</returns>

@@ -22,6 +22,8 @@ public partial class Markers_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the frame id of the visible markers</summary>
+    /// <param name="_MarkerFrameId" />
+    /// <param name="_AccountId" />
     public void SetMarkerFrameId(int _MarkerFrameId, string _AccountId) { }
 
     public void RemoveMarkerFrameId(int _MarkerFrameId) { }

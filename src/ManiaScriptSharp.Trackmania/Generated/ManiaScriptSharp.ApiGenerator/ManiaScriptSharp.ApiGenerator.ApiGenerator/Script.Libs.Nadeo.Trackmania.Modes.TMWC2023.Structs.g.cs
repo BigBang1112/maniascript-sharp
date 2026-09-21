@@ -57,8 +57,10 @@ public partial class Structs : ILib
     }
 
     /// <summary>Cast `K_HttpPlayerStats` into `K_PlayerStats`</summary>
+    /// <param name="_HttpPlayerStats" />
     public K_PlayerStats ToPlayerStats(K_HttpPlayerStats _HttpPlayerStats) => default!;
 
     /// <summary>Cast `K_PlayerStats` into `K_HttpPlayerStats`</summary>
+    /// <param name="_PlayerStats" />
     public K_HttpPlayerStats ToHttpPlayerStats(K_PlayerStats _PlayerStats) => default!;
 }

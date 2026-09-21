@@ -17,7 +17,9 @@ public partial class Sign64x10_Common : ILib
     public const string Version = "1.1.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/Sign64x10_Common.Script.txt";
     public const string C_Id = "UIModule_TMWTCommon_Sign64x10";
+    public const string C_Img_Sign64x10Default = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/Sign64x10/Default.dds";
 
     /// <summary>Get the id of the UI module</summary>
+    /// <param name="_AttachId" />
     public string GetId(string _AttachId) => default!;
 }

@@ -13,6 +13,8 @@ public partial class Layer_Widget : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/";
+
     public void Build() { }
 
     public void SetColor(Vec3 _Color) { }

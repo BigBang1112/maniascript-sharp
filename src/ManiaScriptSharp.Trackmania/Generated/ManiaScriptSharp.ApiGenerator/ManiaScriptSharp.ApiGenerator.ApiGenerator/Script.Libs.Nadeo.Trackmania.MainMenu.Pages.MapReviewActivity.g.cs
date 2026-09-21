@@ -47,17 +47,6 @@ public partial class MapReviewActivity : ILib
     public const int C_Choice_Remove = 1;
     public const int C_ServerInfo_WaitingTime = 0;
     public const int C_ServerInfo_GameMode = 1;
-    public const int C_DelayBetweenRequests = 5000;
-    public const string C_Metadata_PagerOffset = "PagerOffset";
-    public const int C_Page_Hidden = -1;
-    public const int C_Page_MainMenu = 0;
-    public const int C_Page_BrowseMap = 1;
-    public const int C_Page_MapConfirmation = 2;
-    public const int C_Page_MyMaps = 3;
-    public const int C_Page_Admin = 4;
-    public const string C_Star_Empty = "";
-    public const string C_Star_Half = "";
-    public const string C_Star_Full = "";
 
     public struct K_Controls
     {

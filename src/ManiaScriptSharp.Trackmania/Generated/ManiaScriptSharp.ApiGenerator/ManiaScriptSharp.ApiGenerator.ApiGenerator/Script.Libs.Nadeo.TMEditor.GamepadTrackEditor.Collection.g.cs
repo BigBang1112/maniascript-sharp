@@ -15,6 +15,7 @@ public partial class Collection : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Collection.Script.txt";
+    /// <summary>Skin types</summary>
     public const int C_SkinType_NoSkin = 0;
     public const int C_SkinType_Billboard = 1;
     public const int C_SkinType_RoadPaint = 2;
@@ -25,35 +26,35 @@ public partial class Collection : ILib
     public const int C_SkinType_Inflatable = 7;
 
     /// <summary>Check if a block is an obstacle</summary>
-    /// <param name="Coord">The coordinates to check</param>
-    /// <param name="NullIsCrossable">Are the empty blocks considered as obstacle</param>
+    /// <param name="_Coord">The coordinates to check</param>
+    /// <param name="_NullIsCrossable">Are the empty blocks considered as obstacle</param>
     /// <returns>True if the block is an obstacle, False otherwise</returns>
     public bool IsObstacle(Int3 _Coord, bool _NullIsCrossable) => default!;
 
     /// <summary>Check if a block is an obstacle</summary>
-    /// <param name="Coord">The coordinates to check</param>
+    /// <param name="_Coord">The coordinates to check</param>
     /// <returns>True if the block is not an obstacle, False otherwise</returns>
     public bool IsObstacle(Int3 _Coord) => default!;
 
     /// <summary>Check if a block is a crossable obstacle</summary>
-    /// <param name="Coord">The coordinates to check</param>
+    /// <param name="_Coord">The coordinates to check</param>
     /// <returns>True if the block is a crossable obstacle, False otherwise</returns>
     public bool IsCrossable(Int3 _Coord) => default!;
 
     /// <summary>Check if a skin is disabled in random generation</summary>
-    /// <param name="SkinName">The name of the skin to check</param>
+    /// <param name="_SkinName">The name of the skin to check</param>
     /// <returns>True if the skin is disabled, False otherwise</returns>
     public bool RandomDisabled(string _SkinName) => default!;
 
     /// <summary>Get the skins available in the given enviro</summary>
-    /// <param name="Enviro">The environment</param>
-    /// <param name="Billboards">Get billboards skins</param>
-    /// <param name="RoadPaints">Get road paints skins</param>
+    /// <param name="_Enviro">The environment</param>
+    /// <param name="_Billboards">Get billboards skins</param>
+    /// <param name="_RoadPaints">Get road paints skins</param>
     /// <returns>An array of available skins</returns>
     public global::System.Collections.Generic.IList<string> GetEnviroSkins(string _Enviro, bool _Billboards, bool _RoadPaints) => default!;
 
     /// <summary>Check if the block model is a Stadium inflatable @retun							True if the block model is an inflatable, False otherwise</summary>
-    /// <param name="BlockModelName">The name of the block model to check</param>
+    /// <param name="_BlockModelName">The name of the block model to check</param>
     public bool IsInflatable(string _BlockModelName) => default!;
 
     /// <summary>Get the skin types constants</summary>

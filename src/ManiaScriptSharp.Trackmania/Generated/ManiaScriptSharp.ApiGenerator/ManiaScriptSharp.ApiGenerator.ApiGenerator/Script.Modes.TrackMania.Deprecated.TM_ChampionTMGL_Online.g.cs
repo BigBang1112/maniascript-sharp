@@ -25,6 +25,7 @@ public partial class TM_ChampionTMGL_Online : global::ManiaScriptSharp.Scripts.M
     public const string C_ChampionTMGL_Version = "1.0.0+2022-01-20";
     public const string C_ChampionTMGL_ScriptName = "Modes/TrackMania/Deprecated/TM_ChampionTMGL_Online.Script.txt";
     public const string C_ChampionTMGL_ModeName = "Champion TMGL";
+    public const string C_ChampionTMGL_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/ChampionTMGL.Script.txt";
     public const int C_AfterRaceStartDuration = 15000;
     public const int C_UpdateSignLiveCameraInterval = 5000;
     public const bool C_UseEsportsProgrammation = true;
@@ -82,8 +83,10 @@ public partial class TM_ChampionTMGL_Online : global::ManiaScriptSharp.Scripts.M
     public virtual void Match_PodiumSequence() { }
 
     /// <summary>Toggle on/off the camera display in signs</summary>
+    /// <param name="_Enabled" />
     public void UpdateSignLiveCamera(bool _Enabled) { }
 
     /// <summary>Enable the esports programmation in the signs see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#</summary>
+    /// <param name="_Enabled" />
     public void EnableSignESportsMode(bool _Enabled) { }
 }

@@ -36,10 +36,12 @@ public partial class UI_Manager : ILib
 
     public const string Version = "1.1.0";
     public const string ScriptName = "UI_Manager.Script.txt";
+    /// <summary>#Const C_File_Styles 0</summary>
     public const int C_File_BlockHelp = 1;
     public const int C_File_DecoSelection = 2;
     public const int C_File_Header = 3;
     public const int C_File_MacroblockSelection = 4;
+    /// <summary>#Const C_File_MapStyleSelection 5 TAG: MapStyleSelection</summary>
     public const int C_File_Menu = 6;
     public const int C_File_MenuOutro = 7;
     public const int C_File_Multilaps = 8;

@@ -22,7 +22,9 @@ public partial class Save : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "Save.Script.txt";
+    /// <summary>Not clickable option</summary>
     public const int C_NotClickable = -1;
+    /// <summary>Anim button background on mouse over/out</summary>
     public const bool C_BgAnim = false;
     public const string C_Event_Save = "LibSave_Save";
     public const string C_Event_Cancel = "LibSave_Cancel";
@@ -36,6 +38,7 @@ public partial class Save : ILib
     public bool LayerIsVisible() => default!;
 
     /// <summary>Set the simple choice visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }

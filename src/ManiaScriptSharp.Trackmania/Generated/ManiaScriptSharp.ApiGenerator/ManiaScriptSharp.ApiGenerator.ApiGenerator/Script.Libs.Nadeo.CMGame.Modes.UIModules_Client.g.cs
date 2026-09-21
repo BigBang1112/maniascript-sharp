@@ -47,6 +47,7 @@ public partial class UIModules_Client : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Destroy a module</summary>
+    /// <param name="_Id" />
     public void DestroyModule(string _Id) { }
 
     /// <summary>Get the component</summary>

@@ -34,6 +34,7 @@ public partial class RBAC : ILib
     public const int C_ClubPermission_HandleMembers = 9;
     public const int C_ClubPermission_FeatureClub = 10;
     public const int C_ClubPermission_CreateActivity = 11;
+    /// <summary>! DO NOT modifiy thoses values, they must be the same in the C++ !</summary>
     public const string C_GamePermission_PlayCurrentOfficialQuarterlyCampaign = "client_PlayCurrentOfficialQuarterlyCampaign";
     public const string C_GamePermission_PlayPastOfficialQuarterlyCampaign = "client_PlayPastOfficialQuarterlyCampaign";
     public const string C_GamePermission_PlayEntireOfficialQuarterlyCampaign = "client_PlayEntireOfficialQuarterlyCampaign";
@@ -69,6 +70,7 @@ public partial class RBAC : ILib
     public const string C_GamePermission_CreateGameMode = "mapRecord_CreateGameMode";
     public const string C_GamePermission_CreateClubCompetition = "club_CreateCompetition";
     public const string C_GamePermission_CreateItemAndMod = "client_CreateItemAndMod";
+    /// <summary>Do NOT use thoses permissions, there are only usable with a club reference, see #1584</summary>
     public const string C_GamePermission_CreateActivity = "club_CreateActivity";
     public const string C_GamePermission_DisplayStandardAds = "ads_DisplayStandardAds";
     public const string C_GamePermission_DisplayClubAds = "ads_DisplayClubAds";
@@ -88,12 +90,15 @@ public partial class RBAC : ILib
     public const string C_GamePermission_FindLocalServer = "client_FindLocalServer";
     public const string C_GamePermission_CanSubscribeToStandard = "subscription_CanSubscribeToStandard";
     public const string C_GamePermission_CanSubscribeToClub = "subscription_CanSubscribeToClub";
+    /// <summary>Starter access can play the quarterly campaign up to this track number (from track 1 to n)</summary>
     public const int C_StarterAccesQuarterlyCampaignTrackLimit = 10;
 
     /// <summary>Get the message to display when a user doesn't have a given permission</summary>
+    /// <param name="_GamePermissionMessage" />
     public string GetGamePermissionMessage(string _GamePermissionMessage) => default!;
 
     /// <summary>Used to test permissions</summary>
+    /// <param name="_UseFakePermissions" />
     public void Debug_UseFakePermissions(bool _UseFakePermissions) { }
 
     public void Debug_SetFakePermissions(global::System.Collections.Generic.IList<string> _FakePermissions) { }

@@ -37,8 +37,6 @@ public partial class DailyTrackerTA_Client : ILib
     public const int C_Col_Name = 1;
     public const int C_Col_Time = 2;
     public const int C_Row_Cancel = 0;
-    public const int C_InputPriority_Scores = 10;
-    public const double C_ScoresScale = 1.05;
 
     public struct K_Controls
     {

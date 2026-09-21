@@ -27,6 +27,7 @@ public partial class LoadSave_Server : ILib
     public bool AllPlayersAreReady() => default!;
 
     /// <summary>Update the players waiting end time</summary>
+    /// <param name="_WaitEndTime" />
     public void SetWaitEndTime(int _WaitEndTime) { }
 
     /// <summary>Unload the library</summary>

@@ -15,9 +15,14 @@ public partial class MiniMap : ILib
 
     public const string Version = "2013-08-20";
     public const string ScriptName = "Map.Script.txt";
+    public const string C_PointsImage = "file://Media/Manialinks/Common/SmallDisc.dds";
+    public const string C_ImgBaseDir = "file://Media/Manialinks/Shootmania/Common/";
     public const int C_MapTimeTick = 80;
     public const double C_SizePointDefault = 1.5;
+    public const string C_MiniMapContour = "file://Media/Manialinks/Common/Minimap/MinimapOverlay.dds";
+    public const string C_RadarContour = "file://Media/Manialinks/Common/Minimap/RadarOverlay.dds";
     public const string C_MiniMapBG = "";
+    public const string C_RadarBG = "file://Media/Manialinks/Common/Minimap/RadarBG.dds";
     public const int C_QuadMapSize = 50;
     public const int C_NbQuadDynamic = 64;
     public const double C_RadarRadius = 1.0;
@@ -34,51 +39,66 @@ public partial class MiniMap : ILib
     public void Unload() { }
 
     /// <summary>Initialize the default value to build the Map</summary>
+    /// <param name="_MapSize" />
     public void Load(float _MapSize) { }
 
     /// <summary>Load the library</summary>
-    /// <param name="BlockSize">(meters) size of one side of the map (maps are squares)</param>
+    /// <param name="_BlockSize">(meters) size of one side of the map (maps are squares)</param>
     public void Load(int _BlockSize) { }
 
     /// <summary>Load the library with the good BlockSize for ShootMania</summary>
     public void LoadSMMap() { }
 
     /// <summary>Add a point on the MiniMap for all player</summary>
-    /// <param name="PointId">The ID of the point</param>
-    /// <param name="Position">The position in the 3d view</param>
+    /// <param name="_PointId">The ID of the point</param>
+    /// <param name="_Position">The position in the 3d view</param>
     public void AddPoint(string _PointId, Vec3 _Position) { }
 
     public void AddPoint(string _PointId) { }
 
     /// <summary>Remove a point for all players</summary>
+    /// <param name="_PointId" />
     public void RemovePoint(string _PointId) { }
 
     /// <summary>Change the default image of the point for all players note: Can be overdrive by the function SetPointImageForPlayer()</summary>
+    /// <param name="_PointId" />
+    /// <param name="_ImageURL" />
     public void SetPointImage(string _PointId, string _ImageURL) { }
 
     /// <summary>Change the Color of the point for all players</summary>
+    /// <param name="_PointId" />
+    /// <param name="_Color" />
     public void SetPointColor(string _PointId, Vec3 _Color) { }
 
     /// <summary>Change the Color of the point for all players</summary>
+    /// <param name="_PointId" />
+    /// <param name="_Color" />
     public void SetPointModulateColor(string _PointId, Vec3 _Color) { }
 
     /// <summary>Change the Size of the point for all players</summary>
+    /// <param name="_PointId" />
+    /// <param name="_Size" />
     public void SetPointSize(string _PointId, float _Size) { }
 
     /// <summary>Change the Position of the point for all players</summary>
+    /// <param name="_PointId" />
+    /// <param name="_Position" />
     public void SetPointPosition(string _PointId, Vec3 _Position) { }
 
     /// <summary>Set the Size of the MiniMap or the Radar</summary>
+    /// <param name="_QuadMapSize" />
     public void SetMiniMapSize(int _QuadMapSize) { }
 
     /// <summary>Set the Number max of Dynamic Quad in the Layer</summary>
+    /// <param name="_NbQuadDynamic" />
     public void SetNbQuadDynamic(int _NbQuadDynamic) { }
 
     /// <summary>Set the Position of the Layer</summary>
-    /// <param name="LayerPosition" />
+    /// <param name="_LayerPosition" />
     public void SetLayerPosition(Vec2 _LayerPosition) { }
 
     /// <summary>Set the Background of the MiniMap (Top picture of the Map)</summary>
+    /// <param name="_MiniMapBG" />
     public void SetMiniMapBG(string _MiniMapBG) { }
 
     public void SetMiniMapContour(string _MiniMapContour) { }
@@ -88,11 +108,11 @@ public partial class MiniMap : ILib
     public void SetRadarBG(string _RadarBG) { }
 
     /// <summary>SetMapTimeTick</summary>
-    /// <param name="MapTimeTick">(ms) The time before the map refresh</param>
+    /// <param name="_MapTimeTick">(ms) The time before the map refresh</param>
     public void SetMapTimeTick(int _MapTimeTick) { }
 
     /// <summary>Set the Zoom of the Radar note :	The higher you set the RadarRadius value, the higher the zoom range will be</summary>
-    /// <param name="RadarRadius">When the RadarRadius is equal to 1. the radius of the Radar is the radius of the Map</param>
+    /// <param name="_RadarRadius">When the RadarRadius is equal to 1. the radius of the Radar is the radius of the Map</param>
     public void SetRadarRadius(float _RadarRadius) { }
 
     /// <summary>Call this method each &quot;yield&quot; to handle Click Events on the MiniMap</summary>

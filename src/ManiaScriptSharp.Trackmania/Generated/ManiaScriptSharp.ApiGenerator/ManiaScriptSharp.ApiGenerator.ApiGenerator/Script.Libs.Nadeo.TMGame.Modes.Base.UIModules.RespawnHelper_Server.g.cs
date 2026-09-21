@@ -21,12 +21,13 @@ public partial class RespawnHelper_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the checkpoint times that will be used to determine if the player is too late and must see the respawn helper</summary>
-    /// <param name="Times">The checkpoint times</param>
+    /// <param name="_Times">The checkpoint times</param>
     public void SetCheckpointTimes(global::System.Collections.Generic.IList<int> _Times) { }
 
     public void ResetCheckpointTimes() { }
 
     /// <summary>Overwrite the relative position defined in the manialink</summary>
+    /// <param name="_Position" />
     public void SetPosition(Vec2 _Position) { }
 
     /// <summary>Unload the library</summary>

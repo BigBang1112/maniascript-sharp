@@ -38,13 +38,9 @@ public partial class Solo : ILib
     public const string C_Class_CampaignButton = "class-page-solo-campaign-button";
     public const string C_Color_TOTD_Day_Focused = "135178";
     public const string C_Color_TOTD_Day_Unfocused = "14476B";
-    public const int C_DelayBetweenRequest = 500;
-    public const int C_DelayBetweenSeasonInfoSwitch = 5000;
-    public const int C_Duration_SeasonInfoShownedAnim = 1000;
-    public const int C_Duration_SeasonInfoHiddenAnim = 500;
-    public const int C_MaxDaysLeftToShowQuarterlyCampaignTimer = 30;
-    public const int C_SoloRankFormatLimit = 10;
-    public const int C_RankFormatLimit = 1000;
+    public const string C_ImageUrl_Button_WeeklyTracks = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageSolo/Menu_Play_Solo_WeeklyShorts.dds";
+    public const string C_ImageUrl_Button_TOTD = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageSolo/Menu_Play_TOTD.dds";
+    public const string C_ImageUrl_Button_Library = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageSolo/Menu_Play_Solo_Library.dds";
 
     public struct K_Controls
     {

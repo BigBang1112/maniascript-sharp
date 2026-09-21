@@ -43,15 +43,18 @@ public partial class UserStore_MA : ILib
     public void Action_UpdateGameSubscriptionPlan() { }
 
     /// <summary>Force the use of a given game subscription plan</summary>
+    /// <param name="_GameSubscriptionPlan" />
     public void ForceGameSubscriptionPlan(int _GameSubscriptionPlan) { }
 
     /// <summary>Load the user game subscription plan</summary>
     public void LoadUserGameSubscriptionPlan() { }
 
     /// <summary>Load trophy rankings</summary>
+    /// <param name="_AccountId" />
     public void Action_LoadUserTrophyRankings(string _AccountId) { }
 
     /// <summary>Load matchmaking infos</summary>
+    /// <param name="_AccountId" />
     public void Action_LoadMatchmakingInfos(string _AccountId) { }
 
     public void Action_SetOfflineMode(bool _IsOfflineMode) { }
@@ -66,18 +69,24 @@ public partial class UserStore_MA : ILib
     public void SetUserHasSeenCrossPlayWarning(bool _HasSeenCrossPlayWarning) { }
 
     /// <summary>Set the 3D markers display size</summary>
+    /// <param name="_PlayerInfoDisplaySize" />
     public void SetPlayerInfoDisplaySize(int _PlayerInfoDisplaySize) { }
 
     /// <summary>Get the 3D markers display size</summary>
     public int GetPlayerInfoDisplaySize() => default!;
 
     /// <summary>Get the 3D markers visibility</summary>
+    /// <param name="_PlayerInfoHidden" />
     public void SetPlayerInfoHidden(bool _PlayerInfoHidden) { }
 
     /// <summary>Get the 3D markers visibility</summary>
     public bool GetPlayerInfoHidden() => default!;
 
     /// <summary>Return the formatted player name</summary>
+    /// <param name="_UserName" />
+    /// <param name="_ClubTag" />
+    /// <param name="_IsFirstPartyDisplayName" />
+    /// <param name="_DisplayFirstPartyLogo" />
     public string GetPlayerName(string _UserName, string _ClubTag, bool _IsFirstPartyDisplayName, bool _DisplayFirstPartyLogo) => default!;
 
     public string GetPlayerName(string _UserName, string _ClubTag, bool _IsFirstPartyDisplayName) => default!;
@@ -89,11 +98,14 @@ public partial class UserStore_MA : ILib
     public string GetPlayerName(string _UserName) => default!;
 
     /// <summary>Return the formatted player name from account id</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_ClubTag" />
     public string GetUserMgrPlayerName(string _AccountId, string _ClubTag) => default!;
 
     public string GetUserMgrPlayerName(string _AccountId) => default!;
 
     /// <summary>Initialize the User store</summary>
+    /// <param name="_ResetData" />
     public void Initialize(bool _ResetData) { }
 
     /// <summary>Update the User store</summary>

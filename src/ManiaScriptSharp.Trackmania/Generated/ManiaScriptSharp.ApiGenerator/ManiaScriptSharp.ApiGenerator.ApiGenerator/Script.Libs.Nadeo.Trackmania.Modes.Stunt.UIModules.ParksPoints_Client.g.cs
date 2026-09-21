@@ -24,8 +24,6 @@ public partial class ParksPoints_Client : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Stunt/UIModules/ParksPoints_Client.Script.txt";
     public const int C_Column_Points = 0;
     public const string C_Style_ColorizeLeft = "uimodule-stunt-parkspoints-style-colorize-left";
-    public const int C_DelayBeforeDisplayingHelpers = 10000;
-    public const int C_MinSpeedToDisplayHelpers = 10;
 
     public struct K_Controls
     {

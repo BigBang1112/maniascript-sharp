@@ -22,6 +22,10 @@ public partial class EventStore_MA : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Stores/EventStore_MA.Script.txt";
 
     /// <summary>Request new events The previous and next page will be requested at the same time</summary>
+    /// <param name="_FilterName" />
+    /// <param name="_Section" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadEventsPage(string _FilterName, int _Section, int _Offset, int _Length) { }
 
     public void Action_LoadAllEventsPage(string _FilterName, int _Offset, int _Length) { }
@@ -31,6 +35,7 @@ public partial class EventStore_MA : ILib
     public void Action_LoadMyCurrentEventsPage(int _Offset, int _Length) { }
 
     /// <summary>Initialize the Event store</summary>
+    /// <param name="_ResetData" />
     public void Initialize(bool _ResetData) { }
 
     /// <summary>Update the Event store</summary>

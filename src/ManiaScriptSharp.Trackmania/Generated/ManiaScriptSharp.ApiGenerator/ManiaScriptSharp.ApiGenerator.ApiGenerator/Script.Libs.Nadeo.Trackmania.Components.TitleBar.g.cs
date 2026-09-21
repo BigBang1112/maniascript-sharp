@@ -23,6 +23,7 @@ public partial class TitleBar : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Components/TitleBar.Script.txt";
     public const string C_Name = "component-titlebar";
     public const string P = "ComponentTitleBar_";
+    public const string C_Path_Images = "file://Media/Manialinks/Nadeo/Trackmania/Menus";
     public const int C_Button_Left = 0;
     public const int C_Button_Right = 1;
 

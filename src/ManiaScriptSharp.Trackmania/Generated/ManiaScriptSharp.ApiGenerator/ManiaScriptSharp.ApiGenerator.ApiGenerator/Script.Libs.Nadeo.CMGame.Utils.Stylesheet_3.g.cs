@@ -22,6 +22,7 @@ public partial class Stylesheet_3 : ILib
     public const string C_Class_Target = "nadeo-cmgame-utils-stylesheet3-target";
     public const string C_DataAttribute_KeepControlProperties = "nadeo-cmgame-utils-stylesheet3-keep-control-properties";
     public const string C_DataAttribute_Class = "nadeo-cmgame-utils-stylesheet3-class";
+    /// <summary>Common properties</summary>
     public const string C_Prop_Size = "size";
     public const string C_Prop_HAlign = "halign";
     public const string C_Prop_VAlign = "valign";
@@ -36,6 +37,7 @@ public partial class Stylesheet_3 : ILib
     public const string C_Prop_Blend = "blend";
     public const string C_Prop_TTSAltText = "alt-text";
     public const string C_Prop_TTSAltTextTranslate = "alt-text-translate";
+    /// <summary>Text properties</summary>
     public const string C_Prop_TextFormat = "text-format";
     public const string C_Prop_TextColor = "text-color";
     public const string C_Prop_TextSize = "text-size";
@@ -50,6 +52,7 @@ public partial class Stylesheet_3 : ILib
     public const string C_Prop_TextAppendEllipsis = "text-append-ellipsis";
     public const string C_Prop_TextAutoNewLine = "text-auto-new-line";
     public const string C_Prop_TextFilterProfanities = "text-filter-profanities";
+    /// <summary>Quad properties</summary>
     public const string C_Prop_QuadImageUrl = "quad-image-url";
     public const string C_Prop_QuadImageUrlFocus = "quad-image-url-focus";
     public const string C_Prop_QuadAlphaMaskUrl = "quad-alpha-mask-url";
@@ -59,6 +62,7 @@ public partial class Stylesheet_3 : ILib
     public const string C_Prop_QuadBgColor = "quad-bg-color";
     public const string C_Prop_QuadBgColorFocus = "quad-bg-color-focus";
     public const string C_Prop_QuadKeepRatio = "quad-keep-ratio";
+    /// <summary>https: www.w3.org TR selectors 3 #combinators</summary>
     public const int C_Combinator_Null = -1;
     public const int C_Combinator_Descendant = 0;
     public const int C_Combinator_Child = 1;
@@ -100,57 +104,102 @@ public partial class Stylesheet_3 : ILib
     }
 
     /// <summary>Create a new stylesheet</summary>
+    /// <param name="_Uid" />
+    /// <param name="_Rules" />
     public K_Stylesheet New(string _Uid, global::System.Collections.Generic.IList<K_Rule> _Rules) => default!;
 
     /// <summary>Create a new selector</summary>
+    /// <param name="_Combinator" />
+    /// <param name="_Control" />
+    /// <param name="_Classes" />
+    /// <param name="_Id" />
     public K_Selector New_Selector(int _Combinator, string _Control, global::System.Collections.Generic.IList<string> _Classes, string _Id) => default!;
 
     public K_Selector New_Selector(string _Control, global::System.Collections.Generic.IList<string> _Classes, string _Id) => default!;
 
     /// <summary>Create a new rule</summary>
+    /// <param name="_Selectors" />
+    /// <param name="_Properties" />
     public K_Rule New_Rule(global::System.Collections.Generic.IList<K_Selector> _Selectors, global::System.Collections.Generic.Dictionary<string, string> _Properties) => default!;
 
     public K_Rule New_Rule(K_Selector _Selector, global::System.Collections.Generic.Dictionary<string, string> _Properties) => default!;
 
     /// <summary>Set the control classes in the manialink xml</summary>
+    /// <param name="_Classes" />
     public string Class(global::System.Collections.Generic.IList<string> _Classes) => default!;
 
     /// <summary>Don't let the stylesheet override these control properties</summary>
+    /// <param name="_Properties" />
     public string KeepControlProperties(global::System.Collections.Generic.IList<string> _Properties) => default!;
 
     /// <summary>Check if a specific property is present in a control properties</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
     public bool HasProp(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName) => default!;
 
     /// <summary>Get a `Boolean` property from control properties</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
+    /// <param name="_DefaultValue" />
     public bool GetProp_Boolean(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName, bool _DefaultValue) => default!;
 
     /// <summary>Get an `Int2` property from control properties</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
+    /// <param name="_DefaultValue" />
     public Int2 GetProp_Int2(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName, Int2 _DefaultValue) => default!;
 
     /// <summary>Get an `Int3` property from control properties</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
+    /// <param name="_DefaultValue" />
     public Int3 GetProp_Int3(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName, Int3 _DefaultValue) => default!;
 
     /// <summary>Get an `Integer` property from control properties</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
+    /// <param name="_DefaultValue" />
     public int GetProp_Integer(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName, int _DefaultValue) => default!;
 
     /// <summary>Get a `Real` property from control properties</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
+    /// <param name="_DefaultValue" />
     public float GetProp_Real(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName, float _DefaultValue) => default!;
 
     /// <summary>Get a `Text` property from control properties</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
+    /// <param name="_DefaultValue" />
     public string GetProp_Text(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName, string _DefaultValue) => default!;
 
     /// <summary>Get a `Vec2` property from control properties</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
+    /// <param name="_DefaultValue" />
     public Vec2 GetProp_Vec2(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName, Vec2 _DefaultValue) => default!;
 
     /// <summary>Get a `Vec3` property from control properties</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
+    /// <param name="_DefaultValue" />
     public Vec3 GetProp_Vec3(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName, Vec3 _DefaultValue) => default!;
 
     /// <summary>Get a `Vec3` color property from control properties</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
+    /// <param name="_DefaultValue" />
     public Vec3 GetProp_Color(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName, Vec3 _DefaultValue) => default!;
 
     /// <summary>Get a FitLabelValue() compatible Vec3 from a control</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
+    /// <param name="_DefaultValue" />
     public Vec3 GetProp_TextSizeFit(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName, Vec3 _DefaultValue) => default!;
 
     /// <summary>Get a FitLabelValue() compatible Vec2 from a control</summary>
+    /// <param name="_ControlProperties" />
+    /// <param name="_PropName" />
+    /// <param name="_DefaultValue" />
     public Vec2 GetProp_TextSizeFit(global::System.Collections.Generic.Dictionary<string, string> _ControlProperties, string _PropName, Vec2 _DefaultValue) => default!;
 }

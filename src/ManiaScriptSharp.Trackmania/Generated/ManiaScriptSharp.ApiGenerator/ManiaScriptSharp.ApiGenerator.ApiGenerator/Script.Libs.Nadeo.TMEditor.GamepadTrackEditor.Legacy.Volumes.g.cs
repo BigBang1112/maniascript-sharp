@@ -20,6 +20,7 @@ public partial class Volumes : ILib
     public const double C_VOLUME_MENU_UI = 0.5;
     public const double C_VOLUME_MENU_SFX = 0.0;
     public const double C_VOLUME_MENU_MUSIC = 0.0;
+    /// <summary>Nous</summary>
     public const double C_VOLUME_MAINSFX = -1.0;
     public const double C_VOLUME_MAINMUSIC = -8.5;
     public const double C_VOLUME_SFXMUSICBOOST = -7.0;

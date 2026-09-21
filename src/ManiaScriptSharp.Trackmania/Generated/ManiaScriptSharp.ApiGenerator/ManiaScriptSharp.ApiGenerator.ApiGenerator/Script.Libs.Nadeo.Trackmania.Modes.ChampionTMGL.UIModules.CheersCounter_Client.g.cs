@@ -20,8 +20,6 @@ public partial class CheersCounter_Client : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionTMGL/UIModules/CheersCounter_Client.Script.txt";
     public const string C_Id = "UIModule_Champion_CheersCounter";
     public const bool C_EnableTips = false;
-    public const int C_SupportShowTime = 15000;
-    public const int C_SupportCooldown = 150000;
 
     /// <summary>Get the module manialink</summary>
     /// <returns>The module manialink</returns>

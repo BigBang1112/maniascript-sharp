@@ -16,7 +16,7 @@ public partial class MapSet : ILib
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/MapSet.Script.txt";
 
     /// <summary>Save waypoint times of the author validation run</summary>
-    /// <param name="RaceWaypointTimes">The waypoint times</param>
+    /// <param name="_RaceWaypointTimes">The waypoint times</param>
     public void SetAuthorRaceWaypointTimes(global::System.Collections.Generic.IList<int> _RaceWaypointTimes) { }
 
     public void ResetAuthorRaceWaypointTimes() { }

@@ -20,9 +20,6 @@ public partial class MatchInfo_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/MatchInfo_Client.Script.txt";
-    public const int C_BestTimeDisplayDuration = 2500;
-    public const string C_BestTimeSound = "BestLap";
-    public const bool C_HideMatchLevel = true;
 
     public struct K_Controls
     {

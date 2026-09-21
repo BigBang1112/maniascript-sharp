@@ -25,32 +25,33 @@ public partial class QuizInterface : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Inject the rules visibility variable into a manialink script with the given variable name</summary>
-    /// <param name="VariableName">The name to give to the variable</param>
+    /// <param name="_VariableName">The name to give to the variable</param>
     public string InjectMLRulesVisibilityVariable(string _VariableName) => default!;
 
     /// <summary>Define the name of the licence of the mode</summary>
-    /// <param name="LicenceName">text defining the name of the licence stored localy</param>
+    /// <param name="_LicenceName">text defining the name of the licence stored localy</param>
     public void SetLicenceName(string _LicenceName) { }
 
     /// <summary>Define the name of the mode</summary>
-    /// <param name="Name">text defining the name of the mode displayed in the interface</param>
+    /// <param name="_Name">text defining the name of the mode displayed in the interface</param>
     public void SetName(string _Name) { }
 
     /// <summary>Define the Question index, the text of the question and a picture linked to the question</summary>
-    /// <param name="Question">text defining the question</param>
-    /// <param name="Image">text defining the Url of a picture relative to the question</param>
+    /// <param name="_Question">text defining the question</param>
+    /// <param name="_Image">text defining the Url of a picture relative to the question</param>
     public void AddQuestion(string _Question, string _Image) { }
 
     /// <summary>OVERLOAD</summary>
+    /// <param name="_Question" />
     public void AddQuestion(string _Question) { }
 
     /// <summary>Define the answers of a question and their value (true or false)</summary>
-    /// <param name="Answer1">text defining the first answer, the first choice</param>
-    /// <param name="IsCorrect1">boolean defining if the first answer is true or false</param>
-    /// <param name="Answer2">text defining the first answer, the first choice</param>
-    /// <param name="IsCorrect2">boolean defining if the second answer is true or false</param>
-    /// <param name="Answer3">text defining the first answer, the first choice</param>
-    /// <param name="IsCorrect3">boolean defining if the third answer is true or false</param>
+    /// <param name="_Answer1">text defining the first answer, the first choice</param>
+    /// <param name="_IsCorrect1">boolean defining if the first answer is true or false</param>
+    /// <param name="_Answer2">text defining the first answer, the first choice</param>
+    /// <param name="_IsCorrect2">boolean defining if the second answer is true or false</param>
+    /// <param name="_Answer3">text defining the first answer, the first choice</param>
+    /// <param name="_IsCorrect3">boolean defining if the third answer is true or false</param>
     public void AddAnswers(string _Answer1, bool _IsCorrect1, string _Answer2, bool _IsCorrect2, string _Answer3, bool _IsCorrect3) { }
 
     /// <summary>Reset all the arrays</summary>
@@ -60,7 +61,7 @@ public partial class QuizInterface : ILib
     public void DestroyQuiz() { }
 
     /// <summary>Create the quiz</summary>
-    /// <param name="StartHidden">Start with the quiz hidden</param>
+    /// <param name="_StartHidden">Start with the quiz hidden</param>
     public void CreateQuiz(bool _StartHidden) { }
 
     /// <summary>OVERLOAD</summary>

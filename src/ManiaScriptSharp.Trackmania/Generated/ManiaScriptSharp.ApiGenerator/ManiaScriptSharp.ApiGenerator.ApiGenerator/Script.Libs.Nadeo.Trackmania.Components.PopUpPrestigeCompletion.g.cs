@@ -71,6 +71,9 @@ public partial class PopUpPrestigeCompletion : ILib
     public const int C_Tab_Season = 0;
     public const int C_Tab_Ranked = 1;
     public const int C_Tab_Royal = 2;
+    public const string C_Img_PrestigelLevelSeason = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageGarage/PrestigeLevelSeason.dds";
+    public const string C_Img_PrestigelLevelRanked = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageGarage/PrestigeLevelRanked.dds";
+    public const string C_Img_PrestigelLevelRoyal = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageGarage/PrestigeLevelRoyal.dds";
 
     public struct K_Event
     {

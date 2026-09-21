@@ -34,7 +34,6 @@ public partial class MenuBackground_MA : ILib
     public const int C_DisplayMode_BlackBackground = 7;
     public const double C_DimmerOpacity_Default = 0.0;
     public const int C_BackgroundRotationTime = 240000;
-    public const int C_BackgroundTransitionDuration = 250;
 
     public struct K_Controls
     {
@@ -54,12 +53,14 @@ public partial class MenuBackground_MA : ILib
     public string GetManialink() => default!;
 
     /// <summary>Select which display mode to use on which routes (by default use `C_DisplayMode_MainBackground`)</summary>
+    /// <param name="_RoutesDisplayModes" />
     public void SetRoutesDisplayModes(global::System.Collections.Generic.Dictionary<string, int> _RoutesDisplayModes) { }
 
     /// <summary>Reset all routes display modes</summary>
     public void ResetRoutesDisplayModes() { }
 
     /// <summary>Set the opacity to use for the dimmer on which routes</summary>
+    /// <param name="_RoutesDimmerOpacities" />
     public void SetRoutesDimmerOpacities(global::System.Collections.Generic.Dictionary<string, float> _RoutesDimmerOpacities) { }
 
     /// <summary>Reset all routes dimmer opacities</summary>

@@ -51,12 +51,9 @@ public partial class RoomMapListDisplay : ILib
     public const int C_RowNumber = 5;
     public const int C_Choice_Cancel = 0;
     public const int C_Choice_Join = 1;
+    /// <summary>Debug values</summary>
     public const bool C_Debug_IsLocalDedicated = false;
     public const string C_Debug_LocalDedicatedIP = "127.0.0.1";
-    public const int C_Retry_Timer = 2000;
-    public const int C_CacheLifetime = 60000;
-    public const int C_Pager_Reset = 0;
-    public const int C_Pager_Offset = 5;
 
     public struct K_ServerInfo
     {

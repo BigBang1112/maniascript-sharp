@@ -22,6 +22,13 @@ public partial class SegmentComplete_Server : ILib
     public string GetId() => default!;
 
     /// <summary>A player completed a segment for their team</summary>
+    /// <param name="_TeamId" />
+    /// <param name="_Segment" />
+    /// <param name="_LoopNb" />
+    /// <param name="_AccountId" />
+    /// <param name="_CanJoin" />
+    /// <param name="_OnlyBonusTime" />
+    /// <param name="_BonusTime" />
     public void CompleteSegment(int _TeamId, int _Segment, int _LoopNb, string _AccountId, bool _CanJoin, bool _OnlyBonusTime, int _BonusTime) { }
 
     /// <summary>Reset all segment activations</summary>

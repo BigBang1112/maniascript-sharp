@@ -28,23 +28,35 @@ public partial class FinalTMGL : ILib
     }
 
     /// <summary>Get the clan of each player</summary>
+    /// <param name="_FinalistsAccountIds" />
     public global::System.Collections.Generic.Dictionary<string, int> GetPlayersClans(string _FinalistsAccountIds) => default!;
 
     /// <summary>Get the the number of clans in the match</summary>
+    /// <param name="_PlayersClans" />
     public int GetClansNb(global::System.Collections.Generic.Dictionary<string, int> _PlayersClans) => default!;
 
     /// <summary>Update the teams informations</summary>
+    /// <param name="_DefaultTeams" />
+    /// <param name="_PlayersClans" />
     public void UpdateTeams(global::System.Collections.Generic.IList<K_Team> _DefaultTeams, global::System.Collections.Generic.Dictionary<string, int> _PlayersClans) { }
 
     /// <summary>Get the clan of an account id</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_PlayersClans" />
     public int GetAccountIdClan(string _AccountId, global::System.Collections.Generic.Dictionary<string, int> _PlayersClans) => default!;
 
     /// <summary>Place the players in the right teams and spectating mode</summary>
+    /// <param name="_PlayersClans" />
     public void UpdatePlayersList(global::System.Collections.Generic.Dictionary<string, int> _PlayersClans) { }
 
     /// <summary>Get the message to display at the end of the match</summary>
+    /// <param name="_ClanWinner" />
+    /// <param name="_PlayersClans" />
     public string GetWinMessage(int _ClanWinner, global::System.Collections.Generic.Dictionary<string, int> _PlayersClans) => default!;
 
     /// <summary>Check if the player can spawn</summary>
+    /// <param name="_Clan" />
+    /// <param name="_ClanMatchPoints" />
+    /// <param name="_MatchPointsLimit" />
     public bool CanSpawn(int _Clan, int _ClanMatchPoints, int _MatchPointsLimit) => default!;
 }

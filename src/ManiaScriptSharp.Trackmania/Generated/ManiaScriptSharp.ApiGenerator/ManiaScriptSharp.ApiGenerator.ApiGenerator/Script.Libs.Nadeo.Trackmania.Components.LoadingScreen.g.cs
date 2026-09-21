@@ -19,7 +19,9 @@ public partial class LoadingScreen : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Components/LoadingScreen.Script.txt";
+    /// <summary>Component name</summary>
     public const string C_Name = "trackmania-loading-screen";
+    /// <summary>Prefix used to differentiate functions/variables in the script</summary>
     public const string P = "Trackmania_LoadingScreen::";
     public const string Q = "Trackmania_LoadingScreen";
 

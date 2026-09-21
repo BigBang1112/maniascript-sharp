@@ -43,14 +43,6 @@ public partial class HomePage : ILib
     public const double C_NewsGradientOpacityUnfocus = 0.5;
     public const int C_Choice_Cancel = 0;
     public const int C_Choice_Quit = 1;
-    public const int C_NewsDisplayDuration = 8000;
-    public const int C_AutoFadeInDuration = 300;
-    public const int C_AutoFadeGap = 200;
-    public const int C_AutoFadeOutDuration = 500;
-    public const int C_ManualFadeInDuration = 150;
-    public const int C_ManualFadeGap = 100;
-    public const int C_ManualFadeOutDuration = 250;
-    public const string C_FakeNews_GlobalRanking_Id = "FakeNews_GlobalRanking";
 
     public struct K_NewsInteraction
     {

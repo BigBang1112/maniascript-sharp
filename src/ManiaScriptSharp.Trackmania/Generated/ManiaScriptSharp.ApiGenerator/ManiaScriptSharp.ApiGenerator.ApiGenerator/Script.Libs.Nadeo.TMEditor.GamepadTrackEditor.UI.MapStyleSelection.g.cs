@@ -22,8 +22,11 @@ public partial class MapStyleSelection : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "MapStyleSelection.Script.txt";
+    /// <summary>Default visibility</summary>
     public const bool C_DefaultVisibility = false;
+    /// <summary>Anim button background on mouse over/out</summary>
     public const bool C_BgAnim = false;
+    /// <summary>Selection</summary>
     public const int C_Style_Race = 1;
     public const int C_Style_Tech = 2;
     public const int C_Style_Lol = 3;
@@ -37,6 +40,7 @@ public partial class MapStyleSelection : ILib
     public const int C_Style_Stunts = 12;
     public const int C_Style_Bonus = 13;
     public const int C_Style_Random = 10;
+    /// <summary>Events</summary>
     public const string C_Event_Hover = "LibMapStyleSelection_Hover";
     public const string C_Event_Click = "LibMapStyleSelection_Click";
     public const string C_Event_Cancel = "LibMapStyleSelection_Cancel";
@@ -85,9 +89,11 @@ public partial class MapStyleSelection : ILib
     public void Select(int _Selection, bool _PlaySound) { }
 
     /// <summary>Overload Select()</summary>
+    /// <param name="_Selection" />
     public void Select(int _Selection) { }
 
     /// <summary>Select the next or the previous button in the map style selection menu</summary>
+    /// <param name="_Shift" />
     public void Shift(int _Shift) { }
 
     public void Next() { }

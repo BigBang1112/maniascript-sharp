@@ -15,15 +15,18 @@ public partial class Grid : ILib
 
     public const string Version = "2018-11-22";
     public const string ScriptName = "Libs/Nadeo/Orbital/Common/Manialink/Grid2.Script.txt";
+    /// <summary>Element alignement</summary>
     public const int C_Align_Left = 1;
     public const int C_Align_Center = 0;
     public const int C_Align_Right = -1;
     public const int C_Align_Top = -2;
     public const int C_Align_Bottom = 2;
+    /// <summary>Grid direction</summary>
     public const int C_Direction_Right = 1;
     public const int C_Direction_Left = -1;
     public const int C_Direction_Top = 2;
     public const int C_Direction_Bottom = -2;
+    /// <summary>Configuration array indexes</summary>
     public const int C_Config_Width = 0;
     public const int C_Config_ColumnsNb = 1;
     public const int C_Config_Margin = 2;
@@ -39,41 +42,41 @@ public partial class Grid : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Create a grid configuration array</summary>
-    /// <param name="GridWidth">The width of the grid</param>
-    /// <param name="GridColumnsNb">The number of columns in the grid</param>
-    /// <param name="GridMargin">The width of the margin around the columns</param>
-    /// <param name="GridPadding">Enable or disable the grid padding</param>
-    /// <param name="GridDirection">Direction of the grid</param>
+    /// <param name="_GridWidth">The width of the grid</param>
+    /// <param name="_GridColumnsNb">The number of columns in the grid</param>
+    /// <param name="_GridMargin">The width of the margin around the columns</param>
+    /// <param name="_GridPadding">Enable or disable the grid padding</param>
+    /// <param name="_GridDirection">Direction of the grid</param>
     /// <returns>A grid configuration array</returns>
     public global::System.Collections.Generic.Dictionary<int, float> CreateConfig(float _GridWidth, int _GridColumnsNb, float _GridMargin, bool _GridPadding, int _GridDirection) => default!;
 
     /// <summary>Push an element n columns to the right</summary>
-    /// <param name="GridConfig">A grid configuration array</param>
-    /// <param name="Columns">The number of columns to push</param>
-    /// <param name="Align">The alignment of the element</param>
-    /// <param name="Width">The width of the element</param>
+    /// <param name="_GridConfig">A grid configuration array</param>
+    /// <param name="_Columns">The number of columns to push</param>
+    /// <param name="_Align">The alignment of the element</param>
+    /// <param name="_Width">The width of the element</param>
     /// <returns>The position of the element in the grid</returns>
     public float Push(global::System.Collections.Generic.Dictionary<int, float> _GridConfig, int _Columns, int _Align, float _Width) => default!;
 
     /// <summary>Push an element n columns to the right</summary>
-    /// <param name="GridConfig">A grid configuration array</param>
-    /// <param name="Columns">The number of columns to push</param>
+    /// <param name="_GridConfig">A grid configuration array</param>
+    /// <param name="_Columns">The number of columns to push</param>
     /// <returns>The position of the element in the grid</returns>
     public float Push(global::System.Collections.Generic.Dictionary<int, float> _GridConfig, int _Columns) => default!;
 
     /// <summary>Get the position of an element inside the grid is positionned</summary>
-    /// <param name="GridConfig">A grid configuration array</param>
-    /// <param name="Column">The number of the column where the element</param>
+    /// <param name="_GridConfig">A grid configuration array</param>
+    /// <param name="_Columns" />
     /// <returns>The position of the element in the grid</returns>
     public float GetSize(global::System.Collections.Generic.Dictionary<int, float> _GridConfig, int _Columns) => default!;
 
     /// <summary>Convert a Vec2 to a manialink pos attribute</summary>
-    /// <param name="Pos">The original Vec2</param>
+    /// <param name="_Pos">The original Vec2</param>
     /// <returns>The value converted to an attirbute</returns>
     public string ToMLPos(Vec2 _Pos) => default!;
 
     /// <summary>Convert a Vec2 to a manialink size attribute</summary>
-    /// <param name="Size">The original Vec2</param>
+    /// <param name="_Size">The original Vec2</param>
     /// <returns>The value converted to an attirbute</returns>
     public string ToMLSize(Vec2 _Size) => default!;
 }

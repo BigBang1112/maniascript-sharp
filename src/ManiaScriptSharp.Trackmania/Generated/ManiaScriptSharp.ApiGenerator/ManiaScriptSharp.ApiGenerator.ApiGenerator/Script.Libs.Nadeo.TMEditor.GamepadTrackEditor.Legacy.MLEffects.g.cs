@@ -14,14 +14,18 @@ public partial class MLEffects : ILib
 {
     public const string Version = "1.0.0";
     public const string ScriptName = "MLEffects.Script.txt";
+    /// <summary>Prefix for the library functions</summary>
     public const string C_LibPrefix = "LibMLEffects_";
+    /// <summary>Class used to detect the controls used by the library</summary>
     public const string C_LibMLClass = "lib-ml-effects";
+    /// <summary>Data properties</summary>
     public const string C_Data_Triggers = "data-lib-ml-effects-triggers";
     public const string C_Data_Effects = "data-lib-ml-effects-effects";
     public const string C_Data_Group = "data-lib-ml-effects-group";
     public const string C_DataShort_Triggers = "lib-ml-effects-triggers";
     public const string C_DataShort_Effects = "lib-ml-effects-effects";
     public const string C_DataShort_Group = "lib-ml-effects-group";
+    /// <summary>Effects</summary>
     public const int C_Effect_QuadHover = 0;
     public const int C_Effect_QuadHover2 = 1;
 
@@ -42,6 +46,7 @@ public partial class MLEffects : ILib
     public string ML_Includes() => default!;
 
     /// <summary>Inject the code of the library in the manialink</summary>
+    /// <param name="_LibPrefix" />
     /// <returns>The code of the library</returns>
     public string ML_Functions(string _LibPrefix) => default!;
 

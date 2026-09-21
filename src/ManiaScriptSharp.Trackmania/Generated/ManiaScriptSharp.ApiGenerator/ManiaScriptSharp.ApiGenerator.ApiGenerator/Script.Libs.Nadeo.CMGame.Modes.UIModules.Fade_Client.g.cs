@@ -18,10 +18,6 @@ public partial class Fade_Client : ILib
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/CMGame/Modes/UIModules/Fade_Client.Script.txt";
     public const string C_Id = "UIModule_CMGame_Fade";
-    public const int C_Action_Set = 0;
-    public const int C_Action_Add = 1;
-    public const int C_Fade_Out = 0;
-    public const int C_Fade_In = 1;
 
     public struct K_Command
     {

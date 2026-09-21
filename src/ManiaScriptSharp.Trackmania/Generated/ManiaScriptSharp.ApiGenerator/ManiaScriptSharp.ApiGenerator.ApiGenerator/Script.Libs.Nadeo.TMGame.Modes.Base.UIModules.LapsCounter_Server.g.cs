@@ -21,7 +21,7 @@ public partial class LapsCounter_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Show or hide the checkpoint counter False to hide</summary>
-    /// <param name="Display">True to show</param>
+    /// <param name="_Display">True to show</param>
     public void SetCPCounterVisibility(bool _Display) { }
 
     /// <summary>Unload the library</summary>

@@ -18,7 +18,6 @@ public partial class CountDown_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Countdown_Client.Script.txt";
-    public const int C_RedCountdownDuration = 30000;
 
     /// <summary>Get the id of the UI module</summary>
     public string GetId() => default!;

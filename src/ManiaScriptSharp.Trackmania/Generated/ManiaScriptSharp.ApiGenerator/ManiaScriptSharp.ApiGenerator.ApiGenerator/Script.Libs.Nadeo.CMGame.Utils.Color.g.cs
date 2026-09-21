@@ -15,16 +15,21 @@ public partial class Color : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/CMGame/Utils/Color.Script.txt";
+    /// <summary>WCAG constants for contrast ratio : https: www.w3.org TR WCAG20 TECHS G17.html</summary>
     public const double C_WACG_Gamma = 2.2;
     public const double C_WACG_RedRatio = 0.2126;
     public const double C_WACG_GreenRatio = 0.7152;
     public const double C_WACG_BlueRatio = 0.0722;
 
     /// <summary>Modify a color so it is visible on the given background color</summary>
+    /// <param name="_BackgroundColor" />
+    /// <param name="_TargetColor" />
+    /// <param name="_Threshold" />
     public Vec3 GetVisibleColorOnBackground(Vec3 _BackgroundColor, Vec3 _TargetColor, float _Threshold) => default!;
 
     public Vec3 GetVisibleColorOnBackground(Vec3 _BackgroundColor, Vec3 _TargetColor) => default!;
 
     /// <summary>Get the luminance of an RGB color</summary>
+    /// <param name="_RGBColor" />
     public float GetColorLuminance(Vec3 _RGBColor) => default!;
 }

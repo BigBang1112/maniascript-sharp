@@ -19,12 +19,15 @@ public partial class AmbientSound_Server : ILib
     public const string C_Id = "UIModule_ChampionTMGL_AmbientSound";
 
     /// <summary>Enable or disable the ambient sound</summary>
+    /// <param name="_Enabled" />
     public void Enable(bool _Enabled) { }
 
     /// <summary>Update the race state</summary>
+    /// <param name="_RaceState" />
     public void SetRaceState(int _RaceState) { }
 
     /// <summary>Play cheers sounds for the given account id</summary>
+    /// <param name="_AccountId" />
     public void PlayCheers(string _AccountId) { }
 
     /// <summary>Unload the library</summary>

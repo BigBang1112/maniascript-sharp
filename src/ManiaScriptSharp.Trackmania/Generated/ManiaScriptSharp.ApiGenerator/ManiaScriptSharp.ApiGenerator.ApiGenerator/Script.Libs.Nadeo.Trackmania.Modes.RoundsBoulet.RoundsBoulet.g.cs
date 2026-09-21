@@ -55,21 +55,28 @@ public partial class RoundsBoulet : ILib
     }
 
     /// <summary>Check if a team is &quot;Null&quot;</summary>
+    /// <param name="_Team" />
     public bool TeamIsNull(K_Team _Team) => default!;
 
     /// <summary>Get the team id of a player Return `C_TeamNullId` if the player is not in a team</summary>
+    /// <param name="_AccountId" />
     public int GetTeamId(string _AccountId) => default!;
 
     /// <summary>Get the team of a player Return `C_TeamNull` if the player is not in a team</summary>
+    /// <param name="_AccountId" />
     public K_Team GetTeam(string _AccountId) => default!;
 
     /// <summary>Check if a player is in a team</summary>
+    /// <param name="_AccountId" />
     public bool IsInATeam(string _AccountId) => default!;
 
     /// <summary>Remove a member from a team</summary>
+    /// <param name="_AccountId" />
     public void RemoveTeamMember(string _AccountId) { }
 
     /// <summary>Add a member to a team</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_TeamId" />
     public void AddTeamMember(string _AccountId, int _TeamId) { }
 
     /// <summary>Get all teams</summary>
@@ -88,6 +95,7 @@ public partial class RoundsBoulet : ILib
     public void ResetRaces() { }
 
     /// <summary>Compute the points earned for the current race</summary>
+    /// <param name="_PointsDistribution" />
     public void UpdateTeamsRoundPoints(global::System.Collections.Generic.IList<int> _PointsDistribution) { }
 
     /// <summary>Transfert the round points to the map/match points</summary>
@@ -97,9 +105,13 @@ public partial class RoundsBoulet : ILib
     public void ResetTeams() { }
 
     /// <summary>Create the teams from a json string</summary>
+    /// <param name="_Json" />
     public void CreateTeamsFromJson(string _Json) { }
 
     /// <summary>Create fake teams</summary>
+    /// <param name="_ClansNb" />
+    /// <param name="_MembersPerClan" />
+    /// <param name="_FakeMembers" />
     public void CreateFakeTeams(int _ClansNb, int _MembersPerClan, global::System.Collections.Generic.Dictionary<string, int> _FakeMembers) { }
 
     /// <summary>Update the library</summary>

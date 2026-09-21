@@ -27,6 +27,7 @@ public partial class Trophy : ILib
     public const int C_Trophy_T7 = 7;
     public const int C_Trophy_T8 = 8;
     public const int C_Trophy_T9 = 9;
+    /// <summary>Achievement categories on the nadeoservices</summary>
     public const string C_AchievementCategory_Null = "";
     public const string C_AchievementCategory_SoloWhite = "SoloWhite";
     public const string C_AchievementCategory_SoloGreen = "SoloGreen";

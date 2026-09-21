@@ -27,6 +27,7 @@ public partial class JoinSession : ILib
     public const string C_Name = "Page_JoinSession";
     public const string C_NavGroup_Main = "navgroup-page-joinsession-main";
     public const int C_DelayBeforeEnablingButtonBack = 30000;
+    /// <summary>! Do NOT modify these values ! They are used by C++</summary>
     public const int C_JoinSession_Context_FirstPartyInvite = 0;
     public const int C_JoinSession_Context_UbiConnectInvite = 1;
     public const int C_JoinSession_Context_SquadTypeUpdated = 2;

@@ -21,6 +21,7 @@ public partial class Chrono_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set who can see the chrono (players/spectators/everyone)</summary>
+    /// <param name="_VisibleFor" />
     public void SetVisibleFor(int _VisibleFor) { }
 
     /// <summary>Unload the library</summary>

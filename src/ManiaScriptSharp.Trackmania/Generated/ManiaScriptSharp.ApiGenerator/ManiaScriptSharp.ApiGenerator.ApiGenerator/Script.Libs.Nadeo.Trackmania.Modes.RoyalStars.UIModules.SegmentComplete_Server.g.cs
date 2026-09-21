@@ -22,6 +22,11 @@ public partial class SegmentComplete_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Track the last segment completed by a player in each team</summary>
+    /// <param name="_TeamId" />
+    /// <param name="_AccountId" />
+    /// <param name="_Segment" />
+    /// <param name="_LoopNb" />
+    /// <param name="_BonusTime" />
     public void PlayerCompleteSegment(int _TeamId, string _AccountId, int _Segment, int _LoopNb, int _BonusTime) { }
 
     /// <summary>Reset the tracking of all segments completed by the players</summary>

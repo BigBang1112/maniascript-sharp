@@ -21,6 +21,11 @@ public partial class Events_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Update the event situation</summary>
+    /// <param name="_ActiveEventType" />
+    /// <param name="_ActiveEventEndTime" />
+    /// <param name="_NextEventType" />
+    /// <param name="_NextEventAnnounced" />
+    /// <param name="_NextEventStartTime" />
     public void UpdateEvent(int _ActiveEventType, int _ActiveEventEndTime, int _NextEventType, bool _NextEventAnnounced, int _NextEventStartTime) { }
 
     /// <summary>Unload the library</summary>

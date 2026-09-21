@@ -22,14 +22,18 @@ public partial class ShadowMenu : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "ShadowMenu.Script.txt";
+    /// <summary>Default visibility</summary>
     public const bool C_DefaultVisibility = false;
+    /// <summary>Anim button background on mouse over/out</summary>
     public const bool C_BgAnim = false;
+    /// <summary>Selection</summary>
     public const int C_Selection_Null = 0;
     public const int C_Selection_None = 1;
     public const int C_Selection_VeryFast = 2;
     public const int C_Selection_Fast = 3;
     public const int C_Selection_Nice = 4;
     public const int C_Selection_VeryNice = 5;
+    /// <summary>Events</summary>
     public const string C_Event_Hover = "LibShadowMenu_Hover";
     public const string C_Event_Click = "LibShadowMenu_Click";
     public const string C_Event_Confirm = "LibShadowMenu_Confirm";
@@ -59,12 +63,16 @@ public partial class ShadowMenu : ILib
     public int Selection_None() => default!;
 
     /// <summary>Select a button in the menu</summary>
+    /// <param name="_Selection" />
+    /// <param name="_PlaySound" />
     public void Select(int _Selection, bool _PlaySound) { }
 
     /// <summary>Overload Select()</summary>
+    /// <param name="_Selection" />
     public void Select(int _Selection) { }
 
     /// <summary>Select the next or the previous button in the menu</summary>
+    /// <param name="_Shift" />
     public void Shift(int _Shift) { }
 
     public void Next() { }
@@ -72,12 +80,14 @@ public partial class ShadowMenu : ILib
     public void Prev() { }
 
     /// <summary>Select the options displayed in the menu</summary>
+    /// <param name="_Options" />
     public void SetOptions(global::System.Collections.Generic.IList<int> _Options) { }
 
     /// <summary>Check if the menu is visible</summary>
     public bool LayerIsVisible() => default!;
 
     /// <summary>Set the menu visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }

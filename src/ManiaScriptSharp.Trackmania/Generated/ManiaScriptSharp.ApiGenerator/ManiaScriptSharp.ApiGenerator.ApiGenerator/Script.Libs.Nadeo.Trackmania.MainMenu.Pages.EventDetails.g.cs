@@ -45,23 +45,6 @@ public partial class EventDetails : ILib
     public const string C_AppErrorCode_NotAllowedZone = "NOT_ALLOWED_ZONE";
     public const int C_TabIndex_PreviousSteps = 0;
     public const int C_TabIndex_RemainingSteps = 1;
-    public const int C_DelayBetweenRequest = 500;
-    public const int C_DelaytoJoinServer = 900;
-    public const int C_DelayToRefresh = 60;
-    public const string C_AppErrorCode_ClubAccess = "CLUB_ACCESS_REQUIRED";
-    public const int C_IndexStep_Error = -1;
-    public const int C_IndexStep_Info = 0;
-    public const int C_IndexStep_Qualify = 1;
-    public const int C_IndexStep_QualifyRanking = 2;
-    public const int C_IndexStep_Matches = 3;
-    public const int C_IndexStep_CompetitionRanking = 4;
-    public const int C_IndexStep_Register = 5;
-    public const int C_IndexStep_PastRound = 6;
-    public const int C_IndexStep_MatchResults = 7;
-    public const string C_Status_RoundCompleted = "COMPLETED";
-    public const string C_Type_CompetitionManual = "MANUAL";
-    public const string C_Type_CompetitionDefault = "DEFAULT";
-    public const string C_Type_CompetitionExternal = "EXTERNAL";
 
     public struct K_Controls
     {

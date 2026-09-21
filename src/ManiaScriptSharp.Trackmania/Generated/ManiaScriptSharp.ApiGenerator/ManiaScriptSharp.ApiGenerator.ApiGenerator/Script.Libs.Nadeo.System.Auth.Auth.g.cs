@@ -9,9 +9,9 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.System.Auth;
 
+/// <summary>Manage auth related variables</summary>
 public partial class Auth : ILib
 {
-    /// <summary>Manage auth related variables</summary>
     public void SetHttpHeaderLive(string _HttpHeaderLive) { }
 
     public string GetHttpHeaderLive() => default!;

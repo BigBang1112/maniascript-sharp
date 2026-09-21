@@ -18,6 +18,7 @@ public partial class XmlRpc2_Base : ILib
 
     public const string Version = "2017-12-20";
     public const string ScriptName = "Libs/Nadeo/XmlRpc2_Base.Script.txt";
+    /// <summary>Callbacks</summary>
     public const string C_Callback_CallbacksList = "XmlRpc.CallbacksList";
     public const string C_Callback_CallbacksList_Enabled = "XmlRpc.CallbacksList_Enabled";
     public const string C_Callback_CallbacksList_Disabled = "XmlRpc.CallbacksList_Disabled";
@@ -58,6 +59,7 @@ public partial class XmlRpc2_Base : ILib
     public const string C_Callback_ChannelProgression_Start = "Maniaplanet.ChannelProgression_Start";
     public const string C_Callback_ChannelProgression_End = "Maniaplanet.ChannelProgression_End";
     public const string C_Callback_UseTeams = "Maniaplanet.Mode.UseTeams";
+    /// <summary>Methods</summary>
     public const string C_Method_Set_EnableCallbacks = "XmlRpc.EnableCallbacks";
     public const string C_Method_Get_CallbacksList = "XmlRpc.GetCallbacksList";
     public const string C_Method_Get_CallbacksList_Enabled = "XmlRpc.GetCallbacksList_Enabled";
@@ -84,48 +86,51 @@ public partial class XmlRpc2_Base : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Send a list of all registered callbacks</summary>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void SendCallbacksList(string _ResponseId) { }
 
     /// <summary>Send a list of all enabled callbacks</summary>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void SendEnabledCallbacksList(string _ResponseId) { }
 
     /// <summary>Send a list of all disabled callbacks</summary>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void SendDisabledCallbacksList(string _ResponseId) { }
 
     /// <summary>Send help for a given callback</summary>
-    /// <param name="CallbackName">The name of the callback to get help for</param>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_CallbackName">The name of the callback to get help for</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void SendCallbackHelp(string _CallbackName, string _ResponseId) { }
 
     /// <summary>Send a list of all registered methods</summary>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void SendMethodsList(string _ResponseId) { }
 
     /// <summary>Send help for a given method</summary>
-    /// <param name="MethodName">The name of the method to get help for</param>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_MethodName">The name of the method to get help for</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void SendMethodHelp(string _MethodName, string _ResponseId) { }
 
     /// <summary>Send the whole callbacks and methods documentation</summary>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void SendDocumentation(string _ResponseId) { }
 
     /// <summary>Send the currently selected api version</summary>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void SendApiVersion(string _ResponseId) { }
 
     /// <summary>Send all available api versions</summary>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void SendAllApiVersions(string _ResponseId) { }
 
     /// <summary>Send if the game mode use teams or not</summary>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void SendUseTeams(string _ResponseId) { }
 
     /// <summary>Send a callback signaling the end/beginning of a mode base section</summary>
+    /// <param name="_Restarted" />
+    /// <param name="_ModeUpdated" />
+    /// <param name="_ModeName" />
     public void SendStartServer_Start(bool _Restarted, bool _ModeUpdated, string _ModeName) { }
 
     public void SendStartServer_End(bool _Restarted, bool _ModeUpdated, string _ModeName) { }

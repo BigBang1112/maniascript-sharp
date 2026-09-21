@@ -16,6 +16,7 @@ public partial class SpectatorBase_Server : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/Base/UIModules/SpectatorBase_Server.Script.txt";
+    /// <summary>This is copy pasted in Client!</summary>
     public const int C_CamModes_Replay = 0;
     public const int C_CamModes_Follow = 1;
     public const int C_CamModes_FollowAll = 2;
@@ -25,7 +26,7 @@ public partial class SpectatorBase_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set player name and avatar visibility False to show</summary>
-    /// <param name="HidePlayerName">True to hide player info</param>
+    /// <param name="_HidePlayerName">True to hide player info</param>
     public void HidePlayerName(bool _HidePlayerName) { }
 
     /// <summary>Unload the library</summary>

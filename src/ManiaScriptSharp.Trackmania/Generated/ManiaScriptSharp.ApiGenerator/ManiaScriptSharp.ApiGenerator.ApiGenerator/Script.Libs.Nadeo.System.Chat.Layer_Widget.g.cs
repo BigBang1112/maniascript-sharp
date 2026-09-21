@@ -13,6 +13,7 @@ public partial class Layer_Widget : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Chat/";
     public const int C_LibChatWidget_RotationDuration = 2000;
 
     public void Build() { }

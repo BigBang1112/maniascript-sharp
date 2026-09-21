@@ -46,9 +46,6 @@ public partial class TOTDChannelDisplay : ILib
     public const int C_EventsDelay = 150;
     public const string C_Color_COTD = "ffc600";
     public const string C_Color_TOTD_Day = "1b4f67";
-    public const int C_COTDStatus_Check_Frequency = 30000;
-    public const int C_Retry_MaxWait = 30000;
-    public const int C_Retry_Timer = 5000;
 
     public struct K_Controls
     {

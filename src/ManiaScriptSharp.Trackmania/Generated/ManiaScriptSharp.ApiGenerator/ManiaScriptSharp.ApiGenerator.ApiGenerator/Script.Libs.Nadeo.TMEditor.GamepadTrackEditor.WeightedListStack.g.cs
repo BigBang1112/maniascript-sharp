@@ -32,12 +32,14 @@ public partial class WeightedListStack : ILib
     public void Clear() { }
 
     /// <summary>Check if a list exists</summary>
+    /// <param name="_Id" />
     public bool Exists(int _Id) => default!;
 
     /// <summary>Clear the random selection properties</summary>
     public void ClearRandom() { }
 
     /// <summary>Select a random macroblock in a list</summary>
+    /// <param name="_Id" />
     public bool SelectRandom(int _Id) => default!;
 
     /// <summary>Get the placement from the randomly selected macroblock</summary>
@@ -47,9 +49,11 @@ public partial class WeightedListStack : ILib
     public Int3 GetCoordFromRandom() => default!;
 
     /// <summary>Clear a list</summary>
+    /// <param name="_Id" />
     public void Empty(int _Id) { }
 
     /// <summary>Get the number of elements in a list</summary>
+    /// <param name="_Id" />
     public int Count(int _Id) => default!;
 
     public void Unload() { }

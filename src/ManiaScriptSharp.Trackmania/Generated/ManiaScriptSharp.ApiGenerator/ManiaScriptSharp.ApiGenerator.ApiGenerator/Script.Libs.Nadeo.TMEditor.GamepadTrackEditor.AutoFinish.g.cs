@@ -23,6 +23,8 @@ public partial class AutoFinish : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Get the penalty associated to a clip</summary>
+    /// <param name="_ClipName" />
+    /// <param name="_Coord" />
     public int GetClipPenalty(string _ClipName, Int3 _Coord) => default!;
 
     public void Unload() { }

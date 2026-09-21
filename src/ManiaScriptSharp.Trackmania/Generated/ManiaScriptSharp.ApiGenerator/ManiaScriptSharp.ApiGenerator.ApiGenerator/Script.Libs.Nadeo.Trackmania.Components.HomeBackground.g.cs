@@ -20,6 +20,7 @@ public partial class HomeBackground : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Components/HomeBackground.Script.txt";
     public const string C_Name = "component-home-background";
     public const string P = "HomeBackground_";
+    public const string C_DefaultCubeMap = "file://Media/Manialinks/Nadeo/Trackmania/Menus/HomeBackground/DefaultCubeMap.dds";
 
     /// <summary>Get the component</summary>
     public string Component() => default!;

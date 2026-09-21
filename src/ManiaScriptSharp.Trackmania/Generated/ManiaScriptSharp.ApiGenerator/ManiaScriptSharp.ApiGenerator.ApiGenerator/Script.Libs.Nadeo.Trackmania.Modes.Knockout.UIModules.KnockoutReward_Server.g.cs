@@ -17,6 +17,7 @@ public partial class KnockoutReward_Server : ILib
     public const string C_Id = "UIModule_Knockout_KnockoutReward";
 
     /// <summary>Send the competition name</summary>
+    /// <param name="_CompetitionName" />
     public void SetCompetitionName(string _CompetitionName) { }
 
     /// <summary>Unload the library</summary>

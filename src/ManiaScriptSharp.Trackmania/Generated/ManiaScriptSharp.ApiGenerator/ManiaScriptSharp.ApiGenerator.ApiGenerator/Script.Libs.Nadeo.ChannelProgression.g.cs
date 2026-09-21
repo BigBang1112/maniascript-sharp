@@ -21,11 +21,13 @@ public partial class ChannelProgression : ILib
     public const string Version = "2017-08-30";
     public const string ScriptName = "Libs/Nadeo/ChannelProgression.Script.txt";
     public const string C_LayerName = "LibChannelProgression";
+    public const string C_ApiUrl = "https://www.maniaplanet.com";
     public const string C_GetServerInfo = "";
     public const string C_GetMapInfo = "/ingame/public/season/players";
     public const string C_SetMapInfo = "/ingame/public/season/match";
     public const int C_RequestTimeout = 5000;
     public const string C_RequestHeaders = "Content-Type: application/json\nAccept: application/xml";
+    /// <summary>Maximum number of best scores</summary>
     public const int C_BestScoresNb = 10;
     public const int C_AnimRoulette_Loop = 0;
     public const int C_AnimRoulette_Spring = 1;
@@ -48,25 +50,26 @@ public partial class ChannelProgression : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the progression in the season</summary>
-    /// <param name="SeasonNumber">The season's number</param>
-    /// <param name="SeasonEpisode">The episode's number</param>
+    /// <param name="_SeasonNumber">The season's number</param>
+    /// <param name="_SeasonEpisode">The episode's number</param>
     public void SetSeasonEpisode(int _SeasonNumber, int _SeasonEpisode) { }
 
     /// <summary>Update the players ranking</summary>
-    /// <param name="Names">The ordered names</param>
-    /// <param name="Scores">The ordered scores</param>
+    /// <param name="_Names">The ordered names</param>
+    /// <param name="_Scores">The ordered scores</param>
     public void SetRanking(global::System.Collections.Generic.IList<string> _Names, global::System.Collections.Generic.IList<int> _Scores) { }
 
     /// <summary>Select if the ranking displays a time or a score False if it must display scores</summary>
-    /// <param name="Boolean">_IsTime						True if the ranking must display times</param>
+    /// <param name="_IsTime" />
     public void SetRankingIsTime(bool _IsTime) { }
 
     /// <summary>Update the channel cumulated XP per level</summary>
-    /// <param name="EmblemsXP">XP cumulated to reach each level</param>
+    /// <param name="_EmblemsXP">XP cumulated to reach each level</param>
     public void SetEmblemsXP(global::System.Collections.Generic.IList<int> _EmblemsXP) { }
 
     /// <summary>Update the emblems' logo</summary>
-    /// <param name="EmblemsLogo">Path to the emblems' logo</param>
+    /// <param name="_BigLogo" />
+    /// <param name="_SmallLogo" />
     public void SetEmblemsLogo(global::System.Collections.Generic.IList<string> _BigLogo, global::System.Collections.Generic.IList<string> _SmallLogo) { }
 
     /// <summary>Play the reveral animation when the season progression window is displayed</summary>
@@ -76,21 +79,21 @@ public partial class ChannelProgression : ILib
     public void RequestServerInfo() { }
 
     /// <summary>Request the map info from the live API</summary>
-    /// <param name="PlayersLogins">The logins for which we want to retrieve info</param>
+    /// <param name="_PlayersLogins">The logins for which we want to retrieve info</param>
     public void RequestMapInfo(global::System.Collections.Generic.IList<string> _PlayersLogins) { }
 
     /// <summary>Request the match info from the live API</summary>
-    /// <param name="PlayersLogins">The logins for which we want to retrieve info</param>
-    /// <param name="PlayersScores">The scores of the players</param>
+    /// <param name="_PlayersLogins">The logins for which we want to retrieve info</param>
+    /// <param name="_PlayersScores">The scores of the players</param>
     public void RequestMatchInfo(global::System.Collections.Generic.IList<string> _PlayersLogins, global::System.Collections.Generic.IList<int> _PlayersScores) { }
 
     /// <summary>Parse the server info response</summary>
-    /// <param name="Xml">The server info response</param>
+    /// <param name="_Xml">The server info response</param>
     public void ResponseServerInfo(string _Xml) { }
 
     /// <summary>Parse the map info response are the old ones False if they are the new ones</summary>
-    /// <param name="Xml">The server map response</param>
-    /// <param name="AreOldScores">True if the scores in the xml</param>
+    /// <param name="_Xml">The server map response</param>
+    /// <param name="_AreOldScores">True if the scores in the xml</param>
     public void ResponseMapInfo(string _Xml, bool _AreOldScores) { }
 
     /// <summary>Send the scores to the channel api Use this function once the ladder is closed</summary>
@@ -100,7 +103,7 @@ public partial class ChannelProgression : ILib
     public void SetResultsVersion() { }
 
     /// <summary>Enable or disable the channel progression False to disable</summary>
-    /// <param name="Enabled">True to enable</param>
+    /// <param name="_Enabled">True to enable</param>
     public void Enable(bool _Enabled) { }
 
     /// <summary>Check if the channel progression is enabled False otherwise</summary>
@@ -108,7 +111,7 @@ public partial class ChannelProgression : ILib
     public bool IsEnabled() => default!;
 
     /// <summary>Show or hide the channel progression window False to hide</summary>
-    /// <param name="Visible">True to show,</param>
+    /// <param name="_Visible">True to show,</param>
     public void SetVisibility(bool _Visible) { }
 
     /// <summary>Check if a request is in progress False otherwise</summary>

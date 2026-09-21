@@ -22,6 +22,7 @@ public partial class Terrain : ILib
     public const double C_Frequency = 0.4;
     public const double C_Octaves = 10.0;
     public const int C_Layer = 0;
+    /// <summary>Allow only one level of water</summary>
     public const bool C_OnlyOneLevelOfWater = true;
     public const int C_Generator_Perlin = 0;
     public const int C_Generator_Radial = 1;
@@ -31,14 +32,17 @@ public partial class Terrain : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Start and initialize the random generation</summary>
-    /// <param name="Type">The type of generator to use (Radial, Noise, ...)</param>
-    /// <param name="Frequency">The frequency for the noise generator</param>
-    /// <param name="Octaves">The octaves for the noise generator</param>
-    /// <param name="Intervals">The type of terrain to use for each interval</param>
-    /// <param name="Layer">The number of the layer</param>
+    /// <param name="_Type">The type of generator to use (Radial, Noise, ...)</param>
+    /// <param name="_Frequency">The frequency for the noise generator</param>
+    /// <param name="_Octaves">The octaves for the noise generator</param>
+    /// <param name="_Intervals">The type of terrain to use for each interval</param>
+    /// <param name="_Layer">The number of the layer</param>
     public void Random_Start(string _Type, float _Frequency, float _Octaves, global::System.Collections.Generic.Dictionary<float, string> _Intervals, int _Layer) { }
 
     /// <summary>Overload with default intervals values</summary>
+    /// <param name="_Frequency" />
+    /// <param name="_Octaves" />
+    /// <param name="_Layer" />
     public void Random_Start(float _Frequency, float _Octaves, int _Layer) { }
 
     /// <summary>Overload with default frequency, octaves and intervals values</summary>
@@ -51,6 +55,7 @@ public partial class Terrain : ILib
     public float Random_Loop() => default!;
 
     /// <summary>Get the number of parts contained in a multiparts terrain</summary>
+    /// <param name="_Name" />
     public int GetPartsCount(string _Name) => default!;
 
     public void Unload() { }

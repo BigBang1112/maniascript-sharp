@@ -26,6 +26,7 @@ public partial class ManiaView_3 : ILib
     public const string C_Class_MixinInstance = "cmgame-mv3-mixin-instance";
     public const string C_Class_EventBindings = "cmgame-mv3-event-bindings";
     public const string C_Class_TriggerZone = "cmgame-mv3-trigger-zone";
+    /// <summary>Page level hooks</summary>
     public const string C_Hook_PageStylesheetInit = "CMGame_MV3_Page_Stylesheet_Init";
     public const string C_Hook_PageMainInit = "CMGame_MV3_Page_Main_Init";
     public const string C_Hook_PageMainStart = "CMGame_MV3_Page_Main_Start";
@@ -47,6 +48,7 @@ public partial class ManiaView_3 : ILib
     public const string C_Hook_PageOnEvent_EntrySubmit = "CMGame_MV3_Page_OnEvent_EntrySubmit";
     public const string C_Hook_PageOnEvent_MenuNavigation = "CMGame_MV3_Page_OnEvent_MenuNavigation";
     public const string C_Hook_PageOnEvent_PluginCustomEvent = "CMGame_MV3_Page_OnEvent_PluginCustomEvent";
+    /// <summary>Component level hooks</summary>
     public const string C_Hook_ComponentMainStart = "CMGame_MV3_Component_Main_Start";
     public const string C_Hook_ComponentMainEnd = "CMGame_MV3_Component_Main_End";
     public const string C_Hook_ComponentBeforeYield = "CMGame_MV3_Component_Before_Yield";
@@ -58,12 +60,14 @@ public partial class ManiaView_3 : ILib
     public const string C_Hook_ComponentAllInit = "CMGame_MV3_Component_AllInit";
     public const string C_Hook_ComponentInit = "CMGame_MV3_Component_Init";
     public const string C_Hook_ComponentDraw = "CMGame_MV3_Component_Draw";
+    /// <summary>Mixin level hooks</summary>
     public const string C_Hook_MixinMainStart = "CMGame_MV3_Mixin_Main_Start";
     public const string C_Hook_MixinMainEnd = "CMGame_MV3_Mixin_Main_End";
     public const string C_Hook_MixinBeforeYield = "CMGame_MV3_Mixin_Before_Yield";
     public const string C_Hook_MixinAfterYield = "CMGame_MV3_Mixin_After_Yield";
     public const string C_Hook_MixinAllInit = "CMGame_MV3_Mixin_AllInit";
     public const string C_Hook_MixinInit = "CMGame_MV3_Mixin_Init";
+    /// <summary>Deprecated hooks</summary>
     public const string C_Hook_MainInit = "CMGame_MV3_Page_Main_Init";
     public const string C_Hook_MainStart = "CMGame_MV3_Page_Main_Start";
     public const string C_Hook_MainEnd = "CMGame_MV3_Page_Main_End";
@@ -92,6 +96,7 @@ public partial class ManiaView_3 : ILib
     public const string C_Hook_ComponentYieldAfter = "CMGame_MV3_Component_After_Yield";
     public const string C_Hook_MixinYieldBefore = "CMGame_MV3_Mixin_Before_Yield";
     public const string C_Hook_MixinYieldAfter = "CMGame_MV3_Mixin_After_Yield";
+    /// <summary>Default slots</summary>
     public const string C_Slot_Styles = "CMGame_MV3_Styles";
     public const string C_Slot_PageStart = "CMGame_MV3_PageStart";
     public const string C_Slot_PageEnd = "CMGame_MV3_PageEnd";
@@ -213,6 +218,9 @@ public partial class ManiaView_3 : ILib
     public void ResetComponentInstancesToRedraw() { }
 
     /// <summary>Check if one of the given redraw tag is present</summary>
+    /// <param name="_TagsInWhichToSearch" />
+    /// <param name="_InitTag" />
+    /// <param name="_TagsToFind" />
     public bool HasRedrawTag(global::System.Collections.Generic.IList<string> _TagsInWhichToSearch, string _InitTag, global::System.Collections.Generic.IList<string> _TagsToFind) => default!;
 
     public bool HasRedrawTag(global::System.Collections.Generic.IList<string> _TagsInWhichToSearch, string _InitTag, string _TagToFind) => default!;
@@ -222,6 +230,9 @@ public partial class ManiaView_3 : ILib
     public bool HasRedrawTag(global::System.Collections.Generic.IList<string> _TagsInWhichToSearch, string _TagToFind) => default!;
 
     /// <summary>Build a component as a manialink page</summary>
+    /// <param name="_PageComponent" />
+    /// <param name="_ManialinkVersion" />
+    /// <param name="_ZIndex" />
     public string ManialinkPage(K_Component _PageComponent, int _ManialinkVersion, float _ZIndex) => default!;
 
     public string ManialinkPage(K_Component _PageComponent, int _ManialinkVersion) => default!;

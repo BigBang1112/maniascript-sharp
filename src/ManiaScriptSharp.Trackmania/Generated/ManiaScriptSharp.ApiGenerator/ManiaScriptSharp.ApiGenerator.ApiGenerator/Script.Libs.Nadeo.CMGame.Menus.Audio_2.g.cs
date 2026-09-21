@@ -17,6 +17,12 @@ public partial class Audio_2 : ILib
 
     public const string Version = "2.2.6";
     public const string ScriptName = "Libs/Nadeo/CMGame/Menus/Audio@2.Script.txt";
+    public const string C_DefaultLibrary_Common = "file://Media/Config/Nadeo/CMGame/Utils/AudioManager/AudioCommon.json";
+    public const string C_DefaultLibrary_Menu = "file://Media/Config/Nadeo/CMGame/Utils/AudioManager/AudioMenu.json";
+    public const string C_DefaultLibrary_Game = "file://Media/Config/Nadeo/CMGame/Utils/AudioManager/AudioGame.json";
+    public const string C_AudioPath_Common = "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Common/";
+    public const string C_AudioPath_Menu = "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Menu/";
+    public const string C_AudioPath_Game = "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Game/";
     public const string C_SoundId_Silence = "#@SILENCE@#";
     public const string C_SoundId_Menu_Select = "MenuSelect";
     public const string C_SoundId_Menu_Focus = "MenuFocus";
@@ -74,6 +80,7 @@ public partial class Audio_2 : ILib
     public const string C_SoundId_Mode_StuntGreatLanding = "StuntGreatLanding";
     public const string C_SoundId_Mode_StuntExcellentLanding = "StuntExcellentLanding";
     public const string C_SoundId_Mode_StuntEpicLanding = "StuntEpicLanding";
+    /// <summary>will add a lot of silence at the begining end of the fade</summary>
     public const double C_SoundBalanceVolumedBMin = -60.0;
 
     public struct K_Private_Sound

@@ -27,8 +27,8 @@ public partial class BestLap_Server : ILib
     }
 
     /// <summary>Send the top 3 of a given lap</summary>
-    /// <param name="Top3">The top 3 [ScoreId =&gt; LapTime]</param>
-    /// <param name="Lap">The lap number of the top</param>
+    /// <param name="_Top3">The top 3 [ScoreId =&gt; LapTime]</param>
+    /// <param name="_Lap">The lap number of the top</param>
     public void SetTop3(global::System.Collections.Generic.Dictionary<Ident, int> _Top3, int _Lap) { }
 
     /// <summary>Unload the library</summary>

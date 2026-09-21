@@ -120,11 +120,14 @@ public partial class Routes : ILib
     public K_Loading StartLoading() => default!;
 
     /// <summary>Check if the route creation process is ongoing</summary>
+    /// <param name="_Loading" />
     public bool IsLoading(K_Loading _Loading) => default!;
 
     /// <summary>Incrementally create the routes instead of doing all at once Check: /trackmania-next/tmnext/-/issues/4092</summary>
+    /// <param name="_Loading" />
     public K_Loading Load(K_Loading _Loading) => default!;
 
     /// <summary>End the loading process</summary>
+    /// <param name="_Loading" />
     public K_Loading StopLoading(K_Loading _Loading) => default!;
 }

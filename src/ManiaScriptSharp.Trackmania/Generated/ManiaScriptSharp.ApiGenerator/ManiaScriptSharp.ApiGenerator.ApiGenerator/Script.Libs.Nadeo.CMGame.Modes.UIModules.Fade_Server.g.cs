@@ -31,9 +31,15 @@ public partial class Fade_Server : ILib
     }
 
     /// <summary>Set the z-index of the fade quad We use an Integer instead of a Real to avoid any weird behaviour linked to Real precision</summary>
+    /// <param name="_ZIndex" />
     public void SetZIndex(int _ZIndex) { }
 
     /// <summary>Start a fade for all players</summary>
+    /// <param name="_Action" />
+    /// <param name="_Fade" />
+    /// <param name="_StartTime" />
+    /// <param name="_Duration" />
+    /// <param name="_Color" />
     public void Fade(int _Action, int _Fade, int _StartTime, int _Duration, string _Color) { }
 
     public void SetFade(int _Fade, int _StartTime, int _Duration, string _Color) { }

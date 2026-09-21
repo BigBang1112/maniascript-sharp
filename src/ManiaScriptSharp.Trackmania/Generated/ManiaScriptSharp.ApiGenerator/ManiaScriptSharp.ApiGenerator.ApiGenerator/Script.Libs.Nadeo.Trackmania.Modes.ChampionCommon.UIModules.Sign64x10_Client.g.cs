@@ -19,11 +19,14 @@ public partial class Sign64x10_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign64x10_Client.Script.txt";
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Sign64x10";
 
     /// <summary>Get the id of the UI module</summary>
+    /// <param name="_AttachId" />
     public string GetId(string _AttachId) => default!;
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_AttachId" />
     /// <returns>The module manialink</returns>
     public string GetML(string _AttachId) => default!;
 }

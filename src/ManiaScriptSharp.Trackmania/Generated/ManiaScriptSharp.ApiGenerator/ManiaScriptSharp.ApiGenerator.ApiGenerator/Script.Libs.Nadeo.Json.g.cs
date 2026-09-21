@@ -25,48 +25,49 @@ public partial class Json : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Escapes forbidden characters from a string WARNING: Use only on really small string, like the name of a player for example.</summary>
-    /// <param name="String">The string to escape</param>
+    /// <param name="_String">The string to escape</param>
     public string Escape(string _String) => default!;
 
     /// <summary>Enfold the Json string into {}</summary>
-    /// <param name="String">The string to enfold</param>
+    /// <param name="_String">The string to enfold</param>
     public string Enfold(string _String) => default!;
 
     /// <summary>Merge multiple Json string together</summary>
-    /// <param name="Strings">The strings to merge</param>
+    /// <param name="_Strings">The strings to merge</param>
     public string Merge(global::System.Collections.Generic.IList<string> _Strings) => default!;
 
     /// <summary>Create a Json object from merged strings</summary>
-    /// <param name="Strings">The strings to merge</param>
+    /// <param name="_Name" />
+    /// <param name="_Strings">The strings to merge</param>
     public string ObjectMerge(string _Name, global::System.Collections.Generic.IList<string> _Strings) => default!;
 
     /// <summary>Stringify an Integer</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The integer to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Integer" />
     public string Stringify(string _Name, int _Integer) => default!;
 
     /// <summary>Stringify a Real</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The real to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Real" />
     public string Stringify(string _Name, float _Real) => default!;
 
     /// <summary>Stringify a boolean</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The boolean to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Boolean" />
     public string Stringify(string _Name, bool _Boolean) => default!;
 
     /// <summary>Stringify a Text</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The text to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Text" />
     public string Stringify(string _Name, string _Text) => default!;
 
     /// <summary>Stringify a Vec2</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The vec2 to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Vec2" />
     public string Stringify(string _Name, Vec2 _Vec2) => default!;
 
     /// <summary>Stringify a Vec3</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The vec3 to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Vec3" />
     public string Stringify(string _Name, Vec3 _Vec3) => default!;
 }

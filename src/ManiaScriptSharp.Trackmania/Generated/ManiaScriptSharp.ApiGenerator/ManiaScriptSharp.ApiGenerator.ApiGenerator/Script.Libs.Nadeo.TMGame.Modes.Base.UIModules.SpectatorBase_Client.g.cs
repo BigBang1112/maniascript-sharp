@@ -23,14 +23,12 @@ public partial class SpectatorBase_Client : ILib
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/Base/UIModules/SpectatorBase_Client.Script.txt";
     public const int C_CamModesNb = 4;
+    /// <summary>This is copy pasted in Server!</summary>
     public const int C_CamModes_Replay = 0;
     public const int C_CamModes_Follow = 1;
     public const int C_CamModes_FollowAll = 2;
     public const int C_CamModes_Free = 3;
     public const string C_Class_Interactive = "interactive";
-    public const int C_RespawnCheckInterval = 250;
-    public const int C_DelayBeforeDisplayingSpectatorUI = 500;
-    public const int C_TargetPlayerResetDelay = 5000;
 
     /// <summary>Get the id of the UI module</summary>
     public string GetId() => default!;

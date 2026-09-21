@@ -21,6 +21,11 @@ public partial class MatchInfo_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the best time</summary>
+    /// <param name="_WebServicesUserId" />
+    /// <param name="_Time" />
+    /// <param name="_IsWorldRecord" />
+    /// <param name="_IsInit" />
+    /// <param name="_OverrideName" />
     public void SetBestTime(string _WebServicesUserId, int _Time, bool _IsWorldRecord, bool _IsInit, string _OverrideName) { }
 
     public void SetBestTime(string _WebServicesUserId, int _Time, bool _IsWorldRecord, bool _IsInit) { }
@@ -28,11 +33,12 @@ public partial class MatchInfo_Server : ILib
     public void SetBestTime(string _WebServicesUserId, int _Time) { }
 
     /// <summary>Set the match level</summary>
+    /// <param name="_MatchLevel" />
     public void SetMatchLevel(int _MatchLevel) { }
 
     /// <summary>Update the track progress</summary>
-    /// <param name="TrackNb">The number of the current track</param>
-    /// <param name="TracksTotal">The total number of tracks</param>
+    /// <param name="_TrackNb">The number of the current track</param>
+    /// <param name="_TracksTotal">The total number of tracks</param>
     public void SetTrackProgress(int _TrackNb, int _TracksTotal) { }
 
     /// <summary>Unload the library</summary>

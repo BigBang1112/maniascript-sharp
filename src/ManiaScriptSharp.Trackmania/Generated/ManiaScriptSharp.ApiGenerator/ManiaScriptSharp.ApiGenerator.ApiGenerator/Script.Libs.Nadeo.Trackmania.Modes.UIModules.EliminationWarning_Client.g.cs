@@ -19,9 +19,6 @@ public partial class EliminationWarning_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/UIModules/EliminationWarning_Client.Script.txt";
-    public const int C_AnimDelay = 100;
-    public const int C_AnimDuration = 3000;
-    public const string C_AlertSound = "KnockoutEliminationAlert";
 
     public struct K_State
     {

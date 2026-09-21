@@ -19,17 +19,6 @@ public partial class SegmentProgression_Client : ILib
 
     public const string Version = "3.4.3";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/SegmentProgression_Client.Script.txt";
-    public const int C_AnimDuration_ShowHideModule = 250;
-    public const int C_AnimDuration_SlidingFlag = 500;
-    public const int C_AnimDuration_DisappearingStars = 500;
-    public const int C_AnimDuration_ShowBlackSegmentLoop = 250;
-    public const int C_AnimDuration_NewBlackSegmentLoop = 1250;
-    public const int C_AnimDuration_StarsPreview = 250;
-    public const int C_AnimDuration_TeamChevron = 500;
-    public const int C_AnimStep_Initialize = 0;
-    public const int C_AnimStep_AddStars = 1;
-    public const int C_AnimStep_UpdateSegment = 2;
-    public const int C_AnimStep_Stop = 3;
 
     public struct K_Controls
     {

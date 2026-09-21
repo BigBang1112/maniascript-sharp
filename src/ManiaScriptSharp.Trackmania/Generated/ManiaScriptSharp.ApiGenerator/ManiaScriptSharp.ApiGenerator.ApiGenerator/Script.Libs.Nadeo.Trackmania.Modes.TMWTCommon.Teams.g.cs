@@ -95,47 +95,71 @@ public partial class Teams : ILib
     }
 
     /// <summary>Load the teams to use in the match</summary>
+    /// <param name="_Url" />
     public K_TeamsLoading LoadTeams(string _Url) => default!;
 
     /// <summary>Check if the teams are being loading</summary>
+    /// <param name="_TeamsLoading" />
     public bool IsLoading(K_TeamsLoading _TeamsLoading) => default!;
 
     /// <summary>Update the teams loading</summary>
+    /// <param name="_TeamsLoading" />
     public K_TeamsLoading UpdateLoading(K_TeamsLoading _TeamsLoading) => default!;
 
     /// <summary>Set teams on the server and send them to the clients</summary>
+    /// <param name="_Teams" />
     public void SetTeamsInfo(global::System.Collections.Generic.IList<K_Team> _Teams) { }
 
     /// <summary>Reset the clans associated to the players by the matchmaking</summary>
     public void ResetMatchmakingClans() { }
 
     /// <summary>Set the clan associated to the player by the matchmaking</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_Clan" />
     public void SetMatchmakingClan(string _AccountId, int _Clan) { }
 
     /// <summary>Remove a player from matchmaking</summary>
+    /// <param name="_AccountId" />
     public void ResetMatchmakingClan(string _AccountId) { }
 
     /// <summary>Get the clan associated to the player by the matchmaking</summary>
+    /// <param name="_AccountId" />
     public int GetMatchmakingClan(string _AccountId) => default!;
 
     /// <summary>Get the short name of a clan</summary>
+    /// <param name="_TeamsInfo" />
+    /// <param name="_Clan" />
     public string GetClanShortName(global::System.Collections.Generic.Dictionary<int, K_Team> _TeamsInfo, int _Clan) => default!;
 
     /// <summary>Get the country url of a clan</summary>
+    /// <param name="_TeamsInfo" />
+    /// <param name="_Clan" />
     public string GetClanCountryFlagUrl(global::System.Collections.Generic.Dictionary<int, K_Team> _TeamsInfo, int _Clan) => default!;
 
     /// <summary>Get the 2x3 sign url of a clan</summary>
+    /// <param name="_TeamsInfo" />
+    /// <param name="_Clan" />
     public string GetClanSign2x3Url(global::System.Collections.Generic.Dictionary<int, K_Team> _TeamsInfo, int _Clan) => default!;
 
     /// <summary>Get the 16x9 sign url of a clan</summary>
+    /// <param name="_TeamsInfo" />
+    /// <param name="_Clan" />
     public string GetClanSign16x9Url(global::System.Collections.Generic.Dictionary<int, K_Team> _TeamsInfo, int _Clan) => default!;
 
     /// <summary>Get the 64x10 sign url of a clan</summary>
+    /// <param name="_TeamsInfo" />
+    /// <param name="_Clan" />
     public string GetClanSign64x10Url(global::System.Collections.Generic.Dictionary<int, K_Team> _TeamsInfo, int _Clan) => default!;
 
     /// <summary>Get the name of a player</summary>
+    /// <param name="_PlayersInfo" />
+    /// <param name="_AccountId" />
+    /// <param name="_DefaultName" />
+    /// <param name="_IsFirstPartyDisplayName" />
     public string GetPlayerName(global::System.Collections.Generic.Dictionary<string, K_Player> _PlayersInfo, string _AccountId, string _DefaultName, bool _IsFirstPartyDisplayName) => default!;
 
     /// <summary>Get the player's photo</summary>
+    /// <param name="_PlayersInfo" />
+    /// <param name="_AccountId" />
     public string GetPlayerPhotoUrl(global::System.Collections.Generic.Dictionary<string, K_Player> _PlayersInfo, string _AccountId) => default!;
 }
