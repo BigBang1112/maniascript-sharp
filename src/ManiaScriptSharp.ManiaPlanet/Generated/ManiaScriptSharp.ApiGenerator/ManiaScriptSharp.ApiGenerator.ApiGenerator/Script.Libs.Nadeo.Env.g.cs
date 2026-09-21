@@ -14,6 +14,7 @@ public partial class Env : ILib
 {
     public const string Version = "2016-05-09";
     public const string ScriptName = "Libs/Nadeo/Env.Script.txt";
+    /// <summary>Default environments</summary>
     public const string C_Env_Production = "production";
     public const string C_Env_Test = "test";
     public const string C_Env_Development = "development";

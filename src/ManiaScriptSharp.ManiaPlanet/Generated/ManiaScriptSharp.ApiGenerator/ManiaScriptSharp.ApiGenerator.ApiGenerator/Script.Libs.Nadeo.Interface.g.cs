@@ -14,17 +14,6 @@ public partial class Interface : ILib
 {
     public const string Version = "2014-10-14";
     public const string ScriptName = "Interface.Script.txt";
-    public const int C_LibUI_VisibilityAll = 1;
-    public const int C_LibUI_VisibilityPlayers = 2;
-    public const int C_LibUI_VisibilitySpectators = 3;
-    public const int C_LibUI_SlidePause = 5000;
-    public const int C_LibUI_SlideType_Top = 1;
-    public const int C_LibUI_SlideType_Text = 2;
-    public const int C_LibUI_SlideType_Img = 3;
-    public const int C_LibUI_SlideBufferDuration = 1000;
-    public const int C_RefreshInterval = 250;
-    public const int C_AnimDuration = 500;
-    public const double C_AnimScalePower = 2.5;
 
     public void UpdateVisibility() { }
 

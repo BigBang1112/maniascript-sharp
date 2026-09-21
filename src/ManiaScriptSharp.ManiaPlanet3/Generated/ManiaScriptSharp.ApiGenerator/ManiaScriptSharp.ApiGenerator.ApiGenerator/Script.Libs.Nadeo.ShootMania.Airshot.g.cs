@@ -9,9 +9,10 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania;
 
-/// <summary>Return the version number of the script</summary>
+/// <summary>Air Shot</summary>
 public partial class Airshot : ILib
 {
+    /// <summary>////////////////////////////////////////////////</summary>
     public const string Version = "2012-06-01";
     public const string ScriptName = "AirShot.Script.txt";
 

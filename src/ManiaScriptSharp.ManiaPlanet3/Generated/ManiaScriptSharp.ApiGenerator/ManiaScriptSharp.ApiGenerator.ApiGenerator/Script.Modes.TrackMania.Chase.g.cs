@@ -16,18 +16,31 @@ public partial class Chase : global::ManiaScriptSharp.Scripts.Modes.TrackMania.M
     public const string CompatibleMapTypes = "Race";
     public const string Version = "2015-03-05";
     public const string ScriptName = "Chase.Script.txt";
+    /// <summary>No winning conditions met</summary>
     public const int C_WinType_Undefined = 0;
+    /// <summary>Win by points gap</summary>
     public const int C_WinType_PointsGap = 1;
+    /// <summary>Win by reaching points limit</summary>
     public const int C_WinType_PointsLimit = 2;
+    /// <summary>Win by finishing first</summary>
     public const int C_WinType_Finish = 3;
+    /// <summary>Win by forfeit</summary>
     public const int C_WinType_Forfeit = 4;
+    /// <summary>Time limit</summary>
     public const int C_WinType_Time = 5;
+    /// <summary>Draw</summary>
     public const int C_WinType_Draw = 6;
+    /// <summary>Duration of the end round sequence</summary>
     public const int C_EndRoundDuration = 5000;
+    /// <summary>Max waiting time for substitutes</summary>
     public const int C_SubstituteWaitingTime = 15000;
+    /// <summary>Max waiting time for missing players</summary>
     public const int C_MissingPlayersWaitingTime = 45000;
+    /// <summary>Default name when no player is selected for next checkpoint</summary>
     public const string C_NoNameCheckpoint = "-";
+    /// <summary>Number of bots in the blue team</summary>
     public const int C_BlueBotsNb = 0;
+    /// <summary>Number of bots in the red team</summary>
     public const int C_RedBotsNb = 0;
 
     public virtual void LogVersion() { }
@@ -65,7 +78,7 @@ public partial class Chase : global::ManiaScriptSharp.Scripts.Modes.TrackMania.M
     public string GetUniqueEventId() => default!;
 
     /// <summary>Update the footer of the scores table</summary>
-    /// <param name="RoundPointsLimit">The round points limit</param>
+    /// <param name="_RoundPointsLimit">The round points limit</param>
     public void UpdateScoresTableFooter(int _RoundPointsLimit) { }
 
     /// <summary>Get the minimum number of players in a team</summary>
@@ -81,34 +94,34 @@ public partial class Chase : global::ManiaScriptSharp.Scripts.Modes.TrackMania.M
     public int GetRoundPointsLimit() => default!;
 
     /// <summary>Set the time limit</summary>
-    /// <param name="StartTime">The time at which the race started</param>
+    /// <param name="_StartTime">The time at which the race started</param>
     public void SetTimeLimit(int _StartTime) { }
 
     /// <summary>Set the number of laps</summary>
-    /// <param name="LapsNb">The number of laps</param>
-    /// <param name="StartTime">The time at which the race started</param>
+    /// <param name="_LapsNb">The number of laps</param>
+    /// <param name="_StartTime">The time at which the race started</param>
     public void SetLapsNb(int _LapsNb, int _StartTime) { }
 
     /// <summary>Send a message to a clan</summary>
-    /// <param name="StatusMessage">The status message</param>
-    /// <param name="BigMessage">The big message</param>
-    /// <param name="StartTime">The clan that will receive the message</param>
-    /// <param name="PlayerId">The id of the player that will see the big message</param>
+    /// <param name="_StatusMessage">The status message</param>
+    /// <param name="_BigMessage">The big message</param>
+    /// <param name="_Clan" />
+    /// <param name="_PlayerId">The id of the player that will see the big message</param>
     public void SendMessage(string _StatusMessage, string _BigMessage, int _Clan, Ident _PlayerId) { }
 
     /// <summary>Force an update in the UI displaying the next checkpoint player</summary>
     public void UpdateNextCheckpointPlayer() { }
 
     /// <summary>Set the name of the next checkpoint player</summary>
-    /// <param name="Clan">Clan of the player</param>
-    /// <param name="Name">Name of the player</param>
-    /// <param name="CheckpointNb">Number of the checkpoint</param>
-    /// <param name="RaceTime">Race time if the player</param>
+    /// <param name="_Clan">Clan of the player</param>
+    /// <param name="_Name">Name of the player</param>
+    /// <param name="_CheckpointNb">Number of the checkpoint</param>
+    /// <param name="_RaceTime">Race time if the player</param>
     public void SetNextCheckpointPlayer(int _Clan, string _Name, int _CheckpointNb, int _RaceTime) { }
 
     /// <summary>Update the markers</summary>
-    /// <param name="Player">The player that must cross the checkpoint</param>
-    /// <param name="Display">Display the marker or not</param>
+    /// <param name="_Player">The player that must cross the checkpoint</param>
+    /// <param name="_Display">Display the marker or not</param>
     public void UpdateMarkers(CTmPlayer _Player, bool _Display) { }
 
     /// <summary>Update the clan scores</summary>
@@ -119,7 +132,7 @@ public partial class Chase : global::ManiaScriptSharp.Scripts.Modes.TrackMania.M
     public bool EnoughPlayers() => default!;
 
     /// <summary>Waiting enough players in each team</summary>
-    /// <param name="WaitingTime">Maximum waiting time</param>
+    /// <param name="_WaitingTime">Maximum waiting time</param>
     public void WaitForPlayers(int _WaitingTime) { }
 
     /// <summary>Get the warm up duration for competitive mode</summary>
@@ -127,7 +140,7 @@ public partial class Chase : global::ManiaScriptSharp.Scripts.Modes.TrackMania.M
     public int GetWarmUpDuration() => default!;
 
     /// <summary>Manage the warm up sequence</summary>
-    /// <param name="IsPause">True if it's a pause, False if it's a standards warm-up</param>
+    /// <param name="_IsPause">True if it's a pause, False if it's a standards warm-up</param>
     public void WarmUp(bool _IsPause) { }
 
     /// <summary>Create the manialink for the next checkpoint player</summary>

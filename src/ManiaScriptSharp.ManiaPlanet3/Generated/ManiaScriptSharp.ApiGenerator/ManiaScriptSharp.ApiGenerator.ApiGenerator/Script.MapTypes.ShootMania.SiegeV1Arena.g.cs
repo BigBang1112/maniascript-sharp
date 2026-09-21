@@ -30,5 +30,6 @@ public partial class SiegeV1Arena : ILib
     public string EditAnchorManialink() => default!;
 
     /// <summary>Show the anchor edition manialink</summary>
+    /// <param name="_EditedAnchorDataId" />
     public void EditAnchorData(Ident _EditedAnchorDataId) { }
 }

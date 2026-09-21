@@ -121,6 +121,7 @@ internal sealed class ScriptApiEmitter
             if (functionNames.Contains(constName)) continue; // avoid CS0102 with same-named method
             if (firstConst && _script.Includes.Count > 0) sb.AppendLine();
             firstConst = false;
+            WriteSummaryDoc(sb, con.Doc, "    ");
             sb.Append("    public const ").Append(csType).Append(' ')
               .Append(constName).Append(" = ").Append(csValue).AppendLine(";");
         }
@@ -366,6 +367,15 @@ internal sealed class ScriptApiEmitter
     }
 
     // ── type mapping ──────────────────────────────────────────────────────────
+
+    private static void WriteSummaryDoc(StringBuilder sb, ScriptDocComment? doc, string indentation)
+    {
+        var summary = doc?.Summary;
+        if (string.IsNullOrWhiteSpace(summary)) return;
+
+        sb.Append(indentation).Append("/// <summary>")
+            .Append(EscapeXml(summary!)).AppendLine("</summary>");
+    }
 
     private string MapType(string msType)
     {

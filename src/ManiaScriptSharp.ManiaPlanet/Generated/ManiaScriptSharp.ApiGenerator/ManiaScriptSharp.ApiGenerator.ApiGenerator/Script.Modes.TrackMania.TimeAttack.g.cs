@@ -16,7 +16,9 @@ public partial class TimeAttack : global::ManiaScriptSharp.Scripts.Modes.TrackMa
     public const string CompatibleMapTypes = "Race";
     public const string Version = "2018-05-14";
     public const string ScriptName = "Modes/TrackMania/TimeAttack/TimeAttack.Script.txt";
+    /// <summary>Path to the hud module</summary>
     public const string C_HudModulePath = "Nadeo/TrackMania/TimeAttack/Hud.Module.Gbx";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TrackMania/TimeAttack/TimeAttack.Script.txt";
     public const int C_BotsNb = 0;
 
     public virtual void Match_LogVersion() { }

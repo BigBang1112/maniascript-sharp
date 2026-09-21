@@ -19,30 +19,55 @@ public partial class MatchmakingLobby : ILib
 
     public const string Version = "2018-02-15";
     public const string ScriptName = "Libs/Nadeo/MatchmakingLobby.Script.txt";
+    /// <summary>Lobby phases Playing phase</summary>
     public const int C_Lobby_Playing = 0;
+    /// <summary>Matchmaking phase</summary>
     public const int C_Lobby_Matchmaking = 1;
+    /// <summary>Masters Number of masters displayed</summary>
     public const int C_Master_Numbers = 20;
+    /// <summary>Name of the master</summary>
     public const int C_Master_Name = 0;
+    /// <summary>Country of the master</summary>
     public const int C_Master_Country = 1;
+    /// <summary>Echelon of the master</summary>
     public const int C_Master_Echelon = 2;
+    /// <summary>Ally status Ally validated</summary>
     public const int C_AllyStatus_Validated = 0;
+    /// <summary>Ally request sent to this player</summary>
     public const int C_AllyStatus_Sent = 1;
+    /// <summary>Ally disconnected</summary>
     public const int C_AllyStatus_Disconnected = 2;
+    /// <summary>Ally info Current status of the user in the room</summary>
     public const int C_AllyInfo_Status = 0;
+    /// <summary>Current clan of the user in the room</summary>
     public const int C_AllyInfo_Clan = 1;
+    /// <summary>Current slot of the user in the room</summary>
     public const int C_AllyInfo_Slot = 2;
+    /// <summary>Default room properties Default clan when creating a room</summary>
     public const int C_Lobby_DefaultClan = 0;
+    /// <summary>Default slot when creating a room</summary>
     public const int C_Lobby_DefaultSlot = 0;
+    /// <summary>Cancellation configuration Legacy : Allow match cancel</summary>
     public const bool C_AllowMatchCancel = true;
+    /// <summary>Legacy : -1: infinite cancel, 0 or more: number of cancellations allowed</summary>
     public const int C_LimitMatchCancel = 0;
+    /// <summary>Legacy : Penalize players canceling a replacement</summary>
     public const bool C_PenalizeSubstituteCancel = false;
+    /// <summary>Warn player that they will be penalize if they cancel</summary>
     public const bool C_WarnPenalty = false;
+    /// <summary>Misc Duration before sending back a player to the match he left</summary>
     public const int C_ReconnectDuration = 5000;
+    /// <summary>Minimum time after a transfert before a player can be listed as ready</summary>
     public const int C_TransfertSafeTime = 40000;
+    /// <summary>Time since the last ping before considering the player as disconnected</summary>
     public const int C_TimeOutDuration = 20000;
+    /// <summary>Random time margin applied to the live request of the match and lobby server</summary>
     public const int C_RequestRandomDeviation = 500;
+    /// <summary>Common http headers</summary>
     public const string C_HttpHeaders = "Content-Type: application/json\nAccept: application/xml";
+    /// <summary>XmlRpc callbacks</summary>
     public const string C_Callback_Matchmaking_ReadyState = "Maniaplanet.Matchmaking.ReadyState";
+    /// <summary>XmlRpc methods</summary>
     public const string C_Method_Matchmaking_Start = "Maniaplanet.Matchmaking.Start";
     public const string C_Method_Matchmaking_Stop = "Maniaplanet.Matchmaking.Stop";
     public const string C_Method_Matchmaking_Force = "Maniaplanet.Matchmaking.Force";

@@ -9,7 +9,7 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania;
 
-/// <summary>Return the version number of the script</summary>
+/// <summary>Helps handle player attributes displayed in a GUI</summary>
 public partial class UIFieldsServer : ILib
 {
     public const string Version = "2012-12-17";

@@ -14,18 +14,31 @@ public partial class MatchmakingCommon : ILib
 {
     public const string Version = "2017-05-12";
     public const string ScriptName = "Libs/Nadeo/MatchmakingCommon.Script.txt";
+    /// <summary>Matchmaking modes Matchmaking off on this server</summary>
     public const int C_Matchmaking_Off = 0;
+    /// <summary>Is lobby server</summary>
     public const int C_Matchmaking_Lobby = 1;
+    /// <summary>Is match  server</summary>
     public const int C_Matchmaking_Match = 2;
+    /// <summary>Is universal lobby</summary>
     public const int C_Matchmaking_UniversalLobby = 3;
+    /// <summary>Is universal match</summary>
     public const int C_Matchmaking_UniversalMatch = 4;
+    /// <summary>Request types /lobby-server/player-connection?login=somelogin&amp;lobbylogin=anotherlogin</summary>
     public const int C_Request_GetPlayers = 0;
+    /// <summary>/lobby-server/matchmaking-live</summary>
     public const int C_Request_PostPlayers = 1;
+    /// <summary>/match-server/match?serverlogin=somelogin</summary>
     public const int C_Request_GetMatches = 2;
+    /// <summary>/match-server/live</summary>
     public const int C_Request_PostStatus = 3;
+    /// <summary>/match-server/result</summary>
     public const int C_Request_PostResults = 4;
+    /// <summary>/lobby-server/match</summary>
     public const int C_Request_PostMatches = 5;
+    /// <summary>Misc Prefix used before the messages sent in the chat by the matchmaking</summary>
     public const string C_MessagePrefix = "$000»$09f";
+    /// <summary>Interval between ping from the player</summary>
     public const int C_PingInterval = 5000;
 
     /// <summary>Return the version number of the script</summary>

@@ -15,6 +15,7 @@ public partial class UIPadButtons : ILib
 
     public const string Version = "2016-01-14";
     public const string ScriptName = "UIPadButtons.Script.txt";
+    public const string C_DefaultBaseDir = "file://Media/Manialinks/Common/PadButtons/";
     public const int C_DefaultPlatform = 2;
     public const string C_DefaultButtonsFolder = "Default/";
     public const string C_DefaultButtonsFormat = ".dds";

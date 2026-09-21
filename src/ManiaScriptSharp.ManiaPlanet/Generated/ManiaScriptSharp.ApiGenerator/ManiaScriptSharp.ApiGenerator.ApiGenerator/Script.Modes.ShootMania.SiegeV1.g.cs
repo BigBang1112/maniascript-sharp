@@ -26,33 +26,63 @@ public partial class SiegeV1 : global::ManiaScriptSharp.Scripts.Modes.ShootMania
     public const string CompatibleMapTypes = "SiegeArena, SiegeV1Arena";
     public const string Version = "2017-09-13";
     public const string ScriptName = "SiegeV1.Script.txt";
+    /// <summary>First capturing clan on the first map of the match</summary>
     public const int C_FirstCapturingClan = 0;
+    /// <summary>If a team capture all poles on first turn, give a chance to the other</summary>
     public const bool C_UseSuddenDeath = true;
+    /// <summary>Duration of the preround sequence (default: 7000)</summary>
     public const int C_PreRoundTime = 7000;
+    /// <summary>Duration of the postround sequence (default: 5000)</summary>
     public const int C_PostRoundTime = 5000;
+    /// <summary>Override the number of goal on the map</summary>
     public const int C_OverrideGoalCount = 0;
+    /// <summary>Automatically capture the pole when all defenders have been eliminated</summary>
     public const bool C_AutomaticCapture = true;
+    /// <summary>Do not remove already capture percentage when nobody is capturing</summary>
     public const bool C_CumulativeCapture = false;
+    /// <summary>Number of starting armors</summary>
     public const int C_StartingArmor = 1;
+    /// <summary>Respawn capture clan at last checkpoint after capture</summary>
     public const bool C_RespawnCaptureClan = false;
+    /// <summary>Limit the amout of damage a player can do on one hit</summary>
     public const int C_MaxDamage = 100;
+    /// <summary>Active the defense respawn queue</summary>
     public const bool C_UseDefRespawnQueue = false;
+    /// <summary>Delay before the respawn of a def players in the respawn queue</summary>
     public const int C_DefRespawnDelay = 10000;
+    /// <summary>Add time to countdowns to compensate the spawn time</summary>
     public const int C_SpawnDelta = 3000;
+    /// <summary>Time at the end of the map before the next</summary>
     public const int C_EndMapTime = 10000;
+    /// <summary>Time at the end of the match before the next</summary>
     public const int C_EndMatchTime = 15000;
+    /// <summary>Rocket ammo regen speed</summary>
     public const double C_RocketGain = 1.0;
+    /// <summary>Laser ammo regen speed</summary>
     public const double C_LaserGain = 0.8;
+    /// <summary>Nucleus ammo regen speed</summary>
     public const double C_NucleusGain = 0.4;
+    /// <summary>Don't let the defense players choose their weapon</summary>
     public const bool C_ForceDefWeapon = false;
+    /// <summary>Don't let the attack players choose their weapon</summary>
     public const bool C_ForceAtkWeapon = false;
+    /// <summary>Victory bonus for ladder ranking</summary>
     public const int C_LadderBonusVictory = 30;
+    /// <summary>Capture bonus for ladder ranking</summary>
     public const int C_LadderBonusCapture = 5;
+    /// <summary>Time interval between spec refresh</summary>
     public const int C_SpecTickPeriod = 2000;
+    /// <summary>Duration of the role message after spawn</summary>
     public const int C_RoleMessageDuration = 10000;
+    /// <summary>Update interval of the layers</summary>
     public const int C_LayersUpdateInterval = 250;
+    public const string C_ImgBaseDir = "file://Media/Manialinks/Shootmania/Common/";
+    public const string C_ImgInfoDir = "file://Media/Manialinks/Shootmania/InfoPanel/";
+    public const string C_ImgSiegeDir = "file://Media/Manialinks/Shootmania/Siege/";
     public const int C_WaitConnectionTimeLimit = 60000;
+    /// <summary>Number of bot in blue clan</summary>
     public const int C_BlueBot = 0;
+    /// <summary>Number of bot in red clan</summary>
     public const int C_RedBot = 0;
     public const int C_PHASE_MAPSTART = 0;
     public const int C_PHASE_ROUNDSTART = 1;

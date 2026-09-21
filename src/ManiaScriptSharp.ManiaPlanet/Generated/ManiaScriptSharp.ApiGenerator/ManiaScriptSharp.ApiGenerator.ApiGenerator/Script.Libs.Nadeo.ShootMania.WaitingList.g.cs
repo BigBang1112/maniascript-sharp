@@ -9,10 +9,11 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania;
 
-/// <summary>Return the version number of the script</summary>
+/// <summary>Waiting List Lib Deprecated!!!</summary>
 public partial class WaitingList : ILib
 {
 
+    /// <summary>Please use the WaitingQueue Lib instead!</summary>
     public const string Version = "2012-07-27";
     public const string ScriptName = "WaitingList.Script.txt";
 

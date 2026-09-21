@@ -15,8 +15,11 @@ public partial class Draft : ILib
 
     public const string Version = "2012-12-17";
     public const string ScriptName = "Draft.Script.txt";
+    /// <summary>Maximum number of items on one page (PlayerList and MapList)</summary>
     public const int C_ItemsByPage = 9;
+    /// <summary>Time before automatically selecting a map to ban</summary>
     public const int C_MapSelectionDuration = 30000;
+    /// <summary>Duration of the display of the selected maps</summary>
     public const int C_MapDisplayDuration = 7000;
 
     /// <summary>Return the version number of the script</summary>

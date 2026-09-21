@@ -22,6 +22,7 @@ public partial class ModeBase : ILib
 
     public const string ModeBaseVersion = "2017-05-03";
     public const string ModeBaseScriptName = "ModeBase.Script.txt";
+    /// <summary>Duration of the player presentation sequence (default: 4000)</summary>
     public const int C_PlayersPresentationTime = 4000;
 
     public virtual void LogVersion() { }

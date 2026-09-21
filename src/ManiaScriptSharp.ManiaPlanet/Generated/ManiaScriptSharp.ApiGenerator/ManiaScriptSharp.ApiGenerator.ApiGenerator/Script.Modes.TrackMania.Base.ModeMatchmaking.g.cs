@@ -21,6 +21,7 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Tr
 
     public const string ModeMatchmakingVersion = "2017-05-02";
     public const string ModeMatchmakingScriptName = "ModeMatchmaking.Script.txt";
+    /// <summary>Number of bots in the lobby</summary>
     public const int C_Lobby_BotsNb = 0;
 
     public virtual void LogVersion() { }

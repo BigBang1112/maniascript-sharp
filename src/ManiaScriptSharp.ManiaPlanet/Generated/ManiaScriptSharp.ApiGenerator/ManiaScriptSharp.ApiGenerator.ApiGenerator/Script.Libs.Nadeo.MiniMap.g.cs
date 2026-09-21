@@ -15,9 +15,14 @@ public partial class MiniMap : ILib
 
     public const string Version = "2013-08-20";
     public const string ScriptName = "Map.Script.txt";
+    public const string C_PointsImage = "file://Media/Manialinks/Common/SmallDisc.dds";
+    public const string C_ImgBaseDir = "file://Media/Manialinks/Shootmania/Common/";
     public const int C_MapTimeTick = 80;
     public const double C_SizePointDefault = 1.5;
+    public const string C_MiniMapContour = "file://Media/Manialinks/Common/Minimap/MinimapOverlay.dds";
+    public const string C_RadarContour = "file://Media/Manialinks/Common/Minimap/RadarOverlay.dds";
     public const string C_MiniMapBG = "";
+    public const string C_RadarBG = "file://Media/Manialinks/Common/Minimap/RadarBG.dds";
     public const int C_QuadMapSize = 50;
     public const int C_NbQuadDynamic = 64;
     public const double C_RadarRadius = 1.0;

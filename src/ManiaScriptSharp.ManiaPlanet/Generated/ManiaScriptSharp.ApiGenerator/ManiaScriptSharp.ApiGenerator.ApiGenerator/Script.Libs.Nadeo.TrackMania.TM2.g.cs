@@ -17,12 +17,19 @@ public partial class TM2 : ILib
 
     public const string Version = "2016-09-08";
     public const string ScriptName = "Libs/Nadeo/TrackMania/TM2.Script.txt";
+    /// <summary>Time before respawn (3,2,1,Go!)</summary>
     public const int C_SpawnDuration = 3000;
+    /// <summary>Outro sequence duration</summary>
     public const int C_OutroDuration = 8000;
+    /// <summary>Time before the display of the scores table in the outro sequence</summary>
     public const int C_OutroScoresTableTime = 3000;
+    /// <summary>The player is currently racing</summary>
     public const int C_SpawnStatus_Racing = 1;
+    /// <summary>The player is winting to be spawned</summary>
     public const int C_SpawnStatus_Waiting = 2;
+    /// <summary>The player is watching the outro sequence</summary>
     public const int C_SpawnStatus_Outro = 3;
+    /// <summary>XmlRpc</summary>
     public const string C_Callback_Event_StartCountdown = "Trackmania.Event.StartCountdown";
 
     /// <summary>Return the version number of the script</summary>

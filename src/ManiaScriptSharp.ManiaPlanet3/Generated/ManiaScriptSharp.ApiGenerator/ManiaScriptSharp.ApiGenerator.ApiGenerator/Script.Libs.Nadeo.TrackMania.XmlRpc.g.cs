@@ -65,12 +65,12 @@ public partial class XmlRpc : ILib
     public void Load() { }
 
     /// <summary>Send the player ranking Data: [Rank, Login, NickName, TeamId, IsSpectator, IsAway, CurrentScore, Zone, Points]</summary>
-    /// <param name="Login">The login of the player to get</param>
+    /// <param name="_Login">The login of the player to get</param>
     public void SendPlayerRanking(string _Login) { }
 
     /// <summary>Send the players ranking Data: [&quot;login:rank&quot;, &quot;login:rank&quot;, ...]</summary>
-    /// <param name="Range">Maximum number of infos to return</param>
-    /// <param name="Start">Starting index of the ranking</param>
+    /// <param name="_Range">Maximum number of infos to return</param>
+    /// <param name="_Start">Starting index of the ranking</param>
     public void SendPlayersRanking(int _Range, int _Start) { }
 
     /// <summary>Send the players scores Data: [Player1:45, Player2:56, Player3:89, ...]</summary>
@@ -89,12 +89,16 @@ public partial class XmlRpc : ILib
     public void SendIsTeamMode() { }
 
     /// <summary>Callback sent when starting to load the map Data: [Number of the map]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void LoadingMap(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent when starting to load the map Data: [Number of the map]</summary>
+    /// <param name="_Number" />
     public void LoadingMap(int _Number) { }
 
     /// <summary>Callback sent when starting to unload the map Data: [Number of the map]</summary>
+    /// <param name="_Number" />
     public void UnloadingMap(int _Number) { }
 
     /// <summary>Callback sent before the beginning of the server Data: []</summary>
@@ -104,36 +108,51 @@ public partial class XmlRpc : ILib
     public void BeginServerStop() { }
 
     /// <summary>Callback sent before the beginning of the match Data: [Number of the match, Script restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMatch(int _Number, bool _Restarted) { }
 
     /// <summary>BeginMatch() overload</summary>
+    /// <param name="_Number" />
     public void BeginMatch(int _Number) { }
 
     /// <summary>Callback sent after the beginning of the match Data: [Number of the match, Map restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMatchStop(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent before the beginning of the map Data: [Number of the map, Map UID, Map restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMap(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent after the beginning of the map Data: [Number of the map, Map UID, Map restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMapStop(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent before the beginning of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void BeginSubmatch(int _Number) { }
 
     /// <summary>Callback sent after the beginning of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void BeginSubmatchStop(int _Number) { }
 
     /// <summary>Callback sent before the beginning of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void BeginRound(int _Number) { }
 
     /// <summary>Callback sent after the beginning of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void BeginRoundStop(int _Number) { }
 
     /// <summary>Callback sent before the beginning of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void BeginTurn(int _Number) { }
 
     /// <summary>Callback sent after the beginning of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void BeginTurnStop(int _Number) { }
 
     /// <summary>Callback sent at the beginning of the play loop Data: []</summary>
@@ -143,33 +162,43 @@ public partial class XmlRpc : ILib
     public void EndPlaying() { }
 
     /// <summary>Callback sent before the end of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void EndTurn(int _Number) { }
 
     /// <summary>Callback sent after the end of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void EndTurnStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void EndRound(int _Number) { }
 
     /// <summary>Callback sent after the end of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void EndRoundStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void EndSubmatch(int _Number) { }
 
     /// <summary>Callback sent after the end of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void EndSubmatchStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the map Data: [Number of the map, Map UID]</summary>
+    /// <param name="_Number" />
     public void EndMap(int _Number) { }
 
     /// <summary>Callback sent after the end of the map Data: [Number of the map, Map UID]</summary>
+    /// <param name="_Number" />
     public void EndMapStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the match Data: [Number of the match]</summary>
+    /// <param name="_Number" />
     public void EndMatch(int _Number) { }
 
     /// <summary>Callback sent after the end of the match Data: [Number of the match]</summary>
+    /// <param name="_Number" />
     public void EndMatchStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the server Data: []</summary>
@@ -204,30 +233,31 @@ public partial class XmlRpc : ILib
     public void ScoresReady() { }
 
     /// <summary>Callback sent when the countdown start</summary>
+    /// <param name="_Player" />
     public void OnStartCountdown(CTmPlayer _Player) { }
 
     /// <summary>Callback sent when a player starts a race Data: [Player login]</summary>
-    /// <param name="Event">The event to handle</param>
+    /// <param name="_Event">The event to handle</param>
     public void OnStartLine(CTmModeEvent _Event) { }
 
     /// <summary>Callback sent when a player crosses a waypoint (checkpoint or finish) Data: [Player login, id of the waypoint block, current race time, the checkpoint number in the race, is the end of the race, current lap time, the checkpoint number in the lap, is the end of the lap]</summary>
-    /// <param name="Event">The event to handle</param>
+    /// <param name="_Event">The event to handle</param>
     public void OnWayPoint(CTmModeEvent _Event) { }
 
     /// <summary>Callback sent when a player restarts Data: [Player login]</summary>
-    /// <param name="Event">The event to handle</param>
+    /// <param name="_Event">The event to handle</param>
     public void OnGiveUp(CTmModeEvent _Event) { }
 
     /// <summary>Callback sent when a player respawns Data: [Player login]</summary>
-    /// <param name="Event">The event to handle</param>
+    /// <param name="_Event">The event to handle</param>
     public void OnRespawn(CTmModeEvent _Event) { }
 
     /// <summary>Callback sent when a player does a stunt Data: [Player login, the stunt points, the combo, the total stunts score, the factor, the stunt name, the angle, if the stunt is straight, if the stunt is reversed, if the stunt is a master jump]</summary>
-    /// <param name="Event">The event to handle</param>
+    /// <param name="_Event">The event to handle</param>
     public void OnStunt(CTmModeEvent _Event) { }
 
     /// <summary>Automatically handle the event</summary>
-    /// <param name="Event">The event to handle</param>
+    /// <param name="_Event">The event to handle</param>
     public void PassOn(CTmModeEvent _Event) { }
 
     /// <summary>Wait for XmlRpc callbacks</summary>

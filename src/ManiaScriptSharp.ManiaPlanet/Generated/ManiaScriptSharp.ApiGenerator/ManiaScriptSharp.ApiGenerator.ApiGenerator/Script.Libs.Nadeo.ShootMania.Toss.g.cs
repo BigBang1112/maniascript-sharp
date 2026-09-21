@@ -15,8 +15,11 @@ public partial class Toss : ILib
 
     public const string Version = "2013-07-16";
     public const string ScriptName = "Toss.Script.txt";
+    /// <summary>Active debug mode</summary>
     public const bool C_LibToss_Debug = false;
+    /// <summary>Maximum time before forcing the end of the toss</summary>
     public const int C_LibToss_TossTime = 5000;
+    /// <summary>Maximum time before forcing the end of the vote</summary>
     public const int C_LibToss_VoteTime = 8000;
 
     /// <summary>Return the version number of the script</summary>

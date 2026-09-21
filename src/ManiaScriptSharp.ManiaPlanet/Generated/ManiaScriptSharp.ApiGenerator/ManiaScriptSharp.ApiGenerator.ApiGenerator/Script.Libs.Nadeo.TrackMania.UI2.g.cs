@@ -19,6 +19,7 @@ public partial class UI2 : ILib
 
     public const string Version = "2018-03-27";
     public const string ScriptName = "UI.Script.txt";
+    /// <summary>XmlRpc</summary>
     public const string C_Callback_Properties = "Trackmania.UI.Properties";
     public const string C_Method_GetProperties = "Trackmania.UI.GetProperties";
     public const string C_Method_GetDefaultProperties = "Trackmania.UI.GetDefaultProperties";
@@ -29,6 +30,7 @@ public partial class UI2 : ILib
     public const string C_Method_GetDefaultProperty = "Trackmania.UI.GetDefaultProperty";
     public const string C_Method_SetProperty = "Trackmania.UI.SetProperty";
     public const string C_Method_ResetProperty = "Trackmania.UI.ResetProperty";
+    /// <summary>Formats</summary>
     public const int C_Format_Xml = 0;
     public const int C_Format_Json = 1;
 

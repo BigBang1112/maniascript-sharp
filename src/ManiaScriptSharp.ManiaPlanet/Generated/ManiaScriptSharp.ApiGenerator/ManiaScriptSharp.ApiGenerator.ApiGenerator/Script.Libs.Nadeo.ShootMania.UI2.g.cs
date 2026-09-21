@@ -17,6 +17,7 @@ public partial class UI2 : ILib
 
     public const string Version = "2017-12-20";
     public const string ScriptName = "Libs/Nadeo/UI.Script.txt";
+    /// <summary>XmlRpc</summary>
     public const string C_Callback_Properties = "Shootmania.UI.Properties";
     public const string C_Method_GetProperties = "Shootmania.UI.GetProperties";
     public const string C_Method_GetDefaultProperties = "Shootmania.UI.GetDefaultProperties";
@@ -27,8 +28,10 @@ public partial class UI2 : ILib
     public const string C_Method_GetDefaultProperty = "Shootmania.UI.GetDefaultProperty";
     public const string C_Method_SetProperty = "Shootmania.UI.SetProperty";
     public const string C_Method_ResetProperty = "Shootmania.UI.ResetProperty";
+    /// <summary>Formats</summary>
     public const int C_Format_Xml = 0;
     public const int C_Format_Json = 1;
+    /// <summary>Modules</summary>
     public const string C_Module_Notices = "notices";
     public const string C_Module_MapInfo = "map_info";
     public const string C_Module_Chat = "chat";

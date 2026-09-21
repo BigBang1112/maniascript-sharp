@@ -9,7 +9,6 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania;
 
-/// <summary>Return the version number of the script</summary>
 public partial class WarmUpSimple : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania.SM SM;

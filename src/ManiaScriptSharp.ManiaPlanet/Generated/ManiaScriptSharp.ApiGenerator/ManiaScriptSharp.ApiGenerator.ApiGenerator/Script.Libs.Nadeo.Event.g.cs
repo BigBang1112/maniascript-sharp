@@ -14,7 +14,9 @@ public partial class Event : ILib
 {
     public const string Version = "2015-01-16";
     public const string ScriptName = "Event.Script.txt";
+    /// <summary>Maximum number of events in a queue</summary>
     public const int C_ClassEvent_EventsQueueSize = 100;
+    /// <summary>Maximum interval (ms) between two keep alive before removing a stream</summary>
     public const int C_ClassEvent_KeepAliveMax = 1500;
     public const string C_ClassEvent_DefaultProperty_Emitter = "Event_Emitter";
 

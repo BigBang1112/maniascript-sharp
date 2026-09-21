@@ -15,6 +15,8 @@ public partial class Markers : ILib
 
     public const string Version = "2015-11-17";
     public const string ScriptName = "Markers.Script.txt";
+    public const string C_LibMarkers_MiniMapDot = "file://Media/Manialinks/Common/SmallDisc.dds";
+    public const string C_LibMarkers_MiniMapPointer = "file://Media/Manialinks/Common/Pointer.dds";
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

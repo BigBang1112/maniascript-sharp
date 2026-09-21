@@ -30,16 +30,17 @@ public partial class MultiClans : ILib
     public void Load() { }
 
     /// <summary>Get the current clan of a player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The clan of the player</returns>
     public int GetPlayerClan(CTmPlayer _Player) => default!;
 
     /// <summary>Set the current clan of a player</summary>
-    /// <param name="Player">The player to update</param>
-    /// <param name="ClanNb">The clan number to set</param>
+    /// <param name="_Player">The player to update</param>
+    /// <param name="_ClanNb">The clan number to set</param>
     public void SetPlayerClan(CTmPlayer _Player, int _ClanNb) { }
 
     /// <summary>Check if a clan exists</summary>
+    /// <param name="_ClanNb" />
     /// <returns>True if the clan exists, False otherwise</returns>
     public bool ClanExists(int _ClanNb) => default!;
 
@@ -50,17 +51,16 @@ public partial class MultiClans : ILib
     public void ClearClansColors() { }
 
     /// <summary>Get the current color of a clan</summary>
-    /// <param name="ClanNb">The clan to get</param>
+    /// <param name="_ClanNb">The clan to get</param>
     /// <returns>The color of the clan in RGB, if not found return a black color</returns>
     public Vec3 GetClanColor(int _ClanNb) => default!;
 
     /// <summary>Get the color of each clan</summary>
-    /// <param name="ClanNb">The clan to get</param>
     public global::System.Collections.Generic.Dictionary<int, Vec3> GetClansColor() => default!;
 
     /// <summary>Set the color of a clan</summary>
-    /// <param name="ClanNb">The number of the clan to update</param>
-    /// <param name="Color">The color to set</param>
+    /// <param name="_ClanNb">The number of the clan to update</param>
+    /// <param name="_Color">The color to set</param>
     public void SetClanColor(int _ClanNb, Vec3 _Color) { }
 
     /// <summary>Get the list of the existing clans</summary>
@@ -80,22 +80,22 @@ public partial class MultiClans : ILib
     public int GetClansNbWaiting() => default!;
 
     /// <summary>Get the players of a clan</summary>
-    /// <param name="ClanNb">The clan to get</param>
+    /// <param name="_ClanNb">The clan to get</param>
     /// <returns>The players of the requested clan</returns>
     public global::System.Collections.Generic.IList<CTmPlayer> GetClanPlayers(int _ClanNb) => default!;
 
     /// <summary>Get the number of players in a clan</summary>
-    /// <param name="ClanNb">The clan to check</param>
+    /// <param name="_ClanNb">The clan to check</param>
     /// <returns>The number of players in the clan</returns>
     public int GetClanNbPlayers(int _ClanNb) => default!;
 
     /// <summary>Get the number of racing players in a clan</summary>
-    /// <param name="ClanNb">The clan to check</param>
+    /// <param name="_ClanNb">The clan to check</param>
     /// <returns>The number of players racing in the clan</returns>
     public int GetClanNbPlayersRacing(int _ClanNb) => default!;
 
     /// <summary>Get the number of waiting players in a clan</summary>
-    /// <param name="ClanNb">The clan to check</param>
+    /// <param name="_ClanNb">The clan to check</param>
     /// <returns>The number of players waiting in the clan</returns>
     public int GetClanNbPlayersWaiting(int _ClanNb) => default!;
 }

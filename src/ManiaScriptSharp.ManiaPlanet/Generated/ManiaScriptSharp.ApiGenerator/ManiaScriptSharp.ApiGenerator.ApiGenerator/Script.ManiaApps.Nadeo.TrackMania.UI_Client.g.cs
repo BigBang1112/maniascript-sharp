@@ -17,36 +17,26 @@ public partial class UI_Client : ILib
 
     public const string Version = "2018-05-15";
     public const string ScriptName = "ManiaApps/Nadeo/TrackMania/UI_Client.Script.txt";
+    /// <summary>Manialinks</summary>
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/TrackMania/Ingame/";
+    /// <summary>Settings</summary>
     public const int C_HideLegend = 1;
+    /// <summary>Speedometer</summary>
     public const double C_Speed_Size = 30.0;
     public const double C_Speed_Opacity = 1.0;
     public const double C_Speed_ClipOffset = 0.2;
     public const double C_Speed_FullCircleValue = 150.0;
+    /// <summary>Colors</summary>
     public const string C_ColorHex_White = "ffffff";
     public const string C_ColorHex_Red = "fa2626";
     public const string C_ColorHex_Yellow = "ffdb35";
     public const string C_ColorHex_DarkBlue = "0b081b";
     public const string C_ColorHex_BlueGreen = "1ec8c2";
+    /// <summary>Scale</summary>
     public const double C_Speed_Scale = 0.7;
     public const double C_Chrono_Scale = 0.8;
     public const double C_CheckpoinRanking_Scale = 0.7;
     public const double C_CheckpointTime_Scale = 0.9;
-    public const string C_Sound_Checkpoint = "RaceCheckPoint_Experimental.wav";
-    public const string C_Sound_CheckpointLate = "RaceCheckPointLate_Experimental.wav";
-    public const string C_Sound_CheckpointAhead = "RaceCheckPointAhead_Experimental.wav";
-    public const int C_DisplayDuration = 2500;
-    public const int C_ShowHideDuration = 500;
-    public const double C_ShowHideSpeed = 0.5;
-    public const double C_UpdateSpeed = 1.0;
-    public const int C_Anim = 0;
-    public const double C_MaxRotationLeft = 0.0;
-    public const double C_MaxRotationRight = 100.0;
-    public const int C_UpdateInterval = 250;
-    public const int C_PlayersUpdateInterval = 1000;
-    public const int C_MessageQueueLimit = 3;
-    public const int C_MessageUpdateInterval = 2000;
-    public const int C_Login = 2;
-    public const int C_Name = 3;
 
     public void HideDuringIntro(CMlFrame _Frame) { }
 

@@ -22,8 +22,11 @@ public partial class TimeAttack : global::ManiaScriptSharp.Scripts.Modes.ShootMa
     public const string CompatibleMapTypes = "TimeAttackArena";
     public const string Version = "2016-05-06";
     public const string ScriptName = "TimeAttack.Script.txt";
+    /// <summary>Number of players in the top times UI</summary>
     public const int C_NbTopTimes = 5;
+    /// <summary>Player can use weapons on himself</summary>
     public const bool C_UseWeapons = true;
+    /// <summary>Debug mode</summary>
     public const bool C_Debug = false;
 
     public virtual void LogVersion() { }

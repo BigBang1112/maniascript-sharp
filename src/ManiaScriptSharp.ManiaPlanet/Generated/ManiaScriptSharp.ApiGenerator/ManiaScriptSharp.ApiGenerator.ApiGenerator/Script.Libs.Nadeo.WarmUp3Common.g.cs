@@ -17,14 +17,15 @@ public partial class WarmUp3Common : ILib
 
     public const string Version = "2017-04-18";
     public const string ScriptName = "Libs/Nadeo/WarmUp3Common.Script.txt";
+    /// <summary>XmlRpc callbacks</summary>
     public const string C_Callback_WarmUp_Start = "Maniaplanet.WarmUp.Start";
     public const string C_Callback_WarmUp_End = "Maniaplanet.WarmUp.End";
     public const string C_Callback_WarmUp_Status = "Maniaplanet.WarmUp.Status";
+    /// <summary>XmlRpc methods</summary>
     public const string C_Method_WarmUp_Extend = "Maniaplanet.WarmUp.Extend";
     public const string C_Method_WarmUp_Stop = "Maniaplanet.WarmUp.ForceStop";
     public const string C_Method_WarmUp_GetStatus = "Maniaplanet.WarmUp.GetStatus";
     public const string C_Method_WarmUp_BlockEndWarmUp = "Maniaplanet.WarmUp.BlockEndWarmUp";
-    public const int C_UpdateInterval = 250;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

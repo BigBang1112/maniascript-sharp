@@ -9,6 +9,7 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Modes.TrackMania;
 
+/// <summary>SplitScreen competition</summary>
 public partial class TMSplitScreen_Competition : ILib
 {
 

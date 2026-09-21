@@ -19,7 +19,9 @@ public partial class Team : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Ba
     public const string ScriptName = "Modes/TrackMania/Team/Team.Script.txt";
     public const int C_BlueBotsNb = 0;
     public const int C_RedBotsNb = 0;
+    /// <summary>Path to the hud module</summary>
     public const string C_HudModulePath = "Nadeo/TrackMania/Team/Hud.Module.Gbx";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TrackMania/Team/Team.Script.txt";
 
     public virtual void MM_SetupMatchmaking() { }
 

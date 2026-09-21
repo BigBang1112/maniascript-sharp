@@ -20,13 +20,13 @@ public partial class Clublink2 : ILib
     public const string ScriptName = "Libs/Nadeo/Clublink2.Script.txt";
     public const int C_RequestTimeout = 5000;
     public const string C_SponsorLayer = "LibClublink2_Sponsors";
+    /// <summary>Info index</summary>
     public const int C_Info_Name = 0;
     public const int C_Info_Zone = 1;
     public const int C_Info_City = 2;
     public const int C_Info_Emblem = 3;
     public const int C_Info_ColorPrimary = 4;
     public const int C_Info_ColorSecondary = 5;
-    public const int C_CyclingDuration = 5000;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

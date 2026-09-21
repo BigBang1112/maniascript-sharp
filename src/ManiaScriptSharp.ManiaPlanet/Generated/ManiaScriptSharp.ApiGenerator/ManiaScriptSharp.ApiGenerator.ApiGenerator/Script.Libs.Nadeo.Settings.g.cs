@@ -14,6 +14,7 @@ public partial class Settings : ILib
 {
     public const string Version = "2015-11-17";
     public const string ScriptName = "Settings.Script.txt";
+    /// <summary>Time before the request is considered failed</summary>
     public const int C_RequestTimeOut = 5000;
 
     /// <summary>Return the version number of the script</summary>

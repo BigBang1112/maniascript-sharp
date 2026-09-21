@@ -17,6 +17,7 @@ public partial class Events : ILib
 
     public const string Version = "2018-05-31";
     public const string ScriptName = "Libs/Nadeo/ShootMania/Events.Script.txt";
+    /// <summary>Callbacks</summary>
     public const string C_Callback_Event_Default = "Shootmania.Event.Default";
     public const string C_Callback_Event_OnShoot = "Shootmania.Event.OnShoot";
     public const string C_Callback_Event_OnHit = "Shootmania.Event.OnHit";

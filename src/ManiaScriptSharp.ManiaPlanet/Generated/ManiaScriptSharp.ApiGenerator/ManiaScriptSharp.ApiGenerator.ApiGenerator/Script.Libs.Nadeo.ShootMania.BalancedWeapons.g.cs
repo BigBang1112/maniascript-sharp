@@ -9,11 +9,12 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania;
 
-/// <summary>Return the version number of the script</summary>
+/// <summary>BalancedWeapons</summary>
 public partial class BalancedWeapons : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania.SM SM;
 
+    /// <summary>////////////////////////////////////////////////</summary>
     public const string Version = "2012-06-11";
     public const string ScriptName = "BalancedWeapons.Script.txt";
 

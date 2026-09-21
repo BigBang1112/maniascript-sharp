@@ -16,7 +16,6 @@ public partial class Clublink : ILib
     public const string Version = "2014-04-22";
     public const string ScriptName = "Libs/Nadeo/Clublink.Script.txt";
     public const int C_LibClubLink_RequestTimeout = 5000;
-    public const int C_SponsorCyclingDuration = 5000;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

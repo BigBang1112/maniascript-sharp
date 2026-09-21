@@ -19,6 +19,7 @@ public partial class MiniMap2 : ILib
     public const bool C_LibMiniMap2_WorldPositionFollow = false;
     public const double C_LibMiniMap2_MapYaw = 0.0;
     public const bool C_LibMiniMap2_MapYawFollow = false;
+    public const string C_LibMiniMap2_OverlayImage = "file://Media/Manialinks/Common/Minimap/MinimapOverlay2.dds";
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

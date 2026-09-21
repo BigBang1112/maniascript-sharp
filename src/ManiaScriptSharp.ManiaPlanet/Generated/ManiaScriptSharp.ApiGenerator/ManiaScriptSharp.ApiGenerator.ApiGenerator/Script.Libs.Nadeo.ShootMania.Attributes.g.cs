@@ -16,6 +16,7 @@ public partial class Attributes : ILib
 
     public const string Version = "2017-08-10";
     public const string ScriptName = "Libs/Nadeo/ShootMania/Exp/Attributes.Script.txt";
+    /// <summary>Base attributes values</summary>
     public const double C_Base_ArmorMax = 200.0;
     public const double C_Base_StaminaMax = 1.0;
     public const double C_Base_ArmorReplenishGain = 0.0;
@@ -34,6 +35,7 @@ public partial class Attributes : ILib
     public const double C_Base_HunterAmmoMax = 2.0;
     public const double C_Base_MissileAmmoMax = 4.0;
     public const double C_Base_ShieldArmorMax = 300.0;
+    /// <summary>Attributes</summary>
     public const int C_Attribute_ArmorMax = 0;
     public const int C_Attribute_StaminaMax = 1;
     public const int C_Attribute_ArmorReplenishGain = 2;

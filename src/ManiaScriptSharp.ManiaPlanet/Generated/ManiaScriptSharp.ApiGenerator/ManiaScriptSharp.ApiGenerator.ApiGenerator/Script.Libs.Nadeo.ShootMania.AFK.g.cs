@@ -16,10 +16,15 @@ public partial class AFK : ILib
 
     public const string Version = "2014-10-15";
     public const string ScriptName = "AFK.Script.txt";
+    /// <summary>after 1'30 of inactivity, a player is considered AFK</summary>
     public const int C_LibAFK_IdleTimeLimit = 90000;
+    /// <summary>A player cannot be considered AFK during 15 s. after spawning</summary>
     public const int C_LibAFK_SpawnTimeLimit = 15000;
+    /// <summary>Time interval between automatic AFK players check</summary>
     public const int C_LibAFK_CheckInterval = 10000;
+    /// <summary>Force the player on spectator when AFK</summary>
     public const bool C_LibAFK_ForceSpec = true;
+    /// <summary>Minimum idle time to avoid false positive</summary>
     public const int C_LibAFK_IdleThreshold = 1000;
 
     /// <summary>Return the version number of the script</summary>

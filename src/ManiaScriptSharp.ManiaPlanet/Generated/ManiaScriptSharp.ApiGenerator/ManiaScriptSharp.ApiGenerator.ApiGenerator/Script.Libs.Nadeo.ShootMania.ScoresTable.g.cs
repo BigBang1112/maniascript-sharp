@@ -39,19 +39,7 @@ public partial class ScoresTable : ILib
     public const bool C_LibST_DisplayPlayerInfo = true;
     public const bool C_LibST_DisplayManiaStars = true;
     public const string C_LibST_TabName = "ScoresTab";
-    public const string C_RoundPointsFormat = "{{{G_LibST_RoundPointsFormat}}}";
-    public const string C_PointsFormat = "{{{G_LibST_PointsFormat}}}";
-    public const int C_Disconnected = 0;
-    public const int C_Spawned = 1;
-    public const int C_NotSpawned = 2;
-    public const int C_Spectating = 3;
-    public const string C_DefaultCustom1 = "{{{G_LibST_DefaultCustom1}}}";
-    public const string C_DefaultCustom2 = "{{{G_LibST_DefaultCustom2}}}";
-    public const string C_DefaultCustom3 = "{{{G_LibST_DefaultCustom3}}}";
-    public const string C_DefaultPIScore = "{{{G_LibST_DefaultPIScore}}}";
-    public const string C_DefaultPIStats = "{{{G_LibST_DefaultPIStats}}}";
-    public const string C_DefaultPICustom1 = "{{{G_LibST_DefaultPICustom1}}}";
-    public const string C_DefaultPICustom2 = "{{{G_LibST_DefaultPICustom2}}}";
+    public const string C_ImgBaseDir = "file://Media/Manialinks/Shootmania/Common/";
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

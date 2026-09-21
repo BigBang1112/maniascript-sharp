@@ -17,7 +17,9 @@ public partial class Melee : global::ManiaScriptSharp.Scripts.Modes.ShootMania.B
     public const string CompatibleMapTypes = "MeleeArena";
     public const string Version = "2017-05-09";
     public const string ScriptName = "Modes/ShootMania/Melee.Script.txt";
+    /// <summary>Path to the hud module</summary>
     public const string C_HudModulePath = "Nadeo/ShootMania/Melee/Hud.Module.Gbx";
+    /// <summary>Number of bots</summary>
     public const int C_NbBots = 0;
 
     public virtual void Match_LogVersions() { }

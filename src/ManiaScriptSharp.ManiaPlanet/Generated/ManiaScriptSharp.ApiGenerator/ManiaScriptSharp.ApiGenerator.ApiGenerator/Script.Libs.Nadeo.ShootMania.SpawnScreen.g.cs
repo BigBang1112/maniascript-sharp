@@ -16,7 +16,6 @@ public partial class SpawnScreen : ILib
     public const string Version = "2017-09-05";
     public const string ScriptName = "Libs/Nadeo/ShootMania/SpawnScreen.Script.txt";
     public const string DefaultModeColor = "f90";
-    public const int C_RefreshInterval = 1000;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

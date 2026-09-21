@@ -9,7 +9,6 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania;
 
-/// <summary>Return the version number of the script</summary>
 public partial class WarmUpSimple2 : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.XmlRpc2 XmlRpc;
@@ -18,9 +17,11 @@ public partial class WarmUpSimple2 : ILib
 
     public const string Version = "2017-03-29";
     public const string ScriptName = "WarmUpSimple.Script.txt";
+    /// <summary>XmlRpc callbacks</summary>
     public const string C_Callback_WarmUp_Start = "Maniaplanet.WarmUp.Start";
     public const string C_Callback_WarmUp_End = "Maniaplanet.WarmUp.End";
     public const string C_Callback_WarmUp_Status = "Maniaplanet.WarmUp.Status";
+    /// <summary>XmlRpc methods</summary>
     public const string C_Method_WarmUp_Extend = "Maniaplanet.WarmUp.Extend";
     public const string C_Method_WarmUp_Stop = "Maniaplanet.WarmUp.Stop";
     public const string C_Method_WarmUp_GetStatus = "Maniaplanet.WarmUp.GetStatus";

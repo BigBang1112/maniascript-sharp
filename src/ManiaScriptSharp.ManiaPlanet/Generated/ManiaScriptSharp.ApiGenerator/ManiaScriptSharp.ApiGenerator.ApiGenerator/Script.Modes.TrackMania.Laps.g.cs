@@ -17,7 +17,9 @@ public partial class Laps : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Ba
     public const string Version = "2018-11-14";
     public const string ScriptName = "Modes/TrackMania/Laps/Laps.Script.txt";
     public const int C_NbBots = 0;
+    /// <summary>Path to the hud module</summary>
     public const string C_HudModulePath = "Nadeo/TrackMania/Laps/Hud.Module.Gbx";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TrackMania/Laps/Laps.Script.txt";
 
     public virtual void Match_LogVersion() { }
 

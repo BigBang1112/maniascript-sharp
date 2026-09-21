@@ -18,7 +18,6 @@ public partial class UILib : ILib
     public const string Version = "2015-09-03";
     public const string ScriptName = "UI.Script.txt";
     public const int C_LibST_RequestTimeout = 5000;
-    public const int C_DisplayDuration = 2500;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

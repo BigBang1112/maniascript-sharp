@@ -21,11 +21,13 @@ public partial class ChannelProgression : ILib
     public const string Version = "2017-08-30";
     public const string ScriptName = "Libs/Nadeo/ChannelProgression.Script.txt";
     public const string C_LayerName = "LibChannelProgression";
+    public const string C_ApiUrl = "https://www.maniaplanet.com";
     public const string C_GetServerInfo = "";
     public const string C_GetMapInfo = "/ingame/public/season/players";
     public const string C_SetMapInfo = "/ingame/public/season/match";
     public const int C_RequestTimeout = 5000;
     public const string C_RequestHeaders = "Content-Type: application/json\nAccept: application/xml";
+    /// <summary>Maximum number of best scores</summary>
     public const int C_BestScoresNb = 10;
     public const int C_AnimRoulette_Loop = 0;
     public const int C_AnimRoulette_Spring = 1;

@@ -17,7 +17,9 @@ public partial class Pause : ILib
 
     public const string Version = "2017-04-10";
     public const string ScriptName = "Libs/Nadeo/Pause.Script.txt";
+    /// <summary>XmlRpc callbacks</summary>
     public const string C_Callback_Pause_Status = "Maniaplanet.Pause.Status";
+    /// <summary>XmlRpc methods</summary>
     public const string C_Method_Pause_GetStatus = "Maniaplanet.Pause.GetStatus";
     public const string C_Method_Pause_SetActive = "Maniaplanet.Pause.SetActive";
 

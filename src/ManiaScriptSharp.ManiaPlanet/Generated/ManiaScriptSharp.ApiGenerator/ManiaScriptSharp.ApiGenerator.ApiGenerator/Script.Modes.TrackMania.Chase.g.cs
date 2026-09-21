@@ -21,25 +21,42 @@ public partial class Chase : global::ManiaScriptSharp.Scripts.Modes.TrackMania.B
     public const string CompatibleMapTypes = "Race";
     public const string Version = "2018-07-04";
     public const string ScriptName = "Modes/TrackMania/Chase/Chase.Script.txt";
+    /// <summary>No winning conditions met</summary>
     public const int C_WinType_Undefined = 0;
+    /// <summary>Win by points gap</summary>
     public const int C_WinType_PointsGap = 1;
+    /// <summary>Win by reaching points limit</summary>
     public const int C_WinType_PointsLimit = 2;
+    /// <summary>Win by finishing first</summary>
     public const int C_WinType_Finish = 3;
+    /// <summary>Win by forfeit</summary>
     public const int C_WinType_Forfeit = 4;
+    /// <summary>Time limit</summary>
     public const int C_WinType_Time = 5;
+    /// <summary>Draw</summary>
     public const int C_WinType_Draw = 6;
+    /// <summary>Duration of the end round sequence</summary>
     public const int C_EndRoundDuration = 5000;
+    /// <summary>Max waiting time for substitutes</summary>
     public const int C_SubstituteWaitingTime = 15000;
+    /// <summary>Max waiting time for missing players</summary>
     public const int C_MissingPlayersWaitingTime = 45000;
+    /// <summary>Default name when no player is selected for next checkpoint /!\ Also used in the ManiaApp /!\</summary>
     public const string C_NoNameCheckpoint = "-";
+    /// <summary>Maximum score at checkpoint</summary>
     public const int C_CheckpointScoreMax = 35000;
+    /// <summary>Performance computing properties</summary>
     public const int C_PerfLow = 5000;
     public const int C_PerfHigh = 15000;
     public const double C_RatioLow = 0.7;
     public const double C_RatioHigh = 0.3;
+    /// <summary>Path to the hud module</summary>
     public const string C_HudModulePath = "Nadeo/TrackMania/Chase/Hud.Module.Gbx";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TrackMania/Chase/Chase.Script.txt";
     public const string C_Method_ForceStopRound = "Trackmania.Chase.ForceStopRound";
+    /// <summary>Number of bots in the blue team</summary>
     public const int C_BlueBotsNb = 0;
+    /// <summary>Number of bots in the red team</summary>
     public const int C_RedBotsNb = 0;
 
     public virtual void MM_SetupMatchmaking() { }

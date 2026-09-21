@@ -17,7 +17,6 @@ public partial class WeaponSelection : ILib
     public const int C_Rocket = 1;
     public const int C_Laser = 2;
     public const int C_Nucleus = 3;
-    public const int C_UpdateInterval = 250;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

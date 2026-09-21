@@ -9,9 +9,10 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo;
 
-/// <summary>Return the version number of the script</summary>
+/// <summary>Helpers to sync UIs.</summary>
 public partial class UISync : ILib
 {
+    /// <summary>freezing or crashing. ///////////////////////////////////////</summary>
     public const string Version = "2013-10-28";
     public const string ScriptName = "UISync.Script.txt";
 

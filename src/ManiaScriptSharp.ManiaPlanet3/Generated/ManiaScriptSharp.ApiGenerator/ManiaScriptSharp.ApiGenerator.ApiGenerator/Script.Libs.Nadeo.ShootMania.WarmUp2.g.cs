@@ -15,7 +15,6 @@ public partial class WarmUp2 : ILib
 
     public const string Version = "2014-04-23";
     public const string ScriptName = "WarmUp2.Script.txt";
-    public const int C_UpdateInterval = 250;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>
@@ -32,33 +31,33 @@ public partial class WarmUp2 : ILib
     public void Load() { }
 
     /// <summary>Enable the order selection for a group</summary>
-    /// <param name="GroupName">The name of the group to enable</param>
+    /// <param name="_GroupName">The name of the group to enable</param>
     public void Enable(string _GroupName) { }
 
     /// <summary>Disable the order selection for a group</summary>
-    /// <param name="GroupName">The name of the group to disable</param>
+    /// <param name="_GroupName">The name of the group to disable</param>
     public void Disable(string _GroupName) { }
 
     /// <summary>Rebuild the warm up UI</summary>
     public void RebuildUI() { }
 
     /// <summary>Display the clan selection buttons</summary>
-    /// <param name="Display">The new display status of the clan selection buttons</param>
+    /// <param name="_Display">The new display status of the clan selection buttons</param>
     public void DisplayClanSelection(bool _Display) { }
 
     /// <summary>Set the position of the warm up layer</summary>
-    /// <param name="Pos">The new position</param>
+    /// <param name="_Pos">The new position</param>
     public void SetLayerPosition(Vec2 _Pos) { }
 
     /// <summary>Display an icon in one slot of a group</summary>
-    /// <param name="GroupName">The name of the group to set</param>
-    /// <param name="Slot">The number of the slot to set</param>
-    /// <param name="Icon">The path to the icon to display</param>
+    /// <param name="_GroupName">The name of the group to set</param>
+    /// <param name="_Slot">The number of the slot to set</param>
+    /// <param name="_Icon">The path to the icon to display</param>
     public void SetSlotIcon(string _GroupName, int _Slot, string _Icon) { }
 
     /// <summary>Display an icon in all the slots of a group</summary>
-    /// <param name="GroupName">The name of the group to set</param>
-    /// <param name="Icon">The path to the icon to display</param>
+    /// <param name="_GroupName">The name of the group to set</param>
+    /// <param name="_Icon">The path to the icon to display</param>
     public void SetAllSlotsIcons(string _GroupName, string _Icon) { }
 
     /// <summary>Check if the order or ready state was updated since the last time we called thius function</summary>
@@ -66,99 +65,101 @@ public partial class WarmUp2 : ILib
     public bool Updated() => default!;
 
     /// <summary>Check if a player is ready</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>True if the player is ready, false otherwise</returns>
     public bool IsReady(CSmPlayer _Player) => default!;
 
     /// <summary>Check if a player is ready</summary>
-    /// <param name="PlayerId">The id of the player to check</param>
+    /// <param name="_PlayerId">The id of the player to check</param>
     /// <returns>True if the player is ready, false otherwise</returns>
     public bool IsReady(Ident _PlayerId) => default!;
 
     /// <summary>Move a player in a group</summary>
-    /// <param name="Player">The player to remove</param>
-    /// <param name="GroupName">The group where to move the player</param>
+    /// <param name="_Player">The player to remove</param>
+    /// <param name="_GroupName">The group where to move the player</param>
     public void SetPlayerGroup(CSmPlayer _Player, string _GroupName) { }
 
     /// <summary>Remove a player from his current group</summary>
-    /// <param name="The">player to remove</param>
+    /// <param name="_Player" />
     public void UnsetPlayerGroup(CSmPlayer _Player) { }
 
     /// <summary>Get in which group a player is</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The name of the group if the player has one, an empty Text otherwise</returns>
     public string GetPlayerGroup(CSmPlayer _Player) => default!;
 
     /// <summary>Set a player in a slot of his group If the set is not forced the player can take the slot only if it's empty or if the player in the slot is not ready. If the player in the slot is ready the other player must already have a slot in the group to wamp with him.</summary>
-    /// <param name="Player">The player to set</param>
-    /// <param name="Slot">The slot for this player</param>
-    /// <param name="Forced">If False, the slot must meet certain conditions before the player can take it</param>
+    /// <param name="_Player">The player to set</param>
+    /// <param name="_Slot">The slot for this player</param>
+    /// <param name="_Forced">If False, the slot must meet certain conditions before the player can take it</param>
     public void SetPlayerSlot(CSmPlayer _Player, int _Slot, bool _Forced) { }
 
     /// <summary>Overload of the SetPlayerSlot function</summary>
+    /// <param name="_Player" />
+    /// <param name="_Slot" />
     public void SetPlayerSlot(CSmPlayer _Player, int _Slot) { }
 
     /// <summary>Get the current slot of a player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The slot of the player if he has one, -1 otherwise</returns>
     public int GetPlayerSlot(CSmPlayer _Player) => default!;
 
     /// <summary>Unset the slot of a player</summary>
-    /// <param name="Player">The player to unset</param>
+    /// <param name="_Player">The player to unset</param>
     public void UnsetPlayerSlot(CSmPlayer _Player) { }
 
     /// <summary>Get the content of a slot</summary>
-    /// <param name="GroupName">The group to check</param>
-    /// <param name="Slot">The slot to check</param>
+    /// <param name="_GroupName">The group to check</param>
+    /// <param name="_Slot">The slot to check</param>
     /// <returns>The id of the player in the slot if there is one, NullId otherwise</returns>
     public Ident GetSlot(string _GroupName, int _Slot) => default!;
 
     /// <summary>Unset a player from a slot</summary>
-    /// <param name="GroupName">The name of the group where the slot must be unset</param>
-    /// <param name="Slot">The slot to unset</param>
+    /// <param name="_GroupName">The name of the group where the slot must be unset</param>
+    /// <param name="_Slot">The slot to unset</param>
     public void UnsetSlot(string _GroupName, int _Slot) { }
 
     /// <summary>Check if a group exists</summary>
-    /// <param name="GroupName">The name of the group</param>
+    /// <param name="_GroupName">The name of the group</param>
     /// <returns>True if the gorup exists, False otherwise</returns>
     public bool GroupExists(string _GroupName) => default!;
 
     /// <summary>Create a new warm up group</summary>
-    /// <param name="GroupName">The name of the group</param>
-    /// <param name="SlotsNb">The number of slots in the group</param>
+    /// <param name="_GroupName">The name of the group</param>
+    /// <param name="_SlotsNb">The number of slots in the group</param>
     public void CreateGroup(string _GroupName, int _SlotsNb) { }
 
     /// <summary>Destroy a warm up group</summary>
-    /// <param name="GroupName">The name of the group to destroy</param>
+    /// <param name="_GroupName">The name of the group to destroy</param>
     public void DestroyGroup(string _GroupName) { }
 
     /// <summary>Manually set the players ids in a group</summary>
-    /// <param name="GroupName">The name of the group to set</param>
-    /// <param name="PlayersIds">The players ids to add</param>
+    /// <param name="_GroupName">The name of the group to set</param>
+    /// <param name="_PlayersIds">The players ids to add</param>
     public void SetGroup(string _GroupName, global::System.Collections.Generic.Dictionary<int, Ident> _PlayersIds) { }
 
     /// <summary>Get the players ids of a group</summary>
-    /// <param name="GroupName">The name of the group to get</param>
+    /// <param name="_GroupName">The name of the group to get</param>
     /// <returns>The ordered players ids</returns>
     public global::System.Collections.Generic.Dictionary<int, Ident> GetGroup(string _GroupName) => default!;
 
     /// <summary>Update the number of slots available in a group</summary>
-    /// <param name="GroupName">The name of the group to update</param>
-    /// <param name="SlotsNb">The new number  of slots</param>
+    /// <param name="_GroupName">The name of the group to update</param>
+    /// <param name="_SlotsNb">The new number  of slots</param>
     public void SetSlotsNb(string _GroupName, int _SlotsNb) { }
 
     /// <summary>Get the number of slots in a group</summary>
-    /// <param name="GroupName">The name of the group to check</param>
+    /// <param name="_GroupName">The name of the group to check</param>
     /// <returns>The number of slot in the group if this group exist, 0 otherwise</returns>
     public int GetSlotsNb(string _GroupName) => default!;
 
     /// <summary>Get the number of ready players in a group</summary>
-    /// <param name="GroupName">The name of the group to check</param>
+    /// <param name="_GroupName">The name of the group to check</param>
     /// <returns>The number of ready players</returns>
     public int GetReadyPlayersNb(string _GroupName) => default!;
 
     /// <summary>Get the number of players in a group</summary>
-    /// <param name="GroupName">The name of the group to check</param>
+    /// <param name="_GroupName">The name of the group to check</param>
     /// <returns>The number of players</returns>
     public int GetPlayersNb(string _GroupName) => default!;
 

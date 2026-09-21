@@ -18,7 +18,9 @@ public partial class Cup : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Bas
     public const string Version = "2018-03-08";
     public const string ScriptName = "Modes/TrackMania/Cup/Cup.Script.txt";
     public const int C_BotsNb = 0;
+    /// <summary>Path to the hud module</summary>
     public const string C_HudModulePath = "Nadeo/TrackMania/Cup/Hud.Module.Gbx";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TrackMania/Cup/Cup.Script.txt";
 
     public virtual void MM_SetupMatchmaking() { }
 

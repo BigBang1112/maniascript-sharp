@@ -9,9 +9,10 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo;
 
-/// <summary>Return the version number of the script</summary>
 public partial class TabsServer : ILib
 {
+    public global::ManiaScriptSharp.Scripts.Libs.Nadeo.TabsClient TabsClient;
+
     public const string Version = "2013-12-02";
     public const string ScriptName = "TabsServer.Script.txt";
     public const string C_BgColor = "0007";

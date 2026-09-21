@@ -15,9 +15,13 @@ public partial class Semver : ILib
 
     public const string Version = "2016-04-20";
     public const string ScriptName = "Libs/Nadeo/Semver.Script.txt";
+    /// <summary>The main part of the version</summary>
     public const int C_Main = 0;
+    /// <summary>The prerelease part of the version</summary>
     public const int C_Prerelease = 1;
+    /// <summary>The build part of the version</summary>
     public const int C_Build = 2;
+    /// <summary>Size of the comparison cache</summary>
     public const int C_CacheSize = 100;
 
     /// <summary>Return the version number of the script</summary>

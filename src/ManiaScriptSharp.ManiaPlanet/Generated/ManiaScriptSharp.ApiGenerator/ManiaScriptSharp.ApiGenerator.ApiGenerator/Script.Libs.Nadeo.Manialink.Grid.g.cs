@@ -15,15 +15,18 @@ public partial class Grid : ILib
 
     public const string Version = "2018-11-22";
     public const string ScriptName = "Libs/Nadeo/Orbital/Common/Manialink/Grid2.Script.txt";
+    /// <summary>Element alignement</summary>
     public const int C_Align_Left = 1;
     public const int C_Align_Center = 0;
     public const int C_Align_Right = -1;
     public const int C_Align_Top = -2;
     public const int C_Align_Bottom = 2;
+    /// <summary>Grid direction</summary>
     public const int C_Direction_Right = 1;
     public const int C_Direction_Left = -1;
     public const int C_Direction_Top = 2;
     public const int C_Direction_Bottom = -2;
+    /// <summary>Configuration array indexes</summary>
     public const int C_Config_Width = 0;
     public const int C_Config_ColumnsNb = 1;
     public const int C_Config_Margin = 2;

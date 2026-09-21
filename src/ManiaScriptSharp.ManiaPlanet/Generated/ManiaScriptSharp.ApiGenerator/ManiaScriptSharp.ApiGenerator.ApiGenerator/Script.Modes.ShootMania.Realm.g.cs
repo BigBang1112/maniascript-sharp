@@ -23,13 +23,19 @@ public partial class Realm : global::ManiaScriptSharp.Scripts.Modes.ShootMania.B
     public const string CompatibleMapTypes = "RealmArena";
     public const string Version = "2017-09-13";
     public const string ScriptName = "Realm.Script.txt";
+    /// <summary>Time between two UI refresh</summary>
     public const int C_PlayerRefreshInterval = 250;
+    /// <summary>Time between two points count</summary>
     public const int C_PointsRefreshInterval = 1000;
+    /// <summary>Time spent to wait at the end of the turn</summary>
     public const int C_SleepEndTurn = 5000;
+    /// <summary>Time spend to wait at the end of the map</summary>
     public const int C_SleepEndMap = 15000;
+    /// <summary>Number of blue bots for debugging</summary>
     public const int C_BlueBots = 0;
+    /// <summary>Number of red bots for debugging</summary>
     public const int C_RedBots = 0;
-    public const int C_RefreshInterval = 250;
+    public const string C_ImgBaseDir = "file://Media/Manialinks/Shootmania/Common/";
 
     public virtual void LogVersion() { }
 

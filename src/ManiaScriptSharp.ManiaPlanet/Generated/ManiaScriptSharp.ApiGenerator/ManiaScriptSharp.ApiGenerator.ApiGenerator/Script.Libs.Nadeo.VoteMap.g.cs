@@ -17,12 +17,19 @@ public partial class VoteMap : ILib
 
     public const string Version = "2017-03-28";
     public const string ScriptName = "Libs/Nadeo/VoteMap.Script.txt";
+    /// <summary>Default vote sequence duration</summary>
     public const int C_LibVoteMap_DefaultVoteDuration = 15000;
+    /// <summary>Default result sequence duration</summary>
     public const int C_LibVoteMap_DefaultResultDuration = 5000;
+    /// <summary>Vote not started</summary>
     public const int C_LibVoteMap_SequenceNone = 0;
+    /// <summary>Vote sequence</summary>
     public const int C_LibVoteMap_SequenceVote = 1;
+    /// <summary>Result sequence</summary>
     public const int C_LibVoteMap_SequenceResult = 2;
+    /// <summary>Anim sequence</summary>
     public const int C_LibVoteMap_SequenceAnim = 3;
+    /// <summary>Duration of the animations</summary>
     public const int C_LibVoteMap_AnimDuration = 450;
 
     /// <summary>Return the version number of the script</summary>

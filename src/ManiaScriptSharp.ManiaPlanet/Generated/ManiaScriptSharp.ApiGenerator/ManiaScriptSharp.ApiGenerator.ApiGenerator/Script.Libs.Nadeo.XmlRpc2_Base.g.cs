@@ -18,6 +18,7 @@ public partial class XmlRpc2_Base : ILib
 
     public const string Version = "2017-12-20";
     public const string ScriptName = "Libs/Nadeo/XmlRpc2_Base.Script.txt";
+    /// <summary>Callbacks</summary>
     public const string C_Callback_CallbacksList = "XmlRpc.CallbacksList";
     public const string C_Callback_CallbacksList_Enabled = "XmlRpc.CallbacksList_Enabled";
     public const string C_Callback_CallbacksList_Disabled = "XmlRpc.CallbacksList_Disabled";
@@ -58,6 +59,7 @@ public partial class XmlRpc2_Base : ILib
     public const string C_Callback_ChannelProgression_Start = "Maniaplanet.ChannelProgression_Start";
     public const string C_Callback_ChannelProgression_End = "Maniaplanet.ChannelProgression_End";
     public const string C_Callback_UseTeams = "Maniaplanet.Mode.UseTeams";
+    /// <summary>Methods</summary>
     public const string C_Method_Set_EnableCallbacks = "XmlRpc.EnableCallbacks";
     public const string C_Method_Get_CallbacksList = "XmlRpc.GetCallbacksList";
     public const string C_Method_Get_CallbacksList_Enabled = "XmlRpc.GetCallbacksList_Enabled";

@@ -18,6 +18,7 @@ public partial class WarmUp3 : ILib
 
     public const string Version = "2017-06-13";
     public const string ScriptName = "Libs/Nadeo/TrackMania/WarmUp3.Script.txt";
+    /// <summary>XmlRpc</summary>
     public const string C_Callback_WarmUpStart = "Trackmania.WarmUp.Start";
     public const string C_Callback_WarmUpStartRound = "Trackmania.WarmUp.StartRound";
     public const string C_Callback_WarmUpEnd = "Trackmania.WarmUp.End";
@@ -26,6 +27,8 @@ public partial class WarmUp3 : ILib
     public const string C_Method_WarmUpStop = "Trackmania.WarmUp.ForceStop";
     public const string C_Method_WarmUpStopRound = "Trackmania.WarmUp.ForceStopRound";
     public const string C_Method_WarmUpGetStatus = "Trackmania.WarmUp.GetStatus";
+    /// <summary>Manialinks</summary>
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/TrackMania/Ingame/";
     public const string C_Font = "Oswald";
 
     /// <summary>Return the version number of the script</summary>

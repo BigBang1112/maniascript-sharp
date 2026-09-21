@@ -18,6 +18,7 @@ public partial class Scores : ILib
 
     public const string Version = "2017-06-28";
     public const string ScriptName = "Libs/Nadeo/ShootMania/Scores.Script.txt";
+    /// <summary>Available sorting criteria</summary>
     public const int C_Sort_MatchPoints = 0;
     public const int C_Sort_MapPoints = 1;
     public const int C_Sort_RoundPoints = 2;
@@ -26,27 +27,34 @@ public partial class Scores : ILib
     public const int C_Sort_NbRespawnsRequested = 5;
     public const int C_Sort_DamageInflicted = 6;
     public const int C_Sort_DamageTaken = 7;
+    /// <summary>Available sorting order</summary>
     public const int C_Order_Ascending = 1;
     public const int C_Order_Descending = -1;
+    /// <summary>Available sorting order</summary>
     public const int C_Type_RoundPoints = 0;
     public const int C_Type_MapPoints = 1;
     public const int C_Type_MatchPoints = 2;
+    /// <summary>Clans</summary>
     public const int C_Clan_1 = 1;
     public const int C_Clan_2 = 2;
+    /// <summary>Reset levels</summary>
     public const int C_Level_Server = 0;
     public const int C_Level_Match = 1;
     public const int C_Level_Map = 2;
     public const int C_Level_Round = 3;
+    /// <summary>Section for callback</summary>
     public const string C_Section_Null = "";
     public const string C_Section_EndTurn = "EndTurn";
     public const string C_Section_PreEndRound = "PreEndRound";
     public const string C_Section_EndRound = "EndRound";
     public const string C_Section_EndMap = "EndMap";
     public const string C_Section_EndMatch = "EndMatch";
+    /// <summary>XmlRpc</summary>
     public const string C_Callback_Scores = "Shootmania.Scores";
     public const string C_Method_GetScores = "Shootmania.GetScores";
     public const string C_Method_SetPlayerPoints = "Shootmania.SetPlayerPoints";
     public const string C_Method_SetTeamPoints = "Shootmania.SetTeamPoints";
+    /// <summary>Type of points</summary>
     public const int C_Points_Match = 0;
     public const int C_Points_Map = 1;
     public const int C_ClansScoresUIAutoUpdateInterval = 250;

@@ -45,12 +45,12 @@ public partial class Cup : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Rou
     public virtual void EndMap() { }
 
     /// <summary>Get matchmaking format</summary>
-    /// <param name="PlayersNb">The number of players</param>
+    /// <param name="_PlayersNb">The number of players</param>
     /// <returns>The format with the given number of players</returns>
     public global::System.Collections.Generic.IList<int> GetMatchmakingFormat(int _PlayersNb) => default!;
 
     /// <summary>Set the cup points limit</summary>
-    /// <param name="PointsLimit">The new points limit</param>
+    /// <param name="_PointsLimit">The new points limit</param>
     public void SetUiScoresPointsLimit(int _PointsLimit) { }
 
     /// <summary>Get the time left to the players to finish the round after the first player</summary>
@@ -58,8 +58,8 @@ public partial class Cup : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Rou
     public int GetFinishTimeout() => default!;
 
     /// <summary>Announce a new winner in the chat</summary>
-    /// <param name="Name">The name of the new winner</param>
-    /// <param name="Rank">The rank of the new winner</param>
+    /// <param name="_Name">The name of the new winner</param>
+    /// <param name="_Rank">The rank of the new winner</param>
     public void AnnounceWinner(string _Name, int _Rank) { }
 
     /// <summary>Compute the latest race scores</summary>

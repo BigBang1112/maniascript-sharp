@@ -25,7 +25,7 @@ public partial class Rules : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Generate the rules manialink</summary>
-    /// <param name="Hidden">The rules are hidden by default</param>
+    /// <param name="_Hidden">The rules are hidden by default</param>
     /// <returns>The manialink Text</returns>
     public string GetRulesUI(bool _Hidden) => default!;
 
@@ -33,12 +33,14 @@ public partial class Rules : ILib
     public void Destroy() { }
 
     /// <summary>Create the rules in the spawn screen</summary>
-    /// <param name="Name">The name of the mode</param>
-    /// <param name="Rules">The rules of the mode</param>
-    /// <param name="StartHidden">Start with the rules hidden</param>
+    /// <param name="_Name">The name of the mode</param>
+    /// <param name="_Rules">The rules of the mode</param>
+    /// <param name="_StartHidden">Start with the rules hidden</param>
     public void Create(string _Name, string _Rules, bool _StartHidden) { }
 
     /// <summary>Create Overload</summary>
+    /// <param name="_Name" />
+    /// <param name="_Rules" />
     public void Create(string _Name, string _Rules) { }
 
     /// <summary>Attach the rules layer to all players</summary>

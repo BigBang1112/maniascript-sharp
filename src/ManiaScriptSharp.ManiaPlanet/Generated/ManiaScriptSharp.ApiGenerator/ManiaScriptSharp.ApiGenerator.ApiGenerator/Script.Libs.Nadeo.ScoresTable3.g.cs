@@ -46,12 +46,6 @@ public partial class ScoresTable3 : ILib
     public const int C_LibST_Footer = 2;
     public const int C_LibST_IdleThreshold = 60000;
     public const int C_LibST_RequestTimeout = 5000;
-    public const int C_RefreshInterval = 250;
-    public const int C_HighlightDuration = 1700;
-    public const int C_Status_Disconnected = 0;
-    public const int C_Status_Spawned = 1;
-    public const int C_Status_NotSpawned = 2;
-    public const int C_Status_Spectating = 3;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

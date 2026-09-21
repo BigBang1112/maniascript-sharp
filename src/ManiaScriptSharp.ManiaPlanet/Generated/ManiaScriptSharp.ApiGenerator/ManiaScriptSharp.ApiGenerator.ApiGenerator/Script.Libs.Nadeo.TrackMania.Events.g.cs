@@ -16,6 +16,7 @@ public partial class Events : ILib
 
     public const string Version = "2018-11-15";
     public const string ScriptName = "Libs/Nadeo/TrackMania/Events.Script.txt";
+    /// <summary>Callbacks</summary>
     public const string C_Callback_Event_Default = "Trackmania.Event.Default";
     public const string C_Callback_Event_OnCommand = "Trackmania.Event.OnCommand";
     public const string C_Callback_Event_OnPlayerAdded = "Trackmania.Event.OnPlayerAdded";

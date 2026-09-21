@@ -9,11 +9,12 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania;
 
-/// <summary>Return the version number of the script</summary>
+/// <summary>Scoring</summary>
 public partial class Score : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.Mode Mode;
 
+    /// <summary>///////////////////////////////////////</summary>
     public const string Version = "2012-10-31";
     public const string ScriptName = "Score.Script.txt";
 

@@ -15,7 +15,6 @@ public partial class WarmUp2Common : ILib
 
     public const string Version = "2015-02-23";
     public const string ScriptName = "WarmUp2Common.Script.txt";
-    public const int C_UpdateInterval = 250;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

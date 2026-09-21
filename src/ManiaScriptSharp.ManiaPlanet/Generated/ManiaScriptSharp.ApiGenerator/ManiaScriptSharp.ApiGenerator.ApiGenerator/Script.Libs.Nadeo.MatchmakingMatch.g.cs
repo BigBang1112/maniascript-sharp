@@ -17,29 +17,53 @@ public partial class MatchmakingMatch : ILib
 
     public const string Version = "2017-11-21";
     public const string ScriptName = "Libs/Nadeo/MatchmakingMatch.Script.txt";
+    /// <summary>Match status Waiting for a match to start</summary>
     public const int C_MatchStatus_Waiting = 0;
+    /// <summary>Match starting</summary>
     public const int C_MatchStatus_Starting = 1;
+    /// <summary>Match running</summary>
     public const int C_MatchStatus_Playing = 2;
+    /// <summary>Waiting for a substitute</summary>
     public const int C_MatchStatus_Substitute = 3;
+    /// <summary>Match ending</summary>
     public const int C_MatchStatus_Ending = 4;
+    /// <summary>Player status Player waiting approval</summary>
     public const int C_PlayerStatus_Waiting = 0;
+    /// <summary>Player approved</summary>
     public const int C_PlayerStatus_Valid = 1;
+    /// <summary>Player rejected</summary>
     public const int C_PlayerStatus_Invalid = 2;
+    /// <summary>Missing players info Clan of the missing player</summary>
     public const int C_MissingInfo_Clan = 0;
+    /// <summary>Kick status of the missing player</summary>
     public const int C_MissingInfo_Kicked = 1;
+    /// <summary>Time when the player gone missing</summary>
     public const int C_MissingInfo_Since = 2;
+    /// <summary>Player info Clan of the player</summary>
     public const int C_PlayerInfo_Clan = 0;
+    /// <summary>Slot of the player</summary>
     public const int C_PlayerInfo_Slot = 1;
+    /// <summary>Sequences duration Maximum delay before sending back the player to the lobby at the end of the match</summary>
     public const int C_DelayBeforeTransfert = 10000;
+    /// <summary>Maximum duration of the match ending</summary>
     public const int C_EndingDuration = 15000;
+    /// <summary>Vote duration for the rematch</summary>
     public const int C_RematchVoteDuration = 10000;
+    /// <summary>Maximum duration of the match preparation once there's at least one player</summary>
     public const int C_PreparationDuration = 20000;
+    /// <summary>Misc Time before searching a substitute for a missing player</summary>
     public const int C_MissingPlayerGracePeriod = 90000;
+    /// <summary>Time interval between each ping</summary>
     public const int C_PingInterval = 60000;
+    /// <summary>Random time margin applied to the live request of the match and lobby server</summary>
     public const int C_RequestRandomDeviation = 500;
+    /// <summary>Time before restarting a match on an empty server</summary>
     public const int C_EmptyTimeBeforeRestart = 300000;
+    /// <summary>Time interval between each players number check</summary>
     public const int C_PlayersNumberCheckInterval = 60000;
+    /// <summary>Minimum time after a transfert before a player can be listed as ready</summary>
     public const int C_TransfertSafeTime = 15000;
+    /// <summary>Common http headers</summary>
     public const string C_HttpHeaders = "Content-Type: application/json\nAccept: application/xml";
 
     /// <summary>Return the version number of the script</summary>

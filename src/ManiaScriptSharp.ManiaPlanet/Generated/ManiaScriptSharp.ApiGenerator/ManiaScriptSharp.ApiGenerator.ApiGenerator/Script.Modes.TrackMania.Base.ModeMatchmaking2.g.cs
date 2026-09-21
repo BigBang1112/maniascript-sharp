@@ -15,7 +15,9 @@ public partial class ModeMatchmaking2 : global::ManiaScriptSharp.Scripts.Modes.T
     public const string MB_MMT_Version = "2017-08-11";
     public const string MB_MMT_ScriptName = "Modes/TrackMania/ModeMatchmaking2.Script.txt";
     public const string C_MB_RulesColor = "$f70";
+    /// <summary>Path to the hud module</summary>
     public const string C_Lobby_HudModulePath = "Nadeo/TrackMania/TimeAttack/Hud.Module.Gbx";
+    public const string C_Lobby_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TrackMania/TimeAttack/TimeAttack.Script.txt";
 
     public virtual void MB_Private_LogVersions() { }
 

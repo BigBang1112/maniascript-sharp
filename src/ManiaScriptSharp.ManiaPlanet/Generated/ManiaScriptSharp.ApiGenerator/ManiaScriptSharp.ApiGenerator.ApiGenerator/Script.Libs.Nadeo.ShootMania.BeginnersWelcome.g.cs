@@ -9,18 +9,23 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania;
 
-/// <summary>Return the version number of the script</summary>
 public partial class BeginnersWelcome : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.Message Message;
 
     public const string Version = "2013-03-04";
     public const string ScriptName = "BeginnersWelcome.Script.txt";
+    /// <summary>Max nb of ladder points to be considered a beginner.</summary>
     public const int C_BeginnerLPLimit = 1000;
+    /// <summary>Min nb of hits not to be considered a beginner.</summary>
     public const int C_BeginnerMinHits = 10;
+    /// <summary>Max nb of hits to be considered a beginner.</summary>
     public const int C_BeginnerMaxHits = 100;
+    /// <summary>Extra AmmoGain bonus given to a beginner each time he/she performs badly during a round</summary>
     public const double C_BeginnersAmmoGainBonus = 0.15;
+    /// <summary>Max ammo gain for a beginner</summary>
     public const double C_BeginnersMaxAmmoGain = 1.75;
+    /// <summary>Default ammo gain for a beginner</summary>
     public const double C_BeginnersDefaultAmmoGain = 1.3;
     public const int C_WelcomeWindowMaxTime = 35000;
 

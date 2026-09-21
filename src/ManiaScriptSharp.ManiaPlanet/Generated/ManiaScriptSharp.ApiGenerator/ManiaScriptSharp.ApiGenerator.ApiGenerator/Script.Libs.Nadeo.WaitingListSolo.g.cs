@@ -14,6 +14,7 @@ public partial class WaitingListSolo : ILib
 {
     public const string Version = "2012-07-20";
     public const string ScriptName = "WaitingListSolo.Script.txt";
+    /// <summary>Active debug mode</summary>
     public const bool C_Debug = false;
 
     /// <summary>Return the version number of the script</summary>
