@@ -32,15 +32,18 @@ public partial class ReportSystem : ILib
     }
 
     /// <summary>We need to use an array of text (and not only a text) because of the order of leaving and entering page events (see trackmania next tmnext issues 4919)</summary>
+    /// <param name="_UsingId" />
     public void AddUsingId(string _UsingId) { }
 
     /// <summary>We need to use an array of text (and not only a text) because of the order of leaving and entering page events (see trackmania next tmnext issues 4919)</summary>
+    /// <param name="_UsingId" />
     public void RemoveUsingId(string _UsingId) { }
 
     /// <summary>Reset the report system data list</summary>
     public void ResetDataList() { }
 
     /// <summary>Remove the report data associated to report target type</summary>
+    /// <param name="_ReportTargetType" />
     public void RemoveData(int _ReportTargetType) { }
 
     public global::System.Collections.Generic.IList<K_Event> GetPendingEvents() => default!;

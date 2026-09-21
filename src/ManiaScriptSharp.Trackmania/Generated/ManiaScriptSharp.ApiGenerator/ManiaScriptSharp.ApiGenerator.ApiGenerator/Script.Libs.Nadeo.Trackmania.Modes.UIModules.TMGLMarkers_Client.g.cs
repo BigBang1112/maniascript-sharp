@@ -21,6 +21,7 @@ public partial class TMGLMarkers_Client : ILib
     public const string C_Id = "UIModule_ChampionTMGL_TMGLMarkers";
     public const int C_MarkersMaxNb = 32;
     public const double C_PlayerNameMaxWidth = 50.0;
+    public const string C_ImgMarkerSide = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/hud_marker_side.dds";
 
     public struct K_Marker
     {

@@ -22,6 +22,8 @@ public partial class EventPoints_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the clans track points to the UI</summary>
+    /// <param name="_Clan1MapPoints" />
+    /// <param name="_Clan2MapPoints" />
     public void SetClansMapPoints(int _Clan1MapPoints, int _Clan2MapPoints) { }
 
     /// <summary>Unload the library</summary>

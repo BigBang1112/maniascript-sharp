@@ -33,37 +33,38 @@ public partial class Record_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Setup the records</summary>
-    /// <param name="MapUid">Uid of the current map</param>
-    /// <param name="ScopeSeason">Scope of the ghost on the nadeoservices when playing on a season map</param>
-    /// <param name="ScopeNotSeason">Scope of the ghost on the nadeoservices when playing on a map outside of a season</param>
-    /// <param name="ModeName">The name of the mode on the nadeoservices</param>
-    /// <param name="CustomData">Mode's custom data on the nadeoservices</param>
-    /// <param name="PBGhostEnabled">Enable the display of the PB ghost</param>
-    /// <param name="MedalEnabled">Enable the display of the medal</param>
-    /// <param name="CelebratePB">Enable the celebration screen when improving best time</param>
-    /// <param name="CelebrateMedal">Enable the celebration screen when unlocking a better medal</param>
-    /// <param name="DisplayRecords">Display the best times on the map</param>
-    /// <param name="UploadGhost">Will the ghosts of the players' races be uploaded to nadeoservices</param>
+    /// <param name="_MapUid">Uid of the current map</param>
+    /// <param name="_ScopeSeason">Scope of the ghost on the nadeoservices when playing on a season map</param>
+    /// <param name="_ScopeNotSeason">Scope of the ghost on the nadeoservices when playing on a map outside of a season</param>
+    /// <param name="_ModeName">The name of the mode on the nadeoservices</param>
+    /// <param name="_CustomData">Mode's custom data on the nadeoservices</param>
+    /// <param name="_PBGhostEnabled">Enable the display of the PB ghost</param>
+    /// <param name="_MedalEnabled">Enable the display of the medal</param>
+    /// <param name="_CelebratePB">Enable the celebration screen when improving best time</param>
+    /// <param name="_CelebrateMedal">Enable the celebration screen when unlocking a better medal</param>
+    /// <param name="_DisplayRecords">Display the best times on the map</param>
+    /// <param name="_UploadGhost">Will the ghosts of the players' races be uploaded to nadeoservices</param>
     public void Setup(string _MapUid, string _ScopeSeason, string _ScopeNotSeason, string _ModeName, string _CustomData, bool _PBGhostEnabled, bool _MedalEnabled, bool _CelebratePB, bool _CelebrateMedal, bool _DisplayRecords, bool _UploadGhost) { }
 
     public void Reset() { }
 
     /// <summary>Update the season id to use on each map</summary>
+    /// <param name="_SeasonIdsJson" />
     public void SetSeasonIds(string _SeasonIdsJson) { }
 
     /// <summary>Force a map update on the client</summary>
     public void ForceMapUpdate() { }
 
     /// <summary>Show or hide the UI False to hide</summary>
-    /// <param name="Player">The player to update</param>
-    /// <param name="Display">True to show</param>
+    /// <param name="_Enabled" />
     public void SetIsGhostSpectatingEnabled(bool _Enabled) { }
 
     /// <summary>Hide the UI for all players in special situations False to hide</summary>
-    /// <param name="Display">True to show</param>
+    /// <param name="_Display">True to show</param>
     public void SetSpecialVisibility(bool _Display) { }
 
     /// <summary>Set the accountId of the current target of the spectator mode</summary>
+    /// <param name="_AccountId" />
     public void SetSpectatorTargetAccountId(string _AccountId) { }
 
     /// <summary>Update the library</summary>

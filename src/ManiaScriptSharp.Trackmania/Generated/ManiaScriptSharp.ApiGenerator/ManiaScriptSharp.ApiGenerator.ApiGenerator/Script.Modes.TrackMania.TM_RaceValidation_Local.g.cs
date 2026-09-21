@@ -24,6 +24,7 @@ public partial class TM_RaceValidation_Local : ILib
     public const string CompatibleMapTypes = "TrackMania\\TM_Race,TM_Race";
     public const string Version = "1.0.2+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/TM_RaceValidation_Local.Script.txt";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TMGame/RaceValidation/RaceValidation.Script.txt";
 
     public struct K_MapState
     {
@@ -66,6 +67,9 @@ public partial class TM_RaceValidation_Local : ILib
     public K_MapState UpdatePlayerGhost(K_MapState _MapState) => default!;
 
     /// <summary>Save new time if better</summary>
+    /// <param name="_MapState" />
+    /// <param name="_NewTime" />
+    /// <param name="_AuthorTime" />
     public K_MapState SaveNewTimeIfBetter(K_MapState _MapState, int _NewTime, int _AuthorTime) => default!;
 
     public void TogglePodium() { }

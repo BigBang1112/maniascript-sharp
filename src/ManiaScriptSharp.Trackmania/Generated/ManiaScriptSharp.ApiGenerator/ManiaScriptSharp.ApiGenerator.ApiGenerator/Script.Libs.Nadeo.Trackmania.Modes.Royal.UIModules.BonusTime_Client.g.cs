@@ -18,7 +18,6 @@ public partial class BonusTime_Client : ILib
 
     public const string Version = "1.1.1";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/BonusTime_Client.Script.txt";
-    public const int C_DisplayAnimDuration = 250;
 
     public struct K_Controls
     {

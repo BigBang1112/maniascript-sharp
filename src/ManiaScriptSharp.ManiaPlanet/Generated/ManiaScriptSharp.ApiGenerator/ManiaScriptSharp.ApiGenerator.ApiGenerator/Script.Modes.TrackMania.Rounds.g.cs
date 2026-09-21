@@ -18,7 +18,9 @@ public partial class Rounds : global::ManiaScriptSharp.Scripts.Modes.TrackMania.
     public const string Version = "2018-03-08";
     public const string ScriptName = "Modes/TrackMania/Rounds/Rounds.Script.txt";
     public const int C_BotsNb = 0;
+    /// <summary>Path to the hud module</summary>
     public const string C_HudModulePath = "Nadeo/TrackMania/Rounds/Hud.Module.Gbx";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TrackMania/Rounds/Rounds.Script.txt";
 
     public virtual void Match_LogVersion() { }
 
@@ -47,9 +49,9 @@ public partial class Rounds : global::ManiaScriptSharp.Scripts.Modes.TrackMania.
     public virtual void Match_BeforeCloseLadder() { }
 
     /// <summary>Update the scores table footer text</summary>
-    /// <param name="PointsLimit">The points limit</param>
-    /// <param name="RoundsPerMap">The number of round per map</param>
-    /// <param name="MapsPerMatch">The number of maps per match</param>
+    /// <param name="_PointsLimit">The points limit</param>
+    /// <param name="_RoundsPerMap">The number of round per map</param>
+    /// <param name="_MapsPerMatch">The number of maps per match</param>
     public void UpdateScoresTableFooter(int _PointsLimit, int _RoundsPerMap, int _MapsPerMatch) { }
 
     /// <summary>Get the time left to the players to finish the round after the first player</summary>

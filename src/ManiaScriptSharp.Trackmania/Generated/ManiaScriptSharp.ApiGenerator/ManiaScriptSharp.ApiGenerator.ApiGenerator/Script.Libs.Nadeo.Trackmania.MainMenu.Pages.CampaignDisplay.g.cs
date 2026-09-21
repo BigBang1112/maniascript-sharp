@@ -51,17 +51,6 @@ public partial class CampaignDisplay : ILib
     public const int C_EventsDelay = 150;
     public const int C_ColumnNumber = 5;
     public const int C_RowNumber = 5;
-    public const int C_CacheLifetime = 60000;
-    public const int C_UnlockVideoSoundDelay = 500;
-    public const int C_Duration_UnlockAnimationStep1 = 700;
-    public const int C_Duration_UnlockAnimationStep2 = 700;
-    public const int C_Duration_UnlockAnimationStep3 = 500;
-    public const int C_IntervalBetweenUnlockMaps = 200;
-    public const int C_CampaignsPager_PageSize = 1;
-    public const int C_CampaignsPager_TriggerSize = 12;
-    public const int C_CampaignsPager_MarginSize = 2;
-    public const int C_CampaignsPager_ThrottleDuration = 1000;
-    public const bool C_CampaignsPager_IsLooping = false;
 
     public struct K_Controls
     {

@@ -13,6 +13,8 @@ public partial class Layer_Modals : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Chat/";
+
     public void Build() { }
 
     public void SetColorScheme(Vec3 _Background, Vec3 _Highlights) { }

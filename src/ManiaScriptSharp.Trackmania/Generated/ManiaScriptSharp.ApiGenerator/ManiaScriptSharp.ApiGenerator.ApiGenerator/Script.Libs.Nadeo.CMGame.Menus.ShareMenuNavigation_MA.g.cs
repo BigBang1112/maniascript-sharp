@@ -16,9 +16,11 @@ public partial class ShareMenuNavigation_MA : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/CMGame/Menus/ShareMenuNavigation_MA.Script.txt";
+    /// <summary>It was used by the `PadsManager` library that does no exist anymore</summary>
     public const int C_MainUserIndex = 0;
 
     /// <summary>Enable or disable the menu navigation</summary>
+    /// <param name="_Enabled" />
     public void Enable(bool _Enabled) { }
 
     /// <summary>Unload the library</summary>

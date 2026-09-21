@@ -20,11 +20,11 @@ public partial class TimeGap_Client : ILib
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Client.Script.txt";
     public const int C_Time_MaxPlayers = 5;
+    /// <summary>This is copy pasted in server side do not forget to update both</summary>
     public const int C_TimeGapMode_BestRace = 0;
     public const int C_TimeGapMode_Hidden = 1;
     public const int C_TimeGapMode_CurRace = 2;
     public const int C_TimeGapMode_Solo = 3;
-    public const int C_Owner_IndexForArrays = 0;
 
     public struct K_GhostData
     {

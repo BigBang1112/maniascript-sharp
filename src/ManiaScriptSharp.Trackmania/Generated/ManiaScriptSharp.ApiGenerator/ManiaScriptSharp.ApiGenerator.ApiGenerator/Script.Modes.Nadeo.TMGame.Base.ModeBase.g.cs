@@ -97,15 +97,15 @@ public partial class ModeBase : global::ManiaScriptSharp.Scripts.Modes.Nadeo.CMG
     public virtual void MB_Private_AfterEndMatch() { }
 
     /// <summary>Setup the UI to enable or disable the players spawning, the notifications, or the mouse cursor for example. False otherwise</summary>
-    /// <param name="Enabled">True to let players spawn,</param>
+    /// <param name="_Enabled">True to let players spawn,</param>
     public void MB_Race_EnablePlayMode(bool _Enabled) { }
 
     /// <summary>Launch a warm up phase If it is negative, the warm up will be played in round mode. If it is 0 the warm up will be played in time attack with a time limit calculated automatically from the author time of the map. If it is positive the warm up will be played in time attack with the given time limit.</summary>
-    /// <param name="NbOfWarmUp">The number of warm up rounds to play</param>
-    /// <param name="TimeLimit">The time limit of one warm up round in ms</param>
-    /// <param name="FinishTimeOut">The timeout when the first player crosses the finish line</param>
-    /// <param name="CustomEndOfWarmupMessage">Message displayed at the end of warmup</param>
-    /// <param name="UseEndRoundSequence">Use the end round UI sequence to display the warmp-up ending message</param>
+    /// <param name="_NbOfWarmUp">The number of warm up rounds to play</param>
+    /// <param name="_TimeLimit">The time limit of one warm up round in ms</param>
+    /// <param name="_FinishTimeOut">The timeout when the first player crosses the finish line</param>
+    /// <param name="_CustomEndOfWarmupMessage">Message displayed at the end of warmup</param>
+    /// <param name="_UseEndRoundSequence">Use the end round UI sequence to display the warmp-up ending message</param>
     public void MB_Private_WarmUp(int _NbOfWarmUp, int _TimeLimit, int _FinishTimeOut, string _CustomEndOfWarmupMessage, bool _UseEndRoundSequence) { }
 
     public void MB_Private_WarmUp(int _NbOfWarmUp, int _TimeLimit, int _FinishTimeOut, string _CustomEndOfWarmupMessage) { }

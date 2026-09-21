@@ -14,6 +14,7 @@ public partial class Layer_WeekGrid : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Channels.Structs Structs;
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Channels/";
     public const double C_LibLayerWeekGrid_GridWidth = 183.5;
     public const int C_LibLayerWeekGrid_GridColumns = 7;
     public const int C_LibLayerWeekGrid_GridRows = 48;

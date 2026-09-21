@@ -9,10 +9,13 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Modes.TrackMania;
 
+/// <summary>SplitScreen competition</summary>
 public partial class TMSplitScreen_Competition : ILib
 {
 
     /// <summary>Scores</summary>
+    /// <param name="_Race1" />
+    /// <param name="_Race2" />
     public bool IsRaceBetter(CTmResult _Race1, CTmResult _Race2) => default!;
 
     public string GetFrameMapTimes() => default!;

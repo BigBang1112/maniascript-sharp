@@ -74,14 +74,6 @@ public partial class CreateRoom : ILib
     public const int C_Step_BrowseImages = 4;
     public const int C_Step_PlayerDedicatedServer = 5;
     public const int C_Step_RoomMapList = 6;
-    public const int C_Pager_Reset = 0;
-    public const int C_Pager_Offset = 5;
-    public const int C_Name_MaxChar = 20;
-    public const int C_PlayersNb_Min = 2;
-    public const int C_PlayersNb_Min_Scalable = 5;
-    public const int C_PlayersNb_Max = 100;
-    public const int C_PlayersNB_Default = 16;
-    public const int C_MapsNb_Max = 100;
 
     public struct K_Controls
     {

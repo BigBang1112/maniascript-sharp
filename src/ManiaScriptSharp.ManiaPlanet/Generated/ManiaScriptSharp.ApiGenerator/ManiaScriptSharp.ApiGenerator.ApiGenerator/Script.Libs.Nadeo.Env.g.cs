@@ -14,6 +14,7 @@ public partial class Env : ILib
 {
     public const string Version = "2016-05-09";
     public const string ScriptName = "Libs/Nadeo/Env.Script.txt";
+    /// <summary>Default environments</summary>
     public const string C_Env_Production = "production";
     public const string C_Env_Test = "test";
     public const string C_Env_Development = "development";
@@ -34,7 +35,7 @@ public partial class Env : ILib
     public string Env_Development() => default!;
 
     /// <summary>Set the environment</summary>
-    /// <param name="Env">The environment</param>
+    /// <param name="_Env">The environment</param>
     public void Set(string _Env) { }
 
     /// <summary>Get the environment</summary>

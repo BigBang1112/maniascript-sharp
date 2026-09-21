@@ -135,6 +135,7 @@ public partial class RoutePaths : ILib
     public const string C_MenuSection_Solo = "solo";
 
     /// <summary>Check if the navigation in the club profile overlay should be disabled</summary>
+    /// <param name="_Path" />
     public bool IsClubAndProfileOverlaysNavEnabled(string _Path) => default!;
 
     /// <summary>Get the list of paths where the connection error pop-up is disabled</summary>

@@ -21,12 +21,15 @@ public partial class WelcomePopUp_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the division of the server</summary>
+    /// <param name="_Division" />
     public void SetDivision(string _Division) { }
 
     /// <summary>Send the competition type of the server (official or rerun)</summary>
+    /// <param name="_CompetitionType" />
     public void SetCompetitionType(string _CompetitionType) { }
 
     /// <summary>Send the competition name</summary>
+    /// <param name="_CompetitionName" />
     public void SetCompetitionName(string _CompetitionName) { }
 
     /// <summary>Unload the library</summary>

@@ -68,7 +68,7 @@ public partial class ModeBase2 : global::ManiaScriptSharp.Scripts.Modes.ModeMatc
     public virtual void MB_Private_AfterEndMatch() { }
 
     /// <summary>Launch a warm up phase If it is negative, the warm up will be played in round mode. If it is 0 the warm up will be played in time attack with a time limit calculated automatically from the author time of the map. If it is positive the warm up will be played in time attack with the given time limit.</summary>
-    /// <param name="NbOfWarmUp">The number of warm up rounds to play</param>
-    /// <param name="TimeLimit">The time limit of one warm up round in ms</param>
+    /// <param name="_NbOfWarmUp">The number of warm up rounds to play</param>
+    /// <param name="_TimeLimit">The time limit of one warm up round in ms</param>
     public void MB_Private_WarmUp(int _NbOfWarmUp, int _TimeLimit) { }
 }

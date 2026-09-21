@@ -26,22 +26,22 @@ public partial class KnockoutInfo_Server : ILib
     public void UpdateLiveRanking() { }
 
     /// <summary>Set map rounds</summary>
-    /// <param name="MapRoundNb">Current round nb on map</param>
-    /// <param name="MapRoundTotal">Max round nb on map</param>
+    /// <param name="_MapRoundNb">Current round nb on map</param>
+    /// <param name="_MapRoundTotal">Max round nb on map</param>
     public void SetMapRoundNb(int _MapRoundNb, int _MapRoundTotal) { }
 
     /// <summary>Set rounds</summary>
-    /// <param name="RoundNb">Current round nb</param>
-    /// <param name="RoundTotal">estimation of total rounds nb</param>
+    /// <param name="_RoundNb">Current round nb</param>
+    /// <param name="_RoundTotal">estimation of total rounds nb</param>
     public void SetRoundNb(int _RoundNb, int _RoundTotal) { }
 
     /// <summary>Set alive players nb</summary>
-    /// <param name="PlayersNb">alive players nb</param>
+    /// <param name="_PlayersNb">alive players nb</param>
     public void SetAlivePlayersNb(int _PlayersNb) { }
 
     /// <summary>Set number of KOs this round</summary>
-    /// <param name="KOsNumber">number of KOs this round</param>
-    /// <param name="KOsMilestone">next elimination rate decrease</param>
+    /// <param name="_KOsNumber">number of KOs this round</param>
+    /// <param name="_KOsMilestone">next elimination rate decrease</param>
     public void SetKOsNumber(int _KOsNumber, int _KOsMilestone) { }
 
     /// <summary>Unload the library</summary>

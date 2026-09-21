@@ -19,10 +19,10 @@ public partial class ScoresHeader_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/FinalTMGL/UIModules/ScoresHeader_Client.Script.txt";
+    public const string C_ImgFolder = "file://Media/Manialinks/Nadeo/Trackmania/Modes/FinalTMGL";
     public const bool C_DisplayTeamColor = true;
     public const bool C_UseBackgroundColor = true;
     public const bool C_UseScoreTextColor = false;
-    public const int C_RefreshInterval = 250;
 
     public struct K_Controls
     {

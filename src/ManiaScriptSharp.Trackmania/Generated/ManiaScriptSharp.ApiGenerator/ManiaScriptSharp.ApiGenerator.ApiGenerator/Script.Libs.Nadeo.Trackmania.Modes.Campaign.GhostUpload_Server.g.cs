@@ -16,6 +16,7 @@ public partial class GhostUpload_Server : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Campaign/GhostUpload_Server.Script.txt";
 
     /// <summary>Force the mode to wait for the next ghost upload to be complete</summary>
+    /// <param name="_Timeout" />
     public void ForceUploadWaiting(int _Timeout) { }
 
     public void ForceUploadWaiting() { }

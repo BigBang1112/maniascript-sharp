@@ -17,12 +17,12 @@ public partial class Utils : ILib
     public const string ScriptName = "Libs/Nadeo/CMGame/Modes/Legacy/Utils.Script.txt";
 
     /// <summary>Convert a Text to a Boolean</summary>
-    /// <param name="Text">The Text to convert</param>
+    /// <param name="_Text">The Text to convert</param>
     /// <returns>The converted Boolean</returns>
     public bool ToBoolean(string _Text) => default!;
 
     /// <summary>Convert Integers from 1 to 9 into letters from A to I Other values are converted to A</summary>
-    /// <param name="N">The Integer to convert</param>
+    /// <param name="_N">The Integer to convert</param>
     /// <returns>The letter</returns>
     public string GetLetterFromNumber(int _N) => default!;
 }

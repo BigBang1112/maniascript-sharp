@@ -34,12 +34,12 @@ public partial class Dispenser : ILib
     public void UseDefaultObjects() { }
 
     /// <summary>Set the name of an object</summary>
-    /// <param name="Object">The object to name</param>
-    /// <param name="Name">The name of the object</param>
+    /// <param name="_Object">The object to name</param>
+    /// <param name="_Name">The name of the object</param>
     public void SetObjectName(CSmObject _Object, string _Name) { }
 
     /// <summary>Get the name of an object</summary>
-    /// <param name="Object">The object to check</param>
+    /// <param name="_Object">The object to check</param>
     /// <returns>The namer of the object</returns>
     public string GetObjectName(CSmObject _Object) => default!;
 
@@ -48,13 +48,13 @@ public partial class Dispenser : ILib
     public bool IsDispanserObject(CSmObject _Object) => default!;
 
     /// <summary>Set the default object used by dispensers</summary>
-    /// <param name="ItemName">The name of the item</param>
-    /// <param name="ModelId">The modelId of the item</param>
+    /// <param name="_ItemName">The name of the item</param>
+    /// <param name="_ModelId">The modelId of the item</param>
     public void SetDefaultObject(string _ItemName, Ident _ModelId) { }
 
     /// <summary>Set the default empty object used by dispensers</summary>
-    /// <param name="ItemName">The name of the item</param>
-    /// <param name="ModelId">The modelId of the item</param>
+    /// <param name="_ItemName">The name of the item</param>
+    /// <param name="_ModelId">The modelId of the item</param>
     public void SetDefaultEmptyObject(string _ItemName, Ident _ModelId) { }
 
     /// <summary>Destroy all existing anchor object</summary>
@@ -66,8 +66,8 @@ public partial class Dispenser : ILib
     public void CreateAnchorsObjects() { }
 
     /// <summary>Spawn or unspawned the empty version of the object</summary>
-    /// <param name="AnchorPosition">Anchor position to find the object</param>
-    /// <param name="Spawn">Boolean saying if the object must be spawned or unspawned</param>
+    /// <param name="_AnchorId" />
+    /// <param name="_Spawn">Boolean saying if the object must be spawned or unspawned</param>
     public void SpawnAnchorEmptyObject(Ident _AnchorId, bool _Spawn) { }
 
     /// <summary>Spawn all objects on their anchors</summary>
@@ -77,20 +77,20 @@ public partial class Dispenser : ILib
     public void UnspawnAnchorsObjects() { }
 
     /// <summary>Get the anchor used by the library to spawn the object Null otherwise</summary>
-    /// <param name="Object">The object to check</param>
+    /// <param name="_Object">The object to check</param>
     /// <returns>The anchor if found,</returns>
     public CMapObjectAnchor GetSpawnAnchor(CSmObject _Object) => default!;
 
     /// <summary>Update the respawn time of object automatically spawned on anchors</summary>
-    /// <param name="Time">The new respawn time</param>
+    /// <param name="_Time">The new respawn time</param>
     public void SetAnchorsObjectsRespawnTime(int _Time) { }
 
     /// <summary>Enable of disable the auto pick up of object spawned on anchors by the library False to disable</summary>
-    /// <param name="AutoPickUp">True to enable</param>
+    /// <param name="_AutoPickUp">True to enable</param>
     public void SetAutoPickUp(bool _AutoPickUp) { }
 
     /// <summary>Pick up an object and mark it for respawn if necessary. Spawn the empty version of the item</summary>
-    /// <param name="Object">The object to pick up</param>
+    /// <param name="_Object">The object to pick up</param>
     public void PickUp(CSmObject _Object) { }
 
     /// <summary>Update the library</summary>

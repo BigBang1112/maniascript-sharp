@@ -22,14 +22,18 @@ public partial class Difficulty : ILib
     public const int C_Difficulty_Black = 4;
 
     /// <summary>Get the RGB color of a royal segment</summary>
+    /// <param name="_SegmentNb" />
     public Vec3 GetRoyalSegmentColorRGB(int _SegmentNb) => default!;
 
     /// <summary>Get the Hex6 color of a royal segment</summary>
+    /// <param name="_SegmentNb" />
     public string GetRoyalSegmentColorHex6(int _SegmentNb) => default!;
 
     /// <summary>Get the Hex3 color of a royal segment</summary>
+    /// <param name="_SegmentNb" />
     public string GetRoyalSegmentColorHex3(int _SegmentNb) => default!;
 
     /// <summary>Get the name of a royal segment</summary>
+    /// <param name="_SegmentNb" />
     public string GetRoyalSegmentName(int _SegmentNb) => default!;
 }

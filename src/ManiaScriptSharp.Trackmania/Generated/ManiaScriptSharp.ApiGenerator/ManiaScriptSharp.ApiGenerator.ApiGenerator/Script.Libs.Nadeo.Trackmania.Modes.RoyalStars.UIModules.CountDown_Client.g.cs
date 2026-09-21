@@ -20,8 +20,6 @@ public partial class CountDown_Client : ILib
     public const string Version = "1.1.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/Countdown_Client.Script.txt";
     public const int C_UpdateInterval = 1000;
-    public const int C_DisplayAnimDuration = 125;
-    public const int C_TimerBlinkingDuration = 10000;
 
     public struct K_Controls
     {

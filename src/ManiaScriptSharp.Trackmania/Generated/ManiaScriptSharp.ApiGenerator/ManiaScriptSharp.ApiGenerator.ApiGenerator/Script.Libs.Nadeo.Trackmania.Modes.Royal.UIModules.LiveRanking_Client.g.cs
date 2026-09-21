@@ -27,8 +27,6 @@ public partial class LiveRanking_Client : ILib
     public const int C_Column_Name = 2;
     public const int C_Column_Points = 3;
     public const int C_Column_Time = 4;
-    public const int C_DisplayAnimDuration = 250;
-    public const int C_LiveRankingAnimDuration = 250;
 
     public struct K_Controls
     {

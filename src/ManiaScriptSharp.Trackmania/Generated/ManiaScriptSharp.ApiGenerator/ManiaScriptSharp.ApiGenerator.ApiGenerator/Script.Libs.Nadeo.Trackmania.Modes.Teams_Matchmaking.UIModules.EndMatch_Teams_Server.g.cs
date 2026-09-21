@@ -21,6 +21,7 @@ public partial class EndMatch_Teams_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the display start time of the UI</summary>
+    /// <param name="_DisplayEndTime" />
     public void SetDisplayEndTime(int _DisplayEndTime) { }
 
     /// <summary>Unload the library</summary>

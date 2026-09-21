@@ -17,9 +17,12 @@ public partial class EndMatchPopUp_Server : ILib
     public const string C_Id = "UIModule_ChampionOGL_EndMatchPopUp";
 
     /// <summary>Send the division of the server</summary>
+    /// <param name="_Division" />
     public void SetDivision(string _Division) { }
 
     /// <summary>Send the step</summary>
+    /// <param name="_StepCurrent" />
+    /// <param name="_StepMax" />
     public void SetStep(int _StepCurrent, int _StepMax) { }
 
     public void ResetPlayersList() { }

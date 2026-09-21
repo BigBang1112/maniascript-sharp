@@ -22,20 +22,22 @@ public partial class Header : ILib
     public const string Version = "1.0.0";
     public const string ScriptName = "Header.Script.txt";
     public const int C_MaxModes = 3;
+    /// <summary>Title bar statuses</summary>
     public const int C_Status_Message = 0;
     public const int C_Status_Alert = 1;
     public const int C_Status_Error = 2;
     public const int C_Status_AuthorTime = 3;
+    /// <summary>Editor levels</summary>
     public const int C_Editor_Random = 0;
     public const int C_Editor_Beginner = 1;
     public const int C_Editor_Advanced = 2;
     public const int C_Editor_Expert = 3;
+    /// <summary>Events</summary>
     public const string C_Event_SwitchMode = "LibUIHeader_SwitchMode";
     public const string C_Event_SelectMode = "LibUIHeader_SelectMode";
     public const string C_Event_ToggleAirMode = "LibUIHeader_ToggleAirMode";
+    /// <summary>#Const C_Event_ToggleGhostMode	&quot;LibUIHeader_ToggleGhostMode&quot;</summary>
     public const string C_Event_ToggleColor = "LibUIHeader_ToggleColor";
-    public const double C_ColorButtonHeight_NonExpert = -17.92;
-    public const double C_ColorButtonHeight_Expert = -29.12;
 
     public string GetScriptVersion() => default!;
 
@@ -61,18 +63,26 @@ public partial class Header : ILib
     public string Event_ToggleColor() => default!;
 
     /// <summary>Set the title in the header</summary>
+    /// <param name="_Title" />
+    /// <param name="_FullTitle" />
+    /// <param name="_Status" />
     public void SetTitle(string _Title, bool _FullTitle, int _Status) { }
 
     /// <summary>Set the title in the header</summary>
+    /// <param name="_Title" />
+    /// <param name="_FullTitle" />
     public void SetTitle(string _Title, bool _FullTitle) { }
 
     /// <summary>SetTitle overload</summary>
+    /// <param name="_Title" />
     public void SetTitle(string _Title) { }
 
     /// <summary>Set the modes in the header</summary>
+    /// <param name="_Modes" />
     public void SetModes(global::System.Collections.Generic.IList<string> _Modes) { }
 
     /// <summary>Select a mode in the header</summary>
+    /// <param name="_Mode" />
     public void SelectMode(string _Mode) { }
 
     /// <summary>Get editor levels</summary>
@@ -85,24 +95,31 @@ public partial class Header : ILib
     public int Editor_Expert() => default!;
 
     /// <summary>Set the editor level</summary>
+    /// <param name="_Editor" />
     public void SetEditor(int _Editor) { }
 
     /// <summary>Set the position of the Header UI</summary>
+    /// <param name="_Position" />
     public void SetPosition(Vec2 _Position) { }
 
     /// <summary>Set the position of the Header UI</summary>
+    /// <param name="_Position" />
     public void SetAuthorPosition(Vec2 _Position) { }
 
     /// <summary>Set the position of the UI</summary>
+    /// <param name="_PositionY" />
     public void SetPositionY(float _PositionY) { }
 
     /// <summary>Set the copper price limit for the track</summary>
+    /// <param name="_Limit" />
     public void SetLimit(int _Limit) { }
 
     /// <summary>Show hide the copper price limit</summary>
+    /// <param name="_Visible" />
     public void SetLimitVisibility(bool _Visible) { }
 
     /// <summary>Show hide the copper price limit</summary>
+    /// <param name="_Visible" />
     public void SetColorVisibility(bool _Visible) { }
 
     public void SetAirMode(bool _Activate) { }
@@ -117,6 +134,9 @@ public partial class Header : ILib
     public bool LayerIsVisible() => default!;
 
     /// <summary>Set the header visibility</summary>
+    /// <param name="_HeaderVisible" />
+    /// <param name="_InfoVisible" />
+    /// <param name="_AuthorVisible" />
     public void SetVisibility(bool _HeaderVisible, bool _InfoVisible, bool _AuthorVisible) { }
 
     public void Show() { }

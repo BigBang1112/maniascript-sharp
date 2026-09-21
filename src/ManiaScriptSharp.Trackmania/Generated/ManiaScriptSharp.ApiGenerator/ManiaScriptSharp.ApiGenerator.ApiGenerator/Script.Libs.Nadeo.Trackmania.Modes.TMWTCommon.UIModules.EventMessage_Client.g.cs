@@ -33,7 +33,6 @@ public partial class EventMessage_Client : ILib
     public const string C_Id_LabelMultiLines = "label-multi-lines";
     public const string C_Event_PlaySound = "TMWTCommon_EventMessage_PlaySound";
     public const string C_Event_StopSound = "TMWTCommon_EventMessage_StopSound";
-    public const int C_TextMessageAnimDuration = 250;
 
     public struct K_Controls
     {
@@ -95,6 +94,7 @@ public partial class EventMessage_Client : ILib
     public string GetId() => default!;
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_Theme" />
     /// <returns>The module manialink</returns>
     public string GetML(int _Theme) => default!;
 

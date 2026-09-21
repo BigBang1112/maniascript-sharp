@@ -20,6 +20,7 @@ public partial class LiveRanking_Client : ILib
 
     public const string Version = "1.0.3";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/LiveRanking_Client.Script.txt";
+    public const string C_Img_Default = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWC2023/UI/";
     public const int C_PlayersNb = 4;
     public const double C_Width_LiveRanking = 60.0;
     public const double C_Height_Title = 8.0;
@@ -49,8 +50,6 @@ public partial class LiveRanking_Client : ILib
     public const string C_Id_Quad_Record = "quad-record";
     public const string C_Id_Label_Record = "label-record";
     public const string C_Class_IsPlayerFrameinstance = "twwc2023_is-player-frameinstance";
-    public const int C_PreviousRank = -1;
-    public const int C_NextRank = 1;
 
     public struct K_Controls
     {

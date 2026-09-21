@@ -23,7 +23,8 @@ public partial class BestRaceViewer_Server : ILib
     public void SetPrevDisplay(bool _PrevDisplay) { }
 
     /// <summary>Set custom ranks for each player</summary>
-    /// <param name="CustomRanks">The custom ranks</param>
+    /// <param name="_CustomRanks">The custom ranks</param>
+    /// <param name="_CustomCardinal" />
     public void SetCustomRanks(global::System.Collections.Generic.Dictionary<string, int> _CustomRanks, int _CustomCardinal) { }
 
     public void SetRankVisibility(bool _IsVisible) { }

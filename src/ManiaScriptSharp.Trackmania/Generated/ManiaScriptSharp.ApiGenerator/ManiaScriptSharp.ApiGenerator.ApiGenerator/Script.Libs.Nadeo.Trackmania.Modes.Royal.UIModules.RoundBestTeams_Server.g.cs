@@ -24,9 +24,11 @@ public partial class RoundBestTeams_Server : ILib
     public int GetSlotsNb() => default!;
 
     /// <summary>Get the duration of the elimination animation</summary>
+    /// <param name="_BestTeamsNb" />
     public int GetAnimationDuration(int _BestTeamsNb) => default!;
 
     /// <summary>Send number of best teams to display at the end of the round</summary>
+    /// <param name="_BestTeamsNb" />
     public int SendBestTeamsNb(int _BestTeamsNb) => default!;
 
     /// <summary>Unload the library</summary>

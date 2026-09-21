@@ -26,6 +26,7 @@ public partial class TM_TimeAttack_Online : ILib
     public const string Version = "1.2.0+2025-06-11";
     public const string ScriptName = "Modes/TrackMania/TM_TimeAttack_Online.Script.txt";
     public const string C_ModeName = "Time Attack";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/TimeAttack.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const bool C_UploadRecord = true;
     public const bool C_DisplayRecordGhost = true;
@@ -74,11 +75,13 @@ public partial class TM_TimeAttack_Online : ILib
     public virtual void Match_BeforeUnloadMap() { }
 
     /// <summary>Select the scores table score mode</summary>
+    /// <param name="_IsIndependentLaps" />
+    /// <param name="_DisplayTrophies" />
     public void SetScoresTableScoreMode(bool _IsIndependentLaps, bool _DisplayTrophies) { }
 
     /// <summary>Update the time limit</summary>
-    /// <param name="StartTime">The starting time of the map</param>
-    /// <param name="NewTimeLimit">The time limit before going to the next map</param>
+    /// <param name="_StartTime">The starting time of the map</param>
+    /// <param name="_NewTimeLimit">The time limit before going to the next map</param>
     public void SetTimeLimit(int _StartTime, int _NewTimeLimit) { }
 
     /// <summary>Get the right sort criteria for the ladder</summary>

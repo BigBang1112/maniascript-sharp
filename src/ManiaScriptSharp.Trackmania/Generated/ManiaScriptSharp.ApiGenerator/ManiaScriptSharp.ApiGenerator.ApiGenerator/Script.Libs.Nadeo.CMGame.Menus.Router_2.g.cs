@@ -112,23 +112,39 @@ public partial class Router_2 : ILib
     }
 
     /// <summary>Check if we are leaving the given route in the event</summary>
+    /// <param name="_Event" />
+    /// <param name="_RouteId" />
+    /// <param name="_CheckLeafOnly" />
     public bool IsLeavingRoute(K_Event _Event, string _RouteId, bool _CheckLeafOnly) => default!;
 
     /// <summary>Check if we are entering the given route in the event</summary>
+    /// <param name="_Event" />
+    /// <param name="_RouteId" />
+    /// <param name="_CheckLeafOnly" />
     public bool IsEnteringRoute(K_Event _Event, string _RouteId, bool _CheckLeafOnly) => default!;
 
     /// <summary>Check if the given fragment is added in the event</summary>
+    /// <param name="_Event" />
+    /// <param name="_FragmentId" />
     public bool IsAddingFragment(K_Event _Event, string _FragmentId) => default!;
 
     /// <summary>Check if the given fragment is removed in the event</summary>
+    /// <param name="_Event" />
+    /// <param name="_FragmentId" />
     public bool IsRemovingFragment(K_Event _Event, string _FragmentId) => default!;
 
     /// <summary>Check if the given fragment is enabled in the event</summary>
+    /// <param name="_Event" />
+    /// <param name="_FragmentId" />
     public bool IsEnablingFragment(K_Event _Event, string _FragmentId) => default!;
 
     /// <summary>Check if the given fragment is disabled in the event</summary>
+    /// <param name="_Event" />
+    /// <param name="_FragmentId" />
     public bool IsDisablingFragment(K_Event _Event, string _FragmentId) => default!;
 
     /// <summary>Check if the given fragment is modified in the event</summary>
+    /// <param name="_Event" />
+    /// <param name="_FragmentId" />
     public bool IsModifyingFragment(K_Event _Event, string _FragmentId) => default!;
 }

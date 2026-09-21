@@ -24,6 +24,10 @@ public partial class PopUpDisplay : ILib
     public const string C_Quad_ActivationZone = "ComponentPopUpDisplay_ActivationZone";
 
     /// <summary>Get the component</summary>
+    /// <param name="_BGImageUrl" />
+    /// <param name="_BGButtonUrl" />
+    /// <param name="_HexColorUnfocus" />
+    /// <param name="_HexColorFocus" />
     /// <returns>The component id</returns>
     public string Component(string _BGImageUrl, string _BGButtonUrl, string _HexColorUnfocus, string _HexColorFocus) => default!;
 

@@ -72,6 +72,7 @@ public partial class Settings : ILib
     public const int C_SliderType_Integer = 1;
     public const int C_SliderType_Color = 2;
     public const int C_SettingId_NullId = 0;
+    /// <summary>Profile settings</summary>
     public const int C_SettingId_ProfileSectionAccount = 101;
     public const int C_SettingId_ProfileTrigram = 102;
     public const int C_SettingId_ProfileTrailsColor = 103;
@@ -84,6 +85,7 @@ public partial class Settings : ILib
     public const int C_SettingId_ProfileDisplayAds = 110;
     public const int C_SettingId_ProfileDisplayLoadingScreenAds = 111;
     public const int C_SettingId_ProfileEnablePersonalizedAds = 112;
+    /// <summary>Video settings</summary>
     public const int C_SettingId_VideoSectionDisplay = 201;
     public const int C_SettingId_VideoDevice = 202;
     public const int C_SettingId_VideoDisplayMode = 203;
@@ -122,6 +124,7 @@ public partial class Settings : ILib
     public const int C_SettingId_VideoCarCustomizationLevel = 236;
     public const int C_SettingId_VideoPerformanceQuality = 237;
     public const int C_SettingId_VideoOutputScale = 238;
+    /// <summary>Sound settings</summary>
     public const int C_SettingId_SoundSectionGeneral = 301;
     public const int C_SettingId_SoundEnable = 302;
     public const int C_SettingId_SoundDevice = 303;
@@ -141,6 +144,7 @@ public partial class Settings : ILib
     public const int C_SettingId_SoundSpeechToText = 317;
     public const int C_SettingId_SoundTextToSpeech = 318;
     public const int C_SettingId_SendTextAsVoice = 319;
+    /// <summary>Control settings</summary>
     public const int C_SettingId_ControlSectionLatency = 401;
     public const int C_SettingId_ControlLatencyTest = 402;
     public const int C_SettingId_ControlSectionAnalogSettings = 403;
@@ -160,6 +164,7 @@ public partial class Settings : ILib
     public const int C_SettingId_ControlBindDefault = 417;
     public const int C_SettingId_ControlSectionBindings = 418;
     public const int C_SettingId_ControlEditBind = 419;
+    /// <summary>HUD settings</summary>
     public const int C_SettingId_HUDSectionMarkers = 501;
     public const int C_SettingId_HUDMarkersType = 502;
     public const int C_SettingId_HUDMarkersSize = 503;
@@ -179,6 +184,7 @@ public partial class Settings : ILib
     public const int C_SettingId_HUDTrackRecordsVisibility = 517;
     public const int C_SettingId_HUDDisplayCheckpointCounter = 518;
     public const int C_SettingId_HUDShowPerformance = 519;
+    /// <summary>System settings</summary>
     public const int C_SettingId_SystemSectionLanguage = 601;
     public const int C_SettingId_SystemLanguage = 602;
     public const int C_SettingId_SystemSectionMiscellaneous = 603;
@@ -207,6 +213,7 @@ public partial class Settings : ILib
     public const int C_SettingId_SystemTrackEditorQuickStartMood = 626;
 
     /// <summary>Get the component</summary>
+    /// <param name="_IsPlugin" />
     /// <returns>The component id</returns>
     public string Component(bool _IsPlugin) => default!;
 

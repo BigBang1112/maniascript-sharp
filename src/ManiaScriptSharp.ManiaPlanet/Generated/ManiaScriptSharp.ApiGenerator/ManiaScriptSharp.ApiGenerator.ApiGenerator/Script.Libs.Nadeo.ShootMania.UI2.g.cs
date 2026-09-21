@@ -17,6 +17,7 @@ public partial class UI2 : ILib
 
     public const string Version = "2017-12-20";
     public const string ScriptName = "Libs/Nadeo/UI.Script.txt";
+    /// <summary>XmlRpc</summary>
     public const string C_Callback_Properties = "Shootmania.UI.Properties";
     public const string C_Method_GetProperties = "Shootmania.UI.GetProperties";
     public const string C_Method_GetDefaultProperties = "Shootmania.UI.GetDefaultProperties";
@@ -27,8 +28,10 @@ public partial class UI2 : ILib
     public const string C_Method_GetDefaultProperty = "Shootmania.UI.GetDefaultProperty";
     public const string C_Method_SetProperty = "Shootmania.UI.SetProperty";
     public const string C_Method_ResetProperty = "Shootmania.UI.ResetProperty";
+    /// <summary>Formats</summary>
     public const int C_Format_Xml = 0;
     public const int C_Format_Json = 1;
+    /// <summary>Modules</summary>
     public const string C_Module_Notices = "notices";
     public const string C_Module_MapInfo = "map_info";
     public const string C_Module_Chat = "chat";
@@ -51,7 +54,7 @@ public partial class UI2 : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the number of lines of the chat</summary>
-    /// <param name="LineCount">The number of lines of the chat</param>
+    /// <param name="_LineCount">The number of lines of the chat</param>
     public void SetChatLineCount(int _LineCount) { }
 
     /// <summary>Get the number of lines of the chat</summary>
@@ -59,23 +62,23 @@ public partial class UI2 : ILib
     public int GetChatLineCount() => default!;
 
     /// <summary>Send ui properties</summary>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void XmlRpc_SendUIProperties(string _ResponseId) { }
 
     /// <summary>Send default ui properties</summary>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void XmlRpc_SendDefaultUIProperties(string _ResponseId) { }
 
     /// <summary>Send ui property</summary>
-    /// <param name="ModuleId">The UI module to check</param>
-    /// <param name="Property">The property to get</param>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ModuleId">The UI module to check</param>
+    /// <param name="_Property">The property to get</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void XmlRpc_SendUIProperty(string _ModuleId, string _Property, string _ResponseId) { }
 
     /// <summary>Send default ui property</summary>
-    /// <param name="ModuleId">The UI module to check</param>
-    /// <param name="Property">The property to get</param>
-    /// <param name="ResponseId">Id to insert in the response callback</param>
+    /// <param name="_ModuleId">The UI module to check</param>
+    /// <param name="_Property">The property to get</param>
+    /// <param name="_ResponseId">Id to insert in the response callback</param>
     public void XmlRpc_SendDefaultUIProperty(string _ModuleId, string _Property, string _ResponseId) { }
 
     /// <summary>Update the library</summary>

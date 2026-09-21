@@ -21,9 +21,6 @@ public partial class Task : ILib
     public const int C_Owner_ScoreMgr = 2;
     public const int C_Owner_TrackingMgr = 3;
     public const int C_Owner_UserMgr = 4;
-    public const int C_Owner_PresenceMgr = 5;
-    public const int C_Owner_ManiaPlanet = 6;
-    public const int C_Owner_AchievementsMgr = 7;
     public const int C_Owner_ZoneMgr = 8;
     public const int C_Owner_NotificationMgr = 9;
     public const int C_Owner_Mode = 10;
@@ -59,47 +56,62 @@ public partial class Task : ILib
     public K_Task GetEmptyTask() => default!;
 
     /// <summary>Destroy the given task</summary>
+    /// <param name="_Task" />
     public K_Task Destroy(K_Task _Task) => default!;
 
     /// <summary>The task has been initialized</summary>
+    /// <param name="_Task" />
     public bool IsInitialized(K_Task _Task) => default!;
 
     /// <summary>Check if the task is ongoing</summary>
+    /// <param name="_Task" />
     public bool IsRunning(K_Task _Task) => default!;
 
     /// <summary>Check if the task completed successfully</summary>
+    /// <param name="_Task" />
     public bool IsSuccess(K_Task _Task) => default!;
 
     /// <summary>Check if the task has been canceled</summary>
+    /// <param name="_Task" />
     public bool IsCanceled(K_Task _Task) => default!;
 
     /// <summary>Destroy the task if it is initialized</summary>
+    /// <param name="_Task" />
     public K_Task DestroyIfInitialized(K_Task _Task) => default!;
 
     /// <summary>Get the source task error object</summary>
+    /// <param name="_Task" />
     public K_SourceTaskError GetSourceTaskError(K_Task _Task) => default!;
 
     /// <summary>Check if the task failed because of a first party error</summary>
+    /// <param name="_Task" />
     public bool IsFirstPartyError(K_Task _Task) => default!;
 
     /// <summary>Check if the task failed because of a UbiServices error</summary>
+    /// <param name="_Task" />
     public bool IsUbiServicesError(K_Task _Task) => default!;
 
     /// <summary>Update on ongoing task</summary>
+    /// <param name="_Task" />
     public K_Task Update(K_Task _Task) => default!;
 
     /// <summary>Cancel on ongoing task</summary>
+    /// <param name="_Task" />
     public void Cancel(K_Task _Task) { }
 
     /// <summary>Add metadata on a task</summary>
+    /// <param name="_Task" />
+    /// <param name="_Metadata" />
     public K_Task SetMetadata(K_Task _Task, global::System.Collections.Generic.Dictionary<string, string> _Metadata) => default!;
 
     public K_Task SetMetadata(K_Task _Task, string _Key, string _Value) => default!;
 
     /// <summary>Remove all metadata from a task</summary>
+    /// <param name="_Task" />
     public K_Task ResetMetadata(K_Task _Task) => default!;
 
     /// <summary>Get metadata from a task</summary>
+    /// <param name="_Task" />
     public global::System.Collections.Generic.Dictionary<string, string> GetMetadata(K_Task _Task) => default!;
 
     public string GetMetadata(K_Task _Task, string _Key) => default!;

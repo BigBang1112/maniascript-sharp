@@ -32,6 +32,7 @@ public partial class ExpendableButtonBase : ILib
     public const int C_IconAlign_Center = 2;
     public const int C_IconAlign_TextLeft = 3;
     public const int C_IconAlign_TextRight = 4;
+    /// <summary>0,1,2,3,... not 0,1,3,... for example</summary>
     public const int C_Property_TextValue = 0;
     public const int C_Property_TextFitLabelEnabled = 1;
     public const int C_Property_TextAutoNewLineEnabled = 2;

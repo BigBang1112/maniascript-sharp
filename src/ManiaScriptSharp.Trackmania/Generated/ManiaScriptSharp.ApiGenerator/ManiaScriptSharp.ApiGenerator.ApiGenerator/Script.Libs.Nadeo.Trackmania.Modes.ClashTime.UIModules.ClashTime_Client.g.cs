@@ -18,12 +18,12 @@ public partial class ClashTime_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ClashTime/UIModules/ClashTime_Client.Script.txt";
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/ClashTime";
     public const string C_Command_Accelerate = "++";
     public const string C_Command_Brake = "--";
     public const string C_Command_TurnLeft = "<<";
     public const string C_Command_TurnRight = ">>";
     public const string C_Command_Respawn = "rs";
-    public const int C_CommandsRefreshInterval = 250;
 
     public struct K_Commands
     {

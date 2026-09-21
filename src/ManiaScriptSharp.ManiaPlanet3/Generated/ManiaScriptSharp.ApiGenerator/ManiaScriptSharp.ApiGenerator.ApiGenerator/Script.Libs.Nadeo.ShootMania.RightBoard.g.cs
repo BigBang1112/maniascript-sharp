@@ -15,6 +15,7 @@ public partial class RightBoard : ILib
 
     public const string Version = "2013-09-10";
     public const string ScriptName = "RightBoard.Script.txt";
+    public const string C_InfoBaseDir = "file://Media/Manialinks/Shootmania/InfoPanel/";
     public const string C_Background = "info-bg.dds";
     public const int C_TimeTick = 200;
     public const int C_NbBox = 6;

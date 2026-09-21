@@ -26,15 +26,19 @@ public partial class TextField_2 : ILib
     public const string C_ComponentClass = "cmgame-components-text-field-2";
     public const string C_ComponentNavZone = "cmgame-components-text-field-2-quad-nav-zone";
     public const string C_ComponentScrollElementZones = "cmgame-components-text-field-2-quad-scroll-element-zone";
+    /// <summary>TextField types</summary>
     public const int C_TextFieldType_Entry = 0;
     public const int C_TextFieldType_TextEdit = 1;
+    /// <summary>Events</summary>
     public const string C_Event_ValueUpdate = "text-field-value-update";
+    /// <summary>Controls ids</summary>
     public const string C_Id_ButtonBackground = "cmgame-text-field-2_button-background";
     public const string C_Id_EntryLabel = "cmgame-text-field-2_entry-label";
     public const string C_Id_FrameAlign = "cmgame-text-field-2_frame-align";
     public const string C_Id_FrameHitboxClip = "cmgame-text-field-2_frame-hitbox-clip";
     public const string C_Id_FrameNavigationContainer = "cmgame-text-field-2_frame-navigationcontainer";
     public const string C_Id_TexteditLabel = "cmgame-text-field-2_textedit-label";
+    /// <summary>0,1,2,3,... not 0,1,3,... for example</summary>
     public const int C_Property_HAlign = 0;
     public const int C_Property_VAlign = 1;
     public const int C_Property_Size = 2;
@@ -85,6 +89,7 @@ public partial class TextField_2 : ILib
     public const string C_Prop_TextSize = "text-size";
     public const string C_Prop_TextValue = "text-value";
     public const string C_Prop_TextValueType = "text-valuetype";
+    /// <summary>Default values</summary>
     public const string C_Prefix_Default = "$t$i";
     public const double C_Skew_Default = 10.0;
     public const double C_Skew_Margin = 1.0;

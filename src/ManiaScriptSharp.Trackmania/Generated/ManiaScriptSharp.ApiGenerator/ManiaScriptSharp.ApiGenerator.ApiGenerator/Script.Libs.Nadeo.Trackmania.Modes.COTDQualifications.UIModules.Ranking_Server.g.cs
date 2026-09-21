@@ -22,11 +22,13 @@ public partial class Ranking_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the top players times to the UI</summary>
+    /// <param name="_Leaderboard" />
     public void SetLeaderboard(global::System.Collections.Generic.Dictionary<string, int> _Leaderboard) { }
 
     public void ResetLeaderboard() { }
 
     /// <summary>Send the name of the competition</summary>
+    /// <param name="_CompetitionName" />
     public void SetCompetitionName(string _CompetitionName) { }
 
     /// <summary>Unload the library</summary>

@@ -9,7 +9,6 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.System.Chat;
 
-/// <summary>Automatic away status.</summary>
 public partial class ChatController : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Chat.ChatAPI ChatAPI;
@@ -29,8 +28,11 @@ public partial class ChatController : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Notifications.Sender_Internal Notifications;
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.ColorScheme ColorScheme;
 
+    /// <summary>Time before automatic Away status applies.</summary>
     public const int C_LibChatController_AutoAwayPresenceIdleTime = 300000;
+    /// <summary>&quot;Friend online&quot; notifications are ignored after connecting.</summary>
     public const int C_LibChatController_IgnoreJoinNotificationsDuration = 5000;
+    /// <summary>Duration of the chat notifications.</summary>
     public const int C_LibChatController_DefaultNotificationDuration = 6000;
 
     /// <summary>Update expandable windows horizontal visibility.</summary>
@@ -49,8 +51,8 @@ public partial class ChatController : ILib
     public void UpdateWindowPosition() { }
 
     /// <summary>Set the widget color scheme.</summary>
-    /// <param name="Background">Background quad color.</param>
-    /// <param name="Highlights">Leading active color for Online status, links and details.</param>
+    /// <param name="_Background">Background quad color.</param>
+    /// <param name="_Highlights">Leading active color for Online status, links and details.</param>
     public void SetWindowColors(Vec3 _Background, Vec3 _Highlights) { }
 
     /// <summary>Update the chat colors.</summary>
@@ -62,7 +64,7 @@ public partial class ChatController : ILib
     public void UpdateContactsList() { }
 
     /// <summary>Set the search phrase and switch list display mode.</summary>
-    /// <param name="SearchPhrase">Phrase used to filter the contacts.</param>
+    /// <param name="_SearchPhrase">Phrase used to filter the contacts.</param>
     public void SetContactsSearch(string _SearchPhrase) { }
 
     /// <summary>Update the number of unread messages.</summary>
@@ -72,7 +74,7 @@ public partial class ChatController : ILib
     public void UpdateMessageList() { }
 
     /// <summary>Check if conversation window is active with given contact.</summary>
-    /// <param name="Login">The login of the conversation.</param>
+    /// <param name="_Login">The login of the conversation.</param>
     /// <returns>True, if the conversation is open.</returns>
     public bool IsActiveMessagesWindow(string _Login) => default!;
 
@@ -80,15 +82,15 @@ public partial class ChatController : ILib
     public void ClearConversationUnreads() { }
 
     /// <summary>Set the currently open conversation.</summary>
-    /// <param name="Login">Login of the conversation.</param>
+    /// <param name="_Login">Login of the conversation.</param>
     public void SetActiveConversation(string _Login) { }
 
     /// <summary>Set the chat widget vertical visibility. Scrolls up/down all layers.</summary>
-    /// <param name="Visible">Whether the chat should be visible or not.</param>
+    /// <param name="_Visible">Whether the chat should be visible or not.</param>
     public void SetVisibility(bool _Visible) { }
 
     /// <summary>Finds and parses links in a message. Use only for outgoing messages. Example: &quot;URL&quot; -&gt; &quot;$&lt;$l[URL]URL$&gt;&quot; Messages window manually colorizes the links later.</summary>
-    /// <param name="Message">The message to parse links.</param>
+    /// <param name="_Message">The message to parse links.</param>
     /// <returns>Parsed message.</returns>
     public string ParseLinks(string _Message) => default!;
 

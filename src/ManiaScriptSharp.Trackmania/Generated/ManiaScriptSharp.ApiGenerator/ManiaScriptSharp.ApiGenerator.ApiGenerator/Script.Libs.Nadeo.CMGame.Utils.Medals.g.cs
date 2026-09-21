@@ -30,6 +30,7 @@ public partial class Medals : ILib
     public int TextToInteger(string _Text) => default!;
 
     /// <summary>Get medal color</summary>
+    /// <param name="_ScoreMgrMedal" />
     public string GetMedalColorHex6(int _ScoreMgrMedal) => default!;
 
     public string GetMedalColorHex3(int _ScoreMgrMedal) => default!;

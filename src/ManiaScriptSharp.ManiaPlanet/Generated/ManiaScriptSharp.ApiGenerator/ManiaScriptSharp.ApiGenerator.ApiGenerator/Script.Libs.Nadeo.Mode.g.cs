@@ -9,7 +9,6 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo;
 
-/// <summary>Return the version number of the script</summary>
 public partial class Mode : ILib
 {
     public const string Version = "2014-02-07";
@@ -39,7 +38,7 @@ public partial class Mode : ILib
     public void Ladder_OpenMatch_All() { }
 
     /// <summary>Create a new match on the ladder and register a list of scores @deprecated		Use the MB_Ladder_OpenMatch() function from ModeBase.Script.txt instead</summary>
-    /// <param name="Scores">The list of scores to register on the ladder</param>
+    /// <param name="_Scores">The list of scores to register on the ladder</param>
     public void Ladder_OpenMatch(global::System.Collections.Generic.IList<CScore> _Scores) { }
 
     /// <summary>Close the current match on the ladder @deprecated		Use the MB_Ladder_CloseMatch() function from ModeBase.Script.txt instead</summary>

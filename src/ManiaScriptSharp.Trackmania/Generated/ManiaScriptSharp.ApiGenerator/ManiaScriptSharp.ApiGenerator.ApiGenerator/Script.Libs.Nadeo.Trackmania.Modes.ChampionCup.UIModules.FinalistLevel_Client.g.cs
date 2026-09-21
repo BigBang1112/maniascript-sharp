@@ -20,11 +20,7 @@ public partial class FinalistLevel_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCup/UIModules/FinalistLevel_Client.Script.txt";
-    public const int C_VisibilitySlideAnimDuration = 200;
-    public const int C_VisibilityHidingDelay = 1500;
-    public const int C_LevelUpSlideAnimDuration = 200;
-    public const int C_RemainingSpotsSlideAnimDuration = 200;
-    public const int C_LevelUpPauseAnimDuration = 1000;
+    public const string C_ImgFolder = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion";
 
     public struct K_Controls
     {

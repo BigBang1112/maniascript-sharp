@@ -36,5 +36,6 @@ public partial class ExpendableButtonStyles : ILib
     public const string C_ButtonStyle_SkewTLBRRounded = "cmgame-mixins-expendable-button-styles-button-skew-tlbr-rounded";
     public const string C_ButtonStyle_SkewTLRounded = "cmgame-mixins-expendable-button-styles-button-skew-tl-rounded";
     public const string C_ButtonStyle_SkewBRRounded = "cmgame-mixins-expendable-button-styles-button-skew-br-rounded";
+    /// <summary>During the component initialization its properties will be computed so we don't need to do it here</summary>
     public const bool C_ComputeMergedProperties = false;
 }

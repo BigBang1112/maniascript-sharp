@@ -17,7 +17,6 @@ public partial class WeaponSelection : ILib
     public const int C_Rocket = 1;
     public const int C_Laser = 2;
     public const int C_Nucleus = 3;
-    public const int C_UpdateInterval = 250;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>
@@ -34,18 +33,18 @@ public partial class WeaponSelection : ILib
     public void Load() { }
 
     /// <summary>Start the weapon selection for the given players if _PlayersIds is empty, start for all players</summary>
-    /// <param name="PlayersIds">The players ids</param>
+    /// <param name="_PlayersIds">The players ids</param>
     public void Start(global::System.Collections.Generic.IList<Ident> _PlayersIds) { }
 
     /// <summary>Start the weapon selection for the given player</summary>
-    /// <param name="PlayerId">The player id</param>
+    /// <param name="_PlayerId">The player id</param>
     public void Start(Ident _PlayerId) { }
 
     /// <summary>Start the weapon selection for all players</summary>
     public void StartAll() { }
 
     /// <summary>Stop the weapon selection for the given players if _PlayersIds is empty, stop for all players</summary>
-    /// <param name="PlayersIds">The players ids</param>
+    /// <param name="_PlayersIds">The players ids</param>
     public void Stop(global::System.Collections.Generic.IList<Ident> _PlayersIds) { }
 
     /// <summary>Stop the weapon selection for all players</summary>

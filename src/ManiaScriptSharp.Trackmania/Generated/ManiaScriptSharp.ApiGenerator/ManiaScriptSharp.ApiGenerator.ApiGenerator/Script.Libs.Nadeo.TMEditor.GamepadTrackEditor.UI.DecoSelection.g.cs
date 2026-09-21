@@ -22,16 +22,17 @@ public partial class DecoSelection : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "DecoSelection.Script.txt";
+    /// <summary>Default ratio for the deco families</summary>
     public const double C_DefaultRatio = 0.5;
+    /// <summary>Increase/Decrease step of the ratio</summary>
     public const double C_RatioStep = 0.05;
+    /// <summary>Events</summary>
     public const string C_Event_DecoClick = "LibDecoSelection_DecoClick";
     public const string C_Event_DecoNext = "LibDecoSelection_DecoNext";
     public const string C_Event_DecoPrev = "LibDecoSelection_DecoPrev";
     public const string C_Event_DecoMore = "LibDecoSelection_DecoMore";
     public const string C_Event_DecoLess = "LibDecoSelection_DecoLess";
     public const string C_Event_GaugeClick = "LibDecoSelection_GaugeClick";
-    public const int C_ClickTick = 100;
-    public const int C_InitTick = 500;
 
     public string GetScriptVersion() => default!;
 
@@ -51,39 +52,50 @@ public partial class DecoSelection : ILib
     public string Event_GaugeClick() => default!;
 
     /// <summary>Set the colors of the gauges</summary>
+    /// <param name="_Colors" />
     public void SetColors(global::System.Collections.Generic.Dictionary<string, Vec3> _Colors) { }
 
     /// <summary>Set the ratios for each deco family</summary>
+    /// <param name="_Ratios" />
     public void SetRatios(global::System.Collections.Generic.Dictionary<string, float> _Ratios) { }
 
     /// <summary>Set the ratio of one family</summary>
+    /// <param name="_Family" />
+    /// <param name="_Ratio" />
     public void SetRatio(string _Family, float _Ratio) { }
 
     /// <summary>Get the ratios of the deco families</summary>
     public global::System.Collections.Generic.Dictionary<string, float> GetRatios() => default!;
 
     /// <summary>Increase the ratio of the given family</summary>
+    /// <param name="_Family" />
     public void More(string _Family) { }
 
     /// <summary>Overload More()</summary>
     public void More() { }
 
     /// <summary>Decrease the ratio of the given family</summary>
+    /// <param name="_Family" />
     public void Less(string _Family) { }
 
     /// <summary>Overload Less()</summary>
     public void Less() { }
 
     /// <summary>Select a deco family</summary>
+    /// <param name="_Family" />
+    /// <param name="_PlaySound" />
     public void SelectFamily(string _Family, bool _PlaySound) { }
 
     /// <summary>Overload SelectFamily()</summary>
+    /// <param name="_Family" />
     public void SelectFamily(string _Family) { }
 
     /// <summary>Set the deco families</summary>
+    /// <param name="_Families" />
     public void SetFamilies(global::System.Collections.Generic.IList<string> _Families) { }
 
     /// <summary>Set the deco selection visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     /// <summary>Select the next family</summary>

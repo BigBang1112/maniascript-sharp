@@ -24,9 +24,11 @@ public partial class MatchIntro_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the url of the background displayed in the intro sequence</summary>
+    /// <param name="_BackgroundUrl" />
     public void SetBackgroundUrl(string _BackgroundUrl) { }
 
     /// <summary>Set the url of the logo displayed in the intro sequence</summary>
+    /// <param name="_LogoUrl" />
     public void SetLogoUrl(string _LogoUrl) { }
 
     /// <summary>Unload the library</summary>

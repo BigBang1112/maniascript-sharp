@@ -22,6 +22,8 @@ public partial class Header_Client : ILib
     public const string Version = "1.1.3";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TMWT2025/UIModules/Header_Client.Script.txt";
     public const int C_MaxPointsPerRound = 3;
+    public const string C_DefaultClan1Logo = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWC2023/UI/DefaultClanLogo_1.dds";
+    public const string C_DefaultClan2Logo = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWC2023/UI/DefaultClanLogo_2.dds";
     public const double C_Padding_MatchInfo = 1.0;
     public const int C_AnimDuration_HeaderVisibility = 250;
     public const int C_AnimDuration_ClanName = 250;

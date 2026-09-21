@@ -22,6 +22,7 @@ public partial class TM_RoyalTimeAttack_Online : ILib
     public const string Version = "1.1.0+2025-04-22";
     public const string ScriptName = "Modes/TrackMania/TM_RoyalTimeAttack_Online.Script.txt";
     public const string C_ModeName = "Royal Time Attack";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/RoyalTimeAttack.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const bool C_EnableAutomaticGiveUpAfterElimination = true;
 
@@ -50,8 +51,11 @@ public partial class TM_RoyalTimeAttack_Online : ILib
     public virtual void Match_EndMap() { }
 
     /// <summary>Update the info in the scores table header</summary>
+    /// <param name="_TimeLimit" />
     public void UpdateScoresTableHeader(int _TimeLimit) { }
 
     /// <summary>Compute map end time</summary>
+    /// <param name="_StartTime" />
+    /// <param name="_TimeLimit" />
     public int GetEndTime(int _StartTime, int _TimeLimit) => default!;
 }

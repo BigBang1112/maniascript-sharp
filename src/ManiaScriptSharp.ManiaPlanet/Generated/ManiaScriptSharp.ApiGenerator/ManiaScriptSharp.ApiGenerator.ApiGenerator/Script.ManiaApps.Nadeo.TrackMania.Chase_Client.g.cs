@@ -18,11 +18,10 @@ public partial class Chase_Client : ILib
     public const string ScriptName = "ManiaApps/Nadeo/TrackMania/Chase.Script.txt";
     public const string C_Layer_UI = "ChaseUI";
     public const string C_Layer_Markers = "ChaseMarkers";
+    /// <summary>Default name when no player is selected for next checkpoint</summary>
     public const string C_NoNameCheckpoint = "-";
+    /// <summary>Display duration of the finish time and penalties</summary>
     public const int C_FinishDuration = 3000;
-    public const int C_TeamSpectated = 0;
-    public const int C_Team1 = 1;
-    public const int C_Team2 = 2;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>

@@ -77,29 +77,37 @@ public partial class Royal : ILib
     }
 
     /// <summary>Check if a team exists</summary>
+    /// <param name="_TeamId" />
     public bool TeamExists(int _TeamId) => default!;
 
     /// <summary>Check if a team is &quot;Null&quot;</summary>
+    /// <param name="_Team" />
     public bool TeamIsNull(K_Team _Team) => default!;
 
     /// <summary>Get the team id of a player Return `C_TeamNullId` if the player is not in a team</summary>
+    /// <param name="_AccountId" />
     public int GetTeamId(string _AccountId) => default!;
 
     /// <summary>Get the team of a player Return `C_TeamNull` if the player is not in a team</summary>
+    /// <param name="_AccountId" />
     public K_Team GetTeam(string _AccountId) => default!;
 
     /// <summary>Remove a member from a team</summary>
+    /// <param name="_AccountId" />
     public void RemoveTeamMember(string _AccountId) { }
 
     /// <summary>Add a member to a team if `_NewTeamElimited` is True and the member is added to a new team, then this team will be considered eliminated</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_TeamId" />
+    /// <param name="_NewTeamIsEliminated" />
     public void AddTeamMember(string _AccountId, int _TeamId, bool _NewTeamIsEliminated) { }
 
     public void UnlinkPlayerFromTeamMember(string _AccountId) { }
 
     /// <summary>Get the bot level of a team This will be used to initialize the bot level with a random value If the bot level is already initialized it will be limited to this range X should be a negative number allowing a decrease of level Y should be a positive number allowing an increase of level</summary>
-    /// <param name="TeamId">The id of the team to check</param>
-    /// <param name="MaxRange">The maximum range of the bot level</param>
-    /// <param name="MaxDeviation">Once initialized the bot level can still deviate from its value</param>
+    /// <param name="_TeamId">The id of the team to check</param>
+    /// <param name="_MaxRange">The maximum range of the bot level</param>
+    /// <param name="_MaxDeviation">Once initialized the bot level can still deviate from its value</param>
     public Int2 GetTeamBotLevelRange(int _TeamId, Int2 _MaxRange, Int2 _MaxDeviation) => default!;
 
     public int GetTeamBotLevel(int _TeamId, Int2 _MaxRange, Int2 _MaxDeviation) => default!;
@@ -116,6 +124,7 @@ public partial class Royal : ILib
     public global::System.Collections.Generic.Dictionary<int, K_Team> GetTeams() => default!;
 
     /// <summary>Get the team with the given id</summary>
+    /// <param name="_TeamId" />
     public K_Team GetTeam(int _TeamId) => default!;
 
     /// <summary>Get the number of teams</summary>
@@ -128,9 +137,11 @@ public partial class Royal : ILib
     public Int2 GetConnectedPlayersNb() => default!;
 
     /// <summary>Set the rank at which the eliminations start</summary>
+    /// <param name="_Rank" />
     public void SetEliminationRank(int _Rank) { }
 
     /// <summary>Update the teams ranking</summary>
+    /// <param name="_UpdateScoresTable" />
     public global::System.Collections.Generic.IList<K_Team> UpdateRanking(bool _UpdateScoresTable) => default!;
 
     public global::System.Collections.Generic.IList<K_Team> UpdateRanking() => default!;
@@ -139,16 +150,17 @@ public partial class Royal : ILib
     public void ThrottleUpdateRanking() { }
 
     /// <summary>Get the number of teams to eliminate at the end of the round</summary>
-    /// <param name="TargetRoundsNb">The number of rounds that should be played in a complete match</param>
-    /// <param name="PlayedRoundsNb">The number of rounds played since the beginning of the match</param>
+    /// <param name="_TargetRoundsNb">The number of rounds that should be played in a complete match</param>
+    /// <param name="_PlayedRoundsNb">The number of rounds played since the beginning of the match</param>
     public int GetEliminationsNb(int _TargetRoundsNb, int _PlayedRoundsNb) => default!;
 
     /// <summary>Eliminate the last teams</summary>
+    /// <param name="_EliminatedTeamsNb" />
     public global::System.Collections.Generic.IList<K_Team> EliminateLastTeams(int _EliminatedTeamsNb) => default!;
 
     /// <summary>Eliminate the last teams</summary>
-    /// <param name="TargetRoundsNb">The number of rounds that should be played in a complete match</param>
-    /// <param name="PlayedRoundsNb">The number of rounds played since the beginning of the match</param>
+    /// <param name="_TargetRoundsNb">The number of rounds that should be played in a complete match</param>
+    /// <param name="_PlayedRoundsNb">The number of rounds played since the beginning of the match</param>
     public global::System.Collections.Generic.IList<K_Team> EliminateLastTeams(int _TargetRoundsNb, int _PlayedRoundsNb) => default!;
 
     /// <summary>Save the current rank in the previous map rank</summary>
@@ -177,15 +189,23 @@ public partial class Royal : ILib
     public bool UnlockNextSegment() => default!;
 
     /// <summary>Set the time at which the race started on the current map. DO NOT update it once the race started. It would create incoherent finish times for the teams</summary>
+    /// <param name="_MapStartTime" />
     public void SetMapStartTime(int _MapStartTime) { }
 
     /// <summary>Create fake teams</summary>
+    /// <param name="_ClansNb" />
+    /// <param name="_MembersPerClan" />
+    /// <param name="_FakeMembers" />
     public void CreateFakeTeams(int _ClansNb, int _MembersPerClan, global::System.Collections.Generic.Dictionary<string, int> _FakeMembers) { }
 
     /// <summary>Play a fake race will all teams</summary>
     public void PlayFakeRace() { }
 
     /// <summary>Send the team match result to the tracking</summary>
+    /// <param name="_Team" />
+    /// <param name="_IsWinner" />
+    /// <param name="_IsSuperRoyalFinale" />
+    /// <param name="_SuperRoyalDivision" />
     public void SendTeamMatchResult(K_Team _Team, bool _IsWinner, bool _IsSuperRoyalFinale, string _SuperRoyalDivision) { }
 
     /// <summary>Update the library</summary>

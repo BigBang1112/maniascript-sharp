@@ -17,7 +17,9 @@ public partial class Melee : global::ManiaScriptSharp.Scripts.Modes.ShootMania.B
     public const string CompatibleMapTypes = "MeleeArena";
     public const string Version = "2017-05-09";
     public const string ScriptName = "Modes/ShootMania/Melee.Script.txt";
+    /// <summary>Path to the hud module</summary>
     public const string C_HudModulePath = "Nadeo/ShootMania/Melee/Hud.Module.Gbx";
+    /// <summary>Number of bots</summary>
     public const int C_NbBots = 0;
 
     public virtual void Match_LogVersions() { }
@@ -43,7 +45,7 @@ public partial class Melee : global::ManiaScriptSharp.Scripts.Modes.ShootMania.B
     public virtual void Match_EndServer() { }
 
     /// <summary>Play a sound and notice if someone is close to win</summary>
-    /// <param name="Player">The player who scored a point</param>
-    /// <param name="PointsLimit">The points limit to reach to win</param>
+    /// <param name="_Player">The player who scored a point</param>
+    /// <param name="_PointsLimit">The points limit to reach to win</param>
     public void PlayAnnouncer(CSmPlayer _Player, int _PointsLimit) { }
 }

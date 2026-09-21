@@ -19,5 +19,6 @@ public partial class LocalServer : ILib
     public bool IsLocalServer() => default!;
 
     /// <summary>Set the the server is local or not</summary>
+    /// <param name="_IsLocalServer" />
     public void SetIsLocalServer(bool _IsLocalServer) { }
 }

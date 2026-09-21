@@ -25,52 +25,52 @@ public partial class Json2 : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Escape special characters for JSON string</summary>
-    /// <param name="Text">The text to clean</param>
+    /// <param name="_Text">The text to clean</param>
     /// <returns>The cleaned text</returns>
     public string EscapeText(string _Text) => default!;
 
     /// <summary>Convert a Text into a JSON string</summary>
-    /// <param name="Text">The Text to convert</param>
+    /// <param name="_Text">The Text to convert</param>
     /// <returns>The converted Text</returns>
     public string GetText(string _Text) => default!;
 
     /// <summary>Convert an array of Text in a JSON string</summary>
-    /// <param name="TextArray">The array of Text to convert</param>
+    /// <param name="_TextArray">The array of Text to convert</param>
     /// <returns>The converted array of Text</returns>
     public string GetTextArray(global::System.Collections.Generic.IList<string> _TextArray) => default!;
 
     /// <summary>Convert a Real into a JSON string</summary>
-    /// <param name="Real">The Real to convert</param>
+    /// <param name="_Real">The Real to convert</param>
     /// <returns>The converted Real</returns>
     public string GetReal(float _Real) => default!;
 
     /// <summary>Convert a Integer into a JSON string</summary>
-    /// <param name="Integer">The Integer to convert</param>
+    /// <param name="_Integer">The Integer to convert</param>
     /// <returns>The converted Integer</returns>
     public string GetInteger(int _Integer) => default!;
 
     /// <summary>Convert a Int3 into a JSON string</summary>
-    /// <param name="Int3">The Int3 to convert</param>
+    /// <param name="_Int3">The Int3 to convert</param>
     /// <returns>The converted Int3</returns>
     public string GetInt3(Int3 _Int3) => default!;
 
     /// <summary>Convert a Vec3 into a JSON string</summary>
-    /// <param name="Vec3">The Vec3 to convert</param>
+    /// <param name="_Vec3">The Vec3 to convert</param>
     /// <returns>The converted Vec3</returns>
     public string GetVec3(Vec3 _Vec3) => default!;
 
     /// <summary>Convert a Vec2 into a JSON string</summary>
-    /// <param name="Vec2">The Vec2 to convert</param>
+    /// <param name="_Vec2">The Vec2 to convert</param>
     /// <returns>The converted Vec2</returns>
     public string GetVec2(Vec2 _Vec2) => default!;
 
     /// <summary>Convert a Boolean into a JSON string</summary>
-    /// <param name="Boolean">The Boolean to convert</param>
+    /// <param name="_Boolean">The Boolean to convert</param>
     /// <returns>The converted Boolean</returns>
     public string GetBoolean(bool _Boolean) => default!;
 
     /// <summary>Convert an Ident into a JSON string</summary>
-    /// <param name="Ident">The Ident to convert</param>
+    /// <param name="_Ident">The Ident to convert</param>
     /// <returns>The converted Ident</returns>
     public string GetIdent(Ident _Ident) => default!;
 }

@@ -57,11 +57,13 @@ public partial class PrestigeStruct : ILib
     public int ConvertToRankedRank(K_Prestige _Prestige) => default!;
 
     /// <summary>Get the clan style associated to the given year New royal prestige skins are released every years and belong to their own clan style</summary>
+    /// <param name="_Year" />
     public int GetClanStyleFromYear(int _Year) => default!;
 
     /// <summary>Get the clan style of the current year If the current year is not yet added, return the latest available year</summary>
     public int GetCurrentYearClanStyle() => default!;
 
     /// <summary>Check if there are Royal prestige skins for the given year</summary>
+    /// <param name="_Year" />
     public bool HasRoyalPrestige(int _Year) => default!;
 }

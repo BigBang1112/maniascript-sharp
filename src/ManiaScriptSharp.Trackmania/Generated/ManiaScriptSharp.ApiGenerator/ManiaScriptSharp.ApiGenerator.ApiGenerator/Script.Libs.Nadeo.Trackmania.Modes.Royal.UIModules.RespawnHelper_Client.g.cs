@@ -21,9 +21,6 @@ public partial class RespawnHelper_Client : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/RespawnHelper_Client.Script.txt";
     public const double C_TextMargin = 3.0;
     public const double C_MaxWidth = 78.0;
-    public const double C_MinSpeed = 10.0;
-    public const int C_MinSpeedDelay = 10000;
-    public const int C_UpdateInterval = 500;
 
     /// <summary>Get the id of the UI module</summary>
     public string GetId() => default!;

@@ -13,6 +13,8 @@ public partial class Layer_Options : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Channels/";
+
     public void Build() { }
 
     public void SetVisibility(bool _Visible) { }

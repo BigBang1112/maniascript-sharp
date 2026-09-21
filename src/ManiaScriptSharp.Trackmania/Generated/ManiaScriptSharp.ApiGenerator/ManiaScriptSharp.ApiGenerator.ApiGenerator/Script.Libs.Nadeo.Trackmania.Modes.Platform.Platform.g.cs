@@ -30,6 +30,7 @@ public partial class Platform : ILib
     }
 
     /// <summary>Release ghost</summary>
+    /// <param name="_GhostInfo" />
     public K_GhostInfo ReleaseGhost(K_GhostInfo _GhostInfo) => default!;
 
     /// <summary>But in Platform mode, it's the player with the lowest number of respawns who wins</summary>

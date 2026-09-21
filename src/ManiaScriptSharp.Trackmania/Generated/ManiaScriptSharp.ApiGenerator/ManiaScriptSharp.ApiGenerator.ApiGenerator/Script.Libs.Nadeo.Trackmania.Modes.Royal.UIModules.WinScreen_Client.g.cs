@@ -23,7 +23,7 @@ public partial class WinScreen_Client : ILib
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/WinScreen_Client.Script.txt";
     public const int C_UpdateInterval = 250;
-    public const int C_DisplayAnimDuration = 250;
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes";
 
     public struct K_Controls
     {

@@ -16,10 +16,15 @@ public partial class AFK : ILib
 
     public const string Version = "2014-10-15";
     public const string ScriptName = "AFK.Script.txt";
+    /// <summary>after 1'30 of inactivity, a player is considered AFK</summary>
     public const int C_LibAFK_IdleTimeLimit = 90000;
+    /// <summary>A player cannot be considered AFK during 15 s. after spawning</summary>
     public const int C_LibAFK_SpawnTimeLimit = 15000;
+    /// <summary>Time interval between automatic AFK players check</summary>
     public const int C_LibAFK_CheckInterval = 10000;
+    /// <summary>Force the player on spectator when AFK</summary>
     public const bool C_LibAFK_ForceSpec = true;
+    /// <summary>Minimum idle time to avoid false positive</summary>
     public const int C_LibAFK_IdleThreshold = 1000;
 
     /// <summary>Return the version number of the script</summary>
@@ -37,21 +42,21 @@ public partial class AFK : ILib
     public void Load() { }
 
     /// <summary>Check if a player is AFK</summary>
-    /// <param name="Player">The player to check</param>
-    /// <param name="MaxIdleDuration">Time of inactivity to be considered AFK</param>
-    /// <param name="SpawnTimeMercy">Time after spawning during which one can not be considered AFK</param>
+    /// <param name="_Player">The player to check</param>
+    /// <param name="_MaxIdleDuration">Time of inactivity to be considered AFK</param>
+    /// <param name="_SpawnTimeMercy">Time after spawning during which one can not be considered AFK</param>
     public bool IsAFK(CSmPlayer _Player, int _MaxIdleDuration, int _SpawnTimeMercy) => default!;
 
     /// <summary>Try to force AFK players to spectators</summary>
-    /// <param name="MaxIdleDuration">In milliSec., time of inactivity to be considered AFK</param>
-    /// <param name="SpawnTimeMercy">In milliSec., time after spawning during which one can not be considered AFK</param>
+    /// <param name="_MaxIdleDuration">In milliSec., time of inactivity to be considered AFK</param>
+    /// <param name="_SpawnTimeMercy">In milliSec., time after spawning during which one can not be considered AFK</param>
     public void ManageAFKPlayers(int _MaxIdleDuration, int _SpawnTimeMercy) { }
 
     /// <summary>Try to force AFK players to spectators</summary>
     public void ManageAFKPlayers() { }
 
     /// <summary>Update the idle time limit</summary>
-    /// <param name="Time">The new idle time limit</param>
+    /// <param name="_Time">The new idle time limit</param>
     public void SetIdleTimeLimit(int _Time) { }
 
     /// <summary>Get the current idle time limit</summary>
@@ -59,15 +64,15 @@ public partial class AFK : ILib
     public int GetIdleTimeLimit() => default!;
 
     /// <summary>Update the spawn mercy time</summary>
-    /// <param name="Time">The new spawn mercy time</param>
+    /// <param name="_Time">The new spawn mercy time</param>
     public void SetSpawnTimeLimit(int _Time) { }
 
     /// <summary>Update the check time interval</summary>
-    /// <param name="Interval">The new time interval</param>
+    /// <param name="_Interval">The new time interval</param>
     public void SetCheckInterval(int _Interval) { }
 
     /// <summary>Update the force spec value</summary>
-    /// <param name="Interval">The new force spec value</param>
+    /// <param name="_ForceSpec" />
     public void SetForceSpec(bool _ForceSpec) { }
 
     /// <summary>Manage the XmlRpc events</summary>

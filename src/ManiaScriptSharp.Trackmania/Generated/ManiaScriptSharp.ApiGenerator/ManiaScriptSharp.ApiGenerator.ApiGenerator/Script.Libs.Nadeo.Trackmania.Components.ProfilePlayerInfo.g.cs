@@ -43,11 +43,13 @@ public partial class ProfilePlayerInfo : ILib
     public const string C_NavGroup_Main = "navgroup-component-profileplayerinfo-main";
     public const string C_NavGroup_MouseOnly = "navgroup-component-profileplayerinfo-mouse-only";
     public const int C_DelayBetweenPagerRequest = 250;
+    /// <summary>Categories tabs</summary>
     public const int C_TabDisplayed_General = 0;
     public const int C_TabDisplayed_Trophies = 1;
     public const int C_TabDisplayed_Ranked = 2;
 
     /// <summary>Get the component</summary>
+    /// <param name="_Size_PlayerProfile" />
     /// <returns>The component id</returns>
     public string Component(Vec2 _Size_PlayerProfile) => default!;
 

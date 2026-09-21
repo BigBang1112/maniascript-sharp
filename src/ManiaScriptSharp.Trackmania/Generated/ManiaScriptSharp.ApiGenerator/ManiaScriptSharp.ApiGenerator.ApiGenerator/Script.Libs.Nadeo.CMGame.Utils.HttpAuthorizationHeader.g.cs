@@ -26,9 +26,11 @@ public partial class HttpAuthorizationHeader : ILib
     public string GetClubAuthorizationValue() => default!;
 
     /// <summary>Override the automatic authorization header</summary>
+    /// <param name="_AuthorizationHeader" />
     public void OverrideLive(string _AuthorizationHeader) { }
 
     /// <summary>@mslint disable next line no unused variables For backward compatibility reasons we cannot remove the deprecated `_AuthorizationHeader` parameter</summary>
+    /// <param name="_AuthorizationHeader" />
     public void OverrideClub(string _AuthorizationHeader) { }
 
     /// <summary>Check if an authentication header is set</summary>

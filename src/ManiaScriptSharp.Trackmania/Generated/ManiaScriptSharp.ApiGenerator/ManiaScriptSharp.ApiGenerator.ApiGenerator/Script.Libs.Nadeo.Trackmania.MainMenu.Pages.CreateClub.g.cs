@@ -44,20 +44,20 @@ public partial class CreateClub : ILib
     public const string C_Class_SelectorFrame = "class-create-club-selector-frame";
     public const string C_Class_RemoveAsset = "class-create-club-button-remove-asset";
     public const string C_Class_DownloadAsset = "class-create-club-button-download-asset";
+    /// <summary>Pop up to define the same theme for all club assets</summary>
     public const int C_Choice_No = 0;
     public const int C_Choice_Yes = 1;
+    /// <summary>Pop up to create the club</summary>
     public const int C_Choice_RandomTheme = 0;
     public const int C_Choice_NoImages = 1;
     public const int C_Choice_Back = 2;
+    /// <summary>Pop up to delete the club</summary>
     public const int C_Choice_Cancel = 0;
     public const int C_Choice_Delete = 1;
+    /// <summary>Navigation tabs</summary>
     public const int C_Tab_General = 0;
     public const int C_Tab_Branding = 1;
     public const int C_Tab_Stadium = 2;
-    public const string C_Choice_None = "none";
-    public const string C_Choice_Custom = "custom";
-    public const string C_Choice_Remove = "remove";
-    public const int C_ClubDescription_MaxChar = 200;
 
     public struct K_Selector
     {

@@ -70,14 +70,27 @@ public partial class DirectLink : ILib
     public string GetManialink() => default!;
 
     /// <summary>Join a server</summary>
+    /// <param name="_JoinServerRequest" />
+    /// <param name="_JoinLink" />
+    /// <param name="_CancelMatchmaking" />
+    /// <param name="_ResetVoiceChat" />
+    /// <param name="_LoadingScreenText" />
     public K_JoinServerRequest JoinServer(K_JoinServerRequest _JoinServerRequest, string _JoinLink, bool _CancelMatchmaking, bool _ResetVoiceChat, string _LoadingScreenText) => default!;
 
     public K_JoinServerRequest JoinServer(K_JoinServerRequest _JoinServerRequest, string _ServerLogin, bool _IsSpectator, bool _CancelMatchmaking, bool _ResetVoiceChat, string _LoadingScreenText) => default!;
 
     /// <summary>Join the arcade channel</summary>
+    /// <param name="_JoinArcadeChannel" />
     public K_JoinArcadeChannel JoinArcadeChannel(K_JoinArcadeChannel _JoinArcadeChannel) => default!;
 
     /// <summary>Go to a page</summary>
+    /// <param name="_GoToPageRequest" />
+    /// <param name="_Path" />
+    /// <param name="_Query" />
+    /// <param name="_ParentPath" />
+    /// <param name="_CheckIsOnRoute" />
+    /// <param name="_CancelMatchmaking" />
+    /// <param name="_ResetVoiceChat" />
     public K_GoToPageRequest GoToPage(K_GoToPageRequest _GoToPageRequest, string _Path, global::System.Collections.Generic.Dictionary<string, string> _Query, string _ParentPath, bool _CheckIsOnRoute, bool _CancelMatchmaking, bool _ResetVoiceChat) => default!;
 
     public K_GoToPageRequest GoToClubEditionInfoPage(K_GoToPageRequest _GoToPageRequest, string _Message, string _ParentPath) => default!;

@@ -17,7 +17,6 @@ public partial class Settings : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Plugins/Nadeo/Trackmania/Settings/Pages/Settings.Script.txt";
-    public const string C_SettingsNavigationRequestId = "plugins-trackmania-settings-pages-settings";
 
     /// <summary>Get the page manialink</summary>
     public string GetManialink() => default!;

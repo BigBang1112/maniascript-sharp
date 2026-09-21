@@ -45,18 +45,11 @@ public partial class LocalServer : ILib
     public const int C_Time_MaxWaitTimeDuration = 250;
     public const int C_ErrorMessage_TimeDuration = 5000;
     public const int C_SaveMessage_TimeDuration = 2000;
+    /// <summary>see https: gitlab.nadeo.org trackmania next tmnext merge_requests 6848#note_317301</summary>
     public const int C_PlayersNb_Min = 1;
     public const int C_PlayersNb_Max = 235;
     public const int C_PlayersNb_Default = 32;
     public const int C_Tab_LocalServers = 0;
-    public const int C_StateType_None = -1;
-    public const int C_StateType_ServerList = 0;
-    public const int C_StateType_LocalServerInfo = 1;
-    public const int C_StateType_MatchSettings = 2;
-    public const int C_StateType_Browsing = 3;
-    public const int C_StateType_TrackBrowsing = 4;
-    public const string C_TempMatchSettingsPath = "TmpMatchSettings";
-    public const int C_MapToHandleIndex_Null = -1;
 
     public struct K_ServerInfo
     {

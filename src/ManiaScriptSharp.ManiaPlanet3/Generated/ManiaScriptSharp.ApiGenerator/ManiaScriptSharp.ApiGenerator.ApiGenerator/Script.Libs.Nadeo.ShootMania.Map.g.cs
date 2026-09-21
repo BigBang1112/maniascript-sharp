@@ -29,104 +29,104 @@ public partial class Map : ILib
 
     /// <summary>Get a landmark from its type, tag and order</summary>
     /// <param name="Type">The type of landmark</param>
-    /// <param name="Tag">The tag of the spawn</param>
-    /// <param name="Order">The order of the spawn</param>
+    /// <param name="_Tag">The tag of the spawn</param>
+    /// <param name="_Order">The order of the spawn</param>
     /// <returns>The landmark if found, Null otherwise</returns>
     public CSmMapLandmark GetLandmark(string Type, string _Tag, int _Order) => default!;
 
     /// <summary>Get a landmark from its tag and order</summary>
-    /// <param name="Tag">The tag of the landmark</param>
-    /// <param name="Order">The order of the landmark</param>
+    /// <param name="_Tag">The tag of the landmark</param>
+    /// <param name="_Order">The order of the landmark</param>
     /// <returns>The landmark if found, Null otherwise</returns>
     public CSmMapLandmark GetLandmark(string _Tag, int _Order) => default!;
 
     /// <summary>Get a landmark with a base from its tag and order</summary>
-    /// <param name="Tag">The tag of the base</param>
-    /// <param name="Order">The order of the base</param>
+    /// <param name="_Tag">The tag of the base</param>
+    /// <param name="_Order">The order of the base</param>
     /// <returns>The landmark if found, Null otherwise</returns>
     public CSmMapLandmark GetLandmarkBase(string _Tag, int _Order) => default!;
 
     /// <summary>Get a landmark with a gate from its tag and order</summary>
-    /// <param name="Tag">The tag of the gate</param>
-    /// <param name="Order">The order of the gate</param>
+    /// <param name="_Tag">The tag of the gate</param>
+    /// <param name="_Order">The order of the gate</param>
     /// <returns>The landmark if found, Null otherwise</returns>
     public CSmMapLandmark GetLandmarkGate(string _Tag, int _Order) => default!;
 
     /// <summary>Get a landmark with a gauge from its tag and order</summary>
-    /// <param name="Tag">The tag of the gauge</param>
-    /// <param name="Order">The order of the gauge</param>
+    /// <param name="_Tag">The tag of the gauge</param>
+    /// <param name="_Order">The order of the gauge</param>
     /// <returns>The landmark if found, Null otherwise</returns>
     public CSmMapLandmark GetLandmarkGauge(string _Tag, int _Order) => default!;
 
     /// <summary>Get a landmark with a sector from its tag and order</summary>
-    /// <param name="Tag">The tag of the sector</param>
-    /// <param name="Order">The order of the sector</param>
+    /// <param name="_Tag">The tag of the sector</param>
+    /// <param name="_Order">The order of the sector</param>
     /// <returns>The landmark if found, Null otherwise</returns>
     public CSmMapLandmark GetLandmarkSector(string _Tag, int _Order) => default!;
 
     /// <summary>Get a landmark with a player spawn from its tag and order</summary>
-    /// <param name="Tag">The tag of the player spawn</param>
-    /// <param name="Order">The order of the player spawn</param>
+    /// <param name="_Tag">The tag of the player spawn</param>
+    /// <param name="_Order">The order of the player spawn</param>
     /// <returns>The landmark if found, Null otherwise</returns>
     public CSmMapLandmark GetLandmarkPlayerSpawn(string _Tag, int _Order) => default!;
 
     /// <summary>Get a landmark with a bot path from its tag and order</summary>
-    /// <param name="Tag">The tag of the bot path</param>
-    /// <param name="Order">The order of the bot path</param>
+    /// <param name="_Tag">The tag of the bot path</param>
+    /// <param name="_Order">The order of the bot path</param>
     /// <returns>The landmark if found, Null otherwise</returns>
     public CSmMapLandmark GetLandmarkBotPath(string _Tag, int _Order) => default!;
 
     /// <summary>Get a landmark with an object anchor from its tag and order</summary>
-    /// <param name="Tag">The tag of the object anchor</param>
-    /// <param name="Order">The order of the object anchor</param>
+    /// <param name="_Tag">The tag of the object anchor</param>
+    /// <param name="_Order">The order of the object anchor</param>
     /// <returns>The landmark if found, Null otherwise</returns>
     public CSmMapLandmark GetLandmarkObjectAnchor(string _Tag, int _Order) => default!;
 
     /// <summary>Get a capturable landmark from its tag and order</summary>
-    /// <param name="Tag">The tag of the capturable</param>
-    /// <param name="Order">The order of the capturable</param>
+    /// <param name="_Tag">The tag of the capturable</param>
+    /// <param name="_Order">The order of the capturable</param>
     /// <returns>The landmark if found, Null otherwise</returns>
     public CSmMapLandmark GetLandmarkCapturable(string _Tag, int _Order) => default!;
 
     /// <summary>Get the base of a landmark from its tag and order</summary>
-    /// <param name="Tag">The tag of the base</param>
-    /// <param name="Order">The order of the base</param>
+    /// <param name="_Tag">The tag of the base</param>
+    /// <param name="_Order">The order of the base</param>
     /// <returns>The base if found, Null otherwise</returns>
     public CSmMapBase GetBase(string _Tag, int _Order) => default!;
 
     /// <summary>Get the gate of landmark from its tag and order</summary>
-    /// <param name="Tag">The tag of the gate</param>
-    /// <param name="Order">The order of the gate</param>
+    /// <param name="_Tag">The tag of the gate</param>
+    /// <param name="_Order">The order of the gate</param>
     /// <returns>The gate if found, Null otherwise</returns>
     public CSmMapGate GetGate(string _Tag, int _Order) => default!;
 
     /// <summary>Get the gauge of a landmark from its tag and order</summary>
-    /// <param name="Tag">The tag of the gauge</param>
-    /// <param name="Order">The order of the gauge</param>
+    /// <param name="_Tag">The tag of the gauge</param>
+    /// <param name="_Order">The order of the gauge</param>
     /// <returns>The gauge if found, Null otherwise</returns>
     public CSmMapGauge GetGauge(string _Tag, int _Order) => default!;
 
     /// <summary>Get the sector of a landmark from its tag and order</summary>
-    /// <param name="Tag">The tag of the sector</param>
-    /// <param name="Order">The order of the sector</param>
+    /// <param name="_Tag">The tag of the sector</param>
+    /// <param name="_Order">The order of the sector</param>
     /// <returns>The sector if found, Null otherwise</returns>
     public CSmMapSector GetSector(string _Tag, int _Order) => default!;
 
     /// <summary>Get the player spawn of a landmark from its tag and order</summary>
-    /// <param name="Tag">The tag of the player spawn</param>
-    /// <param name="Order">The order of the player spawn</param>
+    /// <param name="_Tag">The tag of the player spawn</param>
+    /// <param name="_Order">The order of the player spawn</param>
     /// <returns>The player spawn if found, Null otherwise</returns>
     public CSmMapPlayerSpawn GetPlayerSpawn(string _Tag, int _Order) => default!;
 
     /// <summary>Get the bot path of a landmark from its tag and order</summary>
-    /// <param name="Tag">The tag of the bot path</param>
-    /// <param name="Order">The order of the bot path</param>
+    /// <param name="_Tag">The tag of the bot path</param>
+    /// <param name="_Order">The order of the bot path</param>
     /// <returns>The bot path if found, Null otherwise</returns>
     public CSmMapBotPath GetBotPath(string _Tag, int _Order) => default!;
 
     /// <summary>Get the object anchor of a landmark from its tag and order</summary>
-    /// <param name="Tag">The tag of the object anchor</param>
-    /// <param name="Order">The order of the object anchor</param>
+    /// <param name="_Tag">The tag of the object anchor</param>
+    /// <param name="_Order">The order of the object anchor</param>
     /// <returns>The object anchor if found, Null otherwise</returns>
     public CSmMapObjectAnchor GetObjectAnchor(string _Tag, int _Order) => default!;
 

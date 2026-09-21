@@ -23,6 +23,7 @@ public partial class TM_MultiTeams_Online : ILib
     public const string Version = "1.0.1+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/Deprecated/TM_MultiTeams_Online.Script.txt";
     public const string C_ModeName = "Multi-Teams";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/MultiTeams.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const int C_PointsLimit_NotReached = 0;
     public const int C_PointsLimit_Reached = 1;
@@ -61,10 +62,10 @@ public partial class TM_MultiTeams_Online : ILib
     public virtual void Match_EndMap() { }
 
     /// <summary>Update the scores table footer text</summary>
-    /// <param name="PointsLimit">The points limit</param>
-    /// <param name="RoundsPerMap">The number of round per map</param>
-    /// <param name="MapsPerMatch">The number of maps per match</param>
-    /// <param name="ValidRoundsNb">Number of valid rounds played</param>
+    /// <param name="_PointsLimit">The points limit</param>
+    /// <param name="_RoundsPerMap">The number of round per map</param>
+    /// <param name="_MapsPerMatch">The number of maps per match</param>
+    /// <param name="_ValidRoundsNb">Number of valid rounds played</param>
     public void UpdateScoresTableFooter(int _PointsLimit, int _RoundsPerMap, int _MapsPerMatch, int _ValidRoundsNb) { }
 
     /// <summary>Get the time left to the players to finish the round after the first player</summary>
@@ -82,7 +83,7 @@ public partial class TM_MultiTeams_Online : ILib
     public int PointsLimitReached() => default!;
 
     /// <summary>Check if we should go to the next map</summary>
-    /// <param name="ValidRoundsNb">Number of valid rounds played</param>
+    /// <param name="_ValidRoundsNb">Number of valid rounds played</param>
     /// <returns>True if it is the case, false otherwise</returns>
     public bool MapIsOver(int _ValidRoundsNb) => default!;
 

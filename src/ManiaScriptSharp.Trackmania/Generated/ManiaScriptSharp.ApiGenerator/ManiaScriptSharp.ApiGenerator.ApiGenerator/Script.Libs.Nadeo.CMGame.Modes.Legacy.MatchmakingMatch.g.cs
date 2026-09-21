@@ -17,29 +17,53 @@ public partial class MatchmakingMatch : ILib
 
     public const string Version = "1.0.2";
     public const string ScriptName = "Libs/Nadeo/CMGame/Modes/Legacy/MatchmakingMatch.Script.txt";
+    /// <summary>Match status Waiting for a match to start</summary>
     public const int C_MatchStatus_Waiting = 0;
+    /// <summary>Match starting</summary>
     public const int C_MatchStatus_Starting = 1;
+    /// <summary>Match running</summary>
     public const int C_MatchStatus_Playing = 2;
+    /// <summary>Waiting for a substitute</summary>
     public const int C_MatchStatus_Substitute = 3;
+    /// <summary>Match ending</summary>
     public const int C_MatchStatus_Ending = 4;
+    /// <summary>Player status Player waiting approval</summary>
     public const int C_PlayerStatus_Waiting = 0;
+    /// <summary>Player approved</summary>
     public const int C_PlayerStatus_Valid = 1;
+    /// <summary>Player rejected</summary>
     public const int C_PlayerStatus_Invalid = 2;
+    /// <summary>Missing players info Clan of the missing player</summary>
     public const int C_MissingInfo_Clan = 0;
+    /// <summary>Kick status of the missing player</summary>
     public const int C_MissingInfo_Kicked = 1;
+    /// <summary>Time when the player gone missing</summary>
     public const int C_MissingInfo_Since = 2;
+    /// <summary>Player info Clan of the player</summary>
     public const int C_PlayerInfo_Clan = 0;
+    /// <summary>Slot of the player</summary>
     public const int C_PlayerInfo_Slot = 1;
+    /// <summary>Sequences duration Maximum delay before sending back the player to the lobby at the end of the match</summary>
     public const int C_DelayBeforeTransfert = 10000;
+    /// <summary>Maximum duration of the match ending</summary>
     public const int C_EndingDuration = 15000;
+    /// <summary>Vote duration for the rematch</summary>
     public const int C_RematchVoteDuration = 10000;
+    /// <summary>Maximum duration of the match preparation once there's at least one player</summary>
     public const int C_PreparationDuration = 20000;
+    /// <summary>Misc Time before searching a substitute for a missing player</summary>
     public const int C_MissingPlayerGracePeriod = 90000;
+    /// <summary>Time interval between each ping</summary>
     public const int C_PingInterval = 60000;
+    /// <summary>Random time margin applied to the live request of the match and lobby server</summary>
     public const int C_RequestRandomDeviation = 500;
+    /// <summary>Time before restarting a match on an empty server</summary>
     public const int C_EmptyTimeBeforeRestart = 300000;
+    /// <summary>Time interval between each players number check</summary>
     public const int C_PlayersNumberCheckInterval = 60000;
+    /// <summary>Minimum time after a transfert before a player can be listed as ready</summary>
     public const int C_TransfertSafeTime = 15000;
+    /// <summary>Common http headers</summary>
     public const string C_HttpHeaders = "Content-Type: application/json\nAccept: application/xml";
 
     /// <summary>Unload the library</summary>
@@ -49,7 +73,7 @@ public partial class MatchmakingMatch : ILib
     public void Load() { }
 
     /// <summary>Set the match Id</summary>
-    /// <param name="MatchId">The new match id</param>
+    /// <param name="_MatchId">The new match id</param>
     public void SetMatchId(string _MatchId) { }
 
     /// <summary>Get the match id</summary>
@@ -61,7 +85,7 @@ public partial class MatchmakingMatch : ILib
     public int GetMatchIdInteger() => default!;
 
     /// <summary>Set the lobby login</summary>
-    /// <param name="LobbyLogin">The login of the lobby</param>
+    /// <param name="_LobbyLogin">The login of the lobby</param>
     public void SetLobbyLogin(string _LobbyLogin) { }
 
     /// <summary>Get the lobby login</summary>
@@ -73,29 +97,29 @@ public partial class MatchmakingMatch : ILib
     public int GetMatchStatus() => default!;
 
     /// <summary>Add a missing player to the list</summary>
-    /// <param name="Player">The player's login to add to the list</param>
-    /// <param name="Clan">The clan of the player</param>
-    /// <param name="Kicked">If the player was kicked or not</param>
+    /// <param name="_Login" />
+    /// <param name="_Clan">The clan of the player</param>
+    /// <param name="_Kicked">If the player was kicked or not</param>
     public void AddMissingPlayer(string _Login, int _Clan, bool _Kicked) { }
 
     /// <summary>Remove a missing player from the list</summary>
-    /// <param name="Login">The player's login to remove from the list</param>
+    /// <param name="_Login">The player's login to remove from the list</param>
     public void RemoveMissingPlayer(string _Login) { }
 
     /// <summary>Clear the missing players list</summary>
     public void ClearMissingPlayers() { }
 
     /// <summary>Check if a login is in the list of missing players</summary>
-    /// <param name="Login">The login to check</param>
+    /// <param name="_Login">The login to check</param>
     /// <returns>True if the login is in the list, False otherwise</returns>
     public bool IsInMissingPlayers(string _Login) => default!;
 
     /// <summary>Add a kicked player to the list</summary>
-    /// <param name="Login">The player's login to add to the list</param>
+    /// <param name="_Login">The player's login to add to the list</param>
     public void AddKickedPlayer(string _Login) { }
 
     /// <summary>Remove a kicked player from the list</summary>
-    /// <param name="Login">The player's login to remove from the list</param>
+    /// <param name="_Login">The player's login to remove from the list</param>
     public void RemoveKickedPlayer(string _Login) { }
 
     /// <summary>Clear the kicked players list</summary>
@@ -106,12 +130,12 @@ public partial class MatchmakingMatch : ILib
     public global::System.Collections.Generic.IList<string> GetKickedPlayers() => default!;
 
     /// <summary>Check if a login is in the list of kicked players</summary>
-    /// <param name="Login">The login to check</param>
+    /// <param name="_Login">The login to check</param>
     /// <returns>True if the login is in the list, False otherwise</returns>
     public bool IsInKickedPlayers(string _Login) => default!;
 
     /// <summary>Set the clans scores</summary>
-    /// <param name="Scores">The new scores</param>
+    /// <param name="_Scores">The new scores</param>
     public void SetScores(global::System.Collections.Generic.IList<int> _Scores) { }
 
     /// <summary>Get the clans scores</summary>
@@ -132,11 +156,11 @@ public partial class MatchmakingMatch : ILib
     public bool MM_CheckPlayersNumbers() => default!;
 
     /// <summary>Ping the API</summary>
-    /// <param name="Forced">Skip the time interval and force the ping</param>
+    /// <param name="_Forced">Skip the time interval and force the ping</param>
     public void Ping(bool _Forced) { }
 
     /// <summary>Set the match status</summary>
-    /// <param name="MatchStatus">The new match status</param>
+    /// <param name="_MatchStatus">The new match status</param>
     public void SetMatchStatus(int _MatchStatus) { }
 
     /// <summary>Send the get match request to the API</summary>
@@ -147,15 +171,15 @@ public partial class MatchmakingMatch : ILib
     public bool GetAllowSubstitutes() => default!;
 
     /// <summary>Allow or not the mode to request substitutes</summary>
-    /// <param name="AllowSubstitute">True to allow substitutes</param>
+    /// <param name="_AllowSubstitutes" />
     public void SetAllowSubstitutes(bool _AllowSubstitutes) { }
 
     /// <summary>Force allow or not the mode to request substitutes</summary>
-    /// <param name="AllowSubstitute">True to allow substitutes</param>
+    /// <param name="_AllowSubstitute">True to allow substitutes</param>
     public void ForceAllowSubstitutes(bool _AllowSubstitute) { }
 
     /// <summary>Enable or disable the penalties for leaving a match False to disable them</summary>
-    /// <param name="Enabled">True to enable the penalties,</param>
+    /// <param name="_Enabled">True to enable the penalties,</param>
     public void EnablePenalty(bool _Enabled) { }
 
     /// <summary>Check if penalties are enabled False otherwise</summary>
@@ -163,12 +187,12 @@ public partial class MatchmakingMatch : ILib
     public bool PenaltyEnabled() => default!;
 
     /// <summary>Create a ghost player</summary>
-    /// <param name="Clan">The clan of the ghost player</param>
+    /// <param name="_Clan">The clan of the ghost player</param>
     /// <returns>The login of the ghost playter created</returns>
     public string AddGhostPlayer(int _Clan) => default!;
 
     /// <summary>Remove a ghost player</summary>
-    /// <param name="Login">The loin of the ghos tplayer to remove</param>
+    /// <param name="_Login">The loin of the ghos tplayer to remove</param>
     public void RemoveGhostPlayer(string _Login) { }
 
     /// <summary>Clear the ghost players list</summary>
@@ -179,17 +203,17 @@ public partial class MatchmakingMatch : ILib
     public global::System.Collections.Generic.Dictionary<string, int> GetGhostPlayers() => default!;
 
     /// <summary>Add a player to the match players</summary>
-    /// <param name="Login">The login of the player to add</param>
-    /// <param name="Clan">The clan of the player</param>
-    /// <param name="Order">The order of the player</param>
+    /// <param name="_Login">The login of the player to add</param>
+    /// <param name="_Clan">The clan of the player</param>
+    /// <param name="_Order">The order of the player</param>
     public void AddMatchPlayer(string _Login, int _Clan, int _Order) { }
 
     /// <summary>Remove a player from the match players</summary>
-    /// <param name="Login">The login of the player to remove</param>
+    /// <param name="_Login">The login of the player to remove</param>
     public void RemoveMatchPlayer(string _Login) { }
 
     /// <summary>Check if a players is in the match players</summary>
-    /// <param name="Login">The login to check</param>
+    /// <param name="_Login">The login to check</param>
     /// <returns>True if the player is in the match players list, False otherwise</returns>
     public bool IsInMatchPlayers(string _Login) => default!;
 
@@ -197,16 +221,16 @@ public partial class MatchmakingMatch : ILib
     public void ClearMatchPlayers() { }
 
     /// <summary>Add the clan of a player</summary>
-    /// <param name="Login">The login of the player</param>
-    /// <param name="Clan">The clan of the player</param>
+    /// <param name="_Login">The login of the player</param>
+    /// <param name="_Clan">The clan of the player</param>
     public void AddPlayerClan(string _Login, int _Clan) { }
 
     /// <summary>Remove the clan of a player</summary>
-    /// <param name="Login">The login of the player to remove</param>
+    /// <param name="_Login">The login of the player to remove</param>
     public void RemovePlayerClan(string _Login) { }
 
     /// <summary>Get the clan selected by the matchmaking for a login</summary>
-    /// <param name="Login">The login to check</param>
+    /// <param name="_Login">The login to check</param>
     /// <returns>The matchmaking clan of the login</returns>
     public int GetPlayerClan(string _Login) => default!;
 
@@ -218,7 +242,7 @@ public partial class MatchmakingMatch : ILib
     public void ClearPlayersClans() { }
 
     /// <summary>Inform if there's a new missing player</summary>
-    /// <param name="NewMissingPlayer">True if there's a new missing player</param>
+    /// <param name="_NewMissingPlayer">True if there's a new missing player</param>
     public void SetNewMissingPlayer(bool _NewMissingPlayer) { }
 
     /// <summary>Check if there's new missing players</summary>
@@ -229,15 +253,15 @@ public partial class MatchmakingMatch : ILib
     public void ManagePlayers() { }
 
     /// <summary>Parse the match request response and setup a match when necessary</summary>
-    /// <param name="MatchXml">Xml containing the match settings</param>
+    /// <param name="_MatchXml">Xml containing the match settings</param>
     public void SetupMatch(string _MatchXml) { }
 
     /// <summary>Parse the match request response and setup the substitutes if necessary</summary>
-    /// <param name="MatchXml">Xml containing the match settings</param>
+    /// <param name="_MatchXml">Xml containing the match settings</param>
     public void SetupSubstitute(string _MatchXml) { }
 
     /// <summary>Send the result to the API</summary>
-    /// <param name="Master">The master of the match</param>
+    /// <param name="_MasterLogin" />
     public void MatchEnd(string _MasterLogin) { }
 
     /// <summary>Wait for a new match</summary>
@@ -248,8 +272,8 @@ public partial class MatchmakingMatch : ILib
     public bool CanStartMatch() => default!;
 
     /// <summary>Begin the wait players sequence</summary>
-    /// <param name="StartTime">Start time of the sequence</param>
-    /// <param name="MaxDuration">Maximum duration of the sequence</param>
+    /// <param name="_StartTime">Start time of the sequence</param>
+    /// <param name="_MaxDuration">Maximum duration of the sequence</param>
     /// <returns>The end time of the sequence</returns>
     public void WaitPlayers_Begin(int _StartTime, int _MaxDuration) { }
 
@@ -264,8 +288,8 @@ public partial class MatchmakingMatch : ILib
     public void WaitPlayers_End() { }
 
     /// <summary>Begin the prepare match sequence</summary>
-    /// <param name="StartTime">Start time of the sequence</param>
-    /// <param name="WaitingTime">Waiting time duration</param>
+    /// <param name="_StartTime">Start time of the sequence</param>
+    /// <param name="_WaitingTime">Waiting time duration</param>
     /// <returns>The end time of the sequence</returns>
     public int PrepareMatch_Begin(int _StartTime, int _WaitingTime) => default!;
 
@@ -280,7 +304,7 @@ public partial class MatchmakingMatch : ILib
     public void PrepareMatch_End() { }
 
     /// <summary>Begin the vote for rematch sequence</summary>
-    /// <param name="RematchRatio">The minimum ratio of positive vote for a rematch</param>
+    /// <param name="_RematchRatio">The minimum ratio of positive vote for a rematch</param>
     /// <returns>The end time of the sequence</returns>
     public void VoteForRematch_Begin(float _RematchRatio) { }
 
@@ -297,7 +321,7 @@ public partial class MatchmakingMatch : ILib
     public bool VoteForRematch_End() => default!;
 
     /// <summary>Begin the match to lobby sequence</summary>
-    /// <param name="StartTime">Start time of the sequence</param>
+    /// <param name="_StartTime">Start time of the sequence</param>
     /// <returns>The end time of the sequence</returns>
     public int MatchToLobby_Begin(int _StartTime) => default!;
 
@@ -316,7 +340,7 @@ public partial class MatchmakingMatch : ILib
     public string GetMLStartingMatch() => default!;
 
     /// <summary>Anim the rematch vote manialink</summary>
-    /// <param name="AnimId">The name of the animation to play</param>
+    /// <param name="_AnimId">The name of the animation to play</param>
     public void AnimRematchVote(string _AnimId) { }
 
     /// <summary>Create the rematch vote manialink</summary>

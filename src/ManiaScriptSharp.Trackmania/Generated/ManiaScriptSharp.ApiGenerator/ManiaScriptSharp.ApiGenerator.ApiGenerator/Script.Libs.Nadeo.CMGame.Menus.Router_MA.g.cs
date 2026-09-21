@@ -70,70 +70,70 @@ public partial class Router_MA : ILib
     }
 
     /// <summary>Check if an overlay exists False otherwise</summary>
-    /// <param name="Name">The name of the overlay to check</param>
+    /// <param name="_Name">The name of the overlay to check</param>
     /// <returns>True if the overlay exists</returns>
     public bool OverlayExists(string _Name) => default!;
 
     /// <summary>Destroy an existing overlay</summary>
-    /// <param name="Name">The name of the overlay to destroy</param>
+    /// <param name="_Name">The name of the overlay to destroy</param>
     public void DestroyOverlay(string _Name) { }
 
     /// <summary>Destroy all overlays</summary>
     public void DestroyAllOverlays() { }
 
     /// <summary>Check if an overlay is currently displayed</summary>
-    /// <param name="OverlayName">The name of the overlay to check</param>
+    /// <param name="_OverlayName">The name of the overlay to check</param>
     public bool IsOverlayDisplayed(string _OverlayName) => default!;
 
     /// <summary>Lock or unlock an overlay</summary>
-    /// <param name="OverlayName">The name of the overlay to lock/unlock</param>
-    /// <param name="IsLocked">The lock state for the overlay</param>
+    /// <param name="_OverlayName">The name of the overlay to lock/unlock</param>
+    /// <param name="_IsLocked">The lock state for the overlay</param>
     public void LockOverlay(string _OverlayName, bool _IsLocked) { }
 
     /// <summary>Check if an overlay is currently locked</summary>
-    /// <param name="OverlayName">The name of the overlay to check</param>
+    /// <param name="_OverlayName">The name of the overlay to check</param>
     public bool IsOverlayLocked(string _OverlayName) => default!;
 
     /// <summary>Create a new overlay If an overlay with the same name already exists it will be destroyed and replaced by the new one if the value is negative the transition is disabled if the value is negative the transition is disabled</summary>
-    /// <param name="Name">The name of the overlay</param>
-    /// <param name="ManialinkPage">The manialink page to display in the overlay</param>
-    /// <param name="Global">The overlay will be displayed on all routes or not</param>
-    /// <param name="TransitionIn">Duration of the in transition (in ms)</param>
-    /// <param name="TransitionOut">Duration of the out transition (in ms)</param>
+    /// <param name="_Name">The name of the overlay</param>
+    /// <param name="_ManialinkPage">The manialink page to display in the overlay</param>
+    /// <param name="_Global">The overlay will be displayed on all routes or not</param>
+    /// <param name="_TransitionIn">Duration of the in transition (in ms)</param>
+    /// <param name="_TransitionOut">Duration of the out transition (in ms)</param>
     public void CreateOverlay(string _Name, string _ManialinkPage, bool _Global, int _TransitionIn, int _TransitionOut) { }
 
     public void CreateOverlay(string _Name, string _ManialinkPage, bool _Global) { }
 
     /// <summary>Create a query string from an array [&quot;key&quot; =&gt; &quot;value, &quot;key2&quot; =&gt; &quot;value2&quot;] -&gt; &quot;?key=value&amp;key2=value2&quot;</summary>
-    /// <param name="Query">The query array to encode</param>
+    /// <param name="_Query">The query array to encode</param>
     /// <returns>The query string</returns>
     public string CreateQueryString(global::System.Collections.Generic.Dictionary<string, string> _Query) => default!;
 
     /// <summary>Parse a query string and convert it to a key =&gt; value query array &quot;?key=value&amp;key2=value2&quot; -&gt; [&quot;key&quot; =&gt; &quot;value, &quot;key2&quot; =&gt; &quot;value2&quot;]</summary>
-    /// <param name="QueryString">The query string</param>
+    /// <param name="_QueryString">The query string</param>
     /// <returns>The query array</returns>
     public global::System.Collections.Generic.Dictionary<string, string> ParseQueryString(string _QueryString) => default!;
 
     /// <summary>Create an URL string from a route path and query</summary>
-    /// <param name="RoutePath">The path of the route</param>
-    /// <param name="Query">The query to append to the route path</param>
+    /// <param name="_RoutePath">The path of the route</param>
+    /// <param name="_Query">The query to append to the route path</param>
     /// <returns>The URL</returns>
     public string CreateURL(string _RoutePath, global::System.Collections.Generic.Dictionary<string, string> _Query) => default!;
 
     /// <summary>Check if a route exists False otherwise</summary>
-    /// <param name="Path">The path of the route to check</param>
+    /// <param name="_Path">The path of the route to check</param>
     /// <returns>True if the route exists</returns>
     public bool RouteExists(string _Path) => default!;
 
     /// <summary>Destroy an existing route</summary>
-    /// <param name="Path">The path of the route to destroy</param>
+    /// <param name="_Path">The path of the route to destroy</param>
     public void DestroyRoute(string _Path) { }
 
     /// <summary>Destroy all routes</summary>
     public void DestroyAllRoutes() { }
 
     /// <summary>Check if a path does not contain any invalid character False if it contains an invalid character</summary>
-    /// <param name="Path">The path to check</param>
+    /// <param name="_Path">The path to check</param>
     /// <returns>True if the path is valid</returns>
     public bool PathIsValid(string _Path) => default!;
 
@@ -152,6 +152,8 @@ public partial class Router_MA : ILib
     public bool IsOnRoute(string _URL) => default!;
 
     /// <summary>Check if the player is entering or leaving the given route</summary>
+    /// <param name="_Routes" />
+    /// <param name="_URL" />
     public bool IsEnteringRoute(K_Router_Routes _Routes, string _URL) => default!;
 
     public bool IsLeavingRoute(K_Router_Routes _Routes, string _URL) => default!;
@@ -165,27 +167,28 @@ public partial class Router_MA : ILib
     public global::System.Collections.Generic.Dictionary<string, string> GetCurrentRouteQuery() => default!;
 
     /// <summary>Create a redirection If the user request the route _FromPath it will be replaced by _ToPath</summary>
-    /// <param name="FromPath">The original route path</param>
-    /// <param name="ToPath">The route where the user will be redirected</param>
+    /// <param name="_FromPath">The original route path</param>
+    /// <param name="_ToPath">The route where the user will be redirected</param>
     public void CreateRedirection(string _FromPath, string _ToPath) { }
 
     /// <summary>Set parent path of a route</summary>
-    /// <param name="Path">The path to update</param>
-    /// <param name="ParentPath">The parent path to set</param>
+    /// <param name="_Path">The path to update</param>
+    /// <param name="_ParentPath">The parent path to set</param>
     public void SetParentPath(string _Path, string _ParentPath) { }
 
     /// <summary>Stop a privileges check</summary>
+    /// <param name="_RoutePrivilegesCheck" />
     public K_RoutePrivilegesCheck RoutePrivilegesCheck_Stop(K_RoutePrivilegesCheck _RoutePrivilegesCheck) => default!;
 
     /// <summary>Navigate to the given URL and add an entry in the history stack</summary>
-    /// <param name="URL">The URL to reach</param>
+    /// <param name="_URL">The URL to reach</param>
     public void Push(string _URL) { }
 
     public void Push(string _URL, bool _KeepPreviousPagesDisplayed, bool _HidePreviousPage) { }
 
     /// <summary>Navigate to the given URL with the given query and add an entry in the history stack</summary>
-    /// <param name="URL">The URL to reach</param>
-    /// <param name="Query">The query to add to the URL</param>
+    /// <param name="_URL">The URL to reach</param>
+    /// <param name="_Query">The query to add to the URL</param>
     public void Push(string _URL, global::System.Collections.Generic.Dictionary<string, string> _Query) { }
 
     public void PushParent(string _URL, global::System.Collections.Generic.Dictionary<string, string> _Query) { }
@@ -193,7 +196,7 @@ public partial class Router_MA : ILib
     public void PushParent(string _URL) { }
 
     /// <summary>Go forward or backward in the history Fails if there aren't enough records A negative value will go backward</summary>
-    /// <param name="Steps">A positive value will go forward</param>
+    /// <param name="_Steps">A positive value will go forward</param>
     public void Go(int _Steps) { }
 
     /// <summary>Get the current position of the router in the history</summary>
@@ -201,23 +204,27 @@ public partial class Router_MA : ILib
     public int GetHistoryKey() => default!;
 
     /// <summary>Preload all routes to avoid freeze later on</summary>
+    /// <param name="_ZIndex" />
     public K_RouterPreload StartPreload(float _ZIndex) => default!;
 
     public K_RouterPreload StartPreload() => default!;
 
     /// <summary>Update the router preloading. Yield between each call.</summary>
+    /// <param name="_RouterPreload" />
     public K_RouterPreload UpdatePreload(K_RouterPreload _RouterPreload) => default!;
 
     /// <summary>Check if the router is still preloading</summary>
+    /// <param name="_RouterPreload" />
     public bool IsPreloading(K_RouterPreload _RouterPreload) => default!;
 
     /// <summary>Finish the router preloading</summary>
+    /// <param name="_RouterPreload" />
     public K_RouterPreload StopPreload(K_RouterPreload _RouterPreload) => default!;
 
     /// <summary>Set the squadding system configuration</summary>
-    /// <param name="Paths">- The paths on which the squadding system will be enabled</param>
-    /// <param name="QueryParameterMode">- The query parameter used to select the game mode to play</param>
-    /// <param name="ModeSquadTypeList">- The squad type to use for each mode</param>
+    /// <param name="_EnabledPathList" />
+    /// <param name="_QueryParameterMode">- The query parameter used to select the game mode to play</param>
+    /// <param name="_ModeSquadTypeList">- The squad type to use for each mode</param>
     public void SetSquadConfig(global::System.Collections.Generic.IList<string> _EnabledPathList, string _QueryParameterMode, global::System.Collections.Generic.Dictionary<string, string> _ModeSquadTypeList) { }
 
     /// <summary>Update the router at each frame</summary>

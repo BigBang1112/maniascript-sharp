@@ -68,7 +68,7 @@ public partial class XmlRpc : ILib
     public void SendRankings() { }
 
     /// <summary>Send the player ranking Data: [Rank, Login, NickName, TeamId, IsSpectator, IsAway, CurrentScore, Zone]</summary>
-    /// <param name="Login">The login of the player to get</param>
+    /// <param name="_Login">The login of the player to get</param>
     public void SendPlayerRanking(string _Login) { }
 
     /// <summary>Send the current rankings Data: [Match Team 1, Match Team 2, Map Team 1, Map Team 2]</summary>
@@ -78,12 +78,16 @@ public partial class XmlRpc : ILib
     public void SendIsInWarmUp() { }
 
     /// <summary>Callback sent when starting to load the map Data: [Number of the map]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void LoadingMap(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent when starting to load the map Data: [Number of the map]</summary>
+    /// <param name="_Number" />
     public void LoadingMap(int _Number) { }
 
     /// <summary>Callback sent when starting to unload the map Data: [Number of the map]</summary>
+    /// <param name="_Number" />
     public void UnloadingMap(int _Number) { }
 
     /// <summary>Callback sent before the beginning of the server Data: []</summary>
@@ -93,36 +97,51 @@ public partial class XmlRpc : ILib
     public void BeginServerStop() { }
 
     /// <summary>Callback sent before the beginning of the match Data: [Number of the match, Map restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMatch(int _Number, bool _Restarted) { }
 
     /// <summary>BeginMatch() overload</summary>
+    /// <param name="_Number" />
     public void BeginMatch(int _Number) { }
 
     /// <summary>Callback sent after the beginning of the match Data: [Number of the match, Map restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMatchStop(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent before the beginning of the map Data: [Number of the map, Map UID, Map restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMap(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent after the beginning of the map Data: [Number of the map, Map UID, Map restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMapStop(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent before the beginning of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void BeginSubmatch(int _Number) { }
 
     /// <summary>Callback sent after the beginning of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void BeginSubmatchStop(int _Number) { }
 
     /// <summary>Callback sent before the beginning of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void BeginRound(int _Number) { }
 
     /// <summary>Callback sent after the beginning of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void BeginRoundStop(int _Number) { }
 
     /// <summary>Callback sent before the beginning of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void BeginTurn(int _Number) { }
 
     /// <summary>Callback sent after the beginning of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void BeginTurnStop(int _Number) { }
 
     /// <summary>Callback sent at the beginning of the play loop Data: []</summary>
@@ -132,33 +151,43 @@ public partial class XmlRpc : ILib
     public void EndPlaying() { }
 
     /// <summary>Callback sent before the end of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void EndTurn(int _Number) { }
 
     /// <summary>Callback sent after the end of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void EndTurnStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void EndRound(int _Number) { }
 
     /// <summary>Callback sent after the end of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void EndRoundStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void EndSubmatch(int _Number) { }
 
     /// <summary>Callback sent after the end of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void EndSubmatchStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the map Data: [Number of the map, Map UID]</summary>
+    /// <param name="_Number" />
     public void EndMap(int _Number) { }
 
     /// <summary>Callback sent after the end of the map Data: [Number of the map, Map UID]</summary>
+    /// <param name="_Number" />
     public void EndMapStop(int _Number) { }
 
     /// <summary>Callback before the end of the match Data: [Number of the match]</summary>
+    /// <param name="_Number" />
     public void EndMatch(int _Number) { }
 
     /// <summary>Callback sent after the end of the match Data: [Number of the match]</summary>
+    /// <param name="_Number" />
     public void EndMatchStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the server Data: []</summary>
@@ -193,21 +222,27 @@ public partial class XmlRpc : ILib
     public void ScoresReady() { }
 
     /// <summary>Callback sent when a player shoot Data: [Shooter login, Weapon number] Weapon number: 1 -&gt; Laser, 2 -&gt; Rocket, 3 -&gt; Nucleus</summary>
+    /// <param name="_Event" />
     public void OnShoot(CSmModeEvent _Event) { }
 
     /// <summary>Callback sent when a player is hit Data: [Shooter login, Victim login, Damage, Weapon number, Shooter points, Distance, Shooter position, Victim position, Shooter aim direction, Victim aim direction] Damage: the total damage inflicted to the victim on hit Weapon number: 1 -&gt; Laser, 2 -&gt; Rocket, 3 -&gt; Nucleus Shooter points: the number of points scored by the shooter on this hit</summary>
+    /// <param name="_Event" />
     public void OnHit(CSmModeEvent _Event) { }
 
     /// <summary>Callback when a shot missed from a few cm a player Data: [Shooter login, Victim login, Weapon number, Near miss distance] Weapon number: 1 -&gt; Laser, 2 -&gt; Rocket, 3 -&gt; Nucleus Near miss distance: in centimeters</summary>
+    /// <param name="_Event" />
     public void OnNearMiss(CSmModeEvent _Event) { }
 
     /// <summary>Callback sent when a player armor is empty (hit, offzone, storm, ...) Data: [Shooter login, Victim login, Damage, Weapon number, Shooter points] Damage: the total damage inflicted to the victim on hit Weapon number: 1 -&gt; Laser, 2 -&gt; Rocket, 3 -&gt; Nucleus Shooter points: the number of points scored by the shooter on this elimination</summary>
+    /// <param name="_Event" />
     public void OnArmorEmpty(CSmModeEvent _Event) { }
 
     /// <summary>Callback sent when a pole is captured Data: [List of players on pole at the capture] List of players: login1;login2;login3;login4</summary>
+    /// <param name="_Event" />
     public void OnCapture(CSmModeEvent _Event) { }
 
     /// <summary>Callback sent when a player press the respawn button Data: [Player login]</summary>
+    /// <param name="_Event" />
     public void OnPlayerRequestRespawn(CSmModeEvent _Event) { }
 
     /// <summary>Send the current warm up status Data: [True] True if the warm up is loaded, False otherwise</summary>
@@ -217,64 +252,65 @@ public partial class XmlRpc : ILib
     public void Loop() { }
 
     /// <summary>Send a callback on points update in royal Data: [Player login, Type of points, number of points] Type of points: Hit, Pole, Survival</summary>
-    /// <param name="Player">The player who'll receive the points</param>
-    /// <param name="Type">The type of points received</param>
-    /// <param name="Points">The number of points received</param>
+    /// <param name="_Player">The player who'll receive the points</param>
+    /// <param name="_Type">The type of points received</param>
+    /// <param name="_Points">The number of points received</param>
     public void Royal_UpdatePoints(CSmPlayer _Player, string _Type, int _Points) { }
 
     /// <summary>Send a callback on player spawn Data: [Player login, Type of spawn] Type of spawn: 0 -&gt; normal, 1 -&gt; early</summary>
-    /// <param name="Player">The spawned player</param>
-    /// <param name="Type">The type of spawn</param>
+    /// <param name="_Player">The spawned player</param>
+    /// <param name="_Type">The type of spawn</param>
     public void Royal_SpawnPlayer(CSmPlayer _Player, int _Type) { }
 
     /// <summary>Send a callback with the login of the winner Data: [Player login]</summary>
-    /// <param name="UserId">The id of the user who won the round</param>
+    /// <param name="_UserId">The id of the user who won the round</param>
     public void Royal_RoundWinner(Ident _UserId) { }
 
     /// <summary>Send a callback on player start Data: [Player login]</summary>
-    /// <param name="Player">The starting player</param>
+    /// <param name="_Player">The starting player</param>
     public void TimeAttack_OnStart(CSmPlayer _Player) { }
 
     /// <summary>Send a callback when a player cross a checkpoint Data: [Player login, time on checkpoint]</summary>
-    /// <param name="Player">The player crossing the checkpoint</param>
-    /// <param name="Time">The time at the checkpoint</param>
+    /// <param name="_Player">The player crossing the checkpoint</param>
+    /// <param name="_Time">The time at the checkpoint</param>
     public void TimeAttack_OnCheckpoint(CSmPlayer _Player, int _Time) { }
 
     /// <summary>Send a callback when a player cross the finish line Data: [Player login, time at finish]</summary>
-    /// <param name="Player">The player crossing the finsih line</param>
-    /// <param name="Time">The time at the finish</param>
+    /// <param name="_Player">The player crossing the finsih line</param>
+    /// <param name="_Time">The time at the finish</param>
     public void TimeAttack_OnFinish(CSmPlayer _Player, int _Time) { }
 
     /// <summary>Send a callback when a player want to restart (respawn, elimination) Data: [Player login, time of restart]</summary>
-    /// <param name="Player">The restarting player</param>
-    /// <param name="Time">The time of the restart</param>
+    /// <param name="_Player">The restarting player</param>
+    /// <param name="_Time">The time of the restart</param>
     public void TimeAttack_OnRestart(CSmPlayer _Player, int _Time) { }
 
     /// <summary>Send a callback when a player touch a pole to reload Data: [Player login}</summary>
-    /// <param name="Player">The player who reloaded</param>
+    /// <param name="_Player">The player who reloaded</param>
     public void Joust_OnReload(CSmPlayer _Player) { }
 
     /// <summary>Send a callback with the two selected players for the round Data: [Player login 1, Player login 2]</summary>
-    /// <param name="Player1">The first player</param>
-    /// <param name="Player2">The second player</param>
+    /// <param name="_Player1">The first player</param>
+    /// <param name="_Player2">The second player</param>
     public void Joust_SelectedPlayers(CSmPlayer _Player1, CSmPlayer _Player2) { }
 
     /// <summary>Send a callback with the result of the round Data: [Result player 1, Result player 2] Result player format: login:score</summary>
-    /// <param name="Player1">The first player</param>
-    /// <param name="Score1">The score of the first player</param>
-    /// <param name="Player2">The second player</param>
-    /// <param name="Score2">The score of the second player</param>
+    /// <param name="_Player1">The first player</param>
+    /// <param name="_Score1">The score of the first player</param>
+    /// <param name="_Player2">The second player</param>
+    /// <param name="_Score2">The score of the second player</param>
     public void Joust_RoundResult(CSmPlayer _Player1, int _Score1, CSmPlayer _Player2, int _Score2) { }
 
     /// <summary>Callback sent when a checkpoint is captured It's a copy of the OnCapture() function Data: [List of players on checkpoint at the capture] List of players: login1;login2;login3;login4</summary>
-    /// <param name="MapLandmark">The checkpoint that was activated</param>
+    /// <param name="_MapLandmark">The checkpoint that was activated</param>
     public void Siege_OnCapture(CSmMapLandmark _MapLandmark) { }
 
     /// <summary>Callback sent at the beginning of the turn in Elite Data : [attackerlogin, defenderlogin1, defenderloginx, ...]</summary>
-    /// <param name="Players">The players to send</param>
+    /// <param name="_AtkPlayers" />
+    /// <param name="_DefPlayers" />
     public void Elite_BeginTurn(global::System.Collections.Generic.IList<CSmPlayer> _AtkPlayers, global::System.Collections.Generic.IList<CSmPlayer> _DefPlayers) { }
 
     /// <summary>Callback sent at the end of the turn in Elite Data : [1] 1 -&gt; Time limit 2 -&gt; Capture 3 -&gt; Attacker eliminated 4 -&gt; Defenders eliminated</summary>
-    /// <param name="WinType">The type of win</param>
+    /// <param name="_WinType">The type of win</param>
     public void Elite_EndTurn(int _WinType) { }
 }

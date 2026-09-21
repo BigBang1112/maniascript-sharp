@@ -29,9 +29,12 @@ public partial class RespawnBehaviour : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Function to call at each yield to update the library</summary>
+    /// <param name="_AllowRespawn" />
+    /// <param name="_RespawnBehaviour" />
     public void Yield(bool _AllowRespawn, int _RespawnBehaviour) { }
 
     /// <summary>Overload Yield()</summary>
+    /// <param name="_AllowRespawn" />
     public void Yield(bool _AllowRespawn) { }
 
     /// <summary>Unload the library</summary>

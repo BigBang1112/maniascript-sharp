@@ -20,21 +20,30 @@ public partial class AudioManager_MA : ILib
     public const string C_Name = "component-cmgame-audio-manager";
     public const string P = "Component_CMGame_AudioManager_";
     public const int C_NullId = -1;
+    public const string C_BasePath_CommonSound = "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Common/";
+    public const string C_BasePath_MenuSound = "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Menu/";
+    public const string C_BasePath_GameSound = "file://Media/Manialinks/Nadeo/CMGame/Utils/AudioManager/Game/";
+    /// <summary>Volumes dB when playing</summary>
     public const double C_Playing_SceneVolume = 0.0;
     public const double C_Playing_MusicVolume = 0.0;
     public const double C_Playing_AmbianceAndIngameUIVolume = 0.0;
+    /// <summary>Volumes dB when in a menu</summary>
     public const double C_InMenu_SceneVolume = -8.0;
     public const double C_InMenu_MusicVolume = 7.0;
     public const double C_InMenu_AmbianceAndIngameUIVolume = -4.0;
+    /// <summary>Volumes dB when in pause menu</summary>
     public const double C_PauseMenu_SceneVolume = -8.0;
     public const double C_PauseMenu_MusicVolume = 7.0;
     public const double C_PauseMenu_AmbianceAndIngameUIVolume = -40.0;
+    /// <summary>will add a lot of silence at the begining end of the fade</summary>
     public const double C_Preload_SceneVolume = 0.0;
     public const double C_Preload_MusicVolume = -60.0;
     public const double C_Preload_AmbianceAndIngameUIVolume = -60.0;
+    /// <summary>Mute all sounds</summary>
     public const double C_Mute_SceneVolume = -60.0;
     public const double C_Mute_MusicVolume = -60.0;
     public const double C_Mute_AmbianceAndIngameUIVolume = -60.0;
+    /// <summary>Volumes dB by default</summary>
     public const double C_Default_SceneVolume = 0.0;
     public const double C_Default_MusicVolume = 0.0;
     public const double C_Default_AmbianceAndIngameUIVolume = 0.0;
@@ -69,19 +78,21 @@ public partial class AudioManager_MA : ILib
     }
 
     /// <summary>Stop sound according to its name</summary>
-    /// <param name="SoundName">The name of the sound</param>
+    /// <param name="_SoundName">The name of the sound</param>
     public void StopSound(string _SoundName) { }
 
     public void StopAllSounds() { }
 
     /// <summary>Stop a sound without restarting it</summary>
+    /// <param name="_SoundName" />
+    /// <param name="_RestartSound" />
     public void StopSound(string _SoundName, bool _RestartSound) { }
 
     /// <summary>Play sound according to its name</summary>
-    /// <param name="SoundName">The name of the sound</param>
-    /// <param name="PanRadiusLfeX">The angle of the sound in 2D space</param>
-    /// <param name="Pitch">The pitch of the sound</param>
-    /// <param name="IsNewAudioSource">Create a new audio source for this sound. Useful when playing a rapid succession of sounds.</param>
+    /// <param name="_SoundName">The name of the sound</param>
+    /// <param name="_PanRadiusLfeX">The angle of the sound in 2D space</param>
+    /// <param name="_Pitch">The pitch of the sound</param>
+    /// <param name="_IsNewAudioSource">Create a new audio source for this sound. Useful when playing a rapid succession of sounds.</param>
     public void PlaySound(string _SoundName, float _PanRadiusLfeX, float _Pitch, bool _IsNewAudioSource) { }
 
     public void PlaySound(string _SoundName, float _PanRadiusLfeX, bool _IsNewAudioSource) { }
@@ -95,22 +106,25 @@ public partial class AudioManager_MA : ILib
     public void PlaySound(string _SoundName) { }
 
     /// <summary>Play sound according to its name with a specified play time</summary>
-    /// <param name="UIId">The id of the UI asking to play a sound</param>
-    /// <param name="SoundName">The name of the sound</param>
-    /// <param name="PlayTime">The playing time of the sound</param>
+    /// <param name="_UIId">The id of the UI asking to play a sound</param>
+    /// <param name="_SoundName">The name of the sound</param>
+    /// <param name="_PlayTime">The playing time of the sound</param>
     public void PlaySoundWithDelay(string _UIId, string _SoundName, int _PlayTime) { }
 
     /// <summary>Remove all sounds in the waiting list</summary>
-    /// <param name="UIId">The id of the UI asking to remove delayed sounds</param>
+    /// <param name="_UIId">The id of the UI asking to remove delayed sounds</param>
     public void RemoveDelayedSounds(string _UIId) { }
 
     /// <summary>Destroy all duplicated audio sources</summary>
     public void DestroyDuplicatedSources() { }
 
     /// <summary>Update the fade duration of a sound</summary>
+    /// <param name="_SoundName" />
+    /// <param name="_FadeDuration" />
     public void SetFadeDuration(string _SoundName, float _FadeDuration) { }
 
     /// <summary>Check if a sound exists in the sounds library</summary>
+    /// <param name="_SoundId" />
     public bool SoundExistsInLibrary(string _SoundId) => default!;
 
     public void AddSoundToLibrary(string _SoundId, string _FilePath, string _FileName, global::System.Collections.Generic.IList<float> _VolumedB, global::System.Collections.Generic.IList<float> _Pitch, bool _IsMusic, bool _IsLooping, bool _IsSpatialized, string _Description) { }
@@ -132,6 +146,7 @@ public partial class AudioManager_MA : ILib
     public void SetNewSoundBalance(int _NewState, int _FadeTime) { }
 
     /// <summary>Prevent any sound from being played</summary>
+    /// <param name="_PlaySoundDisabled" />
     public void DisablePlaySound(bool _PlaySoundDisabled) { }
 
     public void InitializeSoundVolumes() { }
@@ -140,6 +155,11 @@ public partial class AudioManager_MA : ILib
     public void Unload() { }
 
     /// <summary>Load the audio files and create audio sources</summary>
+    /// <param name="_JsonFilePath_AudioCommon" />
+    /// <param name="_JsonFilePath_AudioMenu" />
+    /// <param name="_JsonFilePath_AudioGame" />
+    /// <param name="_SoundBalance" />
+    /// <param name="_FadeInDuration" />
     public void Load(string _JsonFilePath_AudioCommon, string _JsonFilePath_AudioMenu, string _JsonFilePath_AudioGame, int _SoundBalance, int _FadeInDuration) { }
 
     public void Load(string _JsonFilePath_AudioCommon, string _JsonFilePath_AudioMenu, string _JsonFilePath_AudioGame) { }

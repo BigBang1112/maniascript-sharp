@@ -19,5 +19,6 @@ public partial class Sign64x10_Common : ILib
     public const string C_Id = "UIModule_ChampionCup_Sign64x10";
 
     /// <summary>Get the id of the UI module</summary>
+    /// <param name="_AttachId" />
     public string GetId(string _AttachId) => default!;
 }

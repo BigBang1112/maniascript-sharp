@@ -40,11 +40,6 @@ public partial class CreateRankingsActivity : ILib
     public const string C_Name = "Page_CreateRankingsActivity";
     public const string C_NavGroup_Default = "navgroup-create-rankings-activity-default";
     public const string C_NavGroup_Global = "navgroup-create-rankings-activity-global";
-    public const int C_DelayBetweenRequest = 500;
-    public const int C_Name_MaxChar = 20;
-    public const int C_Step_RankingTypeSelection = 0;
-    public const int C_Step_SelectCampaign = 1;
-    public const int C_Step_ValidateCreation = 2;
 
     public struct K_Controls
     {

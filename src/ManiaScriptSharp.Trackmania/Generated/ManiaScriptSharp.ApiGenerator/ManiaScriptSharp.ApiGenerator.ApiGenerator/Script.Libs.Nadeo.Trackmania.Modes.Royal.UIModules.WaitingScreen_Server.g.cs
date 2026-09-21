@@ -21,18 +21,26 @@ public partial class WaitingScreen_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Display the maps progression</summary>
+    /// <param name="_Current" />
+    /// <param name="_Max" />
     public void SetMapsProgression(int _Current, int _Max) { }
 
     /// <summary>Set the number of connected players</summary>
+    /// <param name="_Current" />
+    /// <param name="_Max" />
     public void SetConnectedPlayersNb(int _Current, int _Max) { }
 
     /// <summary>Set the number of remaining and eliminated teams this round</summary>
+    /// <param name="_RemainingTeamsNb" />
+    /// <param name="_EliminatedTeamsNb" />
     public void SetEliminationsNb(int _RemainingTeamsNb, int _EliminatedTeamsNb) { }
 
     /// <summary>Warn the players that the match is starting</summary>
+    /// <param name="_IsStarting" />
     public void SetMatchStarting(bool _IsStarting) { }
 
     /// <summary>Set the time at which the wait for other players will stop</summary>
+    /// <param name="_WaitEndTime" />
     public void SetWaitEndTime(int _WaitEndTime) { }
 
     /// <summary>Unload the library</summary>

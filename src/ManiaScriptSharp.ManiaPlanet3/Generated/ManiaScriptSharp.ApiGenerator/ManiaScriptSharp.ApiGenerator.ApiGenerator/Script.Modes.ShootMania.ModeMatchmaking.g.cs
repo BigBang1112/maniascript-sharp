@@ -19,59 +19,113 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Sh
 
     public const string ModeMatchmakingVersion = "2014-11-21";
     public const string ModeMatchmakingScriptName = "ModeMatchmaking.Script.txt";
+    /// <summary>Matchmaking off on this server</summary>
     public const int C_Matchmaking_Off = 0;
+    /// <summary>Is lobby server</summary>
     public const int C_Matchmaking_Lobby = 1;
+    /// <summary>Is match  server</summary>
     public const int C_Matchmaking_Match = 2;
+    /// <summary>Is universal lobby</summary>
     public const int C_Matchmaking_UniversalLobby = 3;
+    /// <summary>Is universal match</summary>
     public const int C_Matchmaking_UniversalMatch = 4;
+    /// <summary>Legacy : Allow match cancel</summary>
     public const bool C_LobbyAllowMatchCancel = true;
+    /// <summary>Legacy : -1: infinite cancel, 0 or more: number of cancellations allowed</summary>
     public const int C_LobbyLimitMatchCancel = 0;
+    /// <summary>Legacy : Penalize players canceling a replacement</summary>
     public const bool C_LobbyPenalizeSubstituteCancel = false;
+    /// <summary>Playing phase</summary>
     public const int C_Lobby_Playing = 0;
+    /// <summary>Matchmaking phase</summary>
     public const int C_Lobby_Matchmaking = 1;
+    /// <summary>Minimum time after a transfert before a player can be listed as ready</summary>
     public const int C_Lobby_TransfertSafeTime = 15000;
+    /// <summary>Warn player that they will be penalize if they cancel</summary>
     public const bool C_Lobby_WarnPenalty = false;
+    /// <summary>Duration before sending back a player to the match he left</summary>
     public const int C_Lobby_ReconnectDuration = 5000;
+    /// <summary>Number of masters displayed</summary>
     public const int C_Lobby_MastersNb = 20;
+    /// <summary>Number of bots in the lobby</summary>
     public const int C_Lobby_BotsNb = 0;
+    /// <summary>Waiting for a match to start</summary>
     public const int C_MatchStatus_Waiting = 0;
+    /// <summary>Match starting</summary>
     public const int C_MatchStatus_Starting = 1;
+    /// <summary>Match running</summary>
     public const int C_MatchStatus_Playing = 2;
+    /// <summary>Waiting for a substitute</summary>
     public const int C_MatchStatus_Substitute = 3;
+    /// <summary>Match ending</summary>
     public const int C_MatchStatus_Ending = 4;
+    /// <summary>Time interval between each ping</summary>
     public const int C_Match_PingInterval = 60000;
+    /// <summary>Maximum duration of the match preparation once there's at least one player</summary>
     public const int C_Match_PreparationDuration = 20000;
+    /// <summary>Maximum delay before sending back the player to the lobby at the end of the match</summary>
     public const int C_Match_DelayBeforeTransfert = 10000;
+    /// <summary>Maximum duration of the match ending</summary>
     public const int C_Match_EndingDuration = 15000;
+    /// <summary>Time before restarting a match on an empty server</summary>
     public const int C_Match_EmptyTimeBeforeRestart = 300000;
+    /// <summary>Vote duration for the rematch</summary>
     public const int C_Match_RematchVoteDuration = 10000;
+    /// <summary>Player waiting approval</summary>
     public const int C_PlayerStatus_Waiting = 0;
+    /// <summary>Player approved</summary>
     public const int C_PlayerStatus_Valid = 1;
+    /// <summary>Player rejected</summary>
     public const int C_PlayerStatus_Invalid = 2;
+    /// <summary>Ally validated</summary>
     public const int C_AllyStatus_Validated = 0;
+    /// <summary>Ally request sent to this player</summary>
     public const int C_AllyStatus_Sent = 1;
+    /// <summary>Ally disconnected</summary>
     public const int C_AllyStatus_Disconnected = 2;
+    /// <summary>Current status of the user in the room</summary>
     public const int C_AllyInfo_Status = 0;
+    /// <summary>Current clan of the user in the room</summary>
     public const int C_AllyInfo_Clan = 1;
+    /// <summary>Current slot of the user in the room</summary>
     public const int C_AllyInfo_Slot = 2;
+    /// <summary>Default clan when creating a room</summary>
     public const int C_Lobby_DefaultClan = 0;
+    /// <summary>Default slot when creating a room</summary>
     public const int C_Lobby_DefaultSlot = 0;
+    /// <summary>Clan of the player</summary>
     public const int C_PlayerInfo_Clan = 0;
+    /// <summary>Slot of the player</summary>
     public const int C_PlayerInfo_Slot = 1;
+    /// <summary>Clan of the missing player</summary>
     public const int C_MissingInfo_Clan = 0;
+    /// <summary>Kick status of the missing player</summary>
     public const int C_MissingInfo_Kicked = 1;
+    /// <summary>Time when the player gone missing</summary>
     public const int C_MissingInfo_Since = 2;
+    /// <summary>Time before searching a substitute for a missing player</summary>
     public const int C_MissingPlayerGracePeriod = 90000;
+    /// <summary>/lobby-server/player-connection?login=somelogin&amp;lobbylogin=anotherlogin</summary>
     public const int C_Request_GetPlayers = 0;
+    /// <summary>/lobby-server/matchmaking-live</summary>
     public const int C_Request_PostPlayers = 1;
+    /// <summary>/match-server/match?serverlogin=somelogin</summary>
     public const int C_Request_GetMatches = 2;
+    /// <summary>/match-server/live</summary>
     public const int C_Request_PostStatus = 3;
+    /// <summary>/match-server/result</summary>
     public const int C_Request_PostResults = 4;
+    /// <summary>/lobby-server/match</summary>
     public const int C_Request_PostMatches = 5;
+    /// <summary>Random time margin applied to the live request of the match and lobby server</summary>
     public const int C_RequestRandomDeviation = 500;
+    /// <summary>Name of the master</summary>
     public const int C_Master_Name = 0;
+    /// <summary>Country of the master</summary>
     public const int C_Master_Country = 1;
+    /// <summary>Echelon of the master</summary>
     public const int C_Master_Echelon = 2;
+    /// <summary>Prefix used before the messages sent in the chat by the matchmaking</summary>
     public const string C_MessagePrefix = "$000»$09f";
 
     public virtual void LogVersion() { }
@@ -113,7 +167,7 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Sh
     public string MM_GetMatchId() => default!;
 
     /// <summary>Set the new matchmaking mode on this server</summary>
-    /// <param name="NewMode">The new mode</param>
+    /// <param name="_NewMode">The new mode</param>
     public void MM_SetMode(int _NewMode) { }
 
     /// <summary>Check if a server is in match mode</summary>
@@ -137,25 +191,25 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Sh
     public bool MM_MatchmakingIsProgressive() => default!;
 
     /// <summary>Create a link to join another server in the same title</summary>
-    /// <param name="ServerLogin">The login of the server to join</param>
+    /// <param name="_ServerLogin">The login of the server to join</param>
     public string MM_GetServerJoinLink(string _ServerLogin) => default!;
 
     /// <summary>Update the karma of an user (manage penalties)</summary>
-    /// <param name="User">The user to update</param>
+    /// <param name="_User">The user to update</param>
     public void MM_UpdateKarma(CUser _User) { }
 
     /// <summary>Get an user penalty</summary>
-    /// <param name="User">The user to get</param>
+    /// <param name="_User">The user to get</param>
     /// <returns>The user penalty</returns>
     public int MM_GetPlayerPenalty(CUser _User) => default!;
 
     /// <summary>Set an user penalty</summary>
-    /// <param name="User">The user penalty to set</param>
-    /// <param name="EndTime">The end time of the penalty</param>
+    /// <param name="_User">The user penalty to set</param>
+    /// <param name="_EndTime">The end time of the penalty</param>
     public void MM_SetPlayerPenalty(CUser _User, int _EndTime) { }
 
     /// <summary>Reset an user penalty</summary>
-    /// <param name="User">The user to reset</param>
+    /// <param name="_User">The user to reset</param>
     public void MM_CancelPlayerPenalty(CUser _User) { }
 
     public void MM_PenalizePlayer(CUser _User, string _MatchId, bool _IsSubstitute, bool _IsReconnect) { }
@@ -163,20 +217,20 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Sh
     public void MM_PenalizePlayer(CUser _User, int _Duration) { }
 
     /// <summary>Send a player to another server</summary>
-    /// <param name="Player">The player to send</param>
-    /// <param name="ServerLogin">The server login where to send the player</param>
+    /// <param name="_Player">The player to send</param>
+    /// <param name="_ServerLogin">The server login where to send the player</param>
     public void MM_SendToServer(CPlayer _Player, string _ServerLogin) { }
 
     /// <summary>Manage player reconnection after a leave</summary>
-    /// <param name="Player">The player to reconnect</param>
+    /// <param name="_Player">The player to reconnect</param>
     public void MM_ReconnectToServer(CPlayer _Player) { }
 
     /// <summary>Let a player cancel a match</summary>
-    /// <param name="User">The user who want to cancel his match</param>
+    /// <param name="_User">The user who want to cancel his match</param>
     public void MM_CancelMatch(CUser _User) { }
 
     /// <summary>Parse the matches XML and send player to their match server</summary>
-    /// <param name="MatchesXML">The XML containing the matches</param>
+    /// <param name="_MatchesXML">The XML containing the matches</param>
     public void MM_GetMatches(string _MatchesXML) { }
 
     /// <summary>Send all players in their matches</summary>
@@ -192,34 +246,34 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Sh
     public void MM_MatchMakerStop() { }
 
     /// <summary>Check if a player is allowed to play by the matchmaking</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>True if the player is allowed to play, false otherwise</returns>
     public bool MM_PlayerIsValid(CSmPlayer _Player) => default!;
 
     /// <summary>Allow or not the mode to request substitutes</summary>
-    /// <param name="AllowSubstitutes">True to allow, false otherwise</param>
+    /// <param name="_AllowSubstitutes">True to allow, false otherwise</param>
     public void MM_AllowSubstitutes(bool _AllowSubstitutes) { }
 
     /// <summary>Matchmaking yield</summary>
     public void MM_Yield() { }
 
     /// <summary>Get the clan selected by the matchmaking for the player If the server is not in matchmaking mode, return the default requested clan</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The matchmaking clan of the player</returns>
     public int MM_GetRequestedClan(CSmPlayer _Player) => default!;
 
     /// <summary>Get the clan selected by the matchmaking for a login</summary>
-    /// <param name="Login">The login to check</param>
+    /// <param name="_Login">The login to check</param>
     /// <returns>The matchmaking clan of the login</returns>
     public int MM_GetAssignedClan(string _Login) => default!;
 
     /// <summary>Get the slot selected by the matchmaking for the player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The matchmaking slot of the player if found, -1 otherwise</returns>
     public int MM_GetRequestedSlot(CSmPlayer _Player) => default!;
 
     /// <summary>Get the status of a player One of these values can be returned - C_PlayerStatus_Waiting - C_PlayerStatus_Valid - C_PlayerStatus_Invalid</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The player status</returns>
     public int MM_GetPlayerStatus(CSmPlayer _Player) => default!;
 
@@ -227,11 +281,11 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Sh
     public void MM_Synchro_DoBarrier() { }
 
     /// <summary>Wait for all players to be ready on the server</summary>
-    /// <param name="MaxDuration">Maximum duration of the synchro (ms)</param>
+    /// <param name="_MaxDuration">Maximum duration of the synchro (ms)</param>
     public void MM_WaitPlayers(int _MaxDuration) { }
 
     /// <summary>Vote to select the next map If False, only modify the NextMapIndex variable.</summary>
-    /// <param name="ForceLoadMap">If True, load the selected map after the vote.</param>
+    /// <param name="_ForceLoadMap">If True, load the selected map after the vote.</param>
     public void MM_VoteForNextMap(bool _ForceLoadMap) { }
 
     /// <summary>Wait for a new match</summary>
@@ -242,36 +296,37 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Sh
     public bool MM_VoteForRematch() => default!;
 
     /// <summary>Send the result to the API</summary>
-    /// <param name="Master">The master of the match</param>
+    /// <param name="_MasterLogin" />
     public void MM_MatchEnd(string _MasterLogin) { }
 
     /// <summary>End a match</summary>
     public void MM_MatchToLobby() { }
 
     /// <summary>Set the scores to send to the api</summary>
-    /// <param name="Scores">The scores to send</param>
+    /// <param name="_Scores">The scores to send</param>
     public void MM_SetScores(global::System.Collections.Generic.IList<int> _Scores) { }
 
     /// <summary>Custom sleep function</summary>
-    /// <param name="Duration">The time to spend sleeping in ms</param>
+    /// <param name="_Duration">The time to spend sleeping in ms</param>
     public void MM_Sleep(int _Duration) { }
 
     /// <summary>Do the player presentation sequence (aka versus screen)</summary>
+    /// <param name="_Duration" />
     public void MM_PlayersPresentationSequence(int _Duration) { }
 
     /// <summary>Overload of the MM_PlayersPresentationSequence() function</summary>
     public void MM_PlayersPresentationSequence() { }
 
     /// <summary>Load a scores table style from an XML file</summary>
-    /// <param name="Path">Path to the XML file</param>
+    /// <param name="_Path">Path to the XML file</param>
     public void MM_SetScoresTableStyleFromXml(string _Path) { }
 
     /// <summary>Set the new matchmaking format on this server</summary>
-    /// <param name="NewFormat">The new format</param>
+    /// <param name="_NewFormat">The new format</param>
     public void MM_SetFormat(global::System.Collections.Generic.IList<int> _NewFormat) { }
 
     /// <summary>Initialize the match server for matchmaking</summary>
-    /// <param name="Format">The  match format</param>
+    /// <param name="_Format">The  match format</param>
     public void MM_Init(global::System.Collections.Generic.IList<int> _Format) { }
 
     /// <summary>Send the match id to the ladder server to validate 100K matches</summary>

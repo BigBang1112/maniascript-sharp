@@ -35,21 +35,6 @@ public partial class ClubMembers : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/MainMenu/Pages/ClubMembers.Script.txt";
     public const string C_Name = "Page_ClubMembers";
     public const string C_NavGroupName = "navgroup-page-clubmembers";
-    public const int C_MemberMenu_Members = 0;
-    public const int C_MemberMenu_Requests = 1;
-    public const string C_MemberOption_VIP = "VIP";
-    public const string C_MemberOption_Profile = "Profile";
-    public const string C_MemberOption_Exclude = "Exclude";
-    public const int C_ExcludeMemberPopUp_ChoiceIndex_Cancel = 0;
-    public const int C_ExcludeMemberPopUp_ChoiceIndex_Exclude = 1;
-    public const int C_RequestPopUp_ChoiceIndex_Accept = 0;
-    public const int C_RequestPopUp_ChoiceIndex_Decline = 1;
-    public const int C_RequestPopUp_ChoiceIndex_ViewProfile = 2;
-    public const int C_RequestPopUp_ChoiceIndex_Cancel = 3;
-    public const int C_PopUpMemberOptionsIndex = 0;
-    public const int C_PopUpExcludeMemberIndex = 1;
-    public const int C_PopUpRequestOptionsIndex = 2;
-    public const int C_DelayBetweenMembersRequests = 500;
 
     public struct K_Controls
     {

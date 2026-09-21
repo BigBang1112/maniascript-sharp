@@ -68,8 +68,8 @@ public partial class Quad9 : ILib
     }
 
     /// <summary>Generate a data-image property value [&quot;TopLeft&quot;, &quot;Top&quot;, &quot;TopRight&quot;, &quot;Right&quot;, &quot;BottomRight&quot;, &quot;Bottom&quot;, &quot;BottomLeft&quot;, &quot;Left&quot;, &quot;Center&quot;]</summary>
-    /// <param name="Images">An array of 9 images pathes</param>
-    /// <param name="MinSizes">The minimum size of each image</param>
+    /// <param name="_Images">An array of 9 images pathes</param>
+    /// <param name="_MinSizes">The minimum size of each image</param>
     public string GetDataImage(global::System.Collections.Generic.IList<string> _Images, global::System.Collections.Generic.IList<Vec2> _MinSizes) => default!;
 
     public string GetDataImage(string _Images, Vec2 _MinSizes) => default!;

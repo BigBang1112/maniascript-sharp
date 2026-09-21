@@ -17,6 +17,7 @@ public partial class ScorestableHelper_Server : ILib
     public const string C_Id = "UIModule_Campaign_ScorestableHelper";
 
     /// <summary>Overwrite the relative position defined in the manialink</summary>
+    /// <param name="_Position" />
     public void SetPosition(Vec2 _Position) { }
 
     /// <summary>Unload the library</summary>

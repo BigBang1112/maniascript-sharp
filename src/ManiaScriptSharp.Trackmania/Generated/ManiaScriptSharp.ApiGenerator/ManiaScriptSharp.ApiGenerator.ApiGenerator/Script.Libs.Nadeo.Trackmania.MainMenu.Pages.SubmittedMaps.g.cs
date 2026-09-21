@@ -35,15 +35,6 @@ public partial class SubmittedMaps : ILib
     public const string C_Class_TrackOptions_Mouse_Navigation = "class-track-focus-options-mouse-navigation";
     public const int C_Tab_TOTD = 0;
     public const int C_Tab_WeeklyTracks = 1;
-    public const int C_DelayBetweenRequest = 500;
-    public const string C_Metadata_PagerOffset = "PagerOffset";
-    public const int C_RemoveTrackPopUp_ChoiceIndex_Cancel = 0;
-    public const int C_RemoveTrackPopUp_ChoiceIndex_Remove = 1;
-    public const int C_Scroll_TOTD = 0;
-    public const int C_Scroll_WeeklyTracks = 1;
-    public const string C_Star_Empty = "";
-    public const string C_Star_Half = "";
-    public const string C_Star_Full = "";
 
     public struct K_SubmittedMaps
     {

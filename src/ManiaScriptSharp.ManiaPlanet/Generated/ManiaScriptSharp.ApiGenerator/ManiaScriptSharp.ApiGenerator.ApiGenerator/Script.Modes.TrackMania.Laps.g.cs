@@ -17,7 +17,9 @@ public partial class Laps : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Ba
     public const string Version = "2018-11-14";
     public const string ScriptName = "Modes/TrackMania/Laps/Laps.Script.txt";
     public const int C_NbBots = 0;
+    /// <summary>Path to the hud module</summary>
     public const string C_HudModulePath = "Nadeo/TrackMania/Laps/Hud.Module.Gbx";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TrackMania/Laps/Laps.Script.txt";
 
     public virtual void Match_LogVersion() { }
 
@@ -46,14 +48,15 @@ public partial class Laps : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Ba
     public int GetFinishTimeout() => default!;
 
     /// <summary>Update the scores table footer text</summary>
+    /// <param name="_StartTime" />
     public void UpdateScoresTableFooter(int _StartTime) { }
 
     /// <summary>Set the time limit</summary>
-    /// <param name="StartTime">The time at which the race started</param>
+    /// <param name="_StartTime">The time at which the race started</param>
     public void SetTimeLimit(int _StartTime) { }
 
     /// <summary>Set the number of laps</summary>
-    /// <param name="LapsNb">The number of laps</param>
-    /// <param name="StartTime">The time at which the race started</param>
+    /// <param name="_LapsNb">The number of laps</param>
+    /// <param name="_StartTime">The time at which the race started</param>
     public void SetLapsNb(int _LapsNb, int _StartTime) { }
 }

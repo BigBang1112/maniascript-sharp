@@ -156,6 +156,11 @@ public partial class Scroll_4 : ILib
     }
 
     /// <summary>Get the recommended number of elements in one line of scroll</summary>
+    /// <param name="_WindowSize" />
+    /// <param name="_ElementSize" />
+    /// <param name="_GutterSize" />
+    /// <param name="_LineElementNb" />
+    /// <param name="_Direction" />
     public int GetRequiredElementControlNb(Vec2 _WindowSize, Vec2 _ElementSize, Vec2 _GutterSize, int _LineElementNb, int _Direction) => default!;
 
     public Vec2 GetRecommendedWindowSize(Vec2 _ElementSize, Vec2 _GutterSize, Int2 _GridSize) => default!;

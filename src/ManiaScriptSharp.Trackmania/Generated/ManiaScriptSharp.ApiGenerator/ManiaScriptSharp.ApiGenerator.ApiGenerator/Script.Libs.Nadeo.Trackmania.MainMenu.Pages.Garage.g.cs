@@ -85,15 +85,6 @@ public partial class Garage : ILib
     public const int C_Tab_MySkins = 1;
     public const int C_Tab_ClubSkins = 2;
     public const int C_Tab_Pilot = 3;
-    public const int C_BrowserMode_EditSkin = 0;
-    public const int C_BrowserMode_UploadSkin = 1;
-    public const string C_SceneLayout = "Empty";
-    public const double C_CameraRotation = 9.0;
-    public const double C_CameraFOVCar = 30.0;
-    public const double C_CameraFOVPilot = 20.0;
-    public const double C_PlaneReflectOpacity = 0.63;
-    public const double C_PlaneReflectAngle = 10.0;
-    public const double C_PilotRotation = 0.0;
 
     public struct K_Scene
     {

@@ -20,6 +20,7 @@ public partial class LoadingSpinner_2 : ILib
     public const string ScriptName = "Libs/Nadeo/CMGame/Components/LoadingSpinner@2.Script.txt";
     public const string C_ComponentName = "CMGameLoadingSpinner2";
     public const string C_ComponentClass = "cmgame-components-loading-spinner-2";
+    public const string C_ImageURL_Loading = "file://Media/Manialinks/Nadeo/CMGame/Components/LoadingSpinner/LoadingSpinner.dds";
     public const int C_FadeInDuration = 200;
     public const int C_FadeOutDuration = 200;
     public const int C_LabelSide_Left = -1;

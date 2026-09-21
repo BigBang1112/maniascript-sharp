@@ -21,6 +21,7 @@ public partial class PauseMenu_Server : ILib
     public bool IsRestartRequested() => default!;
 
     /// <summary>Is the player playing against a replay or not</summary>
+    /// <param name="_IsAgainstReplay" />
     public void SetIsAgainstReplay(bool _IsAgainstReplay) { }
 
     /// <summary>Update the library</summary>

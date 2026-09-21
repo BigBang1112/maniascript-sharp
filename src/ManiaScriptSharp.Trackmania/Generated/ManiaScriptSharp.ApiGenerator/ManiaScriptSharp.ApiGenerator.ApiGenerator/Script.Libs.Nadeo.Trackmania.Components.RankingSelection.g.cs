@@ -33,6 +33,7 @@ public partial class RankingSelection : ILib
     public const string C_Class = "class-ranking-selection";
     public const string C_Class_RankingButton = "class-ranking-selection-button";
     public const string C_Navigation_Target = "component-ranking-selection-button-map-display-2";
+    /// <summary>LINKED KEYS</summary>
     public const int C_Display_Null = -1;
     public const int C_Display_Medals = 0;
     public const int C_Display_ZoneRankings = 1;

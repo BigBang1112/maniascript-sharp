@@ -17,14 +17,17 @@ public partial class Stylesheet_2 : ILib
 
     public const string Version = "0.2.6";
     public const string ScriptName = "Libs/Nadeo/CMGame/Utils/Stylesheet@2.Script.txt";
+    /// <summary>Themes</summary>
     public const int C_ThemeId_Null = 0;
     public const int C_ThemeId_Default = 1;
     public const int C_ThemeId_Trackmania = 2;
     public const int C_ThemeId_Questmania = 3;
+    /// <summary>Skew angles</summary>
     public const double C_SkewAngle_Default = 0.0;
     public const double C_SkewAngle_Trackmania = 10.0;
     public const double C_SkewAngle_Questmania = 10.0;
     public const double C_SkewAngle_Shootmania = 10.0;
+    /// <summary>Color codes</summary>
     public const string C_ColorHex6_GreenFive = "000A05";
     public const string C_ColorHex6_GreenFour = "003228";
     public const string C_ColorHex6_GreenThree = "005F46";
@@ -71,6 +74,7 @@ public partial class Stylesheet_2 : ILib
     public const string C_ColorHex6_Beige = "E8E2CC";
     public const string C_ColorHex6_Linen = "D9CEA8";
     public const string C_ColorHex6_AzureRadiance = "0085FF";
+    /// <summary>Color names</summary>
     public const int C_Color_Text_Primary = 2000;
     public const int C_Color_Text_PrimaryEmphasis = 2001;
     public const int C_Color_Text_Secondary = 2002;
@@ -115,6 +119,7 @@ public partial class Stylesheet_2 : ILib
     public const int C_Color_Icon_White = 5009;
     public const int C_Color_Icon_Light = 5010;
     public const int C_Color_Icon_Dark = 5011;
+    /// <summary>Font paths</summary>
     public const string C_FontRaw_Default = "GameFontSemiBold";
     public const string C_FontRaw_Oswald_Regular = "Oswald";
     public const string C_FontRaw_Oswald_Mono = "OswaldMono";
@@ -122,11 +127,13 @@ public partial class Stylesheet_2 : ILib
     public const string C_FontRaw_GameFont_ExtraBold = "GameFontExtraBold";
     public const string C_FontRaw_GameFont_SemiBold = "GameFontSemiBold";
     public const string C_FontRaw_GameFont_Regular = "GameFontRegular";
+    /// <summary>Font names</summary>
     public const int C_Font_Monospace = 0;
     public const int C_Font_Regular = 1;
     public const int C_Font_SemiBold = 2;
     public const int C_Font_ExtraBold = 3;
     public const int C_Font_Black = 4;
+    /// <summary>Label styles</summary>
     public const string C_LabelStyle_NormalRegular = "cmgame-stylesheet2-label-style-normal-regular";
     public const string C_LabelStyle_NormalSemiBold = "cmgame-stylesheet2-label-style-normal-semi-bold";
     public const string C_LabelStyle_NormalExtraBold = "cmgame-stylesheet2-label-style-normal-extra-bold";
@@ -162,31 +169,41 @@ public partial class Stylesheet_2 : ILib
     }
 
     /// <summary>Return a color structure from the given hexadecimal color</summary>
+    /// <param name="_Hex6Color" />
     public K_Color GetColorStruct(string _Hex6Color) => default!;
 
     public K_Theme GetTheme() => default!;
 
     /// <summary>Get the skew angle for the given theme</summary>
+    /// <param name="_Theme" />
     public float GetSkewAngle(K_Theme _Theme) => default!;
 
     public float GetSkewAngle() => default!;
 
     /// <summary>Get a color in K_Color format for the given theme</summary>
+    /// <param name="_Theme" />
+    /// <param name="_ColorId" />
     public K_Color GetColor(K_Theme _Theme, int _ColorId) => default!;
 
     public K_Color GetColor(int _ColorId) => default!;
 
     /// <summary>Get a color in Hex6 format for the given theme</summary>
+    /// <param name="_Theme" />
+    /// <param name="_ColorId" />
     public string GetColorHex6(K_Theme _Theme, int _ColorId) => default!;
 
     public string GetColorHex6(int _ColorId) => default!;
 
     /// <summary>Get a color in RGB format for the given theme</summary>
+    /// <param name="_Theme" />
+    /// <param name="_ColorId" />
     public Vec3 GetColorRGB(K_Theme _Theme, int _ColorId) => default!;
 
     public Vec3 GetColorRGB(int _ColorId) => default!;
 
     /// <summary>Get a font for the given theme</summary>
+    /// <param name="_Theme" />
+    /// <param name="_FontId" />
     public string GetFont(K_Theme _Theme, int _FontId) => default!;
 
     public string GetFont(int _FontId) => default!;

@@ -96,18 +96,40 @@ public partial class Search : ILib
     public Trackmania_Search_K_Widgets NewWidgetsList() => default!;
 
     /// <summary>Add a select widget</summary>
+    /// <param name="_Widgets" />
+    /// <param name="_WidgetId" />
+    /// <param name="_Label" />
+    /// <param name="_Options" />
+    /// <param name="_SelectedIndex" />
     public Trackmania_Search_K_Widgets AddWidgetSelect(Trackmania_Search_K_Widgets _Widgets, int _WidgetId, string _Label, global::System.Collections.Generic.IList<string> _Options, int _SelectedIndex) => default!;
 
     /// <summary>Add an entry widget</summary>
+    /// <param name="_Widgets" />
+    /// <param name="_WidgetId" />
+    /// <param name="_Label" />
+    /// <param name="_Value" />
     public Trackmania_Search_K_Widgets AddWidgetInput(Trackmania_Search_K_Widgets _Widgets, int _WidgetId, string _Label, string _Value) => default!;
 
     /// <summary>Add a checkbox widget</summary>
+    /// <param name="_Widgets" />
+    /// <param name="_WidgetId" />
+    /// <param name="_Label" />
+    /// <param name="_IsChecked" />
     public Trackmania_Search_K_Widgets AddWidgetCheckbox(Trackmania_Search_K_Widgets _Widgets, int _WidgetId, string _Label, bool _IsChecked) => default!;
 
     /// <summary>Add an order (ascending/descending) widget</summary>
+    /// <param name="_Widgets" />
+    /// <param name="_WidgetId" />
+    /// <param name="_Label" />
+    /// <param name="_Order" />
     public Trackmania_Search_K_Widgets AddWidgetOrder(Trackmania_Search_K_Widgets _Widgets, int _WidgetId, string _Label, int _Order) => default!;
 
     /// <summary>Add a button widget The button can have one of three behaviour - C_ButtonBehaviour_SendEvent: the button will send a {{{P}}}C_EventType_ButtonEvent event containing the _Event parameter - C_ButtonBehaviour_Search: the button will send a {{{P}}}C_EventType_Search event with all search widgets values - C_ButtonBehaviour_Reset: the button will reset all search widgets to their default value and send a {{{P}}}C_EventType_Search event - C_ButtonBehaviour_Close: the button will send a {{{P}}}C_EventType_Close event</summary>
+    /// <param name="_Widgets" />
+    /// <param name="_WidgetId" />
+    /// <param name="_Behaviour" />
+    /// <param name="_Event" />
+    /// <param name="_Value" />
     public Trackmania_Search_K_Widgets AddWidgetButton(Trackmania_Search_K_Widgets _Widgets, int _WidgetId, int _Behaviour, string _Event, string _Value) => default!;
 
     public Trackmania_Search_K_Widgets AddWidgetButton(Trackmania_Search_K_Widgets _Widgets, int _WidgetId, int _Behaviour, string _Value) => default!;

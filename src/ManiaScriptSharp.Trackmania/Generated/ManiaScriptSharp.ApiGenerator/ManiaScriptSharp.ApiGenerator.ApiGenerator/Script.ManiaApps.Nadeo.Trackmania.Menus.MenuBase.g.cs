@@ -34,6 +34,7 @@ public partial class MenuBase : ILib
 
     public const string C_MenuBase_Version = "1.4.1";
     public const string C_MenuBase_ScriptName = "ManiaApps/Nadeo/Trackmania/Menus/MenuBase.Script.txt";
+    public const string C_ConfigFilePath = "file://Media/Config/Nadeo/Trackmania/Config.json";
 
     public virtual void LoadLibraries() { }
 

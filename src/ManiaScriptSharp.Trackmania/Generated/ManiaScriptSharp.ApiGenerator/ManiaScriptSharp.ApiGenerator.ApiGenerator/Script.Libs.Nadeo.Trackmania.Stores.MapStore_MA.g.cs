@@ -24,24 +24,30 @@ public partial class MapStore_MA : ILib
     public bool CanLaunchNewRequest() => default!;
 
     /// <summary>Get infos on the specified map</summary>
-    /// <param name="MapUid">The id of the map</param>
+    /// <param name="_MapUid">The id of the map</param>
     public void Action_GetMap(string _MapUid) { }
 
     /// <summary>Load player's favorite maps</summary>
+    /// <param name="_MapTypeList" />
+    /// <param name="_SortByNameElseByDate" />
+    /// <param name="_SortOrderAsc" />
+    /// <param name="_OnlyPlayable" />
+    /// <param name="_OnlyMine" />
     public void Action_LoadFavoriteMapList(global::System.Collections.Generic.IList<string> _MapTypeList, bool _SortByNameElseByDate, bool _SortOrderAsc, bool _OnlyPlayable, bool _OnlyMine) { }
 
     /// <summary>Remove the specified map from player's favorite maps</summary>
-    /// <param name="MapUid">The id of the map to remove</param>
+    /// <param name="_MapUid">The id of the map to remove</param>
     public void Action_RemoveMapFromFavorites(string _MapUid) { }
 
     /// <summary>Add the specified map to player's favorite maps</summary>
-    /// <param name="MapUid">The id of the map to add</param>
+    /// <param name="_MapUid">The id of the map to add</param>
     public void Action_AddMapToFavorites(string _MapUid) { }
 
     /// <summary>Add or remove the current map to player's favorite maps</summary>
     public void Action_ToggleCurrentMapFromFavorites() { }
 
     /// <summary>Initialize the Map store</summary>
+    /// <param name="_ResetData" />
     public void Initialize(bool _ResetData) { }
 
     /// <summary>Update the Map store</summary>

@@ -78,5 +78,7 @@ public partial class Navigation_3 : ILib
     }
 
     /// <summary>Enable or disable navigation in a context</summary>
+    /// <param name="_ContextUid" />
+    /// <param name="_IsEnabled" />
     public void SetIsContextEnabled(string _ContextUid, bool _IsEnabled) { }
 }

@@ -22,13 +22,16 @@ public partial class DailyAPI : ILib
     public const string C_QueryParameter_Offset = "offset";
     public const string C_QueryParameter_Length = "length";
     public const string C_QueryParameter_Partition = "partition";
+    /// <summary>Competition</summary>
     public const string C_Route_GetRanks = "/api/challenges/:challenge/records/maps/:uid/players";
     public const string C_Route_GetLeaderboard = "/api/challenges/:challenge/records/maps/:uid";
     public const string C_Route_PostResults = "/api/challenges/:challenge/records/maps/:uid";
     public const string C_Route_MatchStatus = "/api/cup-of-the-day/current";
     public const string C_Route_PostRegisteredPlayers = "/api/competitions/:competition/participants";
     public const string C_Route_GetRegisteredPlayers = "/api/competitions/:competition/participants/list";
+    /// <summary>Club</summary>
     public const string C_Route_NextMatch = "/api/join/players";
+    /// <summary>Channel</summary>
     public const string C_API_Channel = "/api/token/channel";
     public const string C_Route_PostJoinLink = "/:ChannelUid/join";
     public const string C_RouteParameter_ChannelUid = "ChannelUid";

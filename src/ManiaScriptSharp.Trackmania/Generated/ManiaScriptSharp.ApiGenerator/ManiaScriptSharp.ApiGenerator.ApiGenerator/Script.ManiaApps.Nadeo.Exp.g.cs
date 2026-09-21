@@ -31,7 +31,7 @@ public partial class Exp : ILib
     public string GetExpML() => default!;
 
     /// <summary>Set the position of the UI &lt;PosX, PosY, ZIndex&gt;</summary>
-    /// <param name="Position">The position of the UI</param>
+    /// <param name="_Position">The position of the UI</param>
     public void SetPosition(Vec3 _Position) { }
 
     /// <summary>Unload the library</summary>

@@ -25,6 +25,7 @@ public partial class Ghost : ILib
     public const double C_GhostMaxAlpha_LocalHigh = 0.75;
     public const double C_GhostMaxAlpha_MultiLow = 1.0;
     public const double C_GhostMaxAlpha_MultiHigh = 0.75;
+    /// <summary>Number of ghosts after which we toggle the max alpha</summary>
     public const int C_LowHighLimit_Local = 2;
     public const int C_LowHighLimit_Multi = -1;
 
@@ -38,9 +39,12 @@ public partial class Ghost : ILib
     public bool AreSameRace(Ident _GhostIdA, Ident _GhostIdB) => default!;
 
     /// <summary>Update the visibility of the best ghosts</summary>
+    /// <param name="_Visibility" />
     public void SetBestGhostsVisibility(int _Visibility) { }
 
     /// <summary>Try to not display the same ghosts as the one listed in _GhostIds</summary>
+    /// <param name="_GhostId" />
+    /// <param name="_UpdateVisibility" />
     public void AvoidDuplicate_Add(Ident _GhostId, bool _UpdateVisibility) { }
 
     public void AvoidDuplicate_Add(Ident _GhostId) { }
@@ -50,19 +54,22 @@ public partial class Ghost : ILib
     public void AvoidDuplicate(global::System.Collections.Generic.IList<Ident> _GhostIds) { }
 
     /// <summary>Remove a ghost from the best ghosts</summary>
+    /// <param name="_GhostId" />
     public void RemoveBestGhost(Ident _GhostId) { }
 
     public void RemoveBestGhosts() { }
 
     /// <summary>Enable or disable the best ghosts feature</summary>
-    /// <param name="Enabled">True to enable, False to disable</param>
-    /// <param name="GhostsLimit">The maximum number of concurrent ghosts to keep</param>
-    /// <param name="GhostsVisibility">The default ghost visibility</param>
+    /// <param name="_Enabled">True to enable, False to disable</param>
+    /// <param name="_GhostsLimit">The maximum number of concurrent ghosts to keep</param>
+    /// <param name="_GhostsVisibility">The default ghost visibility</param>
     public void EnableBestGhosts(bool _Enabled, int _GhostsLimit, int _GhostsVisibility) { }
 
     public void EnableBestGhosts(bool _Enabled) { }
 
     /// <summary>Setup the max alpha of the ghosts</summary>
+    /// <param name="_IsLocalMode" />
+    /// <param name="_GhostsNb" />
     public void AutoGhostsMaxAlpha(bool _IsLocalMode, int _GhostsNb) { }
 
     /// <summary>Call this at the start of each map</summary>

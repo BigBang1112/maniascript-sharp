@@ -20,15 +20,19 @@ public partial class SuperRoyal_Server : ILib
     public const string C_Division_Master = "Master";
 
     /// <summary>Send the status of the Super Royal mode (activated or not)</summary>
+    /// <param name="_IsSuperRoyal" />
     public void SetSuperRoyalEnabled(bool _IsSuperRoyal) { }
 
     /// <summary>Send the round number of the Super Royal mode</summary>
+    /// <param name="_RoundNumber" />
     public void SetSuperRoyalRoundNumber(int _RoundNumber) { }
 
     /// <summary>Send the status of the Super Royal finale (in progress or not)</summary>
+    /// <param name="_IsSuperRoyalFinale" />
     public void SetSuperRoyalFinale(bool _IsSuperRoyalFinale) { }
 
     /// <summary>Send the the Super Royal division (Bronze, Silver, etc...)</summary>
+    /// <param name="_SuperRoyalDivision" />
     public void SetSuperRoyalDivision(string _SuperRoyalDivision) { }
 
     /// <summary>Unload the library</summary>

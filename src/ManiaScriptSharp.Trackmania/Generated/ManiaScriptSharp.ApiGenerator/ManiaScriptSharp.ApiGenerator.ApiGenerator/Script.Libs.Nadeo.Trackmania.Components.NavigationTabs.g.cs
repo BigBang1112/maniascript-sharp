@@ -48,6 +48,7 @@ public partial class NavigationTabs : ILib
     public const string C_Id_ButtonIconPrevTab = "trackmania-navigation-tabs_button-icon-prev-tab";
     public const string C_Id_ButtonIconNextTab = "trackmania-navigation-tabs_button-icon-next-tab";
     public const string C_Id_FrameTabs = "trackmania-navigation-tabs_frame-tabs";
+    /// <summary>0,1,2,3,... not 0,1,3,... for example</summary>
     public const int C_Property_HAlign = 0;
     public const int C_Property_VAlign = 1;
     public const int C_Property_Tabs = 2;

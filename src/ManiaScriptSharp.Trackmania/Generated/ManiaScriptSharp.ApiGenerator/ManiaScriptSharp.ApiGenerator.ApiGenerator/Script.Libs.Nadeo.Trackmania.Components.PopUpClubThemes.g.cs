@@ -41,6 +41,7 @@ public partial class PopUpClubThemes : ILib
     public const string C_Id_SelectorClubThemes = "menu-libs-pop-up-club-themes_selector-pop-up-club-themes";
     public const int C_EventType_Display = 0;
     public const int C_EventType_Confirm = 1;
+    /// <summary>Pop up to choose an activity image</summary>
     public const string C_Choice_None = "none";
     public const int C_Choice_CancelTheme = 0;
     public const int C_Choice_ConfirmTheme = 1;

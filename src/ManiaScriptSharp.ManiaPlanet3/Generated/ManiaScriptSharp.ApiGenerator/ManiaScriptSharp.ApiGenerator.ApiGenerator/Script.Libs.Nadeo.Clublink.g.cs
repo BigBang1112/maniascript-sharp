@@ -16,7 +16,6 @@ public partial class Clublink : ILib
     public const string Version = "2014-04-22";
     public const string ScriptName = "Clublink.Script.txt";
     public const int C_LibClubLink_RequestTimeout = 5000;
-    public const int C_SponsorCyclingDuration = 5000;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>
@@ -30,11 +29,11 @@ public partial class Clublink : ILib
     public void Unload() { }
 
     /// <summary>Load the library</summary>
-    /// <param name="UsePlayerClubLinks">Active the use of the players clublinks</param>
+    /// <param name="_UsePlayerClubLinks">Active the use of the players clublinks</param>
     public void Load(bool _UsePlayerClubLinks) { }
 
     /// <summary>Reset the clublink of a clan</summary>
-    /// <param name="ClanNb">The clan to reset</param>
+    /// <param name="_ClanNb">The clan to reset</param>
     public void Reset(int _ClanNb) { }
 
     /// <summary>Reset the clublink of a all clans</summary>
@@ -47,21 +46,21 @@ public partial class Clublink : ILib
     public void Detach() { }
 
     /// <summary>Toggle the sponsors display</summary>
-    /// <param name="Displayed">Hide or show the club sponsors</param>
+    /// <param name="_Displayed">Hide or show the club sponsors</param>
     public void SetSponsorsDisplay(bool _Displayed) { }
 
     /// <summary>Set the default name of a team</summary>
-    /// <param name="Team">The team to update</param>
-    /// <param name="Name">The new default name of the team</param>
+    /// <param name="_Team">The team to update</param>
+    /// <param name="_Name">The new default name of the team</param>
     public void SetTeamDefaultName(int _Team, string _Name) { }
 
     /// <summary>Set the default color of a team</summary>
-    /// <param name="Team">The team to update</param>
-    /// <param name="Color">The new default color of the team</param>
+    /// <param name="_Team">The team to update</param>
+    /// <param name="_Color">The new default color of the team</param>
     public void SetTeamDefaultColor(int _Team, Vec3 _Color) { }
 
     /// <summary>Get the sponsors list of a clan</summary>
-    /// <param name="Team">The team to check</param>
+    /// <param name="_Team">The team to check</param>
     /// <returns>The sponsors with their logos</returns>
     public global::System.Collections.Generic.IList<string> GetTeamSponsors(int _Team) => default!;
 
@@ -72,25 +71,24 @@ public partial class Clublink : ILib
     public void SyncUpdate() { }
 
     /// <summary>Manually define the players that'll be used as sources for the teams info</summary>
-    /// <param name="Player1">Source for team 1</param>
-    /// <param name="Player2">Source for team 2</param>
+    /// <param name="_Player1">Source for team 1</param>
+    /// <param name="_Player2">Source for team 2</param>
     public void DefineTeamFromPlayers(CPlayer _Player1, CPlayer _Player2) { }
 
     /// <summary>/!\ WARNING: this function is synchronous The script will wait until it receives a response or timeout Manually define the clublinks that'll be used as sources for the teams info</summary>
-    /// <param name="Url1">Url of the team 1 clublink</param>
-    /// <param name="Url2">Url of the team 2 clublink</param>
+    /// <param name="_Url1">Url of the team 1 clublink</param>
+    /// <param name="_Url2">Url of the team 2 clublink</param>
     public void DefineTeamFromUrl(string _Url1, string _Url2) { }
 
     /// <summary>Automatically find the players that'll be used as source for the teams info If the update is not forced, then we check if the current source players are still here beforehand</summary>
-    /// <param name="Forced">Force the update</param>
+    /// <param name="_Forced">Force the update</param>
     public void DefineTeamAuto(bool _Forced) { }
 
     /// <summary>Overload of Void DefineTeamAuto(Boolean _Forced)</summary>
     public void DefineTeamAuto() { }
 
     /// <summary>Get the player used as the source for team info</summary>
-    /// <param name="ClanNb">The clan of the source player</param>
-    /// <param name="The">source player if found, Null otherwise</param>
+    /// <param name="_ClanNb">The clan of the source player</param>
     public CPlayer GetSourcePlayer(int _ClanNb) => default!;
 
     /// <summary>Check if the a clublink was set/reset since the last this function was called</summary>

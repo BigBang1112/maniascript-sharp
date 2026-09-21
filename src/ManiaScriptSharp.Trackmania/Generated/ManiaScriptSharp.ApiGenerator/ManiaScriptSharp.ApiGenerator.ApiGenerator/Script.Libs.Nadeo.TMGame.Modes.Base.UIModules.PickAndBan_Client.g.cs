@@ -28,6 +28,7 @@ public partial class PickAndBan_Client : ILib
     public const int C_StepsMax = 10;
     public const int C_TeamsMax = 2;
     public const int C_TeamsCheckInterval = 1000;
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/TMGame/Modes/PickBan";
     public const string C_NavGroup_Global = "navgroup-pick-and-ban-global";
     public const int C_Choice_Cancel = 0;
     public const int C_Choice_Confirm = 1;
@@ -50,8 +51,6 @@ public partial class PickAndBan_Client : ILib
     public const double C_TextSizeMin_LabelUserAction = 1.0;
     public const double C_TextSizeStep_LabelUserAction = 0.5;
     public const string C_Color_DefaultBg = "000514";
-    public const int C_StepUpdateAnimDuration = 250;
-    public const int C_ScrollTrackFocusAnimDuration = 250;
 
     public struct K_Team
     {

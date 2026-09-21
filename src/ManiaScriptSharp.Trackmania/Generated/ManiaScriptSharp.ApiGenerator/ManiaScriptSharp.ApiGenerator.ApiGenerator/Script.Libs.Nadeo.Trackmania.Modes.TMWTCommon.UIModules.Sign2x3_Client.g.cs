@@ -37,9 +37,11 @@ public partial class Sign2x3_Client : ILib
     }
 
     /// <summary>Get the id of the UI module</summary>
+    /// <param name="_InstanceNb" />
     public string GetId(int _InstanceNb) => default!;
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_InstanceNb" />
     /// <returns>The module manialink</returns>
     public string GetML(int _InstanceNb) => default!;
 }

@@ -55,7 +55,7 @@ public partial class ModeBase : ILib
     public virtual void MB_Private_DefaultPodiumSequence() { }
 
     /// <summary>Select an extend mode</summary>
-    /// <param name="ExtendMode">The extend mode to use</param>
+    /// <param name="_ExtendMode">The extend mode to use</param>
     public void MB_Private_SetExtendMode(int _ExtendMode) { }
 
     /// <summary>Stop the server</summary>
@@ -133,6 +133,7 @@ public partial class ModeBase : ILib
     public int MB_Private_GetValidTurnCount() => default!;
 
     /// <summary>Validate or invalidate the ongoing section</summary>
+    /// <param name="_IsValid" />
     public void MB_Private_SetValidMatch(bool _IsValid) { }
 
     public void MB_Private_SetValidMap(bool _IsValid) { }
@@ -147,7 +148,7 @@ public partial class ModeBase : ILib
     public void MB_Private_SkipPodiumSequence() { }
 
     /// <summary>Setup the UI to enable or disable players spawning and notifications</summary>
-    /// <param name="Enabled">True to let players spawn, False otherwise</param>
+    /// <param name="_Enabled">True to let players spawn, False otherwise</param>
     public void MB_Private_EnablePlayMode(bool _Enabled) { }
 
     /// <summary>Check if the neutral emblem url setting was updated</summary>
@@ -157,12 +158,12 @@ public partial class ModeBase : ILib
     public void MB_Private_Yield() { }
 
     /// <summary>Sleep for the given duration</summary>
-    /// <param name="Time">The duration of the sleep</param>
+    /// <param name="_Duration" />
     public void MB_Private_Sleep(int _Duration) { }
 
     /// <summary>Sleep for the given duration in a specific game mode loop</summary>
-    /// <param name="Level">The game mode loop in which the sleep happens</param>
-    /// <param name="Time">The duration of the sleep</param>
+    /// <param name="_Level">The game mode loop in which the sleep happens</param>
+    /// <param name="_Duration" />
     public void MB_Private_Sleep(int _Level, int _Duration) { }
 
     /// <summary>Load the next map</summary>
@@ -175,7 +176,7 @@ public partial class ModeBase : ILib
     public void MB_Private_OpenLadder() { }
 
     /// <summary>Close the opened match on the ladder and players will receive ladder points. If False the match will be canceled and players won't receive ladder points.</summary>
-    /// <param name="ValidMatch">If True the match will be validated</param>
+    /// <param name="_ValidMatch">If True the match will be validated</param>
     public void MB_Private_CloseLadder(bool _ValidMatch) { }
 
     /// <summary>Do a synchronization</summary>
@@ -191,7 +192,7 @@ public partial class ModeBase : ILib
     public void MB_Private_IntroSequence() { }
 
     /// <summary>Play the players presentation sequence</summary>
-    /// <param name="Duration">Duration of the sequence</param>
+    /// <param name="_Duration">Duration of the sequence</param>
     public void MB_Private_PlayersPresentationSequence(int _Duration) { }
 
     /// <summary>Play the podium sequence : Podium + Scores table</summary>

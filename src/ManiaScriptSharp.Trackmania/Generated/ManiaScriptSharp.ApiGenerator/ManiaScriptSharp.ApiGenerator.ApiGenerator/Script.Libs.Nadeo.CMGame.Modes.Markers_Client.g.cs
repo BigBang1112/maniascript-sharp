@@ -23,11 +23,13 @@ public partial class Markers_Client : ILib
     public const int C_MarkersNb = 256;
 
     /// <summary>Add a component to the players' markers</summary>
+    /// <param name="_Components" />
     public void AddPlayerMarkerComponents(global::System.Collections.Generic.Dictionary<string, string> _Components) { }
 
     public void AddPlayerMarkerComponent(string _ComponentName, string _Component) { }
 
     /// <summary>Remove a component from the players' markers</summary>
+    /// <param name="_ComponentNames" />
     public void RemovePlayerMarkerComponents(global::System.Collections.Generic.IList<string> _ComponentNames) { }
 
     public void RemovePlayerMarkerComponent(string _ComponentName) { }

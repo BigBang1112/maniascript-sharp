@@ -24,6 +24,8 @@ public partial class EndMatchPopUp_Client : ILib
     public const string C_Id = "UIModule_ChampionOGL_EndMatchPopUp";
     public const string C_PopUpName = "EndMatchPopUp";
     public const string C_NavGroupName = "navgroup-endmatchpopup";
+    public const string C_Img_PopUpHeader = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scorestable_header.dds";
+    public const string C_Img_PopUpBg = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scorestable_body.dds";
     public const int C_TrophyDecimals = 2;
 
     /// <summary>Get the module manialink</summary>

@@ -19,11 +19,8 @@ public partial class SegmentProgression_Client : ILib
 
     public const string Version = "1.0.3";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/SegmentProgression_Client.Script.txt";
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal";
     public const int C_UpdateInterval = 250;
-    public const int C_ActivePadUpdateInterval = 250;
-    public const int C_DisplayAnimDuration = 250;
-    public const int C_SegmentActivationAnimDuration = 1000;
-    public const int C_JoinBlinkingDuration = 5000;
 
     public struct K_Controls
     {

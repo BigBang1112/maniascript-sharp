@@ -9,7 +9,6 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania;
 
-/// <summary>Return the version number of the script</summary>
 public partial class WarmUpSimple2 : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.XmlRpc2 XmlRpc;
@@ -18,9 +17,11 @@ public partial class WarmUpSimple2 : ILib
 
     public const string Version = "2017-03-29";
     public const string ScriptName = "WarmUpSimple.Script.txt";
+    /// <summary>XmlRpc callbacks</summary>
     public const string C_Callback_WarmUp_Start = "Maniaplanet.WarmUp.Start";
     public const string C_Callback_WarmUp_End = "Maniaplanet.WarmUp.End";
     public const string C_Callback_WarmUp_Status = "Maniaplanet.WarmUp.Status";
+    /// <summary>XmlRpc methods</summary>
     public const string C_Method_WarmUp_Extend = "Maniaplanet.WarmUp.Extend";
     public const string C_Method_WarmUp_Stop = "Maniaplanet.WarmUp.Stop";
     public const string C_Method_WarmUp_GetStatus = "Maniaplanet.WarmUp.GetStatus";
@@ -34,7 +35,7 @@ public partial class WarmUpSimple2 : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Initialize the warm up (overload)</summary>
-    /// <param name="Duration">Time duration in seconds of the warm up</param>
+    /// <param name="_Duration">Time duration in seconds of the warm up</param>
     public void Initialize(int _Duration) { }
 
     /// <summary>Initialize the warm up (overload)</summary>
@@ -45,26 +46,27 @@ public partial class WarmUpSimple2 : ILib
     public string GetWarmUpUI() => default!;
 
     /// <summary>Force the warm up to last a fixed time</summary>
-    /// <param name="Forced">Set the forced time warm up option to true or false</param>
+    /// <param name="_Forced">Set the forced time warm up option to true or false</param>
     public void SetForceWarmUpDuration(bool _Forced) { }
 
     /// <summary>Require a minimum number of players before the warm up can end</summary>
-    /// <param name="MinPlayers">The minimum number of players required to begin</param>
+    /// <param name="_MinPlayers">The minimum number of players required to begin</param>
     public void SetMinimumPlayersNumber(int _MinPlayers) { }
 
     /// <summary>Change the warm up BigMessage</summary>
-    /// <param name="NewBigMessage">The BigMessage to use</param>
+    /// <param name="_NewBigMessage">The BigMessage to use</param>
     public void SetBigMessage(string _NewBigMessage) { }
 
     /// <summary>Change the warm up StatusMessage</summary>
-    /// <param name="NewStatusMessage">The StatusMessage to use</param>
+    /// <param name="_NewStatusMessage">The StatusMessage to use</param>
     public void SetStatusMessage(string _NewStatusMessage) { }
 
     /// <summary>Set the duration of the timer when all players are ready.</summary>
+    /// <param name="_TimeInSeconds" />
     public void SetCountdownOnPlayersReady(int _TimeInSeconds) { }
 
     /// <summary>Test if the players are ready to begin</summary>
-    /// <param name="RequireAllReady">If true all the players must be ready, else only one player is enough (in each clan)</param>
+    /// <param name="_RequireAllReady">If true all the players must be ready, else only one player is enough (in each clan)</param>
     /// <returns>True if the players are ready, false otherwise</returns>
     public bool PlayersAreReady(bool _RequireAllReady) => default!;
 

@@ -17,8 +17,8 @@ public partial class SM : ILib
     public const string ScriptName = "SM.Script.txt";
 
     /// <summary>Get a block pole from its tag and order</summary>
-    /// <param name="Tag">The tag of the pole</param>
-    /// <param name="Index">The order of the pole</param>
+    /// <param name="_Tag">The tag of the pole</param>
+    /// <param name="_Index">The order of the pole</param>
     /// <returns>The pole if found, Null otherwise</returns>
     public CSmBlockPole GetPole(string _Tag, int _Index) => default!;
 
@@ -31,45 +31,45 @@ public partial class SM : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Spawn a player</summary>
-    /// <param name="Player">The player to spawn</param>
-    /// <param name="ClanNum">The clan in which the player will be spawned</param>
-    /// <param name="Landmark">The landmark where the player will be spawned</param>
+    /// <param name="_Player">The player to spawn</param>
+    /// <param name="_ClanNum">The clan in which the player will be spawned</param>
+    /// <param name="_Spawn" />
     public void SpawnPlayer(CSmPlayer _Player, int _ClanNum, CSmMapPlayerSpawn _Spawn) { }
 
     /// <summary>Spawn a player</summary>
-    /// <param name="Player">The player to spawn</param>
-    /// <param name="ClanNum">The clan in which the player will be spawned</param>
-    /// <param name="Landmark">The landmark where the player will be spawned</param>
-    /// <param name="ActivationDate">When the player will be spawned</param>
+    /// <param name="_Player">The player to spawn</param>
+    /// <param name="_ClanNum">The clan in which the player will be spawned</param>
+    /// <param name="_Spawn" />
+    /// <param name="_ActivationDate">When the player will be spawned</param>
     public void SpawnPlayer(CSmPlayer _Player, int _ClanNum, CSmMapPlayerSpawn _Spawn, int _ActivationDate) { }
 
     /// <summary>Spawn a player</summary>
-    /// <param name="Player">The player to spawn</param>
-    /// <param name="ClanNum">The clan in which the player will be spawned</param>
-    /// <param name="Armor">The numnber of armor at spawn for the player</param>
-    /// <param name="Landmark">The landmark where the player will be spawned</param>
-    /// <param name="ActivationDate">When the player will be spawned</param>
+    /// <param name="_Player">The player to spawn</param>
+    /// <param name="_ClanNum">The clan in which the player will be spawned</param>
+    /// <param name="_Armor">The numnber of armor at spawn for the player</param>
+    /// <param name="_Spawn" />
+    /// <param name="_ActivationDate">When the player will be spawned</param>
     public void SpawnPlayer(CSmPlayer _Player, int _ClanNum, int _Armor, CSmMapPlayerSpawn _Spawn, int _ActivationDate) { }
 
     /// <summary>Spawn a player</summary>
-    /// <param name="Player">The player to spawn</param>
-    /// <param name="ClanNum">The clan in which the player will be spawned</param>
-    /// <param name="Landmark">The landmark where the player will be spawned</param>
+    /// <param name="_Player">The player to spawn</param>
+    /// <param name="_ClanNum">The clan in which the player will be spawned</param>
+    /// <param name="_Spawn" />
     public void SpawnPlayerNoLadder(CSmPlayer _Player, int _ClanNum, CSmMapPlayerSpawn _Spawn) { }
 
     /// <summary>Spawn a player</summary>
-    /// <param name="Player">The player to spawn</param>
-    /// <param name="ClanNum">The clan in which the player will be spawned</param>
-    /// <param name="Landmark">The landmark where the player will be spawned</param>
-    /// <param name="ActivationDate">When the player will be spawned</param>
+    /// <param name="_Player">The player to spawn</param>
+    /// <param name="_ClanNum">The clan in which the player will be spawned</param>
+    /// <param name="_Spawn" />
+    /// <param name="_ActivationDate">When the player will be spawned</param>
     public void SpawnPlayerNoLadder(CSmPlayer _Player, int _ClanNum, CSmMapPlayerSpawn _Spawn, int _ActivationDate) { }
 
     /// <summary>Spawn a player</summary>
-    /// <param name="Player">The player to spawn</param>
-    /// <param name="ClanNum">The clan in which the player will be spawned</param>
-    /// <param name="Armor">The numnber of armor at spawn for the player</param>
-    /// <param name="Landmark">The landmark where the player will be spawned</param>
-    /// <param name="ActivationDate">When the player will be spawned</param>
+    /// <param name="_Player">The player to spawn</param>
+    /// <param name="_ClanNum">The clan in which the player will be spawned</param>
+    /// <param name="_Armor">The numnber of armor at spawn for the player</param>
+    /// <param name="_Spawn" />
+    /// <param name="_ActivationDate">When the player will be spawned</param>
     public void SpawnPlayerNoLadder(CSmPlayer _Player, int _ClanNum, int _Armor, CSmMapPlayerSpawn _Spawn, int _ActivationDate) { }
 
     /// <summary>Unspawn all the players</summary>
@@ -82,23 +82,23 @@ public partial class SM : ILib
     public void SetupDefaultVisibility() { }
 
     /// <summary>Set the reload speed and auto switch of the rocket for a player</summary>
-    /// <param name="Player">The player who will get the weapon</param>
-    /// <param name="AmmoGainCoeff">The ammo gain speed</param>
-    /// <param name="AutoSwitchWeapon">Allow the siwtch of weapon</param>
+    /// <param name="_Player">The player who will get the weapon</param>
+    /// <param name="_AmmoGainCoeff">The ammo gain speed</param>
+    /// <param name="_AutoSwitchWeapon">Allow the siwtch of weapon</param>
     public void SetPlayerWeapon(CSmPlayer _Player, float _AmmoGainCoeff, bool _AutoSwitchWeapon) { }
 
     /// <summary>Get a player from its login</summary>
-    /// <param name="Login">Login of the player to get</param>
+    /// <param name="_Login">Login of the player to get</param>
     /// <returns>The player if found, Null otherwise</returns>
     public CSmPlayer GetPlayer(string _Login) => default!;
 
     /// <summary>Get a user from its login</summary>
-    /// <param name="Login">Login of the user to get</param>
+    /// <param name="_Login">Login of the user to get</param>
     /// <returns>The user if found, Null otherwise</returns>
     public CUser GetUser(string _Login) => default!;
 
     /// <summary>Get a score from its login</summary>
-    /// <param name="Login">Login of the score to get</param>
+    /// <param name="_Login">Login of the score to get</param>
     /// <returns>The score if found, Null otherwise</returns>
     public CSmScore GetScore(string _Login) => default!;
 }

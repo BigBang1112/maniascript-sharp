@@ -16,6 +16,7 @@ public partial class Attributes : ILib
 
     public const string Version = "2017-08-10";
     public const string ScriptName = "Libs/Nadeo/ShootMania/Exp/Attributes.Script.txt";
+    /// <summary>Base attributes values</summary>
     public const double C_Base_ArmorMax = 200.0;
     public const double C_Base_StaminaMax = 1.0;
     public const double C_Base_ArmorReplenishGain = 0.0;
@@ -34,6 +35,7 @@ public partial class Attributes : ILib
     public const double C_Base_HunterAmmoMax = 2.0;
     public const double C_Base_MissileAmmoMax = 4.0;
     public const double C_Base_ShieldArmorMax = 300.0;
+    /// <summary>Attributes</summary>
     public const int C_Attribute_ArmorMax = 0;
     public const int C_Attribute_StaminaMax = 1;
     public const int C_Attribute_ArmorReplenishGain = 2;
@@ -62,121 +64,119 @@ public partial class Attributes : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Update an attribute base value</summary>
-    /// <param name="Attribute">The attribute to update</param>
-    /// <param name="Value">The new base value</param>
+    /// <param name="_Attribute">The attribute to update</param>
+    /// <param name="_Value">The new base value</param>
     public void SetBase(int _Attribute, float _Value) { }
 
     /// <summary>Update a player specific attribute base value</summary>
-    /// <param name="Player">The player to update</param>
-    /// <param name="Attribute">The attribute to update</param>
-    /// <param name="Value">The new base value</param>
+    /// <param name="_Player">The player to update</param>
+    /// <param name="_Attribute">The attribute to update</param>
+    /// <param name="_Value">The new base value</param>
     public void SetPlayerBase(CSmPlayer _Player, int _Attribute, float _Value) { }
 
     /// <summary>Update a player specific attribute base value</summary>
-    /// <param name="Player">The player to update</param>
-    /// <param name="Attribute">The attribute to update</param>
-    /// <param name="Value">The new base value</param>
+    /// <param name="_Player">The player to update</param>
     public void ResetPlayerBase(CSmPlayer _Player) { }
 
     /// <summary>Add a bonus to a player's attribute This bonus will be added to the base attribute value</summary>
-    /// <param name="Player">The player receiving the bonus</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">An id for the bonus</param>
-    /// <param name="Value">The value of the bonus</param>
+    /// <param name="_Player">The player receiving the bonus</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">An id for the bonus</param>
+    /// <param name="_Value">The value of the bonus</param>
     public void AddBonus(CSmPlayer _Player, int _Attribute, string _Id, float _Value) { }
 
     /// <summary>Remove a bonus from a player's attribute</summary>
-    /// <param name="Player">The player losing the bonus</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">The id of the bonus to remove</param>
+    /// <param name="_Player">The player losing the bonus</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">The id of the bonus to remove</param>
     public void RemoveBonus(CSmPlayer _Player, int _Attribute, string _Id) { }
 
     /// <summary>Add a malus to a player's attribute This malus will be removed from the base attribute value</summary>
-    /// <param name="Player">The player receiving the malus</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">An id for the malus</param>
-    /// <param name="Value">The value of the malus</param>
+    /// <param name="_Player">The player receiving the malus</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">An id for the malus</param>
+    /// <param name="_Value">The value of the malus</param>
     public void AddMalus(CSmPlayer _Player, int _Attribute, string _Id, float _Value) { }
 
     /// <summary>Remove a malus from a player's attribute</summary>
-    /// <param name="Player">The player losing the malus</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">The id of the malus to remove</param>
+    /// <param name="_Player">The player losing the malus</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">The id of the malus to remove</param>
     public void RemoveMalus(CSmPlayer _Player, int _Attribute, string _Id) { }
 
     /// <summary>Add a ratio to a player's attribute</summary>
-    /// <param name="Player">The player receiving the ratio</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">An id for the ratio</param>
-    /// <param name="Value">The value of the ratio</param>
+    /// <param name="_Player">The player receiving the ratio</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">An id for the ratio</param>
+    /// <param name="_Value">The value of the ratio</param>
     public void AddRatio(CSmPlayer _Player, int _Attribute, string _Id, float _Value) { }
 
     /// <summary>Remove a ratio from a player's attribute</summary>
-    /// <param name="Player">The player losing the ratio</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">The id of the ratio to remove</param>
+    /// <param name="_Player">The player losing the ratio</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">The id of the ratio to remove</param>
     public void RemoveRatio(CSmPlayer _Player, int _Attribute, string _Id) { }
 
     /// <summary>Add a minimum value to a player's attribute</summary>
-    /// <param name="Player">The player receiving the minimum value</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">An id for the minimum value</param>
-    /// <param name="Value">The minimum value</param>
+    /// <param name="_Player">The player receiving the minimum value</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">An id for the minimum value</param>
+    /// <param name="_Value">The minimum value</param>
     public void AddMin(CSmPlayer _Player, int _Attribute, string _Id, float _Value) { }
 
     /// <summary>Remove a minimum value from a player's attribute</summary>
-    /// <param name="Player">The player losing the minimum value</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">The id of the minimum value to remove</param>
+    /// <param name="_Player">The player losing the minimum value</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">The id of the minimum value to remove</param>
     public void RemoveMin(CSmPlayer _Player, int _Attribute, string _Id) { }
 
     /// <summary>Add a maximum value to a player's attribute</summary>
-    /// <param name="Player">The player receiving the maximum value</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">An id for the maximum value</param>
-    /// <param name="Value">The maximum value</param>
+    /// <param name="_Player">The player receiving the maximum value</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">An id for the maximum value</param>
+    /// <param name="_Value">The maximum value</param>
     public void AddMax(CSmPlayer _Player, int _Attribute, string _Id, float _Value) { }
 
     /// <summary>Remove a maximum value from a player's attribute</summary>
-    /// <param name="Player">The player losing the maximum value</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">The id of the maximum value to remove</param>
+    /// <param name="_Player">The player losing the maximum value</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">The id of the maximum value to remove</param>
     public void RemoveMax(CSmPlayer _Player, int _Attribute, string _Id) { }
 
     /// <summary>Add a lock to a player's attribute</summary>
-    /// <param name="Player">The player receiving the lock</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">An id for the lock</param>
-    /// <param name="Value">The lock value</param>
+    /// <param name="_Player">The player receiving the lock</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">An id for the lock</param>
+    /// <param name="_Value">The lock value</param>
     public void AddLock(CSmPlayer _Player, int _Attribute, string _Id, float _Value) { }
 
     /// <summary>Remove a lock from a player's attribute</summary>
-    /// <param name="Player">The player losing the lock</param>
-    /// <param name="Attribute">The attribute to affect</param>
-    /// <param name="Id">The id of the lock to remove</param>
+    /// <param name="_Player">The player losing the lock</param>
+    /// <param name="_Attribute">The attribute to affect</param>
+    /// <param name="_Id">The id of the lock to remove</param>
     public void RemoveLock(CSmPlayer _Player, int _Attribute, string _Id) { }
 
     /// <summary>Apply its attributes to a player</summary>
-    /// <param name="Player">The player to update</param>
+    /// <param name="_Player">The player to update</param>
     public void Apply(CSmPlayer _Player) { }
 
     /// <summary>Get the VampirePower attribute of a given player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The VampirePower of the player</returns>
     public float GetVampirePower(CSmPlayer _Player) => default!;
 
     /// <summary>Get the DamagePower attribute of a given player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The DamagePower of the player</returns>
     public float GetDamagePower(CSmPlayer _Player) => default!;
 
     /// <summary>Get the CaptureSpeed attribute of a given player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The CaptureSpeed of the player</returns>
     public float GetCaptureSpeed(CSmPlayer _Player) => default!;
 
     /// <summary>Get the ShieldArmorMax attribute of a given player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The ShieldArmorMax of the player</returns>
     public int GetShieldArmorMax(CSmPlayer _Player) => default!;
 

@@ -25,6 +25,8 @@ public partial class COTD : ILib
 
     public const string Version = "2.2.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/COTDQualifications/COTD.Script.txt";
+    public const string C_CompetitionAPIDebugUrl = "http://localhost:3000/competition";
+    public const string C_BordeauxClubAPIDebugUrl = "http://localhost:3000/club";
     public const int C_DelayBeforeMaxJoinTime = 300000;
     public const int C_DelaySecurityBeforeMatchesGeneration = 5000;
     public const int C_DelayBeforeAutoJoinTime = 30000;
@@ -173,35 +175,49 @@ public partial class COTD : ILib
     }
 
     /// <summary>Send the players records to the API</summary>
+    /// <param name="_Qualifications" />
     public K_Qualifications SendPlayersRecords(K_Qualifications _Qualifications) => default!;
 
     /// <summary>Get the players and tops records from the API</summary>
+    /// <param name="_Qualifications" />
+    /// <param name="_ForceRequest" />
+    /// <param name="_IsFinalRankingRequest" />
     public K_Qualifications GetConnectedPlayersAndTopsRecords(K_Qualifications _Qualifications, bool _ForceRequest, bool _IsFinalRankingRequest) => default!;
 
     /// <summary>Get the final records of the connected players once the qualifications ended</summary>
+    /// <param name="_Qualifications" />
     public K_Qualifications GetConnectedPlayersFinalRecords(K_Qualifications _Qualifications) => default!;
 
     /// <summary>Get the number of trophies earned for a given rank in the qualifications</summary>
+    /// <param name="_CompetitionType" />
+    /// <param name="_Rank" />
     public global::System.Collections.Generic.Dictionary<int, int> GetTrophiesEarnedForRank(string _CompetitionType, int _Rank) => default!;
 
     /// <summary>Get the joinlinks of the knockount match for the players connected to the server</summary>
+    /// <param name="_Qualifications" />
     public K_Qualifications GetConnectedPlayersMatches(K_Qualifications _Qualifications) => default!;
 
     /// <summary>Destroy active qualifications</summary>
+    /// <param name="_PreviousQualifications" />
     public K_Qualifications DestroyQualifications(K_Qualifications _PreviousQualifications) => default!;
 
     /// <summary>Check if the COTD is in progress</summary>
+    /// <param name="_Qualifications" />
     public bool IsInProgress(K_Qualifications _Qualifications) => default!;
 
     /// <summary>Check if we should wait for the qualifications start</summary>
+    /// <param name="_Qualifications" />
     public bool WaitQualificationsStart(K_Qualifications _Qualifications) => default!;
 
     /// <summary>Check if the qualifications are over</summary>
+    /// <param name="_Qualifications" />
     public bool QualificationsAreOver(K_Qualifications _Qualifications) => default!;
 
     /// <summary>Check if the qualifications are ongoing</summary>
+    /// <param name="_Qualifications" />
     public bool QualificationsAreOngoing(K_Qualifications _Qualifications) => default!;
 
     /// <summary>Update the qualifications progress</summary>
+    /// <param name="_Qualifications" />
     public K_Qualifications Yield(K_Qualifications _Qualifications) => default!;
 }

@@ -19,9 +19,11 @@ public partial class StartRaceMenu_Server : ILib
     public const string C_Id = "UIModule_Campaign_StartRaceMenu";
 
     /// <summary>Allow the user to view the PB replay or not</summary>
+    /// <param name="_CanViewReplay" />
     public void SetCanViewReplay(bool _CanViewReplay) { }
 
     /// <summary>Set the state of the clone mode</summary>
+    /// <param name="_IsCloneMode" />
     public void SetIsCloneMode(bool _IsCloneMode) { }
 
     /// <summary>Get the ready state of the start race menu</summary>
@@ -33,6 +35,7 @@ public partial class StartRaceMenu_Server : ILib
     public string GetLastEventType() => default!;
 
     /// <summary>Set the list of account IDs for the selected ghosts</summary>
+    /// <param name="_GhostChoiceAccountIdList" />
     public void SetGhostChoiceAccountIdList(global::System.Collections.Generic.IList<string> _GhostChoiceAccountIdList) { }
 
     /// <summary>Get the player's ghost choice</summary>

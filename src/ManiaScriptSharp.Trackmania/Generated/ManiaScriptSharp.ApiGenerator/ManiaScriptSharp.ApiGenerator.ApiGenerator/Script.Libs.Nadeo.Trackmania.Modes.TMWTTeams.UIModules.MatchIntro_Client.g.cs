@@ -21,6 +21,7 @@ public partial class MatchIntro_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TMWTTeams/UIModules/MatchIntro_Client.Script.txt";
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/UI";
     public const double C_TextSize_LabelMatchInfo = 3.0;
     public const double C_TextSize_LabelClanName = 7.0;
     public const double C_TextSize_LabelPlayerName = 7.0;
@@ -35,7 +36,6 @@ public partial class MatchIntro_Client : ILib
     public const string C_Id_QuadPlayerBg = "quad-player-bg";
     public const string C_Id_QuadPlayerFlag = "quad-player-flag";
     public const string C_Id_LabelPlayerName = "label-player-name";
-    public const int C_PlayerClanCheckInterval = 500;
 
     public struct K_ControlsPlayer
     {

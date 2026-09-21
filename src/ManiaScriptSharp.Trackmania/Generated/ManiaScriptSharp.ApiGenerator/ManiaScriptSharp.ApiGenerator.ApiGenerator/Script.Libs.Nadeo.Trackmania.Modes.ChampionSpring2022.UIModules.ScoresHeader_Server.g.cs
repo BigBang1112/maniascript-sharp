@@ -21,18 +21,23 @@ public partial class ScoresHeader_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Update the players' cup points</summary>
+    /// <param name="_CupPoints" />
     public void SetCupPoints(global::System.Collections.Generic.Dictionary<string, int> _CupPoints) { }
 
     /// <summary>Update the players' match points</summary>
+    /// <param name="_MatchPoints" />
     public void SetMatchPoints(global::System.Collections.Generic.Dictionary<string, int> _MatchPoints) { }
 
     /// <summary>Set if the match is finished or not</summary>
+    /// <param name="_MatchComplete" />
     public void SetMatchComplete(bool _MatchComplete) { }
 
     /// <summary>Update the match type</summary>
+    /// <param name="_MatchType" />
     public void SetMatchType(int _MatchType) { }
 
     /// <summary>Enable or disable the scores header</summary>
+    /// <param name="_Enabled" />
     public void Enable(bool _Enabled) { }
 
     /// <summary>Unload the library</summary>

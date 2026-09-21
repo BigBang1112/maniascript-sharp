@@ -23,11 +23,8 @@ public partial class SpectatorInfo_Client : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/SpectatorInfo_Client.Script.txt";
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal";
     public const string C_Class_Interactive = "interactive";
-    public const int C_DisplayAnimDuration = 250;
-    public const int C_SwitchAnimDuration = 250;
-    public const int C_Next = 1;
-    public const int C_Prev = -1;
 
     public struct K_SpectatorInfo
     {

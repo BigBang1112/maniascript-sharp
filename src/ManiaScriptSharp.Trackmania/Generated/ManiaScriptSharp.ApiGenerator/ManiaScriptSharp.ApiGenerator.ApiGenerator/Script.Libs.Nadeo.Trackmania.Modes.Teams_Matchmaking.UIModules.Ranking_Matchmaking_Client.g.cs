@@ -23,10 +23,7 @@ public partial class Ranking_Matchmaking_Client : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/Ranking_Matchmaking_Client.Script.txt";
-    public const int C_AnimDuration = 2000;
-    public const int C_AnimStartDelay = 2000;
-    public const int C_ProgressBarAnimStartDelay = 5000;
-    public const string C_ShowWinnersSound = "ShowWinners";
+    public const string C_Img_ProgressionBg = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Matchmaking/Ranked_PodiumScene_Gradient.dds";
 
     public struct K_Player_Rank
     {

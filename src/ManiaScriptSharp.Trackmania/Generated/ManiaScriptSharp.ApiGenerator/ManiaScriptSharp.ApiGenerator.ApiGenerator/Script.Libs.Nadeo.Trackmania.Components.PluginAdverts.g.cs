@@ -54,6 +54,7 @@ public partial class PluginAdverts : ILib
     public global::System.Collections.Generic.IList<K_Maniapub> GetManiapubs() => default!;
 
     /// <summary>Get the link of the advertising campaign to open in it the web browser</summary>
+    /// <param name="_Maniapub" />
     public string GetManiapubLink(K_Maniapub _Maniapub) => default!;
 
     /// <summary>Get the number of ads to display</summary>

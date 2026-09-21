@@ -9,9 +9,10 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.System.Chat;
 
-/// <summary>Get the contacts list sorted by presence and names.</summary>
 public partial class ChatAPI : ILib
 {
+
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Chat/";
 
     public struct SListGroup
     {

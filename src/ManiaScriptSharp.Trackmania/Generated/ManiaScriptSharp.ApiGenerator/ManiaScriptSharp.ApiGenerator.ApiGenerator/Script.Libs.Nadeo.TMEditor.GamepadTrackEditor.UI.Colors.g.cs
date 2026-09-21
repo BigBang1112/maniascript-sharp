@@ -60,8 +60,10 @@ public partial class Colors : ILib
     public int Color_Trackmaster() => default!;
 
     /// <summary>Get a color in Vec3 format from its name</summary>
+    /// <param name="_ColorName" />
     public Vec3 GetColor(int _ColorName) => default!;
 
     /// <summary>Get a color in 3 digits hexadecimal format from its name</summary>
+    /// <param name="_ColorName" />
     public string GetColorML(int _ColorName) => default!;
 }

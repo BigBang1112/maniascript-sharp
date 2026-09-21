@@ -13,6 +13,7 @@ public partial class WebServicesAPI : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Channels.Structs Structs;
 
+    public const string C_LibWebServicesAPI_RequestBaseURL = "https://prod.live.maniaplanet.com/";
     public const string C_LibWebServicesAPI_RequestHeaders = "User-Agent: ManiaPlanet 4.1\nContent-Type: application/json\nAccept: application/xml\n";
     public const int C_LibWebServicesAPI_RequestTimeout = 8000;
     public const int C_LibWebServicesAPI_RequestType_ChannelsLive = 0;

@@ -23,6 +23,7 @@ public partial class Scroll : ILib
     public const string C_Name = "menu-libs-scroll";
     public const string P = "CMGame_Scroll::";
     public const string Q = "CMGame_Scroll";
+    public const string C_Path_Image = "file://Media/Manialinks/Nadeo/CMGame/Components/Scroll/";
     public const string C_Class_Window = "menu-libs-scroll-window";
     public const string C_Class_Element = "menu-libs-scroll-element";
     public const string C_Class_Header = "menu-libs-scroll-header";
@@ -213,14 +214,27 @@ public partial class Scroll : ILib
     }
 
     /// <summary>Compute the size of one element with the given properties</summary>
+    /// <param name="_WindowSize" />
+    /// <param name="_MarginSize" />
+    /// <param name="_ElementsXNb" />
+    /// <param name="_ElementsYNb" />
+    /// <param name="_OverflowSize" />
     public Vec2 GetElementSize(Vec2 _WindowSize, Vec2 _MarginSize, int _ElementsXNb, int _ElementsYNb, Vec2 _OverflowSize) => default!;
 
     public Vec2 GetElementSize(Vec2 _WindowSize, Vec2 _MarginSize, int _ElementsXNb, int _ElementsYNb) => default!;
 
     /// <summary>Get the size of the scroll adapted to the size of an element</summary>
+    /// <param name="_ElementSize" />
+    /// <param name="_ElementMarginsSize" />
+    /// <param name="_ElementsNb" />
+    /// <param name="_OverflowSize" />
     public Vec2 GetWindowSize(Vec2 _ElementSize, Vec2 _ElementMarginsSize, Int2 _ElementsNb, Vec2 _OverflowSize) => default!;
 
     /// <summary>Get the number of scrolling element frames that must be included in the manialink</summary>
+    /// <param name="_WindowSize" />
+    /// <param name="_ElementSize" />
+    /// <param name="_MarginSize" />
+    /// <param name="_ElementsPerLine" />
     public int GetRequiredElementsNb(Vec2 _WindowSize, Vec2 _ElementSize, Vec2 _MarginSize, int _ElementsPerLine) => default!;
 
     public string GetManialink() => default!;

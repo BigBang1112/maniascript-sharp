@@ -41,6 +41,7 @@ public partial class TM_StuntSolo_Local : ILib
     public const string Version = "1.0.3+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/TM_StuntSolo_Local.Script.txt";
     public const string C_ModeName = "TM_StuntSolo";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/StuntSolo.Script.txt";
     public const bool C_IsMapValidation = false;
     public const int C_BaseTimer = 180000;
     public const int C_AdditionnalTimerPerPark = 60000;
@@ -98,6 +99,9 @@ public partial class TM_StuntSolo_Local : ILib
     public global::System.Collections.Generic.Dictionary<string, string> GetLiveHeaders() => default!;
 
     /// <summary>Update rankings for players</summary>
+    /// <param name="_GroupUid" />
+    /// <param name="_MapUid" />
+    /// <param name="_NewScore" />
     public void UpdateMapRanking(string _GroupUid, string _MapUid, int _NewScore) { }
 
     public void UpdateMapRanking(string _GroupUid, string _MapUid) { }
@@ -106,6 +110,7 @@ public partial class TM_StuntSolo_Local : ILib
     public string GetPBName() => default!;
 
     /// <summary>Fetch the best ghost of the race for the player</summary>
+    /// <param name="_PreviousGhost" />
     public K_Private_Ghost UpdatePBGhost_Yield(K_Private_Ghost _PreviousGhost) => default!;
 
     /// <summary>Check if an event from the WelcomeStunt UI has been received and apply it if needed</summary>

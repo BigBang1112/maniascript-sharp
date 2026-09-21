@@ -28,6 +28,7 @@ public partial class TM_StuntMulti_Online : ILib
     public const string Version = "1.0.1+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/TM_StuntMulti_Online.Script.txt";
     public const string C_ModeName = "TM_StuntMulti_Online";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/StuntMulti.Script.txt";
     public const bool C_IsMapValidation = false;
     public const int C_BaseTimer = 180000;
     public const int C_AdditionnalTimerPerPark = 60000;

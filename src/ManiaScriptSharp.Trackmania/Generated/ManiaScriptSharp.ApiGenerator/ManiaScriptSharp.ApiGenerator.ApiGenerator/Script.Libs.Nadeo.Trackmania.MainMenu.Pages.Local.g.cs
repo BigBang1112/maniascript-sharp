@@ -35,6 +35,7 @@ public partial class Local : ILib
     public const int C_Index_PlayAMap = 2;
     public const int C_Index_LocalNetwork = 3;
     public const int C_Index_AgainstReplay = 4;
+    public const string C_ImagePath = "file://Media/Manialinks/Nadeo/Trackmania/Menus/Local/";
 
     /// <summary>Get the page manialink</summary>
     /// <returns>The page manialink</returns>

@@ -30,6 +30,7 @@ public partial class StateManagerSolo : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Stunt/StateManagerSolo.Script.txt";
+    /// <summary>Enabling this setting will have a big impact on the script performance on crowded servers. The library will check every player on the server on every frame. If the script uses 'MB_Yield()' instead of 'yield', it shouldn't have to enforce the state at every frame. Each new player will be initialized when they join the server.</summary>
     public const bool C_ForceStatesEveryFrame = false;
     public const int C_State_Waiting = 0;
     public const int C_State_WelcomeStunt = 1;
@@ -39,9 +40,11 @@ public partial class StateManagerSolo : ILib
     public const int C_State_EndRaceMenu = 5;
 
     /// <summary>Check if the players have the given state as forced</summary>
+    /// <param name="_State" />
     public bool HasForcedState(int _State) => default!;
 
     /// <summary>Force the states applied to all players To disable the forced states use an empty array</summary>
+    /// <param name="_States" />
     public void ForcePlayersStates(global::System.Collections.Generic.IList<int> _States) { }
 
     /// <summary>Update the library</summary>

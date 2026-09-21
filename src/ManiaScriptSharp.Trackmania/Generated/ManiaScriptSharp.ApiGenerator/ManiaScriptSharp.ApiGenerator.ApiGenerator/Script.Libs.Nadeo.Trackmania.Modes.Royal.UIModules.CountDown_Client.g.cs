@@ -19,9 +19,8 @@ public partial class CountDown_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/Countdown_Client.Script.txt";
+    public const string C_Img_Background = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal/hud_royal_ingame_segment_bg.dds";
     public const int C_UpdateInterval = 1000;
-    public const int C_DisplayAnimDuration = 125;
-    public const int C_TimerBlinkingDuration = 10000;
 
     public struct K_Controls
     {

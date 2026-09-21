@@ -90,20 +90,31 @@ public partial class CampaignStore_MA : ILib
     public void Action_BustCache_MapTopClubRankings(int _CampaignId, string _MapUid, int _ClubId) { }
 
     /// <summary>Request new campaigns</summary>
+    /// <param name="_CampaignType" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadCampaigns(int _CampaignType, int _Offset, int _Length) { }
 
     /// <summary>Request new monthly campaigns</summary>
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadMonthlyCampaignsList(int _Offset, int _Length) { }
 
     public void Action_LoadMonthlyCampaignsPage(int _PageNb, int _CampaignsPerPage) { }
 
     /// <summary>Request new royal campaigns</summary>
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadRoyalCampaignsList(int _Offset, int _Length) { }
 
     /// <summary>Request a specific campaign</summary>
+    /// <param name="_CampaignId" />
+    /// <param name="_ClubId" />
     public void Action_LoadCampaign(int _CampaignId, int _ClubId) { }
 
     /// <summary>Request a specific club campaign</summary>
+    /// <param name="_ActivityId" />
+    /// <param name="_ClubId" />
     public void Action_LoadClubCampaign(int _ActivityId, int _ClubId) { }
 
     public void Action_LoadMonthlyCampaign(int _MonthlyCampaignId) { }
@@ -111,12 +122,21 @@ public partial class CampaignStore_MA : ILib
     public void Action_LoadRoyalCampaign(int _RoyalCampaignId) { }
 
     /// <summary>Request new campaigns</summary>
+    /// <param name="_Sort" />
+    /// <param name="_Order" />
+    /// <param name="_FilterName" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadAllClubCampaignsPage(string _Sort, string _Order, string _FilterName, int _Offset, int _Length) { }
 
     /// <summary>Request new campaigns</summary>
+    /// <param name="_ClubId" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadClubsCampaigns(int _ClubId, int _Offset, int _Length) { }
 
     /// <summary>Get the player's global rankings for all maps of the leaderboard</summary>
+    /// <param name="_SeasonUid" />
     public void Action_LoadMapPlayerGlobalRankings(string _SeasonUid) { }
 
     public void Action_LoadMapPlayerGlobalRankings(string _SeasonUid, global::System.Collections.Generic.Dictionary<string, int> _CurrentScores) { }
@@ -126,6 +146,9 @@ public partial class CampaignStore_MA : ILib
     public void Action_LoadMapPlayerGlobalRankings(global::System.Collections.Generic.Dictionary<string, string> _MapGroupList, global::System.Collections.Generic.Dictionary<string, int> _CurrentScores) { }
 
     /// <summary>Get the player's club rankings for all maps of the leaderboard</summary>
+    /// <param name="_SeasonUid" />
+    /// <param name="_ClubId" />
+    /// <param name="_Scores" />
     public void Action_LoadMapPlayerClubRankings(string _SeasonUid, int _ClubId, global::System.Collections.Generic.Dictionary<string, int> _Scores) { }
 
     public void Action_LoadMapPlayerClubRankings(string _SeasonUid, int _ClubId, string _MapUid, int _Score) { }
@@ -133,43 +156,62 @@ public partial class CampaignStore_MA : ILib
     public void Action_LoadMapPlayerClubRankings(global::System.Collections.Generic.Dictionary<string, string> _MapGroupList, int _ClubId, global::System.Collections.Generic.Dictionary<string, int> _Scores) { }
 
     /// <summary>Get the player's global rankings for the campaign in the leaderboard</summary>
+    /// <param name="_CampaignId" />
+    /// <param name="_SeasonUid" />
     public void Action_LoadCampaignPlayerGlobalRankings(int _CampaignId, string _SeasonUid) { }
 
     /// <summary>Request player rankings</summary>
+    /// <param name="_CampaignId" />
+    /// <param name="_SeasonUid" />
     public void Action_LoadCampaignTopGlobalRankings(int _CampaignId, string _SeasonUid) { }
 
     /// <summary>Get the top club rankings for the campaign in the leaderboard</summary>
+    /// <param name="_CampaignId" />
+    /// <param name="_ClubId" />
+    /// <param name="_SeasonUid" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadCampaignTopClubRankings(int _CampaignId, int _ClubId, string _SeasonUid, int _Offset, int _Length) { }
 
     /// <summary>Get the top global rankings for all maps of the leaderboard</summary>
+    /// <param name="_SeasonUid" />
+    /// <param name="_MapUid" />
+    /// <param name="_Score" />
     public void Action_LoadMapTopGlobalRankings(string _SeasonUid, string _MapUid, int _Score) { }
 
     /// <summary>Get the top club rankings for all maps of the leaderboard</summary>
+    /// <param name="_SeasonUid" />
+    /// <param name="_MapUid" />
+    /// <param name="_ClubId" />
+    /// <param name="_Score" />
     public void Action_LoadMapTopClubRankings(string _SeasonUid, string _MapUid, int _ClubId, int _Score) { }
 
     /// <summary>Request player map ranking levels</summary>
+    /// <param name="_GroupUid" />
+    /// <param name="_MapUid" />
+    /// <param name="_Score" />
     public void Action_GetMapLevels(string _GroupUid, string _MapUid, int _Score) { }
 
     /// <summary>Load the live quarterly campaign</summary>
-    /// <param name="CampaignAPICachePreload">The number of quarterly campaigns to preload in the CampaignAPI cache</param>
+    /// <param name="_CampaignAPICachePreload">The number of quarterly campaigns to preload in the CampaignAPI cache</param>
     public void Action_LoadLiveQuarterlyCampaign(int _CampaignAPICachePreload) { }
 
     public void Action_LoadLiveQuarterlyCampaign() { }
 
     /// <summary>Load the live weekly shorts campaign</summary>
-    /// <param name="CampaignAPICachePreload">The number of weekly shorts campaigns to preload in the CampaignAPI cache</param>
+    /// <param name="_CampaignAPICachePreload">The number of weekly shorts campaigns to preload in the CampaignAPI cache</param>
     public void Action_LoadLiveWeeklyShortsCampaign(int _CampaignAPICachePreload) { }
 
     public void Action_LoadLiveWeeklyShortsCampaign() { }
 
     /// <summary>Load the live weekly grands campaign</summary>
-    /// <param name="CampaignAPICachePreload">The number of weekly grands campaigns to preload in the CampaignAPI cache</param>
+    /// <param name="_CampaignAPICachePreload">The number of weekly grands campaigns to preload in the CampaignAPI cache</param>
     public void Action_LoadLiveWeeklyGrandsCampaign(int _CampaignAPICachePreload) { }
 
     public void Action_LoadLiveWeeklyGrandsCampaign() { }
 
     /// <summary>Load the live cup of the week campaign</summary>
-    /// <param name="CampaignAPICachePreload">The number of cup of the week campaigns to preload in the CampaignAPI cache</param>
+    /// <param name="_CampaignAPICachePreload">The number of cup of the week campaigns to preload in the CampaignAPI cache</param>
     public void Action_LoadLiveCupOfTheWeekCampaign(int _CampaignAPICachePreload) { }
 
     public void Action_LoadLiveCupOfTheWeekCampaign() { }
@@ -181,22 +223,27 @@ public partial class CampaignStore_MA : ILib
     public void Action_LoadCampaignsMedia() { }
 
     /// <summary>Load the active media</summary>
+    /// <param name="_Cooldown" />
     public void Action_LoadMediaActive(int _Cooldown) { }
 
     public void Action_LoadMediaActive() { }
 
     /// <summary>Load the live monthly campaign</summary>
-    /// <param name="CampaignAPICachePreload">The number of monthly campaigns to preload in the CampaignAPI cache</param>
+    /// <param name="_CampaignAPICachePreload">The number of monthly campaigns to preload in the CampaignAPI cache</param>
     public void Action_LoadLiveMonthlyCampaign(int _CampaignAPICachePreload) { }
 
     public void Action_LoadLiveMonthlyCampaign() { }
 
     /// <summary>Load the current user ranking on the quarterly campaigns</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_Offset" />
+    /// <param name="_Length" />
     public void Action_LoadMyQuarterlyCampaignsRankings(string _AccountId, int _Offset, int _Length) { }
 
     public void Action_LoadMyQuarterlyCampaignsRankings(int _Offset, int _Length) { }
 
     /// <summary>Initialize the Campaign store</summary>
+    /// <param name="_ResetData" />
     public void Initialize(bool _ResetData) { }
 
     public void ProcessTopRankingsRequests() { }

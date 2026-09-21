@@ -20,18 +20,24 @@ public partial class EndRaceMenu_Server : ILib
     public const int C_ReplaySaveStatus_Fail = 2;
 
     /// <summary>Inform the UI that a new round started</summary>
+    /// <param name="_Enable" />
+    /// <param name="_TimeDiff" />
     public void SetTimeDiff(bool _Enable, int _TimeDiff) { }
 
     /// <summary>Inform the UI that the the player can save the replay or not</summary>
+    /// <param name="_Disabled" />
     public void SetSaveReplayDisabled(bool _Disabled) { }
 
     /// <summary>Allow the user to view the PB replay or not</summary>
+    /// <param name="_CanViewReplay" />
     public void SetCanViewReplay(bool _CanViewReplay) { }
 
     /// <summary>Inform the UI that the replay has been saved</summary>
+    /// <param name="_SaveStatus" />
     public void SetReplaySaveStatus(int _SaveStatus) { }
 
     /// <summary>Is the player playing against a replay or not</summary>
+    /// <param name="_IsAgainstReplay" />
     public void SetIsAgainstReplay(bool _IsAgainstReplay) { }
 
     /// <summary>Unload the library</summary>

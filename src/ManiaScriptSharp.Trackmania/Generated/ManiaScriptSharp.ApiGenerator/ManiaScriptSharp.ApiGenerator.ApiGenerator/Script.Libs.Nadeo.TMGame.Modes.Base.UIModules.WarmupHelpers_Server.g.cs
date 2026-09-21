@@ -17,16 +17,19 @@ public partial class WarmupHelpers_Server : ILib
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/Base/UIModules/WarmupHelpers_Server.Script.txt";
 
     /// <summary>Set the warmup status</summary>
-    /// <param name="IsActive">The warmup status</param>
+    /// <param name="_IsActive">The warmup status</param>
     public void SetWarmupActive(bool _IsActive) { }
 
     /// <summary>Set the current warmup end time</summary>
-    /// <param name="EndTime">The current warmup end time</param>
+    /// <param name="_EndTime">The current warmup end time</param>
     public void SetCurrentWarmupEndTime(int _EndTime) { }
 
     /// <summary>Set the mode used by the warm up</summary>
+    /// <param name="_Mode" />
     public void SetWarmUpMode(int _Mode) { }
 
     /// <summary>Set warm-up round progression</summary>
+    /// <param name="_Current" />
+    /// <param name="_Total" />
     public void SetWarmUpProgression(int _Current, int _Total) { }
 }

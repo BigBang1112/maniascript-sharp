@@ -28,7 +28,7 @@ public partial class WarmUp : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Check if a player is ready</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>True if the player is ready, false otherwise</returns>
     public bool IsReady(CSmPlayer _Player) => default!;
 
@@ -37,7 +37,7 @@ public partial class WarmUp : ILib
     public string CreateLayerWarmUp() => default!;
 
     /// <summary>Get the atk order manialink string.</summary>
-    /// <param name="ClanNb">Clan to show the order</param>
+    /// <param name="_ClanNb">Clan to show the order</param>
     /// <returns>The manialink string</returns>
     public string CreateLayerOrder(int _ClanNb) => default!;
 
@@ -61,46 +61,51 @@ public partial class WarmUp : ILib
     public bool ReadyHasChanged() => default!;
 
     /// <summary>Get a player in a designated slot</summary>
-    /// <param name="ClanNb">In which clan order to search</param>
-    /// <param name="SlotNb">The wanted slot</param>
+    /// <param name="_ClanNb">In which clan order to search</param>
+    /// <param name="_SlotNb">The wanted slot</param>
     /// <returns>The player in the asked slot if found, Null otherwise</returns>
     public CSmPlayer GetSlot(int _ClanNb, int _SlotNb) => default!;
 
     /// <summary>Get the first player in a clan order</summary>
-    /// <param name="ClanNb">In which clan order to search</param>
+    /// <param name="_ClanNb">In which clan order to search</param>
     /// <returns>The first player found or null</returns>
     public CSmPlayer GetNextPlayer(int _ClanNb) => default!;
 
     /// <summary>Get the first player in the list and put it at the end after</summary>
-    /// <param name="ClanNb">The clan order to cycle</param>
+    /// <param name="_ClanNb">The clan order to cycle</param>
     public void CycleOrder(int _ClanNb) { }
 
     /// <summary>Check if a player id is in the order array</summary>
-    /// <param name="PlayerId">The id of the player to check</param>
+    /// <param name="_PlayerId">The id of the player to check</param>
     /// <returns>True if th eplayer is in the order, false otherwise</returns>
     public bool IsInOrder(Ident _PlayerId) => default!;
 
     /// <summary>Check if a slot in the order is empty</summary>
-    /// <param name="Clan">The clan to check</param>
-    /// <param name="Slot">The slot to check</param>
+    /// <param name="_Clan">The clan to check</param>
+    /// <param name="_Slot">The slot to check</param>
     /// <returns>True if the slot is empty, false otherwise</returns>
     public bool SlotIsEmpty(int _Clan, int _Slot) => default!;
 
     /// <summary>Withdraw a player from a slot</summary>
-    /// <param name="PlayerId">The id of the player to withdraw</param>
-    /// <param name="Clan">The clan order to search</param>
+    /// <param name="_PlayerId">The id of the player to withdraw</param>
+    /// <param name="_Clan">The clan order to search</param>
     public void LeaveSlot(Ident _PlayerId, int _Clan) { }
 
     /// <summary>Swamp slot between players</summary>
-    /// <param name="PlayerId">The id of the player who request the swap</param>
-    /// <param name="OldClan">The current clan of the player</param>
-    /// <param name="OldSlot">The current slot of the player</param>
-    /// <param name="NewClan">The clan requested by the player</param>
-    /// <param name="NewSlot">The slot requested by the player</param>
-    /// <param name="Forced">Force the swap</param>
+    /// <param name="_PlayerId">The id of the player who request the swap</param>
+    /// <param name="_OldClan">The current clan of the player</param>
+    /// <param name="_OldSlot">The current slot of the player</param>
+    /// <param name="_NewClan">The clan requested by the player</param>
+    /// <param name="_NewSlot">The slot requested by the player</param>
+    /// <param name="_Forced">Force the swap</param>
     public void SwapSlot(Ident _PlayerId, int _OldClan, int _OldSlot, int _NewClan, int _NewSlot, bool _Forced) { }
 
     /// <summary>Overload of SwapSlot()</summary>
+    /// <param name="_PlayerId" />
+    /// <param name="_OldClan" />
+    /// <param name="_OldSlot" />
+    /// <param name="_NewClan" />
+    /// <param name="_NewSlot" />
     public void SwapSlot(Ident _PlayerId, int _OldClan, int _OldSlot, int _NewClan, int _NewSlot) { }
 
     /// <summary>Erase the current order</summary>
@@ -118,10 +123,10 @@ public partial class WarmUp : ILib
     public bool CleanOrder() => default!;
 
     /// <summary>Call before the warm up</summary>
-    /// <param name="Duration">Duration of the warm up countdown</param>
-    /// <param name="UseTeamSelection">Show and use the team selection UI</param>
-    /// <param name="UseOrder">Use the line up system</param>
-    /// <param name="RequiredPlayersNb">The minimum number of players required in each team</param>
+    /// <param name="_Duration">Duration of the warm up countdown</param>
+    /// <param name="_UseTeamSelection">Show and use the team selection UI</param>
+    /// <param name="_UseOrder">Use the line up system</param>
+    /// <param name="_RequiredPlayersNb">The minimum number of players required in each team</param>
     public void Before(int _Duration, bool _UseTeamSelection, bool _UseOrder, int _RequiredPlayersNb) { }
 
     /// <summary>Call during the warm up</summary>

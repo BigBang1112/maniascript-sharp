@@ -20,6 +20,7 @@ public partial class WorldRecord_Client : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/WorldRecord_Client.Script.txt";
+    public const string C_Img_Default = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWC2023/UI/";
     public const int C_VisibilityAnimDuration = 250;
     public const double C_TextSize_Labels = 3.5;
     public const double C_Size_MarginIcon = 1.0;

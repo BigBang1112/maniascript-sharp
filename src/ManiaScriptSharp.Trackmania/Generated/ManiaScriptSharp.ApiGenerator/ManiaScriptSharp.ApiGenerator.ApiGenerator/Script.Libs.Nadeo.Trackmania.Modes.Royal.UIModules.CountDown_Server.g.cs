@@ -21,6 +21,7 @@ public partial class CountDown_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the bonus time of the teams</summary>
+    /// <param name="_BonusTimeEndTimes" />
     public void SetBonusTimeEndTimes(global::System.Collections.Generic.Dictionary<int, int> _BonusTimeEndTimes) { }
 
     /// <summary>Unload the library</summary>

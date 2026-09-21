@@ -20,9 +20,11 @@ public partial class InfoPanels_2x3_Server : ILib
     public const int C_RankingMode_MaxPoints = 2;
 
     /// <summary>Update the race state</summary>
+    /// <param name="_IsWarmUp" />
     public void SetWarmUp(bool _IsWarmUp) { }
 
     /// <summary>Select how the players are ranked</summary>
+    /// <param name="_RankingMode" />
     public void SetRankingMode(int _RankingMode) { }
 
     /// <summary>Unload the library</summary>

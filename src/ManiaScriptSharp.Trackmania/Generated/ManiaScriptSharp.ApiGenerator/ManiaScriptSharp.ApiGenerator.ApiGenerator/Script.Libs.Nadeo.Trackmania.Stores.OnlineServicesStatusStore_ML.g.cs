@@ -24,6 +24,7 @@ public partial class OnlineServicesStatusStore_ML : ILib
     public const string C_StoreId = "online-services-status";
     public const string C_Action_GetStatus = "Trackmania_OnlineServicesStatusStore_Action_GetStatus";
     public const string C_Event_OnlineServicesStatusUpdated = "Trackmania_OnlineServicesStatusStore_Event_CurrentStatusUdpated";
+    /// <summary>! Same values than in API</summary>
     public const string C_OnlineServicesStatus_None = "none";
     public const string C_OnlineServicesStatus_Maintenance = "maintenance";
     public const string C_OnlineServicesStatus_Outage = "outage";

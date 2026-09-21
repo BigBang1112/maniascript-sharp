@@ -19,6 +19,7 @@ public partial class Header_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/Header_Client.Script.txt";
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/UI";
     public const int C_MaxPointsPerRound = 3;
     public const bool C_PointsAnimationEnabled = false;
     public const int C_AnimDuration_HeaderVisibility = 250;
@@ -104,6 +105,7 @@ public partial class Header_Client : ILib
     public string GetId() => default!;
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_Theme" />
     /// <returns>The module manialink</returns>
     public string GetML(int _Theme) => default!;
 }

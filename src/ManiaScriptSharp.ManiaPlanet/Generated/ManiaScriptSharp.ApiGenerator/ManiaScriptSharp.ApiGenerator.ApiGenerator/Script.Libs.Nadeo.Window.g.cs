@@ -25,18 +25,18 @@ public partial class Window : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Create a new style [ &quot;TopLeft.png&quot; =&gt; &lt;10., 10.&gt;, &quot;Top.png&quot; =&gt; &lt;10., 10.&gt;, &quot;TopRight.png&quot; =&gt; &lt;10., 10.&gt;, &quot;Right.png&quot; =&gt; &lt;10., 10.&gt;, &quot;BottomRight.png&quot; =&gt; &lt;10., 10.&gt;, &quot;Bottom.png&quot; =&gt; &lt;10., 10.&gt;, &quot;BottomLeft.png&quot; =&gt; &lt;10., 10.&gt;, &quot;Left.png&quot; =&gt; &lt;10., 10.&gt;, &quot;Center.png&quot; =&gt; &lt;10., 10.&gt; ]</summary>
-    /// <param name="Name">The name of the style</param>
-    /// <param name="Images">An array with the images and their dimensions in this order</param>
+    /// <param name="_Name">The name of the style</param>
+    /// <param name="_Images">An array with the images and their dimensions in this order</param>
     public void CreateStyle(string _Name, global::System.Collections.Generic.Dictionary<string, Vec2> _Images) { }
 
     /// <summary>Delete a style</summary>
-    /// <param name="Name">The name of the style to delete</param>
+    /// <param name="_Name">The name of the style to delete</param>
     public void DestroyStyle(string _Name) { }
 
     /// <summary>Create a new window</summary>
-    /// <param name="Style">The style to use for the window</param>
-    /// <param name="Size">The size of the window</param>
-    /// <param name="BorderRatio">Size ratio of the border comapred to the original image</param>
+    /// <param name="_Style">The style to use for the window</param>
+    /// <param name="_WindowSize" />
+    /// <param name="_BorderRatio">Size ratio of the border comapred to the original image</param>
     /// <returns>The manialink of the window</returns>
     public string Create(string _Style, Vec2 _WindowSize, float _BorderRatio) => default!;
 

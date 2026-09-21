@@ -27,6 +27,7 @@ public partial class Teams_Matchmaking_RequestManager : ILib
     public const int C_Request_Top10_RetryCooldown = 2000;
     public const int C_Request_MatchmakingDivisions_RetryCooldown = 3000;
     public const int C_Request_WaitBeforeFirstRequest = 1000;
+    public const string C_Debug_MatchmakingApiUrl = "http://localhost:3000";
 
     public struct K_MatchmakingRequest
     {

@@ -47,15 +47,15 @@ public partial class ScoresTable_Server : ILib
     public string GetSplitScreenId() => default!;
 
     /// <summary>Force the use of a specific format</summary>
-    /// <param name="Format">The number of lines and columns &lt;lines, columns&gt;</param>
+    /// <param name="_Format">The number of lines and columns &lt;lines, columns&gt;</param>
     public void ForceFormat(Int2 _Format) { }
 
     /// <summary>Set match points for all players</summary>
-    /// <param name="MatchPoints">The match points (points indexed by WebServicesUserId)</param>
+    /// <param name="_MatchPoints">The match points (points indexed by WebServicesUserId)</param>
     public void SetMatchPoints(global::System.Collections.Generic.Dictionary<string, int> _MatchPoints) { }
 
     /// <summary>Set custom Rank for all players</summary>
-    /// <param name="CustomRank">The custom Rank</param>
+    /// <param name="_CustomRanks" />
     public void SetCustomRanks(global::System.Collections.Generic.Dictionary<string, string> _CustomRanks) { }
 
     public void SetScoreMode(int _ScoreMode) { }
@@ -67,13 +67,13 @@ public partial class ScoresTable_Server : ILib
     public void DisplayOnly(global::System.Collections.Generic.IList<string> _AccountIds) { }
 
     /// <summary>Update the scores table footer info</summary>
-    /// <param name="Message">The message to display</param>
+    /// <param name="_Message">The message to display</param>
     public void SetFooterInfo(string _Message) { }
 
     public void SetIsLocalMode(bool _IsLocalMode) { }
 
     /// <summary>Update the scores table times with custom values</summary>
-    /// <param name="CustomTimes">Times indexed by Account ID</param>
+    /// <param name="_CustomTimes">Times indexed by Account ID</param>
     public void SetCustomTimes(global::System.Collections.Generic.Dictionary<string, int> _CustomTimes) { }
 
     public global::System.Collections.Generic.Dictionary<string, int> GetCustomTimes() => default!;
@@ -83,19 +83,20 @@ public partial class ScoresTable_Server : ILib
     public void ResetTrophies() { }
 
     /// <summary>Hide the spectators or not It only hides the spectators from the ranking in the scores table. Even if the player is not visible they are still taken into account in the ranking. eg: 1. AAA 10 points, 2 BBB 8 points, 3 CCC 5 points If BBB switch to spectator mode, the scores table will display : 1. AAA 10 points, 2 CCC 5 points but the true ranking is still the first one. So be careful because it can be misleading.</summary>
+    /// <param name="_HideSpectators" />
     public void SetHideSpectators(bool _HideSpectators) { }
 
     public void SetCustomNames(global::System.Collections.Generic.Dictionary<string, string> _CustomNames) { }
 
     /// <summary>Set a message to display in the right bottom corner of the screen</summary>
-    /// <param name="Message">The message to display</param>
-    /// <param name="InfoInClipboard">The info to set in the clipboard (when we click on the message)</param>
+    /// <param name="_Message">The message to display</param>
+    /// <param name="_InfoInClipboard">The info to set in the clipboard (when we click on the message)</param>
     public void SetInfoMessage(string _Message, string _InfoInClipboard) { }
 
     public void SetInfoMessage(string _Message) { }
 
     /// <summary>Set the matchmaking id (used in the report context)</summary>
-    /// <param name="MatchmakingId">The id of the current matchmaking (ranked or royal)</param>
+    /// <param name="_MatchmakingId">The id of the current matchmaking (ranked or royal)</param>
     public void SetMatchmakingId(string _MatchmakingId) { }
 
     /// <summary>Reset race progression on all scores</summary>
@@ -105,6 +106,7 @@ public partial class ScoresTable_Server : ILib
     public void ResetBestRespawns() { }
 
     /// <summary>Set if voice chat is enabled in the server (to display mute options on players)</summary>
+    /// <param name="_IsVoiceChatEnabled" />
     public void SetVoiceChatEnabled(bool _IsVoiceChatEnabled) { }
 
     /// <summary>Request the echelon of all players</summary>

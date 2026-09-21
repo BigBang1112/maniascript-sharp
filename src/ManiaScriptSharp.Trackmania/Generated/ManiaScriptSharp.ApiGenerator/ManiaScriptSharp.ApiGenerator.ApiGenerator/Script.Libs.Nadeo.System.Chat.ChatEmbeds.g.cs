@@ -13,9 +13,12 @@ namespace ManiaScriptSharp.Scripts.Libs.Nadeo.System.Chat;
 public partial class ChatEmbeds : ILib
 {
 
+    /// <summary>First two URLs only.</summary>
     public const int C_LibChatEmbeds_LimitPerMessage = 2;
+    /// <summary>Message may appear with max 2 seconds delay.</summary>
     public const int C_LibChatEmbeds_RequestTimeout = 2000;
     public const string C_LibChatEmbeds_RequestHeaders = "User-Agent: ManiaPlanet/4.1";
+    /// <summary>Embed types</summary>
     public const int C_LibChatIntegrations_EmbedType_NotEmbed = 0;
     public const int C_LibChatIntegrations_EmbedType_Image = 1;
     public const int C_LibChatIntegrations_EmbedType_OpenGraph = 2;
@@ -58,8 +61,8 @@ public partial class ChatEmbeds : ILib
     public string EmbedStruct() => default!;
 
     /// <summary>Process a message in order to find embeds.</summary>
-    /// <param name="RecipientLogin">Target conversation login.</param>
-    /// <param name="MessageBody">Raw message text.</param>
+    /// <param name="_RecipientLogin">Target conversation login.</param>
+    /// <param name="_MessageBody">Raw message text.</param>
     /// <returns>True, if embedable links were detected.</returns>
     public bool ProcessMessage(string _RecipientLogin, string _MessageBody) => default!;
 

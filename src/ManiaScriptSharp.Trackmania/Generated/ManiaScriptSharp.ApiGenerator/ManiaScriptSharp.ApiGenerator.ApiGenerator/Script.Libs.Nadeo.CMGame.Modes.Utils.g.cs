@@ -22,9 +22,10 @@ public partial class Utils : ILib
     }
 
     /// <summary>Format a time with milliseconds</summary>
-    /// <param name="Time">The time to format</param>
+    /// <param name="_Time">The time to format</param>
     public string TimeToText(int _Time) => default!;
 
     /// <summary>The players start time are always rounded up to the hundreth by the C++ whatever start time is given to the spawn function This function replicate this behaviour and convert a time to a valid player start time eg: 1450 =&gt; 1500, 13410 =&gt; 13500, 141200 =&gt; 141200</summary>
+    /// <param name="_StartTime" />
     public int GetPlayerStartTime(int _StartTime) => default!;
 }

@@ -25,150 +25,151 @@ public partial class Json : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Escapes forbidden characters from a string WARNING: Use only on really small string, like the name of a player for example.</summary>
-    /// <param name="String">The string to escape</param>
+    /// <param name="_String">The string to escape</param>
     public string Escape(string _String) => default!;
 
     /// <summary>Enfold the Json string into {}</summary>
-    /// <param name="String">The string to enfold</param>
+    /// <param name="_String">The string to enfold</param>
     public string Enfold(string _String) => default!;
 
     /// <summary>Merge multiple Json string together</summary>
-    /// <param name="Strings">The strings to merge</param>
+    /// <param name="_Strings">The strings to merge</param>
     public string Merge(global::System.Collections.Generic.IList<string> _Strings) => default!;
 
     /// <summary>Create a Json object from merged strings</summary>
-    /// <param name="Strings">The strings to merge</param>
+    /// <param name="_Name" />
+    /// <param name="_Strings">The strings to merge</param>
     public string ObjectMerge(string _Name, global::System.Collections.Generic.IList<string> _Strings) => default!;
 
     /// <summary>Stringify an Integer</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The integer to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Integer" />
     public string Stringify(string _Name, int _Integer) => default!;
 
     /// <summary>Stringify a Real</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The real to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Real" />
     public string Stringify(string _Name, float _Real) => default!;
 
     /// <summary>Stringify a boolean</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The boolean to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Boolean" />
     public string Stringify(string _Name, bool _Boolean) => default!;
 
     /// <summary>Stringify a Text</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The text to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Text" />
     public string Stringify(string _Name, string _Text) => default!;
 
     /// <summary>Stringify a Vec2</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The vec2 to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Vec2" />
     public string Stringify(string _Name, Vec2 _Vec2) => default!;
 
     /// <summary>Stringify a Vec3</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The vec3 to stringify</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Vec3" />
     public string Stringify(string _Name, Vec3 _Vec3) => default!;
 
     /// <summary>Stringify all CUser values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The user to stringify</param>
-    /// <param name="More">Allow to insert more info about the user</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_User">The user to stringify</param>
+    /// <param name="_More">Allow to insert more info about the user</param>
     public string Stringify(string _Name, CUser _User, string _More) => default!;
 
     /// <summary>Stringify all CSmScore values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Score">The score to stringify</param>
-    /// <param name="More">Allow to insert more info about the score</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Score">The score to stringify</param>
+    /// <param name="_More">Allow to insert more info about the score</param>
     public string Stringify(string _Name, CSmScore _Score, string _More) => default!;
 
     /// <summary>Stringify all CSmBase values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Base">The base to stringify</param>
-    /// <param name="More">Allow to insert more info about the base</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Base">The base to stringify</param>
+    /// <param name="_More">Allow to insert more info about the base</param>
     public string Stringify(string _Name, CSmBase _Base, string _More) => default!;
 
     /// <summary>Stringify all CSmGauge values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Gauge">The gauge to stringify</param>
-    /// <param name="More">Allow to insert more info about the gauge</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Gauge">The gauge to stringify</param>
+    /// <param name="_More">Allow to insert more info about the gauge</param>
     public string Stringify(string _Name, CSmGauge _Gauge, string _More) => default!;
 
     /// <summary>Stringify all CSmBlockPole values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="BlockPole">The pole to stringify</param>
-    /// <param name="More">Allow to insert more info about the pole</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_BlockPole">The pole to stringify</param>
+    /// <param name="_More">Allow to insert more info about the pole</param>
     public string Stringify(string _Name, CSmBlockPole _BlockPole, string _More) => default!;
 
     /// <summary>Stringify all CTeam values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Team">The team to stringify</param>
-    /// <param name="More">Allow to insert more info about the team</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Team">The team to stringify</param>
+    /// <param name="_More">Allow to insert more info about the team</param>
     public string Stringify(string _Name, CTeam _Team, string _More) => default!;
 
     /// <summary>Stringify all CSmPlayer values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Player">The player to stringify</param>
-    /// <param name="More">Allow to insert more info about the player</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Player">The player to stringify</param>
+    /// <param name="_More">Allow to insert more info about the player</param>
     public string Stringify(string _Name, CSmPlayer _Player, string _More) => default!;
 
     /// <summary>Stringify all CSmModeEvent values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Event">The event to stringify</param>
-    /// <param name="More">Allow to insert more info about the event</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Event">The event to stringify</param>
+    /// <param name="_More">Allow to insert more info about the event</param>
     public string Stringify(string _Name, CSmModeEvent _Event, string _More) => default!;
 
     /// <summary>Stringify minimal CUser values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="User">The user to stringify</param>
-    /// <param name="More">Allow to insert more info about the user</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_User">The user to stringify</param>
+    /// <param name="_More">Allow to insert more info about the user</param>
     public string StringifyMinimal(string _Name, CUser _User, string _More) => default!;
 
     /// <summary>Stringify minimal CSmScore values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Score">The score to stringify</param>
-    /// <param name="More">Allow to insert more info about the score</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Score">The score to stringify</param>
+    /// <param name="_More">Allow to insert more info about the score</param>
     public string StringifyMinimal(string _Name, CSmScore _Score, string _More) => default!;
 
     /// <summary>Stringify minimal CSmBase values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Base">The base to stringify</param>
-    /// <param name="More">Allow to insert more info about the base</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Base">The base to stringify</param>
+    /// <param name="_More">Allow to insert more info about the base</param>
     public string StringifyMinimal(string _Name, CSmBase _Base, string _More) => default!;
 
     /// <summary>Stringify minimal CSmGauge values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Gauge">The gauge to stringify</param>
-    /// <param name="More">Allow to insert more info about the gauge</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Gauge">The gauge to stringify</param>
+    /// <param name="_More">Allow to insert more info about the gauge</param>
     public string StringifyMinimal(string _Name, CSmGauge _Gauge, string _More) => default!;
 
     /// <summary>Stringify minimal CSmBlockPole values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="BlockPole">The pole to stringify</param>
-    /// <param name="More">Allow to insert more info about the pole</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_BlockPole">The pole to stringify</param>
+    /// <param name="_More">Allow to insert more info about the pole</param>
     public string StringifyMinimal(string _Name, CSmBlockPole _BlockPole, string _More) => default!;
 
     /// <summary>Stringify minimal Pole values from landmark</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Landmark">The pole to stringify</param>
-    /// <param name="More">Allow to insert more info about the pole</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Landmark">The pole to stringify</param>
+    /// <param name="_More">Allow to insert more info about the pole</param>
     public string StringifyMinimal(string _Name, CSmMapLandmark _Landmark, string _More) => default!;
 
     /// <summary>Stringify minimal CTeam values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Team">The team to stringify</param>
-    /// <param name="More">Allow to insert more info about the team</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Team">The team to stringify</param>
+    /// <param name="_More">Allow to insert more info about the team</param>
     public string StringifyMinimal(string _Name, CTeam _Team, string _More) => default!;
 
     /// <summary>Stringify minimal CSmPlayer values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Player">The player to stringify</param>
-    /// <param name="More">Allow to insert more info about the player</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Player">The player to stringify</param>
+    /// <param name="_More">Allow to insert more info about the player</param>
     public string StringifyMinimal(string _Name, CSmPlayer _Player, string _More) => default!;
 
     /// <summary>Stringify minimal CSmModeEvent values</summary>
-    /// <param name="Name">The name of the stringified object</param>
-    /// <param name="Event">The event to stringify</param>
-    /// <param name="More">Allow to insert more info about the event</param>
+    /// <param name="_Name">The name of the stringified object</param>
+    /// <param name="_Event">The event to stringify</param>
+    /// <param name="_More">Allow to insert more info about the event</param>
     public string StringifyMinimal(string _Name, CSmModeEvent _Event, string _More) => default!;
 }

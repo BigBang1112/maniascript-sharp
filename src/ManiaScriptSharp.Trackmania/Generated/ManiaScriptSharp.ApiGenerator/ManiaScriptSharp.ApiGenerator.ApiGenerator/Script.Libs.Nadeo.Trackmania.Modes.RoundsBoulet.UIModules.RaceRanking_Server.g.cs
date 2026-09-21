@@ -21,14 +21,20 @@ public partial class RaceRanking_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Create a rank for the teams ranking</summary>
+    /// <param name="_TeamId" />
+    /// <param name="_Rank" />
     public global::System.Collections.Generic.IList<int> CreateTeamRank(int _TeamId, int _Rank) => default!;
 
     /// <summary>Send the teams finish to the clients</summary>
+    /// <param name="_TeamId" />
+    /// <param name="_FinishedNb" />
+    /// <param name="_MembersNb" />
     public void SetTeamFinish(int _TeamId, int _FinishedNb, int _MembersNb) { }
 
     public void ResetTeamsFinish() { }
 
     /// <summary>Send the teams round points to the clients</summary>
+    /// <param name="_TeamsRoundPoints" />
     public void SetTeamsRoundPoints(global::System.Collections.Generic.Dictionary<int, int> _TeamsRoundPoints) { }
 
     public void ResetTeamsRoundPoints() { }

@@ -39,11 +39,6 @@ public partial class Ranking_Client : ILib
     public const int C_Col_Name = 1;
     public const int C_Col_Time = 2;
     public const int C_Row_Cancel = 0;
-    public const int C_InputPriority_Scores = 10;
-    public const double C_ScoresScale = 1.05;
-    public const int C_Status_Pending = 0;
-    public const int C_Status_Requesting = 1;
-    public const int C_Status_Complete = 2;
 
     public struct K_Controls
     {

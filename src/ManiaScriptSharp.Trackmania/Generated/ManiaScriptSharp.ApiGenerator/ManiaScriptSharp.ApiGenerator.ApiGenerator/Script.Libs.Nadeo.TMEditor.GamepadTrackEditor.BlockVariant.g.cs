@@ -22,5 +22,6 @@ public partial class BlockVariant : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Get the variant identifier needed to place a macroblock at this coordinates</summary>
+    /// <param name="_Coord" />
     public int GetVariant(Int3 _Coord) => default!;
 }

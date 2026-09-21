@@ -77,6 +77,7 @@ public partial class BrowserAPI : ILib
     public const string C_Path_Local = "Path_Local";
     public const string C_Path_Favorites = "Path_Favorites";
     public const string C_Path_Null = "Path_Null";
+    public const string C_BasePath = "file://";
     public const string C_BasePath_Media = "Media/";
     public const string C_BasePath_Skins = "Skins/";
     public const int C_Browser_NullDataCount = 0;

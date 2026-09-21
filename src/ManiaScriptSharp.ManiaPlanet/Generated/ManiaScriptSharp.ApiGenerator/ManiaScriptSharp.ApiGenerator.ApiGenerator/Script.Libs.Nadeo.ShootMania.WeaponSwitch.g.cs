@@ -32,18 +32,19 @@ public partial class WeaponSwitch : ILib
     public void Load() { }
 
     /// <summary>Set the effect to use when switching weapon -1 : empty ammo 0 : nothing 1 : reload ammo</summary>
-    /// <param name="Effect">The effect to use</param>
+    /// <param name="_Effect">The effect to use</param>
     public void SetEffectOnSwitch(int _Effect) { }
 
     /// <summary>Reset the weapons available to all players</summary>
     public void ResetAvailableWeapons() { }
 
     /// <summary>Reset the weapons available to a specific player</summary>
+    /// <param name="_Player" />
     public void ResetAvailableWeapons(CSmPlayer _Player) { }
 
     /// <summary>Cycle through weapons</summary>
-    /// <param name="Player">The player to update</param>
-    /// <param name="ActionChange">In which direction to cycle</param>
+    /// <param name="_Player">The player to update</param>
+    /// <param name="_ActionChange">In which direction to cycle</param>
     public void CycleWeapon(CSmPlayer _Player, int _ActionChange) { }
 
     /// <summary>Automatically handle weapons switch and cycle</summary>

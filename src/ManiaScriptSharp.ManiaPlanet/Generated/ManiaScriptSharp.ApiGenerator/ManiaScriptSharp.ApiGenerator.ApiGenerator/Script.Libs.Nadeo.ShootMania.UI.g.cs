@@ -27,7 +27,7 @@ public partial class UI : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the number of lines of the chat</summary>
-    /// <param name="LineCount">The number of lines of the chat</param>
+    /// <param name="_LineCount">The number of lines of the chat</param>
     public void SetChatLineCount(int _LineCount) { }
 
     /// <summary>Get the number of lines of the chat</summary>

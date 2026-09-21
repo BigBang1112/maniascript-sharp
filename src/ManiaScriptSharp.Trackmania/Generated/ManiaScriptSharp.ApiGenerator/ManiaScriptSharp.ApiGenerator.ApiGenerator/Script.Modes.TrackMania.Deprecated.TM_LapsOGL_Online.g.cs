@@ -20,6 +20,7 @@ public partial class TM_LapsOGL_Online : global::ManiaScriptSharp.Scripts.Modes.
     public const string C_LapsOGL_Version = "1.0.0+2022-08-05";
     public const string C_LapsOGL_ScriptName = "Modes/TrackMania/Deprecated/TM_LapsOGL_Online.Script.txt";
     public const string C_LapsOGL_ModeName = "Laps";
+    public const string C_LapsOGL_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/LapsOGL.Script.txt";
 
     public virtual void Match_LogVersions() { }
 

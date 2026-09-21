@@ -20,6 +20,7 @@ public partial class Transition : ILib
     public const string P = "CMGame_Transition::";
     public const string Q = "CMGame_Transition";
     public const string C_Class = "component-transition-container";
+    /// <summary>Transition states</summary>
     public const int C_In = 0;
     public const int C_Out = 1;
     public const int C_Start = 0;

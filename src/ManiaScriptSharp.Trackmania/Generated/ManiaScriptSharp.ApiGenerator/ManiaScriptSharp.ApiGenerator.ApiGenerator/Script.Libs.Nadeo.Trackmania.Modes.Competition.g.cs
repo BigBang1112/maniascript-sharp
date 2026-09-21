@@ -34,8 +34,13 @@ public partial class Competition : ILib
     }
 
     /// <summary>Get the trophy reward for the competition match</summary>
+    /// <param name="_CompetitionType" />
+    /// <param name="_Rank" />
     public K_TrophyReward GetQualifiersTrophyReward(string _CompetitionType, int _Rank) => default!;
 
     /// <summary>Get the trophy reward for the competition match</summary>
+    /// <param name="_CompetitionType" />
+    /// <param name="_Division" />
+    /// <param name="_Rank" />
     public K_TrophyReward GetMatchTrophyReward(string _CompetitionType, string _Division, int _Rank) => default!;
 }

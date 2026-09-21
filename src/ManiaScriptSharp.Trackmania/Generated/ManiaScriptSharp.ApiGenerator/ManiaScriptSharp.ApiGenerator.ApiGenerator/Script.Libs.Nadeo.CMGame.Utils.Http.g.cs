@@ -24,6 +24,7 @@ public partial class Http : ILib
     public const int C_Method_Get = 0;
     public const int C_Method_Post = 1;
     public const int C_Method_PostFile = 2;
+    /// <summary>#Const C_Method_Put 3 &lt; Not available yet in MP4</summary>
     public const int C_Method_CacheHit = 4;
     public const int C_StatusCode_Null = -1;
     public const int C_MinimumAvailableSlots = 5;
@@ -53,6 +54,7 @@ public partial class Http : ILib
     }
 
     /// <summary>Enable or disable offline mode In offline mode, requests not directed to file:// will not be sent</summary>
+    /// <param name="_Enabled" />
     public void SetOfflineMode(bool _Enabled) { }
 
     /// <summary>Check if the library is in offline mode</summary>
@@ -62,14 +64,18 @@ public partial class Http : ILib
     public K_Request GetEmptyRequest() => default!;
 
     /// <summary>Add metadata on a request</summary>
+    /// <param name="_Request" />
+    /// <param name="_Metadata" />
     public K_Request SetMetadata(K_Request _Request, global::System.Collections.Generic.Dictionary<string, string> _Metadata) => default!;
 
     public K_Request SetMetadata(K_Request _Request, string _Key, string _Value) => default!;
 
     /// <summary>Remove all metadata from a request</summary>
+    /// <param name="_Request" />
     public K_Request ResetMetadata(K_Request _Request) => default!;
 
     /// <summary>Get metadata from a request</summary>
+    /// <param name="_Request" />
     public global::System.Collections.Generic.Dictionary<string, string> GetMetadata(K_Request _Request) => default!;
 
     public string GetMetadata(K_Request _Request, string _Key) => default!;
@@ -77,32 +83,39 @@ public partial class Http : ILib
     public string CreateQueryString(global::System.Collections.Generic.Dictionary<string, string> _Query) => default!;
 
     /// <summary>Create a query string from an array _KeyName: &quot;keyname&quot; _QueryArray: [&quot;key5&quot; =&gt; valueA, &quot;key6&quot; =&gt; valueB, &quot;key7&quot; =&gt; valueC] -&gt; &quot;?keyname[key5]=valueA&amp;keyname[key6]=valueB&amp;keyname[key7]=valueC&quot;</summary>
+    /// <param name="_ChainQueryString" />
+    /// <param name="_ArrayName" />
+    /// <param name="_QueryArray" />
     public string CreateQueryString(string _ChainQueryString, string _ArrayName, global::System.Collections.Generic.Dictionary<string, int> _QueryArray) => default!;
 
     public string CreateQueryString(string _ArrayName, global::System.Collections.Generic.Dictionary<string, int> _QueryArray) => default!;
 
     /// <summary>Create an headers string from an array [&quot;key&quot; =&gt; &quot;value&quot;, &quot;key2&quot; =&gt; &quot;value2&quot;] -&gt; &quot;key: value\nkey2: value2&quot;</summary>
-    /// <param name="AppendTo">The new headers will be append to these headers</param>
-    /// <param name="Headers">The new headers</param>
+    /// <param name="_AppendTo">The new headers will be append to these headers</param>
+    /// <param name="_Headers">The new headers</param>
     /// <returns>The headers string</returns>
     public string CreateHeadersString(string _AppendTo, global::System.Collections.Generic.Dictionary<string, string> _Headers) => default!;
 
     public string CreateHeadersString(global::System.Collections.Generic.Dictionary<string, string> _Headers) => default!;
 
     /// <summary>Inject the given parameters into the route _Route =&gt; &quot;/path/:Param1/to/:Param2&quot; _Parameters =&gt; [&quot;Param1&quot; =&gt; &quot;aaa&quot;, &quot;Param2&quot; =&gt; &quot;bbb&quot;] =&gt; &quot;/path/aaa/to/bbb&quot;</summary>
+    /// <param name="_Route" />
+    /// <param name="_Parameters" />
     public string InjectRouteParameters(string _Route, global::System.Collections.Generic.Dictionary<string, string> _Parameters) => default!;
 
     /// <summary>Check if an http request was a success from its status code False otherwise</summary>
-    /// <param name="StatusCode">Status code of the request</param>
+    /// <param name="_StatusCode">Status code of the request</param>
     /// <returns>True if the request completed successfully</returns>
     public bool IsHttpSuccess(int _StatusCode) => default!;
 
     public bool IsSaturated() => default!;
 
     /// <summary>Check if an url is on cooldown</summary>
+    /// <param name="_Url" />
     public int GetUrlCooldownEndTime(string _Url) => default!;
 
     /// <summary>Start a cooldown on an url</summary>
+    /// <param name="_Url" />
     public void StartUrlCooldown(string _Url) { }
 
     public K_Request Destroy(K_Request _Request) => default!;
@@ -138,32 +151,41 @@ public partial class Http : ILib
     public K_Request RetryWithDelay(K_Request _Request, int _RetryTime) => default!;
 
     /// <summary>Check the request is a cache hit</summary>
+    /// <param name="_Request" />
     public bool IsCacheHit(K_Request _Request) => default!;
 
     /// <summary>Check if we must wait for a retry</summary>
+    /// <param name="_Request" />
     public bool IsWaitingRetry(K_Request _Request) => default!;
 
     /// <summary>The request has been initialized</summary>
+    /// <param name="_Request" />
     public bool IsInitialized(K_Request _Request) => default!;
 
     /// <summary>We are waiting a response to the request</summary>
+    /// <param name="_Request" />
     public bool IsProcessing(K_Request _Request) => default!;
 
     /// <summary>We are waiting a slot to start the request</summary>
+    /// <param name="_Request" />
     public bool IsWaitingSlot(K_Request _Request) => default!;
 
     /// <summary>Check if the request completed successfully</summary>
+    /// <param name="_Request" />
     public bool IsSuccess(K_Request _Request) => default!;
 
     /// <summary>The request is ongoing Either because we are waiting for an answer or a retry</summary>
+    /// <param name="_Request" />
     public bool IsRunning(K_Request _Request) => default!;
 
     public K_Request Update(K_Request _Request) => default!;
 
     /// <summary>Get the result from the request</summary>
+    /// <param name="_Request" />
     public string GetResult(K_Request _Request) => default!;
 
     /// <summary>Get the status code from the request</summary>
+    /// <param name="_Request" />
     public int GetStatusCode(K_Request _Request) => default!;
 
     public K_Request DestroyAndCreate(K_Request _OldRequest, K_Request _NewRequest) => default!;

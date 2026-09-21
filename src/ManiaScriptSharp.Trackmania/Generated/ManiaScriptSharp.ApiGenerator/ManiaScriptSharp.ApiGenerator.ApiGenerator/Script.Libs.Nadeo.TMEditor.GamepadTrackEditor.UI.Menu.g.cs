@@ -20,7 +20,9 @@ public partial class Menu : ILib
 
     public const string Version = "1.1.0";
     public const string ScriptName = "Menu.Script.txt";
+    /// <summary>Default visibility</summary>
     public const bool C_DefaultVisibility = false;
+    /// <summary>Selection</summary>
     public const int C_Selection_Null = 0;
     public const int C_Selection_Validate = 1;
     public const int C_Selection_Test = 2;
@@ -32,6 +34,7 @@ public partial class Menu : ILib
     public const int C_Selection_Tuto = 8;
     public const int C_Selection_Back = 9;
     public const int C_Selection_Quit = 10;
+    /// <summary>Events</summary>
     public const string C_Event_Hover = "LibMenu_Hover";
     public const string C_Event_Click = "LibMenu_Click";
 
@@ -67,12 +70,16 @@ public partial class Menu : ILib
     public string Event_Click() => default!;
 
     /// <summary>Select a button in the menu</summary>
+    /// <param name="_Selection" />
+    /// <param name="_PlaySound" />
     public void Select(int _Selection, bool _PlaySound) { }
 
     /// <summary>Overload Select()</summary>
+    /// <param name="_Selection" />
     public void Select(int _Selection) { }
 
     /// <summary>Select the next or the previous button in the menu</summary>
+    /// <param name="_Shift" />
     public void Shift(int _Shift) { }
 
     public void Next() { }
@@ -85,6 +92,7 @@ public partial class Menu : ILib
     public bool LayerIsVisible() => default!;
 
     /// <summary>Set the menu visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }

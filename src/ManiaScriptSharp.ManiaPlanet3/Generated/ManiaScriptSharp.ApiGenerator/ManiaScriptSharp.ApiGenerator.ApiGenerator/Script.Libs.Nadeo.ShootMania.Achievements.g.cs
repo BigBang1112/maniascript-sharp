@@ -9,10 +9,11 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania;
 
-/// <summary>Return the version number of the script</summary>
+/// <summary>Achievements Lib</summary>
 public partial class Achievements : ILib
 {
 
+    /// <summary>////////////////////////////////////////////////</summary>
     public const string Version = "2012-08-29";
     public const string ScriptName = "Achievements.Script.txt";
     public const int C_ComboHit_TimeInterval = 2000;

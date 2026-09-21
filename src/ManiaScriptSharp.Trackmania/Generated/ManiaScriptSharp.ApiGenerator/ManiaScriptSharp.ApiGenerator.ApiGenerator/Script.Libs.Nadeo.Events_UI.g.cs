@@ -16,6 +16,7 @@ public partial class Events_UI : ILib
 
     public const string Version = "2017-11-17";
     public const string ScriptName = "Libs/Nadeo/Events_UI.Script.txt";
+    /// <summary>Callbacks</summary>
     public const string C_Callback_Event_Default = "UI.Event.Default";
     public const string C_Callback_Event_OnModuleCustomEvent = "UI.Event.OnModuleCustomEvent";
     public const string C_Callback_Event_OnModuleShowRequest = "UI.Event.OnModuleShowRequest";

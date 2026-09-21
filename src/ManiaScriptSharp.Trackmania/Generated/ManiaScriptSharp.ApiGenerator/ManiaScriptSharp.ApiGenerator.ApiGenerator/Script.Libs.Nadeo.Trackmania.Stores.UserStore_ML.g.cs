@@ -136,6 +136,10 @@ public partial class UserStore_ML : ILib
     public bool GetPlayerInfoHidden() => default!;
 
     /// <summary>Return the formatted player name</summary>
+    /// <param name="_UserName" />
+    /// <param name="_ClubTag" />
+    /// <param name="_IsFirstPartyDisplayName" />
+    /// <param name="_DisplayFirstPartyLogo" />
     public string GetPlayerName(string _UserName, string _ClubTag, bool _IsFirstPartyDisplayName, bool _DisplayFirstPartyLogo) => default!;
 
     public string GetPlayerName(string _UserName, string _ClubTag, bool _IsFirstPartyDisplayName) => default!;
@@ -147,6 +151,8 @@ public partial class UserStore_ML : ILib
     public string GetPlayerName(string _UserName) => default!;
 
     /// <summary>Return the formatted player name from account id</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_ClubTag" />
     public string GetUserMgrPlayerName(string _AccountId, string _ClubTag) => default!;
 
     public string GetUserMgrPlayerName(string _AccountId) => default!;

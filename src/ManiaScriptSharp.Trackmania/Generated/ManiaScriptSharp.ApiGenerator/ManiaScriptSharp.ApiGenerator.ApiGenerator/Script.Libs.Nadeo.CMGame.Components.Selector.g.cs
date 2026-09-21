@@ -29,6 +29,7 @@ public partial class Selector : ILib
     public const int C_Choices_Refresh = 0;
     public const int C_Choices_Next = 1;
     public const int C_EventType_Update = 0;
+    /// <summary>0,1,2,3,... not 0,1,3,... for example</summary>
     public const int C_Property_Height = 0;
     public const int C_Property_Width = 1;
     public const int C_Property_HAlign = 2;

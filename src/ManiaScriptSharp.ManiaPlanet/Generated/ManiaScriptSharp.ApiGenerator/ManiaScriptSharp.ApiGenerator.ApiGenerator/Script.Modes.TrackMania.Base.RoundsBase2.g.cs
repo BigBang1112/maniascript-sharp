@@ -45,6 +45,6 @@ public partial class RoundsBase2 : global::ManiaScriptSharp.Scripts.Modes.TrackM
     public void ForcedEndRoundSequence() { }
 
     /// <summary>Set the number of laps to play on the track</summary>
-    /// <param name="LapsNb">The number of laps</param>
+    /// <param name="_LapsNb">The number of laps</param>
     public void SetLapsNb(int _LapsNb) { }
 }

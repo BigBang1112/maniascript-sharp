@@ -18,15 +18,19 @@ public partial class NetShare_Teams_Server : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/NetShare_Teams_Server.Script.txt";
 
     /// <summary>Send the winning team of the match</summary>
+    /// <param name="_WinningTeamId" />
     public void SetWinningTeamId(int _WinningTeamId) { }
 
     /// <summary>Send the accountId of the best player of the match</summary>
+    /// <param name="_MVPAccountId" />
     public void SetMVPAccountId(string _MVPAccountId) { }
 
     /// <summary>Send the players account ids and clans</summary>
+    /// <param name="_AccountIdsToClan" />
     public void SetAccountIdsToClans(global::System.Collections.Generic.Dictionary<string, int> _AccountIdsToClan) { }
 
     /// <summary>Send the match id</summary>
+    /// <param name="_MatchId" />
     public void SetMatchId(string _MatchId) { }
 
     /// <summary>Unload the library</summary>

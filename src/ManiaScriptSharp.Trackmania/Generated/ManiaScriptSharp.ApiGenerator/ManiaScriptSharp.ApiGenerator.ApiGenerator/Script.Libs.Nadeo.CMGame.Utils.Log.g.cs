@@ -35,17 +35,18 @@ public partial class Log : ILib
     public bool CanLog() => default!;
 
     /// <summary>Display a log in the debug console Behavior change depending on the script environment : - production -&gt; do nothing - others -&gt; send a log</summary>
-    /// <param name="Text">The text to display</param>
+    /// <param name="_Text">The text to display</param>
     public void Log_(string _Text) { }
 
     public void Message(string _Text) { }
 
     /// <summary>Display an error Behavior change depending on the script environment : - development -&gt; send an assert - test -&gt; send a log - others -&gt; do nothing</summary>
+    /// <param name="_Text" />
     public void Error(string _Text) { }
 
     /// <summary>Register a script</summary>
-    /// <param name="ScriptName">The name of the script</param>
-    /// <param name="ScriptVersion">The version of the script</param>
+    /// <param name="_ScriptName">The name of the script</param>
+    /// <param name="_ScriptVersion">The version of the script</param>
     public void RegisterScript(string _ScriptName, string _ScriptVersion) { }
 
     /// <summary>Display the version and name of the registered scripts</summary>

@@ -17,9 +17,11 @@ public partial class WelcomePopUp_Server : ILib
     public const string C_Id = "UIModule_ChampionOGL_WelcomePopUp";
 
     /// <summary>Send the division of the server</summary>
+    /// <param name="_Division" />
     public void SetDivision(string _Division) { }
 
     /// <summary>Send the points distribution</summary>
+    /// <param name="_PointsDistribution" />
     public void SetPointsDistribution(global::System.Collections.Generic.IList<int> _PointsDistribution) { }
 
     /// <summary>Unload the library</summary>

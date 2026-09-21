@@ -22,8 +22,6 @@ public partial class Task_2 : ILib
     public const int C_TaskMgrType_ScoreMgr = 2;
     public const int C_TaskMgrType_TrackingMgr = 3;
     public const int C_TaskMgrType_UserMgr = 4;
-    public const int C_TaskMgrType_PresenceMgr = 5;
-    public const int C_TaskMgrType_ManiaPlanet = 6;
     public const int C_TaskMgrType_ZoneMgr = 7;
     public const int C_TaskMgrType_NotificationMgr = 8;
     public const int C_TaskMgrType_Mode = 9;
@@ -44,23 +42,30 @@ public partial class Task_2 : ILib
     }
 
     /// <summary>Check if the task is processing</summary>
+    /// <param name="_Task" />
     public bool IsProcessing(K_Task _Task) => default!;
 
     /// <summary>Check if the task is a success</summary>
+    /// <param name="_Task" />
     public bool IsSuccess(K_Task _Task) => default!;
 
     /// <summary>Check if the task failed because of a first party error</summary>
+    /// <param name="_Task" />
     public bool IsErrorFromFirstParty(K_Task _Task) => default!;
 
     /// <summary>Add metadata on a task</summary>
+    /// <param name="_Task" />
+    /// <param name="_Metadata" />
     public K_Task SetMetadata(K_Task _Task, global::System.Collections.Generic.Dictionary<string, string> _Metadata) => default!;
 
     public K_Task SetMetadata(K_Task _Task, string _Key, string _Value) => default!;
 
     /// <summary>Remove all metadata from a task</summary>
+    /// <param name="_Task" />
     public K_Task ResetMetadata(K_Task _Task) => default!;
 
     /// <summary>Get metadata from a task</summary>
+    /// <param name="_Task" />
     public global::System.Collections.Generic.Dictionary<string, string> GetMetadata(K_Task _Task) => default!;
 
     public string GetMetadata(K_Task _Task, string _Key, string _DefaultValue) => default!;

@@ -28,6 +28,7 @@ public partial class TM_COTDQualifications_Online : ILib
     public const string Version = "1.3.0+2025-12-15";
     public const string ScriptName = "Modes/TrackMania/TM_COTDQualifications_Online.Script.txt";
     public const string C_ModeName = "Qualifications";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/COTDQualifications.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const bool C_DebugCOTD = false;
     public const bool C_UploadRecord = true;
@@ -75,14 +76,23 @@ public partial class TM_COTDQualifications_Online : ILib
     public virtual void Match_BeforeUnloadMap() { }
 
     /// <summary>Select the scores table score mode</summary>
+    /// <param name="_IsIndependentLaps" />
+    /// <param name="_DisplayTrophies" />
     public void SetScoresTableScoreMode(bool _IsIndependentLaps, bool _DisplayTrophies) { }
 
     /// <summary>Update the race time limit</summary>
+    /// <param name="_QualificationsAreOngoing" />
+    /// <param name="_QualificationsStartTime" />
+    /// <param name="_QualificationsEndTime" />
+    /// <param name="_TimeAttackStartTime" />
+    /// <param name="_TimeAttackTimeLimit" />
     public void SetTimeLimit(bool _QualificationsAreOngoing, int _QualificationsStartTime, int _QualificationsEndTime, int _TimeAttackStartTime, int _TimeAttackTimeLimit) { }
 
     /// <summary>Get the right sort criteria for the scores</summary>
+    /// <param name="_IsIndependentLaps" />
     public int GetScoresSortCriteria(bool _IsIndependentLaps) => default!;
 
     /// <summary>Get the right sort criteria for the ladder</summary>
+    /// <param name="_IsIndependentLaps" />
     public int GetLadderSortCriteria(bool _IsIndependentLaps) => default!;
 }

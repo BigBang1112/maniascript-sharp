@@ -21,7 +21,7 @@ public partial class Pause : ILib
     public const int C_PauseEndDuration = 3000;
 
     /// <summary>Run the pause False to disable it False if the pause must stop</summary>
-    /// <param name="IsActive">True to enable the pause</param>
+    /// <param name="_IsActive">True to enable the pause</param>
     /// <returns>True if the pause can continue</returns>
     public bool Loop(bool _IsActive) => default!;
 

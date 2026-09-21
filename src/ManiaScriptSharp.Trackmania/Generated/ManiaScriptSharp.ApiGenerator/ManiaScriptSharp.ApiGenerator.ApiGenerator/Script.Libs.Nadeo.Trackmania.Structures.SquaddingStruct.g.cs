@@ -18,6 +18,7 @@ public partial class SquaddingStruct : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Structures/SquaddingStruct.Script.txt";
     public const string C_ComponentName = "structures-squadding";
     public const string P = "LibStructuresSquadding_";
+    /// <summary>! Do not modify those values, they are used by CORE API !</summary>
     public const string C_FriendPresenceOnline = "Online";
     public const string C_FriendPresenceAway = "Away";
     public const string C_FriendPresenceDoNotDisturb = "DoNotDisturb";

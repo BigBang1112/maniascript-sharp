@@ -20,6 +20,7 @@ public partial class PlayerInfo_Client : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TMWC2023/UIModules/PlayerInfo_Client.Script.txt";
+    public const string C_Img_Default = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWC2023/UI/";
     public const string C_Text_PlayerStats = "Player Stats";
     public const string C_Text_Crashes = "Crashes";
     public const string C_Text_Top1 = "Top 1's";

@@ -21,9 +21,11 @@ public partial class RoundEliminations_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Get the duration of the elimination animation</summary>
+    /// <param name="_EliminatedTeamsNb" />
     public int GetAnimationDuration(int _EliminatedTeamsNb) => default!;
 
     /// <summary>Send the id and the rank of the eliminated teams</summary>
+    /// <param name="_EliminatedTeams" />
     public int SendEliminatedTeams(global::System.Collections.Generic.Dictionary<int, int> _EliminatedTeams) => default!;
 
     /// <summary>Unload the library</summary>

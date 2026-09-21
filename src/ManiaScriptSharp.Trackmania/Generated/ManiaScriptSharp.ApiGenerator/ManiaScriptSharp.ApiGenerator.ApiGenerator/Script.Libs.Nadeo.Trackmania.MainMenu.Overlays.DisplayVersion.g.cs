@@ -24,5 +24,7 @@ public partial class DisplayVersion : ILib
     public string GetManialink() => default!;
 
     /// <summary>Update the version number and text that will be copied in the user clipboard when clicking on the label</summary>
+    /// <param name="_TitleVersion" />
+    /// <param name="_ClipboardText" />
     public void SetVersion(string _TitleVersion, string _ClipboardText) { }
 }

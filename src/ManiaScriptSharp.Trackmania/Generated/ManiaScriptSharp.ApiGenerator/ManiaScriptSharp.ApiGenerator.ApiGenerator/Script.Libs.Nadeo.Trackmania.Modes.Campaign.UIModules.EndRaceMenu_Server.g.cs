@@ -19,6 +19,7 @@ public partial class EndRaceMenu_Server : ILib
     public const string C_Id = "UIModule_Campaign_EndRaceMenu";
 
     /// <summary>Inform the UI that the finish line has just been crosed</summary>
+    /// <param name="_EarlyDisplay" />
     public void SetEarlyMedalDisplay(bool _EarlyDisplay) { }
 
     /// <summary>Is there a new medal ready to be displayed</summary>
@@ -37,25 +38,30 @@ public partial class EndRaceMenu_Server : ILib
     public void SetRoundChanged() { }
 
     /// <summary>Inform the UI that the the player can save the replay or not</summary>
+    /// <param name="_Disabled" />
     public void SetSaveReplayDisabled(bool _Disabled) { }
 
     /// <summary>Allow the user to view the PB replay or not</summary>
+    /// <param name="_CanViewReplay" />
     public void SetCanViewReplay(bool _CanViewReplay) { }
 
     /// <summary>Set the state of the clone mode</summary>
+    /// <param name="_IsCloneMode" />
     public void SetIsCloneMode(bool _IsCloneMode) { }
 
     /// <summary>Inform the UI that the replay has been saved</summary>
     public void SetReplaySaved() { }
 
     /// <summary>Show or hide the new medal ui False to hide</summary>
-    /// <param name="Display">True to show</param>
+    /// <param name="_Display">True to show</param>
     public void SetVisibilityOfNewMedal(bool _Display) { }
 
     /// <summary>Send the unlocked trophies to the UI</summary>
+    /// <param name="_Trophies" />
     public void SetTrophies(global::System.Collections.Generic.Dictionary<int, int> _Trophies) { }
 
     /// <summary>Indicates if the player is driving alone or not</summary>
+    /// <param name="_IsAlone" />
     public void SetPlayerDrivingAloneState(bool _IsAlone) { }
 
     /// <summary>Get the last event received by the server</summary>

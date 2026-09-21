@@ -20,13 +20,13 @@ public partial class MapGet : ILib
     public global::System.Collections.Generic.IList<int> GetAuthorRaceWaypointTimes() => default!;
 
     /// <summary>Share waypoint times of the author validation run with the map type</summary>
-    /// <param name="RaceWaypointTimes">The waypoint times</param>
+    /// <param name="_RaceWaypointTimes">The waypoint times</param>
     public void ShareAuthorRaceWaypointTimes(global::System.Collections.Generic.IList<int> _RaceWaypointTimes) { }
 
     public global::System.Collections.Generic.IList<int> GetSharedAuthorRaceWaypointTimes() => default!;
 
     /// <summary>Share time of the author</summary>
-    /// <param name="Time">The author map time</param>
+    /// <param name="_Time">The author map time</param>
     public void ShareAuthorTime(int _Time) { }
 
     /// <summary>Get time of the author</summary>
@@ -34,7 +34,7 @@ public partial class MapGet : ILib
     public int GetSharedAuthorTime() => default!;
 
     /// <summary>Share ghost id of the author</summary>
-    /// <param name="AuthorGhostId">The Ghost Id of the author map validation</param>
+    /// <param name="_AuthorGhostId">The Ghost Id of the author map validation</param>
     public void ShareAuthorGhostId(Ident _AuthorGhostId) { }
 
     /// <summary>Get ghost id of the author</summary>
@@ -42,7 +42,7 @@ public partial class MapGet : ILib
     public Ident GetAuthorGhostId() => default!;
 
     /// <summary>Share score of the author</summary>
-    /// <param name="Score">The author map score</param>
+    /// <param name="_Score">The author map score</param>
     public void ShareAuthorScore(int _Score) { }
 
     /// <summary>Get score of the author</summary>

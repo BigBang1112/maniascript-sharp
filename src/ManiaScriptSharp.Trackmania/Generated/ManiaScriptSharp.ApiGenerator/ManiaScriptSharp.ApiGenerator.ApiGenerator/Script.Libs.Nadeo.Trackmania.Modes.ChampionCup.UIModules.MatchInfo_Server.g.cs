@@ -21,6 +21,10 @@ public partial class MatchInfo_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the best lap time</summary>
+    /// <param name="_WebServicesUserId" />
+    /// <param name="_Time" />
+    /// <param name="_IsWorldRecord" />
+    /// <param name="_IsInit" />
     public void SetBestLap(string _WebServicesUserId, int _Time, bool _IsWorldRecord, bool _IsInit) { }
 
     public void SetBestLap(string _WebServicesUserId, int _Time) { }

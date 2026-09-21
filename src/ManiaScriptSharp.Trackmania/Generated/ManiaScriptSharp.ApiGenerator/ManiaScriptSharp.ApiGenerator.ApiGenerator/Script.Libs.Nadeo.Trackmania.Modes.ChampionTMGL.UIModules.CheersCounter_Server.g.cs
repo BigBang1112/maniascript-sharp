@@ -17,7 +17,7 @@ public partial class CheersCounter_Server : ILib
     public const string C_Id = "UIModule_Champion_CheersCounter";
 
     /// <summary>Set the total number of cheers sent by the Twitch viewers</summary>
-    /// <param name="TotalCheers">The number of cheers</param>
+    /// <param name="_TotalCheers">The number of cheers</param>
     public void SetCheers(int _TotalCheers) { }
 
     /// <summary>Unload the library</summary>

@@ -114,7 +114,7 @@ internal sealed class LinqChainEmitter
     /// If <paramref name="initExpr"/> is a lambda-bearing LINQ chain, emits the desugared
     /// ManiaScript foreach loop and the result variable declaration, then returns <c>true</c>.
     /// Returns <c>false</c> when the expression is not a LINQ chain or has no lambdas
-    /// (handled by the simpler <see cref="ExpressionEmitter.MapLinqMethod"/>).
+    /// (handled by the simpler expression emitter).
     /// </summary>
     public bool TryEmit(ExpressionSyntax initExpr, string varName, ITypeSymbol? varType)
     {

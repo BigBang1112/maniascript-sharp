@@ -21,12 +21,12 @@ public partial class Chase : ILib
     public const string ScriptName = "Libs/Nadeo/TrackMania/Chase/Chase.Script.txt";
 
     /// <summary>Get the minimum number of players in a team</summary>
-    /// <param name="TeamPlayersNb">The value of the setting</param>
+    /// <param name="_TeamPlayersNb">The value of the setting</param>
     /// <returns>The minimum number of players in a team</returns>
     public int GetMinPlayersNb(int _TeamPlayersNb) => default!;
 
     /// <summary>Get the time left to the players to finish the map after the first player</summary>
-    /// <param name="FinishTimeout">The value of the timeout setting</param>
+    /// <param name="_FinishTimeout">The value of the timeout setting</param>
     /// <returns>The time left in ms</returns>
     public int GetFinishTimeout(int _FinishTimeout) => default!;
 
@@ -35,51 +35,51 @@ public partial class Chase : ILib
     public string GetUniqueEventId() => default!;
 
     /// <summary>Set the name of the next checkpoint player</summary>
-    /// <param name="NoNameCheckpoint">Name displayed when no one corssed the checkpoint yet</param>
-    /// <param name="User">User of the player</param>
-    /// <param name="Clan">Clan of the player</param>
-    /// <param name="Name">Name of the player</param>
-    /// <param name="CheckpointNb">Number of the checkpoint</param>
-    /// <param name="RaceTime">Race time if the player</param>
-    /// <param name="RelayStartTime">Start time of the relay for each team</param>
+    /// <param name="_NoNameCheckpoint">Name displayed when no one corssed the checkpoint yet</param>
+    /// <param name="_User">User of the player</param>
+    /// <param name="_Clan">Clan of the player</param>
+    /// <param name="_Name">Name of the player</param>
+    /// <param name="_CheckpointNb">Number of the checkpoint</param>
+    /// <param name="_RaceTime">Race time if the player</param>
+    /// <param name="_RelayStartTime">Start time of the relay for each team</param>
     public global::System.Collections.Generic.Dictionary<int, int> SetNextCheckpointPlayer(string _NoNameCheckpoint, CUser _User, int _Clan, string _Name, int _CheckpointNb, int _RaceTime, global::System.Collections.Generic.Dictionary<int, int> _RelayStartTime) => default!;
 
     /// <summary>Get the checkpoint score</summary>
-    /// <param name="CheckpointScoreMax">Maximum score value</param>
-    /// <param name="LeaderTime">Time at the checkpoint of the first player</param>
-    /// <param name="LeaderSpeed">Speed at the checkpoint of the first player</param>
-    /// <param name="PlayerTime">Time at the checkpoint of the scoring player</param>
-    /// <param name="PlayerSpeed">Speed at the checkpoint of the scoring player</param>
+    /// <param name="_CheckpointScoreMax">Maximum score value</param>
+    /// <param name="_LeaderTime">Time at the checkpoint of the first player</param>
+    /// <param name="_LeaderSpeed">Speed at the checkpoint of the first player</param>
+    /// <param name="_PlayerTime">Time at the checkpoint of the scoring player</param>
+    /// <param name="_PlayerSpeed">Speed at the checkpoint of the scoring player</param>
     /// <returns>The points scored by the player at the checkpoints</returns>
     public int GetCheckpointScore(int _CheckpointScoreMax, int _LeaderTime, float _LeaderSpeed, int _PlayerTime, float _PlayerSpeed) => default!;
 
     /// <summary>Update the best checkpoint score</summary>
-    /// <param name="Score">The player's score to update</param>
-    /// <param name="Points">The number of points at the checkpoint</param>
+    /// <param name="_Score">The player's score to update</param>
+    /// <param name="_Points">The number of points at the checkpoint</param>
     public void UpdateBestCheckpoint(CTmScore _Score, int _Points) { }
 
     /// <summary>Update the number of legendary checkpoint</summary>
-    /// <param name="Score">The player's score</param>
-    /// <param name="IsLegendary">Is the checkpoint legendary?</param>
+    /// <param name="_Score">The player's score</param>
+    /// <param name="_IsLegendary">Is the checkpoint legendary?</param>
     public void UpdateBestLegendary(CTmScore _Score, bool _IsLegendary) { }
 
     /// <summary>Update the best number of combo</summary>
-    /// <param name="Score">The player's score</param>
-    /// <param name="Combo">The current combo number</param>
+    /// <param name="_Score">The player's score</param>
+    /// <param name="_Combo">The current combo number</param>
     public void UpdateBestCombo(CTmScore _Score, int _Combo) { }
 
     /// <summary>Compute the checkpoint grade of a player</summary>
-    /// <param name="CheckpointScores">The scores of each grade</param>
-    /// <param name="CheckpointGrades">Grades names</param>
-    /// <param name="CheckpointColors">Grades color</param>
-    /// <param name="CheckpointRelayGrade">Relay grade name</param>
-    /// <param name="CheckpointRelayColor">Relay grade color</param>
-    /// <param name="PerfLow" />
-    /// <param name="PrefHigh" />
-    /// <param name="Player">The recipient</param>
-    /// <param name="RelaySuccess">Was the relay successful at this checkpoint?</param>
-    /// <param name="IsRelayer">This player is the relayer</param>
-    /// <param name="Score">The score of the player at the checkpoint</param>
+    /// <param name="_CheckpointScores">The scores of each grade</param>
+    /// <param name="_CheckpointGrades">Grades names</param>
+    /// <param name="_CheckpointColors">Grades color</param>
+    /// <param name="_CheckpointRelayGrade">Relay grade name</param>
+    /// <param name="_CheckpointRelayColor">Relay grade color</param>
+    /// <param name="_PerfLow" />
+    /// <param name="_PerfHigh" />
+    /// <param name="_Player">The recipient</param>
+    /// <param name="_RelaySuccess">Was the relay successful at this checkpoint?</param>
+    /// <param name="_IsRelayer">This player is the relayer</param>
+    /// <param name="_Score">The score of the player at the checkpoint</param>
     public void ComputeCheckpointGrade(global::System.Collections.Generic.IList<int> _CheckpointScores, global::System.Collections.Generic.IList<string> _CheckpointGrades, global::System.Collections.Generic.IList<Vec3> _CheckpointColors, string _CheckpointRelayGrade, Vec3 _CheckpointRelayColor, int _PerfLow, int _PerfHigh, CTmPlayer _Player, bool _RelaySuccess, bool _IsRelayer, int _Score) { }
 
     /// <summary>Unload the library</summary>

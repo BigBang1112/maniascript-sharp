@@ -21,8 +21,10 @@ public partial class MenuOutro : ILib
     public const string Version = "1.0.0";
     public const string ScriptName = "MenuOutro.Script.txt";
     public const bool C_DefaultVisibility = false;
+    /// <summary>Selection</summary>
     public const int C_Selection_Null = 0;
     public const int C_Selection_Validate = 1;
+    /// <summary>#Const C_Selection_Style			2 TAG: MapStyleSelection</summary>
     public const int C_Selection_EditTrack = 3;
     public const int C_Selection_EditDeco = 4;
     public const int C_Selection_Save = 5;
@@ -31,6 +33,7 @@ public partial class MenuOutro : ILib
     public const int C_Selection_Test = 8;
     public const int C_Selection_SaveAs = 9;
     public const int C_Selection_SaveAndQuit = 10;
+    /// <summary>Events</summary>
     public const string C_Event_Hover = "LibMenuOutro_Hover";
     public const string C_Event_Click = "LibMenuOutro_Click";
 
@@ -67,12 +70,16 @@ public partial class MenuOutro : ILib
     public global::System.Collections.Generic.IList<int> GetMenuSelection() => default!;
 
     /// <summary>Select a button in the menu outro</summary>
+    /// <param name="_Selection" />
+    /// <param name="_PlaySound" />
     public void Select(int _Selection, bool _PlaySound) { }
 
     /// <summary>Overload Select()</summary>
+    /// <param name="_Selection" />
     public void Select(int _Selection) { }
 
     /// <summary>Select the next or the previous button in the menu outro</summary>
+    /// <param name="_Shift" />
     public void Shift(int _Shift) { }
 
     public void Next() { }
@@ -83,6 +90,7 @@ public partial class MenuOutro : ILib
     public bool LayerIsVisible() => default!;
 
     /// <summary>Set the menu outro visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }

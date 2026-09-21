@@ -29,5 +29,6 @@ public partial class ExpendableAssetStyles : ILib
     public const string C_Style_RightEdgeSoloRounded = "cmgame-mixins-expendable-asset-style-right-edge-solo-rounded";
     public const string C_Style_ContourStraight = "cmgame-mixins-expendable-asset-style-contour-straight";
     public const string C_Style_ContourRounded = "cmgame-mixins-expendable-asset-style-contour-rounded";
+    /// <summary>During the component initialization its properties will be computed so we don't need to do it here</summary>
     public const bool C_ComputeMergedProperties = false;
 }

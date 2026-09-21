@@ -25,6 +25,7 @@ public partial class WelcomePopUp_Client : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/LapsWeekly/UIModules/WelcomePopUp_Client.Script.txt";
     public const string C_PopUpName = "WelcomePopUp";
     public const string C_NavGroupName = "navgroup-lapsweekly-welcomepopup";
+    public const string C_Img_PopUp = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Mode_Common_Scorestable_Popup.dds";
     public const int C_InputPriority_WelcomePopUp = 1;
 
     /// <summary>Get the id of the UI module</summary>

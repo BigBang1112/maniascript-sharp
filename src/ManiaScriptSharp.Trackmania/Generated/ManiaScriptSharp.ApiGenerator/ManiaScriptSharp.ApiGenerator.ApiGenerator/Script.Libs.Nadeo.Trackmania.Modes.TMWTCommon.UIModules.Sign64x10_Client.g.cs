@@ -37,9 +37,11 @@ public partial class Sign64x10_Client : ILib
     }
 
     /// <summary>Get the id of the UI module</summary>
+    /// <param name="_AttachId" />
     public string GetId(string _AttachId) => default!;
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_AttachId" />
     /// <returns>The module manialink</returns>
     public string GetML(string _AttachId) => default!;
 }

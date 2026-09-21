@@ -21,6 +21,7 @@ public partial class WinScreen_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the winner account id</summary>
+    /// <param name="_AccountId" />
     public void SetWinnerAccountId(string _AccountId) { }
 
     /// <summary>Unload the library</summary>

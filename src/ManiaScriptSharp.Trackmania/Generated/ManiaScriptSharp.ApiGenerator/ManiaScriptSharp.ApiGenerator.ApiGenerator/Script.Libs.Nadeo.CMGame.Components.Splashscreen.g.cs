@@ -26,8 +26,10 @@ public partial class Splashscreen : ILib
     public const string P = "CMGame_Splashscreen::";
     public const string Q = "CMGame_Splashscreen";
     public const string C_NavGroup_Default = "navgroup-splashscreen-default";
+    /// <summary>Component events</summary>
     public const int C_EventType_VisibilityUpdate = 0;
     public const int C_EventType_GoNow = 1;
+    /// <summary>Control ids</summary>
     public const string C_Id_FrameGlobal = "cmgame-splashscreen_frame-global";
     public const string C_Id_QuadBackground = "cmgame-splashscreen_quad-background";
     public const string C_Id_QuadSplashscreen = "cmgame-splashscreen_quad-splashscreen";

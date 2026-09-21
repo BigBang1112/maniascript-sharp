@@ -17,12 +17,19 @@ public partial class VoteMap : ILib
 
     public const string Version = "2017-03-28";
     public const string ScriptName = "Libs/Nadeo/VoteMap.Script.txt";
+    /// <summary>Default vote sequence duration</summary>
     public const int C_LibVoteMap_DefaultVoteDuration = 15000;
+    /// <summary>Default result sequence duration</summary>
     public const int C_LibVoteMap_DefaultResultDuration = 5000;
+    /// <summary>Vote not started</summary>
     public const int C_LibVoteMap_SequenceNone = 0;
+    /// <summary>Vote sequence</summary>
     public const int C_LibVoteMap_SequenceVote = 1;
+    /// <summary>Result sequence</summary>
     public const int C_LibVoteMap_SequenceResult = 2;
+    /// <summary>Anim sequence</summary>
     public const int C_LibVoteMap_SequenceAnim = 3;
+    /// <summary>Duration of the animations</summary>
     public const int C_LibVoteMap_AnimDuration = 450;
 
     /// <summary>Return the version number of the script</summary>
@@ -40,7 +47,7 @@ public partial class VoteMap : ILib
     public void Load() { }
 
     /// <summary>Select a style for the UI</summary>
-    /// <param name="Style">The style to use, can be &quot;&quot; (automatic), &quot;MP&quot;, or &quot;SM&quot;</param>
+    /// <param name="_Style">The style to use, can be &quot;&quot; (automatic), &quot;MP&quot;, or &quot;SM&quot;</param>
     public void SetStyle(string _Style) { }
 
     /// <summary>Get the selected style of UI</summary>
@@ -48,11 +55,13 @@ public partial class VoteMap : ILib
     public string GetStyle() => default!;
 
     /// <summary>Use animations to show/hide the vote UI</summary>
-    /// <param name="UseAnimations">True to use animations, False otherwise</param>
+    /// <param name="_UseAnimations">True to use animations, False otherwise</param>
     public void UseAnimations(bool _UseAnimations) { }
 
     /// <summary>Begin the vote with a specific list of maps</summary>
-    /// <param name="Maps">An array with the maps the players can vote for</param>
+    /// <param name="_Maps">An array with the maps the players can vote for</param>
+    /// <param name="_VoteDuration" />
+    /// <param name="_ResultDuration" />
     public void Begin(global::System.Collections.Generic.IList<CMapInfo> _Maps, int _VoteDuration, int _ResultDuration) { }
 
     /// <summary>Begin the vote with all the maps of the server</summary>

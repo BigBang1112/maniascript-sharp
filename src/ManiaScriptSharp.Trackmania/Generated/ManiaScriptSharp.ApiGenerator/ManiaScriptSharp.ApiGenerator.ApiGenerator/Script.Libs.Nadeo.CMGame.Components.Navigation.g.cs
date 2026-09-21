@@ -65,11 +65,11 @@ public partial class Navigation : ILib
     }
 
     /// <summary>Create a navigation structure than can be passed to the data-nav attribute</summary>
-    /// <param name="InputTargets">The controls targeted by each input</param>
-    /// <param name="Group">The navigation group</param>
-    /// <param name="Zone">The ControlId of the quads that can trigger mouse events</param>
-    /// <param name="Focused">Is this control focused by default</param>
-    /// <param name="Locked">Is this control locked by default</param>
+    /// <param name="_InputTargets">The controls targeted by each input</param>
+    /// <param name="_Group">The navigation group</param>
+    /// <param name="_Zone">The ControlId of the quads that can trigger mouse events</param>
+    /// <param name="_Focused">Is this control focused by default</param>
+    /// <param name="_Locked">Is this control locked by default</param>
     public string Inject(global::System.Collections.Generic.Dictionary<string, string> _InputTargets, string _Group, string _Zone, bool _Focused, bool _Locked) => default!;
 
     public string Inject(global::System.Collections.Generic.Dictionary<string, string> _InputTargets, string _Group, string _Zone, bool _Focused) => default!;

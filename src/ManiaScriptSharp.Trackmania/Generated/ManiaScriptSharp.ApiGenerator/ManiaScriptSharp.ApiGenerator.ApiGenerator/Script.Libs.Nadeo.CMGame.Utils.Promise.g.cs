@@ -33,6 +33,8 @@ public partial class Promise : ILib
     public K_Promise Create() => default!;
 
     /// <summary>Fulfill a promise</summary>
+    /// <param name="_Promise" />
+    /// <param name="_Value" />
     public K_Promise Resolve(K_Promise _Promise, string _Value) => default!;
 
     public K_Promise Resolve(K_Promise _Promise) => default!;
@@ -40,44 +42,58 @@ public partial class Promise : ILib
     public K_Promise Reject(K_Promise _Promise) => default!;
 
     /// <summary>Check if the promise is pending</summary>
+    /// <param name="_Promise" />
     public bool IsPending(K_Promise _Promise) => default!;
 
     /// <summary>Check if all promises are pending</summary>
+    /// <param name="_Promises" />
     public bool AreAllPending(global::System.Collections.Generic.IList<K_Promise> _Promises) => default!;
 
     /// <summary>Check if the promise is settled (fulfilled or rejected)</summary>
+    /// <param name="_Promise" />
     public bool IsSettled(K_Promise _Promise) => default!;
 
     /// <summary>Check if all promises are settled (fulfilled or rejected)</summary>
+    /// <param name="_Promises" />
     public bool AreAllSettled(global::System.Collections.Generic.IList<K_Promise> _Promises) => default!;
 
     /// <summary>Check if the promise is fulfilled</summary>
+    /// <param name="_Promise" />
     public bool IsFulfilled(K_Promise _Promise) => default!;
 
     /// <summary>Check if all promises are fulfilled</summary>
+    /// <param name="_Promises" />
     public bool AreAllFulfilled(global::System.Collections.Generic.IList<K_Promise> _Promises) => default!;
 
     /// <summary>Check if the promise is rejected</summary>
+    /// <param name="_Promise" />
     public bool IsRejected(K_Promise _Promise) => default!;
 
     /// <summary>Check if all promises are rejected</summary>
+    /// <param name="_Promises" />
     public bool AreAllRejected(global::System.Collections.Generic.IList<K_Promise> _Promises) => default!;
 
     /// <summary>Get the resolved value</summary>
+    /// <param name="_Promise" />
     public string GetValue(K_Promise _Promise) => default!;
 
     /// <summary>Get the resolved values of several promises</summary>
+    /// <param name="_Promises" />
     public global::System.Collections.Generic.IList<string> GetValues(global::System.Collections.Generic.IList<K_Promise> _Promises) => default!;
 
     /// <summary>Add metadata on a promise</summary>
+    /// <param name="_Promise" />
+    /// <param name="_Metadata" />
     public K_Promise SetMetadata(K_Promise _Promise, global::System.Collections.Generic.Dictionary<string, string> _Metadata) => default!;
 
     public K_Promise SetMetadata(K_Promise _Promise, string _Key, string _Value) => default!;
 
     /// <summary>Remove all metadata from a promise</summary>
+    /// <param name="_Promise" />
     public K_Promise ResetMetadata(K_Promise _Promise) => default!;
 
     /// <summary>Get metadata from a promise</summary>
+    /// <param name="_Promise" />
     public global::System.Collections.Generic.Dictionary<string, string> GetMetadata(K_Promise _Promise) => default!;
 
     public string GetMetadata(K_Promise _Promise, string _Key, string _DefaultValue) => default!;

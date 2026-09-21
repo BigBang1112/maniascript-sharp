@@ -18,6 +18,7 @@ public partial class BuildInfo_2 : ILib
 
     public const string Version = "2.1.2";
     public const string ScriptName = "Libs/Nadeo/CMGame/Utils/BuildInfo@2.Script.txt";
+    public const string C_TitleInfoFilePath = "file://Media/BuildInfo.json";
     public const string C_Event_RequestBuildInfoUpdate = "CMGameUtilsBuildInfo_Update";
     public const int C_DefaultConfigDirtyCounter = 1;
 
@@ -51,8 +52,10 @@ public partial class BuildInfo_2 : ILib
     }
 
     /// <summary>Format the build info into a short line of text</summary>
+    /// <param name="_BuildInfo" />
     public string FormatBuildInfo_Short(K_BuildInfo _BuildInfo) => default!;
 
     /// <summary>Format the build info for the clipboard text</summary>
+    /// <param name="_BuildInfo" />
     public string FormatBuildInfo_Clipboard(K_BuildInfo _BuildInfo) => default!;
 }

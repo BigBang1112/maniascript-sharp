@@ -34,6 +34,7 @@ public partial class PopUpMultiChoice : ILib
     public const string C_NavGroup = "navgroup-component-popupmultichoice";
     public const string P = "Trackmania_PopUpMultiChoice::";
     public const string Q = "Trackmania_PopUpMultiChoice";
+    /// <summary>0,1,2,3,... not 0,1,3,... for example</summary>
     public const int C_Property_Width = 0;
     public const int C_Property_HAlign = 1;
     public const int C_Property_VAlign = 2;
@@ -148,9 +149,17 @@ public partial class PopUpMultiChoice : ILib
     }
 
     /// <summary>Create a description line with custom properties</summary>
+    /// <param name="_TextValue" />
+    /// <param name="_TextSize" />
+    /// <param name="_TextFontSize" />
+    /// <param name="_TextFont" />
+    /// <param name="_TextPrefix" />
+    /// <param name="_TextColor" />
+    /// <param name="_TextFitLabelEnabled" />
     public K_DescriptionPart CreateDescriptionPart(string _TextValue, Vec2 _TextSize, float _TextFontSize, string _TextFont, string _TextPrefix, Vec3 _TextColor, bool _TextFitLabelEnabled) => default!;
 
     /// <summary>Create an empty line with a custom height</summary>
+    /// <param name="_VerticalSize" />
     public K_DescriptionPart EmptyLine(float _VerticalSize) => default!;
 
     /// <summary>Get the manialink of the component</summary>

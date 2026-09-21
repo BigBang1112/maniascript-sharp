@@ -36,7 +36,6 @@ public partial class CreateFolderActivity : ILib
     public const string C_Name = "Page_CreateFolderActivity";
     public const string C_NavGroup_Default = "navgroup-page-create-fodler-activity-default";
     public const string C_NavGroup_Global = "navgroup-page-create-folder-activity-global";
-    public const int C_Name_MaxChar = 20;
 
     public struct K_Controls
     {

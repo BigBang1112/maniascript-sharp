@@ -31,34 +31,33 @@ public partial class WeaponSelection2 : ILib
     public void Load() { }
 
     /// <summary>Create a new group</summary>
-    /// <param name="GroupName">The name of the group to create</param>
+    /// <param name="_GroupName">The name of the group to create</param>
     public void CreateGroup(string _GroupName) { }
 
     /// <summary>Destroy an existing group</summary>
-    /// <param name="GroupName">The name of the group to destroy</param>
+    /// <param name="_GroupName">The name of the group to destroy</param>
     public void DestroyGroup(string _GroupName) { }
 
     /// <summary>Set a player in a group</summary>
-    /// <param name="Player">The player to set</param>
-    /// <param name="GroupName">The name of the group to set</param>
+    /// <param name="_Player">The player to set</param>
+    /// <param name="_GroupName">The name of the group to set</param>
     public void SetPlayerGroup(CSmPlayer _Player, string _GroupName) { }
 
     /// <summary>Remove a player from a group</summary>
-    /// <param name="Player">The player to remove</param>
+    /// <param name="_Player">The player to remove</param>
     public void UnsetPlayerGroup(CSmPlayer _Player) { }
 
     /// <summary>Get the current group of a player</summary>
-    /// <param name="Player">The player to check</param>
-    /// <param name="The">name of the group if any, an empty Text otherwise</param>
+    /// <param name="_Player">The player to check</param>
     public string GetPlayerGroup(CSmPlayer _Player) => default!;
 
     /// <summary>Get the number of the weapon selected by a player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The number of the selected weapon, -1 if the player is not inside a valid group</returns>
     public int GetPlayerWeaponNum(CSmPlayer _Player) => default!;
 
     /// <summary>Set the EndTime counter of the UI</summary>
-    /// <param name="EndTime">The new EndTime</param>
+    /// <param name="_EndTime">The new EndTime</param>
     public void SetEndTime(int _EndTime) { }
 
     /// <summary>Unset the EndTime counter of the UI</summary>
@@ -68,7 +67,7 @@ public partial class WeaponSelection2 : ILib
     public void RebuildUI() { }
 
     /// <summary>Set the position of the weapon selection layer</summary>
-    /// <param name="Pos">The new position</param>
+    /// <param name="_Pos">The new position</param>
     public void SetLayerPosition(Vec2 _Pos) { }
 
     /// <summary>Attach the weapon selection layer</summary>

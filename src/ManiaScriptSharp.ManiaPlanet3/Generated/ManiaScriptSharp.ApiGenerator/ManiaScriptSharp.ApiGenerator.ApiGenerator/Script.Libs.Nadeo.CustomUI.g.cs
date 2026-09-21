@@ -40,26 +40,35 @@ public partial class CustomUI : ILib
     public void Load() { }
 
     /// <summary>Add a customizable module</summary>
-    /// <param name="Name">The name of the module, it must be unique and used as the id of the frame to customize</param>
-    /// <param name="Pos">The position of the helper</param>
-    /// <param name="Size">The size of the helper</param>
-    /// <param name="VAlign">The vertical align of the helper, can be top, center or bottom</param>
-    /// <param name="HAlign">The horizontal align of the helper, can be left, center or right</param>
-    /// <param name="Movable">Can the module be moved?</param>
-    /// <param name="Hidable">Can the module be hidden?</param>
+    /// <param name="_Name">The name of the module, it must be unique and used as the id of the frame to customize</param>
+    /// <param name="_Pos">The position of the helper</param>
+    /// <param name="_Size">The size of the helper</param>
+    /// <param name="_VAlign">The vertical align of the helper, can be top, center or bottom</param>
+    /// <param name="_HAlign">The horizontal align of the helper, can be left, center or right</param>
+    /// <param name="_Movable">Can the module be moved?</param>
+    /// <param name="_Hidable">Can the module be hidden?</param>
     public void Add(string _Name, Vec2 _Pos, Vec2 _Size, string _VAlign, string _HAlign, bool _Movable, bool _Hidable) { }
 
     /// <summary>Overload of the Add() function, see above for documentation</summary>
+    /// <param name="_Name" />
+    /// <param name="_Pos" />
+    /// <param name="_Size" />
+    /// <param name="_VAlign" />
+    /// <param name="_HAlign" />
     public void Add(string _Name, Vec2 _Pos, Vec2 _Size, string _VAlign, string _HAlign) { }
 
     /// <summary>Overload of the Add() function, see above for documentation</summary>
+    /// <param name="_Name" />
+    /// <param name="_Pos" />
+    /// <param name="_Size" />
     public void Add(string _Name, Vec2 _Pos, Vec2 _Size) { }
 
     /// <summary>Remove a customizable module</summary>
-    /// <param name="Name">The name of the module to remove</param>
+    /// <param name="_Name">The name of the module to remove</param>
     public void Remove(string _Name) { }
 
     /// <summary>Check if a module exists</summary>
+    /// <param name="_Name" />
     /// <returns>True if the module already exists, false otherwise</returns>
     public bool Exists(string _Name) => default!;
 
@@ -67,7 +76,7 @@ public partial class CustomUI : ILib
     public void Build() { }
 
     /// <summary>Set the key ot open/close the customization menu You need to Build() the UI to take this change into account</summary>
-    /// <param name="Key">The name of the key to use</param>
+    /// <param name="_Key">The name of the key to use</param>
     public void SetMenuKey(string _Key) { }
 
     /// <summary>Inject the initialization script in the manialink to customize</summary>

@@ -20,6 +20,7 @@ public partial class PluginEvents : ILib
     public const string C_Name = "Overlay_PluginEvents";
     public const string C_Event_MenuLoadFinished = "PluginEvent_Event_MenuLoadFinished";
     public const string C_Event_DisplaySettings = "PluginEvent_Event_DisplaySettings";
+    /// <summary>maniaplanet live scripts Scripts Libs Nadeo System Settings SettingsStructs.Script.txt</summary>
     public const int C_PluginEventType_PushRoute = 0;
     public const int C_PluginEventType_MenuLoadFinished = 1;
     public const int C_PluginEventType_HideSystemLoadingScreen = 2;

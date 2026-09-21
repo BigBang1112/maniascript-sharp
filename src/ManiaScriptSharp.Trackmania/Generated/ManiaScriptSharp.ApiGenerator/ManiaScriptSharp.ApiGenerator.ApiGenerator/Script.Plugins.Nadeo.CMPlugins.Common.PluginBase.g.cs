@@ -37,5 +37,6 @@ public partial class PluginBase : ILib
     public void CMPlugins_Yield() { }
 
     /// <summary>Sleep for a given duration</summary>
+    /// <param name="_Duration" />
     public void CMPlugins_Sleep(int _Duration) { }
 }

@@ -18,6 +18,7 @@ public partial class PauseMenu_Server : ILib
     public const string C_Id = "UIModule_Campaign_PauseMenu";
 
     /// <summary>Overwrite the ZIndex defined in the manialink</summary>
+    /// <param name="_ZIndex" />
     public void SetZIndex(int _ZIndex) { }
 
     public void SetIsCloneMode(bool _IsCloneMode) { }

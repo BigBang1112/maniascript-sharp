@@ -39,9 +39,6 @@ public partial class CreateNews : ILib
     public const string C_NavGroup_MouseOnly = "navgroup-page-create-news-mouse-only";
     public const string C_NavGroup_Global = "navgroup-page-create-news-global";
     public const string C_Class_ButtonMedia = "class-page-create-news-button-media";
-    public const int C_Name_MaxChar = 20;
-    public const int C_Headline_MaxChar = 40;
-    public const int C_Body_MaxChar = 2000;
 
     public struct K_Controls
     {

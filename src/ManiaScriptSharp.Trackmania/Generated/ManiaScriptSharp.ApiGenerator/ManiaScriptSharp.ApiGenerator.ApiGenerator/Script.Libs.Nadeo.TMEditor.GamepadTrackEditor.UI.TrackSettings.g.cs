@@ -20,10 +20,13 @@ public partial class TrackSettings : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/TMEditor/GamepadTrackEditor/UI/TrackSettings.Script.txt";
+    /// <summary>Default visibility</summary>
     public const bool C_DefaultVisibility = false;
+    /// <summary>Selection</summary>
     public const int C_Selection_Null = 0;
     public const int C_Selection_ToggleClone = 1;
     public const int C_Selection_Back = 2;
+    /// <summary>Events</summary>
     public const string C_Event_Hover = "LibTrackSettings_Hover";
     public const string C_Event_Click = "LibTrackSettings_Click";
 
@@ -42,12 +45,16 @@ public partial class TrackSettings : ILib
     public string Event_Click() => default!;
 
     /// <summary>Select a button in the menu</summary>
+    /// <param name="_Selection" />
+    /// <param name="_PlaySound" />
     public void Select(int _Selection, bool _PlaySound) { }
 
     /// <summary>Overload Select()</summary>
+    /// <param name="_Selection" />
     public void Select(int _Selection) { }
 
     /// <summary>Select the next or the previous button in the menu</summary>
+    /// <param name="_Shift" />
     public void Shift(int _Shift) { }
 
     public void Next() { }
@@ -60,6 +67,7 @@ public partial class TrackSettings : ILib
     public bool LayerIsVisible() => default!;
 
     /// <summary>Set the menu visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }
