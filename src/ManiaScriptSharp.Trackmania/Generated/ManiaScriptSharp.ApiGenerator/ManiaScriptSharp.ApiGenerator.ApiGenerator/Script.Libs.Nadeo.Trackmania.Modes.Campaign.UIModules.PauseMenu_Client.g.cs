@@ -55,6 +55,7 @@ public partial class PauseMenu_Client : ILib
     public const int C_Row_Footer = 9;
     public const int C_Choice_Cancel = 0;
     public const int C_Choice_Leave = 1;
+    /// <summary>Variables for Sound design.</summary>
     public const int C_SoundFadeTime_EnterMenu = 150;
 
     public struct K_Controls

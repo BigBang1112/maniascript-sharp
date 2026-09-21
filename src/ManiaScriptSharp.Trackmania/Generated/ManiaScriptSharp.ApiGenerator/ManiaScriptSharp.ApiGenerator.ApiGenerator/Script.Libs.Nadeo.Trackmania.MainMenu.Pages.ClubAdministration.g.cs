@@ -50,15 +50,6 @@ public partial class ClubAdministration : ILib
     public const string C_Choice_Activity_BrowseFolder = "browse-folder";
     public const string C_ScrollView_Grid = "grid";
     public const string C_ScrollView_List = "list";
-    public const int C_Activity_NullKey = -1;
-    public const int C_Tab_HomeActivities = 0;
-    public const int C_Tab_ArchivedActivities = 1;
-    public const int C_DeleteActiPopUp_ChoiceIndex_Cancel = 0;
-    public const int C_RemoveActiPopUp_ChoiceIndex_Delete = 1;
-    public const int C_PopUpClubActiIndex = 0;
-    public const int C_PopUpRemoveActiIndex = 1;
-    public const int C_PopUpArchivedActiIndex = 2;
-    public const int C_PopUpCreateActiIndex = 3;
 
     public struct K_SelectedActivity
     {

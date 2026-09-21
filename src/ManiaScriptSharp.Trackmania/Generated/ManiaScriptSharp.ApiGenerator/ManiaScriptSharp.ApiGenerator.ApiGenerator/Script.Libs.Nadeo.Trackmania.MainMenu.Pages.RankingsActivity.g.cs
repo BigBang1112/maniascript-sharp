@@ -35,7 +35,6 @@ public partial class RankingsActivity : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/MainMenu/Pages/RankingsActivity.Script.txt";
     public const string C_Name = "Page_RankingsActivity";
     public const string C_NavGroupName = "navgroup-page-rankings-activity";
-    public const int C_DelayBetweenRequest = 500;
 
     public struct K_Controls
     {

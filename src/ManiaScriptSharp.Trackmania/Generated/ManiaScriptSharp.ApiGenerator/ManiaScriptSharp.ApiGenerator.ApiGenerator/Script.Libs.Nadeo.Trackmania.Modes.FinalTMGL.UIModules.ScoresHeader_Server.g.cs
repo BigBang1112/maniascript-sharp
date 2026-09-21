@@ -21,21 +21,27 @@ public partial class ScoresHeader_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the clans' color CTeam::ColorPrimary does not support the full spectrum of color. It is limited to be compatible with the color display on 3D elements (player, poles, gates) of Shootmania. To display the true team color in the UI we must send it separately.</summary>
+    /// <param name="_ClansColors" />
     public void SetClansColors(global::System.Collections.Generic.Dictionary<int, Vec3> _ClansColors) { }
 
     /// <summary>Set the clans' name There are only two teams in the `Teams` array If we need more teams we have to create our own array</summary>
+    /// <param name="_ClansNames" />
     public void SetClansNames(global::System.Collections.Generic.Dictionary<int, string> _ClansNames) { }
 
     /// <summary>Set the clans' score There are only two clans in the `ClansScores` array If we need more clans we have to create our own array</summary>
+    /// <param name="_ClansScores" />
     public void SetClansScores(global::System.Collections.Generic.Dictionary<int, int> _ClansScores) { }
 
     /// <summary>Set the number of points necessary to be qualified to the next stage Use 0 or less to disable</summary>
+    /// <param name="_QualificationPoints" />
     public void SetQualificationPoints(int _QualificationPoints) { }
 
     /// <summary>Enable or disable final mode</summary>
+    /// <param name="_IsFinal" />
     public void SetFinal(bool _IsFinal) { }
 
     /// <summary>Enable or disable the head to head mode</summary>
+    /// <param name="_IsHeadToHead" />
     public void SetHeadToHead(bool _IsHeadToHead) { }
 
     /// <summary>Unload the library</summary>

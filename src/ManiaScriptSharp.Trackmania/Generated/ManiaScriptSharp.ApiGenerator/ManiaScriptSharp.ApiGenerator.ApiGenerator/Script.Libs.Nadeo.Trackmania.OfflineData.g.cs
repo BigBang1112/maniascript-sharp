@@ -20,5 +20,6 @@ public partial class OfflineData : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/OfflineData.Script.txt";
     public const string C_ComponentName = "trackmania-offline-data";
     public const string P = "Trackmania_OfflineData_";
+    public const string C_OfflineCampaignFolderPath = "file://Media/Config/Nadeo/Trackmania/OfflineData/";
     public const string C_OfflineNadeoCampaignId = "Trackmania";
 }

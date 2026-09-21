@@ -36,16 +36,28 @@ public partial class PopUpBackground2 : ILib
     public const string C_Id_ButtonLeave = "trackmania-pop-up-background-2_button-leave";
     public const string C_Id_FrameBackgroundHitbox = "trackmania-pop-up-background-2_frame-background-hitbox";
     public const string C_Id_QuadBackgroundHitbox = "trackmania-pop-up-background-2_quad-background-hitbox";
+    /// <summary>Common variables</summary>
     public const double C_DefaultBackgroundOpacity = 0.95;
     public const double C_SizeY_Common_HeaderGap = 8.0;
     public const double C_SkewAngle = 10.0;
+    /// <summary>Color modes</summary>
     public const int C_ColorMode_None = 0;
     public const int C_ColorMode_Colorize = 1;
     public const int C_ColorMode_Modulate = 2;
     public const int C_ColorMode_Background = 3;
+    /// <summary>Main pop up variables</summary>
+    public const string C_Img_MainPopUp_Background = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_MainPopup.dds";
+    public const string C_Img_MainPopUp_HeaderMask = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_MainPopup_Header_Mask.dds";
+    public const string C_Img_MainPopUp_HeaderGradient = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_MainPopup_Header_Gradient.dds";
     public const double C_SizeX_MainPopUp_Background = 308.0;
+    /// <summary>Secondary pop up variables</summary>
+    public const string C_Img_SecondaryPopUp_NoHeader = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_SecondaryPopup_NoHeader.dds";
+    public const string C_Img_SecondaryPopUp_WithHeader = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_SecondaryPopup_WithHeader.dds";
     public const double C_SizeX_SecondaryPopUp_Background = 166.0;
+    /// <summary>Tertiary pop up variables</summary>
+    public const string C_Img_TertiaryPopUp_WithHeader = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PopUp/Common_TertiaryPopup_WithHeader.dds";
     public const double C_SizeX_TertiaryPopUp_Background = 200.0;
+    /// <summary>0,1,2,3,... not 0,1,3,... for example</summary>
     public const int C_Property_Position = 0;
     public const int C_Property_Width = 1;
     public const int C_Property_HAlign = 2;

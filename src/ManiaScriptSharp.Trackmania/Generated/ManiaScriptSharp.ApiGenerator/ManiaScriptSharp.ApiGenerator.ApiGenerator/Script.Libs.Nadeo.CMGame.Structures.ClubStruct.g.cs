@@ -25,6 +25,7 @@ public partial class ClubStruct : ILib
     public const string C_ClubRoleNone = "";
     public const string C_AccountNullId = "";
     public const int C_RoomNullId = 0;
+    /// <summary>! These values must be the same in the API from LIVE !</summary>
     public const string C_ClubActivity_Campaign = "campaign";
     public const string C_ClubActivity_Room = "room";
     public const string C_ClubActivity_MapReview = "map-review";
@@ -45,7 +46,9 @@ public partial class ClubStruct : ILib
     public const string C_ActivityLink_ToReplace_ClubId = "{ClubId}";
     public const string C_ActivityLink_ToReplace_ActivityId = "{ActivityId}";
     public const string C_CreateCompetition_Link = "/create";
+    /// <summary>! These values must be the same in the API from LIVE !</summary>
     public const string C_ClubState_Public = "public";
+    /// <summary>! These values must be the same in the API from LIVE !</summary>
     public const string C_MediaType_Icon = "icon";
     public const string C_MediaType_Decal = "decal";
     public const string C_MediaType_Bg = "background";
@@ -55,10 +58,12 @@ public partial class ClubStruct : ILib
     public const string C_MediaType_Screen8x1 = "screen_8x1";
     public const string C_MediaType_Screen16x1 = "screen_16x1";
     public const string C_ClubThemes_Path = "Media/Manialinks/Nadeo/CMGame/OfficialThemes";
+    /// <summary>Popularity levels (from the API)</summary>
     public const int C_PopularityLevel_None = 0;
     public const int C_PopularityLevel_Low = 1;
     public const int C_PopularityLevel_Middle = 2;
     public const int C_PopularityLevel_High = 3;
+    /// <summary>Error codes</summary>
     public const int C_ErrorCode_ClubMedia_FileTooLarge = 413;
 
     public struct LibStructuresClub_K_Member
@@ -253,27 +258,37 @@ public partial class ClubStruct : ILib
     public global::System.Collections.Generic.Dictionary<string, string> GetChoiceListAddActivity() => default!;
 
     /// <summary>Determine if the given theme name exists or not</summary>
+    /// <param name="_ThemeName" />
     public bool IsClubThemeName(string _ThemeName) => default!;
 
     /// <summary>Determine if the given url is a club theme url or not</summary>
+    /// <param name="_MediaUrl" />
     public bool IsClubThemeUrl(string _MediaUrl) => default!;
 
     /// <summary>Get the name of the club theme associated to the given url</summary>
+    /// <param name="_MediaUrl" />
     public string GetClubThemeName(string _MediaUrl) => default!;
 
     /// <summary>Get the formatted url of a club theme given the name and the media type</summary>
+    /// <param name="_ThemeName" />
+    /// <param name="_MediaType" />
     public string GetClubThemeUrl(string _ThemeName, string _MediaType) => default!;
 
     /// <summary>Get the club theme type given the media url</summary>
+    /// <param name="_MediaUrl" />
     public string GetClubThemeType(string _MediaUrl) => default!;
 
     /// <summary>Get the media url corresponding to the given media type</summary>
+    /// <param name="_Club" />
+    /// <param name="_MediaType" />
     public string GetMediaFromType(LibStructuresClub_K_Club _Club, string _MediaType) => default!;
 
     /// <summary>Check if there is at least one asset in the club</summary>
+    /// <param name="_Club" />
     public bool IsAnyAssetSelected(LibStructuresClub_K_Club _Club) => default!;
 
     /// <summary>Check if there is at least one theme selected among the different club assets</summary>
+    /// <param name="_Club" />
     public bool IsAnyThemeSelected(LibStructuresClub_K_Club _Club) => default!;
 
     /// <summary>Get the manialink component</summary>

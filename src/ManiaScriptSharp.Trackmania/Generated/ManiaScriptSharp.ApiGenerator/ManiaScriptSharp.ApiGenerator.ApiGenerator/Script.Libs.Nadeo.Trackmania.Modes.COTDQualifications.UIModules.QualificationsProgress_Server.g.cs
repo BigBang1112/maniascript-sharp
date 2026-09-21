@@ -26,21 +26,27 @@ public partial class QualificationsProgress_Server : ILib
     public void ResetJoinLinks() { }
 
     /// <summary>Send the time at which the qualifications will begin</summary>
+    /// <param name="_StartTime" />
     public void SetQualificationsStartTime(int _StartTime) { }
 
     /// <summary>Send the maximum time at which the players must have join to be able to qualify</summary>
+    /// <param name="_MaxJoinTime" />
     public void SetQualificationsMaxJoinTime(int _MaxJoinTime) { }
 
     /// <summary>Send the time at which the players will be automatically transfered to the knockout servers</summary>
+    /// <param name="_AutoJoinTime" />
     public void SetKnockoutAutoJoinTime(int _AutoJoinTime) { }
 
     /// <summary>Send the competition type of the server (main or rerun)</summary>
+    /// <param name="_CompetitionType" />
     public void SetCompetitionType(string _CompetitionType) { }
 
     /// <summary>Send the name of the competition</summary>
+    /// <param name="_CompetitionName" />
     public void SetCompetitionName(string _CompetitionName) { }
 
     /// <summary>Display the UI as a side UI or a pop up</summary>
+    /// <param name="_CanDisplayPopUp" />
     public void SetCanDisplayPopUp(bool _CanDisplayPopUp) { }
 
     /// <summary>Reset the click on the buttons</summary>

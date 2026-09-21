@@ -17,11 +17,11 @@ public partial class MapInfo_Server : ILib
     public const string C_Id = "UIModule_Champion_MapInfo";
 
     /// <summary>Used to hide Map Info in specific situations</summary>
-    /// <param name="IsVisible">Whether or not the UI is visible</param>
+    /// <param name="_IsVisible">Whether or not the UI is visible</param>
     public void SetSpecialVisibility(bool _IsVisible) { }
 
     /// <summary>Update the timer end time Use a negative value to disable the timer</summary>
-    /// <param name="CutOffTimeLimit">The time at which the timer will end</param>
+    /// <param name="_CutOffTimeLimit">The time at which the timer will end</param>
     public void SetCutOffTimeLimit(int _CutOffTimeLimit) { }
 
     /// <summary>Unload the library</summary>

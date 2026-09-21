@@ -35,61 +35,61 @@ public partial class XmlRpcCommon : ILib
     public bool IsEnabled() => default!;
 
     /// <summary>Wrapper for the SendCallbackArray() method</summary>
-    /// <param name="Name">The name of the callback</param>
-    /// <param name="Data">The data to send</param>
+    /// <param name="_Name">The name of the callback</param>
+    /// <param name="_Data">The data to send</param>
     public void SendCallbackArray(string _Name, global::System.Collections.Generic.IList<string> _Data) { }
 
     /// <summary>Wrapper for the SendCallback() method</summary>
-    /// <param name="Name">The name of the callback</param>
-    /// <param name="Data">The data to send</param>
+    /// <param name="_Name">The name of the callback</param>
+    /// <param name="_Data">The data to send</param>
     public void SendCallback(string _Name, string _Data) { }
 
     /// <summary>Register a new callback</summary>
-    /// <param name="Name">Name of the callback</param>
-    /// <param name="Doc">Documentation about the callback</param>
+    /// <param name="_Name">Name of the callback</param>
+    /// <param name="_Doc">Documentation about the callback</param>
     public void RegisterCallback(string _Name, string _Doc) { }
 
     /// <summary>Unregister a callback</summary>
-    /// <param name="Name">Name of the callback to unregister</param>
+    /// <param name="_Name">Name of the callback to unregister</param>
     public void UnregisterCallback(string _Name) { }
 
     /// <summary>Check if a callback is blocked</summary>
-    /// <param name="Name">The name of the callback to check</param>
+    /// <param name="_Name">The name of the callback to check</param>
     /// <returns>True if the callback is blocked, False otherwise</returns>
     public bool CallbackIsBlocked(string _Name) => default!;
 
     /// <summary>Check if a callback can be sent</summary>
-    /// <param name="Name">The name of the callback to check</param>
+    /// <param name="_Name">The name of the callback to check</param>
     /// <returns>True if the callback can be sent, False otherwise</returns>
     public bool CallbackIsAllowed(string _Name) => default!;
 
     /// <summary>Get a list of all registered callbacks</summary>
-    /// <param name="SendCallback">Send a callback with the help</param>
+    /// <param name="_SendCallback">Send a callback with the help</param>
     /// <returns>The list of callbacks</returns>
     public global::System.Collections.Generic.IList<string> ListCallbacks(bool _SendCallback) => default!;
 
     /// <summary>Get help about a callback</summary>
-    /// <param name="Name">Name of the callback to check</param>
-    /// <param name="SendCallback">Send a callback with the help</param>
+    /// <param name="_Name">Name of the callback to check</param>
+    /// <param name="_SendCallback">Send a callback with the help</param>
     /// <returns>The help text of the callback</returns>
     public string CallbackHelp(string _Name, bool _SendCallback) => default!;
 
     /// <summary>Block a callback</summary>
-    /// <param name="Name">Name of the callback to block</param>
+    /// <param name="_Name">Name of the callback to block</param>
     public void BlockCallback(string _Name) { }
 
     /// <summary>Block all callbacks</summary>
     public void BlockAllCallbacks() { }
 
     /// <summary>Unblock a callback</summary>
-    /// <param name="Name">Name of the callback to unblock</param>
+    /// <param name="_Name">Name of the callback to unblock</param>
     public void UnblockCallback(string _Name) { }
 
     /// <summary>Unblock all callbacks</summary>
     public void UnblockAllCallbacks() { }
 
     /// <summary>Get the list of all blocked callbacks</summary>
-    /// <param name="SendCallback">Send a callback with the help</param>
+    /// <param name="_SendCallback">Send a callback with the help</param>
     /// <returns>An array with the name of the blocked callbacks</returns>
     public global::System.Collections.Generic.IList<string> GetBlockedCallbacks(bool _SendCallback) => default!;
 
@@ -100,9 +100,12 @@ public partial class XmlRpcCommon : ILib
     public void Load() { }
 
     /// <summary>Callback sent when starting to load the map Data: [Number of the map]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void LoadingMap(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent when starting to unload the map Data: [Number of the map]</summary>
+    /// <param name="_Number" />
     public void UnloadingMap(int _Number) { }
 
     /// <summary>Callback sent at the beginning of the server Data: []</summary>
@@ -112,33 +115,47 @@ public partial class XmlRpcCommon : ILib
     public void BeginServerStop() { }
 
     /// <summary>Callback sent at the beginning of the match Data: [Number of the match, Map restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMatch(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent after the beginning of the match Data: [Number of the match, Map restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMatchStop(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent before the beginning of the map Data: [Number of the map, Map UID, Map restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMap(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent after the beginning of the map Data: [Number of the map, Map UID, Map restarted]</summary>
+    /// <param name="_Number" />
+    /// <param name="_Restarted" />
     public void BeginMapStop(int _Number, bool _Restarted) { }
 
     /// <summary>Callback sent before the beginning of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void BeginSubmatch(int _Number) { }
 
     /// <summary>Callback sent after the beginning of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void BeginSubmatchStop(int _Number) { }
 
     /// <summary>Callback sent before the beginning of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void BeginRound(int _Number) { }
 
     /// <summary>Callback sent after the beginning of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void BeginRoundStop(int _Number) { }
 
     /// <summary>Callback sent before the beginning of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void BeginTurn(int _Number) { }
 
     /// <summary>Callback sent after the beginning of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void BeginTurnStop(int _Number) { }
 
     /// <summary>Callback sent at the beginning of the play loop Data: []</summary>
@@ -148,33 +165,43 @@ public partial class XmlRpcCommon : ILib
     public void EndPlaying() { }
 
     /// <summary>Callback sent before the end of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void EndTurn(int _Number) { }
 
     /// <summary>Callback sent after the end of the turn Data: [Number of the turn]</summary>
+    /// <param name="_Number" />
     public void EndTurnStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void EndRound(int _Number) { }
 
     /// <summary>Callback sent after the end of the round Data: [Number of the round]</summary>
+    /// <param name="_Number" />
     public void EndRoundStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void EndSubmatch(int _Number) { }
 
     /// <summary>Callback sent after the end of the submatch Data: [Number of the submatch]</summary>
+    /// <param name="_Number" />
     public void EndSubmatchStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the map Data: [Number of the map, Map UID]</summary>
+    /// <param name="_Number" />
     public void EndMap(int _Number) { }
 
     /// <summary>Callback sent after the end of the map Data: [Number of the map, Map UID]</summary>
+    /// <param name="_Number" />
     public void EndMapStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the match Data: [Number of the match]</summary>
+    /// <param name="_Number" />
     public void EndMatch(int _Number) { }
 
     /// <summary>Callback sent after the end of the match Data: [Number of the match]</summary>
+    /// <param name="_Number" />
     public void EndMatchStop(int _Number) { }
 
     /// <summary>Callback sent before the end of the server Data: []</summary>
@@ -199,10 +226,11 @@ public partial class XmlRpcCommon : ILib
     public void GetPause() { }
 
     /// <summary>Set the pause status</summary>
-    /// <param name="IsInPause">True to set the mode in pause, False otherwise</param>
+    /// <param name="_IsInPause">True to set the mode in pause, False otherwise</param>
     public void SetPause(bool _IsInPause) { }
 
     /// <summary>Overload SetPause()</summary>
+    /// <param name="_IsInPause" />
     public void SetPause(string _IsInPause) { }
 
     /// <summary>Callback sent at the beginning of the pause</summary>

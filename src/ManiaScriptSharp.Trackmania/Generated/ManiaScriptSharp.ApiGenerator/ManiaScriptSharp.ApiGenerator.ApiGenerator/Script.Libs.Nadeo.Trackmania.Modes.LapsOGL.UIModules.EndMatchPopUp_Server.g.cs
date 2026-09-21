@@ -16,6 +16,7 @@ public partial class EndMatchPopUp_Server : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/LapsOGL/UIModules/EndMatchPopUp_Server.Script.txt";
+    /// <summary>Copy pasted in Client side</summary>
     public const int C_ChallengeStatus_None = 0;
     public const int C_ChallengeStatus_Completed = 1;
     public const string C_Id = "UIModule_LapsOGL_EndMatchPopUp";

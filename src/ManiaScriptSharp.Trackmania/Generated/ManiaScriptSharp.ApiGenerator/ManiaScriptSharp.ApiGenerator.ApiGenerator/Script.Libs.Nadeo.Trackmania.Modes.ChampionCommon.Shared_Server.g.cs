@@ -17,33 +17,44 @@ public partial class Shared_Server : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCommon/Shared_Server.Script.txt";
 
     /// <summary>Update the Clash Time status</summary>
+    /// <param name="_IsClashTime" />
     public void SetIsClashTime(bool _IsClashTime) { }
 
     /// <summary>Update the final status</summary>
+    /// <param name="_IsFinal" />
     public void SetIsFinal(bool _IsFinal) { }
 
     /// <summary>Update the pause status</summary>
+    /// <param name="_IsPause" />
     public void SetIsPause(bool _IsPause) { }
 
     /// <summary>Update the pre-match status</summary>
+    /// <param name="_IsPreMatch" />
     public void SetIsPreMatch(bool _IsPreMatch) { }
 
     /// <summary>Update the maps progression</summary>
+    /// <param name="_MapCurrent" />
+    /// <param name="_MapTotal" />
     public void SetMapsProgression(int _MapCurrent, int _MapTotal) { }
 
     /// <summary>Set the number of points necessary to win the cup Use 0 or less to disable</summary>
+    /// <param name="_CupPointsLimit" />
     public void SetCupPointsLimit(int _CupPointsLimit) { }
 
     /// <summary>Set the number of points necessary to win a match Use 0 or less to disable</summary>
+    /// <param name="_MatchPointsLimit" />
     public void SetMatchPointsLimit(int _MatchPointsLimit) { }
 
     /// <summary>Update the match winners (sorted by winning order)</summary>
+    /// <param name="_MatchWinners" />
     public void SetMatchWinners(global::System.Collections.Generic.IList<string> _MatchWinners) { }
 
     /// <summary>Set the match style</summary>
+    /// <param name="_MatchStyle" />
     public void SetMatchStyle(int _MatchStyle) { }
 
     /// <summary>Set the display mode to use</summary>
+    /// <param name="_DisplayMode" />
     public void SetDisplayMode(int _DisplayMode) { }
 
     /// <summary>Unload the library</summary>

@@ -21,7 +21,6 @@ public partial class ScoreAndMapInfos_Teams_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/ScoreAndMapInfos_Teams_Client.Script.txt";
-    public const string C_RoundWinSound = "RoundWin";
 
     /// <summary>Get the id of the UI module</summary>
     public string GetId() => default!;

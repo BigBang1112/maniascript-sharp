@@ -17,5 +17,6 @@ public partial class MV_Utils : ILib
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/MV_Utils.Script.txt";
 
     /// <summary>Use to get only the suffix without the rank</summary>
+    /// <param name="_Rank" />
     public string GetRankSuffix(int _Rank) => default!;
 }

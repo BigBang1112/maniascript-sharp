@@ -35,58 +35,60 @@ public partial class Top2 : ILib
     public void Unload() { }
 
     /// <summary>Create a new top</summary>
-    /// <param name="TopId">The id of the top</param>
-    /// <param name="Name">The name of the top</param>
-    /// <param name="Size">The number of entry in the top</param>
-    /// <param name="Pos">THe position of the top</param>
+    /// <param name="_TopId">The id of the top</param>
+    /// <param name="_Name">The name of the top</param>
+    /// <param name="_Size">The number of entry in the top</param>
+    /// <param name="_Pos">THe position of the top</param>
     public void Create(string _TopId, string _Name, int _Size, Vec2 _Pos) { }
 
     /// <summary>Update an existing top</summary>
-    /// <param name="TopId">The id of the top to update</param>
-    /// <param name="Name">The updated name of the top</param>
+    /// <param name="_TopId">The id of the top to update</param>
+    /// <param name="_Name">The updated name of the top</param>
+    /// <param name="_Size" />
+    /// <param name="_Pos" />
     public void Update(string _TopId, string _Name, int _Size, Vec2 _Pos) { }
 
     /// <summary>Destroy an existing top</summary>
-    /// <param name="TopId">The id of the top to destroy</param>
+    /// <param name="_TopId">The id of the top to destroy</param>
     public void Destroy(string _TopId) { }
 
     /// <summary>Set the top manialink width</summary>
-    /// <param name="Width">The new width</param>
+    /// <param name="_Width">The new width</param>
     public void SetTopWidth(float _Width) { }
 
     /// <summary>Set the playercard height</summary>
-    /// <param name="Height">The new height</param>
+    /// <param name="_Height">The new height</param>
     public void SetPlayerCardHeight(float _Height) { }
 
     /// <summary>Use a common background image for the tops If _ImagePath is empty, then the solid background is used</summary>
-    /// <param name="ImagePath">The path to the image</param>
-    /// <param name="Pos">The image position</param>
-    /// <param name="Size">The image size</param>
+    /// <param name="_ImagePath">The path to the image</param>
+    /// <param name="_Pos">The image position</param>
+    /// <param name="_Size">The image size</param>
     public void SetCommonBackgroundImage(string _ImagePath, Vec2 _Pos, Vec2 _Size) { }
 
     /// <summary>Set the colors of the top elements</summary>
-    /// <param name="Name">The name of the element to update</param>
-    /// <param name="Value">The new color for this element</param>
+    /// <param name="_Name">The name of the element to update</param>
+    /// <param name="_Value">The new color for this element</param>
     public void SetColor(string _Name, string _Value) { }
 
     /// <summary>Set the title of the common tops display</summary>
-    /// <param name="Title">The new title</param>
+    /// <param name="_Title">The new title</param>
     public void SetTitle(string _Title) { }
 
     /// <summary>Set a default title to the common tops display</summary>
     public void SetDefaultTitle() { }
 
     /// <summary>Set the name of the tab containing the tops (used by the tab library)</summary>
-    /// <param name="TabName">The new name of the tab</param>
+    /// <param name="_TabName">The new name of the tab</param>
     public void SetTabName(string _TabName) { }
 
     /// <summary>Set the z-index of the top layer</summary>
-    /// <param name="ZIndex">The new z-index</param>
+    /// <param name="_ZIndex">The new z-index</param>
     public void SetZIndex(int _ZIndex) { }
 
     /// <summary>Find the n-th record in a top</summary>
-    /// <param name="TopId">In which top to search</param>
-    /// <param name="Rank">The n-th record to get</param>
+    /// <param name="_TopId">In which top to search</param>
+    /// <param name="_Rank">The n-th record to get</param>
     /// <returns>The top value</returns>
     public string GetRecord(string _TopId, int _Rank) => default!;
 
@@ -97,7 +99,7 @@ public partial class Top2 : ILib
     public void SendRecords() { }
 
     /// <summary>Reset a top</summary>
-    /// <param name="TopId">The id of the top to reset</param>
+    /// <param name="_TopId">The id of the top to reset</param>
     public void Reset(string _TopId) { }
 
     /// <summary>Reset all tops</summary>

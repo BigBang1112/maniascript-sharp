@@ -3,6 +3,7 @@ using System.Text;
 using System.Xml.Linq;
 using ManiaScriptSharp.Generator.Emission;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
@@ -49,6 +50,14 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
             .Where(static t => t.Path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
             .Select(static (t, ct) => (Path: t.Path, Text: t.GetText(ct)?.ToString()))
             .Collect();
+
+        // A .razor file carries a ManiaApp context, dynamic XML markup, and optionally a nested
+        // Manialink script context. Razor parses the mixed document; both contexts then use the
+        // same emitter as ordinary .cs files.
+        var razorTemplates = context.AdditionalTextsProvider
+            .Where(static t => t.Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase))
+            .Select(static (t, ct) => (Path: t.Path, Text: t.GetText(ct)?.ToString()))
+            .Where(static t => t.Text is not null);
         // ─────────────────────────────────────────────────────────────────────────────
 
         // ── ILib pipeline: generate a .Script.txt for each lib class ─────────────────
@@ -138,6 +147,113 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
                     info.Symbol.Name, ex.Message));
             }
         });
+
+        context.RegisterSourceOutput(
+            razorTemplates.Combine(context.CompilationProvider).Combine(settingsProvider),
+            static (spc, tuple) =>
+            {
+                var ((razorFile, compilation), proj) = tuple;
+                try
+                {
+                    var document = RazorManialinkProcessor.Process(razorFile.Path, razorFile.Text!);
+                    var parseOptions = compilation.SyntaxTrees.FirstOrDefault()?.Options as CSharpParseOptions;
+                    var generatedPath = razorFile.Path + ".g.cs";
+                    var tree = CSharpSyntaxTree.ParseText(
+                        document.CSharpSource,
+                        parseOptions,
+                        generatedPath,
+                        Encoding.UTF8);
+                    var augmentedCompilation = compilation.AddSyntaxTrees(tree);
+                    var model = augmentedCompilation.GetSemanticModel(tree);
+                    var outerDeclaration = tree.GetRoot()
+                        .DescendantNodes()
+                        .OfType<ClassDeclarationSyntax>()
+                        .First(c => c.Identifier.ValueText == document.ClassName);
+
+                    if (!ValidateManialinkTemplate(document.XmlTemplate, out var xmlError))
+                    {
+                        spc.ReportDiagnostic(Diagnostic.Create(
+                            Diagnostics.InvalidXmlTemplate,
+                            outerDeclaration.Identifier.GetLocation(),
+                            document.ClassName,
+                            xmlError));
+                        return;
+                    }
+
+                    var innerContexts = outerDeclaration.DescendantNodes()
+                        .OfType<ClassDeclarationSyntax>()
+                        .Select(decl => (Declaration: decl, Symbol: model.GetDeclaredSymbol(decl) as INamedTypeSymbol))
+                        .Where(static item => item.Symbol is not null && ImplementsIContext(item.Symbol))
+                        .ToArray();
+                    if (innerContexts.Length > 1)
+                        throw new InvalidOperationException(
+                            "A Razor Manialink can contain at most one nested IContext class for its <script> element.");
+
+                    var renderedXml = document.XmlTemplate;
+                    if (innerContexts.Length == 1)
+                    {
+                        var inner = innerContexts[0];
+                        var innerInfo = new ContextClassInfo(inner.Declaration, inner.Symbol!, model, isManialink: true);
+                        var innerEmitter = new ScriptEmitter(innerInfo, spc, proj.Settings);
+                        var innerScript = innerEmitter.Emit();
+                        ValidateManialinkBindings(
+                            document.XmlTemplate,
+                            innerEmitter.ManialinkBindings,
+                            spc,
+                            innerInfo);
+                        renderedXml = MergeIntoManialink(document.XmlTemplate, innerScript, inner.Symbol!.Name);
+                    }
+
+                    var finalSource = RazorManialinkProcessor.AddRenderMethod(document, renderedXml);
+                    var finalTree = CSharpSyntaxTree.ParseText(
+                        finalSource,
+                        parseOptions,
+                        generatedPath,
+                        Encoding.UTF8);
+                    var finalCompilation = compilation.AddSyntaxTrees(finalTree);
+                    var finalModel = finalCompilation.GetSemanticModel(finalTree);
+                    var generatedErrors = finalModel.GetDiagnostics()
+                        .Where(static d => d.Severity == DiagnosticSeverity.Error)
+                        .Take(5)
+                        .Select(static d => d.GetMessage())
+                        .ToArray();
+                    if (generatedErrors.Length > 0)
+                        throw new InvalidOperationException(
+                            "The C# in the Razor page did not compile: " + string.Join("; ", generatedErrors));
+
+                    var finalDeclaration = finalTree.GetRoot()
+                        .DescendantNodes()
+                        .OfType<ClassDeclarationSyntax>()
+                        .First(c => c.Identifier.ValueText == document.ClassName);
+                    var finalSymbol = (INamedTypeSymbol?)finalModel.GetDeclaredSymbol(finalDeclaration);
+                    if (finalSymbol is null || !ImplementsIContext(finalSymbol))
+                        throw new InvalidOperationException(
+                            $"Razor page '{document.ClassName}' could not be compiled as an IContext.");
+
+                    spc.AddSource(
+                        $"{document.ClassName}.razor.g.cs",
+                        SourceText.From(finalSource, Encoding.UTF8));
+
+                    var outerInfo = new ContextClassInfo(finalDeclaration, finalSymbol, finalModel);
+                    var outerEmitter = new ScriptEmitter(outerInfo, spc, proj.Settings);
+                    var outerScript = outerEmitter.Emit();
+                    WriteScriptFiles(outerInfo, proj.Settings, proj.Dir, outerScript, spc);
+
+                    spc.AddSource(
+                        $"{document.ClassName}.razor.output.g.cs",
+                        SourceText.From(
+                            $"// Generated Razor ManiaApp at: {document.ClassName}.Script.txt\n// Length: {outerScript.Length} chars\n",
+                            Encoding.UTF8));
+                }
+                catch (Exception ex)
+                {
+                    spc.ReportDiagnostic(Diagnostic.Create(
+                        Diagnostics.InvalidRazorTemplate,
+                        Location.None,
+                        Path.GetFileName(razorFile.Path),
+                        ex.Message));
+                }
+            });
     }
 
     private static bool ImplementsIContext(INamedTypeSymbol symbol)

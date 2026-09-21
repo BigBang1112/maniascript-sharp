@@ -24,127 +24,126 @@ public partial class Layers2 : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Check if a layer really exists</summary>
-    /// <param name="LayerName">The name of the layer to check</param>
+    /// <param name="_LayerName">The name of the layer to check</param>
     /// <returns>True if the layer exists, false otherwise</returns>
     public bool Exists(string _LayerName) => default!;
 
     /// <summary>Get a layer from its name</summary>
-    /// <param name="LayerName">The name of the layer to get</param>
+    /// <param name="_LayerName">The name of the layer to get</param>
     /// <returns>The layer if found, Null otherwise</returns>
     public CUILayer Get(string _LayerName) => default!;
 
     /// <summary>Get a layer from its id</summary>
-    /// <param name="LayerId">The id of the layer to get</param>
+    /// <param name="_LayerId">The id of the layer to get</param>
     /// <returns>The layer if found, Null otherwise</returns>
     public CUILayer Get(Ident _LayerId) => default!;
 
     /// <summary>Get the name of a layer</summary>
-    /// <param name="Layer">The layer to get</param>
+    /// <param name="_Layer">The layer to get</param>
     /// <returns>The name of the layer if found, an empty Text otherwise</returns>
     public string GetName(CUILayer _Layer) => default!;
 
     /// <summary>Get the name of a layer</summary>
-    /// <param name="LayerId">The  iflayer to get</param>
+    /// <param name="_LayerId">The  iflayer to get</param>
     /// <returns>The name of the layer if found, an empty Text otherwise</returns>
     public string GetName(Ident _LayerId) => default!;
 
     /// <summary>Destroy a layer</summary>
-    /// <param name="LayerName">The name of the layer to destroy</param>
+    /// <param name="_LayerName">The name of the layer to destroy</param>
     public void Destroy(string _LayerName) { }
 
     /// <summary>Destroy all layers</summary>
     public void DestroyAll() { }
 
     /// <summary>Create a new layer If a layer with the same name already exists, destroys and replaces it</summary>
-    /// <param name="LayerName">The name of the layer to create</param>
+    /// <param name="_LayerName">The name of the layer to create</param>
     public void Create(string _LayerName) { }
 
     /// <summary>Create a new layer</summary>
-    /// <param name="LayerName">The name of the layer to create</param>
-    /// <param name="LayerManialink">The content of the layer's manialink</param>
+    /// <param name="_LayerName">The name of the layer to create</param>
+    /// <param name="_LayerManialink">The content of the layer's manialink</param>
     public void Create(string _LayerName, string _LayerManialink) { }
 
     /// <summary>Attach a layer to one player or to all players</summary>
-    /// <param name="LayerName">The name of the layer to attach</param>
-    /// <param name="Player">The player to attach the layer with, if Null then attach to all players</param>
+    /// <param name="_LayerName">The name of the layer to attach</param>
+    /// <param name="_Player">The player to attach the layer with, if Null then attach to all players</param>
     public void Attach(string _LayerName, CPlayer _Player) { }
 
     /// <summary>Attach() overload, attach a layer to all players</summary>
-    /// <param name="LayerName">The name of the layer to attach</param>
+    /// <param name="_LayerName">The name of the layer to attach</param>
     public void Attach(string _LayerName) { }
 
     /// <summary>Detach a layer from one player or from all players</summary>
-    /// <param name="LayerName">The name of the layer to detach</param>
-    /// <param name="Player">The player to detach the layer from, if Null then detach from all players</param>
+    /// <param name="_LayerName">The name of the layer to detach</param>
+    /// <param name="_Player">The player to detach the layer from, if Null then detach from all players</param>
     public void Detach(string _LayerName, CPlayer _Player) { }
 
     /// <summary>Detach() overload, detach a layer from all players</summary>
-    /// <param name="LayerName">The name of the layer to detach</param>
+    /// <param name="_LayerName">The name of the layer to detach</param>
     public void Detach(string _LayerName) { }
 
     /// <summary>Detach all the layers from a player or the global UI</summary>
-    /// <param name="Player">The player to detach the layers from, if Null then detach from all players</param>
-    /// <param name="Full">Detach all the layers even the ones not created by the lib</param>
+    /// <param name="_Player">The player to detach the layers from, if Null then detach from all players</param>
+    /// <param name="_Full">Detach all the layers even the ones not created by the lib</param>
     public void DetachAll(CPlayer _Player, bool _Full) { }
 
     /// <summary>DetachAll() overload, detach all the layers created by the lib from one player or the global UI</summary>
-    /// <param name="Player">The player to detach the layers from, if Null then detach from all players</param>
+    /// <param name="_Player">The player to detach the layers from, if Null then detach from all players</param>
     public void DetachAll(CPlayer _Player) { }
 
     /// <summary>DetachAll() overload, detach all the layers created by the lib from the global UI</summary>
     public void DetachAll() { }
 
     /// <summary>Attach a layer in the replay</summary>
-    /// <param name="LayerName">The name of the layer to attach</param>
+    /// <param name="_LayerName">The name of the layer to attach</param>
     public void AttachReplay(string _LayerName) { }
 
     /// <summary>Detach a layer from the replay</summary>
-    /// <param name="LayerName">The name of the layer to detach</param>
+    /// <param name="_LayerName">The name of the layer to detach</param>
     public void DetachReplay(string _LayerName) { }
 
     /// <summary>Update a layer based on its name</summary>
-    /// <param name="LayerName">The name of the layer to update</param>
-    /// <param name="LayerManialink">The new manialink to use</param>
+    /// <param name="_LayerName">The name of the layer to update</param>
+    /// <param name="_LayerManialink">The new manialink to use</param>
     public void Update(string _LayerName, string _LayerManialink) { }
 
     /// <summary>Set the layer visibility</summary>
-    /// <param name="LayerName">The name of the layer to update</param>
-    /// <param name="IsVisible">True if the layer must be visible, false otherwise</param>
+    /// <param name="_LayerName">The name of the layer to update</param>
+    /// <param name="_IsVisible">True if the layer must be visible, false otherwise</param>
     public void SetVisibility(string _LayerName, bool _IsVisible) { }
 
     /// <summary>Show the layer</summary>
-    /// <param name="LayerName">The name of the layer to show</param>
+    /// <param name="_LayerName">The name of the layer to show</param>
     public void Show(string _LayerName) { }
 
     /// <summary>Hide the layer</summary>
-    /// <param name="LayerName">The name of the layer to hide</param>
+    /// <param name="_LayerName">The name of the layer to hide</param>
     public void Hide(string _LayerName) { }
 
     /// <summary>Check if the player is missing a layer. If the _Player is Null, the global UI will be checked. If the layer doesn't exists, it isn't considered as missing.</summary>
-    /// <param name="LayerName">The layer to check</param>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_LayerName">The layer to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>True if the player doesn't have the layer, false otherwise</returns>
     public bool IsMissing(string _LayerName, CPlayer _Player) => default!;
 
     /// <summary>IsMissing() overload, check if a layer is missing on the global UI</summary>
-    /// <param name="LayerName">The layer to check</param>
+    /// <param name="_LayerName">The layer to check</param>
     /// <returns>True if the player doesn't have the layer, false otherwise</returns>
     public bool IsMissing(string _LayerName) => default!;
 
     /// <summary>Check if the player is missing a layer from a list</summary>
-    /// <param name="LayersName">The layers to check</param>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_LayersName">The layers to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>An array containing the names of the missing layers (if any)</returns>
     public global::System.Collections.Generic.IList<string> IsMissing(global::System.Collections.Generic.IList<string> _LayersName, CPlayer _Player) => default!;
 
     /// <summary>IsMissing() overload, check if the global UI is missing a layer from a list</summary>
-    /// <param name="LayersName">The layers to check</param>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_LayersName">The layers to check</param>
     /// <returns>An array containing the names of the missing layers (if any)</returns>
     public global::System.Collections.Generic.IList<string> IsMissing(global::System.Collections.Generic.IList<string> _LayersName) => default!;
 
     /// <summary>Layers garbage collector Destroys layers that are not used in any UI.UILayers array</summary>
-    /// <param name="Full">Clean all the layers even the ones not created by the lib</param>
+    /// <param name="_Full">Clean all the layers even the ones not created by the lib</param>
     public void Clean(bool _Full) { }
 
     /// <summary>Clean() overload, destroys the layers created by the lib that aren't attach to any UI</summary>

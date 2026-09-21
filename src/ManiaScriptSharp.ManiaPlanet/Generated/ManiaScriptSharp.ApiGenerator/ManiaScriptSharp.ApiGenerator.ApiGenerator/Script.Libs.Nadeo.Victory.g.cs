@@ -9,7 +9,6 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo;
 
-/// <summary>Return the version number of the script</summary>
 public partial class Victory : ILib
 {
     public const string Version = "2012-05-10";

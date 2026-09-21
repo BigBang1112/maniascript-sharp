@@ -15,10 +15,12 @@ public partial class AdvertController : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Settings.SettingsStructs SettingsStructs;
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Advert.AdvertStore AdStore;
 
+    /// <summary>Paramètres utilisés pour savoir quand déclencher une impression</summary>
     public const double C_ImpressionParams_MinDuration_seconds = 3.0;
     public const double C_ImpressionParams_MaxAngle_deg = 50.0;
     public const double C_ImpressionParams_MinScreenSurface01 = 0.015;
     public const double C_ImpressionParams_MinAdVisibleSurface01 = 0.7;
+    /// <summary>Constantes pour les requêtes</summary>
     public const string C_LiveAPI_RequestBaseURL = "/api/token/advertising";
     public const string C_LiveAPI_FetchAdCampaignsRoute = "/display/active";
     public const string C_LiveAPI_ImpressionsReportRoute = "/player-report";

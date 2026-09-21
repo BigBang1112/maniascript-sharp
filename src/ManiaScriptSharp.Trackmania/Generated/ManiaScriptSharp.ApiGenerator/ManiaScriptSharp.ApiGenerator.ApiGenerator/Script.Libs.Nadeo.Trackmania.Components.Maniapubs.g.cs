@@ -25,7 +25,6 @@ public partial class Maniapubs : ILib
     public const string P = "ComponentManiapubs_";
     public const string C_NavZone = "ComponentManiapubs_quad-activation";
     public const string C_NavGroup = "ComponentManiapubs_NavGroup";
-    public const double C_Thickness_Ads_Contour = 10.0;
 
     /// <summary>Get the component</summary>
     /// <returns>The component id</returns>

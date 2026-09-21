@@ -21,7 +21,7 @@ public partial class LiveRankingChampion_Server : ILib
     public const int C_RankingMode_CurrentRace = 1;
 
     /// <summary>DEPRECATED it is not used anymore Set the best time at each checkpoint This data will survive a plugin restart</summary>
-    /// <param name="BestTimeAtCheckpoint">The best time at each checkpoint</param>
+    /// <param name="_BestTimeAtCheckpoint">The best time at each checkpoint</param>
     public void SetBestTimeAtCheckpoint(global::System.Collections.Generic.Dictionary<int, int> _BestTimeAtCheckpoint) { }
 
     /// <summary>Trigger an update of the UI</summary>
@@ -31,28 +31,35 @@ public partial class LiveRankingChampion_Server : ILib
     public void StartNewRace() { }
 
     /// <summary>Update the list of players that finished race</summary>
-    /// <param name="PlayerFinishedRace">List of players that finished race</param>
+    /// <param name="_PlayerFinishedRace">List of players that finished race</param>
     public void SetPlayerFinishedRace(global::System.Collections.Generic.IList<string> _PlayerFinishedRace) { }
 
     /// <summary>Update the points limit used to displayed finalist and winner status Cup mode</summary>
+    /// <param name="_PointsLimit" />
     public void SetPointsLimit(int _PointsLimit) { }
 
     /// <summary>Update the list of players qualified for the next final step</summary>
+    /// <param name="_QualifiedPlayersAccountIds" />
     public void SetQualifiedPlayers(global::System.Collections.Generic.IList<string> _QualifiedPlayersAccountIds) { }
 
     /// <summary>Set the ranking mode</summary>
+    /// <param name="_RankingMode" />
     public void SetRankingMode(int _RankingMode) { }
 
     /// <summary>Display the player's team color behind its name</summary>
+    /// <param name="_DisplayTeamColor" />
     public void DisplayTeamColor(bool _DisplayTeamColor) { }
 
     /// <summary>Display the player's team name</summary>
+    /// <param name="_DisplayTeamName" />
     public void DisplayTeamName(bool _DisplayTeamName) { }
 
     /// <summary>Display the player's score progression</summary>
+    /// <param name="_DisplayScoreProgression" />
     public void DisplayScoreProgression(bool _DisplayScoreProgression) { }
 
     /// <summary>Update the info message at the bottom of the live ranking</summary>
+    /// <param name="_InfoMessage" />
     public void SetInfoMessage(string _InfoMessage) { }
 
     /// <summary>Unload the library</summary>

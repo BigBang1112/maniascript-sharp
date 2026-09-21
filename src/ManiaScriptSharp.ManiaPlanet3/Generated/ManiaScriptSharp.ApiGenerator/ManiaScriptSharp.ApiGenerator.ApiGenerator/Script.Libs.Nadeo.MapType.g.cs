@@ -25,14 +25,14 @@ public partial class MapType : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Start map test</summary>
-    /// <param name="NbPlayers">Number of players testing</param>
+    /// <param name="_NbPlayers">Number of players testing</param>
     public void EnterPlayground(int _NbPlayers) { }
 
     /// <summary>Stop map test</summary>
     public void LeavePlayground() { }
 
     /// <summary>Save the map type script version in the metadata of the map</summary>
-    /// <param name="Version">The version number of the maptype</param>
+    /// <param name="_Version">The version number of the maptype</param>
     public void SetVersion(int _Version) { }
 
     /// <summary>Get the map type script version in the metadata of the map</summary>
@@ -40,7 +40,7 @@ public partial class MapType : ILib
     public int GetVersion() => default!;
 
     /// <summary>Set the time objectives of a map based on the author time</summary>
-    /// <param name="AuthorTime">The time of the author of the map</param>
+    /// <param name="_AuthorTime">The time of the author of the map</param>
     public void SetObjectivesFromAuthorTime(int _AuthorTime) { }
 
     /// <summary>Check if the objectives times are valid For the time being this function shoud always return True because the values set in the TMObjectives variables are automatically checked by the game and sanitized when necessary.</summary>

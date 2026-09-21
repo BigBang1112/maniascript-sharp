@@ -24,12 +24,12 @@ public partial class XmlRpc2_SM : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the name of an object</summary>
-    /// <param name="Object">The object to name</param>
-    /// <param name="Name">The name of the object</param>
+    /// <param name="_Object">The object to name</param>
+    /// <param name="_Name">The name of the object</param>
     public void SetObjectName(CSmObject _Object, string _Name) { }
 
     /// <summary>Get the name of an object</summary>
-    /// <param name="Object">The object to check</param>
+    /// <param name="_Object">The object to check</param>
     /// <returns>The namer of the object</returns>
     public string GetObjectName(CSmObject _Object) => default!;
 

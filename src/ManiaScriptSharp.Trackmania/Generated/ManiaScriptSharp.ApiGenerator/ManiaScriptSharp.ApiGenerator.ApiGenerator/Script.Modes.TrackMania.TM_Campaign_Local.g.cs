@@ -41,7 +41,9 @@ public partial class TM_Campaign_Local : ILib
     public const string Version = "1.4.3+2025-12-17";
     public const string ScriptName = "Modes/TrackMania/TM_Campaign_Local.Script.txt";
     public const string C_ModeName = "Campaign";
+    /// <summary>L16N [Campaign] Description of the mode rules</summary>
     public const string Description = "";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/Campaign.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const int C_ReplayMinimumDuration = 5000;
     public const int C_GhostUploadTimeout = 60000;
@@ -54,6 +56,7 @@ public partial class TM_Campaign_Local : ILib
     public const bool C_CelebrateRecordGhost = false;
     public const bool C_CelebrateRecordMedal = false;
     public const bool C_EnableBestGhosts = false;
+    /// <summary>Applied with $xxx, must be hex3</summary>
     public const string C_GhostLabel_PB = "7FA";
 
     public struct K_Scope
@@ -116,10 +119,14 @@ public partial class TM_Campaign_Local : ILib
     public virtual void Match_EndMap() { }
 
     /// <summary>Setup ghosts max alpha</summary>
+    /// <param name="_BestGhost" />
+    /// <param name="_CPGhost" />
+    /// <param name="_OpponentsGhostsNb" />
     public void SetGhostsMaxAlpha(K_GhostInfo _BestGhost, K_GhostInfo _CPGhost, int _OpponentsGhostsNb) { }
 
     /// <summary>Get the scope type of the season</summary>
-    /// <param name="SeasonId">The season Id of the campaign</param>
+    /// <param name="_SeasonId">The season Id of the campaign</param>
+    /// <param name="_Type" />
     /// <returns>The scope of the season</returns>
     public K_Scope GetScope(string _SeasonId, int _Type) => default!;
 
@@ -127,16 +134,21 @@ public partial class TM_Campaign_Local : ILib
     public string GetPBName() => default!;
 
     /// <summary>Show/hide the PB ghost</summary>
+    /// <param name="_GhostInfo" />
+    /// <param name="_IsVisible" />
+    /// <param name="_IsCloneMode" />
     public K_GhostInfo DisplayPBGhost(K_GhostInfo _GhostInfo, bool _IsVisible, bool _IsCloneMode) => default!;
 
     public K_GhostInfo DisplayPBGhost(K_GhostInfo _GhostInfo, bool _IsCloneMode) => default!;
 
     /// <summary>Remove the ghost of the best CP</summary>
+    /// <param name="_CPGhost" />
     public K_GhostInfo RemoveCPGhost(K_GhostInfo _CPGhost) => default!;
 
     /// <summary>Fetch the ghost of the race for the player</summary>
-    /// <param name="SeasonId">The season Id of the campaign</param>
-    /// <param name="Type">The type of the campaign</param>
+    /// <param name="_SeasonId">The season Id of the campaign</param>
+    /// <param name="_Type">The type of the campaign</param>
+    /// <param name="_RecordModeName" />
     /// <returns>The ghost from the record of the player</returns>
     public Ident UpdateRaceGhost(string _SeasonId, int _Type, string _RecordModeName) => default!;
 
@@ -144,6 +156,9 @@ public partial class TM_Campaign_Local : ILib
     public global::System.Collections.Generic.Dictionary<string, string> GetLiveHeaders() => default!;
 
     /// <summary>Update rankings for players</summary>
+    /// <param name="_GroupUid" />
+    /// <param name="_MapUid" />
+    /// <param name="_NewTime" />
     public void UpdateMapRanking(string _GroupUid, string _MapUid, int _NewTime) { }
 
     public void UpdateMapRanking(string _GroupUid, string _MapUid) { }
@@ -155,17 +170,30 @@ public partial class TM_Campaign_Local : ILib
     public void ProcessEndRaceMenuEvent() { }
 
     /// <summary>Add ghosts to the race</summary>
+    /// <param name="_SeasonId" />
+    /// <param name="_AccountIds" />
+    /// <param name="_Type" />
+    /// <param name="_Medal" />
+    /// <param name="_RecordModeName" />
     public global::System.Collections.Generic.IList<K_GhostInfo> AddGhostsToRaceFromAccountIdList(string _SeasonId, global::System.Collections.Generic.IList<string> _AccountIds, int _Type, int _Medal, string _RecordModeName) => default!;
 
     public global::System.Collections.Generic.IList<K_GhostInfo> AddGhostsToRaceFromAccountIdList(string _SeasonId, global::System.Collections.Generic.IList<string> _AccountIds, int _Type, string _RecordModeName) => default!;
 
     /// <summary>Add medal ghosts with &quot;personal best&quot; records</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_Type" />
+    /// <param name="_Medal" />
+    /// <param name="_RecordModeName" />
     public K_GhostInfo AddMedalGhostToRaceFromAccountId(string _AccountId, int _Type, int _Medal, string _RecordModeName) => default!;
 
     /// <summary>Get the correct id of the campaign</summary>
+    /// <param name="_CampaignType" />
+    /// <param name="_CampaignId" />
+    /// <param name="_CampaignMonthlyId" />
     public int GetCampaignId(int _CampaignType, int _CampaignId, int _CampaignMonthlyId) => default!;
 
     /// <summary>Release record ghost data</summary>
+    /// <param name="_RecordGhost" />
     public K_RecordGhost ReleaseRecordGhost(K_RecordGhost _RecordGhost) => default!;
 
     /// <summary>Respawn the local player</summary>

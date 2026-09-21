@@ -29,18 +29,24 @@ public partial class Selection : ILib
     public bool IsSelecting() => default!;
 
     /// <summary>Check if the event is moving the selection</summary>
+    /// <param name="_Event" />
     public bool IsMoveEvent(string _Event) => default!;
 
     /// <summary>Start a new selection</summary>
+    /// <param name="_Coord" />
     public void Start(Int3 _Coord) { }
 
     /// <summary>Update an ongoing selection</summary>
+    /// <param name="_Coord" />
     public void Update(Int3 _Coord) { }
 
     /// <summary>Stop an ongoing selection</summary>
+    /// <param name="_Coord" />
     public void Stop(Int3 _Coord) { }
 
     /// <summary>Create a selection</summary>
+    /// <param name="_StartCoord" />
+    /// <param name="_StopCoord" />
     public void Create(Int3 _StartCoord, Int3 _StopCoord) { }
 
     /// <summary>Destroy a selection</summary>
@@ -58,6 +64,7 @@ public partial class Selection : ILib
     public Int3 GetEnd() => default!;
 
     /// <summary>Set the color of the selection overlay</summary>
+    /// <param name="_Color" />
     public void SetColor(Vec3 _Color) { }
 
     /// <summary>Get the color of the selection overlay</summary>

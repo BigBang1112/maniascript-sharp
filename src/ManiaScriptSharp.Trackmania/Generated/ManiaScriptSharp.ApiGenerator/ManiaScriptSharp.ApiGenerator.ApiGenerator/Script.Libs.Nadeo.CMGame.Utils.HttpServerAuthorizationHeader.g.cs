@@ -17,14 +17,18 @@ public partial class HttpServerAuthorizationHeader : ILib
     public const string C_Token_Null = "";
 
     /// <summary>Add the Live authorization header to headers</summary>
+    /// <param name="_Headers" />
     public global::System.Collections.Generic.Dictionary<string, string> GetHeadersWithLiveAuthorization(global::System.Collections.Generic.Dictionary<string, string> _Headers) => default!;
 
     /// <summary>Set the Live services token</summary>
+    /// <param name="_LiveToken" />
     public void SetLiveToken(string _LiveToken) { }
 
     /// <summary>Add the Club authorization header to headers</summary>
+    /// <param name="_Headers" />
     public global::System.Collections.Generic.Dictionary<string, string> GetHeadersWithClubAuthorization(global::System.Collections.Generic.Dictionary<string, string> _Headers) => default!;
 
     /// <summary>@mslint disable next line no unused variables For backward compatibility reasons we cannot remove the deprecated `_ClubToken` parameter</summary>
+    /// <param name="_ClubToken" />
     public void SetClubToken(string _ClubToken) { }
 }

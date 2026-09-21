@@ -59,13 +59,13 @@ public partial class UIModules_Server : ILib
     }
 
     /// <summary>Load the given modules This modules will be added to the current ones, they won't replace them</summary>
-    /// <param name="Modules">A list of modules to load</param>
+    /// <param name="_Modules">A list of modules to load</param>
     public void LoadModules(global::System.Collections.Generic.IList<string> _Modules) { }
 
     public void LoadModule(string _Module) { }
 
     /// <summary>Unload the given modules</summary>
-    /// <param name="Modules">A list of modules to unload</param>
+    /// <param name="_Modules">A list of modules to unload</param>
     public void UnloadModules(global::System.Collections.Generic.IList<string> _Modules) { }
 
     public void UnloadModule(string _Module) { }

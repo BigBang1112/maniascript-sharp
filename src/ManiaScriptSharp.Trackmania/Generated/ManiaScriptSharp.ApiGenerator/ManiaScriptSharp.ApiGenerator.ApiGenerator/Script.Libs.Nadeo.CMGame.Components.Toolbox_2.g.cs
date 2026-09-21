@@ -25,13 +25,17 @@ public partial class Toolbox_2 : ILib
     public const string C_ComponentName = "CMGameToolbox2";
     public const string C_ComponentClass = "cmgame-components-toolbox-2";
     public const string C_NavGroup_Default = "navgroup-toolbox-2-default";
+    public const string C_Path_Guide = "file://Media/.debug/UI_Grid.png";
     public const double C_Opacity_Default = 1.0;
+    /// <summary>ZIndex for Controls on Page level</summary>
     public const double C_ZIndex_Guide = 0.0;
     public const double C_ZIndex_SafeArea = 1.0;
     public const double C_ZIndex_PopUp = 2.0;
     public const double C_ZIndex_MousePos = 3.0;
+    /// <summary>Text</summary>
     public const string C_Text_DescriptionMousePos = "Display the current mouse position.\n'Right Click' to draw a line & 'TAB' for 10° steps";
     public const string C_Text_DescriptionSafeArea = "Show an overlay to see the 90% safe area on screen";
+    /// <summary>Control ids</summary>
     public const string C_Id_ButtonClose = "cmgame-toolbox-2_buton-close";
     public const string C_Id_ButtonResetGuide = "cmgame-toolbox-2_button-reset-guide";
     public const string C_Id_CheckboxGuide = "cmgame-toolbox-2_checkbox-guide";

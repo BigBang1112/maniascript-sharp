@@ -19,22 +19,34 @@ public partial class Stylesheet : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "Stylesheet.Script.txt";
+    /// <summary>Margin at the top of the background image (in px)</summary>
     public const double C_DefaultTopMargin = 11.0;
+    /// <summary>Margin on the sides of the background image (in px)</summary>
     public const double C_DefaultSideMargin = 1.0;
+    /// <summary>Padding on text label (in px)</summary>
     public const double C_DefaultTextPadding = 20.0;
+    /// <summary>Number of circles in the background image</summary>
     public const int C_DefaultCirclesNb = 15;
+    /// <summary>Pixel ratio between source image and manialink size (320. / 1920.)</summary>
     public const double C_ManialinkRatio = 0.1666666667;
+    /// <summary>Default multiplier on the circle size</summary>
     public const double C_DefaultCircleRatio = 0.45;
+    /// <summary>Default margin size (circle size ratio)</summary>
     public const double C_DefaultLabelMargin = 0.25;
+    /// <summary>Default margin size (circle size ratio)</summary>
     public const double C_DefaultQuadMargin = 0.1;
+    /// <summary>Default background image</summary>
+    public const string C_DefaultBackgroundImage = "file://Media/Manialinks/Nadeo/TMEditor/GamepadTrackEditor/Images/Menu/slot-medium-bg-color.dds";
     public const string C_Img_SlantedLeft = "TrackEditor_Helper_Left.dds";
     public const string C_Img_SlantedRight = "TrackEditor_Helper_Right.dds";
     public const string C_Img_TitleLeft = "TrackEditor_Title_Left.dds";
     public const string C_Img_TitleRight = "TrackEditor_Title_Right.dds";
     public const string C_Img_HeaderRight = "TrackEditor_Header_Right.dds";
+    /// <summary>Default UI properties</summary>
     public const int C_HeaderSize = 48;
     public const double C_Margin_Top = 80.0;
     public const double C_Margin_Bottom = -77.0;
+    /// <summary>Alignements</summary>
     public const int C_Align_LeftTop = 0;
     public const int C_Align_LeftCenter = 1;
     public const int C_Align_LeftCenter2 = 2;
@@ -50,6 +62,7 @@ public partial class Stylesheet : ILib
     public const int C_HAlign_Left = 0;
     public const int C_HAlign_Center = 1;
     public const int C_HAlign_Right = 2;
+    /// <summary>Default circles sizes</summary>
     public const double C_CircleSize_Top = 0.414;
     public const double C_CircleSize_Bottom = 0.420;
     public const double C_SmartQuad_Margin_EdgeToButton = 0.5;
@@ -75,6 +88,7 @@ public partial class Stylesheet : ILib
     public float Margin_Bottom() => default!;
 
     /// <summary>Remove the Z component of a Vec3 variable</summary>
+    /// <param name="_Input" />
     public Vec2 Vec3ToVec2(Vec3 _Input) => default!;
 
     /// <summary>Get the default header size</summary>
@@ -83,6 +97,7 @@ public partial class Stylesheet : ILib
     public Vec3 GetPosition2(Vec3 _Position, float _CircleSize) => default!;
 
     /// <summary>Build a manialink pos and z index properties</summary>
+    /// <param name="_Position" />
     public string BuildPosition2(Vec3 _Position) => default!;
 
     public Vec2 GetSize2(Vec2 _Size, float _CircleSize) => default!;
@@ -121,12 +136,29 @@ public partial class Stylesheet : ILib
     public string BuildAlign(int _Align) => default!;
 
     /// <summary>Build a background manialink</summary>
+    /// <param name="_Position" />
+    /// <param name="_Size" />
+    /// <param name="_CircleSize" />
+    /// <param name="_Align" />
     public string BuildBackground(Vec3 _Position, Vec2 _Size, float _CircleSize, int _Align) => default!;
 
     /// <summary>Build a line manialink</summary>
+    /// <param name="_Position" />
+    /// <param name="_Size" />
+    /// <param name="_CircleSize" />
+    /// <param name="_Align" />
+    /// <param name="_Color" />
+    /// <param name="_Background" />
+    /// <param name="_Foreground" />
+    /// <param name="_Custom" />
     public string BuildLine(Vec3 _Position, Vec2 _Size, float _CircleSize, int _Align, string _Color, bool _Background, bool _Foreground, global::System.Collections.Generic.Dictionary<string, string> _Custom) => default!;
 
     /// <summary>Build a quad manialink</summary>
+    /// <param name="_Position" />
+    /// <param name="_Size" />
+    /// <param name="_CircleSize" />
+    /// <param name="_Align" />
+    /// <param name="_Custom" />
     public string BuildQuad(Vec3 _Position, Vec2 _Size, float _CircleSize, int _Align, global::System.Collections.Generic.Dictionary<string, string> _Custom) => default!;
 
     public string BuildUnderline(Vec3 _Position, float _SizeX, float _CircleSize) => default!;
@@ -134,5 +166,10 @@ public partial class Stylesheet : ILib
     public string BuildButton(string _ActionName, Vec3 _Position, Vec2 _Size, float _CircleSize, int _Align, global::System.Collections.Generic.Dictionary<string, string> _Custom) => default!;
 
     /// <summary>Build a label manialink</summary>
+    /// <param name="_Position" />
+    /// <param name="_Size" />
+    /// <param name="_CircleSize" />
+    /// <param name="_Align" />
+    /// <param name="_Custom" />
     public string BuildLabel(Vec3 _Position, Vec2 _Size, float _CircleSize, int _Align, global::System.Collections.Generic.Dictionary<string, string> _Custom) => default!;
 }

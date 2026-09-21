@@ -26,22 +26,22 @@ public partial class UI_Server : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Create the given module in the mania app</summary>
-    /// <param name="ModuleId">The id of the module to create</param>
+    /// <param name="_ModuleId">The id of the module to create</param>
     public void LoadModule(string _ModuleId) { }
 
     /// <summary>Destroy the given module in the mania app</summary>
-    /// <param name="ModuleId">The id of the module to destroy</param>
+    /// <param name="_ModuleId">The id of the module to destroy</param>
     public void UnloadModule(string _ModuleId) { }
 
     /// <summary>Update the settings for a module</summary>
-    /// <param name="Name">The name of the setting</param>
-    /// <param name="Value">The value of the setting</param>
+    /// <param name="_Name">The name of the setting</param>
+    /// <param name="_Value">The value of the setting</param>
     public void UpdateSetting(string _Name, string _Value) { }
 
     /// <summary>Send a live event to a player</summary>
-    /// <param name="Player">The receiver of the live event</param>
-    /// <param name="Message">The message</param>
-    /// <param name="Image">The path to the image</param>
+    /// <param name="_Player">The receiver of the live event</param>
+    /// <param name="_Message">The message</param>
+    /// <param name="_Image">The path to the image</param>
     public void SendLiveEvent(CPlayer _Player, string _Message, string _Image) { }
 
     /// <summary>Update the viewers count</summary>

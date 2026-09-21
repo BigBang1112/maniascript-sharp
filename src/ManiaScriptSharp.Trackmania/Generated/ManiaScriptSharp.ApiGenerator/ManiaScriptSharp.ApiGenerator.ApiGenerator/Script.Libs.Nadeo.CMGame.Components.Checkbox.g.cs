@@ -24,8 +24,10 @@ public partial class Checkbox : ILib
     public const string Q = "Trackmania_Checkbox";
     public const string C_NavZone = "trackmania-checkbox_quad-activation";
     public const string C_Class_FrameContainerCheckbox = "trackmania-checkbox_frame-container-checkbox";
+    /// <summary>Default values</summary>
     public const int C_FocusAnimDuration = 250;
     public const string C_DefaultTextPrefix = "$t$i";
+    /// <summary>Control ids</summary>
     public const string C_Id_FrameCheckboxAlign = "trackmania-checkbox_frame-checkbox-align";
     public const string C_Id_QuadIcon = "trackmania-checkbox_quad-icon";
     public const string C_Id_LabelCheckbox = "trackmania-checkbox_label-checkbox";

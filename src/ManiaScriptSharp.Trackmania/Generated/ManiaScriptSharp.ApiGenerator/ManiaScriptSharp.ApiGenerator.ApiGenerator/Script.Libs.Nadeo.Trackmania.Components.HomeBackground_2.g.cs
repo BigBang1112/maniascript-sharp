@@ -20,7 +20,9 @@ public partial class HomeBackground_2 : ILib
 
     public const string Version = "2.3.2";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Components/HomeBackground@2.Script.txt";
+    /// <summary>Component name</summary>
     public const string C_Name = "trackmania-home-background-2";
+    /// <summary>Prefix used to differentiate functions/variables in the script</summary>
     public const string P = "Trackmania_HomeBackground2::";
     public const string Q = "Trackmania_HomeBackground2";
 

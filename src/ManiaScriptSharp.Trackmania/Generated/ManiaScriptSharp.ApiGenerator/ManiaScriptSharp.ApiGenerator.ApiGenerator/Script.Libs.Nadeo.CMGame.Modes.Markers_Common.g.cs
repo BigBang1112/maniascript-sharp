@@ -16,5 +16,6 @@ public partial class Markers_Common : ILib
     public const string ScriptName = "Libs/Nadeo/CMGame/Modes/Markers_Common.Script.txt";
 
     /// <summary>Get a marker frame id</summary>
+    /// <param name="_MarkerFrameId" />
     public string GetManialinkFrameId(int _MarkerFrameId) => default!;
 }

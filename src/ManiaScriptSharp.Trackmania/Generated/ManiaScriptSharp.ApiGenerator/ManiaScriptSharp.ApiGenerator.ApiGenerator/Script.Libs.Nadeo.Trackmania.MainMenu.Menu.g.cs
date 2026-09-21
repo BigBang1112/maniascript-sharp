@@ -16,6 +16,7 @@ public partial class Menu : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/MainMenu/Menu.Script.txt";
 
     /// <summary>Request or cancel a restart of the menu</summary>
+    /// <param name="_Restart" />
     public void RequestRestart(bool _Restart) { }
 
     public void RequestRestart() { }

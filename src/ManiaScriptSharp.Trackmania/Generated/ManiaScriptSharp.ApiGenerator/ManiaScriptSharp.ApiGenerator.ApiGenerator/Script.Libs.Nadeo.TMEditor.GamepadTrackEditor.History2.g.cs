@@ -15,6 +15,7 @@ public partial class History2 : ILib
     public const string Version = "1.0.0";
     public const string ScriptName = "History2.Script.txt";
     public const int C_LibHistory2_MaxSteps = -1;
+    /// <summary>Actions</summary>
     public const int C_LibHistory2_Action_Null = -1;
     public const int C_LibHistory2_Action_Add = 0;
     public const int C_LibHistory2_Action_Remove = 1;
@@ -51,24 +52,28 @@ public partial class History2 : ILib
     public int GetCursor() => default!;
 
     /// <summary>Get the action at the given cursor</summary>
+    /// <param name="_Cursor" />
     public int GetAction(int _Cursor) => default!;
 
     /// <summary>Get the action at the current cursor</summary>
     public int GetAction() => default!;
 
     /// <summary>Get the mode at the given cursor</summary>
+    /// <param name="_Cursor" />
     public int GetMode(int _Cursor) => default!;
 
     /// <summary>Get the mode at the current cursor</summary>
     public int GetMode() => default!;
 
     /// <summary>Get the macroblocks models ids at the given cursor</summary>
+    /// <param name="_Cursor" />
     public global::System.Collections.Generic.IList<Ident> GetMacroblockModelsIds(int _Cursor) => default!;
 
     /// <summary>Get the macroblocks models ids at the current cursor</summary>
     public global::System.Collections.Generic.IList<Ident> GetMacroblockModelsIds() => default!;
 
     /// <summary>Get the macroblocks coordinates at the given cursor</summary>
+    /// <param name="_Cursor" />
     public global::System.Collections.Generic.IList<Int3> GetMacroblocksCoords(int _Cursor) => default!;
 
     /// <summary>Get the macroblocks coordinates at the current cursor</summary>

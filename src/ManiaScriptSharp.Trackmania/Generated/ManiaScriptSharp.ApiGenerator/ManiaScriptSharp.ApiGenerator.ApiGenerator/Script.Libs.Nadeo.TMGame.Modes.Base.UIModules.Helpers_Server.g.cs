@@ -17,22 +17,22 @@ public partial class Helpers_Server : ILib
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/Base/UIModules/Helpers_Server.Script.txt";
 
     /// <summary>Update the number of laps to play on the map</summary>
-    /// <param name="LapsNb">The number of laps</param>
+    /// <param name="_LapsNb">The number of laps</param>
     public void SetLapsNb(int _LapsNb) { }
 
     /// <summary>Set the independent laps status</summary>
-    /// <param name="IsIndependentLaps">The independent laps status</param>
+    /// <param name="_IsIndependentLaps">The independent laps status</param>
     public void SetIndependentLaps(bool _IsIndependentLaps) { }
 
     /// <summary>Set time limit</summary>
-    /// <param name="TimeLimit" />
+    /// <param name="_TimeLimit" />
     public void SetTimeLimit(int _TimeLimit) { }
 
     /// <summary>Set UI mode for local or online modes False to show</summary>
-    /// <param name="IsLocalMode">True to hide spectator info</param>
+    /// <param name="_IsLocalMode">True to hide spectator info</param>
     public void SetLocalMode(bool _IsLocalMode) { }
 
     /// <summary>Update the number of checkpoints to play on the map</summary>
-    /// <param name="CheckpointsNb">The number of checkpoints</param>
+    /// <param name="_CheckpointsNb">The number of checkpoints</param>
     public void SetCheckpointsNb(int _CheckpointsNb) { }
 }

@@ -15,6 +15,7 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Na
     public const string C_MB_MMT_Version = "2.0.1";
     public const string C_MB_MMT_ScriptName = "Modes/Nadeo/TMGame/Base/ModeMatchmaking.Script.txt";
     public const string C_MB_RulesColor = "$f70";
+    public const string C_Lobby_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TMGame/MatchmakingLobby/MatchmakingLobby.Script.txt";
 
     public virtual void MB_Private_LogVersions() { }
 

@@ -37,6 +37,7 @@ public partial class TM_Final42TMGL_Online : ILib
     public const string Version = "1.0.1+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/Deprecated/TM_Final42TMGL_Online.Script.txt";
     public const string C_ModeName = "Final TMGL";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/FinalTMGL.Script.txt";
     public const int C_Team1BotsNb = 0;
     public const int C_Team2BotsNb = 0;
     public const int C_AfterRaceStartDuration = 15000;
@@ -111,7 +112,7 @@ public partial class TM_Final42TMGL_Online : ILib
     public virtual void Match_PodiumSequence() { }
 
     /// <summary>Update the scores table footer text</summary>
-    /// <param name="MatchPointsLimit">The match points limit</param>
+    /// <param name="_MatchPointsLimit">The match points limit</param>
     public void UpdateScoresTableFooter(int _MatchPointsLimit) { }
 
     /// <summary>Get the time left to the players to finish the round after the first player</summary>
@@ -119,23 +120,34 @@ public partial class TM_Final42TMGL_Online : ILib
     public int GetFinishTimeout() => default!;
 
     /// <summary>Compute the latest race scores</summary>
+    /// <param name="_PointsLimit" />
     public void ComputeLatestRaceScores(int _PointsLimit) { }
 
     /// <summary>Compute the map scores</summary>
+    /// <param name="_PointsLimit" />
     public void ComputeScores(int _PointsLimit) { }
 
     /// <summary>Toggle on/off the camera display in signs for spectators</summary>
+    /// <param name="_Enabled" />
     public void EnableSignLiveCamera(bool _Enabled) { }
 
     /// <summary>Enable the esports programmation in the signs see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#</summary>
+    /// <param name="_Enabled" />
     public void EnableSignESportsMode(bool _Enabled) { }
 
     /// <summary>Update the players' scores in the scores table</summary>
+    /// <param name="_NbOfWinners" />
+    /// <param name="_QualifiedPlayers" />
     public void UpdateScoresTablePlayersScores(int _NbOfWinners, global::System.Collections.Generic.IList<string> _QualifiedPlayers) { }
 
     /// <summary>Update the clans' scores in the scores table</summary>
+    /// <param name="_PlayersClans" />
+    /// <param name="_ClansNb" />
+    /// <param name="_QualifiedPlayers" />
+    /// <param name="_MatchPointsLimit" />
     public void UpdateScoresTableClansScores(global::System.Collections.Generic.Dictionary<string, int> _PlayersClans, int _ClansNb, global::System.Collections.Generic.IList<string> _QualifiedPlayers, int _MatchPointsLimit) { }
 
     /// <summary>Update live ranking info message</summary>
+    /// <param name="_MapPointsLimit" />
     public void UpdateLiveRankingInfoMessage(int _MapPointsLimit) { }
 }

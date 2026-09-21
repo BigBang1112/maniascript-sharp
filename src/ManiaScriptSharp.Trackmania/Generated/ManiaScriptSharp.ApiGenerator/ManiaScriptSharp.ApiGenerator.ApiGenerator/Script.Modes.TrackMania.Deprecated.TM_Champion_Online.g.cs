@@ -31,6 +31,7 @@ public partial class TM_Champion_Online : ILib
     public const string Version = "1.0.2+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/Deprecated/TM_Champion_Online.Script.txt";
     public const string C_ModeName = "Champion";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/Champion.Script.txt";
     public const int C_BotsNb = 0;
     public const int C_MaxPlayers = 16;
     public const string C_Callback_Scores = "Trackmania.Champion.Scores";
@@ -104,49 +105,50 @@ public partial class TM_Champion_Online : ILib
     public virtual void Champion_PodiumSequence() { }
 
     /// <summary>Compute the latest race scores</summary>
-    /// <param name="WinningPlayersNb">Number of players that can win points in the round</param>
-    /// <param name="IsRoundFinished">Is the round finished or are there players racing</param>
+    /// <param name="_WinningPlayersNb">Number of players that can win points in the round</param>
+    /// <param name="_IsRoundFinished">Is the round finished or are there players racing</param>
+    /// <param name="_PhaseNb" />
     public void ComputeLatestRaceScores(int _WinningPlayersNb, bool _IsRoundFinished, int _PhaseNb) { }
 
     /// <summary>Compute the map scores</summary>
     public void ComputeScores() { }
 
     /// <summary>Check if the rounds or points limit was reached C_Limit_Tie if there is a tie C_Limit_NotReached if the rounds and points limit are not reached</summary>
-    /// <param name="UseTieBreak">Prevent ties or not</param>
-    /// <param name="RoundsNb">Number of rounds played since the beginning of the match</param>
-    /// <param name="RoundsLimit">Number of rounds to play to complete the match</param>
-    /// <param name="PointsLimit">Number of points to get to win the match</param>
+    /// <param name="_UseTieBreak">Prevent ties or not</param>
+    /// <param name="_RoundsNb">Number of rounds played since the beginning of the match</param>
+    /// <param name="_RoundsLimit">Number of rounds to play to complete the match</param>
+    /// <param name="_PointsLimit">Number of points to get to win the match</param>
     /// <returns>C_Limit_Reached if the rounds or points limit is reached</returns>
     public int MatchRoundsOrPointsLimitReached(bool _UseTieBreak, int _RoundsNb, int _RoundsLimit, int _PointsLimit) => default!;
 
     /// <summary>Check if we should go to the next map</summary>
-    /// <param name="UseTieBreak">Prevent ties or not</param>
-    /// <param name="RoundsNb">Number of rounds played since the beginning of the match</param>
-    /// <param name="RoundsPerMap">Number of rounds to play to complete the map</param>
-    /// <param name="RoundsLimit">Number of rounds to play to complete the match</param>
-    /// <param name="PointsLimit">Number of points to get to win the match</param>
+    /// <param name="_UseTieBreak">Prevent ties or not</param>
+    /// <param name="_RoundsNb">Number of rounds played since the beginning of the match</param>
+    /// <param name="_RoundsPerMap">Number of rounds to play to complete the map</param>
+    /// <param name="_RoundsLimit">Number of rounds to play to complete the match</param>
+    /// <param name="_PointsLimit">Number of points to get to win the match</param>
     /// <returns>True if it is the case, false otherwise</returns>
     public bool MapIsOver(bool _UseTieBreak, int _RoundsNb, int _RoundsPerMap, int _RoundsLimit, int _PointsLimit) => default!;
 
     /// <summary>Check if we should go to the next match</summary>
-    /// <param name="UseTieBreak">Prevent ties or not</param>
-    /// <param name="RoundsNb">Number of rounds played since the beginning of the match</param>
-    /// <param name="RoundsLimit">Number of rounds to play to complete the match</param>
-    /// <param name="PointsLimit">Number of points to get to win the match</param>
+    /// <param name="_UseTieBreak">Prevent ties or not</param>
+    /// <param name="_RoundsNb">Number of rounds played since the beginning of the match</param>
+    /// <param name="_RoundsLimit">Number of rounds to play to complete the match</param>
+    /// <param name="_PointsLimit">Number of points to get to win the match</param>
     /// <returns>True if it is the case, false otherwise</returns>
     public bool MatchIsOver(bool _UseTieBreak, int _RoundsNb, int _RoundsLimit, int _PointsLimit) => default!;
 
     /// <summary>Update the time limit</summary>
-    /// <param name="StartTime">The starting time of the map</param>
-    /// <param name="NewTimeLimit">The time limit before going to the next map</param>
+    /// <param name="_StartTime">The starting time of the map</param>
+    /// <param name="_NewTimeLimit">The time limit before going to the next map</param>
     public void SetTimeLimit(int _StartTime, int _NewTimeLimit) { }
 
     /// <summary>Update the scores table footer text</summary>
-    /// <param name="RoundsNb">Number of rounds played since the beginning of the match</param>
-    /// <param name="RoundsLimit">The rounds limit</param>
-    /// <param name="WinningNb">Number of players that can win points</param>
-    /// <param name="Phase">Phase Number</param>
-    /// <param name="IsPaused">True if the match is paused</param>
+    /// <param name="_RoundsNb">Number of rounds played since the beginning of the match</param>
+    /// <param name="_RoundsLimit">The rounds limit</param>
+    /// <param name="_WinningNb">Number of players that can win points</param>
+    /// <param name="_Phase">Phase Number</param>
+    /// <param name="_IsPaused">True if the match is paused</param>
     public void UpdateScoresTableFooter(int _RoundsNb, int _RoundsLimit, int _WinningNb, int _Phase, bool _IsPaused) { }
 
     public int UpdatePhaseNb(string _RoundsWithAPhaseChange, int _RoundsNb) => default!;

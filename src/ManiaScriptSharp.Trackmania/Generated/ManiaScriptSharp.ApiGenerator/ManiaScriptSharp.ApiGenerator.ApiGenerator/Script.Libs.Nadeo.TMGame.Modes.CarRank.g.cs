@@ -34,11 +34,13 @@ public partial class CarRank : ILib
     }
 
     /// <summary>Give a color to the dossard of the players at or above the given ranks</summary>
+    /// <param name="_RanksColors" />
     public void SetRanksColors(global::System.Collections.Generic.Dictionary<int, Vec3> _RanksColors) { }
 
     public void ResetRanksColors() { }
 
     /// <summary>Update the rank on the players' car</summary>
+    /// <param name="_SortCriteria" />
     public void Update(int _SortCriteria) { }
 
     public void ThrottleUpdate(int _SortCriteria) { }

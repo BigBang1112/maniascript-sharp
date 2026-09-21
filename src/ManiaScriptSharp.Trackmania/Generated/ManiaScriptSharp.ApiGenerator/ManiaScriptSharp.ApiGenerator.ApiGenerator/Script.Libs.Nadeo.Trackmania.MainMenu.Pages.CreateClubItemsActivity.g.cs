@@ -35,12 +35,6 @@ public partial class CreateClubItemsActivity : ILib
     public const string C_NavGroup_Global = "navgroup-page-create-club-items-activity-global";
     public const string C_Class_Media = "class-page-create-club-items-activity-media";
     public const string C_Class_MediaAction = "class-page-create-club-items-activity-media-action";
-    public const int C_Name_MaxChar = 20;
-    public const int C_Desc_MaxChar = 200;
-    public const int C_AddMedia_Index = -1;
-    public const int C_MaxCollectionMedia = 10;
-    public const string C_ErrorTypeDataFileManager = "DataFileManager";
-    public const string C_ErrorCodeActivityExists = "0x000007D1";
 
     public struct K_Controls
     {

@@ -53,31 +53,13 @@ public partial class Error : ILib
     public const string C_TypeEncoded_MasterServer = "CA";
     public const string C_TypeEncoded_ManiaScript = "CB";
     public const string C_TypeEncoded_Http = "CC";
+    /// <summary>would prevent us from tracking the error</summary>
     public const string C_Code_Null = "@NoCode";
     public const string C_Code_CreateCampaign_LiveFailedToResetCollection = "MS-0001";
     public const string C_Code_CreateCampaign_CoreFailedToResetCollection = "MS-0002";
-    public const string C_Code_ClubItemsActivity_TaskCreationAddItemCollectionToFavorite = "MS-0003";
-    public const string C_Code_ClubItemsActivity_TaskProcessingAddItemCollectionToFavorite = "MS-0004";
-    public const string C_Code_ClubItemsActivity_TaskCreationRemoveItemCollectionFromFavorite = "MS-0005";
-    public const string C_Code_ClubItemsActivity_TaskProcessingRemoveItemCollectionFromFavorite = "MS-0006";
-    public const string C_Code_ClubItemsActivity_TaskProcessingGetFavoriteItemCollections = "MS-0007";
     public const string C_Code_CreateCampaign_TaskCreationCreateCampaignGetMapList = "MS-0008";
     public const string C_Code_CreateCampaign_TaskProcessingCreateCampaignGetMapList = "MS-0009";
-    public const string C_Code_CreateClubItemsActivity_TaskCreationSetActivityIdToItemCollection = "MS-0010";
-    public const string C_Code_CreateClubItemsActivity_TaskCreationCreateItemCollection = "MS-0011";
-    public const string C_Code_CreateClubItemsActivity_TaskCreationUpdateItemCollection = "MS-0012";
-    public const string C_Code_CreateClubItemsActivity_TaskCreationUpdateItemCollectionVersion = "MS-0013";
-    public const string C_Code_CreateClubItemsActivity_TaskCreationLiveGetItemCollection = "MS-0014";
-    public const string C_Code_CreateClubItemsActivity_TaskCreationCoreGetItemCollection = "MS-0015";
-    public const string C_Code_CreateClubItemsActivity_TaskProcessingCreateItemCollection = "MS-0016";
-    public const string C_Code_CreateClubItemsActivity_TaskProcessingSetActivityIdToItemCollectionId = "MS-0017";
-    public const string C_Code_CreateClubItemsActivity_TaskProcessingUpdateItemCollection = "MS-0018";
-    public const string C_Code_CreateClubItemsActivity_TaskProcessingUpdateItemCollectionVersion = "MS-0019";
     public const string C_Code_CreateClubItemsActivity_CollectionCreatedOrEdited = "MS-0020";
-    public const string C_Code_CreateRoom_TaskProcessingMapList = "MS-0021";
-    public const string C_Code_MapReviewActivity_TaskCreationGetMap = "MS-0022";
-    public const string C_Code_MapReviewActivity_TaskProcessingRegisterMap = "MS-0023";
-    public const string C_Code_MapReviewActivity_TaskProcessingGetMap = "MS-0024";
     public const string C_Code_PressStart_TaskNetworkAvailabilityTimeOut = "MS-0025";
     public const string C_Code_PressStart_TaskNetworkAvailabilityDestroyed = "MS-0026";
     public const string C_Code_PressStart_TaskConnectUserTimeOut = "MS-0027";
@@ -85,9 +67,6 @@ public partial class Error : ILib
     public const string C_Code_PressStart_ConnectionStatusTimeout = "MS-0029";
     public const string C_Code_PressStart_ConnectionStatusNotConnected = "MS-0030";
     public const string C_Code_PressStart_HttpHeadersTimeout = "MS-0031";
-    public const string C_Code_ServerReview_TaskCreationGetMap = "MS-0032";
-    public const string C_Code_ServerReview_TaskProcessingRegisterMap = "MS-0033";
-    public const string C_Code_ServerReview_TaskProcessingGetMap = "MS-0034";
     public const string C_Code_LocalServer_MatchSettingsCreationFailed = "MS-0035";
     public const string C_Code_LocalServer_MatchSettingsInvalidMode = "MS-0036";
     public const string C_Code_TrackBrowser_GetPlayerFavoriteMaps = "MS-0037";
@@ -115,6 +94,7 @@ public partial class Error : ILib
     public const string C_Code_ManiaScript_FirstPartySignedOut = "MS-0059";
     public const string C_Code_ManiaScript_TaskJoinSessionError = "MS-0060";
     public const string C_Code_ManiaScript_PromiseRejectedWithoutError = "MS-0061";
+    /// <summary>Http errors https: httpwg.org specs rfc9110.html#status.codes</summary>
     public const string C_Code_Http_RequestNotFound = "HTTP-0001";
     public const string C_Code_Http_OfflineModeEnabled = "HTTP-0002";
     public const string C_Code_Http_TokenTaskNotFound = "HTTP-0003";
@@ -148,6 +128,7 @@ public partial class Error : ILib
     public const string C_Code_Http_ServiceUnavailable = "503";
     public const string C_Code_Http_GatewayTimeout = "504";
     public const string C_Code_Http_HTTPVersionNotSupported = "505";
+    /// <summary>UbiServices errors</summary>
     public const string C_Code_UbiServices_ConnectionFailed = "0x00000054";
     public const string C_Code_UbiServices_NeedUbiConnectAccount = "0x00000143";
     public const string C_Code_UbiServices_Auth_SessionNotCreated = "0x00000142";
@@ -163,10 +144,12 @@ public partial class Error : ILib
     public const string C_Code_UbiServices_InviteeBlockingInviter = "0x0000371F";
     public const string C_Code_UbiServices_CrossplayDisabled = "0x00003734";
     public const string C_Code_UbiServices_FirstPartyInviteExpired = "0x0000373F";
+    /// <summary>NadeoServices errors</summary>
     public const string C_Code_NadeoServices_AccountBanned = "C-AI-09-01";
     public const string C_Code_NadeoServices_UnknownMapInList = "C-AK-03-01";
     public const string C_Code_NadeoServices_GetNotZenMap = "C-BN-01-01";
     public const string C_Code_NadeoServices_IncrementNotZenMap = "C-BN-02-01";
+    /// <summary>WebServices errors</summary>
     public const string C_Code_WebServices_FirstPartySignedOut = "A-AA-01-03";
     public const string C_Code_WebServices_KillSwitchEnabled = "A-AA-01-04";
     public const string C_Code_WebServices_MasterServerDisabled = "A-AA-01-05";
@@ -177,6 +160,7 @@ public partial class Error : ILib
     public const string C_Code_WebServices_UnauthorizedFeature = "A-AA-01-10";
     public const string C_Code_WebServices_SimultaneousLogin = "A-AA-01-11";
     public const string C_Code_WebServices_AccountBanned = "A-AA-01-12";
+    /// <summary>Common errors</summary>
     public const string C_Code_Common_Unexpected = "Unexpected";
     public const string C_Code_Common_Canceled = "Canceled";
 
@@ -222,6 +206,9 @@ public partial class Error : ILib
     }
 
     /// <summary>Generate a unique error identifier from a type, code and context</summary>
+    /// <param name="_Type" />
+    /// <param name="_Code" />
+    /// <param name="_Context" />
     public string GetErrorIdentifier(string _Type, string _Code, string _Context) => default!;
 
     public string GetErrorIdentifier(string _Type, string _Code) => default!;
@@ -231,6 +218,7 @@ public partial class Error : ILib
     public string GetErrorIdentifier(K_Key _ErrorKey) => default!;
 
     /// <summary>Set the error nickname</summary>
+    /// <param name="_Nickname" />
     public void SetGlobalErrorNickmane(string _Nickname) { }
 
     /// <summary>Get the error nickname</summary>
@@ -240,6 +228,7 @@ public partial class Error : ILib
     public void CheckErrorsValidity() { }
 
     /// <summary>Check if an error comes from a first party</summary>
+    /// <param name="_Type" />
     public bool IsFromFirstParty(string _Type) => default!;
 
     public bool IsFromFirstParty(K_Error _Error) => default!;
@@ -251,6 +240,11 @@ public partial class Error : ILib
     public K_Error GetDefaultError() => default!;
 
     /// <summary>Get a custom error</summary>
+    /// <param name="_Type" />
+    /// <param name="_Code" />
+    /// <param name="_Context" />
+    /// <param name="_ComposeElements" />
+    /// <param name="_DisplayWarning" />
     public K_Error GetError(string _Type, string _Code, string _Context, global::System.Collections.Generic.IList<string> _ComposeElements, bool _DisplayWarning) => default!;
 
     public K_Error GetError(string _Type, string _Code, string _Context, bool _DisplayWarning) => default!;
@@ -272,6 +266,9 @@ public partial class Error : ILib
     public K_Error GetError() => default!;
 
     /// <summary>Check if an error exists for the exact Type/Code/Context triplet</summary>
+    /// <param name="_Type" />
+    /// <param name="_Code" />
+    /// <param name="_Context" />
     public bool HasExactError(string _Type, string _Code, string _Context) => default!;
 
     public bool HasExactError(string _Type, string _Code) => default!;
@@ -281,6 +278,10 @@ public partial class Error : ILib
     public bool HasExactError() => default!;
 
     /// <summary>Get an error message</summary>
+    /// <param name="_Type" />
+    /// <param name="_Code" />
+    /// <param name="_Context" />
+    /// <param name="_ComposeElements" />
     public string GetErrorMessage(string _Type, string _Code, string _Context, global::System.Collections.Generic.IList<string> _ComposeElements) => default!;
 
     public string GetErrorMessage(string _Type, string _Code, string _Context) => default!;
@@ -298,11 +299,17 @@ public partial class Error : ILib
     public string GetErrorMessage() => default!;
 
     /// <summary>Return the original error message if we have an exact match or the alternative message otherwise</summary>
+    /// <param name="_AlternativeMessage" />
+    /// <param name="_ComposeElements" />
+    /// <param name="_Error" />
     public string GetAlternativeErrorMessage(string _AlternativeMessage, global::System.Collections.Generic.IList<string> _ComposeElements, K_Error _Error) => default!;
 
     public string GetAlternativeErrorMessage(string _AlternativeMessage, K_Error _Error) => default!;
 
     /// <summary>Get an error code</summary>
+    /// <param name="_Type" />
+    /// <param name="_Code" />
+    /// <param name="_Context" />
     public string GetErrorCode(string _Type, string _Code, string _Context) => default!;
 
     public string GetErrorCode(string _Type, string _Code) => default!;
@@ -312,11 +319,15 @@ public partial class Error : ILib
     public string GetErrorCode() => default!;
 
     /// <summary>Get the message to display for the connection errors</summary>
+    /// <param name="_ConnectionErrorType" />
+    /// <param name="_ConnectionErrorCode" />
+    /// <param name="_Network" />
     public string GetConnectionErrorMessage(string _ConnectionErrorType, string _ConnectionErrorCode, string _Network) => default!;
 
     /// <summary>Generate a documentation that list all known errors</summary>
     public string GenerateDocumentation() => default!;
 
     /// <summary>Parse the error details returned by the Nadeo Live Services HTTP API</summary>
+    /// <param name="_JsonError" />
     public K_NLSError ParseNLSError(string _JsonError) => default!;
 }

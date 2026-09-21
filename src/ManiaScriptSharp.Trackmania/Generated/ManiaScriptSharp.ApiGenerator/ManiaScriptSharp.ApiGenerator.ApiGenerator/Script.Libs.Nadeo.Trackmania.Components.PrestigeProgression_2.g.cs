@@ -28,9 +28,12 @@ public partial class PrestigeProgression_2 : ILib
 
     public const string Version = "2.1.3";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Components/PrestigeProgression@2.Script.txt";
+    /// <summary>Component name</summary>
     public const string C_Name = "trackmania-prestige-progression-2";
+    /// <summary>Prefix used to differentiate functions/variables in the script</summary>
     public const string P = "Trackmania_PrestigeProgression2::";
     public const string Q = "Trackmania_PrestigeProgression2";
+    /// <summary>Id of the quad used to trigger mouse event for the navigation</summary>
     public const string C_NavZone = "Trackmania_PrestigeProgression2_quad-nav-zone";
     public const int C_PrestigeType_Null = 0;
     public const int C_PrestigeType_Bronze = 1;

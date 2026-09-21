@@ -22,6 +22,7 @@ public partial class MatchManager : ILib
 
     public const string Version = "1.1.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TMWTMatchmaking/MatchManager.Script.txt";
+    public const string C_Debug_MatchmakingApiUrl = "http://localhost:3000";
     public const string C_Match_NullId = "";
     public const string C_Queue_NullId = "";
     public const string C_Activity_NullId = "";
@@ -51,41 +52,69 @@ public partial class MatchManager : ILib
     }
 
     /// <summary>Check if we can start a new match</summary>
+    /// <param name="_Match" />
+    /// <param name="_QueueId" />
+    /// <param name="_MatchId" />
     public bool CanStartNewMatch(K_Match _Match, string _QueueId, string _MatchId) => default!;
 
     /// <summary>Check if we need to wait for a match</summary>
+    /// <param name="_Match" />
     public bool IsWaitingMatch(K_Match _Match) => default!;
 
     /// <summary>Continue previous match or start a new one</summary>
+    /// <param name="_PreviousMatch" />
+    /// <param name="_QueueId" />
+    /// <param name="_MatchId" />
+    /// <param name="_ActivityId" />
+    /// <param name="_ClansNb" />
+    /// <param name="_UseLocalAPI" />
     public K_Match InitializeMatch(K_Match _PreviousMatch, string _QueueId, string _MatchId, string _ActivityId, int _ClansNb, bool _UseLocalAPI) => default!;
 
     /// <summary>Update a match</summary>
+    /// <param name="_Match" />
     public K_Match UpdateMatch(K_Match _Match) => default!;
 
     /// <summary>Start the match</summary>
+    /// <param name="_Match" />
     public K_Match StartMatch(K_Match _Match) => default!;
 
     /// <summary>Set the clan and player match results</summary>
+    /// <param name="_Match" />
+    /// <param name="_ClanResults" />
+    /// <param name="_PlayerResults" />
     public K_Match StopMatch(K_Match _Match, global::System.Collections.Generic.Dictionary<int, K_MatchResult> _ClanResults, global::System.Collections.Generic.Dictionary<string, K_MatchResult> _PlayerResults) => default!;
 
     /// <summary>Complete the match</summary>
+    /// <param name="_Match" />
     public K_Match CompleteMatch(K_Match _Match) => default!;
 
     /// <summary>Create a new match result</summary>
+    /// <param name="_Rank" />
+    /// <param name="_Score" />
     public K_MatchResult NewMatchResult(int _Rank, int _Score) => default!;
 
     /// <summary>Add a player to the match</summary>
+    /// <param name="_Match" />
+    /// <param name="_AccountId" />
+    /// <param name="_Clan" />
     public K_Match AddPlayer(K_Match _Match, string _AccountId, int _Clan) => default!;
 
     /// <summary>Remove a player from the match</summary>
+    /// <param name="_Match" />
+    /// <param name="_AccountId" />
     public K_Match RemovePlayer(K_Match _Match, string _AccountId) => default!;
 
     /// <summary>Add a bot to the match</summary>
+    /// <param name="_Match" />
+    /// <param name="_AccountId" />
+    /// <param name="_Clan" />
     public K_Match AddBot(K_Match _Match, string _AccountId, int _Clan) => default!;
 
     /// <summary>Remove all bots from the match</summary>
+    /// <param name="_Match" />
     public K_Match RemoveAllBots(K_Match _Match) => default!;
 
     /// <summary>Get the match player account ids</summary>
+    /// <param name="_Match" />
     public global::System.Collections.Generic.IList<string> GetPlayerAccountIds(K_Match _Match) => default!;
 }

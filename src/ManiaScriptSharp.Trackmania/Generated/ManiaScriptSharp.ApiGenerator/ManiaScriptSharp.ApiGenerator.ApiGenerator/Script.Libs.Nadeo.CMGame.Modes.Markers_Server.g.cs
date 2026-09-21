@@ -27,6 +27,7 @@ public partial class Markers_Server : ILib
     }
 
     /// <summary>Enable or disable the markers above the players</summary>
+    /// <param name="_Enabled" />
     public void EnablePlayersMarkers(bool _Enabled) { }
 
     public void EnablePlayersMarkers() { }
@@ -34,6 +35,7 @@ public partial class Markers_Server : ILib
     public void DisablePlayersMarkers() { }
 
     /// <summary>Setup default marker properties</summary>
+    /// <param name="_Box" />
     public void SetDefaultMarker_Box(Vec3 _Box) { }
 
     public void SetDefaultMarker_HideOnSelf(bool _HideOnSelf) { }

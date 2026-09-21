@@ -21,9 +21,6 @@ public partial class SegmentComplete_Client : ILib
     public const string Version = "1.6.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/SegmentComplete_Client.Script.txt";
     public const bool C_DisplayBonusTime = false;
-    public const int C_AnimDuration_Show = 500;
-    public const int C_AnimDuration_Idle = 3000;
-    public const int C_AnimDuration_Hide = 500;
 
     public struct K_Controls
     {

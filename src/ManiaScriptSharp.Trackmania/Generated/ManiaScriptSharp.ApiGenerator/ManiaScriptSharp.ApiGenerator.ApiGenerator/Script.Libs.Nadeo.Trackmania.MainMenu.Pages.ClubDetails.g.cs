@@ -46,11 +46,6 @@ public partial class ClubDetails : ILib
     public const int C_Column_Pin = 1;
     public const int C_Column_Tag = 2;
     public const int C_Column_Administration = 3;
-    public const int C_LeaveClubPopUp_ChoiceIndex_Back = 0;
-    public const int C_LeaveClubPopUp_ChoiceIndex_Leave = 1;
-    public const int C_PopUpLeaveClubIndex = 0;
-    public const int C_PopUpCreateActiIndex = 2;
-    public const int C_DelayCreatedClubUpdate = 2000;
 
     public struct K_ScrollView
     {

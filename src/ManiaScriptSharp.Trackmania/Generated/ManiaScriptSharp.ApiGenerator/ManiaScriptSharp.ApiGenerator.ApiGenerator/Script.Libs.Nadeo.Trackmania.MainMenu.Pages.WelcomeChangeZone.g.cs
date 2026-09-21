@@ -38,7 +38,6 @@ public partial class WelcomeChangeZone : ILib
     public const int C_ZoneLevel_Country = 1;
     public const int C_ZoneLevel_Region = 2;
     public const int C_ZoneLevel_County = 3;
-    public const string C_World = "World";
 
     public struct K_Zone
     {

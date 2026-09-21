@@ -78,12 +78,15 @@ public partial class ModeBase_3 : ILib
     public void CMGame_WaitPlayersSynchro() { }
 
     /// <summary>Turn on or off the automatic map intro sequence</summary>
+    /// <param name="_AutomaticMapIntroEnabled" />
     public void CMGame_EnableAutomaticMapIntro(bool _AutomaticMapIntroEnabled) { }
 
     /// <summary>Set how unprocessed events should be processed by the game mode before going to the next frame</summary>
+    /// <param name="_UnprocessedModeEventHandling" />
     public void CMGame_SetUnprocessedModeEventHandling(int _UnprocessedModeEventHandling) { }
 
     /// <summary>Play the map intro sequence</summary>
+    /// <param name="_IsAutomaticMapIntro" />
     public void CMGame_PlayMapIntro(bool _IsAutomaticMapIntro) { }
 
     public void CMGame_PlayMapIntro() { }

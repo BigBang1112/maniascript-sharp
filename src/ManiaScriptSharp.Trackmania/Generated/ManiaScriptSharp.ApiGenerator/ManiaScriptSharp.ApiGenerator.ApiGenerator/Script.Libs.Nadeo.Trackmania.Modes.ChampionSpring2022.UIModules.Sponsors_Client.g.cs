@@ -20,7 +20,6 @@ public partial class Sponsors_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/Sponsors_Client.Script.txt";
-    public const int C_SponsorUpdateInterval = 30000;
 
     public struct K_Controls
     {

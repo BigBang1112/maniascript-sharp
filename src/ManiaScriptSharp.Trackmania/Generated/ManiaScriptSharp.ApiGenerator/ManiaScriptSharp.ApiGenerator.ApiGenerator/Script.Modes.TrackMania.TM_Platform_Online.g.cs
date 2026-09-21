@@ -21,6 +21,7 @@ public partial class TM_Platform_Online : ILib
     public const string Version = "1.0.5+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/TM_Platform_Online.Script.txt";
     public const string C_ModeName = "TM_Platform_Online";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/PlatformOnline.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const bool C_UploadRecord = true;
     public const bool C_DisplayRecordGhost = false;
@@ -54,8 +55,8 @@ public partial class TM_Platform_Online : ILib
     public virtual void Match_EndMap() { }
 
     /// <summary>Update the time limit</summary>
-    /// <param name="StartTime">The starting time of the map</param>
-    /// <param name="NewTimeLimit">The time limit before going to the next map</param>
+    /// <param name="_StartTime">The starting time of the map</param>
+    /// <param name="_NewTimeLimit">The time limit before going to the next map</param>
     public void SetTimeLimit(int _StartTime, int _NewTimeLimit) { }
 
     /// <summary>Reset best respawns on all scores</summary>

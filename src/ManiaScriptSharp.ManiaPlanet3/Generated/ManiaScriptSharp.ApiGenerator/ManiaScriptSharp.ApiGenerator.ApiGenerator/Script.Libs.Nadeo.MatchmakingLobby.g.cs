@@ -18,26 +18,47 @@ public partial class MatchmakingLobby : ILib
 
     public const string Version = "2015-03-03";
     public const string ScriptName = "MatchmakingLobby.Script.txt";
+    /// <summary>Lobby phases Playing phase</summary>
     public const int C_Lobby_Playing = 0;
+    /// <summary>Matchmaking phase</summary>
     public const int C_Lobby_Matchmaking = 1;
+    /// <summary>Masters Number of masters displayed</summary>
     public const int C_Master_Numbers = 20;
+    /// <summary>Name of the master</summary>
     public const int C_Master_Name = 0;
+    /// <summary>Country of the master</summary>
     public const int C_Master_Country = 1;
+    /// <summary>Echelon of the master</summary>
     public const int C_Master_Echelon = 2;
+    /// <summary>Ally status Ally validated</summary>
     public const int C_AllyStatus_Validated = 0;
+    /// <summary>Ally request sent to this player</summary>
     public const int C_AllyStatus_Sent = 1;
+    /// <summary>Ally disconnected</summary>
     public const int C_AllyStatus_Disconnected = 2;
+    /// <summary>Ally info Current status of the user in the room</summary>
     public const int C_AllyInfo_Status = 0;
+    /// <summary>Current clan of the user in the room</summary>
     public const int C_AllyInfo_Clan = 1;
+    /// <summary>Current slot of the user in the room</summary>
     public const int C_AllyInfo_Slot = 2;
+    /// <summary>Default room properties Default clan when creating a room</summary>
     public const int C_Lobby_DefaultClan = 0;
+    /// <summary>Default slot when creating a room</summary>
     public const int C_Lobby_DefaultSlot = 0;
+    /// <summary>Cancellation configuration Legacy : Allow match cancel</summary>
     public const bool C_AllowMatchCancel = true;
+    /// <summary>Legacy : -1: infinite cancel, 0 or more: number of cancellations allowed</summary>
     public const int C_LimitMatchCancel = 0;
+    /// <summary>Legacy : Penalize players canceling a replacement</summary>
     public const bool C_PenalizeSubstituteCancel = false;
+    /// <summary>Warn player that they will be penalize if they cancel</summary>
     public const bool C_WarnPenalty = false;
+    /// <summary>Misc Duration before sending back a player to the match he left</summary>
     public const int C_ReconnectDuration = 5000;
+    /// <summary>Minimum time after a transfert before a player can be listed as ready</summary>
     public const int C_TransfertSafeTime = 15000;
+    /// <summary>Random time margin applied to the live request of the match and lobby server</summary>
     public const int C_RequestRandomDeviation = 500;
 
     /// <summary>Return the version number of the script</summary>
@@ -55,11 +76,11 @@ public partial class MatchmakingLobby : ILib
     public void Load() { }
 
     /// <summary>Disable the UI of the lobby</summary>
-    /// <param name="DisableUI">Disable the UI or not</param>
+    /// <param name="_DisableUI">Disable the UI or not</param>
     public void DisableUI(bool _DisableUI) { }
 
     /// <summary>Enable or disable the matchmaking in the lobby</summary>
-    /// <param name="Enable">True to enable, False to disable</param>
+    /// <param name="_Enable">True to enable, False to disable</param>
     public void EnableMatchmaking(bool _Enable) { }
 
     /// <summary>Check if the matchmaking is enable in the lobby</summary>
@@ -67,7 +88,8 @@ public partial class MatchmakingLobby : ILib
     public bool MatchmakingIsEnabled() => default!;
 
     /// <summary>Set the duration of one round of matchmaking @para	_Post		Duration of the post matchmaking sequence</summary>
-    /// <param name="Pre">Duration of the pre matchmaking sequence</param>
+    /// <param name="_Pre">Duration of the pre matchmaking sequence</param>
+    /// <param name="_Post" />
     public void SetMatchmakingDuration(int _Pre, int _Post) { }
 
     /// <summary>Get the duration of the pre matchmaking sequence</summary>
@@ -79,7 +101,7 @@ public partial class MatchmakingLobby : ILib
     public int GetPostMatchmakingDuration() => default!;
 
     /// <summary>Set the lobby start time</summary>
-    /// <param name="StartTime">The new lobby start time</param>
+    /// <param name="_StartTime">The new lobby start time</param>
     public void SetLobbyStartTime(int _StartTime) { }
 
     /// <summary>Get the lobby start time</summary>
@@ -87,7 +109,7 @@ public partial class MatchmakingLobby : ILib
     public int GetLobbyStartTime() => default!;
 
     /// <summary>Set the lobby end time</summary>
-    /// <param name="EndTime">The new lobby end time</param>
+    /// <param name="_EndTime">The new lobby end time</param>
     public void SetLobbyEndTime(int _EndTime) { }
 
     /// <summary>Get the lobby end time</summary>
@@ -100,7 +122,7 @@ public partial class MatchmakingLobby : ILib
     public int LobbyPhase_Matchmaking() => default!;
 
     /// <summary>Set the lobby phase</summary>
-    /// <param name="Phase">The new lobby phase</param>
+    /// <param name="_Phase">The new lobby phase</param>
     public void SetLobbyPhase(int _Phase) { }
 
     /// <summary>Get the lobby phase</summary>
@@ -108,7 +130,7 @@ public partial class MatchmakingLobby : ILib
     public int GetLobbyPhase() => default!;
 
     /// <summary>Check if a user is blocked by the matchmaking</summary>
-    /// <param name="User">The user to check</param>
+    /// <param name="_User">The user to check</param>
     /// <returns>True if the user is blocked, False otherwise</returns>
     public bool IsBlocked(CUser _User) => default!;
 
@@ -116,34 +138,34 @@ public partial class MatchmakingLobby : ILib
     public void Synchro() { }
 
     /// <summary>Check if the UI is synchro</summary>
-    /// <param name="UI">The UI of the player to check</param>
+    /// <param name="_UI">The UI of the player to check</param>
     public bool IsSynchro(CUIConfig _UI) => default!;
 
     /// <summary>Send the ready state of a player</summary>
-    /// <param name="Player">The player to check</param>
-    /// <param name="IsReady">The ready state</param>
+    /// <param name="_Player">The player to check</param>
+    /// <param name="_IsReady">The ready state</param>
     public void SendReadyState(CPlayer _Player, bool _IsReady) { }
 
     /// <summary>Find and send the ready state of a player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     public void SendReadyState(CPlayer _Player) { }
 
     /// <summary>Set the ready state of an user</summary>
-    /// <param name="User">The user to update</param>
-    /// <param name="IsReady">The new ready state</param>
+    /// <param name="_User">The user to update</param>
+    /// <param name="_IsReady">The new ready state</param>
     public void SetReady(CUser _User, bool _IsReady) { }
 
     /// <summary>Check if an user is ready</summary>
-    /// <param name="User">The user to check</param>
+    /// <param name="_User">The user to check</param>
     /// <returns>True if the user is ready, false otherwise</returns>
     public bool IsReady(CUser _User) => default!;
 
     /// <summary>Check ready update from the client</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     public void UpdateReady(CPlayer _Player) { }
 
     /// <summary>Check if a player is being transferred</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>True if the transfer is ongoing, False otherwise</returns>
     public bool IsBeingTransferred(CPlayer _Player) => default!;
 
@@ -155,167 +177,172 @@ public partial class MatchmakingLobby : ILib
     public void UpdatePlayersList() { }
 
     /// <summary>Show the versus manialink to a player</summary>
-    /// <param name="Player">The player to update</param>
+    /// <param name="_Player">The player to update</param>
     public void ShowVersusML(CPlayer _Player) { }
 
     /// <summary>Check if a player is on the versus screen</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>True if the player is on the versus screen, False otherwise</returns>
     public bool IsOnVersusScreen(CPlayer _Player) => default!;
 
     /// <summary>Hide the versus manialink from a player</summary>
-    /// <param name="Player">The player to update</param>
+    /// <param name="_Player">The player to update</param>
     public void HideVersusML(CPlayer _Player) { }
 
     /// <summary>Empty the masters list</summary>
     public void ClearMasters() { }
 
     /// <summary>Add several players to the masters list</summary>
-    /// <param name="Player">The player to add</param>
-    /// <param name="Timestamp">The last time this player was a master</param>
+    /// <param name="_Logins" />
     public void AddMasters(global::System.Collections.Generic.IList<string> _Logins) { }
 
     /// <summary>Update the karma of an user (manage penalties)</summary>
-    /// <param name="User">The user to update</param>
+    /// <param name="_User">The user to update</param>
     public void UpdateKarma(CUser _User) { }
 
     /// <summary>Get an user penalty</summary>
-    /// <param name="User">The user to get</param>
+    /// <param name="_User">The user to get</param>
     /// <returns>The user penalty</returns>
     public int GetPlayerPenalty(CUser _User) => default!;
 
     /// <summary>Set an user penalty</summary>
-    /// <param name="User">The user penalty to set</param>
-    /// <param name="EndTime">The end time of the penalty</param>
+    /// <param name="_User">The user penalty to set</param>
+    /// <param name="_EndTime">The end time of the penalty</param>
     public void SetPlayerPenalty(CUser _User, int _EndTime) { }
 
     /// <summary>Reset an user penalty</summary>
-    /// <param name="User">The user to reset</param>
+    /// <param name="_User">The user to reset</param>
     public void CancelPlayerPenalty(CUser _User) { }
 
     /// <summary>Penalize a player</summary>
-    /// <param name="User">The user to penalize</param>
-    /// <param name="Duration">Duration of the penalty (0 is infinite) (in seconds)</param>
-    /// <param name="MatchId">Id of the match canceled if any</param>
-    /// <param name="IsSubsitute">The player was being sent as a substitute</param>
-    /// <param name="IsReconnect">The player was reconnecting to a match</param>
+    /// <param name="_User">The user to penalize</param>
+    /// <param name="_Duration">Duration of the penalty (0 is infinite) (in seconds)</param>
+    /// <param name="_MatchId">Id of the match canceled if any</param>
+    /// <param name="_IsSubstitute" />
+    /// <param name="_IsReconnect">The player was reconnecting to a match</param>
     public void PenalizePlayer(CUser _User, int _Duration, string _MatchId, bool _IsSubstitute, bool _IsReconnect) { }
 
     /// <summary>Overload PenalizePlayer() function</summary>
+    /// <param name="_User" />
+    /// <param name="_MatchId" />
+    /// <param name="_IsSubstitute" />
+    /// <param name="_IsReconnect" />
     public void PenalizePlayer(CUser _User, string _MatchId, bool _IsSubstitute, bool _IsReconnect) { }
 
     /// <summary>Overload PenalizePlayer() function</summary>
+    /// <param name="_User" />
+    /// <param name="_Duration" />
     public void PenalizePlayer(CUser _User, int _Duration) { }
 
     /// <summary>Manage player reconnection after a leave</summary>
-    /// <param name="Player">The player to reconnect</param>
+    /// <param name="_Player">The player to reconnect</param>
     public void ReconnectToServer(CPlayer _Player) { }
 
     /// <summary>Let a player cancel a match</summary>
-    /// <param name="User">The user who want to cancel his match</param>
+    /// <param name="_User">The user who want to cancel his match</param>
     public void CancelMatch(CUser _User) { }
 
     /// <summary>Parse the matches XML and send player to their match server</summary>
-    /// <param name="MatchesXML">The XML containing the matches</param>
+    /// <param name="_MatchesXML">The XML containing the matches</param>
     public void GetMatches(string _MatchesXML) { }
 
     /// <summary>Send all players in their matches</summary>
     public void SendToMatches() { }
 
     /// <summary>Change rooms UI view</summary>
-    /// <param name="Player">The player to update</param>
-    /// <param name="View">The view to display</param>
+    /// <param name="_Player">The player to update</param>
+    /// <param name="_View">The view to display</param>
     public void SetMLRoomsView(CPlayer _Player, string _View) { }
 
     /// <summary>Change rooms UI view</summary>
-    /// <param name="User">The user to update</param>
-    /// <param name="View">The view to display</param>
+    /// <param name="_User">The user to update</param>
+    /// <param name="_View">The view to display</param>
     public void SetMLRoomsView(CUser _User, string _View) { }
 
     /// <summary>Get the room id in which the player is</summary>
-    /// <param name="Player">The player to get</param>
+    /// <param name="_Player">The player to get</param>
     /// <returns>The room id of the player if found, -1 otherwise</returns>
     public int GetRoomId(CPlayer _Player) => default!;
 
     /// <summary>Find a free slot in the room</summary>
-    /// <param name="Id">Id of the room to scan</param>
+    /// <param name="_Id">Id of the room to scan</param>
     /// <returns>An array with the clan and free slot numbers [Clan, Slot]</returns>
     public global::System.Collections.Generic.IList<int> GetRoomFreeSlot(int _Id) => default!;
 
     /// <summary>Remove a player from all rooms</summary>
-    /// <param name="Player">The player to remove</param>
+    /// <param name="_Player">The player to remove</param>
     public void LeaveRoom(CPlayer _Player) { }
 
     /// <summary>Create a room and add the player</summary>
-    /// <param name="Player">The player that creates the room</param>
+    /// <param name="_Player">The player that creates the room</param>
     public void CreateRoom(CPlayer _Player) { }
 
     /// <summary>Join a room</summary>
-    /// <param name="Player">The player that joins the room</param>
-    /// <param name="Id">The id of the room to join</param>
+    /// <param name="_Player">The player that joins the room</param>
+    /// <param name="_Id">The id of the room to join</param>
     public void JoinRoom(CPlayer _Player, int _Id) { }
 
     /// <summary>Invite a player to a room</summary>
-    /// <param name="Player">The player to invite</param>
-    /// <param name="Id">The id of the room to join</param>
+    /// <param name="_Player">The player to invite</param>
+    /// <param name="_Id">The id of the room to join</param>
     public void InviteRoom(CPlayer _Player, int _Id) { }
 
     /// <summary>Cancel player invitation</summary>
-    /// <param name="Player">The player to cancel</param>
-    /// <param name="Id">The id of the room</param>
+    /// <param name="_Player">The player to cancel</param>
+    /// <param name="_Id">The id of the room</param>
     public void CancelInviteRoom(CPlayer _Player, int _Id) { }
 
     /// <summary>Switch slot in a room</summary>
-    /// <param name="Player">The player to switch</param>
-    /// <param name="Clan">The new clan</param>
-    /// <param name="Slot">The slot to use</param>
+    /// <param name="_Player">The player to switch</param>
+    /// <param name="_Clan">The new clan</param>
+    /// <param name="_Slot">The slot to use</param>
     public void SwitchSlotRoom(CPlayer _Player, int _Clan, int _Slot) { }
 
     /// <summary>Update the format currently used in the lobby</summary>
-    /// <param name="Format">The format to set</param>
+    /// <param name="_Format">The format to set</param>
     public void UpdateMatchFormat(global::System.Collections.Generic.IList<int> _Format) { }
 
     /// <summary>Update the maximum number of players in a team</summary>
-    /// <param name="MaxPlayers">The maximum number of players</param>
+    /// <param name="_MaxPlayers">The maximum number of players</param>
     public void MM_UpdateMaxPlayers(int _MaxPlayers) { }
 
     /// <summary>Parse the player request response and setup the player accordingly</summary>
-    /// <param name="PlayerXml">Xml containing the player info</param>
+    /// <param name="_PlayerXml">Xml containing the player info</param>
     public void SetupPlayer(string _PlayerXml) { }
 
     /// <summary>Check if all the allies of a player are ready</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     public void AlliesAreReady(CPlayer _Player) { }
 
     /// <summary>Request info about a connecting player</summary>
-    /// <param name="Player">The player who joined the server</param>
+    /// <param name="_Player">The player who joined the server</param>
     public void GetPlayerInfo(CPlayer _Player) { }
 
     /// <summary>Load the allies of the users from a backup</summary>
     public void LoadAllies() { }
 
     /// <summary>Save the allies of an user in a backup</summary>
-    /// <param name="User">The user to load</param>
+    /// <param name="_User">The user to load</param>
     public void SaveAllies(CUser _User) { }
 
     /// <summary>Find the allies of each player</summary>
     public void ComputeAllies() { }
 
     /// <summary>Request an ally</summary>
-    /// <param name="Player">The player requesting the ally</param>
-    /// <param name="Ally">The requested ally</param>
+    /// <param name="_Player">The player requesting the ally</param>
+    /// <param name="_Ally">The requested ally</param>
     public void RequestAlly(CPlayer _Player, CPlayer _Ally) { }
 
     /// <summary>Update the timers</summary>
     public void UpdateTimers() { }
 
     /// <summary>Revert the timers</summary>
-    /// <param name="Duration">Duration of the reversal</param>
+    /// <param name="_Duration">Duration of the reversal</param>
     public void SetTimersAutoDown(int _Duration) { }
 
     /// <summary>Start the matchmaker</summary>
-    /// <param name="ProgressiveActivationWaitingTime">Time before the activation of the progressive matchmaking</param>
-    /// <param name="ProgressiveActivationPlayersNbRatio">Number of players before the activation of the progressive matchmaking</param>
+    /// <param name="_ProgressiveActivationWaitingTime">Time before the activation of the progressive matchmaking</param>
+    /// <param name="_ProgressiveActivationPlayersNbRatio">Number of players before the activation of the progressive matchmaking</param>
     public void MatchmakerStart(int _ProgressiveActivationWaitingTime, int _ProgressiveActivationPlayersNbRatio) { }
 
     /// <summary>Run the MatchMaker</summary>
@@ -326,16 +353,16 @@ public partial class MatchmakingLobby : ILib
     public void MatchmakerStop() { }
 
     /// <summary>Start server in lobby mode</summary>
-    /// <param name="DisableUI">Disable the lobby UI</param>
+    /// <param name="_DisableUI">Disable the lobby UI</param>
     public void MM_StartServer(bool _DisableUI) { }
 
     /// <summary>Start map in lobby mode</summary>
     public void MM_StartMap() { }
 
     /// <summary>Start round in lobby mode</summary>
-    /// <param name="PreDuration">Duration of the pre matchmaking sequence</param>
-    /// <param name="PostDuration">Duration of the post matchmaking sequence</param>
-    /// <param name="RoundPerMap">Number of rounds played on a map</param>
+    /// <param name="_PreDuration">Duration of the pre matchmaking sequence</param>
+    /// <param name="_PostDuration">Duration of the post matchmaking sequence</param>
+    /// <param name="_RoundPerMap">Number of rounds played on a map</param>
     public void MM_StartRound(int _PreDuration, int _PostDuration, int _RoundPerMap) { }
 
     /// <summary>Manage XmlRpx events for the lobby</summary>
@@ -367,7 +394,7 @@ public partial class MatchmakingLobby : ILib
     public string GetMLGaugeTimer() => default!;
 
     /// <summary>Create the send to server manialink</summary>
-    /// <param name="Rules">The rules to display</param>
+    /// <param name="_Rules">The rules to display</param>
     /// <returns>The manialink</returns>
     public string GetMLRules(string _Rules) => default!;
 
@@ -380,7 +407,7 @@ public partial class MatchmakingLobby : ILib
     public string GetMLMastersList() => default!;
 
     /// <summary>Create the waiting screen manialink</summary>
-    /// <param name="DisplayRules">Allow to display a manialink with the rules of the mode</param>
+    /// <param name="_DisplayRules">Allow to display a manialink with the rules of the mode</param>
     /// <returns>The manialink</returns>
     public string GetMLWaitingScreen(bool _DisplayRules) => default!;
 
@@ -389,7 +416,7 @@ public partial class MatchmakingLobby : ILib
     public string GetMLRooms() => default!;
 
     /// <summary>Select the right manialink depending on the king of lobby</summary>
-    /// <param name="DisplayRules">Allow to display a manialink with the rules of the mode</param>
+    /// <param name="_DisplayRules">Allow to display a manialink with the rules of the mode</param>
     /// <returns>The manialink</returns>
     public string GetMLLobbyScreen(bool _DisplayRules) => default!;
 

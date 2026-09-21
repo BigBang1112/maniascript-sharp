@@ -30,35 +30,35 @@ public partial class Chrono : ILib
     public string CreateLayerChrono() => default!;
 
     /// <summary>Update the Net variables</summary>
-    /// <param name="PlayerId">Id of the player to update</param>
-    /// <param name="StartTime">StartTime of the timer</param>
-    /// <param name="StopTime">StopTime of the timer</param>
-    /// <param name="Reset">Reset the timer</param>
+    /// <param name="_PlayerId">Id of the player to update</param>
+    /// <param name="_StartTime">StartTime of the timer</param>
+    /// <param name="_StopTime">StopTime of the timer</param>
+    /// <param name="_Reset">Reset the timer</param>
     public void UpdateNetVariables(Ident _PlayerId, int _StartTime, int _StopTime, bool _Reset) { }
 
     /// <summary>Update the position Net variables</summary>
-    /// <param name="PlayerId">Id of the player to update</param>
-    /// <param name="PosX">Position in X</param>
-    /// <param name="PosY">Position in Y</param>
+    /// <param name="_PlayerId">Id of the player to update</param>
+    /// <param name="_PosX">Position in X</param>
+    /// <param name="_PosY">Position in Y</param>
     public void UpdatePositionNetVariables(Ident _PlayerId, float _PosX, float _PosY) { }
 
     /// <summary>Set the position of the timer on the screen</summary>
-    /// <param name="PlayerId">Id of the timer owner</param>
-    /// <param name="PosX">Position in X</param>
-    /// <param name="PosY">Position in Y</param>
+    /// <param name="_PlayerId">Id of the timer owner</param>
+    /// <param name="_PosX">Position in X</param>
+    /// <param name="_PosY">Position in Y</param>
     public void SetPosition(Ident _PlayerId, float _PosX, float _PosY) { }
 
     /// <summary>Start a timer</summary>
-    /// <param name="PlayerId">The id of the timer owner</param>
-    /// <param name="Delay">A delay before the start of the timer</param>
+    /// <param name="_PlayerId">The id of the timer owner</param>
+    /// <param name="_Delay">A delay before the start of the timer</param>
     public void Start(Ident _PlayerId, int _Delay) { }
 
     /// <summary>Stop a time</summary>
-    /// <param name="PlayerId">The id of the timer owner</param>
+    /// <param name="_PlayerId">The id of the timer owner</param>
     public void Stop(Ident _PlayerId) { }
 
     /// <summary>Reset a timer</summary>
-    /// <param name="PlayerId">The id of the timer owner</param>
+    /// <param name="_PlayerId">The id of the timer owner</param>
     public void Reset(Ident _PlayerId) { }
 
     /// <summary>Load the library</summary>
@@ -72,18 +72,18 @@ public partial class Chrono : ILib
     public void Unload() { }
 
     /// <summary>Create a timer</summary>
-    /// <param name="PlayerId">The id of the timer owner, NullId for all players</param>
+    /// <param name="_PlayerId">The id of the timer owner, NullId for all players</param>
     public void Create(Ident _PlayerId) { }
 
     /// <summary>Destroy a timer</summary>
-    /// <param name="PlayerId">The id of the timer owner, NullId for all players</param>
+    /// <param name="_PlayerId">The id of the timer owner, NullId for all players</param>
     public void Destroy(Ident _PlayerId) { }
 
     /// <summary>Show a timer</summary>
-    /// <param name="PlayerId">The id of the timer owner, NullId for all players</param>
+    /// <param name="_PlayerId">The id of the timer owner, NullId for all players</param>
     public void Show(Ident _PlayerId) { }
 
     /// <summary>Hide a timer</summary>
-    /// <param name="PlayerId">The id of the timer owner, NullId for all players</param>
+    /// <param name="_PlayerId">The id of the timer owner, NullId for all players</param>
     public void Hide(Ident _PlayerId) { }
 }

@@ -15,33 +15,37 @@ public partial class Semver : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "Libs/Nadeo/CMGame/Utils/Semver.Script.txt";
+    /// <summary>The main part of the version</summary>
     public const int C_Main = 0;
+    /// <summary>The prerelease part of the version</summary>
     public const int C_Prerelease = 1;
+    /// <summary>The build part of the version</summary>
     public const int C_Build = 2;
+    /// <summary>Size of the comparison cache</summary>
     public const int C_CacheSize = 100;
 
     /// <summary>Compare two identifiers</summary>
-    /// <param name="A">The first identifier</param>
-    /// <param name="B">The second identifier</param>
+    /// <param name="_A">The first identifier</param>
+    /// <param name="_B">The second identifier</param>
     /// <returns>1 if _A &gt; _B, -1 if _A &lt; _B, 0 otherwise</returns>
     public int CompareIdentifiers(string _A, string _B) => default!;
 
     /// <summary>Compare the main part of the version</summary>
-    /// <param name="VersionA">The first version to compare</param>
-    /// <param name="VersionB">The second version to compare</param>
+    /// <param name="_VersionA">The first version to compare</param>
+    /// <param name="_VersionB">The second version to compare</param>
     /// <returns>1 if _VersionA &gt; _VersionB, -1 if _VersionA &lt; _VersionB, 0 otherwise</returns>
     public int CompareMain(string _VersionA, string _VersionB) => default!;
 
     /// <summary>Compare the prerelease part of the version</summary>
-    /// <param name="VersionA">The first version to compare</param>
-    /// <param name="VersionB">The second version to compare</param>
+    /// <param name="_VersionA">The first version to compare</param>
+    /// <param name="_VersionB">The second version to compare</param>
     /// <returns>1 if _VersionA &gt; _VersionB, -1 if _VersionA &lt; _VersionB, 0 otherwise</returns>
     public int ComparePre(string _VersionA, string _VersionB) => default!;
 
     /// <summary>Compare two versions</summary>
-    /// <param name="VersionA">The first version to compare</param>
-    /// <param name="Operator">The comparison to do</param>
-    /// <param name="VersionB">The second version to compare</param>
+    /// <param name="_VersionA">The first version to compare</param>
+    /// <param name="_Operator">The comparison to do</param>
+    /// <param name="_VersionB">The second version to compare</param>
     /// <returns>The result of the comparison</returns>
     public bool Compare(string _VersionA, string _Operator, string _VersionB) => default!;
 }

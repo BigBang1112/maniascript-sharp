@@ -22,9 +22,11 @@ public partial class SpectatorInfo_Server : ILib
     public void ForceUpdate() { }
 
     /// <summary>Update the points limit used to displayed finalist and winner status Cup mode</summary>
+    /// <param name="_PointsLimit" />
     public void SetPointsLimit(int _PointsLimit) { }
 
     /// <summary>Set the ranking mode</summary>
+    /// <param name="_RankingMode" />
     public void SetRankingMode(int _RankingMode) { }
 
     /// <summary>Unload the library</summary>

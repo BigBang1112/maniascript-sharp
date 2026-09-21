@@ -22,11 +22,13 @@ public partial class Sound : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Play a sound from the library</summary>
+    /// <param name="_Name" />
     public void Play(string _Name) { }
 
     /// <summary>Unload the library</summary>
     public void Unload() { }
 
     /// <summary>Load the library</summary>
+    /// <param name="_EnableSound" />
     public void Load(bool _EnableSound) { }
 }

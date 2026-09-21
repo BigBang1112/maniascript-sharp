@@ -18,7 +18,9 @@ public partial class Cup : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Bas
     public const string Version = "2018-03-08";
     public const string ScriptName = "Modes/TrackMania/Cup/Cup.Script.txt";
     public const int C_BotsNb = 0;
+    /// <summary>Path to the hud module</summary>
     public const string C_HudModulePath = "Nadeo/TrackMania/Cup/Hud.Module.Gbx";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TrackMania/Cup/Cup.Script.txt";
 
     public virtual void MM_SetupMatchmaking() { }
 
@@ -51,16 +53,16 @@ public partial class Cup : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Bas
     public virtual void Match_BeforeCloseLadder() { }
 
     /// <summary>Get matchmaking format</summary>
-    /// <param name="PlayersNb">The number of players</param>
+    /// <param name="_PlayersNb">The number of players</param>
     /// <returns>The format with the given number of players</returns>
     public global::System.Collections.Generic.IList<int> GetMatchmakingFormat(int _PlayersNb) => default!;
 
     /// <summary>Set the cup points limit</summary>
-    /// <param name="PointsLimit">The new points limit</param>
+    /// <param name="_PointsLimit">The new points limit</param>
     public void SetUiScoresPointsLimit(int _PointsLimit) { }
 
     /// <summary>Check if a player can spawn False otherwise</summary>
-    /// <param name="Score">The player's score</param>
+    /// <param name="_Score">The player's score</param>
     /// <returns>True if the player can spawn,</returns>
     public bool CanSpawn(CTmScore _Score) => default!;
 
@@ -69,8 +71,8 @@ public partial class Cup : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Bas
     public int GetFinishTimeout() => default!;
 
     /// <summary>Announce a new winner in the chat</summary>
-    /// <param name="Name">The name of the new winner</param>
-    /// <param name="Rank">The rank of the new winner</param>
+    /// <param name="_Name">The name of the new winner</param>
+    /// <param name="_Rank">The rank of the new winner</param>
     public void AnnounceWinner(string _Name, int _Rank) { }
 
     /// <summary>Compute the latest race scores</summary>
@@ -92,6 +94,6 @@ public partial class Cup : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Bas
     public bool MatchIsOver() => default!;
 
     /// <summary>Log the players logins and the scores match points</summary>
-    /// <param name="Section">Name of the section where log is called</param>
+    /// <param name="_Section">Name of the section where log is called</param>
     public void LogPlayersAndScores(string _Section) { }
 }

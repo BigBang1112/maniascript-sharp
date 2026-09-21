@@ -25,6 +25,7 @@ public partial class Onboarding : ILib
     public const string C_Name = "Page_Onboarding";
     public const string C_NavGroupName = "navgroup-page-onboarding";
     public const double C_MenuBackground_DimmerOpacity = 0.4;
+    /// <summary>Settings</summary>
     public const int C_SettingCategory_General = 1;
     public const int C_SettingId_AccessibilitySection = 1;
     public const int C_SettingId_SystemSection = 2;

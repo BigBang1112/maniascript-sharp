@@ -20,6 +20,7 @@ public partial class SpectatorInfo_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/SpectatorInfo_Client.Script.txt";
+    public const string C_TeamLogoPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/TeamsLogo";
 
     public struct K_Controls
     {

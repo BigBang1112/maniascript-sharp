@@ -13,6 +13,7 @@ public partial class LinksAPI : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Links.TitleInfoStructs Structs;
 
+    public const string C_LibLinksAPI_TitleIngameURL = "https://prod.live.maniaplanet.com/ingame/public/titles/";
     public const int C_LibLinksAPI_RequestTimeout = 5000;
 
     public void Load() { }

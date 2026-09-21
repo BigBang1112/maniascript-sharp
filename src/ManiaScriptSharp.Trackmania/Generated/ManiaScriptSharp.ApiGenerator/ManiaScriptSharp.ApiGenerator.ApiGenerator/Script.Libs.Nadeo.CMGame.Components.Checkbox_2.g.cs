@@ -22,12 +22,15 @@ public partial class Checkbox_2 : ILib
     public const string C_ComponentName = "CMGameCheckbox2";
     public const string C_ComponentClass = "cmgame-components-checkbox-2";
     public const string C_ComponentNavZone = "cmgame-components-checkbox-2-quad-nav-zone";
+    /// <summary>Events</summary>
     public const string C_Event_Toggle = "checkbox-toggle";
+    /// <summary>Control ids</summary>
     public const string C_Id_FrameAlign = "cmgame-checkbox-2_frame-align";
     public const string C_Id_FrameNavigationContainer = "cmgame-checkbox-2_frame-navigationcontainer";
     public const string C_Id_LabelCheckbox = "cmgame-checkbox-2_label-checkbox";
     public const string C_Id_LabelMirrorCheckbox = "cmgame-checkbox-2_label-mirror-checkbox";
     public const string C_Id_QuadIcon = "cmgame-checkbox-2_quad-icon";
+    /// <summary>0,1,2,3,... not 0,1,3,... for example</summary>
     public const int C_Property_HAlign = 0;
     public const int C_Property_VAlign = 1;
     public const int C_Property_Size = 2;
@@ -80,6 +83,7 @@ public partial class Checkbox_2 : ILib
     public const string C_Prop_IconPos = "icon-pos";
     public const string C_Prop_IconImageChecked = "icon-image-checked";
     public const string C_Prop_IconImageUnchecked = "icon-image-unchecked";
+    /// <summary>Default values</summary>
     public const int C_FocusAnimDuration = 250;
     public const string C_DefaultTextPrefix = "$t$i";
 

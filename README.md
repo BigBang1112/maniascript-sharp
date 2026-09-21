@@ -116,12 +116,14 @@ Other templates in the pack scaffold the other kinds of ManiaScript projects:
 | `msharp-gamemode` | Game mode (`CTmMode` / `CSmMode`) | ManiaPlanet, ManiaPlanet3, Trackmania |
 | `msharp-library` | `ILib<T>` reusable library | ManiaPlanet, ManiaPlanet3, Trackmania |
 | `msharp-manialink` | Ingame manialink (`CTmMlScriptIngame` / `CSmMlScriptIngame`) + matching `.xml` | ManiaPlanet, ManiaPlanet3, Trackmania |
+| `msharp-razor-manialink` | Single-file Razor ManiaApp page (`.razor`) | ManiaPlanet, ManiaPlanet3, Trackmania |
 | `msharp-map-editor-plugin` | Map editor plugin (`CMapEditorPlugin`) | ManiaPlanet, Trackmania |
 | `msharp-server-plugin` | Server plugin (`CServerPlugin`) | ManiaPlanet, Trackmania |
 
 ```powershell
 dotnet new msharp-library -n MyLib --Api Trackmania
 dotnet new msharp-manialink -n MyManialink --Api Trackmania
+dotnet new msharp-razor-manialink -n MyManialink --Api Trackmania
 dotnet new msharp-map-editor-plugin -n MyMapEditorPlugin --Api ManiaPlanet
 dotnet new msharp-server-plugin -n MyServerPlugin --Api ManiaPlanet
 ```
@@ -1886,6 +1888,57 @@ main() {
 
 - If no ID is given on the attribute, the field name is used as the XML `id`.
 - Set `IgnoreValidation = true` for dynamically-built manialinks.
+
+### Single-file Razor Manialinks
+
+As an alternative to separate C# and XML files, put a ManiaApp, its markup, and its page script in
+a component-style `MyManialink.razor` file. The Razor document itself declares the outer ManiaApp
+context with `@inherits` and `@implements`. A nested `IContext` class supplies the optional
+`CMlScriptIngame` script embedded in the markup:
+
+```razor
+@using ManiaScriptSharp
+@using static ManiaScriptSharp.ManiaScript
+@namespace MyMode
+@inherits CManiaApp
+@implements IContext
+
+<manialink version="3">
+    <label id="LabelHello" text="@_title" />
+</manialink>
+
+@code {
+    private string _title = "Hello from Razor!";
+    private CUILayer? _layer;
+
+    public void Main()
+    {
+        _layer = UILayerCreate();
+        _layer.ManialinkPage = Render();
+    }
+
+    public void Loop() { }
+
+    public class PageScript : CMlScriptIngame, IContext
+    {
+        [ManialinkControl] public required CMlLabel LabelHello;
+        public void Main()
+        {
+            LabelHello.Value = "Ready";
+        }
+        public void Loop() { }
+    }
+}
+```
+
+The generator adds a `Render()` method to the outer context. It returns the complete Manialink as
+a ManiaScript multiline string, including the generated nested `<script>` block. Razor value
+expressions such as `@_title` become runtime ManiaScript interpolation, so `Render()` can be
+assigned directly to `CUILayer.ManialinkPage`. The outer context is emitted as
+`ManiaScript/MyManialink.Script.txt`.
+
+Razor control-flow blocks in markup are not currently supported. Use value expressions for text
+and attributes, and `@@` when the XML needs a literal `@` character.
 
 ## Netwrites & netreads
 

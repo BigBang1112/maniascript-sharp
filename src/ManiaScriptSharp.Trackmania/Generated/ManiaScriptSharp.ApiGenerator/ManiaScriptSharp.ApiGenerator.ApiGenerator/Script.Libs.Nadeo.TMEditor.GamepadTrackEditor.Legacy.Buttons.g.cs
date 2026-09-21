@@ -16,19 +16,28 @@ public partial class Buttons : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Buttons.Script.txt";
+    /// <summary>Path to the buttons images</summary>
+    public const string C_ButtonsImgDir = "file://Media/Manialinks/Common/PadButtons/";
+    /// <summary>Data parameters used to assign an action to the button</summary>
     public const string C_DataActionName = "action-name";
+    /// <summary>Class used to detect the buttons</summary>
     public const string C_ButtonClass = "lib-button";
+    /// <summary>Prefix for the library functions</summary>
     public const string C_LibPrefix = "LibButtons_";
+    /// <summary>Default size of the button image</summary>
     public const double C_DefaultButtonSize = 8.0;
+    /// <summary>System platforms</summary>
     public const int C_System_PS4 = 0;
     public const int C_System_PS5 = 1;
     public const int C_System_XBox = 2;
     public const int C_System_PC = 3;
     public const int C_System_Stadia = 4;
     public const int C_System_Luna = 5;
+    /// <summary>Controller devices</summary>
     public const int C_Device_Keyboard = 0;
     public const int C_Device_Mouse = 1;
     public const int C_Device_Pad = 2;
+    /// <summary>Inputs</summary>
     public const string C_Menu_Select = "Menu_Select";
     public const string C_Menu_Cancel = "Menu_Cancel";
     public const string C_Editor_Menu = "Editor_Menu";
@@ -245,9 +254,12 @@ public partial class Buttons : ILib
     public string Editor_RightMouseClick() => default!;
 
     /// <summary>Inject the manialink tags of a button</summary>
+    /// <param name="_Button" />
+    /// <param name="_Params" />
     public string ML_Button(string _Button, global::System.Collections.Generic.Dictionary<string, string> _Params) => default!;
 
     /// <summary>Inject the code of the library in the manialink</summary>
+    /// <param name="_LibPrefix" />
     public string ML_Functions(string _LibPrefix) => default!;
 
     /// <summary>Inject the code of the library in the manialink</summary>
@@ -274,6 +286,9 @@ public partial class Buttons : ILib
     public int Device_Pad() => default!;
 
     /// <summary>Device used to generate the latest input (approximation)</summary>
+    /// <param name="_IsPad" />
+    /// <param name="_IsKeyboard" />
+    /// <param name="_IsMouse" />
     public int GetInputDevice(bool _IsPad, bool _IsKeyboard, bool _IsMouse) => default!;
 
     /// <summary>Get the path to the left stick image</summary>

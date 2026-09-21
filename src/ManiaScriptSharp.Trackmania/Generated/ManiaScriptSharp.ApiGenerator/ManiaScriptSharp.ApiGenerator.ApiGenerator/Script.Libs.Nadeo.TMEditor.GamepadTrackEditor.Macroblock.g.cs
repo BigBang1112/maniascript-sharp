@@ -17,15 +17,25 @@ public partial class Macroblock : ILib
     public const string C_MacroblocksVersion = "2022-10-21";
     public const string Version = "1.0.2";
     public const string ScriptName = "Macroblock.Script.txt";
+    /// <summary>Null</summary>
     public const int C_VariantNull = -1;
+    /// <summary>Ground variant identifier</summary>
     public const int C_VariantGround = 0;
+    /// <summary>Air variant identifier</summary>
     public const int C_VariantAir = 1;
+    /// <summary>Forest (Valley) variant identifier</summary>
     public const int C_VariantForest = 2;
+    /// <summary>Forest edge (Valley) variant identifier</summary>
     public const int C_VariantForestEdge = 3;
+    /// <summary>Dirt (Stadium) variant identifier</summary>
     public const int C_VariantDirt = 4;
+    /// <summary>Water (Lagoon) variant identifier</summary>
     public const int C_VariantWater = 5;
+    /// <summary>Full name of the macroblock model to use to udpate the track uid</summary>
     public const string C_UpdateUidBlock = "DecoExpert\\Flying\\Helico";
+    /// <summary>Folder containing the macroblocks</summary>
     public const string C_MacroblocksFolder = "GamepadEditor";
+    /// <summary>Folder containing the terrains macroblocks</summary>
     public const string C_TerrainsFolder = "Terrain";
 
     public struct K_GamepadEditorMetadata
@@ -69,6 +79,7 @@ public partial class Macroblock : ILib
     public void ClearClipNamesPool() { }
 
     /// <summary>Get the clip id for signature from its name</summary>
+    /// <param name="_Name" />
     public int GetClipId(string _Name) => default!;
 
     /// <summary>Get variant identifiers</summary>
@@ -91,26 +102,35 @@ public partial class Macroblock : ILib
     public bool VariantIsNotNull(int _Variant) => default!;
 
     /// <summary>Get the information in cache of a macroblock model</summary>
+    /// <param name="_Id" />
     public K_GamepadEditorMetadata GetMetadata(Ident _Id) => default!;
 
     /// <summary>Saves the local cached metadata to the actual Macroblock model's metadata</summary>
+    /// <param name="_Id" />
     public void UpdateMetadata(Ident _Id) { }
 
     /// <summary>Sets the macroblock's cache to the value we've sent, and then update it</summary>
+    /// <param name="_Id" />
+    /// <param name="_Metadata" />
     public void SetMetadata(Ident _Id, K_GamepadEditorMetadata _Metadata) { }
 
     /// <summary>Reload the signatures pool from the existing macroblocks</summary>
     public void ReloadSignaturesPool() { }
 
     /// <summary>Check if a clip can only be used to go out (won't ever be shown as the &quot;next&quot; block entrance)</summary>
+    /// <param name="_ClipName" />
     public bool IsOutClip(string _ClipName) => default!;
 
     /// <summary>Get the names of the clips that can be connected to the provided clip</summary>
+    /// <param name="_ClipName" />
     public global::System.Collections.Generic.IList<string> GetConnectableClips(string _ClipName) => default!;
 
     public bool IsMapAStadiumVariant() => default!;
 
     /// <summary>Generate the metadata for all macroblocks</summary>
+    /// <param name="_SaveMacroblock" />
+    /// <param name="_UseWaterClipsHack" />
+    /// <param name="_UseFreeClipsRenameHack" />
     public void GenerateMetadata(bool _SaveMacroblock, bool _UseWaterClipsHack, bool _UseFreeClipsRenameHack) { }
 
     public void GenerateNewMetadata() { }

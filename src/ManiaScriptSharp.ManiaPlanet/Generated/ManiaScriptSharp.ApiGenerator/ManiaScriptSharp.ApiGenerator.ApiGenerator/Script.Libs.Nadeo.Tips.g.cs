@@ -31,17 +31,18 @@ public partial class Tips : ILib
     public void UnLoad() { }
 
     /// <summary>Load the library.</summary>
-    /// <param name="ModeName">The name of the mode. Used to store current index of tips in a persistant array (local for the player).</param>
+    /// <param name="_ModeName">The name of the mode. Used to store current index of tips in a persistant array (local for the player).</param>
     public void Load(string _ModeName) { }
 
     /// <summary>Build the tips by taking all parameters into account.</summary>
-    /// <param name="Position">Position of the tips frame</param>
+    /// <param name="_Position">Position of the tips frame</param>
     public void Build(Vec3 _Position) { }
 
     /// <summary>Build the tips by taking all parameters into account, using the default position.</summary>
     public void Build() { }
 
     /// <summary>Add a tip to the library of displayed tips</summary>
+    /// <param name="TipText" />
     public void AddTip(string TipText) { }
 
     /// <summary>Show the tips to all players, then sets current tips to the next one in the library for future calls.</summary>
@@ -51,10 +52,12 @@ public partial class Tips : ILib
     public void HideTips() { }
 
     /// <summary>Set the display duration of tips. Tips are not switched iff _AutoSwitchTime &lt;= 0.</summary>
-    /// <param name="AutoSwitchTime">In milliseconds, period of time before a tips is replaced by the next one.</param>
+    /// <param name="_AutoSwitchTime">In milliseconds, period of time before a tips is replaced by the next one.</param>
     public void SetAutoSwitchTime(int _AutoSwitchTime) { }
 
     /// <summary>TODO LATER</summary>
+    /// <param name="_KeyCode" />
+    /// <param name="_KeyName" />
     public void SetSwitchOnKeyPressed(int _KeyCode, string _KeyName) { }
 
     public void SetSwitchOnF1Pressed() { }

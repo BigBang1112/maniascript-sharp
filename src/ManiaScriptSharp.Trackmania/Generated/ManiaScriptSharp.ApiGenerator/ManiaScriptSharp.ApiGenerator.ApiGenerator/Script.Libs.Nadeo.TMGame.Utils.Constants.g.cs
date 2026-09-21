@@ -15,10 +15,13 @@ public partial class Constants : ILib
 
     public const string Version = "1.1.1";
     public const string ScriptName = "Libs/Nadeo/TMGame/Utils/Constants.Script.txt";
+    /// <summary>Type of scores</summary>
     public const int C_ScoreType_Time = 0;
     public const int C_ScoreType_Points = 1;
     public const int C_ScoreType_Respawns = 2;
+    /// <summary>L16N Display the number of points of the player record, in this case there is no record set</summary>
     public const string C_Text_RecordNoPoints = "-";
+    /// <summary>L16N Display the number of respawns of the player record, in this case there is no record set</summary>
     public const string C_Text_RecordNoRespawns = "-";
 
     public struct K_ScoreTextOptions
@@ -28,6 +31,9 @@ public partial class Constants : ILib
     }
 
     /// <summary>Get the value of the text displayed for the score (can be a time, points or respawns)</summary>
+    /// <param name="_Score" />
+    /// <param name="_ScoreType" />
+    /// <param name="_Options" />
     public string GetScoreText(int _Score, int _ScoreType, K_ScoreTextOptions _Options) => default!;
 
     public string GetScoreText(int _Score, int _ScoreType, bool _EnableAbbreviation) => default!;

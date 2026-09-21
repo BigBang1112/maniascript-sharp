@@ -21,12 +21,14 @@ public partial class MapType : ILib
     public const int C_PlayersCount = 1;
 
     /// <summary>Save the map type script version in the metadata of the map</summary>
+    /// <param name="_Version" />
     public void SetVersion(int _Version) { }
 
     /// <summary>Get the map type script version from the metadata of the map</summary>
     public int GetVersion() => default!;
 
     /// <summary>Set the time objectives of a map based on the author time The gold, silver and bronze times are automatically overwritten by new values based on the author time when the author time changes, so its not needed to do it manually.</summary>
+    /// <param name="_AuthorTime" />
     public void SetObjectivesFromAuthorTime(int _AuthorTime) { }
 
     /// <summary>Reset the objectives of the map</summary>
@@ -42,6 +44,7 @@ public partial class MapType : ILib
     public void PlayTestRun_Yield() { }
 
     /// <summary>Do a full run of the race to validate</summary>
+    /// <param name="_Mode" />
     public void PlayValidationRun_Yield(string _Mode) { }
 
     /// <summary>Sanitize all the landmarks tags</summary>

@@ -35,6 +35,7 @@ public partial class Matchmaking : ILib
     }
 
     /// <summary>Send a list of newly eliminated teams to the matchmaking api</summary>
+    /// <param name="_EliminatedTeamIds" />
     public void SendEliminatedTeams(global::System.Collections.Generic.IList<int> _EliminatedTeamIds) { }
 
     /// <summary>Unload the library</summary>

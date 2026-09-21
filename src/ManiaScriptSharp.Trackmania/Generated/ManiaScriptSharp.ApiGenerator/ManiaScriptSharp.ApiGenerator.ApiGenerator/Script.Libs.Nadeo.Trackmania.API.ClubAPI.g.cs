@@ -116,6 +116,7 @@ public partial class ClubAPI : ILib
     public const string C_Route_GetPlayerInfo = "/player/info";
     public const string C_Route_PostFolderCreate = "/:ClubId/folder/create";
     public const string C_Route_GetFolderList = "/:ClubId/folder";
+    /// <summary>Values are from LIVE, do not change them</summary>
     public const string C_QueryValue_Sort_Popularity = "popularity";
     public const string C_QueryValue_Sort_Date = "date";
     public const string C_QueryValue_Sort_Name = "name";

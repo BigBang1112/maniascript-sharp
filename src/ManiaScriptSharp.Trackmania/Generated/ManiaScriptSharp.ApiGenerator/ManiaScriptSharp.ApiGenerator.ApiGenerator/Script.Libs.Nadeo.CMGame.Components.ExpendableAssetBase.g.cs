@@ -30,6 +30,7 @@ public partial class ExpendableAssetBase : ILib
     public const string C_Id_QuadLeft = "expendable-asset_quad-left";
     public const string C_Id_QuadCenter = "expendable-asset_quad-center";
     public const string C_Id_QuadRight = "expendable-asset_quad-right";
+    /// <summary>0,1,2,3,... not 0,1,3,... for example</summary>
     public const int C_Property_Height = 0;
     public const int C_Property_Width = 1;
     public const int C_Property_HAlign = 2;

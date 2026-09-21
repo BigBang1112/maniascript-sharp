@@ -62,9 +62,12 @@ public partial class Config : ILib
     public K_Config Get() => default!;
 
     /// <summary>Is the given feature enabled</summary>
+    /// <param name="_Feature" />
     public bool HasFeature(string _Feature) => default!;
 
     /// <summary>Update the configuration object</summary>
+    /// <param name="_Config" />
+    /// <param name="_Source" />
     public void Set(K_Config _Config, int _Source) { }
 
     /// <summary>Get the source of the config</summary>
@@ -76,9 +79,13 @@ public partial class Config : ILib
     public bool IsLoadingFile(K_Loading _Loading) => default!;
 
     /// <summary>Merge configuration B into configuration A</summary>
+    /// <param name="_ConfigA" />
+    /// <param name="_ConfigB" />
     public K_Config MergeConfig(K_Config _ConfigA, K_Config _ConfigB) => default!;
 
     /// <summary>Merge configuration from a json string into the current configuration</summary>
+    /// <param name="_ConfigJson" />
+    /// <param name="_Source" />
     public void MergeJson(string _ConfigJson, int _Source) { }
 
     public bool IsMergingFile(K_Loading _Loading) => default!;

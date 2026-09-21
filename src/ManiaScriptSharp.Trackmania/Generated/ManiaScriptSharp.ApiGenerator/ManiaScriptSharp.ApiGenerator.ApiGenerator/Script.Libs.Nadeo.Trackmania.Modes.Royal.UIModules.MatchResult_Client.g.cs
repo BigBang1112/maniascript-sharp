@@ -29,7 +29,6 @@ public partial class MatchResult_Client : ILib
     public const string C_NavGroup_Page = "navgroup-knockout-reward";
     public const int C_InputPriority = 1;
     public const int C_UpdateInterval = 250;
-    public const int C_DisplayAnimDuration = 250;
 
     public struct K_Controls
     {

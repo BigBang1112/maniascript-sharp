@@ -15,10 +15,12 @@ public partial class SplashscreenStruct : ILib
     public const string Version = "1.9.0";
     public const string ScriptName = "Libs/Nadeo/CMGame/Structures/SplashscreenStruct.Script.txt";
     public const int C_SplashscreenDelay = 21600000;
+    /// <summary>Trackmania subscriptions from the LIVE's API</summary>
     public const string C_GameSubscriptionPlan_All = "all";
     public const string C_GameSubscriptionPlan_Starter = "starter";
     public const string C_GameSubscriptionPlan_Standard = "standard";
     public const string C_GameSubscriptionPlan_Club = "club";
+    /// <summary>Trackmania actions from the LIVE's API</summary>
     public const string C_Action_Activity = "activity";
     public const string C_Action_ArcadeServer = "arcade_server";
     public const string C_Action_Club = "club";

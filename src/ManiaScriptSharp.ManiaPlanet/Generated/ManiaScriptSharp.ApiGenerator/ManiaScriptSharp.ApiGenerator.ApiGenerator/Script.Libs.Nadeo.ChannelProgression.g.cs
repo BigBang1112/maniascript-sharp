@@ -21,11 +21,13 @@ public partial class ChannelProgression : ILib
     public const string Version = "2017-08-30";
     public const string ScriptName = "Libs/Nadeo/ChannelProgression.Script.txt";
     public const string C_LayerName = "LibChannelProgression";
+    public const string C_ApiUrl = "https://www.maniaplanet.com";
     public const string C_GetServerInfo = "";
     public const string C_GetMapInfo = "/ingame/public/season/players";
     public const string C_SetMapInfo = "/ingame/public/season/match";
     public const int C_RequestTimeout = 5000;
     public const string C_RequestHeaders = "Content-Type: application/json\nAccept: application/xml";
+    /// <summary>Maximum number of best scores</summary>
     public const int C_BestScoresNb = 10;
     public const int C_AnimRoulette_Loop = 0;
     public const int C_AnimRoulette_Spring = 1;
@@ -66,75 +68,76 @@ public partial class ChannelProgression : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the progression in the season</summary>
-    /// <param name="SeasonNumber">The season's number</param>
-    /// <param name="SeasonEpisode">The episode's number</param>
+    /// <param name="_SeasonNumber">The season's number</param>
+    /// <param name="_SeasonEpisode">The episode's number</param>
     public void SetSeasonEpisode(int _SeasonNumber, int _SeasonEpisode) { }
 
     /// <summary>Update the players ranking</summary>
-    /// <param name="Names">The ordered names</param>
-    /// <param name="Scores">The ordered scores</param>
+    /// <param name="_Names">The ordered names</param>
+    /// <param name="_Scores">The ordered scores</param>
     public void SetRanking(global::System.Collections.Generic.IList<string> _Names, global::System.Collections.Generic.IList<int> _Scores) { }
 
     /// <summary>Set the player rank in the ranking</summary>
-    /// <param name="Score">The player's score</param>
-    /// <param name="Rank">The player's rank, start at 0</param>
+    /// <param name="_Score">The player's score</param>
+    /// <param name="_Rank">The player's rank, start at 0</param>
     public void SetRank(CScore _Score, int _Rank) { }
 
     /// <summary>Select if the ranking displays a time or a score False if it must display scores</summary>
-    /// <param name="Boolean">_IsTime						True if the ranking must display times</param>
+    /// <param name="_IsTime" />
     public void SetRankingIsTime(bool _IsTime) { }
 
     /// <summary>Update the player's channel XP</summary>
-    /// <param name="Score">The player's score</param>
-    /// <param name="OldXP">The old amount of XP</param>
-    /// <param name="NewXP">The new amount of XP</param>
+    /// <param name="_Score">The player's score</param>
+    /// <param name="_OldXP">The old amount of XP</param>
+    /// <param name="_NewXP">The new amount of XP</param>
     public void SetXP(CScore _Score, int _OldXP, int _NewXP) { }
 
     /// <summary>Update the player's best scores (points)</summary>
-    /// <param name="Score">The player's score</param>
-    /// <param name="OldBestPoints">The player's previous best points</param>
-    /// <param name="OldDates">The dates of the previous best scores</param>
-    /// <param name="NewBestPoints">The player's new best points</param>
-    /// <param name="NewDates">The dates of the new best scores</param>
+    /// <param name="_Score">The player's score</param>
+    /// <param name="_OldBestPoints">The player's previous best points</param>
+    /// <param name="_OldDates">The dates of the previous best scores</param>
+    /// <param name="_NewBestPoints">The player's new best points</param>
+    /// <param name="_NewDates">The dates of the new best scores</param>
     public void SetBestScores(CScore _Score, global::System.Collections.Generic.IList<int> _OldBestPoints, global::System.Collections.Generic.IList<string> _OldDates, global::System.Collections.Generic.IList<int> _NewBestPoints, global::System.Collections.Generic.IList<string> _NewDates) { }
 
     /// <summary>Get the points from a player's new best scores</summary>
-    /// <param name="Score">The player's score</param>
+    /// <param name="_Score">The player's score</param>
     /// <returns>The player's best scores</returns>
     public global::System.Collections.Generic.IList<int> GetNewBestScoresPoints(CScore _Score) => default!;
 
     /// <summary>Get the dates from a player's new best scores</summary>
-    /// <param name="Score">The player's score</param>
+    /// <param name="_Score">The player's score</param>
     /// <returns>The player's best scores dates</returns>
     public global::System.Collections.Generic.IList<string> GetNewBestScoresDates(CScore _Score) => default!;
 
     /// <summary>Get the points from a player's old best scores</summary>
-    /// <param name="Score">The player's score</param>
+    /// <param name="_Score">The player's score</param>
     /// <returns>The player's best scores</returns>
     public global::System.Collections.Generic.IList<int> GetOldBestScoresPoints(CScore _Score) => default!;
 
     /// <summary>Get the dates from a player's old best scores</summary>
-    /// <param name="Score">The player's score</param>
+    /// <param name="_Score">The player's score</param>
     /// <returns>The player's best scores dates</returns>
     public global::System.Collections.Generic.IList<string> GetOldBestScoresDates(CScore _Score) => default!;
 
     /// <summary>Update the channel cumulated XP per level</summary>
-    /// <param name="EmblemsXP">XP cumulated to reach each level</param>
+    /// <param name="_EmblemsXP">XP cumulated to reach each level</param>
     public void SetEmblemsXP(global::System.Collections.Generic.IList<int> _EmblemsXP) { }
 
     /// <summary>Update the emblems' logo</summary>
-    /// <param name="EmblemsLogo">Path to the emblems' logo</param>
+    /// <param name="_BigLogo" />
+    /// <param name="_SmallLogo" />
     public void SetEmblemsLogo(global::System.Collections.Generic.IList<string> _BigLogo, global::System.Collections.Generic.IList<string> _SmallLogo) { }
 
     /// <summary>Update the player's score (points)</summary>
-    /// <param name="Score">The player's score</param>
-    /// <param name="Points">The player's points</param>
+    /// <param name="_Score">The player's score</param>
+    /// <param name="_Points">The player's points</param>
     public void SetScore(CScore _Score, int _Points) { }
 
     /// <summary>Set the reward earned by a player If the key does not exists, disable the reward section</summary>
-    /// <param name="Score">The player's score</param>
-    /// <param name="Rewards">The rewards available</param>
-    /// <param name="Reward">The key of the reward in the _Rewards array</param>
+    /// <param name="_Score">The player's score</param>
+    /// <param name="_Rewards">The rewards available</param>
+    /// <param name="_Reward">The key of the reward in the _Rewards array</param>
     public void SetReward(CScore _Score, global::System.Collections.Generic.IList<string> _Rewards, int _Reward) { }
 
     /// <summary>Play the reveral animation when the season progression window is displayed</summary>
@@ -144,35 +147,35 @@ public partial class ChannelProgression : ILib
     public void RequestServerInfo() { }
 
     /// <summary>Request the map info from the live API</summary>
-    /// <param name="PlayersLogins">The logins for which we want to retrieve info</param>
+    /// <param name="_PlayersLogins">The logins for which we want to retrieve info</param>
     public void RequestMapInfo(global::System.Collections.Generic.IList<string> _PlayersLogins) { }
 
     /// <summary>Request the match info from the live API</summary>
-    /// <param name="PlayersLogins">The logins for which we want to retrieve info</param>
-    /// <param name="PlayersScores">The scores of the players</param>
+    /// <param name="_PlayersLogins">The logins for which we want to retrieve info</param>
+    /// <param name="_PlayersScores">The scores of the players</param>
     public void RequestMatchInfo(global::System.Collections.Generic.IList<string> _PlayersLogins, global::System.Collections.Generic.IList<int> _PlayersScores) { }
 
     /// <summary>Parse the server info response</summary>
-    /// <param name="Xml">The server info response</param>
+    /// <param name="_Xml">The server info response</param>
     public void ResponseServerInfo(string _Xml) { }
 
     /// <summary>Parse the map info response are the old ones False if they are the new ones</summary>
-    /// <param name="Xml">The server map response</param>
-    /// <param name="AreOldScores">True if the scores in the xml</param>
+    /// <param name="_Xml">The server map response</param>
+    /// <param name="_AreOldScores">True if the scores in the xml</param>
     public void ResponseMapInfo(string _Xml, bool _AreOldScores) { }
 
     /// <summary>Evaluate the player performance during the map with a score between 0. and 1. You must call this function before closing the ladder or it won't taken into consideration 0. == poor, 1. == excellent</summary>
-    /// <param name="Score">The player's score</param>
-    /// <param name="Performance">The performance between 0. and 1.</param>
+    /// <param name="_Score">The player's score</param>
+    /// <param name="_Performance">The performance between 0. and 1.</param>
     public void SetPlayerPerformance(CScore _Score, float _Performance) { }
 
     /// <summary>Get the reference score of a player after the closing of the ladder match</summary>
-    /// <param name="Score">The player's score</param>
+    /// <param name="_Score">The player's score</param>
     /// <returns>The reference score</returns>
     public int GetReferenceScore(CScore _Score) => default!;
 
     /// <summary>Get the reference score of a player after the closing of the ladder match</summary>
-    /// <param name="User">The player's user</param>
+    /// <param name="_User">The player's user</param>
     /// <returns>The reference score</returns>
     public int GetReferenceScore(CUser _User) => default!;
 
@@ -183,7 +186,7 @@ public partial class ChannelProgression : ILib
     public void SetResultsVersion() { }
 
     /// <summary>Enable or disable the channel progression False to disable</summary>
-    /// <param name="Enabled">True to enable</param>
+    /// <param name="_Enabled">True to enable</param>
     public void Enable(bool _Enabled) { }
 
     /// <summary>Check if the channel progression is enabled False otherwise</summary>
@@ -191,7 +194,7 @@ public partial class ChannelProgression : ILib
     public bool IsEnabled() => default!;
 
     /// <summary>Show or hide the channel progression window False to hide</summary>
-    /// <param name="Visible">True to show,</param>
+    /// <param name="_Visible">True to show,</param>
     public void SetVisibility(bool _Visible) { }
 
     /// <summary>Check if a request is in progress False otherwise</summary>

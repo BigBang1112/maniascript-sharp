@@ -24,6 +24,8 @@ public partial class RulesPopUp_Client : ILib
     public const string C_Id = "UIModule_LapsOGL_RulesPopUp";
     public const string C_PopUpName = "RulesPopUp";
     public const string C_NavGroupName = "navgroup-rulespopup";
+    public const string C_Img_PopUpHeader = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scorestable_header.dds";
+    public const string C_Img_PopUpBg = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scorestable_body.dds";
 
     /// <summary>Get the module manialink</summary>
     /// <returns>The module manialink</returns>

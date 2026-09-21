@@ -53,10 +53,6 @@ public partial class CreateCampaign : ILib
     public const int C_Choice_Delete = 3;
     public const int C_Choice_Exit = 0;
     public const int C_Choice_Save = 1;
-    public const int C_Name_MaxChar = 20;
-    public const int C_Difficulty_Simple = 0;
-    public const int C_Difficulty_Advanced = 1;
-    public const int C_Difficulty_Expert = 2;
 
     public struct K_Controls
     {

@@ -27,21 +27,35 @@ public partial class TutorialInterface : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the name of the mode</summary>
+    /// <param name="_ModeName" />
     public void SetModeName(string _ModeName) { }
 
     /// <summary>Set the type of the mode</summary>
+    /// <param name="_ModeType" />
     public void SetModeType(string _ModeType) { }
 
     /// <summary>Set what you have to do in the mode</summary>
+    /// <param name="_ModeMethod" />
     public void SetModePrinciple(string _ModeMethod) { }
 
     /// <summary>Set what you have to do in the mode</summary>
+    /// <param name="_ModeMethodAttack" />
+    /// <param name="_ModeMethodDefence" />
     public void SetModePrinciple(string _ModeMethodAttack, string _ModeMethodDefence) { }
 
     /// <summary>Set equipment of the player</summary>
+    /// <param name="_PlayerWeapon" />
+    /// <param name="_PlayerAmmo" />
+    /// <param name="_PlayerArmor" />
     public void SetEquipment(string _PlayerWeapon, int _PlayerAmmo, int _PlayerArmor) { }
 
     /// <summary>OVERLOAD Set equipment of the teams if asymmetric</summary>
+    /// <param name="_AttackerWeapon" />
+    /// <param name="_AttackerAmmo" />
+    /// <param name="_AttackerArmor" />
+    /// <param name="_DefenderWeapon" />
+    /// <param name="_DefenderAmmo" />
+    /// <param name="_DefenderArmor" />
     public void SetEquipment(string _AttackerWeapon, int _AttackerAmmo, int _AttackerArmor, string _DefenderWeapon, int _DefenderAmmo, int _DefenderArmor) { }
 
     public void SetFirstPage(string _FirstPage) { }
@@ -58,41 +72,58 @@ public partial class TutorialInterface : ILib
     public void Load() { }
 
     /// <summary>Add a quad with a title, a text and a picture for symmetric game modes</summary>
-    /// <param name="Title">text and identifier of the quad</param>
-    /// <param name="Text">text displayed in the quad</param>
-    /// <param name="Picture">picture displayed in the quad</param>
-    /// <param name="Team">integer that require 0 for &quot;Attack&quot; or 1 for &quot;Defense&quot; as parameter to set a specific color to the quad</param>
+    /// <param name="_Title">text and identifier of the quad</param>
+    /// <param name="_Text">text displayed in the quad</param>
+    /// <param name="_Team">integer that require 0 for &quot;Attack&quot; or 1 for &quot;Defense&quot; as parameter to set a specific color to the quad</param>
+    /// <param name="_Picture">picture displayed in the quad</param>
     public void Add_WinCondition(string _Title, string _Text, int _Team, string _Picture) { }
 
     /// <summary>Overload</summary>
+    /// <param name="_Title" />
+    /// <param name="_Text" />
+    /// <param name="_Team" />
     public void Add_WinCondition(string _Title, string _Text, int _Team) { }
 
     /// <summary>Overload</summary>
+    /// <param name="_Title" />
+    /// <param name="_Text" />
+    /// <param name="_Picture" />
     public void Add_WinCondition(string _Title, string _Text, string _Picture) { }
 
     /// <summary>Overload</summary>
+    /// <param name="_Title" />
+    /// <param name="_Text" />
     public void Add_WinCondition(string _Title, string _Text) { }
 
     /// <summary>Add a frame with a title, a text and 0 to 3 pictures. Can't add more than 8 frames</summary>
-    /// <param name="Title">text and identifier of the frame subsection in gameflow</param>
-    /// <param name="MainText">a text displayed in this subsection</param>
-    /// <param name="Picture1">first picture displayed</param>
-    /// <param name="Picture2">second picture displayed</param>
-    /// <param name="Picture3">third picture displayed</param>
+    /// <param name="_Title">text and identifier of the frame subsection in gameflow</param>
+    /// <param name="_MainText">a text displayed in this subsection</param>
     public void Add_Gameflow_Subsection(string _Title, string _MainText) { }
 
     /// <summary>OVERLOAD</summary>
+    /// <param name="_Title" />
+    /// <param name="_MainText" />
+    /// <param name="Picture1" />
     public void Add_Gameflow_Subsection(string _Title, string _MainText, string Picture1) { }
 
     /// <summary>OVERLOAD</summary>
+    /// <param name="_Title" />
+    /// <param name="_MainText" />
+    /// <param name="Picture1" />
+    /// <param name="Picture2" />
     public void Add_Gameflow_Subsection(string _Title, string _MainText, string Picture1, string Picture2) { }
 
     /// <summary>OVERLOAD</summary>
+    /// <param name="_Title" />
+    /// <param name="_MainText" />
+    /// <param name="Picture1" />
+    /// <param name="Picture2" />
+    /// <param name="Picture3" />
     public void Add_Gameflow_Subsection(string _Title, string _MainText, string Picture1, string Picture2, string Picture3) { }
 
     /// <summary>Add a mediatrack related to a gameflow subsection</summary>
-    /// <param name="GameflowSubsectionName">text and identifier of the frame subsection</param>
-    /// <param name="MediaTrack">the name of the CustomMediaTrack to link to a gameflow subsection, its name is registered with the map</param>
+    /// <param name="_GameflowSubsectionName">text and identifier of the frame subsection</param>
+    /// <param name="_MediaTrack">the name of the CustomMediaTrack to link to a gameflow subsection, its name is registered with the map</param>
     public void Add_Gameflow_Subsection_Mediatrack(string _GameflowSubsectionName, string _MediaTrack) { }
 
     /// <summary>Loop to enable the mediaTracks' displaying</summary>
@@ -102,10 +133,10 @@ public partial class TutorialInterface : ILib
     public void DestroyRules() { }
 
     /// <summary>Create the rules</summary>
-    /// <param name="Name">The name of the mode</param>
-    /// <param name="StartHidden">Start with the rules hidden</param>
-    /// <param name="Type">Is the game mode &quot;Team Versus Team&quot;/&quot;Attack Versus Defence&quot;/&quot;Free For All&quot;</param>
-    /// <param name="Principle">Explain the principle of the game, what is the main concept, what the players do</param>
+    /// <param name="_Name">The name of the mode</param>
+    /// <param name="_Type">Is the game mode &quot;Team Versus Team&quot;/&quot;Attack Versus Defence&quot;/&quot;Free For All&quot;</param>
+    /// <param name="_Principle">Explain the principle of the game, what is the main concept, what the players do</param>
+    /// <param name="_StartHidden">Start with the rules hidden</param>
     public void CreateRules(string _Name, string _Type, string _Principle, bool _StartHidden) { }
 
     public void CreateRules(string _Name, bool _StartHidden) { }

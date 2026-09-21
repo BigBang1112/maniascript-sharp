@@ -19,7 +19,9 @@ public partial class Team : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Ba
     public const string ScriptName = "Modes/TrackMania/Team/Team.Script.txt";
     public const int C_BlueBotsNb = 0;
     public const int C_RedBotsNb = 0;
+    /// <summary>Path to the hud module</summary>
     public const string C_HudModulePath = "Nadeo/TrackMania/Team/Hud.Module.Gbx";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/TrackMania/Team/Team.Script.txt";
 
     public virtual void MM_SetupMatchmaking() { }
 
@@ -59,7 +61,7 @@ public partial class Team : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Ba
     public void SetFooterText() { }
 
     /// <summary>Announce the round winner in the chat</summary>
-    /// <param name="TeamNum">The number of the team who won the round</param>
+    /// <param name="_TeamNum">The number of the team who won the round</param>
     public void AnnounceWinner(int _TeamNum) { }
 
     /// <summary>Compute the latest race scores</summary>

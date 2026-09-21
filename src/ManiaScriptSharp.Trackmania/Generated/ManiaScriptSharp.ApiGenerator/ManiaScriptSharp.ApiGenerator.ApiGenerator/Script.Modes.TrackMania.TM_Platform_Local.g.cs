@@ -31,6 +31,7 @@ public partial class TM_Platform_Local : ILib
     public const string Version = "1.3.2+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/TM_Platform_Local.Script.txt";
     public const string C_ModeName = "TM_Platform_Local";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/PlatformLocal.Script.txt";
     public const bool C_UploadRecord = true;
     public const bool C_DisplayRecordGhost = false;
     public const bool C_DisplayRecordMedal = true;
@@ -78,6 +79,7 @@ public partial class TM_Platform_Local : ILib
     public string GetPBName() => default!;
 
     /// <summary>Fetch the best ghost of the race for the player</summary>
+    /// <param name="_PreviousGhost" />
     public K_Private_Ghost UpdatePBGhost_Yield(K_Private_Ghost _PreviousGhost) => default!;
 
     /// <summary>Check if all players outro are finished</summary>

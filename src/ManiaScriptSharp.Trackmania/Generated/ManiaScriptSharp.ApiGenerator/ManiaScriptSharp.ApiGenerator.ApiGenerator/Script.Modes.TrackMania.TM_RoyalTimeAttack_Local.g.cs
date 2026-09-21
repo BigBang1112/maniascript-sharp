@@ -30,6 +30,7 @@ public partial class TM_RoyalTimeAttack_Local : ILib
     public const string Version = "1.2.0+2025-04-22";
     public const string ScriptName = "Modes/TrackMania/TM_RoyalTimeAttack_Local.Script.txt";
     public const string C_ModeName = "TM_RoyalTimeAttack_Local";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/RoyalTimeAttackSolo.Script.txt";
     public const int C_DelayBeforeStartingNextSegment = 1000;
 
     public virtual void Match_LogVersions() { }

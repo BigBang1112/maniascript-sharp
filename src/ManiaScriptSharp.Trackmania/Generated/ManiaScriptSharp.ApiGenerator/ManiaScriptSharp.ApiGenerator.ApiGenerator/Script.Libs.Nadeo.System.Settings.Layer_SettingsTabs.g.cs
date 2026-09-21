@@ -13,6 +13,9 @@ public partial class Layer_SettingsTabs : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Settings/";
+    public const string C_ButtonsPath = "file://Media/Manialinks/Common/PadButtons/";
+
     public struct SMenuTab
     {
         public string TabId;

@@ -19,6 +19,7 @@ public partial class Sign64x10_Server : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign64x10_Server.Script.txt";
 
     /// <summary>Get the id of the UI module</summary>
+    /// <param name="_AttachId" />
     public string GetId(string _AttachId) => default!;
 
     /// <summary>Unload the library</summary>

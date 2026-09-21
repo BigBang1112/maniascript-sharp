@@ -25,68 +25,70 @@ public partial class TeamsCommon : ILib
     public const int C_PointsLimit_Tie = 2;
 
     /// <summary>Get the time left to the players to finish the round after the first player</summary>
-    /// <param name="FinishTimeout">The time left setting</param>
-    /// <param name="Divider">The integer that will divide the MapAuthorTime to compute the Finish Timeout</param>
+    /// <param name="_FinishTimeout">The time left setting</param>
+    /// <param name="_Divider">The integer that will divide the MapAuthorTime to compute the Finish Timeout</param>
     /// <returns>The time left in ms</returns>
     public int GetFinishTimeout(int _FinishTimeout, int _Divider) => default!;
 
     /// <summary>Get the time left to the players to finish the round after the first player</summary>
+    /// <param name="_FinishTimeout" />
     public int GetFinishTimeout(int _FinishTimeout) => default!;
 
     /// <summary>Update the scores table footer text</summary>
-    /// <param name="PointsLimit">The points limit</param>
-    /// <param name="PointsGap">The points gap</param>
-    /// <param name="RoundsPerMap">The number of round per map</param>
-    /// <param name="MapsPerMatch">The number of maps per match</param>
-    /// <param name="ValidRoundsNb">Number of valid rounds played</param>
-    /// <param name="MapCount">Number of valid maps played</param>
+    /// <param name="_PointsLimit">The points limit</param>
+    /// <param name="_PointsGap">The points gap</param>
+    /// <param name="_RoundsPerMap">The number of round per map</param>
+    /// <param name="_MapsPerMatch">The number of maps per match</param>
+    /// <param name="_ValidRoundsNb">Number of valid rounds played</param>
+    /// <param name="_MapCount">Number of valid maps played</param>
     public void UpdateScoresTableFooter(int _PointsLimit, int _PointsGap, int _RoundsPerMap, int _MapsPerMatch, int _ValidRoundsNb, int _MapCount) { }
 
     /// <summary>Announce the round winner in the chat</summary>
-    /// <param name="TeamNum">The number of the team who won the round</param>
+    /// <param name="_TeamNum">The number of the team who won the round</param>
     public void AnnounceWinner(int _TeamNum) { }
 
     /// <summary>Check if the points limit was reached C_PointsLimit_Tie if there is a tie C_PointsLimit_NotReached if the points limit is not reached</summary>
-    /// <param name="PointsGap">The number of points lead a team must have to win the map</param>
-    /// <param name="UseTieBreak">Continue to play the map until the tie is broken</param>
-    /// <param name="PointsLimit">The points limit</param>
+    /// <param name="_PointsGap">The number of points lead a team must have to win the map</param>
+    /// <param name="_UseTieBreak">Continue to play the map until the tie is broken</param>
+    /// <param name="_PointsLimit">The points limit</param>
     /// <returns>C_PointsLimit_Reached if the points limit is reached</returns>
     public int PointsLimitReached(int _PointsGap, bool _UseTieBreak, int _PointsLimit) => default!;
 
     /// <summary>Check if we should go to the next map</summary>
-    /// <param name="ValidRoundsNb">Number of valid rounds played</param>
-    /// <param name="PointsGap">The number of points lead a team must have to win the map</param>
-    /// <param name="UseTieBreak">Continue to play the map until the tie is broken</param>
-    /// <param name="PointsLimit">The points limit</param>
-    /// <param name="RoundsPerMap">Number of round to play on one map before going to the next one</param>
+    /// <param name="_ValidRoundsNb">Number of valid rounds played</param>
+    /// <param name="_PointsGap">The number of points lead a team must have to win the map</param>
+    /// <param name="_UseTieBreak">Continue to play the map until the tie is broken</param>
+    /// <param name="_PointsLimit">The points limit</param>
+    /// <param name="_RoundsPerMap">Number of round to play on one map before going to the next one</param>
     /// <returns>True if it is the case, false otherwise</returns>
     public bool MapIsOver(int _ValidRoundsNb, int _PointsGap, bool _UseTieBreak, int _PointsLimit, int _RoundsPerMap) => default!;
 
     /// <summary>Check if the match is over</summary>
-    /// <param name="PointsGap">The number of points lead a team must have to win the map</param>
-    /// <param name="UseTieBreak">Continue to play the map until the tie is broken</param>
-    /// <param name="PointsLimit">The points limit</param>
-    /// <param name="MapsPerMatch">Number of maps to play before finishing the match</param>
-    /// <param name="MapCount">Number of valid maps played</param>
+    /// <param name="_PointsGap">The number of points lead a team must have to win the map</param>
+    /// <param name="_UseTieBreak">Continue to play the map until the tie is broken</param>
+    /// <param name="_PointsLimit">The points limit</param>
+    /// <param name="_MapsPerMatch">Number of maps to play before finishing the match</param>
+    /// <param name="_MapCount">Number of valid maps played</param>
+    /// <param name="_RoundsPerMap" />
     /// <returns>True if it is the case, false otherwise</returns>
     public bool MatchIsOver(int _PointsGap, bool _UseTieBreak, int _PointsLimit, int _MapsPerMatch, int _MapCount, int _RoundsPerMap) => default!;
 
     /// <summary>Compute the latest race scores</summary>
-    /// <param name="UseCustomPointsRepartition">Use a custom points repartition. Default [10, 6, 4, 3, 2, 1]</param>
-    /// <param name="CumulatePoints">At the end of the round both teams win their players points</param>
-    /// <param name="UseAlternateRules">Each player finishing the race scores</param>
-    /// <param name="MaxPointsPerRound">The maxium number of points attributed to the first player to cross the finish line</param>
-    /// <param name="NoRoundTie">[Careful ! Used only if teams are not balanced in 3v3] If the round scores result in a tie, winning team is declared by the first player who cross the finish line</param>
-    /// <param name="BalanceScore">If the teams are not balanced, consider balanced players number in score compute (ex only 2 players of each team if we have a 2vs3)</param>
-    /// <param name="BalancedNbPlayers">The minimum number of players in the teams (to consider in score compute)</param>
-    /// <param name="TeamBalancedIn3v3">If the teams are balances in 3v3</param>
+    /// <param name="_UseCustomPointsRepartition">Use a custom points repartition. Default [10, 6, 4, 3, 2, 1]</param>
+    /// <param name="_CumulatePoints">At the end of the round both teams win their players points</param>
+    /// <param name="_UseAlternateRules">Each player finishing the race scores</param>
+    /// <param name="_MaxPointsPerRound">The maxium number of points attributed to the first player to cross the finish line</param>
+    /// <param name="_NoRoundTie">[Careful ! Used only if teams are not balanced in 3v3] If the round scores result in a tie, winning team is declared by the first player who cross the finish line</param>
+    /// <param name="_BalanceScore">If the teams are not balanced, consider balanced players number in score compute (ex only 2 players of each team if we have a 2vs3)</param>
+    /// <param name="_BalancedNbPlayers">The minimum number of players in the teams (to consider in score compute)</param>
+    /// <param name="_TeamBalancedIn3v3">If the teams are balances in 3v3</param>
     public void ComputeLatestRaceScores(bool _UseCustomPointsRepartition, bool _CumulatePoints, bool _UseAlternateRules, int _MaxPointsPerRound, bool _NoRoundTie, bool _BalanceScore, int _BalancedNbPlayers, bool _TeamBalancedIn3v3) { }
 
     public void ComputeLatestRaceScores(bool _UseCustomPointsRepartition, bool _CumulatePoints, bool _UseAlternateRules, int _MaxPointsPerRound) { }
 
     /// <summary>Compute the map scores</summary>
-    /// <param name="AnnonceWinner">Annonce the winner in the chat</param>
-    /// <param name="ResetPlayersRoundPoints">Reset the round points of each player during the fct or not</param>
+    /// <param name="_AnnonceWinner">Annonce the winner in the chat</param>
+    /// <param name="_ResetPlayersRoundPoints">Reset the round points of each player during the fct or not</param>
     /// <returns>WinningTeam Id (0 or 1)</returns>
     public int ComputeScores(bool _AnnonceWinner, bool _ResetPlayersRoundPoints) => default!;
 
@@ -97,9 +99,12 @@ public partial class TeamsCommon : ILib
     public global::System.Collections.Generic.Dictionary<string, int> GetAccountIdsToClans() => default!;
 
     /// <summary>Get the clan of a player Return -1 if the player is not found</summary>
+    /// <param name="_AccountId" />
     public int GetClan(string _AccountId) => default!;
 
     /// <summary>Stock player's clan</summary>
+    /// <param name="_AccountId" />
+    /// <param name="_ClanId" />
     public void AddClanMember(string _AccountId, int _ClanId) { }
 
     /// <summary>Get the account id of all clans members</summary>
@@ -112,6 +117,7 @@ public partial class TeamsCommon : ILib
     public void UnforceSpecNewPlayers() { }
 
     /// <summary>Setup the podium sequence</summary>
+    /// <param name="_ClanWinner" />
     public void BeforePodiumSequence(int _ClanWinner) { }
 
     /// <summary>Cleanup after the podium sequence</summary>

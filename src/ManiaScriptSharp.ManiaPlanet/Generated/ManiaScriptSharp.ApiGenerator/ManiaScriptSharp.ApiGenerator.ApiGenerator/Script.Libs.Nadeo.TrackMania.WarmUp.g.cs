@@ -26,7 +26,7 @@ public partial class WarmUp : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the position of the layer on the screen</summary>
-    /// <param name="Pos">The new position</param>
+    /// <param name="_Pos">The new position</param>
     public void SetLayerPosition(Vec3 _Pos) { }
 
     /// <summary>Get the position of the layer on the screen</summary>
@@ -34,7 +34,7 @@ public partial class WarmUp : ILib
     public Vec3 GetLayerPosition() => default!;
 
     /// <summary>Set the visibility of the layer on the screen</summary>
-    /// <param name="Visibility">The new visibility</param>
+    /// <param name="_Visibility">The new visibility</param>
     public void SetLayerVisibility(bool _Visibility) { }
 
     /// <summary>Get the visibility of the layer on the screen</summary>
@@ -48,8 +48,8 @@ public partial class WarmUp : ILib
     public void Load() { }
 
     /// <summary>Set the progression of the warm up in the UI</summary>
-    /// <param name="WarmUpPlayedNb">The number of warm up played</param>
-    /// <param name="WarmUpDuration">The number of warm up to play</param>
+    /// <param name="_WarmUpPlayedNb">The number of warm up played</param>
+    /// <param name="_WarmUpDuration">The number of warm up to play</param>
     public void SetProgression(int _WarmUpPlayedNb, int _WarmUpDuration) { }
 
     /// <summary>Attach the warm up layer</summary>

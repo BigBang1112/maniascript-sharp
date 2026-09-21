@@ -19,5 +19,6 @@ public partial class MainUser : ILib
     public Ident GetMainUserId() => default!;
 
     /// <summary>Set the main user id</summary>
+    /// <param name="_MainUserId" />
     public void SetMainUserId(Ident _MainUserId) { }
 }

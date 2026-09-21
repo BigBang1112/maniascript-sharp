@@ -16,6 +16,7 @@ public partial class Utils : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Utils.Script.txt";
+    /// <summary>Save status</summary>
     public const int C_SaveStatus_NotSaved = 0;
     public const int C_SaveStatus_Modified = 1;
     public const int C_SaveStatus_Saved = 2;
@@ -25,12 +26,15 @@ public partial class Utils : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Log a value</summary>
+    /// <param name="_Text" />
     public void Log(string _Text) { }
 
     /// <summary>Enable the log function to output logs</summary>
+    /// <param name="_Enable" />
     public void EnableLog(bool _Enable) { }
 
     /// <summary>Save log message to file instead of sending them to the console</summary>
+    /// <param name="_ToFile" />
     public void LogToFile(bool _ToFile) { }
 
     public void ResetLogFile() { }
@@ -38,9 +42,12 @@ public partial class Utils : ILib
     public void ViewLogFile() { }
 
     /// <summary>Compute the manhattan distance between two points</summary>
+    /// <param name="_Start" />
+    /// <param name="_End" />
     public int ManhattanDistance(Int3 _Start, Int3 _End) => default!;
 
     /// <summary>Return the neighbor coordinates of a coordinate</summary>
+    /// <param name="_Coord" />
     public global::System.Collections.Generic.IList<Int3> GetNeighbors(Int3 _Coord) => default!;
 
     /// <summary>Get Null coord</summary>
@@ -54,6 +61,7 @@ public partial class Utils : ILib
     public int SaveStatus_Saved() => default!;
 
     /// <summary>Set the saved status of the track</summary>
+    /// <param name="_SaveStatus" />
     public void SetSaveStatus(int _SaveStatus) { }
 
     /// <summary>Get the saved status of the track</summary>

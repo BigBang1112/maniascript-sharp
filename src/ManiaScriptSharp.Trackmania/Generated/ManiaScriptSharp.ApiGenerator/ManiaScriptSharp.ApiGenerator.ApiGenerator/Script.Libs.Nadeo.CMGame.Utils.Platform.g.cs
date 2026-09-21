@@ -23,6 +23,7 @@ public partial class Platform : ILib
     public const int C_FirstParty_Microsoft = 2;
     public const int C_FirstParty_Google = 3;
     public const int C_FirstParty_Amazon = 4;
+    /// <summary>Any other color is converted to pure white</summary>
     public const string C_LogoWhite_Sony = "$<$z$FFF$>";
     public const string C_LogoBlack_Sony = "$<$z$000$>";
     public const string C_LogoWhite_Amazon = "$<$z$FFF$>";
@@ -45,5 +46,6 @@ public partial class Platform : ILib
     public const string C_SmallNetworkName_Amazon = "$<$zLuna$>";
 
     /// <summary>Get the name of the platform family</summary>
+    /// <param name="_Family" />
     public string GetFamilyName(int _Family) => default!;
 }

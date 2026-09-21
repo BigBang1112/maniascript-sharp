@@ -20,6 +20,8 @@ public partial class ControlBlockList : ILib
     public const string C_Name = "component-cmgame-control-block-list";
     public const string P = "CMGame_ControlBlockList::";
     public const string Q = "CMGame_ControlBlockList";
+    /// <summary>We must use an image and not a bgcolor for blocked content otherwise the alpha mask won't be applied properly</summary>
+    public const string C_DefaultImageUrlBlocked = "file://Media/Manialinks/Nadeo/CMGame/Components/BlackPixel.dds";
     public const int C_Anim_Null = -1;
     public const int C_Anim_Instant = 0;
     public const bool C_IsDebugEnabled = false;

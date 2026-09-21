@@ -31,11 +31,6 @@ public partial class ProfileWidget : ILib
     public const string C_Name = "Overlay_ProfileWidget";
     public const string C_NavGroupName = "navgroup-overlay-profile-widget";
     public const string C_NavGroupName_Global = "navgroup-overlay-profile-widget-global";
-    public const int C_RankingDisplayDuration = 5000;
-    public const int C_MaxRankingsDisplayed = 4;
-    public const int C_Ranking_Trophy = 0;
-    public const int C_Ranking_Ranked = 1;
-    public const int C_Ranking_GameSubscription = 2;
 
     /// <summary>Get the page manialink</summary>
     /// <returns>The page manialink</returns>

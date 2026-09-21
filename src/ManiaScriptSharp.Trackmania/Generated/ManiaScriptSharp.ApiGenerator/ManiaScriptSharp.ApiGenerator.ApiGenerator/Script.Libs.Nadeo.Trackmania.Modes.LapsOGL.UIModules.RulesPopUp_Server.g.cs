@@ -17,6 +17,7 @@ public partial class RulesPopUp_Server : ILib
     public const string C_Id = "UIModule_LapsOGL_RulesPopUp";
 
     /// <summary>Set the time limit to display in the rules</summary>
+    /// <param name="_TimeLimit" />
     public void SetTimeLimit(int _TimeLimit) { }
 
     /// <summary>Unload the library</summary>

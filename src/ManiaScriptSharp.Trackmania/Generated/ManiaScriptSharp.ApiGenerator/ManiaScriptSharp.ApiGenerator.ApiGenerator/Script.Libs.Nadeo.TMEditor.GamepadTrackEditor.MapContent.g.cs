@@ -19,6 +19,7 @@ public partial class MapContent : ILib
     public const string ScriptName = "MapContent.Script.txt";
     public const int C_Sequence_Browse = 0;
     public const int C_Sequence_Order = 1;
+    /// <summary>Type of special macroblocks</summary>
     public const int C_Block_Start = 0;
     public const int C_Block_Checkpoint = 1;
     public const int C_Block_Finish = 2;
@@ -53,10 +54,12 @@ public partial class MapContent : ILib
     }
 
     /// <summary>Check if a macroblock of the given type is present in the track</summary>
-    /// <param name="AllowNegatives">Some functions use -1 to check all types. If so, it's always true</param>
+    /// <param name="_Type" />
+    /// <param name="_AllowNegatives">Some functions use -1 to check all types. If so, it's always true</param>
     public bool HasMacroblocks(int _Type, bool _AllowNegatives) => default!;
 
     /// <summary>Overload of HasMacroblocks</summary>
+    /// <param name="_Type" />
     public bool HasMacroblocks(int _Type) => default!;
 
     public string GetScriptVersion() => default!;
@@ -75,39 +78,49 @@ public partial class MapContent : ILib
     public int Block_Multilap() => default!;
 
     /// <summary>Remove a macroblock from the track</summary>
+    /// <param name="_Id" />
     public void Remove(Ident _Id) { }
 
     /// <summary>Remove a macroblock occupying a given coordinate without checking if it's the one we want</summary>
+    /// <param name="_UnitCoord" />
     public void Remove(Int3 _UnitCoord) { }
 
     /// <summary>Remove all macroblocks of the given type from the track</summary>
+    /// <param name="_Type" />
     public void RemoveAllContent(int _Type) { }
 
     /// <summary>Remove all macroblocks from the track</summary>
     public void RemoveAllContent() { }
 
     /// <summary>Check if there is a macroblock located at a given coordinate</summary>
+    /// <param name="_Coord" />
     public bool Exists(Int3 _Coord) => default!;
 
     /// <summary>Get the number of macroblocks on the track</summary>
     public int Count() => default!;
 
     /// <summary>Get the coordinates of a macroblock located at a given coordinate</summary>
+    /// <param name="_Coord" />
     public Int3 GetMacroblockCoord(Int3 _Coord) => default!;
 
     /// <summary>Get the coordinates of a macroblock with a given ID</summary>
+    /// <param name="_Id" />
     public Int3 GetMacroblockCoord(Ident _Id) => default!;
 
     /// <summary>Get the type of a macroblock located at a given coordinate</summary>
+    /// <param name="_Coord" />
     public int GetMacroblockType(Int3 _Coord) => default!;
 
     /// <summary>Get the type of a macroblock with a given ID</summary>
+    /// <param name="_Id" />
     public int GetMacroblockType(Ident _Id) => default!;
 
     /// <summary>Get the order of a macroblock located at a given coordinate</summary>
+    /// <param name="_Coord" />
     public int GetMacroblockOrder(Int3 _Coord) => default!;
 
     /// <summary>Get the order of a macroblock with a given ID</summary>
+    /// <param name="_Id" />
     public int GetMacroblockOrder(Ident _Id) => default!;
 
     /// <summary>Check if the track contains custom collision</summary>
@@ -117,16 +130,20 @@ public partial class MapContent : ILib
     public global::System.Collections.Generic.Dictionary<Int3, Ident> GetCollisions() => default!;
 
     /// <summary>Find the latest macroblock block unit coordinates from a given type</summary>
-    /// <param name="WithClips">With open clips</param>
+    /// <param name="_Type" />
+    /// <param name="_WithClips">With open clips</param>
     public Int3 GetLatestMacroblockUnitCoord(int _Type, bool _WithClips) => default!;
 
     /// <summary>Find the nearest macroblock block unit coordinates from a given coordinate</summary>
-    /// <param name="WithClips">With open clips</param>
+    /// <param name="_Coord" />
+    /// <param name="_Type" />
+    /// <param name="_WithClips">With open clips</param>
     public Int3 GetNearestMacroblockUnitCoord(Int3 _Coord, int _Type, bool _WithClips) => default!;
 
     public int GetPodiumCount() => default!;
 
     /// <summary>Check if the track contains a given special macroblock</summary>
+    /// <param name="_Special" />
     public bool Has(int _Special) => default!;
 
     /// <summary>Check if the track contains a finish block</summary>
@@ -142,31 +159,37 @@ public partial class MapContent : ILib
     public bool HasMultilap() => default!;
 
     /// <summary>Get the track barycentre for a given type of block</summary>
+    /// <param name="_Type" />
     public Int3 GetMapBarycentre(int _Type) => default!;
 
     public Int3 GetMapBarycentre() => default!;
 
     /// <summary>Get the track bounding box minimum and maximum points</summary>
+    /// <param name="_Type" />
     public global::System.Collections.Generic.IList<Int3> GetMapBoundingBox(int _Type) => default!;
 
     /// <summary>Get the track bounding box minimum and maximum points</summary>
     public global::System.Collections.Generic.IList<Int3> GetMapBoundingBox() => default!;
 
     /// <summary>Get all of the macroblocks coordinates for one given type</summary>
+    /// <param name="_Type" />
     public global::System.Collections.Generic.IList<Int3> GetMacroblocksCoords(int _Type) => default!;
 
     /// <summary>Get a coord of any unit of every MBInstance with a given type</summary>
+    /// <param name="_Type" />
     public global::System.Collections.Generic.IList<Int3> GetMacroblocksUnitCoords(int _Type) => default!;
 
     /// <summary>Get the coordinates of one finish macroblock unit</summary>
     public Int3 GetFinishUnitCoord() => default!;
 
     /// <summary>Get the coordinates of one macroblock unit of all finishes</summary>
+    /// <param name="_Type" />
     public global::System.Collections.Generic.IList<Int3> GetFinishesUnitCoord(int _Type) => default!;
 
     public global::System.Collections.Generic.IList<Ident> GetSpecialMacroblockIds(int _Type) => default!;
 
     /// <summary>Get the distance since the last special macroblock. Note : Only works in Beginner and Advanced (ordered blocks), never called in Expert</summary>
+    /// <param name="_Special" />
     public float GetDistanceTo(int _Special) => default!;
 
     /// <summary>If a macroblock has been changed, we have to save the mapcontent</summary>

@@ -21,6 +21,7 @@ public partial class LoadingScreen_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the url of the image displayed during loading</summary>
+    /// <param name="_ImageUrl" />
     public void SetImageUrl(string _ImageUrl) { }
 
     /// <summary>Unload the library</summary>

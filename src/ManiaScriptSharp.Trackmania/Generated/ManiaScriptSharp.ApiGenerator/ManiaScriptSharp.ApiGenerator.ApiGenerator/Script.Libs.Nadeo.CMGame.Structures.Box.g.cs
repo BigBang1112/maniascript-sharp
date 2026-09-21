@@ -59,6 +59,13 @@ public partial class Box : ILib
     }
 
     /// <summary>Create a box</summary>
+    /// <param name="_Size" />
+    /// <param name="_MarginAbsolute" />
+    /// <param name="_MarginRatio" />
+    /// <param name="_BorderAbsolute" />
+    /// <param name="_BorderRatio" />
+    /// <param name="_PaddingAbsolute" />
+    /// <param name="_PaddingRatio" />
     public K_Box New(Vec2 _Size, K_Margin _MarginAbsolute, K_Margin _MarginRatio, K_Border _BorderAbsolute, K_Border _BorderRatio, K_Padding _PaddingAbsolute, K_Padding _PaddingRatio) => default!;
 
     public K_Box New(Vec2 _Size, K_Margin _MarginAbsolute, K_Margin _MarginRatio, K_Padding _PaddingAbsolute, K_Padding _PaddingRatio) => default!;
@@ -68,20 +75,26 @@ public partial class Box : ILib
     public K_Box NewBox(Vec2 _Size, K_Margin _MarginAbsolute, K_Margin _MarginRatio, K_Padding _PaddingAbsolute, K_Padding _PaddingRatio) => default!;
 
     /// <summary>Convert a real array to a margin struct following css syntax rule</summary>
+    /// <param name="_Source" />
     public K_Margin ToMargin(global::System.Collections.Generic.IList<float> _Source) => default!;
 
     /// <summary>Convert a margin text property to a struct following css syntax rule</summary>
+    /// <param name="_Source" />
     public K_Margin ToMargin(string _Source) => default!;
 
     /// <summary>Convert a real array to a border struct following css syntax rule</summary>
+    /// <param name="_Source" />
     public K_Border ToBorder(global::System.Collections.Generic.IList<float> _Source) => default!;
 
     /// <summary>Convert a border text property to a struct following css syntax rule</summary>
+    /// <param name="_Source" />
     public K_Border ToBorder(string _Source) => default!;
 
     /// <summary>Convert a real array to a padding struct following css syntax rule</summary>
+    /// <param name="_Source" />
     public K_Padding ToPadding(global::System.Collections.Generic.IList<float> _Source) => default!;
 
     /// <summary>Convert a padding text property to a struct following css syntax rule</summary>
+    /// <param name="_Source" />
     public K_Padding ToPadding(string _Source) => default!;
 }

@@ -34,14 +34,14 @@ public partial class Spectators : ILib
     public int Camera_FirstPerson() => default!;
 
     /// <summary>Force a player to spectate a specific clan</summary>
-    /// <param name="UI">The player's UI</param>
-    /// <param name="Clan">The clan to spectate</param>
+    /// <param name="_UI">The player's UI</param>
+    /// <param name="_Clan">The clan to spectate</param>
     public void SetForcedTarget_Clan(CUIConfig _UI, int _Clan) { }
 
     public int GetForcedTarget_Clan(CUIConfig _UI) => default!;
 
     /// <summary>Force spectators to watch players from their clan</summary>
-    /// <param name="Forced">True to force</param>
+    /// <param name="_Forced">True to force</param>
     public void ForceClan(bool _Forced) { }
 
     public void ForceCamera(int _Camera) { }

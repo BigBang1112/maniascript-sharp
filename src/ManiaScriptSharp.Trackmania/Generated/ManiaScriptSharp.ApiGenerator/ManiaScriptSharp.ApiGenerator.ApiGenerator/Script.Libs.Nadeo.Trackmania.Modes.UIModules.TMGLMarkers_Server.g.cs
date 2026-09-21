@@ -17,6 +17,7 @@ public partial class TMGLMarkers_Server : ILib
     public const string C_Id = "UIModule_ChampionTMGL_TMGLMarkers";
 
     /// <summary>Set the account ids of the finalists in Cup mode</summary>
+    /// <param name="_AccountIds" />
     public void SetFinalists(global::System.Collections.Generic.IList<string> _AccountIds) { }
 
     /// <summary>Unload the library</summary>

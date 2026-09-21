@@ -43,9 +43,11 @@ public partial class PlayerProfiles : ILib
     public global::System.Collections.Generic.Dictionary<string, PlayerProfiles_K_PlayerProfile> GetPlayerProfiles() => default!;
 
     /// <summary>Check if a profile for the given account id exists</summary>
+    /// <param name="_AccountId" />
     public bool PlayerProfileExists(string _AccountId) => default!;
 
     /// <summary>Get the player profile for a given account id</summary>
+    /// <param name="_AccountId" />
     public PlayerProfiles_K_PlayerProfile GetPlayerProfile(string _AccountId) => default!;
 
     /// <summary>Get the component</summary>

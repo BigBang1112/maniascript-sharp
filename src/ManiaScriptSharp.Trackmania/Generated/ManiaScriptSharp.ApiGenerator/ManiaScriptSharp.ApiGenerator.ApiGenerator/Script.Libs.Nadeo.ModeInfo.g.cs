@@ -25,7 +25,7 @@ public partial class ModeInfo : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the name of the mode</summary>
-    /// <param name="Name">The name of the mode</param>
+    /// <param name="_Name">The name of the mode</param>
     public void SetName(string _Name) { }
 
     /// <summary>Get the name of the mode</summary>
@@ -44,7 +44,7 @@ public partial class ModeInfo : ILib
     public string Type_MultiTeams() => default!;
 
     /// <summary>Set the type of the mode eg: Free for all, Team, Solo, ...</summary>
-    /// <param name="Type">The type of mode</param>
+    /// <param name="_Type">The type of mode</param>
     public void SetType(string _Type) { }
 
     /// <summary>Get the type of the mode eg: Free for all, Team, Solo, ...</summary>
@@ -52,7 +52,7 @@ public partial class ModeInfo : ILib
     public string GetType() => default!;
 
     /// <summary>Set the rules of the mode</summary>
-    /// <param name="Rules">The rules</param>
+    /// <param name="_Rules">The rules</param>
     public void SetRules(string _Rules) { }
 
     /// <summary>Get the rules of the mode</summary>
@@ -60,12 +60,12 @@ public partial class ModeInfo : ILib
     public string GetRules() => default!;
 
     /// <summary>Set the ModeStatusMessage This message is displayed in the server connection window</summary>
-    /// <param name="Message">The mode status message</param>
+    /// <param name="_Message">The mode status message</param>
     public void SetStatusMessage(string _Message) { }
 
     /// <summary>Use a default message to display the points limit and the current best score</summary>
-    /// <param name="PointsLimit">The points limit</param>
-    /// <param name="BestPoints">The points nearest to the limit</param>
+    /// <param name="_PointsLimit">The points limit</param>
+    /// <param name="_BestPoints">The points nearest to the limit</param>
     public string GetPointsLimitStatusMessage(int _PointsLimit, int _BestPoints) => default!;
 
     /// <summary>Get the ModeStatusMessage This message is displayed in the server connection window</summary>

@@ -30,6 +30,7 @@ public partial class WaitingScreen_Client : ILib
     public const string Version = "1.0.1";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Royal/UIModules/WaitingScreen_Client.Script.txt";
     public const bool C_HideBackground = true;
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal";
     public const int C_PlayersCheckInterval = 1000;
     public const string C_NavGroupPlayers = "navgroup-waiting-screen-royal-players";
     public const string C_NavGroupGlobal = "navgroup-waiting-screen-royal-global";
@@ -37,9 +38,6 @@ public partial class WaitingScreen_Client : ILib
     public const int C_InputPriority_WaitingScreen = 1;
     public const int C_Column_Number = 0;
     public const int C_Column_Legend = 1;
-    public const int C_DisplayAnimDuration = 250;
-    public const int C_MatchStartAnimDuration = 250;
-    public const int C_TeamDisplayAnimDurtion = 250;
 
     public struct K_Controls
     {

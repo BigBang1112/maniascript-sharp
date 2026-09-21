@@ -31,6 +31,9 @@ public partial class EndMatch_Teams_Client : ILib
     public const string C_NavGroup_Profile = "navgroup-endmatch-matchmaking-profile";
     public const string C_PopUpName = "EndMatchPopUp";
     public const string C_Class_TeamMember = "endmatch-teams-class-team-member";
+    public const string C_Img_PopUp = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Mode_Common_Scorestable_Popup.dds";
+    public const string C_Img_PlayerLineBg = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Matchmaking/Matchmaking_scoretable_name_bg.dds";
+    public const string C_Img_ScoreLineBg = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scorestable_line_score.dds";
 
     public struct K_Controls
     {

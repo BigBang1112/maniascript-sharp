@@ -52,5 +52,6 @@ public partial class MenuBase : ILib
     public void CMGame_Yield() { }
 
     /// <summary>Sleep for a given duration</summary>
+    /// <param name="_Duration" />
     public void CMGame_Sleep(int _Duration) { }
 }

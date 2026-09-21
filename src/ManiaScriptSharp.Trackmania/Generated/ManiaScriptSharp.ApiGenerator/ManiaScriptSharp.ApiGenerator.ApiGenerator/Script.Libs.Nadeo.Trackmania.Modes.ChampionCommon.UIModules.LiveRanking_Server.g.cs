@@ -21,12 +21,16 @@ public partial class LiveRanking_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the criterion to use to sort the players</summary>
+    /// <param name="_RankingMode" />
     public void SetRankingMode(int _RankingMode) { }
 
     /// <summary>Start a new race</summary>
     public void ResetRace() { }
 
     /// <summary>Add a winner to the match</summary>
+    /// <param name="_RoundWinnerAccountId" />
+    /// <param name="_RoundKey" />
+    /// <param name="_FinalistLevels" />
     public void AddWinner(string _RoundWinnerAccountId, int _RoundKey, global::System.Collections.Generic.IList<int> _FinalistLevels) { }
 
     public void AddWinner(string _RoundWinnerAccountId) { }
@@ -38,6 +42,7 @@ public partial class LiveRanking_Server : ILib
     public void ForceUpdate() { }
 
     /// <summary>Display a message above the race ranking</summary>
+    /// <param name="_Message" />
     public void SetRaceMessage(string _Message) { }
 
     /// <summary>Unload the library</summary>

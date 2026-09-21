@@ -24,16 +24,29 @@ public partial class MacroblockSelection : ILib
 
     public const string Version = "1.0.2";
     public const string ScriptName = "MacroblockSelection.Script.txt";
+    /// <summary>Path to the images</summary>
+    public const string C_ImagesFolder = "file://Media/Manialinks/Nadeo/TMEditor/GamepadTrackEditor/Images/";
+    /// <summary>Path to the sounds</summary>
+    public const string C_SoundsPath = "file://Media/Manialinks/Nadeo/TMEditor/GamepadTrackEditor/Sounds/";
+    /// <summary>Number of macroblocks to display in the simple UI</summary>
     public const int C_SimpleMacroblocksNb = 12;
+    /// <summary>Number of families to display in the simple UI</summary>
     public const int C_SimpleFamiliesNb = 8;
+    /// <summary>Number of macroblocks to display in the expert UI</summary>
     public const int C_ExpertMacroblocksNb = 8;
+    /// <summary>Threshold before stick activation</summary>
     public const double C_SticksActivation = 0.8;
+    /// <summary>Modes Track mode</summary>
     public const int C_Mode_Track = 0;
+    /// <summary>Terrain mode</summary>
     public const int C_Mode_Terrain = 1;
+    /// <summary>Decoration mode</summary>
     public const int C_Mode_Decoration = 2;
+    /// <summary>Editor levels</summary>
     public const int C_Editor_Beginner = 0;
     public const int C_Editor_Advanced = 1;
     public const int C_Editor_Expert = 2;
+    /// <summary>Events</summary>
     public const string C_Event_MacroblockPagePrev = "LibMacroblockSelection_MacroblockPagePrev";
     public const string C_Event_MacroblockPageNext = "LibMacroblockSelection_MacroblockPageNext";
     public const string C_Event_MacroblockHover = "LibMacroblockSelection_MacroblockHover";
@@ -45,10 +58,6 @@ public partial class MacroblockSelection : ILib
     public const string C_Event_FamilyNext = "LibMacroblockSelection_FamilyNext";
     public const string C_Event_FilterPrev = "LibMacroblockSelection_FilterPrev";
     public const string C_Event_FilterNext = "LibMacroblockSelection_FilterNext";
-    public const int C_ClickTick = 100;
-    public const int C_InitTick = 500;
-    public const int C_StickLeft = 0;
-    public const int C_StickRight = 1;
 
     public string GetScriptVersion() => default!;
 
@@ -92,6 +101,8 @@ public partial class MacroblockSelection : ILib
     public void PrevMacroblock() { }
 
     /// <summary>Select a family from oustide the lib</summary>
+    /// <param name="_Family" />
+    /// <param name="_PlaySound" />
     public void SelectFamily(string _Family, bool _PlaySound) { }
 
     /// <summary>Get the family last update time</summary>
@@ -112,12 +123,16 @@ public partial class MacroblockSelection : ILib
     public global::System.Collections.Generic.IList<Ident> GetAllMacroblocksIds() => default!;
 
     /// <summary>Find and select a macroblock in the currently available ones</summary>
+    /// <param name="_MacroblockModelId" />
+    /// <param name="_MacroblockPlacement" />
     public void FindMacroblock(Ident _MacroblockModelId, int _MacroblockPlacement) { }
 
     /// <summary>Check if a macroblock is available</summary>
+    /// <param name="_MacroblockModelId" />
     public bool IsAvailable(Ident _MacroblockModelId) => default!;
 
     /// <summary>Find and select a macroblock in the currently available ones</summary>
+    /// <param name="_MacroblockModelId" />
     public void FindMacroblock(Ident _MacroblockModelId) { }
 
     /// <summary>Get the mode constants</summary>
@@ -128,9 +143,11 @@ public partial class MacroblockSelection : ILib
     public int Mode_Decoration() => default!;
 
     /// <summary>Set the rosaces mode</summary>
+    /// <param name="_Mode" />
     public void SetMode(int _Mode) { }
 
     /// <summary>Display or not the macroblocks' names under their icon</summary>
+    /// <param name="_Visible" />
     public void DisplayNames(bool _Visible) { }
 
     /// <summary>Get editor levels</summary>
@@ -141,12 +158,17 @@ public partial class MacroblockSelection : ILib
     public int Editor_Expert() => default!;
 
     /// <summary>Set the editor level</summary>
+    /// <param name="_Editor" />
     public void SetEditor(int _Editor) { }
 
     /// <summary>Set the style information for the rosace</summary>
+    /// <param name="_Name" />
+    /// <param name="_PageCurrent" />
+    /// <param name="_PageMax" />
     public void SetStyle(string _Name, int _PageCurrent, int _PageMax) { }
 
     /// <summary>Set the macroblock selection visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }
@@ -154,6 +176,7 @@ public partial class MacroblockSelection : ILib
     public void Hide() { }
 
     /// <summary>Set the family selection panel visibility</summary>
+    /// <param name="_Visible" />
     public void SetFamilyVisibility(bool _Visible) { }
 
     /// <summary>Check if the player is selecting a macroblock in advanced mode</summary>

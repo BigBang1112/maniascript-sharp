@@ -19,11 +19,14 @@ public partial class Sign2x3_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign2x3_Client.Script.txt";
+    public const string C_ImagePlayersPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Players";
 
     /// <summary>Get the id of the UI module</summary>
+    /// <param name="_InstanceNb" />
     public string GetId(int _InstanceNb) => default!;
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_InstanceNb" />
     /// <returns>The module manialink</returns>
     public string GetML(int _InstanceNb) => default!;
 }

@@ -34,6 +34,7 @@ public partial class Create : ILib
     public const int C_Index_MapReview = 1;
     public const int C_Index_ReplayEditor = 2;
     public const int C_Index_Garage = 3;
+    public const string C_ButtonImagePath_MapEditor_Console = "file://Media/Manialinks/Nadeo/Trackmania/Menus/PageCreate/Menu_Create_TrackEditor_Vertical.dds";
 
     /// <summary>Get the page manialink</summary>
     /// <returns>The page manialink</returns>

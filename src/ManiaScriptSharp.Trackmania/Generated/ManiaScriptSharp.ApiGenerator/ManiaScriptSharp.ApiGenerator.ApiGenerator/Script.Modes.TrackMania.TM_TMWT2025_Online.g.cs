@@ -40,6 +40,7 @@ public partial class TM_TMWT2025_Online : ILib
     public const string Version = "1.5.0+2025-06-13";
     public const string ScriptName = "Modes/TrackMania/TM_TMWT2025_Online.Script.txt";
     public const string C_ModeName = "TrackMania World Tour";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/TMWT2025.Script.txt";
     public const int C_FakeUsersNb_Clan1 = 0;
     public const int C_FakeUsersNb_Clan2 = 0;
     public const int C_ClansNb = 2;
@@ -128,46 +129,60 @@ public partial class TM_TMWT2025_Online : ILib
     public virtual void Match_BeforeUnloadMap() { }
 
     /// <summary>Check if there is at least one player that can play</summary>
+    /// <param name="_IsMatchmaking" />
     public bool HasAPlayerThatCanPlay(bool _IsMatchmaking) => default!;
 
     /// <summary>Get the ranking of clans in the race The key is the rank and the value the clan So [1 =&gt; 1, 2 =&gt; 2, 3 =&gt; 2, 4 =&gt; 1] means clan 1 in first and fourth place, clan 2 in second and third place.</summary>
     public global::System.Collections.Generic.Dictionary<int, int> GetClansRaceRanking() => default!;
 
     /// <summary>Give points to the clans based on their rank in the race</summary>
+    /// <param name="_ClansRaceRanking" />
     public void GiveClansRacePoints(global::System.Collections.Generic.Dictionary<int, int> _ClansRaceRanking) { }
 
     /// <summary>Check if a points limit is reached without a tie between the two clans</summary>
-    /// <param name="PointsLimit">The number of points to win a track</param>
-    /// <param name="Clan1Points">The number of points of clan 1</param>
-    /// <param name="Clan2Points">The number of points of clan 2</param>
+    /// <param name="_PointsLimit">The number of points to win a track</param>
+    /// <param name="_Clan1Points">The number of points of clan 1</param>
+    /// <param name="_Clan2Points">The number of points of clan 2</param>
     /// <returns>True if it is the case, false otherwise</returns>
     public bool PointsLimitReached(int _PointsLimit, int _Clan1Points, int _Clan2Points) => default!;
 
     /// <summary>Check if we should go to the next track</summary>
-    /// <param name="MapPointsLimit">The number of points to win a track</param>
+    /// <param name="_MapPointsLimit">The number of points to win a track</param>
     /// <returns>True if it is the case, false otherwise</returns>
     public bool MapIsOver(int _MapPointsLimit) => default!;
 
     /// <summary>Check if we should go to the next match</summary>
-    /// <param name="MatchPointsLimit">The number of points to win a match</param>
+    /// <param name="_MatchPointsLimit">The number of points to win a match</param>
     /// <returns>True if it is the case, false otherwise</returns>
     public bool MatchIsOver(int _MatchPointsLimit) => default!;
 
     /// <summary>Start the pre-match</summary>
+    /// <param name="_IsMatchmaking" />
     public K_PreMatch PreMatchStart(bool _IsMatchmaking) => default!;
 
     /// <summary>Run the pre-match</summary>
+    /// <param name="_IsMatchmaking" />
     public void PreMatchLoop(bool _IsMatchmaking) { }
 
     /// <summary>End the pre-match</summary>
+    /// <param name="_PreMatch" />
     public void PreMatchEnd(K_PreMatch _PreMatch) { }
 
     /// <summary>Toggle on/off the live camera in 16/9 signs for spectators</summary>
+    /// <param name="_Enabled" />
     public void EnableSignLiveCamera(bool _Enabled) { }
 
     /// <summary>Enable the esports programmation in the signs see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#</summary>
+    /// <param name="_Enabled" />
     public void EnableSignESportsMode(bool _Enabled) { }
 
     /// <summary>Update the info displayed in the header UI</summary>
+    /// <param name="_MatchPointsLimit" />
+    /// <param name="_MapPointsLimit" />
+    /// <param name="_Clan1MatchPoints" />
+    /// <param name="_Clan2MatchPoints" />
+    /// <param name="_Clan1MapPoints" />
+    /// <param name="_Clan2MapPoints" />
+    /// <param name="_MatchInfo" />
     public void UpdateHeader(int _MatchPointsLimit, int _MapPointsLimit, int _Clan1MatchPoints, int _Clan2MatchPoints, int _Clan1MapPoints, int _Clan2MapPoints, string _MatchInfo) { }
 }

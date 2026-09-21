@@ -21,8 +21,6 @@ public partial class DisplayMessage_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/Base/UIModules/DisplayMessage_Client.Script.txt";
-    public const int C_DisplayMsg_MinTime = 1000;
-    public const int C_DisplayMsg_MaxTime = 5000;
 
     /// <summary>Get the id of the UI module</summary>
     public string GetId() => default!;

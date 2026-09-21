@@ -24,55 +24,55 @@ public partial class Message : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Send a big message to all players</summary>
-    /// <param name="Message">The message to display</param>
-    /// <param name="Duration">The message to duration</param>
-    /// <param name="Priority">The message priority</param>
+    /// <param name="_Message">The message to display</param>
+    /// <param name="_Duration">The message to duration</param>
+    /// <param name="_Priority">The message priority</param>
     public void SendBigMessage(string _Message, int _Duration, int _Priority) { }
 
     /// <summary>Send a big message to one player</summary>
-    /// <param name="Player">The player who'll receive the message</param>
-    /// <param name="Message">The message to display</param>
-    /// <param name="Duration">The message to duration</param>
-    /// <param name="Priority">The message priority</param>
+    /// <param name="_Player">The player who'll receive the message</param>
+    /// <param name="_Message">The message to display</param>
+    /// <param name="_Duration">The message to duration</param>
+    /// <param name="_Priority">The message priority</param>
     public void SendBigMessage(CPlayer _Player, string _Message, int _Duration, int _Priority) { }
 
     /// <summary>Send a big message to all players of a clan</summary>
-    /// <param name="Clan">The clan who'll receive the message</param>
-    /// <param name="Message">The message to display</param>
-    /// <param name="Duration">The message to duration</param>
-    /// <param name="Priority">The message priority</param>
+    /// <param name="_Clan">The clan who'll receive the message</param>
+    /// <param name="_Message">The message to display</param>
+    /// <param name="_Duration">The message to duration</param>
+    /// <param name="_Priority">The message priority</param>
     public void SendBigMessage(int _Clan, string _Message, int _Duration, int _Priority) { }
 
     /// <summary>Send a status message to all players</summary>
-    /// <param name="Message">The message to display</param>
-    /// <param name="Duration">The message to duration</param>
-    /// <param name="Priority">The message priority</param>
+    /// <param name="_Message">The message to display</param>
+    /// <param name="_Duration">The message to duration</param>
+    /// <param name="_Priority">The message priority</param>
     public void SendStatusMessage(string _Message, int _Duration, int _Priority) { }
 
     /// <summary>Send a status message to one player</summary>
-    /// <param name="Player">The player who'll receive the message</param>
-    /// <param name="Message">The message to display</param>
-    /// <param name="Duration">The message to duration</param>
-    /// <param name="Priority">The message priority</param>
+    /// <param name="_Player">The player who'll receive the message</param>
+    /// <param name="_Message">The message to display</param>
+    /// <param name="_Duration">The message to duration</param>
+    /// <param name="_Priority">The message priority</param>
     public void SendStatusMessage(CPlayer _Player, string _Message, int _Duration, int _Priority) { }
 
     /// <summary>Send a status message to all players of a clan</summary>
-    /// <param name="Clan">The clan who'll receive the message</param>
-    /// <param name="Message">The message to display</param>
-    /// <param name="Duration">The message to duration</param>
-    /// <param name="Priority">The message priority</param>
+    /// <param name="_Clan">The clan who'll receive the message</param>
+    /// <param name="_Message">The message to display</param>
+    /// <param name="_Duration">The message to duration</param>
+    /// <param name="_Priority">The message priority</param>
     public void SendStatusMessage(int _Clan, string _Message, int _Duration, int _Priority) { }
 
     /// <summary>Set the default BigMessage to display when the player don't have any custom message</summary>
-    /// <param name="Message">The default BigMessage</param>
+    /// <param name="_Message">The default BigMessage</param>
     public void SetDefaultBigMessage(string _Message) { }
 
     /// <summary>Set the default StatusMessage to display when the player don't have any custom message</summary>
-    /// <param name="Message">The default StatusMessage</param>
+    /// <param name="_Message">The default StatusMessage</param>
     public void SetDefaultStatusMessage(string _Message) { }
 
     /// <summary>Set the default BigMessage and StatusMessage to display when the player don't have any custom message</summary>
-    /// <param name="Message">The default BigMessage and StatusMessage</param>
+    /// <param name="_Message">The default BigMessage and StatusMessage</param>
     public void SetDefaultAllMessages(string _Message) { }
 
     /// <summary>Clean all big messages</summary>

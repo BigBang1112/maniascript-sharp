@@ -23,12 +23,11 @@ public partial class SpawnSelection : ILib
     public const string Version = "1.0.0";
     public const string ScriptName = "SpawnSelection.Script.txt";
     public const int C_SpawnsNb = 12;
+    /// <summary>Events</summary>
     public const string C_Event_SpawnHover = "LibSpawnSelection_SpawnHover";
     public const string C_Event_SpawnClick = "LibSpawnSelection_SpawnClick";
     public const string C_Event_SpawnNext = "LibSpawnSelection_SpawnNext";
     public const string C_Event_SpawnPrev = "LibSpawnSelection_SpawnPrev";
-    public const int C_ClickTick = 100;
-    public const int C_InitTick = 500;
 
     public string GetScriptVersion() => default!;
 
@@ -46,9 +45,13 @@ public partial class SpawnSelection : ILib
     public void SelectSpawn(Ident _Spawn, int _Shift, bool _PlaySound) { }
 
     /// <summary>Overload SelectSpawn()</summary>
+    /// <param name="_Spawn" />
+    /// <param name="_Shift" />
     public void SelectSpawn(Ident _Spawn, int _Shift) { }
 
     /// <summary>Overload SelectSpawn()</summary>
+    /// <param name="_Spawn" />
+    /// <param name="_PlaySound" />
     public void SelectSpawn(Ident _Spawn, bool _PlaySound) { }
 
     public void SelectSpawn(Ident _Spawn) { }
@@ -65,12 +68,15 @@ public partial class SpawnSelection : ILib
     public int GetSpawnUpdate() => default!;
 
     /// <summary>Set the spawns to display</summary>
+    /// <param name="_SpawnMacroblockInstanceIdents" />
     public void SetSpawns(global::System.Collections.Generic.IList<Ident> _SpawnMacroblockInstanceIdents) { }
 
     /// <summary>Set the position of the UI</summary>
+    /// <param name="_PositionY" />
     public void SetPositionY(float _PositionY) { }
 
     /// <summary>Set the spawn selection visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }

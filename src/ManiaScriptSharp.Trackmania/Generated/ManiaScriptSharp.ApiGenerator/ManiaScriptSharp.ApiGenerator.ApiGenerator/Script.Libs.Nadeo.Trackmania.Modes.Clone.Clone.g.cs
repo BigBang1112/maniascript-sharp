@@ -42,5 +42,7 @@ public partial class Clone : ILib
     }
 
     /// <summary>Create a new clone instance</summary>
+    /// <param name="_GhostInstanceId" />
+    /// <param name="_CloneConfig" />
     public K_Clone NewClone(Ident _GhostInstanceId, K_CloneConfig _CloneConfig) => default!;
 }

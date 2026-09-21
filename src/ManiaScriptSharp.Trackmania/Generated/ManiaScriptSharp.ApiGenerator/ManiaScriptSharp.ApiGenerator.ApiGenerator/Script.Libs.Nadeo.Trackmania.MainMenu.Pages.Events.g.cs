@@ -38,6 +38,7 @@ public partial class Events : ILib
     public const string C_NavGroup_Default = "navgroup-page-events-default";
     public const string C_NavGroup_MouseOnly = "navgroup-page-events-mouse-only";
     public const string C_NavGroup_Global = "navgroup-page-events-global";
+    /// <summary>n for the current page, n for the previous page and n for the next page</summary>
     public const int C_DelayBetweenRequest = 500;
     public const int C_EventsDelay = 150;
     public const int C_CurrentEvents_EventsPerPage = 3;
@@ -52,7 +53,6 @@ public partial class Events : ILib
     public const int C_Choice_Join = 1;
     public const int C_Tab_AllEvents = 0;
     public const int C_Tab_MyEvents = 1;
-    public const int C_ExternalCompetitionId = -1;
 
     public struct K_PlayPrivilegeCheck
     {

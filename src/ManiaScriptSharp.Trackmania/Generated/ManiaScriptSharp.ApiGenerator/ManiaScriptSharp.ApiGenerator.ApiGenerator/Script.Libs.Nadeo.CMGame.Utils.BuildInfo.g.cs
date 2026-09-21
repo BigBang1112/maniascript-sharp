@@ -14,6 +14,7 @@ public partial class BuildInfo : ILib
 {
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/CMGame/Utils/BuildInfo.Script.txt";
+    public const string C_BuildInfoFilePath = "file://Media/BuildInfo.json";
     public const string C_Event_UpdateBuildInfo = "Event_UpdateBuildInfo";
 
     public struct LibCommonBuildInfo_K_BuildInfo

@@ -22,6 +22,9 @@ public partial class MapInfo_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Send the match progression to the client</summary>
+    /// <param name="_MapNb" />
+    /// <param name="_RoundNb" />
+    /// <param name="_MatchPointsLimit" />
     public void SetMatchProgression(int _MapNb, int _RoundNb, int _MatchPointsLimit) { }
 
     /// <summary>Unload the library</summary>

@@ -15,6 +15,7 @@ public partial class Random : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Random.Script.txt";
+    /// <summary>Maximum value of the seed</summary>
     public const int C_SeedMax = 1000000000;
 
     public string GetScriptVersion() => default!;
@@ -28,15 +29,21 @@ public partial class Random : ILib
     public void Reset() { }
 
     /// <summary>Initialize the seed</summary>
+    /// <param name="_Seed" />
     public void Init(int _Seed) { }
 
     /// <summary>Randomly inialize the seed</summary>
     public void Init() { }
 
     /// <summary>Get a random Integer between _Start and _End</summary>
+    /// <param name="_Start" />
+    /// <param name="_End" />
     public int Rand(int _Start, int _End) => default!;
 
     /// <summary>Get a random Real between _Start and _End</summary>
+    /// <param name="_Start" />
+    /// <param name="_End" />
+    /// <param name="_Noise" />
     public float Rand(float _Start, float _End, float _Noise) => default!;
 
     public float Rand(float _Start, float _End) => default!;

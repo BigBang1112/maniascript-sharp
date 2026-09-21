@@ -22,18 +22,24 @@ public partial class MLHelpers : ILib
     public const int C_ColorMode_Background = 3;
 
     /// <summary>Convert a Vec2 to a `pos` attribute</summary>
+    /// <param name="_Pos" />
     public string Pos(Vec2 _Pos) => default!;
 
     /// <summary>Convert a Vec3 to a `pos` and `z-index` attribute</summary>
+    /// <param name="_Pos" />
     public string Pos(Vec3 _Pos) => default!;
 
     /// <summary>Convert a Vec2 to a `size` attribute</summary>
+    /// <param name="_Size" />
     public string Size(Vec2 _Size) => default!;
 
     /// <summary>Enable or disable translation on a label</summary>
+    /// <param name="_IsTranslated" />
     public string Translate(bool _IsTranslated) => default!;
 
     /// <summary>Skew position on X axis</summary>
+    /// <param name="_OffsetY" />
+    /// <param name="_Angle" />
     public float SkewX(float _OffsetY, float _Angle) => default!;
 
     public float SkewX(float _PosX, float _PosY, float _Angle) => default!;
@@ -41,10 +47,16 @@ public partial class MLHelpers : ILib
     public Vec2 SkewX(Vec2 _Pos, float _Angle) => default!;
 
     /// <summary>Skew position on X axis and keep Y pos @usage		pos=&quot;{{{MLHelpers::Skew(_PosX, _PosY, _Angle)}}}&quot;</summary>
+    /// <param name="_PosX" />
+    /// <param name="_PosY" />
+    /// <param name="_Angle" />
     /// <returns>The skewed x with the untouched y for ML 'pos' parameter</returns>
     public string Skew(float _PosX, float _PosY, float _Angle) => default!;
 
     /// <summary>Keep the original ratio of the asset depending on the horizontal or vertical size</summary>
+    /// <param name="_AssetSizeX" />
+    /// <param name="_AssetSizeY" />
+    /// <param name="_SizeX" />
     /// <returns>The X and Y size depending on the asset ratio and the given size parameter</returns>
     public Vec2 KeepRatioFromX(float _AssetSizeX, float _AssetSizeY, float _SizeX) => default!;
 
@@ -55,6 +67,9 @@ public partial class MLHelpers : ILib
     public Vec2 KeepRatioFromY(Vec2 _AssetSize, float _SizeY) => default!;
 
     /// <summary>Keep the original ratio of the asset depending on the horizontal or vertical size @usage		size=&quot;{{{MLHelpers::KeepRatioFromX(_AssetSizeX, _AssetSizeY, _SizeX)}}}&quot;</summary>
+    /// <param name="_AssetSizeX" />
+    /// <param name="_AssetSizeY" />
+    /// <param name="_SizeX" />
     /// <returns>The ML formatted text with X and Y size depending on the asset ratio and the given size parameter</returns>
     public string MLKeepRatioFromX(float _AssetSizeX, float _AssetSizeY, float _SizeX) => default!;
 
@@ -65,14 +80,19 @@ public partial class MLHelpers : ILib
     public string MLKeepRatioFromY(Vec2 _AssetSize, float _SizeY) => default!;
 
     /// <summary>Convert a text-size-fit Text attribute to a Vec3 compatible with the FitLabelValue() function</summary>
+    /// <param name="_Source" />
     public Vec3 ToTextSizeFitVec3(string _Source) => default!;
 
     /// <summary>Backward compatibility function</summary>
+    /// <param name="_Source" />
     public Vec3 ToTextSizeFit(string _Source) => default!;
 
     /// <summary>Convert a text-size-fit Text attribute to a Vec2 compatible with the FitLabelValue() function</summary>
+    /// <param name="_Source" />
     public Vec2 ToTextSizeFitVec2(string _Source) => default!;
 
     /// <summary>Create an xml node</summary>
+    /// <param name="_Name" />
+    /// <param name="_Attributes" />
     public string CreateXmlNode(string _Name, global::System.Collections.Generic.Dictionary<string, string> _Attributes) => default!;
 }

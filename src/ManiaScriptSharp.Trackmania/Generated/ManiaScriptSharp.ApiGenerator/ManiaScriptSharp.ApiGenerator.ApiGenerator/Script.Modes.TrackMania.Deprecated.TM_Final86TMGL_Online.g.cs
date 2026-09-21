@@ -29,6 +29,7 @@ public partial class TM_Final86TMGL_Online : global::ManiaScriptSharp.Scripts.Mo
     public const string C_CupTMGL_Version = "1.0.0+2022-08-05";
     public const string C_CupTMGL_ScriptName = "Modes/TrackMania/Deprecated/TM_Final86TMGL_Online.Script.txt";
     public const string C_CupTMGL_ModeName = "Cup TMGL";
+    public const string C_CupTMGL_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/CupTMGL.Script.txt";
     public const int C_AfterRaceStartDuration = 15000;
     public const int C_UpdateSignLiveCameraInterval = 5000;
     public const bool C_UseEsportsProgrammation = true;
@@ -90,11 +91,14 @@ public partial class TM_Final86TMGL_Online : global::ManiaScriptSharp.Scripts.Mo
     public virtual void Match_BeforePodiumSequence() { }
 
     /// <summary>Update the finalists in the match</summary>
+    /// <param name="_PointsLimit" />
     public void UpdateFinalists(int _PointsLimit) { }
 
     /// <summary>Toggle on/off the camera display in signs</summary>
+    /// <param name="_Enabled" />
     public void UpdateSignLiveCamera(bool _Enabled) { }
 
     /// <summary>Enable the esports programmation in the signs see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#</summary>
+    /// <param name="_Enabled" />
     public void EnableSignESportsMode(bool _Enabled) { }
 }

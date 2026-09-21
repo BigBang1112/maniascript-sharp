@@ -36,7 +36,7 @@ public partial class Records : ILib
     public void SendAllPersonalsBest() { }
 
     /// <summary>Add Account Id to the Personal Bests fetching queue</summary>
-    /// <param name="AccountId">The AccountId to add if needed</param>
+    /// <param name="_AccountId">The AccountId to add if needed</param>
     public void AddToQueueIfNeeded(string _AccountId) { }
 
     /// <summary>Check if the Request or the Task is pending</summary>

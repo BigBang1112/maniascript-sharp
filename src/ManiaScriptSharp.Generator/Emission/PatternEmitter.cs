@@ -6,7 +6,7 @@ namespace ManiaScriptSharp.Generator.Emission;
 
 /// <summary>
 /// Translates C# `is` patterns into ManiaScript. Complex patterns that bind variables or
-/// combine clauses are decomposed into nested if blocks via <see cref="EmitTypePatternBinding"/>.
+/// combine clauses are decomposed into nested if blocks through type-pattern binding.
 /// </summary>
 internal sealed class PatternEmitter
 {

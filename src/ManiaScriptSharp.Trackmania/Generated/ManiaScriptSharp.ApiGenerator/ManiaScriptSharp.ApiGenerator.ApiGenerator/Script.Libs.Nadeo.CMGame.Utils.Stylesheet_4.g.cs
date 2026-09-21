@@ -18,6 +18,7 @@ public partial class Stylesheet_4 : ILib
     public const string Version = "0.4.3";
     public const string ScriptName = "Libs/Nadeo/CMGame/Utils/Stylesheet@4.Script.txt";
     public const string C_Class_Target = "cmgame-utils-stylesheet-4-target";
+    /// <summary>Common properties</summary>
     public const string C_Prop_Size = "size";
     public const string C_Prop_HAlign = "halign";
     public const string C_Prop_VAlign = "valign";
@@ -32,6 +33,7 @@ public partial class Stylesheet_4 : ILib
     public const string C_Prop_Blend = "blend";
     public const string C_Prop_TTSAltText = "alt-text";
     public const string C_Prop_TTSAltTextTranslate = "alt-text-translate";
+    /// <summary>Text properties</summary>
     public const string C_Prop_TextFormat = "text-format";
     public const string C_Prop_TextColor = "text-color";
     public const string C_Prop_TextSize = "text-size";
@@ -46,6 +48,7 @@ public partial class Stylesheet_4 : ILib
     public const string C_Prop_TextAppendEllipsis = "text-append-ellipsis";
     public const string C_Prop_TextAutoNewLine = "text-auto-new-line";
     public const string C_Prop_TextFilterProfanities = "text-filter-profanities";
+    /// <summary>Quad properties</summary>
     public const string C_Prop_QuadImageUrl = "quad-image-url";
     public const string C_Prop_QuadImageUrlFocus = "quad-image-url-focus";
     public const string C_Prop_QuadAlphaMaskUrl = "quad-alpha-mask-url";
@@ -59,11 +62,15 @@ public partial class Stylesheet_4 : ILib
     public const int C_MergeBehavior_MergeWithSpace = 1;
 
     /// <summary>Create a style</summary>
+    /// <param name="_Style" />
+    /// <param name="_PropertyList" />
     public void CreateStyle(string _Style, global::System.Collections.Generic.Dictionary<string, string> _PropertyList) { }
 
     /// <summary>Inject a style list in the control manialink xml</summary>
+    /// <param name="_StyleList" />
     public string StyleList(global::System.Collections.Generic.IList<string> _StyleList) => default!;
 
     /// <summary>Inject a disabled property list in the control manialink xml</summary>
+    /// <param name="_DisabledPropertyList" />
     public string DisabledPropertyList(global::System.Collections.Generic.IList<string> _DisabledPropertyList) => default!;
 }

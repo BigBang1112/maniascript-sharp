@@ -23,9 +23,11 @@ public partial class Header_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the logo image url</summary>
+    /// <param name="_LogoUrl" />
     public void SetLogoUrl(string _LogoUrl) { }
 
     /// <summary>Send the points to the clients</summary>
+    /// <param name="_MatchPointsLimit" />
     public void SetMatchPointsLimit(int _MatchPointsLimit) { }
 
     public void SetMapPointsLimit(int _MapPointsLimit) { }

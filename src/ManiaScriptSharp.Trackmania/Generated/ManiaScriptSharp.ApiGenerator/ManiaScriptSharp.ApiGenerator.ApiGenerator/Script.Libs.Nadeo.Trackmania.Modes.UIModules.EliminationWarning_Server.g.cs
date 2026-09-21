@@ -21,7 +21,7 @@ public partial class EliminationWarning_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the game mode where the elimination warning will be displayed</summary>
-    /// <param name="GameMode">The game mode to set</param>
+    /// <param name="_GameMode">The game mode to set</param>
     public void SetGameMode(int _GameMode) { }
 
     /// <summary>Unload the library</summary>

@@ -18,9 +18,6 @@ public partial class RaceComplete_Client : ILib
 
     public const string Version = "1.4.1";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/RoyalStars/UIModules/RaceComplete_Client.Script.txt";
-    public const int C_AnimDuration_ShowHide = 250;
-    public const int C_AnimDuration_StarOut = 300;
-    public const int C_AnimDuration_HideOverlay = 3000;
 
     public struct K_Controls
     {

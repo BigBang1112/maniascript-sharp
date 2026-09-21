@@ -17,12 +17,19 @@ public partial class TM2 : ILib
 
     public const string Version = "2016-09-08";
     public const string ScriptName = "Libs/Nadeo/TrackMania/TM2.Script.txt";
+    /// <summary>Time before respawn (3,2,1,Go!)</summary>
     public const int C_SpawnDuration = 3000;
+    /// <summary>Outro sequence duration</summary>
     public const int C_OutroDuration = 8000;
+    /// <summary>Time before the display of the scores table in the outro sequence</summary>
     public const int C_OutroScoresTableTime = 3000;
+    /// <summary>The player is currently racing</summary>
     public const int C_SpawnStatus_Racing = 1;
+    /// <summary>The player is winting to be spawned</summary>
     public const int C_SpawnStatus_Waiting = 2;
+    /// <summary>The player is watching the outro sequence</summary>
     public const int C_SpawnStatus_Outro = 3;
+    /// <summary>XmlRpc</summary>
     public const string C_Callback_Event_StartCountdown = "Trackmania.Event.StartCountdown";
 
     /// <summary>Return the version number of the script</summary>
@@ -34,56 +41,56 @@ public partial class TM2 : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Spawn a player for a race If this player was already spawned, he will be respawned</summary>
-    /// <param name="Player">The player to spawn</param>
-    /// <param name="StartTime">Server time of the beginning of the race</param>
-    /// <param name="RegisterOnLadder">Try to register the player on the ladder if he wasn't</param>
+    /// <param name="_Player">The player to spawn</param>
+    /// <param name="_StartTime">Server time of the beginning of the race</param>
+    /// <param name="_RegisterOnLadder">Try to register the player on the ladder if he wasn't</param>
     public void StartRace(CTmPlayer _Player, int _StartTime, bool _RegisterOnLadder) { }
 
     /// <summary>Spawn a player for a race If this player was already spawned, he will be respawned</summary>
-    /// <param name="Player">The player to spawn</param>
-    /// <param name="StartTime">Server time of the beginning of the race</param>
+    /// <param name="_Player">The player to spawn</param>
+    /// <param name="_StartTime">Server time of the beginning of the race</param>
     public void StartRace(CTmPlayer _Player, int _StartTime) { }
 
     /// <summary>Spawn a player for a race If this player was already spawned, he will be respawned</summary>
-    /// <param name="Player">The player to spawn</param>
+    /// <param name="_Player">The player to spawn</param>
     public void StartRace(CTmPlayer _Player) { }
 
     /// <summary>Unspawn a racing player and skip the outro sequence</summary>
-    /// <param name="Player">The player to unspawn</param>
+    /// <param name="_Player">The player to unspawn</param>
     public void WaitRace(CTmPlayer _Player) { }
 
     /// <summary>Unspawn all the players</summary>
     public void WaitRaceAll() { }
 
     /// <summary>Unspawn a racing player and send him in the outro sequence</summary>
-    /// <param name="Player">The player to unspawn</param>
-    /// <param name="DisplayScoresTable">Display the scores table during the outro</param>
+    /// <param name="_Player">The player to unspawn</param>
+    /// <param name="_DisplayScoresTable">Display the scores table during the outro</param>
     public void EndRace(CTmPlayer _Player, bool _DisplayScoresTable) { }
 
     /// <summary>Unspawn a racing player and send him in the outro sequence</summary>
-    /// <param name="Player">The player to unspawn</param>
+    /// <param name="_Player">The player to unspawn</param>
     public void EndRace(CTmPlayer _Player) { }
 
     /// <summary>End race all the players</summary>
     public void EndRaceAll() { }
 
     /// <summary>Check if a player is racing</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>True if the player is racing, false otherwise</returns>
     public bool IsRacing(CTmPlayer _Player) => default!;
 
     /// <summary>Check if a player is waiting to be spawned</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>True if the player is waiting to be spawned, false otherwise</returns>
     public bool IsWaiting(CTmPlayer _Player) => default!;
 
     /// <summary>Check if a player is watching the outro sequence</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>True if the player is watching the outro, false otherwise</returns>
     public bool IsWatchingOutro(CTmPlayer _Player) => default!;
 
     /// <summary>Get the current spawn status of a player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The current status of the player or -1 if the player doesn't exist</returns>
     public int GetPlayerStatus(CTmPlayer _Player) => default!;
 
@@ -93,27 +100,27 @@ public partial class TM2 : ILib
     public void Yield() { }
 
     /// <summary>Get a player from its login</summary>
-    /// <param name="Login">Login of the player to get</param>
+    /// <param name="_Login">Login of the player to get</param>
     /// <returns>The player if found, Null otherwise</returns>
     public CTmPlayer GetPlayer(string _Login) => default!;
 
     /// <summary>Get a user from its login</summary>
-    /// <param name="Login">Login of the user to get</param>
+    /// <param name="_Login">Login of the user to get</param>
     /// <returns>The user if found, Null otherwise</returns>
     public CUser GetUser(string _Login) => default!;
 
     /// <summary>Get a score from its login</summary>
-    /// <param name="Login">Login of the score to get</param>
+    /// <param name="_Login">Login of the score to get</param>
     /// <returns>The score if found, Null otherwise</returns>
     public CTmScore GetScore(string _Login) => default!;
 
     /// <summary>Convert a time (Integer) to a Text</summary>
-    /// <param name="Time">The time to convert</param>
+    /// <param name="_Time">The time to convert</param>
     /// <returns>The time converted in Text</returns>
     public string TimeToText(int _Time) => default!;
 
     /// <summary>Convert a Text to a time (Integer)</summary>
-    /// <param name="Value">The Text to convert</param>
+    /// <param name="_Value">The Text to convert</param>
     /// <returns>The Text converted in time</returns>
     public int TextToTime(string _Value) => default!;
 
@@ -138,7 +145,7 @@ public partial class TM2 : ILib
     public int GetClansNbWaiting() => default!;
 
     /// <summary>Get the number of players in a clan</summary>
-    /// <param name="Clan">The clan to check</param>
+    /// <param name="_Clan">The clan to check</param>
     /// <returns>The number of players in the clan</returns>
     public int GetClanNbPlayers(int _Clan) => default!;
 
@@ -147,7 +154,7 @@ public partial class TM2 : ILib
     public global::System.Collections.Generic.Dictionary<int, int> GetClansNbPlayers() => default!;
 
     /// <summary>Get the number of players racing in a clan</summary>
-    /// <param name="Clan">The clan to check</param>
+    /// <param name="_Clan">The clan to check</param>
     /// <returns>The number of players racing in the given clan</returns>
     public int GetClanNbPlayersRacing(int _Clan) => default!;
 
@@ -156,7 +163,7 @@ public partial class TM2 : ILib
     public global::System.Collections.Generic.Dictionary<int, int> GetClansNbPlayersRacing() => default!;
 
     /// <summary>Get the number of players waiting in a clan</summary>
-    /// <param name="Clan">The clan to check</param>
+    /// <param name="_Clan">The clan to check</param>
     /// <returns>The number of players waiting in the given clan</returns>
     public int GetClanNbPlayersWaiting(int _Clan) => default!;
 
@@ -165,7 +172,7 @@ public partial class TM2 : ILib
     public global::System.Collections.Generic.Dictionary<int, int> GetClansNbPlayersWaiting() => default!;
 
     /// <summary>Reset a score without removing him from the ladder</summary>
-    /// <param name="Score">The score to reset</param>
+    /// <param name="_Score">The score to reset</param>
     public void ResetScore(CTmScore _Score) { }
 
     /// <summary>Reset all scores</summary>

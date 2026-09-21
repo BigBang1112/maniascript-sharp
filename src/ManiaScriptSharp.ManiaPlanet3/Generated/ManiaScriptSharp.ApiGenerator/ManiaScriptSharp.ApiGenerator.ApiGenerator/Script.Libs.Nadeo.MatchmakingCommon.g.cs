@@ -14,17 +14,29 @@ public partial class MatchmakingCommon : ILib
 {
     public const string Version = "2014-12-08";
     public const string ScriptName = "MatchmakingCommon.Script.txt";
+    /// <summary>Matchmaking modes Matchmaking off on this server</summary>
     public const int C_Matchmaking_Off = 0;
+    /// <summary>Is lobby server</summary>
     public const int C_Matchmaking_Lobby = 1;
+    /// <summary>Is match  server</summary>
     public const int C_Matchmaking_Match = 2;
+    /// <summary>Is universal lobby</summary>
     public const int C_Matchmaking_UniversalLobby = 3;
+    /// <summary>Is universal match</summary>
     public const int C_Matchmaking_UniversalMatch = 4;
+    /// <summary>Request types /lobby-server/player-connection?login=somelogin&amp;lobbylogin=anotherlogin</summary>
     public const int C_Request_GetPlayers = 0;
+    /// <summary>/lobby-server/matchmaking-live</summary>
     public const int C_Request_PostPlayers = 1;
+    /// <summary>/match-server/match?serverlogin=somelogin</summary>
     public const int C_Request_GetMatches = 2;
+    /// <summary>/match-server/live</summary>
     public const int C_Request_PostStatus = 3;
+    /// <summary>/match-server/result</summary>
     public const int C_Request_PostResults = 4;
+    /// <summary>/lobby-server/match</summary>
     public const int C_Request_PostMatches = 5;
+    /// <summary>Misc Prefix used before the messages sent in the chat by the matchmaking</summary>
     public const string C_MessagePrefix = "$000»$09f";
 
     /// <summary>Return the version number of the script</summary>
@@ -40,7 +52,7 @@ public partial class MatchmakingCommon : ILib
     public string GetMessagePrefix() => default!;
 
     /// <summary>Set the error message to display to the players</summary>
-    /// <param name="Message">The error message</param>
+    /// <param name="_Message">The error message</param>
     public void SetErrorMessage(string _Message) { }
 
     /// <summary>Get the error message to display to thge players</summary>
@@ -48,7 +60,7 @@ public partial class MatchmakingCommon : ILib
     public string GetErrorMessage() => default!;
 
     /// <summary>Turn on/off the progressive matchmaking</summary>
-    /// <param name="Active">True to turn on, False to turn off</param>
+    /// <param name="_Active">True to turn on, False to turn off</param>
     public void SetProgressiveMatchmaking(bool _Active) { }
 
     /// <summary>Check if the matchmaking is progressive or not</summary>
@@ -56,7 +68,7 @@ public partial class MatchmakingCommon : ILib
     public bool GetProgressiveMatchmaking() => default!;
 
     /// <summary>Set the current matchmaking format It's the current format that can be modified by the progressive matchmaking function</summary>
-    /// <param name="Format">The new format</param>
+    /// <param name="_Format">The new format</param>
     public void SetCurrentMatchFormat(global::System.Collections.Generic.IList<int> _Format) { }
 
     /// <summary>Get the current matchmaking format It's the current format that can be modified by the progressive matchmaking function [NbPlayersTeam1, NbPlayersTeam2, ..., NbPlayersTeamN]</summary>
@@ -64,7 +76,7 @@ public partial class MatchmakingCommon : ILib
     public global::System.Collections.Generic.IList<int> GetCurrentMatchFormat() => default!;
 
     /// <summary>Set the matchmaking format It's the desired format [NbPlayersTeam1, NbPlayersTeam2, ..., NbPlayersTeamN]</summary>
-    /// <param name="Format">The new format</param>
+    /// <param name="_Format">The new format</param>
     public void SetMatchFormat(global::System.Collections.Generic.IList<int> _Format) { }
 
     /// <summary>Get the matchmaking format It's the desired format [NbPlayersTeam1, NbPlayersTeam2, ..., NbPlayersTeamN]</summary>
@@ -72,7 +84,7 @@ public partial class MatchmakingCommon : ILib
     public global::System.Collections.Generic.IList<int> GetMatchFormat() => default!;
 
     /// <summary>Set the maximum number of players in a clan</summary>
-    /// <param name="MaxPlayers">The new maximum number of players</param>
+    /// <param name="_MaxPlayers">The new maximum number of players</param>
     public void MM_SetMaxPlayers(int _MaxPlayers) { }
 
     /// <summary>Get the maximum number of players in a clan</summary>
@@ -80,7 +92,7 @@ public partial class MatchmakingCommon : ILib
     public int GetMaxPlayers() => default!;
 
     /// <summary>Set the api url</summary>
-    /// <param name="Url">The new url</param>
+    /// <param name="_Url">The new url</param>
     public void SetApiUrl(string _Url) { }
 
     /// <summary>Get the api url</summary>
@@ -88,7 +100,7 @@ public partial class MatchmakingCommon : ILib
     public string GetApiUrl() => default!;
 
     /// <summary>Get the api url appened with a custom path</summary>
-    /// <param name="Path">Custom path to append to the api url</param>
+    /// <param name="_Path">Custom path to append to the api url</param>
     /// <returns>The composed url</returns>
     public string GetApiUrl(string _Path) => default!;
 
@@ -106,43 +118,43 @@ public partial class MatchmakingCommon : ILib
     public int RequestType_PostMatches() => default!;
 
     /// <summary>Add a request to the pending requests array</summary>
-    /// <param name="RequestId">The id of the request</param>
-    /// <param name="Type">The type of request</param>
+    /// <param name="_RequestId">The id of the request</param>
+    /// <param name="_Type">The type of request</param>
     public void AddPendingRequest(Ident _RequestId, int _Type) { }
 
     /// <summary>Remove a request from the pending requests array</summary>
-    /// <param name="RequestId">The id of the request</param>
+    /// <param name="_RequestId">The id of the request</param>
     public void RemovePendingRequest(Ident _RequestId) { }
 
     /// <summary>Clear the pending requests array</summary>
     public void ClearPendingRequests() { }
 
     /// <summary>Chec if a request is in the pending requests array</summary>
-    /// <param name="RequestId">The id of the request to check</param>
+    /// <param name="_RequestId">The id of the request to check</param>
     /// <returns>True if the request is in the pending requests array, False otherwise</returns>
     public bool IsInPendingRequests(Ident _RequestId) => default!;
 
     /// <summary>Chec if a type of request is in the pending requests array</summary>
-    /// <param name="Type">The type of the request to check</param>
+    /// <param name="_Type">The type of the request to check</param>
     /// <returns>True if the type of request is in the pending requests array, False otherwise</returns>
     public bool IsInPendingRequests(int _Type) => default!;
 
     /// <summary>Get the type of a request</summary>
-    /// <param name="RequestId">The id of the request to check</param>
+    /// <param name="_RequestId">The id of the request to check</param>
     /// <returns>The type of request if found, -1 otherwise</returns>
     public int GetPendingRequestType(Ident _RequestId) => default!;
 
     /// <summary>Create a link to join another server in the same title</summary>
-    /// <param name="ServerLogin">The login of the server to join</param>
+    /// <param name="_ServerLogin">The login of the server to join</param>
     public string GetServerJoinLink(string _ServerLogin) => default!;
 
     /// <summary>Set the last time an user was sent to another server</summary>
-    /// <param name="User">The user to update</param>
-    /// <param name="TransfertTime">The time of the transfert</param>
+    /// <param name="_User">The user to update</param>
+    /// <param name="_TransfertTime">The time of the transfert</param>
     public void SetLastTransfertTime(CUser _User, int _TransfertTime) { }
 
     /// <summary>Get the last time an user was sent to another server</summary>
-    /// <param name="User">The user to check</param>
+    /// <param name="_User">The user to check</param>
     /// <returns>The last transfert time if any, -1 otherwise</returns>
     public int GetLastTransfertTime(CUser _User) => default!;
 
@@ -158,7 +170,7 @@ public partial class MatchmakingCommon : ILib
     public int MatchmakingMode_UniversalMatch() => default!;
 
     /// <summary>Set the mode of matchmaking</summary>
-    /// <param name="Mode">The new matchmaking mode</param>
+    /// <param name="_Mode">The new matchmaking mode</param>
     public void SetMode(int _Mode) { }
 
     /// <summary>Get the mode of matchmaking</summary>
@@ -186,18 +198,18 @@ public partial class MatchmakingCommon : ILib
     public bool IsProgressiveMatchmaking() => default!;
 
     /// <summary>Get the log to display status</summary>
-    /// <param name="LogName">The name of the log to check</param>
+    /// <param name="_LogName">The name of the log to check</param>
     /// <returns>True if the log must be displayed, false otherwise</returns>
     public bool GetLogDisplay(string _LogName) => default!;
 
     /// <summary>Set the log to display or not</summary>
-    /// <param name="LogName">The name of the log</param>
-    /// <param name="Display">Display th elog or not</param>
+    /// <param name="_LogName">The name of the log</param>
+    /// <param name="_Display">Display th elog or not</param>
     public void SetLogDisplay(string _LogName, bool _Display) { }
 
     /// <summary>Send a player to another server</summary>
-    /// <param name="Player">The player to send</param>
-    /// <param name="ServerLogin">The server login where to send the player</param>
+    /// <param name="_Player">The player to send</param>
+    /// <param name="_ServerLogin">The server login where to send the player</param>
     public void SendToServer(CPlayer _Player, string _ServerLogin) { }
 
     /// <summary>Unload the library</summary>

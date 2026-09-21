@@ -22,12 +22,17 @@ public partial class SplashscreenStore_MA : ILib
     public const string ScriptName = "Libs/Nadeo/CMGame/Stores/SplashscreenStore_MA.Script.txt";
 
     /// <summary>Retrieve the splashscreen</summary>
+    /// <param name="_TargetSubscription" />
     public void Action_RetrieveSplashscreen(string _TargetSubscription) { }
 
     /// <summary>Create an impression of a viewed splashscreen</summary>
+    /// <param name="_SplashscreenUid" />
+    /// <param name="_ViewTime" />
+    /// <param name="_IsClicked" />
     public void Action_CreateImpression(string _SplashscreenUid, int _ViewTime, bool _IsClicked) { }
 
     /// <summary>Initialize the Splashscreen store</summary>
+    /// <param name="_ResetData" />
     public void Initialize(bool _ResetData) { }
 
     /// <summary>Update the Event store</summary>

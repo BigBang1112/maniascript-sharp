@@ -45,11 +45,10 @@ public partial class StartRaceMenu_Client : ILib
     public const int C_Row_MoreOpponents = 6;
     public const int C_Row_Margin = 7;
     public const int C_Row_Footer = 8;
+    /// <summary>Variables for Sound design.</summary>
     public const int C_SoundFadeTime_AutoHide = 1000;
     public const int C_SoundFadeTime_EnterMenu = 1000;
     public const int C_SoundFadeTime_CloseMenu = 100;
-    public const int C_MaxVisibleButtons = 5;
-    public const int C_MinVisibleButtons = 2;
 
     public struct K_Controls
     {

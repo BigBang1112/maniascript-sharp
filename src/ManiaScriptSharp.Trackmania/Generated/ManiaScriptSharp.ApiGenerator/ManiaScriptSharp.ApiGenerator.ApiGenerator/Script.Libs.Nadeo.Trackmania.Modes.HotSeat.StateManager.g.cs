@@ -31,7 +31,7 @@ public partial class StateManager : ILib
     public const int C_State_EndRound = 4;
 
     /// <summary>Force the states applied to all players To disable the forced states use an empty array</summary>
-    /// <param name="States">The states to force</param>
+    /// <param name="_States">The states to force</param>
     public void ForcePlayersStates(global::System.Collections.Generic.IList<int> _States) { }
 
     /// <summary>Update the library</summary>

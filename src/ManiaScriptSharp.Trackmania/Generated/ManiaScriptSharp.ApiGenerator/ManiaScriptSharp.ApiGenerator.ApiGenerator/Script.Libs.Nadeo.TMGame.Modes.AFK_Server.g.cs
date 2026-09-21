@@ -19,15 +19,25 @@ public partial class AFK_Server : ILib
 
     public const string Version = "1.1.0";
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/AFK_Server.Script.txt";
+    /// <summary>Enable automatic management of AFK players</summary>
     public const bool C_AutoManageAFKPlayersIsEnabled = true;
+    /// <summary>after 30s of inactivity, a player is considered AFK</summary>
     public const int C_IdleTimeLimit = 30000;
+    /// <summary>A player cannot be considered AFK during 5 s. after spawning</summary>
     public const int C_SpawnTimeLimit = 5000;
+    /// <summary>A player cannot be considered AFK if they have passed a CP in the last 15s</summary>
     public const int C_CheckpointTimeLimit = 15000;
+    /// <summary>Time interval between automatic AFK players check</summary>
     public const int C_CheckInterval = 10000;
+    /// <summary>Force the player on spectator when AFK</summary>
     public const bool C_ForceSpec = false;
+    /// <summary>Kick the player from the server when AFK</summary>
     public const bool C_Kick = true;
+    /// <summary>Check CP times of the players to determine if they are AFK</summary>
     public const bool C_CheckCP = true;
+    /// <summary>Minimum idle time to avoid false positive</summary>
     public const int C_IdleThreshold = 2000;
+    /// <summary>XmlRpc</summary>
     public const string C_Callback_AFKPlayers = "AFK.IsAFK";
     public const string C_Callback_AFKProperties = "AFK.Properties";
     public const string C_Method_GetAFKProperties = "AFK.GetProperties";
@@ -54,18 +64,20 @@ public partial class AFK_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Try to force AFK players to spectators or kick them from server</summary>
-    /// <param name="MaxIdleDuration">In milliSec., time of inactivity to be considered AFK</param>
-    /// <param name="SpawnTimeMercy">In milliSec., time after spawning during which one can not be considered AFK</param>
+    /// <param name="_MaxIdleDuration">In milliSec., time of inactivity to be considered AFK</param>
+    /// <param name="_SpawnTimeMercy">In milliSec., time after spawning during which one can not be considered AFK</param>
+    /// <param name="_CheckpointTimeMercy" />
     public void ManageAFKPlayers(int _MaxIdleDuration, int _SpawnTimeMercy, int _CheckpointTimeMercy) { }
 
     /// <summary>Try to force AFK players to spectators or kick them from server</summary>
     public void ManageAFKPlayers() { }
 
     /// <summary>Enable or disable automatic AFK management</summary>
+    /// <param name="_IsEnabled" />
     public void SetAutoManageAFKPlayersIsEnabled(bool _IsEnabled) { }
 
     /// <summary>Update the idle time limit</summary>
-    /// <param name="Time">The new idle time limit</param>
+    /// <param name="_Time">The new idle time limit</param>
     public void SetIdleTimeLimit(int _Time) { }
 
     /// <summary>Get the current idle time limit</summary>
@@ -73,27 +85,27 @@ public partial class AFK_Server : ILib
     public int GetIdleTimeLimit() => default!;
 
     /// <summary>Update the spawn mercy time</summary>
-    /// <param name="Time">The new spawn mercy time</param>
+    /// <param name="_Time">The new spawn mercy time</param>
     public void SetSpawnTimeLimit(int _Time) { }
 
     /// <summary>Update the checkpoint mercy time</summary>
-    /// <param name="Time">The new checkpoint mercy time</param>
+    /// <param name="_Time">The new checkpoint mercy time</param>
     public void SetCheckpointTimeLimit(int _Time) { }
 
     /// <summary>Update the check time interval</summary>
-    /// <param name="Interval">The new time interval</param>
+    /// <param name="_Interval">The new time interval</param>
     public void SetCheckInterval(int _Interval) { }
 
     /// <summary>Update the force spec value</summary>
-    /// <param name="ForceSpec">The new force spec value</param>
+    /// <param name="_ForceSpec">The new force spec value</param>
     public void SetForceSpec(bool _ForceSpec) { }
 
     /// <summary>Update the kick value</summary>
-    /// <param name="ForceKick">The new kick value</param>
+    /// <param name="_ForceKick">The new kick value</param>
     public void SetKick(bool _ForceKick) { }
 
     /// <summary>Update the CheckCP value</summary>
-    /// <param name="CheckCP">The new CheckCP value</param>
+    /// <param name="_CheckCP">The new CheckCP value</param>
     public void SetCheckCP(bool _CheckCP) { }
 
     /// <summary>Try to force AFK players to spectators This function can be piloted through XmlRpc</summary>

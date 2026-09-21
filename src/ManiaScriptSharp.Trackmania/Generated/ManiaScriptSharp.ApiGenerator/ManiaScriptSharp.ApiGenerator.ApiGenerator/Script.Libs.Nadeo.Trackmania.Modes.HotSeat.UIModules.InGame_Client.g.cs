@@ -20,6 +20,10 @@ public partial class InGame_Client : ILib
     public const string Version = "1.3.2";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/HotSeat/UIModules/InGame_Client.Script.txt";
     public const string C_Id = "UIModules_HotSeat_InGame";
+    public const string C_ImageUrl_BottomLeftBar = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Knockout/hud_knockout_warning_bottom_left.dds";
+    public const string C_ImageUrl_BottomRightBar = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Knockout/hud_knockout_warning_bottom_right.dds";
+    public const string C_ImageUrl_TimerLeft = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Knockout/hud_knockout_warning_timer_left.dds";
+    public const string C_ImageUrl_TimerRight = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Knockout/hud_knockout_warning_timer_right.dds";
     public const double C_PlayerFrameHeight = 6.5;
     public const double C_Margin = 1.0;
 

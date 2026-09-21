@@ -46,5 +46,6 @@ public partial class EnvironmentInfo : ILib
     public string GetCollectionMood(string _Collection, string _Mood) => default!;
 
     /// <summary>Check if the given collection is playable in Trackmania</summary>
+    /// <param name="_Collection" />
     public bool IsPlayable(string _Collection) => default!;
 }

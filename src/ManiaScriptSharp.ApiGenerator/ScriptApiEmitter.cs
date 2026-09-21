@@ -121,6 +121,7 @@ internal sealed class ScriptApiEmitter
             if (functionNames.Contains(constName)) continue; // avoid CS0102 with same-named method
             if (firstConst && _script.Includes.Count > 0) sb.AppendLine();
             firstConst = false;
+            WriteSummaryDoc(sb, con.Doc, "    ");
             sb.Append("    public const ").Append(csType).Append(' ')
               .Append(constName).Append(" = ").Append(csValue).AppendLine(";");
         }
@@ -345,11 +346,14 @@ internal sealed class ScriptApiEmitter
                 sb.AppendLine($"    /// <summary>{summary}</summary>");
         }
 
-        foreach (var (name, desc) in doc.Params)
+        foreach (var parameter in func.Parameters)
         {
-            var paramCsName = ParamIdentifier(name);
-            if (desc.Length > 0)
-                sb.AppendLine($"    /// <param name=\"{EscapeXml(paramCsName)}\">{EscapeXml(desc)}</param>");
+            var documentedParameter = doc.Params.FirstOrDefault(x =>
+                string.Equals(NormalizeParameterName(x.Name), NormalizeParameterName(parameter.Name), StringComparison.OrdinalIgnoreCase));
+            var paramCsName = ParamIdentifier(parameter.Name);
+
+            if (documentedParameter.Desc?.Length > 0)
+                sb.AppendLine($"    /// <param name=\"{EscapeXml(paramCsName)}\">{EscapeXml(documentedParameter.Desc)}</param>");
             else
                 sb.AppendLine($"    /// <param name=\"{EscapeXml(paramCsName)}\" />");
         }
@@ -363,6 +367,15 @@ internal sealed class ScriptApiEmitter
     }
 
     // ── type mapping ──────────────────────────────────────────────────────────
+
+    private static void WriteSummaryDoc(StringBuilder sb, ScriptDocComment? doc, string indentation)
+    {
+        var summary = doc?.Summary;
+        if (string.IsNullOrWhiteSpace(summary)) return;
+
+        sb.Append(indentation).Append("/// <summary>")
+            .Append(EscapeXml(summary!)).AppendLine("</summary>");
+    }
 
     private string MapType(string msType)
     {
@@ -587,6 +600,8 @@ internal sealed class ScriptApiEmitter
 
         return Reserved.Contains(s) ? "@" + s : s;
     }
+
+    private static string NormalizeParameterName(string name) => name.TrimStart('_', '@');
 
     private static string EscapeIdentifier(string name)
     {

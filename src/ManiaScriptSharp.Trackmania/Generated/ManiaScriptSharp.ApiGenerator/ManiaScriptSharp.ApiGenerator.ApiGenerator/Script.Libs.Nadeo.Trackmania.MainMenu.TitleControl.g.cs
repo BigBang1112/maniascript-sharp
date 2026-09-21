@@ -17,33 +17,44 @@ public partial class TitleControl : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/MainMenu/TitleControl.Script.txt";
 
     /// <summary>Check that the given script is for the 'TM_Royal' map type</summary>
+    /// <param name="_Script" />
     public bool IsRoyalScript(string _Script) => default!;
 
     /// <summary>Check that the given script is for the 'TM_Stunt' map type</summary>
+    /// <param name="_Script" />
     public bool IsStuntScript(string _Script) => default!;
 
     /// <summary>Check that the given script is for the 'TM_Platform' map type</summary>
+    /// <param name="_Script" />
     public bool IsPlatformScript(string _Script) => default!;
 
     /// <summary>Check that the given script is for the 'TM_Race' map type</summary>
+    /// <param name="_Script" />
     public bool IsRaceScript(string _Script) => default!;
 
     /// <summary>Get the map type corresponding to the given script</summary>
+    /// <param name="_Script" />
     public string GetMapTypeForScript(string _Script) => default!;
 
     /// <summary>Check that the given map type is a 'TM_Royal' map type</summary>
+    /// <param name="_MapType" />
     public bool IsRoyalMapType(string _MapType) => default!;
 
     /// <summary>Check that the given map type is a 'TM_Stunt' map type</summary>
+    /// <param name="_MapType" />
     public bool IsStuntMapType(string _MapType) => default!;
 
     /// <summary>Check that the given map type is a 'TM_Platform' map type</summary>
+    /// <param name="_MapType" />
     public bool IsPlatformMapType(string _MapType) => default!;
 
     /// <summary>Check that the given map type is a 'TM_Race' map type</summary>
+    /// <param name="_MapType" />
     public bool IsRaceMapType(string _MapType) => default!;
 
     /// <summary>Get the default mode corresponding to the given map type</summary>
+    /// <param name="_MapType" />
+    /// <param name="_IsCloneEnabled" />
     public string GetGameModeFromMapType(string _MapType, bool _IsCloneEnabled) => default!;
 
     public string GetGameModeFromMapType(string _MapType) => default!;

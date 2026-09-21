@@ -16,6 +16,7 @@ public partial class TimeGap_Server : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/Base/UIModules/TimeGap_Server.Script.txt";
+    /// <summary>This is copy pasted in client side do not forget to update both</summary>
     public const int C_TimeGapMode_BestRace = 0;
     public const int C_TimeGapMode_Hidden = 1;
     public const int C_TimeGapMode_CurRace = 2;
@@ -34,22 +35,23 @@ public partial class TimeGap_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Hide this UI for unspawned players</summary>
-    /// <param name="IsHidden" />
+    /// <param name="_IsHidden" />
     public void HideForSpectators(bool _IsHidden) { }
 
     /// <summary>Set time gap mode Anything else is considered C_TimeGapMode_BestRace.</summary>
-    /// <param name="Mode">C_TimeGapMode_BestRace, C_TimeGapMode_Hidden, C_TimeGapMode_CurRace or C_TimeGapMode_Solo.</param>
+    /// <param name="_Mode">C_TimeGapMode_BestRace, C_TimeGapMode_Hidden, C_TimeGapMode_CurRace or C_TimeGapMode_Solo.</param>
     public void SetTimeGapMode(int _Mode) { }
 
     /// <summary>Get time gap mode return														The current time gap mode</summary>
     public int GetTimeGapMode() => default!;
 
     /// <summary>Set custom teams color</summary>
-    /// <param name="TeamBlueColor">The custom primary color of the Blue team (in Hex6)</param>
-    /// <param name="TeamRedColor">The custom primary color of the Red team (in Hex6)</param>
+    /// <param name="_TeamBlueColor">The custom primary color of the Blue team (in Hex6)</param>
+    /// <param name="_TeamRedColor">The custom primary color of the Red team (in Hex6)</param>
     public void SetCustomTeamColors(string _TeamBlueColor, string _TeamRedColor) { }
 
     /// <summary>Display only the players in my team or everyone</summary>
+    /// <param name="_DisplayOnlyMyTeam" />
     public void SetDisplayOnlyMyTeam(bool _DisplayOnlyMyTeam) { }
 
     /// <summary>Unload the library</summary>

@@ -26,11 +26,13 @@ public partial class BattleArena : ILib
     public void UpdateValidability() { }
 
     /// <summary>Return the manialink for anchor edition</summary>
+    /// <param name="_Tag" />
     public string EditAnchorManialink(string _Tag) => default!;
 
     /// <summary>Manialink for non editable anchor</summary>
     public string NoEditManialink() => default!;
 
     /// <summary>Show the anchor edition manialink</summary>
+    /// <param name="_EditedAnchorDataId" />
     public void EditAnchorData(Ident _EditedAnchorDataId) { }
 }

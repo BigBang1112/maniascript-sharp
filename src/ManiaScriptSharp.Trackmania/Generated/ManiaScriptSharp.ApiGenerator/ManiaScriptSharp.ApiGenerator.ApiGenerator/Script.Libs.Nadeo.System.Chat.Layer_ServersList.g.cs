@@ -15,6 +15,7 @@ public partial class Layer_ServersList : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Chat.ChatServersInfo ChatServersInfo;
 
     public const int C_NbServersDisplayedInList = 15;
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Chat/";
 
     public struct SServerInfo
     {

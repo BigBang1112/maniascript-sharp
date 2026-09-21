@@ -26,15 +26,7 @@ public partial class Initialization : ILib
     public const string C_NavGroupName = "navgroup-page-initialization";
     public const int C_EpilepsyWarningDisplayDuration = 10000;
     public const int C_NadeoLogoDisplayDuration = 1250;
-    public const int C_Page_Null = 0;
-    public const int C_Page_EpilepsyWarning = 1;
-    public const int C_Page_UbisoftLogo = 2;
-    public const int C_Page_NadeoLogo = 3;
-    public const int C_Page_Intro = 4;
-    public const int C_Page_LeaveInitialization = 5;
-    public const int C_FadeOutAnimDuration = 250;
-    public const int C_FadeInAnimDuration = 250;
-    public const int C_DelayBeforeLeaveInitialization = 500;
+    public const string C_IntroFolder = "file://Media/Manialinks/Nadeo/Trackmania/Menus/Intro";
 
     public struct K_Controls
     {

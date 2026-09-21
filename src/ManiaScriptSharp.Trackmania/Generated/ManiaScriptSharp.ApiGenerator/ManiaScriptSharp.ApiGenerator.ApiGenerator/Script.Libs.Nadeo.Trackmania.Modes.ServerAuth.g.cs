@@ -20,8 +20,10 @@ public partial class ServerAuth : ILib
     public const int C_TokenRefreshDelay = 3300000;
     public const int C_Services_Null = 0;
     public const int C_Services_Live = 1;
+    /// <summary>This constant is deprecated. Club API now also use the Live token for authentication.</summary>
     public const int C_Services_Club = 1;
     public const string C_ServicesPath_Live = "NadeoLiveServices";
+    /// <summary>This constant is deprecated. Club API now also use the Live token for authentication.</summary>
     public const string C_ServicesPath_Club = "NadeoLiveServices";
 
     public struct K_AuthToken
@@ -39,6 +41,7 @@ public partial class ServerAuth : ILib
     public void Init(int _ServicesId) { }
 
     /// <summary>Check if the library is managing a token for this service</summary>
+    /// <param name="_ServiceId" />
     public bool IsServiceActive(int _ServiceId) => default!;
 
     public bool HasToken(int _ServicesId) => default!;

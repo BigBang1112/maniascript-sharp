@@ -19,12 +19,15 @@ public partial class Sign16x9_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign16x9_Client.Script.txt";
+    public const string C_ImageSponsorsPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Sponsors";
     public const bool C_DisplayLapNb = false;
 
     /// <summary>Get the id of the UI module</summary>
+    /// <param name="_InstanceNb" />
     public string GetId(int _InstanceNb) => default!;
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_InstanceNb" />
     /// <returns>The module manialink</returns>
     public string GetML(int _InstanceNb) => default!;
 }

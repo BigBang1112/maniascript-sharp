@@ -14,6 +14,7 @@ public partial class Dev : ILib
 {
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/CMGame/Utils/Dev.Script.txt";
+    public const string C_DebugFilePath = "file://Media/.debug";
 
     /// <summary>Check if the debug mode is enabled</summary>
     public bool IsDebug() => default!;

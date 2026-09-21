@@ -21,6 +21,7 @@ public partial class Melee : global::ManiaScriptSharp.Scripts.Modes.ShootMania.M
     public const string CompatibleMapTypes = "MeleeArena";
     public const string Version = "2014-07-25";
     public const string ScriptName = "Melee.Script.txt";
+    /// <summary>Number of bots</summary>
     public const int C_NbBots = 0;
 
     public virtual void LogVersion() { }
@@ -40,6 +41,6 @@ public partial class Melee : global::ManiaScriptSharp.Scripts.Modes.ShootMania.M
     public virtual void EndServer() { }
 
     /// <summary>Spawn a player</summary>
-    /// <param name="Player">The player to spawn</param>
+    /// <param name="_Player">The player to spawn</param>
     public void MeleeSpawnPlayer(CSmPlayer _Player) { }
 }

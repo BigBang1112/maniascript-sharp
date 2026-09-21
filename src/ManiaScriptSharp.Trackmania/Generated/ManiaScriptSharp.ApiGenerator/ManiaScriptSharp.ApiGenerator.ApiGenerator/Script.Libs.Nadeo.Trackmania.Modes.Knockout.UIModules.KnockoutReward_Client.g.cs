@@ -23,10 +23,11 @@ public partial class KnockoutReward_Client : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Knockout/UIModules/KnockoutReward_Client.Script.txt";
     public const string C_Id = "UIModule_Knockout_KnockoutReward";
     public const string C_NavGroup_Page = "navgroup-knockout-reward";
+    public const string C_Knockout_SmallPopup = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Knockout/TM_UI_HUD_02_KnockOut_SmallPopup.dds";
+    public const string C_Knockout_SmallPopup_ButtonLeft = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Knockout/TM_UI_HUD_02_KnockOut_SmallPopup_ButtonLeft.dds";
+    public const string C_Knockout_SmallPopup_ButtonRight = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Knockout/TM_UI_HUD_02_KnockOut_SmallPopup_ButtonRight.dds";
     public const int C_PopUp_SizeX = 180;
     public const int C_PopUp_SizeY = 94;
-    public const int C_TrophyDecimals = 2;
-    public const int C_InputPriority_KnockoutRewards = 1;
 
     /// <summary>Get the module manialink</summary>
     /// <returns>The module manialink</returns>

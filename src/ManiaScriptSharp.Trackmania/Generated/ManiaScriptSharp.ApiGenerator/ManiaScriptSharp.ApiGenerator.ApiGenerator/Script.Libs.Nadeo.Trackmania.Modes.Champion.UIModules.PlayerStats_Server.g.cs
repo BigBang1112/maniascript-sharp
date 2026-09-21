@@ -17,12 +17,12 @@ public partial class PlayerStats_Server : ILib
     public const string C_Id = "UIModule_Champion_PlayerStats";
 
     /// <summary>Set the number of players runing in the league</summary>
-    /// <param name="PlayersNb">The number of players</param>
+    /// <param name="_PlayersNb">The number of players</param>
     public void SetPlayersNb(int _PlayersNb) { }
 
     /// <summary>Set the number of rounds played during the match</summary>
-    /// <param name="RoundsNb">The current round number</param>
-    /// <param name="RoundsTotal">The total number of rounds to play</param>
+    /// <param name="_RoundNb" />
+    /// <param name="_RoundsTotal">The total number of rounds to play</param>
     public void SetRoundNb(int _RoundNb, int _RoundsTotal) { }
 
     /// <summary>Reset the match progression</summary>
@@ -32,11 +32,11 @@ public partial class PlayerStats_Server : ILib
     public void ResetRoundProgression() { }
 
     /// <summary>Update the number of hearts</summary>
-    /// <param name="Hearts">The number of hearts of each player</param>
+    /// <param name="_Hearts">The number of hearts of each player</param>
     public void SetHearts(global::System.Collections.Generic.Dictionary<string, int> _Hearts) { }
 
     /// <summary>Update the players' best times on the map</summary>
-    /// <param name="BestTimes">The players' times</param>
+    /// <param name="_BestTimes">The players' times</param>
     public void SetBestTimes(global::System.Collections.Generic.Dictionary<string, int> _BestTimes) { }
 
     /// <summary>Unload the library</summary>

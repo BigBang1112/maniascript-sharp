@@ -46,30 +46,50 @@ public partial class Sound : ILib
     public void PreloadSounds(global::System.Collections.Generic.IList<string> _SoundsToPreloadUrl) { }
 
     /// <summary>Overload : Play a custom sound to all players on the server</summary>
+    /// <param name="_SoundUrl" />
     public void PlaySound(string _SoundUrl) { }
 
     /// <summary>Overload : Play a custom sound to all the players on the server with volume attenuation and delay</summary>
+    /// <param name="_SoundUrl" />
+    /// <param name="_Volume" />
+    /// <param name="_Delay" />
     public void PlaySound(string _SoundUrl, float _Volume, int _Delay) { }
 
     /// <summary>Overload : Play a custom sound to all the players on the server with volume attenuation</summary>
+    /// <param name="_SoundUrl" />
+    /// <param name="_Volume" />
     public void PlaySound(string _SoundUrl, float _Volume) { }
 
     /// <summary>Overload : Play a custom sound to all the players on the server with delay</summary>
+    /// <param name="_SoundUrl" />
+    /// <param name="_Delay" />
     public void PlaySound(string _SoundUrl, int _Delay) { }
 
     /// <summary>Overload : Set the limit music volume for all players on the server without any delay</summary>
+    /// <param name="_Volume" />
     public void SetLimitMusicVolumedB(float _Volume) { }
 
     /// <summary>Overload : Set the limit music volume for all players on the server without any delay</summary>
+    /// <param name="_Volume" />
+    /// <param name="_Delay" />
+    /// <param name="_Fade" />
     public void SetLimitMusicVolumedB(float _Volume, int _Delay, int _Fade) { }
 
     /// <summary>Set the limit music volume for all players on the server after a specific delay</summary>
+    /// <param name="_Volume" />
+    /// <param name="_Delay" />
     public void SetLimitMusicVolumedBDelay(float _Volume, int _Delay) { }
 
     /// <summary>Set the limit music volume for all players on the server after a fade</summary>
+    /// <param name="_Volume" />
+    /// <param name="_Fade" />
     public void SetLimitMusicVolumedBFade(float _Volume, int _Fade) { }
 
     /// <summary>Set the limit music volume for for all players on the server for a certain duration (goes back to the previous volume)</summary>
+    /// <param name="_Volume" />
+    /// <param name="_FadeIn" />
+    /// <param name="_Duration" />
+    /// <param name="_FadeOut" />
     public void SetLimitMusicVolumedBTemporary(float _Volume, int _FadeIn, int _Duration, int _FadeOut) { }
 
     /// <summary>Bring the limit music volume back to the maximum for all players on the server</summary>

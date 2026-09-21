@@ -29,6 +29,7 @@ public partial class TM_StuntValidation_Local : ILib
     public const string Version = "1.0.1+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/TM_StuntValidation_Local.Script.txt";
     public const string C_ModeName = "TM_StuntValidation";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/StuntValidation.Script.txt";
     public const bool C_IsMapValidation = true;
     public const int C_BaseTimer = 180000;
     public const int C_AdditionnalTimerPerPark = 60000;

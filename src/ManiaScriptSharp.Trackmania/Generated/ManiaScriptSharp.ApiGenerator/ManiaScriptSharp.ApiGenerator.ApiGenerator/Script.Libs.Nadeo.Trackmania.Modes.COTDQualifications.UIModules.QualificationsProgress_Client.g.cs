@@ -31,17 +31,6 @@ public partial class QualificationsProgress_Client : ILib
     public const string C_NavGroup_ShowInGameMenu = "navgroup-cotd-qualifications-showingamemenu";
     public const int C_InputPriority = 1;
     public const bool C_EnableHideButton = false;
-    public const int C_State_Hidden = 0;
-    public const int C_State_BeforeMatch = 1;
-    public const int C_State_MatchStarted_NoResult = 2;
-    public const int C_State_MatchStarted_Registering = 3;
-    public const int C_State_MatchOver_WaitJoinLink = 4;
-    public const int C_State_MatchOver_WaitServerReady = 5;
-    public const int C_State_MatchOver_JoinLinkReady = 6;
-    public const int C_State_MatchOver_RegistrationsOver = 7;
-    public const int C_State_MatchOver_MatchNotJoinableAnymore = 8;
-    public const int C_State_Synchronizing = 9;
-    public const int C_JoinLinkValidDelay = 0;
 
     public struct K_ContentControls
     {

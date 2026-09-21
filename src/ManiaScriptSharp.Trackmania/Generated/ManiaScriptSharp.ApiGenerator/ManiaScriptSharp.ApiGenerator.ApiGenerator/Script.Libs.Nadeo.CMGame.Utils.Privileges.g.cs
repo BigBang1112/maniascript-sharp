@@ -57,9 +57,11 @@ public partial class Privileges : ILib
     }
 
     /// <summary>Group several privilege checks into one group</summary>
+    /// <param name="_Checks" />
     public K_PrivilegesCheck Check_Group(global::System.Collections.Generic.IList<K_PrivilegeCheck> _Checks) => default!;
 
     /// <summary>Check if the privilege check is complete</summary>
+    /// <param name="_Status" />
     public bool Check_IsComplete(int _Status) => default!;
 
     public bool Check_IsComplete(K_PrivilegeCheck _PrivilegeCheck) => default!;
@@ -67,6 +69,7 @@ public partial class Privileges : ILib
     public bool Check_IsComplete(K_PrivilegesCheck _PrivilegesCheck) => default!;
 
     /// <summary>Check if the user has the required privilege</summary>
+    /// <param name="_Status" />
     public bool Check_HasPrivilege(int _Status) => default!;
 
     public bool Check_HasPrivilege(K_PrivilegeCheck _PrivilegeCheck) => default!;
@@ -74,11 +77,13 @@ public partial class Privileges : ILib
     public bool Check_HasPrivilege(K_PrivilegesCheck _PrivilegesCheck) => default!;
 
     /// <summary>Destroy an ongoing privilege check</summary>
+    /// <param name="_PrivilegeCheck" />
     public K_PrivilegeCheck Check_Destroy(K_PrivilegeCheck _PrivilegeCheck) => default!;
 
     public K_PrivilegesCheck Check_Destroy(K_PrivilegesCheck _PrivilegesCheck) => default!;
 
     /// <summary>Update an ongoing privilege check</summary>
+    /// <param name="_PrivilegeCheck" />
     public K_PrivilegeCheck Check_Update(K_PrivilegeCheck _PrivilegeCheck) => default!;
 
     public K_PrivilegesCheck Check_Update(K_PrivilegesCheck _PrivilegesCheck) => default!;
@@ -87,5 +92,6 @@ public partial class Privileges : ILib
     public void ToggleAllFakePrivileges() { }
 
     /// <summary>Toggle fake privileges on key presses</summary>
+    /// <param name="_KeyName" />
     public void ToggleFakePrivilegesOnKeyPress(string _KeyName) { }
 }

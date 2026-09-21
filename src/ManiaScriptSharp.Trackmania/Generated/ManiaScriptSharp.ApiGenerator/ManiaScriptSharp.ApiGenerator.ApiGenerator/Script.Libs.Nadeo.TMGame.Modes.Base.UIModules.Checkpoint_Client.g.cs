@@ -21,13 +21,10 @@ public partial class Checkpoint_Client : ILib
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/Base/UIModules/Checkpoint_Client.Script.txt";
     public const string C_Event_Waypoint = "TMGame_RaceCheckpoint_Waypoint";
     public const string C_Event_PlayWaypointSound = "TMGame_RaceCheckpoint_PlayWaypointSound";
+    public const string C_SoundPath = "file://Media/Manialinks/Nadeo/Trackmania/Ingame/Sound/";
     public const string C_Waypoint_Ahead = "-1";
     public const string C_Waypoint_Neutral = "0";
     public const string C_Waypoint_Late = "1";
-    public const int C_DisplayDuration = 3000;
-    public const int C_RankUpdateInterval = 250;
-    public const int C_Race = 0;
-    public const int C_Lap = 1;
 
     public struct K_Best
     {

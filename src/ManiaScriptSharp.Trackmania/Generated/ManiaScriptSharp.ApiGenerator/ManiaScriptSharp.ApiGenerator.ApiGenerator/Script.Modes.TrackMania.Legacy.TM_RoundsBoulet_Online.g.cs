@@ -24,6 +24,7 @@ public partial class TM_RoundsBoulet_Online : ILib
     public const string Version = "1.0.1+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/Legacy/TM_RoundsBoulet_Online.Script.txt";
     public const string C_ModeName = "Rounds Boulet";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/RoundsBoulet.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const int C_PointsLimit_NotReached = 0;
     public const int C_PointsLimit_Reached = 1;
@@ -70,35 +71,39 @@ public partial class TM_RoundsBoulet_Online : ILib
     public virtual void Match_EndMap() { }
 
     /// <summary>Update the scores table footer text</summary>
-    /// <param name="PointsLimit">The points limit</param>
-    /// <param name="RoundsPerMap">The number of round per map</param>
-    /// <param name="MapsPerMatch">The number of maps per match</param>
-    /// <param name="ValidRoundsNb">Number of valid rounds played</param>
+    /// <param name="_PointsLimit">The points limit</param>
+    /// <param name="_RoundsPerMap">The number of round per map</param>
+    /// <param name="_MapsPerMatch">The number of maps per match</param>
+    /// <param name="_ValidRoundsNb">Number of valid rounds played</param>
     public void UpdateScoresTableFooter(int _PointsLimit, int _RoundsPerMap, int _MapsPerMatch, int _ValidRoundsNb) { }
 
     /// <summary>Get the time left to the players to finish the round after the first player</summary>
+    /// <param name="_Timeout" />
+    /// <param name="_Multiplier" />
     /// <returns>The time left in ms</returns>
     public int GetFinishTimeout(int _Timeout, float _Multiplier) => default!;
 
     /// <summary>Check if the points limit was reached C_PointsLimit_Tie if there is a tie C_PointsLimit_NotReached if the points limit is not reached</summary>
-    /// <param name="UseTieBreak">Prevent ties or not</param>
-    /// <param name="PointsLimit">Number of points to get to win the match</param>
+    /// <param name="_UseTieBreak">Prevent ties or not</param>
+    /// <param name="_PointsLimit">Number of points to get to win the match</param>
     /// <returns>C_PointsLimit_Reached if the points limit is reached</returns>
     public int PointsLimitReached(bool _UseTieBreak, int _PointsLimit) => default!;
 
     /// <summary>Check if we should go to the next map</summary>
-    /// <param name="UseTieBreak">Prevent ties or not</param>
-    /// <param name="PointsLimit">Number of points to get to win the match</param>
-    /// <param name="ValidRoundsNb">Number of valid rounds played</param>
-    /// <param name="RoundsPerMap">Number of rounds to play to complete the map</param>
+    /// <param name="_UseTieBreak">Prevent ties or not</param>
+    /// <param name="_PointsLimit">Number of points to get to win the match</param>
+    /// <param name="_ValidRoundsNb">Number of valid rounds played</param>
+    /// <param name="_RoundsPerMap">Number of rounds to play to complete the map</param>
     /// <returns>True if it is the case, false otherwise</returns>
     public bool MapIsOver(bool _UseTieBreak, int _PointsLimit, int _ValidRoundsNb, int _RoundsPerMap) => default!;
 
     /// <summary>Check if we should go to the next match</summary>
-    /// <param name="UseTieBreak">Prevent ties or not</param>
-    /// <param name="PointsLimit">Number of points to get to win the match</param>
-    /// <param name="MapsPerMatch">Number of maps to play to complete a match</param>
-    /// <param name="RoundsPerMap">Number of rounds to play to complete the map</param>
+    /// <param name="_UseTieBreak">Prevent ties or not</param>
+    /// <param name="_PointsLimit">Number of points to get to win the match</param>
+    /// <param name="_MapCount" />
+    /// <param name="_MapsPerMatch">Number of maps to play to complete a match</param>
+    /// <param name="_RoundsPerMap">Number of rounds to play to complete the map</param>
+    /// <param name="_MapSkipped" />
     /// <returns>True if it is the case, false otherwise</returns>
     public bool MatchIsOver(bool _UseTieBreak, int _PointsLimit, int _MapCount, int _MapsPerMatch, int _RoundsPerMap, bool _MapSkipped) => default!;
 }

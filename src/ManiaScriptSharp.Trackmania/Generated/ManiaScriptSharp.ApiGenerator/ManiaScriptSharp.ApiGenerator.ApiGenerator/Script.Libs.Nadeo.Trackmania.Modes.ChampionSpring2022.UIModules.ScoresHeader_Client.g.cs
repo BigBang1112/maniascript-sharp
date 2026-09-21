@@ -22,12 +22,14 @@ public partial class ScoresHeader_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionSpring2022/UIModules/ScoresHeader_Client.Script.txt";
+    public const string C_ImgFolder = "file://Media/Manialinks/Nadeo/Trackmania/Modes/FinalTMGL";
+    public const string C_ImgFolder2 = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion";
+    public const string C_TeamsLogoFolder = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/TeamsLogo";
     public const int C_MaxTeams = 10;
     public const int C_MaxTeamsPerLine = 5;
     public const int C_MaxPoints = 20;
     public const bool C_DisplayTeamLogo = false;
     public const bool C_DisplayTeamColor = true;
-    public const int C_RefreshInterval = 500;
 
     public struct K_Controls
     {

@@ -49,7 +49,7 @@ public partial class Team : global::ManiaScriptSharp.Scripts.Modes.TrackMania.Ro
     public void SetFooterText() { }
 
     /// <summary>Announce the round winner in the chat</summary>
-    /// <param name="TeamNum">The number of the team who won the round</param>
+    /// <param name="_TeamNum">The number of the team who won the round</param>
     public void AnnounceWinner(int _TeamNum) { }
 
     /// <summary>Compute the latest race scores</summary>

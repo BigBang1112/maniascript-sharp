@@ -26,11 +26,11 @@ public partial class CountDown_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set time limit</summary>
-    /// <param name="TimeLimit" />
+    /// <param name="_TimeLimit" />
     public void SetTimeLimit(int _TimeLimit) { }
 
     /// <summary>Who will be able to see the UI</summary>
-    /// <param name="Target">The group that will be able to see the UI</param>
+    /// <param name="_Target">The group that will be able to see the UI</param>
     public void SetVisibleFor(int _Target) { }
 
     /// <summary>Unload the library</summary>

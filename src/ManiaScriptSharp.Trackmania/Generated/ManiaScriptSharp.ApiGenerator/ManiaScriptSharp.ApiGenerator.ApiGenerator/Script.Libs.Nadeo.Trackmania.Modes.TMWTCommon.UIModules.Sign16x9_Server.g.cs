@@ -19,9 +19,11 @@ public partial class Sign16x9_Server : ILib
     public const bool C_DefaultVisibility = false;
 
     /// <summary>Get the id of the UI module</summary>
+    /// <param name="_InstanceNb" />
     public string GetId(int _InstanceNb) => default!;
 
     /// <summary>Set the default image URL of the screen</summary>
+    /// <param name="_ImageUrl" />
     public void SetDefaultImageUrl(string _ImageUrl) { }
 
     /// <summary>Unload the library</summary>

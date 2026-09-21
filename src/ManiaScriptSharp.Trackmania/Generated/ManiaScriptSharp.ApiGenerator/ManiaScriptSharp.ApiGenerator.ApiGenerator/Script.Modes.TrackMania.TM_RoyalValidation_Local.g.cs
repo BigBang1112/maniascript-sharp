@@ -20,6 +20,7 @@ public partial class TM_RoyalValidation_Local : ILib
     public const string CompatibleMapTypes = "TrackMania\\TM_Royal,TM_Royal";
     public const string Version = "1.0.1+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/TM_RoyalValidation_Local.Script.txt";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/RoyalValidation.Script.txt";
     public const bool C_EnableAutomaticGiveUpAfterElimination = true;
 
     public virtual void Match_LogVersions() { }

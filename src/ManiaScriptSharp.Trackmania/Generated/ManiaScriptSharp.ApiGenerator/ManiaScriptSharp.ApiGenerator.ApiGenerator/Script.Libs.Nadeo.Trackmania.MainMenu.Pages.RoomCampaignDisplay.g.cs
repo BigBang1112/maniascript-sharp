@@ -54,8 +54,6 @@ public partial class RoomCampaignDisplay : ILib
     public const int C_RowNumber = 5;
     public const int C_Choice_Cancel = 0;
     public const int C_Choice_Join = 1;
-    public const int C_Retry_Timer = 2000;
-    public const int C_CacheLifetime = 60000;
 
     public struct K_Controls
     {

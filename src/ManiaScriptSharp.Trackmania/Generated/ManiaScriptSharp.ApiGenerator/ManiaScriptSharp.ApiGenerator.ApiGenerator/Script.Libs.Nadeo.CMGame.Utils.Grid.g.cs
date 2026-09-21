@@ -53,60 +53,79 @@ public partial class Grid : ILib
     }
 
     /// <summary>Set the total width/height allocated to the grid</summary>
+    /// <param name="_GridConfig" />
+    /// <param name="_Size" />
     public K_GridConfig SetSize(K_GridConfig _GridConfig, float _Size) => default!;
 
     /// <summary>Set the width/height of the padding at both extremities of the grid</summary>
+    /// <param name="_GridConfig" />
+    /// <param name="_Padding" />
     public K_GridConfig SetGridPadding(K_GridConfig _GridConfig, float _Padding) => default!;
 
     /// <summary>Set the width/height of the gutter between the columns/rows of the grid</summary>
+    /// <param name="_GridConfig" />
+    /// <param name="_Gutter" />
     public K_GridConfig SetGutter(K_GridConfig _GridConfig, float _Gutter) => default!;
 
     /// <summary>Set the direction in which the columns/rows are added in the grid</summary>
+    /// <param name="_GridConfig" />
+    /// <param name="_Direction" />
     public K_GridConfig SetDirection(K_GridConfig _GridConfig, int _Direction) => default!;
 
     /// <summary>Add a column/row in the grid Instead the size of each column will be used to determine a ratio based on the width/height of the grid. eg: with a grid size of 200, a column 1 of size 50, a column 2 of size 150 and a column 3 of size 200 the final size of the columns will be 1: 25, 2: 75 and 3: 100 (if the grid has no padding and gutters, otherwise the size of those must also be taken into account)</summary>
-    /// <param name="GridConfig">The grid configuration in which the column/row must be added</param>
-    /// <param name="ColumnId">The id of the column/row that will be used afterward to get back its position and size</param>
-    /// <param name="Size">The size of the column in the grid. This value won't be used as is.</param>
-    /// <param name="Align">The alignment of the content in the column/row</param>
+    /// <param name="_GridConfig">The grid configuration in which the column/row must be added</param>
+    /// <param name="_ColumnId">The id of the column/row that will be used afterward to get back its position and size</param>
+    /// <param name="_Size">The size of the column in the grid. This value won't be used as is.</param>
+    /// <param name="_Align">The alignment of the content in the column/row</param>
     /// <returns>The grid config updated with the new column/row</returns>
     public K_GridConfig AddColumn(K_GridConfig _GridConfig, int _ColumnId, float _Size, int _Align) => default!;
 
     public K_GridConfig AddRow(K_GridConfig _GridConfig, int _RowId, float _Size, int _Align) => default!;
 
     /// <summary>Create a new grid The padding, gutters and columns/rows of the grid will be fit into this space</summary>
-    /// <param name="Size">The total width/height allocated to the grid content</param>
-    /// <param name="Padding">The size of the padding at the extremities of the grid</param>
-    /// <param name="Gutter">The size of the gutter between each column/row</param>
-    /// <param name="Direction">The direction in which the columns/rows are added into the grid</param>
     public K_GridConfig Create() => default!;
 
     public K_GridConfig Create(float _Size, float _Padding, float _Gutter, int _Direction) => default!;
 
     /// <summary>Compile a grid configuration object and get back a grid object with the position and size of each column/row</summary>
+    /// <param name="_GridConfig" />
     public K_Grid Compile(K_GridConfig _GridConfig) => default!;
 
     /// <summary>Generate a manialink `pos` attribute for a grid column</summary>
+    /// <param name="_Grid" />
+    /// <param name="_Column" />
+    /// <param name="_OtherPos" />
     public string Pos(K_Grid _Grid, int _Column, float _OtherPos) => default!;
 
     public string Pos(K_Grid _Grid, int _Column) => default!;
 
     /// <summary>Generate a manialink `pos` attribute for a grid column background</summary>
+    /// <param name="_Grid" />
+    /// <param name="_Column" />
+    /// <param name="_OtherPos" />
     public string PosBg(K_Grid _Grid, int _Column, float _OtherPos) => default!;
 
     public string PosBg(K_Grid _Grid, int _Column) => default!;
 
     /// <summary>Generate a manialink `size` attribute for a grid column</summary>
+    /// <param name="_Grid" />
+    /// <param name="_Column" />
+    /// <param name="_OtherSize" />
     public string Size(K_Grid _Grid, int _Column, float _OtherSize) => default!;
 
     public string Size(K_Grid _Grid, int _Column) => default!;
 
     /// <summary>Get the size of a column</summary>
+    /// <param name="_Grid" />
+    /// <param name="_Column" />
     public float GetSize(K_Grid _Grid, int _Column) => default!;
 
     public Vec2 GetSize(K_Grid _Grid, int _Column, float _OtherSize) => default!;
 
     /// <summary>Generate a manialink `size` attribute for a grid column background</summary>
+    /// <param name="_Grid" />
+    /// <param name="_Column" />
+    /// <param name="_OtherSize" />
     public string SizeBg(K_Grid _Grid, int _Column, float _OtherSize) => default!;
 
     public string SizeBg(K_Grid _Grid, int _Column) => default!;

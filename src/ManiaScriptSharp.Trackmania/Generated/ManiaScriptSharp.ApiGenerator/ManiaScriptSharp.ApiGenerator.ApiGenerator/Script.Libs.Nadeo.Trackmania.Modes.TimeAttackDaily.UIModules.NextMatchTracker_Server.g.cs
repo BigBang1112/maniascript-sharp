@@ -17,6 +17,7 @@ public partial class NextMatchTracker_Server : ILib
     public const string C_Id = "UIModule_TimeAttackDaily_NextMatchTracker";
 
     /// <summary>Update the list of registered players's AccountIds</summary>
+    /// <param name="_PlayerId" />
     public void AddRegisteredPlayersZones(Ident _PlayerId) { }
 
     /// <summary>List of players's AccountId that clicked the &quot;continue the Cup of the Day&quot; button</summary>
@@ -24,7 +25,7 @@ public partial class NextMatchTracker_Server : ILib
     public global::System.Collections.Generic.Dictionary<string, string> GetRegisteredPlayersZones() => default!;
 
     /// <summary>Set join links for each player</summary>
-    /// <param name="Joinlinks">The join links</param>
+    /// <param name="_Joinlinks">The join links</param>
     public void SetJoinlinks(global::System.Collections.Generic.Dictionary<string, string> _Joinlinks) { }
 
     public void SetMatchStartTime(int _StartTime) { }
@@ -38,9 +39,11 @@ public partial class NextMatchTracker_Server : ILib
     public void FinalRanksReceived(bool _Received) { }
 
     /// <summary>Send the competition type of the server (official or rerun)</summary>
+    /// <param name="_CompetitionType" />
     public void SetCompetitionType(string _CompetitionType) { }
 
     /// <summary>Display the UI as a side UI or a pop up</summary>
+    /// <param name="_CanDisplayPopUp" />
     public void CanDisplayPopUp(bool _CanDisplayPopUp) { }
 
     /// <summary>Reset the click on the buttons</summary>

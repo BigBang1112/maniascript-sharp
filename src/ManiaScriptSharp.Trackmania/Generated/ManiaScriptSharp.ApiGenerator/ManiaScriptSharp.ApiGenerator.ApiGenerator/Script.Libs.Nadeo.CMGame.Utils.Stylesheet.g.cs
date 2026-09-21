@@ -15,10 +15,12 @@ public partial class Stylesheet : ILib
 
     public const string Version = "1.5.0";
     public const string ScriptName = "Libs/Nadeo/CMGame/Utils/Stylesheet.Script.txt";
+    /// <summary>Themes</summary>
     public const int C_ThemeId_Null = 0;
     public const int C_ThemeId_Default = 1;
     public const int C_ThemeId_Trackmania = 2;
     public const int C_ThemeId_Questmania = 3;
+    /// <summary>Color codes</summary>
     public const string C_ColorHex6_GreenFive = "000A05";
     public const string C_ColorHex6_GreenFour = "003228";
     public const string C_ColorHex6_GreenThree = "005F46";
@@ -63,6 +65,7 @@ public partial class Stylesheet : ILib
     public const string C_ColorHex6_DarkBrown = "4F3321";
     public const string C_ColorHex6_DarkOliveGreen = "3A3628";
     public const string C_ColorHex6_Beige = "E8E2CC";
+    /// <summary>Color names</summary>
     public const int C_Color_AccentOne = 1;
     public const int C_Color_AccentTwo = 2;
     public const int C_Color_AccentThree = 3;
@@ -102,6 +105,7 @@ public partial class Stylesheet : ILib
     public const int C_Color_BGValueBetter = 3010;
     public const int C_Color_BGListDarkFocused = 3012;
     public const int C_Color_BGListDarkUnfocused = 3013;
+    /// <summary>&lt; Deprecated constant, use `Clans_Common` lib instead with the `Color` in the `K_Teams`</summary>
     public const int C_Color_HotseatOrange = 4001;
     public const int C_Color_HotseatPink = 4002;
     public const int C_Color_HotseatRed = 4003;
@@ -124,6 +128,7 @@ public partial class Stylesheet : ILib
     public const int C_Color_ButtonGradient2 = 8004;
     public const int C_Color_ButtonBG3 = 8005;
     public const int C_Color_ButtonGradient3 = 8006;
+    /// <summary>Font paths</summary>
     public const string C_FontRaw_Default = "GameFontSemiBold";
     public const string C_FontRaw_Oswald_Regular = "Oswald";
     public const string C_FontRaw_Oswald_Mono = "OswaldMono";
@@ -131,14 +136,17 @@ public partial class Stylesheet : ILib
     public const string C_FontRaw_GameFont_ExtraBold = "GameFontExtraBold";
     public const string C_FontRaw_GameFont_SemiBold = "GameFontSemiBold";
     public const string C_FontRaw_GameFont_Regular = "GameFontRegular";
+    /// <summary>Font names</summary>
     public const int C_Font_ErrorMessage = 1;
     public const int C_Font_IngameTime = 2;
     public const int C_Font_Weight_Black = 3;
     public const int C_Font_Weight_ExtraBold = 4;
     public const int C_Font_Weight_SemiBold = 5;
     public const int C_Font_Weight_Regular = 6;
+    /// <summary>Skew angles</summary>
     public const double C_Trackmania_SkewAngle = 10.0;
     public const double C_Questmania_SkewAngle = 10.0;
+    /// <summary>Opacity</summary>
     public const double C_Opacity_BGListDarkFocused = 1.0;
     public const double C_Opacity_BGListDarkUnfocused = 0.6;
 
@@ -156,6 +164,8 @@ public partial class Stylesheet : ILib
     }
 
     /// <summary>Set the theme to use in the title</summary>
+    /// <param name="_ThemeId" />
+    /// <param name="_IsInitialization" />
     public void SetTheme(int _ThemeId, bool _IsInitialization) { }
 
     public void InitializeTheme(int _ThemeId) { }
@@ -166,21 +176,29 @@ public partial class Stylesheet : ILib
     public K_Theme GetTheme() => default!;
 
     /// <summary>Get a color in K_Color format for the given theme</summary>
+    /// <param name="_Theme" />
+    /// <param name="_ColorId" />
     public K_Color GetColor(K_Theme _Theme, int _ColorId) => default!;
 
     public K_Color GetColor(int _ColorId) => default!;
 
     /// <summary>Get a color in Hex6 format for the given theme</summary>
+    /// <param name="_Theme" />
+    /// <param name="_ColorId" />
     public string GetColorHex6(K_Theme _Theme, int _ColorId) => default!;
 
     public string GetColorHex6(int _ColorId) => default!;
 
     /// <summary>Get a color in RGB format for the given theme</summary>
+    /// <param name="_Theme" />
+    /// <param name="_ColorId" />
     public Vec3 GetColorRGB(K_Theme _Theme, int _ColorId) => default!;
 
     public Vec3 GetColorRGB(int _ColorId) => default!;
 
     /// <summary>Get a font for the given theme</summary>
+    /// <param name="_Theme" />
+    /// <param name="_FontId" />
     public string GetFont(K_Theme _Theme, int _FontId) => default!;
 
     public string GetFont(int _FontId) => default!;

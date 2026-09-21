@@ -28,7 +28,7 @@ public partial class Events : ILib
     public int GetNewSerial() => default!;
 
     /// <summary>Send the clans track points to the UI</summary>
-    /// <param name="RoundPoints">Array of the Points with the Clan Id as Key</param>
+    /// <param name="_RoundPoints">Array of the Points with the Clan Id as Key</param>
     public void SendPointsEvent(global::System.Collections.Generic.Dictionary<int, int> _RoundPoints) { }
 
     /// <summary>Update the library</summary>

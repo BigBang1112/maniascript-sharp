@@ -21,6 +21,7 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Tr
 
     public const string ModeMatchmakingVersion = "2017-05-02";
     public const string ModeMatchmakingScriptName = "ModeMatchmaking.Script.txt";
+    /// <summary>Number of bots in the lobby</summary>
     public const int C_Lobby_BotsNb = 0;
 
     public virtual void LogVersion() { }
@@ -62,11 +63,11 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Tr
     public virtual void Yield() { }
 
     /// <summary>Set the new matchmaking format on this server</summary>
-    /// <param name="NewFormat">The new format</param>
+    /// <param name="_NewFormat">The new format</param>
     public void MM_SetFormat(global::System.Collections.Generic.IList<int> _NewFormat) { }
 
     /// <summary>Initialize the match server for matchmaking</summary>
-    /// <param name="Format">The  match format</param>
+    /// <param name="_Format">The  match format</param>
     public void MM_Init(global::System.Collections.Generic.IList<int> _Format) { }
 
     /// <summary>Check if a server is in match mode</summary>
@@ -94,42 +95,42 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Tr
     public string MM_GetMatchId() => default!;
 
     /// <summary>Set the scores to send to the api</summary>
-    /// <param name="Scores">The scores to send</param>
+    /// <param name="_Scores">The scores to send</param>
     public void MM_SetScores(global::System.Collections.Generic.IList<int> _Scores) { }
 
     /// <summary>Send the match id to the ladder server to validate 100K matches</summary>
     public void MM_SetLadderMatchId() { }
 
     /// <summary>Check if a player is allowed to play by the matchmaking</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>True if the player is allowed to play, false otherwise</returns>
     public bool MM_PlayerIsValid(CPlayer _Player) => default!;
 
     /// <summary>Allow or not the mode to request substitutes</summary>
-    /// <param name="AllowSubstitutes">True to allow, false otherwise</param>
+    /// <param name="_AllowSubstitutes">True to allow, false otherwise</param>
     public void MM_AllowSubstitutes(bool _AllowSubstitutes) { }
 
     /// <summary>Get the slot selected by the matchmaking for the player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The matchmaking slot of the player if found, -1 otherwise</returns>
     public int MM_GetRequestedSlot(CPlayer _Player) => default!;
 
     /// <summary>Get the clan selected by the matchmaking for the player If the server is not in matchmaking mode, return the default requested clan</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The matchmaking clan of the player</returns>
     public int MM_GetRequestedClan(CPlayer _Player) => default!;
 
     /// <summary>Get the clan selected by the matchmaking for a login</summary>
-    /// <param name="Login">The login to check</param>
+    /// <param name="_Login">The login to check</param>
     /// <returns>The matchmaking clan of the login</returns>
     public int MM_GetAssignedClan(string _Login) => default!;
 
     /// <summary>Vote to select the next map If False, only modify the NextMapIndex variable.</summary>
-    /// <param name="ForceLoadMap">If True, load the selected map after the vote.</param>
+    /// <param name="_ForceLoadMap">If True, load the selected map after the vote.</param>
     public void MM_VoteForNextMap(bool _ForceLoadMap) { }
 
     /// <summary>Wait for all players to be ready on the server</summary>
-    /// <param name="MaxDuration">Maximum duration of the synchro (ms)</param>
+    /// <param name="_MaxDuration">Maximum duration of the synchro (ms)</param>
     public void MM_WaitPlayers(int _MaxDuration) { }
 
     /// <summary>Wait for a new match</summary>
@@ -140,7 +141,7 @@ public partial class ModeMatchmaking : global::ManiaScriptSharp.Scripts.Modes.Tr
     public bool MM_VoteForRematch() => default!;
 
     /// <summary>Send the result to the API</summary>
-    /// <param name="Master">The master of the match</param>
+    /// <param name="_MasterLogin" />
     public void MM_MatchEnd(string _MasterLogin) { }
 
     /// <summary>End a match</summary>

@@ -48,18 +48,6 @@ public partial class MonthlyCampaignDisplay : ILib
     public const string C_Color_TOTD_Day = "1b4f67";
     public const int C_ColumnNumber = 7;
     public const int C_RowNumber = 6;
-    public const int C_CampaignPager_PageSize = 1;
-    public const int C_CampaignPager_TriggerSize = 12;
-    public const int C_CampaignPager_MarginSize = 1;
-    public const int C_CampaignPager_ThrottleDuration = 1000;
-    public const bool C_CampaignPager_IsLooping = false;
-    public const int C_MapRankings_UpdateDelay = 500;
-    public const int C_MonthlyCampaign_LoadDelay = 1000;
-    public const int C_MonthlyCampaign_LoadCooldown = 5000;
-    public const int C_ErrorCode_Null = 0;
-    public const int C_ErrorCode_LoadGlobalRankings = 1;
-    public const int C_ErrorCode_LoadClubRankings = 2;
-    public const int C_CacheLifetime = 60000;
 
     public struct K_Controls
     {

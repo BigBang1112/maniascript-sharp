@@ -18,6 +18,7 @@ public partial class Sign2x3_Server : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/ChampionCommon/UIModules/Sign2x3_Server.Script.txt";
 
     /// <summary>Get the id of the UI module</summary>
+    /// <param name="_InstanceNb" />
     public string GetId(int _InstanceNb) => default!;
 
     /// <summary>Unload the library</summary>

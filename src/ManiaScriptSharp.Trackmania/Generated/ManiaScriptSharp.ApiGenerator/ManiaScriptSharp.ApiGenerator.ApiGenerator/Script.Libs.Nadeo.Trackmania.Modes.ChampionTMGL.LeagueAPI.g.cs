@@ -25,11 +25,11 @@ public partial class LeagueAPI : ILib
     public const int C_MaxHeartsNb = 8;
 
     /// <summary>Update the competition API url</summary>
-    /// <param name="Url">The base url of the API</param>
+    /// <param name="_Url">The base url of the API</param>
     public void SetCompetitionAPIUrl(string _Url) { }
 
     /// <summary>Update the cheers API url</summary>
-    /// <param name="Url">The base url of the API</param>
+    /// <param name="_Url">The base url of the API</param>
     public void SetCheersAPIUrl(string _Url) { }
 
     /// <summary>Update the league ranking from the API</summary>

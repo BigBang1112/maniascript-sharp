@@ -23,10 +23,12 @@ public partial class Tracking : ILib
     public const int C_Context_Mode = 2;
     public const int C_Context_TrackEditor = 3;
     public const string C_GameMode_Null = "";
+    /// <summary>Validation</summary>
     public const string C_GameMode_PlatformValidation = "PlatformValidation";
     public const string C_GameMode_RaceValidation = "RaceValidation";
     public const string C_GameMode_RoyalValidation = "RoyalValidation";
     public const string C_GameMode_StuntValidation = "StuntValidation";
+    /// <summary>Local</summary>
     public const string C_GameMode_Campaign = "Campaign";
     public const string C_GameMode_HotSeat = "HotSeat";
     public const string C_GameMode_Platform = "Platform";
@@ -34,6 +36,7 @@ public partial class Tracking : ILib
     public const string C_GameMode_RaceTest = "RaceTest";
     public const string C_GameMode_RoyalTimeAttackSolo = "RoyalTimeAttackSolo";
     public const string C_GameMode_StuntSolo = "StuntSolo";
+    /// <summary>Online</summary>
     public const string C_GameMode_Champion = "Champion";
     public const string C_GameMode_ChampionCup = "ChampionCup";
     public const string C_GameMode_ChampionOGL = "ChampionOGL";

@@ -112,7 +112,7 @@ public partial class AmbientSound_Client : ILib
     public string GetML() => default!;
 
     /// <summary>Extract a value from a sound attribute array If the array contains one value, return it If the array contains two values, return a random Real between the two values If the array contains three values or more, return a random Real from the array</summary>
-    /// <param name="SoundAttributeArray">The array to extract from</param>
+    /// <param name="_SoundAttributeArray">The array to extract from</param>
     /// <returns>If the array is empty return 0.</returns>
     public float GetSoundAttribute(global::System.Collections.Generic.IList<float> _SoundAttributeArray) => default!;
 
@@ -121,20 +121,34 @@ public partial class AmbientSound_Client : ILib
     public Vec3 GetSoundAttribute(global::System.Collections.Generic.IList<Vec3> _SoundAttributeArray) => default!;
 
     /// <summary>Load the sounds</summary>
+    /// <param name="_State" />
+    /// <param name="_Config" />
     public K_State LoadSounds(K_State _State, K_AmbientSoundConfig _Config) => default!;
 
     /// <summary>Get a random sound from a channel</summary>
+    /// <param name="_State" />
+    /// <param name="_ChannelId" />
     public K_RandomSound GetChannelRandomSound(K_State _State, string _ChannelId) => default!;
 
     /// <summary>Apply a sound action</summary>
+    /// <param name="_State" />
+    /// <param name="_SoundAction" />
     public K_State ApplySoundAction(K_State _State, K_SoundAction _SoundAction) => default!;
 
     public K_State ApplySoundActions(K_State _State, global::System.Collections.Generic.IList<K_SoundAction> _SoundActions) => default!;
 
     /// <summary>Get the RaceStateXXX triggers sound actions</summary>
+    /// <param name="_Config" />
+    /// <param name="_RaceState" />
+    /// <param name="_IsStarting" />
     public global::System.Collections.Generic.IList<K_SoundAction> GetRaceStateSoundActions(K_AmbientSoundConfig _Config, int _RaceState, bool _IsStarting) => default!;
 
     /// <summary>Update the ambient sound</summary>
+    /// <param name="_State" />
+    /// <param name="_Config" />
+    /// <param name="_NewRaceState" />
+    /// <param name="_CheersUpdate" />
+    /// <param name="_CheersTarget" />
     public K_State UpdateAmbientSound(K_State _State, K_AmbientSoundConfig _Config, int _NewRaceState, int _CheersUpdate, string _CheersTarget) => default!;
 
     /// <summary>Update library</summary>

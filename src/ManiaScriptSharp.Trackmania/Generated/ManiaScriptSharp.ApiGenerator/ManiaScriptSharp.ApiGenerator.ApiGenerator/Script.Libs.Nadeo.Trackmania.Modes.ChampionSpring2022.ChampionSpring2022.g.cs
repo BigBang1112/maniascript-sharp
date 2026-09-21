@@ -30,23 +30,33 @@ public partial class ChampionSpring2022 : ILib
     }
 
     /// <summary>Send the map best time to the UI</summary>
+    /// <param name="_MapBestTime" />
+    /// <param name="_IsInit" />
     public void SendMapBestTime(K_MapBestTime _MapBestTime, bool _IsInit) { }
 
     /// <summary>Initialize map best time</summary>
+    /// <param name="_WorldRecord" />
     public K_MapBestTime InitMapBestTime(string _WorldRecord) => default!;
 
     /// <summary>Update the map local best time if better</summary>
+    /// <param name="_MapBestTime" />
+    /// <param name="_AccountId" />
+    /// <param name="_Time" />
     public K_MapBestTime UpdateMapBestTime_Local(K_MapBestTime _MapBestTime, string _AccountId, int _Time) => default!;
 
     /// <summary>Update the map world record</summary>
+    /// <param name="_MapBestTime" />
+    /// <param name="_WorldRecord" />
     public K_MapBestTime UpdateMapBestTime_WorldRecord(K_MapBestTime _MapBestTime, string _WorldRecord) => default!;
 
     /// <summary>Update the players' name in the scores table</summary>
     public void UpdateScoresTableNames() { }
 
     /// <summary>Retrieve the players' match points</summary>
+    /// <param name="_MatchPoints" />
     public global::System.Collections.Generic.Dictionary<string, int> RetrieveLatestMatchPoints(global::System.Collections.Generic.Dictionary<string, int> _MatchPoints) => default!;
 
     /// <summary>Restore the players' match points</summary>
+    /// <param name="_MatchPoints" />
     public global::System.Collections.Generic.Dictionary<string, int> RestoreMatchPoints(global::System.Collections.Generic.Dictionary<string, int> _MatchPoints) => default!;
 }

@@ -23,6 +23,7 @@ public partial class Markers_Client : ILib
     public const string P = "RoyalMarker_";
     public const double C_PlayerNameMaxWidth = 30.0;
     public const int C_AllMarkersDisplayDuration = 150;
+    public const string C_ImgMarkerPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Royal";
 
     /// <summary>Get the module manialink</summary>
     /// <returns>The module manialink</returns>

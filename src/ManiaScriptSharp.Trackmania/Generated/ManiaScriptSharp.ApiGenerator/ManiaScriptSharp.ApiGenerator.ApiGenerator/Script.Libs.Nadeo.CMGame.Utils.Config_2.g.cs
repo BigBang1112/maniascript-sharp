@@ -19,13 +19,15 @@ public partial class Config_2 : ILib
     public const string C_Key_CoreApiUrl = "CoreApiUrl";
 
     /// <summary>Set the online configuration</summary>
-    /// <param name="OnlineConfigJson">- A json encoded `Text[Text]` configuration array</param>
+    /// <param name="_OnlineConfigJson">- A json encoded `Text[Text]` configuration array</param>
     public void SetOnlineConfig(string _OnlineConfigJson) { }
 
     /// <summary>Check if the config has the requested key</summary>
+    /// <param name="_Key" />
     public bool HasKey(string _Key) => default!;
 
     /// <summary>Get the value of a key in the config</summary>
+    /// <param name="_Key" />
     public string GetKey(string _Key) => default!;
 
     /// <summary>Get the config name</summary>

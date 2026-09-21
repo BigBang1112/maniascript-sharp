@@ -19,6 +19,7 @@ public partial class EventPoints_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/EventPoints_Client.Script.txt";
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/UI";
     public const double C_TextSize_LabelPoints = 1.8;
     public const int C_AnimDuration_MapPointsInOut = 250;
     public const int C_AnimDuration_MapPointsStay = 5000;
@@ -48,6 +49,7 @@ public partial class EventPoints_Client : ILib
     public string GetId() => default!;
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_Theme" />
     /// <returns>The module manialink</returns>
     public string GetML(int _Theme) => default!;
 }

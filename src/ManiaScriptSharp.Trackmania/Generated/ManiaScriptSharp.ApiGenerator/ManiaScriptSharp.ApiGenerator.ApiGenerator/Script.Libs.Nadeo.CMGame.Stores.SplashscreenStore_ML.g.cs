@@ -35,9 +35,11 @@ public partial class SplashscreenStore_ML : ILib
     }
 
     /// <summary>Enable or disable the image preload</summary>
+    /// <param name="_IsPreloadEnabled" />
     public void SetSplashscreenImagePreloadState(bool _IsPreloadEnabled) { }
 
     /// <summary>Enable a periodic retrieval of the splashscreen</summary>
+    /// <param name="_TargetSubscription" />
     public void EnablePeriodicSplashscreenRetrieve(string _TargetSubscription) { }
 
     /// <summary>Disable the periodic retrieval of the splashscreen</summary>

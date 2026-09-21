@@ -31,12 +31,15 @@ public partial class PlayerStats : ILib
     }
 
     /// <summary>Set the url of the player stats API</summary>
+    /// <param name="_Url" />
     public void SetAPIUrl(string _Url) { }
 
     /// <summary>Set the authorization header to add to the request</summary>
+    /// <param name="_AuthorizationHeader" />
     public void SetAuthorizationHeader(string _AuthorizationHeader) { }
 
     /// <summary>Set the competition uid to add to the requests</summary>
+    /// <param name="_Uid" />
     public void SetCompetitionUid(string _Uid) { }
 
     /// <summary>Get default headers with basic auth</summary>
@@ -45,7 +48,7 @@ public partial class PlayerStats : ILib
     public void SendPlayerStats() { }
 
     /// <summary>Add Account Id to the Player Stats queue</summary>
-    /// <param name="AccountId">The AccountId to add if needed</param>
+    /// <param name="_AccountId">The AccountId to add if needed</param>
     public void AddToFetchQueueIfNeeded(string _AccountId) { }
 
     /// <summary>Add all players Account Id to the queue</summary>

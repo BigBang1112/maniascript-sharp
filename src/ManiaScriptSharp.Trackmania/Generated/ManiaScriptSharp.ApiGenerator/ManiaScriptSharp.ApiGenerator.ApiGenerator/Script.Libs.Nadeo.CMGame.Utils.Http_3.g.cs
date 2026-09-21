@@ -58,27 +58,36 @@ public partial class Http_3 : ILib
     }
 
     /// <summary>Check if an http request result status code is considered successfull</summary>
+    /// <param name="_StatusCode" />
     public bool IsHttpStatusCodeSuccess(int _StatusCode) => default!;
 
     public string CreateQueryString(global::System.Collections.Generic.Dictionary<string, string> _Query) => default!;
 
     /// <summary>Create an headers string from an array [&quot;key&quot; =&gt; &quot;value&quot;, &quot;key2&quot; =&gt; &quot;value2&quot;] -&gt; &quot;key: value\nkey2: value2&quot;</summary>
+    /// <param name="_AppendTo" />
+    /// <param name="_Headers" />
     public string CreateHeadersString(string _AppendTo, global::System.Collections.Generic.Dictionary<string, string> _Headers) => default!;
 
     public string CreateHeadersString(global::System.Collections.Generic.Dictionary<string, string> _Headers) => default!;
 
     /// <summary>Inject the given parameters into the route _Route =&gt; &quot;/path/:Param1/to/:Param2&quot; _Parameters =&gt; [&quot;Param1&quot; =&gt; &quot;aaa&quot;, &quot;Param2&quot; =&gt; &quot;bbb&quot;] =&gt; &quot;/path/aaa/to/bbb&quot;</summary>
+    /// <param name="_Route" />
+    /// <param name="_Parameters" />
     public string InjectRouteParameters(string _Route, global::System.Collections.Generic.Dictionary<string, string> _Parameters) => default!;
 
     /// <summary>Add metadata on a request</summary>
+    /// <param name="_Request" />
+    /// <param name="_Metadata" />
     public K_Request SetMetadata(K_Request _Request, global::System.Collections.Generic.Dictionary<string, string> _Metadata) => default!;
 
     public K_Request SetMetadata(K_Request _Request, string _Key, string _Value) => default!;
 
     /// <summary>Remove all metadata from a request</summary>
+    /// <param name="_Request" />
     public K_Request ResetMetadata(K_Request _Request) => default!;
 
     /// <summary>Get metadata from a request</summary>
+    /// <param name="_Request" />
     public global::System.Collections.Generic.Dictionary<string, string> GetMetadata(K_Request _Request) => default!;
 
     public string GetMetadata(K_Request _Request, string _Key, string _DefaultValue) => default!;
@@ -86,17 +95,22 @@ public partial class Http_3 : ILib
     public string GetMetadata(K_Request _Request, string _Key) => default!;
 
     /// <summary>Check if the request is processing</summary>
+    /// <param name="_Request" />
     public bool IsProcessing(K_Request _Request) => default!;
 
     /// <summary>Check if the request is a success</summary>
+    /// <param name="_Request" />
     public bool IsSuccess(K_Request _Request) => default!;
 
     /// <summary>Get the URL of a request</summary>
+    /// <param name="_Request" />
     public string GetURL(K_Request _Request) => default!;
 
     /// <summary>Get the result of a request</summary>
+    /// <param name="_Request" />
     public string GetResult(K_Request _Request) => default!;
 
     /// <summary>Get the status code of a request</summary>
+    /// <param name="_Request" />
     public int GetStatusCode(K_Request _Request) => default!;
 }

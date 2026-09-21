@@ -39,9 +39,6 @@ public partial class CreateMapReviewActivity : ILib
     public const string C_Name = "Page_CreateMapReviewActivity";
     public const string C_NavGroup_Default = "navgroup-page-create-map-review-activity-default";
     public const string C_NavGroup_Global = "navgroup-page-create-map-review-activity-global";
-    public const int C_Name_MaxChar = 20;
-    public const int C_PlayersNb_Default = 64;
-    public const int C_TimeLimit_Default = 180;
 
     public struct K_Controls
     {

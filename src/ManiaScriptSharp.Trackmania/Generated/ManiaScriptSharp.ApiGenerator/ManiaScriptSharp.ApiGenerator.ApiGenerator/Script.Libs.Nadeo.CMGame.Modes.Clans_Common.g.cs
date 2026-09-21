@@ -15,6 +15,7 @@ public partial class Clans_Common : ILib
 
     public const string Version = "2.3.2";
     public const string ScriptName = "Libs/Nadeo/CMGame/Modes/Clans_Common.Script.txt";
+    /// <summary>! If you add a new clan style, do not forget to add it in the array C_ClanStyles and the relatives functions in Clans_Server !</summary>
     public const int C_ClanStyle_Default = 0;
     public const int C_ClanStyle_Animals = 1;
     public const int C_ClanStyle_Fruits = 2;
@@ -34,34 +35,54 @@ public partial class Clans_Common : ILib
     }
 
     /// <summary>Get the teams existing in a clan style</summary>
+    /// <param name="_ClanStyle" />
     public global::System.Collections.Generic.Dictionary<int, K_Team> GetTeamsFromClanStyle(int _ClanStyle) => default!;
 
     /// <summary>Get the color of the given clan</summary>
+    /// <param name="_ClanStyle" />
+    /// <param name="_Clan" />
     public Vec3 GetClanColor(int _ClanStyle, int _Clan) => default!;
 
     /// <summary>Get the foreground color of the given clan</summary>
+    /// <param name="_ClanStyle" />
+    /// <param name="_Clan" />
     public Vec3 GetClanForegroundColor(int _ClanStyle, int _Clan) => default!;
 
     /// <summary>Get the name of the given clan</summary>
+    /// <param name="_ClanStyle" />
+    /// <param name="_Clan" />
+    /// <param name="_UseColor" />
     public string GetClanName(int _ClanStyle, int _Clan, bool _UseColor) => default!;
 
     public string GetClanName(int _ClanStyle, int _Clan) => default!;
 
     /// <summary>Get the logo of the given clan</summary>
+    /// <param name="_ClanStyle" />
+    /// <param name="_Clan" />
     public string GetClanLogo(int _ClanStyle, int _Clan) => default!;
 
     /// <summary>Get the skin of the given clan</summary>
+    /// <param name="_ClanStyle" />
+    /// <param name="_Clan" />
     public string GetClanSkin(int _ClanStyle, int _Clan) => default!;
 
     /// <summary>Get the trigram of the given clan</summary>
+    /// <param name="_ClanStyle" />
+    /// <param name="_Clan" />
     public string GetClanTrigram(int _ClanStyle, int _Clan) => default!;
 
     /// <summary>Get the trigram color of the given clan</summary>
+    /// <param name="_ClanStyle" />
+    /// <param name="_Clan" />
     public Vec3 GetClanTrigramColor(int _ClanStyle, int _Clan) => default!;
 
     /// <summary>Get the ids of the similar teams in color of the given clan</summary>
+    /// <param name="_ClanStyle" />
+    /// <param name="_Clan" />
     public global::System.Collections.Generic.IList<int> GetClanSimilarTeamsInColor(int _ClanStyle, int _Clan) => default!;
 
     /// <summary>Get a list of distinct teams (in color)</summary>
+    /// <param name="_ClanStyle" />
+    /// <param name="_TeamsNb" />
     public global::System.Collections.Generic.IList<int> GetRandomDistinctTeams(int _ClanStyle, int _TeamsNb) => default!;
 }

@@ -20,9 +20,11 @@ public partial class Sign64x10_Server : ILib
     public const bool C_DefaultVisibility = false;
 
     /// <summary>Get the id of the UI module</summary>
+    /// <param name="_AttachId" />
     public string GetId(string _AttachId) => default!;
 
     /// <summary>Set the default image URL of the screen</summary>
+    /// <param name="_ImageUrl" />
     public void SetDefaultImageUrl(string _ImageUrl) { }
 
     /// <summary>Unload the library</summary>

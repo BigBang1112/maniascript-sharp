@@ -22,6 +22,7 @@ public partial class TM_PlatformValidation_Local : ILib
     public const string Version = "1.0.0+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/TM_PlatformValidation_Local.Script.txt";
     public const string C_ModeName = "TM_PlatformValidation";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/PlatformValidation.Script.txt";
 
     public virtual void Match_LogVersions() { }
 

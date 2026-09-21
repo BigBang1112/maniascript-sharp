@@ -27,19 +27,25 @@ public partial class Clans_Client : ILib
     public int GetClanStyle() => default!;
 
     /// <summary>Get the color of the given clan</summary>
+    /// <param name="_Clan" />
     public Vec3 GetClanColor(int _Clan) => default!;
 
     /// <summary>Get the foreground color of the given clan</summary>
+    /// <param name="_Clan" />
     public Vec3 GetClanForegroundColor(int _Clan) => default!;
 
     /// <summary>Get the name of the given clan</summary>
+    /// <param name="_Clan" />
+    /// <param name="_UseColor" />
     public string GetClanName(int _Clan, bool _UseColor) => default!;
 
     public string GetClanName(int _Clan) => default!;
 
     /// <summary>Get the logo of the given clan</summary>
+    /// <param name="_Clan" />
     public string GetClanLogo(int _Clan) => default!;
 
     /// <summary>Get the skin of the given clan</summary>
+    /// <param name="_Clan" />
     public string GetClanSkin(int _Clan) => default!;
 }

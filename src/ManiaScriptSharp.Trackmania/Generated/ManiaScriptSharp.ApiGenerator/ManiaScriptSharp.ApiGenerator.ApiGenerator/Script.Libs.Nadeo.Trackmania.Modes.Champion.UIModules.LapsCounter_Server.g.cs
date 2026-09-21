@@ -17,11 +17,16 @@ public partial class LapsCounter_Server : ILib
     public const string C_Id = "UIModule_Champion_LapsCounter";
 
     /// <summary>Send the best lap time</summary>
+    /// <param name="_WebServicesUserId" />
+    /// <param name="_Time" />
+    /// <param name="_IsWorldRecord" />
+    /// <param name="_IsInit" />
     public void SetBestLapPlayer(string _WebServicesUserId, int _Time, bool _IsWorldRecord, bool _IsInit) { }
 
     public void SetBestLapPlayer(string _WebServicesUserId, int _Time) { }
 
     /// <summary>Display round or map number</summary>
+    /// <param name="_IsRoundMode" />
     public void SetRoundMode(bool _IsRoundMode) { }
 
     /// <summary>Unload the library</summary>

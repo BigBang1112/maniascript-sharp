@@ -20,6 +20,7 @@ public partial class TrackmaniaCommon : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TrackmaniaCommon.Script.txt";
+    public const string C_ConfigFilePath = "file://Media/Config/Nadeo/Trackmania/Config.json";
 
     /// <summary>Called in the ***MB_Private_LogVersions*** section</summary>
     public void LogVersions() { }

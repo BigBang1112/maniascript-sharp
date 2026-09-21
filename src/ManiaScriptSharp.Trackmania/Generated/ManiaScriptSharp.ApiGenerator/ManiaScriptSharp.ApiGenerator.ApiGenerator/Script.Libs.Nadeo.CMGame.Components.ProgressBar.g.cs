@@ -22,7 +22,9 @@ public partial class ProgressBar : ILib
     public const string C_Class_ProgressBar = "class-cmgame-progress-bar";
     public const string P = "CMGame_ProgressBar::";
     public const string Q = "CMGame_ProgressBar";
+    /// <summary>Event types</summary>
     public const int C_EventType_VisibilityUpdate = 0;
+    /// <summary>0,1,2,3,... not 0,1,3,... for example</summary>
     public const int C_Property_Size = 0;
     public const int C_Property_HAlign = 1;
     public const int C_Property_VAlign = 2;
@@ -34,6 +36,7 @@ public partial class ProgressBar : ILib
     public const int C_Property_RatioOffset = 8;
     public const int C_Property_RatioTextColor = 9;
     public const int C_Property_RatioTextSize = 10;
+    /// <summary>Control ids</summary>
     public const string C_Id_FramemodelLevel = "cmgame-progress-bar_framemodel-level";
     public const string C_Id_FrameAlign = "cmgame-progress-bar_frame-align";
     public const string C_Id_FrameNextLevel = "cmgame-progress-bar_frame-next-level";

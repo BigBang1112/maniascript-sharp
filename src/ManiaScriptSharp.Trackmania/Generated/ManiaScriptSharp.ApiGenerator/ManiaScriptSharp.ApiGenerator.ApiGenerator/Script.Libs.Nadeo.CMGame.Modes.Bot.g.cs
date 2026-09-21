@@ -21,23 +21,28 @@ public partial class Bot : ILib
     public const int C_NameStyle_Nickname = 1;
 
     /// <summary>Get all available names of a given style</summary>
+    /// <param name="_Style" />
     public global::System.Collections.Generic.IList<string> GetNames(int _Style) => default!;
 
     public global::System.Collections.Generic.IList<string> GetNames() => default!;
 
     /// <summary>Get a random bot name</summary>
+    /// <param name="_Style" />
     public string GetRandomName(int _Style) => default!;
 
     public string GetRandomName() => default!;
 
     /// <summary>Get a unique bot name</summary>
+    /// <param name="_Style" />
     public string GetUniqueName(int _Style) => default!;
 
     public string GetUniqueName() => default!;
 
     /// <summary>From a bot name get a constant country path</summary>
+    /// <param name="_BotName" />
     public string GetCountryPath(string _BotName) => default!;
 
     /// <summary>Get the country flag url of a bot</summary>
+    /// <param name="_BotName" />
     public string GetCountryFlagUrl(string _BotName) => default!;
 }

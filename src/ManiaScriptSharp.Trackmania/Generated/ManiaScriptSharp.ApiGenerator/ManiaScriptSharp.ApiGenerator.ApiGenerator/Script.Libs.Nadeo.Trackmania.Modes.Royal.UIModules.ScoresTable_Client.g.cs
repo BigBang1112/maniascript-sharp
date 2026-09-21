@@ -44,6 +44,9 @@ public partial class ScoresTable_Client : ILib
     public const string C_Class_Spectate_Button = "class-royal-spectate-button";
     public const string C_Class_Mute_Button = "class-royal-mute-button";
     public const string C_Class_Mute_Loading = "class-royal-mute-loading-spinner";
+    public const string C_Img_Header = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Mode_Common_Scorestable_Header_Royal.dds";
+    public const string C_Img_HeaderMask = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Mode_Common_Scorestable_Header_Mask.dds";
+    public const string C_Img_Body = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/Mode_Common_Scorestable_Popup.dds";
     public const int C_ZIndex_ScoresTable = 70;
     public const int C_ColsNb = 2;
     public const int C_RowsNb = 10;
@@ -54,7 +57,6 @@ public partial class ScoresTable_Client : ILib
     public const int C_Column_Name = 2;
     public const int C_Column_Points = 3;
     public const int C_Column_Time = 4;
-    public const string C_RoyalMatchmakingId = "royal";
 
     public struct K_Controls
     {

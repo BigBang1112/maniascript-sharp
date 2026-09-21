@@ -20,10 +20,6 @@ public partial class ProgressBar : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Components/ProgressBar.Script.txt";
     public const string C_Name = "component-progressbar";
     public const string P = "ComponentProgressBar_";
-    public const string C_GaugeUpSound = "GaugeUp";
-    public const string C_GaugeDownSound = "GaugeDown";
-    public const string C_ChangeRankUpSound = "RankUp";
-    public const string C_ChangeRankDownSound = "RankDown";
 
     /// <summary>Get the component</summary>
     /// <returns>The component id</returns>

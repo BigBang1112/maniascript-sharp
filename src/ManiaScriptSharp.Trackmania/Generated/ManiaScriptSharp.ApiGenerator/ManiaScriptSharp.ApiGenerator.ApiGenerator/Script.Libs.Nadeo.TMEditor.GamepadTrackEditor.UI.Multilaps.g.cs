@@ -24,9 +24,13 @@ public partial class Multilaps : ILib
     public const string Version = "1.1.0";
     public const string ScriptName = "Multilaps.Script.txt";
     public const bool C_DefaultVisibility = false;
+    /// <summary>Minimum number of laps</summary>
     public const int C_LapsNbMin = 1;
+    /// <summary>Maximum number of laps</summary>
     public const int C_LapsNbMax = 99;
+    /// <summary>Delay before activation of the auto repeat</summary>
     public const int C_AutoRepeat_Init = 500;
+    /// <summary>Delay between two activations during the auto repeat</summary>
     public const int C_AutoRepeat_Delay = 100;
     public const string C_Event_Confirm = "LibMultilaps_Confirm";
     public const string C_Event_Cancel = "LibMultilaps_Cancel";
@@ -36,6 +40,7 @@ public partial class Multilaps : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the multilaps UI visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }

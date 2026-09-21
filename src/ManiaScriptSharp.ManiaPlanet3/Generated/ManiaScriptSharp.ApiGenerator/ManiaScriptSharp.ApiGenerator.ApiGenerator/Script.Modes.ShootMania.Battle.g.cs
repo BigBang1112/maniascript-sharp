@@ -26,6 +26,7 @@ public partial class Battle : global::ManiaScriptSharp.Scripts.Modes.ShootMania.
     public const string CompatibleMapTypes = "BattleArena";
     public const string Version = "2014-11-26";
     public const string ScriptName = "Battle.Script.txt";
+    /// <summary>Score Constants (used to be settings)</summary>
     public const double S_HotSpotsRadius = 20.0;
     public const double S_AtkHotSpotsRadius = 4.0;
     public const int S_ScoreDefense_HitOnPole = 3;
@@ -36,13 +37,18 @@ public partial class Battle : global::ManiaScriptSharp.Scripts.Modes.ShootMania.
     public const double S_DefPointOnDenyForOnePole = 20.0;
     public const int S_ScoreDefense_CaptureJiT = 1;
     public const int S_PointsOnEngage = 1;
+    /// <summary>round phases for UI</summary>
     public const int C_RoundPhase_Playing = 1;
     public const int C_RoundPhase_EndRound = 2;
     public const bool S_ResetTimeOnCapturedPole = false;
+    public const string C_ImgBaseDir = "file://Media/Manialinks/Shootmania/Common/";
     public const int UITickPeriod = 200;
     public const int C_JustInTimeLimit = 3000;
+    /// <summary>No collision duration at the beginning of the round</summary>
     public const int C_NoCollisionsDuration = 6000;
+    /// <summary>Duration of the top 5 sequence at the end of the round and the map</summary>
     public const int C_Top5SequenceDuration = 10000;
+    /// <summary>Minimum duration of the extended time</summary>
     public const int C_MinimumExtendedTime = 30000;
     public const int C_PoleCaptureState_Neutral = 0;
     public const int C_PoleCaptureState_Capturing = 1;
@@ -137,12 +143,12 @@ public partial class Battle : global::ManiaScriptSharp.Scripts.Modes.ShootMania.
     public virtual void MarkersML_Markups() { }
 
     /// <summary>Get the requested clan of a player</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>The requested clan of the player</returns>
     public int Battle_GetRequestedClan(CSmPlayer _Player) => default!;
 
     /// <summary>Turn on/off the overtime</summary>
-    /// <param name="Activate">If True activate overtime</param>
+    /// <param name="_Activate">If True activate overtime</param>
     public void SetOvertime(bool _Activate) { }
 
     /// <summary>Get the current status of the overtime</summary>
@@ -150,7 +156,7 @@ public partial class Battle : global::ManiaScriptSharp.Scripts.Modes.ShootMania.
     public bool GetOvertime() => default!;
 
     /// <summary>Set the overtime advantage</summary>
-    /// <param name="Advantage">The clan who has the advantage</param>
+    /// <param name="_Advantage">The clan who has the advantage</param>
     public void SetOvertimeAdvantage(int _Advantage) { }
 
     /// <summary>Get the current overtime advantage</summary>
@@ -160,6 +166,7 @@ public partial class Battle : global::ManiaScriptSharp.Scripts.Modes.ShootMania.
     public void UpdateScoreTeamsUI(CSmPlayer Player) { }
 
     /// <summary>Convert Integers from 1 to 9 into letters from A to I</summary>
+    /// <param name="N" />
     public string GetLetterFromNumber(int N) => default!;
 
     /// <summary>End map timer for MatchMaking</summary>
@@ -197,28 +204,31 @@ public partial class Battle : global::ManiaScriptSharp.Scripts.Modes.ShootMania.
     public bool SpawnIsLimited() => default!;
 
     /// <summary>Check if a player is spawnable</summary>
-    /// <param name="Player">The player to check</param>
+    /// <param name="_Player">The player to check</param>
     /// <returns>True if the player is spawnable, false otherwise</returns>
     public bool IsSpawnable(CSmPlayer _Player) => default!;
 
     public void ComputeCaptureMaxValue() { }
 
     /// <summary>i.e. ||AB||² &lt;= _SqDistance</summary>
+    /// <param name="_A" />
+    /// <param name="_B" />
+    /// <param name="_SqDistance" />
     /// <returns>True iff the squared distance between A and B is lower than _SqDistance.</returns>
     public bool SqCloserThan(Vec3 _A, Vec3 _B, float _SqDistance) => default!;
 
     /// <summary>Wait for enough players to play</summary>
-    /// <param name="Duration">Duration of the warm up</param>
-    /// <param name="MinimumNbPlayers">The number of players to wait in each clan before starting the map if there's no duration</param>
+    /// <param name="_MinimumNbPlayers">The number of players to wait in each clan before starting the map if there's no duration</param>
+    /// <param name="_Duration">Duration of the warm up</param>
     public void WaitForPlayers(int _MinimumNbPlayers, int _Duration) { }
 
     public void DoWarmUp() { }
 
     /// <summary>Transfert player for auto team balance</summary>
-    /// <param name="CountClan1">Number of players in clan 1</param>
-    /// <param name="CountClan2">Number of players in clan 2</param>
-    /// <param name="HitClan1">Number of hits in clan 1</param>
-    /// <param name="HitClan2">Number of hits in clan 2</param>
+    /// <param name="_CountClan1">Number of players in clan 1</param>
+    /// <param name="_CountClan2">Number of players in clan 2</param>
+    /// <param name="_HitClan1">Number of hits in clan 1</param>
+    /// <param name="_HitClan2">Number of hits in clan 2</param>
     /// <returns>True if a player was transfered, False otherwise</returns>
     public bool AutoTeamBalanceRound_Recursive(int _CountClan1, int _CountClan2, int _HitClan1, int _HitClan2) => default!;
 
@@ -226,7 +236,7 @@ public partial class Battle : global::ManiaScriptSharp.Scripts.Modes.ShootMania.
     public void AutoTeamBalanceRound() { }
 
     /// <summary>Get the runners ranking</summary>
-    /// <param name="Level">Can be &quot;round&quot; or &quot;map&quot;</param>
+    /// <param name="_Level">Can be &quot;round&quot; or &quot;map&quot;</param>
     /// <returns>An array containing the ranking of the runners</returns>
     public global::System.Collections.Generic.Dictionary<string, int> GetRunnersRanking(string _Level) => default!;
 
@@ -237,12 +247,12 @@ public partial class Battle : global::ManiaScriptSharp.Scripts.Modes.ShootMania.
     public void ResetMapRunnersRanking() { }
 
     /// <summary>Set the top 5 name and ranking</summary>
-    /// <param name="Name">Name of the top 5</param>
-    /// <param name="Ranking">Ranking of the top 5</param>
+    /// <param name="_Name">Name of the top 5</param>
+    /// <param name="_Ranking">Ranking of the top 5</param>
     public void UpdateTop5(string _Name, global::System.Collections.Generic.Dictionary<string, int> _Ranking) { }
 
     /// <summary>Launch the top 5 sequence</summary>
-    /// <param name="Level">Can be &quot;round&quot; or &quot;map&quot;</param>
+    /// <param name="_Level">Can be &quot;round&quot; or &quot;map&quot;</param>
     public void LaunchTop5Sequence(string _Level) { }
 
     /// <summary>Get the top 5 manialink</summary>

@@ -17,6 +17,7 @@ public partial class Events : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/Events.Script.txt";
+    /// <summary>Race Events</summary>
     public const int C_Type_Unknown = 0;
     public const int C_Type_Waypoint = 1;
     public const int C_Type_GiveUp = 2;
@@ -24,9 +25,11 @@ public partial class Events : ILib
     public const int C_Type_SkipOutro = 4;
     public const int C_Type_StartLine = 5;
     public const int C_Type_Eliminated = 6;
+    /// <summary>Event actions</summary>
     public const int C_SourceEventAction_DoNothing = 0;
     public const int C_SourceEventAction_Invalid = 1;
     public const int C_SourceEventAction_Valid = 2;
+    /// <summary>Callbacks</summary>
     public const string C_Callback_Event_Default = "Trackmania.Event.Default";
     public const string C_Callback_Event_OnShoot = "Trackmania.Event.OnShoot";
     public const string C_Callback_Event_OnHit = "Trackmania.Event.OnHit";
@@ -55,6 +58,7 @@ public partial class Events : ILib
     public const string C_Callback_Event_SkipOutro = "Trackmania.Event.SkipOutro";
     public const string C_Callback_Event_Respawn = "Trackmania.Event.Respawn";
     public const string C_Callback_Event_Eliminated = "Trackmania.Event.Eliminated";
+    /// <summary>Methods</summary>
     public const string C_Method_SetCurRaceCheckpointsMode = "Trackmania.Event.SetCurRaceCheckpointsMode";
     public const string C_Method_SetCurLapCheckpointsMode = "Trackmania.Event.SetCurLapCheckpointsMode";
     public const string C_Method_UnsetCurRaceCheckpointsMode = "Trackmania.Event.UnsetCurRaceCheckpointsMode";

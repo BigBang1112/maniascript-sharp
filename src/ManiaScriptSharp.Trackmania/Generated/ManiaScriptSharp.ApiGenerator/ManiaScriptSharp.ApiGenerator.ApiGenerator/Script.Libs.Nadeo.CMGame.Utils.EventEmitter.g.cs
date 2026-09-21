@@ -29,14 +29,15 @@ public partial class EventEmitter : ILib
     }
 
     /// <summary>Remove a listener from an event emitter</summary>
-    /// <param name="Listener">- The listener to remove</param>
+    /// <param name="_Listener">- The listener to remove</param>
     public void RemoveListener(K_Listener _Listener) { }
 
     /// <summary>Get the list of events emitted in the listener and clear it afterward</summary>
-    /// <param name="Listener">- The listener to flush</param>
+    /// <param name="_Listener">- The listener to flush</param>
     /// <returns>A list of events</returns>
     public global::System.Collections.Generic.IList<K_Event> FlushListener(K_Listener _Listener) => default!;
 
     /// <summary>Flush several listeners at the same time</summary>
+    /// <param name="_ListenerList" />
     public global::System.Collections.Generic.IList<K_Event> FlushListenerList(global::System.Collections.Generic.IList<K_Listener> _ListenerList) => default!;
 }

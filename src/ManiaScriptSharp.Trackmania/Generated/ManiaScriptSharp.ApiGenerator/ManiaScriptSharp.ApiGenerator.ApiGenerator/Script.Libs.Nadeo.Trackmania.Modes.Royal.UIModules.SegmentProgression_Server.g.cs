@@ -21,6 +21,9 @@ public partial class SegmentProgression_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Update the race progression of a team</summary>
+    /// <param name="_TeamId" />
+    /// <param name="_CurrentSegment" />
+    /// <param name="_Loop" />
     public void SetTeamProgression(int _TeamId, int _CurrentSegment, int _Loop) { }
 
     public void ResetTeamProgression(int _TeamId) { }
@@ -28,15 +31,19 @@ public partial class SegmentProgression_Server : ILib
     public void ResetTeamsProgression() { }
 
     /// <summary>Set the number of segments in the map</summary>
+    /// <param name="_SegmentsNb" />
     public void SetSegmentsNb(int _SegmentsNb) { }
 
     /// <summary>Set which segment is unlocked</summary>
+    /// <param name="_UnlockedSegment" />
     public void SetUnlockedSegment(int _UnlockedSegment) { }
 
     /// <summary>Set when the next segment will be unlocked</summary>
+    /// <param name="_NextUnlockTime" />
     public void SetNextSegmentUnlockTime(int _NextUnlockTime) { }
 
     /// <summary>Always display when the next segment will be unlocked or only if the team reached it already</summary>
+    /// <param name="_AlwaysDisplayUnlockTimer" />
     public void AlwaysDisplayUnlockTimer(bool _AlwaysDisplayUnlockTimer) { }
 
     /// <summary>Unload the library</summary>

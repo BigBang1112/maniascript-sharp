@@ -35,6 +35,7 @@ public partial class TM_ChampionCup_Online : ILib
     public const string Version = "1.0.1+2024-12-05";
     public const string ScriptName = "Modes/TrackMania/Deprecated/TM_ChampionCup_Online.Script.txt";
     public const string C_ModeName = "Champion Cup";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/ChampionCup.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const int C_SignLiveCameraCheckInterval = 5000;
     public const int C_AmbiendSoundRaceStartDuration = 15000;
@@ -128,24 +129,35 @@ public partial class TM_ChampionCup_Online : ILib
     public virtual void Match_PodiumSequence() { }
 
     /// <summary>Get the time left to the players to finish the round after the first player</summary>
+    /// <param name="_QualificationFinishTimeout" />
+    /// <param name="_FinalFinishTimeout" />
+    /// <param name="_IsFinal" />
     /// <returns>The time left in ms</returns>
     public int GetFinishTimeout(int _QualificationFinishTimeout, int _FinalFinishTimeout, bool _IsFinal) => default!;
 
     /// <summary>Compute the qualification race scores</summary>
+    /// <param name="_RoundWinnerId" />
+    /// <param name="_RoundKey" />
+    /// <param name="_FinalistLevels" />
     public void ComputeFinalRaceScores(Ident _RoundWinnerId, int _RoundKey, global::System.Collections.Generic.IList<int> _FinalistLevels) { }
 
     /// <summary>Compute the match scores</summary>
     public void ComputeMatchScores() { }
 
     /// <summary>Toggle on/off the live camera display in signs</summary>
+    /// <param name="_Enabled" />
     public void EnableSignLiveCamera(bool _Enabled) { }
 
     /// <summary>Enable the esports programmation in the signs see: https://confluence.ubisoft.com/pages/viewpage.action?pageId=1366903390#</summary>
+    /// <param name="_Enabled" />
     public void EnableSignESportsMode(bool _Enabled) { }
 
     /// <summary>Convert the finalist levels from a Text to an Integer[]</summary>
+    /// <param name="_FinalistLevels" />
     public global::System.Collections.Generic.IList<int> ConvertFinalistLevels(string _FinalistLevels) => default!;
 
     /// <summary>Get the current finalist level</summary>
+    /// <param name="_FinalistLevels" />
+    /// <param name="_WinnersAccountIds" />
     public int GetFinalistLevel(global::System.Collections.Generic.IList<int> _FinalistLevels, global::System.Collections.Generic.Dictionary<int, string> _WinnersAccountIds) => default!;
 }

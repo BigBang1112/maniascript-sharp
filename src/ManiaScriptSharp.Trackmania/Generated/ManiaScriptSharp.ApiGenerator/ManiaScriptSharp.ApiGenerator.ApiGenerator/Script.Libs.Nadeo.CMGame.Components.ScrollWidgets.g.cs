@@ -19,6 +19,7 @@ public partial class ScrollWidgets : ILib
     public const string ScriptName = "Libs/Nadeo/CMGame/Components/ScrollWidgets.Script.txt";
     public const string C_ComponentName = "CMGameScrollWidgets";
     public const string C_ComponentClass = "cmgame-components-scroll-widgets";
+    public const string C_Path_Image = "file://Media/Manialinks/Nadeo/CMGame/Components/Scroll/";
     public const string C_Color_ScrollBarBg = "ffffff";
     public const string C_Color_ScrollBarFg = "ffffff";
     public const string C_Color_ScrollBarFg_Over = "777777";

@@ -23,6 +23,7 @@ public partial class SkinSelection : ILib
 
     public const string Version = "1.0.1";
     public const string ScriptName = "SkinSelection.Script.txt";
+    public const string C_ThumbsFolder = "file://Media/Manialinks/Nadeo/TMEditor/GamepadTrackEditor/Images/Skins/";
     public const int C_SkinType_Unknown = -1;
     public const int C_SkinType_Screen = 0;
     public const int C_SkinType_Color = 1;
@@ -32,14 +33,13 @@ public partial class SkinSelection : ILib
     public const int C_SkinType_ItemPillar = 5;
     public const int C_Default_Multi_Skin = 0;
     public const int C_SkinsNb = 8;
+    /// <summary>Events</summary>
     public const string C_Event_SkinHover = "LibStyleSkin_SkinHover";
     public const string C_Event_SkinClick = "LibStyleSkin_SkinClick";
     public const string C_Event_SkinNext = "LibStyleSkin_SkinNext";
     public const string C_Event_SkinPrev = "LibStyleSkin_SkinPrev";
     public const string C_Event_SkinRestore = "LibStyleSkin_SkinRestore";
     public const string C_Event_ToggleBgFg = "LibStyleSkin_ToggleBgFg";
-    public const int C_ClickTick = 100;
-    public const int C_InitTick = 500;
 
     public string GetScriptVersion() => default!;
 
@@ -56,12 +56,20 @@ public partial class SkinSelection : ILib
     public void SelectSkin(int _SkinIndex, int _Shift, bool _PlaySound, bool _IsPreview) { }
 
     /// <summary>Overload SelectSkin()</summary>
+    /// <param name="_Selection" />
+    /// <param name="_Shift" />
+    /// <param name="_IsPreview" />
     public void SelectSkin(int _Selection, int _Shift, bool _IsPreview) { }
 
     /// <summary>Overload SelectSkin()</summary>
+    /// <param name="_Selection" />
+    /// <param name="_PlaySound" />
+    /// <param name="_IsPreview" />
     public void SelectSkin(int _Selection, bool _PlaySound, bool _IsPreview) { }
 
     /// <summary>Overload SelectSkin()</summary>
+    /// <param name="_SkinIndex" />
+    /// <param name="_IsPreview" />
     public void SelectSkin(int _SkinIndex, bool _IsPreview) { }
 
     public void NextSkin(bool _IsPreview) { }

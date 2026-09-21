@@ -19,6 +19,7 @@ public partial class TM_ChampionOGL_Online : global::ManiaScriptSharp.Scripts.Mo
     public const string C_ChampionOGL_Version = "1.0.0+2020-10-23";
     public const string C_ChampionOGL_ScriptName = "Modes/TrackMania/Deprecated/TM_ChampionOGL_Online.Script.txt";
     public const string C_ChampionOGL_ModeName = "Champion OGL";
+    public const string C_ChampionOGL_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/ChampionOGL.Script.txt";
     public const int C_TrophyTaskTimeout = 5000;
 
     public virtual void Match_LogVersions() { }
@@ -50,5 +51,7 @@ public partial class TM_ChampionOGL_Online : global::ManiaScriptSharp.Scripts.Mo
     public virtual void Champion_PodiumSequence() { }
 
     /// <summary>Update the info in the welcome pop-up</summary>
+    /// <param name="_Division" />
+    /// <param name="_PointsDistribution" />
     public void UpdateWelcomePopUp(string _Division, string _PointsDistribution) { }
 }

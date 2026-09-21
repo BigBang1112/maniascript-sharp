@@ -20,13 +20,13 @@ public partial class Clublink2 : ILib
     public const string ScriptName = "Libs/Nadeo/Clublink2.Script.txt";
     public const int C_RequestTimeout = 5000;
     public const string C_SponsorLayer = "LibClublink2_Sponsors";
+    /// <summary>Info index</summary>
     public const int C_Info_Name = 0;
     public const int C_Info_Zone = 1;
     public const int C_Info_City = 2;
     public const int C_Info_Emblem = 3;
     public const int C_Info_ColorPrimary = 4;
     public const int C_Info_ColorSecondary = 5;
-    public const int C_CyclingDuration = 5000;
 
     /// <summary>Return the version number of the script</summary>
     /// <returns>The version number of the script</returns>
@@ -37,45 +37,45 @@ public partial class Clublink2 : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the default name of a team</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="Name">The new default name</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_Name">The new default name</param>
     public void SetTeamDefaultName(int _Clan, string _Name) { }
 
     /// <summary>Set the color of the default clan</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="Color">The new default color</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_Color">The new default color</param>
     public void SetTeamDefaultColor(int _Clan, Vec3 _Color) { }
 
     /// <summary>Set the clublink url of a given clan</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="Url">The clublink url</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_Url">The clublink url</param>
     public void SetUrl(int _Clan, string _Url) { }
 
     /// <summary>Enable of disable the clublink of a clan</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="Enabled">The new status of the clublink</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_Enabled">The new status of the clublink</param>
     public void Enable(int _Clan, bool _Enabled) { }
 
     /// <summary>Reset the clublink of a given clan</summary>
-    /// <param name="Clan">The clan to reset</param>
+    /// <param name="_Clan">The clan to reset</param>
     public void Reset(int _Clan) { }
 
     /// <summary>Reset all clublinks</summary>
     public void Reset() { }
 
     /// <summary>Set a clublink to a given clan</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="Clublink">The clublink to set</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_Clublink">The clublink to set</param>
     public void Set(int _Clan, string _Clublink) { }
 
     /// <summary>Get the sponsors of a team</summary>
-    /// <param name="Clan">The clan to check</param>
+    /// <param name="_Clan">The clan to check</param>
     /// <returns>The sponsors of the team</returns>
     public global::System.Collections.Generic.IList<string> GetTeamSponsors(int _Clan) => default!;
 
     /// <summary>Update the library</summary>
-    /// <param name="Enabled">Are Clublinks enabled in the mode?</param>
-    /// <param name="DisplaySponsors">Display the teams sponsors</param>
+    /// <param name="_Enabled">Are Clublinks enabled in the mode?</param>
+    /// <param name="_DisplaySponsors">Display the teams sponsors</param>
     public void Yield(bool _Enabled, bool _DisplaySponsors) { }
 
     /// <summary>Unload the library</summary>

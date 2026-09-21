@@ -24,6 +24,9 @@ public partial class EventMessage_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Trigger an event on the client</summary>
+    /// <param name="_Type" />
+    /// <param name="_Clan" />
+    /// <param name="_MessageDuration" />
     public void TriggerEvent(int _Type, int _Clan, int _MessageDuration) { }
 
     public void TriggerEvent(int _Type) { }

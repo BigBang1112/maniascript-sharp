@@ -22,6 +22,7 @@ public partial class TM_Laps_Online : ILib
     public const string Version = "1.1.0+2025-12-17";
     public const string ScriptName = "Modes/TrackMania/TM_Laps_Online.Script.txt";
     public const string C_ModeName = "Laps";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/Laps.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const bool C_UploadRecord = true;
     public const bool C_DisplayRecordGhost = false;
@@ -60,10 +61,11 @@ public partial class TM_Laps_Online : ILib
     public int GetFinishTimeout() => default!;
 
     /// <summary>Update the scores table footer text</summary>
+    /// <param name="_StartTime" />
     public void UpdateScoresTableFooter(int _StartTime) { }
 
     /// <summary>Set the time limit</summary>
-    /// <param name="StartTime">The time at which the race started</param>
-    /// <param name="TimeLimit">The new time limit</param>
+    /// <param name="_StartTime">The time at which the race started</param>
+    /// <param name="_TimeLimit">The new time limit</param>
     public void SetTimeLimit(int _StartTime, int _TimeLimit) { }
 }

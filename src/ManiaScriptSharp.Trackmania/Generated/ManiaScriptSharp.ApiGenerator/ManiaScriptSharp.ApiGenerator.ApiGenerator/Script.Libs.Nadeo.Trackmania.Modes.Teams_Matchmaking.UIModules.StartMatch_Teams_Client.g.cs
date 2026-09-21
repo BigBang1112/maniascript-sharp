@@ -20,13 +20,6 @@ public partial class StartMatch_Teams_Client : ILib
 
     public const string Version = "1.1.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Teams_Matchmaking/UIModules/StartMatch_Teams_Client.Script.txt";
-    public const int C_AnimDuration = 250;
-    public const int C_AnimStartDelay = 1500;
-    public const int C_CountdownAnimDuration = 5000;
-    public const int C_CountdownDurationInSec = 5;
-    public const int C_CheckPlayersDisplayedFrequency = 1000;
-    public const string C_VSIntroSound = "VS_Intro";
-    public const string C_CountdownSound = "Countdown";
 
     public struct K_TeamMember
     {

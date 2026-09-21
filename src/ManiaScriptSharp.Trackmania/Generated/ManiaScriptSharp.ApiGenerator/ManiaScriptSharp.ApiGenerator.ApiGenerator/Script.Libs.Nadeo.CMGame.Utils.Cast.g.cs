@@ -55,50 +55,66 @@ public partial class Cast : ILib
     public const string C_MenuNavAction_ScrollDown = "scrolldown";
 
     /// <summary>Cast a Text to a Boolean</summary>
+    /// <param name="_Source" />
     public bool ToBoolean(string _Source) => default!;
 
     /// <summary>Cast a Text to a Real</summary>
+    /// <param name="_Source" />
     public float ToReal(string _Source) => default!;
 
     /// <summary>Cast a Text to an Integer</summary>
+    /// <param name="_Source" />
     public int ToInteger(string _Source) => default!;
 
     /// <summary>Cast a Text to a Vec2</summary>
+    /// <param name="_Source" />
     public Vec2 ToVec2(string _Source) => default!;
 
     /// <summary>Cast a Vec2 to a Text</summary>
+    /// <param name="_Source" />
     public string ToText(Vec2 _Source) => default!;
 
     /// <summary>Cast a Text to a Vec3</summary>
+    /// <param name="_Source" />
     public Vec3 ToVec3(string _Source) => default!;
 
     /// <summary>Cast a Vec3 to a Text</summary>
+    /// <param name="_Source" />
     public string ToText(Vec3 _Source) => default!;
 
     /// <summary>Cast a Text to a Int2</summary>
+    /// <param name="_Source" />
     public Int2 ToInt2(string _Source) => default!;
 
     /// <summary>Cast a Int2 to a Text</summary>
+    /// <param name="_Source" />
     public string ToText(Int2 _Source) => default!;
 
     /// <summary>Cast a Text to a Int3</summary>
+    /// <param name="_Source" />
     public Int3 ToInt3(string _Source) => default!;
 
     /// <summary>Cast a Int3 to a Text</summary>
+    /// <param name="_Source" />
     public string ToText(Int3 _Source) => default!;
 
     /// <summary>Cast a Text to a Real[]</summary>
+    /// <param name="_Source" />
     public global::System.Collections.Generic.IList<float> ToRealArray(string _Source) => default!;
 
     /// <summary>Cast an hexadecimal color to a Vec3</summary>
+    /// <param name="_Source" />
     public Vec3 ToColorRgb(string _Source) => default!;
 
     /// <summary>Cast an Vec3 color to an hexadecimal value</summary>
+    /// <param name="_Source" />
     public string ToColorHex(Vec3 _Source) => default!;
 
     /// <summary>Convert a text-size-fit Text attribute to a Vec3 compatible with the FitLabelValue() function</summary>
+    /// <param name="_Source" />
     public Vec3 ToTextSizeFitVec3(string _Source) => default!;
 
     /// <summary>Convert a text-size-fit Text attribute to a Vec2 compatible with the FitLabelValue() function</summary>
+    /// <param name="_Source" />
     public Vec2 ToTextSizeFitVec2(string _Source) => default!;
 }

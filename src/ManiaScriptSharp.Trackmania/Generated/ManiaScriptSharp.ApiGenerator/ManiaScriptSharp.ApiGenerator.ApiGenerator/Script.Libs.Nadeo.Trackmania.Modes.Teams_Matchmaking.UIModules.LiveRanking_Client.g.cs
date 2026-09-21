@@ -25,10 +25,6 @@ public partial class LiveRanking_Client : ILib
     public const int C_PlayersNb = 16;
     public const int C_RankingMode_BestRace = 0;
     public const int C_RankingMode_CurrentRace = 1;
-    public const int C_UpdateMaxFrequency = 250;
-    public const int C_Winners = -1;
-    public const int C_MvpUpdateFrequency = 250;
-    public const int C_CheckRacingPlayersFrequency = 250;
 
     public struct K_PlayerInfo
     {

@@ -24,7 +24,7 @@ public partial class Emblem : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Set the neutral emblem url</summary>
-    /// <param name="Url">The new url</param>
+    /// <param name="_Url">The new url</param>
     public void SetNeutral(string _Url) { }
 
     /// <summary>Get the neutral emblem url</summary>
@@ -32,7 +32,7 @@ public partial class Emblem : ILib
     public string GetNeutral() => default!;
 
     /// <summary>Decide to ignore or not the neutral emblem url set in the settings</summary>
-    /// <param name="Ignore">True to ignore, False otherwise</param>
+    /// <param name="_Ignore">True to ignore, False otherwise</param>
     public void IgnoreSetting(bool _Ignore) { }
 
     /// <summary>Check if we ignore or not the neutral emblem url set in the settings</summary>

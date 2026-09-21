@@ -20,6 +20,7 @@ public partial class TMWTMarkers_Client : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/TMWTMarkers_Client.Script.txt";
     public const int C_MarkersMaxNb = 32;
     public const double C_PlayerNameMaxWidth = 50.0;
+    public const string C_ImgMarkerSide = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/UI/TMWT_MarkerSide.dds";
     public const string C_ModelId_FramemodelMarkerPlayer = "framemodel-marker-player";
     public const string C_Id_FrameMarkerContent = "frame-marker-content";
     public const string C_Id_QuadSideLeft = "quad-side-left";
@@ -60,6 +61,7 @@ public partial class TMWTMarkers_Client : ILib
     public string GetId() => default!;
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_Theme" />
     /// <returns>The module manialink</returns>
     public string GetML(int _Theme) => default!;
 }

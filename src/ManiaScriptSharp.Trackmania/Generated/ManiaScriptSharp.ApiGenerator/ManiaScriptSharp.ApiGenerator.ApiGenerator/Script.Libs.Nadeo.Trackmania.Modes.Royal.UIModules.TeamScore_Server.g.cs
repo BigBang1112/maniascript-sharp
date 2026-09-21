@@ -21,16 +21,20 @@ public partial class TeamScore_Server : ILib
     public string GetId() => default!;
 
     /// <summary>Set the rank where the eliminations start</summary>
+    /// <param name="_EliminationRank" />
     public void SetEliminationRank(int _EliminationRank) { }
 
     public void ResetEliminationRank() { }
 
     /// <summary>Set the number of teams not eliminated</summary>
+    /// <param name="_NotEliminatedTeamsNb" />
     public void SetNotEliminatedTeamsNb(int _NotEliminatedTeamsNb) { }
 
     public void ResetNotEliminatedTeamsNb() { }
 
     /// <summary>Update the teams bonus time</summary>
+    /// <param name="_TeamId" />
+    /// <param name="_BonusTime" />
     public void SetTeamBonusTime(int _TeamId, int _BonusTime) { }
 
     public void ResetTeamsBonusTime() { }

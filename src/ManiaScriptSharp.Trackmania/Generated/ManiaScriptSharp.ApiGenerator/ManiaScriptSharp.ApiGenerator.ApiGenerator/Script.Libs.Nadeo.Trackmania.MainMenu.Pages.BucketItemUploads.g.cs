@@ -51,9 +51,6 @@ public partial class BucketItemUploads : ILib
     public const int C_Row_AddGarage = 2;
     public const int C_Row_Download = 3;
     public const int C_Row_Remove = 4;
-    public const int C_View_List = 0;
-    public const int C_View_3D = 1;
-    public const int C_RegisterMapTasksLimit = 15;
 
     public struct K_Scene
     {

@@ -21,10 +21,13 @@ public partial class CutPaste : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "CutPaste.Script.txt";
+    /// <summary>Anim button background on mouse over/out</summary>
     public const bool C_BgAnim = true;
+    /// <summary>The type of operation</summary>
     public const int C_Type_Cut = 0;
     public const int C_Type_Paste = 1;
     public const int C_Type_Discard = 2;
+    /// <summary>Events</summary>
     public const string C_Event_Paste = "LibCutPaste_Paste";
     public const string C_Event_Discard = "LibCutPaste_Discard";
 
@@ -38,6 +41,10 @@ public partial class CutPaste : ILib
     public string Event_Discard() => default!;
 
     /// <summary>Add a new macroblock in the stack</summary>
+    /// <param name="_PrevMacroblockModelId" />
+    /// <param name="_PrevConnectedBy" />
+    /// <param name="_NextMacroblockModelId" />
+    /// <param name="_NextConnectedBy" />
     public void Cut(Ident _PrevMacroblockModelId, int _PrevConnectedBy, Ident _NextMacroblockModelId, int _NextConnectedBy) { }
 
     /// <summary>Remove the newest macroblock from the stack</summary>
@@ -68,6 +75,7 @@ public partial class CutPaste : ILib
     public void WarnNoPaste() { }
 
     /// <summary>Set the header visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }

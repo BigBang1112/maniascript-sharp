@@ -26,14 +26,7 @@ public partial class LiveRanking_Client : ILib
     public const bool C_DisplayTeamName = true;
     public const bool C_DisplayTeamBackgroundColor = false;
     public const bool C_DisplayTeamTrigramColor = true;
-    public const int C_UpdateMaxFrequency = 250;
-    public const int C_CheckpointUpdateFrequency = 250;
-    public const int C_RankIconDisplayDuration = 10000;
-    public const int C_RankBlinkDuration = 10000;
-    public const int C_PlaceLostDeltaTime = 3000;
-    public const double C_BlinkingMaxOpacity = 0.5;
-    public const int C_NextRank = 0;
-    public const int C_PreviousRank = 1;
+    public const string C_ImgFolder = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion";
 
     public struct K_Controls
     {

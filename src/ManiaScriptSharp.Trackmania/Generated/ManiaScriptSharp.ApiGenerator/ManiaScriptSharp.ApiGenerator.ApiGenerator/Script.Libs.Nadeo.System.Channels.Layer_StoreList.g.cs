@@ -14,6 +14,8 @@ public partial class Layer_StoreList : ILib
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Channels.Structs Structs;
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Channels/";
+
     public void Build() { }
 
     public void SetVisibility(bool _Visible) { }

@@ -13,6 +13,8 @@ public partial class Layer_RegisterKey : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Keys/";
+    public const string C_ButtonsPath = "file://Media/Manialinks/Common/PadButtons/";
     public const string C_Color_DarkBlue = "000514";
     public const int C_Step_EnterKey = 0;
     public const int C_Step_ActivateKey = 1;

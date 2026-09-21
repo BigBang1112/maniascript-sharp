@@ -21,8 +21,6 @@ public partial class BlockHelper_Client : ILib
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/Base/UIModules/BlockHelper_Client.Script.txt";
     public const double C_HelperPosX = 200.0;
     public const string C_Event_GameplaySpecial = "BlockHelper_Event_GameplaySpecial";
-    public const int C_Duration_Moving = 250;
-    public const int C_Duration_Stay = 1500;
 
     /// <summary>Get the id of the UI module</summary>
     public string GetId() => default!;

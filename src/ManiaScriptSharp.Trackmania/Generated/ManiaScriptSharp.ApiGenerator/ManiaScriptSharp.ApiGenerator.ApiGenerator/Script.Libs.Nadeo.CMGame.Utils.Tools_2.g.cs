@@ -19,5 +19,6 @@ public partial class Tools_2 : ILib
     public const string C_ComposeCharacter = "";
 
     /// <summary>Check if the text is translated</summary>
+    /// <param name="_Text" />
     public bool IsTranslatedText(string _Text) => default!;
 }

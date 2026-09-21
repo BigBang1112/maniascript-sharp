@@ -26,6 +26,7 @@ public partial class TM_Knockout_Online : ILib
     public const string Version = "1.1.3+2026-01-07";
     public const string ScriptName = "Modes/TrackMania/TM_Knockout_Online.Script.txt";
     public const string C_ModeName = "Knockout";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/Knockout.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const string C_Callback_Elimination = "Trackmania.Knockout.Elimination";
     public const bool C_UploadRecord = true;
@@ -92,10 +93,12 @@ public partial class TM_Knockout_Online : ILib
     public virtual void Match_AfterPodiumSequence() { }
 
     /// <summary>Whether the player is registered or not False Otherwise</summary>
+    /// <param name="_AccountId" />
     /// <returns>True if the player is registered</returns>
     public bool PlayerIsRegistered(string _AccountId) => default!;
 
     /// <summary>Whether the player has been eliminated or not False Otherwise</summary>
+    /// <param name="_AccountId" />
     /// <returns>True if the player has been eliminated</returns>
     public bool PlayerIsAlive(string _AccountId) => default!;
 
@@ -114,27 +117,30 @@ public partial class TM_Knockout_Online : ILib
     public void CloseRegistrations() { }
 
     /// <summary>Eliminate players and assign them their final ranks according to the _ScoreIds list order. 1st player is the best ranked</summary>
-    /// <param name="ScoreIds">Score Ids of Players to Eliminate</param>
+    /// <param name="_ScoreIds">Score Ids of Players to Eliminate</param>
     public void EliminatePlayers(global::System.Collections.Generic.IList<Ident> _ScoreIds) { }
 
     public global::System.Collections.Generic.IList<int> GetEliminationsMilestones() => default!;
 
     /// <summary>Players Nb at which Emilinations Nb per round decreases</summary>
-    /// <param name="AlivePlayers">Number of players still playing</param>
+    /// <param name="_AlivePlayers">Number of players still playing</param>
     /// <returns>Players Nb of the milestone</returns>
     public int GetNextMilestone(int _AlivePlayers) => default!;
 
     /// <summary>Number of players to eliminate this round</summary>
-    /// <param name="AlivePlayers">Number of players still playing</param>
+    /// <param name="_AlivePlayers">Number of players still playing</param>
+    /// <param name="_RoundNb" />
     /// <returns>Number of eliminations this round</returns>
     public int GetEliminationsNb(int _AlivePlayers, int _RoundNb) => default!;
 
     /// <summary>Estimated number of rounds</summary>
+    /// <param name="_CurrentRoundNb" />
+    /// <param name="_AlivePlayers" />
     /// <returns>Estimated number of rounds</returns>
     public int GetTotalRoundNb(int _CurrentRoundNb, int _AlivePlayers) => default!;
 
     /// <summary>Player rank in match</summary>
-    /// <param name="AccountIds">Account Ids</param>
+    /// <param name="_AccountIds">Account Ids</param>
     /// <returns>Ranks in same order</returns>
     public global::System.Collections.Generic.IList<int> GetPlayerRanks(global::System.Collections.Generic.IList<string> _AccountIds) => default!;
 
@@ -146,20 +152,18 @@ public partial class TM_Knockout_Online : ILib
     public int GetFinishTimeout() => default!;
 
     /// <summary>Check if we should go to the next match</summary>
-    /// <param name="RoundNb">Current round number</param>
+    /// <param name="_RoundNb">Current round number</param>
     /// <returns>True if it is the case, false otherwise</returns>
     public bool MatchIsOver(int _RoundNb) => default!;
 
     /// <summary>Check if we should go to the next map</summary>
-    /// <param name="RoundNb">Current round number</param>
+    /// <param name="_RoundNb">Current round number</param>
     /// <returns>True if it is the case, false otherwise</returns>
     public bool MapIsOver(int _RoundNb) => default!;
 
     /// <summary>Update the scores table footer text</summary>
-    /// <param name="TotalRounds">The estimated number of rounds</param>
-    /// <param name="AlivePlayers">The number of Alive Players</param>
-    /// <param name="RoundKOs">The number players to eliminate this round</param>
-    /// <param name="Milestone">Next number of players at which one less player is eliminated per round</param>
+    /// <param name="_CurrentRoundNb" />
+    /// <param name="_TotalRoundsNb" />
     public void UpdateScoresTableFooter(int _CurrentRoundNb, int _TotalRoundsNb) { }
 
     public void UpdateKnockoutInfoDisplay(int _CurrentRoundNb, int _Round_EliminatedPlayersNb, int _AlivePlayers) { }

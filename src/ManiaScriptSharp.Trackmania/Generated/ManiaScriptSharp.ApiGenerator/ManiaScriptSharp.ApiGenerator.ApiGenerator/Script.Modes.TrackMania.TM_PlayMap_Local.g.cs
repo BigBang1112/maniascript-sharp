@@ -34,6 +34,7 @@ public partial class TM_PlayMap_Local : ILib
     public const string Version = "1.3.2+2025-12-13";
     public const string ScriptName = "Modes/TrackMania/TM_PlayMap_Local.Script.txt";
     public const string C_ModeName = "Play Map";
+    public const string C_ManiaAppUrl = "file://Media/ManiaApps/Nadeo/Trackmania/Modes/PlayMap.Script.txt";
     public const int C_FakeUsersNb = 0;
     public const int C_MaximumAdditionalReplaysNb = 100;
     public const bool C_CloneUseRandomSkin = true;
@@ -100,12 +101,20 @@ public partial class TM_PlayMap_Local : ILib
     public virtual void Match_EndServer() { }
 
     /// <summary>Start a task to get the player's record</summary>
+    /// <param name="_MapUid" />
+    /// <param name="_ScopeType" />
+    /// <param name="_ScopeId" />
+    /// <param name="_ModeName" />
+    /// <param name="_ModeCustomData" />
     public K_LoadRecordTask LoadRecord(string _MapUid, string _ScopeType, string _ScopeId, string _ModeName, string _ModeCustomData) => default!;
 
     /// <summary>Check if the task is still ongoing</summary>
+    /// <param name="_Task" />
     public K_LoadRecordTask UpdateLoadRecord(K_LoadRecordTask _Task) => default!;
 
     /// <summary>Show/hide the record ghost</summary>
+    /// <param name="_IsVisible" />
+    /// <param name="_IsCloneMode" />
     public void DisplayRecordGhost(bool _IsVisible, bool _IsCloneMode) { }
 
     /// <summary>Reset the currently loaded record ghost</summary>
@@ -118,6 +127,7 @@ public partial class TM_PlayMap_Local : ILib
     public void ResetReplay() { }
 
     /// <summary>Release record ghost data</summary>
+    /// <param name="_RecordGhost" />
     public K_RecordGhost ReleaseRecordGhost(K_RecordGhost _RecordGhost) => default!;
 
     /// <summary>Respawn the local player</summary>

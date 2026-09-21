@@ -56,13 +56,6 @@ public partial class LocalMultiSettings : ILib
     public const int C_TrackPack_LiveCampaignRed = 5;
     public const int C_TrackPack_LiveCampaignBlack = 6;
     public const int C_TrackPack_LiveMonthlyCampaign = 7;
-    public const int C_Track_NullKey = -1;
-    public const int C_PopUpLeaveIndex = 0;
-    public const int C_PopUpTrackOptionsIndex = 1;
-    public const int C_LeavePopUp_ChoiceIndex_Stay = 0;
-    public const int C_LeavePopUp_ChoiceIndex_Leave = 1;
-    public const int C_TrackPopUp_ChoiceIndex_Move = 0;
-    public const int C_TrackPopUp_ChoiceIndex_Remove = 1;
 
     public struct K_Controls
     {

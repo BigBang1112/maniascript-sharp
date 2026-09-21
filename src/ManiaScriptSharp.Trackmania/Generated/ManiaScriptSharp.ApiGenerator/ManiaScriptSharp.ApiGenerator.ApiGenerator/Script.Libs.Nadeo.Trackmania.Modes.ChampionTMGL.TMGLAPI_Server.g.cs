@@ -31,12 +31,15 @@ public partial class TMGLAPI_Server : ILib
     }
 
     /// <summary>Start a new TMGL match</summary>
+    /// <param name="_CompetitionAPIUrl" />
+    /// <param name="_CheersAPIUrl" />
     public void StartMatch(string _CompetitionAPIUrl, string _CheersAPIUrl) { }
 
     /// <summary>Merge the league's ranking at the start of the match with the scores of the match in progress. Should be called only once the round points are added to the match points.</summary>
     public void MergeMatchRankingIntoLeagueRanking() { }
 
     /// <summary>Update the cheers</summary>
+    /// <param name="_Cheers" />
     public void UpdateCheers(global::System.Collections.Generic.Dictionary<string, int> _Cheers) { }
 
     /// <summary>Get the account id of the player that should be cheered</summary>

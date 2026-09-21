@@ -21,7 +21,9 @@ public partial class SimpleChoice : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "SimpleChoice.Script.txt";
+    /// <summary>Not clickable option</summary>
     public const int C_NotClickable = -1;
+    /// <summary>Anim button background on mouse over/out</summary>
     public const bool C_BgAnim = false;
     public const string C_Event_Click = "LibSimpleChoice_Click";
 
@@ -40,6 +42,7 @@ public partial class SimpleChoice : ILib
     public void SetOptions(global::System.Collections.Generic.Dictionary<string, string> _Options, global::System.Collections.Generic.IList<int> _Events) { }
 
     /// <summary>Overload SetOptions()</summary>
+    /// <param name="_Options" />
     public void SetOptions(global::System.Collections.Generic.Dictionary<string, string> _Options) { }
 
     public void SetPositionY(float _PositionY) { }
@@ -48,6 +51,7 @@ public partial class SimpleChoice : ILib
     public bool LayerIsVisible() => default!;
 
     /// <summary>Set the simple choice visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public void Show() { }

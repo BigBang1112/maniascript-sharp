@@ -176,6 +176,7 @@ public partial class ModeTrackmania : global::ManiaScriptSharp.Scripts.Modes.Nad
     public int MB_GetValidTurnCount() => default!;
 
     /// <summary>Validate or invalidate the ongoing section</summary>
+    /// <param name="_IsValid" />
     public void MB_SetValidMatch(bool _IsValid) { }
 
     public void MB_SetValidMap(bool _IsValid) { }
@@ -190,8 +191,8 @@ public partial class ModeTrackmania : global::ManiaScriptSharp.Scripts.Modes.Nad
     public void MB_Yield() { }
 
     /// <summary>Replace the sleep() function safely Read the description of the MB_Yield() function for more info.</summary>
-    /// <param name="Level">The game mode loop in which the sleep happens</param>
-    /// <param name="Duration">The duration of the sleep</param>
+    /// <param name="_Level">The game mode loop in which the sleep happens</param>
+    /// <param name="_Duration">The duration of the sleep</param>
     public void MB_Sleep(int _Level, int _Duration) { }
 
     public void MB_Sleep(int _Duration) { }
@@ -206,7 +207,7 @@ public partial class ModeTrackmania : global::ManiaScriptSharp.Scripts.Modes.Nad
     public void MB_OpenLadder() { }
 
     /// <summary>Close any open match on the ladder. If the default ladder is enabled (MB_Settings_UseDefaultLadder) this function is already called automatically at the end of the map. and players will receive ladder points. If False the match will be canceled and players won't receive ladder points.</summary>
-    /// <param name="ValidMatch">If True the match will be validated</param>
+    /// <param name="_ValidMatch">If True the match will be validated</param>
     public void MB_CloseLadder(bool _ValidMatch) { }
 
     /// <summary>If the default ladder is enabled (MB_Settings_UseDefaultLadder) call this function before ***Match_CloseLadder*** to cancel the ongoing match on the ladder and prevent players from receiving any ladder points.</summary>
@@ -219,14 +220,14 @@ public partial class ModeTrackmania : global::ManiaScriptSharp.Scripts.Modes.Nad
     public void MB_AutoTeamBalance() { }
 
     /// <summary>Setup the UI to enable or disable the players spawning, the notifications, or the mouse cursor for example. If you are using the default UI management (Race_Settings_UseDefaultUIManagement) this function is already called automatically at the start and end of the turn. False otherwise</summary>
-    /// <param name="Enabled">True to let players spawn,</param>
+    /// <param name="_Enabled">True to let players spawn,</param>
     public void MB_EnablePlayMode(bool _Enabled) { }
 
     /// <summary>Play the mediatracker introduction sequence of the map. If you are using the default intro sequence (MB_Settings_UseDefaultIntroSequence) this function is already called automatically at the start of the map.</summary>
     public void MB_IntroSequence() { }
 
     /// <summary>Play the players presentation sequence. This sequence display two panels containing informations about the players or teams.</summary>
-    /// <param name="Duration">Duration of the sequence</param>
+    /// <param name="_Duration">Duration of the sequence</param>
     public void MB_PlayersPresentationSequence(int _Duration) { }
 
     /// <summary>Play the podium sequence. This sequence display the players on the podium if there is one in the map. The scores table is displayed after a few seconds. If you are using the default podium sequence (MB_Settings_UseDefaultPodiumSequence) this functions is already called automatically at the end of the map.</summary>
@@ -236,11 +237,11 @@ public partial class ModeTrackmania : global::ManiaScriptSharp.Scripts.Modes.Nad
     public void MB_SkipPodiumSequence() { }
 
     /// <summary>Launch a warm up sequence If it is negative, the warm up will be played in round mode. If it is 0 the warm up will be played in time attack with a time limit calculated automatically from the author time of the map. If it is positive the warm up will be played in time attack with the given time limit.</summary>
-    /// <param name="NbOfWarmUp">The number of warm up rounds to play</param>
-    /// <param name="TimeLimit">The time limit of one warm up round in milliseconds</param>
-    /// <param name="FinishTimeOut">The timeout when the first player crosses the finish line</param>
-    /// <param name="CustomEndOfWarmupMessage">Message displayed at the end of warmup</param>
-    /// <param name="UseEndRoundSequence">Use the end round UI sequence to display the warmp-up ending message</param>
+    /// <param name="_NbOfWarmUp">The number of warm up rounds to play</param>
+    /// <param name="_TimeLimit">The time limit of one warm up round in milliseconds</param>
+    /// <param name="_FinishTimeOut">The timeout when the first player crosses the finish line</param>
+    /// <param name="_CustomEndOfWarmupMessage">Message displayed at the end of warmup</param>
+    /// <param name="_UseEndRoundSequence">Use the end round UI sequence to display the warmp-up ending message</param>
     public void MB_WarmUp(int _NbOfWarmUp, int _TimeLimit, int _FinishTimeOut, string _CustomEndOfWarmupMessage, bool _UseEndRoundSequence) { }
 
     public void MB_WarmUp(int _NbOfWarmUp, int _TimeLimit, int _FinishTimeOut, string _CustomEndOfWarmupMessage) { }
@@ -271,33 +272,34 @@ public partial class ModeTrackmania : global::ManiaScriptSharp.Scripts.Modes.Nad
     public bool MM_IsLobbyServer() => default!;
 
     /// <summary>Set how many teams and how many players per team a match should have to be played. Eg: a 1vs1 match use this format [1, 1] a 1vs3 match [1, 3], a 3vs3vs3 [3, 3, 3] This function shoud be called once inside ***MM_SetupMatchmaking***</summary>
+    /// <param name="_Format" />
     public void MM_SetFormat(global::System.Collections.Generic.IList<int> _Format) { }
 
     /// <summary>Utility function to generate progressive matchmaking formats automatically. Eg: if you pass a format of [1, 1, 1] a minimum number of players of 3 and a maximum of 5, the function  will generate the following formats : [[3, 3, 3], [4, 4, 4], [5, 5, 5]] This function shoud be called once inside ***MM_SetupMatchmaking***</summary>
-    /// <param name="Format">The base format</param>
-    /// <param name="MinPlayersNb">Minimum number of players</param>
-    /// <param name="MaxPlayersNb">Maximum number of players</param>
+    /// <param name="_Format">The base format</param>
+    /// <param name="_MinPlayersNb">Minimum number of players</param>
+    /// <param name="_MaxPlayersNb">Maximum number of players</param>
     public void MM_SetProgressiveFormats(global::System.Collections.Generic.IList<int> _Format, int _MinPlayersNb, int _MaxPlayersNb) { }
 
     /// <summary>Open a matchmaking match session and prepare the map for it. You can either create a new session or continue the previous one. Starting a new session will request the match info to the api, wait for the players and start a map vote when everyone is ready. Continuing the current session will conserve the current match info, wait for the players and start the new map when they are ready. This function shoud be called once inside ***Match_StartMap***. If MB_Settings_UseDefaultMatchmaking is True, this function is already called automatically for you. or continue the previous one</summary>
-    /// <param name="NewSession">Start a new matchmaking session</param>
+    /// <param name="_NewSession">Start a new matchmaking session</param>
     public void MM_OpenSession(bool _NewSession) { }
 
     /// <summary>Close the matchmaking match session. If the match is finished the players can vote for a rematch. If the rematch is validated the players can vote for the next map and the session can be reopened at the begining of the new map. If the vote result is negative or if a rematch is not possible anymore the players are sent back to the lobby and a new session must be created at the begining of the new map. You can pass a player login to the function to select the match Master. The Master is the player that played the best during the match. His name will be displayed in the lobby. This function shoud be called once inside ***Match_BeforeUnloadMap***. If MB_Settings_UseDefaultMatchmaking is True, this function is already called automatically for you. False if the session can be reopened</summary>
-    /// <param name="MasterLogin">Login of the match master.</param>
+    /// <param name="_MasterLogin">Login of the match master.</param>
     /// <returns>True if a new session must be created</returns>
     public bool MM_CloseSession(string _MasterLogin) => default!;
 
     /// <summary>Save the login of the match Master for the current session. The Master is the player that played the best during the match. His name will be displayed in the lobby. If MM_CloseSession() is called automatically, then you can call this function once inside ***Match_EndMap*** to override the default Master login. If you call MM_CloseSession() manually, then you don't need to use this function.</summary>
-    /// <param name="Login">The login of the new match Master</param>
+    /// <param name="_Login">The login of the new match Master</param>
     public void MM_SetMasterLogin(string _Login) { }
 
     /// <summary>Send the map score to the matchmaking API. It will be displayed in the lobby to the players that are offered to join a match as a substitute as an indication of the match progress.</summary>
-    /// <param name="Scores">The scores to send</param>
+    /// <param name="_Scores">The scores to send</param>
     public void MM_SetScores(global::System.Collections.Generic.IList<int> _Scores) { }
 
     /// <summary>When a player leaves an ongoing match, the matchmaking will search a substitute to take its place. However it's not always desired to received a substitute. By example if the match is nearly finished. This function allow you to turn on or off the requests for substitutes players. False to disable it.</summary>
-    /// <param name="AllowSubstitutes">True to allow the search for a subsitute,</param>
+    /// <param name="_AllowSubstitutes">True to allow the search for a subsitute,</param>
     public void MM_AllowSubstitutes(bool _AllowSubstitutes) { }
 
     /// <summary>Check if the substitutes are enabled or disabled.</summary>
@@ -305,7 +307,7 @@ public partial class ModeTrackmania : global::ManiaScriptSharp.Scripts.Modes.Nad
     public bool MM_SubstitutesAreAllowed() => default!;
 
     /// <summary>Enable or disable the penalty for leaving a match False to disable</summary>
-    /// <param name="Enabled">True to enable the penalty</param>
+    /// <param name="_Enabled">True to enable the penalty</param>
     public void MM_EnablePenalty(bool _Enabled) { }
 
     /// <summary>Check if the penalty for leaving a match is enabled False if the penalty is disabled</summary>
@@ -313,7 +315,7 @@ public partial class ModeTrackmania : global::ManiaScriptSharp.Scripts.Modes.Nad
     public bool MM_PenaltyIsEnabled() => default!;
 
     /// <summary>Enable or disable the match server reconnect for the players False to disable</summary>
-    /// <param name="Enabled">True to enable the match reconnect</param>
+    /// <param name="_Enabled">True to enable the match reconnect</param>
     public void MM_EnableMatchReconnect(bool _Enabled) { }
 
     /// <summary>Check if the match server reconnect is enabled False if the match reconnect is disabled</summary>

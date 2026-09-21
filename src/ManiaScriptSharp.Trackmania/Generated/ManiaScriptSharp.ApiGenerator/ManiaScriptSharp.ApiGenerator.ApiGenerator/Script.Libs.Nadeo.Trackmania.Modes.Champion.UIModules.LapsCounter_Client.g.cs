@@ -19,8 +19,6 @@ public partial class LapsCounter_Client : ILib
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/Champion/UIModules/LapsCounter_Client.Script.txt";
     public const string C_Id = "UIModule_Champion_LapsCounter";
-    public const int C_BestLapAnimDuration = 2500;
-    public const string C_BestLapSound = "BestLap";
 
     public struct K_BestLapControls
     {

@@ -25,8 +25,12 @@ public partial class MenuBackground_ML : ILib
     public const double C_DimmerOpacity_Default = 0.0;
 
     /// <summary>Select which display mode to use on which routes (by default use `C_DisplayMode_MainBackground`)</summary>
+    /// <param name="_Route" />
+    /// <param name="_DisplayMode" />
     public void SetRouteDisplayMode(string _Route, int _DisplayMode) { }
 
     /// <summary>Set the opacity to use for the dimmer on which routes</summary>
+    /// <param name="_Route" />
+    /// <param name="_DimmerOpacity" />
     public void SetRouteDimmerOpacity(string _Route, float _DimmerOpacity) { }
 }

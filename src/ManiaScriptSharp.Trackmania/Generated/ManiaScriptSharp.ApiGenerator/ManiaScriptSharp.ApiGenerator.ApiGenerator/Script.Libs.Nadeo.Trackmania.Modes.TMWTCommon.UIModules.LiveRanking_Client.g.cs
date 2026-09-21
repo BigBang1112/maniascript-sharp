@@ -21,6 +21,7 @@ public partial class LiveRanking_Client : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/Trackmania/Modes/TMWTCommon/UIModules/LiveRanking_Client.Script.txt";
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/TMWT/UI";
     public const int C_PlayersNb = 4;
     public const double C_Width_LiveRanking = 66.0;
     public const double C_Height_Title = 8.0;
@@ -59,8 +60,6 @@ public partial class LiveRanking_Client : ILib
     public const string C_Id_ButtonSpectate = "button-spectate";
     public const string C_Id_FrameFinish = "frame-finish";
     public const string C_Id_QuadGradientFinish = "quad-gradient-finish";
-    public const int C_PreviousRank = -1;
-    public const int C_NextRank = 1;
 
     public struct K_Controls
     {
@@ -94,6 +93,7 @@ public partial class LiveRanking_Client : ILib
     public string GetId() => default!;
 
     /// <summary>Get the module manialink</summary>
+    /// <param name="_Theme" />
     /// <returns>The module manialink</returns>
     public string GetML(int _Theme) => default!;
 }

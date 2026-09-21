@@ -35,8 +35,10 @@ public partial class PickAndBan_Common : ILib
     }
 
     /// <summary>Action values are case insensitive</summary>
+    /// <param name="_Action" />
     public string FormatAction(string _Action) => default!;
 
     /// <summary>Check if the action is a valid one</summary>
+    /// <param name="_Action" />
     public bool IsValidAction(string _Action) => default!;
 }

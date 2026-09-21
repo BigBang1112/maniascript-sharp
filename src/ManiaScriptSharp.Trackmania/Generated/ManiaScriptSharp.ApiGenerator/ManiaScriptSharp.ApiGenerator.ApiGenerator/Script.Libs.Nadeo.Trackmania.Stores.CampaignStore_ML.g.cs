@@ -224,18 +224,19 @@ public partial class CampaignStore_ML : ILib
     public int GetLiveCupOfTheWeekCampaignsUpdateTime() => default!;
 
     /// <summary>Get the type of maps of the given campaign</summary>
+    /// <param name="_CampaignId" />
     public string GetCampaignMapsType(int _CampaignId) => default!;
 
     /// <summary>Get the player's score on the given map</summary>
-    /// <param name="CampaignId">The campaign Id</param>
-    /// <param name="MapUid">The Map uid to look for</param>
+    /// <param name="_CampaignId">The campaign Id</param>
+    /// <param name="_MapUid">The Map uid to look for</param>
     /// <returns>The player's score in the given map</returns>
     public int GetMapScore(int _CampaignId, string _MapUid) => default!;
 
     /// <summary>Get the player's rankings on the given map and club</summary>
-    /// <param name="CampaignId">The campaign Id</param>
-    /// <param name="MapUid">The Map uid to look for</param>
-    /// <param name="ClubId">The club id to look for</param>
+    /// <param name="_CampaignId">The campaign Id</param>
+    /// <param name="_MapUid">The Map uid to look for</param>
+    /// <param name="_ClubId">The club id to look for</param>
     /// <returns>The player's pusition in the club leaderboard for the map (or 0 if not found)</returns>
     public int GetMapRankingInClub(int _CampaignId, string _MapUid, int _ClubId) => default!;
 

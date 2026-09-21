@@ -23,9 +23,6 @@ public partial class RespawnHelper_Client : ILib
     public const double C_MaxWidth = 78.0;
     public const double C_HelperHeight = 7.0;
     public const double C_HelperGutter = 1.0;
-    public const double C_MinSpeed = 10.0;
-    public const int C_MinSpeedDelay = 10000;
-    public const int C_ActivePadUpdateInterval = 500;
 
     public struct K_Bind
     {

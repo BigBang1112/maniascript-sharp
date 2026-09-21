@@ -28,12 +28,12 @@ public partial class Clans : ILib
     public Vec3 DefaultColor() => default!;
 
     /// <summary>Set the clan of a player</summary>
-    /// <param name="Score">The score of the player to update</param>
-    /// <param name="Clan">The new clan</param>
+    /// <param name="_Score">The score of the player to update</param>
+    /// <param name="_Clan">The new clan</param>
     public void Set(CScore _Score, int _Clan) { }
 
     /// <summary>Get the clan of a player</summary>
-    /// <param name="Score">The score of the player to check</param>
+    /// <param name="_Score">The score of the player to check</param>
     public int Get(CScore _Score) => default!;
 
     /// <summary>Reset the clan of all players</summary>
@@ -48,27 +48,27 @@ public partial class Clans : ILib
     public int Count() => default!;
 
     /// <summary>Check if a clan has players False otherwise</summary>
-    /// <param name="Clan">The clan to check</param>
+    /// <param name="_Clan">The clan to check</param>
     /// <returns>True if there are players in the given clan</returns>
     public bool HasPlayers(int _Clan) => default!;
 
     /// <summary>Get the players of the given clan</summary>
-    /// <param name="Clan">The clan to get</param>
+    /// <param name="_Clan">The clan to get</param>
     /// <returns>The players of the given clan</returns>
     public global::System.Collections.Generic.IList<CPlayer> GetPlayers(int _Clan) => default!;
 
     /// <summary>Get the number of players in the given clan</summary>
-    /// <param name="Clan">The clan to check</param>
+    /// <param name="_Clan">The clan to check</param>
     /// <returns>The number of players in the clan</returns>
     public int PlayersNb(int _Clan) => default!;
 
     /// <summary>Set the color of a clan</summary>
-    /// <param name="Clan">The clan to update</param>
-    /// <param name="Color">The new color</param>
+    /// <param name="_Clan">The clan to update</param>
+    /// <param name="_Color">The new color</param>
     public void SetColor(int _Clan, Vec3 _Color) { }
 
     /// <summary>Get the color of a clan The default color otherwise</summary>
-    /// <param name="Clan">The clan to check</param>
+    /// <param name="_Clan">The clan to check</param>
     /// <returns>The color of the clan if it exists</returns>
     public Vec3 GetColor(int _Clan) => default!;
 

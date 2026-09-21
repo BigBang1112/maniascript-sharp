@@ -66,6 +66,10 @@ public partial class ButtonIcon_3 : ILib
     public const string C_Bind_ScrollUp = "scrollup";
     public const string C_Bind_ScrollDown = "scrolldown";
     public const string C_Bind_AppMenu = "appmenu";
+    public const string C_PadButtonIconUnknown = "file://Media/Manialinks/Common/PadButtons/Default/Default.dds";
+    public const string C_DefaultKeyIcon = "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Base.dds";
+    public const string C_EnterKeyIcon = "file://Media/Manialinks/Nadeo/CMGame/Components/PadButtons/PC/ControllerInfo_PC_Enter.dds";
+    /// <summary>Pad button icons from the font</summary>
     public const string C_TextIcon_A = "";
     public const string C_TextIcon_B = "";
     public const string C_TextIcon_X = "";

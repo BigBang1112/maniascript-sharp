@@ -13,6 +13,7 @@ public partial class Layer_SquadList : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.System.Styles.CommonStyles Styles;
 
+    public const string C_ImgBase = "file://Media/Manialinks/Common/Chat/";
     public const int C_LayerSquadList_NbPlayersInList = 8;
 
     public void Build() { }

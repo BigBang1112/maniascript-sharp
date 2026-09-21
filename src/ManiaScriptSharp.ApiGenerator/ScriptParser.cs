@@ -39,6 +39,7 @@ internal sealed class ScriptConst
     public string Name { get; set; } = "";
     /// <summary>The raw ManiaScript value, e.g. <c>0</c>, <c>"hello"</c>, <c>True</c>.</summary>
     public string RawValue { get; set; } = "";
+    public ScriptDocComment? Doc { get; set; }
 }
 
 internal sealed class ScriptLabel
@@ -101,8 +102,10 @@ internal sealed class ScriptParser
 
         string? scriptDoc = null;
         bool scriptDocFound = false;
+        bool hasTopLevelDeclaration = false;
         string? extends = null;
         var includes = new List<ScriptInclude>();
+        var constants = new List<ScriptConst>();
         var functions = new List<ScriptFunction>();
         var labels = new List<ScriptLabel>();
 
@@ -116,12 +119,19 @@ internal sealed class ScriptParser
             // ManiaScript directive (#Const, #Include, #RequireContext, …)
             if (c == '#')
             {
+                var pendingDoc = _pendingDoc;
                 _pendingDoc = null;
                 var inc = TryParseInclude(out var isExtends);
                 if (inc != null)
                 {
                     if (isExtends) extends = inc.Path;
                     else includes.Add(inc);
+                    hasTopLevelDeclaration = true;
+                }
+                else if (TryReadConst(pendingDoc, out var constant))
+                {
+                    if (constant is not null) constants.Add(constant);
+                    hasTopLevelDeclaration = true;
                 }
                 else SkipLine();
                 continue;
@@ -134,15 +144,23 @@ internal sealed class ScriptParser
                 _pos += 2;
                 bool isTripleSlash = _pos < _src.Length && _src[_pos] == '/';
                 if (isTripleSlash) _pos++; // skip third '/'
+                bool isCurrentLineDoc = isTripleSlash && _pos < _src.Length && _src[_pos] == '<';
+                if (isCurrentLineDoc) _pos++; // skip '<' in ///<
 
                 var lineContent = ReadToEol();
                 UpdateSectionState(lineContent);
 
-                if (isTripleSlash)
+                if (isTripleSlash && !isCurrentLineDoc)
                 {
-                    // /// style: always treat as doc comment; accumulate multi-line
+                    // /// style: document the following declaration; accumulate multi-line.
                     var docText = lineContent.TrimStart(' ', '\t');
                     _pendingDoc = _pendingDoc is null ? docText : _pendingDoc + "\n" + docText;
+                }
+                else if (isCurrentLineDoc)
+                {
+                    // A top-level ///< has no declaration on its line. Trailing ///< comments
+                    // are consumed by their declaration parser and must not leak forward.
+                    _pendingDoc = null;
                 }
                 else
                 {
@@ -151,6 +169,12 @@ internal sealed class ScriptParser
                     var stripped = Regex.Replace(lineContent, @"[-~=*/\\ ]+", " ").Trim();
                     if (stripped.Length == 0 || IsSectionKeyword(stripped))
                         _pendingDoc = null; // separator / section header — clear pending doc
+                    else if (!scriptDocFound && !hasTopLevelDeclaration)
+                    {
+                        scriptDoc = stripped;
+                        scriptDocFound = true;
+                        _pendingDoc = null;
+                    }
                     else
                         _pendingDoc = stripped; // informal single-line doc
                 }
@@ -161,11 +185,15 @@ internal sealed class ScriptParser
             if (c == '/' && Peek(1) == '*')
             {
                 var (text, isDoc) = ReadBlockComment();
-                _pendingDoc = isDoc ? text : null;
-                if (!scriptDocFound && isDoc && text is not null)
+                if (!scriptDocFound && !hasTopLevelDeclaration && isDoc && text is not null)
                 {
                     scriptDoc = text;
                     scriptDocFound = true;
+                    _pendingDoc = null;
+                }
+                else
+                {
+                    _pendingDoc = isDoc ? text : null;
                 }
                 continue;
             }
@@ -221,7 +249,7 @@ internal sealed class ScriptParser
             Extends = extends,
             ScriptDoc = ParseDocComment(scriptDoc),
             Includes = includes,
-            Consts = ExtractConsts(),
+            Consts = constants,
             Functions = functions,
             Labels = labels,
             Structs = ExtractStructs(),
@@ -324,7 +352,7 @@ internal sealed class ScriptParser
         isExtends = directive.Equals("Extends", StringComparison.OrdinalIgnoreCase);
         if (!isInclude && !isExtends)
         {
-            SkipLine();
+            _pos = saved;
             return null;
         }
 
@@ -389,24 +417,40 @@ internal sealed class ScriptParser
     /// Complex values (ManiaScript arrays, vectors, …) are silently skipped.
     /// Constants whose names contain <c>Private</c> are excluded.
     /// </summary>
-    private List<ScriptConst> ExtractConsts()
+    private bool TryReadConst(string? leadingDoc, out ScriptConst? constant)
     {
-        var result = new List<ScriptConst>();
-        // Match: #Const  Name  value  (optional trailing ///< comment)
+        constant = null;
+        var saved = _pos;
+        var line = ReadToEol();
+        var commentStart = FindLineCommentStart(line);
+        var declaration = commentStart >= 0 ? line.Substring(0, commentStart) : line;
+        var inlineDoc = commentStart >= 0 && line.Substring(commentStart).StartsWith("///<", StringComparison.Ordinal)
+            ? line.Substring(commentStart + 4).Trim()
+            : null;
         var regex = new Regex(
-            @"^#Const\s+(\w+)\s+(.+?)(?:\s*//.*)?$",
-            RegexOptions.Multiline);
-        foreach (Match m in regex.Matches(_src))
+            @"^#Const\s+(\w+)\s+(.+?)\s*$");
+        var match = regex.Match(declaration);
+        if (!match.Success)
         {
-            var name = m.Groups[1].Value;
-            // Skip private-by-convention constants.
-            if (name.IndexOf("Private", StringComparison.OrdinalIgnoreCase) >= 0) continue;
-            var raw = m.Groups[2].Value.Trim();
-            // Skip complex values (ManiaScript arrays, vectors, etc.).
-            if (raw.Length == 0 || raw[0] == '[' || raw[0] == '<') continue;
-            result.Add(new ScriptConst { Name = name, RawValue = raw });
+            _pos = saved;
+            return false;
         }
-        return result;
+
+        var name = match.Groups[1].Value;
+        // Skip private-by-convention constants.
+        if (name.IndexOf("Private", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+
+        var raw = match.Groups[2].Value.Trim();
+        // Skip complex values (ManiaScript arrays, vectors, etc.).
+        if (raw.Length == 0 || raw[0] == '[' || raw[0] == '<') return true;
+
+        constant = new ScriptConst
+        {
+            Name = name,
+            RawValue = raw,
+            Doc = ParseDocComment(CombineDocumentation(leadingDoc, inlineDoc)),
+        };
+        return true;
     }
 
     // ── #Struct extraction ────────────────────────────────────────────────────
@@ -810,5 +854,30 @@ internal sealed class ScriptParser
             Params = paramList,
             Returns = returns,
         };
+    }
+
+    private static string? CombineDocumentation(string? leading, string? inline) =>
+        string.IsNullOrWhiteSpace(leading)
+            ? inline
+            : string.IsNullOrWhiteSpace(inline)
+                ? leading
+                : leading + "\n" + inline;
+
+    private static int FindLineCommentStart(string line)
+    {
+        var inString = false;
+        for (var index = 0; index < line.Length - 1; index++)
+        {
+            if (line[index] == '"' && (index == 0 || line[index - 1] != '\\'))
+            {
+                inString = !inString;
+            }
+            else if (!inString && line[index] == '/' && line[index + 1] == '/')
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 }

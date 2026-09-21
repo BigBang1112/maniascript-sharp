@@ -9,9 +9,10 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo;
 
-/// <summary>Return the version number of the script</summary>
+/// <summary>Helpers to sync UIs.</summary>
 public partial class UISync : ILib
 {
+    /// <summary>freezing or crashing. ///////////////////////////////////////</summary>
     public const string Version = "2013-10-28";
     public const string ScriptName = "UISync.Script.txt";
 
@@ -24,7 +25,7 @@ public partial class UISync : ILib
     public string GetScriptName() => default!;
 
     /// <summary>Checks if a given player's UI is synchronized.</summary>
-    /// <param name="Player">The player to check.</param>
+    /// <param name="_Player">The player to check.</param>
     /// <returns>True if the UI is synced, False otherwise.</returns>
     public bool IsUISync(CPlayer _Player) => default!;
 

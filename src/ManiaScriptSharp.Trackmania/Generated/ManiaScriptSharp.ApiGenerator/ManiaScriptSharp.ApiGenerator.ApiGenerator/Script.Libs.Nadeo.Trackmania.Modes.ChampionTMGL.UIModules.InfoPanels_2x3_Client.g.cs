@@ -22,7 +22,7 @@ public partial class InfoPanels_2x3_Client : ILib
     public const int C_RankingMode_BestRace = 0;
     public const int C_RankingMode_CurrentRace = 1;
     public const int C_RankingMode_MaxPoints = 2;
-    public const int C_LeaderUpdateInterval = 1000;
+    public const string C_ImagePlayersPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Champion/Players/";
 
     /// <summary>Get the module manialink</summary>
     /// <returns>The module manialink</returns>

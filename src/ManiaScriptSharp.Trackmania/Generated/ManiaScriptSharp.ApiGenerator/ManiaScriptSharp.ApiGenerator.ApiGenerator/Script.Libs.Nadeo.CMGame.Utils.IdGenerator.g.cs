@@ -32,19 +32,25 @@ public partial class IdGenerator : ILib
     }
 
     /// <summary>Create an id generator</summary>
+    /// <param name="_Format" />
+    /// <param name="_Options" />
     public K_IdGenerator New(int _Format, K_Options _Options) => default!;
 
     public K_IdGenerator New(int _Format) => default!;
 
     /// <summary>Check if an id generator is Null</summary>
+    /// <param name="_IdGenerator" />
     public bool IsNull(K_IdGenerator _IdGenerator) => default!;
 
     /// <summary>Get a unique id</summary>
+    /// <param name="_IdGenerator" />
     public K_IdGenerator GenerateId(K_IdGenerator _IdGenerator) => default!;
 
     /// <summary>Serialize the generator to save it in metadata</summary>
+    /// <param name="_IdGenerator" />
     public string Serialize(K_IdGenerator _IdGenerator) => default!;
 
     /// <summary>Restore a generator saved in metadata</summary>
+    /// <param name="_IdGenerator" />
     public K_IdGenerator Deserialize(string _IdGenerator) => default!;
 }

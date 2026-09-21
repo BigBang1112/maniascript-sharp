@@ -15,13 +15,14 @@ public partial class UIPadButtons : ILib
 
     public const string Version = "2016-01-14";
     public const string ScriptName = "UIPadButtons.Script.txt";
+    public const string C_DefaultBaseDir = "file://Media/Manialinks/Common/PadButtons/";
     public const int C_DefaultPlatform = 2;
     public const string C_DefaultButtonsFolder = "Default/";
     public const string C_DefaultButtonsFormat = ".dds";
     public const string C_DefaultButtonName = "Default";
 
     /// <summary>Get platform index from name</summary>
-    /// <param name="Platform">Name of the platform</param>
+    /// <param name="_Platform">Name of the platform</param>
     /// <returns>Platform index if found, default platform index otherwise</returns>
     public int GetPlatform(string _Platform) => default!;
 
@@ -30,27 +31,28 @@ public partial class UIPadButtons : ILib
     public int GetPlatform() => default!;
 
     /// <summary>Get platform name from index</summary>
-    /// <param name="PlatformIndex">Index of the platform</param>
+    /// <param name="_PlatformIndex">Index of the platform</param>
     /// <returns>Platform name if found, default platform name otherwise</returns>
     public string GetPlatformName(int _PlatformIndex) => default!;
 
     /// <summary>Get the folder stocking the images for the given platform</summary>
-    /// <param name="Platform">The platform to get</param>
+    /// <param name="_Platform">The platform to get</param>
     /// <returns>The folder</returns>
     public string GetPlatformFolder(int _Platform) => default!;
 
     /// <summary>Get the platform index associated to the given system</summary>
-    /// <param name="System">The system to check</param>
+    /// <param name="_System">The system to check</param>
     /// <returns>The platform index of the given system</returns>
     public int GetPlatformIndexFromSystem(string _System) => default!;
 
     /// <summary>Get the path of the image associated to the given named button</summary>
-    /// <param name="Platform">The platform used</param>
-    /// <param name="Button">The button to find</param>
+    /// <param name="_Platform">The platform used</param>
+    /// <param name="_Button">The button to find</param>
     /// <returns>The path to the image associated to the button</returns>
     public string GetImage(int _Platform, string _Button) => default!;
 
     /// <summary>Overload GetImage()</summary>
+    /// <param name="_Button" />
     public string GetImage(string _Button) => default!;
 
     public string GetAlternateImage(string _Button) => default!;

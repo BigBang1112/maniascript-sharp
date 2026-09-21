@@ -9,7 +9,6 @@ using ManiaScriptSharp;
 
 namespace ManiaScriptSharp.Scripts.Libs.Nadeo.ShootMania;
 
-/// <summary>Return the version number of the script</summary>
 public partial class LobbyMelee : ILib
 {
     public global::ManiaScriptSharp.Scripts.Libs.Nadeo.Mode Mode;
@@ -24,6 +23,7 @@ public partial class LobbyMelee : ILib
     public const string ScriptName = "LobbyMelee.Script.txt";
     public const int C_NbBots = 0;
     public const bool C_NoShootDuringMatchmaking = false;
+    /// <summary>ENUMS</summary>
     public const int C_PHASE_Playing = 0;
     public const int C_PHASE_MatchMaking = 1;
 

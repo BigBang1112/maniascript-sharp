@@ -17,7 +17,7 @@ public partial class InGame_Server : ILib
     public const string C_Id = "UIModules_HotSeat_InGame";
 
     /// <summary>Force (in the UI) the energy value of the current player (to update it without refreshing the full player list)</summary>
-    /// <param name="EnergyAmount">use -1 to reset</param>
+    /// <param name="_EnergyAmount">use -1 to reset</param>
     public void ForcePlayerEnergyAmount(int _EnergyAmount) { }
 
     /// <summary>Init players' UI (will reset the forced energy value)</summary>
@@ -29,7 +29,7 @@ public partial class InGame_Server : ILib
     public void SetMaxEnergyAmount(int _MaxEnergyAmount) { }
 
     /// <summary>Inform the UI of the current player racing state</summary>
-    /// <param name="PlayerStarted">True if the player is racing (and consuming energy), else False</param>
+    /// <param name="_PlayerStarted">True if the player is racing (and consuming energy), else False</param>
     public void SetPlayerStarted(bool _PlayerStarted) { }
 
     /// <summary>Unload the library</summary>

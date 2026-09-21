@@ -21,18 +21,23 @@ public partial class ClubName : ILib
     public const string C_Name = "component-cmgame-club-name";
     public const string P = "CMGame_ClubName::";
     public const string Q = "CMGame_ClubName";
+    /// <summary>Debug values</summary>
     public const bool C_Debug_EnableLongName = false;
     public const string C_Debug_LongName_Name = "WWWWWWWWWWWWWWWWWWWWI";
+    /// <summary>Events</summary>
     public const int C_EventType_Null = 0;
     public const int C_EventType_WidthUpdate = 1;
+    /// <summary>Animations</summary>
     public const int C_Anim_Null = -1;
     public const int C_Anim_Instant = 0;
+    /// <summary>Control ids and classes</summary>
     public const string C_Class_ClubName = "cmgame-club-name_club-name";
     public const string C_Id_FrameAlign = "cmgame-club-name_frame-align";
     public const string C_Id_FrameVerifiedIcon = "cmgame-club-name_frame-verified-icon";
     public const string C_Id_LabelName = "cmgame-club-name_label-name";
     public const string C_Id_QuadVerifiedIcon = "cmgame-club-quad-verified-icon";
     public const string C_Id_QuadVerifiedIconShadow = "cmgame-club-quad-verified-icon-shadow";
+    /// <summary>Properties</summary>
     public const int C_Property_Size = 1;
     public const int C_Property_HAlign = 2;
     public const int C_Property_VAlign = 3;
@@ -43,6 +48,7 @@ public partial class ClubName : ILib
     public const int C_Property_TextPrefix = 8;
     public const int C_Property_TextColor = 9;
     public const int C_Property_TextCompose = 10;
+    /// <summary>Default values</summary>
     public const double C_NameTextSizeMin = 0.1;
     public const double C_MarginBetweenNameAndLogo = 1.0;
     public const bool C_EnableRecommandedWidthWarning = true;
@@ -100,5 +106,7 @@ public partial class ClubName : ILib
     public string ComponentV2() => default!;
 
     /// <summary>Create a club info object from the given parameters</summary>
+    /// <param name="_Name" />
+    /// <param name="_IsVerified" />
     public K_ClubInfo GetClubInfo(string _Name, bool _IsVerified) => default!;
 }

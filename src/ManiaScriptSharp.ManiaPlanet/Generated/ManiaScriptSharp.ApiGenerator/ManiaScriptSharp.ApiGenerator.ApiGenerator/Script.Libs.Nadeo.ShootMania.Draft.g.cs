@@ -15,8 +15,11 @@ public partial class Draft : ILib
 
     public const string Version = "2012-12-17";
     public const string ScriptName = "Draft.Script.txt";
+    /// <summary>Maximum number of items on one page (PlayerList and MapList)</summary>
     public const int C_ItemsByPage = 9;
+    /// <summary>Time before automatically selecting a map to ban</summary>
     public const int C_MapSelectionDuration = 30000;
+    /// <summary>Duration of the display of the selected maps</summary>
     public const int C_MapDisplayDuration = 7000;
 
     /// <summary>Return the version number of the script</summary>
@@ -34,11 +37,11 @@ public partial class Draft : ILib
     public void EndServer() { }
 
     /// <summary>Add the draft layer to a player UI</summary>
-    /// <param name="Player">The player who'll receive the layer</param>
+    /// <param name="_Player">The player who'll receive the layer</param>
     public void AttachLayerDraft(CSmPlayer _Player) { }
 
     /// <summary>Remove the draft layer from a player</summary>
-    /// <param name="Player">The player who'll loose the layer</param>
+    /// <param name="_Player">The player who'll loose the layer</param>
     public void DetachLayerDraft(CSmPlayer _Player) { }
 
     /// <summary>Get the current playlist</summary>
@@ -46,13 +49,13 @@ public partial class Draft : ILib
     public global::System.Collections.Generic.Dictionary<int, Ident> GetPlaylist() => default!;
 
     /// <summary>Get the n map in the playlist</summary>
-    /// <param name="MapNb">The order of the map to find</param>
+    /// <param name="_MapNb">The order of the map to find</param>
     /// <returns>The index of the requested map, -1 if this map doesn't exist</returns>
     public int GetMapIndex(int _MapNb) => default!;
 
     /// <summary>Get the MapSelection interface</summary>
-    /// <param name="BanNb">Number of map to ban</param>
-    /// <param name="PickNb">Number of map to pick</param>
+    /// <param name="_BanNb">Number of map to ban</param>
+    /// <param name="_PickNb">Number of map to pick</param>
     /// <returns>The MapSelection manialink interface</returns>
     public string CreateLayerMapSelection(int _BanNb, int _PickNb) => default!;
 
@@ -60,20 +63,20 @@ public partial class Draft : ILib
     public void UpdateTeam() { }
 
     /// <summary>Small MapSelection layer update</summary>
-    /// <param name="Player">The player to update</param>
-    /// <param name="Valid">The index of the most selected map</param>
-    /// <param name="Multi">The index of all the selected maps</param>
-    /// <param name="Page">The number of the page to display</param>
+    /// <param name="_Player">The player to update</param>
+    /// <param name="_Valid">The index of the most selected map</param>
+    /// <param name="_Multi">The index of all the selected maps</param>
+    /// <param name="_Page">The number of the page to display</param>
     public void UpdateLayerMapSelection(CSmPlayer _Player, int _Valid, global::System.Collections.Generic.Dictionary<string, int> _Multi, int _Page) { }
 
     /// <summary>Update the DisplayMap layer</summary>
-    /// <param name="Player">The player to udpate</param>
-    /// <param name="MapsName">The name of the maps</param>
+    /// <param name="_Player">The player to udpate</param>
+    /// <param name="_MapsName">The name of the maps</param>
     public void UpdateLayerDisplayMap(CSmPlayer _Player, global::System.Collections.Generic.Dictionary<int, string> _MapsName) { }
 
     /// <summary>Launch the map selection sequence</summary>
-    /// <param name="BanNb">Number of map to ban</param>
-    /// <param name="PickNb">Number of map to pick</param>
-    /// <param name="ClanNb">First clan to vote</param>
+    /// <param name="_BanNb">Number of map to ban</param>
+    /// <param name="_PickNb">Number of map to pick</param>
+    /// <param name="_ClanNb">First clan to vote</param>
     public void MapSelection(int _BanNb, int _PickNb, int _ClanNb) { }
 }

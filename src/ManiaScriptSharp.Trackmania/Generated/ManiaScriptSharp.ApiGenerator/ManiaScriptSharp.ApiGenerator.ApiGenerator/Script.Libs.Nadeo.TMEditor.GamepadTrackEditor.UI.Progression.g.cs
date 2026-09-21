@@ -19,6 +19,7 @@ public partial class Progression : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Progression.Script.txt";
+    /// <summary>Steps index</summary>
     public const int C_Step_Landscape = 0;
     public const int C_Step_Start = 1;
     public const int C_Step_Track = 2;
@@ -50,15 +51,18 @@ public partial class Progression : ILib
     public int Step_Complete() => default!;
 
     /// <summary>Select the current step</summary>
+    /// <param name="_Step" />
     public void SetStep(int _Step) { }
 
     /// <summary>Set the position of the UI</summary>
+    /// <param name="_Position" />
     public void SetPosition(Vec2 _Position) { }
 
     /// <summary>Check if the simple menu is visible</summary>
     public bool LayerIsVisible() => default!;
 
     /// <summary>Set the progession visibility</summary>
+    /// <param name="_Visible" />
     public void SetVisibility(bool _Visible) { }
 
     public float GetSizeX() => default!;

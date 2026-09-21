@@ -17,7 +17,7 @@ public partial class PauseMenuSplitScreen_Server : ILib
     public const string C_Id = "UIModule_SplitScreen_PauseMenu";
 
     /// <summary>Show or hide the UI False to hide</summary>
-    /// <param name="Display">True to show</param>
+    /// <param name="_Display">True to show</param>
     public void SetVisibility(bool _Display) { }
 
     /// <summary>Unload the library</summary>

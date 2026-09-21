@@ -24,8 +24,11 @@ public partial class WelcomePopUp_Client : ILib
     public const string C_Id = "UIModule_ChampionOGL_WelcomePopUp";
     public const string C_PopUpName = "WelcomePopUp";
     public const string C_NavGroupName = "navgroup-welcomepopup";
+    public const string C_ImgPath = "file://Media/Manialinks/Nadeo/Trackmania/Modes/OGL";
     public const string C_Img_PointsRankBg = "/UI_OGL_Line_Points_Rank.dds";
     public const string C_Img_PointsNumberBg = "/UI_OGL_Line_Points_Number.dds";
+    public const string C_Img_PopUpHeader = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scorestable_header.dds";
+    public const string C_Img_PopUpBg = "file://Media/Manialinks/Nadeo/Trackmania/Modes/Race/HUD_scorestable_body.dds";
 
     /// <summary>Get the module manialink</summary>
     /// <returns>The module manialink</returns>

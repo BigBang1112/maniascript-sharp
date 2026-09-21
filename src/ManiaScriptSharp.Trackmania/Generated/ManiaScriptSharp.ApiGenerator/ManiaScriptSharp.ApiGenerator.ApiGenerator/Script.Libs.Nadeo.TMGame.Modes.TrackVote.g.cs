@@ -18,10 +18,12 @@ public partial class TrackVote : ILib
 
     public const string Version = "1.0.0";
     public const string ScriptName = "Libs/Nadeo/TMGame/Modes/TrackVote.Script.txt";
+    /// <summary>Thumb icons</summary>
     public const string C_Icon_ThumbUp_Empty = "";
     public const string C_Icon_ThumbUp_Full = "";
     public const string C_Icon_ThumbDown_Empty = "";
     public const string C_Icon_ThumbDown_Full = "";
+    /// <summary>Voting values from the API</summary>
     public const int C_VoteAPI_Dislike = -1;
     public const int C_VoteAPI_NoVote = 0;
     public const int C_VoteAPI_Like = 1;

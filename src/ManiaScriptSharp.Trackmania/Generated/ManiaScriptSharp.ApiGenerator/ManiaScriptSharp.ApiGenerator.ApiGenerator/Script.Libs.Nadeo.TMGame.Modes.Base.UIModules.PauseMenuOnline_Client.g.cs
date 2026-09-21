@@ -93,11 +93,6 @@ public partial class PauseMenuOnline_Client : ILib
     public const int C_Choice_Cancel = 0;
     public const int C_Choice_Leave = 1;
     public const int C_Choice_Spectate = 1;
-    public const int C_Ask_Restart = 0;
-    public const int C_Ask_NextMap = 1;
-    public const int C_Ask_SetNextMap = 2;
-    public const int C_Ask_JumpMap = 3;
-    public const int C_Ask_BalanceTeams = 4;
 
     public struct K_UI_MainMenu
     {

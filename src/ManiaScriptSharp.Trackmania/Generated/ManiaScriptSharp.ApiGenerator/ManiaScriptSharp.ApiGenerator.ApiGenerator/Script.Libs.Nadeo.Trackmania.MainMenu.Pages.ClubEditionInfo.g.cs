@@ -29,11 +29,6 @@ public partial class ClubEditionInfo : ILib
     public const string ScriptName = "Libs/Nadeo/Trackmania/MainMenu/Pages/ClubEditionInfo.Script.txt";
     public const string C_Name = "Page_ClubEditionInfo";
     public const string C_NavGroupName = "navgroup-page-clubeditioninfo";
-    public const string C_SubscriptionName_Standard = "Standard";
-    public const string C_SubscriptionName_Club = "Club";
-    public const int C_Starter = 0;
-    public const int C_Standard = 1;
-    public const int C_Club = 3;
 
     public struct K_Controls
     {
