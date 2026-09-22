@@ -2258,3 +2258,10 @@ log(Score);
 ## Conclusion
 
 This project does not replace ManiaScript, nor text editor extensions that support ManiaScript. This is just an alternative way to be more productive in ManiaScript by using a language that you prefer more, which some may not agree with, and that is understandable. For code generation and unit testing though, this may not be the worst project. Just note that unit testing is just a theory that wasn't yet implemented.
+
+## License
+
+ManiaScriptSharp source code is MIT licensed. The `ManiaScriptSharp.ManiaPlanet`,
+`ManiaScriptSharp.ManiaPlanet3`, and `ManiaScriptSharp.Trackmania` packages also
+include ManiaScript `.Script.txt` files licensed under LGPL-3.0-only; their NuGet
+package metadata declares `MIT AND LGPL-3.0-only`.
