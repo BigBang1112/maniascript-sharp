@@ -1091,6 +1091,7 @@ declare SortedList = MyList.sort();
 |---|---|
 | `.Count` | `.count` |
 | `.Add(value)` | `.add(value)` |
+| `.AddRange(values)` | `foreach (AddRangeItem in values) { list.add(AddRangeItem); }` |
 | `.Insert(0, value)` | `.addfirst(value)` |
 | `.RemoveAt(index)` | `.removekey(index)` |
 | `.Remove(value)` | `.remove(value)` |

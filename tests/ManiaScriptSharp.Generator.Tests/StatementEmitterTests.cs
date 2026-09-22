@@ -105,6 +105,20 @@ public class StatementEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_ListAddRange_AsForeach()
+    {
+        var output = TranslateStmt(
+            "target.AddRange(source);",
+            "System.Collections.Generic.List<int> target; System.Collections.Generic.List<int> source;");
+
+        Assert.Equal(
+            "foreach (AddRangeItem in G_Source) {\n" +
+            "    G_Target.add(AddRangeItem);\n" +
+            "}",
+            output);
+    }
+
+    [Fact]
     public void Emit_ExprStatement_ChainedAssignmentReportsErrorAndIsNotEmitted()
     {
         var (output, diagnostics) = TranslateStmtWithDiagnostics("x = y = 1;", "int x; int y;");

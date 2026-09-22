@@ -48,6 +48,8 @@ internal sealed class StatementEmitter
                     break;
                 if (es.Expression is InvocationExpressionSyntax onChangeInv && TryEmitOnChange(onChangeInv))
                     break;
+                if (es.Expression is InvocationExpressionSyntax addRangeInv && TryEmitAddRange(addRangeInv))
+                    break;
                 // Skip event subscription statements — consumed by EventCollector → event loop.
                 if (IsEventSubscription(es.Expression))
                     break;
@@ -163,6 +165,31 @@ internal sealed class StatementEmitter
             return false;
 
         return _ctx.IsLabelMethod(_ctx.Model.GetSymbolInfo(invocation).Symbol as IMethodSymbol);
+    }
+
+    private bool TryEmitAddRange(InvocationExpressionSyntax invocation)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess) return false;
+        if (_ctx.Model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol
+            {
+                Name: "AddRange",
+                ContainingType: { } containingType
+            } method)
+            return false;
+        if (containingType.OriginalDefinition.ToDisplayString() != "System.Collections.Generic.List<T>")
+            return false;
+        if (invocation.ArgumentList.Arguments.Count != 1) return false;
+
+        var target = _expr.Translate(memberAccess.Expression);
+        var source = _expr.Translate(invocation.ArgumentList.Arguments[0].Expression);
+        const string item = "AddRangeItem";
+
+        _ctx.W.Line($"foreach ({item} in {source}) {{");
+        _ctx.W.Push();
+        _ctx.W.Line($"{target}.add({item});");
+        _ctx.W.Pop();
+        _ctx.W.Line("}");
+        return true;
     }
 
     private void EmitLocalDecl(LocalDeclarationStatementSyntax local)
