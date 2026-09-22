@@ -37,10 +37,28 @@ public class StatementEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_Continue()
+    public void Emit_ContinueInConditionalWhile_ReportsWarning()
     {
-        var output = TranslateStmt("while (true) { continue; }");
+        var (output, diagnostics) = TranslateStmtWithDiagnostics("while (isReady) { continue; }", "bool isReady;");
         Assert.Contains("continue;", output);
+        Assert.Contains(diagnostics, d => d.Id == "MSS020"
+            && d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Warning);
+    }
+
+    [Fact]
+    public void Emit_ContinueInTrueWhile_DoesNotReportWarning()
+    {
+        var (_, diagnostics) = TranslateStmtWithDiagnostics("while (true) { continue; }");
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "MSS020");
+    }
+
+    [Fact]
+    public void Emit_ContinueInForeachInsideWhile_DoesNotReportWarning()
+    {
+        var (_, diagnostics) = TranslateStmtWithDiagnostics("while (true) { foreach (var item in items) { continue; } }", "int[] items = []; ");
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "MSS020");
     }
 
     // ────────── Throw statements ──────────

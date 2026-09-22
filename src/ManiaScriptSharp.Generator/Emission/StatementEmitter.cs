@@ -108,7 +108,11 @@ internal sealed class StatementEmitter
 
             case WhileStatementSyntax ws:
                 _ctx.W.Line($"while ({_expr.Translate(ws.Condition)}) {{");
-                _ctx.W.Push(); EmitInline(ws.Statement); _ctx.W.Pop();
+                _ctx.W.Push();
+                _ctx.PushContinueLoopTarget(isWhile: !ws.Condition.IsKind(SyntaxKind.TrueLiteralExpression));
+                EmitInline(ws.Statement);
+                _ctx.PopContinueLoopTarget();
+                _ctx.W.Pop();
                 _ctx.W.Line("}");
                 break;
 
@@ -129,7 +133,11 @@ internal sealed class StatementEmitter
                 break;
 
             case BreakStatementSyntax: _ctx.W.Line("break;"); break;
-            case ContinueStatementSyntax: _ctx.W.Line("continue;"); break;
+            case ContinueStatementSyntax:
+                if (_ctx.ContinueTargetsWhile)
+                    _ctx.Report(Diagnostics.ContinueInWhile, stmt.GetLocation());
+                _ctx.W.Line("continue;");
+                break;
             case EmptyStatementSyntax: break;
 
             case ThrowStatementSyntax ts:
@@ -509,7 +517,9 @@ internal sealed class StatementEmitter
             // Force the loop variable to "Event" so the injected switch can reference Event.Type etc.
             _ctx.W.Line($"foreach (Event in {_expr.Translate(fes.Expression)}) {{");
             _ctx.W.Push();
+            _ctx.PushContinueLoopTarget(isWhile: false);
             EmitInline(fes.Statement);
+            _ctx.PopContinueLoopTarget();
             _ctx.EventLoopInjector();
             _ctx.EventLoopWasInjected = true;
             _ctx.W.Pop();
@@ -521,7 +531,11 @@ internal sealed class StatementEmitter
 
         var name = NameMangler.Local(fes.Identifier.Text);
         _ctx.W.Line($"foreach ({name} in {_expr.Translate(fes.Expression)}) {{");
-        _ctx.W.Push(); EmitInline(fes.Statement); _ctx.W.Pop();
+        _ctx.W.Push();
+        _ctx.PushContinueLoopTarget(isWhile: false);
+        EmitInline(fes.Statement);
+        _ctx.PopContinueLoopTarget();
+        _ctx.W.Pop();
         _ctx.W.Line("}");
     }
 
@@ -544,7 +558,11 @@ internal sealed class StatementEmitter
             var valName = isKeys ? loopName + "Value" : loopName;
 
             _ctx.W.Line($"foreach ({keyName} => {valName} in {_expr.Translate(ma.Expression)}) {{");
-            _ctx.W.Push(); EmitInline(fes.Statement); _ctx.W.Pop();
+            _ctx.W.Push();
+            _ctx.PushContinueLoopTarget(isWhile: false);
+            EmitInline(fes.Statement);
+            _ctx.PopContinueLoopTarget();
+            _ctx.W.Pop();
             _ctx.W.Line("}");
             return true;
         }
@@ -568,7 +586,11 @@ internal sealed class StatementEmitter
 
             _ctx.DictPairLocals[pairName] = (keyName, valName);
             _ctx.W.Line($"foreach ({keyName} => {valName} in {_expr.Translate(fes.Expression)}) {{");
-            _ctx.W.Push(); EmitInline(fes.Statement); _ctx.W.Pop();
+            _ctx.W.Push();
+            _ctx.PushContinueLoopTarget(isWhile: false);
+            EmitInline(fes.Statement);
+            _ctx.PopContinueLoopTarget();
+            _ctx.W.Pop();
             _ctx.W.Line("}");
             _ctx.DictPairLocals.Remove(pairName);
             return true;
@@ -701,7 +723,9 @@ internal sealed class StatementEmitter
                 _ctx.W.Line($"declare Integer {keyName} = 0;");
                 _ctx.W.Line($"foreach ({valName} in {_expr.Translate(indexSource)}) {{");
                 _ctx.W.Push();
+                _ctx.PushContinueLoopTarget(isWhile: false);
                 EmitInline(fev.Statement);
+                _ctx.PopContinueLoopTarget();
                 _ctx.W.Line($"{keyName} += 1;");
                 _ctx.W.Pop();
                 _ctx.W.Line("}");
@@ -710,7 +734,11 @@ internal sealed class StatementEmitter
 
             // foreach (var (i, x) in arr) → foreach (I => X in arr), using the array's native key.
             _ctx.W.Line($"foreach ({keyName} => {valName} in {_expr.Translate(fev.Expression)}) {{");
-            _ctx.W.Push(); EmitInline(fev.Statement); _ctx.W.Pop();
+            _ctx.W.Push();
+            _ctx.PushContinueLoopTarget(isWhile: false);
+            EmitInline(fev.Statement);
+            _ctx.PopContinueLoopTarget();
+            _ctx.W.Pop();
             _ctx.W.Line("}");
             return;
         }
@@ -743,7 +771,11 @@ internal sealed class StatementEmitter
         {
             var stepSuffix = step is null ? "" : $", {step}";
             _ctx.W.Line($"for ({name}, {lo}, {hi}{stepSuffix}) {{");
-            _ctx.W.Push(); EmitInline(fs.Statement); _ctx.W.Pop();
+            _ctx.W.Push();
+            _ctx.PushContinueLoopTarget(isWhile: false);
+            EmitInline(fs.Statement);
+            _ctx.PopContinueLoopTarget();
+            _ctx.W.Pop();
             _ctx.W.Line("}");
             return;
         }
@@ -769,7 +801,9 @@ internal sealed class StatementEmitter
         }
         _ctx.W.Line($"while ({(fs.Condition is null ? "True" : _expr.Translate(fs.Condition))}) {{");
         _ctx.W.Push();
+        _ctx.PushContinueLoopTarget(isWhile: true);
         EmitInline(fs.Statement);
+        _ctx.PopContinueLoopTarget();
         foreach (var inc in fs.Incrementors)
             _ctx.W.Line(_expr.Translate(inc) + ";");
         _ctx.W.Pop();

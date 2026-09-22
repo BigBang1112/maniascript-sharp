@@ -155,4 +155,12 @@ internal static class Diagnostics
         category: "ManiaScriptSharp",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor ContinueInWhile = new(
+        id: "MSS020",
+        title: "Continue in while loop",
+        messageFormat: "'continue' targets a while loop. Due to a ManiaScript bug, this skips the loop condition check; use conditional control flow or a for/foreach loop instead.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
 }

@@ -53,9 +53,18 @@ internal sealed class EmitContext
 
     /// <summary>
     /// When <c>true</c>, <see cref="StatementEmitter"/> translates a bare <c>return;</c> as <c>continue;</c>.
-    /// Set while emitting the body of <c>Loop()</c> so that early-exit skips the rest of the iteration.
+    /// Set while emitting <c>Loop()</c> inside the generated unconditional <c>while (True)</c> loop.
     /// </summary>
     public bool ReturnIsContinue { get; set; }
+
+    private readonly Stack<bool> _continueLoopTargets = [];
+
+    /// <summary>Whether a currently emitted <c>continue</c> targets a ManiaScript <c>while</c> loop.</summary>
+    public bool ContinueTargetsWhile => _continueLoopTargets.Count > 0 && _continueLoopTargets.Peek();
+
+    public void PushContinueLoopTarget(bool isWhile) => _continueLoopTargets.Push(isWhile);
+
+    public void PopContinueLoopTarget() => _continueLoopTargets.Pop();
 
     /// <summary>
     /// Maps C# out-var local names (as declared in <c>Persistent/Local/Metadata/Netwrite/Netread&lt;T&gt;.For()</c>)

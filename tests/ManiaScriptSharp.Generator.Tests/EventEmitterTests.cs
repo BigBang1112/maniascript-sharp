@@ -353,7 +353,7 @@ class MyControl {
         Assert.True(anyIdx < controlIdx, "Class-level typed handler must precede switch(Event.Control)");
     }
 
-    // ────────── return in Loop() → break ──────────
+    // ────────── return in Loop() ──────────
 
     [Fact]
     public void EmitMain_ReturnInLoop_EmitsContinue()

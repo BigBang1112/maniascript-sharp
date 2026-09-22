@@ -660,6 +660,8 @@ switchtype (Control) {
 
 ### While loop
 
+> Warning: ManiaScript has a bug where `continue` skips a `while` loop's condition check. The generator reports `MSS020` when a C# `continue` targets a translated `while` with a condition other than literal `true`; use conditional control flow or a `for`/`foreach` loop instead. The generated `Loop()` wrapper is one such unconditional-loop case.
+
 **C#**
 ```cs
 int itemCount = 10;
@@ -2243,7 +2245,7 @@ log(Score);
 | `foreach (x in list)` | `foreach (X in List)` |
 | `foreach` with index | `foreach (Key => Val in Array)` |
 | `break` | `break;` |
-| `continue` | `continue;` |
+| `continue` | `continue;` (warning `MSS020` when it targets `while`) |
 | LINQ chain (`Where`/`Select`/...) | Desugared `foreach` loop (see [LINQ Queries](#linq-queries)) |
 | Collection expression `[1, 2, 3]` | `[1, 2, 3]` |
 | Named argument `f(x: 1)` | `f(/* x: */ 1)` |
