@@ -447,6 +447,7 @@ internal sealed class ExpressionEmitter
             "Add" => $"{recv}.add({a})",
             "Insert" when args.Arguments.Count == 2 => $"{recv}.addfirst({Translate(args.Arguments[1].Expression)})",
             "RemoveAt" => $"{recv}.removekey({a})",
+            "Remove" when IsDictionaryType(m.ContainingType) => $"{recv}.removekey({a})",
             "Remove" => $"{recv}.remove({a})",
             "Clear" => $"{recv}.clear()",
             "Contains" => $"{recv}.exists({a})",
