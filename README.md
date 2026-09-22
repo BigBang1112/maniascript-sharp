@@ -1127,6 +1127,7 @@ declare Pi = Scores["Pi"];
 
 | C# | ManiaScript |
 |---|---|
+| `.Count` | `.count` |
 | `.Remove(key)` | `.removekey(key)` |
 
 `TryGetValue` (in an `if`/`if (!...)` condition) is translated using `.existskey()` plus an indexer read, since ManiaScript has no out-parameter equivalent:

@@ -300,7 +300,8 @@ internal sealed class ExpressionEmitter
             return $"TextLib::Length({lhs})";
 
         // List/dictionary property mapping.
-        if (memberSym is IPropertySymbol prop && prop.Name == "Count" && IsListLikeType(prop.ContainingType))
+        if (memberSym is IPropertySymbol prop && prop.Name == "Count"
+            && (IsListLikeType(prop.ContainingType) || IsDictionaryType(prop.ContainingType)))
             return $"{lhs}.count";
 
         // User-defined property read → getter call, e.g. `obj.Score` → `obj::GetScore()`.
