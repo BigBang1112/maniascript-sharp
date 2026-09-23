@@ -499,8 +499,7 @@ while (ItemCount > 0) {
 ```
 
 > [!WARNING]
-> In a `while` loop, `continue;` advances to the next iteration without reevaluating the
-> loop condition. Use an `if` guard around the remaining loop body instead.
+> In a `while` loop, a bug exists where `continue;` advances to the next iteration without reevaluating the loop condition. Use an `if` guard around the remaining loop body instead.
 
 ### For
 
@@ -516,6 +515,10 @@ for (I, Players.count - 1, 0, -1) {
     log(Players[I].Login);
 }
 ```
+
+> [!WARNING]
+> ManiaPlanet 4 ignores the optional fourth step parameter. This is fixed in the latest
+> Trackmania, where custom and negative steps work as expected.
 
 ### Foreach
 
