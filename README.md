@@ -344,6 +344,29 @@ const bool EnableDebug = false;
 #Const C_EnableDebug False
 ```
 
+### User-defined enums
+
+C# enums declared by your script are emitted as integer constants. Implicit values follow
+C# numbering, and explicit values are preserved.
+
+**C#**
+```cs
+enum Phase { Idle, Running = 5, Done }
+Phase phase = Phase.Done;
+```
+**ManiaScript**
+```
+#Const C_Phase_Idle 0
+#Const C_Phase_Running 5
+#Const C_Phase_Done 6
+declare Integer G_Phase;
+G_Phase = C_Phase_Done;
+```
+
+Constants include the namespace and containing type names when present, so enum members
+with the same name remain distinct. API enums supplied by the game keep their native
+ManiaScript enum names.
+
 ---
 
 ## Settings
@@ -2234,6 +2257,8 @@ log(Score);
 | `Main()` method | Code before `while` loop in `main()` |
 | `IContext.Loop()` method | Code inside `while` loop |
 | `const` field | `#Const C_Name` |
+| User-defined `enum` | `Integer` and `#Const C_Enum_Member Value` |
+| Game API `enum` | Native ManiaScript enum |
 | `[Setting]` attribute | `#Setting S_Name` |
 | `[Command("Name", typeof(T))]` | `#Command Name (T)` |
 | field | `declare G_Name` (global; public fields warn with `MSS016`) |
@@ -2249,7 +2274,7 @@ log(Score);
 | `IList<T>` / `List<T>` | `T[]` list |
 | `Dictionary<K,V>` | `V[K]` associative array |
 | Namespace path | File path for `#Extends` |
-| `.` member access on enums/classes | `::` in ManiaScript |
+| `.` member access on game API enums/classes | `::` in ManiaScript |
 | `true` / `false` | `True` / `False` |
 | `null` | `Null` |
 | `is` type check | `is` / `switchtype` |

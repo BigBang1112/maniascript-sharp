@@ -51,7 +51,8 @@ internal static class SymbolHelper
         string name = "",
         TypeKind typeKind = TypeKind.Class,
         INamedTypeSymbol? containingType = null,
-        IEnumerable<INamedTypeSymbol>? allInterfaces = null)
+        IEnumerable<INamedTypeSymbol>? allInterfaces = null,
+        string? assemblyName = null)
     {
         var type = Substitute.For<INamedTypeSymbol>();
         type.SpecialType.Returns(specialType);
@@ -60,6 +61,12 @@ internal static class SymbolHelper
         type.TypeKind.Returns(typeKind);
         type.ContainingType.Returns(containingType);
         type.AllInterfaces.Returns(allInterfaces?.ToImmutableArray() ?? ImmutableArray<INamedTypeSymbol>.Empty);
+        if (assemblyName is not null)
+        {
+            var assembly = Substitute.For<IAssemblySymbol>();
+            assembly.Name.Returns(assemblyName);
+            type.ContainingAssembly.Returns(assembly);
+        }
         return type;
     }
 

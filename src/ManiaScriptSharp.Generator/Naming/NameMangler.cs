@@ -22,6 +22,17 @@ internal static class NameMangler
 
     public static string Const(IFieldSymbol f) => "C_" + PascalCase(f.Name);
 
+    /// <summary>Names a lowered enum member without colliding with another enum's members.</summary>
+    public static string EnumConst(IFieldSymbol f)
+    {
+        var parts = new Stack<string>();
+        for (var type = f.ContainingType; type is not null; type = type.ContainingType)
+            parts.Push(PascalCase(type.Name));
+        for (var ns = f.ContainingNamespace; ns is { IsGlobalNamespace: false }; ns = ns.ContainingNamespace)
+            parts.Push(PascalCase(ns.Name));
+        return "C_" + string.Join("_", parts) + "_" + PascalCase(f.Name);
+    }
+
     public static string Setting(IFieldSymbol f) => "S_" + PascalCase(f.Name);
 
     public static string Net(IFieldSymbol f) => "Net_" + PascalCase(f.Name);

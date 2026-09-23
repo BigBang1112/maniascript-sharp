@@ -737,27 +737,41 @@ public class ExpressionEmitterTests : EmitterTestBase
         Assert.DoesNotContain(diagnostics, d => d.Id == "MSS010");
     }
 
-    // ────────── Enums nested directly in the context class ──────────
+    // ────────── User-defined enums ──────────
 
     [Fact]
-    public void Translate_EnumNestedInContextClass_UsesLeadingDoubleColon()
+    public void Translate_EnumNestedInContextClass_UsesGeneratedConst()
     {
-        // MyState has no ManiaScript struct to be qualified by (the class IS the script),
-        // so it's referenced as a script-local enum: `::MyState::Running`, not `Test::MyState::Running`.
         var (output, _) = TranslateExprWithDiagnostics(
             "MyState.Running",
             "enum MyState { Idle, Running } public void Main() { } public void Loop() { }",
             ": IContext");
-        Assert.Equal("::MyState::Running", output);
+        Assert.Equal("C_Test_MyState_Running", output);
     }
 
     [Fact]
-    public void Translate_EnumNestedInOtherType_KeepsContainingTypeName()
+    public void Translate_EnumNestedInOtherType_UsesGeneratedConst()
     {
         var output = TranslateExpr(
             "CFoo.Color.Red",
             "public class CFoo { public enum Color { Red, Green } }");
-        Assert.Equal("CFoo::Color::Red", output);
+        Assert.Equal("C_Test_CFoo_Color_Red", output);
+    }
+
+    [Fact]
+    public void Translate_UserEnumCasts_AreIntegerNoOps()
+    {
+        const string members = "enum State { Ready = 2 }";
+        Assert.Equal("C_Test_State_Ready", TranslateExpr("(int)State.Ready", members));
+        Assert.Equal("2", TranslateExpr("(State)2", members));
+    }
+
+    [Fact]
+    public void Translate_UserEnumDefaults_AreZero()
+    {
+        const string members = "enum State { Ready = 2 }";
+        Assert.Equal("0", TranslateExpr("default(State)", members));
+        Assert.Equal("declare Integer State = 0;", TranslateStmt("State state = default;", members));
     }
 }
 

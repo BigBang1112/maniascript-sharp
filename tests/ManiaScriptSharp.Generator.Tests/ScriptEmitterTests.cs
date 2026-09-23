@@ -6,6 +6,170 @@ namespace ManiaScriptSharp.Generator.Tests;
 public class ScriptEmitterTests : EmitterTestBase
 {
     [Fact]
+    public void Emit_UserEnums_AsIntegerConstants()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public enum Phase { Idle, Running = 5, Done, Alias = Running }
+
+            public class EnumContext : IContext
+            {
+                private enum Choice : byte { No = 2, Yes }
+                private Phase phase = Phase.Running;
+                private Choice choice = Choice.Yes;
+
+                public void Main()
+                {
+                    Phase next = Phase.Done;
+                    if (next == Phase.Alias) choice = Choice.No;
+                }
+
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "EnumContext");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Const C_EnumContext_Choice_No 2", output);
+        Assert.Contains("#Const C_EnumContext_Choice_Yes 3", output);
+        Assert.Contains("#Const C_Phase_Idle 0", output);
+        Assert.Contains("#Const C_Phase_Running 5", output);
+        Assert.Contains("#Const C_Phase_Done 6", output);
+        Assert.Contains("#Const C_Phase_Alias 5", output);
+        Assert.Contains("declare Integer G_Phase", output);
+        Assert.Contains("declare Integer G_Choice", output);
+        Assert.Contains("Integer Next = C_Phase_Done", output);
+        Assert.Contains("Next == C_Phase_Alias", output);
+        Assert.Contains("G_Choice = C_EnumContext_Choice_No", output);
+    }
+
+    [Fact]
+    public void Emit_UserEnum_SwitchCasesUseConstants()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public enum Status { Ready, Started = 4 }
+
+            public class SwitchContext : IContext
+            {
+                private Status status;
+                public void Main()
+                {
+                    switch (status)
+                    {
+                        case Status.Ready: status = Status.Started; break;
+                        default: break;
+                    }
+                }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "SwitchContext");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Const C_Status_Ready 0", output);
+        Assert.Contains("#Const C_Status_Started 4", output);
+        Assert.Contains("case C_Status_Ready:", output);
+        Assert.Contains("G_Status = C_Status_Started", output);
+    }
+
+    [Fact]
+    public void Emit_UserEnumsInDifferentNamespaces_HaveDistinctConstants()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            namespace First { public enum State { Ready = 1 } }
+            namespace Second { public enum State { Ready = 2 } }
+
+            public class NamespacedEnums : IContext
+            {
+                private First.State first;
+                private Second.State second;
+                public void Main()
+                {
+                    first = First.State.Ready;
+                    second = Second.State.Ready;
+                }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "NamespacedEnums");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Const C_First_State_Ready 1", output);
+        Assert.Contains("#Const C_Second_State_Ready 2", output);
+        Assert.Contains("G_First = C_First_State_Ready", output);
+        Assert.Contains("G_Second = C_Second_State_Ready", output);
+    }
+
+    [Fact]
+    public void Emit_LibEnum_UsesIncludeAliasFromConsumer()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class Palette : ILib<object>
+            {
+                public object Context => null!;
+                public enum Tone { Light = 1, Dark = 2 }
+            }
+
+            public class LibEnumContext : IContext
+            {
+                public Palette palette = new();
+                private int tone;
+                public void Main() { tone = (int)Palette.Tone.Dark; }
+                public void Loop() { }
+            }
+            """;
+
+        var (libOutput, libDiagnostics) = EmitScript(code, "Palette");
+        var (scriptOutput, scriptDiagnostics) = EmitScript(code, "LibEnumContext");
+
+        Assert.Empty(libDiagnostics);
+        Assert.Empty(scriptDiagnostics);
+        Assert.Contains("#Const C_Palette_Tone_Light 1", libOutput);
+        Assert.Contains("#Const C_Palette_Tone_Dark 2", libOutput);
+        Assert.Contains("Palette::C_Palette_Tone_Dark", scriptOutput);
+        Assert.DoesNotContain("#Const C_Palette_Tone_Dark", scriptOutput);
+    }
+
+    [Fact]
+    public void Emit_Manialink_InlinesLibEnumConstants()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class Palette : ILib<object>
+            {
+                public object Context => null!;
+                public enum Tone { Light = 1, Dark = 2 }
+            }
+
+            public class LibEnumManialink : IContext
+            {
+                public Palette palette = new();
+                private int tone;
+                public void Main() { tone = (int)Palette.Tone.Dark; }
+                public void Loop() { }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "LibEnumManialink", isManialink: true);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Const C_Palette_Tone_Dark 2", output);
+        Assert.Contains("G_Tone = C_Palette_Tone_Dark", output);
+        Assert.DoesNotContain("Palette::C_Palette_Tone_Dark", output);
+    }
+
+    [Fact]
     public void Emit_FieldsAlwaysUseGPrefixAndPublicFieldsWarn()
     {
         const string code = """

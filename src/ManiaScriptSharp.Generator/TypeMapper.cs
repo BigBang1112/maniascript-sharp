@@ -50,11 +50,12 @@ internal static class TypeMapper
 
     private static string MapNamed(ITypeSymbol type)
     {
-        // Nested enums (e.g. CUILayer.EUILayerType) keep their containing type in the
-        // path, mirroring the ManiaScript header (`CUILayer::EUILayerType`). An enum
-        // nested directly inside the context/lib class itself has no ManiaScript
-        // counterpart for its "container" (the class IS the script), so it's a
-        // script-local enum referenced with a leading `::` instead (e.g. `::MyState`).
+        if (EnumSupport.IsCustomEnum(type)) return "Integer";
+
+        // Native API enums (e.g. CUILayer.EUILayerType) keep their containing type in
+        // the path, mirroring the ManiaScript header (`CUILayer::EUILayerType`). A native
+        // enum nested in a context/lib has no ManiaScript container type, so it uses
+        // a leading `::` instead.
         if (type.TypeKind == TypeKind.Enum && type.ContainingType is { } containing)
             return IsContextOrLibType(containing) ? $"::{type.Name}" : $"{containing.Name}::{type.Name}";
 

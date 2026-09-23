@@ -36,6 +36,7 @@ internal sealed class ScriptEmitter
         var functions = new FunctionEmitter(_ctx, stmt, expr);
 
         new StructEmitter(_ctx).Emit();
+        new EnumEmitter(_ctx).Emit();
         new ConstSettingEmitter(_ctx, lit).Emit();
         functions.CollectLabels();
         new OnChangeCollector(_ctx).Collect();
@@ -74,6 +75,7 @@ internal sealed class ScriptEmitter
 
             directives.Emit();
             libStructs.Emit();
+            new EnumEmitter(_ctx).Emit();
             libConstsSettings.Emit();
 
             // Two-pass, mirroring the context path: collect labels and OnChange backing
@@ -100,6 +102,7 @@ internal sealed class ScriptEmitter
             InlineLibDirectives();
 
         structs.Emit();
+        new EnumEmitter(_ctx).Emit();
         constsSettings.Emit();
         commands.Emit();
 

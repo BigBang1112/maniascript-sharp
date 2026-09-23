@@ -37,6 +37,7 @@ internal sealed class ExpressionEmitter
             ElementAccessExpressionSyntax ea => TranslateElementAccess(ea),
             InterpolatedStringExpressionSyntax istr => TranslateInterpolatedString(istr),
             CastExpressionSyntax cast => TranslateCast(cast),
+            DefaultExpressionSyntax def when EnumSupport.IsCustomEnum(_ctx.Model.GetTypeInfo(def.Type).Type) => "0",
             IsPatternExpressionSyntax isp when _patterns is not null => _patterns.TranslateAsExpression(isp),
             ObjectCreationExpressionSyntax oc => TranslateObjectCreation(oc),
             ImplicitObjectCreationExpressionSyntax ioc => TranslateImplicitObjectCreation(ioc),
@@ -70,7 +71,7 @@ internal sealed class ExpressionEmitter
         _ => lit.Token.Text,
     };
 
-    /// <summary>`null`/`default` targeting an <c>Ident</c> (or <c>Ident?</c>) maps to ManiaScript's <c>NullId</c>.</summary>
+    /// <summary>Maps <c>default</c> for custom enums to zero and null identifiers to <c>NullId</c>.</summary>
     private string TranslateNullLiteral(LiteralExpressionSyntax lit)
     {
         // The literal must belong to the bound model's tree — patterns translated from a
@@ -79,8 +80,13 @@ internal sealed class ExpressionEmitter
         if (lit.SyntaxTree != _ctx.Model.SyntaxTree) return "Null";
 
         var type = _ctx.Model.GetTypeInfo(lit).ConvertedType;
+        var isNullable = false;
         if (type is INamedTypeSymbol { ConstructedFrom.SpecialType: SpecialType.System_Nullable_T } nullable)
+        {
+            isNullable = true;
             type = nullable.TypeArguments[0];
+        }
+        if (lit.IsKind(SyntaxKind.DefaultLiteralExpression) && !isNullable && EnumSupport.IsCustomEnum(type)) return "0";
         return type?.Name == "Ident" ? "NullId" : "Null";
     }
 
@@ -111,6 +117,7 @@ internal sealed class ExpressionEmitter
         switch (sym)
         {
             case IFieldSymbol f:
+                if (EnumSupport.IsCustomEnum(f.ContainingType)) return TranslateEnumConst(f);
                 if (f.HasAttr("SettingAttribute")) return NameMangler.Setting(f);
                 if (f.IsConst) return NameMangler.Const(f);
                 if (f.HasAttr("ManialinkControlAttribute")) return NameMangler.Global(f);
@@ -141,8 +148,7 @@ internal sealed class ExpressionEmitter
             case IMethodSymbol m:
                 if (_ctx.IsLabelMethod(m)) return $"+++{m.Name}+++";
                 return NameMangler.Method(m);
-            // Enum type used bare (e.g. `MyState` as the receiver of `MyState.Idle`) →
-            // route through TypeMapper so context-nested enums get the leading `::`.
+            // Native API enum type used bare → route through TypeMapper for qualification.
             case INamedTypeSymbol { TypeKind: TypeKind.Enum } nt:
                 return TypeMapper.Map(nt);
         }
@@ -181,6 +187,9 @@ internal sealed class ExpressionEmitter
 
         var leftSym = _ctx.Model.GetSymbolInfo(m.Expression).Symbol;
         var memberSym = _ctx.Model.GetSymbolInfo(m).Symbol;
+
+        if (memberSym is IFieldSymbol enumMember && EnumSupport.IsCustomEnum(enumMember.ContainingType))
+            return TranslateEnumConst(enumMember);
 
         // string.Empty → "" literal. Checked before translating the receiver because `string`
         // is a PredefinedTypeSyntax, not an identifier, and isn't otherwise translatable.
@@ -311,6 +320,24 @@ internal sealed class ExpressionEmitter
             return $"{lhs}{sep}{NameMangler.Getter(userProp)}()";
 
         return $"{lhs}{sep}{name}";
+    }
+
+    private string TranslateEnumConst(IFieldSymbol member)
+    {
+        var name = NameMangler.EnumConst(member);
+        for (var owner = member.ContainingType?.ContainingType; owner is not null; owner = owner.ContainingType)
+        {
+            if (!TypeMapper.IsContextOrLibType(owner)
+                || SymbolEqualityComparer.Default.Equals(owner, _ctx.Info.Symbol)) continue;
+
+            var libField = _ctx.Info.Symbol.GetMembers().OfType<IFieldSymbol>()
+                .FirstOrDefault(f => SymbolEqualityComparer.Default.Equals(f.Type, owner) && f.IsLibImplementation());
+            if (libField is not null && !_ctx.IsManialink
+                && libField.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal)
+                return $"{NameMangler.PascalCase(libField.Name)}::{name}";
+            break;
+        }
+        return name;
     }
 
     /// <summary>
@@ -608,7 +635,7 @@ internal sealed class ExpressionEmitter
     /// <summary>ManiaScript basic-type family a C# type maps to, for cast/Convert translation.</summary>
     private enum Prim { None, Boolean, Integer, Real, Text }
 
-    private static Prim Categorize(ITypeSymbol? t) => t?.SpecialType switch
+    private static Prim Categorize(ITypeSymbol? t) => EnumSupport.IsCustomEnum(t) ? Prim.Integer : t?.SpecialType switch
     {
         SpecialType.System_Boolean => Prim.Boolean,
         SpecialType.System_Byte or SpecialType.System_SByte or
