@@ -503,22 +503,24 @@ while (ItemCount > 0) {
 
 ### For
 
-The numeric form includes both ends of the range. Give it an optional step, including a
-negative one when you want to go backwards:
+The numeric form includes both ends of the range:
 
 ```
 for (I, 2, 5) {
     log(I); // logs 2, 3, 4, 5
 }
+```
 
-for (I, Players.count - 1, 0, -1) {
+An optional step parameter can be provided. Keep range bounds in the same order, and use a negative step to iterate backwards.
+
+```
+for (I, 0, Players.count - 1, -1) {
     log(Players[I].Login);
 }
 ```
 
 > [!WARNING]
-> ManiaPlanet 4 ignores the optional fourth step parameter. This is fixed in the latest
-> Trackmania, where custom and negative steps work as expected.
+> ManiaPlanet 4 ignores the optional fourth step parameter completely. This is fixed in the latest Trackmania, where custom and negative steps work as expected.
 
 ### Foreach
 

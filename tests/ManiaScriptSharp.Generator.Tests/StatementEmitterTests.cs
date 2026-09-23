@@ -54,6 +54,17 @@ public class StatementEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_ContinueInConditionalWhile_VersionTwo_DoesNotReportWarning()
+    {
+        var (_, diagnostics) = TranslateStmtWithDiagnostics(
+            "while (isReady) { continue; }",
+            "bool isReady;",
+            BuildSettings.Version2);
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "MSS020");
+    }
+
+    [Fact]
     public void Emit_ContinueInForeachInsideWhile_DoesNotReportWarning()
     {
         var (_, diagnostics) = TranslateStmtWithDiagnostics("while (true) { foreach (var item in items) { continue; } }", "int[] items = []; ");
@@ -351,6 +362,30 @@ public class StatementEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_For_CustomPositiveStep_VersionTwo_UsesNativeFor()
+    {
+        Assert.Equal(
+            "for (I, 0, 10 - 1, 2) {\n}",
+            TranslateStmt("for (int i = 0; i < 10; i += 2) { }", settings: BuildSettings.Version2));
+    }
+
+    [Fact]
+    public void Emit_For_NegativeStep_VersionTwo_UsesAscendingRangeBounds()
+    {
+        Assert.Equal(
+            "for (I, 0 + 1, 10, -1) {\n}",
+            TranslateStmt("for (int i = 10; i > 0; i--) { }", settings: BuildSettings.Version2));
+    }
+
+    [Fact]
+    public void Emit_For_CustomNegativeStep_VersionTwo_UsesNativeFor()
+    {
+        Assert.Equal(
+            "for (I, 0 + 1, 10, -(2)) {\n}",
+            TranslateStmt("for (int i = 10; i > 0; i -= 2) { }", settings: BuildSettings.Version2));
+    }
+
+    [Fact]
     public void Emit_For_SteppedLoop_ContinueStillExecutesIncrement()
     {
         var (output, diagnostics) = TranslateStmtWithDiagnostics(
@@ -429,6 +464,17 @@ public class StatementEmitterTests : EmitterTestBase
     {
         var output = TranslateStmt("foreach (var myItem in items) { }", "int[] items;");
         Assert.StartsWith("foreach (MyItem in", output);
+    }
+
+    [Fact]
+    public void Emit_Foreach_Reverse_VersionTwo_UsesReverseSuffix()
+    {
+        var output = TranslateStmt(
+            "foreach (var item in items.Reverse()) { }",
+            "int[] items;",
+            BuildSettings.Version2);
+
+        Assert.Equal("foreach (Item in G_Items reverse) {\n}", output);
     }
 
     [Fact]

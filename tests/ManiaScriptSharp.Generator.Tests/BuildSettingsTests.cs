@@ -38,12 +38,35 @@ public class BuildSettingsTests
     }
 
     [Fact]
+    public void Default_ManiaScriptVersion_IsOne()
+    {
+        Assert.Equal(1, BuildSettings.Default.ManiaScriptVersion);
+    }
+
+    [Fact]
     public void FromOptions_NoOptions_ReturnsDefaults()
     {
         var s = FromDict([]);
         Assert.Equal("ManiaScript", s.OutputDir);
         Assert.Equal(4, s.IndentSize);
         Assert.True(s.UseSpaces);
+        Assert.Equal(1, s.ManiaScriptVersion);
+    }
+
+    [Fact]
+    public void FromOptions_ManiaScriptVersionTwo_EnablesVersionTwo()
+    {
+        var s = FromDict(new() { ["build_property.ManiaScriptVersion"] = "2" });
+
+        Assert.Equal(2, s.ManiaScriptVersion);
+    }
+
+    [Fact]
+    public void FromOptions_UnsupportedManiaScriptVersion_FallsBackToVersionOne()
+    {
+        var s = FromDict(new() { ["build_property.ManiaScriptVersion"] = "3" });
+
+        Assert.Equal(1, s.ManiaScriptVersion);
     }
 
     [Fact]

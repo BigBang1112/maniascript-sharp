@@ -50,8 +50,13 @@ Optionally configure the build properties in your `.csproj`. These are the defau
     <ManiaScriptOutputDir>ManiaScript</ManiaScriptOutputDir>
     <ManiaScriptIndentSize>4</ManiaScriptIndentSize>
     <ManiaScriptIndentStyle>spaces</ManiaScriptIndentStyle>
+    <ManiaScriptVersion>1</ManiaScriptVersion>
 </PropertyGroup>
 ```
+
+`ManiaScriptVersion` defaults to `1`. Set it to `2` for latest Trackmania scripts: version 2
+supports stepped `for` loops, `continue` in conditional `while` loops, and reverse `foreach`
+iteration. Trackmania project templates set this automatically.
 
 `ManiaScriptOutputDir` is the primary output directory. Additional destinations are intended as
 machine-local deployment/debug mirrors, so configure them in `<project>.csproj.user` rather than
@@ -660,7 +665,11 @@ switchtype (Control) {
 
 ### While loop
 
-> Warning: ManiaScript has a bug where `continue` skips a `while` loop's condition check. The generator reports `MSS020` when a C# `continue` targets a translated `while` with a condition other than literal `true`; use conditional control flow or a `for`/`foreach` loop instead. The generated `Loop()` wrapper is one such unconditional-loop case.
+> Warning: ManiaScript version 1 has a bug where `continue` skips a `while` loop's condition
+> check. The generator reports `MSS020` when a C# `continue` targets a translated `while` with
+> a condition other than literal `true`; use conditional control flow or a `for`/`foreach` loop
+> instead. Version 2 fixes the bug. The generated `Loop()` wrapper is one such unconditional-loop
+> case.
 
 **C#**
 ```cs
@@ -732,8 +741,9 @@ for (I, 0, 10 - 1) {
 
 #### Stepped and reverse loops
 
-ManiaScript's optional fourth `for` argument is not used. Reverse and non-unit integer steps
-are lowered to `while`; increments are emitted before a matching `continue` to preserve C# semantics:
+ManiaScript version 1 lowers reverse and non-unit integer steps to `while`; increments are emitted
+before a matching `continue` to preserve C# semantics. Version 2 emits ManiaScript's optional
+fourth `for` argument, keeping range bounds in ascending order and using the step sign for direction:
 
 **C#**
 ```cs
@@ -766,6 +776,18 @@ declare Integer I = 0;
 while (I < 10) {
     log("" ^ I);
     I += 2;
+}
+```
+
+With `ManiaScriptVersion` set to `2`, those loops emit:
+
+```
+for (I, 0 + 1, 10, -1) {
+    log("" ^ I);
+}
+
+for (I, 0, 10 - 1, 2) {
+    log("" ^ I);
 }
 ```
 
@@ -877,6 +899,22 @@ declare Integer Index = 0;
 foreach (Item in MyArray) {
     log(Index ^ ": " ^ Item);
     Index += 1;
+}
+```
+
+With ManiaScript version 2, `Enumerable.Reverse()` emits native reverse iteration:
+
+**C#**
+```cs
+foreach (var item in myArray.Reverse())
+{
+    Log(item);
+}
+```
+**ManiaScript**
+```
+foreach (Item in MyArray reverse) {
+    log(Item);
 }
 ```
 
@@ -2266,10 +2304,12 @@ log(Score);
 | `struct` | `#Struct` |
 | `Vector2` / `Vector3` | `Vec2` / `Vec3` |
 | `for (i = a; i <= b; i++)` | `for (I, a, b)` |
+| Stepped `for` (version 2) | `for (I, first, last, step)` |
 | `foreach (x in list)` | `foreach (X in List)` |
 | `foreach` with index | `foreach (Key => Val in Array)` |
+| `foreach (x in list.Reverse())` (version 2) | `foreach (X in List reverse)` |
 | `break` | `break;` |
-| `continue` | `continue;` (warning `MSS020` when it targets `while`) |
+| `continue` | `continue;` (warning `MSS020` when it targets a `while` in version 1) |
 | LINQ chain (`Where`/`Select`/...) | Desugared `foreach` loop (see [LINQ Queries](#linq-queries)) |
 | Collection expression `[1, 2, 3]` | `[1, 2, 3]` |
 | Named argument `f(x: 1)` | `f(/* x: */ 1)` |
