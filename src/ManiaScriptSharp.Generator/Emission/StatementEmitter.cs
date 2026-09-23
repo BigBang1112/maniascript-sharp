@@ -141,7 +141,7 @@ internal sealed class StatementEmitter
                     foreach (var increment in continueIncrements)
                         _ctx.W.Line(increment);
                 }
-                else if (_ctx.ContinueTargetsWhile)
+                else if (_ctx.ContinueTargetsWhile && _ctx.Settings.ManiaScriptVersion == 1)
                     _ctx.Report(Diagnostics.ContinueInWhile, stmt.GetLocation());
                 _ctx.W.Line("continue;");
                 break;
@@ -581,10 +581,14 @@ internal sealed class StatementEmitter
             return;
         }
 
-        if (TryEmitDictionaryForeach(fes)) return;
+        var source = fes.Expression;
+        var isReverse = _ctx.Settings.ManiaScriptVersion == 2 && TryUnwrapReverseCall(source, out source);
+        var reverseSuffix = isReverse ? " reverse" : "";
+
+        if (TryEmitDictionaryForeach(fes, source, reverseSuffix)) return;
 
         var name = NameMangler.Local(fes.Identifier.Text);
-        _ctx.W.Line($"foreach ({name} in {_expr.Translate(fes.Expression)}) {{");
+        _ctx.W.Line($"foreach ({name} in {_expr.Translate(source)}{reverseSuffix}) {{");
         _ctx.W.Push();
         _ctx.PushContinueLoopTarget(isWhile: false);
         EmitInline(fes.Statement);
@@ -599,11 +603,14 @@ internal sealed class StatementEmitter
     /// single-variable form for associative arrays. Returns <see langword="false"/> when
     /// <paramref name="fes"/> isn't one of these cases, so the caller falls back to the plain form.
     /// </summary>
-    private bool TryEmitDictionaryForeach(ForEachStatementSyntax fes)
+    private bool TryEmitDictionaryForeach(
+        ForEachStatementSyntax fes,
+        ExpressionSyntax source,
+        string reverseSuffix)
     {
         // foreach (var k in dict.Keys) / foreach (var v in dict.Values) — the ignored side gets
         // a synthesized placeholder name; the used side keeps the C#-declared loop variable name.
-        if (fes.Expression is MemberAccessExpressionSyntax ma && ma.Name.Identifier.Text is "Keys" or "Values"
+        if (source is MemberAccessExpressionSyntax ma && ma.Name.Identifier.Text is "Keys" or "Values"
             && ExpressionEmitter.IsDictionaryType(_ctx.Model.GetTypeInfo(ma.Expression).Type as INamedTypeSymbol))
         {
             var loopName = NameMangler.Local(fes.Identifier.Text);
@@ -611,7 +618,7 @@ internal sealed class StatementEmitter
             var keyName = isKeys ? loopName : loopName + "Key";
             var valName = isKeys ? loopName + "Value" : loopName;
 
-            _ctx.W.Line($"foreach ({keyName} => {valName} in {_expr.Translate(ma.Expression)}) {{");
+            _ctx.W.Line($"foreach ({keyName} => {valName} in {_expr.Translate(ma.Expression)}{reverseSuffix}) {{");
             _ctx.W.Push();
             _ctx.PushContinueLoopTarget(isWhile: false);
             EmitInline(fes.Statement);
@@ -623,7 +630,7 @@ internal sealed class StatementEmitter
 
         // foreach (var pair in dict) → foreach (PairKey => PairValue in Dict), remapping
         // pair.Key/pair.Value to the bare Key/Value names inside the loop body.
-        if (ExpressionEmitter.IsDictionaryType(_ctx.Model.GetTypeInfo(fes.Expression).Type as INamedTypeSymbol))
+        if (ExpressionEmitter.IsDictionaryType(_ctx.Model.GetTypeInfo(source).Type as INamedTypeSymbol))
         {
             var pairName = fes.Identifier.Text;
             if (HasUnsupportedPairUsage(fes, pairName))
@@ -639,7 +646,7 @@ internal sealed class StatementEmitter
             var valName = baseName + "Value";
 
             _ctx.DictPairLocals[pairName] = (keyName, valName);
-            _ctx.W.Line($"foreach ({keyName} => {valName} in {_expr.Translate(fes.Expression)}) {{");
+            _ctx.W.Line($"foreach ({keyName} => {valName} in {_expr.Translate(source)}{reverseSuffix}) {{");
             _ctx.W.Push();
             _ctx.PushContinueLoopTarget(isWhile: false);
             EmitInline(fes.Statement);
@@ -786,8 +793,12 @@ internal sealed class StatementEmitter
                 return;
             }
 
+            var source = fev.Expression;
+            var isReverse = _ctx.Settings.ManiaScriptVersion == 2 && TryUnwrapReverseCall(source, out source);
+            var reverseSuffix = isReverse ? " reverse" : "";
+
             // foreach (var (i, x) in arr) → foreach (I => X in arr), using the array's native key.
-            _ctx.W.Line($"foreach ({keyName} => {valName} in {_expr.Translate(fev.Expression)}) {{");
+            _ctx.W.Line($"foreach ({keyName} => {valName} in {_expr.Translate(source)}{reverseSuffix}) {{");
             _ctx.W.Push();
             _ctx.PushContinueLoopTarget(isWhile: false);
             EmitInline(fev.Statement);
@@ -818,13 +829,39 @@ internal sealed class StatementEmitter
         return true;
     }
 
+    /// <summary>
+    /// Recognizes <c>source.Reverse()</c> (the .NET <c>Enumerable.Reverse</c> LINQ method)
+    /// and returns its source so version 2 can use ManiaScript's native <c>reverse</c> suffix.
+    /// </summary>
+    private bool TryUnwrapReverseCall(ExpressionSyntax expr, out ExpressionSyntax source)
+    {
+        source = expr;
+        if (expr is not InvocationExpressionSyntax inv) return false;
+        if (inv.Expression is not MemberAccessExpressionSyntax ma) return false;
+        if (ma.Name.Identifier.Text != "Reverse") return false;
+        if (_ctx.Model.GetSymbolInfo(ma).Symbol is not IMethodSymbol sym) return false;
+        if ((sym.ReducedFrom ?? sym).ContainingType?.ToDisplayString() != "System.Linq.Enumerable") return false;
+
+        if (sym.ReducedFrom is not null)
+        {
+            if (inv.ArgumentList.Arguments.Count != 0) return false;
+            source = ma.Expression;
+        }
+        else
+        {
+            if (inv.ArgumentList.Arguments.Count != 1) return false;
+            source = inv.ArgumentList.Arguments[0].Expression;
+        }
+        return true;
+    }
+
     private void EmitFor(ForStatementSyntax fs)
     {
-        // ManiaScript supports only the three-argument form reliably. Any loop that would
-        // need its optional fourth step argument falls back to while below.
-        if (TryNativeFor(fs, out var name, out var lo, out var hi, out var step) && step is null)
+        if (TryNativeFor(fs, out var name, out var lo, out var hi, out var step)
+            && (step is null || _ctx.Settings.ManiaScriptVersion == 2))
         {
-            _ctx.W.Line($"for ({name}, {lo}, {hi}) {{");
+            var stepArgument = step is null ? "" : $", {step}";
+            _ctx.W.Line($"for ({name}, {lo}, {hi}{stepArgument}) {{");
             _ctx.W.Push();
             _ctx.PushContinueLoopTarget(isWhile: false);
             EmitInline(fs.Statement);
@@ -884,15 +921,15 @@ internal sealed class StatementEmitter
         if (!TryGetForStep(fs.Incrementors, v.Identifier.Text, out step)) return false;
 
         name = NameMangler.Local(v.Identifier.Text);
-        lo = _expr.Translate(v.Initializer.Value);
+        var initial = _expr.Translate(v.Initializer.Value);
         var bound = _expr.Translate(cond.Right);
-        hi = cond.OperatorToken.Text switch
+        (lo, hi) = cond.OperatorToken.Text switch
         {
-            "<" => $"{bound} - 1",
-            "<=" => bound,
-            ">" => $"{bound} + 1",
-            ">=" => bound,
-            _ => "",
+            "<" => (initial, $"{bound} - 1"),
+            "<=" => (initial, bound),
+            ">" => ($"{bound} + 1", initial),
+            ">=" => (bound, initial),
+            _ => ("", ""),
         };
         return hi.Length > 0;
     }

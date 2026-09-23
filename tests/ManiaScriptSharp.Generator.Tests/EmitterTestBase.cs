@@ -148,18 +148,22 @@ class Test {{
     /// Emits the first statement inside a test method and returns the
     /// normalised (LF, trimmed) ManiaScript output.
     /// </summary>
-    protected static string TranslateStmt(string csharpStmt, string extraClassMembers = "")
+    private protected static string TranslateStmt(
+        string csharpStmt,
+        string extraClassMembers = "",
+        BuildSettings? settings = null)
     {
         var code = $@"
 using System;
 using System.Collections.Generic;
+using System.Linq;
 class Test {{
     {extraClassMembers}
     void M() {{
         {csharpStmt}
     }}
 }}";
-        var (ctx, _, stmt, _) = CreateEmitters(code);
+        var (ctx, _, stmt, _) = CreateEmitters(code, settings);
         var firstStmt = ctx.Info.Model.SyntaxTree.GetRoot()
             .DescendantNodes().OfType<MethodDeclarationSyntax>()
             .First(m => m.Identifier.Text == "M").Body!.Statements.First();
@@ -171,19 +175,22 @@ class Test {{
     /// Like <see cref="TranslateStmt"/>, but also returns the diagnostics reported by
     /// <see cref="EmitContext.Report"/> while emitting the statement.
     /// </summary>
-    protected static (string Output, IReadOnlyList<Diagnostic> Diagnostics) TranslateStmtWithDiagnostics(
-        string csharpStmt, string extraClassMembers = "")
+    private protected static (string Output, IReadOnlyList<Diagnostic> Diagnostics) TranslateStmtWithDiagnostics(
+        string csharpStmt,
+        string extraClassMembers = "",
+        BuildSettings? settings = null)
     {
         var code = $@"
 using System;
 using System.Collections.Generic;
+using System.Linq;
 class Test {{
     {extraClassMembers}
     void M() {{
         {csharpStmt}
     }}
 }}";
-        var (ctx, _, stmt, _) = CreateEmitters(code);
+        var (ctx, _, stmt, _) = CreateEmitters(code, settings);
         var firstStmt = ctx.Info.Model.SyntaxTree.GetRoot()
             .DescendantNodes().OfType<MethodDeclarationSyntax>()
             .First(m => m.Identifier.Text == "M").Body!.Statements.First();
