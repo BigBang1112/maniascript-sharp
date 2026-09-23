@@ -122,7 +122,7 @@ Other templates in the pack scaffold the other kinds of ManiaScript projects:
 | `msharp-library` | `ILib<T>` reusable library | ManiaPlanet, ManiaPlanet3, Trackmania |
 | `msharp-manialink` | Ingame manialink (`CTmMlScriptIngame` / `CSmMlScriptIngame`) + matching `.xml` | ManiaPlanet, ManiaPlanet3, Trackmania |
 | `msharp-razor-manialink` | Single-file Razor ManiaApp page (`.razor`) | ManiaPlanet, ManiaPlanet3, Trackmania |
-| `msharp-map-editor-plugin` | Map editor plugin (`CMapEditorPlugin`) | ManiaPlanet, Trackmania |
+| `msharp-map-editor-plugin` | Map editor plugin (`CMapEditorPlugin` / `CEditorPlugin`) | ManiaPlanet, ManiaPlanet3, Trackmania |
 | `msharp-server-plugin` | Server plugin (`CServerPlugin`) | ManiaPlanet, Trackmania |
 
 ```powershell
@@ -133,8 +133,9 @@ dotnet new msharp-map-editor-plugin -n MyMapEditorPlugin --Api ManiaPlanet
 dotnet new msharp-server-plugin -n MyServerPlugin --Api ManiaPlanet
 ```
 
-`msharp-map-editor-plugin` and `msharp-server-plugin` only support `ManiaPlanet`/`Trackmania` —
-`CMapEditorPlugin`/`CServerPlugin` aren't exposed by the ManiaPlanet3 API.
+`msharp-server-plugin` only supports `ManiaPlanet`/`Trackmania`, because `CServerPlugin` is not
+exposed by the ManiaPlanet3 API. `msharp-map-editor-plugin` uses `CEditorPlugin` for
+ManiaPlanet3 and `CMapEditorPlugin` for ManiaPlanet and Trackmania.
 
 ### IDE setup
 
