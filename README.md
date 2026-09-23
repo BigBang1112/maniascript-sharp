@@ -694,11 +694,9 @@ for (I, 2, 5) {
 }
 ```
 
-ManiaScript's `for` uses an inclusive range and accepts an optional fourth `Step` argument.
-The generator emits the native form for a single declared integer counter whose condition
-compares that counter with `<`, `<=`, `>`, or `>=`. It supports `++`, `--`, `+=`, and `-=`
-increments; exclusive C# bounds are adjusted by one because ManiaScript's final value is
-inclusive:
+ManiaScript's `for` uses an inclusive range. The generator emits the native three-argument
+form for a single declared integer counter with a unit increment; exclusive C# bounds are
+adjusted by one because ManiaScript's final value is inclusive:
 
 **C#**
 ```cs
@@ -734,8 +732,8 @@ for (I, 0, 10 - 1) {
 
 #### Stepped and reverse loops
 
-Negative and non-unit integer steps are emitted natively. This also preserves C# `continue`
-semantics, since the ManiaScript loop performs its step after every iteration:
+ManiaScript's optional fourth `for` argument is not used. Reverse and non-unit integer steps
+are lowered to `while`; increments are emitted before a matching `continue` to preserve C# semantics:
 
 **C#**
 ```cs
@@ -747,8 +745,10 @@ for (int i = 10; i > 0; i--)
 ```
 **ManiaScript**
 ```
-for (I, 10, 0 + 1, -1) {
+declare Integer I = 10;
+while (I > 0) {
     log("" ^ I);
+    I -= 1;
 }
 ```
 
@@ -762,8 +762,10 @@ for (int i = 0; i < 10; i += 2)
 ```
 **ManiaScript**
 ```
-for (I, 0, 10 - 1, 2) {
+declare Integer I = 0;
+while (I < 10) {
     log("" ^ I);
+    I += 2;
 }
 ```
 

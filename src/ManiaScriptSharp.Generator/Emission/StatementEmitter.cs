@@ -136,7 +136,12 @@ internal sealed class StatementEmitter
 
             case BreakStatementSyntax: _ctx.W.Line("break;"); break;
             case ContinueStatementSyntax:
-                if (_ctx.ContinueTargetsWhile)
+                if (_ctx.ContinueIncrements is { } continueIncrements)
+                {
+                    foreach (var increment in continueIncrements)
+                        _ctx.W.Line(increment);
+                }
+                else if (_ctx.ContinueTargetsWhile)
                     _ctx.Report(Diagnostics.ContinueInWhile, stmt.GetLocation());
                 _ctx.W.Line("continue;");
                 break;
@@ -793,11 +798,11 @@ internal sealed class StatementEmitter
 
     private void EmitFor(ForStatementSyntax fs)
     {
-        // Native ManiaScript ranges preserve integer steps and reverse traversal.
-        if (TryNativeFor(fs, out var name, out var lo, out var hi, out var step))
+        // ManiaScript supports only the three-argument form reliably. Any loop that would
+        // need its optional fourth step argument falls back to while below.
+        if (TryNativeFor(fs, out var name, out var lo, out var hi, out var step) && step is null)
         {
-            var stepSuffix = step is null ? "" : $", {step}";
-            _ctx.W.Line($"for ({name}, {lo}, {hi}{stepSuffix}) {{");
+            _ctx.W.Line($"for ({name}, {lo}, {hi}) {{");
             _ctx.W.Push();
             _ctx.PushContinueLoopTarget(isWhile: false);
             EmitInline(fs.Statement);
@@ -826,13 +831,14 @@ internal sealed class StatementEmitter
             foreach (var init in fs.Initializers)
                 _ctx.W.Line(_expr.Translate(init) + ";");
         }
+        var increments = fs.Incrementors.Select(incrementor => _expr.Translate(incrementor) + ";").ToArray();
         _ctx.W.Line($"while ({(fs.Condition is null ? "True" : _expr.Translate(fs.Condition))}) {{");
         _ctx.W.Push();
-        _ctx.PushContinueLoopTarget(isWhile: true);
+        _ctx.PushContinueLoopTarget(isWhile: true, increments);
         EmitInline(fs.Statement);
         _ctx.PopContinueLoopTarget();
-        foreach (var inc in fs.Incrementors)
-            _ctx.W.Line(_expr.Translate(inc) + ";");
+        foreach (var increment in increments)
+            _ctx.W.Line(increment);
         _ctx.W.Pop();
         _ctx.W.Line("}");
     }
@@ -876,7 +882,7 @@ internal sealed class StatementEmitter
         SpecialType.System_Int32 or SpecialType.System_UInt32 or
         SpecialType.System_Int64 or SpecialType.System_UInt64;
 
-    /// <summary>Translates the sole C# incrementor into ManiaScript's optional loop step.</summary>
+    /// <summary>Translates the sole C# incrementor and flags loops requiring a non-default step.</summary>
     private bool TryGetForStep(SeparatedSyntaxList<ExpressionSyntax> incrementors, string varName, out string? step)
     {
         step = null;

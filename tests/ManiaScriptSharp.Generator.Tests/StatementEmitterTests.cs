@@ -315,25 +315,44 @@ public class StatementEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_For_DescendingLoop_UsesNegativeStep()
+    public void Emit_For_DescendingLoop_FallsBackToWhile()
     {
-        // An exclusive lower bound is adjusted because ManiaScript's range is inclusive.
-        Assert.Equal("for (I, 10, 0 + 1, -1) {\n}", TranslateStmt("for (int i = 10; i > 0; i--) { }"));
+        Assert.Equal(
+            "declare Integer I = 10;\n" +
+            "while (I > 0) {\n" +
+            "    I -= 1;\n" +
+            "}",
+            TranslateStmt("for (int i = 10; i > 0; i--) { }"));
     }
 
     [Fact]
-    public void Emit_For_CustomStep_UsesNativeStep()
+    public void Emit_For_CustomStep_FallsBackToWhile()
     {
-        // The fourth ManiaScript range argument preserves a non-unit step.
-        Assert.Equal("for (I, 0, 10 - 1, 2) {\n}", TranslateStmt("for (int i = 0; i < 10; i += 2) { }"));
+        Assert.Equal(
+            "declare Integer I = 0;\n" +
+            "while (I < 10) {\n" +
+            "    I += 2;\n" +
+            "}",
+            TranslateStmt("for (int i = 0; i < 10; i += 2) { }"));
     }
 
     [Fact]
-    public void Emit_For_NativeStep_PreservesContinueSemantics()
+    public void Emit_For_SteppedLoop_ContinueStillExecutesIncrement()
     {
-        var output = TranslateStmt("for (int i = 6; i >= 0; i -= 2) { if (i == 2) continue; }");
+        var (output, diagnostics) = TranslateStmtWithDiagnostics(
+            "for (int i = 6; i >= 0; i -= 2) { if (i == 2) continue; }");
 
-        Assert.Equal("for (I, 6, 0, -(2)) {\n    if (I == 2) {\n        continue;\n    }\n}", output);
+        Assert.Equal(
+            "declare Integer I = 6;\n" +
+            "while (I >= 0) {\n" +
+            "    if (I == 2) {\n" +
+            "        I -= 2;\n" +
+            "        continue;\n" +
+            "    }\n" +
+            "    I -= 2;\n" +
+            "}",
+            output);
+        Assert.DoesNotContain(diagnostics, d => d.Id == "MSS020");
     }
 
     [Fact]

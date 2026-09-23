@@ -57,12 +57,18 @@ internal sealed class EmitContext
     /// </summary>
     public bool ReturnIsContinue { get; set; }
 
-    private readonly Stack<bool> _continueLoopTargets = [];
+    private readonly Stack<(bool IsWhile, IReadOnlyList<string>? ContinueIncrements)> _continueLoopTargets = [];
 
     /// <summary>Whether a currently emitted <c>continue</c> targets a ManiaScript <c>while</c> loop.</summary>
-    public bool ContinueTargetsWhile => _continueLoopTargets.Count > 0 && _continueLoopTargets.Peek();
+    public bool ContinueTargetsWhile => _continueLoopTargets.Count > 0 && _continueLoopTargets.Peek().IsWhile;
 
-    public void PushContinueLoopTarget(bool isWhile) => _continueLoopTargets.Push(isWhile);
+    /// <summary>Increment statements to emit before a <c>continue</c> targeting the current loop.</summary>
+    public IReadOnlyList<string>? ContinueIncrements => _continueLoopTargets.Count > 0
+        ? _continueLoopTargets.Peek().ContinueIncrements
+        : null;
+
+    public void PushContinueLoopTarget(bool isWhile, IReadOnlyList<string>? continueIncrements = null)
+        => _continueLoopTargets.Push((isWhile, continueIncrements));
 
     public void PopContinueLoopTarget() => _continueLoopTargets.Pop();
 
