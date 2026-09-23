@@ -592,6 +592,9 @@ internal sealed class ExpressionEmitter
 
     private string TranslatePostfix(PostfixUnaryExpressionSyntax post)
     {
+        if (post.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+            return $"{Translate(post.Operand)}/* not Null here */";
+
         if (post.OperatorToken.Text is "++" or "--")
         {
             var op = post.OperatorToken.Text == "++" ? "+=" : "-=";

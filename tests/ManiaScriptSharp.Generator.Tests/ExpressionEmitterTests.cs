@@ -25,6 +25,20 @@ public class ExpressionEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Translate_NullForgivingOperator_InsertsComment()
+    {
+        Assert.Equal("G_Item/* not Null here */", TranslateExpr("item!", "string? item;"));
+        Assert.Equal("Null/* not Null here */", TranslateExpr("null!"));
+    }
+
+    [Fact]
+    public void Translate_NullForgivingOperator_BeforeMemberAccess()
+    {
+        Assert.Equal("G_Foo/* not Null here */.Bar",
+            TranslateExpr("foo!.Bar", "class Foo { public int Bar; } Foo? foo;"));
+    }
+
+    [Fact]
     public void Translate_NullLiteral_ForIdentField_BecomesNullId()
     {
         Assert.Equal("G_X = NullId", TranslateExpr("x = null", "public struct Ident {} Ident? x;"));
