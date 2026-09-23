@@ -498,6 +498,10 @@ while (ItemCount > 0) {
 }
 ```
 
+> [!WARNING]
+> In a `while` loop, `continue;` advances to the next iteration without reevaluating the
+> loop condition. Use an `if` guard around the remaining loop body instead.
+
 ### For
 
 The numeric form includes both ends of the range. Give it an optional step, including a
