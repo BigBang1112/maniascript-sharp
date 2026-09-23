@@ -29,7 +29,7 @@ internal sealed class FunctionEmitter
         {
             if (m.MethodKind != MethodKind.Ordinary) continue;
             if (!IsLabelCandidate(m)) continue;
-            if (m.Name is "Main" or "Settings" or "UpdateSettings" || m.IsIContextEntryPoint()) continue;
+            if (m.Name is "Settings" or "UpdateSettings" || m.IsIContextEntryPoint()) continue;
             if (!HasValidLabelSignature(m))
             {
                 _ctx.Report(Diagnostics.InvalidLabelSignature, m.Locations.FirstOrDefault(), m.Name);
@@ -50,7 +50,7 @@ internal sealed class FunctionEmitter
         {
             if (m.MethodKind != MethodKind.Ordinary) continue;
             if (!IsLabelCandidate(m) || !HasValidLabelSignature(m)) continue;
-            if (m.Name is "Main" or "Settings" or "UpdateSettings" || m.IsIContextEntryPoint()) continue;
+            if (m.Name is "Settings" or "UpdateSettings" || m.IsIContextEntryPoint()) continue;
             if (!m.IsAbstract) EmitLabel(m);
         }
 
@@ -60,7 +60,7 @@ internal sealed class FunctionEmitter
         // Sort by call dependency (callees before callers) instead of raw C# declaration order.
         var methods = _ctx.Info.Symbol.GetMembers().OfType<IMethodSymbol>()
             .Where(m => m.MethodKind == MethodKind.Ordinary && !m.IsVirtual && !m.IsOverride
-                        && m.Name != "Main" && !m.IsIContextEntryPoint())
+                        && !m.IsIContextEntryPoint())
             .Cast<ISymbol>();
         var properties = _ctx.Info.Symbol.GetMembers().OfType<IPropertySymbol>()
             .Where(p => !p.HasAttr("ManialinkControlAttribute") && IsUserDefinedProperty(p))

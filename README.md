@@ -1364,7 +1364,7 @@ declare Player <=> Players[PlayerId];
 
 ## Contexts
 
-`IContext` generates ManiaScript code from `Main()` (runs once) and `Loop()` (wrapped in `while(True) { yield; ... }`). A method named `Loop()` on a class that does not implement `IContext` (for example, an `ILib`) is emitted as a normal `Void Loop()` function.
+`IContext` generates ManiaScript code from `Main()` (runs once) and `Loop()` (wrapped in `while(True) { yield; ... }`).
 
 ManiaScript only requires a `main()` entry point when the script also declares other functions — bare top-level statements aren't allowed alongside function definitions. So when the class defines nothing besides `Main()`/`Loop()`, the code is emitted directly at the top level, with no `main()` wrapper:
 

@@ -270,6 +270,28 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_Lib_MainMethod_IsEmittedAsARegularFunction()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            public class CounterLib : ILib
+            {
+                public void Main()
+                {
+                    ManiaScript.Log("start");
+                }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "CounterLib");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("Void Main() {", output);
+        Assert.Contains("log(\"start\");", output);
+    }
+
+    [Fact]
     public void Emit_Lib_FieldInitializerReportsDiagnosticAndEmitsBareDeclare()
     {
         const string code = """
