@@ -300,7 +300,8 @@ internal sealed class ExpressionEmitter
             return $"TextLib::Length({lhs})";
 
         // List/dictionary property mapping.
-        if (memberSym is IPropertySymbol prop && prop.Name == "Count" && IsListLikeType(prop.ContainingType))
+        if (memberSym is IPropertySymbol prop && prop.Name == "Count"
+            && (IsListLikeType(prop.ContainingType) || IsDictionaryType(prop.ContainingType)))
             return $"{lhs}.count";
 
         // User-defined property read → getter call, e.g. `obj.Score` → `obj::GetScore()`.
@@ -348,6 +349,13 @@ internal sealed class ExpressionEmitter
     {
         var callee = inv.Expression;
         var sym = _ctx.Model.GetSymbolInfo(callee).Symbol as IMethodSymbol;
+
+        // `var item = () => Items[i]; item()` is an alias declaration lowered by
+        // StatementEmitter. ManiaScript aliases are accessed directly rather than invoked.
+        if (callee is IdentifierNameSyntax aliasId
+            && inv.ArgumentList.Arguments.Count == 0
+            && _ctx.AliasLambdaLocals.TryGetValue(aliasId.Identifier.Text, out var alias))
+            return alias;
 
         // IContext.Main()/Loop() are invoked only by the generated main() wrapper.
         if (sym.IsIContextEntryPoint())
@@ -447,6 +455,7 @@ internal sealed class ExpressionEmitter
             "Add" => $"{recv}.add({a})",
             "Insert" when args.Arguments.Count == 2 => $"{recv}.addfirst({Translate(args.Arguments[1].Expression)})",
             "RemoveAt" => $"{recv}.removekey({a})",
+            "Remove" when IsDictionaryType(m.ContainingType) => $"{recv}.removekey({a})",
             "Remove" => $"{recv}.remove({a})",
             "Clear" => $"{recv}.clear()",
             "Contains" => $"{recv}.exists({a})",

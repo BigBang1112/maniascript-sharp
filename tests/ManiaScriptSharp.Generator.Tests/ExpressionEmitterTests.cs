@@ -429,6 +429,18 @@ public class ExpressionEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Translate_DictionaryCount_MapsToCount()
+    {
+        Assert.Equal("G_Map.count", TranslateExpr("map.Count", "Dictionary<string, int> map = new();"));
+    }
+
+    [Fact]
+    public void Translate_DictionaryRemove_MapsToRemoveKey()
+    {
+        Assert.Equal("G_Map.removekey(\"a\")", TranslateExpr("map.Remove(\"a\")", "Dictionary<string, int> map = new();"));
+    }
+
+    [Fact]
     public void Translate_DictionaryGetValueOrDefault_MapsToGet()
     {
         Assert.Equal("G_Map.get(\"a\", 0)", TranslateExpr("map.GetValueOrDefault(\"a\", 0)", "Dictionary<string, int> map = new();"));

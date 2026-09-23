@@ -660,6 +660,8 @@ switchtype (Control) {
 
 ### While loop
 
+> Warning: ManiaScript has a bug where `continue` skips a `while` loop's condition check. The generator reports `MSS020` when a C# `continue` targets a translated `while` with a condition other than literal `true`; use conditional control flow or a `for`/`foreach` loop instead. The generated `Loop()` wrapper is one such unconditional-loop case.
+
 **C#**
 ```cs
 int itemCount = 10;
@@ -692,11 +694,9 @@ for (I, 2, 5) {
 }
 ```
 
-ManiaScript's `for` uses an inclusive range and accepts an optional fourth `Step` argument.
-The generator emits the native form for a single declared integer counter whose condition
-compares that counter with `<`, `<=`, `>`, or `>=`. It supports `++`, `--`, `+=`, and `-=`
-increments; exclusive C# bounds are adjusted by one because ManiaScript's final value is
-inclusive:
+ManiaScript's `for` uses an inclusive range. The generator emits the native three-argument
+form for a single declared integer counter with a unit increment; exclusive C# bounds are
+adjusted by one because ManiaScript's final value is inclusive:
 
 **C#**
 ```cs
@@ -732,8 +732,8 @@ for (I, 0, 10 - 1) {
 
 #### Stepped and reverse loops
 
-Negative and non-unit integer steps are emitted natively. This also preserves C# `continue`
-semantics, since the ManiaScript loop performs its step after every iteration:
+ManiaScript's optional fourth `for` argument is not used. Reverse and non-unit integer steps
+are lowered to `while`; increments are emitted before a matching `continue` to preserve C# semantics:
 
 **C#**
 ```cs
@@ -745,8 +745,10 @@ for (int i = 10; i > 0; i--)
 ```
 **ManiaScript**
 ```
-for (I, 10, 0 + 1, -1) {
+declare Integer I = 10;
+while (I > 0) {
     log("" ^ I);
+    I -= 1;
 }
 ```
 
@@ -760,8 +762,10 @@ for (int i = 0; i < 10; i += 2)
 ```
 **ManiaScript**
 ```
-for (I, 0, 10 - 1, 2) {
+declare Integer I = 0;
+while (I < 10) {
     log("" ^ I);
+    I += 2;
 }
 ```
 
@@ -1089,6 +1093,7 @@ declare SortedList = MyList.sort();
 |---|---|
 | `.Count` | `.count` |
 | `.Add(value)` | `.add(value)` |
+| `.AddRange(values)` | `foreach (AddRangeItem in values) { list.add(AddRangeItem); }` |
 | `.Insert(0, value)` | `.addfirst(value)` |
 | `.RemoveAt(index)` | `.removekey(index)` |
 | `.Remove(value)` | `.remove(value)` |
@@ -1121,6 +1126,11 @@ declare Real[Text] Scores = ["Pi" => 3.14, "Tau" => 6.28];
 Scores["Leet"] = 13.37;
 declare Pi = Scores["Pi"];
 ```
+
+| C# | ManiaScript |
+|---|---|
+| `.Count` | `.count` |
+| `.Remove(key)` | `.removekey(key)` |
 
 `TryGetValue` (in an `if`/`if (!...)` condition) is translated using `.existskey()` plus an indexer read, since ManiaScript has no out-parameter equivalent:
 
@@ -1350,6 +1360,22 @@ var player = Players[playerId]; // Retrieve by Id
 declare PlayerId = Players[0].Id;
 // Later...
 declare Player <=> Players[PlayerId];
+```
+
+For a dynamically selected class reference, use a zero-argument lambda. The generator lowers
+it to a ManiaScript alias, so each invocation follows the current target expression:
+
+**C#**
+```cs
+var item = () => Items[i];
+Console.WriteLine("Item added at " + item().Position);
+previousItems.Add(item().Position);
+```
+**ManiaScript**
+```
+declare CItem Item <=> Items[I];
+log("Item added at " ^ Item.Position);
+PreviousItems.add(Item.Position);
 ```
 
 ## Contexts
@@ -2206,7 +2232,7 @@ log(Score);
 | Class inheriting custom class | `#Extends "path.Script.txt"` |
 | `IContext` interface | `main()` + `while(True) { yield; }` |
 | `Main()` method | Code before `while` loop in `main()` |
-| `Loop()` method | Code inside `while` loop |
+| `IContext.Loop()` method | Code inside `while` loop |
 | `const` field | `#Const C_Name` |
 | `[Setting]` attribute | `#Setting S_Name` |
 | `[Command("Name", typeof(T))]` | `#Command Name (T)` |
@@ -2243,7 +2269,7 @@ log(Score);
 | `foreach (x in list)` | `foreach (X in List)` |
 | `foreach` with index | `foreach (Key => Val in Array)` |
 | `break` | `break;` |
-| `continue` | `continue;` |
+| `continue` | `continue;` (warning `MSS020` when it targets `while`) |
 | LINQ chain (`Where`/`Select`/...) | Desugared `foreach` loop (see [LINQ Queries](#linq-queries)) |
 | Collection expression `[1, 2, 3]` | `[1, 2, 3]` |
 | Named argument `f(x: 1)` | `f(/* x: */ 1)` |
@@ -2256,3 +2282,10 @@ log(Score);
 ## Conclusion
 
 This project does not replace ManiaScript, nor text editor extensions that support ManiaScript. This is just an alternative way to be more productive in ManiaScript by using a language that you prefer more, which some may not agree with, and that is understandable. For code generation and unit testing though, this may not be the worst project. Just note that unit testing is just a theory that wasn't yet implemented.
+
+## License
+
+ManiaScriptSharp source code is MIT licensed. The `ManiaScriptSharp.ManiaPlanet`,
+`ManiaScriptSharp.ManiaPlanet3`, and `ManiaScriptSharp.Trackmania` packages also
+include ManiaScript `.Script.txt` files licensed under LGPL-3.0-only; their NuGet
+package metadata declares `MIT AND LGPL-3.0-only`.

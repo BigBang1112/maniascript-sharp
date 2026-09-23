@@ -37,10 +37,28 @@ public class StatementEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_Continue()
+    public void Emit_ContinueInConditionalWhile_ReportsWarning()
     {
-        var output = TranslateStmt("while (true) { continue; }");
+        var (output, diagnostics) = TranslateStmtWithDiagnostics("while (isReady) { continue; }", "bool isReady;");
         Assert.Contains("continue;", output);
+        Assert.Contains(diagnostics, d => d.Id == "MSS020"
+            && d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Warning);
+    }
+
+    [Fact]
+    public void Emit_ContinueInTrueWhile_DoesNotReportWarning()
+    {
+        var (_, diagnostics) = TranslateStmtWithDiagnostics("while (true) { continue; }");
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "MSS020");
+    }
+
+    [Fact]
+    public void Emit_ContinueInForeachInsideWhile_DoesNotReportWarning()
+    {
+        var (_, diagnostics) = TranslateStmtWithDiagnostics("while (true) { foreach (var item in items) { continue; } }", "int[] items = []; ");
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "MSS020");
     }
 
     // ────────── Throw statements ──────────
@@ -84,6 +102,34 @@ public class StatementEmitterTests : EmitterTestBase
     public void Emit_ExprStatement_Assignment()
     {
         Assert.Equal("G_X = 5;", TranslateStmt("x = 5;", "int x;"));
+    }
+
+    [Fact]
+    public void Emit_ListAddRange_AsForeach()
+    {
+        var output = TranslateStmt(
+            "target.AddRange(source);",
+            "System.Collections.Generic.List<int> target; System.Collections.Generic.List<int> source;");
+
+        Assert.Equal(
+            "foreach (AddRangeItem in G_Source) {\n" +
+            "    G_Target.add(AddRangeItem);\n" +
+            "}",
+            output);
+    }
+
+    [Fact]
+    public void Emit_ZeroArgumentLambda_AsAlias()
+    {
+        var output = TranslateBodyMs(
+            "var item = () => items[i]; Console.WriteLine(\"Item added at \" + item().Position); previousItems.Add(item().Position);",
+            "class CItem { public int Position; } CItem[] items; int i; System.Collections.Generic.List<int> previousItems;");
+
+        Assert.Equal(
+            "declare CItem Item <=> G_Items[G_I];\n" +
+            "log(\"Item added at \" ^ Item.Position);\n" +
+            "G_PreviousItems.add(Item.Position);",
+            output);
     }
 
     [Fact]
@@ -283,25 +329,44 @@ public class StatementEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_For_DescendingLoop_UsesNegativeStep()
+    public void Emit_For_DescendingLoop_FallsBackToWhile()
     {
-        // An exclusive lower bound is adjusted because ManiaScript's range is inclusive.
-        Assert.Equal("for (I, 10, 0 + 1, -1) {\n}", TranslateStmt("for (int i = 10; i > 0; i--) { }"));
+        Assert.Equal(
+            "declare Integer I = 10;\n" +
+            "while (I > 0) {\n" +
+            "    I -= 1;\n" +
+            "}",
+            TranslateStmt("for (int i = 10; i > 0; i--) { }"));
     }
 
     [Fact]
-    public void Emit_For_CustomStep_UsesNativeStep()
+    public void Emit_For_CustomStep_FallsBackToWhile()
     {
-        // The fourth ManiaScript range argument preserves a non-unit step.
-        Assert.Equal("for (I, 0, 10 - 1, 2) {\n}", TranslateStmt("for (int i = 0; i < 10; i += 2) { }"));
+        Assert.Equal(
+            "declare Integer I = 0;\n" +
+            "while (I < 10) {\n" +
+            "    I += 2;\n" +
+            "}",
+            TranslateStmt("for (int i = 0; i < 10; i += 2) { }"));
     }
 
     [Fact]
-    public void Emit_For_NativeStep_PreservesContinueSemantics()
+    public void Emit_For_SteppedLoop_ContinueStillExecutesIncrement()
     {
-        var output = TranslateStmt("for (int i = 6; i >= 0; i -= 2) { if (i == 2) continue; }");
+        var (output, diagnostics) = TranslateStmtWithDiagnostics(
+            "for (int i = 6; i >= 0; i -= 2) { if (i == 2) continue; }");
 
-        Assert.Equal("for (I, 6, 0, -(2)) {\n    if (I == 2) {\n        continue;\n    }\n}", output);
+        Assert.Equal(
+            "declare Integer I = 6;\n" +
+            "while (I >= 0) {\n" +
+            "    if (I == 2) {\n" +
+            "        I -= 2;\n" +
+            "        continue;\n" +
+            "    }\n" +
+            "    I -= 2;\n" +
+            "}",
+            output);
+        Assert.DoesNotContain(diagnostics, d => d.Id == "MSS020");
     }
 
     [Fact]

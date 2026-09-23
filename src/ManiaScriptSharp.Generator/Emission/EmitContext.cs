@@ -53,15 +53,36 @@ internal sealed class EmitContext
 
     /// <summary>
     /// When <c>true</c>, <see cref="StatementEmitter"/> translates a bare <c>return;</c> as <c>continue;</c>.
-    /// Set while emitting the body of <c>Loop()</c> so that early-exit skips the rest of the iteration.
+    /// Set while emitting <c>Loop()</c> inside the generated unconditional <c>while (True)</c> loop.
     /// </summary>
     public bool ReturnIsContinue { get; set; }
+
+    private readonly Stack<(bool IsWhile, IReadOnlyList<string>? ContinueIncrements)> _continueLoopTargets = [];
+
+    /// <summary>Whether a currently emitted <c>continue</c> targets a ManiaScript <c>while</c> loop.</summary>
+    public bool ContinueTargetsWhile => _continueLoopTargets.Count > 0 && _continueLoopTargets.Peek().IsWhile;
+
+    /// <summary>Increment statements to emit before a <c>continue</c> targeting the current loop.</summary>
+    public IReadOnlyList<string>? ContinueIncrements => _continueLoopTargets.Count > 0
+        ? _continueLoopTargets.Peek().ContinueIncrements
+        : null;
+
+    public void PushContinueLoopTarget(bool isWhile, IReadOnlyList<string>? continueIncrements = null)
+        => _continueLoopTargets.Push((isWhile, continueIncrements));
+
+    public void PopContinueLoopTarget() => _continueLoopTargets.Pop();
 
     /// <summary>
     /// Maps C# out-var local names (as declared in <c>Persistent/Local/Metadata/Netwrite/Netread&lt;T&gt;.For()</c>)
     /// to their ManiaScript variable name (including prefix such as <c>Persistent_</c>, <c>Net_</c>).
     /// </summary>
     public Dictionary<string, string> DeclareForLocals { get; } = [];
+
+    /// <summary>
+    /// Maps zero-argument C# lambda locals to ManiaScript aliases. Invoking one of these locals
+    /// reads the alias directly because ManiaScript aliases are values, not functions.
+    /// </summary>
+    public Dictionary<string, string> AliasLambdaLocals { get; } = [];
 
     /// <summary>
     /// Backing globals for <c>OnChange(value, oldValue => { ... })</c> calls, collected by
