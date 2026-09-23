@@ -143,18 +143,10 @@ internal sealed class CSharpEmitter
     private string EmitPrimitives()
     {
         var sb = NewFile();
-        sb.AppendLine("/// <summary>2-component vector (Real X, Real Y).</summary>");
-        sb.AppendLine("public partial struct Vec2 { public float X; public float Y; public Vec2(float x, float y) { X = x; Y = y; } }");
-        sb.AppendLine();
-        sb.AppendLine("/// <summary>3-component vector (Real X, Real Y, Real Z).</summary>");
-        sb.AppendLine("public partial struct Vec3 { public float X; public float Y; public float Z; public Vec3(float x, float y, float z) { X = x; Y = y; Z = z; } }");
-        sb.AppendLine();
-        sb.AppendLine("/// <summary>2-component integer vector.</summary>");
-        sb.AppendLine("public partial struct Int2 { public int X; public int Y; public Int2(int x, int y) { X = x; Y = y; } }");
-        sb.AppendLine();
-        sb.AppendLine("/// <summary>3-component integer vector.</summary>");
-        sb.AppendLine("public partial struct Int3 { public int X; public int Y; public int Z; public Int3(int x, int y, int z) { X = x; Y = y; Z = z; } }");
-        sb.AppendLine();
+        EmitVectorPrimitive(sb, "Vec2", "float", "2-component vector (Real X, Real Y).", "X", "Y");
+        EmitVectorPrimitive(sb, "Vec3", "float", "3-component vector (Real X, Real Y, Real Z).", "X", "Y", "Z");
+        EmitVectorPrimitive(sb, "Int2", "int", "2-component integer vector.", "X", "Y");
+        EmitVectorPrimitive(sb, "Int3", "int", "3-component integer vector.", "X", "Y", "Z");
         sb.AppendLine("/// <summary>ManiaScript Ident — opaque unique object identifier.</summary>");
         sb.AppendLine("public readonly partial struct Ident : System.IEquatable<Ident> { public static readonly Ident? NullId = null; " +
             "public override string ToString() => \"NullId\"; public bool Equals(Ident other) => true; " +
@@ -163,6 +155,45 @@ internal sealed class CSharpEmitter
         sb.AppendLine();
         EndFile(sb);
         return sb.ToString();
+    }
+
+    private static void EmitVectorPrimitive(StringBuilder sb, string name, string componentType,
+        string summary, params string[] components)
+    {
+        sb.Append("/// <summary>").Append(summary).AppendLine("</summary>");
+        sb.Append("public partial struct ").Append(name).Append(" : System.IEquatable<").Append(name).AppendLine(">");
+        sb.AppendLine("{");
+        foreach (var component in components)
+            sb.Append("    public ").Append(componentType).Append(' ').Append(component).AppendLine(";");
+
+        sb.Append("    public ").Append(name).Append('(')
+            .Append(string.Join(", ", components.Select(c => $"{componentType} {c.ToLowerInvariant()}")))
+            .AppendLine(")");
+        sb.AppendLine("    {");
+        foreach (var component in components)
+            sb.Append("        ").Append(component).Append(" = ").Append(component.ToLowerInvariant()).AppendLine(";");
+        sb.AppendLine("    }");
+
+        sb.Append("    public bool Equals(").Append(name).Append(" other) => ")
+            .Append(string.Join(" && ", components.Select(c => $"{c}.Equals(other.{c})"))).AppendLine(";");
+        sb.Append("    public override bool Equals(object obj) => obj is ").Append(name)
+            .AppendLine(" other && Equals(other);");
+        sb.AppendLine("    public override int GetHashCode()");
+        sb.AppendLine("    {");
+        sb.AppendLine("        unchecked");
+        sb.AppendLine("        {");
+        sb.AppendLine("            var hash = 17;");
+        foreach (var component in components)
+            sb.Append("            hash = hash * 31 + ").Append(component).AppendLine(".GetHashCode();");
+        sb.AppendLine("            return hash;");
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
+        sb.Append("    public static bool operator ==(").Append(name).Append(" left, ").Append(name)
+            .AppendLine(" right) => left.Equals(right);");
+        sb.Append("    public static bool operator !=(").Append(name).Append(" left, ").Append(name)
+            .AppendLine(" right) => !left.Equals(right);");
+        sb.AppendLine("}");
+        sb.AppendLine();
     }
 
     private string EmitStub(string name)
