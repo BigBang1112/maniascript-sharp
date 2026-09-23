@@ -1639,7 +1639,7 @@ public class MapDetails : ILib<CMap>
 Neither library form emits `#RequireContext`; that directive is only emitted for `IContext`
 scripts.
 
-Add either form as a field on the consuming class. Any public/internal field whose type
+Add either form as a field on the consuming class. Any instance field whose type
 implements `ILib` is auto-`#Include`d, using the field name (PascalCase) as the alias:
 
 **C#**
@@ -1668,9 +1668,9 @@ main() {
 > `declare` globals. Public properties are exported as `Get*`/`Set*` functions. User-defined
 > library constants/settings are emitted with `C_`/`S_` prefixes; generated wrappers for
 > official libraries preserve their original names, such as `Message::Version`.
-> The `[Include]` attribute only emits a raw `#Include` directive — it does not give you a
-> callable/accessible member in C#. Use a lib-typed field for anything you actually call
-> into from code.
+> An `ILib` field emits the `#Include` directive even if the script never calls that field.
+> The path follows the library's namespace under the script output root. For example, a
+> library in `MyMode.Libs` emits `#Include "Libs/MyLib.Script.txt" as MyLib`.
 
 ### Pre-built libraries per game
 

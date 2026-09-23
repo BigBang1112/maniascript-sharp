@@ -34,6 +34,35 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Contains("#Include \"Libs/LayerLib.Script.txt\" as Layers", output);
     }
 
+    [Theory]
+    [InlineData("MyProject.Modes", "MyProject.Modes", "Modes/LayerLib.Script.txt")]
+    [InlineData("MyProject.Modes", "MyProject.Modes.Helpers", "Modes/Helpers/LayerLib.Script.txt")]
+    [InlineData("MyProject.Modes.Nested", "MyProject.Libs", "Libs/LayerLib.Script.txt")]
+    [InlineData("MyProject.Modes", "MyProject", "LayerLib.Script.txt")]
+    public void Emit_LibFieldIncludesNamespacePathEvenWhenUnused(string scriptNamespace, string libNamespace,
+        string expectedPath)
+    {
+        var code = $$"""
+            using ManiaScriptSharp;
+
+            namespace {{libNamespace}} { public class LayerLib : ILib { } }
+            namespace {{scriptNamespace}}
+            {
+                public class MyMode : IContext
+                {
+                    private {{libNamespace}}.LayerLib layers;
+                    public void Main() { }
+                    public void Loop() { }
+                }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "MyMode", rootNamespace: "MyProject");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains($"#Include \"{expectedPath}\" as Layers", output);
+    }
+
     [Fact]
     public void Emit_UserEnums_AsIntegerConstants()
     {

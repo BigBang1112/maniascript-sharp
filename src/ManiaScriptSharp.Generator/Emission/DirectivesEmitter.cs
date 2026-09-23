@@ -55,27 +55,9 @@ internal sealed class DirectivesEmitter
         var any = false;
         var emittedPaths = seenPaths ?? new HashSet<string>();
 
-        // Explicit [Include] attributes on the context class.
-        foreach (var attr in _ctx.Info.Symbol.GetAttributes())
-        {
-            if (attr.AttributeClass?.Name != "IncludeAttribute") continue;
-            var path = attr.Ctor<string>(0) ?? "";
-            var alias = attr.Named<string>("As") ?? "";
-            if (string.IsNullOrEmpty(alias))
-            {
-                var leaf = path.Split('/', '\\').Last();
-                alias = leaf.Replace(".Script.txt", "");
-            }
-            _ctx.W.Line($"#Include \"{path}\" as {alias}");
-            emittedPaths.Add(path);
-            any = true;
-        }
-
-        // Auto-include: any public or internal field whose type implements ILib.
+        // Auto-include: any instance field whose type implements ILib.
         foreach (var f in _ctx.Info.Symbol.GetMembers().OfType<Microsoft.CodeAnalysis.IFieldSymbol>())
         {
-            if (f.DeclaredAccessibility != Microsoft.CodeAnalysis.Accessibility.Public
-                && f.DeclaredAccessibility != Microsoft.CodeAnalysis.Accessibility.Internal) continue;
             if (f.IsStatic || f.IsConst) continue;
 
             if (f.Type is not Microsoft.CodeAnalysis.INamedTypeSymbol fieldType) continue;
@@ -100,7 +82,7 @@ internal sealed class DirectivesEmitter
             }
             else
             {
-                // Use the same relative namespace path as the generated library file.
+                // Use the same namespace path as the generated library file.
                 // E.g. ManiaScriptSharp.Scripts.Libs.Nadeo → Libs/Nadeo/Layers2.Script.txt
                 var nsPath = ManiaScriptGenerator.GetNamespacePath(typeNs, _ctx.RootNamespace)
                     .Replace(System.IO.Path.DirectorySeparatorChar, '/');
