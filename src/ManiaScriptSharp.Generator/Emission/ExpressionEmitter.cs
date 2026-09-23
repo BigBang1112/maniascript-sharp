@@ -446,7 +446,7 @@ internal sealed class ExpressionEmitter
         // List API mapping.
         if (callee is MemberAccessExpressionSyntax listMa && sym is not null)
         {
-            var mapped = MapListMethod(sym, listMa, inv.ArgumentList);
+            var mapped = MapListMethod(sym, listMa, inv);
             if (mapped is not null) return mapped;
         }
 
@@ -466,8 +466,9 @@ internal sealed class ExpressionEmitter
         return $"{Translate(callee)}({Args(inv.ArgumentList)})";
     }
 
-    private string? MapListMethod(IMethodSymbol m, MemberAccessExpressionSyntax ma, ArgumentListSyntax args)
+    private string? MapListMethod(IMethodSymbol m, MemberAccessExpressionSyntax ma, InvocationExpressionSyntax inv)
     {
+        var args = inv.ArgumentList;
         // Dictionary.GetValueOrDefault is an extension method, so its declaring type is not
         // the dictionary. Detect that one special case from the receiver without intercepting
         // unrelated LINQ extension methods.
@@ -475,6 +476,29 @@ internal sealed class ExpressionEmitter
         var isDictionaryGetValueOrDefault = m.Name == "GetValueOrDefault" && IsDictionaryType(receiverType);
         if (!IsListLikeType(m.ContainingType) && !IsDictionaryType(m.ContainingType)
             && !isDictionaryGetValueOrDefault) return null;
+
+        if (m.Name == "Remove" && IsListLikeType(m.ContainingType)
+            && m.ContainingType.TypeArguments.Length > 0
+            && IsCompositeListValue(m.ContainingType.TypeArguments[0]))
+        {
+            _ctx.Report(Diagnostics.RemoveCompositeListValue, inv.GetLocation());
+            return "/* List.Remove(value) cannot remove list or struct values */";
+        }
+
+        var valueType = m.Name switch
+        {
+            "Contains" when IsListLikeType(m.ContainingType)
+                && m.ContainingType.TypeArguments.Length > 0 => m.ContainingType.TypeArguments[0],
+            "ContainsValue" when IsDictionaryType(m.ContainingType)
+                && m.ContainingType.TypeArguments.Length > 1 => m.ContainingType.TypeArguments[1],
+            _ => null,
+        };
+        if (valueType is not null && IsCompositeListValue(valueType))
+        {
+            _ctx.Report(Diagnostics.ContainsCompositeValue, inv.GetLocation());
+            return "/* Contains(value) cannot check list or struct values */";
+        }
+
         var recv = Translate(ma.Expression);
         var a = Args(args);
         return m.Name switch
@@ -494,6 +518,17 @@ internal sealed class ExpressionEmitter
             "Reverse" or "OrderByDescending" => $"{recv}.sortreverse()",
             _ => null,
         };
+    }
+
+    private static bool IsCompositeListValue(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol { ConstructedFrom.SpecialType: SpecialType.System_Nullable_T } nullable)
+            type = nullable.TypeArguments[0];
+
+        return type is IArrayTypeSymbol
+            || type is INamedTypeSymbol named
+                && (IsListLikeType(named) || IsDictionaryType(named)
+                    || named.TypeKind == TypeKind.Struct && named.SpecialType == SpecialType.None);
     }
 
     private string Args(ArgumentListSyntax args)

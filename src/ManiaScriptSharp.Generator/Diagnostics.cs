@@ -163,4 +163,20 @@ internal static class Diagnostics
         category: "ManiaScriptSharp",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor RemoveCompositeListValue = new(
+        id: "MSS021",
+        title: "Cannot remove a list or struct value from a list",
+        messageFormat: "List.Remove(value) cannot remove list or struct values in ManiaScript. Use RemoveAt(index) to remove by key instead.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor ContainsCompositeValue = new(
+        id: "MSS022",
+        title: "Cannot check a list or struct value with Contains",
+        messageFormat: "Contains(value) cannot check list or struct values in ManiaScript. Check by key instead.",
+        category: "ManiaScriptSharp",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

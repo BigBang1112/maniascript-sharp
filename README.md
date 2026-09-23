@@ -1174,6 +1174,9 @@ declare SortedList = MyList.sort();
 | JSON serialize | `.tojson()` |
 | JSON deserialize | `.fromjson(json)` |
 
+`List<T>.Remove(value)` and `.Contains(value)` report an error when `T` is a list, array,
+dictionary, or struct. Use a key check or `RemoveAt(index)` for those values instead.
+
 ### Associative arrays (dictionaries)
 
 **C#**
@@ -1199,6 +1202,9 @@ declare Pi = Scores["Pi"];
 |---|---|
 | `.Count` | `.count` |
 | `.Remove(key)` | `.removekey(key)` |
+
+`Dictionary<TKey, TValue>.ContainsValue(value)` also reports an error for list, array,
+dictionary, or struct values. `ContainsKey(key)` remains supported.
 
 `TryGetValue` (in an `if`/`if (!...)` condition) is translated using `.existskey()` plus an indexer read, since ManiaScript has no out-parameter equivalent:
 

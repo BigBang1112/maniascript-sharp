@@ -442,6 +442,53 @@ public class ExpressionEmitterTests : EmitterTestBase
         Assert.Equal("G_Map.existskey(\"a\")", TranslateExpr("map.ContainsKey(\"a\")", "Dictionary<string, int> map = new();"));
     }
 
+    [Theory]
+    [InlineData("List<List<int>> items; List<int> item;")]
+    [InlineData("List<int[]> items; int[] item;")]
+    [InlineData("List<Dictionary<string, int>> items; Dictionary<string, int> item;")]
+    [InlineData("struct Item { public int Value; } List<Item> items; Item item;")]
+    public void Translate_ListContains_CompositeValueReportsError(string members)
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Contains(item)", members);
+
+        Assert.Equal("/* Contains(value) cannot check list or struct values */", output);
+        Assert.Single(diagnostics);
+        Assert.Equal("MSS022", diagnostics[0].Id);
+        Assert.Equal(Microsoft.CodeAnalysis.DiagnosticSeverity.Error, diagnostics[0].Severity);
+    }
+
+    [Theory]
+    [InlineData("Dictionary<string, List<int>> map; List<int> item;")]
+    [InlineData("struct Item { public int Value; } Dictionary<string, Item> map; Item item;")]
+    public void Translate_DictionaryContainsValue_CompositeValueReportsError(string members)
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("map.ContainsValue(item)", members);
+
+        Assert.Equal("/* Contains(value) cannot check list or struct values */", output);
+        Assert.Single(diagnostics);
+        Assert.Equal("MSS022", diagnostics[0].Id);
+        Assert.Equal(Microsoft.CodeAnalysis.DiagnosticSeverity.Error, diagnostics[0].Severity);
+    }
+
+    [Fact]
+    public void Translate_ListContains_PrimitiveValueStillMapsToExists()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Contains(1)", "List<int> items;");
+
+        Assert.Equal("G_Items.exists(1)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_DictionaryContainsKey_CompositeKeyStillMapsToExistsKey()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("map.ContainsKey(item)",
+            "struct Item { public int Value; } Dictionary<Item, int> map; Item item;");
+
+        Assert.Equal("G_Map.existskey(G_Item)", output);
+        Assert.Empty(diagnostics);
+    }
+
     [Fact]
     public void Translate_DictionaryCount_MapsToCount()
     {
@@ -452,6 +499,59 @@ public class ExpressionEmitterTests : EmitterTestBase
     public void Translate_DictionaryRemove_MapsToRemoveKey()
     {
         Assert.Equal("G_Map.removekey(\"a\")", TranslateExpr("map.Remove(\"a\")", "Dictionary<string, int> map = new();"));
+    }
+
+    [Theory]
+    [InlineData("List<List<int>> items; List<int> item;")]
+    [InlineData("List<int[]> items; int[] item;")]
+    [InlineData("List<Dictionary<string, int>> items; Dictionary<string, int> item;")]
+    [InlineData("struct Item { public int Value; } List<Item> items; Item item;")]
+    public void Translate_ListRemove_CompositeValueReportsError(string members)
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Remove(item)", members);
+
+        Assert.Equal("/* List.Remove(value) cannot remove list or struct values */", output);
+        Assert.Single(diagnostics);
+        Assert.Equal("MSS021", diagnostics[0].Id);
+        Assert.Equal(Microsoft.CodeAnalysis.DiagnosticSeverity.Error, diagnostics[0].Severity);
+    }
+
+    [Fact]
+    public void Translate_ListRemove_PrimitiveValueStillMapsToRemove()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Remove(1)", "List<int> items;");
+
+        Assert.Equal("G_Items.remove(1)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_ListRemove_NullablePrimitiveStillMapsToRemove()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Remove(1)", "List<int?> items;");
+
+        Assert.Equal("G_Items.remove(1)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_ListRemoveAt_StructValueStillMapsToRemoveKey()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.RemoveAt(0)",
+            "struct Item { public int Value; } List<Item> items;");
+
+        Assert.Equal("G_Items.removekey(0)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_DictionaryRemove_StructValueStillMapsToRemoveKey()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("map.Remove(1)",
+            "struct Item { public int Value; } Dictionary<int, Item> map;");
+
+        Assert.Equal("G_Map.removekey(1)", output);
+        Assert.Empty(diagnostics);
     }
 
     [Fact]
