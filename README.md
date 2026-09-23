@@ -72,6 +72,12 @@ source control:
 </Project>
 ```
 
+Each destination contains folders matching the script's C# namespace after its project root
+namespace. For example, in a project with root namespace `MyMode`, a class in
+`MyMode.Modes.TrackMania` writes `Modes/TrackMania/MyMode.Script.txt` beneath every configured
+output directory. Classes in `MyMode` or the global namespace are written at the output root.
+The `ManiaScriptSharp.Scripts.` prefix is omitted so generated paths match `#Include` paths.
+
 The value is a semicolon-separated list. Relative paths are resolved from the project directory;
 absolute paths are also supported. The primary output is always written first and duplicate
 destinations are ignored. A mirror path that cannot be resolved, created, or written reports an

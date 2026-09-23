@@ -112,11 +112,11 @@ public class BuildSettingsTests
         });
         var projectDir = Path.Combine(Path.GetTempPath(), "ManiaScriptSharp", "Project");
 
-        var paths = ManiaScriptGenerator.ResolveOutputPaths("MyMode", settings, projectDir);
+        var paths = ManiaScriptGenerator.ResolveOutputPaths("MyMode", "MyProject.Modes.TrackMania", "MyProject", settings, projectDir);
 
         Assert.Equal(2, paths.Count);
-        Assert.Equal(Path.GetFullPath(Path.Combine(projectDir, "Primary", "MyMode.Script.txt")), paths[0]);
-        Assert.Equal(Path.GetFullPath(Path.Combine(projectDir, "../Mirror", "MyMode.Script.txt")), paths[1]);
+        Assert.Equal(Path.GetFullPath(Path.Combine(projectDir, "Primary", "Modes", "TrackMania", "MyMode.Script.txt")), paths[0]);
+        Assert.Equal(Path.GetFullPath(Path.Combine(projectDir, "../Mirror", "Modes", "TrackMania", "MyMode.Script.txt")), paths[1]);
     }
 
     [Fact]
@@ -127,9 +127,9 @@ public class BuildSettingsTests
             ["build_property.ManiaScriptAdditionalOutputDirs"] = "Mirror"
         });
 
-        var paths = ManiaScriptGenerator.ResolveOutputPaths("MyManialink", settings, Path.GetTempPath(), ".xml");
+        var paths = ManiaScriptGenerator.ResolveOutputPaths("MyManialink", "MyProject.UI.Pages", "MyProject", settings, Path.GetTempPath(), ".xml");
 
-        Assert.All(paths, path => Assert.EndsWith("MyManialink.xml", path));
+        Assert.All(paths, path => Assert.EndsWith(Path.Combine("UI", "Pages", "MyManialink.xml"), path));
     }
 
     [Fact]
@@ -144,6 +144,8 @@ public class BuildSettingsTests
 
         var paths = ManiaScriptGenerator.ResolveOutputPaths(
             "MyMode",
+            "",
+            "MyProject",
             settings,
             Path.GetTempPath(),
             onAdditionalError: (path, exception) => errors.Add((path, exception)));
@@ -152,6 +154,46 @@ public class BuildSettingsTests
         Assert.EndsWith(Path.Combine("Primary", "MyMode.Script.txt"), paths[0]);
         Assert.Single(errors);
         Assert.Equal("\0invalid", errors[0].Path);
+    }
+
+    [Theory]
+    [InlineData("", "MyLib.Script.txt")]
+    [InlineData("ManiaScriptSharp", "MyLib.Script.txt")]
+    [InlineData("ManiaScriptSharp.Scripts", "Scripts/MyLib.Script.txt")]
+    [InlineData("ManiaScriptSharp.Scripts.Libs.Nadeo", "Libs/Nadeo/MyLib.Script.txt")]
+    [InlineData("ManiaScriptSharp.Libs.Nadeo", "Libs/Nadeo/MyLib.Script.txt")]
+    public void ResolveOutputPaths_UsesSameNamespacePathAsIncludes(string namespaceName, string relativePath)
+    {
+        var projectDir = Path.Combine(Path.GetTempPath(), "ManiaScriptSharp", "Project");
+
+        var paths = ManiaScriptGenerator.ResolveOutputPaths("MyLib", namespaceName, "MyProject", BuildSettings.Default, projectDir);
+
+        Assert.Equal(Path.GetFullPath(Path.Combine(projectDir, "ManiaScript", relativePath.Replace('/', Path.DirectorySeparatorChar))), paths[0]);
+    }
+
+    [Theory]
+    [InlineData("MyProject", "MyMode.Script.txt")]
+    [InlineData("MyProject.Libs.Components", "Libs/Components/MyMode.Script.txt")]
+    [InlineData("MyProjectExtra.Libs", "MyProjectExtra/Libs/MyMode.Script.txt")]
+    [InlineData("Company.MyProject.Libs", "Company/MyProject/Libs/MyMode.Script.txt")]
+    public void ResolveOutputPaths_OmitsOnlyMatchingProjectRootNamespace(string namespaceName, string relativePath)
+    {
+        var projectDir = Path.Combine(Path.GetTempPath(), "ManiaScriptSharp", "Project");
+
+        var paths = ManiaScriptGenerator.ResolveOutputPaths("MyMode", namespaceName, "MyProject", BuildSettings.Default, projectDir);
+
+        Assert.Equal(Path.GetFullPath(Path.Combine(projectDir, "ManiaScript", relativePath.Replace('/', Path.DirectorySeparatorChar))), paths[0]);
+    }
+
+    [Fact]
+    public void ResolveOutputPaths_OmitsDottedRootNamespace()
+    {
+        var projectDir = Path.Combine(Path.GetTempPath(), "ManiaScriptSharp", "Project");
+
+        var paths = ManiaScriptGenerator.ResolveOutputPaths(
+            "MyMode", "Company.MyProject.Modes", "Company.MyProject", BuildSettings.Default, projectDir);
+
+        Assert.Equal(Path.GetFullPath(Path.Combine(projectDir, "ManiaScript", "Modes", "MyMode.Script.txt")), paths[0]);
     }
 
     [Fact]

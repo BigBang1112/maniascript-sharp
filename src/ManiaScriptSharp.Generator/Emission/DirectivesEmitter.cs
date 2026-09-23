@@ -40,14 +40,12 @@ internal sealed class DirectivesEmitter
             _ctx.W.Line($"#RequireContext {bt.Name}");
         else
         {
-            const string scriptsNsPrefix = "ManiaScriptSharp.Scripts.";
-            const string baseNsPrefix = "ManiaScriptSharp.";
-            var scriptPath = ns.StartsWith(scriptsNsPrefix, StringComparison.Ordinal)
-                ? ns.Substring(scriptsNsPrefix.Length).Replace('.', '/')
-                : ns.StartsWith(baseNsPrefix, StringComparison.Ordinal)
-                    ? ns.Substring(baseNsPrefix.Length).Replace('.', '/')
-                    : ns.Replace('.', '/');
-            _ctx.W.Line($"#Extends \"{scriptPath}/{bt.Name}.Script.txt\"");
+            var scriptPath = ManiaScriptGenerator.GetNamespacePath(ns, _ctx.RootNamespace)
+                .Replace(System.IO.Path.DirectorySeparatorChar, '/');
+            var filePath = scriptPath.Length > 0
+                ? scriptPath + "/" + bt.Name + ".Script.txt"
+                : bt.Name + ".Script.txt";
+            _ctx.W.Line($"#Extends \"{filePath}\"");
         }
         _ctx.W.Line();
     }
@@ -102,16 +100,10 @@ internal sealed class DirectivesEmitter
             }
             else
             {
-                // Libs from script files have a namespace like ManiaScriptSharp.Scripts.Libs.Nadeo.
-                // Strip the "ManiaScriptSharp.Scripts." prefix, convert dots to slashes, append filename.
+                // Use the same relative namespace path as the generated library file.
                 // E.g. ManiaScriptSharp.Scripts.Libs.Nadeo → Libs/Nadeo/Layers2.Script.txt
-                const string scriptsPrefix = "ManiaScriptSharp.Scripts.";
-                const string msPrefix = "ManiaScriptSharp.";
-                var nsPath = typeNs.StartsWith(scriptsPrefix, StringComparison.Ordinal)
-                    ? typeNs.Substring(scriptsPrefix.Length).Replace('.', '/')
-                    : typeNs.StartsWith(msPrefix, StringComparison.Ordinal)
-                        ? typeNs.Substring(msPrefix.Length).Replace('.', '/')
-                        : typeNs.Replace('.', '/');
+                var nsPath = ManiaScriptGenerator.GetNamespacePath(typeNs, _ctx.RootNamespace)
+                    .Replace(System.IO.Path.DirectorySeparatorChar, '/');
                 includePath = nsPath.Length > 0
                     ? nsPath + "/" + typeName + ".Script.txt"
                     : typeName + ".Script.txt";

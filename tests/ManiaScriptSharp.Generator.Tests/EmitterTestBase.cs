@@ -394,7 +394,7 @@ class Test {{
 
     /// <summary>Runs the complete top-level script emitter for a class in a source snippet.</summary>
     protected static (string Output, IReadOnlyList<Diagnostic> Diagnostics) EmitScript(
-        string code, string className, bool isManialink = false)
+        string code, string className, bool isManialink = false, string rootNamespace = "")
     {
         var compilation = Compile(code);
         var classDecl = compilation.SyntaxTrees
@@ -403,7 +403,7 @@ class Test {{
         var model = compilation.GetSemanticModel(classDecl.SyntaxTree);
         var symbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecl)!;
         var info = new ContextClassInfo(classDecl, symbol, model, isManialink);
-        var emitter = new ScriptEmitter(info, BuildSettings.Default);
+        var emitter = new ScriptEmitter(info, BuildSettings.Default, rootNamespace);
         var output = emitter.Emit().ReplaceLineEndings("\n").Trim();
         return (output, emitter.ReportedDiagnostics);
     }

@@ -6,6 +6,35 @@ namespace ManiaScriptSharp.Generator.Tests;
 public class ScriptEmitterTests : EmitterTestBase
 {
     [Fact]
+    public void Emit_IncludesAndExtends_OmitProjectRootNamespace()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+
+            namespace MyProject.Libs { public class LayerLib : ILib { } }
+            namespace MyProject.Modes
+            {
+                public class BaseMode : IContext
+                {
+                    public void Main() { }
+                    public void Loop() { }
+                }
+
+                public class DerivedMode : BaseMode
+                {
+                    public MyProject.Libs.LayerLib Layers = new();
+                }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "DerivedMode", rootNamespace: "MyProject");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Extends \"Modes/BaseMode.Script.txt\"", output);
+        Assert.Contains("#Include \"Libs/LayerLib.Script.txt\" as Layers", output);
+    }
+
+    [Fact]
     public void Emit_UserEnums_AsIntegerConstants()
     {
         const string code = """

@@ -13,6 +13,7 @@ internal sealed class EmitContext
     public ContextClassInfo Info { get; }
     public SourceProductionContext Spc { get; }
     public BuildSettings Settings { get; }
+    public string RootNamespace { get; }
     public SemanticModel Model => Info.Model;
 
     /// <summary>Whether we are emitting a lib class (implements <c>ILib</c> or <c>ILib&lt;T&gt;</c>) rather than an <c>IContext</c> script.</summary>
@@ -116,20 +117,22 @@ internal sealed class EmitContext
 
     internal bool HasSourceProductionContext => _hasSpc;
 
-    public EmitContext(ContextClassInfo info, SourceProductionContext spc, BuildSettings settings)
+    public EmitContext(ContextClassInfo info, SourceProductionContext spc, BuildSettings settings, string rootNamespace = "")
     {
         Info = info;
         Spc = spc;
         Settings = settings;
+        RootNamespace = rootNamespace;
         W = new IndentedWriter(settings.UseSpaces, settings.IndentSize);
         _hasSpc = true;
     }
 
     /// <summary>Constructor for use in tests where no <see cref="SourceProductionContext"/> is available.</summary>
-    internal EmitContext(ContextClassInfo info, BuildSettings settings)
+    internal EmitContext(ContextClassInfo info, BuildSettings settings, string rootNamespace = "")
     {
         Info = info;
         Settings = settings;
+        RootNamespace = rootNamespace;
         W = new IndentedWriter(settings.UseSpaces, settings.IndentSize);
         // _hasSpc stays false → Report() is a no-op
     }
