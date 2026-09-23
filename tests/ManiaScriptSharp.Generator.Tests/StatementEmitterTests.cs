@@ -119,6 +119,20 @@ public class StatementEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_ZeroArgumentLambda_AsAlias()
+    {
+        var output = TranslateBodyMs(
+            "var item = () => items[i]; Console.WriteLine(\"Item added at \" + item().Position); previousItems.Add(item().Position);",
+            "class CItem { public int Position; } CItem[] items; int i; System.Collections.Generic.List<int> previousItems;");
+
+        Assert.Equal(
+            "declare CItem Item <=> G_Items[G_I];\n" +
+            "log(\"Item added at \" ^ Item.Position);\n" +
+            "G_PreviousItems.add(Item.Position);",
+            output);
+    }
+
+    [Fact]
     public void Emit_ExprStatement_ChainedAssignmentReportsErrorAndIsNotEmitted()
     {
         var (output, diagnostics) = TranslateStmtWithDiagnostics("x = y = 1;", "int x; int y;");

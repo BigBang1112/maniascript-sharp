@@ -350,6 +350,13 @@ internal sealed class ExpressionEmitter
         var callee = inv.Expression;
         var sym = _ctx.Model.GetSymbolInfo(callee).Symbol as IMethodSymbol;
 
+        // `var item = () => Items[i]; item()` is an alias declaration lowered by
+        // StatementEmitter. ManiaScript aliases are accessed directly rather than invoked.
+        if (callee is IdentifierNameSyntax aliasId
+            && inv.ArgumentList.Arguments.Count == 0
+            && _ctx.AliasLambdaLocals.TryGetValue(aliasId.Identifier.Text, out var alias))
+            return alias;
+
         // IContext.Main()/Loop() are invoked only by the generated main() wrapper.
         if (sym.IsIContextEntryPoint())
             _ctx.Report(Diagnostics.ContextEntryPointCalledDirectly, inv.GetLocation(), sym!.Name);

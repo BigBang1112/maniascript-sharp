@@ -79,6 +79,12 @@ internal sealed class EmitContext
     public Dictionary<string, string> DeclareForLocals { get; } = [];
 
     /// <summary>
+    /// Maps zero-argument C# lambda locals to ManiaScript aliases. Invoking one of these locals
+    /// reads the alias directly because ManiaScript aliases are values, not functions.
+    /// </summary>
+    public Dictionary<string, string> AliasLambdaLocals { get; } = [];
+
+    /// <summary>
     /// Backing globals for <c>OnChange(value, oldValue => { ... })</c> calls, collected by
     /// <see cref="OnChangeCollector"/> before <see cref="GlobalEmitter"/> runs. Keyed by the
     /// generated global name (e.g. <c>OldScore</c>), value is its ManiaScript-mapped type.

@@ -1362,6 +1362,22 @@ declare PlayerId = Players[0].Id;
 declare Player <=> Players[PlayerId];
 ```
 
+For a dynamically selected class reference, use a zero-argument lambda. The generator lowers
+it to a ManiaScript alias, so each invocation follows the current target expression:
+
+**C#**
+```cs
+var item = () => Items[i];
+Console.WriteLine("Item added at " + item().Position);
+previousItems.Add(item().Position);
+```
+**ManiaScript**
+```
+declare CItem Item <=> Items[I];
+log("Item added at " ^ Item.Position);
+PreviousItems.add(Item.Position);
+```
+
 ## Contexts
 
 `IContext` generates ManiaScript code from `Main()` (runs once) and `Loop()` (wrapped in `while(True) { yield; ... }`).

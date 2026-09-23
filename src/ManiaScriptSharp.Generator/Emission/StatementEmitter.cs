@@ -205,6 +205,9 @@ internal sealed class StatementEmitter
         {
             var name = NameMangler.Local(v.Identifier.Text);
 
+            if (TryEmitAliasLambda(v, name))
+                continue;
+
             // Strip empty `new MyStruct()` so `declare MyStruct X;` is produced.
             // But first, disallow instantiation of CNod-derived API classes.
             if (v.Initializer is { Value: ObjectCreationExpressionSyntax oc }
@@ -251,6 +254,25 @@ internal sealed class StatementEmitter
             else
                 _ctx.W.Line($"declare {msType} {name}{init};");
         }
+    }
+
+    /// <summary>
+    /// Lowers a zero-argument expression lambda local to a ManiaScript alias. This lets C# use
+    /// <c>item()</c> as a portable stand-in for ManiaScript's dynamically bound <c>item</c>.
+    /// </summary>
+    private bool TryEmitAliasLambda(VariableDeclaratorSyntax variable, string name)
+    {
+        if (variable.Initializer?.Value is not ParenthesizedLambdaExpressionSyntax
+            {
+                ParameterList.Parameters.Count: 0,
+                ExpressionBody: { } target
+            })
+            return false;
+
+        var targetType = _ctx.Model.GetTypeInfo(target).Type;
+        _ctx.W.Line($"declare {TypeMapper.Map(targetType)} {name} <=> {_expr.Translate(target)};");
+        _ctx.AliasLambdaLocals[variable.Identifier.Text] = name;
+        return true;
     }
 
     /// <summary>
