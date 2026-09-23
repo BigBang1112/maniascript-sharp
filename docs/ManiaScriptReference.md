@@ -593,6 +593,17 @@ Integer Sum(Integer _A, Integer _B) {
 - Define a function before you call it.
 - Self-recursion works, but a circular chain between separate functions does not.
 
+Function parameters are read-only in ManiaScript. To change a parameter's value inside a function,
+copy it into a local variable first:
+
+```
+Integer Increment(Integer _Input) {
+    declare Integer Count = _Input;
+    Count += 1;
+    return Count;
+}
+```
+
 ### Calling a function
 
 ```
@@ -689,6 +700,9 @@ serializable values.
 | `.slice(Start)` / `.slice(Start, Length)` | Returns part of a collection |
 | `.tojson()` | Serializes a value to JSON `Text` |
 | `.fromjson(JsonText)` | Loads a value from JSON `Text`, returns whether **entire JSON** was successfully parsed |
+
+`.remove(Value)` and `.exists(Value)` cannot use a list, keyed array, or struct as the value.
+Use `.removekey(Key)` or `.existskey(Key)` for key based operations instead.
 
 ### Associative arrays
 

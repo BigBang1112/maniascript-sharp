@@ -31,7 +31,7 @@ internal sealed class ExpressionEmitter
             InvocationExpressionSyntax inv => TranslateInvocation(inv),
             BinaryExpressionSyntax bin => TranslateBinary(bin),
             AssignmentExpressionSyntax asg => TranslateAssignment(asg),
-            PrefixUnaryExpressionSyntax pre => $"{pre.OperatorToken.Text}{Translate(pre.Operand)}",
+            PrefixUnaryExpressionSyntax pre => TranslatePrefix(pre),
             PostfixUnaryExpressionSyntax post => TranslatePostfix(post),
             ParenthesizedExpressionSyntax par => $"({Translate(par.Expression)})",
             ElementAccessExpressionSyntax ea => TranslateElementAccess(ea),
@@ -623,6 +623,16 @@ internal sealed class ExpressionEmitter
             if (sym is not null && sym.HasAttr("AliasAttribute")) op = "<=>";
         }
         return $"{Translate(left)} {op} {valueText}";
+    }
+
+    private string TranslatePrefix(PrefixUnaryExpressionSyntax prefix)
+    {
+        if (prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression))
+        {
+            var op = prefix.IsKind(SyntaxKind.PreIncrementExpression) ? "+=" : "-=";
+            return $"{Translate(prefix.Operand)} {op} 1";
+        }
+        return $"{prefix.OperatorToken.Text}{Translate(prefix.Operand)}";
     }
 
     private string TranslatePostfix(PostfixUnaryExpressionSyntax post)

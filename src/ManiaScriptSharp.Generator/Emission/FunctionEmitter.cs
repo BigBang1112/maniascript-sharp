@@ -223,8 +223,11 @@ internal sealed class FunctionEmitter
                 a.IsKind(SyntaxKind.SetAccessorDeclaration) || a.IsKind(SyntaxKind.InitAccessorDeclaration));
             if (setter is not null)
             {
-                _ctx.W.Line($"Void {setName}({msType} _Value) {{");
+                var mutated = FindMutatedParameters(setter);
+                var valueParameter = p.SetMethod.Parameters[0];
+                _ctx.W.Line($"Void {setName}({msType} {ParameterName(valueParameter, mutated)}) {{");
                 _ctx.W.Push();
+                EmitMutableParameterCopies(p.SetMethod.Parameters, mutated);
                 if (setter.Body is not null || setter.ExpressionBody is not null)
                     EmitAccessorBody(setter, returnsVoid: true);
                 else
@@ -260,15 +263,99 @@ internal sealed class FunctionEmitter
 
     private void EmitFunction(IMethodSymbol m)
     {
+        var mutated = FindMutatedParameters(m.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax());
         var ret = TypeMapper.Map(m.ReturnType);
         var name = NameMangler.Method(m);
-        var ps = string.Join(", ", m.Parameters.Select(p => $"{TypeMapper.Map(p.Type)} {NameMangler.Parameter(p)}"));
+        var ps = string.Join(", ", m.Parameters.Select(p => $"{TypeMapper.Map(p.Type)} {ParameterName(p, mutated)}"));
         _ctx.W.Line($"{ret} {name}({ps}) {{");
         _ctx.W.Push();
+        EmitMutableParameterCopies(m.Parameters, mutated);
         EmitBody(m);
         _ctx.W.Pop();
         _ctx.W.Line("}");
         _ctx.W.Line();
+    }
+
+    // Keep body references at their usual _Name spelling. Only a written parameter gets a
+    // different signature name, so the body can declare a mutable _Name copy on entry.
+    private static string ParameterName(IParameterSymbol parameter, HashSet<IParameterSymbol> mutated)
+        => mutated.Contains(parameter) ? "__Input" + NameMangler.Parameter(parameter) : NameMangler.Parameter(parameter);
+
+    private void EmitMutableParameterCopies(IEnumerable<IParameterSymbol> parameters, HashSet<IParameterSymbol> mutated)
+    {
+        foreach (var parameter in parameters)
+        {
+            if (!mutated.Contains(parameter)) continue;
+            _ctx.W.Line($"declare {TypeMapper.Map(parameter.Type)} {NameMangler.Parameter(parameter)} = {ParameterName(parameter, mutated)};");
+        }
+    }
+
+    private HashSet<IParameterSymbol> FindMutatedParameters(SyntaxNode? syntax)
+    {
+        var mutated = new HashSet<IParameterSymbol>(SymbolEqualityComparer.Default);
+        if (syntax is null) return mutated;
+
+        void Mark(ExpressionSyntax expression)
+        {
+            if (expression is TupleExpressionSyntax tuple)
+            {
+                foreach (var argument in tuple.Arguments) Mark(argument.Expression);
+                return;
+            }
+
+            while (true)
+            {
+                switch (expression)
+                {
+                    case IdentifierNameSyntax identifier:
+                        if (_ctx.Model.GetSymbolInfo(identifier).Symbol is IParameterSymbol parameter)
+                            mutated.Add(parameter);
+                        return;
+                    case ParenthesizedExpressionSyntax parenthesized:
+                        expression = parenthesized.Expression;
+                        break;
+                    case MemberAccessExpressionSyntax member:
+                        expression = member.Expression;
+                        break;
+                    case ElementAccessExpressionSyntax element:
+                        expression = element.Expression;
+                        break;
+                    case PostfixUnaryExpressionSyntax postfix when postfix.IsKind(SyntaxKind.SuppressNullableWarningExpression):
+                        expression = postfix.Operand;
+                        break;
+                    default:
+                        return;
+                }
+            }
+        }
+
+        foreach (var node in syntax.DescendantNodesAndSelf())
+        {
+            switch (node)
+            {
+                case AssignmentExpressionSyntax assignment:
+                    Mark(assignment.Left);
+                    break;
+                case PrefixUnaryExpressionSyntax prefix when prefix.IsKind(SyntaxKind.PreIncrementExpression)
+                    || prefix.IsKind(SyntaxKind.PreDecrementExpression):
+                    Mark(prefix.Operand);
+                    break;
+                case PostfixUnaryExpressionSyntax postfix when postfix.IsKind(SyntaxKind.PostIncrementExpression)
+                    || postfix.IsKind(SyntaxKind.PostDecrementExpression):
+                    Mark(postfix.Operand);
+                    break;
+                case ArgumentSyntax argument when argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                    || argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword):
+                    Mark(argument.Expression);
+                    break;
+                case InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax member } invocation
+                    when member.Name.Identifier.ValueText is "Add" or "AddRange" or "Insert" or "Remove"
+                        or "RemoveAt" or "Clear" or "Sort" or "Reverse":
+                    Mark(member.Expression);
+                    break;
+            }
+        }
+        return mutated;
     }
 
     private void EmitLabel(IMethodSymbol m)
