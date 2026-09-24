@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using ManiaScriptSharp.Generator.Naming;
 
 namespace ManiaScriptSharp.Generator.Emission;
 
@@ -36,6 +37,26 @@ internal sealed class EmitContext
 
     /// <summary>Tracks <c>#Include</c> paths already emitted — shared across the consuming class and all inlined libs to prevent duplicates.</summary>
     public HashSet<string> EmittedIncludes { get; } = [];
+
+    /// <summary>
+    /// Returns the alias emitted by the consuming script's <c>#Include</c> directive for a
+    /// library type. Every access to an included library must use this name: the C# type name
+    /// is only the script filename and is not necessarily available in ManiaScript.
+    /// </summary>
+    public bool TryGetLibraryAlias(INamedTypeSymbol libraryType, out string alias)
+    {
+        foreach (var field in Info.Symbol.GetMembers().OfType<IFieldSymbol>())
+        {
+            if (field.IsStatic || field.IsConst || !field.IsLibImplementation()) continue;
+            if (!SymbolEqualityComparer.Default.Equals(field.Type, libraryType)) continue;
+
+            alias = NameMangler.PascalCase(field.Name);
+            return true;
+        }
+
+        alias = "";
+        return false;
+    }
 
     /// <summary>Field-initialiser statements that must run inside <c>main()</c> rather than at declaration.</summary>
     public List<DeferredInit> DeferredInits { get; } = [];

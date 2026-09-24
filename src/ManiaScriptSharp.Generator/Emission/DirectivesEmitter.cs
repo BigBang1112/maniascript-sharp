@@ -1,4 +1,3 @@
-using ManiaScriptSharp.Generator.Naming;
 using Microsoft.CodeAnalysis;
 
 namespace ManiaScriptSharp.Generator.Emission;
@@ -92,7 +91,7 @@ internal sealed class DirectivesEmitter
             }
             if (!emittedPaths.Add(typeName)) continue; // deduplicate by type (a lib can only be included once)
 
-            var alias = NameMangler.PascalCase(f.Name);
+            _ctx.TryGetLibraryAlias(fieldType, out var alias);
             _ctx.W.Line($"#Include \"{includePath}\" as {alias}");
             any = true;
         }
@@ -108,8 +107,8 @@ internal sealed class DirectivesEmitter
         {
             if (field.Type is not Microsoft.CodeAnalysis.INamedTypeSymbol type || !IsLib(type)) continue;
             if (_ctx.IsManialink && IsUserDefined(type)) continue;
-            if (!aliases.ContainsKey(type))
-                aliases.Add(type, NameMangler.PascalCase(field.Name));
+            if (!aliases.ContainsKey(type) && _ctx.TryGetLibraryAlias(type, out var alias))
+                aliases.Add(type, alias);
         }
 
         var imported = new HashSet<Microsoft.CodeAnalysis.INamedTypeSymbol>(

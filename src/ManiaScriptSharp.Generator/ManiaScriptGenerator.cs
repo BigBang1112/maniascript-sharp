@@ -327,6 +327,11 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
 
     internal static string GetNamespacePath(string namespaceName, string rootNamespace)
     {
+        // Roslyn renders the global namespace as "<global namespace>". It is not a
+        // directory name and must not leak into generated #Include paths.
+        if (namespaceName == "<global namespace>")
+            return "";
+
         const string scriptsPrefix = "ManiaScriptSharp.Scripts.";
         const string basePrefix = "ManiaScriptSharp.";
         if (namespaceName == "ManiaScriptSharp")

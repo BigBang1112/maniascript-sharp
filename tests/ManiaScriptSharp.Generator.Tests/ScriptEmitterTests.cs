@@ -180,7 +180,7 @@ public class ScriptEmitterTests : EmitterTestBase
 
             public class LibEnumContext : IContext
             {
-                public Palette palette = new();
+                public Palette colors = new();
                 private int tone;
                 public void Main() { tone = (int)Palette.Tone.Dark; }
                 public void Loop() { }
@@ -194,7 +194,8 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Empty(scriptDiagnostics);
         Assert.Contains("#Const C_Palette_Tone_Light 1", libOutput);
         Assert.Contains("#Const C_Palette_Tone_Dark 2", libOutput);
-        Assert.Contains("Palette::C_Palette_Tone_Dark", scriptOutput);
+        Assert.Contains("#Include \"Palette.Script.txt\" as Colors", scriptOutput);
+        Assert.Contains("Colors::C_Palette_Tone_Dark", scriptOutput);
         Assert.DoesNotContain("#Const C_Palette_Tone_Dark", scriptOutput);
     }
 
@@ -693,25 +694,29 @@ public class ScriptEmitterTests : EmitterTestBase
                 [Setting]
                 public const int InitialScore = 3;
                 public int Score { get; set; }
+                public static int GetLimit() => Limit;
             }
 
             public class Host
             {
-                public CounterLib Lib = null!;
+                public CounterLib Included = null!;
                 public int ReadLimit() => CounterLib.Limit;
                 public int ReadSetting() => CounterLib.InitialScore;
-                public int ReadScore() => Lib.Score;
-                public void WriteScore() => Lib.Score = 7;
+                public int ReadStaticMethod() => CounterLib.GetLimit();
+                public int ReadScore() => Included.Score;
+                public void WriteScore() => Included.Score = 7;
             }
             """;
 
         var (output, diagnostics) = EmitScript(code, "Host");
 
         Assert.Empty(diagnostics);
-        Assert.Contains("return CounterLib::C_Limit;", output);
-        Assert.Contains("return CounterLib::S_InitialScore;", output);
-        Assert.Contains("return Lib::GetScore();", output);
-        Assert.Contains("Lib::SetScore(7);", output);
+        Assert.Contains("#Include \"CounterLib.Script.txt\" as Included", output);
+        Assert.Contains("return Included::C_Limit;", output);
+        Assert.Contains("return Included::S_InitialScore;", output);
+        Assert.Contains("return Included::GetLimit();", output);
+        Assert.Contains("return Included::GetScore();", output);
+        Assert.Contains("Included::SetScore(7);", output);
     }
 
     [Fact]

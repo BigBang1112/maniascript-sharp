@@ -158,6 +158,7 @@ public class BuildSettingsTests
 
     [Theory]
     [InlineData("", "MyLib.Script.txt")]
+    [InlineData("<global namespace>", "MyLib.Script.txt")]
     [InlineData("ManiaScriptSharp", "MyLib.Script.txt")]
     [InlineData("ManiaScriptSharp.Scripts", "Scripts/MyLib.Script.txt")]
     [InlineData("ManiaScriptSharp.Scripts.Libs.Nadeo", "Libs/Nadeo/MyLib.Script.txt")]
