@@ -479,6 +479,32 @@ public class ExpressionEmitterTests : EmitterTestBase
         Assert.Empty(diagnostics);
     }
 
+    [Theory]
+    [InlineData("Ident")]
+    [InlineData("Vec2")]
+    [InlineData("Vec3")]
+    [InlineData("Int2")]
+    [InlineData("Int3")]
+    public void Translate_ListContains_NativeScalarStructStillMapsToExists(string typeName)
+    {
+        // These stubs use the names that TypeMapper maps to native ManiaScript scalar types.
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Contains(item)",
+            $"struct {typeName} {{ }} List<{typeName}> items; {typeName} item;");
+
+        Assert.Equal("G_Items.exists(G_Item)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_DictionaryContainsValue_IdentStillMapsToExists()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("map.ContainsValue(item)",
+            "struct Ident { } Dictionary<string, Ident> map; Ident item;");
+
+        Assert.Equal("G_Map.exists(G_Item)", output);
+        Assert.Empty(diagnostics);
+    }
+
     [Fact]
     public void Translate_DictionaryContainsKey_CompositeKeyStillMapsToExistsKey()
     {
@@ -522,6 +548,31 @@ public class ExpressionEmitterTests : EmitterTestBase
         var (output, diagnostics) = TranslateExprWithDiagnostics("items.Remove(1)", "List<int> items;");
 
         Assert.Equal("G_Items.remove(1)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Theory]
+    [InlineData("Ident")]
+    [InlineData("Vec2")]
+    [InlineData("Vec3")]
+    [InlineData("Int2")]
+    [InlineData("Int3")]
+    public void Translate_ListRemove_NativeScalarStructStillMapsToRemove(string typeName)
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Remove(item)",
+            $"struct {typeName} {{ }} List<{typeName}> items; {typeName} item;");
+
+        Assert.Equal("G_Items.remove(G_Item)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_ListRemove_ClassReferenceStillMapsToRemove()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Remove(item)",
+            "class CItem { } List<CItem> items; CItem item;");
+
+        Assert.Equal("G_Items.remove(G_Item)", output);
         Assert.Empty(diagnostics);
     }
 

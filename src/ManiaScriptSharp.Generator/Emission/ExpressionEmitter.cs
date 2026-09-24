@@ -528,7 +528,8 @@ internal sealed class ExpressionEmitter
         return type is IArrayTypeSymbol
             || type is INamedTypeSymbol named
                 && (IsListLikeType(named) || IsDictionaryType(named)
-                    || named.TypeKind == TypeKind.Struct && named.SpecialType == SpecialType.None);
+                    || named.TypeKind == TypeKind.Struct && named.SpecialType == SpecialType.None
+                        && TypeMapper.Map(named) is not ("Ident" or "Vec2" or "Vec3" or "Int2" or "Int3"));
     }
 
     private string Args(ArgumentListSyntax args)
