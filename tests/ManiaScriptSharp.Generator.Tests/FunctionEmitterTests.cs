@@ -95,6 +95,38 @@ public class FunctionEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Emit_Function_ClassParameterMemberMutationDoesNotCopyParameter()
+    {
+        var output = EmitFunctions(
+            "class CUILayer { public bool IsVisible; } " +
+            "class CManiaAppEvent { public CUILayer CustomEventLayer; } " +
+            "public void Event(CManiaAppEvent @event) { @event.CustomEventLayer.IsVisible = false; }");
+
+        Assert.Contains("Void Event(CManiaAppEvent _Event) {", output);
+        Assert.Contains("_Event.CustomEventLayer.IsVisible = False;", output);
+        Assert.DoesNotContain("__Input_Event", output);
+    }
+
+    [Fact]
+    public void Emit_Function_ClassParameterMethodCallDoesNotCopyParameter()
+    {
+        var output = EmitFunctions("class CItem { public void Clear() { } } void Clear(CItem item) { item.Clear(); }");
+
+        Assert.Contains("Void Private_Clear(CItem _Item) {", output);
+        Assert.DoesNotContain("__Input_Item", output);
+    }
+
+    [Fact]
+    public void Emit_Function_MethodOnCollectionElementDoesNotCopyCollectionParameter()
+    {
+        var output = EmitFunctions(
+            "class CItem { public void Clear() { } } void ClearFirst(List<CItem> items) { items[0].Clear(); }");
+
+        Assert.Contains("Void Private_ClearFirst(CItem[] _Items) {", output);
+        Assert.DoesNotContain("__Input_Items", output);
+    }
+
+    [Fact]
     public void Emit_Setter_MutatedValueGetsLocalCopy()
     {
         var output = EmitFunctions("int score; public int Score { set { value++; score = value; } }");

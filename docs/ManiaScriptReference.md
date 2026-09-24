@@ -604,6 +604,9 @@ Integer Increment(Integer _Input) {
 }
 ```
 
+This restriction applies to the parameter binding. You can still change properties on an object
+referenced by a class parameter.
+
 ### Calling a function
 
 ```

@@ -1010,9 +1010,9 @@ Integer Minimum(Integer _A, Integer _B) {
 | `static` keyword | Ignored (use for unit testing) |
 | `virtual` keyword | Becomes a label |
 
-When C# reassigns or otherwise mutates a method parameter, the generator copies that parameter
-to a local variable before the function body. This keeps the generated ManiaScript parameter
-read only while allowing the C# body's writes to work.
+When C# reassigns a method parameter or modifies its struct or collection value, the generator
+copies that parameter to a local variable before the function body. Writing a property on an
+object referenced by a class parameter does not require a copy.
 
 ### Void functions
 

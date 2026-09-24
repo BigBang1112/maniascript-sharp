@@ -295,7 +295,7 @@ internal sealed class FunctionEmitter
         var mutated = new HashSet<IParameterSymbol>(SymbolEqualityComparer.Default);
         if (syntax is null) return mutated;
 
-        void Mark(ExpressionSyntax expression)
+        void Mark(ExpressionSyntax expression, bool collectionMutation = false)
         {
             if (expression is TupleExpressionSyntax tuple)
             {
@@ -303,21 +303,31 @@ internal sealed class FunctionEmitter
                 return;
             }
 
+            var indirect = false;
             while (true)
             {
                 switch (expression)
                 {
                     case IdentifierNameSyntax identifier:
                         if (_ctx.Model.GetSymbolInfo(identifier).Symbol is IParameterSymbol parameter)
-                            mutated.Add(parameter);
+                        {
+                            var collection = TypeMapper.Map(parameter.Type).EndsWith("]", StringComparison.Ordinal);
+                            // A write through a class reference changes the referenced object,
+                            // not the parameter binding. Collections and structs need a local copy.
+                            if (collectionMutation ? !indirect && collection
+                                : !indirect || collection || parameter.Type.TypeKind == TypeKind.Struct)
+                                mutated.Add(parameter);
+                        }
                         return;
                     case ParenthesizedExpressionSyntax parenthesized:
                         expression = parenthesized.Expression;
                         break;
                     case MemberAccessExpressionSyntax member:
+                        indirect = true;
                         expression = member.Expression;
                         break;
                     case ElementAccessExpressionSyntax element:
+                        indirect = true;
                         expression = element.Expression;
                         break;
                     case PostfixUnaryExpressionSyntax postfix when postfix.IsKind(SyntaxKind.SuppressNullableWarningExpression):
@@ -348,10 +358,10 @@ internal sealed class FunctionEmitter
                     || argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword):
                     Mark(argument.Expression);
                     break;
-                case InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax member } invocation
+                case InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax member }
                     when member.Name.Identifier.ValueText is "Add" or "AddRange" or "Insert" or "Remove"
                         or "RemoveAt" or "Clear" or "Sort" or "Reverse":
-                    Mark(member.Expression);
+                    Mark(member.Expression, collectionMutation: true);
                     break;
             }
         }
