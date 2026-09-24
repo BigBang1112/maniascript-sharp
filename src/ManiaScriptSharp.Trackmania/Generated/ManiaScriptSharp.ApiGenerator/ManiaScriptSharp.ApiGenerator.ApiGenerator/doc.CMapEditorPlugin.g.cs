@@ -42,7 +42,8 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         LeftForward,
     }
 
-    public enum PlaceMode
+    [global::ManiaScriptSharp.ManiaScriptName("PlaceMode")]
+    public enum EPlaceMode
     {
         Unknown,
         Terraform,
@@ -63,7 +64,8 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         FreeMacroblock,
     }
 
-    public enum EditMode
+    [global::ManiaScriptSharp.ManiaScriptName("EditMode")]
+    public enum EEditMode
     {
         Unknown,
         Place,
@@ -84,7 +86,8 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         Ultra,
     }
 
-    public enum ValidationStatus
+    [global::ManiaScriptSharp.ManiaScriptName("ValidationStatus")]
+    public enum EValidationStatus
     {
         NotValidable,
         Validable,
@@ -124,7 +127,8 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
         Lowest,
     }
 
-    public enum MapElemColorPalette
+    [global::ManiaScriptSharp.ManiaScriptName("MapElemColorPalette")]
+    public enum EMapElemColorPalette
     {
         Classic,
         Stunt,
@@ -176,13 +180,13 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public void SaveMap(string FileName) { }
     public void SaveMapGamepadEditor(string FileName) { }
     public void SaveMap(string FileName, string Path) { }
-    public CMapEditorPlugin.PlaceMode PlaceMode_ { get; set; }
-    public CMapEditorPlugin.EditMode EditMode_ { get; set; }
+    public CMapEditorPlugin.EPlaceMode PlaceMode { get; set; }
+    public CMapEditorPlugin.EEditMode EditMode { get; set; }
     public CMapEditorPlugin.MapElemColor NextMapElemColor { get; set; }
-    public CMapEditorPlugin.MapElemColorPalette MapElemColorPalette_ { get; set; }
+    public CMapEditorPlugin.EMapElemColorPalette MapElemColorPalette { get; set; }
     public void SetNextMapElemColorPalette() { }
     public bool IsColorBlindModeActive { get; }
-    public System.Collections.Generic.IList<CMapEditorPlugin.MapElemColorPalette> MapElemColorPalettes { get; set; }
+    public System.Collections.Generic.IList<CMapEditorPlugin.EMapElemColorPalette> MapElemColorPalettes { get; set; }
     public bool ForceMacroblockColor { get; set; }
     public CMapEditorPlugin.MapElemColor GetMapElemColor(CBlock Block) => default!;
     public CMapEditorPlugin.MapElemColor GetMapElemColor(CItemAnchor AnchoredObject) => default!;
@@ -190,10 +194,10 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public void SetMapElemColor(CBlock Block, CMapEditorPlugin.MapElemColor Color) { }
     public void SetMapElemColor(CItemAnchor AnchoredObject, CMapEditorPlugin.MapElemColor Color) { }
     public void SetMapElemColor(CAnchorData Anchor, CMapEditorPlugin.MapElemColor Color) { }
-    public string GetColorPaletteName(CMapEditorPlugin.MapElemColorPalette EColorPalette) => default!;
-    public Vec3 GetColorPaletteCurrentColor(CMapEditorPlugin.MapElemColorPalette EColorPalette, CMapEditorPlugin.MapElemColor EColor) => default!;
-    public Vec3 GetColorPaletteColorblindColor(CMapEditorPlugin.MapElemColorPalette EColorPalette, CMapEditorPlugin.MapElemColor EColor) => default!;
-    public Vec3 GetColorPaletteNotColorblindColor(CMapEditorPlugin.MapElemColorPalette EColorPalette, CMapEditorPlugin.MapElemColor EColor) => default!;
+    public string GetColorPaletteName(CMapEditorPlugin.EMapElemColorPalette EColorPalette) => default!;
+    public Vec3 GetColorPaletteCurrentColor(CMapEditorPlugin.EMapElemColorPalette EColorPalette, CMapEditorPlugin.MapElemColor EColor) => default!;
+    public Vec3 GetColorPaletteColorblindColor(CMapEditorPlugin.EMapElemColorPalette EColorPalette, CMapEditorPlugin.MapElemColor EColor) => default!;
+    public Vec3 GetColorPaletteNotColorblindColor(CMapEditorPlugin.EMapElemColorPalette EColorPalette, CMapEditorPlugin.MapElemColor EColor) => default!;
     public CMapEditorPlugin.PhaseOffset NextItemPhaseOffset { get; set; }
     public CMapEditorPlugin.PhaseOffset NextMbAdditionalPhaseOffset { get; set; }
     public CMapEditorPlugin.MapElemLightmapQuality NextMapElemLightmapQuality { get; set; }
@@ -411,7 +415,7 @@ public partial class CMapEditorPlugin : CManiaApp, ILocalProvider, IPersistentPr
     public float CollectionSquareSize { get; }
     public float CollectionSquareHeight { get; }
     public int CollectionGroundY { get; }
-    public CMapEditorPlugin.ValidationStatus ValidationStatus_ { get; }
+    public CMapEditorPlugin.EValidationStatus ValidationStatus { get; }
     /// <summary>Preview the 'RoadsideSpectators' on the bleachers. if -1, use the BleacherSpectatorsAbsoluteCount instead.</summary>
     public float BleacherSpectatorsFillRatio { get; set; }
     /// <summary>Preview the 'RoadsideSpectators' on the bleachers. used if BleacherSpectatorsFillRatio &lt; 0.</summary>

@@ -10,7 +10,8 @@ namespace ManiaScriptSharp;
 /// <summary>An event Supported declare modes : - Local</summary>
 public partial class CEditorPluginModuleEvent : CManiaAppEvent, ILocalProvider
 {
-    public new enum Type
+    [global::ManiaScriptSharp.ManiaScriptName("Type")]
+    public new enum EType
     {
         LayerCustomEvent,
         KeyPress,
@@ -23,7 +24,7 @@ public partial class CEditorPluginModuleEvent : CManiaAppEvent, ILocalProvider
         FileSaveAs,
     }
 
-    public CEditorPluginModuleEvent.Type Type_ { get; }
+    public new CEditorPluginModuleEvent.EType Type { get; }
     public void Eat() { }
     System.Collections.Generic.Dictionary<string, System.Runtime.CompilerServices.IStrongBox> ILocalProvider.Local { get; } = [];
 }

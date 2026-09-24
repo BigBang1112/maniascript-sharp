@@ -11,7 +11,8 @@ namespace ManiaScriptSharp;
 public partial class CMapType : CEditorPlugin, ILocalProvider, IPersistentProvider
 {
     /// <summary>Supported declare modes : Local  Persistent</summary>
-    public enum ValidationStatus
+    [global::ManiaScriptSharp.ManiaScriptName("ValidationStatus")]
+    public enum EValidationStatus
     {
         NotValidable,
         Validable,
@@ -20,7 +21,7 @@ public partial class CMapType : CEditorPlugin, ILocalProvider, IPersistentProvid
 
     public bool CustomEditAnchorData { get; set; }
     public void ClearMapMetadata() { }
-    public ValidationStatus ValidationStatus_ { get; set; }
+    public EValidationStatus ValidationStatus { get; set; }
     public string ValidabilityRequirementsMessage { get; set; }
     public bool ValidationEndRequested { get; }
     public void StartTestMapWithMode(string RulesModeName) { }

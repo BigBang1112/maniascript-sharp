@@ -188,6 +188,9 @@ internal sealed class ExpressionEmitter
         var leftSym = _ctx.Model.GetSymbolInfo(m.Expression).Symbol;
         var memberSym = _ctx.Model.GetSymbolInfo(m).Symbol;
 
+        if (memberSym is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+            return _ctx.MapType(enumType);
+
         if (memberSym is IFieldSymbol enumMember && EnumSupport.IsCustomEnum(enumMember.ContainingType))
             return TranslateEnumConst(enumMember);
 

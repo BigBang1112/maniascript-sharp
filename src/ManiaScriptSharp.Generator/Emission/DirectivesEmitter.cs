@@ -96,6 +96,18 @@ internal sealed class DirectivesEmitter
             any = true;
         }
 
+        if (_ctx.UsesMathLib && emittedPaths.Add("MathLib"))
+        {
+            _ctx.W.Line("#Include \"MathLib\" as MathLib");
+            any = true;
+        }
+
+        if (_ctx.UsesTextLib && emittedPaths.Add("TextLib"))
+        {
+            _ctx.W.Line("#Include \"TextLib\" as TextLib");
+            any = true;
+        }
+
         if (any) _ctx.W.Line();
     }
 

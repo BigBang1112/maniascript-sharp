@@ -24,7 +24,8 @@ public partial class CManiaAppPlaygroundEvent : CManiaAppEvent, ILocalProvider
         OnPlayerTriggerWaypoint,
     }
 
-    public enum GameplaySpecialType
+    [global::ManiaScriptSharp.ManiaScriptName("GameplaySpecialType")]
+    public enum EGameplaySpecialType
     {
         None,
         Turbo,
@@ -53,7 +54,8 @@ public partial class CManiaAppPlaygroundEvent : CManiaAppEvent, ILocalProvider
         XXX_Null,
     }
 
-    public enum GameplayTurboRoulette
+    [global::ManiaScriptSharp.ManiaScriptName("GameplayTurboRoulette")]
+    public enum EGameplayTurboRoulette
     {
         TurboRoulette_None,
         TurboRoulette_1,
@@ -65,8 +67,8 @@ public partial class CManiaAppPlaygroundEvent : CManiaAppEvent, ILocalProvider
     public string PlaygroundScriptEventType { get; }
     public System.Collections.Generic.IList<string> PlaygroundScriptEventData { get; set; }
     public CGhost Ghost { get; }
-    public CManiaAppPlaygroundEvent.GameplaySpecialType GameplaySpecialType_ { get; }
-    public CManiaAppPlaygroundEvent.GameplayTurboRoulette GameplayTurboRoulette_ { get; }
+    public CManiaAppPlaygroundEvent.EGameplaySpecialType GameplaySpecialType { get; }
+    public CManiaAppPlaygroundEvent.EGameplayTurboRoulette GameplayTurboRoulette { get; }
     public bool IsBoostUpElseDown { get; }
     public int WaypointLandmarkIndex { get; }
     public int RaceWaypointTime { get; }

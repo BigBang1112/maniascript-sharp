@@ -19,7 +19,8 @@ public partial class CEditorPlugin : CManiaApp, ILocalProvider, IPersistentProvi
         West,
     }
 
-    public enum PlaceMode
+    [global::ManiaScriptSharp.ManiaScriptName("PlaceMode")]
+    public enum EPlaceMode
     {
         Unknown,
         Terraform,
@@ -36,7 +37,8 @@ public partial class CEditorPlugin : CManiaApp, ILocalProvider, IPersistentProvi
         GhostBlock,
     }
 
-    public enum EditMode
+    [global::ManiaScriptSharp.ManiaScriptName("EditMode")]
+    public enum EEditMode
     {
         Unknown,
         Place,
@@ -58,8 +60,8 @@ public partial class CEditorPlugin : CManiaApp, ILocalProvider, IPersistentProvi
     public void Validate() { }
     public void AutoSave() { }
     public void SaveMap(string FileName, string Path) { }
-    public PlaceMode PlaceMode_ { get; set; }
-    public EditMode EditMode_ { get; set; }
+    public EPlaceMode PlaceMode { get; set; }
+    public EEditMode EditMode { get; set; }
     public bool UndergroundMode { get; set; }
     public bool BlockStockMode { get; set; }
     public Int3 CursorCoord { get; set; }

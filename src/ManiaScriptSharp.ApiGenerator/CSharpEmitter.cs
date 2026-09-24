@@ -23,6 +23,7 @@ internal sealed class CSharpEmitter
     private readonly HashSet<(string TypeName, string MethodName)> _userImplemented;
     private readonly Dictionary<string, TypeDecl> _typesByName;
     private readonly Dictionary<string, EmittedMemberSet> _ownMembersCache = new();
+    private readonly Dictionary<string, IReadOnlyDictionary<string, string>> _nestedEnumNamesCache = new();
     /// <summary>(TypeName, MemberName) pairs the user already declared by hand in another partial
     /// declaration — the generated field/property with that name is skipped so the user's own
     /// member (which may have a different, more specific type) wins.</summary>
@@ -294,15 +295,20 @@ internal sealed class CSharpEmitter
 
         var inheritedMembers = GetInheritedMembers(t);
 
-        var nestedEnumNames = new HashSet<string>();
+        var nestedEnumNames = GetNestedEnumCSharpNames(t);
+        var emittedEnums = new HashSet<string>();
         foreach (var e in t.NestedEnums)
         {
-            if (!nestedEnumNames.Add(e.Name)) continue; // headers sometimes redeclare enums
+            if (!emittedEnums.Add(e.Name)) continue; // headers sometimes redeclare enums
             WriteDoc(sb, e.Doc, 4);
-            var enumName = Identifier(e.Name);
+            var enumName = nestedEnumNames[e.Name];
             var enumBareName = BareIdentifier(enumName);
             var useNew = inheritedMembers.FieldNames.Contains(enumBareName)
                 || inheritedMembers.TypeNames.Contains(enumBareName);
+            if (enumName != Identifier(e.Name))
+                sb.Append("    [global::ManiaScriptSharp.ManiaScriptName(\"")
+                  .Append(e.Name.Replace("\\", "\\\\").Replace("\"", "\\\""))
+                  .AppendLine("\")]");
             sb.Append("    public ");
             if (useNew) sb.Append("new ");
             sb.Append("enum ").Append(enumName).AppendLine();
@@ -313,7 +319,7 @@ internal sealed class CSharpEmitter
             sb.AppendLine();
         }
 
-        var reservedMemberNames = new HashSet<string>(nestedEnumNames);
+        var reservedMemberNames = new HashSet<string>(nestedEnumNames.Values.Select(BareIdentifier));
         reservedMemberNames.Add(t.Name);
 
         // Disambiguate members: methods can overload; fields cannot duplicate; if a field is
@@ -329,16 +335,16 @@ internal sealed class CSharpEmitter
                 if (_userDefinedMembers.Contains((t.Name, m.Name))) continue; // user overwrote this member by hand
                 var name = DisambiguateMember(m.Name, reservedMemberNames);
                 var useNew = inheritedMembers.FieldNames.Contains(BareIdentifier(name));
-                EmitField(sb, m, name, useNew, isStatic: t.IsNamespace && _settings.NamespaceLibsStatic);
+                EmitField(sb, t, m, name, useNew, isStatic: t.IsNamespace && _settings.NamespaceLibsStatic);
             }
             else
             {
-                var sig = MethodSignature(m);
+                var sig = MethodSignature(m, t);
                 if (!methodSignatures.Add(sig)) continue;
                 var name = DisambiguateMember(m.Name, reservedMemberNames);
-                var useNew = inheritedMembers.MethodSignatures.Contains(MethodSignature(name, m));
+                var useNew = inheritedMembers.MethodSignatures.Contains(MethodSignature(name, m, t));
                 var isPartialDecl = _userImplemented.Contains((t.Name, m.Name));
-                EmitMethod(sb, m, name, useNew,
+                EmitMethod(sb, t, m, name, useNew,
                     isStatic: t.IsNamespace && _settings.NamespaceLibsStatic,
                     isPartialDecl: isPartialDecl);
             }
@@ -385,21 +391,21 @@ internal sealed class CSharpEmitter
         _ => null,
     };
 
-    private void EmitField(StringBuilder sb, MemberDecl m, string name, bool useNew, bool isStatic = false)
+    private void EmitField(StringBuilder sb, TypeDecl owner, MemberDecl m, string name, bool useNew, bool isStatic = false)
     {
         WriteDoc(sb, m.Doc, 4);
-        var type = ResolveType(m);
+        var type = ResolveType(m, owner);
         sb.Append("    public ");
         if (isStatic) sb.Append("static ");
         if (useNew) sb.Append("new ");
         sb.Append(type).Append(' ').Append(name).AppendLine(m.IsConst ? " { get; }" : " { get; set; }");
     }
 
-    private void EmitMethod(StringBuilder sb, MemberDecl m, string name, bool useNew,
+    private void EmitMethod(StringBuilder sb, TypeDecl owner, MemberDecl m, string name, bool useNew,
         bool isStatic = false, bool isPartialDecl = false)
     {
         WriteDoc(sb, m.Doc, 4);
-        var ret = ResolveType(m);
+        var ret = ResolveType(m, owner);
         sb.Append("    public ");
         if (isStatic) sb.Append("static ");
         if (isPartialDecl) sb.Append("partial ");
@@ -415,7 +421,7 @@ internal sealed class CSharpEmitter
             var unique = pn;
             int n = 2;
             while (!seenParams.Add(unique)) unique = pn + n++;
-            sb.Append(ResolveType(p.Type, p.IsArray, p.IsDictionary, p.DictKey))
+            sb.Append(ResolveType(p.Type, p.IsArray, p.IsDictionary, p.DictKey, owner))
               .Append(' ')
               .Append(unique);
         }
@@ -444,6 +450,38 @@ internal sealed class CSharpEmitter
     private static string BareIdentifier(string identifier) =>
         identifier.StartsWith("@") ? identifier.Substring(1) : identifier;
 
+    /// <summary>Keep official field names intact when a nested enum has the same name.</summary>
+    private IReadOnlyDictionary<string, string> GetNestedEnumCSharpNames(TypeDecl type)
+    {
+        if (_nestedEnumNamesCache.TryGetValue(type.Name, out var cached)) return cached;
+
+        var fieldNames = new HashSet<string>(type.Members
+            .Where(m => m.Kind == MemberKind.Field)
+            .Select(m => BareIdentifier(Identifier(m.Name))));
+        var occupied = new HashSet<string>(type.Members
+            .Select(m => BareIdentifier(Identifier(m.Name))));
+        occupied.UnionWith(type.NestedEnums.Select(e => BareIdentifier(Identifier(e.Name))));
+        occupied.UnionWith(type.NestedTypes.Select(t => BareIdentifier(Identifier(t.Name))));
+        occupied.Add(BareIdentifier(Identifier(type.Name)));
+
+        var names = new Dictionary<string, string>();
+        foreach (var e in type.NestedEnums)
+        {
+            if (names.ContainsKey(e.Name)) continue;
+            var name = Identifier(e.Name);
+            if (fieldNames.Contains(BareIdentifier(name)))
+            {
+                name = "E" + BareIdentifier(name);
+                while (occupied.Contains(name)) name = "E" + name;
+                occupied.Add(name);
+            }
+            names.Add(e.Name, name);
+        }
+
+        _nestedEnumNamesCache[type.Name] = names;
+        return names;
+    }
+
     private EmittedMemberSet GetInheritedMembers(TypeDecl type)
     {
         var inherited = new EmittedMemberSet();
@@ -469,12 +507,12 @@ internal sealed class CSharpEmitter
             return cached;
 
         var members = new EmittedMemberSet();
-        var nestedEnumNames = new HashSet<string>(type.NestedEnums.Select(e => e.Name));
-        foreach (var e in type.NestedEnums)
-            members.TypeNames.Add(BareIdentifier(Identifier(e.Name)));
+        var nestedEnumNames = GetNestedEnumCSharpNames(type);
+        foreach (var name in nestedEnumNames.Values)
+            members.TypeNames.Add(BareIdentifier(name));
         foreach (var nt in type.NestedTypes)
             members.TypeNames.Add(BareIdentifier(Identifier(nt.Name)));
-        var reservedMemberNames = new HashSet<string>(nestedEnumNames) { type.Name };
+        var reservedMemberNames = new HashSet<string>(nestedEnumNames.Values.Select(BareIdentifier)) { type.Name };
         var seenFields = new HashSet<string>();
         var methodSignatures = new HashSet<string>();
 
@@ -488,10 +526,10 @@ internal sealed class CSharpEmitter
             }
             else
             {
-                var sig = MethodSignature(m);
+                var sig = MethodSignature(m, type);
                 if (!methodSignatures.Add(sig)) continue;
                 var methodName = DisambiguateMember(m.Name, reservedMemberNames);
-                members.MethodSignatures.Add(MethodSignature(methodName, m));
+                members.MethodSignatures.Add(MethodSignature(methodName, m, type));
             }
         }
 
@@ -521,20 +559,20 @@ internal sealed class CSharpEmitter
 
     // ────────────────────────────── type resolution ──────────────────────────────
 
-    private string ResolveType(MemberDecl m) =>
-        ResolveType(m.ReturnType, m.IsArray, m.IsDictionary, m.DictKey);
+    private string ResolveType(MemberDecl m, TypeDecl owner) =>
+        ResolveType(m.ReturnType, m.IsArray, m.IsDictionary, m.DictKey, owner);
 
-    private string ResolveType(string raw, bool isArray, bool isDict, string? dictKey)
+    private string ResolveType(string raw, bool isArray, bool isDict, string? dictKey, TypeDecl owner)
     {
-        var mapped = MapName(raw);
+        var mapped = MapName(raw, owner);
         if (isDict)
-            return $"System.Collections.Generic.Dictionary<{MapName(dictKey ?? "Integer")}, {mapped}>";
+            return $"System.Collections.Generic.Dictionary<{MapName(dictKey ?? "Integer", owner)}, {mapped}>";
         if (isArray)
             return $"System.Collections.Generic.IList<{mapped}>";
         return mapped;
     }
 
-    private string MapName(string raw)
+    private string MapName(string raw, TypeDecl owner)
     {
         if (string.IsNullOrEmpty(raw)) return "object";
         var t = raw.Trim();
@@ -545,10 +583,17 @@ internal sealed class CSharpEmitter
             // and treat the inner name as a free-standing type — a stub gets emitted for it.
             var parts = t.Split(new[] { "::" }, System.StringSplitOptions.None);
             if (parts.Length >= 2 && _definedTypes.Contains(parts[0]))
+            {
+                if (parts.Length == 2 && _typesByName.TryGetValue(parts[0], out var referencedType)
+                    && GetNestedEnumCSharpNames(referencedType).TryGetValue(parts[1], out var enumName))
+                    parts[1] = enumName;
                 t = string.Join(".", parts);
+            }
             else
                 t = parts[parts.Length - 1];
         }
+        else if (GetNestedEnumCSharpNames(owner).TryGetValue(t, out var enumName))
+            t = enumName;
         return t switch
         {
             "Void" => "void",
@@ -604,16 +649,16 @@ internal sealed class CSharpEmitter
         return true;
     }
 
-    private string MethodSignature(MemberDecl m) =>
-        MethodSignature(Identifier(m.Name), m);
+    private string MethodSignature(MemberDecl m, TypeDecl owner) =>
+        MethodSignature(Identifier(m.Name), m, owner);
 
-    private string MethodSignature(string methodName, MemberDecl m)
+    private string MethodSignature(string methodName, MemberDecl m, TypeDecl owner)
     {
         var sb = new StringBuilder(BareIdentifier(methodName));
         sb.Append('(');
         foreach (var p in m.Parameters)
         {
-            sb.Append(ResolveType(p.Type, p.IsArray, p.IsDictionary, p.DictKey)).Append(',');
+            sb.Append(ResolveType(p.Type, p.IsArray, p.IsDictionary, p.DictKey, owner)).Append(',');
         }
         sb.Append(')');
         return sb.ToString();
