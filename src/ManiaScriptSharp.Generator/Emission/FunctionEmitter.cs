@@ -179,7 +179,7 @@ internal sealed class FunctionEmitter
         var syntaxRef = p.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxRef?.GetSyntax() is not PropertyDeclarationSyntax decl) return;
 
-        var msType = TypeMapper.Map(p.Type);
+        var msType = _ctx.MapType(p.Type);
         var getName = NameMangler.Getter(p);
         var setName = NameMangler.Setter(p);
 
@@ -264,9 +264,9 @@ internal sealed class FunctionEmitter
     private void EmitFunction(IMethodSymbol m)
     {
         var mutated = FindMutatedParameters(m.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax());
-        var ret = TypeMapper.Map(m.ReturnType);
+        var ret = _ctx.MapType(m.ReturnType);
         var name = NameMangler.Method(m);
-        var ps = string.Join(", ", m.Parameters.Select(p => $"{TypeMapper.Map(p.Type)} {ParameterName(p, mutated)}"));
+        var ps = string.Join(", ", m.Parameters.Select(p => $"{_ctx.MapType(p.Type)} {ParameterName(p, mutated)}"));
         _ctx.W.Line($"{ret} {name}({ps}) {{");
         _ctx.W.Push();
         EmitMutableParameterCopies(m.Parameters, mutated);
@@ -286,7 +286,7 @@ internal sealed class FunctionEmitter
         foreach (var parameter in parameters)
         {
             if (!mutated.Contains(parameter)) continue;
-            _ctx.W.Line($"declare {TypeMapper.Map(parameter.Type)} {NameMangler.Parameter(parameter)} = {ParameterName(parameter, mutated)};");
+            _ctx.W.Line($"declare {_ctx.MapType(parameter.Type)} {NameMangler.Parameter(parameter)} = {ParameterName(parameter, mutated)};");
         }
     }
 
@@ -311,7 +311,7 @@ internal sealed class FunctionEmitter
                     case IdentifierNameSyntax identifier:
                         if (_ctx.Model.GetSymbolInfo(identifier).Symbol is IParameterSymbol parameter)
                         {
-                            var collection = TypeMapper.Map(parameter.Type).EndsWith("]", StringComparison.Ordinal);
+                            var collection = _ctx.MapType(parameter.Type).EndsWith("]", StringComparison.Ordinal);
                             // A write through a class reference changes the referenced object,
                             // not the parameter binding. Collections and structs need a local copy.
                             if (collectionMutation ? !indirect && collection

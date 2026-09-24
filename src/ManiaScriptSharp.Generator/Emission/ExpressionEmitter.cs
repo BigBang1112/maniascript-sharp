@@ -150,7 +150,7 @@ internal sealed class ExpressionEmitter
                 return NameMangler.Method(m);
             // Native API enum type used bare → route through TypeMapper for qualification.
             case INamedTypeSymbol { TypeKind: TypeKind.Enum } nt:
-                return TypeMapper.Map(nt);
+                return _ctx.MapType(nt);
         }
         return id.Identifier.Text;
     }
@@ -549,7 +549,7 @@ internal sealed class ExpressionEmitter
         if (bin.IsKind(SyntaxKind.AsExpression))
         {
             var typeSym = _ctx.Model.GetTypeInfo(bin.Right).Type;
-            return $"({Translate(bin.Left)} as {TypeMapper.Map(typeSym)})";
+            return $"({Translate(bin.Left)} as {_ctx.MapType(typeSym)})";
         }
 
         var left = Translate(bin.Left);
@@ -685,7 +685,7 @@ internal sealed class ExpressionEmitter
             return Unsupported(cast, $"cast from {from} to {to} (ManiaScript has no boolean-to-number conversion; extract to an if/else assigning 1/0 explicitly)");
         }
 
-        return $"({exprText} as {TypeMapper.Map(targetType)})";
+        return $"({exprText} as {_ctx.MapType(targetType)})";
     }
 
     /// <summary>ManiaScript basic-type family a C# type maps to, for cast/Convert translation.</summary>
@@ -973,8 +973,8 @@ internal sealed class ExpressionEmitter
         var fields = init.Expressions.Select(TranslateStructInitializerField);
         var contents = string.Join(", ", fields);
         return contents.Length == 0
-            ? $"{TypeMapper.Map(type)} {{}}"
-            : $"{TypeMapper.Map(type)} {{ {contents} }}";
+            ? $"{_ctx.MapType(type)} {{}}"
+            : $"{_ctx.MapType(type)} {{ {contents} }}";
     }
 
     private string TranslateStructInitializerField(ExpressionSyntax expression)

@@ -674,7 +674,7 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_Consumer_ImportsNestedLibraryStruct()
+    public void Emit_Consumer_UsesQualifiedNestedLibraryStructWithoutAlias()
     {
         const string code = """
             using ManiaScriptSharp;
@@ -694,9 +694,12 @@ public class ScriptEmitterTests : EmitterTestBase
             {
                 public StateLib Lib = null!;
                 public StateLib.Snapshot Current;
+                public System.Collections.Generic.List<StateLib.Snapshot> History;
+                public StateLib.Snapshot Echo(StateLib.Snapshot snapshot) => snapshot;
                 public void Main()
                 {
                     Current = Lib.GetSnapshot();
+                    StateLib.Snapshot next = new() { Count = 1 };
                 }
             }
             """;
@@ -704,9 +707,48 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "Host");
 
         Assert.Contains(diagnostics, d => d.Id == "MSS016" && d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Warning);
-        Assert.Contains("#Struct Lib::Snapshot as Snapshot", output);
-        Assert.Contains("declare Snapshot G_Current;", output);
+        Assert.DoesNotContain("#Struct Lib::Snapshot as Snapshot", output);
+        Assert.Contains("declare Lib::Snapshot G_Current;", output);
+        Assert.Contains("declare Lib::Snapshot[] G_History;", output);
+        Assert.Contains("Lib::Snapshot Echo(", output);
+        Assert.Contains("declare Lib::Snapshot Next = Lib::Snapshot { Count = 1 };", output);
         Assert.DoesNotContain("#Struct Snapshot {", output);
+    }
+
+    [Fact]
+    public void Emit_Consumer_ImportsNestedLibraryStructWithExplicitUsingAlias()
+    {
+        const string code = """
+            using ManiaScriptSharp;
+            using LocalSnapshot = StateLib.Snapshot;
+
+            public class StateLib : ILib
+            {
+                public struct Snapshot { public int Count; }
+                public Snapshot GetSnapshot() => new();
+            }
+
+            public class Host
+            {
+                private StateLib lib = new();
+                private LocalSnapshot current;
+
+                public LocalSnapshot GetCurrent() => current;
+                public void Main()
+                {
+                    current = new LocalSnapshot { Count = 1 };
+                }
+            }
+            """;
+
+        var (output, diagnostics) = EmitScript(code, "Host");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("#Include \"StateLib.Script.txt\" as Lib", output);
+        Assert.Contains("#Struct Lib::Snapshot as LocalSnapshot", output);
+        Assert.Contains("declare LocalSnapshot G_Current;", output);
+        Assert.Contains("LocalSnapshot GetCurrent()", output);
+        Assert.Contains("LocalSnapshot { Count = 1 }", output);
     }
 
     [Fact]

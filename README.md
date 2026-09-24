@@ -1352,9 +1352,8 @@ declare MyStruct Value = MyStruct { MyMember = 1, MyTextMember = "ready" };
 declare MyStruct Empty = MyStruct {};
 ```
 
-When a struct is nested in an included library, declare it through that library's nested C# type.
-The generator imports it using `#Struct Alias::Type as Type`, making the type available in the
-consuming script:
+Including a library does not automatically import its nested structs. References to a nested
+C# type use the library alias directly in ManiaScript:
 
 ```cs
 public class StateLib : ILib<CManiaApp>
@@ -1376,10 +1375,19 @@ public class MyMode : CTmMode, IContext
 **ManiaScript**
 ```
 #Include "StateLib.Script.txt" as State
-#Struct State::Snapshot as Snapshot
 
-declare Snapshot G_Current;
+declare State::Snapshot G_Current;
 ```
+
+To import a nested struct under a local name, add an explicit C# using alias in the consuming
+file:
+
+```cs
+using Snapshot = StateLib.Snapshot;
+```
+
+With the `State` field above, this emits `#Struct State::Snapshot as Snapshot`. References to
+that type then use `Snapshot` in the generated script.
 
 ## Vectors
 
@@ -1707,6 +1715,9 @@ main() {
 > An `ILib` field emits the `#Include` directive even if the script never calls that field.
 > The path follows the library's namespace under the script output root. For example, a
 > library in `MyMode.Libs` emits `#Include "Libs/MyLib.Script.txt" as MyLib`.
+> Importing a nested library struct is optional: `#Struct Atlas::SelectionChange as SelectionChange`
+> is emitted only for an explicit C# alias such as `using SelectionChange = Atlas.SelectionChange;`.
+> Without the alias, generated code uses `Atlas::SelectionChange` directly.
 
 ### Pre-built libraries per game
 
