@@ -8,16 +8,114 @@
 namespace ManiaScriptSharp;
 
 /// <summary>2-component vector (Real X, Real Y).</summary>
-public partial struct Vec2 { public float X; public float Y; public Vec2(float x, float y) { X = x; Y = y; } }
+public partial struct Vec2 : System.IEquatable<Vec2>
+{
+    public float X;
+    public float Y;
+    public Vec2(float x, float y)
+    {
+        X = x;
+        Y = y;
+    }
+    public bool Equals(Vec2 other) => X.Equals(other.X) && Y.Equals(other.Y);
+    public override bool Equals(object obj) => obj is Vec2 other && Equals(other);
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            var hash = 17;
+            hash = hash * 31 + X.GetHashCode();
+            hash = hash * 31 + Y.GetHashCode();
+            return hash;
+        }
+    }
+    public static bool operator ==(Vec2 left, Vec2 right) => left.Equals(right);
+    public static bool operator !=(Vec2 left, Vec2 right) => !left.Equals(right);
+}
 
 /// <summary>3-component vector (Real X, Real Y, Real Z).</summary>
-public partial struct Vec3 { public float X; public float Y; public float Z; public Vec3(float x, float y, float z) { X = x; Y = y; Z = z; } }
+public partial struct Vec3 : System.IEquatable<Vec3>
+{
+    public float X;
+    public float Y;
+    public float Z;
+    public Vec3(float x, float y, float z)
+    {
+        X = x;
+        Y = y;
+        Z = z;
+    }
+    public bool Equals(Vec3 other) => X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z);
+    public override bool Equals(object obj) => obj is Vec3 other && Equals(other);
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            var hash = 17;
+            hash = hash * 31 + X.GetHashCode();
+            hash = hash * 31 + Y.GetHashCode();
+            hash = hash * 31 + Z.GetHashCode();
+            return hash;
+        }
+    }
+    public static bool operator ==(Vec3 left, Vec3 right) => left.Equals(right);
+    public static bool operator !=(Vec3 left, Vec3 right) => !left.Equals(right);
+}
 
 /// <summary>2-component integer vector.</summary>
-public partial struct Int2 { public int X; public int Y; public Int2(int x, int y) { X = x; Y = y; } }
+public partial struct Int2 : System.IEquatable<Int2>
+{
+    public int X;
+    public int Y;
+    public Int2(int x, int y)
+    {
+        X = x;
+        Y = y;
+    }
+    public bool Equals(Int2 other) => X.Equals(other.X) && Y.Equals(other.Y);
+    public override bool Equals(object obj) => obj is Int2 other && Equals(other);
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            var hash = 17;
+            hash = hash * 31 + X.GetHashCode();
+            hash = hash * 31 + Y.GetHashCode();
+            return hash;
+        }
+    }
+    public static bool operator ==(Int2 left, Int2 right) => left.Equals(right);
+    public static bool operator !=(Int2 left, Int2 right) => !left.Equals(right);
+}
 
 /// <summary>3-component integer vector.</summary>
-public partial struct Int3 { public int X; public int Y; public int Z; public Int3(int x, int y, int z) { X = x; Y = y; Z = z; } }
+public partial struct Int3 : System.IEquatable<Int3>
+{
+    public int X;
+    public int Y;
+    public int Z;
+    public Int3(int x, int y, int z)
+    {
+        X = x;
+        Y = y;
+        Z = z;
+    }
+    public bool Equals(Int3 other) => X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z);
+    public override bool Equals(object obj) => obj is Int3 other && Equals(other);
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            var hash = 17;
+            hash = hash * 31 + X.GetHashCode();
+            hash = hash * 31 + Y.GetHashCode();
+            hash = hash * 31 + Z.GetHashCode();
+            return hash;
+        }
+    }
+    public static bool operator ==(Int3 left, Int3 right) => left.Equals(right);
+    public static bool operator !=(Int3 left, Int3 right) => !left.Equals(right);
+}
 
 /// <summary>ManiaScript Ident — opaque unique object identifier.</summary>
 public readonly partial struct Ident : System.IEquatable<Ident> { public static readonly Ident? NullId = null; public override string ToString() => "NullId"; public bool Equals(Ident other) => true; public override bool Equals(object? obj) => obj is Ident; public override int GetHashCode() => 0; public static bool operator ==(Ident left, Ident right) => left.Equals(right); public static bool operator !=(Ident left, Ident right) => !left.Equals(right); }

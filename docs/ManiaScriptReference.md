@@ -503,22 +503,24 @@ while (ItemCount > 0) {
 
 ### For
 
-The numeric form includes both ends of the range. Give it an optional step, including a
-negative one when you want to go backwards:
+The numeric form includes both ends of the range:
 
 ```
 for (I, 2, 5) {
     log(I); // logs 2, 3, 4, 5
 }
+```
 
-for (I, Players.count - 1, 0, -1) {
+An optional step parameter can be provided. Keep range bounds in the same order, and use a negative step to iterate backwards.
+
+```
+for (I, 0, Players.count - 1, -1) {
     log(Players[I].Login);
 }
 ```
 
 > [!WARNING]
-> ManiaPlanet 4 ignores the optional fourth step parameter. This is fixed in the latest
-> Trackmania, where custom and negative steps work as expected.
+> ManiaPlanet 4 ignores the optional fourth step parameter completely. This is fixed in the latest Trackmania, where custom and negative steps work as expected.
 
 ### Foreach
 
@@ -590,6 +592,20 @@ Integer Sum(Integer _A, Integer _B) {
 - `return;` leaves a `Void` function early; `return Expression;` returns a value from a typed one.
 - Define a function before you call it.
 - Self-recursion works, but a circular chain between separate functions does not.
+
+Function parameters are read-only in ManiaScript. To change a parameter's value inside a function,
+copy it into a local variable first:
+
+```
+Integer Increment(Integer _Input) {
+    declare Integer Count = _Input;
+    Count += 1;
+    return Count;
+}
+```
+
+This restriction applies to the parameter binding. You can still change properties on an object
+referenced by a class parameter.
 
 ### Calling a function
 
@@ -687,6 +703,9 @@ serializable values.
 | `.slice(Start)` / `.slice(Start, Length)` | Returns part of a collection |
 | `.tojson()` | Serializes a value to JSON `Text` |
 | `.fromjson(JsonText)` | Loads a value from JSON `Text`, returns whether **entire JSON** was successfully parsed |
+
+`.remove(Value)` and `.exists(Value)` cannot use a list, keyed array, or struct as the value.
+Use `.removekey(Key)` or `.existskey(Key)` for key based operations instead.
 
 ### Associative arrays
 

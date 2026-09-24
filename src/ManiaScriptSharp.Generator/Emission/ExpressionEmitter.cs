@@ -31,12 +31,13 @@ internal sealed class ExpressionEmitter
             InvocationExpressionSyntax inv => TranslateInvocation(inv),
             BinaryExpressionSyntax bin => TranslateBinary(bin),
             AssignmentExpressionSyntax asg => TranslateAssignment(asg),
-            PrefixUnaryExpressionSyntax pre => $"{pre.OperatorToken.Text}{Translate(pre.Operand)}",
+            PrefixUnaryExpressionSyntax pre => TranslatePrefix(pre),
             PostfixUnaryExpressionSyntax post => TranslatePostfix(post),
             ParenthesizedExpressionSyntax par => $"({Translate(par.Expression)})",
             ElementAccessExpressionSyntax ea => TranslateElementAccess(ea),
             InterpolatedStringExpressionSyntax istr => TranslateInterpolatedString(istr),
             CastExpressionSyntax cast => TranslateCast(cast),
+            DefaultExpressionSyntax def when EnumSupport.IsCustomEnum(_ctx.Model.GetTypeInfo(def.Type).Type) => "0",
             IsPatternExpressionSyntax isp when _patterns is not null => _patterns.TranslateAsExpression(isp),
             ObjectCreationExpressionSyntax oc => TranslateObjectCreation(oc),
             ImplicitObjectCreationExpressionSyntax ioc => TranslateImplicitObjectCreation(ioc),
@@ -70,7 +71,7 @@ internal sealed class ExpressionEmitter
         _ => lit.Token.Text,
     };
 
-    /// <summary>`null`/`default` targeting an <c>Ident</c> (or <c>Ident?</c>) maps to ManiaScript's <c>NullId</c>.</summary>
+    /// <summary>Maps <c>default</c> for custom enums to zero and null identifiers to <c>NullId</c>.</summary>
     private string TranslateNullLiteral(LiteralExpressionSyntax lit)
     {
         // The literal must belong to the bound model's tree — patterns translated from a
@@ -79,8 +80,13 @@ internal sealed class ExpressionEmitter
         if (lit.SyntaxTree != _ctx.Model.SyntaxTree) return "Null";
 
         var type = _ctx.Model.GetTypeInfo(lit).ConvertedType;
+        var isNullable = false;
         if (type is INamedTypeSymbol { ConstructedFrom.SpecialType: SpecialType.System_Nullable_T } nullable)
+        {
+            isNullable = true;
             type = nullable.TypeArguments[0];
+        }
+        if (lit.IsKind(SyntaxKind.DefaultLiteralExpression) && !isNullable && EnumSupport.IsCustomEnum(type)) return "0";
         return type?.Name == "Ident" ? "NullId" : "Null";
     }
 
@@ -111,6 +117,7 @@ internal sealed class ExpressionEmitter
         switch (sym)
         {
             case IFieldSymbol f:
+                if (EnumSupport.IsCustomEnum(f.ContainingType)) return TranslateEnumConst(f);
                 if (f.HasAttr("SettingAttribute")) return NameMangler.Setting(f);
                 if (f.IsConst) return NameMangler.Const(f);
                 if (f.HasAttr("ManialinkControlAttribute")) return NameMangler.Global(f);
@@ -141,8 +148,7 @@ internal sealed class ExpressionEmitter
             case IMethodSymbol m:
                 if (_ctx.IsLabelMethod(m)) return $"+++{m.Name}+++";
                 return NameMangler.Method(m);
-            // Enum type used bare (e.g. `MyState` as the receiver of `MyState.Idle`) →
-            // route through TypeMapper so context-nested enums get the leading `::`.
+            // Native API enum type used bare → route through TypeMapper for qualification.
             case INamedTypeSymbol { TypeKind: TypeKind.Enum } nt:
                 return TypeMapper.Map(nt);
         }
@@ -181,6 +187,9 @@ internal sealed class ExpressionEmitter
 
         var leftSym = _ctx.Model.GetSymbolInfo(m.Expression).Symbol;
         var memberSym = _ctx.Model.GetSymbolInfo(m).Symbol;
+
+        if (memberSym is IFieldSymbol enumMember && EnumSupport.IsCustomEnum(enumMember.ContainingType))
+            return TranslateEnumConst(enumMember);
 
         // string.Empty → "" literal. Checked before translating the receiver because `string`
         // is a PredefinedTypeSyntax, not an identifier, and isn't otherwise translatable.
@@ -313,6 +322,24 @@ internal sealed class ExpressionEmitter
         return $"{lhs}{sep}{name}";
     }
 
+    private string TranslateEnumConst(IFieldSymbol member)
+    {
+        var name = NameMangler.EnumConst(member);
+        for (var owner = member.ContainingType?.ContainingType; owner is not null; owner = owner.ContainingType)
+        {
+            if (!TypeMapper.IsContextOrLibType(owner)
+                || SymbolEqualityComparer.Default.Equals(owner, _ctx.Info.Symbol)) continue;
+
+            var libField = _ctx.Info.Symbol.GetMembers().OfType<IFieldSymbol>()
+                .FirstOrDefault(f => SymbolEqualityComparer.Default.Equals(f.Type, owner) && f.IsLibImplementation());
+            if (libField is not null && !_ctx.IsManialink
+                && libField.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal)
+                return $"{NameMangler.PascalCase(libField.Name)}::{name}";
+            break;
+        }
+        return name;
+    }
+
     /// <summary>
     /// Returns true when the property is declared on the context/lib class currently being
     /// emitted, or on another class implementing <c>IContext</c>/<c>ILib&lt;T&gt;</c> — those are
@@ -419,7 +446,7 @@ internal sealed class ExpressionEmitter
         // List API mapping.
         if (callee is MemberAccessExpressionSyntax listMa && sym is not null)
         {
-            var mapped = MapListMethod(sym, listMa, inv.ArgumentList);
+            var mapped = MapListMethod(sym, listMa, inv);
             if (mapped is not null) return mapped;
         }
 
@@ -439,8 +466,9 @@ internal sealed class ExpressionEmitter
         return $"{Translate(callee)}({Args(inv.ArgumentList)})";
     }
 
-    private string? MapListMethod(IMethodSymbol m, MemberAccessExpressionSyntax ma, ArgumentListSyntax args)
+    private string? MapListMethod(IMethodSymbol m, MemberAccessExpressionSyntax ma, InvocationExpressionSyntax inv)
     {
+        var args = inv.ArgumentList;
         // Dictionary.GetValueOrDefault is an extension method, so its declaring type is not
         // the dictionary. Detect that one special case from the receiver without intercepting
         // unrelated LINQ extension methods.
@@ -448,6 +476,29 @@ internal sealed class ExpressionEmitter
         var isDictionaryGetValueOrDefault = m.Name == "GetValueOrDefault" && IsDictionaryType(receiverType);
         if (!IsListLikeType(m.ContainingType) && !IsDictionaryType(m.ContainingType)
             && !isDictionaryGetValueOrDefault) return null;
+
+        if (m.Name == "Remove" && IsListLikeType(m.ContainingType)
+            && m.ContainingType.TypeArguments.Length > 0
+            && IsCompositeListValue(m.ContainingType.TypeArguments[0]))
+        {
+            _ctx.Report(Diagnostics.RemoveCompositeListValue, inv.GetLocation());
+            return "/* List.Remove(value) cannot remove list or struct values */";
+        }
+
+        var valueType = m.Name switch
+        {
+            "Contains" when IsListLikeType(m.ContainingType)
+                && m.ContainingType.TypeArguments.Length > 0 => m.ContainingType.TypeArguments[0],
+            "ContainsValue" when IsDictionaryType(m.ContainingType)
+                && m.ContainingType.TypeArguments.Length > 1 => m.ContainingType.TypeArguments[1],
+            _ => null,
+        };
+        if (valueType is not null && IsCompositeListValue(valueType))
+        {
+            _ctx.Report(Diagnostics.ContainsCompositeValue, inv.GetLocation());
+            return "/* Contains(value) cannot check list or struct values */";
+        }
+
         var recv = Translate(ma.Expression);
         var a = Args(args);
         return m.Name switch
@@ -467,6 +518,18 @@ internal sealed class ExpressionEmitter
             "Reverse" or "OrderByDescending" => $"{recv}.sortreverse()",
             _ => null,
         };
+    }
+
+    private static bool IsCompositeListValue(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol { ConstructedFrom.SpecialType: SpecialType.System_Nullable_T } nullable)
+            type = nullable.TypeArguments[0];
+
+        return type is IArrayTypeSymbol
+            || type is INamedTypeSymbol named
+                && (IsListLikeType(named) || IsDictionaryType(named)
+                    || named.TypeKind == TypeKind.Struct && named.SpecialType == SpecialType.None
+                        && TypeMapper.Map(named) is not ("Ident" or "Vec2" or "Vec3" or "Int2" or "Int3"));
     }
 
     private string Args(ArgumentListSyntax args)
@@ -563,8 +626,21 @@ internal sealed class ExpressionEmitter
         return $"{Translate(left)} {op} {valueText}";
     }
 
+    private string TranslatePrefix(PrefixUnaryExpressionSyntax prefix)
+    {
+        if (prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression))
+        {
+            var op = prefix.IsKind(SyntaxKind.PreIncrementExpression) ? "+=" : "-=";
+            return $"{Translate(prefix.Operand)} {op} 1";
+        }
+        return $"{prefix.OperatorToken.Text}{Translate(prefix.Operand)}";
+    }
+
     private string TranslatePostfix(PostfixUnaryExpressionSyntax post)
     {
+        if (post.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+            return $"{Translate(post.Operand)}/* not Null here */";
+
         if (post.OperatorToken.Text is "++" or "--")
         {
             var op = post.OperatorToken.Text == "++" ? "+=" : "-=";
@@ -608,7 +684,7 @@ internal sealed class ExpressionEmitter
     /// <summary>ManiaScript basic-type family a C# type maps to, for cast/Convert translation.</summary>
     private enum Prim { None, Boolean, Integer, Real, Text }
 
-    private static Prim Categorize(ITypeSymbol? t) => t?.SpecialType switch
+    private static Prim Categorize(ITypeSymbol? t) => EnumSupport.IsCustomEnum(t) ? Prim.Integer : t?.SpecialType switch
     {
         SpecialType.System_Boolean => Prim.Boolean,
         SpecialType.System_Byte or SpecialType.System_SByte or

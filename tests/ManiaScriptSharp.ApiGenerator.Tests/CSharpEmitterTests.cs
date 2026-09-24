@@ -212,6 +212,23 @@ struct CBlockModel : public CNod {
         Assert.Contains("Ident", files["__Primitives.g.cs"]);
     }
 
+    [Theory]
+    [InlineData("Vec2")]
+    [InlineData("Vec3")]
+    [InlineData("Int2")]
+    [InlineData("Int3")]
+    public void Emit_VectorPrimitive_HasValueEquality(string type)
+    {
+        var source = EmitAll("struct CFoo : public CNod { };")["__Primitives.g.cs"];
+
+        Assert.Contains($"public partial struct {type} : System.IEquatable<{type}>", source);
+        Assert.Contains($"public bool Equals({type} other)", source);
+        Assert.Contains("public override bool Equals(object obj)", source);
+        Assert.Contains("public override int GetHashCode()", source);
+        Assert.Contains($"public static bool operator ==({type} left, {type} right)", source);
+        Assert.Contains($"public static bool operator !=({type} left, {type} right)", source);
+    }
+
     [Fact]
     public void Emit_DocComment_IncludedAsSummary()
     {

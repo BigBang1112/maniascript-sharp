@@ -14,14 +14,14 @@ internal sealed class ScriptEmitter
 
     internal IReadOnlyList<Microsoft.CodeAnalysis.Diagnostic> ReportedDiagnostics => _ctx.ReportedDiagnostics;
 
-    public ScriptEmitter(ContextClassInfo info, Microsoft.CodeAnalysis.SourceProductionContext spc, BuildSettings settings)
+    public ScriptEmitter(ContextClassInfo info, Microsoft.CodeAnalysis.SourceProductionContext spc, BuildSettings settings, string rootNamespace = "")
     {
-        _ctx = new EmitContext(info, spc, settings);
+        _ctx = new EmitContext(info, spc, settings, rootNamespace);
     }
 
-    internal ScriptEmitter(ContextClassInfo info, BuildSettings settings)
+    internal ScriptEmitter(ContextClassInfo info, BuildSettings settings, string rootNamespace = "")
     {
-        _ctx = new EmitContext(info, settings);
+        _ctx = new EmitContext(info, settings, rootNamespace);
     }
 
     /// <summary>Emits declarations and function/label bodies into an external writer (used for lib inlining).</summary>
@@ -36,6 +36,7 @@ internal sealed class ScriptEmitter
         var functions = new FunctionEmitter(_ctx, stmt, expr);
 
         new StructEmitter(_ctx).Emit();
+        new EnumEmitter(_ctx).Emit();
         new ConstSettingEmitter(_ctx, lit).Emit();
         functions.CollectLabels();
         new OnChangeCollector(_ctx).Collect();
@@ -74,6 +75,7 @@ internal sealed class ScriptEmitter
 
             directives.Emit();
             libStructs.Emit();
+            new EnumEmitter(_ctx).Emit();
             libConstsSettings.Emit();
 
             // Two-pass, mirroring the context path: collect labels and OnChange backing
@@ -100,6 +102,7 @@ internal sealed class ScriptEmitter
             InlineLibDirectives();
 
         structs.Emit();
+        new EnumEmitter(_ctx).Emit();
         constsSettings.Emit();
         commands.Emit();
 
@@ -135,8 +138,8 @@ internal sealed class ScriptEmitter
             var model = _ctx.Info.Model.Compilation.GetSemanticModel(syntaxRef.SyntaxTree);
             var libInfo = new ContextClassInfo(classDecl, libType, model);
             var emitter = _ctx.HasSourceProductionContext
-                ? new ScriptEmitter(libInfo, _ctx.Spc, _ctx.Settings)
-                : new ScriptEmitter(libInfo, _ctx.Settings);
+                ? new ScriptEmitter(libInfo, _ctx.Spc, _ctx.Settings, _ctx.RootNamespace)
+                : new ScriptEmitter(libInfo, _ctx.Settings, _ctx.RootNamespace);
             yield return (libType.Name, libInfo, emitter);
         }
     }

@@ -40,14 +40,12 @@ internal sealed class DirectivesEmitter
             _ctx.W.Line($"#RequireContext {bt.Name}");
         else
         {
-            const string scriptsNsPrefix = "ManiaScriptSharp.Scripts.";
-            const string baseNsPrefix = "ManiaScriptSharp.";
-            var scriptPath = ns.StartsWith(scriptsNsPrefix, StringComparison.Ordinal)
-                ? ns.Substring(scriptsNsPrefix.Length).Replace('.', '/')
-                : ns.StartsWith(baseNsPrefix, StringComparison.Ordinal)
-                    ? ns.Substring(baseNsPrefix.Length).Replace('.', '/')
-                    : ns.Replace('.', '/');
-            _ctx.W.Line($"#Extends \"{scriptPath}/{bt.Name}.Script.txt\"");
+            var scriptPath = ManiaScriptGenerator.GetNamespacePath(ns, _ctx.RootNamespace)
+                .Replace(System.IO.Path.DirectorySeparatorChar, '/');
+            var filePath = scriptPath.Length > 0
+                ? scriptPath + "/" + bt.Name + ".Script.txt"
+                : bt.Name + ".Script.txt";
+            _ctx.W.Line($"#Extends \"{filePath}\"");
         }
         _ctx.W.Line();
     }
@@ -57,27 +55,9 @@ internal sealed class DirectivesEmitter
         var any = false;
         var emittedPaths = seenPaths ?? new HashSet<string>();
 
-        // Explicit [Include] attributes on the context class.
-        foreach (var attr in _ctx.Info.Symbol.GetAttributes())
-        {
-            if (attr.AttributeClass?.Name != "IncludeAttribute") continue;
-            var path = attr.Ctor<string>(0) ?? "";
-            var alias = attr.Named<string>("As") ?? "";
-            if (string.IsNullOrEmpty(alias))
-            {
-                var leaf = path.Split('/', '\\').Last();
-                alias = leaf.Replace(".Script.txt", "");
-            }
-            _ctx.W.Line($"#Include \"{path}\" as {alias}");
-            emittedPaths.Add(path);
-            any = true;
-        }
-
-        // Auto-include: any public or internal field whose type implements ILib.
+        // Auto-include: any instance field whose type implements ILib.
         foreach (var f in _ctx.Info.Symbol.GetMembers().OfType<Microsoft.CodeAnalysis.IFieldSymbol>())
         {
-            if (f.DeclaredAccessibility != Microsoft.CodeAnalysis.Accessibility.Public
-                && f.DeclaredAccessibility != Microsoft.CodeAnalysis.Accessibility.Internal) continue;
             if (f.IsStatic || f.IsConst) continue;
 
             if (f.Type is not Microsoft.CodeAnalysis.INamedTypeSymbol fieldType) continue;
@@ -102,16 +82,10 @@ internal sealed class DirectivesEmitter
             }
             else
             {
-                // Libs from script files have a namespace like ManiaScriptSharp.Scripts.Libs.Nadeo.
-                // Strip the "ManiaScriptSharp.Scripts." prefix, convert dots to slashes, append filename.
+                // Use the same namespace path as the generated library file.
                 // E.g. ManiaScriptSharp.Scripts.Libs.Nadeo → Libs/Nadeo/Layers2.Script.txt
-                const string scriptsPrefix = "ManiaScriptSharp.Scripts.";
-                const string msPrefix = "ManiaScriptSharp.";
-                var nsPath = typeNs.StartsWith(scriptsPrefix, StringComparison.Ordinal)
-                    ? typeNs.Substring(scriptsPrefix.Length).Replace('.', '/')
-                    : typeNs.StartsWith(msPrefix, StringComparison.Ordinal)
-                        ? typeNs.Substring(msPrefix.Length).Replace('.', '/')
-                        : typeNs.Replace('.', '/');
+                var nsPath = ManiaScriptGenerator.GetNamespacePath(typeNs, _ctx.RootNamespace)
+                    .Replace(System.IO.Path.DirectorySeparatorChar, '/');
                 includePath = nsPath.Length > 0
                     ? nsPath + "/" + typeName + ".Script.txt"
                     : typeName + ".Script.txt";

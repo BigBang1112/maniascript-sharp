@@ -25,6 +25,20 @@ public class ExpressionEmitterTests : EmitterTestBase
     }
 
     [Fact]
+    public void Translate_NullForgivingOperator_InsertsComment()
+    {
+        Assert.Equal("G_Item/* not Null here */", TranslateExpr("item!", "string? item;"));
+        Assert.Equal("Null/* not Null here */", TranslateExpr("null!"));
+    }
+
+    [Fact]
+    public void Translate_NullForgivingOperator_BeforeMemberAccess()
+    {
+        Assert.Equal("G_Foo/* not Null here */.Bar",
+            TranslateExpr("foo!.Bar", "class Foo { public int Bar; } Foo? foo;"));
+    }
+
+    [Fact]
     public void Translate_NullLiteral_ForIdentField_BecomesNullId()
     {
         Assert.Equal("G_X = NullId", TranslateExpr("x = null", "public struct Ident {} Ident? x;"));
@@ -428,6 +442,79 @@ public class ExpressionEmitterTests : EmitterTestBase
         Assert.Equal("G_Map.existskey(\"a\")", TranslateExpr("map.ContainsKey(\"a\")", "Dictionary<string, int> map = new();"));
     }
 
+    [Theory]
+    [InlineData("List<List<int>> items; List<int> item;")]
+    [InlineData("List<int[]> items; int[] item;")]
+    [InlineData("List<Dictionary<string, int>> items; Dictionary<string, int> item;")]
+    [InlineData("struct Item { public int Value; } List<Item> items; Item item;")]
+    public void Translate_ListContains_CompositeValueReportsError(string members)
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Contains(item)", members);
+
+        Assert.Equal("/* Contains(value) cannot check list or struct values */", output);
+        Assert.Single(diagnostics);
+        Assert.Equal("MSS022", diagnostics[0].Id);
+        Assert.Equal(Microsoft.CodeAnalysis.DiagnosticSeverity.Error, diagnostics[0].Severity);
+    }
+
+    [Theory]
+    [InlineData("Dictionary<string, List<int>> map; List<int> item;")]
+    [InlineData("struct Item { public int Value; } Dictionary<string, Item> map; Item item;")]
+    public void Translate_DictionaryContainsValue_CompositeValueReportsError(string members)
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("map.ContainsValue(item)", members);
+
+        Assert.Equal("/* Contains(value) cannot check list or struct values */", output);
+        Assert.Single(diagnostics);
+        Assert.Equal("MSS022", diagnostics[0].Id);
+        Assert.Equal(Microsoft.CodeAnalysis.DiagnosticSeverity.Error, diagnostics[0].Severity);
+    }
+
+    [Fact]
+    public void Translate_ListContains_PrimitiveValueStillMapsToExists()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Contains(1)", "List<int> items;");
+
+        Assert.Equal("G_Items.exists(1)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Theory]
+    [InlineData("Ident")]
+    [InlineData("Vec2")]
+    [InlineData("Vec3")]
+    [InlineData("Int2")]
+    [InlineData("Int3")]
+    public void Translate_ListContains_NativeScalarStructStillMapsToExists(string typeName)
+    {
+        // These stubs use the names that TypeMapper maps to native ManiaScript scalar types.
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Contains(item)",
+            $"struct {typeName} {{ }} List<{typeName}> items; {typeName} item;");
+
+        Assert.Equal("G_Items.exists(G_Item)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_DictionaryContainsValue_IdentStillMapsToExists()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("map.ContainsValue(item)",
+            "struct Ident { } Dictionary<string, Ident> map; Ident item;");
+
+        Assert.Equal("G_Map.exists(G_Item)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_DictionaryContainsKey_CompositeKeyStillMapsToExistsKey()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("map.ContainsKey(item)",
+            "struct Item { public int Value; } Dictionary<Item, int> map; Item item;");
+
+        Assert.Equal("G_Map.existskey(G_Item)", output);
+        Assert.Empty(diagnostics);
+    }
+
     [Fact]
     public void Translate_DictionaryCount_MapsToCount()
     {
@@ -438,6 +525,84 @@ public class ExpressionEmitterTests : EmitterTestBase
     public void Translate_DictionaryRemove_MapsToRemoveKey()
     {
         Assert.Equal("G_Map.removekey(\"a\")", TranslateExpr("map.Remove(\"a\")", "Dictionary<string, int> map = new();"));
+    }
+
+    [Theory]
+    [InlineData("List<List<int>> items; List<int> item;")]
+    [InlineData("List<int[]> items; int[] item;")]
+    [InlineData("List<Dictionary<string, int>> items; Dictionary<string, int> item;")]
+    [InlineData("struct Item { public int Value; } List<Item> items; Item item;")]
+    public void Translate_ListRemove_CompositeValueReportsError(string members)
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Remove(item)", members);
+
+        Assert.Equal("/* List.Remove(value) cannot remove list or struct values */", output);
+        Assert.Single(diagnostics);
+        Assert.Equal("MSS021", diagnostics[0].Id);
+        Assert.Equal(Microsoft.CodeAnalysis.DiagnosticSeverity.Error, diagnostics[0].Severity);
+    }
+
+    [Fact]
+    public void Translate_ListRemove_PrimitiveValueStillMapsToRemove()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Remove(1)", "List<int> items;");
+
+        Assert.Equal("G_Items.remove(1)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Theory]
+    [InlineData("Ident")]
+    [InlineData("Vec2")]
+    [InlineData("Vec3")]
+    [InlineData("Int2")]
+    [InlineData("Int3")]
+    public void Translate_ListRemove_NativeScalarStructStillMapsToRemove(string typeName)
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Remove(item)",
+            $"struct {typeName} {{ }} List<{typeName}> items; {typeName} item;");
+
+        Assert.Equal("G_Items.remove(G_Item)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_ListRemove_ClassReferenceStillMapsToRemove()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Remove(item)",
+            "class CItem { } List<CItem> items; CItem item;");
+
+        Assert.Equal("G_Items.remove(G_Item)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_ListRemove_NullablePrimitiveStillMapsToRemove()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.Remove(1)", "List<int?> items;");
+
+        Assert.Equal("G_Items.remove(1)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_ListRemoveAt_StructValueStillMapsToRemoveKey()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("items.RemoveAt(0)",
+            "struct Item { public int Value; } List<Item> items;");
+
+        Assert.Equal("G_Items.removekey(0)", output);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Translate_DictionaryRemove_StructValueStillMapsToRemoveKey()
+    {
+        var (output, diagnostics) = TranslateExprWithDiagnostics("map.Remove(1)",
+            "struct Item { public int Value; } Dictionary<int, Item> map;");
+
+        Assert.Equal("G_Map.removekey(1)", output);
+        Assert.Empty(diagnostics);
     }
 
     [Fact]
@@ -737,27 +902,41 @@ public class ExpressionEmitterTests : EmitterTestBase
         Assert.DoesNotContain(diagnostics, d => d.Id == "MSS010");
     }
 
-    // ────────── Enums nested directly in the context class ──────────
+    // ────────── User-defined enums ──────────
 
     [Fact]
-    public void Translate_EnumNestedInContextClass_UsesLeadingDoubleColon()
+    public void Translate_EnumNestedInContextClass_UsesGeneratedConst()
     {
-        // MyState has no ManiaScript struct to be qualified by (the class IS the script),
-        // so it's referenced as a script-local enum: `::MyState::Running`, not `Test::MyState::Running`.
         var (output, _) = TranslateExprWithDiagnostics(
             "MyState.Running",
             "enum MyState { Idle, Running } public void Main() { } public void Loop() { }",
             ": IContext");
-        Assert.Equal("::MyState::Running", output);
+        Assert.Equal("C_Test_MyState_Running", output);
     }
 
     [Fact]
-    public void Translate_EnumNestedInOtherType_KeepsContainingTypeName()
+    public void Translate_EnumNestedInOtherType_UsesGeneratedConst()
     {
         var output = TranslateExpr(
             "CFoo.Color.Red",
             "public class CFoo { public enum Color { Red, Green } }");
-        Assert.Equal("CFoo::Color::Red", output);
+        Assert.Equal("C_Test_CFoo_Color_Red", output);
+    }
+
+    [Fact]
+    public void Translate_UserEnumCasts_AreIntegerNoOps()
+    {
+        const string members = "enum State { Ready = 2 }";
+        Assert.Equal("C_Test_State_Ready", TranslateExpr("(int)State.Ready", members));
+        Assert.Equal("2", TranslateExpr("(State)2", members));
+    }
+
+    [Fact]
+    public void Translate_UserEnumDefaults_AreZero()
+    {
+        const string members = "enum State { Ready = 2 }";
+        Assert.Equal("0", TranslateExpr("default(State)", members));
+        Assert.Equal("declare Integer State = 0;", TranslateStmt("State state = default;", members));
     }
 }
 

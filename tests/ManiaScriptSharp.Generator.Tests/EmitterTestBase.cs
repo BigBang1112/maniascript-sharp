@@ -148,18 +148,22 @@ class Test {{
     /// Emits the first statement inside a test method and returns the
     /// normalised (LF, trimmed) ManiaScript output.
     /// </summary>
-    protected static string TranslateStmt(string csharpStmt, string extraClassMembers = "")
+    private protected static string TranslateStmt(
+        string csharpStmt,
+        string extraClassMembers = "",
+        BuildSettings? settings = null)
     {
         var code = $@"
 using System;
 using System.Collections.Generic;
+using System.Linq;
 class Test {{
     {extraClassMembers}
     void M() {{
         {csharpStmt}
     }}
 }}";
-        var (ctx, _, stmt, _) = CreateEmitters(code);
+        var (ctx, _, stmt, _) = CreateEmitters(code, settings);
         var firstStmt = ctx.Info.Model.SyntaxTree.GetRoot()
             .DescendantNodes().OfType<MethodDeclarationSyntax>()
             .First(m => m.Identifier.Text == "M").Body!.Statements.First();
@@ -171,19 +175,22 @@ class Test {{
     /// Like <see cref="TranslateStmt"/>, but also returns the diagnostics reported by
     /// <see cref="EmitContext.Report"/> while emitting the statement.
     /// </summary>
-    protected static (string Output, IReadOnlyList<Diagnostic> Diagnostics) TranslateStmtWithDiagnostics(
-        string csharpStmt, string extraClassMembers = "")
+    private protected static (string Output, IReadOnlyList<Diagnostic> Diagnostics) TranslateStmtWithDiagnostics(
+        string csharpStmt,
+        string extraClassMembers = "",
+        BuildSettings? settings = null)
     {
         var code = $@"
 using System;
 using System.Collections.Generic;
+using System.Linq;
 class Test {{
     {extraClassMembers}
     void M() {{
         {csharpStmt}
     }}
 }}";
-        var (ctx, _, stmt, _) = CreateEmitters(code);
+        var (ctx, _, stmt, _) = CreateEmitters(code, settings);
         var firstStmt = ctx.Info.Model.SyntaxTree.GetRoot()
             .DescendantNodes().OfType<MethodDeclarationSyntax>()
             .First(m => m.Identifier.Text == "M").Body!.Statements.First();
@@ -387,7 +394,7 @@ class Test {{
 
     /// <summary>Runs the complete top-level script emitter for a class in a source snippet.</summary>
     protected static (string Output, IReadOnlyList<Diagnostic> Diagnostics) EmitScript(
-        string code, string className, bool isManialink = false)
+        string code, string className, bool isManialink = false, string rootNamespace = "")
     {
         var compilation = Compile(code);
         var classDecl = compilation.SyntaxTrees
@@ -396,7 +403,7 @@ class Test {{
         var model = compilation.GetSemanticModel(classDecl.SyntaxTree);
         var symbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecl)!;
         var info = new ContextClassInfo(classDecl, symbol, model, isManialink);
-        var emitter = new ScriptEmitter(info, BuildSettings.Default);
+        var emitter = new ScriptEmitter(info, BuildSettings.Default, rootNamespace);
         var output = emitter.Emit().ReplaceLineEndings("\n").Trim();
         return (output, emitter.ReportedDiagnostics);
     }

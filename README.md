@@ -50,8 +50,13 @@ Optionally configure the build properties in your `.csproj`. These are the defau
     <ManiaScriptOutputDir>ManiaScript</ManiaScriptOutputDir>
     <ManiaScriptIndentSize>4</ManiaScriptIndentSize>
     <ManiaScriptIndentStyle>spaces</ManiaScriptIndentStyle>
+    <ManiaScriptVersion>1</ManiaScriptVersion>
 </PropertyGroup>
 ```
+
+`ManiaScriptVersion` defaults to `1`. Set it to `2` for latest Trackmania scripts: version 2
+supports stepped `for` loops, `continue` in conditional `while` loops, and reverse `foreach`
+iteration. Trackmania project templates set this automatically.
 
 `ManiaScriptOutputDir` is the primary output directory. Additional destinations are intended as
 machine-local deployment/debug mirrors, so configure them in `<project>.csproj.user` rather than
@@ -66,6 +71,12 @@ source control:
 </PropertyGroup>
 </Project>
 ```
+
+Each destination contains folders matching the script's C# namespace after its project root
+namespace. For example, in a project with root namespace `MyMode`, a class in
+`MyMode.Modes.TrackMania` writes `Modes/TrackMania/MyMode.Script.txt` beneath every configured
+output directory. Classes in `MyMode` or the global namespace are written at the output root.
+The `ManiaScriptSharp.Scripts.` prefix is omitted so generated paths match `#Include` paths.
 
 The value is a semicolon-separated list. Relative paths are resolved from the project directory;
 absolute paths are also supported. The primary output is always written first and duplicate
@@ -117,7 +128,7 @@ Other templates in the pack scaffold the other kinds of ManiaScript projects:
 | `msharp-library` | `ILib<T>` reusable library | ManiaPlanet, ManiaPlanet3, Trackmania |
 | `msharp-manialink` | Ingame manialink (`CTmMlScriptIngame` / `CSmMlScriptIngame`) + matching `.xml` | ManiaPlanet, ManiaPlanet3, Trackmania |
 | `msharp-razor-manialink` | Single-file Razor ManiaApp page (`.razor`) | ManiaPlanet, ManiaPlanet3, Trackmania |
-| `msharp-map-editor-plugin` | Map editor plugin (`CMapEditorPlugin`) | ManiaPlanet, Trackmania |
+| `msharp-map-editor-plugin` | Map editor plugin (`CMapEditorPlugin` / `CEditorPlugin`) | ManiaPlanet, ManiaPlanet3, Trackmania |
 | `msharp-server-plugin` | Server plugin (`CServerPlugin`) | ManiaPlanet, Trackmania |
 
 ```powershell
@@ -128,8 +139,9 @@ dotnet new msharp-map-editor-plugin -n MyMapEditorPlugin --Api ManiaPlanet
 dotnet new msharp-server-plugin -n MyServerPlugin --Api ManiaPlanet
 ```
 
-`msharp-map-editor-plugin` and `msharp-server-plugin` only support `ManiaPlanet`/`Trackmania` —
-`CMapEditorPlugin`/`CServerPlugin` aren't exposed by the ManiaPlanet3 API.
+`msharp-server-plugin` only supports `ManiaPlanet`/`Trackmania`, because `CServerPlugin` is not
+exposed by the ManiaPlanet3 API. `msharp-map-editor-plugin` uses `CEditorPlugin` for
+ManiaPlanet3 and `CMapEditorPlugin` for ManiaPlanet and Trackmania.
 
 ### IDE setup
 
@@ -343,6 +355,29 @@ const bool EnableDebug = false;
 #Const C_ScriptVersion "1.2"
 #Const C_EnableDebug False
 ```
+
+### User-defined enums
+
+C# enums declared by your script are emitted as integer constants. Implicit values follow
+C# numbering, and explicit values are preserved.
+
+**C#**
+```cs
+enum Phase { Idle, Running = 5, Done }
+Phase phase = Phase.Done;
+```
+**ManiaScript**
+```
+#Const C_Phase_Idle 0
+#Const C_Phase_Running 5
+#Const C_Phase_Done 6
+declare Integer G_Phase;
+G_Phase = C_Phase_Done;
+```
+
+Constants include the namespace and containing type names when present, so enum members
+with the same name remain distinct. API enums supplied by the game keep their native
+ManiaScript enum names.
 
 ---
 
@@ -660,7 +695,11 @@ switchtype (Control) {
 
 ### While loop
 
-> Warning: ManiaScript has a bug where `continue` skips a `while` loop's condition check. The generator reports `MSS020` when a C# `continue` targets a translated `while` with a condition other than literal `true`; use conditional control flow or a `for`/`foreach` loop instead. The generated `Loop()` wrapper is one such unconditional-loop case.
+> Warning: ManiaScript version 1 has a bug where `continue` skips a `while` loop's condition
+> check. The generator reports `MSS020` when a C# `continue` targets a translated `while` with
+> a condition other than literal `true`; use conditional control flow or a `for`/`foreach` loop
+> instead. Version 2 fixes the bug. The generated `Loop()` wrapper is one such unconditional-loop
+> case.
 
 **C#**
 ```cs
@@ -732,8 +771,9 @@ for (I, 0, 10 - 1) {
 
 #### Stepped and reverse loops
 
-ManiaScript's optional fourth `for` argument is not used. Reverse and non-unit integer steps
-are lowered to `while`; increments are emitted before a matching `continue` to preserve C# semantics:
+ManiaScript version 1 lowers reverse and non-unit integer steps to `while`; increments are emitted
+before a matching `continue` to preserve C# semantics. Version 2 emits ManiaScript's optional
+fourth `for` argument, keeping range bounds in ascending order and using the step sign for direction:
 
 **C#**
 ```cs
@@ -766,6 +806,18 @@ declare Integer I = 0;
 while (I < 10) {
     log("" ^ I);
     I += 2;
+}
+```
+
+With `ManiaScriptVersion` set to `2`, those loops emit:
+
+```
+for (I, 0 + 1, 10, -1) {
+    log("" ^ I);
+}
+
+for (I, 0, 10 - 1, 2) {
+    log("" ^ I);
 }
 ```
 
@@ -880,6 +932,22 @@ foreach (Item in MyArray) {
 }
 ```
 
+With ManiaScript version 2, `Enumerable.Reverse()` emits native reverse iteration:
+
+**C#**
+```cs
+foreach (var item in myArray.Reverse())
+{
+    Log(item);
+}
+```
+**ManiaScript**
+```
+foreach (Item in MyArray reverse) {
+    log(Item);
+}
+```
+
 ### Break and continue
 
 **C#**
@@ -941,6 +1009,10 @@ Integer Minimum(Integer _A, Integer _B) {
 | Parameter `int time` | `Integer _Time` (PascalCase + underscore) |
 | `static` keyword | Ignored (use for unit testing) |
 | `virtual` keyword | Becomes a label |
+
+When C# reassigns a method parameter or modifies its struct or collection value, the generator
+copies that parameter to a local variable before the function body. Writing a property on an
+object referenced by a class parameter does not require a copy.
 
 ### Void functions
 
@@ -1106,6 +1178,10 @@ declare SortedList = MyList.sort();
 | JSON serialize | `.tojson()` |
 | JSON deserialize | `.fromjson(json)` |
 
+`List<T>.Remove(value)` and `.Contains(value)` report an error when `T` is a list, array,
+dictionary, or non-native struct. Native scalar types such as `Ident` and vectors remain
+supported. Use a key check or `RemoveAt(index)` for composite values instead.
+
 ### Associative arrays (dictionaries)
 
 **C#**
@@ -1131,6 +1207,9 @@ declare Pi = Scores["Pi"];
 |---|---|
 | `.Count` | `.count` |
 | `.Remove(key)` | `.removekey(key)` |
+
+`Dictionary<TKey, TValue>.ContainsValue(value)` also reports an error for list, array,
+dictionary, or non-native struct values. `ContainsKey(key)` remains supported.
 
 `TryGetValue` (in an `if`/`if (!...)` condition) is translated using `.existskey()` plus an indexer read, since ManiaScript has no out-parameter equivalent:
 
@@ -1571,7 +1650,7 @@ public class MapDetails : ILib<CMap>
 Neither library form emits `#RequireContext`; that directive is only emitted for `IContext`
 scripts.
 
-Add either form as a field on the consuming class. Any public/internal field whose type
+Add either form as a field on the consuming class. Any instance field whose type
 implements `ILib` is auto-`#Include`d, using the field name (PascalCase) as the alias:
 
 **C#**
@@ -1600,9 +1679,9 @@ main() {
 > `declare` globals. Public properties are exported as `Get*`/`Set*` functions. User-defined
 > library constants/settings are emitted with `C_`/`S_` prefixes; generated wrappers for
 > official libraries preserve their original names, such as `Message::Version`.
-> The `[Include]` attribute only emits a raw `#Include` directive — it does not give you a
-> callable/accessible member in C#. Use a lib-typed field for anything you actually call
-> into from code.
+> An `ILib` field emits the `#Include` directive even if the script never calls that field.
+> The path follows the library's namespace under the script output root. For example, a
+> library in `MyMode.Libs` emits `#Include "Libs/MyLib.Script.txt" as MyLib`.
 
 ### Pre-built libraries per game
 
@@ -2234,6 +2313,8 @@ log(Score);
 | `Main()` method | Code before `while` loop in `main()` |
 | `IContext.Loop()` method | Code inside `while` loop |
 | `const` field | `#Const C_Name` |
+| User-defined `enum` | `Integer` and `#Const C_Enum_Member Value` |
+| Game API `enum` | Native ManiaScript enum |
 | `[Setting]` attribute | `#Setting S_Name` |
 | `[Command("Name", typeof(T))]` | `#Command Name (T)` |
 | field | `declare G_Name` (global; public fields warn with `MSS016`) |
@@ -2249,7 +2330,7 @@ log(Score);
 | `IList<T>` / `List<T>` | `T[]` list |
 | `Dictionary<K,V>` | `V[K]` associative array |
 | Namespace path | File path for `#Extends` |
-| `.` member access on enums/classes | `::` in ManiaScript |
+| `.` member access on game API enums/classes | `::` in ManiaScript |
 | `true` / `false` | `True` / `False` |
 | `null` | `Null` |
 | `is` type check | `is` / `switchtype` |
@@ -2266,10 +2347,12 @@ log(Score);
 | `struct` | `#Struct` |
 | `Vector2` / `Vector3` | `Vec2` / `Vec3` |
 | `for (i = a; i <= b; i++)` | `for (I, a, b)` |
+| Stepped `for` (version 2) | `for (I, first, last, step)` |
 | `foreach (x in list)` | `foreach (X in List)` |
 | `foreach` with index | `foreach (Key => Val in Array)` |
+| `foreach (x in list.Reverse())` (version 2) | `foreach (X in List reverse)` |
 | `break` | `break;` |
-| `continue` | `continue;` (warning `MSS020` when it targets `while`) |
+| `continue` | `continue;` (warning `MSS020` when it targets a `while` in version 1) |
 | LINQ chain (`Where`/`Select`/...) | Desugared `foreach` loop (see [LINQ Queries](#linq-queries)) |
 | Collection expression `[1, 2, 3]` | `[1, 2, 3]` |
 | Named argument `f(x: 1)` | `f(/* x: */ 1)` |

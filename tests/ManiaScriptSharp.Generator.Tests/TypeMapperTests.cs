@@ -64,34 +64,34 @@ public class TypeMapperTests
     {
         // C# CUILayer.EUILayerType → ManiaScript CUILayer::EUILayerType
         var containing = (INamedTypeSymbol)SymbolHelper.CreateType(SpecialType.None, "CUILayer");
-        var type = SymbolHelper.CreateType(SpecialType.None, "EUILayerType", TypeKind.Enum, containing);
+        var type = SymbolHelper.CreateType(SpecialType.None, "EUILayerType", TypeKind.Enum, containing,
+            assemblyName: "ManiaScriptSharp.Trackmania");
         Assert.Equal("CUILayer::EUILayerType", TypeMapper.Map(type));
     }
 
     [Fact]
     public void Map_TopLevelEnum_HasNoContainingTypePrefix()
     {
-        var type = SymbolHelper.CreateType(SpecialType.None, "EWeapon", TypeKind.Enum);
+        var type = SymbolHelper.CreateType(SpecialType.None, "EWeapon", TypeKind.Enum,
+            assemblyName: "ManiaScriptSharp.Trackmania");
         Assert.Equal("EWeapon", TypeMapper.Map(type));
     }
 
     [Fact]
-    public void Map_EnumNestedInContextClass_UsesLeadingDoubleColonNoContainingName()
+    public void Map_UserEnumNestedInContextClass_MapsToInteger()
     {
-        // An enum nested directly in the IContext class has no ManiaScript struct to
-        // qualify it with (the class itself IS the script) → `::MyState`, not `MyGamemode::MyState`.
         var iface = SymbolHelper.CreateInterface("IContext");
         var containing = (INamedTypeSymbol)SymbolHelper.CreateType(SpecialType.None, "MyGamemode", allInterfaces: new[] { iface });
-        var type = SymbolHelper.CreateType(SpecialType.None, "MyState", TypeKind.Enum, containing);
-        Assert.Equal("::MyState", TypeMapper.Map(type));
+        var type = SymbolHelper.CreateType(SpecialType.None, "MyState", TypeKind.Enum, containing, assemblyName: "UserScripts");
+        Assert.Equal("Integer", TypeMapper.Map(type));
     }
 
     [Fact]
-    public void Map_EnumNestedInLibClass_UsesLeadingDoubleColonNoContainingName()
+    public void Map_UserEnumNestedInLibClass_MapsToInteger()
     {
         var iface = SymbolHelper.CreateInterface("ILib", isGenericType: true);
         var containing = (INamedTypeSymbol)SymbolHelper.CreateType(SpecialType.None, "MyLib", allInterfaces: new[] { iface });
-        var type = SymbolHelper.CreateType(SpecialType.None, "MyEnum", TypeKind.Enum, containing);
-        Assert.Equal("::MyEnum", TypeMapper.Map(type));
+        var type = SymbolHelper.CreateType(SpecialType.None, "MyEnum", TypeKind.Enum, containing, assemblyName: "UserScripts");
+        Assert.Equal("Integer", TypeMapper.Map(type));
     }
 }

@@ -23,8 +23,9 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
             {
                 opts.GlobalOptions.TryGetValue("build_property.MSBuildProjectDirectory", out var dir);
                 opts.GlobalOptions.TryGetValue("build_property.MSBuildProjectName", out var name);
+                opts.GlobalOptions.TryGetValue("build_property.RootNamespace", out var rootNamespace);
                 var settings = BuildSettings.FromOptions(opts.GlobalOptions);
-                return (Dir: dir ?? "", Name: name ?? "Generated", Settings: settings);
+                return (Dir: dir ?? "", RootNamespace: string.IsNullOrWhiteSpace(rootNamespace) ? name ?? "" : rootNamespace!, Settings: settings);
             });
 
         var contextClasses = context.SyntaxProvider
@@ -79,14 +80,14 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
             var (info, proj) = tuple;
             try
             {
-                var emitter = new ScriptEmitter(info, spc, proj.Settings);
+                var emitter = new ScriptEmitter(info, spc, proj.Settings, proj.RootNamespace);
                 var script = emitter.Emit();
                 var outputPath = ResolveOutputPath(
-                    info.Symbol.Name, proj.Settings.OutputDir, proj.Dir, ".Script.txt");
-                WriteScriptFiles(info, proj.Settings, proj.Dir, script, spc);
+                    info.Symbol.Name, GetNamespacePath(info.Symbol, proj.RootNamespace), proj.Settings.OutputDir, proj.Dir, ".Script.txt");
+                WriteScriptFiles(info, proj.Settings, proj.Dir, proj.RootNamespace, script, spc);
 
                 spc.AddSource(
-                    $"{info.Symbol.Name}.lib.g.cs",
+                    GetSourceHintName(info.Symbol, ".lib.g.cs"),
                     SourceText.From(
                         $"// Generated lib ManiaScript at: {outputPath}\n// Length: {script.Length} chars\n",
                         Encoding.UTF8));
@@ -111,7 +112,7 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
                     ? new ContextClassInfo(info.Declaration, info.Symbol, info.Model, isManialink: true)
                     : info;
 
-                var emitter = new ScriptEmitter(effectiveInfo, spc, proj.Settings);
+                var emitter = new ScriptEmitter(effectiveInfo, spc, proj.Settings, proj.RootNamespace);
                 var script = emitter.Emit();
 
                 if (xmlTemplate is not null)
@@ -126,15 +127,15 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
                     }
                     ValidateManialinkBindings(xmlTemplate, emitter.ManialinkBindings, spc, info);
                     var merged = MergeIntoManialink(xmlTemplate, script, info.Symbol.Name);
-                    WriteScriptFiles(info, proj.Settings, proj.Dir, merged, spc, ".xml");
+                    WriteScriptFiles(info, proj.Settings, proj.Dir, proj.RootNamespace, merged, spc, ".xml");
                 }
                 else
                 {
-                    WriteScriptFiles(info, proj.Settings, proj.Dir, script, spc);
+                    WriteScriptFiles(info, proj.Settings, proj.Dir, proj.RootNamespace, script, spc);
                 }
 
                 spc.AddSource(
-                    $"{info.Symbol.Name}.g.cs",
+                    GetSourceHintName(info.Symbol, ".g.cs"),
                     SourceText.From(
                         $"// Generated ManiaScript at: {info.Symbol.Name}\n// Length: {script.Length} chars\n",
                         Encoding.UTF8));
@@ -194,7 +195,7 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
                     {
                         var inner = innerContexts[0];
                         var innerInfo = new ContextClassInfo(inner.Declaration, inner.Symbol!, model, isManialink: true);
-                        var innerEmitter = new ScriptEmitter(innerInfo, spc, proj.Settings);
+                        var innerEmitter = new ScriptEmitter(innerInfo, spc, proj.Settings, proj.RootNamespace);
                         var innerScript = innerEmitter.Emit();
                         ValidateManialinkBindings(
                             document.XmlTemplate,
@@ -231,16 +232,16 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
                             $"Razor page '{document.ClassName}' could not be compiled as an IContext.");
 
                     spc.AddSource(
-                        $"{document.ClassName}.razor.g.cs",
+                        GetSourceHintName(finalSymbol, ".razor.g.cs"),
                         SourceText.From(finalSource, Encoding.UTF8));
 
                     var outerInfo = new ContextClassInfo(finalDeclaration, finalSymbol, finalModel);
-                    var outerEmitter = new ScriptEmitter(outerInfo, spc, proj.Settings);
+                    var outerEmitter = new ScriptEmitter(outerInfo, spc, proj.Settings, proj.RootNamespace);
                     var outerScript = outerEmitter.Emit();
-                    WriteScriptFiles(outerInfo, proj.Settings, proj.Dir, outerScript, spc);
+                    WriteScriptFiles(outerInfo, proj.Settings, proj.Dir, proj.RootNamespace, outerScript, spc);
 
                     spc.AddSource(
-                        $"{document.ClassName}.razor.output.g.cs",
+                        GetSourceHintName(finalSymbol, ".razor.output.g.cs"),
                         SourceText.From(
                             $"// Generated Razor ManiaApp at: {document.ClassName}.Script.txt\n// Length: {outerScript.Length} chars\n",
                             Encoding.UTF8));
@@ -275,6 +276,8 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
 
     internal static IReadOnlyList<string> ResolveOutputPaths(
         string scriptName,
+        string namespaceName,
+        string rootNamespace,
         BuildSettings settings,
         string projectDir,
         string extension = ".Script.txt",
@@ -282,7 +285,8 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
     {
         var paths = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var primaryPath = ResolveOutputPath(scriptName, settings.OutputDir, projectDir, extension);
+        var namespacePath = GetNamespacePath(namespaceName, rootNamespace);
+        var primaryPath = ResolveOutputPath(scriptName, namespacePath, settings.OutputDir, projectDir, extension);
         paths.Add(primaryPath);
         seen.Add(primaryPath);
 
@@ -290,7 +294,7 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
         {
             try
             {
-                var path = ResolveOutputPath(scriptName, root, projectDir, extension);
+                var path = ResolveOutputPath(scriptName, namespacePath, root, projectDir, extension);
                 if (seen.Add(path)) paths.Add(path);
             }
             catch (Exception ex)
@@ -303,24 +307,54 @@ public sealed class ManiaScriptGenerator : IIncrementalGenerator
 
     private static string ResolveOutputPath(
         string scriptName,
+        string namespacePath,
         string root,
         string projectDir,
         string extension)
     {
         var resolvedRoot = Path.IsPathRooted(root) ? root : Path.Combine(projectDir, root);
-        return Path.GetFullPath(Path.Combine(resolvedRoot, scriptName + extension));
+        return Path.GetFullPath(Path.Combine(resolvedRoot, namespacePath, scriptName + extension));
+    }
+
+    private static string GetNamespacePath(INamedTypeSymbol symbol, string rootNamespace) =>
+        GetNamespacePath(symbol.ContainingNamespace?.ToDisplayString() ?? "", rootNamespace);
+
+    private static string GetSourceHintName(INamedTypeSymbol symbol, string suffix)
+    {
+        var namespaceName = symbol.ContainingNamespace?.ToDisplayString();
+        return (string.IsNullOrEmpty(namespaceName) ? "" : namespaceName + ".") + symbol.Name + suffix;
+    }
+
+    internal static string GetNamespacePath(string namespaceName, string rootNamespace)
+    {
+        const string scriptsPrefix = "ManiaScriptSharp.Scripts.";
+        const string basePrefix = "ManiaScriptSharp.";
+        if (namespaceName == "ManiaScriptSharp")
+            return "";
+        if (namespaceName.StartsWith(scriptsPrefix, StringComparison.Ordinal))
+            namespaceName = namespaceName.Substring(scriptsPrefix.Length);
+        else if (!string.IsNullOrEmpty(rootNamespace) && namespaceName == rootNamespace)
+            return "";
+        else if (!string.IsNullOrEmpty(rootNamespace) && namespaceName.StartsWith(rootNamespace + ".", StringComparison.Ordinal))
+            namespaceName = namespaceName.Substring(rootNamespace.Length + 1);
+        else if (namespaceName.StartsWith(basePrefix, StringComparison.Ordinal))
+            namespaceName = namespaceName.Substring(basePrefix.Length);
+        return namespaceName.Replace('.', Path.DirectorySeparatorChar);
     }
 
     private static void WriteScriptFiles(
         ContextClassInfo info,
         BuildSettings settings,
         string projectDir,
+        string rootNamespace,
         string contents,
         SourceProductionContext spc,
         string extension = ".Script.txt")
     {
         var paths = ResolveOutputPaths(
             info.Symbol.Name,
+            info.Symbol.ContainingNamespace?.ToDisplayString() ?? "",
+            rootNamespace,
             settings,
             projectDir,
             extension,
