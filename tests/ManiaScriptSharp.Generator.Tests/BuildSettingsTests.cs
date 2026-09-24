@@ -32,9 +32,9 @@ public class BuildSettingsTests
     }
 
     [Fact]
-    public void Default_IndentSize_IsFour()
+    public void Default_IndentSize_IsTwo()
     {
-        Assert.Equal(4, BuildSettings.Default.IndentSize);
+        Assert.Equal(2, BuildSettings.Default.IndentSize);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class BuildSettingsTests
     {
         var s = FromDict([]);
         Assert.Equal("ManiaScript", s.OutputDir);
-        Assert.Equal(4, s.IndentSize);
+        Assert.Equal(2, s.IndentSize);
         Assert.True(s.UseSpaces);
         Assert.Equal(1, s.ManiaScriptVersion);
     }
@@ -204,10 +204,10 @@ public class BuildSettingsTests
     }
 
     [Fact]
-    public void FromOptions_SpacesStyle_DefaultIndentSizeIsFour()
+    public void FromOptions_SpacesStyle_DefaultIndentSizeIsTwo()
     {
         var s = FromDict(new() { ["build_property.ManiaScriptIndentStyle"] = "spaces" });
-        Assert.Equal(4, s.IndentSize);
+        Assert.Equal(2, s.IndentSize);
     }
 
     [Fact]
@@ -240,14 +240,14 @@ public class BuildSettingsTests
     public void FromOptions_InvalidIndentSize_UsesDefault()
     {
         var s = FromDict(new() { ["build_property.ManiaScriptIndentSize"] = "abc" });
-        // Default style is spaces → default size is 4
-        Assert.Equal(4, s.IndentSize);
+        // Default style is spaces → default size is 2
+        Assert.Equal(2, s.IndentSize);
     }
 
     [Fact]
     public void FromOptions_ZeroIndentSize_UsesDefault()
     {
         var s = FromDict(new() { ["build_property.ManiaScriptIndentSize"] = "0" });
-        Assert.Equal(4, s.IndentSize);
+        Assert.Equal(2, s.IndentSize);
     }
 }

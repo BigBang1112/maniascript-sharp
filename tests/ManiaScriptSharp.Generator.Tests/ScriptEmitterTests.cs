@@ -295,9 +295,9 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "StructFieldNamingContext");
 
         Assert.Empty(diagnostics);
-        Assert.Contains("#Struct CamelState {\n    Integer totalScore;\n}", output);
-        Assert.Contains("#Struct SnakeState {\n    Integer player_url;\n}", output);
-        Assert.Contains("#Struct JsonNamedState {\n    Integer score;\n}", output);
+        Assert.Contains("#Struct CamelState {\n  Integer totalScore;\n}", output);
+        Assert.Contains("#Struct SnakeState {\n  Integer player_url;\n}", output);
+        Assert.Contains("#Struct JsonNamedState {\n  Integer score;\n}", output);
     }
 
     [Fact]
@@ -591,7 +591,7 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Contains("declare Text G_Banner;", output);
         Assert.DoesNotContain("declare Ident[Text] G_ByName = [];", output);
         Assert.DoesNotContain("declare Text G_Empty = \"\";", output);
-        Assert.Contains("main() {\n    G_ByName = [];\n    G_Empty = \"\";\n    G_Banner = \"\";\n}", output);
+        Assert.Contains("main() {\n  G_ByName = [];\n  G_Empty = \"\";\n  G_Banner = \"\";\n}", output);
     }
 
     [Fact]

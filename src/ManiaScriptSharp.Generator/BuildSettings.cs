@@ -9,7 +9,7 @@ namespace ManiaScriptSharp.Generator;
 /// &lt;PropertyGroup&gt;
 ///   &lt;ManiaScriptOutputDir&gt;ManiaScript&lt;/ManiaScriptOutputDir&gt;
 ///   &lt;!-- Put machine-local ManiaScriptAdditionalOutputDirs in the ignored .csproj.user file. --&gt;
-///   &lt;ManiaScriptIndentSize&gt;4&lt;/ManiaScriptIndentSize&gt;
+///   &lt;ManiaScriptIndentSize&gt;2&lt;/ManiaScriptIndentSize&gt;
 ///   &lt;ManiaScriptIndentStyle&gt;spaces&lt;/ManiaScriptIndentStyle&gt;
 ///   &lt;ManiaScriptVersion&gt;1&lt;/ManiaScriptVersion&gt;
 /// (these are also the defaults when omitted)
@@ -24,7 +24,7 @@ internal sealed class BuildSettings
     /// <summary>Additional destination folders that mirror files written to <see cref="OutputDir"/>.</summary>
     public IReadOnlyList<string> AdditionalOutputDirs { get; }
 
-    /// <summary>Number of characters per indent level (default 4 for spaces, 1 for tabs).</summary>
+    /// <summary>Number of characters per indent level (default 2 for spaces, 1 for tabs).</summary>
     public int IndentSize { get; }
 
     /// <summary>Whether to indent with spaces (<c>true</c>, default) or tabs (<c>false</c>).</summary>
@@ -33,8 +33,8 @@ internal sealed class BuildSettings
     /// <summary>Target ManiaScript language version. Version 1 is the default.</summary>
     public int ManiaScriptVersion { get; }
 
-    public static readonly BuildSettings Default = new("ManiaScript", [], 4, true, 1);
-    internal static readonly BuildSettings Version2 = new("ManiaScript", [], 4, true, 2);
+    public static readonly BuildSettings Default = new("ManiaScript", [], 2, true, 1);
+    internal static readonly BuildSettings Version2 = new("ManiaScript", [], 2, true, 2);
 
     private BuildSettings(
         string outputDir,
@@ -63,7 +63,7 @@ internal sealed class BuildSettings
 
         // Spaces is the default style; only an explicit "tabs" opts out.
         var useSpaces = indentStyle?.Equals("tabs", StringComparison.OrdinalIgnoreCase) != true;
-        var defaultSize = useSpaces ? 4 : 1;
+        var defaultSize = useSpaces ? 2 : 1;
         var indentSize = int.TryParse(indentSizeStr, out var parsed) && parsed > 0 ? parsed : defaultSize;
         var maniaScriptVersion = int.TryParse(maniaScriptVersionStr, out var parsedVersion) && parsedVersion == 2
             ? 2

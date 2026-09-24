@@ -124,7 +124,7 @@ public class StatementEmitterTests : EmitterTestBase
 
         Assert.Equal(
             "foreach (AddRangeItem in G_Source) {\n" +
-            "    G_Target.add(AddRangeItem);\n" +
+            "  G_Target.add(AddRangeItem);\n" +
             "}",
             output);
     }
@@ -200,28 +200,28 @@ public class StatementEmitterTests : EmitterTestBase
     public void Emit_LocalDecl_Ternary_RewritesToIfElse()
     {
         var output = TranslateStmt("int y = x > 0 ? 1 : -1;", "int x;");
-        Assert.Equal("declare Integer Y;\nif (G_X > 0) {\n    Y = 1;\n} else {\n    Y = -1;\n}", output);
+        Assert.Equal("declare Integer Y;\nif (G_X > 0) {\n  Y = 1;\n} else {\n  Y = -1;\n}", output);
     }
 
     [Fact]
     public void Emit_Return_Ternary_RewritesToIfElse()
     {
         var output = TranslateStmt("return x > 0 ? 1 : -1;", "int x;");
-        Assert.Equal("if (G_X > 0) {\n    return 1;\n} else {\n    return -1;\n}", output);
+        Assert.Equal("if (G_X > 0) {\n  return 1;\n} else {\n  return -1;\n}", output);
     }
 
     [Fact]
     public void Emit_Assignment_Ternary_RewritesToIfElse()
     {
         var output = TranslateStmt("x = x > 0 ? 1 : -1;", "int x;");
-        Assert.Equal("if (G_X > 0) {\n    G_X = 1;\n} else {\n    G_X = -1;\n}", output);
+        Assert.Equal("if (G_X > 0) {\n  G_X = 1;\n} else {\n  G_X = -1;\n}", output);
     }
 
     [Fact]
     public void Emit_NullCoalescingAssignment_RewritesToIf()
     {
         var output = TranslateStmt("x ??= 1;", "object x;");
-        Assert.Equal("if (G_X == Null) {\n    G_X = 1;\n}", output);
+        Assert.Equal("if (G_X == Null) {\n  G_X = 1;\n}", output);
     }
 
     // ────────── Switch expressions (no switch expression in ManiaScript) ──────────
@@ -235,9 +235,9 @@ public class StatementEmitterTests : EmitterTestBase
         Assert.Equal(
             "declare Integer Y;\n" +
             "switch (G_X) {\n" +
-            "    case \"a\": {\n        Y = 1;\n    }\n" +
-            "    case \"b\": {\n        Y = 2;\n    }\n" +
-            "    default: {\n        Y = 0;\n    }\n" +
+            "  case \"a\": {\n    Y = 1;\n  }\n" +
+            "  case \"b\": {\n    Y = 2;\n  }\n" +
+            "  default: {\n    Y = 0;\n  }\n" +
             "}",
             output);
     }
@@ -248,9 +248,9 @@ public class StatementEmitterTests : EmitterTestBase
         var output = TranslateStmt("return x switch { 1 => 10, 2 => 20, _ => 0 };", "int x;");
         Assert.Equal(
             "switch (G_X) {\n" +
-            "    case 1: {\n        return 10;\n    }\n" +
-            "    case 2: {\n        return 20;\n    }\n" +
-            "    default: {\n        return 0;\n    }\n" +
+            "  case 1: {\n    return 10;\n  }\n" +
+            "  case 2: {\n    return 20;\n  }\n" +
+            "  default: {\n    return 0;\n  }\n" +
             "}",
             output);
     }
@@ -261,7 +261,7 @@ public class StatementEmitterTests : EmitterTestBase
         // A relational pattern has no case-label equivalent, so the whole expression falls
         // back to nested if/else instead of a switch statement.
         var output = TranslateStmt("return x switch { > 0 => 1, _ => 0 };", "int x;");
-        Assert.Equal("if (G_X > 0) {\n    return 1;\n} else {\n    return 0;\n}", output);
+        Assert.Equal("if (G_X > 0) {\n  return 1;\n} else {\n  return 0;\n}", output);
     }
 
     [Fact]
@@ -269,7 +269,7 @@ public class StatementEmitterTests : EmitterTestBase
     {
         // A `when` clause has no case-label equivalent even on an otherwise-constant arm.
         var output = TranslateStmt("return x switch { 1 when x > 0 => 10, _ => 0 };", "int x;");
-        Assert.Equal("if ((G_X == 1) && (G_X > 0)) {\n    return 10;\n} else {\n    return 0;\n}", output);
+        Assert.Equal("if ((G_X == 1) && (G_X > 0)) {\n  return 10;\n} else {\n  return 0;\n}", output);
     }
 
     [Fact]
@@ -277,7 +277,7 @@ public class StatementEmitterTests : EmitterTestBase
     {
         // `var n` is aliased directly to the subject expression (no physical declare needed).
         var output = TranslateStmt("return x switch { var n when n > 0 => n, _ => 0 };", "int x;");
-        Assert.Equal("if (G_X > 0) {\n    return G_X;\n} else {\n    return 0;\n}", output);
+        Assert.Equal("if (G_X > 0) {\n  return G_X;\n} else {\n  return 0;\n}", output);
     }
 
     // ────────── While ──────────
@@ -345,7 +345,7 @@ public class StatementEmitterTests : EmitterTestBase
         Assert.Equal(
             "declare Integer I = 10;\n" +
             "while (I > 0) {\n" +
-            "    I -= 1;\n" +
+            "  I -= 1;\n" +
             "}",
             TranslateStmt("for (int i = 10; i > 0; i--) { }"));
     }
@@ -356,7 +356,7 @@ public class StatementEmitterTests : EmitterTestBase
         Assert.Equal(
             "declare Integer I = 0;\n" +
             "while (I < 10) {\n" +
-            "    I += 2;\n" +
+            "  I += 2;\n" +
             "}",
             TranslateStmt("for (int i = 0; i < 10; i += 2) { }"));
     }
@@ -394,11 +394,11 @@ public class StatementEmitterTests : EmitterTestBase
         Assert.Equal(
             "declare Integer I = 6;\n" +
             "while (I >= 0) {\n" +
-            "    if (I == 2) {\n" +
-            "        I -= 2;\n" +
-            "        continue;\n" +
-            "    }\n" +
+            "  if (I == 2) {\n" +
             "    I -= 2;\n" +
+            "    continue;\n" +
+            "  }\n" +
+            "  I -= 2;\n" +
             "}",
             output);
         Assert.DoesNotContain(diagnostics, d => d.Id == "MSS020");
@@ -605,7 +605,7 @@ public class StatementEmitterTests : EmitterTestBase
         var output = TranslateStmt(
             "if (dict.TryGetValue(key, out var value)) { }",
             "System.Collections.Generic.Dictionary<string, int> dict; string key;");
-        Assert.Equal("if (G_Dict.existskey(G_Key)) {\n    declare Integer Value = G_Dict[G_Key];\n}", output);
+        Assert.Equal("if (G_Dict.existskey(G_Key)) {\n  declare Integer Value = G_Dict[G_Key];\n}", output);
     }
 
     [Fact]
@@ -625,7 +625,7 @@ public class StatementEmitterTests : EmitterTestBase
             "if (!dict.TryGetValue(key, out var value)) { return; }",
             "System.Collections.Generic.Dictionary<string, int> dict; string key;");
         Assert.Equal(
-            "declare Integer Value;\nif (!G_Dict.existskey(G_Key)) {\n    return;\n} else {\n    Value = G_Dict[G_Key];\n}",
+            "declare Integer Value;\nif (!G_Dict.existskey(G_Key)) {\n  return;\n} else {\n  Value = G_Dict[G_Key];\n}",
             output);
     }
 
@@ -688,7 +688,7 @@ public class StatementEmitterTests : EmitterTestBase
     {
         // Emit (not EmitInline) on a block emits it with surrounding braces.
         var output = TranslateStmt("{ return 1; }");
-        Assert.Equal("{\n    return 1;\n}", output);
+        Assert.Equal("{\n  return 1;\n}", output);
     }
 
     // ────────── Persistent / Local / Metadata declare ──────────

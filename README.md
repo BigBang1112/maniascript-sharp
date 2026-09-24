@@ -48,7 +48,7 @@ Optionally configure the build properties in your `.csproj`. These are the defau
 ```xml
 <PropertyGroup>
     <ManiaScriptOutputDir>ManiaScript</ManiaScriptOutputDir>
-    <ManiaScriptIndentSize>4</ManiaScriptIndentSize>
+    <ManiaScriptIndentSize>2</ManiaScriptIndentSize>
     <ManiaScriptIndentStyle>spaces</ManiaScriptIndentStyle>
     <ManiaScriptVersion>1</ManiaScriptVersion>
 </PropertyGroup>
