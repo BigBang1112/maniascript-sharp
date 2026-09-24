@@ -90,8 +90,8 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "EnumContext");
 
         Assert.Empty(diagnostics);
-        Assert.Contains("#Const C_EnumContext_Choice_No 2", output);
-        Assert.Contains("#Const C_EnumContext_Choice_Yes 3", output);
+        Assert.Contains("#Const C_Choice_No 2", output);
+        Assert.Contains("#Const C_Choice_Yes 3", output);
         Assert.Contains("#Const C_Phase_Idle 0", output);
         Assert.Contains("#Const C_Phase_Running 5", output);
         Assert.Contains("#Const C_Phase_Done 6", output);
@@ -100,7 +100,7 @@ public class ScriptEmitterTests : EmitterTestBase
         Assert.Contains("declare Integer G_Choice", output);
         Assert.Contains("Integer Next = C_Phase_Done", output);
         Assert.Contains("Next == C_Phase_Alias", output);
-        Assert.Contains("G_Choice = C_EnumContext_Choice_No", output);
+        Assert.Contains("G_Choice = C_Choice_No", output);
     }
 
     [Fact]
@@ -136,22 +136,22 @@ public class ScriptEmitterTests : EmitterTestBase
     }
 
     [Fact]
-    public void Emit_UserEnumsInDifferentNamespaces_HaveDistinctConstants()
+    public void Emit_UserEnums_OmitNamespaceFromConstants()
     {
         const string code = """
             using ManiaScriptSharp;
 
-            namespace First { public enum State { Ready = 1 } }
-            namespace Second { public enum State { Ready = 2 } }
+            namespace First { public enum FirstState { Ready = 1 } }
+            namespace Second { public enum SecondState { Ready = 2 } }
 
             public class NamespacedEnums : IContext
             {
-                private First.State first;
-                private Second.State second;
+                private First.FirstState first;
+                private Second.SecondState second;
                 public void Main()
                 {
-                    first = First.State.Ready;
-                    second = Second.State.Ready;
+                    first = First.FirstState.Ready;
+                    second = Second.SecondState.Ready;
                 }
                 public void Loop() { }
             }
@@ -160,10 +160,10 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "NamespacedEnums");
 
         Assert.Empty(diagnostics);
-        Assert.Contains("#Const C_First_State_Ready 1", output);
-        Assert.Contains("#Const C_Second_State_Ready 2", output);
-        Assert.Contains("G_First = C_First_State_Ready", output);
-        Assert.Contains("G_Second = C_Second_State_Ready", output);
+        Assert.Contains("#Const C_FirstState_Ready 1", output);
+        Assert.Contains("#Const C_SecondState_Ready 2", output);
+        Assert.Contains("G_First = C_FirstState_Ready", output);
+        Assert.Contains("G_Second = C_SecondState_Ready", output);
     }
 
     [Fact]
@@ -192,11 +192,11 @@ public class ScriptEmitterTests : EmitterTestBase
 
         Assert.Empty(libDiagnostics);
         Assert.Empty(scriptDiagnostics);
-        Assert.Contains("#Const C_Palette_Tone_Light 1", libOutput);
-        Assert.Contains("#Const C_Palette_Tone_Dark 2", libOutput);
+        Assert.Contains("#Const C_Tone_Light 1", libOutput);
+        Assert.Contains("#Const C_Tone_Dark 2", libOutput);
         Assert.Contains("#Include \"Palette.Script.txt\" as Colors", scriptOutput);
-        Assert.Contains("Colors::C_Palette_Tone_Dark", scriptOutput);
-        Assert.DoesNotContain("#Const C_Palette_Tone_Dark", scriptOutput);
+        Assert.Contains("Colors::C_Tone_Dark", scriptOutput);
+        Assert.DoesNotContain("#Const C_Tone_Dark", scriptOutput);
     }
 
     [Fact]
@@ -223,9 +223,9 @@ public class ScriptEmitterTests : EmitterTestBase
         var (output, diagnostics) = EmitScript(code, "LibEnumManialink", isManialink: true);
 
         Assert.Empty(diagnostics);
-        Assert.Contains("#Const C_Palette_Tone_Dark 2", output);
-        Assert.Contains("G_Tone = C_Palette_Tone_Dark", output);
-        Assert.DoesNotContain("Palette::C_Palette_Tone_Dark", output);
+        Assert.Contains("#Const C_Tone_Dark 2", output);
+        Assert.Contains("G_Tone = C_Tone_Dark", output);
+        Assert.DoesNotContain("Palette::C_Tone_Dark", output);
     }
 
     [Fact]

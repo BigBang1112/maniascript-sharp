@@ -911,7 +911,7 @@ public class ExpressionEmitterTests : EmitterTestBase
             "MyState.Running",
             "enum MyState { Idle, Running } public void Main() { } public void Loop() { }",
             ": IContext");
-        Assert.Equal("C_Test_MyState_Running", output);
+        Assert.Equal("C_MyState_Running", output);
     }
 
     [Fact]
@@ -920,14 +920,14 @@ public class ExpressionEmitterTests : EmitterTestBase
         var output = TranslateExpr(
             "CFoo.Color.Red",
             "public class CFoo { public enum Color { Red, Green } }");
-        Assert.Equal("C_Test_CFoo_Color_Red", output);
+        Assert.Equal("C_Color_Red", output);
     }
 
     [Fact]
     public void Translate_UserEnumCasts_AreIntegerNoOps()
     {
         const string members = "enum State { Ready = 2 }";
-        Assert.Equal("C_Test_State_Ready", TranslateExpr("(int)State.Ready", members));
+        Assert.Equal("C_State_Ready", TranslateExpr("(int)State.Ready", members));
         Assert.Equal("2", TranslateExpr("(State)2", members));
     }
 
